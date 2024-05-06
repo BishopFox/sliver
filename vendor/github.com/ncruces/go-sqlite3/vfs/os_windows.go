@@ -1,65 +1,18 @@
+//go:build !sqlite3_nosys
+
 package vfs
 
 import (
-	"io/fs"
+	"math/rand"
 	"os"
-	"syscall"
 	"time"
 
 	"golang.org/x/sys/windows"
 )
 
-// osOpenFile is a simplified copy of [os.openFileNolog]
-// that uses syscall.FILE_SHARE_DELETE.
-// https://go.dev/src/os/file_windows.go
-//
-// See: https://go.dev/issue/32088
-func osOpenFile(name string, flag int, perm fs.FileMode) (*os.File, error) {
-	if name == "" {
-		return nil, &os.PathError{Op: "open", Path: name, Err: syscall.ENOENT}
-	}
-	r, e := syscallOpen(name, flag, uint32(perm.Perm()))
-	if e != nil {
-		return nil, &os.PathError{Op: "open", Path: name, Err: e}
-	}
-	return os.NewFile(uintptr(r), name), nil
-}
-
-func osAccess(path string, flags AccessFlag) error {
-	fi, err := os.Stat(path)
-	if err != nil {
-		return err
-	}
-	if flags == ACCESS_EXISTS {
-		return nil
-	}
-
-	var want fs.FileMode = windows.S_IRUSR
-	if flags == ACCESS_READWRITE {
-		want |= windows.S_IWUSR
-	}
-	if fi.IsDir() {
-		want |= windows.S_IXUSR
-	}
-	if fi.Mode()&want != want {
-		return fs.ErrPermission
-	}
-	return nil
-}
-
-func osSetMode(file *os.File, modeof string) error {
-	fi, err := os.Stat(modeof)
-	if err != nil {
-		return err
-	}
-	file.Chmod(fi.Mode())
-	return nil
-}
-
-func osGetSharedLock(file *os.File, timeout time.Duration) _ErrorCode {
+func osGetSharedLock(file *os.File) _ErrorCode {
 	// Acquire the PENDING lock temporarily before acquiring a new SHARED lock.
-	rc := osReadLock(file, _PENDING_BYTE, 1, timeout)
-
+	rc := osReadLock(file, _PENDING_BYTE, 1, 0)
 	if rc == _OK {
 		// Acquire the SHARED lock.
 		rc = osReadLock(file, _SHARED_FIRST, _SHARED_SIZE, 0)
@@ -70,8 +23,24 @@ func osGetSharedLock(file *os.File, timeout time.Duration) _ErrorCode {
 	return rc
 }
 
-func osGetExclusiveLock(file *os.File, timeout time.Duration) _ErrorCode {
-	if timeout == 0 {
+func osGetReservedLock(file *os.File) _ErrorCode {
+	// Acquire the RESERVED lock.
+	return osWriteLock(file, _RESERVED_BYTE, 1, 0)
+}
+
+func osGetPendingLock(file *os.File, block bool) _ErrorCode {
+	var timeout time.Duration
+	if block {
+		timeout = -1
+	}
+
+	// Acquire the PENDING lock.
+	return osWriteLock(file, _PENDING_BYTE, 1, timeout)
+}
+
+func osGetExclusiveLock(file *os.File, wait bool) _ErrorCode {
+	var timeout time.Duration
+	if wait {
 		timeout = time.Millisecond
 	}
 
@@ -90,7 +59,7 @@ func osGetExclusiveLock(file *os.File, timeout time.Duration) _ErrorCode {
 
 func osDowngradeLock(file *os.File, state LockLevel) _ErrorCode {
 	if state >= LOCK_EXCLUSIVE {
-		// Release the SHARED lock.
+		// Release the EXCLUSIVE lock.
 		osUnlock(file, _SHARED_FIRST, _SHARED_SIZE)
 
 		// Reacquire the SHARED lock.
@@ -125,6 +94,19 @@ func osReleaseLock(file *os.File, state LockLevel) _ErrorCode {
 	return _OK
 }
 
+func osCheckReservedLock(file *os.File) (bool, _ErrorCode) {
+	// Test the RESERVED lock.
+	rc := osLock(file, 0, _RESERVED_BYTE, 1, 0, _IOERR_CHECKRESERVEDLOCK)
+	if rc == _BUSY {
+		return true, _OK
+	}
+	if rc == _OK {
+		// Release the RESERVED lock.
+		osUnlock(file, _RESERVED_BYTE, 1)
+	}
+	return false, rc
+}
+
 func osUnlock(file *os.File, start, len uint32) _ErrorCode {
 	err := windows.UnlockFileEx(windows.Handle(file.Fd()),
 		0, len, 0, &windows.Overlapped{Offset: start})
@@ -139,44 +121,38 @@ func osUnlock(file *os.File, start, len uint32) _ErrorCode {
 
 func osLock(file *os.File, flags, start, len uint32, timeout time.Duration, def _ErrorCode) _ErrorCode {
 	var err error
-	for {
-		err = windows.LockFileEx(windows.Handle(file.Fd()), flags,
-			0, len, 0, &windows.Overlapped{Offset: start})
-		if errno, _ := err.(windows.Errno); errno != windows.ERROR_LOCK_VIOLATION {
-			break
+	switch {
+	case timeout == 0:
+		err = osLockEx(file, flags|windows.LOCKFILE_FAIL_IMMEDIATELY, start, len)
+	case timeout < 0:
+		err = osLockEx(file, flags, start, len)
+	default:
+		before := time.Now()
+		for {
+			err = osLockEx(file, flags|windows.LOCKFILE_FAIL_IMMEDIATELY, start, len)
+			if errno, _ := err.(windows.Errno); errno != windows.ERROR_LOCK_VIOLATION {
+				break
+			}
+			if timeout < time.Since(before) {
+				break
+			}
+			osSleep(time.Duration(rand.Int63n(int64(time.Millisecond))))
 		}
-		if timeout < time.Millisecond {
-			break
-		}
-		timeout -= time.Millisecond
-		time.Sleep(time.Millisecond)
 	}
 	return osLockErrorCode(err, def)
 }
 
+func osLockEx(file *os.File, flags, start, len uint32) error {
+	return windows.LockFileEx(windows.Handle(file.Fd()), flags,
+		0, len, 0, &windows.Overlapped{Offset: start})
+}
+
 func osReadLock(file *os.File, start, len uint32, timeout time.Duration) _ErrorCode {
-	return osLock(file,
-		windows.LOCKFILE_FAIL_IMMEDIATELY,
-		start, len, timeout, _IOERR_RDLOCK)
+	return osLock(file, 0, start, len, timeout, _IOERR_RDLOCK)
 }
 
 func osWriteLock(file *os.File, start, len uint32, timeout time.Duration) _ErrorCode {
-	return osLock(file,
-		windows.LOCKFILE_FAIL_IMMEDIATELY|windows.LOCKFILE_EXCLUSIVE_LOCK,
-		start, len, timeout, _IOERR_LOCK)
-}
-
-func osCheckLock(file *os.File, start, len uint32) (bool, _ErrorCode) {
-	rc := osLock(file,
-		windows.LOCKFILE_FAIL_IMMEDIATELY,
-		start, len, 0, _IOERR_CHECKRESERVEDLOCK)
-	if rc == _BUSY {
-		return true, _OK
-	}
-	if rc == _OK {
-		osUnlock(file, start, len)
-	}
-	return false, rc
+	return osLock(file, windows.LOCKFILE_EXCLUSIVE_LOCK, start, len, timeout, _IOERR_LOCK)
 }
 
 func osLockErrorCode(err error, def _ErrorCode) _ErrorCode {
@@ -196,54 +172,15 @@ func osLockErrorCode(err error, def _ErrorCode) _ErrorCode {
 	return def
 }
 
-// syscallOpen is a simplified copy of [syscall.Open]
-// that uses syscall.FILE_SHARE_DELETE.
-// https://go.dev/src/syscall/syscall_windows.go
-func syscallOpen(path string, mode int, perm uint32) (fd syscall.Handle, err error) {
-	if len(path) == 0 {
-		return syscall.InvalidHandle, syscall.ERROR_FILE_NOT_FOUND
+func osSleep(d time.Duration) {
+	if d > 0 {
+		period := max(1, d/(5*time.Millisecond))
+		if period < 16 {
+			windows.TimeBeginPeriod(uint32(period))
+		}
+		time.Sleep(d)
+		if period < 16 {
+			windows.TimeEndPeriod(uint32(period))
+		}
 	}
-	pathp, err := syscall.UTF16PtrFromString(path)
-	if err != nil {
-		return syscall.InvalidHandle, err
-	}
-	var access uint32
-	switch mode & (syscall.O_RDONLY | syscall.O_WRONLY | syscall.O_RDWR) {
-	case syscall.O_RDONLY:
-		access = syscall.GENERIC_READ
-	case syscall.O_WRONLY:
-		access = syscall.GENERIC_WRITE
-	case syscall.O_RDWR:
-		access = syscall.GENERIC_READ | syscall.GENERIC_WRITE
-	}
-	if mode&syscall.O_CREAT != 0 {
-		access |= syscall.GENERIC_WRITE
-	}
-	if mode&syscall.O_APPEND != 0 {
-		access &^= syscall.GENERIC_WRITE
-		access |= syscall.FILE_APPEND_DATA
-	}
-	sharemode := uint32(syscall.FILE_SHARE_READ | syscall.FILE_SHARE_WRITE | syscall.FILE_SHARE_DELETE)
-	var createmode uint32
-	switch {
-	case mode&(syscall.O_CREAT|syscall.O_EXCL) == (syscall.O_CREAT | syscall.O_EXCL):
-		createmode = syscall.CREATE_NEW
-	case mode&(syscall.O_CREAT|syscall.O_TRUNC) == (syscall.O_CREAT | syscall.O_TRUNC):
-		createmode = syscall.CREATE_ALWAYS
-	case mode&syscall.O_CREAT == syscall.O_CREAT:
-		createmode = syscall.OPEN_ALWAYS
-	case mode&syscall.O_TRUNC == syscall.O_TRUNC:
-		createmode = syscall.TRUNCATE_EXISTING
-	default:
-		createmode = syscall.OPEN_EXISTING
-	}
-	var attrs uint32 = syscall.FILE_ATTRIBUTE_NORMAL
-	if perm&syscall.S_IWRITE == 0 {
-		attrs = syscall.FILE_ATTRIBUTE_READONLY
-	}
-	if createmode == syscall.OPEN_EXISTING && access == syscall.GENERIC_READ {
-		// Necessary for opening directory handles.
-		attrs |= syscall.FILE_FLAG_BACKUP_SEMANTICS
-	}
-	return syscall.CreateFile(pathp, access, sharemode, nil, createmode, attrs, 0)
 }

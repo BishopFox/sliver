@@ -1,6 +1,7 @@
 package sqlite3
 
 import (
+	"errors"
 	"strconv"
 	"strings"
 
@@ -9,7 +10,7 @@ import (
 
 // Error wraps an SQLite Error Code.
 //
-// https://www.sqlite.org/c3ref/errcode.html
+// https://sqlite.org/c3ref/errcode.html
 type Error struct {
 	str  string
 	msg  string
@@ -19,14 +20,14 @@ type Error struct {
 
 // Code returns the primary error code for this error.
 //
-// https://www.sqlite.org/rescode.html
+// https://sqlite.org/rescode.html
 func (e *Error) Code() ErrorCode {
 	return ErrorCode(e.code)
 }
 
 // ExtendedCode returns the extended error code for this error.
 //
-// https://www.sqlite.org/rescode.html
+// https://sqlite.org/rescode.html
 func (e *Error) ExtendedCode() ExtendedErrorCode {
 	return ExtendedErrorCode(e.code)
 }
@@ -43,8 +44,7 @@ func (e *Error) Error() string {
 	}
 
 	if e.msg != "" {
-		b.WriteByte(':')
-		b.WriteByte(' ')
+		b.WriteString(": ")
 		b.WriteString(e.msg)
 	}
 
@@ -64,6 +64,19 @@ func (e *Error) Is(err error) bool {
 		return c == e.Code()
 	case ExtendedErrorCode:
 		return c == e.ExtendedCode()
+	}
+	return false
+}
+
+// As converts this error to an [ErrorCode] or [ExtendedErrorCode].
+func (e *Error) As(err any) bool {
+	switch c := err.(type) {
+	case *ErrorCode:
+		*c = e.Code()
+		return true
+	case *ExtendedErrorCode:
+		*c = e.ExtendedCode()
+		return true
 	}
 	return false
 }
@@ -104,6 +117,15 @@ func (e ExtendedErrorCode) Is(err error) bool {
 	return ok && c == ErrorCode(e)
 }
 
+// As converts this error to an [ErrorCode].
+func (e ExtendedErrorCode) As(err any) bool {
+	c, ok := err.(*ErrorCode)
+	if ok {
+		*c = ErrorCode(e)
+	}
+	return ok
+}
+
 // Temporary returns true for [BUSY] errors.
 func (e ExtendedErrorCode) Temporary() bool {
 	return ErrorCode(e) == BUSY
@@ -112,4 +134,29 @@ func (e ExtendedErrorCode) Temporary() bool {
 // Timeout returns true for [BUSY_TIMEOUT] errors.
 func (e ExtendedErrorCode) Timeout() bool {
 	return e == BUSY_TIMEOUT
+}
+
+func errorCode(err error, def ErrorCode) (msg string, code uint32) {
+	switch code := err.(type) {
+	case nil:
+		return "", _OK
+	case ErrorCode:
+		return "", uint32(code)
+	case xErrorCode:
+		return "", uint32(code)
+	case *Error:
+		return code.msg, uint32(code.code)
+	}
+
+	var ecode ErrorCode
+	var xcode xErrorCode
+	switch {
+	case errors.As(err, &xcode):
+		code = uint32(xcode)
+	case errors.As(err, &ecode):
+		code = uint32(ecode)
+	default:
+		code = uint32(def)
+	}
+	return err.Error(), code
 }
