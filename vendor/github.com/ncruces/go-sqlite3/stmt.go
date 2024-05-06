@@ -1,7 +1,9 @@
 package sqlite3
 
 import (
+	"encoding/json"
 	"math"
+	"strconv"
 	"time"
 
 	"github.com/ncruces/go-sqlite3/internal/util"
@@ -9,7 +11,7 @@ import (
 
 // Stmt is a prepared statement object.
 //
-// https://www.sqlite.org/c3ref/stmt.html
+// https://sqlite.org/c3ref/stmt.html
 type Stmt struct {
 	c      *Conn
 	err    error
@@ -20,33 +22,49 @@ type Stmt struct {
 //
 // It is safe to close a nil, zero or closed Stmt.
 //
-// https://www.sqlite.org/c3ref/finalize.html
+// https://sqlite.org/c3ref/finalize.html
 func (s *Stmt) Close() error {
 	if s == nil || s.handle == 0 {
 		return nil
 	}
 
-	r := s.c.call(s.c.api.finalize, uint64(s.handle))
+	r := s.c.call("sqlite3_finalize", uint64(s.handle))
 
 	s.handle = 0
 	return s.c.error(r)
 }
 
+// Conn returns the database connection to which the prepared statement belongs.
+//
+// https://sqlite.org/c3ref/db_handle.html
+func (s *Stmt) Conn() *Conn {
+	return s.c
+}
+
+// ReadOnly returns true if and only if the statement
+// makes no direct changes to the content of the database file.
+//
+// https://sqlite.org/c3ref/stmt_readonly.html
+func (s *Stmt) ReadOnly() bool {
+	r := s.c.call("sqlite3_stmt_readonly", uint64(s.handle))
+	return r != 0
+}
+
 // Reset resets the prepared statement object.
 //
-// https://www.sqlite.org/c3ref/reset.html
+// https://sqlite.org/c3ref/reset.html
 func (s *Stmt) Reset() error {
-	r := s.c.call(s.c.api.reset, uint64(s.handle))
+	r := s.c.call("sqlite3_reset", uint64(s.handle))
 	s.err = nil
 	return s.c.error(r)
 }
 
-// ClearBindings resets all bindings on the prepared statement.
+// Busy determines if a prepared statement has been reset.
 //
-// https://www.sqlite.org/c3ref/clear_bindings.html
-func (s *Stmt) ClearBindings() error {
-	r := s.c.call(s.c.api.clearBindings, uint64(s.handle))
-	return s.c.error(r)
+// https://sqlite.org/c3ref/stmt_busy.html
+func (s *Stmt) Busy() bool {
+	r := s.c.call("sqlite3_stmt_busy", uint64(s.handle))
+	return r != 0
 }
 
 // Step evaluates the SQL statement.
@@ -57,16 +75,17 @@ func (s *Stmt) ClearBindings() error {
 // If an error has occurred, Step returns false;
 // call [Stmt.Err] or [Stmt.Reset] to get the error.
 //
-// https://www.sqlite.org/c3ref/step.html
+// https://sqlite.org/c3ref/step.html
 func (s *Stmt) Step() bool {
 	s.c.checkInterrupt()
-	r := s.c.call(s.c.api.step, uint64(s.handle))
-	if r == _ROW {
-		return true
-	}
-	if r == _DONE {
+	r := s.c.call("sqlite3_step", uint64(s.handle))
+	switch r {
+	case _ROW:
 		s.err = nil
-	} else {
+		return true
+	case _DONE:
+		s.err = nil
+	default:
 		s.err = s.c.error(r)
 	}
 	return false
@@ -75,7 +94,7 @@ func (s *Stmt) Step() bool {
 // Err gets the last error occurred during [Stmt.Step].
 // Err returns nil after [Stmt.Reset] is called.
 //
-// https://www.sqlite.org/c3ref/step.html
+// https://sqlite.org/c3ref/step.html
 func (s *Stmt) Err() error {
 	return s.err
 }
@@ -88,40 +107,64 @@ func (s *Stmt) Exec() error {
 	return s.Reset()
 }
 
+// Status monitors the performance characteristics of prepared statements.
+//
+// https://sqlite.org/c3ref/stmt_status.html
+func (s *Stmt) Status(op StmtStatus, reset bool) int {
+	if op > STMTSTATUS_FILTER_HIT && op != STMTSTATUS_MEMUSED {
+		return 0
+	}
+	var i uint64
+	if reset {
+		i = 1
+	}
+	r := s.c.call("sqlite3_stmt_status", uint64(s.handle),
+		uint64(op), i)
+	return int(int32(r))
+}
+
+// ClearBindings resets all bindings on the prepared statement.
+//
+// https://sqlite.org/c3ref/clear_bindings.html
+func (s *Stmt) ClearBindings() error {
+	r := s.c.call("sqlite3_clear_bindings", uint64(s.handle))
+	return s.c.error(r)
+}
+
 // BindCount returns the number of SQL parameters in the prepared statement.
 //
-// https://www.sqlite.org/c3ref/bind_parameter_count.html
+// https://sqlite.org/c3ref/bind_parameter_count.html
 func (s *Stmt) BindCount() int {
-	r := s.c.call(s.c.api.bindCount,
+	r := s.c.call("sqlite3_bind_parameter_count",
 		uint64(s.handle))
-	return int(r)
+	return int(int32(r))
 }
 
 // BindIndex returns the index of a parameter in the prepared statement
 // given its name.
 //
-// https://www.sqlite.org/c3ref/bind_parameter_index.html
+// https://sqlite.org/c3ref/bind_parameter_index.html
 func (s *Stmt) BindIndex(name string) int {
-	defer s.c.arena.reset()
+	defer s.c.arena.mark()()
 	namePtr := s.c.arena.string(name)
-	r := s.c.call(s.c.api.bindIndex,
+	r := s.c.call("sqlite3_bind_parameter_index",
 		uint64(s.handle), uint64(namePtr))
-	return int(r)
+	return int(int32(r))
 }
 
 // BindName returns the name of a parameter in the prepared statement.
 // The leftmost SQL parameter has an index of 1.
 //
-// https://www.sqlite.org/c3ref/bind_parameter_name.html
+// https://sqlite.org/c3ref/bind_parameter_name.html
 func (s *Stmt) BindName(param int) string {
-	r := s.c.call(s.c.api.bindName,
+	r := s.c.call("sqlite3_bind_parameter_name",
 		uint64(s.handle), uint64(param))
 
 	ptr := uint32(r)
 	if ptr == 0 {
 		return ""
 	}
-	return util.ReadString(s.c.mod, ptr, _MAX_STRING)
+	return util.ReadString(s.c.mod, ptr, _MAX_NAME)
 }
 
 // BindBool binds a bool to the prepared statement.
@@ -129,18 +172,19 @@ func (s *Stmt) BindName(param int) string {
 // SQLite does not have a separate boolean storage class.
 // Instead, boolean values are stored as integers 0 (false) and 1 (true).
 //
-// https://www.sqlite.org/c3ref/bind_blob.html
+// https://sqlite.org/c3ref/bind_blob.html
 func (s *Stmt) BindBool(param int, value bool) error {
+	var i int64
 	if value {
-		return s.BindInt64(param, 1)
+		i = 1
 	}
-	return s.BindInt64(param, 0)
+	return s.BindInt64(param, i)
 }
 
 // BindInt binds an int to the prepared statement.
 // The leftmost SQL parameter has an index of 1.
 //
-// https://www.sqlite.org/c3ref/bind_blob.html
+// https://sqlite.org/c3ref/bind_blob.html
 func (s *Stmt) BindInt(param int, value int) error {
 	return s.BindInt64(param, int64(value))
 }
@@ -148,9 +192,9 @@ func (s *Stmt) BindInt(param int, value int) error {
 // BindInt64 binds an int64 to the prepared statement.
 // The leftmost SQL parameter has an index of 1.
 //
-// https://www.sqlite.org/c3ref/bind_blob.html
+// https://sqlite.org/c3ref/bind_blob.html
 func (s *Stmt) BindInt64(param int, value int64) error {
-	r := s.c.call(s.c.api.bindInteger,
+	r := s.c.call("sqlite3_bind_int64",
 		uint64(s.handle), uint64(param), uint64(value))
 	return s.c.error(r)
 }
@@ -158,9 +202,9 @@ func (s *Stmt) BindInt64(param int, value int64) error {
 // BindFloat binds a float64 to the prepared statement.
 // The leftmost SQL parameter has an index of 1.
 //
-// https://www.sqlite.org/c3ref/bind_blob.html
+// https://sqlite.org/c3ref/bind_blob.html
 func (s *Stmt) BindFloat(param int, value float64) error {
-	r := s.c.call(s.c.api.bindFloat,
+	r := s.c.call("sqlite3_bind_double",
 		uint64(s.handle), uint64(param), math.Float64bits(value))
 	return s.c.error(r)
 }
@@ -168,13 +212,32 @@ func (s *Stmt) BindFloat(param int, value float64) error {
 // BindText binds a string to the prepared statement.
 // The leftmost SQL parameter has an index of 1.
 //
-// https://www.sqlite.org/c3ref/bind_blob.html
+// https://sqlite.org/c3ref/bind_blob.html
 func (s *Stmt) BindText(param int, value string) error {
+	if len(value) > _MAX_LENGTH {
+		return TOOBIG
+	}
 	ptr := s.c.newString(value)
-	r := s.c.call(s.c.api.bindText,
+	r := s.c.call("sqlite3_bind_text64",
 		uint64(s.handle), uint64(param),
 		uint64(ptr), uint64(len(value)),
-		uint64(s.c.api.destructor), _UTF8)
+		uint64(s.c.freer), _UTF8)
+	return s.c.error(r)
+}
+
+// BindRawText binds a []byte to the prepared statement as text.
+// The leftmost SQL parameter has an index of 1.
+//
+// https://sqlite.org/c3ref/bind_blob.html
+func (s *Stmt) BindRawText(param int, value []byte) error {
+	if len(value) > _MAX_LENGTH {
+		return TOOBIG
+	}
+	ptr := s.c.newBytes(value)
+	r := s.c.call("sqlite3_bind_text64",
+		uint64(s.handle), uint64(param),
+		uint64(ptr), uint64(len(value)),
+		uint64(s.c.freer), _UTF8)
 	return s.c.error(r)
 }
 
@@ -182,22 +245,25 @@ func (s *Stmt) BindText(param int, value string) error {
 // The leftmost SQL parameter has an index of 1.
 // Binding a nil slice is the same as calling [Stmt.BindNull].
 //
-// https://www.sqlite.org/c3ref/bind_blob.html
+// https://sqlite.org/c3ref/bind_blob.html
 func (s *Stmt) BindBlob(param int, value []byte) error {
+	if len(value) > _MAX_LENGTH {
+		return TOOBIG
+	}
 	ptr := s.c.newBytes(value)
-	r := s.c.call(s.c.api.bindBlob,
+	r := s.c.call("sqlite3_bind_blob64",
 		uint64(s.handle), uint64(param),
 		uint64(ptr), uint64(len(value)),
-		uint64(s.c.api.destructor))
+		uint64(s.c.freer))
 	return s.c.error(r)
 }
 
 // BindZeroBlob binds a zero-filled, length n BLOB to the prepared statement.
 // The leftmost SQL parameter has an index of 1.
 //
-// https://www.sqlite.org/c3ref/bind_blob.html
+// https://sqlite.org/c3ref/bind_blob.html
 func (s *Stmt) BindZeroBlob(param int, n int64) error {
-	r := s.c.call(s.c.api.bindZeroBlob,
+	r := s.c.call("sqlite3_bind_zeroblob64",
 		uint64(s.handle), uint64(param), uint64(n))
 	return s.c.error(r)
 }
@@ -205,9 +271,9 @@ func (s *Stmt) BindZeroBlob(param int, n int64) error {
 // BindNull binds a NULL to the prepared statement.
 // The leftmost SQL parameter has an index of 1.
 //
-// https://www.sqlite.org/c3ref/bind_blob.html
+// https://sqlite.org/c3ref/bind_blob.html
 func (s *Stmt) BindNull(param int) error {
-	r := s.c.call(s.c.api.bindNull,
+	r := s.c.call("sqlite3_bind_null",
 		uint64(s.handle), uint64(param))
 	return s.c.error(r)
 }
@@ -215,7 +281,7 @@ func (s *Stmt) BindNull(param int) error {
 // BindTime binds a [time.Time] to the prepared statement.
 // The leftmost SQL parameter has an index of 1.
 //
-// https://www.sqlite.org/c3ref/bind_blob.html
+// https://sqlite.org/c3ref/bind_blob.html
 func (s *Stmt) BindTime(param int, value time.Time, format TimeFormat) error {
 	if format == TimeFormatDefault {
 		return s.bindRFC3339Nano(param, value)
@@ -234,51 +300,102 @@ func (s *Stmt) BindTime(param int, value time.Time, format TimeFormat) error {
 }
 
 func (s *Stmt) bindRFC3339Nano(param int, value time.Time) error {
-	const maxlen = uint64(len(time.RFC3339Nano))
+	const maxlen = uint64(len(time.RFC3339Nano)) + 5
 
 	ptr := s.c.new(maxlen)
 	buf := util.View(s.c.mod, ptr, maxlen)
 	buf = value.AppendFormat(buf[:0], time.RFC3339Nano)
 
-	r := s.c.call(s.c.api.bindText,
+	r := s.c.call("sqlite3_bind_text64",
 		uint64(s.handle), uint64(param),
 		uint64(ptr), uint64(len(buf)),
-		uint64(s.c.api.destructor), _UTF8)
+		uint64(s.c.freer), _UTF8)
+	return s.c.error(r)
+}
+
+// BindPointer binds a NULL to the prepared statement, just like [Stmt.BindNull],
+// but it also associates ptr with that NULL value such that it can be retrieved
+// within an application-defined SQL function using [Value.Pointer].
+// The leftmost SQL parameter has an index of 1.
+//
+// https://sqlite.org/c3ref/bind_blob.html
+func (s *Stmt) BindPointer(param int, ptr any) error {
+	valPtr := util.AddHandle(s.c.ctx, ptr)
+	r := s.c.call("sqlite3_bind_pointer_go",
+		uint64(s.handle), uint64(param), uint64(valPtr))
+	return s.c.error(r)
+}
+
+// BindJSON binds the JSON encoding of value to the prepared statement.
+// The leftmost SQL parameter has an index of 1.
+//
+// https://sqlite.org/c3ref/bind_blob.html
+func (s *Stmt) BindJSON(param int, value any) error {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	return s.BindRawText(param, data)
+}
+
+// BindValue binds a copy of value to the prepared statement.
+// The leftmost SQL parameter has an index of 1.
+//
+// https://sqlite.org/c3ref/bind_blob.html
+func (s *Stmt) BindValue(param int, value Value) error {
+	if value.c != s.c {
+		return MISUSE
+	}
+	r := s.c.call("sqlite3_bind_value",
+		uint64(s.handle), uint64(param), uint64(value.handle))
 	return s.c.error(r)
 }
 
 // ColumnCount returns the number of columns in a result set.
 //
-// https://www.sqlite.org/c3ref/column_count.html
+// https://sqlite.org/c3ref/column_count.html
 func (s *Stmt) ColumnCount() int {
-	r := s.c.call(s.c.api.columnCount,
+	r := s.c.call("sqlite3_column_count",
 		uint64(s.handle))
-	return int(r)
+	return int(int32(r))
 }
 
 // ColumnName returns the name of the result column.
 // The leftmost column of the result set has the index 0.
 //
-// https://www.sqlite.org/c3ref/column_name.html
+// https://sqlite.org/c3ref/column_name.html
 func (s *Stmt) ColumnName(col int) string {
-	r := s.c.call(s.c.api.columnName,
+	r := s.c.call("sqlite3_column_name",
 		uint64(s.handle), uint64(col))
 
 	ptr := uint32(r)
 	if ptr == 0 {
 		panic(util.OOMErr)
 	}
-	return util.ReadString(s.c.mod, ptr, _MAX_STRING)
+	return util.ReadString(s.c.mod, ptr, _MAX_NAME)
 }
 
 // ColumnType returns the initial [Datatype] of the result column.
 // The leftmost column of the result set has the index 0.
 //
-// https://www.sqlite.org/c3ref/column_blob.html
+// https://sqlite.org/c3ref/column_blob.html
 func (s *Stmt) ColumnType(col int) Datatype {
-	r := s.c.call(s.c.api.columnType,
+	r := s.c.call("sqlite3_column_type",
 		uint64(s.handle), uint64(col))
 	return Datatype(r)
+}
+
+// ColumnDeclType returns the declared datatype of the result column.
+// The leftmost column of the result set has the index 0.
+//
+// https://sqlite.org/c3ref/column_decltype.html
+func (s *Stmt) ColumnDeclType(col int) string {
+	r := s.c.call("sqlite3_column_decltype",
+		uint64(s.handle), uint64(col))
+	if r == 0 {
+		return ""
+	}
+	return util.ReadString(s.c.mod, uint32(r), _MAX_NAME)
 }
 
 // ColumnBool returns the value of the result column as a bool.
@@ -287,18 +404,15 @@ func (s *Stmt) ColumnType(col int) Datatype {
 // Instead, boolean values are retrieved as integers,
 // with 0 converted to false and any other value to true.
 //
-// https://www.sqlite.org/c3ref/column_blob.html
+// https://sqlite.org/c3ref/column_blob.html
 func (s *Stmt) ColumnBool(col int) bool {
-	if i := s.ColumnInt64(col); i != 0 {
-		return true
-	}
-	return false
+	return s.ColumnInt64(col) != 0
 }
 
 // ColumnInt returns the value of the result column as an int.
 // The leftmost column of the result set has the index 0.
 //
-// https://www.sqlite.org/c3ref/column_blob.html
+// https://sqlite.org/c3ref/column_blob.html
 func (s *Stmt) ColumnInt(col int) int {
 	return int(s.ColumnInt64(col))
 }
@@ -306,9 +420,9 @@ func (s *Stmt) ColumnInt(col int) int {
 // ColumnInt64 returns the value of the result column as an int64.
 // The leftmost column of the result set has the index 0.
 //
-// https://www.sqlite.org/c3ref/column_blob.html
+// https://sqlite.org/c3ref/column_blob.html
 func (s *Stmt) ColumnInt64(col int) int64 {
-	r := s.c.call(s.c.api.columnInteger,
+	r := s.c.call("sqlite3_column_int64",
 		uint64(s.handle), uint64(col))
 	return int64(r)
 }
@@ -316,9 +430,9 @@ func (s *Stmt) ColumnInt64(col int) int64 {
 // ColumnFloat returns the value of the result column as a float64.
 // The leftmost column of the result set has the index 0.
 //
-// https://www.sqlite.org/c3ref/column_blob.html
+// https://sqlite.org/c3ref/column_blob.html
 func (s *Stmt) ColumnFloat(col int) float64 {
-	r := s.c.call(s.c.api.columnFloat,
+	r := s.c.call("sqlite3_column_double",
 		uint64(s.handle), uint64(col))
 	return math.Float64frombits(r)
 }
@@ -326,7 +440,7 @@ func (s *Stmt) ColumnFloat(col int) float64 {
 // ColumnTime returns the value of the result column as a [time.Time].
 // The leftmost column of the result set has the index 0.
 //
-// https://www.sqlite.org/c3ref/column_blob.html
+// https://sqlite.org/c3ref/column_blob.html
 func (s *Stmt) ColumnTime(col int, format TimeFormat) time.Time {
 	var v any
 	switch s.ColumnType(col) {
@@ -351,7 +465,7 @@ func (s *Stmt) ColumnTime(col int, format TimeFormat) time.Time {
 // ColumnText returns the value of the result column as a string.
 // The leftmost column of the result set has the index 0.
 //
-// https://www.sqlite.org/c3ref/column_blob.html
+// https://sqlite.org/c3ref/column_blob.html
 func (s *Stmt) ColumnText(col int) string {
 	return string(s.ColumnRawText(col))
 }
@@ -360,7 +474,7 @@ func (s *Stmt) ColumnText(col int) string {
 // the value of the result column as a []byte.
 // The leftmost column of the result set has the index 0.
 //
-// https://www.sqlite.org/c3ref/column_blob.html
+// https://sqlite.org/c3ref/column_blob.html
 func (s *Stmt) ColumnBlob(col int, buf []byte) []byte {
 	return append(buf, s.ColumnRawBlob(col)...)
 }
@@ -370,22 +484,11 @@ func (s *Stmt) ColumnBlob(col int, buf []byte) []byte {
 // subsequent calls to [Stmt] methods.
 // The leftmost column of the result set has the index 0.
 //
-// https://www.sqlite.org/c3ref/column_blob.html
+// https://sqlite.org/c3ref/column_blob.html
 func (s *Stmt) ColumnRawText(col int) []byte {
-	r := s.c.call(s.c.api.columnText,
+	r := s.c.call("sqlite3_column_text",
 		uint64(s.handle), uint64(col))
-
-	ptr := uint32(r)
-	if ptr == 0 {
-		r = s.c.call(s.c.api.errcode, uint64(s.c.handle))
-		s.err = s.c.error(r)
-		return nil
-	}
-
-	r = s.c.call(s.c.api.columnBytes,
-		uint64(s.handle), uint64(col))
-
-	return util.View(s.c.mod, ptr, r)
+	return s.columnRawBytes(col, uint32(r))
 }
 
 // ColumnRawBlob returns the value of the result column as a []byte.
@@ -393,35 +496,104 @@ func (s *Stmt) ColumnRawText(col int) []byte {
 // subsequent calls to [Stmt] methods.
 // The leftmost column of the result set has the index 0.
 //
-// https://www.sqlite.org/c3ref/column_blob.html
+// https://sqlite.org/c3ref/column_blob.html
 func (s *Stmt) ColumnRawBlob(col int) []byte {
-	r := s.c.call(s.c.api.columnBlob,
+	r := s.c.call("sqlite3_column_blob",
 		uint64(s.handle), uint64(col))
+	return s.columnRawBytes(col, uint32(r))
+}
 
-	ptr := uint32(r)
+func (s *Stmt) columnRawBytes(col int, ptr uint32) []byte {
 	if ptr == 0 {
-		r = s.c.call(s.c.api.errcode, uint64(s.c.handle))
+		r := s.c.call("sqlite3_errcode", uint64(s.c.handle))
 		s.err = s.c.error(r)
 		return nil
 	}
 
-	r = s.c.call(s.c.api.columnBytes,
+	r := s.c.call("sqlite3_column_bytes",
 		uint64(s.handle), uint64(col))
-
 	return util.View(s.c.mod, ptr, r)
 }
 
-// Return true if stmt is an empty SQL statement.
-// This is used as an optimization.
-// It's OK to always return false here.
-func emptyStatement(stmt string) bool {
-	for _, b := range []byte(stmt) {
-		switch b {
-		case ' ', '\n', '\r', '\t', '\v', '\f':
-		case ';':
-		default:
-			return false
+// ColumnJSON parses the JSON-encoded value of the result column
+// and stores it in the value pointed to by ptr.
+// The leftmost column of the result set has the index 0.
+//
+// https://sqlite.org/c3ref/column_blob.html
+func (s *Stmt) ColumnJSON(col int, ptr any) error {
+	var data []byte
+	switch s.ColumnType(col) {
+	case NULL:
+		data = append(data, "null"...)
+	case TEXT:
+		data = s.ColumnRawText(col)
+	case BLOB:
+		data = s.ColumnRawBlob(col)
+	case INTEGER:
+		data = strconv.AppendInt(nil, s.ColumnInt64(col), 10)
+	case FLOAT:
+		data = strconv.AppendFloat(nil, s.ColumnFloat(col), 'g', -1, 64)
+	default:
+		panic(util.AssertErr())
+	}
+	return json.Unmarshal(data, ptr)
+}
+
+// ColumnValue returns the unprotected value of the result column.
+// The leftmost column of the result set has the index 0.
+//
+// https://sqlite.org/c3ref/column_blob.html
+func (s *Stmt) ColumnValue(col int) Value {
+	r := s.c.call("sqlite3_column_value",
+		uint64(s.handle), uint64(col))
+	return Value{
+		c:      s.c,
+		unprot: true,
+		handle: uint32(r),
+	}
+}
+
+// Columns populates result columns into the provided slice.
+// The slice must have [Stmt.ColumnCount] length.
+//
+// [INTEGER] columns will be retrieved as int64 values,
+// [FLOAT] as float64, [NULL] as nil,
+// [TEXT] as string, and [BLOB] as []byte.
+// Any []byte are owned by SQLite and may be invalidated by
+// subsequent calls to [Stmt] methods.
+func (s *Stmt) Columns(dest []any) error {
+	defer s.c.arena.mark()()
+	count := uint64(len(dest))
+	typePtr := s.c.arena.new(count)
+	dataPtr := s.c.arena.new(8 * count)
+
+	r := s.c.call("sqlite3_columns_go",
+		uint64(s.handle), count, uint64(typePtr), uint64(dataPtr))
+	if err := s.c.error(r); err != nil {
+		return err
+	}
+
+	types := util.View(s.c.mod, typePtr, count)
+	for i := range dest {
+		switch types[i] {
+		case byte(INTEGER):
+			dest[i] = int64(util.ReadUint64(s.c.mod, dataPtr+8*uint32(i)))
+			continue
+		case byte(FLOAT):
+			dest[i] = util.ReadFloat64(s.c.mod, dataPtr+8*uint32(i))
+			continue
+		case byte(NULL):
+			dest[i] = nil
+			continue
+		}
+		ptr := util.ReadUint32(s.c.mod, dataPtr+8*uint32(i)+0)
+		len := util.ReadUint32(s.c.mod, dataPtr+8*uint32(i)+4)
+		buf := util.View(s.c.mod, ptr, uint64(len))
+		if types[i] == byte(TEXT) {
+			dest[i] = string(buf)
+		} else {
+			dest[i] = buf
 		}
 	}
-	return true
+	return nil
 }

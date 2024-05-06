@@ -1,7 +1,6 @@
 package driver
 
 import (
-	"database/sql/driver"
 	"time"
 )
 
@@ -9,23 +8,24 @@ import (
 // if it roundtrips back to the same string.
 // This way times can be persisted to, and recovered from, the database,
 // but if a string is needed, [database/sql] will recover the same string.
-func stringOrTime(text []byte) driver.Value {
+func maybeTime(text string) (_ time.Time, _ bool) {
 	// Weed out (some) values that can't possibly be
 	// [time.RFC3339Nano] timestamps.
 	if len(text) < len("2006-01-02T15:04:05Z") {
-		return string(text)
+		return
 	}
 	if len(text) > len(time.RFC3339Nano) {
-		return string(text)
+		return
 	}
 	if text[4] != '-' || text[10] != 'T' || text[16] != ':' {
-		return string(text)
+		return
 	}
 
 	// Slow path.
-	date, err := time.Parse(time.RFC3339Nano, string(text))
-	if err == nil && date.Format(time.RFC3339Nano) == string(text) {
-		return date
+	var buf [len(time.RFC3339Nano)]byte
+	date, err := time.Parse(time.RFC3339Nano, text)
+	if err == nil && text == string(date.AppendFormat(buf[:0], time.RFC3339Nano)) {
+		return date, true
 	}
-	return string(text)
+	return
 }

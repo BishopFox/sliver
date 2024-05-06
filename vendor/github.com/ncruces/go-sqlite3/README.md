@@ -4,80 +4,101 @@
 [![Go Report](https://goreportcard.com/badge/github.com/ncruces/go-sqlite3)](https://goreportcard.com/report/github.com/ncruces/go-sqlite3)
 [![Go Coverage](https://github.com/ncruces/go-sqlite3/wiki/coverage.svg)](https://github.com/ncruces/go-sqlite3/wiki/Test-coverage-report)
 
-Go module `github.com/ncruces/go-sqlite3` wraps a [WASM](https://webassembly.org/) build of [SQLite](https://sqlite.org/),
-and uses [wazero](https://wazero.io/) to provide `cgo`-free SQLite bindings.
+Go module `github.com/ncruces/go-sqlite3` is a `cgo`-free [SQLite](https://sqlite.org/) wrapper.\
+It provides a [`database/sql`](https://pkg.go.dev/database/sql) compatible driver,
+as well as direct access to most of the [C SQLite API](https://sqlite.org/cintro.html).
 
-- Package [`github.com/ncruces/go-sqlite3`](https://pkg.go.dev/github.com/ncruces/go-sqlite3)
-wraps the [C SQLite API](https://www.sqlite.org/cintro.html)
-([example usage](https://pkg.go.dev/github.com/ncruces/go-sqlite3#example-package)).
-- Package [`github.com/ncruces/go-sqlite3/driver`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/driver)
-provides a [`database/sql`](https://pkg.go.dev/database/sql) driver
-([example usage](https://pkg.go.dev/github.com/ncruces/go-sqlite3/driver#example-package)).
-- Package [`github.com/ncruces/go-sqlite3/embed`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/embed)
-embeds a build of SQLite into your application.
-- Package [`github.com/ncruces/go-sqlite3/vfs`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/vfs)
-wraps the [C SQLite VFS API](https://www.sqlite.org/vfs.html) and provides a pure Go implementation.
-- Package [`github.com/ncruces/go-sqlite3/gormlite`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/gormlite)
-provides a [GORM](https://gorm.io) driver.
+It wraps a [Wasm](https://webassembly.org/) [build](embed/) of SQLite,
+and uses [wazero](https://wazero.io/) as the runtime.\
+Go, wazero and [`x/sys`](https://pkg.go.dev/golang.org/x/sys) are the _only_ runtime dependencies [^1].
+
+### Packages
+
+- [`github.com/ncruces/go-sqlite3`](https://pkg.go.dev/github.com/ncruces/go-sqlite3)
+  wraps the [C SQLite API](https://sqlite.org/cintro.html)
+  ([example usage](https://pkg.go.dev/github.com/ncruces/go-sqlite3#example-package)).
+- [`github.com/ncruces/go-sqlite3/driver`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/driver)
+  provides a [`database/sql`](https://pkg.go.dev/database/sql) driver
+  ([example usage](https://pkg.go.dev/github.com/ncruces/go-sqlite3/driver#example-package)).
+- [`github.com/ncruces/go-sqlite3/embed`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/embed)
+  embeds a build of SQLite into your application.
+- [`github.com/ncruces/go-sqlite3/vfs`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/vfs)
+  wraps the [C SQLite VFS API](https://sqlite.org/vfs.html) and provides a pure Go implementation.
+- [`github.com/ncruces/go-sqlite3/gormlite`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/gormlite)
+  provides a [GORM](https://gorm.io) driver.
+
+### Extensions
+
+- [`github.com/ncruces/go-sqlite3/ext/array`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/ext/array)
+  provides the [`array`](https://sqlite.org/carray.html) table-valued function.
+- [`github.com/ncruces/go-sqlite3/ext/blobio`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/ext/blobio)
+  simplifies [incremental BLOB I/O](https://sqlite.org/c3ref/blob_open.html).
+- [`github.com/ncruces/go-sqlite3/ext/csv`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/ext/csv)
+  reads [comma-separated values](https://sqlite.org/csv.html).
+- [`github.com/ncruces/go-sqlite3/ext/fileio`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/ext/fileio)
+  reads, writes and lists files.
+- [`github.com/ncruces/go-sqlite3/ext/hash`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/ext/hash)
+  provides cryptographic hash functions.
+- [`github.com/ncruces/go-sqlite3/ext/lines`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/ext/lines)
+  reads data [line-by-line](https://github.com/asg017/sqlite-lines).
+- [`github.com/ncruces/go-sqlite3/ext/pivot`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/ext/pivot)
+  creates [pivot tables](https://github.com/jakethaw/pivot_vtab).
+- [`github.com/ncruces/go-sqlite3/ext/statement`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/ext/statement)
+  creates [parameterized views](https://github.com/0x09/sqlite-statement-vtab).
+- [`github.com/ncruces/go-sqlite3/ext/stats`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/ext/stats)
+  provides [statistics](https://www.oreilly.com/library/view/sql-in-a/9780596155322/ch04s02.html) functions.
+- [`github.com/ncruces/go-sqlite3/ext/unicode`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/ext/unicode)
+  provides [Unicode aware](https://sqlite.org/src/dir/ext/icu) functions.
+- [`github.com/ncruces/go-sqlite3/ext/zorder`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/ext/zorder)
+  maps multidimensional data to one dimension.
+- [`github.com/ncruces/go-sqlite3/vfs/memdb`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/vfs/memdb)
+  implements an in-memory VFS.
+- [`github.com/ncruces/go-sqlite3/vfs/readervfs`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/vfs/readervfs)
+  implements a VFS for immutable databases.
+- [`github.com/ncruces/go-sqlite3/vfs/adiantum`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/vfs/adiantum)
+  wraps a VFS to offer encryption at rest.
+
+### Advanced features
+
+- [incremental BLOB I/O](https://sqlite.org/c3ref/blob_open.html)
+- [nested transactions](https://sqlite.org/lang_savepoint.html)
+- [custom functions](https://sqlite.org/c3ref/create_function.html)
+- [virtual tables](https://sqlite.org/vtab.html)
+- [custom VFSes](https://sqlite.org/vfs.html)
+- [online backup](https://sqlite.org/backup.html)
+- [JSON support](https://sqlite.org/json1.html)
+- [math functions](https://sqlite.org/lang_mathfunc.html)
+- [full-text search](https://sqlite.org/fts5.html)
+- [geospatial search](https://sqlite.org/geopoly.html)
+- [encryption at rest](vfs/adiantum/README.md)
+- [and more…](embed/README.md)
 
 ### Caveats
 
-This module replaces the SQLite [OS Interface](https://www.sqlite.org/vfs.html)
-(aka VFS) with a [pure Go](vfs/) implementation.
-This has benefits, but also comes with some drawbacks.
+This module replaces the SQLite [OS Interface](https://sqlite.org/vfs.html)
+(aka VFS) with a [pure Go](vfs/) implementation,
+which has advantages and disadvantages.
 
-#### Write-Ahead Logging
+Read more about the Go VFS design [here](vfs/README.md).
 
-Because WASM does not support shared memory,
-[WAL](https://www.sqlite.org/wal.html) support is [limited](https://www.sqlite.org/wal.html#noshm).
+### Testing
 
-To work around this limitation, SQLite is compiled with
-[`SQLITE_DEFAULT_LOCKING_MODE=1`](https://www.sqlite.org/compile.html#default_locking_mode),
-making `EXCLUSIVE` the default locking mode.
-For non-WAL databases, `NORMAL` locking mode can be activated with
-[`PRAGMA locking_mode=NORMAL`](https://www.sqlite.org/pragma.html#pragma_locking_mode).
+This project aims for [high test coverage](https://github.com/ncruces/go-sqlite3/wiki/Test-coverage-report).
+It also benefits greatly from [SQLite's](https://sqlite.org/testing.html) and
+[wazero's](https://tetrate.io/blog/introducing-wazero-from-tetrate/#:~:text=Rock%2Dsolid%20test%20approach) thorough testing.
 
-Because connection pooling is incompatible with `EXCLUSIVE` locking mode,
-the `database/sql` driver defaults to `NORMAL` locking mode.
-To open WAL databases, or use `EXCLUSIVE` locking mode,
-disable connection pooling by calling
-[`db.SetMaxOpenConns(1)`](https://pkg.go.dev/database/sql#DB.SetMaxOpenConns).
+Every commit is [tested](.github/workflows/test.yml) on
+Linux (amd64/arm64/386/riscv64), macOS (amd64/arm64), Windows, FreeBSD and illumos.
+The Go VFS is tested by running SQLite's
+[mptest](https://github.com/sqlite/sqlite/blob/master/mptest/mptest.c).
 
-#### POSIX Advisory Locks
+### Performance
 
-POSIX advisory locks, which SQLite uses, are
-[broken by design](https://www.sqlite.org/src/artifact/90c4fa?ln=1073-1161).
+Perfomance of the [`database/sql`](https://pkg.go.dev/database/sql) driver is
+[competitive](https://github.com/cvilsmeier/go-sqlite-bench) with alternatives.
 
-On Linux, macOS and illumos, this module uses
-[OFD locks](https://www.gnu.org/software/libc/manual/html_node/Open-File-Description-Locks.html)
-to synchronize access to database files.
-OFD locks are fully compatible with process-associated POSIX advisory locks.
-
-On BSD Unixes, this module uses
-[BSD locks](https://man.freebsd.org/cgi/man.cgi?query=flock&sektion=2).
-BSD locks may _not_ be compatible with process-associated POSIX advisory locks.
-
-#### Testing
-
-The pure Go VFS is tested by running an unmodified build of SQLite's
-[mptest](https://github.com/sqlite/sqlite/blob/master/mptest/mptest.c)
-on Linux, macOS and Windows.
-Performance is tested by running
+The Wasm and VFS layers are also tested by running SQLite's
 [speedtest1](https://github.com/sqlite/sqlite/blob/master/test/speedtest1.c).
-
-### Roadmap
-
-- [ ] advanced SQLite features
-  - [x] nested transactions
-  - [x] incremental BLOB I/O
-  - [x] online backup
-  - [ ] session extension
-- [ ] custom VFSes
-  - [x] custom VFS API
-  - [x] in-memory VFS
-  - [x] read-only VFS, wrapping an [`io.ReaderAt`](https://pkg.go.dev/io#ReaderAt)
-  - [ ] cloud-based VFS, based on [Cloud Backed SQLite](https://sqlite.org/cloudsqlite/doc/trunk/www/index.wiki)
-- [ ] custom SQL functions
 
 ### Alternatives
 
@@ -85,3 +106,6 @@ Performance is tested by running
 - [`crawshaw.io/sqlite`](https://pkg.go.dev/crawshaw.io/sqlite)
 - [`github.com/mattn/go-sqlite3`](https://pkg.go.dev/github.com/mattn/go-sqlite3)
 - [`github.com/zombiezen/go-sqlite`](https://pkg.go.dev/github.com/zombiezen/go-sqlite)
+
+[^1]: anything else you find in `go.mod` is either a test dependency,
+      or needed by one of the extensions.
