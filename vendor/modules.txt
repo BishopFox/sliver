@@ -313,7 +313,7 @@ github.com/gen2brain/shm
 # github.com/glebarez/go-sqlite v1.21.2
 ## explicit; go 1.17
 github.com/glebarez/go-sqlite
-# github.com/glebarez/sqlite v1.10.0
+# github.com/glebarez/sqlite v1.11.0
 ## explicit; go 1.18
 github.com/glebarez/sqlite
 # github.com/go-ole/go-ole v1.3.0
