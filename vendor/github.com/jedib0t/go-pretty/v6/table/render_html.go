@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"html"
 	"strings"
+
+	"github.com/jedib0t/go-pretty/v6/text"
 )
 
 const (
@@ -113,9 +115,9 @@ func (t *Table) htmlRenderColumn(out *strings.Builder, colStr string) {
 	out.WriteString(colStr)
 }
 
-func (t *Table) htmlRenderColumnAttributes(out *strings.Builder, colIdx int, hint renderHint) {
+func (t *Table) htmlRenderColumnAttributes(out *strings.Builder, colIdx int, hint renderHint, alignOverride text.Align) {
 	// determine the HTML "align"/"valign" property values
-	align := t.getAlign(colIdx, hint).HTMLProperty()
+	align := alignOverride.HTMLProperty()
 	vAlign := t.getVAlign(colIdx, hint).HTMLProperty()
 	// determine the HTML "class" property values for the colors
 	class := t.getColumnColors(colIdx, hint).HTMLProperty()
@@ -158,11 +160,31 @@ func (t *Table) htmlRenderRow(out *strings.Builder, row rowStr, hint renderHint)
 			t.htmlRenderColumnAutoIndex(out, hint)
 		}
 
+		align := t.getAlign(colIdx, hint)
+		rowConfig := t.getRowConfig(hint)
+		extraColumnsRendered := 0
+		if rowConfig.AutoMerge && !hint.isSeparatorRow {
+			// get the real row to consider all lines in each column instead of just
+			// looking at the current "line"
+			rowUnwrapped := t.getRow(hint.rowNumber-1, hint)
+			for idx := colIdx + 1; idx < len(rowUnwrapped); idx++ {
+				if rowUnwrapped[colIdx] != rowUnwrapped[idx] {
+					break
+				}
+				align = rowConfig.getAutoMergeAlign()
+				extraColumnsRendered++
+			}
+		}
+
 		colStr, colTagName := t.htmlGetColStrAndTag(row, colIdx, hint)
 		// write the row
 		out.WriteString("    <")
 		out.WriteString(colTagName)
-		t.htmlRenderColumnAttributes(out, colIdx, hint)
+		t.htmlRenderColumnAttributes(out, colIdx, hint, align)
+		if extraColumnsRendered > 0 {
+			out.WriteString(" colspan=")
+			out.WriteString(fmt.Sprint(extraColumnsRendered + 1))
+		}
 		out.WriteString(">")
 		if len(colStr) == 0 {
 			out.WriteString(t.style.HTML.EmptyColumn)
@@ -172,6 +194,7 @@ func (t *Table) htmlRenderRow(out *strings.Builder, row rowStr, hint renderHint)
 		out.WriteString("</")
 		out.WriteString(colTagName)
 		out.WriteString(">\n")
+		colIdx += extraColumnsRendered
 	}
 	out.WriteString("  </tr>\n")
 }
