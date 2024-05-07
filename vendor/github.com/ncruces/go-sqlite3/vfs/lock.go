@@ -1,11 +1,16 @@
+//go:build (linux || darwin || windows || freebsd || openbsd || netbsd || dragonfly || illumos) && !sqlite3_nosys
+
 package vfs
 
-import (
-	"os"
-	"time"
+import "github.com/ncruces/go-sqlite3/internal/util"
 
-	"github.com/ncruces/go-sqlite3/internal/util"
-)
+// SupportsFileLocking is false on platforms that do not support file locking.
+// To open a database file on those platforms,
+// you need to use the [nolock] or [immutable] URI parameters.
+//
+// [nolock]: https://sqlite.org/uri.html#urinolock
+// [immutable]: https://sqlite.org/uri.html#uriimmutable
+const SupportsFileLocking = true
 
 const (
 	_PENDING_BYTE  = 0x40000000
@@ -48,7 +53,7 @@ func (f *vfsFile) Lock(lock LockLevel) error {
 		if f.lock != LOCK_NONE {
 			panic(util.AssertErr())
 		}
-		if rc := osGetSharedLock(f.File, f.lockTimeout); rc != _OK {
+		if rc := osGetSharedLock(f.File); rc != _OK {
 			return rc
 		}
 		f.lock = LOCK_SHARED
@@ -59,7 +64,7 @@ func (f *vfsFile) Lock(lock LockLevel) error {
 		if f.lock != LOCK_SHARED {
 			panic(util.AssertErr())
 		}
-		if rc := osGetReservedLock(f.File, f.lockTimeout); rc != _OK {
+		if rc := osGetReservedLock(f.File); rc != _OK {
 			return rc
 		}
 		f.lock = LOCK_RESERVED
@@ -70,14 +75,20 @@ func (f *vfsFile) Lock(lock LockLevel) error {
 		if f.lock <= LOCK_NONE || f.lock >= LOCK_EXCLUSIVE {
 			panic(util.AssertErr())
 		}
+		reserved := f.lock == LOCK_RESERVED
 		// A PENDING lock is needed before acquiring an EXCLUSIVE lock.
 		if f.lock < LOCK_PENDING {
-			if rc := osGetPendingLock(f.File); rc != _OK {
+			// If we're already RESERVED, we can block indefinitely,
+			// since only new readers may briefly hold the PENDING lock.
+			if rc := osGetPendingLock(f.File, reserved /* block */); rc != _OK {
 				return rc
 			}
 			f.lock = LOCK_PENDING
 		}
-		if rc := osGetExclusiveLock(f.File, f.lockTimeout); rc != _OK {
+		// We already have PENDING, so we're just waiting for readers to leave.
+		// If we were RESERVED, we can wait for a little while, before invoking
+		// the busy handler; we will only do this once.
+		if rc := osGetExclusiveLock(f.File, reserved /* wait */); rc != _OK {
 			return rc
 		}
 		f.lock = LOCK_EXCLUSIVE
@@ -106,11 +117,9 @@ func (f *vfsFile) Unlock(lock LockLevel) error {
 
 	switch lock {
 	case LOCK_SHARED:
-		if rc := osDowngradeLock(f.File, f.lock); rc != _OK {
-			return rc
-		}
+		rc := osDowngradeLock(f.File, f.lock)
 		f.lock = LOCK_SHARED
-		return nil
+		return rc
 
 	case LOCK_NONE:
 		rc := osReleaseLock(f.File, f.lock)
@@ -132,19 +141,4 @@ func (f *vfsFile) CheckReservedLock() (bool, error) {
 		return true, nil
 	}
 	return osCheckReservedLock(f.File)
-}
-
-func osGetReservedLock(file *os.File, timeout time.Duration) _ErrorCode {
-	// Acquire the RESERVED lock.
-	return osWriteLock(file, _RESERVED_BYTE, 1, timeout)
-}
-
-func osGetPendingLock(file *os.File) _ErrorCode {
-	// Acquire the PENDING lock.
-	return osWriteLock(file, _PENDING_BYTE, 1, 0)
-}
-
-func osCheckReservedLock(file *os.File) (bool, _ErrorCode) {
-	// Test the RESERVED lock.
-	return osCheckLock(file, _RESERVED_BYTE, 1)
 }
