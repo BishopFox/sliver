@@ -9,16 +9,18 @@ const (
 
 	_UTF8 = 1
 
-	_MAX_STRING = 512 // Used for short strings: names, error messages…
-
+	_MAX_NAME            = 1e6 // Self-imposed limit for most NUL terminated strings.
+	_MAX_LENGTH          = 1e9
+	_MAX_SQL_LENGTH      = 1e9
 	_MAX_ALLOCATION_SIZE = 0x7ffffeff
+	_MAX_FUNCTION_ARG    = 100
 
 	ptrlen = 4
 )
 
 // ErrorCode is a result code that [Error.Code] might return.
 //
-// https://www.sqlite.org/rescode.html
+// https://sqlite.org/rescode.html
 type ErrorCode uint8
 
 const (
@@ -54,7 +56,7 @@ const (
 
 // ExtendedErrorCode is a result code that [Error.ExtendedCode] might return.
 //
-// https://www.sqlite.org/rescode.html
+// https://sqlite.org/rescode.html
 type (
 	ExtendedErrorCode uint16
 	xErrorCode        = ExtendedErrorCode
@@ -97,6 +99,7 @@ const (
 	IOERR_ROLLBACK_ATOMIC   ExtendedErrorCode = xErrorCode(IOERR) | (31 << 8)
 	IOERR_DATA              ExtendedErrorCode = xErrorCode(IOERR) | (32 << 8)
 	IOERR_CORRUPTFS         ExtendedErrorCode = xErrorCode(IOERR) | (33 << 8)
+	IOERR_IN_PAGE           ExtendedErrorCode = xErrorCode(IOERR) | (34 << 8)
 	LOCKED_SHAREDCACHE      ExtendedErrorCode = xErrorCode(LOCKED) | (1 << 8)
 	LOCKED_VTAB             ExtendedErrorCode = xErrorCode(LOCKED) | (2 << 8)
 	BUSY_RECOVERY           ExtendedErrorCode = xErrorCode(BUSY) | (1 << 8)
@@ -139,7 +142,7 @@ const (
 
 // OpenFlag is a flag for the [OpenFlags] function.
 //
-// https://www.sqlite.org/c3ref/c_open_autoproxy.html
+// https://sqlite.org/c3ref/c_open_autoproxy.html
 type OpenFlag uint32
 
 const (
@@ -158,7 +161,7 @@ const (
 
 // PrepareFlag is a flag that can be passed to [Conn.PrepareFlags].
 //
-// https://www.sqlite.org/c3ref/c_prepare_normalize.html
+// https://sqlite.org/c3ref/c_prepare_normalize.html
 type PrepareFlag uint32
 
 const (
@@ -167,9 +170,167 @@ const (
 	PREPARE_NO_VTAB    PrepareFlag = 0x04
 )
 
+// FunctionFlag is a flag that can be passed to
+// [Conn.CreateFunction] and [Conn.CreateWindowFunction].
+//
+// https://sqlite.org/c3ref/c_deterministic.html
+type FunctionFlag uint32
+
+const (
+	DETERMINISTIC  FunctionFlag = 0x000000800
+	DIRECTONLY     FunctionFlag = 0x000080000
+	SUBTYPE        FunctionFlag = 0x000100000
+	INNOCUOUS      FunctionFlag = 0x000200000
+	RESULT_SUBTYPE FunctionFlag = 0x001000000
+)
+
+// StmtStatus name counter values associated with the [Stmt.Status] method.
+//
+// https://sqlite.org/c3ref/c_stmtstatus_counter.html
+type StmtStatus uint32
+
+const (
+	STMTSTATUS_FULLSCAN_STEP StmtStatus = 1
+	STMTSTATUS_SORT          StmtStatus = 2
+	STMTSTATUS_AUTOINDEX     StmtStatus = 3
+	STMTSTATUS_VM_STEP       StmtStatus = 4
+	STMTSTATUS_REPREPARE     StmtStatus = 5
+	STMTSTATUS_RUN           StmtStatus = 6
+	STMTSTATUS_FILTER_MISS   StmtStatus = 7
+	STMTSTATUS_FILTER_HIT    StmtStatus = 8
+	STMTSTATUS_MEMUSED       StmtStatus = 99
+)
+
+// DBConfig are the available database connection configuration options.
+//
+// https://sqlite.org/c3ref/c_dbconfig_defensive.html
+type DBConfig uint32
+
+const (
+	// DBCONFIG_MAINDBNAME         DBConfig = 1000
+	// DBCONFIG_LOOKASIDE          DBConfig = 1001
+	DBCONFIG_ENABLE_FKEY           DBConfig = 1002
+	DBCONFIG_ENABLE_TRIGGER        DBConfig = 1003
+	DBCONFIG_ENABLE_FTS3_TOKENIZER DBConfig = 1004
+	DBCONFIG_ENABLE_LOAD_EXTENSION DBConfig = 1005
+	DBCONFIG_NO_CKPT_ON_CLOSE      DBConfig = 1006
+	DBCONFIG_ENABLE_QPSG           DBConfig = 1007
+	DBCONFIG_TRIGGER_EQP           DBConfig = 1008
+	DBCONFIG_RESET_DATABASE        DBConfig = 1009
+	DBCONFIG_DEFENSIVE             DBConfig = 1010
+	DBCONFIG_WRITABLE_SCHEMA       DBConfig = 1011
+	DBCONFIG_LEGACY_ALTER_TABLE    DBConfig = 1012
+	DBCONFIG_DQS_DML               DBConfig = 1013
+	DBCONFIG_DQS_DDL               DBConfig = 1014
+	DBCONFIG_ENABLE_VIEW           DBConfig = 1015
+	DBCONFIG_LEGACY_FILE_FORMAT    DBConfig = 1016
+	DBCONFIG_TRUSTED_SCHEMA        DBConfig = 1017
+	DBCONFIG_STMT_SCANSTATUS       DBConfig = 1018
+	DBCONFIG_REVERSE_SCANORDER     DBConfig = 1019
+)
+
+// LimitCategory are the available run-time limit categories.
+//
+// https://sqlite.org/c3ref/c_limit_attached.html
+type LimitCategory uint32
+
+const (
+	LIMIT_LENGTH              LimitCategory = 0
+	LIMIT_SQL_LENGTH          LimitCategory = 1
+	LIMIT_COLUMN              LimitCategory = 2
+	LIMIT_EXPR_DEPTH          LimitCategory = 3
+	LIMIT_COMPOUND_SELECT     LimitCategory = 4
+	LIMIT_VDBE_OP             LimitCategory = 5
+	LIMIT_FUNCTION_ARG        LimitCategory = 6
+	LIMIT_ATTACHED            LimitCategory = 7
+	LIMIT_LIKE_PATTERN_LENGTH LimitCategory = 8
+	LIMIT_VARIABLE_NUMBER     LimitCategory = 9
+	LIMIT_TRIGGER_DEPTH       LimitCategory = 10
+	LIMIT_WORKER_THREADS      LimitCategory = 11
+)
+
+// AuthorizerActionCode are the integer action codes
+// that the authorizer callback may be passed.
+//
+// https://sqlite.org/c3ref/c_alter_table.html
+type AuthorizerActionCode uint32
+
+const (
+	/***************************************************** 3rd ************ 4th ***********/
+	AUTH_CREATE_INDEX        AuthorizerActionCode = 1  /* Index Name      Table Name      */
+	AUTH_CREATE_TABLE        AuthorizerActionCode = 2  /* Table Name      NULL            */
+	AUTH_CREATE_TEMP_INDEX   AuthorizerActionCode = 3  /* Index Name      Table Name      */
+	AUTH_CREATE_TEMP_TABLE   AuthorizerActionCode = 4  /* Table Name      NULL            */
+	AUTH_CREATE_TEMP_TRIGGER AuthorizerActionCode = 5  /* Trigger Name    Table Name      */
+	AUTH_CREATE_TEMP_VIEW    AuthorizerActionCode = 6  /* View Name       NULL            */
+	AUTH_CREATE_TRIGGER      AuthorizerActionCode = 7  /* Trigger Name    Table Name      */
+	AUTH_CREATE_VIEW         AuthorizerActionCode = 8  /* View Name       NULL            */
+	AUTH_DELETE              AuthorizerActionCode = 9  /* Table Name      NULL            */
+	AUTH_DROP_INDEX          AuthorizerActionCode = 10 /* Index Name      Table Name      */
+	AUTH_DROP_TABLE          AuthorizerActionCode = 11 /* Table Name      NULL            */
+	AUTH_DROP_TEMP_INDEX     AuthorizerActionCode = 12 /* Index Name      Table Name      */
+	AUTH_DROP_TEMP_TABLE     AuthorizerActionCode = 13 /* Table Name      NULL            */
+	AUTH_DROP_TEMP_TRIGGER   AuthorizerActionCode = 14 /* Trigger Name    Table Name      */
+	AUTH_DROP_TEMP_VIEW      AuthorizerActionCode = 15 /* View Name       NULL            */
+	AUTH_DROP_TRIGGER        AuthorizerActionCode = 16 /* Trigger Name    Table Name      */
+	AUTH_DROP_VIEW           AuthorizerActionCode = 17 /* View Name       NULL            */
+	AUTH_INSERT              AuthorizerActionCode = 18 /* Table Name      NULL            */
+	AUTH_PRAGMA              AuthorizerActionCode = 19 /* Pragma Name     1st arg or NULL */
+	AUTH_READ                AuthorizerActionCode = 20 /* Table Name      Column Name     */
+	AUTH_SELECT              AuthorizerActionCode = 21 /* NULL            NULL            */
+	AUTH_TRANSACTION         AuthorizerActionCode = 22 /* Operation       NULL            */
+	AUTH_UPDATE              AuthorizerActionCode = 23 /* Table Name      Column Name     */
+	AUTH_ATTACH              AuthorizerActionCode = 24 /* Filename        NULL            */
+	AUTH_DETACH              AuthorizerActionCode = 25 /* Database Name   NULL            */
+	AUTH_ALTER_TABLE         AuthorizerActionCode = 26 /* Database Name   Table Name      */
+	AUTH_REINDEX             AuthorizerActionCode = 27 /* Index Name      NULL            */
+	AUTH_ANALYZE             AuthorizerActionCode = 28 /* Table Name      NULL            */
+	AUTH_CREATE_VTABLE       AuthorizerActionCode = 29 /* Table Name      Module Name     */
+	AUTH_DROP_VTABLE         AuthorizerActionCode = 30 /* Table Name      Module Name     */
+	AUTH_FUNCTION            AuthorizerActionCode = 31 /* NULL            Function Name   */
+	AUTH_SAVEPOINT           AuthorizerActionCode = 32 /* Operation       Savepoint Name  */
+	AUTH_COPY                AuthorizerActionCode = 0  /* No longer used */
+	AUTH_RECURSIVE           AuthorizerActionCode = 33 /* NULL            NULL            */
+)
+
+// AuthorizerReturnCode are the integer codes
+// that the authorizer callback may return.
+//
+// https://sqlite.org/c3ref/c_deny.html
+type AuthorizerReturnCode uint32
+
+const (
+	AUTH_OK     AuthorizerReturnCode = 0
+	AUTH_DENY   AuthorizerReturnCode = 1 /* Abort the SQL statement with an error */
+	AUTH_IGNORE AuthorizerReturnCode = 2 /* Don't allow access, but don't generate an error */
+)
+
+// CheckpointMode are all the checkpoint mode values.
+//
+// https://sqlite.org/c3ref/c_checkpoint_full.html
+type CheckpointMode uint32
+
+const (
+	CHECKPOINT_PASSIVE  CheckpointMode = 0 /* Do as much as possible w/o blocking */
+	CHECKPOINT_FULL     CheckpointMode = 1 /* Wait for writers, then checkpoint */
+	CHECKPOINT_RESTART  CheckpointMode = 2 /* Like FULL but wait for readers */
+	CHECKPOINT_TRUNCATE CheckpointMode = 3 /* Like RESTART but also truncate WAL */
+)
+
+// TxnState are the allowed return values from [Conn.TxnState].
+//
+// https://sqlite.org/c3ref/c_txn_none.html
+type TxnState uint32
+
+const (
+	TXN_NONE  TxnState = 0
+	TXN_READ  TxnState = 1
+	TXN_WRITE TxnState = 2
+)
+
 // Datatype is a fundamental datatype of SQLite.
 //
-// https://www.sqlite.org/c3ref/c_blob.html
+// https://sqlite.org/c3ref/c_blob.html
 type Datatype uint32
 
 const (
@@ -182,18 +343,18 @@ const (
 
 // String implements the [fmt.Stringer] interface.
 func (t Datatype) String() string {
-	const name = "INTEGERFLOATTEXTBLOBNULL"
+	const name = "INTEGERFLOATEXTBLOBNULL"
 	switch t {
 	case INTEGER:
 		return name[0:7]
 	case FLOAT:
 		return name[7:12]
 	case TEXT:
-		return name[12:16]
+		return name[11:15]
 	case BLOB:
-		return name[16:20]
+		return name[15:19]
 	case NULL:
-		return name[20:24]
+		return name[19:23]
 	}
 	return strconv.FormatUint(uint64(t), 10)
 }

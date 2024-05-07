@@ -19,7 +19,7 @@ require (
 	github.com/chromedp/cdproto v0.0.0-20240426225625-909263490071
 	github.com/chromedp/chromedp v0.9.5
 	github.com/fatih/color v1.16.0
-	github.com/glebarez/sqlite v1.10.0
+	github.com/glebarez/sqlite v1.11.0
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/golang/protobuf v1.5.4
 	github.com/google/uuid v1.6.0
@@ -34,14 +34,14 @@ require (
 	github.com/miekg/dns v1.1.59
 	github.com/moloch--/asciicast v0.1.0
 	github.com/moloch--/memmod v0.0.0-20230225130813-fd77d905589e
-	github.com/ncruces/go-sqlite3 v0.7.2
+	github.com/ncruces/go-sqlite3 v0.15.0
 	github.com/reeflective/console v0.1.15
 	github.com/reeflective/readline v1.0.14
 	github.com/rsteube/carapace v0.46.3-0.20231214181515-27e49f3c3b69
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	github.com/tetratelabs/wazero v1.7.1
 	github.com/things-go/go-socks5 v0.0.5
 	github.com/ulikunitz/xz v0.5.12
@@ -52,7 +52,7 @@ require (
 	golang.org/x/net v0.24.0
 	golang.org/x/sys v0.19.0
 	golang.org/x/term v0.19.0
-	golang.org/x/text v0.14.0
+	golang.org/x/text v0.15.0
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230429144221-925a1e7659e6
 	google.golang.org/grpc v1.63.2
@@ -150,7 +150,7 @@ require (
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/mitchellh/go-ps v1.0.0 // indirect
 	github.com/ncruces/go-strftime v0.1.9 // indirect
-	github.com/ncruces/julianday v0.1.5 // indirect
+	github.com/ncruces/julianday v1.0.0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.21 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect

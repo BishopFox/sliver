@@ -12,7 +12,7 @@ var (
 // If there is no match, nil is returned.
 // If name is empty, the default VFS is returned.
 //
-// https://www.sqlite.org/c3ref/vfs_find.html
+// https://sqlite.org/c3ref/vfs_find.html
 func Find(name string) VFS {
 	if name == "" || name == "os" {
 		return vfsOS{}
@@ -23,8 +23,9 @@ func Find(name string) VFS {
 }
 
 // Register registers a VFS.
+// Empty and "os" are reserved names.
 //
-// https://www.sqlite.org/c3ref/vfs_find.html
+// https://sqlite.org/c3ref/vfs_find.html
 func Register(name string, vfs VFS) {
 	if name == "" || name == "os" {
 		return
@@ -39,7 +40,7 @@ func Register(name string, vfs VFS) {
 
 // Unregister unregisters a VFS.
 //
-// https://www.sqlite.org/c3ref/vfs_find.html
+// https://sqlite.org/c3ref/vfs_find.html
 func Unregister(name string) {
 	vfsRegistryMtx.Lock()
 	defer vfsRegistryMtx.Unlock()
