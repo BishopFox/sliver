@@ -816,6 +816,8 @@ func getRemoteAddr(req *http.Request) string {
 			if len(ips) > 0 {
 				// Extracts original client ip address
 				ipAddress = strings.TrimSpace(ips[0])
+			} else {
+				ipAddress = xForwardedFor
 			}
 		}
 	}
