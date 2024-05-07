@@ -810,7 +810,16 @@ func newHTTPSessionID() string {
 func getRemoteAddr(req *http.Request) string {
 	ipAddress := req.Header.Get("X-Real-Ip")
 	if ipAddress == "" {
-		ipAddress = req.Header.Get("X-Forwarded-For")
+		xForwardedFor := req.Header.Get("X-Forwarded-For")
+		if xForwardedFor != "" {
+			ips := strings.Split(xForwardedFor, ",")
+			if len(ips) > 0 {
+				// Extracts original client ip address
+				ipAddress = strings.TrimSpace(ips[0])
+			} else {
+				ipAddress = xForwardedFor
+			}
+		}
 	}
 	if ipAddress == "" {
 		return req.RemoteAddr
