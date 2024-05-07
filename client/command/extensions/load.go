@@ -647,8 +647,12 @@ func PrintExtOutput(extName string, commandName string, outputSchema *packages.O
 			// Get output schema
 			schema := packages.GetNewPackageOutput(outputSchema.Name)
 			if schema != nil {
-				schema.IngestData(callExtension.Output, outputSchema.Columns(), outputSchema.GroupBy)
-				con.Printf("%s\n", schema.CreateTable())
+				ingestErr := schema.IngestData(callExtension.Output, outputSchema.Columns(), outputSchema.GroupBy)
+				if ingestErr != nil {
+					con.PrintInfof("Got output:\n%s", callExtension.Output)
+				} else {
+					con.Printf("%s\n", schema.CreateTable())
+				}
 			} else {
 				con.PrintInfof("Got output:\n%s", callExtension.Output)
 			}

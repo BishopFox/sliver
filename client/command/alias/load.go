@@ -494,7 +494,10 @@ func getOutputWithSchema(schema *packages.OutputSchema, result string) string {
 		return result
 	}
 
-	outputSchema.IngestData([]byte(result), schema.Columns(), schema.GroupBy)
+	err := outputSchema.IngestData([]byte(result), schema.Columns(), schema.GroupBy)
+	if err != nil {
+		return result
+	}
 	return outputSchema.CreateTable()
 }
 
