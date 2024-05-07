@@ -227,7 +227,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverClient) {
 			con.PrintErrorf("Failed to decode task response: %s\n", err)
 			return
 		}
-		extensions.PrintExtOutput("", "", callExtension, con)
+		extensions.PrintExtOutput("", "", nil, callExtension, con)
 
 	// ---------------------
 	// Exec commands
