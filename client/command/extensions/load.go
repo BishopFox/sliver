@@ -39,6 +39,7 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/packages"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
@@ -92,14 +93,15 @@ type ExtensionManifest struct {
 }
 
 type ExtCommand struct {
-	CommandName string               `json:"command_name"`
-	Help        string               `json:"help"`
-	LongHelp    string               `json:"long_help"`
-	Files       []*extensionFile     `json:"files"`
-	Arguments   []*extensionArgument `json:"arguments"`
-	Entrypoint  string               `json:"entrypoint"`
-	DependsOn   string               `json:"depends_on"`
-	Init        string               `json:"init"`
+	CommandName string                 `json:"command_name"`
+	Help        string                 `json:"help"`
+	LongHelp    string                 `json:"long_help"`
+	Files       []*extensionFile       `json:"files"`
+	Arguments   []*extensionArgument   `json:"arguments"`
+	Entrypoint  string                 `json:"entrypoint"`
+	DependsOn   string                 `json:"depends_on"`
+	Init        string                 `json:"init"`
+	Schema      *packages.OutputSchema `json:"schema"`
 
 	Manifest *ExtensionManifest
 }
@@ -201,6 +203,7 @@ func convertOldManifest(old *ExtensionManifest_) *ExtensionManifest {
 				Entrypoint:  old.Entrypoint,
 				Files:       old.Files,
 				Arguments:   old.Arguments,
+				Schema:      nil,
 			},
 		},
 	}
@@ -228,9 +231,13 @@ func ParseExtensionManifest(data []byte) (*ExtensionManifest, error) {
 		//yes, ok, lets jigger it to a new manifest
 		extManifest = convertOldManifest(oldmanifest)
 	}
-	//pass ref to manifest to each command
+	//pass ref to manifest to each command and initialize output schema if applicable
 	for i := range extManifest.ExtCommand {
-		extManifest.ExtCommand[i].Manifest = extManifest
+		command := extManifest.ExtCommand[i]
+		command.Manifest = extManifest
+		if command.Schema != nil {
+			command.Schema.IngestColumns()
+		}
 	}
 	return extManifest, validManifest(extManifest)
 }
@@ -262,6 +269,11 @@ func validManifest(manifest *ExtensionManifest) error {
 		}
 		if extManifest.Help == "" {
 			return errors.New("missing `help` field in extension manifest")
+		}
+		if extManifest.Schema != nil {
+			if !packages.IsValidSchemaType(extManifest.Schema.Name) {
+				return fmt.Errorf("%s is not a valid schema type", extManifest.Schema.Name)
+			}
 		}
 	}
 	return nil
@@ -613,23 +625,38 @@ func runExtensionCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 				con.PrintErrorf("Failed to decode call ext response %s\n", err)
 				return
 			}
-			PrintExtOutput(extName, ext.CommandName, callExtResp, con)
+			PrintExtOutput(extName, ext.CommandName, ext.Schema, callExtResp, con)
 		})
 		con.PrintAsyncResponse(callExtResp.Response)
 	} else {
-		PrintExtOutput(extName, ext.CommandName, callExtResp, con)
+		PrintExtOutput(extName, ext.CommandName, ext.Schema, callExtResp, con)
 	}
 }
 
 // PrintExtOutput - Print the ext execution output.
-func PrintExtOutput(extName string, commandName string, callExtension *sliverpb.CallExtension, con *console.SliverClient) {
+func PrintExtOutput(extName string, commandName string, outputSchema *packages.OutputSchema, callExtension *sliverpb.CallExtension, con *console.SliverClient) {
 	if extName == commandName {
-		con.PrintInfof("Successfully executed %s", extName)
+		con.PrintInfof("Successfully executed %s\n", extName)
 	} else {
-		con.PrintInfof("Successfully executed %s (%s)", commandName, extName)
+		con.PrintInfof("Successfully executed %s (%s)\n", commandName, extName)
 	}
 	if 0 < len(string(callExtension.Output)) {
-		con.PrintInfof("Got output:\n%s", callExtension.Output)
+		if outputSchema == nil {
+			con.PrintInfof("Got output:\n%s", callExtension.Output)
+		} else {
+			// Get output schema
+			schema := packages.GetNewPackageOutput(outputSchema.Name)
+			if schema != nil {
+				ingestErr := schema.IngestData(callExtension.Output, outputSchema.Columns(), outputSchema.GroupBy)
+				if ingestErr != nil {
+					con.PrintInfof("Got output:\n%s", callExtension.Output)
+				} else {
+					con.Printf("%s\n", schema.CreateTable())
+				}
+			} else {
+				con.PrintInfof("Got output:\n%s", callExtension.Output)
+			}
+		}
 	}
 	if callExtension.Response != nil && callExtension.Response.Err != "" {
 		con.PrintErrorf(callExtension.Response.Err)

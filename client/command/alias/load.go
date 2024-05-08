@@ -32,6 +32,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/packages"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
@@ -85,12 +86,13 @@ type AliasManifest struct {
 	Help           string `json:"help"`
 	LongHelp       string `json:"long_help"`
 
-	Entrypoint   string       `json:"entrypoint"`
-	AllowArgs    bool         `json:"allow_args"`
-	DefaultArgs  string       `json:"default_args"`
-	Files        []*AliasFile `json:"files"`
-	IsReflective bool         `json:"is_reflective"`
-	IsAssembly   bool         `json:"is_assembly"`
+	Entrypoint   string                 `json:"entrypoint"`
+	AllowArgs    bool                   `json:"allow_args"`
+	DefaultArgs  string                 `json:"default_args"`
+	Files        []*AliasFile           `json:"files"`
+	IsReflective bool                   `json:"is_reflective"`
+	IsAssembly   bool                   `json:"is_assembly"`
+	Schema       *packages.OutputSchema `json:"schema"`
 
 	RootPath   string `json:"-"`
 	ArmoryName string `json:"-"`
@@ -237,6 +239,13 @@ func ParseAliasManifest(data []byte) (*AliasManifest, error) {
 		if aliasFile.Path == "" || aliasFile.Path == "/" {
 			return nil, fmt.Errorf("missing command.files.path in alias manifest")
 		}
+	}
+
+	if alias.Schema != nil {
+		if !packages.IsValidSchemaType(alias.Schema.Name) {
+			return nil, fmt.Errorf("%s is not a valid schema type", alias.Schema.Name)
+		}
+		alias.Schema.IngestColumns()
 	}
 
 	return alias, nil
@@ -387,11 +396,11 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 					con.PrintErrorf("Failed to decode call ext response %s\n", err)
 					return
 				}
-				PrintAssemblyOutput(cmd.Name(), executeAssemblyResp, outFilePath, con)
+				PrintAssemblyOutput(cmd.Name(), aliasManifest.Schema, executeAssemblyResp, outFilePath, con)
 			})
 			con.PrintAsyncResponse(executeAssemblyResp.Response)
 		} else {
-			PrintAssemblyOutput(cmd.Name(), executeAssemblyResp, outFilePath, con)
+			PrintAssemblyOutput(cmd.Name(), aliasManifest.Schema, executeAssemblyResp, outFilePath, con)
 		}
 
 	} else if aliasManifest.IsReflective {
@@ -426,11 +435,11 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 					con.PrintErrorf("Failed to decode call ext response %s\n", err)
 					return
 				}
-				PrintSpawnDLLOutput(cmd.Name(), spawnDllResp, outFilePath, con)
+				PrintSpawnDLLOutput(cmd.Name(), aliasManifest.Schema, spawnDllResp, outFilePath, con)
 			})
 			con.PrintAsyncResponse(spawnDllResp.Response)
 		} else {
-			PrintSpawnDLLOutput(cmd.Name(), spawnDllResp, outFilePath, con)
+			PrintSpawnDLLOutput(cmd.Name(), aliasManifest.Schema, spawnDllResp, outFilePath, con)
 		}
 
 	} else {
@@ -466,18 +475,44 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 					con.PrintErrorf("Failed to decode call ext response %s\n", err)
 					return
 				}
-				PrintSideloadOutput(cmd.Name(), sideloadResp, outFilePath, con)
+				PrintSideloadOutput(cmd.Name(), aliasManifest.Schema, sideloadResp, outFilePath, con)
 			})
 			con.PrintAsyncResponse(sideloadResp.Response)
 		} else {
-			PrintSideloadOutput(cmd.Name(), sideloadResp, outFilePath, con)
+			PrintSideloadOutput(cmd.Name(), aliasManifest.Schema, sideloadResp, outFilePath, con)
 		}
 	}
 }
 
+func getOutputWithSchema(schema *packages.OutputSchema, result string) string {
+	if schema == nil {
+		return result
+	}
+
+	outputSchema := packages.GetNewPackageOutput(schema.Name)
+	if outputSchema == nil {
+		return result
+	}
+
+	err := outputSchema.IngestData([]byte(result), schema.Columns(), schema.GroupBy)
+	if err != nil {
+		return result
+	}
+	return outputSchema.CreateTable()
+}
+
 // PrintSpawnDLLOutput - Prints the output of a spawn dll command.
-func PrintSpawnDLLOutput(cmdName string, spawnDllResp *sliverpb.SpawnDll, outFilePath *os.File, con *console.SliverClient) {
-	con.PrintInfof("%s output:\n%s", cmdName, spawnDllResp.GetResult())
+func PrintSpawnDLLOutput(cmdName string, schema *packages.OutputSchema, spawnDllResp *sliverpb.SpawnDll, outFilePath *os.File, con *console.SliverClient) {
+	var result string
+
+	if schema != nil {
+		result = getOutputWithSchema(schema, spawnDllResp.GetResult())
+	} else {
+		result = spawnDllResp.GetResult()
+	}
+	con.PrintInfof("%s output:\n%s", cmdName, result)
+
+	// Output the raw result to the file
 	if outFilePath != nil {
 		outFilePath.WriteString(spawnDllResp.GetResult())
 		con.PrintInfof("Output saved to %s\n", outFilePath.Name())
@@ -485,8 +520,17 @@ func PrintSpawnDLLOutput(cmdName string, spawnDllResp *sliverpb.SpawnDll, outFil
 }
 
 // PrintSideloadOutput - Prints the output of a sideload command.
-func PrintSideloadOutput(cmdName string, sideloadResp *sliverpb.Sideload, outFilePath *os.File, con *console.SliverClient) {
-	con.PrintInfof("%s output:\n%s", cmdName, sideloadResp.GetResult())
+func PrintSideloadOutput(cmdName string, schema *packages.OutputSchema, sideloadResp *sliverpb.Sideload, outFilePath *os.File, con *console.SliverClient) {
+	var result string
+
+	if schema != nil {
+		result = getOutputWithSchema(schema, sideloadResp.GetResult())
+	} else {
+		result = sideloadResp.GetResult()
+	}
+	con.PrintInfof("%s output:\n%s", cmdName, result)
+
+	// Output the raw result to the file
 	if outFilePath != nil {
 		outFilePath.WriteString(sideloadResp.GetResult())
 		con.PrintInfof("Output saved to %s\n", outFilePath.Name())
@@ -494,8 +538,17 @@ func PrintSideloadOutput(cmdName string, sideloadResp *sliverpb.Sideload, outFil
 }
 
 // PrintAssemblyOutput - Prints the output of an execute-assembly command.
-func PrintAssemblyOutput(cmdName string, execAsmResp *sliverpb.ExecuteAssembly, outFilePath *os.File, con *console.SliverClient) {
-	con.PrintInfof("%s output:\n%s", cmdName, string(execAsmResp.GetOutput()))
+func PrintAssemblyOutput(cmdName string, schema *packages.OutputSchema, execAsmResp *sliverpb.ExecuteAssembly, outFilePath *os.File, con *console.SliverClient) {
+	var result string
+
+	if schema != nil {
+		result = getOutputWithSchema(schema, string(execAsmResp.GetOutput()))
+	} else {
+		result = string(execAsmResp.GetOutput())
+	}
+	con.PrintInfof("%s output:\n%s", cmdName, result)
+
+	// Output the raw result to the file
 	if outFilePath != nil {
 		outFilePath.Write(execAsmResp.GetOutput())
 		con.PrintInfof("Output saved to %s\n", outFilePath.Name())
