@@ -36,6 +36,12 @@ const (
 	Failure = 1
 )
 
+type CallbacksPtr struct {
+	sendData  uintptr
+	onFinish  uintptr
+	sendError uintptr
+}
+
 type WindowsExtension struct {
 	id     string
 	data   []byte
@@ -43,12 +49,6 @@ type WindowsExtension struct {
 	arch   string
 	init   string
 	sync.Mutex
-}
-
-type Callbacks struct {
-	sendData  uintptr
-	onFinish  uintptr
-	sendError uintptr
 }
 
 // NewWindowsExtension - Load a new windows extension
@@ -98,18 +98,20 @@ func (w *WindowsExtension) Load() error {
 }
 
 // Call - Call an extension export
-func (w *WindowsExtension) Call(export string, arguments []byte, onFinish func([]byte)) error {
+func (w *WindowsExtension) Call(export string, arguments []byte, callbacks Callbacks) error {
 	var (
-		argumentsPtr  uintptr
-		argumentsSize uintptr
-		callbacksPtr  uintptr
-		callbacks     Callbacks
+		argumentsPtr       uintptr
+		argumentsSize      uintptr
+		callbacksPtr       CallbacksPtr
+		callbacksStructPtr uintptr
 	)
 	if w.module == nil {
 		return errors.New("{{if .Config.Debug}} module not loaded {{end}}")
 	}
-	callbacks.onFinish = syscall.NewCallback(newWindowsExtensionCallback(onFinish))
-	callbacksPtr = uintptr(unsafe.Pointer(&callbacks))
+	callbacksPtr.onFinish = syscall.NewCallback(newWindowsExtensionCallback(callbacks.OnFinish))
+	callbacksPtr.sendData = syscall.NewCallback(newWindowsExtensionCallback(callbacks.SendData))
+	callbacksPtr.sendError = syscall.NewCallback(newWindowsExtensionCallback(callbacks.SendError))
+	callbacksStructPtr = uintptr(unsafe.Pointer(&callbacks))
 
 	exportPtr, err := w.module.ProcAddressByName(export)
 	if err != nil {
@@ -127,7 +129,7 @@ func (w *WindowsExtension) Call(export string, arguments []byte, onFinish func([
 	// where goCallback = int(char *, int)
 	w.Lock()
 	defer w.Unlock()
-	_, _, errNo := syscall.Syscall(exportPtr, 3, argumentsPtr, argumentsSize, callbacksPtr)
+	_, _, errNo := syscall.Syscall(exportPtr, 3, argumentsPtr, argumentsSize, callbacksStructPtr)
 	if errNo != 0 {
 		return errors.New(errNo.Error())
 	}

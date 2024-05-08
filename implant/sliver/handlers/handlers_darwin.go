@@ -122,11 +122,32 @@ func callExtensionHandler(data []byte, resp RPCResponse) {
 		Response: &commonpb.Response{},
 	}
 	gotOutput := false
-	err = extension.Run(callReq.Name, callReq.Export, callReq.Args, func(out []byte) {
+
+	onFinish := func(out []byte) {
 		gotOutput = true
 		callResp.Output = out
 		data, err = proto.Marshal(callResp)
 		resp(data, err)
+	}
+
+	sendData := func(out []byte) {
+		gotOutput = true
+		callResp.Output = out
+		data, err = proto.Marshal(callResp)
+		resp(data, err)
+	}
+
+	sendError := func(out []byte) {
+		gotOutput = true
+		callResp.Output = out
+		data, err = proto.Marshal(callResp)
+		resp(data, err)
+	}
+
+	err = extension.Run(callReq.Name, callReq.Export, callReq.Args, extension.Callbacks{
+		OnFinish:  onFinish,
+		SendData:  sendData,
+		SendError: sendError,
 	})
 	// Only send back synchronously if there was an error
 	if err != nil || !gotOutput {

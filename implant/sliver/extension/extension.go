@@ -28,9 +28,15 @@ import (
 
 var extensions map[string]Extension
 
+type Callbacks struct {
+	SendData  func([]byte)
+	OnFinish  func([]byte)
+	SendError func([]byte)
+}
+
 type Extension interface {
 	Load() error
-	Call(exportName string, arguments []byte, callback func([]byte)) error
+	Call(exportName string, arguments []byte, callbacks Callbacks) error
 	GetID() string
 	GetArch() string
 }
@@ -47,9 +53,9 @@ func List() []string {
 	return extList
 }
 
-func Run(extID string, funcName string, arguments []byte, callback func([]byte)) error {
+func Run(extID string, funcName string, arguments []byte, callbacks Callbacks) error {
 	if ext, found := extensions[extID]; found {
-		return ext.Call(funcName, arguments, callback)
+		return ext.Call(funcName, arguments, callbacks)
 	}
 	// {{if .Config.Debug}}
 	for id, ext := range extensions {

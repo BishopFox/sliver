@@ -85,7 +85,7 @@ func (d *DarwinExtension) Load() error {
 	return nil
 }
 
-func (d *DarwinExtension) Call(export string, arguments []byte, onFinish func([]byte)) error {
+func (d *DarwinExtension) Call(export string, arguments []byte, callbacks Callbacks) error {
 	// We currently have 2 issues with Darwin extensions:
 	// - cppgo (used by universal) fucks up when calling a function with more than 1 argument
 	// - we don't have Go callback support for the loaded extension,
@@ -124,7 +124,7 @@ func (d *DarwinExtension) Call(export string, arguments []byte, onFinish func([]
 	// We currently don't have a way to trigger a callback
 	// in the loaded code for Darwin.
 	if outData.Len() > 0 {
-		onFinish(outData.Bytes())
+		callbacks.OnFinish(outData.Bytes())
 	}
 	return nil
 }
