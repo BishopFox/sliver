@@ -19,7 +19,9 @@ package cli
 */
 
 import (
+	"context"
 	"fmt"
+	"os"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command"
@@ -28,6 +30,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 )
 
 // consoleCmd generates the console with required pre/post runners.
@@ -70,6 +73,9 @@ func consoleRunnerCmd(con *console.SliverClient, run bool) (pre, post func(cmd *
 			return nil
 		}
 
+		// Wait for any connection state changes and exit if the connection is lost.
+		go handleConnectionLost(ln)
+
 		return console.StartClient(con, rpc, command.ServerCommands(con, nil), command.SliverCommands(con), run)
 	}
 
@@ -83,4 +89,17 @@ func consoleRunnerCmd(con *console.SliverClient, run bool) (pre, post func(cmd *
 	}
 
 	return pre, post
+}
+
+func handleConnectionLost(ln *grpc.ClientConn) {
+	currentState := ln.GetState()
+	// currentState should be "Ready" when the connection is established.
+	if ln.WaitForStateChange(context.Background(), currentState) {
+		newState := ln.GetState()
+		// newState will be "Idle" if the connection is lost.
+		if newState == connectivity.Idle {
+			fmt.Println("\nLost connection to server. Exiting now.")
+			os.Exit(1)
+		}
+	}
 }
