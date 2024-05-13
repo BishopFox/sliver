@@ -721,7 +721,7 @@ type tx struct {
 	c *conn
 }
 
-func newTx(c *conn, opts driver.TxOptions) (*tx, error) {
+func newTx(ctx context.Context, c *conn, opts driver.TxOptions) (*tx, error) {
 	r := &tx{c: c}
 
 	sql := "begin"
@@ -729,7 +729,7 @@ func newTx(c *conn, opts driver.TxOptions) (*tx, error) {
 		sql = "begin " + c.beginMode
 	}
 
-	if err := r.exec(context.Background(), sql); err != nil {
+	if err := r.exec(ctx, sql); err != nil {
 		return nil, err
 	}
 
@@ -1419,7 +1419,7 @@ func (c *conn) Begin() (dt driver.Tx, err error) {
 }
 
 func (c *conn) begin(ctx context.Context, opts driver.TxOptions) (t driver.Tx, err error) {
-	return newTx(c, opts)
+	return newTx(ctx, c, opts)
 }
 
 // Close invalidates and potentially stops any current prepared statements and

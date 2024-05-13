@@ -63,7 +63,7 @@ require (
 	gorm.io/driver/sqlite v1.5.5
 	gorm.io/gorm v1.25.10
 	gvisor.dev/gvisor v0.0.0-20240306221502-ee1e1f6070e3
-	modernc.org/sqlite v1.29.8
+	modernc.org/sqlite v1.29.9
 	tailscale.com v1.64.2
 )
 
