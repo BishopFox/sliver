@@ -258,7 +258,7 @@ func ImplantProfileByName(name string) (*clientpb.ImplantProfile, error) {
 		return nil, err
 	}
 	err = Session().Where(models.ImplantConfig{
-		ImplantProfileID: profile.ID,
+		ImplantProfileID: &profile.ID,
 	}).First(&config).Error
 	if err != nil {
 		return nil, err
