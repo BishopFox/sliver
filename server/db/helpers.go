@@ -367,7 +367,7 @@ func LoadHTTPC2ConfigByName(name string) (*clientpb.HTTPC2Config, error) {
 	// load headers
 	c2ImplantHeaders := []models.HttpC2Header{}
 	err = Session().Where(&models.HttpC2Header{
-		HttpC2ImplantConfigID: c2ImplantConfig.ID,
+		HttpC2ImplantConfigID: &c2ImplantConfig.ID,
 	}).Find(&c2ImplantHeaders).Error
 	if err != nil {
 		return nil, err
@@ -397,7 +397,7 @@ func LoadHTTPC2ConfigByName(name string) (*clientpb.HTTPC2Config, error) {
 	// load headers
 	c2ServerHeaders := []models.HttpC2Header{}
 	err = Session().Where(&models.HttpC2Header{
-		HttpC2ServerConfigID: c2ServerConfig.ID,
+		HttpC2ServerConfigID: &c2ServerConfig.ID,
 	}).Find(&c2ServerHeaders).Error
 	if err != nil {
 		return nil, err
@@ -471,7 +471,7 @@ func HTTPC2ConfigUpdate(newConf *clientpb.HTTPC2Config, oldConf *clientpb.HTTPC2
 	}
 
 	err = Session().Where(&models.HttpC2Header{
-		HttpC2ServerConfigID: serverID,
+		HttpC2ServerConfigID: &serverID,
 	}).Delete(&models.HttpC2Header{})
 	if err.Error != nil {
 		return err.Error
@@ -495,7 +495,7 @@ func HTTPC2ConfigUpdate(newConf *clientpb.HTTPC2Config, oldConf *clientpb.HTTPC2
 	}
 
 	for _, header := range c2Config.ServerConfig.Headers {
-		header.HttpC2ServerConfigID = serverID
+		header.HttpC2ServerConfigID = &serverID
 		err = Session().Clauses(clause.OnConflict{
 			UpdateAll: true,
 		}).Create(&header)
