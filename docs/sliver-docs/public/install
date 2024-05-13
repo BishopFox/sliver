@@ -22,8 +22,8 @@ elif command -v yum &> /dev/null; then # Redhat-based OS (Fedora, CentOS, RHEL)
 	INSTALLER=(yum -y)
 elif command -v pacman &>/dev/null; then # Arch-based (Manjaro, Garuda, Blackarch)
 	echo "Installing dependencies using pacman..."
-	pacman -S mingw-w64-gcc mingw-w64-binutils mingw-w64-headers
-    INSTALLER=(pacman -S)
+	pacman --noconfirm -S mingw-w64-gcc mingw-w64-binutils mingw-w64-headers
+    INSTALLER=(pacman --noconfirm -S)
 else
     echo "Unsupported OS, exiting"
     exit
