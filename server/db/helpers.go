@@ -27,6 +27,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -598,6 +599,9 @@ func DeleteListener(JobID uint32) error {
 	result := Session().Where(&models.ListenerJob{JobID: JobID}).First(&listener)
 	if result.Error != nil {
 		return result.Error
+	}
+	if listener == nil {
+		return fmt.Errorf("Job ID %d not found in database", JobID)
 	}
 	listenerID := listener.ID
 	switch listener.Type {
