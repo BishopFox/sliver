@@ -591,6 +591,32 @@ func ListenerJobs() ([]*clientpb.ListenerJob, error) {
 }
 
 func DeleteListener(JobID uint32) error {
+	// Determine which type of listener this is and delete its record from the corresponding table
+	var deleteErr error
+	// JobID is unique so if the JobID exists, it is the only record in the table with that JobID
+	listener := &models.ListenerJob{}
+	result := Session().Where(&models.ListenerJob{JobID: JobID}).First(&listener)
+	if result.Error != nil {
+		return result.Error
+	}
+	listenerID := listener.ID
+	switch listener.Type {
+	case constants.HttpStr, constants.HttpsStr:
+		deleteErr = Session().Where(&models.HTTPListener{ListenerJobID: listenerID}).Delete(&models.HTTPListener{}).Error
+	case constants.DnsStr:
+		deleteErr = Session().Where(&models.DNSListener{ListenerJobID: listenerID}).Delete(&models.DNSListener{}).Error
+	case constants.MtlsStr:
+		deleteErr = Session().Where(&models.MtlsListener{ListenerJobID: listenerID}).Delete(&models.MtlsListener{}).Error
+	case constants.WGStr:
+		deleteErr = Session().Where(&models.WGListener{ListenerJobID: listenerID}).Delete(&models.WGListener{}).Error
+	case constants.MultiplayerModeStr:
+		deleteErr = Session().Where(&models.MultiplayerListener{ListenerJobID: listenerID}).Delete(&models.MultiplayerListener{}).Error
+	}
+
+	if deleteErr != nil {
+		return deleteErr
+	}
+
 	return Session().Where(&models.ListenerJob{JobID: JobID}).Delete(&models.ListenerJob{}).Error
 }
 
