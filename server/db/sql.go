@@ -51,52 +51,52 @@ func newDBClient() *gorm.DB {
 	}
 
 	// We cannot pass all of these into AutoMigrate at once because if one fails, subsequent models will not be created
-	var allDBModels []interface{} = make([]interface{}, 0)
-
-	allDBModels = append(allDBModels, &models.HttpC2Header{})
-	allDBModels = append(allDBModels, &models.HttpC2ServerConfig{})
-	allDBModels = append(allDBModels, &models.HttpC2ImplantConfig{})
-	allDBModels = append(allDBModels, &models.HttpC2Config{})
-	allDBModels = append(allDBModels, &models.HttpC2URLParameter{})
-	allDBModels = append(allDBModels, &models.HttpC2PathSegment{})
-	allDBModels = append(allDBModels, &models.Beacon{})
-	allDBModels = append(allDBModels, &models.BeaconTask{})
-	allDBModels = append(allDBModels, &models.DNSCanary{})
-	allDBModels = append(allDBModels, &models.Crackstation{})
-	allDBModels = append(allDBModels, &models.Benchmark{})
-	allDBModels = append(allDBModels, &models.CrackTask{})
-	allDBModels = append(allDBModels, &models.CrackCommand{})
-	allDBModels = append(allDBModels, &models.CrackFile{})
-	allDBModels = append(allDBModels, &models.CrackFileChunk{})
-	allDBModels = append(allDBModels, &models.Certificate{})
-	allDBModels = append(allDBModels, &models.Host{})
-	allDBModels = append(allDBModels, &models.KeyValue{})
-	allDBModels = append(allDBModels, &models.WGKeys{})
-	allDBModels = append(allDBModels, &models.WGPeer{})
-	allDBModels = append(allDBModels, &models.ResourceID{})
-	allDBModels = append(allDBModels, &models.HttpC2Cookie{})
-	allDBModels = append(allDBModels, &models.IOC{})
-	allDBModels = append(allDBModels, &models.ExtensionData{})
-	allDBModels = append(allDBModels, &models.ImplantProfile{})
-	allDBModels = append(allDBModels, &models.ImplantConfig{})
-	allDBModels = append(allDBModels, &models.ImplantBuild{})
-	allDBModels = append(allDBModels, &models.ImplantC2{})
-	allDBModels = append(allDBModels, &models.EncoderAsset{})
-	allDBModels = append(allDBModels, &models.KeyExHistory{})
-	allDBModels = append(allDBModels, &models.CanaryDomain{})
-	allDBModels = append(allDBModels, &models.Loot{})
-	allDBModels = append(allDBModels, &models.Credential{})
-	allDBModels = append(allDBModels, &models.Operator{})
-	allDBModels = append(allDBModels, &models.Website{})
-	allDBModels = append(allDBModels, &models.WebContent{})
-	allDBModels = append(allDBModels, &models.ListenerJob{})
-	allDBModels = append(allDBModels, &models.HTTPListener{})
-	allDBModels = append(allDBModels, &models.DNSListener{})
-	allDBModels = append(allDBModels, &models.WGListener{})
-	allDBModels = append(allDBModels, &models.MultiplayerListener{})
-	allDBModels = append(allDBModels, &models.MtlsListener{})
-	allDBModels = append(allDBModels, &models.DnsDomain{})
-	allDBModels = append(allDBModels, &models.MonitoringProvider{})
+	var allDBModels []interface{} = append(make([]interface{}, 0),
+		&models.HttpC2Header{},
+		&models.HttpC2ServerConfig{},
+		&models.HttpC2ImplantConfig{},
+		&models.HttpC2Config{},
+		&models.HttpC2URLParameter{},
+		&models.HttpC2PathSegment{},
+		&models.Beacon{},
+		&models.BeaconTask{},
+		&models.DNSCanary{},
+		&models.Crackstation{},
+		&models.Benchmark{},
+		&models.CrackTask{},
+		&models.CrackCommand{},
+		&models.CrackFile{},
+		&models.CrackFileChunk{},
+		&models.Certificate{},
+		&models.Host{},
+		&models.KeyValue{},
+		&models.WGKeys{},
+		&models.WGPeer{},
+		&models.ResourceID{},
+		&models.HttpC2Cookie{},
+		&models.IOC{},
+		&models.ExtensionData{},
+		&models.ImplantProfile{},
+		&models.ImplantConfig{},
+		&models.ImplantBuild{},
+		&models.ImplantC2{},
+		&models.EncoderAsset{},
+		&models.KeyExHistory{},
+		&models.CanaryDomain{},
+		&models.Loot{},
+		&models.Credential{},
+		&models.Operator{},
+		&models.Website{},
+		&models.WebContent{},
+		&models.ListenerJob{},
+		&models.HTTPListener{},
+		&models.DNSListener{},
+		&models.WGListener{},
+		&models.MultiplayerListener{},
+		&models.MtlsListener{},
+		&models.DnsDomain{},
+		&models.MonitoringProvider{},
+	)
 
 	var err error
 
