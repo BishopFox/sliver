@@ -641,6 +641,9 @@ func DeleteProfile(name string) error {
 
 	uuid, _ := uuid.FromString(profile.Config.ID)
 
+	// delete linked ImplantC2
+	err = Session().Where(&models.ImplantC2{ImplantConfigID: uuid}).Delete(&models.ImplantC2{}).Error
+
 	// delete linked ImplantConfig
 	err = Session().Where(&models.ImplantConfig{ID: uuid}).Delete(&models.ImplantConfig{}).Error
 
