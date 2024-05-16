@@ -29,7 +29,7 @@ import (
 // Host - Represents a host machine
 type Host struct {
 	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	HostUUID  uuid.UUID `gorm:"type:uuid;"`
+	HostUUID  uuid.UUID `gorm:"type:uuid;unique"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
 	Hostname  string
