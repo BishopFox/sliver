@@ -1358,3 +1358,16 @@ func SaveResourceID(r *clientpb.ResourceID) error {
 	}
 	return nil
 }
+
+// Certificates
+func GetCertificateInfoByType(certType string) ([]*models.Certificate, error) {
+	certInfo := []*models.Certificate{}
+	dbSession := Session()
+
+	err := dbSession.Where(&models.Certificate{}).Find(&certInfo).Error
+	if err != nil {
+		return nil, err
+	}
+	// Processing of the data can occur at the caller. It does not need to happen here.
+	return certInfo, nil
+}
