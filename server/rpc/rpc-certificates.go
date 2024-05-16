@@ -46,6 +46,7 @@ func convertDatabaseRecordToProtobuf(record *models.Certificate) *clientpb.Certi
 	certData.ValidityExpiry = "Unknown (could not parse certificate)"
 
 	certData.CN = record.CommonName
+	certData.ID = record.ID.String()
 	certData.CreationTime = record.CreatedAt.Format(timeFormat)
 	switch record.CAType {
 	case certs.MtlsImplantCA:

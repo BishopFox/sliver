@@ -1319,6 +1319,7 @@ message CertificateData {
   string ValidityExpiry = 4;
   string Type = 5;
   string KeyAlgorithm = 6;
+  string ID = 7;
 }
 
 message CertificateInfo {

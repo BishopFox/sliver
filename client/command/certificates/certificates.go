@@ -11,6 +11,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 /*
@@ -65,16 +66,38 @@ func checkCertExpiry(expiryTime time.Time) string {
 }
 
 func printCertificateInfo(con *console.SliverClient, certData []*clientpb.CertificateData) {
+	// Get the terminal width
+	width, _, err := term.GetSize(0)
+	if err != nil {
+		width = 999
+	}
+
+	if len(certData) == 0 {
+		con.PrintWarnf("There are no certificates in the database.\n")
+		return
+	}
+
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
-	tw.AppendHeader(table.Row{
-		"Common Name",
-		"Creation Time",
-		"Certificate Type",
-		"Key Algorithm",
-		"Validity Start",
-		"Expires",
-	})
+	wideTermWidth := con.Settings.SmallTermWidth < width
+
+	if wideTermWidth {
+		tw.AppendHeader(table.Row{
+			"ID",
+			"Common Name",
+			"Creation Time",
+			"Certificate Type",
+			"Key Algorithm",
+			"Validity Start",
+			"Expires",
+		})
+	} else {
+		tw.AppendHeader(table.Row{
+			"ID",
+			"Common Name",
+			"Expires",
+		})
+	}
 
 	for _, cert := range certData {
 		rowColor := console.Normal
@@ -84,14 +107,24 @@ func printCertificateInfo(con *console.SliverClient, certData []*clientpb.Certif
 		if err == nil {
 			rowColor = checkCertExpiry(expiry)
 		}
-		tw.AppendRow(table.Row{
-			fmt.Sprintf(rowColor+"%s"+console.Normal, cert.CN),
-			fmt.Sprintf(rowColor+"%s"+console.Normal, cert.CreationTime),
-			fmt.Sprintf(rowColor+"%s"+console.Normal, cert.Type),
-			fmt.Sprintf(rowColor+"%s"+console.Normal, cert.KeyAlgorithm),
-			fmt.Sprintf(rowColor+"%s"+console.Normal, cert.ValidityStart),
-			fmt.Sprintf(rowColor+"%s"+console.Normal, cert.ValidityExpiry),
-		})
+		if wideTermWidth {
+			tw.AppendRow(table.Row{
+				fmt.Sprintf(rowColor+"%s"+console.Normal, cert.ID),
+				fmt.Sprintf(rowColor+"%s"+console.Normal, cert.CN),
+				fmt.Sprintf(rowColor+"%s"+console.Normal, cert.CreationTime),
+				fmt.Sprintf(rowColor+"%s"+console.Normal, cert.Type),
+				fmt.Sprintf(rowColor+"%s"+console.Normal, cert.KeyAlgorithm),
+				fmt.Sprintf(rowColor+"%s"+console.Normal, cert.ValidityStart),
+				fmt.Sprintf(rowColor+"%s"+console.Normal, cert.ValidityExpiry),
+			})
+		} else {
+			tw.AppendRow(table.Row{
+				fmt.Sprintf(rowColor+"%s"+console.Normal, cert.ID),
+				fmt.Sprintf(rowColor+"%s"+console.Normal, cert.CN),
+				fmt.Sprintf(rowColor+"%s"+console.Normal, cert.ValidityExpiry),
+			})
+		}
+
 	}
 
 	tw.SortBy([]table.SortBy{{Name: "Expires", Mode: table.Dsc}})
