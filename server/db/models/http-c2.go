@@ -203,9 +203,9 @@ func (h *HttpC2Cookie) ToProtobuf() *clientpb.HTTPC2Cookie {
 
 // HttpC2Header - HTTP C2 Header (server and implant)
 type HttpC2Header struct {
-	ID                    uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	HttpC2ServerConfigID  uuid.UUID `gorm:"type:uuid;"`
-	HttpC2ImplantConfigID uuid.UUID `gorm:"type:uuid;"`
+	ID                    uuid.UUID  `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	HttpC2ServerConfigID  *uuid.UUID `gorm:"type:uuid;"`
+	HttpC2ImplantConfigID *uuid.UUID `gorm:"type:uuid;"`
 
 	Method      string
 	Name        string
