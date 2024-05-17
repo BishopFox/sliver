@@ -107,7 +107,7 @@ service SliverRPC {
   rpc Builders(commonpb.Empty) returns (clientpb.Builders);
 
   // *** Certificates ***
-  rpc GetCertificateInfo(commonpb.Empty) returns (clientpb.CertificateInfo);
+  rpc GetCertificateInfo(clientpb.CertificatesReq) returns (clientpb.CertificateInfo);
 
   // *** Crackstation ***
   rpc CrackstationRegister(clientpb.Crackstation)

@@ -8,7 +8,6 @@ import (
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -36,9 +35,58 @@ const (
 	timeFormat = "2006-01-02 15:04:05 UTC-0700"
 )
 
+// Defining the transport filters
+const (
+	MTLSTransport uint32 = 1 << iota
+	HTTPSTransport
+	AllTransports
+)
+
+// Defining the role filters
+const (
+	// Provide some separation between the options so that we do not have duplicate combinations
+	ServerRole uint32 = 8 << iota
+	ImplantRole
+	AllRoles
+)
+
 func CertificateInfoCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+	// Since we are sending this value in a protobuf, we will give it a fixed bit size
+	// 32 is the smallest we can go
+	var chosenOptions uint32
+
+	if cmd.Flags().Changed("mtls") {
+		if cmd.Flags().Changed("https") {
+			chosenOptions = AllTransports
+		} else {
+			chosenOptions = MTLSTransport
+		}
+	} else if cmd.Flags().Changed("https") {
+		chosenOptions = HTTPSTransport
+	} else {
+		chosenOptions = AllTransports
+	}
+
+	if cmd.Flags().Changed("server") {
+		if cmd.Flags().Changed("implant") {
+			chosenOptions |= AllRoles
+		} else {
+			chosenOptions |= ServerRole
+		}
+	} else if cmd.Flags().Changed("implant") {
+		chosenOptions |= ImplantRole
+	} else {
+		chosenOptions |= AllRoles
+	}
+
+	request := &clientpb.CertificatesReq{
+		CategoryFilters: chosenOptions,
+	}
+
+	request.CN, _ = cmd.Flags().GetString("cn")
+
 	// Ask the server for information about certificates
-	certificateInfo, err := con.Rpc.GetCertificateInfo(context.Background(), &commonpb.Empty{})
+	certificateInfo, err := con.Rpc.GetCertificateInfo(context.Background(), request)
 	if err != nil {
 		con.PrintErrorf("could not get certificate information from database: %s", err.Error())
 		return
@@ -73,7 +121,7 @@ func printCertificateInfo(con *console.SliverClient, certData []*clientpb.Certif
 	}
 
 	if len(certData) == 0 {
-		con.PrintWarnf("There are no certificates in the database.\n")
+		con.PrintWarnf("There are no certificates in the database matching the given parameters.\n")
 		return
 	}
 

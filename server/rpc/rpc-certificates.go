@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
@@ -85,10 +84,10 @@ func convertDatabaseRecordToProtobuf(record *models.Certificate) *clientpb.Certi
 	return certData
 }
 
-func (rpc *Server) GetCertificateInfo(ctx context.Context, req *commonpb.Empty) (*clientpb.CertificateInfo, error) {
+func (rpc *Server) GetCertificateInfo(ctx context.Context, req *clientpb.CertificatesReq) (*clientpb.CertificateInfo, error) {
 	certInfo := clientpb.CertificateInfo{}
 
-	certInfoDB, err := db.GetCertificateInfoByType("")
+	certInfoDB, err := db.GetCertificateInfo(req.CategoryFilters, req.CN)
 	if err != nil {
 		return nil, err
 	}

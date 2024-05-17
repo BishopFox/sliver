@@ -99,7 +99,7 @@ type SliverRPCClient interface {
 	BuilderTrigger(ctx context.Context, in *clientpb.Event, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	Builders(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Builders, error)
 	// *** Certificates ***
-	GetCertificateInfo(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.CertificateInfo, error)
+	GetCertificateInfo(ctx context.Context, in *clientpb.CertificatesReq, opts ...grpc.CallOption) (*clientpb.CertificateInfo, error)
 	// *** Crackstation ***
 	CrackstationRegister(ctx context.Context, in *clientpb.Crackstation, opts ...grpc.CallOption) (SliverRPC_CrackstationRegisterClient, error)
 	CrackstationTrigger(ctx context.Context, in *clientpb.Event, opts ...grpc.CallOption) (*commonpb.Empty, error)
@@ -808,7 +808,7 @@ func (c *sliverRPCClient) Builders(ctx context.Context, in *commonpb.Empty, opts
 	return out, nil
 }
 
-func (c *sliverRPCClient) GetCertificateInfo(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.CertificateInfo, error) {
+func (c *sliverRPCClient) GetCertificateInfo(ctx context.Context, in *clientpb.CertificatesReq, opts ...grpc.CallOption) (*clientpb.CertificateInfo, error) {
 	out := new(clientpb.CertificateInfo)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GetCertificateInfo", in, out, opts...)
 	if err != nil {
@@ -2101,7 +2101,7 @@ type SliverRPCServer interface {
 	BuilderTrigger(context.Context, *clientpb.Event) (*commonpb.Empty, error)
 	Builders(context.Context, *commonpb.Empty) (*clientpb.Builders, error)
 	// *** Certificates ***
-	GetCertificateInfo(context.Context, *commonpb.Empty) (*clientpb.CertificateInfo, error)
+	GetCertificateInfo(context.Context, *clientpb.CertificatesReq) (*clientpb.CertificateInfo, error)
 	// *** Crackstation ***
 	CrackstationRegister(*clientpb.Crackstation, SliverRPC_CrackstationRegisterServer) error
 	CrackstationTrigger(context.Context, *clientpb.Event) (*commonpb.Empty, error)
@@ -2417,7 +2417,7 @@ func (UnimplementedSliverRPCServer) BuilderTrigger(context.Context, *clientpb.Ev
 func (UnimplementedSliverRPCServer) Builders(context.Context, *commonpb.Empty) (*clientpb.Builders, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Builders not implemented")
 }
-func (UnimplementedSliverRPCServer) GetCertificateInfo(context.Context, *commonpb.Empty) (*clientpb.CertificateInfo, error) {
+func (UnimplementedSliverRPCServer) GetCertificateInfo(context.Context, *clientpb.CertificatesReq) (*clientpb.CertificateInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCertificateInfo not implemented")
 }
 func (UnimplementedSliverRPCServer) CrackstationRegister(*clientpb.Crackstation, SliverRPC_CrackstationRegisterServer) error {
@@ -3843,7 +3843,7 @@ func _SliverRPC_Builders_Handler(srv interface{}, ctx context.Context, dec func(
 }
 
 func _SliverRPC_GetCertificateInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(commonpb.Empty)
+	in := new(clientpb.CertificatesReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -3855,7 +3855,7 @@ func _SliverRPC_GetCertificateInfo_Handler(srv interface{}, ctx context.Context,
 		FullMethod: "/rpcpb.SliverRPC/GetCertificateInfo",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SliverRPCServer).GetCertificateInfo(ctx, req.(*commonpb.Empty))
+		return srv.(SliverRPCServer).GetCertificateInfo(ctx, req.(*clientpb.CertificatesReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }

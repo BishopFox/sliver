@@ -19,10 +19,12 @@ package certificates
 */
 
 import (
+	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 func Commands(con *console.SliverClient) []*cobra.Command {
@@ -35,6 +37,13 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		},
 		GroupID: consts.GenericHelpGroup,
 	}
+	flags.Bind(consts.CertificatesStr, false, certificatesCmd, func(f *pflag.FlagSet) {
+		f.BoolP("mtls", "m", false, "Only show MTLS certificates")
+		f.BoolP("https", "p", false, "Only show HTTPS certificates")
+		f.BoolP("implant", "i", false, "Only show implant certificates")
+		f.BoolP("server", "s", false, "Only show server certificates")
+		f.StringP("cn", "c", "", "Only show certificate information for a provided common name")
+	})
 
 	return []*cobra.Command{
 		certificatesCmd,

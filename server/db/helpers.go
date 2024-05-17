@@ -1360,11 +1360,80 @@ func SaveResourceID(r *clientpb.ResourceID) error {
 }
 
 // Certificates
-func GetCertificateInfoByType(certType string) ([]*models.Certificate, error) {
+func GetCertificateInfo(categoryOptions uint32, cn string) ([]*models.Certificate, error) {
+	// Enumerate the options for transport and role
+	// First, defining the transport filters
+	const (
+		MTLSTransport uint32 = 1 << iota
+		HTTPSTransport
+		AllTransports
+	)
+
+	// Now, defining the role filters
+	const (
+		ServerRole uint32 = 8 << iota
+		ImplantRole
+		AllRoles
+	)
+
 	certInfo := []*models.Certificate{}
 	dbSession := Session()
+	var err error
 
-	err := dbSession.Where(&models.Certificate{}).Find(&certInfo).Error
+	switch categoryOptions {
+	case MTLSTransport | ServerRole:
+		if cn != "" {
+			err = dbSession.Where(&models.Certificate{CommonName: cn, CAType: "mtls-server"}).Find(&certInfo).Error
+		} else {
+			err = dbSession.Where(&models.Certificate{CAType: "mtls-server"}).Find(&certInfo).Error
+		}
+	case (MTLSTransport | ImplantRole), (AllTransports | ImplantRole):
+		if cn != "" {
+			err = dbSession.Where(&models.Certificate{CommonName: cn, CAType: "mtls-implant"}).Find(&certInfo).Error
+		} else {
+			err = dbSession.Where(&models.Certificate{CAType: "mtls-implant"}).Find(&certInfo).Error
+		}
+	case MTLSTransport | AllRoles:
+		if cn != "" {
+			err = dbSession.Where(&models.Certificate{CommonName: cn}).Where(
+				dbSession.Where(&models.Certificate{CAType: "mtls-server"}).Or(
+					&models.Certificate{CAType: "mtls-implant"},
+				),
+			).Find(&certInfo).Error
+		} else {
+			err = dbSession.Where(dbSession.Where(&models.Certificate{CAType: "mtls-server"}).Or(
+				&models.Certificate{CAType: "mtls-implant"})).Find(&certInfo).Error
+		}
+	case HTTPSTransport | ImplantRole:
+		// This does not currently exist (HTTPS certs are not issued for implants), so return nothing
+		return certInfo, nil
+	case (HTTPSTransport | ServerRole), (HTTPSTransport | AllRoles):
+		if cn != "" {
+			err = dbSession.Where(&models.Certificate{CommonName: cn, CAType: "https"}).Find(&certInfo).Error
+		} else {
+			err = dbSession.Where(&models.Certificate{CAType: "https"}).Find(&certInfo).Error
+		}
+	case AllTransports | ServerRole:
+		if cn != "" {
+			err = dbSession.Where(&models.Certificate{CommonName: cn}).Where(
+				dbSession.Where(&models.Certificate{CAType: "mtls-server"}).Or(
+					&models.Certificate{CAType: "https"},
+				),
+			).Find(&certInfo).Error
+		} else {
+			err = dbSession.Where(dbSession.Where(&models.Certificate{CAType: "mtls-server"}).Or(
+				&models.Certificate{CAType: "https"},
+			),
+			).Find(&certInfo).Error
+		}
+	case AllRoles | AllTransports:
+		if cn != "" {
+			err = dbSession.Where(&models.Certificate{CommonName: cn}).Find(&certInfo).Error
+		} else {
+			err = dbSession.Where(&models.Certificate{}).Find(&certInfo).Error
+		}
+	}
+
 	if err != nil {
 		return nil, err
 	}

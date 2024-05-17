@@ -1312,6 +1312,11 @@ message ResourceID {
 
 // [ Certificates ] ----------------------------------------
 
+message CertificatesReq {
+  uint32 CategoryFilters = 1;
+  string CN = 2;
+}
+
 message CertificateData {
   string CN = 1;
   string CreationTime = 2;
