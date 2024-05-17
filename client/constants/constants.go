@@ -146,6 +146,7 @@ const (
 	C2ProfileStr       = "c2profiles"
 	ImportC2ProfileStr = "import"
 	ExportC2ProfileStr = "export"
+	CertificatesStr    = "certificates"
 
 	// Generic.
 
