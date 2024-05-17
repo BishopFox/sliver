@@ -10,7 +10,7 @@ For a Linux server, you can also use the one liner installation `curl https://sl
 {"src": "/asciinema/install-1.cast", "cols": "132"}
 ```
 
-If you install Sliver via the one liner, you can check that the server service is running using `systemctl status sliver`. Note that the Sliver service is not configured to start automatically on boot by default (i.e., if you reboot the server you'll need to start the service again using `systemctrl start sliver`):
+If you install Sliver via the one liner, you can check that the server service is running using `systemctl status sliver`. Note that the Sliver service is not configured to start automatically on boot by default (i.e., if you reboot the server you'll need to start the service again using `systemctl start sliver`):
 
 ```asciinema
 {"src": "/asciinema/service-status-1.cast", "cols": "132", "rows": "14", "idleTimeLimit": 8}
