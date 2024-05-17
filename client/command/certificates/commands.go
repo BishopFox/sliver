@@ -38,11 +38,11 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		GroupID: consts.GenericHelpGroup,
 	}
 	flags.Bind(consts.CertificatesStr, false, certificatesCmd, func(f *pflag.FlagSet) {
-		f.BoolP("mtls", "m", false, "Only show MTLS certificates")
-		f.BoolP("https", "p", false, "Only show HTTPS certificates")
-		f.BoolP("implant", "i", false, "Only show implant certificates")
-		f.BoolP("server", "s", false, "Only show server certificates")
-		f.StringP("cn", "c", "", "Only show certificate information for a provided common name")
+		f.BoolP("mtls", "m", false, "Show MTLS certificates")
+		f.BoolP("https", "p", false, "Show HTTPS certificates")
+		f.BoolP("implant", "i", false, "Show implant certificates")
+		f.BoolP("server", "s", false, "Show server certificates")
+		f.StringP("cn", "c", "", "Show certificate information for a provided common name")
 	})
 
 	return []*cobra.Command{
