@@ -62,9 +62,9 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	})
 
 	generateC2ProfileCmd := &cobra.Command{
-		Use:   consts.GenerateStr,
+		Use:   consts.C2GenerateStr,
 		Short: "Generate a C2 Profile from a list of urls",
-		Long:  help.GetHelpFor([]string{consts.GenerateStr}),
+		Long:  help.GetHelpFor([]string{consts.C2ProfileStr + "." + consts.C2GenerateStr}),
 		Run: func(cmd *cobra.Command, args []string) {
 			GenerateC2ProfileCmd(cmd, con, args)
 		},
