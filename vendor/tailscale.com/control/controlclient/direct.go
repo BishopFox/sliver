@@ -36,7 +36,6 @@ import (
 	"tailscale.com/logtail"
 	"tailscale.com/net/dnscache"
 	"tailscale.com/net/dnsfallback"
-	"tailscale.com/net/interfaces"
 	"tailscale.com/net/netmon"
 	"tailscale.com/net/netutil"
 	"tailscale.com/net/tlsdial"
@@ -56,6 +55,7 @@ import (
 	"tailscale.com/util/singleflight"
 	"tailscale.com/util/syspolicy"
 	"tailscale.com/util/systemd"
+	"tailscale.com/util/testenv"
 	"tailscale.com/util/zstdframe"
 )
 
@@ -68,7 +68,8 @@ type Direct struct {
 	serverURL                  string              // URL of the tailcontrol server
 	clock                      tstime.Clock
 	logf                       logger.Logf
-	netMon                     *netmon.Monitor // or nil
+	netMon                     *netmon.Monitor // non-nil
+	health                     *health.Tracker
 	discoPubKey                key.DiscoPublic
 	getMachinePrivKey          func() (key.MachinePrivate, error)
 	debugFlags                 []string
@@ -79,6 +80,7 @@ type Direct struct {
 	onClientVersion            func(*tailcfg.ClientVersion) // or nil
 	onControlTime              func(time.Time)              // or nil
 	onTailnetDefaultAutoUpdate func(bool)                   // or nil
+	panicOnUse                 bool                         // if true, panic if client is used (for testing)
 
 	dialPlan ControlDialPlanner // can be nil
 
@@ -119,10 +121,10 @@ type Options struct {
 	Hostinfo                   *tailcfg.Hostinfo // non-nil passes ownership, nil means to use default using os.Hostname, etc
 	DiscoPublicKey             key.DiscoPublic
 	Logf                       logger.Logf
-	HTTPTestClient             *http.Client                 // optional HTTP client to use (for tests only)
-	NoiseTestClient            *http.Client                 // optional HTTP client to use for noise RPCs (tests only)
-	DebugFlags                 []string                     // debug settings to send to control
-	NetMon                     *netmon.Monitor              // optional network monitor
+	HTTPTestClient             *http.Client // optional HTTP client to use (for tests only)
+	NoiseTestClient            *http.Client // optional HTTP client to use for noise RPCs (tests only)
+	DebugFlags                 []string     // debug settings to send to control
+	HealthTracker              *health.Tracker
 	PopBrowserURL              func(url string)             // optional func to open browser
 	OnClientVersion            func(*tailcfg.ClientVersion) // optional func to inform GUI of client version status
 	OnControlTime              func(time.Time)              // optional func to notify callers of new time from control
@@ -211,6 +213,19 @@ func NewDirect(opts Options) (*Direct, error) {
 	if opts.GetMachinePrivateKey == nil {
 		return nil, errors.New("controlclient.New: no GetMachinePrivateKey specified")
 	}
+	if opts.Dialer == nil {
+		if testenv.InTest() {
+			panic("no Dialer")
+		}
+		return nil, errors.New("controlclient.New: no Dialer specified")
+	}
+	netMon := opts.Dialer.NetMon()
+	if netMon == nil {
+		if testenv.InTest() {
+			panic("no NetMon in Dialer")
+		}
+		return nil, errors.New("controlclient.New: Dialer has nil NetMon")
+	}
 	if opts.ControlKnobs == nil {
 		opts.ControlKnobs = &controlknobs.Knobs{}
 	}
@@ -231,9 +246,8 @@ func NewDirect(opts Options) (*Direct, error) {
 	dnsCache := &dnscache.Resolver{
 		Forward:          dnscache.Get().Forward, // use default cache's forwarder
 		UseLastGood:      true,
-		LookupIPFallback: dnsfallback.MakeLookupFunc(opts.Logf, opts.NetMon),
+		LookupIPFallback: dnsfallback.MakeLookupFunc(opts.Logf, netMon),
 		Logf:             opts.Logf,
-		NetMon:           opts.NetMon,
 	}
 
 	httpc := opts.HTTPTestClient
@@ -248,7 +262,7 @@ func NewDirect(opts Options) (*Direct, error) {
 		tr := http.DefaultTransport.(*http.Transport).Clone()
 		tr.Proxy = tshttpproxy.ProxyFromEnvironment
 		tshttpproxy.SetTransportGetProxyConnectHeader(tr)
-		tr.TLSClientConfig = tlsdial.Config(serverURL.Hostname(), tr.TLSClientConfig)
+		tr.TLSClientConfig = tlsdial.Config(serverURL.Hostname(), opts.HealthTracker, tr.TLSClientConfig)
 		tr.DialContext = dnscache.Dialer(opts.Dialer.SystemDial, dnsCache)
 		tr.DialTLSContext = dnscache.TLSDialer(opts.Dialer.SystemDial, dnsCache, tr.TLSClientConfig)
 		tr.ForceAttemptHTTP2 = true
@@ -270,7 +284,8 @@ func NewDirect(opts Options) (*Direct, error) {
 		authKey:                    opts.AuthKey,
 		discoPubKey:                opts.DiscoPublicKey,
 		debugFlags:                 opts.DebugFlags,
-		netMon:                     opts.NetMon,
+		netMon:                     netMon,
+		health:                     opts.HealthTracker,
 		skipIPForwardingCheck:      opts.SkipIPForwardingCheck,
 		pinger:                     opts.Pinger,
 		popBrowser:                 opts.PopBrowserURL,
@@ -295,6 +310,9 @@ func NewDirect(opts Options) (*Direct, error) {
 			Client: opts.NoiseTestClient,
 		}
 		c.serverNoiseKey = key.NewMachine().Public() // prevent early error before hitting test client
+	}
+	if strings.Contains(opts.ServerURL, "controlplane.tailscale.com") && envknob.Bool("TS_PANIC_IF_HIT_MAIN_CONTROL") {
+		c.panicOnUse = true
 	}
 	return c, nil
 }
@@ -384,6 +402,9 @@ func (c *Direct) TryLogout(ctx context.Context) error {
 }
 
 func (c *Direct) TryLogin(ctx context.Context, t *tailcfg.Oauth2Token, flags LoginFlags) (url string, err error) {
+	if strings.Contains(c.serverURL, "controlplane.tailscale.com") && envknob.Bool("TS_PANIC_IF_HIT_MAIN_CONTROL") {
+		panic(fmt.Sprintf("[unexpected] controlclient: TryLogin called on %s; tainted=%v", c.serverURL, c.panicOnUse))
+	}
 	c.logf("[v1] direct.TryLogin(token=%v, flags=%v)", t != nil, flags)
 	return c.doLoginOrRegen(ctx, loginOpt{Token: t, Flags: flags})
 }
@@ -445,6 +466,9 @@ func (c *Direct) hostInfoLocked() *tailcfg.Hostinfo {
 }
 
 func (c *Direct) doLogin(ctx context.Context, opt loginOpt) (mustRegen bool, newURL string, nks tkatype.MarshaledSignature, err error) {
+	if c.panicOnUse {
+		panic("tainted client")
+	}
 	c.mu.Lock()
 	persist := c.persist.AsStruct()
 	tryingNewKey := c.tryingNewKey
@@ -586,10 +610,12 @@ func (c *Direct) doLogin(ctx context.Context, opt loginOpt) (mustRegen bool, new
 	c.logf("RegisterReq: onode=%v node=%v fup=%v nks=%v",
 		request.OldNodeKey.ShortString(),
 		request.NodeKey.ShortString(), opt.URL != "", len(nodeKeySignature) > 0)
-	request.Auth.Oauth2Token = opt.Token
-	request.Auth.Provider = persist.Provider
-	request.Auth.LoginName = persist.UserProfile.LoginName
-	request.Auth.AuthKey = authKey
+	if opt.Token != nil || authKey != "" {
+		request.Auth = &tailcfg.RegisterResponseAuth{
+			Oauth2Token: opt.Token,
+			AuthKey:     authKey,
+		}
+	}
 	err = signRegisterRequest(&request, c.serverURL, c.serverLegacyKey, machinePrivKey.Public())
 	if err != nil {
 		// If signing failed, clear all related fields
@@ -668,9 +694,6 @@ func (c *Direct) doLogin(ctx context.Context, opt loginOpt) (mustRegen bool, new
 		c.logf("server reports new node key %v has expired",
 			request.NodeKey.ShortString())
 		return true, "", nil, nil
-	}
-	if resp.Login.Provider != "" {
-		persist.Provider = resp.Login.Provider
 	}
 	persist.UserProfile = tailcfg.UserProfile{
 		ID:            resp.User.ID,
@@ -819,6 +842,9 @@ const watchdogTimeout = 120 * time.Second
 //
 // If nu is nil, OmitPeers will be set to true.
 func (c *Direct) sendMapRequest(ctx context.Context, isStreaming bool, nu NetmapUpdater) error {
+	if c.panicOnUse {
+		panic("tainted client")
+	}
 	if isStreaming && nu == nil {
 		panic("cb must be non-nil if isStreaming is true")
 	}
@@ -895,10 +921,10 @@ func (c *Direct) sendMapRequest(ctx context.Context, isStreaming bool, nu Netmap
 		ipForwardingBroken(hi.RoutableIPs, c.netMon.InterfaceState()) {
 		extraDebugFlags = append(extraDebugFlags, "warn-ip-forwarding-off")
 	}
-	if health.RouterHealth() != nil {
+	if c.health.RouterHealth() != nil {
 		extraDebugFlags = append(extraDebugFlags, "warn-router-unhealthy")
 	}
-	extraDebugFlags = health.AppendWarnableDebugFlags(extraDebugFlags)
+	extraDebugFlags = c.health.AppendWarnableDebugFlags(extraDebugFlags)
 	if hostinfo.DisabledEtcAptSource() {
 		extraDebugFlags = append(extraDebugFlags, "warn-etc-apt-source-disabled")
 	}
@@ -971,7 +997,7 @@ func (c *Direct) sendMapRequest(ctx context.Context, isStreaming bool, nu Netmap
 	}
 	defer res.Body.Close()
 
-	health.NoteMapRequestHeard(request)
+	c.health.NoteMapRequestHeard(request)
 	watchdogTimer.Reset(watchdogTimeout)
 
 	if nu == nil {
@@ -1042,7 +1068,7 @@ func (c *Direct) sendMapRequest(ctx context.Context, isStreaming bool, nu Netmap
 		metricMapResponseMessages.Add(1)
 
 		if isStreaming {
-			health.GotStreamedMapResponse()
+			c.health.GotStreamedMapResponse()
 		}
 
 		if pr := resp.PingRequest; pr != nil && c.isUniquePingRequest(pr) {
@@ -1270,7 +1296,7 @@ var clock tstime.Clock = tstime.StdClock{}
 //
 // TODO(bradfitz): Change controlclient.Options.SkipIPForwardingCheck into a
 // func([]netip.Prefix) error signature instead.
-func ipForwardingBroken(routes []netip.Prefix, state *interfaces.State) bool {
+func ipForwardingBroken(routes []netip.Prefix, state *netmon.State) bool {
 	warn, err := netutil.CheckIPForwarding(routes, state)
 	if err != nil {
 		// Oh well, we tried. This is just for debugging.
@@ -1451,14 +1477,15 @@ func (c *Direct) getNoiseClient() (*NoiseClient, error) {
 		}
 		c.logf("[v1] creating new noise client")
 		nc, err := NewNoiseClient(NoiseOpts{
-			PrivKey:      k,
-			ServerPubKey: serverNoiseKey,
-			ServerURL:    c.serverURL,
-			Dialer:       c.dialer,
-			DNSCache:     c.dnsCache,
-			Logf:         c.logf,
-			NetMon:       c.netMon,
-			DialPlan:     dp,
+			PrivKey:       k,
+			ServerPubKey:  serverNoiseKey,
+			ServerURL:     c.serverURL,
+			Dialer:        c.dialer,
+			DNSCache:      c.dnsCache,
+			Logf:          c.logf,
+			NetMon:        c.netMon,
+			HealthTracker: c.health,
+			DialPlan:      dp,
 		})
 		if err != nil {
 			return nil, err
@@ -1514,6 +1541,9 @@ func (c *Direct) SetDNS(ctx context.Context, req *tailcfg.SetDNSRequest) (err er
 }
 
 func (c *Direct) DoNoiseRequest(req *http.Request) (*http.Response, error) {
+	if c.panicOnUse {
+		panic("tainted client")
+	}
 	nc, err := c.getNoiseClient()
 	if err != nil {
 		return nil, err
@@ -1609,6 +1639,9 @@ func (c *Direct) ReportHealthChange(sys health.Subsystem, sysErr error) {
 	nodeKey, ok := c.GetPersist().PublicNodeKeyOK()
 	if !ok {
 		return
+	}
+	if c.panicOnUse {
+		panic("tainted client")
 	}
 	req := &tailcfg.HealthChangeRequest{
 		Subsys:  string(sys),

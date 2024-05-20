@@ -563,7 +563,7 @@ var nodeFields = sync.OnceValue(getNodeFields)
 func getNodeFields() []string {
 	rt := reflect.TypeFor[tailcfg.Node]()
 	ret := make([]string, rt.NumField())
-	for i := 0; i < rt.NumField(); i++ {
+	for i := range rt.NumField() {
 		ret[i] = rt.Field(i).Name
 	}
 	return ret
@@ -734,6 +734,10 @@ func peerChangeDiff(was tailcfg.NodeView, n *tailcfg.Node) (_ *tailcfg.PeerChang
 			}
 		case "IsWireGuardOnly":
 			if was.IsWireGuardOnly() != n.IsWireGuardOnly {
+				return nil, false
+			}
+		case "IsJailed":
+			if was.IsJailed() != n.IsJailed {
 				return nil, false
 			}
 		case "Expired":

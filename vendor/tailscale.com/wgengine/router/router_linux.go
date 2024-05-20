@@ -22,6 +22,7 @@ import (
 	"golang.org/x/sys/unix"
 	"golang.org/x/time/rate"
 	"tailscale.com/envknob"
+	"tailscale.com/health"
 	"tailscale.com/net/netmon"
 	"tailscale.com/types/logger"
 	"tailscale.com/types/preftype"
@@ -37,17 +38,19 @@ const (
 )
 
 type linuxRouter struct {
-	closed           atomic.Bool
-	logf             func(fmt string, args ...any)
-	tunname          string
-	netMon           *netmon.Monitor
-	unregNetMon      func()
-	addrs            map[netip.Prefix]bool
-	routes           map[netip.Prefix]bool
-	localRoutes      map[netip.Prefix]bool
-	snatSubnetRoutes bool
-	netfilterMode    preftype.NetfilterMode
-	netfilterKind    string
+	closed            atomic.Bool
+	logf              func(fmt string, args ...any)
+	tunname           string
+	netMon            *netmon.Monitor
+	health            *health.Tracker
+	unregNetMon       func()
+	addrs             map[netip.Prefix]bool
+	routes            map[netip.Prefix]bool
+	localRoutes       map[netip.Prefix]bool
+	snatSubnetRoutes  bool
+	statefulFiltering bool
+	netfilterMode     preftype.NetfilterMode
+	netfilterKind     string
 
 	// ruleRestorePending is whether a timer has been started to
 	// restore deleted ip rules.
@@ -69,7 +72,7 @@ type linuxRouter struct {
 	magicsockPortV6 uint16
 }
 
-func newUserspaceRouter(logf logger.Logf, tunDev tun.Device, netMon *netmon.Monitor) (Router, error) {
+func newUserspaceRouter(logf logger.Logf, tunDev tun.Device, netMon *netmon.Monitor, health *health.Tracker) (Router, error) {
 	tunname, err := tunDev.Name()
 	if err != nil {
 		return nil, err
@@ -79,15 +82,16 @@ func newUserspaceRouter(logf logger.Logf, tunDev tun.Device, netMon *netmon.Moni
 		ambientCapNetAdmin: useAmbientCaps(),
 	}
 
-	return newUserspaceRouterAdvanced(logf, tunname, netMon, cmd)
+	return newUserspaceRouterAdvanced(logf, tunname, netMon, cmd, health)
 }
 
-func newUserspaceRouterAdvanced(logf logger.Logf, tunname string, netMon *netmon.Monitor, cmd commandRunner) (Router, error) {
+func newUserspaceRouterAdvanced(logf logger.Logf, tunname string, netMon *netmon.Monitor, cmd commandRunner, health *health.Tracker) (Router, error) {
 	r := &linuxRouter{
 		logf:          logf,
 		tunname:       tunname,
 		netfilterMode: netfilterOff,
 		netMon:        netMon,
+		health:        health,
 
 		cmd: cmd,
 
@@ -389,6 +393,7 @@ func (r *linuxRouter) Set(cfg *Config) error {
 	}
 	r.addrs = newAddrs
 
+	// Ensure that the SNAT rule is added or removed as needed.
 	switch {
 	case cfg.SNATSubnetRoutes == r.snatSubnetRoutes:
 		// state already correct, nothing to do.
@@ -403,6 +408,22 @@ func (r *linuxRouter) Set(cfg *Config) error {
 	}
 	r.snatSubnetRoutes = cfg.SNATSubnetRoutes
 
+	// As above, for stateful filtering
+	switch {
+	case cfg.StatefulFiltering == r.statefulFiltering:
+		// state already correct, nothing to do.
+	case cfg.StatefulFiltering:
+		if err := r.addStatefulRule(); err != nil {
+			errs = append(errs, err)
+		}
+	default:
+		if err := r.delStatefulRule(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	r.statefulFiltering = cfg.StatefulFiltering
+	r.updateStatefulFilteringWithDockerWarning(cfg)
+
 	// Issue 11405: enable IP forwarding on gokrazy.
 	advertisingRoutes := len(cfg.SubnetRoutes) > 0
 	if distro.Get() == distro.Gokrazy && advertisingRoutes {
@@ -410,6 +431,53 @@ func (r *linuxRouter) Set(cfg *Config) error {
 	}
 
 	return multierr.New(errs...)
+}
+
+var warnStatefulFilteringWithDocker = health.NewWarnable()
+
+func (r *linuxRouter) updateStatefulFilteringWithDockerWarning(cfg *Config) {
+	// If stateful filtering is disabled, clear the warning.
+	if !r.statefulFiltering {
+		r.health.SetWarnable(warnStatefulFilteringWithDocker, nil)
+		return
+	}
+
+	advertisingRoutes := len(cfg.SubnetRoutes) > 0
+
+	// TODO(andrew-d,maisem): we might want to check if we're running in a
+	// container, since, if so, stateful filtering might prevent other
+	// containers from connecting through the Tailscale in this container.
+	//
+	// For now, just check for the case where we're running Tailscale on
+	// the host and Docker is also running.
+
+	// If this node isn't a subnet router or exit node, then we would never
+	// have allowed traffic from a Docker container in to Tailscale, since
+	// there wouldn't be an AllowedIP for the container's source IP. So we
+	// don't need to warn in this case.
+	//
+	// cfg.SubnetRoutes contains all subnet routes for the node, including
+	// the default route (0.0.0.0/0 or ::/0) if this node is an exit node.
+	if advertisingRoutes {
+		// Check for the presence of a Docker interface and warn if it's found
+		// on the system.
+		//
+		// TODO(andrew-d): do a better job at detecting Docker, e.g. by looking
+		// for it in the $PATH or by checking for the presence of the Docker
+		// socket/daemon/etc.
+		ifstate := r.netMon.InterfaceState()
+		if _, found := ifstate.Interface["docker0"]; found {
+			r.health.SetWarnable(warnStatefulFilteringWithDocker, fmt.Errorf(""+
+				"Stateful filtering is enabled and Docker was detected; this may prevent Docker containers "+
+				"on this host from connecting to Tailscale nodes. "+
+				"See https://tailscale.com/s/stateful-docker",
+			))
+			return
+		}
+	}
+
+	// If we get here, then we have no warnings; clear anything existing.
+	r.health.SetWarnable(warnStatefulFilteringWithDocker, nil)
 }
 
 // UpdateMagicsockPort implements the Router interface.
@@ -1324,6 +1392,26 @@ func (r *linuxRouter) delSNATRule() error {
 		return err
 	}
 	return nil
+}
+
+// addStatefulRule adds a netfilter rule to perform stateful filtering from
+// subnets onto the tailnet.
+func (r *linuxRouter) addStatefulRule() error {
+	if r.netfilterMode == netfilterOff {
+		return nil
+	}
+
+	return r.nfr.AddStatefulRule(r.tunname)
+}
+
+// delStatefulRule removes the netfilter rule to perform stateful filtering
+// from subnets onto the tailnet.
+func (r *linuxRouter) delStatefulRule() error {
+	if r.netfilterMode == netfilterOff {
+		return nil
+	}
+
+	return r.nfr.DelStatefulRule(r.tunname)
 }
 
 // cidrDiff calls add and del as needed to make the set of prefixes in

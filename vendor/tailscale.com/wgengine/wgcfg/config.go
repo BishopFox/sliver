@@ -27,9 +27,11 @@ type Config struct {
 
 	// NetworkLogging enables network logging.
 	// It is disabled if either ID is the zero value.
+	// LogExitFlowEnabled indicates whether or not exit flows should be logged.
 	NetworkLogging struct {
-		NodeID   logid.PrivateID
-		DomainID logid.PrivateID
+		NodeID             logid.PrivateID
+		DomainID           logid.PrivateID
+		LogExitFlowEnabled bool
 	}
 }
 
@@ -39,6 +41,7 @@ type Peer struct {
 	AllowedIPs          []netip.Prefix
 	V4MasqAddr          *netip.Addr // if non-nil, masquerade IPv4 traffic to this peer using this address
 	V6MasqAddr          *netip.Addr // if non-nil, masquerade IPv6 traffic to this peer using this address
+	IsJailed            bool        // if true, this peer is jailed and cannot initiate connections
 	PersistentKeepalive uint16      // in seconds between keep-alives; 0 to disable
 	// wireguard-go's endpoint for this peer. It should always equal Peer.PublicKey.
 	// We represent it explicitly so that we can detect if they diverge and recover.

@@ -31,6 +31,7 @@ import (
 	"go4.org/mem"
 	"tailscale.com/derp"
 	"tailscale.com/envknob"
+	"tailscale.com/health"
 	"tailscale.com/net/dnscache"
 	"tailscale.com/net/netmon"
 	"tailscale.com/net/netns"
@@ -51,10 +52,11 @@ import (
 // Send/Recv will completely re-establish the connection (unless Close
 // has been called).
 type Client struct {
-	TLSConfig *tls.Config        // optional; nil means default
-	DNSCache  *dnscache.Resolver // optional; nil means no caching
-	MeshKey   string             // optional; for trusted clients
-	IsProber  bool               // optional; for probers to optional declare themselves as such
+	TLSConfig     *tls.Config        // optional; nil means default
+	HealthTracker *health.Tracker    // optional; used if non-nil only
+	DNSCache      *dnscache.Resolver // optional; nil means no caching
+	MeshKey       string             // optional; for trusted clients
+	IsProber      bool               // optional; for probers to optional declare themselves as such
 
 	// WatchConnectionChanges is whether the client wishes to subscribe to
 	// notifications about clients connecting & disconnecting.
@@ -69,7 +71,7 @@ type Client struct {
 
 	privateKey key.NodePrivate
 	logf       logger.Logf
-	netMon     *netmon.Monitor // optional; nil means interfaces will be looked up on-demand
+	netMon     *netmon.Monitor // always non-nil
 	dialer     func(ctx context.Context, network, addr string) (net.Conn, error)
 
 	// Either url or getRegion is non-nil:
@@ -114,8 +116,11 @@ func (c *Client) String() string {
 
 // NewRegionClient returns a new DERP-over-HTTP client. It connects lazily.
 // To trigger a connection, use Connect.
-// The netMon parameter is optional; if non-nil it's used to do faster interface lookups.
+// The healthTracker parameter is also optional.
 func NewRegionClient(privateKey key.NodePrivate, logf logger.Logf, netMon *netmon.Monitor, getRegion func() *tailcfg.DERPRegion) *Client {
+	if netMon == nil {
+		panic("nil netMon")
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	c := &Client{
 		privateKey: privateKey,
@@ -131,13 +136,23 @@ func NewRegionClient(privateKey key.NodePrivate, logf logger.Logf, netMon *netmo
 
 // NewNetcheckClient returns a Client that's only able to have its DialRegionTLS method called.
 // It's used by the netcheck package.
-func NewNetcheckClient(logf logger.Logf) *Client {
-	return &Client{logf: logf, clock: tstime.StdClock{}}
+func NewNetcheckClient(logf logger.Logf, netMon *netmon.Monitor) *Client {
+	if netMon == nil {
+		panic("nil netMon")
+	}
+	return &Client{
+		logf:   logf,
+		clock:  tstime.StdClock{},
+		netMon: netMon,
+	}
 }
 
 // NewClient returns a new DERP-over-HTTP client. It connects lazily.
 // To trigger a connection, use Connect.
-func NewClient(privateKey key.NodePrivate, serverURL string, logf logger.Logf) (*Client, error) {
+func NewClient(privateKey key.NodePrivate, serverURL string, logf logger.Logf, netMon *netmon.Monitor) (*Client, error) {
+	if netMon == nil {
+		panic("nil netMon")
+	}
 	u, err := url.Parse(serverURL)
 	if err != nil {
 		return nil, fmt.Errorf("derphttp.NewClient: %v", err)
@@ -154,6 +169,7 @@ func NewClient(privateKey key.NodePrivate, serverURL string, logf logger.Logf) (
 		ctx:        ctx,
 		cancelCtx:  cancel,
 		clock:      tstime.StdClock{},
+		netMon:     netMon,
 	}
 	return c, nil
 }
@@ -612,7 +628,7 @@ func (c *Client) dialRegion(ctx context.Context, reg *tailcfg.DERPRegion) (net.C
 }
 
 func (c *Client) tlsClient(nc net.Conn, node *tailcfg.DERPNode) *tls.Conn {
-	tlsConf := tlsdial.Config(c.tlsServerName(node), c.TLSConfig)
+	tlsConf := tlsdial.Config(c.tlsServerName(node), c.HealthTracker, c.TLSConfig)
 	if node != nil {
 		if node.InsecureForTests {
 			tlsConf.InsecureSkipVerify = true

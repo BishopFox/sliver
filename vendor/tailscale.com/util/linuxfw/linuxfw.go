@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 
@@ -105,25 +104,8 @@ func getTailscaleSubnetRouteMark() []byte {
 	return []byte{0x00, 0x04, 0x00, 0x00}
 }
 
-// errCode extracts and returns the process exit code from err, or
-// zero if err is nil.
-func errCode(err error) int {
-	if err == nil {
-		return 0
-	}
-	var e *exec.ExitError
-	if ok := errors.As(err, &e); ok {
-		return e.ExitCode()
-	}
-	s := err.Error()
-	if strings.HasPrefix(s, "exitcode:") {
-		code, err := strconv.Atoi(s[9:])
-		if err == nil {
-			return code
-		}
-	}
-	return -42
-}
+// checkIPv6ForTest can be set in tests.
+var checkIPv6ForTest func(logger.Logf) error
 
 // checkIPv6 checks whether the system appears to have a working IPv6
 // network stack. It returns an error explaining what looks wrong or
@@ -131,6 +113,10 @@ func errCode(err error) int {
 // that there's a global address, just that the system would support
 // IPv6 if it were on an IPv6 network.
 func CheckIPv6(logf logger.Logf) error {
+	if f := checkIPv6ForTest; f != nil {
+		return f(logf)
+	}
+
 	_, err := os.Stat("/proc/sys/net/ipv6")
 	if os.IsNotExist(err) {
 		return err

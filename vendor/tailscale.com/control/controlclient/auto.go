@@ -12,7 +12,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"tailscale.com/health"
 	"tailscale.com/logtail/backoff"
 	"tailscale.com/net/sockstats"
 	"tailscale.com/tailcfg"
@@ -195,7 +194,7 @@ func NewNoStart(opts Options) (_ *Auto, err error) {
 	c.mapCtx, c.mapCancel = context.WithCancel(context.Background())
 	c.mapCtx = sockstats.WithSockStats(c.mapCtx, sockstats.LabelControlClientAuto, opts.Logf)
 
-	c.unregisterHealthWatch = health.RegisterWatcher(direct.ReportHealthChange)
+	c.unregisterHealthWatch = opts.HealthTracker.RegisterWatcher(direct.ReportHealthChange)
 	return c, nil
 
 }
@@ -316,7 +315,7 @@ func (c *Auto) authRoutine() {
 		}
 
 		if goal == nil {
-			health.SetAuthRoutineInError(nil)
+			c.direct.health.SetAuthRoutineInError(nil)
 			// Wait for user to Login or Logout.
 			<-ctx.Done()
 			c.logf("[v1] authRoutine: context done.")
@@ -343,15 +342,20 @@ func (c *Auto) authRoutine() {
 			f = "TryLogin"
 		}
 		if err != nil {
-			health.SetAuthRoutineInError(err)
+			c.direct.health.SetAuthRoutineInError(err)
 			report(err, f)
 			bo.BackOff(ctx, err)
 			continue
 		}
 		if url != "" {
-			// goal.url ought to be empty here.
-			// However, not all control servers get this right,
-			// and logging about it here just generates noise.
+			// goal.url ought to be empty here. However, not all control servers
+			// get this right, and logging about it here just generates noise.
+			//
+			// TODO(bradfitz): I don't follow that comment. Our own testcontrol
+			// used by tstest/integration hits this path, in fact.
+			if c.direct.panicOnUse {
+				panic("tainted client")
+			}
 			c.mu.Lock()
 			c.urlToVisit = url
 			c.loginGoal = &LoginGoal{
@@ -373,7 +377,7 @@ func (c *Auto) authRoutine() {
 		}
 
 		// success
-		health.SetAuthRoutineInError(nil)
+		c.direct.health.SetAuthRoutineInError(nil)
 		c.mu.Lock()
 		c.urlToVisit = ""
 		c.loggedIn = true
@@ -503,11 +507,11 @@ func (c *Auto) mapRoutine() {
 			c.logf("[v1] mapRoutine: context done.")
 			continue
 		}
-		health.SetOutOfPollNetMap()
+		c.direct.health.SetOutOfPollNetMap()
 
 		err := c.direct.PollNetMap(ctx, mrs)
 
-		health.SetOutOfPollNetMap()
+		c.direct.health.SetOutOfPollNetMap()
 		c.mu.Lock()
 		c.inMapPoll = false
 		if c.state == StateSynchronized {
@@ -616,6 +620,9 @@ func (c *Auto) Login(t *tailcfg.Oauth2Token, flags LoginFlags) {
 	if c.closed {
 		return
 	}
+	if c.direct != nil && c.direct.panicOnUse {
+		panic("tainted client")
+	}
 	c.wantLoggedIn = true
 	c.loginGoal = &LoginGoal{
 		token: t,
@@ -633,6 +640,9 @@ func (c *Auto) Logout(ctx context.Context) error {
 	c.wantLoggedIn = false
 	c.loginGoal = nil
 	closed := c.closed
+	if c.direct != nil && c.direct.panicOnUse {
+		panic("tainted client")
+	}
 	c.mu.Unlock()
 
 	if closed {
@@ -669,37 +679,35 @@ func (c *Auto) UpdateEndpoints(endpoints []tailcfg.Endpoint) {
 }
 
 func (c *Auto) Shutdown() {
-	c.logf("client.Shutdown()")
-
 	c.mu.Lock()
-	closed := c.closed
-	direct := c.direct
-	if !closed {
-		c.closed = true
-		c.observerQueue.Shutdown()
-		c.cancelAuthCtxLocked()
-		c.cancelMapCtxLocked()
-		for _, w := range c.unpauseWaiters {
-			w <- false
-		}
-		c.unpauseWaiters = nil
+	if c.closed {
+		c.mu.Unlock()
+		return
 	}
+	c.logf("client.Shutdown ...")
+
+	direct := c.direct
+	c.closed = true
+	c.observerQueue.Shutdown()
+	c.cancelAuthCtxLocked()
+	c.cancelMapCtxLocked()
+	for _, w := range c.unpauseWaiters {
+		w <- false
+	}
+	c.unpauseWaiters = nil
 	c.mu.Unlock()
 
-	c.logf("client.Shutdown")
-	if !closed {
-		c.unregisterHealthWatch()
-		<-c.authDone
-		<-c.mapDone
-		<-c.updateDone
-		if direct != nil {
-			direct.Close()
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		c.observerQueue.Wait(ctx)
-		c.logf("Client.Shutdown done.")
+	c.unregisterHealthWatch()
+	<-c.authDone
+	<-c.mapDone
+	<-c.updateDone
+	if direct != nil {
+		direct.Close()
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	c.observerQueue.Wait(ctx)
+	c.logf("Client.Shutdown done.")
 }
 
 // NodePublicKey returns the node public key currently in use. This is

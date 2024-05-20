@@ -11,6 +11,7 @@ import (
 
 	"tailscale.com/drive"
 	"tailscale.com/tailcfg"
+	"tailscale.com/types/opt"
 	"tailscale.com/types/persist"
 	"tailscale.com/types/preftype"
 )
@@ -42,7 +43,7 @@ var _PrefsCloneNeedsRegeneration = Prefs(struct {
 	AllowSingleHosts       bool
 	ExitNodeID             tailcfg.StableNodeID
 	ExitNodeIP             netip.Addr
-	InternalExitNodePrior  string
+	InternalExitNodePrior  tailcfg.StableNodeID
 	ExitNodeAllowLANAccess bool
 	CorpDNS                bool
 	RunSSH                 bool
@@ -57,6 +58,7 @@ var _PrefsCloneNeedsRegeneration = Prefs(struct {
 	Egg                    bool
 	AdvertiseRoutes        []netip.Prefix
 	NoSNAT                 bool
+	NoStatefulFiltering    opt.Bool
 	NetfilterMode          preftype.NetfilterMode
 	OperatorUser           string
 	ProfileName            string

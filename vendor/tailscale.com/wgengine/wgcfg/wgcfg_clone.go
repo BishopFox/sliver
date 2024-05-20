@@ -43,8 +43,9 @@ var _ConfigCloneNeedsRegeneration = Config(struct {
 	DNS            []netip.Addr
 	Peers          []Peer
 	NetworkLogging struct {
-		NodeID   logid.PrivateID
-		DomainID logid.PrivateID
+		NodeID             logid.PrivateID
+		DomainID           logid.PrivateID
+		LogExitFlowEnabled bool
 	}
 }{})
 
@@ -73,6 +74,7 @@ var _PeerCloneNeedsRegeneration = Peer(struct {
 	AllowedIPs          []netip.Prefix
 	V4MasqAddr          *netip.Addr
 	V6MasqAddr          *netip.Addr
+	IsJailed            bool
 	PersistentKeepalive uint16
 	WGEndpoint          key.NodePublic
 }{})

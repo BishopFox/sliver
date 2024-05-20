@@ -47,6 +47,8 @@ import (
 	"tailscale.com/util/deephash"
 	"tailscale.com/util/mak"
 	"tailscale.com/util/set"
+	"tailscale.com/util/testenv"
+	"tailscale.com/version"
 	"tailscale.com/wgengine/capture"
 	"tailscale.com/wgengine/filter"
 	"tailscale.com/wgengine/magicsock"
@@ -97,6 +99,7 @@ type userspaceEngine struct {
 	dns              *dns.Manager
 	magicConn        *magicsock.Conn
 	netMon           *netmon.Monitor
+	health           *health.Tracker
 	netMonOwned      bool                // whether we created netMon (and thus need to close it)
 	netMonUnregister func()              // unsubscribes from changes; used regardless of netMonOwned
 	birdClient       BIRDClient          // or nil
@@ -187,8 +190,11 @@ type Config struct {
 	// If nil, a new network monitor is created.
 	NetMon *netmon.Monitor
 
+	// HealthTracker, if non-nil, is the health tracker to use.
+	HealthTracker *health.Tracker
+
 	// Dialer is the dialer to use for outbound connections.
-	// If nil, a new Dialer is created
+	// If nil, a new Dialer is created.
 	Dialer *tsdial.Dialer
 
 	// ControlKnobs is the set of control plane-provied knobs
@@ -239,6 +245,8 @@ func NewFakeUserspaceEngine(logf logger.Logf, opts ...any) (Engine, error) {
 			conf.SetSubsystem = v
 		case *controlknobs.Knobs:
 			conf.ControlKnobs = v
+		case *health.Tracker:
+			conf.HealthTracker = v
 		default:
 			return nil, fmt.Errorf("unknown option type %T", v)
 		}
@@ -252,6 +260,10 @@ func NewFakeUserspaceEngine(logf logger.Logf, opts ...any) (Engine, error) {
 func NewUserspaceEngine(logf logger.Logf, conf Config) (_ Engine, reterr error) {
 	var closePool closeOnErrorPool
 	defer closePool.closeAllIfError(&reterr)
+
+	if testenv.InTest() && conf.HealthTracker == nil {
+		panic("NewUserspaceEngine called without HealthTracker (being strict in tests)")
+	}
 
 	if conf.Tun == nil {
 		logf("[v1] using fake (no-op) tun device")
@@ -281,17 +293,35 @@ func NewUserspaceEngine(logf logger.Logf, conf Config) (_ Engine, reterr error) 
 	}
 	closePool.add(tsTUNDev)
 
+	rtr := conf.Router
+	if version.IsMobile() {
+		// Android and iOS don't handle large numbers of routes well, so we
+		// wrap the Router with one that consolidates routes down to the
+		// smallest number possible.
+		//
+		// On Android, too many routes at VPN configuration time result in an
+		// android.os.TransactionTooLargeException because Android's VPNBuilder
+		// tries to send the entire set of routes to the VPNService as a single
+		// Bundle, which is typically limited to 1 MB. The number of routes
+		// that's too much seems to be very roughly around 4000.
+		//
+		// On iOS, the VPNExtension is limited to only 50 MB of memory, so
+		// keeping the number of routes down helps with memory consumption.
+		rtr = router.ConsolidatingRoutes(logf, rtr)
+	}
+
 	e := &userspaceEngine{
 		timeNow:        mono.Now,
 		logf:           logf,
 		reqCh:          make(chan struct{}, 1),
 		waitCh:         make(chan struct{}),
 		tundev:         tsTUNDev,
-		router:         conf.Router,
+		router:         rtr,
 		confListenPort: conf.ListenPort,
 		birdClient:     conf.BIRDClient,
 		controlKnobs:   conf.ControlKnobs,
 		reconfigureVPN: conf.ReconfigureVPN,
+		health:         conf.HealthTracker,
 	}
 
 	if e.birdClient != nil {
@@ -318,7 +348,7 @@ func NewUserspaceEngine(logf logger.Logf, conf Config) (_ Engine, reterr error) 
 	tunName, _ := conf.Tun.Name()
 	conf.Dialer.SetTUNName(tunName)
 	conf.Dialer.SetNetMon(e.netMon)
-	e.dns = dns.NewManager(logf, conf.DNS, e.netMon, conf.Dialer, fwdDNSLinkSelector{e, tunName}, conf.ControlKnobs)
+	e.dns = dns.NewManager(logf, conf.DNS, e.health, conf.Dialer, fwdDNSLinkSelector{e, tunName}, conf.ControlKnobs)
 
 	// TODO: there's probably a better place for this
 	sockstats.SetNetMon(e.netMon)
@@ -354,6 +384,7 @@ func NewUserspaceEngine(logf logger.Logf, conf Config) (_ Engine, reterr error) 
 		IdleFunc:         e.tundev.IdleDuration,
 		NoteRecvActivity: e.noteRecvActivity,
 		NetMon:           e.netMon,
+		HealthTracker:    e.health,
 		ControlKnobs:     conf.ControlKnobs,
 		OnPortUpdate:     onPortUpdate,
 		PeerByKeyFunc:    e.PeerByKey,
@@ -941,8 +972,9 @@ func (e *userspaceEngine) Reconfig(cfg *wgcfg.Config, routerCfg *router.Config, 
 	if netLogRunning && !e.networkLogger.Running() {
 		nid := cfg.NetworkLogging.NodeID
 		tid := cfg.NetworkLogging.DomainID
+		logExitFlowEnabled := cfg.NetworkLogging.LogExitFlowEnabled
 		e.logf("wgengine: Reconfig: starting up network logger (node:%s tailnet:%s)", nid.Public(), tid.Public())
-		if err := e.networkLogger.Startup(cfg.NodeID, nid, tid, e.tundev, e.magicConn, e.netMon); err != nil {
+		if err := e.networkLogger.Startup(cfg.NodeID, nid, tid, e.tundev, e.magicConn, e.netMon, e.health, logExitFlowEnabled); err != nil {
 			e.logf("wgengine: Reconfig: error starting up network logger: %v", err)
 		}
 		e.networkLogger.ReconfigRoutes(routerCfg)
@@ -952,7 +984,7 @@ func (e *userspaceEngine) Reconfig(cfg *wgcfg.Config, routerCfg *router.Config, 
 		e.logf("wgengine: Reconfig: configuring router")
 		e.networkLogger.ReconfigRoutes(routerCfg)
 		err := e.router.Set(routerCfg)
-		health.SetRouterHealth(err)
+		e.health.SetRouterHealth(err)
 		if err != nil {
 			return err
 		}
@@ -961,7 +993,7 @@ func (e *userspaceEngine) Reconfig(cfg *wgcfg.Config, routerCfg *router.Config, 
 		// assigned address.
 		e.logf("wgengine: Reconfig: configuring DNS")
 		err = e.dns.Set(*dnsCfg)
-		health.SetDNSHealth(err)
+		e.health.SetDNSHealth(err)
 		if err != nil {
 			return err
 		}
@@ -1008,6 +1040,14 @@ func (e *userspaceEngine) GetFilter() *filter.Filter {
 
 func (e *userspaceEngine) SetFilter(filt *filter.Filter) {
 	e.tundev.SetFilter(filt)
+}
+
+func (e *userspaceEngine) GetJailedFilter() *filter.Filter {
+	return e.tundev.GetJailedFilter()
+}
+
+func (e *userspaceEngine) SetJailedFilter(filt *filter.Filter) {
+	e.tundev.SetJailedFilter(filt)
 }
 
 func (e *userspaceEngine) SetStatusCallback(cb StatusCallback) {
@@ -1165,7 +1205,7 @@ func (e *userspaceEngine) linkChange(delta *netmon.ChangeDelta) {
 		e.logf("[v1] LinkChange: minor")
 	}
 
-	health.SetAnyInterfaceUp(up)
+	e.health.SetAnyInterfaceUp(up)
 	e.magicConn.SetNetworkUp(up)
 	if !up || changed {
 		if err := e.dns.FlushCaches(); err != nil {

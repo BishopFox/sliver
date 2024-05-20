@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/google/nftables/expr"
+	"github.com/google/nftables/internal/parseexprfunc"
 
 	"github.com/google/nftables/binaryutil"
 	"github.com/mdlayher/netlink"
@@ -117,53 +118,53 @@ var (
 	TypeTimeDay     = SetDatatype{Name: "day", Bytes: 1, nftMagic: 45}
 	TypeCGroupV2    = SetDatatype{Name: "cgroupsv2", Bytes: 8, nftMagic: 46}
 
-	nftDatatypes = map[string]SetDatatype{
-		TypeVerdict.Name:     TypeVerdict,
-		TypeNFProto.Name:     TypeNFProto,
-		TypeBitmask.Name:     TypeBitmask,
-		TypeInteger.Name:     TypeInteger,
-		TypeString.Name:      TypeString,
-		TypeLLAddr.Name:      TypeLLAddr,
-		TypeIPAddr.Name:      TypeIPAddr,
-		TypeIP6Addr.Name:     TypeIP6Addr,
-		TypeEtherAddr.Name:   TypeEtherAddr,
-		TypeEtherType.Name:   TypeEtherType,
-		TypeARPOp.Name:       TypeARPOp,
-		TypeInetProto.Name:   TypeInetProto,
-		TypeInetService.Name: TypeInetService,
-		TypeICMPType.Name:    TypeICMPType,
-		TypeTCPFlag.Name:     TypeTCPFlag,
-		TypeDCCPPktType.Name: TypeDCCPPktType,
-		TypeMHType.Name:      TypeMHType,
-		TypeTime.Name:        TypeTime,
-		TypeMark.Name:        TypeMark,
-		TypeIFIndex.Name:     TypeIFIndex,
-		TypeARPHRD.Name:      TypeARPHRD,
-		TypeRealm.Name:       TypeRealm,
-		TypeClassID.Name:     TypeClassID,
-		TypeUID.Name:         TypeUID,
-		TypeGID.Name:         TypeGID,
-		TypeCTState.Name:     TypeCTState,
-		TypeCTDir.Name:       TypeCTDir,
-		TypeCTStatus.Name:    TypeCTStatus,
-		TypeICMP6Type.Name:   TypeICMP6Type,
-		TypeCTLabel.Name:     TypeCTLabel,
-		TypePktType.Name:     TypePktType,
-		TypeICMPCode.Name:    TypeICMPCode,
-		TypeICMPV6Code.Name:  TypeICMPV6Code,
-		TypeICMPXCode.Name:   TypeICMPXCode,
-		TypeDevGroup.Name:    TypeDevGroup,
-		TypeDSCP.Name:        TypeDSCP,
-		TypeECN.Name:         TypeECN,
-		TypeFIBAddr.Name:     TypeFIBAddr,
-		TypeBoolean.Name:     TypeBoolean,
-		TypeCTEventBit.Name:  TypeCTEventBit,
-		TypeIFName.Name:      TypeIFName,
-		TypeIGMPType.Name:    TypeIGMPType,
-		TypeTimeDate.Name:    TypeTimeDate,
-		TypeTimeHour.Name:    TypeTimeHour,
-		TypeTimeDay.Name:     TypeTimeDay,
-		TypeCGroupV2.Name:    TypeCGroupV2,
+	nftDatatypes = []SetDatatype{
+		TypeVerdict,
+		TypeNFProto,
+		TypeBitmask,
+		TypeInteger,
+		TypeString,
+		TypeLLAddr,
+		TypeIPAddr,
+		TypeIP6Addr,
+		TypeEtherAddr,
+		TypeEtherType,
+		TypeARPOp,
+		TypeInetProto,
+		TypeInetService,
+		TypeICMPType,
+		TypeTCPFlag,
+		TypeDCCPPktType,
+		TypeMHType,
+		TypeTime,
+		TypeMark,
+		TypeIFIndex,
+		TypeARPHRD,
+		TypeRealm,
+		TypeClassID,
+		TypeUID,
+		TypeGID,
+		TypeCTState,
+		TypeCTDir,
+		TypeCTStatus,
+		TypeICMP6Type,
+		TypeCTLabel,
+		TypePktType,
+		TypeICMPCode,
+		TypeICMPV6Code,
+		TypeICMPXCode,
+		TypeDevGroup,
+		TypeDSCP,
+		TypeECN,
+		TypeFIBAddr,
+		TypeBoolean,
+		TypeCTEventBit,
+		TypeIFName,
+		TypeIGMPType,
+		TypeTimeDate,
+		TypeTimeHour,
+		TypeTimeDay,
+		TypeCGroupV2,
 	}
 
 	// ctLabelBitSize is defined in https://git.netfilter.org/nftables/tree/src/ct.c.
@@ -176,6 +177,19 @@ var (
 	sizeOfUIDT uint32 = 4
 	sizeOfGIDT uint32 = 4
 )
+
+var nftDatatypesByName map[string]SetDatatype
+var nftDatatypesByMagic map[uint32]SetDatatype
+
+// Create maps for efficient datatype lookup.
+func init() {
+	nftDatatypesByName = make(map[string]SetDatatype, len(nftDatatypes))
+	nftDatatypesByMagic = make(map[uint32]SetDatatype, len(nftDatatypes))
+	for _, dt := range nftDatatypes {
+		nftDatatypesByName[dt.Name] = dt
+		nftDatatypesByMagic[dt.nftMagic] = dt
+	}
+}
 
 // ErrTooManyTypes is the error returned by ConcatSetType, if nftMagic would overflow.
 var ErrTooManyTypes = errors.New("too many types to concat")
@@ -221,7 +235,7 @@ func ConcatSetTypeElements(t SetDatatype) []SetDatatype {
 	names := strings.Split(t.Name, " . ")
 	types := make([]SetDatatype, len(names))
 	for i, n := range names {
-		types[i] = nftDatatypes[n]
+		types[i] = nftDatatypesByName[n]
 	}
 	return types
 }
@@ -248,6 +262,9 @@ type Set struct {
 	Timeout       time.Duration
 	KeyType       SetDatatype
 	DataType      SetDatatype
+	// Either host (binaryutil.NativeEndian) or big (binaryutil.BigEndian) endian as per
+	// https://git.netfilter.org/nftables/tree/include/datatype.h?id=d486c9e626405e829221b82d7355558005b26d8a#n109
+	KeyByteOrder binaryutil.ByteOrder
 }
 
 // SetElement represents a data point within a set.
@@ -264,9 +281,14 @@ type SetElement struct {
 	VerdictData *expr.Verdict
 	// To support aging of set elements
 	Timeout time.Duration
+
+	// Life left of the "timeout" elements
+	Expires time.Duration
+
+	Counter *expr.Counter
 }
 
-func (s *SetElement) decode() func(b []byte) error {
+func (s *SetElement) decode(fam byte) func(b []byte) error {
 	return func(b []byte) error {
 		ad, err := netlink.NewAttributeDecoder(b)
 		if err != nil {
@@ -295,7 +317,21 @@ func (s *SetElement) decode() func(b []byte) error {
 				flags := ad.Uint32()
 				s.IntervalEnd = (flags & unix.NFT_SET_ELEM_INTERVAL_END) != 0
 			case unix.NFTA_SET_ELEM_TIMEOUT:
-				s.Timeout = time.Duration(time.Millisecond * time.Duration(ad.Uint64()))
+				s.Timeout = time.Millisecond * time.Duration(ad.Uint64())
+			case unix.NFTA_SET_ELEM_EXPIRATION:
+				s.Expires = time.Millisecond * time.Duration(ad.Uint64())
+			case unix.NFTA_SET_ELEM_EXPR:
+				elems, err := parseexprfunc.ParseExprBytesFunc(fam, ad, ad.Bytes())
+				if err != nil {
+					return err
+				}
+
+				for _, elem := range elems {
+					switch item := elem.(type) {
+					case *expr.Counter:
+						s.Counter = item
+					}
+				}
 			}
 		}
 		return ad.Err()
@@ -531,7 +567,9 @@ func (cc *Conn) AddSet(s *Set, vals []SetElement) error {
 			descSize, err := netlink.MarshalAttributes([]netlink.Attribute{
 				{Type: unix.NFTA_SET_DESC_SIZE, Data: valData},
 			})
-
+			if err != nil {
+				return fmt.Errorf("fail to marshal base type size description: %w", err)
+			}
 			concatDefinition = append(concatDefinition, descSize...)
 		}
 		// Marshal all base type descriptions into concatenation size description
@@ -542,11 +580,11 @@ func (cc *Conn) AddSet(s *Set, vals []SetElement) error {
 		// Marshal concat size description as set description
 		tableInfo = append(tableInfo, netlink.Attribute{Type: unix.NLA_F_NESTED | unix.NFTA_SET_DESC, Data: concatBytes})
 	}
-	if s.Anonymous || s.Constant || s.Interval {
+	if s.Anonymous || s.Constant || s.Interval || s.KeyByteOrder == binaryutil.BigEndian {
 		tableInfo = append(tableInfo,
 			// Semantically useless - kept for binary compatability with nft
 			netlink.Attribute{Type: unix.NFTA_SET_USERDATA, Data: []byte("\x00\x04\x02\x00\x00\x00")})
-	} else if !s.IsMap {
+	} else if s.KeyByteOrder == binaryutil.NativeEndian {
 		// Per https://git.netfilter.org/nftables/tree/src/mnl.c?id=187c6d01d35722618c2711bbc49262c286472c8f#n1165
 		tableInfo = append(tableInfo,
 			netlink.Attribute{Type: unix.NFTA_SET_USERDATA, Data: []byte("\x00\x04\x01\x00\x00\x00")})
@@ -646,11 +684,14 @@ func (cc *Conn) FlushSet(s *Set) {
 	})
 }
 
-var setHeaderType = netlink.HeaderType((unix.NFNL_SUBSYS_NFTABLES << 8) | unix.NFT_MSG_NEWSET)
+var (
+	newSetHeaderType = netlink.HeaderType((unix.NFNL_SUBSYS_NFTABLES << 8) | unix.NFT_MSG_NEWSET)
+	delSetHeaderType = netlink.HeaderType((unix.NFNL_SUBSYS_NFTABLES << 8) | unix.NFT_MSG_DELSET)
+)
 
 func setsFromMsg(msg netlink.Message) (*Set, error) {
-	if got, want := msg.Header.Type, setHeaderType; got != want {
-		return nil, fmt.Errorf("unexpected header type: got %v, want %v", got, want)
+	if got, want1, want2 := msg.Header.Type, newSetHeaderType, delSetHeaderType; got != want1 && got != want2 {
+		return nil, fmt.Errorf("unexpected header type: got %v, want %v or %v", got, want1, want2)
 	}
 	ad, err := netlink.NewAttributeDecoder(msg.Data[4:])
 	if err != nil {
@@ -678,17 +719,13 @@ func setsFromMsg(msg netlink.Message) (*Set, error) {
 			set.Concatenation = (flags & NFT_SET_CONCAT) != 0
 		case unix.NFTA_SET_KEY_TYPE:
 			nftMagic := ad.Uint32()
-			if invalidMagic, ok := validateKeyType(nftMagic); !ok {
-				return nil, fmt.Errorf("could not determine key type %+v", invalidMagic)
+			dt, err := parseSetDatatype(nftMagic)
+			if err != nil {
+				return nil, fmt.Errorf("could not determine data type: %w", err)
 			}
-			set.KeyType.nftMagic = nftMagic
-			for _, dt := range nftDatatypes {
-				// If this is a non-concatenated type, we can assign the descriptor.
-				if nftMagic == dt.nftMagic {
-					set.KeyType = dt
-					break
-				}
-			}
+			set.KeyType = dt
+		case unix.NFTA_SET_KEY_LEN:
+			set.KeyType.Bytes = binary.BigEndian.Uint32(ad.Bytes())
 		case unix.NFTA_SET_DATA_TYPE:
 			nftMagic := ad.Uint32()
 			// Special case for the data type verdict, in the message it is stored as 0xffffff00 but it is defined as 1
@@ -696,49 +733,46 @@ func setsFromMsg(msg netlink.Message) (*Set, error) {
 				set.KeyType = TypeVerdict
 				break
 			}
-			for _, dt := range nftDatatypes {
-				if nftMagic == dt.nftMagic {
-					set.DataType = dt
-					break
-				}
+			dt, err := parseSetDatatype(nftMagic)
+			if err != nil {
+				return nil, fmt.Errorf("could not determine data type: %w", err)
 			}
-			if set.DataType.nftMagic == 0 {
-				return nil, fmt.Errorf("could not determine data type %x", nftMagic)
-			}
+			set.DataType = dt
+		case unix.NFTA_SET_DATA_LEN:
+			set.DataType.Bytes = binary.BigEndian.Uint32(ad.Bytes())
 		}
 	}
 	return &set, nil
 }
 
-func validateKeyType(bits uint32) ([]uint32, bool) {
-	var unpackTypes []uint32
-	var invalidTypes []uint32
-	found := false
-	valid := true
-	for bits != 0 {
-		unpackTypes = append(unpackTypes, bits&SetConcatTypeMask)
-		bits = bits >> SetConcatTypeBits
-	}
-	for _, t := range unpackTypes {
-		for _, dt := range nftDatatypes {
-			if t == dt.nftMagic {
-				found = true
-			}
+func parseSetDatatype(magic uint32) (SetDatatype, error) {
+	types := make([]SetDatatype, 0, 32/SetConcatTypeBits)
+	for magic != 0 {
+		t := magic & SetConcatTypeMask
+		magic = magic >> SetConcatTypeBits
+		dt, ok := nftDatatypesByMagic[t]
+		if !ok {
+			return TypeInvalid, fmt.Errorf("could not determine data type %+v", dt)
 		}
-		if !found {
-			invalidTypes = append(invalidTypes, t)
-			valid = false
-		}
-		found = false
+		// Because we start with the last type, we insert the later types at the front.
+		types = append([]SetDatatype{dt}, types...)
 	}
-	return invalidTypes, valid
+
+	dt, err := ConcatSetType(types...)
+	if err != nil {
+		return TypeInvalid, fmt.Errorf("could not create data type: %w", err)
+	}
+	return dt, nil
 }
 
-var elemHeaderType = netlink.HeaderType((unix.NFNL_SUBSYS_NFTABLES << 8) | unix.NFT_MSG_NEWSETELEM)
+var (
+	newElemHeaderType = netlink.HeaderType((unix.NFNL_SUBSYS_NFTABLES << 8) | unix.NFT_MSG_NEWSETELEM)
+	delElemHeaderType = netlink.HeaderType((unix.NFNL_SUBSYS_NFTABLES << 8) | unix.NFT_MSG_DELSETELEM)
+)
 
-func elementsFromMsg(msg netlink.Message) ([]SetElement, error) {
-	if got, want := msg.Header.Type, elemHeaderType; got != want {
-		return nil, fmt.Errorf("unexpected header type: got %v, want %v", got, want)
+func elementsFromMsg(fam byte, msg netlink.Message) ([]SetElement, error) {
+	if got, want1, want2 := msg.Header.Type, newElemHeaderType, delElemHeaderType; got != want1 && got != want2 {
+		return nil, fmt.Errorf("unexpected header type: got %v, want %v or %v", got, want1, want2)
 	}
 	ad, err := netlink.NewAttributeDecoder(msg.Data[4:])
 	if err != nil {
@@ -760,7 +794,7 @@ func elementsFromMsg(msg netlink.Message) ([]SetElement, error) {
 				var elem SetElement
 				switch ad.Type() {
 				case unix.NFTA_LIST_ELEM:
-					ad.Do(elem.decode())
+					ad.Do(elem.decode(fam))
 				}
 				elements = append(elements, elem)
 			}
@@ -892,7 +926,7 @@ func (cc *Conn) GetSetElements(s *Set) ([]SetElement, error) {
 	}
 	var elems []SetElement
 	for _, msg := range reply {
-		s, err := elementsFromMsg(msg)
+		s, err := elementsFromMsg(uint8(s.Table.Family), msg)
 		if err != nil {
 			return nil, err
 		}
