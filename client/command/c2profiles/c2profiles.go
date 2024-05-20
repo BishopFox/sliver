@@ -201,6 +201,26 @@ func GenerateC2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []
 		return
 	}
 
+	c2Profiles, err := con.Rpc.GetHTTPC2Profiles(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+
+	var extensions []string
+	for _, c2profile := range c2Profiles.Configs {
+		confProfile, err := con.Rpc.GetHTTPC2ProfileByName(context.Background(), &clientpb.C2ProfileReq{Name: c2profile.Name})
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+		extensions = append(extensions, confProfile.ImplantConfig.StagerFileExtension)
+		extensions = append(extensions, confProfile.ImplantConfig.PollFileExtension)
+		extensions = append(extensions, confProfile.ImplantConfig.StartSessionFileExtension)
+		extensions = append(extensions, confProfile.ImplantConfig.SessionFileExtension)
+		extensions = append(extensions, confProfile.ImplantConfig.CloseFileExtension)
+	}
+
 	config, err := C2ConfigToJSON(profileName, profile)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -226,7 +246,7 @@ func GenerateC2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []
 	}
 	urls := strings.Split(string(fileContent), "\n")
 
-	jsonProfile, err := updateC2Profile(config, urls)
+	jsonProfile, err := updateC2Profile(extensions, config, urls)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
@@ -676,13 +696,14 @@ func selectC2Profile(c2profiles []*clientpb.HTTPC2Config) string {
 	return c2profile
 }
 
-func updateC2Profile(template *assets.HTTPC2Config, urls []string) (*assets.HTTPC2Config, error) {
+func updateC2Profile(usedExtensions []string, template *assets.HTTPC2Config, urls []string) (*assets.HTTPC2Config, error) {
 	// update the template with the urls
 
 	var (
-		paths      []string
-		filenames  []string
-		extensions []string
+		paths              []string
+		filenames          []string
+		extensions         []string
+		filteredExtensions []string
 	)
 
 	for _, urlPath := range urls {
@@ -708,11 +729,14 @@ func updateC2Profile(template *assets.HTTPC2Config, urls []string) (*assets.HTTP
 		}
 	}
 
-	// TODO check for extensions constraint
-
-	// 5 is arbitrarily used as a minimum value, it only has to be 5 for the extensions, the others can be lower
 	slices.Sort(extensions)
 	extensions = slices.Compact(extensions)
+
+	for _, extension := range extensions {
+		if !slices.Contains(usedExtensions, extension) {
+			filteredExtensions = append(filteredExtensions, extension)
+		}
+	}
 
 	slices.Sort(paths)
 	paths = slices.Compact(paths)
@@ -720,8 +744,9 @@ func updateC2Profile(template *assets.HTTPC2Config, urls []string) (*assets.HTTP
 	slices.Sort(filenames)
 	filenames = slices.Compact(filenames)
 
-	if len(extensions) < 5 {
-		return nil, fmt.Errorf("got %d extensions, need at least 5", len(extensions))
+	// 5 is arbitrarily used as a minimum value, it only has to be 5 for the extensions, the others can be lower
+	if len(filteredExtensions) < 5 {
+		return nil, fmt.Errorf("got %d unused extensions, need at least 5", len(filteredExtensions))
 	}
 
 	if len(paths) < 5 {
