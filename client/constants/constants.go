@@ -133,6 +133,7 @@ const (
 	TasksStr           = "tasks"
 	CancelStr          = "cancel"
 	GenerateStr        = "generate"
+	C2GenerateStr      = "generate"
 	RegenerateStr      = "regenerate"
 	CompilerInfoStr    = "info"
 	MsfStagerStr       = "msf-stager"
