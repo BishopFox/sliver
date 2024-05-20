@@ -215,6 +215,7 @@ func GenerateC2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []
 			return
 		}
 		extensions = append(extensions, confProfile.ImplantConfig.StagerFileExtension)
+		extensions = append(extensions, confProfile.ImplantConfig.StartSessionFileExtension)
 	}
 
 	config, err := C2ConfigToJSON(profileName, profile)
