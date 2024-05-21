@@ -59,12 +59,12 @@ type (
 		PostRegAlloc()
 
 		// ResolveRelocations resolves the relocations after emitting machine code.
-		//  * refToBinaryOffset: the map from the function reference to the executable offset.
+		//  * refToBinaryOffset: the map from the function reference (ssa.FuncRef) to the executable offset.
 		//  * executable: the binary to resolve the relocations.
 		//  * relocations: the relocations to resolve.
 		//  * callTrampolineIslandOffsets: the offsets of the trampoline islands in the executable.
 		ResolveRelocations(
-			refToBinaryOffset map[ssa.FuncRef]int,
+			refToBinaryOffset []int,
 			executable []byte,
 			relocations []RelocationInfo,
 			callTrampolineIslandOffsets []int,

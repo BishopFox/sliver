@@ -7,7 +7,6 @@ import (
 	"sort"
 
 	"github.com/tetratelabs/wazero/internal/engine/wazevo/backend"
-	"github.com/tetratelabs/wazero/internal/engine/wazevo/ssa"
 )
 
 const (
@@ -42,7 +41,7 @@ func (m *machine) CallTrampolineIslandInfo(numFunctions int) (interval, size int
 
 // ResolveRelocations implements backend.Machine ResolveRelocations.
 func (m *machine) ResolveRelocations(
-	refToBinaryOffset map[ssa.FuncRef]int,
+	refToBinaryOffset []int,
 	executable []byte,
 	relocations []backend.RelocationInfo,
 	callTrampolineIslandOffsets []int,
@@ -72,11 +71,11 @@ func (m *machine) ResolveRelocations(
 // encodeCallTrampolineIsland encodes a trampoline island for the given functions.
 // Each island consists of a trampoline instruction sequence for each function.
 // Each trampoline instruction sequence consists of 4 instructions + 32-bit immediate.
-func encodeCallTrampolineIsland(refToBinaryOffset map[ssa.FuncRef]int, islandOffset int, executable []byte) {
+func encodeCallTrampolineIsland(refToBinaryOffset []int, islandOffset int, executable []byte) {
 	for i := 0; i < len(refToBinaryOffset); i++ {
 		trampolineOffset := islandOffset + trampolineCallSize*i
 
-		fnOffset := refToBinaryOffset[ssa.FuncRef(i)]
+		fnOffset := refToBinaryOffset[i]
 		diff := fnOffset - (trampolineOffset + 16)
 		if diff > math.MaxInt32 || diff < math.MinInt32 {
 			// This case even amd64 can't handle. 4GB is too big.

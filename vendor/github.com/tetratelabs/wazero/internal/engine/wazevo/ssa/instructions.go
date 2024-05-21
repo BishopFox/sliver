@@ -2180,14 +2180,22 @@ func (i *Instruction) AsCallIndirect(funcPtr Value, sig *Signature, args Values)
 	return i
 }
 
+// AsCallGoRuntimeMemmove is the same as AsCallIndirect, but with a special flag set to indicate that it is a call to the Go runtime memmove function.
+func (i *Instruction) AsCallGoRuntimeMemmove(funcPtr Value, sig *Signature, args Values) *Instruction {
+	i.AsCallIndirect(funcPtr, sig, args)
+	i.u2 = 1
+	return i
+}
+
 // CallIndirectData returns the call indirect data for this instruction necessary for backends.
-func (i *Instruction) CallIndirectData() (funcPtr Value, sigID SignatureID, args []Value) {
+func (i *Instruction) CallIndirectData() (funcPtr Value, sigID SignatureID, args []Value, isGoMemmove bool) {
 	if i.opcode != OpcodeCallIndirect {
 		panic("BUG: CallIndirectData only available for OpcodeCallIndirect")
 	}
 	funcPtr = i.v
 	sigID = SignatureID(i.u1)
 	args = i.vs.View()
+	isGoMemmove = i.u2 == 1
 	return
 }
 

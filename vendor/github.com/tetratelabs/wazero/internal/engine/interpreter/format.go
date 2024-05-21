@@ -1,19 +1,17 @@
-package wazeroir
+package interpreter
 
 import (
 	"bytes"
 )
 
-const EntrypointLabel = ".entrypoint"
-
-func Format(ops []UnionOperation) string {
+func format(ops []unionOperation) string {
 	buf := bytes.NewBuffer(nil)
 
-	_, _ = buf.WriteString(EntrypointLabel + "\n")
+	_, _ = buf.WriteString(".entrypoint\n")
 	for i := range ops {
 		op := &ops[i]
 		str := op.String()
-		isLabel := op.Kind == OperationKindLabel
+		isLabel := op.Kind == operationKindLabel
 		if !isLabel {
 			const indent = "\t"
 			str = indent + str
