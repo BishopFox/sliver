@@ -39,7 +39,9 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind(consts.ExportC2ProfileStr, false, exportC2ProfileCmd, func(f *pflag.FlagSet) {
 		f.StringP("file", "f", "", "Path to file to export C2 configuration to")
 		f.StringP("name", "n", consts.DefaultC2Profile, "HTTP C2 Profile name")
-
+	})
+	flags.BindFlagCompletions(exportC2ProfileCmd, func(comp *carapace.ActionMap) {
+		(*comp)["name"] = generate.HTTPC2Completer(con)
 	})
 
 	C2ProfileCmd := &cobra.Command{
@@ -58,6 +60,28 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.BindFlagCompletions(C2ProfileCmd, func(comp *carapace.ActionMap) {
 		(*comp)["name"] = generate.HTTPC2Completer(con)
 	})
+
+	generateC2ProfileCmd := &cobra.Command{
+		Use:   consts.C2GenerateStr,
+		Short: "Generate a C2 Profile from a list of urls",
+		Long:  help.GetHelpFor([]string{consts.C2ProfileStr + "." + consts.C2GenerateStr}),
+		Run: func(cmd *cobra.Command, args []string) {
+			GenerateC2ProfileCmd(cmd, con, args)
+		},
+	}
+
+	flags.Bind(consts.GenerateStr, false, generateC2ProfileCmd, func(f *pflag.FlagSet) {
+		f.StringP("file", "f", "", "Path to file containing URL list, /hello/there.txt one per line")
+		f.BoolP("import", "i", false, "Import the generated profile after creation")
+		f.StringP("name", "n", "", "HTTP C2 Profile name to save C2Profile as")
+		f.StringP("template", "t", consts.DefaultC2Profile, "HTTP C2 Profile to use as a template for the new profile")
+	})
+
+	flags.BindFlagCompletions(generateC2ProfileCmd, func(comp *carapace.ActionMap) {
+		(*comp)["template"] = generate.HTTPC2Completer(con)
+	})
+
+	C2ProfileCmd.AddCommand(generateC2ProfileCmd)
 	C2ProfileCmd.AddCommand(importC2ProfileCmd)
 	C2ProfileCmd.AddCommand(exportC2ProfileCmd)
 

@@ -58,6 +58,7 @@ var (
 	ErrNonUniqueFileExt           = errors.New("implant config must specify unique file extensions")
 	ErrQueryParamNameLen          = errors.New("implant config url query parameter names must be 3 or more characters")
 	ErrDuplicateStageExt          = errors.New("stager extension is already used in another C2 profile")
+	ErrDuplicateStartSessionExt   = errors.New("start session extension is already used in another C2 profile")
 	ErrDuplicateC2ProfileName     = errors.New("C2 Profile name is already in use")
 	ErrUserAgentIllegalCharacters = errors.New("user agent cannot contain the ` character")
 
