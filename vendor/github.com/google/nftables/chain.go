@@ -37,6 +37,7 @@ var (
 	ChainHookOutput      *ChainHook = ChainHookRef(unix.NF_INET_LOCAL_OUT)
 	ChainHookPostrouting *ChainHook = ChainHookRef(unix.NF_INET_POST_ROUTING)
 	ChainHookIngress     *ChainHook = ChainHookRef(unix.NF_NETDEV_INGRESS)
+	ChainHookEgress      *ChainHook = ChainHookRef(unix.NF_NETDEV_EGRESS)
 )
 
 // ChainHookRef returns a pointer to a ChainHookRef value.
@@ -101,6 +102,7 @@ type Chain struct {
 	Priority *ChainPriority
 	Type     ChainType
 	Policy   *ChainPolicy
+	Device   string
 }
 
 // AddChain adds the specified Chain. See also
@@ -118,6 +120,11 @@ func (cc *Conn) AddChain(c *Chain) *Chain {
 			{Type: unix.NFTA_HOOK_HOOKNUM, Data: binaryutil.BigEndian.PutUint32(uint32(*c.Hooknum))},
 			{Type: unix.NFTA_HOOK_PRIORITY, Data: binaryutil.BigEndian.PutUint32(uint32(*c.Priority))},
 		}
+
+		if c.Device != "" {
+			hookAttr = append(hookAttr, netlink.Attribute{Type: unix.NFTA_HOOK_DEV, Data: []byte(c.Device + "\x00")})
+		}
+
 		data = append(data, cc.marshalAttr([]netlink.Attribute{
 			{Type: unix.NLA_F_NESTED | unix.NFTA_CHAIN_HOOK, Data: cc.marshalAttr(hookAttr)},
 		})...)
@@ -186,6 +193,43 @@ func (cc *Conn) ListChains() ([]*Chain, error) {
 	return cc.ListChainsOfTableFamily(TableFamilyUnspecified)
 }
 
+// ListChain returns a single chain configured in the specified table
+func (cc *Conn) ListChain(table *Table, chain string) (*Chain, error) {
+	conn, closer, err := cc.netlinkConn()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = closer() }()
+
+	attrs := []netlink.Attribute{
+		{Type: unix.NFTA_TABLE_NAME, Data: []byte(table.Name + "\x00")},
+		{Type: unix.NFTA_CHAIN_NAME, Data: []byte(chain + "\x00")},
+	}
+	msg := netlink.Message{
+		Header: netlink.Header{
+			Type:  netlink.HeaderType((unix.NFNL_SUBSYS_NFTABLES << 8) | unix.NFT_MSG_GETCHAIN),
+			Flags: netlink.Request,
+		},
+		Data: append(extraHeader(uint8(table.Family), 0), cc.marshalAttr(attrs)...),
+	}
+
+	response, err := conn.Execute(msg)
+	if err != nil {
+		return nil, fmt.Errorf("conn.Execute failed: %v", err)
+	}
+
+	if got, want := len(response), 1; got != want {
+		return nil, fmt.Errorf("expected %d response message for chain, got %d", want, got)
+	}
+
+	ch, err := chainFromMsg(response[0])
+	if err != nil {
+		return nil, err
+	}
+
+	return ch, nil
+}
+
 // ListChainsOfTableFamily returns currently configured chains for the specified
 // family in the kernel. It lists all chains ins all tables if family is
 // TableFamilyUnspecified.
@@ -223,9 +267,10 @@ func (cc *Conn) ListChainsOfTableFamily(family TableFamily) ([]*Chain, error) {
 }
 
 func chainFromMsg(msg netlink.Message) (*Chain, error) {
-	chainHeaderType := netlink.HeaderType((unix.NFNL_SUBSYS_NFTABLES << 8) | unix.NFT_MSG_NEWCHAIN)
-	if got, want := msg.Header.Type, chainHeaderType; got != want {
-		return nil, fmt.Errorf("unexpected header type: got %v, want %v", got, want)
+	newChainHeaderType := netlink.HeaderType((unix.NFNL_SUBSYS_NFTABLES << 8) | unix.NFT_MSG_NEWCHAIN)
+	delChainHeaderType := netlink.HeaderType((unix.NFNL_SUBSYS_NFTABLES << 8) | unix.NFT_MSG_DELCHAIN)
+	if got, want1, want2 := msg.Header.Type, newChainHeaderType, delChainHeaderType; got != want1 && got != want2 {
+		return nil, fmt.Errorf("unexpected header type: got %v, want %v or %v", got, want1, want2)
 	}
 
 	var c Chain

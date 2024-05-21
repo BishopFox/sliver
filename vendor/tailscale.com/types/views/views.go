@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"maps"
 	"slices"
 
@@ -262,7 +263,7 @@ func (v Slice[T]) AsSlice() []T {
 //
 // As it runs in O(n) time, use with care.
 func (v Slice[T]) IndexFunc(f func(T) bool) int {
-	for i := 0; i < v.Len(); i++ {
+	for i := range v.Len() {
 		if f(v.At(i)) {
 			return i
 		}
@@ -274,34 +275,22 @@ func (v Slice[T]) IndexFunc(f func(T) bool) int {
 //
 // As it runs in O(n) time, use with care.
 func (v Slice[T]) ContainsFunc(f func(T) bool) bool {
+	return slices.ContainsFunc(v.ж, f)
+}
+
+// AppendStrings appends the string representation of each element in v to dst.
+func AppendStrings[T fmt.Stringer](dst []string, v Slice[T]) []string {
 	for _, x := range v.ж {
-		if f(x) {
-			return true
-		}
+		dst = append(dst, x.String())
 	}
-	return false
+	return dst
 }
 
 // SliceContains reports whether v contains element e.
 //
 // As it runs in O(n) time, use with care.
 func SliceContains[T comparable](v Slice[T], e T) bool {
-	for _, x := range v.ж {
-		if x == e {
-			return true
-		}
-	}
-	return false
-}
-
-// SliceContainsFunc reports whether f reports true for any element in v.
-func SliceContainsFunc[T any](v Slice[T], f func(T) bool) bool {
-	for _, x := range v.ж {
-		if f(x) {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(v.ж, e)
 }
 
 // SliceEqual is like the standard library's slices.Equal, but for two views.

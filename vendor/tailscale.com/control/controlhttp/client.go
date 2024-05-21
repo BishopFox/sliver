@@ -393,7 +393,6 @@ func (a *Dialer) resolver() *dnscache.Resolver {
 		LookupIPFallback: dnsfallback.MakeLookupFunc(a.logf, a.NetMon),
 		UseLastGood:      true,
 		Logf:             a.Logf, // not a.logf method; we want to propagate nil-ness
-		NetMon:           a.NetMon,
 	}
 }
 
@@ -412,7 +411,6 @@ func (a *Dialer) tryURLUpgrade(ctx context.Context, u *url.URL, addr netip.Addr,
 			SingleHostStaticResult: []netip.Addr{addr},
 			SingleHost:             u.Hostname(),
 			Logf:                   a.Logf, // not a.logf method; we want to propagate nil-ness
-			NetMon:                 a.NetMon,
 		}
 	} else {
 		dns = a.resolver()
@@ -433,7 +431,7 @@ func (a *Dialer) tryURLUpgrade(ctx context.Context, u *url.URL, addr netip.Addr,
 	// Disable HTTP2, since h2 can't do protocol switching.
 	tr.TLSClientConfig.NextProtos = []string{}
 	tr.TLSNextProto = map[string]func(string, *tls.Conn) http.RoundTripper{}
-	tr.TLSClientConfig = tlsdial.Config(a.Hostname, tr.TLSClientConfig)
+	tr.TLSClientConfig = tlsdial.Config(a.Hostname, a.HealthTracker, tr.TLSClientConfig)
 	if !tr.TLSClientConfig.InsecureSkipVerify {
 		panic("unexpected") // should be set by tlsdial.Config
 	}

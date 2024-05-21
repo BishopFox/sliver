@@ -51,3 +51,11 @@ type Device interface {
 	// lifetime of a Device.
 	BatchSize() int
 }
+
+type LinuxDevice interface {
+	Device
+	// DisableUDPGRO disables UDP GRO if it is enabled. Certain device drivers
+	// (e.g. vxlan, geneve) do not properly handle coalesced UDP packets later
+	// in the stack, resulting in packet loss.
+	DisableUDPGRO()
+}

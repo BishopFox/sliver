@@ -12,9 +12,10 @@ import (
 	"runtime"
 	"slices"
 	"strings"
-	"time"
 
+	"tailscale.com/clientupdate"
 	"tailscale.com/envknob"
+	"tailscale.com/health"
 	"tailscale.com/ipn"
 	"tailscale.com/types/logger"
 	"tailscale.com/util/clientmetric"
@@ -29,8 +30,9 @@ var debug = envknob.RegisterBool("TS_DEBUG_PROFILES")
 //
 // It is not safe for concurrent use.
 type profileManager struct {
-	store ipn.StateStore
-	logf  logger.Logf
+	store  ipn.StateStore
+	logf   logger.Logf
+	health *health.Tracker
 
 	currentUserID  ipn.WindowsUserID
 	knownProfiles  map[ipn.ProfileID]*ipn.LoginProfile // always non-nil
@@ -101,6 +103,7 @@ func (pm *profileManager) SetCurrentUserID(uid ipn.WindowsUserID) error {
 	}
 	pm.currentProfile = prof
 	pm.prefs = prefs
+	pm.updateHealth()
 	return nil
 }
 
@@ -197,10 +200,6 @@ func (pm *profileManager) Reset() {
 	pm.NewProfile()
 }
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
 // SetPrefs sets the current profile's prefs to the provided value.
 // It also saves the prefs to the StateStore. It stores a copy of the
 // provided prefs, which may be accessed via CurrentPrefs.
@@ -284,6 +283,7 @@ func newUnusedID(knownProfiles map[ipn.ProfileID]*ipn.LoginProfile) (ipn.Profile
 // is not new.
 func (pm *profileManager) setPrefsLocked(clonedPrefs ipn.PrefsView) error {
 	pm.prefs = clonedPrefs
+	pm.updateHealth()
 	if pm.currentProfile.ID == "" {
 		return nil
 	}
@@ -335,6 +335,7 @@ func (pm *profileManager) SwitchProfile(id ipn.ProfileID) error {
 		return err
 	}
 	pm.prefs = prefs
+	pm.updateHealth()
 	pm.currentProfile = kp
 	return pm.setAsUserSelectedProfileLocked()
 }
@@ -352,9 +353,13 @@ func (pm *profileManager) loadSavedPrefs(key ipn.StateKey) (ipn.PrefsView, error
 	if err != nil {
 		return ipn.PrefsView{}, err
 	}
-	savedPrefs, err := ipn.PrefsFromBytes(bs)
-	if err != nil {
-		return ipn.PrefsView{}, fmt.Errorf("PrefsFromBytes: %v", err)
+	savedPrefs := ipn.NewPrefs()
+	// NewPrefs sets a default NoStatefulFiltering, but we want to actually see
+	// if the saved state had an empty value. The empty value gets migrated
+	// based on NoSNAT, while a default "false" does not.
+	savedPrefs.NoStatefulFiltering = ""
+	if err := ipn.PrefsFromBytes(bs, savedPrefs); err != nil {
+		return ipn.PrefsView{}, fmt.Errorf("parsing saved prefs: %v", err)
 	}
 	pm.logf("using backend prefs for %q: %v", key, savedPrefs.Pretty())
 
@@ -366,6 +371,43 @@ func (pm *profileManager) loadSavedPrefs(key ipn.StateKey) (ipn.PrefsView, error
 		ipn.IsLoginServerSynonym(savedPrefs.ControlURL) {
 		savedPrefs.ControlURL = ""
 	}
+	// Before
+	// https://github.com/tailscale/tailscale/pull/11814/commits/1613b18f8280c2bce786980532d012c9f0454fa2#diff-314ba0d799f70c8998940903efb541e511f352b39a9eeeae8d475c921d66c2ac
+	// prefs could set AutoUpdate.Apply=true via EditPrefs or tailnet
+	// auto-update defaults. After that change, such value is "invalid" and
+	// cause any EditPrefs calls to fail (other than disabling auto-updates).
+	//
+	// Reset AutoUpdate.Apply if we detect such invalid prefs.
+	if savedPrefs.AutoUpdate.Apply.EqualBool(true) && !clientupdate.CanAutoUpdate() {
+		savedPrefs.AutoUpdate.Apply.Clear()
+	}
+
+	// Backfill a missing NoStatefulFiltering field based on the value of
+	// the NoSNAT field; we want to apply stateful filtering in all cases
+	// *except* where the user has disabled SNAT.
+	//
+	// Only backfill if the user hasn't set a value for
+	// NoStatefulFiltering, however.
+	_, haveNoStateful := savedPrefs.NoStatefulFiltering.Get()
+	if !haveNoStateful {
+		if savedPrefs.NoSNAT {
+			pm.logf("backfilling NoStatefulFiltering field to true because NoSNAT is set")
+
+			// No SNAT: no stateful filtering
+			savedPrefs.NoStatefulFiltering.Set(true)
+		} else {
+			pm.logf("backfilling NoStatefulFiltering field to false because NoSNAT is not set")
+
+			// SNAT (default): apply stateful filtering
+			savedPrefs.NoStatefulFiltering.Set(false)
+		}
+
+		// Write back to the preferences store now that we've updated it.
+		if err := pm.writePrefsToStore(key, savedPrefs.View()); err != nil {
+			return ipn.PrefsView{}, err
+		}
+	}
+
 	return savedPrefs.View(), nil
 }
 
@@ -432,12 +474,20 @@ func (pm *profileManager) writeKnownProfiles() error {
 	return pm.WriteState(ipn.KnownProfilesStateKey, b)
 }
 
+func (pm *profileManager) updateHealth() {
+	if !pm.prefs.Valid() {
+		return
+	}
+	pm.health.SetCheckForUpdates(pm.prefs.AutoUpdate().Check)
+}
+
 // NewProfile creates and switches to a new unnamed profile. The new profile is
 // not persisted until SetPrefs is called with a logged-in user.
 func (pm *profileManager) NewProfile() {
 	metricNewProfile.Add(1)
 
 	pm.prefs = defaultPrefs
+	pm.updateHealth()
 	pm.currentProfile = &ipn.LoginProfile{}
 }
 
@@ -466,7 +516,8 @@ func (pm *profileManager) CurrentPrefs() ipn.PrefsView {
 
 // ReadStartupPrefsForTest reads the startup prefs from disk. It is only used for testing.
 func ReadStartupPrefsForTest(logf logger.Logf, store ipn.StateStore) (ipn.PrefsView, error) {
-	pm, err := newProfileManager(store, logf)
+	ht := new(health.Tracker) // in tests, don't care about the health status
+	pm, err := newProfileManager(store, logf, ht)
 	if err != nil {
 		return ipn.PrefsView{}, err
 	}
@@ -475,8 +526,8 @@ func ReadStartupPrefsForTest(logf logger.Logf, store ipn.StateStore) (ipn.PrefsV
 
 // newProfileManager creates a new ProfileManager using the provided StateStore.
 // It also loads the list of known profiles from the StateStore.
-func newProfileManager(store ipn.StateStore, logf logger.Logf) (*profileManager, error) {
-	return newProfileManagerWithGOOS(store, logf, envknob.GOOS())
+func newProfileManager(store ipn.StateStore, logf logger.Logf, health *health.Tracker) (*profileManager, error) {
+	return newProfileManagerWithGOOS(store, logf, health, envknob.GOOS())
 }
 
 func readAutoStartKey(store ipn.StateStore, goos string) (ipn.StateKey, error) {
@@ -509,7 +560,7 @@ func readKnownProfiles(store ipn.StateStore) (map[ipn.ProfileID]*ipn.LoginProfil
 	return knownProfiles, nil
 }
 
-func newProfileManagerWithGOOS(store ipn.StateStore, logf logger.Logf, goos string) (*profileManager, error) {
+func newProfileManagerWithGOOS(store ipn.StateStore, logf logger.Logf, ht *health.Tracker, goos string) (*profileManager, error) {
 	logf = logger.WithPrefix(logf, "pm: ")
 	stateKey, err := readAutoStartKey(store, goos)
 	if err != nil {
@@ -525,6 +576,7 @@ func newProfileManagerWithGOOS(store ipn.StateStore, logf logger.Logf, goos stri
 		store:         store,
 		knownProfiles: knownProfiles,
 		logf:          logf,
+		health:        ht,
 	}
 
 	if stateKey != "" {

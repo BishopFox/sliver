@@ -30,6 +30,7 @@ import (
 	"golang.org/x/term"
 	"tailscale.com/atomicfile"
 	"tailscale.com/envknob"
+	"tailscale.com/health"
 	"tailscale.com/log/filelogger"
 	"tailscale.com/logtail"
 	"tailscale.com/logtail/filch"
@@ -446,19 +447,22 @@ func tryFixLogStateLocation(dir, cmdname string, logf logger.Logf) {
 // New returns a new log policy (a logger and its instance ID) for a given
 // collection name.
 //
-// The netMon parameter is optional; if non-nil it's used to do faster
-// interface lookups.
+// The netMon parameter is optional. It should be specified in environments where
+// Tailscaled is manipulating the routing table.
 //
 // The logf parameter is optional; if non-nil, information logs (e.g. when
 // migrating state) are sent to that logger, and global changes to the log
 // package are avoided. If nil, logs will be printed using log.Printf.
-func New(collection string, netMon *netmon.Monitor, logf logger.Logf) *Policy {
-	return NewWithConfigPath(collection, "", "", netMon, logf)
+func New(collection string, netMon *netmon.Monitor, health *health.Tracker, logf logger.Logf) *Policy {
+	return NewWithConfigPath(collection, "", "", netMon, health, logf)
 }
 
 // NewWithConfigPath is identical to New, but uses the specified directory and
 // command name. If either is empty, it derives them automatically.
-func NewWithConfigPath(collection, dir, cmdName string, netMon *netmon.Monitor, logf logger.Logf) *Policy {
+//
+// The netMon parameter is optional. It should be specified in environments where
+// Tailscaled is manipulating the routing table.
+func NewWithConfigPath(collection, dir, cmdName string, netMon *netmon.Monitor, health *health.Tracker, logf logger.Logf) *Policy {
 	var lflags int
 	if term.IsTerminal(2) || runtime.GOOS == "windows" {
 		lflags = 0
@@ -554,7 +558,7 @@ func NewWithConfigPath(collection, dir, cmdName string, netMon *netmon.Monitor, 
 		PrivateID:    newc.PrivateID,
 		Stderr:       logWriter{console},
 		CompressLogs: true,
-		HTTPC:        &http.Client{Transport: NewLogtailTransport(logtail.DefaultHost, netMon, logf)},
+		HTTPC:        &http.Client{Transport: NewLogtailTransport(logtail.DefaultHost, netMon, health, logf)},
 	}
 	if collection == logtail.CollectionNode {
 		conf.MetricsDelta = clientmetric.EncodeLogTailMetricsDelta
@@ -569,7 +573,7 @@ func NewWithConfigPath(collection, dir, cmdName string, netMon *netmon.Monitor, 
 		logf("You have enabled a non-default log target. Doing without being told to by Tailscale staff or your network administrator will make getting support difficult.")
 		conf.BaseURL = val
 		u, _ := url.Parse(val)
-		conf.HTTPC = &http.Client{Transport: NewLogtailTransport(u.Host, netMon, logf)}
+		conf.HTTPC = &http.Client{Transport: NewLogtailTransport(u.Host, netMon, health, logf)}
 	}
 
 	filchOptions := filch.Options{
@@ -680,8 +684,12 @@ func (p *Policy) Shutdown(ctx context.Context) error {
 //   - If TLS connection fails, try again using LetsEncrypt's built-in root certificate,
 //     for the benefit of older OS platforms which might not include it.
 //
-// The netMon parameter is optional; if non-nil it's used to do faster interface lookups.
+// The netMon parameter is optional. It should be specified in environments where
+// Tailscaled is manipulating the routing table.
 func MakeDialFunc(netMon *netmon.Monitor, logf logger.Logf) func(ctx context.Context, netw, addr string) (net.Conn, error) {
+	if netMon == nil {
+		netMon = netmon.NewStatic()
+	}
 	return func(ctx context.Context, netw, addr string) (net.Conn, error) {
 		return dialContext(ctx, netw, addr, netMon, logf)
 	}
@@ -724,7 +732,6 @@ func dialContext(ctx context.Context, netw, addr string, netMon *netmon.Monitor,
 		Forward:          dnscache.Get().Forward, // use default cache's forwarder
 		UseLastGood:      true,
 		LookupIPFallback: dnsfallback.MakeLookupFunc(logf, netMon),
-		NetMon:           netMon,
 	}
 	dialer := dnscache.Dialer(nd.DialContext, dnsCache)
 	c, err = dialer(ctx, netw, addr)
@@ -737,13 +744,17 @@ func dialContext(ctx context.Context, netw, addr string, netMon *netmon.Monitor,
 // NewLogtailTransport returns an HTTP Transport particularly suited to uploading
 // logs to the given host name. See DialContext for details on how it works.
 //
-// The netMon parameter is optional; if non-nil it's used to do faster interface lookups.
+// The netMon parameter is optional. It should be specified in environments where
+// Tailscaled is manipulating the routing table.
 //
 // The logf parameter is optional; if non-nil, logs are printed using the
 // provided function; if nil, log.Printf will be used instead.
-func NewLogtailTransport(host string, netMon *netmon.Monitor, logf logger.Logf) http.RoundTripper {
+func NewLogtailTransport(host string, netMon *netmon.Monitor, health *health.Tracker, logf logger.Logf) http.RoundTripper {
 	if testenv.InTest() {
 		return noopPretendSuccessTransport{}
+	}
+	if netMon == nil {
+		netMon = netmon.NewStatic()
 	}
 	// Start with a copy of http.DefaultTransport and tweak it a bit.
 	tr := http.DefaultTransport.(*http.Transport).Clone()
@@ -782,7 +793,7 @@ func NewLogtailTransport(host string, netMon *netmon.Monitor, logf logger.Logf) 
 		tr.TLSNextProto = map[string]func(authority string, c *tls.Conn) http.RoundTripper{}
 	}
 
-	tr.TLSClientConfig = tlsdial.Config(host, tr.TLSClientConfig)
+	tr.TLSClientConfig = tlsdial.Config(host, health, tr.TLSClientConfig)
 
 	return tr
 }
