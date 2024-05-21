@@ -241,7 +241,7 @@ func (m *MemoryInstance) Grow(delta uint32) (result uint32, ok bool) {
 			// We assume grow is called under a guest lock.
 			// But the memory length is accessed elsewhere,
 			// so use atomic to make the new length visible across threads.
-			atomicStoreLength(&m.Buffer, uintptr(len(buffer)))
+			atomicStoreLengthAndCap(&m.Buffer, uintptr(len(buffer)), uintptr(cap(buffer)))
 			m.Cap = memoryBytesNumToPages(uint64(cap(buffer)))
 		} else {
 			m.Buffer = buffer
@@ -293,6 +293,15 @@ func PagesToUnitOfBytes(pages uint32) string {
 }
 
 // Below are raw functions used to implement the api.Memory API:
+
+// Uses atomic write to update the length of a slice.
+func atomicStoreLengthAndCap(slice *[]byte, length uintptr, cap uintptr) {
+	slicePtr := (*reflect.SliceHeader)(unsafe.Pointer(slice))
+	capPtr := (*uintptr)(unsafe.Pointer(&slicePtr.Cap))
+	atomic.StoreUintptr(capPtr, cap)
+	lenPtr := (*uintptr)(unsafe.Pointer(&slicePtr.Len))
+	atomic.StoreUintptr(lenPtr, length)
+}
 
 // Uses atomic write to update the length of a slice.
 func atomicStoreLength(slice *[]byte, length uintptr) {

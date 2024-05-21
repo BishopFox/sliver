@@ -1,4 +1,4 @@
-package wazeroir
+package interpreter
 
 import (
 	"fmt"
@@ -9,249 +9,249 @@ import (
 // signature represents how a Wasm opcode
 // manipulates the value stacks in terms of value types.
 type signature struct {
-	in, out []UnsignedType
+	in, out []unsignedType
 }
 
 var (
 	signature_None_None    = &signature{}
 	signature_Unknown_None = &signature{
-		in: []UnsignedType{UnsignedTypeUnknown},
+		in: []unsignedType{unsignedTypeUnknown},
 	}
 	signature_None_I32 = &signature{
-		out: []UnsignedType{UnsignedTypeI32},
+		out: []unsignedType{unsignedTypeI32},
 	}
 	signature_None_I64 = &signature{
-		out: []UnsignedType{UnsignedTypeI64},
+		out: []unsignedType{unsignedTypeI64},
 	}
 	signature_None_V128 = &signature{
-		out: []UnsignedType{UnsignedTypeV128},
+		out: []unsignedType{unsignedTypeV128},
 	}
 	signature_None_F32 = &signature{
-		out: []UnsignedType{UnsignedTypeF32},
+		out: []unsignedType{unsignedTypeF32},
 	}
 	signature_None_F64 = &signature{
-		out: []UnsignedType{UnsignedTypeF64},
+		out: []unsignedType{unsignedTypeF64},
 	}
 	signature_I32_None = &signature{
-		in: []UnsignedType{UnsignedTypeI32},
+		in: []unsignedType{unsignedTypeI32},
 	}
 	signature_I64_None = &signature{
-		in: []UnsignedType{UnsignedTypeI64},
+		in: []unsignedType{unsignedTypeI64},
 	}
 	signature_F32_None = &signature{
-		in: []UnsignedType{UnsignedTypeF32},
+		in: []unsignedType{unsignedTypeF32},
 	}
 	signature_F64_None = &signature{
-		in: []UnsignedType{UnsignedTypeF64},
+		in: []unsignedType{unsignedTypeF64},
 	}
 	signature_V128_None = &signature{
-		in: []UnsignedType{UnsignedTypeV128},
+		in: []unsignedType{unsignedTypeV128},
 	}
 	signature_I32_I32 = &signature{
-		in:  []UnsignedType{UnsignedTypeI32},
-		out: []UnsignedType{UnsignedTypeI32},
+		in:  []unsignedType{unsignedTypeI32},
+		out: []unsignedType{unsignedTypeI32},
 	}
 	signature_I32_I64 = &signature{
-		in:  []UnsignedType{UnsignedTypeI32},
-		out: []UnsignedType{UnsignedTypeI64},
+		in:  []unsignedType{unsignedTypeI32},
+		out: []unsignedType{unsignedTypeI64},
 	}
 	signature_I64_I64 = &signature{
-		in:  []UnsignedType{UnsignedTypeI64},
-		out: []UnsignedType{UnsignedTypeI64},
+		in:  []unsignedType{unsignedTypeI64},
+		out: []unsignedType{unsignedTypeI64},
 	}
 	signature_I32_F32 = &signature{
-		in:  []UnsignedType{UnsignedTypeI32},
-		out: []UnsignedType{UnsignedTypeF32},
+		in:  []unsignedType{unsignedTypeI32},
+		out: []unsignedType{unsignedTypeF32},
 	}
 	signature_I32_F64 = &signature{
-		in:  []UnsignedType{UnsignedTypeI32},
-		out: []UnsignedType{UnsignedTypeF64},
+		in:  []unsignedType{unsignedTypeI32},
+		out: []unsignedType{unsignedTypeF64},
 	}
 	signature_I64_I32 = &signature{
-		in:  []UnsignedType{UnsignedTypeI64},
-		out: []UnsignedType{UnsignedTypeI32},
+		in:  []unsignedType{unsignedTypeI64},
+		out: []unsignedType{unsignedTypeI32},
 	}
 	signature_I64_F32 = &signature{
-		in:  []UnsignedType{UnsignedTypeI64},
-		out: []UnsignedType{UnsignedTypeF32},
+		in:  []unsignedType{unsignedTypeI64},
+		out: []unsignedType{unsignedTypeF32},
 	}
 	signature_I64_F64 = &signature{
-		in:  []UnsignedType{UnsignedTypeI64},
-		out: []UnsignedType{UnsignedTypeF64},
+		in:  []unsignedType{unsignedTypeI64},
+		out: []unsignedType{unsignedTypeF64},
 	}
 	signature_F32_I32 = &signature{
-		in:  []UnsignedType{UnsignedTypeF32},
-		out: []UnsignedType{UnsignedTypeI32},
+		in:  []unsignedType{unsignedTypeF32},
+		out: []unsignedType{unsignedTypeI32},
 	}
 	signature_F32_I64 = &signature{
-		in:  []UnsignedType{UnsignedTypeF32},
-		out: []UnsignedType{UnsignedTypeI64},
+		in:  []unsignedType{unsignedTypeF32},
+		out: []unsignedType{unsignedTypeI64},
 	}
 	signature_F32_F64 = &signature{
-		in:  []UnsignedType{UnsignedTypeF32},
-		out: []UnsignedType{UnsignedTypeF64},
+		in:  []unsignedType{unsignedTypeF32},
+		out: []unsignedType{unsignedTypeF64},
 	}
 	signature_F32_F32 = &signature{
-		in:  []UnsignedType{UnsignedTypeF32},
-		out: []UnsignedType{UnsignedTypeF32},
+		in:  []unsignedType{unsignedTypeF32},
+		out: []unsignedType{unsignedTypeF32},
 	}
 	signature_F64_I32 = &signature{
-		in:  []UnsignedType{UnsignedTypeF64},
-		out: []UnsignedType{UnsignedTypeI32},
+		in:  []unsignedType{unsignedTypeF64},
+		out: []unsignedType{unsignedTypeI32},
 	}
 	signature_F64_F32 = &signature{
-		in:  []UnsignedType{UnsignedTypeF64},
-		out: []UnsignedType{UnsignedTypeF32},
+		in:  []unsignedType{unsignedTypeF64},
+		out: []unsignedType{unsignedTypeF32},
 	}
 	signature_F64_I64 = &signature{
-		in:  []UnsignedType{UnsignedTypeF64},
-		out: []UnsignedType{UnsignedTypeI64},
+		in:  []unsignedType{unsignedTypeF64},
+		out: []unsignedType{unsignedTypeI64},
 	}
 	signature_F64_F64 = &signature{
-		in:  []UnsignedType{UnsignedTypeF64},
-		out: []UnsignedType{UnsignedTypeF64},
+		in:  []unsignedType{unsignedTypeF64},
+		out: []unsignedType{unsignedTypeF64},
 	}
 	signature_I32I32_None = &signature{
-		in: []UnsignedType{UnsignedTypeI32, UnsignedTypeI32},
+		in: []unsignedType{unsignedTypeI32, unsignedTypeI32},
 	}
 
 	signature_I32I32_I32 = &signature{
-		in:  []UnsignedType{UnsignedTypeI32, UnsignedTypeI32},
-		out: []UnsignedType{UnsignedTypeI32},
+		in:  []unsignedType{unsignedTypeI32, unsignedTypeI32},
+		out: []unsignedType{unsignedTypeI32},
 	}
 	signature_I32I64_None = &signature{
-		in: []UnsignedType{UnsignedTypeI32, UnsignedTypeI64},
+		in: []unsignedType{unsignedTypeI32, unsignedTypeI64},
 	}
 	signature_I32F32_None = &signature{
-		in: []UnsignedType{UnsignedTypeI32, UnsignedTypeF32},
+		in: []unsignedType{unsignedTypeI32, unsignedTypeF32},
 	}
 	signature_I32F64_None = &signature{
-		in: []UnsignedType{UnsignedTypeI32, UnsignedTypeF64},
+		in: []unsignedType{unsignedTypeI32, unsignedTypeF64},
 	}
 	signature_I64I32_I32 = &signature{
-		in:  []UnsignedType{UnsignedTypeI64, UnsignedTypeI32},
-		out: []UnsignedType{UnsignedTypeI32},
+		in:  []unsignedType{unsignedTypeI64, unsignedTypeI32},
+		out: []unsignedType{unsignedTypeI32},
 	}
 	signature_I64I64_I32 = &signature{
-		in:  []UnsignedType{UnsignedTypeI64, UnsignedTypeI64},
-		out: []UnsignedType{UnsignedTypeI32},
+		in:  []unsignedType{unsignedTypeI64, unsignedTypeI64},
+		out: []unsignedType{unsignedTypeI32},
 	}
 	signature_I64I64_I64 = &signature{
-		in:  []UnsignedType{UnsignedTypeI64, UnsignedTypeI64},
-		out: []UnsignedType{UnsignedTypeI64},
+		in:  []unsignedType{unsignedTypeI64, unsignedTypeI64},
+		out: []unsignedType{unsignedTypeI64},
 	}
 	signature_F32F32_I32 = &signature{
-		in:  []UnsignedType{UnsignedTypeF32, UnsignedTypeF32},
-		out: []UnsignedType{UnsignedTypeI32},
+		in:  []unsignedType{unsignedTypeF32, unsignedTypeF32},
+		out: []unsignedType{unsignedTypeI32},
 	}
 	signature_F32F32_F32 = &signature{
-		in:  []UnsignedType{UnsignedTypeF32, UnsignedTypeF32},
-		out: []UnsignedType{UnsignedTypeF32},
+		in:  []unsignedType{unsignedTypeF32, unsignedTypeF32},
+		out: []unsignedType{unsignedTypeF32},
 	}
 	signature_F64F64_I32 = &signature{
-		in:  []UnsignedType{UnsignedTypeF64, UnsignedTypeF64},
-		out: []UnsignedType{UnsignedTypeI32},
+		in:  []unsignedType{unsignedTypeF64, unsignedTypeF64},
+		out: []unsignedType{unsignedTypeI32},
 	}
 	signature_F64F64_F64 = &signature{
-		in:  []UnsignedType{UnsignedTypeF64, UnsignedTypeF64},
-		out: []UnsignedType{UnsignedTypeF64},
+		in:  []unsignedType{unsignedTypeF64, unsignedTypeF64},
+		out: []unsignedType{unsignedTypeF64},
 	}
 	signature_I32I32I32_None = &signature{
-		in: []UnsignedType{UnsignedTypeI32, UnsignedTypeI32, UnsignedTypeI32},
+		in: []unsignedType{unsignedTypeI32, unsignedTypeI32, unsignedTypeI32},
 	}
 	signature_I32I64I32_None = &signature{
-		in: []UnsignedType{UnsignedTypeI32, UnsignedTypeI64, UnsignedTypeI32},
+		in: []unsignedType{unsignedTypeI32, unsignedTypeI64, unsignedTypeI32},
 	}
 	signature_UnknownUnknownI32_Unknown = &signature{
-		in:  []UnsignedType{UnsignedTypeUnknown, UnsignedTypeUnknown, UnsignedTypeI32},
-		out: []UnsignedType{UnsignedTypeUnknown},
+		in:  []unsignedType{unsignedTypeUnknown, unsignedTypeUnknown, unsignedTypeI32},
+		out: []unsignedType{unsignedTypeUnknown},
 	}
 	signature_V128V128_V128 = &signature{
-		in:  []UnsignedType{UnsignedTypeV128, UnsignedTypeV128},
-		out: []UnsignedType{UnsignedTypeV128},
+		in:  []unsignedType{unsignedTypeV128, unsignedTypeV128},
+		out: []unsignedType{unsignedTypeV128},
 	}
 	signature_V128V128V128_V32 = &signature{
-		in:  []UnsignedType{UnsignedTypeV128, UnsignedTypeV128, UnsignedTypeV128},
-		out: []UnsignedType{UnsignedTypeV128},
+		in:  []unsignedType{unsignedTypeV128, unsignedTypeV128, unsignedTypeV128},
+		out: []unsignedType{unsignedTypeV128},
 	}
 	signature_I32_V128 = &signature{
-		in:  []UnsignedType{UnsignedTypeI32},
-		out: []UnsignedType{UnsignedTypeV128},
+		in:  []unsignedType{unsignedTypeI32},
+		out: []unsignedType{unsignedTypeV128},
 	}
 	signature_I32V128_None = &signature{
-		in: []UnsignedType{UnsignedTypeI32, UnsignedTypeV128},
+		in: []unsignedType{unsignedTypeI32, unsignedTypeV128},
 	}
 	signature_I32V128_V128 = &signature{
-		in:  []UnsignedType{UnsignedTypeI32, UnsignedTypeV128},
-		out: []UnsignedType{UnsignedTypeV128},
+		in:  []unsignedType{unsignedTypeI32, unsignedTypeV128},
+		out: []unsignedType{unsignedTypeV128},
 	}
 	signature_V128I32_V128 = &signature{
-		in:  []UnsignedType{UnsignedTypeV128, UnsignedTypeI32},
-		out: []UnsignedType{UnsignedTypeV128},
+		in:  []unsignedType{unsignedTypeV128, unsignedTypeI32},
+		out: []unsignedType{unsignedTypeV128},
 	}
 	signature_V128I64_V128 = &signature{
-		in:  []UnsignedType{UnsignedTypeV128, UnsignedTypeI64},
-		out: []UnsignedType{UnsignedTypeV128},
+		in:  []unsignedType{unsignedTypeV128, unsignedTypeI64},
+		out: []unsignedType{unsignedTypeV128},
 	}
 	signature_V128F32_V128 = &signature{
-		in:  []UnsignedType{UnsignedTypeV128, UnsignedTypeF32},
-		out: []UnsignedType{UnsignedTypeV128},
+		in:  []unsignedType{unsignedTypeV128, unsignedTypeF32},
+		out: []unsignedType{unsignedTypeV128},
 	}
 	signature_V128F64_V128 = &signature{
-		in:  []UnsignedType{UnsignedTypeV128, UnsignedTypeF64},
-		out: []UnsignedType{UnsignedTypeV128},
+		in:  []unsignedType{unsignedTypeV128, unsignedTypeF64},
+		out: []unsignedType{unsignedTypeV128},
 	}
 	signature_V128_I32 = &signature{
-		in:  []UnsignedType{UnsignedTypeV128},
-		out: []UnsignedType{UnsignedTypeI32},
+		in:  []unsignedType{unsignedTypeV128},
+		out: []unsignedType{unsignedTypeI32},
 	}
 	signature_V128_I64 = &signature{
-		in:  []UnsignedType{UnsignedTypeV128},
-		out: []UnsignedType{UnsignedTypeI64},
+		in:  []unsignedType{unsignedTypeV128},
+		out: []unsignedType{unsignedTypeI64},
 	}
 	signature_V128_F32 = &signature{
-		in:  []UnsignedType{UnsignedTypeV128},
-		out: []UnsignedType{UnsignedTypeF32},
+		in:  []unsignedType{unsignedTypeV128},
+		out: []unsignedType{unsignedTypeF32},
 	}
 	signature_V128_F64 = &signature{
-		in:  []UnsignedType{UnsignedTypeV128},
-		out: []UnsignedType{UnsignedTypeF64},
+		in:  []unsignedType{unsignedTypeV128},
+		out: []unsignedType{unsignedTypeF64},
 	}
 	signature_V128_V128 = &signature{
-		in:  []UnsignedType{UnsignedTypeV128},
-		out: []UnsignedType{UnsignedTypeV128},
+		in:  []unsignedType{unsignedTypeV128},
+		out: []unsignedType{unsignedTypeV128},
 	}
 	signature_I64_V128 = &signature{
-		in:  []UnsignedType{UnsignedTypeI64},
-		out: []UnsignedType{UnsignedTypeV128},
+		in:  []unsignedType{unsignedTypeI64},
+		out: []unsignedType{unsignedTypeV128},
 	}
 	signature_F32_V128 = &signature{
-		in:  []UnsignedType{UnsignedTypeF32},
-		out: []UnsignedType{UnsignedTypeV128},
+		in:  []unsignedType{unsignedTypeF32},
+		out: []unsignedType{unsignedTypeV128},
 	}
 	signature_F64_V128 = &signature{
-		in:  []UnsignedType{UnsignedTypeF64},
-		out: []UnsignedType{UnsignedTypeV128},
+		in:  []unsignedType{unsignedTypeF64},
+		out: []unsignedType{unsignedTypeV128},
 	}
 	signature_I32I64_I64 = &signature{
-		in:  []UnsignedType{UnsignedTypeI32, UnsignedTypeI64},
-		out: []UnsignedType{UnsignedTypeI64},
+		in:  []unsignedType{unsignedTypeI32, unsignedTypeI64},
+		out: []unsignedType{unsignedTypeI64},
 	}
 	signature_I32I32I64_I32 = &signature{
-		in:  []UnsignedType{UnsignedTypeI32, UnsignedTypeI32, UnsignedTypeI64},
-		out: []UnsignedType{UnsignedTypeI32},
+		in:  []unsignedType{unsignedTypeI32, unsignedTypeI32, unsignedTypeI64},
+		out: []unsignedType{unsignedTypeI32},
 	}
 	signature_I32I64I64_I32 = &signature{
-		in:  []UnsignedType{UnsignedTypeI32, UnsignedTypeI64, UnsignedTypeI64},
-		out: []UnsignedType{UnsignedTypeI32},
+		in:  []unsignedType{unsignedTypeI32, unsignedTypeI64, unsignedTypeI64},
+		out: []unsignedType{unsignedTypeI32},
 	}
 	signature_I32I32I32_I32 = &signature{
-		in:  []UnsignedType{UnsignedTypeI32, UnsignedTypeI32, UnsignedTypeI32},
-		out: []UnsignedType{UnsignedTypeI32},
+		in:  []unsignedType{unsignedTypeI32, unsignedTypeI32, unsignedTypeI32},
+		out: []unsignedType{unsignedTypeI32},
 	}
 	signature_I32I64I64_I64 = &signature{
-		in:  []UnsignedType{UnsignedTypeI32, UnsignedTypeI64, UnsignedTypeI64},
-		out: []UnsignedType{UnsignedTypeI64},
+		in:  []unsignedType{unsignedTypeI32, unsignedTypeI64, unsignedTypeI64},
+		out: []unsignedType{unsignedTypeI64},
 	}
 )
 
@@ -259,8 +259,8 @@ var (
 // Note that some of opcodes' signature vary depending on
 // the function instance (for example, local types).
 // "index" parameter is not used by most of opcodes.
-// The returned signature is used for stack validation when lowering Wasm's opcodes to wazeroir.
-func (c *Compiler) wasmOpcodeSignature(op wasm.Opcode, index uint32) (*signature, error) {
+// The returned signature is used for stack validation when lowering Wasm's opcodes to interpreterir.
+func (c *compiler) wasmOpcodeSignature(op wasm.Opcode, index uint32) (*signature, error) {
 	switch op {
 	case wasm.OpcodeUnreachable, wasm.OpcodeNop, wasm.OpcodeBlock, wasm.OpcodeLoop:
 		return signature_None_None, nil
@@ -464,7 +464,7 @@ func (c *Compiler) wasmOpcodeSignature(op wasm.Opcode, index uint32) (*signature
 		// table.set takes table's offset and the ref type value of opaque pointer as i64 value.
 		return signature_I32I64_None, nil
 	case wasm.OpcodeRefFunc:
-		// ref.func is translated as pushing the compiled function's opaque pointer (uint64) at wazeroir layer.
+		// ref.func is translated as pushing the compiled function's opaque pointer (uint64) at interpreterir layer.
 		return signature_None_I64, nil
 	case wasm.OpcodeRefIsNull:
 		// ref.is_null is translated as checking if the uint64 on the top of the stack (opaque pointer) is zero or not.
@@ -494,7 +494,7 @@ func (c *Compiler) wasmOpcodeSignature(op wasm.Opcode, index uint32) (*signature
 		case wasm.OpcodeMiscTableFill:
 			return signature_I32I64I32_None, nil
 		default:
-			return nil, fmt.Errorf("unsupported misc instruction in wazeroir: 0x%x", op)
+			return nil, fmt.Errorf("unsupported misc instruction in interpreterir: 0x%x", op)
 		}
 	case wasm.OpcodeVecPrefix:
 		switch vecOp := c.body[c.pc+1]; vecOp {
@@ -604,7 +604,7 @@ func (c *Compiler) wasmOpcodeSignature(op wasm.Opcode, index uint32) (*signature
 			wasm.OpcodeVecI8x16NarrowI16x8S, wasm.OpcodeVecI8x16NarrowI16x8U, wasm.OpcodeVecI16x8NarrowI32x4S, wasm.OpcodeVecI16x8NarrowI32x4U:
 			return signature_V128V128_V128, nil
 		default:
-			return nil, fmt.Errorf("unsupported vector instruction in wazeroir: %s", wasm.VectorInstructionName(vecOp))
+			return nil, fmt.Errorf("unsupported vector instruction in interpreterir: %s", wasm.VectorInstructionName(vecOp))
 		}
 	case wasm.OpcodeAtomicPrefix:
 		switch atomicOp := c.body[c.pc+1]; atomicOp {
@@ -638,10 +638,10 @@ func (c *Compiler) wasmOpcodeSignature(op wasm.Opcode, index uint32) (*signature
 		case wasm.OpcodeAtomicI64RmwCmpxchg, wasm.OpcodeAtomicI64Rmw8CmpxchgU, wasm.OpcodeAtomicI64Rmw16CmpxchgU, wasm.OpcodeAtomicI64Rmw32CmpxchgU:
 			return signature_I32I64I64_I64, nil
 		default:
-			return nil, fmt.Errorf("unsupported atomic instruction in wazeroir: %s", wasm.AtomicInstructionName(atomicOp))
+			return nil, fmt.Errorf("unsupported atomic instruction in interpreterir: %s", wasm.AtomicInstructionName(atomicOp))
 		}
 	default:
-		return nil, fmt.Errorf("unsupported instruction in wazeroir: 0x%x", op)
+		return nil, fmt.Errorf("unsupported instruction in interpreterir: 0x%x", op)
 	}
 }
 
@@ -668,25 +668,25 @@ func (f *funcTypeToIRSignatures) get(typeIndex wasm.Index, indirect bool) *signa
 	tp := &f.wasmTypes[typeIndex]
 	if indirect {
 		sig = &signature{
-			in:  make([]UnsignedType, 0, len(tp.Params)+1), // +1 to reserve space for call indirect index.
-			out: make([]UnsignedType, 0, len(tp.Results)),
+			in:  make([]unsignedType, 0, len(tp.Params)+1), // +1 to reserve space for call indirect index.
+			out: make([]unsignedType, 0, len(tp.Results)),
 		}
 	} else {
 		sig = &signature{
-			in:  make([]UnsignedType, 0, len(tp.Params)),
-			out: make([]UnsignedType, 0, len(tp.Results)),
+			in:  make([]unsignedType, 0, len(tp.Params)),
+			out: make([]unsignedType, 0, len(tp.Results)),
 		}
 	}
 
 	for _, vt := range tp.Params {
-		sig.in = append(sig.in, wasmValueTypeToUnsignedType(vt))
+		sig.in = append(sig.in, wasmValueTypeTounsignedType(vt))
 	}
 	for _, vt := range tp.Results {
-		sig.out = append(sig.out, wasmValueTypeToUnsignedType(vt))
+		sig.out = append(sig.out, wasmValueTypeTounsignedType(vt))
 	}
 
 	if indirect {
-		sig.in = append(sig.in, UnsignedTypeI32)
+		sig.in = append(sig.in, unsignedTypeI32)
 		f.indirectCalls[typeIndex] = sig
 	} else {
 		f.directCalls[typeIndex] = sig
@@ -694,20 +694,20 @@ func (f *funcTypeToIRSignatures) get(typeIndex wasm.Index, indirect bool) *signa
 	return sig
 }
 
-func wasmValueTypeToUnsignedType(vt wasm.ValueType) UnsignedType {
+func wasmValueTypeTounsignedType(vt wasm.ValueType) unsignedType {
 	switch vt {
 	case wasm.ValueTypeI32:
-		return UnsignedTypeI32
+		return unsignedTypeI32
 	case wasm.ValueTypeI64,
-		// From wazeroir layer, ref type values are opaque 64-bit pointers.
+		// From interpreterir layer, ref type values are opaque 64-bit pointers.
 		wasm.ValueTypeExternref, wasm.ValueTypeFuncref:
-		return UnsignedTypeI64
+		return unsignedTypeI64
 	case wasm.ValueTypeF32:
-		return UnsignedTypeF32
+		return unsignedTypeF32
 	case wasm.ValueTypeF64:
-		return UnsignedTypeF64
+		return unsignedTypeF64
 	case wasm.ValueTypeV128:
-		return UnsignedTypeV128
+		return unsignedTypeV128
 	}
 	panic("unreachable")
 }
@@ -717,7 +717,7 @@ func wasmValueTypeToUnsignedOutSignature(vt wasm.ValueType) *signature {
 	case wasm.ValueTypeI32:
 		return signature_None_I32
 	case wasm.ValueTypeI64,
-		// From wazeroir layer, ref type values are opaque 64-bit pointers.
+		// From interpreterir layer, ref type values are opaque 64-bit pointers.
 		wasm.ValueTypeExternref, wasm.ValueTypeFuncref:
 		return signature_None_I64
 	case wasm.ValueTypeF32:
@@ -735,7 +735,7 @@ func wasmValueTypeToUnsignedInSignature(vt wasm.ValueType) *signature {
 	case wasm.ValueTypeI32:
 		return signature_I32_None
 	case wasm.ValueTypeI64,
-		// From wazeroir layer, ref type values are opaque 64-bit pointers.
+		// From interpreterir layer, ref type values are opaque 64-bit pointers.
 		wasm.ValueTypeExternref, wasm.ValueTypeFuncref:
 		return signature_I64_None
 	case wasm.ValueTypeF32:
@@ -753,7 +753,7 @@ func wasmValueTypeToUnsignedInOutSignature(vt wasm.ValueType) *signature {
 	case wasm.ValueTypeI32:
 		return signature_I32_I32
 	case wasm.ValueTypeI64,
-		// From wazeroir layer, ref type values are opaque 64-bit pointers.
+		// At interpreterir layer, ref type values are opaque 64-bit pointers.
 		wasm.ValueTypeExternref, wasm.ValueTypeFuncref:
 		return signature_I64_I64
 	case wasm.ValueTypeF32:

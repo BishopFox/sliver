@@ -11,7 +11,7 @@ import (
 
 func (i *instruction) encode(c backend.Compiler) (needsLabelResolution bool) {
 	switch kind := i.kind; kind {
-	case nop0, sourceOffsetInfo, defineUninitializedReg, fcvtToSintSequence, fcvtToUintSequence, keepAlive:
+	case nop0, sourceOffsetInfo, defineUninitializedReg, fcvtToSintSequence, fcvtToUintSequence, nopUseReg:
 	case ret:
 		encodeRet(c)
 	case imm:

@@ -251,9 +251,6 @@ func (d *DirentCache) cachedDirents(n uint32) []sys.Dirent {
 }
 
 type FSContext struct {
-	// rootFS is the root ("/") mount.
-	rootFS sys.FS
-
 	// openedFiles is a map of file descriptor numbers (>=FdPreopen) to open files
 	// (or directories) and defaults to empty.
 	// TODO: This is unguarded, so not goroutine-safe!
@@ -263,19 +260,6 @@ type FSContext struct {
 // FileTable is a specialization of the descriptor.Table type used to map file
 // descriptors to file entries.
 type FileTable = descriptor.Table[int32, *FileEntry]
-
-// RootFS returns a possibly unimplemented root filesystem. Any files that
-// should be added to the table should be inserted via InsertFile.
-//
-// TODO: This is only used by GOOS=js and tests: Remove when we remove GOOS=js
-// (after Go 1.22 is released).
-func (c *FSContext) RootFS() sys.FS {
-	if rootFS := c.rootFS; rootFS == nil {
-		return sys.UnimplementedFS{}
-	} else {
-		return rootFS
-	}
-}
 
 // LookupFile returns a file if it is in the table.
 func (c *FSContext) LookupFile(fd int32) (*FileEntry, bool) {
@@ -412,19 +396,18 @@ func (c *Context) InitFSContext(
 	}
 	c.fsc.openedFiles.Insert(errWriter)
 
-	for i, fs := range fs {
+	for i, f := range fs {
 		guestPath := guestPaths[i]
 
 		if StripPrefixesAndTrailingSlash(guestPath) == "" {
 			// Default to bind to '/' when guestPath is effectively empty.
 			guestPath = "/"
-			c.fsc.rootFS = fs
 		}
 		c.fsc.openedFiles.Insert(&FileEntry{
-			FS:        fs,
+			FS:        f,
 			Name:      guestPath,
 			IsPreopen: true,
-			File:      &lazyDir{fs: fs},
+			File:      &lazyDir{fs: f},
 		})
 	}
 
