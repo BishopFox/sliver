@@ -417,10 +417,21 @@ func (rpc *Server) GenerateExternalGetBuildConfig(ctx context.Context, req *clie
 		return nil, status.Error(codes.Internal, fmt.Sprintf("Unable to load HTTP C2 Configuration: %s", err))
 	}
 
+	encoders := map[string]uint64{
+		"base64":  encoders.Base64EncoderID,
+		"base58":  encoders.Base58EncoderID,
+		"base32":  encoders.Base32EncoderID,
+		"hex":     encoders.HexEncoderID,
+		"english": encoders.EnglishEncoderID,
+		"gzip":    encoders.GzipEncoderID,
+		"png":     encoders.PNGEncoderID,
+	}
+
 	return &clientpb.ExternalImplantConfig{
-		Config: implantConfig,
-		Build:  build,
-		HTTPC2: httpC2Config,
+		Config:   implantConfig,
+		Build:    build,
+		HTTPC2:   httpC2Config,
+		Encoders: encoders,
 	}, nil
 }
 

@@ -225,6 +225,7 @@ message ExternalImplantConfig {
   ImplantConfig Config = 1;
   ImplantBuild Build = 2;
   HTTPC2Config HTTPC2 = 3;
+  map<string, uint64> encoders = 4;
 }
 
 message ExternalImplantBinary {
