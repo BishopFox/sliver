@@ -923,10 +923,10 @@ golang.zx2c4.com/wireguard/wgctrl/wgtypes
 # golang.zx2c4.com/wireguard/windows v0.5.3
 ## explicit; go 1.18
 golang.zx2c4.com/wireguard/windows/tunnel/winipcfg
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20240227224415-6ceb2ff114de
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20240318140521-94a12d6c2237
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.63.2
+# google.golang.org/grpc v1.64.0
 ## explicit; go 1.19
 google.golang.org/grpc
 google.golang.org/grpc/attributes
