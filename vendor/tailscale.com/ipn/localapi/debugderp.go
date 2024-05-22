@@ -140,7 +140,7 @@ func (h *Handler) serveDebugDERPRegion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	checkSTUN4 := func(derpNode *tailcfg.DERPNode) {
-		u4, err := nettype.MakePacketListenerWithNetIP(netns.Listener(h.logf, h.netMon)).ListenPacket(ctx, "udp4", ":0")
+		u4, err := nettype.MakePacketListenerWithNetIP(netns.Listener(h.logf, h.b.NetMon())).ListenPacket(ctx, "udp4", ":0")
 		if err != nil {
 			st.Errors = append(st.Errors, fmt.Sprintf("Error creating IPv4 STUN listener: %v", err))
 			return
@@ -247,9 +247,9 @@ func (h *Handler) serveDebugDERPRegion(w http.ResponseWriter, r *http.Request) {
 		// Next, repeatedly get the server key to see if the node is
 		// behind a load balancer (incorrectly).
 		serverPubKeys := make(map[key.NodePublic]bool)
-		for i := 0; i < 5; i++ {
+		for i := range 5 {
 			func() {
-				rc := derphttp.NewRegionClient(fakePrivKey, h.logf, h.netMon, func() *tailcfg.DERPRegion {
+				rc := derphttp.NewRegionClient(fakePrivKey, h.logf, h.b.NetMon(), func() *tailcfg.DERPRegion {
 					return &tailcfg.DERPRegion{
 						RegionID:   reg.RegionID,
 						RegionCode: reg.RegionCode,

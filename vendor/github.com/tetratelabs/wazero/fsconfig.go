@@ -30,8 +30,6 @@ import (
 // current directory prior to requesting files.
 //
 // More notes on `guestPath`
-//   - Go compiled with runtime.GOOS=js do not pay attention to this value.
-//     It only works with root mounts ("").
 //   - Working directories are typically tracked in wasm, though possible some
 //     relative paths are requested. For example, TinyGo may attempt to resolve
 //     a path "../.." in unit tests.

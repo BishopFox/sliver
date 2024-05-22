@@ -1051,7 +1051,7 @@ func (m *machine) lowerAtomicRmw(op ssa.AtomicRmwOp, addr, val ssa.Value, size u
 		}
 
 		// valCopied must be alive at the end of the loop.
-		m.insert(m.allocateInstr().asKeepAlive(valCopied))
+		m.insert(m.allocateInstr().asNopUseReg(valCopied))
 
 		// At this point, accumulator contains the result.
 		m.clearHigherBitsForAtomic(accumulator, size, ret.Type())
@@ -1758,10 +1758,11 @@ func (m *machine) lowerCall(si *ssa.Instruction) {
 	var directCallee ssa.FuncRef
 	var sigID ssa.SignatureID
 	var args []ssa.Value
+	var isMemmove bool
 	if isDirectCall {
 		directCallee, sigID, args = si.CallData()
 	} else {
-		indirectCalleePtr, sigID, args = si.CallIndirectData()
+		indirectCalleePtr, sigID, args, isMemmove = si.CallIndirectData()
 	}
 	calleeABI := m.c.GetFunctionABI(m.c.SSABuilder().ResolveSignature(sigID))
 
@@ -1779,6 +1780,15 @@ func (m *machine) lowerCall(si *ssa.Instruction) {
 		m.callerGenVRegToFunctionArg(calleeABI, i, reg, def, stackSlotSize)
 	}
 
+	if isMemmove {
+		// Go's memmove *might* use all xmm0-xmm15, so we need to release them.
+		// https://github.com/golang/go/blob/49d42128fd8594c172162961ead19ac95e247d24/src/cmd/compile/abi-internal.md#architecture-specifics
+		// https://github.com/golang/go/blob/49d42128fd8594c172162961ead19ac95e247d24/src/runtime/memmove_amd64.s#L271-L286
+		for i := regalloc.RealReg(0); i < 16; i++ {
+			m.insert(m.allocateInstr().asDefineUninitializedReg(regInfo.RealRegToVReg[xmm0+i]))
+		}
+	}
+
 	if isDirectCall {
 		call := m.allocateInstr().asCall(directCallee, calleeABI)
 		m.insert(call)
@@ -1786,6 +1796,12 @@ func (m *machine) lowerCall(si *ssa.Instruction) {
 		ptrOp := m.getOperand_Mem_Reg(m.c.ValueDefinition(indirectCalleePtr))
 		callInd := m.allocateInstr().asCallIndirect(ptrOp, calleeABI)
 		m.insert(callInd)
+	}
+
+	if isMemmove {
+		for i := regalloc.RealReg(0); i < 16; i++ {
+			m.insert(m.allocateInstr().asNopUseReg(regInfo.RealRegToVReg[xmm0+i]))
+		}
 	}
 
 	var index int
@@ -2059,7 +2075,7 @@ func (m *machine) Encode(ctx context.Context) (err error) {
 }
 
 // ResolveRelocations implements backend.Machine.
-func (m *machine) ResolveRelocations(refToBinaryOffset map[ssa.FuncRef]int, binary []byte, relocations []backend.RelocationInfo, _ []int) {
+func (m *machine) ResolveRelocations(refToBinaryOffset []int, binary []byte, relocations []backend.RelocationInfo, _ []int) {
 	for _, r := range relocations {
 		offset := r.Offset
 		calleeFnOffset := refToBinaryOffset[r.FuncRef]

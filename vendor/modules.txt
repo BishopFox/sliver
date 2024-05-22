@@ -269,12 +269,9 @@ github.com/chromedp/chromedp/kb
 # github.com/chromedp/sysutil v1.0.0
 ## explicit; go 1.15
 github.com/chromedp/sysutil
-# github.com/coreos/go-iptables v0.7.0
+# github.com/coreos/go-iptables v0.7.1-0.20240112124308-65c67c9f46e6
 ## explicit; go 1.16
 github.com/coreos/go-iptables/iptables
-# github.com/coreos/go-systemd/v22 v22.5.0
-## explicit; go 1.12
-github.com/coreos/go-systemd/v22/dbus
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
@@ -316,6 +313,13 @@ github.com/glebarez/go-sqlite
 # github.com/glebarez/sqlite v1.11.0
 ## explicit; go 1.18
 github.com/glebarez/sqlite
+# github.com/go-json-experiment/json v0.0.0-20231102232822-2e55bd4e08b0
+## explicit; go 1.21
+github.com/go-json-experiment/json/internal
+github.com/go-json-experiment/json/internal/jsonflags
+github.com/go-json-experiment/json/internal/jsonopts
+github.com/go-json-experiment/json/internal/jsonwire
+github.com/go-json-experiment/json/jsontext
 # github.com/go-ole/go-ole v1.3.0
 ## explicit; go 1.12
 github.com/go-ole/go-ole
@@ -359,8 +363,8 @@ github.com/google/go-cmp/cmp/internal/diff
 github.com/google/go-cmp/cmp/internal/flags
 github.com/google/go-cmp/cmp/internal/function
 github.com/google/go-cmp/cmp/internal/value
-# github.com/google/nftables v0.1.1-0.20230115205135-9aa6fdf5a28c
-## explicit; go 1.17
+# github.com/google/nftables v0.2.1-0.20240414091927-5e242ec57806
+## explicit; go 1.21
 github.com/google/nftables
 github.com/google/nftables/alignedbuff
 github.com/google/nftables/binaryutil
@@ -685,7 +689,7 @@ github.com/tailscale/peercred
 # github.com/tailscale/web-client-prebuilt v0.0.0-20240226180453-5db17b287bf1
 ## explicit; go 1.21
 github.com/tailscale/web-client-prebuilt
-# github.com/tailscale/wireguard-go v0.0.0-20231121184858-cc193a0b3272
+# github.com/tailscale/wireguard-go v0.0.0-20240429185444-03c5a0ccf754
 ## explicit; go 1.20
 github.com/tailscale/wireguard-go/conn
 github.com/tailscale/wireguard-go/conn/winrio
@@ -700,7 +704,7 @@ github.com/tailscale/wireguard-go/tun
 # github.com/tcnksm/go-httpstat v0.2.0
 ## explicit
 github.com/tcnksm/go-httpstat
-# github.com/tetratelabs/wazero v1.7.1
+# github.com/tetratelabs/wazero v1.7.2
 ## explicit; go 1.20
 github.com/tetratelabs/wazero
 github.com/tetratelabs/wazero/api
@@ -736,7 +740,6 @@ github.com/tetratelabs/wazero/internal/wasm
 github.com/tetratelabs/wazero/internal/wasm/binary
 github.com/tetratelabs/wazero/internal/wasmdebug
 github.com/tetratelabs/wazero/internal/wasmruntime
-github.com/tetratelabs/wazero/internal/wazeroir
 github.com/tetratelabs/wazero/sys
 # github.com/thedevsaddam/gojsonq/v2 v2.5.2
 ## explicit; go 1.13
@@ -1193,7 +1196,7 @@ nhooyr.io/websocket/internal/errd
 nhooyr.io/websocket/internal/util
 nhooyr.io/websocket/internal/wsjs
 nhooyr.io/websocket/internal/xsync
-# tailscale.com v1.64.2
+# tailscale.com v1.66.3
 ## explicit; go 1.22.0
 tailscale.com
 tailscale.com/appc
@@ -1248,7 +1251,6 @@ tailscale.com/net/dns/resolver
 tailscale.com/net/dnscache
 tailscale.com/net/dnsfallback
 tailscale.com/net/flowtrack
-tailscale.com/net/interfaces
 tailscale.com/net/memnet
 tailscale.com/net/netaddr
 tailscale.com/net/netcheck
@@ -1309,6 +1311,7 @@ tailscale.com/types/ptr
 tailscale.com/types/structs
 tailscale.com/types/tkatype
 tailscale.com/types/views
+tailscale.com/util/cibuild
 tailscale.com/util/clientmetric
 tailscale.com/util/cloudenv
 tailscale.com/util/cmpver
@@ -1344,11 +1347,13 @@ tailscale.com/util/syspolicy
 tailscale.com/util/sysresources
 tailscale.com/util/systemd
 tailscale.com/util/testenv
+tailscale.com/util/truncate
 tailscale.com/util/uniq
 tailscale.com/util/vizerror
 tailscale.com/util/winutil
 tailscale.com/util/winutil/authenticode
 tailscale.com/util/winutil/policy
+tailscale.com/util/winutil/winenv
 tailscale.com/util/zstdframe
 tailscale.com/version
 tailscale.com/version/distro

@@ -195,6 +195,7 @@ func (v NodeView) SelfNodeV6MasqAddrForThisPeer() *netip.Addr {
 }
 
 func (v NodeView) IsWireGuardOnly() bool { return v.ж.IsWireGuardOnly }
+func (v NodeView) IsJailed() bool        { return v.ж.IsJailed }
 func (v NodeView) ExitNodeDNSResolvers() views.SliceView[*dnstype.Resolver, dnstype.ResolverView] {
 	return views.SliceOfViews[*dnstype.Resolver, dnstype.ResolverView](v.ж.ExitNodeDNSResolvers)
 }
@@ -235,6 +236,7 @@ var _NodeViewNeedsRegeneration = Node(struct {
 	SelfNodeV4MasqAddrForThisPeer *netip.Addr
 	SelfNodeV6MasqAddrForThisPeer *netip.Addr
 	IsWireGuardOnly               bool
+	IsJailed                      bool
 	ExitNodeDNSResolvers          []*dnstype.Resolver
 }{})
 
@@ -701,8 +703,6 @@ func (v *RegisterResponseAuthView) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (v RegisterResponseAuthView) Provider() string  { return v.ж.Provider }
-func (v RegisterResponseAuthView) LoginName() string { return v.ж.LoginName }
 func (v RegisterResponseAuthView) Oauth2Token() *Oauth2Token {
 	if v.ж.Oauth2Token == nil {
 		return nil
@@ -716,8 +716,6 @@ func (v RegisterResponseAuthView) AuthKey() string { return v.ж.AuthKey }
 // A compilation failure here means this code must be regenerated, with the command at the top of this file.
 var _RegisterResponseAuthViewNeedsRegeneration = RegisterResponseAuth(struct {
 	_           structs.Incomparable
-	Provider    string
-	LoginName   string
 	Oauth2Token *Oauth2Token
 	AuthKey     string
 }{})
@@ -803,7 +801,7 @@ var _RegisterRequestViewNeedsRegeneration = RegisterRequest(struct {
 	NodeKey          key.NodePublic
 	OldNodeKey       key.NodePublic
 	NLKey            key.NLPublic
-	Auth             RegisterResponseAuth
+	Auth             *RegisterResponseAuth
 	Expiry           time.Time
 	Followup         string
 	Hostinfo         *Hostinfo

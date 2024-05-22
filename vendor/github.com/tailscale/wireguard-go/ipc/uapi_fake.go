@@ -1,4 +1,4 @@
-//go:build wasm || plan9
+//go:build wasm || plan9 || aix
 
 /* SPDX-License-Identifier: MIT
  *

@@ -363,10 +363,7 @@ func (s *Store) instantiate(
 		return nil, err
 	}
 
-	var allocator experimental.MemoryAllocator
-	if ctx != nil {
-		allocator, _ = ctx.Value(expctxkeys.MemoryAllocatorKey{}).(experimental.MemoryAllocator)
-	}
+	allocator, _ := ctx.Value(expctxkeys.MemoryAllocatorKey{}).(experimental.MemoryAllocator)
 
 	m.buildGlobals(module, m.Engine.FunctionInstanceReference)
 	m.buildMemory(module, allocator)

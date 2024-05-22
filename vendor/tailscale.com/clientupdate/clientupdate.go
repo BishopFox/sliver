@@ -29,6 +29,7 @@ import (
 
 	"github.com/google/uuid"
 	"tailscale.com/clientupdate/distsign"
+	"tailscale.com/hostinfo"
 	"tailscale.com/types/logger"
 	"tailscale.com/util/cmpver"
 	"tailscale.com/util/winutil"
@@ -162,9 +163,10 @@ func NewUpdater(args Arguments) (*Updater, error) {
 type updateFunction func() error
 
 func (up *Updater) getUpdateFunction() (fn updateFunction, canAutoUpdate bool) {
+	canAutoUpdate = !hostinfo.New().Container.EqualBool(true) // EqualBool(false) would return false if the value is not set.
 	switch runtime.GOOS {
 	case "windows":
-		return up.updateWindows, true
+		return up.updateWindows, canAutoUpdate
 	case "linux":
 		switch distro.Get() {
 		case distro.NixOS:
@@ -178,20 +180,20 @@ func (up *Updater) getUpdateFunction() (fn updateFunction, canAutoUpdate bool) {
 			// auto-update mechanism.
 			return up.updateSynology, false
 		case distro.Debian: // includes Ubuntu
-			return up.updateDebLike, true
+			return up.updateDebLike, canAutoUpdate
 		case distro.Arch:
 			if up.archPackageInstalled() {
 				// Arch update func just prints a message about how to update,
 				// it doesn't support auto-updates.
 				return up.updateArchLike, false
 			}
-			return up.updateLinuxBinary, true
+			return up.updateLinuxBinary, canAutoUpdate
 		case distro.Alpine:
-			return up.updateAlpineLike, true
+			return up.updateAlpineLike, canAutoUpdate
 		case distro.Unraid:
-			return up.updateUnraid, true
+			return up.updateUnraid, canAutoUpdate
 		case distro.QNAP:
-			return up.updateQNAP, true
+			return up.updateQNAP, canAutoUpdate
 		}
 		switch {
 		case haveExecutable("pacman"):
@@ -200,21 +202,21 @@ func (up *Updater) getUpdateFunction() (fn updateFunction, canAutoUpdate bool) {
 				// it doesn't support auto-updates.
 				return up.updateArchLike, false
 			}
-			return up.updateLinuxBinary, true
+			return up.updateLinuxBinary, canAutoUpdate
 		case haveExecutable("apt-get"): // TODO(awly): add support for "apt"
 			// The distro.Debian switch case above should catch most apt-based
 			// systems, but add this fallback just in case.
-			return up.updateDebLike, true
+			return up.updateDebLike, canAutoUpdate
 		case haveExecutable("dnf"):
-			return up.updateFedoraLike("dnf"), true
+			return up.updateFedoraLike("dnf"), canAutoUpdate
 		case haveExecutable("yum"):
-			return up.updateFedoraLike("yum"), true
+			return up.updateFedoraLike("yum"), canAutoUpdate
 		case haveExecutable("apk"):
-			return up.updateAlpineLike, true
+			return up.updateAlpineLike, canAutoUpdate
 		}
 		// If nothing matched, fall back to tarball updates.
 		if up.Update == nil {
-			return up.updateLinuxBinary, true
+			return up.updateLinuxBinary, canAutoUpdate
 		}
 	case "darwin":
 		switch {
@@ -230,7 +232,7 @@ func (up *Updater) getUpdateFunction() (fn updateFunction, canAutoUpdate bool) {
 			return nil, false
 		}
 	case "freebsd":
-		return up.updateFreeBSD, true
+		return up.updateFreeBSD, canAutoUpdate
 	}
 	return nil, false
 }
@@ -436,7 +438,7 @@ func (up *Updater) updateDebLike() error {
 		return fmt.Errorf("apt-get update failed: %w; output:\n%s", err, out)
 	}
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		out, err := exec.Command("apt-get", "install", "--yes", "--allow-downgrades", "tailscale="+ver).CombinedOutput()
 		if err != nil {
 			if !bytes.Contains(out, []byte(`dpkg was interrupted`)) {
@@ -1017,6 +1019,20 @@ func (up *Updater) updateLinuxBinary() error {
 	return nil
 }
 
+func restartSystemdUnit(ctx context.Context) error {
+	if _, err := exec.LookPath("systemctl"); err != nil {
+		// Likely not a systemd-managed distro.
+		return errors.ErrUnsupported
+	}
+	if out, err := exec.Command("systemctl", "daemon-reload").CombinedOutput(); err != nil {
+		return fmt.Errorf("systemctl daemon-reload failed: %w\noutput: %s", err, out)
+	}
+	if out, err := exec.Command("systemctl", "restart", "tailscaled.service").CombinedOutput(); err != nil {
+		return fmt.Errorf("systemctl restart failed: %w\noutput: %s", err, out)
+	}
+	return nil
+}
+
 func (up *Updater) downloadLinuxTarball(ver string) (string, error) {
 	dlDir, err := os.UserCacheDir()
 	if err != nil {
@@ -1295,10 +1311,23 @@ func LatestTailscaleVersion(track string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if latest.Version == "" {
-		return "", fmt.Errorf("no latest version found for %q track", track)
+	ver := latest.Version
+	switch runtime.GOOS {
+	case "windows":
+		ver = latest.MSIsVersion
+	case "darwin":
+		ver = latest.MacZipsVersion
+	case "linux":
+		ver = latest.TarballsVersion
+		if distro.Get() == distro.Synology {
+			ver = latest.SPKsVersion
+		}
 	}
-	return latest.Version, nil
+
+	if ver == "" {
+		return "", fmt.Errorf("no latest version found for OS %q on %q track", runtime.GOOS, track)
+	}
+	return ver, nil
 }
 
 type trackPackages struct {

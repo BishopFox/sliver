@@ -21,8 +21,13 @@ package c2profiles
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"math/rand"
+	"net/url"
 	"os"
+	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -154,7 +159,13 @@ func ExportC2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 		return
 	}
 
-	jsonProfile, err := C2ConfigToJSON(profileName, profile)
+	config, err := C2ConfigToJSON(profileName, profile)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+
+	jsonProfile, err := json.Marshal(config)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
@@ -169,8 +180,96 @@ func ExportC2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 	con.Println(profileName, "C2 profile exported to ", filepath)
 }
 
+func GenerateC2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+
+	// load template to use as starting point
+	template, err := cmd.Flags().GetString("template")
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+
+	profileName, _ := cmd.Flags().GetString("name")
+	if profileName == "" {
+		con.PrintErrorf("Invalid c2 profile name\n")
+		return
+	}
+
+	profile, err := con.Rpc.GetHTTPC2ProfileByName(context.Background(), &clientpb.C2ProfileReq{Name: template})
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+
+	c2Profiles, err := con.Rpc.GetHTTPC2Profiles(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+
+	var extensions []string
+	for _, c2profile := range c2Profiles.Configs {
+		confProfile, err := con.Rpc.GetHTTPC2ProfileByName(context.Background(), &clientpb.C2ProfileReq{Name: c2profile.Name})
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+		extensions = append(extensions, confProfile.ImplantConfig.StagerFileExtension)
+		extensions = append(extensions, confProfile.ImplantConfig.StartSessionFileExtension)
+	}
+
+	config, err := C2ConfigToJSON(profileName, profile)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+
+	// read urls files and replace segments
+	filepath, err := cmd.Flags().GetString("file")
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+
+	urlsFile, err := os.Open(filepath)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	fileContent, err := io.ReadAll(urlsFile)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	urls := strings.Split(string(fileContent), "\n")
+
+	jsonProfile, err := updateC2Profile(extensions, config, urls)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+
+	// save or display config
+	importC2Profile, err := cmd.Flags().GetBool("import")
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	if importC2Profile {
+		httpC2ConfigReq := clientpb.HTTPC2ConfigReq{C2Config: C2ConfigToProtobuf(profileName, jsonProfile)}
+		_, err = con.Rpc.SaveHTTPC2Profile(context.Background(), &httpC2ConfigReq)
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+		con.Println("C2 profile generated and saved as ", profileName)
+	} else {
+		PrintC2Profiles(profile, con)
+	}
+}
+
 // convert protobuf to json
-func C2ConfigToJSON(profileName string, profile *clientpb.HTTPC2Config) ([]byte, error) {
+func C2ConfigToJSON(profileName string, profile *clientpb.HTTPC2Config) (*assets.HTTPC2Config, error) {
 	implantConfig := assets.HTTPC2ImplantConfig{
 		UserAgent:           profile.ImplantConfig.UserAgent,
 		ChromeBaseVersion:   int(profile.ImplantConfig.ChromeBaseVersion),
@@ -278,12 +377,7 @@ func C2ConfigToJSON(profileName string, profile *clientpb.HTTPC2Config) ([]byte,
 		ServerConfig:  serverConfig,
 	}
 
-	jsonConfig, err := json.Marshal(config)
-	if err != nil {
-		return nil, err
-	}
-
-	return jsonConfig, nil
+	return &config, nil
 }
 
 // convert json to protobuf
@@ -597,4 +691,116 @@ func selectC2Profile(c2profiles []*clientpb.HTTPC2Config) string {
 	survey.AskOne(prompt, &c2profile, nil)
 
 	return c2profile
+}
+
+func updateC2Profile(usedExtensions []string, template *assets.HTTPC2Config, urls []string) (*assets.HTTPC2Config, error) {
+	// update the template with the urls
+
+	var (
+		paths              []string
+		filenames          []string
+		extensions         []string
+		filteredExtensions []string
+	)
+
+	for _, urlPath := range urls {
+		parsedURL, err := url.Parse(urlPath)
+		if err != nil {
+			fmt.Println("Error parsing URL:", err)
+			continue
+		}
+
+		dir, file := path.Split(parsedURL.Path)
+		dir = strings.Trim(dir, "/")
+		if dir != "" {
+			paths = append(paths, strings.Split(dir, "/")...)
+		}
+
+		if file != "" {
+			fileName := strings.TrimSuffix(file, filepath.Ext(file))
+			filenames = append(filenames, fileName)
+			ext := strings.TrimPrefix(filepath.Ext(file), ".")
+			if ext != "" {
+				extensions = append(extensions, ext)
+			}
+		}
+	}
+
+	slices.Sort(extensions)
+	extensions = slices.Compact(extensions)
+
+	for _, extension := range extensions {
+		if !slices.Contains(usedExtensions, extension) {
+			filteredExtensions = append(filteredExtensions, extension)
+		}
+	}
+
+	slices.Sort(paths)
+	paths = slices.Compact(paths)
+
+	slices.Sort(filenames)
+	filenames = slices.Compact(filenames)
+
+	// 5 is arbitrarily used as a minimum value, it only has to be 5 for the extensions, the others can be lower
+	if len(filteredExtensions) < 5 {
+		return nil, fmt.Errorf("got %d unused extensions, need at least 5", len(filteredExtensions))
+	}
+
+	if len(paths) < 5 {
+		return nil, fmt.Errorf("got %d paths need at least 5", len(paths))
+	}
+
+	if len(filenames) < 5 {
+		return nil, fmt.Errorf("got %d paths need at least 5", len(filenames))
+	}
+
+	// shuffle extensions
+	for i := len(extensions) - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		extensions[i], extensions[j] = extensions[j], extensions[i]
+	}
+
+	template.ImplantConfig.PollFileExt = extensions[0]
+	template.ImplantConfig.StagerFileExt = extensions[1]
+	template.ImplantConfig.StartSessionFileExt = extensions[2]
+	template.ImplantConfig.SessionFileExt = extensions[3]
+	template.ImplantConfig.CloseFileExt = extensions[4]
+
+	// randomly distribute the paths and filenames into the different segment types
+	template.ImplantConfig.CloseFiles = []string{}
+	template.ImplantConfig.SessionFiles = []string{}
+	template.ImplantConfig.PollFiles = []string{}
+	template.ImplantConfig.StagerFiles = []string{}
+	template.ImplantConfig.ClosePaths = []string{}
+	template.ImplantConfig.SessionPaths = []string{}
+	template.ImplantConfig.PollPaths = []string{}
+	template.ImplantConfig.StagerPaths = []string{}
+
+	for _, path := range paths {
+		switch rand.Intn(4) {
+		case 0:
+			template.ImplantConfig.PollPaths = append(template.ImplantConfig.PollPaths, path)
+		case 1:
+			template.ImplantConfig.SessionPaths = append(template.ImplantConfig.SessionPaths, path)
+		case 2:
+			template.ImplantConfig.ClosePaths = append(template.ImplantConfig.ClosePaths, path)
+		case 3:
+			template.ImplantConfig.StagerPaths = append(template.ImplantConfig.StagerPaths, path)
+		}
+	}
+
+	for _, filename := range filenames {
+		switch rand.Intn(4) {
+		case 0:
+			template.ImplantConfig.PollFiles = append(template.ImplantConfig.PollFiles, filename)
+		case 1:
+			template.ImplantConfig.SessionFiles = append(template.ImplantConfig.SessionFiles, filename)
+		case 2:
+			template.ImplantConfig.CloseFiles = append(template.ImplantConfig.CloseFiles, filename)
+		case 3:
+			template.ImplantConfig.StagerFiles = append(template.ImplantConfig.StagerFiles, filename)
+		}
+	}
+
+	return template, nil
 }

@@ -25,22 +25,34 @@ import (
 const (
 	// NFTA_TPROXY_FAMILY defines attribute for a table family
 	NFTA_TPROXY_FAMILY = 0x01
-	// NFTA_TPROXY_REG defines attribute for a register carrying redirection port value
-	NFTA_TPROXY_REG = 0x03
+	// NFTA_TPROXY_REG_ADDR defines attribute for a register carrying redirection address value
+	NFTA_TPROXY_REG_ADDR = 0x02
+	// NFTA_TPROXY_REG_PORT defines attribute for a register carrying redirection port value
+	NFTA_TPROXY_REG_PORT = 0x03
 )
 
 // TProxy defines struct with parameters for the transparent proxy
 type TProxy struct {
 	Family      byte
 	TableFamily byte
+	RegAddr     uint32
 	RegPort     uint32
 }
 
 func (e *TProxy) marshal(fam byte) ([]byte, error) {
-	data, err := netlink.MarshalAttributes([]netlink.Attribute{
+	attrs := []netlink.Attribute{
 		{Type: NFTA_TPROXY_FAMILY, Data: binaryutil.BigEndian.PutUint32(uint32(e.Family))},
-		{Type: NFTA_TPROXY_REG, Data: binaryutil.BigEndian.PutUint32(e.RegPort)},
-	})
+		{Type: NFTA_TPROXY_REG_PORT, Data: binaryutil.BigEndian.PutUint32(e.RegPort)},
+	}
+
+	if e.RegAddr != 0 {
+		attrs = append(attrs, netlink.Attribute{
+			Type: NFTA_TPROXY_REG_ADDR,
+			Data: binaryutil.BigEndian.PutUint32(e.RegAddr),
+		})
+	}
+
+	data, err := netlink.MarshalAttributes(attrs)
 	if err != nil {
 		return nil, err
 	}
@@ -60,8 +72,10 @@ func (e *TProxy) unmarshal(fam byte, data []byte) error {
 		switch ad.Type() {
 		case NFTA_TPROXY_FAMILY:
 			e.Family = ad.Uint8()
-		case NFTA_TPROXY_REG:
+		case NFTA_TPROXY_REG_PORT:
 			e.RegPort = ad.Uint32()
+		case NFTA_TPROXY_REG_ADDR:
+			e.RegAddr = ad.Uint32()
 		}
 	}
 	return ad.Err()

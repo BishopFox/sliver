@@ -122,6 +122,7 @@ var (
 
 		// HTTP C2
 		consts.C2ProfileStr: c2ProfilesHelp,
+		consts.C2ProfileStr + sep + consts.C2GenerateStr: c2GenerateHelp,
 	}
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -1295,6 +1296,10 @@ Sliver uses the same hash identifiers as Hashcat (use the #):
 
 	C2ProfileImportStr = `[[.Bold]]Command:[[.Normal]] Import
 	[[.Bold]]About:[[.Normal]] Load custom HTTP C2 profiles.
+	`
+	c2GenerateHelp = `[[.Bold]]Command:[[.Normal]] C2 Profile generate
+[[.Bold]]About:[[.Normal]] Generate C2 profile using a file containing urls.
+Optionaly import profile or use another profile as a base template for the new profile.
 	`
 
 	grepHelp = `[[.Bold]]Command:[[.Normal]] grep [flags / options] <search pattern> <path>

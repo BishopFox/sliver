@@ -32,10 +32,9 @@ const (
 	QueueTotal QueueAttribute = unix.NFTA_QUEUE_TOTAL
 	QueueFlags QueueAttribute = unix.NFTA_QUEUE_FLAGS
 
-	// TODO: get into x/sys/unix
-	QueueFlagBypass QueueFlag = 0x01
-	QueueFlagFanout QueueFlag = 0x02
-	QueueFlagMask   QueueFlag = 0x03
+	QueueFlagBypass QueueFlag = unix.NFT_QUEUE_FLAG_BYPASS
+	QueueFlagFanout QueueFlag = unix.NFT_QUEUE_FLAG_CPU_FANOUT
+	QueueFlagMask   QueueFlag = unix.NFT_QUEUE_FLAG_MASK
 )
 
 type Queue struct {
