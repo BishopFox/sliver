@@ -1196,7 +1196,7 @@ nhooyr.io/websocket/internal/errd
 nhooyr.io/websocket/internal/util
 nhooyr.io/websocket/internal/wsjs
 nhooyr.io/websocket/internal/xsync
-# tailscale.com v1.66.3
+# tailscale.com v1.66.4
 ## explicit; go 1.22.0
 tailscale.com
 tailscale.com/appc
