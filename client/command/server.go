@@ -27,6 +27,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/builders"
 	"github.com/bishopfox/sliver/client/command/c2profiles"
 	"github.com/bishopfox/sliver/client/command/certificates"
+	"github.com/bishopfox/sliver/client/command/clean"
 	"github.com/bishopfox/sliver/client/command/crack"
 	"github.com/bishopfox/sliver/client/command/creds"
 	"github.com/bishopfox/sliver/client/command/exit"
@@ -95,6 +96,7 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 			creds.Commands,
 			crack.Commands,
 			certificates.Commands,
+			clean.Command,
 		)
 
 		// C2 Network
