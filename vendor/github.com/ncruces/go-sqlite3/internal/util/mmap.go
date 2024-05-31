@@ -1,4 +1,4 @@
-//go:build (darwin || linux) && (amd64 || arm64 || riscv64) && !(sqlite3_flock || sqlite3_noshm || sqlite3_nosys)
+//go:build (darwin || linux) && (amd64 || arm64 || riscv64) && !(sqlite3_noshm || sqlite3_nosys)
 
 package util
 
@@ -12,9 +12,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func withMmappedAllocator(ctx context.Context) context.Context {
+func withAllocator(ctx context.Context) context.Context {
 	return experimental.WithMemoryAllocator(ctx,
-		experimental.MemoryAllocatorFunc(mmappedAllocator))
+		experimental.MemoryAllocatorFunc(virtualAlloc))
 }
 
 type mmapState struct {

@@ -302,8 +302,8 @@ github.com/moloch--/asciicast v0.1.0 h1:eBOJwuFKSk447s/kPs9MWsc4kAl5HmuKIDLDYD6/
 github.com/moloch--/asciicast v0.1.0/go.mod h1:OckO16UDLgxVLclrCnbocL1ix15Br/8Xv/caBoYq98o=
 github.com/moloch--/memmod v0.0.0-20230225130813-fd77d905589e h1:IkFCPlAa0iTiLxck+NqAwBx8JDlnHYm4orOQBbs4BDQ=
 github.com/moloch--/memmod v0.0.0-20230225130813-fd77d905589e/go.mod h1:eYeI6cQ5YHhHt9i0BBW0zc1DaQnb4ZMXsSPuEV/V5Og=
-github.com/ncruces/go-sqlite3 v0.15.0 h1:C+SIrcYsAIR5GUYWmCnif6x81n6BS9y75vYcQynuGNU=
-github.com/ncruces/go-sqlite3 v0.15.0/go.mod h1:kHHYmFmK4G2VFFoIovEg9BEQ8BP+D81y4ESHXnzJV/w=
+github.com/ncruces/go-sqlite3 v0.16.0 h1:O7eULuEjvSBnS1QCN+dDL/ixLQZoUGWr466A02Gx1xc=
+github.com/ncruces/go-sqlite3 v0.16.0/go.mod h1:2TmAeD93ImsKXJRsUIKohfMvt17dZSbS6pzJ3k6YYFg=
 github.com/ncruces/go-strftime v0.1.9 h1:bY0MQC28UADQmHmaF5dgpLmImcShSi2kHU9XLdhx/f4=
 github.com/ncruces/go-strftime v0.1.9/go.mod h1:Fwc5htZGVVkseilnfgOVb9mKy6w1naJmn9CehxcKcls=
 github.com/ncruces/julianday v1.0.0 h1:fH0OKwa7NWvniGQtxdJRxAgkBMolni2BjDHaWTxqt7M=

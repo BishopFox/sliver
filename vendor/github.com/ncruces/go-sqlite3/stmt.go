@@ -367,12 +367,10 @@ func (s *Stmt) ColumnCount() int {
 func (s *Stmt) ColumnName(col int) string {
 	r := s.c.call("sqlite3_column_name",
 		uint64(s.handle), uint64(col))
-
-	ptr := uint32(r)
-	if ptr == 0 {
+	if r == 0 {
 		panic(util.OOMErr)
 	}
-	return util.ReadString(s.c.mod, ptr, _MAX_NAME)
+	return util.ReadString(s.c.mod, uint32(r), _MAX_NAME)
 }
 
 // ColumnType returns the initial [Datatype] of the result column.
@@ -391,6 +389,48 @@ func (s *Stmt) ColumnType(col int) Datatype {
 // https://sqlite.org/c3ref/column_decltype.html
 func (s *Stmt) ColumnDeclType(col int) string {
 	r := s.c.call("sqlite3_column_decltype",
+		uint64(s.handle), uint64(col))
+	if r == 0 {
+		return ""
+	}
+	return util.ReadString(s.c.mod, uint32(r), _MAX_NAME)
+}
+
+// ColumnDatabaseName returns the name of the database
+// that is the origin of a particular result column.
+// The leftmost column of the result set has the index 0.
+//
+// https://sqlite.org/c3ref/column_database_name.html
+func (s *Stmt) ColumnDatabaseName(col int) string {
+	r := s.c.call("sqlite3_column_database_name",
+		uint64(s.handle), uint64(col))
+	if r == 0 {
+		return ""
+	}
+	return util.ReadString(s.c.mod, uint32(r), _MAX_NAME)
+}
+
+// ColumnTableName returns the name of the table
+// that is the origin of a particular result column.
+// The leftmost column of the result set has the index 0.
+//
+// https://sqlite.org/c3ref/column_database_name.html
+func (s *Stmt) ColumnTableName(col int) string {
+	r := s.c.call("sqlite3_column_table_name",
+		uint64(s.handle), uint64(col))
+	if r == 0 {
+		return ""
+	}
+	return util.ReadString(s.c.mod, uint32(r), _MAX_NAME)
+}
+
+// ColumnOriginName returns the name of the table column
+// that is the origin of a particular result column.
+// The leftmost column of the result set has the index 0.
+//
+// https://sqlite.org/c3ref/column_database_name.html
+func (s *Stmt) ColumnOriginName(col int) string {
+	r := s.c.call("sqlite3_column_origin_name",
 		uint64(s.handle), uint64(col))
 	if r == 0 {
 		return ""
