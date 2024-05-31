@@ -25,12 +25,13 @@ import (
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/spf13/cobra"
 )
 
-// CleanCmd - Remove all profiles, beacons, sessions, implant builds and HTTP profiles (Builds and logs will still exist on disk in .sliver)
+// CleanCmd - Remove all profiles, beacons, sessions and implant builds (Builds and logs will still exist on disk in .sliver)
 func CleanCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	con.Printf("This command will kill and remove all sessions, beacons and profiles \n")
 	confirm := false
@@ -39,19 +40,13 @@ func CleanCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if !confirm {
 		return
 	}
-	err := killSessionsAndBeacons(con)
+	err := removeSessionsAndBeacons(con)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
 
 	err = removeImplantBuilds(con)
-	if err != nil {
-		con.PrintErrorf("%s\n", err)
-		return
-	}
-
-	err = removeNetworkProfiles(con)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
@@ -66,18 +61,41 @@ func CleanCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 }
 
 func removeImplantBuilds(con *console.SliverClient) error {
+	builds, err := con.Rpc.ImplantBuilds(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return err
+	}
+	for name, _ := range builds.Configs {
+		_, err := con.Rpc.DeleteImplantBuild(context.Background(), &clientpb.DeleteReq{
+			Name: name,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
 func removeProfiles(con *console.SliverClient) error {
+	profiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return err
+	}
+
+	for _, profile := range profiles.Profiles {
+		_, err := con.Rpc.DeleteImplantProfile(context.Background(), &clientpb.DeleteReq{
+			Name: profile.Name,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
-func removeNetworkProfiles(con *console.SliverClient) error {
-	return nil
-}
-
-func killSessionsAndBeacons(con *console.SliverClient) error {
+func removeSessionsAndBeacons(con *console.SliverClient) error {
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		return err
@@ -102,13 +120,7 @@ func killSessionsAndBeacons(con *console.SliverClient) error {
 	}
 
 	for _, beacon := range beacons.Beacons {
-		_, err := con.Rpc.Kill(context.Background(), &sliverpb.KillReq{
-			Request: &commonpb.Request{
-				BeaconID: beacon.ID,
-				Timeout:  flags.DefaultTimeout,
-			},
-			Force: false,
-		})
+		_, err = con.Rpc.RmBeacon(context.Background(), &clientpb.Beacon{ID: beacon.ID})
 		if err != nil {
 			return err
 		}
