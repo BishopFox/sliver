@@ -43,6 +43,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/command/settings"
 	sgn "github.com/bishopfox/sliver/client/command/shikata-ga-nai"
+	"github.com/bishopfox/sliver/client/command/socks"
 	"github.com/bishopfox/sliver/client/command/taskmany"
 	"github.com/bishopfox/sliver/client/command/update"
 	"github.com/bishopfox/sliver/client/command/use"
@@ -105,6 +106,7 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 			websites.Commands,
 			wireguard.Commands,
 			c2profiles.Commands,
+			socks.RootCommands,
 		)
 
 		// Payloads
