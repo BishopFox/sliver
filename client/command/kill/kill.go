@@ -26,6 +26,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -73,6 +74,16 @@ func KillSession(session *clientpb.Session, cmd *cobra.Command, con *console.Sli
 	}
 	timeout, _ := cmd.Flags().GetInt64("timeout")
 	force, _ := cmd.Flags().GetBool("force")
+
+	// remove any active socks proxies
+	socks := core.SocksProxies.List()
+	if len(socks) != 0 {
+		for _, p := range socks {
+			if p.SessionID == session.ID {
+				core.SocksProxies.Remove(p.ID)
+			}
+		}
+	}
 
 	_, err := con.Rpc.Kill(context.Background(), &sliverpb.KillReq{
 		Request: &commonpb.Request{
