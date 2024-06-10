@@ -122,7 +122,9 @@ import (
 	"syscall"
 	"unsafe"
 
+	guuid "github.com/google/uuid"
 	"golang.org/x/sys/unix"
+	"modernc.org/libc/uuid/uuid"
 	"modernc.org/memory"
 )
 
@@ -276,15 +278,18 @@ type TLS struct {
 	allocaStack         []int
 	allocas             []uintptr
 	jumpBuffers         []uintptr
+	pendingSignals      chan os.Signal
 	pthread             uintptr // *t__pthread
 	pthreadCleanupItems []pthreadCleanupItem
 	pthreadKeyValues    map[Tpthread_key_t]uintptr
+	sigHandlers         map[int32]uintptr
 	sp                  int
 	stack               []tlsStackSlot
 
 	ID int32
 
-	ownsPthread bool
+	checkSignals bool
+	ownsPthread  bool
 }
 
 var __ccgo_environOnce sync.Once
@@ -309,6 +314,7 @@ func NewTLS() (r *TLS) {
 		ID:          id,
 		ownsPthread: true,
 		pthread:     pthread,
+		sigHandlers: map[int32]uintptr{},
 	}
 }
 
@@ -402,6 +408,29 @@ func (tls *TLS) Alloc(n0 int) (r uintptr) {
 func (tls *TLS) Free(n int) {
 	//TODO shrink stacks if possible. Tcl is currently against.
 	tls.sp--
+	if !tls.checkSignals {
+		return
+	}
+
+	select {
+	case sig := <-tls.pendingSignals:
+		signum := int32(sig.(syscall.Signal))
+		h, ok := tls.sigHandlers[signum]
+		if !ok {
+			break
+		}
+
+		switch h {
+		case SIG_DFL:
+			// nop
+		case SIG_IGN:
+			// nop
+		default:
+			(*(*func(*TLS, int32))(unsafe.Pointer(&struct{ uintptr }{h})))(tls, signum)
+		}
+	default:
+		// nop
+	}
 }
 
 func (tls *TLS) alloca(n Tsize_t) (r uintptr) {
@@ -472,6 +501,10 @@ func Xexit(tls *TLS, code int32) {
 	X__stdio_exit(tls)
 	for _, v := range atExit {
 		v()
+	}
+	atExitHandlersMu.Lock()
+	for _, v := range atExitHandlers {
+		(*(*func(*TLS))(unsafe.Pointer(&struct{ uintptr }{v})))(tls)
 	}
 	os.Exit(int(code))
 }
@@ -645,24 +678,33 @@ func Xfork(t *TLS) int32 {
 const SIG_DFL = 0
 const SIG_IGN = 1
 
-var sigHandlers = map[int32]uintptr{}
-
 func Xsignal(tls *TLS, signum int32, handler uintptr) (r uintptr) {
-	r, sigHandlers[signum] = sigHandlers[signum], handler
-	sigHandlers[signum] = handler
+	r, tls.sigHandlers[signum] = tls.sigHandlers[signum], handler
 	switch handler {
 	case SIG_DFL:
 		gosignal.Reset(syscall.Signal(signum))
 	case SIG_IGN:
 		gosignal.Ignore(syscall.Signal(signum))
 	default:
-		panic(todo(""))
+		if tls.pendingSignals == nil {
+			tls.pendingSignals = make(chan os.Signal, 3)
+			tls.checkSignals = true
+		}
+		gosignal.Notify(tls.pendingSignals, syscall.Signal(signum))
 	}
 	return r
 }
 
+var (
+	atExitHandlersMu sync.Mutex
+	atExitHandlers   []uintptr
+)
+
 func Xatexit(tls *TLS, func_ uintptr) (r int32) {
-	return -1
+	atExitHandlersMu.Lock()
+	atExitHandlers = append(atExitHandlers, func_)
+	atExitHandlersMu.Unlock()
+	return 0
 }
 
 var __sync_synchronize_dummy int32
@@ -1012,22 +1054,43 @@ func Xsysctlbyname(t *TLS, name, oldp, oldlenp, newp uintptr, newlen Tsize_t) in
 
 // void uuid_copy(uuid_t dst, uuid_t src);
 func Xuuid_copy(t *TLS, dst, src uintptr) {
-	panic(todo(""))
+	if __ccgo_strace {
+		trc("t=%v src=%v, (%v:)", t, src, origin(2))
+	}
+	*(*uuid.Uuid_t)(unsafe.Pointer(dst)) = *(*uuid.Uuid_t)(unsafe.Pointer(src))
 }
 
 // int uuid_parse( char *in, uuid_t uu);
 func Xuuid_parse(t *TLS, in uintptr, uu uintptr) int32 {
-	panic(todo(""))
+	if __ccgo_strace {
+		trc("t=%v in=%v uu=%v, (%v:)", t, in, uu, origin(2))
+	}
+	r, err := guuid.Parse(GoString(in))
+	if err != nil {
+		return -1
+	}
+
+	copy((*RawMem)(unsafe.Pointer(uu))[:unsafe.Sizeof(uuid.Uuid_t{})], r[:])
+	return 0
 }
 
 // void uuid_generate_random(uuid_t out);
 func Xuuid_generate_random(t *TLS, out uintptr) {
-	panic(todo(""))
+	if __ccgo_strace {
+		trc("t=%v out=%v, (%v:)", t, out, origin(2))
+	}
+	x := guuid.New()
+	copy((*RawMem)(unsafe.Pointer(out))[:], x[:])
 }
 
 // void uuid_unparse(uuid_t uu, char *out);
 func Xuuid_unparse(t *TLS, uu, out uintptr) {
-	panic(todo(""))
+	if __ccgo_strace {
+		trc("t=%v out=%v, (%v:)", t, out, origin(2))
+	}
+	s := (*guuid.UUID)(unsafe.Pointer(uu)).String()
+	copy((*RawMem)(unsafe.Pointer(out))[:], s)
+	*(*byte)(unsafe.Pointer(out + uintptr(len(s)))) = 0
 }
 
 var Xzero_struct_address Taddress

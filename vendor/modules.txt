@@ -1140,7 +1140,7 @@ gvisor.dev/gvisor/pkg/waiter
 # modernc.org/gc/v3 v3.0.0-20240107210532-573471604cb6
 ## explicit; go 1.20
 modernc.org/gc/v3
-# modernc.org/libc v1.49.3
+# modernc.org/libc v1.50.9
 ## explicit; go 1.20
 modernc.org/libc
 modernc.org/libc/errno
@@ -1174,7 +1174,7 @@ modernc.org/mathutil
 # modernc.org/memory v1.8.0
 ## explicit; go 1.18
 modernc.org/memory
-# modernc.org/sqlite v1.29.10
+# modernc.org/sqlite v1.30.0
 ## explicit; go 1.20
 modernc.org/sqlite
 modernc.org/sqlite/lib
