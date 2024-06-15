@@ -452,9 +452,11 @@ func Xsysconf(t *TLS, name int32) long {
 		return long(unix.Getpagesize())
 	case unistd.X_SC_NPROCESSORS_ONLN:
 		return long(runtime.NumCPU())
+	case unistd.X_SC_GETPW_R_SIZE_MAX:
+		return 128
 	}
 
-	panic(todo(""))
+	panic(todo("", name))
 }
 
 // int close(int fd);
@@ -2498,3 +2500,9 @@ func Xsetrlimit(t *TLS, resource int32, rlim uintptr) int32 {
 
 	return 0
 }
+
+func X__fpclassifyd(tls *TLS, x float64) (r int32) {
+	return X__fpclassify(tls, x)
+}
+
+var Xin6addr_any = in6_addr{}

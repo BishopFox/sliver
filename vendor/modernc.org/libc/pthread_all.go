@@ -50,3 +50,14 @@ func Xpthread_mutex_init(t *TLS, pMutex, pAttr uintptr) int32 {
 	mutexes[pMutex] = newMutex(typ)
 	return 0
 }
+
+func Xpthread_atfork(tls *TLS, prepare, parent, child uintptr) int32 {
+	// fork(2) not supported.
+	return 0
+}
+
+// int pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict old)
+func Xpthread_sigmask(tls *TLS, now int32, set, old uintptr) int32 {
+	// ignored
+	return 0
+}

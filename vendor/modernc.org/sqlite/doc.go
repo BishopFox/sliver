@@ -19,20 +19,20 @@
 //
 //	OS      Arch    SQLite version
 //	------------------------------
-//	darwin	amd64   3.45.3
-//	darwin	arm64   3.45.3
-//	freebsd	amd64   3.45.3
-//	freebsd	arm64   3.45.3
-//	linux	386     3.45.3
-//	linux	amd64   3.45.3
-//	linux	arm     3.45.3
-//	linux	arm64   3.45.3
-//	linux	loong64 3.45.3
-//	linux	ppc64le 3.45.3
-//	linux	riscv64 3.45.3
-//	linux	s390x   3.45.3
-//	windows	amd64   3.45.3
-//	windows	arm64   3.45.3
+//	darwin	amd64   3.46.0
+//	darwin	arm64   3.46.0
+//	freebsd	amd64   3.46.0
+//	freebsd	arm64   3.46.0
+//	linux	386     3.46.0
+//	linux	amd64   3.46.0
+//	linux	arm     3.46.0
+//	linux	arm64   3.46.0
+//	linux	loong64 3.46.0
+//	linux	ppc64le 3.46.0
+//	linux	riscv64 3.46.0
+//	linux	s390x   3.46.0
+//	windows	amd64   3.46.0
+//	windows	arm64   3.46.0
 //
 // # Builders
 //
@@ -49,6 +49,10 @@
 // See the discussion at https://gitlab.com/cznic/sqlite/-/issues/177 for more details.
 //
 // # Changelog
+//
+// 2024-06-04: v1.30.0
+//
+// Upgrade to SQLite 3.46.0, release notes at https://sqlite.org/releaselog/3_46_0.html.
 //
 // 2024-02-13: v1.29.0
 //

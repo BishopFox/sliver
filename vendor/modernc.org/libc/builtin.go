@@ -32,6 +32,10 @@ func X__builtin_round(tls *TLS, x float64) (r float64) {
 	return Xround(tls, x)
 }
 
+func X__builtin_roundf(tls *TLS, x float32) (r float32) {
+	return Xroundf(tls, x)
+}
+
 func X__builtin_expect(t *TLS, exp, c long) long {
 	return exp
 }

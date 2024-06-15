@@ -1202,6 +1202,20 @@ func X__builtin_round(t *TLS, x float64) float64 {
 	return math.Round(x)
 }
 
+func Xroundf(t *TLS, x float32) float32 {
+	if __ccgo_strace {
+		trc("t=%v x=%v, (%v:)", t, x, origin(2))
+	}
+	return float32(math.Round(float64(x)))
+}
+
+func X__builtin_roundf(t *TLS, x float32) float32 {
+	if __ccgo_strace {
+		trc("t=%v x=%v, (%v:)", t, x, origin(2))
+	}
+	return float32(math.Round(float64(x)))
+}
+
 func Xsin(t *TLS, x float64) float64 {
 	if __ccgo_strace {
 		trc("t=%v x=%v, (%v:)", t, x, origin(2))
@@ -1465,39 +1479,91 @@ func Xstrrchr(t *TLS, s uintptr, c int32) (r uintptr) {
 }
 
 // void *memset(void *s, int c, size_t n)
-func Xmemset(t *TLS, s uintptr, c int32, n types.Size_t) uintptr {
+func Xmemset(t *TLS, dest uintptr, c int32, n types.Size_t) uintptr {
 	if __ccgo_strace {
-		trc("t=%v s=%v c=%v n=%v, (%v:)", t, s, c, n, origin(2))
+		trc("t=%v s=%v c=%v n=%v, (%v:)", t, dest, c, n, origin(2))
 	}
-	if n != 0 {
-		c := byte(c & 0xff)
+	var c8 uint8
+	var c32 uint32
+	var c64 uint64
+	var k types.Size_t
+	var s uintptr
 
-		// This will make sure that on platforms where they are not equally aligned we
-		// clear out the first few bytes until allignment
-		bytesBeforeAllignment := s % unsafe.Alignof(uint64(0))
-		if bytesBeforeAllignment > uintptr(n) {
-			bytesBeforeAllignment = uintptr(n)
-		}
-		b := (*RawMem)(unsafe.Pointer(s))[:bytesBeforeAllignment:bytesBeforeAllignment]
-		n -= types.Size_t(bytesBeforeAllignment)
-		for i := range b {
-			b[i] = c
-		}
-		if n >= 8 {
-			i64 := uint64(c) + uint64(c)<<8 + uint64(c)<<16 + uint64(c)<<24 + uint64(c)<<32 + uint64(c)<<40 + uint64(c)<<48 + uint64(c)<<56
-			b8 := (*RawMem64)(unsafe.Pointer(s + bytesBeforeAllignment))[: n/8 : n/8]
-			for i := range b8 {
-				b8[i] = i64
-			}
-		}
-		if n%8 != 0 {
-			b = (*RawMem)(unsafe.Pointer(s + bytesBeforeAllignment + uintptr(n-n%8)))[: n%8 : n%8]
-			for i := range b {
-				b[i] = c
-			}
-		}
+	s = dest
+	/* Fill head and tail with minimal branching. Each
+	 * conditional ensures that all the subsequently used
+	 * offsets are well-defined and in the dest region. */
+	if n == 0 {
+		return dest
 	}
-	return s
+	c8 = uint8(c)
+	*(*uint8)(unsafe.Pointer(s)) = c8
+	*(*uint8)(unsafe.Pointer(s + uintptr(n-1))) = c8
+	if n <= types.Size_t(2) {
+		return dest
+	}
+	*(*uint8)(unsafe.Pointer(s + 1)) = c8
+	*(*uint8)(unsafe.Pointer(s + 2)) = c8
+	*(*uint8)(unsafe.Pointer(s + uintptr(n-2))) = c8
+	*(*uint8)(unsafe.Pointer(s + uintptr(n-3))) = c8
+	if n <= types.Size_t(6) {
+		return dest
+	}
+	*(*uint8)(unsafe.Pointer(s + 3)) = c8
+	*(*uint8)(unsafe.Pointer(s + uintptr(n-4))) = c8
+	if n <= types.Size_t(8) {
+		return dest
+	}
+	/* Advance pointer to align it at a 4-byte boundary,
+	 * and truncate n to a multiple of 4. The previous code
+	 * already took care of any head/tail that get cut off
+	 * by the alignment. */
+	k = -types.Size_t(s) & types.Size_t(3)
+	s += uintptr(k)
+	n -= k
+	n &= types.Size_t(-Int32FromInt32(4))
+	c32 = uint32(0x01010101) * uint32(c8)
+	/* In preparation to copy 32 bytes at a time, aligned on
+	 * an 8-byte bounary, fill head/tail up to 28 bytes each.
+	 * As in the initial byte-based head/tail fill, each
+	 * conditional below ensures that the subsequent offsets
+	 * are valid (e.g. !(n<=24) implies n>=28). */
+	*(*uint32)(unsafe.Pointer(s + uintptr(0))) = c32
+	*(*uint32)(unsafe.Pointer(s + uintptr(n-4))) = c32
+	if n <= types.Size_t(8) {
+		return dest
+	}
+	c64 = uint64(c32) | (uint64(c32) << 32)
+	*(*uint64)(unsafe.Pointer(s + uintptr(4))) = c64
+	*(*uint64)(unsafe.Pointer(s + uintptr(n-12))) = c64
+	if n <= types.Size_t(24) {
+		return dest
+	}
+	*(*uint64)(unsafe.Pointer(s + uintptr(12))) = c64
+	*(*uint64)(unsafe.Pointer(s + uintptr(20))) = c64
+	*(*uint64)(unsafe.Pointer(s + uintptr(n-28))) = c64
+	*(*uint64)(unsafe.Pointer(s + uintptr(n-20))) = c64
+	/* Align to a multiple of 8 so we can fill 64 bits at a time,
+	 * and avoid writing the same bytes twice as much as is
+	 * practical without introducing additional branching. */
+	k = types.Size_t(24) + types.Size_t(s)&types.Size_t(4)
+	s += uintptr(k)
+	n -= k
+	/* If this loop is reached, 28 tail bytes have already been
+	 * filled, so any remainder when n drops below 32 can be
+	 * safely ignored. */
+	for {
+		if !(n >= types.Size_t(32)) {
+			break
+		}
+		*(*uint64)(unsafe.Pointer(s + uintptr(0))) = c64
+		*(*uint64)(unsafe.Pointer(s + uintptr(8))) = c64
+		*(*uint64)(unsafe.Pointer(s + uintptr(16))) = c64
+		*(*uint64)(unsafe.Pointer(s + uintptr(24))) = c64
+		n -= types.Size_t(32)
+		s += uintptr(32)
+	}
+	return dest
 }
 
 // void *memcpy(void *dest, const void *src, size_t n);
