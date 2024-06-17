@@ -69,4 +69,7 @@ type ModuleEngine interface {
 	// FunctionInstanceReference returns Reference for the given Index for a FunctionInstance. The returned values are used by
 	// the initialization via ElementSegment.
 	FunctionInstanceReference(funcIndex Index) Reference
+
+	// MemoryGrown notifies the engine that the memory has grown.
+	MemoryGrown()
 }

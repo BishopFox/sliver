@@ -185,9 +185,6 @@ type Module struct {
 	// as described in https://yurydelendik.github.io/webassembly-dwarf/, though it is not specified in the Wasm
 	// specification: https://github.com/WebAssembly/debugging/issues/1
 	DWARFLines *wasmdebug.DWARFLines
-
-	// NonStaticLocals collects the local indexes that will change its value through either local.get or local.tee.
-	NonStaticLocals []map[Index]struct{}
 }
 
 // ModuleID represents sha256 hash value uniquely assigned to Module.
@@ -366,8 +363,6 @@ func (m *Module) validateFunctions(enabledFeatures api.CoreFeatures, functions [
 	br := bytes.NewReader(nil)
 	// Also, we reuse the stacks across multiple function validations to reduce allocations.
 	vs := &stacks{}
-	// Non-static locals are gathered during validation and used in the down-stream compilation.
-	m.NonStaticLocals = make([]map[Index]struct{}, len(m.FunctionSection))
 	for idx, typeIndex := range m.FunctionSection {
 		if typeIndex >= typeCount {
 			return fmt.Errorf("invalid %s: type section index %d out of range", m.funcDesc(SectionIDFunction, Index(idx)), typeIndex)
@@ -655,7 +650,7 @@ func paramNames(localNames IndirectNameMap, funcIdx uint32, paramLen int) []stri
 func (m *ModuleInstance) buildMemory(module *Module, allocator experimental.MemoryAllocator) {
 	memSec := module.MemorySection
 	if memSec != nil {
-		m.MemoryInstance = NewMemoryInstance(memSec, allocator)
+		m.MemoryInstance = NewMemoryInstance(memSec, allocator, m.Engine)
 		m.MemoryInstance.definition = &module.MemoryDefinitionSection[0]
 	}
 }
