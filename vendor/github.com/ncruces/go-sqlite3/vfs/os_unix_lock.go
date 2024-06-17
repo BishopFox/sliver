@@ -1,4 +1,4 @@
-//go:build (linux || darwin || freebsd || openbsd || netbsd || dragonfly || illumos) && !sqlite3_nosys
+//go:build (linux || darwin || freebsd || openbsd || netbsd || dragonfly || illumos || sqlite3_flock) && !sqlite3_nosys
 
 package vfs
 
@@ -97,6 +97,9 @@ func osLockErrorCode(err error, def _ErrorCode) _ErrorCode {
 			return _BUSY
 		case unix.EPERM:
 			return _PERM
+		}
+		if errno == unix.EWOULDBLOCK && unix.EWOULDBLOCK != unix.EAGAIN {
+			return _BUSY
 		}
 	}
 	return def

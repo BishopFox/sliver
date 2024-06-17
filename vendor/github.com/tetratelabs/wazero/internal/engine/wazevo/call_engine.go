@@ -2,7 +2,6 @@ package wazevo
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
 	"reflect"
 	"runtime"
@@ -310,15 +309,6 @@ func (c *callEngine) callWithStack(ctx context.Context, paramResultStack []uint6
 				*argRes = uint64(0xffffffff) // = -1 in signed 32-bit integer.
 			} else {
 				*argRes = uint64(res)
-				calleeOpaque := opaqueViewFromPtr(uintptr(unsafe.Pointer(c.execCtx.callerModuleContextPtr)))
-				if mod.Source.MemorySection != nil { // Local memory.
-					putLocalMemory(calleeOpaque, 8 /* local memory begins at 8 */, mem)
-				} else {
-					// Imported memory's owner at offset 16 of the callerModuleContextPtr.
-					opaquePtr := uintptr(binary.LittleEndian.Uint64(calleeOpaque[16:]))
-					importedMemOwner := opaqueViewFromPtr(opaquePtr)
-					putLocalMemory(importedMemOwner, 8 /* local memory begins at 8 */, mem)
-				}
 			}
 			c.execCtx.exitCode = wazevoapi.ExitCodeOK
 			afterGoFunctionCallEntrypoint(c.execCtx.goCallReturnAddress, c.execCtxPtr, uintptr(unsafe.Pointer(c.execCtx.stackPointerBeforeGoCall)), c.execCtx.framePointerBeforeGoCall)
@@ -523,14 +513,6 @@ func (c *callEngine) callWithStack(ctx context.Context, paramResultStack []uint6
 
 func (c *callEngine) callerModuleInstance() *wasm.ModuleInstance {
 	return moduleInstanceFromOpaquePtr(c.execCtx.callerModuleContextPtr)
-}
-
-func opaqueViewFromPtr(ptr uintptr) []byte {
-	var opaque []byte
-	sh := (*reflect.SliceHeader)(unsafe.Pointer(&opaque))
-	sh.Data = ptr
-	setSliceLimits(sh, 24, 24)
-	return opaque
 }
 
 const callStackCeiling = uintptr(50000000) // in uint64 (8 bytes) == 400000000 bytes in total == 400mb.

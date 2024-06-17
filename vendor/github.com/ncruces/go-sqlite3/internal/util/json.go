@@ -26,7 +26,7 @@ func (j JSON) Scan(value any) error {
 		buf = v.AppendFormat(buf, time.RFC3339Nano)
 		buf = append(buf, '"')
 	case nil:
-		buf = append(buf, "null"...)
+		buf = []byte("null")
 	default:
 		panic(AssertErr())
 	}

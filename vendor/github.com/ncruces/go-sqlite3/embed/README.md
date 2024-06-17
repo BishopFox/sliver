@@ -1,6 +1,6 @@
 # Embeddable Wasm build of SQLite
 
-This folder includes an embeddable Wasm build of SQLite 3.45.3 for use with
+This folder includes an embeddable Wasm build of SQLite 3.46.0 for use with
 [`github.com/ncruces/go-sqlite3`](https://pkg.go.dev/github.com/ncruces/go-sqlite3).
 
 The following optional features are compiled in:
@@ -10,6 +10,7 @@ The following optional features are compiled in:
 - [R*Tree](https://sqlite.org/rtree.html)
 - [GeoPoly](https://sqlite.org/geopoly.html)
 - [soundex](https://sqlite.org/lang_corefunc.html#soundex)
+- [stat4](https://sqlite.org/compile.html#enable_stat4)
 - [base64](https://github.com/sqlite/sqlite/blob/master/ext/misc/base64.c)
 - [decimal](https://github.com/sqlite/sqlite/blob/master/ext/misc/decimal.c)
 - [ieee754](https://github.com/sqlite/sqlite/blob/master/ext/misc/ieee754.c)

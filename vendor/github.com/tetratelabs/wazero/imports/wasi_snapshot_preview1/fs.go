@@ -1596,6 +1596,10 @@ func pathOpenFn(_ context.Context, mod api.Module, params []uint64) experimental
 		return errno
 	}
 
+	if pathLen == 0 {
+		return experimentalsys.EINVAL
+	}
+
 	fileOpenFlags := openFlags(dirflags, oflags, fdflags, rights)
 	isDir := fileOpenFlags&experimentalsys.O_DIRECTORY != 0
 
@@ -1704,7 +1708,6 @@ func openFlags(dirflags, oflags, fdflags uint16, rights uint32) (openFlags exper
 	}
 	if oflags&wasip1.O_DIRECTORY != 0 {
 		openFlags |= experimentalsys.O_DIRECTORY
-		return // Early return for directories as the rest of flags doesn't make sense for it.
 	} else if oflags&wasip1.O_EXCL != 0 {
 		openFlags |= experimentalsys.O_EXCL
 	}
@@ -1951,16 +1954,16 @@ func pathSymlinkFn(_ context.Context, mod api.Module, params []uint64) experimen
 		return experimentalsys.EFAULT
 	}
 
-	newPathBuf, ok := mem.Read(newPath, newPathLen)
-	if !ok {
-		return experimentalsys.EFAULT
+	_, newPathName, errno := atPath(fsc, mod.Memory(), fd, newPath, newPathLen)
+	if errno != 0 {
+		return errno
 	}
 
 	return dir.FS.Symlink(
 		// Do not join old path since it's only resolved when dereference the link created here.
 		// And the dereference result depends on the opening directory's file descriptor at that point.
 		bufToStr(oldPathBuf),
-		path.Join(dir.Name, bufToStr(newPathBuf)),
+		newPathName,
 	)
 }
 

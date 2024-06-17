@@ -91,7 +91,7 @@ func (m *machine) InsertStoreRegisterAt(v regalloc.VReg, instr *instruction, aft
 	}
 
 	offsetFromSP := m.getVRegSpillSlotOffsetFromSP(v.ID(), typ.Size())
-	var amode addressMode
+	var amode *addressMode
 	cur, amode = m.resolveAddressModeForOffsetAndInsert(cur, offsetFromSP, typ.Bits(), spVReg, true)
 	store := m.allocateInstr()
 	store.asStore(operandNR(v), amode, typ.Bits())
@@ -116,16 +116,16 @@ func (m *machine) InsertReloadRegisterAt(v regalloc.VReg, instr *instruction, af
 	}
 
 	offsetFromSP := m.getVRegSpillSlotOffsetFromSP(v.ID(), typ.Size())
-	var amode addressMode
+	var amode *addressMode
 	cur, amode = m.resolveAddressModeForOffsetAndInsert(cur, offsetFromSP, typ.Bits(), spVReg, true)
 	load := m.allocateInstr()
 	switch typ {
 	case ssa.TypeI32, ssa.TypeI64:
-		load.asULoad(operandNR(v), amode, typ.Bits())
+		load.asULoad(v, amode, typ.Bits())
 	case ssa.TypeF32, ssa.TypeF64:
-		load.asFpuLoad(operandNR(v), amode, typ.Bits())
+		load.asFpuLoad(v, amode, typ.Bits())
 	case ssa.TypeV128:
-		load.asFpuLoad(operandNR(v), amode, 128)
+		load.asFpuLoad(v, amode, 128)
 	default:
 		panic("TODO")
 	}

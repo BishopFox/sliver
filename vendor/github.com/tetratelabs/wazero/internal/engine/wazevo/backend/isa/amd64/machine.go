@@ -1906,8 +1906,10 @@ func (m *machine) InsertMove(dst, src regalloc.VReg, typ ssa.Type) {
 func (m *machine) Format() string {
 	ectx := m.ectx
 	begins := map[*instruction]backend.Label{}
-	for l, pos := range ectx.LabelPositions {
-		begins[pos.Begin] = l
+	for _, pos := range ectx.LabelPositions {
+		if pos != nil {
+			begins[pos.Begin] = pos.L
+		}
 	}
 
 	irBlocks := map[backend.Label]ssa.BasicBlockID{}
@@ -1950,7 +1952,10 @@ func (m *machine) encodeWithoutSSA(root *instruction) {
 		offset := int64(len(*bufPtr))
 		if cur.kind == nop0 {
 			l := cur.nop0Label()
-			if pos, ok := ectx.LabelPositions[l]; ok {
+			if int(l) >= len(ectx.LabelPositions) {
+				continue
+			}
+			if pos := ectx.LabelPositions[l]; pos != nil {
 				pos.BinaryOffset = offset
 			}
 		}
@@ -2005,7 +2010,7 @@ func (m *machine) Encode(ctx context.Context) (err error) {
 			switch cur.kind {
 			case nop0:
 				l := cur.nop0Label()
-				if pos, ok := ectx.LabelPositions[l]; ok {
+				if pos := ectx.LabelPositions[l]; pos != nil {
 					pos.BinaryOffset = offset
 				}
 			case sourceOffsetInfo:
@@ -2165,8 +2170,7 @@ func (m *machine) allocateBrTarget() (nop *instruction, l backend.Label) { //nol
 func (m *machine) allocateLabel() *labelPosition {
 	ectx := m.ectx
 	l := ectx.AllocateLabel()
-	pos := ectx.AllocateLabelPosition(l)
-	ectx.LabelPositions[l] = pos
+	pos := ectx.GetOrAllocateLabelPosition(l)
 	return pos
 }
 

@@ -47,6 +47,7 @@ const (
 	_IOERR_SHMMAP            _ErrorCode = util.IOERR_SHMMAP
 	_IOERR_SEEK              _ErrorCode = util.IOERR_SEEK
 	_IOERR_DELETE_NOENT      _ErrorCode = util.IOERR_DELETE_NOENT
+	_IOERR_GETTEMPPATH       _ErrorCode = util.IOERR_GETTEMPPATH
 	_IOERR_BEGIN_ATOMIC      _ErrorCode = util.IOERR_BEGIN_ATOMIC
 	_IOERR_COMMIT_ATOMIC     _ErrorCode = util.IOERR_COMMIT_ATOMIC
 	_IOERR_ROLLBACK_ATOMIC   _ErrorCode = util.IOERR_ROLLBACK_ATOMIC
