@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -32,7 +33,9 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/gofrs/uuid"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/protobuf/proto"
@@ -104,58 +107,19 @@ func (rpc *Server) GenericHandler(req GenericRequest, resp GenericResponse) erro
 	if request == nil {
 		return ErrMissingRequestField
 	}
-	if request.Async {
-		err = rpc.asyncGenericHandler(req, resp)
-		return err
-	}
-
-	// Sync request
-	session := core.Sessions.Get(request.SessionID)
-	if session == nil {
-		return ErrInvalidSessionID
-	}
-
 	reqData, err := proto.Marshal(req)
 	if err != nil {
 		return err
 	}
 
-	data, err := session.Request(sliverpb.MsgNumber(req), rpc.getTimeout(req), reqData)
-	if err != nil {
-		return err
-	}
-	err = proto.Unmarshal(data, resp)
-	if err != nil {
-		return err
-	}
-	return rpc.getError(resp)
-}
-
-// asyncGenericHandler - Generic handler for async request/response's for beacon tasks
-func (rpc *Server) asyncGenericHandler(req GenericRequest, resp GenericResponse) error {
-	// VERY VERBOSE
-	// rpcLog.Debugf("Async Generic Handler: %#v", req)
-	request := req.GetRequest()
-	if request == nil {
-		return ErrMissingRequestField
-	}
-
-	beacon, err := db.BeaconByID(request.BeaconID)
-	if beacon == nil || err != nil {
-		rpcLog.Errorf("Invalid beacon ID in request: %s", err)
-		return ErrInvalidBeaconID
-	}
-
-	// Overwrite unused implant fields before re-serializing
-	request.SessionID = ""
-	request.BeaconID = ""
-	reqData, err := proto.Marshal(req)
-	if err != nil {
-		return err
-	}
 	taskResponse := resp.GetResponse()
-	taskResponse.Async = true
-	taskResponse.BeaconID = beacon.ID.String()
+	taskResponse.Async = request.Async
+	beacon := models.Beacon{}
+	if request.BeaconID != "" {
+		beacon.ID, err = uuid.FromString(request.BeaconID)
+	} else if request.SessionID != "" {
+		beacon.ID, err = uuid.FromString(request.SessionID)
+	}
 	task, err := beacon.Task(&sliverpb.Envelope{
 		Type: sliverpb.MsgNumber(req),
 		Data: reqData,
@@ -172,6 +136,62 @@ func (rpc *Server) asyncGenericHandler(req GenericRequest, resp GenericResponse)
 		rpcLog.Errorf("Database error: %s", err)
 		return ErrDatabaseFailure
 	}
+	rpcLog.Warningf("Task: %#v", task)
+
+	if request.Async {
+		err = rpc.asyncGenericHandler(req, resp, task)
+		return err
+	}
+
+	task.SentAt = time.Now().Unix()
+	// Sync request
+	session := core.Sessions.Get(request.SessionID)
+	if session == nil {
+		return ErrInvalidSessionID
+	}
+
+	data, err := session.Request(sliverpb.MsgNumber(req), rpc.getTimeout(req), reqData)
+	if err != nil {
+		return err
+	}
+	err = proto.Unmarshal(data, resp)
+	if err != nil {
+		return err
+	}
+	task.State = models.COMPLETED
+	task.CompletedAt = time.Now().Unix()
+	task.Response = data
+
+	err = db.Session().Updates(task).Error
+	if err != nil {
+		rpcLog.Errorf("Error updating db task: %s", err)
+	}
+	eventData, _ := proto.Marshal(task.ToProtobuf(false))
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.BeaconTaskResultEvent,
+		Data:      eventData,
+	})
+	return rpc.getError(resp)
+}
+
+// asyncGenericHandler - Generic handler for async request/response's for beacon tasks
+func (rpc *Server) asyncGenericHandler(req GenericRequest, resp GenericResponse, task *models.BeaconTask) error {
+	// VERY VERBOSE
+	// rpcLog.Debugf("Async Generic Handler: %#v", req)
+	request := req.GetRequest()
+	if request == nil {
+		return ErrMissingRequestField
+	}
+
+	beacon, err := db.BeaconByID(request.BeaconID)
+	if beacon == nil || err != nil {
+		rpcLog.Errorf("Invalid beacon ID in request: %s", err)
+		return ErrInvalidBeaconID
+	}
+
+	taskResponse := resp.GetResponse()
+	taskResponse.Async = true
+	taskResponse.BeaconID = beacon.ID.String()
 	taskResponse.TaskID = task.ID.String()
 	rpcLog.Debugf("Successfully tasked beacon: %#v", taskResponse)
 	return nil
