@@ -12,8 +12,6 @@ const (
 	mmapProtARM64 = syscall.PROT_READ | syscall.PROT_WRITE
 )
 
-const MmapSupported = true
-
 func munmapCodeSegment(code []byte) error {
 	return syscall.Munmap(code)
 }

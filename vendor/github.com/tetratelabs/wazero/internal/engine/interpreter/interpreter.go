@@ -98,6 +98,9 @@ func (e *moduleEngine) SetGlobalValue(idx wasm.Index, lo, hi uint64) {
 // OwnsGlobals implements the same method as documented on wasm.ModuleEngine.
 func (e *moduleEngine) OwnsGlobals() bool { return false }
 
+// MemoryGrown implements wasm.ModuleEngine.
+func (e *moduleEngine) MemoryGrown() {}
+
 // callEngine holds context per moduleEngine.Call, and shared across all the
 // function calls originating from the same moduleEngine.Call execution.
 //

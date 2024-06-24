@@ -16,14 +16,15 @@ func CreateModule[T VTab](db *Conn, name string, create, connect VTabConstructor
 	var flags int
 
 	const (
-		VTAB_CREATOR     = 0x01
-		VTAB_DESTROYER   = 0x02
-		VTAB_UPDATER     = 0x04
-		VTAB_RENAMER     = 0x08
-		VTAB_OVERLOADER  = 0x10
-		VTAB_CHECKER     = 0x20
-		VTAB_TXN         = 0x40
-		VTAB_SAVEPOINTER = 0x80
+		VTAB_CREATOR     = 0x001
+		VTAB_DESTROYER   = 0x002
+		VTAB_UPDATER     = 0x004
+		VTAB_RENAMER     = 0x008
+		VTAB_OVERLOADER  = 0x010
+		VTAB_CHECKER     = 0x020
+		VTAB_TXN         = 0x040
+		VTAB_SAVEPOINTER = 0x080
+		VTAB_SHADOWTABS  = 0x100
 	)
 
 	if create != nil {
@@ -51,6 +52,9 @@ func CreateModule[T VTab](db *Conn, name string, create, connect VTabConstructor
 	}
 	if implements[VTabSavepointer](vtab) {
 		flags |= VTAB_SAVEPOINTER
+	}
+	if implements[VTabShadowTabler](vtab) {
+		flags |= VTAB_SHADOWTABS
 	}
 
 	defer db.arena.mark()()
@@ -172,6 +176,17 @@ type VTabOverloader interface {
 	VTab
 	// https://sqlite.org/vtab.html#xfindfunction
 	FindFunction(arg int, name string) (ScalarFunction, IndexConstraintOp)
+}
+
+// A VTabShadowTabler allows a virtual table to protect the content
+// of shadow tables from being corrupted by hostile SQL.
+//
+// Implementing this interface signals that a virtual table named
+// "mumble" reserves all table names starting with "mumble_".
+type VTabShadowTabler interface {
+	VTab
+	// https://sqlite.org/vtab.html#the_xshadowname_method
+	ShadowTables()
 }
 
 // A VTabChecker allows a virtual table to report errors
