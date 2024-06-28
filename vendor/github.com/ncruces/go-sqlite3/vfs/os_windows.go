@@ -136,7 +136,7 @@ func osLock(file *os.File, flags, start, len uint32, timeout time.Duration, def 
 			if timeout < time.Since(before) {
 				break
 			}
-			osSleep(time.Duration(rand.Int63n(int64(time.Millisecond))))
+			time.Sleep(time.Duration(rand.Int63n(int64(time.Millisecond))))
 		}
 	}
 	return osLockErrorCode(err, def)
@@ -170,17 +170,4 @@ func osLockErrorCode(err error, def _ErrorCode) _ErrorCode {
 		}
 	}
 	return def
-}
-
-func osSleep(d time.Duration) {
-	if d > 0 {
-		period := max(1, d/(5*time.Millisecond))
-		if period < 16 {
-			windows.TimeBeginPeriod(uint32(period))
-		}
-		time.Sleep(d)
-		if period < 16 {
-			windows.TimeEndPeriod(uint32(period))
-		}
-	}
 }

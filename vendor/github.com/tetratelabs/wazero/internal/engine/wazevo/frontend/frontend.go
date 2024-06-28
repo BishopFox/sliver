@@ -301,26 +301,7 @@ func (c *Compiler) declareWasmLocals(entry ssa.BasicBlock) {
 		st := WasmTypeToSSAType(typ)
 		variable := c.ssaBuilder.DeclareVariable(st)
 		c.setWasmLocalVariable(wasm.Index(i)+localCount, variable)
-
-		zeroInst := c.ssaBuilder.AllocateInstruction()
-		switch st {
-		case ssa.TypeI32:
-			zeroInst.AsIconst32(0)
-		case ssa.TypeI64:
-			zeroInst.AsIconst64(0)
-		case ssa.TypeF32:
-			zeroInst.AsF32const(0)
-		case ssa.TypeF64:
-			zeroInst.AsF64const(0)
-		case ssa.TypeV128:
-			zeroInst.AsVconst(0, 0)
-		default:
-			panic("TODO: " + wasm.ValueTypeName(typ))
-		}
-
-		c.ssaBuilder.InsertInstruction(zeroInst)
-		value := zeroInst.Return()
-		c.ssaBuilder.DefineVariable(variable, value, entry)
+		c.ssaBuilder.InsertZeroValue(st)
 	}
 }
 

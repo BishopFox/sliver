@@ -36,10 +36,13 @@ sqlite3_collation_needed_go
 sqlite3_column_blob
 sqlite3_column_bytes
 sqlite3_column_count
+sqlite3_column_database_name
 sqlite3_column_decltype
 sqlite3_column_double
 sqlite3_column_int64
 sqlite3_column_name
+sqlite3_column_origin_name
+sqlite3_column_table_name
 sqlite3_column_text
 sqlite3_column_type
 sqlite3_column_value

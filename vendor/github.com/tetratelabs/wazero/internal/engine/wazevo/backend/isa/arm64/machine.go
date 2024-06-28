@@ -21,6 +21,8 @@ type (
 		regAlloc   regalloc.Allocator
 		regAllocFn *backend.RegAllocFunction[*instruction, *machine]
 
+		amodePool wazevoapi.Pool[addressMode]
+
 		// addendsWorkQueue is used during address lowering, defined here for reuse.
 		addendsWorkQueue wazevoapi.Queue[ssa.Value]
 		addends32        wazevoapi.Queue[addend32]
@@ -105,6 +107,7 @@ func NewBackend() backend.Machine {
 		spillSlots:        make(map[regalloc.VRegID]int64),
 		executableContext: newExecutableContext(),
 		regAlloc:          regalloc.NewAllocator(regInfo),
+		amodePool:         wazevoapi.NewPool[addressMode](resetAddressMode),
 	}
 	return m
 }
@@ -149,6 +152,7 @@ func (m *machine) Reset() {
 	m.maxRequiredStackSizeForCalls = 0
 	m.executableContext.Reset()
 	m.jmpTableTargets = m.jmpTableTargets[:0]
+	m.amodePool.Reset()
 }
 
 // SetCurrentABI implements backend.Machine SetCurrentABI.
@@ -183,9 +187,8 @@ func (m *machine) allocateBrTarget() (nop *instruction, l label) {
 	l = ectx.AllocateLabel()
 	nop = m.allocateInstr()
 	nop.asNop0WithLabel(l)
-	pos := ectx.AllocateLabelPosition(l)
+	pos := ectx.GetOrAllocateLabelPosition(l)
 	pos.Begin, pos.End = nop, nop
-	ectx.LabelPositions[l] = pos
 	return
 }
 
@@ -209,7 +212,7 @@ func (m *machine) allocateNop() *instruction {
 }
 
 func (m *machine) resolveAddressingMode(arg0offset, ret0offset int64, i *instruction) {
-	amode := &i.amode
+	amode := i.getAmode()
 	switch amode.kind {
 	case addressModeKindResultStackSpace:
 		amode.imm += ret0offset
@@ -281,7 +284,7 @@ func (m *machine) resolveRelativeAddresses(ctx context.Context) {
 				switch cur.kind {
 				case nop0:
 					l := cur.nop0Label()
-					if pos, ok := ectx.LabelPositions[l]; ok {
+					if pos := ectx.LabelPositions[l]; pos != nil {
 						pos.BinaryOffset = offset + size
 					}
 				case condBr:
@@ -428,8 +431,10 @@ func (m *machine) insertConditionalJumpTrampoline(cbr *instruction, currentBlk *
 func (m *machine) Format() string {
 	ectx := m.executableContext
 	begins := map[*instruction]label{}
-	for l, pos := range ectx.LabelPositions {
-		begins[pos.Begin] = l
+	for _, pos := range ectx.LabelPositions {
+		if pos != nil {
+			begins[pos.Begin] = pos.L
+		}
 	}
 
 	irBlocks := map[label]ssa.BasicBlockID{}

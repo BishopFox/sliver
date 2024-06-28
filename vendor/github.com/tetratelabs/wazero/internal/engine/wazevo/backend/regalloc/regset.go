@@ -46,23 +46,24 @@ func (rs RegSet) Range(f func(allocatedRealReg RealReg)) {
 	}
 }
 
-type regInUseSet struct {
-	set RegSet
-	vrs [64]VReg
+type regInUseSet [64]VReg
+
+func newRegInUseSet() regInUseSet {
+	var ret regInUseSet
+	ret.reset()
+	return ret
 }
 
 func (rs *regInUseSet) reset() {
-	rs.set = 0
-	for i := range rs.vrs {
-		rs.vrs[i] = VRegInvalid
+	for i := range rs {
+		rs[i] = VRegInvalid
 	}
 }
 
 func (rs *regInUseSet) format(info *RegisterInfo) string { //nolint:unused
 	var ret []string
-	for i := 0; i < 64; i++ {
-		if rs.set&(1<<uint(i)) != 0 {
-			vr := rs.vrs[i]
+	for i, vr := range rs {
+		if vr != VRegInvalid {
 			ret = append(ret, fmt.Sprintf("(%s->v%d)", info.RealRegName(RealReg(i)), vr.ID()))
 		}
 	}
@@ -70,39 +71,28 @@ func (rs *regInUseSet) format(info *RegisterInfo) string { //nolint:unused
 }
 
 func (rs *regInUseSet) has(r RealReg) bool {
-	if r >= 64 {
-		return false
-	}
-	return rs.set&(1<<uint(r)) != 0
+	return r < 64 && rs[r] != VRegInvalid
 }
 
 func (rs *regInUseSet) get(r RealReg) VReg {
-	if r >= 64 {
-		return VRegInvalid
-	}
-	return rs.vrs[r]
+	return rs[r]
 }
 
 func (rs *regInUseSet) remove(r RealReg) {
-	if r >= 64 {
-		return
-	}
-	rs.set &= ^(1 << uint(r))
-	rs.vrs[r] = VRegInvalid
+	rs[r] = VRegInvalid
 }
 
 func (rs *regInUseSet) add(r RealReg, vr VReg) {
 	if r >= 64 {
 		return
 	}
-	rs.set |= 1 << uint(r)
-	rs.vrs[r] = vr
+	rs[r] = vr
 }
 
 func (rs *regInUseSet) range_(f func(allocatedRealReg RealReg, vr VReg)) {
-	for i := 0; i < 64; i++ {
-		if rs.set&(1<<uint(i)) != 0 {
-			f(RealReg(i), rs.vrs[i])
+	for i, vr := range rs {
+		if vr != VRegInvalid {
+			f(RealReg(i), vr)
 		}
 	}
 }

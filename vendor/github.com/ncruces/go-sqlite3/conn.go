@@ -346,10 +346,9 @@ func (c *Conn) checkInterrupt() {
 }
 
 func progressCallback(ctx context.Context, mod api.Module, pDB uint32) (interrupt uint32) {
-	if c, ok := ctx.Value(connKey{}).(*Conn); ok && c.handle == pDB && c.interrupt != nil {
-		if c.interrupt.Err() != nil {
-			interrupt = 1
-		}
+	if c, ok := ctx.Value(connKey{}).(*Conn); ok && c.handle == pDB &&
+		c.interrupt != nil && c.interrupt.Err() != nil {
+		interrupt = 1
 	}
 	return interrupt
 }
@@ -361,6 +360,30 @@ func (c *Conn) BusyTimeout(timeout time.Duration) error {
 	ms := min((timeout+time.Millisecond-1)/time.Millisecond, math.MaxInt32)
 	r := c.call("sqlite3_busy_timeout", uint64(c.handle), uint64(ms))
 	return c.error(r)
+}
+
+func timeoutCallback(ctx context.Context, mod api.Module, pDB uint32, count, tmout int32) (retry uint32) {
+	if c, ok := ctx.Value(connKey{}).(*Conn); ok &&
+		(c.interrupt == nil || c.interrupt.Err() == nil) {
+		const delays = "\x01\x02\x05\x0a\x0f\x14\x19\x19\x19\x32\x32\x64"
+		const totals = "\x00\x01\x03\x08\x12\x21\x35\x4e\x67\x80\xb2\xe4"
+		const ndelay = int32(len(delays) - 1)
+
+		var delay, prior int32
+		if count <= ndelay {
+			delay = int32(delays[count])
+			prior = int32(totals[count])
+		} else {
+			delay = int32(delays[ndelay])
+			prior = int32(totals[ndelay]) + delay*(count-ndelay)
+		}
+
+		if delay = min(delay, tmout-prior); delay > 0 {
+			time.Sleep(time.Duration(delay) * time.Millisecond)
+			retry = 1
+		}
+	}
+	return retry
 }
 
 // BusyHandler registers a callback to handle [BUSY] errors.
@@ -380,7 +403,8 @@ func (c *Conn) BusyHandler(cb func(count int) (retry bool)) error {
 }
 
 func busyCallback(ctx context.Context, mod api.Module, pDB uint32, count int32) (retry uint32) {
-	if c, ok := ctx.Value(connKey{}).(*Conn); ok && c.handle == pDB && c.busy != nil {
+	if c, ok := ctx.Value(connKey{}).(*Conn); ok && c.handle == pDB && c.busy != nil &&
+		(c.interrupt == nil || c.interrupt.Err() == nil) {
 		if c.busy(int(count)) {
 			retry = 1
 		}
