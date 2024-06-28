@@ -59,11 +59,14 @@ type MemoryInstance struct {
 	// with a fixed weight of 1 and no spurious notifications.
 	waiters sync.Map
 
+	// ownerModuleEngine is the module engine that owns this memory instance.
+	ownerModuleEngine ModuleEngine
+
 	expBuffer experimental.LinearMemory
 }
 
 // NewMemoryInstance creates a new instance based on the parameters in the SectionIDMemory.
-func NewMemoryInstance(memSec *Memory, allocator experimental.MemoryAllocator) *MemoryInstance {
+func NewMemoryInstance(memSec *Memory, allocator experimental.MemoryAllocator, moduleEngine ModuleEngine) *MemoryInstance {
 	minBytes := MemoryPagesToBytesNum(memSec.Min)
 	capBytes := MemoryPagesToBytesNum(memSec.Cap)
 	maxBytes := MemoryPagesToBytesNum(memSec.Max)
@@ -89,12 +92,13 @@ func NewMemoryInstance(memSec *Memory, allocator experimental.MemoryAllocator) *
 		buffer = make([]byte, minBytes, capBytes)
 	}
 	return &MemoryInstance{
-		Buffer:    buffer,
-		Min:       memSec.Min,
-		Cap:       memoryBytesNumToPages(uint64(cap(buffer))),
-		Max:       memSec.Max,
-		Shared:    memSec.IsShared,
-		expBuffer: expBuffer,
+		Buffer:            buffer,
+		Min:               memSec.Min,
+		Cap:               memoryBytesNumToPages(uint64(cap(buffer))),
+		Max:               memSec.Max,
+		Shared:            memSec.IsShared,
+		expBuffer:         expBuffer,
+		ownerModuleEngine: moduleEngine,
 	}
 }
 
@@ -247,14 +251,12 @@ func (m *MemoryInstance) Grow(delta uint32) (result uint32, ok bool) {
 			m.Buffer = buffer
 			m.Cap = newPages
 		}
-		return currentPages, true
 	} else if newPages > m.Cap { // grow the memory.
 		if m.Shared {
 			panic("shared memory cannot be grown, this is a bug in wazero")
 		}
 		m.Buffer = append(m.Buffer, make([]byte, MemoryPagesToBytesNum(delta))...)
 		m.Cap = newPages
-		return currentPages, true
 	} else { // We already have the capacity we need.
 		if m.Shared {
 			// We assume grow is called under a guest lock.
@@ -264,8 +266,9 @@ func (m *MemoryInstance) Grow(delta uint32) (result uint32, ok bool) {
 		} else {
 			m.Buffer = m.Buffer[:MemoryPagesToBytesNum(newPages)]
 		}
-		return currentPages, true
 	}
+	m.ownerModuleEngine.MemoryGrown()
+	return currentPages, true
 }
 
 // Pages implements the same method as documented on api.Memory.

@@ -23,8 +23,6 @@ import (
 //
 // This heuristic is done in maybeInvertBranches function.
 func passLayoutBlocks(b *builder) {
-	b.clearBlkVisited()
-
 	// We might end up splitting critical edges which adds more basic blocks,
 	// so we store the currently existing basic blocks in nonSplitBlocks temporarily.
 	// That way we can iterate over the original basic blocks while appending new ones into reversePostOrderedBasicBlocks.
@@ -47,20 +45,20 @@ func passLayoutBlocks(b *builder) {
 	for _, blk := range nonSplitBlocks {
 		for i := range blk.preds {
 			pred := blk.preds[i].blk
-			if _, ok := b.blkVisited[pred]; ok || !pred.Valid() {
+			if pred.visited == 1 || !pred.Valid() {
 				continue
 			} else if pred.reversePostOrder < blk.reversePostOrder {
 				// This means the edge is critical, and this pred is the trampoline and yet to be inserted.
 				// Split edge trampolines must come before the destination in reverse post-order.
 				b.reversePostOrderedBasicBlocks = append(b.reversePostOrderedBasicBlocks, pred)
-				b.blkVisited[pred] = 0 // mark as inserted, the value is not used.
+				pred.visited = 1 // mark as inserted.
 			}
 		}
 
 		// Now that we've already added all the potential trampoline blocks incoming to this block,
 		// we can add this block itself.
 		b.reversePostOrderedBasicBlocks = append(b.reversePostOrderedBasicBlocks, blk)
-		b.blkVisited[blk] = 0 // mark as inserted, the value is not used.
+		blk.visited = 1 // mark as inserted.
 
 		if len(blk.success) < 2 {
 			// There won't be critical edge originating from this block.
@@ -116,7 +114,7 @@ func passLayoutBlocks(b *builder) {
 			if fallthroughBranch.opcode == OpcodeJump && fallthroughBranch.blk == trampoline {
 				// This can be lowered as fallthrough at the end of the block.
 				b.reversePostOrderedBasicBlocks = append(b.reversePostOrderedBasicBlocks, trampoline)
-				b.blkVisited[trampoline] = 0 // mark as inserted, the value is not used.
+				trampoline.visited = 1 // mark as inserted.
 			} else {
 				uninsertedTrampolines = append(uninsertedTrampolines, trampoline)
 			}
@@ -126,7 +124,7 @@ func passLayoutBlocks(b *builder) {
 			if trampoline.success[0].reversePostOrder <= trampoline.reversePostOrder { // "<=", not "<" because the target might be itself.
 				// This means the critical edge was backward, so we insert after the current block immediately.
 				b.reversePostOrderedBasicBlocks = append(b.reversePostOrderedBasicBlocks, trampoline)
-				b.blkVisited[trampoline] = 0 // mark as inserted, the value is not used.
+				trampoline.visited = 1 // mark as inserted.
 			} // If the target is forward, we can wait to insert until the target is inserted.
 		}
 		uninsertedTrampolines = uninsertedTrampolines[:0] // Reuse the stack for the next block.
@@ -142,8 +140,8 @@ func passLayoutBlocks(b *builder) {
 
 	if wazevoapi.SSAValidationEnabled {
 		for _, trampoline := range trampolines {
-			if _, ok := b.blkVisited[trampoline]; !ok {
-				panic("BUG: trampoline block not inserted: " + trampoline.FormatHeader(b))
+			if trampoline.visited != 1 {
+				panic("BUG: trampoline block not inserted: " + trampoline.formatHeader(b))
 			}
 			trampoline.validate(b)
 		}

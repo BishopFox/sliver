@@ -43,7 +43,7 @@ type ExecutableContextT[Instr any] struct {
 	labelPositionPool wazevoapi.Pool[LabelPosition[Instr]]
 	NextLabel         Label
 	// LabelPositions maps a label to the instructions of the region which the label represents.
-	LabelPositions     map[Label]*LabelPosition[Instr]
+	LabelPositions     []*LabelPosition[Instr]
 	OrderedBlockLabels []*LabelPosition[Instr]
 
 	// PerBlockHead and PerBlockEnd are the head and tail of the instruction list per currently-compiled ssa.BasicBlock.
@@ -67,7 +67,6 @@ func NewExecutableContextT[Instr any](
 		setNext:           setNext,
 		setPrev:           setPrev,
 		labelPositionPool: wazevoapi.NewPool[LabelPosition[Instr]](resetLabelPosition[Instr]),
-		LabelPositions:    make(map[Label]*LabelPosition[Instr]),
 		NextLabel:         LabelInvalid,
 	}
 }
@@ -97,11 +96,7 @@ func (e *ExecutableContextT[Instr]) StartBlock(blk ssa.BasicBlock) {
 	end := e.allocateNop0()
 	e.PerBlockHead, e.PerBlockEnd = end, end
 
-	labelPos, ok := e.LabelPositions[l]
-	if !ok {
-		labelPos = e.AllocateLabelPosition(l)
-		e.LabelPositions[l] = labelPos
-	}
+	labelPos := e.GetOrAllocateLabelPosition(l)
 	e.OrderedBlockLabels = append(e.OrderedBlockLabels, labelPos)
 	labelPos.Begin, labelPos.End = end, end
 	labelPos.SB = blk
@@ -146,8 +141,8 @@ func (e *ExecutableContextT[T]) FlushPendingInstructions() {
 func (e *ExecutableContextT[T]) Reset() {
 	e.labelPositionPool.Reset()
 	e.InstructionPool.Reset()
-	for l := Label(0); l <= e.NextLabel; l++ {
-		delete(e.LabelPositions, l)
+	for i := range e.LabelPositions {
+		e.LabelPositions[i] = nil
 	}
 	e.PendingInstructions = e.PendingInstructions[:0]
 	e.OrderedBlockLabels = e.OrderedBlockLabels[:0]
@@ -163,10 +158,17 @@ func (e *ExecutableContextT[T]) AllocateLabel() Label {
 	return e.NextLabel
 }
 
-func (e *ExecutableContextT[T]) AllocateLabelPosition(la Label) *LabelPosition[T] {
-	l := e.labelPositionPool.Allocate()
-	l.L = la
-	return l
+func (e *ExecutableContextT[T]) GetOrAllocateLabelPosition(l Label) *LabelPosition[T] {
+	if len(e.LabelPositions) <= int(l) {
+		e.LabelPositions = append(e.LabelPositions, make([]*LabelPosition[T], int(l)+1-len(e.LabelPositions))...)
+	}
+	ret := e.LabelPositions[l]
+	if ret == nil {
+		ret = e.labelPositionPool.Allocate()
+		ret.L = l
+		e.LabelPositions[l] = ret
+	}
+	return ret
 }
 
 func (e *ExecutableContextT[T]) GetOrAllocateSSABlockLabel(blk ssa.BasicBlock) Label {

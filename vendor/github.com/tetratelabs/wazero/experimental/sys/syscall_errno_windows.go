@@ -23,6 +23,10 @@ const (
 	// instead of syscall.ENOTDIR
 	_ERROR_DIRECTORY = syscall.Errno(0x10B)
 
+	// _ERROR_NOT_A_REPARSE_POINT is a Windows error returned by os.Readlink
+	// instead of syscall.EINVAL
+	_ERROR_NOT_A_REPARSE_POINT = syscall.Errno(0x1126)
+
 	// _ERROR_INVALID_SOCKET is a Windows error returned by winsock_select
 	// when a given handle is not a socket.
 	_ERROR_INVALID_SOCKET = syscall.Errno(0x2736)
@@ -51,7 +55,7 @@ func errorToErrno(err error) Errno {
 			return EBADF
 		case syscall.ERROR_PRIVILEGE_NOT_HELD:
 			return EPERM
-		case _ERROR_NEGATIVE_SEEK, _ERROR_INVALID_NAME:
+		case _ERROR_NEGATIVE_SEEK, _ERROR_INVALID_NAME, _ERROR_NOT_A_REPARSE_POINT:
 			return EINVAL
 		}
 		errno, _ := syscallToErrno(err)

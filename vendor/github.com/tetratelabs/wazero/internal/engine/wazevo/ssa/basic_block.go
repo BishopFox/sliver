@@ -49,20 +49,11 @@ type BasicBlock interface {
 	// ReturnBlock returns ture if this block represents the function return.
 	ReturnBlock() bool
 
-	// FormatHeader returns the debug string of this block, not including instruction.
-	FormatHeader(b Builder) string
-
 	// Valid is true if this block is still valid even after optimizations.
 	Valid() bool
 
 	// Sealed is true if this block has been sealed.
 	Sealed() bool
-
-	// BeginPredIterator returns the first predecessor of this block.
-	BeginPredIterator() BasicBlock
-
-	// NextPredIterator returns the next predecessor of this block.
-	NextPredIterator() BasicBlock
 
 	// Preds returns the number of predecessors of this block.
 	Preds() int
@@ -88,10 +79,11 @@ type (
 	basicBlock struct {
 		id                      BasicBlockID
 		rootInstr, currentInstr *Instruction
-		params                  []blockParam
-		predIter                int
-		preds                   []basicBlockPredecessorInfo
-		success                 []*basicBlock
+		// params are Values that represent parameters to a basicBlock.
+		// Each parameter can be considered as an output of PHI instruction in traditional SSA.
+		params  []Value
+		preds   []basicBlockPredecessorInfo
+		success []*basicBlock
 		// singlePred is the alias to preds[0] for fast lookup, and only set after Seal is called.
 		singlePred *basicBlock
 		// lastDefinitions maps Variable to its last definition in this block.
@@ -116,26 +108,20 @@ type (
 
 		// loopNestingForestChildren holds the children of this block in the loop nesting forest.
 		// Non-empty if and only if this block is a loop header (i.e. loopHeader=true)
-		loopNestingForestChildren []BasicBlock
+		loopNestingForestChildren wazevoapi.VarLength[BasicBlock]
 
 		// reversePostOrder is used to sort all the blocks in the function in reverse post order.
 		// This is used in builder.LayoutBlocks.
-		reversePostOrder int
+		reversePostOrder int32
+
+		// visited is used during various traversals.
+		visited int32
 
 		// child and sibling are the ones in the dominator tree.
 		child, sibling *basicBlock
 	}
 	// BasicBlockID is the unique ID of a basicBlock.
 	BasicBlockID uint32
-
-	// blockParam implements Value and represents a parameter to a basicBlock.
-	blockParam struct {
-		// value is the Value that corresponds to the parameter in this block,
-		// and can be considered as an output of PHI instruction in traditional SSA.
-		value Value
-		// typ is the type of the parameter.
-		typ Type
-	}
 
 	unknownValue struct {
 		// variable is the variable that this unknownValue represents.
@@ -144,6 +130,9 @@ type (
 		value Value
 	}
 )
+
+// basicBlockVarLengthNil is the default nil value for basicBlock.loopNestingForestChildren.
+var basicBlockVarLengthNil = wazevoapi.NewNilVarLength[BasicBlock]()
 
 const basicBlockIDReturnBlock = 0xffffffff
 
@@ -190,13 +179,13 @@ func (bb *basicBlock) ReturnBlock() bool {
 // AddParam implements BasicBlock.AddParam.
 func (bb *basicBlock) AddParam(b Builder, typ Type) Value {
 	paramValue := b.allocateValue(typ)
-	bb.params = append(bb.params, blockParam{typ: typ, value: paramValue})
+	bb.params = append(bb.params, paramValue)
 	return paramValue
 }
 
 // addParamOn adds a parameter to this block whose value is already allocated.
-func (bb *basicBlock) addParamOn(typ Type, value Value) {
-	bb.params = append(bb.params, blockParam{typ: typ, value: value})
+func (bb *basicBlock) addParamOn(value Value) {
+	bb.params = append(bb.params, value)
 }
 
 // Params implements BasicBlock.Params.
@@ -206,8 +195,7 @@ func (bb *basicBlock) Params() int {
 
 // Param implements BasicBlock.Param.
 func (bb *basicBlock) Param(i int) Value {
-	p := &bb.params[i]
-	return p.value
+	return bb.params[i]
 }
 
 // Valid implements BasicBlock.Valid.
@@ -246,22 +234,6 @@ func (bb *basicBlock) InsertInstruction(next *Instruction) {
 // NumPreds implements BasicBlock.NumPreds.
 func (bb *basicBlock) NumPreds() int {
 	return len(bb.preds)
-}
-
-// BeginPredIterator implements BasicBlock.BeginPredIterator.
-func (bb *basicBlock) BeginPredIterator() BasicBlock {
-	bb.predIter = 0
-	return bb.NextPredIterator()
-}
-
-// NextPredIterator implements BasicBlock.NextPredIterator.
-func (bb *basicBlock) NextPredIterator() BasicBlock {
-	if bb.predIter >= len(bb.preds) {
-		return nil
-	}
-	pred := bb.preds[bb.predIter].blk
-	bb.predIter++
-	return pred
 }
 
 // Preds implements BasicBlock.Preds.
@@ -305,7 +277,8 @@ func resetBasicBlock(bb *basicBlock) {
 	bb.unknownValues = bb.unknownValues[:0]
 	bb.lastDefinitions = wazevoapi.ResetMap(bb.lastDefinitions)
 	bb.reversePostOrder = -1
-	bb.loopNestingForestChildren = bb.loopNestingForestChildren[:0]
+	bb.visited = 0
+	bb.loopNestingForestChildren = basicBlockVarLengthNil
 	bb.loopHeader = false
 	bb.sibling = nil
 	bb.child = nil
@@ -335,11 +308,11 @@ func (bb *basicBlock) addPred(blk BasicBlock, branch *Instruction) {
 	pred.success = append(pred.success, bb)
 }
 
-// FormatHeader implements BasicBlock.FormatHeader.
-func (bb *basicBlock) FormatHeader(b Builder) string {
+// formatHeader returns the string representation of the header of the basicBlock.
+func (bb *basicBlock) formatHeader(b Builder) string {
 	ps := make([]string, len(bb.params))
 	for i, p := range bb.params {
-		ps[i] = p.value.formatWithType(b)
+		ps[i] = p.formatWithType(b)
 	}
 
 	if len(bb.preds) > 0 {
@@ -398,7 +371,7 @@ func (bb *basicBlock) String() string {
 
 // LoopNestingForestChildren implements BasicBlock.LoopNestingForestChildren.
 func (bb *basicBlock) LoopNestingForestChildren() []BasicBlock {
-	return bb.loopNestingForestChildren
+	return bb.loopNestingForestChildren.View()
 }
 
 // LoopHeader implements BasicBlock.LoopHeader.

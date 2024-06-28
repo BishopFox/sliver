@@ -21,8 +21,6 @@ const (
 	windows_PAGE_EXECUTE_READWRITE uintptr = 0x00000040
 )
 
-const MmapSupported = true
-
 func munmapCodeSegment(code []byte) error {
 	return freeMemory(code)
 }

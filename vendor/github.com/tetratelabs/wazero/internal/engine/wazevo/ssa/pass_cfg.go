@@ -15,10 +15,6 @@ import (
 // At the last of pass, this function also does the loop detection and sets the basicBlock.loop flag.
 func passCalculateImmediateDominators(b *builder) {
 	reversePostOrder := b.reversePostOrderedBasicBlocks[:0]
-	exploreStack := b.blkStack[:0]
-	b.clearBlkVisited()
-
-	entryBlk := b.entryBlk()
 
 	// Store the reverse postorder from the entrypoint into reversePostOrder slice.
 	// This calculation of reverse postorder is not described in the paper,
@@ -28,14 +24,17 @@ func passCalculateImmediateDominators(b *builder) {
 	// which is a reasonable assumption as long as SSA Builder is properly used.
 	//
 	// First we push blocks in postorder iteratively visit successors of the entry block.
-	exploreStack = append(exploreStack, entryBlk)
+	entryBlk := b.entryBlk()
+	exploreStack := append(b.blkStack[:0], entryBlk)
+	// These flags are used to track the state of the block in the DFS traversal.
+	// We temporarily use the reversePostOrder field to store the state.
 	const visitStateUnseen, visitStateSeen, visitStateDone = 0, 1, 2
-	b.blkVisited[entryBlk] = visitStateSeen
+	entryBlk.visited = visitStateSeen
 	for len(exploreStack) > 0 {
 		tail := len(exploreStack) - 1
 		blk := exploreStack[tail]
 		exploreStack = exploreStack[:tail]
-		switch b.blkVisited[blk] {
+		switch blk.visited {
 		case visitStateUnseen:
 			// This is likely a bug in the frontend.
 			panic("BUG: unsupported CFG")
@@ -48,16 +47,18 @@ func passCalculateImmediateDominators(b *builder) {
 				if succ.ReturnBlock() || succ.invalid {
 					continue
 				}
-				if b.blkVisited[succ] == visitStateUnseen {
-					b.blkVisited[succ] = visitStateSeen
+				if succ.visited == visitStateUnseen {
+					succ.visited = visitStateSeen
 					exploreStack = append(exploreStack, succ)
 				}
 			}
 			// Finally, we could pop this block once we pop all of its successors.
-			b.blkVisited[blk] = visitStateDone
+			blk.visited = visitStateDone
 		case visitStateDone:
 			// Note: at this point we push blk in postorder despite its name.
 			reversePostOrder = append(reversePostOrder, blk)
+		default:
+			panic("BUG")
 		}
 	}
 	// At this point, reversePostOrder has postorder actually, so we reverse it.
@@ -67,7 +68,7 @@ func passCalculateImmediateDominators(b *builder) {
 	}
 
 	for i, blk := range reversePostOrder {
-		blk.reversePostOrder = i
+		blk.reversePostOrder = int32(i)
 	}
 
 	// Reuse the dominators slice if possible from the previous computation of function.
@@ -180,7 +181,7 @@ func passBuildLoopNestingForest(b *builder) {
 			b.loopNestingForestRoots = append(b.loopNestingForestRoots, blk)
 		} else if n == ent {
 		} else if n.loopHeader {
-			n.loopNestingForestChildren = append(n.loopNestingForestChildren, blk)
+			n.loopNestingForestChildren = n.loopNestingForestChildren.Append(&b.varLengthBasicBlockPool, blk)
 		}
 	}
 
@@ -193,7 +194,7 @@ func passBuildLoopNestingForest(b *builder) {
 
 func printLoopNestingForest(root *basicBlock, depth int) {
 	fmt.Println(strings.Repeat("\t", depth), "loop nesting forest root:", root.ID())
-	for _, child := range root.loopNestingForestChildren {
+	for _, child := range root.loopNestingForestChildren.View() {
 		fmt.Println(strings.Repeat("\t", depth+1), "child:", child.ID())
 		if child.LoopHeader() {
 			printLoopNestingForest(child.(*basicBlock), depth+2)
@@ -202,10 +203,10 @@ func printLoopNestingForest(root *basicBlock, depth int) {
 }
 
 type dominatorSparseTree struct {
-	time         int
+	time         int32
 	euler        []*basicBlock
-	first, depth []int
-	table        [][]int
+	first, depth []int32
+	table        [][]int32
 }
 
 // passBuildDominatorTree builds the dominator tree for the function, and constructs builder.sparseTree.
@@ -232,11 +233,11 @@ func passBuildDominatorTree(b *builder) {
 	n := b.basicBlocksPool.Allocated()
 	st := &b.sparseTree
 	st.euler = append(st.euler[:0], make([]*basicBlock, 2*n-1)...)
-	st.first = append(st.first[:0], make([]int, n)...)
+	st.first = append(st.first[:0], make([]int32, n)...)
 	for i := range st.first {
 		st.first[i] = -1
 	}
-	st.depth = append(st.depth[:0], make([]int, 2*n-1)...)
+	st.depth = append(st.depth[:0], make([]int32, 2*n-1)...)
 	st.time = 0
 
 	// Start building the sparse tree.
@@ -244,9 +245,9 @@ func passBuildDominatorTree(b *builder) {
 	st.buildSparseTable()
 }
 
-func (dt *dominatorSparseTree) eulerTour(node *basicBlock, height int) {
+func (dt *dominatorSparseTree) eulerTour(node *basicBlock, height int32) {
 	if wazevoapi.SSALoggingEnabled {
-		fmt.Println(strings.Repeat("\t", height), "euler tour:", node.ID())
+		fmt.Println(strings.Repeat("\t", int(height)), "euler tour:", node.ID())
 	}
 	dt.euler[dt.time] = node
 	dt.depth[dt.time] = height
@@ -270,13 +271,13 @@ func (dt *dominatorSparseTree) buildSparseTable() {
 	table := dt.table
 
 	if n >= len(table) {
-		table = append(table, make([][]int, n+1)...)
+		table = append(table, make([][]int32, n-len(table)+1)...)
 	}
 	for i := range table {
 		if len(table[i]) < k {
-			table[i] = append(table[i], make([]int, k)...)
+			table[i] = append(table[i], make([]int32, k-len(table[i]))...)
 		}
-		table[i][0] = i
+		table[i][0] = int32(i)
 	}
 
 	for j := 1; 1<<j <= n; j++ {
@@ -292,7 +293,7 @@ func (dt *dominatorSparseTree) buildSparseTable() {
 }
 
 // rmq performs a range minimum query on the sparse table.
-func (dt *dominatorSparseTree) rmq(l, r int) int {
+func (dt *dominatorSparseTree) rmq(l, r int32) int32 {
 	table := dt.table
 	depth := dt.depth
 	j := int(math.Log2(float64(r - l + 1)))

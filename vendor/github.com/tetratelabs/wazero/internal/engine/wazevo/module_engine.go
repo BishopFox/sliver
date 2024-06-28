@@ -86,16 +86,6 @@ func newAlignedOpaque(size int) moduleContextOpaque {
 	return buf
 }
 
-func putLocalMemory(opaque []byte, offset wazevoapi.Offset, mem *wasm.MemoryInstance) {
-	s := uint64(len(mem.Buffer))
-	var b uint64
-	if len(mem.Buffer) > 0 {
-		b = uint64(uintptr(unsafe.Pointer(&mem.Buffer[0])))
-	}
-	binary.LittleEndian.PutUint64(opaque[offset:], b)
-	binary.LittleEndian.PutUint64(opaque[offset+8:], s)
-}
-
 func (m *moduleEngine) setupOpaque() {
 	inst := m.module
 	offsets := &m.parent.offsets
@@ -106,7 +96,7 @@ func (m *moduleEngine) setupOpaque() {
 	)
 
 	if lm := offsets.LocalMemoryBegin; lm >= 0 {
-		putLocalMemory(opaque, lm, inst.MemoryInstance)
+		m.putLocalMemory()
 	}
 
 	// Note: imported memory is resolved in ResolveImportedFunction.
@@ -226,6 +216,25 @@ func (m *moduleEngine) SetGlobalValue(i wasm.Index, lo, hi uint64) {
 
 // OwnsGlobals implements the same method as documented on wasm.ModuleEngine.
 func (m *moduleEngine) OwnsGlobals() bool { return true }
+
+// MemoryGrown implements wasm.ModuleEngine.
+func (m *moduleEngine) MemoryGrown() {
+	m.putLocalMemory()
+}
+
+// putLocalMemory writes the local memory buffer pointer and length to the opaque buffer.
+func (m *moduleEngine) putLocalMemory() {
+	mem := m.module.MemoryInstance
+	offset := m.parent.offsets.LocalMemoryBegin
+
+	s := uint64(len(mem.Buffer))
+	var b uint64
+	if len(mem.Buffer) > 0 {
+		b = uint64(uintptr(unsafe.Pointer(&mem.Buffer[0])))
+	}
+	binary.LittleEndian.PutUint64(m.opaque[offset:], b)
+	binary.LittleEndian.PutUint64(m.opaque[offset+8:], s)
+}
 
 // ResolveImportedFunction implements wasm.ModuleEngine.
 func (m *moduleEngine) ResolveImportedFunction(index, indexInImportedModule wasm.Index, importedModuleEngine wasm.ModuleEngine) {
