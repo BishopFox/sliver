@@ -55,6 +55,10 @@ type (
 	ulong = types.User_ulong_t
 )
 
+type pthreadAttr struct {
+	detachState int32
+}
+
 // // Keep these outside of the var block otherwise go generate will miss them.
 var X__stderrp = Xstdout
 var X__stdinp = Xstdin
@@ -2160,7 +2164,7 @@ func X__ccgo_pthreadAttrGetDetachState(tls *TLS, a uintptr) int32 {
 	if __ccgo_strace {
 		trc("tls=%v a=%v, (%v:)", tls, a, origin(2))
 	}
-	panic(todo(""))
+	return (*pthreadAttr)(unsafe.Pointer(a)).detachState
 }
 
 func Xpthread_attr_getdetachstate(tls *TLS, a uintptr, state uintptr) int32 {
