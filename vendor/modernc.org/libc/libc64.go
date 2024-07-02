@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build ((amd64 || loong64) && !linux) || arm64 || ppc64le || riscv64 || s390x || mips64le
+//go:build ((amd64 || arm64 || loong64) && !linux) || ppc64le || riscv64 || s390x || mips64le
 
 package libc // import "modernc.org/libc"
 
