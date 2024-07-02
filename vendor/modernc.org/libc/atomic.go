@@ -2,13 +2,13 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build linux && (amd64 || loong64)
+//go:build linux && (amd64 || arm64 || loong64)
 
-package libc // import "modernc.org/libc/v2"
+package libc // import "modernc.org/libc"
 
 import (
 	"math"
-	"math/bits"
+	mbits "math/bits"
 	"sync/atomic"
 	"unsafe"
 )
@@ -41,15 +41,15 @@ func a_store_16(addr uintptr, val uint16) {
 // static inline int a_ctz_l(unsigned long x)
 func _a_ctz_l(tls *TLS, x ulong) int32 {
 	if unsafe.Sizeof(x) == 8 {
-		return int32(bits.TrailingZeros64(x))
+		return int32(mbits.TrailingZeros64(x))
 	}
 
-	return int32(bits.TrailingZeros32(uint32(x)))
+	return int32(mbits.TrailingZeros32(uint32(x)))
 }
 
 // static inline int a_ctz_64(uint64_t x)
 func _a_ctz_64(tls *TLS, x uint64) int32 {
-	return int32(bits.TrailingZeros64(x))
+	return int32(mbits.TrailingZeros64(x))
 }
 
 func AtomicAddFloat32(addr *float32, delta float32) (new float32) {
