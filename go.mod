@@ -34,7 +34,7 @@ require (
 	github.com/miekg/dns v1.1.59
 	github.com/moloch--/asciicast v0.1.0
 	github.com/moloch--/memmod v0.0.0-20230225130813-fd77d905589e
-	github.com/ncruces/go-sqlite3 v0.15.0
+	github.com/ncruces/go-sqlite3 v0.16.3
 	github.com/reeflective/console v0.1.15
 	github.com/reeflective/readline v1.0.14
 	github.com/rsteube/carapace v0.46.3-0.20231214181515-27e49f3c3b69
@@ -42,7 +42,7 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.9.0
-	github.com/tetratelabs/wazero v1.7.2
+	github.com/tetratelabs/wazero v1.7.3
 	github.com/things-go/go-socks5 v0.0.5
 	github.com/ulikunitz/xz v0.5.12
 	github.com/xlab/treeprint v1.2.0

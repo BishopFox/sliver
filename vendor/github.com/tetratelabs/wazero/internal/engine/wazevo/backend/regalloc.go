@@ -35,7 +35,7 @@ type (
 		iter                   int
 		reversePostOrderBlocks []RegAllocBlock[I, m]
 		// labelToRegAllocBlockIndex maps label to the index of reversePostOrderBlocks.
-		labelToRegAllocBlockIndex map[Label]int
+		labelToRegAllocBlockIndex [] /* Label to */ int
 		loopNestingForestRoots    []ssa.BasicBlock
 	}
 
@@ -56,10 +56,9 @@ type (
 // NewRegAllocFunction returns a new RegAllocFunction.
 func NewRegAllocFunction[I regalloc.InstrConstraint, M RegAllocFunctionMachine[I]](m M, ssb ssa.Builder, c Compiler) *RegAllocFunction[I, M] {
 	return &RegAllocFunction[I, M]{
-		m:                         m,
-		ssb:                       ssb,
-		c:                         c,
-		labelToRegAllocBlockIndex: make(map[Label]int),
+		m:   m,
+		ssb: ssb,
+		c:   c,
 	}
 }
 
@@ -74,6 +73,9 @@ func (f *RegAllocFunction[I, M]) AddBlock(sb ssa.BasicBlock, l Label, begin, end
 		end:   end,
 		id:    int(sb.ID()),
 	})
+	if len(f.labelToRegAllocBlockIndex) <= int(l) {
+		f.labelToRegAllocBlockIndex = append(f.labelToRegAllocBlockIndex, make([]int, int(l)-len(f.labelToRegAllocBlockIndex)+1)...)
+	}
 	f.labelToRegAllocBlockIndex[l] = i
 }
 
