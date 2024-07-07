@@ -227,12 +227,9 @@ func getArgvFromPid(pid int) ([]string, error) {
 		errStr := unix.ErrnoName(errno)
 		return []string{""}, fmt.Errorf("%s", errStr)
 	}
-	buffer := bytes.NewBuffer(processArgs)
-	numberOfArgs, err := binary.ReadUvarint(buffer)
-	if err != nil {
-		return []string{""}, err
-	}
-	buffer.Next(3)                         // skip  sizeof(int32), the number of args
+	buffer := bytes.NewBuffer(processArgs[0:size])
+	numberOfArgsBytes := buffer.Next(4)
+	numberOfArgs := binary.LittleEndian.Uint32(numberOfArgsBytes)
 	argv := make([]string, numberOfArgs+1) // executable name is present twice
 
 	// There's probably a way to optimize that loop.
@@ -248,7 +245,7 @@ func getArgvFromPid(pid int) ([]string, error) {
 	for {
 		arg, err := buffer.ReadString(0x00)
 		if err != nil {
-			continue
+			break
 		}
 		if strings.ReplaceAll(arg, "\x00", "") != "" {
 			argv[i] = arg
