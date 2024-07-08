@@ -83,7 +83,7 @@ func vfsRandomness(ctx context.Context, mod api.Module, pVfs uint32, nByte int32
 }
 
 func vfsSleep(ctx context.Context, mod api.Module, pVfs uint32, nMicro int32) _ErrorCode {
-	osSleep(time.Duration(nMicro) * time.Microsecond)
+	time.Sleep(time.Duration(nMicro) * time.Microsecond)
 	return _OK
 }
 
@@ -397,18 +397,14 @@ func vfsShmBarrier(ctx context.Context, mod api.Module, pFile uint32) {
 
 func vfsShmMap(ctx context.Context, mod api.Module, pFile uint32, iRegion, szRegion int32, bExtend, pp uint32) _ErrorCode {
 	shm := vfsFileGet(ctx, mod, pFile).(FileSharedMemory).SharedMemory()
-	p, err := shm.shmMap(ctx, mod, iRegion, szRegion, bExtend != 0)
-	if err != nil {
-		return vfsErrorCode(err, _IOERR_SHMMAP)
-	}
+	p, rc := shm.shmMap(ctx, mod, iRegion, szRegion, bExtend != 0)
 	util.WriteUint32(mod, pp, p)
-	return _OK
+	return rc
 }
 
 func vfsShmLock(ctx context.Context, mod api.Module, pFile uint32, offset, n int32, flags _ShmFlag) _ErrorCode {
 	shm := vfsFileGet(ctx, mod, pFile).(FileSharedMemory).SharedMemory()
-	err := shm.shmLock(offset, n, flags)
-	return vfsErrorCode(err, _IOERR_SHMLOCK)
+	return shm.shmLock(offset, n, flags)
 }
 
 func vfsShmUnmap(ctx context.Context, mod api.Module, pFile, bDelete uint32) _ErrorCode {
