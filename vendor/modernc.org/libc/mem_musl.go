@@ -2,13 +2,13 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build !libc.membrk && !libc.memgrind && linux && (amd64 || loong64)
+//go:build !libc.membrk && !libc.memgrind && linux && (amd64 || arm64 || loong64)
 
-package libc // import "modernc.org/libc/v2"
+package libc // import "modernc.org/libc"
 
 import (
 	"math"
-	"math/bits"
+	mbits "math/bits"
 
 	"modernc.org/memory"
 )
@@ -49,7 +49,7 @@ func Xcalloc(tls *TLS, m Tsize_t, n Tsize_t) (r uintptr) {
 		trc("tls=%v m=%v n=%v, (%v:)", tls, m, n, origin(2))
 		defer func() { trc("-> %v", r) }()
 	}
-	hi, rq := bits.Mul(uint(m), uint(n))
+	hi, rq := mbits.Mul(uint(m), uint(n))
 	if hi != 0 || rq > math.MaxInt {
 		tls.setErrno(ENOMEM)
 		return 0
