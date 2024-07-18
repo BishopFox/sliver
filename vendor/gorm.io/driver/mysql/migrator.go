@@ -155,7 +155,7 @@ func (m Migrator) AlterColumn(value interface{}, field string) error {
 
 				return m.DB.Exec(
 					"ALTER TABLE ? MODIFY COLUMN ? ?",
-					clause.Table{Name: stmt.Table}, clause.Column{Name: field.DBName}, fullDataType,
+					m.CurrentTable(stmt), clause.Column{Name: field.DBName}, fullDataType,
 				).Error
 			}
 		}
@@ -215,7 +215,7 @@ func (m Migrator) RenameColumn(value interface{}, oldName, newName string) error
 		if field != nil {
 			return m.DB.Exec(
 				"ALTER TABLE ? CHANGE ? ? ?",
-				clause.Table{Name: stmt.Table}, clause.Column{Name: oldName},
+				m.CurrentTable(stmt), clause.Column{Name: oldName},
 				clause.Column{Name: newName}, m.FullDataTypeOf(field),
 			).Error
 		}
@@ -252,7 +252,7 @@ func (m Migrator) RenameIndex(value interface{}, oldName, newName string) error 
 		return m.RunWithValue(value, func(stmt *gorm.Statement) error {
 			return m.DB.Exec(
 				"ALTER TABLE ? RENAME INDEX ? TO ?",
-				clause.Table{Name: stmt.Table}, clause.Column{Name: oldName}, clause.Column{Name: newName},
+				m.CurrentTable(stmt), clause.Column{Name: oldName}, clause.Column{Name: newName},
 			).Error
 		})
 	}
@@ -267,7 +267,7 @@ func (m Migrator) RenameIndex(value interface{}, oldName, newName string) error 
 			if idx := stmt.Schema.LookIndex(newName); idx == nil {
 				if idx = stmt.Schema.LookIndex(oldName); idx != nil {
 					opts := m.BuildIndexOptions(idx.Fields, stmt)
-					values := []interface{}{clause.Column{Name: newName}, clause.Table{Name: stmt.Table}, opts}
+					values := []interface{}{clause.Column{Name: newName}, m.CurrentTable(stmt), opts}
 
 					createIndexSQL := "CREATE "
 					if idx.Class != "" {
@@ -295,7 +295,7 @@ func (m Migrator) DropTable(values ...interface{}) error {
 		tx.Exec("SET FOREIGN_KEY_CHECKS = 0;")
 		for i := len(values) - 1; i >= 0; i-- {
 			if err := m.RunWithValue(values[i], func(stmt *gorm.Statement) error {
-				return tx.Exec("DROP TABLE IF EXISTS ? CASCADE", clause.Table{Name: stmt.Table}).Error
+				return tx.Exec("DROP TABLE IF EXISTS ? CASCADE", m.CurrentTable(stmt)).Error
 			}); err != nil {
 				return err
 			}
