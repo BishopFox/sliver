@@ -49,7 +49,7 @@ func MsfInjectCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 		return
 	}
 	if pid == -1 {
-		con.PrintErrorf("Invalid pid '%s', see `help %s`\n", lhost, consts.MsfInjectStr)
+		con.PrintErrorf("Invalid pid '%d', see `help %s`\n", pid, consts.MsfInjectStr)
 		return
 	}
 	var goos string

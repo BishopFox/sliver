@@ -45,7 +45,6 @@ var (
 		consts.InfoStr:          infoHelp,
 		consts.UseStr:           useHelp,
 		consts.GenerateStr:      generateHelp,
-		consts.MsfStagerStr:     generateStagerHelp,
 		consts.StageListenerStr: stageListenerHelp,
 
 		consts.MsfStr:              msfHelp,
@@ -196,33 +195,6 @@ Execution limits can be used to restrict the execution of a Sliver implant to ma
 Due to the large number of options and C2s this can be a lot of typing. If you'd like to have a reusable a Sliver config
 see 'help profiles new'. All "generate" flags can be saved into a profile, you can view existing profiles with the "profiles"
 command.
-`
-	generateStagerHelp = `[[.Bold]]Command:[[.Normal]] generate msf-stager <options>
-[[.Bold]]About:[[.Normal]] Generate a new sliver stager shellcode and saves the output to the cwd or a path specified with --save, or to stdout using --format.
-
-[[.Bold]][[.Underline]]++ Bad Characters ++[[.Normal]]
-Bad characters must be specified like this for single bytes:
-
-generate msf-stager -b 00
-
-And like this for multiple bytes:
-
-generate msf-stager -b '00 0a cc'
-
-[[.Bold]][[.Underline]]++ Output Formats ++[[.Normal]]
-You can use the --format flag to print out the shellcode to stdout, in one of the following transform formats:
-[[.Bold]]bash c csharp dw dword hex java js_be js_le num perl pl powershell ps1 py python raw rb ruby sh vbapplication vbscript[[.Normal]]
-
-[[.Bold]][[.Underline]]++ Advanced Options ++[[.Normal]]
-If there are any advanced options you need to pass to msfvenom, you can use the --advanced flag to provide them. They must be provided in URI query format: option1=value1&option2=value2 and so on.
-The full list of advanced options is available using "show advanced" in msf for the payload corresponding to the chosen protocol:
-	TCP: meterpreter/reverse_tcp
-	HTTP: custom/reverse_winhttp
-	HTTPS: custom/reverse_winhttps
-
-Example:
-	To tell the stager to use the proxy proxy.corp.com:8080 with the user name "corp_drone" and password "MyPassword", you would pass the following string to --advanced:
-	HttpProxyHost=proxy.corp.com&HttpProxyPort=8080&HttpProxyUser=corp_drone&HttpProxyPass=MyPassword
 `
 	stageListenerHelp = `[[.Bold]]Command:[[.Normal]] stage-listener <options>
 [[.Bold]]About:[[.Normal]] Starts a stager listener bound to a Sliver profile.
