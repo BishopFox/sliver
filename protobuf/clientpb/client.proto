@@ -513,7 +513,6 @@ message MsfStagerReq {
   string OS = 5; // reserved for future usage
   StageProtocol Protocol = 6;
   repeated string BadChars = 7;
-  string AdvOptions = 8;
   string HTTPC2ConfigName = 9;
 }
 
