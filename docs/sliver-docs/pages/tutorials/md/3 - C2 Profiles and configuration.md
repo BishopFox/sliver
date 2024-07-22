@@ -1,3 +1,5 @@
+# This course is intented for the 1.6 version of Sliver, which is not yet published
+
 When generating implants sliver uses a C2Profile configuration, which will be use to generate the effective network configuration of the implant. For example if configured to use /admin and /demo as callback urls, it might use one, the other or both allowing two implants using the same configuration to still seem slightly different from a network traffic perspective.
 
 C2 profile configurations can be seen using the `c2profile` command, which also allows import and export features.

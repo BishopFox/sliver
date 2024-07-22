@@ -1,3 +1,5 @@
+# This course is intented for the 1.6 version of Sliver, which is not yet published
+
 Reactions are a basic way to automate tasks in the sliver console, they allow you to specify sliver commands to run on a list of events.
 
 ```bash

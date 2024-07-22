@@ -1,3 +1,5 @@
+# This course is intented for the 1.6 version of Sliver, which is not yet published
+
 Sliver implants support two types of connections, sessions and beacons.
 
 Sessions use long-poling connections, which means they use a single TCP connection which is constantly open. Beacons on the other hand call back periodically, and will sleep when not active which can help keep their presence hidden.

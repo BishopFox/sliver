@@ -1,3 +1,5 @@
+# This course is intented for the 1.6 version of Sliver, which is not yet published
+
 Pivots allow routing implant traffic through other implants. This can be usefull in environments that don’t have any outbound access, but are reachable from other parts of the network that you have access to.
 
 Sliver supports two types of pivots, tcp which can be used on all operating systems and named pipes which are windows only.

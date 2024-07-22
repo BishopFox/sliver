@@ -1,3 +1,5 @@
+# This course is intented for the 1.6 version of Sliver, which is not yet published
+
 When using Sliver during a live engagement, you’re going to need to use custom stagers, which are essentially a first binary or commandline that will retrieve and/or load Sliver into memory on your target system. Sliver can generate shellcode for your stager to execute by using the `profiles` command.
 
 For this exercise we will create a new beacon profile and prepare to stage it.
