@@ -1,5 +1,3 @@
-# Stagers
-
 When using Sliver during a live engagement, you’re going to need to use custom stagers, which are essentially a first binary or commandline that will retrieve and/or load Sliver into memory on your target system. Sliver can generate shellcode for your stager to execute by using the `profiles` command.
 
 For this exercise we will create a new beacon profile and prepare to stage it.
@@ -18,7 +16,7 @@ There is a lot of flexibility in the form of this URL, the conditions for succes
 * There has to be a one character http url parameter
 * The digits found in the ID need to match an implant ID, if your implant ID is 1234, abcd1234, 12beu34 are all valid values
 
-To expose a payload externally you need to use the `implants stage` command and specifically select the implant to be exposed.
+To expose a payload you need to use the `implants stage` command and specifically select the implant to leave accessible.
 
 ```asciinema
 {"src": "/asciinema/stage_implant.cast", "cols": "132", "rows": "14", "idleTimeLimit": 8}

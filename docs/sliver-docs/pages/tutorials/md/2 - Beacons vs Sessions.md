@@ -1,5 +1,3 @@
-# Beacons vs Sessions
-
 Sliver implants support two types of connections, sessions and beacons.
 
 Sessions use long-poling connections, which means they use a single TCP connection which is constantly open. Beacons on the other hand call back periodically, and will sleep when not active which can help keep their presence hidden.
@@ -65,8 +63,6 @@ Commands issued for beacons can be viewed using `tasks`, the task state will ind
 ```asciinema
 {"src": "/asciinema/beacon_tasks.cast", "cols": "132", "rows": "14", "idleTimeLimit": 8}
 ```
-
-beacon_tasks.cast
 
 Session can be spun up using the `interractive` command.
 

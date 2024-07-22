@@ -1,5 +1,3 @@
-## Sliver Reactions
-
 Reactions are a basic way to automate tasks in the sliver console, they allow you to specify sliver commands to run on a list of events.
 
 ```bash
@@ -49,7 +47,7 @@ You can remove reactions using `reaction unset`.
 
 However, there are a couple of limitations to keep in mind when using reactions, first off these are run in the console you are currently using, which is not necessarily the server console. So if you are connected to a sliver server using the sliver client, if you disconnect the client the reactions are no longer running. 
 
-Secondly reactions are a relatively basic mechanism, you can’t use any conditional statements or more complex background tasks with them. For more complex use-cases you can instead write your own client in Python or Typescript to connect to the server over gRPC, which we’ll cover in the next session.
+Secondly reactions are a relatively basic mechanism, you can’t use any conditional statements or more complex background tasks with them. For more complex use-cases you can instead write your own client in Python or Typescript for example to connect to the server over gRPC, which we’ll cover next.
 
 ## Sliver-py
 
@@ -74,16 +72,10 @@ Since our extension is essentially going to be another client connection to the 
 [*] Saved new client config to: /Users/tester/tools/tester_127.0.0.1.cfg
 ```
 
-We now have everything we need to start writing our scripts, let’s run our first example interactively in a Python shell. In this session we recommend using `ipython3` , you can install this by using pip:
-
-```html
-pip3 install ipython3
-```
-
+We now have everything we need to start writing our scripts, let’s run our first example interactively in a Python shell. 
 We first need to import a few dependencies, `SliverClientConfig` which is used to parse the client config we’ve just created and `SliverClient` which will handle the connection to the backend server.
 
 ```bash
-tester@test ~/t/sliver> ipython3
 Python 3.9.16 (main, Dec  7 2022, 10:06:04)
 Type 'copyright', 'credits' or 'license' for more information
 IPython 8.0.1 -- An enhanced Interactive Python. Type '?' for help.
@@ -224,18 +216,3 @@ b"# Copyright (c) 1993-2009 Microsoft Corp.\r\n#\r\n# This is a sample HOSTS fil
 Automatically interacting with session 93fcbab2-f00d-44a4-944a-e1ea8ec324e2
 b'##\n# Host Database\n#\n# localhost is used to configure the loopback interface\n# when the system is booting.  Do not change this entry.\n##\n127.0.0.1...
 ```
-
-As an exercise, build automated backdoor deployer which first identifies the target operating system and then deploys a corresponding backdoor, in the case of Linux or Macos you can backdoor a `.bashrc` file to run a previously uploaded binary in the background, in the case of Windows you can use the registry commands to deploy a new `autorun` key.
-
-Here are a couple hints:
-
-- Start with generating sliver implants for all your target systems, on implant connection you’ll want to upload them somewhere on disc
-- In the cases of Linux and Macos you’ll want to download the `.bashrc` file, decompress and modify it locally before re-uploading it. The upload command should look like this `await interract.upload("/home/target/.bashrc", contents + b'\r\necho "pwned !"')`.
-- For Windows you can look at the `registry_read` and `registry_create_key` functions.
-
-## References
-
-- [https://github.com/BishopFox/sliver/wiki/Writing-your-own-client](https://github.com/BishopFox/sliver/wiki/Writing-your-own-client)
-- [https://sliverpy.readthedocs.io/en/latest/](https://sliverpy.readthedocs.io/en/latest/)
-- [https://github.com/moloch--/sliver-py](https://github.com/moloch--/sliver-py)
-- [https://github.com/moloch--/sliver-script](https://github.com/moloch--/sliver-script)
