@@ -1,15 +1,23 @@
 import lunr from "lunr";
 import React from "react";
 import { Doc, Docs } from "./docs";
+import { Tutorial, Tutorials } from "./tutorials";
 
 
 export class SearchCtx {
 
   private _docs: Docs = { docs: [] };
   private _docsIndex: lunr.Index;
+  private _tutorials: Tutorials = { tutorials: [] };
+  private _tutorialsIndex: lunr.Index;
+
 
   constructor() {
     this._docsIndex = lunr(function () {
+      this.ref("name");
+      this.field("content");
+    });
+    this._tutorialsIndex = lunr(function () {
       this.ref("name");
       this.field("content");
     });
@@ -30,6 +38,18 @@ export class SearchCtx {
       this.field("content");
       docs.docs.forEach((doc) => {
         this.add(doc);
+      });
+    });
+  }
+
+
+  public addTutorials = (tutorials: Tutorials) => {
+    this._tutorials = tutorials;
+    this._tutorialsIndex = lunr(function () {
+      this.ref("name");
+      this.field("content");
+      tutorials.tutorials.forEach((tutorial) => {
+        this.add(tutorial);
       });
     });
   }
