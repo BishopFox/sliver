@@ -31,6 +31,7 @@ import (
 	"tailscale.com/client/tailscale"
 	"tailscale.com/control/controlclient"
 	"tailscale.com/envknob"
+	"tailscale.com/health"
 	"tailscale.com/hostinfo"
 	"tailscale.com/ipn"
 	"tailscale.com/ipn/ipnlocal"
@@ -233,7 +234,7 @@ func (s *Server) Loopback() (addr string, proxyCred, localAPICred string, err er
 		// out the CONNECT code from tailscaled/proxy.go that uses
 		// httputil.ReverseProxy and adding auth support.
 		go func() {
-			lah := localapi.NewHandler(s.lb, s.logf, s.netMon, s.logid)
+			lah := localapi.NewHandler(s.lb, s.logf, s.logid)
 			lah.PermitWrite = true
 			lah.PermitRead = true
 			lah.RequiredPassword = s.localAPICred
@@ -504,7 +505,8 @@ func (s *Server) start() (reterr error) {
 		return fmt.Errorf("%v is not a directory", s.rootPath)
 	}
 
-	if err := s.startLogger(&closePool); err != nil {
+	sys := new(tsd.System)
+	if err := s.startLogger(&closePool, sys.HealthTracker()); err != nil {
 		return err
 	}
 
@@ -514,14 +516,14 @@ func (s *Server) start() (reterr error) {
 	}
 	closePool.add(s.netMon)
 
-	sys := new(tsd.System)
 	s.dialer = &tsdial.Dialer{Logf: logf} // mutated below (before used)
 	eng, err := wgengine.NewUserspaceEngine(logf, wgengine.Config{
-		ListenPort:   s.Port,
-		NetMon:       s.netMon,
-		Dialer:       s.dialer,
-		SetSubsystem: sys.Set,
-		ControlKnobs: sys.ControlKnobs(),
+		ListenPort:    s.Port,
+		NetMon:        s.netMon,
+		Dialer:        s.dialer,
+		SetSubsystem:  sys.Set,
+		ControlKnobs:  sys.ControlKnobs(),
+		HealthTracker: sys.HealthTracker(),
 	})
 	if err != nil {
 		return err
@@ -597,14 +599,16 @@ func (s *Server) start() (reterr error) {
 	st := lb.State()
 	if st == ipn.NeedsLogin || envknob.Bool("TSNET_FORCE_LOGIN") {
 		logf("LocalBackend state is %v; running StartLoginInteractive...", st)
-		s.lb.StartLoginInteractive()
+		if err := s.lb.StartLoginInteractive(s.shutdownCtx); err != nil {
+			return fmt.Errorf("StartLoginInteractive: %w", err)
+		}
 	} else if authKey != "" {
 		logf("Authkey is set; but state is %v. Ignoring authkey. Re-run with TSNET_FORCE_LOGIN=1 to force use of authkey.", st)
 	}
 	go s.printAuthURLLoop()
 
 	// Run the localapi handler, to allow fetching LetsEncrypt certs.
-	lah := localapi.NewHandler(lb, logf, s.netMon, s.logid)
+	lah := localapi.NewHandler(lb, logf, s.logid)
 	lah.PermitWrite = true
 	lah.PermitRead = true
 
@@ -624,7 +628,7 @@ func (s *Server) start() (reterr error) {
 	return nil
 }
 
-func (s *Server) startLogger(closePool *closeOnErrorPool) error {
+func (s *Server) startLogger(closePool *closeOnErrorPool, health *health.Tracker) error {
 	if testenv.InTest() {
 		return nil
 	}
@@ -655,7 +659,7 @@ func (s *Server) startLogger(closePool *closeOnErrorPool) error {
 		Stderr:       io.Discard, // log everything to Buffer
 		Buffer:       s.logbuffer,
 		CompressLogs: true,
-		HTTPC:        &http.Client{Transport: logpolicy.NewLogtailTransport(logtail.DefaultHost, s.netMon, s.logf)},
+		HTTPC:        &http.Client{Transport: logpolicy.NewLogtailTransport(logtail.DefaultHost, s.netMon, health, s.logf)},
 		MetricsDelta: clientmetric.EncodeLogTailMetricsDelta,
 	}
 	s.logtail = logtail.NewLogger(c, s.logf)

@@ -49,10 +49,11 @@ type NativeTun struct {
 	readOpMu sync.Mutex                    // readOpMu guards readBuff
 	readBuff [virtioNetHdrLen + 65535]byte // if vnetHdr every read() is prefixed by virtioNetHdr
 
-	writeOpMu   sync.Mutex // writeOpMu guards toWrite, tcpGROTable
+	writeOpMu   sync.Mutex // writeOpMu guards the following fields
 	toWrite     []int
 	tcpGROTable *tcpGROTable
 	udpGROTable *udpGROTable
+	udpGRO      bool
 }
 
 func (tun *NativeTun) File() *os.File {
@@ -345,7 +346,7 @@ func (tun *NativeTun) Write(bufs [][]byte, offset int) (int, error) {
 	)
 	tun.toWrite = tun.toWrite[:0]
 	if tun.vnetHdr {
-		err := handleGRO(bufs, offset, tun.tcpGROTable, tun.udpGROTable, tun.udpGSO, &tun.toWrite)
+		err := handleGRO(bufs, offset, tun.tcpGROTable, tun.udpGROTable, tun.udpGRO, &tun.toWrite)
 		if err != nil {
 			return 0, err
 		}
@@ -502,6 +503,12 @@ func (tun *NativeTun) BatchSize() int {
 	return tun.batchSize
 }
 
+func (tun *NativeTun) DisableUDPGRO() {
+	tun.writeOpMu.Lock()
+	tun.udpGRO = false
+	tun.writeOpMu.Unlock()
+}
+
 const (
 	// TODO: support TSO with ECN bits
 	tunTCPOffloads = unix.TUN_F_CSUM | unix.TUN_F_TSO4 | unix.TUN_F_TSO6
@@ -538,6 +545,7 @@ func (tun *NativeTun) initFromFlags(name string) error {
 			// tunUDPOffloads were added in Linux v6.2. We do not return an
 			// error if they are unsupported at runtime.
 			tun.udpGSO = unix.IoctlSetInt(int(fd), unix.TUNSETOFFLOAD, tunTCPOffloads|tunUDPOffloads) == nil
+			tun.udpGRO = tun.udpGSO
 		} else {
 			tun.batchSize = 1
 		}

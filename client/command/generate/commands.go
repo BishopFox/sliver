@@ -196,10 +196,10 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind("profiles", false, profilesStageCmd, func(f *pflag.FlagSet) {
 		f.StringP("save", "s", "", "directory/file to the binary to")
 		f.StringP("name", "n", "", "Implant name")
-		f.StringP("aesEncryptKey", "k", "", "AES Encryption Key")
-		f.StringP("aesEncryptIv", "i", "", "AES Encryption IV")
-		f.StringP("rc4EncryptKey", "r", "", "RC4 encryption key")
-		f.BoolP("prepend", "p", false, "Prepend stage size")
+		f.StringP("aes-encrypt-key", "k", "", "AES Encryption Key")
+		f.StringP("aes-encrypt-iv", "i", "", "AES Encryption IV")
+		f.StringP("rc4-encrypt-key", "r", "", "RC4 encryption key")
+		f.BoolP("prepend-size", "p", false, "Prepend stage size")
 		f.StringP("compress", "c", "", "Compress stage (zlib, gzip, deflate9 or deflate)")
 	})
 

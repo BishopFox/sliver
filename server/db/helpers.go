@@ -27,6 +27,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -258,7 +259,7 @@ func ImplantProfileByName(name string) (*clientpb.ImplantProfile, error) {
 		return nil, err
 	}
 	err = Session().Where(models.ImplantConfig{
-		ImplantProfileID: profile.ID,
+		ImplantProfileID: &profile.ID,
 	}).First(&config).Error
 	if err != nil {
 		return nil, err
@@ -332,6 +333,31 @@ func SearchStageExtensions(stagerExtension string, profileName string) error {
 	return nil
 }
 
+// used to prevent duplicate start session extensions
+func SearchStartSessionExtensions(StartSessionFileExt string, profileName string) error {
+	c2Config := models.HttpC2ImplantConfig{}
+	err := Session().Where(&models.HttpC2ImplantConfig{
+		StartSessionFileExtension: StartSessionFileExt,
+	}).Find(&c2Config).Error
+
+	if err != nil {
+		return err
+	}
+
+	if c2Config.StartSessionFileExtension != "" && profileName != "" {
+		httpC2Config := models.HttpC2Config{}
+		err = Session().Where(&models.HttpC2Config{ID: c2Config.HttpC2ConfigID}).Find(&httpC2Config).Error
+		if err != nil {
+			return err
+		}
+		if httpC2Config.Name == profileName {
+			return nil
+		}
+		return configs.ErrDuplicateStartSessionExt
+	}
+	return nil
+}
+
 func LoadHTTPC2ConfigByName(name string) (*clientpb.HTTPC2Config, error) {
 	if len(name) < 1 {
 		return nil, ErrRecordNotFound
@@ -367,7 +393,7 @@ func LoadHTTPC2ConfigByName(name string) (*clientpb.HTTPC2Config, error) {
 	// load headers
 	c2ImplantHeaders := []models.HttpC2Header{}
 	err = Session().Where(&models.HttpC2Header{
-		HttpC2ImplantConfigID: c2ImplantConfig.ID,
+		HttpC2ImplantConfigID: &c2ImplantConfig.ID,
 	}).Find(&c2ImplantHeaders).Error
 	if err != nil {
 		return nil, err
@@ -397,7 +423,7 @@ func LoadHTTPC2ConfigByName(name string) (*clientpb.HTTPC2Config, error) {
 	// load headers
 	c2ServerHeaders := []models.HttpC2Header{}
 	err = Session().Where(&models.HttpC2Header{
-		HttpC2ServerConfigID: c2ServerConfig.ID,
+		HttpC2ServerConfigID: &c2ServerConfig.ID,
 	}).Find(&c2ServerHeaders).Error
 	if err != nil {
 		return nil, err
@@ -436,20 +462,74 @@ func SaveHTTPC2Config(httpC2Config *clientpb.HTTPC2Config) error {
 func HTTPC2ConfigUpdate(newConf *clientpb.HTTPC2Config, oldConf *clientpb.HTTPC2Config) error {
 	clientID, _ := uuid.FromString(oldConf.ImplantConfig.ID)
 	c2Config := models.HTTPC2ConfigFromProtobuf(newConf)
-	err := Session().Where(&models.ImplantConfig{
-		ID: clientID,
-	}).Updates(c2Config.ImplantConfig)
-	if err != nil {
+
+	err := Session().Where(&models.HttpC2PathSegment{
+		HttpC2ImplantConfigID: clientID,
+	}).Delete(&models.HttpC2PathSegment{})
+	if err.Error != nil {
 		return err.Error
 	}
 
-	serverID, _ := uuid.FromString(oldConf.ImplantConfig.ID)
+	err = Session().Where(&models.ImplantConfig{
+		ID: clientID,
+	}).Updates(c2Config.ImplantConfig)
+	if err.Error != nil {
+		return err.Error
+	}
+
+	for _, segment := range c2Config.ImplantConfig.PathSegments {
+		segment.HttpC2ImplantConfigID = clientID
+		err = Session().Clauses(clause.OnConflict{
+			UpdateAll: true,
+		}).Create(&segment)
+		if err.Error != nil {
+			return err.Error
+		}
+	}
+
+	serverID, _ := uuid.FromString(oldConf.ServerConfig.ID)
+
+	err = Session().Where(&models.HttpC2Cookie{
+		HttpC2ServerConfigID: serverID,
+	}).Delete(&models.HttpC2Cookie{})
+	if err.Error != nil {
+		return err.Error
+	}
+
+	err = Session().Where(&models.HttpC2Header{
+		HttpC2ServerConfigID: &serverID,
+	}).Delete(&models.HttpC2Header{})
+	if err.Error != nil {
+		return err.Error
+	}
+
 	err = Session().Where(&models.HttpC2ServerConfig{
 		ID: serverID,
 	}).Updates(c2Config.ServerConfig)
-	if err != nil {
+	if err.Error != nil {
 		return err.Error
 	}
+
+	for _, cookie := range c2Config.ServerConfig.Cookies {
+		cookie.HttpC2ServerConfigID = serverID
+		err = Session().Clauses(clause.OnConflict{
+			UpdateAll: true,
+		}).Create(&cookie)
+		if err.Error != nil {
+			return err.Error
+		}
+	}
+
+	for _, header := range c2Config.ServerConfig.Headers {
+		header.HttpC2ServerConfigID = &serverID
+		err = Session().Clauses(clause.OnConflict{
+			UpdateAll: true,
+		}).Create(&header)
+		if err.Error != nil {
+			return err.Error
+		}
+	}
+
 	return nil
 }
 
@@ -537,6 +617,35 @@ func ListenerJobs() ([]*clientpb.ListenerJob, error) {
 }
 
 func DeleteListener(JobID uint32) error {
+	// Determine which type of listener this is and delete its record from the corresponding table
+	var deleteErr error
+	// JobID is unique so if the JobID exists, it is the only record in the table with that JobID
+	listener := &models.ListenerJob{}
+	result := Session().Where(&models.ListenerJob{JobID: JobID}).First(&listener)
+	if result.Error != nil {
+		return result.Error
+	}
+	if listener == nil {
+		return fmt.Errorf("Job ID %d not found in database", JobID)
+	}
+	listenerID := listener.ID
+	switch listener.Type {
+	case constants.HttpStr, constants.HttpsStr:
+		deleteErr = Session().Where(&models.HTTPListener{ListenerJobID: listenerID}).Delete(&models.HTTPListener{}).Error
+	case constants.DnsStr:
+		deleteErr = Session().Where(&models.DNSListener{ListenerJobID: listenerID}).Delete(&models.DNSListener{}).Error
+	case constants.MtlsStr:
+		deleteErr = Session().Where(&models.MtlsListener{ListenerJobID: listenerID}).Delete(&models.MtlsListener{}).Error
+	case constants.WGStr:
+		deleteErr = Session().Where(&models.WGListener{ListenerJobID: listenerID}).Delete(&models.WGListener{}).Error
+	case constants.MultiplayerModeStr:
+		deleteErr = Session().Where(&models.MultiplayerListener{ListenerJobID: listenerID}).Delete(&models.MultiplayerListener{}).Error
+	}
+
+	if deleteErr != nil {
+		return deleteErr
+	}
+
 	return Session().Where(&models.ListenerJob{JobID: JobID}).Delete(&models.ListenerJob{}).Error
 }
 
@@ -586,6 +695,9 @@ func DeleteProfile(name string) error {
 	}
 
 	uuid, _ := uuid.FromString(profile.Config.ID)
+
+	// delete linked ImplantC2
+	err = Session().Where(&models.ImplantC2{ImplantConfigID: uuid}).Delete(&models.ImplantC2{}).Error
 
 	// delete linked ImplantConfig
 	err = Session().Where(&models.ImplantConfig{ID: uuid}).Delete(&models.ImplantConfig{}).Error
@@ -1303,4 +1415,86 @@ func SaveResourceID(r *clientpb.ResourceID) error {
 		return result.Error
 	}
 	return nil
+}
+
+// Certificates
+func GetCertificateInfo(categoryOptions uint32, cn string) ([]*models.Certificate, error) {
+	// Enumerate the options for transport and role
+	// First, defining the transport filters
+	const (
+		MTLSTransport uint32 = 1 << iota
+		HTTPSTransport
+		AllTransports
+	)
+
+	// Now, defining the role filters
+	const (
+		ServerRole uint32 = 8 << iota
+		ImplantRole
+		AllRoles
+	)
+
+	certInfo := []*models.Certificate{}
+	dbSession := Session()
+	var err error
+
+	switch categoryOptions {
+	case MTLSTransport | ServerRole:
+		if cn != "" {
+			err = dbSession.Where(&models.Certificate{CommonName: cn, CAType: "mtls-server"}).Find(&certInfo).Error
+		} else {
+			err = dbSession.Where(&models.Certificate{CAType: "mtls-server"}).Find(&certInfo).Error
+		}
+	case (MTLSTransport | ImplantRole), (AllTransports | ImplantRole):
+		if cn != "" {
+			err = dbSession.Where(&models.Certificate{CommonName: cn, CAType: "mtls-implant"}).Find(&certInfo).Error
+		} else {
+			err = dbSession.Where(&models.Certificate{CAType: "mtls-implant"}).Find(&certInfo).Error
+		}
+	case MTLSTransport | AllRoles:
+		if cn != "" {
+			err = dbSession.Where(&models.Certificate{CommonName: cn}).Where(
+				dbSession.Where(&models.Certificate{CAType: "mtls-server"}).Or(
+					&models.Certificate{CAType: "mtls-implant"},
+				),
+			).Find(&certInfo).Error
+		} else {
+			err = dbSession.Where(dbSession.Where(&models.Certificate{CAType: "mtls-server"}).Or(
+				&models.Certificate{CAType: "mtls-implant"})).Find(&certInfo).Error
+		}
+	case HTTPSTransport | ImplantRole:
+		// This does not currently exist (HTTPS certs are not issued for implants), so return nothing
+		return certInfo, nil
+	case (HTTPSTransport | ServerRole), (HTTPSTransport | AllRoles):
+		if cn != "" {
+			err = dbSession.Where(&models.Certificate{CommonName: cn, CAType: "https"}).Find(&certInfo).Error
+		} else {
+			err = dbSession.Where(&models.Certificate{CAType: "https"}).Find(&certInfo).Error
+		}
+	case AllTransports | ServerRole:
+		if cn != "" {
+			err = dbSession.Where(&models.Certificate{CommonName: cn}).Where(
+				dbSession.Where(&models.Certificate{CAType: "mtls-server"}).Or(
+					&models.Certificate{CAType: "https"},
+				),
+			).Find(&certInfo).Error
+		} else {
+			err = dbSession.Where(dbSession.Where(&models.Certificate{CAType: "mtls-server"}).Or(
+				&models.Certificate{CAType: "https"},
+			),
+			).Find(&certInfo).Error
+		}
+	case AllRoles | AllTransports:
+		if cn != "" {
+			err = dbSession.Where(&models.Certificate{CommonName: cn}).Find(&certInfo).Error
+		} else {
+			err = dbSession.Where(&models.Certificate{}).Find(&certInfo).Error
+		}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	// Processing of the data can occur at the caller. It does not need to happen here.
+	return certInfo, nil
 }

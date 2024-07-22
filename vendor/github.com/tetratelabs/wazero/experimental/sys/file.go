@@ -3,7 +3,7 @@ package sys
 import "github.com/tetratelabs/wazero/sys"
 
 // File is a writeable fs.File bridge backed by syscall functions needed for ABI
-// including WASI and runtime.GOOS=js.
+// including WASI.
 //
 // Implementations should embed UnimplementedFile for forward compatibility. Any
 // unsupported method or parameter should return ENOSYS.
@@ -14,8 +14,7 @@ import "github.com/tetratelabs/wazero/sys"
 // on success.
 //
 // Restricting to Errno matches current WebAssembly host functions,
-// which are constrained to well-known error codes. For example, `GOOS=js` maps
-// hard coded values and panics otherwise. More commonly, WASI maps syscall
+// which are constrained to well-known error codes. For example, WASI maps syscall
 // errors to u32 numeric values.
 //
 // # Notes

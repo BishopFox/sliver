@@ -225,6 +225,7 @@ message ExternalImplantConfig {
   ImplantConfig Config = 1;
   ImplantBuild Build = 2;
   HTTPC2Config HTTPC2 = 3;
+  map<string, uint64> encoders = 4;
 }
 
 message ExternalImplantBinary {
@@ -1308,4 +1309,25 @@ message ResourceID {
   string Type = 2;
   string Name = 3;
   uint64 Value = 4;
+}
+
+// [ Certificates ] ----------------------------------------
+
+message CertificatesReq {
+  uint32 CategoryFilters = 1;
+  string CN = 2;
+}
+
+message CertificateData {
+  string CN = 1;
+  string CreationTime = 2;
+  string ValidityStart = 3;
+  string ValidityExpiry = 4;
+  string Type = 5;
+  string KeyAlgorithm = 6;
+  string ID = 7;
+}
+
+message CertificateInfo {
+  repeated CertificateData info = 1;  
 }

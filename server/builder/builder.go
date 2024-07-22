@@ -33,6 +33,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
+	"github.com/bishopfox/sliver/server/encoders"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
 	"google.golang.org/grpc"
@@ -188,6 +189,13 @@ func (b *Builder) handleBuildEvent(event *clientpb.Event) {
 		})
 		return
 	}
+	encoders.Base32EncoderID = extConfig.Encoders["base32"]
+	encoders.Base58EncoderID = extConfig.Encoders["base58"]
+	encoders.Base64EncoderID = extConfig.Encoders["base64"]
+	encoders.EnglishEncoderID = extConfig.Encoders["english"]
+	encoders.GzipEncoderID = extConfig.Encoders["gzip"]
+	encoders.HexEncoderID = extConfig.Encoders["hex"]
+	encoders.PNGEncoderID = extConfig.Encoders["png"]
 
 	var fPath string
 	switch extConfig.Config.Format {

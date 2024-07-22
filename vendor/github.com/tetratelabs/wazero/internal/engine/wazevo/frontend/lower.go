@@ -3743,7 +3743,7 @@ func (c *Compiler) callMemmove(dst, src, size ssa.Value) {
 			wazevoapi.ExecutionContextOffsetMemmoveAddress.U32(),
 			ssa.TypeI64,
 		).Insert(builder).Return()
-	builder.AllocateInstruction().AsCallIndirect(memmovePtr, &c.memmoveSig, args).Insert(builder)
+	builder.AllocateInstruction().AsCallGoRuntimeMemmove(memmovePtr, &c.memmoveSig, args).Insert(builder)
 }
 
 func (c *Compiler) reloadAfterCall() {

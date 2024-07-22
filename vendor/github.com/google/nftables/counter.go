@@ -57,11 +57,10 @@ func (c *CounterObj) marshal(data bool) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	const NFT_OBJECT_COUNTER = 1 // TODO: get into x/sys/unix
 	attrs := []netlink.Attribute{
 		{Type: unix.NFTA_OBJ_TABLE, Data: []byte(c.Table.Name + "\x00")},
 		{Type: unix.NFTA_OBJ_NAME, Data: []byte(c.Name + "\x00")},
-		{Type: unix.NFTA_OBJ_TYPE, Data: binaryutil.BigEndian.PutUint32(NFT_OBJECT_COUNTER)},
+		{Type: unix.NFTA_OBJ_TYPE, Data: binaryutil.BigEndian.PutUint32(unix.NFT_OBJECT_COUNTER)},
 	}
 	if data {
 		attrs = append(attrs, netlink.Attribute{Type: unix.NLA_F_NESTED | unix.NFTA_OBJ_DATA, Data: obj})

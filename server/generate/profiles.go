@@ -54,7 +54,11 @@ func SaveImplantProfile(pbProfile *clientpb.ImplantProfile) (*clientpb.ImplantPr
 		profile.ImplantConfig.ID = configID
 
 		profileID, _ := uuid.FromString(dbProfile.ID)
-		profile.ImplantConfig.ImplantProfileID = profileID
+		if profileID == uuid.Nil {
+			profile.ImplantConfig.ImplantProfileID = nil
+		} else {
+			profile.ImplantConfig.ImplantProfileID = &profileID
+		}
 
 		for _, c2 := range dbProfile.Config.C2 {
 			id, _ := uuid.FromString(c2.ID)

@@ -21,7 +21,7 @@ import (
 
 	"go4.org/mem"
 	"tailscale.com/control/controlknobs"
-	"tailscale.com/net/interfaces"
+	"tailscale.com/envknob"
 	"tailscale.com/net/netaddr"
 	"tailscale.com/net/neterror"
 	"tailscale.com/net/netmon"
@@ -32,6 +32,8 @@ import (
 	"tailscale.com/types/nettype"
 	"tailscale.com/util/clientmetric"
 )
+
+var disablePortMapperEnv = envknob.RegisterBool("TS_DISABLE_PORTMAPPER")
 
 // DebugKnobs contains debug configuration that can be provided when creating a
 // Client. The zero value is valid for use.
@@ -56,6 +58,9 @@ type DebugKnobs struct {
 }
 
 func (k *DebugKnobs) disableAll() bool {
+	if disablePortMapperEnv() {
+		return true
+	}
 	if k.DisableAll != nil {
 		return k.DisableAll()
 	}
@@ -198,8 +203,7 @@ func (m *pmpMapping) Release(ctx context.Context) {
 
 // NewClient returns a new portmapping client.
 //
-// The netMon parameter is optional; if non-nil it's used to do faster interface
-// lookups.
+// The netMon parameter is required.
 //
 // The debug argument allows configuring the behaviour of the portmapper for
 // debugging; if nil, a sensible set of defaults will be used.
@@ -211,10 +215,13 @@ func (m *pmpMapping) Release(ctx context.Context) {
 // whenever the port mapping status has changed. If nil, it doesn't make a
 // callback.
 func NewClient(logf logger.Logf, netMon *netmon.Monitor, debug *DebugKnobs, controlKnobs *controlknobs.Knobs, onChange func()) *Client {
+	if netMon == nil {
+		panic("nil netMon")
+	}
 	ret := &Client{
 		logf:         logf,
 		netMon:       netMon,
-		ipAndGateway: interfaces.LikelyHomeRouterIP,
+		ipAndGateway: netmon.LikelyHomeRouterIP, // TODO(bradfitz): move this to method on netMon
 		onChange:     onChange,
 		controlKnobs: controlKnobs,
 	}

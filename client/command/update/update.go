@@ -264,11 +264,13 @@ func downloadAsset(client *http.Client, asset *version.Asset, saveTo string) err
 	if err != nil {
 		return err
 	}
+	defer writer.Close()
 
 	resp, err := client.Get(asset.BrowserDownloadURL)
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 
 	bar := pb.Full.Start64(limit)
 	barReader := bar.NewProxyReader(resp.Body)

@@ -1,7 +1,7 @@
 // Copyright (c) Tailscale Inc & AUTHORS
 // SPDX-License-Identifier: BSD-3-Clause
 
-//go:build !wasm && !plan9 && !tamago
+//go:build !wasm && !plan9 && !tamago && !aix
 
 // Package tun creates a tuntap device, working around OS-specific
 // quirks if necessary.
@@ -52,6 +52,9 @@ func New(logf logger.Logf, tunName string) (tun.Device, string, error) {
 	if err := waitInterfaceUp(dev, 90*time.Second, logf); err != nil {
 		dev.Close()
 		return nil, "", err
+	}
+	if err := setLinkFeatures(dev); err != nil {
+		logf("setting link features: %v", err)
 	}
 	if err := setLinkAttrs(dev); err != nil {
 		logf("setting link attributes: %v", err)

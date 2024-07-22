@@ -14,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"tailscale.com/net/interfaces"
 	"tailscale.com/types/logger"
 	"tailscale.com/util/clientmetric"
 	"tailscale.com/util/set"
@@ -55,6 +54,7 @@ type Monitor struct {
 	om     osMon         // nil means not supported on this platform
 	change chan bool     // send false to wake poller, true to also force ChangeDeltas be sent
 	stop   chan struct{} // closed on Stop
+	static bool          // static Monitor that doesn't actually monitor
 
 	// Things that must be set early, before use,
 	// and not change at runtime.
@@ -63,7 +63,7 @@ type Monitor struct {
 	mu         sync.Mutex // guards all following fields
 	cbs        set.HandleSet[ChangeFunc]
 	ruleDelCB  set.HandleSet[RuleDeleteCallback]
-	ifState    *interfaces.State
+	ifState    *State
 	gwValid    bool       // whether gw and gwSelfIP are valid
 	gw         netip.Addr // our gateway's IP
 	gwSelfIP   netip.Addr // our own IP address (that corresponds to gw)
@@ -87,12 +87,12 @@ type ChangeDelta struct {
 	// Old is the old interface state, if known.
 	// It's nil if the old state is unknown.
 	// Do not mutate it.
-	Old *interfaces.State
+	Old *State
 
 	// New is the new network state.
 	// It is always non-nil.
 	// Do not mutate it.
-	New *interfaces.State
+	New *State
 
 	// Major is our legacy boolean of whether the network changed in some major
 	// way.
@@ -139,18 +139,29 @@ func New(logf logger.Logf) (*Monitor, error) {
 	return m, nil
 }
 
+// NewStatic returns a Monitor that's a one-time snapshot of the network state
+// but doesn't actually monitor for changes. It should only be used in tests
+// and situations like cleanups or short-lived CLI programs.
+func NewStatic() *Monitor {
+	m := &Monitor{static: true}
+	if st, err := m.interfaceStateUncached(); err == nil {
+		m.ifState = st
+	}
+	return m
+}
+
 // InterfaceState returns the latest snapshot of the machine's network
 // interfaces.
 //
 // The returned value is owned by Mon; it must not be modified.
-func (m *Monitor) InterfaceState() *interfaces.State {
+func (m *Monitor) InterfaceState() *State {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.ifState
 }
 
-func (m *Monitor) interfaceStateUncached() (*interfaces.State, error) {
-	return interfaces.GetState()
+func (m *Monitor) interfaceStateUncached() (*State, error) {
+	return GetState()
 }
 
 // SetTailscaleInterfaceName sets the name of the Tailscale interface. For
@@ -168,12 +179,16 @@ func (m *Monitor) SetTailscaleInterfaceName(ifName string) {
 // It's the same as interfaces.LikelyHomeRouterIP, but it caches the
 // result until the monitor detects a network change.
 func (m *Monitor) GatewayAndSelfIP() (gw, myIP netip.Addr, ok bool) {
+	if m.static {
+		return
+	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.gwValid {
 		return m.gw, m.gwSelfIP, true
 	}
-	gw, myIP, ok = interfaces.LikelyHomeRouterIP()
+	gw, myIP, ok = LikelyHomeRouterIP()
 	changed := false
 	if ok {
 		changed = m.gw != gw || m.gwSelfIP != myIP
@@ -190,6 +205,9 @@ func (m *Monitor) GatewayAndSelfIP() (gw, myIP netip.Addr, ok bool) {
 // notified (in their own goroutine) when the network state changes.
 // To remove this callback, call unregister (or close the monitor).
 func (m *Monitor) RegisterChangeCallback(callback ChangeFunc) (unregister func()) {
+	if m.static {
+		return func() {}
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	handle := m.cbs.Add(callback)
@@ -210,6 +228,9 @@ type RuleDeleteCallback func(table uint8, priority uint32)
 // notified (in their own goroutine) when a Linux ip rule is deleted.
 // To remove this callback, call unregister (or close the monitor).
 func (m *Monitor) RegisterRuleDeleteCallback(callback RuleDeleteCallback) (unregister func()) {
+	if m.static {
+		return func() {}
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	handle := m.ruleDelCB.Add(callback)
@@ -223,6 +244,9 @@ func (m *Monitor) RegisterRuleDeleteCallback(callback RuleDeleteCallback) (unreg
 // Start starts the monitor.
 // A monitor can only be started & closed once.
 func (m *Monitor) Start() {
+	if m.static {
+		return
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.started || m.closed {
@@ -244,6 +268,9 @@ func (m *Monitor) Start() {
 
 // Close closes the monitor.
 func (m *Monitor) Close() error {
+	if m.static {
+		return nil
+	}
 	m.mu.Lock()
 	if m.closed {
 		m.mu.Unlock()
@@ -275,6 +302,9 @@ func (m *Monitor) Close() error {
 // ChangeFunc callbacks will be called within the event coalescing
 // period (under a fraction of a second).
 func (m *Monitor) InjectEvent() {
+	if m.static {
+		return
+	}
 	select {
 	case m.change <- true:
 	default:
@@ -290,6 +320,9 @@ func (m *Monitor) InjectEvent() {
 // This is like InjectEvent but only fires ChangeFunc callbacks
 // if the network state differed at all.
 func (m *Monitor) Poll() {
+	if m.static {
+		return
+	}
 	select {
 	case m.change <- false:
 	default:
@@ -342,7 +375,7 @@ func (m *Monitor) notifyRuleDeleted(rdm ipRuleDeletedMessage) {
 // isInterestingInterface reports whether the provided interface should be
 // considered when checking for network state changes.
 // The ips parameter should be the IPs of the provided interface.
-func (m *Monitor) isInterestingInterface(i interfaces.Interface, ips []netip.Prefix) bool {
+func (m *Monitor) isInterestingInterface(i Interface, ips []netip.Prefix) bool {
 	if !m.om.IsInterestingInterface(i.Name) {
 		return false
 	}
@@ -387,7 +420,7 @@ var (
 // up callers and updates the monitor's state if so.
 //
 // If forceCallbacks is true, they're always notified.
-func (m *Monitor) handlePotentialChange(newState *interfaces.State, forceCallbacks bool) {
+func (m *Monitor) handlePotentialChange(newState *State, forceCallbacks bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	oldState := m.ifState
@@ -442,7 +475,7 @@ func (m *Monitor) handlePotentialChange(newState *interfaces.State, forceCallbac
 // a bunch of connections and rebinding.
 //
 // TODO(bradiftz): tigten this definition.
-func (m *Monitor) IsMajorChangeFrom(s1, s2 *interfaces.State) bool {
+func (m *Monitor) IsMajorChangeFrom(s1, s2 *State) bool {
 	if s1 == nil && s2 == nil {
 		return false
 	}

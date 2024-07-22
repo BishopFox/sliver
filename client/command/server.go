@@ -26,6 +26,8 @@ import (
 	"github.com/bishopfox/sliver/client/command/beacons"
 	"github.com/bishopfox/sliver/client/command/builders"
 	"github.com/bishopfox/sliver/client/command/c2profiles"
+	"github.com/bishopfox/sliver/client/command/certificates"
+	"github.com/bishopfox/sliver/client/command/clean"
 	"github.com/bishopfox/sliver/client/command/crack"
 	"github.com/bishopfox/sliver/client/command/creds"
 	"github.com/bishopfox/sliver/client/command/exit"
@@ -41,6 +43,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/command/settings"
 	sgn "github.com/bishopfox/sliver/client/command/shikata-ga-nai"
+	"github.com/bishopfox/sliver/client/command/socks"
 	"github.com/bishopfox/sliver/client/command/taskmany"
 	"github.com/bishopfox/sliver/client/command/update"
 	"github.com/bishopfox/sliver/client/command/use"
@@ -93,6 +96,8 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 			operators.Commands,
 			creds.Commands,
 			crack.Commands,
+			certificates.Commands,
+			clean.Command,
 		)
 
 		// C2 Network
@@ -101,6 +106,7 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 			websites.Commands,
 			wireguard.Commands,
 			c2profiles.Commands,
+			socks.RootCommands,
 		)
 
 		// Payloads

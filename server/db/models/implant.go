@@ -144,7 +144,7 @@ func ImplantBuildFromProtobuf(ib *clientpb.ImplantBuild) *ImplantBuild {
 // ImplantConfig - An implant build configuration
 type ImplantConfig struct {
 	ID               uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	ImplantProfileID uuid.UUID
+	ImplantProfileID *uuid.UUID
 
 	ImplantBuilds []ImplantBuild
 	CreatedAt     time.Time `gorm:"->;<-:create;"`
@@ -237,9 +237,8 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		implantBuilds = append(implantBuilds, implantBuild.ToProtobuf())
 	}
 	config := &clientpb.ImplantConfig{
-		ID:               ic.ID.String(),
-		ImplantBuilds:    implantBuilds,
-		ImplantProfileID: ic.ImplantProfileID.String(),
+		ID:            ic.ID.String(),
+		ImplantBuilds: implantBuilds,
 
 		IsBeacon:       ic.IsBeacon,
 		BeaconInterval: ic.BeaconInterval,
@@ -286,6 +285,11 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		IncludeWG:       ic.IncludeWG,
 		IncludeTCP:      ic.IncludeTCP,
 	}
+
+	if ic.ImplantProfileID != nil {
+		config.ImplantProfileID = ic.ImplantProfileID.String()
+	}
+
 	// Copy Canary Domains
 	config.CanaryDomains = []string{}
 	for _, canaryDomain := range ic.CanaryDomains {
@@ -432,7 +436,11 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.ID = id
 	cfg.ImplantBuilds = implantBuilds
 	profileID, _ := uuid.FromString(pbConfig.ImplantProfileID)
-	cfg.ImplantProfileID = profileID
+	if profileID == uuid.Nil {
+		cfg.ImplantProfileID = nil
+	} else {
+		cfg.ImplantProfileID = &profileID
+	}
 
 	cfg.IsBeacon = pbConfig.IsBeacon
 	cfg.BeaconInterval = pbConfig.BeaconInterval

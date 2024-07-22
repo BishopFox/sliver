@@ -72,6 +72,15 @@ type Knobs struct {
 	// ProbeUDPLifetime is whether the node should probe UDP path lifetime on
 	// the tail end of an active direct connection in magicsock.
 	ProbeUDPLifetime atomic.Bool
+
+	// AppCStoreRoutes is whether the node should store RouteInfo to StateStore
+	// if it's an app connector.
+	AppCStoreRoutes atomic.Bool
+
+	// UserDialUseRoutes is whether tsdial.Dialer.UserDial should use routes to determine
+	// how to dial the destination address. When true, it also makes the DNS forwarder
+	// use UserDial instead of SystemDial when dialing resolvers.
+	UserDialUseRoutes atomic.Bool
 }
 
 // UpdateFromNodeAttributes updates k (if non-nil) based on the provided self
@@ -96,6 +105,8 @@ func (k *Knobs) UpdateFromNodeAttributes(capMap tailcfg.NodeCapMap) {
 		forceNfTables                 = has(tailcfg.NodeAttrLinuxMustUseNfTables)
 		seamlessKeyRenewal            = has(tailcfg.NodeAttrSeamlessKeyRenewal)
 		probeUDPLifetime              = has(tailcfg.NodeAttrProbeUDPLifetime)
+		appCStoreRoutes               = has(tailcfg.NodeAttrStoreAppCRoutes)
+		userDialUseRoutes             = has(tailcfg.NodeAttrUserDialUseRoutes)
 	)
 
 	if has(tailcfg.NodeAttrOneCGNATEnable) {
@@ -118,6 +129,8 @@ func (k *Knobs) UpdateFromNodeAttributes(capMap tailcfg.NodeCapMap) {
 	k.LinuxForceNfTables.Store(forceNfTables)
 	k.SeamlessKeyRenewal.Store(seamlessKeyRenewal)
 	k.ProbeUDPLifetime.Store(probeUDPLifetime)
+	k.AppCStoreRoutes.Store(appCStoreRoutes)
+	k.UserDialUseRoutes.Store(userDialUseRoutes)
 }
 
 // AsDebugJSON returns k as something that can be marshalled with json.Marshal
@@ -141,5 +154,7 @@ func (k *Knobs) AsDebugJSON() map[string]any {
 		"LinuxForceNfTables":            k.LinuxForceNfTables.Load(),
 		"SeamlessKeyRenewal":            k.SeamlessKeyRenewal.Load(),
 		"ProbeUDPLifetime":              k.ProbeUDPLifetime.Load(),
+		"AppCStoreRoutes":               k.AppCStoreRoutes.Load(),
+		"UserDialUseRoutes":             k.UserDialUseRoutes.Load(),
 	}
 }

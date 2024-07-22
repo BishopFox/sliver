@@ -267,7 +267,7 @@ func (m *machine) lowerCall(si *ssa.Instruction) {
 	if isDirectCall {
 		directCallee, sigID, args = si.CallData()
 	} else {
-		indirectCalleePtr, sigID, args = si.CallIndirectData()
+		indirectCalleePtr, sigID, args, _ /* on arm64, the calling convention is compatible with the Go runtime */ = si.CallIndirectData()
 	}
 	calleeABI := m.compiler.GetFunctionABI(m.compiler.SSABuilder().ResolveSignature(sigID))
 

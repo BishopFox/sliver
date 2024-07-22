@@ -471,17 +471,6 @@ case, a user can use multiple runtimes until "multi-store" is better understood.
 If later, we have demand for multiple stores, that can be accomplished by overload. e.g. `Runtime.InstantiateInStore` or
 `Runtime.Store(name) Store`.
 
-## wazeroir
-wazero's intermediate representation (IR) is called `wazeroir`. Lowering into an IR provides us a faster interpreter
-and a closer to assembly representation for used by our compiler.
-
-### Intermediate Representation (IR) design
-`wazeroir`'s initial design borrowed heavily from the defunct `microwasm` format (a.k.a. LightbeamIR). Notably,
-`wazeroir` doesn't have block operations: this simplifies the implementation.
-
-Note: `microwasm` was never specified formally, and only exists in a historical codebase of wasmtime:
-https://github.com/bytecodealliance/wasmtime/blob/v0.29.0/crates/lightbeam/src/microwasm.rs
-
 ## Exit
 
 ### Why do we only return a `sys.ExitError` on a non-zero exit code?
@@ -568,8 +557,7 @@ In short, wazero defined system configuration in `ModuleConfig`, not a WASI type
 one spec to another with minimal impact. This has other helpful benefits, as centralized resources are simpler to close
 coherently (ex via `Module.Close`).
 
-In reflection, this worked well as more ABI became usable in wazero. For example, `GOOS=js GOARCH=wasm` code uses the
-same `ModuleConfig` (and `FSConfig`) WASI uses, and in compatible ways.
+In reflection, this worked well as more ABI became usable in wazero.
 
 ### Background on `ModuleConfig` design
 
@@ -753,8 +741,7 @@ independent of the root file system. This intended to help separate concerns
 like mutability of files, but it didn't work and was removed.
 
 Compilers that target wasm act differently with regard to the working
-directory. For example, while `GOOS=js` uses host functions to track the
-working directory, WASI host functions do not. wasi-libc, used by TinyGo,
+directory. For example, wasi-libc, used by TinyGo,
 tracks working directory changes in compiled wasm instead: initially "/" until
 code calls `chdir`. Zig assumes the first pre-opened file descriptor is the
 working directory.
@@ -829,20 +816,13 @@ The main reason is that `os.DirFS` is a virtual filesystem abstraction while
 WASI is an abstraction over syscalls. For example, the signature of `fs.Open`
 does not permit use of flags. This creates conflict on what default behaviors
 to take when Go implemented `os.DirFS`. On the other hand, `path_open` can pass
-flags, and in fact tests require them to be honored in specific ways. This
-extends beyond WASI as even `GOOS=js GOARCH=wasm` compiled code requires
-certain flags passed to `os.OpenFile` which are impossible to pass due to the
-signature of `fs.FS`.
+flags, and in fact tests require them to be honored in specific ways.
 
 This conflict requires us to choose what to be more compatible with, and which
 type of user to surprise the least. We assume there will be more developers
 compiling code to wasm than developers of custom filesystem plugins, and those
 compiling code to wasm will be better served if we are compatible with WASI.
 Hence on conflict, we prefer WASI behavior vs the behavior of `os.DirFS`.
-
-Meanwhile, it is possible that Go will one day compile to `GOOS=wasi` in
-addition to `GOOS=js`. When there is shared stake in WASI, we expect gaps like
-these to be easier to close.
 
 See https://github.com/WebAssembly/wasi-testsuite
 See https://github.com/golang/go/issues/58141
@@ -1205,10 +1185,7 @@ See https://gruss.cc/files/fantastictimers.pdf for an example attacks.
 ### Why does fake time increase on reading?
 
 Both the fake nanotime and walltime increase by 1ms on reading. Particularly in
-the case of nanotime, this prevents spinning. For example, when Go compiles
-`time.Sleep` using `GOOS=js GOARCH=wasm`, nanotime is used in a loop. If that
-never increases, the gouroutine is mistaken for being busy. This would be worse
-if a compiler implement sleep using nanotime, yet doesn't check for spinning!
+the case of nanotime, this prevents spinning.
 
 ### Why not `time.Clock`?
 
@@ -1266,8 +1243,7 @@ pub fn main() !void {
 ```
 
 Besides Zig, this is also the case with TinyGo (`-target=wasi`) and Rust
-(`--target wasm32-wasi`). This isn't the case with Go (`GOOS=js GOARCH=wasm`),
-though. In the latter case, wasm loops on `sys.Nanotime`.
+(`--target wasm32-wasi`).
 
 We decided to expose `sys.Nanosleep` to allow overriding the implementation
 used in the common case, even if it isn't used by Go, because this gives an
@@ -1558,15 +1534,13 @@ that trampoline function. Therefore, runtime-generated machine code is also corr
 Since [wazero v1.0.0-pre.9](https://github.com/tetratelabs/wazero/releases/tag/v1.0.0-pre.9), the runtime
 supports integration with Go contexts to interrupt execution after a timeout, or in response to explicit cancellation.
 This support is internally implemented as a special opcode `builtinFunctionCheckExitCode` that triggers the execution of
-a Go function (`ModuleInstance.FailIfClosed`) that atomically checks a sentinel value at strategic points in the code
-(e.g. [within loops][checkexitcode_loop]).
+a Go function (`ModuleInstance.FailIfClosed`) that atomically checks a sentinel value at strategic points in the code.
 
 [It _is indeed_ possible to check the sentinel value directly, without leaving the native world][native_check], thus sparing some cycles;
 however, because native code never preempts (see section above), this may lead to a state where the other goroutines
 never get the chance to run, and thus never get the chance to set the sentinel value; effectively preventing
 cancellation from taking place.
 
-[checkexitcode_loop]: https://github.com/tetratelabs/wazero/blob/86444c67a37dbf9e693ae5b365901f64968d9025/internal/wazeroir/compiler.go#L467-L476
 [native_check]: https://github.com/tetratelabs/wazero/issues/1409
 
 ## Golang patterns

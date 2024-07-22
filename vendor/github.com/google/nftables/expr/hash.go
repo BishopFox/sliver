@@ -41,15 +41,22 @@ type Hash struct {
 }
 
 func (e *Hash) marshal(fam byte) ([]byte, error) {
-	data, err := netlink.MarshalAttributes([]netlink.Attribute{
+	hashAttrs := []netlink.Attribute{
 		{Type: unix.NFTA_HASH_SREG, Data: binaryutil.BigEndian.PutUint32(uint32(e.SourceRegister))},
 		{Type: unix.NFTA_HASH_DREG, Data: binaryutil.BigEndian.PutUint32(uint32(e.DestRegister))},
 		{Type: unix.NFTA_HASH_LEN, Data: binaryutil.BigEndian.PutUint32(uint32(e.Length))},
 		{Type: unix.NFTA_HASH_MODULUS, Data: binaryutil.BigEndian.PutUint32(uint32(e.Modulus))},
-		{Type: unix.NFTA_HASH_SEED, Data: binaryutil.BigEndian.PutUint32(uint32(e.Seed))},
+	}
+	if e.Seed != 0 {
+		hashAttrs = append(hashAttrs, netlink.Attribute{
+			Type: unix.NFTA_HASH_SEED, Data: binaryutil.BigEndian.PutUint32(uint32(e.Seed)),
+		})
+	}
+	hashAttrs = append(hashAttrs, []netlink.Attribute{
 		{Type: unix.NFTA_HASH_OFFSET, Data: binaryutil.BigEndian.PutUint32(uint32(e.Offset))},
 		{Type: unix.NFTA_HASH_TYPE, Data: binaryutil.BigEndian.PutUint32(uint32(e.Type))},
-	})
+	}...)
+	data, err := netlink.MarshalAttributes(hashAttrs)
 	if err != nil {
 		return nil, err
 	}

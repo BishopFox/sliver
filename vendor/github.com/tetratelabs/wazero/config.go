@@ -218,7 +218,7 @@ const (
 // Runtime.CompileModule is invoked.
 //
 // Warning: This panics at runtime if the runtime.GOOS or runtime.GOARCH does not
-// support Compiler. Use NewRuntimeConfig to safely detect and fallback to
+// support compiler. Use NewRuntimeConfig to safely detect and fallback to
 // NewRuntimeConfigInterpreter if needed.
 func NewRuntimeConfigCompiler() RuntimeConfig {
 	ret := engineLessConfig.clone()
