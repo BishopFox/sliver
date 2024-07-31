@@ -367,12 +367,10 @@ func (s *Stmt) ColumnCount() int {
 func (s *Stmt) ColumnName(col int) string {
 	r := s.c.call("sqlite3_column_name",
 		uint64(s.handle), uint64(col))
-
-	ptr := uint32(r)
-	if ptr == 0 {
+	if r == 0 {
 		panic(util.OOMErr)
 	}
-	return util.ReadString(s.c.mod, ptr, _MAX_NAME)
+	return util.ReadString(s.c.mod, uint32(r), _MAX_NAME)
 }
 
 // ColumnType returns the initial [Datatype] of the result column.
@@ -398,15 +396,57 @@ func (s *Stmt) ColumnDeclType(col int) string {
 	return util.ReadString(s.c.mod, uint32(r), _MAX_NAME)
 }
 
+// ColumnDatabaseName returns the name of the database
+// that is the origin of a particular result column.
+// The leftmost column of the result set has the index 0.
+//
+// https://sqlite.org/c3ref/column_database_name.html
+func (s *Stmt) ColumnDatabaseName(col int) string {
+	r := s.c.call("sqlite3_column_database_name",
+		uint64(s.handle), uint64(col))
+	if r == 0 {
+		return ""
+	}
+	return util.ReadString(s.c.mod, uint32(r), _MAX_NAME)
+}
+
+// ColumnTableName returns the name of the table
+// that is the origin of a particular result column.
+// The leftmost column of the result set has the index 0.
+//
+// https://sqlite.org/c3ref/column_database_name.html
+func (s *Stmt) ColumnTableName(col int) string {
+	r := s.c.call("sqlite3_column_table_name",
+		uint64(s.handle), uint64(col))
+	if r == 0 {
+		return ""
+	}
+	return util.ReadString(s.c.mod, uint32(r), _MAX_NAME)
+}
+
+// ColumnOriginName returns the name of the table column
+// that is the origin of a particular result column.
+// The leftmost column of the result set has the index 0.
+//
+// https://sqlite.org/c3ref/column_database_name.html
+func (s *Stmt) ColumnOriginName(col int) string {
+	r := s.c.call("sqlite3_column_origin_name",
+		uint64(s.handle), uint64(col))
+	if r == 0 {
+		return ""
+	}
+	return util.ReadString(s.c.mod, uint32(r), _MAX_NAME)
+}
+
 // ColumnBool returns the value of the result column as a bool.
 // The leftmost column of the result set has the index 0.
 // SQLite does not have a separate boolean storage class.
-// Instead, boolean values are retrieved as integers,
+// Instead, boolean values are retrieved as numbers,
 // with 0 converted to false and any other value to true.
 //
 // https://sqlite.org/c3ref/column_blob.html
 func (s *Stmt) ColumnBool(col int) bool {
-	return s.ColumnInt64(col) != 0
+	return s.ColumnFloat(col) != 0
 }
 
 // ColumnInt returns the value of the result column as an int.
@@ -524,7 +564,7 @@ func (s *Stmt) ColumnJSON(col int, ptr any) error {
 	var data []byte
 	switch s.ColumnType(col) {
 	case NULL:
-		data = append(data, "null"...)
+		data = []byte("null")
 	case TEXT:
 		data = s.ColumnRawText(col)
 	case BLOB:

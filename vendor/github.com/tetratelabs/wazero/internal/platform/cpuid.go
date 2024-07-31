@@ -6,6 +6,9 @@ type CpuFeatureFlags interface {
 	Has(cpuFeature CpuFeature) bool
 	// HasExtra returns true when the specified extraFlag (represented as uint64) is supported
 	HasExtra(cpuFeature CpuFeature) bool
+	// Raw returns the raw bitset that represents CPU features used by wazero. This can be used for cache keying.
+	// For now, we only use four features, so uint64 is enough.
+	Raw() uint64
 }
 
 type CpuFeature uint64
@@ -17,9 +20,11 @@ const (
 	CpuFeatureAmd64SSE4_1 CpuFeature = 1 << 19
 	// CpuFeatureAmd64SSE4_2 is the flag to query CpuFeatureFlags.Has for SSEv4.2 capabilities on amd64
 	CpuFeatureAmd64SSE4_2 CpuFeature = 1 << 20
+	// Note: when adding new features, ensure that the feature is included in CpuFeatureFlags.Raw.
 )
 
 const (
 	// CpuExtraFeatureAmd64ABM is the flag to query CpuFeatureFlags.HasExtra for Advanced Bit Manipulation capabilities (e.g. LZCNT) on amd64
 	CpuExtraFeatureAmd64ABM CpuFeature = 1 << 5
+	// Note: when adding new features, ensure that the feature is included in CpuFeatureFlags.Raw.
 )

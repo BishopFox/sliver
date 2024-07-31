@@ -24,12 +24,6 @@ type StackIterator interface {
 	ProgramCounter() ProgramCounter
 }
 
-// FunctionListenerFactoryKey is a context.Context Value key.
-// Its associated value should be a FunctionListenerFactory.
-//
-// Deprecated: use WithFunctionListenerFactory to enable snapshots.
-type FunctionListenerFactoryKey = expctxkeys.FunctionListenerFactoryKey
-
 // WithFunctionListenerFactory registers a FunctionListenerFactory
 // with the context.
 func WithFunctionListenerFactory(ctx context.Context, factory FunctionListenerFactory) context.Context {
