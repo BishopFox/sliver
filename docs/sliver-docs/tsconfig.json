@@ -21,7 +21,8 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    "prebuild/generate-docs.js"
+    "prebuild/generate-docs.js",
+    "prebuild/generate-tutorials.js"
   ],
   "exclude": ["node_modules"]
 }
