@@ -38,9 +38,6 @@ func NewStdioFile(stdin bool, f fs.File) (fsapi.File, error) {
 }
 
 func OpenFile(path string, flag experimentalsys.Oflag, perm fs.FileMode) (*os.File, experimentalsys.Errno) {
-	if flag&experimentalsys.O_DIRECTORY != 0 && flag&(experimentalsys.O_WRONLY|experimentalsys.O_RDWR) != 0 {
-		return nil, experimentalsys.EISDIR // invalid to open a directory writeable
-	}
 	return openFile(path, flag, perm)
 }
 

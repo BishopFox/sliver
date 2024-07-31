@@ -60,9 +60,8 @@ type (
 		phiDefInstListPool       wazevoapi.Pool[phiDefInstList]
 
 		// Followings are re-used during various places.
-		blks             []Block
-		reals            []RealReg
-		currentOccupants regInUseSet
+		blks  []Block
+		reals []RealReg
 
 		// Following two fields are updated while iterating the blocks in the reverse postorder.
 		state       state
@@ -755,7 +754,8 @@ func (a *Allocator) allocBlock(f Function, blk Block) {
 		killSet := a.reals[:0]
 
 		// Gather the set of registers that will be used in the current instruction.
-		for _, use := range instr.Uses(&a.vs) {
+		uses := instr.Uses(&a.vs)
+		for _, use := range uses {
 			if use.IsRealReg() {
 				r := use.RealReg()
 				currentUsedSet = currentUsedSet.add(r)
@@ -770,7 +770,7 @@ func (a *Allocator) allocBlock(f Function, blk Block) {
 			}
 		}
 
-		for i, use := range instr.Uses(&a.vs) {
+		for i, use := range uses {
 			if !use.IsRealReg() {
 				vs := s.getVRegState(use.ID())
 				killed := vs.lastUse == pc
@@ -944,8 +944,7 @@ func (a *Allocator) allocBlock(f Function, blk Block) {
 func (a *Allocator) releaseCallerSavedRegs(addrReg RealReg) {
 	s := &a.state
 
-	for i := 0; i < 64; i++ {
-		allocated := RealReg(i)
+	for allocated := RealReg(0); allocated < 64; allocated++ {
 		if allocated == addrReg { // If this is the call indirect, we should not touch the addr register.
 			continue
 		}
@@ -974,11 +973,10 @@ func (a *Allocator) fixMergeState(f Function, blk Block) {
 	bID := blk.ID()
 	blkSt := a.getOrAllocateBlockState(bID)
 	desiredOccupants := &blkSt.startRegs
-	aliveOnRegVRegs := make(map[VReg]RealReg)
-	for i := 0; i < 64; i++ {
-		r := RealReg(i)
-		if v := blkSt.startRegs.get(r); v.Valid() {
-			aliveOnRegVRegs[v] = r
+	var desiredOccupantsSet RegSet
+	for i, v := range desiredOccupants {
+		if v != VRegInvalid {
+			desiredOccupantsSet = desiredOccupantsSet.add(RealReg(i))
 		}
 	}
 
@@ -987,56 +985,38 @@ func (a *Allocator) fixMergeState(f Function, blk Block) {
 	}
 
 	s.currentBlockID = bID
-	a.updateLiveInVRState(a.getOrAllocateBlockState(bID))
+	a.updateLiveInVRState(blkSt)
 
-	currentOccupants := &a.currentOccupants
 	for i := 0; i < preds; i++ {
-		currentOccupants.reset()
 		if i == blkSt.startFromPredIndex {
 			continue
 		}
 
-		currentOccupantsRev := make(map[VReg]RealReg)
 		pred := blk.Pred(i)
 		predSt := a.getOrAllocateBlockState(pred.ID())
-		for ii := 0; ii < 64; ii++ {
-			r := RealReg(ii)
-			if v := predSt.endRegs.get(r); v.Valid() {
-				if _, ok := aliveOnRegVRegs[v]; !ok {
-					continue
-				}
-				currentOccupants.add(r, v)
-				currentOccupantsRev[v] = r
-			}
-		}
 
 		s.resetAt(predSt)
 
 		// Finds the free registers if any.
 		intTmp, floatTmp := VRegInvalid, VRegInvalid
 		if intFree := s.findAllocatable(
-			a.regInfo.AllocatableRegisters[RegTypeInt], desiredOccupants.set,
+			a.regInfo.AllocatableRegisters[RegTypeInt], desiredOccupantsSet,
 		); intFree != RealRegInvalid {
 			intTmp = FromRealReg(intFree, RegTypeInt)
 		}
 		if floatFree := s.findAllocatable(
-			a.regInfo.AllocatableRegisters[RegTypeFloat], desiredOccupants.set,
+			a.regInfo.AllocatableRegisters[RegTypeFloat], desiredOccupantsSet,
 		); floatFree != RealRegInvalid {
 			floatTmp = FromRealReg(floatFree, RegTypeFloat)
 		}
 
-		if wazevoapi.RegAllocLoggingEnabled {
-			fmt.Println("\t", pred.ID(), ":", currentOccupants.format(a.regInfo))
-		}
-
-		for ii := 0; ii < 64; ii++ {
-			r := RealReg(ii)
+		for r := RealReg(0); r < 64; r++ {
 			desiredVReg := desiredOccupants.get(r)
 			if !desiredVReg.Valid() {
 				continue
 			}
 
-			currentVReg := currentOccupants.get(r)
+			currentVReg := s.regsInUse.get(r)
 			if desiredVReg.ID() == currentVReg.ID() {
 				continue
 			}
@@ -1048,86 +1028,95 @@ func (a *Allocator) fixMergeState(f Function, blk Block) {
 			} else {
 				tmpRealReg = floatTmp
 			}
-			a.reconcileEdge(f, r, pred, currentOccupants, currentOccupantsRev, currentVReg, desiredVReg, tmpRealReg, typ)
+			a.reconcileEdge(f, r, pred, currentVReg, desiredVReg, tmpRealReg, typ)
 		}
 	}
 }
 
+// reconcileEdge reconciles the register state between the current block and the predecessor for the real register `r`.
+//
+//   - currentVReg is the current VReg value that sits on the register `r`. This can be VRegInvalid if the register is not used at the end of the predecessor.
+//   - desiredVReg is the desired VReg value that should be on the register `r`.
+//   - freeReg is the temporary register that can be used to swap the values, which may or may not be used.
+//   - typ is the register type of the `r`.
 func (a *Allocator) reconcileEdge(f Function,
 	r RealReg,
 	pred Block,
-	currentOccupants *regInUseSet,
-	currentOccupantsRev map[VReg]RealReg,
 	currentVReg, desiredVReg VReg,
 	freeReg VReg,
 	typ RegType,
 ) {
+	// There are four cases to consider:
+	// 1. currentVReg is valid, but desiredVReg is on the stack.
+	// 2. Both currentVReg and desiredVReg are valid.
+	// 3. Desired is on a different register than `r` and currentReg is not valid.
+	// 4. Desired is on the stack and currentReg is not valid.
+
 	s := &a.state
 	if currentVReg.Valid() {
-		// Both are on reg.
-		er, ok := currentOccupantsRev[desiredVReg]
-		if !ok {
+		desiredState := s.getVRegState(desiredVReg.ID())
+		er := desiredState.r
+		if er == RealRegInvalid {
+			// Case 1: currentVReg is valid, but desiredVReg is on the stack.
 			if wazevoapi.RegAllocLoggingEnabled {
 				fmt.Printf("\t\tv%d is desired to be on %s, but currently on the stack\n",
 					desiredVReg.ID(), a.regInfo.RealRegName(r),
 				)
 			}
-			// This case is that the desired value is on the stack, but currentVReg is on the target register.
-			// We need to move the current value to the stack, and reload the desired value.
+			// We need to move the current value to the stack, and reload the desired value into the register.
 			// TODO: we can do better here.
 			f.StoreRegisterBefore(currentVReg.SetRealReg(r), pred.LastInstrForInsertion())
-			delete(currentOccupantsRev, currentVReg)
+			s.releaseRealReg(r)
 
 			s.getVRegState(desiredVReg.ID()).recordReload(f, pred)
 			f.ReloadRegisterBefore(desiredVReg.SetRealReg(r), pred.LastInstrForInsertion())
-			currentOccupants.add(r, desiredVReg)
-			currentOccupantsRev[desiredVReg] = r
+			s.useRealReg(r, desiredVReg)
 			return
-		}
-
-		if wazevoapi.RegAllocLoggingEnabled {
-			fmt.Printf("\t\tv%d is desired to be on %s, but currently on %s\n",
-				desiredVReg.ID(), a.regInfo.RealRegName(r), a.regInfo.RealRegName(er),
+		} else {
+			// Case 2: Both currentVReg and desiredVReg are valid.
+			if wazevoapi.RegAllocLoggingEnabled {
+				fmt.Printf("\t\tv%d is desired to be on %s, but currently on %s\n",
+					desiredVReg.ID(), a.regInfo.RealRegName(r), a.regInfo.RealRegName(er),
+				)
+			}
+			// This case, we need to swap the values between the current and desired values.
+			f.SwapBefore(
+				currentVReg.SetRealReg(r),
+				desiredVReg.SetRealReg(er),
+				freeReg,
+				pred.LastInstrForInsertion(),
 			)
-		}
-		f.SwapBefore(
-			currentVReg.SetRealReg(r),
-			desiredVReg.SetRealReg(er),
-			freeReg,
-			pred.LastInstrForInsertion(),
-		)
-		s.allocatedRegSet = s.allocatedRegSet.add(freeReg.RealReg())
-		currentOccupantsRev[desiredVReg] = r
-		currentOccupantsRev[currentVReg] = er
-		currentOccupants.add(r, desiredVReg)
-		currentOccupants.add(er, currentVReg)
-		if wazevoapi.RegAllocLoggingEnabled {
-			fmt.Printf("\t\tv%d previously on %s moved to %s\n", currentVReg.ID(), a.regInfo.RealRegName(r), a.regInfo.RealRegName(er))
+			s.allocatedRegSet = s.allocatedRegSet.add(freeReg.RealReg())
+			s.releaseRealReg(r)
+			s.releaseRealReg(er)
+			s.useRealReg(r, desiredVReg)
+			s.useRealReg(er, currentVReg)
+			if wazevoapi.RegAllocLoggingEnabled {
+				fmt.Printf("\t\tv%d previously on %s moved to %s\n", currentVReg.ID(), a.regInfo.RealRegName(r), a.regInfo.RealRegName(er))
+			}
 		}
 	} else {
-		// Desired is on reg, but currently the target register is not used.
 		if wazevoapi.RegAllocLoggingEnabled {
 			fmt.Printf("\t\tv%d is desired to be on %s, current not used\n",
 				desiredVReg.ID(), a.regInfo.RealRegName(r),
 			)
 		}
-		if currentReg, ok := currentOccupantsRev[desiredVReg]; ok {
+		if currentReg := s.getVRegState(desiredVReg.ID()).r; currentReg != RealRegInvalid {
+			// Case 3: Desired is on a different register than `r` and currentReg is not valid.
+			// We simply need to move the desired value to the register.
 			f.InsertMoveBefore(
 				FromRealReg(r, typ),
 				desiredVReg.SetRealReg(currentReg),
 				pred.LastInstrForInsertion(),
 			)
-			currentOccupants.remove(currentReg)
+			s.releaseRealReg(currentReg)
 		} else {
+			// Case 4: Both currentVReg and desiredVReg are not valid.
+			// We simply need to reload the desired value into the register.
 			s.getVRegState(desiredVReg.ID()).recordReload(f, pred)
 			f.ReloadRegisterBefore(desiredVReg.SetRealReg(r), pred.LastInstrForInsertion())
 		}
-		currentOccupantsRev[desiredVReg] = r
-		currentOccupants.add(r, desiredVReg)
-	}
-
-	if wazevoapi.RegAllocLoggingEnabled {
-		fmt.Println("\t", pred.ID(), ":", currentOccupants.format(a.regInfo))
+		s.useRealReg(r, desiredVReg)
 	}
 }
 
@@ -1169,8 +1158,7 @@ func (a *Allocator) scheduleSpill(f Function, vs *vrState) {
 	}
 	for pos != definingBlk {
 		st := a.getOrAllocateBlockState(pos.ID())
-		for ii := 0; ii < 64; ii++ {
-			rr := RealReg(ii)
+		for rr := RealReg(0); rr < 64; rr++ {
 			if st.startRegs.get(rr) == v {
 				r = rr
 				// Already in the register, so we can place the spill at the beginning of the block.
