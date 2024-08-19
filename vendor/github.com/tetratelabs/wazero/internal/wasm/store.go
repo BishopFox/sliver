@@ -3,6 +3,7 @@ package wasm
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -352,7 +353,7 @@ func (s *Store) instantiate(
 		return nil, err
 	}
 
-	if err = m.resolveImports(module); err != nil {
+	if err = m.resolveImports(ctx, module); err != nil {
 		return nil, err
 	}
 
@@ -410,12 +411,22 @@ func (s *Store) instantiate(
 	return
 }
 
-func (m *ModuleInstance) resolveImports(module *Module) (err error) {
+func (m *ModuleInstance) resolveImports(ctx context.Context, module *Module) (err error) {
+	// Check if ctx contains an ImportResolver.
+	resolveImport, _ := ctx.Value(expctxkeys.ImportResolverKey{}).(experimental.ImportResolver)
+
 	for moduleName, imports := range module.ImportPerModule {
 		var importedModule *ModuleInstance
-		importedModule, err = m.s.module(moduleName)
-		if err != nil {
-			return err
+		if resolveImport != nil {
+			if v := resolveImport(moduleName); v != nil {
+				importedModule = v.(*ModuleInstance)
+			}
+		}
+		if importedModule == nil {
+			importedModule, err = m.s.module(moduleName)
+			if err != nil {
+				return err
+			}
 		}
 
 		for _, i := range imports {
@@ -649,20 +660,20 @@ func (s *Store) GetFunctionTypeID(t *FunctionType) (FunctionTypeID, error) {
 }
 
 // CloseWithExitCode implements the same method as documented on wazero.Runtime.
-func (s *Store) CloseWithExitCode(ctx context.Context, exitCode uint32) (err error) {
+func (s *Store) CloseWithExitCode(ctx context.Context, exitCode uint32) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	// Close modules in reverse initialization order.
+	var errs []error
 	for m := s.moduleList; m != nil; m = m.next {
 		// If closing this module errs, proceed anyway to close the others.
-		if e := m.closeWithExitCode(ctx, exitCode); e != nil && err == nil {
-			// TODO: use multiple errors handling in Go 1.20.
-			err = e // first error
+		if err := m.closeWithExitCode(ctx, exitCode); err != nil {
+			errs = append(errs, err)
 		}
 	}
 	s.moduleList = nil
 	s.nameToModule = nil
 	s.nameToModuleCap = 0
 	s.typeIDs = nil
-	return
+	return errors.Join(errs...)
 }

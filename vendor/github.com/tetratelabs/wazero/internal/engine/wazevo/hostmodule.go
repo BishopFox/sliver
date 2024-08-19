@@ -16,6 +16,7 @@ func buildHostModuleOpaque(m *wasm.Module, listeners []experimental.FunctionList
 	binary.LittleEndian.PutUint64(ret[0:], uint64(uintptr(unsafe.Pointer(m))))
 
 	if len(listeners) > 0 {
+		//nolint:staticcheck
 		sliceHeader := (*reflect.SliceHeader)(unsafe.Pointer(&listeners))
 		binary.LittleEndian.PutUint64(ret[8:], uint64(sliceHeader.Data))
 		binary.LittleEndian.PutUint64(ret[16:], uint64(sliceHeader.Len))
@@ -33,6 +34,7 @@ func buildHostModuleOpaque(m *wasm.Module, listeners []experimental.FunctionList
 
 func hostModuleFromOpaque(opaqueBegin uintptr) *wasm.Module {
 	var opaqueViewOverSlice []byte
+	//nolint:staticcheck
 	sh := (*reflect.SliceHeader)(unsafe.Pointer(&opaqueViewOverSlice))
 	sh.Data = opaqueBegin
 	sh.Len = 32
@@ -42,6 +44,7 @@ func hostModuleFromOpaque(opaqueBegin uintptr) *wasm.Module {
 
 func hostModuleListenersSliceFromOpaque(opaqueBegin uintptr) []experimental.FunctionListener {
 	var opaqueViewOverSlice []byte
+	//nolint:staticcheck
 	sh := (*reflect.SliceHeader)(unsafe.Pointer(&opaqueViewOverSlice))
 	sh.Data = opaqueBegin
 	sh.Len = 32
@@ -51,9 +54,11 @@ func hostModuleListenersSliceFromOpaque(opaqueBegin uintptr) []experimental.Func
 	l := binary.LittleEndian.Uint64(opaqueViewOverSlice[16:])
 	c := binary.LittleEndian.Uint64(opaqueViewOverSlice[24:])
 	var ret []experimental.FunctionListener
+	//nolint:staticcheck
 	sh = (*reflect.SliceHeader)(unsafe.Pointer(&ret))
 	sh.Data = uintptr(b)
-	setSliceLimits(sh, uintptr(l), uintptr(c))
+	sh.Len = int(l)
+	sh.Cap = int(c)
 	return ret
 }
 
@@ -62,6 +67,7 @@ func hostModuleGoFuncFromOpaque[T any](index int, opaqueBegin uintptr) T {
 	ptr := opaqueBegin + offset
 
 	var opaqueViewOverFunction []byte
+	//nolint:staticcheck
 	sh := (*reflect.SliceHeader)(unsafe.Pointer(&opaqueViewOverFunction))
 	sh.Data = ptr
 	sh.Len = 16

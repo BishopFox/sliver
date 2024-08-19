@@ -1,6 +1,6 @@
 # wazero: the zero dependency WebAssembly runtime for Go developers
 
-[![WebAssembly Core Specification Test](https://github.com/tetratelabs/wazero/actions/workflows/spectest.yaml/badge.svg)](https://github.com/tetratelabs/wazero/actions/workflows/spectest.yaml) [![Go Reference](https://pkg.go.dev/badge/github.com/tetratelabs/wazero.svg)](https://pkg.go.dev/github.com/tetratelabs/wazero) [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Go Reference](https://pkg.go.dev/badge/github.com/tetratelabs/wazero.svg)](https://pkg.go.dev/github.com/tetratelabs/wazero) [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 WebAssembly is a way to safely run code compiled in other languages. Runtimes
 execute WebAssembly Modules (Wasm), which are most often binaries with a `.wasm`
