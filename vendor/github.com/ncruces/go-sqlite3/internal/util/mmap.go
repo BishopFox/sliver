@@ -1,4 +1,4 @@
-//go:build (darwin || linux) && (amd64 || arm64 || riscv64) && !(sqlite3_flock || sqlite3_noshm || sqlite3_nosys)
+//go:build unix && (amd64 || arm64 || riscv64) && !(sqlite3_noshm || sqlite3_nosys)
 
 package util
 
@@ -7,14 +7,15 @@ import (
 	"os"
 	"unsafe"
 
+	"github.com/ncruces/go-sqlite3/internal/alloc"
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/experimental"
 	"golang.org/x/sys/unix"
 )
 
-func withMmappedAllocator(ctx context.Context) context.Context {
+func withAllocator(ctx context.Context) context.Context {
 	return experimental.WithMemoryAllocator(ctx,
-		experimental.MemoryAllocatorFunc(mmappedAllocator))
+		experimental.MemoryAllocatorFunc(alloc.Virtual))
 }
 
 type mmapState struct {
@@ -31,7 +32,7 @@ func (s *mmapState) new(ctx context.Context, mod api.Module, size int32) *Mapped
 
 	// Allocate page aligned memmory.
 	alloc := mod.ExportedFunction("aligned_alloc")
-	stack := [2]uint64{
+	stack := [...]uint64{
 		uint64(unix.Getpagesize()),
 		uint64(size),
 	}
@@ -45,7 +46,7 @@ func (s *mmapState) new(ctx context.Context, mod api.Module, size int32) *Mapped
 	// Save the newly allocated region.
 	ptr := uint32(stack[0])
 	buf := View(mod, ptr, uint64(size))
-	addr := uintptr(unsafe.Pointer(&buf[0]))
+	addr := unsafe.Pointer(&buf[0])
 	s.regions = append(s.regions, &MappedRegion{
 		Ptr:  ptr,
 		addr: addr,
@@ -55,7 +56,7 @@ func (s *mmapState) new(ctx context.Context, mod api.Module, size int32) *Mapped
 }
 
 type MappedRegion struct {
-	addr uintptr
+	addr unsafe.Pointer
 	Ptr  uint32
 	size int32
 	used bool
@@ -75,23 +76,15 @@ func (r *MappedRegion) Unmap() error {
 	// We can't munmap the region, otherwise it could be remaped.
 	// Instead, convert it to a protected, private, anonymous mapping.
 	// If successful, it can be reused for a subsequent mmap.
-	_, err := mmap(r.addr, uintptr(r.size),
-		unix.PROT_NONE, unix.MAP_PRIVATE|unix.MAP_ANON|unix.MAP_FIXED,
-		-1, 0)
+	_, err := unix.MmapPtr(-1, 0, r.addr, uintptr(r.size),
+		unix.PROT_NONE, unix.MAP_PRIVATE|unix.MAP_FIXED|unix.MAP_ANON)
 	r.used = err != nil
 	return err
 }
 
 func (r *MappedRegion) mmap(f *os.File, offset int64, prot int) error {
-	_, err := mmap(r.addr, uintptr(r.size),
-		prot, unix.MAP_SHARED|unix.MAP_FIXED,
-		int(f.Fd()), offset)
+	_, err := unix.MmapPtr(int(f.Fd()), offset, r.addr, uintptr(r.size),
+		prot, unix.MAP_SHARED|unix.MAP_FIXED)
 	r.used = err == nil
 	return err
 }
-
-// We need the low level mmap for MAP_FIXED to work.
-// Bind the syscall version hoping that it is more stable.
-
-//go:linkname mmap syscall.mmap
-func mmap(addr, length uintptr, prot, flag, fd int, pos int64) (*byte, error)

@@ -31,8 +31,9 @@ func (c *Conn) CollationNeeded(cb func(db *Conn, name string)) error {
 //
 // This can be used to load schemas that contain
 // one or more unknown collating sequences.
-func (c *Conn) AnyCollationNeeded() {
-	c.call("sqlite3_anycollseq_init", uint64(c.handle), 0, 0)
+func (c Conn) AnyCollationNeeded() error {
+	r := c.call("sqlite3_anycollseq_init", uint64(c.handle), 0, 0)
+	return c.error(r)
 }
 
 // CreateCollation defines a new collating sequence.
