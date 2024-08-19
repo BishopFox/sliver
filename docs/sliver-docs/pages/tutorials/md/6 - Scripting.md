@@ -1,4 +1,4 @@
-# This course is intented for the 1.6 version of Sliver, which is not yet published
+# This course is intended for the 1.6 version of Sliver, which is not yet published
 
 Reactions are a basic way to automate tasks in the sliver console, they allow you to specify sliver commands to run on a list of events.
 
@@ -47,7 +47,7 @@ COLORTERM=truecolor
 
 You can remove reactions using `reaction unset`.
 
-However, there are a couple of limitations to keep in mind when using reactions, first off these are run in the console you are currently using, which is not necessarily the server console. So if you are connected to a sliver server using the sliver client, if you disconnect the client the reactions are no longer running. 
+However, there are a couple of limitations to keep in mind when using reactions, first off, these are run in the console you are currently using, which is not necessarily the server console. So if you are connected to a sliver server using the sliver client, if you disconnect the client the reactions are no longer running. 
 
 Secondly reactions are a relatively basic mechanism, you can’t use any conditional statements or more complex background tasks with them. For more complex use-cases you can instead write your own client in Python or Typescript for example to connect to the server over gRPC, which we’ll cover next.
 
@@ -75,7 +75,7 @@ Since our extension is essentially going to be another client connection to the 
 ```
 
 We now have everything we need to start writing our scripts, let’s run our first example interactively in a Python shell. 
-We first need to import a few dependencies, `SliverClientConfig` which is used to parse the client config we’ve just created and `SliverClient` which will handle the connection to the backend server.
+We first need to import a few dependencies, `SliverClientConfig`, which is used to parse the client config we’ve just created, and `SliverClient`, which will handle the connection to the backend server.
 
 ```bash
 Python 3.9.16 (main, Dec  7 2022, 10:06:04)
@@ -136,9 +136,9 @@ Out[9]:
 To run commands on this session you’ll need to create an InteractiveSession object.
 
 ```bash
-In [10]: interract = await client.interact_session("f80ec897-0870-4f03-a1b1-364e5a0d243c")
+In [10]: interact = await client.interact_session("f80ec897-0870-4f03-a1b1-364e5a0d243c")
 
-In [11]: await interract.pwd()
+In [11]: await interact.pwd()
 Out[11]: Path: "/Users/tester"
 ```
 
@@ -160,7 +160,7 @@ async def main():
     client = SliverClient(config)
     await client.connect()
 
-		async for event in client.on('session-connected'):
+    async for event in client.on('session-connected'):
         print('Session %s just connected !' % event.Session.ID)
 
 if __name__ == '__main__':
@@ -182,13 +182,13 @@ else:
             print('Session is running on %s', event.Session.OS)
 ```
 
-Let’s setup an InteractiveSession object like previously.
+Let’s set up an InteractiveSession object like previously.
 
 ```bash
 interact = await client.interact_session(event.Session.ID)
 ```
 
-We’re going to start with writing the code for Linux and Macos, since in their case the file is located in the same place. First we check if the file exists, then we download and decompress it to display its contents using gzip.
+We’re going to start with writing the code for Linux and macOS, since in their case the file is located in the same place. First we check if the file exists, then we download and decompress it to display its contents using gzip.
 
 ```bash
 file_listing = await interact.ls("/etc/hosts")
