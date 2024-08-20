@@ -1,4 +1,4 @@
-# This course is intented for the 1.6 version of Sliver, which is not yet published
+# This course is intended for the 1.6 version of Sliver, which is not yet published
 
 The Sliver armory is used to install and maintain third party extensions and aliases within sliver. The full list of available extensions can be found at https://github.com/sliverarmory/armory, keep in mind this is community maintained so not all modules are necessarily up to date. 
 
@@ -55,7 +55,7 @@ As you can see Sliver ran the Seatbelt assembly and provided us with the output 
 
 ## Bof’s
 
-Beacon object files are loaded using trustedsec’s coffloader, when you run a bof command the loader will first be loaded into memory and is used to run whichever bof you choose. From an operator’s perspective bof’s are similar to basic sliver commands.
+Beacon object files are loaded using trustedsec’s coffloader. When you run a bof command the loader will first be loaded into memory and is used to run whichever bof you choose. From an operator’s perspective bof’s are similar to basic sliver commands.
 
 ```bash
 [server] sliver (UNABLE_PRIDE) > sa-whoami
@@ -93,4 +93,4 @@ SeIncreaseWorkingSetPrivilege Increase a process working set                    
 SeTimeZonePrivilege           Change the time zone                              Disabled
 ```
 
-Since these payloads are run in-process, they have similar advantages and drawbacks as in-process assemblies meaning no new processes are spawned on execution, but a crash risks loosing the implant.
+Since these payloads are run in-process, they have similar advantages and drawbacks as in-process assemblies, meaning no new processes are spawned on execution, but a crash risks losing the implant.
