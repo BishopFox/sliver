@@ -9,7 +9,7 @@
 
 # STAGE: base
 ## Compiles Sliver for use
-FROM golang:1.23.0 as base
+FROM golang:1.23.0 AS base
 
 ### Base packages
 RUN apt-get update --fix-missing && apt-get -y install \
@@ -43,7 +43,7 @@ RUN /go/src/github.com/bishopfox/sliver/go-tests.sh
 
 # STAGE: production
 ## Final dockerized form of Sliver
-FROM debian:bookworm-slim as production
+FROM debian:bookworm-slim AS production
 
 ### Install production packages
 RUN apt-get update --fix-missing \
