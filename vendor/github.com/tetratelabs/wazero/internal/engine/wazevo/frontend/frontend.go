@@ -275,7 +275,7 @@ func (c *Compiler) LowerToSSA() {
 		builder.DefineVariable(variable, value, entryBlock)
 		c.setWasmLocalVariable(wasm.Index(i), variable)
 	}
-	c.declareWasmLocals(entryBlock)
+	c.declareWasmLocals()
 	c.declareNecessaryVariables()
 
 	c.lowerBody(entryBlock)
@@ -295,32 +295,13 @@ func (c *Compiler) setWasmLocalVariable(index wasm.Index, variable ssa.Variable)
 }
 
 // declareWasmLocals declares the SSA variables for the Wasm locals.
-func (c *Compiler) declareWasmLocals(entry ssa.BasicBlock) {
+func (c *Compiler) declareWasmLocals() {
 	localCount := wasm.Index(len(c.wasmFunctionTyp.Params))
 	for i, typ := range c.wasmFunctionLocalTypes {
 		st := WasmTypeToSSAType(typ)
 		variable := c.ssaBuilder.DeclareVariable(st)
 		c.setWasmLocalVariable(wasm.Index(i)+localCount, variable)
-
-		zeroInst := c.ssaBuilder.AllocateInstruction()
-		switch st {
-		case ssa.TypeI32:
-			zeroInst.AsIconst32(0)
-		case ssa.TypeI64:
-			zeroInst.AsIconst64(0)
-		case ssa.TypeF32:
-			zeroInst.AsF32const(0)
-		case ssa.TypeF64:
-			zeroInst.AsF64const(0)
-		case ssa.TypeV128:
-			zeroInst.AsVconst(0, 0)
-		default:
-			panic("TODO: " + wasm.ValueTypeName(typ))
-		}
-
-		c.ssaBuilder.InsertInstruction(zeroInst)
-		value := zeroInst.Return()
-		c.ssaBuilder.DefineVariable(variable, value, entry)
+		c.ssaBuilder.InsertZeroValue(st)
 	}
 }
 
@@ -562,25 +543,17 @@ func (c *Compiler) initializeCurrentBlockKnownBounds() {
 				cb := &c.bounds[i][c.pointers[i]]
 				if cb.id != smallestID {
 					same = false
-					break
 				} else {
 					if cb.bound < minBound {
 						minBound = cb.bound
 					}
+					c.pointers[i]++
 				}
 			}
 
 			if same { // All elements are the same.
 				// Absolute address cannot be used in the intersection since the value might be only defined in one of the predecessors.
 				c.recordKnownSafeBound(smallestID, minBound, ssa.ValueInvalid)
-			}
-
-			// Move pointer(s) for the smallest ID forward (if same, move all).
-			for i := 0; i < preds; i++ {
-				cb := &c.bounds[i][c.pointers[i]]
-				if cb.id == smallestID {
-					c.pointers[i]++
-				}
 			}
 		}
 	}

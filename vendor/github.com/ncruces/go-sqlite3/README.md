@@ -12,6 +12,20 @@ It wraps a [Wasm](https://webassembly.org/) [build](embed/) of SQLite,
 and uses [wazero](https://wazero.io/) as the runtime.\
 Go, wazero and [`x/sys`](https://pkg.go.dev/golang.org/x/sys) are the _only_ runtime dependencies [^1].
 
+### Getting started
+
+Using the [`database/sql`](https://pkg.go.dev/database/sql) driver:
+```go
+
+import "database/sql"
+import _ "github.com/ncruces/go-sqlite3/driver"
+import _ "github.com/ncruces/go-sqlite3/embed"
+
+var version string
+db, _ := sql.Open("sqlite3", "file:demo.db")
+db.QueryRow(`SELECT sqlite_version()`).Scan(&version)
+```
+
 ### Packages
 
 - [`github.com/ncruces/go-sqlite3`](https://pkg.go.dev/github.com/ncruces/go-sqlite3)
@@ -33,6 +47,8 @@ Go, wazero and [`x/sys`](https://pkg.go.dev/golang.org/x/sys) are the _only_ run
   provides the [`array`](https://sqlite.org/carray.html) table-valued function.
 - [`github.com/ncruces/go-sqlite3/ext/blobio`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/ext/blobio)
   simplifies [incremental BLOB I/O](https://sqlite.org/c3ref/blob_open.html).
+- [`github.com/ncruces/go-sqlite3/ext/bloom`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/ext/bloom)
+  provides a [Bloom filter](https://github.com/nalgeon/sqlean/issues/27#issuecomment-1002267134) virtual table.
 - [`github.com/ncruces/go-sqlite3/ext/csv`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/ext/csv)
   reads [comma-separated values](https://sqlite.org/csv.html).
 - [`github.com/ncruces/go-sqlite3/ext/fileio`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/ext/fileio)
@@ -43,20 +59,24 @@ Go, wazero and [`x/sys`](https://pkg.go.dev/golang.org/x/sys) are the _only_ run
   reads data [line-by-line](https://github.com/asg017/sqlite-lines).
 - [`github.com/ncruces/go-sqlite3/ext/pivot`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/ext/pivot)
   creates [pivot tables](https://github.com/jakethaw/pivot_vtab).
+- [`github.com/ncruces/go-sqlite3/ext/regexp`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/ext/regexp)
+  provides regular expression functions.
 - [`github.com/ncruces/go-sqlite3/ext/statement`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/ext/statement)
   creates [parameterized views](https://github.com/0x09/sqlite-statement-vtab).
 - [`github.com/ncruces/go-sqlite3/ext/stats`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/ext/stats)
   provides [statistics](https://www.oreilly.com/library/view/sql-in-a/9780596155322/ch04s02.html) functions.
 - [`github.com/ncruces/go-sqlite3/ext/unicode`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/ext/unicode)
   provides [Unicode aware](https://sqlite.org/src/dir/ext/icu) functions.
+- [`github.com/ncruces/go-sqlite3/ext/uuid`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/ext/uuid)
+  generates [UUIDs](https://en.wikipedia.org/wiki/Universally_unique_identifier).
 - [`github.com/ncruces/go-sqlite3/ext/zorder`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/ext/zorder)
   maps multidimensional data to one dimension.
+- [`github.com/ncruces/go-sqlite3/vfs/adiantum`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/vfs/adiantum)
+  wraps a VFS to offer encryption at rest.
 - [`github.com/ncruces/go-sqlite3/vfs/memdb`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/vfs/memdb)
   implements an in-memory VFS.
 - [`github.com/ncruces/go-sqlite3/vfs/readervfs`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/vfs/readervfs)
   implements a VFS for immutable databases.
-- [`github.com/ncruces/go-sqlite3/vfs/adiantum`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/vfs/adiantum)
-  wraps a VFS to offer encryption at rest.
 
 ### Advanced features
 
@@ -87,8 +107,11 @@ This project aims for [high test coverage](https://github.com/ncruces/go-sqlite3
 It also benefits greatly from [SQLite's](https://sqlite.org/testing.html) and
 [wazero's](https://tetrate.io/blog/introducing-wazero-from-tetrate/#:~:text=Rock%2Dsolid%20test%20approach) thorough testing.
 
-Every commit is [tested](.github/workflows/test.yml) on
-Linux (amd64/arm64/386/riscv64), macOS (amd64/arm64), Windows, FreeBSD and illumos.
+Every commit is [tested](https://github.com/ncruces/go-sqlite3/wiki/Test-matrix) on
+Linux (amd64/arm64/386/riscv64/s390x), macOS (amd64/arm64),
+Windows (amd64), FreeBSD (amd64), OpenBSD (amd64), NetBSD (amd64),
+illumos (amd64), and Solaris (amd64).
+
 The Go VFS is tested by running SQLite's
 [mptest](https://github.com/sqlite/sqlite/blob/master/mptest/mptest.c).
 

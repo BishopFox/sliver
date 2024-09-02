@@ -69,7 +69,7 @@ type IDedPool[T any] struct {
 
 // NewIDedPool returns a new IDedPool.
 func NewIDedPool[T any](resetFn func(*T)) IDedPool[T] {
-	return IDedPool[T]{pool: NewPool[T](resetFn)}
+	return IDedPool[T]{pool: NewPool[T](resetFn), maxIDEncountered: -1}
 }
 
 // GetOrAllocate returns the T with the given id.
@@ -97,7 +97,7 @@ func (p *IDedPool[T]) Get(id int) *T {
 // Reset resets the pool.
 func (p *IDedPool[T]) Reset() {
 	p.pool.Reset()
-	for i := range p.idToItems {
+	for i := 0; i <= p.maxIDEncountered; i++ {
 		p.idToItems[i] = nil
 	}
 	p.maxIDEncountered = -1

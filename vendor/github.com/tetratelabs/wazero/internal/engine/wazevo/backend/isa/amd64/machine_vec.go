@@ -127,7 +127,7 @@ func (m *machine) lowerSqmulRoundSat(x, y, ret ssa.Value) {
 	tmpX := m.copyToTmp(xx.reg())
 
 	m.insert(m.allocateInstr().asXmmRmR(sseOpcodePmulhrsw, yy, tmpX))
-	m.insert(m.allocateInstr().asXmmRmR(sseOpcodePcmpeqd, newOperandReg(tmpX), tmp))
+	m.insert(m.allocateInstr().asXmmRmR(sseOpcodePcmpeqw, newOperandReg(tmpX), tmp))
 	m.insert(m.allocateInstr().asXmmRmR(sseOpcodePxor, newOperandReg(tmp), tmpX))
 
 	m.copyTo(tmpX, m.c.VRegOf(ret))
