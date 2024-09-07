@@ -8,21 +8,50 @@
 //
 // The data source name for "sqlite3" databases can be a filename or a "file:" [URI].
 //
+// # Default transaction mode
+//
 // The [TRANSACTION] mode can be specified using "_txlock":
 //
 //	sql.Open("sqlite3", "file:demo.db?_txlock=immediate")
 //
-// Possible values are: "deferred", "immediate", "exclusive".
-// A [read-only] transaction is always "deferred", regardless of "_txlock".
+// Possible values are: "deferred" (the default), "immediate", "exclusive".
+// Regardless of "_txlock":
+//   - a [linearizable] transaction is always "exclusive";
+//   - a [serializable] transaction is always "immediate";
+//   - a [read-only] transaction is always "deferred".
+//
+// # Working with time
 //
 // The time encoding/decoding format can be specified using "_timefmt":
 //
 //	sql.Open("sqlite3", "file:demo.db?_timefmt=sqlite")
 //
 // Possible values are: "auto" (the default), "sqlite", "rfc3339";
-// "auto" encodes as RFC 3339 and decodes any [format] supported by SQLite;
-// "sqlite" encodes as SQLite and decodes any [format] supported by SQLite;
-// "rfc3339" encodes and decodes RFC 3339 only.
+//   - "auto" encodes as RFC 3339 and decodes any [format] supported by SQLite;
+//   - "sqlite" encodes as SQLite and decodes any [format] supported by SQLite;
+//   - "rfc3339" encodes and decodes RFC 3339 only.
+//
+// If you encode as RFC 3339 (the default),
+// consider using the TIME [collating sequence] to produce a time-ordered sequence.
+//
+// To scan values in other formats, [sqlite3.TimeFormat.Scanner] may be helpful.
+// To bind values in other formats, [sqlite3.TimeFormat.Encode] them before binding.
+//
+// When using a custom time struct, you'll have to implement
+// [database/sql/driver.Valuer] and [database/sql.Scanner].
+//
+// The Value method should ideally serialise to a time [format] supported by SQLite.
+// This ensures SQL date and time functions work as they should,
+// and that your schema works with other SQLite tools.
+// [sqlite3.TimeFormat.Encode] may help.
+//
+// The Scan method needs to take into account that the value it receives can be of differing types.
+// It can already be a [time.Time], if the driver decoded the value according to "_timefmt" rules.
+// Or it can be a: string, int64, float64, []byte, nil,
+// depending on the column type and what whoever wrote the value.
+// [sqlite3.TimeFormat.Decode] may help.
+//
+// # Setting PRAGMAs
 //
 // [PRAGMA] statements can be specified using "_pragma":
 //
@@ -31,13 +60,17 @@
 // If no PRAGMAs are specified, a busy timeout of 1 minute is set.
 //
 // Order matters:
-// busy timeout and locking mode should be the first PRAGMAs set, in that order.
+// encryption keys, busy timeout and locking mode should be the first PRAGMAs set,
+// in that order.
 //
 // [URI]: https://sqlite.org/uri.html
 // [PRAGMA]: https://sqlite.org/pragma.html
-// [format]: https://sqlite.org/lang_datefunc.html#time_values
 // [TRANSACTION]: https://sqlite.org/lang_transaction.html#deferred_immediate_and_exclusive_transactions
+// [linearizable]: https://pkg.go.dev/database/sql#TxOptions
+// [serializable]: https://pkg.go.dev/database/sql#TxOptions
 // [read-only]: https://pkg.go.dev/database/sql#TxOptions
+// [format]: https://sqlite.org/lang_datefunc.html#time_values
+// [collating sequence]: https://sqlite.org/datatype3.html#collating_sequences
 package driver
 
 import (
@@ -69,11 +102,22 @@ func init() {
 
 // Open opens the SQLite database specified by dataSourceName as a [database/sql.DB].
 //
-// The init function is called by the driver on new connections.
+// Open accepts zero, one, or two callbacks (nil callbacks are ignored).
+// The first callback is called when the driver opens a new connection.
+// The second callback is called before the driver closes a connection.
 // The [sqlite3.Conn] can be used to execute queries, register functions, etc.
-// Any error returned closes the connection and is returned to [database/sql].
-func Open(dataSourceName string, init func(*sqlite3.Conn) error) (*sql.DB, error) {
-	c, err := (&SQLite{Init: init}).OpenConnector(dataSourceName)
+func Open(dataSourceName string, fn ...func(*sqlite3.Conn) error) (*sql.DB, error) {
+	var drv SQLite
+	if len(fn) > 2 {
+		return nil, sqlite3.MISUSE
+	}
+	if len(fn) > 1 {
+		drv.term = fn[1]
+	}
+	if len(fn) > 0 {
+		drv.init = fn[0]
+	}
+	c, err := drv.OpenConnector(dataSourceName)
 	if err != nil {
 		return nil, err
 	}
@@ -82,11 +126,14 @@ func Open(dataSourceName string, init func(*sqlite3.Conn) error) (*sql.DB, error
 
 // SQLite implements [database/sql/driver.Driver].
 type SQLite struct {
-	// Init function is called by the driver on new connections.
-	// The [sqlite3.Conn] can be used to execute queries, register functions, etc.
-	// Any error returned closes the connection and is returned to [database/sql].
-	Init func(*sqlite3.Conn) error
+	init func(*sqlite3.Conn) error
+	term func(*sqlite3.Conn) error
 }
+
+var (
+	// Ensure these interfaces are implemented:
+	_ driver.DriverContext = &SQLite{}
+)
 
 // Open implements [database/sql/driver.Driver].
 func (d *SQLite) Open(name string) (driver.Conn, error) {
@@ -119,10 +166,8 @@ func (d *SQLite) newConnector(name string) (*connector, error) {
 	}
 
 	switch txlock {
-	case "":
-		c.txBegin = "BEGIN"
-	case "deferred", "immediate", "exclusive":
-		c.txBegin = "BEGIN " + txlock
+	case "", "deferred", "concurrent", "immediate", "exclusive":
+		c.txLock = txlock
 	default:
 		return nil, fmt.Errorf("sqlite3: invalid _txlock: %s", txlock)
 	}
@@ -147,7 +192,7 @@ func (d *SQLite) newConnector(name string) (*connector, error) {
 type connector struct {
 	driver  *SQLite
 	name    string
-	txBegin string
+	txLock  string
 	tmRead  sqlite3.TimeFormat
 	tmWrite sqlite3.TimeFormat
 	pragmas bool
@@ -159,7 +204,7 @@ func (n *connector) Driver() driver.Driver {
 
 func (n *connector) Connect(ctx context.Context) (_ driver.Conn, err error) {
 	c := &conn{
-		txBegin: n.txBegin,
+		txLock:  n.txLock,
 		tmRead:  n.tmRead,
 		tmWrite: n.tmWrite,
 	}
@@ -178,18 +223,18 @@ func (n *connector) Connect(ctx context.Context) (_ driver.Conn, err error) {
 	defer c.Conn.SetInterrupt(old)
 
 	if !n.pragmas {
-		err = c.Conn.BusyTimeout(60 * time.Second)
+		err = c.Conn.BusyTimeout(time.Minute)
 		if err != nil {
 			return nil, err
 		}
 	}
-	if n.driver.Init != nil {
-		err = n.driver.Init(c.Conn)
+	if n.driver.init != nil {
+		err = n.driver.init(c.Conn)
 		if err != nil {
 			return nil, err
 		}
 	}
-	if n.pragmas || n.driver.Init != nil {
+	if n.pragmas || n.driver.init != nil {
 		s, _, err := c.Conn.Prepare(`PRAGMA query_only`)
 		if err != nil {
 			return nil, err
@@ -204,57 +249,93 @@ func (n *connector) Connect(ctx context.Context) (_ driver.Conn, err error) {
 			return nil, err
 		}
 	}
+	if n.driver.term != nil {
+		err = c.Conn.Trace(sqlite3.TRACE_CLOSE, func(sqlite3.TraceEvent, any, any) error {
+			return n.driver.term(c.Conn)
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
 	return c, nil
+}
+
+// Conn is implemented by the SQLite [database/sql] driver connections.
+//
+// It can be used to access SQLite features like [online backup]:
+//
+//	db, err := driver.Open("temp.db")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//	defer db.Close()
+//
+//	conn, err := db.Conn(context.TODO())
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//
+//	err = conn.Raw(func(driverConn any) error {
+//		conn := driverConn.(driver.Conn)
+//		return conn.Raw().Backup("main", "backup.db")
+//	})
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//
+// [online backup]: https://sqlite.org/backup.html
+type Conn interface {
+	Raw() *sqlite3.Conn
+	driver.Conn
 }
 
 type conn struct {
 	*sqlite3.Conn
-	txBegin    string
-	txCommit   string
-	txRollback string
-	tmRead     sqlite3.TimeFormat
-	tmWrite    sqlite3.TimeFormat
-	readOnly   byte
+	txLock   string
+	txReset  string
+	tmRead   sqlite3.TimeFormat
+	tmWrite  sqlite3.TimeFormat
+	readOnly byte
 }
 
 var (
 	// Ensure these interfaces are implemented:
+	_ Conn                      = &conn{}
+	_ driver.ConnBeginTx        = &conn{}
 	_ driver.ConnPrepareContext = &conn{}
 	_ driver.ExecerContext      = &conn{}
-	_ driver.ConnBeginTx        = &conn{}
-	_ sqlite3.DriverConn        = &conn{}
 )
 
 func (c *conn) Raw() *sqlite3.Conn {
 	return c.Conn
 }
 
+// Deprecated: use BeginTx instead.
 func (c *conn) Begin() (driver.Tx, error) {
+	// notest
 	return c.BeginTx(context.Background(), driver.TxOptions{})
 }
 
 func (c *conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
-	txBegin := c.txBegin
-	c.txCommit = `COMMIT`
-	c.txRollback = `ROLLBACK`
-
-	if opts.ReadOnly {
-		txBegin = `
-			BEGIN deferred;
-			PRAGMA query_only=on`
-		c.txRollback = `
-			ROLLBACK;
-			PRAGMA query_only=` + string(c.readOnly)
-		c.txCommit = c.txRollback
-	}
-
+	var txLock string
 	switch opts.Isolation {
 	default:
 		return nil, util.IsolationErr
-	case
-		driver.IsolationLevel(sql.LevelDefault),
-		driver.IsolationLevel(sql.LevelSerializable):
-		break
+	case driver.IsolationLevel(sql.LevelLinearizable):
+		txLock = "exclusive"
+	case driver.IsolationLevel(sql.LevelSerializable):
+		txLock = "immediate"
+	case driver.IsolationLevel(sql.LevelDefault):
+		if !opts.ReadOnly {
+			txLock = c.txLock
+		}
+	}
+
+	c.txReset = ``
+	txBegin := `BEGIN ` + txLock
+	if opts.ReadOnly {
+		txBegin += ` ; PRAGMA query_only=on`
+		c.txReset = `; PRAGMA query_only=` + string(c.readOnly)
 	}
 
 	old := c.Conn.SetInterrupt(ctx)
@@ -268,7 +349,7 @@ func (c *conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 }
 
 func (c *conn) Commit() error {
-	err := c.Conn.Exec(c.txCommit)
+	err := c.Conn.Exec(`COMMIT` + c.txReset)
 	if err != nil && !c.Conn.GetAutocommit() {
 		c.Rollback()
 	}
@@ -276,16 +357,17 @@ func (c *conn) Commit() error {
 }
 
 func (c *conn) Rollback() error {
-	err := c.Conn.Exec(c.txRollback)
+	err := c.Conn.Exec(`ROLLBACK` + c.txReset)
 	if errors.Is(err, sqlite3.INTERRUPT) {
 		old := c.Conn.SetInterrupt(context.Background())
 		defer c.Conn.SetInterrupt(old)
-		err = c.Conn.Exec(c.txRollback)
+		err = c.Conn.Exec(`ROLLBACK` + c.txReset)
 	}
 	return err
 }
 
 func (c *conn) Prepare(query string) (driver.Stmt, error) {
+	// notest
 	return c.PrepareContext(context.Background(), query)
 }
 
@@ -301,7 +383,7 @@ func (c *conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, e
 		s.Close()
 		return nil, util.TailErr
 	}
-	return &stmt{Stmt: s, tmRead: c.tmRead, tmWrite: c.tmWrite}, nil
+	return &stmt{Stmt: s, tmRead: c.tmRead, tmWrite: c.tmWrite, inputs: -2}, nil
 }
 
 func (c *conn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
@@ -328,6 +410,8 @@ func (c *conn) ExecContext(ctx context.Context, query string, args []driver.Name
 }
 
 func (c *conn) CheckNamedValue(arg *driver.NamedValue) error {
+	// Fast path: short circuit argument verification.
+	// Arguments will be rejected by conn.ExecContext.
 	return nil
 }
 
@@ -335,6 +419,7 @@ type stmt struct {
 	*sqlite3.Stmt
 	tmWrite sqlite3.TimeFormat
 	tmRead  sqlite3.TimeFormat
+	inputs  int
 }
 
 var (
@@ -345,22 +430,29 @@ var (
 )
 
 func (s *stmt) NumInput() int {
+	if s.inputs >= -1 {
+		return s.inputs
+	}
 	n := s.Stmt.BindCount()
 	for i := 1; i <= n; i++ {
 		if s.Stmt.BindName(i) != "" {
+			s.inputs = -1
 			return -1
 		}
 	}
+	s.inputs = n
 	return n
 }
 
 // Deprecated: use ExecContext instead.
 func (s *stmt) Exec(args []driver.Value) (driver.Result, error) {
+	// notest
 	return s.ExecContext(context.Background(), namedValues(args))
 }
 
 // Deprecated: use QueryContext instead.
 func (s *stmt) Query(args []driver.Value) (driver.Rows, error) {
+	// notest
 	return s.QueryContext(context.Background(), namedValues(args))
 }
 
@@ -389,12 +481,7 @@ func (s *stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 	return &rows{ctx: ctx, stmt: s}, nil
 }
 
-func (s *stmt) setupBindings(args []driver.NamedValue) error {
-	err := s.Stmt.ClearBindings()
-	if err != nil {
-		return err
-	}
-
+func (s *stmt) setupBindings(args []driver.NamedValue) (err error) {
 	var ids [3]int
 	for _, arg := range args {
 		ids := ids[:0]
@@ -558,19 +645,21 @@ func (r *rows) Next(dest []driver.Value) error {
 	return err
 }
 
-func (r *rows) decodeTime(i int, v any) (_ time.Time, _ bool) {
-	if r.tmRead == sqlite3.TimeFormatDefault {
-		return
-	}
-	switch r.declType(i) {
-	case "DATE", "TIME", "DATETIME", "TIMESTAMP":
-		// maybe
-	default:
+func (r *rows) decodeTime(i int, v any) (_ time.Time, ok bool) {
+	switch r.tmRead {
+	case sqlite3.TimeFormatDefault, time.RFC3339Nano:
+		// handled by maybeTime
 		return
 	}
 	switch v.(type) {
 	case int64, float64, string:
-		// maybe
+		// could be a time value
+	default:
+		return
+	}
+	switch r.declType(i) {
+	case "DATE", "TIME", "DATETIME", "TIMESTAMP":
+		// could be a time value
 	default:
 		return
 	}

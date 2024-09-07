@@ -143,6 +143,7 @@ func (b *Blob) WriteTo(w io.Writer) (n int64, err error) {
 			return n, err
 		}
 		if int64(m) != want {
+			// notest // Write misbehaving
 			return n, io.ErrShortWrite
 		}
 

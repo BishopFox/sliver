@@ -13,6 +13,7 @@ import (
 	"github.com/ncruces/go-sqlite3/vfs"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/experimental"
 )
 
 // Configure SQLite Wasm.
@@ -28,6 +29,14 @@ var (
 	RuntimeConfig wazero.RuntimeConfig
 )
 
+// Initialize decodes and compiles the SQLite Wasm binary.
+// This is called implicitly when the first connection is openned,
+// but is potentially slow, so you may want to call it at a more convenient time.
+func Initialize() error {
+	instance.once.Do(compileSQLite)
+	return instance.err
+}
+
 var instance struct {
 	runtime  wazero.Runtime
 	compiled wazero.CompiledModule
@@ -36,12 +45,14 @@ var instance struct {
 }
 
 func compileSQLite() {
-	if RuntimeConfig == nil {
-		RuntimeConfig = wazero.NewRuntimeConfig()
+	ctx := context.Background()
+	cfg := RuntimeConfig
+	if cfg == nil {
+		cfg = wazero.NewRuntimeConfig()
 	}
 
-	ctx := context.Background()
-	instance.runtime = wazero.NewRuntimeWithConfig(ctx, RuntimeConfig)
+	instance.runtime = wazero.NewRuntimeWithConfig(ctx,
+		cfg.WithCoreFeatures(api.CoreFeaturesV2|experimental.CoreFeaturesThreads))
 
 	env := instance.runtime.NewHostModuleBuilder("env")
 	env = vfs.ExportHostFunctions(env)
@@ -74,14 +85,13 @@ type sqlite struct {
 		id   [32]*byte
 		mask uint32
 	}
-	stack [8]uint64
+	stack [9]uint64
 	freer uint32
 }
 
 func instantiateSQLite() (sqlt *sqlite, err error) {
-	instance.once.Do(compileSQLite)
-	if instance.err != nil {
-		return nil, instance.err
+	if err := Initialize(); err != nil {
+		return nil, err
 	}
 
 	sqlt = new(sqlite)
@@ -289,12 +299,14 @@ func (a *arena) string(s string) uint32 {
 }
 
 func exportCallbacks(env wazero.HostModuleBuilder) wazero.HostModuleBuilder {
-	util.ExportFuncIII(env, "go_busy_handler", busyCallback)
 	util.ExportFuncII(env, "go_progress_handler", progressCallback)
+	util.ExportFuncIIII(env, "go_busy_timeout", timeoutCallback)
+	util.ExportFuncIII(env, "go_busy_handler", busyCallback)
 	util.ExportFuncII(env, "go_commit_hook", commitCallback)
 	util.ExportFuncVI(env, "go_rollback_hook", rollbackCallback)
 	util.ExportFuncVIIIIJ(env, "go_update_hook", updateCallback)
 	util.ExportFuncIIIII(env, "go_wal_hook", walCallback)
+	util.ExportFuncIIIII(env, "go_trace", traceCallback)
 	util.ExportFuncIIIIII(env, "go_autovacuum_pages", autoVacuumCallback)
 	util.ExportFuncIIIIIII(env, "go_authorizer", authorizerCallback)
 	util.ExportFuncVIII(env, "go_log", logCallback)

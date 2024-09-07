@@ -1,4 +1,4 @@
-//go:build (linux || darwin || freebsd || openbsd || netbsd || dragonfly || illumos) && !sqlite3_nosys
+//go:build (linux || darwin || freebsd || openbsd || netbsd || dragonfly || illumos || sqlite3_flock) && !sqlite3_nosys
 
 package vfs
 
@@ -32,9 +32,9 @@ func osGetPendingLock(file *os.File, block bool) _ErrorCode {
 	return osWriteLock(file, _PENDING_BYTE, 1, timeout)
 }
 
-func osGetExclusiveLock(file *os.File, wait bool) _ErrorCode {
+func osGetExclusiveLock(file *os.File, block bool) _ErrorCode {
 	var timeout time.Duration
-	if wait {
+	if block {
 		timeout = time.Millisecond
 	}
 	// Acquire the EXCLUSIVE lock.
@@ -48,8 +48,9 @@ func osDowngradeLock(file *os.File, state LockLevel) _ErrorCode {
 			// In theory, the downgrade to a SHARED cannot fail because another
 			// process is holding an incompatible lock. If it does, this
 			// indicates that the other process is not following the locking
-			// protocol. If this happens, return _IOERR_RDLOCK. Returning
+			// protocol. If this happens, return IOERR_RDLOCK. Returning
 			// BUSY would confuse the upper layer.
+			// notest
 			return _IOERR_RDLOCK
 		}
 	}
@@ -97,6 +98,10 @@ func osLockErrorCode(err error, def _ErrorCode) _ErrorCode {
 			return _BUSY
 		case unix.EPERM:
 			return _PERM
+		}
+		// notest // usually EWOULDBLOCK == EAGAIN
+		if errno == unix.EWOULDBLOCK && unix.EWOULDBLOCK != unix.EAGAIN {
+			return _BUSY
 		}
 	}
 	return def

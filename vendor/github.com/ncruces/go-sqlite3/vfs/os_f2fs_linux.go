@@ -16,6 +16,8 @@ const (
 	_F2FS_FEATURE_ATOMIC_WRITE    = 4
 )
 
+// notest
+
 func osBatchAtomic(file *os.File) bool {
 	flags, err := unix.IoctlGetInt(int(file.Fd()), _F2FS_IOC_GET_FEATURES)
 	return err == nil && flags&_F2FS_FEATURE_ATOMIC_WRITE != 0

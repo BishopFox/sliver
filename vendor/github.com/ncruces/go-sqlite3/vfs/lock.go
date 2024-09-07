@@ -1,4 +1,4 @@
-//go:build (linux || darwin || windows || freebsd || openbsd || netbsd || dragonfly || illumos) && !sqlite3_nosys
+//go:build (linux || darwin || windows || freebsd || openbsd || netbsd || dragonfly || illumos || sqlite3_flock) && !sqlite3_nosys
 
 package vfs
 
@@ -79,16 +79,15 @@ func (f *vfsFile) Lock(lock LockLevel) error {
 		// A PENDING lock is needed before acquiring an EXCLUSIVE lock.
 		if f.lock < LOCK_PENDING {
 			// If we're already RESERVED, we can block indefinitely,
-			// since only new readers may briefly hold the PENDING lock.
+			// since only incoming readers may briefly hold the PENDING lock.
 			if rc := osGetPendingLock(f.File, reserved /* block */); rc != _OK {
 				return rc
 			}
 			f.lock = LOCK_PENDING
 		}
-		// We already have PENDING, so we're just waiting for readers to leave.
-		// If we were RESERVED, we can wait for a little while, before invoking
-		// the busy handler; we will only do this once.
-		if rc := osGetExclusiveLock(f.File, reserved /* wait */); rc != _OK {
+		// We are now PENDING, so we're just waiting for readers to leave.
+		// If we were RESERVED, we can block for a bit before invoking the busy handler.
+		if rc := osGetExclusiveLock(f.File, reserved /* block */); rc != _OK {
 			return rc
 		}
 		f.lock = LOCK_EXCLUSIVE

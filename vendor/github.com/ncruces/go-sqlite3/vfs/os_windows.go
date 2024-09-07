@@ -38,9 +38,9 @@ func osGetPendingLock(file *os.File, block bool) _ErrorCode {
 	return osWriteLock(file, _PENDING_BYTE, 1, timeout)
 }
 
-func osGetExclusiveLock(file *os.File, wait bool) _ErrorCode {
+func osGetExclusiveLock(file *os.File, block bool) _ErrorCode {
 	var timeout time.Duration
-	if wait {
+	if block {
 		timeout = time.Millisecond
 	}
 
@@ -66,6 +66,7 @@ func osDowngradeLock(file *os.File, state LockLevel) _ErrorCode {
 		if rc := osReadLock(file, _SHARED_FIRST, _SHARED_SIZE, 0); rc != _OK {
 			// This should never happen.
 			// We should always be able to reacquire the read lock.
+			// notest
 			return _IOERR_RDLOCK
 		}
 	}
@@ -133,10 +134,11 @@ func osLock(file *os.File, flags, start, len uint32, timeout time.Duration, def 
 			if errno, _ := err.(windows.Errno); errno != windows.ERROR_LOCK_VIOLATION {
 				break
 			}
-			if timeout < time.Since(before) {
+			if time.Since(before) > timeout {
 				break
 			}
-			osSleep(time.Duration(rand.Int63n(int64(time.Millisecond))))
+			const sleepIncrement = 1024*1024 - 1 // power of two, ~1ms
+			time.Sleep(time.Duration(rand.Int63() & sleepIncrement))
 		}
 	}
 	return osLockErrorCode(err, def)
@@ -170,17 +172,4 @@ func osLockErrorCode(err error, def _ErrorCode) _ErrorCode {
 		}
 	}
 	return def
-}
-
-func osSleep(d time.Duration) {
-	if d > 0 {
-		period := max(1, d/(5*time.Millisecond))
-		if period < 16 {
-			windows.TimeBeginPeriod(uint32(period))
-		}
-		time.Sleep(d)
-		if period < 16 {
-			windows.TimeEndPeriod(uint32(period))
-		}
-	}
 }
