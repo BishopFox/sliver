@@ -42,7 +42,7 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.9.0
-	github.com/tetratelabs/wazero v1.7.2
+	github.com/tetratelabs/wazero v1.8.0
 	github.com/things-go/go-socks5 v0.0.5
 	github.com/ulikunitz/xz v0.5.12
 	github.com/xlab/treeprint v1.2.0

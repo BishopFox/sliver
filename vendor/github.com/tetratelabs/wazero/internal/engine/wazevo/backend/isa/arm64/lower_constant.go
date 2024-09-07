@@ -284,18 +284,18 @@ func (m *machine) load64bitConst(c int64, dst regalloc.VReg) {
 
 func (m *machine) insertMOVZ(dst regalloc.VReg, v uint64, shift int, dst64 bool) {
 	instr := m.allocateInstr()
-	instr.asMOVZ(dst, v, uint64(shift), dst64)
+	instr.asMOVZ(dst, v, uint32(shift), dst64)
 	m.insert(instr)
 }
 
 func (m *machine) insertMOVK(dst regalloc.VReg, v uint64, shift int, dst64 bool) {
 	instr := m.allocateInstr()
-	instr.asMOVK(dst, v, uint64(shift), dst64)
+	instr.asMOVK(dst, v, uint32(shift), dst64)
 	m.insert(instr)
 }
 
 func (m *machine) insertMOVN(dst regalloc.VReg, v uint64, shift int, dst64 bool) {
 	instr := m.allocateInstr()
-	instr.asMOVN(dst, v, uint64(shift), dst64)
+	instr.asMOVN(dst, v, uint32(shift), dst64)
 	m.insert(instr)
 }
