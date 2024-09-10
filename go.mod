@@ -14,8 +14,8 @@ require (
 	github.com/Ne0nd0g/go-clr v1.0.3
 	github.com/alecthomas/chroma v0.10.0
 	github.com/cheggaaa/pb/v3 v3.1.2
-	github.com/chromedp/cdproto v0.0.0-20230220211738-2b1ec77315c9
-	github.com/chromedp/chromedp v0.9.1
+	github.com/chromedp/cdproto v0.0.0-20240810084448-b931b754e476
+	github.com/chromedp/chromedp v0.10.0
 	github.com/desertbit/columnize v2.1.0+incompatible
 	github.com/desertbit/go-shlex v0.1.1
 	github.com/desertbit/grumble v1.1.1
@@ -41,7 +41,7 @@ require (
 	github.com/yiya1989/sshkrb5 v0.0.0-20201110125252-a1455b75a35e
 	golang.org/x/crypto v0.9.0
 	golang.org/x/net v0.10.0
-	golang.org/x/sys v0.8.0
+	golang.org/x/sys v0.25.0
 	golang.org/x/term v0.8.0
 	golang.org/x/text v0.9.0
 	golang.zx2c4.com/wireguard v0.0.0-20220316235147-5aff28b14c24
@@ -76,7 +76,7 @@ require (
 	github.com/go-sql-driver/mysql v1.7.0 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
-	github.com/gobwas/ws v1.1.0 // indirect
+	github.com/gobwas/ws v1.4.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
