@@ -179,6 +179,8 @@ type VirtualAuthenticatorOptions struct {
 	HasPrf                      bool                   `json:"hasPrf,omitempty"`                      // If set to true, the authenticator will support the prf extension. https://w3c.github.io/webauthn/#prf-extension Defaults to false.
 	AutomaticPresenceSimulation bool                   `json:"automaticPresenceSimulation,omitempty"` // If set to true, tests of user presence will succeed immediately. Otherwise, they will not be resolved. Defaults to true.
 	IsUserVerified              bool                   `json:"isUserVerified,omitempty"`              // Sets whether User Verification succeeds or fails for an authenticator. Defaults to false.
+	DefaultBackupEligibility    bool                   `json:"defaultBackupEligibility,omitempty"`    // Credentials created by this authenticator will have the backup eligibility (BE) flag set to this value. Defaults to false. https://w3c.github.io/webauthn/#sctn-credential-backup
+	DefaultBackupState          bool                   `json:"defaultBackupState,omitempty"`          // Credentials created by this authenticator will have the backup state (BS) flag set to this value. Defaults to false. https://w3c.github.io/webauthn/#sctn-credential-backup
 }
 
 // Credential [no description].
@@ -187,9 +189,11 @@ type VirtualAuthenticatorOptions struct {
 type Credential struct {
 	CredentialID         string `json:"credentialId"`
 	IsResidentCredential bool   `json:"isResidentCredential"`
-	RpID                 string `json:"rpId,omitempty"`       // Relying Party ID the credential is scoped to. Must be set when adding a credential.
-	PrivateKey           string `json:"privateKey"`           // The ECDSA P-256 private key in PKCS#8 format.
-	UserHandle           string `json:"userHandle,omitempty"` // An opaque byte sequence with a maximum size of 64 bytes mapping the credential to a specific user.
-	SignCount            int64  `json:"signCount"`            // Signature counter. This is incremented by one for each successful assertion. See https://w3c.github.io/webauthn/#signature-counter
-	LargeBlob            string `json:"largeBlob,omitempty"`  // The large blob associated with the credential. See https://w3c.github.io/webauthn/#sctn-large-blob-extension
+	RpID                 string `json:"rpId,omitempty"`              // Relying Party ID the credential is scoped to. Must be set when adding a credential.
+	PrivateKey           string `json:"privateKey"`                  // The ECDSA P-256 private key in PKCS#8 format.
+	UserHandle           string `json:"userHandle,omitempty"`        // An opaque byte sequence with a maximum size of 64 bytes mapping the credential to a specific user.
+	SignCount            int64  `json:"signCount"`                   // Signature counter. This is incremented by one for each successful assertion. See https://w3c.github.io/webauthn/#signature-counter
+	LargeBlob            string `json:"largeBlob,omitempty"`         // The large blob associated with the credential. See https://w3c.github.io/webauthn/#sctn-large-blob-extension
+	BackupEligibility    bool   `json:"backupEligibility,omitempty"` // Assertions returned by this credential will have the backup eligibility (BE) flag set to this value. Defaults to the authenticator's defaultBackupEligibility value.
+	BackupState          bool   `json:"backupState,omitempty"`       // Assertions returned by this credential will have the backup state (BS) flag set to this value. Defaults to the authenticator's defaultBackupState value.
 }

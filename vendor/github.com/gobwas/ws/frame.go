@@ -225,7 +225,7 @@ func RsvBits(rsv byte) (r1, r2, r3 bool) {
 	r1 = rsv&bit5 != 0
 	r2 = rsv&bit6 != 0
 	r3 = rsv&bit7 != 0
-	return
+	return r1, r2, r3
 }
 
 // Frame represents websocket frame.
@@ -378,7 +378,7 @@ func MaskFrameInPlaceWith(f Frame, m [4]byte) Frame {
 // NewMask creates new random mask.
 func NewMask() (ret [4]byte) {
 	binary.BigEndian.PutUint32(ret[:], rand.Uint32())
-	return
+	return ret
 }
 
 // CompileFrame returns byte representation of given frame.
@@ -388,7 +388,7 @@ func CompileFrame(f Frame) (bts []byte, err error) {
 	buf := bytes.NewBuffer(make([]byte, 0, 16))
 	err = WriteFrame(buf, f)
 	bts = buf.Bytes()
-	return
+	return bts, err
 }
 
 // MustCompileFrame is like CompileFrame but panics if frame can not be

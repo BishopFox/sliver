@@ -11,6 +11,7 @@ import (
 
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/network"
+	"github.com/mailru/easyjson"
 )
 
 // GetStorageKeyForFrameParams returns a storage key given a frame id.
@@ -583,15 +584,15 @@ func GetInterestGroupDetails(ownerOrigin string, name string) *GetInterestGroupD
 
 // GetInterestGroupDetailsReturns return values.
 type GetInterestGroupDetailsReturns struct {
-	Details *InterestGroupDetails `json:"details,omitempty"`
+	Details easyjson.RawMessage `json:"details,omitempty"`
 }
 
 // Do executes Storage.getInterestGroupDetails against the provided context.
 //
 // returns:
 //
-//	details
-func (p *GetInterestGroupDetailsParams) Do(ctx context.Context) (details *InterestGroupDetails, err error) {
+//	details - This largely corresponds to: https://wicg.github.io/turtledove/#dictdef-generatebidinterestgroup but has absolute expirationTime instead of relative lifetimeMs and also adds joiningOrigin.
+func (p *GetInterestGroupDetailsParams) Do(ctx context.Context) (details easyjson.RawMessage, err error) {
 	// execute
 	var res GetInterestGroupDetailsReturns
 	err = cdp.Execute(ctx, CommandGetInterestGroupDetails, p, &res)
@@ -625,6 +626,33 @@ func SetInterestGroupTracking(enable bool) *SetInterestGroupTrackingParams {
 // Do executes Storage.setInterestGroupTracking against the provided context.
 func (p *SetInterestGroupTrackingParams) Do(ctx context.Context) (err error) {
 	return cdp.Execute(ctx, CommandSetInterestGroupTracking, p, nil)
+}
+
+// SetInterestGroupAuctionTrackingParams enables/Disables issuing of
+// interestGroupAuctionEventOccurred and
+// interestGroupAuctionNetworkRequestCreated.
+type SetInterestGroupAuctionTrackingParams struct {
+	Enable bool `json:"enable"`
+}
+
+// SetInterestGroupAuctionTracking enables/Disables issuing of
+// interestGroupAuctionEventOccurred and
+// interestGroupAuctionNetworkRequestCreated.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#method-setInterestGroupAuctionTracking
+//
+// parameters:
+//
+//	enable
+func SetInterestGroupAuctionTracking(enable bool) *SetInterestGroupAuctionTrackingParams {
+	return &SetInterestGroupAuctionTrackingParams{
+		Enable: enable,
+	}
+}
+
+// Do executes Storage.setInterestGroupAuctionTracking against the provided context.
+func (p *SetInterestGroupAuctionTrackingParams) Do(ctx context.Context) (err error) {
+	return cdp.Execute(ctx, CommandSetInterestGroupAuctionTracking, p, nil)
 }
 
 // GetSharedStorageMetadataParams gets metadata for an origin's shared
@@ -850,33 +878,243 @@ func (p *SetSharedStorageTrackingParams) Do(ctx context.Context) (err error) {
 	return cdp.Execute(ctx, CommandSetSharedStorageTracking, p, nil)
 }
 
+// SetStorageBucketTrackingParams set tracking for a storage key's buckets.
+type SetStorageBucketTrackingParams struct {
+	StorageKey string `json:"storageKey"`
+	Enable     bool   `json:"enable"`
+}
+
+// SetStorageBucketTracking set tracking for a storage key's buckets.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#method-setStorageBucketTracking
+//
+// parameters:
+//
+//	storageKey
+//	enable
+func SetStorageBucketTracking(storageKey string, enable bool) *SetStorageBucketTrackingParams {
+	return &SetStorageBucketTrackingParams{
+		StorageKey: storageKey,
+		Enable:     enable,
+	}
+}
+
+// Do executes Storage.setStorageBucketTracking against the provided context.
+func (p *SetStorageBucketTrackingParams) Do(ctx context.Context) (err error) {
+	return cdp.Execute(ctx, CommandSetStorageBucketTracking, p, nil)
+}
+
+// DeleteStorageBucketParams deletes the Storage Bucket with the given
+// storage key and bucket name.
+type DeleteStorageBucketParams struct {
+	Bucket *Bucket `json:"bucket"`
+}
+
+// DeleteStorageBucket deletes the Storage Bucket with the given storage key
+// and bucket name.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#method-deleteStorageBucket
+//
+// parameters:
+//
+//	bucket
+func DeleteStorageBucket(bucket *Bucket) *DeleteStorageBucketParams {
+	return &DeleteStorageBucketParams{
+		Bucket: bucket,
+	}
+}
+
+// Do executes Storage.deleteStorageBucket against the provided context.
+func (p *DeleteStorageBucketParams) Do(ctx context.Context) (err error) {
+	return cdp.Execute(ctx, CommandDeleteStorageBucket, p, nil)
+}
+
+// RunBounceTrackingMitigationsParams deletes state for sites identified as
+// potential bounce trackers, immediately.
+type RunBounceTrackingMitigationsParams struct{}
+
+// RunBounceTrackingMitigations deletes state for sites identified as
+// potential bounce trackers, immediately.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#method-runBounceTrackingMitigations
+func RunBounceTrackingMitigations() *RunBounceTrackingMitigationsParams {
+	return &RunBounceTrackingMitigationsParams{}
+}
+
+// RunBounceTrackingMitigationsReturns return values.
+type RunBounceTrackingMitigationsReturns struct {
+	DeletedSites []string `json:"deletedSites,omitempty"`
+}
+
+// Do executes Storage.runBounceTrackingMitigations against the provided context.
+//
+// returns:
+//
+//	deletedSites
+func (p *RunBounceTrackingMitigationsParams) Do(ctx context.Context) (deletedSites []string, err error) {
+	// execute
+	var res RunBounceTrackingMitigationsReturns
+	err = cdp.Execute(ctx, CommandRunBounceTrackingMitigations, nil, &res)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.DeletedSites, nil
+}
+
+// SetAttributionReportingLocalTestingModeParams
+// https://wicg.github.io/attribution-reporting-api/.
+type SetAttributionReportingLocalTestingModeParams struct {
+	Enabled bool `json:"enabled"` // If enabled, noise is suppressed and reports are sent immediately.
+}
+
+// SetAttributionReportingLocalTestingMode
+// https://wicg.github.io/attribution-reporting-api/.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#method-setAttributionReportingLocalTestingMode
+//
+// parameters:
+//
+//	enabled - If enabled, noise is suppressed and reports are sent immediately.
+func SetAttributionReportingLocalTestingMode(enabled bool) *SetAttributionReportingLocalTestingModeParams {
+	return &SetAttributionReportingLocalTestingModeParams{
+		Enabled: enabled,
+	}
+}
+
+// Do executes Storage.setAttributionReportingLocalTestingMode against the provided context.
+func (p *SetAttributionReportingLocalTestingModeParams) Do(ctx context.Context) (err error) {
+	return cdp.Execute(ctx, CommandSetAttributionReportingLocalTestingMode, p, nil)
+}
+
+// SetAttributionReportingTrackingParams enables/disables issuing of
+// Attribution Reporting events.
+type SetAttributionReportingTrackingParams struct {
+	Enable bool `json:"enable"`
+}
+
+// SetAttributionReportingTracking enables/disables issuing of Attribution
+// Reporting events.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#method-setAttributionReportingTracking
+//
+// parameters:
+//
+//	enable
+func SetAttributionReportingTracking(enable bool) *SetAttributionReportingTrackingParams {
+	return &SetAttributionReportingTrackingParams{
+		Enable: enable,
+	}
+}
+
+// Do executes Storage.setAttributionReportingTracking against the provided context.
+func (p *SetAttributionReportingTrackingParams) Do(ctx context.Context) (err error) {
+	return cdp.Execute(ctx, CommandSetAttributionReportingTracking, p, nil)
+}
+
+// SendPendingAttributionReportsParams sends all pending Attribution Reports
+// immediately, regardless of their scheduled report time.
+type SendPendingAttributionReportsParams struct{}
+
+// SendPendingAttributionReports sends all pending Attribution Reports
+// immediately, regardless of their scheduled report time.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#method-sendPendingAttributionReports
+func SendPendingAttributionReports() *SendPendingAttributionReportsParams {
+	return &SendPendingAttributionReportsParams{}
+}
+
+// SendPendingAttributionReportsReturns return values.
+type SendPendingAttributionReportsReturns struct {
+	NumSent int64 `json:"numSent,omitempty"` // The number of reports that were sent.
+}
+
+// Do executes Storage.sendPendingAttributionReports against the provided context.
+//
+// returns:
+//
+//	numSent - The number of reports that were sent.
+func (p *SendPendingAttributionReportsParams) Do(ctx context.Context) (numSent int64, err error) {
+	// execute
+	var res SendPendingAttributionReportsReturns
+	err = cdp.Execute(ctx, CommandSendPendingAttributionReports, nil, &res)
+	if err != nil {
+		return 0, err
+	}
+
+	return res.NumSent, nil
+}
+
+// GetRelatedWebsiteSetsParams returns the effective Related Website Sets in
+// use by this profile for the browser session. The effective Related Website
+// Sets will not change during a browser session.
+type GetRelatedWebsiteSetsParams struct{}
+
+// GetRelatedWebsiteSets returns the effective Related Website Sets in use by
+// this profile for the browser session. The effective Related Website Sets will
+// not change during a browser session.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#method-getRelatedWebsiteSets
+func GetRelatedWebsiteSets() *GetRelatedWebsiteSetsParams {
+	return &GetRelatedWebsiteSetsParams{}
+}
+
+// GetRelatedWebsiteSetsReturns return values.
+type GetRelatedWebsiteSetsReturns struct {
+	Sets []*RelatedWebsiteSet `json:"sets,omitempty"`
+}
+
+// Do executes Storage.getRelatedWebsiteSets against the provided context.
+//
+// returns:
+//
+//	sets
+func (p *GetRelatedWebsiteSetsParams) Do(ctx context.Context) (sets []*RelatedWebsiteSet, err error) {
+	// execute
+	var res GetRelatedWebsiteSetsReturns
+	err = cdp.Execute(ctx, CommandGetRelatedWebsiteSets, nil, &res)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Sets, nil
+}
+
 // Command names.
 const (
-	CommandGetStorageKeyForFrame            = "Storage.getStorageKeyForFrame"
-	CommandClearDataForOrigin               = "Storage.clearDataForOrigin"
-	CommandClearDataForStorageKey           = "Storage.clearDataForStorageKey"
-	CommandGetCookies                       = "Storage.getCookies"
-	CommandSetCookies                       = "Storage.setCookies"
-	CommandClearCookies                     = "Storage.clearCookies"
-	CommandGetUsageAndQuota                 = "Storage.getUsageAndQuota"
-	CommandOverrideQuotaForOrigin           = "Storage.overrideQuotaForOrigin"
-	CommandTrackCacheStorageForOrigin       = "Storage.trackCacheStorageForOrigin"
-	CommandTrackCacheStorageForStorageKey   = "Storage.trackCacheStorageForStorageKey"
-	CommandTrackIndexedDBForOrigin          = "Storage.trackIndexedDBForOrigin"
-	CommandTrackIndexedDBForStorageKey      = "Storage.trackIndexedDBForStorageKey"
-	CommandUntrackCacheStorageForOrigin     = "Storage.untrackCacheStorageForOrigin"
-	CommandUntrackCacheStorageForStorageKey = "Storage.untrackCacheStorageForStorageKey"
-	CommandUntrackIndexedDBForOrigin        = "Storage.untrackIndexedDBForOrigin"
-	CommandUntrackIndexedDBForStorageKey    = "Storage.untrackIndexedDBForStorageKey"
-	CommandGetTrustTokens                   = "Storage.getTrustTokens"
-	CommandClearTrustTokens                 = "Storage.clearTrustTokens"
-	CommandGetInterestGroupDetails          = "Storage.getInterestGroupDetails"
-	CommandSetInterestGroupTracking         = "Storage.setInterestGroupTracking"
-	CommandGetSharedStorageMetadata         = "Storage.getSharedStorageMetadata"
-	CommandGetSharedStorageEntries          = "Storage.getSharedStorageEntries"
-	CommandSetSharedStorageEntry            = "Storage.setSharedStorageEntry"
-	CommandDeleteSharedStorageEntry         = "Storage.deleteSharedStorageEntry"
-	CommandClearSharedStorageEntries        = "Storage.clearSharedStorageEntries"
-	CommandResetSharedStorageBudget         = "Storage.resetSharedStorageBudget"
-	CommandSetSharedStorageTracking         = "Storage.setSharedStorageTracking"
+	CommandGetStorageKeyForFrame                   = "Storage.getStorageKeyForFrame"
+	CommandClearDataForOrigin                      = "Storage.clearDataForOrigin"
+	CommandClearDataForStorageKey                  = "Storage.clearDataForStorageKey"
+	CommandGetCookies                              = "Storage.getCookies"
+	CommandSetCookies                              = "Storage.setCookies"
+	CommandClearCookies                            = "Storage.clearCookies"
+	CommandGetUsageAndQuota                        = "Storage.getUsageAndQuota"
+	CommandOverrideQuotaForOrigin                  = "Storage.overrideQuotaForOrigin"
+	CommandTrackCacheStorageForOrigin              = "Storage.trackCacheStorageForOrigin"
+	CommandTrackCacheStorageForStorageKey          = "Storage.trackCacheStorageForStorageKey"
+	CommandTrackIndexedDBForOrigin                 = "Storage.trackIndexedDBForOrigin"
+	CommandTrackIndexedDBForStorageKey             = "Storage.trackIndexedDBForStorageKey"
+	CommandUntrackCacheStorageForOrigin            = "Storage.untrackCacheStorageForOrigin"
+	CommandUntrackCacheStorageForStorageKey        = "Storage.untrackCacheStorageForStorageKey"
+	CommandUntrackIndexedDBForOrigin               = "Storage.untrackIndexedDBForOrigin"
+	CommandUntrackIndexedDBForStorageKey           = "Storage.untrackIndexedDBForStorageKey"
+	CommandGetTrustTokens                          = "Storage.getTrustTokens"
+	CommandClearTrustTokens                        = "Storage.clearTrustTokens"
+	CommandGetInterestGroupDetails                 = "Storage.getInterestGroupDetails"
+	CommandSetInterestGroupTracking                = "Storage.setInterestGroupTracking"
+	CommandSetInterestGroupAuctionTracking         = "Storage.setInterestGroupAuctionTracking"
+	CommandGetSharedStorageMetadata                = "Storage.getSharedStorageMetadata"
+	CommandGetSharedStorageEntries                 = "Storage.getSharedStorageEntries"
+	CommandSetSharedStorageEntry                   = "Storage.setSharedStorageEntry"
+	CommandDeleteSharedStorageEntry                = "Storage.deleteSharedStorageEntry"
+	CommandClearSharedStorageEntries               = "Storage.clearSharedStorageEntries"
+	CommandResetSharedStorageBudget                = "Storage.resetSharedStorageBudget"
+	CommandSetSharedStorageTracking                = "Storage.setSharedStorageTracking"
+	CommandSetStorageBucketTracking                = "Storage.setStorageBucketTracking"
+	CommandDeleteStorageBucket                     = "Storage.deleteStorageBucket"
+	CommandRunBounceTrackingMitigations            = "Storage.runBounceTrackingMitigations"
+	CommandSetAttributionReportingLocalTestingMode = "Storage.setAttributionReportingLocalTestingMode"
+	CommandSetAttributionReportingTracking         = "Storage.setAttributionReportingTracking"
+	CommandSendPendingAttributionReports           = "Storage.sendPendingAttributionReports"
+	CommandGetRelatedWebsiteSets                   = "Storage.getRelatedWebsiteSets"
 )

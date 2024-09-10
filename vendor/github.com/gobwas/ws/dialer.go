@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -86,6 +87,13 @@ type Dialer struct {
 	// land.
 	Header HandshakeHeader
 
+	// Host is an optional string that could be used to specify the host during
+	// HTTP upgrade request by setting 'Host' header.
+	//
+	// Default value is an empty string, which results in setting 'Host' header
+	// equal to the URL hostname given to Dialer.Dial().
+	Host string
+
 	// OnStatusError is the callback that will be called after receiving non
 	// "101 Continue" HTTP response status. It receives an io.Reader object
 	// representing server response bytes. That is, it gives ability to parse
@@ -145,7 +153,7 @@ type Dialer struct {
 func (d Dialer) Dial(ctx context.Context, urlstr string) (conn net.Conn, br *bufio.Reader, hs Handshake, err error) {
 	u, err := url.ParseRequestURI(urlstr)
 	if err != nil {
-		return
+		return nil, nil, hs, err
 	}
 
 	// Prepare context to dial with. Initially it is the same as original, but
@@ -163,7 +171,7 @@ func (d Dialer) Dial(ctx context.Context, urlstr string) (conn net.Conn, br *buf
 		}
 	}
 	if conn, err = d.dial(dialctx, u); err != nil {
-		return
+		return conn, nil, hs, err
 	}
 	defer func() {
 		if err != nil {
@@ -189,7 +197,7 @@ func (d Dialer) Dial(ctx context.Context, urlstr string) (conn net.Conn, br *buf
 
 	br, hs, err = d.Upgrade(conn, u)
 
-	return
+	return conn, br, hs, err
 }
 
 var (
@@ -204,7 +212,7 @@ func tlsDefaultConfig() *tls.Config {
 	return &tlsEmptyConfig
 }
 
-func hostport(host string, defaultPort string) (hostname, addr string) {
+func hostport(host, defaultPort string) (hostname, addr string) {
 	var (
 		colon   = strings.LastIndexByte(host, ':')
 		bracket = strings.IndexByte(host, ']')
@@ -228,7 +236,7 @@ func (d Dialer) dial(ctx context.Context, u *url.URL) (conn net.Conn, err error)
 		hostname, addr := hostport(u.Host, ":443")
 		conn, err = dial(ctx, "tcp", addr)
 		if err != nil {
-			return
+			return nil, err
 		}
 		tlsClient := d.TLSClient
 		if tlsClient == nil {
@@ -241,7 +249,7 @@ func (d Dialer) dial(ctx context.Context, u *url.URL) (conn net.Conn, err error)
 	if wrap := d.WrapConn; wrap != nil {
 		conn = wrap(conn)
 	}
-	return
+	return conn, err
 }
 
 func (d Dialer) tlsClient(conn net.Conn, hostname string) net.Conn {
@@ -309,30 +317,30 @@ func (d Dialer) Upgrade(conn io.ReadWriter, u *url.URL) (br *bufio.Reader, hs Ha
 	nonce := make([]byte, nonceSize)
 	initNonce(nonce)
 
-	httpWriteUpgradeRequest(bw, u, nonce, d.Protocols, d.Extensions, d.Header)
-	if err = bw.Flush(); err != nil {
-		return
+	httpWriteUpgradeRequest(bw, u, nonce, d.Protocols, d.Extensions, d.Header, d.Host)
+	if err := bw.Flush(); err != nil {
+		return br, hs, err
 	}
 
 	// Read HTTP status line like "HTTP/1.1 101 Switching Protocols".
 	sl, err := readLine(br)
 	if err != nil {
-		return
+		return br, hs, err
 	}
 	// Begin validation of the response.
 	// See https://tools.ietf.org/html/rfc6455#section-4.2.2
 	// Parse request line data like HTTP version, uri and method.
 	resp, err := httpParseResponseLine(sl)
 	if err != nil {
-		return
+		return br, hs, err
 	}
 	// Even if RFC says "1.1 or higher" without mentioning the part of the
 	// version, we apply it only to minor part.
 	if resp.major != 1 || resp.minor < 1 {
 		err = ErrHandshakeBadProtocol
-		return
+		return br, hs, err
 	}
-	if resp.status != 101 {
+	if resp.status != http.StatusSwitchingProtocols {
 		err = StatusError(resp.status)
 		if onStatusError := d.OnStatusError; onStatusError != nil {
 			// Invoke callback with multireader of status-line bytes br.
@@ -344,7 +352,7 @@ func (d Dialer) Upgrade(conn io.ReadWriter, u *url.URL) (br *bufio.Reader, hs Ha
 				),
 			)
 		}
-		return
+		return br, hs, err
 	}
 	// If response status is 101 then we expect all technical headers to be
 	// valid. If not, then we stop processing response without giving user
@@ -355,7 +363,7 @@ func (d Dialer) Upgrade(conn io.ReadWriter, u *url.URL) (br *bufio.Reader, hs Ha
 		line, e := readLine(br)
 		if e != nil {
 			err = e
-			return
+			return br, hs, err
 		}
 		if len(line) == 0 {
 			// Blank line, no more lines to read.
@@ -365,7 +373,7 @@ func (d Dialer) Upgrade(conn io.ReadWriter, u *url.URL) (br *bufio.Reader, hs Ha
 		k, v, ok := httpParseHeaderLine(line)
 		if !ok {
 			err = ErrMalformedResponse
-			return
+			return br, hs, err
 		}
 
 		switch btsToString(k) {
@@ -373,7 +381,7 @@ func (d Dialer) Upgrade(conn io.ReadWriter, u *url.URL) (br *bufio.Reader, hs Ha
 			headerSeen |= headerSeenUpgrade
 			if !bytes.Equal(v, specHeaderValueUpgrade) && !bytes.EqualFold(v, specHeaderValueUpgrade) {
 				err = ErrHandshakeBadUpgrade
-				return
+				return br, hs, err
 			}
 
 		case headerConnectionCanonical:
@@ -384,14 +392,14 @@ func (d Dialer) Upgrade(conn io.ReadWriter, u *url.URL) (br *bufio.Reader, hs Ha
 			// multiple token. But in response it must contains exactly one.
 			if !bytes.Equal(v, specHeaderValueConnection) && !bytes.EqualFold(v, specHeaderValueConnection) {
 				err = ErrHandshakeBadConnection
-				return
+				return br, hs, err
 			}
 
 		case headerSecAcceptCanonical:
 			headerSeen |= headerSeenSecAccept
 			if !checkAcceptFromNonce(v, nonce) {
 				err = ErrHandshakeBadSecAccept
-				return
+				return br, hs, err
 			}
 
 		case headerSecProtocolCanonical:
@@ -409,20 +417,20 @@ func (d Dialer) Upgrade(conn io.ReadWriter, u *url.URL) (br *bufio.Reader, hs Ha
 				// Server echoed subprotocol that is not present in client
 				// requested protocols.
 				err = ErrHandshakeBadSubProtocol
-				return
+				return br, hs, err
 			}
 
 		case headerSecExtensionsCanonical:
 			hs.Extensions, err = matchSelectedExtensions(v, d.Extensions, hs.Extensions)
 			if err != nil {
-				return
+				return br, hs, err
 			}
 
 		default:
 			if onHeader := d.OnHeader; onHeader != nil {
 				if e := onHeader(k, v); e != nil {
 					err = e
-					return
+					return br, hs, err
 				}
 			}
 		}
@@ -439,7 +447,7 @@ func (d Dialer) Upgrade(conn io.ReadWriter, u *url.URL) (br *bufio.Reader, hs Ha
 			panic("unknown headers state")
 		}
 	}
-	return
+	return br, hs, err
 }
 
 // PutReader returns bufio.Reader instance to the inner reuse pool.
@@ -484,8 +492,10 @@ func matchSelectedExtensions(selected []byte, wanted, received []httphead.Option
 			if bytes.Equal(option.Name, want.Name) {
 				// Check parsed extension to be present in client
 				// requested extensions. We move matched extension
-				// from client list to avoid allocation.
-				received = append(received, option)
+				// from client list to avoid allocation of httphead.Option.Name,
+				// httphead.Option.Parameters have to be copied from the header
+				want.Parameters, _ = option.Parameters.Copy(make([]byte, option.Parameters.Size()))
+				received = append(received, want)
 				return true
 			}
 		}
