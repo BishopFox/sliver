@@ -1,0 +1,67 @@
+name: Build Sliver
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.23'
+
+      - name: Install dependencies
+        run: |
+          go mod tidy
+          go mod vendor
+
+      - name: Build server and client for Linux amd64
+        run: |
+          make linux-amd64
+
+      - name: Build server and client for macOS amd64
+        run: |
+          make macos-amd64
+
+      - name: Build server and client for Windows amd64
+        run: |
+          make windows-amd64
+
+      - name: Upload Linux amd64 build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: linux-amd64
+          path: |
+            sliver-client
+            sliver-server
+
+      - name: Upload macOS amd64 build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: macos-amd64
+          path: |
+            sliver-client_macos-amd64
+            sliver-server_macos-amd64
+
+      - name: Upload Windows amd64 build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: windows-amd64
+          path: |
+            sliver-client_windows-amd64.exe
+            sliver-server_windows-amd64.exe
+
+      - name: Clean up
+        run: |
+          make clean
