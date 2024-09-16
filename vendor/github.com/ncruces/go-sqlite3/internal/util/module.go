@@ -14,7 +14,7 @@ type moduleState struct {
 
 func NewContext(ctx context.Context) context.Context {
 	state := new(moduleState)
-	ctx = withMmappedAllocator(ctx)
+	ctx = withAllocator(ctx)
 	ctx = experimental.WithCloseNotifier(ctx, state)
 	ctx = context.WithValue(ctx, moduleKey{}, state)
 	return ctx

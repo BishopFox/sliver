@@ -69,6 +69,7 @@ func (vfsOS) Access(name string, flags AccessFlag) (bool, error) {
 }
 
 func (vfsOS) Open(name string, flags OpenFlag) (File, OpenFlag, error) {
+	// notest // OpenFilename is called instead
 	return nil, 0, _CANTOPEN
 }
 
@@ -95,6 +96,9 @@ func (vfsOS) OpenFilename(name *Filename, flags OpenFlag) (File, OpenFlag, error
 		f, err = osutil.OpenFile(name.String(), oflags, 0666)
 	}
 	if err != nil {
+		if name == nil {
+			return nil, flags, _IOERR_GETTEMPPATH
+		}
 		if errors.Is(err, syscall.EISDIR) {
 			return nil, flags, _CANTOPEN_ISDIR
 		}

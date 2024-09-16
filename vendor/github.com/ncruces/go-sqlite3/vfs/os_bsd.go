@@ -29,5 +29,12 @@ func osReadLock(file *os.File, _ /*start*/, _ /*len*/ int64, _ /*timeout*/ time.
 }
 
 func osWriteLock(file *os.File, _ /*start*/, _ /*len*/ int64, _ /*timeout*/ time.Duration) _ErrorCode {
-	return osLock(file, unix.LOCK_EX|unix.LOCK_NB, _IOERR_LOCK)
+	rc := osLock(file, unix.LOCK_EX|unix.LOCK_NB, _IOERR_LOCK)
+	if rc == _BUSY {
+		// The documentation states the lock is upgraded by releasing the previous lock,
+		// then acquiring the new lock.
+		// This is a race, so return BUSY_SNAPSHOT to ensure the transaction is aborted.
+		return _BUSY_SNAPSHOT
+	}
+	return rc
 }

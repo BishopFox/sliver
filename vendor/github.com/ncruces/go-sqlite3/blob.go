@@ -21,6 +21,8 @@ type Blob struct {
 	bytes  int64
 	offset int64
 	handle uint32
+	bufptr uint32
+	buflen int64
 }
 
 var _ io.ReadWriteSeeker = &Blob{}
@@ -66,7 +68,7 @@ func (b *Blob) Close() error {
 	}
 
 	r := b.c.call("sqlite3_blob_close", uint64(b.handle))
-
+	b.c.free(b.bufptr)
 	b.handle = 0
 	return b.c.error(r)
 }
@@ -86,17 +88,18 @@ func (b *Blob) Read(p []byte) (n int, err error) {
 		return 0, io.EOF
 	}
 
-	avail := b.bytes - b.offset
 	want := int64(len(p))
+	avail := b.bytes - b.offset
 	if want > avail {
 		want = avail
 	}
-
-	defer b.c.arena.mark()()
-	ptr := b.c.arena.new(uint64(want))
+	if want > b.buflen {
+		b.bufptr = b.c.realloc(b.bufptr, uint64(want))
+		b.buflen = want
+	}
 
 	r := b.c.call("sqlite3_blob_read", uint64(b.handle),
-		uint64(ptr), uint64(want), uint64(b.offset))
+		uint64(b.bufptr), uint64(want), uint64(b.offset))
 	err = b.c.error(r)
 	if err != nil {
 		return 0, err
@@ -106,7 +109,7 @@ func (b *Blob) Read(p []byte) (n int, err error) {
 		err = io.EOF
 	}
 
-	copy(p, util.View(b.c.mod, ptr, uint64(want)))
+	copy(p, util.View(b.c.mod, b.bufptr, uint64(want)))
 	return int(want), err
 }
 
@@ -123,19 +126,20 @@ func (b *Blob) WriteTo(w io.Writer) (n int64, err error) {
 	if want > avail {
 		want = avail
 	}
-
-	defer b.c.arena.mark()()
-	ptr := b.c.arena.new(uint64(want))
+	if want > b.buflen {
+		b.bufptr = b.c.realloc(b.bufptr, uint64(want))
+		b.buflen = want
+	}
 
 	for want > 0 {
 		r := b.c.call("sqlite3_blob_read", uint64(b.handle),
-			uint64(ptr), uint64(want), uint64(b.offset))
+			uint64(b.bufptr), uint64(want), uint64(b.offset))
 		err = b.c.error(r)
 		if err != nil {
 			return n, err
 		}
 
-		mem := util.View(b.c.mod, ptr, uint64(want))
+		mem := util.View(b.c.mod, b.bufptr, uint64(want))
 		m, err := w.Write(mem[:want])
 		b.offset += int64(m)
 		n += int64(m)
@@ -143,6 +147,7 @@ func (b *Blob) WriteTo(w io.Writer) (n int64, err error) {
 			return n, err
 		}
 		if int64(m) != want {
+			// notest // Write misbehaving
 			return n, io.ErrShortWrite
 		}
 
@@ -158,11 +163,15 @@ func (b *Blob) WriteTo(w io.Writer) (n int64, err error) {
 //
 // https://sqlite.org/c3ref/blob_write.html
 func (b *Blob) Write(p []byte) (n int, err error) {
-	defer b.c.arena.mark()()
-	ptr := b.c.arena.bytes(p)
+	want := int64(len(p))
+	if want > b.buflen {
+		b.bufptr = b.c.realloc(b.bufptr, uint64(want))
+		b.buflen = want
+	}
+	util.WriteBytes(b.c.mod, b.bufptr, p)
 
 	r := b.c.call("sqlite3_blob_write", uint64(b.handle),
-		uint64(ptr), uint64(len(p)), uint64(b.offset))
+		uint64(b.bufptr), uint64(want), uint64(b.offset))
 	err = b.c.error(r)
 	if err != nil {
 		return 0, err
@@ -186,16 +195,17 @@ func (b *Blob) ReadFrom(r io.Reader) (n int64, err error) {
 	if want < 1 {
 		want = 1
 	}
-
-	defer b.c.arena.mark()()
-	ptr := b.c.arena.new(uint64(want))
+	if want > b.buflen {
+		b.bufptr = b.c.realloc(b.bufptr, uint64(want))
+		b.buflen = want
+	}
 
 	for {
-		mem := util.View(b.c.mod, ptr, uint64(want))
+		mem := util.View(b.c.mod, b.bufptr, uint64(want))
 		m, err := r.Read(mem[:want])
 		if m > 0 {
 			r := b.c.call("sqlite3_blob_write", uint64(b.handle),
-				uint64(ptr), uint64(m), uint64(b.offset))
+				uint64(b.bufptr), uint64(m), uint64(b.offset))
 			err := b.c.error(r)
 			if err != nil {
 				return n, err

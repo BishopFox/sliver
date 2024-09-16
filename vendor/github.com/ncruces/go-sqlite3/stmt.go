@@ -15,6 +15,7 @@ import (
 type Stmt struct {
 	c      *Conn
 	err    error
+	sql    string
 	handle uint32
 }
 
@@ -29,6 +30,15 @@ func (s *Stmt) Close() error {
 	}
 
 	r := s.c.call("sqlite3_finalize", uint64(s.handle))
+	for i := range s.c.stmts {
+		if s == s.c.stmts[i] {
+			l := len(s.c.stmts) - 1
+			s.c.stmts[i] = s.c.stmts[l]
+			s.c.stmts[l] = nil
+			s.c.stmts = s.c.stmts[:l]
+			break
+		}
+	}
 
 	s.handle = 0
 	return s.c.error(r)
@@ -39,6 +49,24 @@ func (s *Stmt) Close() error {
 // https://sqlite.org/c3ref/db_handle.html
 func (s *Stmt) Conn() *Conn {
 	return s.c
+}
+
+// SQL returns the SQL text used to create the prepared statement.
+//
+// https://sqlite.org/c3ref/expanded_sql.html
+func (s *Stmt) SQL() string {
+	return s.sql
+}
+
+// ExpandedSQL returns the SQL text of the prepared statement
+// with bound parameters expanded.
+//
+// https://sqlite.org/c3ref/expanded_sql.html
+func (s *Stmt) ExpandedSQL() string {
+	r := s.c.call("sqlite3_expanded_sql", uint64(s.handle))
+	sql := util.ReadString(s.c.mod, uint32(r), _MAX_SQL_LENGTH)
+	s.c.free(uint32(r))
+	return sql
 }
 
 // ReadOnly returns true if and only if the statement
@@ -218,10 +246,9 @@ func (s *Stmt) BindText(param int, value string) error {
 		return TOOBIG
 	}
 	ptr := s.c.newString(value)
-	r := s.c.call("sqlite3_bind_text64",
+	r := s.c.call("sqlite3_bind_text_go",
 		uint64(s.handle), uint64(param),
-		uint64(ptr), uint64(len(value)),
-		uint64(s.c.freer), _UTF8)
+		uint64(ptr), uint64(len(value)))
 	return s.c.error(r)
 }
 
@@ -234,10 +261,9 @@ func (s *Stmt) BindRawText(param int, value []byte) error {
 		return TOOBIG
 	}
 	ptr := s.c.newBytes(value)
-	r := s.c.call("sqlite3_bind_text64",
+	r := s.c.call("sqlite3_bind_text_go",
 		uint64(s.handle), uint64(param),
-		uint64(ptr), uint64(len(value)),
-		uint64(s.c.freer), _UTF8)
+		uint64(ptr), uint64(len(value)))
 	return s.c.error(r)
 }
 
@@ -251,10 +277,9 @@ func (s *Stmt) BindBlob(param int, value []byte) error {
 		return TOOBIG
 	}
 	ptr := s.c.newBytes(value)
-	r := s.c.call("sqlite3_bind_blob64",
+	r := s.c.call("sqlite3_bind_blob_go",
 		uint64(s.handle), uint64(param),
-		uint64(ptr), uint64(len(value)),
-		uint64(s.c.freer))
+		uint64(ptr), uint64(len(value)))
 	return s.c.error(r)
 }
 
@@ -283,7 +308,8 @@ func (s *Stmt) BindNull(param int) error {
 //
 // https://sqlite.org/c3ref/bind_blob.html
 func (s *Stmt) BindTime(param int, value time.Time, format TimeFormat) error {
-	if format == TimeFormatDefault {
+	switch format {
+	case TimeFormatDefault, TimeFormatAuto, time.RFC3339Nano:
 		return s.bindRFC3339Nano(param, value)
 	}
 	switch v := format.Encode(value).(type) {
@@ -306,10 +332,9 @@ func (s *Stmt) bindRFC3339Nano(param int, value time.Time) error {
 	buf := util.View(s.c.mod, ptr, maxlen)
 	buf = value.AppendFormat(buf[:0], time.RFC3339Nano)
 
-	r := s.c.call("sqlite3_bind_text64",
+	r := s.c.call("sqlite3_bind_text_go",
 		uint64(s.handle), uint64(param),
-		uint64(ptr), uint64(len(buf)),
-		uint64(s.c.freer), _UTF8)
+		uint64(ptr), uint64(len(buf)))
 	return s.c.error(r)
 }
 
@@ -367,12 +392,10 @@ func (s *Stmt) ColumnCount() int {
 func (s *Stmt) ColumnName(col int) string {
 	r := s.c.call("sqlite3_column_name",
 		uint64(s.handle), uint64(col))
-
-	ptr := uint32(r)
-	if ptr == 0 {
+	if r == 0 {
 		panic(util.OOMErr)
 	}
-	return util.ReadString(s.c.mod, ptr, _MAX_NAME)
+	return util.ReadString(s.c.mod, uint32(r), _MAX_NAME)
 }
 
 // ColumnType returns the initial [Datatype] of the result column.
@@ -398,15 +421,57 @@ func (s *Stmt) ColumnDeclType(col int) string {
 	return util.ReadString(s.c.mod, uint32(r), _MAX_NAME)
 }
 
+// ColumnDatabaseName returns the name of the database
+// that is the origin of a particular result column.
+// The leftmost column of the result set has the index 0.
+//
+// https://sqlite.org/c3ref/column_database_name.html
+func (s *Stmt) ColumnDatabaseName(col int) string {
+	r := s.c.call("sqlite3_column_database_name",
+		uint64(s.handle), uint64(col))
+	if r == 0 {
+		return ""
+	}
+	return util.ReadString(s.c.mod, uint32(r), _MAX_NAME)
+}
+
+// ColumnTableName returns the name of the table
+// that is the origin of a particular result column.
+// The leftmost column of the result set has the index 0.
+//
+// https://sqlite.org/c3ref/column_database_name.html
+func (s *Stmt) ColumnTableName(col int) string {
+	r := s.c.call("sqlite3_column_table_name",
+		uint64(s.handle), uint64(col))
+	if r == 0 {
+		return ""
+	}
+	return util.ReadString(s.c.mod, uint32(r), _MAX_NAME)
+}
+
+// ColumnOriginName returns the name of the table column
+// that is the origin of a particular result column.
+// The leftmost column of the result set has the index 0.
+//
+// https://sqlite.org/c3ref/column_database_name.html
+func (s *Stmt) ColumnOriginName(col int) string {
+	r := s.c.call("sqlite3_column_origin_name",
+		uint64(s.handle), uint64(col))
+	if r == 0 {
+		return ""
+	}
+	return util.ReadString(s.c.mod, uint32(r), _MAX_NAME)
+}
+
 // ColumnBool returns the value of the result column as a bool.
 // The leftmost column of the result set has the index 0.
 // SQLite does not have a separate boolean storage class.
-// Instead, boolean values are retrieved as integers,
+// Instead, boolean values are retrieved as numbers,
 // with 0 converted to false and any other value to true.
 //
 // https://sqlite.org/c3ref/column_blob.html
 func (s *Stmt) ColumnBool(col int) bool {
-	return s.ColumnInt64(col) != 0
+	return s.ColumnFloat(col) != 0
 }
 
 // ColumnInt returns the value of the result column as an int.
@@ -524,7 +589,7 @@ func (s *Stmt) ColumnJSON(col int, ptr any) error {
 	var data []byte
 	switch s.ColumnType(col) {
 	case NULL:
-		data = append(data, "null"...)
+		data = []byte("null")
 	case TEXT:
 		data = s.ColumnRawText(col)
 	case BLOB:
