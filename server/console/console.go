@@ -123,7 +123,7 @@ remote machines to connect to the Sliver server. They are most commonly
 used for allowing remote operators to connect in "Multiplayer Mode."
 
 To generate a profile for a remote operator, you need to specify the
-the "all" permission to grant the profile access to all gRPC APIs:
+"all" permission to grant the profile access to all gRPC APIs:
 
 new-operator --name <operator name> --lhost <sliver server> --permissions all
 
