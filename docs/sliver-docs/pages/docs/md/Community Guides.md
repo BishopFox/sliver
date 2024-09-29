@@ -38,6 +38,7 @@
 
 ### Detection & Analysis
 
+- https://medium.com/@unsec.monitor/how-to-use-zeek-detect-sliver-http-beacon-traffic-f05b214c4056
 - https://www.immersivelabs.com/blog/detecting-and-decrypting-sliver-c2-a-threat-hunters-guide/
 - https://blogs.vmware.com/security/2023/01/detection-of-lateral-movement-with-the-sliver-c2-framework.html
 - https://michaelkoczwara.medium.com/sliver-c2-implant-analysis-62773928097f
