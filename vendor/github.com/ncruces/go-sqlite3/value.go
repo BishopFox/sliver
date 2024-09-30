@@ -68,12 +68,12 @@ func (v Value) NumericType() Datatype {
 
 // Bool returns the value as a bool.
 // SQLite does not have a separate boolean storage class.
-// Instead, boolean values are retrieved as integers,
+// Instead, boolean values are retrieved as numbers,
 // with 0 converted to false and any other value to true.
 //
 // https://sqlite.org/c3ref/value_blob.html
 func (v Value) Bool() bool {
-	return v.Int64() != 0
+	return v.Float() != 0
 }
 
 // Int returns the value as an int.
@@ -177,7 +177,7 @@ func (v Value) JSON(ptr any) error {
 	var data []byte
 	switch v.Type() {
 	case NULL:
-		data = append(data, "null"...)
+		data = []byte("null")
 	case TEXT:
 		data = v.RawText()
 	case BLOB:
@@ -198,6 +198,14 @@ func (v Value) JSON(ptr any) error {
 // https://sqlite.org/c3ref/value_blob.html
 func (v Value) NoChange() bool {
 	r := v.c.call("sqlite3_value_nochange", v.protected())
+	return r != 0
+}
+
+// FromBind returns true if value originated from a bound parameter.
+//
+// https://sqlite.org/c3ref/value_blob.html
+func (v Value) FromBind() bool {
+	r := v.c.call("sqlite3_value_frombind", v.protected())
 	return r != 0
 }
 

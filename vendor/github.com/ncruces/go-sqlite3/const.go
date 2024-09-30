@@ -7,13 +7,10 @@ const (
 	_ROW  = 100 /* sqlite3_step() has another row ready */
 	_DONE = 101 /* sqlite3_step() has finished executing */
 
-	_UTF8 = 1
-
-	_MAX_NAME            = 1e6 // Self-imposed limit for most NUL terminated strings.
-	_MAX_LENGTH          = 1e9
-	_MAX_SQL_LENGTH      = 1e9
-	_MAX_ALLOCATION_SIZE = 0x7ffffeff
-	_MAX_FUNCTION_ARG    = 100
+	_MAX_NAME         = 1e6 // Self-imposed limit for most NUL terminated strings.
+	_MAX_LENGTH       = 1e9
+	_MAX_SQL_LENGTH   = 1e9
+	_MAX_FUNCTION_ARG = 100
 
 	ptrlen = 4
 )
@@ -109,7 +106,7 @@ const (
 	CANTOPEN_ISDIR          ExtendedErrorCode = xErrorCode(CANTOPEN) | (2 << 8)
 	CANTOPEN_FULLPATH       ExtendedErrorCode = xErrorCode(CANTOPEN) | (3 << 8)
 	CANTOPEN_CONVPATH       ExtendedErrorCode = xErrorCode(CANTOPEN) | (4 << 8)
-	CANTOPEN_DIRTYWAL       ExtendedErrorCode = xErrorCode(CANTOPEN) | (5 << 8) /* Not Used */
+	// CANTOPEN_DIRTYWAL    ExtendedErrorCode = xErrorCode(CANTOPEN) | (5 << 8) /* Not Used */
 	CANTOPEN_SYMLINK        ExtendedErrorCode = xErrorCode(CANTOPEN) | (6 << 8)
 	CORRUPT_VTAB            ExtendedErrorCode = xErrorCode(CORRUPT) | (1 << 8)
 	CORRUPT_SEQUENCE        ExtendedErrorCode = xErrorCode(CORRUPT) | (2 << 8)
@@ -177,11 +174,11 @@ const (
 type FunctionFlag uint32
 
 const (
-	DETERMINISTIC  FunctionFlag = 0x000000800
-	DIRECTONLY     FunctionFlag = 0x000080000
-	SUBTYPE        FunctionFlag = 0x000100000
-	INNOCUOUS      FunctionFlag = 0x000200000
-	RESULT_SUBTYPE FunctionFlag = 0x001000000
+	DETERMINISTIC FunctionFlag = 0x000000800
+	DIRECTONLY    FunctionFlag = 0x000080000
+	INNOCUOUS     FunctionFlag = 0x000200000
+	// SUBTYPE        FunctionFlag = 0x000100000
+	// RESULT_SUBTYPE FunctionFlag = 0x001000000
 )
 
 // StmtStatus name counter values associated with the [Stmt.Status] method.
@@ -199,6 +196,27 @@ const (
 	STMTSTATUS_FILTER_MISS   StmtStatus = 7
 	STMTSTATUS_FILTER_HIT    StmtStatus = 8
 	STMTSTATUS_MEMUSED       StmtStatus = 99
+)
+
+// DBStatus are the available "verbs" that can be passed to the [Conn.Status] method.
+//
+// https://sqlite.org/c3ref/c_dbstatus_options.html
+type DBStatus uint32
+
+const (
+	DBSTATUS_LOOKASIDE_USED      DBStatus = 0
+	DBSTATUS_CACHE_USED          DBStatus = 1
+	DBSTATUS_SCHEMA_USED         DBStatus = 2
+	DBSTATUS_STMT_USED           DBStatus = 3
+	DBSTATUS_LOOKASIDE_HIT       DBStatus = 4
+	DBSTATUS_LOOKASIDE_MISS_SIZE DBStatus = 5
+	DBSTATUS_LOOKASIDE_MISS_FULL DBStatus = 6
+	DBSTATUS_CACHE_HIT           DBStatus = 7
+	DBSTATUS_CACHE_MISS          DBStatus = 8
+	DBSTATUS_CACHE_WRITE         DBStatus = 9
+	DBSTATUS_DEFERRED_FKS        DBStatus = 10
+	DBSTATUS_CACHE_USED_SHARED   DBStatus = 11
+	DBSTATUS_CACHE_SPILL         DBStatus = 12
 )
 
 // DBConfig are the available database connection configuration options.
@@ -227,6 +245,24 @@ const (
 	DBCONFIG_TRUSTED_SCHEMA        DBConfig = 1017
 	DBCONFIG_STMT_SCANSTATUS       DBConfig = 1018
 	DBCONFIG_REVERSE_SCANORDER     DBConfig = 1019
+)
+
+// FcntlOpcode are the available opcodes for [Conn.FileControl].
+//
+// https://sqlite.org/c3ref/c_fcntl_begin_atomic_write.html
+type FcntlOpcode uint32
+
+const (
+	FCNTL_LOCKSTATE           FcntlOpcode = 1
+	FCNTL_CHUNK_SIZE          FcntlOpcode = 6
+	FCNTL_FILE_POINTER        FcntlOpcode = 7
+	FCNTL_PERSIST_WAL         FcntlOpcode = 10
+	FCNTL_POWERSAFE_OVERWRITE FcntlOpcode = 13
+	FCNTL_VFS_POINTER         FcntlOpcode = 27
+	FCNTL_JOURNAL_POINTER     FcntlOpcode = 28
+	FCNTL_DATA_VERSION        FcntlOpcode = 35
+	FCNTL_RESERVE_BYTES       FcntlOpcode = 38
+	FCNTL_RESET_CACHE         FcntlOpcode = 42
 )
 
 // LimitCategory are the available run-time limit categories.
@@ -289,8 +325,8 @@ const (
 	AUTH_DROP_VTABLE         AuthorizerActionCode = 30 /* Table Name      Module Name     */
 	AUTH_FUNCTION            AuthorizerActionCode = 31 /* NULL            Function Name   */
 	AUTH_SAVEPOINT           AuthorizerActionCode = 32 /* Operation       Savepoint Name  */
-	AUTH_COPY                AuthorizerActionCode = 0  /* No longer used */
 	AUTH_RECURSIVE           AuthorizerActionCode = 33 /* NULL            NULL            */
+	// AUTH_COPY             AuthorizerActionCode = 0  /* No longer used */
 )
 
 // AuthorizerReturnCode are the integer codes
@@ -326,6 +362,18 @@ const (
 	TXN_NONE  TxnState = 0
 	TXN_READ  TxnState = 1
 	TXN_WRITE TxnState = 2
+)
+
+// TraceEvent identify classes of events that can be monitored with [Conn.Trace].
+//
+// https://sqlite.org/c3ref/c_trace.html
+type TraceEvent uint32
+
+const (
+	TRACE_STMT    TraceEvent = 0x01
+	TRACE_PROFILE TraceEvent = 0x02
+	TRACE_ROW     TraceEvent = 0x04
+	TRACE_CLOSE   TraceEvent = 0x08
 )
 
 // Datatype is a fundamental datatype of SQLite.

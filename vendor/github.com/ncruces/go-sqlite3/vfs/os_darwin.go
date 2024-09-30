@@ -1,10 +1,11 @@
-//go:build !sqlite3_flock && !sqlite3_nosys
+//go:build !(sqlite3_flock || sqlite3_nosys)
 
 package vfs
 
 import (
 	"io"
 	"os"
+	"runtime"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -68,7 +69,7 @@ func osUnlock(file *os.File, start, len int64) _ErrorCode {
 }
 
 func osLock(file *os.File, typ int16, start, len int64, timeout time.Duration, def _ErrorCode) _ErrorCode {
-	lock := flocktimeout_t{fl: unix.Flock_t{
+	lock := &flocktimeout_t{fl: unix.Flock_t{
 		Type:  typ,
 		Start: start,
 		Len:   len,
@@ -82,6 +83,7 @@ func osLock(file *os.File, typ int16, start, len int64, timeout time.Duration, d
 	default:
 		lock.timeout = unix.NsecToTimespec(int64(timeout / time.Nanosecond))
 		err = unix.FcntlFlock(file.Fd(), _F_OFD_SETLKWTIMEOUT, &lock.fl)
+		runtime.KeepAlive(lock)
 	}
 	return osLockErrorCode(err, def)
 }

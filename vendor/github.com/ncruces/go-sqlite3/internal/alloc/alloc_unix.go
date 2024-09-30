@@ -1,6 +1,6 @@
-//go:build unix
+//go:build unix && !sqlite3_nosys
 
-package util
+package alloc
 
 import (
 	"math"
@@ -9,30 +9,24 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func mmappedAllocator(cap, max uint64) experimental.LinearMemory {
+func Virtual(_, max uint64) experimental.LinearMemory {
 	// Round up to the page size.
 	rnd := uint64(unix.Getpagesize() - 1)
 	max = (max + rnd) &^ rnd
-	cap = (cap + rnd) &^ rnd
 
 	if max > math.MaxInt {
 		// This ensures int(max) overflows to a negative value,
 		// and unix.Mmap returns EINVAL.
 		max = math.MaxUint64
 	}
+
 	// Reserve max bytes of address space, to ensure we won't need to move it.
 	// A protected, private, anonymous mapping should not commit memory.
 	b, err := unix.Mmap(-1, 0, int(max), unix.PROT_NONE, unix.MAP_PRIVATE|unix.MAP_ANON)
 	if err != nil {
 		panic(err)
 	}
-	// Commit the initial cap bytes of memory.
-	err = unix.Mprotect(b[:cap], unix.PROT_READ|unix.PROT_WRITE)
-	if err != nil {
-		unix.Munmap(b)
-		panic(err)
-	}
-	return &mmappedMemory{buf: b[:cap]}
+	return &mmappedMemory{buf: b[:0]}
 }
 
 // The slice covers the entire mmapped memory:
@@ -43,7 +37,9 @@ type mmappedMemory struct {
 }
 
 func (m *mmappedMemory) Reallocate(size uint64) []byte {
-	if com := uint64(len(m.buf)); com < size {
+	com := uint64(len(m.buf))
+	res := uint64(cap(m.buf))
+	if com < size && size <= res {
 		// Round up to the page size.
 		rnd := uint64(unix.Getpagesize() - 1)
 		new := (size + rnd) &^ rnd
