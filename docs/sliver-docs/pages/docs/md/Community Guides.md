@@ -15,7 +15,7 @@
 ### Blogs
 
 - https://bishopfox.com/blog/passing-the-osep-exam-using-sliver
-- https://notateamserver.xyz/sliver-101/
+- https://notateamserver.xyz/blog/sliver-101/
 - https://dominicbreuker.com/post/learning_sliver_c2_01_installation/
 - https://vk9-sec.com/how-to-set-up-use-c2-sliver/
 - https://0x90-1.gitbook.io/sliver/
