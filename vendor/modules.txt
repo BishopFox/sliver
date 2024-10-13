@@ -421,7 +421,7 @@ github.com/jackc/pgpassfile
 # github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a
 ## explicit; go 1.14
 github.com/jackc/pgservicefile
-# github.com/jackc/pgx/v5 v5.5.4
+# github.com/jackc/pgx/v5 v5.5.5
 ## explicit; go 1.19
 github.com/jackc/pgx/v5
 github.com/jackc/pgx/v5/internal/anynil
@@ -1074,8 +1074,8 @@ gopkg.in/yaml.v3
 # gorm.io/driver/mysql v1.5.6
 ## explicit; go 1.14
 gorm.io/driver/mysql
-# gorm.io/driver/postgres v1.5.7
-## explicit; go 1.18
+# gorm.io/driver/postgres v1.5.9
+## explicit; go 1.19
 gorm.io/driver/postgres
 # gorm.io/driver/sqlite v1.5.5
 ## explicit; go 1.20
