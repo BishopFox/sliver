@@ -84,9 +84,8 @@ func (ctx Context) ResultFloat(value float64) {
 // https://sqlite.org/c3ref/result_blob.html
 func (ctx Context) ResultText(value string) {
 	ptr := ctx.c.newString(value)
-	ctx.c.call("sqlite3_result_text64",
-		uint64(ctx.handle), uint64(ptr), uint64(len(value)),
-		uint64(ctx.c.freer), _UTF8)
+	ctx.c.call("sqlite3_result_text_go",
+		uint64(ctx.handle), uint64(ptr), uint64(len(value)))
 }
 
 // ResultRawText sets the text result of the function to a []byte.
@@ -94,9 +93,8 @@ func (ctx Context) ResultText(value string) {
 // https://sqlite.org/c3ref/result_blob.html
 func (ctx Context) ResultRawText(value []byte) {
 	ptr := ctx.c.newBytes(value)
-	ctx.c.call("sqlite3_result_text64",
-		uint64(ctx.handle), uint64(ptr), uint64(len(value)),
-		uint64(ctx.c.freer), _UTF8)
+	ctx.c.call("sqlite3_result_text_go",
+		uint64(ctx.handle), uint64(ptr), uint64(len(value)))
 }
 
 // ResultBlob sets the result of the function to a []byte.
@@ -105,9 +103,8 @@ func (ctx Context) ResultRawText(value []byte) {
 // https://sqlite.org/c3ref/result_blob.html
 func (ctx Context) ResultBlob(value []byte) {
 	ptr := ctx.c.newBytes(value)
-	ctx.c.call("sqlite3_result_blob64",
-		uint64(ctx.handle), uint64(ptr), uint64(len(value)),
-		uint64(ctx.c.freer))
+	ctx.c.call("sqlite3_result_blob_go",
+		uint64(ctx.handle), uint64(ptr), uint64(len(value)))
 }
 
 // ResultZeroBlob sets the result of the function to a zero-filled, length n BLOB.
@@ -130,7 +127,8 @@ func (ctx Context) ResultNull() {
 //
 // https://sqlite.org/c3ref/result_blob.html
 func (ctx Context) ResultTime(value time.Time, format TimeFormat) {
-	if format == TimeFormatDefault {
+	switch format {
+	case TimeFormatDefault, TimeFormatAuto, time.RFC3339Nano:
 		ctx.resultRFC3339Nano(value)
 		return
 	}
@@ -153,9 +151,8 @@ func (ctx Context) resultRFC3339Nano(value time.Time) {
 	buf := util.View(ctx.c.mod, ptr, maxlen)
 	buf = value.AppendFormat(buf[:0], time.RFC3339Nano)
 
-	ctx.c.call("sqlite3_result_text64",
-		uint64(ctx.handle), uint64(ptr), uint64(len(buf)),
-		uint64(ctx.c.freer), _UTF8)
+	ctx.c.call("sqlite3_result_text_go",
+		uint64(ctx.handle), uint64(ptr), uint64(len(buf)))
 }
 
 // ResultPointer sets the result of the function to NULL, just like [Context.ResultNull],
@@ -165,7 +162,8 @@ func (ctx Context) resultRFC3339Nano(value time.Time) {
 // https://sqlite.org/c3ref/result_blob.html
 func (ctx Context) ResultPointer(ptr any) {
 	valPtr := util.AddHandle(ctx.c.ctx, ptr)
-	ctx.c.call("sqlite3_result_pointer_go", uint64(valPtr))
+	ctx.c.call("sqlite3_result_pointer_go",
+		uint64(ctx.handle), uint64(valPtr))
 }
 
 // ResultJSON sets the result of the function to the JSON encoding of value.
@@ -175,7 +173,7 @@ func (ctx Context) ResultJSON(value any) {
 	data, err := json.Marshal(value)
 	if err != nil {
 		ctx.ResultError(err)
-		return
+		return // notest
 	}
 	ctx.ResultRawText(data)
 }

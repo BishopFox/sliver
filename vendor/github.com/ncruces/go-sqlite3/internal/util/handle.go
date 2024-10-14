@@ -35,17 +35,22 @@ func DelHandle(ctx context.Context, id uint32) error {
 	s := ctx.Value(moduleKey{}).(*moduleState)
 	a := s.handles[^id]
 	s.handles[^id] = nil
-	s.holes++
+	if l := uint32(len(s.handles)); l == ^id {
+		s.handles = s.handles[:l-1]
+	} else {
+		s.holes++
+	}
 	if c, ok := a.(io.Closer); ok {
 		return c.Close()
 	}
 	return nil
 }
 
-func AddHandle(ctx context.Context, a any) (id uint32) {
+func AddHandle(ctx context.Context, a any) uint32 {
 	if a == nil {
 		panic(NilErr)
 	}
+
 	s := ctx.Value(moduleKey{}).(*moduleState)
 
 	// Find an empty slot.

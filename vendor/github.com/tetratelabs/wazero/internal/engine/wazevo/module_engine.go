@@ -237,7 +237,7 @@ func (m *moduleEngine) putLocalMemory() {
 }
 
 // ResolveImportedFunction implements wasm.ModuleEngine.
-func (m *moduleEngine) ResolveImportedFunction(index, indexInImportedModule wasm.Index, importedModuleEngine wasm.ModuleEngine) {
+func (m *moduleEngine) ResolveImportedFunction(index, descFunc, indexInImportedModule wasm.Index, importedModuleEngine wasm.ModuleEngine) {
 	executableOffset, moduleCtxOffset, typeIDOffset := m.parent.offsets.ImportedFunctionOffset(index)
 	importedME := importedModuleEngine.(*moduleEngine)
 
@@ -245,12 +245,12 @@ func (m *moduleEngine) ResolveImportedFunction(index, indexInImportedModule wasm
 		indexInImportedModule -= wasm.Index(len(importedME.importedFunctions))
 	} else {
 		imported := &importedME.importedFunctions[indexInImportedModule]
-		m.ResolveImportedFunction(index, imported.indexInModule, imported.me)
+		m.ResolveImportedFunction(index, descFunc, imported.indexInModule, imported.me)
 		return // Recursively resolve the imported function.
 	}
 
 	offset := importedME.parent.functionOffsets[indexInImportedModule]
-	typeID := getTypeIDOf(indexInImportedModule, importedME.module)
+	typeID := m.module.TypeIDs[descFunc]
 	executable := &importedME.parent.executable[offset]
 	// Write functionInstance.
 	binary.LittleEndian.PutUint64(m.opaque[executableOffset:], uint64(uintptr(unsafe.Pointer(executable))))
@@ -259,28 +259,6 @@ func (m *moduleEngine) ResolveImportedFunction(index, indexInImportedModule wasm
 
 	// Write importedFunction so that it can be used by NewFunction.
 	m.importedFunctions[index] = importedFunction{me: importedME, indexInModule: indexInImportedModule}
-}
-
-func getTypeIDOf(funcIndex wasm.Index, m *wasm.ModuleInstance) wasm.FunctionTypeID {
-	source := m.Source
-
-	var typeIndex wasm.Index
-	if funcIndex >= source.ImportFunctionCount {
-		funcIndex -= source.ImportFunctionCount
-		typeIndex = source.FunctionSection[funcIndex]
-	} else {
-		var cnt wasm.Index
-		for i := range source.ImportSection {
-			if source.ImportSection[i].Type == wasm.ExternTypeFunc {
-				if cnt == funcIndex {
-					typeIndex = source.ImportSection[i].DescFunc
-					break
-				}
-				cnt++
-			}
-		}
-	}
-	return m.TypeIDs[typeIndex]
 }
 
 // ResolveImportedMemory implements wasm.ModuleEngine.

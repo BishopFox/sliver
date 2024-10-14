@@ -77,6 +77,7 @@ func NewMemoryInstance(memSec *Memory, allocator experimental.MemoryAllocator, m
 	if allocator != nil {
 		expBuffer = allocator.Allocate(capBytes, maxBytes)
 		buffer = expBuffer.Reallocate(minBytes)
+		_ = buffer[:minBytes] // Bounds check that the minimum was allocated.
 	} else if memSec.IsShared {
 		// Shared memory needs a fixed buffer, so allocate with the maximum size.
 		//
@@ -238,12 +239,15 @@ func (m *MemoryInstance) Grow(delta uint32) (result uint32, ok bool) {
 		return currentPages, true
 	}
 
-	// If exceeds the max of memory size, we push -1 according to the spec.
 	newPages := currentPages + delta
 	if newPages > m.Max || int32(delta) < 0 {
 		return 0, false
 	} else if m.expBuffer != nil {
 		buffer := m.expBuffer.Reallocate(MemoryPagesToBytesNum(newPages))
+		if buffer == nil {
+			// Allocator failed to grow.
+			return 0, false
+		}
 		if m.Shared {
 			if unsafe.SliceData(buffer) != unsafe.SliceData(m.Buffer) {
 				panic("shared memory cannot move, this is a bug in the memory allocator")
