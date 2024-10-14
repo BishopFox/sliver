@@ -168,8 +168,8 @@ type FileSharedMemory interface {
 // SharedMemory is a shared-memory WAL-index implementation.
 // Use [NewSharedMemory] to create a shared-memory.
 type SharedMemory interface {
-	shmMap(context.Context, api.Module, int32, int32, bool) (uint32, error)
-	shmLock(int32, int32, _ShmFlag) error
+	shmMap(context.Context, api.Module, int32, int32, bool) (uint32, _ErrorCode)
+	shmLock(int32, int32, _ShmFlag) _ErrorCode
 	shmUnmap(bool)
 	io.Closer
 }

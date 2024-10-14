@@ -104,3 +104,13 @@ func ErrorCodeString(rc uint32) string {
 	}
 	return "sqlite3: unknown error"
 }
+
+type ErrorJoiner []error
+
+func (j *ErrorJoiner) Join(errs ...error) {
+	for _, err := range errs {
+		if err != nil {
+			*j = append(*j, err)
+		}
+	}
+}

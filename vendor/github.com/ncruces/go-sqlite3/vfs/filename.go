@@ -20,8 +20,8 @@ type Filename struct {
 	stack [2]uint64
 }
 
-// OpenFilename is an internal API users should not call directly.
-func OpenFilename(ctx context.Context, mod api.Module, id uint32, flags OpenFlag) *Filename {
+// GetFilename is an internal API users should not call directly.
+func GetFilename(ctx context.Context, mod api.Module, id uint32, flags OpenFlag) *Filename {
 	if id == 0 {
 		return nil
 	}
@@ -66,6 +66,10 @@ func (n *Filename) path(method string) string {
 	if n == nil || n.zPath == 0 {
 		return ""
 	}
+	if n.flags&(OPEN_MAIN_DB|OPEN_MAIN_JOURNAL|OPEN_WAL) == 0 {
+		return ""
+	}
+
 	n.stack[0] = uint64(n.zPath)
 	fn := n.mod.ExportedFunction(method)
 	if err := fn.CallWithStack(n.ctx, n.stack[:]); err != nil {

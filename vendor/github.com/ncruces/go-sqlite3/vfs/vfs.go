@@ -83,7 +83,7 @@ func vfsRandomness(ctx context.Context, mod api.Module, pVfs uint32, nByte int32
 }
 
 func vfsSleep(ctx context.Context, mod api.Module, pVfs uint32, nMicro int32) _ErrorCode {
-	osSleep(time.Duration(nMicro) * time.Microsecond)
+	time.Sleep(time.Duration(nMicro) * time.Microsecond)
 	return _OK
 }
 
@@ -132,26 +132,20 @@ func vfsAccess(ctx context.Context, mod api.Module, pVfs, zPath uint32, flags Ac
 
 func vfsOpen(ctx context.Context, mod api.Module, pVfs, zPath, pFile uint32, flags OpenFlag, pOutFlags, pOutVFS uint32) _ErrorCode {
 	vfs := vfsGet(mod, pVfs)
-
-	var path string
-	if zPath != 0 {
-		path = util.ReadString(mod, zPath, _MAX_PATHNAME)
-	}
+	name := GetFilename(ctx, mod, zPath, flags)
 
 	var file File
 	var err error
 	if ffs, ok := vfs.(VFSFilename); ok {
-		name := OpenFilename(ctx, mod, zPath, flags)
 		file, flags, err = ffs.OpenFilename(name, flags)
 	} else {
-		file, flags, err = vfs.Open(path, flags)
+		file, flags, err = vfs.Open(name.String(), flags)
 	}
 	if err != nil {
 		return vfsErrorCode(err, _CANTOPEN)
 	}
 
 	if file, ok := file.(FilePowersafeOverwrite); ok {
-		name := OpenFilename(ctx, mod, zPath, flags)
 		if b, ok := util.ParseBool(name.URIParameter("psow")); ok {
 			file.SetPowersafeOverwrite(b)
 		}
@@ -169,10 +163,7 @@ func vfsOpen(ctx context.Context, mod api.Module, pVfs, zPath, pFile uint32, fla
 
 func vfsClose(ctx context.Context, mod api.Module, pFile uint32) _ErrorCode {
 	err := vfsFileClose(ctx, mod, pFile)
-	if err != nil {
-		return vfsErrorCode(err, _IOERR_CLOSE)
-	}
-	return _OK
+	return vfsErrorCode(err, _IOERR_CLOSE)
 }
 
 func vfsRead(ctx context.Context, mod api.Module, pFile, zBuf uint32, iAmt int32, iOfst int64) _ErrorCode {
@@ -195,10 +186,7 @@ func vfsWrite(ctx context.Context, mod api.Module, pFile, zBuf uint32, iAmt int3
 	buf := util.View(mod, zBuf, uint64(iAmt))
 
 	_, err := file.WriteAt(buf, iOfst)
-	if err != nil {
-		return vfsErrorCode(err, _IOERR_WRITE)
-	}
-	return _OK
+	return vfsErrorCode(err, _IOERR_WRITE)
 }
 
 func vfsTruncate(ctx context.Context, mod api.Module, pFile uint32, nByte int64) _ErrorCode {
@@ -253,6 +241,15 @@ func vfsFileControl(ctx context.Context, mod api.Module, pFile uint32, op _Fcntl
 		if file, ok := file.(FileLockState); ok {
 			util.WriteUint32(mod, pArg, uint32(file.LockState()))
 			return _OK
+		}
+
+	case _FCNTL_LOCK_TIMEOUT:
+		if file, ok := file.(FileSharedMemory); ok {
+			if iface, ok := file.SharedMemory().(interface{ shmEnableBlocking(bool) }); ok {
+				if i := util.ReadUint32(mod, pArg); i == 0 || i == 1 {
+					iface.shmEnableBlocking(i != 0)
+				}
+			}
 		}
 
 	case _FCNTL_PERSIST_WAL:
@@ -359,7 +356,7 @@ func vfsFileControl(ctx context.Context, mod api.Module, pFile uint32, op _Fcntl
 				out = err.Error()
 			}
 			if out != "" {
-				fn := mod.ExportedFunction("malloc")
+				fn := mod.ExportedFunction("sqlite3_malloc64")
 				stack := [...]uint64{uint64(len(out) + 1)}
 				if err := fn.CallWithStack(ctx, stack[:]); err != nil {
 					panic(err)
@@ -397,18 +394,14 @@ func vfsShmBarrier(ctx context.Context, mod api.Module, pFile uint32) {
 
 func vfsShmMap(ctx context.Context, mod api.Module, pFile uint32, iRegion, szRegion int32, bExtend, pp uint32) _ErrorCode {
 	shm := vfsFileGet(ctx, mod, pFile).(FileSharedMemory).SharedMemory()
-	p, err := shm.shmMap(ctx, mod, iRegion, szRegion, bExtend != 0)
-	if err != nil {
-		return vfsErrorCode(err, _IOERR_SHMMAP)
-	}
+	p, rc := shm.shmMap(ctx, mod, iRegion, szRegion, bExtend != 0)
 	util.WriteUint32(mod, pp, p)
-	return _OK
+	return rc
 }
 
 func vfsShmLock(ctx context.Context, mod api.Module, pFile uint32, offset, n int32, flags _ShmFlag) _ErrorCode {
 	shm := vfsFileGet(ctx, mod, pFile).(FileSharedMemory).SharedMemory()
-	err := shm.shmLock(offset, n, flags)
-	return vfsErrorCode(err, _IOERR_SHMLOCK)
+	return shm.shmLock(offset, n, flags)
 }
 
 func vfsShmUnmap(ctx context.Context, mod api.Module, pFile, bDelete uint32) _ErrorCode {
