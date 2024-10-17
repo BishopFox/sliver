@@ -120,7 +120,7 @@ $ make macos
 $ make macos-arm64
 $ make linux
 $ make linux-arm64
-$ make windows
+$ make windows-amd64
 ```
 
 ### Docker Build
@@ -140,4 +140,4 @@ The Docker build includes mingw and Metasploit, so it can take a while to build 
 - Kali/Ubuntu/Debian `sudo apt install mingw-w64`
 - MacOS `brew install mingw-w64`
 
-If all you have is a Windows machine, the easiest way to build Sliver is using [WSL](https://docs.microsoft.com/en-us/windows/wsl/install-win10) and following the Linux/cross-compile instructions above. To cross-compile a native Windows binary use `make windows` and copy it to your Windows file system (i.e. `/mnt/c/Users/foo/Desktop`) and run it using a terminal that supports ANSI sequences such as the [Windows Terminal](https://github.com/microsoft/terminal).
+If all you have is a Windows machine, the easiest way to build Sliver is using [WSL](https://docs.microsoft.com/en-us/windows/wsl/install-win10) and following the Linux/cross-compile instructions above. To cross-compile a native Windows binary use `make windows-amd64` and copy it to your Windows file system (i.e. `/mnt/c/Users/foo/Desktop`) and run it using a terminal that supports ANSI sequences such as the [Windows Terminal](https://github.com/microsoft/terminal).
