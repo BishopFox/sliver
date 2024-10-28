@@ -1,4 +1,4 @@
-//go:build (darwin || linux) && (amd64 || arm64 || riscv64) && !(sqlite3_flock || sqlite3_noshm || sqlite3_nosys)
+//go:build (darwin || linux) && (386 || arm || amd64 || arm64 || riscv64 || ppc64le) && !(sqlite3_flock || sqlite3_noshm || sqlite3_nosys)
 
 package vfs
 
@@ -6,10 +6,13 @@ import (
 	"context"
 	"io"
 	"os"
+	"sync"
+	"time"
 
-	"github.com/ncruces/go-sqlite3/internal/util"
 	"github.com/tetratelabs/wazero/api"
 	"golang.org/x/sys/unix"
+
+	"github.com/ncruces/go-sqlite3/internal/util"
 )
 
 // SupportsSharedMemory is false on platforms that do not support shared memory.
@@ -44,19 +47,18 @@ func NewSharedMemory(path string, flags OpenFlag) SharedMemory {
 	}
 }
 
+var _ blockingSharedMemory = &vfsShm{}
+
 type vfsShm struct {
 	*os.File
 	path     string
 	regions  []*util.MappedRegion
 	readOnly bool
+	blocking bool
+	sync.Mutex
 }
 
-func (s *vfsShm) shmMap(ctx context.Context, mod api.Module, id, size int32, extend bool) (uint32, error) {
-	// Ensure size is a multiple of the OS page size.
-	if int(size)&(unix.Getpagesize()-1) != 0 {
-		return 0, _IOERR_SHMMAP
-	}
-
+func (s *vfsShm) shmOpen() _ErrorCode {
 	if s.File == nil {
 		var flag int
 		if s.readOnly {
@@ -67,28 +69,47 @@ func (s *vfsShm) shmMap(ctx context.Context, mod api.Module, id, size int32, ext
 		f, err := os.OpenFile(s.path,
 			flag|unix.O_CREAT|unix.O_NOFOLLOW, 0666)
 		if err != nil {
-			return 0, _CANTOPEN
+			return _CANTOPEN
 		}
 		s.File = f
 	}
 
 	// Dead man's switch.
-	if lock, rc := osGetLock(s.File, _SHM_DMS, 1); rc != _OK {
-		return 0, _IOERR_LOCK
+	if lock, rc := osTestLock(s.File, _SHM_DMS, 1); rc != _OK {
+		return _IOERR_LOCK
 	} else if lock == unix.F_WRLCK {
-		return 0, _BUSY
+		return _BUSY
 	} else if lock == unix.F_UNLCK {
 		if s.readOnly {
-			return 0, _READONLY_CANTINIT
+			return _READONLY_CANTINIT
 		}
+		// Do not use a blocking lock here.
+		// If the lock cannot be obtained immediately,
+		// it means some other connection is truncating the file.
+		// And after it has done so, it will not release its lock,
+		// but only downgrade it to a shared lock.
+		// So no point in blocking here.
+		// The call below to obtain the shared DMS lock may use a blocking lock.
 		if rc := osWriteLock(s.File, _SHM_DMS, 1, 0); rc != _OK {
-			return 0, rc
+			return rc
 		}
 		if err := s.Truncate(0); err != nil {
-			return 0, _IOERR_SHMOPEN
+			return _IOERR_SHMOPEN
 		}
 	}
-	if rc := osReadLock(s.File, _SHM_DMS, 1, 0); rc != _OK {
+	if rc := osReadLock(s.File, _SHM_DMS, 1, time.Millisecond); rc != _OK {
+		return rc
+	}
+	return _OK
+}
+
+func (s *vfsShm) shmMap(ctx context.Context, mod api.Module, id, size int32, extend bool) (uint32, _ErrorCode) {
+	// Ensure size is a multiple of the OS page size.
+	if int(size)&(unix.Getpagesize()-1) != 0 {
+		return 0, _IOERR_SHMMAP
+	}
+
+	if rc := s.shmOpen(); rc != _OK {
 		return 0, rc
 	}
 
@@ -99,7 +120,7 @@ func (s *vfsShm) shmMap(ctx context.Context, mod api.Module, id, size int32, ext
 	}
 	if n := (int64(id) + 1) * int64(size); n > o {
 		if !extend {
-			return 0, nil
+			return 0, _OK
 		}
 		err := osAllocate(s.File, n)
 		if err != nil {
@@ -115,13 +136,16 @@ func (s *vfsShm) shmMap(ctx context.Context, mod api.Module, id, size int32, ext
 	}
 	r, err := util.MapRegion(ctx, mod, s.File, int64(id)*int64(size), size, prot)
 	if err != nil {
-		return 0, err
+		return 0, _IOERR_SHMMAP
 	}
 	s.regions = append(s.regions, r)
-	return r.Ptr, nil
+	if s.readOnly {
+		return r.Ptr, _READONLY
+	}
+	return r.Ptr, _OK
 }
 
-func (s *vfsShm) shmLock(offset, n int32, flags _ShmFlag) error {
+func (s *vfsShm) shmLock(offset, n int32, flags _ShmFlag) _ErrorCode {
 	// Argument check.
 	if n <= 0 || offset < 0 || offset+n > _SHM_NLOCK {
 		panic(util.AssertErr())
@@ -140,13 +164,18 @@ func (s *vfsShm) shmLock(offset, n int32, flags _ShmFlag) error {
 		panic(util.AssertErr())
 	}
 
+	var timeout time.Duration
+	if s.blocking {
+		timeout = time.Millisecond
+	}
+
 	switch {
 	case flags&_SHM_UNLOCK != 0:
 		return osUnlock(s.File, _SHM_BASE+int64(offset), int64(n))
 	case flags&_SHM_SHARED != 0:
-		return osReadLock(s.File, _SHM_BASE+int64(offset), int64(n), 0)
+		return osReadLock(s.File, _SHM_BASE+int64(offset), int64(n), timeout)
 	case flags&_SHM_EXCLUSIVE != 0:
-		return osWriteLock(s.File, _SHM_BASE+int64(offset), int64(n), 0)
+		return osWriteLock(s.File, _SHM_BASE+int64(offset), int64(n), timeout)
 	default:
 		panic(util.AssertErr())
 	}
@@ -165,9 +194,19 @@ func (s *vfsShm) shmUnmap(delete bool) {
 	s.regions = s.regions[:0]
 
 	// Close the file.
-	defer s.Close()
 	if delete {
-		os.Remove(s.Name())
+		os.Remove(s.path)
 	}
+	s.Close()
 	s.File = nil
+}
+
+func (s *vfsShm) shmBarrier() {
+	s.Lock()
+	//lint:ignore SA2001 memory barrier.
+	s.Unlock()
+}
+
+func (s *vfsShm) shmEnableBlocking(block bool) {
+	s.blocking = block
 }

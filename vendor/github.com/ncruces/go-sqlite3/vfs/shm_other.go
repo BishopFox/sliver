@@ -1,4 +1,4 @@
-//go:build !(darwin || linux) || !(amd64 || arm64 || riscv64) || sqlite3_flock || sqlite3_noshm || sqlite3_nosys
+//go:build !(darwin || linux || freebsd || openbsd || netbsd || dragonfly || illumos || sqlite3_flock) || !(386 || arm || amd64 || arm64 || riscv64 || ppc64le) || sqlite3_noshm || sqlite3_nosys
 
 package vfs
 

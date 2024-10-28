@@ -446,7 +446,7 @@ func (m *ModuleInstance) resolveImports(ctx context.Context, module *Module) (er
 					return
 				}
 
-				m.Engine.ResolveImportedFunction(i.IndexPerType, imported.Index, importedModule.Engine)
+				m.Engine.ResolveImportedFunction(i.IndexPerType, i.DescFunc, imported.Index, importedModule.Engine)
 			case ExternTypeTable:
 				expected := i.DescTable
 				importedTable := importedModule.Tables[imported.Index]

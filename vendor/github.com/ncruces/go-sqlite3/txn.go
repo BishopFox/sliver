@@ -3,14 +3,14 @@ package sqlite3
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math/rand"
 	"runtime"
 	"strconv"
 	"strings"
 
-	"github.com/ncruces/go-sqlite3/internal/util"
 	"github.com/tetratelabs/wazero/api"
+
+	"github.com/ncruces/go-sqlite3/internal/util"
 )
 
 // Txn is an in-progress database transaction.
@@ -30,6 +30,19 @@ func (c *Conn) Begin() Txn {
 		panic(err)
 	}
 	return Txn{c}
+}
+
+// BeginConcurrent starts a concurrent transaction.
+//
+// Experimental: requires a custom build of SQLite.
+//
+// https://sqlite.org/cgi/src/doc/begin-concurrent/doc/begin_concurrent.md
+func (c *Conn) BeginConcurrent() (Txn, error) {
+	err := c.Exec(`BEGIN CONCURRENT`)
+	if err != nil {
+		return Txn{}, err
+	}
+	return Txn{c}, nil
 }
 
 // BeginImmediate starts an immediate transaction.
@@ -123,23 +136,21 @@ type Savepoint struct {
 //
 // https://sqlite.org/lang_savepoint.html
 func (c *Conn) Savepoint() Savepoint {
-	// Names can be reused; this makes catching bugs more likely.
-	name := saveptName() + "_" + strconv.Itoa(int(rand.Int31()))
+	name := callerName()
+	if name == "" {
+		name = "sqlite3.Savepoint"
+	}
+	// Names can be reused, but this makes catching bugs more likely.
+	name = QuoteIdentifier(name + "_" + strconv.Itoa(int(rand.Int31())))
 
-	err := c.txnExecInterrupted(fmt.Sprintf("SAVEPOINT %q;", name))
+	err := c.txnExecInterrupted(`SAVEPOINT ` + name)
 	if err != nil {
 		panic(err)
 	}
 	return Savepoint{c: c, name: name}
 }
 
-func saveptName() (name string) {
-	defer func() {
-		if name == "" {
-			name = "sqlite3.Savepoint"
-		}
-	}()
-
+func callerName() (name string) {
 	var pc [8]uintptr
 	n := runtime.Callers(3, pc[:])
 	if n <= 0 {
@@ -176,7 +187,7 @@ func (s Savepoint) Release(errp *error) {
 		if s.c.GetAutocommit() { // There is nothing to commit.
 			return
 		}
-		*errp = s.c.Exec(fmt.Sprintf("RELEASE %q;", s.name))
+		*errp = s.c.Exec(`RELEASE ` + s.name)
 		if *errp == nil {
 			return
 		}
@@ -188,10 +199,7 @@ func (s Savepoint) Release(errp *error) {
 		return
 	}
 	// ROLLBACK and RELEASE even if interrupted.
-	err := s.c.txnExecInterrupted(fmt.Sprintf(`
-		ROLLBACK TO %[1]q;
-		RELEASE %[1]q;
-	`, s.name))
+	err := s.c.txnExecInterrupted(`ROLLBACK TO ` + s.name + `; RELEASE ` + s.name)
 	if err != nil {
 		panic(err)
 	}
@@ -204,7 +212,7 @@ func (s Savepoint) Release(errp *error) {
 // https://sqlite.org/lang_transaction.html
 func (s Savepoint) Rollback() error {
 	// ROLLBACK even if interrupted.
-	return s.c.txnExecInterrupted(fmt.Sprintf("ROLLBACK TO %q;", s.name))
+	return s.c.txnExecInterrupted(`ROLLBACK TO ` + s.name)
 }
 
 func (c *Conn) txnExecInterrupted(sql string) error {
@@ -217,7 +225,7 @@ func (c *Conn) txnExecInterrupted(sql string) error {
 	return err
 }
 
-// TxnState starts a deferred transaction.
+// TxnState determines the transaction state of a database.
 //
 // https://sqlite.org/c3ref/txn_state.html
 func (c *Conn) TxnState(schema string) TxnState {
@@ -291,4 +299,12 @@ func updateCallback(ctx context.Context, mod api.Module, pDB uint32, action Auth
 		table := util.ReadString(mod, zTabName, _MAX_NAME)
 		c.update(action, schema, table, int64(rowid))
 	}
+}
+
+// CacheFlush flushes caches to disk mid-transaction.
+//
+// https://sqlite.org/c3ref/db_cacheflush.html
+func (c *Conn) CacheFlush() error {
+	r := c.call("sqlite3_db_cacheflush", uint64(c.handle))
+	return c.error(r)
 }
