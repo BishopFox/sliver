@@ -8,7 +8,7 @@ The server and client support MacOS, Windows, and Linux. Implants are supported 
 
 # v1.6.0 / `master`
 
-**NOTE:** You are looking the latest master branch of Sliver v1.6.0; new PRs should target this branch. However, this branch is NOT RECOMMENDED for production use yet. Please use release tagged versions for the best experience.
+**NOTE:** You are looking at the latest master branch of Sliver v1.6.0; new PRs should target this branch. However, this branch is NOT RECOMMENDED for production use yet. Please use release tagged versions for the best experience.
 
 For PRs containing bug fixes specific to Sliver v1.5, please target the [`v1.5.x/master` branch](https://github.com/BishopFox/sliver/tree/v1.5.x/master).
 
@@ -47,7 +47,7 @@ See the [wiki](https://sliver.sh/docs?name=Compile+from+Source).
 
 ### Feedback
 
-Please take a moment and fill out [our survey](https://forms.gle/SwVsHFNh24ChG58C6)
+Please take a moment and fill out [our survey](https://forms.gle/SwVsHFNh24ChG58C6).
 
 ### License - GPLv3
 
