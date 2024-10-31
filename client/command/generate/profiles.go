@@ -171,6 +171,12 @@ func populateProfileProperties(config *clientpb.ImplantConfig) map[string]string
 		properties["sgn"] = "disabled"
 	}
 
+	if config.SleepObfuscation {
+		properties["sleepobf"] = "enabled"
+	} else {
+		properties["sleepobf"] = "disabled"
+	}
+
 	reconnect := int(config.ReconnectInterval / int64(math.Pow10(9)))
 	if reconnect == 1 {
 		plural = ""
@@ -313,6 +319,10 @@ func PrintProfileInfo(name string, con *console.SliverClient) {
 	tw.AppendRow(table.Row{
 		"Shikata Ga Nai (SGN) is",
 		properties["sgn"],
+	})
+	tw.AppendRow(table.Row{
+		"Sleep obfuscation (Ekko) is",
+		properties["sleepobf"],
 	})
 
 	con.PrintInfof("Obfuscation\n")
