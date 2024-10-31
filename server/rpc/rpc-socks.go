@@ -20,8 +20,11 @@ package rpc
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
@@ -86,7 +89,21 @@ func (c *socksDataCache) DeleteSeq(tunnelID uint64, sequence uint64) {
 }
 
 // Socks - Open an in-band port forward
+
+const (
+	writeTimeout = 5 * time.Second
+	batchSize    = 100 // Maximum number of sequences to batch
+)
+
 func (s *Server) SocksProxy(stream rpcpb.SliverRPC_SocksProxyServer) error {
+	errChan := make(chan error, 2)
+	defer close(errChan)
+	defer func() {
+		if r := recover(); r != nil {
+			rpcLog.Errorf("Recovered from panic in SocksProxy: %v", r)
+		}
+	}()
+
 	for {
 		fromClient, err := stream.Recv()
 		if err == io.EOF {
@@ -107,46 +124,145 @@ func (s *Server) SocksProxy(stream rpcpb.SliverRPC_SocksProxyServer) error {
 			socks.Client = stream // Bind client to tunnel
 			// Send Client
 			go func() {
-				for tunnelData := range socks.FromImplant {
-
-					fromImplantCacheSocks.Add(fromClient.TunnelID, tunnelData.Sequence, tunnelData)
-
-					for recv, ok := fromImplantCacheSocks.Get(fromClient.TunnelID, socks.FromImplantSequence); ok; recv, ok = fromImplantCacheSocks.Get(fromClient.TunnelID, socks.FromImplantSequence) {
-						rpcLog.Debugf("[socks] agent to (Server To Client)  Data Sequence %d , Data Size %d ,Data %v\n", socks.FromImplantSequence, len(recv.Data), recv.Data)
-						socks.Client.Send(&sliverpb.SocksData{
-							CloseConn: recv.CloseConn,
-							TunnelID:  recv.TunnelID,
-							Data:      recv.Data,
-						})
-
-						fromImplantCacheSocks.DeleteSeq(fromClient.TunnelID, socks.FromImplantSequence)
-						socks.FromImplantSequence++
+				defer func() {
+					if r := recover(); r != nil {
+						errChan <- fmt.Errorf("client sender panic: %v", r)
+						rpcLog.Errorf("Recovered from panic in client sender: %v", r)
 					}
+				}()
 
+				pendingData := make(map[uint64]*sliverpb.SocksData)
+				ticker := time.NewTicker(1 * time.Millisecond) // 1ms ticker - data coming back from implant is usually larger response data
+				defer ticker.Stop()
+
+				for {
+					select {
+					case tunnelData, ok := <-socks.FromImplant:
+						if !ok {
+							rpcLog.Debug("FromImplant channel closed")
+							return
+						}
+						sequence := tunnelData.Sequence
+						fromImplantCacheSocks.Add(fromClient.TunnelID, sequence, tunnelData)
+						pendingData[sequence] = tunnelData
+
+					case <-ticker.C:
+						if len(pendingData) == 0 {
+							continue
+						}
+
+						expectedSequence := atomic.LoadUint64(&socks.FromImplantSequence)
+						processed := 0
+
+						// Perform Batching
+						for i := 0; i < batchSize && processed < len(pendingData); i++ {
+							data, exists := pendingData[expectedSequence]
+							if !exists {
+								break // Stop batching if we don't have the next expected sequence
+							}
+
+							func() {
+								defer func() {
+									if r := recover(); r != nil {
+										errChan <- fmt.Errorf("client sender panic: %v", r)
+										rpcLog.Errorf("Recovered from panic in client sender: %v", r)
+									}
+								}()
+
+								err := stream.Send(&sliverpb.SocksData{
+									CloseConn: data.CloseConn,
+									TunnelID:  data.TunnelID,
+									Data:      data.Data,
+								})
+
+								if err != nil {
+									rpcLog.Errorf("Send error: %v", err)
+									return
+								}
+
+								delete(pendingData, expectedSequence)
+								fromImplantCacheSocks.DeleteSeq(fromClient.TunnelID, expectedSequence)
+								atomic.AddUint64(&socks.FromImplantSequence, 1)
+								expectedSequence++
+								processed++
+							}()
+						}
+					}
+				}
+			}()
+
+			// Send Agent
+			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						errChan <- fmt.Errorf("agent sender panic: %v", r)
+						rpcLog.Errorf("Recovered from panic in agent sender: %v", r)
+					}
+				}()
+
+				pendingData := make(map[uint64]*sliverpb.SocksData)
+				ticker := time.NewTicker(10 * time.Millisecond) // 10ms ticker - data going towards implact is usually smaller request data
+				defer ticker.Stop()
+
+				for {
+					select {
+					case <-ticker.C:
+						sequence := atomic.LoadUint64(&socks.ToImplantSequence)
+
+						func() {
+							defer func() {
+								if r := recover(); r != nil {
+									rpcLog.Errorf("Recovered from processing panic: %v", r)
+								}
+							}()
+
+							for {
+								recv, ok := toImplantCacheSocks.Get(fromClient.TunnelID, sequence)
+								if !ok {
+									break
+								}
+
+								session := core.Sessions.Get(fromClient.Request.SessionID)
+								if session == nil {
+									rpcLog.Error("Session not found")
+									break
+								}
+
+								data, err := proto.Marshal(recv)
+								if err != nil {
+									rpcLog.Errorf("Failed to marshal data: %v", err)
+									continue
+								}
+
+								select {
+								case session.Connection.Send <- &sliverpb.Envelope{
+									Type: sliverpb.MsgSocksData,
+									Data: data,
+								}:
+									toImplantCacheSocks.DeleteSeq(fromClient.TunnelID, sequence)
+									atomic.AddUint64(&socks.ToImplantSequence, 1)
+									sequence++
+								case <-time.After(writeTimeout):
+									rpcLog.Error("Write timeout to implant")
+									pendingData[sequence] = recv
+									break
+								}
+							}
+						}()
+					}
 				}
 			}()
 		}
 
-		// Send Agent
-		go func() {
-			toImplantCacheSocks.Add(fromClient.TunnelID, fromClient.Sequence, fromClient)
-
-			for recv, ok := toImplantCacheSocks.Get(fromClient.TunnelID, socks.ToImplantSequence); ok; recv, ok = toImplantCacheSocks.Get(fromClient.TunnelID, socks.ToImplantSequence) {
-				rpcLog.Debugf("[socks] Client to (Server To Agent) Data Sequence %d ,  Data Size %d \n", socks.ToImplantSequence, len(fromClient.Data))
-				data, _ := proto.Marshal(recv)
-
-				session := core.Sessions.Get(fromClient.Request.SessionID)
-				session.Connection.Send <- &sliverpb.Envelope{
-					Type: sliverpb.MsgSocksData,
-					Data: data,
-				}
-
-				toImplantCacheSocks.DeleteSeq(fromClient.TunnelID, socks.ToImplantSequence)
-				socks.ToImplantSequence++
-			}
-
-		}()
+		toImplantCacheSocks.Add(fromClient.TunnelID, fromClient.Sequence, fromClient)
 	}
+
+	select {
+	case err := <-errChan:
+		rpcLog.Errorf("SocksProxy Goroutine error: %v", err)
+	default:
+	}
+
 	return nil
 }
 

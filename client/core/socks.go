@@ -31,6 +31,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util/leaky"
+	"golang.org/x/time/rate"
 )
 
 var (
@@ -210,6 +211,8 @@ const leakyBufSize = 4108 // data.len(2) + hmacsha1(10) + data(4096)
 var leakyBuf = leaky.NewLeakyBuf(2048, leakyBufSize)
 
 func connect(conn net.Conn, stream rpcpb.SliverRPC_SocksProxyClient, frame *sliverpb.SocksData) {
+	// Client Rate Limiter: 20 operations per second, burst of 1
+	limiter := rate.NewLimiter(rate.Limit(20), 1)
 
 	SocksConnPool.Store(frame.TunnelID, conn)
 
@@ -241,6 +244,11 @@ func connect(conn net.Conn, stream rpcpb.SliverRPC_SocksProxyClient, frame *sliv
 			return
 		}
 		if n > 0 {
+			if err := limiter.Wait(context.Background()); err != nil {
+				log.Printf("[socks] rate limiter error: %s", err)
+				return
+			}
+
 			frame.Data = buff[:n]
 			frame.Sequence = ToImplantSequence
 			log.Printf("[socks] (User to Client) to Server to agent  Data Sequence %d , Data Size %d \n", ToImplantSequence, len(frame.Data))
