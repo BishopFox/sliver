@@ -32,9 +32,9 @@ type HTTPC2ServerConfig struct {
 }
 
 type NameValueProbability struct {
-	Name        string `json:"name"`
-	Value       string `json:"value"`
-	Probability int    `json:"probability"`
+	Name        string   `json:"name"`
+	Value       string   `json:"value"`
+	Probability int      `json:"probability"`
 	Methods     []string `json:"methods"`
 }
 

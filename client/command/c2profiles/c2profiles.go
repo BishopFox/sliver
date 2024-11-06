@@ -453,16 +453,16 @@ func C2ConfigToProtobuf(profileName string, config *assets.HTTPC2Config) *client
 		})
 	}
 
-        for _, clientHeader := range config.ImplantConfig.Headers {
-                for _, method := range clientHeader.Methods {
-                        httpC2Headers = append(httpC2Headers, &clientpb.HTTPC2Header{
-                                Method:      method,
-                                Name:        clientHeader.Name,
-                                Value:       clientHeader.Value,
-                                Probability: int32(clientHeader.Probability),
-                        })
-                }
-        }
+	for _, clientHeader := range config.ImplantConfig.Headers {
+		for _, method := range clientHeader.Methods {
+			httpC2Headers = append(httpC2Headers, &clientpb.HTTPC2Header{
+				Method:      method,
+				Name:        clientHeader.Name,
+				Value:       clientHeader.Value,
+				Probability: int32(clientHeader.Probability),
+			})
+		}
+	}
 
 	implantConfig := &clientpb.HTTPC2ImplantConfig{
 		UserAgent:                 config.ImplantConfig.UserAgent,
