@@ -211,8 +211,8 @@ const leakyBufSize = 4108 // data.len(2) + hmacsha1(10) + data(4096)
 var leakyBuf = leaky.NewLeakyBuf(2048, leakyBufSize)
 
 func connect(conn net.Conn, stream rpcpb.SliverRPC_SocksProxyClient, frame *sliverpb.SocksData) {
-	// Client Rate Limiter: 20 operations per second, burst of 1
-	limiter := rate.NewLimiter(rate.Limit(20), 1)
+	// Client Rate Limiter: 5 operations per second, burst of 1
+	limiter := rate.NewLimiter(rate.Limit(5), 1)
 
 	SocksConnPool.Store(frame.TunnelID, conn)
 
