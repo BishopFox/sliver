@@ -4,8 +4,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/ncruces/go-sqlite3/internal/util"
 	"github.com/tetratelabs/wazero/api"
+
+	"github.com/ncruces/go-sqlite3/internal/util"
 )
 
 // CollationNeeded registers a callback to be invoked
@@ -31,17 +32,25 @@ func (c *Conn) CollationNeeded(cb func(db *Conn, name string)) error {
 //
 // This can be used to load schemas that contain
 // one or more unknown collating sequences.
-func (c *Conn) AnyCollationNeeded() {
-	c.call("sqlite3_anycollseq_init", uint64(c.handle), 0, 0)
+func (c Conn) AnyCollationNeeded() error {
+	r := c.call("sqlite3_anycollseq_init", uint64(c.handle), 0, 0)
+	if err := c.error(r); err != nil {
+		return err
+	}
+	c.collation = nil
+	return nil
 }
 
 // CreateCollation defines a new collating sequence.
 //
 // https://sqlite.org/c3ref/create_collation.html
 func (c *Conn) CreateCollation(name string, fn func(a, b []byte) int) error {
+	var funcPtr uint32
 	defer c.arena.mark()()
 	namePtr := c.arena.string(name)
-	funcPtr := util.AddHandle(c.ctx, fn)
+	if fn != nil {
+		funcPtr = util.AddHandle(c.ctx, fn)
+	}
 	r := c.call("sqlite3_create_collation_go",
 		uint64(c.handle), uint64(namePtr), uint64(funcPtr))
 	return c.error(r)
@@ -51,9 +60,12 @@ func (c *Conn) CreateCollation(name string, fn func(a, b []byte) int) error {
 //
 // https://sqlite.org/c3ref/create_function.html
 func (c *Conn) CreateFunction(name string, nArg int, flag FunctionFlag, fn ScalarFunction) error {
+	var funcPtr uint32
 	defer c.arena.mark()()
 	namePtr := c.arena.string(name)
-	funcPtr := util.AddHandle(c.ctx, fn)
+	if fn != nil {
+		funcPtr = util.AddHandle(c.ctx, fn)
+	}
 	r := c.call("sqlite3_create_function_go",
 		uint64(c.handle), uint64(namePtr), uint64(nArg),
 		uint64(flag), uint64(funcPtr))
@@ -70,10 +82,13 @@ type ScalarFunction func(ctx Context, arg ...Value)
 //
 // https://sqlite.org/c3ref/create_function.html
 func (c *Conn) CreateWindowFunction(name string, nArg int, flag FunctionFlag, fn func() AggregateFunction) error {
+	var funcPtr uint32
 	defer c.arena.mark()()
-	call := "sqlite3_create_aggregate_function_go"
 	namePtr := c.arena.string(name)
-	funcPtr := util.AddHandle(c.ctx, fn)
+	if fn != nil {
+		funcPtr = util.AddHandle(c.ctx, fn)
+	}
+	call := "sqlite3_create_aggregate_function_go"
 	if _, ok := fn().(WindowFunction); ok {
 		call = "sqlite3_create_window_function_go"
 	}
@@ -183,11 +198,12 @@ func callbackAggregate(db *Conn, pAgg, pApp uint32) (AggregateFunction, uint32) 
 
 	// We need to create the aggregate.
 	fn := util.GetHandle(db.ctx, pApp).(func() AggregateFunction)()
-	handle := util.AddHandle(db.ctx, fn)
 	if pAgg != 0 {
+		handle := util.AddHandle(db.ctx, fn)
 		util.WriteUint32(db.mod, pAgg, handle)
+		return fn, handle
 	}
-	return fn, handle
+	return fn, 0
 }
 
 func callbackArgs(db *Conn, arg []Value, pArg uint32) {

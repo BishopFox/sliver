@@ -47,9 +47,12 @@ const (
 	_IOERR_SHMMAP            _ErrorCode = util.IOERR_SHMMAP
 	_IOERR_SEEK              _ErrorCode = util.IOERR_SEEK
 	_IOERR_DELETE_NOENT      _ErrorCode = util.IOERR_DELETE_NOENT
+	_IOERR_GETTEMPPATH       _ErrorCode = util.IOERR_GETTEMPPATH
 	_IOERR_BEGIN_ATOMIC      _ErrorCode = util.IOERR_BEGIN_ATOMIC
 	_IOERR_COMMIT_ATOMIC     _ErrorCode = util.IOERR_COMMIT_ATOMIC
 	_IOERR_ROLLBACK_ATOMIC   _ErrorCode = util.IOERR_ROLLBACK_ATOMIC
+	_IOERR_DATA              _ErrorCode = util.IOERR_DATA
+	_BUSY_SNAPSHOT           _ErrorCode = util.BUSY_SNAPSHOT
 	_CANTOPEN_FULLPATH       _ErrorCode = util.CANTOPEN_FULLPATH
 	_CANTOPEN_ISDIR          _ErrorCode = util.CANTOPEN_ISDIR
 	_READONLY_CANTINIT       _ErrorCode = util.READONLY_CANTINIT
@@ -231,4 +234,8 @@ const (
 	_SHM_LOCK      _ShmFlag = 2
 	_SHM_SHARED    _ShmFlag = 4
 	_SHM_EXCLUSIVE _ShmFlag = 8
+
+	_SHM_NLOCK = 8
+	_SHM_BASE  = 120
+	_SHM_DMS   = _SHM_BASE + _SHM_NLOCK
 )
