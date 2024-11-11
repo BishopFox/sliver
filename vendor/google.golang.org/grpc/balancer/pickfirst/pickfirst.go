@@ -16,38 +16,53 @@
  *
  */
 
-package grpc
+// Package pickfirst contains the pick_first load balancing policy.
+package pickfirst
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 
 	"google.golang.org/grpc/balancer"
+	"google.golang.org/grpc/balancer/pickfirst/internal"
 	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/grpclog"
+	"google.golang.org/grpc/internal/envconfig"
 	internalgrpclog "google.golang.org/grpc/internal/grpclog"
-	"google.golang.org/grpc/internal/grpcrand"
 	"google.golang.org/grpc/internal/pretty"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/serviceconfig"
+
+	_ "google.golang.org/grpc/balancer/pickfirst/pickfirstleaf" // For automatically registering the new pickfirst if required.
 )
 
+func init() {
+	if envconfig.NewPickFirstEnabled {
+		return
+	}
+	balancer.Register(pickfirstBuilder{})
+}
+
+var logger = grpclog.Component("pick-first-lb")
+
 const (
-	// PickFirstBalancerName is the name of the pick_first balancer.
-	PickFirstBalancerName = "pick_first"
-	logPrefix             = "[pick-first-lb %p] "
+	// Name is the name of the pick_first balancer.
+	Name      = "pick_first"
+	logPrefix = "[pick-first-lb %p] "
 )
 
 type pickfirstBuilder struct{}
 
-func (pickfirstBuilder) Build(cc balancer.ClientConn, opt balancer.BuildOptions) balancer.Balancer {
+func (pickfirstBuilder) Build(cc balancer.ClientConn, _ balancer.BuildOptions) balancer.Balancer {
 	b := &pickfirstBalancer{cc: cc}
 	b.logger = internalgrpclog.NewPrefixLogger(logger, fmt.Sprintf(logPrefix, b))
 	return b
 }
 
 func (pickfirstBuilder) Name() string {
-	return PickFirstBalancerName
+	return Name
 }
 
 type pfConfig struct {
@@ -93,6 +108,15 @@ func (b *pickfirstBalancer) ResolverError(err error) {
 	})
 }
 
+// Shuffler is an interface for shuffling an address list.
+type Shuffler interface {
+	ShuffleAddressListForTesting(n int, swap func(i, j int))
+}
+
+// ShuffleAddressListForTesting pseudo-randomizes the order of addresses.  n
+// is the number of elements.  swap swaps the elements with indexes i and j.
+func ShuffleAddressListForTesting(n int, swap func(i, j int)) { rand.Shuffle(n, swap) }
+
 func (b *pickfirstBalancer) UpdateClientConnState(state balancer.ClientConnState) error {
 	if len(state.ResolverState.Addresses) == 0 && len(state.ResolverState.Endpoints) == 0 {
 		// The resolver reported an empty address list. Treat it like an error by
@@ -124,7 +148,7 @@ func (b *pickfirstBalancer) UpdateClientConnState(state balancer.ClientConnState
 		// within each endpoint. - A61
 		if cfg.ShuffleAddressList {
 			endpoints = append([]resolver.Endpoint{}, endpoints...)
-			grpcrand.Shuffle(len(endpoints), func(i, j int) { endpoints[i], endpoints[j] = endpoints[j], endpoints[i] })
+			internal.RandShuffle(len(endpoints), func(i, j int) { endpoints[i], endpoints[j] = endpoints[j], endpoints[i] })
 		}
 
 		// "Flatten the list by concatenating the ordered list of addresses for each
@@ -139,13 +163,13 @@ func (b *pickfirstBalancer) UpdateClientConnState(state balancer.ClientConnState
 		// Endpoints not set, process addresses until we migrate resolver
 		// emissions fully to Endpoints. The top channel does wrap emitted
 		// addresses with endpoints, however some balancers such as weighted
-		// target do not forwarrd the corresponding correct endpoints down/split
+		// target do not forward the corresponding correct endpoints down/split
 		// endpoints properly. Once all balancers correctly forward endpoints
 		// down, can delete this else conditional.
 		addrs = state.ResolverState.Addresses
 		if cfg.ShuffleAddressList {
 			addrs = append([]resolver.Address{}, addrs...)
-			grpcrand.Shuffle(len(addrs), func(i, j int) { addrs[i], addrs[j] = addrs[j], addrs[i] })
+			rand.Shuffle(len(addrs), func(i, j int) { addrs[i], addrs[j] = addrs[j], addrs[i] })
 		}
 	}
 
