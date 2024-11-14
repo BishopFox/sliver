@@ -269,16 +269,25 @@ func wgBeacon(uri *url.URL) *Beacon {
 			return wireguard.WriteEnvelope(conn, envelope)
 		},
 		Close: func() error {
+			if conn == nil {
+				return nil
+			}
 			err = conn.Close()
 			if err != nil {
 				return err
+			}
+
+			if dev == nil {
+				return nil
 			}
 			err = dev.Down()
 			if err != nil {
 				return err
 			}
+
 			conn = nil
 			dev = nil
+
 			return nil
 		},
 		Cleanup: func() error {
