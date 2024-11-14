@@ -470,6 +470,13 @@ func HTTPC2ConfigUpdate(newConf *clientpb.HTTPC2Config, oldConf *clientpb.HTTPC2
 		return err.Error
 	}
 
+	err = Session().Where(&models.HttpC2Header{
+		HttpC2ServerConfigID: &clientID,
+	}).Delete(&models.HttpC2Header{})
+	if err.Error != nil {
+		return err.Error
+	}
+
 	err = Session().Where(&models.ImplantConfig{
 		ID: clientID,
 	}).Updates(c2Config.ImplantConfig)
@@ -482,6 +489,16 @@ func HTTPC2ConfigUpdate(newConf *clientpb.HTTPC2Config, oldConf *clientpb.HTTPC2
 		err = Session().Clauses(clause.OnConflict{
 			UpdateAll: true,
 		}).Create(&segment)
+		if err.Error != nil {
+			return err.Error
+		}
+	}
+
+	for _, header := range c2Config.ImplantConfig.Headers {
+		header.HttpC2ImplantConfigID = &clientID
+		err = Session().Clauses(clause.OnConflict{
+			UpdateAll: true,
+		}).Create(&header)
 		if err.Error != nil {
 			return err.Error
 		}
