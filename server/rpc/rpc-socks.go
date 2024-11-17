@@ -101,8 +101,10 @@ func (c *socksDataCache) recordActivity(tunnelID uint64) {
 const (
 	writeTimeout            = 5 * time.Second
 	batchSize               = 100 // Maximum number of sequences to batch
-	inactivityCheckInterval = 5 * time.Second
+	inactivityCheckInterval = 4 * time.Second
 	inactivityTimeout       = 15 * time.Second
+	ToImplantTickerInterval = 10 * time.Millisecond // data going towards implant is usually smaller request data
+	ToClientTickerInterval  = 5 * time.Millisecond  // data coming back from implant is usually larger response data
 )
 
 func (s *Server) SocksProxy(stream rpcpb.SliverRPC_SocksProxyServer) error {
@@ -165,7 +167,7 @@ func (s *Server) SocksProxy(stream rpcpb.SliverRPC_SocksProxyServer) error {
 
 		if tunnel.Client == nil {
 			tunnel.Client = stream
-			tunnel.FromImplant = make(chan *sliverpb.SocksData, 100)
+			tunnel.FromImplant = make(chan *sliverpb.SocksData, 500)
 
 			// Monitor tunnel goroutines for inactivity and cleanup
 			wg.Add(1)
@@ -203,10 +205,14 @@ func (s *Server) SocksProxy(stream rpcpb.SliverRPC_SocksProxyServer) error {
 						toImplantCacheSocks.mutex.RUnlock()
 						fromImplantCacheSocks.mutex.RUnlock()
 
-						// Clean up goroutine if both directions have hit the idle threshold or if client has disconnected
-						if time.Since(toLastActivity) > inactivityTimeout &&
-							time.Since(fromLastActivity) > inactivityTimeout ||
-							tunnel.Client == nil || session == nil {
+						// Clean up goroutine if both directions have hit the idle threshold
+						if time.Since(toLastActivity) > inactivityTimeout && time.Since(fromLastActivity) > inactivityTimeout {
+							s.CloseSocks(context.Background(), &sliverpb.Socks{TunnelID: tunnelID})
+							return
+						}
+
+						// Clean up goroutine if the client has disconnected early
+						if tunnel.Client == nil || session == nil {
 							s.CloseSocks(context.Background(), &sliverpb.Socks{TunnelID: tunnelID})
 							return
 						}
@@ -228,7 +234,7 @@ func (s *Server) SocksProxy(stream rpcpb.SliverRPC_SocksProxyServer) error {
 				}()
 
 				pendingData := make(map[uint64]*sliverpb.SocksData)
-				ticker := time.NewTicker(50 * time.Millisecond) // 50ms ticker - data coming back from implant is usually larger response data
+				ticker := time.NewTicker(ToClientTickerInterval)
 				defer ticker.Stop()
 
 				for {
@@ -307,7 +313,7 @@ func (s *Server) SocksProxy(stream rpcpb.SliverRPC_SocksProxyServer) error {
 				}()
 
 				pendingData := make(map[uint64]*sliverpb.SocksData)
-				ticker := time.NewTicker(100 * time.Millisecond) // 100ms ticker - data going towards implant is usually smaller request data
+				ticker := time.NewTicker(ToImplantTickerInterval)
 				defer ticker.Stop()
 
 				for {

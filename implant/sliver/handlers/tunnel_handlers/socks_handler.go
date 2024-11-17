@@ -36,15 +36,28 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+const (
+	inactivityCheckInterval = 4 * time.Second
+	inactivityTimeout       = 15 * time.Second
+)
+
 type socksTunnelPool struct {
-	tunnels *sync.Map // map[uint64]chan []byte
+	tunnels      *sync.Map // map[uint64]chan []byte
+	lastActivity *sync.Map // map[uint64]time.Time
 }
 
 var socksTunnels = socksTunnelPool{
-	tunnels: &sync.Map{},
+	tunnels:      &sync.Map{},
+	lastActivity: &sync.Map{},
 }
 
 var socksServer *socks5.Server
+
+// Initialize socks server
+func init() {
+	socksServer = socks5.NewServer()
+	socksTunnels.startCleanupMonitor()
+}
 
 func SocksReqHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
 	socksData := &sliverpb.SocksData{}
@@ -58,6 +71,10 @@ func SocksReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 	if socksData.Data == nil {
 		return
 	}
+
+	// Record activity as soon as we get data for this tunnel
+	socksTunnels.recordActivity(socksData.TunnelID)
+
 	// {{if .Config.Debug}}
 	log.Printf("[socks] User to Client to (server to implant) Data Sequence %d, Data Size %d\n", socksData.Sequence, len(socksData.Data))
 	// {{end}}
@@ -70,8 +87,6 @@ func SocksReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 		socksServer = socks5.NewServer(
 			socks5.WithAuthMethods([]socks5.Authenticator{auth}),
 		)
-	} else {
-		socksServer = socks5.NewServer()
 	}
 
 	// {{if .Config.Debug}}
@@ -80,7 +95,7 @@ func SocksReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 
 	// init tunnel
 	if tunnel, ok := socksTunnels.tunnels.Load(socksData.TunnelID); !ok {
-		tunnelChan := make(chan []byte, 10)
+		tunnelChan := make(chan []byte, 500)
 		socksTunnels.tunnels.Store(socksData.TunnelID, tunnelChan)
 		tunnelChan <- socksData.Data
 		err := socksServer.ServeConn(&socks{stream: socksData, conn: connection})
@@ -88,10 +103,19 @@ func SocksReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 			// {{if .Config.Debug}}
 			log.Printf("[socks] Failed to serve connection: %v", err)
 			// {{end}}
+			// Cleanup on serve failure
+			socksTunnels.tunnels.Delete(socksData.TunnelID)
 			return
 		}
 	} else {
-		tunnel.(chan []byte) <- socksData.Data
+		select {
+		case tunnel.(chan []byte) <- socksData.Data:
+			// Data sent successfully
+		default:
+			// {{if .Config.Debug}}
+			log.Printf("[socks] Channel full for tunnel %d, dropping data", socksData.TunnelID)
+			// {{end}}
+		}
 	}
 }
 
@@ -110,11 +134,13 @@ func (s *socks) Read(b []byte) (n int, err error) {
 		return 0, errors.New("[socks] invalid tunnel id")
 	}
 
+	socksTunnels.recordActivity(s.stream.TunnelID)
 	data := <-channel.(chan []byte)
 	return copy(b, data), nil
 }
 
 func (s *socks) Write(b []byte) (n int, err error) {
+	socksTunnels.recordActivity(s.stream.TunnelID)
 	data, err := proto.Marshal(&sliverpb.SocksData{
 		TunnelID: s.stream.TunnelID,
 		Data:     b,
@@ -180,4 +206,38 @@ func (c *socks) SetReadDeadline(t time.Time) error {
 // TODO impl
 func (c *socks) SetWriteDeadline(t time.Time) error {
 	return nil
+}
+
+func (s *socksTunnelPool) recordActivity(tunnelID uint64) {
+	s.lastActivity.Store(tunnelID, time.Now())
+}
+
+func (s *socksTunnelPool) startCleanupMonitor() {
+	go func() {
+		ticker := time.NewTicker(inactivityCheckInterval)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			s.tunnels.Range(func(key, value interface{}) bool {
+				tunnelID := key.(uint64)
+				lastActivityI, exists := s.lastActivity.Load(tunnelID)
+				if !exists {
+					// If no activity record exists, create one
+					s.recordActivity(tunnelID)
+					return true
+				}
+
+				lastActivity := lastActivityI.(time.Time)
+				if time.Since(lastActivity) > inactivityTimeout {
+					// Clean up the inactive tunnel
+					if ch, ok := value.(chan []byte); ok {
+						close(ch)
+					}
+					s.tunnels.Delete(tunnelID)
+					s.lastActivity.Delete(tunnelID)
+				}
+				return true
+			})
+		}
+	}()
 }
