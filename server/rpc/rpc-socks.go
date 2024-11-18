@@ -167,7 +167,7 @@ func (s *Server) SocksProxy(stream rpcpb.SliverRPC_SocksProxyServer) error {
 
 		if tunnel.Client == nil {
 			tunnel.Client = stream
-			tunnel.FromImplant = make(chan *sliverpb.SocksData, 500)
+			tunnel.FromImplant = make(chan *sliverpb.SocksData, 100) // Buffered channel for 100 messages
 
 			// Monitor tunnel goroutines for inactivity and cleanup
 			wg.Add(1)
@@ -247,6 +247,14 @@ func (s *Server) SocksProxy(stream rpcpb.SliverRPC_SocksProxyServer) error {
 						if !ok {
 							return
 						}
+
+						// Check if implant is requesting to close the tunnel
+						if tunnelData.CloseConn {
+							// Clean up the tunnel
+							s.CloseSocks(context.Background(), &sliverpb.Socks{TunnelID: fromClient.TunnelID})
+							return
+						}
+
 						sequence := tunnelData.Sequence
 						fromImplantCacheSocks.Add(fromClient.TunnelID, sequence, tunnelData)
 						pendingData[sequence] = tunnelData
@@ -404,10 +412,19 @@ func (s *Server) CloseSocks(ctx context.Context, req *sliverpb.Socks) (*commonpb
 
 	tunnel := core.SocksTunnels.Get(req.TunnelID)
 	if tunnel != nil {
-		// We mark the tunnel closed first to prevent new operations
-		tunnel.Client = nil
-
-		// Close down the FromImplant channel if it exists
+		// Signal close to implant first
+		if session := core.Sessions.Get(tunnel.SessionID); session != nil {
+			data, _ := proto.Marshal(&sliverpb.SocksData{
+				TunnelID:  req.TunnelID,
+				CloseConn: true,
+			})
+			session.Connection.Send <- &sliverpb.Envelope{
+				Type: sliverpb.MsgSocksData,
+				Data: data,
+			}
+		}
+		time.Sleep(100 * time.Millisecond) // Delay to allow close message to be sent
+		tunnel.Client = nil                // Cleanup the tunnel
 		if tunnel.FromImplant != nil {
 			select {
 			case _, ok := <-tunnel.FromImplant:

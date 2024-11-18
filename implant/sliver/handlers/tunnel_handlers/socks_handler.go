@@ -68,6 +68,19 @@ func SocksReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 		// {{end}}
 		return
 	}
+	time.Sleep(10 * time.Millisecond) // Necessary delay
+
+	// Check early to see if this is a close request from server
+	if socksData.CloseConn {
+		if tunnel, ok := socksTunnels.tunnels.LoadAndDelete(socksData.TunnelID); ok {
+			if ch, ok := tunnel.(chan []byte); ok {
+				close(ch)
+			}
+		}
+		socksTunnels.lastActivity.Delete(socksData.TunnelID)
+		return
+	}
+
 	if socksData.Data == nil {
 		return
 	}
@@ -95,7 +108,7 @@ func SocksReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 
 	// init tunnel
 	if tunnel, ok := socksTunnels.tunnels.Load(socksData.TunnelID); !ok {
-		tunnelChan := make(chan []byte, 500)
+		tunnelChan := make(chan []byte, 100) // Buffered channel for 100 messages
 		socksTunnels.tunnels.Store(socksData.TunnelID, tunnelChan)
 		tunnelChan <- socksData.Data
 		err := socksServer.ServeConn(&socks{stream: socksData, conn: connection})
@@ -108,14 +121,8 @@ func SocksReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 			return
 		}
 	} else {
-		select {
-		case tunnel.(chan []byte) <- socksData.Data:
-			// Data sent successfully
-		default:
-			// {{if .Config.Debug}}
-			log.Printf("[socks] Channel full for tunnel %d, dropping data", socksData.TunnelID)
-			// {{end}}
-		}
+		// Will block when channel is full
+		tunnel.(chan []byte) <- socksData.Data
 	}
 }
 
@@ -129,6 +136,8 @@ type socks struct {
 }
 
 func (s *socks) Read(b []byte) (n int, err error) {
+	time.Sleep(10 * time.Millisecond) // Necessary delay
+
 	channel, ok := socksTunnels.tunnels.Load(s.stream.TunnelID)
 	if !ok {
 		return 0, errors.New("[socks] invalid tunnel id")
@@ -140,6 +149,8 @@ func (s *socks) Read(b []byte) (n int, err error) {
 }
 
 func (s *socks) Write(b []byte) (n int, err error) {
+	time.Sleep(10 * time.Millisecond) // Necessary delay
+
 	socksTunnels.recordActivity(s.stream.TunnelID)
 	data, err := proto.Marshal(&sliverpb.SocksData{
 		TunnelID: s.stream.TunnelID,
@@ -162,12 +173,15 @@ func (s *socks) Write(b []byte) (n int, err error) {
 }
 
 func (s *socks) Close() error {
+	time.Sleep(10 * time.Millisecond) // Necessary delay
+
 	channel, ok := socksTunnels.tunnels.LoadAndDelete(s.stream.TunnelID)
 	if !ok {
 		return errors.New("[socks] can't close unknown channel")
 	}
 	close(channel.(chan []byte))
 
+	// Signal to server that we need to close this tunnel
 	data, err := proto.Marshal(&sliverpb.SocksData{
 		TunnelID:  s.stream.TunnelID,
 		CloseConn: true,
@@ -212,6 +226,7 @@ func (s *socksTunnelPool) recordActivity(tunnelID uint64) {
 	s.lastActivity.Store(tunnelID, time.Now())
 }
 
+// Periodically check for inactive tunnels and clean up
 func (s *socksTunnelPool) startCleanupMonitor() {
 	go func() {
 		ticker := time.NewTicker(inactivityCheckInterval)
