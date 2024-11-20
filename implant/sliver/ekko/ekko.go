@@ -1,6 +1,7 @@
 package ekko
 
 import (
+	"crypto/rand"
 	"log"
 	"syscall"
 	"unsafe"
@@ -144,7 +145,8 @@ func ekko(sleepTime uint64) error {
 	var RopProtRX CONTEXT
 	var RopSetEvt CONTEXT
 
-	keybuf := [16]uint8{0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55}
+	var keybuf [16]byte
+        rand.Read(keybuf[:])
 
 	var Key, Img UString
 
