@@ -15,7 +15,7 @@
 ### Blogs
 
 - https://bishopfox.com/blog/passing-the-osep-exam-using-sliver
-- https://notateamserver.xyz/sliver-101/
+- https://notateamserver.xyz/blog/sliver-101/
 - https://dominicbreuker.com/post/learning_sliver_c2_01_installation/
 - https://vk9-sec.com/how-to-set-up-use-c2-sliver/
 - https://0x90-1.gitbook.io/sliver/
@@ -38,6 +38,7 @@
 
 ### Detection & Analysis
 
+- https://medium.com/@unsec.monitor/how-to-use-zeek-detect-sliver-http-beacon-traffic-f05b214c4056
 - https://www.immersivelabs.com/blog/detecting-and-decrypting-sliver-c2-a-threat-hunters-guide/
 - https://blogs.vmware.com/security/2023/01/detection-of-lateral-movement-with-the-sliver-c2-framework.html
 - https://michaelkoczwara.medium.com/sliver-c2-implant-analysis-62773928097f

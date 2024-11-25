@@ -21,7 +21,6 @@ package msf
 import (
 	"bytes"
 	"fmt"
-	"net/url"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -116,7 +115,6 @@ type VenomConfig struct {
 	BadChars   []string
 	Format     string
 	Luri       string
-	AdvOptions string
 }
 
 // Version - Return the version of MSFVenom
@@ -164,20 +162,6 @@ func VenomPayload(config VenomConfig) ([]byte, error) {
 		luri = fmt.Sprintf("LURI=%s", luri)
 	}
 
-	// Parse advanced options
-	advancedOptions := make(map[string]string)
-	if config.AdvOptions != "" {
-		options, err := url.ParseQuery(config.AdvOptions)
-		if err != nil {
-			return nil, fmt.Errorf("could not parse provided advanced options: %s", err.Error())
-		}
-		for option, value := range options {
-			// Options should only be specified once,
-			// so if a given option is specified more than once, use the last value
-			advancedOptions[option] = value[len(value)-1]
-		}
-	}
-
 	args := []string{
 		"--platform", config.Os,
 		"--arch", config.Arch,
@@ -186,10 +170,6 @@ func VenomPayload(config VenomConfig) ([]byte, error) {
 		fmt.Sprintf("LHOST=%s", config.LHost),
 		fmt.Sprintf("LPORT=%d", config.LPort),
 		"EXITFUNC=thread",
-	}
-
-	for optionName, optionValue := range advancedOptions {
-		args = append(args, fmt.Sprintf("%s=%s", optionName, optionValue))
 	}
 
 	if luri != "" {

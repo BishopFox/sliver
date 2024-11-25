@@ -136,7 +136,6 @@ service SliverRPC {
   rpc DeleteImplantProfile(clientpb.DeleteReq) returns (commonpb.Empty);
   rpc SaveImplantProfile(clientpb.ImplantProfile)
       returns (clientpb.ImplantProfile);
-  rpc MsfStage(clientpb.MsfStagerReq) returns (clientpb.MsfStager);
   rpc ShellcodeRDI(clientpb.ShellcodeRDIReq) returns (clientpb.ShellcodeRDI);
   rpc GetCompiler(commonpb.Empty) returns (clientpb.Compiler);
   rpc ShellcodeEncoder(clientpb.ShellcodeEncodeReq)

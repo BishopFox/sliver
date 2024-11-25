@@ -154,11 +154,6 @@ func (t *Table[Key, Item]) Range(f func(Key, Item) bool) {
 
 // Reset clears the content of the table.
 func (t *Table[Key, Item]) Reset() {
-	for i := range t.masks {
-		t.masks[i] = 0
-	}
-	var zero Item
-	for i := range t.items {
-		t.items[i] = zero
-	}
+	clear(t.masks)
+	clear(t.items)
 }

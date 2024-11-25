@@ -48,30 +48,6 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 
 	generateCmd.AddCommand(generateBeaconCmd)
 
-	generateStagerCmd := &cobra.Command{
-		Use:   consts.MsfStagerStr,
-		Short: "Generate a stager using Metasploit (requires local Metasploit installation)",
-		Long:  help.GetHelpFor([]string{consts.MsfStagerStr}),
-		Run: func(cmd *cobra.Command, args []string) {
-			GenerateStagerCmd(cmd, con, args)
-		},
-	}
-	flags.Bind("stager", false, generateStagerCmd, func(f *pflag.FlagSet) {
-		f.StringP("os", "o", "windows", "operating system")
-		f.StringP("arch", "a", "amd64", "cpu architecture")
-		f.StringP("lhost", "L", "", "Listening host")
-		f.Uint32P("lport", "l", 8443, "Listening port")
-		f.StringP("protocol", "r", "tcp", "Staging protocol (tcp/http/https)")
-		f.StringP("format", "f", "raw", "Output format (msfvenom formats, see help generate msf-stager for the list)")
-		f.StringP("badchars", "b", "", "bytes to exclude from stage shellcode")
-		f.StringP("save", "s", "", "directory to save the generated stager to")
-		f.StringP("advanced", "d", "", "Advanced options for the stager using URI query syntax (option1=value1&option2=value2...)")
-	})
-	flags.BindFlagCompletions(generateStagerCmd, func(comp *carapace.ActionMap) {
-		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
-	})
-	generateCmd.AddCommand(generateStagerCmd)
-
 	generateInfoCmd := &cobra.Command{
 		Use:   consts.CompilerInfoStr,
 		Short: "Get information about the server's compiler",

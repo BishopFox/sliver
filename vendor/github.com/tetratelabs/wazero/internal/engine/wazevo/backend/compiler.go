@@ -69,7 +69,7 @@ type Compiler interface {
 	AllocateVReg(typ ssa.Type) regalloc.VReg
 
 	// ValueDefinition returns the definition of the given value.
-	ValueDefinition(ssa.Value) *SSAValueDefinition
+	ValueDefinition(ssa.Value) SSAValueDefinition
 
 	// VRegOf returns the virtual register of the given ssa.Value.
 	VRegOf(value ssa.Value) regalloc.VReg
@@ -79,13 +79,13 @@ type Compiler interface {
 
 	// MatchInstr returns true if the given definition is from an instruction with the given opcode, the current group ID,
 	// and a refcount of 1. That means, the instruction can be merged/swapped within the current instruction group.
-	MatchInstr(def *SSAValueDefinition, opcode ssa.Opcode) bool
+	MatchInstr(def SSAValueDefinition, opcode ssa.Opcode) bool
 
 	// MatchInstrOneOf is the same as MatchInstr but for multiple opcodes. If it matches one of ssa.Opcode,
 	// this returns the opcode. Otherwise, this returns ssa.OpcodeInvalid.
 	//
 	// Note: caller should be careful to avoid excessive allocation on opcodes slice.
-	MatchInstrOneOf(def *SSAValueDefinition, opcodes []ssa.Opcode) ssa.Opcode
+	MatchInstrOneOf(def SSAValueDefinition, opcodes []ssa.Opcode) ssa.Opcode
 
 	// AddRelocationInfo appends the relocation information for the function reference at the current buffer offset.
 	AddRelocationInfo(funcRef ssa.FuncRef)
@@ -126,10 +126,7 @@ type compiler struct {
 	nextVRegID regalloc.VRegID
 	// ssaValueToVRegs maps ssa.ValueID to regalloc.VReg.
 	ssaValueToVRegs [] /* VRegID to */ regalloc.VReg
-	// ssaValueDefinitions maps ssa.ValueID to its definition.
-	ssaValueDefinitions []SSAValueDefinition
-	// ssaValueRefCounts is a cached list obtained by ssa.Builder.ValueRefCounts().
-	ssaValueRefCounts []int
+	ssaValuesInfo   []ssa.ValueInfo
 	// returnVRegs is the list of virtual registers that store the return values.
 	returnVRegs  []regalloc.VReg
 	varEdges     [][2]regalloc.VReg
@@ -206,15 +203,10 @@ func (c *compiler) setCurrentGroupID(gid ssa.InstructionGroupID) {
 // assignVirtualRegisters assigns a virtual register to each ssa.ValueID Valid in the ssa.Builder.
 func (c *compiler) assignVirtualRegisters() {
 	builder := c.ssaBuilder
-	refCounts := builder.ValueRefCounts()
-	c.ssaValueRefCounts = refCounts
+	c.ssaValuesInfo = builder.ValuesInfo()
 
-	need := len(refCounts)
-	if need >= len(c.ssaValueToVRegs) {
-		c.ssaValueToVRegs = append(c.ssaValueToVRegs, make([]regalloc.VReg, need+1)...)
-	}
-	if need >= len(c.ssaValueDefinitions) {
-		c.ssaValueDefinitions = append(c.ssaValueDefinitions, make([]SSAValueDefinition, need+1)...)
+	if diff := len(c.ssaValuesInfo) - len(c.ssaValueToVRegs); diff > 0 {
+		c.ssaValueToVRegs = append(c.ssaValueToVRegs, make([]regalloc.VReg, diff+1)...)
 	}
 
 	for blk := builder.BlockIteratorReversePostOrderBegin(); blk != nil; blk = builder.BlockIteratorReversePostOrderNext() {
@@ -225,40 +217,26 @@ func (c *compiler) assignVirtualRegisters() {
 			typ := p.Type()
 			vreg := c.AllocateVReg(typ)
 			c.ssaValueToVRegs[pid] = vreg
-			c.ssaValueDefinitions[pid] = SSAValueDefinition{BlockParamValue: p, BlkParamVReg: vreg}
 			c.ssaTypeOfVRegID[vreg.ID()] = p.Type()
 		}
 
 		// Assigns each value to a virtual register produced by instructions.
 		for cur := blk.Root(); cur != nil; cur = cur.Next() {
 			r, rs := cur.Returns()
-			var N int
 			if r.Valid() {
 				id := r.ID()
 				ssaTyp := r.Type()
 				typ := r.Type()
 				vReg := c.AllocateVReg(typ)
 				c.ssaValueToVRegs[id] = vReg
-				c.ssaValueDefinitions[id] = SSAValueDefinition{
-					Instr:    cur,
-					N:        0,
-					RefCount: refCounts[id],
-				}
 				c.ssaTypeOfVRegID[vReg.ID()] = ssaTyp
-				N++
 			}
 			for _, r := range rs {
 				id := r.ID()
 				ssaTyp := r.Type()
 				vReg := c.AllocateVReg(ssaTyp)
 				c.ssaValueToVRegs[id] = vReg
-				c.ssaValueDefinitions[id] = SSAValueDefinition{
-					Instr:    cur,
-					N:        N,
-					RefCount: refCounts[id],
-				}
 				c.ssaTypeOfVRegID[vReg.ID()] = ssaTyp
-				N++
 			}
 		}
 	}
@@ -299,8 +277,12 @@ func (c *compiler) Init() {
 }
 
 // ValueDefinition implements Compiler.ValueDefinition.
-func (c *compiler) ValueDefinition(value ssa.Value) *SSAValueDefinition {
-	return &c.ssaValueDefinitions[value.ID()]
+func (c *compiler) ValueDefinition(value ssa.Value) SSAValueDefinition {
+	return SSAValueDefinition{
+		V:        value,
+		Instr:    c.ssaBuilder.InstructionOfValue(value),
+		RefCount: c.ssaValuesInfo[value.ID()].RefCount,
+	}
 }
 
 // VRegOf implements Compiler.VRegOf.
@@ -319,7 +301,7 @@ func (c *compiler) TypeOf(v regalloc.VReg) ssa.Type {
 }
 
 // MatchInstr implements Compiler.MatchInstr.
-func (c *compiler) MatchInstr(def *SSAValueDefinition, opcode ssa.Opcode) bool {
+func (c *compiler) MatchInstr(def SSAValueDefinition, opcode ssa.Opcode) bool {
 	instr := def.Instr
 	return def.IsFromInstr() &&
 		instr.Opcode() == opcode &&
@@ -328,7 +310,7 @@ func (c *compiler) MatchInstr(def *SSAValueDefinition, opcode ssa.Opcode) bool {
 }
 
 // MatchInstrOneOf implements Compiler.MatchInstrOneOf.
-func (c *compiler) MatchInstrOneOf(def *SSAValueDefinition, opcodes []ssa.Opcode) ssa.Opcode {
+func (c *compiler) MatchInstrOneOf(def SSAValueDefinition, opcodes []ssa.Opcode) ssa.Opcode {
 	instr := def.Instr
 	if !def.IsFromInstr() {
 		return ssa.OpcodeInvalid

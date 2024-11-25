@@ -101,13 +101,14 @@ func (m *machine) LowerParams(args []ssa.Value) {
 			bits := arg.Type.Bits()
 			// At this point of compilation, we don't yet know how much space exist below the return address.
 			// So we instruct the address mode to add the `argStackOffset` to the offset at the later phase of compilation.
-			amode := addressMode{imm: arg.Offset, rn: spVReg, kind: addressModeKindArgStackSpace}
+			amode := m.amodePool.Allocate()
+			*amode = addressMode{imm: arg.Offset, rn: spVReg, kind: addressModeKindArgStackSpace}
 			load := m.allocateInstr()
 			switch arg.Type {
 			case ssa.TypeI32, ssa.TypeI64:
-				load.asULoad(operandNR(reg), amode, bits)
+				load.asULoad(reg, amode, bits)
 			case ssa.TypeF32, ssa.TypeF64, ssa.TypeV128:
-				load.asFpuLoad(operandNR(reg), amode, bits)
+				load.asFpuLoad(reg, amode, bits)
 			default:
 				panic("BUG")
 			}
@@ -169,7 +170,8 @@ func (m *machine) LowerReturns(rets []ssa.Value) {
 
 			// At this point of compilation, we don't yet know how much space exist below the return address.
 			// So we instruct the address mode to add the `retStackOffset` to the offset at the later phase of compilation.
-			amode := addressMode{imm: r.Offset, rn: spVReg, kind: addressModeKindResultStackSpace}
+			amode := m.amodePool.Allocate()
+			*amode = addressMode{imm: r.Offset, rn: spVReg, kind: addressModeKindResultStackSpace}
 			store := m.allocateInstr()
 			store.asStore(operandNR(reg), amode, bits)
 			m.insert(store)
@@ -180,9 +182,9 @@ func (m *machine) LowerReturns(rets []ssa.Value) {
 
 // callerGenVRegToFunctionArg is the opposite of GenFunctionArgToVReg, which is used to generate the
 // caller side of the function call.
-func (m *machine) callerGenVRegToFunctionArg(a *backend.FunctionABI, argIndex int, reg regalloc.VReg, def *backend.SSAValueDefinition, slotBegin int64) {
+func (m *machine) callerGenVRegToFunctionArg(a *backend.FunctionABI, argIndex int, reg regalloc.VReg, def backend.SSAValueDefinition, slotBegin int64) {
 	arg := &a.Args[argIndex]
-	if def != nil && def.IsFromInstr() {
+	if def.IsFromInstr() {
 		// Constant instructions are inlined.
 		if inst := def.Instr; inst.Constant() {
 			val := inst.Return()
@@ -215,9 +217,9 @@ func (m *machine) callerGenFunctionReturnVReg(a *backend.FunctionABI, retIndex i
 		ldr := m.allocateInstr()
 		switch r.Type {
 		case ssa.TypeI32, ssa.TypeI64:
-			ldr.asULoad(operandNR(reg), amode, r.Type.Bits())
+			ldr.asULoad(reg, amode, r.Type.Bits())
 		case ssa.TypeF32, ssa.TypeF64, ssa.TypeV128:
-			ldr.asFpuLoad(operandNR(reg), amode, r.Type.Bits())
+			ldr.asFpuLoad(reg, amode, r.Type.Bits())
 		default:
 			panic("BUG")
 		}
@@ -225,25 +227,24 @@ func (m *machine) callerGenFunctionReturnVReg(a *backend.FunctionABI, retIndex i
 	}
 }
 
-func (m *machine) resolveAddressModeForOffsetAndInsert(cur *instruction, offset int64, dstBits byte, rn regalloc.VReg, allowTmpRegUse bool) (*instruction, addressMode) {
-	exct := m.executableContext
-	exct.PendingInstructions = exct.PendingInstructions[:0]
+func (m *machine) resolveAddressModeForOffsetAndInsert(cur *instruction, offset int64, dstBits byte, rn regalloc.VReg, allowTmpRegUse bool) (*instruction, *addressMode) {
+	m.pendingInstructions = m.pendingInstructions[:0]
 	mode := m.resolveAddressModeForOffset(offset, dstBits, rn, allowTmpRegUse)
-	for _, instr := range exct.PendingInstructions {
+	for _, instr := range m.pendingInstructions {
 		cur = linkInstr(cur, instr)
 	}
 	return cur, mode
 }
 
-func (m *machine) resolveAddressModeForOffset(offset int64, dstBits byte, rn regalloc.VReg, allowTmpRegUse bool) addressMode {
+func (m *machine) resolveAddressModeForOffset(offset int64, dstBits byte, rn regalloc.VReg, allowTmpRegUse bool) *addressMode {
 	if rn.RegType() != regalloc.RegTypeInt {
 		panic("BUG: rn should be a pointer: " + formatVRegSized(rn, 64))
 	}
-	var amode addressMode
+	amode := m.amodePool.Allocate()
 	if offsetFitsInAddressModeKindRegUnsignedImm12(dstBits, offset) {
-		amode = addressMode{kind: addressModeKindRegUnsignedImm12, rn: rn, imm: offset}
+		*amode = addressMode{kind: addressModeKindRegUnsignedImm12, rn: rn, imm: offset}
 	} else if offsetFitsInAddressModeKindRegSignedImm9(offset) {
-		amode = addressMode{kind: addressModeKindRegSignedImm9, rn: rn, imm: offset}
+		*amode = addressMode{kind: addressModeKindRegSignedImm9, rn: rn, imm: offset}
 	} else {
 		var indexReg regalloc.VReg
 		if allowTmpRegUse {
@@ -253,7 +254,7 @@ func (m *machine) resolveAddressModeForOffset(offset int64, dstBits byte, rn reg
 			indexReg = m.compiler.AllocateVReg(ssa.TypeI64)
 			m.lowerConstantI64(indexReg, offset)
 		}
-		amode = addressMode{kind: addressModeKindRegReg, rn: rn, rm: indexReg, extOp: extendOpUXTX /* indicates index rm is 64-bit */}
+		*amode = addressMode{kind: addressModeKindRegReg, rn: rn, rm: indexReg, extOp: extendOpUXTX /* indicates index rm is 64-bit */}
 	}
 	return amode
 }
@@ -315,7 +316,7 @@ func (m *machine) insertAddOrSubStackPointer(rd regalloc.VReg, diff int64, add b
 		} else {
 			ao = aluOpSub
 		}
-		alu.asALU(ao, operandNR(rd), operandNR(spVReg), imm12Operand, true)
+		alu.asALU(ao, rd, operandNR(spVReg), imm12Operand, true)
 		m.insert(alu)
 	} else {
 		m.lowerConstantI64(tmpRegVReg, diff)
@@ -326,7 +327,7 @@ func (m *machine) insertAddOrSubStackPointer(rd regalloc.VReg, diff int64, add b
 		} else {
 			ao = aluOpSub
 		}
-		alu.asALU(ao, operandNR(rd), operandNR(spVReg), operandNR(tmpRegVReg), true)
+		alu.asALU(ao, rd, operandNR(spVReg), operandNR(tmpRegVReg), true)
 		m.insert(alu)
 	}
 }

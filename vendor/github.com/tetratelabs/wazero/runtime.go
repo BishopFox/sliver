@@ -197,7 +197,13 @@ func (r *runtime) Module(moduleName string) api.Module {
 	if len(moduleName) == 0 {
 		return nil
 	}
-	return r.store.Module(moduleName)
+	m := r.store.Module(moduleName)
+	if m == nil {
+		return nil
+	} else if m.Source.IsHostModule {
+		return hostModuleInstance{m}
+	}
+	return m
 }
 
 // CompileModule implements Runtime.CompileModule
