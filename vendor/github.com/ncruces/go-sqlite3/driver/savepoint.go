@@ -16,12 +16,25 @@ func Savepoint(tx *sql.Tx) sqlite3.Savepoint {
 	return ctx.Savepoint
 }
 
+// A saveptCtx is never canceled, has no values, and has no deadline.
 type saveptCtx struct{ sqlite3.Savepoint }
 
-func (*saveptCtx) Deadline() (deadline time.Time, ok bool) { return }
+func (*saveptCtx) Deadline() (deadline time.Time, ok bool) {
+	// notest
+	return
+}
 
-func (*saveptCtx) Done() <-chan struct{} { return nil }
+func (*saveptCtx) Done() <-chan struct{} {
+	// notest
+	return nil
+}
 
-func (*saveptCtx) Err() error { return nil }
+func (*saveptCtx) Err() error {
+	// notest
+	return nil
+}
 
-func (*saveptCtx) Value(key any) any { return nil }
+func (*saveptCtx) Value(key any) any {
+	// notest
+	return nil
+}

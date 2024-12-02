@@ -98,6 +98,9 @@ func (e *moduleEngine) SetGlobalValue(idx wasm.Index, lo, hi uint64) {
 // OwnsGlobals implements the same method as documented on wasm.ModuleEngine.
 func (e *moduleEngine) OwnsGlobals() bool { return false }
 
+// MemoryGrown implements wasm.ModuleEngine.
+func (e *moduleEngine) MemoryGrown() {}
+
 // callEngine holds context per moduleEngine.Call, and shared across all the
 // function calls originating from the same moduleEngine.Call execution.
 //
@@ -484,7 +487,7 @@ func (e *engine) setLabelAddress(op *uint64, label label, labelAddressResolution
 }
 
 // ResolveImportedFunction implements wasm.ModuleEngine.
-func (e *moduleEngine) ResolveImportedFunction(index, indexInImportedModule wasm.Index, importedModuleEngine wasm.ModuleEngine) {
+func (e *moduleEngine) ResolveImportedFunction(index, descFunc, indexInImportedModule wasm.Index, importedModuleEngine wasm.ModuleEngine) {
 	imported := importedModuleEngine.(*moduleEngine)
 	e.functions[index] = imported.functions[indexInImportedModule]
 }
@@ -3898,14 +3901,9 @@ func (ce *callEngine) callNativeFunc(ctx context.Context, m *wasm.ModuleInstance
 		case operationKindV128Dot:
 			x2Hi, x2Lo := ce.popValue(), ce.popValue()
 			x1Hi, x1Lo := ce.popValue(), ce.popValue()
-			ce.pushValue(
-				uint64(uint32(int32(int16(x1Lo>>0))*int32(int16(x2Lo>>0))+int32(int16(x1Lo>>16))*int32(int16(x2Lo>>16)))) |
-					(uint64(uint32(int32(int16(x1Lo>>32))*int32(int16(x2Lo>>32))+int32(int16(x1Lo>>48))*int32(int16(x2Lo>>48)))) << 32),
-			)
-			ce.pushValue(
-				uint64(uint32(int32(int16(x1Hi>>0))*int32(int16(x2Hi>>0))+int32(int16(x1Hi>>16))*int32(int16(x2Hi>>16)))) |
-					(uint64(uint32(int32(int16(x1Hi>>32))*int32(int16(x2Hi>>32))+int32(int16(x1Hi>>48))*int32(int16(x2Hi>>48)))) << 32),
-			)
+			lo, hi := v128Dot(x1Hi, x1Lo, x2Hi, x2Lo)
+			ce.pushValue(lo)
+			ce.pushValue(hi)
 			frame.pc++
 		case operationKindV128ITruncSatFromF:
 			hi, lo := ce.popValue(), ce.popValue()
@@ -4580,4 +4578,19 @@ func (ce *callEngine) callGoFuncWithStack(ctx context.Context, m *wasm.ModuleIns
 	if shrinkLen := paramLen - resultLen; shrinkLen > 0 {
 		ce.stack = ce.stack[0 : len(ce.stack)-shrinkLen]
 	}
+}
+
+// v128Dot performs a dot product of two 64-bit vectors.
+// Note: for some reason (which I suspect is due to a bug in Go compiler's regalloc),
+// inlining this function causes a bug which happens **only when** we run with -race AND arm64 AND Go 1.22.
+func v128Dot(x1Hi, x1Lo, x2Hi, x2Lo uint64) (uint64, uint64) {
+	r1 := int32(int16(x1Lo>>0)) * int32(int16(x2Lo>>0))
+	r2 := int32(int16(x1Lo>>16)) * int32(int16(x2Lo>>16))
+	r3 := int32(int16(x1Lo>>32)) * int32(int16(x2Lo>>32))
+	r4 := int32(int16(x1Lo>>48)) * int32(int16(x2Lo>>48))
+	r5 := int32(int16(x1Hi>>0)) * int32(int16(x2Hi>>0))
+	r6 := int32(int16(x1Hi>>16)) * int32(int16(x2Hi>>16))
+	r7 := int32(int16(x1Hi>>32)) * int32(int16(x2Hi>>32))
+	r8 := int32(int16(x1Hi>>48)) * int32(int16(x2Hi>>48))
+	return uint64(uint32(r1+r2)) | (uint64(uint32(r3+r4)) << 32), uint64(uint32(r5+r6)) | (uint64(uint32(r7+r8)) << 32)
 }

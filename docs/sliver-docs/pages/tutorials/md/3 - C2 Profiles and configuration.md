@@ -1,6 +1,6 @@
-# This course is intented for the 1.6 version of Sliver, which is not yet published
+# This course is intended for the 1.6 version of Sliver, which is not yet published
 
-When generating implants sliver uses a C2Profile configuration, which will be use to generate the effective network configuration of the implant. For example if configured to use /admin and /demo as callback urls, it might use one, the other or both allowing two implants using the same configuration to still seem slightly different from a network traffic perspective.
+When generating implants sliver uses a C2Profile configuration, which will be used to generate the effective network configuration of the implant. For example if configured to use /admin and /demo as callback urls, it might use one, the other or both allowing two implants using the same configuration to still seem slightly different from a network traffic perspective.
 
 C2 profile configurations can be seen using the `c2profile` command, which also allows import and export features.
 
@@ -14,7 +14,7 @@ Lets imagine we’re trying to breach a customer we've noticed uses ruby-on-rail
 - `.png` for close session
 - `.php` for session messages
 
-We will need to update the session messages and staging with something more realistic and place all references to `woff` or `php` with something less suspicious like `css`, `rb` or `erb`.
+We will need to update the session messages and staging with something more realistic and replace all references to `woff` or `php` with something less suspicious like `css`, `rb` or `erb`.
 
 We will also use a list of common Urls and filenames for Ruby on Rails like `https://github.com/danielmiessler/SecLists/blob/master/DiscoveryWeb-Content/ror.txt` for the `*_files` and `*_paths` variables. You could also reuse Urls discovered while enumerating your target's external perimeter in a similar way.
 

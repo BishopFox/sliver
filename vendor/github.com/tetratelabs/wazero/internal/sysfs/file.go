@@ -38,9 +38,6 @@ func NewStdioFile(stdin bool, f fs.File) (fsapi.File, error) {
 }
 
 func OpenFile(path string, flag experimentalsys.Oflag, perm fs.FileMode) (*os.File, experimentalsys.Errno) {
-	if flag&experimentalsys.O_DIRECTORY != 0 && flag&(experimentalsys.O_WRONLY|experimentalsys.O_RDWR) != 0 {
-		return nil, experimentalsys.EISDIR // invalid to open a directory writeable
-	}
 	return openFile(path, flag, perm)
 }
 
@@ -272,7 +269,7 @@ func (f *fsFile) Readdir(n int) (dirents []experimentalsys.Dirent, errno experim
 
 	if f.reopenDir { // re-open the directory if needed.
 		f.reopenDir = false
-		if errno = adjustReaddirErr(f, f.closed, f.reopen()); errno != 0 {
+		if errno = adjustReaddirErr(f, f.closed, f.rewindDir()); errno != 0 {
 			return
 		}
 	}
@@ -421,19 +418,25 @@ func seek(s io.Seeker, offset int64, whence int) (int64, experimentalsys.Errno) 
 	return newOffset, experimentalsys.UnwrapOSError(err)
 }
 
-// reopenFile allows re-opening a file for reasons such as applying flags or
-// directory iteration.
-type reopenFile func() experimentalsys.Errno
-
-// compile-time check to ensure fsFile.reopen implements reopenFile.
-var _ reopenFile = (*fsFile)(nil).reopen
-
-// reopen implements the same method as documented on reopenFile.
-func (f *fsFile) reopen() experimentalsys.Errno {
-	_ = f.close()
-	var err error
-	f.file, err = f.fs.Open(f.name)
-	return experimentalsys.UnwrapOSError(err)
+func (f *fsFile) rewindDir() experimentalsys.Errno {
+	// Reopen the directory to rewind it.
+	file, err := f.fs.Open(f.name)
+	if err != nil {
+		return experimentalsys.UnwrapOSError(err)
+	}
+	fi, err := file.Stat()
+	if err != nil {
+		return experimentalsys.UnwrapOSError(err)
+	}
+	// Can't check if it's still the same file,
+	// but is it still a directory, at least?
+	if !fi.IsDir() {
+		return experimentalsys.ENOTDIR
+	}
+	// Only update f on success.
+	_ = f.file.Close()
+	f.file = file
+	return 0
 }
 
 // readdirFile allows masking the `Readdir` function on os.File.

@@ -7,6 +7,8 @@ import (
 	"os"
 )
 
+const _O_NOFOLLOW = 0
+
 func osAccess(path string, flags AccessFlag) error {
 	fi, err := os.Stat(path)
 	if err != nil {
@@ -32,5 +34,14 @@ func osAccess(path string, flags AccessFlag) error {
 	if fi.Mode()&want != want {
 		return fs.ErrPermission
 	}
+	return nil
+}
+
+func osSetMode(file *os.File, modeof string) error {
+	fi, err := os.Stat(modeof)
+	if err != nil {
+		return err
+	}
+	file.Chmod(fi.Mode())
 	return nil
 }

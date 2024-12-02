@@ -9,10 +9,12 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/ncruces/go-sqlite3/internal/util"
-	"github.com/ncruces/go-sqlite3/vfs"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/experimental"
+
+	"github.com/ncruces/go-sqlite3/internal/util"
+	"github.com/ncruces/go-sqlite3/vfs"
 )
 
 // Configure SQLite Wasm.
@@ -28,6 +30,14 @@ var (
 	RuntimeConfig wazero.RuntimeConfig
 )
 
+// Initialize decodes and compiles the SQLite Wasm binary.
+// This is called implicitly when the first connection is openned,
+// but is potentially slow, so you may want to call it at a more convenient time.
+func Initialize() error {
+	instance.once.Do(compileSQLite)
+	return instance.err
+}
+
 var instance struct {
 	runtime  wazero.Runtime
 	compiled wazero.CompiledModule
@@ -36,12 +46,19 @@ var instance struct {
 }
 
 func compileSQLite() {
-	if RuntimeConfig == nil {
-		RuntimeConfig = wazero.NewRuntimeConfig()
-	}
-
 	ctx := context.Background()
-	instance.runtime = wazero.NewRuntimeWithConfig(ctx, RuntimeConfig)
+	cfg := RuntimeConfig
+	if cfg == nil {
+		cfg = wazero.NewRuntimeConfig()
+		if bits.UintSize >= 64 {
+			cfg = cfg.WithMemoryLimitPages(4096) // 256MB
+		} else {
+			cfg = cfg.WithMemoryLimitPages(512) // 32MB
+		}
+	}
+	cfg = cfg.WithCoreFeatures(api.CoreFeaturesV2 | experimental.CoreFeaturesThreads)
+
+	instance.runtime = wazero.NewRuntimeWithConfig(ctx, cfg)
 
 	env := instance.runtime.NewHostModuleBuilder("env")
 	env = vfs.ExportHostFunctions(env)
@@ -74,14 +91,12 @@ type sqlite struct {
 		id   [32]*byte
 		mask uint32
 	}
-	stack [8]uint64
-	freer uint32
+	stack [9]uint64
 }
 
 func instantiateSQLite() (sqlt *sqlite, err error) {
-	instance.once.Do(compileSQLite)
-	if instance.err != nil {
-		return nil, instance.err
+	if err := Initialize(); err != nil {
+		return nil, err
 	}
 
 	sqlt = new(sqlite)
@@ -92,14 +107,7 @@ func instantiateSQLite() (sqlt *sqlite, err error) {
 	if err != nil {
 		return nil, err
 	}
-
-	global := sqlt.mod.ExportedGlobal("malloc_destructor")
-	if global == nil {
-		return nil, util.BadBinaryErr
-	}
-
-	sqlt.freer = util.ReadUint32(sqlt.mod, uint32(global.Get()))
-	if sqlt.freer == 0 {
+	if sqlt.getfn("sqlite3_progress_handler_go") == nil {
 		return nil, util.BadBinaryErr
 	}
 	return sqlt, nil
@@ -129,7 +137,7 @@ func (sqlt *sqlite) error(rc uint64, handle uint32, sql ...string) error {
 			err.msg = util.ReadString(sqlt.mod, uint32(r), _MAX_LENGTH)
 		}
 
-		if sql != nil {
+		if len(sql) != 0 {
 			if r := sqlt.call("sqlite3_error_offset", uint64(handle)); r != math.MaxUint32 {
 				err.sql = sql[0][r:]
 			}
@@ -186,14 +194,19 @@ func (sqlt *sqlite) free(ptr uint32) {
 	if ptr == 0 {
 		return
 	}
-	sqlt.call("free", uint64(ptr))
+	sqlt.call("sqlite3_free", uint64(ptr))
 }
 
 func (sqlt *sqlite) new(size uint64) uint32 {
-	if size > _MAX_ALLOCATION_SIZE {
+	ptr := uint32(sqlt.call("sqlite3_malloc64", size))
+	if ptr == 0 && size != 0 {
 		panic(util.OOMErr)
 	}
-	ptr := uint32(sqlt.call("malloc", size))
+	return ptr
+}
+
+func (sqlt *sqlite) realloc(ptr uint32, size uint64) uint32 {
+	ptr = uint32(sqlt.call("sqlite3_realloc64", uint64(ptr), size))
 	if ptr == 0 && size != 0 {
 		panic(util.OOMErr)
 	}
@@ -204,7 +217,11 @@ func (sqlt *sqlite) newBytes(b []byte) uint32 {
 	if (*[0]byte)(b) == nil {
 		return 0
 	}
-	ptr := sqlt.new(uint64(len(b)))
+	size := len(b)
+	if size == 0 {
+		size = 1
+	}
+	ptr := sqlt.new(uint64(size))
 	util.WriteBytes(sqlt.mod, ptr, b)
 	return ptr
 }
@@ -289,12 +306,14 @@ func (a *arena) string(s string) uint32 {
 }
 
 func exportCallbacks(env wazero.HostModuleBuilder) wazero.HostModuleBuilder {
-	util.ExportFuncIII(env, "go_busy_handler", busyCallback)
 	util.ExportFuncII(env, "go_progress_handler", progressCallback)
+	util.ExportFuncIII(env, "go_busy_timeout", timeoutCallback)
+	util.ExportFuncIII(env, "go_busy_handler", busyCallback)
 	util.ExportFuncII(env, "go_commit_hook", commitCallback)
 	util.ExportFuncVI(env, "go_rollback_hook", rollbackCallback)
 	util.ExportFuncVIIIIJ(env, "go_update_hook", updateCallback)
 	util.ExportFuncIIIII(env, "go_wal_hook", walCallback)
+	util.ExportFuncIIIII(env, "go_trace", traceCallback)
 	util.ExportFuncIIIIII(env, "go_autovacuum_pages", autoVacuumCallback)
 	util.ExportFuncIIIIIII(env, "go_authorizer", authorizerCallback)
 	util.ExportFuncVIII(env, "go_log", logCallback)

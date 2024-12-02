@@ -11,7 +11,24 @@ import (
 type (
 	// Machine is a backend for a specific ISA machine.
 	Machine interface {
-		ExecutableContext() ExecutableContext
+		// StartLoweringFunction is called when the compilation of the given function is started.
+		// The maxBlockID is the maximum ssa.BasicBlockID in the function.
+		StartLoweringFunction(maxBlockID ssa.BasicBlockID)
+
+		// LinkAdjacentBlocks is called after finished lowering all blocks in order to create one single instruction list.
+		LinkAdjacentBlocks(prev, next ssa.BasicBlock)
+
+		// StartBlock is called when the compilation of the given block is started.
+		// The order of this being called is the reverse post order of the ssa.BasicBlock(s) as we iterate with
+		// ssa.Builder BlockIteratorReversePostOrderBegin and BlockIteratorReversePostOrderEnd.
+		StartBlock(ssa.BasicBlock)
+
+		// EndBlock is called when the compilation of the current block is finished.
+		EndBlock()
+
+		// FlushPendingInstructions flushes the pending instructions to the buffer.
+		// This will be called after the lowering of each SSA Instruction.
+		FlushPendingInstructions()
 
 		// DisableStackCheck disables the stack check for the current compilation for debugging/testing.
 		DisableStackCheck()
@@ -60,11 +77,13 @@ type (
 
 		// ResolveRelocations resolves the relocations after emitting machine code.
 		//  * refToBinaryOffset: the map from the function reference (ssa.FuncRef) to the executable offset.
+		//  * importedFns: the max index of the imported functions at the beginning of refToBinaryOffset
 		//  * executable: the binary to resolve the relocations.
 		//  * relocations: the relocations to resolve.
 		//  * callTrampolineIslandOffsets: the offsets of the trampoline islands in the executable.
 		ResolveRelocations(
 			refToBinaryOffset []int,
+			importedFns int,
 			executable []byte,
 			relocations []RelocationInfo,
 			callTrampolineIslandOffsets []int,

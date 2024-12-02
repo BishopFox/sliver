@@ -68,9 +68,7 @@ func pollOneoffFn(_ context.Context, mod api.Module, params []uint64) sys.Errno 
 	}
 	outBuf, ok := mem.Read(out, nsubscriptions*32)
 	// zero-out all buffer before writing
-	for i := range outBuf {
-		outBuf[i] = 0
-	}
+	clear(outBuf)
 
 	if !ok {
 		return sys.EFAULT

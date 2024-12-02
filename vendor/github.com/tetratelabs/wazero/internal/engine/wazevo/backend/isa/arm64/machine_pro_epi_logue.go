@@ -15,9 +15,7 @@ func (m *machine) PostRegAlloc() {
 
 // setupPrologue initializes the prologue of the function.
 func (m *machine) setupPrologue() {
-	ectx := m.executableContext
-
-	cur := ectx.RootInstr
+	cur := m.rootInstr
 	prevInitInst := cur.next
 
 	//
@@ -70,7 +68,7 @@ func (m *machine) setupPrologue() {
 		//                                          +-----------------+ <----- SP
 		//                                             (low address)
 		//
-		_amode := addressModePreOrPostIndex(spVReg,
+		_amode := addressModePreOrPostIndex(m, spVReg,
 			-16,  // stack pointer must be 16-byte aligned.
 			true, // Decrement before store.
 		)
@@ -159,7 +157,7 @@ func (m *machine) createReturnAddrAndSizeOfArgRetSlot(cur *instruction) *instruc
 		sizeOfArgRetReg = tmpRegVReg
 
 		subSp := m.allocateInstr()
-		subSp.asALU(aluOpSub, operandNR(spVReg), operandNR(spVReg), operandNR(sizeOfArgRetReg), true)
+		subSp.asALU(aluOpSub, spVReg, operandNR(spVReg), operandNR(sizeOfArgRetReg), true)
 		cur = linkInstr(cur, subSp)
 	} else {
 		sizeOfArgRetReg = xzrVReg
@@ -168,7 +166,7 @@ func (m *machine) createReturnAddrAndSizeOfArgRetSlot(cur *instruction) *instruc
 	// Saves the return address (lr) and the size_of_arg_ret below the SP.
 	// size_of_arg_ret is used for stack unwinding.
 	pstr := m.allocateInstr()
-	amode := addressModePreOrPostIndex(spVReg, -16, true /* decrement before store */)
+	amode := addressModePreOrPostIndex(m, spVReg, -16, true /* decrement before store */)
 	pstr.asStorePair64(lrVReg, sizeOfArgRetReg, amode)
 	cur = linkInstr(cur, pstr)
 	return cur
@@ -182,7 +180,7 @@ func (m *machine) createFrameSizeSlot(cur *instruction, s int64) *instruction {
 	} else {
 		frameSizeReg = xzrVReg
 	}
-	_amode := addressModePreOrPostIndex(spVReg,
+	_amode := addressModePreOrPostIndex(m, spVReg,
 		-16,  // stack pointer must be 16-byte aligned.
 		true, // Decrement before store.
 	)
@@ -196,24 +194,23 @@ func (m *machine) createFrameSizeSlot(cur *instruction, s int64) *instruction {
 // 1. Removes the redundant copy instruction.
 // 2. Inserts the epilogue.
 func (m *machine) postRegAlloc() {
-	ectx := m.executableContext
-	for cur := ectx.RootInstr; cur != nil; cur = cur.next {
+	for cur := m.rootInstr; cur != nil; cur = cur.next {
 		switch cur.kind {
 		case ret:
 			m.setupEpilogueAfter(cur.prev)
 		case loadConstBlockArg:
 			lc := cur
 			next := lc.next
-			m.executableContext.PendingInstructions = m.executableContext.PendingInstructions[:0]
+			m.pendingInstructions = m.pendingInstructions[:0]
 			m.lowerLoadConstantBlockArgAfterRegAlloc(lc)
-			for _, instr := range m.executableContext.PendingInstructions {
+			for _, instr := range m.pendingInstructions {
 				cur = linkInstr(cur, instr)
 			}
 			linkInstr(cur, next)
-			m.executableContext.PendingInstructions = m.executableContext.PendingInstructions[:0]
+			m.pendingInstructions = m.pendingInstructions[:0]
 		default:
 			// Removes the redundant copy instruction.
-			if cur.IsCopy() && cur.rn.realReg() == cur.rd.realReg() {
+			if cur.IsCopy() && cur.rn.realReg() == cur.rd.RealReg() {
 				prev, next := cur.prev, cur.next
 				// Remove the copy instruction.
 				prev.next = next
@@ -286,16 +283,16 @@ func (m *machine) setupEpilogueAfter(cur *instruction) {
 		for i := range m.clobberedRegs {
 			vr := m.clobberedRegs[l-i] // reverse order to restore.
 			load := m.allocateInstr()
-			amode := addressModePreOrPostIndex(spVReg,
+			amode := addressModePreOrPostIndex(m, spVReg,
 				16,    // stack pointer must be 16-byte aligned.
 				false, // Increment after store.
 			)
 			// TODO: pair loads to reduce the number of instructions.
 			switch regTypeToRegisterSizeInBits(vr.RegType()) {
 			case 64: // save int reg.
-				load.asULoad(operandNR(vr), amode, 64)
+				load.asULoad(vr, amode, 64)
 			case 128: // save vector reg.
-				load.asFpuLoad(operandNR(vr), amode, 128)
+				load.asFpuLoad(vr, amode, 128)
 			}
 			cur = linkInstr(cur, load)
 		}
@@ -317,8 +314,8 @@ func (m *machine) setupEpilogueAfter(cur *instruction) {
 	//    SP----> +-----------------+
 
 	ldr := m.allocateInstr()
-	ldr.asULoad(operandNR(lrVReg),
-		addressModePreOrPostIndex(spVReg, 16 /* stack pointer must be 16-byte aligned. */, false /* increment after loads */), 64)
+	ldr.asULoad(lrVReg,
+		addressModePreOrPostIndex(m, spVReg, 16 /* stack pointer must be 16-byte aligned. */, false /* increment after loads */), 64)
 	cur = linkInstr(cur, ldr)
 
 	if s := int64(m.currentABI.AlignedArgResultStackSlotSize()); s > 0 {
@@ -351,14 +348,14 @@ func (m *machine) insertStackBoundsCheck(requiredStackSize int64, cur *instructi
 	if immm12op, ok := asImm12Operand(uint64(requiredStackSize)); ok {
 		// sub tmp, sp, #requiredStackSize
 		sub := m.allocateInstr()
-		sub.asALU(aluOpSub, operandNR(tmpRegVReg), operandNR(spVReg), immm12op, true)
+		sub.asALU(aluOpSub, tmpRegVReg, operandNR(spVReg), immm12op, true)
 		cur = linkInstr(cur, sub)
 	} else {
 		// This case, we first load the requiredStackSize into the temporary register,
 		cur = m.lowerConstantI64AndInsert(cur, tmpRegVReg, requiredStackSize)
 		// Then subtract it.
 		sub := m.allocateInstr()
-		sub.asALU(aluOpSub, operandNR(tmpRegVReg), operandNR(spVReg), operandNR(tmpRegVReg), true)
+		sub.asALU(aluOpSub, tmpRegVReg, operandNR(spVReg), operandNR(tmpRegVReg), true)
 		cur = linkInstr(cur, sub)
 	}
 
@@ -366,16 +363,18 @@ func (m *machine) insertStackBoundsCheck(requiredStackSize int64, cur *instructi
 
 	// ldr tmp2, [executionContext #StackBottomPtr]
 	ldr := m.allocateInstr()
-	ldr.asULoad(operandNR(tmp2), addressMode{
+	amode := m.amodePool.Allocate()
+	*amode = addressMode{
 		kind: addressModeKindRegUnsignedImm12,
 		rn:   x0VReg, // execution context is always the first argument.
 		imm:  wazevoapi.ExecutionContextOffsetStackBottomPtr.I64(),
-	}, 64)
+	}
+	ldr.asULoad(tmp2, amode, 64)
 	cur = linkInstr(cur, ldr)
 
 	// subs xzr, tmp, tmp2
 	subs := m.allocateInstr()
-	subs.asALU(aluOpSubS, operandNR(xzrVReg), operandNR(tmpRegVReg), operandNR(tmp2), true)
+	subs.asALU(aluOpSubS, xzrVReg, operandNR(tmpRegVReg), operandNR(tmp2), true)
 	cur = linkInstr(cur, subs)
 
 	// b.ge #imm
@@ -388,22 +387,25 @@ func (m *machine) insertStackBoundsCheck(requiredStackSize int64, cur *instructi
 		// First load the requiredStackSize into the temporary register,
 		cur = m.lowerConstantI64AndInsert(cur, tmpRegVReg, requiredStackSize)
 		setRequiredStackSize := m.allocateInstr()
-		setRequiredStackSize.asStore(operandNR(tmpRegVReg),
-			addressMode{
-				kind: addressModeKindRegUnsignedImm12,
-				// Execution context is always the first argument.
-				rn: x0VReg, imm: wazevoapi.ExecutionContextOffsetStackGrowRequiredSize.I64(),
-			}, 64)
+		amode := m.amodePool.Allocate()
+		*amode = addressMode{
+			kind: addressModeKindRegUnsignedImm12,
+			// Execution context is always the first argument.
+			rn: x0VReg, imm: wazevoapi.ExecutionContextOffsetStackGrowRequiredSize.I64(),
+		}
+		setRequiredStackSize.asStore(operandNR(tmpRegVReg), amode, 64)
 
 		cur = linkInstr(cur, setRequiredStackSize)
 	}
 
 	ldrAddress := m.allocateInstr()
-	ldrAddress.asULoad(operandNR(tmpRegVReg), addressMode{
+	amode2 := m.amodePool.Allocate()
+	*amode2 = addressMode{
 		kind: addressModeKindRegUnsignedImm12,
 		rn:   x0VReg, // execution context is always the first argument
 		imm:  wazevoapi.ExecutionContextOffsetStackGrowCallTrampolineAddress.I64(),
-	}, 64)
+	}
+	ldrAddress.asULoad(tmpRegVReg, amode2, 64)
 	cur = linkInstr(cur, ldrAddress)
 
 	// Then jumps to the stack grow call sequence's address, meaning
@@ -427,11 +429,9 @@ func (m *machine) insertStackBoundsCheck(requiredStackSize int64, cur *instructi
 
 // CompileStackGrowCallSequence implements backend.Machine.
 func (m *machine) CompileStackGrowCallSequence() []byte {
-	ectx := m.executableContext
-
 	cur := m.allocateInstr()
 	cur.asNop0()
-	ectx.RootInstr = cur
+	m.rootInstr = cur
 
 	// Save the callee saved and argument registers.
 	cur = m.saveRegistersInExecutionContext(cur, saveRequiredRegs)
@@ -453,16 +453,14 @@ func (m *machine) CompileStackGrowCallSequence() []byte {
 	ret.asRet()
 	linkInstr(cur, ret)
 
-	m.encode(ectx.RootInstr)
+	m.encode(m.rootInstr)
 	return m.compiler.Buf()
 }
 
 func (m *machine) addsAddOrSubStackPointer(cur *instruction, rd regalloc.VReg, diff int64, add bool) *instruction {
-	ectx := m.executableContext
-
-	ectx.PendingInstructions = ectx.PendingInstructions[:0]
+	m.pendingInstructions = m.pendingInstructions[:0]
 	m.insertAddOrSubStackPointer(rd, diff, add)
-	for _, inserted := range ectx.PendingInstructions {
+	for _, inserted := range m.pendingInstructions {
 		cur = linkInstr(cur, inserted)
 	}
 	return cur

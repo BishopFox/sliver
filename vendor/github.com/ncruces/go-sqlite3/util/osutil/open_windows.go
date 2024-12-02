@@ -15,7 +15,7 @@ func OpenFile(name string, flag int, perm fs.FileMode) (*os.File, error) {
 	if name == "" {
 		return nil, &os.PathError{Op: "open", Path: name, Err: ENOENT}
 	}
-	r, e := syscallOpen(name, flag, uint32(perm.Perm()))
+	r, e := syscallOpen(name, flag|O_CLOEXEC, uint32(perm.Perm()))
 	if e != nil {
 		return nil, &os.PathError{Op: "open", Path: name, Err: e}
 	}

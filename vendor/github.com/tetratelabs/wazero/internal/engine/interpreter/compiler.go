@@ -26,11 +26,14 @@ const (
 type (
 	controlFrame struct {
 		frameID uint32
-		// originalStackLen holds the number of values on the stack
+		// originalStackLenWithoutParam holds the number of values on the stack
 		// when Start executing this control frame minus params for the block.
 		originalStackLenWithoutParam int
-		blockType                    *wasm.FunctionType
-		kind                         controlFrameKind
+		// originalStackLenWithoutParamUint64 is almost the same as originalStackLenWithoutParam
+		// except that it holds the number of values on the stack in uint64.
+		originalStackLenWithoutParamUint64 int
+		blockType                          *wasm.FunctionType
+		kind                               controlFrameKind
 	}
 	controlFrames struct{ frames []controlFrame }
 )
@@ -157,9 +160,11 @@ type compiler struct {
 	enabledFeatures            api.CoreFeatures
 	callFrameStackSizeInUint64 int
 	stack                      []unsignedType
-	currentFrameID             uint32
-	controlFrames              controlFrames
-	unreachableState           struct {
+	// stackLenInUint64 is the length of the stack in uint64.
+	stackLenInUint64 int
+	currentFrameID   uint32
+	controlFrames    controlFrames
+	unreachableState struct {
 		on    bool
 		depth int
 	}
@@ -341,6 +346,7 @@ func (c *compiler) Next() (*compilationResult, error) {
 	c.pc = 0
 	c.currentOpPC = 0
 	c.currentFrameID = 0
+	c.stackLenInUint64 = 0
 	c.unreachableState.on, c.unreachableState.depth = false, 0
 
 	if err := c.compile(sig, code.Body, code.LocalTypes, code.BodyOffsetInCodeSection); err != nil {
@@ -449,10 +455,11 @@ operatorSwitch:
 
 		// Create a new frame -- entering this block.
 		frame := controlFrame{
-			frameID:                      c.nextFrameID(),
-			originalStackLenWithoutParam: len(c.stack) - len(bt.Params),
-			kind:                         controlFrameKindBlockWithoutContinuationLabel,
-			blockType:                    bt,
+			frameID:                            c.nextFrameID(),
+			originalStackLenWithoutParam:       len(c.stack) - len(bt.Params),
+			originalStackLenWithoutParamUint64: c.stackLenInUint64 - bt.ParamNumInUint64,
+			kind:                               controlFrameKindBlockWithoutContinuationLabel,
+			blockType:                          bt,
 		}
 		c.controlFrames.push(frame)
 
@@ -473,10 +480,11 @@ operatorSwitch:
 
 		// Create a new frame -- entering loop.
 		frame := controlFrame{
-			frameID:                      c.nextFrameID(),
-			originalStackLenWithoutParam: len(c.stack) - len(bt.Params),
-			kind:                         controlFrameKindLoop,
-			blockType:                    bt,
+			frameID:                            c.nextFrameID(),
+			originalStackLenWithoutParam:       len(c.stack) - len(bt.Params),
+			originalStackLenWithoutParamUint64: c.stackLenInUint64 - bt.ParamNumInUint64,
+			kind:                               controlFrameKindLoop,
+			blockType:                          bt,
 		}
 		c.controlFrames.push(frame)
 
@@ -515,8 +523,9 @@ operatorSwitch:
 
 		// Create a new frame -- entering if.
 		frame := controlFrame{
-			frameID:                      c.nextFrameID(),
-			originalStackLenWithoutParam: len(c.stack) - len(bt.Params),
+			frameID:                            c.nextFrameID(),
+			originalStackLenWithoutParam:       len(c.stack) - len(bt.Params),
+			originalStackLenWithoutParamUint64: c.stackLenInUint64 - bt.ParamNumInUint64,
 			// Note this will be set to controlFrameKindIfWithElse
 			// when else opcode found later.
 			kind:      controlFrameKindIfWithoutElse,
@@ -543,7 +552,7 @@ operatorSwitch:
 			// If it is currently in unreachable, and the non-nested if,
 			// reset the stack so we can correctly handle the else block.
 			top := c.controlFrames.top()
-			c.stack = c.stack[:top.originalStackLenWithoutParam]
+			c.stackSwitchAt(top)
 			top.kind = controlFrameKindIfWithElse
 
 			// Re-push the parameters to the if block so that else block can use them.
@@ -572,7 +581,7 @@ operatorSwitch:
 
 		// Reset the stack manipulated by the then block, and re-push the block param types to the stack.
 
-		c.stack = c.stack[:frame.originalStackLenWithoutParam]
+		c.stackSwitchAt(frame)
 		for _, t := range frame.blockType.Params {
 			c.stackPush(wasmValueTypeTounsignedType(t))
 		}
@@ -601,7 +610,7 @@ operatorSwitch:
 				return nil
 			}
 
-			c.stack = c.stack[:frame.originalStackLenWithoutParam]
+			c.stackSwitchAt(frame)
 			for _, t := range frame.blockType.Results {
 				c.stackPush(wasmValueTypeTounsignedType(t))
 			}
@@ -628,7 +637,7 @@ operatorSwitch:
 		// We need to reset the stack so that
 		// the values pushed inside the block.
 		dropOp := newOperationDrop(c.getFrameDropRange(frame, true))
-		c.stack = c.stack[:frame.originalStackLenWithoutParam]
+		c.stackSwitchAt(frame)
 
 		// Push the result types onto the stack.
 		for _, t := range frame.blockType.Results {
@@ -3505,6 +3514,11 @@ func (c *compiler) stackPeek() (ret unsignedType) {
 	return
 }
 
+func (c *compiler) stackSwitchAt(frame *controlFrame) {
+	c.stack = c.stack[:frame.originalStackLenWithoutParam]
+	c.stackLenInUint64 = frame.originalStackLenWithoutParamUint64
+}
+
 func (c *compiler) stackPop() (ret unsignedType) {
 	// No need to check stack bound
 	// as we can assume that all the operations
@@ -3512,11 +3526,13 @@ func (c *compiler) stackPop() (ret unsignedType) {
 	// at module validation phase.
 	ret = c.stack[len(c.stack)-1]
 	c.stack = c.stack[:len(c.stack)-1]
+	c.stackLenInUint64 -= 1 + int(unsignedTypeV128&ret>>2)
 	return
 }
 
 func (c *compiler) stackPush(ts unsignedType) {
 	c.stack = append(c.stack, ts)
+	c.stackLenInUint64 += 1 + int(unsignedTypeV128&ts>>2)
 }
 
 // emit adds the operations into the result.
@@ -3565,7 +3581,7 @@ func (c *compiler) emitDefaultValue(t wasm.ValueType) {
 // of the n-th local.
 func (c *compiler) localDepth(index wasm.Index) int {
 	height := c.localIndexToStackHeightInUint64[index]
-	return c.stackLenInUint64(len(c.stack)) - 1 - int(height)
+	return c.stackLenInUint64 - 1 - height
 }
 
 func (c *compiler) localType(index wasm.Index) (t wasm.ValueType) {
@@ -3592,30 +3608,12 @@ func (c *compiler) getFrameDropRange(frame *controlFrame, isEnd bool) inclusiveR
 	} else {
 		start = frame.blockType.ResultNumInUint64
 	}
-	var end int
-	if frame.kind == controlFrameKindFunction {
-		// On the function return, we eliminate all the contents on the stack
-		// including locals (existing below of frame.originalStackLen)
-		end = c.stackLenInUint64(len(c.stack)) - 1
-	} else {
-		end = c.stackLenInUint64(len(c.stack)) - 1 - c.stackLenInUint64(frame.originalStackLenWithoutParam)
-	}
+	end := c.stackLenInUint64 - 1 - frame.originalStackLenWithoutParamUint64
 	if start <= end {
 		return inclusiveRange{Start: int32(start), End: int32(end)}
 	} else {
 		return nopinclusiveRange
 	}
-}
-
-func (c *compiler) stackLenInUint64(ceil int) (ret int) {
-	for i := 0; i < ceil; i++ {
-		if c.stack[i] == unsignedTypeV128 {
-			ret += 2
-		} else {
-			ret++
-		}
-	}
-	return
 }
 
 func (c *compiler) readMemoryArg(tag string) (memoryArg, error) {
