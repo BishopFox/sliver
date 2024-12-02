@@ -1,4 +1,4 @@
-//go:build amd64 && !tinygo
+//go:build gc
 
 package platform
 
@@ -12,7 +12,7 @@ type cpuFeatureFlags struct {
 }
 
 // cpuid exposes the CPUID instruction to the Go layer (https://www.amd.com/system/files/TechDocs/25481.pdf)
-// implemented in impl_amd64.s
+// implemented in cpuid_amd64.s
 func cpuid(arg1, arg2 uint32) (eax, ebx, ecx, edx uint32)
 
 // cpuidAsBitmap combines the result of invoking cpuid to uint64 bitmap.
@@ -60,8 +60,9 @@ func (f *cpuFeatureFlags) HasExtra(cpuFeature CpuFeature) bool {
 
 // Raw implements the same method on the CpuFeatureFlags interface.
 func (f *cpuFeatureFlags) Raw() uint64 {
-	// Below, we only set the first 4 bits for the features we care about,
-	// instead of setting all the unnecessary bits obtained from the CPUID instruction.
+	// Below, we only set bits for the features we care about,
+	// instead of setting all the unnecessary bits obtained from the
+	// CPUID instruction.
 	var ret uint64
 	if f.Has(CpuFeatureAmd64SSE3) {
 		ret = 1 << 0

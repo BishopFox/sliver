@@ -1,2 +1,2 @@
-// Package osutil implements operating system utility functions.
+// Package osutil implements operating system utilities.
 package osutil

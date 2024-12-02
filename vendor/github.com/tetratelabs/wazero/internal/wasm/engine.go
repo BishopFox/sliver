@@ -44,9 +44,10 @@ type ModuleEngine interface {
 
 	// ResolveImportedFunction is used to add imported functions needed to make this ModuleEngine fully functional.
 	// 	- `index` is the function Index of this imported function.
+	// 	- `descFunc` is the type Index in Module.TypeSection of this imported function. It corresponds to Import.DescFunc.
 	// 	- `indexInImportedModule` is the function Index of the imported function in the imported module.
 	//	- `importedModuleEngine` is the ModuleEngine for the imported ModuleInstance.
-	ResolveImportedFunction(index, indexInImportedModule Index, importedModuleEngine ModuleEngine)
+	ResolveImportedFunction(index, descFunc, indexInImportedModule Index, importedModuleEngine ModuleEngine)
 
 	// ResolveImportedMemory is called when this module imports a memory from another module.
 	ResolveImportedMemory(importedModuleEngine ModuleEngine)

@@ -83,21 +83,12 @@ func (f *osFile) SetAppend(enable bool) (errno experimentalsys.Errno) {
 		f.flag &= ^experimentalsys.O_APPEND
 	}
 
-	// Clear any create or trunc flag, as we are re-opening, not re-creating.
-	f.flag &= ^(experimentalsys.O_CREAT | experimentalsys.O_TRUNC)
-
-	// appendMode (bool) cannot be changed later, so we have to re-open the
-	// file. https://github.com/golang/go/blob/go1.20/src/os/file_unix.go#L60
+	// appendMode cannot be changed later, so we have to re-open the file
+	// https://github.com/golang/go/blob/go1.23/src/os/file_unix.go#L60
 	return fileError(f, f.closed, f.reopen())
 }
 
-// compile-time check to ensure osFile.reopen implements reopenFile.
-var _ reopenFile = (*osFile)(nil).reopen
-
 func (f *osFile) reopen() (errno experimentalsys.Errno) {
-	// Clear any create flag, as we are re-opening, not re-creating.
-	f.flag &= ^experimentalsys.O_CREAT
-
 	var (
 		isDir  bool
 		offset int64
@@ -116,20 +107,45 @@ func (f *osFile) reopen() (errno experimentalsys.Errno) {
 		}
 	}
 
-	_ = f.close()
-	f.file, errno = OpenFile(f.path, f.flag, f.perm)
+	// Clear any create or trunc flag, as we are re-opening, not re-creating.
+	flag := f.flag &^ (experimentalsys.O_CREAT | experimentalsys.O_TRUNC)
+	file, errno := OpenFile(f.path, flag, f.perm)
+	if errno != 0 {
+		return errno
+	}
+	errno = f.checkSameFile(file)
 	if errno != 0 {
 		return errno
 	}
 
 	if !isDir {
-		_, err = f.file.Seek(offset, io.SeekStart)
+		_, err = file.Seek(offset, io.SeekStart)
 		if err != nil {
+			_ = file.Close()
 			return experimentalsys.UnwrapOSError(err)
 		}
 	}
 
+	// Only update f on success.
+	_ = f.file.Close()
+	f.file = file
+	f.fd = file.Fd()
 	return 0
+}
+
+func (f *osFile) checkSameFile(osf *os.File) experimentalsys.Errno {
+	fi1, err := f.file.Stat()
+	if err != nil {
+		return experimentalsys.UnwrapOSError(err)
+	}
+	fi2, err := osf.Stat()
+	if err != nil {
+		return experimentalsys.UnwrapOSError(err)
+	}
+	if os.SameFile(fi1, fi2) {
+		return 0
+	}
+	return experimentalsys.ENOENT
 }
 
 // IsNonblock implements the same method as documented on fsapi.File

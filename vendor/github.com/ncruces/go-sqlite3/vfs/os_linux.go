@@ -1,4 +1,4 @@
-//go:build !sqlite3_nosys
+//go:build !(sqlite3_flock || sqlite3_nosys)
 
 package vfs
 
@@ -53,10 +53,11 @@ func osLock(file *os.File, typ int16, start, len int64, timeout time.Duration, d
 			if errno, _ := err.(unix.Errno); errno != unix.EAGAIN {
 				break
 			}
-			if timeout < time.Since(before) {
+			if time.Since(before) > timeout {
 				break
 			}
-			osSleep(time.Duration(rand.Int63n(int64(time.Millisecond))))
+			const sleepIncrement = 1024*1024 - 1 // power of two, ~1ms
+			time.Sleep(time.Duration(rand.Int63() & sleepIncrement))
 		}
 	}
 	return osLockErrorCode(err, def)

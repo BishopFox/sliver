@@ -106,6 +106,11 @@ func (e ErrorCode) Temporary() bool {
 	return e == BUSY
 }
 
+// ExtendedCode returns the extended error code for this error.
+func (e ErrorCode) ExtendedCode() ExtendedErrorCode {
+	return ExtendedErrorCode(e)
+}
+
 // Error implements the error interface.
 func (e ExtendedErrorCode) Error() string {
 	return util.ErrorCodeString(uint32(e))
@@ -134,6 +139,11 @@ func (e ExtendedErrorCode) Temporary() bool {
 // Timeout returns true for [BUSY_TIMEOUT] errors.
 func (e ExtendedErrorCode) Timeout() bool {
 	return e == BUSY_TIMEOUT
+}
+
+// Code returns the primary error code for this error.
+func (e ExtendedErrorCode) Code() ErrorCode {
+	return ErrorCode(e)
 }
 
 func errorCode(err error, def ErrorCode) (msg string, code uint32) {

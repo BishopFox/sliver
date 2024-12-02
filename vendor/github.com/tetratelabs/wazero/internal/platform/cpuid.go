@@ -28,3 +28,8 @@ const (
 	CpuExtraFeatureAmd64ABM CpuFeature = 1 << 5
 	// Note: when adding new features, ensure that the feature is included in CpuFeatureFlags.Raw.
 )
+
+const (
+	// CpuFeatureArm64Atomic is the flag to query CpuFeatureFlags.Has for Large System Extensions capabilities on arm64
+	CpuFeatureArm64Atomic CpuFeature = 1 << 21
+)
