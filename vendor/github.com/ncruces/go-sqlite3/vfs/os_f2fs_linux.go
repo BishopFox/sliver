@@ -9,12 +9,15 @@ import (
 )
 
 const (
+	// https://godbolt.org/z/1PcK5vea3
 	_F2FS_IOC_START_ATOMIC_WRITE  = 62721
 	_F2FS_IOC_COMMIT_ATOMIC_WRITE = 62722
 	_F2FS_IOC_ABORT_ATOMIC_WRITE  = 62725
-	_F2FS_IOC_GET_FEATURES        = 2147808524
+	_F2FS_IOC_GET_FEATURES        = 2147808524 // -2147158772
 	_F2FS_FEATURE_ATOMIC_WRITE    = 4
 )
+
+// notest
 
 func osBatchAtomic(file *os.File) bool {
 	flags, err := unix.IoctlGetInt(int(file.Fd()), _F2FS_IOC_GET_FEATURES)

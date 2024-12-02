@@ -1,5 +1,5 @@
 // Separated from linux which has support for huge pages.
-//go:build darwin || freebsd
+//go:build darwin || freebsd || netbsd || dragonfly || solaris
 
 package platform
 
