@@ -49,6 +49,13 @@ type File interface {
 	DeviceCharacteristics() DeviceCharacteristic
 }
 
+// FileUnwrap should be implemented by a File
+// that wraps another File implementation.
+type FileUnwrap interface {
+	File
+	Unwrap() File
+}
+
 // FileLockState extends File to implement the
 // SQLITE_FCNTL_LOCKSTATE file control opcode.
 //
@@ -56,6 +63,26 @@ type File interface {
 type FileLockState interface {
 	File
 	LockState() LockLevel
+}
+
+// FilePersistentWAL extends File to implement the
+// SQLITE_FCNTL_PERSIST_WAL file control opcode.
+//
+// https://sqlite.org/c3ref/c_fcntl_begin_atomic_write.html#sqlitefcntlpersistwal
+type FilePersistentWAL interface {
+	File
+	PersistentWAL() bool
+	SetPersistentWAL(bool)
+}
+
+// FilePowersafeOverwrite extends File to implement the
+// SQLITE_FCNTL_POWERSAFE_OVERWRITE file control opcode.
+//
+// https://sqlite.org/c3ref/c_fcntl_begin_atomic_write.html#sqlitefcntlpowersafeoverwrite
+type FilePowersafeOverwrite interface {
+	File
+	PowersafeOverwrite() bool
+	SetPowersafeOverwrite(bool)
 }
 
 // FileChunkSize extends File to implement the
@@ -94,26 +121,6 @@ type FileOverwrite interface {
 	Overwrite() error
 }
 
-// FilePersistentWAL extends File to implement the
-// SQLITE_FCNTL_PERSIST_WAL file control opcode.
-//
-// https://sqlite.org/c3ref/c_fcntl_begin_atomic_write.html#sqlitefcntlpersistwal
-type FilePersistentWAL interface {
-	File
-	PersistentWAL() bool
-	SetPersistentWAL(bool)
-}
-
-// FilePowersafeOverwrite extends File to implement the
-// SQLITE_FCNTL_POWERSAFE_OVERWRITE file control opcode.
-//
-// https://sqlite.org/c3ref/c_fcntl_begin_atomic_write.html#sqlitefcntlpowersafeoverwrite
-type FilePowersafeOverwrite interface {
-	File
-	PowersafeOverwrite() bool
-	SetPowersafeOverwrite(bool)
-}
-
 // FileCommitPhaseTwo extends File to implement the
 // SQLITE_FCNTL_COMMIT_PHASETWO file control opcode.
 //
@@ -135,15 +142,6 @@ type FileBatchAtomicWrite interface {
 	RollbackAtomicWrite() error
 }
 
-// FilePragma extends File to implement the
-// SQLITE_FCNTL_PRAGMA file control opcode.
-//
-// https://sqlite.org/c3ref/c_fcntl_begin_atomic_write.html#sqlitefcntlpragma
-type FilePragma interface {
-	File
-	Pragma(name, value string) (string, error)
-}
-
 // FileCheckpoint extends File to implement the
 // SQLITE_FCNTL_CKPT_START and SQLITE_FCNTL_CKPT_DONE
 // file control opcodes.
@@ -151,8 +149,17 @@ type FilePragma interface {
 // https://sqlite.org/c3ref/c_fcntl_begin_atomic_write.html#sqlitefcntlckptstart
 type FileCheckpoint interface {
 	File
-	CheckpointDone() error
-	CheckpointStart() error
+	CheckpointStart()
+	CheckpointDone()
+}
+
+// FilePragma extends File to implement the
+// SQLITE_FCNTL_PRAGMA file control opcode.
+//
+// https://sqlite.org/c3ref/c_fcntl_begin_atomic_write.html#sqlitefcntlpragma
+type FilePragma interface {
+	File
+	Pragma(name, value string) (string, error)
 }
 
 // FileSharedMemory extends File to possibly implement
@@ -168,8 +175,19 @@ type FileSharedMemory interface {
 // SharedMemory is a shared-memory WAL-index implementation.
 // Use [NewSharedMemory] to create a shared-memory.
 type SharedMemory interface {
-	shmMap(context.Context, api.Module, int32, int32, bool) (uint32, error)
-	shmLock(int32, int32, _ShmFlag) error
+	shmMap(context.Context, api.Module, int32, int32, bool) (uint32, _ErrorCode)
+	shmLock(int32, int32, _ShmFlag) _ErrorCode
 	shmUnmap(bool)
+	shmBarrier()
 	io.Closer
+}
+
+type blockingSharedMemory interface {
+	SharedMemory
+	shmEnableBlocking(block bool)
+}
+
+type fileControl interface {
+	File
+	fileControl(ctx context.Context, mod api.Module, op _FcntlOpcode, pArg uint32) _ErrorCode
 }
