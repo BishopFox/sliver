@@ -1,4 +1,4 @@
-//go:build !amd64 || tinygo
+//go:build !(amd64 || arm64) || !gc
 
 package platform
 

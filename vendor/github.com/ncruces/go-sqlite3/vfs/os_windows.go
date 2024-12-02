@@ -1,4 +1,4 @@
-//go:build !sqlite3_nosys
+//go:build !(sqlite3_dotlk || sqlite3_nosys)
 
 package vfs
 
@@ -28,44 +28,44 @@ func osGetReservedLock(file *os.File) _ErrorCode {
 	return osWriteLock(file, _RESERVED_BYTE, 1, 0)
 }
 
-func osGetPendingLock(file *os.File, block bool) _ErrorCode {
-	var timeout time.Duration
-	if block {
-		timeout = -1
-	}
-
-	// Acquire the PENDING lock.
-	return osWriteLock(file, _PENDING_BYTE, 1, timeout)
-}
-
-func osGetExclusiveLock(file *os.File, wait bool) _ErrorCode {
-	var timeout time.Duration
-	if wait {
-		timeout = time.Millisecond
+func osGetExclusiveLock(file *os.File, state *LockLevel) _ErrorCode {
+	// A PENDING lock is needed before releasing the SHARED lock.
+	if *state < LOCK_PENDING {
+		// If we were RESERVED, we can block indefinitely.
+		var timeout time.Duration
+		if *state == LOCK_RESERVED {
+			timeout = -1
+		}
+		if rc := osWriteLock(file, _PENDING_BYTE, 1, timeout); rc != _OK {
+			return rc
+		}
+		*state = LOCK_PENDING
 	}
 
 	// Release the SHARED lock.
 	osUnlock(file, _SHARED_FIRST, _SHARED_SIZE)
 
 	// Acquire the EXCLUSIVE lock.
-	rc := osWriteLock(file, _SHARED_FIRST, _SHARED_SIZE, timeout)
+	rc := osWriteLock(file, _SHARED_FIRST, _SHARED_SIZE, time.Millisecond)
 
 	if rc != _OK {
 		// Reacquire the SHARED lock.
-		osReadLock(file, _SHARED_FIRST, _SHARED_SIZE, 0)
+		if rc := osReadLock(file, _SHARED_FIRST, _SHARED_SIZE, 0); rc != _OK {
+			// notest // this should never happen
+			return _IOERR_RDLOCK
+		}
 	}
 	return rc
 }
 
 func osDowngradeLock(file *os.File, state LockLevel) _ErrorCode {
 	if state >= LOCK_EXCLUSIVE {
-		// Release the EXCLUSIVE lock.
+		// Release the EXCLUSIVE lock while holding the PENDING lock.
 		osUnlock(file, _SHARED_FIRST, _SHARED_SIZE)
 
 		// Reacquire the SHARED lock.
 		if rc := osReadLock(file, _SHARED_FIRST, _SHARED_SIZE, 0); rc != _OK {
-			// This should never happen.
-			// We should always be able to reacquire the read lock.
+			// notest // this should never happen
 			return _IOERR_RDLOCK
 		}
 	}
@@ -81,7 +81,7 @@ func osDowngradeLock(file *os.File, state LockLevel) _ErrorCode {
 }
 
 func osReleaseLock(file *os.File, state LockLevel) _ErrorCode {
-	// Release all locks.
+	// Release all locks, PENDING must be last.
 	if state >= LOCK_RESERVED {
 		osUnlock(file, _RESERVED_BYTE, 1)
 	}
@@ -133,10 +133,11 @@ func osLock(file *os.File, flags, start, len uint32, timeout time.Duration, def 
 			if errno, _ := err.(windows.Errno); errno != windows.ERROR_LOCK_VIOLATION {
 				break
 			}
-			if timeout < time.Since(before) {
+			if time.Since(before) > timeout {
 				break
 			}
-			osSleep(time.Duration(rand.Int63n(int64(time.Millisecond))))
+			const sleepIncrement = 1024*1024 - 1 // power of two, ~1ms
+			time.Sleep(time.Duration(rand.Int63() & sleepIncrement))
 		}
 	}
 	return osLockErrorCode(err, def)
@@ -170,17 +171,4 @@ func osLockErrorCode(err error, def _ErrorCode) _ErrorCode {
 		}
 	}
 	return def
-}
-
-func osSleep(d time.Duration) {
-	if d > 0 {
-		period := max(1, d/(5*time.Millisecond))
-		if period < 16 {
-			windows.TimeBeginPeriod(uint32(period))
-		}
-		time.Sleep(d)
-		if period < 16 {
-			windows.TimeEndPeriod(uint32(period))
-		}
-	}
 }

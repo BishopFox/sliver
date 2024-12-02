@@ -77,11 +77,13 @@ type (
 
 		// ResolveRelocations resolves the relocations after emitting machine code.
 		//  * refToBinaryOffset: the map from the function reference (ssa.FuncRef) to the executable offset.
+		//  * importedFns: the max index of the imported functions at the beginning of refToBinaryOffset
 		//  * executable: the binary to resolve the relocations.
 		//  * relocations: the relocations to resolve.
 		//  * callTrampolineIslandOffsets: the offsets of the trampoline islands in the executable.
 		ResolveRelocations(
 			refToBinaryOffset []int,
+			importedFns int,
 			executable []byte,
 			relocations []RelocationInfo,
 			callTrampolineIslandOffsets []int,

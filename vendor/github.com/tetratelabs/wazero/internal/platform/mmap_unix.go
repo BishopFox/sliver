@@ -1,10 +1,9 @@
-//go:build (darwin || linux || freebsd) && !tinygo
+//go:build (linux || darwin || freebsd || netbsd || dragonfly || solaris) && !tinygo
 
 package platform
 
 import (
 	"syscall"
-	"unsafe"
 )
 
 const (
@@ -30,18 +29,4 @@ func mmapCodeSegmentAMD64(size int) ([]byte, error) {
 func mmapCodeSegmentARM64(size int) ([]byte, error) {
 	// The region must be RW: RW for writing native codes.
 	return mmapCodeSegment(size, mmapProtARM64)
-}
-
-// MprotectRX is like syscall.Mprotect with RX permission, defined locally so that freebsd compiles.
-func MprotectRX(b []byte) (err error) {
-	var _p0 unsafe.Pointer
-	if len(b) > 0 {
-		_p0 = unsafe.Pointer(&b[0])
-	}
-	const prot = syscall.PROT_READ | syscall.PROT_EXEC
-	_, _, e1 := syscall.Syscall(syscall.SYS_MPROTECT, uintptr(_p0), uintptr(len(b)), uintptr(prot))
-	if e1 != 0 {
-		err = syscall.Errno(e1)
-	}
-	return
 }
