@@ -4,8 +4,9 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/ncruces/go-sqlite3/internal/util"
 	"github.com/tetratelabs/wazero/api"
+
+	"github.com/ncruces/go-sqlite3/internal/util"
 )
 
 // CreateModule registers a new virtual table module name.
@@ -16,14 +17,15 @@ func CreateModule[T VTab](db *Conn, name string, create, connect VTabConstructor
 	var flags int
 
 	const (
-		VTAB_CREATOR     = 0x01
-		VTAB_DESTROYER   = 0x02
-		VTAB_UPDATER     = 0x04
-		VTAB_RENAMER     = 0x08
-		VTAB_OVERLOADER  = 0x10
-		VTAB_CHECKER     = 0x20
-		VTAB_TXN         = 0x40
-		VTAB_SAVEPOINTER = 0x80
+		VTAB_CREATOR     = 0x001
+		VTAB_DESTROYER   = 0x002
+		VTAB_UPDATER     = 0x004
+		VTAB_RENAMER     = 0x008
+		VTAB_OVERLOADER  = 0x010
+		VTAB_CHECKER     = 0x020
+		VTAB_TXN         = 0x040
+		VTAB_SAVEPOINTER = 0x080
+		VTAB_SHADOWTABS  = 0x100
 	)
 
 	if create != nil {
@@ -52,10 +54,16 @@ func CreateModule[T VTab](db *Conn, name string, create, connect VTabConstructor
 	if implements[VTabSavepointer](vtab) {
 		flags |= VTAB_SAVEPOINTER
 	}
+	if implements[VTabShadowTabler](vtab) {
+		flags |= VTAB_SHADOWTABS
+	}
 
+	var modulePtr uint32
 	defer db.arena.mark()()
 	namePtr := db.arena.string(name)
-	modulePtr := util.AddHandle(db.ctx, module[T]{create, connect})
+	if connect != nil {
+		modulePtr = util.AddHandle(db.ctx, module[T]{create, connect})
+	}
 	r := db.call("sqlite3_create_module_go", uint64(db.handle),
 		uint64(namePtr), uint64(flags), uint64(modulePtr))
 	return db.error(r)
@@ -174,6 +182,17 @@ type VTabOverloader interface {
 	FindFunction(arg int, name string) (ScalarFunction, IndexConstraintOp)
 }
 
+// A VTabShadowTabler allows a virtual table to protect the content
+// of shadow tables from being corrupted by hostile SQL.
+//
+// Implementing this interface signals that a virtual table named
+// "mumble" reserves all table names starting with "mumble_".
+type VTabShadowTabler interface {
+	VTab
+	// https://sqlite.org/vtab.html#the_xshadowname_method
+	ShadowTables()
+}
+
 // A VTabChecker allows a virtual table to report errors
 // to the PRAGMA integrity_check and PRAGMA quick_check commands.
 //
@@ -232,7 +251,7 @@ type VTabCursor interface {
 	// https://sqlite.org/vtab.html#xeof
 	EOF() bool
 	// https://sqlite.org/vtab.html#xcolumn
-	Column(ctx *Context, n int) error
+	Column(ctx Context, n int) error
 	// https://sqlite.org/vtab.html#xrowid
 	RowID() (int64, error)
 }
@@ -337,8 +356,9 @@ func (idx *IndexInfo) load() {
 	idx.OrderBy = make([]IndexOrderBy, util.ReadUint32(mod, ptr+8))
 
 	constraintPtr := util.ReadUint32(mod, ptr+4)
+	constraint := idx.Constraint
 	for i := range idx.Constraint {
-		idx.Constraint[i] = IndexConstraint{
+		constraint[i] = IndexConstraint{
 			Column: int(int32(util.ReadUint32(mod, constraintPtr+0))),
 			Op:     IndexConstraintOp(util.ReadUint8(mod, constraintPtr+4)),
 			Usable: util.ReadUint8(mod, constraintPtr+5) != 0,
@@ -347,8 +367,9 @@ func (idx *IndexInfo) load() {
 	}
 
 	orderByPtr := util.ReadUint32(mod, ptr+12)
-	for i := range idx.OrderBy {
-		idx.OrderBy[i] = IndexOrderBy{
+	orderBy := idx.OrderBy
+	for i := range orderBy {
+		orderBy[i] = IndexOrderBy{
 			Column: int(int32(util.ReadUint32(mod, orderByPtr+0))),
 			Desc:   util.ReadUint8(mod, orderByPtr+4) != 0,
 		}
@@ -603,7 +624,7 @@ func cursorNextCallback(ctx context.Context, mod api.Module, pCur uint32) uint32
 func cursorColumnCallback(ctx context.Context, mod api.Module, pCur, pCtx uint32, n int32) uint32 {
 	cursor := vtabGetHandle(ctx, mod, pCur).(VTabCursor)
 	db := ctx.Value(connKey{}).(*Conn)
-	err := cursor.Column(&Context{db, pCtx}, int(n))
+	err := cursor.Column(Context{db, pCtx}, int(n))
 	return vtabError(ctx, mod, pCur, _CURSOR_ERROR, err)
 }
 

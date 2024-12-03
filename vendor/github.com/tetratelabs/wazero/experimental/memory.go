@@ -35,13 +35,15 @@ type LinearMemory interface {
 	// Notes:
 	//   - To back a shared memory, Reallocate can't change the address of the
 	//     backing []byte (only its length/capacity may change).
+	//   - Reallocate may return nil if fails to grow the LinearMemory. This
+	//     condition may or may not be handled gracefully by the Wasm module.
 	Reallocate(size uint64) []byte
 	// Free the backing memory buffer.
 	Free()
 }
 
 // WithMemoryAllocator registers the given MemoryAllocator into the given
-// context.Context.
+// context.Context. The context must be passed when initializing a module.
 func WithMemoryAllocator(ctx context.Context, allocator MemoryAllocator) context.Context {
 	if allocator != nil {
 		return context.WithValue(ctx, expctxkeys.MemoryAllocatorKey{}, allocator)
