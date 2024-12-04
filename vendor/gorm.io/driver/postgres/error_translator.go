@@ -8,10 +8,12 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+// The error codes to map PostgreSQL errors to gorm errors, here is the PostgreSQL error codes reference https://www.postgresql.org/docs/current/errcodes-appendix.html.
 var errCodes = map[string]error{
 	"23505": gorm.ErrDuplicatedKey,
 	"23503": gorm.ErrForeignKeyViolated,
 	"42703": gorm.ErrInvalidField,
+	"23514": gorm.ErrCheckConstraintViolated,
 }
 
 type ErrMessage struct {
