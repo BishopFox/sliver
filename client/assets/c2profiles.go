@@ -32,10 +32,10 @@ type HTTPC2ServerConfig struct {
 }
 
 type NameValueProbability struct {
-	Name        string   `json:"name"`
-	Value       string   `json:"value"`
-	Probability int      `json:"probability"`
-	Methods     []string `json:"methods"`
+	Name        string `json:"name"`
+	Value       string `json:"value"`
+	Probability int    `json:"probability"`
+	Method      string `json:"method"`
 }
 
 // HTTPC2ImplantConfig - Implant configuration options
@@ -56,7 +56,7 @@ type HTTPC2ImplantConfig struct {
 
 	NonceQueryArgChars string                 `json:"nonce_query_args"`
 	URLParameters      []NameValueProbability `json:"url_parameters"`
-	Headers            []NameValueProbability `json:"client_headers"`
+	Headers            []NameValueProbability `json:"headers"`
 
 	MaxFiles int `json:"max_files"`
 	MinFiles int `json:"min_files"`

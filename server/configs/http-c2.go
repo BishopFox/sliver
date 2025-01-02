@@ -60,6 +60,8 @@ var (
 	ErrDuplicateStageExt          = errors.New("stager extension is already used in another C2 profile")
 	ErrDuplicateStartSessionExt   = errors.New("start session extension is already used in another C2 profile")
 	ErrDuplicateC2ProfileName     = errors.New("C2 Profile name is already in use")
+	ErrMissingC2ProfileName       = errors.New("C2 Profile name is required")
+	ErrC2ProfileNotFound          = errors.New("C2 Profile does not exist")
 	ErrUserAgentIllegalCharacters = errors.New("user agent cannot contain the ` character")
 
 	fileNameExp = regexp.MustCompile(`[^a-zA-Z0-9\\._-]+`)
