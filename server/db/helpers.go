@@ -471,7 +471,7 @@ func HTTPC2ConfigUpdate(newConf *clientpb.HTTPC2Config, oldConf *clientpb.HTTPC2
 	}
 
 	err = Session().Where(&models.HttpC2Header{
-		HttpC2ServerConfigID: &clientID,
+		HttpC2ImplantConfigID: &clientID,
 	}).Delete(&models.HttpC2Header{})
 	if err.Error != nil {
 		return err.Error

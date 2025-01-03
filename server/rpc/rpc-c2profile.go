@@ -59,16 +59,15 @@ func (rpc *Server) SaveHTTPC2Profile(ctx context.Context, req *clientpb.HTTPC2Co
 		return nil, err
 	}
 
-	profileName := ""
-	if req.Overwrite {
-		profileName = req.C2Config.Name
+	if req.Overwrite && req.C2Config.Name == "" {
+		return nil, configs.ErrMissingC2ProfileName
 	}
-	err = db.SearchStageExtensions(req.C2Config.ImplantConfig.StagerFileExtension, profileName)
+	err = db.SearchStageExtensions(req.C2Config.ImplantConfig.StagerFileExtension, req.C2Config.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	err = db.SearchStartSessionExtensions(req.C2Config.ImplantConfig.StartSessionFileExtension, profileName)
+	err = db.SearchStartSessionExtensions(req.C2Config.ImplantConfig.StartSessionFileExtension, req.C2Config.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -79,6 +78,10 @@ func (rpc *Server) SaveHTTPC2Profile(ctx context.Context, req *clientpb.HTTPC2Co
 	}
 	if httpC2Config.Name != "" && req.Overwrite == false {
 		return nil, configs.ErrDuplicateC2ProfileName
+	}
+
+	if httpC2Config.Name == "" {
+		return nil, configs.ErrC2ProfileNotFound
 	}
 
 	if req.Overwrite {
