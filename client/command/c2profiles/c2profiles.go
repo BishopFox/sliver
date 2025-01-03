@@ -464,6 +464,15 @@ func C2ConfigToProtobuf(profileName string, config *assets.HTTPC2Config) *client
 		})
 	}
 
+	for _, urlParameter := range config.ImplantConfig.URLParameters {
+		httpC2UrlParameters = append(httpC2UrlParameters, &clientpb.HTTPC2URLParameter{
+			Method:      urlParameter.Method,
+			Name:        urlParameter.Name,
+			Value:       urlParameter.Value,
+			Probability: int32(urlParameter.Probability),
+		})
+	}
+
 	implantConfig := &clientpb.HTTPC2ImplantConfig{
 		UserAgent:                 config.ImplantConfig.UserAgent,
 		ChromeBaseVersion:         int32(config.ImplantConfig.ChromeBaseVersion),
