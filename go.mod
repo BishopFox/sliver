@@ -50,7 +50,7 @@ require (
 	golang.org/x/crypto v0.29.0
 	golang.org/x/exp v0.0.0-20240416160154-fe59bbe5cc7f
 	golang.org/x/net v0.26.0
-	golang.org/x/sys v0.27.0
+	golang.org/x/sys v0.29.0
 	golang.org/x/term v0.26.0
 	golang.org/x/text v0.20.0
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173
@@ -58,8 +58,8 @@ require (
 	google.golang.org/grpc v1.64.1
 	google.golang.org/protobuf v1.34.1
 	gopkg.in/AlecAivazis/survey.v1 v1.8.8
-	gorm.io/driver/postgres v1.5.9
 	gorm.io/driver/mysql v1.5.7
+	gorm.io/driver/postgres v1.5.9
 	gorm.io/driver/sqlite v1.5.5
 	gorm.io/gorm v1.25.10
 	gvisor.dev/gvisor v0.0.0-20240306221502-ee1e1f6070e3
