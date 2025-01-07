@@ -80,11 +80,10 @@ func (rpc *Server) SaveHTTPC2Profile(ctx context.Context, req *clientpb.HTTPC2Co
 		return nil, configs.ErrDuplicateC2ProfileName
 	}
 
-	if httpC2Config.Name == "" {
-		return nil, configs.ErrC2ProfileNotFound
-	}
-
 	if req.Overwrite {
+		if httpC2Config.Name == "" {
+			return nil, configs.ErrC2ProfileNotFound
+		}
 		err = db.HTTPC2ConfigUpdate(req.C2Config, httpC2Config)
 		if err != nil {
 			log.Printf("Error:\n%s", err)

