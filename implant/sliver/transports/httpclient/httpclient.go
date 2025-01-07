@@ -283,6 +283,9 @@ func (s *SliverHTTPClient) newHTTPRequest(method string, uri *url.URL, body io.R
 	}
 	queryParams := req.URL.Query()
 	for _, param := range extraURLParams {
+		if len(param.Method)>0 && param.Method != method {
+			continue
+		}
 		probability, _ := strconv.Atoi(param.Probability)
 		if 0 < probability {
 			roll := insecureRand.Intn(99) + 1
