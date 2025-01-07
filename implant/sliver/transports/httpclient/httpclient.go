@@ -434,7 +434,7 @@ func (s *SliverHTTPClient) ReadEnvelope() (*pb.Envelope, error) {
 	s.NonceQueryArgument(uri, nonce)
 	req := s.newHTTPRequest(http.MethodGet, uri, nil)
 	// {{if .Config.Debug}}
-	log.Printf("[http] GET -> %s", uri)
+	log.Printf("[http] GET -> %s", req.URL)
 	// {{end}}
 	resp, rawRespData, err := s.DoPoll(req)
 	if err != nil {
