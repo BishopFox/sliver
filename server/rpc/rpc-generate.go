@@ -68,7 +68,7 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		if err != nil {
 			return nil, err
 		}
-	} else if err := util.AllowedName(name); err != nil {
+	} else if err := util.AllowedName(req.Name); err != nil {
 		return nil, err
 	} else {
 		name = req.Name
