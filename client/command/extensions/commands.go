@@ -1,11 +1,14 @@
 package extensions
 
 import (
+	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
+	"github.com/bishopfox/sliver/client/command/use"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // Commands returns the “ command and its subcommands.
@@ -19,15 +22,6 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 			ExtensionsCmd(cmd, con)
 		},
 	}
-
-	extensionCmd.AddCommand(&cobra.Command{
-		Use:   consts.ListStr,
-		Short: "List extensions loaded in the current session or beacon",
-		Long:  help.GetHelpFor([]string{consts.ExtensionsStr, consts.ListStr}),
-		Run: func(cmd *cobra.Command, args []string) {
-			ExtensionsListCmd(cmd, con, args)
-		},
-	})
 
 	extensionLoadCmd := &cobra.Command{
 		Use:   consts.LoadStr,
@@ -63,6 +57,38 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	}
 	extensionCmd.AddCommand(extensionRmCmd)
 	carapace.Gen(extensionRmCmd).PositionalCompletion(ExtensionsCommandNameCompleter(con).Usage("the command name of the extension to remove"))
+
+	return []*cobra.Command{extensionCmd}
+}
+
+func SliverCommands(con *console.SliverClient) []*cobra.Command {
+	extensionCmd := &cobra.Command{
+		Use:     consts.ExtensionsStr,
+		Short:   "Manage extensions",
+		Long:    help.GetHelpFor([]string{consts.ExtensionsStr}),
+		GroupID: consts.InfoHelpGroup,
+		/*
+			Run: func(cmd *cobra.Command, _ []string) {
+				ExtensionsCmd(cmd, con)
+			},
+		*/
+	}
+
+	listCmd := &cobra.Command{
+		Use:   consts.ListStr,
+		Short: "List extensions loaded in the current session or beacon",
+		Long:  help.GetHelpFor([]string{consts.ExtensionsStr, consts.ListStr}),
+		Run: func(cmd *cobra.Command, args []string) {
+			ExtensionsListCmd(cmd, con, args)
+		},
+		//GroupID: consts.InfoHelpGroup,
+	}
+	flags.Bind("use", false, listCmd, func(f *pflag.FlagSet) {
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+	extensionCmd.AddCommand(listCmd)
+
+	carapace.Gen(listCmd).PositionalCompletion(use.BeaconAndSessionIDCompleter(con))
 
 	return []*cobra.Command{extensionCmd}
 }

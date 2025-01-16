@@ -87,6 +87,7 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 			screenshot.Commands,
 			environment.Commands,
 			registry.Commands,
+			extensions.SliverCommands,
 		)
 
 		// [ Filesystem ]
