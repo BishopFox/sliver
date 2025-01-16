@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// Commands returns the “ command and its subcommands.
+// Commands returns the 'extensions' command and its subcommands.
 func Commands(con *console.SliverClient) []*cobra.Command {
 	extensionCmd := &cobra.Command{
 		Use:     consts.ExtensionsStr,
@@ -67,21 +67,15 @@ func SliverCommands(con *console.SliverClient) []*cobra.Command {
 		Short:   "Manage extensions",
 		Long:    help.GetHelpFor([]string{consts.ExtensionsStr}),
 		GroupID: consts.InfoHelpGroup,
-		/*
-			Run: func(cmd *cobra.Command, _ []string) {
-				ExtensionsCmd(cmd, con)
-			},
-		*/
 	}
 
 	listCmd := &cobra.Command{
 		Use:   consts.ListStr,
-		Short: "List extensions loaded in the current session or beacon",
+		Short: "List extensions loaded in the current session",
 		Long:  help.GetHelpFor([]string{consts.ExtensionsStr, consts.ListStr}),
 		Run: func(cmd *cobra.Command, args []string) {
 			ExtensionsListCmd(cmd, con, args)
 		},
-		//GroupID: consts.InfoHelpGroup,
 	}
 	flags.Bind("use", false, listCmd, func(f *pflag.FlagSet) {
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")

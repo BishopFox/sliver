@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/bishopfox/sliver/client/assets"
@@ -113,6 +114,20 @@ func getInstalledManifests() map[string]*ExtensionManifest {
 		installedManifests[manifest.Name] = manifest
 	}
 	return installedManifests
+}
+
+// GetLoadedExtensionPaths returns a list of manifest paths for all loaded extensions,
+// regardless of whether they were installed permanently or loaded temporarily. This
+// includes the combined set of extensions from both the filesystem and in-memory state.
+func GetLoadedExtensionPaths() []string {
+	paths := []string{}
+	for _, ext := range loadedExtensions {
+		if ext.Manifest != nil && ext.Manifest.RootPath != "" {
+			manifestPath := filepath.Join(ext.Manifest.RootPath, "extension.json")
+			paths = append(paths, manifestPath)
+		}
+	}
+	return paths
 }
 
 // ExtensionsCommandNameCompleter - Completer for installed extensions command names.

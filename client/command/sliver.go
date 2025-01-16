@@ -143,7 +143,7 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 		}
 
 		// Load Extensions
-		extensionManifests := assets.GetInstalledExtensionManifests()
+		extensionManifests := extensions.GetLoadedExtensionPaths()
 		for _, manifest := range extensionManifests {
 			mext, err := extensions.LoadExtensionManifest(manifest)
 			// Absorb error in case there's no extensions manifest
