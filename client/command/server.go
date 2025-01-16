@@ -31,6 +31,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/crack"
 	"github.com/bishopfox/sliver/client/command/creds"
 	"github.com/bishopfox/sliver/client/command/exit"
+	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/command/hosts"
 	"github.com/bishopfox/sliver/client/command/info"
@@ -91,6 +92,7 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 			licenses.Commands,
 			settings.Commands,
 			alias.Commands,
+			extensions.Commands,
 			armory.Commands,
 			update.Commands,
 			operators.Commands,

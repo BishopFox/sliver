@@ -14,7 +14,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Use:     consts.ExtensionsStr,
 		Short:   "Manage extensions",
 		Long:    help.GetHelpFor([]string{consts.ExtensionsStr}),
-		GroupID: consts.ExecutionHelpGroup,
+		GroupID: consts.GenericHelpGroup,
 		Run: func(cmd *cobra.Command, _ []string) {
 			ExtensionsCmd(cmd, con)
 		},

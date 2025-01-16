@@ -127,9 +127,7 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 		bind(consts.AliasHelpGroup)
 
 		// [ Extensions ]
-		bind(consts.ExtensionHelpGroup,
-			extensions.Commands,
-		)
+		bind(consts.ExtensionHelpGroup)
 
 		// [ Post-command declaration setup ]----------------------------------------
 
