@@ -187,7 +187,8 @@ func LoadExtensionManifest(manifestPath string) (*ExtensionManifest, error) {
 
 func convertOldManifest(old *ExtensionManifest_) *ExtensionManifest {
 	ret := &ExtensionManifest{
-		Name:            old.CommandName, //treating old command name as the manifest name to avoid weird chars mostly
+		//Name:            old.CommandName, //treating old command name as the manifest name to avoid weird chars mostly
+		Name:            old.Name, // Use name field to avoid mismatch with loadedExtensions map which must use command_name as its key
 		Version:         old.Version,
 		ExtensionAuthor: old.ExtensionAuthor,
 		OriginalAuthor:  old.OriginalAuthor,

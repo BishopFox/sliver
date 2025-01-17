@@ -36,7 +36,7 @@ import (
 
 // ExtensionsCmd - List information about installed extensions.
 func ExtensionsCmd(cmd *cobra.Command, con *console.SliverClient) {
-	if 0 < len(getInstalledManifests()) {
+	if 0 < len(GetAllExtensionManifests()) {
 		PrintExtensions(con)
 	} else {
 		con.PrintInfof("No extensions installed, use the 'armory' command to automatically install some\n")
@@ -64,7 +64,7 @@ func PrintExtensions(con *console.SliverClient) {
 		{Number: 5, Align: text.AlignCenter},
 	})
 
-	installedManifests := getInstalledManifests()
+	installedManifests := GetAllExtensionManifests()
 	for _, extension := range loadedExtensions {
 		//for _, extension := range extensionm.ExtCommand {
 		installed := ""
@@ -111,23 +111,41 @@ func getInstalledManifests() map[string]*ExtensionManifest {
 		if err != nil {
 			continue
 		}
+		manifest.RootPath = filepath.Dir(manifestPath)
 		installedManifests[manifest.Name] = manifest
 	}
 	return installedManifests
 }
 
-// GetLoadedExtensionPaths returns a list of manifest paths for all loaded extensions,
-// regardless of whether they were installed permanently or loaded temporarily. This
-// includes the combined set of extensions from both the filesystem and in-memory state.
-func GetLoadedExtensionPaths() []string {
-	paths := []string{}
-	for _, ext := range loadedExtensions {
-		if ext.Manifest != nil && ext.Manifest.RootPath != "" {
-			manifestPath := filepath.Join(ext.Manifest.RootPath, "extension.json")
-			paths = append(paths, manifestPath)
-		}
+// getTemporarilyLoadedManifests returns a map of extension manifests that are currently
+// loaded into memory but not permanently installed. The map is keyed by the manifest's
+// Name field.
+func getTemporarilyLoadedManifests() map[string]*ExtensionManifest {
+	tempManifests := map[string]*ExtensionManifest{}
+	for name, manifest := range loadedManifests {
+		tempManifests[name] = manifest
 	}
-	return paths
+	return tempManifests
+}
+
+// GetAllExtensionManifests returns a combined map of all extension manifests,
+// including both permanently installed and temporarily loaded extensions.
+// If a manifest exists in both states, the temporarily loaded version takes precedence
+// to allow for development and testing of modified extensions.
+func GetAllExtensionManifests() map[string]*ExtensionManifest {
+	allManifests := make(map[string]*ExtensionManifest)
+
+	// Add installed manifests first
+	for name, manifest := range getInstalledManifests() {
+		allManifests[name] = manifest
+	}
+
+	// Add/override with temporarily loaded manifests
+	for name, manifest := range getTemporarilyLoadedManifests() {
+		allManifests[name] = manifest
+	}
+
+	return allManifests
 }
 
 // ExtensionsCommandNameCompleter - Completer for installed extensions command names.
