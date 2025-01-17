@@ -64,7 +64,7 @@ func PrintExtensions(con *console.SliverClient) {
 		{Number: 5, Align: text.AlignCenter},
 	})
 
-	installedManifests := GetAllExtensionManifests()
+	installedManifests := getInstalledManifests()
 	for _, extension := range loadedExtensions {
 		//for _, extension := range extensionm.ExtCommand {
 		installed := ""

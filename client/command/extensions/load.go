@@ -125,7 +125,13 @@ func (e *ExtCommand) getFileForTarget(targetOS string, targetArch string) (strin
 	filePath := ""
 	for _, extFile := range e.Files {
 		if targetOS == extFile.OS && targetArch == extFile.Arch {
-			filePath = path.Join(assets.GetExtensionsDir(), e.Manifest.Name, extFile.Path)
+			if e.Manifest.RootPath != "" {
+				// Use RootPath for temporarily loaded extensions
+				filePath = path.Join(e.Manifest.RootPath, extFile.Path)
+			} else {
+				// Fall back to extensions dir for installed extensions
+				filePath = path.Join(assets.GetExtensionsDir(), e.Manifest.Name, extFile.Path)
+			}
 			break
 		}
 	}
