@@ -36,7 +36,7 @@ import (
 
 // ExtensionsCmd - List information about installed extensions.
 func ExtensionsCmd(cmd *cobra.Command, con *console.SliverClient) {
-	if 0 < len(GetAllExtensionManifests()) {
+	if len(GetAllExtensionManifests()) > 0 {
 		PrintExtensions(con)
 	} else {
 		con.PrintInfof("No extensions installed, use the 'armory' command to automatically install some\n")
@@ -131,24 +131,29 @@ func getTemporarilyLoadedManifests() map[string]*ExtensionManifest {
 	return tempManifests
 }
 
-// GetAllExtensionManifests returns a combined map of all extension manifests,
-// including both permanently installed and temporarily loaded extensions.
-// If a manifest exists in both states, the temporarily loaded version takes precedence
-// to allow for development and testing of modified extensions.
-func GetAllExtensionManifests() map[string]*ExtensionManifest {
-	allManifests := make(map[string]*ExtensionManifest)
+// GetAllExtensionManifests returns a combined list of manifest file paths from
+// both installed and temporarily loaded extensions
+func GetAllExtensionManifests() []string {
+	manifestPaths := make(map[string]struct{}) // use map for deduplication
 
-	// Add installed manifests first
-	for name, manifest := range getInstalledManifests() {
-		allManifests[name] = manifest
+	// Add installed manifests
+	for _, manifest := range getInstalledManifests() {
+		manifestPath := filepath.Join(manifest.RootPath, ManifestFileName)
+		manifestPaths[manifestPath] = struct{}{}
 	}
 
-	// Add/override with temporarily loaded manifests
-	for name, manifest := range getTemporarilyLoadedManifests() {
-		allManifests[name] = manifest
+	// Add temporarily loaded manifests
+	for _, manifest := range getTemporarilyLoadedManifests() {
+		manifestPath := filepath.Join(manifest.RootPath, ManifestFileName)
+		manifestPaths[manifestPath] = struct{}{}
 	}
 
-	return allManifests
+	// Convert to slice
+	paths := make([]string, 0, len(manifestPaths))
+	for path := range manifestPaths {
+		paths = append(paths, path)
+	}
+	return paths
 }
 
 // ExtensionsCommandNameCompleter - Completer for installed extensions command names.

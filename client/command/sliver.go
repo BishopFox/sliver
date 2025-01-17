@@ -20,7 +20,6 @@ package command
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/alias"
@@ -144,10 +143,9 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 		}
 
 		// Load Extensions
-		extensionManifests := extensions.GetAllExtensionManifests() // returns map[string]*ExtensionManifest
+		extensionManifests := extensions.GetAllExtensionManifests()
 		for _, manifest := range extensionManifests {
-			manifestPath := filepath.Join(manifest.RootPath, extensions.ManifestFileName)
-			mext, err := extensions.LoadExtensionManifest(manifestPath)
+			mext, err := extensions.LoadExtensionManifest(manifest)
 			// Absorb error in case there's no extensions manifest
 			if err != nil {
 				//con doesn't appear to be initialised here?

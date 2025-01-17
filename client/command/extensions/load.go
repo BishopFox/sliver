@@ -181,7 +181,11 @@ func ExtensionLoadCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 	}
 }
 
-// LoadExtensionManifest - Parse extension files.
+// LoadExtensionManifest loads and parses an extension manifest file from the given path.
+// It registers each command defined in the manifest into the loadedExtensions map
+// and registers the complete manifest into loadedManifests. A single manifest may
+// contain multiple extension commands. The manifest's RootPath is set to its containing
+// directory. Returns the parsed manifest and any errors encountered.
 func LoadExtensionManifest(manifestPath string) (*ExtensionManifest, error) {
 	data, err := os.ReadFile(manifestPath)
 	if err != nil {
@@ -295,7 +299,13 @@ func validManifest(manifest *ExtensionManifest) error {
 	return nil
 }
 
-// ExtensionRegisterCommand - Register a new extension command
+// ExtensionRegisterCommand adds an extension command to the cobra command system.
+// It validates the extension's arguments, updates the loadedExtensions map, and
+// creates a cobra.Command with proper usage text, help documentation, and argument
+// handling. The command is added as a subcommand to the provided parent cobra.Command.
+// Arguments are displayed in the help text as uppercase, with optional args in square
+// brackets. The help text includes sections for command usage, description, and detailed
+// argument specifications.
 func ExtensionRegisterCommand(extCmd *ExtCommand, cmd *cobra.Command, con *console.SliverClient) {
 	if errInvalidArgs := checkExtensionArgs(extCmd); errInvalidArgs != nil {
 		con.PrintErrorf(errInvalidArgs.Error())

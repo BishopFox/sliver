@@ -21,7 +21,6 @@ package command
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/bishopfox/sliver/client/command/alias"
 	"github.com/bishopfox/sliver/client/command/armory"
@@ -136,14 +135,12 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 		// [ Post-command declaration setup ]-----------------------------------------
 
 		// Load Extensions
-		// Similar to the sliver context loading, without adding the commands to the
-		// server command tree. This is done to ensure that the extensions are loaded
+		// Similar to the SliverCommand loading, without adding the commands to the
+		// Server command tree. This is done to ensure that the extensions are loaded
 		// before the server is started, so that the extensions are registered.
-		// Load Extensions
-		extensionManifests := extensions.GetAllExtensionManifests() // returns map[string]*ExtensionManifest
+		extensionManifests := extensions.GetAllExtensionManifests()
 		for _, manifest := range extensionManifests {
-			manifestPath := filepath.Join(manifest.RootPath, extensions.ManifestFileName)
-			_, err := extensions.LoadExtensionManifest(manifestPath)
+			_, err := extensions.LoadExtensionManifest(manifest)
 			// Absorb error in case there's no extensions manifest
 			if err != nil {
 				//con doesn't appear to be initialised here?
