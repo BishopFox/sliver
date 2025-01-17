@@ -68,8 +68,12 @@ func PrintExtensions(con *console.SliverClient) {
 	for _, extension := range loadedExtensions {
 		//for _, extension := range extensionm.ExtCommand {
 		installed := ""
-		if _, ok := installedManifests[extension.Manifest.Name]; ok {
-			installed = "✅"
+		//if _, ok := installedManifests[extension.Manifest.Name]; ok {
+		for _, installedManifest := range installedManifests {
+			if extension.Manifest.RootPath == installedManifest.RootPath {
+				installed = "✅"
+				break
+			}
 		}
 		tw.AppendRow(table.Row{
 			extension.Manifest.Name,
