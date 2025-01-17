@@ -98,6 +98,9 @@ func extensionPlatforms(extension *ExtCommand) []string {
 	return keys
 }
 
+// getInstalledManifests - Returns a mapping of extension names to their parsed manifest objects.
+// Reads all installed extension manifests from disk, ignoring any that cannot be read or parsed.
+// The returned manifests have their RootPath set to the directory containing their manifest file.
 func getInstalledManifests() map[string]*ExtensionManifest {
 	manifestPaths := assets.GetInstalledExtensionManifests()
 	installedManifests := map[string]*ExtensionManifest{}

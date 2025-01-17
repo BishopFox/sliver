@@ -80,6 +80,7 @@ type ExtensionManifest_ struct {
 
 type ExtensionManifest struct {
 	Name            string `json:"name"`
+	PackageName     string `json:"package_name"`
 	Version         string `json:"version"`
 	ExtensionAuthor string `json:"extension_author"`
 	OriginalAuthor  string `json:"original_author"`
@@ -146,10 +147,19 @@ func (e *ExtCommand) getFileForTarget(targetOS string, targetArch string) (strin
 	return filePath, nil
 }
 
-// ExtensionLoadCmd - Load extension command.
+// ExtensionLoadCmd - Temporarily installs an extension from a local directory into the client.
+// The extension must contain a valid manifest file. If commands from the extension
+// already exist, the user will be prompted to overwrite them.
 func ExtensionLoadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	dirPath := args[0]
-	// dirPath := ctx.Args.String("dir-path")
+
+	// Add directory check
+	fileInfo, err := os.Stat(dirPath)
+	if err != nil || !fileInfo.IsDir() {
+		con.PrintErrorf("Path is not a directory: %s\n", dirPath)
+		return
+	}
+
 	manifest, err := LoadExtensionManifest(filepath.Join(dirPath, ManifestFileName))
 	if err != nil {
 		return
@@ -193,8 +203,7 @@ func LoadExtensionManifest(manifestPath string) (*ExtensionManifest, error) {
 
 func convertOldManifest(old *ExtensionManifest_) *ExtensionManifest {
 	ret := &ExtensionManifest{
-		//Name:            old.CommandName, //treating old command name as the manifest name to avoid weird chars mostly
-		Name:            old.Name, // Use name field to avoid mismatch with loadedExtensions map which must use command_name as its key
+		Name:            old.CommandName, //treating old command name as the manifest name to avoid weird chars mostly
 		Version:         old.Version,
 		ExtensionAuthor: old.ExtensionAuthor,
 		OriginalAuthor:  old.OriginalAuthor,
