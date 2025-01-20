@@ -313,7 +313,6 @@ func ExtensionRegisterCommand(extCmd *ExtCommand, cmd *cobra.Command, con *conso
 	}
 
 	loadedExtensions[extCmd.CommandName] = extCmd
-	//helpMsg := extCmd.Help
 
 	usage := strings.Builder{}
 	usage.WriteString(extCmd.CommandName)
@@ -365,9 +364,9 @@ func ExtensionRegisterCommand(extCmd *ExtCommand, cmd *cobra.Command, con *conso
 
 	// Command
 	extensionCmd := &cobra.Command{
-		Use: usage.String(), //extCmd.CommandName,
-		//Short: helpMsg.String(), doesn't appear to be used?
-		Long: help.FormatHelpTmpl(longHelp.String()),
+		Use:   usage.String(),
+		Short: extCmd.Help,
+		Long:  help.FormatHelpTmpl(longHelp.String()),
 		Run: func(cmd *cobra.Command, args []string) {
 			runExtensionCmd(cmd, con, args)
 		},
