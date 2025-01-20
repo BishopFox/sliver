@@ -98,7 +98,7 @@ func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		save, _ = os.Getwd()
 	}
 	if external, _ := cmd.Flags().GetBool("external-builder"); !external {
-		compile(config, save, con)
+		compile(name, config, save, con)
 	} else {
 		_, err := externalBuild(name, config, save, con)
 		if err != nil {
@@ -905,7 +905,7 @@ func externalBuild(name string, config *clientpb.ImplantConfig, save string, con
 	return nil, nil
 }
 
-func compile(config *clientpb.ImplantConfig, save string, con *console.SliverClient) (*commonpb.File, error) {
+func compile(name string, config *clientpb.ImplantConfig, save string, con *console.SliverClient) (*commonpb.File, error) {
 	if config.IsBeacon {
 		interval := time.Duration(config.BeaconInterval)
 		con.PrintInfof("Generating new %s/%s beacon implant binary (%v)\n", config.GOOS, config.GOARCH, interval)
@@ -923,6 +923,7 @@ func compile(config *clientpb.ImplantConfig, save string, con *console.SliverCli
 	con.SpinUntil("Compiling, please wait ...", ctrl)
 
 	generated, err := con.Rpc.Generate(context.Background(), &clientpb.GenerateReq{
+		Name:   name,
 		Config: config,
 	})
 	ctrl <- true

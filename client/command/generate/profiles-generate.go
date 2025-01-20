@@ -46,7 +46,7 @@ func ProfilesGenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []s
 		if SGNDisabled, _ := cmd.Flags().GetBool("disable-sgn"); SGNDisabled {
 			profile.Config.SGNEnabled = !SGNDisabled
 		}
-		_, err := compile(profile.Config, save, con)
+		_, err := compile(name, profile.Config, save, con)
 		if err != nil {
 			return
 		}
