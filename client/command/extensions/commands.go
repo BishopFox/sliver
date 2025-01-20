@@ -63,10 +63,11 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 
 func SliverCommands(con *console.SliverClient) []*cobra.Command {
 	extensionCmd := &cobra.Command{
-		Use:     consts.ExtensionsStr,
-		Short:   "Manage extensions",
-		Long:    help.GetHelpFor([]string{consts.ExtensionsStr}),
-		GroupID: consts.InfoHelpGroup,
+		Use:         consts.ExtensionsStr,
+		Short:       "Manage extensions",
+		Long:        help.GetHelpFor([]string{consts.ExtensionsStr}),
+		GroupID:     consts.InfoHelpGroup,
+		Annotations: flags.RestrictTargets(consts.SessionCmdsFilter), // restrict to session targets since we cannot `list` "loaded" extensions from beacon mode
 	}
 
 	listCmd := &cobra.Command{
