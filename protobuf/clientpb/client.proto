@@ -148,6 +148,7 @@ message ImplantConfig {
   bool ObfuscateSymbols = 12;
   string TemplateName = 13;
   bool SGNEnabled = 14;
+  bool SleepObfuscation = 15;
 
   bool IncludeMTLS = 53;
   bool IncludeHTTP = 16;

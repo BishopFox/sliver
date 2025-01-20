@@ -272,6 +272,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 	debug, _ := cmd.Flags().GetBool("debug")
 	evasion, _ := cmd.Flags().GetBool("evasion")
 	templateName, _ := cmd.Flags().GetString("template")
+	sleepObfuscation, _ := cmd.Flags().GetBool("sleep-obfuscation")
 
 	reconnectInterval, _ := cmd.Flags().GetInt64("reconnect")
 	pollTimeout, _ := cmd.Flags().GetInt64("poll-timeout")
@@ -370,6 +371,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		Debug:            debug,
 		Evasion:          evasion,
 		SGNEnabled:       sgnEnabled,
+		SleepObfuscation: sleepObfuscation,
 		ObfuscateSymbols: symbolObfuscation,
 		C2:               c2s,
 		CanaryDomains:    canaryDomains,

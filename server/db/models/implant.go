@@ -168,6 +168,7 @@ type ImplantConfig struct {
 	MaxConnectionErrors uint32
 	ConnectionStrategy  string
 	SGNEnabled          bool
+	SleepObfuscation    bool
 
 	// WireGuard
 	WGPeerTunIP       string
@@ -253,6 +254,7 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		ObfuscateSymbols: ic.ObfuscateSymbols,
 		TemplateName:     ic.TemplateName,
 		SGNEnabled:       ic.SGNEnabled,
+		SleepObfuscation: ic.SleepObfuscation,
 
 		ReconnectInterval:   ic.ReconnectInterval,
 		MaxConnectionErrors: ic.MaxConnectionErrors,
@@ -456,6 +458,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 		cfg.TemplateName = defaultTemplateName
 	}
 	cfg.SGNEnabled = pbConfig.SGNEnabled
+	cfg.SleepObfuscation = pbConfig.SleepObfuscation
 
 	cfg.IncludeMTLS = IsC2Enabled([]string{"mtls"}, pbConfig.C2)
 	cfg.IncludeWG = IsC2Enabled([]string{"wg"}, pbConfig.C2)

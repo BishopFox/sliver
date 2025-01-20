@@ -307,6 +307,7 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 		f.BoolP("evasion", "e", false, "enable evasion features (e.g. overwrite user space hooks)")
 		f.BoolP("skip-symbols", "l", false, "skip symbol obfuscation")
 		f.BoolP("disable-sgn", "G", false, "disable shikata ga nai shellcode encoder")
+		f.BoolP("sleep-obfuscation", "B", false, "apply ekko in-memory sleep obfuscation")
 
 		f.StringP("canary", "c", "", "canary domain(s)")
 
