@@ -288,7 +288,7 @@ type Directory struct {
 	// KeyChangeURL allows to perform account key rollover flow.
 	KeyChangeURL string
 
-	// Term is a URI identifying the current terms of service.
+	// Terms is a URI identifying the current terms of service.
 	Terms string
 
 	// Website is an HTTP or HTTPS URL locating a website

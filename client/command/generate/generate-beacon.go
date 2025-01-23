@@ -32,7 +32,7 @@ func GenerateBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 		save, _ = os.Getwd()
 	}
 	if external, _ := cmd.Flags().GetBool("external-builder"); !external {
-		compile(config, save, con)
+		compile(name, config, save, con)
 	} else {
 		externalBuild(name, config, save, con)
 	}

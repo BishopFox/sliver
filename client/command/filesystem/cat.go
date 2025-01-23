@@ -23,6 +23,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/alecthomas/chroma/formatters"
 	"github.com/alecthomas/chroma/lexers"
@@ -72,16 +73,16 @@ func CatCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 				con.PrintErrorf("Failed to decode response %s\n", err)
 				return
 			}
-			PrintCat(download, cmd, con)
+			PrintCat(filePath, download, cmd, con)
 		})
 		con.PrintAsyncResponse(download.Response)
 	} else {
-		PrintCat(download, cmd, con)
+		PrintCat(filePath, download, cmd, con)
 	}
 }
 
 // PrintCat - Print the download to stdout.
-func PrintCat(download *sliverpb.Download, cmd *cobra.Command, con *console.SliverClient) {
+func PrintCat(originalFileName string, download *sliverpb.Download, cmd *cobra.Command, con *console.SliverClient) {
 	var (
 		lootDownload bool = true
 		err          error
@@ -107,6 +108,9 @@ func PrintCat(download *sliverpb.Download, cmd *cobra.Command, con *console.Sliv
 			loot.LootDownload(download, lootName, fileType, cmd, con)
 			con.Printf("\n")
 		}
+	}
+	if !strings.Contains(download.Path, originalFileName) {
+		con.PrintInfof("Supplied pattern %s matched file %s\n\n", originalFileName, download.Path)
 	}
 	if color, _ := cmd.Flags().GetBool("colorize-output"); color {
 		if err = colorize(download); err != nil {
