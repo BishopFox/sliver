@@ -575,7 +575,7 @@ github.com/pmezard/go-difflib/difflib
 ## explicit; go 1.21
 github.com/reeflective/console
 github.com/reeflective/console/commands/readline
-# github.com/reeflective/readline v1.0.14
+# github.com/reeflective/readline v1.0.15
 ## explicit; go 1.21
 github.com/reeflective/readline
 github.com/reeflective/readline/inputrc
