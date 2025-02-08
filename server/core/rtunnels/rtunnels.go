@@ -106,9 +106,7 @@ func DeletePending(sessionID string) {
 
 func Check(sessionID string, connStr string) bool {
 	if val, ok := pending.Load(sessionID); ok {
-		if val == connStr {
-			return true
-		}
+		return val == connStr
 	}
 	return false
 }
