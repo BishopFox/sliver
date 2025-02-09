@@ -241,10 +241,7 @@ func (b *Builder) handleBuildEvent(event *clientpb.Event) {
 		return
 	}
 
-	fileName := filepath.Base(extConfig.Build.Name)
-	if extConfig.Config.GOOS == "windows" {
-		fileName += ".exe"
-	}
+	fileName := filepath.Base(extConfig.Build.Name) + extConfig.Config.Extension
 
 	builderLog.Infof("Uploading '%s' to server ...", extConfig.Build.Name)
 	_, err = b.rpc.GenerateExternalSaveBuild(context.Background(), &clientpb.ExternalImplantBinary{
