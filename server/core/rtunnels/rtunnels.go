@@ -8,6 +8,7 @@ import (
 var (
 	Rtunnels map[uint64]*RTunnel = make(map[uint64]*RTunnel)
 	mutex    sync.RWMutex
+	pending  sync.Map
 )
 
 // RTunnel - Duplex byte read/write
@@ -93,6 +94,21 @@ func RemoveRTunnel(ID uint64) {
 	defer mutex.Unlock()
 
 	delete(Rtunnels, ID)
+}
+
+func AddPending(sessionID string, connStr string) {
+	pending.Store(sessionID, connStr)
+}
+
+func DeletePending(sessionID string) {
+	pending.Delete(sessionID)
+}
+
+func Check(sessionID string, connStr string) bool {
+	if val, ok := pending.Load(sessionID); ok {
+		return val == connStr
+	}
+	return false
 }
 
 // func removeAndCloseAllRTunnels() {

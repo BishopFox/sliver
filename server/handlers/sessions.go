@@ -226,9 +226,14 @@ func createReverseTunnelHandler(implantConn *core.ImplantConnection, data []byte
 	req := &sliverpb.TunnelData{}
 	proto.Unmarshal(data, req)
 
-	var defaultDialer = new(net.Dialer)
-
 	remoteAddress := fmt.Sprintf("%s:%d", req.Rportfwd.Host, req.Rportfwd.Port)
+	if !rtunnels.Check(session.ID, remoteAddress) {
+		sessionHandlerLog.Errorf("Session %s attempted to create reverse tunnel to %s without being initiated by a client", session.ID, remoteAddress)
+		return nil
+	}
+	defer rtunnels.DeletePending(session.ID)
+
+	var defaultDialer = new(net.Dialer)
 
 	ctx, cancelContext := context.WithCancel(context.Background())
 
