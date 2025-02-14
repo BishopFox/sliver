@@ -741,10 +741,11 @@ func (rpc *Server) GenerateStage(ctx context.Context, req *clientpb.GenerateStag
 	if req.PrependSize {
 		fileData = prependPayloadSize(fileData)
 	}
+	stage2 = fileData
 
 	if req.Compress != "" {
 		stageType = req.Compress + " - "
-		stage2, err = Compress(fileData, req.Compress)
+		stage2, err = Compress(stage2, req.Compress)
 		if err != nil {
 			return nil, err
 		}
