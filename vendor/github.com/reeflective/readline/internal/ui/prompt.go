@@ -12,6 +12,11 @@ import (
 	"github.com/reeflective/readline/internal/term"
 )
 
+const (
+	secondaryPromptDefault = "\x1b[1;30m\U00002514 \x1b[0m"
+	multilineColumnDefault = "\x1b[1;30m\U00002502 \x1b[0m"
+)
+
 // Prompt stores all prompt rendering/generation functions and is
 // in charge of displaying them, as well as computing their offsets.
 type Prompt struct {
@@ -177,6 +182,51 @@ func (p *Prompt) LastUsed() int {
 	}
 
 	return p.primaryCols
+}
+
+// SecondaryPrint prints the last cursor in secondary prompt mode,
+// which is always activated when the current input line is a multiline one.
+func (p *Prompt) SecondaryPrint() {
+	if p.secondaryF != nil {
+		fmt.Print(p.secondaryF())
+		return
+	}
+
+	fmt.Print(secondaryPromptDefault)
+}
+
+// MultilineColumnPrint prints the multiline editor column status indicator.
+// It either prints a default, numbered or user-defined column.
+func (p *Prompt) MultilineColumnPrint() {
+	numbered := p.opts.GetBool("multiline-column-numbered")
+	custom := p.opts.GetString("multiline-column-custom")
+	defaultCol := p.opts.GetBool("multiline-column")
+
+	switch {
+	case numbered:
+		column := ""
+		for pos := 0; pos < p.line.Lines(); pos++ {
+			column += fmt.Sprintf("\n\x1b[1;30m%d\x1b[0m", pos+2)
+		}
+
+		fmt.Print(column)
+
+	case len(custom) > 0:
+		column := ""
+		for pos := 0; pos < p.line.Lines(); pos++ {
+			column += fmt.Sprintf("\n%s\x1b[0m", custom)
+		}
+
+		fmt.Print(column)
+
+	case defaultCol:
+		column := ""
+		for pos := 0; pos < p.line.Lines(); pos++ {
+			column += "\n" + multilineColumnDefault
+		}
+
+		fmt.Print(column)
+	}
 }
 
 // RightPrint prints the right-sided prompt strings, which might be either

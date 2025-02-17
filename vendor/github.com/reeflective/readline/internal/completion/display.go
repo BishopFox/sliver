@@ -129,7 +129,7 @@ func (e *Engine) highlightDisplay(grp *group, val Candidate, pad, col int, selec
 	} else {
 		// Highlight the prefix if any and configured for it.
 		if e.config.GetBool("colored-completion-prefix") && e.prefix != "" {
-			if prefixMatch, err := regexp.Compile(fmt.Sprintf("^%s", e.prefix)); err == nil {
+			if prefixMatch, err := regexp.Compile("^" + e.prefix); err == nil {
 				prefixColored := color.Bold + color.FgBlue + e.prefix + color.BoldReset + color.FgDefault + reset
 				candidate = prefixMatch.ReplaceAllString(candidate, prefixColored)
 			}

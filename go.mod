@@ -1,9 +1,6 @@
 module github.com/bishopfox/sliver
 
 go 1.22.0
-
-toolchain go1.22.2
-
 replace github.com/rsteube/carapace v0.36.3 => github.com/reeflective/carapace v0.46.3-0.20231214181515-27e49f3c3b69
 
 require (
@@ -36,7 +33,7 @@ require (
 	github.com/moloch--/memmod v0.0.0-20230225130813-fd77d905589e
 	github.com/ncruces/go-sqlite3 v0.20.3
 	github.com/reeflective/console v0.1.15
-	github.com/reeflective/readline v1.0.14
+	github.com/reeflective/readline v1.1.2
 	github.com/rsteube/carapace v0.46.3-0.20231214181515-27e49f3c3b69
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.1
