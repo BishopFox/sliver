@@ -187,6 +187,7 @@ message ImplantConfig {
   bool NetGoEnabled = 151;
   bool TrafficEncodersEnabled = 152;
   repeated string TrafficEncoders = 153;
+  string Extension = 154;
 
   repeated commonpb.File Assets = 200;
 }

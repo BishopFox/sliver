@@ -136,8 +136,7 @@ func ImplantBuildFromProtobuf(ib *clientpb.ImplantBuild) *ImplantBuild {
 
 		WGImplantPrivKey: ib.WGImplantPrivKey,
 		WGServerPubKey:   ib.WGServerPubKey,
-		Stage:            ib.Stage,
-	}
+		Stage:            ib.Stage}
 	return &build
 }
 
@@ -207,6 +206,7 @@ type ImplantConfig struct {
 	NetGoEnabled           bool
 	TrafficEncodersEnabled bool
 	Assets                 []EncoderAsset
+	Extension              string
 }
 
 // BeforeCreate - GORM hook
@@ -284,6 +284,7 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		IncludeNamePipe: ic.IncludeNamePipe,
 		IncludeWG:       ic.IncludeWG,
 		IncludeTCP:      ic.IncludeTCP,
+		Extension:       ic.Extension,
 	}
 
 	if ic.ImplantProfileID != nil {
@@ -505,6 +506,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 			Name: pbAsset.Name,
 		})
 	}
+	cfg.Extension = pbConfig.Extension
 
 	return &cfg
 }
