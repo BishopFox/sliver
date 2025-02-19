@@ -3,6 +3,8 @@
 #ifdef __WIN32
 #include <windows.h>
 
+void StartW();
+
 DWORD WINAPI Start()
 {
     StartW();

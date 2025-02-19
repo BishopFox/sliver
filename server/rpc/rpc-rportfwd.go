@@ -23,6 +23,7 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/core/rtunnels"
 )
 
 // GetRportFwdListeners - Get a list of all reverse port forwards listeners from an implant
@@ -38,6 +39,7 @@ func (rpc *Server) GetRportFwdListeners(ctx context.Context, req *sliverpb.Rport
 // StartRportfwdListener - Instruct the implant to start a reverse port forward
 func (rpc *Server) StartRportFwdListener(ctx context.Context, req *sliverpb.RportFwdStartListenerReq) (*sliverpb.RportFwdListener, error) {
 	resp := &sliverpb.RportFwdListener{Response: &commonpb.Response{}}
+	rtunnels.AddPending(req.Request.SessionID, req.ForwardAddress)
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
