@@ -24,7 +24,7 @@ jobs:
           mingw-w64 binutils-mingw-w64 g++-mingw-w64 gcc-multilib
 
       - name: Check out code into the Go module directory
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Git Fetch Tags
         run: git fetch --prune --unshallow --tags -f
@@ -38,7 +38,7 @@ jobs:
         run: export PATH=/home/runner/go/bin/:$PATH && make linux
 
       - name: Linux Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: linux
           path: ./sliver-*
@@ -51,7 +51,7 @@ jobs:
           export PATH=/home/runner/go/bin/:$PATH && make windows
 
       - name: Windows Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: windows
           path: ./sliver-*
@@ -71,7 +71,7 @@ jobs:
         run: brew install mingw-w64
 
       - name: Check out code into the Go module directory
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Git Fetch Tags
         run: git fetch --prune --unshallow --tags -f
@@ -90,7 +90,7 @@ jobs:
         run: make macos-arm64
 
       - name: MacOS Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: macos
           path: ./sliver-*
@@ -105,7 +105,7 @@ jobs:
 
     steps:
       - run: mkdir -p ./builds
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           path: ./builds
 
