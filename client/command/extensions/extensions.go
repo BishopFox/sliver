@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/bishopfox/sliver/client/assets"
@@ -35,7 +36,7 @@ import (
 
 // ExtensionsCmd - List information about installed extensions.
 func ExtensionsCmd(cmd *cobra.Command, con *console.SliverClient) {
-	if 0 < len(getInstalledManifests()) {
+	if len(GetAllExtensionManifests()) > 0 {
 		PrintExtensions(con)
 	} else {
 		con.PrintInfof("No extensions installed, use the 'armory' command to automatically install some\n")
@@ -67,8 +68,12 @@ func PrintExtensions(con *console.SliverClient) {
 	for _, extension := range loadedExtensions {
 		//for _, extension := range extensionm.ExtCommand {
 		installed := ""
-		if _, ok := installedManifests[extension.Manifest.Name]; ok {
-			installed = "✅"
+		//if _, ok := installedManifests[extension.Manifest.Name]; ok {
+		for _, installedManifest := range installedManifests {
+			if extension.Manifest.RootPath == installedManifest.RootPath {
+				installed = "✅"
+				break
+			}
 		}
 		tw.AppendRow(table.Row{
 			extension.Manifest.Name,
@@ -97,6 +102,9 @@ func extensionPlatforms(extension *ExtCommand) []string {
 	return keys
 }
 
+// getInstalledManifests - Returns a mapping of extension names to their parsed manifest objects.
+// Reads all installed extension manifests from disk, ignoring any that cannot be read or parsed.
+// The returned manifests have their RootPath set to the directory containing their manifest file.
 func getInstalledManifests() map[string]*ExtensionManifest {
 	manifestPaths := assets.GetInstalledExtensionManifests()
 	installedManifests := map[string]*ExtensionManifest{}
@@ -110,9 +118,46 @@ func getInstalledManifests() map[string]*ExtensionManifest {
 		if err != nil {
 			continue
 		}
+		manifest.RootPath = filepath.Dir(manifestPath)
 		installedManifests[manifest.Name] = manifest
 	}
 	return installedManifests
+}
+
+// getTemporarilyLoadedManifests returns a map of extension manifests that are currently
+// loaded into memory but not permanently installed. The map is keyed by the manifest's
+// Name field.
+func getTemporarilyLoadedManifests() map[string]*ExtensionManifest {
+	tempManifests := map[string]*ExtensionManifest{}
+	for name, manifest := range loadedManifests {
+		tempManifests[name] = manifest
+	}
+	return tempManifests
+}
+
+// GetAllExtensionManifests returns a combined list of manifest file paths from
+// both installed and temporarily loaded extensions
+func GetAllExtensionManifests() []string {
+	manifestPaths := make(map[string]struct{}) // use map for deduplication
+
+	// Add installed manifests
+	for _, manifest := range getInstalledManifests() {
+		manifestPath := filepath.Join(manifest.RootPath, ManifestFileName)
+		manifestPaths[manifestPath] = struct{}{}
+	}
+
+	// Add temporarily loaded manifests
+	for _, manifest := range getTemporarilyLoadedManifests() {
+		manifestPath := filepath.Join(manifest.RootPath, ManifestFileName)
+		manifestPaths[manifestPath] = struct{}{}
+	}
+
+	// Convert to slice
+	paths := make([]string, 0, len(manifestPaths))
+	for path := range manifestPaths {
+		paths = append(paths, path)
+	}
+	return paths
 }
 
 // ExtensionsCommandNameCompleter - Completer for installed extensions command names.
