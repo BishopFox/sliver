@@ -793,6 +793,7 @@ message HTTPC2ImplantConfig {
   string CloseFileExtension = 16;
 
   repeated HTTPC2PathSegment PathSegments = 17;
+  int32 NonceQueryLength = 18;
 }
 
 message HTTPC2Cookie {

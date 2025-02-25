@@ -135,7 +135,8 @@ type HttpC2ImplantConfig struct {
 	SessionFileExtension      string
 	CloseFileExtension        string
 
-	PathSegments []HttpC2PathSegment
+	PathSegments     []HttpC2PathSegment
+	NonceQueryLength int32
 }
 
 func (h *HttpC2ImplantConfig) BeforeCreate(tx *gorm.DB) (err error) {
@@ -174,6 +175,7 @@ func (h *HttpC2ImplantConfig) ToProtobuf() *clientpb.HTTPC2ImplantConfig {
 		SessionFileExtension:      h.SessionFileExtension,
 		CloseFileExtension:        h.CloseFileExtension,
 		PathSegments:              pathSegments,
+		NonceQueryLength:          h.NonceQueryLength,
 	}
 }
 
@@ -353,6 +355,7 @@ func HTTPC2ConfigFromProtobuf(pbHttpC2Config *clientpb.HTTPC2Config) *HttpC2Conf
 		SessionFileExtension:      pbHttpC2Config.ImplantConfig.SessionFileExtension,
 		CloseFileExtension:        pbHttpC2Config.ImplantConfig.CloseFileExtension,
 		PathSegments:              pathSegments,
+		NonceQueryLength:          pbHttpC2Config.ImplantConfig.NonceQueryLength,
 	}
 
 	// C2 Config
