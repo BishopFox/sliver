@@ -55,6 +55,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	}
 	flags.Bind(consts.C2ProfileStr, true, C2ProfileCmd, func(f *pflag.FlagSet) {
 		f.StringP("name", "n", consts.DefaultC2Profile, "HTTP C2 Profile to display")
+		f.StringP("filter", "", "", "Only display part of c2profile, valid options are extensions, headers, poll, session,")
 	})
 
 	flags.BindFlagCompletions(C2ProfileCmd, func(comp *carapace.ActionMap) {
