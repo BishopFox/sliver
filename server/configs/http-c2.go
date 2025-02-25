@@ -172,6 +172,7 @@ func GenerateDefaultHTTPC2Config() *clientpb.HTTPC2Config {
 		SessionFileExtension:      "php",
 		CloseFileExtension:        "png",
 		PathSegments:              pathSegments,
+		NonceQueryLength:          1,
 	}
 
 	// Server Config
