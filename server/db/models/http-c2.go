@@ -385,6 +385,7 @@ func RandomizeImplantConfig(h *clientpb.HTTPC2ImplantConfig, goos string, goarch
 		MaxFiles:                  h.MaxFiles,
 		MinPaths:                  h.MinPaths,
 		MaxPaths:                  h.MaxPaths,
+		NonceQueryLength:          h.NonceQueryLength,
 	}
 }
 

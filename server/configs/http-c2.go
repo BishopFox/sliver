@@ -160,6 +160,7 @@ func GenerateDefaultHTTPC2Config() *clientpb.HTTPC2Config {
 		ChromeBaseVersion:         DefaultChromeBaseVer,
 		MacOSVersion:              DefaultMacOSVer,
 		NonceQueryArgChars:        "abcdefghijklmnopqrstuvwxyz",
+		NonceQueryLength:          1,
 		ExtraURLParameters:        httpC2UrlParameters,
 		Headers:                   httpC2Headers,
 		MaxFiles:                  4,
@@ -172,7 +173,6 @@ func GenerateDefaultHTTPC2Config() *clientpb.HTTPC2Config {
 		SessionFileExtension:      "php",
 		CloseFileExtension:        "png",
 		PathSegments:              pathSegments,
-		NonceQueryLength:          1,
 	}
 
 	// Server Config

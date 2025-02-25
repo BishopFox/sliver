@@ -57,6 +57,7 @@ type HTTPC2ImplantConfig struct {
 	NonceQueryArgChars string                 `json:"nonce_query_args"`
 	URLParameters      []NameValueProbability `json:"url_parameters"`
 	Headers            []NameValueProbability `json:"headers"`
+	NonceQueryLength   int                    `json:"nonce_query_length"`
 
 	MaxFiles int `json:"max_files"`
 	MinFiles int `json:"min_files"`
