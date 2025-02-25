@@ -358,6 +358,35 @@ func SearchStartSessionExtensions(StartSessionFileExt string, profileName string
 	return nil
 }
 
+func SearchExtensions(extension string, extensionType string) ([]*clientpb.HTTPC2ImplantConfig, error) {
+	c2Configs := []models.HttpC2ImplantConfig{}
+	query := &models.HttpC2ImplantConfig{}
+
+	switch extensionType {
+	case "stager":
+		query.StagerFileExtension = extension
+	case "startsession":
+		query.StartSessionFileExtension = extension
+	case "session":
+		query.SessionFileExtension = extension
+	case "poll":
+		query.PollFileExtension = extension
+	case "close":
+		query.CloseFileExtension = extension
+	}
+
+	err := Session().Where(&query).Find(&c2Configs).Error
+	if err != nil {
+		return nil, err
+	}
+
+	var res []*clientpb.HTTPC2ImplantConfig
+	for _, c2Config := range c2Configs {
+		res = append(res, c2Config.ToProtobuf())
+	}
+	return res, nil
+}
+
 func LoadHTTPC2ConfigByName(name string) (*clientpb.HTTPC2Config, error) {
 	if len(name) < 1 {
 		return nil, ErrRecordNotFound
