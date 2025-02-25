@@ -28,6 +28,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -63,7 +64,9 @@ func C2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	PrintC2Profiles(profile, con)
+
+	filter, _ := cmd.Flags().GetString("filter")
+	PrintC2Profiles(profile, con, filter)
 }
 
 func ImportC2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
@@ -264,7 +267,7 @@ func GenerateC2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []
 		}
 		con.Println("C2 profile generated and saved as ", profileName)
 	} else {
-		PrintC2Profiles(profile, con)
+		PrintC2Profiles(profile, con, "")
 	}
 }
 
@@ -523,7 +526,7 @@ func C2ConfigToProtobuf(profileName string, config *assets.HTTPC2Config) *client
 }
 
 // PrintImplantBuilds - Print the implant builds on the server
-func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverClient) {
+func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverClient, filter string) {
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
@@ -533,109 +536,32 @@ func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverClient) 
 	})
 
 	// Profile metadata
-
 	tw.AppendRow(table.Row{
 		"Profile Name",
 		profile.Name,
 	})
 
 	// Server side configuration
-
 	var serverHeaders []string
 	for _, header := range profile.ServerConfig.Headers {
 		serverHeaders = append(serverHeaders, header.Name)
 	}
-	tw.AppendRow(table.Row{
-		"Server Headers",
-		strings.Join(serverHeaders[:], ","),
-	})
 
 	var serverCookies []string
 	for _, cookie := range profile.ServerConfig.Cookies {
 		serverCookies = append(serverCookies, cookie.Name)
 	}
-	tw.AppendRow(table.Row{
-		"Server Cookies",
-		strings.Join(serverCookies[:], ","),
-	})
-
-	tw.AppendRow(table.Row{
-		"Randomize Server Headers",
-		profile.ServerConfig.RandomVersionHeaders,
-	})
 
 	// Client side configuration
-
 	var clientHeaders []string
 	for _, header := range profile.ImplantConfig.Headers {
 		clientHeaders = append(clientHeaders, header.Name)
 	}
-	tw.AppendRow(table.Row{
-		"Client Headers",
-		strings.Join(clientHeaders[:], ","),
-	})
 
 	var clientUrlParams []string
 	for _, clientUrlParam := range profile.ImplantConfig.ExtraURLParameters {
 		clientUrlParams = append(clientUrlParams, clientUrlParam.Name)
 	}
-	tw.AppendRow(table.Row{
-		"Extra URL Parameters",
-		strings.Join(clientUrlParams[:], ","),
-	})
-	tw.AppendRow(table.Row{
-		"User agent",
-		profile.ImplantConfig.UserAgent,
-	})
-	tw.AppendRow(table.Row{
-		"Chrome base version",
-		profile.ImplantConfig.ChromeBaseVersion,
-	})
-	tw.AppendRow(table.Row{
-		"MacOS version",
-		profile.ImplantConfig.MacOSVersion,
-	})
-	tw.AppendRow(table.Row{
-		"Nonce query arg chars",
-		profile.ImplantConfig.NonceQueryArgChars,
-	})
-	tw.AppendRow(table.Row{
-		"Max files",
-		profile.ImplantConfig.MaxFiles,
-	})
-	tw.AppendRow(table.Row{
-		"Min files",
-		profile.ImplantConfig.MinFiles,
-	})
-	tw.AppendRow(table.Row{
-		"Max paths",
-		profile.ImplantConfig.MaxPaths,
-	})
-	tw.AppendRow(table.Row{
-		"Min paths",
-		profile.ImplantConfig.MinPaths,
-	})
-
-	tw.AppendRow(table.Row{
-		"Stager file extension",
-		profile.ImplantConfig.StagerFileExtension,
-	})
-	tw.AppendRow(table.Row{
-		"Start session file extension",
-		profile.ImplantConfig.StartSessionFileExtension,
-	})
-	tw.AppendRow(table.Row{
-		"Session file extension",
-		profile.ImplantConfig.SessionFileExtension,
-	})
-	tw.AppendRow(table.Row{
-		"Poll file extension",
-		profile.ImplantConfig.PollFileExtension,
-	})
-	tw.AppendRow(table.Row{
-		"Close file extension",
-		profile.ImplantConfig.CloseFileExtension,
-	})
 
 	var (
 		pollPaths    []string
@@ -666,30 +592,124 @@ func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverClient) 
 			}
 		}
 	}
-	tw.AppendRow(table.Row{
-		"Poll paths",
-		strings.Join(pollPaths[:], ","),
-	})
-	tw.AppendRow(table.Row{
-		"Poll files",
-		strings.Join(pollFiles[:], ","),
-	})
-	tw.AppendRow(table.Row{
-		"Session paths",
-		strings.Join(sessionPaths[:], ","),
-	})
-	tw.AppendRow(table.Row{
-		"Session files",
-		strings.Join(sessionFiles[:], ","),
-	})
-	tw.AppendRow(table.Row{
-		"Close paths",
-		strings.Join(closePaths[:], ","),
-	})
-	tw.AppendRow(table.Row{
-		"Close files",
-		strings.Join(closeFiles[:], ","),
-	})
+
+	var displayName []string
+	var values []string
+
+	switch filter {
+	case "extensions":
+		displayName = []string{
+			"Stager file extension",
+			"Start session file extension",
+			"Session file extension",
+			"Poll file extension",
+			"Close file extension",
+		}
+		values = []string{
+			profile.ImplantConfig.StagerFileExtension,
+			profile.ImplantConfig.StartSessionFileExtension,
+			profile.ImplantConfig.SessionFileExtension,
+			profile.ImplantConfig.PollFileExtension,
+			profile.ImplantConfig.CloseFileExtension,
+		}
+
+	case "headers":
+		displayName = []string{
+			"Server Headers",
+			"Clients Headers",
+		}
+		values = []string{
+			strings.Join(serverHeaders[:], ","),
+			strings.Join(clientHeaders[:], ","),
+		}
+	case "poll":
+		displayName = []string{
+			"Poll paths",
+			"Poll files",
+		}
+		values = []string{
+			strings.Join(pollPaths[:], ","),
+			strings.Join(pollFiles[:], ","),
+		}
+	case "session":
+		displayName = []string{
+			"Session paths",
+			"Session files",
+		}
+		values = []string{
+			strings.Join(sessionPaths[:], ","),
+			strings.Join(sessionFiles[:], ","),
+		}
+	case "close":
+		displayName = []string{
+			"Close paths",
+			"Close files",
+		}
+		values = []string{
+			strings.Join(closePaths[:], ","),
+			strings.Join(closeFiles[:], ","),
+		}
+	default:
+		displayName = []string{
+			"Server Headers",
+			"Server Cookies",
+			"Randomize Server Headers",
+			"Clients Headers",
+			"Extra URL Parameters",
+			"User agent",
+			"Chrome base version",
+			"MacOS version",
+			"Nonce query arg chars",
+			"Max files",
+			"Min files",
+			"Max paths",
+			"Min paths",
+			"Stager file extension",
+			"Start session file extension",
+			"Session file extension",
+			"Poll file extension",
+			"Close file extension",
+			"Poll paths",
+			"Poll files",
+			"Session paths",
+			"Session files",
+			"Close paths",
+			"Close files",
+		}
+		values = []string{
+			strings.Join(serverHeaders[:], ","),
+			strings.Join(serverCookies[:], ","),
+			strconv.FormatBool(profile.ServerConfig.RandomVersionHeaders),
+			strings.Join(clientHeaders[:], ","),
+			strings.Join(clientUrlParams[:], ","),
+			profile.ImplantConfig.UserAgent,
+			fmt.Sprintf("%d", profile.ImplantConfig.ChromeBaseVersion),
+			profile.ImplantConfig.MacOSVersion,
+			profile.ImplantConfig.NonceQueryArgChars,
+			fmt.Sprintf("%d", profile.ImplantConfig.MaxFiles),
+			fmt.Sprintf("%d", profile.ImplantConfig.MinFiles),
+			fmt.Sprintf("%d", profile.ImplantConfig.MaxPaths),
+			fmt.Sprintf("%d", profile.ImplantConfig.MinPaths),
+			profile.ImplantConfig.StagerFileExtension,
+			profile.ImplantConfig.StartSessionFileExtension,
+			profile.ImplantConfig.SessionFileExtension,
+			profile.ImplantConfig.PollFileExtension,
+			profile.ImplantConfig.CloseFileExtension,
+			strings.Join(pollPaths[:], ","),
+			strings.Join(pollFiles[:], ","),
+			strings.Join(sessionPaths[:], ","),
+			strings.Join(sessionFiles[:], ","),
+			strings.Join(closePaths[:], ","),
+			strings.Join(closeFiles[:], ","),
+		}
+	}
+
+	for i := range displayName {
+		tw.AppendRow(table.Row{
+			displayName[i],
+			values[i],
+		})
+	}
 
 	con.Println(tw.Render())
 	con.Println("\n")
