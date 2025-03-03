@@ -71,7 +71,7 @@ func (e *Engine) TrimSuffix() {
 	}
 
 	// But when the key is a space, we also drop the suffix matcher,
-	// beause the user is done with this precise completion (or group of).
+	// because the user is done with this precise completion (or group of).
 	if unicode.IsSpace(key) {
 		e.sm = SuffixMatcher{}
 	}
