@@ -346,17 +346,6 @@ func (s *SliverHTTPC2) router() *mux.Router {
 		s.ServerConf.LongPollJitter = int64(DefaultLongPollJitter)
 	}
 
-	// start stager handlers, extension are unique accross all profiles
-	for _, c2Config := range c2Configs.Configs {
-		// Can't force the user agent on the stager payload
-		// Request from msf stager payload will look like:
-		// GET /fonts/Inter-Medium.woff/B64_ENCODED_PAYLOAD_UUID
-		router.HandleFunc(
-			fmt.Sprintf("/{rpath:.*\\.%s[/]{0,1}.*$}", c2Config.ImplantConfig.StagerFileExtension),
-			s.stagerHandler,
-		).Methods(http.MethodGet)
-	}
-
 	router.HandleFunc("/{rpath:.*}", s.mainHandler).Methods(http.MethodGet, http.MethodPost)
 
 	router.Use(loggingMiddleware)
@@ -479,49 +468,72 @@ func (s *SliverHTTPC2) defaultHandler(resp http.ResponseWriter, req *http.Reques
 
 // [ HTTP Handlers ] ---------------------------------------------------------------
 func (s *SliverHTTPC2) mainHandler(resp http.ResponseWriter, req *http.Request) {
-	extension := strings.TrimLeft(path.Ext(req.URL.Path), ".")
 
 	// Check if the requests matches an existing session
 	httpSession := s.getHTTPSession(req)
 	if httpSession != nil {
-		// find correct c2 profile and from there call correct handler
-		c2Config, err := db.LoadHTTPC2ConfigByName(httpSession.C2Profile)
-		if err != nil {
-			httpLog.Debugf("Failed to resolve http profile %s", err)
+		s.authenticatedHandler(resp, req, httpSession)
+		return
+	} else {
+		s.anonymousHandler(resp, req)
+		return
+	}
+}
+
+func (s *SliverHTTPC2) authenticatedHandler(resp http.ResponseWriter, req *http.Request, session *HTTPSession) {
+	// Poll, session and close requests
+	c2Config, err := db.LoadHTTPC2ConfigByName(session.C2Profile)
+	if err != nil {
+		httpLog.Debugf("Failed to resolve http profile %s", err)
+		return
+	}
+
+	if req.Method == http.MethodPost {
+		s.sessionHandler(resp, req, session, c2Config)
+		return
+	} else if req.Method == http.MethodGet {
+		nonce, err := getNonceFromURL(req.URL, c2Config.ImplantConfig.NonceQueryLength)
+		if err == ErrMissingNonce {
+			s.closeHandler(resp, req, session)
 			return
-		}
-		if extension == c2Config.ImplantConfig.PollFileExtension {
-			s.pollHandler(resp, req, c2Config)
-			return
-		} else if extension == c2Config.ImplantConfig.CloseFileExtension {
-			s.closeHandler(resp, req, c2Config)
-			return
-		} else if extension == c2Config.ImplantConfig.SessionFileExtension {
-			s.sessionHandler(resp, req, c2Config)
+		} else if err == nil {
+			s.pollHandler(resp, req, session, nonce)
 			return
 		} else {
+			// this should only happen if there's a parameter matching the nonce length that does not contain a valid nonce
+			// this edge case will be removed later on
 			s.defaultHandler(resp, req)
 			return
 		}
+	} else {
+		// unsupported http method
+		s.defaultHandler(resp, req)
+		return
 	}
-
-	// check if this is a new session
-	for _, profile := range s.c2Config {
-		if extension == profile.ImplantConfig.StartSessionFileExtension {
-			s.startSessionHandler(resp, req, profile)
-			return
-		}
-	}
-	// redirect to default page
-	httpLog.Debugf("No pattern matches for request uri")
-	s.defaultHandler(resp, req)
-	return
 }
 
-func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.Request, c2profile *clientpb.HTTPC2Config) {
+func (s *SliverHTTPC2) anonymousHandler(resp http.ResponseWriter, req *http.Request) {
+	// start session and staging requests
+
+	// hardcode nonce length for stager and start session, to be updated later on
+	nonce, err := getNonceFromURL(req.URL, 1)
+	if err != nil {
+		s.defaultHandler(resp, req)
+		return
+	}
+	_, _, err = encoders.EncoderFromNonce(nonce)
+	if err != nil {
+		s.stagerHandler(resp, req, nonce)
+		return
+	} else {
+		s.startSessionHandler(resp, req, nonce)
+		return
+	}
+}
+
+func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.Request, nonce uint64) {
 	httpLog.Debug("Start http session request")
 
-	nonce, _ := getNonceFromURL(req.URL, c2profile.ImplantConfig.NonceQueryLength)
 	_, encoder, err := encoders.EncoderFromNonce(nonce)
 	if err != nil {
 		httpLog.Warnf("Request specified an invalid encoder (%d)", nonce)
@@ -606,13 +618,8 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	resp.Write(respData)
 }
 
-func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Request, c2profile *clientpb.HTTPC2Config) {
+func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Request, httpSession *HTTPSession, c2profile *clientpb.HTTPC2Config) {
 	httpLog.Debug("Session request")
-	httpSession := s.getHTTPSession(req)
-	if httpSession == nil {
-		s.defaultHandler(resp, req)
-		return
-	}
 	httpSession.ImplantConn.UpdateLastMessage()
 
 	plaintext, err := s.readReqBody(httpSession, resp, req, c2profile)
@@ -647,17 +654,10 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 	}
 }
 
-func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request, c2profile *clientpb.HTTPC2Config) {
+func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request, httpSession *HTTPSession, nonce uint64) {
 	httpLog.Debug("Poll request")
-	httpSession := s.getHTTPSession(req)
-	if httpSession == nil {
-		s.defaultHandler(resp, req)
-		return
-	}
 	httpSession.ImplantConn.UpdateLastMessage()
 
-	// We already know we have a valid nonce because of the middleware filter
-	nonce, _ := getNonceFromURL(req.URL, c2profile.ImplantConfig.NonceQueryLength)
 	_, encoder, _ := encoders.EncoderFromNonce(nonce)
 	select {
 	case envelope := <-httpSession.ImplantConn.Send:
@@ -728,14 +728,8 @@ func (s *SliverHTTPC2) getServerPollTimeout() time.Duration {
 	return pollTimeout
 }
 
-func (s *SliverHTTPC2) closeHandler(resp http.ResponseWriter, req *http.Request, c2profile *clientpb.HTTPC2Config) {
+func (s *SliverHTTPC2) closeHandler(resp http.ResponseWriter, req *http.Request, httpSession *HTTPSession) {
 	httpLog.Debug("Close request")
-	httpSession := s.getHTTPSession(req)
-	if httpSession == nil {
-		httpLog.Infof("No session with id %#v", httpSession.ID)
-		s.defaultHandler(resp, req)
-		return
-	}
 	for _, cookie := range req.Cookies() {
 		cookie.MaxAge = -1
 		http.SetCookie(resp, cookie)
@@ -745,19 +739,9 @@ func (s *SliverHTTPC2) closeHandler(resp http.ResponseWriter, req *http.Request,
 }
 
 // stagerHandler - Serves the sliver shellcode to the stager requesting it
-func (s *SliverHTTPC2) stagerHandler(resp http.ResponseWriter, req *http.Request) {
+func (s *SliverHTTPC2) stagerHandler(resp http.ResponseWriter, req *http.Request, nonce uint64) {
 
-	ext := path.Ext(req.URL.Path)
-	// this returns an array but stager extensions are unique accross all profiles
-	c2profiles, err := db.SearchExtensions(ext, "stager")
-	if err != nil {
-		httpLog.Warnf("No c2 profile found for extension %s", ext)
-		s.defaultHandler(resp, req)
-		return
-	}
-
-	nonce, _ := getNonceFromURL(req.URL, c2profiles[0].NonceQueryLength)
-	httpLog.Debug("Stager request")
+	httpLog.Debug("Potential Stager request")
 	if nonce != 0 {
 		resourceID, err := db.ResourceIDByValue(nonce)
 		if err != nil {
