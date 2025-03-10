@@ -59,29 +59,14 @@ type HTTPC2ImplantConfig struct {
 	Headers            []NameValueProbability `json:"headers"`
 	NonceQueryLength   int                    `json:"nonce_query_length"`
 
-	MaxFiles int `json:"max_files"`
-	MinFiles int `json:"min_files"`
-	MaxPaths int `json:"max_paths"`
-	MinPaths int `json:"min_paths"`
+	MaxFileGen    int `json:"max_files"`
+	MinFileGen    int `json:"min_files"`
+	MaxPathGen    int `json:"max_paths"`
+	MinPathGen    int `json:"min_paths"`
+	MaxPathLength int `json:"max_path_length"`
+	MinPathLength int `json:"min_path_length"`
 
-	// Stager files and paths
-	StagerFileExt string   `json:"stager_file_ext"`
-	StagerFiles   []string `json:"stager_files"`
-	StagerPaths   []string `json:"stager_paths"`
-
-	// Poll files and paths
-	PollFileExt string   `json:"poll_file_ext"`
-	PollFiles   []string `json:"poll_files"`
-	PollPaths   []string `json:"poll_paths"`
-
-	// Session files and paths
-	StartSessionFileExt string   `json:"start_session_file_ext"`
-	SessionFileExt      string   `json:"session_file_ext"`
-	SessionFiles        []string `json:"session_files"`
-	SessionPaths        []string `json:"session_paths"`
-
-	// Close session files and paths
-	CloseFileExt string   `json:"close_file_ext"`
-	CloseFiles   []string `json:"close_files"`
-	ClosePaths   []string `json:"close_paths"`
+	Extensions []string `json:"extensions"`
+	Files      []string `json:"files"`
+	Paths      []string `json:"paths"`
 }
