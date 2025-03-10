@@ -31,7 +31,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -403,7 +402,6 @@ func (s *SliverHTTPC2) DefaultRespHeaders(next http.Handler) http.Handler {
 			err     error
 		)
 
-		extension := strings.TrimLeft(path.Ext(req.URL.Path), ".")
 		// Check if the requests matches an existing session
 		httpSession := s.getHTTPSession(req)
 		if httpSession != nil {
@@ -412,13 +410,6 @@ func (s *SliverHTTPC2) DefaultRespHeaders(next http.Handler) http.Handler {
 			if err != nil {
 				httpLog.Debugf("Failed to resolve http profile %s", err)
 				return
-			}
-		} else {
-			for _, c2profile := range s.c2Config {
-				if extension == c2profile.ImplantConfig.StartSessionFileExtension {
-					profile = c2profile
-					break
-				}
 			}
 		}
 
