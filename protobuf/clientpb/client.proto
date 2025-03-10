@@ -828,8 +828,7 @@ message HTTPC2PathSegment {
   string ID = 1;
 
   bool IsFile = 2;
-  HTTPC2SegmentType SegmentType = 3;
-  string Value = 4;
+  string Value = 3;
 }
 
 // [ Credentials ] ----------------------------------------

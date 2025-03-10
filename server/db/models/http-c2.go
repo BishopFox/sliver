@@ -273,10 +273,9 @@ func (h *HttpC2PathSegment) BeforeCreate(tx *gorm.DB) (err error) {
 
 func (h *HttpC2PathSegment) ToProtobuf() *clientpb.HTTPC2PathSegment {
 	return &clientpb.HTTPC2PathSegment{
-		ID:          h.ID.String(),
-		IsFile:      h.IsFile,
-		SegmentType: clientpb.HTTPC2SegmentType(h.SegmentType),
-		Value:       h.Value,
+		ID:     h.ID.String(),
+		IsFile: h.IsFile,
+		Value:  h.Value,
 	}
 }
 
@@ -332,9 +331,8 @@ func HTTPC2ConfigFromProtobuf(pbHttpC2Config *clientpb.HTTPC2Config) *HttpC2Conf
 	pathSegments := []HttpC2PathSegment{}
 	for _, pathSegment := range pbHttpC2Config.ImplantConfig.PathSegments {
 		pathSegments = append(pathSegments, HttpC2PathSegment{
-			IsFile:      pathSegment.IsFile,
-			SegmentType: int32(pathSegment.SegmentType),
-			Value:       pathSegment.Value,
+			IsFile: pathSegment.IsFile,
+			Value:  pathSegment.Value,
 		})
 	}
 

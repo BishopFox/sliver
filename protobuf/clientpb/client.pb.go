@@ -8269,8 +8269,7 @@ type HTTPC2PathSegment struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ID            string                 `protobuf:"bytes,1,opt,name=ID,proto3" json:"ID,omitempty"`
 	IsFile        bool                   `protobuf:"varint,2,opt,name=IsFile,proto3" json:"IsFile,omitempty"`
-	SegmentType   HTTPC2SegmentType      `protobuf:"varint,3,opt,name=SegmentType,proto3,enum=clientpb.HTTPC2SegmentType" json:"SegmentType,omitempty"`
-	Value         string                 `protobuf:"bytes,4,opt,name=Value,proto3" json:"Value,omitempty"`
+	Value         string                 `protobuf:"bytes,3,opt,name=Value,proto3" json:"Value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -8317,13 +8316,6 @@ func (x *HTTPC2PathSegment) GetIsFile() bool {
 		return x.IsFile
 	}
 	return false
-}
-
-func (x *HTTPC2PathSegment) GetSegmentType() HTTPC2SegmentType {
-	if x != nil {
-		return x.SegmentType
-	}
-	return HTTPC2SegmentType_POLL
 }
 
 func (x *HTTPC2PathSegment) GetValue() string {
@@ -11912,15 +11904,11 @@ var file_clientpb_client_proto_rawDesc = []byte{
 	0x14, 0x0a, 0x05, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05,
 	0x56, 0x61, 0x6c, 0x75, 0x65, 0x12, 0x20, 0x0a, 0x0b, 0x50, 0x72, 0x6f, 0x62, 0x61, 0x62, 0x69,
 	0x6c, 0x69, 0x74, 0x79, 0x18, 0x05, 0x20, 0x01, 0x28, 0x05, 0x52, 0x0b, 0x50, 0x72, 0x6f, 0x62,
-	0x61, 0x62, 0x69, 0x6c, 0x69, 0x74, 0x79, 0x22, 0x90, 0x01, 0x0a, 0x11, 0x48, 0x54, 0x54, 0x50,
-	0x43, 0x32, 0x50, 0x61, 0x74, 0x68, 0x53, 0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74, 0x12, 0x0e, 0x0a,
-	0x02, 0x49, 0x44, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x02, 0x49, 0x44, 0x12, 0x16, 0x0a,
-	0x06, 0x49, 0x73, 0x46, 0x69, 0x6c, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x08, 0x52, 0x06, 0x49,
-	0x73, 0x46, 0x69, 0x6c, 0x65, 0x12, 0x3d, 0x0a, 0x0b, 0x53, 0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74,
-	0x54, 0x79, 0x70, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x1b, 0x2e, 0x63, 0x6c, 0x69,
-	0x65, 0x6e, 0x74, 0x70, 0x62, 0x2e, 0x48, 0x54, 0x54, 0x50, 0x43, 0x32, 0x53, 0x65, 0x67, 0x6d,
-	0x65, 0x6e, 0x74, 0x54, 0x79, 0x70, 0x65, 0x52, 0x0b, 0x53, 0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74,
-	0x54, 0x79, 0x70, 0x65, 0x12, 0x14, 0x0a, 0x05, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x04, 0x20,
+	0x61, 0x62, 0x69, 0x6c, 0x69, 0x74, 0x79, 0x22, 0x51, 0x0a, 0x11, 0x48, 0x54, 0x54, 0x50, 0x43,
+	0x32, 0x50, 0x61, 0x74, 0x68, 0x53, 0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74, 0x12, 0x0e, 0x0a, 0x02,
+	0x49, 0x44, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x02, 0x49, 0x44, 0x12, 0x16, 0x0a, 0x06,
+	0x49, 0x73, 0x46, 0x69, 0x6c, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x08, 0x52, 0x06, 0x49, 0x73,
+	0x46, 0x69, 0x6c, 0x65, 0x12, 0x14, 0x0a, 0x05, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x03, 0x20,
 	0x01, 0x28, 0x09, 0x52, 0x05, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x22, 0x80, 0x02, 0x0a, 0x0a, 0x43,
 	0x72, 0x65, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x61, 0x6c, 0x12, 0x0e, 0x0a, 0x02, 0x49, 0x44, 0x18,
 	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x02, 0x49, 0x44, 0x12, 0x1a, 0x0a, 0x08, 0x55, 0x73, 0x65,
@@ -12897,42 +12885,41 @@ var file_clientpb_client_proto_depIdxs = []int32{
 	111, // 85: clientpb.HTTPC2ImplantConfig.ExtraURLParameters:type_name -> clientpb.HTTPC2URLParameter
 	110, // 86: clientpb.HTTPC2ImplantConfig.Headers:type_name -> clientpb.HTTPC2Header
 	112, // 87: clientpb.HTTPC2ImplantConfig.PathSegments:type_name -> clientpb.HTTPC2PathSegment
-	4,   // 88: clientpb.HTTPC2PathSegment.SegmentType:type_name -> clientpb.HTTPC2SegmentType
-	5,   // 89: clientpb.Credential.HashType:type_name -> clientpb.HashType
-	113, // 90: clientpb.Credentials.Credentials:type_name -> clientpb.Credential
-	120, // 91: clientpb.Crackstations.Crackstations:type_name -> clientpb.Crackstation
-	6,   // 92: clientpb.CrackstationStatus.State:type_name -> clientpb.States
-	117, // 93: clientpb.CrackstationStatus.Syncing:type_name -> clientpb.CrackSyncStatus
-	144, // 94: clientpb.CrackSyncStatus.Progress:type_name -> clientpb.CrackSyncStatus.ProgressEntry
-	145, // 95: clientpb.CrackBenchmark.Benchmarks:type_name -> clientpb.CrackBenchmark.BenchmarksEntry
-	124, // 96: clientpb.CrackTask.Command:type_name -> clientpb.CrackCommand
-	146, // 97: clientpb.Crackstation.Benchmarks:type_name -> clientpb.Crackstation.BenchmarksEntry
-	121, // 98: clientpb.Crackstation.CUDA:type_name -> clientpb.CUDABackendInfo
-	123, // 99: clientpb.Crackstation.Metal:type_name -> clientpb.MetalBackendInfo
-	122, // 100: clientpb.Crackstation.OpenCL:type_name -> clientpb.OpenCLBackendInfo
-	8,   // 101: clientpb.CrackCommand.AttackMode:type_name -> clientpb.CrackAttackMode
-	5,   // 102: clientpb.CrackCommand.HashType:type_name -> clientpb.HashType
-	10,  // 103: clientpb.CrackCommand.OutfileFormat:type_name -> clientpb.CrackOutfileFormat
-	9,   // 104: clientpb.CrackCommand.EncodingFrom:type_name -> clientpb.CrackEncoding
-	9,   // 105: clientpb.CrackCommand.EncodingTo:type_name -> clientpb.CrackEncoding
-	11,  // 106: clientpb.CrackCommand.WorkloadProfile:type_name -> clientpb.CrackWorkloadProfile
-	127, // 107: clientpb.CrackFiles.Files:type_name -> clientpb.CrackFile
-	12,  // 108: clientpb.CrackFile.Type:type_name -> clientpb.CrackFileType
-	128, // 109: clientpb.CrackFile.Chunks:type_name -> clientpb.CrackFileChunk
-	130, // 110: clientpb.MonitoringProviders.providers:type_name -> clientpb.MonitoringProvider
-	133, // 111: clientpb.CertificateInfo.info:type_name -> clientpb.CertificateData
-	23,  // 112: clientpb.TrafficEncoderMap.EncodersEntry.value:type_name -> clientpb.TrafficEncoder
-	22,  // 113: clientpb.ImplantBuilds.ConfigsEntry.value:type_name -> clientpb.ImplantConfig
-	131, // 114: clientpb.ImplantBuilds.ResourceIDsEntry.value:type_name -> clientpb.ResourceID
-	81,  // 115: clientpb.WebsiteAddContent.ContentsEntry.value:type_name -> clientpb.WebContent
-	81,  // 116: clientpb.Website.ContentsEntry.value:type_name -> clientpb.WebContent
-	90,  // 117: clientpb.Host.ExtensionDataEntry.value:type_name -> clientpb.ExtensionData
-	3,   // 118: clientpb.ShellcodeEncoderMap.EncodersEntry.value:type_name -> clientpb.ShellcodeEncoder
-	119, // [119:119] is the sub-list for method output_type
-	119, // [119:119] is the sub-list for method input_type
-	119, // [119:119] is the sub-list for extension type_name
-	119, // [119:119] is the sub-list for extension extendee
-	0,   // [0:119] is the sub-list for field type_name
+	5,   // 88: clientpb.Credential.HashType:type_name -> clientpb.HashType
+	113, // 89: clientpb.Credentials.Credentials:type_name -> clientpb.Credential
+	120, // 90: clientpb.Crackstations.Crackstations:type_name -> clientpb.Crackstation
+	6,   // 91: clientpb.CrackstationStatus.State:type_name -> clientpb.States
+	117, // 92: clientpb.CrackstationStatus.Syncing:type_name -> clientpb.CrackSyncStatus
+	144, // 93: clientpb.CrackSyncStatus.Progress:type_name -> clientpb.CrackSyncStatus.ProgressEntry
+	145, // 94: clientpb.CrackBenchmark.Benchmarks:type_name -> clientpb.CrackBenchmark.BenchmarksEntry
+	124, // 95: clientpb.CrackTask.Command:type_name -> clientpb.CrackCommand
+	146, // 96: clientpb.Crackstation.Benchmarks:type_name -> clientpb.Crackstation.BenchmarksEntry
+	121, // 97: clientpb.Crackstation.CUDA:type_name -> clientpb.CUDABackendInfo
+	123, // 98: clientpb.Crackstation.Metal:type_name -> clientpb.MetalBackendInfo
+	122, // 99: clientpb.Crackstation.OpenCL:type_name -> clientpb.OpenCLBackendInfo
+	8,   // 100: clientpb.CrackCommand.AttackMode:type_name -> clientpb.CrackAttackMode
+	5,   // 101: clientpb.CrackCommand.HashType:type_name -> clientpb.HashType
+	10,  // 102: clientpb.CrackCommand.OutfileFormat:type_name -> clientpb.CrackOutfileFormat
+	9,   // 103: clientpb.CrackCommand.EncodingFrom:type_name -> clientpb.CrackEncoding
+	9,   // 104: clientpb.CrackCommand.EncodingTo:type_name -> clientpb.CrackEncoding
+	11,  // 105: clientpb.CrackCommand.WorkloadProfile:type_name -> clientpb.CrackWorkloadProfile
+	127, // 106: clientpb.CrackFiles.Files:type_name -> clientpb.CrackFile
+	12,  // 107: clientpb.CrackFile.Type:type_name -> clientpb.CrackFileType
+	128, // 108: clientpb.CrackFile.Chunks:type_name -> clientpb.CrackFileChunk
+	130, // 109: clientpb.MonitoringProviders.providers:type_name -> clientpb.MonitoringProvider
+	133, // 110: clientpb.CertificateInfo.info:type_name -> clientpb.CertificateData
+	23,  // 111: clientpb.TrafficEncoderMap.EncodersEntry.value:type_name -> clientpb.TrafficEncoder
+	22,  // 112: clientpb.ImplantBuilds.ConfigsEntry.value:type_name -> clientpb.ImplantConfig
+	131, // 113: clientpb.ImplantBuilds.ResourceIDsEntry.value:type_name -> clientpb.ResourceID
+	81,  // 114: clientpb.WebsiteAddContent.ContentsEntry.value:type_name -> clientpb.WebContent
+	81,  // 115: clientpb.Website.ContentsEntry.value:type_name -> clientpb.WebContent
+	90,  // 116: clientpb.Host.ExtensionDataEntry.value:type_name -> clientpb.ExtensionData
+	3,   // 117: clientpb.ShellcodeEncoderMap.EncodersEntry.value:type_name -> clientpb.ShellcodeEncoder
+	118, // [118:118] is the sub-list for method output_type
+	118, // [118:118] is the sub-list for method input_type
+	118, // [118:118] is the sub-list for extension type_name
+	118, // [118:118] is the sub-list for extension extendee
+	0,   // [0:118] is the sub-list for field type_name
 }
 
 func init() { file_clientpb_client_proto_init() }
