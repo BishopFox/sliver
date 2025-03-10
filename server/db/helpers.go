@@ -35,7 +35,6 @@ import (
 
 	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
@@ -305,86 +304,6 @@ func LoadHTTPC2s() ([]*clientpb.HTTPC2Config, error) {
 	}
 
 	return pbC2Configs, nil
-}
-
-// used to prevent duplicate stager extensions
-func SearchStageExtensions(stagerExtension string, profileName string) error {
-	c2Config := models.HttpC2ImplantConfig{}
-	err := Session().Where(&models.HttpC2ImplantConfig{
-		StagerFileExtension: stagerExtension,
-	}).Find(&c2Config).Error
-
-	if err != nil {
-		return err
-	}
-
-	if c2Config.StagerFileExtension != "" && profileName != "" {
-		// check if the stager extension is used in the provided profile
-		httpC2Config := models.HttpC2Config{}
-		err = Session().Where(&models.HttpC2Config{ID: c2Config.HttpC2ConfigID}).Find(&httpC2Config).Error
-		if err != nil {
-			return err
-		}
-		if httpC2Config.Name == profileName {
-			return nil
-		}
-		return configs.ErrDuplicateStageExt
-	}
-	return nil
-}
-
-// used to prevent duplicate start session extensions
-func SearchStartSessionExtensions(StartSessionFileExt string, profileName string) error {
-	c2Config := models.HttpC2ImplantConfig{}
-	err := Session().Where(&models.HttpC2ImplantConfig{
-		StartSessionFileExtension: StartSessionFileExt,
-	}).Find(&c2Config).Error
-
-	if err != nil {
-		return err
-	}
-
-	if c2Config.StartSessionFileExtension != "" && profileName != "" {
-		httpC2Config := models.HttpC2Config{}
-		err = Session().Where(&models.HttpC2Config{ID: c2Config.HttpC2ConfigID}).Find(&httpC2Config).Error
-		if err != nil {
-			return err
-		}
-		if httpC2Config.Name == profileName {
-			return nil
-		}
-		return configs.ErrDuplicateStartSessionExt
-	}
-	return nil
-}
-
-func SearchExtensions(extension string, extensionType string) ([]*clientpb.HTTPC2ImplantConfig, error) {
-	c2Configs := []models.HttpC2ImplantConfig{}
-	query := &models.HttpC2ImplantConfig{}
-
-	switch extensionType {
-	case "stager":
-		query.StagerFileExtension = extension
-	case "startsession":
-		query.StartSessionFileExtension = extension
-	case "session":
-		query.SessionFileExtension = extension
-	case "poll":
-		query.PollFileExtension = extension
-	case "close":
-		query.CloseFileExtension = extension
-	}
-
-	err := Session().Where(&query).Find(&c2Configs).Error
-	if err != nil {
-		return nil, err
-	}
-
-	var res []*clientpb.HTTPC2ImplantConfig
-	for _, c2Config := range c2Configs {
-		res = append(res, c2Config.ToProtobuf())
-	}
-	return res, nil
 }
 
 func LoadHTTPC2ConfigByName(name string) (*clientpb.HTTPC2Config, error) {
