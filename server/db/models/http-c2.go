@@ -20,6 +20,7 @@ package models
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	insecureRand "math/rand"
@@ -63,20 +64,6 @@ func (h *HttpC2Config) ToProtobuf() *clientpb.HTTPC2Config {
 
 		ServerConfig:  h.ServerConfig.ToProtobuf(),
 		ImplantConfig: h.ImplantConfig.ToProtobuf(),
-	}
-}
-
-func (h *HttpC2Config) GenerateImplantHTTPC2Config() *clientpb.HTTPC2ImplantConfig {
-	params := make([]*clientpb.HTTPC2URLParameter, len(h.ImplantConfig.ExtraURLParameters))
-	for i, param := range h.ImplantConfig.ExtraURLParameters {
-		params[i] = param.ToProtobuf()
-	}
-	return &clientpb.HTTPC2ImplantConfig{
-		UserAgent:          h.ImplantConfig.UserAgent,
-		ChromeBaseVersion:  h.ImplantConfig.ChromeBaseVersion,
-		MacOSVersion:       h.ImplantConfig.MacOSVersion,
-		NonceQueryArgChars: h.ImplantConfig.NonceQueryArgChars,
-		ExtraURLParameters: params,
 	}
 }
 
@@ -135,7 +122,8 @@ type HttpC2ImplantConfig struct {
 	MaxPathLength int32
 	MinPathLength int32
 
-	extensions []string
+	// gorm doesn not support string arrays apparently
+	Extensions string
 
 	PathSegments     []HttpC2PathSegment
 	NonceQueryLength int32
@@ -173,7 +161,7 @@ func (h *HttpC2ImplantConfig) ToProtobuf() *clientpb.HTTPC2ImplantConfig {
 		MinPathGen:         h.MinPathGen,
 		MaxPathLength:      h.MaxPathLength,
 		MinPathLength:      h.MinPathLength,
-		Extensions:         h.extensions,
+		Extensions:         strings.Split(h.Extensions, ","),
 		PathSegments:       pathSegments,
 		NonceQueryLength:   h.NonceQueryLength,
 	}
@@ -349,7 +337,7 @@ func HTTPC2ConfigFromProtobuf(pbHttpC2Config *clientpb.HTTPC2Config) *HttpC2Conf
 		MinPathGen:         pbHttpC2Config.ImplantConfig.MinPathGen,
 		MaxPathLength:      pbHttpC2Config.ImplantConfig.MaxPathLength,
 		MinPathLength:      pbHttpC2Config.ImplantConfig.MinPathLength,
-		extensions:         pbHttpC2Config.ImplantConfig.Extensions,
+		Extensions:         strings.Join(pbHttpC2Config.ImplantConfig.Extensions, ","),
 		PathSegments:       pathSegments,
 		NonceQueryLength:   pbHttpC2Config.ImplantConfig.NonceQueryLength,
 	}
@@ -380,6 +368,7 @@ func RandomizeImplantConfig(h *clientpb.HTTPC2ImplantConfig, goos string, goarch
 		MaxPathGen:        h.MaxPathGen,
 		MinPathLength:     h.MinPathLength,
 		MaxPathLength:     h.MaxPathLength,
+		NonceQueryLength:  h.NonceQueryLength,
 	}
 }
 

@@ -246,7 +246,7 @@ func GenerateC2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []
 		}
 		con.Println("C2 profile generated and saved as ", profileName)
 	} else {
-		PrintC2Profiles(profile, con)
+		PrintC2Profiles(C2ConfigToProtobuf(profileName, jsonProfile), con)
 	}
 }
 
@@ -349,7 +349,7 @@ func C2ConfigToProtobuf(profileName string, config *assets.HTTPC2Config) *client
 
 	for _, path := range config.ImplantConfig.Paths {
 		pathSegments = append(pathSegments, &clientpb.HTTPC2PathSegment{
-			IsFile: true,
+			IsFile: false,
 			Value:  path,
 		})
 	}
@@ -496,6 +496,10 @@ func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverClient) 
 	tw.AppendRow(table.Row{
 		"Nonce query arg chars",
 		profile.ImplantConfig.NonceQueryArgChars,
+	})
+	tw.AppendRow(table.Row{
+		"Nonce query length",
+		profile.ImplantConfig.NonceQueryLength,
 	})
 	tw.AppendRow(table.Row{
 		"Max files",
