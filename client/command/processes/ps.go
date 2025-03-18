@@ -103,7 +103,7 @@ var knownSecurityTools = map[string][]string{
 	"cortex-xdr-payload.exe":          {console.Red, "Palo Alto Cortex"},             // Cortex XDR - offline triage
 	"cysandbox.exe":                   {console.Red, "Palo Alto Cortex"},             // Cortex XDR - sandbox
 	"cyuserservice.exe":               {console.Red, "Palo Alto Cortex"},             // Cortex XDR - user service
-	"cywscsvc.exe":                    {console.Red, "Palo Alto Cortex"},             // Cortex XDR - security senter service
+	"cywscsvc.exe":                    {console.Red, "Palo Alto Cortex"},             // Cortex XDR - security center service
 	"tlaworker.exe":                   {console.Red, "Palo Alto Cortex"},             // Cortex XDR - local analysis worker
 }
 
