@@ -19,6 +19,7 @@ package command
 */
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/bishopfox/sliver/client/command/alias"
@@ -31,6 +32,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/crack"
 	"github.com/bishopfox/sliver/client/command/creds"
 	"github.com/bishopfox/sliver/client/command/exit"
+	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/command/hosts"
 	"github.com/bishopfox/sliver/client/command/info"
@@ -91,6 +93,7 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 			licenses.Commands,
 			settings.Commands,
 			alias.Commands,
+			extensions.Commands,
 			armory.Commands,
 			update.Commands,
 			operators.Commands,
@@ -130,6 +133,26 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 		)
 
 		// [ Post-command declaration setup ]-----------------------------------------
+
+		// Load Extensions
+		// Similar to the SliverCommand loading, without adding the commands to the
+		// Server command tree. This is done to ensure that the extensions are loaded
+		// before the server is started, so that the extensions are registered.
+		extensionManifests := extensions.GetAllExtensionManifests()
+		for _, manifest := range extensionManifests {
+			_, err := extensions.LoadExtensionManifest(manifest)
+			// Absorb error in case there's no extensions manifest
+			if err != nil {
+				//con doesn't appear to be initialised here?
+				//con.PrintErrorf("Failed to load extension: %s", err)
+				fmt.Printf("Failed to load extension: %s\n", err)
+				continue
+			}
+
+			//for _, ext := range mext.ExtCommand {
+			//	extensions.ExtensionRegisterCommand(ext, sliver, con)
+			//}
+		}
 
 		// Everything below this line should preferably not be any command binding
 		// (although you can do so without fear). If there are any final modifications

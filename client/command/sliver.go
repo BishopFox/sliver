@@ -87,6 +87,7 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 			screenshot.Commands,
 			environment.Commands,
 			registry.Commands,
+			extensions.SliverCommands,
 		)
 
 		// [ Filesystem ]
@@ -127,9 +128,7 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 		bind(consts.AliasHelpGroup)
 
 		// [ Extensions ]
-		bind(consts.ExtensionHelpGroup,
-			extensions.Commands,
-		)
+		bind(consts.ExtensionHelpGroup)
 
 		// [ Post-command declaration setup ]----------------------------------------
 
@@ -144,7 +143,7 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 		}
 
 		// Load Extensions
-		extensionManifests := assets.GetInstalledExtensionManifests()
+		extensionManifests := extensions.GetAllExtensionManifests()
 		for _, manifest := range extensionManifests {
 			mext, err := extensions.LoadExtensionManifest(manifest)
 			// Absorb error in case there's no extensions manifest
