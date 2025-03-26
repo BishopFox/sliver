@@ -41,6 +41,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/db"
@@ -64,6 +65,7 @@ var (
 	ErrInvalidEncoder = errors.New("invalid request encoder")
 	ErrDecodeFailed   = errors.New("failed to decode request")
 	ErrDecryptFailed  = errors.New("failed to decrypt request")
+	serverConfig      = configs.GetServerConfig()
 )
 
 const (
@@ -433,7 +435,7 @@ func (s *SliverHTTPC2) DefaultRespHeaders(next http.Handler) http.Handler {
 		// Check if the requests matches an existing session
 		httpSession := s.getHTTPSession(req)
 		if httpSession != nil {
-			// find correct c2 profile and from there call correct handler
+			// find correct c2 profile
 			profile, err = db.LoadHTTPC2ConfigByName(httpSession.C2Profile)
 			if err != nil {
 				httpLog.Debugf("Failed to resolve http profile %s", err)
@@ -454,7 +456,19 @@ func (s *SliverHTTPC2) DefaultRespHeaders(next http.Handler) http.Handler {
 				}
 				resp.Header().Set(header.Name, header.Value)
 			}
+		} else {
+			// for anonymous requests user server-wide defaults
+			for _, header := range serverConfig.HTTPDefaults.Headers {
+				if 0 < header.Probability && header.Probability < 100 {
+					roll := insecureRand.Intn(99) + 1
+					if header.Probability < int32(roll) {
+						continue
+					}
+				}
+				resp.Header().Set(header.Name, header.Value)
+			}
 		}
+
 		next.ServeHTTP(resp, req)
 	})
 }

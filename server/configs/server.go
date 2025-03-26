@@ -23,7 +23,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/bishopfox/sliver/server/assets"
+	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/sirupsen/logrus"
 )
@@ -124,13 +125,19 @@ type WatchTowerConfig struct {
 	XForceApiPassword string `json:"xforce_api_password"`
 }
 
+// http server defaults for anonymous requests
+type HttpDefaultConfig struct {
+	Headers []models.HttpC2Header `json:"headers"`
+}
+
 // ServerConfig - Server config
 type ServerConfig struct {
-	DaemonMode   bool              `json:"daemon_mode"`
-	DaemonConfig *DaemonConfig     `json:"daemon"`
-	Logs         *LogConfig        `json:"logs"`
-	Watchtower   *WatchTowerConfig `json:"watch_tower"`
-	GoProxy      string            `json:"go_proxy"`
+	DaemonMode   bool               `json:"daemon_mode"`
+	DaemonConfig *DaemonConfig      `json:"daemon"`
+	Logs         *LogConfig         `json:"logs"`
+	Watchtower   *WatchTowerConfig  `json:"watch_tower"`
+	GoProxy      string             `json:"go_proxy"`
+	HTTPDefaults *HttpDefaultConfig `json:"http_default"`
 
 	// 'GOOS/GOARCH' -> CC path
 	CC  map[string]string `json:"cc"`
@@ -205,6 +212,16 @@ func getDefaultServerConfig() *ServerConfig {
 			Level:              int(logrus.InfoLevel),
 			GRPCUnaryPayloads:  false,
 			GRPCStreamPayloads: false,
+		},
+		HTTPDefaults: &HttpDefaultConfig{
+			Headers: []models.HttpC2Header{
+				models.HttpC2Header{
+					Method:      "GET",
+					Name:        "Cache-Control",
+					Value:       "no-store, no-cache, must-revalidate",
+					Probability: 100,
+				},
+			},
 		},
 		CC:  map[string]string{},
 		CXX: map[string]string{},
