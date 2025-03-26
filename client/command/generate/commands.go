@@ -353,6 +353,7 @@ func coreImplantFlagCompletions(cmd *cobra.Command, con *console.SliverClient) {
 		(*comp)["format"] = FormatCompleter()
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
 		(*comp)["traffic-encoders"] = TrafficEncodersCompleter(con).UniqueList(",")
+		(*comp)["c2profile"] = HTTPC2Completer(con)
 	})
 }
 
