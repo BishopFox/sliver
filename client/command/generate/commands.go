@@ -143,6 +143,8 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind("profiles", false, profilesGenerateCmd, func(f *pflag.FlagSet) {
 		f.StringP("save", "s", "", "directory/file to the binary to")
 		f.BoolP("disable-sgn", "G", false, "disable shikata ga nai shellcode encoder")
+		f.StringP("name", "n", "", "Implant name")
+
 	})
 	flags.BindFlagCompletions(profilesGenerateCmd, func(comp *carapace.ActionMap) {
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
