@@ -100,6 +100,11 @@ var knownSecurityTools = map[string][]string{
 	"CrAmTray.exe":                    {console.Red, "Cybereason ActiveProbe"},       // Cybereason ActiveProbe
 	"CrsSvc.exe":                      {console.Red, "Cybereason ActiveProbe"},       // Cybereason ActiveProbe
 	"CybereasonAV.exe":                {console.Red, "Cybereason ActiveProbe"},       // Cybereason ActiveProbe
+	"cortex-xdr-payload.exe":          {console.Red, "Palo Alto Cortex"},             // Cortex XDR - offline triage
+	"cysandbox.exe":                   {console.Red, "Palo Alto Cortex"},             // Cortex XDR - sandbox
+	"cyuserservice.exe":               {console.Red, "Palo Alto Cortex"},             // Cortex XDR - user service
+	"cywscsvc.exe":                    {console.Red, "Palo Alto Cortex"},             // Cortex XDR - security center service
+	"tlaworker.exe":                   {console.Red, "Palo Alto Cortex"},             // Cortex XDR - local analysis worker
 }
 
 // PsCmd - List processes on the remote system
