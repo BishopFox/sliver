@@ -20,6 +20,7 @@ package models
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	insecureRand "math/rand"
@@ -63,20 +64,6 @@ func (h *HttpC2Config) ToProtobuf() *clientpb.HTTPC2Config {
 
 		ServerConfig:  h.ServerConfig.ToProtobuf(),
 		ImplantConfig: h.ImplantConfig.ToProtobuf(),
-	}
-}
-
-func (h *HttpC2Config) GenerateImplantHTTPC2Config() *clientpb.HTTPC2ImplantConfig {
-	params := make([]*clientpb.HTTPC2URLParameter, len(h.ImplantConfig.ExtraURLParameters))
-	for i, param := range h.ImplantConfig.ExtraURLParameters {
-		params[i] = param.ToProtobuf()
-	}
-	return &clientpb.HTTPC2ImplantConfig{
-		UserAgent:          h.ImplantConfig.UserAgent,
-		ChromeBaseVersion:  h.ImplantConfig.ChromeBaseVersion,
-		MacOSVersion:       h.ImplantConfig.MacOSVersion,
-		NonceQueryArgChars: h.ImplantConfig.NonceQueryArgChars,
-		ExtraURLParameters: params,
 	}
 }
 
@@ -124,18 +111,23 @@ type HttpC2ImplantConfig struct {
 	ExtraURLParameters []HttpC2URLParameter
 	Headers            []HttpC2Header
 
-	MaxFiles int32
-	MinFiles int32
-	MaxPaths int32
-	MinPaths int32
+	// File/Path Generation subset size of the http config to select during generation
+	// see randomSample function
+	MaxFileGen int32
+	MinFileGen int32
+	MaxPathGen int32
+	MinPathGen int32
 
-	StagerFileExtension       string
-	PollFileExtension         string
-	StartSessionFileExtension string
-	SessionFileExtension      string
-	CloseFileExtension        string
+	// implant configuration for path length
+	MaxPathLength int32
+	MinPathLength int32
 
-	PathSegments []HttpC2PathSegment
+	// gorm doesn not support string arrays apparently
+	Extensions string
+
+	PathSegments     []HttpC2PathSegment
+	NonceQueryLength int32
+	NonceMode        string
 }
 
 func (h *HttpC2ImplantConfig) BeforeCreate(tx *gorm.DB) (err error) {
@@ -157,23 +149,23 @@ func (h *HttpC2ImplantConfig) ToProtobuf() *clientpb.HTTPC2ImplantConfig {
 		pathSegments[i] = segment.ToProtobuf()
 	}
 	return &clientpb.HTTPC2ImplantConfig{
-		ID:                        h.ID.String(),
-		UserAgent:                 h.UserAgent,
-		ChromeBaseVersion:         h.ChromeBaseVersion,
-		MacOSVersion:              h.MacOSVersion,
-		NonceQueryArgChars:        h.NonceQueryArgChars,
-		ExtraURLParameters:        params,
-		Headers:                   headers,
-		MaxFiles:                  h.MaxFiles,
-		MinFiles:                  h.MinFiles,
-		MaxPaths:                  h.MaxPaths,
-		MinPaths:                  h.MinPaths,
-		StagerFileExtension:       h.StagerFileExtension,
-		PollFileExtension:         h.PollFileExtension,
-		StartSessionFileExtension: h.StartSessionFileExtension,
-		SessionFileExtension:      h.SessionFileExtension,
-		CloseFileExtension:        h.CloseFileExtension,
-		PathSegments:              pathSegments,
+		ID:                 h.ID.String(),
+		UserAgent:          h.UserAgent,
+		ChromeBaseVersion:  h.ChromeBaseVersion,
+		MacOSVersion:       h.MacOSVersion,
+		NonceQueryArgChars: h.NonceQueryArgChars,
+		ExtraURLParameters: params,
+		Headers:            headers,
+		MaxFileGen:         h.MaxFileGen,
+		MinFileGen:         h.MinFileGen,
+		MaxPathGen:         h.MaxPathGen,
+		MinPathGen:         h.MinPathGen,
+		MaxPathLength:      h.MaxPathLength,
+		MinPathLength:      h.MinPathLength,
+		Extensions:         strings.Split(h.Extensions, ","),
+		PathSegments:       pathSegments,
+		NonceQueryLength:   h.NonceQueryLength,
+		NonceMode:          h.NonceMode,
 	}
 }
 
@@ -271,10 +263,9 @@ func (h *HttpC2PathSegment) BeforeCreate(tx *gorm.DB) (err error) {
 
 func (h *HttpC2PathSegment) ToProtobuf() *clientpb.HTTPC2PathSegment {
 	return &clientpb.HTTPC2PathSegment{
-		ID:          h.ID.String(),
-		IsFile:      h.IsFile,
-		SegmentType: clientpb.HTTPC2SegmentType(h.SegmentType),
-		Value:       h.Value,
+		ID:     h.ID.String(),
+		IsFile: h.IsFile,
+		Value:  h.Value,
 	}
 }
 
@@ -330,29 +321,28 @@ func HTTPC2ConfigFromProtobuf(pbHttpC2Config *clientpb.HTTPC2Config) *HttpC2Conf
 	pathSegments := []HttpC2PathSegment{}
 	for _, pathSegment := range pbHttpC2Config.ImplantConfig.PathSegments {
 		pathSegments = append(pathSegments, HttpC2PathSegment{
-			IsFile:      pathSegment.IsFile,
-			SegmentType: int32(pathSegment.SegmentType),
-			Value:       pathSegment.Value,
+			IsFile: pathSegment.IsFile,
+			Value:  pathSegment.Value,
 		})
 	}
 
 	cfg.ImplantConfig = HttpC2ImplantConfig{
-		UserAgent:                 pbHttpC2Config.ImplantConfig.UserAgent,
-		ChromeBaseVersion:         pbHttpC2Config.ImplantConfig.ChromeBaseVersion,
-		MacOSVersion:              pbHttpC2Config.ImplantConfig.MacOSVersion,
-		NonceQueryArgChars:        pbHttpC2Config.ImplantConfig.NonceQueryArgChars,
-		ExtraURLParameters:        params,
-		Headers:                   implantHeaders,
-		MaxFiles:                  pbHttpC2Config.ImplantConfig.MaxFiles,
-		MinFiles:                  pbHttpC2Config.ImplantConfig.MinFiles,
-		MaxPaths:                  pbHttpC2Config.ImplantConfig.MaxPaths,
-		MinPaths:                  pbHttpC2Config.ImplantConfig.MinPaths,
-		StagerFileExtension:       pbHttpC2Config.ImplantConfig.StagerFileExtension,
-		PollFileExtension:         pbHttpC2Config.ImplantConfig.PollFileExtension,
-		StartSessionFileExtension: pbHttpC2Config.ImplantConfig.StartSessionFileExtension,
-		SessionFileExtension:      pbHttpC2Config.ImplantConfig.SessionFileExtension,
-		CloseFileExtension:        pbHttpC2Config.ImplantConfig.CloseFileExtension,
-		PathSegments:              pathSegments,
+		UserAgent:          pbHttpC2Config.ImplantConfig.UserAgent,
+		ChromeBaseVersion:  pbHttpC2Config.ImplantConfig.ChromeBaseVersion,
+		MacOSVersion:       pbHttpC2Config.ImplantConfig.MacOSVersion,
+		NonceQueryArgChars: pbHttpC2Config.ImplantConfig.NonceQueryArgChars,
+		ExtraURLParameters: params,
+		Headers:            implantHeaders,
+		MaxFileGen:         pbHttpC2Config.ImplantConfig.MaxFileGen,
+		MinFileGen:         pbHttpC2Config.ImplantConfig.MinFileGen,
+		MaxPathGen:         pbHttpC2Config.ImplantConfig.MaxPathGen,
+		MinPathGen:         pbHttpC2Config.ImplantConfig.MinPathGen,
+		MaxPathLength:      pbHttpC2Config.ImplantConfig.MaxPathLength,
+		MinPathLength:      pbHttpC2Config.ImplantConfig.MinPathLength,
+		Extensions:         strings.Join(pbHttpC2Config.ImplantConfig.Extensions, ","),
+		PathSegments:       pathSegments,
+		NonceQueryLength:   pbHttpC2Config.ImplantConfig.NonceQueryLength,
+		NonceMode:          pbHttpC2Config.ImplantConfig.NonceMode,
 	}
 
 	// C2 Config
@@ -370,18 +360,19 @@ func RandomizeImplantConfig(h *clientpb.HTTPC2ImplantConfig, goos string, goarch
 		ExtraURLParameters: h.ExtraURLParameters,
 		Headers:            h.Headers,
 
-		PollFileExtension:         h.PollFileExtension,
-		StartSessionFileExtension: h.StartSessionFileExtension,
-		SessionFileExtension:      h.SessionFileExtension,
-		CloseFileExtension:        h.CloseFileExtension,
-		PathSegments:              RandomPathSegments(h),
-		UserAgent:                 GenerateUserAgent(goos, goarch, h.UserAgent, h.ChromeBaseVersion, h.MacOSVersion),
-		ChromeBaseVersion:         h.ChromeBaseVersion,
-		MacOSVersion:              h.MacOSVersion,
-		MinFiles:                  h.MinFiles,
-		MaxFiles:                  h.MaxFiles,
-		MinPaths:                  h.MinPaths,
-		MaxPaths:                  h.MaxPaths,
+		Extensions:        h.Extensions,
+		PathSegments:      RandomPathSegments(h),
+		UserAgent:         GenerateUserAgent(goos, goarch, h.UserAgent, h.ChromeBaseVersion, h.MacOSVersion),
+		ChromeBaseVersion: h.ChromeBaseVersion,
+		MacOSVersion:      h.MacOSVersion,
+		MinFileGen:        h.MinFileGen,
+		MaxFileGen:        h.MaxFileGen,
+		MinPathGen:        h.MinPathGen,
+		MaxPathGen:        h.MaxPathGen,
+		MinPathLength:     h.MinPathLength,
+		MaxPathLength:     h.MaxPathLength,
+		NonceQueryLength:  h.NonceQueryLength,
+		NonceMode:         h.NonceMode,
 	}
 }
 
@@ -442,61 +433,31 @@ func MacOSVer(MacOSVersion string) string {
 func RandomPathSegments(h *clientpb.HTTPC2ImplantConfig) []*clientpb.HTTPC2PathSegment {
 
 	var (
-		sessionPaths []*clientpb.HTTPC2PathSegment
-		closePaths   []*clientpb.HTTPC2PathSegment
-		pollPaths    []*clientpb.HTTPC2PathSegment
-		sessionFiles []*clientpb.HTTPC2PathSegment
-		closeFiles   []*clientpb.HTTPC2PathSegment
-		pollFiles    []*clientpb.HTTPC2PathSegment
+		paths []*clientpb.HTTPC2PathSegment
+		files []*clientpb.HTTPC2PathSegment
 	)
 	for _, pathSegment := range h.PathSegments {
-		switch pathSegment.SegmentType {
-		case 0:
-			if pathSegment.IsFile {
-				pollFiles = append(pollFiles, pathSegment)
-			} else {
-				pollPaths = append(pollPaths, pathSegment)
-			}
-		case 1:
-			if pathSegment.IsFile {
-				sessionFiles = append(sessionFiles, pathSegment)
-			} else {
-				sessionPaths = append(sessionPaths, pathSegment)
-			}
-		case 2:
-			if pathSegment.IsFile {
-				closeFiles = append(closeFiles, pathSegment)
-			} else {
-				closePaths = append(closePaths, pathSegment)
-			}
-		default:
-			continue
+		if pathSegment.IsFile {
+			files = append(files, pathSegment)
+		} else {
+			paths = append(paths, pathSegment)
 		}
 	}
 
-	sessionPaths = RandomPaths(sessionPaths, h.MinPaths, h.MaxPaths)
-	pollPaths = RandomPaths(pollPaths, h.MinPaths, h.MaxPaths)
-	closePaths = RandomPaths(closePaths, h.MinPaths, h.MaxPaths)
-
-	sessionFiles = RandomFiles(sessionFiles, h.MinFiles, h.MaxFiles)
-	closeFiles = RandomFiles(closeFiles, h.MinFiles, h.MaxFiles)
-	pollFiles = RandomFiles(pollFiles, h.MinFiles, h.MaxFiles)
+	paths = RandomPaths(paths, h.MinPathGen, h.MaxPathGen)
+	files = RandomFiles(files, h.MinFileGen, h.MaxFileGen)
 
 	var res []*clientpb.HTTPC2PathSegment
-	res = append(res, sessionPaths...)
-	res = append(res, closePaths...)
-	res = append(res, pollPaths...)
-	res = append(res, sessionFiles...)
-	res = append(res, closeFiles...)
-	res = append(res, pollFiles...)
+	res = append(res, paths...)
+	res = append(res, files...)
 	return res
 }
 
-func RandomFiles(httpC2PathSegments []*clientpb.HTTPC2PathSegment, minFiles int32, maxFiles int32) []*clientpb.HTTPC2PathSegment {
-	if minFiles < 1 {
-		minFiles = 1
+func RandomFiles(httpC2PathSegments []*clientpb.HTTPC2PathSegment, MinFileGen int32, MaxFileGen int32) []*clientpb.HTTPC2PathSegment {
+	if MinFileGen < 1 {
+		MinFileGen = 1
 	}
-	return randomSample(httpC2PathSegments, minFiles, maxFiles)
+	return randomSample(httpC2PathSegments, MinFileGen, MaxFileGen)
 }
 
 func RandomPaths(httpC2PathSegments []*clientpb.HTTPC2PathSegment, minPaths int32, maxPaths int32) []*clientpb.HTTPC2PathSegment {

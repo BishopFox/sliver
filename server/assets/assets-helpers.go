@@ -291,6 +291,7 @@ func SetupGoPath(goPathSrc string, includeDNS bool) error {
 	sliverpbGoSrc = xorPBRawBytes(sliverpbGoSrc)
 	sliverpbGoSrc = stripSliverpb(sliverpbGoSrc)
 	sliverpbDir := filepath.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "sliverpb")
+	setupLog.Infof("Creating sliverpb directory: %s", sliverpbDir)
 	os.MkdirAll(sliverpbDir, 0700)
 	os.WriteFile(filepath.Join(sliverpbDir, "sliver.pb.go"), sliverpbGoSrc, 0600)
 	os.WriteFile(filepath.Join(sliverpbDir, "constants.go"), sliverpbConstSrc, 0600)
