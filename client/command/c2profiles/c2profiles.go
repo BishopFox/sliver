@@ -66,7 +66,6 @@ func C2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 }
 
 func ImportC2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
-	protocols := []string{constants.HttpStr, constants.HttpsStr}
 	profileName, _ := cmd.Flags().GetString("name")
 	if profileName == "" {
 		con.PrintErrorf("Invalid c2 profile name\n")
@@ -101,29 +100,6 @@ func ImportC2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
-	}
-	confirm := false
-	prompt := &survey.Confirm{Message: "Restart HTTP/S jobs?"}
-	survey.AskOne(prompt, &confirm)
-	if confirm {
-		var restartJobReq clientpb.RestartJobReq
-		jobs, err := con.Rpc.GetJobs(context.Background(), &commonpb.Empty{})
-		if err != nil {
-			con.PrintErrorf("%s\n", err)
-			return
-		}
-		// reload jobs to include new profile
-		for _, job := range jobs.Active {
-			if job != nil && slices.Contains(protocols, job.Name) {
-				restartJobReq.JobIDs = append(restartJobReq.JobIDs, job.ID)
-			}
-		}
-
-		_, err = con.Rpc.RestartJobs(context.Background(), &restartJobReq)
-		if err != nil {
-			con.PrintErrorf("%s\n", err)
-			return
-		}
 	}
 }
 
@@ -258,6 +234,7 @@ func C2ConfigToJSON(profileName string, profile *clientpb.HTTPC2Config) (*assets
 		MacOSVersion:       profile.ImplantConfig.MacOSVersion,
 		NonceQueryArgChars: profile.ImplantConfig.NonceQueryArgChars,
 		NonceQueryLength:   int(profile.ImplantConfig.NonceQueryLength),
+		NonceMode:          profile.ImplantConfig.NonceMode,
 		MaxFileGen:         int(profile.ImplantConfig.MaxFileGen),
 		MinFileGen:         int(profile.ImplantConfig.MinFileGen),
 		MaxPathGen:         int(profile.ImplantConfig.MaxPathGen),
@@ -378,6 +355,7 @@ func C2ConfigToProtobuf(profileName string, config *assets.HTTPC2Config) *client
 		MacOSVersion:       config.ImplantConfig.MacOSVersion,
 		NonceQueryArgChars: config.ImplantConfig.NonceQueryArgChars,
 		NonceQueryLength:   int32(config.ImplantConfig.NonceQueryLength),
+		NonceMode:          config.ImplantConfig.NonceMode,
 		ExtraURLParameters: httpC2UrlParameters,
 		Headers:            httpC2Headers,
 		MaxFileGen:         int32(config.ImplantConfig.MaxFileGen),
@@ -500,6 +478,10 @@ func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverClient) 
 	tw.AppendRow(table.Row{
 		"Nonce query length",
 		profile.ImplantConfig.NonceQueryLength,
+	})
+	tw.AppendRow(table.Row{
+		"Nonce mode",
+		profile.ImplantConfig.NonceMode,
 	})
 	tw.AppendRow(table.Row{
 		"Max files",

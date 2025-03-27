@@ -792,6 +792,7 @@ message HTTPC2ImplantConfig {
 
   repeated HTTPC2PathSegment PathSegments = 17;
   int32 NonceQueryLength = 18;
+  string NonceMode =19;
 }
 
 message HTTPC2Cookie {

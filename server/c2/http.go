@@ -373,6 +373,16 @@ func getNoncesFromURL(reqURL *url.URL, length int32) ([]uint64, error) {
 			nonces = append(nonces, nonce)
 		}
 	}
+
+	for _, segment := range strings.Split(reqURL.Path, "/") {
+		qNonce = digitsOnly(segment)
+		nonce, err := strconv.ParseUint(qNonce, 10, 64)
+		if err != nil {
+			continue
+		}
+		nonces = append(nonces, nonce)
+	}
+
 	if len(nonces) == 0 {
 		httpLog.Warn("Nonce not found in request")
 		return []uint64{}, ErrMissingNonce

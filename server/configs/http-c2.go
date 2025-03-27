@@ -136,6 +136,7 @@ func GenerateDefaultHTTPC2Config() *clientpb.HTTPC2Config {
 		MacOSVersion:       DefaultMacOSVer,
 		NonceQueryArgChars: "abcdefghijklmnopqrstuvwxyz",
 		NonceQueryLength:   1,
+		NonceMode:          "UrlParam", // Url or UrlParam
 		ExtraURLParameters: httpC2UrlParameters,
 		Headers:            httpC2Headers,
 		MaxFileGen:         4,

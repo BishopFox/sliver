@@ -127,6 +127,7 @@ type HttpC2ImplantConfig struct {
 
 	PathSegments     []HttpC2PathSegment
 	NonceQueryLength int32
+	NonceMode        string
 }
 
 func (h *HttpC2ImplantConfig) BeforeCreate(tx *gorm.DB) (err error) {
@@ -164,6 +165,7 @@ func (h *HttpC2ImplantConfig) ToProtobuf() *clientpb.HTTPC2ImplantConfig {
 		Extensions:         strings.Split(h.Extensions, ","),
 		PathSegments:       pathSegments,
 		NonceQueryLength:   h.NonceQueryLength,
+		NonceMode:          h.NonceMode,
 	}
 }
 
@@ -340,6 +342,7 @@ func HTTPC2ConfigFromProtobuf(pbHttpC2Config *clientpb.HTTPC2Config) *HttpC2Conf
 		Extensions:         strings.Join(pbHttpC2Config.ImplantConfig.Extensions, ","),
 		PathSegments:       pathSegments,
 		NonceQueryLength:   pbHttpC2Config.ImplantConfig.NonceQueryLength,
+		NonceMode:          pbHttpC2Config.ImplantConfig.NonceMode,
 	}
 
 	// C2 Config
@@ -369,6 +372,7 @@ func RandomizeImplantConfig(h *clientpb.HTTPC2ImplantConfig, goos string, goarch
 		MinPathLength:     h.MinPathLength,
 		MaxPathLength:     h.MaxPathLength,
 		NonceQueryLength:  h.NonceQueryLength,
+		NonceMode:         h.NonceMode,
 	}
 }
 
