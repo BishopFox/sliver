@@ -62,15 +62,6 @@ func (rpc *Server) SaveHTTPC2Profile(ctx context.Context, req *clientpb.HTTPC2Co
 	if req.Overwrite && req.C2Config.Name == "" {
 		return nil, configs.ErrMissingC2ProfileName
 	}
-	err = db.SearchStageExtensions(req.C2Config.ImplantConfig.StagerFileExtension, req.C2Config.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	err = db.SearchStartSessionExtensions(req.C2Config.ImplantConfig.StartSessionFileExtension, req.C2Config.Name)
-	if err != nil {
-		return nil, err
-	}
 
 	httpC2Config, err := db.LoadHTTPC2ConfigByName(req.C2Config.Name)
 	if err != nil {
