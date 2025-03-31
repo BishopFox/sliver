@@ -91,7 +91,7 @@ ENTRYPOINT [ "/opt/sliver-server" ]
 
 
 # STAGE: production-slim (about 1Gb smaller)
-FROM debian:bookworm-slim as production-slim
+FROM debian:bookworm-slim AS production-slim
 
 ### Install production packages
 RUN apt-get update --fix-missing \
