@@ -559,11 +559,11 @@ func runExtensionCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 		extName = ext.DependsOn
 		entryPoint = loadedExtensions[extName].Entrypoint // should exist at this point
 	} else {
-		// Regular DLL
-		extensionArgs, err = getExtArgs(cmd, args, binPath, ext)
-		if err != nil {
-			con.PrintErrorf("ext args error: %s\n", err)
-			return
+		// Regular DLL - Just join the arguments with spaces
+		if len(args) > 0 {
+			extensionArgs = []byte(strings.Join(args, " "))
+		} else {
+			extensionArgs = []byte{}
 		}
 		extName = ext.CommandName
 		entryPoint = ext.Entrypoint
