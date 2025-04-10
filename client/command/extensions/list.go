@@ -24,6 +24,7 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
@@ -52,48 +53,42 @@ func FindExtensionMatches(targetHashes []string) map[string]*ExtensionMatch {
 	}
 
 	// Search for matches
-	for targetHash := range results {
-		for _, extCmd := range loadedExtensions {
-			if extCmd == nil || len(extCmd.Files) == 0 {
-				continue
-			}
+	for _, extCmd := range loadedExtensions {
+		if extCmd == nil || len(extCmd.Files) == 0 {
+			continue
+		}
 
-			for _, file := range extCmd.Files {
-				fullPath := filepath.Join(extCmd.Manifest.RootPath, file.Path)
+		for _, file := range extCmd.Files {
+			fullPath := filepath.Join(extCmd.Manifest.RootPath, file.Path)
 
-				// Check cache first
-				var match *ExtensionMatch
-				if cached, exists := pathCache[fullPath]; exists {
-					match = cached
-				} else {
-					// Calculate hash if not cached
-					fileData, err := os.ReadFile(fullPath)
-					if err != nil {
-						continue
-					}
-
-					hashBytes := sha256.Sum256(fileData)
-					fileHash := hex.EncodeToString(hashBytes[:])
-
-					match = &ExtensionMatch{
-						CommandName: extCmd.CommandName,
-						Hash:        fileHash,
-						BinPath:     fullPath,
-					}
-					pathCache[fullPath] = match
+			// Check cache first
+			var match *ExtensionMatch
+			if cached, exists := pathCache[fullPath]; exists {
+				match = cached
+			} else {
+				// Calculate hash if not cached
+				fileData, err := os.ReadFile(fullPath)
+				if err != nil {
+					continue
 				}
 
-				if match.Hash == targetHash {
-					results[targetHash] = match
-					break
+				hashBytes := sha256.Sum256(fileData)
+				fileHash := hex.EncodeToString(hashBytes[:])
+
+				match = &ExtensionMatch{
+					CommandName: extCmd.CommandName,
+					Hash:        fileHash,
+					BinPath:     fullPath,
 				}
+				pathCache[fullPath] = match
 			}
 
-			if results[targetHash] != nil {
-				break
+			if slices.Contains(targetHashes, match.Hash) {
+				results[match.Hash] = match
 			}
 		}
 	}
+
 
 	return results
 }
