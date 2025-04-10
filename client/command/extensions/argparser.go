@@ -280,7 +280,7 @@ func bofApplyDefaultValue(argDef *extensionArgument, argsBuffer core.BOFArgsBuff
 				// Try as string
 				strVal, ok := argDef.Default.(string)
 				if ok {
-					val, err := strconv.Atoi(strVal)
+					val, err := strconv.ParseUint(strVal, 10, 32)
 					if err == nil {
 						defaultInt = uint32(val)
 					}
@@ -305,7 +305,7 @@ func bofApplyDefaultValue(argDef *extensionArgument, argsBuffer core.BOFArgsBuff
 				// Try as string
 				strVal, ok := argDef.Default.(string)
 				if ok {
-					val, err := strconv.Atoi(strVal)
+					val, err := strconv.ParseUint(strVal, 10, 16)
 					if err == nil {
 						defaultShort = uint16(val)
 					}
