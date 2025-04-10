@@ -212,7 +212,7 @@ func startMultiplayerModeCmd(cmd *cobra.Command, _ []string) {
 			Type:      "multiplayer",
 			MultiConf: multiConfig,
 		}
-		err = db.SaveHTTPC2Listener(listenerJob)
+		err = db.SaveC2Listener(listenerJob)
 		if err != nil {
 			fmt.Printf(Warn+"Failed to save job %v\n", err)
 		}
