@@ -116,10 +116,11 @@ type extensionFile struct {
 }
 
 type extensionArgument struct {
-	Name     string `json:"name"`
-	Type     string `json:"type"`
-	Desc     string `json:"desc"`
-	Optional bool   `json:"optional"`
+	Name     string      `json:"name"`
+	Type     string      `json:"type"`
+	Desc     string      `json:"desc"`
+	Optional bool        `json:"optional"`
+	Default  interface{} `json:"default,omitempty"`
 }
 
 func (e *ExtCommand) getFileForTarget(targetOS string, targetArch string) (string, error) {
@@ -796,7 +797,7 @@ func getBOFArgs(cmd *cobra.Command, args []string, binPath string, ext *ExtComma
 	if err != nil {
 		return nil, err
 	}
-	parsedArgs, err := getExtArgs(cmd, args, binPath, ext)
+	parsedArgs, err := ParseFlagArgumentsToBuffer(cmd, args, binPath, ext)
 	if err != nil {
 		return nil, err
 	}
