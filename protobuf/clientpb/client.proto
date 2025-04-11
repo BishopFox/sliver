@@ -358,6 +358,7 @@ message ListenerJob {
   DNSListenerReq DNSConf = 6;
   HTTPListenerReq HTTPConf = 7;
   MultiplayerListenerReq MultiConf = 8;
+  StagerListenerReq TCPConf = 9;
 }
 
 message MultiplayerListenerReq {
@@ -490,10 +491,7 @@ message StagerListenerReq {
   string Host = 2;
   uint32 Port = 3;
   bytes Data = 4;
-  bytes Cert = 5;
-  bytes Key = 6;
-  bool ACME = 7;
-  string ProfileName = 8;
+  string ProfileName = 5;
 }
 
 message StagerListener { uint32 JobID = 1; }
@@ -505,19 +503,6 @@ message ShellcodeRDIReq {
 }
 
 message ShellcodeRDI { bytes Data = 1; }
-
-message MsfStagerReq {
-  string Arch = 1;
-  string Format = 2;
-  uint32 Port = 3;
-  string Host = 4;
-  string OS = 5; // reserved for future usage
-  StageProtocol Protocol = 6;
-  repeated string BadChars = 7;
-  string HTTPC2ConfigName = 9;
-}
-
-message MsfStager { commonpb.File File = 1; }
 
 // GetSystemReq - Client request to the server which is translated into
 //                InvokeSystemReq when sending to the implant.
