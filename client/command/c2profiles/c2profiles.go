@@ -529,11 +529,11 @@ func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverClient) 
 
 	tw.AppendRow(table.Row{
 		"Paths",
-		strings.Join(paths[:], ","),
+		strings.Join(paths[:], ",")[:50] + "...",
 	})
 	tw.AppendRow(table.Row{
 		"Files",
-		strings.Join(files[:], ","),
+		strings.Join(files[:], ",")[:50] + "...",
 	})
 
 	con.Println(tw.Render())
