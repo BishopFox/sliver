@@ -770,7 +770,7 @@ func (s *SliverHTTPC2) stagerHandler(resp http.ResponseWriter, req *http.Request
 
 	for _, nonce := range nonces {
 		resourceID, err = db.ResourceIDByValue(nonce)
-		if err != nil {
+		if err == nil {
 			httpLog.Debug("Stager request")
 			build, _ := db.ImplantBuildByResourceID(resourceID.Value)
 			if build.Stage {
