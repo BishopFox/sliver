@@ -219,6 +219,23 @@ func (c *CipherContext) Decrypt(msg []byte) ([]byte, error) {
 	return plaintext, nil
 }
 
+// Decrypt - Decrypt a message without signature with the contextual key and check for replay attacks
+func (c *CipherContext) DecryptWithoutSignatureCheck(msg []byte) ([]byte, error) {
+
+	plaintext, err := Decrypt(c.Key, msg)
+	if err != nil {
+		return nil, err
+	}
+	if 0 < len(msg) {
+		digest := sha256.Sum256(msg)
+		b64Digest := base64.RawStdEncoding.EncodeToString(digest[:])
+		if _, ok := c.replay.LoadOrStore(b64Digest, true); ok {
+			return nil, ErrReplayAttack
+		}
+	}
+	return plaintext, nil
+}
+
 // Encrypt - Encrypt a message with the contextual key
 func (c *CipherContext) Encrypt(plaintext []byte) ([]byte, error) {
 	ciphertext, err := Encrypt(c.Key, plaintext)
