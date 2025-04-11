@@ -49,9 +49,7 @@ Filesystem
   grep              Search for strings that match a regex within a file or directory
   head              Grab the first number of bytes or lines from a file
   ls                List current directory
-  memfiles          List current memfiles
   mkdir             Make a directory
-  mount             Get information on mounted filesystems
   mv                Move or rename a file
   pwd               Print working directory
   rm                Remove a file or directory
@@ -72,7 +70,6 @@ Info
   getuid            Get session process UID
   info              Get session info
   ping              Send round trip message to implant (does not use ICMP)
-  screenshot        Take a screenshot
   whoami            Get session user execution context
 ```
 Execute a binary
@@ -86,3 +83,13 @@ Running an interactive shell
 ```asciinema
 {"src": "/asciinema/shell.cast", "cols": "132", "rows": "14", "idleTimeLimit": 8}
 ```
+
+Not all commands are supported for all operating systems or meant to be used on all operating systems, here are a few examples:
+
+```
+mount             Get information on mounted filesystems (only for Windows and Linux)
+screenshot        Take a screenshot (only for Windows and Linux)
+memfiles          List current memfiles (Linux only)
+```
+
+This is an open-source project if you see a bug please file an issue! Pull requests are always welcome.
