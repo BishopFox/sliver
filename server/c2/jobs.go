@@ -34,6 +34,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
 	"golang.zx2c4.com/wireguard/device"
 )
@@ -84,6 +85,16 @@ func StartWGListenerJob(wgListener *clientpb.WGListenerReq) (*core.Job, error) {
 		Protocol:    constants.UDPListenerStr,
 		Port:        uint16(wgListener.Port),
 		JobCtrl:     make(chan bool),
+	}
+
+	listenerJob := &clientpb.ListenerJob{
+		JobID:  uint32(job.ID),
+		Type:   constants.WGStr,
+		WGConf: wgListener,
+	}
+	err = db.SaveC2Listener(listenerJob)
+	if err != nil {
+		return nil, err
 	}
 
 	ticker := time.NewTicker(5 * time.Second)
@@ -229,7 +240,7 @@ func StartHTTPListenerJob(req *clientpb.HTTPListenerReq) (*core.Job, error) {
 }
 
 // StartTCPStagerListenerJob - Start a TCP staging payload listener
-func StartTCPStagerListenerJob(host string, port uint16, profileName string, shellcode []byte) (*core.Job, error) {
+func StartTCPStagerListenerJob(host string, port uint16, name string, shellcode []byte) (*core.Job, error) {
 	ln, err := StartTCPListener(host, port, shellcode)
 	if err != nil {
 		return nil, err // If we fail to bind don't setup the Job
@@ -241,8 +252,8 @@ func StartTCPStagerListenerJob(host string, port uint16, profileName string, she
 		Description: "Raw TCP listener (stager only)",
 		Protocol:    "tcp",
 		Port:        port,
-		ProfileName: profileName,
 		JobCtrl:     make(chan bool),
+		ProfileName: name,
 	}
 
 	go func() {

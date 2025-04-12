@@ -515,7 +515,7 @@ func HTTPC2ConfigUpdate(newConf *clientpb.HTTPC2Config, oldConf *clientpb.HTTPC2
 	return nil
 }
 
-func SaveHTTPC2Listener(listenerConf *clientpb.ListenerJob) error {
+func SaveC2Listener(listenerConf *clientpb.ListenerJob) error {
 	dbListener := models.ListenerJobFromProtobuf(listenerConf)
 	dbSession := Session()
 	result := dbSession.Clauses(clause.OnConflict{
