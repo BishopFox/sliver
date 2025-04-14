@@ -1,10 +1,12 @@
 package csrf
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 
 	"github.com/gorilla/securecookie"
 )
@@ -21,6 +23,14 @@ const (
 	cookieName   string = "_gorilla_csrf"
 	errorPrefix  string = "gorilla/csrf: "
 )
+
+type contextKey string
+
+// PlaintextHTTPContextKey is the context key used to store whether the request
+// is being served via plaintext HTTP. This is used to signal to the middleware
+// that strict Referer checking should not be enforced as is done for HTTPS by
+// default.
+const PlaintextHTTPContextKey contextKey = "plaintext"
 
 var (
 	// The name value used in form fields.
@@ -41,6 +51,9 @@ var (
 	// ErrNoReferer is returned when a HTTPS request provides an empty Referer
 	// header.
 	ErrNoReferer = errors.New("referer not supplied")
+	// ErrBadOrigin is returned when the Origin header is present and is not a
+	// trusted origin.
+	ErrBadOrigin = errors.New("origin invalid")
 	// ErrBadReferer is returned when the scheme & host in the URL do not match
 	// the supplied Referer header.
 	ErrBadReferer = errors.New("referer invalid")
@@ -242,10 +255,50 @@ func (cs *csrf) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// HTTP methods not defined as idempotent ("safe") under RFC7231 require
 	// inspection.
 	if !contains(safeMethods, r.Method) {
-		// Enforce an origin check for HTTPS connections. As per the Django CSRF
-		// implementation (https://goo.gl/vKA7GE) the Referer header is almost
-		// always present for same-domain HTTP requests.
-		if r.URL.Scheme == "https" {
+		var isPlaintext bool
+		val := r.Context().Value(PlaintextHTTPContextKey)
+		if val != nil {
+			isPlaintext, _ = val.(bool)
+		}
+
+		// take a copy of the request URL to avoid mutating the original
+		// attached to the request.
+		// set the scheme & host based on the request context as these are not
+		// populated by default for server requests
+		// ref: https://pkg.go.dev/net/http#Request
+		requestURL := *r.URL // shallow clone
+
+		requestURL.Scheme = "https"
+		if isPlaintext {
+			requestURL.Scheme = "http"
+		}
+		if requestURL.Host == "" {
+			requestURL.Host = r.Host
+		}
+
+		// if we have an Origin header, check it against our allowlist
+		origin := r.Header.Get("Origin")
+		if origin != "" {
+			parsedOrigin, err := url.Parse(origin)
+			if err != nil {
+				r = envError(r, ErrBadOrigin)
+				cs.opts.ErrorHandler.ServeHTTP(w, r)
+				return
+			}
+			if !sameOrigin(&requestURL, parsedOrigin) && !slices.Contains(cs.opts.TrustedOrigins, parsedOrigin.Host) {
+				r = envError(r, ErrBadOrigin)
+				cs.opts.ErrorHandler.ServeHTTP(w, r)
+				return
+			}
+		}
+
+		// If we are serving via TLS and have no Origin header, prevent against
+		// CSRF via HTTP machine in the middle attacks by enforcing strict
+		// Referer origin checks. Consider an attacker who performs a
+		// successful HTTP Machine-in-the-Middle attack and uses this to inject
+		// a form and cause submission to our origin. We strictly disallow
+		// cleartext HTTP origins and evaluate the domain against an allowlist.
+		if origin == "" && !isPlaintext {
 			// Fetch the Referer value. Call the error handler if it's empty or
 			// otherwise fails to parse.
 			referer, err := url.Parse(r.Referer())
@@ -255,18 +308,17 @@ func (cs *csrf) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			valid := sameOrigin(r.URL, referer)
-
-			if !valid {
-				for _, trustedOrigin := range cs.opts.TrustedOrigins {
-					if referer.Host == trustedOrigin {
-						valid = true
-						break
-					}
-				}
+			// disallow cleartext HTTP referers when serving via TLS
+			if referer.Scheme == "http" {
+				r = envError(r, ErrBadReferer)
+				cs.opts.ErrorHandler.ServeHTTP(w, r)
+				return
 			}
 
-			if !valid {
+			// If the request is being served via TLS and the Referer is not the
+			// same origin, check the domain against our allowlist. We only
+			// check when we have host information from the referer.
+			if referer.Host != "" && referer.Host != r.Host && !slices.Contains(cs.opts.TrustedOrigins, referer.Host) {
 				r = envError(r, ErrBadReferer)
 				cs.opts.ErrorHandler.ServeHTTP(w, r)
 				return
@@ -306,6 +358,15 @@ func (cs *csrf) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	cs.h.ServeHTTP(w, r)
 	// Clear the request context after the handler has completed.
 	contextClear(r)
+}
+
+// PlaintextHTTPRequest accepts as input a http.Request and returns a new
+// http.Request with the PlaintextHTTPContextKey set to true. This is used to
+// signal to the CSRF middleware that the request is being served over plaintext
+// HTTP and that Referer-based origin allow-listing checks should be skipped.
+func PlaintextHTTPRequest(r *http.Request) *http.Request {
+	ctx := context.WithValue(r.Context(), PlaintextHTTPContextKey, true)
+	return r.WithContext(ctx)
 }
 
 // unauthorizedhandler sets a HTTP 403 Forbidden status and writes the
