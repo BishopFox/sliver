@@ -916,14 +916,18 @@ func BeaconTasksByBeaconID(beaconID string) ([]*clientpb.BeaconTask, error) {
 		return nil, ErrRecordNotFound
 	}
 	beaconTasks := []*models.BeaconTask{}
-	err := Session().Select([]string{
-		"ID", "EnvelopeID", "BeaconID", "CreatedAt", "State", "SentAt", "CompletedAt",
-		"Description",
-	}).Where(&models.BeaconTask{BeaconID: id}).Find(&beaconTasks).Error
+	/*
+		Even though we are fetching the request/response columns here, we will not send
+		them back in the response
+		If we SELECT those columns out, that will bypass GORM's reflection-based field
+		to column mapping and can cause GORM not to map the created_at field correctly
+	*/
+	err := Session().Where(&models.BeaconTask{BeaconID: id}).Find(&beaconTasks).Error
 
 	pbBeaconTasks := []*clientpb.BeaconTask{}
 	for _, beaconTask := range beaconTasks {
-		pbBeaconTasks = append(pbBeaconTasks, beaconTask.ToProtobuf(true))
+		// Do not preserve the request and response columns
+		pbBeaconTasks = append(pbBeaconTasks, beaconTask.ToProtobuf(false))
 	}
 	return pbBeaconTasks, err
 }
