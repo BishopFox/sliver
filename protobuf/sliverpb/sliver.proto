@@ -106,8 +106,10 @@ message KillReq {
 }
 
 
-// PsReq - Request the implant to list ses of a remote session.
+// PsReq - Request the implant to list processes of a remote session.
 message PsReq {
+  bool FullInfo = 1;
+
   commonpb.Request Request = 9;
 }
 

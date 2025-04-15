@@ -63,10 +63,8 @@ var CurrentToken windows.Token
 
 func SePrivEnable(s string) error {
 	var tokenHandle windows.Token
-	thsHandle, err := windows.GetCurrentProcess()
-	if err != nil {
-		return err
-	}
+	thsHandle := windows.CurrentProcess()
+
 	windows.OpenProcessToken(
 		//r, a, e := procOpenProcessToken.Call(
 		thsHandle,                       //  HANDLE  ProcessHandle,
@@ -74,7 +72,7 @@ func SePrivEnable(s string) error {
 		&tokenHandle,                    //	PHANDLE TokenHandle
 	)
 	var luid windows.LUID
-	err = windows.LookupPrivilegeValue(nil, windows.StringToUTF16Ptr(s), &luid)
+	err := windows.LookupPrivilegeValue(nil, windows.StringToUTF16Ptr(s), &luid)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Println("LookupPrivilegeValueW failed", err)
@@ -215,7 +213,9 @@ func impersonateUser(username string) (token windows.Token, err error) {
 		err = fmt.Errorf("username can't be empty")
 		return
 	}
-	p, err := ps.Processes()
+
+	// We do not need full process info here, just PID and executable name
+	p, err := ps.Processes(false)
 	if err != nil {
 		return
 	}
@@ -422,7 +422,9 @@ func Impersonate(username string) (token windows.Token, err error) {
 func GetSystem(data []byte, hostingProcess string) (err error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	procs, _ := ps.Processes()
+
+	// Just need PID, not all info
+	procs, _ := ps.Processes(false)
 	for _, p := range procs {
 		if p.Executable() == hostingProcess {
 			err = SePrivEnable("SeDebugPrivilege")
@@ -556,14 +558,7 @@ func GetPrivs() ([]PrivilegeInfo, string, string, error) {
 	var tokenInfoBufferSize uint32
 
 	// Get a handle for the current process
-	currentProcHandle, err := windows.GetCurrentProcess()
-
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Println("Could not get a handle for the current process: ", err)
-		// {{end}}
-		return nil, integrity, processName, err
-	}
+	currentProcHandle := windows.CurrentProcess()
 
 	// Get the PID for the current process
 	sessionPID, err := windows.GetProcessId(currentProcHandle)
@@ -574,8 +569,8 @@ func GetPrivs() ([]PrivilegeInfo, string, string, error) {
 		log.Println("Could not get PID for current process: ", err)
 		// {{end}}
 	} else {
-		// Get process info for the current PID
-		processInformation, err := ps.FindProcess(int(sessionPID))
+		// Get process info for the current PID, do not need full info
+		processInformation, err := ps.FindProcess(int(sessionPID), false)
 
 		if err != nil {
 			// {{if .Config.Debug}}

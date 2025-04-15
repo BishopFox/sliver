@@ -48,8 +48,8 @@ func (p *DarwinProcess) Architecture() string {
 	return p.arch
 }
 
-func findProcess(pid int) (Process, error) {
-	ps, err := processes()
+func findProcess(pid int, fullInfo bool) (Process, error) {
+	ps, err := processes(fullInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func findProcess(pid int) (Process, error) {
 	return nil, nil
 }
 
-func processes() ([]Process, error) {
+func processes(fullInfo bool) ([]Process, error) {
 	var owner string
 	buf, _, err := procInfoSyscall()
 	if err != nil {
@@ -92,29 +92,39 @@ func processes() ([]Process, error) {
 			binPath, _ = pCommReader.ReadString(0x00)
 		}
 		binPath = strings.TrimSuffix(binPath, "\x00") // Trim the null byte
-		// Discard the error: if the call errors out, we'll just have an empty argv slice
-		cmdLine, _ := getArgvFromPid(int(p.Proc.P_pid))
 
-		uid := fmt.Sprintf("%d", p.Eproc.Ucred.Uid)
-		u, err := user.LookupId(uid)
-		if err != nil {
-			owner = uid
+		if fullInfo {
+			// Discard the error: if the call errors out, we'll just have an empty argv slice
+			cmdLine, _ := getArgvFromPid(int(p.Proc.P_pid))
+
+			uid := fmt.Sprintf("%d", p.Eproc.Ucred.Uid)
+			u, err := user.LookupId(uid)
+			if err != nil {
+				owner = uid
+			} else {
+				owner = u.Username
+			}
+			if owner == "" {
+				owner = uid
+			}
+			arch := ""
+
+			darwinProcs[i] = &DarwinProcess{
+				pid:     int(p.Proc.P_pid),
+				ppid:    int(p.Eproc.Ppid),
+				binary:  binPath,
+				owner:   owner,
+				cmdLine: cmdLine,
+				arch:    arch,
+			}
 		} else {
-			owner = u.Username
+			darwinProcs[i] = &DarwinProcess{
+				pid:    int(p.Proc.P_pid),
+				ppid:   int(p.Eproc.Ppid),
+				binary: binPath,
+			}
 		}
-		if owner == "" {
-			owner = uid
-		}
-		arch := ""
 
-		darwinProcs[i] = &DarwinProcess{
-			pid:     int(p.Proc.P_pid),
-			ppid:    int(p.Eproc.Ppid),
-			binary:  binPath,
-			owner:   owner,
-			cmdLine: cmdLine,
-			arch:    arch,
-		}
 	}
 
 	return darwinProcs, nil

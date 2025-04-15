@@ -25,11 +25,12 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind("", false, psCmd, func(f *pflag.FlagSet) {
 		f.IntP("pid", "p", -1, "filter based on pid")
 		f.StringP("exe", "e", "", "filter based on executable name")
-		f.StringP("owner", "o", "", "filter based on owner")
-		f.BoolP("print-cmdline", "c", false, "print command line arguments")
+		f.StringP("owner", "o", "", "filter based on owner, must request full process metadata (-f)")
+		f.BoolP("print-cmdline", "c", false, "print command line arguments, must request full process metadata (-f)")
 		f.BoolP("overflow", "O", false, "overflow terminal width (display truncated rows)")
 		f.IntP("skip-pages", "S", 0, "skip the first n page(s)")
 		f.BoolP("tree", "T", false, "print process tree")
+		f.BoolP("full", "f", false, "show full process metadata (owner, architecture, session information) -- may trigger EDR")
 
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
