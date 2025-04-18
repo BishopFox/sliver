@@ -86,16 +86,6 @@ func StartWGListenerJob(wgListener *clientpb.WGListenerReq) (*core.Job, error) {
 		JobCtrl:     make(chan bool),
 	}
 
-	// listenerJob := &clientpb.ListenerJob{
-	// 	JobID:  uint32(job.ID),
-	// 	Type:   constants.WGStr,
-	// 	WGConf: wgListener,
-	// }
-	// err = db.SaveC2Listener(listenerJob)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
 	ticker := time.NewTicker(5 * time.Second)
 	done := make(chan bool)
 
