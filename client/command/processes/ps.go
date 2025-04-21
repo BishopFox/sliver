@@ -113,14 +113,45 @@ func PsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if session == nil && beacon == nil {
 		return
 	}
+
+	ownerFilter, _ := cmd.Flags().GetString("owner")
+	cmdLine, _ := cmd.Flags().GetBool("print-cmdline")
+	tree, _ := cmd.Flags().GetBool("tree")
+	fullInfo, _ := cmd.Flags().GetBool("full")
+
+	if tree && fullInfo {
+		con.PrintWarnf("Process tree and full process metadata were requested. " +
+			"Full process metadata is not necessary for the process tree, so the request for full process metadata will be ignored.\n\n")
+		fullInfo = false
+	}
+
+	if ownerFilter != "" && !fullInfo {
+		con.PrintErrorf("Filtering on process owner was requested, but full process metadata was not requested. Re-run the command, and specify the -f flag.\n")
+		return
+	}
+
+	if cmdLine && !fullInfo {
+		con.PrintErrorf("Process command line arguments were requested, but full process metadata was not requested. Re-run the command, and specify the -f flag.\n")
+		return
+	}
+
+	// Get OS information
+	os := getOS(session, beacon)
+
+	/*
+		Because a full list can trigger EDR on some platforms,
+		namely Windows, filtering of the process list must be
+		done on the implant side.
+	*/
 	ps, err := con.Rpc.Ps(context.Background(), &sliverpb.PsReq{
-		Request: con.ActiveTarget.Request(cmd),
+		FullInfo: fullInfo,
+		Request:  con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	os := getOS(session, beacon)
+
 	if ps.Response != nil && ps.Response.Async {
 		con.AddBeaconCallback(ps.Response.TaskID, func(task *clientpb.BeaconTask) {
 			err = proto.Unmarshal(task.Response, ps)
@@ -128,7 +159,7 @@ func PsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 				con.PrintErrorf("Failed to decode response %s\n", err)
 				return
 			}
-			PrintPS(os, ps, false, cmd.Flags(), con)
+			PrintPS(os, ps, false, fullInfo, cmd.Flags(), con)
 			products := findKnownSecurityProducts(ps)
 			if 0 < len(products) {
 				con.Println()
@@ -137,7 +168,7 @@ func PsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		})
 		con.PrintAsyncResponse(ps.Response)
 	} else {
-		PrintPS(os, ps, true, cmd.Flags(), con)
+		PrintPS(os, ps, true, fullInfo, cmd.Flags(), con)
 		products := findKnownSecurityProducts(ps)
 		if 0 < len(products) {
 			con.Println()
@@ -156,7 +187,7 @@ func getOS(session *clientpb.Session, beacon *clientpb.Beacon) string {
 }
 
 // PrintPS - Prints the process list
-func PrintPS(os string, ps *sliverpb.Ps, interactive bool, flags *pflag.FlagSet, con *console.SliverClient) {
+func PrintPS(os string, ps *sliverpb.Ps, interactive bool, fullInfo bool, flags *pflag.FlagSet, con *console.SliverClient) {
 	pidFilter, _ := flags.GetInt("pid")
 	exeFilter, _ := flags.GetString("exe")
 	ownerFilter, _ := flags.GetString("owner")
@@ -185,15 +216,25 @@ func PrintPS(os string, ps *sliverpb.Ps, interactive bool, flags *pflag.FlagSet,
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 
+	defaultInfo := table.Row{"pid", "ppid", "executable"}
+
 	switch os {
 	case "windows":
-		tw.AppendHeader(table.Row{"pid", "ppid", "owner", "arch", "executable", "session"})
+		if fullInfo {
+			tw.AppendHeader(table.Row{"pid", "ppid", "owner", "arch", "executable", "session"})
+		} else {
+			tw.AppendHeader(defaultInfo)
+		}
 	case "darwin":
 		fallthrough
 	case "linux":
 		fallthrough
 	default:
-		tw.AppendHeader(table.Row{"pid", "ppid", "owner", "arch", "executable"})
+		if fullInfo {
+			tw.AppendHeader(table.Row{"pid", "ppid", "owner", "arch", "executable"})
+		} else {
+			tw.AppendHeader(defaultInfo)
+		}
 	}
 
 	cmdLine, _ := flags.GetBool("print-cmdline")
@@ -207,7 +248,7 @@ func PrintPS(os string, ps *sliverpb.Ps, interactive bool, flags *pflag.FlagSet,
 		if ownerFilter != "" && !strings.Contains(strings.ToLower(proc.Owner), strings.ToLower(ownerFilter)) {
 			continue
 		}
-		row := procRow(tw, proc, cmdLine, con)
+		row := procRow(proc, cmdLine, fullInfo, con)
 		tw.AppendRow(row)
 	}
 	tw.SortBy([]table.SortBy{
@@ -235,7 +276,7 @@ func findKnownSecurityProducts(ps *sliverpb.Ps) []string {
 }
 
 // procRow - Stylizes the process information
-func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console.SliverClient) table.Row {
+func procRow(proc *commonpb.Process, cmdLine bool, fullInfo bool, con *console.SliverClient) table.Row {
 	session, beacon := con.ActiveTarget.GetInteractive()
 
 	color := console.Normal
@@ -252,7 +293,7 @@ func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console
 	var row table.Row
 	switch session.GetOS() {
 	case "windows":
-		if cmdLine {
+		if cmdLine && fullInfo {
 			var args string
 			if len(proc.CmdLine) >= 1 {
 				args = strings.Join(proc.CmdLine, " ")
@@ -268,13 +309,21 @@ func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console
 				fmt.Sprintf(color+"%d"+console.Normal, proc.SessionID),
 			}
 		} else {
-			row = table.Row{
-				fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
-				fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
-				fmt.Sprintf(color+"%s"+console.Normal, proc.Owner),
-				fmt.Sprintf(color+"%s"+console.Normal, proc.Architecture),
-				fmt.Sprintf(color+"%s"+console.Normal, proc.Executable),
-				fmt.Sprintf(color+"%d"+console.Normal, proc.SessionID),
+			if fullInfo {
+				row = table.Row{
+					fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
+					fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
+					fmt.Sprintf(color+"%s"+console.Normal, proc.Owner),
+					fmt.Sprintf(color+"%s"+console.Normal, proc.Architecture),
+					fmt.Sprintf(color+"%s"+console.Normal, proc.Executable),
+					fmt.Sprintf(color+"%d"+console.Normal, proc.SessionID),
+				}
+			} else {
+				row = table.Row{
+					fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
+					fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
+					fmt.Sprintf(color+"%s"+console.Normal, proc.Executable),
+				}
 			}
 		}
 	case "darwin":
@@ -282,7 +331,7 @@ func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console
 	case "linux":
 		fallthrough
 	default:
-		if cmdLine {
+		if cmdLine && fullInfo {
 			var args string
 			if len(proc.CmdLine) >= 2 {
 				args = strings.Join(proc.CmdLine, " ")
@@ -297,12 +346,20 @@ func procRow(tw table.Writer, proc *commonpb.Process, cmdLine bool, con *console
 				fmt.Sprintf(color+"%s"+console.Normal, args),
 			}
 		} else {
-			row = table.Row{
-				fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
-				fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
-				fmt.Sprintf(color+"%s"+console.Normal, proc.Owner),
-				fmt.Sprintf(color+"%s"+console.Normal, proc.Architecture),
-				fmt.Sprintf(color+"%s"+console.Normal, proc.Executable),
+			if fullInfo {
+				row = table.Row{
+					fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
+					fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
+					fmt.Sprintf(color+"%s"+console.Normal, proc.Owner),
+					fmt.Sprintf(color+"%s"+console.Normal, proc.Architecture),
+					fmt.Sprintf(color+"%s"+console.Normal, proc.Executable),
+				}
+			} else {
+				row = table.Row{
+					fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
+					fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
+					fmt.Sprintf(color+"%s"+console.Normal, proc.Executable),
+				}
 			}
 		}
 	}
