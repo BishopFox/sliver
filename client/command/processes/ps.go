@@ -119,7 +119,7 @@ func PsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	tree, _ := cmd.Flags().GetBool("tree")
 	fullInfo, _ := cmd.Flags().GetBool("full")
 
-	if tree {
+	if tree && fullInfo {
 		con.PrintWarnf("Process tree and full process metadata were requested. " +
 			"Full process metadata is not necessary for the process tree, so the request for full process metadata will be ignored.\n\n")
 		fullInfo = false
