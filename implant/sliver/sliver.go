@@ -116,14 +116,10 @@ var isRunning bool = false
 // {{range .Config.Exports}}
 //export {{.}}
 func {{.}} () {
-	// {{if eq . "StartW"}}
 	if !isRunning {
 		isRunning = true
 		main()
 	}
-	// {{else}}
-	main()
-	// {{end}}
 }
 // {{end}}
 // {{end}}
