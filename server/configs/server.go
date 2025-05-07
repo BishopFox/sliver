@@ -23,7 +23,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/sirupsen/logrus"
@@ -138,6 +138,7 @@ type ServerConfig struct {
 	Watchtower   *WatchTowerConfig  `json:"watch_tower"`
 	GoProxy      string             `json:"go_proxy"`
 	HTTPDefaults *HttpDefaultConfig `json:"http_default"`
+	DonutBypass  int                `json:"donut_bypass"` // 1=skip, 2=abort on fail, 3=continue on fail.
 
 	// 'GOOS/GOARCH' -> CC path
 	CC  map[string]string `json:"cc"`
@@ -194,6 +195,10 @@ func GetServerConfig() *ServerConfig {
 	}
 	log.RootLogger.SetLevel(log.LevelFrom(config.Logs.Level))
 
+	if config.DonutBypass < 1 || config.DonutBypass > 3 {
+		config.DonutBypass = 1
+	}
+
 	err := config.Save() // This updates the config with any missing fields
 	if err != nil {
 		serverConfigLog.Errorf("Failed to save default config %s", err)
@@ -223,7 +228,8 @@ func getDefaultServerConfig() *ServerConfig {
 				},
 			},
 		},
-		CC:  map[string]string{},
-		CXX: map[string]string{},
+		DonutBypass: 3,
+		CC:          map[string]string{},
+		CXX:         map[string]string{},
 	}
 }

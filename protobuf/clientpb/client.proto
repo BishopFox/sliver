@@ -182,6 +182,7 @@ message ImplantConfig {
   bool IsShellcode = 104;
   bool RunAtLoad = 105;
   string DebugFile = 106;
+  repeated string exports = 107;
 
   string HTTPC2ConfigName = 150;
   bool NetGoEnabled = 151;
