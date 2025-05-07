@@ -109,8 +109,10 @@ func (rpc *Server) CancelBeaconTask(ctx context.Context, req *clientpb.BeaconTas
 		return nil, ErrInvalidBeaconTaskID
 	}
 	if task.State == models.PENDING {
-		task.State = models.CANCELED
-		err = db.Session().Save(task).Error
+		err = db.Session().Model(&models.BeaconTask{}).
+			Where("id=?", task.ID).
+			Updates(map[string]interface{}{"state": models.CANCELED}).
+			Error
 		if err != nil {
 			beaconRpcLog.Errorf("Database error: %s", err)
 			return nil, ErrDatabaseFailure
