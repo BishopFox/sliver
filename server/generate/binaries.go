@@ -153,6 +153,7 @@ func SliverShellcode(name string, build *clientpb.ImplantBuild, config *clientpb
 		Obfuscation: config.ObfuscateSymbols,
 		GOGARBLE:    goGarble(config),
 	}
+
 	pkgPath, err := renderSliverGoCode(name, build, config, goConfig, pbC2Implant)
 	if err != nil {
 		return "", err
@@ -226,6 +227,7 @@ func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clie
 		Obfuscation: config.ObfuscateSymbols,
 		GOGARBLE:    goGarble(config),
 	}
+
 	pkgPath, err := renderSliverGoCode(name, build, config, goConfig, pbC2Implant)
 	if err != nil {
 		return "", err
