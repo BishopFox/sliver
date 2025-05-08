@@ -13,64 +13,7 @@ We would want to update the session messages and staging with something more rea
 
 We would also use a list of common Urls and filenames for Wordpress like `https://github.com/danielmiessler/SecLists/blob/master/Discovery/Web-Content/URLs/urls-wordpress-3.3.1.txt` for the `files` and `paths` variables. You could alternatively reuse Urls discovered while enumerating your target's external perimeter in a similar way.
 
-We will split the urls using a script like the example below, and then update the files and paths variables in our configuration file.
-
-```python
-import json
-import sys
-import random
-
-def updateProfile(c2ProfileName, urls, cookieName):
-    data = open(urls).readlines()
-    c2Profile = open(c2ProfileName, "r").read()
-    jsonC2Profile = json.loads(c2Profile)
-
-    paths, filenames, extensions = [], [], []
-    for line in data:
-        line = line.strip()
-        if "." in line:
-            extensions.append(line.split(".")[-1])
-
-        if "/" in line:
-            segments = line.split("/")
-            paths.extend(segments[:-1])
-            filenames.append(segments[-1].split(".")[0])
-
-    extensions = list(set(extensions))
-    if "" in extensions:
-        extensions.remove("")
-    random.shuffle(extensions)
-
-    filenames = list(set(filenames))
-    if "" in filenames:
-        filenames.remove("")
-
-    paths = list(set(paths))
-    if "" in paths:
-        paths.remove("")
-    
-    jsonC2Profile["implant_config"]["extensions"] = extensions
-    jsonC2Profile["implant_config"]["paths"] =  paths
-    jsonC2Profile["implant_config"]["files"] = filenames
-    jsonC2Profile["server_config"]["cookies"] = [cookieName]
-
-    c2Profile = open(c2ProfileName, "w")
-    c2Profile.write(json.dumps(jsonC2Profile))
-    print("C2 Profile updated !")
-
-
-if __name__ == "__main__":
-    if len(sys.argv) < 4:
-        print("Usage: updateProfile.py myC2Profile myurls.txt cookieName")
-        exit(0)
-    updateProfile(sys.argv[1], sys.argv[2], sys.argv[3])
-
-```
-The example below demonstrates how to change and import a profile.
-
-```asciinema
-{"src": "/asciinema/custom_c2profile.cast", "cols": "132", "rows": "14", "idleTimeLimit": 8}
-```
+You can use `c2profiles generate -f urls-wordpress-3.3.1.txt -n wordpress -i` to generate a new c2 profile using the urls we just downloaded. By default this command will use the default c2 profile as a template for all other variables, if you want to edit any of those you can export and re-import the modified profile. 
 
 At this point we can generate a new implant using our new profile.
 
