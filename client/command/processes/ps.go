@@ -105,6 +105,8 @@ var knownSecurityTools = map[string][]string{
 	"cyuserservice.exe":               {console.Red, "Palo Alto Cortex"},             // Cortex XDR - user service
 	"cywscsvc.exe":                    {console.Red, "Palo Alto Cortex"},             // Cortex XDR - security center service
 	"tlaworker.exe":                   {console.Red, "Palo Alto Cortex"},             // Cortex XDR - local analysis worker
+	"AEEngine.exe":                    {console.Red, "Faronics Anti-Executable"},     // Faronics Anti-Executable - security service
+	"Antiexecutable.exe":              {console.Red, "Faronics Anti-Executable"},     // Faronics Anti-Executable - gui and tray icon
 }
 
 // PsCmd - List processes on the remote system
