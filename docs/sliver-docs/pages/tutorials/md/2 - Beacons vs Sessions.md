@@ -2,9 +2,9 @@
 
 Sliver implants support two types of connections, sessions and beacons.
 
-Sessions use long-polling connections, which means they use a single TCP connection which is constantly open. Beacons on the other hand call back periodically, and will sleep when not active which can help keep their presence hidden.
+Sessions use long-polling connections, which means they constantly maintain a single TCP connection open while communicating with the server. Beacons on the other hand call back periodically and will sleep when not active which can help keep their presence hidden. You could limit callbacks to once every 6 hours for example and only 'activate' the beacon when needed by switching its sleeping time to a shorter duration.
 
-Typically during an engagement you will want to deploy a beacon on the target system, and switch to a session while doing more active enumeration activities.
+Typically during an engagement you will want to deploy a beacon on the target system and switch to a session while doing more active enumeration.
 
 Let’s start with generating and deploying a beacon using `http`.
 
@@ -66,13 +66,13 @@ Commands issued for beacons can be viewed using `tasks`, the task state will ind
 {"src": "/asciinema/beacon_tasks.cast", "cols": "132", "rows": "14", "idleTimeLimit": 8}
 ```
 
-Session can be spun up using the `interactive` command.
+Session can be spun up in our beacon process using the `interactive` command. Under the hood this will spawn a goroutine running session connection loop in the same beacon process.
 
 ```asciinema
 {"src": "/asciinema/beacon_interractive.cast", "cols": "132", "rows": "14", "idleTimeLimit": 8}
 ```
 
-Because of the differences between sessions and beacons, certain commands like `upload` or `download` are slower on beacons due to the callback time. Others such as socks5 are not supported and only allowed for sessions. As a rule of thumb anything requiring higher network bandwidth should be run from a session.
+Because of the differences between sessions and beacons, certain commands like `upload` or `download` are slower on beacons due to the callback time. Others such as socks5 are only supported for sessions. As a rule of thumb anything requiring higher network bandwidth should be run from a session.
 
 Let’s switch to our newly created session and spin-up a `socks5` proxy.
 
@@ -91,4 +91,4 @@ Let’s switch to our newly created session and spin-up a `socks5` proxy.
 
 You can then point your browser to port 1081 to tunnel traffic through the implant to your target’s local network.
 
-Try out some of the previous commands and compare behaviour on beacons and sessions. Once you are done, you should remember to close your session using the `close` command.
+Try out some of the previous commands and compare behaviour on beacons and sessions. Once you are done, you should remember to close your session thread using the `close` command.
