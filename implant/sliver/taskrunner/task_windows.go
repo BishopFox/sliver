@@ -144,13 +144,7 @@ func RemoteTask(processID int, data []byte, rwxPages bool) error {
 	if processHandle == 0 {
 		return err
 	}
-	currentProcHandle, err := windows.GetCurrentProcess()
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Println("GetCurrentProcess failed")
-		// {{end}}
-		return err
-	}
+	currentProcHandle := windows.CurrentProcess()
 	err = windows.DuplicateHandle(processHandle, currentProcHandle, currentProcHandle, &lpTargetHandle, 0, false, syscalls.DUPLICATE_SAME_ACCESS)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -314,13 +308,8 @@ func ExecuteAssembly(data []byte, process string, processArgs []string, ppid uin
 	}
 	defer windows.CloseHandle(handle)
 	defer windows.CloseHandle(lpTargetHandle)
-	currentProcHandle, err := windows.GetCurrentProcess()
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Println("GetCurrentProcess failed")
-		// {{end}}
-		return "", err
-	}
+	currentProcHandle := windows.CurrentProcess()
+
 	err = windows.DuplicateHandle(handle, currentProcHandle, currentProcHandle, &lpTargetHandle, 0, false, syscalls.DUPLICATE_SAME_ACCESS)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -366,13 +355,7 @@ func SpawnDll(procName string, processArgs []string, ppid uint32, data []byte, o
 	if err != nil {
 		return "", err
 	}
-	currentProcHandle, err := windows.GetCurrentProcess()
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Println("GetCurrentProcess failed")
-		// {{end}}
-		return "", err
-	}
+	currentProcHandle := windows.CurrentProcess()
 	err = windows.DuplicateHandle(handle, currentProcHandle, currentProcHandle, &lpTargetHandle, 0, false, syscalls.DUPLICATE_SAME_ACCESS)
 	if err != nil {
 		// {{if .Config.Debug}}

@@ -488,6 +488,7 @@ func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 		ObfuscateSymbols:  false,
 		Format:            clientpb.OutputFormat_SHARED_LIB,
 		IsSharedLib:       true,
+		Exports:           []string{"StartW"},
 		WGPeerTunIP:       "100.64.0.2",
 		WGKeyExchangePort: 1234,
 		WGTcpCommsPort:    5678,

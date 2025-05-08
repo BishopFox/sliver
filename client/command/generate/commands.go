@@ -309,7 +309,7 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 		f.BoolP("evasion", "e", false, "enable evasion features (e.g. overwrite user space hooks)")
 		f.BoolP("skip-symbols", "l", false, "skip symbol obfuscation")
 		f.BoolP("disable-sgn", "G", false, "disable shikata ga nai shellcode encoder")
-
+		f.StringP("exports", "v", "StartW,VoidFunc,DllInstall,DllRegisterServer,DllUnregisterServer", "comma separated list of exports to include in the binary")
 		f.StringP("canary", "c", "", "canary domain(s)")
 
 		// C2 channels

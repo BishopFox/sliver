@@ -290,6 +290,8 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 	isShellcode := false
 	sgnEnabled := false
 
+	var exports []string
+
 	format, _ := cmd.Flags().GetString("format")
 	runAtLoad := false
 	var configFormat clientpb.OutputFormat
@@ -300,6 +302,13 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		configFormat = clientpb.OutputFormat_SHARED_LIB
 		isSharedLib = true
 		runAtLoad, _ = cmd.Flags().GetBool("run-at-load")
+		exportsArg, _ := cmd.Flags().GetString("exports")
+		if exportsArg == "" {
+			con.PrintErrorf("Shared libraries need at least one export\n")
+			return "", nil
+		} else {
+			exports = strings.Split(exportsArg, ",")
+		}
 	case "shellcode":
 		configFormat = clientpb.OutputFormat_SHELLCODE
 		isShellcode = true
@@ -364,6 +373,8 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		c2Profile = consts.DefaultC2Profile
 	}
 
+	// exports if its a shared library
+
 	config := &clientpb.ImplantConfig{
 		GOOS:             targetOS,
 		GOARCH:           targetArch,
@@ -395,6 +406,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		IsSharedLib: isSharedLib,
 		IsService:   isService,
 		IsShellcode: isShellcode,
+		Exports:     exports,
 
 		RunAtLoad:              runAtLoad,
 		NetGoEnabled:           netGo,

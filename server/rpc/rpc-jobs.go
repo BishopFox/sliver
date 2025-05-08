@@ -129,7 +129,7 @@ func (rpc *Server) StartMTLSListener(ctx context.Context, req *clientpb.MTLSList
 		Type:     constants.MtlsStr,
 		MTLSConf: req,
 	}
-	err = db.SaveHTTPC2Listener(listenerJob)
+	err = db.SaveC2Listener(listenerJob)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func (rpc *Server) StartWGListener(ctx context.Context, req *clientpb.WGListener
 		Type:   constants.WGStr,
 		WGConf: req,
 	}
-	err = db.SaveHTTPC2Listener(listenerJob)
+	err = db.SaveC2Listener(listenerJob)
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +205,7 @@ func (rpc *Server) StartDNSListener(ctx context.Context, req *clientpb.DNSListen
 		Type:    constants.DnsStr,
 		DNSConf: req,
 	}
-	err = db.SaveHTTPC2Listener(listenerJob)
+	err = db.SaveC2Listener(listenerJob)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +237,7 @@ func (rpc *Server) StartHTTPSListener(ctx context.Context, req *clientpb.HTTPLis
 		Type:     constants.HttpsStr,
 		HTTPConf: req,
 	}
-	err = db.SaveHTTPC2Listener(listenerJob)
+	err = db.SaveC2Listener(listenerJob)
 	if err != nil {
 		return nil, err
 	}
@@ -269,7 +269,7 @@ func (rpc *Server) StartHTTPListener(ctx context.Context, req *clientpb.HTTPList
 		Type:     constants.HttpStr,
 		HTTPConf: req,
 	}
-	err = db.SaveHTTPC2Listener(listenerJob)
+	err = db.SaveC2Listener(listenerJob)
 	if err != nil {
 		return nil, err
 	}
