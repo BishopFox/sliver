@@ -91,6 +91,10 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		config.IncludeTCP = models.IsC2Enabled([]string{"tcppivot"}, config.C2)
 	}
 
+	if len(config.Exports) == 0 {
+		config.Exports = []string{"StartW"}
+	}
+
 	// generate config
 	build, err := generate.GenerateConfig(name, config)
 	if err != nil {
