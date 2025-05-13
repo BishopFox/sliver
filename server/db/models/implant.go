@@ -20,6 +20,7 @@ package models
 
 import (
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -167,6 +168,7 @@ type ImplantConfig struct {
 	MaxConnectionErrors uint32
 	ConnectionStrategy  string
 	SGNEnabled          bool
+	Exports             string
 
 	// WireGuard
 	WGPeerTunIP       string
@@ -285,6 +287,7 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		IncludeWG:       ic.IncludeWG,
 		IncludeTCP:      ic.IncludeTCP,
 		Extension:       ic.Extension,
+		Exports:         strings.Split(ic.Exports, ","),
 	}
 
 	if ic.ImplantProfileID != nil {
@@ -495,6 +498,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.IsShellcode = pbConfig.IsShellcode
 	cfg.RunAtLoad = pbConfig.RunAtLoad
 	cfg.DebugFile = pbConfig.DebugFile
+	cfg.Exports = strings.Join(pbConfig.Exports, ",")
 
 	cfg.HttpC2ConfigName = pbConfig.HTTPC2ConfigName
 	cfg.NetGoEnabled = pbConfig.NetGoEnabled
