@@ -291,6 +291,13 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 	sgnEnabled := false
 
 	var exports []string
+	exportsArg, _ := cmd.Flags().GetString("exports")
+	if exportsArg == "" {
+		con.PrintErrorf("Shared libraries need at least one export\n")
+		return "", nil
+	} else {
+		exports = strings.Split(exportsArg, ",")
+	}
 
 	format, _ := cmd.Flags().GetString("format")
 	runAtLoad := false
@@ -302,13 +309,6 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		configFormat = clientpb.OutputFormat_SHARED_LIB
 		isSharedLib = true
 		runAtLoad, _ = cmd.Flags().GetBool("run-at-load")
-		exportsArg, _ := cmd.Flags().GetString("exports")
-		if exportsArg == "" {
-			con.PrintErrorf("Shared libraries need at least one export\n")
-			return "", nil
-		} else {
-			exports = strings.Split(exportsArg, ",")
-		}
 	case "shellcode":
 		configFormat = clientpb.OutputFormat_SHELLCODE
 		isShellcode = true

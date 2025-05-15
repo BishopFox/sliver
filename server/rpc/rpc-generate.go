@@ -709,6 +709,10 @@ func (rpc *Server) GenerateStage(ctx context.Context, req *clientpb.GenerateStag
 		return nil, err
 	}
 
+	if len(profile.Config.Exports) == 0 {
+		profile.Config.Exports = []string{"StartW"}
+	}
+
 	// generate config
 	build, err := generate.GenerateConfig(name, profile.Config)
 	if err != nil {
