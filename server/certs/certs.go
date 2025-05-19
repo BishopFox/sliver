@@ -135,7 +135,8 @@ func RemoveCertificate(caType string, keyType string, commonName string) error {
 // GenerateECCCertificate - Generate a TLS certificate with the given parameters
 // We choose some reasonable defaults like Curve, Key Size, ValidFor, etc.
 // Returns two strings `cert` and `key` (PEM Encoded).
-func GenerateECCCertificate(caType string, commonName string, isCA bool, isClient bool) ([]byte, []byte) {
+//func GenerateECCCertificate(caType string, commonName string, isCA bool, isClient bool) ([]byte, []byte) {
+func GenerateECCCertificate(caType string, commonName string, isCA bool, isClient bool, isOperator bool) ([]byte, []byte) {
 
 	certsLog.Infof("Generating TLS certificate (ECC) for '%s' ...", commonName)
 
@@ -143,7 +144,14 @@ func GenerateECCCertificate(caType string, commonName string, isCA bool, isClien
 	var err error
 
 	// Generate private key
-	curves := []elliptic.Curve{elliptic.P521(), elliptic.P384(), elliptic.P256()}
+	//curves := []elliptic.Curve{elliptic.P521(), elliptic.P384(), elliptic.P256()}
+	var curves []elliptic.Curve
+	if isOperator {
+		curves = []elliptic.Curve{elliptic.P256()}
+	} else {
+		curves = []elliptic.Curve{elliptic.P521(), elliptic.P384(), elliptic.P256()}
+	}
+
 	curve := curves[randomInt(len(curves))]
 	privateKey, err = ecdsa.GenerateKey(curve, rand.Reader)
 	if err != nil {

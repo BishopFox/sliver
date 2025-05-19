@@ -37,7 +37,8 @@ const (
 
 // OperatorClientGenerateCertificate - Generate a certificate signed with a given CA
 func OperatorClientGenerateCertificate(operator string) ([]byte, []byte, error) {
-	cert, key := GenerateECCCertificate(OperatorCA, operator, false, true)
+	//cert, key := GenerateECCCertificate(OperatorCA, operator, false, true)
+	cert, key := GenerateECCCertificate(OperatorCA, operator, false, true, true)
 	err := saveCertificate(OperatorCA, ECCKey, fmt.Sprintf("%s.%s", clientNamespace, operator), cert, key)
 	return cert, key, err
 }
@@ -59,7 +60,8 @@ func OperatorServerGetCertificate(hostname string) ([]byte, []byte, error) {
 
 // OperatorServerGenerateCertificate - Generate a certificate signed with a given CA
 func OperatorServerGenerateCertificate(hostname string) ([]byte, []byte, error) {
-	cert, key := GenerateECCCertificate(OperatorCA, hostname, false, false)
+	//cert, key := GenerateECCCertificate(OperatorCA, hostname, false, false)
+	cert, key := GenerateECCCertificate(OperatorCA, hostname, false, false, true)
 	err := saveCertificate(OperatorCA, ECCKey, fmt.Sprintf("%s.%s", serverNamespace, hostname), cert, key)
 	return cert, key, err
 }
