@@ -26,7 +26,6 @@ const (
 
 // MtlsC2ServerGenerateECCCertificate - Generate a server certificate signed with a given CA
 func MtlsC2ServerGenerateECCCertificate(host string) ([]byte, []byte, error) {
-	//cert, key := GenerateECCCertificate(MtlsServerCA, host, false, false)
 	cert, key := GenerateECCCertificate(MtlsServerCA, host, false, false, false)
 	err := saveCertificate(MtlsServerCA, ECCKey, host, cert, key)
 	return cert, key, err
@@ -34,7 +33,6 @@ func MtlsC2ServerGenerateECCCertificate(host string) ([]byte, []byte, error) {
 
 // MtlsC2ImplantGenerateECCCertificate - Generate a server certificate signed with a given CA
 func MtlsC2ImplantGenerateECCCertificate(name string) ([]byte, []byte, error) {
-	//cert, key := GenerateECCCertificate(MtlsImplantCA, name, false, true)
 	cert, key := GenerateECCCertificate(MtlsImplantCA, name, false, true, false)
 	err := saveCertificate(MtlsImplantCA, ECCKey, name, cert, key)
 	return cert, key, err

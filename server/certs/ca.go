@@ -60,7 +60,6 @@ func GenerateCertificateAuthority(caType string, commonName string) (*x509.Certi
 	certFilePath := filepath.Join(storageDir, fmt.Sprintf("%s-ca-cert.pem", caType))
 	if _, err := os.Stat(certFilePath); os.IsNotExist(err) {
 		certsLog.Infof("Generating certificate authority for '%s'", caType)
-		//cert, key := GenerateECCCertificate(caType, commonName, true, false)
 		cert, key := GenerateECCCertificate(caType, commonName, true, false, false)
 		SaveCertificateAuthority(caType, cert, key)
 	}
