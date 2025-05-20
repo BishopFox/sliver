@@ -36,7 +36,7 @@ func TestRootOnlyVerifyCertificate(t *testing.T) {
 	}
 
 	// Test with wrong CA
-	wrongCert, _ := certs.GenerateECCCertificate(certs.HTTPSCA, "foobar", false, false)
+	wrongCert, _ := certs.GenerateECCCertificate(certs.HTTPSCA, "foobar", false, false, false)
 	block, _ = pem.Decode(wrongCert)
 	err = clienttransport.RootOnlyVerifyCertificate(config.CACertificate, [][]byte{block.Bytes})
 	if err == nil {
