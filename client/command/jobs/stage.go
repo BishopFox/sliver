@@ -44,6 +44,7 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	listenerURL := ctx.Flags.String("url")
 	aesEncryptKey := ctx.Flags.String("aes-encrypt-key")
 	aesEncryptIv := ctx.Flags.String("aes-encrypt-iv")
+	rc4EncryptKey := ctx.Flags.String("rc4-encrypt-key")
 	prependSize := ctx.Flags.Bool("prepend-size")
 	compress := strings.ToLower(ctx.Flags.String("compress"))
 
@@ -68,6 +69,21 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if profile == nil {
 		con.PrintErrorf("Profile not found\n")
 		return
+	}
+
+	if rc4EncryptKey != "" && aesEncryptKey != "" {
+		con.PrintErrorf("Cannot use both RC4 and AES encryption\n")
+		return
+	}
+
+	rc4Encrypt := false
+	if rc4EncryptKey != "" {
+		// RC4 keysize can be between 1 to 256 bytes
+		if len(rc4EncryptKey) < 1 || len(rc4EncryptKey) > 256 {
+			con.PrintErrorf("Incorrect length of RC4 Key\n")
+			return
+		}
+		rc4Encrypt = true
 	}
 
 	aesEncrypt := false
@@ -119,6 +135,10 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 		// but it's also useful here as more advanced cipher modes are often difficult to implement in
 		// a stager.
 		stage2 = util.PreludeEncrypt(stage2, []byte(aesEncryptKey), []byte(aesEncryptIv))
+	}
+
+	if rc4Encrypt {
+		stage2 = util.RC4EncryptUnsafe(stage2, []byte(rc4EncryptKey))
 	}
 
 	switch stagingURL.Scheme {
@@ -202,6 +222,10 @@ func StageListenerCmd(ctx *grumble.Context, con *console.SliverConsoleClient) {
 	if aesEncrypt {
 		con.PrintInfof("AES KEY: %v\n", aesEncryptKey)
 		con.PrintInfof("AES IV: %v\n", aesEncryptIv)
+	}
+
+	if rc4Encrypt {
+		con.PrintInfof("RC4 KEY: %v\n", rc4EncryptKey)
 	}
 }
 

@@ -22,9 +22,23 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/rc4"
 	"errors"
 	"io"
 )
+
+// RC4 encryption - Cryptographically insecure!
+// Added for stage-listener shellcode obfuscation
+// Dont use for anything else!
+func RC4EncryptUnsafe(data []byte, key []byte) []byte {
+	cipher, err := rc4.NewCipher(key)
+	if err != nil {
+		return make([]byte, 0)
+	}
+	cipherText := make([]byte, len(data))
+	cipher.XORKeyStream(cipherText, data)
+	return cipherText
+}
 
 // PreludeEncrypt the results
 func PreludeEncrypt(data []byte, key []byte, iv []byte) []byte {
