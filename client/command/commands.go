@@ -484,6 +484,7 @@ func BindCommands(con *console.SliverConsoleClient) {
 			f.Bool("e", "lets-encrypt", false, "attempt to provision a let's encrypt certificate (HTTPS only)")
 			f.StringL("aes-encrypt-key", "", "encrypt stage with AES encryption key")
 			f.StringL("aes-encrypt-iv", "", "encrypt stage with AES encryption iv")
+			f.StringL("rc4-encrypt-key", "", "encrypt stage with RC4 encryption key")
 			f.String("C", "compress", "none", "compress the stage before encrypting (zlib, gzip, deflate9, none)")
 			f.Bool("P", "prepend-size", false, "prepend the size of the stage to the payload (to use with MSF stagers)")
 		},
