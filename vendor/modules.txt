@@ -374,7 +374,7 @@ github.com/google/nftables/xt
 # github.com/google/uuid v1.6.0
 ## explicit
 github.com/google/uuid
-# github.com/gorilla/csrf v1.7.2
+# github.com/gorilla/csrf v1.7.3
 ## explicit; go 1.20
 github.com/gorilla/csrf
 # github.com/gorilla/mux v1.8.1
