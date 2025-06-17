@@ -45,6 +45,7 @@ func C2Generator(abort <-chan struct{}, temporaryC2 ...string) <-chan *url.URL {
 	// Any temporary C2 servers that are defined will override what is configured in the implant
 	if len(temporaryC2) > 0 {
 		for _, c2 := range temporaryC2 {
+			c2 := c2
 			c2Servers = append(c2Servers, func() string {
 				return c2
 			})
