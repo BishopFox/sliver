@@ -51,12 +51,22 @@ func SelectBeaconTask(tasks []*clientpb.BeaconTask) (*clientpb.BeaconTask, error
 // BeaconTaskIDCompleter returns a structured list of tasks completions, grouped by state.
 func BeaconTaskIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(ctx carapace.Context) carapace.Action {
+		id := ""
 		beacon := con.ActiveTarget.GetBeacon()
-		if beacon == nil {
-			return carapace.ActionMessage("no active beacon")
+		if beacon != nil {
+			id = beacon.ID
+		} else {
+			session := con.ActiveTarget.GetSession()
+			if session != nil {
+				id = session.ID
+			}
 		}
 
-		beaconTasks, err := con.Rpc.GetBeaconTasks(context.Background(), &clientpb.Beacon{ID: beacon.ID})
+		if id == "" {
+			return carapace.ActionMessage("no active beacon or session")
+		}
+
+		beaconTasks, err := con.Rpc.GetBeaconTasks(context.Background(), &clientpb.Beacon{ID: id})
 		if err != nil {
 			return carapace.ActionMessage("Failed to fetch tasks: %s", err.Error())
 		}
