@@ -21,9 +21,11 @@ var readlineOptions = map[string]interface{}{
 	"completion-selection-style": "\x1b[1;30m",
 
 	// Prompt & General UI
-	"transient-prompt":    false,
-	"usage-hint-always":   false,
-	"history-autosuggest": false,
+	"transient-prompt":          false,
+	"usage-hint-always":         false,
+	"history-autosuggest":       false,
+	"multiline-column":          true,
+	"multiline-column-numbered": false,
 }
 
 // ReloadConfig parses all valid .inputrc configurations and immediately

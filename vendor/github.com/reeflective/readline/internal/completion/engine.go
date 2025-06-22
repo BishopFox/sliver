@@ -105,6 +105,13 @@ func (e *Engine) GenerateWith(completer Completer) {
 	e.Generate(e.cached())
 }
 
+// GenerateCached simply recomputes the grid of completions with the pool
+// of completions already in memory. This might produce a bigger/smaller/
+// different completion grid, for example if it's called on terminal resize.
+func (e *Engine) GenerateCached() {
+	e.GenerateWith(e.cached)
+}
+
 // SkipDisplay avoids printing completions below the
 // input line, but still enables cycling through them.
 func (e *Engine) SkipDisplay() {
