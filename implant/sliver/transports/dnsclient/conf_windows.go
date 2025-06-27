@@ -32,6 +32,7 @@ package dnsclient
 */
 
 import (
+	"fmt"
 	"strings"
 	"unsafe"
 
@@ -46,35 +47,50 @@ import (
 // dnsClientConfig - returns all DNS server addresses associated with the given address
 // using various windows fuckery.
 func dnsClientConfig() (*dns.ClientConfig, error) {
-	l := uint32(20000)
+	l := uint32(1000000)
 	b := make([]byte, l)
 
 	// Windows is an utter fucking trash fire of an operating system.
 	if err := windows.GetAdaptersAddresses(windows.AF_UNSPEC, windows.GAA_FLAG_INCLUDE_PREFIX, 0, (*windows.IpAdapterAddresses)(unsafe.Pointer(&b[0])), &l); err != nil {
+		log.Printf("[dns] error getting Windows network adapter addresses: %v. If the error message is 'The file name is too long', this indicates a buffer overflow due to the data exceeding the size of the buffer allocated in the dnsClientConfig function of sliver/implant/sliver/transports/dnsclient/conf_windows.go.", err)
 		return nil, err
 	}
 	var adapters []*windows.IpAdapterAddresses
 	for addr := (*windows.IpAdapterAddresses)(unsafe.Pointer(&b[0])); addr != nil; addr = addr.Next {
 		adapters = append(adapters, addr)
+		adapterName := windows.BytePtrToString(addr.AdapterName)
+		adapterAddressString := ""
+		adapterIPAddress := addr.FirstUnicastAddress.Address.IP()
+		if adapterIPAddress != nil {
+			adapterAddressString = fmt.Sprintf(" with address %s", adapterIPAddress.To16())
+		}
+		log.Printf("[dns] found Windows network adapter '%s'%s", adapterName, adapterAddressString)
 	}
 
 	resolvers := map[string]bool{}
 	for _, adapter := range adapters {
+		adapterName := windows.BytePtrToString(adapter.AdapterName)		
 		if adapter.OperStatus != windows.IfOperStatusUp {
+			log.Printf("[dns] skipping adapter '%s' because it is down", adapterName)
 			continue // Skip down interfaces
 		}
 		for next := adapter.FirstUnicastAddress; next != nil; next = next.Next {
-			if next.Address.IP() != nil {
+			if next.Address.IP() == nil {
+				log.Printf("[dns] skipping adapter '%s' because it has no IP address", adapterName)
+			} else {
 				for dnsServer := adapter.FirstDnsServerAddress; dnsServer != nil; dnsServer = dnsServer.Next {
 					ip := dnsServer.Address.IP()
+					log.Printf("[dns] found DNS server IP address %v for adapter '%s'", ip, adapterName)
 					if ip.IsMulticast() || ip.IsLinkLocalMulticast() || ip.IsLinkLocalUnicast() || ip.IsUnspecified() {
+						log.Printf("[dns] Skipping DNS server IP address %v for adapter '%s' because its type is multicast, link-local unicast, or unspecified", ip, adapterName)
 						continue
 					}
 					if ip.To16() != nil && strings.HasPrefix(ip.To16().String(), "fec0:") {
+						log.Printf("[dns] Skipping DNS server IP address %v for adapter '%s' because its address begins with 'fec0:'", ip, adapterName)
 						continue
 					}
 					// {{if .Config.Debug}}
-					log.Printf("Possible resolver: %v", ip)
+					log.Printf("[dns] Possible resolver: %v", ip)
 					// {{end}}
 					resolvers[ip.String()] = true
 				}
@@ -86,6 +102,7 @@ func dnsClientConfig() (*dns.ClientConfig, error) {
 	// Take unique values only
 	servers := []string{}
 	for server := range resolvers {
+		log.Printf("[dns] Adding DNS server '%s' to the list of resolvers", server)
 		servers = append(servers, server)
 	}
 
