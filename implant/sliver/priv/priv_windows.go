@@ -215,7 +215,7 @@ func impersonateUser(username string) (token windows.Token, err error) {
 	}
 
 	// We do not need full process info here, just PID and executable name
-	p, err := ps.Processes(false)
+	p, err := ps.Processes(true)
 	if err != nil {
 		return
 	}
