@@ -82,7 +82,7 @@ func (r *GenericResolver) A(domain string) ([]byte, time.Duration, error) {
 			break
 		}
 		// {{if .Config.Debug}}
-		log.Printf("[dns] query error: %s (retry wait: %s)", err, r.retryWait)
+		log.Printf("[dns] error retrieving A records for '%s' using a(): %v (retry wait: %s)", domain, err, r.retryWait)
 		// {{end}}
 		time.Sleep(r.retryWait)
 	}
@@ -95,11 +95,12 @@ func (r *GenericResolver) a(domain string) ([]byte, time.Duration, error) {
 	// {{end}}
 	resp, rtt, err := r.localQuery(domain, dns.TypeA)
 	if err != nil {
+		log.Printf("[dns] error retrieving A records using localQuery() for '%s': %v", domain, err)
 		return nil, rtt, err
 	}
 	if resp.Rcode != dns.RcodeSuccess {
 		// {{if .Config.Debug}}
-		log.Printf("[dns] error response status: %v", resp.Rcode)
+		log.Printf("[dns] error response received when attempting to resolve A records for '%s', status: %v", domain, resp.Rcode)
 		// {{end}}
 		return nil, rtt, ErrInvalidRcode
 	}
@@ -127,7 +128,7 @@ func (r *GenericResolver) AAAA(domain string) ([]byte, time.Duration, error) {
 			break
 		}
 		// {{if .Config.Debug}}
-		log.Printf("[dns] query error: %s (retry wait: %s)", err, r.retryWait)
+		log.Printf("[dns] query error when resolving AAAA records for '%s' using aaaa(): %v (retry wait: %s)", domain, err, r.retryWait)
 		// {{end}}
 		time.Sleep(r.retryWait)
 	}
@@ -140,11 +141,12 @@ func (r *GenericResolver) aaaa(domain string) ([]byte, time.Duration, error) {
 	// {{end}}
 	resp, rtt, err := r.localQuery(domain, dns.TypeAAAA)
 	if err != nil {
+		log.Printf("[dns] error retrieving AAAA records using localQuery() for '%s': %v", domain, err)
 		return nil, rtt, err
 	}
 	if resp.Rcode != dns.RcodeSuccess {
 		// {{if .Config.Debug}}
-		log.Printf("[dns] error response status: %v", resp.Rcode)
+		log.Printf("[dns] error response received when attempting to resolve AAAA records for '%s', status: %v", domain, resp.Rcode)
 		// {{end}}
 		return nil, rtt, ErrInvalidRcode
 	}
@@ -208,7 +210,7 @@ func (r *GenericResolver) TXT(domain string) ([]byte, time.Duration, error) {
 			break
 		}
 		// {{if .Config.Debug}}
-		log.Printf("[dns] query error: %s (retry wait: %s)", err, r.retryWait)
+		log.Printf("[dns] error retrieving TXT records using txt() for '%s': %v (retry wait: %s)", domain, err, r.retryWait)
 		// {{end}}
 		time.Sleep(r.retryWait)
 	}
@@ -218,11 +220,12 @@ func (r *GenericResolver) TXT(domain string) ([]byte, time.Duration, error) {
 func (r *GenericResolver) txt(domain string) ([]byte, time.Duration, error) {
 	resp, rtt, err := r.localQuery(domain, dns.TypeTXT)
 	if err != nil {
+		log.Printf("[dns] error retrieving TXT records using localQuery() for '%s': %v", domain, err)
 		return nil, rtt, err
 	}
 	if resp.Rcode != dns.RcodeSuccess {
 		// {{if .Config.Debug}}
-		log.Printf("[dns] error response status: %v", resp.Rcode)
+		log.Printf("[dns] error response received when attempting to resolve TXT records for '%s' using localQuery(), status: %v", domain, resp.Rcode)
 		// {{end}}
 		return nil, rtt, ErrInvalidRcode
 	}
@@ -241,6 +244,10 @@ func (r *GenericResolver) txt(domain string) ([]byte, time.Duration, error) {
 		}
 		if 0 < len(records) {
 			data, err = r.base64.Decode([]byte(records))
+			if err != nil {
+				log.Printf("[dns] error base64-decoding TXT record response: %v", err)
+				return nil, rtt, err
+			}
 		}
 		// {{if .Config.Debug}}
 	} else {
@@ -264,6 +271,7 @@ func (r *GenericResolver) localQuery(qName string, qType uint16) (*dns.Msg, time
 	log.Printf("[dns] rtt->%s %s (err: %v)", r.address, rtt, err)
 	// {{end}}
 	if err != nil {
+		log.Printf("[dns] error resolving '%s': %v", qName, err)
 		return nil, rtt, err
 	}
 	return resp, rtt, nil
