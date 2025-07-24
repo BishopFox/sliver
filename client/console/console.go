@@ -715,6 +715,18 @@ func (s *ActiveTarget) GetBeaconInteractive() *clientpb.Beacon {
 	return s.beacon
 }
 
+// GetSessionOrBeaconInteractive
+func (s *ActiveTarget) GetSessionOrBeaconInteractive() *clientpb.Beacon {
+	if s.beacon != nil {
+		return s.beacon
+	} else if s.session != nil {
+		return &clientpb.Beacon{ID: s.session.ID}
+	} else {
+		fmt.Printf(Warn + "Please select a beacon or session via `use`\n")
+		return nil
+	}
+}
+
 // GetBeacon - Same as GetBeacon() but doesn't print a warning.
 func (s *ActiveTarget) GetBeacon() *clientpb.Beacon {
 	return s.beacon
