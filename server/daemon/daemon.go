@@ -63,7 +63,9 @@ func Start(host string, port uint16, tailscale bool) {
 		_, ln, err = transport.StartMtlsClientListener(host, port)
 	}
 	if err != nil {
-		fmt.Printf("[!] Failed to start daemon %s", err)
+		fmt.Printf("[!] Failed to start daemon %s\n", err)
+		fmt.Printf("[*] If you previously run the multiplayer command, that automatically starts a listener which might conflict with the daemon execution (default port 31337)\n")
+		fmt.Printf("[*] If you want to use the daemon mode kill the multiplayer job and try to start the daemon again.\n")
 		daemonLog.Errorf("Error starting client listener %s", err)
 		os.Exit(1)
 	}
