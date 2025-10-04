@@ -2,6 +2,16 @@
 
 @config "../tailwind.config.js";
 
+:root {
+  --font-mono: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+code,
+pre {
+  font-family: var(--font-mono);
+}
+
 .monospace {
   font-family: "Fira Code", monospace;
 }
