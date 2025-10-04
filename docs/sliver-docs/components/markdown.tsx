@@ -484,15 +484,17 @@ const MarkdownViewer = (props: MarkdownProps) => {
               return <div {...rest}>{children}</div>;
             }
 
+            const textContent = extractText(children);
+
             return (
               <pre
                 {...rest}
                 className={mergeClassNames(
-                  "my-6 overflow-x-auto rounded-xl border border-slate-200 bg-slate-950/90 p-4 text-sm leading-6 text-slate-100 shadow-inner dark:border-slate-800",
+                  "my-6 overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-900 shadow-inner dark:border-slate-800 dark:bg-slate-950/90 dark:text-slate-100",
                   className
                 )}
               >
-                {children}
+                {textContent || children}
               </pre>
             );
           },
