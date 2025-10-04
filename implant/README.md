@@ -1,19 +1,15 @@
-Implant
-=======
+# implant
 
-This directory contains the code for Sliver's implant, implant source code is dynamically
-rendered at runtime via the `generate` command. The code generation inserts the per-binary
-values such as X.509 certificates, etc. and compiles it to produce a binary.
+## Overview
 
-The implant code contains a lot of platform specific code too, which varies the features
-that will be supported on different platforms.
+Top-level tooling for building and maintaining Sliver implant payloads. Provides build pipelines, dependency vendoring, and shared entrypoints. Runtime components handle generate for implant-side implant features.
 
-Platform agnostic code is implemented in `_generic.go` files, and can be compiled for any
-valid Go compiler target but only contains very generic commands/features.
+## Go Files
 
-Development
-===========
+- `generate.go` – Implements top-level implant build wiring invoked from the server/client tooling.
+- `implant.go` – Entry point for compiling implants and exposing shared build helpers.
 
-Before committing any changes to any implant files, run `go generate` in this directory. This
-will ensure the vendor directory is kept up to date so offline implant builds will function
-correctly.
+## Sub-packages
+
+- `scripts/` – Helper scripts and utilities for implant vendor management and automation. Includes tooling for syncing nested vendored dependencies.
+- `sliver/` – Core Go implementation of the Sliver implant runtime and supporting subsystems. Houses communications, task execution, and platform abstraction layers.

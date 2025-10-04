@@ -137,7 +137,7 @@ func (rpc *Server) Backdoor(ctx context.Context, req *clientpb.BackdoorReq) (*cl
 	}
 
 	if upload.Response != nil && upload.Response.Err != "" {
-		return nil, fmt.Errorf(upload.Response.Err)
+		return nil, fmt.Errorf("%s", upload.Response.Err)
 	}
 
 	return resp, nil

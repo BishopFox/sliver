@@ -173,7 +173,7 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 	}
 
 	if upload.Response != nil && upload.Response.Err != "" {
-		return nil, fmt.Errorf(upload.Response.Err)
+		return nil, fmt.Errorf("%s", upload.Response.Err)
 	}
 
 	return resp, nil

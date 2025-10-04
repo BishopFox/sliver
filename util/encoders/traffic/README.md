@@ -1,3 +1,12 @@
-# Traffic Encoder
+# util/encoders/traffic
 
-Traffic encoders are WASM-based callback functions used to encode/decode C2 messages. This package implements the wrapper API around the WASM runtime. Default functions are implemented in `server/assets/traffic-encoders/`.
+## Overview
+
+Traffic encoder interpreter used across server/client. Provides compiler, interpreter, and test helpers for traffic scripts. Utilities focus on compiler, interpreter, testers, and traffic encoder within the traffic package.
+
+## Go Files
+
+- `compiler.go` – Compiles traffic encoder scripts into bytecode.
+- `interpreter.go` – Executes traffic encoder bytecode for transformations.
+- `testers.go` – Provides helpers for testing encoder scripts.
+- `traffic-encoder.go` – High-level API for applying traffic encoders.

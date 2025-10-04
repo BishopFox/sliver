@@ -1,3 +1,9 @@
-# Package watchtower
+# server/watchtower
 
-`watchtower` periodically scans threat intel providers to look for implant hashes.
+## Overview
+
+Watchtower monitoring and background jobs. Runs scheduled tasks, telemetry collection, and alerting hooks.
+
+## Go Files
+
+- `watchtower.go` – Scheduler for periodic watchtower tasks and telemetry collection.

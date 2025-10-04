@@ -34,6 +34,6 @@ func TestGoGoVersion(t *testing.T) {
 	}
 	_, err := GoVersion(winConfig)
 	if err != nil {
-		t.Errorf(fmt.Sprintf("version cmd failed %v", err))
+		t.Errorf("%s", fmt.Sprintf("version cmd failed %v", err))
 	}
 }

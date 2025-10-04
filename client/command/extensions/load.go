@@ -309,7 +309,7 @@ func validManifest(manifest *ExtensionManifest) error {
 // argument specifications.
 func ExtensionRegisterCommand(extCmd *ExtCommand, cmd *cobra.Command, con *console.SliverClient) {
 	if errInvalidArgs := checkExtensionArgs(extCmd); errInvalidArgs != nil {
-		con.PrintErrorf(errInvalidArgs.Error())
+		con.PrintErrorf("%s", errInvalidArgs.Error())
 		return
 	}
 
@@ -685,7 +685,7 @@ func PrintExtOutput(extName string, commandName string, outputSchema *packages.O
 		}
 	}
 	if callExtension.Response != nil && callExtension.Response.Err != "" {
-		con.PrintErrorf(callExtension.Response.Err)
+		con.PrintErrorf("%s", callExtension.Response.Err)
 		return
 	}
 }
@@ -855,7 +855,7 @@ func makeExtensionArgCompleter(extCmd *ExtCommand, _ *cobra.Command, comps *cara
 			usage += " (optional)"
 		}
 
-		actions = append(actions, action.Usage(usage))
+		actions = append(actions, action.Usage("%s", usage))
 	}
 
 	comps.PositionalCompletion(actions...)

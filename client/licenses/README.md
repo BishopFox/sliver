@@ -1,5 +1,9 @@
-Licenses
-=========
+# client/licenses
 
-Copies of OSS licenses to be included in binary distributions.
+## Overview
 
+Holds embedded license metadata bundled with the client distribution. Supplies license retrieval utilities used for attribution commands.
+
+## Go Files
+
+- `licenses.go` – Provides accessors for embedded OSS license text and metadata.
