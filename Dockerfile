@@ -22,10 +22,6 @@ RUN mkdir -p /home/sliver/ && chown -R sliver:sliver /home/sliver
 ### Build sliver:
 RUN mkdir -p /go/src/github.com/bishopfox/sliver
 WORKDIR /go/src/github.com/bishopfox/sliver
-ADD go-assets.sh /go/src/github.com/bishopfox/sliver/
-RUN ./go-assets.sh \
-	&& touch ./.downloaded_assets
-
 ADD . /go/src/github.com/bishopfox/sliver/
 RUN make
 RUN cp -vv sliver-server /opt/sliver-server 
