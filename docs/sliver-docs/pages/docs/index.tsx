@@ -90,7 +90,7 @@ const DocsIndexPage: NextPage = () => {
           />
         </div>
         <div className="mt-2">
-          <ScrollShadow className="max-h-[70vh] sliver-scrollbar overflow-y-auto pr-1">
+          <ScrollShadow className="max-h-[70vh] sliver-scrollbar overflow-y-auto pr-1 rounded-medium">
             <Listbox
               aria-label="Toolbox Menu"
               className={listboxClasses}
