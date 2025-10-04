@@ -131,23 +131,23 @@ func VenomPayload(config VenomConfig) ([]byte, error) {
 	}
 	// OS
 	if _, ok := validPayloads[config.Os]; !ok {
-		return nil, fmt.Errorf(fmt.Sprintf("Invalid operating system: %s", config.Os))
+		return nil, fmt.Errorf("%s", fmt.Sprintf("Invalid operating system: %s", config.Os))
 	}
 	// Arch
 	if _, ok := ValidArches[config.Arch]; !ok {
-		return nil, fmt.Errorf(fmt.Sprintf("Invalid arch: %s", config.Arch))
+		return nil, fmt.Errorf("%s", fmt.Sprintf("Invalid arch: %s", config.Arch))
 	}
 	// Payload
 	if _, ok := validPayloads[config.Os][config.Payload]; !ok {
-		return nil, fmt.Errorf(fmt.Sprintf("Invalid payload: %s", config.Payload))
+		return nil, fmt.Errorf("%s", fmt.Sprintf("Invalid payload: %s", config.Payload))
 	}
 	// Encoder
 	if _, ok := ValidEncoders[config.Encoder]; !ok {
-		return nil, fmt.Errorf(fmt.Sprintf("Invalid encoder: %s", config.Encoder))
+		return nil, fmt.Errorf("%s", fmt.Sprintf("Invalid encoder: %s", config.Encoder))
 	}
 	// Check format
 	if _, ok := validFormats[config.Format]; !ok {
-		return nil, fmt.Errorf(fmt.Sprintf("Invalid format: %s", config.Format))
+		return nil, fmt.Errorf("%s", fmt.Sprintf("Invalid format: %s", config.Format))
 	}
 
 	target := config.Os
