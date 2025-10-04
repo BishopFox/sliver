@@ -7,6 +7,7 @@ import {
   ComponentPropsWithoutRef,
   ReactNode,
   createElement,
+  isValidElement,
   useCallback,
   useEffect,
   useMemo,
@@ -52,8 +53,9 @@ const extractText = (node: ReactNode): string => {
   if (Array.isArray(node)) {
     return node.map(extractText).join("");
   }
-  if (typeof node === "object" && "props" in (node as Record<string, unknown>)) {
-    return extractText((node as any).props?.children);
+  if (isValidElement(node)) {
+    const { children } = node.props as { children?: ReactNode };
+    return extractText(children);
   }
   return "";
 };
@@ -112,7 +114,7 @@ const MarkdownViewer = (props: MarkdownProps) => {
         }
 
         const anchor = anchorRef.current;
-        const HeadingTag = `h${level}` as keyof JSX.IntrinsicElements;
+        const HeadingTag = `h${level}`;
 
         return createElement(
           HeadingTag,
