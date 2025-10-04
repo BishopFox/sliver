@@ -78,6 +78,24 @@ func (con *SliverClient) logCommand(args []string) ([]string, error) {
 		return args, nil
 	}
 	logger := slog.New(con.jsonHandler).With(slog.String("type", "command"))
+
+	// Attach active target context if available
+	if session:= con.ActiveTarget.GetSession(); session != nil {
+		logger = logger.With(
+			slog.String("id", session.ID),
+			slog.String("name", session.Name),
+			slog.String("hostname", session.Hostname),
+			slog.String("username", session.Username),			
+		)
+	} else if beacon := con.ActiveTarget.GetBeacon(); beacon != nil {
+		logger = logger.With(
+			slog.String("id", beacon.ID),
+			slog.String("name", beacon.Name),			
+			slog.String("hostname", beacon.Hostname),
+			slog.String("username", beacon.Username),
+		)
+	}
+	
 	logger.Debug(strings.Join(args, " "))
 	return args, nil
 }
