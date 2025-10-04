@@ -65,7 +65,7 @@ const DocsIndexPage: NextPage = () => {
     if (theme === Themes.DARK) {
       return "p-0 gap-0 divide-y divide-default-300/50 dark:divide-default-100/80 bg-content1 overflow-visible shadow-small rounded-medium";
     } else {
-      return "border p-0 gap-0 divide-y divide-default-300/50 dark:divide-default-100/80 bg-content1 overflow-visible shadow-small rounded-medium";
+      return "p-0 gap-0 divide-y divide-default-300/50 dark:divide-default-100/80 bg-content1 overflow-visible rounded-medium";
     }
   }, [theme]);
 
@@ -90,30 +90,28 @@ const DocsIndexPage: NextPage = () => {
           />
         </div>
         <div className="mt-2">
-          <ScrollShadow>
-            <div className="max-h-[70vh]">
-              <Listbox
-                aria-label="Toolbox Menu"
-                className={listboxClasses}
-                itemClasses={{
-                  base: "px-3 first:rounded-t-medium last:rounded-b-medium rounded-none gap-3 h-12 data-[hover=true]:bg-default-100/80",
-                }}
-              >
-                {visibleDocs.map((doc) => (
-                  <ListboxItem
-                    key={doc.name}
-                    onClick={() => {
-                      router.push({
-                        pathname: "/docs",
-                        query: { name: doc.name },
-                      });
-                    }}
-                  >
-                    {doc.name}
-                  </ListboxItem>
-                ))}
-              </Listbox>
-            </div>
+          <ScrollShadow className="max-h-[70vh] sliver-scrollbar overflow-y-auto pr-1">
+            <Listbox
+              aria-label="Toolbox Menu"
+              className={listboxClasses}
+              itemClasses={{
+                base: "px-3 first:rounded-t-medium last:rounded-b-medium rounded-none gap-3 h-12 data-[hover=true]:bg-default-100/80",
+              }}
+            >
+              {visibleDocs.map((doc) => (
+                <ListboxItem
+                  key={doc.name}
+                  onClick={() => {
+                    router.push({
+                      pathname: "/docs",
+                      query: { name: doc.name },
+                    });
+                  }}
+                >
+                  {doc.name}
+                </ListboxItem>
+              ))}
+            </Listbox>
           </ScrollShadow>
         </div>
       </div>
