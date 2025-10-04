@@ -12,7 +12,7 @@ import {
   Listbox,
   ListboxItem,
   ScrollShadow,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import { useQuery } from "@tanstack/react-query";
 import Fuse from "fuse.js";
 import { NextPage } from "next";
@@ -102,7 +102,6 @@ const DocsIndexPage: NextPage = () => {
                 {visibleDocs.map((doc) => (
                   <ListboxItem
                     key={doc.name}
-                    value={doc.name}
                     onClick={() => {
                       router.push({
                         pathname: "/docs",

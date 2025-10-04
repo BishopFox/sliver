@@ -105,11 +105,12 @@ const MarkdownViewer = (props: MarkdownProps) => {
 
           img(props) {
             const { src, alt, ...rest } = props;
+            const imageSrc = typeof src === "string" ? src : "";
             return (
               // @ts-ignore
               <Image
                 {...rest}
-                src={src || ""}
+                src={imageSrc}
                 alt={alt || ""}
                 width={500}
                 height={500}
