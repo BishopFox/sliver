@@ -78,7 +78,7 @@ const DocsIndexPage: NextPage = () => {
       <Head>
         <title>Sliver Docs: {name}</title>
       </Head>
-      <div className="col-span-3 mt-4 ml-4 h-screen sticky top-20">
+      <div className="col-span-3 mt-4 ml-4 sticky top-20">
         <div className="flex flex-row justify-center text-lg gap-2">
           <Input
             placeholder="Filter..."
