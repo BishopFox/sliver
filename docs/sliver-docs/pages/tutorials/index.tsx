@@ -63,9 +63,9 @@ const TutorialsIndexPage: NextPage = () => {
 
   const listboxClasses = React.useMemo(() => {
     if (theme === Themes.DARK) {
-      return "p-0 gap-0 divide-y divide-default-300/50 dark:divide-default-100/80 bg-content1 overflow-visible shadow-small rounded-medium";
+      return "p-0 gap-0 divide-y divide-default-300/50 dark:divide-default-100/80 bg-content1 overflow-visible shadow-small rounded-large";
     } else {
-      return "p-0 gap-0 divide-y divide-default-300/50 dark:divide-default-100/80 bg-content1 overflow-visible rounded-medium";
+      return "p-0 gap-0 divide-y divide-default-300/50 dark:divide-default-100/80 bg-content1 overflow-visible rounded-large";
     }
   }, [theme]);
 
@@ -78,7 +78,7 @@ const TutorialsIndexPage: NextPage = () => {
       <Head>
         <title>Sliver Tutorial: {name}</title>
       </Head>
-      <div className="col-span-3 mt-4 ml-4 sticky top-20">
+      <div className="col-span-3 mt-4 ml-4 self-start sticky top-20">
         <div className="flex flex-row justify-center text-lg gap-2">
           <Input
             placeholder="Filter..."
@@ -90,12 +90,12 @@ const TutorialsIndexPage: NextPage = () => {
           />
         </div>
         <div className="mt-2">
-          <ScrollShadow className="max-h-[70vh] sliver-scrollbar overflow-y-auto pr-1 rounded-medium">
+          <ScrollShadow className="max-h-[calc(100vh-6rem)] sliver-scrollbar overflow-y-auto pr-1 rounded-large">
             <Listbox
               aria-label="Toolbox Menu"
               className={listboxClasses}
               itemClasses={{
-                base: "px-3 first:rounded-t-medium last:rounded-b-medium rounded-none gap-3 h-12 data-[hover=true]:bg-default-100/80",
+                base: "px-3 first:rounded-t-large last:rounded-b-large rounded-none gap-3 h-12 data-[hover=true]:bg-default-100/80",
               }}
             >
               {visibleTutorials.map((tutorial) => (
