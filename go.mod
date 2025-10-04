@@ -1,8 +1,6 @@
 module github.com/bishopfox/sliver
 
-go 1.22.0
-
-toolchain go1.22.2
+go 1.24.0
 
 replace github.com/rsteube/carapace v0.36.3 => github.com/reeflective/carapace v0.46.3-0.20231214181515-27e49f3c3b69
 

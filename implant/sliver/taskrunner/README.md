@@ -1,5 +1,13 @@
-Task Runner
-============
+# implant/sliver/taskrunner
 
-This package is the shellcode executors, we just call them "tasks" just in case something leaks through the obfuscator. It has nothing to do with other "tasks" in Sliver, e..g. BeaconTasks
+## Overview
 
+Task scheduler running queued implant jobs. Controls execution order, retries, and task telemetry. Runtime components handle dotnet windows, task, task darwin, and task linux for implant-side taskrunner features.
+
+## Go Files
+
+- `dotnet_windows.go`
+- `task.go`
+- `task_darwin.go`
+- `task_linux.go`
+- `task_windows.go`

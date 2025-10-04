@@ -1,100 +1,38 @@
-# pty
+# implant/sliver/shell/pty
 
-Pty is a Go package for using unix pseudo-terminals.
+## Overview
 
-## Install
+Pseudo-terminal management for implant shells. Handles PTY allocation, resizing, and IO forwarding. Runtime components handle ioctl, ioctl BSD, ioctl darwin, and PTY darwin for implant-side pty features.
 
-    go get github.com/kr/pty
+## Go Files
 
-## Example
-
-### Command
-
-```go
-package main
-
-import (
-	"github.com/kr/pty"
-	"io"
-	"os"
-	"os/exec"
-)
-
-func main() {
-	c := exec.Command("grep", "--color=auto", "bar")
-	f, err := pty.Start(c)
-	if err != nil {
-		panic(err)
-	}
-
-	go func() {
-		f.Write([]byte("foo\n"))
-		f.Write([]byte("bar\n"))
-		f.Write([]byte("baz\n"))
-		f.Write([]byte{4}) // EOT
-	}()
-	io.Copy(os.Stdout, f)
-}
-```
-
-### Shell
-
-```go
-package main
-
-import (
-        "io"
-        "log"
-        "os"
-        "os/exec"
-        "os/signal"
-        "syscall"
-
-        "github.com/kr/pty"
-        "golang.org/x/crypto/ssh/terminal"
-)
-
-func test() error {
-        // Create arbitrary command.
-        c := exec.Command("bash")
-
-        // Start the command with a pty.
-        ptmx, err := pty.Start(c)
-        if err != nil {
-                return err
-        }
-        // Make sure to close the pty at the end.
-        defer func() { _ = ptmx.Close() }() // Best effort.
-
-        // Handle pty size.
-        ch := make(chan os.Signal, 1)
-        signal.Notify(ch, syscall.SIGWINCH)
-        go func() {
-                for range ch {
-                        if err := pty.InheritSize(os.Stdin, ptmx); err != nil {
-                                log.Printf("error resizing pty: %s", err)
-                        }
-                }
-        }()
-        ch <- syscall.SIGWINCH // Initial resize.
-
-        // Set stdin in raw mode.
-        oldState, err := terminal.MakeRaw(int(os.Stdin.Fd()))
-        if err != nil {
-                panic(err)
-        }
-        defer func() { _ = terminal.Restore(int(os.Stdin.Fd()), oldState) }() // Best effort.
-
-        // Copy stdin to the pty and the pty to stdout.
-        go func() { _, _ = io.Copy(ptmx, os.Stdin) }()
-        _, _ = io.Copy(os.Stdout, ptmx)
-
-        return nil
-}
-
-func main() {
-        if err := test(); err != nil {
-                log.Fatal(err)
-        }
-}
-```
+- `doc.go`
+- `ioctl.go`
+- `ioctl_bsd.go`
+- `ioctl_darwin.go`
+- `pty_darwin.go`
+- `pty_dragonfly.go`
+- `pty_freebsd.go`
+- `pty_linux.go`
+- `pty_openbsd.go`
+- `pty_unsupported.go`
+- `run.go`
+- `types.go`
+- `types_dragonfly.go`
+- `types_freebsd.go`
+- `types_openbsd.go`
+- `util.go`
+- `ztypes_386.go`
+- `ztypes_amd64.go`
+- `ztypes_arm.go`
+- `ztypes_arm64.go`
+- `ztypes_dragonfly_amd64.go`
+- `ztypes_freebsd_386.go`
+- `ztypes_freebsd_amd64.go`
+- `ztypes_freebsd_arm.go`
+- `ztypes_mipsx.go`
+- `ztypes_openbsd_386.go`
+- `ztypes_openbsd_amd64.go`
+- `ztypes_ppc64.go`
+- `ztypes_ppc64le.go`
+- `ztypes_s390x.go`

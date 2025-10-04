@@ -1,4 +1,9 @@
-Completers
-===========
+# client/command/completers
 
-This package contains general purpose completers for the console, note that some package also contain their own package-specific completers. 
+## Overview
+
+Implements the 'completers' command group for the Sliver client console.
+
+## Go Files
+
+- `completers.go`

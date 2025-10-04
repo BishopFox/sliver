@@ -1,4 +1,12 @@
-Transport
-==========
+# server/transport
 
-Contains the server-side code for talking to the "client," which is either the server itself or a remote client binary.
+## Overview
+
+Server-side transports and listener orchestration. Coordinates C2 listener lifecycles and connection routing. Key routines cover local, middleware, mTLS, and tailscale within the transport subsystem.
+
+## Go Files
+
+- `local.go`
+- `middleware.go`
+- `mtls.go`
+- `tailscale.go`

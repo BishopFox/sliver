@@ -1,11 +1,14 @@
-Alias
-===========
+# client/command/alias
 
-Wraps external DLLs/tool in Sliver console commands.
+## Overview
 
+Implements the 'alias' command group for the Sliver client console. Handlers map Cobra invocations to alias workflows such as install, load, and remove.
 
+## Go Files
 
-### Format
-
-* `alias-dir/`
-* * `manifest.json` - 
+- `alias.go`
+- `alias_test.go` *(tests)*
+- `commands.go`
+- `install.go`
+- `load.go`
+- `remove.go`

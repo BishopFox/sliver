@@ -1,7 +1,12 @@
-Portfwd
-========
+# client/command/portfwd
 
-In-band port forwarding related command implementations.
+## Overview
 
-__NOTE:__ WireGuard port forwarding commands are located in `client/command/wireguard`
+Implements the 'portfwd' command group for the Sliver client console. Handlers map Cobra invocations to portfwd workflows such as portfwd ADD and portfwd RM.
 
+## Go Files
+
+- `commands.go`
+- `portfwd-add.go`
+- `portfwd-rm.go`
+- `portfwd.go`

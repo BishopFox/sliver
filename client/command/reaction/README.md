@@ -1,5 +1,15 @@
-Reaction
-=========
+# client/command/reaction
 
-Commands to set a reaction, or unset a reaction. Reactions allow the operator to automate commands in response to event(s).
+## Overview
 
+Implements the 'reaction' command group for the Sliver client console. Handlers map Cobra invocations to reaction workflows such as reload, save, SET, and unset.
+
+## Go Files
+
+- `commands.go`
+- `helpers.go`
+- `reaction.go`
+- `reload.go`
+- `save.go`
+- `set.go`
+- `unset.go`

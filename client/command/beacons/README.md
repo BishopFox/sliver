@@ -1,4 +1,14 @@
-Beacons
-========
+# client/command/beacons
 
-This package implements the beacons command, which can be used to list and interact with beacons.
+## Overview
+
+Implements the 'beacons' command group for the Sliver client console. Handlers map Cobra invocations to beacons workflows such as prune, RM, and watch.
+
+## Go Files
+
+- `beacons.go`
+- `commands.go`
+- `helpers.go`
+- `prune.go`
+- `rm.go`
+- `watch.go`

@@ -1,4 +1,11 @@
-Info
-====
+# client/command/info
 
-Implements session information commands like `info`, `print`, `whoami`, etc.
+## Overview
+
+Implements the 'info' command group for the Sliver client console. Handlers map Cobra invocations to info workflows such as ping.
+
+## Go Files
+
+- `commands.go`
+- `info.go`
+- `ping.go`

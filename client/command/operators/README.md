@@ -1,6 +1,10 @@
-Operators
-==========
+# client/command/operators
 
-Operator related command implementations.
+## Overview
 
-__NOTE:__ Some operator-related commands are server-side only and are located instead in `server/console`
+Implements the 'operators' command group for the Sliver client console.
+
+## Go Files
+
+- `commands.go`
+- `operators.go`

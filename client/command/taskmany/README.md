@@ -1,3 +1,9 @@
-Taskmany
-========
-This package implements the `taskmany` command, which is used to task multiple beacons or sessions at once
+# client/command/taskmany
+
+## Overview
+
+Implements the 'taskmany' command group for the Sliver client console.
+
+## Go Files
+
+- `taskmany.go`
