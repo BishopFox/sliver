@@ -20,7 +20,7 @@ import {
   NavbarContent,
   NavbarItem,
   Tooltip,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/router";
 import React from "react";

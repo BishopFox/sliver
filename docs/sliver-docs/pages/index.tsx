@@ -2,7 +2,7 @@ import AsciinemaPlayer from "@/components/asciinema";
 import { SliversIcon } from "@/components/icons/slivers";
 import TutorialCard from "@/components/tutorial-card";
 import { Themes } from "@/util/themes";
-import { Card, CardBody, CardHeader, Divider } from "@nextui-org/react";
+import { Card, CardBody, CardHeader, Divider } from "@heroui/react";
 import { useRouter } from "next/router";
 
 export default function Home() {
