@@ -6,15 +6,15 @@ Shared utilities imported by server and implant code. Contains path helpers, res
 
 ## Go Files
 
-- `cryptography.go`
-- `files.go`
-- `generics.go`
-- `implant.go`
-- `implant_test.go` *(tests)*
-- `paths_generic.go`
-- `paths_test.go` *(tests)*
-- `paths_windows.go`
-- `resource_ids.go`
+- `cryptography.go` – Provides shared cryptographic helpers and constants.
+- `files.go` – File handling utilities for copying, hashing, and temp files.
+- `generics.go` – Miscellaneous generic helper functions used across packages.
+- `implant.go` – Utilities for working with implant metadata and artifacts.
+- `implant_test.go` *(tests)* – Tests implant utility helpers.
+- `paths_generic.go` – Platform-neutral path helpers and directories.
+- `paths_test.go` *(tests)* – Tests path helper behavior.
+- `paths_windows.go` – Windows-specific path utilities.
+- `resource_ids.go` – Generates deterministic resource identifiers.
 
 ## Sub-packages
 

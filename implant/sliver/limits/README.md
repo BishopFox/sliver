@@ -6,8 +6,8 @@ Resource limitation utilities controlling implant behavior. Enforces concurrency
 
 ## Go Files
 
-- `limits.go`
-- `limits_darwin.go`
-- `limits_generic.go`
-- `limits_linux.go`
-- `limits_windows.go`
+- `limits.go` – Defines core limit enforcement structures and logic.
+- `limits_darwin.go` – macOS-specific limit adjustments or capabilities.
+- `limits_generic.go` – Platform-neutral defaults and stubs for limits.
+- `limits_linux.go` – Linux-specific resource limit handling.
+- `limits_windows.go` – Windows implementations for managing implant limits.

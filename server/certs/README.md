@@ -6,13 +6,13 @@ Certificate generation and management helpers for server transports. Issues and 
 
 ## Go Files
 
-- `acme.go`
-- `ca.go`
-- `certs.go`
-- `certs_test.go` *(tests)*
-- `https.go`
-- `mtls.go`
-- `operators.go`
-- `subject.go`
-- `tlskeys.go`
-- `wireguard.go`
+- `acme.go` – Integrates with ACME providers to issue certificates automatically.
+- `ca.go` – Manages the internal certificate authority lifecycle.
+- `certs.go` – High-level certificate manager used by transports.
+- `certs_test.go` *(tests)* – Tests certificate issuance and rotation workflows.
+- `https.go` – Provides HTTPS certificate helpers and caching.
+- `mtls.go` – Generates and manages mTLS client certificates.
+- `operators.go` – Issues operator-specific certificates and keys.
+- `subject.go` – Builds X.509 subject information based on configuration.
+- `tlskeys.go` – Handles TLS keypair generation and persistence.
+- `wireguard.go` – Manages certificates/keys for WireGuard listeners when needed.

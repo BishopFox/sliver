@@ -6,6 +6,6 @@ Implements the 'reconfig' command group for the Sliver client console. Handlers 
 
 ## Go Files
 
-- `commands.go`
-- `reconfig.go`
-- `rename.go`
+- `commands.go` – Registers the reconfig command and attaches subcommands such as rename.
+- `reconfig.go` – Shows current implant configuration and prompts for updates.
+- `rename.go` – Renames implants or beacons on the server for easier identification.

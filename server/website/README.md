@@ -6,5 +6,5 @@ Static website assets and server-side handling. Serves operator web artifacts an
 
 ## Go Files
 
-- `website.go`
-- `website_test.go` *(tests)*
+- `website.go` – Serves static website assets and handles related API endpoints.
+- `website_test.go` *(tests)* – Tests website serving logic and routing.

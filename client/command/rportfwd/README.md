@@ -6,7 +6,7 @@ Implements the 'rportfwd' command group for the Sliver client console. Handlers 
 
 ## Go Files
 
-- `commands.go`
-- `portfwd-add.go`
-- `portfwd-rm.go`
-- `portfwd.go`
+- `commands.go` – Registers reverse port forwarding commands tied to implant callbacks.
+- `portfwd-add.go` – Adds new reverse port forwards from remote hosts back to the operator.
+- `portfwd-rm.go` – Removes reverse port forwards by identifier.
+- `portfwd.go` – Lists active reverse port forwards and summarizes their endpoints.

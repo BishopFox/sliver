@@ -6,5 +6,5 @@ Server-side cryptographic helpers and key management. Implements signing, encryp
 
 ## Go Files
 
-- `cryptography.go`
-- `cryptography_test.go` *(tests)*
+- `cryptography.go` – Provides server-side crypto primitives and helpers.
+- `cryptography_test.go` *(tests)* – Tests crypto helper correctness.

@@ -6,4 +6,4 @@ gVisor-based userland network stack adapted for the implant. Integrates packet h
 
 ## Go Files
 
-- `tun.go`
+- `tun.go` – Wraps the gVisor TUN interface used for the implant's userland network stack.

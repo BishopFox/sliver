@@ -6,11 +6,11 @@ Maintains client application state, background workers, and RPC coordination. Or
 
 ## Go Files
 
-- `bof.go`
-- `curses.go`
-- `portfwd.go`
-- `reactions.go`
-- `socks.go`
-- `tunnel.go`
-- `tunnel_io.go`
-- `tunnels.go`
+- `bof.go` – Defines Beacon Object File argument buffers and helpers for executing BOF modules.
+- `curses.go` – Manages cursed browser sessions, caching processes and coordinating lifecycle events.
+- `portfwd.go` – Tracks active port forwards and exposes shared state for command packages.
+- `reactions.go` – Stores reaction definitions and evaluates triggers when new events arrive.
+- `socks.go` – Maintains SOCKS proxy metadata and orchestrates background goroutines.
+- `tunnel.go` – Represents individual tunnels and their configuration details.
+- `tunnel_io.go` – Implements IO handling and relay loops for tunnel data streams.
+- `tunnels.go` – Coordinates tunnel creation, lookup, and teardown across the client.

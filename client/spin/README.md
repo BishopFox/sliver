@@ -6,4 +6,4 @@ Lightweight terminal spinner utilities used for progress feedback. Wraps spinner
 
 ## Go Files
 
-- `spin.go`
+- `spin.go` – Implements the console spinner and helper functions for running operations with progress feedback.

@@ -6,4 +6,4 @@ SGN (Sliver Guard Node) coordination and helpers. Implements SGN enrollment, mes
 
 ## Go Files
 
-- `sgn.go`
+- `sgn.go` – Implements SGN coordination logic and message handling.

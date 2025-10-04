@@ -6,5 +6,5 @@ Build-time version and semantic metadata for the client binary. Exposes git info
 
 ## Go Files
 
-- `sliver-version.go`
-- `updates.go`
+- `sliver-version.go` – Stores build metadata (version strings, commit hashes) and helper formatters.
+- `updates.go` – Tracks update state, caches release info, and signals when new versions are available.

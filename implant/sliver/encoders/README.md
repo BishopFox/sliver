@@ -6,17 +6,17 @@ Binary and text encoders embedded with the implant for staging and comms. Hosts 
 
 ## Go Files
 
-- `base32.go`
-- `base58.go`
-- `base58_alphabet.go`
-- `base58_genalphabet.go`
-- `base64.go`
-- `encoders.go`
-- `english.go`
-- `gzip.go`
-- `hex.go`
-- `images.go`
-- `nop.go`
+- `base32.go` – Implements Base32 encoding/decoding routines used by the implant.
+- `base58.go` – Provides Base58 encode/decode helpers leveraging custom alphabets.
+- `base58_alphabet.go` – Defines the canonical Base58 alphabet tables.
+- `base58_genalphabet.go` – Generates Base58 alphabet permutations at build time for obfuscation.
+- `base64.go` – Wraps Base64 encoding utilities with implant-specific helpers.
+- `encoders.go` – Registers available encoders and exposes lookup functions for runtime selection.
+- `english.go` – Implements an English word encoder for human-readable payloads.
+- `gzip.go` – Handles gzip compression and decompression helpers.
+- `hex.go` – Provides hexadecimal encoding utilities.
+- `images.go` – Embeds steganographic encoders that hide data inside images.
+- `nop.go` – Supplies a passthrough encoder that leaves data untouched.
 
 ## Sub-packages
 

@@ -6,4 +6,4 @@ Supervises long-running client jobs, scheduling, and task orchestration. Tracks 
 
 ## Go Files
 
-- `overlord.go`
+- `overlord.go` – Manages background job scheduling, tracking, and event delivery to the console.

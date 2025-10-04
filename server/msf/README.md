@@ -6,4 +6,4 @@ Metasploit integration utilities. Implements payload translation and RPC bridgin
 
 ## Go Files
 
-- `msf.go`
+- `msf.go` – Handles Metasploit RPC interactions and payload mapping.

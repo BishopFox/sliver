@@ -6,4 +6,4 @@ Compile-time constants and identifiers shared across the implant. Defines featur
 
 ## Go Files
 
-- `constants.go`
+- `constants.go` – Declares shared implant constants such as feature flags, task names, and header keys.

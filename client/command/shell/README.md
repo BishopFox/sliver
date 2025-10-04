@@ -6,7 +6,7 @@ Implements the 'shell' command group for the Sliver client console. Handlers map
 
 ## Go Files
 
-- `commands.go`
-- `filter-reader_generic.go`
-- `filter-reader_windows.go`
-- `shell.go`
+- `commands.go` – Exposes the interactive shell command and binds its options.
+- `filter-reader_generic.go` – Provides output filtering for shell streams on POSIX targets.
+- `filter-reader_windows.go` – Implements CRLF-aware filtering and decoding for Windows shell sessions.
+- `shell.go` – Launches interactive command shells over RPC and manages IO loops.

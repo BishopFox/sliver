@@ -6,5 +6,5 @@ Windows registry interaction helpers for implants. Wraps enumeration, read/write
 
 ## Go Files
 
-- `registry.go`
-- `registry_windows.go`
+- `registry.go` – Provides shared registry interfaces and request structs.
+- `registry_windows.go` – Implements Windows registry operations via native APIs.

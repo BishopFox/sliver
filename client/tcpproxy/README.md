@@ -6,4 +6,4 @@ Implements the local TCP proxy used for port forwarding from the client side. Ma
 
 ## Go Files
 
-- `tcpproxy.go`
+- `tcpproxy.go` – Implements the client-side TCP proxy listener, connection handlers, and shutdown logic.

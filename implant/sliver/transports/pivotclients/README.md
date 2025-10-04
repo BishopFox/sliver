@@ -6,8 +6,8 @@ Transport clients used when implants dial through pivot chains. Implements neste
 
 ## Go Files
 
-- `namedpipe.go`
-- `namedpipe_generic.go`
-- `namedpipe_windows.go`
-- `pivotclient.go`
-- `tcp.go`
+- `namedpipe.go` – Common named pipe transport helpers.
+- `namedpipe_generic.go` – Platform-neutral named pipe client stubs.
+- `namedpipe_windows.go` – Windows named pipe transport implementation.
+- `pivotclient.go` – Core pivot client abstraction coordinating nested transports.
+- `tcp.go` – TCP-based pivot client implementation.

@@ -6,5 +6,5 @@ Generic base-N encoder primitives. Supplies reusable alphabets and encode/decode
 
 ## Go Files
 
-- `basex.go`
-- `basex_test.go` *(tests)*
+- `basex.go` – Provides generic base-N encoding algorithms for shared use.
+- `basex_test.go` *(tests)* – Tests the base-N conversion logic.

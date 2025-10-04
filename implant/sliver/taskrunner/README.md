@@ -6,8 +6,8 @@ Task scheduler running queued implant jobs. Controls execution order, retries, a
 
 ## Go Files
 
-- `dotnet_windows.go`
-- `task.go`
-- `task_darwin.go`
-- `task_linux.go`
-- `task_windows.go`
+- `dotnet_windows.go` – Handles .NET task execution specifics on Windows.
+- `task.go` – Defines the core task runner, queue, and lifecycle logic.
+- `task_darwin.go` – macOS adaptations for task execution.
+- `task_linux.go` – Linux adaptations for task execution.
+- `task_windows.go` – Windows-specific task execution helpers.

@@ -6,4 +6,4 @@ Deals with packaged extensions and module discovery for the client. Scans, valid
 
 ## Go Files
 
-- `output.go`
+- `output.go` – Defines schemas for extension output and assists with marshaling results.

@@ -6,9 +6,9 @@ Pivot channel management for lateral movement through implants. Tracks upstream/
 
 ## Go Files
 
-- `named-pipe.go`
-- `named-pipe_windows.go`
-- `pivots.go`
-- `pivots_generic.go`
-- `pivots_windows.go`
-- `tcp.go`
+- `named-pipe.go` – Provides common named pipe pivot helpers shared across platforms.
+- `named-pipe_windows.go` – Implements Windows-specific named pipe pivot setup.
+- `pivots.go` – Core pivot manager tracking active connections and state.
+- `pivots_generic.go` – Platform-neutral pivot functionality and stubs.
+- `pivots_windows.go` – Windows-specific pivot routines and APIs.
+- `tcp.go` – Implements TCP-based pivot connectors used by the implant.

@@ -6,8 +6,8 @@ Implements the 'hosts' command group for the Sliver client console. Handlers map
 
 ## Go Files
 
-- `commands.go`
-- `hosts-ioc-rm.go`
-- `hosts-ioc.go`
-- `hosts-rm.go`
-- `hosts.go`
+- `commands.go` – Sets up the hosts command suite and its IOC management subcommands.
+- `hosts-ioc-rm.go` – Removes stored indicators of compromise for a host via RPC.
+- `hosts-ioc.go` – Lists and prints host IOC data retrieved from the server.
+- `hosts-rm.go` – Deletes hosts from inventory and confirms removal operations.
+- `hosts.go` – Displays host summaries, filters by query, and renders tabular output.

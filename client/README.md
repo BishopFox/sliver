@@ -6,7 +6,7 @@ Main command-line client for interacting with and administering Sliver servers. 
 
 ## Go Files
 
-- `main.go`
+- `main.go` – Entry point that initializes the CLI, processes flags, and launches the interactive console.
 
 ## Sub-packages
 

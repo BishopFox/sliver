@@ -6,8 +6,8 @@ Compile-time version metadata baked into implants. Publishes semantic version in
 
 ## Go Files
 
-- `version.go`
-- `version_darwin.go`
-- `version_generic.go`
-- `version_linux.go`
-- `version_windows.go`
+- `version.go` – Stores shared implant version metadata getters.
+- `version_darwin.go` – macOS build metadata overrides.
+- `version_generic.go` – Default version metadata used across platforms.
+- `version_linux.go` – Linux-specific build metadata adjustments.
+- `version_windows.go` – Windows-specific build metadata adjustments.

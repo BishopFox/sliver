@@ -6,7 +6,7 @@ Server daemon responsible for managing operators, implants, and infrastructure. 
 
 ## Go Files
 
-- `main.go`
+- `main.go` – Server entry point that parses flags, loads config, and launches the daemon runtime.
 
 ## Sub-packages
 

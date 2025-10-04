@@ -6,4 +6,4 @@ Implements the 'exit' command group for the Sliver client console.
 
 ## Go Files
 
-- `exit.go`
+- `exit.go` – Implements the client exit command, ensuring cleanup before terminating the console.

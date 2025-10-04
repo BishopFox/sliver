@@ -6,13 +6,13 @@ Outbound transport implementations compiled into the implant. Registers availabl
 
 ## Go Files
 
-- `beacon.go`
-- `connection.go`
-- `session.go`
-- `transports.go`
-- `transports_generic.go`
-- `transports_windows.go`
-- `tunnel.go`
+- `beacon.go` – Implements the beacon scheduler and transport selection logic.
+- `connection.go` – Wraps low-level connection metadata and lifecycle helpers.
+- `session.go` – Manages session state associated with active transports.
+- `transports.go` – Registers transport implementations and exposes factory functions.
+- `transports_generic.go` – Platform-neutral transport helpers and defaults.
+- `transports_windows.go` – Windows-specific transport adjustments and APIs.
+- `tunnel.go` – Provides transport tunnel abstractions and helpers.
 
 ## Sub-packages
 

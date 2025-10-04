@@ -6,4 +6,4 @@ Implements the 'flags' command group for the Sliver client console.
 
 ## Go Files
 
-- `flags.go`
+- `flags.go` – Provides shared helpers for binding Cobra flag sets, target filters, and carapace completions to commands.

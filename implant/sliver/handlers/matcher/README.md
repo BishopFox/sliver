@@ -6,5 +6,5 @@ Matcher logic for routing inbound messages to the right handlers. Builds lookup 
 
 ## Go Files
 
-- `matcher.go`
-- `matcher_windows.go`
+- `matcher.go` – Implements message matching logic and lookup table generation for handler dispatch.
+- `matcher_windows.go` – Provides Windows-specific matcher overrides and optimizations.

@@ -6,4 +6,4 @@ SSH-based shell transport helpers. Establishes SSH-backed command execution chan
 
 ## Go Files
 
-- `ssh.go`
+- `ssh.go` – Implements SSH-backed shell execution and channel management within the implant.

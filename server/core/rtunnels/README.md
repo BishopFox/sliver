@@ -6,4 +6,4 @@ Reverse tunnel coordination within the server core. Handles tunnel registration,
 
 ## Go Files
 
-- `rtunnels.go`
+- `rtunnels.go` – Manages reverse tunnel state and orchestrates tunnel handshakes.

@@ -6,9 +6,9 @@ Network inspection helpers exposed to operators via implant commands. Retrieves 
 
 ## Go Files
 
-- `netstat.go`
-- `netstat_darwin.go`
-- `netstat_linux.go`
-- `netstat_types_darwin.go`
-- `netstat_windows.go`
-- `types_darwin.go`
+- `netstat.go` – Provides shared netstat command wrappers and data structures.
+- `netstat_darwin.go` – Retrieves socket/interface data on macOS systems.
+- `netstat_linux.go` – Implements Linux netstat collection logic.
+- `netstat_types_darwin.go` – Defines Darwin-specific counter structures used in parsing.
+- `netstat_windows.go` – Collects netstat data via Windows APIs.
+- `types_darwin.go` – Additional Darwin type definitions supporting netstat parsing.

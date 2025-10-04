@@ -6,7 +6,7 @@ Traffic encoder interpreter used across server/client. Provides compiler, interp
 
 ## Go Files
 
-- `compiler.go`
-- `interpreter.go`
-- `testers.go`
-- `traffic-encoder.go`
+- `compiler.go` – Compiles traffic encoder scripts into bytecode.
+- `interpreter.go` – Executes traffic encoder bytecode for transformations.
+- `testers.go` – Provides helpers for testing encoder scripts.
+- `traffic-encoder.go` – High-level API for applying traffic encoders.

@@ -6,7 +6,7 @@ Implements the 'monitor' command group for the Sliver client console. Handlers m
 
 ## Go Files
 
-- `commands.go`
-- `config.go`
-- `start.go`
-- `stop.go`
+- `commands.go` – Registers the monitor command suite for live session monitoring.
+- `config.go` – Parses monitor configuration flags and resolves target selections.
+- `start.go` – Starts monitoring jobs and streams event output to the console.
+- `stop.go` – Stops active monitor jobs and reports termination status.

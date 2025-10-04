@@ -6,4 +6,4 @@ Support tooling for Windows-specific HTTP transport drivers. Provides helper bin
 
 ## Go Files
 
-- `defines.go`
+- `defines.go` – Holds shared Win32 constant definitions consumed by the Windows HTTP drivers.

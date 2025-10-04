@@ -6,5 +6,5 @@ Logging helpers and structured log setup for the server. Configures log sinks, f
 
 ## Go Files
 
-- `audit.go`
-- `log.go`
+- `audit.go` – Implements audit logging helpers for security-sensitive events.
+- `log.go` – Configures the primary server logger and output sinks.

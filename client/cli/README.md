@@ -6,9 +6,9 @@ Defines the Cobra root command and CLI initialization for the Sliver client bina
 
 ## Go Files
 
-- `cli.go`
-- `config.go`
-- `console.go`
-- `implant.go`
-- `import.go`
-- `version.go`
+- `cli.go` – Builds the root Cobra command, wires global flags, and starts the console UI.
+- `config.go` – Parses CLI configuration files and environment variables used during startup.
+- `console.go` – Launches the interactive console mode and handles profile selection.
+- `implant.go` – Implements CLI entry points for implant-specific operations without launching the console.
+- `import.go` – Provides import routines for bringing external state into the client (e.g., implants or loot).
+- `version.go` – Prints version/build information for the CLI binary.

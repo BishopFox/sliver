@@ -6,6 +6,6 @@ Network forwarding helpers that move data through pivot tunnels. Provides connec
 
 ## Go Files
 
-- `forwarder.go`
-- `portforward.go`
-- `socks.go`
+- `forwarder.go` – Coordinates forwarder registration and shared state across port-forward and SOCKS relays.
+- `portforward.go` – Implements implant-side port forwarding logic and connection handlers.
+- `socks.go` – Provides SOCKS proxy server functionality within the implant.

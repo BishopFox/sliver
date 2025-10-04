@@ -6,8 +6,8 @@ Configuration loading and validation for the server. Parses config files, enviro
 
 ## Go Files
 
-- `crack.go`
-- `database.go`
-- `http-c2.go`
-- `http-c2_test.go` *(tests)*
-- `server.go`
+- `crack.go` – Defines configuration structures for cracking infrastructure.
+- `database.go` – Loads and validates database connection settings.
+- `http-c2.go` – Parses HTTP C2 configuration blocks.
+- `http-c2_test.go` *(tests)* – Tests HTTP C2 configuration parsing logic.
+- `server.go` – Top-level server configuration loading and defaults.

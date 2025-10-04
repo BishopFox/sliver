@@ -6,10 +6,10 @@ Implements the 'sessions' command group for the Sliver client console. Handlers 
 
 ## Go Files
 
-- `background.go`
-- `close.go`
-- `commands.go`
-- `helpers.go`
-- `interactive.go`
-- `prune.go`
-- `sessions.go`
+- `background.go` – Sends interactive sessions to the background while keeping them connected.
+- `close.go` – Closes sessions cleanly via RPC.
+- `commands.go` – Assembles the sessions command hierarchy and subcommands.
+- `helpers.go` – Provides lookup utilities and prompt helpers for session selection.
+- `interactive.go` – Brings sessions into the foreground interactive console.
+- `prune.go` – Removes disconnected or dead sessions from the server inventory.
+- `sessions.go` – Lists active sessions and renders tabular summaries.

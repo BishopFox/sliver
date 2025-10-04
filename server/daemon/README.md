@@ -6,4 +6,4 @@ Control logic for starting and supervising the Sliver daemon. Responsible for gr
 
 ## Go Files
 
-- `daemon.go`
+- `daemon.go` – Starts the server daemon, manages signals, and orchestrates shutdown.

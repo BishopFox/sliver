@@ -6,4 +6,4 @@ Leak detection helpers for debugging resource usage. Implements buffering utilit
 
 ## Go Files
 
-- `leakbuf.go`
+- `leakbuf.go` – Implements a buffer wrapper for detecting unexpected writes during tests.

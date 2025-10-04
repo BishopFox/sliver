@@ -6,9 +6,9 @@ Process enumeration utilities shipped with the implant. Collects process metadat
 
 ## Go Files
 
-- `ps.go`
-- `ps_darwin.go`
-- `ps_linux.go`
-- `ps_types_darwin.go`
-- `ps_windows.go`
-- `types_darwin.go`
+- `ps.go` – Provides shared process listing logic and structures.
+- `ps_darwin.go` – Implements process enumeration on macOS.
+- `ps_linux.go` – Implements process enumeration on Linux.
+- `ps_types_darwin.go` – Defines Darwin-specific structs for process metadata.
+- `ps_windows.go` – Implements process enumeration using Windows APIs.
+- `types_darwin.go` – Additional Darwin type definitions supporting process parsing.

@@ -6,5 +6,5 @@ Base-N encoder implementations used by both implant and server. Provides reusabl
 
 ## Go Files
 
-- `basex.go`
-- `basex_test.go` *(tests)*
+- `basex.go` – Implements generic base-N encoding/decoding with pluggable alphabets.
+- `basex_test.go` *(tests)* – Exercises the base-N conversion logic across supported alphabets.

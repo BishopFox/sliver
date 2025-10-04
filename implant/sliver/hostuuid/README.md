@@ -6,8 +6,8 @@ Host fingerprinting and UUID generation utilities for implants. Collects platfor
 
 ## Go Files
 
-- `uuid.go`
-- `uuid_darwin.go`
-- `uuid_generic.go`
-- `uuid_linux.go`
-- `uuid_windows.go`
+- `uuid.go` – Provides shared host UUID generation logic and interface.
+- `uuid_darwin.go` – Implements macOS-specific host identifiers.
+- `uuid_generic.go` – Fallback UUID generation used when no platform overrides exist.
+- `uuid_linux.go` – Linux-specific host UUID derivation routines.
+- `uuid_windows.go` – Windows host UUID calculations leveraging system APIs.

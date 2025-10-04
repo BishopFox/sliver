@@ -6,8 +6,8 @@ Top-level tooling for building and maintaining Sliver implant payloads. Provides
 
 ## Go Files
 
-- `generate.go`
-- `implant.go`
+- `generate.go` – Implements top-level implant build wiring invoked from the server/client tooling.
+- `implant.go` – Entry point for compiling implants and exposing shared build helpers.
 
 ## Sub-packages
 

@@ -6,7 +6,7 @@ Generated Protocol Buffer bindings shared between client, server, and implant. C
 
 ## Go Files
 
-- `protobufs.go`
+- `protobufs.go` – Registers all embedded proto descriptors for runtime reflection and versioning.
 
 ## Sub-packages
 

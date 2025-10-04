@@ -6,7 +6,7 @@ Server-side transports and listener orchestration. Coordinates C2 listener lifec
 
 ## Go Files
 
-- `local.go`
-- `middleware.go`
-- `mtls.go`
-- `tailscale.go`
+- `local.go` – Implements local transport listeners and helpers.
+- `middleware.go` – Shared middleware for transport handler pipelines.
+- `mtls.go` – Manages mTLS server listener setup.
+- `tailscale.go` – Integrates Tailscale transport support for Sliver.

@@ -6,5 +6,5 @@ Implements the 'c2profiles' command group for the Sliver client console. Handler
 
 ## Go Files
 
-- `c2profiles.go`
-- `commands.go`
+- `c2profiles.go` – Implements listing, import/export, and generation routines for HTTP C2 profiles, including protobuf/JSON conversion helpers.
+- `commands.go` – Binds the c2profiles command suite with flag handling and completions for profile management operations.

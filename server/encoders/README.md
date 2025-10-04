@@ -6,5 +6,5 @@ Managed encoder definitions paralleling the implant encoders. Supplies interpret
 
 ## Go Files
 
-- `encoders.go`
-- `encoders_test.go` *(tests)*
+- `encoders.go` – Registers server-side encoder definitions and runtime.
+- `encoders_test.go` *(tests)* – Tests encoder compilation and validation.

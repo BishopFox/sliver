@@ -6,4 +6,4 @@ Payload builder orchestration running on the server. Coordinates job queues, bui
 
 ## Go Files
 
-- `builder.go`
+- `builder.go` – Implements server-side payload build orchestration and queue management.

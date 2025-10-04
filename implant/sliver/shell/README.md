@@ -6,10 +6,10 @@ Interactive shell functionality exposed by the implant. Coordinates IO loops, PT
 
 ## Go Files
 
-- `shell-pty.go`
-- `shell.go`
-- `shell_generic.go`
-- `shell_windows.go`
+- `shell-pty.go` – Bridges implant shell commands with PTY sessions when available.
+- `shell.go` – Core shell implementation managing IO streams.
+- `shell_generic.go` – Generic shell helpers for non-Windows platforms.
+- `shell_windows.go` – Windows-specific shell execution and token handling.
 
 ## Sub-packages
 

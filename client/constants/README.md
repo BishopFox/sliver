@@ -6,4 +6,4 @@ Centralizes constants shared across the client runtime and command packages. Cap
 
 ## Go Files
 
-- `constants.go`
+- `constants.go` – Defines shared string and feature constants referenced across client packages.

@@ -6,10 +6,10 @@ Manages embedded client asset manifests such as operator profiles, settings, and
 
 ## Go Files
 
-- `aliases.go`
-- `armories.go`
-- `assets.go`
-- `c2profiles.go`
-- `config.go`
-- `extensions.go`
-- `settings.go`
+- `aliases.go` – Provides helpers for discovering, installing, and reading alias manifests shipped with the client.
+- `armories.go` – Loads configured armory definitions and persists operator customizations.
+- `assets.go` – Central entry point that exposes asset directories, lazy initialization, and filesystem utilities.
+- `c2profiles.go` – Embeds default HTTP C2 profile templates and exposes lookup utilities.
+- `config.go` – Tracks client configuration paths and manages persistence of runtime options.
+- `extensions.go` – Handles embedded extension manifests and supports lookup by command name.
+- `settings.go` – Stores default console settings and manages serialization to disk.

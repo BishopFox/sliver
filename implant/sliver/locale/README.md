@@ -6,8 +6,8 @@ Localization helpers for implant messages. Supplies translation lookup tables an
 
 ## Go Files
 
-- `locale.go`
-- `locale_generic.go`
+- `locale.go` – Provides locale detection and message formatting utilities.
+- `locale_generic.go` – Fallback implementations used when platform-specific locale support is unavailable.
 
 ## Sub-packages
 

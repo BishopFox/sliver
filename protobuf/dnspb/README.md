@@ -6,4 +6,4 @@ Generated DNS transport message bindings. Covers protobuf structures for DNS-bas
 
 ## Go Files
 
-- `dns.pb.go` *(generated)*
+- `dns.pb.go` *(generated)* – Auto-generated DNS transport message types and service stubs.

@@ -6,6 +6,6 @@ Credential management utilities including sniffers and import helpers for operat
 
 ## Go Files
 
-- `credentials.go`
-- `sniff.go`
-- `sniff_test.go` *(tests)*
+- `credentials.go` – Implements credential storage, lookup, and formatting helpers for the client.
+- `sniff.go` – Provides credential sniffing routines that parse captured outputs into structured records.
+- `sniff_test.go` *(tests)* – Validates the sniffing/parsing helpers against sample credential data.

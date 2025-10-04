@@ -6,5 +6,5 @@ Customizations for gogo/protobuf integration with the server. Tweaks protobuf ha
 
 ## Go Files
 
-- `go.go`
-- `go_test.go` *(tests)*
+- `go.go` – Provides helper functions bridging gogo/protobuf with standard proto packages.
+- `go_test.go` *(tests)* – Tests the gogo compatibility helpers.

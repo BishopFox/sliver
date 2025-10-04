@@ -6,4 +6,4 @@ Codename generator utilities for implants and operators. Implements deterministi
 
 ## Go Files
 
-- `codenames.go`
+- `codenames.go` – Generates deterministic codenames from word lists and seeds.

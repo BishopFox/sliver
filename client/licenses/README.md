@@ -6,4 +6,4 @@ Holds embedded license metadata bundled with the client distribution. Supplies l
 
 ## Go Files
 
-- `licenses.go`
+- `licenses.go` – Provides accessors for embedded OSS license text and metadata.

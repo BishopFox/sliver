@@ -6,4 +6,4 @@ Client-side transports and RPC wiring to communicate with Sliver servers. Builds
 
 ## Go Files
 
-- `mtls.go`
+- `mtls.go` – Configures the mutual TLS gRPC transport, including dial options and credential refresh logic.

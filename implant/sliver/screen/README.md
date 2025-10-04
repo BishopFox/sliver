@@ -6,7 +6,7 @@ Screen capture helpers for the implant. Captures framebuffer data, encodes it, a
 
 ## Go Files
 
-- `screen.go`
-- `screenshot_generic.go`
-- `screenshot_linux.go`
-- `screenshot_windows.go`
+- `screen.go` – Coordinates screenshot capture requests and data packaging.
+- `screenshot_generic.go` – Provides fallback screenshot logic for unsupported platforms.
+- `screenshot_linux.go` – Implements Linux framebuffer capture routines.
+- `screenshot_windows.go` – Uses Windows APIs to capture the desktop buffer.

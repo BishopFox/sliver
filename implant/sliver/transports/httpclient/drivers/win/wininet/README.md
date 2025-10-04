@@ -6,14 +6,14 @@ WinINet-backed HTTP driver for Windows implants. Wraps WinINet APIs to satisfy t
 
 ## Go Files
 
-- `client_generic.go`
-- `client_windows.go`
-- `cookie.go`
-- `generated.go`
-- `http.go`
-- `request.go`
-- `response.go`
-- `user32_windows.go`
-- `utils_windows.go`
-- `wininet.go`
-- `wininet_windows.go`
+- `client_generic.go` – Provides platform-independent scaffolding shared by WinINet clients.
+- `client_windows.go` – Windows-specific WinINet client wiring and initialization.
+- `cookie.go` – Implements the custom cookie jar for WinINet sessions.
+- `generated.go` – Auto-generated WinINet constants and structures.
+- `http.go` – High-level HTTP client implementation using WinINet handles.
+- `request.go` – Builds WinINet request handles from transport metadata.
+- `response.go` – Parses WinINet responses and converts them to transport objects.
+- `user32_windows.go` – lightweight wrappers for required user32 calls.
+- `utils_windows.go` – Miscellaneous helper functions for WinINet interactions.
+- `wininet.go` – Links WinINet DLL procedures needed by the driver.
+- `wininet_windows.go` – Windows-specific syscall bindings for WinINet APIs.

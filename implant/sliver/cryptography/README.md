@@ -6,7 +6,7 @@ Cryptographic primitives and wrappers used by the implant for secure operations.
 
 ## Go Files
 
-- `crypto.go`
-- `implant.go`
-- `minisign.go`
-- `tlskeys.go`
+- `crypto.go` – Wraps core encryption/signing helpers and exposes high-level APIs to other implant packages.
+- `implant.go` – Manages implant keypairs, including generation, storage, and rotation helpers.
+- `minisign.go` – Handles Minisign signature verification for bundled artifacts and updates.
+- `tlskeys.go` – Generates and caches TLS key material used by outbound transports.

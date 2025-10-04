@@ -6,5 +6,5 @@ WireGuard transport implementation for implants. Manages keypairs, peer configur
 
 ## Go Files
 
-- `wireguard.go`
-- `wireguard_generic.go`
+- `wireguard.go` – Implements the WireGuard transport, including key management and session loops.
+- `wireguard_generic.go` – Platform-neutral pieces shared across WireGuard builds.

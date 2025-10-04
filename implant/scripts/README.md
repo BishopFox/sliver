@@ -6,4 +6,4 @@ Helper scripts and utilities for implant vendor management and automation. Inclu
 
 ## Go Files
 
-- `update-vendor.go`
+- `update-vendor.go` – Automates syncing vendored implant dependencies from the main repo into the implant tree.

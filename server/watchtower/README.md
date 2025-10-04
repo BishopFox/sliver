@@ -6,4 +6,4 @@ Watchtower monitoring and background jobs. Runs scheduled tasks, telemetry colle
 
 ## Go Files
 
-- `watchtower.go`
+- `watchtower.go` – Scheduler for periodic watchtower tasks and telemetry collection.

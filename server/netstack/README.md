@@ -6,4 +6,4 @@ gVisor-based userland network stack for server transports. Provides packet buffe
 
 ## Go Files
 
-- `tun.go`
+- `tun.go` – Integrates the gVisor TUN stack for server-managed transport endpoints.

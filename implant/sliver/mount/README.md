@@ -6,5 +6,5 @@ Cross-platform file mount helpers used by implants. Handles mounting, unmounting
 
 ## Go Files
 
-- `mount_linux.go`
-- `mount_windows.go`
+- `mount_linux.go` – Implements mount command wrappers and helpers for Linux targets.
+- `mount_windows.go` – Provides Windows-specific mount helpers and drive management.

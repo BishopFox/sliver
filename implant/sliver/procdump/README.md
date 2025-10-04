@@ -6,7 +6,7 @@ Process dump utilities for extracting memory from targets. Implements cross-plat
 
 ## Go Files
 
-- `dump.go`
-- `dump_darwin.go`
-- `dump_linux.go`
-- `dump_windows.go`
+- `dump.go` – Defines shared process dump logic and orchestrates platform hooks.
+- `dump_darwin.go` – macOS-specific memory dump implementation.
+- `dump_linux.go` – Linux process dumping routines and helpers.
+- `dump_windows.go` – Windows process dump support using system APIs.

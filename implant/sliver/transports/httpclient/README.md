@@ -6,7 +6,7 @@ HTTP(S) client transport implementation for implants. Configures request schedul
 
 ## Go Files
 
-- `drivers_generic.go`
-- `drivers_windows.go`
-- `gohttp.go`
-- `httpclient.go`
+- `drivers_generic.go` – Registers HTTP client drivers available on non-Windows builds.
+- `drivers_windows.go` – Registers HTTP drivers that rely on Windows-specific APIs.
+- `gohttp.go` – Implements the Go stdlib HTTP transport integration.
+- `httpclient.go` – Main HTTP client scheduler handling polling and task delivery.

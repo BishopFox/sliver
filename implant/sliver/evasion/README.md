@@ -6,7 +6,7 @@ Host evasion helpers to reduce detection on compromised systems. Implements anti
 
 ## Go Files
 
-- `evasion.go`
-- `evasion_darwin.go`
-- `evasion_linux.go`
-- `evasion_windows.go`
+- `evasion.go` – Provides shared evasion utilities and orchestrates platform-specific checks.
+- `evasion_darwin.go` – Contains macOS-specific evasion routines and environment validation.
+- `evasion_linux.go` – Implements Linux evasion strategies like debugger and sandbox detection.
+- `evasion_windows.go` – Houses Windows evasion features, including AMSI bypass helpers.

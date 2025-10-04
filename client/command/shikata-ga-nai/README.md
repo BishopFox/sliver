@@ -6,5 +6,5 @@ Implements the 'shikata-ga-nai' command group for the Sliver client console. Han
 
 ## Go Files
 
-- `commands.go`
-- `sgn.go`
+- `commands.go` – Registers shikata-ga-nai encoder commands for payload generation.
+- `sgn.go` – Interfaces with the SGN service to build XOR polymorphic payloads and prints results.

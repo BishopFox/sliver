@@ -6,7 +6,7 @@ Implements the 'portfwd' command group for the Sliver client console. Handlers m
 
 ## Go Files
 
-- `commands.go`
-- `portfwd-add.go`
-- `portfwd-rm.go`
-- `portfwd.go`
+- `commands.go` – Sets up the port forwarding command suite.
+- `portfwd-add.go` – Adds new local-to-remote port forwarders on the active session.
+- `portfwd-rm.go` – Removes configured port forwarders by ID.
+- `portfwd.go` – Lists existing port forwards and renders their configuration.

@@ -6,9 +6,9 @@ RPC and event handlers that respond to client and implant requests. Routes gRPC 
 
 ## Go Files
 
-- `beacons.go`
-- `data_cache.go`
-- `handlers.go`
-- `pivot.go`
-- `sessions.go`
-- `tunnel_writer.go`
+- `beacons.go` – Handles beacon-related RPC calls and state updates.
+- `data_cache.go` – Caches handler data for reuse across requests.
+- `handlers.go` – Registers handler functions and shared middleware.
+- `pivot.go` – Processes pivot management RPCs.
+- `sessions.go` – Handles session CRUD operations and telemetry routing.
+- `tunnel_writer.go` – Sends tunnel responses back to clients.

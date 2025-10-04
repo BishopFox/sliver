@@ -6,25 +6,25 @@ Common encoder implementations shared across binaries. Offers shared registry wi
 
 ## Go Files
 
-- `base32.go`
-- `base32_test.go` *(tests)*
-- `base58.go`
-- `base58_alphabet.go`
-- `base58_genalphabet.go`
-- `base58_test.go` *(tests)*
-- `base64.go`
-- `base64_test.go` *(tests)*
-- `encoders.go`
-- `encoders_test.go` *(tests)*
-- `english.go`
-- `english_test.go` *(tests)*
-- `gzip.go`
-- `gzip_test.go` *(tests)*
-- `hex.go`
-- `hex_test.go` *(tests)*
-- `images.go`
-- `images_test.go` *(tests)*
-- `nop.go`
+- `base32.go` – Implements reusable Base32 encoder/decoder functions.
+- `base32_test.go` *(tests)* – Tests Base32 encoding routines.
+- `base58.go` – Provides Base58 encoding/decoding logic.
+- `base58_alphabet.go` – Defines Base58 alphabets used by encoders.
+- `base58_genalphabet.go` – Generates Base58 alphabets dynamically.
+- `base58_test.go` *(tests)* – Tests Base58 helpers.
+- `base64.go` – Supplies Base64 encoding utilities.
+- `base64_test.go` *(tests)* – Tests Base64 helpers.
+- `encoders.go` – Registers encoders and exposes factory methods.
+- `encoders_test.go` *(tests)* – Tests encoder registry behavior.
+- `english.go` – Implements an English word encoder for readability.
+- `english_test.go` *(tests)* – Tests English encoder output.
+- `gzip.go` – Provides gzip compression helpers.
+- `gzip_test.go` *(tests)* – Tests gzip helper functions.
+- `hex.go` – Hex encoder/decoder utilities.
+- `hex_test.go` *(tests)* – Tests hex helpers.
+- `images.go` – Encodes data into images for covert transport.
+- `images_test.go` *(tests)* – Tests image encoder correctness.
+- `nop.go` – Passthrough encoder that returns data unchanged.
 
 ## Sub-packages
 

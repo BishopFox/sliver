@@ -6,6 +6,6 @@ Embedded locale strings provided by jibberjabber. Mirrors upstream localization 
 
 ## Go Files
 
-- `jibberjabber.go`
-- `jibberjabber_unix.go`
-- `jibberjabber_windows.go`
+- `jibberjabber.go` – Provides locale detection utilities backed by the jibberjabber data set.
+- `jibberjabber_unix.go` – Unix-specific wrappers for querying locale information.
+- `jibberjabber_windows.go` – Windows-specific locale detection implementations.

@@ -6,4 +6,4 @@ Generated common/shared message structures. Provides utility messages reused acr
 
 ## Go Files
 
-- `common.pb.go` *(generated)*
+- `common.pb.go` *(generated)* – Auto-generated Go representations for shared message types.

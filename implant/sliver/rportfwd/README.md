@@ -6,5 +6,5 @@ Reverse port forwarding implementation inside the implant. Manages listener regi
 
 ## Go Files
 
-- `portfwd.go`
-- `tunnel_writer.go`
+- `portfwd.go` – Handles reverse port forward creation and lifecycle management.
+- `tunnel_writer.go` – Sends reverse port forward frames back to the server tunnel.

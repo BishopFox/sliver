@@ -6,5 +6,5 @@ Privilege escalation helpers embedded in the implant. Houses exploit runners, pr
 
 ## Go Files
 
-- `priv.go`
-- `priv_windows.go`
+- `priv.go` – Provides privilege escalation interfaces and generic helpers.
+- `priv_windows.go` – Implements Windows-specific privilege escalation techniques.

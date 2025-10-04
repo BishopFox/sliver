@@ -6,10 +6,10 @@ Implements the 'privilege' command group for the Sliver client console. Handlers
 
 ## Go Files
 
-- `commands.go`
-- `getprivs.go`
-- `getsystem.go`
-- `impersonate.go`
-- `make-token.go`
-- `rev2self.go`
-- `runas.go`
+- `commands.go` – Registers privilege escalation commands and binds platform restrictions.
+- `getprivs.go` – Queries and prints token privileges for the current user context.
+- `getsystem.go` – Attempts to obtain SYSTEM privileges via built-in escalation techniques.
+- `impersonate.go` – Handles impersonation of other logon sessions using available tokens.
+- `make-token.go` – Creates new logon tokens with supplied credentials for the implant.
+- `rev2self.go` – Reverts impersonation back to the implant's original security context.
+- `runas.go` – Runs commands under alternate credentials or integrity levels through runas-like workflows.

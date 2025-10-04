@@ -6,6 +6,6 @@ Operator loot storage and retrieval helpers managed by the server. Handles files
 
 ## Go Files
 
-- `backend.go`
-- `loot.go`
-- `loot_test.go` *(tests)*
+- `backend.go` – Defines loot storage backends and filesystem layout.
+- `loot.go` – Implements loot CRUD operations and metadata handling.
+- `loot_test.go` *(tests)* – Tests loot backend behaviors.

@@ -6,4 +6,4 @@ Managed traffic encoder templates bundled with the server. Provides default enco
 
 ## Go Files
 
-- `traffic-encoder_test.go` *(tests)*
+- `traffic-encoder_test.go` *(tests)* – Validates that embedded traffic encoder templates compile and run.

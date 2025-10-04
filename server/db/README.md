@@ -6,13 +6,13 @@ Database access layer including migrations and helpers. Establishes database con
 
 ## Go Files
 
-- `db.go`
-- `helpers.go`
-- `logger.go`
-- `sql-cgo.go`
-- `sql-go.go`
-- `sql-wasm.go`
-- `sql.go`
+- `db.go` – Initializes database connections and manages migrations.
+- `helpers.go` – Utility functions shared across the database layer.
+- `logger.go` – Database logging adapter for structured output.
+- `sql-cgo.go` – CGO-backed SQLite driver wiring.
+- `sql-go.go` – Pure-Go SQLite driver wiring.
+- `sql-wasm.go` – WebAssembly SQLite integration for embedded builds.
+- `sql.go` – Common SQL helpers and abstractions.
 
 ## Sub-packages
 

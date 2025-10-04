@@ -6,13 +6,13 @@ Server-side embedded assets such as default profiles and resources. Packages def
 
 ## Go Files
 
-- `assets-helpers.go`
-- `assets.go`
-- `assets_darwin_amd64.go`
-- `assets_darwin_arm64.go`
-- `assets_linux_amd64.go`
-- `assets_linux_arm64.go`
-- `assets_windows_amd64.go`
+- `assets-helpers.go` – Provides helper functions for locating and loading embedded server assets.
+- `assets.go` – Registers asset bundles and exposes filesystem abstractions.
+- `assets_darwin_amd64.go` – Embeds macOS amd64 asset blobs.
+- `assets_darwin_arm64.go` – Embeds macOS arm64 asset blobs.
+- `assets_linux_amd64.go` – Embeds Linux amd64 asset blobs.
+- `assets_linux_arm64.go` – Embeds Linux arm64 asset blobs.
+- `assets_windows_amd64.go` – Embeds Windows amd64 asset blobs.
 
 ## Sub-packages
 

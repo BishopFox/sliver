@@ -6,5 +6,5 @@ Identity and network spoofing helpers bundled with the implant. Implements MAC/I
 
 ## Go Files
 
-- `spoof.go`
-- `spoof_windows.go`
+- `spoof.go` – Defines spoofing interfaces and cross-platform helpers.
+- `spoof_windows.go` – Implements Windows-specific spoofing capabilities.

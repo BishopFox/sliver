@@ -6,5 +6,5 @@ Windows HTTP helpers and fallbacks for implant transports. Supplies WinHTTP-base
 
 ## Go Files
 
-- `winhttp.go`
-- `winhttp_test.go` *(tests)*
+- `winhttp.go` – Wraps WinHTTP APIs to provide HTTP transport support for implants.
+- `winhttp_test.go` *(tests)* – Tests the WinHTTP integration and configuration helpers.

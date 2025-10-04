@@ -6,5 +6,5 @@ Implements the 'help' command group for the Sliver client console. Handlers map 
 
 ## Go Files
 
-- `help.go`
-- `long-help.go`
+- `help.go` – Houses the legacy grouped help implementation for the console, kept for reference and future reuse.
+- `long-help.go` – Stores long-form help templates and utilities for formatting command documentation.

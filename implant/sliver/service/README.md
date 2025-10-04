@@ -6,5 +6,5 @@ Windows service management features for the implant. Provides install, start/sto
 
 ## Go Files
 
-- `service.go`
-- `service_windows.go`
+- `service.go` – Declares service management interfaces and shared logic.
+- `service_windows.go` – Implements Windows service install, control, and status operations.

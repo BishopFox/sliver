@@ -6,6 +6,6 @@ Implements the 'network' command group for the Sliver client console. Handlers m
 
 ## Go Files
 
-- `commands.go`
-- `ifconfig.go`
-- `netstat.go`
+- `commands.go` – Registers network inspection commands for implants.
+- `ifconfig.go` – Retrieves and prints interface configuration details from the target.
+- `netstat.go` – Displays remote socket listings similar to netstat output.

@@ -6,6 +6,6 @@ Programmable traffic encoders compiled into the implant for obfuscation. Contain
 
 ## Go Files
 
-- `compiler.go`
-- `interpreter.go`
-- `traffic-encoder.go`
+- `compiler.go` – Compiles traffic encoder scripts into executable bytecode for implants.
+- `interpreter.go` – Executes compiled traffic encoder bytecode at runtime.
+- `traffic-encoder.go` – Provides high-level APIs to apply compiled traffic encoders to payloads.
