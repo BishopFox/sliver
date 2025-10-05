@@ -67,7 +67,7 @@ const DocsIndexPage: NextPage = () => {
     if (visibleDocs.some((doc) => doc.name === name)) {
       return visibleDocs;
     }
-    const selectedDoc = docs.docs.find((doc) => doc.name === name);
+    const selectedDoc = docs?.docs.find((doc) => doc.name === name);
     return selectedDoc ? [selectedDoc, ...visibleDocs] : visibleDocs;
   }, [docs, name, visibleDocs]);
 

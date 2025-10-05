@@ -67,7 +67,7 @@ const TutorialsIndexPage: NextPage = () => {
     if (visibleTutorials.some((tutorial) => tutorial.name === name)) {
       return visibleTutorials;
     }
-    const selectedTutorial = tutorials.tutorials.find((tutorial) => tutorial.name === name);
+    const selectedTutorial = tutorials?.tutorials.find((tutorial) => tutorial.name === name);
     return selectedTutorial ? [selectedTutorial, ...visibleTutorials] : visibleTutorials;
   }, [name, tutorials, visibleTutorials]);
 
