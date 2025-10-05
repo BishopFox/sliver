@@ -22,7 +22,8 @@
     "**/*.ts",
     "**/*.tsx",
     "prebuild/generate-docs.js",
-    "prebuild/generate-tutorials.js"
+    "prebuild/generate-tutorials.js",
+    "util/__generated__/prebuild-version.ts"
   ],
   "exclude": ["node_modules"]
 }

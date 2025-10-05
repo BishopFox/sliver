@@ -1,5 +1,7 @@
 import MarkdownViewer from "@/components/markdown";
 import { Docs } from "@/util/docs";
+import { PREBUILD_VERSION } from "@/util/__generated__/prebuild-version";
+import { fetchDocs as fetchDocsContent } from "@/util/content-fetchers";
 import { Themes } from "@/util/themes";
 import { faSearch } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -27,11 +29,8 @@ const DocsIndexPage: NextPage = () => {
   const router = useRouter();
 
   const { data: docs, isLoading } = useQuery({
-    queryKey: ["docs"],
-    queryFn: async (): Promise<Docs> => {
-      const res = await fetch("/docs.json");
-      return res.json();
-    },
+    queryKey: ["docs", PREBUILD_VERSION],
+    queryFn: () => fetchDocsContent(PREBUILD_VERSION),
   });
 
   const params = useSearchParams();

@@ -1,8 +1,10 @@
 import Navbar from "@/components/navbar";
 import "@/styles/globals.css";
 import { Docs } from "@/util/docs";
+import { PREBUILD_VERSION } from "@/util/__generated__/prebuild-version";
 import { Tutorials } from "@/util/tutorials";
 import { SearchContext, SearchCtx } from "@/util/search-context";
+import { fetchDocs as fetchDocsContent, fetchTutorials as fetchTutorialsContent } from "@/util/content-fetchers";
 import { Themes } from "@/util/themes";
 import { faExternalLink } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -18,28 +20,77 @@ import React from "react";
 
 export default function App({ Component, pageProps }: AppProps) {
   // Initialize search
-  const [search, setSearch] = React.useState(new SearchCtx());
+  const [search] = React.useState(() => new SearchCtx());
 
   // Initialize query client
   const [queryClient] = React.useState(() => new QueryClient());
-  queryClient.prefetchQuery({
-    queryKey: ["docs"],
-    queryFn: async (): Promise<Docs> => {
-      const res = await fetch("/docs.json");
-      const docs: Docs = await res.json();
-      search.addDocs(docs);
-      return docs;
-    },
-  });
+  const versionRef = React.useRef(PREBUILD_VERSION);
 
-  queryClient.prefetchQuery({
-    queryKey: ["tutorials"],
-    queryFn: async (): Promise<Tutorials> => {
-      const res = await fetch("/tutorials.json");
-      const tutorials: Tutorials = await res.json();
-      search.addTutorials(tutorials);
-      return tutorials;
-    },
+  React.useEffect(() => {
+    const docsFetcher = () => fetchDocsContent(versionRef.current);
+    const tutorialsFetcher = () => fetchTutorialsContent(versionRef.current);
+
+    queryClient.setQueryDefaults(["docs"], {
+      queryFn: docsFetcher,
+    });
+    queryClient.setQueryDefaults(["tutorials"], {
+      queryFn: tutorialsFetcher,
+    });
+  }, [queryClient]);
+
+  React.useEffect(() => {
+    const syncSearch = () => {
+      const docsQueries = queryClient.getQueriesData<Docs>({ queryKey: ["docs"] });
+      docsQueries.forEach(([, data]) => {
+        if (data) {
+          search.addDocs(data);
+        }
+      });
+
+      const tutorialQueries = queryClient.getQueriesData<Tutorials>({ queryKey: ["tutorials"] });
+      tutorialQueries.forEach(([, data]) => {
+        if (data) {
+          search.addTutorials(data);
+        }
+      });
+    };
+
+    syncSearch();
+    const unsubscribe = queryClient.getQueryCache().subscribe(syncSearch);
+    return unsubscribe;
+  }, [queryClient, search]);
+
+  React.useEffect(() => {
+    const docsFetcher = () => fetchDocsContent(versionRef.current);
+    const tutorialsFetcher = () => fetchTutorialsContent(versionRef.current);
+
+    void queryClient.prefetchQuery({
+      queryKey: ["docs", versionRef.current],
+      queryFn: docsFetcher,
+    });
+    void queryClient.prefetchQuery({
+      queryKey: ["tutorials", versionRef.current],
+      queryFn: tutorialsFetcher,
+    });
+  }, [queryClient]);
+
+  React.useEffect(() => {
+    if (versionRef.current !== PREBUILD_VERSION) {
+      versionRef.current = PREBUILD_VERSION;
+      queryClient.invalidateQueries({ queryKey: ["docs"] });
+      queryClient.invalidateQueries({ queryKey: ["tutorials"] });
+
+      const docsFetcher = () => fetchDocsContent(versionRef.current);
+      const tutorialsFetcher = () => fetchTutorialsContent(versionRef.current);
+      void queryClient.prefetchQuery({
+        queryKey: ["docs", versionRef.current],
+        queryFn: docsFetcher,
+      });
+      void queryClient.prefetchQuery({
+        queryKey: ["tutorials", versionRef.current],
+        queryFn: tutorialsFetcher,
+      });
+    }
   });
 
   return (

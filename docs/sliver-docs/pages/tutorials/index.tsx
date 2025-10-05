@@ -1,5 +1,7 @@
 import MarkdownViewer from "@/components/markdown";
 import { Tutorials } from "@/util/tutorials";
+import { PREBUILD_VERSION } from "@/util/__generated__/prebuild-version";
+import { fetchTutorials as fetchTutorialsContent } from "@/util/content-fetchers";
 import { Themes } from "@/util/themes";
 import { faSearch } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -27,11 +29,8 @@ const TutorialsIndexPage: NextPage = () => {
   const router = useRouter();
 
   const { data: tutorials, isLoading } = useQuery({
-    queryKey: ["tutorials"],
-    queryFn: async (): Promise<Tutorials> => {
-      const res = await fetch("/tutorials.json");
-      return res.json();
-    },
+    queryKey: ["tutorials", PREBUILD_VERSION],
+    queryFn: () => fetchTutorialsContent(PREBUILD_VERSION),
   });
 
   const params = useSearchParams();
