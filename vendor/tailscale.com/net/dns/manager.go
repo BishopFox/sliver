@@ -8,12 +8,14 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/netip"
 	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -22,14 +24,20 @@ import (
 	"tailscale.com/net/dns/resolver"
 	"tailscale.com/net/netmon"
 	"tailscale.com/net/tsdial"
+	"tailscale.com/syncs"
 	"tailscale.com/types/dnstype"
 	"tailscale.com/types/logger"
 	"tailscale.com/util/clientmetric"
 	"tailscale.com/util/dnsname"
+	"tailscale.com/util/slicesx"
+	"tailscale.com/util/syspolicy/policyclient"
 )
 
 var (
 	errFullQueue = errors.New("request queue full")
+	// ErrNoDNSConfig is returned by RecompileDNSConfig when the Manager
+	// has no existing DNS configuration.
+	ErrNoDNSConfig = errors.New("no DNS configuration")
 )
 
 // maxActiveQueries returns the maximal number of DNS requests that can
@@ -52,10 +60,17 @@ type Manager struct {
 
 	resolver *resolver.Resolver
 	os       OSConfigurator
+	knobs    *controlknobs.Knobs // or nil
+	goos     string              // if empty, gets set to runtime.GOOS
+
+	mu     sync.Mutex // guards following
+	config *Config    // Tracks the last viable DNS configuration set by Set.  nil on failures other than compilation failures or if set has never been called.
 }
 
 // NewManagers created a new manager from the given config.
-func NewManager(logf logger.Logf, oscfg OSConfigurator, health *health.Tracker, dialer *tsdial.Dialer, linkSel resolver.ForwardLinkSelector, knobs *controlknobs.Knobs) *Manager {
+//
+// knobs may be nil.
+func NewManager(logf logger.Logf, oscfg OSConfigurator, health *health.Tracker, dialer *tsdial.Dialer, linkSel resolver.ForwardLinkSelector, knobs *controlknobs.Knobs, goos string) *Manager {
 	if dialer == nil {
 		panic("nil Dialer")
 	}
@@ -63,12 +78,19 @@ func NewManager(logf logger.Logf, oscfg OSConfigurator, health *health.Tracker, 
 		panic("Dialer has nil NetMon")
 	}
 	logf = logger.WithPrefix(logf, "dns: ")
+	if goos == "" {
+		goos = runtime.GOOS
+	}
+
 	m := &Manager{
 		logf:     logf,
-		resolver: resolver.New(logf, linkSel, dialer, knobs),
+		resolver: resolver.New(logf, linkSel, dialer, health, knobs),
 		os:       oscfg,
 		health:   health,
+		knobs:    knobs,
+		goos:     goos,
 	}
+
 	m.ctx, m.ctxCancel = context.WithCancel(context.Background())
 	m.logf("using %T", m.os)
 	return m
@@ -77,13 +99,52 @@ func NewManager(logf logger.Logf, oscfg OSConfigurator, health *health.Tracker, 
 // Resolver returns the Manager's DNS Resolver.
 func (m *Manager) Resolver() *resolver.Resolver { return m.resolver }
 
+// RecompileDNSConfig recompiles the last attempted DNS configuration, which has
+// the side effect of re-querying the OS's interface nameservers.  This should be used
+// on platforms where the interface nameservers can change.  Darwin, for example,
+// where the nameservers aren't always available when we process a major interface
+// change event, or platforms where the nameservers may change while tunnel is up.
+//
+// This should be called if it is determined that [OSConfigurator.GetBaseConfig] may
+// give a better or different result than when [Manager.Set] was last called.  The
+// logic for making that determination is up to the caller.
+//
+// It returns [ErrNoDNSConfig] if [Manager.Set] has never been called.
+func (m *Manager) RecompileDNSConfig() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.config != nil {
+		return m.setLocked(*m.config)
+	}
+	return ErrNoDNSConfig
+}
+
 func (m *Manager) Set(cfg Config) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.setLocked(cfg)
+}
+
+// GetBaseConfig returns the current base OS DNS configuration as provided by the OSConfigurator.
+func (m *Manager) GetBaseConfig() (OSConfig, error) {
+	return m.os.GetBaseConfig()
+}
+
+// setLocked sets the DNS configuration.
+//
+// m.mu must be held.
+func (m *Manager) setLocked(cfg Config) error {
+	syncs.AssertLocked(&m.mu)
+
 	m.logf("Set: %v", logger.ArgWriter(func(w *bufio.Writer) {
 		cfg.WriteToBufioWriter(w)
 	}))
 
 	rcfg, ocfg, err := m.compileConfig(cfg)
 	if err != nil {
+		// On a compilation failure, set m.config set for later reuse by
+		// [Manager.RecompileDNSConfig] and return the error.
+		m.config = &cfg
 		return err
 	}
 
@@ -95,13 +156,17 @@ func (m *Manager) Set(cfg Config) error {
 	}))
 
 	if err := m.resolver.SetConfig(rcfg); err != nil {
+		m.config = nil
 		return err
 	}
 	if err := m.os.SetDNS(ocfg); err != nil {
-		m.health.SetDNSOSHealth(err)
+		m.config = nil
+		m.health.SetUnhealthy(osConfigurationSetWarnable, health.Args{health.ArgError: err.Error()})
 		return err
 	}
-	m.health.SetDNSOSHealth(nil)
+
+	m.health.SetHealthy(osConfigurationSetWarnable)
+	m.config = &cfg
 
 	return nil
 }
@@ -112,6 +177,7 @@ func (m *Manager) Set(cfg Config) error {
 // The returned list is sorted by the first hostname in each entry.
 func compileHostEntries(cfg Config) (hosts []*HostEntry) {
 	didLabel := make(map[string]bool, len(cfg.Hosts))
+	hostsMap := make(map[netip.Addr]*HostEntry, len(cfg.Hosts))
 	for _, sd := range cfg.SearchDomains {
 		for h, ips := range cfg.Hosts {
 			if !sd.Contains(h) || h.NumLabels() != (sd.NumLabels()+1) {
@@ -126,15 +192,23 @@ func compileHostEntries(cfg Config) (hosts []*HostEntry) {
 				if cfg.OnlyIPv6 && ip.Is4() {
 					continue
 				}
-				hosts = append(hosts, &HostEntry{
-					Addr:  ip,
-					Hosts: ipHosts,
-				})
+				if e := hostsMap[ip]; e != nil {
+					e.Hosts = append(e.Hosts, ipHosts...)
+				} else {
+					hostsMap[ip] = &HostEntry{
+						Addr:  ip,
+						Hosts: ipHosts,
+					}
+				}
 				// Only add IPv4 or IPv6 per host, like we do in the resolver.
 				break
 			}
 		}
 	}
+	if len(hostsMap) == 0 {
+		return nil
+	}
+	hosts = slicesx.MapValues(hostsMap)
 	slices.SortFunc(hosts, func(a, b *HostEntry) int {
 		if len(a.Hosts) == 0 && len(b.Hosts) == 0 {
 			return 0
@@ -148,6 +222,26 @@ func compileHostEntries(cfg Config) (hosts []*HostEntry) {
 	return hosts
 }
 
+var osConfigurationReadWarnable = health.Register(&health.Warnable{
+	Code:  "dns-read-os-config-failed",
+	Title: "Failed to read system DNS configuration",
+	Text: func(args health.Args) string {
+		return fmt.Sprintf("Tailscale failed to fetch the DNS configuration of your device: %v", args[health.ArgError])
+	},
+	Severity:  health.SeverityLow,
+	DependsOn: []*health.Warnable{health.NetworkStatusWarnable},
+})
+
+var osConfigurationSetWarnable = health.Register(&health.Warnable{
+	Code:  "dns-set-os-config-failed",
+	Title: "Failed to set system DNS configuration",
+	Text: func(args health.Args) string {
+		return fmt.Sprintf("Tailscale failed to set the DNS configuration of your device: %v", args[health.ArgError])
+	},
+	Severity:  health.SeverityMedium,
+	DependsOn: []*health.Warnable{health.NetworkStatusWarnable},
+})
+
 // compileConfig converts cfg into a quad-100 resolver configuration
 // and an OS-level configuration.
 func (m *Manager) compileConfig(cfg Config) (rcfg resolver.Config, ocfg OSConfig, err error) {
@@ -156,8 +250,10 @@ func (m *Manager) compileConfig(cfg Config) (rcfg resolver.Config, ocfg OSConfig
 	// the OS.
 	rcfg.Hosts = cfg.Hosts
 	routes := map[dnsname.FQDN][]*dnstype.Resolver{} // assigned conditionally to rcfg.Routes below.
+	var propagateHostsToOS bool
 	for suffix, resolvers := range cfg.Routes {
 		if len(resolvers) == 0 {
+			propagateHostsToOS = true
 			rcfg.LocalDomains = append(rcfg.LocalDomains, suffix)
 		} else {
 			routes[suffix] = resolvers
@@ -166,13 +262,13 @@ func (m *Manager) compileConfig(cfg Config) (rcfg resolver.Config, ocfg OSConfig
 
 	// Similarly, the OS always gets search paths.
 	ocfg.SearchDomains = cfg.SearchDomains
-	if runtime.GOOS == "windows" {
+	if propagateHostsToOS && m.goos == "windows" {
 		ocfg.Hosts = compileHostEntries(cfg)
 	}
 
 	// Deal with trivial configs first.
 	switch {
-	case !cfg.needsOSResolver():
+	case !cfg.needsOSResolver() || runtime.GOOS == "plan9":
 		// Set search domains, but nothing else. This also covers the
 		// case where cfg is entirely zero, in which case these
 		// configs clear all Tailscale DNS settings.
@@ -195,7 +291,7 @@ func (m *Manager) compileConfig(cfg Config) (rcfg resolver.Config, ocfg OSConfig
 		// through quad-100.
 		rcfg.Routes = routes
 		rcfg.Routes["."] = cfg.DefaultResolvers
-		ocfg.Nameservers = []netip.Addr{cfg.serviceIP()}
+		ocfg.Nameservers = cfg.serviceIPs(m.knobs)
 		return rcfg, ocfg, nil
 	}
 
@@ -219,8 +315,9 @@ func (m *Manager) compileConfig(cfg Config) (rcfg resolver.Config, ocfg OSConfig
 	//
 	// This bool is used in a couple of places below to implement this
 	// workaround.
-	isWindows := runtime.GOOS == "windows"
-	if len(cfg.singleResolverSet()) > 0 && m.os.SupportsSplitDNS() && !isWindows {
+	isWindows := m.goos == "windows"
+	isApple := (m.goos == "darwin" || m.goos == "ios")
+	if len(cfg.singleResolverSet()) > 0 && m.os.SupportsSplitDNS() && !isWindows && !isApple {
 		// Split DNS configuration requested, where all split domains
 		// go to the same resolvers. We can let the OS do it.
 		ocfg.Nameservers = toIPsOnly(cfg.singleResolverSet())
@@ -232,7 +329,7 @@ func (m *Manager) compileConfig(cfg Config) (rcfg resolver.Config, ocfg OSConfig
 	// or routes + MagicDNS, or just MagicDNS, or on an OS that cannot
 	// split-DNS. Install a split config pointing at quad-100.
 	rcfg.Routes = routes
-	ocfg.Nameservers = []netip.Addr{cfg.serviceIP()}
+	ocfg.Nameservers = cfg.serviceIPs(m.knobs)
 
 	var baseCfg *OSConfig // base config; non-nil if/when known
 
@@ -240,11 +337,12 @@ func (m *Manager) compileConfig(cfg Config) (rcfg resolver.Config, ocfg OSConfig
 	// selectively answer ExtraRecords, and ignore other DNS traffic. As a
 	// workaround, we read the existing default resolver configuration and use
 	// that as the forwarder for all DNS traffic that quad-100 doesn't handle.
-	const isApple = runtime.GOOS == "darwin" || runtime.GOOS == "ios"
-
 	if isApple || !m.os.SupportsSplitDNS() {
 		// If the OS can't do native split-dns, read out the underlying
-		// resolver config and blend it into our config.
+		// resolver config and blend it into our config.  On apple platforms, [OSConfigurator.GetBaseConfig]
+		// has a tendency to temporarily fail if called immediately following
+		// an interface change.  These failures should be retried if/when the OS
+		// indicates that the DNS configuration has changed via [RecompileDNSConfig].
 		cfg, err := m.os.GetBaseConfig()
 		if err == nil {
 			baseCfg = &cfg
@@ -252,16 +350,32 @@ func (m *Manager) compileConfig(cfg Config) (rcfg resolver.Config, ocfg OSConfig
 			// This is currently (2022-10-13) expected on certain iOS and macOS
 			// builds.
 		} else {
-			m.health.SetDNSOSHealth(err)
+			m.health.SetUnhealthy(osConfigurationReadWarnable, health.Args{health.ArgError: err.Error()})
 			return resolver.Config{}, OSConfig{}, err
 		}
+		m.health.SetHealthy(osConfigurationReadWarnable)
 	}
 
-	if baseCfg == nil || isApple && len(baseCfg.Nameservers) == 0 {
-		// If there was no base config, or if we're on Apple and the base
-		// config is empty, then we need to fallback to SplitDNS mode.
+	if baseCfg == nil {
+		// If there was no base config, then we need to fallback to SplitDNS mode.
 		ocfg.MatchDomains = cfg.matchDomains()
 	} else {
+		// On iOS only (for now), check if all route names point to resources inside the tailnet.
+		// If so, we can set those names as MatchDomains to enable a split DNS configuration
+		// which will help preserve battery life.
+		// Because on iOS MatchDomains must equal SearchDomains, we cannot do this when
+		// we have any Routes outside the tailnet. Otherwise when app connectors are enabled,
+		// a query for 'work-laptop' might lead to search domain expansion, resolving
+		// as 'work-laptop.aws.com' for example.
+		if m.goos == "ios" && rcfg.RoutesRequireNoCustomResolvers() {
+			if !m.disableSplitDNSOptimization() {
+				for r := range rcfg.Routes {
+					ocfg.MatchDomains = append(ocfg.MatchDomains, r)
+				}
+			} else {
+				m.logf("iOS split DNS is disabled by nodeattr")
+			}
+		}
 		var defaultRoutes []*dnstype.Resolver
 		for _, ip := range baseCfg.Nameservers {
 			defaultRoutes = append(defaultRoutes, &dnstype.Resolver{Addr: ip.String()})
@@ -271,6 +385,10 @@ func (m *Manager) compileConfig(cfg Config) (rcfg resolver.Config, ocfg OSConfig
 	}
 
 	return rcfg, ocfg, nil
+}
+
+func (m *Manager) disableSplitDNSOptimization() bool {
+	return m.knobs != nil && m.knobs.DisableSplitDNSWhenNoCustomResolvers.Load()
 }
 
 // toIPsOnly returns only the IP portion of dnstype.Resolver.
@@ -456,15 +574,17 @@ func (m *Manager) FlushCaches() error {
 // CleanUp restores the system DNS configuration to its original state
 // in case the Tailscale daemon terminated without closing the router.
 // No other state needs to be instantiated before this runs.
-func CleanUp(logf logger.Logf, netMon *netmon.Monitor, interfaceName string) {
-	oscfg, err := NewOSConfigurator(logf, nil, interfaceName)
+//
+// health must not be nil
+func CleanUp(logf logger.Logf, netMon *netmon.Monitor, health *health.Tracker, interfaceName string) {
+	oscfg, err := NewOSConfigurator(logf, health, policyclient.Get(), nil, interfaceName)
 	if err != nil {
 		logf("creating dns cleanup: %v", err)
 		return
 	}
 	d := &tsdial.Dialer{Logf: logf}
 	d.SetNetMon(netMon)
-	dns := NewManager(logf, oscfg, nil, d, nil, nil)
+	dns := NewManager(logf, oscfg, health, d, nil, nil, runtime.GOOS)
 	if err := dns.Down(); err != nil {
 		logf("dns down: %v", err)
 	}

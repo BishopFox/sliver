@@ -12,7 +12,7 @@ import (
 type QueuedQuery struct {
 	SQL       string
 	Arguments []any
-	fn        batchItemFunc
+	Fn        batchItemFunc
 	sd        *pgconn.StatementDescription
 }
 
@@ -20,7 +20,7 @@ type batchItemFunc func(br BatchResults) error
 
 // Query sets fn to be called when the response to qq is received.
 func (qq *QueuedQuery) Query(fn func(rows Rows) error) {
-	qq.fn = func(br BatchResults) error {
+	qq.Fn = func(br BatchResults) error {
 		rows, _ := br.Query()
 		defer rows.Close()
 
@@ -36,15 +36,19 @@ func (qq *QueuedQuery) Query(fn func(rows Rows) error) {
 
 // Query sets fn to be called when the response to qq is received.
 func (qq *QueuedQuery) QueryRow(fn func(row Row) error) {
-	qq.fn = func(br BatchResults) error {
+	qq.Fn = func(br BatchResults) error {
 		row := br.QueryRow()
 		return fn(row)
 	}
 }
 
 // Exec sets fn to be called when the response to qq is received.
+//
+// Note: for simple batch insert uses where it is not required to handle
+// each potential error individually, it's sufficient to not set any callbacks,
+// and just handle the return value of BatchResults.Close.
 func (qq *QueuedQuery) Exec(fn func(ct pgconn.CommandTag) error) {
-	qq.fn = func(br BatchResults) error {
+	qq.Fn = func(br BatchResults) error {
 		ct, err := br.Exec()
 		if err != nil {
 			return err
@@ -60,9 +64,13 @@ type Batch struct {
 	QueuedQueries []*QueuedQuery
 }
 
-// Queue queues a query to batch b. query can be an SQL query or the name of a prepared statement.
-// The only pgx option argument that is supported is QueryRewriter. Queries are executed using the
-// connection's DefaultQueryExecMode.
+// Queue queues a query to batch b. query can be an SQL query or the name of a prepared statement. The only pgx option
+// argument that is supported is QueryRewriter. Queries are executed using the connection's DefaultQueryExecMode.
+//
+// While query can contain multiple statements if the connection's DefaultQueryExecMode is QueryModeSimple, this should
+// be avoided. QueuedQuery.Fn must not be set as it will only be called for the first query. That is, QueuedQuery.Query,
+// QueuedQuery.QueryRow, and QueuedQuery.Exec must not be called. In addition, any error messages or tracing that
+// include the current query may reference the wrong query.
 func (b *Batch) Queue(query string, arguments ...any) *QueuedQuery {
 	qq := &QueuedQuery{
 		SQL:       query,
@@ -79,7 +87,7 @@ func (b *Batch) Len() int {
 
 type BatchResults interface {
 	// Exec reads the results from the next query in the batch as if the query has been sent with Conn.Exec. Prefer
-	// calling Exec on the QueuedQuery.
+	// calling Exec on the QueuedQuery, or just calling Close.
 	Exec() (pgconn.CommandTag, error)
 
 	// Query reads the results from the next query in the batch as if the query has been sent with Conn.Query. Prefer
@@ -93,6 +101,9 @@ type BatchResults interface {
 	// Close closes the batch operation. All unread results are read and any callback functions registered with
 	// QueuedQuery.Query, QueuedQuery.QueryRow, or QueuedQuery.Exec will be called. If a callback function returns an
 	// error or the batch encounters an error subsequent callback functions will not be called.
+	//
+	// For simple batch inserts inside a transaction or similar queries, it's sufficient to not set any callbacks,
+	// and just handle the return value of Close.
 	//
 	// Close must be called before the underlying connection can be used again. Any error that occurred during a batch
 	// operation may have made it impossible to resyncronize the connection with the server. In this case the underlying
@@ -128,7 +139,7 @@ func (br *batchResults) Exec() (pgconn.CommandTag, error) {
 	if !br.mrr.NextResult() {
 		err := br.mrr.Close()
 		if err == nil {
-			err = errors.New("no result")
+			err = errors.New("no more results in batch")
 		}
 		if br.conn.batchTracer != nil {
 			br.conn.batchTracer.TraceBatchQuery(br.ctx, br.conn, TraceBatchQueryData{
@@ -180,7 +191,7 @@ func (br *batchResults) Query() (Rows, error) {
 	if !br.mrr.NextResult() {
 		rows.err = br.mrr.Close()
 		if rows.err == nil {
-			rows.err = errors.New("no result")
+			rows.err = errors.New("no more results in batch")
 		}
 		rows.closed = true
 
@@ -203,7 +214,6 @@ func (br *batchResults) Query() (Rows, error) {
 func (br *batchResults) QueryRow() Row {
 	rows, _ := br.Query()
 	return (*connRow)(rows.(*baseRows))
-
 }
 
 // Close closes the batch operation. Any error that occurred during a batch operation may have made it impossible to
@@ -216,6 +226,8 @@ func (br *batchResults) Close() error {
 			}
 			br.endTraced = true
 		}
+
+		invalidateCachesOnBatchResultsError(br.conn, br.b, br.err)
 	}()
 
 	if br.err != nil {
@@ -228,8 +240,8 @@ func (br *batchResults) Close() error {
 
 	// Read and run fn for all remaining items
 	for br.err == nil && !br.closed && br.b != nil && br.qqIdx < len(br.b.QueuedQueries) {
-		if br.b.QueuedQueries[br.qqIdx].fn != nil {
-			err := br.b.QueuedQueries[br.qqIdx].fn(br)
+		if br.b.QueuedQueries[br.qqIdx].Fn != nil {
+			err := br.b.QueuedQueries[br.qqIdx].Fn(br)
 			if err != nil {
 				br.err = err
 			}
@@ -287,7 +299,10 @@ func (br *pipelineBatchResults) Exec() (pgconn.CommandTag, error) {
 		return pgconn.CommandTag{}, br.err
 	}
 
-	query, arguments, _ := br.nextQueryAndArgs()
+	query, arguments, err := br.nextQueryAndArgs()
+	if err != nil {
+		return pgconn.CommandTag{}, err
+	}
 
 	results, err := br.pipeline.GetResults()
 	if err != nil {
@@ -330,9 +345,9 @@ func (br *pipelineBatchResults) Query() (Rows, error) {
 		return &baseRows{err: br.err, closed: true}, br.err
 	}
 
-	query, arguments, ok := br.nextQueryAndArgs()
-	if !ok {
-		query = "batch query"
+	query, arguments, err := br.nextQueryAndArgs()
+	if err != nil {
+		return &baseRows{err: err, closed: true}, err
 	}
 
 	rows := br.conn.getRows(br.ctx, query, arguments)
@@ -371,7 +386,6 @@ func (br *pipelineBatchResults) Query() (Rows, error) {
 func (br *pipelineBatchResults) QueryRow() Row {
 	rows, _ := br.Query()
 	return (*connRow)(rows.(*baseRows))
-
 }
 
 // Close closes the batch operation. Any error that occurred during a batch operation may have made it impossible to
@@ -384,6 +398,8 @@ func (br *pipelineBatchResults) Close() error {
 			}
 			br.endTraced = true
 		}
+
+		invalidateCachesOnBatchResultsError(br.conn, br.b, br.err)
 	}()
 
 	if br.err == nil && br.lastRows != nil && br.lastRows.err != nil {
@@ -397,8 +413,8 @@ func (br *pipelineBatchResults) Close() error {
 
 	// Read and run fn for all remaining items
 	for br.err == nil && !br.closed && br.b != nil && br.qqIdx < len(br.b.QueuedQueries) {
-		if br.b.QueuedQueries[br.qqIdx].fn != nil {
-			err := br.b.QueuedQueries[br.qqIdx].fn(br)
+		if br.b.QueuedQueries[br.qqIdx].Fn != nil {
+			err := br.b.QueuedQueries[br.qqIdx].Fn(br)
 			if err != nil {
 				br.err = err
 			}
@@ -421,13 +437,33 @@ func (br *pipelineBatchResults) earlyError() error {
 	return br.err
 }
 
-func (br *pipelineBatchResults) nextQueryAndArgs() (query string, args []any, ok bool) {
-	if br.b != nil && br.qqIdx < len(br.b.QueuedQueries) {
-		bi := br.b.QueuedQueries[br.qqIdx]
-		query = bi.SQL
-		args = bi.Arguments
-		ok = true
-		br.qqIdx++
+func (br *pipelineBatchResults) nextQueryAndArgs() (query string, args []any, err error) {
+	if br.b == nil {
+		return "", nil, errors.New("no reference to batch")
 	}
-	return
+
+	if br.qqIdx >= len(br.b.QueuedQueries) {
+		return "", nil, errors.New("no more results in batch")
+	}
+
+	bi := br.b.QueuedQueries[br.qqIdx]
+	br.qqIdx++
+	return bi.SQL, bi.Arguments, nil
+}
+
+// invalidates statement and description caches on batch results error
+func invalidateCachesOnBatchResultsError(conn *Conn, b *Batch, err error) {
+	if err != nil && conn != nil && b != nil {
+		if sc := conn.statementCache; sc != nil {
+			for _, bi := range b.QueuedQueries {
+				sc.Invalidate(bi.SQL)
+			}
+		}
+
+		if sc := conn.descriptionCache; sc != nil {
+			for _, bi := range b.QueuedQueries {
+				sc.Invalidate(bi.SQL)
+			}
+		}
+	}
 }

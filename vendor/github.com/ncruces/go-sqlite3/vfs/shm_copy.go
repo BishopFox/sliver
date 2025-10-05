@@ -1,4 +1,4 @@
-//go:build (windows && (386 || arm || amd64 || arm64 || riscv64 || ppc64le) && !sqlite3_nosys) || sqlite3_dotlk
+//go:build (windows && (386 || arm || amd64 || arm64 || riscv64 || ppc64le)) || sqlite3_dotlk
 
 package vfs
 
@@ -13,7 +13,7 @@ const (
 	_WALINDEX_PGSZ     = 32768
 )
 
-// This looks like a safe way of keeping the WAL-index in sync.
+// This seems a safe way of keeping the WAL-index in sync.
 //
 // The WAL-index file starts with a header,
 // and the index doesn't meaningfully change if the header doesn't change.
@@ -27,7 +27,7 @@ const (
 //
 // Since all the data is either redundant+checksummed,
 // 4 byte aligned, or modified under an exclusive lock,
-// the copies below should correctly keep copies in sync.
+// the copies below should correctly keep memory in sync.
 //
 // https://sqlite.org/walformat.html#the_wal_index_file_format
 
@@ -35,7 +35,7 @@ func (s *vfsShm) shmAcquire(ptr *_ErrorCode) {
 	if ptr != nil && *ptr != _OK {
 		return
 	}
-	if len(s.ptrs) == 0 || shmUnmodified(s.shadow[0][:], s.shared[0][:]) {
+	if len(s.ptrs) == 0 || shmEqual(s.shadow[0][:], s.shared[0][:]) {
 		return
 	}
 	// Copies modified words from shared to private memory.
@@ -53,7 +53,7 @@ func (s *vfsShm) shmAcquire(ptr *_ErrorCode) {
 }
 
 func (s *vfsShm) shmRelease() {
-	if len(s.ptrs) == 0 || shmUnmodified(s.shadow[0][:], util.View(s.mod, s.ptrs[0], _WALINDEX_HDR_SIZE)) {
+	if len(s.ptrs) == 0 || shmEqual(s.shadow[0][:], util.View(s.mod, s.ptrs[0], _WALINDEX_HDR_SIZE)) {
 		return
 	}
 	// Copies modified words from private to shared memory.
@@ -82,6 +82,6 @@ func shmPage(s []byte) *[_WALINDEX_PGSZ / 4]uint32 {
 	return (*[_WALINDEX_PGSZ / 4]uint32)(unsafe.Slice(p, _WALINDEX_PGSZ/4))
 }
 
-func shmUnmodified(v1, v2 []byte) bool {
+func shmEqual(v1, v2 []byte) bool {
 	return *(*[_WALINDEX_HDR_SIZE]byte)(v1[:]) == *(*[_WALINDEX_HDR_SIZE]byte)(v2[:])
 }

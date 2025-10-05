@@ -7,6 +7,6 @@ import (
 	"golang.zx2c4.com/wireguard/rwcancel"
 )
 
-func (device *Device) startRouteListener(bind conn.Bind) (*rwcancel.RWCancel, error) {
+func (device *Device) startRouteListener(_ conn.Bind) (*rwcancel.RWCancel, error) {
 	return nil, nil
 }

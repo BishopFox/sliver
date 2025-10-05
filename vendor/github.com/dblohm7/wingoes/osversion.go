@@ -133,6 +133,7 @@ const (
 	Win10BuildRTM          = Win10BuildConstant(10240)
 	Win10Build1511         = Win10BuildConstant(10586)
 	Win10Build1607         = Win10BuildConstant(14393)
+	WinServer2016          = Win10Build1607
 	Win10BuildAnniversary  = Win10Build1607
 	Win10Build1703         = Win10BuildConstant(15063)
 	Win10BuildCreators     = Win10Build1703
@@ -140,6 +141,7 @@ const (
 	Win10BuildFallCreators = Win10Build1709
 	Win10Build1803         = Win10BuildConstant(17134)
 	Win10Build1809         = Win10BuildConstant(17763)
+	WinServer2019          = Win10Build1809
 	Win10Build1903         = Win10BuildConstant(18362)
 	Win10Build1909         = Win10BuildConstant(18363)
 	Win10Build2004         = Win10BuildConstant(19041)
@@ -147,6 +149,7 @@ const (
 	Win10Build21H1         = Win10BuildConstant(19043)
 	Win10Build21H2         = Win10BuildConstant(19044)
 	Win10Build22H2         = Win10BuildConstant(19045)
+	WinServer2022          = Win10BuildConstant(20348)
 )
 
 // IsWin10BuildOrGreater returns true when running on the specified Windows 10
@@ -163,6 +166,8 @@ const (
 	Win11BuildRTM  = Win11BuildConstant(22000)
 	Win11Build22H2 = Win11BuildConstant(22621)
 	Win11Build23H2 = Win11BuildConstant(22631)
+	Win11Build24H2 = Win11BuildConstant(26100)
+	WinServer2025  = Win11Build24H2
 )
 
 // IsWin11OrGreater returns true when running on any release of Windows 11,

@@ -1,4 +1,4 @@
-//go:build (linux || darwin) && (386 || arm || amd64 || arm64 || riscv64 || ppc64le) && !(sqlite3_flock || sqlite3_dotlk || sqlite3_nosys)
+//go:build (linux || darwin) && (386 || arm || amd64 || arm64 || riscv64 || ppc64le) && !(sqlite3_flock || sqlite3_dotlk)
 
 package vfs
 
@@ -20,6 +20,7 @@ type vfsShm struct {
 	path     string
 	regions  []*util.MappedRegion
 	readOnly bool
+	fileLock bool
 	blocking bool
 	sync.Mutex
 }
@@ -29,16 +30,19 @@ var _ blockingSharedMemory = &vfsShm{}
 func (s *vfsShm) shmOpen() _ErrorCode {
 	if s.File == nil {
 		f, err := os.OpenFile(s.path,
-			unix.O_RDWR|unix.O_CREAT|unix.O_NOFOLLOW, 0666)
+			os.O_RDWR|os.O_CREATE|_O_NOFOLLOW, 0666)
 		if err != nil {
 			f, err = os.OpenFile(s.path,
-				unix.O_RDONLY|unix.O_CREAT|unix.O_NOFOLLOW, 0666)
+				os.O_RDONLY|os.O_CREATE|_O_NOFOLLOW, 0666)
 			s.readOnly = true
 		}
 		if err != nil {
 			return _CANTOPEN
 		}
 		s.File = f
+	}
+	if s.fileLock {
+		return _OK
 	}
 
 	// Dead man's switch.
@@ -64,10 +68,12 @@ func (s *vfsShm) shmOpen() _ErrorCode {
 			return _IOERR_SHMOPEN
 		}
 	}
-	return osReadLock(s.File, _SHM_DMS, 1, time.Millisecond)
+	rc := osReadLock(s.File, _SHM_DMS, 1, time.Millisecond)
+	s.fileLock = rc == _OK
+	return rc
 }
 
-func (s *vfsShm) shmMap(ctx context.Context, mod api.Module, id, size int32, extend bool) (uint32, _ErrorCode) {
+func (s *vfsShm) shmMap(ctx context.Context, mod api.Module, id, size int32, extend bool) (ptr_t, _ErrorCode) {
 	// Ensure size is a multiple of the OS page size.
 	if int(size)&(unix.Getpagesize()-1) != 0 {
 		return 0, _IOERR_SHMMAP
@@ -104,7 +110,12 @@ func (s *vfsShm) shmMap(ctx context.Context, mod api.Module, id, size int32, ext
 
 func (s *vfsShm) shmLock(offset, n int32, flags _ShmFlag) _ErrorCode {
 	// Argument check.
-	if n <= 0 || offset < 0 || offset+n > _SHM_NLOCK {
+	switch {
+	case n <= 0:
+		panic(util.AssertErr())
+	case offset < 0 || offset+n > _SHM_NLOCK:
+		panic(util.AssertErr())
+	case n != 1 && flags&_SHM_EXCLUSIVE == 0:
 		panic(util.AssertErr())
 	}
 	switch flags {
@@ -115,9 +126,6 @@ func (s *vfsShm) shmLock(offset, n int32, flags _ShmFlag) _ErrorCode {
 		_SHM_UNLOCK | _SHM_EXCLUSIVE:
 		//
 	default:
-		panic(util.AssertErr())
-	}
-	if n != 1 && flags&_SHM_EXCLUSIVE == 0 {
 		panic(util.AssertErr())
 	}
 

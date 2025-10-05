@@ -45,9 +45,11 @@ type Bind interface {
 	// This mark is passed to the kernel as the socket option SO_MARK.
 	SetMark(mark uint32) error
 
-	// Send writes one or more packets in bufs to address ep. The length of
-	// bufs must not exceed BatchSize().
-	Send(bufs [][]byte, ep Endpoint) error
+	// Send writes one or more packets in bufs to address ep. A nonzero offset
+	// can be used to instruct the Bind on where packet data begins in each
+	// element of the bufs slice. Space preceding offset is free to use for
+	// additional encapsulation. The length of bufs must not exceed BatchSize().
+	Send(bufs [][]byte, ep Endpoint, offset int) error
 
 	// ParseEndpoint creates a new endpoint from a string.
 	ParseEndpoint(s string) (Endpoint, error)
@@ -82,6 +84,40 @@ type Endpoint interface {
 	DstToBytes() []byte  // used for mac2 cookie calculations
 	DstIP() netip.Addr
 	SrcIP() netip.Addr
+}
+
+// InitiationAwareEndpoint is an optional [Endpoint] specialization for
+// integrations that want to know when a WireGuard handshake initiation
+// message has been received, enabling just-in-time peer configuration before
+// attempted decryption.
+//
+// It's most useful when used in combination with [PeerAwareEndpoint], enabling
+// JIT peer configuration and post-decryption peer verification from a single
+// implementer.
+type InitiationAwareEndpoint interface {
+	// InitiationMessagePublicKey is called when a handshake initiation message
+	// has been received, and the sender's public key has been identified, but
+	// BEFORE an attempt has been made to verify it.
+	InitiationMessagePublicKey(peerPublicKey [32]byte)
+}
+
+// PeerAwareEndpoint is an optional Endpoint specialization for
+// integrations that want to know about the outcome of Cryptokey Routing
+// identification.
+//
+// If they receive a packet from a source they had not pre-identified,
+// to learn the identification WireGuard can derive from the session
+// or handshake.
+//
+// A [PeerAwareEndpoint] may be installed as the [conn.Endpoint] following
+// successful decryption unless endpoint roaming has been disabled for
+// the peer.
+type PeerAwareEndpoint interface {
+	// FromPeer is called at least once per successfully Cryptokey Routing ID'd
+	// [ReceiveFunc] packets batch for a given node key. wireguard-go will
+	// always call it for the latest/tail packet in the batch, only ever
+	// suppressing calls for older packets.
+	FromPeer(peerPublicKey [32]byte)
 }
 
 var (

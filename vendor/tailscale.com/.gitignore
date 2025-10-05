@@ -43,3 +43,12 @@ client/web/build/assets
 
 /gocross
 /dist
+
+# Ignore xcode userstate and workspace data
+*.xcuserstate
+*.xcworkspacedata
+/tstest/tailmac/bin
+/tstest/tailmac/build
+
+# Ignore personal IntelliJ settings
+.idea/

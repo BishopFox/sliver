@@ -109,7 +109,7 @@ func (m Migrator) MigrateColumnUnique(value interface{}, field *schema.Field, co
 					return err
 				}
 			}
-			if field.UniqueIndex != "" {
+			if field.UniqueIndex != "" && !queryTx.Migrator().HasIndex(value, field.UniqueIndex) {
 				if err := execTx.Migrator().CreateIndex(value, field.UniqueIndex); err != nil {
 					return err
 				}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/reeflective/readline/inputrc"
 	"github.com/reeflective/readline/internal/strutil"
+	"github.com/rivo/uniseg"
 )
 
 const (
@@ -22,7 +23,7 @@ var Stdin io.ReadCloser = os.Stdin
 
 var rxRcvCursorPos = regexp.MustCompile(`\x1b\[([0-9]+);([0-9]+)R`)
 
-// Keys is used read, manage and use keys input by the shell user.
+// Keys is used to read, manage and use keys input by the shell user.
 type Keys struct {
 	buf       []byte      // Keys read and waiting to be used.
 	matched   []rune      // Keys that have been successfully matched against a bind.
@@ -32,7 +33,7 @@ type Keys struct {
 	reading   bool        // Currently reading keys out of the main loop.
 	keysOnce  chan []byte // Passing keys from the main routine.
 	cursor    chan []byte // Cursor coordinates has been read on stdin.
-	resize    chan bool   // Resize events on Windows are sent on stdin.
+	resize    chan bool   // Resize events on Windows are sent on stdin. USED IN WINDOWS
 
 	cfg   *inputrc.Config // Configuration file used for meta key settings
 	mutex sync.RWMutex    // Concurrency safety
@@ -97,6 +98,20 @@ func WaitAvailableKeys(keys *Keys, cfg *inputrc.Config) {
 	}
 }
 
+// PeekKey returns the first key in the stack, without removing it.
+func PeekKey(keys *Keys) (key byte, empty bool) {
+	switch {
+	case len(keys.buf) > 0:
+		key = keys.buf[0]
+	case len(keys.macroKeys) > 0:
+		key = byte(keys.macroKeys[0])
+	default:
+		return byte(0), true
+	}
+
+	return key, false
+}
+
 // PopKey is used to pop a key off the key stack without
 // yet marking this key as having matched a bind command.
 func PopKey(keys *Keys) (key byte, empty bool) {
@@ -114,18 +129,40 @@ func PopKey(keys *Keys) (key byte, empty bool) {
 	return key, false
 }
 
-// PeekKey returns the first key in the stack, without removing it.
-func PeekKey(keys *Keys) (key byte, empty bool) {
+// PeekChar returns the first character in the stack, without
+// removing it (in order to provide Unicode support).
+func PeekChar(keys *Keys) (char []byte, empty bool) {
 	switch {
 	case len(keys.buf) > 0:
-		key = keys.buf[0]
+		// Use the uniseg library to correctly determine where each characters stop.
+		char, _, _, _ = uniseg.FirstGraphemeCluster(keys.buf, -1)
+		return char, false
+
 	case len(keys.macroKeys) > 0:
-		key = byte(keys.macroKeys[0])
+		// Macros already store keys as runes, just pick one.
+		// Maybe long-term we should find a remedy to this: storing
+		// macro keys as runes is inconsistent with the rest of our code.
+		return []byte(string(keys.macroKeys[0])), false
+
 	default:
-		return byte(0), true
+		return nil, true
+	}
+}
+
+// PopChar is used to pop a character off the key stack without
+// yet marking this key as having matched a bind command.
+func PopChar(keys *Keys) (char []byte, empty bool) {
+	switch {
+	case len(keys.buf) > 0:
+		char, keys.buf, _, _ = uniseg.FirstGraphemeCluster(keys.buf, -1)
+	case len(keys.macroKeys) > 0:
+		char = []byte(string(keys.macroKeys[0]))
+		keys.macroKeys = keys.macroKeys[1:]
+	default:
+		return nil, true
 	}
 
-	return key, false
+	return char, false
 }
 
 // MatchedKeys is used to indicate how many keys have been evaluated against the shell

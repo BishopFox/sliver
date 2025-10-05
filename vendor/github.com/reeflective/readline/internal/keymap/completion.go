@@ -1,6 +1,10 @@
 package keymap
 
-import "github.com/reeflective/readline/inputrc"
+import (
+	"slices"
+
+	"github.com/reeflective/readline/inputrc"
+)
 
 // menuselectKeys are the default keymaps in menuselect mode.
 var menuselectKeys = map[string]inputrc.Bind{
@@ -115,11 +119,5 @@ func (m *Engine) restrictCommands(mode Mode, commands []string) map[string]input
 }
 
 func isValidCommand(widget string, commands []string) bool {
-	for _, isw := range commands {
-		if isw == widget {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(commands, widget)
 }

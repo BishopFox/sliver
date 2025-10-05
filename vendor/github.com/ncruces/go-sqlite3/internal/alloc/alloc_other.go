@@ -1,4 +1,4 @@
-//go:build !(unix || windows) || sqlite3_nosys
+//go:build !unix && !windows
 
 package alloc
 

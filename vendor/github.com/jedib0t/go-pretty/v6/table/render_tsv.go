@@ -50,7 +50,8 @@ func (t *Table) tsvRenderRow(out *strings.Builder, row rowStr, hint renderHint) 
 		}
 
 		if strings.ContainsAny(col, "\t\n\"") || strings.Contains(col, "    ") {
-			out.WriteString(fmt.Sprintf("\"%s\"", t.tsvFixDoubleQuotes(col)))
+			col = strings.ReplaceAll(col, "\"", "\"\"") // fix double-quotes
+			out.WriteString(fmt.Sprintf("\"%s\"", col))
 		} else {
 			out.WriteString(col)
 		}
@@ -59,10 +60,6 @@ func (t *Table) tsvRenderRow(out *strings.Builder, row rowStr, hint renderHint) 
 	for colIdx := len(row); colIdx < t.numColumns; colIdx++ {
 		out.WriteRune('\t')
 	}
-}
-
-func (t *Table) tsvFixDoubleQuotes(str string) string {
-	return strings.Replace(str, "\"", "\"\"", -1)
 }
 
 func (t *Table) tsvRenderRows(out *strings.Builder, rows []rowStr, hint renderHint) {

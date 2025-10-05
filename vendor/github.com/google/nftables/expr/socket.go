@@ -49,23 +49,26 @@ const (
 )
 
 func (e *Socket) marshal(fam byte) ([]byte, error) {
+	exprData, err := e.marshalData(fam)
+	if err != nil {
+		return nil, err
+	}
+	return netlink.MarshalAttributes([]netlink.Attribute{
+		{Type: unix.NFTA_EXPR_NAME, Data: []byte("socket\x00")},
+		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: exprData},
+	})
+}
+
+func (e *Socket) marshalData(fam byte) ([]byte, error) {
 	// NOTE: Socket.Level is only used when Socket.Key == SocketKeyCgroupv2. But `nft` always encoding it. Check link below:
 	// http://git.netfilter.org/nftables/tree/src/netlink_linearize.c?id=0583bac241ea18c9d7f61cb20ca04faa1e043b78#n319
-	exprData, err := netlink.MarshalAttributes(
+	return netlink.MarshalAttributes(
 		[]netlink.Attribute{
 			{Type: NFTA_SOCKET_DREG, Data: binaryutil.BigEndian.PutUint32(e.Register)},
 			{Type: NFTA_SOCKET_KEY, Data: binaryutil.BigEndian.PutUint32(uint32(e.Key))},
 			{Type: NFTA_SOCKET_LEVEL, Data: binaryutil.BigEndian.PutUint32(uint32(e.Level))},
 		},
 	)
-	if err != nil {
-		return nil, err
-	}
-
-	return netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: unix.NFTA_EXPR_NAME, Data: []byte("socket\x00")},
-		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: exprData},
-	})
 }
 
 func (e *Socket) unmarshal(fam byte, data []byte) error {

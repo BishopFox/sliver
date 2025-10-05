@@ -21,21 +21,31 @@ import (
 	"go4.org/mem"
 	"tailscale.com/envknob"
 	"tailscale.com/tailcfg"
+	"tailscale.com/types/lazy"
 	"tailscale.com/types/opt"
 	"tailscale.com/types/ptr"
 	"tailscale.com/util/cloudenv"
 	"tailscale.com/util/dnsname"
-	"tailscale.com/util/lineread"
+	"tailscale.com/util/lineiter"
 	"tailscale.com/version"
+	"tailscale.com/version/distro"
 )
 
 var started = time.Now()
 
+var newHooks []func(*tailcfg.Hostinfo)
+
+// RegisterHostinfoNewHook registers a callback to be called on a non-nil
+// [tailcfg.Hostinfo] before it is returned by [New].
+func RegisterHostinfoNewHook(f func(*tailcfg.Hostinfo)) {
+	newHooks = append(newHooks, f)
+}
+
 // New returns a partially populated Hostinfo for the current host.
 func New() *tailcfg.Hostinfo {
-	hostname, _ := os.Hostname()
+	hostname, _ := Hostname()
 	hostname = dnsname.FirstLabel(hostname)
-	return &tailcfg.Hostinfo{
+	hi := &tailcfg.Hostinfo{
 		IPNVersion:      version.Long(),
 		Hostname:        hostname,
 		App:             appTypeCached(),
@@ -56,8 +66,11 @@ func New() *tailcfg.Hostinfo {
 		Cloud:           string(cloudenv.Get()),
 		NoLogsNoSupport: envknob.NoLogsNoSupport(),
 		AllowsUpdate:    envknob.AllowsRemoteUpdate(),
-		WoLMACs:         getWoLMACs(),
 	}
+	for _, f := range newHooks {
+		f(hi)
+	}
+	return hi
 }
 
 // non-nil on some platforms
@@ -199,8 +212,13 @@ func SetFirewallMode(v string) { firewallMode.Store(v) }
 
 // SetPackage sets the packaging type for the app.
 //
-// As of 2022-03-25, this is used by Android ("nogoogle" for the
-// F-Droid build) and tsnet (set to "tsnet").
+// For Android, the possible values are:
+// - "googleplay": installed from Google Play Store.
+// - "fdroid": installed from the F-Droid repository.
+// - "amazon": installed from the Amazon Appstore.
+// - "unknown": when the installer package name is null.
+// - "unknown$installerPackageName": for unrecognized installer package names, prefixed by "unknown".
+// Additionally, tsnet sets this value to "tsnet".
 func SetPackage(v string) { packagingType.Store(v) }
 
 // SetApp sets the app type for the app.
@@ -225,12 +243,11 @@ func desktop() (ret opt.Bool) {
 	}
 
 	seenDesktop := false
-	lineread.File("/proc/net/unix", func(line []byte) error {
-		seenDesktop = seenDesktop || mem.Contains(mem.B(line), mem.S(" @/tmp/dbus-"))
+	for lr := range lineiter.File("/proc/net/unix") {
+		line, _ := lr.Value()
 		seenDesktop = seenDesktop || mem.Contains(mem.B(line), mem.S(".X11-unix"))
 		seenDesktop = seenDesktop || mem.Contains(mem.B(line), mem.S("/wayland-1"))
-		return nil
-	})
+	}
 	ret.Set(seenDesktop)
 
 	// Only cache after a minute - compositors might not have started yet.
@@ -274,13 +291,22 @@ func getEnvType() EnvType {
 	return ""
 }
 
-// inContainer reports whether we're running in a container.
+// inContainer reports whether we're running in a container. Best-effort only,
+// there's no foolproof way to detect this, but the build tag should catch all
+// official builds from 1.78.0.
 func inContainer() opt.Bool {
 	if runtime.GOOS != "linux" {
 		return ""
 	}
 	var ret opt.Bool
 	ret.Set(false)
+	if packageType != nil && packageType() == "container" {
+		// Go build tag ts_package_container was set during build.
+		ret.Set(true)
+		return ret
+	}
+	// Only set if using docker's container runtime. Not guaranteed by
+	// documentation, but it's been in place for a long time.
 	if _, err := os.Stat("/.dockerenv"); err == nil {
 		ret.Set(true)
 		return ret
@@ -290,21 +316,21 @@ func inContainer() opt.Bool {
 		ret.Set(true)
 		return ret
 	}
-	lineread.File("/proc/1/cgroup", func(line []byte) error {
+	for lr := range lineiter.File("/proc/1/cgroup") {
+		line, _ := lr.Value()
 		if mem.Contains(mem.B(line), mem.S("/docker/")) ||
 			mem.Contains(mem.B(line), mem.S("/lxc/")) {
 			ret.Set(true)
-			return io.EOF // arbitrary non-nil error to stop loop
+			break
 		}
-		return nil
-	})
-	lineread.File("/proc/mounts", func(line []byte) error {
+	}
+	for lr := range lineiter.File("/proc/mounts") {
+		line, _ := lr.Value()
 		if mem.Contains(mem.B(line), mem.S("lxcfs /proc/cpuinfo fuse.lxcfs")) {
 			ret.Set(true)
-			return io.EOF
+			break
 		}
-		return nil
-	})
+	}
 	return ret
 }
 
@@ -356,7 +382,7 @@ func inFlyDotIo() bool {
 }
 
 func inReplit() bool {
-	// https://docs.replit.com/programming-ide/getting-repl-metadata
+	// https://docs.replit.com/replit-workspace/configuring-repl#environment-variables
 	if os.Getenv("REPL_OWNER") != "" && os.Getenv("REPL_SLUG") != "" {
 		return true
 	}
@@ -461,4 +487,43 @@ func IsSELinuxEnforcing() bool {
 	}
 	out, _ := exec.Command("getenforce").Output()
 	return string(bytes.TrimSpace(out)) == "Enforcing"
+}
+
+// IsNATLabGuestVM reports whether the current host is a NAT Lab guest VM.
+func IsNATLabGuestVM() bool {
+	if runtime.GOOS == "linux" && distro.Get() == distro.Gokrazy {
+		cmdLine, _ := os.ReadFile("/proc/cmdline")
+		return bytes.Contains(cmdLine, []byte("tailscale-tta=1"))
+	}
+	return false
+}
+
+const copyV86DeviceModel = "copy-v86"
+
+var isV86Cache lazy.SyncValue[bool]
+
+// IsInVM86 reports whether we're running in the copy/v86 wasm emulator,
+// https://github.com/copy/v86/.
+func IsInVM86() bool {
+	return isV86Cache.Get(func() bool {
+		return New().DeviceModel == copyV86DeviceModel
+	})
+}
+
+type hostnameQuery func() (string, error)
+
+var hostnameFn atomic.Value // of func() (string, error)
+
+// SetHostNameFn sets a custom function for querying the system hostname.
+func SetHostnameFn(fn hostnameQuery) {
+	hostnameFn.Store(fn)
+}
+
+// Hostname returns the system hostname using the function
+// set by SetHostNameFn.  We will fallback to os.Hostname.
+func Hostname() (string, error) {
+	if fn, ok := hostnameFn.Load().(hostnameQuery); ok && fn != nil {
+		return fn()
+	}
+	return os.Hostname()
 }

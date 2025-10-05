@@ -590,7 +590,7 @@ func (ds *decodeState) Load(obj reflect.Value) {
 	ds.pending.PushBack(rootOds)
 
 	// Read the number of objects.
-	numObjects, object, err := ReadHeader(ds.r)
+	numObjects, object, err := ReadHeader(&ds.r)
 	if err != nil {
 		Failf("header error: %w", err)
 	}
@@ -612,7 +612,7 @@ func (ds *decodeState) Load(obj reflect.Value) {
 		// decoding loop in state/pretty/pretty.printer.printStream().
 		for i := uint64(0); i < numObjects; {
 			// Unmarshal either a type object or object ID.
-			encoded = wire.Load(ds.r)
+			encoded = wire.Load(&ds.r)
 			switch we := encoded.(type) {
 			case *wire.Type:
 				ds.types.Register(we)
@@ -623,7 +623,7 @@ func (ds *decodeState) Load(obj reflect.Value) {
 				id = objectID(we)
 				i++
 				// Unmarshal and resolve the actual object.
-				encoded = wire.Load(ds.r)
+				encoded = wire.Load(&ds.r)
 				ods = ds.lookup(id)
 				if ods != nil {
 					// Decode the object.
@@ -717,7 +717,7 @@ func (ds *decodeState) Load(obj reflect.Value) {
 // Each object written to the statefile is prefixed with a header. See
 // WriteHeader for more information; these functions are exported to allow
 // non-state writes to the file to play nice with debugging tools.
-func ReadHeader(r wire.Reader) (length uint64, object bool, err error) {
+func ReadHeader(r *wire.Reader) (length uint64, object bool, err error) {
 	// Read the header.
 	err = safely(func() {
 		length = wire.LoadUint(r)

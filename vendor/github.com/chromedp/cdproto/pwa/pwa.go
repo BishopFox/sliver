@@ -12,6 +12,7 @@ import (
 	"context"
 
 	"github.com/chromedp/cdproto/cdp"
+	"github.com/chromedp/cdproto/target"
 )
 
 // GetOsAppStateParams returns the following OS state for the given manifest
@@ -35,8 +36,8 @@ func GetOsAppState(manifestID string) *GetOsAppStateParams {
 
 // GetOsAppStateReturns return values.
 type GetOsAppStateReturns struct {
-	BadgeCount   int64          `json:"badgeCount,omitempty"`
-	FileHandlers []*FileHandler `json:"fileHandlers,omitempty"`
+	BadgeCount   int64          `json:"badgeCount,omitempty,omitzero"`
+	FileHandlers []*FileHandler `json:"fileHandlers,omitempty,omitzero"`
 }
 
 // Do executes PWA.getOsAppState against the provided context.
@@ -56,7 +57,291 @@ func (p *GetOsAppStateParams) Do(ctx context.Context) (badgeCount int64, fileHan
 	return res.BadgeCount, res.FileHandlers, nil
 }
 
+// InstallParams installs the given manifest identity, optionally using the
+// given installUrlOrBundleUrl IWA-specific install description: manifestId
+// corresponds to isolated-app:// + web_package::SignedWebBundleId File
+// installation mode: The installUrlOrBundleUrl can be either file:// or
+// http(s):// pointing to a signed web bundle (.swbn). In this case
+// SignedWebBundleId must correspond to The .swbn file's signing key. Dev proxy
+// installation mode: installUrlOrBundleUrl must be http(s):// that serves dev
+// mode IWA. web_package::SignedWebBundleId must be of type dev proxy. The
+// advantage of dev proxy mode is that all changes to IWA automatically will be
+// reflected in the running app without reinstallation. To generate bundle id
+// for proxy mode: 1. Generate 32 random bytes. 2. Add a specific suffix 0x00 at
+// the end. 3. Encode the entire sequence using Base32 without padding. If
+// Chrome is not in IWA dev mode, the installation will fail, regardless of the
+// state of the allowlist.
+type InstallParams struct {
+	ManifestID            string `json:"manifestId"`
+	InstallURLOrBundleURL string `json:"installUrlOrBundleUrl,omitempty,omitzero"` // The location of the app or bundle overriding the one derived from the manifestId.
+}
+
+// Install installs the given manifest identity, optionally using the given
+// installUrlOrBundleUrl IWA-specific install description: manifestId
+// corresponds to isolated-app:// + web_package::SignedWebBundleId File
+// installation mode: The installUrlOrBundleUrl can be either file:// or
+// http(s):// pointing to a signed web bundle (.swbn). In this case
+// SignedWebBundleId must correspond to The .swbn file's signing key. Dev proxy
+// installation mode: installUrlOrBundleUrl must be http(s):// that serves dev
+// mode IWA. web_package::SignedWebBundleId must be of type dev proxy. The
+// advantage of dev proxy mode is that all changes to IWA automatically will be
+// reflected in the running app without reinstallation. To generate bundle id
+// for proxy mode: 1. Generate 32 random bytes. 2. Add a specific suffix 0x00 at
+// the end. 3. Encode the entire sequence using Base32 without padding. If
+// Chrome is not in IWA dev mode, the installation will fail, regardless of the
+// state of the allowlist.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/PWA#method-install
+//
+// parameters:
+//
+//	manifestID
+func Install(manifestID string) *InstallParams {
+	return &InstallParams{
+		ManifestID: manifestID,
+	}
+}
+
+// WithInstallURLOrBundleURL the location of the app or bundle overriding the
+// one derived from the manifestId.
+func (p InstallParams) WithInstallURLOrBundleURL(installURLOrBundleURL string) *InstallParams {
+	p.InstallURLOrBundleURL = installURLOrBundleURL
+	return &p
+}
+
+// Do executes PWA.install against the provided context.
+func (p *InstallParams) Do(ctx context.Context) (err error) {
+	return cdp.Execute(ctx, CommandInstall, p, nil)
+}
+
+// UninstallParams uninstalls the given manifest_id and closes any opened app
+// windows.
+type UninstallParams struct {
+	ManifestID string `json:"manifestId"`
+}
+
+// Uninstall uninstalls the given manifest_id and closes any opened app
+// windows.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/PWA#method-uninstall
+//
+// parameters:
+//
+//	manifestID
+func Uninstall(manifestID string) *UninstallParams {
+	return &UninstallParams{
+		ManifestID: manifestID,
+	}
+}
+
+// Do executes PWA.uninstall against the provided context.
+func (p *UninstallParams) Do(ctx context.Context) (err error) {
+	return cdp.Execute(ctx, CommandUninstall, p, nil)
+}
+
+// LaunchParams launches the installed web app, or an url in the same web app
+// instead of the default start url if it is provided. Returns a page
+// Target.TargetID which can be used to attach to via Target.attachToTarget or
+// similar APIs.
+type LaunchParams struct {
+	ManifestID string `json:"manifestId"`
+	URL        string `json:"url,omitempty,omitzero"`
+}
+
+// Launch launches the installed web app, or an url in the same web app
+// instead of the default start url if it is provided. Returns a page
+// Target.TargetID which can be used to attach to via Target.attachToTarget or
+// similar APIs.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/PWA#method-launch
+//
+// parameters:
+//
+//	manifestID
+func Launch(manifestID string) *LaunchParams {
+	return &LaunchParams{
+		ManifestID: manifestID,
+	}
+}
+
+// WithURL [no description].
+func (p LaunchParams) WithURL(url string) *LaunchParams {
+	p.URL = url
+	return &p
+}
+
+// LaunchReturns return values.
+type LaunchReturns struct {
+	TargetID target.ID `json:"targetId,omitempty,omitzero"` // ID of the tab target created as a result.
+}
+
+// Do executes PWA.launch against the provided context.
+//
+// returns:
+//
+//	targetID - ID of the tab target created as a result.
+func (p *LaunchParams) Do(ctx context.Context) (targetID target.ID, err error) {
+	// execute
+	var res LaunchReturns
+	err = cdp.Execute(ctx, CommandLaunch, p, &res)
+	if err != nil {
+		return "", err
+	}
+
+	return res.TargetID, nil
+}
+
+// LaunchFilesInAppParams opens one or more local files from an installed web
+// app identified by its manifestId. The web app needs to have file handlers
+// registered to process the files. The API returns one or more page
+// Target.TargetIDs which can be used to attach to via Target.attachToTarget or
+// similar APIs. If some files in the parameters cannot be handled by the web
+// app, they will be ignored. If none of the files can be handled, this API
+// returns an error. If no files are provided as the parameter, this API also
+// returns an error. According to the definition of the file handlers in the
+// manifest file, one Target.TargetID may represent a page handling one or more
+// files. The order of the returned Target.TargetIDs is not guaranteed.
+// TODO(crbug.com/339454034): Check the existences of the input files.
+type LaunchFilesInAppParams struct {
+	ManifestID string   `json:"manifestId"`
+	Files      []string `json:"files"`
+}
+
+// LaunchFilesInApp opens one or more local files from an installed web app
+// identified by its manifestId. The web app needs to have file handlers
+// registered to process the files. The API returns one or more page
+// Target.TargetIDs which can be used to attach to via Target.attachToTarget or
+// similar APIs. If some files in the parameters cannot be handled by the web
+// app, they will be ignored. If none of the files can be handled, this API
+// returns an error. If no files are provided as the parameter, this API also
+// returns an error. According to the definition of the file handlers in the
+// manifest file, one Target.TargetID may represent a page handling one or more
+// files. The order of the returned Target.TargetIDs is not guaranteed.
+// TODO(crbug.com/339454034): Check the existences of the input files.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/PWA#method-launchFilesInApp
+//
+// parameters:
+//
+//	manifestID
+//	files
+func LaunchFilesInApp(manifestID string, files []string) *LaunchFilesInAppParams {
+	return &LaunchFilesInAppParams{
+		ManifestID: manifestID,
+		Files:      files,
+	}
+}
+
+// LaunchFilesInAppReturns return values.
+type LaunchFilesInAppReturns struct {
+	TargetIDs []target.ID `json:"targetIds,omitempty,omitzero"` // IDs of the tab targets created as the result.
+}
+
+// Do executes PWA.launchFilesInApp against the provided context.
+//
+// returns:
+//
+//	targetIDs - IDs of the tab targets created as the result.
+func (p *LaunchFilesInAppParams) Do(ctx context.Context) (targetIDs []target.ID, err error) {
+	// execute
+	var res LaunchFilesInAppReturns
+	err = cdp.Execute(ctx, CommandLaunchFilesInApp, p, &res)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.TargetIDs, nil
+}
+
+// OpenCurrentPageInAppParams opens the current page in its web app
+// identified by the manifest id, needs to be called on a page target. This
+// function returns immediately without waiting for the app to finish loading.
+type OpenCurrentPageInAppParams struct {
+	ManifestID string `json:"manifestId"`
+}
+
+// OpenCurrentPageInApp opens the current page in its web app identified by
+// the manifest id, needs to be called on a page target. This function returns
+// immediately without waiting for the app to finish loading.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/PWA#method-openCurrentPageInApp
+//
+// parameters:
+//
+//	manifestID
+func OpenCurrentPageInApp(manifestID string) *OpenCurrentPageInAppParams {
+	return &OpenCurrentPageInAppParams{
+		ManifestID: manifestID,
+	}
+}
+
+// Do executes PWA.openCurrentPageInApp against the provided context.
+func (p *OpenCurrentPageInAppParams) Do(ctx context.Context) (err error) {
+	return cdp.Execute(ctx, CommandOpenCurrentPageInApp, p, nil)
+}
+
+// ChangeAppUserSettingsParams changes user settings of the web app
+// identified by its manifestId. If the app was not installed, this command
+// returns an error. Unset parameters will be ignored; unrecognized values will
+// cause an error. Unlike the ones defined in the manifest files of the web
+// apps, these settings are provided by the browser and controlled by the users,
+// they impact the way the browser handling the web apps. See the comment of
+// each parameter.
+type ChangeAppUserSettingsParams struct {
+	ManifestID    string      `json:"manifestId"`
+	LinkCapturing bool        `json:"linkCapturing"` // If user allows the links clicked on by the user in the app's scope, or extended scope if the manifest has scope extensions and the flags DesktopPWAsLinkCapturingWithScopeExtensions and WebAppEnableScopeExtensions are enabled.  Note, the API does not support resetting the linkCapturing to the initial value, uninstalling and installing the web app again will reset it.  TODO(crbug.com/339453269): Setting this value on ChromeOS is not supported yet.
+	DisplayMode   DisplayMode `json:"displayMode,omitempty,omitzero"`
+}
+
+// ChangeAppUserSettings changes user settings of the web app identified by
+// its manifestId. If the app was not installed, this command returns an error.
+// Unset parameters will be ignored; unrecognized values will cause an error.
+// Unlike the ones defined in the manifest files of the web apps, these settings
+// are provided by the browser and controlled by the users, they impact the way
+// the browser handling the web apps. See the comment of each parameter.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/PWA#method-changeAppUserSettings
+//
+// parameters:
+//
+//	manifestID
+func ChangeAppUserSettings(manifestID string) *ChangeAppUserSettingsParams {
+	return &ChangeAppUserSettingsParams{
+		ManifestID:    manifestID,
+		LinkCapturing: false,
+	}
+}
+
+// WithLinkCapturing if user allows the links clicked on by the user in the
+// app's scope, or extended scope if the manifest has scope extensions and the
+// flags DesktopPWAsLinkCapturingWithScopeExtensions and
+// WebAppEnableScopeExtensions are enabled. Note, the API does not support
+// resetting the linkCapturing to the initial value, uninstalling and installing
+// the web app again will reset it. TODO(crbug.com/339453269): Setting this
+// value on ChromeOS is not supported yet.
+func (p ChangeAppUserSettingsParams) WithLinkCapturing(linkCapturing bool) *ChangeAppUserSettingsParams {
+	p.LinkCapturing = linkCapturing
+	return &p
+}
+
+// WithDisplayMode [no description].
+func (p ChangeAppUserSettingsParams) WithDisplayMode(displayMode DisplayMode) *ChangeAppUserSettingsParams {
+	p.DisplayMode = displayMode
+	return &p
+}
+
+// Do executes PWA.changeAppUserSettings against the provided context.
+func (p *ChangeAppUserSettingsParams) Do(ctx context.Context) (err error) {
+	return cdp.Execute(ctx, CommandChangeAppUserSettings, p, nil)
+}
+
 // Command names.
 const (
-	CommandGetOsAppState = "PWA.getOsAppState"
+	CommandGetOsAppState         = "PWA.getOsAppState"
+	CommandInstall               = "PWA.install"
+	CommandUninstall             = "PWA.uninstall"
+	CommandLaunch                = "PWA.launch"
+	CommandLaunchFilesInApp      = "PWA.launchFilesInApp"
+	CommandOpenCurrentPageInApp  = "PWA.openCurrentPageInApp"
+	CommandChangeAppUserSettings = "PWA.changeAppUserSettings"
 )

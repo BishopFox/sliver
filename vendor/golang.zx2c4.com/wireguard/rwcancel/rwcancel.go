@@ -2,7 +2,7 @@
 
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2025 WireGuard LLC. All Rights Reserved.
  */
 
 // Package rwcancel implements cancelable read/write operations on
@@ -64,7 +64,7 @@ func (rw *RWCancel) ReadyRead() bool {
 
 func (rw *RWCancel) ReadyWrite() bool {
 	closeFd := int32(rw.closingReader.Fd())
-	pollFds := []unix.PollFd{{Fd: int32(rw.fd), Events: unix.POLLOUT}, {Fd: closeFd, Events: unix.POLLOUT}}
+	pollFds := []unix.PollFd{{Fd: int32(rw.fd), Events: unix.POLLOUT}, {Fd: closeFd, Events: unix.POLLIN}}
 	var err error
 	for {
 		_, err = unix.Poll(pollFds, -1)

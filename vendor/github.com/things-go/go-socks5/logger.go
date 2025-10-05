@@ -21,5 +21,5 @@ func NewLogger(l *log.Logger) *Std {
 
 // Errorf implement interface Logger
 func (sf Std) Errorf(format string, args ...interface{}) {
-	sf.Logger.Printf("[E]: "+format, args...)
+	sf.Printf("[E]: "+format, args...)
 }

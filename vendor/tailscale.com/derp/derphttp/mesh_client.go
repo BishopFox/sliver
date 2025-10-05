@@ -5,7 +5,6 @@ package derphttp
 
 import (
 	"context"
-	"net/netip"
 	"sync"
 	"time"
 
@@ -27,6 +26,13 @@ var testHookWatchLookConnectResult func(connectError error, wasSelfConnect bool)
 // returns.
 //
 // Otherwise, the add and remove funcs are called as clients come & go.
+// Note that add is called for every new connection and remove is only
+// called for the final disconnection. See https://github.com/tailscale/tailscale/issues/13566.
+// This behavior will likely change. Callers should do their own accounting
+// and dup suppression as needed.
+//
+// If set the notifyError func is called with any error that occurs within the ctx
+// main loop connection setup, or the inner loop receiving messages via RecvDetail.
 //
 // infoLogf, if non-nil, is the logger to write periodic status updates about
 // how many peers are on the server. Error log output is set to the c's logger,
@@ -35,9 +41,15 @@ var testHookWatchLookConnectResult func(connectError error, wasSelfConnect bool)
 // To force RunWatchConnectionLoop to return quickly, its ctx needs to be
 // closed, and c itself needs to be closed.
 //
-// It is a fatal error to call this on an already-started Client withoutq having
+// It is a fatal error to call this on an already-started Client without having
 // initialized Client.WatchConnectionChanges to true.
-func (c *Client) RunWatchConnectionLoop(ctx context.Context, ignoreServerKey key.NodePublic, infoLogf logger.Logf, add func(key.NodePublic, netip.AddrPort), remove func(key.NodePublic)) {
+//
+// If the DERP connection breaks and reconnects, remove will be called for all
+// previously seen peers, with Reason type PeerGoneReasonMeshConnBroke. Those
+// clients are likely still connected and their add message will appear after
+// reconnect.
+func (c *Client) RunWatchConnectionLoop(ctx context.Context, ignoreServerKey key.NodePublic, infoLogf logger.Logf,
+	add func(derp.PeerPresentMessage), remove func(derp.PeerGoneMessage), notifyError func(error)) {
 	if !c.WatchConnectionChanges {
 		if c.isStarted() {
 			panic("invalid use of RunWatchConnectionLoop on already-started Client without setting Client.RunWatchConnectionLoop")
@@ -62,7 +74,7 @@ func (c *Client) RunWatchConnectionLoop(ctx context.Context, ignoreServerKey key
 		}
 		logf("reconnected; clearing %d forwarding mappings", len(present))
 		for k := range present {
-			remove(k)
+			remove(derp.PeerGoneMessage{Peer: k, Reason: derp.PeerGoneReasonMeshConnBroke})
 		}
 		present = map[key.NodePublic]bool{}
 	}
@@ -84,13 +96,7 @@ func (c *Client) RunWatchConnectionLoop(ctx context.Context, ignoreServerKey key
 	})
 	defer timer.Stop()
 
-	updatePeer := func(k key.NodePublic, ipPort netip.AddrPort, isPresent bool) {
-		if isPresent {
-			add(k, ipPort)
-		} else {
-			remove(k)
-		}
-
+	updatePeer := func(k key.NodePublic, isPresent bool) {
 		mu.Lock()
 		defer mu.Unlock()
 		if isPresent {
@@ -119,6 +125,10 @@ func (c *Client) RunWatchConnectionLoop(ctx context.Context, ignoreServerKey key
 		// Make sure we're connected before calling s.ServerPublicKey.
 		_, _, err := c.connect(ctx, "RunWatchConnectionLoop")
 		if err != nil {
+			logf("mesh connect: %v", err)
+			if notifyError != nil {
+				notifyError(err)
+			}
 			if f := testHookWatchLookConnectResult; f != nil && !f(err, false) {
 				return
 			}
@@ -139,6 +149,9 @@ func (c *Client) RunWatchConnectionLoop(ctx context.Context, ignoreServerKey key
 			if err != nil {
 				clear()
 				logf("Recv: %v", err)
+				if notifyError != nil {
+					notifyError(err)
+				}
 				sleep(retryInterval)
 				break
 			}
@@ -148,7 +161,8 @@ func (c *Client) RunWatchConnectionLoop(ctx context.Context, ignoreServerKey key
 			}
 			switch m := m.(type) {
 			case derp.PeerPresentMessage:
-				updatePeer(m.Key, m.IPPort, true)
+				add(m)
+				updatePeer(m.Key, true)
 			case derp.PeerGoneMessage:
 				switch m.Reason {
 				case derp.PeerGoneReasonDisconnected:
@@ -160,7 +174,8 @@ func (c *Client) RunWatchConnectionLoop(ctx context.Context, ignoreServerKey key
 					logf("Recv: peer %s not at server %s for unknown reason %v",
 						key.NodePublic(m.Peer).ShortString(), c.ServerPublicKey().ShortString(), m.Reason)
 				}
-				updatePeer(key.NodePublic(m.Peer), netip.AddrPort{}, false)
+				remove(m)
+				updatePeer(m.Peer, false)
 			default:
 				continue
 			}

@@ -17,7 +17,7 @@ const (
 )
 
 var (
-	//go:embed parse/sql3parse_table.wasm
+	//go:embed wasm/sql3parse_table.wasm
 	binary   []byte
 	once     sync.Once
 	runtime  wazero.Runtime
@@ -50,7 +50,7 @@ func ParseTable(sql string) (_ *Table, err error) {
 		copy(buf, sql)
 	}
 
-	stack := [...]uint64{sqlp, uint64(len(sql)), errp}
+	stack := [...]util.Stk_t{sqlp, util.Stk_t(len(sql)), errp}
 	err = mod.ExportedFunction("sql3parse_table").CallWithStack(ctx, stack[:])
 	if err != nil {
 		return nil, err
@@ -96,9 +96,9 @@ func (t *Table) load(mod api.Module, ptr uint32, sql string) {
 	t.IsWithoutRowID = loadBool(mod, ptr+26)
 	t.IsStrict = loadBool(mod, ptr+27)
 
-	t.Columns = loadSlice(mod, ptr+28, func(ptr uint32, res *Column) {
+	t.Columns = loadSlice(mod, ptr+28, func(ptr uint32, ret *Column) {
 		p, _ := mod.Memory().ReadUint32Le(ptr)
-		res.load(mod, p, sql)
+		ret.load(mod, p, sql)
 	})
 
 	t.Type = loadEnum[StatementType](mod, ptr+44)
@@ -166,8 +166,8 @@ type ForeignKey struct {
 func (f *ForeignKey) load(mod api.Module, ptr uint32, sql string) {
 	f.Table = loadString(mod, ptr+0, sql)
 
-	f.Columns = loadSlice(mod, ptr+8, func(ptr uint32, res *string) {
-		*res = loadString(mod, ptr, sql)
+	f.Columns = loadSlice(mod, ptr+8, func(ptr uint32, ret *string) {
+		*ret = loadString(mod, ptr, sql)
 	})
 
 	f.OnDelete = loadEnum[FKAction](mod, ptr+16)
@@ -191,12 +191,12 @@ func loadSlice[T any](mod api.Module, ptr uint32, fn func(uint32, *T)) []T {
 		return nil
 	}
 	len, _ := mod.Memory().ReadUint32Le(ptr + 0)
-	res := make([]T, len)
-	for i := range res {
-		fn(ref, &res[i])
+	ret := make([]T, len)
+	for i := range ret {
+		fn(ref, &ret[i])
 		ref += 4
 	}
-	return res
+	return ret
 }
 
 func loadEnum[T ~uint32](mod api.Module, ptr uint32) T {

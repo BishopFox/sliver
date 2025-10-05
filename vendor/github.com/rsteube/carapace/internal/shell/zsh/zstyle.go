@@ -45,7 +45,7 @@ func (z zstyles) Format() string {
 	)
 
 	formatted := make([]string, 0)
-	if len(z.rawValues) < 1000 { // disable styling for large amount of values (bad performance)
+	if len(z.rawValues) < 500 { // disable styling for large amount of values (bad performance)
 		for _, val := range z.rawValues {
 			// match value with description
 			formatted = append(formatted, fmt.Sprintf("=(#b)(%v)([ ]## -- *)=0=%v=%v", replacer.Replace(val.Display), z.valueSGR(val), z.descriptionSGR()))

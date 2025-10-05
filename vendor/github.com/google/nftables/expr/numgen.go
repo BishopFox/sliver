@@ -32,6 +32,18 @@ type Numgen struct {
 }
 
 func (e *Numgen) marshal(fam byte) ([]byte, error) {
+	data, err := e.marshalData(fam)
+	if err != nil {
+		return nil, err
+	}
+
+	return netlink.MarshalAttributes([]netlink.Attribute{
+		{Type: unix.NFTA_EXPR_NAME, Data: []byte("numgen\x00")},
+		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
+	})
+}
+
+func (e *Numgen) marshalData(fam byte) ([]byte, error) {
 	// Currently only two types are supported, failing if Type is not of two known types
 	switch e.Type {
 	case unix.NFT_NG_INCREMENTAL:
@@ -40,19 +52,11 @@ func (e *Numgen) marshal(fam byte) ([]byte, error) {
 		return nil, fmt.Errorf("unsupported numgen type %d", e.Type)
 	}
 
-	data, err := netlink.MarshalAttributes([]netlink.Attribute{
+	return netlink.MarshalAttributes([]netlink.Attribute{
 		{Type: unix.NFTA_NG_DREG, Data: binaryutil.BigEndian.PutUint32(e.Register)},
 		{Type: unix.NFTA_NG_MODULUS, Data: binaryutil.BigEndian.PutUint32(e.Modulus)},
 		{Type: unix.NFTA_NG_TYPE, Data: binaryutil.BigEndian.PutUint32(e.Type)},
 		{Type: unix.NFTA_NG_OFFSET, Data: binaryutil.BigEndian.PutUint32(e.Offset)},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: unix.NFTA_EXPR_NAME, Data: []byte("numgen\x00")},
-		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
 	})
 }
 

@@ -80,22 +80,22 @@ func (con *SliverClient) logCommand(args []string) ([]string, error) {
 	logger := slog.New(con.jsonHandler).With(slog.String("type", "command"))
 
 	// Attach active target context if available
-	if session:= con.ActiveTarget.GetSession(); session != nil {
+	if session := con.ActiveTarget.GetSession(); session != nil {
 		logger = logger.With(
 			slog.String("id", session.ID),
 			slog.String("name", session.Name),
 			slog.String("hostname", session.Hostname),
-			slog.String("username", session.Username),			
+			slog.String("username", session.Username),
 		)
 	} else if beacon := con.ActiveTarget.GetBeacon(); beacon != nil {
 		logger = logger.With(
 			slog.String("id", beacon.ID),
-			slog.String("name", beacon.Name),			
+			slog.String("name", beacon.Name),
 			slog.String("hostname", beacon.Hostname),
 			slog.String("username", beacon.Username),
 		)
 	}
-	
+
 	logger.Debug(strings.Join(args, " "))
 	return args, nil
 }
@@ -162,7 +162,7 @@ func (con *SliverClient) PrintAsyncResponse(resp *commonpb.Response) {
 	defer cancel()
 	beacon, err := con.Rpc.GetBeacon(ctx, &clientpb.Beacon{ID: resp.BeaconID})
 	if err != nil {
-		con.PrintWarnf(err.Error())
+		con.PrintWarnf("%s", err.Error())
 		return
 	}
 	con.PrintInfof("Tasked beacon %s (%s)\n", beacon.Name, strings.Split(resp.TaskID, "-")[0])

@@ -1,4 +1,4 @@
-//go:build !(linux || darwin) || sqlite3_flock || sqlite3_nosys
+//go:build !(linux || darwin) || sqlite3_flock
 
 package vfs
 

@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
-	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ssm/types"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
@@ -17,13 +16,16 @@ import (
 // returns the state of the calendar at that specific time, and returns the next
 // time that the change calendar state will transition. If you don't specify a
 // time, GetCalendarState uses the current time. Change Calendar entries have two
-// possible states: OPEN or CLOSED . If you specify more than one calendar in a
-// request, the command returns the status of OPEN only if all calendars in the
-// request are open. If one or more calendars in the request are closed, the status
-// returned is CLOSED . For more information about Change Calendar, a capability of
-// Amazon Web Services Systems Manager, see Amazon Web Services Systems Manager
-// Change Calendar (https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-change-calendar.html)
-// in the Amazon Web Services Systems Manager User Guide.
+// possible states: OPEN or CLOSED .
+//
+// If you specify more than one calendar in a request, the command returns the
+// status of OPEN only if all calendars in the request are open. If one or more
+// calendars in the request are closed, the status returned is CLOSED .
+//
+// For more information about Change Calendar, a tool in Amazon Web Services
+// Systems Manager, see [Amazon Web Services Systems Manager Change Calendar]in the Amazon Web Services Systems Manager User Guide.
+//
+// [Amazon Web Services Systems Manager Change Calendar]: https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-change-calendar.html
 func (c *Client) GetCalendarState(ctx context.Context, params *GetCalendarStateInput, optFns ...func(*Options)) (*GetCalendarStateOutput, error) {
 	if params == nil {
 		params = &GetCalendarStateInput{}
@@ -41,7 +43,7 @@ func (c *Client) GetCalendarState(ctx context.Context, params *GetCalendarStateI
 
 type GetCalendarStateInput struct {
 
-	// The names or Amazon Resource Names (ARNs) of the Systems Manager documents (SSM
+	// The names of Amazon Resource Names (ARNs) of the Systems Manager documents (SSM
 	// documents) that represent the calendar entries for which you want to get the
 	// state.
 	//
@@ -49,8 +51,10 @@ type GetCalendarStateInput struct {
 	CalendarNames []string
 
 	// (Optional) The specific time for which you want to get calendar state
-	// information, in ISO 8601 (https://en.wikipedia.org/wiki/ISO_8601) format. If
-	// you don't specify a value or AtTime , the current time is used.
+	// information, in [ISO 8601]format. If you don't specify a value or AtTime , the current
+	// time is used.
+	//
+	// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
 	AtTime *string
 
 	noSmithyDocumentSerde
@@ -58,15 +62,17 @@ type GetCalendarStateInput struct {
 
 type GetCalendarStateOutput struct {
 
-	// The time, as an ISO 8601 (https://en.wikipedia.org/wiki/ISO_8601) string, that
-	// you specified in your command. If you don't specify a time, GetCalendarState
-	// uses the current time.
+	// The time, as an [ISO 8601] string, that you specified in your command. If you don't
+	// specify a time, GetCalendarState uses the current time.
+	//
+	// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
 	AtTime *string
 
-	// The time, as an ISO 8601 (https://en.wikipedia.org/wiki/ISO_8601) string, that
-	// the calendar state will change. If the current calendar state is OPEN ,
-	// NextTransitionTime indicates when the calendar state changes to CLOSED , and
-	// vice-versa.
+	// The time, as an [ISO 8601] string, that the calendar state will change. If the current
+	// calendar state is OPEN , NextTransitionTime indicates when the calendar state
+	// changes to CLOSED , and vice-versa.
+	//
+	// [ISO 8601]: https://en.wikipedia.org/wiki/ISO_8601
 	NextTransitionTime *string
 
 	// The state of the calendar. An OPEN calendar indicates that actions are allowed
@@ -102,25 +108,28 @@ func (c *Client) addOperationGetCalendarStateMiddlewares(stack *middleware.Stack
 	if err = addSetLoggerMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddClientRequestIDMiddleware(stack); err != nil {
+	if err = addClientRequestID(stack); err != nil {
 		return err
 	}
-	if err = smithyhttp.AddComputeContentLengthMiddleware(stack); err != nil {
+	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = v4.AddComputePayloadSHA256Middleware(stack); err != nil {
+	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetryMiddlewares(stack, options); err != nil {
+	if err = addRetry(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRawResponseToMetadata(stack); err != nil {
+	if err = addRawResponseToMetadata(stack); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRecordResponseTiming(stack); err != nil {
+	if err = addRecordResponseTiming(stack); err != nil {
+		return err
+	}
+	if err = addSpanRetryLoop(stack, options); err != nil {
 		return err
 	}
 	if err = addClientUserAgent(stack, options); err != nil {
@@ -135,13 +144,22 @@ func (c *Client) addOperationGetCalendarStateMiddlewares(stack *middleware.Stack
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpGetCalendarStateValidationMiddleware(stack); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetCalendarState(options.Region), middleware.Before); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
+	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -154,6 +172,48 @@ func (c *Client) addOperationGetCalendarStateMiddlewares(stack *middleware.Stack
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addSpanInitializeStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanInitializeEnd(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestEnd(stack); err != nil {
 		return err
 	}
 	return nil
