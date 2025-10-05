@@ -5,6 +5,7 @@ public/sitemap.json
 public/docs.json
 public/tutorials.json
 /www.zip
+util/__generated__/
 
 # code editor files
 .vscode/

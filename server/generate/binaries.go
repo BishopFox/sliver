@@ -769,7 +769,7 @@ func findCrossCompilers(targetGOOS string, targetGOARCH string) (string, string)
 		}
 		if targetGOARCH == "arm64" && cc == "" {
 			buildLog.Debugf("Using default osxcross cc/cxx for %s/%s", targetGOOS, targetGOARCH)
-			cc = "/opt/osxcross/target/bin/aarch64-apple-darwin20.2-clang"
+			cc = "/opt/osxcross/bin/aarch64-apple-darwin25-clang"
 			if cxx == "" {
 				cxx = cc
 			}

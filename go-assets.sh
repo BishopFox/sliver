@@ -20,10 +20,28 @@ set -e
 
 # Creates the static go asset archives
 
-GO_VER="1.24.5"
-GARBLE_VER="1.24.5"
-ZIG_VER="0.13.0"
+GO_VER="1.25.1"
+GARBLE_VER="1.25.1"
+ZIG_VER="0.15.1"
 SGN_VER="0.0.3"
+
+# Zig significantly throttles downloads from the main site, so we use
+# community mirrors. We fetch the list of mirrors at runtime, but
+# fall back to a set of default mirrors if the fetch fails.
+# We also use the official public key for verifying Zig downloads from mirrors.
+ZIG_MINISIGN_PUBKEY="RWSGOq2NVecA2UPNdBUZykf1CCb147pkmdtYxgb3Ti+JO/wCYvhbAb/U"
+DEFAULT_ZIG_MIRRORS=(
+  "https://pkg.machengine.org/zig"
+  "https://zigmirror.hryx.net/zig"
+  "https://zig.linus.dev/zig"
+  "https://zig.squirl.dev"
+  "https://zig.florent.dev"
+  "https://zig.mirror.mschae23.de/zig"
+  "https://zigmirror.meox.dev"
+)
+ZIG_MIRRORS=()
+MINISIGN_HELPER=""
+MINISIGN_HELPER_DIR=""
 
 BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt SECURITY.md CONTRIBUTING.md LICENSE README.md ./doc ./test ./api ./misc"
 
@@ -47,6 +65,11 @@ if ! [ -x "$(command -v tar)" ]; then
   exit 1
 fi
 
+if ! [ -x "$(command -v go)" ]; then
+  echo 'Error: go is not installed.' >&2
+  exit 1
+fi
+
 REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 OUTPUT_DIR=$REPO_DIR/server/assets/fs
 mkdir -p $OUTPUT_DIR
@@ -56,6 +79,117 @@ echo "-----------------------------------------------------------------"
 echo "$WORK_DIR (Output: $OUTPUT_DIR)"
 echo "-----------------------------------------------------------------"
 cd $WORK_DIR
+
+# Load official Zig mirror list with a fallback to bundled defaults.
+load_zig_mirrors() {
+  local mirrors_text
+  local -a mirrors=()
+
+  if mirrors_text=$(curl -sS -L --fail https://ziglang.org/download/community-mirrors.txt 2>/dev/null); then
+    while IFS= read -r line; do
+      line="${line%%#*}"
+      line="$(printf '%s' "$line" | sed -e 's/[[:space:]]*$//' -e 's/^[[:space:]]*//')"
+      if [[ -n "$line" ]]; then
+        mirrors+=("$line")
+      fi
+    done <<< "$mirrors_text"
+  fi
+
+  if [ "${#mirrors[@]}" -eq 0 ]; then
+    mirrors=("${DEFAULT_ZIG_MIRRORS[@]}")
+  fi
+
+  ZIG_MIRRORS=("${mirrors[@]}")
+}
+
+# Shuffle mirror list for each download attempt to spread load.
+randomized_mirrors() {
+  if [ "${#ZIG_MIRRORS[@]}" -eq 0 ]; then
+    load_zig_mirrors
+  fi
+  local -a shuffled=("${ZIG_MIRRORS[@]}")
+  local i j temp
+  for ((i=${#shuffled[@]}-1; i>0; i--)); do
+    j=$((RANDOM % (i + 1)))
+    temp=${shuffled[i]}
+    shuffled[i]=${shuffled[j]}
+    shuffled[j]=$temp
+  done
+  printf '%s\n' "${shuffled[@]}"
+}
+
+# Build a temporary helper that verifies signatures via util/minisign.
+ensure_minisign_helper() {
+  if [ -n "$MINISIGN_HELPER" ] && [ -x "$MINISIGN_HELPER" ]; then
+    return
+  fi
+
+  local helper_dir
+  helper_dir=$(mktemp -d "$REPO_DIR/.zig-verify.XXXXXX")
+
+  if ! (cd "$REPO_DIR" && GO111MODULE=on GOFLAGS=-mod=vendor go build -o "$helper_dir/zig-verify" ./util/cmd/zigverify); then
+    echo 'Error: unable to build minisign verification helper.' >&2
+    exit 1
+  fi
+
+  MINISIGN_HELPER="$helper_dir/zig-verify"
+  MINISIGN_HELPER_DIR="$helper_dir"
+  trap 'rm -rf "$MINISIGN_HELPER_DIR"' EXIT
+}
+
+verify_minisig() {
+  ensure_minisign_helper
+  ZIG_PUBLIC_KEY="$ZIG_MINISIGN_PUBKEY" "$MINISIGN_HELPER" "$1" "$2"
+}
+
+download_zig() {
+  local platform="$1"
+  local arch="$2"
+  local remote_name="$3"
+  local local_name="$4"
+  local dest_dir="$OUTPUT_DIR/$platform/$arch"
+  local dest_path="$dest_dir/$local_name"
+  local minisig_url="https://ziglang.org/download/$ZIG_VER/$remote_name.minisig"
+  local mirror_url
+  local success=0
+
+  mkdir -p "$dest_dir"
+  rm -f "$dest_path"
+
+  while read -r mirror; do
+    mirror_url="${mirror%/}/$ZIG_VER/$remote_name"
+    echo "Attempting Zig download from $mirror_url"
+    local tmp_tar
+    local tmp_sig
+    tmp_tar=$(mktemp)
+    tmp_sig=$(mktemp)
+    local verification_failed=0
+    if curl -L --fail --output "$tmp_tar" "$mirror_url"; then
+      if curl -L --fail --output "$tmp_sig" "$minisig_url"; then
+        if verify_minisig "$tmp_tar" "$tmp_sig"; then
+          mv "$tmp_tar" "$dest_path"
+          rm -f "$tmp_sig"
+          echo "Downloaded and verified Zig package -> $dest_path"
+          success=1
+          break
+        else
+          echo "[!] Signature verification failed for $mirror_url" >&2
+          verification_failed=1
+        fi
+      fi
+    fi
+    if [ "$verification_failed" -eq 1 ]; then
+      echo "[!] Deleting corrupted download $tmp_tar" >&2
+    fi
+    rm -f "$tmp_tar" "$tmp_sig"
+    echo "[!] Failed to download or verify Zig from $mirror_url" >&2
+  done < <(randomized_mirrors)
+
+  if [ "$success" -ne 1 ]; then
+    echo "[!] Error: unable to download and verify Zig package $remote_name" >&2
+    exit 1
+  fi
+}
 
 # --- Darwin (amd64) --- 
 curl --output go$GO_VER.darwin-amd64.tar.gz https://dl.google.com/go/go$GO_VER.darwin-amd64.tar.gz
@@ -152,17 +286,12 @@ rm -f windows-go.zip go$GO_VER.windows-amd64.zip
 echo "-----------------------------------------------------------------"
 echo " Zig"
 echo "-----------------------------------------------------------------"
-echo "curl -L --fail --output $OUTPUT_DIR/darwin/amd64/zig https://ziglang.org/download/$ZIG_VER/zig-macos-x86_64-$ZIG_VER.tar.xz"
-curl -L --fail --output $OUTPUT_DIR/darwin/amd64/zig.tar.xz https://ziglang.org/download/$ZIG_VER/zig-macos-x86_64-$ZIG_VER.tar.xz                                                
-echo "curl -L --fail --output $OUTPUT_DIR/darwin/arm64/zig https://ziglang.org/download/$ZIG_VER/zig-macos-aarch64-$ZIG_VER.tar.xz"
-curl -L --fail --output $OUTPUT_DIR/darwin/arm64/zig.tar.xz https://ziglang.org/download/$ZIG_VER/zig-macos-aarch64-$ZIG_VER.tar.xz
-echo "curl -L --fail --output $OUTPUT_DIR/linux/amd64/zig https://ziglang.org/download/$ZIG_VER/zig-linux-x86_64-$ZIG_VER.tar.xz"
-curl -L --fail --output $OUTPUT_DIR/linux/amd64/zig.tar.xz https://ziglang.org/download/$ZIG_VER/zig-linux-x86_64-$ZIG_VER.tar.xz
-echo "curl -L --fail --output $OUTPUT_DIR/linux/arm64/zig https://ziglang.org/download/$ZIG_VER/zig-linux-aarch64-$ZIG_VER.tar.xz"
-curl -L --fail --output $OUTPUT_DIR/linux/arm64/zig.tar.xz https://ziglang.org/download/$ZIG_VER/zig-linux-aarch64-$ZIG_VER.tar.xz
-# Of course Windows has to be different, because it's awful (zip file instead of a tarball)
-echo "curl -L --fail --output $OUTPUT_DIR/windows/amd64/zig.zip https://ziglang.org/download/$ZIG_VER/zig-windows-x86_64-$ZIG_VER.zip"
-curl -L --fail --output $OUTPUT_DIR/windows/amd64/zig.zip https://ziglang.org/download/$ZIG_VER/zig-windows-x86_64-$ZIG_VER.zip
+download_zig "darwin" "amd64" "zig-x86_64-macos-$ZIG_VER.tar.xz" "zig.tar.xz"
+download_zig "darwin" "arm64" "zig-aarch64-macos-$ZIG_VER.tar.xz" "zig.tar.xz"
+download_zig "linux" "amd64" "zig-x86_64-linux-$ZIG_VER.tar.xz" "zig.tar.xz"
+download_zig "linux" "arm64" "zig-aarch64-linux-$ZIG_VER.tar.xz" "zig.tar.xz"
+# Windows ships a zip instead of a tarball
+download_zig "windows" "amd64" "zig-x86_64-windows-$ZIG_VER.zip" "zig.zip"
 
 
 echo "-----------------------------------------------------------------"

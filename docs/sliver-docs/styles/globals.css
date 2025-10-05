@@ -1,8 +1,45 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
+@config "../tailwind.config.js";
+
+:root {
+  --font-mono: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+code,
+pre {
+  font-family: var(--font-mono);
+}
 
 .monospace {
   font-family: "Fira Code", monospace;
+}
+
+.sliver-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.7) transparent;
+}
+
+.sliver-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sliver-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sliver-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.7);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.dark .sliver-scrollbar {
+  scrollbar-color: rgba(79, 97, 125, 0.8) transparent;
+}
+
+.dark .sliver-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(79, 97, 125, 0.8);
 }

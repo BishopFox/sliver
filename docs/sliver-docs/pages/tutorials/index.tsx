@@ -1,5 +1,7 @@
 import MarkdownViewer from "@/components/markdown";
 import { Tutorials } from "@/util/tutorials";
+import { PREBUILD_VERSION } from "@/util/__generated__/prebuild-version";
+import { fetchTutorials as fetchTutorialsContent } from "@/util/content-fetchers";
 import { Themes } from "@/util/themes";
 import { faSearch } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -12,7 +14,7 @@ import {
   Listbox,
   ListboxItem,
   ScrollShadow,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import { useQuery } from "@tanstack/react-query";
 import Fuse from "fuse.js";
 import { NextPage } from "next";
@@ -27,11 +29,8 @@ const TutorialsIndexPage: NextPage = () => {
   const router = useRouter();
 
   const { data: tutorials, isLoading } = useQuery({
-    queryKey: ["tutorials"],
-    queryFn: async (): Promise<Tutorials> => {
-      const res = await fetch("/tutorials.json");
-      return res.json();
-    },
+    queryKey: ["tutorials", PREBUILD_VERSION],
+    queryFn: () => fetchTutorialsContent(PREBUILD_VERSION),
   });
 
   const params = useSearchParams();
@@ -63,9 +62,9 @@ const TutorialsIndexPage: NextPage = () => {
 
   const listboxClasses = React.useMemo(() => {
     if (theme === Themes.DARK) {
-      return "p-0 gap-0 divide-y divide-default-300/50 dark:divide-default-100/80 bg-content1 overflow-visible shadow-small rounded-medium";
+      return "p-0 gap-0 divide-y divide-default-300/50 dark:divide-default-100/80 bg-content1 overflow-visible shadow-small rounded-large";
     } else {
-      return "border p-0 gap-0 divide-y divide-default-300/50 dark:divide-default-100/80 bg-content1 overflow-visible shadow-small rounded-medium";
+      return "p-0 gap-0 divide-y divide-default-300/50 dark:divide-default-100/80 bg-content1 overflow-visible rounded-large";
     }
   }, [theme]);
 
@@ -78,7 +77,7 @@ const TutorialsIndexPage: NextPage = () => {
       <Head>
         <title>Sliver Tutorial: {name}</title>
       </Head>
-      <div className="col-span-3 mt-4 ml-4 h-screen sticky top-20">
+      <div className="col-span-3 mt-4 ml-4 self-start sticky top-20">
         <div className="flex flex-row justify-center text-lg gap-2">
           <Input
             placeholder="Filter..."
@@ -90,31 +89,28 @@ const TutorialsIndexPage: NextPage = () => {
           />
         </div>
         <div className="mt-2">
-          <ScrollShadow>
-            <div className="max-h-[70vh]">
-              <Listbox
-                aria-label="Toolbox Menu"
-                className={listboxClasses}
-                itemClasses={{
-                  base: "px-3 first:rounded-t-medium last:rounded-b-medium rounded-none gap-3 h-12 data-[hover=true]:bg-default-100/80",
-                }}
-              >
-                {visibleTutorials.map((tutorial) => (
-                  <ListboxItem
-                    key={tutorial.name}
-                    value={tutorial.name}
-                    onClick={() => {
-                      router.push({
-                        pathname: "/tutorials",
-                        query: { name: tutorial.name },
-                      });
-                    }}
-                  >
-                    {tutorial.name}
-                  </ListboxItem>
-                ))}
-              </Listbox>
-            </div>
+          <ScrollShadow className="max-h-[calc(100vh-6rem)] sliver-scrollbar overflow-y-auto pr-1 rounded-large">
+            <Listbox
+              aria-label="Toolbox Menu"
+              className={listboxClasses}
+              itemClasses={{
+                base: "px-3 first:rounded-t-large last:rounded-b-large rounded-none gap-3 h-12 data-[hover=true]:bg-default-100/80",
+              }}
+            >
+              {visibleTutorials.map((tutorial) => (
+                <ListboxItem
+                  key={tutorial.name}
+                  onClick={() => {
+                    router.push({
+                      pathname: "/tutorials",
+                      query: { name: tutorial.name },
+                    });
+                  }}
+                >
+                  {tutorial.name}
+                </ListboxItem>
+              ))}
+            </Listbox>
           </ScrollShadow>
         </div>
       </div>

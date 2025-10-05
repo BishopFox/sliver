@@ -96,7 +96,7 @@ func Sideload(procName string, procArgs []string, _ uint32, data []byte, args []
 	os.Remove(fdPath)
 
 	if len(stdErr.Bytes()) > 0 {
-		return "", fmt.Errorf(stdErr.String())
+		return "", fmt.Errorf("%s", stdErr.String())
 	}
 	//{{if .Config.Debug}}
 	log.Printf("Done, stdout: %s\n", stdOut.String())
