@@ -106,36 +106,44 @@ export default function App({ Component, pageProps }: AppProps) {
             <SearchContext.Provider value={search}>
               <Navbar />
               <Component {...pageProps} />
-              <div className="mb-12"></div>
-              <footer className="fixed bottom-0 left-0 z-20 w-full p-2 bg-white border-t border-gray-200 shadow md:flex md:items-center md:justify-between md:p-6 dark:bg-black dark:border-gray-600">
-                <span className="text-sm text-gray-500 sm:text-center dark:text-gray-400">
-                  © {new Date().getFullYear()}{" "}
-                  <a
-                    href="https://bishopfox.com/"
-                    className="hover:underline"
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    Bishop Fox
-                  </a>
-                  {" - "}
-                  <a
-                    href="https://github.com/BishopFox/sliver/pulls"
-                    rel="noreferrer"
-                    className="hover:underline"
-                    target="_blank"
-                  >
-                    You can help improve this documentation by opening a pull
-                    request on Github <FontAwesomeIcon icon={faExternalLink} />
-                  </a>
-                </span>
-                <ul className="flex flex-wrap items-center mt-3 text-sm font-medium text-gray-500 dark:text-gray-400 sm:mt-0">
+              <div className="mb-16 md:mb-20"></div>
+              <footer className="z-20 w-full border-t border-gray-200 bg-white px-3 py-4 text-center shadow dark:bg-black dark:border-gray-600 md:fixed md:bottom-0 md:left-0 md:flex md:items-center md:justify-between md:px-6 md:py-4">
+                <div className="flex flex-col items-center gap-2 text-xs leading-snug text-gray-500 sm:text-sm md:flex-row md:items-center md:gap-3 md:text-left dark:text-gray-400">
+                  <span>
+                    © {new Date().getFullYear()}&nbsp;
+                    <a
+                      href="https://bishopfox.com/"
+                      className="hover:underline"
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      Bishop Fox
+                    </a>
+                  </span>
+                  <span className="hidden md:inline" aria-hidden="true">
+                    ·
+                  </span>
+                  <span className="max-w-xs md:max-w-none">
+                    <a
+                      href="https://github.com/BishopFox/sliver/pulls"
+                      rel="noreferrer"
+                      className="hover:underline"
+                      target="_blank"
+                    >
+                      Help improve this documentation
+                      <span className="ml-1 inline-block">
+                        <FontAwesomeIcon icon={faExternalLink} />
+                      </span>
+                    </a>
+                  </span>
+                </div>
+                <ul className="mt-3 flex flex-wrap items-center justify-center gap-3 text-xs font-medium text-gray-500 md:mt-0 md:gap-6 md:text-sm dark:text-gray-400">
                   <li>
                     <a
                       href="https://github.com/BishopFox/sliver/blob/master/LICENSE"
                       target="_blank"
                       rel="noreferrer"
-                      className="hover:underline me-4 md:me-6"
+                      className="hover:underline"
                     >
                       GPLv3 License
                     </a>

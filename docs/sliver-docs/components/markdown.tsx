@@ -96,6 +96,62 @@ const MarkdownViewer = (props: MarkdownProps) => {
     slugCounterRef.current = new Map();
   }, [props.markdown]);
 
+  useEffect(() => {
+    if (typeof window === "undefined" || !props.markdown) {
+      return;
+    }
+
+    const hash = router.asPath.split("#")[1];
+
+    if (!hash) {
+      return;
+    }
+
+    const scrollToHash = () => {
+      const target = document.getElementById(hash);
+      if (target) {
+        target.scrollIntoView({ behavior: "auto", block: "start" });
+        return true;
+      }
+      return false;
+    };
+
+    if (scrollToHash()) {
+      return;
+    }
+
+    let cancelled = false;
+    let frameId: number | null = null;
+    const maxAttempts = 10;
+    let attempts = 0;
+
+    const tryScroll = () => {
+      if (cancelled) {
+        return;
+      }
+      if (scrollToHash()) {
+        return;
+      }
+      if (attempts >= maxAttempts) {
+        return;
+      }
+      attempts += 1;
+      frameId = window.requestAnimationFrame(tryScroll);
+    };
+
+    const timeoutId = window.setTimeout(() => {
+      tryScroll();
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+    };
+  }, [props.markdown, router.asPath]);
+
   const getAnchor = useCallback((rawValue: string) => {
     const baseSlug = slugify(rawValue);
     const safeBase = baseSlug || `section-${slugCounterRef.current.size + 1}`;
