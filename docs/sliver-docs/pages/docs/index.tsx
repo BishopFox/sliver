@@ -88,16 +88,48 @@ const DocsIndexPage: NextPage = () => {
       <Head>
         <title>Sliver Docs: {name}</title>
       </Head>
-      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-12">
-        <div className="px-4 pt-4 lg:hidden">
-          <label
-            htmlFor="docs-mobile-selector"
-            className="block text-sm font-medium text-foreground"
-          >
-            Select a document
-          </label>
-          <div className="mt-2">
+      <div className="px-4 pt-4 lg:hidden">
+        <label
+          htmlFor="docs-mobile-selector"
+          className="block text-sm font-medium text-foreground"
+        >
+          Select a document
+        </label>
+        <div className="mt-2">
+          <Input
+            placeholder="Filter..."
+            startContent={<FontAwesomeIcon icon={faSearch} />}
+            value={filterValue}
+            onChange={(e) => setFilterValue(e.target.value)}
+            isClearable={true}
+            onClear={() => setFilterValue("")}
+          />
+        </div>
+        <select
+          id="docs-mobile-selector"
+          className="mt-3 w-full rounded-lg border border-default-200 bg-content1 p-2 text-sm dark:border-default-100/60"
+          value={name}
+          onChange={(event) => {
+            const selectedName = event.target.value;
+            router.push({
+              pathname: "/docs",
+              query: selectedName ? { name: selectedName } : undefined,
+            });
+          }}
+        >
+          <option value="">Browse documents…</option>
+          {mobileDocs.map((doc) => (
+            <option key={doc.name} value={doc.name}>
+              {doc.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
+        <aside className="hidden lg:block lg:col-span-3">
+          <div className="sticky top-24 ml-4 flex flex-col gap-3">
             <Input
+            className="mt-2"
               placeholder="Filter..."
               startContent={<FontAwesomeIcon icon={faSearch} />}
               value={filterValue}
@@ -105,66 +137,31 @@ const DocsIndexPage: NextPage = () => {
               isClearable={true}
               onClear={() => setFilterValue("")}
             />
+            <ScrollShadow className="max-h-[calc(100vh-15rem)] sliver-scrollbar overflow-y-auto pr-1 rounded-large">
+              <Listbox
+                aria-label="Toolbox Menu"
+                className={listboxClasses}
+                itemClasses={{
+                  base: "px-3 first:rounded-t-large last:rounded-b-large rounded-none gap-3 h-12 data-[hover=true]:bg-default-100/80",
+                }}
+              >
+                {visibleDocs.map((doc) => (
+                  <ListboxItem
+                    key={doc.name}
+                    onClick={() => {
+                      router.push({
+                        pathname: "/docs",
+                        query: { name: doc.name },
+                      });
+                    }}
+                  >
+                    {doc.name}
+                  </ListboxItem>
+                ))}
+              </Listbox>
+            </ScrollShadow>
           </div>
-          <select
-            id="docs-mobile-selector"
-            className="mt-3 w-full rounded-lg border border-default-200 bg-content1 p-2 text-sm dark:border-default-100/60"
-            value={name}
-            onChange={(event) => {
-              const selectedName = event.target.value;
-              router.push({
-                pathname: "/docs",
-                query: selectedName ? { name: selectedName } : undefined,
-              });
-            }}
-          >
-            <option value="">Browse documents…</option>
-            {mobileDocs.map((doc) => (
-              <option key={doc.name} value={doc.name}>
-                {doc.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="hidden lg:block lg:col-span-3 lg:self-start">
-          <div className="mt-4 ml-4 sticky top-20">
-            <div className="flex flex-row justify-center text-lg gap-2">
-              <Input
-                placeholder="Filter..."
-                startContent={<FontAwesomeIcon icon={faSearch} />}
-                value={filterValue}
-                onChange={(e) => setFilterValue(e.target.value)}
-                isClearable={true}
-                onClear={() => setFilterValue("")}
-              />
-            </div>
-            <div className="mt-2">
-              <ScrollShadow className="max-h-[calc(100vh-12rem)] sliver-scrollbar overflow-y-auto pr-1 rounded-large">
-                <Listbox
-                  aria-label="Toolbox Menu"
-                  className={listboxClasses}
-                  itemClasses={{
-                    base: "px-3 first:rounded-t-large last:rounded-b-large rounded-none gap-3 h-12 data-[hover=true]:bg-default-100/80",
-                  }}
-                >
-                  {visibleDocs.map((doc) => (
-                    <ListboxItem
-                      key={doc.name}
-                      onClick={() => {
-                        router.push({
-                          pathname: "/docs",
-                          query: { name: doc.name },
-                        });
-                      }}
-                    >
-                      {doc.name}
-                    </ListboxItem>
-                  ))}
-                </Listbox>
-              </ScrollShadow>
-            </div>
-          </div>
-        </div>
+        </aside>
         <div className="px-4 pb-8 lg:col-span-9 lg:px-8">
           {name !== "" ? (
             <Card className="mt-2">

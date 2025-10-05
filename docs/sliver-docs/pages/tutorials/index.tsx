@@ -88,15 +88,46 @@ const TutorialsIndexPage: NextPage = () => {
       <Head>
         <title>Sliver Tutorial: {name}</title>
       </Head>
-      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-12">
-        <div className="px-4 pt-4 lg:hidden">
-          <label
-            htmlFor="tutorials-mobile-selector"
-            className="block text-sm font-medium text-foreground"
-          >
-            Select a tutorial
-          </label>
-          <div className="mt-2">
+      <div className="px-4 pt-4 lg:hidden">
+        <label
+          htmlFor="tutorials-mobile-selector"
+          className="block text-sm font-medium text-foreground"
+        >
+          Select a tutorial
+        </label>
+        <div className="mt-2">
+          <Input
+            placeholder="Filter..."
+            startContent={<FontAwesomeIcon icon={faSearch} />}
+            value={filterValue}
+            onChange={(e) => setFilterValue(e.target.value)}
+            isClearable={true}
+            onClear={() => setFilterValue("")}
+          />
+        </div>
+        <select
+          id="tutorials-mobile-selector"
+          className="mt-3 w-full rounded-lg border border-default-200 bg-content1 p-2 text-sm dark:border-default-100/60"
+          value={name}
+          onChange={(event) => {
+            const selectedName = event.target.value;
+            router.push({
+              pathname: "/tutorials",
+              query: selectedName ? { name: selectedName } : undefined,
+            });
+          }}
+        >
+          <option value="">Browse tutorials…</option>
+          {mobileTutorials.map((tutorial) => (
+            <option key={tutorial.name} value={tutorial.name}>
+              {tutorial.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
+        <aside className="hidden lg:block lg:col-span-3">
+          <div className="sticky top-24 ml-4 flex flex-col gap-3">
             <Input
               placeholder="Filter..."
               startContent={<FontAwesomeIcon icon={faSearch} />}
@@ -105,66 +136,31 @@ const TutorialsIndexPage: NextPage = () => {
               isClearable={true}
               onClear={() => setFilterValue("")}
             />
+            <ScrollShadow className="max-h-[calc(100vh-6rem)] sliver-scrollbar overflow-y-auto pr-1 rounded-large">
+              <Listbox
+                aria-label="Toolbox Menu"
+                className={listboxClasses}
+                itemClasses={{
+                  base: "px-3 first:rounded-t-large last:rounded-b-large rounded-none gap-3 h-12 data-[hover=true]:bg-default-100/80",
+                }}
+              >
+                {visibleTutorials.map((tutorial) => (
+                  <ListboxItem
+                    key={tutorial.name}
+                    onClick={() => {
+                      router.push({
+                        pathname: "/tutorials",
+                        query: { name: tutorial.name },
+                      });
+                    }}
+                  >
+                    {tutorial.name}
+                  </ListboxItem>
+                ))}
+              </Listbox>
+            </ScrollShadow>
           </div>
-          <select
-            id="tutorials-mobile-selector"
-            className="mt-3 w-full rounded-lg border border-default-200 bg-content1 p-2 text-sm dark:border-default-100/60"
-            value={name}
-            onChange={(event) => {
-              const selectedName = event.target.value;
-              router.push({
-                pathname: "/tutorials",
-                query: selectedName ? { name: selectedName } : undefined,
-              });
-            }}
-          >
-            <option value="">Browse tutorials…</option>
-            {mobileTutorials.map((tutorial) => (
-              <option key={tutorial.name} value={tutorial.name}>
-                {tutorial.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="hidden lg:block lg:col-span-3 lg:self-start">
-          <div className="mt-4 ml-4 sticky top-20">
-            <div className="flex flex-row justify-center text-lg gap-2">
-              <Input
-                placeholder="Filter..."
-                startContent={<FontAwesomeIcon icon={faSearch} />}
-                value={filterValue}
-                onChange={(e) => setFilterValue(e.target.value)}
-                isClearable={true}
-                onClear={() => setFilterValue("")}
-              />
-            </div>
-            <div className="mt-2">
-              <ScrollShadow className="max-h-[calc(100vh-6rem)] sliver-scrollbar overflow-y-auto pr-1 rounded-large">
-                <Listbox
-                  aria-label="Toolbox Menu"
-                  className={listboxClasses}
-                  itemClasses={{
-                    base: "px-3 first:rounded-t-large last:rounded-b-large rounded-none gap-3 h-12 data-[hover=true]:bg-default-100/80",
-                  }}
-                >
-                  {visibleTutorials.map((tutorial) => (
-                    <ListboxItem
-                      key={tutorial.name}
-                      onClick={() => {
-                        router.push({
-                          pathname: "/tutorials",
-                          query: { name: tutorial.name },
-                        });
-                      }}
-                    >
-                      {tutorial.name}
-                    </ListboxItem>
-                  ))}
-                </Listbox>
-              </ScrollShadow>
-            </div>
-          </div>
-        </div>
+        </aside>
         <div className="px-4 pb-8 lg:col-span-9 lg:px-8">
           {name !== "" ? (
             <Card className="mt-2">
