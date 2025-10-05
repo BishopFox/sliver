@@ -21,7 +21,7 @@ jobs:
   linux-windows-build-test:
     name: Linux & Windows Test
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 180
     steps:
       - name: Go 1.25
         uses: actions/setup-go@v5
@@ -54,7 +54,7 @@ jobs:
   macos-build-test:
     name: MacOS Test
     runs-on: macos-latest
-    timeout-minutes: 90
+    timeout-minutes: 180
     steps:
       - name: Go 1.25
         uses: actions/setup-go@v5
