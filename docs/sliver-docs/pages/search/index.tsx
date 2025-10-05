@@ -2,7 +2,7 @@ import MarkdownViewer from "@/components/markdown";
 import { useSearchContext } from "@/util/search-context";
 import { faChevronCircleRight } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Button, Card, CardBody, Divider } from "@nextui-org/react";
+import { Button, Card, CardBody, Divider } from "@heroui/react";
 import { NextPage } from "next";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/router";
@@ -23,9 +23,8 @@ const SearchPage: NextPage = (props: SearchPageProps) => {
   }, [query, search]);
 
   return (
-    <div className="grid grid-cols-12 mt-2">
-      <div className="col-span-1"></div>
-      <div className="col-span-10">
+    <div className="px-4 pb-8 pt-4">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
         <div className="text-3xl">
           Search: &quot;{query?.slice(0, 50)}&quot;
           <div className="text-sm text-gray-500">
@@ -34,15 +33,15 @@ const SearchPage: NextPage = (props: SearchPageProps) => {
         </div>
 
         {searchResults.map((doc) => (
-          <Card key={doc.name} className="mt-4">
-            <CardBody>
-              <div className="flex">
+          <Card key={doc.name}>
+            <CardBody className="flex flex-col gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <span className="text-xl">{doc.name}</span>
-                <div className="flex-grow"></div>
+                <div className="flex-1"></div>
                 <Button
                   size="sm"
                   color="secondary"
-                  className="w-[150px]"
+                  className="w-full sm:w-[150px]"
                   onPress={() => {
                     router.push(`/docs?name=${doc.name}`);
                   }}
@@ -52,18 +51,15 @@ const SearchPage: NextPage = (props: SearchPageProps) => {
                 </Button>
               </div>
 
-              <Divider className="mt-1" />
+              <Divider />
 
-              <div className="mt-2 overflow-hidden max-h-[200px]">
+              <div className="max-h-[200px] overflow-hidden">
                 <MarkdownViewer markdown={doc.content} />
               </div>
             </CardBody>
           </Card>
         ))}
       </div>
-      <div className="col-span-1"></div>
-
-      <div className="col-span-12 mb-8"></div>
     </div>
   );
 };

@@ -91,6 +91,10 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		config.IncludeTCP = models.IsC2Enabled([]string{"tcppivot"}, config.C2)
 	}
 
+	if len(config.Exports) == 0 {
+		config.Exports = []string{"StartW"}
+	}
+
 	// generate config
 	build, err := generate.GenerateConfig(name, config)
 	if err != nil {
@@ -703,6 +707,10 @@ func (rpc *Server) GenerateStage(ctx context.Context, req *clientpb.GenerateStag
 	httpC2Config, err := db.LoadHTTPC2ConfigByName(profile.Config.HTTPC2ConfigName)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(profile.Config.Exports) == 0 {
+		profile.Config.Exports = []string{"StartW"}
 	}
 
 	// generate config

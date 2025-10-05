@@ -48,7 +48,6 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind("mTLS listener", false, mtlsCmd, func(f *pflag.FlagSet) {
 		f.StringP("lhost", "L", "", "interface to bind server to")
 		f.Uint32P("lport", "l", generate.DefaultMTLSLPort, "tcp listen port")
-		f.BoolP("persistent", "p", false, "make persistent across restarts")
 	})
 
 	// Wireguard
@@ -66,7 +65,6 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.Uint32P("lport", "l", generate.DefaultWGLPort, "udp listen port")
 		f.Uint32P("nport", "n", generate.DefaultWGNPort, "virtual tun interface listen port")
 		f.Uint32P("key-port", "x", generate.DefaultWGKeyExPort, "virtual tun interface key exchange port")
-		f.BoolP("persistent", "p", false, "make persistent across restarts")
 	})
 
 	// DNS
@@ -85,7 +83,6 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("lhost", "L", "", "interface to bind server to")
 		f.Uint32P("lport", "l", generate.DefaultDNSLPort, "udp listen port")
 		f.BoolP("disable-otp", "D", false, "disable otp authentication")
-		f.BoolP("persistent", "p", false, "make persistent across restarts")
 	})
 
 	// HTTP
@@ -106,7 +103,6 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.BoolP("disable-otp", "D", false, "disable otp authentication")
 		f.StringP("long-poll-timeout", "T", "1s", "server-side long poll timeout")
 		f.StringP("long-poll-jitter", "J", "2s", "server-side long poll jitter")
-		f.BoolP("persistent", "p", false, "make persistent across restarts")
 	})
 
 	// HTTPS
@@ -132,8 +128,6 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("key", "k", "", "PEM encoded private key file")
 		f.BoolP("lets-encrypt", "e", false, "attempt to provision a let's encrypt certificate")
 		f.BoolP("disable-randomized-jarm", "E", false, "disable randomized jarm fingerprints")
-
-		f.BoolP("persistent", "p", false, "make persistent across restarts")
 	})
 	flags.BindFlagCompletions(httpsCmd, func(comp *carapace.ActionMap) {
 		(*comp)["cert"] = carapace.ActionFiles().Tag("certificate file")

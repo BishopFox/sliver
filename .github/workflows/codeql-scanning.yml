@@ -16,10 +16,10 @@ jobs:
 
     steps:
       # Setup go environment
-      - name: Go 1.22
+      - name: Go 1.25
         uses: actions/setup-go@v5
         with:
-          go-version: "^1.22"
+          go-version: "^1.25"
 
       - name: Checkout repository
         uses: actions/checkout@v4

@@ -59,7 +59,7 @@ const CodeViewer = (props: CodeViewerProps) => {
   const [scriptSourceCode, setScriptSourceCode] = React.useState(
     props.script.source_code
   );
-  const [fontSize, setFontSize] = React.useState(props.fontSize || 14);
+  const [fontSize, setFontSize] = React.useState(props.fontSize || 13);
   const editorContainerClassName = React.useMemo(() => {
     return theme === Themes.DARK
       ? "col-span-12 mt-4 rounded-2xl overflow-hidden"

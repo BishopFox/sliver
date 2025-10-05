@@ -329,7 +329,7 @@ func (p *NetConnPivotClient) ReadEnvelope() (*pb.Envelope, error) {
 		// {{end}}
 		return nil, err
 	}
-	data, err = p.peerCipherCtx.Decrypt(data)
+	data, err = p.peerCipherCtx.DecryptWithoutSignatureCheck(data)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[pivot] Peer decryption error: %s", err)

