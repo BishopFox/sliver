@@ -16,6 +16,11 @@ import {
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useTheme } from "next-themes";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import {
+  oneDark,
+  oneLight,
+} from "react-syntax-highlighter/dist/cjs/styles/prism";
 import AsciinemaPlayer from "./asciinema";
 import Youtube from "./youtube";
 
@@ -492,7 +497,7 @@ const MarkdownViewer = (props: MarkdownProps) => {
               <pre
                 {...rest}
                 className={mergeClassNames(
-                  "my-6 overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-900 shadow-inner dark:border-slate-800 dark:bg-slate-950/90 dark:text-slate-100",
+                  "my-6 overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-4 text-[13px] leading-6 text-slate-900 shadow-inner dark:border-slate-800 dark:bg-slate-950/90 dark:text-slate-100",
                   className
                 )}
               >
@@ -520,19 +525,32 @@ const MarkdownViewer = (props: MarkdownProps) => {
           },
 
           code(codeProps) {
-            const { children, className, node, ...rest } = codeProps as any;
-            const langTag = /language-(\w+)/.exec(className || "");
-            const lang = langTag ? langTag[1] : "plaintext";
+            const { inline, children, className, node, ...rest } =
+              codeProps as any;
 
-            if (lang === "youtube") {
-              const embedId = (children as string) || "";
+            const languageClass =
+              typeof className === "string"
+                ? className
+                    .split(" ")
+                    .find((cls: string) => cls.startsWith("language-"))
+                : undefined;
+
+            const lang = languageClass
+              ? languageClass.replace("language-", "")
+              : "plaintext";
+            const normalizedLang = lang.toLowerCase();
+            const childValue = Array.isArray(children)
+              ? children.join("")
+              : children;
+            const sourceCode = typeof childValue === "string" ? childValue : "";
+
+            if (normalizedLang === "youtube") {
+              const embedId = sourceCode || "";
               return <Youtube embedId={embedId.trim()} />;
             }
 
-            if (lang === "asciinema") {
-              const asciiCast: MarkdownAsciiCast = JSON.parse(
-                children as string
-              );
+            if (normalizedLang === "asciinema") {
+              const asciiCast: MarkdownAsciiCast = JSON.parse(sourceCode);
               const src = asciiCast.src?.startsWith("/")
                 ? `${window.location.origin}${asciiCast.src}`
                 : asciiCast.src || "";
@@ -553,12 +571,12 @@ const MarkdownViewer = (props: MarkdownProps) => {
               );
             }
 
-            if (lang === "plaintext") {
+            if (inline || normalizedLang === "plaintext") {
               return (
                 <code
                   {...rest}
                   className={mergeClassNames(
-                    "rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-sm text-slate-700 dark:bg-slate-800/80 dark:text-slate-200",
+                    "rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[13px] text-slate-700 dark:bg-slate-800/80 dark:text-slate-200",
                     className
                   )}
                 >
@@ -567,26 +585,80 @@ const MarkdownViewer = (props: MarkdownProps) => {
               );
             }
 
-            const sourceCode = (children as string) || "";
-            const lines = sourceCode.split("\n").length;
+            const baseTheme = theme === Themes.DARK ? oneDark : oneLight;
+            const themeOverrides = baseTheme as Record<string, Record<string, unknown>>;
+            const preStyles = themeOverrides['pre[class*="language-"]'] || {};
+            const codeStyles = themeOverrides['code[class*="language-"]'] || {};
+            const syntaxTheme = {
+              ...baseTheme,
+              'pre[class*="language-"]': {
+                ...preStyles,
+                background: "transparent",
+                backgroundColor: "transparent",
+              },
+              'code[class*="language-"]': {
+                ...codeStyles,
+                background: "transparent",
+                backgroundColor: "transparent",
+              },
+            };
+
+            if (normalizedLang.startsWith("monaco")) {
+              const rawScriptType = lang.includes(":")
+                ? lang.substring(lang.indexOf(":") + 1)
+                : lang === "monaco"
+                ? "plaintext"
+                : lang;
+              const scriptType = (rawScriptType || "plaintext").trim() || "plaintext";
+              const lines = sourceCode.split("\n").length;
+              return (
+                <CodeViewer
+                  className={
+                    lines < 7
+                      ? "min-h-[120px]"
+                      : lines < 17
+                      ? "min-h-[260px]"
+                      : "min-h-[480px]"
+                  }
+                  fontSize={13}
+                  script={
+                    {
+                      script_type: scriptType,
+                      source_code: sourceCode,
+                    } as CodeSchema
+                  }
+                />
+              );
+            }
+
+            const formattedSourceCode = sourceCode.replace(/\n$/, "");
+
+            const preWrapperClassName = mergeClassNames(
+              "not-prose mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-[13px] leading-6 text-slate-900 shadow-sm dark:border-slate-800 dark:bg-slate-950/90 dark:text-slate-100",
+              className
+            );
+
             return (
-              <CodeViewer
-                className={
-                  lines < 7
-                    ? "min-h-[120px]"
-                    : lines < 17
-                    ? "min-h-[260px]"
-                    : "min-h-[480px]"
-                }
-                key={`${Math.random()}`}
-                fontSize={11}
-                script={
-                  {
-                    script_type: lang,
-                    source_code: sourceCode,
-                  } as CodeSchema
-                }
-              />
+              <pre className={preWrapperClassName}>
+                <SyntaxHighlighter
+                  language={lang}
+                  style={syntaxTheme}
+                  PreTag="code"
+                  customStyle={{
+                    background: "transparent",
+                    color: "inherit",
+                    margin: 0,
+                    padding: 0,
+                    fontFamily:
+                      "Fira Code, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+                    fontSize: "inherit",
+                    lineHeight: "inherit",
+                  }}
+                  wrapLongLines={false}
+                >
+                  {formattedSourceCode}
+                </SyntaxHighlighter>
+              </pre>
             );
           },
         }}
