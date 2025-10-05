@@ -356,7 +356,7 @@ func (con *SliverClient) triggerReactions(event *clientpb.Event) {
 	for _, reaction := range reactions {
 		for _, line := range reaction.Commands {
 			con.PrintInfof(Bold+"Execute reaction: '%s'"+Normal, line)
-			err := con.App.ActiveMenu().RunCommandLine(line)
+			err := con.App.ActiveMenu().RunCommandLine(context.Background(), line)
 			if err != nil {
 				con.PrintErrorf("Reaction command error: %s\n", err)
 			}

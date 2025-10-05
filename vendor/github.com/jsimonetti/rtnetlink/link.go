@@ -165,7 +165,7 @@ func (l *LinkService) Get(index uint32) (LinkMessage, error) {
 // RTM_SETLINK because:
 //   - using RTM_SETLINK is actually an old rtnetlink API, not supporting most
 //     attributes common today
-//   - using RTM_NEWLINK is the prefered way to create AND update links
+//   - using RTM_NEWLINK is the preferred way to create AND update links
 //   - RTM_NEWLINK is backward compatible to RTM_SETLINK
 func (l *LinkService) Set(req *LinkMessage) error {
 	flags := netlink.Request | netlink.Acknowledge

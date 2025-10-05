@@ -92,7 +92,7 @@ func (fs FeatureSet) HasFeature(feature Feature) bool {
 
 // WriteCPUInfoTo is to generate a section of one cpu in /proc/cpuinfo. This is
 // a minimal /proc/cpuinfo, and the bogomips field is simply made up.
-func (fs FeatureSet) WriteCPUInfoTo(cpu uint, w io.Writer) {
+func (fs FeatureSet) WriteCPUInfoTo(cpu, numCPU uint, w io.Writer) {
 	fmt.Fprintf(w, "processor\t: %d\n", cpu)
 	fmt.Fprintf(w, "BogoMIPS\t: %.02f\n", fs.cpuFreqMHz) // It's bogus anyway.
 	fmt.Fprintf(w, "Features\t\t: %s\n", fs.FlagString())
@@ -107,4 +107,48 @@ func (fs FeatureSet) WriteCPUInfoTo(cpu uint, w io.Writer) {
 // archCheckHostCompatible is a noop on arm64.
 func (FeatureSet) archCheckHostCompatible(FeatureSet) error {
 	return nil
+}
+
+// AllowedHWCap1 returns the HWCAP1 bits that the guest is allowed to depend
+// on.
+func (fs FeatureSet) AllowedHWCap1() uint64 {
+	// Pick a set of safe HWCAPS to expose. These do not rely on cpu state
+	// that gvisor does not restore after a context switch.
+	allowed := HWCAP_AES |
+		HWCAP_ASIMD |
+		HWCAP_ASIMDDP |
+		HWCAP_ASIMDFHM |
+		HWCAP_ASIMDHP |
+		HWCAP_ASIMDRDM |
+		HWCAP_ATOMICS |
+		HWCAP_CRC32 |
+		HWCAP_DCPOP |
+		HWCAP_DIT |
+		HWCAP_EVTSTRM |
+		HWCAP_FCMA |
+		HWCAP_FLAGM |
+		HWCAP_FP |
+		HWCAP_FPHP |
+		HWCAP_ILRCPC |
+		HWCAP_JSCVT |
+		HWCAP_LRCPC |
+		HWCAP_PMULL |
+		HWCAP_SHA1 |
+		HWCAP_SHA2 |
+		HWCAP_SHA3 |
+		HWCAP_SHA512 |
+		HWCAP_SM3 |
+		HWCAP_SM4 |
+		HWCAP_USCAT
+	return fs.hwCap.hwCap1 & uint64(allowed)
+}
+
+// AllowedHWCap2 returns the HWCAP2 bits that the guest is allowed to depend
+// on.
+func (fs FeatureSet) AllowedHWCap2() uint64 {
+	// We don't expose anything here yet, but this could be expanded to
+	// include features do not rely on cpu state that is not restored after
+	// a context switch.
+	allowed := 0
+	return fs.hwCap.hwCap2 & uint64(allowed)
 }

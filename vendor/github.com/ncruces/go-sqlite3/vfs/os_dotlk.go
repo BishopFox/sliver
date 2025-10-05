@@ -7,6 +7,8 @@ import (
 	"io/fs"
 	"os"
 	"sync"
+
+	"github.com/ncruces/go-sqlite3/internal/dotlk"
 )
 
 var (
@@ -28,12 +30,10 @@ func osGetSharedLock(file *os.File) _ErrorCode {
 	name := file.Name()
 	locker := vfsDotLocks[name]
 	if locker == nil {
-		f, err := os.OpenFile(name+".lock", os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
-		f.Close()
-		if errors.Is(err, fs.ErrExist) {
-			return _BUSY // Another process has the lock.
-		}
-		if err != nil {
+		if err := dotlk.TryLock(name + ".lock"); err != nil {
+			if errors.Is(err, fs.ErrExist) {
+				return _BUSY // Another process has the lock.
+			}
 			return _IOERR_LOCK
 		}
 		locker = &vfsDotLocker{}
@@ -114,8 +114,7 @@ func osReleaseLock(file *os.File, state LockLevel) _ErrorCode {
 	}
 
 	if locker.shared == 1 {
-		err := os.Remove(name + ".lock")
-		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		if err := dotlk.Unlock(name + ".lock"); err != nil {
 			return _IOERR_UNLOCK
 		}
 		delete(vfsDotLocks, name)

@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
-	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ssm/types"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
@@ -14,14 +13,16 @@ import (
 )
 
 // Edit or change an OpsItem. You must have permission in Identity and Access
-// Management (IAM) to update an OpsItem. For more information, see Set up
-// OpsCenter (https://docs.aws.amazon.com/systems-manager/latest/userguide/OpsCenter-setup.html)
-// in the Amazon Web Services Systems Manager User Guide. Operations engineers and
-// IT professionals use Amazon Web Services Systems Manager OpsCenter to view,
-// investigate, and remediate operational issues impacting the performance and
-// health of their Amazon Web Services resources. For more information, see
-// OpsCenter (https://docs.aws.amazon.com/systems-manager/latest/userguide/OpsCenter.html)
-// in the Amazon Web Services Systems Manager User Guide.
+// Management (IAM) to update an OpsItem. For more information, see [Set up OpsCenter]in the Amazon
+// Web Services Systems Manager User Guide.
+//
+// Operations engineers and IT professionals use Amazon Web Services Systems
+// Manager OpsCenter to view, investigate, and remediate operational issues
+// impacting the performance and health of their Amazon Web Services resources. For
+// more information, see [Amazon Web Services Systems Manager OpsCenter]in the Amazon Web Services Systems Manager User Guide.
+//
+// [Amazon Web Services Systems Manager OpsCenter]: https://docs.aws.amazon.com/systems-manager/latest/userguide/OpsCenter.html
+// [Set up OpsCenter]: https://docs.aws.amazon.com/systems-manager/latest/userguide/OpsCenter-setup.html
 func (c *Client) UpdateOpsItem(ctx context.Context, params *UpdateOpsItemInput, optFns ...func(*Options)) (*UpdateOpsItemOutput, error) {
 	if params == nil {
 		params = &UpdateOpsItemInput{}
@@ -64,23 +65,31 @@ type UpdateOpsItemInput struct {
 	Notifications []types.OpsItemNotification
 
 	// Add new keys or edit existing key-value pairs of the OperationalData map in the
-	// OpsItem object. Operational data is custom data that provides useful reference
-	// details about the OpsItem. For example, you can specify log files, error
-	// strings, license keys, troubleshooting tips, or other relevant data. You enter
-	// operational data as key-value pairs. The key has a maximum length of 128
-	// characters. The value has a maximum size of 20 KB. Operational data keys can't
-	// begin with the following: amazon , aws , amzn , ssm , /amazon , /aws , /amzn ,
-	// /ssm . You can choose to make the data searchable by other users in the account
-	// or you can restrict search access. Searchable data means that all users with
-	// access to the OpsItem Overview page (as provided by the DescribeOpsItems API
-	// operation) can view and search on the specified data. Operational data that
-	// isn't searchable is only viewable by users who have access to the OpsItem (as
-	// provided by the GetOpsItem API operation). Use the /aws/resources key in
-	// OperationalData to specify a related resource in the request. Use the
-	// /aws/automations key in OperationalData to associate an Automation runbook with
-	// the OpsItem. To view Amazon Web Services CLI example commands that use these
-	// keys, see Creating OpsItems manually (https://docs.aws.amazon.com/systems-manager/latest/userguide/OpsCenter-manually-create-OpsItems.html)
-	// in the Amazon Web Services Systems Manager User Guide.
+	// OpsItem object.
+	//
+	// Operational data is custom data that provides useful reference details about
+	// the OpsItem. For example, you can specify log files, error strings, license
+	// keys, troubleshooting tips, or other relevant data. You enter operational data
+	// as key-value pairs. The key has a maximum length of 128 characters. The value
+	// has a maximum size of 20 KB.
+	//
+	// Operational data keys can't begin with the following: amazon , aws , amzn , ssm
+	// , /amazon , /aws , /amzn , /ssm .
+	//
+	// You can choose to make the data searchable by other users in the account or you
+	// can restrict search access. Searchable data means that all users with access to
+	// the OpsItem Overview page (as provided by the DescribeOpsItemsAPI operation) can view and
+	// search on the specified data. Operational data that isn't searchable is only
+	// viewable by users who have access to the OpsItem (as provided by the GetOpsItemAPI
+	// operation).
+	//
+	// Use the /aws/resources key in OperationalData to specify a related resource in
+	// the request. Use the /aws/automations key in OperationalData to associate an
+	// Automation runbook with the OpsItem. To view Amazon Web Services CLI example
+	// commands that use these keys, see [Creating OpsItems manually]in the Amazon Web Services Systems Manager
+	// User Guide.
+	//
+	// [Creating OpsItems manually]: https://docs.aws.amazon.com/systems-manager/latest/userguide/OpsCenter-manually-create-OpsItems.html
 	OperationalData map[string]types.OpsItemDataValue
 
 	// Keys that you want to remove from the OperationalData map.
@@ -108,9 +117,10 @@ type UpdateOpsItemInput struct {
 	// Specify a new severity for an OpsItem.
 	Severity *string
 
-	// The OpsItem status. Status can be Open , In Progress , or Resolved . For more
-	// information, see Editing OpsItem details (https://docs.aws.amazon.com/systems-manager/latest/userguide/OpsCenter-working-with-OpsItems-editing-details.html)
-	// in the Amazon Web Services Systems Manager User Guide.
+	// The OpsItem status. For more information, see [Editing OpsItem details] in the Amazon Web Services
+	// Systems Manager User Guide.
+	//
+	// [Editing OpsItem details]: https://docs.aws.amazon.com/systems-manager/latest/userguide/OpsCenter-working-with-OpsItems-editing-details.html
 	Status types.OpsItemStatus
 
 	// A short heading that describes the nature of the OpsItem and the impacted
@@ -149,25 +159,28 @@ func (c *Client) addOperationUpdateOpsItemMiddlewares(stack *middleware.Stack, o
 	if err = addSetLoggerMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddClientRequestIDMiddleware(stack); err != nil {
+	if err = addClientRequestID(stack); err != nil {
 		return err
 	}
-	if err = smithyhttp.AddComputeContentLengthMiddleware(stack); err != nil {
+	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = v4.AddComputePayloadSHA256Middleware(stack); err != nil {
+	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetryMiddlewares(stack, options); err != nil {
+	if err = addRetry(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRawResponseToMetadata(stack); err != nil {
+	if err = addRawResponseToMetadata(stack); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRecordResponseTiming(stack); err != nil {
+	if err = addRecordResponseTiming(stack); err != nil {
+		return err
+	}
+	if err = addSpanRetryLoop(stack, options); err != nil {
 		return err
 	}
 	if err = addClientUserAgent(stack, options); err != nil {
@@ -182,13 +195,22 @@ func (c *Client) addOperationUpdateOpsItemMiddlewares(stack *middleware.Stack, o
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpUpdateOpsItemValidationMiddleware(stack); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opUpdateOpsItem(options.Region), middleware.Before); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
+	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -201,6 +223,48 @@ func (c *Client) addOperationUpdateOpsItemMiddlewares(stack *middleware.Stack, o
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addSpanInitializeStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanInitializeEnd(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestEnd(stack); err != nil {
 		return err
 	}
 	return nil

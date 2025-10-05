@@ -14,6 +14,7 @@ type AccessDeniedException struct {
 	ErrorCodeOverride *string
 
 	Error_            *string
+	Reason            AccessDeniedExceptionReason
 	Error_description *string
 
 	noSmithyDocumentSerde
@@ -188,7 +189,7 @@ func (e *InvalidClientMetadataException) ErrorCode() string {
 func (e *InvalidClientMetadataException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
 // Indicates that a request contains an invalid grant. This can occur if a client
-// makes a CreateToken request with an invalid grant type.
+// makes a CreateTokenrequest with an invalid grant type.
 type InvalidGrantException struct {
 	Message *string
 
@@ -217,6 +218,36 @@ func (e *InvalidGrantException) ErrorCode() string {
 }
 func (e *InvalidGrantException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
+// Indicates that one or more redirect URI in the request is not supported for
+// this operation.
+type InvalidRedirectUriException struct {
+	Message *string
+
+	ErrorCodeOverride *string
+
+	Error_            *string
+	Error_description *string
+
+	noSmithyDocumentSerde
+}
+
+func (e *InvalidRedirectUriException) Error() string {
+	return fmt.Sprintf("%s: %s", e.ErrorCode(), e.ErrorMessage())
+}
+func (e *InvalidRedirectUriException) ErrorMessage() string {
+	if e.Message == nil {
+		return ""
+	}
+	return *e.Message
+}
+func (e *InvalidRedirectUriException) ErrorCode() string {
+	if e == nil || e.ErrorCodeOverride == nil {
+		return "InvalidRedirectUriException"
+	}
+	return *e.ErrorCodeOverride
+}
+func (e *InvalidRedirectUriException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
+
 // Indicates that something is wrong with the input to the request. For example, a
 // required parameter might be missing or out of range.
 type InvalidRequestException struct {
@@ -225,6 +256,7 @@ type InvalidRequestException struct {
 	ErrorCodeOverride *string
 
 	Error_            *string
+	Reason            InvalidRequestExceptionReason
 	Error_description *string
 
 	noSmithyDocumentSerde

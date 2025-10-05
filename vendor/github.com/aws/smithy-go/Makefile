@@ -30,15 +30,38 @@ smithy-build:
 smithy-clean:
 	cd codegen && ./gradlew clean
 
+GRADLE_RETRIES := 3
+GRADLE_SLEEP := 2
+
+# We're making a call to ./gradlew to trigger downloading Gradle and
+# starting the daemon. Any call works, so using `./gradlew help`
+ensure-gradle-up:
+	@cd codegen && for i in $(shell seq 1 $(GRADLE_RETRIES)); do \
+		echo "Checking if Gradle daemon is up, attempt $$i..."; \
+		if ./gradlew help; then \
+			echo "Gradle daemon is up!"; \
+			exit 0; \
+		fi; \
+		echo "Failed to start Gradle, retrying in $(GRADLE_SLEEP) seconds..."; \
+		sleep $(GRADLE_SLEEP); \
+	done; \
+	echo "Failed to start Gradle after $(GRADLE_RETRIES) attempts."; \
+	exit 1
+
 ##################
 # Linting/Verify #
 ##################
-.PHONY: verify vet
+.PHONY: verify vet cover
 
 verify: vet
 
 vet:
 	go vet ${BUILD_TAGS} --all ./...
+
+cover:
+	go test ${BUILD_TAGS} -coverprofile c.out ./...
+	@cover=`go tool cover -func c.out | grep '^total:' | awk '{ print $$3+0 }'`; \
+		echo "total (statements): $$cover%";
 
 ################
 # Unit Testing #
@@ -46,12 +69,10 @@ vet:
 .PHONY: unit unit-race unit-test unit-race-test
 
 unit: verify
-	go vet ${BUILD_TAGS} --all ./... && \
 	go test ${BUILD_TAGS} ${RUN_NONE} ./... && \
 	go test -timeout=1m ${UNIT_TEST_TAGS} ./...
 
 unit-race: verify
-	go vet ${BUILD_TAGS} --all ./... && \
 	go test ${BUILD_TAGS} ${RUN_NONE} ./... && \
 	go test -timeout=1m ${UNIT_TEST_TAGS} -race -cpu=4 ./...
 
@@ -92,6 +113,13 @@ module-version:
 # Repo Tools #
 ##############
 .PHONY: install-changelog
+
+external-changelog:
+	mkdir -p .changelog
+	cp changelog-template.json .changelog/00000000-0000-0000-0000-000000000000.json
+	@echo "Generate a new UUID and update the file at .changelog/00000000-0000-0000-0000-000000000000.json"
+	@echo "Make sure to rename the file with your new id, like .changelog/12345678-1234-1234-1234-123456789012.json"
+	@echo "See CONTRIBUTING.md 'Changelog Documents' and an example at https://github.com/aws/smithy-go/pull/543/files"
 
 install-changelog:
 	go install ${REPOTOOLS_MODULE}/cmd/changelog@${REPOTOOLS_VERSION}

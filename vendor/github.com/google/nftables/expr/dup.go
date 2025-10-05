@@ -29,16 +29,7 @@ type Dup struct {
 }
 
 func (e *Dup) marshal(fam byte) ([]byte, error) {
-	attrs := []netlink.Attribute{
-		{Type: unix.NFTA_DUP_SREG_ADDR, Data: binaryutil.BigEndian.PutUint32(e.RegAddr)},
-	}
-
-	if e.IsRegDevSet {
-		attrs = append(attrs, netlink.Attribute{Type: unix.NFTA_DUP_SREG_DEV, Data: binaryutil.BigEndian.PutUint32(e.RegDev)})
-	}
-
-	data, err := netlink.MarshalAttributes(attrs)
-
+	data, err := e.marshalData(fam)
 	if err != nil {
 		return nil, err
 	}
@@ -47,6 +38,18 @@ func (e *Dup) marshal(fam byte) ([]byte, error) {
 		{Type: unix.NFTA_EXPR_NAME, Data: []byte("dup\x00")},
 		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
 	})
+}
+
+func (e *Dup) marshalData(fam byte) ([]byte, error) {
+	attrs := []netlink.Attribute{
+		{Type: unix.NFTA_DUP_SREG_ADDR, Data: binaryutil.BigEndian.PutUint32(e.RegAddr)},
+	}
+
+	if e.IsRegDevSet {
+		attrs = append(attrs, netlink.Attribute{Type: unix.NFTA_DUP_SREG_DEV, Data: binaryutil.BigEndian.PutUint32(e.RegDev)})
+	}
+
+	return netlink.MarshalAttributes(attrs)
 }
 
 func (e *Dup) unmarshal(fam byte, data []byte) error {

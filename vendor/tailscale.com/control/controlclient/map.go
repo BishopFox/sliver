@@ -6,22 +6,23 @@ package controlclient
 import (
 	"cmp"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
-	"fmt"
+	"io"
 	"maps"
 	"net"
 	"reflect"
 	"runtime"
 	"runtime/debug"
 	"slices"
-	"sort"
 	"strconv"
 	"sync"
 	"time"
 
-	xmaps "golang.org/x/exp/maps"
 	"tailscale.com/control/controlknobs"
 	"tailscale.com/envknob"
+	"tailscale.com/hostinfo"
 	"tailscale.com/tailcfg"
 	"tailscale.com/tstime"
 	"tailscale.com/types/key"
@@ -32,6 +33,7 @@ import (
 	"tailscale.com/util/clientmetric"
 	"tailscale.com/util/mak"
 	"tailscale.com/util/set"
+	"tailscale.com/util/slicesx"
 	"tailscale.com/wgengine/filter"
 )
 
@@ -76,11 +78,10 @@ type mapSession struct {
 	lastPrintMap           time.Time
 	lastNode               tailcfg.NodeView
 	lastCapSet             set.Set[tailcfg.NodeCapability]
-	peers                  map[tailcfg.NodeID]*tailcfg.NodeView // pointer to view (oddly). same pointers as sortedPeers.
-	sortedPeers            []*tailcfg.NodeView                  // same pointers as peers, but sorted by Node.ID
+	peers                  map[tailcfg.NodeID]tailcfg.NodeView
 	lastDNSConfig          *tailcfg.DNSConfig
 	lastDERPMap            *tailcfg.DERPMap
-	lastUserProfile        map[tailcfg.UserID]tailcfg.UserProfile
+	lastUserProfile        map[tailcfg.UserID]tailcfg.UserProfileView
 	lastPacketFilterRules  views.Slice[tailcfg.FilterRule] // concatenation of all namedPacketFilters
 	namedPacketFilters     map[string]views.Slice[tailcfg.FilterRule]
 	lastParsedPacketFilter []filter.Match
@@ -89,10 +90,10 @@ type mapSession struct {
 	lastDomain             string
 	lastDomainAuditLogID   string
 	lastHealth             []string
+	lastDisplayMessages    map[tailcfg.DisplayMessageID]tailcfg.DisplayMessage
 	lastPopBrowserURL      string
 	lastTKAInfo            *tailcfg.TKAInfo
 	lastNetmapSummary      string // from NetworkMap.VeryConcise
-	lastMaxExpiry          time.Duration
 }
 
 // newMapSession returns a mostly unconfigured new mapSession.
@@ -107,7 +108,7 @@ func newMapSession(privateNodeKey key.NodePrivate, nu NetmapUpdater, controlKnob
 		privateNodeKey:  privateNodeKey,
 		publicNodeKey:   privateNodeKey.Public(),
 		lastDNSConfig:   new(tailcfg.DNSConfig),
-		lastUserProfile: map[tailcfg.UserID]tailcfg.UserProfile{},
+		lastUserProfile: map[tailcfg.UserID]tailcfg.UserProfileView{},
 
 		// Non-nil no-op defaults, to be optionally overridden by the caller.
 		logf:              logger.Discard,
@@ -168,6 +169,7 @@ func (ms *mapSession) HandleNonKeepAliveMapResponse(ctx context.Context, resp *t
 
 	// For responses that mutate the self node, check for updated nodeAttrs.
 	if resp.Node != nil {
+		upgradeNode(resp.Node)
 		if DevKnob.StripCaps() {
 			resp.Node.Capabilities = nil
 			resp.Node.CapMap = nil
@@ -181,6 +183,13 @@ func (ms *mapSession) HandleNonKeepAliveMapResponse(ctx context.Context, resp *t
 			}
 		}
 		ms.controlKnobs.UpdateFromNodeAttributes(resp.Node.CapMap)
+	}
+
+	for _, p := range resp.Peers {
+		upgradeNode(p)
+	}
+	for _, p := range resp.PeersChanged {
+		upgradeNode(p)
 	}
 
 	// Call Node.InitDisplayNames on any changed nodes.
@@ -216,6 +225,33 @@ func (ms *mapSession) HandleNonKeepAliveMapResponse(ctx context.Context, resp *t
 
 	ms.netmapUpdater.UpdateFullNetmap(nm)
 	return nil
+}
+
+// upgradeNode upgrades Node fields from the server into the modern forms
+// not using deprecated fields.
+func upgradeNode(n *tailcfg.Node) {
+	if n == nil {
+		return
+	}
+	if n.LegacyDERPString != "" {
+		if n.HomeDERP == 0 {
+			ip, portStr, err := net.SplitHostPort(n.LegacyDERPString)
+			if ip == tailcfg.DerpMagicIP && err == nil {
+				port, err := strconv.Atoi(portStr)
+				if err == nil {
+					n.HomeDERP = port
+				}
+			}
+		}
+		n.LegacyDERPString = ""
+	}
+	if DevKnob.StripHomeDERP() {
+		n.HomeDERP = 0
+	}
+
+	if n.AllowedIPs == nil {
+		n.AllowedIPs = slices.Clone(n.Addresses)
+	}
 }
 
 func (ms *mapSession) tryHandleIncrementally(res *tailcfg.MapResponse) bool {
@@ -261,12 +297,46 @@ func (ms *mapSession) updateStateFromResponse(resp *tailcfg.MapResponse) {
 	}
 
 	for _, up := range resp.UserProfiles {
-		ms.lastUserProfile[up.ID] = up
+		ms.lastUserProfile[up.ID] = up.View()
 	}
 	// TODO(bradfitz): clean up old user profiles? maybe not worth it.
 
 	if dm := resp.DERPMap; dm != nil {
 		ms.vlogf("netmap: new map contains DERP map")
+
+		// Guard against the control server accidentally sending
+		// a nil region definition, which at least Headscale was
+		// observed to send.
+		for rid, r := range dm.Regions {
+			if r == nil {
+				delete(dm.Regions, rid)
+			}
+		}
+
+		// In the copy/v86 wasm environment with limited networking, if the
+		// control plane didn't pick our DERP home for us, do it ourselves and
+		// mark all but the lowest region as NoMeasureNoHome. For prod, this
+		// will be Region 1, NYC, a compromise between the US and Europe. But
+		// really the control plane should pick this. This is only a fallback.
+		if hostinfo.IsInVM86() {
+			numCanMeasure := 0
+			lowest := 0
+			for rid, r := range dm.Regions {
+				if !r.NoMeasureNoHome {
+					numCanMeasure++
+					if lowest == 0 || rid < lowest {
+						lowest = rid
+					}
+				}
+			}
+			if numCanMeasure > 1 {
+				for rid, r := range dm.Regions {
+					if rid != lowest {
+						r.NoMeasureNoHome = true
+					}
+				}
+			}
+		}
 
 		// Zero-valued fields in a DERPMap mean that we're not changing
 		// anything and are using the previous value(s).
@@ -313,10 +383,8 @@ func (ms *mapSession) updateStateFromResponse(resp *tailcfg.MapResponse) {
 		}
 	}
 	if packetFilterChanged {
-		keys := xmaps.Keys(ms.namedPacketFilters)
-		sort.Strings(keys)
 		var concat []tailcfg.FilterRule
-		for _, v := range keys {
+		for _, v := range slices.Sorted(maps.Keys(ms.namedPacketFilters)) {
 			concat = ms.namedPacketFilters[v].AppendTo(concat)
 		}
 		ms.lastPacketFilterRules = views.SliceOf(concat)
@@ -345,11 +413,23 @@ func (ms *mapSession) updateStateFromResponse(resp *tailcfg.MapResponse) {
 	if resp.Health != nil {
 		ms.lastHealth = resp.Health
 	}
+	if resp.DisplayMessages != nil {
+		if v, ok := resp.DisplayMessages["*"]; ok && v == nil {
+			ms.lastDisplayMessages = nil
+		}
+		for k, v := range resp.DisplayMessages {
+			if k == "*" {
+				continue
+			}
+			if v != nil {
+				mak.Set(&ms.lastDisplayMessages, k, *v)
+			} else {
+				delete(ms.lastDisplayMessages, k)
+			}
+		}
+	}
 	if resp.TKAInfo != nil {
 		ms.lastTKAInfo = resp.TKAInfo
-	}
-	if resp.MaxKeyDuration > 0 {
-		ms.lastMaxExpiry = resp.MaxKeyDuration
 	}
 }
 
@@ -369,16 +449,11 @@ var (
 	patchifiedPeerEqual = clientmetric.NewCounter("controlclient_patchified_peer_equal")
 )
 
-// updatePeersStateFromResponseres updates ms.peers and ms.sortedPeers from res. It takes ownership of res.
+// updatePeersStateFromResponseres updates ms.peers from resp.
+// It takes ownership of resp.
 func (ms *mapSession) updatePeersStateFromResponse(resp *tailcfg.MapResponse) (stats updateStats) {
-	defer func() {
-		if stats.removed > 0 || stats.added > 0 {
-			ms.rebuildSorted()
-		}
-	}()
-
 	if ms.peers == nil {
-		ms.peers = make(map[tailcfg.NodeID]*tailcfg.NodeView)
+		ms.peers = make(map[tailcfg.NodeID]tailcfg.NodeView)
 	}
 
 	if len(resp.Peers) > 0 {
@@ -387,12 +462,12 @@ func (ms *mapSession) updatePeersStateFromResponse(resp *tailcfg.MapResponse) (s
 		keep := make(map[tailcfg.NodeID]bool, len(resp.Peers))
 		for _, n := range resp.Peers {
 			keep[n.ID] = true
-			if vp, ok := ms.peers[n.ID]; ok {
+			lenBefore := len(ms.peers)
+			ms.peers[n.ID] = n.View()
+			if len(ms.peers) == lenBefore {
 				stats.changed++
-				*vp = n.View()
 			} else {
 				stats.added++
-				ms.peers[n.ID] = ptr.To(n.View())
 			}
 		}
 		for id := range ms.peers {
@@ -413,12 +488,12 @@ func (ms *mapSession) updatePeersStateFromResponse(resp *tailcfg.MapResponse) (s
 	}
 
 	for _, n := range resp.PeersChanged {
-		if vp, ok := ms.peers[n.ID]; ok {
+		lenBefore := len(ms.peers)
+		ms.peers[n.ID] = n.View()
+		if len(ms.peers) == lenBefore {
 			stats.changed++
-			*vp = n.View()
 		} else {
 			stats.added++
-			ms.peers[n.ID] = ptr.To(n.View())
 		}
 	}
 
@@ -430,7 +505,7 @@ func (ms *mapSession) updatePeersStateFromResponse(resp *tailcfg.MapResponse) (s
 			} else {
 				mut.LastSeen = nil
 			}
-			*vp = mut.View()
+			ms.peers[nodeID] = mut.View()
 			stats.changed++
 		}
 	}
@@ -439,7 +514,7 @@ func (ms *mapSession) updatePeersStateFromResponse(resp *tailcfg.MapResponse) (s
 		if vp, ok := ms.peers[nodeID]; ok {
 			mut := vp.AsStruct()
 			mut.Online = ptr.To(online)
-			*vp = mut.View()
+			ms.peers[nodeID] = mut.View()
 			stats.changed++
 		}
 	}
@@ -452,7 +527,7 @@ func (ms *mapSession) updatePeersStateFromResponse(resp *tailcfg.MapResponse) (s
 		stats.changed++
 		mut := vp.AsStruct()
 		if pc.DERPRegion != 0 {
-			mut.DERP = fmt.Sprintf("%s:%v", tailcfg.DerpMagicIP, pc.DERPRegion)
+			mut.HomeDERP = pc.DERPRegion
 			patchDERPRegion.Add(1)
 		}
 		if pc.Cap != 0 {
@@ -491,29 +566,10 @@ func (ms *mapSession) updatePeersStateFromResponse(resp *tailcfg.MapResponse) (s
 			mut.CapMap = v
 			patchCapMap.Add(1)
 		}
-		*vp = mut.View()
+		ms.peers[pc.NodeID] = mut.View()
 	}
 
 	return
-}
-
-// rebuildSorted rebuilds ms.sortedPeers from ms.peers. It should be called
-// after any additions or removals from peers.
-func (ms *mapSession) rebuildSorted() {
-	if ms.sortedPeers == nil {
-		ms.sortedPeers = make([]*tailcfg.NodeView, 0, len(ms.peers))
-	} else {
-		if len(ms.sortedPeers) > len(ms.peers) {
-			clear(ms.sortedPeers[len(ms.peers):])
-		}
-		ms.sortedPeers = ms.sortedPeers[:0]
-	}
-	for _, p := range ms.peers {
-		ms.sortedPeers = append(ms.sortedPeers, p)
-	}
-	sort.Slice(ms.sortedPeers, func(i, j int) bool {
-		return ms.sortedPeers[i].ID() < ms.sortedPeers[j].ID()
-	})
 }
 
 func (ms *mapSession) addUserProfile(nm *netmap.NetworkMap, userID tailcfg.UserID) {
@@ -579,7 +635,7 @@ func (ms *mapSession) patchifyPeer(n *tailcfg.Node) (_ *tailcfg.PeerChange, ok b
 	if !ok {
 		return nil, false
 	}
-	return peerChangeDiff(*was, n)
+	return peerChangeDiff(was, n)
 }
 
 // peerChangeDiff returns the difference from 'was' to 'n', if possible.
@@ -659,17 +715,13 @@ func peerChangeDiff(was tailcfg.NodeView, n *tailcfg.Node) (_ *tailcfg.PeerChang
 			if !views.SliceEqual(was.Endpoints(), views.SliceOf(n.Endpoints)) {
 				pc().Endpoints = slices.Clone(n.Endpoints)
 			}
-		case "DERP":
-			if was.DERP() != n.DERP {
-				ip, portStr, err := net.SplitHostPort(n.DERP)
-				if err != nil || ip != "127.3.3.40" {
-					return nil, false
-				}
-				port, err := strconv.Atoi(portStr)
-				if err != nil || port < 1 || port > 65535 {
-					return nil, false
-				}
-				pc().DERPRegion = port
+		case "LegacyDERPString":
+			if was.LegacyDERPString() != "" || n.LegacyDERPString != "" {
+				panic("unexpected; caller should've already called upgradeNode")
+			}
+		case "HomeDERP":
+			if was.HomeDERP() != n.HomeDERP {
+				pc().DERPRegion = n.HomeDERP
 			}
 		case "Hostinfo":
 			if !was.Hostinfo().Valid() && !n.Hostinfo.Valid() {
@@ -691,21 +743,23 @@ func peerChangeDiff(was tailcfg.NodeView, n *tailcfg.Node) (_ *tailcfg.PeerChang
 			}
 		case "CapMap":
 			if len(n.CapMap) != was.CapMap().Len() {
+				// If they have different lengths, they're different.
 				if n.CapMap == nil {
 					pc().CapMap = make(tailcfg.NodeCapMap)
 				} else {
 					pc().CapMap = maps.Clone(n.CapMap)
 				}
-				break
-			}
-			was.CapMap().Range(func(k tailcfg.NodeCapability, v views.Slice[tailcfg.RawMessage]) bool {
-				nv, ok := n.CapMap[k]
-				if !ok || !views.SliceEqual(v, views.SliceOf(nv)) {
-					pc().CapMap = maps.Clone(n.CapMap)
-					return false
+			} else {
+				// If they have the same length, check that all their keys
+				// have the same values.
+				for k, v := range was.CapMap().All() {
+					nv, ok := n.CapMap[k]
+					if !ok || !views.SliceEqual(v, views.SliceOf(nv)) {
+						pc().CapMap = maps.Clone(n.CapMap)
+						break
+					}
 				}
-				return true
-			})
+			}
 		case "Tags":
 			if !views.SliceEqual(was.Tags(), views.SliceOf(n.Tags)) {
 				return nil, false
@@ -715,13 +769,11 @@ func peerChangeDiff(was tailcfg.NodeView, n *tailcfg.Node) (_ *tailcfg.PeerChang
 				return nil, false
 			}
 		case "Online":
-			wasOnline := was.Online()
-			if n.Online != nil && wasOnline != nil && *n.Online != *wasOnline {
+			if wasOnline, ok := was.Online().GetOk(); ok && n.Online != nil && *n.Online != wasOnline {
 				pc().Online = ptr.To(*n.Online)
 			}
 		case "LastSeen":
-			wasSeen := was.LastSeen()
-			if n.LastSeen != nil && wasSeen != nil && !wasSeen.Equal(*n.LastSeen) {
+			if wasSeen, ok := was.LastSeen().GetOk(); ok && n.LastSeen != nil && !wasSeen.Equal(*n.LastSeen) {
 				pc().LastSeen = ptr.To(*n.LastSeen)
 			}
 		case "MachineAuthorized":
@@ -746,18 +798,18 @@ func peerChangeDiff(was tailcfg.NodeView, n *tailcfg.Node) (_ *tailcfg.PeerChang
 			}
 		case "SelfNodeV4MasqAddrForThisPeer":
 			va, vb := was.SelfNodeV4MasqAddrForThisPeer(), n.SelfNodeV4MasqAddrForThisPeer
-			if va == nil && vb == nil {
+			if !va.Valid() && vb == nil {
 				continue
 			}
-			if va == nil || vb == nil || *va != *vb {
+			if va, ok := va.GetOk(); !ok || vb == nil || va != *vb {
 				return nil, false
 			}
 		case "SelfNodeV6MasqAddrForThisPeer":
 			va, vb := was.SelfNodeV6MasqAddrForThisPeer(), n.SelfNodeV6MasqAddrForThisPeer
-			if va == nil && vb == nil {
+			if !va.Valid() && vb == nil {
 				continue
 			}
-			if va == nil || vb == nil || *va != *vb {
+			if va, ok := va.GetOk(); !ok || vb == nil || va != *vb {
 				return nil, false
 			}
 		case "ExitNodeDNSResolvers":
@@ -781,13 +833,33 @@ func peerChangeDiff(was tailcfg.NodeView, n *tailcfg.Node) (_ *tailcfg.PeerChang
 	return ret, true
 }
 
+func (ms *mapSession) sortedPeers() []tailcfg.NodeView {
+	ret := slicesx.MapValues(ms.peers)
+	slices.SortFunc(ret, func(a, b tailcfg.NodeView) int {
+		return cmp.Compare(a.ID(), b.ID())
+	})
+	return ret
+}
+
 // netmap returns a fully populated NetworkMap from the last state seen from
 // a call to updateStateFromResponse, filling in omitted
 // information from prior MapResponse values.
 func (ms *mapSession) netmap() *netmap.NetworkMap {
-	peerViews := make([]tailcfg.NodeView, len(ms.sortedPeers))
-	for i, vp := range ms.sortedPeers {
-		peerViews[i] = *vp
+	peerViews := ms.sortedPeers()
+
+	var msgs map[tailcfg.DisplayMessageID]tailcfg.DisplayMessage
+	if len(ms.lastDisplayMessages) != 0 {
+		msgs = ms.lastDisplayMessages
+	} else if len(ms.lastHealth) > 0 {
+		// Convert all ms.lastHealth to the new [netmap.NetworkMap.DisplayMessages]
+		for _, h := range ms.lastHealth {
+			id := "health-" + strhash(h) // Unique ID in case there is more than one health message
+			mak.Set(&msgs, tailcfg.DisplayMessageID(id), tailcfg.DisplayMessage{
+				Title:    "Coordination server reports an issue",
+				Severity: tailcfg.SeverityMedium,
+				Text:     "The coordination server is reporting a health issue: " + h,
+			})
+		}
 	}
 
 	nm := &netmap.NetworkMap{
@@ -795,7 +867,7 @@ func (ms *mapSession) netmap() *netmap.NetworkMap {
 		PrivateKey:        ms.privateNodeKey,
 		MachineKey:        ms.machinePubKey,
 		Peers:             peerViews,
-		UserProfiles:      make(map[tailcfg.UserID]tailcfg.UserProfile),
+		UserProfiles:      make(map[tailcfg.UserID]tailcfg.UserProfileView),
 		Domain:            ms.lastDomain,
 		DomainAuditLogID:  ms.lastDomainAuditLogID,
 		DNS:               *ms.lastDNSConfig,
@@ -804,9 +876,8 @@ func (ms *mapSession) netmap() *netmap.NetworkMap {
 		SSHPolicy:         ms.lastSSHPolicy,
 		CollectServices:   ms.collectServices,
 		DERPMap:           ms.lastDERPMap,
-		ControlHealth:     ms.lastHealth,
+		DisplayMessages:   msgs,
 		TKAEnabled:        ms.lastTKAInfo != nil && !ms.lastTKAInfo.Disabled,
-		MaxKeyDuration:    ms.lastMaxExpiry,
 	}
 
 	if ms.lastTKAInfo != nil && ms.lastTKAInfo.Head != "" {
@@ -831,5 +902,12 @@ func (ms *mapSession) netmap() *netmap.NetworkMap {
 	if DevKnob.ForceProxyDNS() {
 		nm.DNS.Proxied = true
 	}
+
 	return nm
+}
+
+func strhash(h string) string {
+	s := sha256.New()
+	io.WriteString(s, h)
+	return hex.EncodeToString(s.Sum(nil))
 }

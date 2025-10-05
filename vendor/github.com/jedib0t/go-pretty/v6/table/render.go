@@ -67,7 +67,7 @@ func (t *Table) renderColumn(out *strings.Builder, row rowStr, colIdx int, maxCo
 	}
 
 	// extract the text, convert-case if not-empty and align horizontally
-	mergeVertically := t.shouldMergeCellsVertically(colIdx, hint)
+	mergeVertically := t.shouldMergeCellsVerticallyAbove(colIdx, hint)
 	var colStr string
 	if mergeVertically {
 		// leave colStr empty; align will expand the column as necessary
@@ -185,7 +185,7 @@ func (t *Table) renderLine(out *strings.Builder, row rowStr, hint renderHint) {
 
 	// use a brand-new strings.Builder if a row length limit has been set
 	var outLine *strings.Builder
-	if t.allowedRowLength > 0 {
+	if t.style.Size.WidthMax > 0 {
 		outLine = &strings.Builder{}
 	} else {
 		outLine = out
@@ -214,7 +214,7 @@ func (t *Table) renderLine(out *strings.Builder, row rowStr, hint renderHint) {
 	// the header all over again with a spacing line
 	if hint.isRegularNonSeparatorRow() {
 		t.numLinesRendered++
-		if t.pageSize > 0 && t.numLinesRendered%t.pageSize == 0 && !hint.isLastLineOfLastRow() {
+		if t.pager.size > 0 && t.numLinesRendered%t.pager.size == 0 && !hint.isLastLineOfLastRow() {
 			t.renderRowsFooter(out)
 			t.renderRowsBorderBottom(out)
 			out.WriteString(t.style.Box.PageSeparator)
@@ -227,8 +227,8 @@ func (t *Table) renderLine(out *strings.Builder, row rowStr, hint renderHint) {
 
 func (t *Table) renderLineMergeOutputs(out *strings.Builder, outLine *strings.Builder) {
 	outLineStr := outLine.String()
-	if text.RuneWidthWithoutEscSequences(outLineStr) > t.allowedRowLength {
-		trimLength := t.allowedRowLength - utf8.RuneCountInString(t.style.Box.UnfinishedRow)
+	if text.StringWidthWithoutEscSequences(outLineStr) > t.style.Size.WidthMax {
+		trimLength := t.style.Size.WidthMax - utf8.RuneCountInString(t.style.Box.UnfinishedRow)
 		if trimLength > 0 {
 			out.WriteString(text.Trim(outLineStr, trimLength))
 			out.WriteString(t.style.Box.UnfinishedRow)
@@ -385,19 +385,22 @@ func (t *Table) renderTitle(out *strings.Builder) {
 		colors := t.style.Title.Colors
 		colorsBorder := t.getBorderColors(renderHint{isTitleRow: true})
 		rowLength := t.maxRowLength
-		if t.allowedRowLength != 0 && t.allowedRowLength < rowLength {
-			rowLength = t.allowedRowLength
+		if wm := t.style.Size.WidthMax; wm > 0 && wm < rowLength {
+			rowLength = wm
+		}
+		if wm := t.style.Size.WidthMin; wm > 0 && wm > rowLength {
+			rowLength = wm
 		}
 		if t.style.Options.DrawBorder {
-			lenBorder := rowLength - text.RuneWidthWithoutEscSequences(t.style.Box.TopLeft+t.style.Box.TopRight)
+			lenBorder := rowLength - text.StringWidthWithoutEscSequences(t.style.Box.TopLeft+t.style.Box.TopRight)
 			out.WriteString(colorsBorder.Sprint(t.style.Box.TopLeft))
 			out.WriteString(colorsBorder.Sprint(text.RepeatAndTrim(t.style.Box.MiddleHorizontal, lenBorder)))
 			out.WriteString(colorsBorder.Sprint(t.style.Box.TopRight))
 		}
 
-		lenText := rowLength - text.RuneWidthWithoutEscSequences(t.style.Box.PaddingLeft+t.style.Box.PaddingRight)
+		lenText := rowLength - text.StringWidthWithoutEscSequences(t.style.Box.PaddingLeft+t.style.Box.PaddingRight)
 		if t.style.Options.DrawBorder {
-			lenText -= text.RuneWidthWithoutEscSequences(t.style.Box.Left + t.style.Box.Right)
+			lenText -= text.StringWidthWithoutEscSequences(t.style.Box.Left + t.style.Box.Right)
 		}
 		titleText := text.WrapText(t.title, lenText)
 		for _, titleLine := range strings.Split(titleText, "\n") {

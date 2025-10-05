@@ -66,6 +66,7 @@ sqlite3_errmsg
 sqlite3_error_offset
 sqlite3_errstr
 sqlite3_exec
+sqlite3_exec_go
 sqlite3_expanded_sql
 sqlite3_file_control
 sqlite3_filename_database
@@ -77,8 +78,10 @@ sqlite3_get_autocommit
 sqlite3_get_auxdata
 sqlite3_hard_heap_limit64
 sqlite3_interrupt
+sqlite3_invoke_busy_handler_go
 sqlite3_last_insert_rowid
 sqlite3_limit
+sqlite3_log_go
 sqlite3_malloc64
 sqlite3_open_v2
 sqlite3_overload_function
@@ -95,6 +98,7 @@ sqlite3_result_error_toobig
 sqlite3_result_int64
 sqlite3_result_null
 sqlite3_result_pointer_go
+sqlite3_result_subtype
 sqlite3_result_text_go
 sqlite3_result_value
 sqlite3_result_zeroblob64
@@ -123,6 +127,7 @@ sqlite3_value_int64
 sqlite3_value_nochange
 sqlite3_value_numeric_type
 sqlite3_value_pointer_go
+sqlite3_value_subtype
 sqlite3_value_text
 sqlite3_value_type
 sqlite3_vtab_collation

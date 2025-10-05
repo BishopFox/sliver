@@ -13,28 +13,32 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
+	"runtime"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
 type mysqlConn struct {
 	buf              buffer
 	netConn          net.Conn
-	rawConn          net.Conn // underlying connection when netConn is TLS connection.
-	affectedRows     uint64
-	insertId         uint64
+	rawConn          net.Conn    // underlying connection when netConn is TLS connection.
+	result           mysqlResult // managed by clearResult() and handleOkPacket().
+	compIO           *compIO
 	cfg              *Config
+	connector        *connector
 	maxAllowedPacket int
 	maxWriteSize     int
-	writeTimeout     time.Duration
 	flags            clientFlag
 	status           statusFlag
 	sequence         uint8
+	compressSequence uint8
 	parseTime        bool
-	reset            bool // set when the Go SQL package calls ResetSession
+	compress         bool
 
 	// for context support (Go 1.8+)
 	watching bool
@@ -42,61 +46,92 @@ type mysqlConn struct {
 	closech  chan struct{}
 	finished chan<- struct{}
 	canceled atomicError // set non-nil if conn is canceled
-	closed   atomicBool  // set when conn is closed, before closech is closed
+	closed   atomic.Bool // set when conn is closed, before closech is closed
+}
+
+// Helper function to call per-connection logger.
+func (mc *mysqlConn) log(v ...any) {
+	_, filename, lineno, ok := runtime.Caller(1)
+	if ok {
+		pos := strings.LastIndexByte(filename, '/')
+		if pos != -1 {
+			filename = filename[pos+1:]
+		}
+		prefix := fmt.Sprintf("%s:%d ", filename, lineno)
+		v = append([]any{prefix}, v...)
+	}
+
+	mc.cfg.Logger.Print(v...)
+}
+
+func (mc *mysqlConn) readWithTimeout(b []byte) (int, error) {
+	to := mc.cfg.ReadTimeout
+	if to > 0 {
+		if err := mc.netConn.SetReadDeadline(time.Now().Add(to)); err != nil {
+			return 0, err
+		}
+	}
+	return mc.netConn.Read(b)
+}
+
+func (mc *mysqlConn) writeWithTimeout(b []byte) (int, error) {
+	to := mc.cfg.WriteTimeout
+	if to > 0 {
+		if err := mc.netConn.SetWriteDeadline(time.Now().Add(to)); err != nil {
+			return 0, err
+		}
+	}
+	return mc.netConn.Write(b)
+}
+
+func (mc *mysqlConn) resetSequence() {
+	mc.sequence = 0
+	mc.compressSequence = 0
+}
+
+// syncSequence must be called when finished writing some packet and before start reading.
+func (mc *mysqlConn) syncSequence() {
+	// Syncs compressionSequence to sequence.
+	// This is not documented but done in `net_flush()` in MySQL and MariaDB.
+	// https://github.com/mariadb-corporation/mariadb-connector-c/blob/8228164f850b12353da24df1b93a1e53cc5e85e9/libmariadb/ma_net.c#L170-L171
+	// https://github.com/mysql/mysql-server/blob/824e2b4064053f7daf17d7f3f84b7a3ed92e5fb4/sql-common/net_serv.cc#L293
+	if mc.compress {
+		mc.sequence = mc.compressSequence
+		mc.compIO.reset()
+	}
 }
 
 // Handles parameters set in DSN after the connection is established
 func (mc *mysqlConn) handleParams() (err error) {
 	var cmdSet strings.Builder
-	for param, val := range mc.cfg.Params {
-		switch param {
-		// Charset: character_set_connection, character_set_client, character_set_results
-		case "charset":
-			charsets := strings.Split(val, ",")
-			for i := range charsets {
-				// ignore errors here - a charset may not exist
-				err = mc.exec("SET NAMES " + charsets[i])
-				if err == nil {
-					break
-				}
-			}
-			if err != nil {
-				return
-			}
 
-		// Other system vars accumulated in a single SET command
-		default:
-			if cmdSet.Len() == 0 {
-				// Heuristic: 29 chars for each other key=value to reduce reallocations
-				cmdSet.Grow(4 + len(param) + 1 + len(val) + 30*(len(mc.cfg.Params)-1))
-				cmdSet.WriteString("SET ")
-			} else {
-				cmdSet.WriteByte(',')
-			}
-			cmdSet.WriteString(param)
-			cmdSet.WriteByte('=')
-			cmdSet.WriteString(val)
+	for param, val := range mc.cfg.Params {
+		if cmdSet.Len() == 0 {
+			// Heuristic: 29 chars for each other key=value to reduce reallocations
+			cmdSet.Grow(4 + len(param) + 3 + len(val) + 30*(len(mc.cfg.Params)-1))
+			cmdSet.WriteString("SET ")
+		} else {
+			cmdSet.WriteString(", ")
 		}
+		cmdSet.WriteString(param)
+		cmdSet.WriteString(" = ")
+		cmdSet.WriteString(val)
 	}
 
 	if cmdSet.Len() > 0 {
 		err = mc.exec(cmdSet.String())
-		if err != nil {
-			return
-		}
 	}
 
 	return
 }
 
+// markBadConn replaces errBadConnNoWrite with driver.ErrBadConn.
+// This function is used to return driver.ErrBadConn only when safe to retry.
 func (mc *mysqlConn) markBadConn(err error) error {
-	if mc == nil {
-		return err
+	if err == errBadConnNoWrite {
+		return driver.ErrBadConn
 	}
-	if err != errBadConnNoWrite {
-		return err
-	}
-	return driver.ErrBadConn
+	return err
 }
 
 func (mc *mysqlConn) Begin() (driver.Tx, error) {
@@ -105,7 +140,6 @@ func (mc *mysqlConn) Begin() (driver.Tx, error) {
 
 func (mc *mysqlConn) begin(readOnly bool) (driver.Tx, error) {
 	if mc.closed.Load() {
-		errLog.Print(ErrInvalidConn)
 		return nil, driver.ErrBadConn
 	}
 	var q string
@@ -126,10 +160,14 @@ func (mc *mysqlConn) Close() (err error) {
 	if !mc.closed.Load() {
 		err = mc.writeCommandPacket(comQuit)
 	}
-
-	mc.cleanup()
-
+	mc.close()
 	return
+}
+
+// close closes the network connection and clear results without sending COM_QUIT.
+func (mc *mysqlConn) close() {
+	mc.cleanup()
+	mc.clearResult()
 }
 
 // Closes the network connection and unsets internal variables. Do not call this
@@ -143,12 +181,16 @@ func (mc *mysqlConn) cleanup() {
 
 	// Makes cleanup idempotent
 	close(mc.closech)
-	if mc.netConn == nil {
+	conn := mc.rawConn
+	if conn == nil {
 		return
 	}
-	if err := mc.netConn.Close(); err != nil {
-		errLog.Print(err)
+	if err := conn.Close(); err != nil {
+		mc.log("closing connection:", err)
 	}
+	// This function can be called from multiple goroutines.
+	// So we can not mc.clearResult() here.
+	// Caller should do it if they are in safe goroutine.
 }
 
 func (mc *mysqlConn) error() error {
@@ -163,14 +205,13 @@ func (mc *mysqlConn) error() error {
 
 func (mc *mysqlConn) Prepare(query string) (driver.Stmt, error) {
 	if mc.closed.Load() {
-		errLog.Print(ErrInvalidConn)
 		return nil, driver.ErrBadConn
 	}
 	// Send command
 	err := mc.writeCommandPacketStr(comStmtPrepare, query)
 	if err != nil {
 		// STMT_PREPARE is safe to retry.  So we can return ErrBadConn here.
-		errLog.Print(err)
+		mc.log(err)
 		return nil, driver.ErrBadConn
 	}
 
@@ -204,8 +245,10 @@ func (mc *mysqlConn) interpolateParams(query string, args []driver.Value) (strin
 	buf, err := mc.buf.takeCompleteBuffer()
 	if err != nil {
 		// can not take the buffer. Something must be wrong with the connection
-		errLog.Print(err)
-		return "", ErrInvalidConn
+		mc.cleanup()
+		// interpolateParams would be called before sending any query.
+		// So its safe to retry.
+		return "", driver.ErrBadConn
 	}
 	buf = buf[:0]
 	argPos := 0
@@ -246,7 +289,7 @@ func (mc *mysqlConn) interpolateParams(query string, args []driver.Value) (strin
 				buf = append(buf, "'0000-00-00'"...)
 			} else {
 				buf = append(buf, '\'')
-				buf, err = appendDateTime(buf, v.In(mc.cfg.Loc))
+				buf, err = appendDateTime(buf, v.In(mc.cfg.Loc), mc.cfg.timeTruncate)
 				if err != nil {
 					return "", err
 				}
@@ -296,7 +339,6 @@ func (mc *mysqlConn) interpolateParams(query string, args []driver.Value) (strin
 
 func (mc *mysqlConn) Exec(query string, args []driver.Value) (driver.Result, error) {
 	if mc.closed.Load() {
-		errLog.Print(ErrInvalidConn)
 		return nil, driver.ErrBadConn
 	}
 	if len(args) != 0 {
@@ -310,28 +352,25 @@ func (mc *mysqlConn) Exec(query string, args []driver.Value) (driver.Result, err
 		}
 		query = prepared
 	}
-	mc.affectedRows = 0
-	mc.insertId = 0
 
 	err := mc.exec(query)
 	if err == nil {
-		return &mysqlResult{
-			affectedRows: int64(mc.affectedRows),
-			insertId:     int64(mc.insertId),
-		}, err
+		copied := mc.result
+		return &copied, err
 	}
 	return nil, mc.markBadConn(err)
 }
 
 // Internal function to execute commands
 func (mc *mysqlConn) exec(query string) error {
+	handleOk := mc.clearResult()
 	// Send command
 	if err := mc.writeCommandPacketStr(comQuery, query); err != nil {
 		return mc.markBadConn(err)
 	}
 
 	// Read Result
-	resLen, err := mc.readResultSetHeaderPacket()
+	resLen, err := handleOk.readResultSetHeaderPacket()
 	if err != nil {
 		return err
 	}
@@ -348,7 +387,7 @@ func (mc *mysqlConn) exec(query string) error {
 		}
 	}
 
-	return mc.discardResults()
+	return handleOk.discardResults()
 }
 
 func (mc *mysqlConn) Query(query string, args []driver.Value) (driver.Rows, error) {
@@ -356,8 +395,9 @@ func (mc *mysqlConn) Query(query string, args []driver.Value) (driver.Rows, erro
 }
 
 func (mc *mysqlConn) query(query string, args []driver.Value) (*textRows, error) {
+	handleOk := mc.clearResult()
+
 	if mc.closed.Load() {
-		errLog.Print(ErrInvalidConn)
 		return nil, driver.ErrBadConn
 	}
 	if len(args) != 0 {
@@ -373,43 +413,47 @@ func (mc *mysqlConn) query(query string, args []driver.Value) (*textRows, error)
 	}
 	// Send command
 	err := mc.writeCommandPacketStr(comQuery, query)
-	if err == nil {
-		// Read Result
-		var resLen int
-		resLen, err = mc.readResultSetHeaderPacket()
-		if err == nil {
-			rows := new(textRows)
-			rows.mc = mc
+	if err != nil {
+		return nil, mc.markBadConn(err)
+	}
 
-			if resLen == 0 {
-				rows.rs.done = true
+	// Read Result
+	var resLen int
+	resLen, err = handleOk.readResultSetHeaderPacket()
+	if err != nil {
+		return nil, err
+	}
 
-				switch err := rows.NextResultSet(); err {
-				case nil, io.EOF:
-					return rows, nil
-				default:
-					return nil, err
-				}
-			}
+	rows := new(textRows)
+	rows.mc = mc
 
-			// Columns
-			rows.rs.columns, err = mc.readColumns(resLen)
-			return rows, err
+	if resLen == 0 {
+		rows.rs.done = true
+
+		switch err := rows.NextResultSet(); err {
+		case nil, io.EOF:
+			return rows, nil
+		default:
+			return nil, err
 		}
 	}
-	return nil, mc.markBadConn(err)
+
+	// Columns
+	rows.rs.columns, err = mc.readColumns(resLen)
+	return rows, err
 }
 
 // Gets the value of the given MySQL System Variable
 // The returned byte slice is only valid until the next read
 func (mc *mysqlConn) getSystemVar(name string) ([]byte, error) {
 	// Send command
+	handleOk := mc.clearResult()
 	if err := mc.writeCommandPacketStr(comQuery, "SELECT @@"+name); err != nil {
 		return nil, err
 	}
 
 	// Read Result
-	resLen, err := mc.readResultSetHeaderPacket()
+	resLen, err := handleOk.readResultSetHeaderPacket()
 	if err == nil {
 		rows := new(textRows)
 		rows.mc = mc
@@ -430,7 +474,7 @@ func (mc *mysqlConn) getSystemVar(name string) ([]byte, error) {
 	return nil, err
 }
 
-// finish is called when the query has canceled.
+// cancel is called when the query has canceled.
 func (mc *mysqlConn) cancel(err error) {
 	mc.canceled.Set(err)
 	mc.cleanup()
@@ -451,7 +495,6 @@ func (mc *mysqlConn) finish() {
 // Ping implements driver.Pinger interface
 func (mc *mysqlConn) Ping(ctx context.Context) (err error) {
 	if mc.closed.Load() {
-		errLog.Print(ErrInvalidConn)
 		return driver.ErrBadConn
 	}
 
@@ -460,11 +503,12 @@ func (mc *mysqlConn) Ping(ctx context.Context) (err error) {
 	}
 	defer mc.finish()
 
+	handleOk := mc.clearResult()
 	if err = mc.writeCommandPacket(comPing); err != nil {
 		return mc.markBadConn(err)
 	}
 
-	return mc.readResultOK()
+	return handleOk.readResultOK()
 }
 
 // BeginTx implements driver.ConnBeginTx interface
@@ -636,15 +680,42 @@ func (mc *mysqlConn) CheckNamedValue(nv *driver.NamedValue) (err error) {
 // ResetSession implements driver.SessionResetter.
 // (From Go 1.10)
 func (mc *mysqlConn) ResetSession(ctx context.Context) error {
-	if mc.closed.Load() {
+	if mc.closed.Load() || mc.buf.busy() {
 		return driver.ErrBadConn
 	}
-	mc.reset = true
+
+	// Perform a stale connection check. We only perform this check for
+	// the first query on a connection that has been checked out of the
+	// connection pool: a fresh connection from the pool is more likely
+	// to be stale, and it has not performed any previous writes that
+	// could cause data corruption, so it's safe to return ErrBadConn
+	// if the check fails.
+	if mc.cfg.CheckConnLiveness {
+		conn := mc.netConn
+		if mc.rawConn != nil {
+			conn = mc.rawConn
+		}
+		var err error
+		if mc.cfg.ReadTimeout != 0 {
+			err = conn.SetReadDeadline(time.Now().Add(mc.cfg.ReadTimeout))
+		}
+		if err == nil {
+			err = connCheck(conn)
+		}
+		if err != nil {
+			mc.log("closing bad idle connection: ", err)
+			return driver.ErrBadConn
+		}
+	}
+
 	return nil
 }
 
 // IsValid implements driver.Validator interface
 // (From Go 1.15)
 func (mc *mysqlConn) IsValid() bool {
-	return !mc.closed.Load()
+	return !mc.closed.Load() && !mc.buf.busy()
 }
+
+var _ driver.SessionResetter = &mysqlConn{}
+var _ driver.Validator = &mysqlConn{}

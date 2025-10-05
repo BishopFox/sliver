@@ -159,6 +159,10 @@ func (t *Table) htmlRenderRow(out *strings.Builder, row rowStr, hint renderHint)
 		if colIdx == 0 && t.autoIndex {
 			t.htmlRenderColumnAutoIndex(out, hint)
 		}
+		// auto-merged columns should be skipped
+		if t.shouldMergeCellsVerticallyAbove(colIdx, hint) {
+			continue
+		}
 
 		align := t.getAlign(colIdx, hint)
 		rowConfig := t.getRowConfig(hint)
@@ -184,6 +188,9 @@ func (t *Table) htmlRenderRow(out *strings.Builder, row rowStr, hint renderHint)
 		if extraColumnsRendered > 0 {
 			out.WriteString(" colspan=")
 			out.WriteString(fmt.Sprint(extraColumnsRendered + 1))
+		} else if rowSpan := t.shouldMergeCellsVerticallyBelow(colIdx, hint); rowSpan > 1 {
+			out.WriteString(" rowspan=")
+			out.WriteString(fmt.Sprint(rowSpan))
 		}
 		out.WriteString(">")
 		if len(colStr) == 0 {
@@ -222,6 +229,7 @@ func (t *Table) htmlRenderRows(out *strings.Builder, rows []rowStr, hint renderH
 				t.htmlRenderRow(out, row, hint)
 				shouldRenderTagClose = true
 			}
+			t.firstRowOfPage = false
 		}
 		if shouldRenderTagClose {
 			out.WriteString("  </")

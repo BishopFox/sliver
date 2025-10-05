@@ -41,6 +41,17 @@ type Hash struct {
 }
 
 func (e *Hash) marshal(fam byte) ([]byte, error) {
+	data, err := e.marshalData(fam)
+	if err != nil {
+		return nil, err
+	}
+	return netlink.MarshalAttributes([]netlink.Attribute{
+		{Type: unix.NFTA_EXPR_NAME, Data: []byte("hash\x00")},
+		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
+	})
+}
+
+func (e *Hash) marshalData(fam byte) ([]byte, error) {
 	hashAttrs := []netlink.Attribute{
 		{Type: unix.NFTA_HASH_SREG, Data: binaryutil.BigEndian.PutUint32(uint32(e.SourceRegister))},
 		{Type: unix.NFTA_HASH_DREG, Data: binaryutil.BigEndian.PutUint32(uint32(e.DestRegister))},
@@ -56,14 +67,7 @@ func (e *Hash) marshal(fam byte) ([]byte, error) {
 		{Type: unix.NFTA_HASH_OFFSET, Data: binaryutil.BigEndian.PutUint32(uint32(e.Offset))},
 		{Type: unix.NFTA_HASH_TYPE, Data: binaryutil.BigEndian.PutUint32(uint32(e.Type))},
 	}...)
-	data, err := netlink.MarshalAttributes(hashAttrs)
-	if err != nil {
-		return nil, err
-	}
-	return netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: unix.NFTA_EXPR_NAME, Data: []byte("hash\x00")},
-		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
-	})
+	return netlink.MarshalAttributes(hashAttrs)
 }
 
 func (e *Hash) unmarshal(fam byte, data []byte) error {

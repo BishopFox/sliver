@@ -1,4 +1,4 @@
-//go:build !unix || sqlite3_nosys
+//go:build !unix
 
 package util
 

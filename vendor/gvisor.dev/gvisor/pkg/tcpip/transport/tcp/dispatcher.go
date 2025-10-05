@@ -29,13 +29,15 @@ import (
 )
 
 // epQueue is a queue of endpoints.
+//
+// +stateify savable
 type epQueue struct {
-	mu   sync.Mutex
+	mu   sync.Mutex `state:"nosave"`
 	list endpointList
 }
 
 // enqueue adds e to the queue if the endpoint is not already on the queue.
-func (q *epQueue) enqueue(e *endpoint) {
+func (q *epQueue) enqueue(e *Endpoint) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	e.pendingProcessingMu.Lock()
@@ -50,7 +52,7 @@ func (q *epQueue) enqueue(e *endpoint) {
 
 // dequeue removes and returns the first element from the queue if available,
 // returns nil otherwise.
-func (q *epQueue) dequeue() *endpoint {
+func (q *epQueue) dequeue() *Endpoint {
 	q.mu.Lock()
 	if e := q.list.Front(); e != nil {
 		q.list.Remove(e)
@@ -73,21 +75,23 @@ func (q *epQueue) empty() bool {
 }
 
 // processor is responsible for processing packets queued to a tcp endpoint.
+//
+// +stateify savable
 type processor struct {
 	epQ              epQueue
-	sleeper          sleep.Sleeper
-	newEndpointWaker sleep.Waker
-	closeWaker       sleep.Waker
-	pauseWaker       sleep.Waker
-	pauseChan        chan struct{}
-	resumeChan       chan struct{}
+	sleeper          sleep.Sleeper `state:"nosave"`
+	newEndpointWaker sleep.Waker   `state:"nosave"`
+	closeWaker       sleep.Waker   `state:"nosave"`
+	pauseWaker       sleep.Waker   `state:"nosave"`
+	pauseChan        chan struct{} `state:"nosave"`
+	resumeChan       chan struct{} `state:"nosave"`
 }
 
 func (p *processor) close() {
 	p.closeWaker.Assert()
 }
 
-func (p *processor) queueEndpoint(ep *endpoint) {
+func (p *processor) queueEndpoint(ep *Endpoint) {
 	// Queue an endpoint for processing by the processor goroutine.
 	p.epQ.enqueue(ep)
 	p.newEndpointWaker.Assert()
@@ -97,7 +101,7 @@ func (p *processor) queueEndpoint(ep *endpoint) {
 // of its associated listening endpoint.
 //
 // +checklocks:ep.mu
-func deliverAccepted(ep *endpoint) bool {
+func deliverAccepted(ep *Endpoint) bool {
 	lEP := ep.h.listenEP
 	lEP.acceptMu.Lock()
 
@@ -129,7 +133,7 @@ func deliverAccepted(ep *endpoint) bool {
 
 // handleConnecting is responsible for TCP processing for an endpoint in one of
 // the connecting states.
-func handleConnecting(ep *endpoint) {
+func handleConnecting(ep *Endpoint) {
 	if !ep.TryLock() {
 		return
 	}
@@ -172,7 +176,7 @@ func handleConnecting(ep *endpoint) {
 
 // handleConnected is responsible for TCP processing for an endpoint in one of
 // the connected states(StateEstablished, StateFinWait1 etc.)
-func handleConnected(ep *endpoint) {
+func handleConnected(ep *Endpoint) {
 	if !ep.TryLock() {
 		return
 	}
@@ -208,7 +212,7 @@ func handleConnected(ep *endpoint) {
 // startTimeWait starts a new goroutine to handle TIME-WAIT.
 //
 // +checklocks:ep.mu
-func startTimeWait(ep *endpoint) {
+func startTimeWait(ep *Endpoint) {
 	// Disable close timer as we are now entering real TIME_WAIT.
 	if ep.finWait2Timer != nil {
 		ep.finWait2Timer.Stop()
@@ -221,7 +225,7 @@ func startTimeWait(ep *endpoint) {
 
 // handleTimeWait is responsible for TCP processing for an endpoint in TIME-WAIT
 // state.
-func handleTimeWait(ep *endpoint) {
+func handleTimeWait(ep *Endpoint) {
 	if !ep.TryLock() {
 		return
 	}
@@ -251,7 +255,7 @@ func handleTimeWait(ep *endpoint) {
 
 // handleListen is responsible for TCP processing for an endpoint in LISTEN
 // state.
-func handleListen(ep *endpoint) {
+func handleListen(ep *Endpoint) {
 	if !ep.TryLock() {
 		return
 	}
@@ -355,11 +359,13 @@ func (p *processor) resume() {
 // goroutines do full tcp processing. The processor is selected based on the
 // hash of the endpoint id to ensure that delivery for the same endpoint happens
 // in-order.
+//
+// +stateify savable
 type dispatcher struct {
 	processors []processor
-	wg         sync.WaitGroup
+	wg         sync.WaitGroup `state:"nosave"`
 	hasher     jenkinsHasher
-	mu         sync.Mutex
+	mu         sync.Mutex `state:"nosave"`
 	// +checklocks:mu
 	paused bool
 	// +checklocks:mu
@@ -374,9 +380,18 @@ func (d *dispatcher) init(rng *rand.Rand, nProcessors int) {
 
 	d.mu.Lock()
 	defer d.mu.Unlock()
+
 	d.closed = false
 	d.processors = make([]processor, nProcessors)
 	d.hasher = jenkinsHasher{seed: rng.Uint32()}
+	d.startLocked()
+}
+
+// +checklocks:d.mu
+func (d *dispatcher) startLocked() {
+	if d.closed {
+		return
+	}
 	for i := range d.processors {
 		p := &d.processors[i]
 		p.sleeper.AddWaker(&p.newEndpointWaker)
@@ -390,6 +405,13 @@ func (d *dispatcher) init(rng *rand.Rand, nProcessors int) {
 		// that results in a heap-allocated function literal.
 		go p.start(&d.wg)
 	}
+}
+
+func (d *dispatcher) start() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	d.startLocked()
 }
 
 // close closes a dispatcher and its processors.
@@ -418,7 +440,7 @@ func (d *dispatcher) queuePacket(stackEP stack.TransportEndpoint, id stack.Trans
 		return
 	}
 
-	ep := stackEP.(*endpoint)
+	ep := stackEP.(*Endpoint)
 
 	s, err := newIncomingSegment(id, clock, pkt)
 	if err != nil {
@@ -491,6 +513,8 @@ func (d *dispatcher) resume() {
 }
 
 // jenkinsHasher contains state needed to for a jenkins hash.
+//
+// +stateify savable
 type jenkinsHasher struct {
 	seed uint32
 }

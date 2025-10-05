@@ -8,7 +8,6 @@ This is the official Go client library for VirusTotal. With this library you can
 interact with the VirusTotal REST API v3 without having to send plain HTTP requests
 with the standard "http" package.
 
-This library is not production-ready yet, and breaking changes can still occur.
 
 ## Usage example
 

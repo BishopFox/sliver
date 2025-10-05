@@ -295,11 +295,11 @@ func isArithName(left ArithmExpr) bool {
 	if !ok || len(w.Parts) != 1 {
 		return false
 	}
-	switch x := w.Parts[0].(type) {
+	switch wp := w.Parts[0].(type) {
 	case *Lit:
-		return ValidName(x.Value)
+		return ValidName(wp.Value)
 	case *ParamExp:
-		return x.nakedIndex()
+		return wp.nakedIndex()
 	default:
 		return false
 	}
@@ -343,6 +343,9 @@ func (p *Parser) matchedArithm(lpos Pos, left, right token) {
 
 func (p *Parser) arithmEnd(ltok token, lpos Pos, old saveState) Pos {
 	if !p.peekArithmEnd() {
+		if p.recoverError() {
+			return recoveredPos
+		}
 		p.arithmMatchingErr(lpos, ltok, dblRightParen)
 	}
 	p.rune()

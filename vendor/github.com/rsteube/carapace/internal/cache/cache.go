@@ -14,31 +14,41 @@ import (
 	"github.com/rsteube/carapace/internal/env"
 	"github.com/rsteube/carapace/internal/export"
 	"github.com/rsteube/carapace/internal/uid"
-	"github.com/rsteube/carapace/pkg/cache"
+	"github.com/rsteube/carapace/pkg/cache/key"
 	"github.com/rsteube/carapace/pkg/xdg"
 )
 
-// Write persistests given values to file as json.
-func Write(file string, e export.Export) (err error) {
+func WriteE(file string, e export.Export) (err error) {
 	var m []byte
 	if m, err = json.Marshal(e); err == nil {
-		err = os.WriteFile(file, m, 0600)
+		err = Write(file, m)
 	}
 	return
 }
 
-// Load loads values from file unless modification date exceeds timeout.
-func Load(file string, timeout time.Duration) (e export.Export, err error) {
+func Write(file string, content []byte) (err error) {
+	return os.WriteFile(file, content, 0600)
+}
+
+func LoadE(file string, timeout time.Duration) (*export.Export, error) { // TODO reference
+	content, err := Load(file, timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	var e export.Export
+	if err := json.Unmarshal(content, &e); err != nil {
+		return nil, err
+	}
+	return &e, nil
+}
+
+func Load(file string, timeout time.Duration) (b []byte, err error) {
 	var stat os.FileInfo
 	if stat, err = os.Stat(file); os.IsNotExist(err) || (timeout >= 0 && stat.ModTime().Add(timeout).Before(time.Now())) {
-		err = errors.New("not exists or timeout exceeded")
-	} else {
-		var content []byte
-		if content, err = os.ReadFile(file); err == nil {
-			err = json.Unmarshal(content, &e)
-		}
+		return nil, errors.New("not exists or timeout exceeded")
 	}
-	return
+	return os.ReadFile(file)
 }
 
 // CacheDir creates a cache folder for current user and returns the path.
@@ -60,7 +70,7 @@ func CacheDir(name string) (dir string, err error) {
 
 // File returns the cache filename for given values
 // TODO cleanup
-func File(callerFile string, callerLine int, keys ...cache.Key) (file string, err error) {
+func File(callerFile string, callerLine int, keys ...key.Key) (file string, err error) {
 	uid := uidKeys(callerFile, strconv.Itoa(callerLine))
 	ids := make([]string, 0)
 	for _, key := range keys {

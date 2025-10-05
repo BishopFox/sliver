@@ -10,13 +10,26 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/mailru/easyjson"
-
 	"github.com/chromedp/cdproto"
 	"github.com/chromedp/cdproto/browser"
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/cdproto/target"
+	jsonv2 "github.com/go-json-experiment/json"
+	"github.com/go-json-experiment/json/jsontext"
+)
+
+var (
+	// DefaultUnmarshalOptions are default unmarshal options.
+	DefaultUnmarshalOptions = jsonv2.JoinOptions(
+		jsonv2.DefaultOptionsV2(),
+		jsontext.AllowInvalidUTF8(true),
+	)
+	// DefaultMarshalOptions are default marshal options.
+	DefaultMarshalOptions = jsonv2.JoinOptions(
+		jsonv2.DefaultOptionsV2(),
+		jsontext.AllowInvalidUTF8(true),
+	)
 )
 
 // Browser is the high-level Chrome DevTools Protocol browser manager, handling
@@ -61,9 +74,9 @@ type Browser struct {
 	cmdQueue chan *cdproto.Message
 
 	// logging funcs
-	logf func(string, ...interface{})
-	errf func(string, ...interface{})
-	dbgf func(string, ...interface{})
+	logf func(string, ...any)
+	errf func(string, ...any)
+	dbgf func(string, ...any)
 
 	// The optional fields below are helpful for some tests.
 
@@ -98,7 +111,7 @@ func NewBrowser(ctx context.Context, urlstr string, opts ...BrowserOption) (*Bro
 	}
 	// ensure errf is set
 	if b.errf == nil {
-		b.errf = func(s string, v ...interface{}) { b.logf("ERROR: "+s, v...) }
+		b.errf = func(s string, v ...any) { b.logf("ERROR: "+s, v...) }
 	}
 
 	dialCtx := ctx
@@ -166,7 +179,7 @@ func (b *Browser) newExecutorForTarget(ctx context.Context, targetID target.ID, 
 	return t, nil
 }
 
-func (b *Browser) Execute(ctx context.Context, method string, params easyjson.Marshaler, res easyjson.Unmarshaler) error {
+func (b *Browser) Execute(ctx context.Context, method string, params, res any) error {
 	// Certain methods aren't available to the user directly.
 	if method == browser.CommandClose {
 		return fmt.Errorf("to close the browser gracefully, use chromedp.Cancel")
@@ -174,11 +187,11 @@ func (b *Browser) Execute(ctx context.Context, method string, params easyjson.Ma
 	return b.execute(ctx, method, params, res)
 }
 
-func (b *Browser) execute(ctx context.Context, method string, params easyjson.Marshaler, res easyjson.Unmarshaler) error {
+func (b *Browser) execute(ctx context.Context, method string, params, res any) error {
 	id := atomic.AddInt64(&b.next, 1)
 	lctx, cancel := context.WithCancel(ctx)
 	ch := make(chan *cdproto.Message, 1)
-	fn := func(ev interface{}) {
+	fn := func(ev any) {
 		if msg, ok := ev.(*cdproto.Message); ok && msg.ID == id {
 			select {
 			case <-ctx.Done():
@@ -195,8 +208,7 @@ func (b *Browser) execute(ctx context.Context, method string, params easyjson.Ma
 	var buf []byte
 	if params != nil {
 		var err error
-		buf, err = easyjson.Marshal(params)
-		if err != nil {
+		if buf, err = jsonv2.Marshal(params, DefaultMarshalOptions); err != nil {
 			return err
 		}
 	}
@@ -222,7 +234,7 @@ func (b *Browser) execute(ctx context.Context, method string, params easyjson.Ma
 		case msg.Error != nil:
 			return msg.Error
 		case res != nil:
-			return easyjson.Unmarshal(msg.Result, res)
+			return jsonv2.Unmarshal(msg.Result, res, DefaultUnmarshalOptions)
 		}
 	}
 	return nil
@@ -247,6 +259,10 @@ func (b *Browser) run(ctx context.Context) {
 		for {
 			msg := new(cdproto.Message)
 			if err := b.conn.Read(ctx, msg); err != nil {
+				var syntacticError *jsontext.SyntacticError
+				if errors.As(err, &syntacticError) {
+					b.errf("%s", err)
+				}
 				return
 			}
 
@@ -259,7 +275,7 @@ func (b *Browser) run(ctx context.Context) {
 				}
 
 			case msg.Method != "":
-				ev, err := cdproto.UnmarshalMessage(msg)
+				ev, err := cdproto.UnmarshalMessage(msg, DefaultUnmarshalOptions)
 				if err != nil {
 					b.errf("%s", err)
 					continue
@@ -330,25 +346,25 @@ func (b *Browser) run(ctx context.Context) {
 type BrowserOption = func(*Browser)
 
 // WithBrowserLogf is a browser option to specify a func to receive general logging.
-func WithBrowserLogf(f func(string, ...interface{})) BrowserOption {
+func WithBrowserLogf(f func(string, ...any)) BrowserOption {
 	return func(b *Browser) { b.logf = f }
 }
 
 // WithBrowserErrorf is a browser option to specify a func to receive error logging.
-func WithBrowserErrorf(f func(string, ...interface{})) BrowserOption {
+func WithBrowserErrorf(f func(string, ...any)) BrowserOption {
 	return func(b *Browser) { b.errf = f }
 }
 
 // WithBrowserDebugf is a browser option to specify a func to log actual
 // websocket messages.
-func WithBrowserDebugf(f func(string, ...interface{})) BrowserOption {
+func WithBrowserDebugf(f func(string, ...any)) BrowserOption {
 	return func(b *Browser) { b.dbgf = f }
 }
 
 // WithConsolef is a browser option to specify a func to receive chrome log events.
 //
 // Note: NOT YET IMPLEMENTED.
-func WithConsolef(f func(string, ...interface{})) BrowserOption {
+func WithConsolef(f func(string, ...any)) BrowserOption {
 	return func(b *Browser) {}
 }
 

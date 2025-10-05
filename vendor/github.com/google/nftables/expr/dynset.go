@@ -44,6 +44,18 @@ type Dynset struct {
 }
 
 func (e *Dynset) marshal(fam byte) ([]byte, error) {
+	opData, err := e.marshalData(fam)
+	if err != nil {
+		return nil, err
+	}
+
+	return netlink.MarshalAttributes([]netlink.Attribute{
+		{Type: unix.NFTA_EXPR_NAME, Data: []byte("dynset\x00")},
+		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: opData},
+	})
+}
+
+func (e *Dynset) marshalData(fam byte) ([]byte, error) {
 	// See: https://git.netfilter.org/libnftnl/tree/src/expr/dynset.c
 	var opAttrs []netlink.Attribute
 	opAttrs = append(opAttrs, netlink.Attribute{Type: unix.NFTA_DYNSET_SREG_KEY, Data: binaryutil.BigEndian.PutUint32(e.SrcRegKey)})
@@ -65,7 +77,6 @@ func (e *Dynset) marshal(fam byte) ([]byte, error) {
 
 	// Per https://git.netfilter.org/libnftnl/tree/src/expr/dynset.c?id=84d12cfacf8ddd857a09435f3d982ab6250d250c#n170
 	if len(e.Exprs) > 0 {
-		flags |= NFT_DYNSET_F_EXPR
 		switch len(e.Exprs) {
 		case 1:
 			exprData, err := Marshal(fam, e.Exprs[0])
@@ -74,6 +85,7 @@ func (e *Dynset) marshal(fam byte) ([]byte, error) {
 			}
 			opAttrs = append(opAttrs, netlink.Attribute{Type: unix.NFTA_DYNSET_EXPR, Data: exprData})
 		default:
+			flags |= NFT_DYNSET_F_EXPR
 			var elemAttrs []netlink.Attribute
 			for _, ex := range e.Exprs {
 				exprData, err := Marshal(fam, ex)
@@ -89,17 +101,9 @@ func (e *Dynset) marshal(fam byte) ([]byte, error) {
 			opAttrs = append(opAttrs, netlink.Attribute{Type: NFTA_DYNSET_EXPRESSIONS, Data: elemData})
 		}
 	}
+
 	opAttrs = append(opAttrs, netlink.Attribute{Type: unix.NFTA_DYNSET_FLAGS, Data: binaryutil.BigEndian.PutUint32(flags)})
-
-	opData, err := netlink.MarshalAttributes(opAttrs)
-	if err != nil {
-		return nil, err
-	}
-
-	return netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: unix.NFTA_EXPR_NAME, Data: []byte("dynset\x00")},
-		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: opData},
-	})
+	return netlink.MarshalAttributes(opAttrs)
 }
 
 func (e *Dynset) unmarshal(fam byte, data []byte) error {
@@ -125,7 +129,7 @@ func (e *Dynset) unmarshal(fam byte, data []byte) error {
 		case unix.NFTA_DYNSET_FLAGS:
 			e.Invert = (ad.Uint32() & unix.NFT_DYNSET_F_INV) != 0
 		case unix.NFTA_DYNSET_EXPR:
-			exprs, err := parseexprfunc.ParseExprBytesFunc(fam, ad, ad.Bytes())
+			exprs, err := parseexprfunc.ParseExprBytesFunc(fam, ad)
 			if err != nil {
 				return err
 			}

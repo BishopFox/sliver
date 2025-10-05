@@ -1,7 +1,7 @@
 // Copyright (c) Tailscale Inc & AUTHORS
 // SPDX-License-Identifier: BSD-3-Clause
 
-//go:build (ts_kube || (linux && (arm64 || amd64))) && !ts_omit_kube
+//go:build (ts_kube || (linux && (arm64 || amd64) && !android)) && !ts_omit_kube
 
 package store
 
@@ -14,10 +14,6 @@ import (
 )
 
 func init() {
-	registerAvailableExternalStores = append(registerAvailableExternalStores, registerKubeStore)
-}
-
-func registerKubeStore() {
 	Register("kube:", func(logf logger.Logf, path string) (ipn.StateStore, error) {
 		secretName := strings.TrimPrefix(path, "kube:")
 		return kubestore.New(logf, secretName)

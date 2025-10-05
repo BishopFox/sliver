@@ -1,6 +1,7 @@
 // Copyright (c) Tailscale Inc & AUTHORS
 // SPDX-License-Identifier: BSD-3-Clause
 
+// Package wgengine provides the Tailscale WireGuard engine interface.
 package wgengine
 
 import (
@@ -10,10 +11,10 @@ import (
 
 	"tailscale.com/ipn/ipnstate"
 	"tailscale.com/net/dns"
+	"tailscale.com/net/packet"
 	"tailscale.com/tailcfg"
 	"tailscale.com/types/key"
 	"tailscale.com/types/netmap"
-	"tailscale.com/wgengine/capture"
 	"tailscale.com/wgengine/filter"
 	"tailscale.com/wgengine/router"
 	"tailscale.com/wgengine/wgcfg"
@@ -128,5 +129,5 @@ type Engine interface {
 	// InstallCaptureHook registers a function to be called to capture
 	// packets traversing the data path. The hook can be uninstalled by
 	// calling this function with a nil value.
-	InstallCaptureHook(capture.Callback)
+	InstallCaptureHook(packet.CaptureCallback)
 }

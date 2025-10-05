@@ -25,8 +25,8 @@ import (
 )
 
 func init() {
-	parseexprfunc.ParseExprBytesFunc = func(fam byte, ad *netlink.AttributeDecoder, b []byte) ([]interface{}, error) {
-		exprs, err := exprsFromBytes(fam, ad, b)
+	parseExprBytesCommonFunc := func(exprsFromBytesFunc func() ([]Any, error)) ([]interface{}, error) {
+		exprs, err := exprsFromBytesFunc()
 		if err != nil {
 			return nil, err
 		}
@@ -36,6 +36,17 @@ func init() {
 		}
 		return result, nil
 	}
+
+	parseexprfunc.ParseExprBytesFromNameFunc = func(fam byte, ad *netlink.AttributeDecoder, exprName string) ([]interface{}, error) {
+		return parseExprBytesCommonFunc(func() ([]Any, error) {
+			return exprsBytesFromName(fam, ad, exprName)
+		})
+	}
+	parseexprfunc.ParseExprBytesFunc = func(fam byte, ad *netlink.AttributeDecoder) ([]interface{}, error) {
+		return parseExprBytesCommonFunc(func() ([]Any, error) {
+			return exprsFromBytes(fam, ad)
+		})
+	}
 	parseexprfunc.ParseExprMsgFunc = func(fam byte, b []byte) ([]interface{}, error) {
 		ad, err := netlink.NewAttributeDecoder(b)
 		if err != nil {
@@ -44,7 +55,7 @@ func init() {
 		ad.ByteOrder = binary.BigEndian
 		var exprs []interface{}
 		for ad.Next() {
-			e, err := parseexprfunc.ParseExprBytesFunc(fam, ad, b)
+			e, err := parseexprfunc.ParseExprBytesFunc(fam, ad)
 			if err != nil {
 				return e, err
 			}
@@ -59,15 +70,35 @@ func Marshal(fam byte, e Any) ([]byte, error) {
 	return e.marshal(fam)
 }
 
+func MarshalExprData(fam byte, e Any) ([]byte, error) {
+	return e.marshalData(fam)
+}
+
 // Unmarshal fills an expression from the specified byte slice.
 func Unmarshal(fam byte, data []byte, e Any) error {
 	return e.unmarshal(fam, data)
 }
 
+// exprsBytesFromName parses raw expressions bytes
+// based on provided expr name
+func exprsBytesFromName(fam byte, ad *netlink.AttributeDecoder, name string) ([]Any, error) {
+	var exprs []Any
+	e := exprFromName(name)
+	ad.Do(func(b []byte) error {
+		if err := Unmarshal(fam, b, e); err != nil {
+			return err
+		}
+		exprs = append(exprs, e)
+		return nil
+	})
+	return exprs, ad.Err()
+}
+
 // exprsFromBytes parses nested raw expressions bytes
 // to construct nftables expressions
-func exprsFromBytes(fam byte, ad *netlink.AttributeDecoder, b []byte) ([]Any, error) {
+func exprsFromBytes(fam byte, ad *netlink.AttributeDecoder) ([]Any, error) {
 	var exprs []Any
+
 	ad.Do(func(b []byte) error {
 		ad, err := netlink.NewAttributeDecoder(b)
 		if err != nil {
@@ -84,65 +115,12 @@ func exprsFromBytes(fam byte, ad *netlink.AttributeDecoder, b []byte) ([]Any, er
 					exprs = append(exprs, e)
 				}
 			case unix.NFTA_EXPR_DATA:
-				var e Any
-				switch name {
-				case "ct":
-					e = &Ct{}
-				case "range":
-					e = &Range{}
-				case "meta":
-					e = &Meta{}
-				case "cmp":
-					e = &Cmp{}
-				case "counter":
-					e = &Counter{}
-				case "objref":
-					e = &Objref{}
-				case "payload":
-					e = &Payload{}
-				case "lookup":
-					e = &Lookup{}
-				case "immediate":
-					e = &Immediate{}
-				case "bitwise":
-					e = &Bitwise{}
-				case "redir":
-					e = &Redir{}
-				case "nat":
-					e = &NAT{}
-				case "limit":
-					e = &Limit{}
-				case "quota":
-					e = &Quota{}
-				case "dynset":
-					e = &Dynset{}
-				case "log":
-					e = &Log{}
-				case "exthdr":
-					e = &Exthdr{}
-				case "match":
-					e = &Match{}
-				case "target":
-					e = &Target{}
-				case "connlimit":
-					e = &Connlimit{}
-				case "queue":
-					e = &Queue{}
-				case "flow_offload":
-					e = &FlowOffload{}
-				case "reject":
-					e = &Reject{}
-				case "masq":
-					e = &Masq{}
-				case "hash":
-					e = &Hash{}
-				}
+				e := exprFromName(name)
 				if e == nil {
 					// TODO: introduce an opaque expression type so that users know
 					// something is here.
 					continue // unsupported expression type
 				}
-
 				ad.Do(func(b []byte) error {
 					if err := Unmarshal(fam, b, e); err != nil {
 						return err
@@ -166,9 +144,81 @@ func exprsFromBytes(fam byte, ad *netlink.AttributeDecoder, b []byte) ([]Any, er
 	return exprs, ad.Err()
 }
 
+func exprFromName(name string) Any {
+	var e Any
+	switch name {
+	case "ct":
+		e = &Ct{}
+	case "range":
+		e = &Range{}
+	case "meta":
+		e = &Meta{}
+	case "cmp":
+		e = &Cmp{}
+	case "counter":
+		e = &Counter{}
+	case "objref":
+		e = &Objref{}
+	case "payload":
+		e = &Payload{}
+	case "lookup":
+		e = &Lookup{}
+	case "immediate":
+		e = &Immediate{}
+	case "bitwise":
+		e = &Bitwise{}
+	case "redir":
+		e = &Redir{}
+	case "nat":
+		e = &NAT{}
+	case "limit":
+		e = &Limit{}
+	case "quota":
+		e = &Quota{}
+	case "dynset":
+		e = &Dynset{}
+	case "log":
+		e = &Log{}
+	case "exthdr":
+		e = &Exthdr{}
+	case "match":
+		e = &Match{}
+	case "target":
+		e = &Target{}
+	case "connlimit":
+		e = &Connlimit{}
+	case "queue":
+		e = &Queue{}
+	case "flow_offload":
+		e = &FlowOffload{}
+	case "reject":
+		e = &Reject{}
+	case "masq":
+		e = &Masq{}
+	case "hash":
+		e = &Hash{}
+	case "cthelper":
+		e = &CtHelper{}
+	case "synproxy":
+		e = &SynProxy{}
+	case "ctexpect":
+		e = &CtExpect{}
+	case "secmark":
+		e = &SecMark{}
+	case "cttimeout":
+		e = &CtTimeout{}
+	case "fib":
+		e = &Fib{}
+	case "numgen":
+		e = &Numgen{}
+	}
+	return e
+}
+
 // Any is an interface implemented by any expression type.
 type Any interface {
 	marshal(fam byte) ([]byte, error)
+	marshalData(fam byte) ([]byte, error)
 	unmarshal(fam byte, data []byte) error
 }
 
@@ -214,7 +264,19 @@ type Meta struct {
 }
 
 func (e *Meta) marshal(fam byte) ([]byte, error) {
-	regData := []byte{}
+	exprData, err := e.marshalData(fam)
+	if err != nil {
+		return nil, err
+	}
+
+	return netlink.MarshalAttributes([]netlink.Attribute{
+		{Type: unix.NFTA_EXPR_NAME, Data: []byte("meta\x00")},
+		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: exprData},
+	})
+}
+
+func (e *Meta) marshalData(fam byte) ([]byte, error) {
+	var regData []byte
 	exprData, err := netlink.MarshalAttributes(
 		[]netlink.Attribute{
 			{Type: unix.NFTA_META_KEY, Data: binaryutil.BigEndian.PutUint32(uint32(e.Key))},
@@ -240,11 +302,7 @@ func (e *Meta) marshal(fam byte) ([]byte, error) {
 		return nil, err
 	}
 	exprData = append(exprData, regData...)
-
-	return netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: unix.NFTA_EXPR_NAME, Data: []byte("meta\x00")},
-		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: exprData},
-	})
+	return exprData, nil
 }
 
 func (e *Meta) unmarshal(fam byte, data []byte) error {
@@ -288,9 +346,22 @@ const (
 	NF_NAT_RANGE_PERSISTENT = unix.NF_NAT_RANGE_PERSISTENT
 	// NF_NAT_RANGE_PREFIX defines flag for a prefix masquerade
 	NF_NAT_RANGE_PREFIX = unix.NF_NAT_RANGE_NETMAP
+	// NF_NAT_RANGE_PROTO_SPECIFIED defines flag for a specified range
+	NF_NAT_RANGE_PROTO_SPECIFIED = unix.NF_NAT_RANGE_PROTO_SPECIFIED
 )
 
 func (e *Masq) marshal(fam byte) ([]byte, error) {
+	msgData, err := e.marshalData(fam)
+	if err != nil {
+		return nil, err
+	}
+	return netlink.MarshalAttributes([]netlink.Attribute{
+		{Type: unix.NFTA_EXPR_NAME, Data: []byte("masq\x00")},
+		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: msgData},
+	})
+}
+
+func (e *Masq) marshalData(fam byte) ([]byte, error) {
 	msgData := []byte{}
 	if !e.ToPorts {
 		flags := uint32(0)
@@ -327,10 +398,7 @@ func (e *Masq) marshal(fam byte) ([]byte, error) {
 			msgData = append(msgData, regsData...)
 		}
 	}
-	return netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: unix.NFTA_EXPR_NAME, Data: []byte("masq\x00")},
-		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: msgData},
-	})
+	return msgData, nil
 }
 
 func (e *Masq) unmarshal(fam byte, data []byte) error {
@@ -377,23 +445,27 @@ type Cmp struct {
 }
 
 func (e *Cmp) marshal(fam byte) ([]byte, error) {
-	cmpData, err := netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: unix.NFTA_DATA_VALUE, Data: e.Data},
-	})
-	if err != nil {
-		return nil, err
-	}
-	exprData, err := netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: unix.NFTA_CMP_SREG, Data: binaryutil.BigEndian.PutUint32(e.Register)},
-		{Type: unix.NFTA_CMP_OP, Data: binaryutil.BigEndian.PutUint32(uint32(e.Op))},
-		{Type: unix.NLA_F_NESTED | unix.NFTA_CMP_DATA, Data: cmpData},
-	})
+	exprData, err := e.marshalData(fam)
 	if err != nil {
 		return nil, err
 	}
 	return netlink.MarshalAttributes([]netlink.Attribute{
 		{Type: unix.NFTA_EXPR_NAME, Data: []byte("cmp\x00")},
 		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: exprData},
+	})
+}
+
+func (e *Cmp) marshalData(fam byte) ([]byte, error) {
+	cmpData, err := netlink.MarshalAttributes([]netlink.Attribute{
+		{Type: unix.NFTA_DATA_VALUE, Data: e.Data},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return netlink.MarshalAttributes([]netlink.Attribute{
+		{Type: unix.NFTA_CMP_SREG, Data: binaryutil.BigEndian.PutUint32(e.Register)},
+		{Type: unix.NFTA_CMP_OP, Data: binaryutil.BigEndian.PutUint32(uint32(e.Op))},
+		{Type: unix.NLA_F_NESTED | unix.NFTA_CMP_DATA, Data: cmpData},
 	})
 }
 

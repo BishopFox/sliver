@@ -6,6 +6,7 @@
 package device
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"sync"
@@ -15,6 +16,7 @@ import (
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/poly1305"
 
+	"github.com/tailscale/wireguard-go/conn"
 	"github.com/tailscale/wireguard-go/tai64n"
 )
 
@@ -60,13 +62,14 @@ const (
 )
 
 const (
-	MessageInitiationSize      = 148                                           // size of handshake initiation message
-	MessageResponseSize        = 92                                            // size of response message
-	MessageCookieReplySize     = 64                                            // size of cookie reply message
-	MessageTransportHeaderSize = 16                                            // size of data preceding content in transport message
-	MessageTransportSize       = MessageTransportHeaderSize + poly1305.TagSize // size of empty transport
-	MessageKeepaliveSize       = MessageTransportSize                          // size of keepalive
-	MessageHandshakeSize       = MessageInitiationSize                         // size of largest handshake related message
+	MessageInitiationSize             = 148                                           // size of handshake initiation message
+	MessageResponseSize               = 92                                            // size of response message
+	MessageCookieReplySize            = 64                                            // size of cookie reply message
+	MessageTransportHeaderSize        = 16                                            // size of data preceding content in transport message
+	MessageEncapsulatingTransportSize = 8                                             // size of optional, free (for use by conn.Bind.Send()) space preceding the transport header
+	MessageTransportSize              = MessageTransportHeaderSize + poly1305.TagSize // size of empty transport
+	MessageKeepaliveSize              = MessageTransportSize                          // size of keepalive
+	MessageHandshakeSize              = MessageInitiationSize                         // size of largest handshake related message
 )
 
 const (
@@ -115,6 +118,98 @@ type MessageCookieReply struct {
 	Cookie   [blake2s.Size128 + poly1305.TagSize]byte
 }
 
+var errMessageLengthMismatch = errors.New("message length mismatch")
+
+func (msg *MessageInitiation) unmarshal(b []byte) error {
+	if len(b) != MessageInitiationSize {
+		return errMessageLengthMismatch
+	}
+
+	msg.Type = binary.LittleEndian.Uint32(b)
+	msg.Sender = binary.LittleEndian.Uint32(b[4:])
+	copy(msg.Ephemeral[:], b[8:])
+	copy(msg.Static[:], b[8+len(msg.Ephemeral):])
+	copy(msg.Timestamp[:], b[8+len(msg.Ephemeral)+len(msg.Static):])
+	copy(msg.MAC1[:], b[8+len(msg.Ephemeral)+len(msg.Static)+len(msg.Timestamp):])
+	copy(msg.MAC2[:], b[8+len(msg.Ephemeral)+len(msg.Static)+len(msg.Timestamp)+len(msg.MAC1):])
+
+	return nil
+}
+
+func (msg *MessageInitiation) marshal(b []byte) error {
+	if len(b) != MessageInitiationSize {
+		return errMessageLengthMismatch
+	}
+
+	binary.LittleEndian.PutUint32(b, msg.Type)
+	binary.LittleEndian.PutUint32(b[4:], msg.Sender)
+	copy(b[8:], msg.Ephemeral[:])
+	copy(b[8+len(msg.Ephemeral):], msg.Static[:])
+	copy(b[8+len(msg.Ephemeral)+len(msg.Static):], msg.Timestamp[:])
+	copy(b[8+len(msg.Ephemeral)+len(msg.Static)+len(msg.Timestamp):], msg.MAC1[:])
+	copy(b[8+len(msg.Ephemeral)+len(msg.Static)+len(msg.Timestamp)+len(msg.MAC1):], msg.MAC2[:])
+
+	return nil
+}
+
+func (msg *MessageResponse) unmarshal(b []byte) error {
+	if len(b) != MessageResponseSize {
+		return errMessageLengthMismatch
+	}
+
+	msg.Type = binary.LittleEndian.Uint32(b)
+	msg.Sender = binary.LittleEndian.Uint32(b[4:])
+	msg.Receiver = binary.LittleEndian.Uint32(b[8:])
+	copy(msg.Ephemeral[:], b[12:])
+	copy(msg.Empty[:], b[12+len(msg.Ephemeral):])
+	copy(msg.MAC1[:], b[12+len(msg.Ephemeral)+len(msg.Empty):])
+	copy(msg.MAC2[:], b[12+len(msg.Ephemeral)+len(msg.Empty)+len(msg.MAC1):])
+
+	return nil
+}
+
+func (msg *MessageResponse) marshal(b []byte) error {
+	if len(b) != MessageResponseSize {
+		return errMessageLengthMismatch
+	}
+
+	binary.LittleEndian.PutUint32(b, msg.Type)
+	binary.LittleEndian.PutUint32(b[4:], msg.Sender)
+	binary.LittleEndian.PutUint32(b[8:], msg.Receiver)
+	copy(b[12:], msg.Ephemeral[:])
+	copy(b[12+len(msg.Ephemeral):], msg.Empty[:])
+	copy(b[12+len(msg.Ephemeral)+len(msg.Empty):], msg.MAC1[:])
+	copy(b[12+len(msg.Ephemeral)+len(msg.Empty)+len(msg.MAC1):], msg.MAC2[:])
+
+	return nil
+}
+
+func (msg *MessageCookieReply) unmarshal(b []byte) error {
+	if len(b) != MessageCookieReplySize {
+		return errMessageLengthMismatch
+	}
+
+	msg.Type = binary.LittleEndian.Uint32(b)
+	msg.Receiver = binary.LittleEndian.Uint32(b[4:])
+	copy(msg.Nonce[:], b[8:])
+	copy(msg.Cookie[:], b[8+len(msg.Nonce):])
+
+	return nil
+}
+
+func (msg *MessageCookieReply) marshal(b []byte) error {
+	if len(b) != MessageCookieReplySize {
+		return errMessageLengthMismatch
+	}
+
+	binary.LittleEndian.PutUint32(b, msg.Type)
+	binary.LittleEndian.PutUint32(b[4:], msg.Receiver)
+	copy(b[8:], msg.Nonce[:])
+	copy(b[8+len(msg.Nonce):], msg.Cookie[:])
+
+	return nil
+}
+
 type Handshake struct {
 	state                     handshakeState
 	mutex                     sync.RWMutex
@@ -124,7 +219,7 @@ type Handshake struct {
 	localEphemeral            NoisePrivateKey          // ephemeral secret key
 	localIndex                uint32                   // used to clear hash-table
 	remoteIndex               uint32                   // index for sending
-	remoteStatic              NoisePublicKey           // long term key
+	remoteStatic              NoisePublicKey           // long term key, never changes, can be accessed without mutex
 	remoteEphemeral           NoisePublicKey           // ephemeral public key
 	precomputedStaticStatic   [NoisePublicKeySize]byte // precomputed shared secret
 	lastTimestamp             tai64n.Timestamp
@@ -244,7 +339,7 @@ func (device *Device) CreateMessageInitiation(peer *Peer) (*MessageInitiation, e
 	return &msg, nil
 }
 
-func (device *Device) ConsumeMessageInitiation(msg *MessageInitiation) *Peer {
+func (device *Device) ConsumeMessageInitiation(msg *MessageInitiation, endpoint conn.Endpoint) *Peer {
 	var (
 		hash     [blake2s.Size]byte
 		chainKey [blake2s.Size]byte
@@ -277,6 +372,11 @@ func (device *Device) ConsumeMessageInitiation(msg *MessageInitiation) *Peer {
 	mixHash(&hash, &hash, msg.Static[:])
 
 	// lookup peer
+
+	initEP, ok := endpoint.(conn.InitiationAwareEndpoint)
+	if ok {
+		initEP.InitiationMessagePublicKey(peerPK)
+	}
 
 	peer := device.LookupPeer(peerPK)
 	if peer == nil || !peer.isRunning.Load() {

@@ -434,17 +434,20 @@ func (c *Conn) SetOption(option ConnOption, enable bool) error {
 	return newOpError("set-option", conn.SetOption(option, enable))
 }
 
-// A bufferSetter is a Socket that supports setting connection buffer sizes.
-type bufferSetter interface {
+// A bufferedSocket is a Socket that supports getting & setting connection
+// buffer sizes.
+type bufferedSocket interface {
 	Socket
 	SetReadBuffer(bytes int) error
 	SetWriteBuffer(bytes int) error
+	ReadBuffer() (int, error)
+	WriteBuffer() (int, error)
 }
 
 // SetReadBuffer sets the size of the operating system's receive buffer
 // associated with the Conn.
 func (c *Conn) SetReadBuffer(bytes int) error {
-	conn, ok := c.sock.(bufferSetter)
+	conn, ok := c.sock.(bufferedSocket)
 	if !ok {
 		return notSupported("set-read-buffer")
 	}
@@ -455,12 +458,43 @@ func (c *Conn) SetReadBuffer(bytes int) error {
 // SetWriteBuffer sets the size of the operating system's transmit buffer
 // associated with the Conn.
 func (c *Conn) SetWriteBuffer(bytes int) error {
-	conn, ok := c.sock.(bufferSetter)
+	conn, ok := c.sock.(bufferedSocket)
 	if !ok {
 		return notSupported("set-write-buffer")
 	}
 
 	return newOpError("set-write-buffer", conn.SetWriteBuffer(bytes))
+}
+
+// ReadBuffer reads the size of the operating system's receive buffer
+// associated with the Conn.
+func (c *Conn) ReadBuffer() (int, error) {
+	conn, ok := c.sock.(bufferedSocket)
+	if !ok {
+		return 0, notSupported("get-read-buffer")
+	}
+
+	buff, err := conn.ReadBuffer()
+	if err != nil {
+		return 0, newOpError("get-read-buffer", err)
+	}
+	return buff, nil
+}
+
+// WriteBuffer reads the size of the operating system's transmit buffer
+// associated with the Conn.
+func (c *Conn) WriteBuffer() (int, error) {
+	conn, ok := c.sock.(bufferedSocket)
+	if !ok {
+		return 0, notSupported("get-write-buffer")
+	}
+
+	buff, err := conn.WriteBuffer()
+	if err != nil {
+		return 0, newOpError("get-write-buffer", err)
+	}
+
+	return buff, nil
 }
 
 // A syscallConner is a Socket that supports syscall.Conn.

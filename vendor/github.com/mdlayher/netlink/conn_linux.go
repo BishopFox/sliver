@@ -212,6 +212,14 @@ func (c *conn) SetReadBuffer(bytes int) error { return c.s.SetReadBuffer(bytes) 
 // associated with the Conn.
 func (c *conn) SetWriteBuffer(bytes int) error { return c.s.SetWriteBuffer(bytes) }
 
+// ReadBuffer reads the size of the operating system's receive buffer
+// associated with the Conn.
+func (c *conn) ReadBuffer() (int, error) { return c.s.ReadBuffer() }
+
+// WriteBuffer reads the size of the operating system's transmit buffer
+// associated with the Conn.
+func (c *conn) WriteBuffer() (int, error) { return c.s.WriteBuffer() }
+
 // SyscallConn returns a raw network connection.
 func (c *conn) SyscallConn() (syscall.RawConn, error) { return c.s.SyscallConn() }
 

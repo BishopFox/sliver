@@ -55,7 +55,7 @@ var (
 )
 
 // Of combines different styles.
-func Of(s ...string) string { return strings.Join(s, " ") }
+func Of(s ...string) string { return strings.TrimSpace(strings.Join(s, " ")) }
 
 // XTerm256Color returns a color from the xterm 256-color palette.
 func XTerm256Color(i uint8) string { return ui.XTerm256Color(i).String() }
@@ -64,9 +64,9 @@ func XTerm256Color(i uint8) string { return ui.XTerm256Color(i).String() }
 func TrueColor(r, g, b uint8) string { return ui.TrueColor(r, g, b).String() }
 
 // SGR returns the SGR sequence for given style.
-func SGR(s string) string { return parseStyle(s).SGR() }
+func SGR(s string) string { return Parse(s).SGR() }
 
-func parseStyle(s string) ui.Style {
+func Parse(s string) ui.Style {
 	stylings := make([]ui.Styling, 0)
 	for _, word := range strings.Split(s, " ") {
 		if styling := ui.ParseStyling(word); styling != nil {

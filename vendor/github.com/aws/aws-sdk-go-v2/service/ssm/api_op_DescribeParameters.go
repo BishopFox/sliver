@@ -6,23 +6,33 @@ import (
 	"context"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
-	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ssm/types"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Get information about a parameter. Request results are returned on a
-// best-effort basis. If you specify MaxResults in the request, the response
-// includes information up to the limit specified. The number of items returned,
-// however, can be between zero and the value of MaxResults . If the service
-// reaches an internal limit while processing the results, it stops the operation
-// and returns the matching values up to that point and a NextToken . You can
-// specify the NextToken in a subsequent call to get the next set of results. If
-// you change the KMS key alias for the KMS key used to encrypt a parameter, then
-// you must also update the key alias the parameter uses to reference KMS.
+// Lists the parameters in your Amazon Web Services account or the parameters
+// shared with you when you enable the [Shared]option.
+//
+// Request results are returned on a best-effort basis. If you specify MaxResults
+// in the request, the response includes information up to the limit specified. The
+// number of items returned, however, can be between zero and the value of
+// MaxResults . If the service reaches an internal limit while processing the
+// results, it stops the operation and returns the matching values up to that point
+// and a NextToken . You can specify the NextToken in a subsequent call to get the
+// next set of results.
+//
+// Parameter names can't contain spaces. The service removes any spaces specified
+// for the beginning or end of a parameter name. If the specified name for a
+// parameter contains spaces between characters, the request fails with a
+// ValidationException error.
+//
+// If you change the KMS key alias for the KMS key used to encrypt a parameter,
+// then you must also update the key alias the parameter uses to reference KMS.
 // Otherwise, DescribeParameters retrieves whatever the original key alias was
 // referencing.
+//
+// [Shared]: https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_DescribeParameters.html#systemsmanager-DescribeParameters-request-Shared
 func (c *Client) DescribeParameters(ctx context.Context, params *DescribeParametersInput, optFns ...func(*Options)) (*DescribeParametersOutput, error) {
 	if params == nil {
 		params = &DescribeParametersInput{}
@@ -53,6 +63,21 @@ type DescribeParametersInput struct {
 
 	// Filters to limit the request results.
 	ParameterFilters []types.ParameterStringFilter
+
+	// Lists parameters that are shared with you.
+	//
+	// By default when using this option, the command returns parameters that have
+	// been shared using a standard Resource Access Manager Resource Share. In order
+	// for a parameter that was shared using the PutResourcePolicycommand to be returned, the
+	// associated RAM Resource Share Created From Policy must have been promoted to a
+	// standard Resource Share using the RAM [PromoteResourceShareCreatedFromPolicy]API operation.
+	//
+	// For more information about sharing parameters, see [Working with shared parameters] in the Amazon Web Services
+	// Systems Manager User Guide.
+	//
+	// [PromoteResourceShareCreatedFromPolicy]: https://docs.aws.amazon.com/ram/latest/APIReference/API_PromoteResourceShareCreatedFromPolicy.html
+	// [Working with shared parameters]: https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-shared-parameters.html
+	Shared *bool
 
 	noSmithyDocumentSerde
 }
@@ -93,25 +118,28 @@ func (c *Client) addOperationDescribeParametersMiddlewares(stack *middleware.Sta
 	if err = addSetLoggerMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddClientRequestIDMiddleware(stack); err != nil {
+	if err = addClientRequestID(stack); err != nil {
 		return err
 	}
-	if err = smithyhttp.AddComputeContentLengthMiddleware(stack); err != nil {
+	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = v4.AddComputePayloadSHA256Middleware(stack); err != nil {
+	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetryMiddlewares(stack, options); err != nil {
+	if err = addRetry(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRawResponseToMetadata(stack); err != nil {
+	if err = addRawResponseToMetadata(stack); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRecordResponseTiming(stack); err != nil {
+	if err = addRecordResponseTiming(stack); err != nil {
+		return err
+	}
+	if err = addSpanRetryLoop(stack, options); err != nil {
 		return err
 	}
 	if err = addClientUserAgent(stack, options); err != nil {
@@ -126,13 +154,22 @@ func (c *Client) addOperationDescribeParametersMiddlewares(stack *middleware.Sta
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDescribeParametersValidationMiddleware(stack); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeParameters(options.Region), middleware.Before); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
+	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -147,16 +184,50 @@ func (c *Client) addOperationDescribeParametersMiddlewares(stack *middleware.Sta
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addSpanInitializeStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanInitializeEnd(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestEnd(stack); err != nil {
+		return err
+	}
 	return nil
 }
-
-// DescribeParametersAPIClient is a client that implements the DescribeParameters
-// operation.
-type DescribeParametersAPIClient interface {
-	DescribeParameters(context.Context, *DescribeParametersInput, ...func(*Options)) (*DescribeParametersOutput, error)
-}
-
-var _ DescribeParametersAPIClient = (*Client)(nil)
 
 // DescribeParametersPaginatorOptions is the paginator options for
 // DescribeParameters
@@ -223,6 +294,9 @@ func (p *DescribeParametersPaginator) NextPage(ctx context.Context, optFns ...fu
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeParameters(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -241,6 +315,14 @@ func (p *DescribeParametersPaginator) NextPage(ctx context.Context, optFns ...fu
 
 	return result, nil
 }
+
+// DescribeParametersAPIClient is a client that implements the DescribeParameters
+// operation.
+type DescribeParametersAPIClient interface {
+	DescribeParameters(context.Context, *DescribeParametersInput, ...func(*Options)) (*DescribeParametersOutput, error)
+}
+
+var _ DescribeParametersAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeParameters(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

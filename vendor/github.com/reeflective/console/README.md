@@ -40,15 +40,15 @@
   </a>
 </p>
 
-Console is an all-in-one console application library built on top of a [readline](https://github.com/reeflective/readline) shell and using [Cobra](https://github.com/spf13/cobra) commands. 
-It aims to provide users with a modern interface at at minimal cost while allowing them to focus on developing 
+Console is an all-in-one console application library built on top of a [readline](https://github.com/reeflective/readline) shell and using [Cobra](https://github.com/spf13/cobra) commands.
+It aims to provide users with a modern interface at at minimal cost while allowing them to focus on developing
 their commands and application core: the console will then transparently interface with these commands, and provide
 the various features below almost for free.
 
 
 ## Features
 
-### Menus & Commands 
+### Menus & Commands
 - Bind cobra commands to provide the core functionality.
 - Multiple menus with their own command tree, prompt engines and special handlers.
 - All cobra settings can be modified, set and used freely, like in normal CLI workflows.
@@ -59,7 +59,7 @@ the various features below almost for free.
 - All features of readline are supported in the console. It also allows the console to give:
 - Configurable bind keymaps, commands and options, sane defaults, and per-application configuration.
 - Out-of-the-box, advanced completions for commands, flags, positional and flag arguments.
-- Provided by readline and [carapace](https://github.com/rsteube/carapace): automatic usage & validation command/flags/args hints.
+- Provided by readline and [carapace](https://github.com/carapace-sh/carapace): automatic usage & validation command/flags/args hints.
 - Syntax highlighting for commands (might be extended in the future).
 
 ### Others
@@ -71,11 +71,11 @@ the various features below almost for free.
 
 ## Documentation
 
-You can install and use the [example application console](https://github.com/reeflective/console/tree/main/example). This example application 
-will give you a taste of the behavior and supported features. The following documentation 
+You can install and use the [example application console](https://github.com/reeflective/console/tree/main/example). This example application
+will give you a taste of the behavior and supported features. The following documentation
 is also available in the [wiki](https://github.com/reeflective/console/wiki):
 
-* [Getting started](https://github.com/reeflective/console/wiki/Getting-Started) 
+* [Getting started](https://github.com/reeflective/console/wiki/Getting-Started)
 * [Menus](https://github.com/reeflective/console/wiki/Menus)
 * [Prompts](https://github.com/reeflective/console/wiki/Prompts)
 * [Binding commands](https://github.com/reeflective/console/wiki/Binding-Commands)
@@ -90,23 +90,12 @@ is also available in the [wiki](https://github.com/reeflective/console/wiki):
 ![console](https://github.com/reeflective/console/blob/assets/console.gif)
 
 
-## Status 
+## Status
 
 The library is in a pre-release candidate status:
 - Although quite simple and small, it has not been tested heavily.
 - There are probably some features/improvements to be made.
 - The API is quite stable. It is unlikely to change much in future versions.
 
-Please open a PR or an issue if you wish to bring enhancements to it. 
+Please open a PR or an issue if you wish to bring enhancements to it.
 Other contributions, as well as bug fixes and reviews are also welcome.
-
-
-## Possible Improvements
-
-The following is a currently moving list of possible enhancements to be made in order to reach `v1.0`:
-- [ ] Ensure to the best extent possible a thread-safe access to the command API.
-- [ ] Clearer integration/alignment of the various I/O references between readline and commands.
-- [ ] Clearer and sane model for asynchronous control/cancel of commands.
-- [ ] Allow users to run the console command trees in one-exec style, with identical behavior.
-- [ ] Test suite for most important or risky code paths.
-- [ ] Set of helper functions for application-related directories.

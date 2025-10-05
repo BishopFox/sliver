@@ -3,13 +3,13 @@
 
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2025 WireGuard LLC. All Rights Reserved.
  */
 
 package conn
 
 import "net"
 
-func supportsUDPOffload(conn *net.UDPConn) (txOffload, rxOffload bool) {
+func supportsUDPOffload(_ *net.UDPConn) (txOffload, rxOffload bool) {
 	return
 }

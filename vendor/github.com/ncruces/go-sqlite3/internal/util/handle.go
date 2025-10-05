@@ -20,7 +20,7 @@ func (s *handleState) CloseNotify(ctx context.Context, exitCode uint32) {
 	s.holes = 0
 }
 
-func GetHandle(ctx context.Context, id uint32) any {
+func GetHandle(ctx context.Context, id Ptr_t) any {
 	if id == 0 {
 		return nil
 	}
@@ -28,14 +28,14 @@ func GetHandle(ctx context.Context, id uint32) any {
 	return s.handles[^id]
 }
 
-func DelHandle(ctx context.Context, id uint32) error {
+func DelHandle(ctx context.Context, id Ptr_t) error {
 	if id == 0 {
 		return nil
 	}
 	s := ctx.Value(moduleKey{}).(*moduleState)
 	a := s.handles[^id]
 	s.handles[^id] = nil
-	if l := uint32(len(s.handles)); l == ^id {
+	if l := Ptr_t(len(s.handles)); l == ^id {
 		s.handles = s.handles[:l-1]
 	} else {
 		s.holes++
@@ -46,7 +46,7 @@ func DelHandle(ctx context.Context, id uint32) error {
 	return nil
 }
 
-func AddHandle(ctx context.Context, a any) uint32 {
+func AddHandle(ctx context.Context, a any) Ptr_t {
 	if a == nil {
 		panic(NilErr)
 	}
@@ -59,12 +59,12 @@ func AddHandle(ctx context.Context, a any) uint32 {
 			if h == nil {
 				s.holes--
 				s.handles[id] = a
-				return ^uint32(id)
+				return ^Ptr_t(id)
 			}
 		}
 	}
 
 	// Add a new slot.
 	s.handles = append(s.handles, a)
-	return -uint32(len(s.handles))
+	return -Ptr_t(len(s.handles))
 }

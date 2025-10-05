@@ -13,9 +13,6 @@ import (
 var (
 	// errInvalidNeighMessage is returned when a LinkMessage is malformed.
 	errInvalidNeighMessage = errors.New("rtnetlink NeighMessage is invalid or too short")
-
-	// errInvalidNeighMessageAttr is returned when neigh attributes are malformed.
-	errInvalidNeighMessageAttr = errors.New("rtnetlink NeighMessage has a wrong attribute data length")
 )
 
 var _ Message = &NeighMessage{}
@@ -185,10 +182,6 @@ func (a *NeighAttributes) decode(ad *netlink.AttributeDecoder) error {
 		case unix.NDA_UNSPEC:
 			// unused attribute
 		case unix.NDA_DST:
-			l := len(ad.Bytes())
-			if l != 4 && l != 16 {
-				return errInvalidNeighMessageAttr
-			}
 			a.Address = ad.Bytes()
 		case unix.NDA_LLADDR:
 			// Allow IEEE 802 MAC-48, EUI-48, EUI-64, or 20-octet
@@ -197,9 +190,6 @@ func (a *NeighAttributes) decode(ad *netlink.AttributeDecoder) error {
 			if l == 0 {
 				// Ignore empty addresses.
 				continue
-			}
-			if l != 6 && l != 8 && l != 20 {
-				return errInvalidNeighMessageAttr
 			}
 			a.LLAddress = ad.Bytes()
 		case unix.NDA_CACHEINFO:

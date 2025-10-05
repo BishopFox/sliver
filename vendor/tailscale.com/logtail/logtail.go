@@ -1,22 +1,21 @@
 // Copyright (c) Tailscale Inc & AUTHORS
 // SPDX-License-Identifier: BSD-3-Clause
 
-// Package logtail sends logs to log.tailscale.io.
+// Package logtail sends logs to log.tailscale.com.
 package logtail
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/rand"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"log"
-	mrand "math/rand"
+	mrand "math/rand/v2"
 	"net/http"
-	"net/netip"
 	"os"
-	"regexp"
 	"runtime"
 	"slices"
 	"strconv"
@@ -28,7 +27,6 @@ import (
 	"tailscale.com/envknob"
 	"tailscale.com/net/netmon"
 	"tailscale.com/net/sockstats"
-	"tailscale.com/net/tsaddr"
 	"tailscale.com/tstime"
 	tslogger "tailscale.com/types/logger"
 	"tailscale.com/types/logid"
@@ -55,7 +53,7 @@ const bufferSize = 4 << 10
 
 // DefaultHost is the default host name to upload logs to when
 // Config.BaseURL isn't provided.
-const DefaultHost = "log.tailscale.io"
+const DefaultHost = "log.tailscale.com"
 
 const defaultFlushDelay = 2 * time.Second
 
@@ -69,7 +67,7 @@ type Config struct {
 	Collection     string          // collection name, a domain name
 	PrivateID      logid.PrivateID // private ID for the primary log stream
 	CopyPrivateID  logid.PrivateID // private ID for a log stream that is a superset of this log stream
-	BaseURL        string          // if empty defaults to "https://log.tailscale.io"
+	BaseURL        string          // if empty defaults to "https://log.tailscale.com"
 	HTTPC          *http.Client    // if empty defaults to http.DefaultClient
 	SkipClientTime bool            // if true, client_time is not written to logs
 	LowMemory      bool            // if true, logtail minimizes memory use
@@ -78,6 +76,7 @@ type Config struct {
 	StderrLevel    int             // max verbosity level to write to stderr; 0 means the non-verbose messages only
 	Buffer         Buffer          // temp storage, if nil a MemoryBuffer
 	CompressLogs   bool            // whether to compress the log uploads
+	MaxUploadSize  int             // maximum upload size; 0 means using the default
 
 	// MetricsDelta, if non-nil, is a func that returns an encoding
 	// delta in clientmetrics to upload alongside existing logs.
@@ -157,6 +156,7 @@ func NewLogger(cfg Config, logf tslogger.Logf) *Logger {
 		url:            cfg.BaseURL + "/c/" + cfg.Collection + "/" + cfg.PrivateID.String() + urlSuffix,
 		lowMem:         cfg.LowMemory,
 		buffer:         cfg.Buffer,
+		maxUploadSize:  cfg.MaxUploadSize,
 		skipClientTime: cfg.SkipClientTime,
 		drainWake:      make(chan struct{}, 1),
 		sentinel:       make(chan int32, 16),
@@ -192,6 +192,7 @@ type Logger struct {
 	skipClientTime bool
 	netMonitor     *netmon.Monitor
 	buffer         Buffer
+	maxUploadSize  int
 	drainWake      chan struct{}        // signal to speed up drain
 	drainBuf       []byte               // owned by drainPending for reuse
 	flushDelayFn   func() time.Duration // negative or zero return value to upload aggressively, or >0 to batch at this delay
@@ -213,6 +214,7 @@ type Logger struct {
 	procSequence uint64
 	flushTimer   tstime.TimerController // used when flushDelay is >0
 	writeBuf     [bufferSize]byte       // owned by Write for reuse
+	bytesBuf     bytes.Buffer           // owned by appendTextOrJSONLocked for reuse
 	jsonDec      jsontext.Decoder       // owned by appendTextOrJSONLocked for reuse
 
 	shutdownStartMu sync.Mutex    // guards the closing of shutdownStart
@@ -266,6 +268,7 @@ func (l *Logger) Shutdown(ctx context.Context) error {
 		case <-l.shutdownDone:
 		}
 		close(done)
+		l.httpc.CloseIdleConnections()
 	}()
 
 	l.shutdownStartMu.Lock()
@@ -323,7 +326,7 @@ func (l *Logger) drainPending() (b []byte) {
 		}
 	}()
 
-	maxLen := maxSize
+	maxLen := cmp.Or(l.maxUploadSize, maxSize)
 	if l.lowMem {
 		// When operating in a low memory environment, it is better to upload
 		// in multiple operations than it is to allocate a large body and OOM.
@@ -435,7 +438,7 @@ func (l *Logger) uploading(ctx context.Context) {
 				// Sleep for the specified retryAfter period,
 				// otherwise default to some random value.
 				if retryAfter <= 0 {
-					retryAfter = time.Duration(30+mrand.Intn(30)) * time.Second
+					retryAfter = mrand.N(30*time.Second) + 30*time.Second
 				}
 				tstime.Sleep(ctx, retryAfter)
 			} else {
@@ -505,7 +508,7 @@ func (l *Logger) upload(ctx context.Context, body []byte, origlen int) (retryAft
 	}
 	if runtime.GOOS == "js" {
 		// We once advertised we'd accept optional client certs (for internal use)
-		// on log.tailscale.io but then Tailscale SSH js/wasm clients prompted
+		// on log.tailscale.com but then Tailscale SSH js/wasm clients prompted
 		// users (on some browsers?) to pick a client cert. We'll fix the server's
 		// TLS ServerHello, but we can also fix it client side for good measure.
 		//
@@ -724,9 +727,16 @@ func (l *Logger) appendTextOrJSONLocked(dst, src []byte, level int) []byte {
 	// whether it contains the reserved "logtail" name at the top-level.
 	var logtailKeyOffset, logtailValOffset, logtailValLength int
 	validJSON := func() bool {
-		// TODO(dsnet): Avoid allocation of bytes.Buffer struct.
+		// The jsontext.NewDecoder API operates on an io.Reader, for which
+		// bytes.Buffer provides a means to convert a []byte into an io.Reader.
+		// However, bytes.NewBuffer normally allocates unless
+		// we immediately shallow copy it into a pre-allocated Buffer struct.
+		// See https://go.dev/issue/67004.
+		l.bytesBuf = *bytes.NewBuffer(src)
+		defer func() { l.bytesBuf = bytes.Buffer{} }() // avoid pinning src
+
 		dec := &l.jsonDec
-		dec.Reset(bytes.NewBuffer(src))
+		dec.Reset(&l.bytesBuf)
 		if tok, err := dec.ReadToken(); tok.Kind() != '{' || err != nil {
 			return false
 		}
@@ -766,9 +776,10 @@ func (l *Logger) appendTextOrJSONLocked(dst, src []byte, level int) []byte {
 	// That's okay as the Tailscale log service limit is actually 2*maxSize.
 	// However, so long as logging applications aim to target the maxSize limit,
 	// there should be no trouble eventually uploading logs.
-	if len(src) > maxSize {
+	maxLen := cmp.Or(l.maxUploadSize, maxSize)
+	if len(src) > maxLen {
 		errDetail := fmt.Sprintf("entry too large: %d bytes", len(src))
-		errData := appendTruncatedString(nil, src, maxSize/len(`\uffff`)) // escaping could increase size
+		errData := appendTruncatedString(nil, src, maxLen/len(`\uffff`)) // escaping could increase size
 
 		dst = append(dst, '{')
 		dst = l.appendMetadata(dst, l.skipClientTime, true, l.procID, l.procSequence, errDetail, errData, level)
@@ -819,8 +830,6 @@ func (l *Logger) Logf(format string, args ...any) {
 	fmt.Fprintf(l, format, args...)
 }
 
-var obscureIPs = envknob.RegisterBool("TS_OBSCURE_LOGGED_IPS")
-
 // Write logs an encoded JSON blob.
 //
 // If the []byte passed to Write is not an encoded JSON blob,
@@ -845,50 +854,12 @@ func (l *Logger) Write(buf []byte) (int, error) {
 		}
 	}
 
-	if obscureIPs() {
-		buf = redactIPs(buf)
-	}
-
 	l.writeLock.Lock()
 	defer l.writeLock.Unlock()
 
 	b := l.appendTextOrJSONLocked(l.writeBuf[:0], buf, level)
 	_, err := l.sendLocked(b)
 	return inLen, err
-}
-
-var (
-	regexMatchesIPv6 = regexp.MustCompile(`([0-9a-fA-F]{1,4}):([0-9a-fA-F]{1,4}):([0-9a-fA-F:]{1,4})*`)
-	regexMatchesIPv4 = regexp.MustCompile(`(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}`)
-)
-
-// redactIPs is a helper function used in Write() to redact IPs (other than tailscale IPs).
-// This function takes a log line as a byte slice and
-// uses regex matching to parse and find IP addresses. Based on if the IP address is IPv4 or
-// IPv6, it parses and replaces the end of the addresses with an "x". This function returns the
-// log line with the IPs redacted.
-func redactIPs(buf []byte) []byte {
-	out := regexMatchesIPv6.ReplaceAllFunc(buf, func(b []byte) []byte {
-		ip, err := netip.ParseAddr(string(b))
-		if err != nil || tsaddr.IsTailscaleIP(ip) {
-			return b // don't change this one
-		}
-
-		prefix := bytes.Split(b, []byte(":"))
-		return bytes.Join(append(prefix[:2], []byte("x")), []byte(":"))
-	})
-
-	out = regexMatchesIPv4.ReplaceAllFunc(out, func(b []byte) []byte {
-		ip, err := netip.ParseAddr(string(b))
-		if err != nil || tsaddr.IsTailscaleIP(ip) {
-			return b // don't change this one
-		}
-
-		prefix := bytes.Split(b, []byte("."))
-		return bytes.Join(append(prefix[:2], []byte("x.x")), []byte("."))
-	})
-
-	return []byte(out)
 }
 
 var (
