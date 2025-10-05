@@ -1,0 +1,14 @@
+version: "2"
+linters:
+  exclusions:
+    paths:
+      - third_party
+  settings:
+    errcheck:
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - (*os.File).Close
+        - os.RemoveAll
+        - os.Unsetenv
