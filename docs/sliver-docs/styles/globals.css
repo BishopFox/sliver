@@ -43,3 +43,12 @@ pre {
 .dark .sliver-scrollbar::-webkit-scrollbar-thumb {
   background-color: rgba(79, 97, 125, 0.8);
 }
+
+.asciinema-player {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+.asciinema-player .asciinema-terminal {
+  max-width: 100% !important;
+}
