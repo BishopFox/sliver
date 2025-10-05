@@ -24,6 +24,33 @@ import (
 	"strings"
 )
 
+type requestOptions struct {
+	headers map[string]string
+}
+
+// RequestOption represents an option passed to some functions in this package.
+type RequestOption func(*requestOptions)
+
+type VTClient interface {
+	Get(url *url.URL, options ...RequestOption) (*Response, error)
+	Post(url *url.URL, req *Request, options ...RequestOption) (*Response, error)
+	Patch(url *url.URL, req *Request, options ...RequestOption) (*Response, error)
+	Delete(url *url.URL, options ...RequestOption) (*Response, error)
+	GetData(url *url.URL, target interface{}, options ...RequestOption) (*Response, error)
+	PostData(url *url.URL, data interface{}, options ...RequestOption) (*Response, error)
+	DeleteData(url *url.URL, data interface{}, options ...RequestOption) (*Response, error)
+	PostObject(url *url.URL, obj *Object, options ...RequestOption) error
+	GetObject(url *url.URL, options ...RequestOption) (*Object, error)
+	PatchObject(url *url.URL, obj *Object, options ...RequestOption) error
+	DownloadFile(hash string, w io.Writer) (int64, error)
+	Iterator(url *url.URL, options ...IteratorOption) (*Iterator, error)
+	Search(query string, options ...IteratorOption) (*Iterator, error)
+	GetMetadata() (*Metadata, error)
+	NewFileScanner() *FileScanner
+	NewURLScanner() *URLScanner
+	NewMonitorUploader() *MonitorUploader
+}
+
 // Client for interacting with VirusTotal API.
 type Client struct {
 	// APIKey is the VirusTotal API key that identifies the user making the
@@ -34,16 +61,14 @@ type Client struct {
 	// use some string that uniquely identify the program making the requests.
 	Agent      string
 	httpClient *http.Client
-}
-
-type requestOptions struct {
+	// Global headers used in all requests. Those passed directly to request
+	// methods (Get, Post, ...) via RequestOption have preference and will
+	// override these global ones.
 	headers map[string]string
 }
 
-// RequestOption represents an option passed to some functions in this package.
-type RequestOption func(*requestOptions)
-
-// WithHeader specifies a header to be included in the request.
+// WithHeader specifies a header to be included in the request, it will override
+// any header defined at client level.
 func WithHeader(header, value string) RequestOption {
 	return func(opts *requestOptions) {
 		if opts.headers == nil {
@@ -61,11 +86,24 @@ func opts(opts ...RequestOption) *requestOptions {
 	return o
 }
 
+// ClientOption represents an option passed to NewClient.
 type ClientOption func(*Client)
 
+// WithHTTPClient allows to set the http.Client used by Client. If not specified
+// a default http.Client is used.
 func WithHTTPClient(httpClient *http.Client) ClientOption {
 	return func(c *Client) {
 		c.httpClient = httpClient
+	}
+}
+
+// WithGlobalHeader specifies a global header to be included in the all the requests.
+func WithGlobalHeader(header, value string) ClientOption {
+	return func(c *Client) {
+		if c.headers == nil {
+			c.headers = map[string]string{header: value}
+		}
+		c.headers[header] = value
 	}
 }
 
@@ -73,11 +111,9 @@ func WithHTTPClient(httpClient *http.Client) ClientOption {
 // the provided API key.
 func NewClient(APIKey string, opts ...ClientOption) *Client {
 	c := &Client{APIKey: APIKey, httpClient: &http.Client{}}
-
 	for _, o := range opts {
 		o(c)
 	}
-
 	return c
 }
 
@@ -99,10 +135,14 @@ func (cli *Client) sendRequest(method string, url *url.URL, body io.Reader, head
 	req.Header.Set("Accept-Encoding", "gzip")
 	req.Header.Set("X-Apikey", cli.APIKey)
 
-	if headers != nil {
-		for k, v := range headers {
-			req.Header.Set(k, v)
-		}
+	// Set global defined headers
+	for k, v := range cli.headers {
+		req.Header.Set(k, v)
+	}
+
+	// Set per request defined headers, override the global ones when collide.
+	for k, v := range headers {
+		req.Header.Set(k, v)
 	}
 
 	return (cli.httpClient).Do(req)
@@ -127,14 +167,20 @@ func (cli *Client) parseResponse(resp *http.Response) (*Response, error) {
 			resp.Request.Method, resp.Request.URL.String())
 	}
 
-	// Prepare gzip reader for uncompressing gzipped JSON response
-	ungzipper, err := gzip.NewReader(resp.Body)
-	if err != nil {
-		return nil, err
+	var reader io.ReadCloser
+	if resp.Header.Get("Content-Encoding") == "gzip" {
+		// Prepare gzip reader for uncompressing gzipped JSON response
+		ungzipper, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		defer ungzipper.Close()
+		reader = ungzipper
+	} else {
+		reader = resp.Body
 	}
-	defer ungzipper.Close()
 
-	if err := json.NewDecoder(ungzipper).Decode(apiresp); err != nil {
+	if err := json.NewDecoder(reader).Decode(apiresp); err != nil {
 		return nil, err
 	}
 
@@ -169,7 +215,11 @@ func (cli *Client) Post(url *url.URL, req *Request, options ...RequestOption) (*
 			return nil, err
 		}
 	}
-	o := opts(options...)
+	// Default Content-Type header to application/json in POST requests.
+	defaultContentTypeOptions := append(
+		[]RequestOption{WithHeader("Content-Type", "application/json")},
+		options...)
+	o := opts(defaultContentTypeOptions...)
 	httpResp, err := cli.sendRequest("POST", url, bytes.NewReader(b), o.headers)
 	if err != nil {
 		return nil, err
@@ -188,7 +238,11 @@ func (cli *Client) Patch(url *url.URL, req *Request, options ...RequestOption) (
 			return nil, err
 		}
 	}
-	o := opts(options...)
+	// Default Content-Type header to application/json in PATCH requests.
+	defaultContentTypeOptions := append(
+		[]RequestOption{WithHeader("Content-Type", "application/json")},
+		options...)
+	o := opts(defaultContentTypeOptions...)
 	httpResp, err := cli.sendRequest("PATCH", url, bytes.NewReader(b), o.headers)
 	if err != nil {
 		return nil, err
@@ -231,6 +285,30 @@ func (cli *Client) PostData(url *url.URL, data interface{}, options ...RequestOp
 	return cli.Post(url, req, options...)
 }
 
+// DeleteData sends a DELETE request to the specified API endpoint. The data argument
+// is JSON-encoded and wrapped as {'data': <JSON-encoded data>}.
+func (cli *Client) DeleteData(url *url.URL, data interface{}, options ...RequestOption) (*Response, error) {
+	req := &Request{}
+	req.Data = data
+
+	b, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+
+	// Default Content-Type header to application/json in DELETE requests.
+	defaultContentTypeOptions := append(
+		[]RequestOption{WithHeader("Content-Type", "application/json")},
+		options...)
+	o := opts(defaultContentTypeOptions...)
+	httpResp, err := cli.sendRequest("DELETE", url, bytes.NewReader(b), o.headers)
+	if err != nil {
+		return nil, err
+	}
+	defer httpResp.Body.Close()
+	return cli.parseResponse(httpResp)
+}
+
 // PostObject adds an Object to a collection. The specified URL must point to
 // a collection, not an object, but not all collections accept this operation.
 // For more information about collection and objects in the VirusTotal API see:
@@ -242,12 +320,12 @@ func (cli *Client) PostData(url *url.URL, data interface{}, options ...RequestOp
 // the object's attributes can differ from those it had before the call.
 //
 // Example:
+//
 //	obj := vt.NewObject("hunting_ruleset")
 //	obj.SetString("name", "test")
 //	obj.SetString("rules", "rule test {condition: false}")
 //
 //	client.PostObject(vt.URL("intelligence/hunting_rulesets"), obj)
-//
 func (cli *Client) PostObject(url *url.URL, obj *Object, options ...RequestOption) error {
 	req := &Request{}
 	req.Data = modifiedObject(*obj)
@@ -309,28 +387,27 @@ func (cli *Client) DownloadFile(hash string, w io.Writer) (int64, error) {
 // iterating over a collection with a single object. Iterators are usually
 // used like this:
 //
-//  cli := vt.Client(<api key>)
-//  it, err := cli.Iterator(vt.URL(<collection path>))
-//  if err != nil {
-//	  ...handle error
-//  }
-//  defer it.Close()
-//  for it.Next() {
-//    obj := it.Get()
-//    ...do something with obj
-//  }
-//  if err := it.Error(); err != nil {
-//    ...handle error
-//  }
-//
+//	 cli := vt.Client(<api key>)
+//	 it, err := cli.Iterator(vt.URL(<collection path>))
+//	 if err != nil {
+//		  ...handle error
+//	 }
+//	 defer it.Close()
+//	 for it.Next() {
+//	   obj := it.Get()
+//	   ...do something with obj
+//	 }
+//	 if err := it.Error(); err != nil {
+//	   ...handle error
+//	 }
 func (cli *Client) Iterator(url *url.URL, options ...IteratorOption) (*Iterator, error) {
 	return newIterator(cli, url, options...)
 }
 
 // Search for files using VirusTotal Intelligence query language.
 // Example:
-//   it, err := client.Search("p:10+ size:30MB+")
 //
+//	it, err := client.Search("p:10+ size:30MB+")
 func (cli *Client) Search(query string, options ...IteratorOption) (*Iterator, error) {
 	u := URL("intelligence/search")
 	q := u.Query()

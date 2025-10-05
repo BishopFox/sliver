@@ -6,29 +6,34 @@ import (
 	"context"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
-	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Delete an OpsItem. You must have permission in Identity and Access Management
-// (IAM) to delete an OpsItem. Note the following important information about this
-// operation.
+// (IAM) to delete an OpsItem.
+//
+// Note the following important information about this operation.
+//
 //   - Deleting an OpsItem is irreversible. You can't restore a deleted OpsItem.
+//
 //   - This operation uses an eventual consistency model, which means the system
 //     can take a few minutes to complete this operation. If you delete an OpsItem and
-//     immediately call, for example, GetOpsItem , the deleted OpsItem might still
-//     appear in the response.
+//     immediately call, for example, GetOpsItem, the deleted OpsItem might still appear in
+//     the response.
+//
 //   - This operation is idempotent. The system doesn't throw an exception if you
 //     repeatedly call this operation for the same OpsItem. If the first call is
 //     successful, all additional calls return the same successful response as the
 //     first call.
+//
 //   - This operation doesn't support cross-account calls. A delegated
 //     administrator or management account can't delete OpsItems in other accounts,
 //     even if OpsCenter has been set up for cross-account administration. For more
-//     information about cross-account administration, see Setting up OpsCenter to
-//     centrally manage OpsItems across accounts (https://docs.aws.amazon.com/systems-manager/latest/userguide/OpsCenter-setting-up-cross-account.html)
-//     in the Systems Manager User Guide.
+//     information about cross-account administration, see [Setting up OpsCenter to centrally manage OpsItems across accounts]in the Systems Manager
+//     User Guide.
+//
+// [Setting up OpsCenter to centrally manage OpsItems across accounts]: https://docs.aws.amazon.com/systems-manager/latest/userguide/OpsCenter-setting-up-cross-account.html
 func (c *Client) DeleteOpsItem(ctx context.Context, params *DeleteOpsItemInput, optFns ...func(*Options)) (*DeleteOpsItemOutput, error) {
 	if params == nil {
 		params = &DeleteOpsItemInput{}
@@ -83,25 +88,28 @@ func (c *Client) addOperationDeleteOpsItemMiddlewares(stack *middleware.Stack, o
 	if err = addSetLoggerMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddClientRequestIDMiddleware(stack); err != nil {
+	if err = addClientRequestID(stack); err != nil {
 		return err
 	}
-	if err = smithyhttp.AddComputeContentLengthMiddleware(stack); err != nil {
+	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = v4.AddComputePayloadSHA256Middleware(stack); err != nil {
+	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetryMiddlewares(stack, options); err != nil {
+	if err = addRetry(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRawResponseToMetadata(stack); err != nil {
+	if err = addRawResponseToMetadata(stack); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRecordResponseTiming(stack); err != nil {
+	if err = addRecordResponseTiming(stack); err != nil {
+		return err
+	}
+	if err = addSpanRetryLoop(stack, options); err != nil {
 		return err
 	}
 	if err = addClientUserAgent(stack, options); err != nil {
@@ -116,13 +124,22 @@ func (c *Client) addOperationDeleteOpsItemMiddlewares(stack *middleware.Stack, o
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDeleteOpsItemValidationMiddleware(stack); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeleteOpsItem(options.Region), middleware.Before); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
+	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -135,6 +152,48 @@ func (c *Client) addOperationDeleteOpsItemMiddlewares(stack *middleware.Stack, o
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addSpanInitializeStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanInitializeEnd(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestEnd(stack); err != nil {
 		return err
 	}
 	return nil

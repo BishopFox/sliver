@@ -11,9 +11,10 @@ The primary way of establishing a connection is with [pgx.Connect]:
 
     conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
 
-The database connection string can be in URL or DSN format. Both PostgreSQL settings and pgx settings can be specified
-here. In addition, a config struct can be created by [ParseConfig] and modified before establishing the connection with
-[ConnectConfig] to configure settings such as tracing that cannot be configured with a connection string.
+The database connection string can be in URL or key/value format. Both PostgreSQL settings and pgx settings can be
+specified here. In addition, a config struct can be created by [ParseConfig] and modified before establishing the
+connection with [ConnectConfig] to configure settings such as tracing that cannot be configured with a connection
+string.
 
 Connection Pool
 
@@ -23,8 +24,8 @@ github.com/jackc/pgx/v5/pgxpool for a concurrency safe connection pool.
 Query Interface
 
 pgx implements Query in the familiar database/sql style. However, pgx provides generic functions such as CollectRows and
-ForEachRow that are a simpler and safer way of processing rows than manually calling rows.Next(), rows.Scan, and
-rows.Err().
+ForEachRow that are a simpler and safer way of processing rows than manually calling defer rows.Close(), rows.Next(),
+rows.Scan, and rows.Err().
 
 CollectRows can be used collect all returned rows into a slice.
 
@@ -174,7 +175,7 @@ notification is received or the context is canceled.
 
 Tracing and Logging
 
-pgx supports tracing by setting ConnConfig.Tracer.
+pgx supports tracing by setting ConnConfig.Tracer. To combine several tracers you can use the multitracer.Tracer.
 
 In addition, the tracelog package provides the TraceLog type which lets a traditional logger act as a Tracer.
 
@@ -182,7 +183,7 @@ For debug tracing of the actual PostgreSQL wire protocol messages see github.com
 
 Lower Level PostgreSQL Functionality
 
-github.com/jackc/pgx/v5/pgconn contains a lower level PostgreSQL driver roughly at the level of libpq. pgx.Conn in
+github.com/jackc/pgx/v5/pgconn contains a lower level PostgreSQL driver roughly at the level of libpq. pgx.Conn is
 implemented on top of pgconn. The Conn.PgConn() method can be used to access this lower layer.
 
 PgBouncer

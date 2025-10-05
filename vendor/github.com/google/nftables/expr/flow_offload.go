@@ -28,9 +28,7 @@ type FlowOffload struct {
 }
 
 func (e *FlowOffload) marshal(fam byte) ([]byte, error) {
-	data, err := netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: NFTNL_EXPR_FLOW_TABLE_NAME, Data: []byte(e.Name)},
-	})
+	data, err := e.marshalData(fam)
 	if err != nil {
 		return nil, err
 	}
@@ -38,6 +36,12 @@ func (e *FlowOffload) marshal(fam byte) ([]byte, error) {
 	return netlink.MarshalAttributes([]netlink.Attribute{
 		{Type: unix.NFTA_EXPR_NAME, Data: []byte("flow_offload\x00")},
 		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
+	})
+}
+
+func (e *FlowOffload) marshalData(fam byte) ([]byte, error) {
+	return netlink.MarshalAttributes([]netlink.Attribute{
+		{Type: NFTNL_EXPR_FLOW_TABLE_NAME, Data: []byte(e.Name)},
 	})
 }
 

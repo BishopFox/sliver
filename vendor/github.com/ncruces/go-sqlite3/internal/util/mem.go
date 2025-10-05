@@ -7,128 +7,147 @@ import (
 	"github.com/tetratelabs/wazero/api"
 )
 
-func View(mod api.Module, ptr uint32, size uint64) []byte {
+const (
+	PtrLen = 4
+	IntLen = 4
+)
+
+type (
+	i8  interface{ ~int8 | ~uint8 }
+	i32 interface{ ~int32 | ~uint32 }
+	i64 interface{ ~int64 | ~uint64 }
+
+	Stk_t = uint64
+	Ptr_t uint32
+	Res_t int32
+)
+
+func View(mod api.Module, ptr Ptr_t, size int64) []byte {
 	if ptr == 0 {
 		panic(NilErr)
 	}
-	if size > math.MaxUint32 {
+	if uint64(size) > math.MaxUint32 {
 		panic(RangeErr)
 	}
-	if size == 0 {
-		return nil
-	}
-	buf, ok := mod.Memory().Read(ptr, uint32(size))
+	buf, ok := mod.Memory().Read(uint32(ptr), uint32(size))
 	if !ok {
 		panic(RangeErr)
 	}
 	return buf
 }
 
-func ReadUint8(mod api.Module, ptr uint32) uint8 {
+func Read[T i8](mod api.Module, ptr Ptr_t) T {
 	if ptr == 0 {
 		panic(NilErr)
 	}
-	v, ok := mod.Memory().ReadByte(ptr)
+	v, ok := mod.Memory().ReadByte(uint32(ptr))
 	if !ok {
 		panic(RangeErr)
 	}
-	return v
+	return T(v)
 }
 
-func ReadUint32(mod api.Module, ptr uint32) uint32 {
+func Write[T i8](mod api.Module, ptr Ptr_t, v T) {
 	if ptr == 0 {
 		panic(NilErr)
 	}
-	v, ok := mod.Memory().ReadUint32Le(ptr)
-	if !ok {
-		panic(RangeErr)
-	}
-	return v
-}
-
-func WriteUint8(mod api.Module, ptr uint32, v uint8) {
-	if ptr == 0 {
-		panic(NilErr)
-	}
-	ok := mod.Memory().WriteByte(ptr, v)
+	ok := mod.Memory().WriteByte(uint32(ptr), uint8(v))
 	if !ok {
 		panic(RangeErr)
 	}
 }
 
-func WriteUint32(mod api.Module, ptr uint32, v uint32) {
+func Read32[T i32](mod api.Module, ptr Ptr_t) T {
 	if ptr == 0 {
 		panic(NilErr)
 	}
-	ok := mod.Memory().WriteUint32Le(ptr, v)
+	v, ok := mod.Memory().ReadUint32Le(uint32(ptr))
+	if !ok {
+		panic(RangeErr)
+	}
+	return T(v)
+}
+
+func Write32[T i32](mod api.Module, ptr Ptr_t, v T) {
+	if ptr == 0 {
+		panic(NilErr)
+	}
+	ok := mod.Memory().WriteUint32Le(uint32(ptr), uint32(v))
 	if !ok {
 		panic(RangeErr)
 	}
 }
 
-func ReadUint64(mod api.Module, ptr uint32) uint64 {
+func Read64[T i64](mod api.Module, ptr Ptr_t) T {
 	if ptr == 0 {
 		panic(NilErr)
 	}
-	v, ok := mod.Memory().ReadUint64Le(ptr)
+	v, ok := mod.Memory().ReadUint64Le(uint32(ptr))
 	if !ok {
 		panic(RangeErr)
 	}
-	return v
+	return T(v)
 }
 
-func WriteUint64(mod api.Module, ptr uint32, v uint64) {
+func Write64[T i64](mod api.Module, ptr Ptr_t, v T) {
 	if ptr == 0 {
 		panic(NilErr)
 	}
-	ok := mod.Memory().WriteUint64Le(ptr, v)
+	ok := mod.Memory().WriteUint64Le(uint32(ptr), uint64(v))
 	if !ok {
 		panic(RangeErr)
 	}
 }
 
-func ReadFloat64(mod api.Module, ptr uint32) float64 {
-	return math.Float64frombits(ReadUint64(mod, ptr))
+func ReadFloat64(mod api.Module, ptr Ptr_t) float64 {
+	return math.Float64frombits(Read64[uint64](mod, ptr))
 }
 
-func WriteFloat64(mod api.Module, ptr uint32, v float64) {
-	WriteUint64(mod, ptr, math.Float64bits(v))
+func WriteFloat64(mod api.Module, ptr Ptr_t, v float64) {
+	Write64(mod, ptr, math.Float64bits(v))
 }
 
-func ReadString(mod api.Module, ptr, maxlen uint32) string {
+func ReadBool(mod api.Module, ptr Ptr_t) bool {
+	return Read32[int32](mod, ptr) != 0
+}
+
+func WriteBool(mod api.Module, ptr Ptr_t, v bool) {
+	var i int32
+	if v {
+		i = 1
+	}
+	Write32(mod, ptr, i)
+}
+
+func ReadString(mod api.Module, ptr Ptr_t, maxlen int64) string {
 	if ptr == 0 {
 		panic(NilErr)
 	}
-	switch maxlen {
-	case 0:
+	if maxlen <= 0 {
 		return ""
-	case math.MaxUint32:
-		// avoid overflow
-	default:
-		maxlen = maxlen + 1
 	}
 	mem := mod.Memory()
-	buf, ok := mem.Read(ptr, maxlen)
+	maxlen = min(maxlen, math.MaxInt32-1) + 1
+	buf, ok := mem.Read(uint32(ptr), uint32(maxlen))
 	if !ok {
-		buf, ok = mem.Read(ptr, mem.Size()-ptr)
+		buf, ok = mem.Read(uint32(ptr), mem.Size()-uint32(ptr))
 		if !ok {
 			panic(RangeErr)
 		}
 	}
-	if i := bytes.IndexByte(buf, 0); i < 0 {
-		panic(NoNulErr)
-	} else {
+	if i := bytes.IndexByte(buf, 0); i >= 0 {
 		return string(buf[:i])
 	}
+	panic(NoNulErr)
 }
 
-func WriteBytes(mod api.Module, ptr uint32, b []byte) {
-	buf := View(mod, ptr, uint64(len(b)))
+func WriteBytes(mod api.Module, ptr Ptr_t, b []byte) {
+	buf := View(mod, ptr, int64(len(b)))
 	copy(buf, b)
 }
 
-func WriteString(mod api.Module, ptr uint32, s string) {
-	buf := View(mod, ptr, uint64(len(s)+1))
+func WriteString(mod api.Module, ptr Ptr_t, s string) {
+	buf := View(mod, ptr, int64(len(s))+1)
 	buf[len(s)] = 0
 	copy(buf, s)
 }

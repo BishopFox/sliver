@@ -92,7 +92,7 @@ func (cc *Conn) GetRules(t *Table, c *Chain) ([]*Rule, error) {
 
 	reply, err := receiveAckAware(conn, message.Header.Flags)
 	if err != nil {
-		return nil, fmt.Errorf("Receive: %v", err)
+		return nil, fmt.Errorf("receiveAckAware: %v", err)
 	}
 	var rules []*Rule
 	for _, msg := range reply {

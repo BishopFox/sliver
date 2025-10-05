@@ -8,6 +8,6 @@ import "github.com/ncruces/go-sqlite3/internal/util"
 // [Value.Pointer], or [Context.ResultPointer].
 //
 // https://sqlite.org/bindptr.html
-func Pointer[T any](value T) any {
-	return util.Pointer[T]{Value: value}
+func Pointer(value any) any {
+	return util.Pointer{Value: value}
 }

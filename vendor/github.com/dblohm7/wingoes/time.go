@@ -8,10 +8,14 @@ package wingoes
 
 import (
 	"errors"
+	"math"
 	"time"
 
 	"golang.org/x/sys/windows"
 )
+
+// Infinite is the [time.Duration] equivalent of [windows.INFINITE].
+const Infinite = time.Duration(math.MaxInt64)
 
 var (
 	// ErrDurationOutOfRange means that a time.Duration is too large to be able
@@ -21,6 +25,10 @@ var (
 
 // DurationToTimeoutMilliseconds converts d into a timeout usable by Win32 APIs.
 func DurationToTimeoutMilliseconds(d time.Duration) (uint32, error) {
+	if d == Infinite {
+		return windows.INFINITE, nil
+	}
+
 	millis := d.Milliseconds()
 	if millis >= windows.INFINITE {
 		return 0, ErrDurationOutOfRange

@@ -66,7 +66,6 @@ func ActionExecCommandE(name string, arg ...string) func(f func(output []byte, e
 			cmd := c.Command(name, arg...)
 			cmd.Stdout = &stdout
 			cmd.Stderr = &stderr
-			LOG.Printf("executing %#v", cmd.String())
 			if err := cmd.Run(); err != nil {
 				if exitErr, ok := err.(*exec.ExitError); ok {
 					exitErr.Stderr = stderr.Bytes() // seems this needs to be set manually due to stdout being collected?
@@ -150,7 +149,9 @@ func ActionValues(values ...string) Action {
 	return ActionCallback(func(c Context) Action {
 		vals := make([]common.RawValue, 0, len(values))
 		for _, val := range values {
-			vals = append(vals, common.RawValue{Value: val, Display: val})
+			if val != "" {
+				vals = append(vals, common.RawValue{Value: val, Display: val})
+			}
 		}
 		return Action{rawValues: vals}
 	})
@@ -529,7 +530,11 @@ func ActionCobra(f func(cmd *cobra.Command, args []string, toComplete string) ([
 			LOG.Print("cmd is nil [ActionCobra]")
 			c.cmd = &cobra.Command{Use: "_carapace_actioncobra", Hidden: true, Deprecated: "dummy command for ActionCobra"}
 		}
-		values, directive := f(c.cmd, c.cmd.Flags().Args(), c.Value)
+
+		if !c.cmd.DisableFlagParsing {
+			c.Args = c.cmd.Flags().Args()
+		}
+		values, directive := f(c.cmd, c.Args, c.Value)
 		return compDirective(directive).ToA(values...)
 	})
 }

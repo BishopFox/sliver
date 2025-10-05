@@ -8,6 +8,8 @@ import (
 	"github.com/ncruces/go-sqlite3/internal/alloc"
 )
 
+type ConnKey struct{}
+
 type moduleKey struct{}
 type moduleState struct {
 	mmapState

@@ -224,6 +224,7 @@ func (rl *Shell) viAddEol() {
 	if rl.Keymap.Local() == keymap.Visual {
 		rl.cursor.Inc()
 		rl.viInsertMode()
+
 		return
 	}
 
@@ -810,9 +811,11 @@ func (rl *Shell) viAddSurround() {
 // Create a new line above the current one, and enter insert mode.
 func (rl *Shell) viOpenLineAbove() {
 	rl.History.Save()
+
 	if !rl.cursor.OnEmptyLine() {
 		rl.beginningOfLine()
 	}
+
 	rl.cursor.InsertAt('\n')
 	rl.cursor.Dec()
 	rl.viInsertMode()
@@ -821,9 +824,11 @@ func (rl *Shell) viOpenLineAbove() {
 // Create a new line below the current one, and enter insert mode.
 func (rl *Shell) viOpenLineBelow() {
 	rl.History.Save()
+
 	if !rl.cursor.OnEmptyLine() {
 		rl.endOfLine()
 	}
+
 	rl.cursor.InsertAt('\n')
 	rl.viInsertMode()
 }
@@ -1074,6 +1079,7 @@ func (rl *Shell) viPutBefore() {
 
 		if rl.cursor.OnEmptyLine() {
 			buffer = append(buffer, '\n')
+
 			rl.cursor.Dec()
 		}
 	}

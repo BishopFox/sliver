@@ -161,8 +161,8 @@ func (e *Engine) updateIncrementalSearch() {
 	}
 
 	var err error
-	e.IsearchRegex, err = regexp.Compile(regexStr)
 
+	e.IsearchRegex, err = regexp.Compile(regexStr)
 	if err != nil {
 		e.hint.Set(color.FgRed + "Failed to compile i-search regexp")
 	}

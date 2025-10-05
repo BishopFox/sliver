@@ -8,13 +8,14 @@ package embed
 
 import (
 	_ "embed"
+	"unsafe"
 
 	"github.com/ncruces/go-sqlite3"
 )
 
 //go:embed sqlite3.wasm
-var binary []byte
+var binary string
 
 func init() {
-	sqlite3.Binary = binary
+	sqlite3.Binary = unsafe.Slice(unsafe.StringData(binary), len(binary))
 }

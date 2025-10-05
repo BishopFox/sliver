@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
-	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ssm/types"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
@@ -40,9 +39,11 @@ type ListDocumentsInput struct {
 	// tags that have been applied to a document. Other valid keys include Owner , Name
 	// , PlatformTypes , DocumentType , and TargetType . For example, to return
 	// documents you own use Key=Owner,Values=Self . To specify a custom key-value
-	// pair, use the format Key=tag:tagName,Values=valueName . This API operation only
-	// supports filtering documents by using a single tag key and one or more tag
-	// values. For example: Key=tag:tagName,Values=valueName1,valueName2
+	// pair, use the format Key=tag:tagName,Values=valueName .
+	//
+	// This API operation only supports filtering documents by using a single tag key
+	// and one or more tag values. For example:
+	// Key=tag:tagName,Values=valueName1,valueName2
 	Filters []types.DocumentKeyValuesFilter
 
 	// The maximum number of items to return for this call. The call also returns a
@@ -93,25 +94,28 @@ func (c *Client) addOperationListDocumentsMiddlewares(stack *middleware.Stack, o
 	if err = addSetLoggerMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddClientRequestIDMiddleware(stack); err != nil {
+	if err = addClientRequestID(stack); err != nil {
 		return err
 	}
-	if err = smithyhttp.AddComputeContentLengthMiddleware(stack); err != nil {
+	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = v4.AddComputePayloadSHA256Middleware(stack); err != nil {
+	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetryMiddlewares(stack, options); err != nil {
+	if err = addRetry(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRawResponseToMetadata(stack); err != nil {
+	if err = addRawResponseToMetadata(stack); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRecordResponseTiming(stack); err != nil {
+	if err = addRecordResponseTiming(stack); err != nil {
+		return err
+	}
+	if err = addSpanRetryLoop(stack, options); err != nil {
 		return err
 	}
 	if err = addClientUserAgent(stack, options); err != nil {
@@ -126,13 +130,22 @@ func (c *Client) addOperationListDocumentsMiddlewares(stack *middleware.Stack, o
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpListDocumentsValidationMiddleware(stack); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opListDocuments(options.Region), middleware.Before); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
+	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -147,15 +160,50 @@ func (c *Client) addOperationListDocumentsMiddlewares(stack *middleware.Stack, o
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addSpanInitializeStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanInitializeEnd(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestEnd(stack); err != nil {
+		return err
+	}
 	return nil
 }
-
-// ListDocumentsAPIClient is a client that implements the ListDocuments operation.
-type ListDocumentsAPIClient interface {
-	ListDocuments(context.Context, *ListDocumentsInput, ...func(*Options)) (*ListDocumentsOutput, error)
-}
-
-var _ ListDocumentsAPIClient = (*Client)(nil)
 
 // ListDocumentsPaginatorOptions is the paginator options for ListDocuments
 type ListDocumentsPaginatorOptions struct {
@@ -221,6 +269,9 @@ func (p *ListDocumentsPaginator) NextPage(ctx context.Context, optFns ...func(*O
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.ListDocuments(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -239,6 +290,13 @@ func (p *ListDocumentsPaginator) NextPage(ctx context.Context, optFns ...func(*O
 
 	return result, nil
 }
+
+// ListDocumentsAPIClient is a client that implements the ListDocuments operation.
+type ListDocumentsAPIClient interface {
+	ListDocuments(context.Context, *ListDocumentsInput, ...func(*Options)) (*ListDocumentsOutput, error)
+}
+
+var _ ListDocumentsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opListDocuments(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

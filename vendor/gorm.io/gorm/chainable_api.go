@@ -185,6 +185,13 @@ func (db *DB) Omit(columns ...string) (tx *DB) {
 	return
 }
 
+// MapColumns modify the column names in the query results to facilitate align to the corresponding structural fields
+func (db *DB) MapColumns(m map[string]string) (tx *DB) {
+	tx = db.getInstance()
+	tx.Statement.ColumnMapping = m
+	return
+}
+
 // Where add conditions
 //
 // See the [docs] for details on the various formats that where clauses can take. By default, where clauses chain with AND.
@@ -299,10 +306,16 @@ func (db *DB) Having(query interface{}, args ...interface{}) (tx *DB) {
 //
 //	db.Order("name DESC")
 //	db.Order(clause.OrderByColumn{Column: clause.Column{Name: "name"}, Desc: true})
+//	db.Order(clause.OrderBy{Columns: []clause.OrderByColumn{
+//		{Column: clause.Column{Name: "name"}, Desc: true},
+//		{Column: clause.Column{Name: "age"}, Desc: true},
+//	}})
 func (db *DB) Order(value interface{}) (tx *DB) {
 	tx = db.getInstance()
 
 	switch v := value.(type) {
+	case clause.OrderBy:
+		tx.Statement.AddClause(v)
 	case clause.OrderByColumn:
 		tx.Statement.AddClause(clause.OrderBy{
 			Columns: []clause.OrderByColumn{v},
@@ -435,9 +448,10 @@ func (db *DB) Assign(attrs ...interface{}) (tx *DB) {
 // Unscoped allows queries to include records marked as deleted,
 // overriding the soft deletion behavior.
 // Example:
-//    var users []User
-//    db.Unscoped().Find(&users)
-//    // Retrieves all users, including deleted ones.
+//
+//	var users []User
+//	db.Unscoped().Find(&users)
+//	// Retrieves all users, including deleted ones.
 func (db *DB) Unscoped() (tx *DB) {
 	tx = db.getInstance()
 	tx.Statement.Unscoped = true

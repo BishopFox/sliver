@@ -74,13 +74,11 @@ func ActionRawValues(currentWord string, meta common.Meta, values common.RawValu
 		meta.Nospace.Add('*')
 	}
 
-	nospace := true
+	nospace := false
 	vals := make([]string, len(values))
 	for index, val := range values {
-		if len(values) == 1 {
-			if !meta.Nospace.Matches(val.Value) {
-				nospace = false
-			}
+		if len(values) == 1 || compType != COMP_TYPE_LIST_SUCCESSIVE_TABS {
+			nospace = nospace || meta.Nospace.Matches(val.Value)
 
 			vals[index] = sanitizer.Replace(val.Value)
 			if requiresQuoting(vals[index]) {
@@ -98,6 +96,7 @@ func ActionRawValues(currentWord string, meta common.Meta, values common.RawValu
 				}
 			}
 		} else {
+			nospace = true
 			val.Display = displayReplacer.Replace(val.Display)
 			val.Description = displayReplacer.Replace(val.Description)
 			if val.Description != "" {

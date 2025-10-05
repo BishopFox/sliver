@@ -30,6 +30,18 @@ type Quota struct {
 }
 
 func (q *Quota) marshal(fam byte) ([]byte, error) {
+	data, err := q.marshalData(fam)
+	if err != nil {
+		return nil, err
+	}
+
+	return netlink.MarshalAttributes([]netlink.Attribute{
+		{Type: unix.NFTA_EXPR_NAME, Data: []byte("quota\x00")},
+		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
+	})
+}
+
+func (q *Quota) marshalData(fam byte) ([]byte, error) {
 	attrs := []netlink.Attribute{
 		{Type: unix.NFTA_QUOTA_BYTES, Data: binaryutil.BigEndian.PutUint64(q.Bytes)},
 		{Type: unix.NFTA_QUOTA_CONSUMED, Data: binaryutil.BigEndian.PutUint64(q.Consumed)},
@@ -44,15 +56,7 @@ func (q *Quota) marshal(fam byte) ([]byte, error) {
 		Data: binaryutil.BigEndian.PutUint32(flags),
 	})
 
-	data, err := netlink.MarshalAttributes(attrs)
-	if err != nil {
-		return nil, err
-	}
-
-	return netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: unix.NFTA_EXPR_NAME, Data: []byte("quota\x00")},
-		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
-	})
+	return netlink.MarshalAttributes(attrs)
 }
 
 func (q *Quota) unmarshal(fam byte, data []byte) error {
@@ -69,7 +73,7 @@ func (q *Quota) unmarshal(fam byte, data []byte) error {
 		case unix.NFTA_QUOTA_CONSUMED:
 			q.Consumed = ad.Uint64()
 		case unix.NFTA_QUOTA_FLAGS:
-			q.Over = (ad.Uint32() & unix.NFT_QUOTA_F_INV) == 1
+			q.Over = (ad.Uint32() & unix.NFT_QUOTA_F_INV) != 0
 		}
 	}
 	return ad.Err()

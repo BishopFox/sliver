@@ -18,6 +18,17 @@ type Match struct {
 }
 
 func (e *Match) marshal(fam byte) ([]byte, error) {
+	data, err := e.marshalData(fam)
+	if err != nil {
+		return nil, err
+	}
+	return netlink.MarshalAttributes([]netlink.Attribute{
+		{Type: unix.NFTA_EXPR_NAME, Data: []byte("match\x00")},
+		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
+	})
+}
+
+func (e *Match) marshalData(fam byte) ([]byte, error) {
 	// Per https://git.netfilter.org/libnftnl/tree/src/expr/match.c?id=09456c720e9c00eecc08e41ac6b7c291b3821ee5#n38
 	name := e.Name
 	// limit the extension name as (some) user-space tools do and leave room for
@@ -36,15 +47,7 @@ func (e *Match) marshal(fam byte) ([]byte, error) {
 		{Type: unix.NFTA_MATCH_REV, Data: binaryutil.BigEndian.PutUint32(e.Rev)},
 		{Type: unix.NFTA_MATCH_INFO, Data: info},
 	}
-	data, err := netlink.MarshalAttributes(attrs)
-	if err != nil {
-		return nil, err
-	}
-
-	return netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: unix.NFTA_EXPR_NAME, Data: []byte("match\x00")},
-		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
-	})
+	return netlink.MarshalAttributes(attrs)
 }
 
 func (e *Match) unmarshal(fam byte, data []byte) error {

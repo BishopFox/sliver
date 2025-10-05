@@ -6,6 +6,7 @@ package localapi
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -13,17 +14,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
-	"mime"
-	"mime/multipart"
 	"net"
 	"net/http"
-	"net/http/httputil"
 	"net/netip"
 	"net/url"
 	"os"
-	"os/exec"
 	"path"
+	"reflect"
 	"runtime"
 	"slices"
 	"strconv"
@@ -31,11 +28,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
+	"golang.org/x/net/dns/dnsmessage"
 	"tailscale.com/client/tailscale/apitype"
 	"tailscale.com/clientupdate"
 	"tailscale.com/drive"
 	"tailscale.com/envknob"
+	"tailscale.com/health/healthmsg"
 	"tailscale.com/hostinfo"
 	"tailscale.com/ipn"
 	"tailscale.com/ipn/ipnauth"
@@ -46,101 +44,119 @@ import (
 	"tailscale.com/net/netutil"
 	"tailscale.com/net/portmapper"
 	"tailscale.com/tailcfg"
-	"tailscale.com/taildrop"
 	"tailscale.com/tka"
 	"tailscale.com/tstime"
+	"tailscale.com/types/dnstype"
 	"tailscale.com/types/key"
 	"tailscale.com/types/logger"
 	"tailscale.com/types/logid"
 	"tailscale.com/types/ptr"
 	"tailscale.com/types/tkatype"
 	"tailscale.com/util/clientmetric"
-	"tailscale.com/util/httphdr"
+	"tailscale.com/util/eventbus"
 	"tailscale.com/util/httpm"
 	"tailscale.com/util/mak"
 	"tailscale.com/util/osdiag"
-	"tailscale.com/util/osuser"
-	"tailscale.com/util/progresstracking"
 	"tailscale.com/util/rands"
 	"tailscale.com/version"
 	"tailscale.com/wgengine/magicsock"
 )
 
-type localAPIHandler func(*Handler, http.ResponseWriter, *http.Request)
+var (
+	metricInvalidRequests   = clientmetric.NewCounter("localapi_invalid_requests")
+	metricDebugMetricsCalls = clientmetric.NewCounter("localapi_debugmetric_requests")
+	metricUserMetricsCalls  = clientmetric.NewCounter("localapi_usermetric_requests")
+	metricBugReportRequests = clientmetric.NewCounter("localapi_bugreport_requests")
+)
+
+type LocalAPIHandler func(*Handler, http.ResponseWriter, *http.Request)
 
 // handler is the set of LocalAPI handlers, keyed by the part of the
 // Request.URL.Path after "/localapi/v0/". If the key ends with a trailing slash
 // then it's a prefix match.
-var handler = map[string]localAPIHandler{
+var handler = map[string]LocalAPIHandler{
 	// The prefix match handlers end with a slash:
 	"cert/":     (*Handler).serveCert,
-	"file-put/": (*Handler).serveFilePut,
-	"files/":    (*Handler).serveFiles,
 	"profiles/": (*Handler).serveProfiles,
 
 	// The other /localapi/v0/NAME handlers are exact matches and contain only NAME
 	// without a trailing slash:
-	"bugreport":                   (*Handler).serveBugReport,
-	"check-ip-forwarding":         (*Handler).serveCheckIPForwarding,
-	"check-prefs":                 (*Handler).serveCheckPrefs,
-	"check-udp-gro-forwarding":    (*Handler).serveCheckUDPGROForwarding,
-	"component-debug-logging":     (*Handler).serveComponentDebugLogging,
-	"debug":                       (*Handler).serveDebug,
-	"debug-capture":               (*Handler).serveDebugCapture,
-	"debug-derp-region":           (*Handler).serveDebugDERPRegion,
-	"debug-dial-types":            (*Handler).serveDebugDialTypes,
-	"debug-log":                   (*Handler).serveDebugLog,
-	"debug-packet-filter-matches": (*Handler).serveDebugPacketFilterMatches,
-	"debug-packet-filter-rules":   (*Handler).serveDebugPacketFilterRules,
-	"debug-peer-endpoint-changes": (*Handler).serveDebugPeerEndpointChanges,
-	"debug-portmap":               (*Handler).serveDebugPortmap,
-	"derpmap":                     (*Handler).serveDERPMap,
-	"dev-set-state-store":         (*Handler).serveDevSetStateStore,
-	"dial":                        (*Handler).serveDial,
-	"drive/fileserver-address":    (*Handler).serveDriveServerAddr,
-	"drive/shares":                (*Handler).serveShares,
-	"file-targets":                (*Handler).serveFileTargets,
-	"goroutines":                  (*Handler).serveGoroutines,
-	"handle-push-message":         (*Handler).serveHandlePushMessage,
-	"id-token":                    (*Handler).serveIDToken,
-	"login-interactive":           (*Handler).serveLoginInteractive,
-	"logout":                      (*Handler).serveLogout,
-	"logtap":                      (*Handler).serveLogTap,
-	"metrics":                     (*Handler).serveMetrics,
-	"ping":                        (*Handler).servePing,
-	"pprof":                       (*Handler).servePprof,
-	"prefs":                       (*Handler).servePrefs,
-	"query-feature":               (*Handler).serveQueryFeature,
-	"reload-config":               (*Handler).reloadConfig,
-	"reset-auth":                  (*Handler).serveResetAuth,
-	"serve-config":                (*Handler).serveServeConfig,
-	"set-dns":                     (*Handler).serveSetDNS,
-	"set-expiry-sooner":           (*Handler).serveSetExpirySooner,
-	"set-gui-visible":             (*Handler).serveSetGUIVisible,
-	"set-push-device-token":       (*Handler).serveSetPushDeviceToken,
-	"set-use-exit-node-enabled":   (*Handler).serveSetUseExitNodeEnabled,
-	"start":                       (*Handler).serveStart,
-	"status":                      (*Handler).serveStatus,
-	"suggest-exit-node":           (*Handler).serveSuggestExitNode,
-	"tka/affected-sigs":           (*Handler).serveTKAAffectedSigs,
-	"tka/cosign-recovery-aum":     (*Handler).serveTKACosignRecoveryAUM,
-	"tka/disable":                 (*Handler).serveTKADisable,
-	"tka/force-local-disable":     (*Handler).serveTKALocalDisable,
-	"tka/generate-recovery-aum":   (*Handler).serveTKAGenerateRecoveryAUM,
-	"tka/init":                    (*Handler).serveTKAInit,
-	"tka/log":                     (*Handler).serveTKALog,
-	"tka/modify":                  (*Handler).serveTKAModify,
-	"tka/sign":                    (*Handler).serveTKASign,
-	"tka/status":                  (*Handler).serveTKAStatus,
-	"tka/submit-recovery-aum":     (*Handler).serveTKASubmitRecoveryAUM,
-	"tka/verify-deeplink":         (*Handler).serveTKAVerifySigningDeeplink,
-	"tka/wrap-preauth-key":        (*Handler).serveTKAWrapPreauthKey,
-	"update/check":                (*Handler).serveUpdateCheck,
-	"update/install":              (*Handler).serveUpdateInstall,
-	"update/progress":             (*Handler).serveUpdateProgress,
-	"upload-client-metrics":       (*Handler).serveUploadClientMetrics,
-	"watch-ipn-bus":               (*Handler).serveWatchIPNBus,
-	"whois":                       (*Handler).serveWhoIs,
+	"alpha-set-device-attrs":       (*Handler).serveSetDeviceAttrs, // see tailscale/corp#24690
+	"bugreport":                    (*Handler).serveBugReport,
+	"check-ip-forwarding":          (*Handler).serveCheckIPForwarding,
+	"check-prefs":                  (*Handler).serveCheckPrefs,
+	"check-reverse-path-filtering": (*Handler).serveCheckReversePathFiltering,
+	"check-udp-gro-forwarding":     (*Handler).serveCheckUDPGROForwarding,
+	"component-debug-logging":      (*Handler).serveComponentDebugLogging,
+	"debug":                        (*Handler).serveDebug,
+	"debug-bus-events":             (*Handler).serveDebugBusEvents,
+	"debug-bus-graph":              (*Handler).serveEventBusGraph,
+	"debug-derp-region":            (*Handler).serveDebugDERPRegion,
+	"debug-dial-types":             (*Handler).serveDebugDialTypes,
+	"debug-log":                    (*Handler).serveDebugLog,
+	"debug-packet-filter-matches":  (*Handler).serveDebugPacketFilterMatches,
+	"debug-packet-filter-rules":    (*Handler).serveDebugPacketFilterRules,
+	"debug-peer-endpoint-changes":  (*Handler).serveDebugPeerEndpointChanges,
+	"debug-portmap":                (*Handler).serveDebugPortmap,
+	"derpmap":                      (*Handler).serveDERPMap,
+	"dev-set-state-store":          (*Handler).serveDevSetStateStore,
+	"dial":                         (*Handler).serveDial,
+	"disconnect-control":           (*Handler).disconnectControl,
+	"dns-osconfig":                 (*Handler).serveDNSOSConfig,
+	"dns-query":                    (*Handler).serveDNSQuery,
+	"drive/fileserver-address":     (*Handler).serveDriveServerAddr,
+	"drive/shares":                 (*Handler).serveShares,
+	"goroutines":                   (*Handler).serveGoroutines,
+	"handle-push-message":          (*Handler).serveHandlePushMessage,
+	"id-token":                     (*Handler).serveIDToken,
+	"login-interactive":            (*Handler).serveLoginInteractive,
+	"logout":                       (*Handler).serveLogout,
+	"logtap":                       (*Handler).serveLogTap,
+	"metrics":                      (*Handler).serveMetrics,
+	"ping":                         (*Handler).servePing,
+	"pprof":                        (*Handler).servePprof,
+	"prefs":                        (*Handler).servePrefs,
+	"query-feature":                (*Handler).serveQueryFeature,
+	"reload-config":                (*Handler).reloadConfig,
+	"reset-auth":                   (*Handler).serveResetAuth,
+	"serve-config":                 (*Handler).serveServeConfig,
+	"set-dns":                      (*Handler).serveSetDNS,
+	"set-expiry-sooner":            (*Handler).serveSetExpirySooner,
+	"set-gui-visible":              (*Handler).serveSetGUIVisible,
+	"set-push-device-token":        (*Handler).serveSetPushDeviceToken,
+	"set-udp-gro-forwarding":       (*Handler).serveSetUDPGROForwarding,
+	"set-use-exit-node-enabled":    (*Handler).serveSetUseExitNodeEnabled,
+	"start":                        (*Handler).serveStart,
+	"status":                       (*Handler).serveStatus,
+	"suggest-exit-node":            (*Handler).serveSuggestExitNode,
+	"tka/affected-sigs":            (*Handler).serveTKAAffectedSigs,
+	"tka/cosign-recovery-aum":      (*Handler).serveTKACosignRecoveryAUM,
+	"tka/disable":                  (*Handler).serveTKADisable,
+	"tka/force-local-disable":      (*Handler).serveTKALocalDisable,
+	"tka/generate-recovery-aum":    (*Handler).serveTKAGenerateRecoveryAUM,
+	"tka/init":                     (*Handler).serveTKAInit,
+	"tka/log":                      (*Handler).serveTKALog,
+	"tka/modify":                   (*Handler).serveTKAModify,
+	"tka/sign":                     (*Handler).serveTKASign,
+	"tka/status":                   (*Handler).serveTKAStatus,
+	"tka/submit-recovery-aum":      (*Handler).serveTKASubmitRecoveryAUM,
+	"tka/verify-deeplink":          (*Handler).serveTKAVerifySigningDeeplink,
+	"tka/wrap-preauth-key":         (*Handler).serveTKAWrapPreauthKey,
+	"update/check":                 (*Handler).serveUpdateCheck,
+	"update/install":               (*Handler).serveUpdateInstall,
+	"update/progress":              (*Handler).serveUpdateProgress,
+	"upload-client-metrics":        (*Handler).serveUploadClientMetrics,
+	"usermetrics":                  (*Handler).serveUserMetrics,
+	"watch-ipn-bus":                (*Handler).serveWatchIPNBus,
+	"whois":                        (*Handler).serveWhoIs,
+}
+
+// Register registers a new LocalAPI handler for the given name.
+func Register(name string, fn LocalAPIHandler) {
+	if _, ok := handler[name]; ok {
+		panic("duplicate LocalAPI handler registration: " + name)
+	}
+	handler[name] = fn
 }
 
 var (
@@ -153,10 +169,26 @@ var (
 	metrics   = map[string]*clientmetric.Metric{}
 )
 
-// NewHandler creates a new LocalAPI HTTP handler. All parameters except netMon
-// are required (if non-nil it's used to do faster interface lookups).
-func NewHandler(b *ipnlocal.LocalBackend, logf logger.Logf, logID logid.PublicID) *Handler {
-	return &Handler{b: b, logf: logf, backendLogID: logID, clock: tstime.StdClock{}}
+// NewHandler creates a new LocalAPI HTTP handler from the given config.
+func NewHandler(cfg HandlerConfig) *Handler {
+	return &Handler{
+		Actor:        cfg.Actor,
+		b:            cfg.Backend,
+		logf:         cfg.Logf,
+		backendLogID: cfg.LogID,
+		clock:        tstime.StdClock{},
+		eventBus:     cfg.EventBus,
+	}
+}
+
+// HandlerConfig carries the settings for a local API handler.
+// All fields are required.
+type HandlerConfig struct {
+	Actor    ipnauth.Actor
+	Backend  *ipnlocal.LocalBackend
+	Logf     logger.Logf
+	LogID    logid.PublicID
+	EventBus *eventbus.Bus
 }
 
 type Handler struct {
@@ -178,17 +210,22 @@ type Handler struct {
 	// cert fetching access.
 	PermitCert bool
 
-	// ConnIdentity is the identity of the client connected to the Handler.
-	ConnIdentity *ipnauth.ConnIdentity
-
-	// Test-only override for connIsLocalAdmin method. If non-nil,
-	// connIsLocalAdmin returns this value.
-	testConnIsLocalAdmin *bool
+	// Actor is the identity of the client connected to the Handler.
+	Actor ipnauth.Actor
 
 	b            *ipnlocal.LocalBackend
 	logf         logger.Logf
 	backendLogID logid.PublicID
 	clock        tstime.Clock
+	eventBus     *eventbus.Bus // read-only after initialization
+}
+
+func (h *Handler) Logf(format string, args ...any) {
+	h.logf(format, args...)
+}
+
+func (h *Handler) LocalBackend() *ipnlocal.LocalBackend {
+	return h.b
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -255,7 +292,7 @@ func (h *Handler) validHost(hostname string) bool {
 
 // handlerForPath returns the LocalAPI handler for the provided Request.URI.Path.
 // (the path doesn't include any query parameters)
-func handlerForPath(urlPath string) (h localAPIHandler, ok bool) {
+func handlerForPath(urlPath string) (h LocalAPIHandler, ok bool) {
 	if urlPath == "/" {
 		return (*Handler).serveLocalAPIRoot, true
 	}
@@ -313,7 +350,7 @@ func (h *Handler) serveIDToken(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	httpReq, err := http.NewRequest("POST", "https://unused/machine/id-token", bytes.NewReader(b))
+	httpReq, err := http.NewRequest(httpm.POST, "https://unused/machine/id-token", bytes.NewReader(b))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -336,7 +373,7 @@ func (h *Handler) serveBugReport(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bugreport access denied", http.StatusForbidden)
 		return
 	}
-	if r.Method != "POST" {
+	if r.Method != httpm.POST {
 		http.Error(w, "only POST allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -380,6 +417,15 @@ func (h *Handler) serveBugReport(w http.ResponseWriter, r *http.Request) {
 	// OS-specific details
 	h.logf.JSON(1, "UserBugReportOS", osdiag.SupportInfo(osdiag.LogSupportInfoReasonBugReport))
 
+	// Tailnet lock details
+	st := h.b.NetworkLockStatus()
+	if st.Enabled {
+		h.logf.JSON(1, "UserBugReportTailnetLockStatus", st)
+		if st.NodeKeySignature != nil {
+			h.logf("user bugreport tailnet lock signature: %s", st.NodeKeySignature.String())
+		}
+	}
+
 	if defBool(r.URL.Query().Get("diagnose"), false) {
 		h.b.Doctor(r.Context(), logger.WithPrefix(h.logf, "diag: "))
 	}
@@ -414,6 +460,8 @@ func (h *Handler) serveBugReport(w http.ResponseWriter, r *http.Request) {
 	// NOTE(andrew): if we have anything else we want to do while recording
 	// a bugreport, we can add it here.
 
+	metricBugReportRequests.Add(1)
+
 	// Read from the client; this will also return when the client closes
 	// the connection.
 	var buf [1]byte
@@ -442,10 +490,38 @@ func (h *Handler) serveWhoIs(w http.ResponseWriter, r *http.Request) {
 	h.serveWhoIsWithBackend(w, r, h.b)
 }
 
+// serveSetDeviceAttrs is (as of 2024-12-30) an experimental LocalAPI handler to
+// set device attributes via the control plane.
+//
+// See tailscale/corp#24690.
+func (h *Handler) serveSetDeviceAttrs(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	if !h.PermitWrite {
+		http.Error(w, "set-device-attrs access denied", http.StatusForbidden)
+		return
+	}
+	if r.Method != httpm.PATCH {
+		http.Error(w, "only PATCH allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req map[string]any
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := h.b.SetDeviceAttrs(ctx, req); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	io.WriteString(w, "{}\n")
+}
+
 // localBackendWhoIsMethods is the subset of ipn.LocalBackend as needed
 // by the localapi WhoIs method.
 type localBackendWhoIsMethods interface {
-	WhoIs(netip.AddrPort) (n tailcfg.NodeView, u tailcfg.UserProfile, ok bool)
+	WhoIs(string, netip.AddrPort) (n tailcfg.NodeView, u tailcfg.UserProfile, ok bool)
+	WhoIsNodeKey(key.NodePublic) (n tailcfg.NodeView, u tailcfg.UserProfile, ok bool)
 	PeerCaps(netip.Addr) tailcfg.PeerCapMap
 }
 
@@ -454,9 +530,21 @@ func (h *Handler) serveWhoIsWithBackend(w http.ResponseWriter, r *http.Request, 
 		http.Error(w, "whois access denied", http.StatusForbidden)
 		return
 	}
+	var (
+		n  tailcfg.NodeView
+		u  tailcfg.UserProfile
+		ok bool
+	)
 	var ipp netip.AddrPort
 	if v := r.FormValue("addr"); v != "" {
-		if ip, err := netip.ParseAddr(v); err == nil {
+		if strings.HasPrefix(v, "nodekey:") {
+			var k key.NodePublic
+			if err := k.UnmarshalText([]byte(v)); err != nil {
+				http.Error(w, "invalid nodekey in 'addr' parameter", http.StatusBadRequest)
+				return
+			}
+			n, u, ok = b.WhoIsNodeKey(k)
+		} else if ip, err := netip.ParseAddr(v); err == nil {
 			ipp = netip.AddrPortFrom(ip, 0)
 		} else {
 			var err error
@@ -466,11 +554,13 @@ func (h *Handler) serveWhoIsWithBackend(w http.ResponseWriter, r *http.Request, 
 				return
 			}
 		}
+		if ipp.IsValid() {
+			n, u, ok = b.WhoIs(r.FormValue("proto"), ipp)
+		}
 	} else {
 		http.Error(w, "missing 'addr' parameter", http.StatusBadRequest)
 		return
 	}
-	n, u, ok := b.WhoIs(ipp)
 	if !ok {
 		http.Error(w, "no match for IP:port", http.StatusNotFound)
 		return
@@ -515,7 +605,7 @@ func (h *Handler) serveLogTap(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "logtap access denied", http.StatusForbidden)
 		return
 	}
-	if r.Method != "GET" {
+	if r.Method != httpm.GET {
 		http.Error(w, "GET required", http.StatusMethodNotAllowed)
 		return
 	}
@@ -544,6 +634,7 @@ func (h *Handler) serveLogTap(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) serveMetrics(w http.ResponseWriter, r *http.Request) {
+	metricDebugMetricsCalls.Add(1)
 	// Require write access out of paranoia that the metrics
 	// might contain something sensitive.
 	if !h.PermitWrite {
@@ -554,12 +645,19 @@ func (h *Handler) serveMetrics(w http.ResponseWriter, r *http.Request) {
 	clientmetric.WritePrometheusExpositionFormat(w)
 }
 
+// serveUserMetrics returns user-facing metrics in Prometheus text
+// exposition format.
+func (h *Handler) serveUserMetrics(w http.ResponseWriter, r *http.Request) {
+	metricUserMetricsCalls.Add(1)
+	h.b.UserMetricsRegistry().Handler(w, r)
+}
+
 func (h *Handler) serveDebug(w http.ResponseWriter, r *http.Request) {
 	if !h.PermitWrite {
 		http.Error(w, "debug access denied", http.StatusForbidden)
 		return
 	}
-	if r.Method != "POST" {
+	if r.Method != httpm.POST {
 		http.Error(w, "POST required", http.StatusMethodNotAllowed)
 		return
 	}
@@ -607,6 +705,22 @@ func (h *Handler) serveDebug(w http.ResponseWriter, r *http.Request) {
 		}
 	case "pick-new-derp":
 		err = h.b.DebugPickNewDERP()
+	case "force-prefer-derp":
+		var n int
+		err = json.NewDecoder(r.Body).Decode(&n)
+		if err != nil {
+			break
+		}
+		h.b.DebugForcePreferDERP(n)
+	case "peer-relay-servers":
+		servers := h.b.DebugPeerRelayServers().Slice()
+		slices.SortFunc(servers, func(a, b netip.Addr) int {
+			return a.Compare(b)
+		})
+		err = json.NewEncoder(w).Encode(servers)
+		if err == nil {
+			return
+		}
 	case "":
 		err = fmt.Errorf("missing parameter 'action'")
 	default:
@@ -625,7 +739,7 @@ func (h *Handler) serveDevSetStateStore(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "debug access denied", http.StatusForbidden)
 		return
 	}
-	if r.Method != "POST" {
+	if r.Method != httpm.POST {
 		http.Error(w, "POST required", http.StatusMethodNotAllowed)
 		return
 	}
@@ -746,23 +860,32 @@ func (h *Handler) serveDebugPortmap(w http.ResponseWriter, r *http.Request) {
 	done := make(chan bool, 1)
 
 	var c *portmapper.Client
-	c = portmapper.NewClient(logger.WithPrefix(logf, "portmapper: "), h.b.NetMon(), debugKnobs, h.b.ControlKnobs(), func() {
-		logf("portmapping changed.")
-		logf("have mapping: %v", c.HaveMapping())
+	c = portmapper.NewClient(portmapper.Config{
+		Logf:         logger.WithPrefix(logf, "portmapper: "),
+		NetMon:       h.b.NetMon(),
+		DebugKnobs:   debugKnobs,
+		ControlKnobs: h.b.ControlKnobs(),
+		EventBus:     h.eventBus,
+		OnChange: func() {
+			logf("portmapping changed.")
+			logf("have mapping: %v", c.HaveMapping())
 
-		if ext, ok := c.GetCachedMappingOrStartCreatingOne(); ok {
-			logf("cb: mapping: %v", ext)
-			select {
-			case done <- true:
-			default:
+			if ext, ok := c.GetCachedMappingOrStartCreatingOne(); ok {
+				logf("cb: mapping: %v", ext)
+				select {
+				case done <- true:
+				default:
+				}
+				return
 			}
-			return
-		}
-		logf("cb: no mapping")
+			logf("cb: no mapping")
+		},
 	})
 	defer c.Close()
 
-	netMon, err := netmon.New(logger.WithPrefix(logf, "monitor: "))
+	bus := eventbus.New()
+	defer bus.Close()
+	netMon, err := netmon.New(bus, logger.WithPrefix(logf, "monitor: "))
 	if err != nil {
 		logf("error creating monitor: %v", err)
 		return
@@ -820,6 +943,131 @@ func (h *Handler) serveDebugPortmap(w http.ResponseWriter, r *http.Request) {
 			h.logf("serveDebugPortmap: context done: %v", ctx.Err())
 		}
 	}
+}
+
+// EventError provides the JSON encoding of internal errors from event processing.
+type EventError struct {
+	Error string
+}
+
+// serveDebugBusEvents taps into the tailscaled/utils/eventbus and streams
+// events to the client.
+func (h *Handler) serveDebugBusEvents(w http.ResponseWriter, r *http.Request) {
+	// Require write access (~root) as the logs could contain something
+	// sensitive.
+	if !h.PermitWrite {
+		http.Error(w, "event bus access denied", http.StatusForbidden)
+		return
+	}
+	if r.Method != httpm.GET {
+		http.Error(w, "GET required", http.StatusMethodNotAllowed)
+		return
+	}
+
+	bus, ok := h.LocalBackend().Sys().Bus.GetOK()
+	if !ok {
+		http.Error(w, "event bus not running", http.StatusNoContent)
+		return
+	}
+
+	f, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	io.WriteString(w, `{"Event":"[event listener connected]\n"}`+"\n")
+	f.Flush()
+
+	mon := bus.Debugger().WatchBus()
+	defer mon.Close()
+
+	i := 0
+	for {
+		select {
+		case <-r.Context().Done():
+			fmt.Fprintf(w, `{"Event":"[event listener closed]\n"}`)
+			return
+		case <-mon.Done():
+			return
+		case event := <-mon.Events():
+			data := eventbus.DebugEvent{
+				Count: i,
+				Type:  reflect.TypeOf(event.Event).String(),
+				Event: event.Event,
+				From:  event.From.Name(),
+			}
+			for _, client := range event.To {
+				data.To = append(data.To, client.Name())
+			}
+
+			if msg, err := json.Marshal(data); err != nil {
+				data.Event = EventError{Error: fmt.Sprintf(
+					"failed to marshal JSON for %T", event.Event,
+				)}
+				if errMsg, err := json.Marshal(data); err != nil {
+					fmt.Fprintf(w,
+						`{"Count": %d, "Event":"[ERROR] failed to marshal JSON for %T\n"}`,
+						i, event.Event)
+				} else {
+					w.Write(errMsg)
+				}
+			} else {
+				w.Write(msg)
+			}
+			f.Flush()
+			i++
+		}
+	}
+}
+
+// serveEventBusGraph taps into the event bus and dumps out the active graph of
+// publishers and subscribers. It does not represent anything about the messages
+// exchanged.
+func (h *Handler) serveEventBusGraph(w http.ResponseWriter, r *http.Request) {
+	if r.Method != httpm.GET {
+		http.Error(w, "GET required", http.StatusMethodNotAllowed)
+		return
+	}
+
+	bus, ok := h.LocalBackend().Sys().Bus.GetOK()
+	if !ok {
+		http.Error(w, "event bus not running", http.StatusPreconditionFailed)
+		return
+	}
+
+	debugger := bus.Debugger()
+	clients := debugger.Clients()
+
+	graph := map[string]eventbus.DebugTopic{}
+
+	for _, client := range clients {
+		for _, pub := range debugger.PublishTypes(client) {
+			topic, ok := graph[pub.Name()]
+			if !ok {
+				topic = eventbus.DebugTopic{Name: pub.Name()}
+			}
+			topic.Publisher = client.Name()
+			graph[pub.Name()] = topic
+		}
+		for _, sub := range debugger.SubscribeTypes(client) {
+			topic, ok := graph[sub.Name()]
+			if !ok {
+				topic = eventbus.DebugTopic{Name: sub.Name()}
+			}
+			topic.Subscribers = append(topic.Subscribers, client.Name())
+			graph[sub.Name()] = topic
+		}
+	}
+
+	// The top level map is not really needed for the client, convert to a list.
+	topics := eventbus.DebugTopics{}
+	for _, v := range graph {
+		topics.Topics = append(topics.Topics, v)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(topics)
 }
 
 func (h *Handler) serveComponentDebugLogging(w http.ResponseWriter, r *http.Request) {
@@ -928,6 +1176,22 @@ func (h *Handler) servePprof(w http.ResponseWriter, r *http.Request) {
 	servePprofFunc(w, r)
 }
 
+// disconnectControl is the handler for local API /disconnect-control endpoint that shuts down control client, so that
+// node no longer communicates with control. Doing this makes control consider this node inactive. This can be used
+// before shutting down a replica of HA subnet  router or app connector deployments to ensure that control tells the
+// peers to switch over to another replica whilst still maintaining th existing peer connections.
+func (h *Handler) disconnectControl(w http.ResponseWriter, r *http.Request) {
+	if !h.PermitWrite {
+		http.Error(w, "access denied", http.StatusForbidden)
+		return
+	}
+	if r.Method != httpm.POST {
+		http.Error(w, "use POST", http.StatusMethodNotAllowed)
+		return
+	}
+	h.b.DisconnectControl()
+}
+
 func (h *Handler) reloadConfig(w http.ResponseWriter, r *http.Request) {
 	if !h.PermitWrite {
 		http.Error(w, "access denied", http.StatusForbidden)
@@ -967,7 +1231,7 @@ func (h *Handler) serveResetAuth(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) serveServeConfig(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
-	case "GET":
+	case httpm.GET:
 		if !h.PermitRead {
 			http.Error(w, "serve config denied", http.StatusForbidden)
 			return
@@ -983,14 +1247,14 @@ func (h *Handler) serveServeConfig(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Etag", etag)
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(bts)
-	case "POST":
+	case httpm.POST:
 		if !h.PermitWrite {
 			http.Error(w, "serve config denied", http.StatusForbidden)
 			return
 		}
 		configIn := new(ipn.ServeConfig)
 		if err := json.NewDecoder(r.Body).Decode(configIn); err != nil {
-			writeErrorJSON(w, fmt.Errorf("decoding config: %w", err))
+			WriteErrorJSON(w, fmt.Errorf("decoding config: %w", err))
 			return
 		}
 
@@ -1008,7 +1272,7 @@ func (h *Handler) serveServeConfig(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, err.Error(), http.StatusPreconditionFailed)
 				return
 			}
-			writeErrorJSON(w, fmt.Errorf("updating config: %w", err))
+			WriteErrorJSON(w, fmt.Errorf("updating config: %w", err))
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -1019,7 +1283,7 @@ func (h *Handler) serveServeConfig(w http.ResponseWriter, r *http.Request) {
 
 func authorizeServeConfigForGOOSAndUserContext(goos string, configIn *ipn.ServeConfig, h *Handler) error {
 	switch goos {
-	case "windows", "linux", "darwin":
+	case "windows", "linux", "darwin", "illumos", "solaris":
 	default:
 		return nil
 	}
@@ -1033,117 +1297,18 @@ func authorizeServeConfigForGOOSAndUserContext(goos string, configIn *ipn.ServeC
 	if !configIn.HasPathHandler() {
 		return nil
 	}
-	if h.connIsLocalAdmin() {
+	if h.Actor.IsLocalAdmin(h.b.OperatorUserID()) {
 		return nil
 	}
 	switch goos {
 	case "windows":
 		return errors.New("must be a Windows local admin to serve a path")
-	case "linux", "darwin":
+	case "linux", "darwin", "illumos", "solaris":
 		return errors.New("must be root, or be an operator and able to run 'sudo tailscale' to serve a path")
 	default:
 		// We filter goos at the start of the func, this default case
 		// should never happen.
 		panic("unreachable")
-	}
-
-}
-
-// connIsLocalAdmin reports whether the connected client has administrative
-// access to the local machine, for whatever that means with respect to the
-// current OS.
-//
-// This is useful because tailscaled itself always runs with elevated rights:
-// we want to avoid privilege escalation for certain mutative operations.
-func (h *Handler) connIsLocalAdmin() bool {
-	if h.testConnIsLocalAdmin != nil {
-		return *h.testConnIsLocalAdmin
-	}
-	if h.ConnIdentity == nil {
-		h.logf("[unexpected] missing ConnIdentity in LocalAPI Handler")
-		return false
-	}
-	switch runtime.GOOS {
-	case "windows":
-		tok, err := h.ConnIdentity.WindowsToken()
-		if err != nil {
-			if !errors.Is(err, ipnauth.ErrNotImplemented) {
-				h.logf("ipnauth.ConnIdentity.WindowsToken() error: %v", err)
-			}
-			return false
-		}
-		defer tok.Close()
-
-		return tok.IsElevated()
-
-	case "darwin":
-		// Unknown, or at least unchecked on sandboxed macOS variants. Err on
-		// the side of less permissions.
-		//
-		// authorizeServeConfigForGOOSAndUserContext should not call
-		// connIsLocalAdmin on sandboxed variants anyway.
-		if version.IsSandboxedMacOS() {
-			return false
-		}
-		// This is a standalone tailscaled setup, use the same logic as on
-		// Linux.
-		fallthrough
-	case "linux":
-		uid, ok := h.ConnIdentity.Creds().UserID()
-		if !ok {
-			return false
-		}
-		// root is always admin.
-		if uid == "0" {
-			return true
-		}
-		// if non-root, must be operator AND able to execute "sudo tailscale".
-		operatorUID := h.b.OperatorUserID()
-		if operatorUID != "" && uid != operatorUID {
-			return false
-		}
-		u, err := osuser.LookupByUID(uid)
-		if err != nil {
-			return false
-		}
-		// Short timeout just in case sudo hangs for some reason.
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-		if err := exec.CommandContext(ctx, "sudo", "--other-user="+u.Name, "--list", "tailscale").Run(); err != nil {
-			return false
-		}
-		return true
-
-	default:
-		return false
-	}
-}
-
-func (h *Handler) getUsername() (string, error) {
-	if h.ConnIdentity == nil {
-		h.logf("[unexpected] missing ConnIdentity in LocalAPI Handler")
-		return "", errors.New("missing ConnIdentity")
-	}
-	switch runtime.GOOS {
-	case "windows":
-		tok, err := h.ConnIdentity.WindowsToken()
-		if err != nil {
-			return "", fmt.Errorf("get windows token: %w", err)
-		}
-		defer tok.Close()
-		return tok.Username()
-	case "darwin", "linux":
-		uid, ok := h.ConnIdentity.Creds().UserID()
-		if !ok {
-			return "", errors.New("missing user ID")
-		}
-		u, err := osuser.LookupByUID(uid)
-		if err != nil {
-			return "", fmt.Errorf("lookup user: %w", err)
-		}
-		return u.Username, nil
-	default:
-		return "", errors.New("unsupported OS")
 	}
 }
 
@@ -1164,6 +1329,32 @@ func (h *Handler) serveCheckIPForwarding(w http.ResponseWriter, r *http.Request)
 	})
 }
 
+func (h *Handler) serveCheckReversePathFiltering(w http.ResponseWriter, r *http.Request) {
+	if !h.PermitRead {
+		http.Error(w, "reverse path filtering check access denied", http.StatusForbidden)
+		return
+	}
+	var warning string
+
+	state := h.b.Sys().NetMon.Get().InterfaceState()
+	warn, err := netutil.CheckReversePathFiltering(state)
+	if err == nil && len(warn) > 0 {
+		var msg strings.Builder
+		msg.WriteString(healthmsg.WarnExitNodeUsage + ":\n")
+		for _, w := range warn {
+			msg.WriteString("- " + w + "\n")
+		}
+		msg.WriteString(healthmsg.DisableRPFilter)
+		warning = msg.String()
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(struct {
+		Warning string
+	}{
+		Warning: warning,
+	})
+}
+
 func (h *Handler) serveCheckUDPGROForwarding(w http.ResponseWriter, r *http.Request) {
 	if !h.PermitRead {
 		http.Error(w, "UDP GRO forwarding check access denied", http.StatusForbidden)
@@ -1171,6 +1362,23 @@ func (h *Handler) serveCheckUDPGROForwarding(w http.ResponseWriter, r *http.Requ
 	}
 	var warning string
 	if err := h.b.CheckUDPGROForwarding(); err != nil {
+		warning = err.Error()
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(struct {
+		Warning string
+	}{
+		Warning: warning,
+	})
+}
+
+func (h *Handler) serveSetUDPGROForwarding(w http.ResponseWriter, r *http.Request) {
+	if !h.PermitWrite {
+		http.Error(w, "UDP GRO forwarding set access denied", http.StatusForbidden)
+		return
+	}
+	var warning string
+	if err := h.b.SetUDPGROForwarding(); err != nil {
 		warning = err.Error()
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -1235,7 +1443,7 @@ func (h *Handler) serveDebugPeerEndpointChanges(w http.ResponseWriter, r *http.R
 // (in ipnserver.Server) provides the blocking until the connection is no longer
 // in use.
 func InUseOtherUserIPNStream(w http.ResponseWriter, r *http.Request, err error) (handled bool) {
-	if r.Method != "GET" || r.URL.Path != "/localapi/v0/watch-ipn-bus" {
+	if r.Method != httpm.GET || r.URL.Path != "/localapi/v0/watch-ipn-bus" {
 		return false
 	}
 	js, err := json.Marshal(&ipn.Notify{
@@ -1284,7 +1492,7 @@ func (h *Handler) serveWatchIPNBus(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	ctx := r.Context()
 	enc := json.NewEncoder(w)
-	h.b.WatchNotifications(ctx, mask, f.Flush, func(roNotify *ipn.Notify) (keepGoing bool) {
+	h.b.WatchNotificationsAs(ctx, h.Actor, mask, f.Flush, func(roNotify *ipn.Notify) (keepGoing bool) {
 		err := enc.Encode(roNotify)
 		if err != nil {
 			h.logf("json.Encode: %v", err)
@@ -1300,11 +1508,11 @@ func (h *Handler) serveLoginInteractive(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "login access denied", http.StatusForbidden)
 		return
 	}
-	if r.Method != "POST" {
+	if r.Method != httpm.POST {
 		http.Error(w, "want POST", http.StatusBadRequest)
 		return
 	}
-	h.b.StartLoginInteractive(r.Context())
+	h.b.StartLoginInteractiveAs(r.Context(), h.Actor)
 	w.WriteHeader(http.StatusNoContent)
 	return
 }
@@ -1314,7 +1522,7 @@ func (h *Handler) serveStart(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "access denied", http.StatusForbidden)
 		return
 	}
-	if r.Method != "POST" {
+	if r.Method != httpm.POST {
 		http.Error(w, "want POST", http.StatusBadRequest)
 		return
 	}
@@ -1337,11 +1545,11 @@ func (h *Handler) serveLogout(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "logout access denied", http.StatusForbidden)
 		return
 	}
-	if r.Method != "POST" {
+	if r.Method != httpm.POST {
 		http.Error(w, "want POST", http.StatusBadRequest)
 		return
 	}
-	err := h.b.Logout(r.Context())
+	err := h.b.Logout(r.Context(), h.Actor)
 	if err == nil {
 		w.WriteHeader(http.StatusNoContent)
 		return
@@ -1356,7 +1564,7 @@ func (h *Handler) servePrefs(w http.ResponseWriter, r *http.Request) {
 	}
 	var prefs ipn.PrefsView
 	switch r.Method {
-	case "PATCH":
+	case httpm.PATCH:
 		if !h.PermitWrite {
 			http.Error(w, "prefs write access denied", http.StatusForbidden)
 			return
@@ -1373,14 +1581,14 @@ func (h *Handler) servePrefs(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var err error
-		prefs, err = h.b.EditPrefs(mp)
+		prefs, err = h.b.EditPrefsAs(mp, h.Actor)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(resJSON{Error: err.Error()})
 			return
 		}
-	case "GET", "HEAD":
+	case httpm.GET, httpm.HEAD:
 		prefs = h.b.Prefs()
 	default:
 		http.Error(w, "unsupported method", http.StatusMethodNotAllowed)
@@ -1401,7 +1609,7 @@ func (h *Handler) serveCheckPrefs(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "checkprefs access denied", http.StatusForbidden)
 		return
 	}
-	if r.Method != "POST" {
+	if r.Method != httpm.POST {
 		http.Error(w, "unsupported method", http.StatusMethodNotAllowed)
 		return
 	}
@@ -1419,67 +1627,10 @@ func (h *Handler) serveCheckPrefs(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(res)
 }
 
-func (h *Handler) serveFiles(w http.ResponseWriter, r *http.Request) {
-	if !h.PermitWrite {
-		http.Error(w, "file access denied", http.StatusForbidden)
-		return
-	}
-	suffix, ok := strings.CutPrefix(r.URL.EscapedPath(), "/localapi/v0/files/")
-	if !ok {
-		http.Error(w, "misconfigured", http.StatusInternalServerError)
-		return
-	}
-	if suffix == "" {
-		if r.Method != "GET" {
-			http.Error(w, "want GET to list files", http.StatusBadRequest)
-			return
-		}
-		ctx := r.Context()
-		if s := r.FormValue("waitsec"); s != "" && s != "0" {
-			d, err := strconv.Atoi(s)
-			if err != nil {
-				http.Error(w, "invalid waitsec", http.StatusBadRequest)
-				return
-			}
-			deadline := time.Now().Add(time.Duration(d) * time.Second)
-			var cancel context.CancelFunc
-			ctx, cancel = context.WithDeadline(ctx, deadline)
-			defer cancel()
-		}
-		wfs, err := h.b.AwaitWaitingFiles(ctx)
-		if err != nil && ctx.Err() == nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(wfs)
-		return
-	}
-	name, err := url.PathUnescape(suffix)
-	if err != nil {
-		http.Error(w, "bad filename", http.StatusBadRequest)
-		return
-	}
-	if r.Method == "DELETE" {
-		if err := h.b.DeleteFile(name); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		w.WriteHeader(http.StatusNoContent)
-		return
-	}
-	rc, size, err := h.b.OpenFile(name)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer rc.Close()
-	w.Header().Set("Content-Length", fmt.Sprint(size))
-	w.Header().Set("Content-Type", "application/octet-stream")
-	io.Copy(w, rc)
-}
-
-func writeErrorJSON(w http.ResponseWriter, err error) {
+// WriteErrorJSON writes a JSON object (with a single "error" string field) to w
+// with the given error. If err is nil, "unexpected nil error" is used for the
+// stringification instead.
+func WriteErrorJSON(w http.ResponseWriter, err error) {
 	if err == nil {
 		err = errors.New("unexpected nil error")
 	}
@@ -1491,335 +1642,19 @@ func writeErrorJSON(w http.ResponseWriter, err error) {
 	json.NewEncoder(w).Encode(E{err.Error()})
 }
 
-func (h *Handler) serveFileTargets(w http.ResponseWriter, r *http.Request) {
-	if !h.PermitRead {
-		http.Error(w, "access denied", http.StatusForbidden)
-		return
-	}
-	if r.Method != "GET" {
-		http.Error(w, "want GET to list targets", http.StatusBadRequest)
-		return
-	}
-	fts, err := h.b.FileTargets()
-	if err != nil {
-		writeErrorJSON(w, err)
-		return
-	}
-	mak.NonNilSliceForJSON(&fts)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(fts)
-}
-
-// serveFilePut sends a file to another node.
-//
-// It's sometimes possible for clients to do this themselves, without
-// tailscaled, except in the case of tailscaled running in
-// userspace-networking ("netstack") mode, in which case tailscaled
-// needs to a do a netstack dial out.
-//
-// Instead, the CLI also goes through tailscaled so it doesn't need to be
-// aware of the network mode in use.
-//
-// macOS/iOS have always used this localapi method to simplify the GUI
-// clients.
-//
-// The Windows client currently (2021-11-30) uses the peerapi (/v0/put/)
-// directly, as the Windows GUI always runs in tun mode anyway.
-//
-// In addition to single file PUTs, this endpoint accepts multipart file
-// POSTS encoded as multipart/form-data.The first part should be an
-// application/json file that contains a manifest consisting of a JSON array of
-// OutgoingFiles which wecan use for tracking progress even before reading the
-// file parts.
-//
-// URL format:
-//
-//   - PUT /localapi/v0/file-put/:stableID/:escaped-filename
-//   - POST /localapi/v0/file-put/:stableID
-func (h *Handler) serveFilePut(w http.ResponseWriter, r *http.Request) {
-	metricFilePutCalls.Add(1)
-
-	if !h.PermitWrite {
-		http.Error(w, "file access denied", http.StatusForbidden)
-		return
-	}
-
-	if r.Method != "PUT" && r.Method != "POST" {
-		http.Error(w, "want PUT to put file", http.StatusBadRequest)
-		return
-	}
-
-	fts, err := h.b.FileTargets()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	upath, ok := strings.CutPrefix(r.URL.EscapedPath(), "/localapi/v0/file-put/")
-	if !ok {
-		http.Error(w, "misconfigured", http.StatusInternalServerError)
-		return
-	}
-	var peerIDStr, filenameEscaped string
-	if r.Method == "PUT" {
-		ok := false
-		peerIDStr, filenameEscaped, ok = strings.Cut(upath, "/")
-		if !ok {
-			http.Error(w, "bogus URL", http.StatusBadRequest)
-			return
-		}
-	} else {
-		peerIDStr = upath
-	}
-	peerID := tailcfg.StableNodeID(peerIDStr)
-
-	var ft *apitype.FileTarget
-	for _, x := range fts {
-		if x.Node.StableID == peerID {
-			ft = x
-			break
-		}
-	}
-	if ft == nil {
-		http.Error(w, "node not found", http.StatusNotFound)
-		return
-	}
-	dstURL, err := url.Parse(ft.PeerAPIURL)
-	if err != nil {
-		http.Error(w, "bogus peer URL", http.StatusInternalServerError)
-		return
-	}
-
-	// Periodically report progress of outgoing files.
-	outgoingFiles := make(map[string]*ipn.OutgoingFile)
-	t := time.NewTicker(1 * time.Second)
-	progressUpdates := make(chan ipn.OutgoingFile)
-	defer close(progressUpdates)
-
-	go func() {
-		defer t.Stop()
-		defer h.b.UpdateOutgoingFiles(outgoingFiles)
-		for {
-			select {
-			case u, ok := <-progressUpdates:
-				if !ok {
-					return
-				}
-				outgoingFiles[u.ID] = &u
-			case <-t.C:
-				h.b.UpdateOutgoingFiles(outgoingFiles)
-			}
-		}
-	}()
-
-	switch r.Method {
-	case "PUT":
-		file := ipn.OutgoingFile{
-			ID:           uuid.Must(uuid.NewRandom()).String(),
-			PeerID:       peerID,
-			Name:         filenameEscaped,
-			DeclaredSize: r.ContentLength,
-		}
-		h.singleFilePut(r.Context(), progressUpdates, w, r.Body, dstURL, file)
-	case "POST":
-		h.multiFilePost(progressUpdates, w, r, peerID, dstURL)
-	default:
-		http.Error(w, "want PUT to put file", http.StatusBadRequest)
-		return
-	}
-}
-
-func (h *Handler) multiFilePost(progressUpdates chan (ipn.OutgoingFile), w http.ResponseWriter, r *http.Request, peerID tailcfg.StableNodeID, dstURL *url.URL) {
-	_, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
-	if err != nil {
-		http.Error(w, fmt.Sprintf("invalid Content-Type for multipart POST: %s", err), http.StatusBadRequest)
-		return
-	}
-
-	ww := &multiFilePostResponseWriter{}
-	defer func() {
-		if err := ww.Flush(w); err != nil {
-			h.logf("error: multiFilePostResponseWriter.Flush(): %s", err)
-		}
-	}()
-
-	outgoingFilesByName := make(map[string]ipn.OutgoingFile)
-	first := true
-	mr := multipart.NewReader(r.Body, params["boundary"])
-	for {
-		part, err := mr.NextPart()
-		if err == io.EOF {
-			// No more parts.
-			return
-		} else if err != nil {
-			http.Error(ww, fmt.Sprintf("failed to decode multipart/form-data: %s", err), http.StatusBadRequest)
-			return
-		}
-
-		if first {
-			first = false
-			if part.Header.Get("Content-Type") != "application/json" {
-				http.Error(ww, "first MIME part must be a JSON map of filename -> size", http.StatusBadRequest)
-				return
-			}
-
-			var manifest []ipn.OutgoingFile
-			err := json.NewDecoder(part).Decode(&manifest)
-			if err != nil {
-				http.Error(ww, fmt.Sprintf("invalid manifest: %s", err), http.StatusBadRequest)
-				return
-			}
-
-			for _, file := range manifest {
-				outgoingFilesByName[file.Name] = file
-				progressUpdates <- file
-			}
-
-			continue
-		}
-
-		if !h.singleFilePut(r.Context(), progressUpdates, ww, part, dstURL, outgoingFilesByName[part.FileName()]) {
-			return
-		}
-
-		if ww.statusCode >= 400 {
-			// put failed, stop immediately
-			h.logf("error: singleFilePut: failed with status %d", ww.statusCode)
-			return
-		}
-	}
-}
-
-// multiFilePostResponseWriter is a buffering http.ResponseWriter that can be
-// reused across multiple singleFilePut calls and then flushed to the client
-// when all files have been PUT.
-type multiFilePostResponseWriter struct {
-	header     http.Header
-	statusCode int
-	body       *bytes.Buffer
-}
-
-func (ww *multiFilePostResponseWriter) Header() http.Header {
-	if ww.header == nil {
-		ww.header = make(http.Header)
-	}
-	return ww.header
-}
-
-func (ww *multiFilePostResponseWriter) WriteHeader(statusCode int) {
-	ww.statusCode = statusCode
-}
-
-func (ww *multiFilePostResponseWriter) Write(p []byte) (int, error) {
-	if ww.body == nil {
-		ww.body = bytes.NewBuffer(nil)
-	}
-	return ww.body.Write(p)
-}
-
-func (ww *multiFilePostResponseWriter) Flush(w http.ResponseWriter) error {
-	maps.Copy(w.Header(), ww.Header())
-	w.WriteHeader(ww.statusCode)
-	_, err := io.Copy(w, ww.body)
-	return err
-}
-
-func (h *Handler) singleFilePut(
-	ctx context.Context,
-	progressUpdates chan (ipn.OutgoingFile),
-	w http.ResponseWriter,
-	body io.Reader,
-	dstURL *url.URL,
-	outgoingFile ipn.OutgoingFile,
-) bool {
-	outgoingFile.Started = time.Now()
-	body = progresstracking.NewReader(body, 1*time.Second, func(n int, err error) {
-		outgoingFile.Sent = int64(n)
-		progressUpdates <- outgoingFile
-	})
-
-	fail := func() {
-		outgoingFile.Finished = true
-		outgoingFile.Succeeded = false
-		progressUpdates <- outgoingFile
-	}
-
-	// Before we PUT a file we check to see if there are any existing partial file and if so,
-	// we resume the upload from where we left off by sending the remaining file instead of
-	// the full file.
-	var offset int64
-	var resumeDuration time.Duration
-	remainingBody := io.Reader(body)
-	client := &http.Client{
-		Transport: h.b.Dialer().PeerAPITransport(),
-		Timeout:   10 * time.Second,
-	}
-	req, err := http.NewRequestWithContext(ctx, "GET", dstURL.String()+"/v0/put/"+outgoingFile.Name, nil)
-	if err != nil {
-		http.Error(w, "bogus peer URL", http.StatusInternalServerError)
-		fail()
-		return false
-	}
-	switch resp, err := client.Do(req); {
-	case err != nil:
-		h.logf("could not fetch remote hashes: %v", err)
-	case resp.StatusCode == http.StatusMethodNotAllowed || resp.StatusCode == http.StatusNotFound:
-		// noop; implies older peerapi without resume support
-	case resp.StatusCode != http.StatusOK:
-		h.logf("fetch remote hashes status code: %d", resp.StatusCode)
-	default:
-		resumeStart := time.Now()
-		dec := json.NewDecoder(resp.Body)
-		offset, remainingBody, err = taildrop.ResumeReader(body, func() (out taildrop.BlockChecksum, err error) {
-			err = dec.Decode(&out)
-			return out, err
-		})
-		if err != nil {
-			h.logf("reader could not be fully resumed: %v", err)
-		}
-		resumeDuration = time.Since(resumeStart).Round(time.Millisecond)
-	}
-
-	outReq, err := http.NewRequestWithContext(ctx, "PUT", "http://peer/v0/put/"+outgoingFile.Name, remainingBody)
-	if err != nil {
-		http.Error(w, "bogus outreq", http.StatusInternalServerError)
-		fail()
-		return false
-	}
-	outReq.ContentLength = outgoingFile.DeclaredSize
-	if offset > 0 {
-		h.logf("resuming put at offset %d after %v", offset, resumeDuration)
-		rangeHdr, _ := httphdr.FormatRange([]httphdr.Range{{Start: offset, Length: 0}})
-		outReq.Header.Set("Range", rangeHdr)
-		if outReq.ContentLength >= 0 {
-			outReq.ContentLength -= offset
-		}
-	}
-
-	rp := httputil.NewSingleHostReverseProxy(dstURL)
-	rp.Transport = h.b.Dialer().PeerAPITransport()
-	rp.ServeHTTP(w, outReq)
-
-	outgoingFile.Finished = true
-	outgoingFile.Succeeded = true
-	progressUpdates <- outgoingFile
-
-	return true
-}
-
 func (h *Handler) serveSetDNS(w http.ResponseWriter, r *http.Request) {
 	if !h.PermitWrite {
 		http.Error(w, "access denied", http.StatusForbidden)
 		return
 	}
-	if r.Method != "POST" {
+	if r.Method != httpm.POST {
 		http.Error(w, "want POST", http.StatusBadRequest)
 		return
 	}
 	ctx := r.Context()
 	err := h.b.SetDNS(ctx, r.FormValue("name"), r.FormValue("value"))
 	if err != nil {
-		writeErrorJSON(w, err)
+		WriteErrorJSON(w, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -1827,7 +1662,7 @@ func (h *Handler) serveSetDNS(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) serveDERPMap(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
+	if r.Method != httpm.GET {
 		http.Error(w, "want GET", http.StatusBadRequest)
 		return
 	}
@@ -1844,7 +1679,7 @@ func (h *Handler) serveSetExpirySooner(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "access denied", http.StatusForbidden)
 		return
 	}
-	if r.Method != "POST" {
+	if r.Method != httpm.POST {
 		http.Error(w, "POST required", http.StatusMethodNotAllowed)
 		return
 	}
@@ -1872,7 +1707,7 @@ func (h *Handler) serveSetExpirySooner(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) servePing(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	if r.Method != "POST" {
+	if r.Method != httpm.POST {
 		http.Error(w, "want POST", http.StatusBadRequest)
 		return
 	}
@@ -1910,7 +1745,7 @@ func (h *Handler) servePing(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := h.b.Ping(ctx, ip, tailcfg.PingType(pingTypeStr), size)
 	if err != nil {
-		writeErrorJSON(w, err)
+		WriteErrorJSON(w, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -1918,7 +1753,7 @@ func (h *Handler) servePing(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) serveDial(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
+	if r.Method != httpm.POST {
 		http.Error(w, "POST required", http.StatusMethodNotAllowed)
 		return
 	}
@@ -1939,8 +1774,10 @@ func (h *Handler) serveDial(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	network := cmp.Or(r.Header.Get("Dial-Network"), "tcp")
+
 	addr := net.JoinHostPort(hostStr, portStr)
-	outConn, err := h.b.Dialer().UserDial(r.Context(), "tcp", addr)
+	outConn, err := h.b.Dialer().UserDial(r.Context(), network, addr)
 	if err != nil {
 		http.Error(w, "dial failure: "+err.Error(), http.StatusBadGateway)
 		return
@@ -1979,7 +1816,7 @@ func (h *Handler) serveSetPushDeviceToken(w http.ResponseWriter, r *http.Request
 		http.Error(w, "set push device token access denied", http.StatusForbidden)
 		return
 	}
-	if r.Method != "POST" {
+	if r.Method != httpm.POST {
 		http.Error(w, "unsupported method", http.StatusMethodNotAllowed)
 		return
 	}
@@ -1997,7 +1834,7 @@ func (h *Handler) serveHandlePushMessage(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "handle push message not allowed", http.StatusForbidden)
 		return
 	}
-	if r.Method != "POST" {
+	if r.Method != httpm.POST {
 		http.Error(w, "unsupported method", http.StatusMethodNotAllowed)
 		return
 	}
@@ -2014,7 +1851,7 @@ func (h *Handler) serveHandlePushMessage(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *Handler) serveUploadClientMetrics(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
+	if r.Method != httpm.POST {
 		http.Error(w, "unsupported method", http.StatusMethodNotAllowed)
 		return
 	}
@@ -2115,7 +1952,7 @@ func (h *Handler) serveSetUseExitNodeEnabled(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "invalid 'enabled' parameter", http.StatusBadRequest)
 		return
 	}
-	prefs, err := h.b.SetUseExitNodeEnabled(v)
+	prefs, err := h.b.SetUseExitNodeEnabled(h.Actor, v)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -2172,6 +2009,11 @@ func (h *Handler) serveTKAInit(w http.ResponseWriter, r *http.Request) {
 	var req initRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+		return
+	}
+
+	if !h.b.NetworkLockAllowed() {
+		http.Error(w, "Tailnet Lock is not supported on your pricing plan", http.StatusForbidden)
 		return
 	}
 
@@ -2537,8 +2379,8 @@ func (h *Handler) serveProfiles(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case httpm.GET:
 		profiles := h.b.ListProfiles()
-		profileIndex := slices.IndexFunc(profiles, func(p ipn.LoginProfile) bool {
-			return p.ID == profileID
+		profileIndex := slices.IndexFunc(profiles, func(p ipn.LoginProfileView) bool {
+			return p.ID() == profileID
 		})
 		if profileIndex == -1 {
 			http.Error(w, "Profile not found", http.StatusNotFound)
@@ -2605,7 +2447,7 @@ func (h *Handler) serveQueryFeature(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req, err := http.NewRequestWithContext(r.Context(),
-		"POST", "https://unused/machine/feature/query", bytes.NewReader(b))
+		httpm.POST, "https://unused/machine/feature/query", bytes.NewReader(b))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -2634,21 +2476,6 @@ func defBool(a string, def bool) bool {
 		return def
 	}
 	return v
-}
-
-func (h *Handler) serveDebugCapture(w http.ResponseWriter, r *http.Request) {
-	if !h.PermitWrite {
-		http.Error(w, "debug access denied", http.StatusForbidden)
-		return
-	}
-	if r.Method != "POST" {
-		http.Error(w, "POST required", http.StatusMethodNotAllowed)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.(http.Flusher).Flush()
-	h.b.StreamDebugCapture(r.Context(), w)
 }
 
 func (h *Handler) serveDebugLog(w http.ResponseWriter, r *http.Request) {
@@ -2699,7 +2526,7 @@ func (h *Handler) serveDebugLog(w http.ResponseWriter, r *http.Request) {
 // Effectively, it tells us whether serveUpdateInstall will be able to install
 // an update for us.
 func (h *Handler) serveUpdateCheck(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
+	if r.Method != httpm.GET {
 		http.Error(w, "only GET allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -2728,7 +2555,7 @@ func (h *Handler) serveUpdateCheck(w http.ResponseWriter, r *http.Request) {
 // serveUpdateProgress after pinging this endpoint to check how the update is
 // going.
 func (h *Handler) serveUpdateInstall(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
+	if r.Method != httpm.POST {
 		http.Error(w, "only POST allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -2743,7 +2570,7 @@ func (h *Handler) serveUpdateInstall(w http.ResponseWriter, r *http.Request) {
 // log messages in order from oldest to newest. If an update is not in progress,
 // the returned slice will be empty.
 func (h *Handler) serveUpdateProgress(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
+	if r.Method != httpm.GET {
 		http.Error(w, "only GET allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -2753,9 +2580,90 @@ func (h *Handler) serveUpdateProgress(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(ups)
 }
 
+// serveDNSOSConfig serves the current system DNS configuration as a JSON object, if
+// supported by the OS.
+func (h *Handler) serveDNSOSConfig(w http.ResponseWriter, r *http.Request) {
+	if r.Method != httpm.GET {
+		http.Error(w, "only GET allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	// Require write access for privacy reasons.
+	if !h.PermitWrite {
+		http.Error(w, "dns-osconfig dump access denied", http.StatusForbidden)
+		return
+	}
+	bCfg, err := h.b.GetDNSOSConfig()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	nameservers := make([]string, 0, len(bCfg.Nameservers))
+	for _, ns := range bCfg.Nameservers {
+		nameservers = append(nameservers, ns.String())
+	}
+	searchDomains := make([]string, 0, len(bCfg.SearchDomains))
+	for _, sd := range bCfg.SearchDomains {
+		searchDomains = append(searchDomains, sd.WithoutTrailingDot())
+	}
+	matchDomains := make([]string, 0, len(bCfg.MatchDomains))
+	for _, md := range bCfg.MatchDomains {
+		matchDomains = append(matchDomains, md.WithoutTrailingDot())
+	}
+	response := apitype.DNSOSConfig{
+		Nameservers:   nameservers,
+		SearchDomains: searchDomains,
+		MatchDomains:  matchDomains,
+	}
+	json.NewEncoder(w).Encode(response)
+}
+
+// serveDNSQuery provides the ability to perform DNS queries using the internal
+// DNS forwarder. This is useful for debugging and testing purposes.
+// URL parameters:
+//   - name: the domain name to query
+//   - type: the DNS record type to query as a number (default if empty: A = '1')
+//
+// The response if successful is a DNSQueryResponse JSON object.
+func (h *Handler) serveDNSQuery(w http.ResponseWriter, r *http.Request) {
+	if r.Method != httpm.GET {
+		http.Error(w, "only GET allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	// Require write access for privacy reasons.
+	if !h.PermitWrite {
+		http.Error(w, "dns-query access denied", http.StatusForbidden)
+		return
+	}
+	q := r.URL.Query()
+	name := q.Get("name")
+	queryType := q.Get("type")
+	qt := dnsmessage.TypeA
+	if queryType != "" {
+		t, err := dnstype.DNSMessageTypeForString(queryType)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		qt = t
+	}
+
+	res, rrs, err := h.b.QueryDNS(name, qt)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(&apitype.DNSQueryResponse{
+		Bytes:     res,
+		Resolvers: rrs,
+	})
+}
+
 // serveDriveServerAddr handles updates of the Taildrive file server address.
 func (h *Handler) serveDriveServerAddr(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "PUT" {
+	if r.Method != httpm.PUT {
 		http.Error(w, "only PUT allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -2782,7 +2690,7 @@ func (h *Handler) serveShares(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch r.Method {
-	case "PUT":
+	case httpm.PUT:
 		var share drive.Share
 		err := json.NewDecoder(r.Body).Decode(&share)
 		if err != nil {
@@ -2801,7 +2709,7 @@ func (h *Handler) serveShares(w http.ResponseWriter, r *http.Request) {
 		}
 		if drive.AllowShareAs() {
 			// share as the connected user
-			username, err := h.getUsername()
+			username, err := h.Actor.Username()
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -2818,7 +2726,7 @@ func (h *Handler) serveShares(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.WriteHeader(http.StatusCreated)
-	case "DELETE":
+	case httpm.DELETE:
 		b, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -2834,7 +2742,7 @@ func (h *Handler) serveShares(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
-	case "POST":
+	case httpm.POST:
 		var names [2]string
 		err := json.NewDecoder(r.Body).Decode(&names)
 		if err != nil {
@@ -2859,7 +2767,7 @@ func (h *Handler) serveShares(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
-	case "GET":
+	case httpm.GET:
 		shares := h.b.DriveGetShares()
 		err := json.NewEncoder(w).Encode(shares)
 		if err != nil {
@@ -2871,22 +2779,15 @@ func (h *Handler) serveShares(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-var (
-	metricInvalidRequests = clientmetric.NewCounter("localapi_invalid_requests")
-
-	// User-visible LocalAPI endpoints.
-	metricFilePutCalls = clientmetric.NewCounter("localapi_file_put")
-)
-
 // serveSuggestExitNode serves a POST endpoint for returning a suggested exit node.
 func (h *Handler) serveSuggestExitNode(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
+	if r.Method != httpm.GET {
 		http.Error(w, "only GET allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	res, err := h.b.SuggestExitNode()
 	if err != nil {
-		writeErrorJSON(w, err)
+		WriteErrorJSON(w, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")

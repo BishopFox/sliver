@@ -9,21 +9,6 @@ import (
 	"reflect"
 )
 
-func walkStmts(stmts []*Stmt, last []Comment, f func(Node) bool) {
-	for _, s := range stmts {
-		Walk(s, f)
-	}
-	for _, c := range last {
-		Walk(&c, f)
-	}
-}
-
-func walkWords(words []*Word, f func(Node) bool) {
-	for _, w := range words {
-		Walk(w, f)
-	}
-}
-
 // Walk traverses a syntax tree in depth-first order: It starts by calling
 // f(node); node must not be nil. If f returns true, Walk invokes f
 // recursively for each of the non-nil children of node, followed by
@@ -33,201 +18,183 @@ func Walk(node Node, f func(Node) bool) {
 		return
 	}
 
-	switch x := node.(type) {
+	switch node := node.(type) {
 	case *File:
-		walkStmts(x.Stmts, x.Last, f)
+		walkList(node.Stmts, f)
+		walkComments(node.Last, f)
 	case *Comment:
 	case *Stmt:
-		for _, c := range x.Comments {
-			if !x.End().After(c.Pos()) {
+		for _, c := range node.Comments {
+			if !node.End().After(c.Pos()) {
 				defer Walk(&c, f)
 				break
 			}
 			Walk(&c, f)
 		}
-		if x.Cmd != nil {
-			Walk(x.Cmd, f)
+		if node.Cmd != nil {
+			Walk(node.Cmd, f)
 		}
-		for _, r := range x.Redirs {
-			Walk(r, f)
-		}
+		walkList(node.Redirs, f)
 	case *Assign:
-		if x.Name != nil {
-			Walk(x.Name, f)
-		}
-		if x.Value != nil {
-			Walk(x.Value, f)
-		}
-		if x.Index != nil {
-			Walk(x.Index, f)
-		}
-		if x.Array != nil {
-			Walk(x.Array, f)
-		}
+		walkNilable(node.Name, f)
+		walkNilable(node.Value, f)
+		walkNilable(node.Index, f)
+		walkNilable(node.Array, f)
 	case *Redirect:
-		if x.N != nil {
-			Walk(x.N, f)
-		}
-		Walk(x.Word, f)
-		if x.Hdoc != nil {
-			Walk(x.Hdoc, f)
-		}
+		walkNilable(node.N, f)
+		Walk(node.Word, f)
+		walkNilable(node.Hdoc, f)
 	case *CallExpr:
-		for _, a := range x.Assigns {
-			Walk(a, f)
-		}
-		walkWords(x.Args, f)
+		walkList(node.Assigns, f)
+		walkList(node.Args, f)
 	case *Subshell:
-		walkStmts(x.Stmts, x.Last, f)
+		walkList(node.Stmts, f)
+		walkComments(node.Last, f)
 	case *Block:
-		walkStmts(x.Stmts, x.Last, f)
+		walkList(node.Stmts, f)
+		walkComments(node.Last, f)
 	case *IfClause:
-		walkStmts(x.Cond, x.CondLast, f)
-		walkStmts(x.Then, x.ThenLast, f)
-		if x.Else != nil {
-			Walk(x.Else, f)
-		}
+		walkList(node.Cond, f)
+		walkComments(node.CondLast, f)
+		walkList(node.Then, f)
+		walkComments(node.ThenLast, f)
+		walkNilable(node.Else, f)
 	case *WhileClause:
-		walkStmts(x.Cond, x.CondLast, f)
-		walkStmts(x.Do, x.DoLast, f)
+		walkList(node.Cond, f)
+		walkComments(node.CondLast, f)
+		walkList(node.Do, f)
+		walkComments(node.DoLast, f)
 	case *ForClause:
-		Walk(x.Loop, f)
-		walkStmts(x.Do, x.DoLast, f)
+		Walk(node.Loop, f)
+		walkList(node.Do, f)
+		walkComments(node.DoLast, f)
 	case *WordIter:
-		Walk(x.Name, f)
-		walkWords(x.Items, f)
+		Walk(node.Name, f)
+		walkList(node.Items, f)
 	case *CStyleLoop:
-		if x.Init != nil {
-			Walk(x.Init, f)
-		}
-		if x.Cond != nil {
-			Walk(x.Cond, f)
-		}
-		if x.Post != nil {
-			Walk(x.Post, f)
-		}
+		walkNilable(node.Init, f)
+		walkNilable(node.Cond, f)
+		walkNilable(node.Post, f)
 	case *BinaryCmd:
-		Walk(x.X, f)
-		Walk(x.Y, f)
+		Walk(node.X, f)
+		Walk(node.Y, f)
 	case *FuncDecl:
-		Walk(x.Name, f)
-		Walk(x.Body, f)
+		Walk(node.Name, f)
+		Walk(node.Body, f)
 	case *Word:
-		for _, wp := range x.Parts {
-			Walk(wp, f)
-		}
+		walkList(node.Parts, f)
 	case *Lit:
 	case *SglQuoted:
 	case *DblQuoted:
-		for _, wp := range x.Parts {
-			Walk(wp, f)
-		}
+		walkList(node.Parts, f)
 	case *CmdSubst:
-		walkStmts(x.Stmts, x.Last, f)
+		walkList(node.Stmts, f)
+		walkComments(node.Last, f)
 	case *ParamExp:
-		Walk(x.Param, f)
-		if x.Index != nil {
-			Walk(x.Index, f)
+		Walk(node.Param, f)
+		walkNilable(node.Index, f)
+		if node.Repl != nil {
+			walkNilable(node.Repl.Orig, f)
+			walkNilable(node.Repl.With, f)
 		}
-		if x.Repl != nil {
-			if x.Repl.Orig != nil {
-				Walk(x.Repl.Orig, f)
-			}
-			if x.Repl.With != nil {
-				Walk(x.Repl.With, f)
-			}
-		}
-		if x.Exp != nil && x.Exp.Word != nil {
-			Walk(x.Exp.Word, f)
+		if node.Exp != nil {
+			walkNilable(node.Exp.Word, f)
 		}
 	case *ArithmExp:
-		Walk(x.X, f)
+		Walk(node.X, f)
 	case *ArithmCmd:
-		Walk(x.X, f)
+		Walk(node.X, f)
 	case *BinaryArithm:
-		Walk(x.X, f)
-		Walk(x.Y, f)
+		Walk(node.X, f)
+		Walk(node.Y, f)
 	case *BinaryTest:
-		Walk(x.X, f)
-		Walk(x.Y, f)
+		Walk(node.X, f)
+		Walk(node.Y, f)
 	case *UnaryArithm:
-		Walk(x.X, f)
+		Walk(node.X, f)
 	case *UnaryTest:
-		Walk(x.X, f)
+		Walk(node.X, f)
 	case *ParenArithm:
-		Walk(x.X, f)
+		Walk(node.X, f)
 	case *ParenTest:
-		Walk(x.X, f)
+		Walk(node.X, f)
 	case *CaseClause:
-		Walk(x.Word, f)
-		for _, ci := range x.Items {
-			Walk(ci, f)
-		}
-		for _, c := range x.Last {
-			Walk(&c, f)
-		}
+		Walk(node.Word, f)
+		walkList(node.Items, f)
+		walkComments(node.Last, f)
 	case *CaseItem:
-		for _, c := range x.Comments {
-			if c.Pos().After(x.Pos()) {
+		for _, c := range node.Comments {
+			if c.Pos().After(node.Pos()) {
 				defer Walk(&c, f)
 				break
 			}
 			Walk(&c, f)
 		}
-		walkWords(x.Patterns, f)
-		walkStmts(x.Stmts, x.Last, f)
+		walkList(node.Patterns, f)
+		walkList(node.Stmts, f)
+		walkComments(node.Last, f)
 	case *TestClause:
-		Walk(x.X, f)
+		Walk(node.X, f)
 	case *DeclClause:
-		for _, a := range x.Args {
-			Walk(a, f)
-		}
+		walkList(node.Args, f)
 	case *ArrayExpr:
-		for _, el := range x.Elems {
-			Walk(el, f)
-		}
-		for _, c := range x.Last {
-			Walk(&c, f)
-		}
+		walkList(node.Elems, f)
+		walkComments(node.Last, f)
 	case *ArrayElem:
-		for _, c := range x.Comments {
-			if c.Pos().After(x.Pos()) {
+		for _, c := range node.Comments {
+			if c.Pos().After(node.Pos()) {
 				defer Walk(&c, f)
 				break
 			}
 			Walk(&c, f)
 		}
-		if x.Index != nil {
-			Walk(x.Index, f)
-		}
-		if x.Value != nil {
-			Walk(x.Value, f)
-		}
+		walkNilable(node.Index, f)
+		walkNilable(node.Value, f)
 	case *ExtGlob:
-		Walk(x.Pattern, f)
+		Walk(node.Pattern, f)
 	case *ProcSubst:
-		walkStmts(x.Stmts, x.Last, f)
+		walkList(node.Stmts, f)
+		walkComments(node.Last, f)
 	case *TimeClause:
-		if x.Stmt != nil {
-			Walk(x.Stmt, f)
-		}
+		walkNilable(node.Stmt, f)
 	case *CoprocClause:
-		if x.Name != nil {
-			Walk(x.Name, f)
-		}
-		Walk(x.Stmt, f)
+		walkNilable(node.Name, f)
+		Walk(node.Stmt, f)
 	case *LetClause:
-		for _, expr := range x.Exprs {
-			Walk(expr, f)
-		}
+		walkList(node.Exprs, f)
 	case *TestDecl:
-		Walk(x.Description, f)
-		Walk(x.Body, f)
+		Walk(node.Description, f)
+		Walk(node.Body, f)
 	default:
-		panic(fmt.Sprintf("syntax.Walk: unexpected node type %T", x))
+		panic(fmt.Sprintf("syntax.Walk: unexpected node type %T", node))
 	}
 
 	f(nil)
+}
+
+type nilableNode interface {
+	Node
+	comparable // pointer nodes, which can be compared to nil
+}
+
+func walkNilable[N nilableNode](node N, f func(Node) bool) {
+	var zero N // nil
+	if node != zero {
+		Walk(node, f)
+	}
+}
+
+func walkList[N Node](list []N, f func(Node) bool) {
+	for _, node := range list {
+		Walk(node, f)
+	}
+}
+
+func walkComments(list []Comment, f func(Node) bool) {
+	// Note that []Comment does not satisfy the generic constraint []Node.
+	for i := range list {
+		Walk(&list[i], f)
+	}
 }
 
 // DebugPrint prints the provided syntax tree, spanning multiple lines and with
@@ -235,6 +202,7 @@ func Walk(node Node, f func(Node) bool) {
 func DebugPrint(w io.Writer, node Node) error {
 	p := debugPrinter{out: w}
 	p.print(reflect.ValueOf(node))
+	p.printf("\n")
 	return p.err
 }
 
@@ -253,7 +221,7 @@ func (p *debugPrinter) printf(format string, args ...any) {
 
 func (p *debugPrinter) newline() {
 	p.printf("\n")
-	for i := 0; i < p.level; i++ {
+	for range p.level {
 		p.printf(".  ")
 	}
 }
@@ -278,7 +246,7 @@ func (p *debugPrinter) print(x reflect.Value) {
 		if x.Len() > 0 {
 			p.level++
 			p.newline()
-			for i := 0; i < x.Len(); i++ {
+			for i := range x.Len() {
 				p.printf("%d: ", i)
 				p.print(x.Index(i))
 				if i == x.Len()-1 {
@@ -291,6 +259,10 @@ func (p *debugPrinter) print(x reflect.Value) {
 
 	case reflect.Struct:
 		if v, ok := x.Interface().(Pos); ok {
+			if v.IsRecovered() {
+				p.printf("<recovered>")
+				return
+			}
 			p.printf("%v:%v", v.Line(), v.Col())
 			return
 		}
@@ -298,7 +270,7 @@ func (p *debugPrinter) print(x reflect.Value) {
 		p.printf("%s {", t)
 		p.level++
 		p.newline()
-		for i := 0; i < t.NumField(); i++ {
+		for i := range t.NumField() {
 			p.printf("%s: ", t.Field(i).Name)
 			p.print(x.Field(i))
 			if i == x.NumField()-1 {
@@ -308,6 +280,10 @@ func (p *debugPrinter) print(x reflect.Value) {
 		}
 		p.printf("}")
 	default:
-		p.printf("%#v", x.Interface())
+		if s, ok := x.Interface().(fmt.Stringer); ok && !x.IsZero() {
+			p.printf("%#v (%s)", x.Interface(), s)
+		} else {
+			p.printf("%#v", x.Interface())
+		}
 	}
 }

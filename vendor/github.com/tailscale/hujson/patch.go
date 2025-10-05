@@ -417,8 +417,8 @@ func (b *Extra) extractTrailingcomments(readonly bool) (trailing Extra) {
 
 // classifyComments classifies comments as belonging to the previous element
 // or belonging to the current element such that:
-//	* b[:prevEnd] belongs to the previous element, and
-//	* b[currStart:] belongs to the current element.
+//   - b[:prevEnd] belongs to the previous element, and
+//   - b[currStart:] belongs to the current element.
 //
 // Invariant: prevEnd <= currStart
 func (b Extra) classifyComments() (prevEnd, currStart int) {

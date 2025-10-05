@@ -44,6 +44,9 @@ type Object struct {
 	// Contains a list the attributes that have been modified via a call to
 	// any of the SetXX methods.
 	modifiedAttributes []string
+
+	// Contains a map with additional data fields added to the object.
+	modifiedData map[string]interface{}
 }
 
 // Links contains links related to an API object.
@@ -453,6 +456,14 @@ func (obj *Object) SetTime(attr string, value time.Time) error {
 	return obj.Set(attr, value.Unix())
 }
 
+// SetData sets the value of a data field.
+func (obj *Object) SetData(key string, val interface{}) {
+	if obj.modifiedData == nil {
+		obj.modifiedData = map[string]interface{}{}
+	}
+	obj.modifiedData[key] = val
+}
+
 // GetRelationship returns a relationship by name. Only those relationships
 // that you explicitly asked for in a call to GetObject can be obtained. You
 // can ask by a relationship by including the "relationships" parameter in the
@@ -474,18 +485,29 @@ func (obj *Object) GetRelationship(name string) (*Relationship, error) {
 
 // modifiedObject is a structure exactly like Object, but that implements the
 // MarshalJSON interface differently. When a modifiedObject is marshalled as
-// JSON only the attributes that has been modified are included. Context
-// attributes, relationships and links are not included neither.
+// JSON only the attributes and data that have been modified are included.
+// Context attributes, relationships and links are not included either.
 type modifiedObject Object
 
 func (obj modifiedObject) MarshalJSON() ([]byte, error) {
-	od := objectData{
-		ID:         obj.data.ID,
-		Type:       obj.data.Type,
-		Attributes: make(map[string]interface{}),
-	}
+	attributes := make(map[string]interface{})
 	for _, attr := range obj.modifiedAttributes {
-		od.Attributes[attr] = obj.data.Attributes[attr]
+		attributes[attr] = obj.data.Attributes[attr]
 	}
+	od := map[string]interface{}{
+		"attributes": attributes,
+	}
+	if obj.data.Type != "" {
+		od["type"] = obj.data.Type
+	}
+	if obj.data.ID != "" {
+		od["id"] = obj.data.ID
+	}
+	if obj.modifiedData != nil {
+		for key, val := range obj.modifiedData {
+			od[key] = val
+		}
+	}
+
 	return json.Marshal(&od)
 }

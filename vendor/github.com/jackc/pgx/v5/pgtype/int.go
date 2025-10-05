@@ -1,4 +1,5 @@
-// Do not edit. Generated from pgtype/int.go.erb
+// Code generated from pgtype/int.go.erb. DO NOT EDIT.
+
 package pgtype
 
 import (
@@ -25,7 +26,7 @@ type Int2 struct {
 	Valid bool
 }
 
-// ScanInt64 implements the Int64Scanner interface.
+// ScanInt64 implements the [Int64Scanner] interface.
 func (dst *Int2) ScanInt64(n Int8) error {
 	if !n.Valid {
 		*dst = Int2{}
@@ -43,11 +44,12 @@ func (dst *Int2) ScanInt64(n Int8) error {
 	return nil
 }
 
+// Int64Value implements the [Int64Valuer] interface.
 func (n Int2) Int64Value() (Int8, error) {
 	return Int8{Int64: int64(n.Int16), Valid: n.Valid}, nil
 }
 
-// Scan implements the database/sql Scanner interface.
+// Scan implements the [database/sql.Scanner] interface.
 func (dst *Int2) Scan(src any) error {
 	if src == nil {
 		*dst = Int2{}
@@ -86,7 +88,7 @@ func (dst *Int2) Scan(src any) error {
 	return nil
 }
 
-// Value implements the database/sql/driver Valuer interface.
+// Value implements the [database/sql/driver.Valuer] interface.
 func (src Int2) Value() (driver.Value, error) {
 	if !src.Valid {
 		return nil, nil
@@ -94,6 +96,7 @@ func (src Int2) Value() (driver.Value, error) {
 	return int64(src.Int16), nil
 }
 
+// MarshalJSON implements the [encoding/json.Marshaler] interface.
 func (src Int2) MarshalJSON() ([]byte, error) {
 	if !src.Valid {
 		return []byte("null"), nil
@@ -101,6 +104,7 @@ func (src Int2) MarshalJSON() ([]byte, error) {
 	return []byte(strconv.FormatInt(int64(src.Int16), 10)), nil
 }
 
+// UnmarshalJSON implements the [encoding/json.Unmarshaler] interface.
 func (dst *Int2) UnmarshalJSON(b []byte) error {
 	var n *int16
 	err := json.Unmarshal(b, &n)
@@ -585,7 +589,7 @@ type Int4 struct {
 	Valid bool
 }
 
-// ScanInt64 implements the Int64Scanner interface.
+// ScanInt64 implements the [Int64Scanner] interface.
 func (dst *Int4) ScanInt64(n Int8) error {
 	if !n.Valid {
 		*dst = Int4{}
@@ -603,11 +607,12 @@ func (dst *Int4) ScanInt64(n Int8) error {
 	return nil
 }
 
+// Int64Value implements the [Int64Valuer] interface.
 func (n Int4) Int64Value() (Int8, error) {
 	return Int8{Int64: int64(n.Int32), Valid: n.Valid}, nil
 }
 
-// Scan implements the database/sql Scanner interface.
+// Scan implements the [database/sql.Scanner] interface.
 func (dst *Int4) Scan(src any) error {
 	if src == nil {
 		*dst = Int4{}
@@ -646,7 +651,7 @@ func (dst *Int4) Scan(src any) error {
 	return nil
 }
 
-// Value implements the database/sql/driver Valuer interface.
+// Value implements the [database/sql/driver.Valuer] interface.
 func (src Int4) Value() (driver.Value, error) {
 	if !src.Valid {
 		return nil, nil
@@ -654,6 +659,7 @@ func (src Int4) Value() (driver.Value, error) {
 	return int64(src.Int32), nil
 }
 
+// MarshalJSON implements the [encoding/json.Marshaler] interface.
 func (src Int4) MarshalJSON() ([]byte, error) {
 	if !src.Valid {
 		return []byte("null"), nil
@@ -661,6 +667,7 @@ func (src Int4) MarshalJSON() ([]byte, error) {
 	return []byte(strconv.FormatInt(int64(src.Int32), 10)), nil
 }
 
+// UnmarshalJSON implements the [encoding/json.Unmarshaler] interface.
 func (dst *Int4) UnmarshalJSON(b []byte) error {
 	var n *int32
 	err := json.Unmarshal(b, &n)
@@ -1156,7 +1163,7 @@ type Int8 struct {
 	Valid bool
 }
 
-// ScanInt64 implements the Int64Scanner interface.
+// ScanInt64 implements the [Int64Scanner] interface.
 func (dst *Int8) ScanInt64(n Int8) error {
 	if !n.Valid {
 		*dst = Int8{}
@@ -1174,11 +1181,12 @@ func (dst *Int8) ScanInt64(n Int8) error {
 	return nil
 }
 
+// Int64Value implements the [Int64Valuer] interface.
 func (n Int8) Int64Value() (Int8, error) {
 	return Int8{Int64: int64(n.Int64), Valid: n.Valid}, nil
 }
 
-// Scan implements the database/sql Scanner interface.
+// Scan implements the [database/sql.Scanner] interface.
 func (dst *Int8) Scan(src any) error {
 	if src == nil {
 		*dst = Int8{}
@@ -1217,7 +1225,7 @@ func (dst *Int8) Scan(src any) error {
 	return nil
 }
 
-// Value implements the database/sql/driver Valuer interface.
+// Value implements the [database/sql/driver.Valuer] interface.
 func (src Int8) Value() (driver.Value, error) {
 	if !src.Valid {
 		return nil, nil
@@ -1225,6 +1233,7 @@ func (src Int8) Value() (driver.Value, error) {
 	return int64(src.Int64), nil
 }
 
+// MarshalJSON implements the [encoding/json.Marshaler] interface.
 func (src Int8) MarshalJSON() ([]byte, error) {
 	if !src.Valid {
 		return []byte("null"), nil
@@ -1232,6 +1241,7 @@ func (src Int8) MarshalJSON() ([]byte, error) {
 	return []byte(strconv.FormatInt(int64(src.Int64), 10)), nil
 }
 
+// UnmarshalJSON implements the [encoding/json.Unmarshaler] interface.
 func (dst *Int8) UnmarshalJSON(b []byte) error {
 	var n *int64
 	err := json.Unmarshal(b, &n)

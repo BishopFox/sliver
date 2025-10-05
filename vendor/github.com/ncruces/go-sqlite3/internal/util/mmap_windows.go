@@ -1,5 +1,3 @@
-//go:build !sqlite3_nosys
-
 package util
 
 import (
@@ -31,13 +29,13 @@ func MapRegion(ctx context.Context, mod api.Module, f *os.File, offset int64, si
 		return nil, err
 	}
 
-	res := &MappedRegion{Handle: h, addr: a}
+	ret := &MappedRegion{Handle: h, addr: a}
 	// SliceHeader, although deprecated, avoids a go vet warning.
-	sh := (*reflect.SliceHeader)(unsafe.Pointer(&res.Data))
+	sh := (*reflect.SliceHeader)(unsafe.Pointer(&ret.Data))
 	sh.Len = int(size)
 	sh.Cap = int(size)
 	sh.Data = a
-	return res, nil
+	return ret, nil
 }
 
 func (r *MappedRegion) Unmap() error {

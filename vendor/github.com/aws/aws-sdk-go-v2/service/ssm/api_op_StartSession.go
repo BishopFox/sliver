@@ -6,21 +6,24 @@ import (
 	"context"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
-	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Initiates a connection to a target (for example, a managed node) for a Session
 // Manager session. Returns a URL and token that can be used to open a WebSocket
-// connection for sending input and receiving outputs. Amazon Web Services CLI
-// usage: start-session is an interactive command that requires the Session
-// Manager plugin to be installed on the client machine making the call. For
-// information, see Install the Session Manager plugin for the Amazon Web Services
-// CLI (https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html)
-// in the Amazon Web Services Systems Manager User Guide. Amazon Web Services Tools
-// for PowerShell usage: Start-SSMSession isn't currently supported by Amazon Web
-// Services Tools for PowerShell on Windows local machines.
+// connection for sending input and receiving outputs.
+//
+// Amazon Web Services CLI usage: start-session is an interactive command that
+// requires the Session Manager plugin to be installed on the client machine making
+// the call. For information, see [Install the Session Manager plugin for the Amazon Web Services CLI]in the Amazon Web Services Systems Manager User
+// Guide.
+//
+// Amazon Web Services Tools for PowerShell usage: Start-SSMSession isn't
+// currently supported by Amazon Web Services Tools for PowerShell on Windows local
+// machines.
+//
+// [Install the Session Manager plugin for the Amazon Web Services CLI]: https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html
 func (c *Client) StartSession(ctx context.Context, params *StartSessionInput, optFns ...func(*Options)) (*StartSessionOutput, error) {
 	if params == nil {
 		params = &StartSessionInput{}
@@ -45,15 +48,19 @@ type StartSessionInput struct {
 
 	// The name of the SSM document you want to use to define the type of session,
 	// input parameters, or preferences for the session. For example,
-	// SSM-SessionManagerRunShell . You can call the GetDocument API to verify the
-	// document exists before attempting to start a session. If no document name is
-	// provided, a shell to the managed node is launched by default. For more
-	// information, see Start a session (https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-sessions-start.html)
-	// in the Amazon Web Services Systems Manager User Guide.
+	// SSM-SessionManagerRunShell . You can call the GetDocument API to verify the document
+	// exists before attempting to start a session. If no document name is provided, a
+	// shell to the managed node is launched by default. For more information, see [Start a session]in
+	// the Amazon Web Services Systems Manager User Guide.
+	//
+	// [Start a session]: https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-sessions-start.html
 	DocumentName *string
 
 	// The values you want to specify for the parameters defined in the Session
-	// document.
+	// document. For more information about these parameters, see [Create a Session Manager preferences document]in the Amazon Web
+	// Services Systems Manager User Guide.
+	//
+	// [Create a Session Manager preferences document]: https://docs.aws.amazon.com/systems-manager/latest/userguide/getting-started-create-preferences-cli.html
 	Parameters map[string][]string
 
 	// The reason for connecting to the instance. This value is included in the
@@ -72,12 +79,16 @@ type StartSessionOutput struct {
 	// A URL back to SSM Agent on the managed node that the Session Manager client
 	// uses to send commands and receive output from the node. Format:
 	// wss://ssmmessages.region.amazonaws.com/v1/data-channel/session-id?stream=(input|output)
+	//
 	// region represents the Region identifier for an Amazon Web Services Region
 	// supported by Amazon Web Services Systems Manager, such as us-east-2 for the US
 	// East (Ohio) Region. For a list of supported region values, see the Region column
-	// in Systems Manager service endpoints (https://docs.aws.amazon.com/general/latest/gr/ssm.html#ssm_region)
-	// in the Amazon Web Services General Reference. session-id represents the ID of a
-	// Session Manager session, such as 1a2b3c4dEXAMPLE .
+	// in [Systems Manager service endpoints]in the Amazon Web Services General Reference.
+	//
+	// session-id represents the ID of a Session Manager session, such as
+	// 1a2b3c4dEXAMPLE .
+	//
+	// [Systems Manager service endpoints]: https://docs.aws.amazon.com/general/latest/gr/ssm.html#ssm_region
 	StreamUrl *string
 
 	// An encrypted token value containing session and caller information. This token
@@ -114,25 +125,28 @@ func (c *Client) addOperationStartSessionMiddlewares(stack *middleware.Stack, op
 	if err = addSetLoggerMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddClientRequestIDMiddleware(stack); err != nil {
+	if err = addClientRequestID(stack); err != nil {
 		return err
 	}
-	if err = smithyhttp.AddComputeContentLengthMiddleware(stack); err != nil {
+	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = v4.AddComputePayloadSHA256Middleware(stack); err != nil {
+	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetryMiddlewares(stack, options); err != nil {
+	if err = addRetry(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRawResponseToMetadata(stack); err != nil {
+	if err = addRawResponseToMetadata(stack); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRecordResponseTiming(stack); err != nil {
+	if err = addRecordResponseTiming(stack); err != nil {
+		return err
+	}
+	if err = addSpanRetryLoop(stack, options); err != nil {
 		return err
 	}
 	if err = addClientUserAgent(stack, options); err != nil {
@@ -147,13 +161,22 @@ func (c *Client) addOperationStartSessionMiddlewares(stack *middleware.Stack, op
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpStartSessionValidationMiddleware(stack); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opStartSession(options.Region), middleware.Before); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
+	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -166,6 +189,48 @@ func (c *Client) addOperationStartSessionMiddlewares(stack *middleware.Stack, op
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addSpanInitializeStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanInitializeEnd(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestEnd(stack); err != nil {
 		return err
 	}
 	return nil

@@ -1,19 +1,28 @@
 package sqlite3
 
-import "strconv"
+import (
+	"strconv"
+
+	"github.com/ncruces/go-sqlite3/internal/util"
+)
 
 const (
 	_OK   = 0   /* Successful result */
 	_ROW  = 100 /* sqlite3_step() has another row ready */
 	_DONE = 101 /* sqlite3_step() has finished executing */
 
-	_MAX_NAME         = 1e6 // Self-imposed limit for most NUL terminated strings.
-	_MAX_LENGTH       = 1e9
-	_MAX_SQL_LENGTH   = 1e9
-	_MAX_FUNCTION_ARG = 100
+	_MAX_NAME       = 1e6 // Self-imposed limit for most NUL terminated strings.
+	_MAX_LENGTH     = 1e9
+	_MAX_SQL_LENGTH = 1e9
 
-	ptrlen = 4
-	intlen = 4
+	ptrlen = util.PtrLen
+	intlen = util.IntLen
+)
+
+type (
+	stk_t = util.Stk_t
+	ptr_t = util.Ptr_t
+	res_t = util.Res_t
 )
 
 // ErrorCode is a result code that [Error.Code] might return.
@@ -166,6 +175,7 @@ const (
 	PREPARE_PERSISTENT PrepareFlag = 0x01
 	PREPARE_NORMALIZE  PrepareFlag = 0x02
 	PREPARE_NO_VTAB    PrepareFlag = 0x04
+	PREPARE_DONT_LOG   PrepareFlag = 0x10
 )
 
 // FunctionFlag is a flag that can be passed to
@@ -175,12 +185,12 @@ const (
 type FunctionFlag uint32
 
 const (
-	DETERMINISTIC FunctionFlag = 0x000000800
-	DIRECTONLY    FunctionFlag = 0x000080000
-	INNOCUOUS     FunctionFlag = 0x000200000
-	SELFORDER1    FunctionFlag = 0x002000000
-	// SUBTYPE        FunctionFlag = 0x000100000
-	// RESULT_SUBTYPE FunctionFlag = 0x001000000
+	DETERMINISTIC  FunctionFlag = 0x000000800
+	DIRECTONLY     FunctionFlag = 0x000080000
+	SUBTYPE        FunctionFlag = 0x000100000
+	INNOCUOUS      FunctionFlag = 0x000200000
+	RESULT_SUBTYPE FunctionFlag = 0x001000000
+	SELFORDER1     FunctionFlag = 0x002000000
 )
 
 // StmtStatus name counter values associated with the [Stmt.Status] method.
@@ -219,6 +229,7 @@ const (
 	DBSTATUS_DEFERRED_FKS        DBStatus = 10
 	DBSTATUS_CACHE_USED_SHARED   DBStatus = 11
 	DBSTATUS_CACHE_SPILL         DBStatus = 12
+	// DBSTATUS_MAX              DBStatus = 12
 )
 
 // DBConfig are the available database connection configuration options.
@@ -247,7 +258,10 @@ const (
 	DBCONFIG_TRUSTED_SCHEMA        DBConfig = 1017
 	DBCONFIG_STMT_SCANSTATUS       DBConfig = 1018
 	DBCONFIG_REVERSE_SCANORDER     DBConfig = 1019
-	// DBCONFIG_MAX                DBConfig = 1019
+	DBCONFIG_ENABLE_ATTACH_CREATE  DBConfig = 1020
+	DBCONFIG_ENABLE_ATTACH_WRITE   DBConfig = 1021
+	DBCONFIG_ENABLE_COMMENTS       DBConfig = 1022
+	// DBCONFIG_MAX                DBConfig = 1022
 )
 
 // FcntlOpcode are the available opcodes for [Conn.FileControl].
@@ -266,6 +280,7 @@ const (
 	FCNTL_DATA_VERSION        FcntlOpcode = 35
 	FCNTL_RESERVE_BYTES       FcntlOpcode = 38
 	FCNTL_RESET_CACHE         FcntlOpcode = 42
+	FCNTL_NULL_IO             FcntlOpcode = 43
 )
 
 // LimitCategory are the available run-time limit categories.

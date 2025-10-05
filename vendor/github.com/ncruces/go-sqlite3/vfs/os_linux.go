@@ -1,37 +1,55 @@
-//go:build !(sqlite3_flock || sqlite3_nosys)
+//go:build !sqlite3_flock
 
 package vfs
 
 import (
-	"math/rand"
+	"io"
 	"os"
 	"time"
 
 	"golang.org/x/sys/unix"
 )
 
-func osSync(file *os.File, _ /*fullsync*/, _ /*dataonly*/ bool) error {
+func osSync(file *os.File, _ OpenFlag, _ SyncFlag) error {
 	// SQLite trusts Linux's fdatasync for all fsync's.
-	return unix.Fdatasync(int(file.Fd()))
+	for {
+		err := unix.Fdatasync(int(file.Fd()))
+		if err != unix.EINTR {
+			return err
+		}
+	}
 }
 
 func osAllocate(file *os.File, size int64) error {
 	if size == 0 {
 		return nil
 	}
-	return unix.Fallocate(int(file.Fd()), 0, 0, size)
+	for {
+		err := unix.Fallocate(int(file.Fd()), 0, 0, size)
+		if err == unix.EOPNOTSUPP {
+			break
+		}
+		if err != unix.EINTR {
+			return err
+		}
+	}
+	off, err := file.Seek(0, io.SeekEnd)
+	if err != nil {
+		return err
+	}
+	if size <= off {
+		return nil
+	}
+	return file.Truncate(size)
+
 }
 
-func osUnlock(file *os.File, start, len int64) _ErrorCode {
-	err := unix.FcntlFlock(file.Fd(), unix.F_OFD_SETLK, &unix.Flock_t{
-		Type:  unix.F_UNLCK,
-		Start: start,
-		Len:   len,
-	})
-	if err != nil {
-		return _IOERR_UNLOCK
-	}
-	return _OK
+func osReadLock(file *os.File, start, len int64, timeout time.Duration) _ErrorCode {
+	return osLock(file, unix.F_RDLCK, start, len, timeout, _IOERR_RDLOCK)
+}
+
+func osWriteLock(file *os.File, start, len int64, timeout time.Duration) _ErrorCode {
+	return osLock(file, unix.F_WRLCK, start, len, timeout, _IOERR_LOCK)
 }
 
 func osLock(file *os.File, typ int16, start, len int64, timeout time.Duration, def _ErrorCode) _ErrorCode {
@@ -42,31 +60,27 @@ func osLock(file *os.File, typ int16, start, len int64, timeout time.Duration, d
 	}
 	var err error
 	switch {
-	case timeout == 0:
+	default:
 		err = unix.FcntlFlock(file.Fd(), unix.F_OFD_SETLK, &lock)
 	case timeout < 0:
 		err = unix.FcntlFlock(file.Fd(), unix.F_OFD_SETLKW, &lock)
-	default:
-		before := time.Now()
-		for {
-			err = unix.FcntlFlock(file.Fd(), unix.F_OFD_SETLK, &lock)
-			if errno, _ := err.(unix.Errno); errno != unix.EAGAIN {
-				break
-			}
-			if time.Since(before) > timeout {
-				break
-			}
-			const sleepIncrement = 1024*1024 - 1 // power of two, ~1ms
-			time.Sleep(time.Duration(rand.Int63() & sleepIncrement))
-		}
 	}
 	return osLockErrorCode(err, def)
 }
 
-func osReadLock(file *os.File, start, len int64, timeout time.Duration) _ErrorCode {
-	return osLock(file, unix.F_RDLCK, start, len, timeout, _IOERR_RDLOCK)
-}
-
-func osWriteLock(file *os.File, start, len int64, timeout time.Duration) _ErrorCode {
-	return osLock(file, unix.F_WRLCK, start, len, timeout, _IOERR_LOCK)
+func osUnlock(file *os.File, start, len int64) _ErrorCode {
+	lock := unix.Flock_t{
+		Type:  unix.F_UNLCK,
+		Start: start,
+		Len:   len,
+	}
+	for {
+		err := unix.FcntlFlock(file.Fd(), unix.F_OFD_SETLK, &lock)
+		if err == nil {
+			return _OK
+		}
+		if err != unix.EINTR {
+			return _IOERR_UNLOCK
+		}
+	}
 }

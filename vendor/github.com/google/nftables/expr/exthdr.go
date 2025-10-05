@@ -40,6 +40,17 @@ type Exthdr struct {
 }
 
 func (e *Exthdr) marshal(fam byte) ([]byte, error) {
+	data, err := e.marshalData(fam)
+	if err != nil {
+		return nil, err
+	}
+	return netlink.MarshalAttributes([]netlink.Attribute{
+		{Type: unix.NFTA_EXPR_NAME, Data: []byte("exthdr\x00")},
+		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
+	})
+}
+
+func (e *Exthdr) marshalData(fam byte) ([]byte, error) {
 	var attr []netlink.Attribute
 
 	// Operations are differentiated by the Op and whether the SourceRegister
@@ -64,14 +75,7 @@ func (e *Exthdr) marshal(fam byte) ([]byte, error) {
 			netlink.Attribute{Type: unix.NFTA_EXTHDR_FLAGS, Data: binaryutil.BigEndian.PutUint32(e.Flags)})
 	}
 
-	data, err := netlink.MarshalAttributes(attr)
-	if err != nil {
-		return nil, err
-	}
-	return netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: unix.NFTA_EXPR_NAME, Data: []byte("exthdr\x00")},
-		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
-	})
+	return netlink.MarshalAttributes(attr)
 }
 
 func (e *Exthdr) unmarshal(fam byte, data []byte) error {

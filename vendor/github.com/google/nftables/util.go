@@ -38,7 +38,7 @@ type NFGenMsg struct {
 }
 
 func (genmsg *NFGenMsg) Decode(b []byte) {
-	if len(b) < 16 {
+	if len(b) < 4 {
 		return
 	}
 	genmsg.NFGenFamily = b[0]

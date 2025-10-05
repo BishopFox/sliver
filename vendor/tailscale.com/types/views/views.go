@@ -7,24 +7,20 @@ package views
 
 import (
 	"bytes"
-	"encoding/json"
+	"cmp"
+	jsonv1 "encoding/json"
 	"errors"
 	"fmt"
+	"iter"
 	"maps"
+	"reflect"
 	"slices"
 
+	jsonv2 "github.com/go-json-experiment/json"
+	"github.com/go-json-experiment/json/jsontext"
 	"go4.org/mem"
+	"tailscale.com/types/ptr"
 )
-
-func unmarshalSliceFromJSON[T any](b []byte, x *[]T) error {
-	if *x != nil {
-		return errors.New("already initialized")
-	}
-	if len(b) == 0 {
-		return nil
-	}
-	return json.Unmarshal(b, x)
-}
 
 // ByteSlice is a read-only accessor for types that are backed by a []byte.
 type ByteSlice[T ~[]byte] struct {
@@ -90,15 +86,32 @@ func (v ByteSlice[T]) SliceTo(i int) ByteSlice[T] { return ByteSlice[T]{v.ж[:i]
 // Slice returns v[i:j]
 func (v ByteSlice[T]) Slice(i, j int) ByteSlice[T] { return ByteSlice[T]{v.ж[i:j]} }
 
-// MarshalJSON implements json.Marshaler.
-func (v ByteSlice[T]) MarshalJSON() ([]byte, error) { return json.Marshal(v.ж) }
+// MarshalJSON implements [jsonv1.Marshaler].
+func (v ByteSlice[T]) MarshalJSON() ([]byte, error) {
+	return jsonv1.Marshal(v.ж)
+}
 
-// UnmarshalJSON implements json.Unmarshaler.
+// MarshalJSONTo implements [jsonv2.MarshalerTo].
+func (v ByteSlice[T]) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return jsonv2.MarshalEncode(enc, v.ж)
+}
+
+// UnmarshalJSON implements [jsonv1.Unmarshaler].
+// It must only be called on an uninitialized ByteSlice.
 func (v *ByteSlice[T]) UnmarshalJSON(b []byte) error {
 	if v.ж != nil {
 		return errors.New("already initialized")
 	}
-	return json.Unmarshal(b, &v.ж)
+	return jsonv1.Unmarshal(b, &v.ж)
+}
+
+// UnmarshalJSONFrom implements [jsonv2.UnmarshalerFrom].
+// It must only be called on an uninitialized ByteSlice.
+func (v *ByteSlice[T]) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	if v.ж != nil {
+		return errors.New("already initialized")
+	}
+	return jsonv2.UnmarshalDecode(dec, &v.ж)
 }
 
 // StructView represents the corresponding StructView of a Viewable. The concrete types are
@@ -109,6 +122,13 @@ type StructView[T any] interface {
 	// AsStruct returns a deep-copy of the underlying value.
 	// It returns nil, if Valid() is false.
 	AsStruct() T
+}
+
+// Cloner is any type that has a Clone function returning a deep-clone of the receiver.
+type Cloner[T any] interface {
+	// Clone returns a deep-clone of the receiver.
+	// It returns nil, when the receiver is nil.
+	Clone() T
 }
 
 // ViewCloner is any type that has had View and Clone funcs generated using
@@ -138,11 +158,46 @@ type SliceView[T ViewCloner[T, V], V StructView[T]] struct {
 	ж []T
 }
 
-// MarshalJSON implements json.Marshaler.
-func (v SliceView[T, V]) MarshalJSON() ([]byte, error) { return json.Marshal(v.ж) }
+// All returns an iterator over v.
+func (v SliceView[T, V]) All() iter.Seq2[int, V] {
+	return func(yield func(int, V) bool) {
+		for i := range v.ж {
+			if !yield(i, v.ж[i].View()) {
+				return
+			}
+		}
+	}
+}
 
-// UnmarshalJSON implements json.Unmarshaler.
-func (v *SliceView[T, V]) UnmarshalJSON(b []byte) error { return unmarshalSliceFromJSON(b, &v.ж) }
+// MarshalJSON implements [jsonv1.Marshaler].
+func (v SliceView[T, V]) MarshalJSON() ([]byte, error) {
+	return jsonv1.Marshal(v.ж)
+}
+
+// MarshalJSONTo implements [jsonv2.MarshalerTo].
+func (v SliceView[T, V]) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return jsonv2.MarshalEncode(enc, v.ж)
+}
+
+// UnmarshalJSON implements [jsonv1.Unmarshaler].
+// It must only be called on an uninitialized SliceView.
+func (v *SliceView[T, V]) UnmarshalJSON(b []byte) error {
+	if v.ж != nil {
+		return errors.New("already initialized")
+	} else if len(b) == 0 {
+		return nil
+	}
+	return jsonv1.Unmarshal(b, &v.ж)
+}
+
+// UnmarshalJSONFrom implements [jsonv2.UnmarshalerFrom].
+// It must only be called on an uninitialized SliceView.
+func (v *SliceView[T, V]) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	if v.ж != nil {
+		return errors.New("already initialized")
+	}
+	return jsonv2.UnmarshalDecode(dec, &v.ж)
+}
 
 // IsNil reports whether the underlying slice is nil.
 func (v SliceView[T, V]) IsNil() bool { return v.ж == nil }
@@ -200,6 +255,17 @@ type Slice[T any] struct {
 	ж []T
 }
 
+// All returns an iterator over v.
+func (v Slice[T]) All() iter.Seq2[int, T] {
+	return func(yield func(int, T) bool) {
+		for i, v := range v.ж {
+			if !yield(i, v) {
+				return
+			}
+		}
+	}
+}
+
 // MapKey returns a unique key for a slice, based on its address and length.
 func (v Slice[T]) MapKey() SliceMapKey[T] { return mapKey(v.ж) }
 
@@ -220,14 +286,34 @@ func SliceOf[T any](x []T) Slice[T] {
 	return Slice[T]{x}
 }
 
-// MarshalJSON implements json.Marshaler.
+// MarshalJSON implements [jsonv1.Marshaler].
 func (v Slice[T]) MarshalJSON() ([]byte, error) {
-	return json.Marshal(v.ж)
+	return jsonv1.Marshal(v.ж)
 }
 
-// UnmarshalJSON implements json.Unmarshaler.
+// MarshalJSONTo implements [jsonv2.MarshalerTo].
+func (v Slice[T]) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return jsonv2.MarshalEncode(enc, v.ж)
+}
+
+// UnmarshalJSON implements [jsonv1.Unmarshaler].
+// It must only be called on an uninitialized Slice.
 func (v *Slice[T]) UnmarshalJSON(b []byte) error {
-	return unmarshalSliceFromJSON(b, &v.ж)
+	if v.ж != nil {
+		return errors.New("already initialized")
+	} else if len(b) == 0 {
+		return nil
+	}
+	return jsonv1.Unmarshal(b, &v.ж)
+}
+
+// UnmarshalJSONFrom implements [jsonv2.UnmarshalerFrom].
+// It must only be called on an uninitialized Slice.
+func (v *Slice[T]) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	if v.ж != nil {
+		return errors.New("already initialized")
+	}
+	return jsonv2.UnmarshalDecode(dec, &v.ж)
 }
 
 // IsNil reports whether the underlying slice is nil.
@@ -278,6 +364,20 @@ func (v Slice[T]) ContainsFunc(f func(T) bool) bool {
 	return slices.ContainsFunc(v.ж, f)
 }
 
+// MaxFunc returns the maximal value in v, using cmp to compare elements. It
+// panics if v is empty. If there is more than one maximal element according to
+// the cmp function, MaxFunc returns the first one. See also [slices.MaxFunc].
+func (v Slice[T]) MaxFunc(cmp func(a, b T) int) T {
+	return slices.MaxFunc(v.ж, cmp)
+}
+
+// MinFunc returns the minimal value in v, using cmp to compare elements. It
+// panics if v is empty. If there is more than one minimal element according to
+// the cmp function, MinFunc returns the first one. See also [slices.MinFunc].
+func (v Slice[T]) MinFunc(cmp func(a, b T) int) T {
+	return slices.MinFunc(v.ж, cmp)
+}
+
 // AppendStrings appends the string representation of each element in v to dst.
 func AppendStrings[T fmt.Stringer](dst []string, v Slice[T]) []string {
 	for _, x := range v.ж {
@@ -298,6 +398,26 @@ func SliceEqual[T comparable](a, b Slice[T]) bool {
 	return slices.Equal(a.ж, b.ж)
 }
 
+// SliceMax returns the maximal value in v. It panics if v is empty. For
+// floating point T, SliceMax propagates NaNs (any NaN value in v forces the
+// output to be NaN). See also [slices.Max].
+func SliceMax[T cmp.Ordered](v Slice[T]) T {
+	return slices.Max(v.ж)
+}
+
+// SliceMin returns the minimal value in v. It panics if v is empty. For
+// floating point T, SliceMin propagates NaNs (any NaN value in v forces the
+// output to be NaN). See also [slices.Min].
+func SliceMin[T cmp.Ordered](v Slice[T]) T {
+	return slices.Min(v.ж)
+}
+
+// shortOOOLen (short Out-of-Order length) is the slice length at or
+// under which we attempt to compare two slices quadratically rather
+// than allocating memory for a map in SliceEqualAnyOrder and
+// SliceEqualAnyOrderFunc.
+const shortOOOLen = 5
+
 // SliceEqualAnyOrder reports whether a and b contain the same elements, regardless of order.
 // The underlying slices for a and b can be nil.
 func SliceEqualAnyOrder[T comparable](a, b Slice[T]) bool {
@@ -315,13 +435,63 @@ func SliceEqualAnyOrder[T comparable](a, b Slice[T]) bool {
 		return true
 	}
 
-	// count the occurrences of remaining values and compare
-	valueCount := make(map[T]int)
-	for i, n := diffStart, a.Len(); i < n; i++ {
-		valueCount[a.At(i)]++
-		valueCount[b.At(i)]--
+	a, b = a.SliceFrom(diffStart), b.SliceFrom(diffStart)
+	cmp := func(v T) T { return v }
+
+	// For a small number of items, avoid the allocation of a map and just
+	// do the quadratic thing.
+	if a.Len() <= shortOOOLen {
+		return unorderedSliceEqualAnyOrderSmall(a, b, cmp)
 	}
-	for _, count := range valueCount {
+	return unorderedSliceEqualAnyOrder(a, b, cmp)
+}
+
+// SliceEqualAnyOrderFunc reports whether a and b contain the same elements,
+// regardless of order. The underlying slices for a and b can be nil.
+//
+// The provided function should return a comparable value for each element.
+func SliceEqualAnyOrderFunc[T any, V comparable](a, b Slice[T], cmp func(T) V) bool {
+	if a.Len() != b.Len() {
+		return false
+	}
+
+	var diffStart int // beginning index where a and b differ
+	for n := a.Len(); diffStart < n; diffStart++ {
+		av := cmp(a.At(diffStart))
+		bv := cmp(b.At(diffStart))
+		if av != bv {
+			break
+		}
+	}
+	if diffStart == a.Len() {
+		return true
+	}
+
+	a, b = a.SliceFrom(diffStart), b.SliceFrom(diffStart)
+	// For a small number of items, avoid the allocation of a map and just
+	// do the quadratic thing.
+	if a.Len() <= shortOOOLen {
+		return unorderedSliceEqualAnyOrderSmall(a, b, cmp)
+	}
+	return unorderedSliceEqualAnyOrder(a, b, cmp)
+}
+
+// unorderedSliceEqualAnyOrder reports whether a and b contain the same elements
+// using a map. The cmp function maps from a T slice element to a comparable
+// value.
+func unorderedSliceEqualAnyOrder[T any, V comparable](a, b Slice[T], cmp func(T) V) bool {
+	if a.Len() != b.Len() {
+		panic("internal error")
+	}
+	if a.Len() == 0 {
+		return true
+	}
+	m := make(map[V]int)
+	for i := range a.Len() {
+		m[cmp(a.At(i))]++
+		m[cmp(b.At(i))]--
+	}
+	for _, count := range m {
 		if count != 0 {
 			return false
 		}
@@ -329,13 +499,157 @@ func SliceEqualAnyOrder[T comparable](a, b Slice[T]) bool {
 	return true
 }
 
-// MapOf returns a view over m. It is the caller's responsibility to make sure K
-// and V is immutable, if this is being used to provide a read-only view over m.
-func MapOf[K comparable, V comparable](m map[K]V) Map[K, V] {
-	return Map[K, V]{m}
+// unorderedSliceEqualAnyOrderSmall reports whether a and b (which must be the
+// same length, and shortOOOLen or shorter) contain the same elements (using cmp
+// to map from T to a comparable value) in some order.
+//
+// This is the quadratic-time implementation for small slices that doesn't
+// allocate.
+func unorderedSliceEqualAnyOrderSmall[T any, V comparable](a, b Slice[T], cmp func(T) V) bool {
+	if a.Len() != b.Len() || a.Len() > shortOOOLen {
+		panic("internal error")
+	}
+
+	// These track which elements in a and b have been matched, so
+	// that we don't treat arrays with differing number of
+	// duplicate elements as equal (e.g. [1, 1, 2] and [1, 2, 2]).
+	var aMatched, bMatched [shortOOOLen]bool
+
+	// Compare each element in a to each element in b
+	for i := range a.Len() {
+		av := cmp(a.At(i))
+		found := false
+		for j := range a.Len() {
+			// Skip elements in b that have already been
+			// used to match an item in a.
+			if bMatched[j] {
+				continue
+			}
+
+			bv := cmp(b.At(j))
+			if av == bv {
+				// Mark these elements as already
+				// matched, so that a future loop
+				// iteration (of a duplicate element)
+				// doesn't match it again.
+				aMatched[i] = true
+				bMatched[j] = true
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+
+	// Verify all elements were matched exactly once.
+	for i := range a.Len() {
+		if !aMatched[i] || !bMatched[i] {
+			return false
+		}
+	}
+
+	return true
 }
 
-// Map is a view over a map whose values are immutable.
+// MapSlice is a view over a map whose values are slices.
+type MapSlice[K comparable, V any] struct {
+	// ж is the underlying mutable value, named with a hard-to-type
+	// character that looks pointy like a pointer.
+	// It is named distinctively to make you think of how dangerous it is to escape
+	// to callers. You must not let callers be able to mutate it.
+	ж map[K][]V
+}
+
+// MapSliceOf returns a MapSlice for the provided map. It is the caller's
+// responsibility to make sure V is immutable.
+func MapSliceOf[K comparable, V any](m map[K][]V) MapSlice[K, V] {
+	return MapSlice[K, V]{m}
+}
+
+// Contains reports whether k has an entry in the map.
+func (m MapSlice[K, V]) Contains(k K) bool {
+	_, ok := m.ж[k]
+	return ok
+}
+
+// IsNil reports whether the underlying map is nil.
+func (m MapSlice[K, V]) IsNil() bool {
+	return m.ж == nil
+}
+
+// Len returns the number of elements in the map.
+func (m MapSlice[K, V]) Len() int { return len(m.ж) }
+
+// Get returns the element with key k.
+func (m MapSlice[K, V]) Get(k K) Slice[V] {
+	return SliceOf(m.ж[k])
+}
+
+// GetOk returns the element with key k and a bool representing whether the key
+// is in map.
+func (m MapSlice[K, V]) GetOk(k K) (Slice[V], bool) {
+	v, ok := m.ж[k]
+	return SliceOf(v), ok
+}
+
+// MarshalJSON implements [jsonv1.Marshaler].
+func (m MapSlice[K, V]) MarshalJSON() ([]byte, error) {
+	return jsonv1.Marshal(m.ж)
+}
+
+// MarshalJSONTo implements [jsonv2.MarshalerTo].
+func (m MapSlice[K, V]) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return jsonv2.MarshalEncode(enc, m.ж)
+}
+
+// UnmarshalJSON implements [jsonv1.Unmarshaler].
+// It should only be called on an uninitialized Map.
+func (m *MapSlice[K, V]) UnmarshalJSON(b []byte) error {
+	if m.ж != nil {
+		return errors.New("already initialized")
+	}
+	return jsonv1.Unmarshal(b, &m.ж)
+}
+
+// UnmarshalJSONFrom implements [jsonv2.UnmarshalerFrom].
+// It should only be called on an uninitialized MapSlice.
+func (m *MapSlice[K, V]) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	if m.ж != nil {
+		return errors.New("already initialized")
+	}
+	return jsonv2.UnmarshalDecode(dec, &m.ж)
+}
+
+// AsMap returns a shallow-clone of the underlying map.
+//
+// If V is a pointer type, it is the caller's responsibility to make sure the
+// values are immutable. The map and slices are cloned, but the values are not.
+func (m MapSlice[K, V]) AsMap() map[K][]V {
+	if m.ж == nil {
+		return nil
+	}
+	out := maps.Clone(m.ж)
+	for k, v := range out {
+		out[k] = slices.Clone(v)
+	}
+	return out
+}
+
+// All returns an iterator iterating over the keys and values of m.
+func (m MapSlice[K, V]) All() iter.Seq2[K, Slice[V]] {
+	return func(yield func(K, Slice[V]) bool) {
+		for k, v := range m.ж {
+			if !yield(k, SliceOf(v)) {
+				return
+			}
+		}
+	}
+}
+
+// Map provides a read-only view of a map. It is the caller's responsibility to
+// make sure V is immutable.
 type Map[K comparable, V any] struct {
 	// ж is the underlying mutable value, named with a hard-to-type
 	// character that looks pointy like a pointer.
@@ -344,8 +658,20 @@ type Map[K comparable, V any] struct {
 	ж map[K]V
 }
 
+// MapOf returns a view over m. It is the caller's responsibility to make sure V
+// is immutable.
+func MapOf[K comparable, V any](m map[K]V) Map[K, V] {
+	return Map[K, V]{m}
+}
+
 // Has reports whether k has an entry in the map.
+// Deprecated: use Contains instead.
 func (m Map[K, V]) Has(k K) bool {
+	return m.Contains(k)
+}
+
+// Contains reports whether k has an entry in the map.
+func (m Map[K, V]) Contains(k K) bool {
 	_, ok := m.ж[k]
 	return ok
 }
@@ -370,40 +696,97 @@ func (m Map[K, V]) GetOk(k K) (V, bool) {
 	return v, ok
 }
 
-// MarshalJSON implements json.Marshaler.
+// MarshalJSON implements [jsonv1.Marshaler].
 func (m Map[K, V]) MarshalJSON() ([]byte, error) {
-	return json.Marshal(m.ж)
+	return jsonv1.Marshal(m.ж)
 }
 
-// UnmarshalJSON implements json.Unmarshaler.
+// MarshalJSONTo implements [jsonv2.MarshalerTo].
+func (m Map[K, V]) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return jsonv2.MarshalEncode(enc, m.ж)
+}
+
+// UnmarshalJSON implements [jsonv1.Unmarshaler].
 // It should only be called on an uninitialized Map.
 func (m *Map[K, V]) UnmarshalJSON(b []byte) error {
 	if m.ж != nil {
 		return errors.New("already initialized")
 	}
-	return json.Unmarshal(b, &m.ж)
+	return jsonv1.Unmarshal(b, &m.ж)
+}
+
+// UnmarshalJSONFrom implements [jsonv2.UnmarshalerFrom].
+// It must only be called on an uninitialized Map.
+func (m *Map[K, V]) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	if m.ж != nil {
+		return errors.New("already initialized")
+	}
+	return jsonv2.UnmarshalDecode(dec, &m.ж)
 }
 
 // AsMap returns a shallow-clone of the underlying map.
 // If V is a pointer type, it is the caller's responsibility to make sure
 // the values are immutable.
-func (m *Map[K, V]) AsMap() map[K]V {
-	if m == nil {
+func (m Map[K, V]) AsMap() map[K]V {
+	if m.ж == nil {
 		return nil
 	}
 	return maps.Clone(m.ж)
+}
+
+// NOTE: the type constraints for MapViewsEqual and MapViewsEqualFunc are based
+// on those for maps.Equal and maps.EqualFunc.
+
+// MapViewsEqual returns whether the two given [Map]s are equal. Both K and V
+// must be comparable; if V is non-comparable, use [MapViewsEqualFunc] instead.
+func MapViewsEqual[K, V comparable](a, b Map[K, V]) bool {
+	if a.Len() != b.Len() || a.IsNil() != b.IsNil() {
+		return false
+	}
+	if a.IsNil() {
+		return true // both nil; can exit early
+	}
+
+	for k, v := range a.All() {
+		bv, ok := b.GetOk(k)
+		if !ok || v != bv {
+			return false
+		}
+	}
+	return true
+}
+
+// MapViewsEqualFunc returns whether the two given [Map]s are equal, using the
+// given function to compare two values.
+func MapViewsEqualFunc[K comparable, V1, V2 any](a Map[K, V1], b Map[K, V2], eq func(V1, V2) bool) bool {
+	if a.Len() != b.Len() || a.IsNil() != b.IsNil() {
+		return false
+	}
+	if a.IsNil() {
+		return true // both nil; can exit early
+	}
+
+	for k, v := range a.All() {
+		bv, ok := b.GetOk(k)
+		if !ok || !eq(v, bv) {
+			return false
+		}
+	}
+	return true
 }
 
 // MapRangeFn is the func called from a Map.Range call.
 // Implementations should return false to stop range.
 type MapRangeFn[K comparable, V any] func(k K, v V) (cont bool)
 
-// Range calls f for every k,v pair in the underlying map.
-// It stops iteration immediately if f returns false.
-func (m Map[K, V]) Range(f MapRangeFn[K, V]) {
-	for k, v := range m.ж {
-		if !f(k, v) {
-			return
+// All returns an iterator iterating over the keys
+// and values of m.
+func (m Map[K, V]) All() iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		for k, v := range m.ж {
+			if !yield(k, v) {
+				return
+			}
 		}
 	}
 }
@@ -428,7 +811,13 @@ type MapFn[K comparable, T any, V any] struct {
 }
 
 // Has reports whether k has an entry in the map.
+// Deprecated: use Contains instead.
 func (m MapFn[K, T, V]) Has(k K) bool {
+	return m.Contains(k)
+}
+
+// Contains reports whether k has an entry in the map.
+func (m MapFn[K, T, V]) Contains(k K) bool {
 	_, ok := m.ж[k]
 	return ok
 }
@@ -453,12 +842,150 @@ func (m MapFn[K, T, V]) GetOk(k K) (V, bool) {
 	return m.wrapv(v), ok
 }
 
-// Range calls f for every k,v pair in the underlying map.
-// It stops iteration immediately if f returns false.
-func (m MapFn[K, T, V]) Range(f MapRangeFn[K, V]) {
-	for k, v := range m.ж {
-		if !f(k, m.wrapv(v)) {
-			return
+// All returns an iterator iterating over the keys and value views of m.
+func (m MapFn[K, T, V]) All() iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		for k, v := range m.ж {
+			if !yield(k, m.wrapv(v)) {
+				return
+			}
 		}
+	}
+}
+
+// ValuePointer provides a read-only view of a pointer to a value type,
+// such as a primitive type or an immutable struct. Its Value and ValueOk
+// methods return a stack-allocated shallow copy of the underlying value.
+// It is the caller's responsibility to ensure that T
+// is free from memory aliasing/mutation concerns.
+type ValuePointer[T any] struct {
+	// ж is the underlying value, named with a hard-to-type
+	// character that looks pointy like a pointer.
+	// It is named distinctively to make you think of how dangerous it is to escape
+	// to callers. You must not let callers be able to mutate it.
+	ж *T
+}
+
+// Valid reports whether the underlying pointer is non-nil.
+func (p ValuePointer[T]) Valid() bool {
+	return p.ж != nil
+}
+
+// Get returns a shallow copy of the value if the underlying pointer is non-nil.
+// Otherwise, it returns a zero value.
+func (p ValuePointer[T]) Get() T {
+	v, _ := p.GetOk()
+	return v
+}
+
+// GetOk returns a shallow copy of the underlying value and true if the underlying
+// pointer is non-nil. Otherwise, it returns a zero value and false.
+func (p ValuePointer[T]) GetOk() (value T, ok bool) {
+	if p.ж == nil {
+		return value, false // value holds a zero value
+	}
+	return *p.ж, true
+}
+
+// GetOr returns a shallow copy of the underlying value if it is non-nil.
+// Otherwise, it returns the provided default value.
+func (p ValuePointer[T]) GetOr(def T) T {
+	if p.ж == nil {
+		return def
+	}
+	return *p.ж
+}
+
+// Clone returns a shallow copy of the underlying value.
+func (p ValuePointer[T]) Clone() *T {
+	if p.ж == nil {
+		return nil
+	}
+	return ptr.To(*p.ж)
+}
+
+// String implements [fmt.Stringer].
+func (p ValuePointer[T]) String() string {
+	if p.ж == nil {
+		return "nil"
+	}
+	return fmt.Sprint(p.ж)
+}
+
+// ValuePointerOf returns an immutable view of a pointer to an immutable value.
+// It is the caller's responsibility to ensure that T
+// is free from memory aliasing/mutation concerns.
+func ValuePointerOf[T any](v *T) ValuePointer[T] {
+	return ValuePointer[T]{v}
+}
+
+// MarshalJSON implements [jsonv1.Marshaler].
+func (p ValuePointer[T]) MarshalJSON() ([]byte, error) {
+	return jsonv1.Marshal(p.ж)
+}
+
+// MarshalJSONTo implements [jsonv2.MarshalerTo].
+func (p ValuePointer[T]) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return jsonv2.MarshalEncode(enc, p.ж)
+}
+
+// UnmarshalJSON implements [jsonv1.Unmarshaler].
+// It must only be called on an uninitialized ValuePointer.
+func (p *ValuePointer[T]) UnmarshalJSON(b []byte) error {
+	if p.ж != nil {
+		return errors.New("already initialized")
+	}
+	return jsonv1.Unmarshal(b, &p.ж)
+}
+
+// UnmarshalJSONFrom implements [jsonv2.UnmarshalerFrom].
+// It must only be called on an uninitialized ValuePointer.
+func (p *ValuePointer[T]) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	if p.ж != nil {
+		return errors.New("already initialized")
+	}
+	return jsonv2.UnmarshalDecode(dec, &p.ж)
+}
+
+// ContainsPointers reports whether T contains any pointers,
+// either explicitly or implicitly.
+// It has special handling for some types that contain pointers
+// that we know are free from memory aliasing/mutation concerns.
+func ContainsPointers[T any]() bool {
+	return containsPointers(reflect.TypeFor[T]())
+}
+
+func containsPointers(typ reflect.Type) bool {
+	switch typ.Kind() {
+	case reflect.Pointer, reflect.UnsafePointer:
+		return true
+	case reflect.Chan, reflect.Map, reflect.Slice:
+		return true
+	case reflect.Array:
+		return containsPointers(typ.Elem())
+	case reflect.Interface, reflect.Func:
+		return true // err on the safe side.
+	case reflect.Struct:
+		if isWellKnownImmutableStruct(typ) {
+			return false
+		}
+		for i := range typ.NumField() {
+			if containsPointers(typ.Field(i).Type) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func isWellKnownImmutableStruct(typ reflect.Type) bool {
+	switch typ.String() {
+	case "time.Time":
+		// time.Time contains a pointer that does not need copying
+		return true
+	case "netip.Addr", "netip.Prefix", "netip.AddrPort":
+		return true
+	default:
+		return false
 	}
 }

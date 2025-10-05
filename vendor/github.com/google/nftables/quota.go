@@ -15,14 +15,9 @@
 package nftables
 
 import (
-	"github.com/google/nftables/binaryutil"
+	"github.com/google/nftables/expr"
 	"github.com/mdlayher/netlink"
 	"golang.org/x/sys/unix"
-)
-
-const (
-	NFTA_OBJ_USERDATA = 8
-	NFT_OBJECT_QUOTA  = 2
 )
 
 type QuotaObj struct {
@@ -41,34 +36,10 @@ func (q *QuotaObj) unmarshal(ad *netlink.AttributeDecoder) error {
 		case unix.NFTA_QUOTA_CONSUMED:
 			q.Consumed = ad.Uint64()
 		case unix.NFTA_QUOTA_FLAGS:
-			q.Over = (ad.Uint32() & unix.NFT_QUOTA_F_INV) == 1
+			q.Over = (ad.Uint32() & unix.NFT_QUOTA_F_INV) != 0
 		}
 	}
 	return nil
-}
-
-func (q *QuotaObj) marshal(data bool) ([]byte, error) {
-	flags := uint32(0)
-	if q.Over {
-		flags = unix.NFT_QUOTA_F_INV
-	}
-	obj, err := netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: unix.NFTA_QUOTA_BYTES, Data: binaryutil.BigEndian.PutUint64(q.Bytes)},
-		{Type: unix.NFTA_QUOTA_CONSUMED, Data: binaryutil.BigEndian.PutUint64(q.Consumed)},
-		{Type: unix.NFTA_QUOTA_FLAGS, Data: binaryutil.BigEndian.PutUint32(flags)},
-	})
-	if err != nil {
-		return nil, err
-	}
-	attrs := []netlink.Attribute{
-		{Type: unix.NFTA_OBJ_TABLE, Data: []byte(q.Table.Name + "\x00")},
-		{Type: unix.NFTA_OBJ_NAME, Data: []byte(q.Name + "\x00")},
-		{Type: unix.NFTA_OBJ_TYPE, Data: binaryutil.BigEndian.PutUint32(NFT_OBJECT_QUOTA)},
-	}
-	if data {
-		attrs = append(attrs, netlink.Attribute{Type: unix.NLA_F_NESTED | unix.NFTA_OBJ_DATA, Data: obj})
-	}
-	return netlink.MarshalAttributes(attrs)
 }
 
 func (q *QuotaObj) table() *Table {
@@ -77,4 +48,20 @@ func (q *QuotaObj) table() *Table {
 
 func (q *QuotaObj) family() TableFamily {
 	return q.Table.Family
+}
+
+func (q *QuotaObj) data() expr.Any {
+	return &expr.Quota{
+		Bytes:    q.Bytes,
+		Consumed: q.Consumed,
+		Over:     q.Over,
+	}
+}
+
+func (q *QuotaObj) name() string {
+	return q.Name
+}
+
+func (q *QuotaObj) objType() ObjType {
+	return ObjTypeQuota
 }

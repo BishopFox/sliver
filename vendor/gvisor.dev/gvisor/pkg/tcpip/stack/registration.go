@@ -58,6 +58,10 @@ type NetworkPacketInfo struct {
 	// address.
 	LocalAddressBroadcast bool
 
+	// LocalAddressTemporary is true if the packet's local address is a temporary
+	// address.
+	LocalAddressTemporary bool
+
 	// IsForwardedPacket is true if the packet is being forwarded.
 	IsForwardedPacket bool
 }
@@ -113,9 +117,6 @@ type TransportError interface {
 // TransportEndpoint is the interface that needs to be implemented by transport
 // protocol (e.g., tcp, udp) endpoints that can handle packets.
 type TransportEndpoint interface {
-	// UniqueID returns an unique ID for this transport endpoint.
-	UniqueID() uint64
-
 	// HandlePacket is called by the stack when new packets arrive to this
 	// transport endpoint. It sets the packet buffer's transport header.
 	//
@@ -165,13 +166,77 @@ type PacketEndpoint interface {
 	// match the endpoint.
 	//
 	// Implementers should treat packet as immutable and should copy it
-	// before before modification.
+	// before modification.
 	//
 	// linkHeader may have a length of 0, in which case the PacketEndpoint
 	// should construct its own ethernet header for applications.
 	//
 	// HandlePacket may modify pkt.
 	HandlePacket(nicID tcpip.NICID, netProto tcpip.NetworkProtocolNumber, pkt *PacketBuffer)
+}
+
+// MappablePacketEndpoint is a packet endpoint that supports forwarding its
+// packets to a PacketMMapEndpoint.
+type MappablePacketEndpoint interface {
+	PacketEndpoint
+
+	// GetPacketMMapOpts returns the options for initializing a PacketMMapEndpoint
+	// for this endpoint.
+	GetPacketMMapOpts(req *tcpip.TpacketReq, isRx bool) PacketMMapOpts
+
+	// SetPacketMMapEndpoint sets the PacketMMapEndpoint for this endpoint. All
+	// packets received by this endpoint will be forwarded to the provided
+	// PacketMMapEndpoint.
+	SetPacketMMapEndpoint(ep PacketMMapEndpoint)
+
+	// GetPacketMMapEndpoint returns the PacketMMapEndpoint for this endpoint or
+	// nil if there is none.
+	GetPacketMMapEndpoint() PacketMMapEndpoint
+
+	// HandlePacketMMapCopy is a function that is called when a packet received is
+	// too large for the buffer size specified for the memory mapped endpoint. In
+	// this case, the packet is copied and passed to the original packet endpoint.
+	HandlePacketMMapCopy(nicID tcpip.NICID, netProto tcpip.NetworkProtocolNumber, pkt *PacketBuffer)
+}
+
+// PacketMMapOpts are the options for initializing a PacketMMapEndpoint.
+//
+// +stateify savable
+type PacketMMapOpts struct {
+	Req            *tcpip.TpacketReq
+	IsRx           bool
+	Cooked         bool
+	Stack          *Stack
+	Wq             *waiter.Queue
+	PacketEndpoint MappablePacketEndpoint
+	Version        int
+	Reserve        uint32
+}
+
+// PacketMMapEndpoint is the interface implemented by endpoints to handle memory
+// mapped packets over the packet transport protocol (PACKET_MMAP).
+type PacketMMapEndpoint interface {
+	// HandlePacket is called by the stack when new packets arrive that
+	// match the endpoint.
+	//
+	// Implementers should treat packet as immutable and should copy it
+	// before modification.
+	//
+	// linkHeader may have a length of 0, in which case the PacketEndpoint
+	// should construct its own ethernet header for applications.
+	//
+	// HandlePacket may modify pkt.
+	HandlePacket(nicID tcpip.NICID, netProto tcpip.NetworkProtocolNumber, pkt *PacketBuffer)
+
+	// Close releases any resources associated with the endpoint.
+	Close()
+
+	// Readiness returns the events that the endpoint is ready for.
+	Readiness(mask waiter.EventMask) waiter.EventMask
+
+	// Stats returns the statistics for the endpoint that can be used for
+	// getsockopt(PACKET_STATISTICS).
+	Stats() tcpip.TpacketStats
 }
 
 // UnknownDestinationPacketDisposition enumerates the possible return values from
@@ -247,6 +312,9 @@ type TransportProtocol interface {
 	// previously paused by Pause.
 	Resume()
 
+	// Restore starts any protocol level background workers during restore.
+	Restore()
+
 	// Parse sets pkt.TransportHeader and trims pkt.Data appropriately. It does
 	// neither and returns false if pkt.Data is too small, i.e. pkt.Data.Size() <
 	// MinimumPacketSize()
@@ -319,6 +387,13 @@ type NetworkHeaderParams struct {
 
 	// TOS refers to TypeOfService or TrafficClass field of the IP-header.
 	TOS uint8
+
+	// DF indicates whether the DF bit should be set.
+	DF bool
+
+	// ExperimentOptionValue is a 16 bit value that is set for the IP experiment
+	// option headers if it is not zero.
+	ExperimentOptionValue uint16
 }
 
 // GroupAddressableEndpoint is an endpoint that supports group addressing.
@@ -384,6 +459,8 @@ const (
 
 // AddressLifetimes encodes an address' preferred and valid lifetimes, as well
 // as if the address is deprecated.
+//
+// +stateify savable
 type AddressLifetimes struct {
 	// Deprecated is whether the address is deprecated.
 	Deprecated bool
@@ -668,10 +745,11 @@ type AddressableEndpoint interface {
 	// that is considered bound to the endpoint, optionally creating a temporary
 	// endpoint if requested and no existing address exists.
 	//
-	// The returned endpoint's reference count is incremented.
+	// The returned endpoint's reference count is incremented if readOnly is
+	// false.
 	//
 	// Returns nil if the specified address is not local to this endpoint.
-	AcquireAssignedAddress(localAddr tcpip.Address, allowTemp bool, tempPEB PrimaryEndpointBehavior) AddressEndpoint
+	AcquireAssignedAddress(localAddr tcpip.Address, allowTemp bool, tempPEB PrimaryEndpointBehavior, readOnly bool) AddressEndpoint
 
 	// AcquireOutgoingPrimaryAddress returns a primary address that may be used as
 	// a source address when sending packets to the passed remote address.
@@ -916,6 +994,8 @@ type NetworkProtocol interface {
 
 // UnicastSourceAndMulticastDestination is a tuple that represents a unicast
 // source address and a multicast destination address.
+//
+// +stateify savable
 type UnicastSourceAndMulticastDestination struct {
 	// Source represents a unicast source address.
 	Source tcpip.Address
@@ -1082,6 +1162,9 @@ type NetworkLinkEndpoint interface {
 	// includes the maximum size of an IP packet.
 	MTU() uint32
 
+	// SetMTU update the maximum transmission unit for the endpoint.
+	SetMTU(mtu uint32)
+
 	// MaxHeaderLength returns the maximum size the data link (and
 	// lower level layers combined) headers can have. Higher levels use this
 	// information to reserve space in the front of the packets they're
@@ -1091,6 +1174,9 @@ type NetworkLinkEndpoint interface {
 	// LinkAddress returns the link address (typically a MAC) of the
 	// endpoint.
 	LinkAddress() tcpip.LinkAddress
+
+	// SetLinkAddress updated the endpoint's link address (typically a MAC).
+	SetLinkAddress(addr tcpip.LinkAddress)
 
 	// Capabilities returns the set of capabilities supported by the
 	// endpoint.
@@ -1127,6 +1213,15 @@ type NetworkLinkEndpoint interface {
 
 	// ParseHeader parses the link layer header to the packet.
 	ParseHeader(*PacketBuffer) bool
+
+	// Close is called when the endpoint is removed from a stack.
+	Close()
+
+	// SetOnCloseAction sets the action that will be executed before closing the
+	// endpoint. It is used to destroy a network device when its endpoint
+	// is closed. Endpoints that are closed only after destroying their
+	// network devices can implement this method as no-op.
+	SetOnCloseAction(func())
 }
 
 // QueueingDiscipline provides a queueing strategy for outgoing packets (e.g
@@ -1240,6 +1335,8 @@ const (
 )
 
 // DADConfigurations holds configurations for duplicate address detection.
+//
+// +stateify savable
 type DADConfigurations struct {
 	// The number of Neighbor Solicitation messages to send when doing
 	// Duplicate Address Detection for a tentative address.
@@ -1370,9 +1467,9 @@ const (
 	// non-networking data layer.
 	HostGSOSupported
 
-	// GvisorGSOSupported indicates that segmentation offloading may be performed
+	// GVisorGSOSupported indicates that segmentation offloading may be performed
 	// in gVisor.
-	GvisorGSOSupported
+	GVisorGSOSupported
 )
 
 // GSOEndpoint provides access to GSO properties.
@@ -1384,6 +1481,6 @@ type GSOEndpoint interface {
 	SupportedGSO() SupportedGSO
 }
 
-// GvisorGSOMaxSize is a maximum allowed size of a software GSO segment.
+// GVisorGSOMaxSize is a maximum allowed size of a software GSO segment.
 // This isn't a hard limit, because it is never set into packet headers.
-const GvisorGSOMaxSize = 1 << 16
+const GVisorGSOMaxSize = 1 << 16
