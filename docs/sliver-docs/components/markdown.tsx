@@ -126,7 +126,11 @@ const MarkdownViewer = (props: MarkdownProps) => {
           {
             ...rest,
             id: anchor || undefined,
-            className: mergeClassNames(headingClassNames[level], className),
+            className: mergeClassNames(
+              headingClassNames[level],
+              "scroll-mt-[70px]",
+              className
+            ),
           },
           <span className="group inline-flex items-baseline gap-2">
             <span className="font-inherit">{children}</span>
