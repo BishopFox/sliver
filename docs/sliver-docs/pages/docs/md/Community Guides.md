@@ -2,6 +2,7 @@
 
 ### Books
 
+- https://nostarch.com/red-team
 - https://www.amazon.com/Adversarial-Tradecraft-Cybersecurity-real-time-computer/dp/1801076200/
 
 ### Videos
