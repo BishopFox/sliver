@@ -24,7 +24,6 @@ import (
 	// {{end}}
 
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -109,7 +108,7 @@ func nsLinuxIfconfig(interfaces *sliverpb.Ifconfig) {
 	namespacesFound := make(map[uint64]string)
 
 	procDir := "/proc"
-	procContents, err := ioutil.ReadDir(procDir)
+	procContents, err := os.ReadDir(procDir)
 
 	if err != nil {
 		//{{if .Config.Debug}}

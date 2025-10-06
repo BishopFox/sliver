@@ -47,7 +47,7 @@ package main
 
 import (
     "fmt"
-    "io/ioutil"
+    "io"
 
     // "gitlab.com/mjwhitta/win/winhttp/http"
     "gitlab.com/mjwhitta/win/wininet/http"
@@ -80,7 +80,7 @@ func main() {
     }
 
     if res.Body != nil {
-        if b, e = ioutil.ReadAll(res.Body); e != nil {
+        if b, e = io.ReadAll(res.Body); e != nil {
             panic(e)
         }
     }
