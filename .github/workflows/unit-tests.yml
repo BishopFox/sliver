@@ -24,7 +24,7 @@ jobs:
     timeout-minutes: 180
     steps:
       - name: Go 1.25
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "^1.25"
 
@@ -57,7 +57,7 @@ jobs:
     timeout-minutes: 180
     steps:
       - name: Go 1.25
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "^1.25"
 
@@ -85,7 +85,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Go 1.25
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "^1.25"
 
