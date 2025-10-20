@@ -32,11 +32,11 @@ package dnsclient
 */
 
 import (
-	"fmt"
 	"strings"
 	"unsafe"
 
 	// {{if .Config.Debug}}
+	"fmt"
 	"log"
 	// {{end}}
 
@@ -73,9 +73,9 @@ func dnsClientConfig() (*dns.ClientConfig, error) {
 
 	resolvers := map[string]bool{}
 	for _, adapter := range adapters {
-		adapterName := windows.BytePtrToString(adapter.AdapterName)		
 		if adapter.OperStatus != windows.IfOperStatusUp {
 			// {{if .Config.Debug}}
+			adapterName := windows.BytePtrToString(adapter.AdapterName)
 			log.Printf("[dns] skipping adapter '%s' because it is down", adapterName)
 			// {{end}}
 			continue // Skip down interfaces
@@ -83,12 +83,14 @@ func dnsClientConfig() (*dns.ClientConfig, error) {
 		for next := adapter.FirstUnicastAddress; next != nil; next = next.Next {
 			// {{if .Config.Debug}}
 			if next.Address.IP() == nil {
+				adapterName := windows.BytePtrToString(adapter.AdapterName)
 				log.Printf("[dns] skipping adapter '%s' because it has no IP address", adapterName)
 			} else {
 			// {{end}}
 				for dnsServer := adapter.FirstDnsServerAddress; dnsServer != nil; dnsServer = dnsServer.Next {
 					ip := dnsServer.Address.IP()
 					// {{if .Config.Debug}}
+					adapterName := windows.BytePtrToString(adapter.AdapterName)
 					log.Printf("[dns] found DNS server IP address %v for adapter '%s'", ip, adapterName)
 					// {{end}}
 					if ip.IsMulticast() || ip.IsLinkLocalMulticast() || ip.IsLinkLocalUnicast() || ip.IsUnspecified() {
