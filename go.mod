@@ -63,7 +63,7 @@ require (
 	gorm.io/gorm v1.31.0
 	gvisor.dev/gvisor v0.0.0-20250503011706-39ed1f5ac29c
 	modernc.org/sqlite v1.39.0
-	tailscale.com v1.88.3
+	tailscale.com v1.88.4
 )
 
 require (
@@ -74,7 +74,6 @@ require (
 	github.com/VirusTotal/vt-go v1.0.1 // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/akutz/memconn v0.1.0 // indirect
-	github.com/alecthomas/kong v0.8.1 // indirect
 	github.com/alexbrainman/sspi v0.0.0-20250919150558-7d374ff0d59e // indirect
 	github.com/awgh/cppgo v0.0.0-20210224085512-3d24bca8edc0 // indirect
 	github.com/awgh/rawreader v0.0.0-20200626064944-56820a9c6da4 // indirect
@@ -92,7 +91,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.38.6 // indirect
 	github.com/aws/smithy-go v1.23.0 // indirect
-	github.com/briandowns/spinner v1.11.1 // indirect
 	github.com/carapace-sh/carapace v1.9.0 // indirect
 	github.com/carapace-sh/carapace-shlex v1.1.0 // indirect
 	github.com/chromedp/sysutil v1.1.0 // indirect
