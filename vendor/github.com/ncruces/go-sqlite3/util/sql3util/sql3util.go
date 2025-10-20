@@ -5,5 +5,5 @@ package sql3util
 //
 // https://sqlite.org/fileformat.html#pages
 func ValidPageSize(s int) bool {
-	return 512 <= s && s <= 65536 && s&(s-1) == 0
+	return s&(s-1) == 0 && 512 <= s && s <= 65536
 }

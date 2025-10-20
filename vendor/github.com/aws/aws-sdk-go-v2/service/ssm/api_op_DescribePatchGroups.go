@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
-	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ssm/types"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
@@ -30,10 +29,17 @@ func (c *Client) DescribePatchGroups(ctx context.Context, params *DescribePatchG
 
 type DescribePatchGroupsInput struct {
 
-	// Each element in the array is a structure containing a key-value pair. Supported
-	// keys for DescribePatchGroups include the following:
-	//   - NAME_PREFIX Sample values: AWS- | My- .
-	//   - OPERATING_SYSTEM Sample values: AMAZON_LINUX | SUSE | WINDOWS
+	// Each element in the array is a structure containing a key-value pair.
+	//
+	// Supported keys for DescribePatchGroups include the following:
+	//
+	//   - NAME_PREFIX
+	//
+	// Sample values: AWS- | My- .
+	//
+	//   - OPERATING_SYSTEM
+	//
+	// Sample values: AMAZON_LINUX | SUSE | WINDOWS
 	Filters []types.PatchOrchestratorFilter
 
 	// The maximum number of patch groups to return (per page).
@@ -49,8 +55,10 @@ type DescribePatchGroupsInput struct {
 type DescribePatchGroupsOutput struct {
 
 	// Each entry in the array contains:
+	//
 	//   - PatchGroup : string (between 1 and 256 characters. Regex:
 	//   ^([\p{L}\p{Z}\p{N}_.:/=+\-@]*)$)
+	//
 	//   - PatchBaselineIdentity : A PatchBaselineIdentity element.
 	Mappings []types.PatchGroupPatchBaselineMapping
 
@@ -86,25 +94,28 @@ func (c *Client) addOperationDescribePatchGroupsMiddlewares(stack *middleware.St
 	if err = addSetLoggerMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddClientRequestIDMiddleware(stack); err != nil {
+	if err = addClientRequestID(stack); err != nil {
 		return err
 	}
-	if err = smithyhttp.AddComputeContentLengthMiddleware(stack); err != nil {
+	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = v4.AddComputePayloadSHA256Middleware(stack); err != nil {
+	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetryMiddlewares(stack, options); err != nil {
+	if err = addRetry(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRawResponseToMetadata(stack); err != nil {
+	if err = addRawResponseToMetadata(stack); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRecordResponseTiming(stack); err != nil {
+	if err = addRecordResponseTiming(stack); err != nil {
+		return err
+	}
+	if err = addSpanRetryLoop(stack, options); err != nil {
 		return err
 	}
 	if err = addClientUserAgent(stack, options); err != nil {
@@ -119,10 +130,19 @@ func (c *Client) addOperationDescribePatchGroupsMiddlewares(stack *middleware.St
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribePatchGroups(options.Region), middleware.Before); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
+	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -137,16 +157,50 @@ func (c *Client) addOperationDescribePatchGroupsMiddlewares(stack *middleware.St
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addSpanInitializeStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanInitializeEnd(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestEnd(stack); err != nil {
+		return err
+	}
 	return nil
 }
-
-// DescribePatchGroupsAPIClient is a client that implements the
-// DescribePatchGroups operation.
-type DescribePatchGroupsAPIClient interface {
-	DescribePatchGroups(context.Context, *DescribePatchGroupsInput, ...func(*Options)) (*DescribePatchGroupsOutput, error)
-}
-
-var _ DescribePatchGroupsAPIClient = (*Client)(nil)
 
 // DescribePatchGroupsPaginatorOptions is the paginator options for
 // DescribePatchGroups
@@ -212,6 +266,9 @@ func (p *DescribePatchGroupsPaginator) NextPage(ctx context.Context, optFns ...f
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribePatchGroups(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -230,6 +287,14 @@ func (p *DescribePatchGroupsPaginator) NextPage(ctx context.Context, optFns ...f
 
 	return result, nil
 }
+
+// DescribePatchGroupsAPIClient is a client that implements the
+// DescribePatchGroups operation.
+type DescribePatchGroupsAPIClient interface {
+	DescribePatchGroups(context.Context, *DescribePatchGroupsInput, ...func(*Options)) (*DescribePatchGroupsOutput, error)
+}
+
+var _ DescribePatchGroupsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribePatchGroups(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

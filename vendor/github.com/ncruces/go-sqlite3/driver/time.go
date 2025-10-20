@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"bytes"
 	"time"
 )
 
@@ -8,7 +9,7 @@ import (
 // if it roundtrips back to the same string.
 // This way times can be persisted to, and recovered from, the database,
 // but if a string is needed, [database/sql] will recover the same string.
-func maybeTime(text string) (_ time.Time, _ bool) {
+func maybeTime(text []byte) (_ time.Time, _ bool) {
 	// Weed out (some) values that can't possibly be
 	// [time.RFC3339Nano] timestamps.
 	if len(text) < len("2006-01-02T15:04:05Z") {
@@ -23,8 +24,8 @@ func maybeTime(text string) (_ time.Time, _ bool) {
 
 	// Slow path.
 	var buf [len(time.RFC3339Nano)]byte
-	date, err := time.Parse(time.RFC3339Nano, text)
-	if err == nil && text == string(date.AppendFormat(buf[:0], time.RFC3339Nano)) {
+	date, err := time.Parse(time.RFC3339Nano, string(text))
+	if err == nil && bytes.Equal(text, date.AppendFormat(buf[:0], time.RFC3339Nano)) {
 		return date, true
 	}
 	return

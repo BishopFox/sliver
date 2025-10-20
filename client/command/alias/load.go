@@ -311,7 +311,7 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 		} else if !aliasManifest.IsReflective {
 			msgStr = " Arguments are limited to 256 characters when using the default fork/exec model for non-reflective PE payloads.\n"
 		}
-		con.PrintWarnf(msgStr)
+		con.PrintWarnf("%s", msgStr)
 		confirm := false
 		prompt := &survey.Confirm{Message: "Do you want to continue?"}
 		survey.AskOne(prompt, &confirm, nil)

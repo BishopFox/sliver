@@ -2,5 +2,5 @@ The Sliver authors do not consider anti-virus evasion to be within the scope of 
 
 Here are some external resources for anti-virus evasion:
 
-- https://www.veil-framework.com/framework/veil-evasion/
-- https://iwantmore.pizza/posts/PEzor.html
+- https://github.com/phra/PEzor
+- https://github.com/Veil-Framework/Veil

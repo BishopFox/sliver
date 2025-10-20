@@ -5,21 +5,21 @@ package controlclient
 
 import (
 	"bytes"
+	"cmp"
 	"context"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
-	"io"
 	"math"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"sync"
 	"time"
 
 	"golang.org/x/net/http2"
-	"tailscale.com/control/controlbase"
 	"tailscale.com/control/controlhttp"
 	"tailscale.com/health"
+	"tailscale.com/internal/noiseconn"
 	"tailscale.com/net/dnscache"
 	"tailscale.com/net/netmon"
 	"tailscale.com/net/tsdial"
@@ -31,113 +31,6 @@ import (
 	"tailscale.com/util/multierr"
 	"tailscale.com/util/singleflight"
 )
-
-// noiseConn is a wrapper around controlbase.Conn.
-// It allows attaching an ID to a connection to allow
-// cleaning up references in the pool when the connection
-// is closed.
-type noiseConn struct {
-	*controlbase.Conn
-	id   int
-	pool *NoiseClient
-	h2cc *http2.ClientConn
-
-	readHeaderOnce    sync.Once     // guards init of reader field
-	reader            io.Reader     // (effectively Conn.Reader after header)
-	earlyPayloadReady chan struct{} // closed after earlyPayload is set (including set to nil)
-	earlyPayload      *tailcfg.EarlyNoise
-	earlyPayloadErr   error
-}
-
-func (c *noiseConn) RoundTrip(r *http.Request) (*http.Response, error) {
-	return c.h2cc.RoundTrip(r)
-}
-
-// getEarlyPayload waits for the early noise payload to arrive.
-// It may return (nil, nil) if the server begins HTTP/2 without one.
-func (c *noiseConn) getEarlyPayload(ctx context.Context) (*tailcfg.EarlyNoise, error) {
-	select {
-	case <-c.earlyPayloadReady:
-		return c.earlyPayload, c.earlyPayloadErr
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-}
-
-// The first 9 bytes from the server to client over Noise are either an HTTP/2
-// settings frame (a normal HTTP/2 setup) or, as we added later, an "early payload"
-// header that's also 9 bytes long: 5 bytes (earlyPayloadMagic) followed by 4 bytes
-// of length. Then that many bytes of JSON-encoded tailcfg.EarlyNoise.
-// The early payload is optional. Some servers may not send it.
-const (
-	hdrLen            = 9 // http2 frame header size; also size of our early payload size header
-	earlyPayloadMagic = "\xff\xff\xffTS"
-)
-
-// returnErrReader is an io.Reader that always returns an error.
-type returnErrReader struct {
-	err error // the error to return
-}
-
-func (r returnErrReader) Read([]byte) (int, error) { return 0, r.err }
-
-// Read is basically the same as controlbase.Conn.Read, but it first reads the
-// "early payload" header from the server which may or may not be present,
-// depending on the server.
-func (c *noiseConn) Read(p []byte) (n int, err error) {
-	c.readHeaderOnce.Do(c.readHeader)
-	return c.reader.Read(p)
-}
-
-// readHeader reads the optional "early payload" from the server that arrives
-// after the Noise handshake but before the HTTP/2 session begins.
-//
-// readHeader is responsible for reading the header (if present), initializing
-// c.earlyPayload, closing c.earlyPayloadReady, and initializing c.reader for
-// future reads.
-func (c *noiseConn) readHeader() {
-	defer close(c.earlyPayloadReady)
-
-	setErr := func(err error) {
-		c.reader = returnErrReader{err}
-		c.earlyPayloadErr = err
-	}
-
-	var hdr [hdrLen]byte
-	if _, err := io.ReadFull(c.Conn, hdr[:]); err != nil {
-		setErr(err)
-		return
-	}
-	if string(hdr[:len(earlyPayloadMagic)]) != earlyPayloadMagic {
-		// No early payload. We have to return the 9 bytes read we already
-		// consumed.
-		c.reader = io.MultiReader(bytes.NewReader(hdr[:]), c.Conn)
-		return
-	}
-	epLen := binary.BigEndian.Uint32(hdr[len(earlyPayloadMagic):])
-	if epLen > 10<<20 {
-		setErr(errors.New("invalid early payload length"))
-		return
-	}
-	payBuf := make([]byte, epLen)
-	if _, err := io.ReadFull(c.Conn, payBuf); err != nil {
-		setErr(err)
-		return
-	}
-	if err := json.Unmarshal(payBuf, &c.earlyPayload); err != nil {
-		setErr(err)
-		return
-	}
-	c.reader = c.Conn
-}
-
-func (c *noiseConn) Close() error {
-	if err := c.Conn.Close(); err != nil {
-		return err
-	}
-	c.pool.connClosed(c.id)
-	return nil
-}
 
 // NoiseClient provides a http.Client to connect to tailcontrol over
 // the ts2021 protocol.
@@ -158,15 +51,15 @@ type NoiseClient struct {
 
 	// sfDial ensures that two concurrent requests for a noise connection only
 	// produce one shared one between the two callers.
-	sfDial singleflight.Group[struct{}, *noiseConn]
+	sfDial singleflight.Group[struct{}, *noiseconn.Conn]
 
 	dialer       *tsdial.Dialer
 	dnsCache     *dnscache.Resolver
 	privKey      key.MachinePrivate
 	serverPubKey key.MachinePublic
 	host         string // the host part of serverURL
-	httpPort     string // the default port to call
-	httpsPort    string // the fallback Noise-over-https port
+	httpPort     string // the default port to dial
+	httpsPort    string // the fallback Noise-over-https port or empty if none
 
 	// dialPlan optionally returns a ControlDialPlan previously received
 	// from the control server; either the function or the return value can
@@ -180,9 +73,9 @@ type NoiseClient struct {
 	// mu only protects the following variables.
 	mu       sync.Mutex
 	closed   bool
-	last     *noiseConn // or nil
+	last     *noiseconn.Conn // or nil
 	nextID   int
-	connPool map[int]*noiseConn // active connections not yet closed; see noiseConn.Close
+	connPool map[int]*noiseconn.Conn // active connections not yet closed; see noiseconn.Conn.Close
 }
 
 // NoiseOpts contains options for the NewNoiseClient function. All fields are
@@ -219,21 +112,39 @@ type NoiseOpts struct {
 // netMon may be nil, if non-nil it's used to do faster interface lookups.
 // dialPlan may be nil
 func NewNoiseClient(opts NoiseOpts) (*NoiseClient, error) {
+	logf := opts.Logf
 	u, err := url.Parse(opts.ServerURL)
 	if err != nil {
 		return nil, err
 	}
+
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return nil, errors.New("invalid ServerURL scheme, must be http or https")
+	}
+
 	var httpPort string
 	var httpsPort string
-	if u.Port() != "" {
-		// If there is an explicit port specified, trust the scheme and hope for the best
-		if u.Scheme == "http" {
-			httpPort = u.Port()
+	addr, _ := netip.ParseAddr(u.Hostname())
+	isPrivateHost := addr.IsPrivate() || addr.IsLoopback() || u.Hostname() == "localhost"
+	if port := u.Port(); port != "" {
+		// If there is an explicit port specified, entirely rely on the scheme,
+		// unless it's http with a private host in which case we never try using HTTPS.
+		if u.Scheme == "https" {
+			httpPort = ""
+			httpsPort = port
+		} else if u.Scheme == "http" {
+			httpPort = port
 			httpsPort = "443"
-		} else {
-			httpPort = "80"
-			httpsPort = u.Port()
+			if isPrivateHost {
+				logf("setting empty HTTPS port with http scheme and private host %s", u.Hostname())
+				httpsPort = ""
+			}
 		}
+	} else if u.Scheme == "http" && isPrivateHost {
+		// Whenever the scheme is http and the hostname is an IP address, do not set the HTTPS port,
+		// as there cannot be a TLS certificate issued for an IP, unless it's a public IP.
+		httpPort = "80"
+		httpsPort = ""
 	} else {
 		// Otherwise, use the standard ports
 		httpPort = "80"
@@ -283,11 +194,11 @@ func (nc *NoiseClient) GetSingleUseRoundTripper(ctx context.Context) (http.Round
 		if err != nil {
 			return nil, nil, err
 		}
-		earlyPayloadMaybeNil, err := conn.getEarlyPayload(ctx)
+		ok, earlyPayloadMaybeNil, err := conn.ReserveNewRequest(ctx)
 		if err != nil {
 			return nil, nil, err
 		}
-		if conn.h2cc.ReserveNewRequest() {
+		if ok {
 			return conn, earlyPayloadMaybeNil, nil
 		}
 	}
@@ -308,14 +219,14 @@ func (e contextErr) Unwrap() error {
 	return e.err
 }
 
-// getConn returns a noiseConn that can be used to make requests to the
+// getConn returns a noiseconn.Conn that can be used to make requests to the
 // coordination server. It may return a cached connection or create a new one.
 // Dials are singleflighted, so concurrent calls to getConn may only dial once.
 // As such, context values may not be respected as there are no guarantees that
 // the context passed to getConn is the same as the context passed to dial.
-func (nc *NoiseClient) getConn(ctx context.Context) (*noiseConn, error) {
+func (nc *NoiseClient) getConn(ctx context.Context) (*noiseconn.Conn, error) {
 	nc.mu.Lock()
-	if last := nc.last; last != nil && last.canTakeNewRequest() {
+	if last := nc.last; last != nil && last.CanTakeNewRequest() {
 		nc.mu.Unlock()
 		return last, nil
 	}
@@ -327,7 +238,7 @@ func (nc *NoiseClient) getConn(ctx context.Context) (*noiseConn, error) {
 		// canceled. Instead, we have to additionally check that the context
 		// which was canceled is our context and retry if our context is still
 		// valid.
-		conn, err, _ := nc.sfDial.Do(struct{}{}, func() (*noiseConn, error) {
+		conn, err, _ := nc.sfDial.Do(struct{}{}, func() (*noiseconn.Conn, error) {
 			c, err := nc.dial(ctx)
 			if err != nil {
 				if ctx.Err() != nil {
@@ -395,7 +306,7 @@ func (nc *NoiseClient) Close() error {
 
 // dial opens a new connection to tailcontrol, fetching the server noise key
 // if not cached.
-func (nc *NoiseClient) dial(ctx context.Context) (*noiseConn, error) {
+func (nc *NoiseClient) dial(ctx context.Context) (*noiseconn.Conn, error) {
 	nc.mu.Lock()
 	connID := nc.nextID
 	nc.nextID++
@@ -449,7 +360,7 @@ func (nc *NoiseClient) dial(ctx context.Context) (*noiseConn, error) {
 	clientConn, err := (&controlhttp.Dialer{
 		Hostname:        nc.host,
 		HTTPPort:        nc.httpPort,
-		HTTPSPort:       nc.httpsPort,
+		HTTPSPort:       cmp.Or(nc.httpsPort, controlhttp.NoPort),
 		MachineKey:      nc.privKey,
 		ControlKey:      nc.serverPubKey,
 		ProtocolVersion: uint16(tailcfg.CurrentCapabilityVersion),
@@ -465,18 +376,10 @@ func (nc *NoiseClient) dial(ctx context.Context) (*noiseConn, error) {
 		return nil, err
 	}
 
-	ncc := &noiseConn{
-		Conn:              clientConn.Conn,
-		id:                connID,
-		pool:              nc,
-		earlyPayloadReady: make(chan struct{}),
-	}
-
-	h2cc, err := nc.h2t.NewClientConn(ncc)
+	ncc, err := noiseconn.New(clientConn.Conn, nc.h2t, connID, nc.connClosed)
 	if err != nil {
 		return nil, err
 	}
-	ncc.h2cc = h2cc
 
 	nc.mu.Lock()
 	if nc.closed {
@@ -485,7 +388,7 @@ func (nc *NoiseClient) dial(ctx context.Context) (*noiseConn, error) {
 		return nil, errors.New("noise client closed")
 	}
 	defer nc.mu.Unlock()
-	mak.Set(&nc.connPool, ncc.id, ncc)
+	mak.Set(&nc.connPool, connID, ncc)
 	nc.last = ncc
 	return ncc, nil
 }
@@ -493,24 +396,23 @@ func (nc *NoiseClient) dial(ctx context.Context) (*noiseConn, error) {
 // post does a POST to the control server at the given path, JSON-encoding body.
 // The provided nodeKey is an optional load balancing hint.
 func (nc *NoiseClient) post(ctx context.Context, path string, nodeKey key.NodePublic, body any) (*http.Response, error) {
+	return nc.doWithBody(ctx, "POST", path, nodeKey, body)
+}
+
+func (nc *NoiseClient) doWithBody(ctx context.Context, method, path string, nodeKey key.NodePublic, body any) (*http.Response, error) {
 	jbody, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://"+nc.host+path, bytes.NewReader(jbody))
+	req, err := http.NewRequestWithContext(ctx, method, "https://"+nc.host+path, bytes.NewReader(jbody))
 	if err != nil {
 		return nil, err
 	}
 	addLBHeader(req, nodeKey)
 	req.Header.Set("Content-Type", "application/json")
-
 	conn, err := nc.getConn(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return conn.h2cc.RoundTrip(req)
-}
-
-func (c *noiseConn) canTakeNewRequest() bool {
-	return c.h2cc.CanTakeNewRequest()
+	return conn.RoundTrip(req)
 }

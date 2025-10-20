@@ -75,7 +75,7 @@ func ErrorCodeString(rc uint32) string {
 		return "sqlite3: unable to open database file"
 	case PROTOCOL:
 		return "sqlite3: locking protocol"
-	case FORMAT:
+	case EMPTY:
 		break
 	case SCHEMA:
 		return "sqlite3: database schema has changed"
@@ -91,7 +91,7 @@ func ErrorCodeString(rc uint32) string {
 		break
 	case AUTH:
 		return "sqlite3: authorization denied"
-	case EMPTY:
+	case FORMAT:
 		break
 	case RANGE:
 		return "sqlite3: column index out of range"

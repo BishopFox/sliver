@@ -1,0 +1,34 @@
+version: 2
+
+before:
+  hooks:
+    - go mod download
+
+builds:
+  - id: example
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    main: ./example
+    binary: example
+  - id: example-nonposix
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    main: ./example-nonposix
+    binary: example-nonposix
+
+archives:
+  - name_template: 'example_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
+    format_overrides:
+      - goos: windows
+        format: zip
+
+release:
+  prerelease: auto

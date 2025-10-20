@@ -6,12 +6,13 @@ import (
 	"os"
 	"strings"
 
+	"github.com/rsteube/carapace/internal/spec"
 	"github.com/rsteube/carapace/pkg/style"
 	"github.com/spf13/cobra"
 )
 
-func addCompletionCommand(cmd *cobra.Command) {
-	for _, c := range cmd.Commands() {
+func addCompletionCommand(targetCmd *cobra.Command) {
+	for _, c := range targetCmd.Commands() {
 		if c.Name() == "_carapace" {
 			return
 		}
@@ -50,7 +51,7 @@ func addCompletionCommand(cmd *cobra.Command) {
 		DisableFlagParsing: true,
 	}
 
-	cmd.AddCommand(carapaceCmd)
+	targetCmd.AddCommand(carapaceCmd)
 
 	Carapace{carapaceCmd}.PositionalCompletion(
 		ActionStyledValues(
@@ -63,20 +64,38 @@ func addCompletionCommand(cmd *cobra.Command) {
 			"nushell", "#29d866",
 			"oil", "#373a36",
 			"powershell", "#e8a16f",
-			"spec", style.Default,
 			"tcsh", "#412f09",
 			"xonsh", "#a8ffa9",
 			"zsh", "#efda53",
 		),
-		ActionValues(cmd.Root().Name()),
+		ActionValues(targetCmd.Root().Name()),
 	)
 	Carapace{carapaceCmd}.PositionalAnyCompletion(
 		ActionCallback(func(c Context) Action {
-			cmd.RemoveCommand(carapaceCmd)
-			action, _ := traverse(cmd, append(c.Args[2:], c.Value))
-			return action
+			args := []string{"_carapace", "export", ""}
+			args = append(args, c.Args[2:]...)
+			args = append(args, c.Value)
+
+			executable, err := os.Executable()
+			if err != nil {
+				return ActionMessage(err.Error())
+			}
+			return ActionExecCommand(executable, args...)(func(output []byte) Action { // TODO does not work with sandbox tests for `example _carapace ...`
+				if string(output) == "" {
+					return ActionValues()
+				}
+				return ActionImport(output)
+			})
 		}),
 	)
+
+	specCmd := &cobra.Command{
+		Use: "spec",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Fprint(cmd.OutOrStdout(), spec.Spec(targetCmd))
+		},
+	}
+	carapaceCmd.AddCommand(specCmd)
 
 	styleCmd := &cobra.Command{
 		Use:  "style",

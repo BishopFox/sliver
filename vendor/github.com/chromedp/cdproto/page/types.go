@@ -4,27 +4,36 @@ package page
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/runtime"
-	"github.com/mailru/easyjson"
-	"github.com/mailru/easyjson/jlexer"
-	"github.com/mailru/easyjson/jwriter"
 )
 
-// AdScriptID identifies the bottom-most script which caused the frame to be
+// AdScriptID identifies the script which caused a script or frame to be
 // labelled as an ad.
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-AdScriptId
 type AdScriptID struct {
-	ScriptID   runtime.ScriptID         `json:"scriptId"`   // Script Id of the bottom-most script which caused the frame to be labelled as an ad.
-	DebuggerID runtime.UniqueDebuggerID `json:"debuggerId"` // Id of adScriptId's debugger.
+	ScriptID   runtime.ScriptID         `json:"scriptId"`   // Script Id of the script which caused a script or frame to be labelled as an ad.
+	DebuggerID runtime.UniqueDebuggerID `json:"debuggerId"` // Id of scriptId's debugger.
+}
+
+// AdScriptAncestry encapsulates the script ancestry and the root script
+// filterlist rule that caused the frame to be labelled as an ad. Only created
+// when ancestryChain is not empty.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-AdScriptAncestry
+type AdScriptAncestry struct {
+	AncestryChain            []*AdScriptID `json:"ancestryChain"`                               // A chain of AdScriptIds representing the ancestry of an ad script that led to the creation of a frame. The chain is ordered from the script itself (lower level) up to its root ancestor that was flagged by filterlist.
+	RootScriptFilterlistRule string        `json:"rootScriptFilterlistRule,omitempty,omitzero"` // The filterlist rule that caused the root (last) script in ancestryChain to be ad-tagged. Only populated if the rule is available.
 }
 
 // PermissionsPolicyFeature all Permissions Policy features. This enum should
 // match the one defined in
-// third_party/blink/renderer/core/permissions_policy/permissions_policy_features.json5.
+// services/network/public/cpp/permissions_policy/permissions_policy_features.json5.
+// LINT.IfChange(PermissionsPolicyFeature).
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-PermissionsPolicyFeature
 type PermissionsPolicyFeature string
@@ -36,111 +45,128 @@ func (t PermissionsPolicyFeature) String() string {
 
 // PermissionsPolicyFeature values.
 const (
-	PermissionsPolicyFeatureAccelerometer                PermissionsPolicyFeature = "accelerometer"
-	PermissionsPolicyFeatureAmbientLightSensor           PermissionsPolicyFeature = "ambient-light-sensor"
-	PermissionsPolicyFeatureAttributionReporting         PermissionsPolicyFeature = "attribution-reporting"
-	PermissionsPolicyFeatureAutoplay                     PermissionsPolicyFeature = "autoplay"
-	PermissionsPolicyFeatureBluetooth                    PermissionsPolicyFeature = "bluetooth"
-	PermissionsPolicyFeatureBrowsingTopics               PermissionsPolicyFeature = "browsing-topics"
-	PermissionsPolicyFeatureCamera                       PermissionsPolicyFeature = "camera"
-	PermissionsPolicyFeatureCapturedSurfaceControl       PermissionsPolicyFeature = "captured-surface-control"
-	PermissionsPolicyFeatureChDpr                        PermissionsPolicyFeature = "ch-dpr"
-	PermissionsPolicyFeatureChDeviceMemory               PermissionsPolicyFeature = "ch-device-memory"
-	PermissionsPolicyFeatureChDownlink                   PermissionsPolicyFeature = "ch-downlink"
-	PermissionsPolicyFeatureChEct                        PermissionsPolicyFeature = "ch-ect"
-	PermissionsPolicyFeatureChPrefersColorScheme         PermissionsPolicyFeature = "ch-prefers-color-scheme"
-	PermissionsPolicyFeatureChPrefersReducedMotion       PermissionsPolicyFeature = "ch-prefers-reduced-motion"
-	PermissionsPolicyFeatureChPrefersReducedTransparency PermissionsPolicyFeature = "ch-prefers-reduced-transparency"
-	PermissionsPolicyFeatureChRtt                        PermissionsPolicyFeature = "ch-rtt"
-	PermissionsPolicyFeatureChSaveData                   PermissionsPolicyFeature = "ch-save-data"
-	PermissionsPolicyFeatureChUa                         PermissionsPolicyFeature = "ch-ua"
-	PermissionsPolicyFeatureChUaArch                     PermissionsPolicyFeature = "ch-ua-arch"
-	PermissionsPolicyFeatureChUaBitness                  PermissionsPolicyFeature = "ch-ua-bitness"
-	PermissionsPolicyFeatureChUaPlatform                 PermissionsPolicyFeature = "ch-ua-platform"
-	PermissionsPolicyFeatureChUaModel                    PermissionsPolicyFeature = "ch-ua-model"
-	PermissionsPolicyFeatureChUaMobile                   PermissionsPolicyFeature = "ch-ua-mobile"
-	PermissionsPolicyFeatureChUaFormFactors              PermissionsPolicyFeature = "ch-ua-form-factors"
-	PermissionsPolicyFeatureChUaFullVersion              PermissionsPolicyFeature = "ch-ua-full-version"
-	PermissionsPolicyFeatureChUaFullVersionList          PermissionsPolicyFeature = "ch-ua-full-version-list"
-	PermissionsPolicyFeatureChUaPlatformVersion          PermissionsPolicyFeature = "ch-ua-platform-version"
-	PermissionsPolicyFeatureChUaWow64                    PermissionsPolicyFeature = "ch-ua-wow64"
-	PermissionsPolicyFeatureChViewportHeight             PermissionsPolicyFeature = "ch-viewport-height"
-	PermissionsPolicyFeatureChViewportWidth              PermissionsPolicyFeature = "ch-viewport-width"
-	PermissionsPolicyFeatureChWidth                      PermissionsPolicyFeature = "ch-width"
-	PermissionsPolicyFeatureClipboardRead                PermissionsPolicyFeature = "clipboard-read"
-	PermissionsPolicyFeatureClipboardWrite               PermissionsPolicyFeature = "clipboard-write"
-	PermissionsPolicyFeatureComputePressure              PermissionsPolicyFeature = "compute-pressure"
-	PermissionsPolicyFeatureCrossOriginIsolated          PermissionsPolicyFeature = "cross-origin-isolated"
-	PermissionsPolicyFeatureDirectSockets                PermissionsPolicyFeature = "direct-sockets"
-	PermissionsPolicyFeatureDisplayCapture               PermissionsPolicyFeature = "display-capture"
-	PermissionsPolicyFeatureDocumentDomain               PermissionsPolicyFeature = "document-domain"
-	PermissionsPolicyFeatureEncryptedMedia               PermissionsPolicyFeature = "encrypted-media"
-	PermissionsPolicyFeatureExecutionWhileOutOfViewport  PermissionsPolicyFeature = "execution-while-out-of-viewport"
-	PermissionsPolicyFeatureExecutionWhileNotRendered    PermissionsPolicyFeature = "execution-while-not-rendered"
-	PermissionsPolicyFeatureFocusWithoutUserActivation   PermissionsPolicyFeature = "focus-without-user-activation"
-	PermissionsPolicyFeatureFullscreen                   PermissionsPolicyFeature = "fullscreen"
-	PermissionsPolicyFeatureFrobulate                    PermissionsPolicyFeature = "frobulate"
-	PermissionsPolicyFeatureGamepad                      PermissionsPolicyFeature = "gamepad"
-	PermissionsPolicyFeatureGeolocation                  PermissionsPolicyFeature = "geolocation"
-	PermissionsPolicyFeatureGyroscope                    PermissionsPolicyFeature = "gyroscope"
-	PermissionsPolicyFeatureHid                          PermissionsPolicyFeature = "hid"
-	PermissionsPolicyFeatureIdentityCredentialsGet       PermissionsPolicyFeature = "identity-credentials-get"
-	PermissionsPolicyFeatureIdleDetection                PermissionsPolicyFeature = "idle-detection"
-	PermissionsPolicyFeatureInterestCohort               PermissionsPolicyFeature = "interest-cohort"
-	PermissionsPolicyFeatureJoinAdInterestGroup          PermissionsPolicyFeature = "join-ad-interest-group"
-	PermissionsPolicyFeatureKeyboardMap                  PermissionsPolicyFeature = "keyboard-map"
-	PermissionsPolicyFeatureLocalFonts                   PermissionsPolicyFeature = "local-fonts"
-	PermissionsPolicyFeatureMagnetometer                 PermissionsPolicyFeature = "magnetometer"
-	PermissionsPolicyFeatureMicrophone                   PermissionsPolicyFeature = "microphone"
-	PermissionsPolicyFeatureMidi                         PermissionsPolicyFeature = "midi"
-	PermissionsPolicyFeatureOtpCredentials               PermissionsPolicyFeature = "otp-credentials"
-	PermissionsPolicyFeaturePayment                      PermissionsPolicyFeature = "payment"
-	PermissionsPolicyFeaturePictureInPicture             PermissionsPolicyFeature = "picture-in-picture"
-	PermissionsPolicyFeaturePrivateAggregation           PermissionsPolicyFeature = "private-aggregation"
-	PermissionsPolicyFeaturePrivateStateTokenIssuance    PermissionsPolicyFeature = "private-state-token-issuance"
-	PermissionsPolicyFeaturePrivateStateTokenRedemption  PermissionsPolicyFeature = "private-state-token-redemption"
-	PermissionsPolicyFeaturePublickeyCredentialsCreate   PermissionsPolicyFeature = "publickey-credentials-create"
-	PermissionsPolicyFeaturePublickeyCredentialsGet      PermissionsPolicyFeature = "publickey-credentials-get"
-	PermissionsPolicyFeatureRunAdAuction                 PermissionsPolicyFeature = "run-ad-auction"
-	PermissionsPolicyFeatureScreenWakeLock               PermissionsPolicyFeature = "screen-wake-lock"
-	PermissionsPolicyFeatureSerial                       PermissionsPolicyFeature = "serial"
-	PermissionsPolicyFeatureSharedAutofill               PermissionsPolicyFeature = "shared-autofill"
-	PermissionsPolicyFeatureSharedStorage                PermissionsPolicyFeature = "shared-storage"
-	PermissionsPolicyFeatureSharedStorageSelectURL       PermissionsPolicyFeature = "shared-storage-select-url"
-	PermissionsPolicyFeatureSmartCard                    PermissionsPolicyFeature = "smart-card"
-	PermissionsPolicyFeatureSpeakerSelection             PermissionsPolicyFeature = "speaker-selection"
-	PermissionsPolicyFeatureStorageAccess                PermissionsPolicyFeature = "storage-access"
-	PermissionsPolicyFeatureSubApps                      PermissionsPolicyFeature = "sub-apps"
-	PermissionsPolicyFeatureSyncXhr                      PermissionsPolicyFeature = "sync-xhr"
-	PermissionsPolicyFeatureUnload                       PermissionsPolicyFeature = "unload"
-	PermissionsPolicyFeatureUsb                          PermissionsPolicyFeature = "usb"
-	PermissionsPolicyFeatureUsbUnrestricted              PermissionsPolicyFeature = "usb-unrestricted"
-	PermissionsPolicyFeatureVerticalScroll               PermissionsPolicyFeature = "vertical-scroll"
-	PermissionsPolicyFeatureWebPrinting                  PermissionsPolicyFeature = "web-printing"
-	PermissionsPolicyFeatureWebShare                     PermissionsPolicyFeature = "web-share"
-	PermissionsPolicyFeatureWindowManagement             PermissionsPolicyFeature = "window-management"
-	PermissionsPolicyFeatureWindowPlacement              PermissionsPolicyFeature = "window-placement"
-	PermissionsPolicyFeatureXrSpatialTracking            PermissionsPolicyFeature = "xr-spatial-tracking"
+	PermissionsPolicyFeatureAccelerometer                  PermissionsPolicyFeature = "accelerometer"
+	PermissionsPolicyFeatureAllScreensCapture              PermissionsPolicyFeature = "all-screens-capture"
+	PermissionsPolicyFeatureAmbientLightSensor             PermissionsPolicyFeature = "ambient-light-sensor"
+	PermissionsPolicyFeatureAriaNotify                     PermissionsPolicyFeature = "aria-notify"
+	PermissionsPolicyFeatureAttributionReporting           PermissionsPolicyFeature = "attribution-reporting"
+	PermissionsPolicyFeatureAutoplay                       PermissionsPolicyFeature = "autoplay"
+	PermissionsPolicyFeatureBluetooth                      PermissionsPolicyFeature = "bluetooth"
+	PermissionsPolicyFeatureBrowsingTopics                 PermissionsPolicyFeature = "browsing-topics"
+	PermissionsPolicyFeatureCamera                         PermissionsPolicyFeature = "camera"
+	PermissionsPolicyFeatureCapturedSurfaceControl         PermissionsPolicyFeature = "captured-surface-control"
+	PermissionsPolicyFeatureChDpr                          PermissionsPolicyFeature = "ch-dpr"
+	PermissionsPolicyFeatureChDeviceMemory                 PermissionsPolicyFeature = "ch-device-memory"
+	PermissionsPolicyFeatureChDownlink                     PermissionsPolicyFeature = "ch-downlink"
+	PermissionsPolicyFeatureChEct                          PermissionsPolicyFeature = "ch-ect"
+	PermissionsPolicyFeatureChPrefersColorScheme           PermissionsPolicyFeature = "ch-prefers-color-scheme"
+	PermissionsPolicyFeatureChPrefersReducedMotion         PermissionsPolicyFeature = "ch-prefers-reduced-motion"
+	PermissionsPolicyFeatureChPrefersReducedTransparency   PermissionsPolicyFeature = "ch-prefers-reduced-transparency"
+	PermissionsPolicyFeatureChRtt                          PermissionsPolicyFeature = "ch-rtt"
+	PermissionsPolicyFeatureChSaveData                     PermissionsPolicyFeature = "ch-save-data"
+	PermissionsPolicyFeatureChUa                           PermissionsPolicyFeature = "ch-ua"
+	PermissionsPolicyFeatureChUaArch                       PermissionsPolicyFeature = "ch-ua-arch"
+	PermissionsPolicyFeatureChUaBitness                    PermissionsPolicyFeature = "ch-ua-bitness"
+	PermissionsPolicyFeatureChUaHighEntropyValues          PermissionsPolicyFeature = "ch-ua-high-entropy-values"
+	PermissionsPolicyFeatureChUaPlatform                   PermissionsPolicyFeature = "ch-ua-platform"
+	PermissionsPolicyFeatureChUaModel                      PermissionsPolicyFeature = "ch-ua-model"
+	PermissionsPolicyFeatureChUaMobile                     PermissionsPolicyFeature = "ch-ua-mobile"
+	PermissionsPolicyFeatureChUaFormFactors                PermissionsPolicyFeature = "ch-ua-form-factors"
+	PermissionsPolicyFeatureChUaFullVersion                PermissionsPolicyFeature = "ch-ua-full-version"
+	PermissionsPolicyFeatureChUaFullVersionList            PermissionsPolicyFeature = "ch-ua-full-version-list"
+	PermissionsPolicyFeatureChUaPlatformVersion            PermissionsPolicyFeature = "ch-ua-platform-version"
+	PermissionsPolicyFeatureChUaWow64                      PermissionsPolicyFeature = "ch-ua-wow64"
+	PermissionsPolicyFeatureChViewportHeight               PermissionsPolicyFeature = "ch-viewport-height"
+	PermissionsPolicyFeatureChViewportWidth                PermissionsPolicyFeature = "ch-viewport-width"
+	PermissionsPolicyFeatureChWidth                        PermissionsPolicyFeature = "ch-width"
+	PermissionsPolicyFeatureClipboardRead                  PermissionsPolicyFeature = "clipboard-read"
+	PermissionsPolicyFeatureClipboardWrite                 PermissionsPolicyFeature = "clipboard-write"
+	PermissionsPolicyFeatureComputePressure                PermissionsPolicyFeature = "compute-pressure"
+	PermissionsPolicyFeatureControlledFrame                PermissionsPolicyFeature = "controlled-frame"
+	PermissionsPolicyFeatureCrossOriginIsolated            PermissionsPolicyFeature = "cross-origin-isolated"
+	PermissionsPolicyFeatureDeferredFetch                  PermissionsPolicyFeature = "deferred-fetch"
+	PermissionsPolicyFeatureDeferredFetchMinimal           PermissionsPolicyFeature = "deferred-fetch-minimal"
+	PermissionsPolicyFeatureDeviceAttributes               PermissionsPolicyFeature = "device-attributes"
+	PermissionsPolicyFeatureDigitalCredentialsGet          PermissionsPolicyFeature = "digital-credentials-get"
+	PermissionsPolicyFeatureDirectSockets                  PermissionsPolicyFeature = "direct-sockets"
+	PermissionsPolicyFeatureDirectSocketsPrivate           PermissionsPolicyFeature = "direct-sockets-private"
+	PermissionsPolicyFeatureDisplayCapture                 PermissionsPolicyFeature = "display-capture"
+	PermissionsPolicyFeatureDocumentDomain                 PermissionsPolicyFeature = "document-domain"
+	PermissionsPolicyFeatureEncryptedMedia                 PermissionsPolicyFeature = "encrypted-media"
+	PermissionsPolicyFeatureExecutionWhileOutOfViewport    PermissionsPolicyFeature = "execution-while-out-of-viewport"
+	PermissionsPolicyFeatureExecutionWhileNotRendered      PermissionsPolicyFeature = "execution-while-not-rendered"
+	PermissionsPolicyFeatureFencedUnpartitionedStorageRead PermissionsPolicyFeature = "fenced-unpartitioned-storage-read"
+	PermissionsPolicyFeatureFocusWithoutUserActivation     PermissionsPolicyFeature = "focus-without-user-activation"
+	PermissionsPolicyFeatureFullscreen                     PermissionsPolicyFeature = "fullscreen"
+	PermissionsPolicyFeatureFrobulate                      PermissionsPolicyFeature = "frobulate"
+	PermissionsPolicyFeatureGamepad                        PermissionsPolicyFeature = "gamepad"
+	PermissionsPolicyFeatureGeolocation                    PermissionsPolicyFeature = "geolocation"
+	PermissionsPolicyFeatureGyroscope                      PermissionsPolicyFeature = "gyroscope"
+	PermissionsPolicyFeatureHid                            PermissionsPolicyFeature = "hid"
+	PermissionsPolicyFeatureIdentityCredentialsGet         PermissionsPolicyFeature = "identity-credentials-get"
+	PermissionsPolicyFeatureIdleDetection                  PermissionsPolicyFeature = "idle-detection"
+	PermissionsPolicyFeatureInterestCohort                 PermissionsPolicyFeature = "interest-cohort"
+	PermissionsPolicyFeatureJoinAdInterestGroup            PermissionsPolicyFeature = "join-ad-interest-group"
+	PermissionsPolicyFeatureKeyboardMap                    PermissionsPolicyFeature = "keyboard-map"
+	PermissionsPolicyFeatureLanguageDetector               PermissionsPolicyFeature = "language-detector"
+	PermissionsPolicyFeatureLanguageModel                  PermissionsPolicyFeature = "language-model"
+	PermissionsPolicyFeatureLocalFonts                     PermissionsPolicyFeature = "local-fonts"
+	PermissionsPolicyFeatureLocalNetworkAccess             PermissionsPolicyFeature = "local-network-access"
+	PermissionsPolicyFeatureMagnetometer                   PermissionsPolicyFeature = "magnetometer"
+	PermissionsPolicyFeatureMediaPlaybackWhileNotVisible   PermissionsPolicyFeature = "media-playback-while-not-visible"
+	PermissionsPolicyFeatureMicrophone                     PermissionsPolicyFeature = "microphone"
+	PermissionsPolicyFeatureMidi                           PermissionsPolicyFeature = "midi"
+	PermissionsPolicyFeatureOnDeviceSpeechRecognition      PermissionsPolicyFeature = "on-device-speech-recognition"
+	PermissionsPolicyFeatureOtpCredentials                 PermissionsPolicyFeature = "otp-credentials"
+	PermissionsPolicyFeaturePayment                        PermissionsPolicyFeature = "payment"
+	PermissionsPolicyFeaturePictureInPicture               PermissionsPolicyFeature = "picture-in-picture"
+	PermissionsPolicyFeaturePopins                         PermissionsPolicyFeature = "popins"
+	PermissionsPolicyFeaturePrivateAggregation             PermissionsPolicyFeature = "private-aggregation"
+	PermissionsPolicyFeaturePrivateStateTokenIssuance      PermissionsPolicyFeature = "private-state-token-issuance"
+	PermissionsPolicyFeaturePrivateStateTokenRedemption    PermissionsPolicyFeature = "private-state-token-redemption"
+	PermissionsPolicyFeaturePublickeyCredentialsCreate     PermissionsPolicyFeature = "publickey-credentials-create"
+	PermissionsPolicyFeaturePublickeyCredentialsGet        PermissionsPolicyFeature = "publickey-credentials-get"
+	PermissionsPolicyFeatureRecordAdAuctionEvents          PermissionsPolicyFeature = "record-ad-auction-events"
+	PermissionsPolicyFeatureRewriter                       PermissionsPolicyFeature = "rewriter"
+	PermissionsPolicyFeatureRunAdAuction                   PermissionsPolicyFeature = "run-ad-auction"
+	PermissionsPolicyFeatureScreenWakeLock                 PermissionsPolicyFeature = "screen-wake-lock"
+	PermissionsPolicyFeatureSerial                         PermissionsPolicyFeature = "serial"
+	PermissionsPolicyFeatureSharedAutofill                 PermissionsPolicyFeature = "shared-autofill"
+	PermissionsPolicyFeatureSharedStorage                  PermissionsPolicyFeature = "shared-storage"
+	PermissionsPolicyFeatureSharedStorageSelectURL         PermissionsPolicyFeature = "shared-storage-select-url"
+	PermissionsPolicyFeatureSmartCard                      PermissionsPolicyFeature = "smart-card"
+	PermissionsPolicyFeatureSpeakerSelection               PermissionsPolicyFeature = "speaker-selection"
+	PermissionsPolicyFeatureStorageAccess                  PermissionsPolicyFeature = "storage-access"
+	PermissionsPolicyFeatureSubApps                        PermissionsPolicyFeature = "sub-apps"
+	PermissionsPolicyFeatureSummarizer                     PermissionsPolicyFeature = "summarizer"
+	PermissionsPolicyFeatureSyncXhr                        PermissionsPolicyFeature = "sync-xhr"
+	PermissionsPolicyFeatureTranslator                     PermissionsPolicyFeature = "translator"
+	PermissionsPolicyFeatureUnload                         PermissionsPolicyFeature = "unload"
+	PermissionsPolicyFeatureUsb                            PermissionsPolicyFeature = "usb"
+	PermissionsPolicyFeatureUsbUnrestricted                PermissionsPolicyFeature = "usb-unrestricted"
+	PermissionsPolicyFeatureVerticalScroll                 PermissionsPolicyFeature = "vertical-scroll"
+	PermissionsPolicyFeatureWebAppInstallation             PermissionsPolicyFeature = "web-app-installation"
+	PermissionsPolicyFeatureWebPrinting                    PermissionsPolicyFeature = "web-printing"
+	PermissionsPolicyFeatureWebShare                       PermissionsPolicyFeature = "web-share"
+	PermissionsPolicyFeatureWindowManagement               PermissionsPolicyFeature = "window-management"
+	PermissionsPolicyFeatureWriter                         PermissionsPolicyFeature = "writer"
+	PermissionsPolicyFeatureXrSpatialTracking              PermissionsPolicyFeature = "xr-spatial-tracking"
 )
 
-// MarshalEasyJSON satisfies easyjson.Marshaler.
-func (t PermissionsPolicyFeature) MarshalEasyJSON(out *jwriter.Writer) {
-	out.String(string(t))
-}
+// UnmarshalJSON satisfies [json.Unmarshaler].
+func (t *PermissionsPolicyFeature) UnmarshalJSON(buf []byte) error {
+	s := string(buf)
+	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
 
-// MarshalJSON satisfies json.Marshaler.
-func (t PermissionsPolicyFeature) MarshalJSON() ([]byte, error) {
-	return easyjson.Marshal(t)
-}
-
-// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
-func (t *PermissionsPolicyFeature) UnmarshalEasyJSON(in *jlexer.Lexer) {
-	v := in.String()
-	switch PermissionsPolicyFeature(v) {
+	switch PermissionsPolicyFeature(s) {
 	case PermissionsPolicyFeatureAccelerometer:
 		*t = PermissionsPolicyFeatureAccelerometer
+	case PermissionsPolicyFeatureAllScreensCapture:
+		*t = PermissionsPolicyFeatureAllScreensCapture
 	case PermissionsPolicyFeatureAmbientLightSensor:
 		*t = PermissionsPolicyFeatureAmbientLightSensor
+	case PermissionsPolicyFeatureAriaNotify:
+		*t = PermissionsPolicyFeatureAriaNotify
 	case PermissionsPolicyFeatureAttributionReporting:
 		*t = PermissionsPolicyFeatureAttributionReporting
 	case PermissionsPolicyFeatureAutoplay:
@@ -177,6 +203,8 @@ func (t *PermissionsPolicyFeature) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = PermissionsPolicyFeatureChUaArch
 	case PermissionsPolicyFeatureChUaBitness:
 		*t = PermissionsPolicyFeatureChUaBitness
+	case PermissionsPolicyFeatureChUaHighEntropyValues:
+		*t = PermissionsPolicyFeatureChUaHighEntropyValues
 	case PermissionsPolicyFeatureChUaPlatform:
 		*t = PermissionsPolicyFeatureChUaPlatform
 	case PermissionsPolicyFeatureChUaModel:
@@ -205,10 +233,22 @@ func (t *PermissionsPolicyFeature) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = PermissionsPolicyFeatureClipboardWrite
 	case PermissionsPolicyFeatureComputePressure:
 		*t = PermissionsPolicyFeatureComputePressure
+	case PermissionsPolicyFeatureControlledFrame:
+		*t = PermissionsPolicyFeatureControlledFrame
 	case PermissionsPolicyFeatureCrossOriginIsolated:
 		*t = PermissionsPolicyFeatureCrossOriginIsolated
+	case PermissionsPolicyFeatureDeferredFetch:
+		*t = PermissionsPolicyFeatureDeferredFetch
+	case PermissionsPolicyFeatureDeferredFetchMinimal:
+		*t = PermissionsPolicyFeatureDeferredFetchMinimal
+	case PermissionsPolicyFeatureDeviceAttributes:
+		*t = PermissionsPolicyFeatureDeviceAttributes
+	case PermissionsPolicyFeatureDigitalCredentialsGet:
+		*t = PermissionsPolicyFeatureDigitalCredentialsGet
 	case PermissionsPolicyFeatureDirectSockets:
 		*t = PermissionsPolicyFeatureDirectSockets
+	case PermissionsPolicyFeatureDirectSocketsPrivate:
+		*t = PermissionsPolicyFeatureDirectSocketsPrivate
 	case PermissionsPolicyFeatureDisplayCapture:
 		*t = PermissionsPolicyFeatureDisplayCapture
 	case PermissionsPolicyFeatureDocumentDomain:
@@ -219,6 +259,8 @@ func (t *PermissionsPolicyFeature) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = PermissionsPolicyFeatureExecutionWhileOutOfViewport
 	case PermissionsPolicyFeatureExecutionWhileNotRendered:
 		*t = PermissionsPolicyFeatureExecutionWhileNotRendered
+	case PermissionsPolicyFeatureFencedUnpartitionedStorageRead:
+		*t = PermissionsPolicyFeatureFencedUnpartitionedStorageRead
 	case PermissionsPolicyFeatureFocusWithoutUserActivation:
 		*t = PermissionsPolicyFeatureFocusWithoutUserActivation
 	case PermissionsPolicyFeatureFullscreen:
@@ -243,20 +285,32 @@ func (t *PermissionsPolicyFeature) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = PermissionsPolicyFeatureJoinAdInterestGroup
 	case PermissionsPolicyFeatureKeyboardMap:
 		*t = PermissionsPolicyFeatureKeyboardMap
+	case PermissionsPolicyFeatureLanguageDetector:
+		*t = PermissionsPolicyFeatureLanguageDetector
+	case PermissionsPolicyFeatureLanguageModel:
+		*t = PermissionsPolicyFeatureLanguageModel
 	case PermissionsPolicyFeatureLocalFonts:
 		*t = PermissionsPolicyFeatureLocalFonts
+	case PermissionsPolicyFeatureLocalNetworkAccess:
+		*t = PermissionsPolicyFeatureLocalNetworkAccess
 	case PermissionsPolicyFeatureMagnetometer:
 		*t = PermissionsPolicyFeatureMagnetometer
+	case PermissionsPolicyFeatureMediaPlaybackWhileNotVisible:
+		*t = PermissionsPolicyFeatureMediaPlaybackWhileNotVisible
 	case PermissionsPolicyFeatureMicrophone:
 		*t = PermissionsPolicyFeatureMicrophone
 	case PermissionsPolicyFeatureMidi:
 		*t = PermissionsPolicyFeatureMidi
+	case PermissionsPolicyFeatureOnDeviceSpeechRecognition:
+		*t = PermissionsPolicyFeatureOnDeviceSpeechRecognition
 	case PermissionsPolicyFeatureOtpCredentials:
 		*t = PermissionsPolicyFeatureOtpCredentials
 	case PermissionsPolicyFeaturePayment:
 		*t = PermissionsPolicyFeaturePayment
 	case PermissionsPolicyFeaturePictureInPicture:
 		*t = PermissionsPolicyFeaturePictureInPicture
+	case PermissionsPolicyFeaturePopins:
+		*t = PermissionsPolicyFeaturePopins
 	case PermissionsPolicyFeaturePrivateAggregation:
 		*t = PermissionsPolicyFeaturePrivateAggregation
 	case PermissionsPolicyFeaturePrivateStateTokenIssuance:
@@ -267,6 +321,10 @@ func (t *PermissionsPolicyFeature) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = PermissionsPolicyFeaturePublickeyCredentialsCreate
 	case PermissionsPolicyFeaturePublickeyCredentialsGet:
 		*t = PermissionsPolicyFeaturePublickeyCredentialsGet
+	case PermissionsPolicyFeatureRecordAdAuctionEvents:
+		*t = PermissionsPolicyFeatureRecordAdAuctionEvents
+	case PermissionsPolicyFeatureRewriter:
+		*t = PermissionsPolicyFeatureRewriter
 	case PermissionsPolicyFeatureRunAdAuction:
 		*t = PermissionsPolicyFeatureRunAdAuction
 	case PermissionsPolicyFeatureScreenWakeLock:
@@ -287,8 +345,12 @@ func (t *PermissionsPolicyFeature) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = PermissionsPolicyFeatureStorageAccess
 	case PermissionsPolicyFeatureSubApps:
 		*t = PermissionsPolicyFeatureSubApps
+	case PermissionsPolicyFeatureSummarizer:
+		*t = PermissionsPolicyFeatureSummarizer
 	case PermissionsPolicyFeatureSyncXhr:
 		*t = PermissionsPolicyFeatureSyncXhr
+	case PermissionsPolicyFeatureTranslator:
+		*t = PermissionsPolicyFeatureTranslator
 	case PermissionsPolicyFeatureUnload:
 		*t = PermissionsPolicyFeatureUnload
 	case PermissionsPolicyFeatureUsb:
@@ -297,25 +359,22 @@ func (t *PermissionsPolicyFeature) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = PermissionsPolicyFeatureUsbUnrestricted
 	case PermissionsPolicyFeatureVerticalScroll:
 		*t = PermissionsPolicyFeatureVerticalScroll
+	case PermissionsPolicyFeatureWebAppInstallation:
+		*t = PermissionsPolicyFeatureWebAppInstallation
 	case PermissionsPolicyFeatureWebPrinting:
 		*t = PermissionsPolicyFeatureWebPrinting
 	case PermissionsPolicyFeatureWebShare:
 		*t = PermissionsPolicyFeatureWebShare
 	case PermissionsPolicyFeatureWindowManagement:
 		*t = PermissionsPolicyFeatureWindowManagement
-	case PermissionsPolicyFeatureWindowPlacement:
-		*t = PermissionsPolicyFeatureWindowPlacement
+	case PermissionsPolicyFeatureWriter:
+		*t = PermissionsPolicyFeatureWriter
 	case PermissionsPolicyFeatureXrSpatialTracking:
 		*t = PermissionsPolicyFeatureXrSpatialTracking
-
 	default:
-		in.AddError(fmt.Errorf("unknown PermissionsPolicyFeature value: %v", v))
+		return fmt.Errorf("unknown PermissionsPolicyFeature value: %v", s)
 	}
-}
-
-// UnmarshalJSON satisfies json.Unmarshaler.
-func (t *PermissionsPolicyFeature) UnmarshalJSON(buf []byte) error {
-	return easyjson.Unmarshal(buf, t)
+	return nil
 }
 
 // PermissionsPolicyBlockReason reason for a permissions policy feature to be
@@ -337,20 +396,12 @@ const (
 	PermissionsPolicyBlockReasonInIsolatedApp     PermissionsPolicyBlockReason = "InIsolatedApp"
 )
 
-// MarshalEasyJSON satisfies easyjson.Marshaler.
-func (t PermissionsPolicyBlockReason) MarshalEasyJSON(out *jwriter.Writer) {
-	out.String(string(t))
-}
+// UnmarshalJSON satisfies [json.Unmarshaler].
+func (t *PermissionsPolicyBlockReason) UnmarshalJSON(buf []byte) error {
+	s := string(buf)
+	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
 
-// MarshalJSON satisfies json.Marshaler.
-func (t PermissionsPolicyBlockReason) MarshalJSON() ([]byte, error) {
-	return easyjson.Marshal(t)
-}
-
-// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
-func (t *PermissionsPolicyBlockReason) UnmarshalEasyJSON(in *jlexer.Lexer) {
-	v := in.String()
-	switch PermissionsPolicyBlockReason(v) {
+	switch PermissionsPolicyBlockReason(s) {
 	case PermissionsPolicyBlockReasonHeader:
 		*t = PermissionsPolicyBlockReasonHeader
 	case PermissionsPolicyBlockReasonIframeAttribute:
@@ -359,15 +410,10 @@ func (t *PermissionsPolicyBlockReason) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = PermissionsPolicyBlockReasonInFencedFrameTree
 	case PermissionsPolicyBlockReasonInIsolatedApp:
 		*t = PermissionsPolicyBlockReasonInIsolatedApp
-
 	default:
-		in.AddError(fmt.Errorf("unknown PermissionsPolicyBlockReason value: %v", v))
+		return fmt.Errorf("unknown PermissionsPolicyBlockReason value: %v", s)
 	}
-}
-
-// UnmarshalJSON satisfies json.Unmarshaler.
-func (t *PermissionsPolicyBlockReason) UnmarshalJSON(buf []byte) error {
-	return easyjson.Unmarshal(buf, t)
+	return nil
 }
 
 // PermissionsPolicyBlockLocator [no description].
@@ -384,20 +430,20 @@ type PermissionsPolicyBlockLocator struct {
 type PermissionsPolicyFeatureState struct {
 	Feature PermissionsPolicyFeature       `json:"feature"`
 	Allowed bool                           `json:"allowed"`
-	Locator *PermissionsPolicyBlockLocator `json:"locator,omitempty"`
+	Locator *PermissionsPolicyBlockLocator `json:"locator,omitempty,omitzero"`
 }
 
 // FrameResource information about the Resource on the page.
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-FrameResource
 type FrameResource struct {
-	URL          string               `json:"url"`                    // Resource URL.
-	Type         network.ResourceType `json:"type"`                   // Type of this resource.
-	MimeType     string               `json:"mimeType"`               // Resource mimeType as determined by the browser.
-	LastModified *cdp.TimeSinceEpoch  `json:"lastModified,omitempty"` // last-modified timestamp as reported by server.
-	ContentSize  float64              `json:"contentSize,omitempty"`  // Resource content size.
-	Failed       bool                 `json:"failed,omitempty"`       // True if the resource failed to load.
-	Canceled     bool                 `json:"canceled,omitempty"`     // True if the resource was canceled during loading.
+	URL          string               `json:"url"`                             // Resource URL.
+	Type         network.ResourceType `json:"type"`                            // Type of this resource.
+	MimeType     string               `json:"mimeType"`                        // Resource mimeType as determined by the browser.
+	LastModified *cdp.TimeSinceEpoch  `json:"lastModified,omitempty,omitzero"` // last-modified timestamp as reported by server.
+	ContentSize  float64              `json:"contentSize,omitempty,omitzero"`  // Resource content size.
+	Failed       bool                 `json:"failed"`                          // True if the resource failed to load.
+	Canceled     bool                 `json:"canceled"`                        // True if the resource was canceled during loading.
 }
 
 // FrameResourceTree information about the Frame hierarchy along with their
@@ -405,17 +451,17 @@ type FrameResource struct {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-FrameResourceTree
 type FrameResourceTree struct {
-	Frame       *cdp.Frame           `json:"frame"`                 // Frame information for this tree item.
-	ChildFrames []*FrameResourceTree `json:"childFrames,omitempty"` // Child frames.
-	Resources   []*FrameResource     `json:"resources"`             // Information about frame resources.
+	Frame       *cdp.Frame           `json:"frame"`                          // Frame information for this tree item.
+	ChildFrames []*FrameResourceTree `json:"childFrames,omitempty,omitzero"` // Child frames.
+	Resources   []*FrameResource     `json:"resources"`                      // Information about frame resources.
 }
 
 // FrameTree information about the Frame hierarchy.
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-FrameTree
 type FrameTree struct {
-	Frame       *cdp.Frame   `json:"frame"`                 // Frame information for this tree item.
-	ChildFrames []*FrameTree `json:"childFrames,omitempty"` // Child frames.
+	Frame       *cdp.Frame   `json:"frame"`                          // Frame information for this tree item.
+	ChildFrames []*FrameTree `json:"childFrames,omitempty,omitzero"` // Child frames.
 }
 
 // ScriptIdentifier unique script identifier.
@@ -455,20 +501,12 @@ const (
 	TransitionTypeOther            TransitionType = "other"
 )
 
-// MarshalEasyJSON satisfies easyjson.Marshaler.
-func (t TransitionType) MarshalEasyJSON(out *jwriter.Writer) {
-	out.String(string(t))
-}
+// UnmarshalJSON satisfies [json.Unmarshaler].
+func (t *TransitionType) UnmarshalJSON(buf []byte) error {
+	s := string(buf)
+	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
 
-// MarshalJSON satisfies json.Marshaler.
-func (t TransitionType) MarshalJSON() ([]byte, error) {
-	return easyjson.Marshal(t)
-}
-
-// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
-func (t *TransitionType) UnmarshalEasyJSON(in *jlexer.Lexer) {
-	v := in.String()
-	switch TransitionType(v) {
+	switch TransitionType(s) {
 	case TransitionTypeLink:
 		*t = TransitionTypeLink
 	case TransitionTypeTyped:
@@ -495,15 +533,10 @@ func (t *TransitionType) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = TransitionTypeKeywordGenerated
 	case TransitionTypeOther:
 		*t = TransitionTypeOther
-
 	default:
-		in.AddError(fmt.Errorf("unknown TransitionType value: %v", v))
+		return fmt.Errorf("unknown TransitionType value: %v", s)
 	}
-}
-
-// UnmarshalJSON satisfies json.Unmarshaler.
-func (t *TransitionType) UnmarshalJSON(buf []byte) error {
-	return easyjson.Unmarshal(buf, t)
+	return nil
 }
 
 // NavigationEntry navigation history entry.
@@ -521,13 +554,13 @@ type NavigationEntry struct {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-ScreencastFrameMetadata
 type ScreencastFrameMetadata struct {
-	OffsetTop       float64             `json:"offsetTop"`           // Top offset in DIP.
-	PageScaleFactor float64             `json:"pageScaleFactor"`     // Page scale factor.
-	DeviceWidth     float64             `json:"deviceWidth"`         // Device screen width in DIP.
-	DeviceHeight    float64             `json:"deviceHeight"`        // Device screen height in DIP.
-	ScrollOffsetX   float64             `json:"scrollOffsetX"`       // Position of horizontal scroll in CSS pixels.
-	ScrollOffsetY   float64             `json:"scrollOffsetY"`       // Position of vertical scroll in CSS pixels.
-	Timestamp       *cdp.TimeSinceEpoch `json:"timestamp,omitempty"` // Frame swap timestamp.
+	OffsetTop       float64             `json:"offsetTop"`                    // Top offset in DIP.
+	PageScaleFactor float64             `json:"pageScaleFactor"`              // Page scale factor.
+	DeviceWidth     float64             `json:"deviceWidth"`                  // Device screen width in DIP.
+	DeviceHeight    float64             `json:"deviceHeight"`                 // Device screen height in DIP.
+	ScrollOffsetX   float64             `json:"scrollOffsetX"`                // Position of horizontal scroll in CSS pixels.
+	ScrollOffsetY   float64             `json:"scrollOffsetY"`                // Position of vertical scroll in CSS pixels.
+	Timestamp       *cdp.TimeSinceEpoch `json:"timestamp,omitempty,omitzero"` // Frame swap timestamp.
 }
 
 // DialogType javascript dialog type.
@@ -548,20 +581,12 @@ const (
 	DialogTypeBeforeunload DialogType = "beforeunload"
 )
 
-// MarshalEasyJSON satisfies easyjson.Marshaler.
-func (t DialogType) MarshalEasyJSON(out *jwriter.Writer) {
-	out.String(string(t))
-}
+// UnmarshalJSON satisfies [json.Unmarshaler].
+func (t *DialogType) UnmarshalJSON(buf []byte) error {
+	s := string(buf)
+	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
 
-// MarshalJSON satisfies json.Marshaler.
-func (t DialogType) MarshalJSON() ([]byte, error) {
-	return easyjson.Marshal(t)
-}
-
-// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
-func (t *DialogType) UnmarshalEasyJSON(in *jlexer.Lexer) {
-	v := in.String()
-	switch DialogType(v) {
+	switch DialogType(s) {
 	case DialogTypeAlert:
 		*t = DialogTypeAlert
 	case DialogTypeConfirm:
@@ -570,15 +595,10 @@ func (t *DialogType) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = DialogTypePrompt
 	case DialogTypeBeforeunload:
 		*t = DialogTypeBeforeunload
-
 	default:
-		in.AddError(fmt.Errorf("unknown DialogType value: %v", v))
+		return fmt.Errorf("unknown DialogType value: %v", s)
 	}
-}
-
-// UnmarshalJSON satisfies json.Unmarshaler.
-func (t *DialogType) UnmarshalJSON(buf []byte) error {
-	return easyjson.Unmarshal(buf, t)
+	return nil
 }
 
 // AppManifestError error while paring app manifest.
@@ -612,14 +632,14 @@ type LayoutViewport struct {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-VisualViewport
 type VisualViewport struct {
-	OffsetX      float64 `json:"offsetX"`        // Horizontal offset relative to the layout viewport (CSS pixels).
-	OffsetY      float64 `json:"offsetY"`        // Vertical offset relative to the layout viewport (CSS pixels).
-	PageX        float64 `json:"pageX"`          // Horizontal offset relative to the document (CSS pixels).
-	PageY        float64 `json:"pageY"`          // Vertical offset relative to the document (CSS pixels).
-	ClientWidth  float64 `json:"clientWidth"`    // Width (CSS pixels), excludes scrollbar if present.
-	ClientHeight float64 `json:"clientHeight"`   // Height (CSS pixels), excludes scrollbar if present.
-	Scale        float64 `json:"scale"`          // Scale relative to the ideal viewport (size at width=device-width).
-	Zoom         float64 `json:"zoom,omitempty"` // Page zoom factor (CSS to device independent pixels ratio).
+	OffsetX      float64 `json:"offsetX"`                 // Horizontal offset relative to the layout viewport (CSS pixels).
+	OffsetY      float64 `json:"offsetY"`                 // Vertical offset relative to the layout viewport (CSS pixels).
+	PageX        float64 `json:"pageX"`                   // Horizontal offset relative to the document (CSS pixels).
+	PageY        float64 `json:"pageY"`                   // Vertical offset relative to the document (CSS pixels).
+	ClientWidth  float64 `json:"clientWidth"`             // Width (CSS pixels), excludes scrollbar if present.
+	ClientHeight float64 `json:"clientHeight"`            // Height (CSS pixels), excludes scrollbar if present.
+	Scale        float64 `json:"scale"`                   // Scale relative to the ideal viewport (size at width=device-width).
+	Zoom         float64 `json:"zoom,omitempty,omitzero"` // Page zoom factor (CSS to device independent pixels ratio).
 }
 
 // Viewport viewport for capturing screenshot.
@@ -637,13 +657,13 @@ type Viewport struct {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-FontFamilies
 type FontFamilies struct {
-	Standard  string `json:"standard,omitempty"`  // The standard font-family.
-	Fixed     string `json:"fixed,omitempty"`     // The fixed font-family.
-	Serif     string `json:"serif,omitempty"`     // The serif font-family.
-	SansSerif string `json:"sansSerif,omitempty"` // The sansSerif font-family.
-	Cursive   string `json:"cursive,omitempty"`   // The cursive font-family.
-	Fantasy   string `json:"fantasy,omitempty"`   // The fantasy font-family.
-	Math      string `json:"math,omitempty"`      // The math font-family.
+	Standard  string `json:"standard,omitempty,omitzero"`  // The standard font-family.
+	Fixed     string `json:"fixed,omitempty,omitzero"`     // The fixed font-family.
+	Serif     string `json:"serif,omitempty,omitzero"`     // The serif font-family.
+	SansSerif string `json:"sansSerif,omitempty,omitzero"` // The sansSerif font-family.
+	Cursive   string `json:"cursive,omitempty,omitzero"`   // The cursive font-family.
+	Fantasy   string `json:"fantasy,omitempty,omitzero"`   // The fantasy font-family.
+	Math      string `json:"math,omitempty,omitzero"`      // The math font-family.
 }
 
 // ScriptFontFamilies font families collection for a script.
@@ -658,8 +678,8 @@ type ScriptFontFamilies struct {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-FontSizes
 type FontSizes struct {
-	Standard int64 `json:"standard,omitempty"` // Default standard font size.
-	Fixed    int64 `json:"fixed,omitempty"`    // Default fixed font size.
+	Standard int64 `json:"standard,omitempty,omitzero"` // Default standard font size.
+	Fixed    int64 `json:"fixed,omitempty,omitzero"`    // Default fixed font size.
 }
 
 // ClientNavigationReason [no description].
@@ -674,55 +694,48 @@ func (t ClientNavigationReason) String() string {
 
 // ClientNavigationReason values.
 const (
-	ClientNavigationReasonFormSubmissionGet     ClientNavigationReason = "formSubmissionGet"
-	ClientNavigationReasonFormSubmissionPost    ClientNavigationReason = "formSubmissionPost"
-	ClientNavigationReasonHTTPHeaderRefresh     ClientNavigationReason = "httpHeaderRefresh"
-	ClientNavigationReasonScriptInitiated       ClientNavigationReason = "scriptInitiated"
-	ClientNavigationReasonMetaTagRefresh        ClientNavigationReason = "metaTagRefresh"
-	ClientNavigationReasonPageBlockInterstitial ClientNavigationReason = "pageBlockInterstitial"
-	ClientNavigationReasonReload                ClientNavigationReason = "reload"
-	ClientNavigationReasonAnchorClick           ClientNavigationReason = "anchorClick"
+	ClientNavigationReasonAnchorClick            ClientNavigationReason = "anchorClick"
+	ClientNavigationReasonFormSubmissionGet      ClientNavigationReason = "formSubmissionGet"
+	ClientNavigationReasonFormSubmissionPost     ClientNavigationReason = "formSubmissionPost"
+	ClientNavigationReasonHTTPHeaderRefresh      ClientNavigationReason = "httpHeaderRefresh"
+	ClientNavigationReasonInitialFrameNavigation ClientNavigationReason = "initialFrameNavigation"
+	ClientNavigationReasonMetaTagRefresh         ClientNavigationReason = "metaTagRefresh"
+	ClientNavigationReasonOther                  ClientNavigationReason = "other"
+	ClientNavigationReasonPageBlockInterstitial  ClientNavigationReason = "pageBlockInterstitial"
+	ClientNavigationReasonReload                 ClientNavigationReason = "reload"
+	ClientNavigationReasonScriptInitiated        ClientNavigationReason = "scriptInitiated"
 )
 
-// MarshalEasyJSON satisfies easyjson.Marshaler.
-func (t ClientNavigationReason) MarshalEasyJSON(out *jwriter.Writer) {
-	out.String(string(t))
-}
+// UnmarshalJSON satisfies [json.Unmarshaler].
+func (t *ClientNavigationReason) UnmarshalJSON(buf []byte) error {
+	s := string(buf)
+	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
 
-// MarshalJSON satisfies json.Marshaler.
-func (t ClientNavigationReason) MarshalJSON() ([]byte, error) {
-	return easyjson.Marshal(t)
-}
-
-// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
-func (t *ClientNavigationReason) UnmarshalEasyJSON(in *jlexer.Lexer) {
-	v := in.String()
-	switch ClientNavigationReason(v) {
+	switch ClientNavigationReason(s) {
+	case ClientNavigationReasonAnchorClick:
+		*t = ClientNavigationReasonAnchorClick
 	case ClientNavigationReasonFormSubmissionGet:
 		*t = ClientNavigationReasonFormSubmissionGet
 	case ClientNavigationReasonFormSubmissionPost:
 		*t = ClientNavigationReasonFormSubmissionPost
 	case ClientNavigationReasonHTTPHeaderRefresh:
 		*t = ClientNavigationReasonHTTPHeaderRefresh
-	case ClientNavigationReasonScriptInitiated:
-		*t = ClientNavigationReasonScriptInitiated
+	case ClientNavigationReasonInitialFrameNavigation:
+		*t = ClientNavigationReasonInitialFrameNavigation
 	case ClientNavigationReasonMetaTagRefresh:
 		*t = ClientNavigationReasonMetaTagRefresh
+	case ClientNavigationReasonOther:
+		*t = ClientNavigationReasonOther
 	case ClientNavigationReasonPageBlockInterstitial:
 		*t = ClientNavigationReasonPageBlockInterstitial
 	case ClientNavigationReasonReload:
 		*t = ClientNavigationReasonReload
-	case ClientNavigationReasonAnchorClick:
-		*t = ClientNavigationReasonAnchorClick
-
+	case ClientNavigationReasonScriptInitiated:
+		*t = ClientNavigationReasonScriptInitiated
 	default:
-		in.AddError(fmt.Errorf("unknown ClientNavigationReason value: %v", v))
+		return fmt.Errorf("unknown ClientNavigationReason value: %v", s)
 	}
-}
-
-// UnmarshalJSON satisfies json.Unmarshaler.
-func (t *ClientNavigationReason) UnmarshalJSON(buf []byte) error {
-	return easyjson.Unmarshal(buf, t)
+	return nil
 }
 
 // ClientNavigationDisposition [no description].
@@ -743,20 +756,12 @@ const (
 	ClientNavigationDispositionDownload   ClientNavigationDisposition = "download"
 )
 
-// MarshalEasyJSON satisfies easyjson.Marshaler.
-func (t ClientNavigationDisposition) MarshalEasyJSON(out *jwriter.Writer) {
-	out.String(string(t))
-}
+// UnmarshalJSON satisfies [json.Unmarshaler].
+func (t *ClientNavigationDisposition) UnmarshalJSON(buf []byte) error {
+	s := string(buf)
+	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
 
-// MarshalJSON satisfies json.Marshaler.
-func (t ClientNavigationDisposition) MarshalJSON() ([]byte, error) {
-	return easyjson.Marshal(t)
-}
-
-// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
-func (t *ClientNavigationDisposition) UnmarshalEasyJSON(in *jlexer.Lexer) {
-	v := in.String()
-	switch ClientNavigationDisposition(v) {
+	switch ClientNavigationDisposition(s) {
 	case ClientNavigationDispositionCurrentTab:
 		*t = ClientNavigationDispositionCurrentTab
 	case ClientNavigationDispositionNewTab:
@@ -765,15 +770,10 @@ func (t *ClientNavigationDisposition) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = ClientNavigationDispositionNewWindow
 	case ClientNavigationDispositionDownload:
 		*t = ClientNavigationDispositionDownload
-
 	default:
-		in.AddError(fmt.Errorf("unknown ClientNavigationDisposition value: %v", v))
+		return fmt.Errorf("unknown ClientNavigationDisposition value: %v", s)
 	}
-}
-
-// UnmarshalJSON satisfies json.Unmarshaler.
-func (t *ClientNavigationDisposition) UnmarshalJSON(buf []byte) error {
-	return easyjson.Unmarshal(buf, t)
+	return nil
 }
 
 // InstallabilityErrorArgument [no description].
@@ -814,20 +814,12 @@ const (
 	ReferrerPolicyUnsafeURL                   ReferrerPolicy = "unsafeUrl"
 )
 
-// MarshalEasyJSON satisfies easyjson.Marshaler.
-func (t ReferrerPolicy) MarshalEasyJSON(out *jwriter.Writer) {
-	out.String(string(t))
-}
+// UnmarshalJSON satisfies [json.Unmarshaler].
+func (t *ReferrerPolicy) UnmarshalJSON(buf []byte) error {
+	s := string(buf)
+	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
 
-// MarshalJSON satisfies json.Marshaler.
-func (t ReferrerPolicy) MarshalJSON() ([]byte, error) {
-	return easyjson.Marshal(t)
-}
-
-// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
-func (t *ReferrerPolicy) UnmarshalEasyJSON(in *jlexer.Lexer) {
-	v := in.String()
-	switch ReferrerPolicy(v) {
+	switch ReferrerPolicy(s) {
 	case ReferrerPolicyNoReferrer:
 		*t = ReferrerPolicyNoReferrer
 	case ReferrerPolicyNoReferrerWhenDowngrade:
@@ -844,15 +836,10 @@ func (t *ReferrerPolicy) UnmarshalEasyJSON(in *jlexer.Lexer) {
 		*t = ReferrerPolicyStrictOriginWhenCrossOrigin
 	case ReferrerPolicyUnsafeURL:
 		*t = ReferrerPolicyUnsafeURL
-
 	default:
-		in.AddError(fmt.Errorf("unknown ReferrerPolicy value: %v", v))
+		return fmt.Errorf("unknown ReferrerPolicy value: %v", s)
 	}
-}
-
-// UnmarshalJSON satisfies json.Unmarshaler.
-func (t *ReferrerPolicy) UnmarshalJSON(buf []byte) error {
-	return easyjson.Unmarshal(buf, t)
+	return nil
 }
 
 // CompilationCacheParams per-script compilation cache parameters for
@@ -860,16 +847,16 @@ func (t *ReferrerPolicy) UnmarshalJSON(buf []byte) error {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-CompilationCacheParams
 type CompilationCacheParams struct {
-	URL   string `json:"url"`             // The URL of the script to produce a compilation cache entry for.
-	Eager bool   `json:"eager,omitempty"` // A hint to the backend whether eager compilation is recommended. (the actual compilation mode used is upon backend discretion).
+	URL   string `json:"url"`   // The URL of the script to produce a compilation cache entry for.
+	Eager bool   `json:"eager"` // A hint to the backend whether eager compilation is recommended. (the actual compilation mode used is upon backend discretion).
 }
 
 // FileFilter [no description].
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-FileFilter
 type FileFilter struct {
-	Name    string   `json:"name,omitempty"`
-	Accepts []string `json:"accepts,omitempty"`
+	Name    string   `json:"name,omitempty,omitzero"`
+	Accepts []string `json:"accepts,omitempty,omitzero"`
 }
 
 // FileHandler [no description].
@@ -878,9 +865,9 @@ type FileFilter struct {
 type FileHandler struct {
 	Action     string           `json:"action"`
 	Name       string           `json:"name"`
-	Icons      []*ImageResource `json:"icons,omitempty"`
-	Accepts    []*FileFilter    `json:"accepts,omitempty"` // Mimic a map, name is the key, accepts is the value.
-	LaunchType string           `json:"launchType"`        // Won't repeat the enums, using string for easy comparison. Same as the other enums below.
+	Icons      []*ImageResource `json:"icons,omitempty,omitzero"`
+	Accepts    []*FileFilter    `json:"accepts,omitempty,omitzero"` // Mimic a map, name is the key, accepts is the value.
+	LaunchType string           `json:"launchType"`                 // Won't repeat the enums, using string for easy comparison. Same as the other enums below.
 }
 
 // ImageResource the image definition used in both icon and screenshot.
@@ -888,8 +875,8 @@ type FileHandler struct {
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-ImageResource
 type ImageResource struct {
 	URL   string `json:"url"` // The src field in the definition, but changing to url in favor of consistency.
-	Sizes string `json:"sizes,omitempty"`
-	Type  string `json:"type,omitempty"`
+	Sizes string `json:"sizes,omitempty,omitzero"`
+	Type  string `json:"type,omitempty,omitzero"`
 }
 
 // LaunchHandler [no description].
@@ -911,7 +898,7 @@ type ProtocolHandler struct {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-RelatedApplication
 type RelatedApplication struct {
-	ID  string `json:"id,omitempty"`
+	ID  string `json:"id,omitempty,omitzero"`
 	URL string `json:"url"`
 }
 
@@ -929,7 +916,7 @@ type ScopeExtension struct {
 type Screenshot struct {
 	Image      *ImageResource `json:"image"`
 	FormFactor string         `json:"formFactor"`
-	Label      string         `json:"label,omitempty"`
+	Label      string         `json:"label,omitempty,omitzero"`
 }
 
 // ShareTarget [no description].
@@ -939,10 +926,10 @@ type ShareTarget struct {
 	Action  string        `json:"action"`
 	Method  string        `json:"method"`
 	Enctype string        `json:"enctype"`
-	Title   string        `json:"title,omitempty"` // Embed the ShareTargetParams
-	Text    string        `json:"text,omitempty"`
-	URL     string        `json:"url,omitempty"`
-	Files   []*FileFilter `json:"files,omitempty"`
+	Title   string        `json:"title,omitempty,omitzero"` // Embed the ShareTargetParams
+	Text    string        `json:"text,omitempty,omitzero"`
+	URL     string        `json:"url,omitempty,omitzero"`
+	Files   []*FileFilter `json:"files,omitempty,omitzero"`
 }
 
 // Shortcut [no description].
@@ -957,81 +944,29 @@ type Shortcut struct {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-WebAppManifest
 type WebAppManifest struct {
-	BackgroundColor           string                `json:"backgroundColor,omitempty"`
-	Description               string                `json:"description,omitempty"` // The extra description provided by the manifest.
-	Dir                       string                `json:"dir,omitempty"`
-	Display                   string                `json:"display,omitempty"`
-	DisplayOverrides          []string              `json:"displayOverrides,omitempty"` // The overrided display mode controlled by the user.
-	FileHandlers              []*FileHandler        `json:"fileHandlers,omitempty"`     // The handlers to open files.
-	Icons                     []*ImageResource      `json:"icons,omitempty"`
-	ID                        string                `json:"id,omitempty"`
-	Lang                      string                `json:"lang,omitempty"`
-	LaunchHandler             *LaunchHandler        `json:"launchHandler,omitempty"` // TODO(crbug.com/1231886): This field is non-standard and part of a Chrome experiment. See: https://github.com/WICG/web-app-launch/blob/main/launch_handler.md
-	Name                      string                `json:"name,omitempty"`
-	Orientation               string                `json:"orientation,omitempty"`
-	PreferRelatedApplications bool                  `json:"preferRelatedApplications,omitempty"`
-	ProtocolHandlers          []*ProtocolHandler    `json:"protocolHandlers,omitempty"` // The handlers to open protocols.
-	RelatedApplications       []*RelatedApplication `json:"relatedApplications,omitempty"`
-	Scope                     string                `json:"scope,omitempty"`
-	ScopeExtensions           []*ScopeExtension     `json:"scopeExtensions,omitempty"` // Non-standard, see https://github.com/WICG/manifest-incubations/blob/gh-pages/scope_extensions-explainer.md
-	Screenshots               []*Screenshot         `json:"screenshots,omitempty"`     // The screenshots used by chromium.
-	ShareTarget               *ShareTarget          `json:"shareTarget,omitempty"`
-	ShortName                 string                `json:"shortName,omitempty"`
-	Shortcuts                 []*Shortcut           `json:"shortcuts,omitempty"`
-	StartURL                  string                `json:"startUrl,omitempty"`
-	ThemeColor                string                `json:"themeColor,omitempty"`
-}
-
-// AutoResponseMode enum of possible auto-response for permission / prompt
-// dialogs.
-//
-// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-AutoResponseMode
-type AutoResponseMode string
-
-// String returns the AutoResponseMode as string value.
-func (t AutoResponseMode) String() string {
-	return string(t)
-}
-
-// AutoResponseMode values.
-const (
-	AutoResponseModeNone       AutoResponseMode = "none"
-	AutoResponseModeAutoAccept AutoResponseMode = "autoAccept"
-	AutoResponseModeAutoReject AutoResponseMode = "autoReject"
-	AutoResponseModeAutoOptOut AutoResponseMode = "autoOptOut"
-)
-
-// MarshalEasyJSON satisfies easyjson.Marshaler.
-func (t AutoResponseMode) MarshalEasyJSON(out *jwriter.Writer) {
-	out.String(string(t))
-}
-
-// MarshalJSON satisfies json.Marshaler.
-func (t AutoResponseMode) MarshalJSON() ([]byte, error) {
-	return easyjson.Marshal(t)
-}
-
-// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
-func (t *AutoResponseMode) UnmarshalEasyJSON(in *jlexer.Lexer) {
-	v := in.String()
-	switch AutoResponseMode(v) {
-	case AutoResponseModeNone:
-		*t = AutoResponseModeNone
-	case AutoResponseModeAutoAccept:
-		*t = AutoResponseModeAutoAccept
-	case AutoResponseModeAutoReject:
-		*t = AutoResponseModeAutoReject
-	case AutoResponseModeAutoOptOut:
-		*t = AutoResponseModeAutoOptOut
-
-	default:
-		in.AddError(fmt.Errorf("unknown AutoResponseMode value: %v", v))
-	}
-}
-
-// UnmarshalJSON satisfies json.Unmarshaler.
-func (t *AutoResponseMode) UnmarshalJSON(buf []byte) error {
-	return easyjson.Unmarshal(buf, t)
+	BackgroundColor           string                `json:"backgroundColor,omitempty,omitzero"`
+	Description               string                `json:"description,omitempty,omitzero"` // The extra description provided by the manifest.
+	Dir                       string                `json:"dir,omitempty,omitzero"`
+	Display                   string                `json:"display,omitempty,omitzero"`
+	DisplayOverrides          []string              `json:"displayOverrides,omitempty,omitzero"` // The overrided display mode controlled by the user.
+	FileHandlers              []*FileHandler        `json:"fileHandlers,omitempty,omitzero"`     // The handlers to open files.
+	Icons                     []*ImageResource      `json:"icons,omitempty,omitzero"`
+	ID                        string                `json:"id,omitempty,omitzero"`
+	Lang                      string                `json:"lang,omitempty,omitzero"`
+	LaunchHandler             *LaunchHandler        `json:"launchHandler,omitempty,omitzero"` // TODO(crbug.com/1231886): This field is non-standard and part of a Chrome experiment. See: https://github.com/WICG/web-app-launch/blob/main/launch_handler.md
+	Name                      string                `json:"name,omitempty,omitzero"`
+	Orientation               string                `json:"orientation,omitempty,omitzero"`
+	PreferRelatedApplications bool                  `json:"preferRelatedApplications"`
+	ProtocolHandlers          []*ProtocolHandler    `json:"protocolHandlers,omitempty,omitzero"` // The handlers to open protocols.
+	RelatedApplications       []*RelatedApplication `json:"relatedApplications,omitempty,omitzero"`
+	Scope                     string                `json:"scope,omitempty,omitzero"`
+	ScopeExtensions           []*ScopeExtension     `json:"scopeExtensions,omitempty,omitzero"` // Non-standard, see https://github.com/WICG/manifest-incubations/blob/gh-pages/scope_extensions-explainer.md
+	Screenshots               []*Screenshot         `json:"screenshots,omitempty,omitzero"`     // The screenshots used by chromium.
+	ShareTarget               *ShareTarget          `json:"shareTarget,omitempty,omitzero"`
+	ShortName                 string                `json:"shortName,omitempty,omitzero"`
+	Shortcuts                 []*Shortcut           `json:"shortcuts,omitempty,omitzero"`
+	StartURL                  string                `json:"startUrl,omitempty,omitzero"`
+	ThemeColor                string                `json:"themeColor,omitempty,omitzero"`
 }
 
 // NavigationType the type of a frameNavigated event.
@@ -1050,33 +985,20 @@ const (
 	NavigationTypeBackForwardCacheRestore NavigationType = "BackForwardCacheRestore"
 )
 
-// MarshalEasyJSON satisfies easyjson.Marshaler.
-func (t NavigationType) MarshalEasyJSON(out *jwriter.Writer) {
-	out.String(string(t))
-}
+// UnmarshalJSON satisfies [json.Unmarshaler].
+func (t *NavigationType) UnmarshalJSON(buf []byte) error {
+	s := string(buf)
+	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
 
-// MarshalJSON satisfies json.Marshaler.
-func (t NavigationType) MarshalJSON() ([]byte, error) {
-	return easyjson.Marshal(t)
-}
-
-// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
-func (t *NavigationType) UnmarshalEasyJSON(in *jlexer.Lexer) {
-	v := in.String()
-	switch NavigationType(v) {
+	switch NavigationType(s) {
 	case NavigationTypeNavigation:
 		*t = NavigationTypeNavigation
 	case NavigationTypeBackForwardCacheRestore:
 		*t = NavigationTypeBackForwardCacheRestore
-
 	default:
-		in.AddError(fmt.Errorf("unknown NavigationType value: %v", v))
+		return fmt.Errorf("unknown NavigationType value: %v", s)
 	}
-}
-
-// UnmarshalJSON satisfies json.Unmarshaler.
-func (t *NavigationType) UnmarshalJSON(buf []byte) error {
-	return easyjson.Unmarshal(buf, t)
+	return nil
 }
 
 // BackForwardCacheNotRestoredReason list of not restored reasons for
@@ -1149,6 +1071,11 @@ const (
 	BackForwardCacheNotRestoredReasonHTTPAuthRequired                                         BackForwardCacheNotRestoredReason = "HTTPAuthRequired"
 	BackForwardCacheNotRestoredReasonCookieFlushed                                            BackForwardCacheNotRestoredReason = "CookieFlushed"
 	BackForwardCacheNotRestoredReasonBroadcastChannelOnMessage                                BackForwardCacheNotRestoredReason = "BroadcastChannelOnMessage"
+	BackForwardCacheNotRestoredReasonWebViewSettingsChanged                                   BackForwardCacheNotRestoredReason = "WebViewSettingsChanged"
+	BackForwardCacheNotRestoredReasonWebViewJavaScriptObjectChanged                           BackForwardCacheNotRestoredReason = "WebViewJavaScriptObjectChanged"
+	BackForwardCacheNotRestoredReasonWebViewMessageListenerInjected                           BackForwardCacheNotRestoredReason = "WebViewMessageListenerInjected"
+	BackForwardCacheNotRestoredReasonWebViewSafeBrowsingAllowlistChanged                      BackForwardCacheNotRestoredReason = "WebViewSafeBrowsingAllowlistChanged"
+	BackForwardCacheNotRestoredReasonWebViewDocumentStartJavascriptChanged                    BackForwardCacheNotRestoredReason = "WebViewDocumentStartJavascriptChanged"
 	BackForwardCacheNotRestoredReasonWebSocket                                                BackForwardCacheNotRestoredReason = "WebSocket"
 	BackForwardCacheNotRestoredReasonWebTransport                                             BackForwardCacheNotRestoredReason = "WebTransport"
 	BackForwardCacheNotRestoredReasonWebRTC                                                   BackForwardCacheNotRestoredReason = "WebRTC"
@@ -1167,6 +1094,7 @@ const (
 	BackForwardCacheNotRestoredReasonBroadcastChannel                                         BackForwardCacheNotRestoredReason = "BroadcastChannel"
 	BackForwardCacheNotRestoredReasonWebXR                                                    BackForwardCacheNotRestoredReason = "WebXR"
 	BackForwardCacheNotRestoredReasonSharedWorker                                             BackForwardCacheNotRestoredReason = "SharedWorker"
+	BackForwardCacheNotRestoredReasonSharedWorkerMessage                                      BackForwardCacheNotRestoredReason = "SharedWorkerMessage"
 	BackForwardCacheNotRestoredReasonWebLocks                                                 BackForwardCacheNotRestoredReason = "WebLocks"
 	BackForwardCacheNotRestoredReasonWebHID                                                   BackForwardCacheNotRestoredReason = "WebHID"
 	BackForwardCacheNotRestoredReasonWebShare                                                 BackForwardCacheNotRestoredReason = "WebShare"
@@ -1178,7 +1106,6 @@ const (
 	BackForwardCacheNotRestoredReasonPrinting                                                 BackForwardCacheNotRestoredReason = "Printing"
 	BackForwardCacheNotRestoredReasonWebDatabase                                              BackForwardCacheNotRestoredReason = "WebDatabase"
 	BackForwardCacheNotRestoredReasonPictureInPicture                                         BackForwardCacheNotRestoredReason = "PictureInPicture"
-	BackForwardCacheNotRestoredReasonPortal                                                   BackForwardCacheNotRestoredReason = "Portal"
 	BackForwardCacheNotRestoredReasonSpeechRecognizer                                         BackForwardCacheNotRestoredReason = "SpeechRecognizer"
 	BackForwardCacheNotRestoredReasonIdleManager                                              BackForwardCacheNotRestoredReason = "IdleManager"
 	BackForwardCacheNotRestoredReasonPaymentManager                                           BackForwardCacheNotRestoredReason = "PaymentManager"
@@ -1209,6 +1136,7 @@ const (
 	BackForwardCacheNotRestoredReasonContentWebUSB                                            BackForwardCacheNotRestoredReason = "ContentWebUSB"
 	BackForwardCacheNotRestoredReasonContentMediaSessionService                               BackForwardCacheNotRestoredReason = "ContentMediaSessionService"
 	BackForwardCacheNotRestoredReasonContentScreenReader                                      BackForwardCacheNotRestoredReason = "ContentScreenReader"
+	BackForwardCacheNotRestoredReasonContentDiscarded                                         BackForwardCacheNotRestoredReason = "ContentDiscarded"
 	BackForwardCacheNotRestoredReasonEmbedderPopupBlockerTabHelper                            BackForwardCacheNotRestoredReason = "EmbedderPopupBlockerTabHelper"
 	BackForwardCacheNotRestoredReasonEmbedderSafeBrowsingTriggeredPopupBlocker                BackForwardCacheNotRestoredReason = "EmbedderSafeBrowsingTriggeredPopupBlocker"
 	BackForwardCacheNotRestoredReasonEmbedderSafeBrowsingThreatDetails                        BackForwardCacheNotRestoredReason = "EmbedderSafeBrowsingThreatDetails"
@@ -1225,22 +1153,18 @@ const (
 	BackForwardCacheNotRestoredReasonEmbedderExtensionMessagingForOpenPort                    BackForwardCacheNotRestoredReason = "EmbedderExtensionMessagingForOpenPort"
 	BackForwardCacheNotRestoredReasonEmbedderExtensionSentMessageToCachedFrame                BackForwardCacheNotRestoredReason = "EmbedderExtensionSentMessageToCachedFrame"
 	BackForwardCacheNotRestoredReasonRequestedByWebViewClient                                 BackForwardCacheNotRestoredReason = "RequestedByWebViewClient"
+	BackForwardCacheNotRestoredReasonPostMessageByWebViewClient                               BackForwardCacheNotRestoredReason = "PostMessageByWebViewClient"
+	BackForwardCacheNotRestoredReasonCacheControlNoStoreDeviceBoundSessionTerminated          BackForwardCacheNotRestoredReason = "CacheControlNoStoreDeviceBoundSessionTerminated"
+	BackForwardCacheNotRestoredReasonCacheLimitPrunedOnModerateMemoryPressure                 BackForwardCacheNotRestoredReason = "CacheLimitPrunedOnModerateMemoryPressure"
+	BackForwardCacheNotRestoredReasonCacheLimitPrunedOnCriticalMemoryPressure                 BackForwardCacheNotRestoredReason = "CacheLimitPrunedOnCriticalMemoryPressure"
 )
 
-// MarshalEasyJSON satisfies easyjson.Marshaler.
-func (t BackForwardCacheNotRestoredReason) MarshalEasyJSON(out *jwriter.Writer) {
-	out.String(string(t))
-}
+// UnmarshalJSON satisfies [json.Unmarshaler].
+func (t *BackForwardCacheNotRestoredReason) UnmarshalJSON(buf []byte) error {
+	s := string(buf)
+	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
 
-// MarshalJSON satisfies json.Marshaler.
-func (t BackForwardCacheNotRestoredReason) MarshalJSON() ([]byte, error) {
-	return easyjson.Marshal(t)
-}
-
-// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
-func (t *BackForwardCacheNotRestoredReason) UnmarshalEasyJSON(in *jlexer.Lexer) {
-	v := in.String()
-	switch BackForwardCacheNotRestoredReason(v) {
+	switch BackForwardCacheNotRestoredReason(s) {
 	case BackForwardCacheNotRestoredReasonNotPrimaryMainFrame:
 		*t = BackForwardCacheNotRestoredReasonNotPrimaryMainFrame
 	case BackForwardCacheNotRestoredReasonBackForwardCacheDisabled:
@@ -1355,6 +1279,16 @@ func (t *BackForwardCacheNotRestoredReason) UnmarshalEasyJSON(in *jlexer.Lexer) 
 		*t = BackForwardCacheNotRestoredReasonCookieFlushed
 	case BackForwardCacheNotRestoredReasonBroadcastChannelOnMessage:
 		*t = BackForwardCacheNotRestoredReasonBroadcastChannelOnMessage
+	case BackForwardCacheNotRestoredReasonWebViewSettingsChanged:
+		*t = BackForwardCacheNotRestoredReasonWebViewSettingsChanged
+	case BackForwardCacheNotRestoredReasonWebViewJavaScriptObjectChanged:
+		*t = BackForwardCacheNotRestoredReasonWebViewJavaScriptObjectChanged
+	case BackForwardCacheNotRestoredReasonWebViewMessageListenerInjected:
+		*t = BackForwardCacheNotRestoredReasonWebViewMessageListenerInjected
+	case BackForwardCacheNotRestoredReasonWebViewSafeBrowsingAllowlistChanged:
+		*t = BackForwardCacheNotRestoredReasonWebViewSafeBrowsingAllowlistChanged
+	case BackForwardCacheNotRestoredReasonWebViewDocumentStartJavascriptChanged:
+		*t = BackForwardCacheNotRestoredReasonWebViewDocumentStartJavascriptChanged
 	case BackForwardCacheNotRestoredReasonWebSocket:
 		*t = BackForwardCacheNotRestoredReasonWebSocket
 	case BackForwardCacheNotRestoredReasonWebTransport:
@@ -1391,6 +1325,8 @@ func (t *BackForwardCacheNotRestoredReason) UnmarshalEasyJSON(in *jlexer.Lexer) 
 		*t = BackForwardCacheNotRestoredReasonWebXR
 	case BackForwardCacheNotRestoredReasonSharedWorker:
 		*t = BackForwardCacheNotRestoredReasonSharedWorker
+	case BackForwardCacheNotRestoredReasonSharedWorkerMessage:
+		*t = BackForwardCacheNotRestoredReasonSharedWorkerMessage
 	case BackForwardCacheNotRestoredReasonWebLocks:
 		*t = BackForwardCacheNotRestoredReasonWebLocks
 	case BackForwardCacheNotRestoredReasonWebHID:
@@ -1413,8 +1349,6 @@ func (t *BackForwardCacheNotRestoredReason) UnmarshalEasyJSON(in *jlexer.Lexer) 
 		*t = BackForwardCacheNotRestoredReasonWebDatabase
 	case BackForwardCacheNotRestoredReasonPictureInPicture:
 		*t = BackForwardCacheNotRestoredReasonPictureInPicture
-	case BackForwardCacheNotRestoredReasonPortal:
-		*t = BackForwardCacheNotRestoredReasonPortal
 	case BackForwardCacheNotRestoredReasonSpeechRecognizer:
 		*t = BackForwardCacheNotRestoredReasonSpeechRecognizer
 	case BackForwardCacheNotRestoredReasonIdleManager:
@@ -1475,6 +1409,8 @@ func (t *BackForwardCacheNotRestoredReason) UnmarshalEasyJSON(in *jlexer.Lexer) 
 		*t = BackForwardCacheNotRestoredReasonContentMediaSessionService
 	case BackForwardCacheNotRestoredReasonContentScreenReader:
 		*t = BackForwardCacheNotRestoredReasonContentScreenReader
+	case BackForwardCacheNotRestoredReasonContentDiscarded:
+		*t = BackForwardCacheNotRestoredReasonContentDiscarded
 	case BackForwardCacheNotRestoredReasonEmbedderPopupBlockerTabHelper:
 		*t = BackForwardCacheNotRestoredReasonEmbedderPopupBlockerTabHelper
 	case BackForwardCacheNotRestoredReasonEmbedderSafeBrowsingTriggeredPopupBlocker:
@@ -1507,15 +1443,18 @@ func (t *BackForwardCacheNotRestoredReason) UnmarshalEasyJSON(in *jlexer.Lexer) 
 		*t = BackForwardCacheNotRestoredReasonEmbedderExtensionSentMessageToCachedFrame
 	case BackForwardCacheNotRestoredReasonRequestedByWebViewClient:
 		*t = BackForwardCacheNotRestoredReasonRequestedByWebViewClient
-
+	case BackForwardCacheNotRestoredReasonPostMessageByWebViewClient:
+		*t = BackForwardCacheNotRestoredReasonPostMessageByWebViewClient
+	case BackForwardCacheNotRestoredReasonCacheControlNoStoreDeviceBoundSessionTerminated:
+		*t = BackForwardCacheNotRestoredReasonCacheControlNoStoreDeviceBoundSessionTerminated
+	case BackForwardCacheNotRestoredReasonCacheLimitPrunedOnModerateMemoryPressure:
+		*t = BackForwardCacheNotRestoredReasonCacheLimitPrunedOnModerateMemoryPressure
+	case BackForwardCacheNotRestoredReasonCacheLimitPrunedOnCriticalMemoryPressure:
+		*t = BackForwardCacheNotRestoredReasonCacheLimitPrunedOnCriticalMemoryPressure
 	default:
-		in.AddError(fmt.Errorf("unknown BackForwardCacheNotRestoredReason value: %v", v))
+		return fmt.Errorf("unknown BackForwardCacheNotRestoredReason value: %v", s)
 	}
-}
-
-// UnmarshalJSON satisfies json.Unmarshaler.
-func (t *BackForwardCacheNotRestoredReason) UnmarshalJSON(buf []byte) error {
-	return easyjson.Unmarshal(buf, t)
+	return nil
 }
 
 // BackForwardCacheNotRestoredReasonType types of not restored reasons for
@@ -1536,55 +1475,42 @@ const (
 	BackForwardCacheNotRestoredReasonTypeCircumstantial    BackForwardCacheNotRestoredReasonType = "Circumstantial"
 )
 
-// MarshalEasyJSON satisfies easyjson.Marshaler.
-func (t BackForwardCacheNotRestoredReasonType) MarshalEasyJSON(out *jwriter.Writer) {
-	out.String(string(t))
-}
+// UnmarshalJSON satisfies [json.Unmarshaler].
+func (t *BackForwardCacheNotRestoredReasonType) UnmarshalJSON(buf []byte) error {
+	s := string(buf)
+	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
 
-// MarshalJSON satisfies json.Marshaler.
-func (t BackForwardCacheNotRestoredReasonType) MarshalJSON() ([]byte, error) {
-	return easyjson.Marshal(t)
-}
-
-// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
-func (t *BackForwardCacheNotRestoredReasonType) UnmarshalEasyJSON(in *jlexer.Lexer) {
-	v := in.String()
-	switch BackForwardCacheNotRestoredReasonType(v) {
+	switch BackForwardCacheNotRestoredReasonType(s) {
 	case BackForwardCacheNotRestoredReasonTypeSupportPending:
 		*t = BackForwardCacheNotRestoredReasonTypeSupportPending
 	case BackForwardCacheNotRestoredReasonTypePageSupportNeeded:
 		*t = BackForwardCacheNotRestoredReasonTypePageSupportNeeded
 	case BackForwardCacheNotRestoredReasonTypeCircumstantial:
 		*t = BackForwardCacheNotRestoredReasonTypeCircumstantial
-
 	default:
-		in.AddError(fmt.Errorf("unknown BackForwardCacheNotRestoredReasonType value: %v", v))
+		return fmt.Errorf("unknown BackForwardCacheNotRestoredReasonType value: %v", s)
 	}
-}
-
-// UnmarshalJSON satisfies json.Unmarshaler.
-func (t *BackForwardCacheNotRestoredReasonType) UnmarshalJSON(buf []byte) error {
-	return easyjson.Unmarshal(buf, t)
+	return nil
 }
 
 // BackForwardCacheBlockingDetails [no description].
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-BackForwardCacheBlockingDetails
 type BackForwardCacheBlockingDetails struct {
-	URL          string `json:"url,omitempty"`      // Url of the file where blockage happened. Optional because of tests.
-	Function     string `json:"function,omitempty"` // Function name where blockage happened. Optional because of anonymous functions and tests.
-	LineNumber   int64  `json:"lineNumber"`         // Line number in the script (0-based).
-	ColumnNumber int64  `json:"columnNumber"`       // Column number in the script (0-based).
+	URL          string `json:"url,omitempty,omitzero"`      // Url of the file where blockage happened. Optional because of tests.
+	Function     string `json:"function,omitempty,omitzero"` // Function name where blockage happened. Optional because of anonymous functions and tests.
+	LineNumber   int64  `json:"lineNumber"`                  // Line number in the script (0-based).
+	ColumnNumber int64  `json:"columnNumber"`                // Column number in the script (0-based).
 }
 
 // BackForwardCacheNotRestoredExplanation [no description].
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Page#type-BackForwardCacheNotRestoredExplanation
 type BackForwardCacheNotRestoredExplanation struct {
-	Type    BackForwardCacheNotRestoredReasonType `json:"type"`              // Type of the reason
-	Reason  BackForwardCacheNotRestoredReason     `json:"reason"`            // Not restored reason
-	Context string                                `json:"context,omitempty"` // Context associated with the reason. The meaning of this context is dependent on the reason: - EmbedderExtensionSentMessageToCachedFrame: the extension ID.
-	Details []*BackForwardCacheBlockingDetails    `json:"details,omitempty"`
+	Type    BackForwardCacheNotRestoredReasonType `json:"type"`                       // Type of the reason
+	Reason  BackForwardCacheNotRestoredReason     `json:"reason"`                     // Not restored reason
+	Context string                                `json:"context,omitempty,omitzero"` // Context associated with the reason. The meaning of this context is dependent on the reason: - EmbedderExtensionSentMessageToCachedFrame: the extension ID.
+	Details []*BackForwardCacheBlockingDetails    `json:"details,omitempty,omitzero"`
 }
 
 // BackForwardCacheNotRestoredExplanationTree [no description].
@@ -1612,33 +1538,20 @@ const (
 	FileChooserOpenedModeSelectMultiple FileChooserOpenedMode = "selectMultiple"
 )
 
-// MarshalEasyJSON satisfies easyjson.Marshaler.
-func (t FileChooserOpenedMode) MarshalEasyJSON(out *jwriter.Writer) {
-	out.String(string(t))
-}
+// UnmarshalJSON satisfies [json.Unmarshaler].
+func (t *FileChooserOpenedMode) UnmarshalJSON(buf []byte) error {
+	s := string(buf)
+	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
 
-// MarshalJSON satisfies json.Marshaler.
-func (t FileChooserOpenedMode) MarshalJSON() ([]byte, error) {
-	return easyjson.Marshal(t)
-}
-
-// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
-func (t *FileChooserOpenedMode) UnmarshalEasyJSON(in *jlexer.Lexer) {
-	v := in.String()
-	switch FileChooserOpenedMode(v) {
+	switch FileChooserOpenedMode(s) {
 	case FileChooserOpenedModeSelectSingle:
 		*t = FileChooserOpenedModeSelectSingle
 	case FileChooserOpenedModeSelectMultiple:
 		*t = FileChooserOpenedModeSelectMultiple
-
 	default:
-		in.AddError(fmt.Errorf("unknown FileChooserOpenedMode value: %v", v))
+		return fmt.Errorf("unknown FileChooserOpenedMode value: %v", s)
 	}
-}
-
-// UnmarshalJSON satisfies json.Unmarshaler.
-func (t *FileChooserOpenedMode) UnmarshalJSON(buf []byte) error {
-	return easyjson.Unmarshal(buf, t)
+	return nil
 }
 
 // FrameDetachedReason [no description].
@@ -1657,33 +1570,105 @@ const (
 	FrameDetachedReasonSwap   FrameDetachedReason = "swap"
 )
 
-// MarshalEasyJSON satisfies easyjson.Marshaler.
-func (t FrameDetachedReason) MarshalEasyJSON(out *jwriter.Writer) {
-	out.String(string(t))
-}
+// UnmarshalJSON satisfies [json.Unmarshaler].
+func (t *FrameDetachedReason) UnmarshalJSON(buf []byte) error {
+	s := string(buf)
+	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
 
-// MarshalJSON satisfies json.Marshaler.
-func (t FrameDetachedReason) MarshalJSON() ([]byte, error) {
-	return easyjson.Marshal(t)
-}
-
-// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
-func (t *FrameDetachedReason) UnmarshalEasyJSON(in *jlexer.Lexer) {
-	v := in.String()
-	switch FrameDetachedReason(v) {
+	switch FrameDetachedReason(s) {
 	case FrameDetachedReasonRemove:
 		*t = FrameDetachedReasonRemove
 	case FrameDetachedReasonSwap:
 		*t = FrameDetachedReasonSwap
-
 	default:
-		in.AddError(fmt.Errorf("unknown FrameDetachedReason value: %v", v))
+		return fmt.Errorf("unknown FrameDetachedReason value: %v", s)
 	}
+	return nil
 }
 
-// UnmarshalJSON satisfies json.Unmarshaler.
-func (t *FrameDetachedReason) UnmarshalJSON(buf []byte) error {
-	return easyjson.Unmarshal(buf, t)
+// FrameStartedNavigatingNavigationType [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#event-frameStartedNavigating
+type FrameStartedNavigatingNavigationType string
+
+// String returns the FrameStartedNavigatingNavigationType as string value.
+func (t FrameStartedNavigatingNavigationType) String() string {
+	return string(t)
+}
+
+// FrameStartedNavigatingNavigationType values.
+const (
+	FrameStartedNavigatingNavigationTypeReload                   FrameStartedNavigatingNavigationType = "reload"
+	FrameStartedNavigatingNavigationTypeReloadBypassingCache     FrameStartedNavigatingNavigationType = "reloadBypassingCache"
+	FrameStartedNavigatingNavigationTypeRestore                  FrameStartedNavigatingNavigationType = "restore"
+	FrameStartedNavigatingNavigationTypeRestoreWithPost          FrameStartedNavigatingNavigationType = "restoreWithPost"
+	FrameStartedNavigatingNavigationTypeHistorySameDocument      FrameStartedNavigatingNavigationType = "historySameDocument"
+	FrameStartedNavigatingNavigationTypeHistoryDifferentDocument FrameStartedNavigatingNavigationType = "historyDifferentDocument"
+	FrameStartedNavigatingNavigationTypeSameDocument             FrameStartedNavigatingNavigationType = "sameDocument"
+	FrameStartedNavigatingNavigationTypeDifferentDocument        FrameStartedNavigatingNavigationType = "differentDocument"
+)
+
+// UnmarshalJSON satisfies [json.Unmarshaler].
+func (t *FrameStartedNavigatingNavigationType) UnmarshalJSON(buf []byte) error {
+	s := string(buf)
+	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+
+	switch FrameStartedNavigatingNavigationType(s) {
+	case FrameStartedNavigatingNavigationTypeReload:
+		*t = FrameStartedNavigatingNavigationTypeReload
+	case FrameStartedNavigatingNavigationTypeReloadBypassingCache:
+		*t = FrameStartedNavigatingNavigationTypeReloadBypassingCache
+	case FrameStartedNavigatingNavigationTypeRestore:
+		*t = FrameStartedNavigatingNavigationTypeRestore
+	case FrameStartedNavigatingNavigationTypeRestoreWithPost:
+		*t = FrameStartedNavigatingNavigationTypeRestoreWithPost
+	case FrameStartedNavigatingNavigationTypeHistorySameDocument:
+		*t = FrameStartedNavigatingNavigationTypeHistorySameDocument
+	case FrameStartedNavigatingNavigationTypeHistoryDifferentDocument:
+		*t = FrameStartedNavigatingNavigationTypeHistoryDifferentDocument
+	case FrameStartedNavigatingNavigationTypeSameDocument:
+		*t = FrameStartedNavigatingNavigationTypeSameDocument
+	case FrameStartedNavigatingNavigationTypeDifferentDocument:
+		*t = FrameStartedNavigatingNavigationTypeDifferentDocument
+	default:
+		return fmt.Errorf("unknown FrameStartedNavigatingNavigationType value: %v", s)
+	}
+	return nil
+}
+
+// NavigatedWithinDocumentNavigationType navigation type.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#event-navigatedWithinDocument
+type NavigatedWithinDocumentNavigationType string
+
+// String returns the NavigatedWithinDocumentNavigationType as string value.
+func (t NavigatedWithinDocumentNavigationType) String() string {
+	return string(t)
+}
+
+// NavigatedWithinDocumentNavigationType values.
+const (
+	NavigatedWithinDocumentNavigationTypeFragment   NavigatedWithinDocumentNavigationType = "fragment"
+	NavigatedWithinDocumentNavigationTypeHistoryAPI NavigatedWithinDocumentNavigationType = "historyApi"
+	NavigatedWithinDocumentNavigationTypeOther      NavigatedWithinDocumentNavigationType = "other"
+)
+
+// UnmarshalJSON satisfies [json.Unmarshaler].
+func (t *NavigatedWithinDocumentNavigationType) UnmarshalJSON(buf []byte) error {
+	s := string(buf)
+	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+
+	switch NavigatedWithinDocumentNavigationType(s) {
+	case NavigatedWithinDocumentNavigationTypeFragment:
+		*t = NavigatedWithinDocumentNavigationTypeFragment
+	case NavigatedWithinDocumentNavigationTypeHistoryAPI:
+		*t = NavigatedWithinDocumentNavigationTypeHistoryAPI
+	case NavigatedWithinDocumentNavigationTypeOther:
+		*t = NavigatedWithinDocumentNavigationTypeOther
+	default:
+		return fmt.Errorf("unknown NavigatedWithinDocumentNavigationType value: %v", s)
+	}
+	return nil
 }
 
 // CaptureScreenshotFormat image compression format (defaults to png).
@@ -1703,35 +1688,22 @@ const (
 	CaptureScreenshotFormatWebp CaptureScreenshotFormat = "webp"
 )
 
-// MarshalEasyJSON satisfies easyjson.Marshaler.
-func (t CaptureScreenshotFormat) MarshalEasyJSON(out *jwriter.Writer) {
-	out.String(string(t))
-}
+// UnmarshalJSON satisfies [json.Unmarshaler].
+func (t *CaptureScreenshotFormat) UnmarshalJSON(buf []byte) error {
+	s := string(buf)
+	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
 
-// MarshalJSON satisfies json.Marshaler.
-func (t CaptureScreenshotFormat) MarshalJSON() ([]byte, error) {
-	return easyjson.Marshal(t)
-}
-
-// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
-func (t *CaptureScreenshotFormat) UnmarshalEasyJSON(in *jlexer.Lexer) {
-	v := in.String()
-	switch CaptureScreenshotFormat(v) {
+	switch CaptureScreenshotFormat(s) {
 	case CaptureScreenshotFormatJpeg:
 		*t = CaptureScreenshotFormatJpeg
 	case CaptureScreenshotFormatPng:
 		*t = CaptureScreenshotFormatPng
 	case CaptureScreenshotFormatWebp:
 		*t = CaptureScreenshotFormatWebp
-
 	default:
-		in.AddError(fmt.Errorf("unknown CaptureScreenshotFormat value: %v", v))
+		return fmt.Errorf("unknown CaptureScreenshotFormat value: %v", s)
 	}
-}
-
-// UnmarshalJSON satisfies json.Unmarshaler.
-func (t *CaptureScreenshotFormat) UnmarshalJSON(buf []byte) error {
-	return easyjson.Unmarshal(buf, t)
+	return nil
 }
 
 // CaptureSnapshotFormat format (defaults to mhtml).
@@ -1749,31 +1721,18 @@ const (
 	CaptureSnapshotFormatMhtml CaptureSnapshotFormat = "mhtml"
 )
 
-// MarshalEasyJSON satisfies easyjson.Marshaler.
-func (t CaptureSnapshotFormat) MarshalEasyJSON(out *jwriter.Writer) {
-	out.String(string(t))
-}
+// UnmarshalJSON satisfies [json.Unmarshaler].
+func (t *CaptureSnapshotFormat) UnmarshalJSON(buf []byte) error {
+	s := string(buf)
+	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
 
-// MarshalJSON satisfies json.Marshaler.
-func (t CaptureSnapshotFormat) MarshalJSON() ([]byte, error) {
-	return easyjson.Marshal(t)
-}
-
-// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
-func (t *CaptureSnapshotFormat) UnmarshalEasyJSON(in *jlexer.Lexer) {
-	v := in.String()
-	switch CaptureSnapshotFormat(v) {
+	switch CaptureSnapshotFormat(s) {
 	case CaptureSnapshotFormatMhtml:
 		*t = CaptureSnapshotFormatMhtml
-
 	default:
-		in.AddError(fmt.Errorf("unknown CaptureSnapshotFormat value: %v", v))
+		return fmt.Errorf("unknown CaptureSnapshotFormat value: %v", s)
 	}
-}
-
-// UnmarshalJSON satisfies json.Unmarshaler.
-func (t *CaptureSnapshotFormat) UnmarshalJSON(buf []byte) error {
-	return easyjson.Unmarshal(buf, t)
+	return nil
 }
 
 // PrintToPDFTransferMode return as stream.
@@ -1792,33 +1751,20 @@ const (
 	PrintToPDFTransferModeReturnAsStream PrintToPDFTransferMode = "ReturnAsStream"
 )
 
-// MarshalEasyJSON satisfies easyjson.Marshaler.
-func (t PrintToPDFTransferMode) MarshalEasyJSON(out *jwriter.Writer) {
-	out.String(string(t))
-}
+// UnmarshalJSON satisfies [json.Unmarshaler].
+func (t *PrintToPDFTransferMode) UnmarshalJSON(buf []byte) error {
+	s := string(buf)
+	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
 
-// MarshalJSON satisfies json.Marshaler.
-func (t PrintToPDFTransferMode) MarshalJSON() ([]byte, error) {
-	return easyjson.Marshal(t)
-}
-
-// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
-func (t *PrintToPDFTransferMode) UnmarshalEasyJSON(in *jlexer.Lexer) {
-	v := in.String()
-	switch PrintToPDFTransferMode(v) {
+	switch PrintToPDFTransferMode(s) {
 	case PrintToPDFTransferModeReturnAsBase64:
 		*t = PrintToPDFTransferModeReturnAsBase64
 	case PrintToPDFTransferModeReturnAsStream:
 		*t = PrintToPDFTransferModeReturnAsStream
-
 	default:
-		in.AddError(fmt.Errorf("unknown PrintToPDFTransferMode value: %v", v))
+		return fmt.Errorf("unknown PrintToPDFTransferMode value: %v", s)
 	}
-}
-
-// UnmarshalJSON satisfies json.Unmarshaler.
-func (t *PrintToPDFTransferMode) UnmarshalJSON(buf []byte) error {
-	return easyjson.Unmarshal(buf, t)
+	return nil
 }
 
 // ScreencastFormat image compression format.
@@ -1837,33 +1783,20 @@ const (
 	ScreencastFormatPng  ScreencastFormat = "png"
 )
 
-// MarshalEasyJSON satisfies easyjson.Marshaler.
-func (t ScreencastFormat) MarshalEasyJSON(out *jwriter.Writer) {
-	out.String(string(t))
-}
+// UnmarshalJSON satisfies [json.Unmarshaler].
+func (t *ScreencastFormat) UnmarshalJSON(buf []byte) error {
+	s := string(buf)
+	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
 
-// MarshalJSON satisfies json.Marshaler.
-func (t ScreencastFormat) MarshalJSON() ([]byte, error) {
-	return easyjson.Marshal(t)
-}
-
-// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
-func (t *ScreencastFormat) UnmarshalEasyJSON(in *jlexer.Lexer) {
-	v := in.String()
-	switch ScreencastFormat(v) {
+	switch ScreencastFormat(s) {
 	case ScreencastFormatJpeg:
 		*t = ScreencastFormatJpeg
 	case ScreencastFormatPng:
 		*t = ScreencastFormatPng
-
 	default:
-		in.AddError(fmt.Errorf("unknown ScreencastFormat value: %v", v))
+		return fmt.Errorf("unknown ScreencastFormat value: %v", s)
 	}
-}
-
-// UnmarshalJSON satisfies json.Unmarshaler.
-func (t *ScreencastFormat) UnmarshalJSON(buf []byte) error {
-	return easyjson.Unmarshal(buf, t)
+	return nil
 }
 
 // SetWebLifecycleStateState target lifecycle state.
@@ -1882,31 +1815,94 @@ const (
 	SetWebLifecycleStateStateActive SetWebLifecycleStateState = "active"
 )
 
-// MarshalEasyJSON satisfies easyjson.Marshaler.
-func (t SetWebLifecycleStateState) MarshalEasyJSON(out *jwriter.Writer) {
-	out.String(string(t))
-}
+// UnmarshalJSON satisfies [json.Unmarshaler].
+func (t *SetWebLifecycleStateState) UnmarshalJSON(buf []byte) error {
+	s := string(buf)
+	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
 
-// MarshalJSON satisfies json.Marshaler.
-func (t SetWebLifecycleStateState) MarshalJSON() ([]byte, error) {
-	return easyjson.Marshal(t)
-}
-
-// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
-func (t *SetWebLifecycleStateState) UnmarshalEasyJSON(in *jlexer.Lexer) {
-	v := in.String()
-	switch SetWebLifecycleStateState(v) {
+	switch SetWebLifecycleStateState(s) {
 	case SetWebLifecycleStateStateFrozen:
 		*t = SetWebLifecycleStateStateFrozen
 	case SetWebLifecycleStateStateActive:
 		*t = SetWebLifecycleStateStateActive
-
 	default:
-		in.AddError(fmt.Errorf("unknown SetWebLifecycleStateState value: %v", v))
+		return fmt.Errorf("unknown SetWebLifecycleStateState value: %v", s)
 	}
+	return nil
 }
 
-// UnmarshalJSON satisfies json.Unmarshaler.
-func (t *SetWebLifecycleStateState) UnmarshalJSON(buf []byte) error {
-	return easyjson.Unmarshal(buf, t)
+// SetSPCTransactionModeMode [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#method-setSPCTransactionMode
+type SetSPCTransactionModeMode string
+
+// String returns the SetSPCTransactionModeMode as string value.
+func (t SetSPCTransactionModeMode) String() string {
+	return string(t)
+}
+
+// SetSPCTransactionModeMode values.
+const (
+	SetSPCTransactionModeModeNone                       SetSPCTransactionModeMode = "none"
+	SetSPCTransactionModeModeAutoAccept                 SetSPCTransactionModeMode = "autoAccept"
+	SetSPCTransactionModeModeAutoChooseToAuthAnotherWay SetSPCTransactionModeMode = "autoChooseToAuthAnotherWay"
+	SetSPCTransactionModeModeAutoReject                 SetSPCTransactionModeMode = "autoReject"
+	SetSPCTransactionModeModeAutoOptOut                 SetSPCTransactionModeMode = "autoOptOut"
+)
+
+// UnmarshalJSON satisfies [json.Unmarshaler].
+func (t *SetSPCTransactionModeMode) UnmarshalJSON(buf []byte) error {
+	s := string(buf)
+	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+
+	switch SetSPCTransactionModeMode(s) {
+	case SetSPCTransactionModeModeNone:
+		*t = SetSPCTransactionModeModeNone
+	case SetSPCTransactionModeModeAutoAccept:
+		*t = SetSPCTransactionModeModeAutoAccept
+	case SetSPCTransactionModeModeAutoChooseToAuthAnotherWay:
+		*t = SetSPCTransactionModeModeAutoChooseToAuthAnotherWay
+	case SetSPCTransactionModeModeAutoReject:
+		*t = SetSPCTransactionModeModeAutoReject
+	case SetSPCTransactionModeModeAutoOptOut:
+		*t = SetSPCTransactionModeModeAutoOptOut
+	default:
+		return fmt.Errorf("unknown SetSPCTransactionModeMode value: %v", s)
+	}
+	return nil
+}
+
+// SetRPHRegistrationModeMode [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Page#method-setRPHRegistrationMode
+type SetRPHRegistrationModeMode string
+
+// String returns the SetRPHRegistrationModeMode as string value.
+func (t SetRPHRegistrationModeMode) String() string {
+	return string(t)
+}
+
+// SetRPHRegistrationModeMode values.
+const (
+	SetRPHRegistrationModeModeNone       SetRPHRegistrationModeMode = "none"
+	SetRPHRegistrationModeModeAutoAccept SetRPHRegistrationModeMode = "autoAccept"
+	SetRPHRegistrationModeModeAutoReject SetRPHRegistrationModeMode = "autoReject"
+)
+
+// UnmarshalJSON satisfies [json.Unmarshaler].
+func (t *SetRPHRegistrationModeMode) UnmarshalJSON(buf []byte) error {
+	s := string(buf)
+	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+
+	switch SetRPHRegistrationModeMode(s) {
+	case SetRPHRegistrationModeModeNone:
+		*t = SetRPHRegistrationModeModeNone
+	case SetRPHRegistrationModeModeAutoAccept:
+		*t = SetRPHRegistrationModeModeAutoAccept
+	case SetRPHRegistrationModeModeAutoReject:
+		*t = SetRPHRegistrationModeModeAutoReject
+	default:
+		return fmt.Errorf("unknown SetRPHRegistrationModeMode value: %v", s)
+	}
+	return nil
 }

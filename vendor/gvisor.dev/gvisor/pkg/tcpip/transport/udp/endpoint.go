@@ -21,7 +21,6 @@ import (
 	"math"
 	"time"
 
-	"gvisor.dev/gvisor/pkg/buffer"
 	"gvisor.dev/gvisor/pkg/sync"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/checksum"
@@ -62,9 +61,8 @@ type endpoint struct {
 
 	// The following fields are initialized at creation time and do not
 	// change throughout the lifetime of the endpoint.
-	stack       *stack.Stack `state:"manual"`
+	stack       *stack.Stack
 	waiterQueue *waiter.Queue
-	uniqueID    uint64
 	net         network.Endpoint
 	stats       tcpip.TransportEndpointStats
 	ops         tcpip.SocketOptions
@@ -111,7 +109,6 @@ func newEndpoint(s *stack.Stack, netProto tcpip.NetworkProtocolNumber, waiterQue
 	e := &endpoint{
 		stack:       s,
 		waiterQueue: waiterQueue,
-		uniqueID:    s.UniqueID(),
 	}
 	e.ops.InitHandler(e, e.stack, tcpip.GetStackSendBufferLimits, tcpip.GetStackReceiveBufferLimits)
 	e.ops.SetMulticastLoop(true)
@@ -136,11 +133,6 @@ func newEndpoint(s *stack.Stack, netProto tcpip.NetworkProtocolNumber, waiterQue
 // WakeupWriters implements tcpip.SocketOptionsHandler.
 func (e *endpoint) WakeupWriters() {
 	e.net.MaybeSignalWritable()
-}
-
-// UniqueID implements stack.TransportEndpoint.
-func (e *endpoint) UniqueID() uint64 {
-	return e.uniqueID
 }
 
 func (e *endpoint) LastError() tcpip.Error {
@@ -168,11 +160,16 @@ func (e *endpoint) Abort() {
 // associated with it.
 func (e *endpoint) Close() {
 	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.closeLocked()
+}
 
+// Preconditions: e.mu is locked.
+// +checklocks:e.mu
+func (e *endpoint) closeLocked() {
 	switch state := e.net.State(); state {
 	case transport.DatagramEndpointStateInitial:
 	case transport.DatagramEndpointStateClosed:
-		e.mu.Unlock()
 		return
 	case transport.DatagramEndpointStateBound, transport.DatagramEndpointStateConnected:
 		id := e.net.Info().ID
@@ -209,7 +206,6 @@ func (e *endpoint) Close() {
 	e.net.Shutdown()
 	e.net.Close()
 	e.readShutdown = true
-	e.mu.Unlock()
 
 	e.waiterQueue.Notify(waiter.EventHUp | waiter.EventErr | waiter.ReadableEvents | waiter.WritableEvents)
 }
@@ -436,16 +432,8 @@ func (e *endpoint) prepareForWrite(p tcpip.Payloader, opts tcpip.WriteOptions) (
 		return udpPacketInfo{}, &tcpip.ErrMessageTooLong{}
 	}
 
-	var buf buffer.Buffer
-	if _, err := buf.WriteFromReader(p, int64(p.Len())); err != nil {
-		buf.Release()
-		ctx.Release()
-		return udpPacketInfo{}, &tcpip.ErrBadBuffer{}
-	}
-
 	return udpPacketInfo{
 		ctx:        ctx,
-		data:       buf,
 		localPort:  e.localPort,
 		remotePort: dst.Port,
 	}, nil
@@ -473,10 +461,10 @@ func (e *endpoint) write(p tcpip.Payloader, opts tcpip.WriteOptions) (int64, tcp
 	}
 	defer udpInfo.ctx.Release()
 
-	dataSz := udpInfo.data.Size()
+	dataSz := p.Len()
 	pktInfo := udpInfo.ctx.PacketInfo()
-	pkt := udpInfo.ctx.TryNewPacketBuffer(header.UDPMinimumSize+int(pktInfo.MaxHeaderLength), udpInfo.data)
-	if pkt.IsNil() {
+	pkt := udpInfo.ctx.TryNewPacketBufferFromPayloader(header.UDPMinimumSize+int(pktInfo.MaxHeaderLength), p)
+	if pkt == nil {
 		return 0, &tcpip.ErrWouldBlock{}
 	}
 	defer pkt.DecRef()
@@ -593,7 +581,6 @@ func (e *endpoint) GetSockOpt(opt tcpip.GettableSocketOption) tcpip.Error {
 // udpPacketInfo holds information needed to send a UDP packet.
 type udpPacketInfo struct {
 	ctx        network.WriteContext
-	data       buffer.Buffer
 	localPort  uint16
 	remotePort uint16
 }
@@ -969,7 +956,9 @@ func (e *endpoint) HandlePacket(id stack.TransportEndpointID, pkt *stack.PacketB
 			Addr: id.LocalAddress,
 			Port: hdr.DestinationPort(),
 		},
-		pkt: pkt.IncRef(),
+		// We need to clone the packet because ReadTo modifies the write index of
+		// the underlying buffer. Clone does not copy the data, just the metadata.
+		pkt: pkt.Clone(),
 	}
 	e.rcvList.PushBack(packet)
 	e.rcvBufSize += pkt.Data().Size()

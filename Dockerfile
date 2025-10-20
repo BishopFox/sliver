@@ -9,7 +9,7 @@
 
 # STAGE: base
 ## Compiles Sliver for use
-FROM golang:1.23.5 AS base
+FROM golang:latest AS base
 
 ### Base packages
 RUN apt-get update --fix-missing && apt-get -y install \
@@ -20,10 +20,10 @@ RUN groupadd -g 999 sliver && useradd -r -u 999 -g sliver sliver
 RUN mkdir -p /home/sliver/ && chown -R sliver:sliver /home/sliver
 
 ### Build sliver:
+RUN mkdir -p /go/src/github.com/bishopfox/sliver
 WORKDIR /go/src/github.com/bishopfox/sliver
 ADD . /go/src/github.com/bishopfox/sliver/
-RUN make clean-all 
-RUN make 
+RUN make
 RUN cp -vv sliver-server /opt/sliver-server 
 
 # STAGE: test

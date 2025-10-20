@@ -37,10 +37,7 @@ type Connlimit struct {
 }
 
 func (e *Connlimit) marshal(fam byte) ([]byte, error) {
-	data, err := netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: NFTA_CONNLIMIT_COUNT, Data: binaryutil.BigEndian.PutUint32(e.Count)},
-		{Type: NFTA_CONNLIMIT_FLAGS, Data: binaryutil.BigEndian.PutUint32(e.Flags)},
-	})
+	data, err := e.marshalData(fam)
 	if err != nil {
 		return nil, err
 	}
@@ -48,6 +45,13 @@ func (e *Connlimit) marshal(fam byte) ([]byte, error) {
 	return netlink.MarshalAttributes([]netlink.Attribute{
 		{Type: unix.NFTA_EXPR_NAME, Data: []byte("connlimit\x00")},
 		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
+	})
+}
+
+func (e *Connlimit) marshalData(fam byte) ([]byte, error) {
+	return netlink.MarshalAttributes([]netlink.Attribute{
+		{Type: NFTA_CONNLIMIT_COUNT, Data: binaryutil.BigEndian.PutUint32(e.Count)},
+		{Type: NFTA_CONNLIMIT_FLAGS, Data: binaryutil.BigEndian.PutUint32(e.Flags)},
 	})
 }
 

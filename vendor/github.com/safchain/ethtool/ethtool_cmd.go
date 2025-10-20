@@ -33,7 +33,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-type EthtoolCmd struct { /* ethtool.c: struct ethtool_cmd */
+// EthtoolCmd is the Go version of the Linux kerne ethtool_cmd struct
+// see ethtool.c
+type EthtoolCmd struct {
 	Cmd            uint32
 	Supported      uint32
 	Advertising    uint32
@@ -75,7 +77,7 @@ func (ecmd *EthtoolCmd) CmdSet(intf string) (uint32, error) {
 	return e.CmdSet(ecmd, intf)
 }
 
-func (f *EthtoolCmd) reflect(retv *map[string]uint64) {
+func (f *EthtoolCmd) reflect(retv map[string]uint64) {
 	val := reflect.ValueOf(f).Elem()
 
 	for i := 0; i < val.NumField(); i++ {
@@ -83,29 +85,22 @@ func (f *EthtoolCmd) reflect(retv *map[string]uint64) {
 		typeField := val.Type().Field(i)
 
 		t := valueField.Interface()
-		//tt := reflect.TypeOf(t)
-		//fmt.Printf(" t %T %v  tt %T %v\n", t, t, tt, tt)
-		switch t.(type) {
+		switch tt := t.(type) {
 		case uint32:
-			//fmt.Printf("    t is uint32\n")
-			(*retv)[typeField.Name] = uint64(t.(uint32))
+			retv[typeField.Name] = uint64(tt)
 		case uint16:
-			(*retv)[typeField.Name] = uint64(t.(uint16))
+			retv[typeField.Name] = uint64(tt)
 		case uint8:
-			(*retv)[typeField.Name] = uint64(t.(uint8))
+			retv[typeField.Name] = uint64(tt)
 		case int32:
-			(*retv)[typeField.Name] = uint64(t.(int32))
+			retv[typeField.Name] = uint64(tt)
 		case int16:
-			(*retv)[typeField.Name] = uint64(t.(int16))
+			retv[typeField.Name] = uint64(tt)
 		case int8:
-			(*retv)[typeField.Name] = uint64(t.(int8))
+			retv[typeField.Name] = uint64(tt)
 		default:
-			(*retv)[typeField.Name+"_unknown_type"] = 0
+			retv[typeField.Name+"_unknown_type"] = 0
 		}
-
-		//tag := typeField.Tag
-		//fmt.Printf("Field Name: %s,\t Field Value: %v,\t Tag Value: %s\n",
-		//	typeField.Name, valueField.Interface(), tag.Get("tag_name"))
 	}
 }
 
@@ -128,7 +123,7 @@ func (e *Ethtool) CmdGet(ecmd *EthtoolCmd, intf string) (uint32, error) {
 		return 0, ep
 	}
 
-	var speedval uint32 = (uint32(ecmd.Speed_hi) << 16) |
+	var speedval = (uint32(ecmd.Speed_hi) << 16) |
 		(uint32(ecmd.Speed) & 0xffff)
 	if speedval == math.MaxUint16 {
 		speedval = math.MaxUint32
@@ -156,7 +151,7 @@ func (e *Ethtool) CmdSet(ecmd *EthtoolCmd, intf string) (uint32, error) {
 		return 0, unix.Errno(ep)
 	}
 
-	var speedval uint32 = (uint32(ecmd.Speed_hi) << 16) |
+	var speedval = (uint32(ecmd.Speed_hi) << 16) |
 		(uint32(ecmd.Speed) & 0xffff)
 	if speedval == math.MaxUint16 {
 		speedval = math.MaxUint32
@@ -185,19 +180,20 @@ func (e *Ethtool) CmdGetMapped(intf string) (map[string]uint64, error) {
 		return nil, ep
 	}
 
-	var result = make(map[string]uint64)
+	result := make(map[string]uint64)
 
 	// ref https://gist.github.com/drewolson/4771479
 	// Golang Reflection Example
-	ecmd.reflect(&result)
+	ecmd.reflect(result)
 
-	var speedval uint32 = (uint32(ecmd.Speed_hi) << 16) |
+	var speedval = (uint32(ecmd.Speed_hi) << 16) |
 		(uint32(ecmd.Speed) & 0xffff)
 	result["speed"] = uint64(speedval)
 
 	return result, nil
 }
 
+// CmdGetMapped returns the interface settings in a map
 func CmdGetMapped(intf string) (map[string]uint64, error) {
 	e, err := NewEthtool()
 	if err != nil {

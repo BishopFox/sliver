@@ -6,18 +6,19 @@ import (
 	"context"
 	"errors"
 	"io/fs"
-	"os"
 	"sync"
 
-	"github.com/ncruces/go-sqlite3/internal/util"
 	"github.com/tetratelabs/wazero/api"
+
+	"github.com/ncruces/go-sqlite3/internal/dotlk"
+	"github.com/ncruces/go-sqlite3/internal/util"
 )
 
 type vfsShmParent struct {
 	shared [][_WALINDEX_PGSZ]byte
 	refs   int // +checklocks:vfsShmListMtx
 
-	lock [_SHM_NLOCK]int16 // +checklocks:Mutex
+	lock [_SHM_NLOCK]int8 // +checklocks:Mutex
 	sync.Mutex
 }
 
@@ -34,8 +35,8 @@ type vfsShm struct {
 	free   api.Function
 	path   string
 	shadow [][_WALINDEX_PGSZ]byte
-	ptrs   []uint32
-	stack  [1]uint64
+	ptrs   []ptr_t
+	stack  [1]stk_t
 	lock   [_SHM_NLOCK]bool
 }
 
@@ -57,8 +58,7 @@ func (s *vfsShm) Close() error {
 		return nil
 	}
 
-	err := os.Remove(s.path)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+	if err := dotlk.Unlock(s.path); err != nil {
 		return _IOERR_UNLOCK
 	}
 	delete(vfsShmList, s.path)
@@ -81,9 +81,8 @@ func (s *vfsShm) shmOpen() _ErrorCode {
 		return _OK
 	}
 
-	// Create a directory on disk to ensure only this process
-	// uses this path to register a shared memory.
-	err := os.Mkdir(s.path, 0777)
+	// Dead man's switch.
+	err := dotlk.LockShm(s.path)
 	if errors.Is(err, fs.ErrExist) {
 		return _BUSY
 	}
@@ -97,7 +96,7 @@ func (s *vfsShm) shmOpen() _ErrorCode {
 	return _OK
 }
 
-func (s *vfsShm) shmMap(ctx context.Context, mod api.Module, id, size int32, extend bool) (uint32, _ErrorCode) {
+func (s *vfsShm) shmMap(ctx context.Context, mod api.Module, id, size int32, extend bool) (ptr_t, _ErrorCode) {
 	if size != _WALINDEX_PGSZ {
 		return 0, _IOERR_SHMMAP
 	}
@@ -129,15 +128,15 @@ func (s *vfsShm) shmMap(ctx context.Context, mod api.Module, id, size int32, ext
 
 	// Allocate local memory.
 	for int(id) >= len(s.ptrs) {
-		s.stack[0] = uint64(size)
+		s.stack[0] = stk_t(size)
 		if err := s.alloc.CallWithStack(ctx, s.stack[:]); err != nil {
 			panic(err)
 		}
 		if s.stack[0] == 0 {
 			panic(util.OOMErr)
 		}
-		clear(util.View(s.mod, uint32(s.stack[0]), _WALINDEX_PGSZ))
-		s.ptrs = append(s.ptrs, uint32(s.stack[0]))
+		clear(util.View(s.mod, ptr_t(s.stack[0]), _WALINDEX_PGSZ))
+		s.ptrs = append(s.ptrs, ptr_t(s.stack[0]))
 	}
 
 	s.shadow[0][4] = 1
@@ -169,7 +168,7 @@ func (s *vfsShm) shmUnmap(delete bool) {
 	defer s.Unlock()
 
 	for _, p := range s.ptrs {
-		s.stack[0] = uint64(p)
+		s.stack[0] = stk_t(p)
 		if err := s.free.CallWithStack(context.Background(), s.stack[:]); err != nil {
 			panic(err)
 		}

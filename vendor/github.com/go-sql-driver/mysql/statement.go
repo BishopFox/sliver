@@ -24,11 +24,12 @@ type mysqlStmt struct {
 
 func (stmt *mysqlStmt) Close() error {
 	if stmt.mc == nil || stmt.mc.closed.Load() {
-		// driver.Stmt.Close can be called more than once, thus this function
-		// has to be idempotent.
-		// See also Issue #450 and golang/go#16019.
-		//errLog.Print(ErrInvalidConn)
-		return driver.ErrBadConn
+		// driver.Stmt.Close could be called more than once, thus this function
+		// had to be idempotent. See also Issue #450 and golang/go#16019.
+		// This bug has been fixed in Go 1.8.
+		// https://github.com/golang/go/commit/90b8a0ca2d0b565c7c7199ffcf77b15ea6b6db3a
+		// But we keep this function idempotent because it is safer.
+		return nil
 	}
 
 	err := stmt.mc.writeCommandPacketUint32(comStmtClose, stmt.id)
@@ -51,7 +52,6 @@ func (stmt *mysqlStmt) CheckNamedValue(nv *driver.NamedValue) (err error) {
 
 func (stmt *mysqlStmt) Exec(args []driver.Value) (driver.Result, error) {
 	if stmt.mc.closed.Load() {
-		errLog.Print(ErrInvalidConn)
 		return nil, driver.ErrBadConn
 	}
 	// Send command
@@ -61,12 +61,10 @@ func (stmt *mysqlStmt) Exec(args []driver.Value) (driver.Result, error) {
 	}
 
 	mc := stmt.mc
-
-	mc.affectedRows = 0
-	mc.insertId = 0
+	handleOk := stmt.mc.clearResult()
 
 	// Read Result
-	resLen, err := mc.readResultSetHeaderPacket()
+	resLen, err := handleOk.readResultSetHeaderPacket()
 	if err != nil {
 		return nil, err
 	}
@@ -83,14 +81,12 @@ func (stmt *mysqlStmt) Exec(args []driver.Value) (driver.Result, error) {
 		}
 	}
 
-	if err := mc.discardResults(); err != nil {
+	if err := handleOk.discardResults(); err != nil {
 		return nil, err
 	}
 
-	return &mysqlResult{
-		affectedRows: int64(mc.affectedRows),
-		insertId:     int64(mc.insertId),
-	}, nil
+	copied := mc.result
+	return &copied, nil
 }
 
 func (stmt *mysqlStmt) Query(args []driver.Value) (driver.Rows, error) {
@@ -99,7 +95,6 @@ func (stmt *mysqlStmt) Query(args []driver.Value) (driver.Rows, error) {
 
 func (stmt *mysqlStmt) query(args []driver.Value) (*binaryRows, error) {
 	if stmt.mc.closed.Load() {
-		errLog.Print(ErrInvalidConn)
 		return nil, driver.ErrBadConn
 	}
 	// Send command
@@ -111,7 +106,8 @@ func (stmt *mysqlStmt) query(args []driver.Value) (*binaryRows, error) {
 	mc := stmt.mc
 
 	// Read Result
-	resLen, err := mc.readResultSetHeaderPacket()
+	handleOk := stmt.mc.clearResult()
+	resLen, err := handleOk.readResultSetHeaderPacket()
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +140,7 @@ type converter struct{}
 // implementation does not.  This function should be kept in sync with
 // database/sql/driver defaultConverter.ConvertValue() except for that
 // deliberate difference.
-func (c converter) ConvertValue(v interface{}) (driver.Value, error) {
+func (c converter) ConvertValue(v any) (driver.Value, error) {
 	if driver.IsValue(v) {
 		return v, nil
 	}

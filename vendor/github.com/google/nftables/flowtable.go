@@ -219,7 +219,7 @@ func (cc *Conn) getFlowtables(t *Table) ([]netlink.Message, error) {
 
 	reply, err := receiveAckAware(conn, message.Header.Flags)
 	if err != nil {
-		return nil, fmt.Errorf("Receive: %v", err)
+		return nil, fmt.Errorf("receiveAckAware: %v", err)
 	}
 
 	return reply, nil

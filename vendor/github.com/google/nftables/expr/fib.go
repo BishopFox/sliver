@@ -37,6 +37,17 @@ type Fib struct {
 }
 
 func (e *Fib) marshal(fam byte) ([]byte, error) {
+	data, err := e.marshalData(fam)
+	if err != nil {
+		return nil, err
+	}
+	return netlink.MarshalAttributes([]netlink.Attribute{
+		{Type: unix.NFTA_EXPR_NAME, Data: []byte("fib\x00")},
+		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
+	})
+}
+
+func (e *Fib) marshalData(fam byte) ([]byte, error) {
 	data := []byte{}
 	reg, err := netlink.MarshalAttributes([]netlink.Attribute{
 		{Type: unix.NFTA_FIB_DREG, Data: binaryutil.BigEndian.PutUint32(e.Register)},
@@ -92,11 +103,7 @@ func (e *Fib) marshal(fam byte) ([]byte, error) {
 		}
 		data = append(data, rslt...)
 	}
-
-	return netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: unix.NFTA_EXPR_NAME, Data: []byte("fib\x00")},
-		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
-	})
+	return data, nil
 }
 
 func (e *Fib) unmarshal(fam byte, data []byte) error {
@@ -111,17 +118,22 @@ func (e *Fib) unmarshal(fam byte, data []byte) error {
 			e.Register = ad.Uint32()
 		case unix.NFTA_FIB_RESULT:
 			result := ad.Uint32()
-			e.ResultOIF = (result & unix.NFT_FIB_RESULT_OIF) == 1
-			e.ResultOIFNAME = (result & unix.NFT_FIB_RESULT_OIFNAME) == 1
-			e.ResultADDRTYPE = (result & unix.NFT_FIB_RESULT_ADDRTYPE) == 1
+			switch result {
+			case unix.NFT_FIB_RESULT_OIF:
+				e.ResultOIF = true
+			case unix.NFT_FIB_RESULT_OIFNAME:
+				e.ResultOIFNAME = true
+			case unix.NFT_FIB_RESULT_ADDRTYPE:
+				e.ResultADDRTYPE = true
+			}
 		case unix.NFTA_FIB_FLAGS:
 			flags := ad.Uint32()
-			e.FlagSADDR = (flags & unix.NFTA_FIB_F_SADDR) == 1
-			e.FlagDADDR = (flags & unix.NFTA_FIB_F_DADDR) == 1
-			e.FlagMARK = (flags & unix.NFTA_FIB_F_MARK) == 1
-			e.FlagIIF = (flags & unix.NFTA_FIB_F_IIF) == 1
-			e.FlagOIF = (flags & unix.NFTA_FIB_F_OIF) == 1
-			e.FlagPRESENT = (flags & unix.NFTA_FIB_F_PRESENT) == 1
+			e.FlagSADDR = (flags & unix.NFTA_FIB_F_SADDR) != 0
+			e.FlagDADDR = (flags & unix.NFTA_FIB_F_DADDR) != 0
+			e.FlagMARK = (flags & unix.NFTA_FIB_F_MARK) != 0
+			e.FlagIIF = (flags & unix.NFTA_FIB_F_IIF) != 0
+			e.FlagOIF = (flags & unix.NFTA_FIB_F_OIF) != 0
+			e.FlagPRESENT = (flags & unix.NFTA_FIB_F_PRESENT) != 0
 		}
 	}
 	return ad.Err()

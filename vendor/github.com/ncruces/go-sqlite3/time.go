@@ -94,7 +94,7 @@ func (f TimeFormat) Encode(t time.Time) any {
 	case TimeFormatUnix:
 		return t.Unix()
 	case TimeFormatUnixFrac:
-		return float64(t.Unix()) + float64(t.Nanosecond())*1e-9
+		return math.FMA(1e-9, float64(t.Nanosecond()), float64(t.Unix()))
 	case TimeFormatUnixMilli:
 		return t.UnixMilli()
 	case TimeFormatUnixMicro:

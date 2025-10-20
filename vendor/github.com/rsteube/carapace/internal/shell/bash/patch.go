@@ -17,6 +17,15 @@ func (r RedirectError) Error() string {
 // TODO yuck! - set by Patch which also unsets bash comp environment variables so that they don't affect further completion
 // introduces state and hides what is happening but works for now
 var wordbreakPrefix string = ""
+var compType = ""
+
+const (
+	COMP_TYPE_NORMAL               = "9"  // TAB, for normal completion
+	COMP_TYPE_LIST_PARTIAL_WORD    = "33" // ‘!’, for listing alternatives on partial word completion,
+	COMP_TYPE_MENU_COMPLETION      = "37" // ‘%’, for menu completion
+	COMP_TYPE_LIST_SUCCESSIVE_TABS = "63" // ‘?’, for listing completions after successive tabs,
+	COMP_TYPE_LIST_NOT_UNMODIFIED  = "64" // ‘@’, to list completions if the word is not unmodified
+)
 
 func CompLine() (string, bool) {
 	line, ok := os.LookupEnv("COMP_LINE")
@@ -68,6 +77,7 @@ func Patch(args []string) ([]string, error) { // TODO document and fix wordbreak
 
 	// TODO find a better solution to pass the wordbreakprefix to bash/action.go
 	wordbreakPrefix = tokens.CurrentPipeline().WordbreakPrefix()
+	compType = os.Getenv("COMP_TYPE")
 	unsetBashCompEnv()
 
 	return args, nil

@@ -58,7 +58,18 @@ type Payload struct {
 }
 
 func (e *Payload) marshal(fam byte) ([]byte, error) {
+	data, err := e.marshalData(fam)
+	if err != nil {
+		return nil, err
+	}
 
+	return netlink.MarshalAttributes([]netlink.Attribute{
+		{Type: unix.NFTA_EXPR_NAME, Data: []byte("payload\x00")},
+		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
+	})
+}
+
+func (e *Payload) marshalData(fam byte) ([]byte, error) {
 	var attrs []netlink.Attribute
 
 	if e.OperationType == PayloadWrite {
@@ -89,15 +100,7 @@ func (e *Payload) marshal(fam byte) ([]byte, error) {
 		}
 	}
 
-	data, err := netlink.MarshalAttributes(attrs)
-
-	if err != nil {
-		return nil, err
-	}
-	return netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: unix.NFTA_EXPR_NAME, Data: []byte("payload\x00")},
-		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
-	})
+	return netlink.MarshalAttributes(attrs)
 }
 
 func (e *Payload) unmarshal(fam byte, data []byte) error {

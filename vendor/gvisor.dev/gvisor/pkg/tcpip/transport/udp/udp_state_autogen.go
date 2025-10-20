@@ -56,7 +56,7 @@ func (p *udpPacket) StateLoad(ctx context.Context, stateSourceObject state.Sourc
 	stateSourceObject.Load(5, &p.pkt)
 	stateSourceObject.Load(7, &p.tosOrTClass)
 	stateSourceObject.Load(8, &p.ttlOrHopLimit)
-	stateSourceObject.LoadValue(6, new(int64), func(y any) { p.loadReceivedAt(y.(int64)) })
+	stateSourceObject.LoadValue(6, new(int64), func(y any) { p.loadReceivedAt(ctx, y.(int64)) })
 }
 
 func (e *endpoint) StateTypeName() string {
@@ -66,8 +66,8 @@ func (e *endpoint) StateTypeName() string {
 func (e *endpoint) StateFields() []string {
 	return []string{
 		"DefaultSocketOptionsHandler",
+		"stack",
 		"waiterQueue",
-		"uniqueID",
 		"net",
 		"stats",
 		"ops",
@@ -91,8 +91,8 @@ func (e *endpoint) StateFields() []string {
 func (e *endpoint) StateSave(stateSinkObject state.Sink) {
 	e.beforeSave()
 	stateSinkObject.Save(0, &e.DefaultSocketOptionsHandler)
-	stateSinkObject.Save(1, &e.waiterQueue)
-	stateSinkObject.Save(2, &e.uniqueID)
+	stateSinkObject.Save(1, &e.stack)
+	stateSinkObject.Save(2, &e.waiterQueue)
 	stateSinkObject.Save(3, &e.net)
 	stateSinkObject.Save(4, &e.stats)
 	stateSinkObject.Save(5, &e.ops)
@@ -114,8 +114,8 @@ func (e *endpoint) StateSave(stateSinkObject state.Sink) {
 // +checklocksignore
 func (e *endpoint) StateLoad(ctx context.Context, stateSourceObject state.Source) {
 	stateSourceObject.Load(0, &e.DefaultSocketOptionsHandler)
-	stateSourceObject.Load(1, &e.waiterQueue)
-	stateSourceObject.Load(2, &e.uniqueID)
+	stateSourceObject.Load(1, &e.stack)
+	stateSourceObject.Load(2, &e.waiterQueue)
 	stateSourceObject.Load(3, &e.net)
 	stateSourceObject.Load(4, &e.stats)
 	stateSourceObject.Load(5, &e.ops)
@@ -133,6 +133,31 @@ func (e *endpoint) StateLoad(ctx context.Context, stateSourceObject state.Source
 	stateSourceObject.Load(17, &e.localPort)
 	stateSourceObject.Load(18, &e.remotePort)
 	stateSourceObject.AfterLoad(func() { e.afterLoad(ctx) })
+}
+
+func (p *protocol) StateTypeName() string {
+	return "pkg/tcpip/transport/udp.protocol"
+}
+
+func (p *protocol) StateFields() []string {
+	return []string{
+		"stack",
+	}
+}
+
+func (p *protocol) beforeSave() {}
+
+// +checklocksignore
+func (p *protocol) StateSave(stateSinkObject state.Sink) {
+	p.beforeSave()
+	stateSinkObject.Save(0, &p.stack)
+}
+
+func (p *protocol) afterLoad(context.Context) {}
+
+// +checklocksignore
+func (p *protocol) StateLoad(ctx context.Context, stateSourceObject state.Source) {
+	stateSourceObject.Load(0, &p.stack)
 }
 
 func (l *udpPacketList) StateTypeName() string {
@@ -194,6 +219,7 @@ func (e *udpPacketEntry) StateLoad(ctx context.Context, stateSourceObject state.
 func init() {
 	state.Register((*udpPacket)(nil))
 	state.Register((*endpoint)(nil))
+	state.Register((*protocol)(nil))
 	state.Register((*udpPacketList)(nil))
 	state.Register((*udpPacketEntry)(nil))
 }

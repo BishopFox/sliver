@@ -3,7 +3,7 @@ package wininet
 import (
 	"encoding/binary"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"sync"
@@ -62,7 +62,7 @@ func (c *Client) Do(request *http.Request) (*http.Response, error) {
 
 	var rawBody []byte
 	if request.Body != nil {
-		rawBody, err = ioutil.ReadAll(request.Body)
+		rawBody, err = io.ReadAll(request.Body)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read request body: %w", err)
 		}

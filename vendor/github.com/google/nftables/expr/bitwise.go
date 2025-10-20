@@ -31,6 +31,17 @@ type Bitwise struct {
 }
 
 func (e *Bitwise) marshal(fam byte) ([]byte, error) {
+	data, err := e.marshalData(fam)
+	if err != nil {
+		return nil, err
+	}
+	return netlink.MarshalAttributes([]netlink.Attribute{
+		{Type: unix.NFTA_EXPR_NAME, Data: []byte("bitwise\x00")},
+		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
+	})
+}
+
+func (e *Bitwise) marshalData(fam byte) ([]byte, error) {
 	mask, err := netlink.MarshalAttributes([]netlink.Attribute{
 		{Type: unix.NFTA_DATA_VALUE, Data: e.Mask},
 	})
@@ -44,19 +55,12 @@ func (e *Bitwise) marshal(fam byte) ([]byte, error) {
 		return nil, err
 	}
 
-	data, err := netlink.MarshalAttributes([]netlink.Attribute{
+	return netlink.MarshalAttributes([]netlink.Attribute{
 		{Type: unix.NFTA_BITWISE_SREG, Data: binaryutil.BigEndian.PutUint32(e.SourceRegister)},
 		{Type: unix.NFTA_BITWISE_DREG, Data: binaryutil.BigEndian.PutUint32(e.DestRegister)},
 		{Type: unix.NFTA_BITWISE_LEN, Data: binaryutil.BigEndian.PutUint32(e.Len)},
 		{Type: unix.NLA_F_NESTED | unix.NFTA_BITWISE_MASK, Data: mask},
 		{Type: unix.NLA_F_NESTED | unix.NFTA_BITWISE_XOR, Data: xor},
-	})
-	if err != nil {
-		return nil, err
-	}
-	return netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: unix.NFTA_EXPR_NAME, Data: []byte("bitwise\x00")},
-		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
 	})
 }
 
