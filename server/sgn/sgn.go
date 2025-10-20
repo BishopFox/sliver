@@ -19,17 +19,11 @@ package sgn
 */
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"runtime"
-	"strings"
 
-	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/log"
+	sgnpkg "github.com/moloch--/sgn/pkg"
 )
 
 var (
@@ -56,148 +50,25 @@ type SGNConfig struct {
 	Input  string
 }
 
-// sgnCmd - Execute a sgn command
-func sgnCmd(appDir string, cwd string, command []string) ([]byte, error) {
-	sgnName := "sgn"
-	if runtime.GOOS == "windows" {
-		sgnName = "sgn.exe"
-	}
-	sgnBinPath := filepath.Join(appDir, "go", "bin", sgnName)
-
-	cmd := exec.Command(sgnBinPath, command...)
-	cmd.Dir = cwd
-	cmd.Env = []string{
-		fmt.Sprintf("PATH=%s:%s", filepath.Join(appDir, "go", "bin"), os.Getenv("PATH")),
-	}
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	sgnLog.Infof("sgn cmd: '%v'", cmd)
-	err := cmd.Run()
-	if err != nil {
-		sgnLog.Infof("--- env ---\n")
-		for _, envVar := range cmd.Env {
-			sgnLog.Infof("%s\n", envVar)
-		}
-		sgnLog.Infof("--- stdout ---\n%s\n", stdout.String())
-		sgnLog.Infof("--- stderr ---\n%s\n", stderr.String())
-		sgnLog.Info(err)
-	}
-	return stdout.Bytes(), err
-}
-
 // EncodeShellcode - Encode a shellcode
 func EncodeShellcode(shellcode []byte, arch string, iterations int, badChars []byte) ([]byte, error) {
 	sgnLog.Infof("[sgn] EncodeShellcode: %d bytes", len(shellcode))
-	inputFile, err := os.CreateTemp("", "sgn")
-	if err != nil {
-		sgnLog.Error(err)
-		return nil, ErrFailedToEncode
-	}
-	_, err = inputFile.Write(shellcode)
-	if err != nil {
-		sgnLog.Error(err)
-		return nil, ErrFailedToEncode
-	}
-	defer os.Remove(inputFile.Name())
-	outputFile, err := os.CreateTemp("", "sgn")
-	if err != nil {
-		sgnLog.Error(err)
-		return nil, ErrFailedToEncode
-	}
-	outputFile.Close()
-	defer os.Remove(outputFile.Name())
 
-	config := SGNConfig{
-		AppDir: assets.GetRootAppDir(),
-
-		Architecture:   strings.ToLower(arch),
-		Iterations:     iterations,
-		MaxObfuscation: 20,
-		Safe:           false,
-		PlainDecoder:   false,
-		Asci:           false,
-		BadChars:       badChars,
-		Verbose:        false,
-
-		Input:  inputFile.Name(),
-		Output: outputFile.Name(),
-	}
-	_, err = sgnCmd(config.AppDir, ".", configToArgs(config))
+	encoder, err := sgnpkg.NewEncoder(64)
 	if err != nil {
-		sgnLog.Error(err)
-		return nil, ErrFailedToEncode
+		fmt.Println(err)
+		return nil, fmt.Errorf("%w: %s", ErrFailedToEncode, err)
 	}
-	data, err := os.ReadFile(outputFile.Name())
+
+	data, err := encoder.Encode(shellcode)
 	if err != nil {
-		sgnLog.Error(err)
-		return nil, ErrFailedToEncode
+		sgnLog.Errorf("[sgn] EncodeShellcode: %s", err)
+		return nil, fmt.Errorf("%w: %s", ErrFailedToEncode, err)
 	}
-	sgnLog.Infof("[sgn] successfully encoded to %d bytes", len(data))
+
+	if len(data) == 0 {
+		return nil, fmt.Errorf("%w: no data returned from encoder", ErrFailedToEncode)
+	}
+
 	return data, nil
-}
-
-func configToArgs(config SGNConfig) []string {
-	args := []string{}
-
-	// CPU Architecture
-	if config.Architecture == "386" || config.Architecture == "32" {
-		args = append(args, "-a", "32")
-	} else {
-		args = append(args, "-a", "64")
-	}
-
-	// Iterations
-	if 1 < config.Iterations {
-		args = append(args, "-c", fmt.Sprintf("%d", config.Iterations))
-	} else {
-		args = append(args, "-c", "1")
-	}
-
-	// Max obfuscation
-	if 0 < config.MaxObfuscation {
-		args = append(args, "-max", fmt.Sprintf("%d", config.MaxObfuscation))
-	} else {
-		args = append(args, "-max", "20")
-	}
-
-	// Safe
-	if config.Safe {
-		args = append(args, "-safe")
-	}
-
-	// Plain decoder
-	if config.PlainDecoder {
-		args = append(args, "-plain-decoder")
-	}
-
-	// Asci
-	if config.Asci {
-		args = append(args, "-asci")
-	}
-
-	// Bad characters
-	if 0 < len(config.BadChars) {
-		badChars := []string{}
-		for _, b := range config.BadChars {
-			badChars = append(badChars, fmt.Sprintf("\\x%02x", b))
-		}
-		args = append(args, "-b", strings.Join(badChars, ""))
-	}
-
-	// Verbose
-	if config.Verbose {
-		args = append(args, "-v")
-	}
-
-	// Output
-	args = append(args, "-o", config.Output)
-
-	// Input
-	sgnLog.Infof("[sgn] input file: %s", config.Input)
-	args = append(args, config.Input)
-
-	return args
 }

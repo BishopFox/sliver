@@ -83,6 +83,9 @@ github.com/alecthomas/chroma/lexers/x
 github.com/alecthomas/chroma/lexers/y
 github.com/alecthomas/chroma/lexers/z
 github.com/alecthomas/chroma/styles
+# github.com/alecthomas/kong v0.8.1
+## explicit; go 1.18
+github.com/alecthomas/kong
 # github.com/alexbrainman/sspi v0.0.0-20250919150558-7d374ff0d59e
 ## explicit; go 1.13
 github.com/alexbrainman/sspi
@@ -197,6 +200,9 @@ github.com/aws/smithy-go/tracing
 github.com/aws/smithy-go/transport/http
 github.com/aws/smithy-go/transport/http/internal/io
 github.com/aws/smithy-go/waiter
+# github.com/briandowns/spinner v1.11.1
+## explicit; go 1.14
+github.com/briandowns/spinner
 # github.com/carapace-sh/carapace v1.9.0
 ## explicit; go 1.16
 github.com/carapace-sh/carapace
@@ -573,9 +579,18 @@ github.com/mitchellh/go-ps
 # github.com/moloch--/asciicast v0.1.1
 ## explicit; go 1.20
 github.com/moloch--/asciicast
+# github.com/moloch--/go-keystone v0.0.2
+## explicit; go 1.23
+github.com/moloch--/go-keystone
 # github.com/moloch--/memmod v0.0.0-20230225130813-fd77d905589e
 ## explicit; go 1.17
 github.com/moloch--/memmod
+# github.com/moloch--/sgn v0.0.4
+## explicit; go 1.23
+github.com/moloch--/sgn
+github.com/moloch--/sgn/config
+github.com/moloch--/sgn/pkg
+github.com/moloch--/sgn/utils
 # github.com/ncruces/go-sqlite3 v0.29.1
 ## explicit; go 1.24.0
 github.com/ncruces/go-sqlite3
@@ -592,6 +607,9 @@ github.com/ncruces/go-strftime
 # github.com/ncruces/julianday v1.0.0
 ## explicit; go 1.17
 github.com/ncruces/julianday
+# github.com/olekukonko/tablewriter v0.0.5
+## explicit; go 1.12
+github.com/olekukonko/tablewriter
 # github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 ## explicit
 github.com/pmezard/go-difflib/difflib
@@ -685,7 +703,7 @@ github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.10
 ## explicit; go 1.12
 github.com/spf13/pflag
-# github.com/stretchr/testify v1.11.0
+# github.com/stretchr/testify v1.11.1
 ## explicit; go 1.17
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/assert/yaml

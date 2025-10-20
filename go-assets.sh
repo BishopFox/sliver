@@ -309,29 +309,6 @@ echo "curl -L --fail --output $OUTPUT_DIR/darwin/arm64/garble https://github.com
 curl -L --fail --output $OUTPUT_DIR/darwin/arm64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-arm64
 
 
-echo "-----------------------------------------------------------------"
-echo " Shikata ga nai (ノ ゜Д゜)ノ ︵ 仕方がない"
-echo "-----------------------------------------------------------------"
-# Linux (amd64)
-echo "curl -L --fail --output $OUTPUT_DIR/linux/amd64/sgn https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_linux-amd64"
-curl -L --fail --output "$OUTPUT_DIR/linux/amd64/sgn" https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_linux-amd64
-chmod +x "$OUTPUT_DIR/linux/amd64/sgn"
-# Linux (arm64)
-echo "curl -L --fail --output $OUTPUT_DIR/linux/arm64/sgn https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_linux-arm64"
-curl -L --fail --output "$OUTPUT_DIR/linux/arm64/sgn" https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_linux-arm64
-chmod +x "$OUTPUT_DIR/linux/arm64/sgn"
-# Windows (amd64)
-echo "curl -L --fail --output $OUTPUT_DIR/windows/amd64/sgn.exe https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_windows-amd64.exe"
-curl -L --fail --output "$OUTPUT_DIR/windows/amd64/sgn.exe" https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_windows-amd64.exe
-# MacOS (amd64)
-echo "curl -L --fail --output $OUTPUT_DIR/darwin/amd64/sgn https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_darwin-amd64"
-curl -L --fail --output "$OUTPUT_DIR/darwin/amd64/sgn" https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_darwin-amd64
-chmod +x "$OUTPUT_DIR/darwin/amd64/sgn"
-# MacOS (arm64)
-echo "curl -L --fail --output $OUTPUT_DIR/darwin/arm64/sgn https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_darwin-arm64"
-curl -L --fail --output "$OUTPUT_DIR/darwin/arm64/sgn" https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_darwin-arm64
-chmod +x "$OUTPUT_DIR/darwin/arm64/sgn"
-
 # --- Cleanup ---
 echo -e "clean up: $WORK_DIR"
 rm -rf $WORK_DIR
