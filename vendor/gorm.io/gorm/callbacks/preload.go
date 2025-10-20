@@ -103,11 +103,11 @@ func preloadEntryPoint(db *gorm.DB, joins []string, relationships *schema.Relati
 				joined = true
 				continue
 			}
-			joinNames := strings.SplitN(join, ".", 2)
-			if len(joinNames) == 2 {
-				if _, ok := relationships.Relations[joinNames[0]]; ok && name == joinNames[0] {
+			join0, join1, cut := strings.Cut(join, ".")
+			if cut {
+				if _, ok := relationships.Relations[join0]; ok && name == join0 {
 					joined = true
-					nestedJoins = append(nestedJoins, joinNames[1])
+					nestedJoins = append(nestedJoins, join1)
 				}
 			}
 		}
@@ -125,13 +125,15 @@ func preloadEntryPoint(db *gorm.DB, joins []string, relationships *schema.Relati
 				case reflect.Slice, reflect.Array:
 					if rv.Len() > 0 {
 						reflectValue := rel.FieldSchema.MakeSlice().Elem()
-						reflectValue.SetLen(rv.Len())
 						for i := 0; i < rv.Len(); i++ {
 							frv := rel.Field.ReflectValueOf(db.Statement.Context, rv.Index(i))
 							if frv.Kind() != reflect.Ptr {
-								reflectValue.Index(i).Set(frv.Addr())
+								reflectValue = reflect.Append(reflectValue, frv.Addr())
 							} else {
-								reflectValue.Index(i).Set(frv)
+								if frv.IsNil() {
+									continue
+								}
+								reflectValue = reflect.Append(reflectValue, frv)
 							}
 						}
 
@@ -140,7 +142,7 @@ func preloadEntryPoint(db *gorm.DB, joins []string, relationships *schema.Relati
 							return err
 						}
 					}
-				case reflect.Struct:
+				case reflect.Struct, reflect.Pointer:
 					reflectValue := rel.Field.ReflectValueOf(db.Statement.Context, rv)
 					tx := preloadDB(db, reflectValue, reflectValue.Interface())
 					if err := preloadEntryPoint(tx, nestedJoins, &tx.Statement.Schema.Relationships, preloadMap[name], associationsConds); err != nil {
@@ -273,6 +275,8 @@ func preload(tx *gorm.DB, rel *schema.Relationship, conds []interface{}, preload
 	column, values := schema.ToQueryValues(clause.CurrentTable, relForeignKeys, foreignValues)
 
 	if len(values) != 0 {
+		tx = tx.Model(reflectResults.Addr().Interface()).Where(clause.IN{Column: column, Values: values})
+
 		for _, cond := range conds {
 			if fc, ok := cond.(func(*gorm.DB) *gorm.DB); ok {
 				tx = fc(tx)
@@ -281,7 +285,11 @@ func preload(tx *gorm.DB, rel *schema.Relationship, conds []interface{}, preload
 			}
 		}
 
-		if err := tx.Where(clause.IN{Column: column, Values: values}).Find(reflectResults.Addr().Interface(), inlineConds...).Error; err != nil {
+		if len(inlineConds) > 0 {
+			tx = tx.Where(inlineConds[0], inlineConds[1:]...)
+		}
+
+		if err := tx.Find(reflectResults.Addr().Interface()).Error; err != nil {
 			return err
 		}
 	}

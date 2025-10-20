@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:build !goexperiment.jsonv2 || !go1.25
+
 // Package jsonwire implements stateless functionality for handling JSON text.
 package jsonwire
 
@@ -76,13 +78,8 @@ func CompareUTF16[Bytes ~[]byte | ~string](x, y Bytes) int {
 		return ('\u0000' <= r && r <= '\uD7FF') || ('\uE000' <= r && r <= '\uFFFF')
 	}
 
-	var invalidUTF8 bool
-	x0, y0 := x, y
 	for {
 		if len(x) == 0 || len(y) == 0 {
-			if len(x) == len(y) && invalidUTF8 {
-				return strings.Compare(string(x0), string(y0))
-			}
 			return cmp.Compare(len(x), len(y))
 		}
 
@@ -114,7 +111,14 @@ func CompareUTF16[Bytes ~[]byte | ~string](x, y Bytes) int {
 		if rx != ry {
 			return cmp.Compare(rx, ry)
 		}
-		invalidUTF8 = invalidUTF8 || (rx == utf8.RuneError && nx == 1) || (ry == utf8.RuneError && ny == 1)
+
+		// Check for invalid UTF-8, in which case,
+		// we just perform a byte-for-byte comparison.
+		if isInvalidUTF8(rx, nx) || isInvalidUTF8(ry, ny) {
+			if x[0] != y[0] {
+				return cmp.Compare(x[0], y[0])
+			}
+		}
 		x, y = x[nx:], y[ny:]
 	}
 }
@@ -141,16 +145,12 @@ func truncateMaxUTF8[Bytes ~[]byte | ~string](b Bytes) Bytes {
 	return b
 }
 
-// NewError and ErrInvalidUTF8 are injected by the "jsontext" package,
-// so that these error types use the jsontext.SyntacticError type.
-var (
-	NewError       = errors.New
-	ErrInvalidUTF8 = errors.New("invalid UTF-8 within string")
-)
+// TODO(https://go.dev/issue/70547): Use utf8.ErrInvalid instead.
+var ErrInvalidUTF8 = errors.New("invalid UTF-8")
 
 func NewInvalidCharacterError[Bytes ~[]byte | ~string](prefix Bytes, where string) error {
 	what := QuoteRune(prefix)
-	return NewError("invalid character " + what + " " + where)
+	return errors.New("invalid character " + what + " " + where)
 }
 
 func NewInvalidEscapeSequenceError[Bytes ~[]byte | ~string](what Bytes) error {
@@ -162,8 +162,56 @@ func NewInvalidEscapeSequenceError[Bytes ~[]byte | ~string](what Bytes) error {
 		return r == '`' || r == utf8.RuneError || unicode.IsSpace(r) || !unicode.IsPrint(r)
 	}) >= 0
 	if needEscape {
-		return NewError("invalid " + label + " " + strconv.Quote(string(what)) + " within string")
+		return errors.New("invalid " + label + " " + strconv.Quote(string(what)) + " in string")
 	} else {
-		return NewError("invalid " + label + " `" + string(what) + "` within string")
+		return errors.New("invalid " + label + " `" + string(what) + "` in string")
 	}
+}
+
+// TruncatePointer optionally truncates the JSON pointer,
+// enforcing that the length roughly does not exceed n.
+func TruncatePointer(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	i := n / 2
+	j := len(s) - n/2
+
+	// Avoid truncating a name if there are multiple names present.
+	if k := strings.LastIndexByte(s[:i], '/'); k > 0 {
+		i = k
+	}
+	if k := strings.IndexByte(s[j:], '/'); k >= 0 {
+		j += k + len("/")
+	}
+
+	// Avoid truncation in the middle of a UTF-8 rune.
+	for i > 0 && isInvalidUTF8(utf8.DecodeLastRuneInString(s[:i])) {
+		i--
+	}
+	for j < len(s) && isInvalidUTF8(utf8.DecodeRuneInString(s[j:])) {
+		j++
+	}
+
+	// Determine the right middle fragment to use.
+	var middle string
+	switch strings.Count(s[i:j], "/") {
+	case 0:
+		middle = "…"
+	case 1:
+		middle = "…/…"
+	default:
+		middle = "…/…/…"
+	}
+	if strings.HasPrefix(s[i:j], "/") && middle != "…" {
+		middle = strings.TrimPrefix(middle, "…")
+	}
+	if strings.HasSuffix(s[i:j], "/") && middle != "…" {
+		middle = strings.TrimSuffix(middle, "…")
+	}
+	return s[:i] + middle + s[j:]
+}
+
+func isInvalidUTF8(r rune, rn int) bool {
+	return r == utf8.RuneError && rn == 1
 }

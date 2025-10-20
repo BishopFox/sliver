@@ -4,7 +4,6 @@
 package ipnlocal
 
 import (
-	"cmp"
 	"fmt"
 	"os"
 	"slices"
@@ -26,26 +25,14 @@ const (
 // enabled. This is currently based on checking for the drive:share node
 // attribute.
 func (b *LocalBackend) DriveSharingEnabled() bool {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.driveSharingEnabledLocked()
-}
-
-func (b *LocalBackend) driveSharingEnabledLocked() bool {
-	return b.netMap != nil && b.netMap.SelfNode.HasCap(tailcfg.NodeAttrsTaildriveShare)
+	return b.currentNode().SelfHasCap(tailcfg.NodeAttrsTaildriveShare)
 }
 
 // DriveAccessEnabled reports whether accessing Taildrive shares on remote nodes
 // is enabled. This is currently based on checking for the drive:access node
 // attribute.
 func (b *LocalBackend) DriveAccessEnabled() bool {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.driveAccessEnabledLocked()
-}
-
-func (b *LocalBackend) driveAccessEnabledLocked() bool {
-	return b.netMap != nil && b.netMap.SelfNode.HasCap(tailcfg.NodeAttrsTaildriveAccess)
+	return b.currentNode().SelfHasCap(tailcfg.NodeAttrsTaildriveAccess)
 }
 
 // DriveSetServerAddr tells Taildrive to use the given address for connecting
@@ -93,8 +80,7 @@ func (b *LocalBackend) driveSetShareLocked(share *drive.Share) (views.SliceView[
 
 	addedShare := false
 	var shares []*drive.Share
-	for i := range existingShares.Len() {
-		existing := existingShares.At(i)
+	for _, existing := range existingShares.All() {
 		if existing.Name() != share.Name {
 			if !addedShare && existing.Name() > share.Name {
 				// Add share in order
@@ -152,8 +138,7 @@ func (b *LocalBackend) driveRenameShareLocked(oldName, newName string) (views.Sl
 
 	found := false
 	var shares []*drive.Share
-	for i := range existingShares.Len() {
-		existing := existingShares.At(i)
+	for _, existing := range existingShares.All() {
 		if existing.Name() == newName {
 			return existingShares, os.ErrExist
 		}
@@ -213,8 +198,7 @@ func (b *LocalBackend) driveRemoveShareLocked(name string) (views.SliceView[*dri
 
 	found := false
 	var shares []*drive.Share
-	for i := range existingShares.Len() {
-		existing := existingShares.At(i)
+	for _, existing := range existingShares.All() {
 		if existing.Name() != name {
 			shares = append(shares, existing.AsStruct())
 		} else {
@@ -243,12 +227,21 @@ func (b *LocalBackend) driveSetSharesLocked(shares []*drive.Share) error {
 		},
 		DriveSharesSet: true,
 	})
-	return b.pm.setPrefsLocked(prefs.View())
+	return b.pm.setPrefsNoPermCheck(prefs.View())
 }
 
 // driveNotifyShares notifies IPN bus listeners (e.g. Mac Application process)
-// about the latest list of shares.
+// about the latest list of shares, if and only if the shares have changed since
+// the last time we notified.
 func (b *LocalBackend) driveNotifyShares(shares views.SliceView[*drive.Share, drive.ShareView]) {
+	b.lastNotifiedDriveSharesMu.Lock()
+	defer b.lastNotifiedDriveSharesMu.Unlock()
+	if b.lastNotifiedDriveShares != nil && driveShareViewsEqual(b.lastNotifiedDriveShares, shares) {
+		// shares are unchanged since last notification, don't bother notifying
+		return
+	}
+	b.lastNotifiedDriveShares = &shares
+
 	// Ensures shares is not nil to distinguish "no shares" from "not notifying shares"
 	if shares.IsNil() {
 		shares = views.SliceOfViews(make([]*drive.Share, 0))
@@ -260,16 +253,13 @@ func (b *LocalBackend) driveNotifyShares(shares views.SliceView[*drive.Share, dr
 // shares has changed since the last notification.
 func (b *LocalBackend) driveNotifyCurrentSharesLocked() {
 	var shares views.SliceView[*drive.Share, drive.ShareView]
-	if b.driveSharingEnabledLocked() {
+	if b.DriveSharingEnabled() {
 		// Only populate shares if sharing is enabled.
 		shares = b.pm.prefs.DriveShares()
 	}
 
-	lastNotified := b.lastNotifiedDriveShares.Load()
-	if lastNotified == nil || !driveShareViewsEqual(lastNotified, shares) {
-		// Do the below on a goroutine to avoid deadlocking on b.mu in b.send().
-		go b.driveNotifyShares(shares)
-	}
+	// Do the below on a goroutine to avoid deadlocking on b.mu in b.send().
+	go b.driveNotifyShares(shares)
 }
 
 func driveShareViewsEqual(a *views.SliceView[*drive.Share, drive.ShareView], b views.SliceView[*drive.Share, drive.ShareView]) bool {
@@ -307,58 +297,66 @@ func (b *LocalBackend) updateDrivePeersLocked(nm *netmap.NetworkMap) {
 	}
 
 	var driveRemotes []*drive.Remote
-	if b.driveAccessEnabledLocked() {
+	if b.DriveAccessEnabled() {
 		// Only populate peers if access is enabled, otherwise leave blank.
 		driveRemotes = b.driveRemotesFromPeers(nm)
 	}
 
-	fs.SetRemotes(b.netMap.Domain, driveRemotes, b.newDriveTransport())
+	fs.SetRemotes(nm.Domain, driveRemotes, b.newDriveTransport())
 }
 
 func (b *LocalBackend) driveRemotesFromPeers(nm *netmap.NetworkMap) []*drive.Remote {
+	b.logf("[v1] taildrive: setting up drive remotes from peers")
 	driveRemotes := make([]*drive.Remote, 0, len(nm.Peers))
 	for _, p := range nm.Peers {
-		peerID := p.ID()
-		url := fmt.Sprintf("%s/%s", peerAPIBase(nm, p), taildrivePrefix[1:])
+		peer := p
+		peerID := peer.ID()
+		peerKey := peer.Key().ShortString()
+		b.logf("[v1] taildrive: appending remote for peer %s", peerKey)
 		driveRemotes = append(driveRemotes, &drive.Remote{
 			Name: p.DisplayName(false),
-			URL:  url,
+			URL: func() string {
+				url := fmt.Sprintf("%s/%s", b.currentNode().PeerAPIBase(peer), taildrivePrefix[1:])
+				b.logf("[v2] taildrive: url for peer %s: %s", peerKey, url)
+				return url
+			},
 			Available: func() bool {
 				// Peers are available to Taildrive if:
 				// - They are online
+				// - Their PeerAPI is reachable
 				// - They are allowed to share at least one folder with us
-				b.mu.Lock()
-				latestNetMap := b.netMap
-				b.mu.Unlock()
-
-				idx, found := slices.BinarySearchFunc(latestNetMap.Peers, peerID, func(candidate tailcfg.NodeView, id tailcfg.NodeID) int {
-					return cmp.Compare(candidate.ID(), id)
-				})
-				if !found {
+				cn := b.currentNode()
+				peer, ok := cn.NodeByID(peerID)
+				if !ok {
+					b.logf("[v2] taildrive: Available(): peer %s not found", peerKey)
 					return false
 				}
-
-				peer := latestNetMap.Peers[idx]
 
 				// Exclude offline peers.
 				// TODO(oxtoacart): for some reason, this correctly
 				// catches when a node goes from offline to online,
 				// but not the other way around...
-				online := peer.Online()
-				if online == nil || !*online {
+				// TODO(oxtoacart,nickkhyl): the reason was probably
+				// that we were using netmap.Peers instead of b.peers.
+				// The netmap.Peers slice is not updated in all cases.
+				// It should be fixed now that we use PeerByIDOk.
+				if !peer.Online().Get() {
+					b.logf("[v2] taildrive: Available(): peer %s offline", peerKey)
+					return false
+				}
+
+				if b.currentNode().PeerAPIBase(peer) == "" {
+					b.logf("[v2] taildrive: Available(): peer %s PeerAPI unreachable", peerKey)
 					return false
 				}
 
 				// Check that the peer is allowed to share with us.
-				addresses := peer.Addresses()
-				for i := range addresses.Len() {
-					addr := addresses.At(i)
-					capsMap := b.PeerCaps(addr.Addr())
-					if capsMap.HasCapability(tailcfg.PeerCapabilityTaildriveSharer) {
-						return true
-					}
+				if cn.PeerHasCap(peer, tailcfg.PeerCapabilityTaildriveSharer) {
+					b.logf("[v2] taildrive: Available(): peer %s available", peerKey)
+					return true
 				}
 
+				b.logf("[v2] taildrive: Available(): peer %s not allowed to share", peerKey)
 				return false
 			},
 		})

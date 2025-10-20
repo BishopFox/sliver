@@ -486,7 +486,7 @@ func (bind *afWinRingBind) Send(buf []byte, nend *WinRingEndpoint, isOpen *atomi
 	return winrio.SendEx(bind.rq, dataBuffer, 1, nil, addressBuffer, nil, nil, 0, 0)
 }
 
-func (bind *WinRingBind) Send(bufs [][]byte, endpoint Endpoint) error {
+func (bind *WinRingBind) Send(bufs [][]byte, endpoint Endpoint, offset int) error {
 	nend, ok := endpoint.(*WinRingEndpoint)
 	if !ok {
 		return ErrWrongEndpointType
@@ -494,6 +494,7 @@ func (bind *WinRingBind) Send(bufs [][]byte, endpoint Endpoint) error {
 	bind.mu.RLock()
 	defer bind.mu.RUnlock()
 	for _, buf := range bufs {
+		buf = buf[offset:]
 		switch nend.family {
 		case windows.AF_INET:
 			if bind.v4.blackhole {

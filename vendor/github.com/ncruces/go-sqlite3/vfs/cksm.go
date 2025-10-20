@@ -5,7 +5,6 @@ import (
 	"context"
 	_ "embed"
 	"encoding/binary"
-	"strconv"
 
 	"github.com/tetratelabs/wazero/api"
 
@@ -13,49 +12,30 @@ import (
 	"github.com/ncruces/go-sqlite3/util/sql3util"
 )
 
-func cksmWrapFile(name *Filename, flags OpenFlag, file File) File {
-	// Checksum only main databases and WALs.
-	if flags&(OPEN_MAIN_DB|OPEN_WAL) == 0 {
+func cksmWrapFile(file File, flags OpenFlag) File {
+	// Checksum only main databases.
+	if flags&OPEN_MAIN_DB == 0 {
 		return file
 	}
-
-	cksm := cksmFile{File: file}
-
-	if flags&OPEN_WAL != 0 {
-		main, _ := name.DatabaseFile().(cksmFile)
-		cksm.cksmFlags = main.cksmFlags
-	} else {
-		cksm.cksmFlags = new(cksmFlags)
-		cksm.isDB = true
-	}
-
-	return cksm
+	return &cksmFile{File: file}
 }
 
 type cksmFile struct {
 	File
-	*cksmFlags
-	isDB bool
-}
-
-type cksmFlags struct {
-	computeCksm bool
 	verifyCksm  bool
-	inCkpt      bool
-	pageSize    int
+	computeCksm bool
 }
 
-func (c cksmFile) ReadAt(p []byte, off int64) (n int, err error) {
+func (c *cksmFile) ReadAt(p []byte, off int64) (n int, err error) {
 	n, err = c.File.ReadAt(p, off)
+	p = p[:n]
 
-	// SQLite is reading the header of a database file.
-	if c.isDB && off == 0 && len(p) >= 100 &&
-		bytes.HasPrefix(p, []byte("SQLite format 3\000")) {
-		c.init(p)
+	if isHeader(p, off) {
+		c.init((*[100]byte)(p))
 	}
 
 	// Verify checksums.
-	if c.verifyCksm && !c.inCkpt && len(p) == c.pageSize {
+	if c.verifyCksm && sql3util.ValidPageSize(len(p)) {
 		cksm1 := cksmCompute(p[:len(p)-8])
 		cksm2 := *(*[8]byte)(p[len(p)-8:])
 		if cksm1 != cksm2 {
@@ -65,22 +45,20 @@ func (c cksmFile) ReadAt(p []byte, off int64) (n int, err error) {
 	return n, err
 }
 
-func (c cksmFile) WriteAt(p []byte, off int64) (n int, err error) {
-	// SQLite is writing the first page of a database file.
-	if c.isDB && off == 0 && len(p) >= 100 &&
-		bytes.HasPrefix(p, []byte("SQLite format 3\000")) {
-		c.init(p)
+func (c *cksmFile) WriteAt(p []byte, off int64) (n int, err error) {
+	if isHeader(p, off) {
+		c.init((*[100]byte)(p))
 	}
 
 	// Compute checksums.
-	if c.computeCksm && !c.inCkpt && len(p) == c.pageSize {
+	if c.computeCksm && sql3util.ValidPageSize(len(p)) {
 		*(*[8]byte)(p[len(p)-8:]) = cksmCompute(p[:len(p)-8])
 	}
 
 	return c.File.WriteAt(p, off)
 }
 
-func (c cksmFile) Pragma(name string, value string) (string, error) {
+func (c *cksmFile) Pragma(name string, value string) (string, error) {
 	switch name {
 	case "checksum_verification":
 		b, ok := sql3util.ParseBool(value)
@@ -93,41 +71,52 @@ func (c cksmFile) Pragma(name string, value string) (string, error) {
 		return "1", nil
 
 	case "page_size":
-		if c.computeCksm {
+		if c.computeCksm && value != "" {
 			// Do not allow page size changes on a checksum database.
-			return strconv.Itoa(c.pageSize), nil
+			return "", nil
 		}
 	}
 	return "", _NOTFOUND
 }
 
-func (c cksmFile) DeviceCharacteristics() DeviceCharacteristic {
-	res := c.File.DeviceCharacteristics()
+func (c *cksmFile) DeviceCharacteristics() DeviceCharacteristic {
+	ret := c.File.DeviceCharacteristics()
 	if c.verifyCksm {
-		res &^= IOCAP_SUBPAGE_READ
+		ret &^= IOCAP_SUBPAGE_READ
 	}
-	return res
+	return ret
 }
 
-func (c cksmFile) fileControl(ctx context.Context, mod api.Module, op _FcntlOpcode, pArg uint32) _ErrorCode {
-	switch op {
-	case _FCNTL_CKPT_START:
-		c.inCkpt = true
-	case _FCNTL_CKPT_DONE:
-		c.inCkpt = false
-	}
-	if rc := vfsFileControlImpl(ctx, mod, c, op, pArg); rc != _NOTFOUND {
-		return rc
+func (c *cksmFile) fileControl(ctx context.Context, mod api.Module, op _FcntlOpcode, pArg ptr_t) _ErrorCode {
+	if op == _FCNTL_PRAGMA {
+		rc := vfsFileControlImpl(ctx, mod, c, op, pArg)
+		if rc != _NOTFOUND {
+			return rc
+		}
 	}
 	return vfsFileControlImpl(ctx, mod, c.File, op, pArg)
 }
 
-func (f *cksmFlags) init(header []byte) {
-	f.pageSize = 256 * int(binary.LittleEndian.Uint16(header[16:18]))
-	if r := header[20] == 8; r != f.computeCksm {
-		f.computeCksm = r
-		f.verifyCksm = r
+func (c *cksmFile) init(header *[100]byte) {
+	if r := header[20] == 8; r != c.computeCksm {
+		c.computeCksm = r
+		c.verifyCksm = r
 	}
+}
+
+func (c *cksmFile) SharedMemory() SharedMemory {
+	if f, ok := c.File.(FileSharedMemory); ok {
+		return f.SharedMemory()
+	}
+	return nil
+}
+
+func (c *cksmFile) Unwrap() File {
+	return c.File
+}
+
+func isHeader(p []byte, off int64) bool {
+	return off == 0 && len(p) >= 100 && bytes.HasPrefix(p, []byte("SQLite format 3\000"))
 }
 
 func cksmCompute(a []byte) (cksm [8]byte) {
@@ -143,15 +132,4 @@ func cksmCompute(a []byte) (cksm [8]byte) {
 	binary.LittleEndian.PutUint32(cksm[0:4], s1)
 	binary.LittleEndian.PutUint32(cksm[4:8], s2)
 	return
-}
-
-func (c cksmFile) SharedMemory() SharedMemory {
-	if f, ok := c.File.(FileSharedMemory); ok {
-		return f.SharedMemory()
-	}
-	return nil
-}
-
-func (c cksmFile) Unwrap() File {
-	return c.File
 }

@@ -29,25 +29,34 @@ func (p *packet) saveReceivedAt() int64 {
 }
 
 // loadReceivedAt is invoked by stateify.
-func (p *packet) loadReceivedAt(nsec int64) {
+func (p *packet) loadReceivedAt(_ context.Context, nsec int64) {
 	p.receivedAt = time.Unix(0, nsec)
 }
 
 // beforeSave is invoked by stateify.
 func (ep *endpoint) beforeSave() {
 	ep.rcvMu.Lock()
-	defer ep.rcvMu.Unlock()
 	ep.rcvDisabled = true
+	ep.rcvMu.Unlock()
+	ep.stack.RegisterResumableEndpoint(ep)
 }
 
 // afterLoad is invoked by stateify.
 func (ep *endpoint) afterLoad(ctx context.Context) {
+	if !ep.stack.IsSaveRestoreEnabled() {
+		ep.mu.Lock()
+		ep.stack = stack.RestoreStackFromContext(ctx)
+		ep.mu.Unlock()
+	}
+	ep.stack.RegisterRestoredEndpoint(ep)
+}
+
+// Restore implements tcpip.RestoredEndpoint.Restore.
+func (ep *endpoint) Restore(_ *stack.Stack) {
 	ep.mu.Lock()
 	defer ep.mu.Unlock()
 
-	ep.stack = stack.RestoreStackFromContext(ctx)
 	ep.ops.InitHandler(ep, ep.stack, tcpip.GetStackSendBufferLimits, tcpip.GetStackReceiveBufferLimits)
-
 	if err := ep.stack.RegisterPacketEndpoint(ep.boundNIC, ep.boundNetProto, ep); err != nil {
 		panic(fmt.Sprintf("RegisterPacketEndpoint(%d, %d, _): %s", ep.boundNIC, ep.boundNetProto, err))
 	}
@@ -55,4 +64,11 @@ func (ep *endpoint) afterLoad(ctx context.Context) {
 	ep.rcvMu.Lock()
 	ep.rcvDisabled = false
 	ep.rcvMu.Unlock()
+}
+
+// Resume implements tcpip.ResumableEndpoint.Resume.
+func (ep *endpoint) Resume() {
+	ep.rcvMu.Lock()
+	defer ep.rcvMu.Unlock()
+	ep.rcvDisabled = false
 }

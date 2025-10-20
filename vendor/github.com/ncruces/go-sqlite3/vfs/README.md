@@ -6,22 +6,30 @@ It replaces the default SQLite VFS with a **pure Go** implementation,
 and exposes [interfaces](https://pkg.go.dev/github.com/ncruces/go-sqlite3/vfs#VFS)
 that should allow you to implement your own [custom VFSes](#custom-vfses).
 
-Since it is a from scratch reimplementation,
-there are naturally some ways it deviates from the original.
+See the [support matrix](https://github.com/ncruces/go-sqlite3/wiki/Support-matrix)
+for the list of supported OS and CPU architectures.
 
-The main differences are [file locking](#file-locking) and [WAL mode](#write-ahead-logging) support.
+Since this is a from scratch reimplementation,
+there are naturally some ways it deviates from the original.
+It's also not as battle tested as the original.
+
+The main differences to be aware of are
+[file locking](#file-locking) and
+[WAL mode](#write-ahead-logging) support.
 
 ### File Locking
 
-POSIX advisory locks, which SQLite uses on Unix, are
-[broken by design](https://github.com/sqlite/sqlite/blob/b74eb0/src/os_unix.c#L1073-L1161).
+POSIX advisory locks,
+which SQLite uses on [Unix](https://github.com/sqlite/sqlite/blob/5d60f4/src/os_unix.c#L13-L14),
+are [broken by design](https://github.com/sqlite/sqlite/blob/5d60f4/src/os_unix.c#L1074-L1162).
 Instead, on Linux and macOS, this package uses
-[OFD locks](https://www.gnu.org/software/libc/manual/html_node/Open-File-Description-Locks.html)
+[OFD locks](https://gnu.org/software/libc/manual/html_node/Open-File-Description-Locks.html)
 to synchronize access to database files.
 
 This package can also use
 [BSD locks](https://man.freebsd.org/cgi/man.cgi?query=flock&sektion=2),
-albeit with reduced concurrency (`BEGIN IMMEDIATE` behaves like `BEGIN EXCLUSIVE`).
+albeit with reduced concurrency (`BEGIN IMMEDIATE` behaves like `BEGIN EXCLUSIVE`,
+[docs](https://sqlite.org/lang_transaction.html#immediate)).
 BSD locks are the default on BSD and illumos,
 but you can opt into them with the `sqlite3_flock` build tag.
 
@@ -44,16 +52,11 @@ to check if your build supports file locking.
 
 ### Write-Ahead Logging
 
-On Unix, this package may use `mmap` to implement
+On Unix, this package uses `mmap` to implement
 [shared-memory for the WAL-index](https://sqlite.org/wal.html#implementation_of_shared_memory_for_the_wal_index),
 like SQLite.
 
-With [BSD locks](https://man.freebsd.org/cgi/man.cgi?query=flock&sektion=2)
-a WAL database can only be accessed by a single proccess.
-Other processes that attempt to access a database locked with BSD locks,
-will fail with the [`SQLITE_PROTOCOL`](https://sqlite.org/rescode.html#protocol) error code.
-
-On Windows, this package may use `MapViewOfFile`, like SQLite.
+On Windows, this package uses `MapViewOfFile`, like SQLite.
 
 You can also opt into a cross-platform, in-process, memory sharing implementation
 with the `sqlite3_dotlk` build tag.
@@ -67,6 +70,11 @@ you must disable connection pooling by calling
 
 You can use [`vfs.SupportsSharedMemory`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/vfs#SupportsSharedMemory)
 to check if your build supports shared memory.
+
+### Blocking Locks
+
+On Windows and macOS, this package implements
+[Wal-mode blocking locks](https://sqlite.org/src/doc/tip/doc/wal-lock.md).
 
 ### Batch-Atomic Write
 
@@ -91,7 +99,6 @@ The implementation is compatible with SQLite's
 The VFS can be customized with a few build tags:
 - `sqlite3_flock` forces the use of BSD locks.
 - `sqlite3_dotlk` forces the use of dot-file locks.
-- `sqlite3_nosys` prevents importing [`x/sys`](https://pkg.go.dev/golang.org/x/sys).
 
 > [!IMPORTANT]
 > The default configuration of this package is compatible with the standard
@@ -100,8 +107,10 @@ The VFS can be customized with a few build tags:
 > [`unix-flock` VFS](https://sqlite.org/compile.html#enable_locking_style);
 > `sqlite3_dotlk` builds are compatible with the
 > [`unix-dotfile` VFS](https://sqlite.org/compile.html#enable_locking_style).
-> If incompatible file locking is used, accessing databases concurrently with
-> _other_ SQLite libraries will eventually corrupt data.
+
+> [!CAUTION]
+> Concurrently accessing databases using incompatible VFSes
+> will eventually corrupt data.
 
 ### Custom VFSes
 

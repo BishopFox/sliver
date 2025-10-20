@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/rsteube/carapace"
+	"github.com/carapace-sh/carapace"
 	"github.com/spf13/cobra"
 
 	"github.com/reeflective/readline"
@@ -22,7 +22,7 @@ func Bind(shell *readline.Shell) *cobra.Command {
 
 Changing binds:
 Note that the keymap name is optional, and if omitted, the default keymap is used.
-The default keymap is 'vi' only if 'set editing-mode vi' is found in inputrc , and 
+The default keymap is 'vi' only if 'set editing-mode vi' is found in inputrc , and
 unless the -m option is used to set a different keymap.
 Also, note that the bind [seq] [command] slightly differs from the original bash 'bind' command.
 

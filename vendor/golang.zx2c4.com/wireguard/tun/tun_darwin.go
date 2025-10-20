@@ -1,19 +1,17 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2025 WireGuard LLC. All Rights Reserved.
  */
 
 package tun
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net"
 	"os"
 	"sync"
 	"syscall"
-	"time"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -28,18 +26,6 @@ type NativeTun struct {
 	errors      chan error
 	routeSocket int
 	closeOnce   sync.Once
-}
-
-func retryInterfaceByIndex(index int) (iface *net.Interface, err error) {
-	for i := 0; i < 20; i++ {
-		iface, err = net.InterfaceByIndex(index)
-		if err != nil && errors.Is(err, unix.ENOMEM) {
-			time.Sleep(time.Duration(i) * time.Second / 3)
-			continue
-		}
-		return iface, err
-	}
-	return nil, err
 }
 
 func (tun *NativeTun) routineRouteListener(tunIfindex int) {
@@ -62,26 +48,22 @@ func (tun *NativeTun) routineRouteListener(tunIfindex int) {
 			return
 		}
 
-		if n < 14 {
+		if n < 28 {
 			continue
 		}
 
-		if data[3 /* type */] != unix.RTM_IFINFO {
+		if data[3 /* ifm_type */] != unix.RTM_IFINFO {
 			continue
 		}
-		ifindex := int(*(*uint16)(unsafe.Pointer(&data[12 /* ifindex */])))
+		ifindex := int(*(*uint16)(unsafe.Pointer(&data[12 /* ifm_index */])))
 		if ifindex != tunIfindex {
 			continue
 		}
 
-		iface, err := retryInterfaceByIndex(ifindex)
-		if err != nil {
-			tun.errors <- err
-			return
-		}
+		flags := int(*(*uint32)(unsafe.Pointer(&data[8 /* ifm_flags */])))
 
 		// Up / Down event
-		up := (iface.Flags & net.FlagUp) != 0
+		up := (flags & syscall.IFF_UP) != 0
 		if up != statusUp && up {
 			tun.events <- EventUp
 		}
@@ -90,11 +72,13 @@ func (tun *NativeTun) routineRouteListener(tunIfindex int) {
 		}
 		statusUp = up
 
+		mtu := int(*(*uint32)(unsafe.Pointer(&data[24 /* ifm_data.ifi_mtu */])))
+
 		// MTU changes
-		if iface.MTU != statusMTU {
+		if mtu != statusMTU {
 			tun.events <- EventMTUUpdate
 		}
-		statusMTU = iface.MTU
+		statusMTU = mtu
 	}
 }
 

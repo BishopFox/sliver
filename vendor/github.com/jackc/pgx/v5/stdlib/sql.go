@@ -7,7 +7,7 @@
 //	  return err
 //	}
 //
-// Or from a DSN string.
+// Or from a keyword/value string.
 //
 //	db, err := sql.Open("pgx", "user=postgres password=secret host=localhost port=5432 database=pgx_test sslmode=disable")
 //	if err != nil {
@@ -75,6 +75,7 @@ import (
 	"math"
 	"math/rand"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -98,7 +99,7 @@ func init() {
 
 	// if pgx driver was already registered by different pgx major version then we
 	// skip registration under the default name.
-	if !contains(sql.Drivers(), "pgx") {
+	if !slices.Contains(sql.Drivers(), "pgx") {
 		sql.Register("pgx", pgxDriver)
 	}
 	sql.Register("pgx/v5", pgxDriver)
@@ -118,17 +119,6 @@ func init() {
 		pgtype.TimestamptzOID: 1,
 		pgtype.XIDOID:         1,
 	}
-}
-
-// TODO replace by slices.Contains when experimental package will be merged to stdlib
-// https://pkg.go.dev/golang.org/x/exp/slices#Contains
-func contains(list []string, y string) bool {
-	for _, x := range list {
-		if x == y {
-			return true
-		}
-	}
-	return false
 }
 
 // OptionOpenDB options for configuring the driver when opening a new db pool.
@@ -226,7 +216,8 @@ func OpenDB(config pgx.ConnConfig, opts ...OptionOpenDB) *sql.DB {
 
 // OpenDBFromPool creates a new *sql.DB from the given *pgxpool.Pool. Note that this method automatically sets the
 // maximum number of idle connections in *sql.DB to zero, since they must be managed from the *pgxpool.Pool. This is
-// required to avoid acquiring all the connections from the pgxpool and starving any direct users of the pgxpool.
+// required to avoid acquiring all the connections from the pgxpool and starving any direct users of the pgxpool. Note
+// that closing the returned *sql.DB will not close the *pgxpool.Pool.
 func OpenDBFromPool(pool *pgxpool.Pool, opts ...OptionOpenDB) *sql.DB {
 	c := GetPoolConnector(pool, opts...)
 	db := sql.OpenDB(c)
@@ -480,7 +471,8 @@ func (c *Conn) ExecContext(ctx context.Context, query string, argsV []driver.Nam
 		return nil, driver.ErrBadConn
 	}
 
-	args := namedValueToInterface(argsV)
+	args := make([]any, len(argsV))
+	convertNamedArguments(args, argsV)
 
 	commandTag, err := c.conn.Exec(ctx, query, args...)
 	// if we got a network error before we had a chance to send the query, retry
@@ -497,8 +489,9 @@ func (c *Conn) QueryContext(ctx context.Context, query string, argsV []driver.Na
 		return nil, driver.ErrBadConn
 	}
 
-	args := []any{databaseSQLResultFormats}
-	args = append(args, namedValueToInterface(argsV)...)
+	args := make([]any, 1+len(argsV))
+	args[0] = databaseSQLResultFormats
+	convertNamedArguments(args[1:], argsV)
 
 	rows, err := c.conn.Query(ctx, query, args...)
 	if err != nil {
@@ -805,6 +798,16 @@ func (r *Rows) Next(dest []driver.Value) error {
 					}
 					return d.Value()
 				}
+			case pgtype.XMLOID:
+				var d []byte
+				scanPlan := m.PlanScan(dataTypeOID, format, &d)
+				r.valueFuncs[i] = func(src []byte) (driver.Value, error) {
+					err := scanPlan.Scan(src, &d)
+					if err != nil {
+						return nil, err
+					}
+					return d, nil
+				}
 			default:
 				var d string
 				scanPlan := m.PlanScan(dataTypeOID, format, &d)
@@ -847,28 +850,14 @@ func (r *Rows) Next(dest []driver.Value) error {
 	return nil
 }
 
-func valueToInterface(argsV []driver.Value) []any {
-	args := make([]any, 0, len(argsV))
-	for _, v := range argsV {
-		if v != nil {
-			args = append(args, v.(any))
-		} else {
-			args = append(args, nil)
-		}
-	}
-	return args
-}
-
-func namedValueToInterface(argsV []driver.NamedValue) []any {
-	args := make([]any, 0, len(argsV))
-	for _, v := range argsV {
+func convertNamedArguments(args []any, argsV []driver.NamedValue) {
+	for i, v := range argsV {
 		if v.Value != nil {
-			args = append(args, v.Value.(any))
+			args[i] = v.Value.(any)
 		} else {
-			args = append(args, nil)
+			args[i] = nil
 		}
 	}
-	return args
 }
 
 type wrapTx struct {

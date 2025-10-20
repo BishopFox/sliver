@@ -15,12 +15,11 @@
 package nftables
 
 import (
-	"github.com/google/nftables/binaryutil"
+	"github.com/google/nftables/expr"
 	"github.com/mdlayher/netlink"
 	"golang.org/x/sys/unix"
 )
 
-// CounterObj implements Obj.
 type CounterObj struct {
 	Table *Table
 	Name  string // e.g. “fwded”
@@ -41,29 +40,24 @@ func (c *CounterObj) unmarshal(ad *netlink.AttributeDecoder) error {
 	return ad.Err()
 }
 
+func (c *CounterObj) data() expr.Any {
+	return &expr.Counter{
+		Bytes:   c.Bytes,
+		Packets: c.Packets,
+	}
+}
+
+func (c *CounterObj) name() string {
+	return c.Name
+}
+func (c *CounterObj) objType() ObjType {
+	return ObjTypeCounter
+}
+
 func (c *CounterObj) table() *Table {
 	return c.Table
 }
 
 func (c *CounterObj) family() TableFamily {
 	return c.Table.Family
-}
-
-func (c *CounterObj) marshal(data bool) ([]byte, error) {
-	obj, err := netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: unix.NFTA_COUNTER_BYTES, Data: binaryutil.BigEndian.PutUint64(c.Bytes)},
-		{Type: unix.NFTA_COUNTER_PACKETS, Data: binaryutil.BigEndian.PutUint64(c.Packets)},
-	})
-	if err != nil {
-		return nil, err
-	}
-	attrs := []netlink.Attribute{
-		{Type: unix.NFTA_OBJ_TABLE, Data: []byte(c.Table.Name + "\x00")},
-		{Type: unix.NFTA_OBJ_NAME, Data: []byte(c.Name + "\x00")},
-		{Type: unix.NFTA_OBJ_TYPE, Data: binaryutil.BigEndian.PutUint32(unix.NFT_OBJECT_COUNTER)},
-	}
-	if data {
-		attrs = append(attrs, netlink.Attribute{Type: unix.NLA_F_NESTED | unix.NFTA_OBJ_DATA, Data: obj})
-	}
-	return netlink.MarshalAttributes(attrs)
 }

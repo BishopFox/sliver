@@ -41,6 +41,7 @@ type NAT struct {
 	FullyRandom bool
 	Persistent  bool
 	Prefix      bool
+	Specified   bool
 }
 
 // |00048|N-|00001|	|len |flags| type|
@@ -57,6 +58,17 @@ type NAT struct {
 // | 00 00 00 02  |	|      data      |  reg 2
 
 func (e *NAT) marshal(fam byte) ([]byte, error) {
+	data, err := e.marshalData(fam)
+	if err != nil {
+		return nil, err
+	}
+	return netlink.MarshalAttributes([]netlink.Attribute{
+		{Type: unix.NFTA_EXPR_NAME, Data: []byte("nat\x00")},
+		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
+	})
+}
+
+func (e *NAT) marshalData(fam byte) ([]byte, error) {
 	attrs := []netlink.Attribute{
 		{Type: unix.NFTA_NAT_TYPE, Data: binaryutil.BigEndian.PutUint32(uint32(e.Type))},
 		{Type: unix.NFTA_NAT_FAMILY, Data: binaryutil.BigEndian.PutUint32(e.Family)},
@@ -86,18 +98,14 @@ func (e *NAT) marshal(fam byte) ([]byte, error) {
 	if e.Prefix {
 		flags |= NF_NAT_RANGE_PREFIX
 	}
+	if e.Specified {
+		flags |= NF_NAT_RANGE_PROTO_SPECIFIED
+	}
 	if flags != 0 {
 		attrs = append(attrs, netlink.Attribute{Type: unix.NFTA_NAT_FLAGS, Data: binaryutil.BigEndian.PutUint32(flags)})
 	}
 
-	data, err := netlink.MarshalAttributes(attrs)
-	if err != nil {
-		return nil, err
-	}
-	return netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: unix.NFTA_EXPR_NAME, Data: []byte("nat\x00")},
-		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
-	})
+	return netlink.MarshalAttributes(attrs)
 }
 
 func (e *NAT) unmarshal(fam byte, data []byte) error {
@@ -126,6 +134,7 @@ func (e *NAT) unmarshal(fam byte, data []byte) error {
 			e.Random = (flags & NF_NAT_RANGE_PROTO_RANDOM) != 0
 			e.FullyRandom = (flags & NF_NAT_RANGE_PROTO_RANDOM_FULLY) != 0
 			e.Prefix = (flags & NF_NAT_RANGE_PREFIX) != 0
+			e.Specified = (flags & NF_NAT_RANGE_PROTO_SPECIFIED) != 0
 		}
 	}
 	return ad.Err()

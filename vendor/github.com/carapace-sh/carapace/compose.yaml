@@ -1,0 +1,111 @@
+services:
+  build:
+    image: golang
+    command: sh -c 'cp -r /carapace /build && cd /build/example/ && go build -buildvcs=false . && chown 1000:1000 example && mv example /carapace/example/'
+    volumes:
+      - '.:/carapace/'
+
+  bash:
+    image: ghcr.io/carapace-sh/base
+    volumes:
+      - '.:/carapace/:ro'
+    environment:
+      RC_BASH: |
+        export PATH="/carapace/example/:$$PATH"
+        source <(example _carapace)
+
+  bash-ble:
+    image: ghcr.io/carapace-sh/shell-bash-ble
+    volumes:
+      - '.:/carapace/:ro'
+    environment:
+      RC_BASH_BLE: |
+        export PATH="/carapace/example/:$$PATH"
+        source <(example _carapace)
+
+  elvish:
+    image: ghcr.io/carapace-sh/shell-elvish
+    volumes:
+      - '.:/carapace/:ro'
+    environment:
+      RC_ELVISH: |
+        set paths = [ /carapace/example/  $$@paths ]
+        eval (example _carapace|slurp)
+
+  fish:
+    image: ghcr.io/carapace-sh/shell-fish
+    volumes:
+      - '.:/carapace/:ro'
+    environment:
+      RC_FISH: |
+        fish_add_path /carapace/example/
+        example _carapace | source
+
+  nushell:
+    image: ghcr.io/carapace-sh/shell-nushell
+    volumes:
+      - '.:/carapace/:ro'
+    environment:
+      RC_NUSHELL_ENV: |
+        $$env.PATH = ($$env.PATH | split row (char esep) | prepend "/carapace/example/")        
+        mkdir ~/.cache/
+        example _carapace nushell | save --force ~/.cache/example.nu
+      RC_NUSHELL: |
+        source ~/.cache/example.nu
+        $$env.config.completions.external.completer = $$example_completer
+  
+  oil:
+    image: ghcr.io/carapace-sh/shell-oil
+    volumes:
+      - '.:/carapace/:ro'
+    environment:
+      RC_OIL: |
+        export PATH="/carapace/example/:$$PATH"
+        source <(example _carapace)
+
+  powershell:
+    image: ghcr.io/carapace-sh/shell-powershell
+    volumes:
+      - '.:/carapace/:ro'
+    environment:
+      RC_POWERSHELL: |
+        [Environment]::SetEnvironmentVariable("PATH", "/carapace/example/" + [IO.Path]::PathSeparator + [Environment]::GetEnvironmentVariable("PATH"))
+        example _carapace powershell | Out-String | Invoke-Expression
+        
+  
+  tcsh:
+    image: ghcr.io/carapace-sh/shell-tcsh
+    volumes:
+      - '.:/carapace/:ro'
+    environment:
+      RC_TCSH: |
+        setenv PATH "/carapace/example/:$$PATH"
+        set autolist
+        eval `example _carapace`
+
+  xonsh:
+    image: ghcr.io/carapace-sh/shell-xonsh
+    volumes:
+      - '.:/carapace/:ro'
+    environment:
+      RC_XONSH: |
+        $$PATH.insert(0,'/carapace/example/')
+        exec($$(example _carapace))
+
+  zsh:
+    image: ghcr.io/carapace-sh/shell-zsh
+    volumes:
+      - '.:/carapace/:ro'
+    environment:
+      RC_ZSH: |
+        export PATH="/carapace/example/:$$PATH"
+        source <(example _carapace)
+
+  vhs:
+    image: ghcr.io/carapace-sh/vhs
+    volumes:
+      - '.:/carapace/'
+    working_dir: /carapace/docs/src/development/vhs
+    command: bash -c "ln -s /carapace/example/example /usr/local/bin/example && ls -d */ | xargs -I'{}' bash -c \"cd {};ls *.tape | xargs -n1 vhs\""
+    env_file:
+      - .github/workflows/vhs.env

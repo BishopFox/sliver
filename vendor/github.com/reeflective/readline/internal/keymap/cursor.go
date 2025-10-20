@@ -54,7 +54,7 @@ func (m *Engine) PrintCursor(keymap Mode) {
 	var cursor CursorStyle
 
 	// Check for a configured cursor in .inputrc file.
-	cursorOptname := fmt.Sprintf("cursor-%s", string(keymap))
+	cursorOptname := "cursor-" + string(keymap)
 	modeSet := strings.TrimSpace(m.config.GetString(cursorOptname))
 
 	if _, valid := cursors[CursorStyle(modeSet)]; valid {

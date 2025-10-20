@@ -6,17 +6,52 @@ import (
 	"context"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
-	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Creates or updates a Systems Manager resource policy. A resource policy helps
 // you to define the IAM entity (for example, an Amazon Web Services account) that
-// can manage your Systems Manager resources. Currently, OpsItemGroup is the only
-// resource that supports Systems Manager resource policies. The resource policy
-// for OpsItemGroup enables Amazon Web Services accounts to view and interact with
-// OpsCenter operational work items (OpsItems).
+// can manage your Systems Manager resources. The following resources support
+// Systems Manager resource policies.
+//
+//   - OpsItemGroup - The resource policy for OpsItemGroup enables Amazon Web
+//     Services accounts to view and interact with OpsCenter operational work items
+//     (OpsItems).
+//
+//   - Parameter - The resource policy is used to share a parameter with other
+//     accounts using Resource Access Manager (RAM).
+//
+// To share a parameter, it must be in the advanced parameter tier. For
+//
+//	information about parameter tiers, see [Managing parameter tiers]. For information about changing an
+//	existing standard parameter to an advanced parameter, see [Changing a standard parameter to an advanced parameter].
+//
+// To share a SecureString parameter, it must be encrypted with a customer managed
+//
+//	key, and you must share the key separately through Key Management Service.
+//	Amazon Web Services managed keys cannot be shared. Parameters encrypted with the
+//	default Amazon Web Services managed key can be updated to use a customer managed
+//	key instead. For KMS key definitions, see [KMS concepts]in the Key Management Service
+//	Developer Guide.
+//
+// While you can share a parameter using the Systems Manager PutResourcePolicy
+//
+//	operation, we recommend using Resource Access Manager (RAM) instead. This is
+//	because using PutResourcePolicy requires the extra step of promoting the
+//	parameter to a standard RAM Resource Share using the RAM [PromoteResourceShareCreatedFromPolicy]API operation.
+//	Otherwise, the parameter won't be returned by the Systems Manager [DescribeParameters]API
+//	operation using the --shared option.
+//
+// For more information, see [Sharing a parameter]in the Amazon Web Services Systems Manager User Guide
+//
+// [Sharing a parameter]: https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-shared-parameters.html#share
+//
+// [Managing parameter tiers]: https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-advanced-parameters.html
+// [Changing a standard parameter to an advanced parameter]: https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-advanced-parameters.html#parameter-store-advanced-parameters-enabling
+// [PromoteResourceShareCreatedFromPolicy]: https://docs.aws.amazon.com/ram/latest/APIReference/API_PromoteResourceShareCreatedFromPolicy.html
+// [KMS concepts]: https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html
+// [DescribeParameters]: https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_DescribeParameters.html
 func (c *Client) PutResourcePolicy(ctx context.Context, params *PutResourcePolicyInput, optFns ...func(*Options)) (*PutResourcePolicyOutput, error) {
 	if params == nil {
 		params = &PutResourcePolicyInput{}
@@ -91,25 +126,28 @@ func (c *Client) addOperationPutResourcePolicyMiddlewares(stack *middleware.Stac
 	if err = addSetLoggerMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddClientRequestIDMiddleware(stack); err != nil {
+	if err = addClientRequestID(stack); err != nil {
 		return err
 	}
-	if err = smithyhttp.AddComputeContentLengthMiddleware(stack); err != nil {
+	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = v4.AddComputePayloadSHA256Middleware(stack); err != nil {
+	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetryMiddlewares(stack, options); err != nil {
+	if err = addRetry(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRawResponseToMetadata(stack); err != nil {
+	if err = addRawResponseToMetadata(stack); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRecordResponseTiming(stack); err != nil {
+	if err = addRecordResponseTiming(stack); err != nil {
+		return err
+	}
+	if err = addSpanRetryLoop(stack, options); err != nil {
 		return err
 	}
 	if err = addClientUserAgent(stack, options); err != nil {
@@ -124,13 +162,22 @@ func (c *Client) addOperationPutResourcePolicyMiddlewares(stack *middleware.Stac
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addOpPutResourcePolicyValidationMiddleware(stack); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opPutResourcePolicy(options.Region), middleware.Before); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
+	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -143,6 +190,48 @@ func (c *Client) addOperationPutResourcePolicyMiddlewares(stack *middleware.Stac
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addSpanInitializeStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanInitializeEnd(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestEnd(stack); err != nil {
 		return err
 	}
 	return nil

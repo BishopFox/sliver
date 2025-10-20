@@ -6,18 +6,28 @@ package platform
 
 import (
 	"runtime"
-)
 
-// archRequirementsVerified is set by platform-specific init to true if the platform is supported
-var archRequirementsVerified bool
+	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/experimental"
+)
 
 // CompilerSupported includes constraints here and also the assembler.
 func CompilerSupported() bool {
+	return CompilerSupports(api.CoreFeaturesV2)
+}
+
+func CompilerSupports(features api.CoreFeatures) bool {
 	switch runtime.GOOS {
 	case "linux", "darwin", "freebsd", "netbsd", "dragonfly", "windows":
-		return archRequirementsVerified
+		if runtime.GOARCH == "arm64" {
+			if features.IsEnabled(experimental.CoreFeaturesThreads) {
+				return CpuFeatures.Has(CpuFeatureArm64Atomic)
+			}
+			return true
+		}
+		fallthrough
 	case "solaris", "illumos":
-		return runtime.GOARCH == "amd64" && archRequirementsVerified
+		return runtime.GOARCH == "amd64" && CpuFeatures.Has(CpuFeatureAmd64SSE4_1)
 	default:
 		return false
 	}

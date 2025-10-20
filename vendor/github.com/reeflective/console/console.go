@@ -6,20 +6,25 @@ import (
 	"sync"
 
 	"github.com/reeflective/readline"
+
+	"github.com/reeflective/console/internal/completion"
+	"github.com/reeflective/console/internal/line"
 	"github.com/reeflective/readline/inputrc"
 )
 
 // Console is an integrated console application instance.
 type Console struct {
 	// Application
-	name        string           // Used in the prompt, and for readline `.inputrc` application-specific settings.
-	shell       *readline.Shell  // Provides readline functionality (inputs, completions, hints, history)
-	printLogo   func(c *Console) // Simple logo printer.
-	menus       map[string]*Menu // Different command trees, prompt engines, etc.
-	filters     []string         // Hide commands based on their attributes and current context.
-	isExecuting bool             // Used by log functions, which need to adapt behavior (print the prompt, , etc)
-	printed     bool             // Used to adjust asynchronous messages too.
-	mutex       *sync.RWMutex    // Concurrency management.
+	name          string           // Used in the prompt, and for readline `.inputrc` application-specific settings.
+	shell         *readline.Shell  // Provides readline functionality (inputs, completions, hints, history)
+	printLogo     func(c *Console) // Simple logo printer.
+	cmdHighlight  string           // Ansi code for highlighting of command in default highlighter. Green by default.
+	flagHighlight string           // Ansi code for highlighting of flag in default highlighter. Grey by default.
+	menus         map[string]*Menu // Different command trees, prompt engines, etc.
+	filters       []string         // Hide commands based on their attributes and current context.
+	isExecuting   bool             // Used by log functions, which need to adapt behavior (print the prompt, etc.)
+	printed       bool             // Used to adjust asynchronous messages too.
+	mutex         *sync.RWMutex    // Concurrency management.
 
 	// Execution
 
@@ -32,6 +37,17 @@ type Console struct {
 	// and add a leading newline to your prompt instead: the readline shell will
 	// know how to handle it in all situations.
 	NewlineAfter bool
+
+	// Leave empty lines with NewlineBefore and NewlineAfter, even if the provided input was empty.
+	// Empty characters are defined as any number of spaces and tabs. The 'empty' character set
+	// can be changed by modifying Console.EmptyChars
+	// This field is false by default.
+	NewlineWhenEmpty bool
+
+	// Characters that are used to determine whether an input line was empty. If a line is not entirely
+	// made up by any of these characters, then it is not considered empty. The default characters
+	// are ' ' and '\t'.
+	EmptyChars []rune
 
 	// PreReadlineHooks - All the functions in this list will be executed,
 	// in their respective orders, before the console starts reading
@@ -82,12 +98,17 @@ func New(app string) *Console {
 	}
 
 	// Syntax highlighting, multiline callbacks, etc.
-	console.shell.AcceptMultiline = console.acceptMultiline
-	console.shell.SyntaxHighlighter = console.highlightSyntax
+	console.cmdHighlight = line.GreenFG 
+	console.flagHighlight = line.BrightWhiteFG 
+	console.shell.AcceptMultiline = line.AcceptMultiline
+	console.shell.SyntaxHighlighter = console.highlightSyntax 
 
 	// Completion
 	console.shell.Completer = console.complete
-	console.defaultStyleConfig()
+	completion.DefaultStyleConfig()
+
+	// Defaults
+	console.EmptyChars = []rune{' ', '\t'}
 
 	return console
 }
@@ -98,10 +119,35 @@ func (c *Console) Shell() *readline.Shell {
 	return c.shell
 }
 
+
+//
+// Settings & Initialisation Functions ------------------------------------------------------------- //
+//
+
 // SetPrintLogo - Sets the function that will be called to print the logo.
 func (c *Console) SetPrintLogo(f func(c *Console)) {
 	c.printLogo = f
 }
+
+// SetDefaultCommandHighlight allows the user to change the highlight color for 
+// a command in the default syntax highlighter using an ansi code.
+// This action has no effect if a custom syntax highlighter for the shell is set.
+// By default, the highlight code is green ("\x1b[32m").
+func (c *Console) SetDefaultCommandHighlight(seq string) {
+	c.cmdHighlight = seq
+}
+
+// SetDefaultFlagHighlight allows the user to change the highlight color for 
+// a flag in the default syntax highlighter using an ansi color code.
+// This action has no effect if a custom syntax highlighter for the shell is set.
+// By default, the highlight code is grey ("\x1b[38;05;244m").
+func (c *Console) SetDefaultFlagHighlight(seq string) {
+	c.flagHighlight = seq
+}
+
+//
+// Menu Management --------------------------------------------------------------------------------- //
+//
 
 // NewMenu - Create a new command menu, to which the user
 // can attach any number of commands (with any nesting), as
@@ -167,6 +213,10 @@ func (c *Console) SwitchMenu(menu string) {
 	}
 }
 
+//
+// Message Display Functions ----------------------------------------------------------------------- //
+//
+
 // TransientPrintf prints a string message (a log, or more broadly, an asynchronous event)
 // without bothering the user, displaying the message and "pushing" the prompt below it.
 // The message is printed regardless of the current menu.
@@ -207,6 +257,10 @@ func (c *Console) Printf(msg string, args ...any) (n int, err error) {
 	return c.shell.Printf(msg, args...)
 }
 
+//
+// Other Utility Functions ------------------------------------------------------------------------- //
+//
+
 // SystemEditor - This function is a renamed-reexport of the underlying readline.StartEditorWithBuffer
 // function, which enables you to conveniently edit files/buffers from within the console application.
 // Naturally, the function will block until the editor is exited, and the updated buffer is returned.
@@ -221,12 +275,22 @@ func (c *Console) SystemEditor(buffer []byte, filetype string) ([]byte, error) {
 }
 
 func (c *Console) setupShell() {
-	cfg := c.shell.Config
-
 	// Some options should be set to on because they
 	// are quite neceessary for efficient console use.
+	cfg := c.shell.Config
+
+	// Input line
+	cfg.Set("autopairs", true)
+	cfg.Set("blink-matching-paren", true)
+
+	// Completion
+	cfg.Set("completion-ignore-case", true)
 	cfg.Set("skip-completed-text", true)
 	cfg.Set("menu-complete-display-prefix", true)
+
+	// General UI
+	cfg.Set("usage-hint-always", true)
+	cfg.Set("history-autosuggest", true)
 }
 
 func (c *Console) activeMenu() *Menu {

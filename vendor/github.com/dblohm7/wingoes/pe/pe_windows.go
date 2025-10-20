@@ -22,6 +22,10 @@ func (pei *peModule) Close() error {
 // Upon success it returns a non-nil *PEHeaders, otherwise it returns a nil
 // *PEHeaders and a non-nil error.
 func NewPEFromBaseAddressAndSize(baseAddr uintptr, size uint32) (*PEHeaders, error) {
+	if baseAddr == 0 || size == 0 {
+		return nil, os.ErrInvalid
+	}
+
 	// Grab a strong reference to the module until we're done with it.
 	var modLock windows.Handle
 	if err := windows.GetModuleHandleEx(

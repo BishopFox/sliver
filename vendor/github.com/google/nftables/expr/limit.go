@@ -72,6 +72,18 @@ type Limit struct {
 }
 
 func (l *Limit) marshal(fam byte) ([]byte, error) {
+	data, err := l.marshalData(fam)
+	if err != nil {
+		return nil, err
+	}
+
+	return netlink.MarshalAttributes([]netlink.Attribute{
+		{Type: unix.NFTA_EXPR_NAME, Data: []byte("limit\x00")},
+		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
+	})
+}
+
+func (l *Limit) marshalData(fam byte) ([]byte, error) {
 	var flags uint32
 	if l.Over {
 		flags = unix.NFT_LIMIT_F_INV
@@ -84,15 +96,7 @@ func (l *Limit) marshal(fam byte) ([]byte, error) {
 		{Type: unix.NFTA_LIMIT_FLAGS, Data: binaryutil.BigEndian.PutUint32(flags)},
 	}
 
-	data, err := netlink.MarshalAttributes(attrs)
-	if err != nil {
-		return nil, err
-	}
-
-	return netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: unix.NFTA_EXPR_NAME, Data: []byte("limit\x00")},
-		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
-	})
+	return netlink.MarshalAttributes(attrs)
 }
 
 func (l *Limit) unmarshal(fam byte, data []byte) error {
@@ -119,7 +123,7 @@ func (l *Limit) unmarshal(fam byte, data []byte) error {
 				return fmt.Errorf("expr: invalid limit type %d", l.Type)
 			}
 		case unix.NFTA_LIMIT_FLAGS:
-			l.Over = (ad.Uint32() & unix.NFT_LIMIT_F_INV) == 1
+			l.Over = (ad.Uint32() & unix.NFT_LIMIT_F_INV) != 0
 		default:
 			return errors.New("expr: unhandled limit netlink attribute")
 		}

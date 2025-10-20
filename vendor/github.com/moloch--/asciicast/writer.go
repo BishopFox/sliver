@@ -3,6 +3,7 @@ package asciicast
 import (
 	"encoding/json"
 	"io"
+	"sync"
 	"time"
 )
 
@@ -14,6 +15,8 @@ type Encoder struct {
 	start      time.Time
 	header     Header
 	headerSent bool
+
+	lock *sync.Mutex
 }
 
 // NewEncoder can emit an asciicast v2 stream.
@@ -33,6 +36,7 @@ func NewEncoderEx(w io.Writer, header Header) *Encoder {
 	return &Encoder{
 		Header: header,
 		w:      w,
+		lock:   &sync.Mutex{},
 	}
 }
 
@@ -47,6 +51,8 @@ func (e *Encoder) writeJSON(v interface{}) error {
 		}
 		return err
 	*/
+	e.lock.Lock()
+	defer e.lock.Unlock()
 	return json.NewEncoder(e.w).Encode(v)
 }
 

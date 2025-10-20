@@ -1,4 +1,4 @@
-//go:build (amd64 || arm64 || riscv64) && !sqlite3_nosys
+//go:build amd64 || arm64 || riscv64
 
 package vfs
 

@@ -6,6 +6,9 @@
 package linuxfw
 
 import (
+	"errors"
+	"os/exec"
+
 	"tailscale.com/envknob"
 	"tailscale.com/hostinfo"
 	"tailscale.com/types/logger"
@@ -20,6 +23,11 @@ func detectFirewallMode(logf logger.Logf, prefHint string) FirewallMode {
 		hostinfo.SetFirewallMode("nft-gokrazy")
 		return FirewallModeNfTables
 	}
+	if distro.Get() == distro.JetKVM {
+		// JetKVM doesn't have iptables.
+		hostinfo.SetFirewallMode("nft-jetkvm")
+		return FirewallModeNfTables
+	}
 
 	mode := envknob.String("TS_DEBUG_FIREWALL_MODE")
 	// If the envknob isn't set, fall back to the pref suggested by c2n or
@@ -30,11 +38,22 @@ func detectFirewallMode(logf logger.Logf, prefHint string) FirewallMode {
 	} else if prefHint != "" {
 		logf("TS_DEBUG_FIREWALL_MODE set, overriding firewall mode from %s to %s", prefHint, mode)
 	}
+
+	var det linuxFWDetector
+	if mode == "" {
+		// We have no preference, so check if `iptables` is even available.
+		_, err := det.iptDetect()
+		if err != nil && errors.Is(err, exec.ErrNotFound) {
+			logf("iptables not found: %v; falling back to nftables", err)
+			mode = "nftables"
+		}
+	}
+
 	// We now use iptables as default and have "auto" and "nftables" as
 	// options for people to test further.
 	switch mode {
 	case "auto":
-		return pickFirewallModeFromInstalledRules(logf, linuxFWDetector{})
+		return pickFirewallModeFromInstalledRules(logf, det)
 	case "nftables":
 		hostinfo.SetFirewallMode("nft-forced")
 		return FirewallModeNfTables

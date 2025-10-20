@@ -37,16 +37,20 @@ type Rt struct {
 }
 
 func (e *Rt) marshal(fam byte) ([]byte, error) {
-	data, err := netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: unix.NFTA_RT_KEY, Data: binaryutil.BigEndian.PutUint32(uint32(e.Key))},
-		{Type: unix.NFTA_RT_DREG, Data: binaryutil.BigEndian.PutUint32(e.Register)},
-	})
+	data, err := e.marshalData(fam)
 	if err != nil {
 		return nil, err
 	}
 	return netlink.MarshalAttributes([]netlink.Attribute{
 		{Type: unix.NFTA_EXPR_NAME, Data: []byte("rt\x00")},
 		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
+	})
+}
+
+func (e *Rt) marshalData(fam byte) ([]byte, error) {
+	return netlink.MarshalAttributes([]netlink.Attribute{
+		{Type: unix.NFTA_RT_KEY, Data: binaryutil.BigEndian.PutUint32(uint32(e.Key))},
+		{Type: unix.NFTA_RT_DREG, Data: binaryutil.BigEndian.PutUint32(e.Register)},
 	})
 }
 

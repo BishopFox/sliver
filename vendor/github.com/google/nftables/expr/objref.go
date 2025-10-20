@@ -28,10 +28,7 @@ type Objref struct {
 }
 
 func (e *Objref) marshal(fam byte) ([]byte, error) {
-	data, err := netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: unix.NFTA_OBJREF_IMM_TYPE, Data: binaryutil.BigEndian.PutUint32(uint32(e.Type))},
-		{Type: unix.NFTA_OBJREF_IMM_NAME, Data: []byte(e.Name)}, // NOT \x00-terminated?!
-	})
+	data, err := e.marshalData(fam)
 	if err != nil {
 		return nil, err
 	}
@@ -39,6 +36,13 @@ func (e *Objref) marshal(fam byte) ([]byte, error) {
 	return netlink.MarshalAttributes([]netlink.Attribute{
 		{Type: unix.NFTA_EXPR_NAME, Data: []byte("objref\x00")},
 		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
+	})
+}
+
+func (e *Objref) marshalData(fam byte) ([]byte, error) {
+	return netlink.MarshalAttributes([]netlink.Attribute{
+		{Type: unix.NFTA_OBJREF_IMM_TYPE, Data: binaryutil.BigEndian.PutUint32(uint32(e.Type))},
+		{Type: unix.NFTA_OBJREF_IMM_NAME, Data: []byte(e.Name)}, // NOT \x00-terminated?!
 	})
 }
 

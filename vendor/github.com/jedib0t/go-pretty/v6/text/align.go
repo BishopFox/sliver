@@ -40,7 +40,7 @@ func (a Align) Apply(text string, maxLength int) string {
 
 	text = aComputed.trimString(text)
 	sLen := utf8.RuneCountInString(text)
-	sLenWoE := RuneWidthWithoutEscSequences(text)
+	sLenWoE := StringWidthWithoutEscSequences(text)
 	numEscChars := sLen - sLenWoE
 
 	// now, align the text

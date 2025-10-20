@@ -2,11 +2,10 @@ package completion
 
 import (
 	"math"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
-
-	"golang.org/x/exp/slices"
 
 	"github.com/reeflective/readline/internal/color"
 	"github.com/reeflective/readline/internal/term"
@@ -125,9 +124,7 @@ func (g *group) initCompletionsGrid(comps RawValues) {
 	}
 
 	pairLength := g.longestValueDescribed(comps)
-	if pairLength > g.termWidth {
-		pairLength = g.termWidth
-	}
+	pairLength = min(g.termWidth, pairLength)
 
 	maxColumns := g.termWidth / pairLength
 	if g.list || maxColumns < 0 {
@@ -145,9 +142,9 @@ func (g *group) initCompletionAliased(domains []Candidate) {
 	g.aliased = true
 
 	// Filter out all duplicates: group aliased completions together.
-	grid, descriptions := g.createDescribedRows(domains)
+	grid, _ := g.createDescribedRows(domains)
 	g.calculateMaxColumnWidths(grid)
-	g.wrapExcessAliases(grid, descriptions)
+	g.wrapExcessAliases(grid)
 
 	g.maxY = len(g.rows)
 	g.maxX = len(g.columnsWidth)
@@ -173,8 +170,6 @@ func (g *group) createDescribedRows(values []Candidate) ([][]Candidate, []string
 	// Sorting helps with easier grids.
 	for _, description := range uniqueDescriptions {
 		row := descriptionMap[description]
-		// slices.Sort(row)
-		// slices.Reverse(row)
 		rows = append(rows, row)
 	}
 
@@ -182,7 +177,7 @@ func (g *group) createDescribedRows(values []Candidate) ([][]Candidate, []string
 }
 
 // Wraps all rows for which there are too many aliases to be displayed on a single one.
-func (g *group) wrapExcessAliases(grid [][]Candidate, descriptions []string) {
+func (g *group) wrapExcessAliases(grid [][]Candidate) {
 	breakeven := 0
 	maxColumns := len(g.columnsWidth)
 
@@ -357,10 +352,7 @@ func (g *group) trimDisplay(comp Candidate, pad, col int) (candidate, padded str
 	// Get the allowed length for this column.
 	// The display can never be longer than terminal width.
 	maxDisplayWidth := g.columnsWidth[col] + 1
-
-	if maxDisplayWidth > g.termWidth {
-		maxDisplayWidth = g.termWidth
-	}
+	maxDisplayWidth = min(g.termWidth, maxDisplayWidth)
 
 	val = sanitizer.Replace(val)
 
@@ -418,10 +410,7 @@ func (g *group) getPad(value Candidate, columnIndex int, desc bool) int {
 	// to the terminal size: we are not really sure
 	// of where offsets might be set in the code...
 	column := columns[columnIndex]
-	if column > g.termWidth-1 {
-		column = g.termWidth - 1
-	}
-
+	column = min(g.termWidth-1, column)
 	padding := column - valLen
 
 	if padding < 0 {
@@ -642,7 +631,7 @@ func createGrid(values []Candidate, rowCount, maxColumns int) [][]Candidate {
 
 	grid := make([][]Candidate, rowCount)
 
-	for i := 0; i < rowCount; i++ {
+	for i := range rowCount {
 		grid[i] = createRow(values, maxColumns, i)
 	}
 
@@ -652,10 +641,7 @@ func createGrid(values []Candidate, rowCount, maxColumns int) [][]Candidate {
 func createRow(domains []Candidate, maxColumns, rowIndex int) []Candidate {
 	rowStart := rowIndex * maxColumns
 	rowEnd := (rowIndex + 1) * maxColumns
-
-	if rowEnd > len(domains) {
-		rowEnd = len(domains)
-	}
+	rowEnd = min(len(domains), rowEnd)
 
 	return domains[rowStart:rowEnd]
 }

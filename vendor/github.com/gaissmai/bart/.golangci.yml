@@ -1,0 +1,43 @@
+version: "2"
+linters:
+  enable:
+    - decorder
+    - errorlint
+    - gocyclo
+    - gosmopolitan
+    - intrange
+    - misspell
+    - predeclared
+    - reassign
+    - staticcheck
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - wastedassign
+    - copyloopvar
+    - tparallel
+  settings:
+    gocyclo:
+      min-complexity: 30
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

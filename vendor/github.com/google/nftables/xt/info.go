@@ -34,6 +34,9 @@ func Unmarshal(name string, fam TableFamily, rev uint32, data []byte) (InfoAny, 
 		case 1:
 			i = &AddrTypeV1{}
 		}
+	case "comment":
+		var c Comment
+		i = &c
 	case "conntrack":
 		switch rev {
 		case 1:

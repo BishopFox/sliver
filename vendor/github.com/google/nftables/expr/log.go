@@ -69,6 +69,18 @@ type Log struct {
 }
 
 func (e *Log) marshal(fam byte) ([]byte, error) {
+	data, err := e.marshalData(fam)
+	if err != nil {
+		return nil, err
+	}
+
+	return netlink.MarshalAttributes([]netlink.Attribute{
+		{Type: unix.NFTA_EXPR_NAME, Data: []byte("log\x00")},
+		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
+	})
+}
+
+func (e *Log) marshalData(fam byte) ([]byte, error) {
 	// Per https://git.netfilter.org/libnftnl/tree/src/expr/log.c?id=09456c720e9c00eecc08e41ac6b7c291b3821ee5#n129
 	attrs := make([]netlink.Attribute, 0)
 	if e.Key&(1<<unix.NFTA_LOG_GROUP) != 0 {
@@ -109,15 +121,7 @@ func (e *Log) marshal(fam byte) ([]byte, error) {
 		})
 	}
 
-	data, err := netlink.MarshalAttributes(attrs)
-	if err != nil {
-		return nil, err
-	}
-
-	return netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: unix.NFTA_EXPR_NAME, Data: []byte("log\x00")},
-		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
-	})
+	return netlink.MarshalAttributes(attrs)
 }
 
 func (e *Log) unmarshal(fam byte, data []byte) error {

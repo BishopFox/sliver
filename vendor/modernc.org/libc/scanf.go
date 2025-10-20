@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build !(linux && (amd64 || arm64 || loong64))
+//go:build !(linux && (amd64 || arm64 || loong64 || ppc64le || s390x || riscv64 || 386 || arm))
 
 package libc // import "modernc.org/libc"
 
@@ -497,21 +497,17 @@ flags:
 		skipReaderWhiteSpace(r)
 		c, err := r.ReadByte()
 		if err != nil {
-			panic(todo(""))
+			panic(todo("", err))
 		}
 
-		if c != '0' {
-			r.UnreadByte()
-			panic(todo(""))
-		}
+		if c == '0' {
+			if c, err = r.ReadByte(); err != nil {
+				panic(todo("", err))
+			}
 
-		if c, err = r.ReadByte(); err != nil {
-			panic(todo(""))
-		}
-
-		if c != 'x' && c != 'X' {
-			r.UnreadByte()
-			panic(todo(""))
+			if c != 'x' && c != 'X' {
+				r.UnreadByte()
+			}
 		}
 
 		var digit, n uint64

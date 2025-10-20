@@ -12,8 +12,7 @@
 //
 // See https://nigeltao.github.io/blog/2021/json-with-commas-comments.html
 //
-//
-// Functionality
+// # Functionality
 //
 // The Parse function parses HuJSON input as a Value,
 // which is a syntax tree exactly representing the input.
@@ -32,8 +31,7 @@
 // but instead for the HuJSON and standard JSON format.
 // The Patch method applies a JSON Patch (RFC 6902) to the receiving value.
 //
-//
-// Grammar
+// # Grammar
 //
 // The changes to the JSON grammar are:
 //
@@ -72,8 +70,7 @@
 //	 	'000A' ws
 //	 	'000D' ws
 //
-//
-// Use with the Standard Library
+// # Use with the Standard Library
 //
 // This package operates with HuJSON as an AST. In order to parse HuJSON
 // into arbitrary Go types, use this package to parse HuJSON input as an AST,
@@ -95,6 +92,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"iter"
 	"math"
 	"strconv"
 	"unicode/utf8"
@@ -145,6 +143,39 @@ func (v Value) Clone() Value {
 	v.Value = v.Value.clone()
 	v.AfterExtra = copyBytes(v.AfterExtra)
 	return v
+}
+
+// Range iterates through a Value in depth-first order and
+// calls f for each value (including the root value).
+// It stops iteration when f returns false.
+//
+// Deprecated: Use [All] instead.
+func (v *Value) Range(f func(v *Value) bool) bool {
+	for v2 := range v.All() {
+		if !f(v2) {
+			return false
+		}
+	}
+	return true
+}
+
+// All returns an iterator over all values in depth-first order,
+// starting with v itself.
+func (v *Value) All() iter.Seq[*Value] {
+	return func(yield func(*Value) bool) {
+		if !yield(v) {
+			return
+		}
+		if comp, ok := v.Value.(composite); ok {
+			for v2 := range comp.allValues() {
+				for v3 := range v2.All() {
+					if !yield(v3) {
+						return
+					}
+				}
+			}
+		}
+	}
 }
 
 // ValueTrimmed is a JSON value without surrounding whitespace or comments.
@@ -335,6 +366,7 @@ type Object struct {
 	// after the preceding open brace or comma and before the closing brace.
 	AfterExtra Extra
 }
+
 type ObjectMember struct {
 	Name, Value Value
 }
@@ -342,35 +374,43 @@ type ObjectMember struct {
 func (obj Object) length() int {
 	return len(obj.Members)
 }
+
 func (obj Object) firstValue() *Value {
 	if len(obj.Members) > 0 {
 		return &obj.Members[0].Name
 	}
 	return nil
 }
-func (obj Object) rangeValues(f func(*Value) bool) bool {
-	for i := range obj.Members {
-		if !f(&obj.Members[i].Name) {
-			return false
-		}
-		if !f(&obj.Members[i].Value) {
-			return false
+
+// allValues iterates all members of the object,
+// interleaved between the member name and the member value.
+func (obj Object) allValues() iter.Seq[*Value] {
+	return func(yield func(*Value) bool) {
+		for i := range obj.Members {
+			if !yield(&obj.Members[i].Name) {
+				return
+			}
+			if !yield(&obj.Members[i].Value) {
+				return
+			}
 		}
 	}
-	return true
 }
+
 func (obj Object) lastValue() *Value {
 	if len(obj.Members) > 0 {
 		return &obj.Members[len(obj.Members)-1].Value
 	}
 	return nil
 }
+
 func (obj *Object) beforeExtraAt(i int) *Extra {
 	if i < len(obj.Members) {
 		return &obj.Members[i].Name.BeforeExtra
 	}
 	return &obj.AfterExtra
 }
+
 func (obj *Object) afterExtra() *Extra {
 	return &obj.AfterExtra
 }
@@ -401,37 +441,45 @@ type Array struct {
 	// after the preceding open bracket or comma and before the closing bracket.
 	AfterExtra Extra
 }
+
 type ArrayElement = Value
 
 func (arr Array) length() int {
 	return len(arr.Elements)
 }
+
 func (arr Array) firstValue() *Value {
 	if len(arr.Elements) > 0 {
 		return &arr.Elements[0]
 	}
 	return nil
 }
-func (arr Array) rangeValues(f func(*Value) bool) bool {
-	for i := range arr.Elements {
-		if !f(&arr.Elements[i]) {
-			return false
+
+// allValues iterates all elements of the array.
+func (arr Array) allValues() iter.Seq[*Value] {
+	return func(yield func(*Value) bool) {
+		for i := range arr.Elements {
+			if !yield(&arr.Elements[i]) {
+				return
+			}
 		}
 	}
-	return true
 }
+
 func (arr Array) lastValue() *Value {
 	if len(arr.Elements) > 0 {
 		return &arr.Elements[len(arr.Elements)-1]
 	}
 	return nil
 }
+
 func (arr *Array) beforeExtraAt(i int) *Extra {
 	if i < len(arr.Elements) {
 		return &arr.Elements[i].BeforeExtra
 	}
 	return &arr.AfterExtra
 }
+
 func (arr *Array) afterExtra() *Extra {
 	return &arr.AfterExtra
 }
@@ -457,7 +505,7 @@ type composite interface {
 	length() int
 
 	firstValue() *Value
-	rangeValues(func(*Value) bool) bool
+	allValues() iter.Seq[*Value]
 	lastValue() *Value
 
 	getAt(int) ValueTrimmed

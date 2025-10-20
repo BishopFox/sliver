@@ -55,12 +55,16 @@ type C2NUpdateResponse struct {
 	Started bool
 }
 
-// C2NPostureIdentityResponse contains either a set of identifying serial number
-// from the client or a boolean indicating that the machine has opted out of
-// posture collection.
+// C2NPostureIdentityResponse contains either a set of identifying serial
+// numbers and hardware addresses from the client, or a boolean flag
+// indicating that the machine has opted out of posture collection.
 type C2NPostureIdentityResponse struct {
 	// SerialNumbers is a list of serial numbers of the client machine.
 	SerialNumbers []string `json:",omitempty"`
+
+	// IfaceHardwareAddrs is a list of hardware addresses (MAC addresses)
+	// of the client machine's network interfaces.
+	IfaceHardwareAddrs []string `json:",omitempty"`
 
 	// PostureDisabled indicates if the machine has opted out of
 	// device posture collection.
@@ -97,4 +101,19 @@ type C2NTLSCertInfo struct {
 
 	// TODO(bradfitz): add fields for whether an ACME fetch is currently in
 	// process and when it started, etc.
+}
+
+// C2NVIPServicesResponse is the response (from node to control) from the
+// /vip-services handler.
+//
+// It returns the list of VIPServices that the node is currently serving with
+// their port info and whether they are active or not. It also returns a hash of
+// the response to allow the control server to detect changes.
+type C2NVIPServicesResponse struct {
+	// VIPServices is the list of VIP services that the node is currently serving.
+	VIPServices []*VIPService `json:",omitempty"`
+
+	// ServicesHash is the hash of VIPServices to allow the control server to detect
+	// changes. This value matches what is reported in latest [Hostinfo.ServicesHash].
+	ServicesHash string
 }
