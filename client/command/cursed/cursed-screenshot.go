@@ -23,8 +23,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/client/overlord"
+	"github.com/gsmith257-cyber/better-sliver-package/client/console"
+	"github.com/gsmith257-cyber/better-sliver-package/client/overlord"
 	"github.com/spf13/cobra"
 )
 

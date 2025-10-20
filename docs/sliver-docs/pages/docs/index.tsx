@@ -1,7 +1,5 @@
 import MarkdownViewer from "@/components/markdown";
 import { Docs } from "@/util/docs";
-import { PREBUILD_VERSION } from "@/util/__generated__/prebuild-version";
-import { fetchDocs as fetchDocsContent } from "@/util/content-fetchers";
 import { Themes } from "@/util/themes";
 import { faSearch } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -14,7 +12,7 @@ import {
   Listbox,
   ListboxItem,
   ScrollShadow,
-} from "@heroui/react";
+} from "@nextui-org/react";
 import { useQuery } from "@tanstack/react-query";
 import Fuse from "fuse.js";
 import { NextPage } from "next";
@@ -29,8 +27,11 @@ const DocsIndexPage: NextPage = () => {
   const router = useRouter();
 
   const { data: docs, isLoading } = useQuery({
-    queryKey: ["docs", PREBUILD_VERSION],
-    queryFn: () => fetchDocsContent(PREBUILD_VERSION),
+    queryKey: ["docs"],
+    queryFn: async (): Promise<Docs> => {
+      const res = await fetch("/docs.json");
+      return res.json();
+    },
   });
 
   const params = useSearchParams();
@@ -60,22 +61,11 @@ const DocsIndexPage: NextPage = () => {
     return docs?.docs || [];
   }, [docs, fuse, filterValue]);
 
-  const mobileDocs = React.useMemo(() => {
-    if (!name) {
-      return visibleDocs;
-    }
-    if (visibleDocs.some((doc) => doc.name === name)) {
-      return visibleDocs;
-    }
-    const selectedDoc = docs?.docs.find((doc) => doc.name === name);
-    return selectedDoc ? [selectedDoc, ...visibleDocs] : visibleDocs;
-  }, [docs, name, visibleDocs]);
-
   const listboxClasses = React.useMemo(() => {
     if (theme === Themes.DARK) {
-      return "p-0 gap-0 divide-y divide-default-300/50 dark:divide-default-100/80 bg-content1 overflow-visible shadow-small rounded-large";
+      return "p-0 gap-0 divide-y divide-default-300/50 dark:divide-default-100/80 bg-content1 overflow-visible shadow-small rounded-medium";
     } else {
-      return "p-0 gap-0 divide-y divide-default-300/50 dark:divide-default-100/80 bg-content1 overflow-visible rounded-large";
+      return "border p-0 gap-0 divide-y divide-default-300/50 dark:divide-default-100/80 bg-content1 overflow-visible shadow-small rounded-medium";
     }
   }, [theme]);
 
@@ -84,18 +74,12 @@ const DocsIndexPage: NextPage = () => {
   }
 
   return (
-    <>
+    <div className="grid grid-cols-12">
       <Head>
         <title>Sliver Docs: {name}</title>
       </Head>
-      <div className="px-4 pt-4 lg:hidden">
-        <label
-          htmlFor="docs-mobile-selector"
-          className="block text-sm font-medium text-foreground"
-        >
-          Select a document
-        </label>
-        <div className="mt-2">
+      <div className="col-span-3 mt-4 ml-4 h-screen sticky top-20">
+        <div className="flex flex-row justify-center text-lg gap-2">
           <Input
             placeholder="Filter..."
             startContent={<FontAwesomeIcon icon={faSearch} />}
@@ -105,49 +89,20 @@ const DocsIndexPage: NextPage = () => {
             onClear={() => setFilterValue("")}
           />
         </div>
-        <select
-          id="docs-mobile-selector"
-          className="mt-3 w-full rounded-lg border border-default-200 bg-content1 p-2 text-sm dark:border-default-100/60"
-          value={name}
-          onChange={(event) => {
-            const selectedName = event.target.value;
-            router.push({
-              pathname: "/docs",
-              query: selectedName ? { name: selectedName } : undefined,
-            });
-          }}
-        >
-          <option value="">Browse documents…</option>
-          {mobileDocs.map((doc) => (
-            <option key={doc.name} value={doc.name}>
-              {doc.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
-        <aside className="hidden lg:block lg:col-span-3">
-          <div className="sticky top-24 ml-4 flex flex-col gap-3">
-            <Input
-            className="mt-2"
-              placeholder="Filter..."
-              startContent={<FontAwesomeIcon icon={faSearch} />}
-              value={filterValue}
-              onChange={(e) => setFilterValue(e.target.value)}
-              isClearable={true}
-              onClear={() => setFilterValue("")}
-            />
-            <ScrollShadow className="max-h-[calc(100vh-15rem)] sliver-scrollbar overflow-y-auto pr-1 rounded-large">
+        <div className="mt-2">
+          <ScrollShadow>
+            <div className="max-h-[70vh]">
               <Listbox
                 aria-label="Toolbox Menu"
                 className={listboxClasses}
                 itemClasses={{
-                  base: "px-3 first:rounded-t-large last:rounded-b-large rounded-none gap-3 h-12 data-[hover=true]:bg-default-100/80",
+                  base: "px-3 first:rounded-t-medium last:rounded-b-medium rounded-none gap-3 h-12 data-[hover=true]:bg-default-100/80",
                 }}
               >
                 {visibleDocs.map((doc) => (
                   <ListboxItem
                     key={doc.name}
+                    value={doc.name}
                     onClick={() => {
                       router.push({
                         pathname: "/docs",
@@ -159,34 +114,38 @@ const DocsIndexPage: NextPage = () => {
                   </ListboxItem>
                 ))}
               </Listbox>
-            </ScrollShadow>
-          </div>
-        </aside>
-        <div className="px-4 pb-8 lg:col-span-9 lg:px-8">
-          {name !== "" ? (
-            <Card className="mt-2">
-              <CardHeader>
-                <span className="text-3xl">{name}</span>
-              </CardHeader>
-              <Divider />
-              <CardBody>
-                <MarkdownViewer
-                  key={name || `${Math.random()}`}
-                  markdown={markdown || ""}
-                />
-              </CardBody>
-            </Card>
-          ) : (
-            <div className="mt-8 text-center text-2xl text-foreground/90">
+            </div>
+          </ScrollShadow>
+        </div>
+      </div>
+      <div className="col-span-9">
+        {name !== "" ? (
+          <Card className="mt-8 ml-8 mr-8 mb-8">
+            <CardHeader>
+              <span className="text-3xl">{name}</span>
+            </CardHeader>
+            <Divider />
+            <CardBody>
+              <MarkdownViewer
+                key={name || `${Math.random()}`}
+                markdown={markdown || ""}
+              />
+            </CardBody>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-3">
+            <div className="col-span-1"></div>
+            <div className="col-span-1 mt-8 text-2xl text-center">
               Welcome to the Sliver Wiki!
-              <div className="mt-2 text-xl text-default-500">
+              <div className="text-xl text-gray-500">
                 Please select a document
               </div>
             </div>
-          )}
-        </div>
+            <div className="col-span-1"></div>
+          </div>
+        )}
       </div>
-    </>
+    </div>
   );
 };
 

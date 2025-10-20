@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/url"
 	"strconv"
 	"strings"
@@ -303,7 +304,7 @@ func readResponse(reqHndl uintptr) (io.ReadCloser, int64, error) {
 		return nil, 0, err
 	}
 
-	return io.NopCloser(bytes.NewReader(b)), contentLen, nil
+	return ioutil.NopCloser(bytes.NewReader(b)), contentLen, nil
 }
 
 func sendRequest(reqHndl uintptr, r *Request) error {

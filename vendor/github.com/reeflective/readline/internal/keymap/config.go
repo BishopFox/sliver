@@ -21,11 +21,9 @@ var readlineOptions = map[string]interface{}{
 	"completion-selection-style": "\x1b[1;30m",
 
 	// Prompt & General UI
-	"transient-prompt":          false,
-	"usage-hint-always":         false,
-	"history-autosuggest":       false,
-	"multiline-column":          true,
-	"multiline-column-numbered": false,
+	"transient-prompt":    false,
+	"usage-hint-always":   false,
+	"history-autosuggest": false,
 }
 
 // ReloadConfig parses all valid .inputrc configurations and immediately
@@ -145,7 +143,7 @@ func printBindsReadable(commands []string, all map[string][]string) {
 		case len(commandBinds) > 5:
 			var firstBinds []string
 
-			for i := range 5 {
+			for i := 0; i < 5; i++ {
 				firstBinds = append(firstBinds, "\""+commandBinds[i]+"\"")
 			}
 

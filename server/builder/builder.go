@@ -27,15 +27,15 @@ import (
 	"strings"
 	"sync"
 
-	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/bishopfox/sliver/server/db"
-	"github.com/bishopfox/sliver/server/db/models"
-	"github.com/bishopfox/sliver/server/encoders"
-	"github.com/bishopfox/sliver/server/generate"
-	"github.com/bishopfox/sliver/server/log"
+	consts "github.com/gsmith257-cyber/better-sliver-package/client/constants"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/commonpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/rpcpb"
+	"github.com/gsmith257-cyber/better-sliver-package/server/db"
+	"github.com/gsmith257-cyber/better-sliver-package/server/db/models"
+	"github.com/gsmith257-cyber/better-sliver-package/server/encoders"
+	"github.com/gsmith257-cyber/better-sliver-package/server/generate"
+	"github.com/gsmith257-cyber/better-sliver-package/server/log"
 	"google.golang.org/grpc"
 )
 
@@ -241,7 +241,10 @@ func (b *Builder) handleBuildEvent(event *clientpb.Event) {
 		return
 	}
 
-	fileName := filepath.Base(extConfig.Build.Name) + extConfig.Config.Extension
+	fileName := filepath.Base(extConfig.Build.Name)
+	if extConfig.Config.GOOS == "windows" {
+		fileName += ".exe"
+	}
 
 	builderLog.Infof("Uploading '%s' to server ...", extConfig.Build.Name)
 	_, err = b.rpc.GenerateExternalSaveBuild(context.Background(), &clientpb.ExternalImplantBinary{

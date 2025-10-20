@@ -70,26 +70,6 @@ func (m *validateOpAssumeRoleWithWebIdentity) HandleInitialize(ctx context.Conte
 	return next.HandleInitialize(ctx, in)
 }
 
-type validateOpAssumeRoot struct {
-}
-
-func (*validateOpAssumeRoot) ID() string {
-	return "OperationInputValidation"
-}
-
-func (m *validateOpAssumeRoot) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
-	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
-) {
-	input, ok := in.Parameters.(*AssumeRootInput)
-	if !ok {
-		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
-	}
-	if err := validateOpAssumeRootInput(input); err != nil {
-		return out, metadata, err
-	}
-	return next.HandleInitialize(ctx, in)
-}
-
 type validateOpDecodeAuthorizationMessage struct {
 }
 
@@ -160,10 +140,6 @@ func addOpAssumeRoleWithSAMLValidationMiddleware(stack *middleware.Stack) error 
 
 func addOpAssumeRoleWithWebIdentityValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpAssumeRoleWithWebIdentity{}, middleware.After)
-}
-
-func addOpAssumeRootValidationMiddleware(stack *middleware.Stack) error {
-	return stack.Initialize.Add(&validateOpAssumeRoot{}, middleware.After)
 }
 
 func addOpDecodeAuthorizationMessageValidationMiddleware(stack *middleware.Stack) error {
@@ -270,24 +246,6 @@ func validateOpAssumeRoleWithWebIdentityInput(v *AssumeRoleWithWebIdentityInput)
 	}
 	if v.WebIdentityToken == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("WebIdentityToken"))
-	}
-	if invalidParams.Len() > 0 {
-		return invalidParams
-	} else {
-		return nil
-	}
-}
-
-func validateOpAssumeRootInput(v *AssumeRootInput) error {
-	if v == nil {
-		return nil
-	}
-	invalidParams := smithy.InvalidParamsError{Context: "AssumeRootInput"}
-	if v.TargetPrincipal == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("TargetPrincipal"))
-	}
-	if v.TaskPolicyArn == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("TaskPolicyArn"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

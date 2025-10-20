@@ -1,6 +1,6 @@
 syntax = "proto3";
 package rpcpb;
-option go_package = "github.com/bishopfox/sliver/protobuf/rpcpb";
+option go_package = "github.com/gsmith257-cyber/better-sliver-package/protobuf/rpcpb";
 
 import "commonpb/common.proto";
 import "sliverpb/sliver.proto";
@@ -43,7 +43,7 @@ service SliverRPC {
   rpc GetBeacons(commonpb.Empty) returns (clientpb.Beacons);
   rpc GetBeacon(clientpb.Beacon) returns (clientpb.Beacon);
   rpc RmBeacon(clientpb.Beacon) returns (commonpb.Empty);
-  rpc GetBeaconTasks(clientpb.Beacon) returns (clientpb.BeaconTasks);
+  rpc GetBeaconTasks(clientpb.Beacon) returns (clientpb.BaconTasks);
   rpc GetBeaconTaskContent(clientpb.BeaconTask) returns (clientpb.BeaconTask);
   rpc CancelBeaconTask(clientpb.BeaconTask) returns (clientpb.BeaconTask);
   rpc UpdateBeaconIntegrityInformation(clientpb.BeaconIntegrity) returns (commonpb.Empty);
@@ -136,6 +136,7 @@ service SliverRPC {
   rpc DeleteImplantProfile(clientpb.DeleteReq) returns (commonpb.Empty);
   rpc SaveImplantProfile(clientpb.ImplantProfile)
       returns (clientpb.ImplantProfile);
+  rpc MsfStage(clientpb.MsfStagerReq) returns (clientpb.MsfStager);
   rpc ShellcodeRDI(clientpb.ShellcodeRDIReq) returns (clientpb.ShellcodeRDI);
   rpc GetCompiler(commonpb.Empty) returns (clientpb.Compiler);
   rpc ShellcodeEncoder(clientpb.ShellcodeEncodeReq)
@@ -194,7 +195,7 @@ service SliverRPC {
   rpc Execute(sliverpb.ExecuteReq) returns (sliverpb.Execute);
   rpc ExecuteWindows(sliverpb.ExecuteWindowsReq) returns (sliverpb.Execute);
   rpc Sideload(sliverpb.SideloadReq) returns (sliverpb.Sideload);
-  rpc SpawnDll(sliverpb.InvokeSpawnDllReq) returns (sliverpb.SpawnDll);
+  rpc SpawnDll(sliverpb.InvokeSpwnDllReq) returns (sliverpb.SpawnDll);
   rpc Screenshot(sliverpb.ScreenshotReq) returns (sliverpb.Screenshot);
   rpc CurrentTokenOwner(sliverpb.CurrentTokenOwnerReq)
       returns (sliverpb.CurrentTokenOwner);

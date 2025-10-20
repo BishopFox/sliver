@@ -1,11 +1,8 @@
 package console
 
-// AddInterrupt registers a handler to run when the console receives
-// a given interrupt error from the underlying readline shell.
-//
-// On most systems, the following errors will be returned with keypresses:
-// - Linux/MacOS/Windows : Ctrl-C will return os.Interrupt.
-//
+// AddInterrupt registers a handler to run when the console receives a given
+// interrupt error from the underlying readline shell. Mainly two interrupt
+// signals are concerned: io.EOF (returned when pressing CtrlD), and console.ErrCtrlC.
 // Many will want to use this to switch menus. Note that these interrupt errors only
 // work when the console is NOT currently executing a command, only when reading input.
 func (m *Menu) AddInterrupt(err error, handler func(c *Console)) {

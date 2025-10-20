@@ -26,8 +26,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bishopfox/sliver/server/assets"
-	"github.com/bishopfox/sliver/server/log"
+	"github.com/gsmith257-cyber/better-sliver-package/server/assets"
+	"github.com/gsmith257-cyber/better-sliver-package/server/log"
 )
 
 const (
@@ -90,7 +90,7 @@ func getHomeDir() string {
 func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
 	if _, ok := ValidCompilerTargets(config)[target]; !ok {
-		return nil, fmt.Errorf("%s", fmt.Sprintf("Invalid compiler target: %s", target))
+		return nil, fmt.Errorf(fmt.Sprintf("Invalid compiler target: %s", target))
 	}
 	garbleBinPath := filepath.Join(config.GOROOT, "bin", "garble")
 	garbleFlags := []string{"-seed=random", "-literals", "-tiny"}
@@ -178,7 +178,7 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 func GoBuild(config GoConfig, src string, dest string, buildmode string, tags []string, ldflags []string, gcflags, asmflags string) ([]byte, error) {
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
 	if _, ok := ValidCompilerTargets(config)[target]; !ok {
-		return nil, fmt.Errorf("%s", fmt.Sprintf("Invalid compiler target: %s", target))
+		return nil, fmt.Errorf(fmt.Sprintf("Invalid compiler target: %s", target))
 	}
 	var goCommand = []string{"build"}
 

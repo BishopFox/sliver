@@ -1,32 +1,28 @@
 // Copyright (c) Tailscale Inc & AUTHORS
 // SPDX-License-Identifier: BSD-3-Clause
 
-//go:build linux && !android
-
 package dns
 
 import (
 	"bytes"
 	"context"
-	"fmt"
+	"errors"
 
-	"github.com/illarion/gonotify/v3"
+	"github.com/illarion/gonotify"
 	"tailscale.com/health"
 )
 
 func (m *directManager) runFileWatcher() {
-	if err := watchFile(m.ctx, "/etc/", resolvConf, m.checkForFileTrample); err != nil {
-		// This is all best effort for now, so surface warnings to users.
-		m.logf("dns: inotify: %s", err)
+	in, err := gonotify.NewInotify()
+	if err != nil {
+		// Oh well, we tried. This is all best effort for now, to
+		// surface warnings to users.
+		m.logf("dns: inotify new: %v", err)
+		return
 	}
-}
-
-// watchFile sets up an inotify watch for a given directory and
-// calls the callback function every time a particular file is changed.
-// The filename should be located in the provided directory.
-func watchFile(ctx context.Context, dir, filename string, cb func()) error {
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(m.ctx)
 	defer cancel()
+	go m.closeInotifyOnDone(ctx, in)
 
 	const events = gonotify.IN_ATTRIB |
 		gonotify.IN_CLOSE_WRITE |
@@ -35,29 +31,34 @@ func watchFile(ctx context.Context, dir, filename string, cb func()) error {
 		gonotify.IN_MODIFY |
 		gonotify.IN_MOVE
 
-	watcher, err := gonotify.NewDirWatcher(ctx, events, dir)
-	if err != nil {
-		return fmt.Errorf("NewDirWatcher: %w", err)
+	if err := in.AddWatch("/etc/", events); err != nil {
+		m.logf("dns: inotify addwatch: %v", err)
+		return
 	}
-
 	for {
-		select {
-		case event := <-watcher.C:
-			if event.Name == filename {
-				cb()
-			}
-		case <-ctx.Done():
-			return ctx.Err()
+		events, err := in.Read()
+		if ctx.Err() != nil {
+			return
 		}
+		if err != nil {
+			m.logf("dns: inotify read: %v", err)
+			return
+		}
+		var match bool
+		for _, ev := range events {
+			if ev.Name == resolvConf {
+				match = true
+				break
+			}
+		}
+		if !match {
+			continue
+		}
+		m.checkForFileTrample()
 	}
 }
 
-var resolvTrampleWarnable = health.Register(&health.Warnable{
-	Code:     "resolv-conf-overwritten",
-	Severity: health.SeverityMedium,
-	Title:    "Linux DNS configuration issue",
-	Text:     health.StaticMessage("Linux DNS config not ideal. /etc/resolv.conf overwritten. See https://tailscale.com/s/dns-fight"),
-})
+var warnTrample = health.NewWarnable()
 
 // checkForFileTrample checks whether /etc/resolv.conf has been trampled
 // by another program on the system. (e.g. a DHCP client)
@@ -77,7 +78,7 @@ func (m *directManager) checkForFileTrample() {
 		return
 	}
 	if bytes.Equal(cur, want) {
-		m.health.SetHealthy(resolvTrampleWarnable)
+		m.health.SetWarnable(warnTrample, nil)
 		if lastWarn != nil {
 			m.mu.Lock()
 			m.lastWarnContents = nil
@@ -100,5 +101,10 @@ func (m *directManager) checkForFileTrample() {
 		show = show[:1024]
 	}
 	m.logf("trample: resolv.conf changed from what we expected. did some other program interfere? current contents: %q", show)
-	m.health.SetUnhealthy(resolvTrampleWarnable, nil)
+	m.health.SetWarnable(warnTrample, errors.New("Linux DNS config not ideal. /etc/resolv.conf overwritten. See https://tailscale.com/s/dns-fight"))
+}
+
+func (m *directManager) closeInotifyOnDone(ctx context.Context, in *gonotify.Inotify) {
+	<-ctx.Done()
+	in.Close()
 }

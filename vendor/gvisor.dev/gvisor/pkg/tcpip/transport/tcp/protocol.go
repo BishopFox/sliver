@@ -86,11 +86,10 @@ const (
 	ccCubic = "cubic"
 )
 
-// +stateify savable
 type protocol struct {
 	stack *stack.Stack
 
-	mu                         sync.RWMutex `state:"nosave"`
+	mu                         sync.RWMutex
 	sackEnabled                bool
 	recovery                   tcpip.TCPRecovery
 	delayEnabled               bool
@@ -108,12 +107,6 @@ type protocol struct {
 	maxRetries                 uint32
 	synRetries                 uint8
 	dispatcher                 dispatcher
-
-	// probe, if not nil, will be invoked any time an endpoint receives a
-	// TCP segment.
-	//
-	// This is immutable after creation.
-	probe TCPProbeFunc `state:"nosave"`
 
 	// The following secrets are initialized once and stay unchanged after.
 	seqnumSecret   [16]byte
@@ -233,26 +226,16 @@ func replyWithReset(st *stack.Stack, s *segment, tos, ipv4TTL uint8, ipv6HopLimi
 		ack = s.sequenceNumber.Add(s.logicalLen())
 	}
 
-	var expOptVal uint16
-	if s.ep != nil {
-		expOptVal = s.ep.getExperimentOptionValue(route)
-	}
-	hdrSize := header.TCPMinimumSize + int(route.MaxHeaderLength())
-	if route.NetProto() == header.IPv6ProtocolNumber && expOptVal != 0 {
-		hdrSize += header.IPv6ExperimentHdrLength
-	}
-	p := stack.NewPacketBuffer(stack.PacketBufferOptions{ReserveHeaderBytes: hdrSize})
+	p := stack.NewPacketBuffer(stack.PacketBufferOptions{ReserveHeaderBytes: header.TCPMinimumSize + int(route.MaxHeaderLength())})
 	defer p.DecRef()
-
 	return sendTCP(route, tcpFields{
-		id:        s.id,
-		ttl:       ttl,
-		tos:       tos,
-		flags:     flags,
-		seq:       seq,
-		ack:       ack,
-		rcvWnd:    0,
-		expOptVal: expOptVal,
+		id:     s.id,
+		ttl:    ttl,
+		tos:    tos,
+		flags:  flags,
+		seq:    seq,
+		ack:    ack,
+		rcvWnd: 0,
 	}, p, stack.GSO{}, nil /* PacketOwner */)
 }
 
@@ -380,7 +363,7 @@ func (p *protocol) SetOption(option tcpip.SettableTransportProtocolOption) tcpip
 		return nil
 
 	case *tcpip.TCPSynRetriesOption:
-		if *v < 1 {
+		if *v < 1 || *v > 255 {
 			return &tcpip.ErrInvalidOptionValue{}
 		}
 		p.mu.Lock()
@@ -497,13 +480,6 @@ func (p *protocol) Option(option tcpip.GettableTransportProtocolOption) tcpip.Er
 	}
 }
 
-// SendBufferSize implements stack.SendBufSizeProto.
-func (p *protocol) SendBufferSize() tcpip.TCPSendBufferSizeRangeOption {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.sendBufferSize
-}
-
 // Close implements stack.TransportProtocol.Close.
 func (p *protocol) Close() {
 	p.dispatcher.close()
@@ -524,42 +500,13 @@ func (p *protocol) Resume() {
 	p.dispatcher.resume()
 }
 
-// Restore implements stack.TransportProtocol.Restore.
-func (p *protocol) Restore() {
-	p.dispatcher.start()
-}
-
 // Parse implements stack.TransportProtocol.Parse.
 func (*protocol) Parse(pkt *stack.PacketBuffer) bool {
 	return parse.TCP(pkt)
 }
 
-// NewProtocol returns a TCP transport protocol with Reno congestion control.
+// NewProtocol returns a TCP transport protocol.
 func NewProtocol(s *stack.Stack) stack.TransportProtocol {
-	return newProtocol(s, ccReno, nil)
-}
-
-// NewProtocolProbe returns a TCP transport protocol with Reno congestion
-// control and the given probe.
-//
-// The probe will be invoked on every segment received by TCP endpoints. The
-// probe function is passed a copy of the TCP endpoint state before and after
-// processing of the segment.
-func NewProtocolProbe(probe TCPProbeFunc) func(*stack.Stack) stack.TransportProtocol {
-	return func(s *stack.Stack) stack.TransportProtocol {
-		return newProtocol(s, ccReno, probe)
-	}
-}
-
-// NewProtocolCUBIC returns a TCP transport protocol with CUBIC congestion
-// control.
-//
-// TODO(b/345835636): Remove this and make CUBIC the default across the board.
-func NewProtocolCUBIC(s *stack.Stack) stack.TransportProtocol {
-	return newProtocol(s, ccCubic, nil)
-}
-
-func newProtocol(s *stack.Stack, cc string, probe TCPProbeFunc) stack.TransportProtocol {
 	rng := s.SecureRNG()
 	var seqnumSecret [16]byte
 	var tsOffsetSecret [16]byte
@@ -581,8 +528,7 @@ func newProtocol(s *stack.Stack, cc string, probe TCPProbeFunc) stack.TransportP
 			Default: DefaultReceiveBufferSize,
 			Max:     MaxBufferSize,
 		},
-		sackEnabled:                true,
-		congestionControl:          cc,
+		congestionControl:          ccReno,
 		availableCongestionControl: []string{ccReno, ccCubic},
 		moderateReceiveBuffer:      true,
 		lingerTimeout:              DefaultTCPLingerTimeout,
@@ -595,7 +541,6 @@ func newProtocol(s *stack.Stack, cc string, probe TCPProbeFunc) stack.TransportP
 		recovery:                   tcpip.TCPRACKLossDetection,
 		seqnumSecret:               seqnumSecret,
 		tsOffsetSecret:             tsOffsetSecret,
-		probe:                      probe,
 	}
 	p.dispatcher.init(s.InsecureRNG(), runtime.GOMAXPROCS(0))
 	return &p

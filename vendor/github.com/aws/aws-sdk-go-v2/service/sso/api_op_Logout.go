@@ -12,20 +12,16 @@ import (
 
 // Removes the locally stored SSO tokens from the client-side cache and sends an
 // API call to the IAM Identity Center service to invalidate the corresponding
-// server-side IAM Identity Center sign in session.
-//
-// If a user uses IAM Identity Center to access the AWS CLI, the user’s IAM
-// Identity Center sign in session is used to obtain an IAM session, as specified
-// in the corresponding IAM Identity Center permission set. More specifically, IAM
-// Identity Center assumes an IAM role in the target account on behalf of the user,
-// and the corresponding temporary AWS credentials are returned to the client.
-//
-// After user logout, any existing IAM role sessions that were created by using
-// IAM Identity Center permission sets continue based on the duration configured in
-// the permission set. For more information, see [User authentications]in the IAM Identity Center User
-// Guide.
-//
-// [User authentications]: https://docs.aws.amazon.com/singlesignon/latest/userguide/authconcept.html
+// server-side IAM Identity Center sign in session. If a user uses IAM Identity
+// Center to access the AWS CLI, the user’s IAM Identity Center sign in session is
+// used to obtain an IAM session, as specified in the corresponding IAM Identity
+// Center permission set. More specifically, IAM Identity Center assumes an IAM
+// role in the target account on behalf of the user, and the corresponding
+// temporary AWS credentials are returned to the client. After user logout, any
+// existing IAM role sessions that were created by using IAM Identity Center
+// permission sets continue based on the duration configured in the permission set.
+// For more information, see User authentications (https://docs.aws.amazon.com/singlesignon/latest/userguide/authconcept.html)
+// in the IAM Identity Center User Guide.
 func (c *Client) Logout(ctx context.Context, params *LogoutInput, optFns ...func(*Options)) (*LogoutOutput, error) {
 	if params == nil {
 		params = &LogoutInput{}
@@ -43,10 +39,9 @@ func (c *Client) Logout(ctx context.Context, params *LogoutInput, optFns ...func
 
 type LogoutInput struct {
 
-	// The token issued by the CreateToken API call. For more information, see [CreateToken] in the
-	// IAM Identity Center OIDC API Reference Guide.
-	//
-	// [CreateToken]: https://docs.aws.amazon.com/singlesignon/latest/OIDCAPIReference/API_CreateToken.html
+	// The token issued by the CreateToken API call. For more information, see
+	// CreateToken (https://docs.aws.amazon.com/singlesignon/latest/OIDCAPIReference/API_CreateToken.html)
+	// in the IAM Identity Center OIDC API Reference Guide.
 	//
 	// This member is required.
 	AccessToken *string
@@ -83,25 +78,22 @@ func (c *Client) addOperationLogoutMiddlewares(stack *middleware.Stack, options 
 	if err = addSetLoggerMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addClientRequestID(stack); err != nil {
+	if err = awsmiddleware.AddClientRequestIDMiddleware(stack); err != nil {
 		return err
 	}
-	if err = addComputeContentLength(stack); err != nil {
+	if err = smithyhttp.AddComputeContentLengthMiddleware(stack); err != nil {
 		return err
 	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetryMiddlewares(stack, options); err != nil {
 		return err
 	}
-	if err = addRawResponseToMetadata(stack); err != nil {
+	if err = awsmiddleware.AddRawResponseToMetadata(stack); err != nil {
 		return err
 	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
+	if err = awsmiddleware.AddRecordResponseTiming(stack); err != nil {
 		return err
 	}
 	if err = addClientUserAgent(stack, options); err != nil {
@@ -116,22 +108,13 @@ func (c *Client) addOperationLogoutMiddlewares(stack *middleware.Stack, options 
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
-		return err
-	}
-	if err = addCredentialSource(stack, options); err != nil {
-		return err
-	}
 	if err = addOpLogoutValidationMiddleware(stack); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opLogout(options.Region), middleware.Before); err != nil {
 		return err
 	}
-	if err = addRecursionDetection(stack); err != nil {
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -144,48 +127,6 @@ func (c *Client) addOperationLogoutMiddlewares(stack *middleware.Stack, options 
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAttempt(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptExecution(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptTransmit(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
 		return err
 	}
 	return nil

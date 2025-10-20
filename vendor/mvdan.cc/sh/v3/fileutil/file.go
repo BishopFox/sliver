@@ -7,12 +7,13 @@ package fileutil
 
 import (
 	"io/fs"
+	"os"
 	"regexp"
 	"strings"
 )
 
 var (
-	shebangRe = regexp.MustCompile(`^#![ \t]*/(usr/)?bin/(env[ \t]+)?(sh|bash|mksh|bats|zsh)(\s|$)`)
+	shebangRe = regexp.MustCompile(`^#!\s?/(usr/)?bin/(env\s+)?(sh|bash|mksh|bats|zsh)(\s|$)`)
 	extRe     = regexp.MustCompile(`\.(sh|bash|mksh|bats|zsh)$`)
 )
 
@@ -48,8 +49,8 @@ const (
 	ConfNotScript ScriptConfidence = iota
 
 	// ConfIfShebang describes files which might be shell scripts, depending
-	// on the shebang line in the file's contents. Since [CouldBeScript] only
-	// works on [fs.FileInfo], the answer in this case can't be final.
+	// on the shebang line in the file's contents. Since CouldBeScript only
+	// works on os.FileInfo, the answer in this case can't be final.
 	ConfIfShebang
 
 	// ConfIsScript describes files which are definitely shell scripts,
@@ -59,26 +60,26 @@ const (
 
 // CouldBeScript is a shortcut for CouldBeScript2(fs.FileInfoToDirEntry(info)).
 //
-// Deprecated: prefer [CouldBeScript2], which usually requires fewer syscalls.
-func CouldBeScript(info fs.FileInfo) ScriptConfidence {
+// Deprecated: prefer CouldBeScript2, which usually requires fewer syscalls.
+func CouldBeScript(info os.FileInfo) ScriptConfidence {
 	return CouldBeScript2(fs.FileInfoToDirEntry(info))
 }
 
 // CouldBeScript2 reports how likely a directory entry is to be a shell script.
-// It discards directories and other non-regular files like symbolic links,
-// filenames beginning with '.', and files with non-shell extensions.
+// It discards directories, symlinks, hidden files and files with non-shell
+// extensions.
 func CouldBeScript2(entry fs.DirEntry) ScriptConfidence {
 	name := entry.Name()
 	switch {
-	case name[0] == '.':
-		return ConfNotScript // '.' prefix (hidden file)
-	case !entry.Type().IsRegular():
-		return ConfNotScript // dir, symlink, named pipes, etc
+	case entry.IsDir(), name[0] == '.':
+		return ConfNotScript
+	case entry.Type()&os.ModeSymlink != 0:
+		return ConfNotScript
 	case extRe.MatchString(name):
-		return ConfIsScript // shell extension
+		return ConfIsScript
 	case strings.IndexByte(name, '.') > 0:
-		return ConfNotScript // non-shell extension
+		return ConfNotScript // different extension
 	default:
-		return ConfIfShebang // no extension; read and look for a shebang
+		return ConfIfShebang
 	}
 }

@@ -4,7 +4,6 @@
 package runewidth
 
 import (
-	"os"
 	"syscall"
 )
 
@@ -15,11 +14,6 @@ var (
 
 // IsEastAsian return true if the current locale is CJK
 func IsEastAsian() bool {
-	if os.Getenv("WT_SESSION") != "" {
-		// Windows Terminal always not use East Asian Ambiguous Width(s).
-		return false
-	}
-
 	r1, _, _ := procGetConsoleOutputCP.Call()
 	if r1 == 0 {
 		return false

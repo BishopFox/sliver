@@ -18,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"time"
 )
 
@@ -36,12 +35,8 @@ const (
 	frameHeaderLen = 1 + 4 // frameType byte + 4 byte length
 	keyLen         = 32
 	maxInfoLen     = 1 << 20
+	keepAlive      = 60 * time.Second
 )
-
-// KeepAlive is the minimum frequency at which the DERP server sends
-// keep alive frames. The server adds some jitter, so this timing is not
-// exact, but 2x this value can be considered a missed keep alive.
-const KeepAlive = 60 * time.Second
 
 // ProtocolVersion is bumped whenever there's a wire-incompatible change.
 //   - version 1 (zero on wire): consistent box headers, in use by employee dev nodes a bit
@@ -84,19 +79,13 @@ const (
 	// framePeerGone to B so B can forget that a reverse path
 	// exists on that connection to get back to A. It is also sent
 	// if A tries to send a CallMeMaybe to B and the server has no
-	// record of B
+	// record of B (which currently would only happen if there was
+	// a bug).
 	framePeerGone = frameType(0x08) // 32B pub key of peer that's gone + 1 byte reason
 
-	// framePeerPresent is like framePeerGone, but for other members of the DERP
-	// region when they're meshed up together.
-	//
-	// The message is at least 32 bytes (the public key of the peer that's
-	// connected). If there are at least 18 bytes remaining after that, it's the
-	// 16 byte IP + 2 byte BE uint16 port of the client. If there's another byte
-	// remaining after that, it's a PeerPresentFlags byte.
-	// While current servers send 41 bytes, old servers will send fewer, and newer
-	// servers might send more.
-	framePeerPresent = frameType(0x09)
+	// framePeerPresent is like framePeerGone, but for other
+	// members of the DERP region when they're meshed up together.
+	framePeerPresent = frameType(0x09) // 32B pub key of peer that's connected + optional 18B ip:port (16 byte IP + 2 byte BE uint16 port)
 
 	// frameWatchConns is how one DERP node in a regional mesh
 	// subscribes to the others in the region.
@@ -135,23 +124,8 @@ const (
 type PeerGoneReasonType byte
 
 const (
-	PeerGoneReasonDisconnected  = PeerGoneReasonType(0x00) // is only sent when a peer disconnects from this server
-	PeerGoneReasonNotHere       = PeerGoneReasonType(0x01) // server doesn't know about this peer
-	PeerGoneReasonMeshConnBroke = PeerGoneReasonType(0xf0) // invented by Client.RunWatchConnectionLoop on disconnect; not sent on the wire
-)
-
-// PeerPresentFlags is an optional byte of bit flags sent after a framePeerPresent message.
-//
-// For a modern server, the value should always be non-zero. If the value is zero,
-// that means the server doesn't support this field.
-type PeerPresentFlags byte
-
-// PeerPresentFlags bits.
-const (
-	PeerPresentIsRegular  = 1 << 0
-	PeerPresentIsMeshPeer = 1 << 1
-	PeerPresentIsProber   = 1 << 2
-	PeerPresentNotIdeal   = 1 << 3 // client said derp server is not its Region.Nodes[0] ideal node
+	PeerGoneReasonDisconnected = PeerGoneReasonType(0x00) // peer disconnected from this server
+	PeerGoneReasonNotHere      = PeerGoneReasonType(0x01) // server doesn't know about this peer, unexpected
 )
 
 var bin = binary.BigEndian
@@ -258,15 +232,4 @@ func writeFrame(bw *bufio.Writer, t frameType, b []byte) error {
 		return err
 	}
 	return bw.Flush()
-}
-
-// Conn is the subset of the underlying net.Conn the DERP Server needs.
-// It is a defined type so that non-net connections can be used.
-type Conn interface {
-	io.WriteCloser
-	LocalAddr() net.Addr
-	// The *Deadline methods follow the semantics of net.Conn.
-	SetDeadline(time.Time) error
-	SetReadDeadline(time.Time) error
-	SetWriteDeadline(time.Time) error
 }

@@ -139,7 +139,6 @@ type Pool[T any] struct {
 	acquireCount         int64
 	acquireDuration      time.Duration
 	emptyAcquireCount    int64
-	emptyAcquireWaitTime time.Duration
 	canceledAcquireCount atomic.Int64
 
 	resetCount int
@@ -155,7 +154,7 @@ type Config[T any] struct {
 	MaxSize     int32
 }
 
-// NewPool creates a new pool. Returns an error iff MaxSize is less than 1.
+// NewPool creates a new pool. Panics if maxSize is less than 1.
 func NewPool[T any](config *Config[T]) (*Pool[T], error) {
 	if config.MaxSize < 1 {
 		return nil, errors.New("MaxSize must be >= 1")
@@ -203,7 +202,6 @@ type Stat struct {
 	acquireCount          int64
 	acquireDuration       time.Duration
 	emptyAcquireCount     int64
-	emptyAcquireWaitTime  time.Duration
 	canceledAcquireCount  int64
 }
 
@@ -253,13 +251,6 @@ func (s *Stat) EmptyAcquireCount() int64 {
 	return s.emptyAcquireCount
 }
 
-// EmptyAcquireWaitTime returns the cumulative time waited for successful acquires
-// from the pool for a resource to be released or constructed because the pool was
-// empty.
-func (s *Stat) EmptyAcquireWaitTime() time.Duration {
-	return s.emptyAcquireWaitTime
-}
-
 // CanceledAcquireCount returns the cumulative count of acquires from the pool
 // that were canceled by a context.
 func (s *Stat) CanceledAcquireCount() int64 {
@@ -275,7 +266,6 @@ func (p *Pool[T]) Stat() *Stat {
 		maxResources:         p.maxSize,
 		acquireCount:         p.acquireCount,
 		emptyAcquireCount:    p.emptyAcquireCount,
-		emptyAcquireWaitTime: p.emptyAcquireWaitTime,
 		canceledAcquireCount: p.canceledAcquireCount.Load(),
 		acquireDuration:      p.acquireDuration,
 	}
@@ -373,13 +363,11 @@ func (p *Pool[T]) acquire(ctx context.Context) (*Resource[T], error) {
 
 	// If a resource is available in the pool.
 	if res := p.tryAcquireIdleResource(); res != nil {
-		waitTime := time.Duration(nanotime() - startNano)
 		if waitedForLock {
 			p.emptyAcquireCount += 1
-			p.emptyAcquireWaitTime += waitTime
 		}
 		p.acquireCount += 1
-		p.acquireDuration += waitTime
+		p.acquireDuration += time.Duration(nanotime() - startNano)
 		p.mux.Unlock()
 		return res, nil
 	}
@@ -403,9 +391,7 @@ func (p *Pool[T]) acquire(ctx context.Context) (*Resource[T], error) {
 
 	p.emptyAcquireCount += 1
 	p.acquireCount += 1
-	waitTime := time.Duration(nanotime() - startNano)
-	p.acquireDuration += waitTime
-	p.emptyAcquireWaitTime += waitTime
+	p.acquireDuration += time.Duration(nanotime() - startNano)
 
 	return res, nil
 }

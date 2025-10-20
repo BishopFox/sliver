@@ -1,9 +1,4 @@
-# client/command/completers
+Completers
+===========
 
-## Overview
-
-Implements the 'completers' command group for the Sliver client console.
-
-## Go Files
-
-- `completers.go` – Provides reusable carapace completion helpers for selecting client interfaces and proxy endpoints.
+This package contains general purpose completers for the console, note that some package also contain their own package-specific completers. 

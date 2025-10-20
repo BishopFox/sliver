@@ -1,16 +1,13 @@
 package postgres
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/stdlib"
 	"gorm.io/gorm"
 	"gorm.io/gorm/callbacks"
@@ -34,7 +31,7 @@ type Config struct {
 }
 
 var (
-	timeZoneMatcher         = regexp.MustCompile("(time_zone|TimeZone|timezone)=(.*?)($|&| )")
+	timeZoneMatcher         = regexp.MustCompile("(time_zone|TimeZone)=(.*?)($|&| )")
 	defaultIdentifierLength = 63 //maximum identifier length for postgres
 )
 
@@ -102,23 +99,10 @@ func (dialector Dialector) Initialize(db *gorm.DB) (err error) {
 			config.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 		}
 		result := timeZoneMatcher.FindStringSubmatch(dialector.Config.DSN)
-		var options []stdlib.OptionOpenDB
 		if len(result) > 2 {
 			config.RuntimeParams["timezone"] = result[2]
-			options = append(options, stdlib.OptionAfterConnect(func(ctx context.Context, conn *pgx.Conn) error {
-				loc, tzErr := time.LoadLocation(result[2])
-				if tzErr != nil {
-					return tzErr
-				}
-				conn.TypeMap().RegisterType(&pgtype.Type{
-					Name:  "timestamp",
-					OID:   pgtype.TimestampOID,
-					Codec: &pgtype.TimestampCodec{ScanLocation: loc},
-				})
-				return nil
-			}))
 		}
-		db.ConnPool = stdlib.OpenDB(*config, options...)
+		db.ConnPool = stdlib.OpenDB(*config)
 	}
 	return
 }
@@ -244,7 +228,7 @@ func (dialector Dialector) DataTypeOf(field *schema.Field) string {
 		}
 		return "decimal"
 	case schema.String:
-		if field.Size > 0 && field.Size <= 10485760 {
+		if field.Size > 0 {
 			return fmt.Sprintf("varchar(%d)", field.Size)
 		}
 		return "text"

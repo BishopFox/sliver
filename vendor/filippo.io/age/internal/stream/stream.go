@@ -12,6 +12,7 @@ import (
 	"io"
 
 	"golang.org/x/crypto/chacha20poly1305"
+	"golang.org/x/crypto/poly1305"
 )
 
 const ChunkSize = 64 * 1024
@@ -28,7 +29,7 @@ type Reader struct {
 }
 
 const (
-	encChunkSize  = ChunkSize + chacha20poly1305.Overhead
+	encChunkSize  = ChunkSize + poly1305.TagSize
 	lastChunkFlag = 0x01
 )
 

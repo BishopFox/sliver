@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "es2020",
+    "target": "ES2015",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
@@ -21,9 +21,7 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    "prebuild/generate-docs.js",
-    "prebuild/generate-tutorials.js",
-    "util/__generated__/prebuild-version.ts"
+    "prebuild/generate-docs.js"
   ],
   "exclude": ["node_modules"]
 }

@@ -19,9 +19,9 @@ package generate
 */
 
 import (
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/server/db"
-	"github.com/bishopfox/sliver/server/db/models"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/server/db"
+	"github.com/gsmith257-cyber/better-sliver-package/server/db/models"
 )
 
 // SliverExternal - Generates the cryptographic keys for the implant but compiles no code
@@ -32,22 +32,6 @@ func SliverExternal(name string, config *clientpb.ImplantConfig) (*clientpb.Exte
 	config.IncludeDNS = models.IsC2Enabled([]string{"dns"}, config.C2)
 	config.IncludeNamePipe = models.IsC2Enabled([]string{"namedpipe"}, config.C2)
 	config.IncludeTCP = models.IsC2Enabled([]string{"tcppivot"}, config.C2)
-
-	// set file extension for external builds
-	if config.IsSharedLib {
-		switch config.GOOS {
-		case WINDOWS:
-			config.Extension = ".dll"
-		case DARWIN:
-			config.Extension = ".dylib"
-		case LINUX:
-			config.Extension = ".so"
-		}
-	} else {
-		if config.GOOS == WINDOWS {
-			config.Extension = ".exe"
-		}
-	}
 
 	build, err := GenerateConfig(name, config)
 	if err != nil {

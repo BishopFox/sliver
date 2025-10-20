@@ -1,7 +1,7 @@
 // Copyright (c) Tailscale Inc & AUTHORS
 // SPDX-License-Identifier: BSD-3-Clause
 
-//go:build js || ((linux || darwin) && ts_debug_websockets)
+//go:build linux || js
 
 package derphttp
 
@@ -10,11 +10,9 @@ import (
 	"log"
 	"net"
 
-	"github.com/coder/websocket"
+	"nhooyr.io/websocket"
 	"tailscale.com/net/wsconn"
 )
-
-const canWebsockets = true
 
 func init() {
 	dialWebsocketFunc = dialWebsocket

@@ -38,7 +38,6 @@ func AutopairInsertOrJump(key rune, line *core.Line, cur *core.Cursor) (skipInse
 	switch {
 	case closer && cur.Char() == key:
 		skipInsert = true
-
 		cur.Inc()
 	case closer && key != '\'' && key != '"':
 		return

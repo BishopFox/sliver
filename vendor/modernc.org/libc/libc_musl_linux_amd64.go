@@ -2,7 +2,9 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package libc // import "modernc.org/libc"
+//go:build linux && amd64
+
+package libc // import "modernc.org/libc
 
 import (
 	"golang.org/x/sys/unix"

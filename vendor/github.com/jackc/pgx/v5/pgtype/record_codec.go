@@ -121,4 +121,5 @@ func (RecordCodec) DecodeValue(m *Map, oid uint32, format int16, src []byte) (an
 	default:
 		return nil, fmt.Errorf("unknown format code %d", format)
 	}
+
 }

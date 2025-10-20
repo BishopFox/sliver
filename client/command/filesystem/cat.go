@@ -23,16 +23,15 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/alecthomas/chroma/formatters"
 	"github.com/alecthomas/chroma/lexers"
 	"github.com/alecthomas/chroma/styles"
-	"github.com/bishopfox/sliver/client/command/loot"
-	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/util/encoders"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/loot"
+	"github.com/gsmith257-cyber/better-sliver-package/client/console"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/sliverpb"
+	"github.com/gsmith257-cyber/better-sliver-package/util/encoders"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/proto"
 )
@@ -73,16 +72,16 @@ func CatCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 				con.PrintErrorf("Failed to decode response %s\n", err)
 				return
 			}
-			PrintCat(filePath, download, cmd, con)
+			PrintCat(download, cmd, con)
 		})
 		con.PrintAsyncResponse(download.Response)
 	} else {
-		PrintCat(filePath, download, cmd, con)
+		PrintCat(download, cmd, con)
 	}
 }
 
 // PrintCat - Print the download to stdout.
-func PrintCat(originalFileName string, download *sliverpb.Download, cmd *cobra.Command, con *console.SliverClient) {
+func PrintCat(download *sliverpb.Download, cmd *cobra.Command, con *console.SliverClient) {
 	var (
 		lootDownload bool = true
 		err          error
@@ -108,9 +107,6 @@ func PrintCat(originalFileName string, download *sliverpb.Download, cmd *cobra.C
 			loot.LootDownload(download, lootName, fileType, cmd, con)
 			con.Printf("\n")
 		}
-	}
-	if !strings.Contains(download.Path, originalFileName) {
-		con.PrintInfof("Supplied pattern %s matched file %s\n\n", originalFileName, download.Path)
 	}
 	if color, _ := cmd.Flags().GetBool("colorize-output"); color {
 		if err = colorize(download); err != nil {

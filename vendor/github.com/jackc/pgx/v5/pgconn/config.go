@@ -19,15 +19,12 @@ import (
 
 	"github.com/jackc/pgpassfile"
 	"github.com/jackc/pgservicefile"
-	"github.com/jackc/pgx/v5/pgconn/ctxwatch"
 	"github.com/jackc/pgx/v5/pgproto3"
 )
 
-type (
-	AfterConnectFunc    func(ctx context.Context, pgconn *PgConn) error
-	ValidateConnectFunc func(ctx context.Context, pgconn *PgConn) error
-	GetSSLPasswordFunc  func(ctx context.Context) string
-)
+type AfterConnectFunc func(ctx context.Context, pgconn *PgConn) error
+type ValidateConnectFunc func(ctx context.Context, pgconn *PgConn) error
+type GetSSLPasswordFunc func(ctx context.Context) string
 
 // Config is the settings used to establish a connection to a PostgreSQL server. It must be created by [ParseConfig]. A
 // manually initialized Config will cause ConnectConfig to panic.
@@ -42,18 +39,11 @@ type Config struct {
 	DialFunc       DialFunc   // e.g. net.Dialer.DialContext
 	LookupFunc     LookupFunc // e.g. net.Resolver.LookupHost
 	BuildFrontend  BuildFrontendFunc
-
-	// BuildContextWatcherHandler is called to create a ContextWatcherHandler for a connection. The handler is called
-	// when a context passed to a PgConn method is canceled.
-	BuildContextWatcherHandler func(*PgConn) ctxwatch.Handler
-
-	RuntimeParams map[string]string // Run-time parameters to set on connection as session default values (e.g. search_path or application_name)
+	RuntimeParams  map[string]string // Run-time parameters to set on connection as session default values (e.g. search_path or application_name)
 
 	KerberosSrvName string
 	KerberosSpn     string
 	Fallbacks       []*FallbackConfig
-
-	SSLNegotiation string // sslnegotiation=postgres or sslnegotiation=direct
 
 	// ValidateConnect is called during a connection attempt after a successful authentication with the PostgreSQL server.
 	// It can be used to validate that the server is acceptable. If this returns an error the connection is closed and the next
@@ -80,7 +70,7 @@ type Config struct {
 
 // ParseConfigOptions contains options that control how a config is built such as GetSSLPassword.
 type ParseConfigOptions struct {
-	// GetSSLPassword gets the password to decrypt a SSL client certificate. This is analogous to the libpq function
+	// GetSSLPassword gets the password to decrypt a SSL client certificate. This is analogous to the the libpq function
 	// PQsetSSLKeyPassHook_OpenSSL.
 	GetSSLPassword GetSSLPasswordFunc
 }
@@ -122,14 +112,6 @@ type FallbackConfig struct {
 	TLSConfig *tls.Config // nil disables TLS
 }
 
-// connectOneConfig is the configuration for a single attempt to connect to a single host.
-type connectOneConfig struct {
-	network          string
-	address          string
-	originalHostname string      // original hostname before resolving
-	tlsConfig        *tls.Config // nil disables TLS
-}
-
 // isAbsolutePath checks if the provided value is an absolute path either
 // beginning with a forward slash (as on Linux-based systems) or with a capital
 // letter A-Z followed by a colon and a backslash, e.g., "C:\", (as on Windows).
@@ -164,11 +146,11 @@ func NetworkAddress(host string, port uint16) (network, address string) {
 
 // ParseConfig builds a *Config from connString with similar behavior to the PostgreSQL standard C library libpq. It
 // uses the same defaults as libpq (e.g. port=5432) and understands most PG* environment variables. ParseConfig closely
-// matches the parsing behavior of libpq. connString may either be in URL format or keyword = value format. See
-// https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING for details. connString also may be empty
-// to only read from the environment. If a password is not supplied it will attempt to read the .pgpass file.
+// matches the parsing behavior of libpq. connString may either be in URL format or keyword = value format (DSN style).
+// See https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING for details. connString also may be
+// empty to only read from the environment. If a password is not supplied it will attempt to read the .pgpass file.
 //
-//	# Example Keyword/Value
+//	# Example DSN
 //	user=jack password=secret host=pg.example.com port=5432 dbname=mydb sslmode=verify-ca
 //
 //	# Example URL
@@ -181,13 +163,13 @@ func NetworkAddress(host string, port uint16) (network, address string) {
 //
 // ParseConfig supports specifying multiple hosts in similar manner to libpq. Host and port may include comma separated
 // values that will be tried in order. This can be used as part of a high availability system. See
-// https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-MULTIPLE-HOSTS for more information.
+// https://www.postgresql.org/docs/11/libpq-connect.html#LIBPQ-MULTIPLE-HOSTS for more information.
 //
 //	# Example URL
 //	postgres://jack:secret@foo.example.com:5432,bar.example.com:5432/mydb
 //
 // ParseConfig currently recognizes the following environment variable and their parameter key word equivalents passed
-// via database URL or keyword/value:
+// via database URL or DSN:
 //
 //	PGHOST
 //	PGPORT
@@ -202,15 +184,13 @@ func NetworkAddress(host string, port uint16) (network, address string) {
 //	PGSSLKEY
 //	PGSSLROOTCERT
 //	PGSSLPASSWORD
-//	PGOPTIONS
 //	PGAPPNAME
 //	PGCONNECT_TIMEOUT
 //	PGTARGETSESSIONATTRS
-//	PGTZ
 //
-// See http://www.postgresql.org/docs/current/static/libpq-envars.html for details on the meaning of environment variables.
+// See http://www.postgresql.org/docs/11/static/libpq-envars.html for details on the meaning of environment variables.
 //
-// See https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PARAMKEYWORDS for parameter key word names. They are
+// See https://www.postgresql.org/docs/11/libpq-connect.html#LIBPQ-PARAMKEYWORDS for parameter key word names. They are
 // usually but not always the environment variable name downcased and without the "PG" prefix.
 //
 // Important Security Notes:
@@ -218,7 +198,7 @@ func NetworkAddress(host string, port uint16) (network, address string) {
 // ParseConfig tries to match libpq behavior with regard to PGSSLMODE. This includes defaulting to "prefer" behavior if
 // not set.
 //
-// See http://www.postgresql.org/docs/current/static/libpq-ssl.html#LIBPQ-SSL-PROTECTION for details on what level of
+// See http://www.postgresql.org/docs/11/static/libpq-ssl.html#LIBPQ-SSL-PROTECTION for details on what level of
 // security each sslmode provides.
 //
 // The sslmode "prefer" (the default), sslmode "allow", and multiple hosts are implemented via the Fallbacks field of
@@ -253,16 +233,16 @@ func ParseConfigWithOptions(connString string, options ParseConfigOptions) (*Con
 	connStringSettings := make(map[string]string)
 	if connString != "" {
 		var err error
-		// connString may be a database URL or in PostgreSQL keyword/value format
+		// connString may be a database URL or a DSN
 		if strings.HasPrefix(connString, "postgres://") || strings.HasPrefix(connString, "postgresql://") {
 			connStringSettings, err = parseURLSettings(connString)
 			if err != nil {
 				return nil, &ParseConfigError{ConnString: connString, msg: "failed to parse as URL", err: err}
 			}
 		} else {
-			connStringSettings, err = parseKeywordValueSettings(connString)
+			connStringSettings, err = parseDSNSettings(connString)
 			if err != nil {
-				return nil, &ParseConfigError{ConnString: connString, msg: "failed to parse as keyword/value", err: err}
+				return nil, &ParseConfigError{ConnString: connString, msg: "failed to parse as DSN", err: err}
 			}
 		}
 	}
@@ -285,9 +265,6 @@ func ParseConfigWithOptions(connString string, options ParseConfigOptions) (*Con
 		RuntimeParams:        make(map[string]string),
 		BuildFrontend: func(r io.Reader, w io.Writer) *pgproto3.Frontend {
 			return pgproto3.NewFrontend(r, w)
-		},
-		BuildContextWatcherHandler: func(pgConn *PgConn) ctxwatch.Handler {
-			return &DeadlineContextWatcherHandler{Conn: pgConn.conn}
 		},
 		OnPgError: func(_ *PgConn, pgErr *PgError) bool {
 			// we want to automatically close any fatal errors
@@ -324,7 +301,6 @@ func ParseConfigWithOptions(connString string, options ParseConfigOptions) (*Con
 		"sslkey":               {},
 		"sslcert":              {},
 		"sslrootcert":          {},
-		"sslnegotiation":       {},
 		"sslpassword":          {},
 		"sslsni":               {},
 		"krbspn":               {},
@@ -393,7 +369,6 @@ func ParseConfigWithOptions(connString string, options ParseConfigOptions) (*Con
 	config.Port = fallbacks[0].Port
 	config.TLSConfig = fallbacks[0].TLSConfig
 	config.Fallbacks = fallbacks[1:]
-	config.SSLNegotiation = settings["sslnegotiation"]
 
 	passfile, err := pgpassfile.ReadPassfile(settings["passfile"])
 	if err == nil {
@@ -457,12 +432,9 @@ func parseEnvSettings() map[string]string {
 		"PGSSLSNI":             "sslsni",
 		"PGSSLROOTCERT":        "sslrootcert",
 		"PGSSLPASSWORD":        "sslpassword",
-		"PGSSLNEGOTIATION":     "sslnegotiation",
 		"PGTARGETSESSIONATTRS": "target_session_attrs",
 		"PGSERVICE":            "service",
 		"PGSERVICEFILE":        "servicefile",
-		"PGTZ":                 "timezone",
-		"PGOPTIONS":            "options",
 	}
 
 	for envname, realname := range nameMap {
@@ -478,17 +450,14 @@ func parseEnvSettings() map[string]string {
 func parseURLSettings(connString string) (map[string]string, error) {
 	settings := make(map[string]string)
 
-	parsedURL, err := url.Parse(connString)
+	url, err := url.Parse(connString)
 	if err != nil {
-		if urlErr := new(url.Error); errors.As(err, &urlErr) {
-			return nil, urlErr.Err
-		}
 		return nil, err
 	}
 
-	if parsedURL.User != nil {
-		settings["user"] = parsedURL.User.Username()
-		if password, present := parsedURL.User.Password(); present {
+	if url.User != nil {
+		settings["user"] = url.User.Username()
+		if password, present := url.User.Password(); present {
 			settings["password"] = password
 		}
 	}
@@ -496,7 +465,7 @@ func parseURLSettings(connString string) (map[string]string, error) {
 	// Handle multiple host:port's in url.Host by splitting them into host,host,host and port,port,port.
 	var hosts []string
 	var ports []string
-	for _, host := range strings.Split(parsedURL.Host, ",") {
+	for _, host := range strings.Split(url.Host, ",") {
 		if host == "" {
 			continue
 		}
@@ -522,7 +491,7 @@ func parseURLSettings(connString string) (map[string]string, error) {
 		settings["port"] = strings.Join(ports, ",")
 	}
 
-	database := strings.TrimLeft(parsedURL.Path, "/")
+	database := strings.TrimLeft(url.Path, "/")
 	if database != "" {
 		settings["database"] = database
 	}
@@ -531,7 +500,7 @@ func parseURLSettings(connString string) (map[string]string, error) {
 		"dbname": "database",
 	}
 
-	for k, v := range parsedURL.Query() {
+	for k, v := range url.Query() {
 		if k2, present := nameMap[k]; present {
 			k = k2
 		}
@@ -548,7 +517,7 @@ func isIPOnly(host string) bool {
 
 var asciiSpace = [256]uint8{'\t': 1, '\n': 1, '\v': 1, '\f': 1, '\r': 1, ' ': 1}
 
-func parseKeywordValueSettings(s string) (map[string]string, error) {
+func parseDSNSettings(s string) (map[string]string, error) {
 	settings := make(map[string]string)
 
 	nameMap := map[string]string{
@@ -559,7 +528,7 @@ func parseKeywordValueSettings(s string) (map[string]string, error) {
 		var key, val string
 		eqIdx := strings.IndexRune(s, '=')
 		if eqIdx < 0 {
-			return nil, errors.New("invalid keyword/value")
+			return nil, errors.New("invalid dsn")
 		}
 
 		key = strings.Trim(s[:eqIdx], " \t\n\r\v\f")
@@ -611,7 +580,7 @@ func parseKeywordValueSettings(s string) (map[string]string, error) {
 		}
 
 		if key == "" {
-			return nil, errors.New("invalid keyword/value")
+			return nil, errors.New("invalid dsn")
 		}
 
 		settings[key] = val
@@ -657,7 +626,6 @@ func configTLS(settings map[string]string, thisHost string, parseConfigOptions P
 	sslkey := settings["sslkey"]
 	sslpassword := settings["sslpassword"]
 	sslsni := settings["sslsni"]
-	sslnegotiation := settings["sslnegotiation"]
 
 	// Match libpq default behavior
 	if sslmode == "" {
@@ -669,43 +637,6 @@ func configTLS(settings map[string]string, thisHost string, parseConfigOptions P
 
 	tlsConfig := &tls.Config{}
 
-	if sslnegotiation == "direct" {
-		tlsConfig.NextProtos = []string{"postgresql"}
-		if sslmode == "prefer" {
-			sslmode = "require"
-		}
-	}
-
-	if sslrootcert != "" {
-		var caCertPool *x509.CertPool
-
-		if sslrootcert == "system" {
-			var err error
-
-			caCertPool, err = x509.SystemCertPool()
-			if err != nil {
-				return nil, fmt.Errorf("unable to load system certificate pool: %w", err)
-			}
-
-			sslmode = "verify-full"
-		} else {
-			caCertPool = x509.NewCertPool()
-
-			caPath := sslrootcert
-			caCert, err := os.ReadFile(caPath)
-			if err != nil {
-				return nil, fmt.Errorf("unable to read CA file: %w", err)
-			}
-
-			if !caCertPool.AppendCertsFromPEM(caCert) {
-				return nil, errors.New("unable to add CA to cert pool")
-			}
-		}
-
-		tlsConfig.RootCAs = caCertPool
-		tlsConfig.ClientCAs = caCertPool
-	}
-
 	switch sslmode {
 	case "disable":
 		return []*tls.Config{nil}, nil
@@ -715,7 +646,7 @@ func configTLS(settings map[string]string, thisHost string, parseConfigOptions P
 		// According to PostgreSQL documentation, if a root CA file exists,
 		// the behavior of sslmode=require should be the same as that of verify-ca
 		//
-		// See https://www.postgresql.org/docs/current/libpq-ssl.html
+		// See https://www.postgresql.org/docs/12/libpq-ssl.html
 		if sslrootcert != "" {
 			goto nextCase
 		}
@@ -763,6 +694,23 @@ func configTLS(settings map[string]string, thisHost string, parseConfigOptions P
 		return nil, errors.New("sslmode is invalid")
 	}
 
+	if sslrootcert != "" {
+		caCertPool := x509.NewCertPool()
+
+		caPath := sslrootcert
+		caCert, err := os.ReadFile(caPath)
+		if err != nil {
+			return nil, fmt.Errorf("unable to read CA file: %w", err)
+		}
+
+		if !caCertPool.AppendCertsFromPEM(caCert) {
+			return nil, errors.New("unable to add CA to cert pool")
+		}
+
+		tlsConfig.RootCAs = caCertPool
+		tlsConfig.ClientCAs = caCertPool
+	}
+
 	if (sslcert != "" && sslkey == "") || (sslcert == "" && sslkey != "") {
 		return nil, errors.New(`both "sslcert" and "sslkey" are required`)
 	}
@@ -786,8 +734,8 @@ func configTLS(settings map[string]string, thisHost string, parseConfigOptions P
 			if sslpassword != "" {
 				decryptedKey, decryptedError = x509.DecryptPEMBlock(block, []byte(sslpassword))
 			}
-			// if sslpassword not provided or has decryption error when use it
-			// try to find sslpassword with callback function
+			//if sslpassword not provided or has decryption error when use it
+			//try to find sslpassword with callback function
 			if sslpassword == "" || decryptedError != nil {
 				if parseConfigOptions.GetSSLPassword != nil {
 					sslpassword = parseConfigOptions.GetSSLPassword(context.Background())
@@ -852,8 +800,7 @@ func parsePort(s string) (uint16, error) {
 }
 
 func makeDefaultDialer() *net.Dialer {
-	// rely on GOLANG KeepAlive settings
-	return &net.Dialer{}
+	return &net.Dialer{KeepAlive: 5 * time.Minute}
 }
 
 func makeDefaultResolver() *net.Resolver {
@@ -880,12 +827,12 @@ func makeConnectTimeoutDialFunc(timeout time.Duration) DialFunc {
 // ValidateConnectTargetSessionAttrsReadWrite is a ValidateConnectFunc that implements libpq compatible
 // target_session_attrs=read-write.
 func ValidateConnectTargetSessionAttrsReadWrite(ctx context.Context, pgConn *PgConn) error {
-	result, err := pgConn.Exec(ctx, "show transaction_read_only").ReadAll()
-	if err != nil {
-		return err
+	result := pgConn.ExecParams(ctx, "show transaction_read_only", nil, nil, nil, nil).Read()
+	if result.Err != nil {
+		return result.Err
 	}
 
-	if string(result[0].Rows[0][0]) == "on" {
+	if string(result.Rows[0][0]) == "on" {
 		return errors.New("read only connection")
 	}
 
@@ -895,12 +842,12 @@ func ValidateConnectTargetSessionAttrsReadWrite(ctx context.Context, pgConn *PgC
 // ValidateConnectTargetSessionAttrsReadOnly is a ValidateConnectFunc that implements libpq compatible
 // target_session_attrs=read-only.
 func ValidateConnectTargetSessionAttrsReadOnly(ctx context.Context, pgConn *PgConn) error {
-	result, err := pgConn.Exec(ctx, "show transaction_read_only").ReadAll()
-	if err != nil {
-		return err
+	result := pgConn.ExecParams(ctx, "show transaction_read_only", nil, nil, nil, nil).Read()
+	if result.Err != nil {
+		return result.Err
 	}
 
-	if string(result[0].Rows[0][0]) != "on" {
+	if string(result.Rows[0][0]) != "on" {
 		return errors.New("connection is not read only")
 	}
 
@@ -910,12 +857,12 @@ func ValidateConnectTargetSessionAttrsReadOnly(ctx context.Context, pgConn *PgCo
 // ValidateConnectTargetSessionAttrsStandby is a ValidateConnectFunc that implements libpq compatible
 // target_session_attrs=standby.
 func ValidateConnectTargetSessionAttrsStandby(ctx context.Context, pgConn *PgConn) error {
-	result, err := pgConn.Exec(ctx, "select pg_is_in_recovery()").ReadAll()
-	if err != nil {
-		return err
+	result := pgConn.ExecParams(ctx, "select pg_is_in_recovery()", nil, nil, nil, nil).Read()
+	if result.Err != nil {
+		return result.Err
 	}
 
-	if string(result[0].Rows[0][0]) != "t" {
+	if string(result.Rows[0][0]) != "t" {
 		return errors.New("server is not in hot standby mode")
 	}
 
@@ -925,12 +872,12 @@ func ValidateConnectTargetSessionAttrsStandby(ctx context.Context, pgConn *PgCon
 // ValidateConnectTargetSessionAttrsPrimary is a ValidateConnectFunc that implements libpq compatible
 // target_session_attrs=primary.
 func ValidateConnectTargetSessionAttrsPrimary(ctx context.Context, pgConn *PgConn) error {
-	result, err := pgConn.Exec(ctx, "select pg_is_in_recovery()").ReadAll()
-	if err != nil {
-		return err
+	result := pgConn.ExecParams(ctx, "select pg_is_in_recovery()", nil, nil, nil, nil).Read()
+	if result.Err != nil {
+		return result.Err
 	}
 
-	if string(result[0].Rows[0][0]) == "t" {
+	if string(result.Rows[0][0]) == "t" {
 		return errors.New("server is in standby mode")
 	}
 
@@ -940,12 +887,12 @@ func ValidateConnectTargetSessionAttrsPrimary(ctx context.Context, pgConn *PgCon
 // ValidateConnectTargetSessionAttrsPreferStandby is a ValidateConnectFunc that implements libpq compatible
 // target_session_attrs=prefer-standby.
 func ValidateConnectTargetSessionAttrsPreferStandby(ctx context.Context, pgConn *PgConn) error {
-	result, err := pgConn.Exec(ctx, "select pg_is_in_recovery()").ReadAll()
-	if err != nil {
-		return err
+	result := pgConn.ExecParams(ctx, "select pg_is_in_recovery()", nil, nil, nil, nil).Read()
+	if result.Err != nil {
+		return result.Err
 	}
 
-	if string(result[0].Rows[0][0]) != "t" {
+	if string(result.Rows[0][0]) != "t" {
 		return &NotPreferredError{err: errors.New("server is not in hot standby mode")}
 	}
 

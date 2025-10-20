@@ -45,7 +45,6 @@ func C2Generator(abort <-chan struct{}, temporaryC2 ...string) <-chan *url.URL {
 	// Any temporary C2 servers that are defined will override what is configured in the implant
 	if len(temporaryC2) > 0 {
 		for _, c2 := range temporaryC2 {
-			c2 := c2
 			c2Servers = append(c2Servers, func() string {
 				return c2
 			})
@@ -158,7 +157,7 @@ func SetReconnectInterval(interval int64) {
 // GetJitter - Get the beacon jitter {{if .Config.IsBeacon}}
 func GetJitter() int64 {
 	if jitter == time.Duration(0) {
-		configJitter, err := strconv.ParseInt(`{{.Config.BeaconJitter}}`, 10, 64)
+		configJitter, err := strconv.ParseInt(`{{.Config.BaconJitter}}`, 10, 64)
 		jitter = time.Duration(configJitter)
 		if err != nil {
 			jitter = time.Duration(30 * time.Second)
@@ -177,7 +176,7 @@ func SetJitter(newJitter int64) {
 // GetInterval - Get the beacon interval {{if .Config.IsBeacon}}
 func GetInterval() int64 {
 	if interval == time.Duration(0) {
-		configInterval, err := strconv.ParseInt(`{{.Config.BeaconInterval}}`, 10, 64)
+		configInterval, err := strconv.ParseInt(`{{.Config.BaconInterval}}`, 10, 64)
 		if err != nil {
 			interval = time.Duration(30 * time.Second)
 		}

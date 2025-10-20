@@ -25,7 +25,7 @@ import (
 	"log"
 	"net"
 
-	"github.com/bishopfox/sliver/implant/sliver/netstack"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/netstack"
 	"github.com/things-go/go-socks5"
 )
 

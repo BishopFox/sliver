@@ -6,7 +6,7 @@ import (
 	"net"
 	"syscall"
 
-	"github.com/tailscale/netlink/nl"
+	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/sys/unix"
 )
 

@@ -6,11 +6,12 @@ import (
 	"io"
 	"net"
 
-	"github.com/chromedp/cdproto"
-	jsonv2 "github.com/go-json-experiment/json"
-	"github.com/go-json-experiment/json/jsontext"
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
+	"github.com/mailru/easyjson/jlexer"
+	"github.com/mailru/easyjson/jwriter"
+
+	"github.com/chromedp/cdproto"
 )
 
 // Transport is the common interface to send/receive messages to a target.
@@ -33,10 +34,10 @@ type Conn struct {
 	writer wsutil.Writer
 
 	// reuse the easyjson structs to avoid allocs per Read/Write.
-	decoder jsontext.Decoder
-	encoder jsontext.Encoder
+	decoder jlexer.Lexer
+	encoder jwriter.Writer
 
-	debugf func(string, ...any)
+	dbgf func(string, ...interface{})
 }
 
 // DialContext dials the specified websocket URL using gobwas/ws.
@@ -77,21 +78,7 @@ func (c *Conn) Read(_ context.Context, msg *cdproto.Message) error {
 	if err != nil {
 		return err
 	}
-
-	if h.OpCode == ws.OpPing { // ping
-		if c.debugf != nil {
-			c.debugf("received ping frame, ignoring...")
-		}
-		return nil
-	} else if h.OpCode == ws.OpClose { // close
-		if c.debugf != nil {
-			c.debugf("received close frame")
-		}
-		return io.EOF
-	} else if h.OpCode != ws.OpText {
-		if c.debugf != nil {
-			c.debugf("unknown OpCode: %s", h.OpCode)
-		}
+	if h.OpCode != ws.OpText {
 		return ErrInvalidWebsocketMessage
 	}
 
@@ -99,14 +86,15 @@ func (c *Conn) Read(_ context.Context, msg *cdproto.Message) error {
 	if _, err := b.ReadFrom(&c.reader); err != nil {
 		return err
 	}
-
-	if c.debugf != nil {
-		c.debugf("<- %s", b.Bytes())
+	buf := b.Bytes()
+	if c.dbgf != nil {
+		c.dbgf("<- %s", buf)
 	}
 
-	// unmarshal, reusing decoder
-	c.decoder.Reset(&b, DefaultUnmarshalOptions)
-	return jsonv2.UnmarshalDecode(&c.decoder, msg, DefaultUnmarshalOptions)
+	// unmarshal, reusing lexer
+	c.decoder = jlexer.Lexer{Data: buf}
+	msg.UnmarshalEasyJSON(&c.decoder)
+	return c.decoder.Error()
 }
 
 // Write writes a message.
@@ -124,19 +112,27 @@ func (c *Conn) Write(_ context.Context, msg *cdproto.Message) error {
 	// but it do make it grow the buffer if needed.
 	c.writer.DisableFlush()
 
-	// Perform marshal, reusing encoder
-	var b bytes.Buffer
-	c.encoder.Reset(&b, DefaultMarshalOptions)
-	if err := jsonv2.MarshalEncode(&c.encoder, msg, DefaultMarshalOptions); err != nil {
+	// Reuse the easyjson writer.
+	c.encoder = jwriter.Writer{}
+
+	// Perform the marshal.
+	msg.MarshalEasyJSON(&c.encoder)
+	if err := c.encoder.Error; err != nil {
 		return err
 	}
 
 	// Write the bytes to the websocket.
-	if c.debugf != nil {
-		c.debugf("-> %s", b.Bytes())
-	}
-	if _, err := b.WriteTo(&c.writer); err != nil {
-		return err
+	// BuildBytes consumes the buffer, so we can't use it as well as DumpTo.
+	if c.dbgf != nil {
+		buf, _ := c.encoder.BuildBytes()
+		c.dbgf("-> %s", buf)
+		if _, err := c.writer.Write(buf); err != nil {
+			return err
+		}
+	} else {
+		if _, err := c.encoder.DumpTo(&c.writer); err != nil {
+			return err
+		}
 	}
 	return c.writer.Flush()
 }
@@ -145,8 +141,8 @@ func (c *Conn) Write(_ context.Context, msg *cdproto.Message) error {
 type DialOption = func(*Conn)
 
 // WithConnDebugf is a dial option to set a protocol logger.
-func WithConnDebugf(f func(string, ...any)) DialOption {
+func WithConnDebugf(f func(string, ...interface{})) DialOption {
 	return func(c *Conn) {
-		c.debugf = f
+		c.dbgf = f
 	}
 }

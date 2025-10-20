@@ -98,7 +98,7 @@ var vicmdKeys = map[string]inputrc.Bind{
 	unescape("@"):       {Action: "macro-run"},
 }
 
-// vioppKeys are the default keymaps in Vim Operating Pending mode.
+// viinsKeymaps are the default keymaps in Vim Operating Pending mode.
 var vioppKeys = map[string]inputrc.Bind{
 	unescape(`\M-`): {Action: "vi-movement-mode"},
 	unescape("a"):   {Action: "vi-select-inside"},
@@ -114,7 +114,7 @@ var vioppKeys = map[string]inputrc.Bind{
 	unescape("k"):   {Action: "up-line"},
 }
 
-// visualKeys are the default keymaps in Vim Visual mode.
+// viinsKeymaps are the default keymaps in Vim Visual mode.
 var visualKeys = map[string]inputrc.Bind{
 	unescape(`\M-`): {Action: "vi-movement-mode"},
 	unescape("aW"):  {Action: "select-a-blank-word"},

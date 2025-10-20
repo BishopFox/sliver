@@ -6,15 +6,15 @@ import (
 	"os"
 	"runtime/debug"
 
-	"github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/server/assets"
-	"github.com/bishopfox/sliver/server/c2"
-	"github.com/bishopfox/sliver/server/certs"
-	"github.com/bishopfox/sliver/server/console"
-	"github.com/bishopfox/sliver/server/cryptography"
-	"github.com/bishopfox/sliver/server/daemon"
-	"github.com/bishopfox/sliver/server/db"
+	"github.com/gsmith257-cyber/better-sliver-package/client/constants"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/server/assets"
+	"github.com/gsmith257-cyber/better-sliver-package/server/c2"
+	"github.com/gsmith257-cyber/better-sliver-package/server/certs"
+	"github.com/gsmith257-cyber/better-sliver-package/server/console"
+	"github.com/gsmith257-cyber/better-sliver-package/server/cryptography"
+	"github.com/gsmith257-cyber/better-sliver-package/server/daemon"
+	"github.com/gsmith257-cyber/better-sliver-package/server/db"
 	"github.com/spf13/cobra"
 )
 
@@ -123,12 +123,6 @@ func StartPersistentJobs(listenerJobs []*clientpb.ListenerJob) error {
 					return err
 				}
 				j.JobID = uint32(id)
-			case constants.TCPListenerStr:
-				job, err := c2.StartTCPStagerListenerJob(listenerJob.TCPConf.Host, uint16(listenerJob.TCPConf.Port), listenerJob.TCPConf.ProfileName, listenerJob.TCPConf.Data)
-				if err != nil {
-					return err
-				}
-				j.JobID = uint32(job.ID)
 			}
 			db.UpdateHTTPC2Listener(j)
 		}

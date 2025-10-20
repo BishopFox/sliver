@@ -32,9 +32,7 @@ func ParseFile(name string, h Handler, opts ...Option) error {
 	if err != nil {
 		return err
 	}
-
 	defer f.Close()
-
 	return New(append(opts, WithName(name))...).Parse(f, h)
 }
 
@@ -45,33 +43,27 @@ func UserDefault(u *user.User, cfg *Config, opts ...Option) error {
 	if name := os.Getenv("INPUTRC"); name != "" {
 		files = append(files, name)
 	}
-
 	if u != nil {
 		name := ".inputrc"
 		if runtime.GOOS == "windows" {
 			name = "_inputrc"
 		}
-
 		files = append(files, filepath.Join(u.HomeDir, name))
 	}
-
 	if runtime.GOOS != "windows" {
 		files = append(files, "/etc/inputrc")
 	}
 	// load first available file
 	for _, name := range files {
 		buf, err := cfg.ReadFile(name)
-
 		switch {
 		case err != nil && errors.Is(err, os.ErrNotExist):
 			continue
 		case err != nil:
 			return err
 		}
-
 		return ParseBytes(buf, cfg, append(opts, WithName(name))...)
 	}
-
 	return nil
 }
 
@@ -100,7 +92,6 @@ func EscapeMacro(s string) string {
 // escape escapes s using m.
 func escape(s string, m map[rune]string) string {
 	var v []string
-
 	for _, c := range s {
 		switch c {
 		case Alert:
@@ -129,22 +120,18 @@ func escape(s string, m map[rune]string) string {
 				s += `\C-`
 				c = Decontrol(c)
 			}
-
 			if IsMeta(c) {
 				s += `\M-`
 				c = Demeta(c)
 			}
-
 			if unicode.IsPrint(c) {
 				s += string(c)
 			} else {
 				s += fmt.Sprintf(`\x%2x`, c)
 			}
-
 			v = append(v, s)
 		}
 	}
-
 	return strings.Join(v, "")
 }
 

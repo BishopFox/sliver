@@ -25,13 +25,11 @@ type Instruction struct {
 	v3         Value
 	vs         Values
 	typ        Type
+	blk        BasicBlock
+	targets    []BasicBlock
 	prev, next *Instruction
 
-	// rValue is the (first) return value of this instruction.
-	// For branching instructions except for OpcodeBrTable, they hold BlockID to jump cast to Value.
-	rValue Value
-	// rValues are the rest of the return values of this instruction.
-	// For OpcodeBrTable, it holds the list of BlockID to jump cast to Value.
+	rValue         Value
 	rValues        Values
 	gid            InstructionGroupID
 	sourceOffset   SourceOffset
@@ -107,9 +105,6 @@ type InstructionGroupID uint32
 // Returns Value(s) produced by this instruction if any.
 // The `first` is the first return value, and `rest` is the rest of the values.
 func (i *Instruction) Returns() (first Value, rest []Value) {
-	if i.IsBranching() {
-		return ValueInvalid, nil
-	}
 	return i.rValue, i.rValues.View()
 }
 
@@ -2082,7 +2077,7 @@ func (i *Instruction) InvertBrx() {
 }
 
 // BranchData returns the branch data for this instruction necessary for backends.
-func (i *Instruction) BranchData() (condVal Value, blockArgs []Value, target BasicBlockID) {
+func (i *Instruction) BranchData() (condVal Value, blockArgs []Value, target BasicBlock) {
 	switch i.opcode {
 	case OpcodeJump:
 		condVal = ValueInvalid
@@ -2092,17 +2087,17 @@ func (i *Instruction) BranchData() (condVal Value, blockArgs []Value, target Bas
 		panic("BUG")
 	}
 	blockArgs = i.vs.View()
-	target = BasicBlockID(i.rValue)
+	target = i.blk
 	return
 }
 
 // BrTableData returns the branch table data for this instruction necessary for backends.
-func (i *Instruction) BrTableData() (index Value, targets Values) {
+func (i *Instruction) BrTableData() (index Value, targets []BasicBlock) {
 	if i.opcode != OpcodeBrTable {
 		panic("BUG: BrTableData only available for OpcodeBrTable")
 	}
 	index = i.v
-	targets = i.rValues
+	targets = i.targets
 	return
 }
 
@@ -2110,7 +2105,7 @@ func (i *Instruction) BrTableData() (index Value, targets Values) {
 func (i *Instruction) AsJump(vs Values, target BasicBlock) *Instruction {
 	i.opcode = OpcodeJump
 	i.vs = vs
-	i.rValue = Value(target.ID())
+	i.blk = target
 	return i
 }
 
@@ -2135,7 +2130,7 @@ func (i *Instruction) AsBrz(v Value, args Values, target BasicBlock) {
 	i.opcode = OpcodeBrz
 	i.v = v
 	i.vs = args
-	i.rValue = Value(target.ID())
+	i.blk = target
 }
 
 // AsBrnz initializes this instruction as a branch-if-not-zero instruction with OpcodeBrnz.
@@ -2143,16 +2138,15 @@ func (i *Instruction) AsBrnz(v Value, args Values, target BasicBlock) *Instructi
 	i.opcode = OpcodeBrnz
 	i.v = v
 	i.vs = args
-	i.rValue = Value(target.ID())
+	i.blk = target
 	return i
 }
 
 // AsBrTable initializes this instruction as a branch-table instruction with OpcodeBrTable.
-// targets is a list of basic block IDs cast to Values.
-func (i *Instruction) AsBrTable(index Value, targets Values) {
+func (i *Instruction) AsBrTable(index Value, targets []BasicBlock) {
 	i.opcode = OpcodeBrTable
 	i.v = index
-	i.rValues = targets
+	i.targets = targets
 }
 
 // AsCall initializes this instruction as a call instruction with OpcodeCall.
@@ -2537,8 +2531,7 @@ func (i *Instruction) Format(b Builder) string {
 		if i.IsFallthroughJump() {
 			vs[0] = " fallthrough"
 		} else {
-			blockId := BasicBlockID(i.rValue)
-			vs[0] = " " + b.BasicBlock(blockId).Name()
+			vs[0] = " " + i.blk.(*basicBlock).Name()
 		}
 		for idx := range view {
 			vs[idx+1] = view[idx].Format(b)
@@ -2549,8 +2542,7 @@ func (i *Instruction) Format(b Builder) string {
 		view := i.vs.View()
 		vs := make([]string, len(view)+2)
 		vs[0] = " " + i.v.Format(b)
-		blockId := BasicBlockID(i.rValue)
-		vs[1] = b.BasicBlock(blockId).Name()
+		vs[1] = i.blk.(*basicBlock).Name()
 		for idx := range view {
 			vs[idx+2] = view[idx].Format(b)
 		}
@@ -2559,8 +2551,8 @@ func (i *Instruction) Format(b Builder) string {
 		// `BrTable index, [label1, label2, ... labelN]`
 		instSuffix = fmt.Sprintf(" %s", i.v.Format(b))
 		instSuffix += ", ["
-		for i, target := range i.rValues.View() {
-			blk := b.BasicBlock(BasicBlockID(target))
+		for i, target := range i.targets {
+			blk := target.(*basicBlock)
 			if i == 0 {
 				instSuffix += blk.Name()
 			} else {
@@ -2629,12 +2621,11 @@ func (i *Instruction) Format(b Builder) string {
 	instr := i.opcode.String() + instSuffix
 
 	var rvs []string
-	r1, rs := i.Returns()
-	if r1.Valid() {
-		rvs = append(rvs, r1.formatWithType(b))
+	if rv := i.rValue; rv.Valid() {
+		rvs = append(rvs, rv.formatWithType(b))
 	}
 
-	for _, v := range rs {
+	for _, v := range i.rValues.View() {
 		rvs = append(rvs, v.formatWithType(b))
 	}
 

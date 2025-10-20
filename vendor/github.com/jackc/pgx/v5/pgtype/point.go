@@ -30,13 +30,11 @@ type Point struct {
 	Valid bool
 }
 
-// ScanPoint implements the [PointScanner] interface.
 func (p *Point) ScanPoint(v Point) error {
 	*p = v
 	return nil
 }
 
-// PointValue implements the [PointValuer] interface.
 func (p Point) PointValue() (Point, error) {
 	return p, nil
 }
@@ -70,7 +68,7 @@ func parsePoint(src []byte) (*Point, error) {
 	return &Point{P: Vec2{x, y}, Valid: true}, nil
 }
 
-// Scan implements the [database/sql.Scanner] interface.
+// Scan implements the database/sql Scanner interface.
 func (dst *Point) Scan(src any) error {
 	if src == nil {
 		*dst = Point{}
@@ -85,7 +83,7 @@ func (dst *Point) Scan(src any) error {
 	return fmt.Errorf("cannot scan %T", src)
 }
 
-// Value implements the [database/sql/driver.Valuer] interface.
+// Value implements the database/sql/driver Valuer interface.
 func (src Point) Value() (driver.Value, error) {
 	if !src.Valid {
 		return nil, nil
@@ -98,7 +96,6 @@ func (src Point) Value() (driver.Value, error) {
 	return string(buf), err
 }
 
-// MarshalJSON implements the [encoding/json.Marshaler] interface.
 func (src Point) MarshalJSON() ([]byte, error) {
 	if !src.Valid {
 		return []byte("null"), nil
@@ -111,7 +108,6 @@ func (src Point) MarshalJSON() ([]byte, error) {
 	return buff.Bytes(), nil
 }
 
-// UnmarshalJSON implements the [encoding/json.Unmarshaler] interface.
 func (dst *Point) UnmarshalJSON(point []byte) error {
 	p, err := parsePoint(point)
 	if err != nil {
@@ -182,6 +178,7 @@ func (encodePlanPointCodecText) Encode(value any, buf []byte) (newBuf []byte, er
 }
 
 func (PointCodec) PlanScan(m *Map, oid uint32, format int16, target any) ScanPlan {
+
 	switch format {
 	case BinaryFormatCode:
 		switch target.(type) {

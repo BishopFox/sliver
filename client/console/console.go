@@ -32,14 +32,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bishopfox/sliver/client/assets"
-	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/client/core"
-	"github.com/bishopfox/sliver/client/spin"
-	"github.com/bishopfox/sliver/client/version"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/gsmith257-cyber/better-sliver-package/client/assets"
+	consts "github.com/gsmith257-cyber/better-sliver-package/client/constants"
+	"github.com/gsmith257-cyber/better-sliver-package/client/core"
+	"github.com/gsmith257-cyber/better-sliver-package/client/spin"
+	"github.com/gsmith257-cyber/better-sliver-package/client/version"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/commonpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/rpcpb"
 	"github.com/gofrs/uuid"
 	"github.com/reeflective/console"
 	"github.com/reeflective/readline"
@@ -356,7 +356,7 @@ func (con *SliverClient) triggerReactions(event *clientpb.Event) {
 	for _, reaction := range reactions {
 		for _, line := range reaction.Commands {
 			con.PrintInfof(Bold+"Execute reaction: '%s'"+Normal, line)
-			err := con.App.ActiveMenu().RunCommandLine(context.Background(), line)
+			err := con.App.ActiveMenu().RunCommandLine(line)
 			if err != nil {
 				con.PrintErrorf("Reaction command error: %s\n", err)
 			}
@@ -434,14 +434,16 @@ func (con *SliverClient) PrintLogo() {
 	logo := asciiLogos[insecureRand.Intn(len(asciiLogos))]
 	fmt.Println(strings.ReplaceAll(logo, "\n", "\r\n"))
 	fmt.Println("All hackers gain " + abilities[insecureRand.Intn(len(abilities))] + "\r")
-	fmt.Printf(Info+"Server v%s - %s%s\r\n", serverSemVer, serverVer.Commit, dirty)
+	fmt.Printf(Info+"Better Sliver Server v%s - %s%s\r\n", serverSemVer, serverVer.Commit, dirty)
 	if version.GitCommit != serverVer.Commit {
 		fmt.Printf(Info+"Client %s\r\n", version.FullVersion())
 	}
-	fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options\r")
-	if serverVer.Major != int32(version.SemanticVersion()[0]) {
-		fmt.Printf(Warn + "Warning: Client and server may be running incompatible versions.\r\n")
-	}
+	fmt.Println(Info + "Welcome to the *Better* sliver shell, please type 'help' for options\r")
+	/*
+		if serverVer.Major != int32(version.SemanticVersion()[0]) {
+			fmt.Printf(Warn + "Warning: Client and server may be running incompatible versions.\r\n")
+		}
+	*/
 	con.CheckLastUpdate()
 }
 
@@ -572,8 +574,8 @@ func (con *SliverClient) GetActiveBeaconConfig() *clientpb.ImplantConfig {
 		GOARCH:              beacon.Arch,
 		Debug:               false,
 		IsBeacon:            true,
-		BeaconInterval:      beacon.Interval,
-		BeaconJitter:        beacon.Jitter,
+		BaconInterval:      beacon.Interval,
+		BaconJitter:        beacon.Jitter,
 		Evasion:             beacon.Evasion,
 		MaxConnectionErrors: uint32(1000),
 		ReconnectInterval:   int64(60),
@@ -930,7 +932,7 @@ var abilities = []string{
 }
 
 var asciiLogos = []string{
-	Red + `
+	Red + `Better
  	  ██████  ██▓     ██▓ ██▒   █▓▓█████  ██▀███
 	▒██    ▒ ▓██▒    ▓██▒▓██░   █▒▓█   ▀ ▓██ ▒ ██▒
 	░ ▓██▄   ▒██░    ▒██▒ ▓██  █▒░▒███   ▓██ ░▄█ ▒
@@ -942,7 +944,7 @@ var asciiLogos = []string{
 		  ░      ░  ░ ░        ░     ░  ░   ░
 ` + Normal,
 
-	Green + `
+	Green + `Better
     ███████╗██╗     ██╗██╗   ██╗███████╗██████╗
     ██╔════╝██║     ██║██║   ██║██╔════╝██╔══██╗
     ███████╗██║     ██║██║   ██║█████╗  ██████╔╝
@@ -951,7 +953,7 @@ var asciiLogos = []string{
     ╚══════╝╚══════╝╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 ` + Normal,
 
-	Bold + Gray + `
+	Bold + Gray + `Better
 .------..------..------..------..------..------.
 |S.--. ||L.--. ||I.--. ||V.--. ||E.--. ||R.--. |
 | :/\: || :/\: || (\/) || :(): || (\/) || :(): |

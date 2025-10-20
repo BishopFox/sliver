@@ -21,9 +21,6 @@ const (
 
 	// TypeV128 represents 128-bit SIMD vectors.
 	TypeV128
-
-	// -- Do not add new types after this line. ----
-	typeEnd
 )
 
 // String implements fmt.Stringer.

@@ -6,10 +6,8 @@
 package flate
 
 import (
+	"encoding/binary"
 	"fmt"
-	"math/bits"
-
-	"github.com/klauspost/compress/internal/le"
 )
 
 type fastEnc interface {
@@ -60,11 +58,11 @@ const (
 )
 
 func load3232(b []byte, i int32) uint32 {
-	return le.Load32(b, i)
+	return binary.LittleEndian.Uint32(b[i:])
 }
 
 func load6432(b []byte, i int32) uint64 {
-	return le.Load64(b, i)
+	return binary.LittleEndian.Uint64(b[i:])
 }
 
 type tableEntry struct {
@@ -136,8 +134,8 @@ func hashLen(u uint64, length, mls uint8) uint32 {
 // matchlen will return the match length between offsets and t in src.
 // The maximum length returned is maxMatchLength - 4.
 // It is assumed that s > t, that t >=0 and s < len(src).
-func (e *fastGen) matchlen(s, t int, src []byte) int32 {
-	if debugDeflate {
+func (e *fastGen) matchlen(s, t int32, src []byte) int32 {
+	if debugDecode {
 		if t >= s {
 			panic(fmt.Sprint("t >=s:", t, s))
 		}
@@ -151,34 +149,18 @@ func (e *fastGen) matchlen(s, t int, src []byte) int32 {
 			panic(fmt.Sprint(s, "-", t, "(", s-t, ") > maxMatchLength (", maxMatchOffset, ")"))
 		}
 	}
-	s1 := min(s+maxMatchLength-4, len(src))
-	left := s1 - s
-	n := int32(0)
-	for left >= 8 {
-		diff := le.Load64(src, s) ^ le.Load64(src, t)
-		if diff != 0 {
-			return n + int32(bits.TrailingZeros64(diff)>>3)
-		}
-		s += 8
-		t += 8
-		n += 8
-		left -= 8
+	s1 := int(s) + maxMatchLength - 4
+	if s1 > len(src) {
+		s1 = len(src)
 	}
 
-	a := src[s:s1]
-	b := src[t:]
-	for i := range a {
-		if a[i] != b[i] {
-			break
-		}
-		n++
-	}
-	return n
+	// Extend the match to be as long as possible.
+	return int32(matchLen(src[s:s1], src[t:]))
 }
 
 // matchlenLong will return the match length between offsets and t in src.
 // It is assumed that s > t, that t >=0 and s < len(src).
-func (e *fastGen) matchlenLong(s, t int, src []byte) int32 {
+func (e *fastGen) matchlenLong(s, t int32, src []byte) int32 {
 	if debugDeflate {
 		if t >= s {
 			panic(fmt.Sprint("t >=s:", t, s))
@@ -194,28 +176,7 @@ func (e *fastGen) matchlenLong(s, t int, src []byte) int32 {
 		}
 	}
 	// Extend the match to be as long as possible.
-	left := len(src) - s
-	n := int32(0)
-	for left >= 8 {
-		diff := le.Load64(src, s) ^ le.Load64(src, t)
-		if diff != 0 {
-			return n + int32(bits.TrailingZeros64(diff)>>3)
-		}
-		s += 8
-		t += 8
-		n += 8
-		left -= 8
-	}
-
-	a := src[s:]
-	b := src[t:]
-	for i := range a {
-		if a[i] != b[i] {
-			break
-		}
-		n++
-	}
-	return n
+	return int32(matchLen(src[s:], src[t:]))
 }
 
 // Reset the encoding table.

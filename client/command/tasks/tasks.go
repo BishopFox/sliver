@@ -24,9 +24,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bishopfox/sliver/client/command/settings"
-	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/settings"
+	"github.com/gsmith257-cyber/better-sliver-package/client/console"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )
@@ -37,12 +37,12 @@ func TasksCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if beacon == nil {
 		return
 	}
-	beaconTasks, err := con.Rpc.GetBeaconTasks(context.Background(), &clientpb.Beacon{ID: beacon.ID})
+	BaconTasks, err := con.Rpc.GetBeaconTasks(context.Background(), &clientpb.Beacon{ID: beacon.ID})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	PrintBeaconTasks(beaconTasks.Tasks, cmd, con)
+	PrintBeaconTasks(BaconTasks.Tasks, cmd, con)
 }
 
 // PrintBeaconTasks - Print beacon tasks.

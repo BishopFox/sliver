@@ -25,7 +25,7 @@ func (m *RouteMessage) Sys() []Sys {
 	}
 }
 
-// InterfaceMetrics represents route metrics.
+// RouteMetrics represents route metrics.
 type InterfaceMetrics struct {
 	Type int // interface type
 	MTU  int // maximum transmission unit

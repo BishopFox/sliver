@@ -1,4 +1,4 @@
-//go:build darwin || freebsd || openbsd || netbsd
+// +build darwin freebsd openbsd netbsd
 
 package sysutil
 

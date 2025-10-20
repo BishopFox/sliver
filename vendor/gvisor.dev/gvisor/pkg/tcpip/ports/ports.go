@@ -65,14 +65,12 @@ func (rs Reservation) dst() destination {
 	}
 }
 
-// +stateify savable
 type portDescriptor struct {
 	network   tcpip.NetworkProtocolNumber
 	transport tcpip.TransportProtocolNumber
 	port      uint16
 }
 
-// +stateify savable
 type destination struct {
 	addr tcpip.Address
 	port uint16
@@ -216,19 +214,17 @@ func (ad addrToDevice) isAvailable(res Reservation, portSpecified bool) bool {
 }
 
 // PortManager manages allocating, reserving and releasing ports.
-//
-// +stateify savable
 type PortManager struct {
 	// mu protects allocatedPorts.
 	// LOCK ORDERING: mu > ephemeralMu.
-	mu sync.RWMutex `state:"nosave"`
+	mu sync.RWMutex
 	// allocatedPorts is a nesting of maps that ultimately map Reservations
 	// to FlagCounters describing whether the Reservation is valid and can
 	// be reused.
 	allocatedPorts map[portDescriptor]addrToDevice
 
 	// ephemeralMu protects firstEphemeral and numEphemeral.
-	ephemeralMu    sync.RWMutex `state:"nosave"`
+	ephemeralMu    sync.RWMutex
 	firstEphemeral uint16
 	numEphemeral   uint16
 }

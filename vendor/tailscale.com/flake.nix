@@ -32,7 +32,7 @@
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    systems.url = "github:nix-systems/default";
+    flake-utils.url = "github:numtide/flake-utils";
     # Used by shell.nix as a compat shim.
     flake-compat = {
       url = "github:edolstra/flake-compat";
@@ -40,32 +40,11 @@
     };
   };
 
-  outputs = {
-    self,
-    nixpkgs,
-    systems,
-    flake-compat,
-  }: let
-    go125Version = "1.25.0";
-    goHash = "sha256-S9AekSlyB7+kUOpA1NWpOxtTGl5DhHOyoG4Y4HciciU=";
-    eachSystem = f:
-      nixpkgs.lib.genAttrs (import systems) (system:
-        f (import nixpkgs {
-          system = system;
-          overlays = [
-            (final: prev: {
-              go_1_25 = prev.go_1_25.overrideAttrs {
-                version = go125Version;
-                src = prev.fetchurl {
-                  url = "https://go.dev/dl/go${go125Version}.src.tar.gz";
-                  hash = goHash;
-                };
-              };
-            })
-          ];
-        }));
+  outputs = { self, nixpkgs, flake-utils, flake-compat }: let
+    # tailscaleRev is the git commit at which this flake was imported,
+    # or the empty string when building from a local checkout of the
+    # tailscale repo.
     tailscaleRev = self.rev or "";
-  in {
     # tailscale takes a nixpkgs package set, and builds Tailscale from
     # the same commit as this flake. IOW, it provides "tailscale built
     # from HEAD", where HEAD is "whatever commit you imported the
@@ -83,52 +62,48 @@
     # So really, this flake is for tailscale devs to dogfood with, if
     # you're an end user you should be prepared for this flake to not
     # build periodically.
-    packages = eachSystem (pkgs: rec {
-      default = pkgs.buildGo125Module {
-        name = "tailscale";
-        pname = "tailscale";
-        src = ./.;
-        vendorHash = pkgs.lib.fileContents ./go.mod.sri;
-        nativeBuildInputs = [pkgs.makeWrapper pkgs.installShellFiles];
-        ldflags = ["-X tailscale.com/version.gitCommitStamp=${tailscaleRev}"];
-        env.CGO_ENABLED = 0;
-        subPackages = [
-          "cmd/tailscale"
-          "cmd/tailscaled"
-          "cmd/tsidp"
-        ];
-        doCheck = false;
+    tailscale = pkgs: pkgs.buildGo122Module rec {
+      name = "tailscale";
 
-        # NOTE: We strip the ${PORT} and $FLAGS because they are unset in the
-        # environment and cause issues (specifically the unset PORT). At some
-        # point, there should be a NixOS module that allows configuration of these
-        # things, but for now, we hardcode the default of port 41641 (taken from
-        # ./cmd/tailscaled/tailscaled.defaults).
-        postInstall =
-          pkgs.lib.optionalString pkgs.stdenv.isLinux ''
-            wrapProgram $out/bin/tailscaled --prefix PATH : ${pkgs.lib.makeBinPath [pkgs.iproute2 pkgs.iptables pkgs.getent pkgs.shadow]}
-            wrapProgram $out/bin/tailscale --suffix PATH : ${pkgs.lib.makeBinPath [pkgs.procps]}
+      src = ./.;
+      vendorHash = pkgs.lib.fileContents ./go.mod.sri;
+      nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.makeWrapper ];
+      ldflags = ["-X tailscale.com/version.gitCommitStamp=${tailscaleRev}"];
+      CGO_ENABLED = 0;
+      subPackages = [ "cmd/tailscale" "cmd/tailscaled" ];
+      doCheck = false;
 
-            sed -i \
-              -e "s#/usr/sbin#$out/bin#" \
-              -e "/^EnvironmentFile/d" \
-              -e 's/''${PORT}/41641/' \
-              -e 's/$FLAGS//' \
-              ./cmd/tailscaled/tailscaled.service
+      # NOTE: We strip the ${PORT} and $FLAGS because they are unset in the
+      # environment and cause issues (specifically the unset PORT). At some
+      # point, there should be a NixOS module that allows configuration of these
+      # things, but for now, we hardcode the default of port 41641 (taken from
+      # ./cmd/tailscaled/tailscaled.defaults).
+      postInstall = pkgs.lib.optionalString pkgs.stdenv.isLinux ''
+        wrapProgram $out/bin/tailscaled --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.iproute2 pkgs.iptables pkgs.getent pkgs.shadow ]}
+        wrapProgram $out/bin/tailscale --suffix PATH : ${pkgs.lib.makeBinPath [ pkgs.procps ]}
 
-            install -D -m0444 -t $out/lib/systemd/system ./cmd/tailscaled/tailscaled.service
-          ''
-          + pkgs.lib.optionalString (pkgs.stdenv.buildPlatform.canExecute pkgs.stdenv.hostPlatform) ''
-            installShellCompletion --cmd tailscale \
-              --bash <($out/bin/tailscale completion bash) \
-              --fish <($out/bin/tailscale completion fish) \
-              --zsh <($out/bin/tailscale completion zsh)
-          '';
+        sed -i \
+          -e "s#/usr/sbin#$out/bin#" \
+          -e "/^EnvironmentFile/d" \
+          -e 's/''${PORT}/41641/' \
+          -e 's/$FLAGS//' \
+          ./cmd/tailscaled/tailscaled.service
+
+        install -D -m0444 -t $out/lib/systemd/system ./cmd/tailscaled/tailscaled.service
+      '';
+    };
+
+    # This whole blob makes the tailscale package available for all
+    # OS/CPU combos that nix supports, as well as a dev shell so that
+    # "nix develop" and "nix-shell" give you a dev env.
+    flakeForSystem = nixpkgs: system: let
+      pkgs = nixpkgs.legacyPackages.${system};
+      ts = tailscale pkgs;
+    in {
+      packages = {
+        default = ts;
+        tailscale = ts;
       };
-      tailscale = default;
-    });
-
-    devShells = eachSystem (pkgs: {
       devShell = pkgs.mkShell {
         packages = with pkgs; [
           curl
@@ -137,16 +112,12 @@
           gotools
           graphviz
           perl
-          go_1_25
+          go_1_22
           yarn
-
-          # qemu and e2fsprogs are needed for natlab
-          qemu
-          e2fsprogs
         ];
       };
-    });
-  };
+    };
+  in
+    flake-utils.lib.eachDefaultSystem (system: flakeForSystem nixpkgs system);
 }
-# nix-direnv cache busting line: sha256-8aE6dWMkTLdWRD9WnLVSzpOQQh61voEnjZAJHtbGCSs=
-
+# nix-direnv cache busting line: sha256-KLJibt2Yv4WMxcmKHs+3e0sjVWFc9Fg0ak4sLoAocA0=

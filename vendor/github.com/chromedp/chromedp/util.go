@@ -11,7 +11,6 @@ import (
 
 	"github.com/chromedp/cdproto"
 	"github.com/chromedp/cdproto/cdp"
-	"slices"
 )
 
 // forceIP tries to force the host component in urlstr to be an IP address.
@@ -105,7 +104,7 @@ func modifyURL(ctx context.Context, urlstr string) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	var result map[string]any
+	var result map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return "", err
 	}
@@ -120,12 +119,12 @@ func modifyURL(ctx context.Context, urlstr string) (string, error) {
 	return wsURL, nil
 }
 
-func runListeners(list []cancelableListener, ev any) []cancelableListener {
+func runListeners(list []cancelableListener, ev interface{}) []cancelableListener {
 	for i := 0; i < len(list); {
 		listener := list[i]
 		select {
 		case <-listener.ctx.Done():
-			list = slices.Delete(list, i, i+1)
+			list = append(list[:i], list[i+1:]...)
 			continue
 		default:
 			listener.fn(ev)
@@ -358,11 +357,6 @@ func distributedNodesUpdated(nodes []*cdp.BackendNode) nodeOp {
 	}
 }
 
-func scrollableFlagUpdated(m map[cdp.NodeID]*cdp.Node, id cdp.NodeID) nodeOp {
-	return func(n *cdp.Node) {
-	}
-}
-
 func insertNode(n []*cdp.Node, prevID cdp.NodeID, c *cdp.Node) []*cdp.Node {
 	var i int
 	var found bool
@@ -403,7 +397,7 @@ func removeNode(n []*cdp.Node, id cdp.NodeID) []*cdp.Node {
 		return n
 	}
 
-	return slices.Delete(n, i, i+1)
+	return append(n[:i], n[i+1:]...)
 }
 
 // isCouldNotComputeBoxModelError unwraps err as a MessageError and determines

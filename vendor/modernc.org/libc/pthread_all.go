@@ -2,7 +2,10 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build !freebsd && !openbsd && !(linux && (amd64 || arm64 || loong64 || ppc64le || s390x || riscv64 || 386 || arm))
+//go:build !freebsd && !openbsd && !(linux && (amd64 || loong64))
+// +build !freebsd
+// +build !openbsd
+// +build !linux !amd64,!loong64
 
 package libc // import "modernc.org/libc"
 
@@ -12,16 +15,12 @@ import (
 	"modernc.org/libc/pthread"
 )
 
-type pthreadAttr struct {
-	detachState int32
-}
-
 // int pthread_attr_init(pthread_attr_t *attr);
 func Xpthread_attr_init(t *TLS, pAttr uintptr) int32 {
 	if __ccgo_strace {
 		trc("t=%v pAttr=%v, (%v:)", t, pAttr, origin(2))
 	}
-	*(*pthreadAttr)(unsafe.Pointer(pAttr)) = pthreadAttr{}
+	*(*pthread.Pthread_attr_t)(unsafe.Pointer(pAttr)) = pthread.Pthread_attr_t{}
 	return 0
 }
 

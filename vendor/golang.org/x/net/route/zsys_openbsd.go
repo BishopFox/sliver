@@ -6,6 +6,7 @@ package route
 const (
 	sizeofRtMsghdr = 0x60
 
-	sizeofSockaddrInet  = 0x10
-	sizeofSockaddrInet6 = 0x1c
+	sizeofSockaddrStorage = 0x100
+	sizeofSockaddrInet    = 0x10
+	sizeofSockaddrInet6   = 0x1c
 )

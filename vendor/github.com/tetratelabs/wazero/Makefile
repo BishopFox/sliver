@@ -1,7 +1,7 @@
 
-gofumpt       := mvdan.cc/gofumpt@v0.6.0
+gofumpt       := mvdan.cc/gofumpt@v0.5.0
 gosimports    := github.com/rinchsan/gosimports/cmd/gosimports@v0.3.8
-golangci_lint := github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.5
+golangci_lint := github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.2
 asmfmt        := github.com/klauspost/asmfmt/cmd/asmfmt@v1.3.2
 # sync this with netlify.toml!
 hugo          := github.com/gohugoio/hugo@v0.115.2
@@ -20,6 +20,22 @@ main_packages := $(sort $(foreach f,$(dir $(main_sources)),$(if $(findstring ./,
 
 go_test_options ?= -timeout 300s
 
+ensureCompilerFastest := -ldflags '-X github.com/tetratelabs/wazero/internal/integration_test/vs.ensureCompilerFastest=true'
+.PHONY: bench
+bench:
+	@go build ./internal/integration_test/bench/...
+	@# Don't use -test.benchmem as it isn't accurate when comparing against CGO libs
+	@for d in vs/time vs/wasmedge vs/wasmtime ; do \
+		cd ./internal/integration_test/$$d ; \
+		go test -bench=. . -tags='wasmedge' $(ensureCompilerFastest) ; \
+		cd - ;\
+	done
+
+bench_testdata_dir := internal/integration_test/bench/testdata
+.PHONY: build.bench
+build.bench:
+	@tinygo build -o $(bench_testdata_dir)/case.wasm -scheduler=none --no-debug -target=wasi $(bench_testdata_dir)/case.go
+
 .PHONY: test.examples
 test.examples:
 	@go test $(go_test_options) ./examples/... ./imports/assemblyscript/example/... ./imports/emscripten/... ./imports/wasi_snapshot_preview1/example/...
@@ -36,23 +52,13 @@ build.examples.as:
 build.examples.zig: examples/allocation/zig/testdata/greet.wasm imports/wasi_snapshot_preview1/example/testdata/zig/cat.wasm imports/wasi_snapshot_preview1/testdata/zig/wasi.wasm
 	@cd internal/testing/dwarftestdata/testdata/zig; zig build; mv zig-out/*/main.wasm ./ # Need DWARF custom sections.
 
-tinygo_reactor_sources_reactor := examples/basic/testdata/add.go examples/allocation/tinygo/testdata/greet.go
-.PHONY: build.examples.tinygo_reactor
-build.examples.tinygo_reactor: $(tinygo_sources_reactor)
+tinygo_sources := examples/basic/testdata/add.go examples/allocation/tinygo/testdata/greet.go examples/cli/testdata/cli.go imports/wasi_snapshot_preview1/example/testdata/tinygo/cat.go imports/wasi_snapshot_preview1/testdata/tinygo/wasi.go cmd/wazero/testdata/cat/cat.go
+.PHONY: build.examples.tinygo
+build.examples.tinygo: $(tinygo_sources)
 	@for f in $^; do \
-	    tinygo build -o $$(echo $$f | sed -e 's/\.go/\.wasm/') -scheduler=none --no-debug --target=wasip1 -buildmode=c-shared $$f; \
-	done
-
-tinygo_sources_clis := examples/cli/testdata/cli.go imports/wasi_snapshot_preview1/example/testdata/tinygo/cat.go imports/wasi_snapshot_preview1/testdata/tinygo/wasi.go cmd/wazero/testdata/cat/cat.go
-.PHONY: build.examples.tinygo_clis
-build.examples.tinygo_clis: $(tinygo_sources_clis)
-	@for f in $^; do \
-	    tinygo build -o $$(echo $$f | sed -e 's/\.go/\.wasm/') -scheduler=none --no-debug --target=wasip1 $$f; \
+	    tinygo build -o $$(echo $$f | sed -e 's/\.go/\.wasm/') -scheduler=none --no-debug --target=wasi $$f; \
 	done
 	@mv cmd/wazero/testdata/cat/cat.wasm cmd/wazero/testdata/cat/cat-tinygo.wasm
-
-.PHONY: build.examples.tinygo
-build.examples.tinygo: build.examples.tinygo_reactor build.examples.tinygo_clis
 
 # We use zig to build C as it is easy to install and embeds a copy of zig-cc.
 # Note: Don't use "-Oz" as that breaks our wasi sock example.
@@ -90,21 +96,21 @@ build.examples.emscripten: $(emscripten_sources)
 	done
 
 %/greet.wasm : cargo_target := wasm32-unknown-unknown
-%/cat.wasm : cargo_target := wasm32-wasip1
-%/wasi.wasm : cargo_target := wasm32-wasip1
+%/cat.wasm : cargo_target := wasm32-wasi
+%/wasi.wasm : cargo_target := wasm32-wasi
 
 .PHONY: build.examples.rust
 build.examples.rust: examples/allocation/rust/testdata/greet.wasm imports/wasi_snapshot_preview1/example/testdata/cargo-wasi/cat.wasm imports/wasi_snapshot_preview1/testdata/cargo-wasi/wasi.wasm internal/testing/dwarftestdata/testdata/rust/main.wasm.xz
 
 # Normally, we build release because it is smaller. Testing dwarf requires the debug build.
 internal/testing/dwarftestdata/testdata/rust/main.wasm.xz:
-	cd $(@D) && cargo build --target wasm32-wasip1
-	mv $(@D)/target/wasm32-wasip1/debug/main.wasm $(@D)
+	cd $(@D) && cargo wasi build
+	mv $(@D)/target/wasm32-wasi/debug/main.wasm $(@D)
 	cd $(@D) && xz -k -f ./main.wasm # Rust's DWARF section is huge, so compress it.
 
-# Builds rust using cargo normally
+# Builds rust using cargo normally, or cargo-wasi.
 %.wasm: %.rs
-	@(cd $(@D); cargo build --target $(cargo_target) --release)
+	@(cd $(@D); cargo $(if $(findstring wasi,$(cargo_target)),wasi build,build --target $(cargo_target)) --release)
 	@mv $(@D)/target/$(cargo_target)/release/$(@F) $(@D)
 
 spectest_base_dir := internal/integration_test/spectest
@@ -177,7 +183,7 @@ build.spectest.threads:
 
 .PHONY: test
 test:
-	@go test $(go_test_options) ./...
+	@go test $(go_test_options) $$(go list ./... | grep -vE '$(spectest_v1_dir)|$(spectest_v2_dir)')
 	@cd internal/version/testdata && go test $(go_test_options) ./...
 	@cd internal/integration_test/fuzz/wazerolib && CGO_ENABLED=0 WASM_BINARY_PATH=testdata/test.wasm go test ./...
 
@@ -188,6 +194,17 @@ coverage: ## Generate test coverage
 	@go test -coverprofile=coverage.txt -covermode=atomic --coverpkg=$(coverpkg) $(main_packages)
 	@go tool cover -func coverage.txt
 
+.PHONY: spectest
+spectest:
+	@$(MAKE) spectest.v1
+	@$(MAKE) spectest.v2
+
+spectest.v1:
+	@go test $(go_test_options) $$(go list ./... | grep $(spectest_v1_dir))
+
+spectest.v2:
+	@go test $(go_test_options) $$(go list ./... | grep $(spectest_v2_dir))
+
 golangci_lint_path := $(shell go env GOPATH)/bin/golangci-lint
 
 $(golangci_lint_path):
@@ -197,7 +214,7 @@ golangci_lint_goarch ?= $(shell go env GOARCH)
 
 .PHONY: lint
 lint: $(golangci_lint_path)
-	@GOARCH=$(golangci_lint_goarch) CGO_ENABLED=0 $(golangci_lint_path) run --timeout 5m -E testableexamples
+	@GOARCH=$(golangci_lint_goarch) CGO_ENABLED=0 $(golangci_lint_path) run --timeout 5m
 
 .PHONY: format
 format:

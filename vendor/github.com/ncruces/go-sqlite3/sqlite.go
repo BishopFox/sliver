@@ -3,17 +3,16 @@ package sqlite3
 
 import (
 	"context"
+	"math"
 	"math/bits"
 	"os"
-	"strings"
 	"sync"
 	"unsafe"
 
-	"github.com/tetratelabs/wazero"
-	"github.com/tetratelabs/wazero/api"
-
 	"github.com/ncruces/go-sqlite3/internal/util"
 	"github.com/ncruces/go-sqlite3/vfs"
+	"github.com/tetratelabs/wazero"
+	"github.com/tetratelabs/wazero/api"
 )
 
 // Configure SQLite Wasm.
@@ -29,14 +28,6 @@ var (
 	RuntimeConfig wazero.RuntimeConfig
 )
 
-// Initialize decodes and compiles the SQLite Wasm binary.
-// This is called implicitly when the first connection is openned,
-// but is potentially slow, so you may want to call it at a more convenient time.
-func Initialize() error {
-	instance.once.Do(compileSQLite)
-	return instance.err
-}
-
 var instance struct {
 	runtime  wazero.Runtime
 	compiled wazero.CompiledModule
@@ -45,19 +36,12 @@ var instance struct {
 }
 
 func compileSQLite() {
-	ctx := context.Background()
-	cfg := RuntimeConfig
-	if cfg == nil {
-		cfg = wazero.NewRuntimeConfig()
-		if bits.UintSize < 64 {
-			cfg = cfg.WithMemoryLimitPages(512) // 32MB
-		} else {
-			cfg = cfg.WithMemoryLimitPages(4096) // 256MB
-		}
-		cfg = cfg.WithCoreFeatures(api.CoreFeaturesV2)
+	if RuntimeConfig == nil {
+		RuntimeConfig = wazero.NewRuntimeConfig()
 	}
 
-	instance.runtime = wazero.NewRuntimeWithConfig(ctx, cfg)
+	ctx := context.Background()
+	instance.runtime = wazero.NewRuntimeWithConfig(ctx, RuntimeConfig)
 
 	env := instance.runtime.NewHostModuleBuilder("env")
 	env = vfs.ExportHostFunctions(env)
@@ -90,12 +74,14 @@ type sqlite struct {
 		id   [32]*byte
 		mask uint32
 	}
-	stack [9]stk_t
+	stack [8]uint64
+	freer uint32
 }
 
 func instantiateSQLite() (sqlt *sqlite, err error) {
-	if err := Initialize(); err != nil {
-		return nil, err
+	instance.once.Do(compileSQLite)
+	if instance.err != nil {
+		return nil, instance.err
 	}
 
 	sqlt = new(sqlite)
@@ -106,7 +92,14 @@ func instantiateSQLite() (sqlt *sqlite, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if sqlt.getfn("sqlite3_progress_handler_go") == nil {
+
+	global := sqlt.mod.ExportedGlobal("malloc_destructor")
+	if global == nil {
+		return nil, util.BadBinaryErr
+	}
+
+	sqlt.freer = util.ReadUint32(sqlt.mod, uint32(global.Get()))
+	if sqlt.freer == 0 {
 		return nil, util.BadBinaryErr
 	}
 	return sqlt, nil
@@ -116,37 +109,38 @@ func (sqlt *sqlite) close() error {
 	return sqlt.mod.Close(sqlt.ctx)
 }
 
-func (sqlt *sqlite) error(rc res_t, handle ptr_t, sql ...string) error {
+func (sqlt *sqlite) error(rc uint64, handle uint32, sql ...string) error {
 	if rc == _OK {
 		return nil
 	}
 
-	if ErrorCode(rc) == NOMEM || xErrorCode(rc) == IOERR_NOMEM {
+	err := Error{code: rc}
+
+	if err.Code() == NOMEM || err.ExtendedCode() == IOERR_NOMEM {
 		panic(util.OOMErr)
 	}
 
+	if r := sqlt.call("sqlite3_errstr", rc); r != 0 {
+		err.str = util.ReadString(sqlt.mod, uint32(r), _MAX_NAME)
+	}
+
 	if handle != 0 {
-		var msg, query string
-		if ptr := ptr_t(sqlt.call("sqlite3_errmsg", stk_t(handle))); ptr != 0 {
-			msg = util.ReadString(sqlt.mod, ptr, _MAX_LENGTH)
-			if msg == "not an error" {
-				msg = ""
-			} else {
-				msg = strings.TrimPrefix(msg, util.ErrorCodeString(uint32(rc))[len("sqlite3: "):])
-			}
+		if r := sqlt.call("sqlite3_errmsg", uint64(handle)); r != 0 {
+			err.msg = util.ReadString(sqlt.mod, uint32(r), _MAX_LENGTH)
 		}
 
-		if len(sql) != 0 {
-			if i := int32(sqlt.call("sqlite3_error_offset", stk_t(handle))); i != -1 {
-				query = sql[0][i:]
+		if sql != nil {
+			if r := sqlt.call("sqlite3_error_offset", uint64(handle)); r != math.MaxUint32 {
+				err.sql = sql[0][r:]
 			}
-		}
-
-		if msg != "" || query != "" {
-			return &Error{code: rc, msg: msg, sql: query}
 		}
 	}
-	return xErrorCode(rc)
+
+	switch err.msg {
+	case err.str, "not an error":
+		err.msg = ""
+	}
+	return &err
 }
 
 func (sqlt *sqlite) getfn(name string) api.Function {
@@ -177,7 +171,7 @@ func (sqlt *sqlite) putfn(name string, fn api.Function) {
 	}
 }
 
-func (sqlt *sqlite) call(name string, params ...stk_t) stk_t {
+func (sqlt *sqlite) call(name string, params ...uint64) uint64 {
 	copy(sqlt.stack[:], params)
 	fn := sqlt.getfn(name)
 	err := fn.CallWithStack(sqlt.ctx, sqlt.stack[:])
@@ -185,61 +179,58 @@ func (sqlt *sqlite) call(name string, params ...stk_t) stk_t {
 		panic(err)
 	}
 	sqlt.putfn(name, fn)
-	return stk_t(sqlt.stack[0])
+	return sqlt.stack[0]
 }
 
-func (sqlt *sqlite) free(ptr ptr_t) {
+func (sqlt *sqlite) free(ptr uint32) {
 	if ptr == 0 {
 		return
 	}
-	sqlt.call("sqlite3_free", stk_t(ptr))
+	sqlt.call("free", uint64(ptr))
 }
 
-func (sqlt *sqlite) new(size int64) ptr_t {
-	ptr := ptr_t(sqlt.call("sqlite3_malloc64", stk_t(size)))
+func (sqlt *sqlite) new(size uint64) uint32 {
+	if size > _MAX_ALLOCATION_SIZE {
+		panic(util.OOMErr)
+	}
+	ptr := uint32(sqlt.call("malloc", size))
 	if ptr == 0 && size != 0 {
 		panic(util.OOMErr)
 	}
 	return ptr
 }
 
-func (sqlt *sqlite) realloc(ptr ptr_t, size int64) ptr_t {
-	ptr = ptr_t(sqlt.call("sqlite3_realloc64", stk_t(ptr), stk_t(size)))
-	if ptr == 0 && size != 0 {
-		panic(util.OOMErr)
-	}
-	return ptr
-}
-
-func (sqlt *sqlite) newBytes(b []byte) ptr_t {
-	if len(b) == 0 {
+func (sqlt *sqlite) newBytes(b []byte) uint32 {
+	if (*[0]byte)(b) == nil {
 		return 0
 	}
-	ptr := sqlt.new(int64(len(b)))
+	ptr := sqlt.new(uint64(len(b)))
 	util.WriteBytes(sqlt.mod, ptr, b)
 	return ptr
 }
 
-func (sqlt *sqlite) newString(s string) ptr_t {
-	ptr := sqlt.new(int64(len(s)) + 1)
+func (sqlt *sqlite) newString(s string) uint32 {
+	ptr := sqlt.new(uint64(len(s) + 1))
 	util.WriteString(sqlt.mod, ptr, s)
 	return ptr
 }
 
-const arenaSize = 4096
-
-func (sqlt *sqlite) newArena() arena {
+func (sqlt *sqlite) newArena(size uint64) arena {
+	// Ensure the arena's size is a multiple of 8.
+	size = (size + 7) &^ 7
 	return arena{
 		sqlt: sqlt,
-		base: sqlt.new(arenaSize),
+		size: uint32(size),
+		base: sqlt.new(size),
 	}
 }
 
 type arena struct {
 	sqlt *sqlite
-	ptrs []ptr_t
-	base ptr_t
-	next int32
+	ptrs []uint32
+	base uint32
+	next uint32
+	size uint32
 }
 
 func (a *arena) free() {
@@ -257,63 +248,61 @@ func (a *arena) mark() (reset func()) {
 	ptrs := len(a.ptrs)
 	next := a.next
 	return func() {
-		rest := a.ptrs[ptrs:]
-		for _, ptr := range a.ptrs[:ptrs] {
+		for _, ptr := range a.ptrs[ptrs:] {
 			a.sqlt.free(ptr)
 		}
-		a.ptrs = rest
+		a.ptrs = a.ptrs[:ptrs]
 		a.next = next
 	}
 }
 
-func (a *arena) new(size int64) ptr_t {
+func (a *arena) new(size uint64) uint32 {
 	// Align the next address, to 4 or 8 bytes.
 	if size&7 != 0 {
 		a.next = (a.next + 3) &^ 3
 	} else {
 		a.next = (a.next + 7) &^ 7
 	}
-	if size <= arenaSize-int64(a.next) {
-		ptr := a.base + ptr_t(a.next)
-		a.next += int32(size)
-		return ptr_t(ptr)
+	if size <= uint64(a.size-a.next) {
+		ptr := a.base + a.next
+		a.next += uint32(size)
+		return ptr
 	}
 	ptr := a.sqlt.new(size)
 	a.ptrs = append(a.ptrs, ptr)
-	return ptr_t(ptr)
+	return ptr
 }
 
-func (a *arena) bytes(b []byte) ptr_t {
-	if len(b) == 0 {
+func (a *arena) bytes(b []byte) uint32 {
+	if (*[0]byte)(b) == nil {
 		return 0
 	}
-	ptr := a.new(int64(len(b)))
+	ptr := a.new(uint64(len(b)))
 	util.WriteBytes(a.sqlt.mod, ptr, b)
 	return ptr
 }
 
-func (a *arena) string(s string) ptr_t {
-	ptr := a.new(int64(len(s)) + 1)
+func (a *arena) string(s string) uint32 {
+	ptr := a.new(uint64(len(s) + 1))
 	util.WriteString(a.sqlt.mod, ptr, s)
 	return ptr
 }
 
 func exportCallbacks(env wazero.HostModuleBuilder) wazero.HostModuleBuilder {
-	util.ExportFuncII(env, "go_progress_handler", progressCallback)
-	util.ExportFuncIII(env, "go_busy_timeout", timeoutCallback)
 	util.ExportFuncIII(env, "go_busy_handler", busyCallback)
+	util.ExportFuncII(env, "go_progress_handler", progressCallback)
 	util.ExportFuncII(env, "go_commit_hook", commitCallback)
 	util.ExportFuncVI(env, "go_rollback_hook", rollbackCallback)
 	util.ExportFuncVIIIIJ(env, "go_update_hook", updateCallback)
 	util.ExportFuncIIIII(env, "go_wal_hook", walCallback)
-	util.ExportFuncIIIII(env, "go_trace", traceCallback)
 	util.ExportFuncIIIIII(env, "go_autovacuum_pages", autoVacuumCallback)
 	util.ExportFuncIIIIIII(env, "go_authorizer", authorizerCallback)
 	util.ExportFuncVIII(env, "go_log", logCallback)
 	util.ExportFuncVI(env, "go_destroy", destroyCallback)
 	util.ExportFuncVIIII(env, "go_func", funcCallback)
 	util.ExportFuncVIIIII(env, "go_step", stepCallback)
-	util.ExportFuncVIIII(env, "go_value", valueCallback)
+	util.ExportFuncVIII(env, "go_final", finalCallback)
+	util.ExportFuncVII(env, "go_value", valueCallback)
 	util.ExportFuncVIIII(env, "go_inverse", inverseCallback)
 	util.ExportFuncVIIII(env, "go_collation_needed", collationCallback)
 	util.ExportFuncIIIIII(env, "go_compare", compareCallback)

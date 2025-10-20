@@ -135,12 +135,12 @@ func (rl *Shell) init() {
 	rl.selection.Reset()
 	rl.Buffers.Reset()
 	rl.History.Reset()
+	rl.History.Save()
 	rl.Iterations.Reset()
 
 	// Some accept-* commands must fetch a specific
 	// line outright, or keep the accepted one.
 	history.Init(rl.History)
-	rl.History.Save()
 
 	// Reset/initialize user interface components.
 	rl.Hint.Reset()

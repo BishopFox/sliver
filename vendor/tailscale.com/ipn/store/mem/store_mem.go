@@ -9,10 +9,8 @@ import (
 	"encoding/json"
 	"sync"
 
-	xmaps "golang.org/x/exp/maps"
 	"tailscale.com/ipn"
 	"tailscale.com/types/logger"
-	"tailscale.com/util/mak"
 )
 
 // New returns a new Store.
@@ -22,15 +20,13 @@ func New(logger.Logf, string) (ipn.StateStore, error) {
 
 // Store is an ipn.StateStore that keeps state in memory only.
 type Store struct {
-	mu sync.Mutex
-	// +checklocks:mu
+	mu    sync.Mutex
 	cache map[ipn.StateKey][]byte
 }
 
 func (s *Store) String() string { return "mem.Store" }
 
 // ReadState implements the StateStore interface.
-// It returns ipn.ErrStateNotExist if the state does not exist.
 func (s *Store) ReadState(id ipn.StateKey) ([]byte, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -42,7 +38,6 @@ func (s *Store) ReadState(id ipn.StateKey) ([]byte, error) {
 }
 
 // WriteState implements the StateStore interface.
-// It never returns an error.
 func (s *Store) WriteState(id ipn.StateKey, bs []byte) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -51,19 +46,6 @@ func (s *Store) WriteState(id ipn.StateKey, bs []byte) error {
 	}
 	s.cache[id] = bytes.Clone(bs)
 	return nil
-}
-
-// LoadFromMap loads the in-memory cache from the provided map.
-// Any existing content is cleared, and the provided map is
-// copied into the cache.
-func (s *Store) LoadFromMap(m map[string][]byte) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	xmaps.Clear(s.cache)
-	for k, v := range m {
-		mak.Set(&s.cache, ipn.StateKey(k), v)
-	}
-	return
 }
 
 // LoadFromJSON attempts to unmarshal json content into the

@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"reflect"
-	"strings"
 	"time"
 
 	"gorm.io/gorm/schema"
@@ -16,7 +15,7 @@ func prepareValues(values []interface{}, db *DB, columnTypes []*sql.ColumnType, 
 	if db.Statement.Schema != nil {
 		for idx, name := range columns {
 			if field := db.Statement.Schema.LookUpField(name); field != nil {
-				values[idx] = reflect.New(reflect.PointerTo(field.FieldType)).Interface()
+				values[idx] = reflect.New(reflect.PtrTo(field.FieldType)).Interface()
 				continue
 			}
 			values[idx] = new(interface{})
@@ -24,7 +23,7 @@ func prepareValues(values []interface{}, db *DB, columnTypes []*sql.ColumnType, 
 	} else if len(columnTypes) > 0 {
 		for idx, columnType := range columnTypes {
 			if columnType.ScanType() != nil {
-				values[idx] = reflect.New(reflect.PointerTo(columnType.ScanType())).Interface()
+				values[idx] = reflect.New(reflect.PtrTo(columnType.ScanType())).Interface()
 			} else {
 				values[idx] = new(interface{})
 			}
@@ -132,15 +131,6 @@ func Scan(rows Rows, db *DB, mode ScanMode) {
 		onConflictDonothing = mode&ScanOnConflictDoNothing != 0
 	)
 
-	if len(db.Statement.ColumnMapping) > 0 {
-		for i, column := range columns {
-			v, ok := db.Statement.ColumnMapping[column]
-			if ok {
-				columns[i] = v
-			}
-		}
-	}
-
 	db.RowsAffected = 0
 
 	switch dest := db.Statement.Dest.(type) {
@@ -245,14 +235,6 @@ func Scan(rows Rows, db *DB, mode ScanMode) {
 							matchedFieldCount[column] = 1
 						}
 					} else if names := utils.SplitNestedRelationName(column); len(names) > 1 { // has nested relation
-						aliasName := utils.JoinNestedRelationNames(names[0 : len(names)-1])
-						for _, join := range db.Statement.Joins {
-							if join.Alias == aliasName {
-								names = append(strings.Split(join.Name, "."), names[len(names)-1])
-								break
-							}
-						}
-
 						if rel, ok := sch.Relationships.Relations[names[0]]; ok {
 							subNameCount := len(names)
 							// nested relation fields
@@ -262,7 +244,7 @@ func Scan(rows Rows, db *DB, mode ScanMode) {
 								rel = rel.FieldSchema.Relationships.Relations[name]
 								relFields = append(relFields, rel.Field)
 							}
-							// latest name is raw dbname
+							// lastest name is raw dbname
 							dbName := names[subNameCount-1]
 							if field := rel.FieldSchema.LookUpField(dbName); field != nil && field.Readable {
 								fields[idx] = field
@@ -349,9 +331,6 @@ func Scan(rows Rows, db *DB, mode ScanMode) {
 			}
 		case reflect.Struct, reflect.Ptr:
 			if initialized || rows.Next() {
-				if mode == ScanInitialized && reflectValue.Kind() == reflect.Struct {
-					db.Statement.ReflectValue.Set(reflect.Zero(reflectValue.Type()))
-				}
 				db.scanIntoStruct(rows, reflectValue, values, fields, joinFields)
 			}
 		default:

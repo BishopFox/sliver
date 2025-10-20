@@ -1,9 +1,20 @@
 # libc
 
-[![LiberaPay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/jnml/donate)
-[![receives](https://img.shields.io/liberapay/receives/jnml.svg?logo=liberapay)](https://liberapay.com/jnml/donate)
-[![patrons](https://img.shields.io/liberapay/patrons/jnml.svg?logo=liberapay)](https://liberapay.com/jnml/donate)
+Package libc provides C-runtime services. Work in progress.
 
-[![Go Reference](https://pkg.go.dev/badge/modernc.org/libc.svg)](https://pkg.go.dev/modernc.org/libc)
+This package is a continuation of the Crt package in modernc.org/crt/v3.
 
-Package libc is a partial reimplementation of C libc in pure Go.
+Installation
+
+    $ go get [-u] modernc.org/libc
+
+Documentation: [godoc.org/modernc.org/libc](http://godoc.org/modernc.org/libc)
+
+Building with `make` requires the following Go packages
+
+* github.com/golang/lint/golint
+* github.com/mdempsky/maligned
+* github.com/mdempsky/unconvert
+* honnef.co/go/tools/cmd/unused
+* honnef.co/go/tools/cmd/gosimple
+* github.com/client9/misspell/cmd/misspell

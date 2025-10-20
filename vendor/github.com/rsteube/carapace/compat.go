@@ -41,8 +41,8 @@ func registerFlagCompletion(cmd *cobra.Command) {
 }
 
 func cobraValuesFor(action InvokedAction) []string {
-	result := make([]string, len(action.action.rawValues))
-	for index, r := range action.action.rawValues {
+	result := make([]string, len(action.rawValues))
+	for index, r := range action.rawValues {
 		if r.Description != "" {
 			result[index] = fmt.Sprintf("%v\t%v", r.Value, r.Description)
 		} else {
@@ -54,8 +54,8 @@ func cobraValuesFor(action InvokedAction) []string {
 
 func cobraDirectiveFor(action InvokedAction) cobra.ShellCompDirective {
 	directive := cobra.ShellCompDirectiveNoFileComp
-	for _, val := range action.action.rawValues {
-		if action.action.meta.Nospace.Matches(val.Value) {
+	for _, val := range action.rawValues {
+		if action.meta.Nospace.Matches(val.Value) {
 			directive = directive | cobra.ShellCompDirectiveNoSpace
 			break
 		}

@@ -1,4 +1,4 @@
-import { Button, Card, CardFooter, CardHeader } from "@heroui/react";
+import { Button, Card, CardFooter, CardHeader } from "@nextui-org/react";
 import AsciinemaPlayer from "./asciinema";
 
 import { faChevronRight } from "@fortawesome/free-solid-svg-icons";

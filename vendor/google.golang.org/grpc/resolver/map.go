@@ -18,28 +18,16 @@
 
 package resolver
 
-import (
-	"encoding/base64"
-	"sort"
-	"strings"
-)
-
-type addressMapEntry[T any] struct {
+type addressMapEntry struct {
 	addr  Address
-	value T
+	value any
 }
 
-// AddressMap is an AddressMapV2[any].  It will be deleted in an upcoming
-// release of grpc-go.
-//
-// Deprecated: use the generic AddressMapV2 type instead.
-type AddressMap = AddressMapV2[any]
-
-// AddressMapV2 is a map of addresses to arbitrary values taking into account
+// AddressMap is a map of addresses to arbitrary values taking into account
 // Attributes.  BalancerAttributes are ignored, as are Metadata and Type.
 // Multiple accesses may not be performed concurrently.  Must be created via
 // NewAddressMap; do not construct directly.
-type AddressMapV2[T any] struct {
+type AddressMap struct {
 	// The underlying map is keyed by an Address with fields that we don't care
 	// about being set to their zero values. The only fields that we care about
 	// are `Addr`, `ServerName` and `Attributes`. Since we need to be able to
@@ -53,30 +41,23 @@ type AddressMapV2[T any] struct {
 	// The value type of the map contains a slice of addresses which match the key
 	// in their `Addr` and `ServerName` fields and contain the corresponding value
 	// associated with them.
-	m map[Address]addressMapEntryList[T]
+	m map[Address]addressMapEntryList
 }
 
 func toMapKey(addr *Address) Address {
 	return Address{Addr: addr.Addr, ServerName: addr.ServerName}
 }
 
-type addressMapEntryList[T any] []*addressMapEntry[T]
+type addressMapEntryList []*addressMapEntry
 
-// NewAddressMap creates a new AddressMapV2[any].
-//
-// Deprecated: use the generic NewAddressMapV2 constructor instead.
+// NewAddressMap creates a new AddressMap.
 func NewAddressMap() *AddressMap {
-	return NewAddressMapV2[any]()
-}
-
-// NewAddressMapV2 creates a new AddressMapV2.
-func NewAddressMapV2[T any]() *AddressMapV2[T] {
-	return &AddressMapV2[T]{m: make(map[Address]addressMapEntryList[T])}
+	return &AddressMap{m: make(map[Address]addressMapEntryList)}
 }
 
 // find returns the index of addr in the addressMapEntry slice, or -1 if not
 // present.
-func (l addressMapEntryList[T]) find(addr Address) int {
+func (l addressMapEntryList) find(addr Address) int {
 	for i, entry := range l {
 		// Attributes are the only thing to match on here, since `Addr` and
 		// `ServerName` are already equal.
@@ -88,28 +69,28 @@ func (l addressMapEntryList[T]) find(addr Address) int {
 }
 
 // Get returns the value for the address in the map, if present.
-func (a *AddressMapV2[T]) Get(addr Address) (value T, ok bool) {
+func (a *AddressMap) Get(addr Address) (value any, ok bool) {
 	addrKey := toMapKey(&addr)
 	entryList := a.m[addrKey]
 	if entry := entryList.find(addr); entry != -1 {
 		return entryList[entry].value, true
 	}
-	return value, false
+	return nil, false
 }
 
 // Set updates or adds the value to the address in the map.
-func (a *AddressMapV2[T]) Set(addr Address, value T) {
+func (a *AddressMap) Set(addr Address, value any) {
 	addrKey := toMapKey(&addr)
 	entryList := a.m[addrKey]
 	if entry := entryList.find(addr); entry != -1 {
 		entryList[entry].value = value
 		return
 	}
-	a.m[addrKey] = append(entryList, &addressMapEntry[T]{addr: addr, value: value})
+	a.m[addrKey] = append(entryList, &addressMapEntry{addr: addr, value: value})
 }
 
 // Delete removes addr from the map.
-func (a *AddressMapV2[T]) Delete(addr Address) {
+func (a *AddressMap) Delete(addr Address) {
 	addrKey := toMapKey(&addr)
 	entryList := a.m[addrKey]
 	entry := entryList.find(addr)
@@ -126,7 +107,7 @@ func (a *AddressMapV2[T]) Delete(addr Address) {
 }
 
 // Len returns the number of entries in the map.
-func (a *AddressMapV2[T]) Len() int {
+func (a *AddressMap) Len() int {
 	ret := 0
 	for _, entryList := range a.m {
 		ret += len(entryList)
@@ -135,7 +116,7 @@ func (a *AddressMapV2[T]) Len() int {
 }
 
 // Keys returns a slice of all current map keys.
-func (a *AddressMapV2[T]) Keys() []Address {
+func (a *AddressMap) Keys() []Address {
 	ret := make([]Address, 0, a.Len())
 	for _, entryList := range a.m {
 		for _, entry := range entryList {
@@ -146,8 +127,8 @@ func (a *AddressMapV2[T]) Keys() []Address {
 }
 
 // Values returns a slice of all current map values.
-func (a *AddressMapV2[T]) Values() []T {
-	ret := make([]T, 0, a.Len())
+func (a *AddressMap) Values() []any {
+	ret := make([]any, 0, a.Len())
 	for _, entryList := range a.m {
 		for _, entry := range entryList {
 			ret = append(ret, entry.value)
@@ -156,65 +137,70 @@ func (a *AddressMapV2[T]) Values() []T {
 	return ret
 }
 
-type endpointMapKey string
+type endpointNode struct {
+	addrs map[string]struct{}
+}
+
+// Equal returns whether the unordered set of addrs are the same between the
+// endpoint nodes.
+func (en *endpointNode) Equal(en2 *endpointNode) bool {
+	if len(en.addrs) != len(en2.addrs) {
+		return false
+	}
+	for addr := range en.addrs {
+		if _, ok := en2.addrs[addr]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func toEndpointNode(endpoint Endpoint) endpointNode {
+	en := make(map[string]struct{})
+	for _, addr := range endpoint.Addresses {
+		en[addr.Addr] = struct{}{}
+	}
+	return endpointNode{
+		addrs: en,
+	}
+}
 
 // EndpointMap is a map of endpoints to arbitrary values keyed on only the
 // unordered set of address strings within an endpoint. This map is not thread
 // safe, thus it is unsafe to access concurrently. Must be created via
 // NewEndpointMap; do not construct directly.
-type EndpointMap[T any] struct {
-	endpoints map[endpointMapKey]endpointData[T]
-}
-
-type endpointData[T any] struct {
-	// decodedKey stores the original key to avoid decoding when iterating on
-	// EndpointMap keys.
-	decodedKey Endpoint
-	value      T
+type EndpointMap struct {
+	endpoints map[*endpointNode]any
 }
 
 // NewEndpointMap creates a new EndpointMap.
-func NewEndpointMap[T any]() *EndpointMap[T] {
-	return &EndpointMap[T]{
-		endpoints: make(map[endpointMapKey]endpointData[T]),
+func NewEndpointMap() *EndpointMap {
+	return &EndpointMap{
+		endpoints: make(map[*endpointNode]any),
 	}
-}
-
-// encodeEndpoint returns a string that uniquely identifies the unordered set of
-// addresses within an endpoint.
-func encodeEndpoint(e Endpoint) endpointMapKey {
-	addrs := make([]string, 0, len(e.Addresses))
-	// base64 encoding the address strings restricts the characters present
-	// within the strings. This allows us to use a delimiter without the need of
-	// escape characters.
-	for _, addr := range e.Addresses {
-		addrs = append(addrs, base64.StdEncoding.EncodeToString([]byte(addr.Addr)))
-	}
-	sort.Strings(addrs)
-	// " " should not appear in base64 encoded strings.
-	return endpointMapKey(strings.Join(addrs, " "))
 }
 
 // Get returns the value for the address in the map, if present.
-func (em *EndpointMap[T]) Get(e Endpoint) (value T, ok bool) {
-	val, found := em.endpoints[encodeEndpoint(e)]
-	if found {
-		return val.value, true
+func (em *EndpointMap) Get(e Endpoint) (value any, ok bool) {
+	en := toEndpointNode(e)
+	if endpoint := em.find(en); endpoint != nil {
+		return em.endpoints[endpoint], true
 	}
-	return value, false
+	return nil, false
 }
 
 // Set updates or adds the value to the address in the map.
-func (em *EndpointMap[T]) Set(e Endpoint, value T) {
-	en := encodeEndpoint(e)
-	em.endpoints[en] = endpointData[T]{
-		decodedKey: Endpoint{Addresses: e.Addresses},
-		value:      value,
+func (em *EndpointMap) Set(e Endpoint, value any) {
+	en := toEndpointNode(e)
+	if endpoint := em.find(en); endpoint != nil {
+		em.endpoints[endpoint] = value
+		return
 	}
+	em.endpoints[&en] = value
 }
 
 // Len returns the number of entries in the map.
-func (em *EndpointMap[T]) Len() int {
+func (em *EndpointMap) Len() int {
 	return len(em.endpoints)
 }
 
@@ -223,25 +209,43 @@ func (em *EndpointMap[T]) Len() int {
 // the unordered set of addresses. Thus, endpoint information returned is not
 // the full endpoint data (drops duplicated addresses and attributes) but can be
 // used for EndpointMap accesses.
-func (em *EndpointMap[T]) Keys() []Endpoint {
+func (em *EndpointMap) Keys() []Endpoint {
 	ret := make([]Endpoint, 0, len(em.endpoints))
-	for _, en := range em.endpoints {
-		ret = append(ret, en.decodedKey)
+	for en := range em.endpoints {
+		var endpoint Endpoint
+		for addr := range en.addrs {
+			endpoint.Addresses = append(endpoint.Addresses, Address{Addr: addr})
+		}
+		ret = append(ret, endpoint)
 	}
 	return ret
 }
 
 // Values returns a slice of all current map values.
-func (em *EndpointMap[T]) Values() []T {
-	ret := make([]T, 0, len(em.endpoints))
+func (em *EndpointMap) Values() []any {
+	ret := make([]any, 0, len(em.endpoints))
 	for _, val := range em.endpoints {
-		ret = append(ret, val.value)
+		ret = append(ret, val)
 	}
 	return ret
 }
 
+// find returns a pointer to the endpoint node in em if the endpoint node is
+// already present. If not found, nil is returned. The comparisons are done on
+// the unordered set of addresses within an endpoint.
+func (em EndpointMap) find(e endpointNode) *endpointNode {
+	for endpoint := range em.endpoints {
+		if e.Equal(endpoint) {
+			return endpoint
+		}
+	}
+	return nil
+}
+
 // Delete removes the specified endpoint from the map.
-func (em *EndpointMap[T]) Delete(e Endpoint) {
-	en := encodeEndpoint(e)
-	delete(em.endpoints, en)
+func (em *EndpointMap) Delete(e Endpoint) {
+	en := toEndpointNode(e)
+	if entry := em.find(en); entry != nil {
+		delete(em.endpoints, entry)
+	}
 }

@@ -23,7 +23,6 @@ import (
 	"gvisor.dev/gvisor/pkg/tcpip/ports"
 )
 
-// +stateify savable
 type protocolIDs struct {
 	network   tcpip.NetworkProtocolNumber
 	transport tcpip.TransportProtocolNumber
@@ -31,10 +30,8 @@ type protocolIDs struct {
 
 // transportEndpoints manages all endpoints of a given protocol. It has its own
 // mutex so as to reduce interference between protocols.
-//
-// +stateify savable
 type transportEndpoints struct {
-	mu transportEndpointsRWMutex `state:"nosave"`
+	mu transportEndpointsRWMutex
 	// +checklocks:mu
 	endpoints map[TransportEndpointID]*endpointsByNIC
 	// rawEndpoints contains endpoints for raw sockets, which receive all
@@ -136,12 +133,11 @@ func (eps *transportEndpoints) findEndpointLocked(id TransportEndpointID) *endpo
 	return matchedEP
 }
 
-// +stateify savable
 type endpointsByNIC struct {
 	// seed is a random secret for a jenkins hash.
 	seed uint32
 
-	mu endpointsByNICRWMutex `state:"nosave"`
+	mu endpointsByNICRWMutex
 	// +checklocks:mu
 	endpoints map[tcpip.NICID]*multiPortEndpoint
 }
@@ -270,8 +266,6 @@ func (epsByNIC *endpointsByNIC) unregisterEndpoint(bindToDevice tcpip.NICID, t T
 // of demultiplexing: first based on the network and transport protocols, then
 // based on endpoints IDs. It should only be instantiated via
 // newTransportDemuxer.
-//
-// +stateify savable
 type transportDemuxer struct {
 	stack *Stack
 

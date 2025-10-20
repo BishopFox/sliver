@@ -26,10 +26,10 @@ import (
 	"log"
 	// {{end}}
 
-	"github.com/bishopfox/sliver/implant/sliver/forwarder"
-	"github.com/bishopfox/sliver/implant/sliver/transports/wireguard"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
-	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/forwarder"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/transports/wireguard"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/commonpb"
+	pb "github.com/gsmith257-cyber/better-sliver-package/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -68,6 +68,9 @@ func wgStartPortfwdHandler(data []byte, resp RPCResponse) {
 			LocalAddr:  fwder.LocalAddr(),
 			RemoteAddr: fwder.RemoteAddr(),
 		},
+	}
+	if err != nil {
+		fwdResp.Response.Err = err.Error()
 	}
 	data, err = proto.Marshal(fwdResp)
 	resp(data, err)

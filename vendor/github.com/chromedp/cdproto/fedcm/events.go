@@ -10,7 +10,7 @@ type EventDialogShown struct {
 	DialogType DialogType `json:"dialogType"`
 	Accounts   []*Account `json:"accounts"`
 	Title      string     `json:"title"` // These exist primarily so that the caller can verify the RP context was used appropriately.
-	Subtitle   string     `json:"subtitle,omitempty,omitzero"`
+	Subtitle   string     `json:"subtitle,omitempty"`
 }
 
 // EventDialogClosed triggered when a dialog is closed, either by user

@@ -33,7 +33,7 @@ func newKeyLogger() *os.File {
 	if present {
 		keyFile, err := os.OpenFile(keyFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 		if err != nil {
-			certsLog.Errorf("%s", fmt.Sprintf("Failed to open TLS key file %v", err))
+			certsLog.Errorf(fmt.Sprintf("Failed to open TLS key file %v", err))
 			return nil
 		}
 		fmt.Printf("NOTICE: TLS Keys logged to '%s'\n", keyFilePath)

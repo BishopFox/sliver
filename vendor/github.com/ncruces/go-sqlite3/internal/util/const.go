@@ -1,6 +1,6 @@
 package util
 
-// https://sqlite.com/rescode.html
+// https://sqlite.com/matrix/rescode.html
 const (
 	OK = 0 /* Successful result */
 

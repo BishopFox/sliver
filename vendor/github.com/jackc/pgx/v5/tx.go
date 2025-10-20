@@ -3,6 +3,7 @@ package pgx
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -47,8 +48,6 @@ type TxOptions struct {
 	// BeginQuery is the SQL query that will be executed to begin the transaction. This allows using non-standard syntax
 	// such as BEGIN PRIORITY HIGH with CockroachDB. If set this will override the other settings.
 	BeginQuery string
-	// CommitQuery is the SQL query that will be executed to commit the transaction.
-	CommitQuery string
 }
 
 var emptyTxOptions TxOptions
@@ -102,14 +101,11 @@ func (c *Conn) BeginTx(ctx context.Context, txOptions TxOptions) (Tx, error) {
 	if err != nil {
 		// begin should never fail unless there is an underlying connection issue or
 		// a context timeout. In either case, the connection is possibly broken.
-		c.die()
+		c.die(errors.New("failed to begin transaction"))
 		return nil, err
 	}
 
-	return &dbTx{
-		conn:        c,
-		commitQuery: txOptions.CommitQuery,
-	}, nil
+	return &dbTx{conn: c}, nil
 }
 
 // Tx represents a database transaction.
@@ -158,7 +154,6 @@ type dbTx struct {
 	conn         *Conn
 	savepointNum int64
 	closed       bool
-	commitQuery  string
 }
 
 // Begin starts a pseudo nested transaction implemented with a savepoint.
@@ -182,12 +177,7 @@ func (tx *dbTx) Commit(ctx context.Context) error {
 		return ErrTxClosed
 	}
 
-	commandSQL := "commit"
-	if tx.commitQuery != "" {
-		commandSQL = tx.commitQuery
-	}
-
-	commandTag, err := tx.conn.Exec(ctx, commandSQL)
+	commandTag, err := tx.conn.Exec(ctx, "commit")
 	tx.closed = true
 	if err != nil {
 		if tx.conn.PgConn().TxStatus() != 'I' {
@@ -215,7 +205,7 @@ func (tx *dbTx) Rollback(ctx context.Context) error {
 	tx.closed = true
 	if err != nil {
 		// A rollback failure leaves the connection in an undefined state
-		tx.conn.die()
+		tx.conn.die(fmt.Errorf("rollback failed: %w", err))
 		return err
 	}
 

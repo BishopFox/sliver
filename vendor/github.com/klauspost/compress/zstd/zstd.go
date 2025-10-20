@@ -5,11 +5,10 @@ package zstd
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"log"
 	"math"
-
-	"github.com/klauspost/compress/internal/le"
 )
 
 // enable debug printing
@@ -89,10 +88,6 @@ var (
 	// Close has been called.
 	ErrDecoderClosed = errors.New("decoder used after Close")
 
-	// ErrEncoderClosed will be returned if the Encoder was used after
-	// Close has been called.
-	ErrEncoderClosed = errors.New("encoder used after Close")
-
 	// ErrDecoderNilInput is returned when a nil Reader was provided
 	// and an operation other than Reset/DecodeAll/Close was attempted.
 	ErrDecoderNilInput = errors.New("nil input provided as reader")
@@ -111,11 +106,11 @@ func printf(format string, a ...interface{}) {
 }
 
 func load3232(b []byte, i int32) uint32 {
-	return le.Load32(b, i)
+	return binary.LittleEndian.Uint32(b[:len(b):len(b)][i:])
 }
 
 func load6432(b []byte, i int32) uint64 {
-	return le.Load64(b, i)
+	return binary.LittleEndian.Uint64(b[:len(b):len(b)][i:])
 }
 
 type byter interface {

@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build goexperiment.exectracer2
+
 package sync
 
 // TraceBlockReason constants, from Go's src/runtime/trace2runtime.go.

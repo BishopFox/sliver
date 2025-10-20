@@ -20,8 +20,6 @@ import "gvisor.dev/gvisor/pkg/tcpip"
 
 // MultiCounterIPForwardingStats holds IP forwarding statistics. Each counter
 // may have several versions.
-//
-// +stateify savable
 type MultiCounterIPForwardingStats struct {
 	// Unrouteable is the number of IP packets received which were dropped
 	// because the netstack could not construct a route to their
@@ -78,10 +76,6 @@ type MultiCounterIPForwardingStats struct {
 	// Errors is the number of IP packets received which could not be
 	// successfully forwarded.
 	Errors tcpip.MultiCounterStat
-
-	// OutgoingDeviceClosedForSend is the number of packets that were dropped due
-	// to the outgoing device being closed for send.
-	OutgoingDeviceClosedForSend tcpip.MultiCounterStat
 }
 
 // Init sets internal counters to track a and b counters.
@@ -99,17 +93,14 @@ func (m *MultiCounterIPForwardingStats) Init(a, b *tcpip.IPForwardingStats) {
 	m.UnknownOutputEndpoint.Init(a.UnknownOutputEndpoint, b.UnknownOutputEndpoint)
 	m.NoMulticastPendingQueueBufferSpace.Init(a.NoMulticastPendingQueueBufferSpace, b.NoMulticastPendingQueueBufferSpace)
 	m.OutgoingDeviceNoBufferSpace.Init(a.OutgoingDeviceNoBufferSpace, b.OutgoingDeviceNoBufferSpace)
-	m.OutgoingDeviceClosedForSend.Init(a.OutgoingDeviceClosedForSend, b.OutgoingDeviceClosedForSend)
 }
 
-// LINT.ThenChange(../../../tcpip.go:IPForwardingStats)
+// LINT.ThenChange(:MultiCounterIPForwardingStats, ../../../tcpip.go:IPForwardingStats)
 
 // LINT.IfChange(MultiCounterIPStats)
 
 // MultiCounterIPStats holds IP statistics, each counter may have several
 // versions.
-//
-// +stateify savable
 type MultiCounterIPStats struct {
 	// PacketsReceived is the number of IP packets received from the link
 	// layer.
@@ -216,4 +207,4 @@ func (m *MultiCounterIPStats) Init(a, b *tcpip.IPStats) {
 	m.Forwarding.Init(&a.Forwarding, &b.Forwarding)
 }
 
-// LINT.ThenChange(../../../tcpip.go:IPStats)
+// LINT.ThenChange(:MultiCounterIPStats, ../../../tcpip.go:IPStats)

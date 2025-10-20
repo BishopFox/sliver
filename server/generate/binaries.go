@@ -32,18 +32,18 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/bishopfox/sliver/implant"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/server/assets"
-	"github.com/bishopfox/sliver/server/certs"
-	"github.com/bishopfox/sliver/server/configs"
-	"github.com/bishopfox/sliver/server/cryptography"
-	"github.com/bishopfox/sliver/server/db/models"
-	"github.com/bishopfox/sliver/server/encoders"
-	"github.com/bishopfox/sliver/server/gogo"
-	"github.com/bishopfox/sliver/server/log"
-	"github.com/bishopfox/sliver/util"
-	utilEncoders "github.com/bishopfox/sliver/util/encoders"
+	"github.com/gsmith257-cyber/better-sliver-package/implant"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/server/assets"
+	"github.com/gsmith257-cyber/better-sliver-package/server/certs"
+	"github.com/gsmith257-cyber/better-sliver-package/server/configs"
+	"github.com/gsmith257-cyber/better-sliver-package/server/cryptography"
+	"github.com/gsmith257-cyber/better-sliver-package/server/db/models"
+	"github.com/gsmith257-cyber/better-sliver-package/server/encoders"
+	"github.com/gsmith257-cyber/better-sliver-package/server/gogo"
+	"github.com/gsmith257-cyber/better-sliver-package/server/log"
+	"github.com/gsmith257-cyber/better-sliver-package/util"
+	utilEncoders "github.com/gsmith257-cyber/better-sliver-package/util/encoders"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -153,7 +153,6 @@ func SliverShellcode(name string, build *clientpb.ImplantBuild, config *clientpb
 		Obfuscation: config.ObfuscateSymbols,
 		GOGARBLE:    goGarble(config),
 	}
-
 	pkgPath, err := renderSliverGoCode(name, build, config, goConfig, pbC2Implant)
 	if err != nil {
 		return "", err
@@ -227,7 +226,6 @@ func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clie
 		Obfuscation: config.ObfuscateSymbols,
 		GOGARBLE:    goGarble(config),
 	}
-
 	pkgPath, err := renderSliverGoCode(name, build, config, goConfig, pbC2Implant)
 	if err != nil {
 		return "", err
@@ -769,7 +767,7 @@ func findCrossCompilers(targetGOOS string, targetGOARCH string) (string, string)
 		}
 		if targetGOARCH == "arm64" && cc == "" {
 			buildLog.Debugf("Using default osxcross cc/cxx for %s/%s", targetGOOS, targetGOARCH)
-			cc = "/opt/osxcross/bin/aarch64-apple-darwin25-clang"
+			cc = "/opt/osxcross/target/bin/aarch64-apple-darwin20.2-clang"
 			if cxx == "" {
 				cxx = cc
 			}

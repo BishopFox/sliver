@@ -5,6 +5,7 @@ abdomen
 ability
 abolishment
 abroad
+abuse
 accelerant
 accelerator
 access
@@ -232,7 +233,7 @@ backbone
 backdrop
 background
 backpack
-bacon
+beacon
 bad
 badge
 badger
@@ -418,6 +419,7 @@ bolt
 bomb
 bomber
 bondsman
+bone
 bongo
 bonnet
 bonsai
@@ -957,6 +959,9 @@ cow
 cowbell
 cowboy
 crab
+crack
+cracker
+crackers
 cradle
 craft
 craftsman
@@ -1564,6 +1569,7 @@ force
 forearm
 forebear
 forecast
+forehead
 forest
 forestry
 forever
@@ -1820,6 +1826,7 @@ haunt
 haversack
 hawk
 hay
+head
 headlight
 headline
 headrest
@@ -1873,6 +1880,7 @@ hockey
 hoe
 hog
 hold
+hole
 holiday
 home
 homework
@@ -2386,6 +2394,7 @@ meet
 meeting
 megaliac
 melody
+member
 membership
 memory
 men
@@ -2931,6 +2940,7 @@ poignance
 point
 poison
 poisoning
+pole
 polenta
 police
 policeman
@@ -3059,6 +3069,7 @@ puffin
 pull
 pulley
 puma
+pump
 pumpkin
 pumpkinseed
 punch
@@ -3269,6 +3280,7 @@ rock
 rocker
 rocket
 rocket-ship
+rod
 role
 roll
 roller
@@ -3290,6 +3302,7 @@ row
 rowboat
 royal
 rub
+rubber
 rubbish
 rubric
 ruckus
@@ -3306,6 +3319,7 @@ rutabaga
 ruth
 ry
 sabre
+sack
 sad
 saddle
 safe
@@ -3676,6 +3690,7 @@ stable
 stack
 stacking
 stadium
+staff
 stag
 stage
 stain
@@ -3996,6 +4011,7 @@ ton
 tone
 tongue
 tonight
+tool
 toot
 tooth
 toothbrush
@@ -4328,6 +4344,7 @@ wolf
 wombat
 women
 wonder
+wood
 woodland
 woodshed
 woodwind

@@ -312,7 +312,6 @@ const (
 	TsVarSet                                    // -v
 	TsRefVar                                    // -R
 	TsNot     = UnTestOperator(exclMark)        // !
-	TsParen   = UnTestOperator(leftParen)       // (
 )
 
 type BinTestOperator token

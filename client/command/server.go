@@ -19,40 +19,38 @@ package command
 */
 
 import (
-	"fmt"
 	"os"
 
-	"github.com/bishopfox/sliver/client/command/alias"
-	"github.com/bishopfox/sliver/client/command/armory"
-	"github.com/bishopfox/sliver/client/command/beacons"
-	"github.com/bishopfox/sliver/client/command/builders"
-	"github.com/bishopfox/sliver/client/command/c2profiles"
-	"github.com/bishopfox/sliver/client/command/certificates"
-	"github.com/bishopfox/sliver/client/command/clean"
-	"github.com/bishopfox/sliver/client/command/crack"
-	"github.com/bishopfox/sliver/client/command/creds"
-	"github.com/bishopfox/sliver/client/command/exit"
-	"github.com/bishopfox/sliver/client/command/extensions"
-	"github.com/bishopfox/sliver/client/command/generate"
-	"github.com/bishopfox/sliver/client/command/hosts"
-	"github.com/bishopfox/sliver/client/command/info"
-	"github.com/bishopfox/sliver/client/command/jobs"
-	"github.com/bishopfox/sliver/client/command/licenses"
-	"github.com/bishopfox/sliver/client/command/loot"
-	"github.com/bishopfox/sliver/client/command/monitor"
-	"github.com/bishopfox/sliver/client/command/operators"
-	"github.com/bishopfox/sliver/client/command/reaction"
-	"github.com/bishopfox/sliver/client/command/sessions"
-	"github.com/bishopfox/sliver/client/command/settings"
-	sgn "github.com/bishopfox/sliver/client/command/shikata-ga-nai"
-	"github.com/bishopfox/sliver/client/command/socks"
-	"github.com/bishopfox/sliver/client/command/taskmany"
-	"github.com/bishopfox/sliver/client/command/update"
-	"github.com/bishopfox/sliver/client/command/use"
-	"github.com/bishopfox/sliver/client/command/websites"
-	"github.com/bishopfox/sliver/client/command/wireguard"
-	client "github.com/bishopfox/sliver/client/console"
-	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/alias"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/armory"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/beacons"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/builders"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/c2profiles"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/certificates"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/clean"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/crack"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/creds"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/exit"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/generate"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/hosts"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/info"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/jobs"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/licenses"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/loot"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/monitor"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/operators"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/reaction"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/sessions"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/settings"
+	sgn "github.com/gsmith257-cyber/better-sliver-package/client/command/shikata-ga-nai"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/socks"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/taskmany"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/update"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/use"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/websites"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/wireguard"
+	client "github.com/gsmith257-cyber/better-sliver-package/client/console"
+	consts "github.com/gsmith257-cyber/better-sliver-package/client/constants"
 	"github.com/reeflective/console"
 	"github.com/spf13/cobra"
 )
@@ -93,7 +91,6 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 			licenses.Commands,
 			settings.Commands,
 			alias.Commands,
-			extensions.Commands,
 			armory.Commands,
 			update.Commands,
 			operators.Commands,
@@ -133,26 +130,6 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 		)
 
 		// [ Post-command declaration setup ]-----------------------------------------
-
-		// Load Extensions
-		// Similar to the SliverCommand loading, without adding the commands to the
-		// Server command tree. This is done to ensure that the extensions are loaded
-		// before the server is started, so that the extensions are registered.
-		extensionManifests := extensions.GetAllExtensionManifests()
-		for _, manifest := range extensionManifests {
-			_, err := extensions.LoadExtensionManifest(manifest)
-			// Absorb error in case there's no extensions manifest
-			if err != nil {
-				//con doesn't appear to be initialised here?
-				//con.PrintErrorf("Failed to load extension: %s", err)
-				fmt.Printf("Failed to load extension: %s\n", err)
-				continue
-			}
-
-			//for _, ext := range mext.ExtCommand {
-			//	extensions.ExtensionRegisterCommand(ext, sliver, con)
-			//}
-		}
 
 		// Everything below this line should preferably not be any command binding
 		// (although you can do so without fear). If there are any final modifications

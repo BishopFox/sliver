@@ -24,16 +24,17 @@ import (
 	// {{end}}
 
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
 	"runtime"
-	"strconv"
+       "strconv"
 	"syscall"
 
-	"github.com/bishopfox/sliver/implant/sliver/ps"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/ps"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/commonpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
 
 	"golang.org/x/sys/unix"
@@ -48,7 +49,7 @@ func psHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	procs, err := ps.Processes(psListReq.FullInfo)
+	procs, err := ps.Processes()
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("failed to list procs %v", err)
@@ -108,7 +109,7 @@ func nsLinuxIfconfig(interfaces *sliverpb.Ifconfig) {
 	namespacesFound := make(map[uint64]string)
 
 	procDir := "/proc"
-	procContents, err := os.ReadDir(procDir)
+	procContents, err := ioutil.ReadDir(procDir)
 
 	if err != nil {
 		//{{if .Config.Debug}}
@@ -154,12 +155,12 @@ func nsLinuxIfconfig(interfaces *sliverpb.Ifconfig) {
 	// Save the current network namespace
 	pidPath := strconv.Itoa(os.Getpid())
 	tidPath := strconv.Itoa(unix.Gettid())
-	origns, _ := getFdFromPath(filepath.Join(procDir, pidPath, "/task", tidPath, "/ns/net"))
+       origns, _ := getFdFromPath(filepath.Join(procDir, pidPath, "/task", tidPath, "/ns/net"))
 	defer unix.Close(origns)
 
 	// We only need to use the path value
-	for _, nsPath := range namespacesFound {
-		nsFd, err := unix.Open(nsPath, unix.O_RDONLY|unix.O_CLOEXEC, 0)
+       for _, nsPath := range namespacesFound {
+               nsFd, err := unix.Open(nsPath, unix.O_RDONLY|unix.O_CLOEXEC, 0)
 		if err != nil {
 			continue
 		}
@@ -179,7 +180,7 @@ func nsLinuxIfconfig(interfaces *sliverpb.Ifconfig) {
 		// {{if .Config.Debug}}
 		log.Printf("Interfaces: %v\n", ifaces)
 		// {{end}}
-		ifconfigParseInterfaces(ifaces, interfaces, nsPath)
+               ifconfigParseInterfaces(ifaces, interfaces, nsPath)
 	}
 	// Switch back to the original namespace
 	unix.Setns(origns, unix.CLONE_NEWNET)
@@ -204,8 +205,8 @@ func ifconfigLinux() *sliverpb.Ifconfig {
 func ifconfigParseInterfaces(netInterfaces []net.Interface, interfaces *sliverpb.Ifconfig, namespacePath ...string) {
 	// Append namespace ID if passed in
 	var appendNsId = ""
-	if len(namespacePath) > 0 {
-		appendNsId = fmt.Sprintf(" NS(%v)", namespacePath[0])
+       if len(namespacePath) > 0 {
+               appendNsId = fmt.Sprintf(" NS(%v)",namespacePath[0])
 	}
 
 	for _, iface := range netInterfaces {

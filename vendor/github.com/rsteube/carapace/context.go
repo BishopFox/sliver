@@ -9,9 +9,9 @@ import (
 
 	"github.com/rsteube/carapace/internal/env"
 	"github.com/rsteube/carapace/internal/shell/zsh"
-	"github.com/rsteube/carapace/pkg/execlog"
 	"github.com/rsteube/carapace/pkg/util"
 	"github.com/rsteube/carapace/third_party/github.com/drone/envsubst"
+	"github.com/rsteube/carapace/third_party/golang.org/x/sys/execabs"
 	"github.com/spf13/cobra"
 )
 
@@ -88,16 +88,16 @@ func (c Context) Envsubst(s string) (string, error) {
 // Command returns the Cmd struct to execute the named program with the given arguments.
 // Env and Dir are set using the Context.
 // See exec.Command for most details.
-func (c Context) Command(name string, arg ...string) *execlog.Cmd {
+func (c Context) Command(name string, arg ...string) *execabs.Cmd {
 	if c.mockedReplies != nil {
 		if m, err := json.Marshal(append([]string{name}, arg...)); err == nil {
 			if reply, exists := c.mockedReplies[string(m)]; exists {
-				return execlog.Command("echo", reply) // TODO use mock
+				return execabs.Command("echo", reply)
 			}
 		}
 	}
 
-	cmd := execlog.Command(name, arg...)
+	cmd := execabs.Command(name, arg...)
 	cmd.Env = c.Env
 	cmd.Dir = c.Dir
 	return cmd

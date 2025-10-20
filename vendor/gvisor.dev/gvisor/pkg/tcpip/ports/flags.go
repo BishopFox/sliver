@@ -91,8 +91,6 @@ func (f BitFlags) ToFlags() Flags {
 }
 
 // FlagCounter counts how many references each flag combination has.
-//
-// +stateify savable
 type FlagCounter struct {
 	// refs stores the count for each possible flag combination, (0 though
 	// FlagMask).

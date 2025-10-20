@@ -1,10 +1,10 @@
 package generate
 
 import (
-	"github.com/bishopfox/sliver/client/command/flags"
-	"github.com/bishopfox/sliver/client/command/help"
-	"github.com/bishopfox/sliver/client/console"
-	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/flags"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/help"
+	"github.com/gsmith257-cyber/better-sliver-package/client/console"
+	consts "github.com/gsmith257-cyber/better-sliver-package/client/constants"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -47,6 +47,30 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	coreImplantFlagCompletions(generateBeaconCmd, con)
 
 	generateCmd.AddCommand(generateBeaconCmd)
+
+	generateStagerCmd := &cobra.Command{
+		Use:   consts.MsfStagerStr,
+		Short: "Generate a stager using Metasploit (requires local Metasploit installation)",
+		Long:  help.GetHelpFor([]string{consts.MsfStagerStr}),
+		Run: func(cmd *cobra.Command, args []string) {
+			GenerateStagerCmd(cmd, con, args)
+		},
+	}
+	flags.Bind("stager", false, generateStagerCmd, func(f *pflag.FlagSet) {
+		f.StringP("os", "o", "windows", "operating system")
+		f.StringP("arch", "a", "amd64", "cpu architecture")
+		f.StringP("lhost", "L", "", "Listening host")
+		f.Uint32P("lport", "l", 8443, "Listening port")
+		f.StringP("protocol", "r", "tcp", "Staging protocol (tcp/http/https)")
+		f.StringP("format", "f", "raw", "Output format (msfvenom formats, see help generate msf-stager for the list)")
+		f.StringP("badchars", "b", "", "bytes to exclude from stage shellcode")
+		f.StringP("save", "s", "", "directory to save the generated stager to")
+		f.StringP("advanced", "d", "", "Advanced options for the stager using URI query syntax (option1=value1&option2=value2...)")
+	})
+	flags.BindFlagCompletions(generateStagerCmd, func(comp *carapace.ActionMap) {
+		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
+	})
+	generateCmd.AddCommand(generateStagerCmd)
 
 	generateInfoCmd := &cobra.Command{
 		Use:   consts.CompilerInfoStr,
@@ -143,8 +167,6 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind("profiles", false, profilesGenerateCmd, func(f *pflag.FlagSet) {
 		f.StringP("save", "s", "", "directory/file to the binary to")
 		f.BoolP("disable-sgn", "G", false, "disable shikata ga nai shellcode encoder")
-		f.StringP("name", "n", "", "Implant name")
-
 	})
 	flags.BindFlagCompletions(profilesGenerateCmd, func(comp *carapace.ActionMap) {
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
@@ -309,7 +331,7 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 		f.BoolP("evasion", "e", false, "enable evasion features (e.g. overwrite user space hooks)")
 		f.BoolP("skip-symbols", "l", false, "skip symbol obfuscation")
 		f.BoolP("disable-sgn", "G", false, "disable shikata ga nai shellcode encoder")
-		f.StringP("exports", "v", "StartW,VoidFunc,DllInstall,DllRegisterServer,DllUnregisterServer", "comma separated list of exports to include in the binary")
+
 		f.StringP("canary", "c", "", "canary domain(s)")
 
 		// C2 channels
@@ -355,7 +377,6 @@ func coreImplantFlagCompletions(cmd *cobra.Command, con *console.SliverClient) {
 		(*comp)["format"] = FormatCompleter()
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
 		(*comp)["traffic-encoders"] = TrafficEncodersCompleter(con).UniqueList(",")
-		(*comp)["c2profile"] = HTTPC2Completer(con)
 	})
 }
 

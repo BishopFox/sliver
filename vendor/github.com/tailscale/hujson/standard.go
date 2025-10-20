@@ -14,10 +14,8 @@ func (v *Value) isStandard() bool {
 		return false
 	}
 	if comp, ok := v.Value.(composite); ok {
-		for v2 := range comp.allValues() {
-			if !v2.isStandard() {
-				return false
-			}
+		if !comp.rangeValues((*Value).isStandard) {
+			return false
 		}
 		if hasTrailingComma(comp) || !comp.afterExtra().IsStandard() {
 			return false
@@ -43,16 +41,15 @@ func (v *Value) Minimize() {
 	v.minimize()
 	v.UpdateOffsets()
 }
-func (v *Value) minimize() {
+func (v *Value) minimize() bool {
 	v.BeforeExtra = nil
 	if v2, ok := v.Value.(composite); ok {
-		for v3 := range v2.allValues() {
-			v3.minimize()
-		}
+		v2.rangeValues((*Value).minimize)
 		setTrailingComma(v2, false)
 		*v2.afterExtra() = nil
 	}
 	v.AfterExtra = nil
+	return true
 }
 
 // Standardize strips any features specific to HuJSON from v,
@@ -63,12 +60,10 @@ func (v *Value) Standardize() {
 	v.standardize()
 	v.UpdateOffsets() // should be noop if offsets are already correct
 }
-func (v *Value) standardize() {
+func (v *Value) standardize() bool {
 	v.BeforeExtra.standardize()
 	if comp, ok := v.Value.(composite); ok {
-		for v2 := range comp.allValues() {
-			v2.standardize()
-		}
+		comp.rangeValues((*Value).standardize)
 		if last := comp.lastValue(); last != nil && last.AfterExtra != nil {
 			*comp.afterExtra() = append(append(last.AfterExtra, ' '), *comp.afterExtra()...)
 			last.AfterExtra = nil
@@ -76,6 +71,7 @@ func (v *Value) standardize() {
 		comp.afterExtra().standardize()
 	}
 	v.AfterExtra.standardize()
+	return true
 }
 func (b *Extra) standardize() {
 	for i, c := range *b {

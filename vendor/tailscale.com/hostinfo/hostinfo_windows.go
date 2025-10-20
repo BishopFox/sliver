@@ -72,6 +72,10 @@ func packageTypeWindows() string {
 	if _, err := os.Stat(`C:\ProgramData\chocolatey\lib\tailscale`); err == nil {
 		return "choco"
 	}
+	msiSentinel, _ := winutil.GetRegInteger("MSI")
+	if msiSentinel == 1 {
+		return "msi"
+	}
 	exe, err := os.Executable()
 	if err != nil {
 		return ""
@@ -80,15 +84,13 @@ func packageTypeWindows() string {
 	if strings.HasPrefix(exe, filepath.Join(home, "scoop", "apps", "tailscale")) {
 		return "scoop"
 	}
-	msiSentinel, _ := winutil.GetRegInteger("MSI")
-	if msiSentinel != 1 {
-		// Atypical. Not worth trying to detect. Likely open
-		// source tailscaled or a developer running by hand.
-		return ""
+	dir := filepath.Dir(exe)
+	nsisUninstaller := filepath.Join(dir, "Uninstall-Tailscale.exe")
+	_, err = os.Stat(nsisUninstaller)
+	if err == nil {
+		return "nsis"
 	}
-	result := "msi"
-	if env, _ := winutil.GetRegString("MSIDist"); env != "" {
-		result += "/" + env
-	}
-	return result
+	// Atypical. Not worth trying to detect. Likely open
+	// source tailscaled or a developer running by hand.
+	return ""
 }

@@ -23,7 +23,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/bishopfox/sliver/client/console"
+	"github.com/gsmith257-cyber/better-sliver-package/client/console"
 )
 
 // LootFetchCmd - Display the contents of or download a piece of loot

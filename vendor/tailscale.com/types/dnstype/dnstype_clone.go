@@ -25,7 +25,6 @@ func (src *Resolver) Clone() *Resolver {
 var _ResolverCloneNeedsRegeneration = Resolver(struct {
 	Addr                string
 	BootstrapResolution []netip.Addr
-	UseWithExitNode     bool
 }{})
 
 // Clone duplicates src into dst and reports whether it succeeded.

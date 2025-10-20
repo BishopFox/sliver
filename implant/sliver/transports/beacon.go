@@ -33,19 +33,19 @@ import (
 	// {{if .Config.IncludeMTLS}}
 	"crypto/tls"
 
-	"github.com/bishopfox/sliver/implant/sliver/transports/mtls"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/transports/mtls"
 
 	// {{end}}
 
 	// {{if .Config.IncludeHTTP}}
-	"github.com/bishopfox/sliver/implant/sliver/transports/httpclient"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/transports/httpclient"
 	// {{end}}
 
 	// {{if .Config.IncludeWG}}
 	"errors"
 	"net"
 
-	"github.com/bishopfox/sliver/implant/sliver/transports/wireguard"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/transports/wireguard"
 	"golang.zx2c4.com/wireguard/device"
 
 	// {{end}}
@@ -56,10 +56,10 @@ import (
 
 	// {{if .Config.IncludeDNS}}
 
-	"github.com/bishopfox/sliver/implant/sliver/transports/dnsclient"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/transports/dnsclient"
 	// {{end}}
 
-	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	pb "github.com/gsmith257-cyber/better-sliver-package/protobuf/sliverpb"
 )
 
 var (

@@ -1,11 +1,11 @@
 package filesystem
 
 import (
-	"github.com/bishopfox/sliver/client/command/flags"
-	"github.com/bishopfox/sliver/client/command/help"
-	"github.com/bishopfox/sliver/client/command/loot"
-	"github.com/bishopfox/sliver/client/console"
-	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/flags"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/help"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/loot"
+	"github.com/gsmith257-cyber/better-sliver-package/client/console"
+	consts "github.com/gsmith257-cyber/better-sliver-package/client/constants"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -295,7 +295,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("file-type", "F", "", "force a specific file type (binary/text) if looting (optional)")
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 		f.Int64P("bytes", "b", 0, "Grab the first number of bytes from the file")
-		f.Int64P("lines", "l", 10, "Grab the first number of lines from the file")
+		f.Int64P("lines", "l", 0, "Grab the first number of lines from the file")
 	})
 	carapace.Gen(headCmd).PositionalCompletion(carapace.ActionValues().Usage("path to the file to print"))
 
@@ -322,7 +322,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("file-type", "F", "", "force a specific file type (binary/text) if looting (optional)")
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 		f.Int64P("bytes", "b", 0, "Grab the last number of bytes from the file")
-		f.Int64P("lines", "l", 10, "Grab the last number of lines from the file")
+		f.Int64P("lines", "l", 0, "Grab the last number of lines from the file")
 	})
 	carapace.Gen(tailCmd).PositionalCompletion(carapace.ActionValues().Usage("path to the file to print"))
 

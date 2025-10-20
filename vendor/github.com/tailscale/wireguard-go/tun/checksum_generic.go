@@ -7,7 +7,7 @@ package tun
 
 import "strconv"
 
-func Checksum(data []byte, initial uint16) uint16 {
+func checksum(data []byte, initial uint16) uint16 {
 	if strconv.IntSize < 64 {
 		return checksumGeneric32(data, initial)
 	}

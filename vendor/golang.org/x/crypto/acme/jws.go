@@ -92,7 +92,7 @@ func jwsEncodeJSON(claimset interface{}, key crypto.Signer, kid KeyID, nonce, ur
 	if err != nil {
 		return nil, err
 	}
-	phead := base64.RawURLEncoding.EncodeToString(phJSON)
+	phead := base64.RawURLEncoding.EncodeToString([]byte(phJSON))
 	var payload string
 	if val, ok := claimset.(string); ok {
 		payload = val

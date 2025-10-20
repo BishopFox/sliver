@@ -47,7 +47,7 @@ func getImports(imports map[string]struct{}, dir string) error {
 		for _, imp := range file.Imports {
 			impPath := strings.ToLower(imp.Path.Value)
 			// skip local packages, those shouldn't be vendored
-			if strings.HasPrefix(impPath, `"github.com/bishopfox/sliver`) {
+			if strings.HasPrefix(impPath, `"github.com/gsmith257-cyber/better-sliver-package`) {
 				continue
 			}
 

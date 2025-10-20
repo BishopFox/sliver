@@ -10,13 +10,11 @@ import (
 	"fmt"
 	"strings"
 	"unicode"
-
-	"tailscale.com/util/slicesx"
 )
 
 func formatMaybePrintable(b []byte) string {
-	// Remove a single trailing null, if any.
-	if slicesx.LastEqual(b, 0) {
+	// Remove a single trailing null, if any
+	if len(b) > 0 && b[len(b)-1] == 0 {
 		b = b[:len(b)-1]
 	}
 

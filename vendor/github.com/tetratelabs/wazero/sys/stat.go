@@ -29,7 +29,9 @@ type EpochNanos = int64
 // # Notes
 //
 //   - This is used for WebAssembly ABI emulating the POSIX `stat` system call.
-//     See https://pubs.opengroup.org/onlinepubs/9699919799/functions/stat.html
+//     Fields included are required for WebAssembly ABI including wasip1
+//     (a.k.a. wasix) and wasi-filesystem (a.k.a. wasip2). See
+//     https://pubs.opengroup.org/onlinepubs/9699919799/functions/stat.html
 //   - Fields here are required for WebAssembly ABI including wasip1
 //     (a.k.a. wasix) and wasi-filesystem (a.k.a. wasip2).
 //   - This isn't the same as syscall.Stat_t because wazero supports Windows,

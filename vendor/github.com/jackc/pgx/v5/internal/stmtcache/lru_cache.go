@@ -31,6 +31,7 @@ func (c *LRUCache) Get(key string) *pgconn.StatementDescription {
 	}
 
 	return nil
+
 }
 
 // Put stores sd in the cache. Put panics if sd.SQL is "". Put does nothing if sd.SQL already exists in the cache or

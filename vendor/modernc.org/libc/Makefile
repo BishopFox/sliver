@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-.PHONY:	all build_all_targets check clean download edit editor generate dev membrk-test test work xtest short-test xlibc libc-test surface vet
+.PHONY:	all build_all_targets check clean download edit editor generate dev membrk-test test work xtest short-test xlibc libc-test surface
 
 SHELL=/bin/bash -o pipefail	
 
@@ -14,7 +14,7 @@ all: editor
 	golint 2>&1
 	staticcheck 2>&1
 
-build_all_targets: vet
+build_all_targets:
 	./build_all_targets.sh
 	echo done
 
@@ -32,30 +32,36 @@ download:
 	@if [ ! -f $(TAR) ]; then wget $(URL) ; fi
 
 edit:
-	@if [ -f "Session.vim" ]; then gvim -S & else gvim -p Makefile go.mod builder.json & fi
+	@touch log
+	@if [ -f "Session.vim" ]; then novim -S & else novim -p Makefile all_musl_test.go generator.go libc.go libc_musl.go & fi
 
 editor:
-	# gofmt -l -s -w *.go
-	go test -c -o /dev/null
-	go build -o /dev/null -v generator*.go
-	go vet 2>&1 | grep -n 'asm_' || true
+	gofmt -l -s -w *.go 2>&1 | tee log-editor
+	go test -c -o /dev/null 2>&1 | tee -a log-editor
+	go install -v  2>&1 | tee -a log-editor
+	go build -o /dev/null generator*.go
 
 generate: download
 	mkdir -p $(DIR) || true
 	rm -rf $(DIR)/*
-	GO_GENERATE_DIR=$(DIR) go run generator*.go
+	GO_GENERATE_DIR=$(DIR) go run generator*.go 2>&1 | tee log-generate
 	go build -v
-	go test -v -short -count=1 ./...
-	git status
+	# go install github.com/mdempsky/unconvert@latest
+	go build -v 2>&1 | tee -a log-generate
+	go test -v -short -count=1 ./... | tee -a log-generate
+	git status | tee -a log-generate
+	grep 'TRC\|TODO\|ERRORF\|FAIL' log-generate || true
 
 dev: download
 	mkdir -p $(DIR) || true
 	rm -rf $(DIR)/*
 	echo -n > /tmp/ccgo.log
-	GO_GENERATE_DIR=$(DIR) GO_GENERATE_DEV=1 go run -tags=ccgo.dmesg,ccgo.assert generator*.go
-	go build -v
-	go test -v -short -count=1 ./...
-	git status
+	GO_GENERATE_DIR=$(DIR) GO_GENERATE_DEV=1 go run -tags=ccgo.dmesg,ccgo.assert generator*.go 2>&1 | tee log-generate
+	go build -v | tee -a log-generate
+	go test -v -short -count=1 ./... | tee -a log-generate
+	git status | tee -a log-generate
+	grep 'TRC\|TODO\|ERRORF\|FAIL' log-generate || true
+	grep 'TRC\|TODO\|ERRORF\|FAIL' /tmp/ccgo.log || true
 
 membrk-test:
 	echo -n > /tmp/ccgo.log
@@ -65,7 +71,10 @@ membrk-test:
 	grep -a 'TRC\|TODO\|ERRORF\|FAIL' log-test || true 2>&1 | tee -a log-test
 
 test:
-	go test -v -timeout 24h -count=1
+	echo -n > /tmp/ccgo.log
+	touch log-test
+	cp log-test log-test0
+	go test -v -timeout 24h -count=1 2>&1 | tee log-test
 
 short-test:
 	echo -n > /tmp/ccgo.log
@@ -114,6 +123,3 @@ work:
 surface:
 	surface > surface.new
 	surface surface.old surface.new > log-todo-surface || true
-
-vet:
-	go vet 2>&1 | grep abi0 | grep -v 'misuse' || true

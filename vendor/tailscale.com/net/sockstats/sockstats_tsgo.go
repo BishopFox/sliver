@@ -18,7 +18,6 @@ import (
 	"tailscale.com/net/netmon"
 	"tailscale.com/types/logger"
 	"tailscale.com/util/clientmetric"
-	"tailscale.com/version"
 )
 
 const IsAvailable = true
@@ -157,11 +156,7 @@ func withSockStats(ctx context.Context, label Label, logf logger.Logf) context.C
 		}
 	}
 	willOverwrite := func(trace *net.SockTrace) {
-		if version.IsUnstableBuild() {
-			// Only spam about this in dev builds.
-			// See https://github.com/tailscale/tailscale/issues/13731 for known problems.
-			logf("sockstats: trace %q was overwritten by another", label)
-		}
+		logf("sockstats: trace %q was overwritten by another", label)
 	}
 
 	return net.WithSockTrace(ctx, &net.SockTrace{
@@ -279,13 +274,7 @@ func setNetMon(netMon *netmon.Monitor) {
 		if ifName == "" {
 			return
 		}
-		// DefaultRouteInterface and Interface are gathered at different points in time.
-		// Check for existence first, to avoid a nil pointer dereference.
-		iface, ok := state.Interface[ifName]
-		if !ok {
-			return
-		}
-		ifIndex := iface.Index
+		ifIndex := state.Interface[ifName].Index
 		sockStats.mu.Lock()
 		defer sockStats.mu.Unlock()
 		// Ignore changes to unknown interfaces -- it would require

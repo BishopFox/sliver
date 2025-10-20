@@ -597,16 +597,19 @@ func writeRequiredFlag(buf io.StringWriter, cmd *Command) {
 		if nonCompletableFlag(flag) {
 			return
 		}
-		if _, ok := flag.Annotations[BashCompOneRequiredFlag]; ok {
-			format := "    must_have_one_flag+=(\"--%s"
-			if flag.Value.Type() != "bool" {
-				format += "="
-			}
-			format += cbn
-			WriteStringAndCheck(buf, fmt.Sprintf(format, flag.Name))
+		for key := range flag.Annotations {
+			switch key {
+			case BashCompOneRequiredFlag:
+				format := "    must_have_one_flag+=(\"--%s"
+				if flag.Value.Type() != "bool" {
+					format += "="
+				}
+				format += cbn
+				WriteStringAndCheck(buf, fmt.Sprintf(format, flag.Name))
 
-			if len(flag.Shorthand) > 0 {
-				WriteStringAndCheck(buf, fmt.Sprintf("    must_have_one_flag+=(\"-%s"+cbn, flag.Shorthand))
+				if len(flag.Shorthand) > 0 {
+					WriteStringAndCheck(buf, fmt.Sprintf("    must_have_one_flag+=(\"-%s"+cbn, flag.Shorthand))
+				}
 			}
 		}
 	})
@@ -618,7 +621,7 @@ func writeRequiredNouns(buf io.StringWriter, cmd *Command) {
 	for _, value := range cmd.ValidArgs {
 		// Remove any description that may be included following a tab character.
 		// Descriptions are not supported by bash completion.
-		value = strings.SplitN(value, "\t", 2)[0]
+		value = strings.Split(value, "\t")[0]
 		WriteStringAndCheck(buf, fmt.Sprintf("    must_have_one_noun+=(%q)\n", value))
 	}
 	if cmd.ValidArgsFunction != nil {

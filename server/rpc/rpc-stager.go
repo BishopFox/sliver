@@ -22,10 +22,8 @@ import (
 	"context"
 	"net"
 
-	"github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/server/c2"
-	"github.com/bishopfox/sliver/server/db"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/server/c2"
 )
 
 // StartTCPStagerListener starts a TCP stager listener
@@ -38,17 +36,6 @@ func (rpc *Server) StartTCPStagerListener(ctx context.Context, req *clientpb.Sta
 	if err != nil {
 		return nil, err
 	}
-
-	listenerJob := &clientpb.ListenerJob{
-		JobID:   uint32(job.ID),
-		Type:    constants.StageListenerStr,
-		TCPConf: req,
-	}
-	err = db.SaveC2Listener(listenerJob)
-	if err != nil {
-		return nil, err
-	}
-
 	return &clientpb.StagerListener{JobID: uint32(job.ID)}, nil
 }
 

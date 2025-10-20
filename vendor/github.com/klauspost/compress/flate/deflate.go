@@ -861,7 +861,7 @@ func (d *compressor) reset(w io.Writer) {
 	}
 	switch d.compressionLevel.chain {
 	case 0:
-		// level was NoCompression or ConstantCompression.
+		// level was NoCompression or ConstantCompresssion.
 		d.windowEnd = 0
 	default:
 		s := d.state

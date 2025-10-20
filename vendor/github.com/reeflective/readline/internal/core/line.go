@@ -137,7 +137,7 @@ func (l *Line) Len() int {
 // (separated by punctuation or spaces) around the specified position.
 func (l *Line) SelectWord(pos int) (bpos, epos int) {
 	if l.Len() == 0 {
-		return bpos, epos
+		return
 	}
 
 	pos = l.checkPosRange(pos)
@@ -180,7 +180,7 @@ func (l *Line) SelectWord(pos int) (bpos, epos int) {
 // of a full bigword (blank word) around the specified position.
 func (l *Line) SelectBlankWord(pos int) (bpos, epos int) {
 	if l.Len() == 0 {
-		return bpos, epos
+		return
 	}
 
 	pos = l.checkPosRange(pos)
@@ -340,7 +340,6 @@ func DisplayLine(l *Line, indent int) {
 			if len(line)+indent < term.GetWidth() {
 				line += term.ClearLineAfter
 			}
-
 			line += term.NewlineReturn
 		}
 
@@ -498,7 +497,7 @@ func (l *Line) Tokenize(cpos int) ([]string, int, int) {
 		}
 	}
 
-	// ... so we adjust here for this case.
+	// ... so we ajust here for this case.
 	if cpos == len(line) {
 		index = len(split) - 1
 		pos = len(split[index])
@@ -555,7 +554,7 @@ func (l *Line) TokenizeSpace(cpos int) ([]string, int, int) {
 		}
 	}
 
-	// ... so we adjust here for this case.
+	// ... so we ajust here for this case.
 	if cpos == len(line) {
 		index = len(split) - 1
 		pos = len(split[index])
@@ -673,7 +672,6 @@ func closeToken(idx, count, cpos, match int, pos map[int]int, line []rune, split
 
 		return count, split
 	}
-
 	count--
 
 	return count, split
@@ -694,7 +692,7 @@ func (l *Line) checkRange(bpos, epos int) (int, int, bool) {
 		return -1, -1, false
 	}
 
-	// Check positions out of bound
+	// Check positions out of bounnd
 	if epos > l.Len() {
 		epos = l.Len()
 	}

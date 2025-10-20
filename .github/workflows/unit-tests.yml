@@ -21,12 +21,12 @@ jobs:
   linux-windows-build-test:
     name: Linux & Windows Test
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 90
     steps:
-      - name: Go 1.25
-        uses: actions/setup-go@v6
+      - name: Go 1.22
+        uses: actions/setup-go@v5
         with:
-          go-version: "^1.25"
+          go-version: "^1.22"
 
       - name: OS Packages
         run: |
@@ -34,10 +34,16 @@ jobs:
           git build-essential zlib1g zlib1g-dev wget zip unzip
 
       - name: Check Out Code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Git Fetch Tags
         run: git fetch --prune --unshallow --tags -f
+
+      - name: Make Linux (amd64)
+        run: make linux-amd64
+
+      - name: Test Linux
+        run: ./sliver-server unpack --force && ./go-tests.sh
 
       - name: Make Windows (amd64)
         run: make windows-amd64
@@ -45,25 +51,21 @@ jobs:
       - name: Make Linux (arm64)
         run: make linux-arm64
 
-      - name: Make Linux (amd64)
-        run: make linux-amd64
-
-      - name: Test Linux
-        run: make clean && make && ./sliver-server unpack --force && ./go-tests.sh
-
-
   macos-build-test:
     name: MacOS Test
     runs-on: macos-latest
-    timeout-minutes: 180
+    timeout-minutes: 90
     steps:
-      - name: Go 1.25
-        uses: actions/setup-go@v6
+      - name: Go 1.22
+        uses: actions/setup-go@v5
         with:
-          go-version: "^1.25"
+          go-version: "^1.22"
+
+      - name: Mingw
+        run: brew install mingw-w64
 
       - name: Check Out Code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Git Fetch Tags
         run: git fetch --prune --unshallow --tags -f
@@ -71,24 +73,24 @@ jobs:
       - name: Make MacOS (amd64)
         run: make macos-amd64
 
+      - name: Test MacOS (amd64)
+        run: ./sliver-server unpack --force && ./go-tests.sh
+
       - name: Make MacOS (arm64)
         run: make macos-arm64
-
-      - name: Test MacOS
-        run: make clean && make && ./sliver-server unpack --force && ./go-tests.sh
 
   clients-build:
     name: Clients Build
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - name: Go 1.25
-        uses: actions/setup-go@v6
+      - name: Go 1.22
+        uses: actions/setup-go@v5
         with:
-          go-version: "^1.25"
+          go-version: "^1.22"
 
       - name: Check Out Code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Git Fetch Tags
         run: git fetch --prune --unshallow --tags -f

@@ -20,6 +20,7 @@ package channel
 import (
 	"context"
 
+	"gvisor.dev/gvisor/pkg/sync"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
 	"gvisor.dev/gvisor/pkg/tcpip/stack"
@@ -43,7 +44,7 @@ type NotificationHandle struct {
 type queue struct {
 	// c is the outbound packet channel.
 	c  chan *stack.PacketBuffer
-	mu queueRWMutex
+	mu sync.RWMutex
 	// +checklocks:mu
 	notify []*NotificationHandle
 	// +checklocks:mu
@@ -53,9 +54,7 @@ type queue struct {
 func (q *queue) Close() {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	if !q.closed {
-		close(q.c)
-	}
+	close(q.c)
 	q.closed = true
 }
 
@@ -86,12 +85,11 @@ func (q *queue) Write(pkt *stack.PacketBuffer) tcpip.Error {
 	}
 
 	wrote := false
-	p := pkt.Clone()
 	select {
-	case q.c <- p:
+	case q.c <- pkt.IncRef():
 		wrote = true
 	default:
-		p.DecRef()
+		pkt.DecRef()
 	}
 	notify := q.notify
 	q.mu.RUnlock()
@@ -136,19 +134,15 @@ var _ stack.GSOEndpoint = (*Endpoint)(nil)
 
 // Endpoint is link layer endpoint that stores outbound packets in a channel
 // and allows injection of inbound packets.
-//
-// +stateify savable
 type Endpoint struct {
+	mtu                uint32
+	linkAddr           tcpip.LinkAddress
 	LinkEPCapabilities stack.LinkEndpointCapabilities
 	SupportedGSOKind   stack.SupportedGSO
 
-	mu endpointRWMutex `state:"nosave"`
+	mu sync.RWMutex
 	// +checklocks:mu
 	dispatcher stack.NetworkDispatcher
-	// +checklocks:mu
-	linkAddr tcpip.LinkAddress
-	// +checklocks:mu
-	mtu uint32
 
 	// Outbound packet queue.
 	q *queue
@@ -186,7 +180,7 @@ func (e *Endpoint) ReadContext(ctx context.Context) *stack.PacketBuffer {
 // Drain removes all outbound packets from the channel and counts them.
 func (e *Endpoint) Drain() int {
 	c := 0
-	for pkt := e.Read(); pkt != nil; pkt = e.Read() {
+	for pkt := e.Read(); !pkt.IsNil(); pkt = e.Read() {
 		pkt.DecRef()
 		c++
 	}
@@ -224,18 +218,10 @@ func (e *Endpoint) IsAttached() bool {
 	return e.dispatcher != nil
 }
 
-// MTU implements stack.LinkEndpoint.MTU.
+// MTU implements stack.LinkEndpoint.MTU. It returns the value initialized
+// during construction.
 func (e *Endpoint) MTU() uint32 {
-	e.mu.RLock()
-	defer e.mu.RUnlock()
 	return e.mtu
-}
-
-// SetMTU implements stack.LinkEndpoint.SetMTU.
-func (e *Endpoint) SetMTU(mtu uint32) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.mtu = mtu
 }
 
 // Capabilities implements stack.LinkEndpoint.Capabilities.
@@ -261,16 +247,7 @@ func (*Endpoint) MaxHeaderLength() uint16 {
 
 // LinkAddress returns the link address of this endpoint.
 func (e *Endpoint) LinkAddress() tcpip.LinkAddress {
-	e.mu.RLock()
-	defer e.mu.RUnlock()
 	return e.linkAddr
-}
-
-// SetLinkAddress implements stack.LinkEndpoint.SetLinkAddress.
-func (e *Endpoint) SetLinkAddress(addr tcpip.LinkAddress) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.linkAddr = addr
 }
 
 // WritePackets stores outbound packets into the channel.
@@ -314,6 +291,3 @@ func (*Endpoint) AddHeader(*stack.PacketBuffer) {}
 
 // ParseHeader implements stack.LinkEndpoint.ParseHeader.
 func (*Endpoint) ParseHeader(*stack.PacketBuffer) bool { return true }
-
-// SetOnCloseAction implements stack.LinkEndpoint.
-func (*Endpoint) SetOnCloseAction(func()) {}

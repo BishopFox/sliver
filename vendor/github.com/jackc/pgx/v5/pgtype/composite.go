@@ -276,6 +276,7 @@ func (c *CompositeCodec) DecodeValue(m *Map, oid uint32, format int16, src []byt
 	default:
 		return nil, fmt.Errorf("unknown format code %d", format)
 	}
+
 }
 
 type CompositeBinaryScanner struct {

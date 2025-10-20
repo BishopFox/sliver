@@ -1,4 +1,3 @@
-//go:build linux
 // +build linux
 
 package ps
@@ -152,8 +151,8 @@ func (p *UnixProcess) Refresh() error {
 	return err
 }
 
-func findProcess(pid int, fullInfo bool) (Process, error) {
-	ps, err := processes(fullInfo)
+func findProcess(pid int) (Process, error) {
+	ps, err := processes()
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +164,7 @@ func findProcess(pid int, fullInfo bool) (Process, error) {
 	return nil, fmt.Errorf("no process found for pid %d", pid)
 }
 
-func processes(fullInfo bool) ([]Process, error) {
+func processes() ([]Process, error) {
 	d, err := os.Open("/proc")
 	if err != nil {
 		return nil, err
@@ -200,10 +199,6 @@ func processes(fullInfo bool) ([]Process, error) {
 			}
 			p, err := newUnixProcess(int(pid))
 			if err != nil {
-				continue
-			}
-			if !fullInfo {
-				results = append(results, p)
 				continue
 			}
 			p.owner, err = getProcessOwner(int(pid))

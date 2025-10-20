@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"slices"
 	"strings"
 )
 
@@ -44,9 +43,6 @@ type Permissions struct {
 	// pass data from the authentication callbacks to the server
 	// application layer.
 	Extensions map[string]string
-
-	// ExtraData allows to store user defined data.
-	ExtraData map[any]any
 }
 
 type GSSAPIWithMICConfig struct {
@@ -61,27 +57,6 @@ type GSSAPIWithMICConfig struct {
 	// Server must be set. It's the implementation
 	// of the GSSAPIServer interface. See GSSAPIServer interface for details.
 	Server GSSAPIServer
-}
-
-// SendAuthBanner implements [ServerPreAuthConn].
-func (s *connection) SendAuthBanner(msg string) error {
-	return s.transport.writePacket(Marshal(&userAuthBannerMsg{
-		Message: msg,
-	}))
-}
-
-func (*connection) unexportedMethodForFutureProofing() {}
-
-// ServerPreAuthConn is the interface available on an incoming server
-// connection before authentication has completed.
-type ServerPreAuthConn interface {
-	unexportedMethodForFutureProofing() // permits growing ServerPreAuthConn safely later, ala testing.TB
-
-	ConnMetadata
-
-	// SendAuthBanner sends a banner message to the client.
-	// It returns an error once the authentication phase has ended.
-	SendAuthBanner(string) error
 }
 
 // ServerConfig holds server specific configuration data.
@@ -130,21 +105,6 @@ type ServerConfig struct {
 	// Permissions.Extensions entry.
 	PublicKeyCallback func(conn ConnMetadata, key PublicKey) (*Permissions, error)
 
-	// VerifiedPublicKeyCallback, if non-nil, is called after a client
-	// successfully confirms having control over a key that was previously
-	// approved by PublicKeyCallback. The permissions object passed to the
-	// callback is the one returned by PublicKeyCallback for the given public
-	// key and its ownership is transferred to the callback. The returned
-	// Permissions object can be the same object, optionally modified, or a
-	// completely new object. If VerifiedPublicKeyCallback is non-nil,
-	// PublicKeyCallback is not allowed to return a PartialSuccessError, which
-	// can instead be returned by VerifiedPublicKeyCallback.
-	//
-	// VerifiedPublicKeyCallback does not affect which authentication methods
-	// are included in the list of methods that can be attempted by the client.
-	VerifiedPublicKeyCallback func(conn ConnMetadata, key PublicKey, permissions *Permissions,
-		signatureAlgorithm string) (*Permissions, error)
-
 	// KeyboardInteractiveCallback, if non-nil, is called when
 	// keyboard-interactive authentication is selected (RFC
 	// 4256). The client object's Challenge function should be
@@ -157,12 +117,6 @@ type ServerConfig struct {
 	// AuthLogCallback, if non-nil, is called to log all authentication
 	// attempts.
 	AuthLogCallback func(conn ConnMetadata, method string, err error)
-
-	// PreAuthConnCallback, if non-nil, is called upon receiving a new connection
-	// before any authentication has started. The provided ServerPreAuthConn
-	// can be used at any time before authentication is complete, including
-	// after this callback has returned.
-	PreAuthConnCallback func(ServerPreAuthConn)
 
 	// ServerVersion is the version identification string to announce in
 	// the public handshake.
@@ -195,7 +149,7 @@ func (s *ServerConfig) AddHostKey(key Signer) {
 }
 
 // cachedPubKey contains the results of querying whether a public key is
-// acceptable for a user. This is a FIFO cache.
+// acceptable for a user.
 type cachedPubKey struct {
 	user       string
 	pubKeyData []byte
@@ -203,13 +157,7 @@ type cachedPubKey struct {
 	perms      *Permissions
 }
 
-// maxCachedPubKeys is the number of cache entries we store.
-//
-// Due to consistent misuse of the PublicKeyCallback API, we have reduced this
-// to 1, such that the only key in the cache is the most recently seen one. This
-// forces the behavior that the last call to PublicKeyCallback will always be
-// with the key that is used for authentication.
-const maxCachedPubKeys = 1
+const maxCachedPubKeys = 16
 
 // pubKeyCache caches tests for public keys.  Since SSH clients
 // will query whether a public key is acceptable before attempting to
@@ -231,10 +179,9 @@ func (c *pubKeyCache) get(user string, pubKeyData []byte) (cachedPubKey, bool) {
 
 // add adds the given tuple to the cache.
 func (c *pubKeyCache) add(candidate cachedPubKey) {
-	if len(c.keys) >= maxCachedPubKeys {
-		c.keys = c.keys[1:]
+	if len(c.keys) < maxCachedPubKeys {
+		c.keys = append(c.keys, candidate)
 	}
-	c.keys = append(c.keys, candidate)
 }
 
 // ServerConn is an authenticated SSH connection, as seen from the
@@ -262,13 +209,20 @@ func NewServerConn(c net.Conn, config *ServerConfig) (*ServerConn, <-chan NewCha
 		fullConf.MaxAuthTries = 6
 	}
 	if len(fullConf.PublicKeyAuthAlgorithms) == 0 {
-		fullConf.PublicKeyAuthAlgorithms = defaultPubKeyAuthAlgos
+		fullConf.PublicKeyAuthAlgorithms = supportedPubKeyAuthAlgos
 	} else {
 		for _, algo := range fullConf.PublicKeyAuthAlgorithms {
-			if !slices.Contains(SupportedAlgorithms().PublicKeyAuths, algo) && !slices.Contains(InsecureAlgorithms().PublicKeyAuths, algo) {
+			if !contains(supportedPubKeyAuthAlgos, algo) {
 				c.Close()
 				return nil, nil, nil, fmt.Errorf("ssh: unsupported public key authentication algorithm %s", algo)
 			}
+		}
+	}
+	// Check if the config contains any unsupported key exchanges
+	for _, kex := range fullConf.KeyExchanges {
+		if _, ok := serverForbiddenKexAlgos[kex]; ok {
+			c.Close()
+			return nil, nil, nil, fmt.Errorf("ssh: unsupported key exchange %s for server", kex)
 		}
 	}
 
@@ -327,7 +281,6 @@ func (s *connection) serverHandshake(config *ServerConfig) (*Permissions, error)
 
 	// We just did the key change, so the session ID is established.
 	s.sessionID = s.transport.getSessionID()
-	s.algorithms = s.transport.getAlgorithms()
 
 	var packet []byte
 	if packet, err = s.transport.readPacket(); err != nil {
@@ -528,10 +481,6 @@ func (b *BannerError) Error() string {
 }
 
 func (s *connection) serverAuthenticate(config *ServerConfig) (*Permissions, error) {
-	if config.PreAuthConnCallback != nil {
-		config.PreAuthConnCallback(s)
-	}
-
 	sessionID := s.transport.getSessionID()
 	var cache pubKeyCache
 	var perms *Permissions
@@ -539,7 +488,7 @@ func (s *connection) serverAuthenticate(config *ServerConfig) (*Permissions, err
 	authFailures := 0
 	noneAuthCount := 0
 	var authErrs []error
-	var calledBannerCallback bool
+	var displayedBanner bool
 	partialSuccessReturned := false
 	// Set the initial authentication callbacks from the config. They can be
 	// changed if a PartialSuccessError is returned.
@@ -561,8 +510,8 @@ userAuthLoop:
 			if err := s.transport.writePacket(Marshal(discMsg)); err != nil {
 				return nil, err
 			}
-			authErrs = append(authErrs, discMsg)
-			return nil, &ServerAuthError{Errors: authErrs}
+
+			return nil, discMsg
 		}
 
 		var userAuthReq userAuthRequestMsg
@@ -586,10 +535,14 @@ userAuthLoop:
 
 		s.user = userAuthReq.User
 
-		if !calledBannerCallback && config.BannerCallback != nil {
-			calledBannerCallback = true
-			if msg := config.BannerCallback(s); msg != "" {
-				if err := s.SendAuthBanner(msg); err != nil {
+		if !displayedBanner && config.BannerCallback != nil {
+			displayedBanner = true
+			msg := config.BannerCallback(s)
+			if msg != "" {
+				bannerMsg := &userAuthBannerMsg{
+					Message: msg,
+				}
+				if err := s.transport.writePacket(Marshal(bannerMsg)); err != nil {
 					return nil, err
 				}
 			}
@@ -650,7 +603,7 @@ userAuthLoop:
 				return nil, parseError(msgUserAuthRequest)
 			}
 			algo := string(algoBytes)
-			if !slices.Contains(config.PublicKeyAuthAlgorithms, underlyingAlgo(algo)) {
+			if !contains(config.PublicKeyAuthAlgorithms, underlyingAlgo(algo)) {
 				authErr = fmt.Errorf("ssh: algorithm %q not accepted", algo)
 				break
 			}
@@ -671,9 +624,6 @@ userAuthLoop:
 				candidate.pubKeyData = pubKeyData
 				candidate.perms, candidate.result = authConfig.PublicKeyCallback(s, pubKey)
 				_, isPartialSuccessError := candidate.result.(*PartialSuccessError)
-				if isPartialSuccessError && config.VerifiedPublicKeyCallback != nil {
-					return nil, errors.New("ssh: invalid library usage: PublicKeyCallback must not return partial success when VerifiedPublicKeyCallback is defined")
-				}
 
 				if (candidate.result == nil || isPartialSuccessError) &&
 					candidate.perms != nil &&
@@ -717,7 +667,7 @@ userAuthLoop:
 				// ssh-rsa-cert-v01@openssh.com algorithm with ssh-rsa public
 				// key type. The algorithm and public key type must be
 				// consistent: both must be certificate algorithms, or neither.
-				if !slices.Contains(algorithmsForKeyFormat(pubKey.Type()), algo) {
+				if !contains(algorithmsForKeyFormat(pubKey.Type()), algo) {
 					authErr = fmt.Errorf("ssh: public key type %q not compatible with selected algorithm %q",
 						pubKey.Type(), algo)
 					break
@@ -727,7 +677,7 @@ userAuthLoop:
 				// algorithm name that corresponds to algo with
 				// sig.Format.  This is usually the same, but
 				// for certs, the names differ.
-				if !slices.Contains(config.PublicKeyAuthAlgorithms, sig.Format) {
+				if !contains(config.PublicKeyAuthAlgorithms, sig.Format) {
 					authErr = fmt.Errorf("ssh: algorithm %q not accepted", sig.Format)
 					break
 				}
@@ -744,12 +694,6 @@ userAuthLoop:
 
 				authErr = candidate.result
 				perms = candidate.perms
-				if authErr == nil && config.VerifiedPublicKeyCallback != nil {
-					// Only call VerifiedPublicKeyCallback after the key has been accepted
-					// and successfully verified. If authErr is non-nil, the key is not
-					// considered verified and the callback must not run.
-					perms, authErr = config.VerifiedPublicKeyCallback(s, pubKey, perms, algo)
-				}
 			}
 		case "gssapi-with-mic":
 			if authConfig.GSSAPIWithMICConfig == nil {
@@ -811,7 +755,10 @@ userAuthLoop:
 		var bannerErr *BannerError
 		if errors.As(authErr, &bannerErr) {
 			if bannerErr.Message != "" {
-				if err := s.SendAuthBanner(bannerErr.Message); err != nil {
+				bannerMsg := &userAuthBannerMsg{
+					Message: bannerErr.Message,
+				}
+				if err := s.transport.writePacket(Marshal(bannerMsg)); err != nil {
 					return nil, err
 				}
 			}

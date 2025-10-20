@@ -28,10 +28,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bishopfox/sliver/client/assets"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/gsmith257-cyber/better-sliver-package/client/assets"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/commonpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/rpcpb"
 	"github.com/moloch--/asciicast"
 	"golang.org/x/exp/slog"
 	"golang.org/x/term"
@@ -78,24 +78,6 @@ func (con *SliverClient) logCommand(args []string) ([]string, error) {
 		return args, nil
 	}
 	logger := slog.New(con.jsonHandler).With(slog.String("type", "command"))
-
-	// Attach active target context if available
-	if session := con.ActiveTarget.GetSession(); session != nil {
-		logger = logger.With(
-			slog.String("id", session.ID),
-			slog.String("name", session.Name),
-			slog.String("hostname", session.Hostname),
-			slog.String("username", session.Username),
-		)
-	} else if beacon := con.ActiveTarget.GetBeacon(); beacon != nil {
-		logger = logger.With(
-			slog.String("id", beacon.ID),
-			slog.String("name", beacon.Name),
-			slog.String("hostname", beacon.Hostname),
-			slog.String("username", beacon.Username),
-		)
-	}
-
 	logger.Debug(strings.Join(args, " "))
 	return args, nil
 }
@@ -162,7 +144,7 @@ func (con *SliverClient) PrintAsyncResponse(resp *commonpb.Response) {
 	defer cancel()
 	beacon, err := con.Rpc.GetBeacon(ctx, &clientpb.Beacon{ID: resp.BeaconID})
 	if err != nil {
-		con.PrintWarnf("%s", err.Error())
+		con.PrintWarnf(err.Error())
 		return
 	}
 	con.PrintInfof("Tasked beacon %s (%s)\n", beacon.Name, strings.Split(resp.TaskID, "-")[0])

@@ -8,7 +8,6 @@ import (
 	"tailscale.com/health"
 	"tailscale.com/net/netmon"
 	"tailscale.com/types/logger"
-	"tailscale.com/util/eventbus"
 )
 
 // For now this router only supports the userspace WireGuard implementations.
@@ -16,7 +15,7 @@ import (
 // Work is currently underway for an in-kernel FreeBSD implementation of wireguard
 // https://svnweb.freebsd.org/base?view=revision&revision=357986
 
-func newUserspaceRouter(logf logger.Logf, tundev tun.Device, netMon *netmon.Monitor, health *health.Tracker, bus *eventbus.Bus) (Router, error) {
+func newUserspaceRouter(logf logger.Logf, tundev tun.Device, netMon *netmon.Monitor, health *health.Tracker) (Router, error) {
 	return newUserspaceBSDRouter(logf, tundev, netMon, health)
 }
 

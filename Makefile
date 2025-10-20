@@ -27,7 +27,7 @@ GO_VERSION = $(shell $(GO) version)
 GO_MAJOR_VERSION = $(shell $(GO) version | cut -c 14- | cut -d' ' -f1 | cut -d'.' -f1)
 GO_MINOR_VERSION = $(shell $(GO) version | cut -c 14- | cut -d' ' -f1 | cut -d'.' -f2)
 MIN_SUPPORTED_GO_MAJOR_VERSION = 1
-MIN_SUPPORTED_GO_MINOR_VERSION = 24
+MIN_SUPPORTED_GO_MINOR_VERSION = 21
 GO_VERSION_VALIDATION_ERR_MSG = Golang version is not supported, please update to at least $(MIN_SUPPORTED_GO_MAJOR_VERSION).$(MIN_SUPPORTED_GO_MINOR_VERSION)
 
 VERSION ?= $(shell git describe --abbrev=0)
@@ -35,8 +35,8 @@ COMPILED_AT = $(shell date +%s)
 RELEASES_URL ?= https://api.github.com/repos/BishopFox/sliver/releases
 ARMORY_PUBLIC_KEY ?= RWSBpxpRWDrD7Fe+VvRE3c2VEDC2NK80rlNCj+BX0gz44Xw07r6KQD9L
 ARMORY_REPO_URL ?= https://api.github.com/repos/sliverarmory/armory/releases
-VERSION_PKG = github.com/bishopfox/sliver/client/version
-CLIENT_ASSETS_PKG = github.com/bishopfox/sliver/client/assets
+VERSION_PKG = github.com/gsmith257-cyber/better-sliver-package/client/version
+CLIENT_ASSETS_PKG = github.com/gsmith257-cyber/better-sliver-package/client/assets
 
 GIT_DIRTY = $(shell git diff --quiet|| echo 'Dirty')
 GIT_COMMIT = $(shell git rev-parse HEAD)

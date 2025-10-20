@@ -1,4 +1,4 @@
-Download the latest server [release](https://github.com/BishopFox/sliver/releases) for your platform, and just run the binary. That's it, you're pretty much done.
+Download the latest server [release](https://github.com/gsmith257-cyber/better-sliver-package/releases) for your platform, and just run the binary. That's it, you're pretty much done.
 
 Sliver is designed for a one server deployment per-operation. The server supports Linux, Windows, and MacOS however we strongly recommend running the server on a Linux host (or MacOS, well really anything that isn't Windows), as some features may be more difficult to get working on a Windows server. The Windows client should work just fine when accessing a Linux/MacOS server from Windows, so if for some odd reason your operators actually want to use Windows you can still accommodate them using [multiplayer mode](/docs?name=Multi-player+Mode).
 

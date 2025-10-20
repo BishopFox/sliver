@@ -374,6 +374,7 @@ parseValueLoop:
 	}
 
 	return elements, nil
+
 }
 
 func parseRange(buf *bytes.Buffer) (string, error) {
@@ -402,8 +403,8 @@ func parseRange(buf *bytes.Buffer) (string, error) {
 
 // Multirange is a generic multirange type.
 //
-// T should implement [RangeValuer] and *T should implement [RangeScanner]. However, there does not appear to be a way to
-// enforce the [RangeScanner] constraint.
+// T should implement RangeValuer and *T should implement RangeScanner. However, there does not appear to be a way to
+// enforce the RangeScanner constraint.
 type Multirange[T RangeValuer] []T
 
 func (r Multirange[T]) IsNull() bool {

@@ -7,7 +7,6 @@ package proxy
 import (
 	"context"
 	"net"
-	"net/netip"
 	"strings"
 )
 
@@ -58,8 +57,7 @@ func (p *PerHost) DialContext(ctx context.Context, network, addr string) (c net.
 }
 
 func (p *PerHost) dialerForRequest(host string) Dialer {
-	if nip, err := netip.ParseAddr(host); err == nil {
-		ip := net.IP(nip.AsSlice())
+	if ip := net.ParseIP(host); ip != nil {
 		for _, net := range p.bypassNetworks {
 			if net.Contains(ip) {
 				return p.bypass
@@ -110,8 +108,8 @@ func (p *PerHost) AddFromString(s string) {
 			}
 			continue
 		}
-		if nip, err := netip.ParseAddr(host); err == nil {
-			p.AddIP(net.IP(nip.AsSlice()))
+		if ip := net.ParseIP(host); ip != nil {
+			p.AddIP(ip)
 			continue
 		}
 		if strings.HasPrefix(host, "*.") {
@@ -139,7 +137,9 @@ func (p *PerHost) AddNetwork(net *net.IPNet) {
 // AddZone specifies a DNS suffix that will use the bypass proxy. A zone of
 // "example.com" matches "example.com" and all of its subdomains.
 func (p *PerHost) AddZone(zone string) {
-	zone = strings.TrimSuffix(zone, ".")
+	if strings.HasSuffix(zone, ".") {
+		zone = zone[:len(zone)-1]
+	}
 	if !strings.HasPrefix(zone, ".") {
 		zone = "." + zone
 	}
@@ -148,6 +148,8 @@ func (p *PerHost) AddZone(zone string) {
 
 // AddHost specifies a host name that will use the bypass proxy.
 func (p *PerHost) AddHost(host string) {
-	host = strings.TrimSuffix(host, ".")
+	if strings.HasSuffix(host, ".") {
+		host = host[:len(host)-1]
+	}
 	p.bypassHosts = append(p.bypassHosts, host)
 }

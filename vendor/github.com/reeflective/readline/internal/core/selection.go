@@ -125,7 +125,7 @@ func (s *Selection) Pos() (bpos, epos int) {
 
 	bpos, epos, valid := s.checkRange(s.bpos, s.epos)
 	if !valid {
-		return bpos, epos
+		return
 	}
 
 	// Use currently set values, or update if one is pending.
@@ -190,11 +190,9 @@ func (s *Selection) Cursor() int {
 				break
 			}
 		}
-
 		if hpos < -1 {
 			hpos = -1
 		}
-
 		hpos++
 		rpos = hpos
 	}
@@ -389,7 +387,7 @@ func (s *Selection) SelectABlankWord() (bpos, epos int) {
 // is: if on a blank space, in a word, or at the end of the line.
 func (s *Selection) SelectAShellWord() (bpos, epos int) {
 	if s.line.Len() == 0 {
-		return bpos, epos
+		return
 	}
 
 	s.cursor.CheckCommand()
@@ -522,7 +520,6 @@ func (s *Selection) Cut() (buf string) {
 
 		for _, surround := range s.surrounds {
 			s.line.CutRune(surround.bpos - offset)
-
 			offset++
 		}
 

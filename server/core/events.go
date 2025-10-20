@@ -19,7 +19,7 @@ package core
 */
 
 import (
-	"github.com/bishopfox/sliver/server/db/models"
+	"github.com/gsmith257-cyber/better-sliver-package/server/db/models"
 )
 
 const (

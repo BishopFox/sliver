@@ -30,11 +30,11 @@ import (
 	"net"
 	"time"
 
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/server/core"
-	"github.com/bishopfox/sliver/server/core/rtunnels"
-	"github.com/bishopfox/sliver/server/log"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/sliverpb"
+	"github.com/gsmith257-cyber/better-sliver-package/server/core"
+	"github.com/gsmith257-cyber/better-sliver-package/server/core/rtunnels"
+	"github.com/gsmith257-cyber/better-sliver-package/server/log"
 
 	"google.golang.org/protobuf/proto"
 
@@ -226,14 +226,9 @@ func createReverseTunnelHandler(implantConn *core.ImplantConnection, data []byte
 	req := &sliverpb.TunnelData{}
 	proto.Unmarshal(data, req)
 
-	remoteAddress := fmt.Sprintf("%s:%d", req.Rportfwd.Host, req.Rportfwd.Port)
-	if !rtunnels.Check(session.ID, remoteAddress) {
-		sessionHandlerLog.Errorf("Session %s attempted to create reverse tunnel to %s without being initiated by a client", session.ID, remoteAddress)
-		return nil
-	}
-	defer rtunnels.DeletePending(session.ID)
-
 	var defaultDialer = new(net.Dialer)
+
+	remoteAddress := fmt.Sprintf("%s:%d", req.Rportfwd.Host, req.Rportfwd.Port)
 
 	ctx, cancelContext := context.WithCancel(context.Background())
 
@@ -328,7 +323,7 @@ func createReverseTunnelHandler(implantConn *core.ImplantConnection, data []byte
 			// {{if .Config.Debug}}
 			//sessionHandlerLog.Infof("[tunnel] Requesting resend of tunnelData seq: %d", tunnel.ReadSequence())
 			// {{end}}
-			implantConn.RequestResend(data)
+			implantConn.ReqResend(data)
 		}
 	}
 	return nil
@@ -388,7 +383,7 @@ func RTunnelDataHandler(tunnelData *sliverpb.TunnelData, tunnel *rtunnels.RTunne
 			// {{if .Config.Debug}}
 			//sessionHandlerLog.Infof("[tunnel] Requesting resend of tunnelData seq: %d", tunnel.ReadSequence())
 			// {{end}}
-			connection.RequestResend(data)
+			connection.ReqResend(data)
 		}
 	}
 }

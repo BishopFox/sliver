@@ -23,12 +23,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/bishopfox/sliver/client/assets"
-	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/util"
+	"github.com/gsmith257-cyber/better-sliver-package/client/assets"
+	"github.com/gsmith257-cyber/better-sliver-package/client/console"
+	"github.com/gsmith257-cyber/better-sliver-package/util"
 	"github.com/spf13/cobra"
 )
 
@@ -87,35 +86,12 @@ func RemoveExtensionByManifestName(manifestName string, con *console.SliverClien
 		return false, errors.New("command name is required")
 	}
 	if man, ok := loadedManifests[manifestName]; ok {
-		// Found the manifest
-		var extPath string
-		if man.RootPath != "" {
-			// Use RootPath for temporarily loaded extensions
-			extPath = man.RootPath
-		} else {
-			// Fall back to extensions dir for installed extensions
-			extPath = filepath.Join(assets.GetExtensionsDir(), filepath.Base(manifestName))
-		}
-
+		//foudn the manifest
+		//delet it
+		extPath := filepath.Join(assets.GetExtensionsDir(), filepath.Base(manifestName))
 		if _, err := os.Stat(extPath); os.IsNotExist(err) {
 			return true, nil
 		}
-
-		// If path is outside extensions directory, prompt for confirmation
-		if !strings.HasPrefix(extPath, assets.GetExtensionsDir()) {
-			confirm := false
-			prompt := &survey.Confirm{Message: fmt.Sprintf("Remove '%s' extension directory from filesystem?", manifestName)}
-			survey.AskOne(prompt, &confirm)
-			if !confirm {
-				// Skip the forceRemoveAll but continue with the rest
-				delete(loadedManifests, manifestName)
-				for _, cmd := range man.ExtCommand {
-					delete(loadedExtensions, cmd.CommandName)
-				}
-				return true, nil
-			}
-		}
-
 		forceRemoveAll(extPath)
 		delete(loadedManifests, manifestName)
 		for _, cmd := range man.ExtCommand {

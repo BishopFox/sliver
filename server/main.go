@@ -21,7 +21,7 @@ package main
 */
 
 import (
-	"github.com/bishopfox/sliver/server/cli"
+	"github.com/gsmith257-cyber/better-sliver-package/server/cli"
 )
 
 func main() {

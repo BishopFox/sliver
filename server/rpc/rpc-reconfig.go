@@ -21,12 +21,12 @@ package rpc
 import (
 	"context"
 
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/server/core"
-	"github.com/bishopfox/sliver/server/db"
-	"github.com/bishopfox/sliver/util"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/commonpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/sliverpb"
+	"github.com/gsmith257-cyber/better-sliver-package/server/core"
+	"github.com/gsmith257-cyber/better-sliver-package/server/db"
+	"github.com/gsmith257-cyber/better-sliver-package/util"
 )
 
 const maxNameLength = 32
@@ -58,11 +58,11 @@ func (rpc *Server) Reconfigure(ctx context.Context, req *sliverpb.ReconfigureReq
 		if err != nil || beacon == nil {
 			return nil, ErrInvalidBeaconID
 		}
-		if req.BeaconInterval != 0 {
-			beacon.Interval = req.BeaconInterval
+		if req.BaconInterval != 0 {
+			beacon.Interval = req.BaconInterval
 		}
-		if req.BeaconJitter != 0 {
-			beacon.Jitter = req.BeaconJitter
+		if req.BaconJitter != 0 {
+			beacon.Jitter = req.BaconJitter
 		}
 		err = db.Session().Save(beacon).Error
 		if err != nil {

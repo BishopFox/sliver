@@ -318,10 +318,9 @@ func (schema *Schema) ParseField(fieldStruct reflect.StructField) *Field {
 	}
 
 	if val, ok := field.TagSettings["TYPE"]; ok {
-		lowerVal := DataType(strings.ToLower(val))
-		switch lowerVal {
+		switch DataType(strings.ToLower(val)) {
 		case Bool, Int, Uint, Float, String, Time, Bytes:
-			field.DataType = lowerVal
+			field.DataType = DataType(strings.ToLower(val))
 		default:
 			field.DataType = DataType(val)
 		}
@@ -448,17 +447,16 @@ func (schema *Schema) ParseField(fieldStruct reflect.StructField) *Field {
 }
 
 // create valuer, setter when parse struct
-func (field *Field) setupValuerAndSetter(modelType reflect.Type) {
+func (field *Field) setupValuerAndSetter() {
 	// Setup NewValuePool
 	field.setupNewValuePool()
 
 	// ValueOf returns field's value and if it is zero
 	fieldIndex := field.StructField.Index[0]
 	switch {
-	case len(field.StructField.Index) == 1 && fieldIndex >= 0:
-		field.ValueOf = func(ctx context.Context, v reflect.Value) (interface{}, bool) {
-			v = reflect.Indirect(v)
-			fieldValue := v.Field(fieldIndex)
+	case len(field.StructField.Index) == 1 && fieldIndex > 0:
+		field.ValueOf = func(ctx context.Context, value reflect.Value) (interface{}, bool) {
+			fieldValue := reflect.Indirect(value).Field(fieldIndex)
 			return fieldValue.Interface(), fieldValue.IsZero()
 		}
 	default:
@@ -505,10 +503,9 @@ func (field *Field) setupValuerAndSetter(modelType reflect.Type) {
 
 	// ReflectValueOf returns field's reflect value
 	switch {
-	case len(field.StructField.Index) == 1 && fieldIndex >= 0:
-		field.ReflectValueOf = func(ctx context.Context, v reflect.Value) reflect.Value {
-			v = reflect.Indirect(v)
-			return v.Field(fieldIndex)
+	case len(field.StructField.Index) == 1 && fieldIndex > 0:
+		field.ReflectValueOf = func(ctx context.Context, value reflect.Value) reflect.Value {
+			return reflect.Indirect(value).Field(fieldIndex)
 		}
 	default:
 		field.ReflectValueOf = func(ctx context.Context, v reflect.Value) reflect.Value {
@@ -999,6 +996,6 @@ func (field *Field) setupNewValuePool() {
 	}
 
 	if field.NewValuePool == nil {
-		field.NewValuePool = poolInitializer(reflect.PointerTo(field.IndirectFieldType))
+		field.NewValuePool = poolInitializer(reflect.PtrTo(field.IndirectFieldType))
 	}
 }

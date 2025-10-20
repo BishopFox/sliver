@@ -108,12 +108,12 @@ func (e *Engine) highlightDisplay(grp *group, val Candidate, pad, col int, selec
 		return padSpace(pad)
 	}
 
-	style := color.Fmt(val.Style)
+	reset := color.Fmt(val.Style)
 	candidate, padded := grp.trimDisplay(val, pad, col)
 
 	if e.IsearchRegex != nil && e.isearchBuf.Len() > 0 && !selected {
 		match := e.IsearchRegex.FindString(candidate)
-		match = color.Fmt(color.Bg+"244") + match + color.Reset + style
+		match = color.Fmt(color.Bg+"244") + match + color.Reset + reset
 		candidate = e.IsearchRegex.ReplaceAllLiteralString(candidate, match)
 	}
 
@@ -129,13 +129,13 @@ func (e *Engine) highlightDisplay(grp *group, val Candidate, pad, col int, selec
 	} else {
 		// Highlight the prefix if any and configured for it.
 		if e.config.GetBool("colored-completion-prefix") && e.prefix != "" {
-			if prefixMatch, err := regexp.Compile("^" + e.prefix); err == nil {
-				prefixColored := color.Bold + color.FgBlue + e.prefix + color.BoldReset + color.FgDefault + style
+			if prefixMatch, err := regexp.Compile(fmt.Sprintf("^%s", e.prefix)); err == nil {
+				prefixColored := color.Bold + color.FgBlue + e.prefix + color.BoldReset + color.FgDefault + reset
 				candidate = prefixMatch.ReplaceAllString(candidate, prefixColored)
 			}
 		}
 
-		candidate = style + candidate + color.Reset
+		candidate = reset + candidate + color.Reset
 	}
 
 	return candidate + padded

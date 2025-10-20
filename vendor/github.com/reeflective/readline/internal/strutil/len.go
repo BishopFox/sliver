@@ -3,10 +3,9 @@ package strutil
 import (
 	"strings"
 
-	"github.com/rivo/uniseg"
-
 	"github.com/reeflective/readline/internal/color"
 	"github.com/reeflective/readline/internal/term"
+	"github.com/rivo/uniseg"
 )
 
 // FormatTabs replaces all '\t' occurrences in a string with 6 spaces each.

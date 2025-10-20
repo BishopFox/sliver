@@ -9,7 +9,7 @@
 
 # STAGE: base
 ## Compiles Sliver for use
-FROM golang:latest AS base
+FROM golang:1.22.2 as base
 
 ### Base packages
 RUN apt-get update --fix-missing && apt-get -y install \
@@ -20,16 +20,16 @@ RUN groupadd -g 999 sliver && useradd -r -u 999 -g sliver sliver
 RUN mkdir -p /home/sliver/ && chown -R sliver:sliver /home/sliver
 
 ### Build sliver:
-RUN mkdir -p /go/src/github.com/bishopfox/sliver
-WORKDIR /go/src/github.com/bishopfox/sliver
-ADD . /go/src/github.com/bishopfox/sliver/
-RUN make
+WORKDIR /go/src/github.com/gsmith257-cyber/better-sliver-package
+ADD . /go/src/github.com/gsmith257-cyber/better-sliver-package/
+RUN make clean-all 
+RUN make 
 RUN cp -vv sliver-server /opt/sliver-server 
 
 # STAGE: test
 ## Run unit tests against the compiled instance
 ## Use `--target test` in the docker build command to run this stage
-FROM base AS test
+FROM base as test
 
 RUN apt-get update --fix-missing \
     && apt-get -y upgrade \
@@ -39,11 +39,11 @@ RUN apt-get update --fix-missing \
 RUN /opt/sliver-server unpack --force 
 
 ### Run unit tests
-RUN /go/src/github.com/bishopfox/sliver/go-tests.sh
+RUN /go/src/github.com/gsmith257-cyber/better-sliver-package/go-tests.sh
 
 # STAGE: production
 ## Final dockerized form of Sliver
-FROM debian:bookworm-slim AS production
+FROM debian:bookworm-slim as production
 
 ### Install production packages
 RUN apt-get update --fix-missing \
@@ -91,7 +91,7 @@ ENTRYPOINT [ "/opt/sliver-server" ]
 
 
 # STAGE: production-slim (about 1Gb smaller)
-FROM debian:bookworm-slim AS production-slim
+FROM debian:bookworm-slim as production-slim
 
 ### Install production packages
 RUN apt-get update --fix-missing \

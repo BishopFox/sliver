@@ -11,6 +11,6 @@ import (
 // Snippet creates the nushell completion script.
 func Snippet(cmd *cobra.Command) string {
 	return fmt.Sprintf(`let %v_completer = {|spans| 
-    %v _carapace nushell ...$spans | from json
+    %v _carapace nushell $spans | from json
 }`, cmd.Name(), uid.Executable())
 }

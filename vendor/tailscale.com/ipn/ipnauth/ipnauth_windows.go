@@ -36,12 +36,6 @@ type token struct {
 	t windows.Token
 }
 
-func newToken(t windows.Token) *token {
-	tok := &token{t: t}
-	runtime.SetFinalizer(tok, func(t *token) { t.Close() })
-	return tok
-}
-
 func (t *token) UID() (ipn.WindowsUserID, error) {
 	sid, err := t.uid()
 	if err != nil {
@@ -190,5 +184,7 @@ func (ci *ConnIdentity) WindowsToken() (WindowsToken, error) {
 		return nil, err
 	}
 
-	return newToken(windows.Token(h)), nil
+	result := &token{t: windows.Token(h)}
+	runtime.SetFinalizer(result, func(t *token) { t.Close() })
+	return result, nil
 }

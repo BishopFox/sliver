@@ -139,14 +139,6 @@ else
     exit 1
 fi
 
-# server / sgn
-if go test -tags=server,$TAGS ./server/sgn ; then
-    :
-else
-    cat ~/.sliver/logs/sliver.log
-    exit 1
-fi
-
 # server / gogo
 if go test -tags=server,$TAGS ./server/gogo ; then
     :

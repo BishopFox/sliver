@@ -21,34 +21,34 @@ package command
 import (
 	"fmt"
 
-	"github.com/bishopfox/sliver/client/assets"
-	"github.com/bishopfox/sliver/client/command/alias"
-	"github.com/bishopfox/sliver/client/command/backdoor"
-	"github.com/bishopfox/sliver/client/command/cursed"
-	"github.com/bishopfox/sliver/client/command/dllhijack"
-	"github.com/bishopfox/sliver/client/command/environment"
-	"github.com/bishopfox/sliver/client/command/exec"
-	"github.com/bishopfox/sliver/client/command/extensions"
-	"github.com/bishopfox/sliver/client/command/filesystem"
-	"github.com/bishopfox/sliver/client/command/info"
-	"github.com/bishopfox/sliver/client/command/kill"
-	"github.com/bishopfox/sliver/client/command/network"
-	"github.com/bishopfox/sliver/client/command/pivots"
-	"github.com/bishopfox/sliver/client/command/portfwd"
-	"github.com/bishopfox/sliver/client/command/privilege"
-	"github.com/bishopfox/sliver/client/command/processes"
-	"github.com/bishopfox/sliver/client/command/reconfig"
-	"github.com/bishopfox/sliver/client/command/registry"
-	"github.com/bishopfox/sliver/client/command/rportfwd"
-	"github.com/bishopfox/sliver/client/command/screenshot"
-	"github.com/bishopfox/sliver/client/command/sessions"
-	"github.com/bishopfox/sliver/client/command/shell"
-	"github.com/bishopfox/sliver/client/command/socks"
-	"github.com/bishopfox/sliver/client/command/tasks"
-	"github.com/bishopfox/sliver/client/command/wasm"
-	"github.com/bishopfox/sliver/client/command/wireguard"
-	client "github.com/bishopfox/sliver/client/console"
-	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/gsmith257-cyber/better-sliver-package/client/assets"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/alias"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/backdoor"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/cursed"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/dllhijack"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/environment"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/exec"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/extensions"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/filesystem"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/info"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/kill"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/network"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/pivots"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/portfwd"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/privilege"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/processes"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/reconfig"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/registry"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/rportfwd"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/screenshot"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/sessions"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/shell"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/socks"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/tasks"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/wasm"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/wireguard"
+	client "github.com/gsmith257-cyber/better-sliver-package/client/console"
+	consts "github.com/gsmith257-cyber/better-sliver-package/client/constants"
 	"github.com/reeflective/console"
 	"github.com/spf13/cobra"
 )
@@ -87,7 +87,6 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 			screenshot.Commands,
 			environment.Commands,
 			registry.Commands,
-			extensions.SliverCommands,
 		)
 
 		// [ Filesystem ]
@@ -128,7 +127,9 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 		bind(consts.AliasHelpGroup)
 
 		// [ Extensions ]
-		bind(consts.ExtensionHelpGroup)
+		bind(consts.ExtensionHelpGroup,
+			extensions.Commands,
+		)
 
 		// [ Post-command declaration setup ]----------------------------------------
 
@@ -143,7 +144,7 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 		}
 
 		// Load Extensions
-		extensionManifests := extensions.GetAllExtensionManifests()
+		extensionManifests := assets.GetInstalledExtensionManifests()
 		for _, manifest := range extensionManifests {
 			mext, err := extensions.LoadExtensionManifest(manifest)
 			// Absorb error in case there's no extensions manifest

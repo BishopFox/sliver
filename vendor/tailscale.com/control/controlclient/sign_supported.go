@@ -13,14 +13,19 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/tailscale/certstore"
 	"tailscale.com/tailcfg"
 	"tailscale.com/types/key"
-	"tailscale.com/util/syspolicy/pkey"
-	"tailscale.com/util/syspolicy/policyclient"
+	"tailscale.com/util/syspolicy"
 )
+
+var getMachineCertificateSubjectOnce struct {
+	sync.Once
+	v string // Subject of machine certificate to search for
+}
 
 // getMachineCertificateSubject returns the exact name of a Subject that needs
 // to be present in an identity's certificate chain to sign a RegisterRequest,
@@ -31,9 +36,12 @@ import (
 // each RegisterRequest will be unsigned.
 //
 // Example: "CN=Tailscale Inc Test Root CA,OU=Tailscale Inc Test Certificate Authority,O=Tailscale Inc,ST=ON,C=CA"
-func getMachineCertificateSubject(polc policyclient.Client) string {
-	machineCertSubject, _ := polc.GetString(pkey.MachineCertificateSubject, "")
-	return machineCertSubject
+func getMachineCertificateSubject() string {
+	getMachineCertificateSubjectOnce.Do(func() {
+		getMachineCertificateSubjectOnce.v, _ = syspolicy.GetString("MachineCertificateSubject", "")
+	})
+
+	return getMachineCertificateSubjectOnce.v
 }
 
 var (
@@ -137,7 +145,7 @@ func findIdentity(subject string, st certstore.Store) (certstore.Identity, []*x5
 // using that identity's public key. In addition to the signature, the full
 // certificate chain is included so that the control server can validate the
 // certificate from a copy of the root CA's certificate.
-func signRegisterRequest(polc policyclient.Client, req *tailcfg.RegisterRequest, serverURL string, serverPubKey, machinePubKey key.MachinePublic) (err error) {
+func signRegisterRequest(req *tailcfg.RegisterRequest, serverURL string, serverPubKey, machinePubKey key.MachinePublic) (err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("signRegisterRequest: %w", err)
@@ -148,7 +156,7 @@ func signRegisterRequest(polc policyclient.Client, req *tailcfg.RegisterRequest,
 		return errBadRequest
 	}
 
-	machineCertificateSubject := getMachineCertificateSubject(polc)
+	machineCertificateSubject := getMachineCertificateSubject()
 	if machineCertificateSubject == "" {
 		return errCertificateNotConfigured
 	}

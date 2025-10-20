@@ -27,10 +27,6 @@ func (e *Notrack) marshal(fam byte) ([]byte, error) {
 	})
 }
 
-func (e *Notrack) marshalData(fam byte) ([]byte, error) {
-	return []byte("notrack\x00"), nil
-}
-
 func (e *Notrack) unmarshal(fam byte, data []byte) error {
 	ad, err := netlink.NewAttributeDecoder(data)
 

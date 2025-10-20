@@ -21,7 +21,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/bishopfox/sliver/server/assets"
+	"github.com/gsmith257-cyber/better-sliver-package/server/assets"
 	"github.com/spf13/cobra"
 )
 

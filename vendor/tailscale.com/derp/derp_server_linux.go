@@ -1,8 +1,6 @@
 // Copyright (c) Tailscale Inc & AUTHORS
 // SPDX-License-Identifier: BSD-3-Clause
 
-//go:build linux && !android
-
 package derp
 
 import (
@@ -14,43 +12,40 @@ import (
 	"tailscale.com/net/tcpinfo"
 )
 
-func (c *sclient) startStatsLoop(ctx context.Context) {
+func (c *sclient) statsLoop(ctx context.Context) error {
 	// Get the RTT initially to verify it's supported.
 	conn := c.tcpConn()
 	if conn == nil {
 		c.s.tcpRtt.Add("non-tcp", 1)
-		return
+		return nil
 	}
 	if _, err := tcpinfo.RTT(conn); err != nil {
 		c.logf("error fetching initial RTT: %v", err)
 		c.s.tcpRtt.Add("error", 1)
-		return
+		return nil
 	}
 
 	const statsInterval = 10 * time.Second
 
-	// Don't launch a goroutine; use a timer instead.
-	var gatherStats func()
-	gatherStats = func() {
-		// Do nothing if the context is finished.
-		if ctx.Err() != nil {
-			return
-		}
+	ticker, tickerChannel := c.s.clock.NewTicker(statsInterval)
+	defer ticker.Stop()
 
-		// Reschedule ourselves when this stats gathering is finished.
-		defer c.s.clock.AfterFunc(statsInterval, gatherStats)
+statsLoop:
+	for {
+		select {
+		case <-tickerChannel:
+			rtt, err := tcpinfo.RTT(conn)
+			if err != nil {
+				continue statsLoop
+			}
 
-		// Gather TCP RTT information.
-		rtt, err := tcpinfo.RTT(conn)
-		if err == nil {
+			// TODO(andrew): more metrics?
 			c.s.tcpRtt.Add(durationToLabel(rtt), 1)
+
+		case <-ctx.Done():
+			return ctx.Err()
 		}
-
-		// TODO(andrew): more metrics?
 	}
-
-	// Kick off the initial timer.
-	c.s.clock.AfterFunc(statsInterval, gatherStats)
 }
 
 // tcpConn attempts to get the underlying *net.TCPConn from this client's

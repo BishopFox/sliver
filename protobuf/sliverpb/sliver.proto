@@ -1,6 +1,6 @@
 syntax = "proto3";
 package sliverpb;
-option go_package = "github.com/bishopfox/sliver/protobuf/sliverpb";
+option go_package = "github.com/gsmith257-cyber/better-sliver-package/protobuf/sliverpb";
 
 import "commonpb/common.proto";
 
@@ -30,8 +30,8 @@ message Envelope {
   bool UnknownMessageType = 4; // Set if the implant did not understand the message
 }
 
-// BeaconTasks - DO NOT CONFUSE WITH clientpb.BeaconTasks
-message BeaconTasks {
+// BaconTasks - DO NOT CONFUSE WITH clientpb.BaconTasks
+message BaconTasks {
   string ID = 1;
   repeated Envelope Tasks = 2;
   int64 NextCheckin = 3;
@@ -58,7 +58,7 @@ message Register {
   string Locale = 18;
 }
 
-message BeaconRegister {
+message BaconRegister {
   string ID = 1;
   int64 Interval = 2;
   int64 Jitter = 3;
@@ -106,10 +106,8 @@ message KillReq {
 }
 
 
-// PsReq - Request the implant to list processes of a remote session.
+// PsReq - Request the implant to list ses of a remote session.
 message PsReq {
-  bool FullInfo = 1;
-
   commonpb.Request Request = 9;
 }
 
@@ -562,7 +560,7 @@ message Sideload {
   commonpb.Response Response = 9;
 }
 
-message InvokeSpawnDllReq {
+message InvokeSpwnDllReq {
   bytes Data = 1;
   string ProcessName = 2;
   repeated string Args = 3;
@@ -1027,8 +1025,8 @@ message WGTCPForwarders {
 // ReconfigureReq - Request the implant to reconfigure itself
 message ReconfigureReq {
   int64 ReconnectInterval = 1;
-  int64 BeaconInterval = 2;
-  int64 BeaconJitter = 3;
+  int64 BaconInterval = 2;
+  int64 BaconJitter = 3;
 
   commonpb.Request Request = 9;
 }

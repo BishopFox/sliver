@@ -21,7 +21,7 @@ package core
 import (
 	"sync"
 
-	consts "github.com/bishopfox/sliver/client/constants"
+	consts "github.com/gsmith257-cyber/better-sliver-package/client/constants"
 )
 
 var (

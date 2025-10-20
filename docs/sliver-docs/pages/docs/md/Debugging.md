@@ -14,12 +14,12 @@ Debugging the Sliver needs to be done via delve [remote debugging](https://githu
 
 ```
 dlv debug \
---build-flags="-tags osusergo,netgo,go_sqlite,server -ldflags='-X github.com/bishopfox/sliver/client/version.Version=1.1.2 -X github.com/bishopfox/sliver/client/version.CompiledAt=Never -X github.com/bishopfox/sliver/client/version.GithubReleasesURL=github.com -X github.com/bishopfox/sliver/client/version.GitCommit=aabbcc -X github.com/bishopfox/sliver/client/version.GitDirty=Dirty'" \
+--build-flags="-tags osusergo,netgo,go_sqlite,server -ldflags='-X github.com/gsmith257-cyber/better-sliver-package/client/version.Version=1.1.2 -X github.com/gsmith257-cyber/better-sliver-package/client/version.CompiledAt=Never -X github.com/gsmith257-cyber/better-sliver-package/client/version.GithubReleasesURL=github.com -X github.com/gsmith257-cyber/better-sliver-package/client/version.GitCommit=aabbcc -X github.com/gsmith257-cyber/better-sliver-package/client/version.GitDirty=Dirty'" \
 --headless \
 --listen=:2345 \
 --api-version=2 \
 --log \
-github.com/bishopfox/sliver/server
+github.com/gsmith257-cyber/better-sliver-package/server
 ```
 
 To simplify things, you can add this command as a VSCode task, by adding the following to your [`.vscode/tasks.json` file](https://code.visualstudio.com/docs/editor/tasks):
@@ -31,12 +31,12 @@ To simplify things, you can add this command as a VSCode task, by adding the fol
   "command": "dlv",
   "args": [
     "debug",
-    "--build-flags=\"-tags osusergo,netgo,go_sqlite,server -ldflags='-X github.com/bishopfox/sliver/client/version.Version=0.0.0 -X github.com/bishopfox/sliver/client/version.CompiledAt=Never -X github.com/bishopfox/sliver/client/version.GithubReleasesURL=https://api.github.com/repos/BishopFox/sliver/releases -X github.com/bishopfox/sliver/client/version.GitCommit=debug -X github.com/bishopfox/sliver/client/version.GitDirty=Dirty -X github.com/bishopfox/sliver/client/assets.DefaultArmoryPublicKey=RWSBpxpRWDrD7Fe+VvRE3c2VEDC2NK80rlNCj+BX0gz44Xw07r6KQD9L -X github.com/bishopfox/sliver/client/assets.DefaultArmoryRepoURL=https://api.github.com/repos/sliverarmory/armory/releases'\"",
+    "--build-flags=\"-tags osusergo,netgo,go_sqlite,server -ldflags='-X github.com/gsmith257-cyber/better-sliver-package/client/version.Version=0.0.0 -X github.com/gsmith257-cyber/better-sliver-package/client/version.CompiledAt=Never -X github.com/gsmith257-cyber/better-sliver-package/client/version.GithubReleasesURL=https://api.github.com/repos/BishopFox/sliver/releases -X github.com/gsmith257-cyber/better-sliver-package/client/version.GitCommit=debug -X github.com/gsmith257-cyber/better-sliver-package/client/version.GitDirty=Dirty -X github.com/gsmith257-cyber/better-sliver-package/client/assets.DefaultArmoryPublicKey=RWSBpxpRWDrD7Fe+VvRE3c2VEDC2NK80rlNCj+BX0gz44Xw07r6KQD9L -X github.com/gsmith257-cyber/better-sliver-package/client/assets.DefaultArmoryRepoURL=https://api.github.com/repos/sliverarmory/armory/releases'\"",
     "--headless",
     "--listen=:8844",
     "--api-version=2",
     "--log",
-    "github.com/bishopfox/sliver/server"
+    "github.com/gsmith257-cyber/better-sliver-package/server"
   ],
   "presentation": {
     "echo": true,

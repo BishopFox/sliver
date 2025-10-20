@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build !goexperiment.jsonv2 || !go1.25
-
 package jsontext
 
 import (
@@ -18,25 +16,6 @@ import (
 // and [Decoder.Reset] with specific features.
 // Each function takes in a variadic list of options, where properties
 // set in latter options override the value of previously set properties.
-//
-// There is a single Options type, which is used with both encoding and decoding.
-// Some options affect both operations, while others only affect one operation:
-//
-//   - [AllowDuplicateNames] affects encoding and decoding
-//   - [AllowInvalidUTF8] affects encoding and decoding
-//   - [EscapeForHTML] affects encoding only
-//   - [EscapeForJS] affects encoding only
-//   - [PreserveRawStrings] affects encoding only
-//   - [CanonicalizeRawInts] affects encoding only
-//   - [CanonicalizeRawFloats] affects encoding only
-//   - [ReorderRawObjects] affects encoding only
-//   - [SpaceAfterColon] affects encoding only
-//   - [SpaceAfterComma] affects encoding only
-//   - [Multiline] affects encoding only
-//   - [WithIndent] affects encoding only
-//   - [WithIndentPrefix] affects encoding only
-//
-// Options that do not affect a particular operation are ignored.
 //
 // The Options type is identical to [encoding/json.Options] and
 // [encoding/json/v2.Options]. Options from the other packages may
@@ -99,122 +78,20 @@ func EscapeForJS(v bool) Options {
 	}
 }
 
-// PreserveRawStrings specifies that when encoding a raw JSON string in a
-// [Token] or [Value], pre-escaped sequences
-// in a JSON string are preserved to the output.
-// However, raw strings still respect [EscapeForHTML] and [EscapeForJS]
-// such that the relevant characters are escaped.
-// If [AllowInvalidUTF8] is enabled, bytes of invalid UTF-8
-// are preserved to the output.
+// Expand specifies that the JSON output should be expanded,
+// where every JSON object member or JSON array element
+// appears on a new, indented line according to the nesting depth.
+// If an indent is not already specified, then it defaults to using "\t".
+//
+// If set to false, then the output is compact,
+// where no whitespace is emitted between JSON values.
 //
 // This only affects encoding and is ignored when decoding.
-func PreserveRawStrings(v bool) Options {
+func Expand(v bool) Options {
 	if v {
-		return jsonflags.PreserveRawStrings | 1
+		return jsonflags.Expand | 1
 	} else {
-		return jsonflags.PreserveRawStrings | 0
-	}
-}
-
-// CanonicalizeRawInts specifies that when encoding a raw JSON
-// integer number (i.e., a number without a fraction and exponent) in a
-// [Token] or [Value], the number is canonicalized
-// according to RFC 8785, section 3.2.2.3. As a special case,
-// the number -0 is canonicalized as 0.
-//
-// JSON numbers are treated as IEEE 754 double precision numbers.
-// Any numbers with precision beyond what is representable by that form
-// will lose their precision when canonicalized. For example,
-// integer values beyond ±2⁵³ will lose their precision.
-// For example, 1234567890123456789 is formatted as 1234567890123456800.
-//
-// This only affects encoding and is ignored when decoding.
-func CanonicalizeRawInts(v bool) Options {
-	if v {
-		return jsonflags.CanonicalizeRawInts | 1
-	} else {
-		return jsonflags.CanonicalizeRawInts | 0
-	}
-}
-
-// CanonicalizeRawFloats specifies that when encoding a raw JSON
-// floating-point number (i.e., a number with a fraction or exponent) in a
-// [Token] or [Value], the number is canonicalized
-// according to RFC 8785, section 3.2.2.3. As a special case,
-// the number -0 is canonicalized as 0.
-//
-// JSON numbers are treated as IEEE 754 double precision numbers.
-// It is safe to canonicalize a serialized single precision number and
-// parse it back as a single precision number and expect the same value.
-// If a number exceeds ±1.7976931348623157e+308, which is the maximum
-// finite number, then it saturated at that value and formatted as such.
-//
-// This only affects encoding and is ignored when decoding.
-func CanonicalizeRawFloats(v bool) Options {
-	if v {
-		return jsonflags.CanonicalizeRawFloats | 1
-	} else {
-		return jsonflags.CanonicalizeRawFloats | 0
-	}
-}
-
-// ReorderRawObjects specifies that when encoding a raw JSON object in a
-// [Value], the object members are reordered according to
-// RFC 8785, section 3.2.3.
-//
-// This only affects encoding and is ignored when decoding.
-func ReorderRawObjects(v bool) Options {
-	if v {
-		return jsonflags.ReorderRawObjects | 1
-	} else {
-		return jsonflags.ReorderRawObjects | 0
-	}
-}
-
-// SpaceAfterColon specifies that the JSON output should emit a space character
-// after each colon separator following a JSON object name.
-// If false, then no space character appears after the colon separator.
-//
-// This only affects encoding and is ignored when decoding.
-func SpaceAfterColon(v bool) Options {
-	if v {
-		return jsonflags.SpaceAfterColon | 1
-	} else {
-		return jsonflags.SpaceAfterColon | 0
-	}
-}
-
-// SpaceAfterComma specifies that the JSON output should emit a space character
-// after each comma separator following a JSON object value or array element.
-// If false, then no space character appears after the comma separator.
-//
-// This only affects encoding and is ignored when decoding.
-func SpaceAfterComma(v bool) Options {
-	if v {
-		return jsonflags.SpaceAfterComma | 1
-	} else {
-		return jsonflags.SpaceAfterComma | 0
-	}
-}
-
-// Multiline specifies that the JSON output should expand to multiple lines,
-// where every JSON object member or JSON array element appears on
-// a new, indented line according to the nesting depth.
-//
-// If [SpaceAfterColon] is not specified, then the default is true.
-// If [SpaceAfterComma] is not specified, then the default is false.
-// If [WithIndent] is not specified, then the default is "\t".
-//
-// If set to false, then the output is a single-line,
-// where the only whitespace emitted is determined by the current
-// values of [SpaceAfterColon] and [SpaceAfterComma].
-//
-// This only affects encoding and is ignored when decoding.
-func Multiline(v bool) Options {
-	if v {
-		return jsonflags.Multiline | 1
-	} else {
-		return jsonflags.Multiline | 0
+		return jsonflags.Expand | 0
 	}
 }
 
@@ -225,10 +102,10 @@ func Multiline(v bool) Options {
 // The indent must only be composed of space or tab characters.
 //
 // If the intent to emit indented output without a preference for
-// the particular indent string, then use [Multiline] instead.
+// the particular indent string, then use [Expand] instead.
 //
 // This only affects encoding and is ignored when decoding.
-// Use of this option implies [Multiline] being set to true.
+// Use of this option implies [Expand] being set to true.
 func WithIndent(indent string) Options {
 	// Fast-path: Return a constant for common indents, which avoids allocating.
 	// These are derived from analyzing the Go module proxy on 2023-07-01.
@@ -261,7 +138,7 @@ func WithIndent(indent string) Options {
 // The prefix must only be composed of space or tab characters.
 //
 // This only affects encoding and is ignored when decoding.
-// Use of this option implies [Multiline] being set to true.
+// Use of this option implies [Expand] being set to true.
 func WithIndentPrefix(prefix string) Options {
 	if s := strings.Trim(prefix, " \t"); len(s) > 0 {
 		panic("json: invalid character " + jsonwire.QuoteRune(s) + " in indent prefix")
@@ -271,7 +148,6 @@ func WithIndentPrefix(prefix string) Options {
 
 /*
 // TODO(https://go.dev/issue/56733): Implement WithByteLimit and WithDepthLimit.
-// Remember to also update the "Security Considerations" section.
 
 // WithByteLimit sets a limit on the number of bytes of input or output bytes
 // that may be consumed or produced for each top-level JSON value.
@@ -284,7 +160,6 @@ func WithIndentPrefix(prefix string) Options {
 //
 // A non-positive limit is equivalent to no limit at all.
 // If unspecified, the default limit is no limit at all.
-// This affects either encoding or decoding.
 func WithByteLimit(n int64) Options {
 	return jsonopts.ByteLimit(max(n, 0))
 }
@@ -297,7 +172,6 @@ func WithByteLimit(n int64) Options {
 //
 // A non-positive limit is equivalent to no limit at all.
 // If unspecified, the default limit is 10000.
-// This affects either encoding or decoding.
 func WithDepthLimit(n int) Options {
 	return jsonopts.DepthLimit(max(n, 0))
 }

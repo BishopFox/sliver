@@ -21,7 +21,7 @@ package tunnel_handlers
 import (
 	"sync"
 
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/sliverpb"
 )
 
 var (

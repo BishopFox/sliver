@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/bishopfox/sliver/server/assets"
+	"github.com/gsmith257-cyber/better-sliver-package/server/assets"
 )
 
 func TestGoGoVersion(t *testing.T) {
@@ -34,6 +34,6 @@ func TestGoGoVersion(t *testing.T) {
 	}
 	_, err := GoVersion(winConfig)
 	if err != nil {
-		t.Errorf("%s", fmt.Sprintf("version cmd failed %v", err))
+		t.Errorf(fmt.Sprintf("version cmd failed %v", err))
 	}
 }

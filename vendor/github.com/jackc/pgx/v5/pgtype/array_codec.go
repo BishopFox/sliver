@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/jackc/pgx/v5/internal/anynil"
 	"github.com/jackc/pgx/v5/internal/pgio"
 )
 
@@ -229,7 +230,7 @@ func (c *ArrayCodec) PlanScan(m *Map, oid uint32, format int16, target any) Scan
 
 	// target / arrayScanner might be a pointer to a nil. If it is create one so we can call ScanIndexType to plan the
 	// scan of the elements.
-	if isNil, _ := isNilDriverValuer(target); isNil {
+	if anynil.Is(target) {
 		arrayScanner = reflect.New(reflect.TypeOf(target).Elem()).Interface().(ArraySetter)
 	}
 

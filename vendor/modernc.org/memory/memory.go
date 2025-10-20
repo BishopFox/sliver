@@ -57,6 +57,7 @@ import (
 	"fmt"
 	"math/bits"
 	"os"
+	"reflect"
 	"unsafe"
 )
 
@@ -109,12 +110,6 @@ func (a *Allocator) mmap(size int) (uintptr /* *page */, error) {
 		return 0, err
 	}
 
-	//TODO(jnml) The returned size may now be nearly as twice as large as we asked
-	//for. Use that extra capacity. For that we need to move the respective
-	//Allocator.cap item into the page struct so the page cap becomes dynamic.
-	//
-	// Related: This is a consequence of fixing the bigsort.test failures on
-	// linux/s390x, see: https://gitlab.com/cznic/sqlite/-/issues/207
 	if counters {
 		a.Mmaps++
 		a.Bytes += size
@@ -357,7 +352,12 @@ func (a *Allocator) Calloc(size int) (r []byte, err error) {
 		return nil, err
 	}
 
-	return (*rawmem)(unsafe.Pointer(p))[:size:usableSize(p)], nil
+	var b []byte
+	sh := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+	sh.Cap = usableSize(p)
+	sh.Data = p
+	sh.Len = size
+	return b, nil
 }
 
 // Close releases all OS resources used by a and sets it to its zero value.
@@ -396,7 +396,11 @@ func (a *Allocator) Malloc(size int) (r []byte, err error) {
 		return nil, err
 	}
 
-	return (*rawmem)(unsafe.Pointer(p))[:size:usableSize(p)], nil
+	sh := (*reflect.SliceHeader)(unsafe.Pointer(&r))
+	sh.Cap = usableSize(p)
+	sh.Data = p
+	sh.Len = size
+	return r, nil
 }
 
 // Realloc changes the size of the backing array of b to size bytes or returns
@@ -418,7 +422,11 @@ func (a *Allocator) Realloc(b []byte, size int) (r []byte, err error) {
 		return nil, err
 	}
 
-	return (*rawmem)(unsafe.Pointer(p))[:size:usableSize(p)], nil
+	sh := (*reflect.SliceHeader)(unsafe.Pointer(&r))
+	sh.Cap = usableSize(p)
+	sh.Data = p
+	sh.Len = size
+	return r, nil
 }
 
 // UsableSize reports the size of the memory block allocated at p, which must

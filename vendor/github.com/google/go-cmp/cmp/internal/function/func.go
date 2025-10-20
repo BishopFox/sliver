@@ -19,7 +19,6 @@ const (
 
 	tbFunc  // func(T) bool
 	ttbFunc // func(T, T) bool
-	ttiFunc // func(T, T) int
 	trbFunc // func(T, R) bool
 	tibFunc // func(T, I) bool
 	trFunc  // func(T) R
@@ -29,13 +28,11 @@ const (
 	Transformer       = trFunc  // func(T) R
 	ValueFilter       = ttbFunc // func(T, T) bool
 	Less              = ttbFunc // func(T, T) bool
-	Compare           = ttiFunc // func(T, T) int
 	ValuePredicate    = tbFunc  // func(T) bool
 	KeyValuePredicate = trbFunc // func(T, R) bool
 )
 
 var boolType = reflect.TypeOf(true)
-var intType = reflect.TypeOf(0)
 
 // IsType reports whether the reflect.Type is of the specified function type.
 func IsType(t reflect.Type, ft funcType) bool {
@@ -50,10 +47,6 @@ func IsType(t reflect.Type, ft funcType) bool {
 		}
 	case ttbFunc: // func(T, T) bool
 		if ni == 2 && no == 1 && t.In(0) == t.In(1) && t.Out(0) == boolType {
-			return true
-		}
-	case ttiFunc: // func(T, T) int
-		if ni == 2 && no == 1 && t.In(0) == t.In(1) && t.Out(0) == intType {
 			return true
 		}
 	case trbFunc: // func(T, R) bool

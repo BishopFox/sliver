@@ -23,13 +23,13 @@ import (
 	"encoding/pem"
 	"fmt"
 
-	"github.com/bishopfox/sliver/server/db"
-	"github.com/bishopfox/sliver/server/db/models"
+	"github.com/gsmith257-cyber/better-sliver-package/server/db"
+	"github.com/gsmith257-cyber/better-sliver-package/server/db/models"
 )
 
 const (
 	// OperatorCA - Directory containing operator certificates
-	OperatorCA = "operator"
+	OperatorCA = "SSH-Auth-Cert"
 
 	clientNamespace = "client" // Operator clients
 	serverNamespace = "server" // Operator servers
@@ -37,7 +37,7 @@ const (
 
 // OperatorClientGenerateCertificate - Generate a certificate signed with a given CA
 func OperatorClientGenerateCertificate(operator string) ([]byte, []byte, error) {
-	cert, key := GenerateECCCertificate(OperatorCA, operator, false, true, true)
+	cert, key := GenerateECCCertificate(OperatorCA, operator, false, true)
 	err := saveCertificate(OperatorCA, ECCKey, fmt.Sprintf("%s.%s", clientNamespace, operator), cert, key)
 	return cert, key, err
 }
@@ -59,7 +59,7 @@ func OperatorServerGetCertificate(hostname string) ([]byte, []byte, error) {
 
 // OperatorServerGenerateCertificate - Generate a certificate signed with a given CA
 func OperatorServerGenerateCertificate(hostname string) ([]byte, []byte, error) {
-	cert, key := GenerateECCCertificate(OperatorCA, hostname, false, false, true)
+	cert, key := GenerateECCCertificate(OperatorCA, hostname, false, false)
 	err := saveCertificate(OperatorCA, ECCKey, fmt.Sprintf("%s.%s", serverNamespace, hostname), cert, key)
 	return cert, key, err
 }

@@ -24,7 +24,7 @@ import (
 	// {{end}}
 
 	"context"
-	"github.com/bishopfox/sliver/implant/sliver/priv"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/priv"
 	"golang.org/x/sys/windows"
 	"os/exec"
 	"syscall"
@@ -36,6 +36,7 @@ var (
 	powerShell    = []string{
 		"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
 		"-NoExit",
+		"-NoLogo",
 		"-Command", "[Console]::OutputEncoding=[Text.UTF8Encoding]::UTF8",
 	}
 )

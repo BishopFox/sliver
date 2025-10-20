@@ -31,24 +31,6 @@ type NeighborStats struct {
 	UnreachableEntryLookups *tcpip.StatCounter
 }
 
-// +stateify savable
-type dynamicCacheEntry struct {
-	lru neighborEntryList
-
-	// count tracks the amount of dynamic entries in the cache. This is
-	// needed since static entries do not count towards the LRU cache
-	// eviction strategy.
-	count uint16
-}
-
-// +stateify savable
-type neighborCacheMu struct {
-	neighborCacheRWMutex `state:"nosave"`
-
-	cache   map[tcpip.Address]*neighborEntry
-	dynamic dynamicCacheEntry
-}
-
 // neighborCache maps IP addresses to link addresses. It uses the Least
 // Recently Used (LRU) eviction strategy to implement a bounded cache for
 // dynamically acquired entries. It contains the state machine and configuration
@@ -61,13 +43,24 @@ type neighborCacheMu struct {
 //  2. Static entries are explicitly added by a user and have no expiration.
 //     Their state is always Static. The amount of static entries stored in the
 //     cache is unbounded.
-//
-// +stateify savable
 type neighborCache struct {
 	nic     *nic
 	state   *NUDState
 	linkRes LinkAddressResolver
-	mu      neighborCacheMu
+
+	mu struct {
+		neighborCacheRWMutex
+
+		cache   map[tcpip.Address]*neighborEntry
+		dynamic struct {
+			lru neighborEntryList
+
+			// count tracks the amount of dynamic entries in the cache. This is
+			// needed since static entries do not count towards the LRU cache
+			// eviction strategy.
+			count uint16
+		}
+	}
 }
 
 // getOrCreateEntry retrieves a cache entry associated with addr. The

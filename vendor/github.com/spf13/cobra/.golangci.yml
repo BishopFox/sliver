@@ -12,48 +12,51 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-version: "2"
-
 run:
-  timeout: 5m
-
-formatters:
-  enable:
-    - gofmt
-    - goimports
+  deadline: 5m
 
 linters:
-  default: none
+  disable-all: true
   enable:
     #- bodyclose
+    # - deadcode ! deprecated since v1.49.0; replaced by 'unused'
     #- depguard
     #- dogsled
     #- dupl
     - errcheck
     #- exhaustive
     #- funlen
+    - gas
     #- gochecknoinits
     - goconst
-    - gocritic
+    #- gocritic
     #- gocyclo
+    #- gofmt
+    - goimports
+    - golint
+    #- gomnd
     #- goprintffuncname
-    - gosec
+    #- gosec
+    #- gosimple
     - govet
     - ineffassign
+    - interfacer
     #- lll
-    - misspell
-    #- mnd
+    - maligned
+    - megacheck
+    #- misspell
     #- nakedret
     #- noctx
-    - nolintlint
+    #- nolintlint
     #- rowserrcheck
-    - staticcheck
+    #- scopelint
+    #- staticcheck
+    #- structcheck ! deprecated since v1.49.0; replaced by 'unused'
+    #- stylecheck
+    #- typecheck
     - unconvert
     #- unparam
     - unused
+    # - varcheck ! deprecated since v1.49.0; replaced by 'unused'
     #- whitespace
-  exclusions:
-    presets:
-      - common-false-positives
-      - legacy
-      - std-error-handling
+  fast: false

@@ -6,6 +6,7 @@
 package device
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"net"
@@ -286,7 +287,8 @@ func (device *Device) RoutineHandshake(id int) {
 			// unmarshal packet
 
 			var reply MessageCookieReply
-			err := reply.unmarshal(elem.packet)
+			reader := bytes.NewReader(elem.packet)
+			err := binary.Read(reader, binary.LittleEndian, &reply)
 			if err != nil {
 				device.log.Verbosef("Failed to decode cookie reply")
 				goto skip
@@ -351,7 +353,8 @@ func (device *Device) RoutineHandshake(id int) {
 			// unmarshal
 
 			var msg MessageInitiation
-			err := msg.unmarshal(elem.packet)
+			reader := bytes.NewReader(elem.packet)
+			err := binary.Read(reader, binary.LittleEndian, &msg)
 			if err != nil {
 				device.log.Errorf("Failed to decode initiation message")
 				goto skip
@@ -359,7 +362,7 @@ func (device *Device) RoutineHandshake(id int) {
 
 			// consume initiation
 
-			peer := device.ConsumeMessageInitiation(&msg, elem.endpoint)
+			peer := device.ConsumeMessageInitiation(&msg)
 			if peer == nil {
 				device.log.Verbosef("Received invalid initiation message from %s", elem.endpoint.DstToString())
 				goto skip
@@ -383,7 +386,8 @@ func (device *Device) RoutineHandshake(id int) {
 			// unmarshal
 
 			var msg MessageResponse
-			err := msg.unmarshal(elem.packet)
+			reader := bytes.NewReader(elem.packet)
+			err := binary.Read(reader, binary.LittleEndian, &msg)
 			if err != nil {
 				device.log.Errorf("Failed to decode response message")
 				goto skip
@@ -443,7 +447,6 @@ func (peer *Peer) RoutineSequentialReceiver(maxBatchSize int) {
 		elemsContainer.Lock()
 		validTailPacket := -1
 		dataPacketReceived := false
-		rxBytesLen := uint64(0)
 		for i, elem := range elemsContainer.elems {
 			if elem.packet == nil {
 				// decryption failed
@@ -460,10 +463,7 @@ func (peer *Peer) RoutineSequentialReceiver(maxBatchSize int) {
 				peer.timersHandshakeComplete()
 				peer.SendStagedPackets()
 			}
-			if ep, ok := elem.endpoint.(conn.PeerAwareEndpoint); ok {
-				ep.FromPeer(peer.handshake.remoteStatic)
-			}
-			rxBytesLen += uint64(len(elem.packet) + MinMessageSize)
+			peer.rxBytes.Add(uint64(len(elem.packet) + MinMessageSize))
 
 			if len(elem.packet) == 0 {
 				device.log.Verbosef("%v - Receiving keepalive packet", peer)
@@ -512,8 +512,6 @@ func (peer *Peer) RoutineSequentialReceiver(maxBatchSize int) {
 
 			bufs = append(bufs, elem.buffer[:MessageTransportOffsetContent+len(elem.packet)])
 		}
-
-		peer.rxBytes.Add(rxBytesLen)
 		if validTailPacket >= 0 {
 			peer.SetEndpointFromPacket(elemsContainer.elems[validTailPacket].endpoint)
 			peer.keepKeyFreshReceiving()

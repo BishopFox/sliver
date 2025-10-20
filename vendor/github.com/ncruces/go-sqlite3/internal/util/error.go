@@ -75,7 +75,7 @@ func ErrorCodeString(rc uint32) string {
 		return "sqlite3: unable to open database file"
 	case PROTOCOL:
 		return "sqlite3: locking protocol"
-	case EMPTY:
+	case FORMAT:
 		break
 	case SCHEMA:
 		return "sqlite3: database schema has changed"
@@ -91,7 +91,7 @@ func ErrorCodeString(rc uint32) string {
 		break
 	case AUTH:
 		return "sqlite3: authorization denied"
-	case FORMAT:
+	case EMPTY:
 		break
 	case RANGE:
 		return "sqlite3: column index out of range"
@@ -103,14 +103,4 @@ func ErrorCodeString(rc uint32) string {
 		return "sqlite3: warning message"
 	}
 	return "sqlite3: unknown error"
-}
-
-type ErrorJoiner []error
-
-func (j *ErrorJoiner) Join(errs ...error) {
-	for _, err := range errs {
-		if err != nil {
-			*j = append(*j, err)
-		}
-	}
 }

@@ -2,6 +2,7 @@ package sqlite3
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 
 	"github.com/ncruces/go-sqlite3/internal/util"
@@ -11,9 +12,10 @@ import (
 //
 // https://sqlite.org/c3ref/errcode.html
 type Error struct {
+	str  string
 	msg  string
 	sql  string
-	code res_t
+	code uint64
 }
 
 // Code returns the primary error code for this error.
@@ -27,13 +29,19 @@ func (e *Error) Code() ErrorCode {
 //
 // https://sqlite.org/rescode.html
 func (e *Error) ExtendedCode() ExtendedErrorCode {
-	return xErrorCode(e.code)
+	return ExtendedErrorCode(e.code)
 }
 
 // Error implements the error interface.
 func (e *Error) Error() string {
 	var b strings.Builder
-	b.WriteString(util.ErrorCodeString(uint32(e.code)))
+	b.WriteString("sqlite3: ")
+
+	if e.str != "" {
+		b.WriteString(e.str)
+	} else {
+		b.WriteString(strconv.Itoa(int(e.code)))
+	}
 
 	if e.msg != "" {
 		b.WriteString(": ")
@@ -75,7 +83,7 @@ func (e *Error) As(err any) bool {
 
 // Temporary returns true for [BUSY] errors.
 func (e *Error) Temporary() bool {
-	return e.Code() == BUSY || e.Code() == INTERRUPT
+	return e.Code() == BUSY
 }
 
 // Timeout returns true for [BUSY_TIMEOUT] errors.
@@ -95,12 +103,7 @@ func (e ErrorCode) Error() string {
 
 // Temporary returns true for [BUSY] errors.
 func (e ErrorCode) Temporary() bool {
-	return e == BUSY || e == INTERRUPT
-}
-
-// ExtendedCode returns the extended error code for this error.
-func (e ErrorCode) ExtendedCode() ExtendedErrorCode {
-	return xErrorCode(e)
+	return e == BUSY
 }
 
 // Error implements the error interface.
@@ -125,7 +128,7 @@ func (e ExtendedErrorCode) As(err any) bool {
 
 // Temporary returns true for [BUSY] errors.
 func (e ExtendedErrorCode) Temporary() bool {
-	return ErrorCode(e) == BUSY || ErrorCode(e) == INTERRUPT
+	return ErrorCode(e) == BUSY
 }
 
 // Timeout returns true for [BUSY_TIMEOUT] errors.
@@ -133,32 +136,27 @@ func (e ExtendedErrorCode) Timeout() bool {
 	return e == BUSY_TIMEOUT
 }
 
-// Code returns the primary error code for this error.
-func (e ExtendedErrorCode) Code() ErrorCode {
-	return ErrorCode(e)
-}
-
-func errorCode(err error, def ErrorCode) (msg string, code res_t) {
+func errorCode(err error, def ErrorCode) (msg string, code uint32) {
 	switch code := err.(type) {
 	case nil:
 		return "", _OK
 	case ErrorCode:
-		return "", res_t(code)
+		return "", uint32(code)
 	case xErrorCode:
-		return "", res_t(code)
+		return "", uint32(code)
 	case *Error:
-		return code.msg, res_t(code.code)
+		return code.msg, uint32(code.code)
 	}
 
 	var ecode ErrorCode
 	var xcode xErrorCode
 	switch {
 	case errors.As(err, &xcode):
-		code = res_t(xcode)
+		code = uint32(xcode)
 	case errors.As(err, &ecode):
-		code = res_t(ecode)
+		code = uint32(ecode)
 	default:
-		code = res_t(def)
+		code = uint32(def)
 	}
 	return err.Error(), code
 }

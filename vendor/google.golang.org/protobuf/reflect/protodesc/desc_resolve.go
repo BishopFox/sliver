@@ -43,13 +43,8 @@ func (r *resolver) resolveMessageDependencies(ms []filedesc.Message, mds []*desc
 				o.L1.Fields.List = append(o.L1.Fields.List, f)
 			}
 
-			if f.L1.Kind, f.L1.Enum, f.L1.Message, err = r.findTarget(f.Kind(), f.Parent().FullName(), partialName(fd.GetTypeName())); err != nil {
+			if f.L1.Kind, f.L1.Enum, f.L1.Message, err = r.findTarget(f.Kind(), f.Parent().FullName(), partialName(fd.GetTypeName()), f.IsWeak()); err != nil {
 				return errors.New("message field %q cannot resolve type: %v", f.FullName(), err)
-			}
-			if f.L1.Kind == protoreflect.GroupKind && (f.IsMap() || f.IsMapEntry()) {
-				// A map field might inherit delimited encoding from a file-wide default feature.
-				// But maps never actually use delimited encoding. (At least for now...)
-				f.L1.Kind = protoreflect.MessageKind
 			}
 			if fd.DefaultValue != nil {
 				v, ev, err := unmarshalDefault(fd.GetDefaultValue(), f, r.allowUnresolvable)
@@ -73,10 +68,10 @@ func (r *resolver) resolveMessageDependencies(ms []filedesc.Message, mds []*desc
 func (r *resolver) resolveExtensionDependencies(xs []filedesc.Extension, xds []*descriptorpb.FieldDescriptorProto) (err error) {
 	for i, xd := range xds {
 		x := &xs[i]
-		if x.L1.Extendee, err = r.findMessageDescriptor(x.Parent().FullName(), partialName(xd.GetExtendee())); err != nil {
+		if x.L1.Extendee, err = r.findMessageDescriptor(x.Parent().FullName(), partialName(xd.GetExtendee()), false); err != nil {
 			return errors.New("extension field %q cannot resolve extendee: %v", x.FullName(), err)
 		}
-		if x.L1.Kind, x.L2.Enum, x.L2.Message, err = r.findTarget(x.Kind(), x.Parent().FullName(), partialName(xd.GetTypeName())); err != nil {
+		if x.L1.Kind, x.L2.Enum, x.L2.Message, err = r.findTarget(x.Kind(), x.Parent().FullName(), partialName(xd.GetTypeName()), false); err != nil {
 			return errors.New("extension field %q cannot resolve type: %v", x.FullName(), err)
 		}
 		if xd.DefaultValue != nil {
@@ -95,11 +90,11 @@ func (r *resolver) resolveServiceDependencies(ss []filedesc.Service, sds []*desc
 		s := &ss[i]
 		for j, md := range sd.GetMethod() {
 			m := &s.L2.Methods.List[j]
-			m.L1.Input, err = r.findMessageDescriptor(m.Parent().FullName(), partialName(md.GetInputType()))
+			m.L1.Input, err = r.findMessageDescriptor(m.Parent().FullName(), partialName(md.GetInputType()), false)
 			if err != nil {
 				return errors.New("service method %q cannot resolve input: %v", m.FullName(), err)
 			}
-			m.L1.Output, err = r.findMessageDescriptor(s.FullName(), partialName(md.GetOutputType()))
+			m.L1.Output, err = r.findMessageDescriptor(s.FullName(), partialName(md.GetOutputType()), false)
 			if err != nil {
 				return errors.New("service method %q cannot resolve output: %v", m.FullName(), err)
 			}
@@ -111,16 +106,16 @@ func (r *resolver) resolveServiceDependencies(ss []filedesc.Service, sds []*desc
 // findTarget finds an enum or message descriptor if k is an enum, message,
 // group, or unknown. If unknown, and the name could be resolved, the kind
 // returned kind is set based on the type of the resolved descriptor.
-func (r *resolver) findTarget(k protoreflect.Kind, scope protoreflect.FullName, ref partialName) (protoreflect.Kind, protoreflect.EnumDescriptor, protoreflect.MessageDescriptor, error) {
+func (r *resolver) findTarget(k protoreflect.Kind, scope protoreflect.FullName, ref partialName, isWeak bool) (protoreflect.Kind, protoreflect.EnumDescriptor, protoreflect.MessageDescriptor, error) {
 	switch k {
 	case protoreflect.EnumKind:
-		ed, err := r.findEnumDescriptor(scope, ref)
+		ed, err := r.findEnumDescriptor(scope, ref, isWeak)
 		if err != nil {
 			return 0, nil, nil, err
 		}
 		return k, ed, nil, nil
 	case protoreflect.MessageKind, protoreflect.GroupKind:
-		md, err := r.findMessageDescriptor(scope, ref)
+		md, err := r.findMessageDescriptor(scope, ref, isWeak)
 		if err != nil {
 			return 0, nil, nil, err
 		}
@@ -129,7 +124,7 @@ func (r *resolver) findTarget(k protoreflect.Kind, scope protoreflect.FullName, 
 		// Handle unspecified kinds (possible with parsers that operate
 		// on a per-file basis without knowledge of dependencies).
 		d, err := r.findDescriptor(scope, ref)
-		if err == protoregistry.NotFound && r.allowUnresolvable {
+		if err == protoregistry.NotFound && (r.allowUnresolvable || isWeak) {
 			return k, filedesc.PlaceholderEnum(ref.FullName()), filedesc.PlaceholderMessage(ref.FullName()), nil
 		} else if err == protoregistry.NotFound {
 			return 0, nil, nil, errors.New("%q not found", ref.FullName())
@@ -206,9 +201,9 @@ func (r *resolver) findDescriptor(scope protoreflect.FullName, ref partialName) 
 	}
 }
 
-func (r *resolver) findEnumDescriptor(scope protoreflect.FullName, ref partialName) (protoreflect.EnumDescriptor, error) {
+func (r *resolver) findEnumDescriptor(scope protoreflect.FullName, ref partialName, isWeak bool) (protoreflect.EnumDescriptor, error) {
 	d, err := r.findDescriptor(scope, ref)
-	if err == protoregistry.NotFound && r.allowUnresolvable {
+	if err == protoregistry.NotFound && (r.allowUnresolvable || isWeak) {
 		return filedesc.PlaceholderEnum(ref.FullName()), nil
 	} else if err == protoregistry.NotFound {
 		return nil, errors.New("%q not found", ref.FullName())
@@ -222,9 +217,9 @@ func (r *resolver) findEnumDescriptor(scope protoreflect.FullName, ref partialNa
 	return ed, nil
 }
 
-func (r *resolver) findMessageDescriptor(scope protoreflect.FullName, ref partialName) (protoreflect.MessageDescriptor, error) {
+func (r *resolver) findMessageDescriptor(scope protoreflect.FullName, ref partialName, isWeak bool) (protoreflect.MessageDescriptor, error) {
 	d, err := r.findDescriptor(scope, ref)
-	if err == protoregistry.NotFound && r.allowUnresolvable {
+	if err == protoregistry.NotFound && (r.allowUnresolvable || isWeak) {
 		return filedesc.PlaceholderMessage(ref.FullName()), nil
 	} else if err == protoregistry.NotFound {
 		return nil, errors.New("%q not found", ref.FullName())

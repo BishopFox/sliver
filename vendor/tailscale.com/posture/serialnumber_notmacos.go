@@ -13,7 +13,6 @@ import (
 
 	"github.com/digitalocean/go-smbios/smbios"
 	"tailscale.com/types/logger"
-	"tailscale.com/util/syspolicy/policyclient"
 )
 
 // getByteFromSmbiosStructure retrieves a 8-bit unsigned integer at the given specOffset.
@@ -72,7 +71,7 @@ func init() {
 	numOfTables = len(validTables)
 }
 
-func GetSerialNumbers(polc policyclient.Client, logf logger.Logf) ([]string, error) {
+func GetSerialNumbers(logf logger.Logf) ([]string, error) {
 	// Find SMBIOS data in operating system-specific location.
 	rc, _, err := smbios.Stream()
 	if err != nil {
@@ -99,5 +98,8 @@ func GetSerialNumbers(polc policyclient.Client, logf logger.Logf) ([]string, err
 			}
 		}
 	}
+
+	logf("got serial numbers %v", serials)
+
 	return serials, nil
 }

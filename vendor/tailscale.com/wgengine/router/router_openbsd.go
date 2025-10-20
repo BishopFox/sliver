@@ -15,7 +15,6 @@ import (
 	"tailscale.com/health"
 	"tailscale.com/net/netmon"
 	"tailscale.com/types/logger"
-	"tailscale.com/util/eventbus"
 	"tailscale.com/util/set"
 )
 
@@ -32,7 +31,7 @@ type openbsdRouter struct {
 	routes  set.Set[netip.Prefix]
 }
 
-func newUserspaceRouter(logf logger.Logf, tundev tun.Device, netMon *netmon.Monitor, health *health.Tracker, bus *eventbus.Bus) (Router, error) {
+func newUserspaceRouter(logf logger.Logf, tundev tun.Device, netMon *netmon.Monitor, health *health.Tracker) (Router, error) {
 	tunname, err := tundev.Name()
 	if err != nil {
 		return nil, err

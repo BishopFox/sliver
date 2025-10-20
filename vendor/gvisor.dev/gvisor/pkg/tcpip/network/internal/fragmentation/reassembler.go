@@ -23,7 +23,6 @@ import (
 	"gvisor.dev/gvisor/pkg/tcpip/stack"
 )
 
-// +stateify savable
 type hole struct {
 	first  uint16
 	last   uint16
@@ -34,13 +33,12 @@ type hole struct {
 	pkt *stack.PacketBuffer
 }
 
-// +stateify savable
 type reassembler struct {
 	reassemblerEntry
 	id        FragmentID
 	memSize   int
 	proto     uint8
-	mu        sync.Mutex `state:"nosave"`
+	mu        sync.Mutex
 	holes     []hole
 	filled    int
 	done      bool
@@ -135,7 +133,7 @@ func (r *reassembler) process(first, last uint16, more bool, proto uint8, pkt *s
 			last:   last,
 			filled: true,
 			final:  currentHole.final,
-			pkt:    pkt.Clone(),
+			pkt:    pkt.IncRef(),
 		}
 		r.filled++
 		// For IPv6, it is possible to have different Protocol values between
@@ -147,10 +145,10 @@ func (r *reassembler) process(first, last uint16, more bool, proto uint8, pkt *s
 		// options received in the first fragment should be used - and they should
 		// override options from following fragments.
 		if first == 0 {
-			if r.pkt != nil {
+			if !r.pkt.IsNil() {
 				r.pkt.DecRef()
 			}
-			r.pkt = pkt.Clone()
+			r.pkt = pkt.IncRef()
 			r.proto = proto
 		}
 		break

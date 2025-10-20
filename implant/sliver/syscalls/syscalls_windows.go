@@ -47,5 +47,3 @@ package syscalls
 
 //sys Module32FirstW(hSnapshot windows.Handle, lpme *MODULEENTRY32W) (err error) = kernel32.Module32FirstW
 //sys RegSaveKeyW(hKey windows.Handle, lpFile *uint16, lpSecurityAttributes *windows.SecurityAttributes) (err error) = advapi32.RegSaveKeyW
-
-//sys NtCreateThreadEx(threadHandle *windows.Handle, desiredAccess uint32, objectAttributes uintptr, processHandle windows.Handle, startAddress uintptr, parameter uintptr, createSuspended bool, stackZeroBits uint32, sizeOfStackCommit uintptr, sizeOfStackReserve uintptr, lpBytesBuffer uintptr) (status uint32) = ntdll.NtCreateThreadEx

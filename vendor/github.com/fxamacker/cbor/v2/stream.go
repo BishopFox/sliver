@@ -26,7 +26,7 @@ func NewDecoder(r io.Reader) *Decoder {
 }
 
 // Decode reads CBOR value and decodes it into the value pointed to by v.
-func (dec *Decoder) Decode(v any) error {
+func (dec *Decoder) Decode(v interface{}) error {
 	_, err := dec.readNext()
 	if err != nil {
 		// Return validation error or read error.
@@ -84,7 +84,7 @@ func (dec *Decoder) readNext() (int, error) {
 		if dec.off < len(dec.buf) {
 			dec.d.reset(dec.buf[dec.off:])
 			off := dec.off // Save offset before data validation
-			validErr = dec.d.wellformed(true, false)
+			validErr = dec.d.wellformed(true)
 			dec.off = off // Restore offset
 
 			if validErr == nil {
@@ -170,7 +170,7 @@ func NewEncoder(w io.Writer) *Encoder {
 }
 
 // Encode writes the CBOR encoding of v.
-func (enc *Encoder) Encode(v any) error {
+func (enc *Encoder) Encode(v interface{}) error {
 	if len(enc.indefTypes) > 0 && v != nil {
 		indefType := enc.indefTypes[len(enc.indefTypes)-1]
 		if indefType == cborTypeTextString {
@@ -187,14 +187,14 @@ func (enc *Encoder) Encode(v any) error {
 		}
 	}
 
-	buf := getEncodeBuffer()
+	buf := getEncoderBuffer()
 
 	err := encode(buf, enc.em, reflect.ValueOf(v))
 	if err == nil {
 		_, err = enc.w.Write(buf.Bytes())
 	}
 
-	putEncodeBuffer(buf)
+	putEncoderBuffer(buf)
 	return err
 }
 
@@ -231,7 +231,7 @@ func (enc *Encoder) EndIndefinite() error {
 	if len(enc.indefTypes) == 0 {
 		return errors.New("cbor: cannot encode \"break\" code outside indefinite length values")
 	}
-	_, err := enc.w.Write([]byte{cborBreakFlag})
+	_, err := enc.w.Write([]byte{0xff})
 	if err == nil {
 		enc.indefTypes = enc.indefTypes[:len(enc.indefTypes)-1]
 	}
@@ -239,10 +239,10 @@ func (enc *Encoder) EndIndefinite() error {
 }
 
 var cborIndefHeader = map[cborType][]byte{
-	cborTypeByteString: {cborByteStringWithIndefiniteLengthHead},
-	cborTypeTextString: {cborTextStringWithIndefiniteLengthHead},
-	cborTypeArray:      {cborArrayWithIndefiniteLengthHead},
-	cborTypeMap:        {cborMapWithIndefiniteLengthHead},
+	cborTypeByteString: {0x5f},
+	cborTypeTextString: {0x7f},
+	cborTypeArray:      {0x9f},
+	cborTypeMap:        {0xbf},
 }
 
 func (enc *Encoder) startIndefinite(typ cborType) error {

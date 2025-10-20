@@ -298,14 +298,6 @@ const (
 	huffmanGenericReader
 )
 
-// flushMode tells decompressor when to return data
-type flushMode uint8
-
-const (
-	syncFlush    flushMode = iota // return data after sync flush block
-	partialFlush                  // return data after each block
-)
-
 // Decompress state.
 type decompressor struct {
 	// Input source.
@@ -340,8 +332,6 @@ type decompressor struct {
 
 	nb    uint
 	final bool
-
-	flushMode flushMode
 }
 
 func (f *decompressor) nextBlock() {
@@ -628,10 +618,7 @@ func (f *decompressor) dataBlock() {
 	}
 
 	if n == 0 {
-		if f.flushMode == syncFlush {
-			f.toRead = f.dict.readFlush()
-		}
-
+		f.toRead = f.dict.readFlush()
 		f.finishBlock()
 		return
 	}
@@ -670,12 +657,8 @@ func (f *decompressor) finishBlock() {
 		if f.dict.availRead() > 0 {
 			f.toRead = f.dict.readFlush()
 		}
-
 		f.err = io.EOF
-	} else if f.flushMode == partialFlush && f.dict.availRead() > 0 {
-		f.toRead = f.dict.readFlush()
 	}
-
 	f.step = nextBlock
 }
 
@@ -806,41 +789,6 @@ func (f *decompressor) Reset(r io.Reader, dict []byte) error {
 	return nil
 }
 
-type ReaderOpt func(*decompressor)
-
-// WithPartialBlock tells decompressor to return after each block,
-// so it can read data written with partial flush
-func WithPartialBlock() ReaderOpt {
-	return func(f *decompressor) {
-		f.flushMode = partialFlush
-	}
-}
-
-// WithDict initializes the reader with a preset dictionary
-func WithDict(dict []byte) ReaderOpt {
-	return func(f *decompressor) {
-		f.dict.init(maxMatchOffset, dict)
-	}
-}
-
-// NewReaderOpts returns new reader with provided options
-func NewReaderOpts(r io.Reader, opts ...ReaderOpt) io.ReadCloser {
-	fixedHuffmanDecoderInit()
-
-	var f decompressor
-	f.r = makeReader(r)
-	f.bits = new([maxNumLit + maxNumDist]int)
-	f.codebits = new([numCodes]int)
-	f.step = nextBlock
-	f.dict.init(maxMatchOffset, nil)
-
-	for _, opt := range opts {
-		opt(&f)
-	}
-
-	return &f
-}
-
 // NewReader returns a new ReadCloser that can be used
 // to read the uncompressed version of r.
 // If r does not also implement io.ByteReader,
@@ -850,7 +798,15 @@ func NewReaderOpts(r io.Reader, opts ...ReaderOpt) io.ReadCloser {
 //
 // The ReadCloser returned by NewReader also implements Resetter.
 func NewReader(r io.Reader) io.ReadCloser {
-	return NewReaderOpts(r)
+	fixedHuffmanDecoderInit()
+
+	var f decompressor
+	f.r = makeReader(r)
+	f.bits = new([maxNumLit + maxNumDist]int)
+	f.codebits = new([numCodes]int)
+	f.step = nextBlock
+	f.dict.init(maxMatchOffset, nil)
+	return &f
 }
 
 // NewReaderDict is like NewReader but initializes the reader
@@ -861,5 +817,13 @@ func NewReader(r io.Reader) io.ReadCloser {
 //
 // The ReadCloser returned by NewReader also implements Resetter.
 func NewReaderDict(r io.Reader, dict []byte) io.ReadCloser {
-	return NewReaderOpts(r, WithDict(dict))
+	fixedHuffmanDecoderInit()
+
+	var f decompressor
+	f.r = makeReader(r)
+	f.bits = new([maxNumLit + maxNumDist]int)
+	f.codebits = new([numCodes]int)
+	f.step = nextBlock
+	f.dict.init(maxMatchOffset, dict)
+	return &f
 }

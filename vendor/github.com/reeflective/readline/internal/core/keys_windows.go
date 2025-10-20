@@ -129,20 +129,6 @@ next:
 		return 0, err
 	}
 
-	// First deal with terminal focus events, which reset some stuff
-	if ir.EventType == EVENT_FOCUS {
-		ker := (*_FOCUS_EVENT_RECORD)(unsafe.Pointer(&ir.Event[0]))
-
-		// If are with Tab Active and losing the focus,
-		// ignore this Alt key that is most likely the "Alt-Tab"
-		// system shortcut on Windows for Tab switching.
-		// QUESTION: Should we also do this to some other modifiers ?
-		if !ker.bSetFocus && r.altKey {
-			r.altKey = false
-			goto next
-		}
-	}
-
 	// Keep resize events for the display engine to use.
 	if ir.EventType == EVENT_WINDOW_BUFFER_SIZE {
 		return r.write(buf, WINDOWS_RESIZE)

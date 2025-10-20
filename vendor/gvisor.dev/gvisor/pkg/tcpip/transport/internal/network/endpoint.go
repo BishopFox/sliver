@@ -35,7 +35,7 @@ import (
 // +stateify savable
 type Endpoint struct {
 	// The following fields must only be set once then never changed.
-	stack       *stack.Stack
+	stack       *stack.Stack `state:"manual"`
 	ops         *tcpip.SocketOptions
 	netProto    tcpip.NetworkProtocolNumber
 	transProto  tcpip.TransportProtocolNumber
@@ -53,7 +53,7 @@ type Endpoint struct {
 	// +checklocks:mu
 	effectiveNetProto tcpip.NetworkProtocolNumber
 	// +checklocks:mu
-	connectedRoute *stack.Route `state:"nosave"`
+	connectedRoute *stack.Route `state:"manual"`
 	// +checklocks:mu
 	multicastMemberships map[multicastMembership]struct{}
 	// +checklocks:mu
@@ -274,34 +274,7 @@ func (c *WriteContext) TryNewPacketBuffer(reserveHdrBytes int, data buffer.Buffe
 	if !e.hasSendSpaceRLocked() {
 		return nil
 	}
-	return c.newPacketBufferLocked(reserveHdrBytes, data)
-}
 
-// TryNewPacketBufferFromPayloader returns a new packet buffer iff the endpoint's send buffer
-// is not full. Otherwise, data from `payloader` isn't read.
-//
-// If this method returns nil, the caller should wait for the endpoint to become
-// writable.
-func (c *WriteContext) TryNewPacketBufferFromPayloader(reserveHdrBytes int, payloader tcpip.Payloader) *stack.PacketBuffer {
-	e := c.e
-
-	e.sendBufferSizeInUseMu.Lock()
-	defer e.sendBufferSizeInUseMu.Unlock()
-
-	if !e.hasSendSpaceRLocked() {
-		return nil
-	}
-	var data buffer.Buffer
-	if _, err := data.WriteFromReader(payloader, int64(payloader.Len())); err != nil {
-		data.Release()
-		return nil
-	}
-	return c.newPacketBufferLocked(reserveHdrBytes, data)
-}
-
-// +checklocks:c.e.sendBufferSizeInUseMu
-func (c *WriteContext) newPacketBufferLocked(reserveHdrBytes int, data buffer.Buffer) *stack.PacketBuffer {
-	e := c.e
 	// Note that we allow oversubscription - if there is any space at all in the
 	// send buffer, we accept the full packet which may be larger than the space
 	// available. This is because if the endpoint reports that it is writable,
@@ -310,13 +283,6 @@ func (c *WriteContext) newPacketBufferLocked(reserveHdrBytes int, data buffer.Bu
 	// This matches Linux behaviour:
 	// https://github.com/torvalds/linux/blob/38d741cb70b/include/net/sock.h#L2519
 	// https://github.com/torvalds/linux/blob/38d741cb70b/net/core/sock.c#L2588
-	var expOptVal uint16
-	if nic, err := c.e.stack.GetNICByID(c.route.OutgoingNIC()); err == nil && nic.GetExperimentIPOptionEnabled() {
-		expOptVal = c.e.ops.GetExperimentOptionValue()
-	}
-	if c.route.NetProto() == header.IPv6ProtocolNumber && expOptVal != 0 {
-		reserveHdrBytes += header.IPv6ExperimentHdrLength
-	}
 	pktSize := int64(reserveHdrBytes) + int64(data.Size())
 	e.sendBufferSizeInUse += pktSize
 
@@ -351,16 +317,10 @@ func (c *WriteContext) WritePacket(pkt *stack.PacketBuffer, headerIncluded bool)
 		return c.route.WriteHeaderIncludedPacket(pkt)
 	}
 
-	var expOptVal uint16
-	if nic, err := c.e.stack.GetNICByID(c.route.OutgoingNIC()); err == nil && nic.GetExperimentIPOptionEnabled() {
-		expOptVal = c.e.ops.GetExperimentOptionValue()
-	}
-
 	err := c.route.WritePacket(stack.NetworkHeaderParams{
-		Protocol:              c.e.transProto,
-		TTL:                   c.ttl,
-		TOS:                   c.tos,
-		ExperimentOptionValue: expOptVal,
+		Protocol: c.e.transProto,
+		TTL:      c.ttl,
+		TOS:      c.tos,
 	}, pkt)
 
 	if _, ok := err.(*tcpip.ErrNoBufferSpace); ok {
@@ -529,7 +489,7 @@ func (e *Endpoint) AcquireContextForWrite(opts tcpip.WriteOptions) (WriteContext
 			}
 		}
 
-		dst, netProto, err := e.checkV4Mapped(*to, false /* bind */)
+		dst, netProto, err := e.checkV4Mapped(*to)
 		if err != nil {
 			return WriteContext{}, err
 		}
@@ -669,7 +629,7 @@ func (e *Endpoint) ConnectAndThen(addr tcpip.FullAddress, f func(netProto tcpip.
 		return &tcpip.ErrInvalidEndpointState{}
 	}
 
-	addr, netProto, err := e.checkV4Mapped(addr, false /* bind */)
+	addr, netProto, err := e.checkV4Mapped(addr)
 	if err != nil {
 		return err
 	}
@@ -723,9 +683,9 @@ func (e *Endpoint) Shutdown() tcpip.Error {
 
 // checkV4MappedRLocked determines the effective network protocol and converts
 // addr to its canonical form.
-func (e *Endpoint) checkV4Mapped(addr tcpip.FullAddress, bind bool) (tcpip.FullAddress, tcpip.NetworkProtocolNumber, tcpip.Error) {
+func (e *Endpoint) checkV4Mapped(addr tcpip.FullAddress) (tcpip.FullAddress, tcpip.NetworkProtocolNumber, tcpip.Error) {
 	info := e.Info()
-	unwrapped, netProto, err := info.AddrNetProtoLocked(addr, e.ops.GetV6Only(), bind)
+	unwrapped, netProto, err := info.AddrNetProtoLocked(addr, e.ops.GetV6Only())
 	if err != nil {
 		return tcpip.FullAddress{}, 0, err
 	}
@@ -760,7 +720,7 @@ func (e *Endpoint) BindAndThen(addr tcpip.FullAddress, f func(tcpip.NetworkProto
 		return &tcpip.ErrInvalidEndpointState{}
 	}
 
-	addr, netProto, err := e.checkV4Mapped(addr, true /* bind */)
+	addr, netProto, err := e.checkV4Mapped(addr)
 	if err != nil {
 		return err
 	}
@@ -837,7 +797,7 @@ func (e *Endpoint) SetSockOptInt(opt tcpip.SockOptInt, v int) tcpip.Error {
 	case tcpip.MTUDiscoverOption:
 		// Return not supported if the value is not disabling path
 		// MTU discovery.
-		if tcpip.PMTUDStrategy(v) != tcpip.PMTUDiscoveryDont {
+		if v != tcpip.PMTUDiscoveryDont {
 			return &tcpip.ErrNotSupported{}
 		}
 
@@ -875,7 +835,7 @@ func (e *Endpoint) GetSockOptInt(opt tcpip.SockOptInt) (int, tcpip.Error) {
 	switch opt {
 	case tcpip.MTUDiscoverOption:
 		// The only supported setting is path MTU discovery disabled.
-		return int(tcpip.PMTUDiscoveryDont), nil
+		return tcpip.PMTUDiscoveryDont, nil
 
 	case tcpip.MulticastTTLOption:
 		e.mu.Lock()
@@ -920,7 +880,7 @@ func (e *Endpoint) SetSockOpt(opt tcpip.SettableSocketOption) tcpip.Error {
 		defer e.mu.Unlock()
 
 		fa := tcpip.FullAddress{Addr: v.InterfaceAddr}
-		fa, netProto, err := e.checkV4Mapped(fa, true /* bind */)
+		fa, netProto, err := e.checkV4Mapped(fa)
 		if err != nil {
 			return err
 		}

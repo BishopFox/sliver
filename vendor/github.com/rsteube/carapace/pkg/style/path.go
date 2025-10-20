@@ -28,16 +28,9 @@ func ForPathExt(path string, sc Context) string {
 	return fromSGR(lscolors.GetColorist(sc.Getenv("LS_COLORS")).GetStyleExt(path))
 }
 
-// ForExtension returns the style for given extension
-//
-//	json
-func ForExtension(path string, sc Context) string {
-	return ForPathExt("."+path, sc)
-}
-
 func fromSGR(sgr string) string {
 	s := ui.StyleFromSGR(sgr)
-	result := []string{}
+	result := []string{"fg-default", "bg-default"}
 	if s.Foreground != nil {
 		result = append(result, s.Foreground.String())
 	}

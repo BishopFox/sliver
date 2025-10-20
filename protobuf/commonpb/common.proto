@@ -1,6 +1,6 @@
 syntax = "proto3";
 package commonpb;
-option go_package = "github.com/bishopfox/sliver/protobuf/commonpb";
+option go_package = "github.com/gsmith257-cyber/better-sliver-package/protobuf/commonpb";
 
 /*
   Generic protobuf messages

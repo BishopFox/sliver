@@ -4,10 +4,12 @@ package backgroundservice
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/serviceworker"
+	"github.com/mailru/easyjson"
+	"github.com/mailru/easyjson/jlexer"
+	"github.com/mailru/easyjson/jwriter"
 )
 
 // ServiceName the Background Service that will be associated with the
@@ -32,12 +34,20 @@ const (
 	ServiceNamePeriodicBackgroundSync ServiceName = "periodicBackgroundSync"
 )
 
-// UnmarshalJSON satisfies [json.Unmarshaler].
-func (t *ServiceName) UnmarshalJSON(buf []byte) error {
-	s := string(buf)
-	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t ServiceName) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
 
-	switch ServiceName(s) {
+// MarshalJSON satisfies json.Marshaler.
+func (t ServiceName) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *ServiceName) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch ServiceName(v) {
 	case ServiceNameBackgroundFetch:
 		*t = ServiceNameBackgroundFetch
 	case ServiceNameBackgroundSync:
@@ -50,10 +60,15 @@ func (t *ServiceName) UnmarshalJSON(buf []byte) error {
 		*t = ServiceNamePaymentHandler
 	case ServiceNamePeriodicBackgroundSync:
 		*t = ServiceNamePeriodicBackgroundSync
+
 	default:
-		return fmt.Errorf("unknown ServiceName value: %v", s)
+		in.AddError(fmt.Errorf("unknown ServiceName value: %v", v))
 	}
-	return nil
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *ServiceName) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
 }
 
 // EventMetadata a key-value pair for additional event information to pass

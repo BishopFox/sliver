@@ -128,7 +128,6 @@ type GetCredentialsOutput struct {
 	AccessKeyID     string
 	SecretAccessKey string
 	Token           string
-	AccountID       string
 }
 
 // EndpointError is an error returned from the endpoint service

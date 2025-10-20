@@ -25,9 +25,9 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/bishopfox/sliver/client/assets"
-	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/util"
+	"github.com/gsmith257-cyber/better-sliver-package/client/assets"
+	"github.com/gsmith257-cyber/better-sliver-package/client/console"
+	"github.com/gsmith257-cyber/better-sliver-package/util"
 	"github.com/spf13/cobra"
 )
 
@@ -43,22 +43,7 @@ func ExtensionsInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []
 	InstallFromDir(extLocalPath, true, con, strings.HasSuffix(extLocalPath, ".tar.gz"))
 }
 
-// InstallFromDir installs a Sliver extension from either a local directory or gzipped archive.
-// It reads the extension manifest, validates it, and copies all required files to the extensions
-// directory. If an extension with the same name already exists, it can optionally prompt for
-// overwrite confirmation.
-//
-// Parameters:
-//   - extLocalPath: Path to the source directory or gzipped archive containing the extension
-//   - promptToOverwrite: If true, prompts for confirmation before overwriting existing extension
-//   - con: Sliver console client for displaying status and error messages
-//   - isGz: Whether the source is a gzipped archive (true) or directory (false)
-//
-// The function will return early with error messages printed to console if:
-//   - The manifest cannot be read or parsed
-//   - Required directories cannot be created
-//   - File copy operations fail
-//   - User declines overwrite when prompted
+// Install an extension from a directory
 func InstallFromDir(extLocalPath string, promptToOverwrite bool, con *console.SliverClient, isGz bool) {
 	var manifestData []byte
 	var err error
@@ -79,15 +64,8 @@ func InstallFromDir(extLocalPath string, promptToOverwrite bool, con *console.Sl
 		return
 	}
 
-	// Use package name if available, otherwise use extension name
-	// (Note, for v1 manifests this will actually be command_name)
-	packageID := manifestF.Name
-	if manifestF.PackageName != "" {
-		packageID = manifestF.PackageName
-	}
-
 	//create repo path
-	minstallPath := filepath.Join(assets.GetExtensionsDir(), filepath.Base(packageID))
+	minstallPath := filepath.Join(assets.GetExtensionsDir(), filepath.Base(manifestF.Name))
 	if _, err := os.Stat(minstallPath); !os.IsNotExist(err) {
 		if promptToOverwrite {
 			con.PrintInfof("Extension '%s' already exists", manifestF.Name)

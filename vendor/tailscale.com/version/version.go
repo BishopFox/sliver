@@ -7,9 +7,7 @@ package version
 import (
 	"fmt"
 	"runtime/debug"
-	"strconv"
 	"strings"
-	"sync"
 
 	tailscaleroot "tailscale.com"
 	"tailscale.com/types/lazy"
@@ -107,7 +105,6 @@ type embeddedInfo struct {
 	valid      bool
 	commit     string
 	commitDate string
-	commitTime string
 	dirty      bool
 }
 
@@ -118,7 +115,7 @@ func (i embeddedInfo) commitAbbrev() string {
 	return i.commit
 }
 
-var getEmbeddedInfo = sync.OnceValue(func() embeddedInfo {
+var getEmbeddedInfo = lazy.SyncFunc(func() embeddedInfo {
 	bi, ok := debug.ReadBuildInfo()
 	if !ok {
 		return embeddedInfo{}
@@ -129,7 +126,6 @@ var getEmbeddedInfo = sync.OnceValue(func() embeddedInfo {
 		case "vcs.revision":
 			ret.commit = s.Value
 		case "vcs.time":
-			ret.commitTime = s.Value
 			if len(s.Value) >= len("yyyy-mm-dd") {
 				ret.commitDate = s.Value[:len("yyyy-mm-dd")]
 				ret.commitDate = strings.ReplaceAll(ret.commitDate, "-", "")
@@ -170,43 +166,4 @@ func dirtyString() string {
 func majorMinorPatch() string {
 	ret, _, _ := strings.Cut(Short(), "-")
 	return ret
-}
-
-func isValidLongWithTwoRepos(v string) bool {
-	s := strings.Split(v, "-")
-	if len(s) != 3 {
-		return false
-	}
-	hexChunk := func(s string) bool {
-		if len(s) < 6 {
-			return false
-		}
-		for i := range len(s) {
-			b := s[i]
-			if (b < '0' || b > '9') && (b < 'a' || b > 'f') {
-				return false
-			}
-		}
-		return true
-	}
-
-	v, t, g := s[0], s[1], s[2]
-	if !strings.HasPrefix(t, "t") || !strings.HasPrefix(g, "g") ||
-		!hexChunk(t[1:]) || !hexChunk(g[1:]) {
-		return false
-	}
-	nums := strings.Split(v, ".")
-	if len(nums) != 3 {
-		return false
-	}
-	for i, n := range nums {
-		bits := 8
-		if i == 2 {
-			bits = 16
-		}
-		if _, err := strconv.ParseUint(n, 10, bits); err != nil {
-			return false
-		}
-	}
-	return true
 }

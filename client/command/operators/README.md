@@ -1,10 +1,6 @@
-# client/command/operators
+Operators
+==========
 
-## Overview
+Operator related command implementations.
 
-Implements the 'operators' command group for the Sliver client console.
-
-## Go Files
-
-- `commands.go` – Declares the operators command and binds associated flags.
-- `operators.go` – Lists operators connected to the server and prints session details.
+__NOTE:__ Some operator-related commands are server-side only and are located instead in `server/console`

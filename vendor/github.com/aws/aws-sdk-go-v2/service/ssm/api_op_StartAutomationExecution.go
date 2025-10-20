@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
+	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ssm/types"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
@@ -31,10 +32,9 @@ type StartAutomationExecutionInput struct {
 
 	// The name of the SSM document to run. This can be a public document or a custom
 	// document. To run a shared document belonging to another account, specify the
-	// document ARN. For more information about how to use shared documents, see [Sharing SSM documents]in
-	// the Amazon Web Services Systems Manager User Guide.
-	//
-	// [Sharing SSM documents]: https://docs.aws.amazon.com/systems-manager/latest/userguide/documents-ssm-sharing.html
+	// document ARN. For more information about how to use shared documents, see Using
+	// shared SSM documents (https://docs.aws.amazon.com/systems-manager/latest/userguide/ssm-using-shared.html)
+	// in the Amazon Web Services Systems Manager User Guide.
 	//
 	// This member is required.
 	DocumentName *string
@@ -52,9 +52,6 @@ type StartAutomationExecutionInput struct {
 	// The maximum number of targets allowed to run this task in parallel. You can
 	// specify a number, such as 10, or a percentage, such as 10%. The default value is
 	// 10 .
-	//
-	// If both this parameter and the TargetLocation:TargetsMaxConcurrency are
-	// supplied, TargetLocation:TargetsMaxConcurrency takes precedence.
 	MaxConcurrency *string
 
 	// The number of errors that are allowed before the system stops running the
@@ -65,15 +62,10 @@ type StartAutomationExecutionInput struct {
 	// automation on additional targets after the first error result is returned. If
 	// you run an automation on 50 resources and set max-errors to 10%, then the system
 	// stops running the automation on additional targets when the sixth error is
-	// received.
-	//
-	// Executions that are already running an automation when max-errors is reached
-	// are allowed to complete, but some of these executions may fail as well. If you
-	// need to ensure that there won't be more than max-errors failed executions, set
-	// max-concurrency to 1 so the executions proceed one at a time.
-	//
-	// If this parameter and the TargetLocation:TargetsMaxErrors parameter are both
-	// supplied, TargetLocation:TargetsMaxErrors takes precedence.
+	// received. Executions that are already running an automation when max-errors is
+	// reached are allowed to complete, but some of these executions may fail as well.
+	// If you need to ensure that there won't be more than max-errors failed
+	// executions, set max-concurrency to 1 so the executions proceed one at a time.
 	MaxErrors *string
 
 	// The execution mode of the automation. Valid modes include the following: Auto
@@ -89,30 +81,18 @@ type StartAutomationExecutionInput struct {
 	// different ways, such as by purpose, owner, or environment. For example, you
 	// might want to tag an automation to identify an environment or operating system.
 	// In this case, you could specify the following key-value pairs:
-	//
 	//   - Key=environment,Value=test
-	//
 	//   - Key=OS,Value=Windows
-	//
-	// The Array Members maximum value is reported as 1000. This number includes
-	// capacity reserved for internal operations. When calling the
-	// StartAutomationExecution action, you can specify a maximum of 5 tags. You can,
-	// however, use the AddTagsToResourceaction to add up to a total of 50 tags to an existing
-	// automation configuration.
+	// To add tags to an existing automation, use the AddTagsToResource operation.
 	Tags []types.Tag
 
 	// A location is a combination of Amazon Web Services Regions and/or Amazon Web
 	// Services accounts where you want to run the automation. Use this operation to
 	// start an automation in multiple Amazon Web Services Regions and multiple Amazon
-	// Web Services accounts. For more information, see [Running automations in multiple Amazon Web Services Regions and accounts]in the Amazon Web Services
-	// Systems Manager User Guide.
-	//
-	// [Running automations in multiple Amazon Web Services Regions and accounts]: https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-automation-multiple-accounts-and-regions.html
+	// Web Services accounts. For more information, see Running Automation workflows
+	// in multiple Amazon Web Services Regions and Amazon Web Services accounts (https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-automation-multiple-accounts-and-regions.html)
+	// in the Amazon Web Services Systems Manager User Guide.
 	TargetLocations []types.TargetLocation
-
-	// Specify a publicly accessible URL for a file that contains the TargetLocations
-	// body. Currently, only files in presigned Amazon S3 buckets are supported.
-	TargetLocationsURL *string
 
 	// A key-value mapping of document parameters to target resources. Both Targets
 	// and TargetMaps can't be specified together.
@@ -124,9 +104,6 @@ type StartAutomationExecutionInput struct {
 
 	// A key-value mapping to target resources. Required if you specify
 	// TargetParameterName.
-	//
-	// If both this parameter and the TargetLocation:Targets parameter are supplied,
-	// TargetLocation:Targets takes precedence.
 	Targets []types.Target
 
 	noSmithyDocumentSerde
@@ -165,28 +142,25 @@ func (c *Client) addOperationStartAutomationExecutionMiddlewares(stack *middlewa
 	if err = addSetLoggerMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addClientRequestID(stack); err != nil {
+	if err = awsmiddleware.AddClientRequestIDMiddleware(stack); err != nil {
 		return err
 	}
-	if err = addComputeContentLength(stack); err != nil {
+	if err = smithyhttp.AddComputeContentLengthMiddleware(stack); err != nil {
 		return err
 	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addComputePayloadSHA256(stack); err != nil {
+	if err = v4.AddComputePayloadSHA256Middleware(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetryMiddlewares(stack, options); err != nil {
 		return err
 	}
-	if err = addRawResponseToMetadata(stack); err != nil {
+	if err = awsmiddleware.AddRawResponseToMetadata(stack); err != nil {
 		return err
 	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
+	if err = awsmiddleware.AddRecordResponseTiming(stack); err != nil {
 		return err
 	}
 	if err = addClientUserAgent(stack, options); err != nil {
@@ -201,22 +175,13 @@ func (c *Client) addOperationStartAutomationExecutionMiddlewares(stack *middlewa
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
-		return err
-	}
-	if err = addCredentialSource(stack, options); err != nil {
-		return err
-	}
 	if err = addOpStartAutomationExecutionValidationMiddleware(stack); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opStartAutomationExecution(options.Region), middleware.Before); err != nil {
 		return err
 	}
-	if err = addRecursionDetection(stack); err != nil {
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -229,48 +194,6 @@ func (c *Client) addOperationStartAutomationExecutionMiddlewares(stack *middlewa
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAttempt(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptExecution(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptTransmit(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
 		return err
 	}
 	return nil

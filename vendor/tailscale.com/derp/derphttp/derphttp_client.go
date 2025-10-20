@@ -30,13 +30,11 @@ import (
 
 	"go4.org/mem"
 	"tailscale.com/derp"
-	"tailscale.com/derp/derpconst"
 	"tailscale.com/envknob"
 	"tailscale.com/health"
 	"tailscale.com/net/dnscache"
 	"tailscale.com/net/netmon"
 	"tailscale.com/net/netns"
-	"tailscale.com/net/netx"
 	"tailscale.com/net/sockstats"
 	"tailscale.com/net/tlsdial"
 	"tailscale.com/net/tshttpproxy"
@@ -57,7 +55,7 @@ type Client struct {
 	TLSConfig     *tls.Config        // optional; nil means default
 	HealthTracker *health.Tracker    // optional; used if non-nil only
 	DNSCache      *dnscache.Resolver // optional; nil means no caching
-	MeshKey       key.DERPMesh       // optional; for trusted clients
+	MeshKey       string             // optional; for trusted clients
 	IsProber      bool               // optional; for probers to optional declare themselves as such
 
 	// WatchConnectionChanges is whether the client wishes to subscribe to
@@ -315,9 +313,6 @@ func (c *Client) preferIPv6() bool {
 var dialWebsocketFunc func(ctx context.Context, urlStr string) (net.Conn, error)
 
 func useWebsockets() bool {
-	if !canWebsockets {
-		return false
-	}
 	if runtime.GOOS == "js" {
 		return true
 	}
@@ -386,9 +381,8 @@ func (c *Client) connect(ctx context.Context, caller string) (client *derp.Clien
 	}()
 
 	var node *tailcfg.DERPNode // nil when using c.url to dial
-	var idealNodeInRegion bool
 	switch {
-	case canWebsockets && useWebsockets():
+	case useWebsockets():
 		var urlStr string
 		if c.url != nil {
 			urlStr = c.url.String()
@@ -427,7 +421,6 @@ func (c *Client) connect(ctx context.Context, caller string) (client *derp.Clien
 	default:
 		c.logf("%s: connecting to derp-%d (%v)", caller, reg.RegionID, reg.RegionCode)
 		tcpConn, node, err = c.dialRegion(ctx, reg)
-		idealNodeInRegion = err == nil && reg.Nodes[0] == node
 	}
 	if err != nil {
 		return nil, 0, err
@@ -501,18 +494,6 @@ func (c *Client) connect(ctx context.Context, caller string) (client *derp.Clien
 	}
 	req.Header.Set("Upgrade", "DERP")
 	req.Header.Set("Connection", "Upgrade")
-	if !idealNodeInRegion && reg != nil {
-		// This is purely informative for now (2024-07-06) for stats:
-		req.Header.Set(derp.IdealNodeHeader, reg.Nodes[0].Name)
-		// TODO(bradfitz,raggi): start a time.AfterFunc for 30m-1h or so to
-		// dialNode(reg.Nodes[0]) and see if we can even TCP connect to it. If
-		// so, TLS handshake it as well (which is mixed up in this massive
-		// connect method) and then if it all appears good, grab the mutex, bump
-		// connGen, finish the Upgrade, close the old one, and set a new field
-		// on Client that's like "here's the connect result and connGen for the
-		// next connect that comes in"). Tracking bug for all this is:
-		// https://github.com/tailscale/tailscale/issues/12724
-	}
 
 	if !serverPub.IsZero() && serverProtoVersion != 0 {
 		// parseMetaCert found the server's public key (no TLS
@@ -589,7 +570,7 @@ func (c *Client) connect(ctx context.Context, caller string) (client *derp.Clien
 //
 // The primary use for this is the derper mesh mode to connect to each
 // other over a VPC network.
-func (c *Client) SetURLDialer(dialer netx.DialFunc) {
+func (c *Client) SetURLDialer(dialer func(ctx context.Context, network, addr string) (net.Conn, error)) {
 	c.dialer = dialer
 }
 
@@ -647,21 +628,14 @@ func (c *Client) dialRegion(ctx context.Context, reg *tailcfg.DERPRegion) (net.C
 }
 
 func (c *Client) tlsClient(nc net.Conn, node *tailcfg.DERPNode) *tls.Conn {
-	tlsConf := tlsdial.Config(c.HealthTracker, c.TLSConfig)
-	// node is allowed to be nil here, tlsServerName falls back to using the URL
-	// if node is nil.
-	tlsConf.ServerName = c.tlsServerName(node)
+	tlsConf := tlsdial.Config(c.tlsServerName(node), c.HealthTracker, c.TLSConfig)
 	if node != nil {
 		if node.InsecureForTests {
 			tlsConf.InsecureSkipVerify = true
 			tlsConf.VerifyConnection = nil
 		}
 		if node.CertName != "" {
-			if suf, ok := strings.CutPrefix(node.CertName, "sha256-raw:"); ok {
-				tlsdial.SetConfigExpectedCertHash(tlsConf, suf)
-			} else {
-				tlsdial.SetConfigExpectedCert(tlsConf, node.CertName)
-			}
+			tlsdial.SetConfigExpectedCert(tlsConf, node.CertName)
 		}
 	}
 	return tls.Client(nc, tlsConf)
@@ -675,7 +649,7 @@ func (c *Client) tlsClient(nc net.Conn, node *tailcfg.DERPNode) *tls.Conn {
 func (c *Client) DialRegionTLS(ctx context.Context, reg *tailcfg.DERPRegion) (tlsConn *tls.Conn, connClose io.Closer, node *tailcfg.DERPNode, err error) {
 	tcpConn, node, err := c.dialRegion(ctx, reg)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("dialRegion(%d): %w", reg.RegionID, err)
+		return nil, nil, nil, err
 	}
 	done := make(chan bool) // unbuffered
 	defer close(done)
@@ -750,17 +724,6 @@ func (c *Client) dialNode(ctx context.Context, n *tailcfg.DERPNode) (net.Conn, e
 
 	nwait := 0
 	startDial := func(dstPrimary, proto string) {
-		dst := cmp.Or(dstPrimary, n.HostName)
-
-		// If dialing an IP address directly, check its address family
-		// and bail out before incrementing nwait.
-		if ip, err := netip.ParseAddr(dst); err == nil {
-			if proto == "tcp4" && ip.Is6() ||
-				proto == "tcp6" && ip.Is4() {
-				return
-			}
-		}
-
 		nwait++
 		go func() {
 			if proto == "tcp4" && c.preferIPv6() {
@@ -775,10 +738,8 @@ func (c *Client) dialNode(ctx context.Context, n *tailcfg.DERPNode) (net.Conn, e
 					// Start v4 dial
 				}
 			}
+			dst := cmp.Or(dstPrimary, n.HostName)
 			port := "443"
-			if !c.useHTTPS() {
-				port = "3340"
-			}
 			if n.DERPPort != 0 {
 				port = fmt.Sprint(n.DERPPort)
 			}
@@ -1156,7 +1117,7 @@ var ErrClientClosed = errors.New("derphttp.Client closed")
 func parseMetaCert(certs []*x509.Certificate) (serverPub key.NodePublic, serverProtoVersion int) {
 	for _, cert := range certs {
 		// Look for derpkey prefix added by initMetacert() on the server side.
-		if pubHex, ok := strings.CutPrefix(cert.Subject.CommonName, derpconst.MetaCertCommonNamePrefix); ok {
+		if pubHex, ok := strings.CutPrefix(cert.Subject.CommonName, "derpkey"); ok {
 			var err error
 			serverPub, err = key.ParseNodePublicUntyped(mem.S(pubHex))
 			if err == nil && cert.SerialNumber.BitLen() <= 8 { // supports up to version 255

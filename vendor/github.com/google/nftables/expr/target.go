@@ -21,17 +21,6 @@ type Target struct {
 }
 
 func (e *Target) marshal(fam byte) ([]byte, error) {
-	data, err := e.marshalData(fam)
-	if err != nil {
-		return nil, err
-	}
-	return netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: unix.NFTA_EXPR_NAME, Data: []byte("target\x00")},
-		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
-	})
-}
-
-func (e *Target) marshalData(fam byte) ([]byte, error) {
 	// Per https://git.netfilter.org/libnftnl/tree/src/expr/target.c?id=09456c720e9c00eecc08e41ac6b7c291b3821ee5#n38
 	name := e.Name
 	// limit the extension name as (some) user-space tools do and leave room for
@@ -51,7 +40,15 @@ func (e *Target) marshalData(fam byte) ([]byte, error) {
 		{Type: unix.NFTA_TARGET_INFO, Data: info},
 	}
 
-	return netlink.MarshalAttributes(attrs)
+	data, err := netlink.MarshalAttributes(attrs)
+	if err != nil {
+		return nil, err
+	}
+
+	return netlink.MarshalAttributes([]netlink.Attribute{
+		{Type: unix.NFTA_EXPR_NAME, Data: []byte("target\x00")},
+		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
+	})
 }
 
 func (e *Target) unmarshal(fam byte, data []byte) error {

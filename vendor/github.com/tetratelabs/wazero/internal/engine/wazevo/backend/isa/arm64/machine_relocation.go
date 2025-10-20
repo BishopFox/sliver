@@ -21,7 +21,7 @@ const (
 
 	// trampolineIslandInterval is the range of the trampoline island.
 	// Half of the range is used for the trampoline island, and the other half is used for the function.
-	trampolineIslandInterval = (maxUnconditionalBranchOffset - 1) / 2
+	trampolineIslandInterval = maxUnconditionalBranchOffset / 2
 
 	// maxNumFunctions explicitly specifies the maximum number of functions that can be allowed in a single executable.
 	maxNumFunctions = trampolineIslandInterval >> 6
@@ -42,13 +42,12 @@ func (m *machine) CallTrampolineIslandInfo(numFunctions int) (interval, size int
 // ResolveRelocations implements backend.Machine ResolveRelocations.
 func (m *machine) ResolveRelocations(
 	refToBinaryOffset []int,
-	importedFns int,
 	executable []byte,
 	relocations []backend.RelocationInfo,
 	callTrampolineIslandOffsets []int,
 ) {
 	for _, islandOffset := range callTrampolineIslandOffsets {
-		encodeCallTrampolineIsland(refToBinaryOffset, importedFns, islandOffset, executable)
+		encodeCallTrampolineIsland(refToBinaryOffset, islandOffset, executable)
 	}
 
 	for _, r := range relocations {
@@ -72,15 +71,11 @@ func (m *machine) ResolveRelocations(
 // encodeCallTrampolineIsland encodes a trampoline island for the given functions.
 // Each island consists of a trampoline instruction sequence for each function.
 // Each trampoline instruction sequence consists of 4 instructions + 32-bit immediate.
-func encodeCallTrampolineIsland(refToBinaryOffset []int, importedFns int, islandOffset int, executable []byte) {
-	// We skip the imported functions: they don't need trampolines
-	// and are not accounted for.
-	binaryOffsets := refToBinaryOffset[importedFns:]
-
-	for i := 0; i < len(binaryOffsets); i++ {
+func encodeCallTrampolineIsland(refToBinaryOffset []int, islandOffset int, executable []byte) {
+	for i := 0; i < len(refToBinaryOffset); i++ {
 		trampolineOffset := islandOffset + trampolineCallSize*i
 
-		fnOffset := binaryOffsets[i]
+		fnOffset := refToBinaryOffset[i]
 		diff := fnOffset - (trampolineOffset + 16)
 		if diff > math.MaxInt32 || diff < math.MinInt32 {
 			// This case even amd64 can't handle. 4GB is too big.

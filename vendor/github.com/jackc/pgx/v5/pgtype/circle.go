@@ -25,18 +25,16 @@ type Circle struct {
 	Valid bool
 }
 
-// ScanCircle implements the [CircleScanner] interface.
 func (c *Circle) ScanCircle(v Circle) error {
 	*c = v
 	return nil
 }
 
-// CircleValue implements the [CircleValuer] interface.
 func (c Circle) CircleValue() (Circle, error) {
 	return c, nil
 }
 
-// Scan implements the [database/sql.Scanner] interface.
+// Scan implements the database/sql Scanner interface.
 func (dst *Circle) Scan(src any) error {
 	if src == nil {
 		*dst = Circle{}
@@ -51,7 +49,7 @@ func (dst *Circle) Scan(src any) error {
 	return fmt.Errorf("cannot scan %T", src)
 }
 
-// Value implements the [database/sql/driver.Valuer] interface.
+// Value implements the database/sql/driver Valuer interface.
 func (src Circle) Value() (driver.Value, error) {
 	if !src.Valid {
 		return nil, nil

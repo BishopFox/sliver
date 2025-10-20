@@ -132,10 +132,10 @@ type ctlEvent struct {
 
 // service provides access to windows service api.
 type service struct {
-	namePointer *uint16
-	h           windows.Handle
-	c           chan ctlEvent
-	handler     Handler
+	name    string
+	h       windows.Handle
+	c       chan ctlEvent
+	handler Handler
 }
 
 type exitCode struct {
@@ -199,8 +199,9 @@ var (
 )
 
 func ctlHandler(ctl, evtype, evdata, context uintptr) uintptr {
+	s := (*service)(unsafe.Pointer(context))
 	e := ctlEvent{cmd: Cmd(ctl), eventType: uint32(evtype), eventData: evdata, context: 123456} // Set context to 123456 to test issue #25660.
-	theService.c <- e
+	s.c <- e
 	return 0
 }
 
@@ -209,7 +210,7 @@ var theService service // This is, unfortunately, a global, which means only one
 // serviceMain is the entry point called by the service manager, registered earlier by
 // the call to StartServiceCtrlDispatcher.
 func serviceMain(argc uint32, argv **uint16) uintptr {
-	handle, err := windows.RegisterServiceCtrlHandlerEx(theService.namePointer, ctlHandlerCallback, 0)
+	handle, err := windows.RegisterServiceCtrlHandlerEx(windows.StringToUTF16Ptr(theService.name), ctlHandlerCallback, uintptr(unsafe.Pointer(&theService)))
 	if sysErr, ok := err.(windows.Errno); ok {
 		return uintptr(sysErr)
 	} else if err != nil {
@@ -280,21 +281,15 @@ loop:
 
 // Run executes service name by calling appropriate handler function.
 func Run(name string, handler Handler) error {
-	// Check to make sure that the service name is valid.
-	namePointer, err := windows.UTF16PtrFromString(name)
-	if err != nil {
-		return err
-	}
-
 	initCallbacks.Do(func() {
 		ctlHandlerCallback = windows.NewCallback(ctlHandler)
 		serviceMainCallback = windows.NewCallback(serviceMain)
 	})
-	theService.namePointer = namePointer
+	theService.name = name
 	theService.handler = handler
 	theService.c = make(chan ctlEvent)
 	t := []windows.SERVICE_TABLE_ENTRY{
-		{ServiceName: namePointer, ServiceProc: serviceMainCallback},
+		{ServiceName: windows.StringToUTF16Ptr(theService.name), ServiceProc: serviceMainCallback},
 		{ServiceName: nil, ServiceProc: 0},
 	}
 	return windows.StartServiceCtrlDispatcher(&t[0])

@@ -50,7 +50,6 @@ package state
 import (
 	"context"
 	"fmt"
-	"io"
 	"reflect"
 	"runtime"
 
@@ -88,11 +87,11 @@ func (e *ErrState) Unwrap() error {
 }
 
 // Save saves the given object state.
-func Save(ctx context.Context, w io.Writer, rootPtr any) (Stats, error) {
+func Save(ctx context.Context, w wire.Writer, rootPtr any) (Stats, error) {
 	// Create the encoding state.
 	es := encodeState{
 		ctx:            ctx,
-		w:              wire.Writer{Writer: w},
+		w:              w,
 		types:          makeTypeEncodeDatabase(),
 		zeroValues:     make(map[reflect.Type]*objectEncodeState),
 		pending:        make(map[objectID]*objectEncodeState),
@@ -107,11 +106,11 @@ func Save(ctx context.Context, w io.Writer, rootPtr any) (Stats, error) {
 }
 
 // Load loads a checkpoint.
-func Load(ctx context.Context, r io.Reader, rootPtr any) (Stats, error) {
+func Load(ctx context.Context, r wire.Reader, rootPtr any) (Stats, error) {
 	// Create the decoding state.
 	ds := decodeState{
 		ctx:      ctx,
-		r:        wire.Reader{Reader: r},
+		r:        r,
 		types:    makeTypeDecodeDatabase(),
 		deferred: make(map[objectID]wire.Object),
 	}

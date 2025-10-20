@@ -4,9 +4,11 @@ package debugger
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/chromedp/cdproto/runtime"
+	"github.com/mailru/easyjson"
+	"github.com/mailru/easyjson/jlexer"
+	"github.com/mailru/easyjson/jwriter"
 )
 
 // BreakpointID breakpoint identifier.
@@ -33,9 +35,9 @@ func (t CallFrameID) String() string {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Debugger#type-Location
 type Location struct {
-	ScriptID     runtime.ScriptID `json:"scriptId"`                        // Script identifier as reported in the Debugger.scriptParsed.
-	LineNumber   int64            `json:"lineNumber"`                      // Line number in the script (0-based).
-	ColumnNumber int64            `json:"columnNumber,omitempty,omitzero"` // Column number in the script (0-based).
+	ScriptID     runtime.ScriptID `json:"scriptId"`               // Script identifier as reported in the Debugger.scriptParsed.
+	LineNumber   int64            `json:"lineNumber"`             // Line number in the script (0-based).
+	ColumnNumber int64            `json:"columnNumber,omitempty"` // Column number in the script (0-based).
 }
 
 // ScriptPosition location in the source code.
@@ -59,14 +61,14 @@ type LocationRange struct {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Debugger#type-CallFrame
 type CallFrame struct {
-	CallFrameID      CallFrameID           `json:"callFrameId"`                         // Call frame identifier. This identifier is only valid while the virtual machine is paused.
-	FunctionName     string                `json:"functionName"`                        // Name of the JavaScript function called on this call frame.
-	FunctionLocation *Location             `json:"functionLocation,omitempty,omitzero"` // Location in the source code.
-	Location         *Location             `json:"location"`                            // Location in the source code.
-	ScopeChain       []*Scope              `json:"scopeChain"`                          // Scope chain for this call frame.
-	This             *runtime.RemoteObject `json:"this"`                                // this object for this call frame.
-	ReturnValue      *runtime.RemoteObject `json:"returnValue,omitempty,omitzero"`      // The value being returned, if the function is at return point.
-	CanBeRestarted   bool                  `json:"canBeRestarted"`                      // Valid only while the VM is paused and indicates whether this frame can be restarted or not. Note that a true value here does not guarantee that Debugger#restartFrame with this CallFrameId will be successful, but it is very likely.
+	CallFrameID      CallFrameID           `json:"callFrameId"`                // Call frame identifier. This identifier is only valid while the virtual machine is paused.
+	FunctionName     string                `json:"functionName"`               // Name of the JavaScript function called on this call frame.
+	FunctionLocation *Location             `json:"functionLocation,omitempty"` // Location in the source code.
+	Location         *Location             `json:"location"`                   // Location in the source code.
+	ScopeChain       []*Scope              `json:"scopeChain"`                 // Scope chain for this call frame.
+	This             *runtime.RemoteObject `json:"this"`                       // this object for this call frame.
+	ReturnValue      *runtime.RemoteObject `json:"returnValue,omitempty"`      // The value being returned, if the function is at return point.
+	CanBeRestarted   bool                  `json:"canBeRestarted,omitempty"`   // Valid only while the VM is paused and indicates whether this frame can be restarted or not. Note that a true value here does not guarantee that Debugger#restartFrame with this CallFrameId will be successful, but it is very likely.
 }
 
 // Scope scope description.
@@ -75,9 +77,9 @@ type CallFrame struct {
 type Scope struct {
 	Type          ScopeType             `json:"type"`   // Scope type.
 	Object        *runtime.RemoteObject `json:"object"` // Object representing the scope. For global and with scopes it represents the actual object; for the rest of the scopes, it is artificial transient object enumerating scope variables as its properties.
-	Name          string                `json:"name,omitempty,omitzero"`
-	StartLocation *Location             `json:"startLocation,omitempty,omitzero"` // Location in the source code where scope starts
-	EndLocation   *Location             `json:"endLocation,omitempty,omitzero"`   // Location in the source code where scope ends
+	Name          string                `json:"name,omitempty"`
+	StartLocation *Location             `json:"startLocation,omitempty"` // Location in the source code where scope starts
+	EndLocation   *Location             `json:"endLocation,omitempty"`   // Location in the source code where scope ends
 }
 
 // SearchMatch search match for resource.
@@ -92,10 +94,10 @@ type SearchMatch struct {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Debugger#type-BreakLocation
 type BreakLocation struct {
-	ScriptID     runtime.ScriptID  `json:"scriptId"`                        // Script identifier as reported in the Debugger.scriptParsed.
-	LineNumber   int64             `json:"lineNumber"`                      // Line number in the script (0-based).
-	ColumnNumber int64             `json:"columnNumber,omitempty,omitzero"` // Column number in the script (0-based).
-	Type         BreakLocationType `json:"type,omitempty,omitzero"`
+	ScriptID     runtime.ScriptID  `json:"scriptId"`               // Script identifier as reported in the Debugger.scriptParsed.
+	LineNumber   int64             `json:"lineNumber"`             // Line number in the script (0-based).
+	ColumnNumber int64             `json:"columnNumber,omitempty"` // Column number in the script (0-based).
+	Type         BreakLocationType `json:"type,omitempty"`
 }
 
 // WasmDisassemblyChunk [no description].
@@ -122,36 +124,41 @@ const (
 	ScriptLanguageWebAssembly ScriptLanguage = "WebAssembly"
 )
 
-// UnmarshalJSON satisfies [json.Unmarshaler].
-func (t *ScriptLanguage) UnmarshalJSON(buf []byte) error {
-	s := string(buf)
-	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t ScriptLanguage) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
 
-	switch ScriptLanguage(s) {
+// MarshalJSON satisfies json.Marshaler.
+func (t ScriptLanguage) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *ScriptLanguage) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch ScriptLanguage(v) {
 	case ScriptLanguageJavaScript:
 		*t = ScriptLanguageJavaScript
 	case ScriptLanguageWebAssembly:
 		*t = ScriptLanguageWebAssembly
+
 	default:
-		return fmt.Errorf("unknown ScriptLanguage value: %v", s)
+		in.AddError(fmt.Errorf("unknown ScriptLanguage value: %v", v))
 	}
-	return nil
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *ScriptLanguage) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
 }
 
 // DebugSymbols debug symbols available for a wasm script.
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Debugger#type-DebugSymbols
 type DebugSymbols struct {
-	Type        DebugSymbolsType `json:"type"`                           // Type of the debug symbols.
-	ExternalURL string           `json:"externalURL,omitempty,omitzero"` // URL of the external symbol source.
-}
-
-// ResolvedBreakpoint [no description].
-//
-// See: https://chromedevtools.github.io/devtools-protocol/tot/Debugger#type-ResolvedBreakpoint
-type ResolvedBreakpoint struct {
-	BreakpointID BreakpointID `json:"breakpointId"` // Breakpoint unique identifier.
-	Location     *Location    `json:"location"`     // Actual breakpoint location.
+	Type        DebugSymbolsType `json:"type"`                  // Type of the debug symbols.
+	ExternalURL string           `json:"externalURL,omitempty"` // URL of the external symbol source.
 }
 
 // ScopeType scope type.
@@ -178,12 +185,20 @@ const (
 	ScopeTypeWasmExpressionStack ScopeType = "wasm-expression-stack"
 )
 
-// UnmarshalJSON satisfies [json.Unmarshaler].
-func (t *ScopeType) UnmarshalJSON(buf []byte) error {
-	s := string(buf)
-	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t ScopeType) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
 
-	switch ScopeType(s) {
+// MarshalJSON satisfies json.Marshaler.
+func (t ScopeType) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *ScopeType) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch ScopeType(v) {
 	case ScopeTypeGlobal:
 		*t = ScopeTypeGlobal
 	case ScopeTypeLocal:
@@ -204,10 +219,15 @@ func (t *ScopeType) UnmarshalJSON(buf []byte) error {
 		*t = ScopeTypeModule
 	case ScopeTypeWasmExpressionStack:
 		*t = ScopeTypeWasmExpressionStack
+
 	default:
-		return fmt.Errorf("unknown ScopeType value: %v", s)
+		in.AddError(fmt.Errorf("unknown ScopeType value: %v", v))
 	}
-	return nil
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *ScopeType) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
 }
 
 // BreakLocationType [no description].
@@ -227,22 +247,35 @@ const (
 	BreakLocationTypeReturn            BreakLocationType = "return"
 )
 
-// UnmarshalJSON satisfies [json.Unmarshaler].
-func (t *BreakLocationType) UnmarshalJSON(buf []byte) error {
-	s := string(buf)
-	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t BreakLocationType) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
 
-	switch BreakLocationType(s) {
+// MarshalJSON satisfies json.Marshaler.
+func (t BreakLocationType) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *BreakLocationType) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch BreakLocationType(v) {
 	case BreakLocationTypeDebuggerStatement:
 		*t = BreakLocationTypeDebuggerStatement
 	case BreakLocationTypeCall:
 		*t = BreakLocationTypeCall
 	case BreakLocationTypeReturn:
 		*t = BreakLocationTypeReturn
+
 	default:
-		return fmt.Errorf("unknown BreakLocationType value: %v", s)
+		in.AddError(fmt.Errorf("unknown BreakLocationType value: %v", v))
 	}
-	return nil
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *BreakLocationType) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
 }
 
 // DebugSymbolsType type of the debug symbols.
@@ -257,27 +290,43 @@ func (t DebugSymbolsType) String() string {
 
 // DebugSymbolsType values.
 const (
+	DebugSymbolsTypeNone          DebugSymbolsType = "None"
 	DebugSymbolsTypeSourceMap     DebugSymbolsType = "SourceMap"
 	DebugSymbolsTypeEmbeddedDWARF DebugSymbolsType = "EmbeddedDWARF"
 	DebugSymbolsTypeExternalDWARF DebugSymbolsType = "ExternalDWARF"
 )
 
-// UnmarshalJSON satisfies [json.Unmarshaler].
-func (t *DebugSymbolsType) UnmarshalJSON(buf []byte) error {
-	s := string(buf)
-	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t DebugSymbolsType) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
 
-	switch DebugSymbolsType(s) {
+// MarshalJSON satisfies json.Marshaler.
+func (t DebugSymbolsType) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *DebugSymbolsType) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch DebugSymbolsType(v) {
+	case DebugSymbolsTypeNone:
+		*t = DebugSymbolsTypeNone
 	case DebugSymbolsTypeSourceMap:
 		*t = DebugSymbolsTypeSourceMap
 	case DebugSymbolsTypeEmbeddedDWARF:
 		*t = DebugSymbolsTypeEmbeddedDWARF
 	case DebugSymbolsTypeExternalDWARF:
 		*t = DebugSymbolsTypeExternalDWARF
+
 	default:
-		return fmt.Errorf("unknown DebugSymbolsType value: %v", s)
+		in.AddError(fmt.Errorf("unknown DebugSymbolsType value: %v", v))
 	}
-	return nil
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *DebugSymbolsType) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
 }
 
 // PausedReason pause reason.
@@ -307,12 +356,20 @@ const (
 	PausedReasonStep             PausedReason = "step"
 )
 
-// UnmarshalJSON satisfies [json.Unmarshaler].
-func (t *PausedReason) UnmarshalJSON(buf []byte) error {
-	s := string(buf)
-	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t PausedReason) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
 
-	switch PausedReason(s) {
+// MarshalJSON satisfies json.Marshaler.
+func (t PausedReason) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *PausedReason) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch PausedReason(v) {
 	case PausedReasonAmbiguous:
 		*t = PausedReasonAmbiguous
 	case PausedReasonAssert:
@@ -339,10 +396,15 @@ func (t *PausedReason) UnmarshalJSON(buf []byte) error {
 		*t = PausedReasonXHR
 	case PausedReasonStep:
 		*t = PausedReasonStep
+
 	default:
-		return fmt.Errorf("unknown PausedReason value: %v", s)
+		in.AddError(fmt.Errorf("unknown PausedReason value: %v", v))
 	}
-	return nil
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *PausedReason) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
 }
 
 // ContinueToLocationTargetCallFrames [no description].
@@ -361,20 +423,33 @@ const (
 	ContinueToLocationTargetCallFramesCurrent ContinueToLocationTargetCallFrames = "current"
 )
 
-// UnmarshalJSON satisfies [json.Unmarshaler].
-func (t *ContinueToLocationTargetCallFrames) UnmarshalJSON(buf []byte) error {
-	s := string(buf)
-	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t ContinueToLocationTargetCallFrames) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
 
-	switch ContinueToLocationTargetCallFrames(s) {
+// MarshalJSON satisfies json.Marshaler.
+func (t ContinueToLocationTargetCallFrames) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *ContinueToLocationTargetCallFrames) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch ContinueToLocationTargetCallFrames(v) {
 	case ContinueToLocationTargetCallFramesAny:
 		*t = ContinueToLocationTargetCallFramesAny
 	case ContinueToLocationTargetCallFramesCurrent:
 		*t = ContinueToLocationTargetCallFramesCurrent
+
 	default:
-		return fmt.Errorf("unknown ContinueToLocationTargetCallFrames value: %v", s)
+		in.AddError(fmt.Errorf("unknown ContinueToLocationTargetCallFrames value: %v", v))
 	}
-	return nil
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *ContinueToLocationTargetCallFrames) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
 }
 
 // RestartFrameMode the mode parameter must be present and set to 'StepInto',
@@ -393,18 +468,31 @@ const (
 	RestartFrameModeStepInto RestartFrameMode = "StepInto"
 )
 
-// UnmarshalJSON satisfies [json.Unmarshaler].
-func (t *RestartFrameMode) UnmarshalJSON(buf []byte) error {
-	s := string(buf)
-	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t RestartFrameMode) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
 
-	switch RestartFrameMode(s) {
+// MarshalJSON satisfies json.Marshaler.
+func (t RestartFrameMode) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *RestartFrameMode) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch RestartFrameMode(v) {
 	case RestartFrameModeStepInto:
 		*t = RestartFrameModeStepInto
+
 	default:
-		return fmt.Errorf("unknown RestartFrameMode value: %v", s)
+		in.AddError(fmt.Errorf("unknown RestartFrameMode value: %v", v))
 	}
-	return nil
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *RestartFrameMode) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
 }
 
 // SetInstrumentationBreakpointInstrumentation instrumentation name.
@@ -423,20 +511,33 @@ const (
 	SetInstrumentationBreakpointInstrumentationBeforeScriptWithSourceMapExecution SetInstrumentationBreakpointInstrumentation = "beforeScriptWithSourceMapExecution"
 )
 
-// UnmarshalJSON satisfies [json.Unmarshaler].
-func (t *SetInstrumentationBreakpointInstrumentation) UnmarshalJSON(buf []byte) error {
-	s := string(buf)
-	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t SetInstrumentationBreakpointInstrumentation) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
 
-	switch SetInstrumentationBreakpointInstrumentation(s) {
+// MarshalJSON satisfies json.Marshaler.
+func (t SetInstrumentationBreakpointInstrumentation) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *SetInstrumentationBreakpointInstrumentation) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch SetInstrumentationBreakpointInstrumentation(v) {
 	case SetInstrumentationBreakpointInstrumentationBeforeScriptExecution:
 		*t = SetInstrumentationBreakpointInstrumentationBeforeScriptExecution
 	case SetInstrumentationBreakpointInstrumentationBeforeScriptWithSourceMapExecution:
 		*t = SetInstrumentationBreakpointInstrumentationBeforeScriptWithSourceMapExecution
+
 	default:
-		return fmt.Errorf("unknown SetInstrumentationBreakpointInstrumentation value: %v", s)
+		in.AddError(fmt.Errorf("unknown SetInstrumentationBreakpointInstrumentation value: %v", v))
 	}
-	return nil
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *SetInstrumentationBreakpointInstrumentation) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
 }
 
 // ExceptionsState pause on exceptions mode.
@@ -457,12 +558,20 @@ const (
 	ExceptionsStateAll      ExceptionsState = "all"
 )
 
-// UnmarshalJSON satisfies [json.Unmarshaler].
-func (t *ExceptionsState) UnmarshalJSON(buf []byte) error {
-	s := string(buf)
-	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t ExceptionsState) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
 
-	switch ExceptionsState(s) {
+// MarshalJSON satisfies json.Marshaler.
+func (t ExceptionsState) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *ExceptionsState) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch ExceptionsState(v) {
 	case ExceptionsStateNone:
 		*t = ExceptionsStateNone
 	case ExceptionsStateCaught:
@@ -471,10 +580,15 @@ func (t *ExceptionsState) UnmarshalJSON(buf []byte) error {
 		*t = ExceptionsStateUncaught
 	case ExceptionsStateAll:
 		*t = ExceptionsStateAll
+
 	default:
-		return fmt.Errorf("unknown ExceptionsState value: %v", s)
+		in.AddError(fmt.Errorf("unknown ExceptionsState value: %v", v))
 	}
-	return nil
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *ExceptionsState) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
 }
 
 // SetScriptSourceStatus whether the operation was successful or not. Only Ok
@@ -498,12 +612,20 @@ const (
 	SetScriptSourceStatusBlockedByTopLevelEsModuleChange SetScriptSourceStatus = "BlockedByTopLevelEsModuleChange"
 )
 
-// UnmarshalJSON satisfies [json.Unmarshaler].
-func (t *SetScriptSourceStatus) UnmarshalJSON(buf []byte) error {
-	s := string(buf)
-	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t SetScriptSourceStatus) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
 
-	switch SetScriptSourceStatus(s) {
+// MarshalJSON satisfies json.Marshaler.
+func (t SetScriptSourceStatus) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *SetScriptSourceStatus) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch SetScriptSourceStatus(v) {
 	case SetScriptSourceStatusOk:
 		*t = SetScriptSourceStatusOk
 	case SetScriptSourceStatusCompileError:
@@ -514,8 +636,13 @@ func (t *SetScriptSourceStatus) UnmarshalJSON(buf []byte) error {
 		*t = SetScriptSourceStatusBlockedByActiveFunction
 	case SetScriptSourceStatusBlockedByTopLevelEsModuleChange:
 		*t = SetScriptSourceStatusBlockedByTopLevelEsModuleChange
+
 	default:
-		return fmt.Errorf("unknown SetScriptSourceStatus value: %v", s)
+		in.AddError(fmt.Errorf("unknown SetScriptSourceStatus value: %v", v))
 	}
-	return nil
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *SetScriptSourceStatus) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
 }

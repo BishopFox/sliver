@@ -94,14 +94,14 @@ func (f TimeFormat) Encode(t time.Time) any {
 	case TimeFormatUnix:
 		return t.Unix()
 	case TimeFormatUnixFrac:
-		return math.FMA(1e-9, float64(t.Nanosecond()), float64(t.Unix()))
+		return float64(t.Unix()) + float64(t.Nanosecond())*1e-9
 	case TimeFormatUnixMilli:
 		return t.UnixMilli()
 	case TimeFormatUnixMicro:
 		return t.UnixMicro()
 	case TimeFormatUnixNano:
 		return t.UnixNano()
-	// Special formats.
+	// Special formats
 	case TimeFormatDefault, TimeFormatAuto:
 		f = time.RFC3339Nano
 	// SQLite assumes UTC if unspecified.
@@ -138,11 +138,8 @@ func (f TimeFormat) Encode(t time.Time) any {
 //
 // https://sqlite.org/lang_datefunc.html
 func (f TimeFormat) Decode(v any) (time.Time, error) {
-	if t, ok := v.(time.Time); ok {
-		return t, nil
-	}
 	switch f {
-	// Numeric formats.
+	// Numeric formats
 	case TimeFormatJulianDay:
 		switch v := v.(type) {
 		case string:
@@ -186,7 +183,7 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 		case float64:
 			return time.UnixMilli(int64(math.Floor(v))).UTC(), nil
 		case int64:
-			return time.UnixMilli(v).UTC(), nil
+			return time.UnixMilli(int64(v)).UTC(), nil
 		default:
 			return time.Time{}, util.TimeErr
 		}
@@ -203,7 +200,7 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 		case float64:
 			return time.UnixMicro(int64(math.Floor(v))).UTC(), nil
 		case int64:
-			return time.UnixMicro(v).UTC(), nil
+			return time.UnixMicro(int64(v)).UTC(), nil
 		default:
 			return time.Time{}, util.TimeErr
 		}
@@ -220,12 +217,12 @@ func (f TimeFormat) Decode(v any) (time.Time, error) {
 		case float64:
 			return time.Unix(0, int64(math.Floor(v))).UTC(), nil
 		case int64:
-			return time.Unix(0, v).UTC(), nil
+			return time.Unix(0, int64(v)).UTC(), nil
 		default:
 			return time.Time{}, util.TimeErr
 		}
 
-	// Special formats.
+	// Special formats
 	case TimeFormatAuto:
 		switch s := v.(type) {
 		case string:

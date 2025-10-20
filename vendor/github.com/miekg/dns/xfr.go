@@ -209,7 +209,6 @@ func (t *Transfer) inIxfr(q *Msg, c chan *Envelope) {
 //	ch := make(chan *dns.Envelope)
 //	tr := new(dns.Transfer)
 //	var wg sync.WaitGroup
-//	wg.Add(1)
 //	go func() {
 //		tr.Out(w, r, ch)
 //		wg.Done()
@@ -251,13 +250,10 @@ func (t *Transfer) ReadMsg() (*Msg, error) {
 	if err := m.Unpack(p); err != nil {
 		return nil, err
 	}
-
-	if tp := t.tsigProvider(); tp != nil {
+	if ts, tp := m.IsTsig(), t.tsigProvider(); ts != nil && tp != nil {
 		// Need to work on the original message p, as that was used to calculate the tsig.
 		err = TsigVerifyWithProvider(p, tp, t.tsigRequestMAC, t.tsigTimersOnly)
-		if ts := m.IsTsig(); ts != nil {
-			t.tsigRequestMAC = ts.MAC
-		}
+		t.tsigRequestMAC = ts.MAC
 	}
 	return m, err
 }

@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build !goexperiment.jsonv2 || !go1.25
-
 package jsontext
 
 import (
@@ -127,43 +125,25 @@ func NewDecoder(r io.Reader, opts ...Options) *Decoder {
 
 // Reset resets a decoder such that it is reading afresh from r and
 // configured with the provided options. Reset must not be called on an
-// a Decoder passed to the [encoding/json/v2.UnmarshalerFrom.UnmarshalJSONFrom] method
-// or the [encoding/json/v2.UnmarshalFromFunc] function.
+// a Decoder passed to the [encoding/json/v2.UnmarshalerV2.UnmarshalJSONV2] method
+// or the [encoding/json/v2.UnmarshalFuncV2] function.
 func (d *Decoder) Reset(r io.Reader, opts ...Options) {
 	switch {
 	case d == nil:
 		panic("jsontext: invalid nil Decoder")
 	case r == nil:
-		panic("jsontext: invalid nil io.Reader")
+		panic("jsontext: invalid nil io.Writer")
 	case d.s.Flags.Get(jsonflags.WithinArshalCall):
-		panic("jsontext: cannot reset Decoder passed to json.UnmarshalerFrom")
+		panic("jsontext: cannot reset Decoder passed to json.UnmarshalerV2")
 	}
-	// Reuse the buffer if it does not alias a previous [bytes.Buffer].
-	b := d.s.buf[:0]
-	if _, ok := d.s.rd.(*bytes.Buffer); ok {
-		b = nil
-	}
-	d.s.reset(b, r, opts...)
+	d.s.reset(nil, r, opts...)
 }
 
 func (d *decoderState) reset(b []byte, r io.Reader, opts ...Options) {
 	d.state.reset()
 	d.decodeBuffer = decodeBuffer{buf: b, rd: r}
-	opts2 := jsonopts.Struct{} // avoid mutating d.Struct in case it is part of opts
-	opts2.Join(opts...)
-	d.Struct = opts2
-}
-
-// Options returns the options used to construct the encoder and
-// may additionally contain semantic options passed to a
-// [encoding/json/v2.UnmarshalDecode] call.
-//
-// If operating within
-// a [encoding/json/v2.UnmarshalerFrom.UnmarshalJSONFrom] method call or
-// a [encoding/json/v2.UnmarshalFromFunc] function call,
-// then the returned options are only valid within the call.
-func (d *Decoder) Options() Options {
-	return &d.s.Struct
+	d.Struct = jsonopts.Struct{}
+	d.Struct.Join(opts...)
 }
 
 var errBufferWriteAfterNext = errors.New("invalid bytes.Buffer.Write call after calling bytes.Buffer.Next")
@@ -275,40 +255,23 @@ func (d *decodeBuffer) needMore(pos int) bool {
 	return pos == len(d.buf)
 }
 
-func (d *decodeBuffer) offsetAt(pos int) int64     { return d.baseOffset + int64(pos) }
-func (d *decodeBuffer) previousOffsetStart() int64 { return d.baseOffset + int64(d.prevStart) }
-func (d *decodeBuffer) previousOffsetEnd() int64   { return d.baseOffset + int64(d.prevEnd) }
-func (d *decodeBuffer) previousBuffer() []byte     { return d.buf[d.prevStart:d.prevEnd] }
-func (d *decodeBuffer) unreadBuffer() []byte       { return d.buf[d.prevEnd:len(d.buf)] }
-
-// PreviousTokenOrValue returns the previously read token or value
-// unless it has been invalidated by a call to PeekKind.
-// If a token is just a delimiter, then this returns a 1-byte buffer.
-// This method is used for error reporting at the semantic layer.
-func (d *decodeBuffer) PreviousTokenOrValue() []byte {
-	b := d.previousBuffer()
-	// If peek was called, then the previous token or buffer is invalidated.
-	if d.peekPos > 0 || len(b) > 0 && b[0] == invalidateBufferByte {
-		return nil
+// injectSyntacticErrorWithPosition wraps a SyntacticError with the position,
+// otherwise it returns the error as is.
+// It takes a position relative to the start of the start of d.buf.
+func (d *decodeBuffer) injectSyntacticErrorWithPosition(err error, pos int) error {
+	if serr, ok := err.(*SyntacticError); ok {
+		return serr.withOffset(d.baseOffset + int64(pos))
 	}
-	// ReadToken does not preserve the buffer for null, bools, or delimiters.
-	// Manually re-construct that buffer.
-	if len(b) == 0 {
-		b = d.buf[:d.prevEnd] // entirety of the previous buffer
-		for _, tok := range []string{"null", "false", "true", "{", "}", "[", "]"} {
-			if len(b) >= len(tok) && string(b[len(b)-len(tok):]) == tok {
-				return b[len(b)-len(tok):]
-			}
-		}
-	}
-	return b
+	return err
 }
 
+func (d *decodeBuffer) previousOffsetStart() int64 { return d.baseOffset + int64(d.prevStart) }
+func (d *decodeBuffer) previousOffsetEnd() int64   { return d.baseOffset + int64(d.prevEnd) }
+func (d *decodeBuffer) PreviousBuffer() []byte     { return d.buf[d.prevStart:d.prevEnd] }
+func (d *decodeBuffer) unreadBuffer() []byte       { return d.buf[d.prevEnd:len(d.buf)] }
+
 // PeekKind retrieves the next token kind, but does not advance the read offset.
-//
-// It returns 0 if an error occurs. Any such error is cached until
-// the next read call and it is the caller's responsibility to eventually
-// follow up a PeekKind call with a read call.
+// It returns 0 if there are no more tokens.
 func (d *Decoder) PeekKind() Kind {
 	return d.s.PeekKind()
 }
@@ -329,7 +292,7 @@ func (d *decoderState) PeekKind() Kind {
 			if err == io.ErrUnexpectedEOF && d.Tokens.Depth() == 1 {
 				err = io.EOF // EOF possibly if no Tokens present after top-level value
 			}
-			d.peekPos, d.peekErr = -1, wrapSyntacticError(d, err, pos, 0)
+			d.peekPos, d.peekErr = -1, err
 			return invalidKind
 		}
 	}
@@ -342,7 +305,6 @@ func (d *decoderState) PeekKind() Kind {
 		pos += jsonwire.ConsumeWhitespace(d.buf[pos:])
 		if d.needMore(pos) {
 			if pos, err = d.consumeWhitespace(pos); err != nil {
-				err = wrapSyntacticError(d, err, pos, 0)
 				d.peekPos, d.peekErr = -1, d.checkDelimBeforeIOError(delim, err)
 				return invalidKind
 			}
@@ -377,33 +339,12 @@ func (d *decoderState) checkDelimBeforeIOError(delim byte, err error) error {
 	return err
 }
 
-// CountNextDelimWhitespace counts the number of upcoming bytes of
-// delimiter or whitespace characters.
-// This method is used for error reporting at the semantic layer.
-func (d *decoderState) CountNextDelimWhitespace() int {
-	d.PeekKind() // populate unreadBuffer
-	return len(d.unreadBuffer()) - len(bytes.TrimLeft(d.unreadBuffer(), ",: \n\r\t"))
-}
-
 // checkDelim checks whether delim is valid for the given next kind.
 func (d *decoderState) checkDelim(delim byte, next Kind) error {
-	where := "at start of value"
-	switch d.Tokens.needDelim(next) {
-	case delim:
-		return nil
-	case ':':
-		where = "after object name (expecting ':')"
-	case ',':
-		if d.Tokens.Last.isObject() {
-			where = "after object value (expecting ',' or '}')"
-		} else {
-			where = "after array element (expecting ',' or ']')"
-		}
-	}
 	pos := d.prevEnd // restore position to right after leading whitespace
 	pos += jsonwire.ConsumeWhitespace(d.buf[pos:])
-	err := jsonwire.NewInvalidCharacterError(d.buf[pos:], where)
-	return wrapSyntacticError(d, err, pos, 0)
+	err := d.Tokens.checkDelim(delim, next)
+	return d.injectSyntacticErrorWithPosition(err, pos)
 }
 
 // SkipValue is semantically equivalent to calling [Decoder.ReadValue] and discarding
@@ -434,30 +375,6 @@ func (d *decoderState) SkipValue() error {
 		}
 		return nil
 	}
-}
-
-// SkipValueRemainder skips the remainder of a value
-// after reading a '{' or '[' token.
-func (d *decoderState) SkipValueRemainder() error {
-	if d.Tokens.Depth()-1 > 0 && d.Tokens.Last.Length() == 0 {
-		for n := d.Tokens.Depth(); d.Tokens.Depth() >= n; {
-			if _, err := d.ReadToken(); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-// SkipUntil skips all tokens until the state machine
-// is at or past the specified depth and length.
-func (d *decoderState) SkipUntil(depth int, length int64) error {
-	for d.Tokens.Depth() > depth || (d.Tokens.Depth() == depth && d.Tokens.Last.Length() < length) {
-		if _, err := d.ReadToken(); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // ReadToken reads the next [Token], advancing the read offset.
@@ -491,7 +408,7 @@ func (d *decoderState) ReadToken() (Token, error) {
 				if err == io.ErrUnexpectedEOF && d.Tokens.Depth() == 1 {
 					err = io.EOF // EOF possibly if no Tokens present after top-level value
 				}
-				return Token{}, wrapSyntacticError(d, err, pos, 0)
+				return Token{}, err
 			}
 		}
 
@@ -503,7 +420,6 @@ func (d *decoderState) ReadToken() (Token, error) {
 			pos += jsonwire.ConsumeWhitespace(d.buf[pos:])
 			if d.needMore(pos) {
 				if pos, err = d.consumeWhitespace(pos); err != nil {
-					err = wrapSyntacticError(d, err, pos, 0)
 					return Token{}, d.checkDelimBeforeIOError(delim, err)
 				}
 			}
@@ -521,13 +437,13 @@ func (d *decoderState) ReadToken() (Token, error) {
 		if jsonwire.ConsumeNull(d.buf[pos:]) == 0 {
 			pos, err = d.consumeLiteral(pos, "null")
 			if err != nil {
-				return Token{}, wrapSyntacticError(d, err, pos, +1)
+				return Token{}, d.injectSyntacticErrorWithPosition(err, pos)
 			}
 		} else {
 			pos += len("null")
 		}
 		if err = d.Tokens.appendLiteral(); err != nil {
-			return Token{}, wrapSyntacticError(d, err, pos-len("null"), +1) // report position at start of literal
+			return Token{}, d.injectSyntacticErrorWithPosition(err, pos-len("null")) // report position at start of literal
 		}
 		d.prevStart, d.prevEnd = pos, pos
 		return Null, nil
@@ -536,13 +452,13 @@ func (d *decoderState) ReadToken() (Token, error) {
 		if jsonwire.ConsumeFalse(d.buf[pos:]) == 0 {
 			pos, err = d.consumeLiteral(pos, "false")
 			if err != nil {
-				return Token{}, wrapSyntacticError(d, err, pos, +1)
+				return Token{}, d.injectSyntacticErrorWithPosition(err, pos)
 			}
 		} else {
 			pos += len("false")
 		}
 		if err = d.Tokens.appendLiteral(); err != nil {
-			return Token{}, wrapSyntacticError(d, err, pos-len("false"), +1) // report position at start of literal
+			return Token{}, d.injectSyntacticErrorWithPosition(err, pos-len("false")) // report position at start of literal
 		}
 		d.prevStart, d.prevEnd = pos, pos
 		return False, nil
@@ -551,13 +467,13 @@ func (d *decoderState) ReadToken() (Token, error) {
 		if jsonwire.ConsumeTrue(d.buf[pos:]) == 0 {
 			pos, err = d.consumeLiteral(pos, "true")
 			if err != nil {
-				return Token{}, wrapSyntacticError(d, err, pos, +1)
+				return Token{}, d.injectSyntacticErrorWithPosition(err, pos)
 			}
 		} else {
 			pos += len("true")
 		}
 		if err = d.Tokens.appendLiteral(); err != nil {
-			return Token{}, wrapSyntacticError(d, err, pos-len("true"), +1) // report position at start of literal
+			return Token{}, d.injectSyntacticErrorWithPosition(err, pos-len("true")) // report position at start of literal
 		}
 		d.prevStart, d.prevEnd = pos, pos
 		return True, nil
@@ -570,25 +486,23 @@ func (d *decoderState) ReadToken() (Token, error) {
 			newAbsPos := d.baseOffset + int64(pos)
 			n = int(newAbsPos - oldAbsPos)
 			if err != nil {
-				return Token{}, wrapSyntacticError(d, err, pos, +1)
+				return Token{}, d.injectSyntacticErrorWithPosition(err, pos)
 			}
 		} else {
 			pos += n
 		}
-		if d.Tokens.Last.NeedObjectName() {
-			if !d.Flags.Get(jsonflags.AllowDuplicateNames) {
-				if !d.Tokens.Last.isValidNamespace() {
-					return Token{}, wrapSyntacticError(d, errInvalidNamespace, pos-n, +1)
-				}
-				if d.Tokens.Last.isActiveNamespace() && !d.Namespaces.Last().insertQuoted(d.buf[pos-n:pos], flags.IsVerbatim()) {
-					err = wrapWithObjectName(ErrDuplicateName, d.buf[pos-n:pos])
-					return Token{}, wrapSyntacticError(d, err, pos-n, +1) // report position at start of string
-				}
+		if !d.Flags.Get(jsonflags.AllowDuplicateNames) && d.Tokens.Last.NeedObjectName() {
+			if !d.Tokens.Last.isValidNamespace() {
+				return Token{}, errInvalidNamespace
+			}
+			if d.Tokens.Last.isActiveNamespace() && !d.Namespaces.Last().insertQuoted(d.buf[pos-n:pos], flags.IsVerbatim()) {
+				err = newDuplicateNameError(d.buf[pos-n : pos])
+				return Token{}, d.injectSyntacticErrorWithPosition(err, pos-n) // report position at start of string
 			}
 			d.Names.ReplaceLastQuotedOffset(pos - n) // only replace if insertQuoted succeeds
 		}
 		if err = d.Tokens.appendString(); err != nil {
-			return Token{}, wrapSyntacticError(d, err, pos-n, +1) // report position at start of string
+			return Token{}, d.injectSyntacticErrorWithPosition(err, pos-n) // report position at start of string
 		}
 		d.prevStart, d.prevEnd = pos-n, pos
 		return Token{raw: &d.decodeBuffer, num: uint64(d.previousOffsetStart())}, nil
@@ -602,60 +516,60 @@ func (d *decoderState) ReadToken() (Token, error) {
 			newAbsPos := d.baseOffset + int64(pos)
 			n = int(newAbsPos - oldAbsPos)
 			if err != nil {
-				return Token{}, wrapSyntacticError(d, err, pos, +1)
+				return Token{}, d.injectSyntacticErrorWithPosition(err, pos)
 			}
 		} else {
 			pos += n
 		}
 		if err = d.Tokens.appendNumber(); err != nil {
-			return Token{}, wrapSyntacticError(d, err, pos-n, +1) // report position at start of number
+			return Token{}, d.injectSyntacticErrorWithPosition(err, pos-n) // report position at start of number
 		}
 		d.prevStart, d.prevEnd = pos-n, pos
 		return Token{raw: &d.decodeBuffer, num: uint64(d.previousOffsetStart())}, nil
 
 	case '{':
 		if err = d.Tokens.pushObject(); err != nil {
-			return Token{}, wrapSyntacticError(d, err, pos, +1)
+			return Token{}, d.injectSyntacticErrorWithPosition(err, pos)
 		}
-		d.Names.push()
 		if !d.Flags.Get(jsonflags.AllowDuplicateNames) {
+			d.Names.push()
 			d.Namespaces.push()
 		}
 		pos += 1
 		d.prevStart, d.prevEnd = pos, pos
-		return BeginObject, nil
+		return ObjectStart, nil
 
 	case '}':
 		if err = d.Tokens.popObject(); err != nil {
-			return Token{}, wrapSyntacticError(d, err, pos, +1)
+			return Token{}, d.injectSyntacticErrorWithPosition(err, pos)
 		}
-		d.Names.pop()
 		if !d.Flags.Get(jsonflags.AllowDuplicateNames) {
+			d.Names.pop()
 			d.Namespaces.pop()
 		}
 		pos += 1
 		d.prevStart, d.prevEnd = pos, pos
-		return EndObject, nil
+		return ObjectEnd, nil
 
 	case '[':
 		if err = d.Tokens.pushArray(); err != nil {
-			return Token{}, wrapSyntacticError(d, err, pos, +1)
+			return Token{}, d.injectSyntacticErrorWithPosition(err, pos)
 		}
 		pos += 1
 		d.prevStart, d.prevEnd = pos, pos
-		return BeginArray, nil
+		return ArrayStart, nil
 
 	case ']':
 		if err = d.Tokens.popArray(); err != nil {
-			return Token{}, wrapSyntacticError(d, err, pos, +1)
+			return Token{}, d.injectSyntacticErrorWithPosition(err, pos)
 		}
 		pos += 1
 		d.prevStart, d.prevEnd = pos, pos
-		return EndArray, nil
+		return ArrayEnd, nil
 
 	default:
-		err = jsonwire.NewInvalidCharacterError(d.buf[pos:], "at start of value")
-		return Token{}, wrapSyntacticError(d, err, pos, +1)
+		err = newInvalidCharacterError(d.buf[pos:], "at start of token")
+		return Token{}, d.injectSyntacticErrorWithPosition(err, pos)
 	}
 }
 
@@ -698,7 +612,7 @@ func (d *decoderState) ReadValue(flags *jsonwire.ValueFlags) (Value, error) {
 				if err == io.ErrUnexpectedEOF && d.Tokens.Depth() == 1 {
 					err = io.EOF // EOF possibly if no Tokens present after top-level value
 				}
-				return nil, wrapSyntacticError(d, err, pos, 0)
+				return nil, err
 			}
 		}
 
@@ -710,7 +624,6 @@ func (d *decoderState) ReadValue(flags *jsonwire.ValueFlags) (Value, error) {
 			pos += jsonwire.ConsumeWhitespace(d.buf[pos:])
 			if d.needMore(pos) {
 				if pos, err = d.consumeWhitespace(pos); err != nil {
-					err = wrapSyntacticError(d, err, pos, 0)
 					return nil, d.checkDelimBeforeIOError(delim, err)
 				}
 			}
@@ -727,22 +640,20 @@ func (d *decoderState) ReadValue(flags *jsonwire.ValueFlags) (Value, error) {
 	newAbsPos := d.baseOffset + int64(pos)
 	n := int(newAbsPos - oldAbsPos)
 	if err != nil {
-		return nil, wrapSyntacticError(d, err, pos, +1)
+		return nil, d.injectSyntacticErrorWithPosition(err, pos)
 	}
 	switch next {
 	case 'n', 't', 'f':
 		err = d.Tokens.appendLiteral()
 	case '"':
-		if d.Tokens.Last.NeedObjectName() {
-			if !d.Flags.Get(jsonflags.AllowDuplicateNames) {
-				if !d.Tokens.Last.isValidNamespace() {
-					err = errInvalidNamespace
-					break
-				}
-				if d.Tokens.Last.isActiveNamespace() && !d.Namespaces.Last().insertQuoted(d.buf[pos-n:pos], flags.IsVerbatim()) {
-					err = wrapWithObjectName(ErrDuplicateName, d.buf[pos-n:pos])
-					break
-				}
+		if !d.Flags.Get(jsonflags.AllowDuplicateNames) && d.Tokens.Last.NeedObjectName() {
+			if !d.Tokens.Last.isValidNamespace() {
+				err = errInvalidNamespace
+				break
+			}
+			if d.Tokens.Last.isActiveNamespace() && !d.Namespaces.Last().insertQuoted(d.buf[pos-n:pos], flags.IsVerbatim()) {
+				err = newDuplicateNameError(d.buf[pos-n : pos])
+				break
 			}
 			d.Names.ReplaceLastQuotedOffset(pos - n) // only replace if insertQuoted succeeds
 		}
@@ -765,42 +676,19 @@ func (d *decoderState) ReadValue(flags *jsonwire.ValueFlags) (Value, error) {
 		}
 	}
 	if err != nil {
-		return nil, wrapSyntacticError(d, err, pos-n, +1) // report position at start of value
+		return nil, d.injectSyntacticErrorWithPosition(err, pos-n) // report position at start of value
 	}
 	d.prevEnd = pos
 	d.prevStart = pos - n
 	return d.buf[pos-n : pos : pos], nil
 }
 
-// CheckNextValue checks whether the next value is syntactically valid,
-// but does not advance the read offset.
-// If last, it verifies that the stream cleanly terminates with [io.EOF].
-func (d *decoderState) CheckNextValue(last bool) error {
-	d.PeekKind() // populates d.peekPos and d.peekErr
-	pos, err := d.peekPos, d.peekErr
-	d.peekPos, d.peekErr = 0, nil
-	if err != nil {
-		return err
-	}
-
-	var flags jsonwire.ValueFlags
-	if pos, err := d.consumeValue(&flags, pos, d.Tokens.Depth()); err != nil {
-		return wrapSyntacticError(d, err, pos, +1)
-	} else if last {
-		return d.checkEOF(pos)
-	}
-	return nil
-}
-
 // CheckEOF verifies that the input has no more data.
 func (d *decoderState) CheckEOF() error {
-	return d.checkEOF(d.prevEnd)
-}
-func (d *decoderState) checkEOF(pos int) error {
-	switch pos, err := d.consumeWhitespace(pos); err {
+	switch pos, err := d.consumeWhitespace(d.prevEnd); err {
 	case nil:
-		err := jsonwire.NewInvalidCharacterError(d.buf[pos:], "after top-level value")
-		return wrapSyntacticError(d, err, pos, 0)
+		err := newInvalidCharacterError(d.buf[pos:], "after top-level value")
+		return d.injectSyntacticErrorWithPosition(err, pos)
 	case io.ErrUnexpectedEOF:
 		return nil
 	default:
@@ -875,17 +763,14 @@ func (d *decoderState) consumeValue(flags *jsonwire.ValueFlags, pos, depth int) 
 		case '[':
 			return d.consumeArray(flags, pos, depth)
 		default:
-			if (d.Tokens.Last.isObject() && next == ']') || (d.Tokens.Last.isArray() && next == '}') {
-				return pos, errMismatchDelim
-			}
-			return pos, jsonwire.NewInvalidCharacterError(d.buf[pos:], "at start of value")
+			return pos, newInvalidCharacterError(d.buf[pos:], "at start of value")
 		}
 		if err == io.ErrUnexpectedEOF {
 			absPos := d.baseOffset + int64(pos)
 			err = d.fetch() // will mutate d.buf and invalidate pos
 			pos = int(absPos - d.baseOffset)
 			if err != nil {
-				return pos + n, err
+				return pos, err
 			}
 			continue
 		}
@@ -903,7 +788,7 @@ func (d *decoderState) consumeLiteral(pos int, lit string) (newPos int, err erro
 			err = d.fetch() // will mutate d.buf and invalidate pos
 			pos = int(absPos - d.baseOffset)
 			if err != nil {
-				return pos + n, err
+				return pos, err
 			}
 			continue
 		}
@@ -922,7 +807,7 @@ func (d *decoderState) consumeString(flags *jsonwire.ValueFlags, pos int) (newPo
 			err = d.fetch() // will mutate d.buf and invalidate pos
 			pos = int(absPos - d.baseOffset)
 			if err != nil {
-				return pos + n, err
+				return pos, err
 			}
 			continue
 		}
@@ -1009,21 +894,19 @@ func (d *decoderState) consumeObject(flags *jsonwire.ValueFlags, pos, depth int)
 		} else {
 			pos += n
 		}
-		quotedName := d.buf[pos-n : pos]
-		if !d.Flags.Get(jsonflags.AllowDuplicateNames) && !names.insertQuoted(quotedName, flags2.IsVerbatim()) {
-			return pos - n, wrapWithObjectName(ErrDuplicateName, quotedName)
+		if !d.Flags.Get(jsonflags.AllowDuplicateNames) && !names.insertQuoted(d.buf[pos-n:pos], flags2.IsVerbatim()) {
+			return pos - n, newDuplicateNameError(d.buf[pos-n : pos])
 		}
 
 		// Handle after name.
 		pos += jsonwire.ConsumeWhitespace(d.buf[pos:])
 		if d.needMore(pos) {
 			if pos, err = d.consumeWhitespace(pos); err != nil {
-				return pos, wrapWithObjectName(err, quotedName)
+				return pos, err
 			}
 		}
 		if d.buf[pos] != ':' {
-			err := jsonwire.NewInvalidCharacterError(d.buf[pos:], "after object name (expecting ':')")
-			return pos, wrapWithObjectName(err, quotedName)
+			return pos, newInvalidCharacterError(d.buf[pos:], "after object name (expecting ':')")
 		}
 		pos++
 
@@ -1031,12 +914,12 @@ func (d *decoderState) consumeObject(flags *jsonwire.ValueFlags, pos, depth int)
 		pos += jsonwire.ConsumeWhitespace(d.buf[pos:])
 		if d.needMore(pos) {
 			if pos, err = d.consumeWhitespace(pos); err != nil {
-				return pos, wrapWithObjectName(err, quotedName)
+				return pos, err
 			}
 		}
 		pos, err = d.consumeValue(flags, pos, depth)
 		if err != nil {
-			return pos, wrapWithObjectName(err, quotedName)
+			return pos, err
 		}
 
 		// Handle after value.
@@ -1054,7 +937,7 @@ func (d *decoderState) consumeObject(flags *jsonwire.ValueFlags, pos, depth int)
 			pos++
 			return pos, nil
 		default:
-			return pos, jsonwire.NewInvalidCharacterError(d.buf[pos:], "after object value (expecting ',' or '}')")
+			return pos, newInvalidCharacterError(d.buf[pos:], "after object value (expecting ',' or '}')")
 		}
 	}
 }
@@ -1082,7 +965,6 @@ func (d *decoderState) consumeArray(flags *jsonwire.ValueFlags, pos, depth int) 
 		return pos, nil
 	}
 
-	var idx int64
 	depth++
 	for {
 		// Handle before value.
@@ -1094,7 +976,7 @@ func (d *decoderState) consumeArray(flags *jsonwire.ValueFlags, pos, depth int) 
 		}
 		pos, err = d.consumeValue(flags, pos, depth)
 		if err != nil {
-			return pos, wrapWithArrayIndex(err, idx)
+			return pos, err
 		}
 
 		// Handle after value.
@@ -1107,13 +989,12 @@ func (d *decoderState) consumeArray(flags *jsonwire.ValueFlags, pos, depth int) 
 		switch d.buf[pos] {
 		case ',':
 			pos++
-			idx++
 			continue
 		case ']':
 			pos++
 			return pos, nil
 		default:
-			return pos, jsonwire.NewInvalidCharacterError(d.buf[pos:], "after array element (expecting ',' or ']')")
+			return pos, newInvalidCharacterError(d.buf[pos:], "after array value (expecting ',' or ']')")
 		}
 	}
 }
@@ -1136,8 +1017,8 @@ func (d *Decoder) UnreadBuffer() []byte {
 
 // StackDepth returns the depth of the state machine for read JSON data.
 // Each level on the stack represents a nested JSON object or array.
-// It is incremented whenever an [BeginObject] or [BeginArray] token is encountered
-// and decremented whenever an [EndObject] or [EndArray] token is encountered.
+// It is incremented whenever an [ObjectStart] or [ArrayStart] token is encountered
+// and decremented whenever an [ObjectEnd] or [ArrayEnd] token is encountered.
 // The depth is zero-indexed, where zero represents the top-level JSON value.
 func (d *Decoder) StackDepth() int {
 	// NOTE: Keep in sync with Encoder.StackDepth.
@@ -1156,7 +1037,7 @@ func (d *Decoder) StackDepth() int {
 // Each name and value in a JSON object is counted separately,
 // so the effective number of members would be half the length.
 // A complete JSON object must have an even length.
-func (d *Decoder) StackIndex(i int) (Kind, int64) {
+func (d *Decoder) StackIndex(i int) (Kind, int) {
 	// NOTE: Keep in sync with Encoder.StackIndex.
 	switch s := d.s.Tokens.index(i); {
 	case i > 0 && s.isObject():
@@ -1169,11 +1050,9 @@ func (d *Decoder) StackIndex(i int) (Kind, int64) {
 }
 
 // StackPointer returns a JSON Pointer (RFC 6901) to the most recently read value.
-func (d *Decoder) StackPointer() Pointer {
-	return Pointer(d.s.AppendStackPointer(nil, -1))
-}
-
-func (d *decoderState) AppendStackPointer(b []byte, where int) []byte {
-	d.Names.copyQuotedBuffer(d.buf)
-	return d.state.appendStackPointer(b, where)
+// Object names are only present if [AllowDuplicateNames] is false, otherwise
+// object members are represented using their index within the object.
+func (d *Decoder) StackPointer() string {
+	d.s.Names.copyQuotedBuffer(d.s.buf)
+	return string(d.s.appendStackPointer(nil))
 }

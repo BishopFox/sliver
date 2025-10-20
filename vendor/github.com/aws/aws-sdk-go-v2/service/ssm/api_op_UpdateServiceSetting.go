@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
+	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
@@ -16,16 +17,13 @@ import (
 // account based on feature or service usage, then the Amazon Web Services service
 // team might create a default setting of "false". This means the user can't use
 // this feature unless they change the setting to "true" and intentionally opt in
-// for a paid feature.
-//
-// Services map a SettingId object to a setting value. Amazon Web Services
-// services teams define the default value for a SettingId . You can't create a new
-// SettingId , but you can overwrite the default value if you have the
-// ssm:UpdateServiceSetting permission for the setting. Use the GetServiceSetting API operation to
-// view the current value. Or, use the ResetServiceSettingto change the value back to the original
-// value defined by the Amazon Web Services service team.
-//
-// Update the service setting for the account.
+// for a paid feature. Services map a SettingId object to a setting value. Amazon
+// Web Services services teams define the default value for a SettingId . You can't
+// create a new SettingId , but you can overwrite the default value if you have the
+// ssm:UpdateServiceSetting permission for the setting. Use the GetServiceSetting
+// API operation to view the current value. Or, use the ResetServiceSetting to
+// change the value back to the original value defined by the Amazon Web Services
+// service team. Update the service setting for the account.
 func (c *Client) UpdateServiceSetting(ctx context.Context, params *UpdateServiceSettingInput, optFns ...func(*Options)) (*UpdateServiceSettingOutput, error) {
 	if params == nil {
 		params = &UpdateServiceSettingInput{}
@@ -47,27 +45,14 @@ type UpdateServiceSettingInput struct {
 	// The Amazon Resource Name (ARN) of the service setting to update. For example,
 	// arn:aws:ssm:us-east-1:111122223333:servicesetting/ssm/parameter-store/high-throughput-enabled
 	// . The setting ID can be one of the following.
-	//
-	//   - /ssm/appmanager/appmanager-enabled
-	//
-	//   - /ssm/automation/customer-script-log-destination
-	//
-	//   - /ssm/automation/customer-script-log-group-name
-	//
-	//   - /ssm/automation/enable-adaptive-concurrency
-	//
-	//   - /ssm/documents/console/public-sharing-permission
-	//
-	//   - /ssm/managed-instance/activation-tier
-	//
 	//   - /ssm/managed-instance/default-ec2-instance-management-role
-	//
+	//   - /ssm/automation/customer-script-log-destination
+	//   - /ssm/automation/customer-script-log-group-name
+	//   - /ssm/documents/console/public-sharing-permission
+	//   - /ssm/managed-instance/activation-tier
 	//   - /ssm/opsinsights/opscenter
-	//
 	//   - /ssm/parameter-store/default-parameter-tier
-	//
 	//   - /ssm/parameter-store/high-throughput-enabled
-	//
 	// Permissions to update the
 	// /ssm/managed-instance/default-ec2-instance-management-role setting should only
 	// be provided to administrators. Implement least privilege access when allowing
@@ -78,27 +63,17 @@ type UpdateServiceSettingInput struct {
 
 	// The new value to specify for the service setting. The following list specifies
 	// the available values for each setting.
-	//
-	//   - For /ssm/appmanager/appmanager-enabled , enter True or False .
-	//
-	//   - For /ssm/automation/customer-script-log-destination , enter CloudWatch .
-	//
-	//   - For /ssm/automation/customer-script-log-group-name , enter the name of an
-	//   Amazon CloudWatch Logs log group.
-	//
-	//   - For /ssm/documents/console/public-sharing-permission , enter Enable or
-	//   Disable .
-	//
-	//   - For /ssm/managed-instance/activation-tier , enter standard or advanced .
-	//
 	//   - For /ssm/managed-instance/default-ec2-instance-management-role , enter the
 	//   name of an IAM role.
-	//
+	//   - For /ssm/automation/customer-script-log-destination , enter CloudWatch .
+	//   - For /ssm/automation/customer-script-log-group-name , enter the name of an
+	//   Amazon CloudWatch Logs log group.
+	//   - For /ssm/documents/console/public-sharing-permission , enter Enable or
+	//   Disable .
+	//   - For /ssm/managed-instance/activation-tier , enter standard or advanced .
 	//   - For /ssm/opsinsights/opscenter , enter Enabled or Disabled .
-	//
 	//   - For /ssm/parameter-store/default-parameter-tier , enter Standard , Advanced
 	//   , or Intelligent-Tiering
-	//
 	//   - For /ssm/parameter-store/high-throughput-enabled , enter true or false .
 	//
 	// This member is required.
@@ -137,28 +112,25 @@ func (c *Client) addOperationUpdateServiceSettingMiddlewares(stack *middleware.S
 	if err = addSetLoggerMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addClientRequestID(stack); err != nil {
+	if err = awsmiddleware.AddClientRequestIDMiddleware(stack); err != nil {
 		return err
 	}
-	if err = addComputeContentLength(stack); err != nil {
+	if err = smithyhttp.AddComputeContentLengthMiddleware(stack); err != nil {
 		return err
 	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addComputePayloadSHA256(stack); err != nil {
+	if err = v4.AddComputePayloadSHA256Middleware(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetryMiddlewares(stack, options); err != nil {
 		return err
 	}
-	if err = addRawResponseToMetadata(stack); err != nil {
+	if err = awsmiddleware.AddRawResponseToMetadata(stack); err != nil {
 		return err
 	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
+	if err = awsmiddleware.AddRecordResponseTiming(stack); err != nil {
 		return err
 	}
 	if err = addClientUserAgent(stack, options); err != nil {
@@ -173,22 +145,13 @@ func (c *Client) addOperationUpdateServiceSettingMiddlewares(stack *middleware.S
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
-		return err
-	}
-	if err = addCredentialSource(stack, options); err != nil {
-		return err
-	}
 	if err = addOpUpdateServiceSettingValidationMiddleware(stack); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opUpdateServiceSetting(options.Region), middleware.Before); err != nil {
 		return err
 	}
-	if err = addRecursionDetection(stack); err != nil {
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -201,48 +164,6 @@ func (c *Client) addOperationUpdateServiceSettingMiddlewares(stack *middleware.S
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAttempt(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptExecution(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptTransmit(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
 		return err
 	}
 	return nil

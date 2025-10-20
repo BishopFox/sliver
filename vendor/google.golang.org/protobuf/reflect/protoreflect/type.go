@@ -68,7 +68,7 @@ type Descriptor interface {
 	// dependency is not resolved, in which case only name information is known.
 	//
 	// Placeholder types may only be returned by the following accessors
-	// as a result of unresolved dependencies:
+	// as a result of unresolved dependencies or weak imports:
 	//
 	//	╔═══════════════════════════════════╤═════════════════════╗
 	//	║ Accessor                          │ Descriptor          ║
@@ -168,7 +168,11 @@ type FileImport struct {
 	// The current file and the imported file must be within proto package.
 	IsPublic bool
 
-	// Deprecated: support for weak fields has been removed.
+	// IsWeak reports whether this is a weak import, which does not impose
+	// a direct dependency on the target file.
+	//
+	// Weak imports are a legacy proto1 feature. Equivalent behavior is
+	// achieved using proto2 extension fields or proto3 Any messages.
 	IsWeak bool
 }
 
@@ -321,7 +325,9 @@ type FieldDescriptor interface {
 	// specified in the source .proto file.
 	HasOptionalKeyword() bool
 
-	// Deprecated: support for weak fields has been removed.
+	// IsWeak reports whether this is a weak field, which does not impose a
+	// direct dependency on the target type.
+	// If true, then Message returns a placeholder type.
 	IsWeak() bool
 
 	// IsPacked reports whether repeated primitive numeric kinds should be
@@ -504,7 +510,7 @@ type ExtensionType interface {
 	//
 	// ValueOf is more extensive than protoreflect.ValueOf for a given field's
 	// value as it has more type information available.
-	ValueOf(any) Value
+	ValueOf(interface{}) Value
 
 	// InterfaceOf completely unwraps the Value to the underlying Go type.
 	// InterfaceOf panics if the input is nil or does not represent the
@@ -513,13 +519,13 @@ type ExtensionType interface {
 	//
 	// InterfaceOf is able to unwrap the Value further than Value.Interface
 	// as it has more type information available.
-	InterfaceOf(Value) any
+	InterfaceOf(Value) interface{}
 
 	// IsValidValue reports whether the Value is valid to assign to the field.
 	IsValidValue(Value) bool
 
 	// IsValidInterface reports whether the input is valid to assign to the field.
-	IsValidInterface(any) bool
+	IsValidInterface(interface{}) bool
 }
 
 // EnumDescriptor describes an enum and

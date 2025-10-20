@@ -4,9 +4,8 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/tetratelabs/wazero/api"
-
 	"github.com/ncruces/go-sqlite3/internal/util"
+	"github.com/tetratelabs/wazero/api"
 )
 
 // Filename is used by SQLite to pass filenames
@@ -16,13 +15,13 @@ import (
 type Filename struct {
 	ctx   context.Context
 	mod   api.Module
-	zPath ptr_t
+	zPath uint32
 	flags OpenFlag
-	stack [2]stk_t
+	stack [2]uint64
 }
 
-// GetFilename is an internal API users should not call directly.
-func GetFilename(ctx context.Context, mod api.Module, id ptr_t, flags OpenFlag) *Filename {
+// OpenFilename is an internal API users should not call directly.
+func OpenFilename(ctx context.Context, mod api.Module, id uint32, flags OpenFlag) *Filename {
 	if id == 0 {
 		return nil
 	}
@@ -56,7 +55,7 @@ func (n *Filename) Journal() string {
 	return n.path("sqlite3_filename_journal")
 }
 
-// WAL returns the name of the corresponding WAL file.
+// Journal returns the name of the corresponding WAL file.
 //
 // https://sqlite.org/c3ref/filename_database.html
 func (n *Filename) WAL() string {
@@ -67,16 +66,12 @@ func (n *Filename) path(method string) string {
 	if n == nil || n.zPath == 0 {
 		return ""
 	}
-	if n.flags&(OPEN_MAIN_DB|OPEN_MAIN_JOURNAL|OPEN_WAL) == 0 {
-		return ""
-	}
-
-	n.stack[0] = stk_t(n.zPath)
+	n.stack[0] = uint64(n.zPath)
 	fn := n.mod.ExportedFunction(method)
 	if err := fn.CallWithStack(n.ctx, n.stack[:]); err != nil {
 		panic(err)
 	}
-	return util.ReadString(n.mod, ptr_t(n.stack[0]), _MAX_PATHNAME)
+	return util.ReadString(n.mod, uint32(n.stack[0]), _MAX_PATHNAME)
 }
 
 // DatabaseFile returns the main database [File] corresponding to a journal.
@@ -90,12 +85,12 @@ func (n *Filename) DatabaseFile() File {
 		return nil
 	}
 
-	n.stack[0] = stk_t(n.zPath)
+	n.stack[0] = uint64(n.zPath)
 	fn := n.mod.ExportedFunction("sqlite3_database_file_object")
 	if err := fn.CallWithStack(n.ctx, n.stack[:]); err != nil {
 		panic(err)
 	}
-	file, _ := vfsFileGet(n.ctx, n.mod, ptr_t(n.stack[0])).(File)
+	file, _ := vfsFileGet(n.ctx, n.mod, uint32(n.stack[0])).(File)
 	return file
 }
 
@@ -108,13 +103,13 @@ func (n *Filename) URIParameter(key string) string {
 	}
 
 	uriKey := n.mod.ExportedFunction("sqlite3_uri_key")
-	n.stack[0] = stk_t(n.zPath)
-	n.stack[1] = stk_t(0)
+	n.stack[0] = uint64(n.zPath)
+	n.stack[1] = uint64(0)
 	if err := uriKey.CallWithStack(n.ctx, n.stack[:]); err != nil {
 		panic(err)
 	}
 
-	ptr := ptr_t(n.stack[0])
+	ptr := uint32(n.stack[0])
 	if ptr == 0 {
 		return ""
 	}
@@ -127,13 +122,13 @@ func (n *Filename) URIParameter(key string) string {
 		if k == "" {
 			return ""
 		}
-		ptr += ptr_t(len(k)) + 1
+		ptr += uint32(len(k)) + 1
 
 		v := util.ReadString(n.mod, ptr, _MAX_NAME)
 		if k == key {
 			return v
 		}
-		ptr += ptr_t(len(v)) + 1
+		ptr += uint32(len(v)) + 1
 	}
 }
 
@@ -146,13 +141,13 @@ func (n *Filename) URIParameters() url.Values {
 	}
 
 	uriKey := n.mod.ExportedFunction("sqlite3_uri_key")
-	n.stack[0] = stk_t(n.zPath)
-	n.stack[1] = stk_t(0)
+	n.stack[0] = uint64(n.zPath)
+	n.stack[1] = uint64(0)
 	if err := uriKey.CallWithStack(n.ctx, n.stack[:]); err != nil {
 		panic(err)
 	}
 
-	ptr := ptr_t(n.stack[0])
+	ptr := uint32(n.stack[0])
 	if ptr == 0 {
 		return nil
 	}
@@ -167,13 +162,13 @@ func (n *Filename) URIParameters() url.Values {
 		if k == "" {
 			return params
 		}
-		ptr += ptr_t(len(k)) + 1
+		ptr += uint32(len(k)) + 1
 
 		v := util.ReadString(n.mod, ptr, _MAX_NAME)
 		if params == nil {
 			params = url.Values{}
 		}
 		params.Add(k, v)
-		ptr += ptr_t(len(v)) + 1
+		ptr += uint32(len(v)) + 1
 	}
 }

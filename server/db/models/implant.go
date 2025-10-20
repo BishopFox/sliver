@@ -20,12 +20,11 @@ package models
 
 import (
 	"net/url"
-	"strings"
 	"time"
 
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/server/log"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/commonpb"
+	"github.com/gsmith257-cyber/better-sliver-package/server/log"
 	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
@@ -137,7 +136,8 @@ func ImplantBuildFromProtobuf(ib *clientpb.ImplantBuild) *ImplantBuild {
 
 		WGImplantPrivKey: ib.WGImplantPrivKey,
 		WGServerPubKey:   ib.WGServerPubKey,
-		Stage:            ib.Stage}
+		Stage:            ib.Stage,
+	}
 	return &build
 }
 
@@ -156,8 +156,8 @@ type ImplantConfig struct {
 	TemplateName string
 
 	IsBeacon       bool
-	BeaconInterval int64
-	BeaconJitter   int64
+	BaconInterval int64
+	BaconJitter   int64
 
 	Debug               bool
 	DebugFile           string
@@ -168,7 +168,6 @@ type ImplantConfig struct {
 	MaxConnectionErrors uint32
 	ConnectionStrategy  string
 	SGNEnabled          bool
-	Exports             string
 
 	// WireGuard
 	WGPeerTunIP       string
@@ -208,7 +207,6 @@ type ImplantConfig struct {
 	NetGoEnabled           bool
 	TrafficEncodersEnabled bool
 	Assets                 []EncoderAsset
-	Extension              string
 }
 
 // BeforeCreate - GORM hook
@@ -243,8 +241,8 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		ImplantBuilds: implantBuilds,
 
 		IsBeacon:       ic.IsBeacon,
-		BeaconInterval: ic.BeaconInterval,
-		BeaconJitter:   ic.BeaconJitter,
+		BaconInterval: ic.BaconInterval,
+		BaconJitter:   ic.BaconJitter,
 
 		GOOS:   ic.GOOS,
 		GOARCH: ic.GOARCH,
@@ -286,8 +284,6 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		IncludeNamePipe: ic.IncludeNamePipe,
 		IncludeWG:       ic.IncludeWG,
 		IncludeTCP:      ic.IncludeTCP,
-		Extension:       ic.Extension,
-		Exports:         strings.Split(ic.Exports, ","),
 	}
 
 	if ic.ImplantProfileID != nil {
@@ -447,8 +443,8 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	}
 
 	cfg.IsBeacon = pbConfig.IsBeacon
-	cfg.BeaconInterval = pbConfig.BeaconInterval
-	cfg.BeaconJitter = pbConfig.BeaconJitter
+	cfg.BaconInterval = pbConfig.BaconInterval
+	cfg.BaconJitter = pbConfig.BaconJitter
 
 	cfg.GOOS = pbConfig.GOOS
 	cfg.GOARCH = pbConfig.GOARCH
@@ -498,7 +494,6 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.IsShellcode = pbConfig.IsShellcode
 	cfg.RunAtLoad = pbConfig.RunAtLoad
 	cfg.DebugFile = pbConfig.DebugFile
-	cfg.Exports = strings.Join(pbConfig.Exports, ",")
 
 	cfg.HttpC2ConfigName = pbConfig.HTTPC2ConfigName
 	cfg.NetGoEnabled = pbConfig.NetGoEnabled
@@ -510,7 +505,6 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 			Name: pbAsset.Name,
 		})
 	}
-	cfg.Extension = pbConfig.Extension
 
 	return &cfg
 }

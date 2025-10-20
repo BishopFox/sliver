@@ -25,24 +25,22 @@ type AccountInfo struct {
 type RoleCredentials struct {
 
 	// The identifier used for the temporary security credentials. For more
-	// information, see [Using Temporary Security Credentials to Request Access to AWS Resources]in the AWS IAM User Guide.
-	//
-	// [Using Temporary Security Credentials to Request Access to AWS Resources]: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_use-resources.html
+	// information, see Using Temporary Security Credentials to Request Access to AWS
+	// Resources (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_use-resources.html)
+	// in the AWS IAM User Guide.
 	AccessKeyId *string
 
 	// The date on which temporary security credentials expire.
 	Expiration int64
 
-	// The key that is used to sign the request. For more information, see [Using Temporary Security Credentials to Request Access to AWS Resources] in the AWS
-	// IAM User Guide.
-	//
-	// [Using Temporary Security Credentials to Request Access to AWS Resources]: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_use-resources.html
+	// The key that is used to sign the request. For more information, see Using
+	// Temporary Security Credentials to Request Access to AWS Resources (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_use-resources.html)
+	// in the AWS IAM User Guide.
 	SecretAccessKey *string
 
-	// The token used for temporary credentials. For more information, see [Using Temporary Security Credentials to Request Access to AWS Resources] in the AWS
-	// IAM User Guide.
-	//
-	// [Using Temporary Security Credentials to Request Access to AWS Resources]: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_use-resources.html
+	// The token used for temporary credentials. For more information, see Using
+	// Temporary Security Credentials to Request Access to AWS Resources (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_use-resources.html)
+	// in the AWS IAM User Guide.
 	SessionToken *string
 
 	noSmithyDocumentSerde

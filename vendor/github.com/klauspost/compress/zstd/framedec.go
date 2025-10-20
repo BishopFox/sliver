@@ -146,9 +146,7 @@ func (d *frameDec) reset(br byteBuffer) error {
 			}
 			return err
 		}
-		if debugDecoder {
-			printf("raw: %x, mantissa: %d, exponent: %d\n", wd, wd&7, wd>>3)
-		}
+		printf("raw: %x, mantissa: %d, exponent: %d\n", wd, wd&7, wd>>3)
 		windowLog := 10 + (wd >> 3)
 		windowBase := uint64(1) << windowLog
 		windowAdd := (windowBase / 8) * uint64(wd&0x7)

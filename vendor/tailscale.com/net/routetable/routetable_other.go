@@ -1,7 +1,7 @@
 // Copyright (c) Tailscale Inc & AUTHORS
 // SPDX-License-Identifier: BSD-3-Clause
 
-//go:build android || (!linux && !darwin && !freebsd)
+//go:build !linux && !darwin && !freebsd
 
 package routetable
 

@@ -23,10 +23,10 @@ import (
 	"log"
 	"os"
 
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/server/configs"
-	"github.com/bishopfox/sliver/server/db"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/commonpb"
+	"github.com/gsmith257-cyber/better-sliver-package/server/configs"
+	"github.com/gsmith257-cyber/better-sliver-package/server/db"
 )
 
 // GetC2Profiles - Retrieve C2 Profile names and id's
@@ -59,8 +59,18 @@ func (rpc *Server) SaveHTTPC2Profile(ctx context.Context, req *clientpb.HTTPC2Co
 		return nil, err
 	}
 
-	if req.Overwrite && req.C2Config.Name == "" {
-		return nil, configs.ErrMissingC2ProfileName
+	profileName := ""
+	if req.Overwrite {
+		profileName = req.C2Config.Name
+	}
+	err = db.SearchStageExtensions(req.C2Config.ImplantConfig.StagerFileExtension, profileName)
+	if err != nil {
+		return nil, err
+	}
+
+	err = db.SearchStartSessionExtensions(req.C2Config.ImplantConfig.StartSessionFileExtension, profileName)
+	if err != nil {
+		return nil, err
 	}
 
 	httpC2Config, err := db.LoadHTTPC2ConfigByName(req.C2Config.Name)
@@ -72,9 +82,6 @@ func (rpc *Server) SaveHTTPC2Profile(ctx context.Context, req *clientpb.HTTPC2Co
 	}
 
 	if req.Overwrite {
-		if httpC2Config.Name == "" {
-			return nil, configs.ErrC2ProfileNotFound
-		}
 		err = db.HTTPC2ConfigUpdate(req.C2Config, httpC2Config)
 		if err != nil {
 			log.Printf("Error:\n%s", err)

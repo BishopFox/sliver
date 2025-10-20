@@ -2,12 +2,10 @@ package sqlite3
 
 import (
 	"context"
-	"errors"
 	"reflect"
 
-	"github.com/tetratelabs/wazero/api"
-
 	"github.com/ncruces/go-sqlite3/internal/util"
+	"github.com/tetratelabs/wazero/api"
 )
 
 // CreateModule registers a new virtual table module name.
@@ -18,15 +16,14 @@ func CreateModule[T VTab](db *Conn, name string, create, connect VTabConstructor
 	var flags int
 
 	const (
-		VTAB_CREATOR     = 0x001
-		VTAB_DESTROYER   = 0x002
-		VTAB_UPDATER     = 0x004
-		VTAB_RENAMER     = 0x008
-		VTAB_OVERLOADER  = 0x010
-		VTAB_CHECKER     = 0x020
-		VTAB_TXN         = 0x040
-		VTAB_SAVEPOINTER = 0x080
-		VTAB_SHADOWTABS  = 0x100
+		VTAB_CREATOR     = 0x01
+		VTAB_DESTROYER   = 0x02
+		VTAB_UPDATER     = 0x04
+		VTAB_RENAMER     = 0x08
+		VTAB_OVERLOADER  = 0x10
+		VTAB_CHECKER     = 0x20
+		VTAB_TXN         = 0x40
+		VTAB_SAVEPOINTER = 0x80
 	)
 
 	if create != nil {
@@ -55,19 +52,13 @@ func CreateModule[T VTab](db *Conn, name string, create, connect VTabConstructor
 	if implements[VTabSavepointer](vtab) {
 		flags |= VTAB_SAVEPOINTER
 	}
-	if implements[VTabShadowTabler](vtab) {
-		flags |= VTAB_SHADOWTABS
-	}
 
-	var modulePtr ptr_t
 	defer db.arena.mark()()
 	namePtr := db.arena.string(name)
-	if connect != nil {
-		modulePtr = util.AddHandle(db.ctx, module[T]{create, connect})
-	}
-	rc := res_t(db.call("sqlite3_create_module_go", stk_t(db.handle),
-		stk_t(namePtr), stk_t(flags), stk_t(modulePtr)))
-	return db.error(rc)
+	modulePtr := util.AddHandle(db.ctx, module[T]{create, connect})
+	r := db.call("sqlite3_create_module_go", uint64(db.handle),
+		uint64(namePtr), uint64(flags), uint64(modulePtr))
+	return db.error(r)
 }
 
 func implements[T any](typ reflect.Type) bool {
@@ -79,13 +70,10 @@ func implements[T any](typ reflect.Type) bool {
 //
 // https://sqlite.org/c3ref/declare_vtab.html
 func (c *Conn) DeclareVTab(sql string) error {
-	if c.interrupt.Err() != nil {
-		return INTERRUPT
-	}
 	defer c.arena.mark()()
-	textPtr := c.arena.string(sql)
-	rc := res_t(c.call("sqlite3_declare_vtab", stk_t(c.handle), stk_t(textPtr)))
-	return c.error(rc)
+	sqlPtr := c.arena.string(sql)
+	r := c.call("sqlite3_declare_vtab", uint64(c.handle), uint64(sqlPtr))
+	return c.error(r)
 }
 
 // VTabConflictMode is a virtual table conflict resolution mode.
@@ -105,7 +93,8 @@ const (
 //
 // https://sqlite.org/c3ref/vtab_on_conflict.html
 func (c *Conn) VTabOnConflict() VTabConflictMode {
-	return VTabConflictMode(c.call("sqlite3_vtab_on_conflict", stk_t(c.handle)))
+	r := c.call("sqlite3_vtab_on_conflict", uint64(c.handle))
+	return VTabConflictMode(r)
 }
 
 // VTabConfigOption is a virtual table configuration option.
@@ -124,14 +113,14 @@ const (
 //
 // https://sqlite.org/c3ref/vtab_config.html
 func (c *Conn) VTabConfig(op VTabConfigOption, args ...any) error {
-	var i int32
+	var i uint64
 	if op == VTAB_CONSTRAINT_SUPPORT && len(args) > 0 {
 		if b, ok := args[0].(bool); ok && b {
 			i = 1
 		}
 	}
-	rc := res_t(c.call("sqlite3_vtab_config_go", stk_t(c.handle), stk_t(op), stk_t(i)))
-	return c.error(rc)
+	r := c.call("sqlite3_vtab_config_go", uint64(c.handle), uint64(op), i)
+	return c.error(r)
 }
 
 // VTabConstructor is a virtual table constructor function.
@@ -165,7 +154,6 @@ type VTabDestroyer interface {
 }
 
 // A VTabUpdater allows a virtual table to be updated.
-// Implementations must not retain arg.
 type VTabUpdater interface {
 	VTab
 	// https://sqlite.org/vtab.html#xupdate
@@ -184,17 +172,6 @@ type VTabOverloader interface {
 	VTab
 	// https://sqlite.org/vtab.html#xfindfunction
 	FindFunction(arg int, name string) (ScalarFunction, IndexConstraintOp)
-}
-
-// A VTabShadowTabler allows a virtual table to protect the content
-// of shadow tables from being corrupted by hostile SQL.
-//
-// Implementing this interface signals that a virtual table named
-// "mumble" reserves all table names starting with "mumble_".
-type VTabShadowTabler interface {
-	VTab
-	// https://sqlite.org/vtab.html#the_xshadowname_method
-	ShadowTables()
 }
 
 // A VTabChecker allows a virtual table to report errors
@@ -245,9 +222,8 @@ type VTabSavepointer interface {
 // to loop through the virtual table.
 // A VTabCursor may optionally implement
 // [io.Closer] to free resources.
-// Implementations of Filter must not retain arg.
 //
-// https://sqlite.org/c3ref/vtab_cursor.html
+// http://sqlite.org/c3ref/vtab_cursor.html
 type VTabCursor interface {
 	// https://sqlite.org/vtab.html#xfilter
 	Filter(idxNum int, idxStr string, arg ...Value) error
@@ -256,7 +232,7 @@ type VTabCursor interface {
 	// https://sqlite.org/vtab.html#xeof
 	EOF() bool
 	// https://sqlite.org/vtab.html#xcolumn
-	Column(ctx Context, n int) error
+	Column(ctx *Context, n int) error
 	// https://sqlite.org/vtab.html#xrowid
 	RowID() (int64, error)
 }
@@ -268,7 +244,7 @@ type IndexInfo struct {
 	// Inputs
 	Constraint  []IndexConstraint
 	OrderBy     []IndexOrderBy
-	ColumnsUsed uint64
+	ColumnsUsed int64
 	// Outputs
 	ConstraintUsage []IndexConstraintUsage
 	IdxNum          int
@@ -279,7 +255,7 @@ type IndexInfo struct {
 	EstimatedRows   int64
 	// Internal
 	c      *Conn
-	handle ptr_t
+	handle uint32
 }
 
 // An IndexConstraint describes virtual table indexing constraint information.
@@ -314,14 +290,14 @@ type IndexConstraintUsage struct {
 func (idx *IndexInfo) RHSValue(column int) (Value, error) {
 	defer idx.c.arena.mark()()
 	valPtr := idx.c.arena.new(ptrlen)
-	rc := res_t(idx.c.call("sqlite3_vtab_rhs_value", stk_t(idx.handle),
-		stk_t(column), stk_t(valPtr)))
-	if err := idx.c.error(rc); err != nil {
+	r := idx.c.call("sqlite3_vtab_rhs_value", uint64(idx.handle),
+		uint64(column), uint64(valPtr))
+	if err := idx.c.error(r); err != nil {
 		return Value{}, err
 	}
 	return Value{
 		c:      idx.c,
-		handle: util.Read32[ptr_t](idx.c.mod, valPtr),
+		handle: util.ReadUint32(idx.c.mod, valPtr),
 	}, nil
 }
 
@@ -329,26 +305,26 @@ func (idx *IndexInfo) RHSValue(column int) (Value, error) {
 //
 // https://sqlite.org/c3ref/vtab_collation.html
 func (idx *IndexInfo) Collation(column int) string {
-	ptr := ptr_t(idx.c.call("sqlite3_vtab_collation", stk_t(idx.handle),
-		stk_t(column)))
-	return util.ReadString(idx.c.mod, ptr, _MAX_NAME)
+	r := idx.c.call("sqlite3_vtab_collation", uint64(idx.handle),
+		uint64(column))
+	return util.ReadString(idx.c.mod, uint32(r), _MAX_NAME)
 }
 
 // Distinct determines if a virtual table query is DISTINCT.
 //
 // https://sqlite.org/c3ref/vtab_distinct.html
 func (idx *IndexInfo) Distinct() int {
-	i := int32(idx.c.call("sqlite3_vtab_distinct", stk_t(idx.handle)))
-	return int(i)
+	r := idx.c.call("sqlite3_vtab_distinct", uint64(idx.handle))
+	return int(r)
 }
 
 // In identifies and handles IN constraints.
 //
 // https://sqlite.org/c3ref/vtab_in.html
 func (idx *IndexInfo) In(column, handle int) bool {
-	b := int32(idx.c.call("sqlite3_vtab_in", stk_t(idx.handle),
-		stk_t(column), stk_t(handle)))
-	return b != 0
+	r := idx.c.call("sqlite3_vtab_in", uint64(idx.handle),
+		uint64(column), uint64(handle))
+	return r != 0
 }
 
 func (idx *IndexInfo) load() {
@@ -356,35 +332,32 @@ func (idx *IndexInfo) load() {
 	mod := idx.c.mod
 	ptr := idx.handle
 
-	nConstraint := util.Read32[int32](mod, ptr+0)
-	idx.Constraint = make([]IndexConstraint, nConstraint)
-	idx.ConstraintUsage = make([]IndexConstraintUsage, nConstraint)
-	idx.OrderBy = make([]IndexOrderBy, util.Read32[int32](mod, ptr+8))
+	idx.Constraint = make([]IndexConstraint, util.ReadUint32(mod, ptr+0))
+	idx.ConstraintUsage = make([]IndexConstraintUsage, util.ReadUint32(mod, ptr+0))
+	idx.OrderBy = make([]IndexOrderBy, util.ReadUint32(mod, ptr+8))
 
-	constraintPtr := util.Read32[ptr_t](mod, ptr+4)
-	constraint := idx.Constraint
+	constraintPtr := util.ReadUint32(mod, ptr+4)
 	for i := range idx.Constraint {
-		constraint[i] = IndexConstraint{
-			Column: int(util.Read32[int32](mod, constraintPtr+0)),
-			Op:     util.Read[IndexConstraintOp](mod, constraintPtr+4),
-			Usable: util.Read[byte](mod, constraintPtr+5) != 0,
+		idx.Constraint[i] = IndexConstraint{
+			Column: int(int32(util.ReadUint32(mod, constraintPtr+0))),
+			Op:     IndexConstraintOp(util.ReadUint8(mod, constraintPtr+4)),
+			Usable: util.ReadUint8(mod, constraintPtr+5) != 0,
 		}
 		constraintPtr += 12
 	}
 
-	orderByPtr := util.Read32[ptr_t](mod, ptr+12)
-	orderBy := idx.OrderBy
-	for i := range orderBy {
-		orderBy[i] = IndexOrderBy{
-			Column: int(util.Read32[int32](mod, orderByPtr+0)),
-			Desc:   util.Read[byte](mod, orderByPtr+4) != 0,
+	orderByPtr := util.ReadUint32(mod, ptr+12)
+	for i := range idx.OrderBy {
+		idx.OrderBy[i] = IndexOrderBy{
+			Column: int(int32(util.ReadUint32(mod, orderByPtr+0))),
+			Desc:   util.ReadUint8(mod, orderByPtr+4) != 0,
 		}
 		orderByPtr += 8
 	}
 
 	idx.EstimatedCost = util.ReadFloat64(mod, ptr+40)
-	idx.EstimatedRows = util.Read64[int64](mod, ptr+48)
-	idx.ColumnsUsed = util.Read64[uint64](mod, ptr+64)
+	idx.EstimatedRows = int64(util.ReadUint64(mod, ptr+48))
+	idx.ColumnsUsed = int64(util.ReadUint64(mod, ptr+64))
 }
 
 func (idx *IndexInfo) save() {
@@ -392,26 +365,26 @@ func (idx *IndexInfo) save() {
 	mod := idx.c.mod
 	ptr := idx.handle
 
-	usagePtr := util.Read32[ptr_t](mod, ptr+16)
+	usagePtr := util.ReadUint32(mod, ptr+16)
 	for _, usage := range idx.ConstraintUsage {
-		util.Write32(mod, usagePtr+0, int32(usage.ArgvIndex))
+		util.WriteUint32(mod, usagePtr+0, uint32(usage.ArgvIndex))
 		if usage.Omit {
-			util.Write(mod, usagePtr+4, int8(1))
+			util.WriteUint8(mod, usagePtr+4, 1)
 		}
 		usagePtr += 8
 	}
 
-	util.Write32(mod, ptr+20, int32(idx.IdxNum))
+	util.WriteUint32(mod, ptr+20, uint32(idx.IdxNum))
 	if idx.IdxStr != "" {
-		util.Write32(mod, ptr+24, idx.c.newString(idx.IdxStr))
-		util.WriteBool(mod, ptr+28, true) // needToFreeIdxStr
+		util.WriteUint32(mod, ptr+24, idx.c.newString(idx.IdxStr))
+		util.WriteUint32(mod, ptr+28, 1) // needToFreeIdxStr
 	}
 	if idx.OrderByConsumed {
-		util.WriteBool(mod, ptr+32, true)
+		util.WriteUint32(mod, ptr+32, 1)
 	}
 	util.WriteFloat64(mod, ptr+40, idx.EstimatedCost)
-	util.Write64(mod, ptr+48, idx.EstimatedRows)
-	util.Write32(mod, ptr+56, idx.IdxFlags)
+	util.WriteUint64(mod, ptr+48, uint64(idx.EstimatedRows))
+	util.WriteUint32(mod, ptr+56, uint32(idx.IdxFlags))
 }
 
 // IndexConstraintOp is a virtual table constraint operator code.
@@ -448,39 +421,42 @@ const (
 	INDEX_SCAN_UNIQUE IndexScanFlag = 1
 )
 
-func vtabModuleCallback(i vtabConstructor) func(_ context.Context, _ api.Module, _ ptr_t, _ int32, _, _, _ ptr_t) res_t {
-	return func(ctx context.Context, mod api.Module, pMod ptr_t, nArg int32, pArg, ppVTab, pzErr ptr_t) res_t {
+func vtabModuleCallback(i vtabConstructor) func(_ context.Context, _ api.Module, _, _, _, _, _ uint32) uint32 {
+	return func(ctx context.Context, mod api.Module, pMod, nArg, pArg, ppVTab, pzErr uint32) uint32 {
 		arg := make([]reflect.Value, 1+nArg)
 		arg[0] = reflect.ValueOf(ctx.Value(connKey{}))
 
-		for i := range nArg {
-			ptr := util.Read32[ptr_t](mod, pArg+ptr_t(i)*ptrlen)
+		for i := uint32(0); i < nArg; i++ {
+			ptr := util.ReadUint32(mod, pArg+i*ptrlen)
 			arg[i+1] = reflect.ValueOf(util.ReadString(mod, ptr, _MAX_SQL_LENGTH))
 		}
 
 		module := vtabGetHandle(ctx, mod, pMod)
-		val := reflect.ValueOf(module).Index(int(i)).Call(arg)
-		err, _ := val[1].Interface().(error)
+		res := reflect.ValueOf(module).Index(int(i)).Call(arg)
+		err, _ := res[1].Interface().(error)
 		if err == nil {
-			vtabPutHandle(ctx, mod, ppVTab, val[0].Interface())
+			vtabPutHandle(ctx, mod, ppVTab, res[0].Interface())
 		}
 
 		return vtabError(ctx, mod, pzErr, _PTR_ERROR, err)
 	}
 }
 
-func vtabDisconnectCallback(ctx context.Context, mod api.Module, pVTab ptr_t) res_t {
+func vtabDisconnectCallback(ctx context.Context, mod api.Module, pVTab uint32) uint32 {
 	err := vtabDelHandle(ctx, mod, pVTab)
 	return vtabError(ctx, mod, 0, _PTR_ERROR, err)
 }
 
-func vtabDestroyCallback(ctx context.Context, mod api.Module, pVTab ptr_t) res_t {
+func vtabDestroyCallback(ctx context.Context, mod api.Module, pVTab uint32) uint32 {
 	vtab := vtabGetHandle(ctx, mod, pVTab).(VTabDestroyer)
-	err := errors.Join(vtab.Destroy(), vtabDelHandle(ctx, mod, pVTab))
+	err := vtab.Destroy()
+	if cerr := vtabDelHandle(ctx, mod, pVTab); err == nil {
+		err = cerr
+	}
 	return vtabError(ctx, mod, 0, _PTR_ERROR, err)
 }
 
-func vtabBestIndexCallback(ctx context.Context, mod api.Module, pVTab, pIdxInfo ptr_t) res_t {
+func vtabBestIndexCallback(ctx context.Context, mod api.Module, pVTab, pIdxInfo uint32) uint32 {
 	var info IndexInfo
 	info.handle = pIdxInfo
 	info.c = ctx.Value(connKey{}).(*Conn)
@@ -493,41 +469,41 @@ func vtabBestIndexCallback(ctx context.Context, mod api.Module, pVTab, pIdxInfo 
 	return vtabError(ctx, mod, pVTab, _VTAB_ERROR, err)
 }
 
-func vtabUpdateCallback(ctx context.Context, mod api.Module, pVTab ptr_t, nArg int32, pArg, pRowID ptr_t) res_t {
-	db := ctx.Value(connKey{}).(*Conn)
-	args := callbackArgs(db, nArg, pArg)
-	defer returnArgs(args)
-
+func vtabUpdateCallback(ctx context.Context, mod api.Module, pVTab, nArg, pArg, pRowID uint32) uint32 {
 	vtab := vtabGetHandle(ctx, mod, pVTab).(VTabUpdater)
-	rowID, err := vtab.Update(*args...)
+
+	db := ctx.Value(connKey{}).(*Conn)
+	args := make([]Value, nArg)
+	callbackArgs(db, args, pArg)
+	rowID, err := vtab.Update(args...)
 	if err == nil {
-		util.Write64(mod, pRowID, rowID)
+		util.WriteUint64(mod, pRowID, uint64(rowID))
 	}
 
 	return vtabError(ctx, mod, pVTab, _VTAB_ERROR, err)
 }
 
-func vtabRenameCallback(ctx context.Context, mod api.Module, pVTab, zNew ptr_t) res_t {
+func vtabRenameCallback(ctx context.Context, mod api.Module, pVTab, zNew uint32) uint32 {
 	vtab := vtabGetHandle(ctx, mod, pVTab).(VTabRenamer)
 	err := vtab.Rename(util.ReadString(mod, zNew, _MAX_NAME))
 	return vtabError(ctx, mod, pVTab, _VTAB_ERROR, err)
 }
 
-func vtabFindFuncCallback(ctx context.Context, mod api.Module, pVTab ptr_t, nArg int32, zName, pxFunc ptr_t) int32 {
+func vtabFindFuncCallback(ctx context.Context, mod api.Module, pVTab uint32, nArg int32, zName, pxFunc uint32) uint32 {
 	vtab := vtabGetHandle(ctx, mod, pVTab).(VTabOverloader)
 	f, op := vtab.FindFunction(int(nArg), util.ReadString(mod, zName, _MAX_NAME))
 	if op != 0 {
-		var wrapper ptr_t
+		var wrapper uint32
 		wrapper = util.AddHandle(ctx, func(c Context, arg ...Value) {
 			defer util.DelHandle(ctx, wrapper)
 			f(c, arg...)
 		})
-		util.Write32(mod, pxFunc, wrapper)
+		util.WriteUint32(mod, pxFunc, wrapper)
 	}
-	return int32(op)
+	return uint32(op)
 }
 
-func vtabIntegrityCallback(ctx context.Context, mod api.Module, pVTab, zSchema, zTabName ptr_t, mFlags uint32, pzErr ptr_t) res_t {
+func vtabIntegrityCallback(ctx context.Context, mod api.Module, pVTab, zSchema, zTabName, mFlags, pzErr uint32) uint32 {
 	vtab := vtabGetHandle(ctx, mod, pVTab).(VTabChecker)
 	schema := util.ReadString(mod, zSchema, _MAX_NAME)
 	table := util.ReadString(mod, zTabName, _MAX_NAME)
@@ -539,49 +515,49 @@ func vtabIntegrityCallback(ctx context.Context, mod api.Module, pVTab, zSchema, 
 	return code
 }
 
-func vtabBeginCallback(ctx context.Context, mod api.Module, pVTab ptr_t) res_t {
+func vtabBeginCallback(ctx context.Context, mod api.Module, pVTab uint32) uint32 {
 	vtab := vtabGetHandle(ctx, mod, pVTab).(VTabTxn)
 	err := vtab.Begin()
 	return vtabError(ctx, mod, pVTab, _VTAB_ERROR, err)
 }
 
-func vtabSyncCallback(ctx context.Context, mod api.Module, pVTab ptr_t) res_t {
+func vtabSyncCallback(ctx context.Context, mod api.Module, pVTab uint32) uint32 {
 	vtab := vtabGetHandle(ctx, mod, pVTab).(VTabTxn)
 	err := vtab.Sync()
 	return vtabError(ctx, mod, pVTab, _VTAB_ERROR, err)
 }
 
-func vtabCommitCallback(ctx context.Context, mod api.Module, pVTab ptr_t) res_t {
+func vtabCommitCallback(ctx context.Context, mod api.Module, pVTab uint32) uint32 {
 	vtab := vtabGetHandle(ctx, mod, pVTab).(VTabTxn)
 	err := vtab.Commit()
 	return vtabError(ctx, mod, pVTab, _VTAB_ERROR, err)
 }
 
-func vtabRollbackCallback(ctx context.Context, mod api.Module, pVTab ptr_t) res_t {
+func vtabRollbackCallback(ctx context.Context, mod api.Module, pVTab uint32) uint32 {
 	vtab := vtabGetHandle(ctx, mod, pVTab).(VTabTxn)
 	err := vtab.Rollback()
 	return vtabError(ctx, mod, pVTab, _VTAB_ERROR, err)
 }
 
-func vtabSavepointCallback(ctx context.Context, mod api.Module, pVTab ptr_t, id int32) res_t {
+func vtabSavepointCallback(ctx context.Context, mod api.Module, pVTab uint32, id int32) uint32 {
 	vtab := vtabGetHandle(ctx, mod, pVTab).(VTabSavepointer)
 	err := vtab.Savepoint(int(id))
 	return vtabError(ctx, mod, pVTab, _VTAB_ERROR, err)
 }
 
-func vtabReleaseCallback(ctx context.Context, mod api.Module, pVTab ptr_t, id int32) res_t {
+func vtabReleaseCallback(ctx context.Context, mod api.Module, pVTab uint32, id int32) uint32 {
 	vtab := vtabGetHandle(ctx, mod, pVTab).(VTabSavepointer)
 	err := vtab.Release(int(id))
 	return vtabError(ctx, mod, pVTab, _VTAB_ERROR, err)
 }
 
-func vtabRollbackToCallback(ctx context.Context, mod api.Module, pVTab ptr_t, id int32) res_t {
+func vtabRollbackToCallback(ctx context.Context, mod api.Module, pVTab uint32, id int32) uint32 {
 	vtab := vtabGetHandle(ctx, mod, pVTab).(VTabSavepointer)
 	err := vtab.RollbackTo(int(id))
 	return vtabError(ctx, mod, pVTab, _VTAB_ERROR, err)
 }
 
-func cursorOpenCallback(ctx context.Context, mod api.Module, pVTab, ppCur ptr_t) res_t {
+func cursorOpenCallback(ctx context.Context, mod api.Module, pVTab, ppCur uint32) uint32 {
 	vtab := vtabGetHandle(ctx, mod, pVTab).(VTab)
 
 	cursor, err := vtab.Open()
@@ -592,27 +568,25 @@ func cursorOpenCallback(ctx context.Context, mod api.Module, pVTab, ppCur ptr_t)
 	return vtabError(ctx, mod, pVTab, _VTAB_ERROR, err)
 }
 
-func cursorCloseCallback(ctx context.Context, mod api.Module, pCur ptr_t) res_t {
+func cursorCloseCallback(ctx context.Context, mod api.Module, pCur uint32) uint32 {
 	err := vtabDelHandle(ctx, mod, pCur)
 	return vtabError(ctx, mod, 0, _VTAB_ERROR, err)
 }
 
-func cursorFilterCallback(ctx context.Context, mod api.Module, pCur ptr_t, idxNum int32, idxStr ptr_t, nArg int32, pArg ptr_t) res_t {
+func cursorFilterCallback(ctx context.Context, mod api.Module, pCur uint32, idxNum int32, idxStr, nArg, pArg uint32) uint32 {
+	cursor := vtabGetHandle(ctx, mod, pCur).(VTabCursor)
 	db := ctx.Value(connKey{}).(*Conn)
-	args := callbackArgs(db, nArg, pArg)
-	defer returnArgs(args)
-
+	args := make([]Value, nArg)
+	callbackArgs(db, args, pArg)
 	var idxName string
 	if idxStr != 0 {
 		idxName = util.ReadString(mod, idxStr, _MAX_LENGTH)
 	}
-
-	cursor := vtabGetHandle(ctx, mod, pCur).(VTabCursor)
-	err := cursor.Filter(int(idxNum), idxName, *args...)
+	err := cursor.Filter(int(idxNum), idxName, args...)
 	return vtabError(ctx, mod, pCur, _CURSOR_ERROR, err)
 }
 
-func cursorEOFCallback(ctx context.Context, mod api.Module, pCur ptr_t) int32 {
+func cursorEOFCallback(ctx context.Context, mod api.Module, pCur uint32) uint32 {
 	cursor := vtabGetHandle(ctx, mod, pCur).(VTabCursor)
 	if cursor.EOF() {
 		return 1
@@ -620,25 +594,25 @@ func cursorEOFCallback(ctx context.Context, mod api.Module, pCur ptr_t) int32 {
 	return 0
 }
 
-func cursorNextCallback(ctx context.Context, mod api.Module, pCur ptr_t) res_t {
+func cursorNextCallback(ctx context.Context, mod api.Module, pCur uint32) uint32 {
 	cursor := vtabGetHandle(ctx, mod, pCur).(VTabCursor)
 	err := cursor.Next()
 	return vtabError(ctx, mod, pCur, _CURSOR_ERROR, err)
 }
 
-func cursorColumnCallback(ctx context.Context, mod api.Module, pCur, pCtx ptr_t, n int32) res_t {
+func cursorColumnCallback(ctx context.Context, mod api.Module, pCur, pCtx uint32, n int32) uint32 {
 	cursor := vtabGetHandle(ctx, mod, pCur).(VTabCursor)
 	db := ctx.Value(connKey{}).(*Conn)
-	err := cursor.Column(Context{db, pCtx}, int(n))
+	err := cursor.Column(&Context{db, pCtx}, int(n))
 	return vtabError(ctx, mod, pCur, _CURSOR_ERROR, err)
 }
 
-func cursorRowIDCallback(ctx context.Context, mod api.Module, pCur, pRowID ptr_t) res_t {
+func cursorRowIDCallback(ctx context.Context, mod api.Module, pCur, pRowID uint32) uint32 {
 	cursor := vtabGetHandle(ctx, mod, pCur).(VTabCursor)
 
 	rowID, err := cursor.RowID()
 	if err == nil {
-		util.Write64(mod, pRowID, rowID)
+		util.WriteUint64(mod, pRowID, uint64(rowID))
 	}
 
 	return vtabError(ctx, mod, pCur, _CURSOR_ERROR, err)
@@ -650,7 +624,7 @@ const (
 	_CURSOR_ERROR
 )
 
-func vtabError(ctx context.Context, mod api.Module, ptr ptr_t, kind uint32, err error) res_t {
+func vtabError(ctx context.Context, mod api.Module, ptr, kind uint32, err error) uint32 {
 	const zErrMsgOffset = 8
 	msg, code := errorCode(err, ERROR)
 	if msg != "" && ptr != 0 {
@@ -658,32 +632,32 @@ func vtabError(ctx context.Context, mod api.Module, ptr ptr_t, kind uint32, err 
 		case _VTAB_ERROR:
 			ptr = ptr + zErrMsgOffset // zErrMsg
 		case _CURSOR_ERROR:
-			ptr = util.Read32[ptr_t](mod, ptr) + zErrMsgOffset // pVTab->zErrMsg
+			ptr = util.ReadUint32(mod, ptr) + zErrMsgOffset // pVTab->zErrMsg
 		}
 		db := ctx.Value(connKey{}).(*Conn)
-		if ptr := util.Read32[ptr_t](mod, ptr); ptr != 0 {
+		if ptr := util.ReadUint32(mod, ptr); ptr != 0 {
 			db.free(ptr)
 		}
-		util.Write32(mod, ptr, db.newString(msg))
+		util.WriteUint32(mod, ptr, db.newString(msg))
 	}
 	return code
 }
 
-func vtabGetHandle(ctx context.Context, mod api.Module, ptr ptr_t) any {
+func vtabGetHandle(ctx context.Context, mod api.Module, ptr uint32) any {
 	const handleOffset = 4
-	handle := util.Read32[ptr_t](mod, ptr-handleOffset)
+	handle := util.ReadUint32(mod, ptr-handleOffset)
 	return util.GetHandle(ctx, handle)
 }
 
-func vtabDelHandle(ctx context.Context, mod api.Module, ptr ptr_t) error {
+func vtabDelHandle(ctx context.Context, mod api.Module, ptr uint32) error {
 	const handleOffset = 4
-	handle := util.Read32[ptr_t](mod, ptr-handleOffset)
+	handle := util.ReadUint32(mod, ptr-handleOffset)
 	return util.DelHandle(ctx, handle)
 }
 
-func vtabPutHandle(ctx context.Context, mod api.Module, pptr ptr_t, val any) {
+func vtabPutHandle(ctx context.Context, mod api.Module, pptr uint32, val any) {
 	const handleOffset = 4
 	handle := util.AddHandle(ctx, val)
-	ptr := util.Read32[ptr_t](mod, pptr)
-	util.Write32(mod, ptr-handleOffset, handle)
+	ptr := util.ReadUint32(mod, pptr)
+	util.WriteUint32(mod, ptr-handleOffset, handle)
 }

@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	fileRegister       map[string]struct{}
+	fileRegister       map[string]bool
 	fileRegisterLock   sync.RWMutex
 	readerRegister     map[string]func() io.Reader
 	readerRegisterLock sync.RWMutex
@@ -37,10 +37,10 @@ func RegisterLocalFile(filePath string) {
 	fileRegisterLock.Lock()
 	// lazy map init
 	if fileRegister == nil {
-		fileRegister = make(map[string]struct{})
+		fileRegister = make(map[string]bool)
 	}
 
-	fileRegister[strings.Trim(filePath, `"`)] = struct{}{}
+	fileRegister[strings.Trim(filePath, `"`)] = true
 	fileRegisterLock.Unlock()
 }
 
@@ -93,8 +93,9 @@ func deferredClose(err *error, closer io.Closer) {
 
 const defaultPacketSize = 16 * 1024 // 16KB is small enough for disk readahead and large enough for TCP
 
-func (mc *okHandler) handleInFileRequest(name string) (err error) {
+func (mc *mysqlConn) handleInFileRequest(name string) (err error) {
 	var rdr io.Reader
+	var data []byte
 	packetSize := defaultPacketSize
 	if mc.maxWriteSize < packetSize {
 		packetSize = mc.maxWriteSize
@@ -115,17 +116,17 @@ func (mc *okHandler) handleInFileRequest(name string) (err error) {
 					defer deferredClose(&err, cl)
 				}
 			} else {
-				err = fmt.Errorf("reader '%s' is <nil>", name)
+				err = fmt.Errorf("Reader '%s' is <nil>", name)
 			}
 		} else {
-			err = fmt.Errorf("reader '%s' is not registered", name)
+			err = fmt.Errorf("Reader '%s' is not registered", name)
 		}
 	} else { // File
 		name = strings.Trim(name, `"`)
 		fileRegisterLock.RLock()
-		_, exists := fileRegister[name]
+		fr := fileRegister[name]
 		fileRegisterLock.RUnlock()
-		if mc.cfg.AllowAllFiles || exists {
+		if mc.cfg.AllowAllFiles || fr {
 			var file *os.File
 			var fi os.FileInfo
 
@@ -146,16 +147,14 @@ func (mc *okHandler) handleInFileRequest(name string) (err error) {
 	}
 
 	// send content packets
-	var data []byte
-
 	// if packetSize == 0, the Reader contains no data
 	if err == nil && packetSize > 0 {
-		data = make([]byte, 4+packetSize)
+		data := make([]byte, 4+packetSize)
 		var n int
 		for err == nil {
 			n, err = rdr.Read(data[4:])
 			if n > 0 {
-				if ioErr := mc.conn().writePacket(data[:4+n]); ioErr != nil {
+				if ioErr := mc.writePacket(data[:4+n]); ioErr != nil {
 					return ioErr
 				}
 			}
@@ -169,16 +168,15 @@ func (mc *okHandler) handleInFileRequest(name string) (err error) {
 	if data == nil {
 		data = make([]byte, 4)
 	}
-	if ioErr := mc.conn().writePacket(data[:4]); ioErr != nil {
+	if ioErr := mc.writePacket(data[:4]); ioErr != nil {
 		return ioErr
 	}
-	mc.conn().syncSequence()
 
 	// read OK packet
 	if err == nil {
 		return mc.readResultOK()
 	}
 
-	mc.conn().readPacket()
+	mc.readPacket()
 	return err
 }

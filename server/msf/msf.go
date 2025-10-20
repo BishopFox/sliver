@@ -21,11 +21,12 @@ package msf
 import (
 	"bytes"
 	"fmt"
+	"net/url"
 	"os/exec"
 	"strconv"
 	"strings"
 
-	"github.com/bishopfox/sliver/server/log"
+	"github.com/gsmith257-cyber/better-sliver-package/server/log"
 )
 
 const (
@@ -115,6 +116,7 @@ type VenomConfig struct {
 	BadChars   []string
 	Format     string
 	Luri       string
+	AdvOptions string
 }
 
 // Version - Return the version of MSFVenom
@@ -131,23 +133,23 @@ func VenomPayload(config VenomConfig) ([]byte, error) {
 	}
 	// OS
 	if _, ok := validPayloads[config.Os]; !ok {
-		return nil, fmt.Errorf("%s", fmt.Sprintf("Invalid operating system: %s", config.Os))
+		return nil, fmt.Errorf(fmt.Sprintf("Invalid operating system: %s", config.Os))
 	}
 	// Arch
 	if _, ok := ValidArches[config.Arch]; !ok {
-		return nil, fmt.Errorf("%s", fmt.Sprintf("Invalid arch: %s", config.Arch))
+		return nil, fmt.Errorf(fmt.Sprintf("Invalid arch: %s", config.Arch))
 	}
 	// Payload
 	if _, ok := validPayloads[config.Os][config.Payload]; !ok {
-		return nil, fmt.Errorf("%s", fmt.Sprintf("Invalid payload: %s", config.Payload))
+		return nil, fmt.Errorf(fmt.Sprintf("Invalid payload: %s", config.Payload))
 	}
 	// Encoder
 	if _, ok := ValidEncoders[config.Encoder]; !ok {
-		return nil, fmt.Errorf("%s", fmt.Sprintf("Invalid encoder: %s", config.Encoder))
+		return nil, fmt.Errorf(fmt.Sprintf("Invalid encoder: %s", config.Encoder))
 	}
 	// Check format
 	if _, ok := validFormats[config.Format]; !ok {
-		return nil, fmt.Errorf("%s", fmt.Sprintf("Invalid format: %s", config.Format))
+		return nil, fmt.Errorf(fmt.Sprintf("Invalid format: %s", config.Format))
 	}
 
 	target := config.Os
@@ -162,6 +164,20 @@ func VenomPayload(config VenomConfig) ([]byte, error) {
 		luri = fmt.Sprintf("LURI=%s", luri)
 	}
 
+	// Parse advanced options
+	advancedOptions := make(map[string]string)
+	if config.AdvOptions != "" {
+		options, err := url.ParseQuery(config.AdvOptions)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse provided advanced options: %s", err.Error())
+		}
+		for option, value := range options {
+			// Options should only be specified once,
+			// so if a given option is specified more than once, use the last value
+			advancedOptions[option] = value[len(value)-1]
+		}
+	}
+
 	args := []string{
 		"--platform", config.Os,
 		"--arch", config.Arch,
@@ -170,6 +186,10 @@ func VenomPayload(config VenomConfig) ([]byte, error) {
 		fmt.Sprintf("LHOST=%s", config.LHost),
 		fmt.Sprintf("LPORT=%d", config.LPort),
 		"EXITFUNC=thread",
+	}
+
+	for optionName, optionValue := range advancedOptions {
+		args = append(args, fmt.Sprintf("%s=%s", optionName, optionValue))
 	}
 
 	if luri != "" {

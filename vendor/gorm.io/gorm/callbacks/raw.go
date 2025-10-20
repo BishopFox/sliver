@@ -13,10 +13,5 @@ func RawExec(db *gorm.DB) {
 		}
 
 		db.RowsAffected, _ = result.RowsAffected()
-
-		if db.Statement.Result != nil {
-			db.Statement.Result.Result = result
-			db.Statement.Result.RowsAffected = db.RowsAffected
-		}
 	}
 }

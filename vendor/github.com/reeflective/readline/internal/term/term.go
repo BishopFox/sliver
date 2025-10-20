@@ -3,6 +3,8 @@ package term
 import (
 	"fmt"
 	"os"
+
+	"golang.org/x/term"
 )
 
 // Those variables are very important to realine low-level code: all virtual terminal
@@ -39,9 +41,8 @@ func GetWidth() (termWidth int) {
 // GetLength returns the length of the terminal
 // (Y length), or 80 if it cannot be established.
 func GetLength() int {
-	termFd := int(stdoutTerm.Fd())
+	_, length, err := term.GetSize(0)
 
-	_, length, err := GetSize(termFd)
 	if err != nil || length == 0 {
 		return defaultTermWidth
 	}

@@ -9,7 +9,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 
 	"tailscale.com/tailcfg"
 	"tailscale.com/types/lazy"
@@ -62,21 +61,26 @@ func IsSandboxedMacOS() bool {
 // Tailscale for macOS, either the main GUI process (non-sandboxed) or the
 // system extension (sandboxed).
 func IsMacSys() bool {
-	return IsMacSysExt() || IsMacSysGUI()
+	return IsMacSysExt() || IsMacSysApp()
 }
 
 var isMacSysApp lazy.SyncValue[bool]
 
-// IsMacSysGUI reports whether this process is the main, non-sandboxed GUI process
+// IsMacSysApp reports whether this process is the main, non-sandboxed GUI process
 // that ships with the Standalone variant of Tailscale for macOS.
-func IsMacSysGUI() bool {
+func IsMacSysApp() bool {
 	if runtime.GOOS != "darwin" {
 		return false
 	}
 
 	return isMacSysApp.Get(func() bool {
-		return strings.Contains(os.Getenv("HOME"), "/Containers/io.tailscale.ipn.macsys/") ||
-			strings.Contains(os.Getenv("XPC_SERVICE_NAME"), "io.tailscale.ipn.macsys")
+		exe, err := os.Executable()
+		if err != nil {
+			return false
+		}
+		// Check that this is the GUI binary, and it is not sandboxed. The GUI binary
+		// shipped in the App Store will always have the App Sandbox enabled.
+		return strings.HasSuffix(exe, "/Contents/MacOS/Tailscale") && !IsMacAppStore()
 	})
 }
 
@@ -90,6 +94,10 @@ func IsMacSysExt() bool {
 		return false
 	}
 	return isMacSysExt.Get(func() bool {
+		if strings.Contains(os.Getenv("HOME"), "/Containers/io.tailscale.ipn.macsys/") ||
+			strings.Contains(os.Getenv("XPC_SERVICE_NAME"), "io.tailscale.ipn.macsys") {
+			return true
+		}
 		exe, err := os.Executable()
 		if err != nil {
 			return false
@@ -100,8 +108,8 @@ func IsMacSysExt() bool {
 
 var isMacAppStore lazy.SyncValue[bool]
 
-// IsMacAppStore returns whether this binary is from the App Store version of Tailscale
-// for macOS.  Returns true for both the network extension and the GUI app.
+// IsMacAppStore whether this binary is from the App Store version of Tailscale
+// for macOS.
 func IsMacAppStore() bool {
 	if runtime.GOOS != "darwin" {
 		return false
@@ -112,25 +120,6 @@ func IsMacAppStore() bool {
 		// as macsys.
 		return strings.Contains(os.Getenv("HOME"), "/Containers/io.tailscale.ipn.macos/") ||
 			strings.Contains(os.Getenv("XPC_SERVICE_NAME"), "io.tailscale.ipn.macos")
-	})
-}
-
-var isMacAppStoreGUI lazy.SyncValue[bool]
-
-// IsMacAppStoreGUI reports whether this binary is the GUI app from the App Store
-// version of Tailscale for macOS.
-func IsMacAppStoreGUI() bool {
-	if runtime.GOOS != "darwin" {
-		return false
-	}
-	return isMacAppStoreGUI.Get(func() bool {
-		exe, err := os.Executable()
-		if err != nil {
-			return false
-		}
-		// Check that this is the GUI binary, and it is not sandboxed. The GUI binary
-		// shipped in the App Store will always have the App Sandbox enabled.
-		return strings.Contains(exe, "/Tailscale") && !IsMacSysGUI()
 	})
 }
 
@@ -185,7 +174,7 @@ func IsUnstableBuild() bool {
 	})
 }
 
-var isDev = sync.OnceValue(func() bool {
+var isDev = lazy.SyncFunc(func() bool {
 	return strings.Contains(Short(), "-dev")
 })
 
@@ -241,9 +230,6 @@ type Meta struct {
 	// daemon, if requested.
 	DaemonLong string `json:"daemonLong,omitempty"`
 
-	// GitCommitTime is the commit time of the git commit in GitCommit.
-	GitCommitTime string `json:"gitCommitTime,omitempty"`
-
 	// Cap is the current Tailscale capability version. It's a monotonically
 	// incrementing integer that's incremented whenever a new capability is
 	// added.
@@ -259,7 +245,6 @@ func GetMeta() Meta {
 			MajorMinorPatch: majorMinorPatch(),
 			Short:           Short(),
 			Long:            Long(),
-			GitCommitTime:   getEmbeddedInfo().commitTime,
 			GitCommit:       gitCommit(),
 			GitDirty:        gitDirty(),
 			ExtraGitCommit:  extraGitCommitStamp,

@@ -22,13 +22,12 @@
 package roundrobin
 
 import (
-	"fmt"
+	"sync/atomic"
 
 	"google.golang.org/grpc/balancer"
-	"google.golang.org/grpc/balancer/endpointsharding"
-	"google.golang.org/grpc/balancer/pickfirst/pickfirstleaf"
+	"google.golang.org/grpc/balancer/base"
 	"google.golang.org/grpc/grpclog"
-	internalgrpclog "google.golang.org/grpc/internal/grpclog"
+	"google.golang.org/grpc/internal/grpcrand"
 )
 
 // Name is the name of round_robin balancer.
@@ -36,37 +35,47 @@ const Name = "round_robin"
 
 var logger = grpclog.Component("roundrobin")
 
+// newBuilder creates a new roundrobin balancer builder.
+func newBuilder() balancer.Builder {
+	return base.NewBalancerBuilder(Name, &rrPickerBuilder{}, base.Config{HealthCheck: true})
+}
+
 func init() {
-	balancer.Register(builder{})
+	balancer.Register(newBuilder())
 }
 
-type builder struct{}
+type rrPickerBuilder struct{}
 
-func (bb builder) Name() string {
-	return Name
-}
-
-func (bb builder) Build(cc balancer.ClientConn, opts balancer.BuildOptions) balancer.Balancer {
-	childBuilder := balancer.Get(pickfirstleaf.Name).Build
-	bal := &rrBalancer{
-		cc:       cc,
-		Balancer: endpointsharding.NewBalancer(cc, opts, childBuilder, endpointsharding.Options{}),
+func (*rrPickerBuilder) Build(info base.PickerBuildInfo) balancer.Picker {
+	logger.Infof("roundrobinPicker: Build called with info: %v", info)
+	if len(info.ReadySCs) == 0 {
+		return base.NewErrPicker(balancer.ErrNoSubConnAvailable)
 	}
-	bal.logger = internalgrpclog.NewPrefixLogger(logger, fmt.Sprintf("[%p] ", bal))
-	bal.logger.Infof("Created")
-	return bal
+	scs := make([]balancer.SubConn, 0, len(info.ReadySCs))
+	for sc := range info.ReadySCs {
+		scs = append(scs, sc)
+	}
+	return &rrPicker{
+		subConns: scs,
+		// Start at a random index, as the same RR balancer rebuilds a new
+		// picker when SubConn states change, and we don't want to apply excess
+		// load to the first server in the list.
+		next: uint32(grpcrand.Intn(len(scs))),
+	}
 }
 
-type rrBalancer struct {
-	balancer.Balancer
-	cc     balancer.ClientConn
-	logger *internalgrpclog.PrefixLogger
+type rrPicker struct {
+	// subConns is the snapshot of the roundrobin balancer when this picker was
+	// created. The slice is immutable. Each Get() will do a round robin
+	// selection from it and return the selected SubConn.
+	subConns []balancer.SubConn
+	next     uint32
 }
 
-func (b *rrBalancer) UpdateClientConnState(ccs balancer.ClientConnState) error {
-	return b.Balancer.UpdateClientConnState(balancer.ClientConnState{
-		// Enable the health listener in pickfirst children for client side health
-		// checks and outlier detection, if configured.
-		ResolverState: pickfirstleaf.EnableHealthListener(ccs.ResolverState),
-	})
+func (p *rrPicker) Pick(balancer.PickInfo) (balancer.PickResult, error) {
+	subConnsLen := uint32(len(p.subConns))
+	nextIndex := atomic.AddUint32(&p.next, 1)
+
+	sc := p.subConns[nextIndex%subConnsLen]
+	return balancer.PickResult{SubConn: sc}, nil
 }

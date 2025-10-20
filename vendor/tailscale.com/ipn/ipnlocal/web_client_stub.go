@@ -1,7 +1,7 @@
 // Copyright (c) Tailscale Inc & AUTHORS
 // SPDX-License-Identifier: BSD-3-Clause
 
-//go:build ios || android || ts_omit_webclient
+//go:build ios || android
 
 package ipnlocal
 
@@ -9,14 +9,14 @@ import (
 	"errors"
 	"net"
 
-	"tailscale.com/client/local"
+	"tailscale.com/client/tailscale"
 )
 
 const webClientPort = 5252
 
 type webClient struct{}
 
-func (b *LocalBackend) ConfigureWebClient(lc *local.Client) {}
+func (b *LocalBackend) ConfigureWebClient(lc *tailscale.LocalClient) {}
 
 func (b *LocalBackend) webClientGetOrInit() error {
 	return errors.New("not implemented")

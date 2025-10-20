@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"math"
 	"math/bits"
-	"slices"
 
 	"github.com/klauspost/compress/huff0"
 )
@@ -458,7 +457,16 @@ func fuzzFseEncoder(data []byte) int {
 		// All 0
 		return 0
 	}
-	cnt := int(slices.Max(hist[:maxSym]))
+	maxCount := func(a []uint32) int {
+		var max uint32
+		for _, v := range a {
+			if v > max {
+				max = v
+			}
+		}
+		return int(max)
+	}
+	cnt := maxCount(hist[:maxSym])
 	if cnt == len(data) {
 		// RLE
 		return 0
@@ -876,6 +884,15 @@ func (b *blockEnc) genCodes() {
 			}
 		}
 	}
+	maxCount := func(a []uint32) int {
+		var max uint32
+		for _, v := range a {
+			if v > max {
+				max = v
+			}
+		}
+		return int(max)
+	}
 	if debugAsserts && mlMax > maxMatchLengthSymbol {
 		panic(fmt.Errorf("mlMax > maxMatchLengthSymbol (%d)", mlMax))
 	}
@@ -886,7 +903,7 @@ func (b *blockEnc) genCodes() {
 		panic(fmt.Errorf("llMax > maxLiteralLengthSymbol (%d)", llMax))
 	}
 
-	b.coders.mlEnc.HistogramFinished(mlMax, int(slices.Max(mlH[:mlMax+1])))
-	b.coders.ofEnc.HistogramFinished(ofMax, int(slices.Max(ofH[:ofMax+1])))
-	b.coders.llEnc.HistogramFinished(llMax, int(slices.Max(llH[:llMax+1])))
+	b.coders.mlEnc.HistogramFinished(mlMax, maxCount(mlH[:mlMax+1]))
+	b.coders.ofEnc.HistogramFinished(ofMax, maxCount(ofH[:ofMax+1]))
+	b.coders.llEnc.HistogramFinished(llMax, maxCount(llH[:llMax+1]))
 }

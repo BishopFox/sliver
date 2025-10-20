@@ -25,20 +25,20 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/bishopfox/sliver/client/command/environment"
-	"github.com/bishopfox/sliver/client/command/exec"
-	"github.com/bishopfox/sliver/client/command/extensions"
-	"github.com/bishopfox/sliver/client/command/filesystem"
-	"github.com/bishopfox/sliver/client/command/network"
-	"github.com/bishopfox/sliver/client/command/privilege"
-	"github.com/bishopfox/sliver/client/command/processes"
-	"github.com/bishopfox/sliver/client/command/registry"
-	"github.com/bishopfox/sliver/client/command/settings"
-	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/util"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/environment"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/exec"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/extensions"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/filesystem"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/network"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/privilege"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/processes"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/registry"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/settings"
+	"github.com/gsmith257-cyber/better-sliver-package/client/console"
+	"github.com/gsmith257-cyber/better-sliver-package/client/constants"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/sliverpb"
+	"github.com/gsmith257-cyber/better-sliver-package/util"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -51,12 +51,12 @@ func TasksFetchCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 	if beacon == nil {
 		return
 	}
-	beaconTasks, err := con.Rpc.GetBeaconTasks(context.Background(), &clientpb.Beacon{ID: beacon.ID})
+	BaconTasks, err := con.Rpc.GetBeaconTasks(context.Background(), &clientpb.Beacon{ID: beacon.ID})
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	tasks := beaconTasks.Tasks
+	tasks := BaconTasks.Tasks
 	if len(tasks) == 0 {
 		con.PrintErrorf("No tasks for beacon\n")
 		return
@@ -628,11 +628,8 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverClient) {
 		f.BoolP("overflow", "O", false, "overflow terminal width (display truncated rows)")
 		f.IntP("skip-pages", "S", 0, "skip the first n page(s)")
 		f.BoolP("tree", "T", false, "print process tree")
-		f.BoolP("full", "f", false, "show full process info (owner, command line, session information, may trigger EDR), default true on all non-Windows OSs, false on Windows")
 
-		fullInfo := beacon.OS != "windows"
-
-		processes.PrintPS(beacon.OS, ps, true, fullInfo, f, con)
+		processes.PrintPS(beacon.OS, ps, true, f, con)
 
 	case sliverpb.MsgTerminateReq:
 		terminate := &sliverpb.Terminate{}

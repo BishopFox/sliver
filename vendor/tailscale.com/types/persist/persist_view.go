@@ -6,11 +6,9 @@
 package persist
 
 import (
-	jsonv1 "encoding/json"
+	"encoding/json"
 	"errors"
 
-	jsonv2 "github.com/go-json-experiment/json"
-	"github.com/go-json-experiment/json/jsontext"
 	"tailscale.com/tailcfg"
 	"tailscale.com/types/key"
 	"tailscale.com/types/structs"
@@ -19,7 +17,7 @@ import (
 
 //go:generate go run tailscale.com/cmd/cloner  -clonefunc=false -type=Persist
 
-// View returns a read-only view of Persist.
+// View returns a readonly view of Persist.
 func (p *Persist) View() PersistView {
 	return PersistView{ж: p}
 }
@@ -35,7 +33,7 @@ type PersistView struct {
 	ж *Persist
 }
 
-// Valid reports whether v's underlying value is non-nil.
+// Valid reports whether underlying value is non-nil.
 func (v PersistView) Valid() bool { return v.ж != nil }
 
 // AsStruct returns a clone of the underlying value which aliases no memory with
@@ -47,17 +45,8 @@ func (v PersistView) AsStruct() *Persist {
 	return v.ж.Clone()
 }
 
-// MarshalJSON implements [jsonv1.Marshaler].
-func (v PersistView) MarshalJSON() ([]byte, error) {
-	return jsonv1.Marshal(v.ж)
-}
+func (v PersistView) MarshalJSON() ([]byte, error) { return json.Marshal(v.ж) }
 
-// MarshalJSONTo implements [jsonv2.MarshalerTo].
-func (v PersistView) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return jsonv2.MarshalEncode(enc, v.ж)
-}
-
-// UnmarshalJSON implements [jsonv1.Unmarshaler].
 func (v *PersistView) UnmarshalJSON(b []byte) error {
 	if v.ж != nil {
 		return errors.New("already initialized")
@@ -66,49 +55,33 @@ func (v *PersistView) UnmarshalJSON(b []byte) error {
 		return nil
 	}
 	var x Persist
-	if err := jsonv1.Unmarshal(b, &x); err != nil {
+	if err := json.Unmarshal(b, &x); err != nil {
 		return err
 	}
 	v.ж = &x
 	return nil
 }
 
-// UnmarshalJSONFrom implements [jsonv2.UnmarshalerFrom].
-func (v *PersistView) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	if v.ж != nil {
-		return errors.New("already initialized")
-	}
-	var x Persist
-	if err := jsonv2.UnmarshalDecode(dec, &x); err != nil {
-		return err
-	}
-	v.ж = &x
-	return nil
+func (v PersistView) LegacyFrontendPrivateMachineKey() key.MachinePrivate {
+	return v.ж.LegacyFrontendPrivateMachineKey
 }
-
-func (v PersistView) PrivateNodeKey() key.NodePrivate { return v.ж.PrivateNodeKey }
-
-// needed to request key rotation
+func (v PersistView) PrivateNodeKey() key.NodePrivate    { return v.ж.PrivateNodeKey }
 func (v PersistView) OldPrivateNodeKey() key.NodePrivate { return v.ж.OldPrivateNodeKey }
 func (v PersistView) UserProfile() tailcfg.UserProfile   { return v.ж.UserProfile }
 func (v PersistView) NetworkLockKey() key.NLPrivate      { return v.ж.NetworkLockKey }
 func (v PersistView) NodeID() tailcfg.StableNodeID       { return v.ж.NodeID }
-
-// DisallowedTKAStateIDs stores the tka.State.StateID values which
-// this node will not operate network lock on. This is used to
-// prevent bootstrapping TKA onto a key authority which was forcibly
-// disabled.
 func (v PersistView) DisallowedTKAStateIDs() views.Slice[string] {
 	return views.SliceOf(v.ж.DisallowedTKAStateIDs)
 }
 
 // A compilation failure here means this code must be regenerated, with the command at the top of this file.
 var _PersistViewNeedsRegeneration = Persist(struct {
-	_                     structs.Incomparable
-	PrivateNodeKey        key.NodePrivate
-	OldPrivateNodeKey     key.NodePrivate
-	UserProfile           tailcfg.UserProfile
-	NetworkLockKey        key.NLPrivate
-	NodeID                tailcfg.StableNodeID
-	DisallowedTKAStateIDs []string
+	_                               structs.Incomparable
+	LegacyFrontendPrivateMachineKey key.MachinePrivate
+	PrivateNodeKey                  key.NodePrivate
+	OldPrivateNodeKey               key.NodePrivate
+	UserProfile                     tailcfg.UserProfile
+	NetworkLockKey                  key.NLPrivate
+	NodeID                          tailcfg.StableNodeID
+	DisallowedTKAStateIDs           []string
 }{})

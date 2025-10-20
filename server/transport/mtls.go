@@ -25,10 +25,10 @@ import (
 	"net"
 	"runtime/debug"
 
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/bishopfox/sliver/server/certs"
-	"github.com/bishopfox/sliver/server/log"
-	"github.com/bishopfox/sliver/server/rpc"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/rpcpb"
+	"github.com/gsmith257-cyber/better-sliver-package/server/certs"
+	"github.com/gsmith257-cyber/better-sliver-package/server/log"
+	"github.com/gsmith257-cyber/better-sliver-package/server/rpc"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -51,7 +51,7 @@ var (
 func StartMtlsClientListener(host string, port uint16) (*grpc.Server, net.Listener, error) {
 	mtlsLog.Infof("Starting gRPC/mtls  listener on %s:%d", host, port)
 
-	tlsConfig := getOperatorServerTLSConfig("multiplayer")
+	tlsConfig := getOperatorServerTLSConfig("SSH-Server-Auth-Cert")
 
 	creds := credentials.NewTLS(tlsConfig)
 	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))

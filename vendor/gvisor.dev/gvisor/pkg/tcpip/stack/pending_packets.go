@@ -27,35 +27,31 @@ const (
 	maxPendingPacketsPerResolution = 256
 )
 
-// +stateify savable
 type pendingPacket struct {
 	routeInfo RouteInfo
 	pkt       *PacketBuffer
 }
 
-type packetsPendingLinkResolutionMu struct {
-	packetsPendingLinkResolutionMutex
-
-	// The packets to send once the resolver completes.
-	//
-	// The link resolution channel is used as the key for this map.
-	packets map[<-chan struct{}][]pendingPacket
-
-	// FIFO of channels used to cancel the oldest goroutine waiting for
-	// link-address resolution.
-	//
-	// cancelChans holds the same channels that are used as keys to packets.
-	cancelChans []<-chan struct{}
-}
-
 // packetsPendingLinkResolution is a queue of packets pending link resolution.
 //
 // Once link resolution completes successfully, the packets will be written.
-//
-// +stateify savable
 type packetsPendingLinkResolution struct {
 	nic *nic
-	mu  packetsPendingLinkResolutionMu `state:"nosave"`
+
+	mu struct {
+		packetsPendingLinkResolutionMutex
+
+		// The packets to send once the resolver completes.
+		//
+		// The link resolution channel is used as the key for this map.
+		packets map[<-chan struct{}][]pendingPacket
+
+		// FIFO of channels used to cancel the oldest goroutine waiting for
+		// link-address resolution.
+		//
+		// cancelChans holds the same channels that are used as keys to packets.
+		cancelChans []<-chan struct{}
+	}
 }
 
 func (f *packetsPendingLinkResolution) incrementOutgoingPacketErrors(pkt *PacketBuffer) {
@@ -149,7 +145,7 @@ func (f *packetsPendingLinkResolution) enqueue(r *Route, pkt *PacketBuffer) tcpi
 	packets, ok := f.mu.packets[ch]
 	packets = append(packets, pendingPacket{
 		routeInfo: routeInfo,
-		pkt:       pkt.Clone(),
+		pkt:       pkt.IncRef(),
 	})
 
 	if len(packets) > maxPendingPacketsPerResolution {

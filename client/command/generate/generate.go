@@ -33,12 +33,12 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/bishopfox/sliver/client/console"
-	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/client/spin"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/util"
+	"github.com/gsmith257-cyber/better-sliver-package/client/console"
+	consts "github.com/gsmith257-cyber/better-sliver-package/client/constants"
+	"github.com/gsmith257-cyber/better-sliver-package/client/spin"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/commonpb"
+	"github.com/gsmith257-cyber/better-sliver-package/util"
 	"github.com/spf13/cobra"
 )
 
@@ -69,7 +69,7 @@ const (
 )
 
 const (
-	crossCompilerInfoURL = "https://github.com/BishopFox/sliver/wiki/Cross-Compiling-Implants"
+	crossCompilerInfoURL = "https://github.com/gsmith257-cyber/better-sliver-package/wiki/Cross-Compiling-Implants"
 )
 
 var (
@@ -98,7 +98,7 @@ func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		save, _ = os.Getwd()
 	}
 	if external, _ := cmd.Flags().GetBool("external-builder"); !external {
-		compile(name, config, save, con)
+		compile(config, save, con)
 	} else {
 		_, err := externalBuild(name, config, save, con)
 		if err != nil {
@@ -290,15 +290,6 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 	isShellcode := false
 	sgnEnabled := false
 
-	var exports []string
-	exportsArg, _ := cmd.Flags().GetString("exports")
-	if exportsArg == "" {
-		con.PrintErrorf("Shared libraries need at least one export\n")
-		return "", nil
-	} else {
-		exports = strings.Split(exportsArg, ",")
-	}
-
 	format, _ := cmd.Flags().GetString("format")
 	runAtLoad := false
 	var configFormat clientpb.OutputFormat
@@ -373,8 +364,6 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		c2Profile = consts.DefaultC2Profile
 	}
 
-	// exports if its a shared library
-
 	config := &clientpb.ImplantConfig{
 		GOOS:             targetOS,
 		GOARCH:           targetArch,
@@ -406,7 +395,6 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		IsSharedLib: isSharedLib,
 		IsService:   isService,
 		IsShellcode: isShellcode,
-		Exports:     exports,
 
 		RunAtLoad:              runAtLoad,
 		NetGoEnabled:           netGo,
@@ -812,7 +800,7 @@ func externalBuild(name string, config *clientpb.ImplantConfig, save string, con
 	con.PrintInfof("Using external builder: %s\n", externalBuilder.Name)
 
 	if config.IsBeacon {
-		interval := time.Duration(config.BeaconInterval)
+		interval := time.Duration(config.BaconInterval)
 		con.PrintInfof("Externally generating new %s/%s beacon implant binary (%v)\n", config.GOOS, config.GOARCH, interval)
 	} else {
 		con.PrintInfof("Externally generating new %s/%s implant binary\n", config.GOOS, config.GOARCH)
@@ -917,9 +905,9 @@ func externalBuild(name string, config *clientpb.ImplantConfig, save string, con
 	return nil, nil
 }
 
-func compile(name string, config *clientpb.ImplantConfig, save string, con *console.SliverClient) (*commonpb.File, error) {
+func compile(config *clientpb.ImplantConfig, save string, con *console.SliverClient) (*commonpb.File, error) {
 	if config.IsBeacon {
-		interval := time.Duration(config.BeaconInterval)
+		interval := time.Duration(config.BaconInterval)
 		con.PrintInfof("Generating new %s/%s beacon implant binary (%v)\n", config.GOOS, config.GOARCH, interval)
 	} else {
 		con.PrintInfof("Generating new %s/%s implant binary\n", config.GOOS, config.GOARCH)
@@ -935,7 +923,6 @@ func compile(name string, config *clientpb.ImplantConfig, save string, con *cons
 	con.SpinUntil("Compiling, please wait ...", ctrl)
 
 	generated, err := con.Rpc.Generate(context.Background(), &clientpb.GenerateReq{
-		Name:   name,
 		Config: config,
 	})
 	ctrl <- true

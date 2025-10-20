@@ -4,22 +4,26 @@
 package ipnlocal
 
 import (
+	"bytes"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/kortschak/wol"
 	"tailscale.com/clientupdate"
 	"tailscale.com/envknob"
 	"tailscale.com/ipn"
@@ -29,8 +33,7 @@ import (
 	"tailscale.com/util/clientmetric"
 	"tailscale.com/util/goroutines"
 	"tailscale.com/util/set"
-	"tailscale.com/util/syspolicy/pkey"
-	"tailscale.com/util/syspolicy/ptype"
+	"tailscale.com/util/syspolicy"
 	"tailscale.com/version"
 	"tailscale.com/version/distro"
 )
@@ -64,6 +67,9 @@ var c2nHandlers = map[methodAndPath]c2nHandler{
 	req("GET /update"):  handleC2NUpdateGet,
 	req("POST /update"): handleC2NUpdatePost,
 
+	// Wake-on-LAN.
+	req("POST /wol"): handleC2NWoL,
+
 	// Device posture.
 	req("GET /posture/identity"): handleC2NPostureIdentityGet,
 
@@ -72,21 +78,6 @@ var c2nHandlers = map[methodAndPath]c2nHandler{
 
 	// Linux netfilter.
 	req("POST /netfilter-kind"): handleC2NSetNetfilterKind,
-
-	// VIP services.
-	req("GET /vip-services"): handleC2NVIPServicesGet,
-}
-
-// RegisterC2N registers a new c2n handler for the given pattern.
-//
-// A pattern is like "GET /foo" (specific to an HTTP method) or "/foo" (all
-// methods). It panics if the pattern is already registered.
-func RegisterC2N(pattern string, h func(*LocalBackend, http.ResponseWriter, *http.Request)) {
-	k := req(pattern)
-	if _, ok := c2nHandlers[k]; ok {
-		panic(fmt.Sprintf("c2n: duplicate handler for %q", pattern))
-	}
-	c2nHandlers[k] = h
 }
 
 type c2nHandler func(*LocalBackend, http.ResponseWriter, *http.Request)
@@ -241,14 +232,13 @@ func handleC2NAppConnectorDomainRoutesGet(b *LocalBackend, w http.ResponseWriter
 	b.logf("c2n: GET /appconnector/routes received")
 
 	var res tailcfg.C2NAppConnectorDomainRoutesResponse
-	appConnector := b.AppConnector()
-	if appConnector == nil {
+	if b.appConnector == nil {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(res)
 		return
 	}
 
-	res.Domains = appConnector.DomainRoutes()
+	res.Domains = b.appConnector.DomainRoutes()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(res)
@@ -278,16 +268,6 @@ func handleC2NSetNetfilterKind(b *LocalBackend, w http.ResponseWriter, r *http.R
 	b.authReconfig()
 
 	w.WriteHeader(http.StatusNoContent)
-}
-
-func handleC2NVIPServicesGet(b *LocalBackend, w http.ResponseWriter, r *http.Request) {
-	b.logf("c2n: GET /vip-services received")
-	var res tailcfg.C2NVIPServicesResponse
-	res.VIPServices = b.VIPServices()
-	res.ServicesHash = b.vipServiceHash(res.VIPServices)
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(res)
 }
 
 func handleC2NUpdateGet(b *LocalBackend, w http.ResponseWriter, r *http.Request) {
@@ -327,11 +307,60 @@ func handleC2NUpdatePost(b *LocalBackend, w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if err := b.startAutoUpdate("c2n"); err != nil {
-		res.Err = err.Error()
+	// Check if update was already started, and mark as started.
+	if !b.trySetC2NUpdateStarted() {
+		res.Err = "update already started"
+		return
+	}
+	defer func() {
+		// Clear the started flag if something failed.
+		if res.Err != "" {
+			b.setC2NUpdateStarted(false)
+		}
+	}()
+
+	cmdTS, err := findCmdTailscale()
+	if err != nil {
+		res.Err = fmt.Sprintf("failed to find cmd/tailscale binary: %v", err)
+		return
+	}
+	var ver struct {
+		Long string `json:"long"`
+	}
+	out, err := exec.Command(cmdTS, "version", "--json").Output()
+	if err != nil {
+		res.Err = fmt.Sprintf("failed to find cmd/tailscale binary: %v", err)
+		return
+	}
+	if err := json.Unmarshal(out, &ver); err != nil {
+		res.Err = "invalid JSON from cmd/tailscale version --json"
+		return
+	}
+	if ver.Long != version.Long() {
+		res.Err = "cmd/tailscale version mismatch"
+		return
+	}
+
+	cmd := tailscaleUpdateCmd(cmdTS)
+	buf := new(bytes.Buffer)
+	cmd.Stdout = buf
+	cmd.Stderr = buf
+	b.logf("c2n: running %q", strings.Join(cmd.Args, " "))
+	if err := cmd.Start(); err != nil {
+		res.Err = fmt.Sprintf("failed to start cmd/tailscale update: %v", err)
 		return
 	}
 	res.Started = true
+
+	// Run update asynchronously and respond that it started.
+	go func() {
+		if err := cmd.Wait(); err != nil {
+			b.logf("c2n: update command failed: %v, output: %s", err, buf)
+		} else {
+			b.logf("c2n: update complete")
+		}
+		b.setC2NUpdateStarted(false)
+	}()
 }
 
 func handleC2NPostureIdentityGet(b *LocalBackend, w http.ResponseWriter, r *http.Request) {
@@ -339,11 +368,11 @@ func handleC2NPostureIdentityGet(b *LocalBackend, w http.ResponseWriter, r *http
 
 	res := tailcfg.C2NPostureIdentityResponse{}
 
-	// Only collect posture identity if enabled on the client,
+	// Only collect serial numbers if enabled on the client,
 	// this will first check syspolicy, MDM settings like Registry
 	// on Windows or defaults on macOS. If they are not set, it falls
 	// back to the cli-flag, `--posture-checking`.
-	choice, err := b.polc.GetPreferenceOption(pkey.PostureChecking, ptype.ShowChoiceByPolicy)
+	choice, err := syspolicy.GetPreferenceOption(syspolicy.PostureChecking)
 	if err != nil {
 		b.logf(
 			"c2n: failed to read PostureChecking from syspolicy, returning default from CLI: %s; got error: %s",
@@ -353,25 +382,16 @@ func handleC2NPostureIdentityGet(b *LocalBackend, w http.ResponseWriter, r *http
 	}
 
 	if choice.ShouldEnable(b.Prefs().PostureChecking()) {
-		res.SerialNumbers, err = posture.GetSerialNumbers(b.polc, b.logf)
+		sns, err := posture.GetSerialNumbers(b.logf)
 		if err != nil {
-			b.logf("c2n: GetSerialNumbers returned error: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 
-		// TODO(tailscale/corp#21371, 2024-07-10): once this has landed in a stable release
-		// and looks good in client metrics, remove this parameter and always report MAC
-		// addresses.
-		if r.FormValue("hwaddrs") == "true" {
-			res.IfaceHardwareAddrs, err = b.getHardwareAddrs()
-			if err != nil {
-				b.logf("c2n: GetHardwareAddrs returned error: %v", err)
-			}
-		}
+		res.SerialNumbers = sns
 	} else {
 		res.PostureDisabled = true
 	}
-
-	b.logf("c2n: posture identity disabled=%v reported %d serials %d hwaddrs", res.PostureDisabled, len(res.SerialNumbers), len(res.IfaceHardwareAddrs))
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(res)
@@ -385,7 +405,7 @@ func (b *LocalBackend) newC2NUpdateResponse() tailcfg.C2NUpdateResponse {
 	prefs := b.Prefs().AutoUpdate()
 	return tailcfg.C2NUpdateResponse{
 		Enabled:   envknob.AllowsRemoteUpdate() || prefs.Apply.EqualBool(true),
-		Supported: clientupdate.CanAutoUpdate() && !version.IsMacSysExt(),
+		Supported: clientupdate.CanAutoUpdate(),
 	}
 }
 
@@ -444,7 +464,7 @@ func findCmdTailscale() (string, error) {
 		}
 	case "windows":
 		ts = filepath.Join(filepath.Dir(self), "tailscale.exe")
-	case "freebsd", "openbsd":
+	case "freebsd":
 		if self == "/usr/local/bin/tailscaled" {
 			ts = "/usr/local/bin/tailscale"
 		}
@@ -458,57 +478,71 @@ func findCmdTailscale() (string, error) {
 }
 
 func tailscaleUpdateCmd(cmdTS string) *exec.Cmd {
-	defaultCmd := exec.Command(cmdTS, "update", "--yes")
 	if runtime.GOOS != "linux" {
-		return defaultCmd
+		return exec.Command(cmdTS, "update", "--yes")
 	}
 	if _, err := exec.LookPath("systemd-run"); err != nil {
-		return defaultCmd
+		return exec.Command(cmdTS, "update", "--yes")
 	}
-
 	// When systemd-run is available, use it to run the update command. This
 	// creates a new temporary unit separate from the tailscaled unit. When
 	// tailscaled is restarted during the update, systemd won't kill this
 	// temporary update unit, which could cause unexpected breakage.
-	//
-	// We want to use a few optional flags:
-	//  * --wait, to block the update command until completion (added in systemd 232)
-	//  * --pipe, to collect stdout/stderr (added in systemd 235)
-	//  * --collect, to clean up failed runs from memory (added in systemd 236)
-	//
-	// We need to check the version of systemd to figure out if those flags are
-	// available.
-	//
-	// The output will look like:
-	//
-	//   systemd 255 (255.7-1-arch)
-	//   +PAM +AUDIT ... other feature flags ...
-	systemdVerOut, err := exec.Command("systemd-run", "--version").Output()
-	if err != nil {
-		return defaultCmd
-	}
-	parts := strings.Fields(string(systemdVerOut))
-	if len(parts) < 2 || parts[0] != "systemd" {
-		return defaultCmd
-	}
-	systemdVer, err := strconv.Atoi(parts[1])
-	if err != nil {
-		return defaultCmd
-	}
-	if systemdVer >= 236 {
-		return exec.Command("systemd-run", "--wait", "--pipe", "--collect", cmdTS, "update", "--yes")
-	} else if systemdVer >= 235 {
-		return exec.Command("systemd-run", "--wait", "--pipe", cmdTS, "update", "--yes")
-	} else if systemdVer >= 232 {
-		return exec.Command("systemd-run", "--wait", cmdTS, "update", "--yes")
-	} else {
-		return exec.Command("systemd-run", cmdTS, "update", "--yes")
-	}
+	return exec.Command("systemd-run", "--wait", "--pipe", "--collect", cmdTS, "update", "--yes")
 }
 
 func regularFileExists(path string) bool {
 	fi, err := os.Stat(path)
 	return err == nil && fi.Mode().IsRegular()
+}
+
+func handleC2NWoL(b *LocalBackend, w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	var macs []net.HardwareAddr
+	for _, macStr := range r.Form["mac"] {
+		mac, err := net.ParseMAC(macStr)
+		if err != nil {
+			http.Error(w, "bad 'mac' param", http.StatusBadRequest)
+			return
+		}
+		macs = append(macs, mac)
+	}
+	var res struct {
+		SentTo []string
+		Errors []string
+	}
+	st := b.sys.NetMon.Get().InterfaceState()
+	if st == nil {
+		res.Errors = append(res.Errors, "no interface state")
+		writeJSON(w, &res)
+		return
+	}
+	var password []byte // TODO(bradfitz): support? does anything use WoL passwords?
+	for _, mac := range macs {
+		for ifName, ips := range st.InterfaceIPs {
+			for _, ip := range ips {
+				if ip.Addr().IsLoopback() || ip.Addr().Is6() {
+					continue
+				}
+				local := &net.UDPAddr{
+					IP:   ip.Addr().AsSlice(),
+					Port: 0,
+				}
+				remote := &net.UDPAddr{
+					IP:   net.IPv4bcast,
+					Port: 0,
+				}
+				if err := wol.Wake(mac, password, local, remote); err != nil {
+					res.Errors = append(res.Errors, err.Error())
+				} else {
+					res.SentTo = append(res.SentTo, ifName)
+				}
+				break // one per interface is enough
+			}
+		}
+	}
+	sort.Strings(res.SentTo)
+	writeJSON(w, &res)
 }
 
 // handleC2NTLSCertStatus returns info about the last TLS certificate issued for the

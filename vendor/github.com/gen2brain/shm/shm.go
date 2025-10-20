@@ -80,7 +80,6 @@ func At(shmId int, shmAddr uintptr, shmFlg int) (data []byte, err error) {
 
 	length, err := Size(shmId)
 	if err != nil {
-		syscall.Syscall(sysShmDt, addr, 0, 0)
 		return nil, err
 	}
 

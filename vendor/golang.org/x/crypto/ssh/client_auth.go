@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"slices"
 	"strings"
 )
 
@@ -72,10 +71,6 @@ func (c *connection) clientAuthenticate(config *ClientConfig) error {
 	for auth := AuthMethod(new(noneAuth)); auth != nil; {
 		ok, methods, err := auth.auth(sessionID, config.User, c.transport, config.Rand, extensions)
 		if err != nil {
-			// On disconnect, return error immediately
-			if _, ok := err.(*disconnectMsg); ok {
-				return err
-			}
 			// We return the error later if there is no other method left to
 			// try.
 			ok = authFailure
@@ -84,7 +79,7 @@ func (c *connection) clientAuthenticate(config *ClientConfig) error {
 			// success
 			return nil
 		} else if ok == authFailure {
-			if m := auth.method(); !slices.Contains(tried, m) {
+			if m := auth.method(); !contains(tried, m) {
 				tried = append(tried, m)
 			}
 		}
@@ -98,7 +93,7 @@ func (c *connection) clientAuthenticate(config *ClientConfig) error {
 	findNext:
 		for _, a := range config.Auth {
 			candidateMethod := a.method()
-			if slices.Contains(tried, candidateMethod) {
+			if contains(tried, candidateMethod) {
 				continue
 			}
 			for _, meth := range methods {
@@ -116,6 +111,15 @@ func (c *connection) clientAuthenticate(config *ClientConfig) error {
 		}
 	}
 	return fmt.Errorf("ssh: unable to authenticate, attempted methods %v, no supported methods remain", tried)
+}
+
+func contains(list []string, e string) bool {
+	for _, s := range list {
+		if s == e {
+			return true
+		}
+	}
+	return false
 }
 
 // An AuthMethod represents an instance of an RFC 4252 authentication method.
@@ -247,7 +251,7 @@ func pickSignatureAlgorithm(signer Signer, extensions map[string][]byte) (MultiA
 		// Fallback to use if there is no "server-sig-algs" extension or a
 		// common algorithm cannot be found. We use the public key format if the
 		// MultiAlgorithmSigner supports it, otherwise we return an error.
-		if !slices.Contains(as.Algorithms(), underlyingAlgo(keyFormat)) {
+		if !contains(as.Algorithms(), underlyingAlgo(keyFormat)) {
 			return "", fmt.Errorf("ssh: no common public key signature algorithm, server only supports %q for key type %q, signer only supports %v",
 				underlyingAlgo(keyFormat), keyFormat, as.Algorithms())
 		}
@@ -276,12 +280,12 @@ func pickSignatureAlgorithm(signer Signer, extensions map[string][]byte) (MultiA
 	// Filter algorithms based on those supported by MultiAlgorithmSigner.
 	var keyAlgos []string
 	for _, algo := range algorithmsForKeyFormat(keyFormat) {
-		if slices.Contains(as.Algorithms(), underlyingAlgo(algo)) {
+		if contains(as.Algorithms(), underlyingAlgo(algo)) {
 			keyAlgos = append(keyAlgos, algo)
 		}
 	}
 
-	algo, err := findCommon("public key signature algorithm", keyAlgos, serverAlgos, true)
+	algo, err := findCommon("public key signature algorithm", keyAlgos, serverAlgos)
 	if err != nil {
 		// If there is no overlap, return the fallback algorithm to support
 		// servers that fail to list all supported algorithms.
@@ -326,7 +330,7 @@ func (cb publicKeyCallback) auth(session []byte, user string, c packetConn, rand
 		// the key try to use the obtained algorithm as if "server-sig-algs" had
 		// not been implemented if supported from the algorithm signer.
 		if !ok && idx < origSignersLen && isRSACert(algo) && algo != CertAlgoRSAv01 {
-			if slices.Contains(as.Algorithms(), KeyAlgoRSA) {
+			if contains(as.Algorithms(), KeyAlgoRSA) {
 				// We retry using the compat algorithm after all signers have
 				// been tried normally.
 				signers = append(signers, &multiAlgorithmSigner{
@@ -377,7 +381,7 @@ func (cb publicKeyCallback) auth(session []byte, user string, c packetConn, rand
 		// contain the "publickey" method, do not attempt to authenticate with any
 		// other keys.  According to RFC 4252 Section 7, the latter can occur when
 		// additional authentication methods are required.
-		if success == authSuccess || !slices.Contains(methods, cb.method()) {
+		if success == authSuccess || !contains(methods, cb.method()) {
 			return success, methods, err
 		}
 	}
@@ -426,7 +430,7 @@ func confirmKeyAck(key PublicKey, c packetConn) (bool, error) {
 			// servers send the key type instead. OpenSSH allows any algorithm
 			// that matches the public key, so we do the same.
 			// https://github.com/openssh/openssh-portable/blob/86bdd385/sshconnect2.c#L709
-			if !slices.Contains(algorithmsForKeyFormat(key.Type()), msg.Algo) {
+			if !contains(algorithmsForKeyFormat(key.Type()), msg.Algo) {
 				return false, nil
 			}
 			if !bytes.Equal(msg.PubKey, pubKey) {
@@ -547,7 +551,6 @@ func (cb KeyboardInteractiveChallenge) auth(session []byte, user string, c packe
 	}
 
 	gotMsgExtInfo := false
-	gotUserAuthInfoRequest := false
 	for {
 		packet, err := c.readPacket()
 		if err != nil {
@@ -578,9 +581,6 @@ func (cb KeyboardInteractiveChallenge) auth(session []byte, user string, c packe
 			if msg.PartialSuccess {
 				return authPartialSuccess, msg.Methods, nil
 			}
-			if !gotUserAuthInfoRequest {
-				return authFailure, msg.Methods, unexpectedMessageError(msgUserAuthInfoRequest, packet[0])
-			}
 			return authFailure, msg.Methods, nil
 		case msgUserAuthSuccess:
 			return authSuccess, nil, nil
@@ -592,7 +592,6 @@ func (cb KeyboardInteractiveChallenge) auth(session []byte, user string, c packe
 		if err := Unmarshal(packet, &msg); err != nil {
 			return authFailure, nil, err
 		}
-		gotUserAuthInfoRequest = true
 
 		// Manually unpack the prompt/echo pairs.
 		rest := msg.Prompts

@@ -36,12 +36,12 @@ type baseBuilder struct {
 	config        Config
 }
 
-func (bb *baseBuilder) Build(cc balancer.ClientConn, _ balancer.BuildOptions) balancer.Balancer {
+func (bb *baseBuilder) Build(cc balancer.ClientConn, opt balancer.BuildOptions) balancer.Balancer {
 	bal := &baseBalancer{
 		cc:            cc,
 		pickerBuilder: bb.pickerBuilder,
 
-		subConns: resolver.NewAddressMapV2[balancer.SubConn](),
+		subConns: resolver.NewAddressMap(),
 		scStates: make(map[balancer.SubConn]connectivity.State),
 		csEvltr:  &balancer.ConnectivityStateEvaluator{},
 		config:   bb.config,
@@ -65,7 +65,7 @@ type baseBalancer struct {
 	csEvltr *balancer.ConnectivityStateEvaluator
 	state   connectivity.State
 
-	subConns *resolver.AddressMapV2[balancer.SubConn]
+	subConns *resolver.AddressMap
 	scStates map[balancer.SubConn]connectivity.State
 	picker   balancer.Picker
 	config   Config
@@ -100,7 +100,7 @@ func (b *baseBalancer) UpdateClientConnState(s balancer.ClientConnState) error {
 	// Successful resolution; clear resolver error and ensure we return nil.
 	b.resolverErr = nil
 	// addrsSet is the set converted from addrs, it's used for quick lookup of an address.
-	addrsSet := resolver.NewAddressMapV2[any]()
+	addrsSet := resolver.NewAddressMap()
 	for _, a := range s.ResolverState.Addresses {
 		addrsSet.Set(a, nil)
 		if _, ok := b.subConns.Get(a); !ok {
@@ -122,7 +122,8 @@ func (b *baseBalancer) UpdateClientConnState(s balancer.ClientConnState) error {
 		}
 	}
 	for _, a := range b.subConns.Keys() {
-		sc, _ := b.subConns.Get(a)
+		sci, _ := b.subConns.Get(a)
+		sc := sci.(balancer.SubConn)
 		// a was removed by resolver.
 		if _, ok := addrsSet.Get(a); !ok {
 			sc.Shutdown()
@@ -132,7 +133,7 @@ func (b *baseBalancer) UpdateClientConnState(s balancer.ClientConnState) error {
 		}
 	}
 	// If resolver state contains no addresses, return an error so ClientConn
-	// will trigger re-resolve. Also records this as a resolver error, so when
+	// will trigger re-resolve. Also records this as an resolver error, so when
 	// the overall state turns transient failure, the error message will have
 	// the zero address information.
 	if len(s.ResolverState.Addresses) == 0 {
@@ -172,7 +173,8 @@ func (b *baseBalancer) regeneratePicker() {
 
 	// Filter out all ready SCs from full subConn map.
 	for _, addr := range b.subConns.Keys() {
-		sc, _ := b.subConns.Get(addr)
+		sci, _ := b.subConns.Get(addr)
+		sc := sci.(balancer.SubConn)
 		if st, ok := b.scStates[sc]; ok && st == connectivity.Ready {
 			readySCs[sc] = SubConnInfo{Address: addr}
 		}
@@ -257,6 +259,6 @@ type errPicker struct {
 	err error // Pick() always returns this err.
 }
 
-func (p *errPicker) Pick(balancer.PickInfo) (balancer.PickResult, error) {
+func (p *errPicker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 	return balancer.PickResult{}, p.err
 }

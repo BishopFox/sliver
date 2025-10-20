@@ -5,8 +5,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/client/console"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
 	"github.com/spf13/cobra"
 )
 
@@ -32,7 +32,7 @@ func GenerateBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 		save, _ = os.Getwd()
 	}
 	if external, _ := cmd.Flags().GetBool("external-builder"); !external {
-		compile(name, config, save, con)
+		compile(config, save, con)
 	} else {
 		externalBuild(name, config, save, con)
 	}
@@ -62,8 +62,8 @@ func parseBeaconFlags(cmd *cobra.Command, config *clientpb.ImplantConfig) error 
 		return ErrBeaconIntervalTooShort
 	}
 
-	beaconJitter, _ := cmd.Flags().GetInt64("jitter")
-	config.BeaconInterval = int64(interval)
-	config.BeaconJitter = int64(time.Duration(beaconJitter) * time.Second)
+	BaconJitter, _ := cmd.Flags().GetInt64("jitter")
+	config.BaconInterval = int64(interval)
+	config.BaconJitter = int64(time.Duration(BaconJitter) * time.Second)
 	return nil
 }

@@ -89,14 +89,8 @@ func (p *processor) Execute(db *DB) *DB {
 		resetBuildClauses = true
 	}
 
-	if optimizer, ok := stmt.Dest.(StatementModifier); ok {
+	if optimizer, ok := db.Statement.Dest.(StatementModifier); ok {
 		optimizer.ModifyStatement(stmt)
-	}
-
-	if db.DefaultContextTimeout > 0 {
-		if _, ok := stmt.Context.Deadline(); !ok {
-			stmt.Context, _ = context.WithTimeout(stmt.Context, db.DefaultContextTimeout)
-		}
 	}
 
 	// assign model values

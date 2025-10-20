@@ -3,7 +3,6 @@ package pgx
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -11,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/internal/anynil"
 	"github.com/jackc/pgx/v5/internal/sanitize"
 	"github.com/jackc/pgx/v5/internal/stmtcache"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -103,31 +103,13 @@ func (ident Identifier) Sanitize() string {
 
 var (
 	// ErrNoRows occurs when rows are expected but none are returned.
-	ErrNoRows = newProxyErr(sql.ErrNoRows, "no rows in result set")
+	ErrNoRows = errors.New("no rows in result set")
 	// ErrTooManyRows occurs when more rows than expected are returned.
 	ErrTooManyRows = errors.New("too many rows in result set")
 )
 
-func newProxyErr(background error, msg string) error {
-	return &proxyError{
-		msg:        msg,
-		background: background,
-	}
-}
-
-type proxyError struct {
-	msg        string
-	background error
-}
-
-func (err *proxyError) Error() string { return err.msg }
-
-func (err *proxyError) Unwrap() error { return err.background }
-
-var (
-	errDisabledStatementCache   = fmt.Errorf("cannot use QueryExecModeCacheStatement with disabled statement cache")
-	errDisabledDescriptionCache = fmt.Errorf("cannot use QueryExecModeCacheDescribe with disabled description cache")
-)
+var errDisabledStatementCache = fmt.Errorf("cannot use QueryExecModeCacheStatement with disabled statement cache")
+var errDisabledDescriptionCache = fmt.Errorf("cannot use QueryExecModeCacheDescribe with disabled description cache")
 
 // Connect establishes a connection with a PostgreSQL server with a connection string. See
 // pgconn.Connect for details.
@@ -172,7 +154,7 @@ func ParseConfigWithOptions(connString string, options ParseConfigOptions) (*Con
 		delete(config.RuntimeParams, "statement_cache_capacity")
 		n, err := strconv.ParseInt(s, 10, 32)
 		if err != nil {
-			return nil, pgconn.NewParseConfigError(connString, "cannot parse statement_cache_capacity", err)
+			return nil, fmt.Errorf("cannot parse statement_cache_capacity: %w", err)
 		}
 		statementCacheCapacity = int(n)
 	}
@@ -182,7 +164,7 @@ func ParseConfigWithOptions(connString string, options ParseConfigOptions) (*Con
 		delete(config.RuntimeParams, "description_cache_capacity")
 		n, err := strconv.ParseInt(s, 10, 32)
 		if err != nil {
-			return nil, pgconn.NewParseConfigError(connString, "cannot parse description_cache_capacity", err)
+			return nil, fmt.Errorf("cannot parse description_cache_capacity: %w", err)
 		}
 		descriptionCacheCapacity = int(n)
 	}
@@ -202,7 +184,7 @@ func ParseConfigWithOptions(connString string, options ParseConfigOptions) (*Con
 		case "simple_protocol":
 			defaultQueryExecMode = QueryExecModeSimpleProtocol
 		default:
-			return nil, pgconn.NewParseConfigError(connString, "invalid default_query_exec_mode", err)
+			return nil, fmt.Errorf("invalid default_query_exec_mode: %s", s)
 		}
 	}
 
@@ -420,7 +402,7 @@ func (c *Conn) IsClosed() bool {
 	return c.pgConn.IsClosed()
 }
 
-func (c *Conn) die() {
+func (c *Conn) die(err error) {
 	if c.IsClosed() {
 		return
 	}
@@ -588,6 +570,14 @@ func (c *Conn) execPrepared(ctx context.Context, sd *pgconn.StatementDescription
 	return result.CommandTag, result.Err
 }
 
+type unknownArgumentTypeQueryExecModeExecError struct {
+	arg any
+}
+
+func (e *unknownArgumentTypeQueryExecModeExecError) Error() string {
+	return fmt.Sprintf("cannot use unregistered type %T as query argument in QueryExecModeExec", e.arg)
+}
+
 func (c *Conn) execSQLParams(ctx context.Context, sql string, args []any) (pgconn.CommandTag, error) {
 	err := c.eqb.Build(c.typeMap, nil, args)
 	if err != nil {
@@ -634,7 +624,7 @@ const (
 	// to execute. It does not use named prepared statements. But it does use the unnamed prepared statement to get the
 	// statement description on the first round trip and then uses it to execute the query on the second round trip. This
 	// may cause problems with connection poolers that switch the underlying connection between round trips. It is safe
-	// even when the database schema is modified concurrently.
+	// even when the the database schema is modified concurrently.
 	QueryExecModeDescribeExec
 
 	// Assume the PostgreSQL query parameter types based on the Go type of the arguments. This uses the extended protocol
@@ -642,33 +632,21 @@ const (
 	// registered with pgtype.Map.RegisterDefaultPgType. Queries will be rejected that have arguments that are
 	// unregistered or ambiguous. e.g. A map[string]string may have the PostgreSQL type json or hstore. Modes that know
 	// the PostgreSQL type can use a map[string]string directly as an argument. This mode cannot.
-	//
-	// On rare occasions user defined types may behave differently when encoded in the text format instead of the binary
-	// format. For example, this could happen if a "type RomanNumeral int32" implements fmt.Stringer to format integers as
-	// Roman numerals (e.g. 7 is VII). The binary format would properly encode the integer 7 as the binary value for 7.
-	// But the text format would encode the integer 7 as the string "VII". As QueryExecModeExec uses the text format, it
-	// is possible that changing query mode from another mode to QueryExecModeExec could change the behavior of the query.
-	// This should not occur with types pgx supports directly and can be avoided by registering the types with
-	// pgtype.Map.RegisterDefaultPgType and implementing the appropriate type interfaces. In the cas of RomanNumeral, it
-	// should implement pgtype.Int64Valuer.
 	QueryExecModeExec
 
-	// Use the simple protocol. Assume the PostgreSQL query parameter types based on the Go type of the arguments. This is
-	// especially significant for []byte values. []byte values are encoded as PostgreSQL bytea. string must be used
-	// instead for text type values including json and jsonb. Type mappings can be registered with
+	// Use the simple protocol. Assume the PostgreSQL query parameter types based on the Go type of the arguments.
+	// Queries are executed in a single round trip. Type mappings can be registered with
 	// pgtype.Map.RegisterDefaultPgType. Queries will be rejected that have arguments that are unregistered or ambiguous.
-	// e.g. A map[string]string may have the PostgreSQL type json or hstore. Modes that know the PostgreSQL type can use a
-	// map[string]string directly as an argument. This mode cannot. Queries are executed in a single round trip.
+	// e.g. A map[string]string may have the PostgreSQL type json or hstore. Modes that know the PostgreSQL type can use
+	// a map[string]string directly as an argument. This mode cannot.
 	//
-	// QueryExecModeSimpleProtocol should have the user application visible behavior as QueryExecModeExec. This includes
-	// the warning regarding differences in text format and binary format encoding with user defined types. There may be
-	// other minor exceptions such as behavior when multiple result returning queries are erroneously sent in a single
-	// string.
+	// QueryExecModeSimpleProtocol should have the user application visible behavior as QueryExecModeExec with minor
+	// exceptions such as behavior when multiple result returning queries are erroneously sent in a single string.
 	//
 	// QueryExecModeSimpleProtocol uses client side parameter interpolation. All values are quoted and escaped. Prefer
-	// QueryExecModeExec over QueryExecModeSimpleProtocol whenever possible. In general QueryExecModeSimpleProtocol should
-	// only be used if connecting to a proxy server, connection pool server, or non-PostgreSQL server that does not
-	// support the extended protocol.
+	// QueryExecModeExec over QueryExecModeSimpleProtocol whenever possible. In general QueryExecModeSimpleProtocol
+	// should only be used if connecting to a proxy server, connection pool server, or non-PostgreSQL server that does
+	// not support the extended protocol.
 	QueryExecModeSimpleProtocol
 )
 
@@ -777,6 +755,7 @@ optionLoop:
 	}
 
 	c.eqb.reset()
+	anynil.NormalizeSlice(args)
 	rows := c.getRows(ctx, sql, args)
 
 	var err error
@@ -866,6 +845,7 @@ func (c *Conn) getStatementDescription(
 	mode QueryExecMode,
 	sql string,
 ) (sd *pgconn.StatementDescription, err error) {
+
 	switch mode {
 	case QueryExecModeCacheStatement:
 		if c.statementCache == nil {
@@ -908,9 +888,6 @@ func (c *Conn) QueryRow(ctx context.Context, sql string, args ...any) Row {
 // SendBatch sends all queued queries to the server at once. All queries are run in an implicit transaction unless
 // explicit transaction control statements are executed. The returned BatchResults must be closed before the connection
 // is used again.
-//
-// Depending on the QueryExecMode, all queries may be prepared before any are executed. This means that creating a table
-// and using it in a subsequent query in the same batch can fail.
 func (c *Conn) SendBatch(ctx context.Context, b *Batch) (br BatchResults) {
 	if c.batchTracer != nil {
 		ctx = c.batchTracer.TraceBatchStart(ctx, c, TraceBatchStartData{Batch: b})
@@ -1133,63 +1110,46 @@ func (c *Conn) sendBatchExtendedWithDescription(ctx context.Context, b *Batch, d
 
 	// Prepare any needed queries
 	if len(distinctNewQueries) > 0 {
-		err := func() (err error) {
-			for _, sd := range distinctNewQueries {
-				pipeline.SendPrepare(sd.Name, sd.SQL, nil)
-			}
+		for _, sd := range distinctNewQueries {
+			pipeline.SendPrepare(sd.Name, sd.SQL, nil)
+		}
 
-			// Store all statements we are preparing into the cache. It's fine if it overflows because HandleInvalidated will
-			// clean them up later.
-			if sdCache != nil {
-				for _, sd := range distinctNewQueries {
-					sdCache.Put(sd)
-				}
-			}
-
-			// If something goes wrong preparing the statements, we need to invalidate the cache entries we just added.
-			defer func() {
-				if err != nil && sdCache != nil {
-					for _, sd := range distinctNewQueries {
-						sdCache.Invalidate(sd.SQL)
-					}
-				}
-			}()
-
-			err = pipeline.Sync()
-			if err != nil {
-				return err
-			}
-
-			for _, sd := range distinctNewQueries {
-				results, err := pipeline.GetResults()
-				if err != nil {
-					return err
-				}
-
-				resultSD, ok := results.(*pgconn.StatementDescription)
-				if !ok {
-					return fmt.Errorf("expected statement description, got %T", results)
-				}
-
-				// Fill in the previously empty / pending statement descriptions.
-				sd.ParamOIDs = resultSD.ParamOIDs
-				sd.Fields = resultSD.Fields
-			}
-
-			results, err := pipeline.GetResults()
-			if err != nil {
-				return err
-			}
-
-			_, ok := results.(*pgconn.PipelineSync)
-			if !ok {
-				return fmt.Errorf("expected sync, got %T", results)
-			}
-
-			return nil
-		}()
+		err := pipeline.Sync()
 		if err != nil {
 			return &pipelineBatchResults{ctx: ctx, conn: c, err: err, closed: true}
+		}
+
+		for _, sd := range distinctNewQueries {
+			results, err := pipeline.GetResults()
+			if err != nil {
+				return &pipelineBatchResults{ctx: ctx, conn: c, err: err, closed: true}
+			}
+
+			resultSD, ok := results.(*pgconn.StatementDescription)
+			if !ok {
+				return &pipelineBatchResults{ctx: ctx, conn: c, err: fmt.Errorf("expected statement description, got %T", results), closed: true}
+			}
+
+			// Fill in the previously empty / pending statement descriptions.
+			sd.ParamOIDs = resultSD.ParamOIDs
+			sd.Fields = resultSD.Fields
+		}
+
+		results, err := pipeline.GetResults()
+		if err != nil {
+			return &pipelineBatchResults{ctx: ctx, conn: c, err: err, closed: true}
+		}
+
+		_, ok := results.(*pgconn.PipelineSync)
+		if !ok {
+			return &pipelineBatchResults{ctx: ctx, conn: c, err: fmt.Errorf("expected sync, got %T", results), closed: true}
+		}
+	}
+
+	// Put all statements into the cache. It's fine if it overflows because HandleInvalidated will clean them up later.
+	if sdCache != nil {
+		for _, sd := range distinctNewQueries {
+			sdCache.Put(sd)
 		}
 	}
 

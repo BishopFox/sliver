@@ -381,7 +381,7 @@ type SQLiteStmt struct {
 	s      *C.sqlite3_stmt
 	t      string
 	closed bool
-	cls    bool // True if the statement was created by SQLiteConn.Query
+	cls    bool
 }
 
 // SQLiteResult implements sql.Result.
@@ -393,12 +393,12 @@ type SQLiteResult struct {
 // SQLiteRows implements driver.Rows.
 type SQLiteRows struct {
 	s        *SQLiteStmt
-	nc       int32 // Number of columns
-	cls      bool  // True if we need to close the parent statement in Close
+	nc       int
 	cols     []string
 	decltype []string
+	cls      bool
+	closed   bool
 	ctx      context.Context // no better alternative to pass context into Next() method
-	closemu  sync.Mutex
 }
 
 type functionInfo struct {
@@ -929,7 +929,6 @@ func (c *SQLiteConn) query(ctx context.Context, query string, args []driver.Name
 		s.(*SQLiteStmt).cls = true
 		na := s.NumInput()
 		if len(args)-start < na {
-			s.Close()
 			return nil, fmt.Errorf("not enough args to execute query: want %d got %d", na, len(args)-start)
 		}
 		// consume the number of arguments used in the current
@@ -1680,7 +1679,7 @@ func (d *SQLiteDriver) Open(dsn string) (driver.Conn, error) {
 		}
 	}
 
-	// Foreign Keys
+	// Forgein Keys
 	if foreignKeys > -1 {
 		if err := exec(fmt.Sprintf("PRAGMA foreign_keys = %d;", foreignKeys)); err != nil {
 			C.sqlite3_close_v2(db)
@@ -1876,9 +1875,6 @@ func (c *SQLiteConn) SetLimit(id int, newVal int) int {
 // This method is not thread-safe as the returned error code can be changed by
 // another call if invoked concurrently.
 //
-// Use SetFileControlInt64 instead if the argument for the opcode is documented
-// as a pointer to a sqlite3_int64.
-//
 // See: sqlite3_file_control, https://www.sqlite.org/c3ref/file_control.html
 func (c *SQLiteConn) SetFileControlInt(dbName string, op int, arg int) error {
 	if dbName == "" {
@@ -1889,34 +1885,6 @@ func (c *SQLiteConn) SetFileControlInt(dbName string, op int, arg int) error {
 	defer C.free(unsafe.Pointer(cDBName))
 
 	cArg := C.int(arg)
-	rv := C.sqlite3_file_control(c.db, cDBName, C.int(op), unsafe.Pointer(&cArg))
-	if rv != C.SQLITE_OK {
-		return c.lastError()
-	}
-	return nil
-}
-
-// SetFileControlInt64 invokes the xFileControl method on a given database. The
-// dbName is the name of the database. It will default to "main" if left blank.
-// The op is one of the opcodes prefixed by "SQLITE_FCNTL_". The arg argument
-// and return code are both opcode-specific. Please see the SQLite documentation.
-//
-// This method is not thread-safe as the returned error code can be changed by
-// another call if invoked concurrently.
-//
-// Only use this method if the argument for the opcode is documented as a pointer
-// to a sqlite3_int64.
-//
-// See: sqlite3_file_control, https://www.sqlite.org/c3ref/file_control.html
-func (c *SQLiteConn) SetFileControlInt64(dbName string, op int, arg int64) error {
-	if dbName == "" {
-		dbName = "main"
-	}
-
-	cDBName := C.CString(dbName)
-	defer C.free(unsafe.Pointer(cDBName))
-
-	cArg := C.sqlite3_int64(arg)
 	rv := C.sqlite3_file_control(c.db, cDBName, C.int(op), unsafe.Pointer(&cArg))
 	if rv != C.SQLITE_OK {
 		return c.lastError()
@@ -2039,12 +2007,14 @@ func (s *SQLiteStmt) query(ctx context.Context, args []driver.NamedValue) (drive
 
 	rows := &SQLiteRows{
 		s:        s,
-		nc:       int32(C.sqlite3_column_count(s.s)),
-		cls:      s.cls,
+		nc:       int(C.sqlite3_column_count(s.s)),
 		cols:     nil,
 		decltype: nil,
+		cls:      s.cls,
+		closed:   false,
 		ctx:      ctx,
 	}
+	runtime.SetFinalizer(rows, (*SQLiteRows).Close)
 
 	return rows, nil
 }
@@ -2141,28 +2111,24 @@ func (s *SQLiteStmt) Readonly() bool {
 
 // Close the rows.
 func (rc *SQLiteRows) Close() error {
-	rc.closemu.Lock()
-	defer rc.closemu.Unlock()
-	s := rc.s
-	if s == nil {
+	rc.s.mu.Lock()
+	if rc.s.closed || rc.closed {
+		rc.s.mu.Unlock()
 		return nil
 	}
-	rc.s = nil // remove reference to SQLiteStmt
-	s.mu.Lock()
-	if s.closed {
-		s.mu.Unlock()
-		return nil
-	}
+	rc.closed = true
 	if rc.cls {
-		s.mu.Unlock()
-		return s.Close()
+		rc.s.mu.Unlock()
+		return rc.s.Close()
 	}
-	rv := C.sqlite3_reset(s.s)
+	rv := C.sqlite3_reset(rc.s.s)
 	if rv != C.SQLITE_OK {
-		s.mu.Unlock()
-		return s.c.lastError()
+		rc.s.mu.Unlock()
+		return rc.s.c.lastError()
 	}
-	s.mu.Unlock()
+	rc.s.mu.Unlock()
+	rc.s = nil
+	runtime.SetFinalizer(rc, nil)
 	return nil
 }
 
@@ -2170,9 +2136,9 @@ func (rc *SQLiteRows) Close() error {
 func (rc *SQLiteRows) Columns() []string {
 	rc.s.mu.Lock()
 	defer rc.s.mu.Unlock()
-	if rc.s.s != nil && int(rc.nc) != len(rc.cols) {
+	if rc.s.s != nil && rc.nc != len(rc.cols) {
 		rc.cols = make([]string, rc.nc)
-		for i := 0; i < int(rc.nc); i++ {
+		for i := 0; i < rc.nc; i++ {
 			rc.cols[i] = C.GoString(C.sqlite3_column_name(rc.s.s, C.int(i)))
 		}
 	}
@@ -2182,7 +2148,7 @@ func (rc *SQLiteRows) Columns() []string {
 func (rc *SQLiteRows) declTypes() []string {
 	if rc.s.s != nil && rc.decltype == nil {
 		rc.decltype = make([]string, rc.nc)
-		for i := 0; i < int(rc.nc); i++ {
+		for i := 0; i < rc.nc; i++ {
 			rc.decltype[i] = strings.ToLower(C.GoString(C.sqlite3_column_decltype(rc.s.s, C.int(i))))
 		}
 	}

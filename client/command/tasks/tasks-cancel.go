@@ -3,8 +3,8 @@ package tasks
 import (
 	"context"
 
-	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/client/console"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
 	"github.com/spf13/cobra"
 )
 
@@ -22,13 +22,13 @@ func TasksCancelCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 	var task *clientpb.BeaconTask
 	var err error
 	if idArg == "" {
-		beaconTasks, err := con.Rpc.GetBeaconTasks(context.Background(), &clientpb.Beacon{ID: beacon.ID})
+		BaconTasks, err := con.Rpc.GetBeaconTasks(context.Background(), &clientpb.Beacon{ID: beacon.ID})
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
 		}
 		tasks := []*clientpb.BeaconTask{}
-		for _, task := range beaconTasks.Tasks {
+		for _, task := range BaconTasks.Tasks {
 			if task.State == "pending" {
 				tasks = append(tasks, task)
 			}
@@ -50,9 +50,6 @@ func TasksCancelCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 			con.PrintErrorf("%s\n", err)
 			return
 		}
-		// Request and response content is not needed for cancelling a task
-		task.Request = nil
-		task.Response = nil
 	}
 
 	if task != nil {

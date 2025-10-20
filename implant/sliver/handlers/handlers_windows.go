@@ -34,18 +34,18 @@ import (
 	"os/exec"
 	"syscall"
 
-	"github.com/bishopfox/sliver/implant/sliver/extension"
-	"github.com/bishopfox/sliver/implant/sliver/mount"
-	"github.com/bishopfox/sliver/implant/sliver/priv"
-	"github.com/bishopfox/sliver/implant/sliver/procdump"
-	"github.com/bishopfox/sliver/implant/sliver/ps"
-	"github.com/bishopfox/sliver/implant/sliver/registry"
-	"github.com/bishopfox/sliver/implant/sliver/service"
-	"github.com/bishopfox/sliver/implant/sliver/spoof"
-	"github.com/bishopfox/sliver/implant/sliver/syscalls"
-	"github.com/bishopfox/sliver/implant/sliver/taskrunner"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/extension"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/mount"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/priv"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/procdump"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/ps"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/registry"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/service"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/spoof"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/syscalls"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/taskrunner"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/commonpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/sliverpb"
 
 	"golang.org/x/sys/windows"
 	"google.golang.org/protobuf/proto"
@@ -477,8 +477,8 @@ func migrateHandler(data []byte, resp RPCResponse) {
 			migrateResp.Success = false
 			migrateResp.Response = &commonpb.Response{}
 		} else {
-			// Search for the PID, do not need all info about the process
-			processes, err := ps.Processes(false)
+			// Search for the PID
+			processes, err := ps.Processes()
 			if err != nil {
 				// {{if .Config.Debug}}
 				log.Printf("failed to list procs %v", err)

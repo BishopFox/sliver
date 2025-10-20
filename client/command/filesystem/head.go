@@ -22,9 +22,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/gsmith257-cyber/better-sliver-package/client/console"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/sliverpb"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/proto"
 )
@@ -63,7 +63,7 @@ func HeadCmd(cmd *cobra.Command, con *console.SliverClient, args []string, head 
 		} else {
 			operationName = "bytes"
 		}
-	} else {
+	} else if cmd.Flags().Changed("lines") {
 		fetchBytes = false
 		fetchSize, _ = cmd.Flags().GetInt64("lines")
 		if fetchSize < 0 {
@@ -76,6 +76,9 @@ func HeadCmd(cmd *cobra.Command, con *console.SliverClient, args []string, head 
 		} else {
 			operationName = "lines"
 		}
+	} else {
+		con.PrintErrorf("A number of bytes or a number of lines must be specified.")
+		return
 	}
 
 	ctrl := make(chan bool)
@@ -115,10 +118,10 @@ func HeadCmd(cmd *cobra.Command, con *console.SliverClient, args []string, head 
 				con.PrintErrorf("Failed to decode response %s\n", err)
 				return
 			}
-			PrintCat(filePath, download, cmd, con)
+			PrintCat(download, cmd, con)
 		})
 		con.PrintAsyncResponse(download.Response)
 	} else {
-		PrintCat(filePath, download, cmd, con)
+		PrintCat(download, cmd, con)
 	}
 }

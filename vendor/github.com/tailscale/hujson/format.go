@@ -88,6 +88,21 @@ func (v *Value) Format() {
 	v.UpdateOffsets()
 }
 
+// Range iterates through a Value in depth-first order and
+// calls f for each value (including the root value).
+// It stops iteration when f returns false.
+func (v *Value) Range(f func(v *Value) bool) bool {
+	if !f(v) {
+		return false
+	}
+	if comp, ok := v.Value.(composite); ok {
+		return comp.rangeValues(func(v2 *Value) bool {
+			return v2.Range(f)
+		})
+	}
+	return true
+}
+
 // normalize performs simple normalization changes. In particular, it:
 //   - normalizes strings,
 //   - normalizes empty objects and arrays as simply {} or [],
@@ -114,16 +129,15 @@ func (v *Value) normalize() bool {
 
 		// If there is only whitespace between the name and colon,
 		// or between the value and comma, then remove the whitespace.
-		for v3 := range v2.allValues() {
-			if !v3.AfterExtra.hasComment() {
-				v3.AfterExtra = nil
+		v2.rangeValues(func(v *Value) bool {
+			if !v.AfterExtra.hasComment() {
+				v.AfterExtra = nil
 			}
-		}
+			return true
+		})
 
 		// Normalize all sub-values.
-		for v3 := range v2.allValues() {
-			v3.normalize()
-		}
+		v2.rangeValues((*Value).normalize)
 	}
 	return true
 }
@@ -569,9 +583,7 @@ func (v *Value) alignObjectValues() bool {
 
 	// Recursively align all sub-objects.
 	if comp, ok := v.Value.(composite); ok {
-		for v2 := range comp.allValues() {
-			v2.alignObjectValues()
-		}
+		comp.rangeValues((*Value).alignObjectValues)
 	}
 	return true
 }
@@ -581,11 +593,9 @@ func (v Value) hasNewline(checkTopLevelExtra bool) bool {
 		return true
 	}
 	if comp, ok := v.Value.(composite); ok {
-		for v := range comp.allValues() {
-			if v.hasNewline(true) {
-				return true
-			}
-		}
+		return !comp.rangeValues(func(v *Value) bool {
+			return !v.hasNewline(true)
+		})
 	}
 	return false
 }

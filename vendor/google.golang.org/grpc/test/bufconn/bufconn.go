@@ -73,6 +73,7 @@ func (l *Listener) Close() error {
 	select {
 	case <-l.done:
 		// Already closed.
+		break
 	default:
 		close(l.done)
 	}
@@ -108,7 +109,7 @@ type pipe struct {
 	mu sync.Mutex
 
 	// buf contains the data in the pipe.  It is a ring buffer of fixed capacity,
-	// with r and w pointing to the offset to read and write, respectively.
+	// with r and w pointing to the offset to read and write, respsectively.
 	//
 	// Data is read between [r, w) and written to [w, r), wrapping around the end
 	// of the slice if necessary.

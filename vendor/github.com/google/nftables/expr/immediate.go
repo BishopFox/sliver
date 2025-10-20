@@ -29,17 +29,6 @@ type Immediate struct {
 }
 
 func (e *Immediate) marshal(fam byte) ([]byte, error) {
-	data, err := e.marshalData(fam)
-	if err != nil {
-		return nil, err
-	}
-	return netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: unix.NFTA_EXPR_NAME, Data: []byte("immediate\x00")},
-		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
-	})
-}
-
-func (e *Immediate) marshalData(fam byte) ([]byte, error) {
 	immData, err := netlink.MarshalAttributes([]netlink.Attribute{
 		{Type: unix.NFTA_DATA_VALUE, Data: e.Data},
 	})
@@ -47,9 +36,16 @@ func (e *Immediate) marshalData(fam byte) ([]byte, error) {
 		return nil, err
 	}
 
-	return netlink.MarshalAttributes([]netlink.Attribute{
+	data, err := netlink.MarshalAttributes([]netlink.Attribute{
 		{Type: unix.NFTA_IMMEDIATE_DREG, Data: binaryutil.BigEndian.PutUint32(e.Register)},
 		{Type: unix.NLA_F_NESTED | unix.NFTA_IMMEDIATE_DATA, Data: immData},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return netlink.MarshalAttributes([]netlink.Attribute{
+		{Type: unix.NFTA_EXPR_NAME, Data: []byte("immediate\x00")},
+		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
 	})
 }
 

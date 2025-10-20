@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"io"
-
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // The PostgreSQL wire protocol has a limit of 1 GB - 1 per message. See definition of
@@ -117,10 +115,9 @@ func (o *LargeObject) Read(p []byte) (int, error) {
 			expected = maxLargeObjectMessageLength
 		}
 
-		res := pgtype.PreallocBytes(p[nTotal:])
+		var res []byte
 		err := o.tx.QueryRow(o.ctx, "select loread($1, $2)", o.fd, expected).Scan(&res)
-		// We compute expected so that it always fits into p, so it should never happen
-		// that PreallocBytes's ScanBytes had to allocate a new slice.
+		copy(p[nTotal:], res)
 		nTotal += len(res)
 		if err != nil {
 			return nTotal, err

@@ -5,8 +5,8 @@ import (
 	"encoding/pem"
 	"testing"
 
-	clienttransport "github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/server/certs"
+	clienttransport "github.com/gsmith257-cyber/better-sliver-package/client/transport"
+	"github.com/gsmith257-cyber/better-sliver-package/server/certs"
 )
 
 func TestRootOnlyVerifyCertificate(t *testing.T) {
@@ -36,7 +36,7 @@ func TestRootOnlyVerifyCertificate(t *testing.T) {
 	}
 
 	// Test with wrong CA
-	wrongCert, _ := certs.GenerateECCCertificate(certs.HTTPSCA, "foobar", false, false, false)
+	wrongCert, _ := certs.GenerateECCCertificate(certs.HTTPSCA, "foobar", false, false)
 	block, _ = pem.Decode(wrongCert)
 	err = clienttransport.RootOnlyVerifyCertificate(config.CACertificate, [][]byte{block.Bytes})
 	if err == nil {

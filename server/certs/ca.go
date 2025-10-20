@@ -23,10 +23,11 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
-	"github.com/bishopfox/sliver/server/assets"
+	"github.com/gsmith257-cyber/better-sliver-package/server/assets"
 )
 
 // -----------------------
@@ -37,7 +38,7 @@ import (
 func SetupCAs() {
 	GenerateCertificateAuthority(MtlsImplantCA, "")
 	GenerateCertificateAuthority(MtlsServerCA, "")
-	GenerateCertificateAuthority(OperatorCA, "operators")
+	GenerateCertificateAuthority(OperatorCA, "ssh")
 	GenerateCertificateAuthority(HTTPSCA, "")
 }
 
@@ -59,7 +60,7 @@ func GenerateCertificateAuthority(caType string, commonName string) (*x509.Certi
 	certFilePath := filepath.Join(storageDir, fmt.Sprintf("%s-ca-cert.pem", caType))
 	if _, err := os.Stat(certFilePath); os.IsNotExist(err) {
 		certsLog.Infof("Generating certificate authority for '%s'", caType)
-		cert, key := GenerateECCCertificate(caType, commonName, true, false, false)
+		cert, key := GenerateECCCertificate(caType, commonName, true, false)
 		SaveCertificateAuthority(caType, cert, key)
 	}
 	cert, key, err := GetCertificateAuthority(caType)
@@ -107,13 +108,13 @@ func GetCertificateAuthorityPEM(caType string) ([]byte, []byte, error) {
 	caCertPath := filepath.Join(getCertDir(), fmt.Sprintf("%s-ca-cert.pem", caType))
 	caKeyPath := filepath.Join(getCertDir(), fmt.Sprintf("%s-ca-key.pem", caType))
 
-	certPEM, err := os.ReadFile(caCertPath)
+	certPEM, err := ioutil.ReadFile(caCertPath)
 	if err != nil {
 		certsLog.Error(err)
 		return nil, nil, err
 	}
 
-	keyPEM, err := os.ReadFile(caKeyPath)
+	keyPEM, err := ioutil.ReadFile(caKeyPath)
 	if err != nil {
 		certsLog.Error(err)
 		return nil, nil, err
@@ -136,12 +137,12 @@ func SaveCertificateAuthority(caType string, cert []byte, key []byte) {
 	certFilePath := filepath.Join(storageDir, fmt.Sprintf("%s-ca-cert.pem", caType))
 	keyFilePath := filepath.Join(storageDir, fmt.Sprintf("%s-ca-key.pem", caType))
 
-	err := os.WriteFile(certFilePath, cert, 0600)
+	err := ioutil.WriteFile(certFilePath, cert, 0600)
 	if err != nil {
 		certsLog.Fatalf("Failed write certificate data to: %s", certFilePath)
 	}
 
-	err = os.WriteFile(keyFilePath, key, 0600)
+	err = ioutil.WriteFile(keyFilePath, key, 0600)
 	if err != nil {
 		certsLog.Fatalf("Failed write certificate data to: %s", keyFilePath)
 	}

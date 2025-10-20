@@ -12,14 +12,13 @@ import (
 
 // SafeToRetry checks if the err is guaranteed to have occurred before sending any data to the server.
 func SafeToRetry(err error) bool {
-	var retryableErr interface{ SafeToRetry() bool }
-	if errors.As(err, &retryableErr) {
-		return retryableErr.SafeToRetry()
+	if e, ok := err.(interface{ SafeToRetry() bool }); ok {
+		return e.SafeToRetry()
 	}
 	return false
 }
 
-// Timeout checks if err was caused by a timeout. To be specific, it is true if err was caused within pgconn by a
+// Timeout checks if err was was caused by a timeout. To be specific, it is true if err was caused within pgconn by a
 // context.DeadlineExceeded or an implementer of net.Error where Timeout() is true.
 func Timeout(err error) bool {
 	var timeoutErr *errTimeout
@@ -27,27 +26,26 @@ func Timeout(err error) bool {
 }
 
 // PgError represents an error reported by the PostgreSQL server. See
-// http://www.postgresql.org/docs/current/static/protocol-error-fields.html for
+// http://www.postgresql.org/docs/11/static/protocol-error-fields.html for
 // detailed field description.
 type PgError struct {
-	Severity            string
-	SeverityUnlocalized string
-	Code                string
-	Message             string
-	Detail              string
-	Hint                string
-	Position            int32
-	InternalPosition    int32
-	InternalQuery       string
-	Where               string
-	SchemaName          string
-	TableName           string
-	ColumnName          string
-	DataTypeName        string
-	ConstraintName      string
-	File                string
-	Line                int32
-	Routine             string
+	Severity         string
+	Code             string
+	Message          string
+	Detail           string
+	Hint             string
+	Position         int32
+	InternalPosition int32
+	InternalQuery    string
+	Where            string
+	SchemaName       string
+	TableName        string
+	ColumnName       string
+	DataTypeName     string
+	ConstraintName   string
+	File             string
+	Line             int32
+	Routine          string
 }
 
 func (pe *PgError) Error() string {
@@ -62,34 +60,20 @@ func (pe *PgError) SQLState() string {
 // ConnectError is the error returned when a connection attempt fails.
 type ConnectError struct {
 	Config *Config // The configuration that was used in the connection attempt.
+	msg    string
 	err    error
 }
 
 func (e *ConnectError) Error() string {
-	prefix := fmt.Sprintf("failed to connect to `user=%s database=%s`:", e.Config.User, e.Config.Database)
-	details := e.err.Error()
-	if strings.Contains(details, "\n") {
-		return prefix + "\n\t" + strings.ReplaceAll(details, "\n", "\n\t")
-	} else {
-		return prefix + " " + details
+	sb := &strings.Builder{}
+	fmt.Fprintf(sb, "failed to connect to `host=%s user=%s database=%s`: %s", e.Config.Host, e.Config.User, e.Config.Database, e.msg)
+	if e.err != nil {
+		fmt.Fprintf(sb, " (%s)", e.err.Error())
 	}
+	return sb.String()
 }
 
 func (e *ConnectError) Unwrap() error {
-	return e.err
-}
-
-type perDialConnectError struct {
-	address          string
-	originalHostname string
-	err              error
-}
-
-func (e *perDialConnectError) Error() string {
-	return fmt.Sprintf("%s (%s): %s", e.address, e.originalHostname, e.err.Error())
-}
-
-func (e *perDialConnectError) Unwrap() error {
 	return e.err
 }
 
@@ -110,14 +94,6 @@ type ParseConfigError struct {
 	ConnString string // The connection string that could not be parsed.
 	msg        string
 	err        error
-}
-
-func NewParseConfigError(conn, msg string, err error) error {
-	return &ParseConfigError{
-		ConnString: conn,
-		msg:        msg,
-		err:        err,
-	}
 }
 
 func (e *ParseConfigError) Error() string {
@@ -219,10 +195,10 @@ func redactPW(connString string) string {
 			return redactURL(u)
 		}
 	}
-	quotedKV := regexp.MustCompile(`password='[^']*'`)
-	connString = quotedKV.ReplaceAllLiteralString(connString, "password=xxxxx")
-	plainKV := regexp.MustCompile(`password=[^ ]*`)
-	connString = plainKV.ReplaceAllLiteralString(connString, "password=xxxxx")
+	quotedDSN := regexp.MustCompile(`password='[^']*'`)
+	connString = quotedDSN.ReplaceAllLiteralString(connString, "password=xxxxx")
+	plainDSN := regexp.MustCompile(`password=[^ ]*`)
+	connString = plainDSN.ReplaceAllLiteralString(connString, "password=xxxxx")
 	brokenURL := regexp.MustCompile(`:[^:@]+?@`)
 	connString = brokenURL.ReplaceAllLiteralString(connString, ":xxxxxx@")
 	return connString

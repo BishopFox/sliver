@@ -12,7 +12,7 @@ import (
 
 	"golang.org/x/sys/unix"
 	"tailscale.com/types/ptr"
-	"tailscale.com/util/lineiter"
+	"tailscale.com/util/lineread"
 	"tailscale.com/version/distro"
 )
 
@@ -106,18 +106,15 @@ func linuxVersionMeta() (meta versionMeta) {
 	}
 
 	m := map[string]string{}
-	for lr := range lineiter.File(propFile) {
-		line, err := lr.Value()
-		if err != nil {
-			break
-		}
+	lineread.File(propFile, func(line []byte) error {
 		eq := bytes.IndexByte(line, '=')
 		if eq == -1 {
-			continue
+			return nil
 		}
 		k, v := string(line[:eq]), strings.Trim(string(line[eq+1:]), `"'`)
 		m[k] = v
-	}
+		return nil
+	})
 
 	if v := m["VERSION_CODENAME"]; v != "" {
 		meta.DistroCodeName = v
@@ -162,14 +159,7 @@ func linuxVersionMeta() (meta versionMeta) {
 	return
 }
 
-// linuxBuildTagPackageType is set by packagetype_*.go
-// build tag guarded files.
-var linuxBuildTagPackageType string
-
 func packageTypeLinux() string {
-	if v := linuxBuildTagPackageType; v != "" {
-		return v
-	}
 	// Report whether this is in a snap.
 	// See https://snapcraft.io/docs/environment-variables
 	// We just look at two somewhat arbitrarily.

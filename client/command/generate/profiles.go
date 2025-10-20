@@ -24,11 +24,11 @@ import (
 	"math"
 	"strings"
 
-	"github.com/bishopfox/sliver/client/command/settings"
-	"github.com/bishopfox/sliver/client/console"
-	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/settings"
+	"github.com/gsmith257-cyber/better-sliver-package/client/console"
+	consts "github.com/gsmith257-cyber/better-sliver-package/client/constants"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/commonpb"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
@@ -132,13 +132,13 @@ func populateProfileProperties(config *clientpb.ImplantConfig) map[string]string
 	properties["osarch"] = fmt.Sprintf("%s %s", strings.Title(config.GOOS), strings.ToUpper(config.GOARCH))
 	if config.IsBeacon {
 		properties["implanttype"] = "Beacon"
-		jitter := int(config.BeaconJitter / int64(math.Pow10(9)))
+		jitter := int(config.BaconJitter / int64(math.Pow10(9)))
 		plural = "s"
 		if jitter == 1 {
 			plural = ""
 		}
-		properties["beaconjitter"] = fmt.Sprintf("%d second%s", jitter, plural)
-		interval := int(config.BeaconInterval / int64(math.Pow10(9)))
+		properties["BaconJitter"] = fmt.Sprintf("%d second%s", jitter, plural)
+		interval := int(config.BaconInterval / int64(math.Pow10(9)))
 		plural = "s"
 		if interval == 1 {
 			plural = ""
@@ -327,7 +327,7 @@ func PrintProfileInfo(name string, con *console.SliverClient) {
 		})
 		tw.AppendRow(table.Row{
 			"Beacon Jitter",
-			properties["beaconjitter"],
+			properties["BaconJitter"],
 		})
 	}
 	tw.AppendRow(table.Row{

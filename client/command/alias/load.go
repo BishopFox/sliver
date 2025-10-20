@@ -28,14 +28,14 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/bishopfox/sliver/client/assets"
-	"github.com/bishopfox/sliver/client/command/help"
-	"github.com/bishopfox/sliver/client/console"
-	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/client/packages"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/util"
+	"github.com/gsmith257-cyber/better-sliver-package/client/assets"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/help"
+	"github.com/gsmith257-cyber/better-sliver-package/client/console"
+	consts "github.com/gsmith257-cyber/better-sliver-package/client/constants"
+	"github.com/gsmith257-cyber/better-sliver-package/client/packages"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/sliverpb"
+	"github.com/gsmith257-cyber/better-sliver-package/util"
 	app "github.com/reeflective/console"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -162,7 +162,7 @@ func LoadAlias(manifestPath string, cmd *cobra.Command, con *console.SliverClien
 	helpMsg := fmt.Sprintf("[%s] %s", aliasManifest.Name, aliasManifest.Help)
 	longHelpMsg := help.FormatHelpTmpl(aliasManifest.LongHelp)
 	longHelpMsg += "\n\n⚠️  If you're having issues passing arguments to the alias please read:\n"
-	longHelpMsg += "https://github.com/BishopFox/sliver/wiki/Aliases-&-Extensions#aliases-command-parsing"
+	longHelpMsg += "https://github.com/gsmith257-cyber/better-sliver-package/wiki/Aliases-&-Extensions#aliases-command-parsing"
 	addAliasCmd := &cobra.Command{
 		Use:   aliasManifest.CommandName,
 		Short: helpMsg,
@@ -311,7 +311,7 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 		} else if !aliasManifest.IsReflective {
 			msgStr = " Arguments are limited to 256 characters when using the default fork/exec model for non-reflective PE payloads.\n"
 		}
-		con.PrintWarnf("%s", msgStr)
+		con.PrintWarnf(msgStr)
 		confirm := false
 		prompt := &survey.Confirm{Message: "Do you want to continue?"}
 		survey.AskOne(prompt, &confirm, nil)
@@ -411,7 +411,7 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 		ctrl := make(chan bool)
 		msg := fmt.Sprintf("Executing %s %s ...", cmd.Name(), extArgsStr)
 		con.SpinUntil(msg, ctrl)
-		spawnDllResp, err := con.Rpc.SpawnDll(context.Background(), &sliverpb.InvokeSpawnDllReq{
+		spawnDllResp, err := con.Rpc.SpawnDll(context.Background(), &sliverpb.InvokeSpwnDllReq{
 			Request:     con.ActiveTarget.Request(cmd),
 			Args:        args,
 			Data:        binData,

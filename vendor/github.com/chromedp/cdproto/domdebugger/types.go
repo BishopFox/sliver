@@ -4,10 +4,12 @@ package domdebugger
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/runtime"
+	"github.com/mailru/easyjson"
+	"github.com/mailru/easyjson/jlexer"
+	"github.com/mailru/easyjson/jwriter"
 )
 
 // DOMBreakpointType DOM breakpoint type.
@@ -27,22 +29,35 @@ const (
 	DOMBreakpointTypeNodeRemoved       DOMBreakpointType = "node-removed"
 )
 
-// UnmarshalJSON satisfies [json.Unmarshaler].
-func (t *DOMBreakpointType) UnmarshalJSON(buf []byte) error {
-	s := string(buf)
-	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t DOMBreakpointType) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
 
-	switch DOMBreakpointType(s) {
+// MarshalJSON satisfies json.Marshaler.
+func (t DOMBreakpointType) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *DOMBreakpointType) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch DOMBreakpointType(v) {
 	case DOMBreakpointTypeSubtreeModified:
 		*t = DOMBreakpointTypeSubtreeModified
 	case DOMBreakpointTypeAttributeModified:
 		*t = DOMBreakpointTypeAttributeModified
 	case DOMBreakpointTypeNodeRemoved:
 		*t = DOMBreakpointTypeNodeRemoved
+
 	default:
-		return fmt.Errorf("unknown DOMBreakpointType value: %v", s)
+		in.AddError(fmt.Errorf("unknown DOMBreakpointType value: %v", v))
 	}
-	return nil
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *DOMBreakpointType) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
 }
 
 // CSPViolationType cSP Violation type.
@@ -61,34 +76,47 @@ const (
 	CSPViolationTypeTrustedtypePolicyViolation CSPViolationType = "trustedtype-policy-violation"
 )
 
-// UnmarshalJSON satisfies [json.Unmarshaler].
-func (t *CSPViolationType) UnmarshalJSON(buf []byte) error {
-	s := string(buf)
-	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t CSPViolationType) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
 
-	switch CSPViolationType(s) {
+// MarshalJSON satisfies json.Marshaler.
+func (t CSPViolationType) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *CSPViolationType) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch CSPViolationType(v) {
 	case CSPViolationTypeTrustedtypeSinkViolation:
 		*t = CSPViolationTypeTrustedtypeSinkViolation
 	case CSPViolationTypeTrustedtypePolicyViolation:
 		*t = CSPViolationTypeTrustedtypePolicyViolation
+
 	default:
-		return fmt.Errorf("unknown CSPViolationType value: %v", s)
+		in.AddError(fmt.Errorf("unknown CSPViolationType value: %v", v))
 	}
-	return nil
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *CSPViolationType) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
 }
 
 // EventListener object event listener.
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/DOMDebugger#type-EventListener
 type EventListener struct {
-	Type            string                `json:"type"`                               // EventListener's type.
-	UseCapture      bool                  `json:"useCapture"`                         // EventListener's useCapture.
-	Passive         bool                  `json:"passive"`                            // EventListener's passive flag.
-	Once            bool                  `json:"once"`                               // EventListener's once flag.
-	ScriptID        runtime.ScriptID      `json:"scriptId"`                           // Script id of the handler code.
-	LineNumber      int64                 `json:"lineNumber"`                         // Line number in the script (0-based).
-	ColumnNumber    int64                 `json:"columnNumber"`                       // Column number in the script (0-based).
-	Handler         *runtime.RemoteObject `json:"handler,omitempty,omitzero"`         // Event handler function value.
-	OriginalHandler *runtime.RemoteObject `json:"originalHandler,omitempty,omitzero"` // Event original handler function value.
-	BackendNodeID   cdp.BackendNodeID     `json:"backendNodeId,omitempty,omitzero"`   // Node the listener is added to (if any).
+	Type            string                `json:"type"`                      // EventListener's type.
+	UseCapture      bool                  `json:"useCapture"`                // EventListener's useCapture.
+	Passive         bool                  `json:"passive"`                   // EventListener's passive flag.
+	Once            bool                  `json:"once"`                      // EventListener's once flag.
+	ScriptID        runtime.ScriptID      `json:"scriptId"`                  // Script id of the handler code.
+	LineNumber      int64                 `json:"lineNumber"`                // Line number in the script (0-based).
+	ColumnNumber    int64                 `json:"columnNumber"`              // Column number in the script (0-based).
+	Handler         *runtime.RemoteObject `json:"handler,omitempty"`         // Event handler function value.
+	OriginalHandler *runtime.RemoteObject `json:"originalHandler,omitempty"` // Event original handler function value.
+	BackendNodeID   cdp.BackendNodeID     `json:"backendNodeId,omitempty"`   // Node the listener is added to (if any).
 }

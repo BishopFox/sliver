@@ -12,7 +12,7 @@ func (m *machine) PostRegAlloc() {
 }
 
 func (m *machine) setupPrologue() {
-	cur := m.rootInstr
+	cur := m.ectx.RootInstr
 	prevInitInst := cur.next
 
 	// At this point, we have the stack layout as follows:
@@ -130,13 +130,14 @@ func (m *machine) setupPrologue() {
 // 3. Inserts the dec/inc RSP instruction right before/after the call instruction.
 // 4. Lowering that is supposed to be done after regalloc.
 func (m *machine) postRegAlloc() {
-	for cur := m.rootInstr; cur != nil; cur = cur.next {
+	ectx := m.ectx
+	for cur := ectx.RootInstr; cur != nil; cur = cur.next {
 		switch k := cur.kind; k {
 		case ret:
 			m.setupEpilogueAfter(cur.prev)
 			continue
 		case fcvtToSintSequence, fcvtToUintSequence:
-			m.pendingInstructions = m.pendingInstructions[:0]
+			m.ectx.PendingInstructions = m.ectx.PendingInstructions[:0]
 			if k == fcvtToSintSequence {
 				m.lowerFcvtToSintSequenceAfterRegalloc(cur)
 			} else {
@@ -145,29 +146,29 @@ func (m *machine) postRegAlloc() {
 			prev := cur.prev
 			next := cur.next
 			cur := prev
-			for _, instr := range m.pendingInstructions {
+			for _, instr := range m.ectx.PendingInstructions {
 				cur = linkInstr(cur, instr)
 			}
 			linkInstr(cur, next)
 			continue
 		case xmmCMov:
-			m.pendingInstructions = m.pendingInstructions[:0]
+			m.ectx.PendingInstructions = m.ectx.PendingInstructions[:0]
 			m.lowerXmmCmovAfterRegAlloc(cur)
 			prev := cur.prev
 			next := cur.next
 			cur := prev
-			for _, instr := range m.pendingInstructions {
+			for _, instr := range m.ectx.PendingInstructions {
 				cur = linkInstr(cur, instr)
 			}
 			linkInstr(cur, next)
 			continue
 		case idivRemSequence:
-			m.pendingInstructions = m.pendingInstructions[:0]
+			m.ectx.PendingInstructions = m.ectx.PendingInstructions[:0]
 			m.lowerIDivRemSequenceAfterRegAlloc(cur)
 			prev := cur.prev
 			next := cur.next
 			cur := prev
-			for _, instr := range m.pendingInstructions {
+			for _, instr := range m.ectx.PendingInstructions {
 				cur = linkInstr(cur, instr)
 			}
 			linkInstr(cur, next)

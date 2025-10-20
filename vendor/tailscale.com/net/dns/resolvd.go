@@ -57,7 +57,6 @@ func (m *resolvdManager) SetDNS(config OSConfig) error {
 
 	if len(newSearch) > 1 {
 		newResolvConf = append(newResolvConf, []byte(strings.Join(newSearch, " "))...)
-		newResolvConf = append(newResolvConf, '\n')
 	}
 
 	err = m.fs.WriteFile(resolvConf, newResolvConf, 0644)
@@ -124,6 +123,6 @@ func (m resolvdManager) readResolvConf() (config OSConfig, err error) {
 }
 
 func removeSearchLines(orig []byte) []byte {
-	re := regexp.MustCompile(`(?ms)^search\s+.+$`)
+	re := regexp.MustCompile(`(?m)^search\s+.+$`)
 	return re.ReplaceAll(orig, []byte(""))
 }

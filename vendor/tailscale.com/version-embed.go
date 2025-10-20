@@ -4,10 +4,7 @@
 // Package tailscaleroot embeds VERSION.txt into the binary.
 package tailscaleroot
 
-import (
-	_ "embed"
-	"runtime/debug"
-)
+import _ "embed"
 
 // VersionDotTxt is the contents of VERSION.txt. Despite the tempting filename,
 // this does not necessarily contain the accurate version number of the build, which
@@ -25,17 +22,3 @@ var AlpineDockerTag string
 //
 //go:embed go.toolchain.rev
 var GoToolchainRev string
-
-//lint:ignore U1000 used by tests + assert_ts_toolchain_match.go w/ right build tags
-func tailscaleToolchainRev() (gitHash string, ok bool) {
-	bi, ok := debug.ReadBuildInfo()
-	if !ok {
-		return "", false
-	}
-	for _, s := range bi.Settings {
-		if s.Key == "tailscale.toolchain.rev" {
-			return s.Value, true
-		}
-	}
-	return "", false
-}

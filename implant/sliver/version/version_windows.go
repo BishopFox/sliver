@@ -81,16 +81,16 @@ func getOSVersion() string {
 		arch = "x86_64"
 	} else {
 		var is64Bit bool
-		pHandle := windows.CurrentProcess()
+		pHandle, _ := windows.GetCurrentProcess()
 		if uint(pHandle) == 0 {
 			//{{if .Config.Debug}}
-			log.Printf("error getting OS version: error getting current process handle")
+			log.Printf("error getting OS version: error getting current process handle: %v")
 			//{{end}}
 			arch = "<error getting arch>"
 		}
 		if err := windows.IsWow64Process(pHandle, &is64Bit); err != nil {
 			//{{if .Config.Debug}}
-			log.Printf("error getting OS version: error checking if running in WOW: %v", err)
+			log.Printf("error getting OS version: error checking if running in WOW: %v")
 			//{{end}}
 			arch = "<error getting arch>"
 		} else {

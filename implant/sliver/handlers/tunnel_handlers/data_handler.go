@@ -24,8 +24,8 @@ import (
 	"log"
 	// {{end}}
 
-	"github.com/bishopfox/sliver/implant/sliver/transports"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/transports"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -86,7 +86,7 @@ func TunnelDataHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 				// {{if .Config.Debug}}
 				log.Printf("[tunnel] Requesting resend of tunnelData seq: %d", tunnel.ReadSequence())
 				// {{end}}
-				connection.RequestResend(data)
+				connection.ReqResend(data)
 			}
 		}
 

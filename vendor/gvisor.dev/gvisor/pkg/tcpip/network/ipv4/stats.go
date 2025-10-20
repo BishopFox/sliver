@@ -23,8 +23,6 @@ import (
 var _ stack.IPNetworkEndpointStats = (*Stats)(nil)
 
 // Stats holds statistics related to the IPv4 protocol family.
-//
-// +stateify savable
 type Stats struct {
 	// IP holds IPv4 statistics.
 	IP tcpip.IPStats
@@ -44,7 +42,6 @@ func (s *Stats) IPStats() *tcpip.IPStats {
 	return &s.IP
 }
 
-// +stateify savable
 type sharedStats struct {
 	localStats Stats
 	ip         ip.MultiCounterIPStats
@@ -54,7 +51,6 @@ type sharedStats struct {
 
 // LINT.IfChange(multiCounterICMPv4PacketStats)
 
-// +stateify savable
 type multiCounterICMPv4PacketStats struct {
 	echoRequest    tcpip.MultiCounterStat
 	echoReply      tcpip.MultiCounterStat
@@ -87,7 +83,6 @@ func (m *multiCounterICMPv4PacketStats) init(a, b *tcpip.ICMPv4PacketStats) {
 
 // LINT.IfChange(multiCounterICMPv4SentPacketStats)
 
-// +stateify savable
 type multiCounterICMPv4SentPacketStats struct {
 	multiCounterICMPv4PacketStats
 	dropped     tcpip.MultiCounterStat
@@ -104,7 +99,6 @@ func (m *multiCounterICMPv4SentPacketStats) init(a, b *tcpip.ICMPv4SentPacketSta
 
 // LINT.IfChange(multiCounterICMPv4ReceivedPacketStats)
 
-// +stateify savable
 type multiCounterICMPv4ReceivedPacketStats struct {
 	multiCounterICMPv4PacketStats
 	invalid tcpip.MultiCounterStat
@@ -119,7 +113,6 @@ func (m *multiCounterICMPv4ReceivedPacketStats) init(a, b *tcpip.ICMPv4ReceivedP
 
 // LINT.IfChange(multiCounterICMPv4Stats)
 
-// +stateify savable
 type multiCounterICMPv4Stats struct {
 	packetsSent     multiCounterICMPv4SentPacketStats
 	packetsReceived multiCounterICMPv4ReceivedPacketStats
@@ -134,7 +127,6 @@ func (m *multiCounterICMPv4Stats) init(a, b *tcpip.ICMPv4Stats) {
 
 // LINT.IfChange(multiCounterIGMPPacketStats)
 
-// +stateify savable
 type multiCounterIGMPPacketStats struct {
 	membershipQuery    tcpip.MultiCounterStat
 	v1MembershipReport tcpip.MultiCounterStat
@@ -155,7 +147,6 @@ func (m *multiCounterIGMPPacketStats) init(a, b *tcpip.IGMPPacketStats) {
 
 // LINT.IfChange(multiCounterIGMPSentPacketStats)
 
-// +stateify savable
 type multiCounterIGMPSentPacketStats struct {
 	multiCounterIGMPPacketStats
 	dropped tcpip.MultiCounterStat
@@ -170,7 +161,6 @@ func (m *multiCounterIGMPSentPacketStats) init(a, b *tcpip.IGMPSentPacketStats) 
 
 // LINT.IfChange(multiCounterIGMPReceivedPacketStats)
 
-// +stateify savable
 type multiCounterIGMPReceivedPacketStats struct {
 	multiCounterIGMPPacketStats
 	invalid        tcpip.MultiCounterStat
@@ -189,7 +179,6 @@ func (m *multiCounterIGMPReceivedPacketStats) init(a, b *tcpip.IGMPReceivedPacke
 
 // LINT.IfChange(multiCounterIGMPStats)
 
-// +stateify savable
 type multiCounterIGMPStats struct {
 	packetsSent     multiCounterIGMPSentPacketStats
 	packetsReceived multiCounterIGMPReceivedPacketStats

@@ -12,12 +12,11 @@ type Partition struct {
 
 // PartitionConfig provides the endpoint metadata for an AWS region or partition.
 type PartitionConfig struct {
-	Name                 string `json:"name"`
-	DnsSuffix            string `json:"dnsSuffix"`
-	DualStackDnsSuffix   string `json:"dualStackDnsSuffix"`
-	SupportsFIPS         bool   `json:"supportsFIPS"`
-	SupportsDualStack    bool   `json:"supportsDualStack"`
-	ImplicitGlobalRegion string `json:"implicitGlobalRegion"`
+	Name               string `json:"name"`
+	DnsSuffix          string `json:"dnsSuffix"`
+	DualStackDnsSuffix string `json:"dualStackDnsSuffix"`
+	SupportsFIPS       bool   `json:"supportsFIPS"`
+	SupportsDualStack  bool   `json:"supportsDualStack"`
 }
 
 type RegionOverrides struct {

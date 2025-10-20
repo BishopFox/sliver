@@ -84,10 +84,7 @@ func (JSONSerializer) Scan(ctx context.Context, field *Field, dst reflect.Value,
 		case string:
 			bytes = []byte(v)
 		default:
-			bytes, err = json.Marshal(v)
-			if err != nil {
-				return err
-			}
+			return fmt.Errorf("failed to unmarshal JSONB value: %#v", dbValue)
 		}
 
 		if len(bytes) > 0 {

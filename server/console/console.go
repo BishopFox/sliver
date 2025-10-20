@@ -27,13 +27,13 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/bishopfox/sliver/client/command"
-	"github.com/bishopfox/sliver/client/command/help"
-	"github.com/bishopfox/sliver/client/console"
-	consts "github.com/bishopfox/sliver/client/constants"
-	clienttransport "github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/protobuf/rpcpb"
-	"github.com/bishopfox/sliver/server/transport"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/help"
+	"github.com/gsmith257-cyber/better-sliver-package/client/console"
+	consts "github.com/gsmith257-cyber/better-sliver-package/client/constants"
+	clienttransport "github.com/gsmith257-cyber/better-sliver-package/client/transport"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/rpcpb"
+	"github.com/gsmith257-cyber/better-sliver-package/server/transport"
 	"google.golang.org/grpc"
 )
 
@@ -77,6 +77,7 @@ func serverOnlyCmds() (commands []*cobra.Command) {
 		f.StringP("lhost", "L", "", "interface to bind server to")
 		f.Uint16P("lport", "l", 31337, "tcp listen port")
 		f.BoolP("tailscale", "T", false, "only expose multiplayer interface over Tailscale (requires TS_AUTHKEY)")
+		f.BoolP("persistent", "p", false, "make persistent across restarts")
 	})
 
 	commands = append(commands, startMultiplayer)
@@ -122,7 +123,7 @@ remote machines to connect to the Sliver server. They are most commonly
 used for allowing remote operators to connect in "Multiplayer Mode."
 
 To generate a profile for a remote operator, you need to specify the
-"all" permission to grant the profile access to all gRPC APIs:
+the "all" permission to grant the profile access to all gRPC APIs:
 
 new-operator --name <operator name> --lhost <sliver server> --permissions all
 

@@ -2,13 +2,13 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build !libc.membrk && !libc.memgrind && linux && (amd64 || arm64 || loong64 || ppc64le || s390x || riscv64 || 386 || arm)
+//go:build !libc.membrk && !libc.memgrind && linux && (amd64 || loong64)
 
-package libc // import "modernc.org/libc"
+package libc // import "modernc.org/libc/v2"
 
 import (
 	"math"
-	mbits "math/bits"
+	"math/bits"
 
 	"modernc.org/memory"
 )
@@ -49,7 +49,7 @@ func Xcalloc(tls *TLS, m Tsize_t, n Tsize_t) (r uintptr) {
 		trc("tls=%v m=%v n=%v, (%v:)", tls, m, n, origin(2))
 		defer func() { trc("-> %v", r) }()
 	}
-	hi, rq := mbits.Mul(uint(m), uint(n))
+	hi, rq := bits.Mul(uint(m), uint(n))
 	if hi != 0 || rq > math.MaxInt {
 		tls.setErrno(ENOMEM)
 		return 0
@@ -125,25 +125,6 @@ func UsableSize(p uintptr) Tsize_t {
 	defer allocatorMu.Unlock()
 
 	return Tsize_t(memory.UintptrUsableSize(p))
-}
-
-type MemAllocatorStat struct {
-	Allocs int
-	Bytes  int
-	Mmaps  int
-}
-
-// MemStat returns the global memory allocator statistics.
-// should be compiled with the memory.counters build tag for the data to be available.
-func MemStat() MemAllocatorStat {
-	allocatorMu.Lock()
-	defer allocatorMu.Unlock()
-
-	return MemAllocatorStat{
-		Allocs: allocator.Allocs,
-		Bytes:  allocator.Bytes,
-		Mmaps:  allocator.Mmaps,
-	}
 }
 
 // MemAuditStart locks the memory allocator, initializes and enables memory

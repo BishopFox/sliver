@@ -25,7 +25,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bishopfox/sliver/server/certs"
+	"github.com/gsmith257-cyber/better-sliver-package/server/certs"
 	"github.com/spf13/cobra"
 )
 

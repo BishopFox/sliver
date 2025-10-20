@@ -23,9 +23,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/gsmith257-cyber/better-sliver-package/client/console"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/sliverpb"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/proto"
 )
@@ -53,7 +53,7 @@ func SpawnDllCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 	ctrl := make(chan bool)
 	con.SpinUntil(fmt.Sprintf("Executing reflective dll %s", binPath), ctrl)
-	spawndll, err := con.Rpc.SpawnDll(context.Background(), &sliverpb.InvokeSpawnDllReq{
+	spawndll, err := con.Rpc.SpawnDll(context.Background(), &sliverpb.InvokeSpwnDllReq{
 		Data:        binData,
 		ProcessName: processName,
 		Args:        dllArgs,

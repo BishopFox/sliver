@@ -1,11 +1,9 @@
 package smithy
 
-import "maps"
-
 // PropertiesReader provides an interface for reading metadata from the
 // underlying metadata container.
 type PropertiesReader interface {
-	Get(key any) any
+	Get(key interface{}) interface{}
 }
 
 // Properties provides storing and reading metadata values. Keys may be any
@@ -14,14 +12,14 @@ type PropertiesReader interface {
 // The zero value for a Properties instance is ready for reads/writes without
 // any additional initialization.
 type Properties struct {
-	values map[any]any
+	values map[interface{}]interface{}
 }
 
 // Get attempts to retrieve the value the key points to. Returns nil if the
 // key was not found.
 //
 // Panics if key type is not comparable.
-func (m *Properties) Get(key any) any {
+func (m *Properties) Get(key interface{}) interface{} {
 	m.lazyInit()
 	return m.values[key]
 }
@@ -30,7 +28,7 @@ func (m *Properties) Get(key any) any {
 // that key it will be replaced with the new value.
 //
 // Panics if the key type is not comparable.
-func (m *Properties) Set(key, value any) {
+func (m *Properties) Set(key, value interface{}) {
 	m.lazyInit()
 	m.values[key] = value
 }
@@ -38,7 +36,7 @@ func (m *Properties) Set(key, value any) {
 // Has returns whether the key exists in the metadata.
 //
 // Panics if the key type is not comparable.
-func (m *Properties) Has(key any) bool {
+func (m *Properties) Has(key interface{}) bool {
 	m.lazyInit()
 	_, ok := m.values[key]
 	return ok
@@ -57,13 +55,8 @@ func (m *Properties) SetAll(other *Properties) {
 	}
 }
 
-// Values returns a shallow clone of the property set's values.
-func (m *Properties) Values() map[any]any {
-	return maps.Clone(m.values)
-}
-
 func (m *Properties) lazyInit() {
 	if m.values == nil {
-		m.values = map[any]any{}
+		m.values = map[interface{}]interface{}{}
 	}
 }

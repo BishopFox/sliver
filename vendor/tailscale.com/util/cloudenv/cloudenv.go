@@ -8,7 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	"math/rand/v2"
+	"math/rand"
 	"net"
 	"net/http"
 	"os"
@@ -74,7 +74,8 @@ func getDigitalOceanResolver() string {
 	// Randomly select one of the available resolvers so we don't overload
 	// one of them by sending all traffic there.
 	return digitalOceanResolver.Get(func() string {
-		return digitalOceanResolvers[rand.IntN(len(digitalOceanResolvers))]
+		rn := rand.New(rand.NewSource(time.Now().UnixNano()))
+		return digitalOceanResolvers[rn.Intn(len(digitalOceanResolvers))]
 	})
 }
 

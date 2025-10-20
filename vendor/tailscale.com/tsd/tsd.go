@@ -32,21 +32,13 @@ import (
 	"tailscale.com/net/tstun"
 	"tailscale.com/proxymap"
 	"tailscale.com/types/netmap"
-	"tailscale.com/util/eventbus"
-	"tailscale.com/util/syspolicy/policyclient"
-	"tailscale.com/util/usermetric"
 	"tailscale.com/wgengine"
 	"tailscale.com/wgengine/magicsock"
 	"tailscale.com/wgengine/router"
 )
 
 // System contains all the subsystems of a Tailscale node (tailscaled, etc.)
-//
-// A valid System value must always have a non-nil Bus populated.  Callers must
-// ensure this before using the value further. Call [NewSystem] to obtain a
-// value ready to use.
 type System struct {
-	Bus            SubSystem[*eventbus.Bus]
 	Dialer         SubSystem[*tsdial.Dialer]
 	DNSManager     SubSystem[*dns.Manager] // can get its *resolver.Resolver from DNSManager.Resolver
 	Engine         SubSystem[wgengine.Engine]
@@ -59,7 +51,6 @@ type System struct {
 	Netstack       SubSystem[NetstackImpl] // actually a *netstack.Impl
 	DriveForLocal  SubSystem[drive.FileSystemForLocal]
 	DriveForRemote SubSystem[drive.FileSystemForRemote]
-	PolicyClient   SubSystem[policyclient.Client]
 
 	// InitialConfig is initial server config, if any.
 	// It is nil if the node is not in declarative mode.
@@ -74,16 +65,7 @@ type System struct {
 	controlKnobs controlknobs.Knobs
 	proxyMap     proxymap.Mapper
 
-	healthTracker       health.Tracker
-	userMetricsRegistry usermetric.Registry
-}
-
-// NewSystem constructs a new otherwise-empty [System] with a
-// freshly-constructed event bus populated.
-func NewSystem() *System {
-	sys := new(System)
-	sys.Set(eventbus.New())
-	return sys
+	healthTracker health.Tracker
 }
 
 // NetstackImpl is the interface that *netstack.Impl implements.
@@ -98,8 +80,6 @@ type NetstackImpl interface {
 // has already been set.
 func (s *System) Set(v any) {
 	switch v := v.(type) {
-	case *eventbus.Bus:
-		s.Bus.Set(v)
 	case *netmon.Monitor:
 		s.NetMon.Set(v)
 	case *dns.Manager:
@@ -128,8 +108,6 @@ func (s *System) Set(v any) {
 		s.DriveForLocal.Set(v)
 	case drive.FileSystemForRemote:
 		s.DriveForRemote.Set(v)
-	case policyclient.Client:
-		s.PolicyClient.Set(v)
 	default:
 		panic(fmt.Sprintf("unknown type %T", v))
 	}
@@ -162,20 +140,6 @@ func (s *System) ProxyMapper() *proxymap.Mapper {
 // HealthTracker returns the system health tracker.
 func (s *System) HealthTracker() *health.Tracker {
 	return &s.healthTracker
-}
-
-// UserMetricsRegistry returns the system usermetrics.
-func (s *System) UserMetricsRegistry() *usermetric.Registry {
-	return &s.userMetricsRegistry
-}
-
-// PolicyClientOrDefault returns the policy client if set or a no-op default
-// otherwise. It always returns a non-nil value.
-func (s *System) PolicyClientOrDefault() policyclient.Client {
-	if client, ok := s.PolicyClient.GetOK(); ok {
-		return client
-	}
-	return policyclient.Get()
 }
 
 // SubSystem represents some subsystem of the Tailscale node daemon.

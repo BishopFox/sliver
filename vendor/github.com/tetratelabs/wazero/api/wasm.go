@@ -151,13 +151,9 @@ type Module interface {
 
 	// ExportedFunction returns a function exported from this module or nil if it wasn't.
 	//
-	// # Notes
-	//   - The default wazero.ModuleConfig attempts to invoke `_start`, which
-	//     in rare cases can close the module. When in doubt, check IsClosed prior
-	//     to invoking a function export after instantiation.
-	//   - The semantics of host functions assumes the existence of an "importing module" because, for example, the host function needs access to
-	//     the memory of the importing module. Therefore, direct use of ExportedFunction is forbidden for host modules.
-	//     Practically speaking, it is usually meaningless to directly call a host function from Go code as it is already somewhere in Go code.
+	// Note: The default wazero.ModuleConfig attempts to invoke `_start`, which
+	// in rare cases can close the module. When in doubt, check IsClosed prior
+	// to invoking a function export after instantiation.
 	ExportedFunction(name string) Function
 
 	// ExportedFunctionDefinitions returns all the exported function

@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2025 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
  */
 
 package device
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"net"
@@ -286,7 +287,8 @@ func (device *Device) RoutineHandshake(id int) {
 			// unmarshal packet
 
 			var reply MessageCookieReply
-			err := reply.unmarshal(elem.packet)
+			reader := bytes.NewReader(elem.packet)
+			err := binary.Read(reader, binary.LittleEndian, &reply)
 			if err != nil {
 				device.log.Verbosef("Failed to decode cookie reply")
 				goto skip
@@ -351,7 +353,8 @@ func (device *Device) RoutineHandshake(id int) {
 			// unmarshal
 
 			var msg MessageInitiation
-			err := msg.unmarshal(elem.packet)
+			reader := bytes.NewReader(elem.packet)
+			err := binary.Read(reader, binary.LittleEndian, &msg)
 			if err != nil {
 				device.log.Errorf("Failed to decode initiation message")
 				goto skip
@@ -383,7 +386,8 @@ func (device *Device) RoutineHandshake(id int) {
 			// unmarshal
 
 			var msg MessageResponse
-			err := msg.unmarshal(elem.packet)
+			reader := bytes.NewReader(elem.packet)
+			err := binary.Read(reader, binary.LittleEndian, &msg)
 			if err != nil {
 				device.log.Errorf("Failed to decode response message")
 				goto skip

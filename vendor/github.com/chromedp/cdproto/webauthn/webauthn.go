@@ -18,7 +18,7 @@ import (
 // EnableParams enable the WebAuthn domain and start intercepting credential
 // storage and retrieval with a virtual authenticator.
 type EnableParams struct {
-	EnableUI bool `json:"enableUI"` // Whether to enable the WebAuthn user interface. Enabling the UI is recommended for debugging and demo purposes, as it is closer to the real experience. Disabling the UI is recommended for automated testing. Supported at the embedder's discretion if UI is available. Defaults to false.
+	EnableUI bool `json:"enableUI,omitempty"` // Whether to enable the WebAuthn user interface. Enabling the UI is recommended for debugging and demo purposes, as it is closer to the real experience. Disabling the UI is recommended for automated testing. Supported at the embedder's discretion if UI is available. Defaults to false.
 }
 
 // Enable enable the WebAuthn domain and start intercepting credential
@@ -28,9 +28,7 @@ type EnableParams struct {
 //
 // parameters:
 func Enable() *EnableParams {
-	return &EnableParams{
-		EnableUI: false,
-	}
+	return &EnableParams{}
 }
 
 // WithEnableUI whether to enable the WebAuthn user interface. Enabling the
@@ -82,7 +80,7 @@ func AddVirtualAuthenticator(options *VirtualAuthenticatorOptions) *AddVirtualAu
 
 // AddVirtualAuthenticatorReturns return values.
 type AddVirtualAuthenticatorReturns struct {
-	AuthenticatorID AuthenticatorID `json:"authenticatorId,omitempty,omitzero"`
+	AuthenticatorID AuthenticatorID `json:"authenticatorId,omitempty"`
 }
 
 // Do executes WebAuthn.addVirtualAuthenticator against the provided context.
@@ -105,9 +103,9 @@ func (p *AddVirtualAuthenticatorParams) Do(ctx context.Context) (authenticatorID
 // isBadUP to false if they are not present.
 type SetResponseOverrideBitsParams struct {
 	AuthenticatorID  AuthenticatorID `json:"authenticatorId"`
-	IsBogusSignature bool            `json:"isBogusSignature"` // If isBogusSignature is set, overrides the signature in the authenticator response to be zero. Defaults to false.
-	IsBadUV          bool            `json:"isBadUV"`          // If isBadUV is set, overrides the UV bit in the flags in the authenticator response to be zero. Defaults to false.
-	IsBadUP          bool            `json:"isBadUP"`          // If isBadUP is set, overrides the UP bit in the flags in the authenticator response to be zero. Defaults to false.
+	IsBogusSignature bool            `json:"isBogusSignature,omitempty"` // If isBogusSignature is set, overrides the signature in the authenticator response to be zero. Defaults to false.
+	IsBadUV          bool            `json:"isBadUV,omitempty"`          // If isBadUV is set, overrides the UV bit in the flags in the authenticator response to be zero. Defaults to false.
+	IsBadUP          bool            `json:"isBadUP,omitempty"`          // If isBadUP is set, overrides the UP bit in the flags in the authenticator response to be zero. Defaults to false.
 }
 
 // SetResponseOverrideBits resets parameters isBogusSignature, isBadUV,
@@ -120,10 +118,7 @@ type SetResponseOverrideBitsParams struct {
 //	authenticatorID
 func SetResponseOverrideBits(authenticatorID AuthenticatorID) *SetResponseOverrideBitsParams {
 	return &SetResponseOverrideBitsParams{
-		AuthenticatorID:  authenticatorID,
-		IsBogusSignature: false,
-		IsBadUV:          false,
-		IsBadUP:          false,
+		AuthenticatorID: authenticatorID,
 	}
 }
 
@@ -227,7 +222,7 @@ func GetCredential(authenticatorID AuthenticatorID, credentialID string) *GetCre
 
 // GetCredentialReturns return values.
 type GetCredentialReturns struct {
-	Credential *Credential `json:"credential,omitempty,omitzero"`
+	Credential *Credential `json:"credential,omitempty"`
 }
 
 // Do executes WebAuthn.getCredential against the provided context.
@@ -268,7 +263,7 @@ func GetCredentials(authenticatorID AuthenticatorID) *GetCredentialsParams {
 
 // GetCredentialsReturns return values.
 type GetCredentialsReturns struct {
-	Credentials []*Credential `json:"credentials,omitempty,omitzero"`
+	Credentials []*Credential `json:"credentials,omitempty"`
 }
 
 // Do executes WebAuthn.getCredentials against the provided context.
@@ -400,8 +395,8 @@ func (p *SetAutomaticPresenceSimulationParams) Do(ctx context.Context) (err erro
 type SetCredentialPropertiesParams struct {
 	AuthenticatorID   AuthenticatorID `json:"authenticatorId"`
 	CredentialID      string          `json:"credentialId"`
-	BackupEligibility bool            `json:"backupEligibility"`
-	BackupState       bool            `json:"backupState"`
+	BackupEligibility bool            `json:"backupEligibility,omitempty"`
+	BackupState       bool            `json:"backupState,omitempty"`
 }
 
 // SetCredentialProperties allows setting credential properties.
@@ -415,10 +410,8 @@ type SetCredentialPropertiesParams struct {
 //	credentialID
 func SetCredentialProperties(authenticatorID AuthenticatorID, credentialID string) *SetCredentialPropertiesParams {
 	return &SetCredentialPropertiesParams{
-		AuthenticatorID:   authenticatorID,
-		CredentialID:      credentialID,
-		BackupEligibility: false,
-		BackupState:       false,
+		AuthenticatorID: authenticatorID,
+		CredentialID:    credentialID,
 	}
 }
 

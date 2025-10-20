@@ -25,9 +25,9 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/bishopfox/sliver/client/assets"
-	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/util"
+	"github.com/gsmith257-cyber/better-sliver-package/client/assets"
+	"github.com/gsmith257-cyber/better-sliver-package/client/console"
+	"github.com/gsmith257-cyber/better-sliver-package/util"
 	"github.com/spf13/cobra"
 )
 
@@ -114,7 +114,7 @@ func InstallFromFile(aliasGzFilePath string, aliasName string, promptToOverwrite
 		} else {
 			errorMsg = fmt.Sprintf("Failed to parse %s: %s\n", ManifestFileName, err)
 		}
-		con.PrintErrorf("%s", errorMsg)
+		con.PrintErrorf(errorMsg)
 		return nil
 	}
 	installPath := filepath.Join(assets.GetAliasesDir(), filepath.Base(manifest.CommandName))

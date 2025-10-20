@@ -30,12 +30,12 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/server/assets"
-	"github.com/bishopfox/sliver/server/db"
-	"github.com/bishopfox/sliver/server/log"
-	util "github.com/bishopfox/sliver/util/encoders"
-	"github.com/bishopfox/sliver/util/encoders/traffic"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/server/assets"
+	"github.com/gsmith257-cyber/better-sliver-package/server/db"
+	"github.com/gsmith257-cyber/better-sliver-package/server/log"
+	util "github.com/gsmith257-cyber/better-sliver-package/util/encoders"
+	"github.com/gsmith257-cyber/better-sliver-package/util/encoders/traffic"
 )
 
 const (
@@ -228,18 +228,18 @@ func loadTrafficEncodersFromFS(encodersFS util.EncoderFS, logger func(string)) e
 		wasmEncoderModuleName := strings.TrimSuffix(wasmEncoderFile.Name(), ".wasm")
 		wasmEncoderData, err := encodersFS.ReadFile(path.Join("traffic-encoders", wasmEncoderFile.Name()))
 		if err != nil {
-			encodersLog.Errorf("%s", fmt.Sprintf("failed to read file %s (%s)", wasmEncoderModuleName, err.Error()))
+			encodersLog.Errorf(fmt.Sprintf("failed to read file %s (%s)", wasmEncoderModuleName, err.Error()))
 			return err
 		}
 		wasmEncoderID := traffic.CalculateWasmEncoderID(wasmEncoderData)
 		trafficEncoder, err := traffic.CreateTrafficEncoder(wasmEncoderModuleName, wasmEncoderData, logger)
 		if err != nil {
-			encodersLog.Errorf("%s", fmt.Sprintf("failed to create traffic encoder from '%s': %s", wasmEncoderModuleName, err.Error()))
+			encodersLog.Errorf(fmt.Sprintf("failed to create traffic encoder from '%s': %s", wasmEncoderModuleName, err.Error()))
 			return err
 		}
 		trafficEncoder.FileName = wasmEncoderFile.Name()
 		if _, ok := EncoderMap[uint64(wasmEncoderID)]; ok {
-			encodersLog.Errorf("%s", fmt.Sprintf("duplicate encoder id: %d", wasmEncoderID))
+			encodersLog.Errorf(fmt.Sprintf("duplicate encoder id: %d", wasmEncoderID))
 			return fmt.Errorf("duplicate encoder id: %d", wasmEncoderID)
 		}
 		EncoderMap[uint64(wasmEncoderID)] = trafficEncoder

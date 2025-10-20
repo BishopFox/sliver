@@ -21,7 +21,7 @@ package hosts
 import (
 	"context"
 
-	"github.com/bishopfox/sliver/client/console"
+	"github.com/gsmith257-cyber/better-sliver-package/client/console"
 	"github.com/spf13/cobra"
 )
 

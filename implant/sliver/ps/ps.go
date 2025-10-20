@@ -36,16 +36,16 @@ type Process interface {
 // called. Some operating systems don't provide snapshot capability of the
 // process table, in which case the process table returned might contain
 // ephemeral entities that happened to be running when this was called.
-func Processes(fullInfo bool) ([]Process, error) {
-	return processes(fullInfo)
+func Processes() ([]Process, error) {
+	return processes()
 }
 
 // FindProcess looks up a single process by pid.
 //
 // Process will be nil and error will be nil if a matching process is
 // not found.
-func FindProcess(pid int, fullInfo bool) (Process, error) {
-	return findProcess(pid, fullInfo)
+func FindProcess(pid int) (Process, error) {
+	return findProcess(pid)
 }
 
 // Kill finds a process from a PID and terminates it.

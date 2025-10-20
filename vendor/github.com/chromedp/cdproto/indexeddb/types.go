@@ -4,9 +4,11 @@ package indexeddb
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/chromedp/cdproto/runtime"
+	"github.com/mailru/easyjson"
+	"github.com/mailru/easyjson/jlexer"
+	"github.com/mailru/easyjson/jwriter"
 )
 
 // DatabaseWithObjectStores database with an array of object stores.
@@ -42,21 +44,21 @@ type ObjectStoreIndex struct {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/IndexedDB#type-Key
 type Key struct {
-	Type   KeyType `json:"type"`                      // Key type.
-	Number float64 `json:"number,omitempty,omitzero"` // Number value.
-	String string  `json:"string,omitempty,omitzero"` // String value.
-	Date   float64 `json:"date,omitempty,omitzero"`   // Date value.
-	Array  []*Key  `json:"array,omitempty,omitzero"`  // Array value.
+	Type   KeyType `json:"type"`             // Key type.
+	Number float64 `json:"number,omitempty"` // Number value.
+	String string  `json:"string,omitempty"` // String value.
+	Date   float64 `json:"date,omitempty"`   // Date value.
+	Array  []*Key  `json:"array,omitempty"`  // Array value.
 }
 
 // KeyRange key range.
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/IndexedDB#type-KeyRange
 type KeyRange struct {
-	Lower     *Key `json:"lower,omitempty,omitzero"` // Lower bound.
-	Upper     *Key `json:"upper,omitempty,omitzero"` // Upper bound.
-	LowerOpen bool `json:"lowerOpen"`                // If true lower bound is open.
-	UpperOpen bool `json:"upperOpen"`                // If true upper bound is open.
+	Lower     *Key `json:"lower,omitempty"` // Lower bound.
+	Upper     *Key `json:"upper,omitempty"` // Upper bound.
+	LowerOpen bool `json:"lowerOpen"`       // If true lower bound is open.
+	UpperOpen bool `json:"upperOpen"`       // If true upper bound is open.
 }
 
 // DataEntry data entry.
@@ -72,9 +74,9 @@ type DataEntry struct {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/IndexedDB#type-KeyPath
 type KeyPath struct {
-	Type   KeyPathType `json:"type"`                      // Key path type.
-	String string      `json:"string,omitempty,omitzero"` // String value.
-	Array  []string    `json:"array,omitempty,omitzero"`  // Array value.
+	Type   KeyPathType `json:"type"`             // Key path type.
+	String string      `json:"string,omitempty"` // String value.
+	Array  []string    `json:"array,omitempty"`  // Array value.
 }
 
 // KeyType key type.
@@ -95,12 +97,20 @@ const (
 	KeyTypeArray  KeyType = "array"
 )
 
-// UnmarshalJSON satisfies [json.Unmarshaler].
-func (t *KeyType) UnmarshalJSON(buf []byte) error {
-	s := string(buf)
-	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t KeyType) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
 
-	switch KeyType(s) {
+// MarshalJSON satisfies json.Marshaler.
+func (t KeyType) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *KeyType) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch KeyType(v) {
 	case KeyTypeNumber:
 		*t = KeyTypeNumber
 	case KeyTypeString:
@@ -109,10 +119,15 @@ func (t *KeyType) UnmarshalJSON(buf []byte) error {
 		*t = KeyTypeDate
 	case KeyTypeArray:
 		*t = KeyTypeArray
+
 	default:
-		return fmt.Errorf("unknown KeyType value: %v", s)
+		in.AddError(fmt.Errorf("unknown KeyType value: %v", v))
 	}
-	return nil
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *KeyType) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
 }
 
 // KeyPathType key path type.
@@ -132,20 +147,33 @@ const (
 	KeyPathTypeArray  KeyPathType = "array"
 )
 
-// UnmarshalJSON satisfies [json.Unmarshaler].
-func (t *KeyPathType) UnmarshalJSON(buf []byte) error {
-	s := string(buf)
-	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t KeyPathType) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
 
-	switch KeyPathType(s) {
+// MarshalJSON satisfies json.Marshaler.
+func (t KeyPathType) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *KeyPathType) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch KeyPathType(v) {
 	case KeyPathTypeNull:
 		*t = KeyPathTypeNull
 	case KeyPathTypeString:
 		*t = KeyPathTypeString
 	case KeyPathTypeArray:
 		*t = KeyPathTypeArray
+
 	default:
-		return fmt.Errorf("unknown KeyPathType value: %v", s)
+		in.AddError(fmt.Errorf("unknown KeyPathType value: %v", v))
 	}
-	return nil
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *KeyPathType) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
 }

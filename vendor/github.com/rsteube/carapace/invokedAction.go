@@ -11,20 +11,20 @@ import (
 
 // InvokedAction is a logical alias for an Action whose (nested) callback was invoked.
 type InvokedAction struct {
-	action Action
+	Action
 }
 
-func (ia InvokedAction) export() export.Export {
-	return export.Export{Meta: ia.action.meta, Values: ia.action.rawValues}
+func (a InvokedAction) export() export.Export {
+	return export.Export{Meta: a.meta, Values: a.rawValues}
 }
 
 // Filter filters given values.
 //
 //	a := carapace.ActionValues("A", "B", "C").Invoke(c)
 //	b := a.Filter([]string{"B"}) // ["A", "C"]
-func (ia InvokedAction) Filter(values ...string) InvokedAction {
-	ia.action.rawValues = ia.action.rawValues.Filter(values...)
-	return ia
+func (a InvokedAction) Filter(values ...string) InvokedAction {
+	a.rawValues = a.rawValues.Filter(values...)
+	return a
 }
 
 // Merge merges InvokedActions (existing values are overwritten)
@@ -32,47 +32,47 @@ func (ia InvokedAction) Filter(values ...string) InvokedAction {
 //	a := carapace.ActionValues("A", "B").Invoke(c)
 //	b := carapace.ActionValues("B", "C").Invoke(c)
 //	c := a.Merge(b) // ["A", "B", "C"]
-func (ia InvokedAction) Merge(others ...InvokedAction) InvokedAction {
-	for _, other := range append([]InvokedAction{ia}, others...) {
-		ia.action.rawValues = append(ia.action.rawValues, other.action.rawValues...)
-		ia.action.meta.Merge(other.action.meta)
+func (a InvokedAction) Merge(others ...InvokedAction) InvokedAction {
+	for _, other := range append([]InvokedAction{a}, others...) {
+		a.rawValues = append(a.rawValues, other.rawValues...)
+		a.meta.Merge(other.meta)
 	}
-	ia.action.rawValues = ia.action.rawValues.Unique()
-	return ia
+	a.rawValues = a.rawValues.Unique()
+	return a
 }
 
 // Prefix adds a prefix to values (only the ones inserted, not the display values)
 //
 //	carapace.ActionValues("melon", "drop", "fall").Invoke(c).Prefix("water")
-func (ia InvokedAction) Prefix(prefix string) InvokedAction {
-	for index, val := range ia.action.rawValues {
-		ia.action.rawValues[index].Value = prefix + val.Value
+func (a InvokedAction) Prefix(prefix string) InvokedAction {
+	for index, val := range a.rawValues {
+		a.rawValues[index].Value = prefix + val.Value
 	}
-	return ia
+	return a
 }
 
 // Retain retains given values.
 //
 //	a := carapace.ActionValues("A", "B", "C").Invoke(c)
 //	b := a.Retain([]string{"A", "C"}) // ["A", "C"]
-func (ia InvokedAction) Retain(values ...string) InvokedAction {
-	ia.action.rawValues = ia.action.rawValues.Retain(values...)
-	return ia
+func (a InvokedAction) Retain(values ...string) InvokedAction {
+	a.rawValues = a.rawValues.Retain(values...)
+	return a
 }
 
 // Suffix adds a suffx to values (only the ones inserted, not the display values)
 //
 //	carapace.ActionValues("apple", "melon", "orange").Invoke(c).Suffix("juice")
-func (ia InvokedAction) Suffix(suffix string) InvokedAction {
-	for index, val := range ia.action.rawValues {
-		ia.action.rawValues[index].Value = val.Value + suffix
+func (a InvokedAction) Suffix(suffix string) InvokedAction {
+	for index, val := range a.rawValues {
+		a.rawValues[index].Value = val.Value + suffix
 	}
-	return ia
+	return a
 }
 
 // ToA casts an InvokedAction to Action.
-func (ia InvokedAction) ToA() Action {
-	return ia.action
+func (a InvokedAction) ToA() Action {
+	return a.Action
 }
 
 func tokenize(s string, dividers ...string) []string {
@@ -95,12 +95,12 @@ func tokenize(s string, dividers ...string) []string {
 //
 //	a := carapace.ActionValues("A/B/C", "A/C", "B/C", "C").Invoke(c)
 //	b := a.ToMultiPartsA("/") // completes segments separately (first one is ["A/", "B/", "C"])
-func (ia InvokedAction) ToMultiPartsA(dividers ...string) Action {
+func (a InvokedAction) ToMultiPartsA(dividers ...string) Action {
 	return ActionCallback(func(c Context) Action {
 		splittedCV := tokenize(c.Value, dividers...)
 
 		uniqueVals := make(map[string]common.RawValue)
-		for _, val := range ia.action.rawValues {
+		for _, val := range a.rawValues {
 			if match.HasPrefix(val.Value, c.Value) {
 				if splitted := tokenize(val.Value, dividers...); len(splitted) >= len(splittedCV) {
 					v := strings.Join(splitted[:len(splittedCV)], "")
@@ -112,7 +112,6 @@ func (ia InvokedAction) ToMultiPartsA(dividers ...string) Action {
 							Display:     d,
 							Description: val.Description,
 							Style:       val.Style,
-							Tag:         val.Tag,
 						}
 					} else {
 						uniqueVals[v] = common.RawValue{
@@ -120,7 +119,6 @@ func (ia InvokedAction) ToMultiPartsA(dividers ...string) Action {
 							Display:     d,
 							Description: "",
 							Style:       "",
-							Tag:         val.Tag,
 						}
 					}
 				}
@@ -145,14 +143,14 @@ func (ia InvokedAction) ToMultiPartsA(dividers ...string) Action {
 	})
 }
 
-func (ia InvokedAction) value(shell string, value string) string {
-	return _shell.Value(shell, value, ia.action.meta, ia.action.rawValues)
+func (a InvokedAction) value(shell string, value string) string {
+	return _shell.Value(shell, value, a.meta, a.rawValues)
 }
 
 func init() {
 	common.FromInvokedAction = func(i interface{}) (common.Meta, common.RawValues) {
-		if invoked, ok := i.(InvokedAction); ok {
-			return invoked.action.meta, invoked.action.rawValues
+		if a, ok := i.(InvokedAction); ok {
+			return a.meta, a.rawValues
 		}
 		return common.Meta{}, nil
 	}

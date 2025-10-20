@@ -5,7 +5,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/mattn/go-runewidth"
-	"golang.org/x/text/width"
 )
 
 // RuneWidth stuff
@@ -25,22 +24,22 @@ func InsertEveryN(str string, runeToInsert rune, n int) string {
 		return str
 	}
 
-	sLen := StringWidthWithoutEscSequences(str)
+	sLen := RuneWidthWithoutEscSequences(str)
 	var out strings.Builder
 	out.Grow(sLen + (sLen / n))
-	outLen, esp := 0, escSeqParser{}
+	outLen, eSeq := 0, escSeq{}
 	for idx, c := range str {
-		if esp.InSequence() {
-			esp.Consume(c)
+		if eSeq.isIn {
+			eSeq.InspectRune(c)
 			out.WriteRune(c)
 			continue
 		}
-		esp.Consume(c)
-		if !esp.InSequence() && outLen > 0 && (outLen%n) == 0 && idx != sLen {
+		eSeq.InspectRune(c)
+		if !eSeq.isIn && outLen > 0 && (outLen%n) == 0 && idx != sLen {
 			out.WriteRune(runeToInsert)
 		}
 		out.WriteRune(c)
-		if !esp.InSequence() {
+		if !eSeq.isIn {
 			outLen += RuneWidth(c)
 		}
 	}
@@ -52,21 +51,19 @@ func InsertEveryN(str string, runeToInsert rune, n int) string {
 //
 //	LongestLineLen("Ghost!\nCome back here!\nRight now!") == 15
 func LongestLineLen(str string) int {
-	maxLength, currLength, esp := 0, 0, escSeqParser{}
-	//fmt.Println(str)
+	maxLength, currLength, eSeq := 0, 0, escSeq{}
 	for _, c := range str {
-		//fmt.Printf("%03d | %03d | %c | %5v | %v | %#v\n", idx, c, c, esp.inEscSeq, esp.Codes(), esp.escapeSeq)
-		if esp.InSequence() {
-			esp.Consume(c)
+		if eSeq.isIn {
+			eSeq.InspectRune(c)
 			continue
 		}
-		esp.Consume(c)
+		eSeq.InspectRune(c)
 		if c == '\n' {
 			if currLength > maxLength {
 				maxLength = currLength
 			}
 			currLength = 0
-		} else if !esp.InSequence() {
+		} else if !eSeq.isIn {
 			currLength += RuneWidth(c)
 		}
 	}
@@ -103,7 +100,7 @@ func OverrideRuneWidthEastAsianWidth(val bool) {
 //	Pad("Ghost", 7, ' ') == "Ghost  "
 //	Pad("Ghost", 10, '.') == "Ghost....."
 func Pad(str string, maxLen int, paddingChar rune) string {
-	strLen := StringWidthWithoutEscSequences(str)
+	strLen := RuneWidthWithoutEscSequences(str)
 	if strLen < maxLen {
 		str += strings.Repeat(string(paddingChar), maxLen-strLen)
 	}
@@ -181,7 +178,7 @@ func RepeatAndTrim(str string, maxRunes int) string {
 //
 // Deprecated: in favor of RuneWidthWithoutEscSequences
 func RuneCount(str string) int {
-	return StringWidthWithoutEscSequences(str)
+	return RuneWidthWithoutEscSequences(str)
 }
 
 // RuneWidth returns the mostly accurate character-width of the rune. This is
@@ -204,10 +201,19 @@ func RuneWidth(r rune) int {
 //	RuneWidthWithoutEscSequences("Ghost") == 5
 //	RuneWidthWithoutEscSequences("\x1b[33mGhost\x1b[0m") == 5
 //	RuneWidthWithoutEscSequences("\x1b[33mGhost\x1b[0") == 5
-//
-// deprecated: use StringWidthWithoutEscSequences instead
 func RuneWidthWithoutEscSequences(str string) int {
-	return StringWidthWithoutEscSequences(str)
+	count, eSeq := 0, escSeq{}
+	for _, c := range str {
+		if eSeq.isIn {
+			eSeq.InspectRune(c)
+			continue
+		}
+		eSeq.InspectRune(c)
+		if !eSeq.isIn {
+			count += RuneWidth(c)
+		}
+	}
+	return count
 }
 
 // Snip returns the given string with a fixed length. For ex.:
@@ -220,46 +226,13 @@ func RuneWidthWithoutEscSequences(str string) int {
 //	Snip("\x1b[33mGhost\x1b[0m", 7, "~") == "\x1b[33mGhost\x1b[0m  "
 func Snip(str string, length int, snipIndicator string) string {
 	if length > 0 {
-		lenStr := StringWidthWithoutEscSequences(str)
+		lenStr := RuneWidthWithoutEscSequences(str)
 		if lenStr > length {
-			lenStrFinal := length - StringWidthWithoutEscSequences(snipIndicator)
+			lenStrFinal := length - RuneWidthWithoutEscSequences(snipIndicator)
 			return Trim(str, lenStrFinal) + snipIndicator
 		}
 	}
 	return str
-}
-
-// StringWidth is similar to RuneWidth, except it works on a string. For
-// ex.:
-//
-//	StringWidth("Ghost 生命"): 10
-//	StringWidth("\x1b[33mGhost 生命\x1b[0m"): 19
-func StringWidth(str string) int {
-	return rwCondition.StringWidth(str)
-}
-
-// StringWidthWithoutEscSequences is similar to RuneWidth, except for the fact
-// that it ignores escape sequences while counting. For ex.:
-//
-//	StringWidthWithoutEscSequences("") == 0
-//	StringWidthWithoutEscSequences("Ghost") == 5
-//	StringWidthWithoutEscSequences("\x1b[33mGhost\x1b[0m") == 5
-//	StringWidthWithoutEscSequences("\x1b[33mGhost\x1b[0") == 5
-//	StringWidthWithoutEscSequences("Ghost 生命"): 10
-//	StringWidthWithoutEscSequences("\x1b[33mGhost 生命\x1b[0m"): 10
-func StringWidthWithoutEscSequences(str string) int {
-	count, esp := 0, escSeqParser{}
-	for _, c := range str {
-		if esp.InSequence() {
-			esp.Consume(c)
-			continue
-		}
-		esp.Consume(c)
-		if !esp.InSequence() {
-			count += RuneWidth(c)
-		}
-	}
-	return count
 }
 
 // Trim trims a string to the given length while ignoring escape sequences. For
@@ -277,15 +250,15 @@ func Trim(str string, maxLen int) string {
 	var out strings.Builder
 	out.Grow(maxLen)
 
-	outLen, esp := 0, escSeqParser{}
+	outLen, eSeq := 0, escSeq{}
 	for _, sChr := range str {
-		if esp.InSequence() {
-			esp.Consume(sChr)
+		if eSeq.isIn {
+			eSeq.InspectRune(sChr)
 			out.WriteRune(sChr)
 			continue
 		}
-		esp.Consume(sChr)
-		if esp.InSequence() {
+		eSeq.InspectRune(sChr)
+		if eSeq.isIn {
 			out.WriteRune(sChr)
 			continue
 		}
@@ -296,29 +269,4 @@ func Trim(str string, maxLen int) string {
 		}
 	}
 	return out.String()
-}
-
-// Widen is like width.Widen.String() but ignores escape sequences. For ex:
-//
-//	Widen("Ghost 生命"): "Ｇｈｏｓｔ\u3000生命"
-//	Widen("\x1b[33mGhost 生命\x1b[0m"): "\x1b[33mＧｈｏｓｔ\u3000生命\x1b[0m"
-func Widen(str string) string {
-	sb := strings.Builder{}
-	sb.Grow(len(str))
-
-	esp := escSeqParser{}
-	for _, c := range str {
-		if esp.InSequence() {
-			sb.WriteRune(c)
-			esp.Consume(c)
-			continue
-		}
-		esp.Consume(c)
-		if !esp.InSequence() {
-			sb.WriteString(width.Widen.String(string(c)))
-		} else {
-			sb.WriteRune(c)
-		}
-	}
-	return sb.String()
 }

@@ -25,9 +25,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/bishopfox/sliver/server/configs"
-	"github.com/bishopfox/sliver/server/log"
-	"github.com/bishopfox/sliver/server/transport"
+	"github.com/gsmith257-cyber/better-sliver-package/server/configs"
+	"github.com/gsmith257-cyber/better-sliver-package/server/log"
+	"github.com/gsmith257-cyber/better-sliver-package/server/transport"
 )
 
 var (
@@ -63,9 +63,7 @@ func Start(host string, port uint16, tailscale bool) {
 		_, ln, err = transport.StartMtlsClientListener(host, port)
 	}
 	if err != nil {
-		fmt.Printf("[!] Failed to start daemon %s\n", err)
-		fmt.Printf("[*] If you previously run the multiplayer command, that automatically starts a listener which might conflict with the daemon execution (default port 31337)\n")
-		fmt.Printf("[*] If you want to use the daemon mode kill the multiplayer job and try to start the daemon again.\n")
+		fmt.Printf("[!] Failed to start daemon %s", err)
 		daemonLog.Errorf("Error starting client listener %s", err)
 		os.Exit(1)
 	}

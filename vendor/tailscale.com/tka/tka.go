@@ -440,13 +440,6 @@ func aumVerify(aum AUM, state State, isGenesisAUM bool) error {
 			return fmt.Errorf("signature %d: %v", i, err)
 		}
 	}
-
-	if aum.MessageKind == AUMRemoveKey && len(state.Keys) == 1 {
-		if kid, err := state.Keys[0].ID(); err == nil && bytes.Equal(aum.KeyID, kid) {
-			return errors.New("cannot remove the last key in the state")
-		}
-	}
-
 	return nil
 }
 
@@ -675,36 +668,25 @@ func (a *Authority) Inform(storage Chonk, updates []AUM) error {
 // NodeKeyAuthorized checks if the provided nodeKeySignature authorizes
 // the given node key.
 func (a *Authority) NodeKeyAuthorized(nodeKey key.NodePublic, nodeKeySignature tkatype.MarshaledSignature) error {
-	_, err := a.NodeKeyAuthorizedWithDetails(nodeKey, nodeKeySignature)
-	return err
-}
-
-// NodeKeyAuthorized checks if the provided nodeKeySignature authorizes
-// the given node key, and returns RotationDetails if the signature is
-// a valid rotation signature.
-func (a *Authority) NodeKeyAuthorizedWithDetails(nodeKey key.NodePublic, nodeKeySignature tkatype.MarshaledSignature) (*RotationDetails, error) {
 	var decoded NodeKeySignature
 	if err := decoded.Unserialize(nodeKeySignature); err != nil {
-		return nil, fmt.Errorf("unserialize: %v", err)
+		return fmt.Errorf("unserialize: %v", err)
 	}
 	if decoded.SigKind == SigCredential {
-		return nil, errors.New("credential signatures cannot authorize nodes on their own")
+		return errors.New("credential signatures cannot authorize nodes on their own")
 	}
 
 	kID, err := decoded.authorizingKeyID()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	key, err := a.state.GetKey(kID)
 	if err != nil {
-		return nil, fmt.Errorf("key: %v", err)
+		return fmt.Errorf("key: %v", err)
 	}
 
-	if err := decoded.verifySignature(nodeKey, key); err != nil {
-		return nil, err
-	}
-	return decoded.rotationDetails()
+	return decoded.verifySignature(nodeKey, key)
 }
 
 // KeyTrusted returns true if the given keyID is trusted by the tailnet

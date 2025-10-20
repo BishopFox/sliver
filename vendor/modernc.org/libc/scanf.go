@@ -2,14 +2,13 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build !(linux && (amd64 || arm64 || loong64 || ppc64le || s390x || riscv64 || 386 || arm))
+//go:build !(linux && (amd64 || loong64))
 
 package libc // import "modernc.org/libc"
 
 import (
 	"io"
 	"strconv"
-	"strings"
 	"unsafe"
 )
 
@@ -87,7 +86,6 @@ func scanfConversion(r io.ByteScanner, format uintptr, args *uintptr) (_ uintptr
 
 	mod := 0
 	width := -1
-	discard := false
 flags:
 	for {
 		switch c := *(*byte)(unsafe.Pointer(format)); c {
@@ -97,7 +95,7 @@ flags:
 			// corresponding pointer argument is re‐ quired, and this specification is not
 			// included in the count of successful assignments returned by scanf().
 			format++
-			discard = true
+			panic(todo(""))
 		case '\'':
 			// For decimal conversions, an optional quote character (').  This specifies
 			// that the input number may include thousands' separators as defined by the
@@ -145,18 +143,7 @@ flags:
 		// input '%' character.  No conversion is done (but initial white space
 		// characters are discarded), and assign‐ ment does not occur.
 		format++
-		skipReaderWhiteSpace(r)
-		c, err := r.ReadByte()
-		if err != nil {
-			return format, -1, false
-		}
-
-		if c == '%' {
-			return format, 1, true
-		}
-
-		r.UnreadByte()
-		return format, 0, false
+		panic(todo(""))
 	case 'd':
 		// Matches an optionally signed decimal integer; the next pointer must be a
 		// pointer to int.
@@ -206,26 +193,22 @@ flags:
 			break
 		}
 
-		if !discard {
-			arg := VaUintptr(args)
-			v := int64(n)
-			if neg {
-				v = -v
-			}
-			switch mod {
-			case modNone:
-				*(*int32)(unsafe.Pointer(arg)) = int32(v)
-			case modH:
-				*(*int16)(unsafe.Pointer(arg)) = int16(v)
-			case modHH:
-				*(*int8)(unsafe.Pointer(arg)) = int8(v)
-			case modL:
-				*(*long)(unsafe.Pointer(arg)) = long(v)
-			case modLL:
-				*(*int64)(unsafe.Pointer(arg)) = int64(v)
-			default:
-				panic(todo("", mod))
-			}
+		arg := VaUintptr(args)
+		v := int64(n)
+		if neg {
+			v = -v
+		}
+		switch mod {
+		case modNone:
+			*(*int32)(unsafe.Pointer(arg)) = int32(v)
+		case modH:
+			*(*int16)(unsafe.Pointer(arg)) = int16(v)
+		case modHH:
+			*(*int8)(unsafe.Pointer(arg)) = int8(v)
+		case modL:
+			*(*long)(unsafe.Pointer(arg)) = long(n)
+		default:
+			panic(todo(""))
 		}
 		nvalues = 1
 	case 'D':
@@ -263,7 +246,7 @@ flags:
 		for ; width != 0; width-- {
 			c, err := r.ReadByte()
 			if err != nil {
-				if match || err == io.EOF {
+				if match {
 					break hex
 				}
 
@@ -303,20 +286,18 @@ flags:
 			break
 		}
 
-		if !discard {
-			arg := VaUintptr(args)
-			switch mod {
-			case modNone:
-				*(*uint32)(unsafe.Pointer(arg)) = uint32(n)
-			case modH:
-				*(*uint16)(unsafe.Pointer(arg)) = uint16(n)
-			case modHH:
-				*(*byte)(unsafe.Pointer(arg)) = byte(n)
-			case modL:
-				*(*ulong)(unsafe.Pointer(arg)) = ulong(n)
-			default:
-				panic(todo(""))
-			}
+		arg := VaUintptr(args)
+		switch mod {
+		case modNone:
+			*(*uint32)(unsafe.Pointer(arg)) = uint32(n)
+		case modH:
+			*(*uint16)(unsafe.Pointer(arg)) = uint16(n)
+		case modHH:
+			*(*byte)(unsafe.Pointer(arg)) = byte(n)
+		case modL:
+			*(*ulong)(unsafe.Pointer(arg)) = ulong(n)
+		default:
+			panic(todo(""))
 		}
 		nvalues = 1
 	case 'f', 'e', 'g', 'E', 'a':
@@ -342,19 +323,17 @@ flags:
 			panic(todo("", err))
 		}
 
-		if !discard {
-			arg := VaUintptr(args)
-			if neg {
-				n = -n
-			}
-			switch mod {
-			case modNone:
-				*(*float32)(unsafe.Pointer(arg)) = float32(n)
-			case modL:
-				*(*float64)(unsafe.Pointer(arg)) = n
-			default:
-				panic(todo("", mod, neg, n))
-			}
+		arg := VaUintptr(args)
+		if neg {
+			n = -n
+		}
+		switch mod {
+		case modNone:
+			*(*float32)(unsafe.Pointer(arg)) = float32(n)
+		case modL:
+			*(*float64)(unsafe.Pointer(arg)) = n
+		default:
+			panic(todo("", mod, neg, n))
 		}
 		return format, 1, true
 	case 's':
@@ -363,44 +342,8 @@ flags:
 		// hold the input sequence and the terminating null byte ('\0'), which is added
 		// automatically.  The input string stops at white space or at the maximum
 		// field width, whichever occurs first.
-		var c byte
-		var err error
-		var arg uintptr
-		if !discard {
-			arg = VaUintptr(args)
-		}
-	scans:
-		for ; width != 0; width-- {
-			if c, err = r.ReadByte(); err != nil {
-				if err != io.EOF {
-					nvalues = -1
-				}
-				break scans
-			}
-
-			switch c {
-			case ' ', '\t', '\n', '\r', '\v', '\f':
-				break scans
-			}
-
-			nvalues = 1
-			match = true
-			if !discard {
-				*(*byte)(unsafe.Pointer(arg)) = c
-				arg++
-			}
-		}
-		if match {
-			switch {
-			case width == 0:
-				r.UnreadByte()
-				fallthrough
-			default:
-				if !discard {
-					*(*byte)(unsafe.Pointer(arg)) = 0
-				}
-			}
-		}
+		format++
+		panic(todo(""))
 	case 'c':
 		// Matches a sequence of characters whose length is specified by the maximum
 		// field width (default 1); the next pointer must be a pointer to char, and
@@ -427,69 +370,7 @@ flags:
 		// hyphen".  The string ends with the appearance of a  character not in the
 		// (or, with a circumflex, in) set or when the field width runs out.
 		format++
-		var re0 []byte
-	bracket:
-		for i := 0; ; i++ {
-			c := *(*byte)(unsafe.Pointer(format))
-			format++
-			if c == ']' && i != 0 {
-				break bracket
-			}
-
-			re0 = append(re0, c)
-		}
-		set := map[byte]struct{}{}
-		re := string(re0)
-		neg := strings.HasPrefix(re, "^")
-		if neg {
-			re = re[1:]
-		}
-		for len(re) != 0 {
-			switch {
-			case len(re) >= 3 && re[1] == '-':
-				for c := re[0]; c <= re[2]; c++ {
-					set[c] = struct{}{}
-				}
-				re = re[3:]
-			default:
-				set[c] = struct{}{}
-				re = re[1:]
-			}
-		}
-		var arg uintptr
-		if !discard {
-			arg = VaUintptr(args)
-		}
-		for ; width != 0; width-- {
-			c, err := r.ReadByte()
-			if err != nil {
-				if err == io.EOF {
-					return format, nvalues, match
-				}
-
-				return format, -1, match
-			}
-
-			if _, ok := set[c]; ok == !neg {
-				match = true
-				nvalues = 1
-				if !discard {
-					*(*byte)(unsafe.Pointer(arg)) = c
-					arg++
-				}
-			}
-		}
-		if match {
-			switch {
-			case width == 0:
-				r.UnreadByte()
-				fallthrough
-			default:
-				if !discard {
-					*(*byte)(unsafe.Pointer(arg)) = 0
-				}
-			}
-		}
+		panic(todo(""))
 	case 'p':
 		// Matches a pointer value (as printed by %p in printf(3); the next pointer
 		// must be a pointer to a pointer to void.
@@ -497,17 +378,21 @@ flags:
 		skipReaderWhiteSpace(r)
 		c, err := r.ReadByte()
 		if err != nil {
-			panic(todo("", err))
+			panic(todo(""))
 		}
 
-		if c == '0' {
-			if c, err = r.ReadByte(); err != nil {
-				panic(todo("", err))
-			}
+		if c != '0' {
+			r.UnreadByte()
+			panic(todo(""))
+		}
 
-			if c != 'x' && c != 'X' {
-				r.UnreadByte()
-			}
+		if c, err = r.ReadByte(); err != nil {
+			panic(todo(""))
+		}
+
+		if c != 'x' && c != 'X' {
+			r.UnreadByte()
+			panic(todo(""))
 		}
 
 		var digit, n uint64
@@ -544,10 +429,8 @@ flags:
 			break
 		}
 
-		if !discard {
-			arg := VaUintptr(args)
-			*(*uintptr)(unsafe.Pointer(arg)) = uintptr(n)
-		}
+		arg := VaUintptr(args)
+		*(*uintptr)(unsafe.Pointer(arg)) = uintptr(n)
 		nvalues = 1
 	case 'n':
 		// Nothing is expected; instead, the number of characters consumed thus far

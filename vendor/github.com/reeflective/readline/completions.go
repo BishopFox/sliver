@@ -40,11 +40,7 @@ type Completions struct {
 func CompleteValues(values ...string) Completions {
 	vals := make([]Completion, 0, len(values))
 	for _, val := range values {
-		vals = append(vals, Completion{
-			Value:       val,
-			Display:     val,
-			Description: "",
-		})
+		vals = append(vals, Completion{Value: val, Display: val, Description: ""})
 	}
 
 	return Completions{values: vals}
@@ -58,12 +54,7 @@ func CompleteStyledValues(values ...string) Completions {
 
 	vals := make([]Completion, 0, len(values)/2)
 	for i := 0; i < len(values); i += 2 {
-		vals = append(vals, Completion{
-			Value:       values[i],
-			Display:     values[i],
-			Description: "",
-			Style:       values[i+1],
-		})
+		vals = append(vals, Completion{Value: values[i], Display: values[i], Description: "", Style: values[i+1]})
 	}
 
 	return Completions{values: vals}
@@ -77,11 +68,7 @@ func CompleteValuesDescribed(values ...string) Completions {
 
 	vals := make([]Completion, 0, len(values)/2)
 	for i := 0; i < len(values); i += 2 {
-		vals = append(vals, Completion{
-			Value:       values[i],
-			Display:     values[i],
-			Description: values[i+1],
-		})
+		vals = append(vals, Completion{Value: values[i], Display: values[i], Description: values[i+1]})
 	}
 
 	return Completions{values: vals}
@@ -95,12 +82,7 @@ func CompleteStyledValuesDescribed(values ...string) Completions {
 
 	vals := make([]Completion, 0, len(values)/3)
 	for i := 0; i < len(values); i += 3 {
-		vals = append(vals, Completion{
-			Value:       values[i],
-			Display:     values[i],
-			Description: values[i+1],
-			Style:       values[i+2],
-		})
+		vals = append(vals, Completion{Value: values[i], Display: values[i], Description: values[i+1], Style: values[i+2]})
 	}
 
 	return Completions{values: vals}

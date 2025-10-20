@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"tailscale.com/types/logger"
-	"tailscale.com/util/eventbus"
 )
 
 // unspecifiedMessage is a minimal message implementation that should not
@@ -25,7 +24,7 @@ type devdConn struct {
 	conn net.Conn
 }
 
-func newOSMon(_ *eventbus.Bus, logf logger.Logf, m *Monitor) (osMon, error) {
+func newOSMon(logf logger.Logf, m *Monitor) (osMon, error) {
 	conn, err := net.Dial("unixpacket", "/var/run/devd.seqpacket.pipe")
 	if err != nil {
 		logf("devd dial error: %v, falling back to polling method", err)

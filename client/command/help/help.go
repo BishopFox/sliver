@@ -22,8 +22,8 @@ package help
 // 	"fmt"
 // 	"sort"
 //
-// 	"github.com/bishopfox/sliver/client/console"
-// 	consts "github.com/bishopfox/sliver/client/constants"
+// 	"github.com/gsmith257-cyber/better-sliver-package/client/console"
+// 	consts "github.com/gsmith257-cyber/better-sliver-package/client/constants"
 //
 // 	"github.com/desertbit/columnize"
 // 	"github.com/desertbit/grumble"
@@ -102,7 +102,7 @@ package help
 // 	}
 //
 // 	con.Println()
-// 	con.Printf("For even more information, please see our wiki: https://github.com/BishopFox/sliver/wiki\n")
+// 	con.Printf("For even more information, please see our wiki: https://github.com/gsmith257-cyber/better-sliver-package/wiki\n")
 // 	con.Println()
 // }
 //

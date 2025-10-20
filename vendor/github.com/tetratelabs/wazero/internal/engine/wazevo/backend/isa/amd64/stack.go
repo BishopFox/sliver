@@ -9,14 +9,12 @@ import (
 )
 
 func stackView(rbp, top uintptr) []byte {
-	l := int(top - rbp)
 	var stackBuf []byte
 	{
-		//nolint:staticcheck
+		// TODO: use unsafe.Slice after floor version is set to Go 1.20.
 		hdr := (*reflect.SliceHeader)(unsafe.Pointer(&stackBuf))
 		hdr.Data = rbp
-		hdr.Len = l
-		hdr.Cap = l
+		setSliceLimits(hdr, top-rbp)
 	}
 	return stackBuf
 }
@@ -74,9 +72,9 @@ func GoCallStackView(stackPointerBeforeGoCall *uint64) []uint64 {
 	//              |   SizeInBytes   |
 	//              +-----------------+ <---- stackPointerBeforeGoCall
 	//                 (low address)
-	data := unsafe.Add(unsafe.Pointer(stackPointerBeforeGoCall), 8)
+	data := unsafe.Pointer(uintptr(unsafe.Pointer(stackPointerBeforeGoCall)) + 8)
 	size := *stackPointerBeforeGoCall / 8
-	return unsafe.Slice((*uint64)(data), size)
+	return unsafe.Slice((*uint64)(data), int(size))
 }
 
 func AdjustClonedStack(oldRsp, oldTop, rsp, rbp, top uintptr) {

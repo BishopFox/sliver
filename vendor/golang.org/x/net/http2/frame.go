@@ -39,7 +39,7 @@ const (
 	FrameContinuation FrameType = 0x9
 )
 
-var frameNames = [...]string{
+var frameName = map[FrameType]string{
 	FrameData:         "DATA",
 	FrameHeaders:      "HEADERS",
 	FramePriority:     "PRIORITY",
@@ -53,10 +53,10 @@ var frameNames = [...]string{
 }
 
 func (t FrameType) String() string {
-	if int(t) < len(frameNames) {
-		return frameNames[t]
+	if s, ok := frameName[t]; ok {
+		return s
 	}
-	return fmt.Sprintf("UNKNOWN_FRAME_TYPE_%d", t)
+	return fmt.Sprintf("UNKNOWN_FRAME_TYPE_%d", uint8(t))
 }
 
 // Flags is a bitmask of HTTP/2 flags.
@@ -124,7 +124,7 @@ var flagName = map[FrameType]map[Flags]string{
 // might be 0).
 type frameParser func(fc *frameCache, fh FrameHeader, countError func(string), payload []byte) (Frame, error)
 
-var frameParsers = [...]frameParser{
+var frameParsers = map[FrameType]frameParser{
 	FrameData:         parseDataFrame,
 	FrameHeaders:      parseHeadersFrame,
 	FramePriority:     parsePriorityFrame,
@@ -138,8 +138,8 @@ var frameParsers = [...]frameParser{
 }
 
 func typeFrameParser(t FrameType) frameParser {
-	if int(t) < len(frameParsers) {
-		return frameParsers[t]
+	if f := frameParsers[t]; f != nil {
+		return f
 	}
 	return parseUnknownFrame
 }
@@ -223,11 +223,6 @@ var fhBytes = sync.Pool{
 		buf := make([]byte, frameHeaderLen)
 		return &buf
 	},
-}
-
-func invalidHTTP1LookingFrameHeader() FrameHeader {
-	fh, _ := readFrameHeader(make([]byte, frameHeaderLen), strings.NewReader("HTTP/1.1 "))
-	return fh
 }
 
 // ReadFrameHeader reads 9 bytes from r and returns a FrameHeader.
@@ -347,7 +342,7 @@ func (fr *Framer) maxHeaderListSize() uint32 {
 func (f *Framer) startWrite(ftype FrameType, flags Flags, streamID uint32) {
 	// Write the FrameHeader.
 	f.wbuf = append(f.wbuf[:0],
-		0, // 3 bytes of length, filled in endWrite
+		0, // 3 bytes of length, filled in in endWrite
 		0,
 		0,
 		byte(ftype),
@@ -508,16 +503,10 @@ func (fr *Framer) ReadFrame() (Frame, error) {
 		return nil, err
 	}
 	if fh.Length > fr.maxReadSize {
-		if fh == invalidHTTP1LookingFrameHeader() {
-			return nil, fmt.Errorf("http2: failed reading the frame payload: %w, note that the frame header looked like an HTTP/1.1 header", ErrFrameTooLarge)
-		}
 		return nil, ErrFrameTooLarge
 	}
 	payload := fr.getReadBuf(fh.Length)
 	if _, err := io.ReadFull(fr.r, payload); err != nil {
-		if fh == invalidHTTP1LookingFrameHeader() {
-			return nil, fmt.Errorf("http2: failed reading the frame payload: %w, note that the frame header looked like an HTTP/1.1 header", err)
-		}
 		return nil, err
 	}
 	f, err := typeFrameParser(fh.Type)(fr.frameCache, fh, fr.countError, payload)
@@ -1152,15 +1141,6 @@ type PriorityFrame struct {
 	PriorityParam
 }
 
-var defaultRFC9218Priority = PriorityParam{
-	incremental: 0,
-	urgency:     3,
-}
-
-// Note that HTTP/2 has had two different prioritization schemes, and
-// PriorityParam struct below is a superset of both schemes. The exported
-// symbols are from RFC 7540 and the non-exported ones are from RFC 9218.
-
 // PriorityParam are the stream prioritzation parameters.
 type PriorityParam struct {
 	// StreamDep is a 31-bit stream identifier for the
@@ -1176,20 +1156,6 @@ type PriorityParam struct {
 	// the spec, "Add one to the value to obtain a weight between
 	// 1 and 256."
 	Weight uint8
-
-	// "The urgency (u) parameter value is Integer (see Section 3.3.1 of
-	// [STRUCTURED-FIELDS]), between 0 and 7 inclusive, in descending order of
-	// priority. The default is 3."
-	urgency uint8
-
-	// "The incremental (i) parameter value is Boolean (see Section 3.3.6 of
-	// [STRUCTURED-FIELDS]). It indicates if an HTTP response can be processed
-	// incrementally, i.e., provide some meaningful output as chunks of the
-	// response arrive."
-	//
-	// We use uint8 (i.e. 0 is false, 1 is true) instead of bool so we can
-	// avoid unnecessary type conversions and because either type takes 1 byte.
-	incremental uint8
 }
 
 func (p PriorityParam) IsZero() bool {
@@ -1524,7 +1490,7 @@ func (mh *MetaHeadersFrame) checkPseudos() error {
 	pf := mh.PseudoFields()
 	for i, hf := range pf {
 		switch hf.Name {
-		case ":method", ":path", ":scheme", ":authority", ":protocol":
+		case ":method", ":path", ":scheme", ":authority":
 			isRequest = true
 		case ":status":
 			isResponse = true
@@ -1532,7 +1498,7 @@ func (mh *MetaHeadersFrame) checkPseudos() error {
 			return pseudoHeaderError(hf.Name)
 		}
 		// Check for duplicates.
-		// This would be a bad algorithm, but N is 5.
+		// This would be a bad algorithm, but N is 4.
 		// And this doesn't allocate.
 		for _, hf2 := range pf[:i] {
 			if hf.Name == hf2.Name {

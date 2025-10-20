@@ -31,13 +31,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	consts "github.com/bishopfox/sliver/client/constants"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/server/certs"
-	"github.com/bishopfox/sliver/server/core"
-	"github.com/bishopfox/sliver/server/db"
-	"github.com/bishopfox/sliver/server/db/models"
-	"github.com/bishopfox/sliver/server/transport"
+	consts "github.com/gsmith257-cyber/better-sliver-package/client/constants"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/server/certs"
+	"github.com/gsmith257-cyber/better-sliver-package/server/core"
+	"github.com/gsmith257-cyber/better-sliver-package/server/db"
+	"github.com/gsmith257-cyber/better-sliver-package/server/db/models"
+	"github.com/gsmith257-cyber/better-sliver-package/server/transport"
 )
 
 const (
@@ -212,7 +212,7 @@ func startMultiplayerModeCmd(cmd *cobra.Command, _ []string) {
 			Type:      "multiplayer",
 			MultiConf: multiConfig,
 		}
-		err = db.SaveC2Listener(listenerJob)
+		err = db.SaveHTTPC2Listener(listenerJob)
 		if err != nil {
 			fmt.Printf(Warn+"Failed to save job %v\n", err)
 		}

@@ -32,9 +32,9 @@ import (
 	"log"
 	// {{end}}
 
-	consts "github.com/bishopfox/sliver/implant/sliver/constants"
-	"github.com/bishopfox/sliver/implant/sliver/cryptography"
-	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	consts "github.com/gsmith257-cyber/better-sliver-package/implant/sliver/constants"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/cryptography"
+	pb "github.com/gsmith257-cyber/better-sliver-package/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -544,7 +544,7 @@ func (p *NetConnPivot) readEnvelope() (*pb.Envelope, error) {
 		// {{end}}
 		return nil, err
 	}
-	data, err = p.cipherCtx.DecryptWithoutSignatureCheck(data)
+	data, err = p.cipherCtx.Decrypt(data)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[pivot] Decryption error: %s", err)

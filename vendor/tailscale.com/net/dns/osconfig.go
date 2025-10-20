@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
-	"slices"
 	"strings"
 
 	"tailscale.com/types/logger"
@@ -83,7 +82,7 @@ func (o *OSConfig) WriteToBufioWriter(w *bufio.Writer) {
 		fmt.Fprintf(w, "SearchDomains:%v ", o.SearchDomains)
 	}
 	if len(o.MatchDomains) > 0 {
-		w.WriteString("MatchDomains:[")
+		w.WriteString("SearchDomains:[")
 		sp := ""
 		var numARPA int
 		for _, s := range o.MatchDomains {
@@ -104,16 +103,10 @@ func (o *OSConfig) WriteToBufioWriter(w *bufio.Writer) {
 }
 
 func (o OSConfig) IsZero() bool {
-	return len(o.Hosts) == 0 &&
-		len(o.Nameservers) == 0 &&
-		len(o.SearchDomains) == 0 &&
-		len(o.MatchDomains) == 0
+	return len(o.Nameservers) == 0 && len(o.SearchDomains) == 0 && len(o.MatchDomains) == 0
 }
 
 func (a OSConfig) Equal(b OSConfig) bool {
-	if len(a.Hosts) != len(b.Hosts) {
-		return false
-	}
 	if len(a.Nameservers) != len(b.Nameservers) {
 		return false
 	}
@@ -124,15 +117,6 @@ func (a OSConfig) Equal(b OSConfig) bool {
 		return false
 	}
 
-	for i := range a.Hosts {
-		ha, hb := a.Hosts[i], b.Hosts[i]
-		if ha.Addr != hb.Addr {
-			return false
-		}
-		if !slices.Equal(ha.Hosts, hb.Hosts) {
-			return false
-		}
-	}
 	for i := range a.Nameservers {
 		if a.Nameservers[i] != b.Nameservers[i] {
 			return false

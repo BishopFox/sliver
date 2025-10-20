@@ -13,7 +13,6 @@ Pretty-print tables into ASCII/Unicode strings.
   - Limit the length of
     - Rows (`SetAllowedRowLength`)
     - Columns (`ColumnConfig.Width*`)
-  - Auto-size Rows (`Style().Size.WidthMin` and `Style().Size.WidthMax`)
   - Page results by a specified number of Lines (`SetPageSize`)
   - Alignment - Horizontal & Vertical
     - Auto (horizontal) Align (numeric columns aligned Right)

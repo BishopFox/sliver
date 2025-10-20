@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build !goexperiment.jsonv2 || !go1.25
-
 package jsonwire
 
 import (
@@ -68,37 +66,35 @@ func AppendQuote[Bytes ~[]byte | ~string](dst []byte, src Bytes, flags *jsonflag
 	dst = slices.Grow(dst, len(`"`)+len(src)+len(`"`))
 	dst = append(dst, '"')
 	for uint(len(src)) > uint(n) {
+		// Handle single-byte ASCII.
 		if c := src[n]; c < utf8.RuneSelf {
-			// Handle single-byte ASCII.
 			n++
-			if escapeASCII[c] == 0 {
-				continue // no escaping possibly needed
-			}
-			// Handle escaping of single-byte ASCII.
-			if !(c == '<' || c == '>' || c == '&') || flags.Get(jsonflags.EscapeForHTML) {
+			if escapeASCII[c] > 0 {
+				if (c == '<' || c == '>' || c == '&') && !flags.Get(jsonflags.EscapeForHTML) {
+					continue
+				}
 				dst = append(dst, src[i:n-1]...)
 				dst = appendEscapedASCII(dst, c)
 				i = n
 			}
-		} else {
-			// Handle multi-byte Unicode.
-			r, rn := utf8.DecodeRuneInString(string(truncateMaxUTF8(src[n:])))
+			continue
+		}
+
+		// Handle multi-byte Unicode.
+		switch r, rn := utf8.DecodeRuneInString(string(truncateMaxUTF8(src[n:]))); {
+		case r == utf8.RuneError && rn == 1:
+			hasInvalidUTF8 = true
+			dst = append(dst, src[i:n]...)
+			dst = append(dst, "\ufffd"...)
 			n += rn
-			if r != utf8.RuneError && r != '\u2028' && r != '\u2029' {
-				continue // no escaping possibly needed
-			}
-			// Handle escaping of multi-byte Unicode.
-			switch {
-			case isInvalidUTF8(r, rn):
-				hasInvalidUTF8 = true
-				dst = append(dst, src[i:n-rn]...)
-				dst = append(dst, "\ufffd"...)
-				i = n
-			case (r == '\u2028' || r == '\u2029') && flags.Get(jsonflags.EscapeForJS):
-				dst = append(dst, src[i:n-rn]...)
-				dst = appendEscapedUnicode(dst, r)
-				i = n
-			}
+			i = n
+		case (r == '\u2028' || r == '\u2029') && flags.Get(jsonflags.EscapeForJS):
+			dst = append(dst, src[i:n]...)
+			dst = appendEscapedUnicode(dst, r)
+			n += rn
+			i = n
+		default:
+			n += rn
 		}
 	}
 	dst = append(dst, src[i:n]...)
@@ -145,7 +141,7 @@ func appendEscapedUTF16(dst []byte, x uint16) []byte {
 }
 
 // ReformatString consumes a JSON string from src and appends it to dst,
-// reformatting it if necessary according to the specified flags.
+// reformatting it if necessary for the given escapeRune parameter.
 // It returns the appended output and the number of consumed input bytes.
 func ReformatString(dst, src []byte, flags *jsonflags.Flags) ([]byte, int, error) {
 	// TODO: Should this update ValueFlags as input?
@@ -154,48 +150,18 @@ func ReformatString(dst, src []byte, flags *jsonflags.Flags) ([]byte, int, error
 	if err != nil {
 		return dst, n, err
 	}
-
-	// If the output requires no special escapes, and the input
-	// is already in canonical form or should be preserved verbatim,
-	// then directly copy the input to the output.
-	if !flags.Get(jsonflags.AnyEscape) &&
-		(valFlags.IsCanonical() || flags.Get(jsonflags.PreserveRawStrings)) {
+	isCanonical := !flags.Get(jsonflags.EscapeForHTML | jsonflags.EscapeForJS)
+	if flags.Get(jsonflags.PreserveRawStrings) || (isCanonical && valFlags.IsCanonical()) {
 		dst = append(dst, src[:n]...) // copy the string verbatim
 		return dst, n, nil
 	}
 
-	// Under [jsonflags.PreserveRawStrings], any pre-escaped sequences
-	// remain escaped, however we still need to respect the
-	// [jsonflags.EscapeForHTML] and [jsonflags.EscapeForJS] options.
-	if flags.Get(jsonflags.PreserveRawStrings) {
-		var i, lastAppendIndex int
-		for i < n {
-			if c := src[i]; c < utf8.RuneSelf {
-				if (c == '<' || c == '>' || c == '&') && flags.Get(jsonflags.EscapeForHTML) {
-					dst = append(dst, src[lastAppendIndex:i]...)
-					dst = appendEscapedASCII(dst, c)
-					lastAppendIndex = i + 1
-				}
-				i++
-			} else {
-				r, rn := utf8.DecodeRune(truncateMaxUTF8(src[i:]))
-				if (r == '\u2028' || r == '\u2029') && flags.Get(jsonflags.EscapeForJS) {
-					dst = append(dst, src[lastAppendIndex:i]...)
-					dst = appendEscapedUnicode(dst, r)
-					lastAppendIndex = i + rn
-				}
-				i += rn
-			}
-		}
-		return append(dst, src[lastAppendIndex:n]...), n, nil
-	}
-
-	// The input contains characters that might need escaping,
-	// unnecessary escape sequences, or invalid UTF-8.
-	// Perform a round-trip unquote and quote to properly reformat
-	// these sequences according the current flags.
+	// TODO: Implement a direct, raw-to-raw reformat for strings.
+	// If the escapeRune option would have resulted in no changes to the output,
+	// it would be faster to simply append src to dst without going through
+	// an intermediary representation in a separate buffer.
 	b, _ := AppendUnquote(nil, src[:n])
-	dst, _ = AppendQuote(dst, b, flags)
+	dst, _ = AppendQuote(dst, string(b), flags)
 	return dst, n, nil
 }
 
@@ -238,45 +204,23 @@ func AppendFloat(dst []byte, src float64, bits int) []byte {
 // ReformatNumber consumes a JSON string from src and appends it to dst,
 // canonicalizing it if specified.
 // It returns the appended output and the number of consumed input bytes.
-func ReformatNumber(dst, src []byte, flags *jsonflags.Flags) ([]byte, int, error) {
+func ReformatNumber(dst, src []byte, canonicalize bool) ([]byte, int, error) {
 	n, err := ConsumeNumber(src)
 	if err != nil {
 		return dst, n, err
 	}
-	if !flags.Get(jsonflags.CanonicalizeNumbers) {
+	if !canonicalize {
 		dst = append(dst, src[:n]...) // copy the number verbatim
 		return dst, n, nil
 	}
 
-	// Identify the kind of number.
-	var isFloat bool
-	for _, c := range src[:n] {
-		if c == '.' || c == 'e' || c == 'E' {
-			isFloat = true // has fraction or exponent
-			break
-		}
+	// Canonicalize the number per RFC 8785, section 3.2.2.3.
+	// As an optimization, we can copy integer numbers below 2⁵³ verbatim.
+	const maxExactIntegerDigits = 16 // len(strconv.AppendUint(nil, 1<<53, 10))
+	if n < maxExactIntegerDigits && ConsumeSimpleNumber(src[:n]) == n {
+		dst = append(dst, src[:n]...) // copy the number verbatim
+		return dst, n, nil
 	}
-
-	// Check if need to canonicalize this kind of number.
-	switch {
-	case string(src[:n]) == "-0":
-		break // canonicalize -0 as 0 regardless of kind
-	case isFloat:
-		if !flags.Get(jsonflags.CanonicalizeRawFloats) {
-			dst = append(dst, src[:n]...) // copy the number verbatim
-			return dst, n, nil
-		}
-	default:
-		// As an optimization, we can copy integer numbers below 2⁵³ verbatim
-		// since the canonical form is always identical.
-		const maxExactIntegerDigits = 16 // len(strconv.AppendUint(nil, 1<<53, 10))
-		if !flags.Get(jsonflags.CanonicalizeRawInts) || n < maxExactIntegerDigits {
-			dst = append(dst, src[:n]...) // copy the number verbatim
-			return dst, n, nil
-		}
-	}
-
-	// Parse and reformat the number (which uses a canonical format).
 	fv, _ := strconv.ParseFloat(string(src[:n]), 64)
 	switch {
 	case fv == 0:

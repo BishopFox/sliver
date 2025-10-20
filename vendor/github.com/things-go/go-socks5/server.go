@@ -3,7 +3,6 @@ package socks5
 import (
 	"bufio"
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -42,9 +41,6 @@ type Server struct {
 	rewriter AddressRewriter
 	// bindIP is used for bind or udp associate
 	bindIP net.IP
-	// useBindIpResolveAsUdpAddr is used to resolve bindIP as udp address
-	// default false, use  &net.UDPAddr{IP: request.LocalAddr.(*net.TCPAddr).IP, Port: 0}
-	useBindIpBaseResolveAsUdpAddr bool
 	// logger can be used to provide a custom log target.
 	// Defaults to io.Discard.
 	logger Logger
@@ -61,10 +57,6 @@ type Server struct {
 	userConnectHandle   func(ctx context.Context, writer io.Writer, request *Request) error
 	userBindHandle      func(ctx context.Context, writer io.Writer, request *Request) error
 	userAssociateHandle func(ctx context.Context, writer io.Writer, request *Request) error
-	// user's middleware
-	userConnectMiddlewares   MiddlewareChain
-	userBindMiddlewares      MiddlewareChain
-	userAssociateMiddlewares MiddlewareChain
 }
 
 // NewServer creates a new Server
@@ -94,16 +86,7 @@ func NewServer(opts ...Option) *Server {
 
 // ListenAndServe is used to create a listener and serve on it
 func (sf *Server) ListenAndServe(network, addr string) error {
-	l, err := net.Listen(network, addr) // nolint: noctx
-	if err != nil {
-		return err
-	}
-	return sf.Serve(l)
-}
-
-// ListenAndServeTLS is used to create a TLS listener and serve on it
-func (sf *Server) ListenAndServeTLS(network, addr string, c *tls.Config) error {
-	l, err := tls.Listen(network, addr, c)
+	l, err := net.Listen(network, addr)
 	if err != nil {
 		return err
 	}
@@ -112,7 +95,7 @@ func (sf *Server) ListenAndServeTLS(network, addr string, c *tls.Config) error {
 
 // Serve is used to serve connections from a listener
 func (sf *Server) Serve(l net.Listener) error {
-	defer l.Close() // nolint: errcheck
+	defer l.Close()
 	for {
 		conn, err := l.Accept()
 		if err != nil {
@@ -130,7 +113,7 @@ func (sf *Server) Serve(l net.Listener) error {
 func (sf *Server) ServeConn(conn net.Conn) error {
 	var authContext *AuthContext
 
-	defer conn.Close() // nolint: errcheck
+	defer conn.Close()
 
 	bufConn := bufio.NewReader(conn)
 
@@ -163,13 +146,13 @@ func (sf *Server) ServeConn(conn net.Conn) error {
 		return fmt.Errorf("failed to read destination address, %w", err)
 	}
 
-	if request.Request.Command != statute.CommandConnect && // nolint: staticcheck
-		request.Request.Command != statute.CommandBind && // nolint: staticcheck
-		request.Request.Command != statute.CommandAssociate { // nolint: staticcheck
+	if request.Request.Command != statute.CommandConnect &&
+		request.Request.Command != statute.CommandBind &&
+		request.Request.Command != statute.CommandAssociate {
 		if err := SendReply(conn, statute.RepCommandNotSupported, nil); err != nil {
 			return fmt.Errorf("failed to send reply, %v", err)
 		}
-		return fmt.Errorf("unrecognized command[%d]", request.Request.Command) // nolint: staticcheck
+		return fmt.Errorf("unrecognized command[%d]", request.Request.Command)
 	}
 
 	request.AuthContext = authContext

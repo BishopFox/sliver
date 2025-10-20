@@ -12,6 +12,8 @@ import (
 
 	"github.com/tetratelabs/wazero/api"
 	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
+	"github.com/tetratelabs/wazero/internal/engine/interpreter"
+	"github.com/tetratelabs/wazero/internal/engine/wazevo"
 	"github.com/tetratelabs/wazero/internal/filecache"
 	"github.com/tetratelabs/wazero/internal/internalapi"
 	"github.com/tetratelabs/wazero/internal/platform"
@@ -146,7 +148,7 @@ type RuntimeConfig interface {
 	//	customSections := c.CustomSections()
 	WithCustomSections(bool) RuntimeConfig
 
-	// WithCloseOnContextDone ensures the executions of functions to be terminated under one of the following circumstances:
+	// WithCloseOnContextDone ensures the executions of functions to be closed under one of the following circumstances:
 	//
 	// 	- context.Context passed to the Call method of api.Function is canceled during execution. (i.e. ctx by context.WithCancel)
 	// 	- context.Context passed to the Call method of api.Function reaches timeout during execution. (i.e. ctx by context.WithTimeout or context.WithDeadline)
@@ -156,8 +158,6 @@ type RuntimeConfig interface {
 	// api.Function can potentially block the corresponding Goroutine forever. Moreover, it might block the
 	// entire underlying OS thread which runs the api.Function call. See "Why it's safe to execute runtime-generated
 	// machine codes against async Goroutine preemption" section in RATIONALE.md for detail.
-	//
-	// Upon the termination of the function executions, api.Module is closed.
 	//
 	// Note that this comes with a bit of extra cost when enabled. The reason is that internally this forces
 	// interpreter and compiler runtimes to insert the periodical checks on the conditions above. For that reason,
@@ -173,9 +173,7 @@ type RuntimeConfig interface {
 // NewRuntimeConfig returns a RuntimeConfig using the compiler if it is supported in this environment,
 // or the interpreter otherwise.
 func NewRuntimeConfig() RuntimeConfig {
-	ret := engineLessConfig.clone()
-	ret.engineKind = engineKindAuto
-	return ret
+	return newRuntimeConfig()
 }
 
 type newEngine func(context.Context, api.CoreFeatures, filecache.Cache) wasm.Engine
@@ -203,8 +201,7 @@ var engineLessConfig = &runtimeConfig{
 type engineKind int
 
 const (
-	engineKindAuto engineKind = iota - 1
-	engineKindCompiler
+	engineKindCompiler engineKind = iota
 	engineKindInterpreter
 	engineKindCount
 )
@@ -220,21 +217,13 @@ const (
 // part. wazero automatically performs ahead-of-time compilation as needed when
 // Runtime.CompileModule is invoked.
 //
-// # Warning
-//
-//   - This panics at runtime if the runtime.GOOS or runtime.GOARCH does not
-//     support compiler. Use NewRuntimeConfig to safely detect and fallback to
-//     NewRuntimeConfigInterpreter if needed.
-//
-//   - If you are using wazero in buildmode=c-archive or c-shared, make sure that you set up the alternate signal stack
-//     by using, e.g. `sigaltstack` combined with `SA_ONSTACK` flag on `sigaction` on Linux,
-//     before calling any api.Function. This is because the Go runtime does not set up the alternate signal stack
-//     for c-archive or c-shared modes, and wazero uses the different stack than the calling Goroutine.
-//     Hence, the signal handler might get invoked on the wazero's stack, which may cause a stack overflow.
-//     https://github.com/tetratelabs/wazero/blob/2092c0a879f30d49d7b37f333f4547574b8afe0d/internal/integration_test/fuzz/fuzz/tests/sigstack.rs#L19-L36
+// Warning: This panics at runtime if the runtime.GOOS or runtime.GOARCH does not
+// support compiler. Use NewRuntimeConfig to safely detect and fallback to
+// NewRuntimeConfigInterpreter if needed.
 func NewRuntimeConfigCompiler() RuntimeConfig {
 	ret := engineLessConfig.clone()
 	ret.engineKind = engineKindCompiler
+	ret.newEngine = wazevo.NewEngine
 	return ret
 }
 
@@ -242,6 +231,7 @@ func NewRuntimeConfigCompiler() RuntimeConfig {
 func NewRuntimeConfigInterpreter() RuntimeConfig {
 	ret := engineLessConfig.clone()
 	ret.engineKind = engineKindInterpreter
+	ret.newEngine = interpreter.NewEngine
 	return ret
 }
 
@@ -494,20 +484,7 @@ type ModuleConfig interface {
 	WithFSConfig(FSConfig) ModuleConfig
 
 	// WithName configures the module name. Defaults to what was decoded from
-	// the name section. Duplicate names are not allowed in a single Runtime.
-	//
-	// Calling this with the empty string "" makes the module anonymous.
-	// That is useful when you want to instantiate the same CompiledModule multiple times like below:
-	//
-	// 	for i := 0; i < N; i++ {
-	//		// Instantiate a new Wasm module from the already compiled `compiledWasm` anonymously without a name.
-	//		instance, err := r.InstantiateModule(ctx, compiledWasm, wazero.NewModuleConfig().WithName(""))
-	//		// ....
-	//	}
-	//
-	// See the `concurrent-instantiation` example for a complete usage.
-	//
-	// Non-empty named modules are available for other modules to import by name.
+	// the name section. Empty string ("") clears any name.
 	WithName(string) ModuleConfig
 
 	// WithStartFunctions configures the functions to call after the module is

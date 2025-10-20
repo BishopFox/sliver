@@ -1,20 +1,15 @@
-# server/db
+DB
+===
 
-## Overview
+[GORM-based](https://gorm.io/) database interactions.
 
-Database access layer including migrations and helpers. Establishes database connections, adapters, and query utilities. Key routines cover SQL CGO, SQL GO, SQL WASM, and SQL within the db subsystem.
+#### Contents:
 
-## Go Files
-
-- `db.go` – Initializes database connections and manages migrations.
-- `helpers.go` – Utility functions shared across the database layer.
-- `logger.go` – Database logging adapter for structured output.
-- `sql-cgo.go` – CGO-backed SQLite driver wiring.
-- `sql-go.go` – Pure-Go SQLite driver wiring.
-- `sql-wasm.go` – WebAssembly SQLite integration for embedded builds.
-- `sql.go` – Common SQL helpers and abstractions.
-
-## Sub-packages
-
-- `models/` – Database models and ORM definitions for server state. Defines data schemas, relationships, and query helpers.
-- `wasmsqlite/` – WebAssembly SQLite bridge for embedded database support. Adapts wasm-sqlite bindings for browser-compatible runtimes.
+ * `gosqlite/` - A fork of the GORM sqlite driver that uses a pure go sqlite3 implementation. This can be compiled using the Go build tag `gosqlite`
+ * `models/` - The database/GORM models 
+ * `db.go` - Primary abstraction for client and db sessions
+ * `helpers.go` - Helper functions for querying the GORM models
+ * `logger.go` - Database logger
+ * `sql_cgo.go` - The CGO sqlite client
+ * `sql_go.go` - The pure Go sqlite client
+ * `sql.go` - Database setup and configuration

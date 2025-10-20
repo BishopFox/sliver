@@ -103,8 +103,8 @@ func (s _storage) getFlag(cmd *cobra.Command, name string) Action {
 
 		return ActionCallback(func(c Context) Action { // TODO verify order of execution is correct
 			invoked := a.Invoke(c)
-			if invoked.action.meta.Usage == "" {
-				invoked.action.meta.Usage = flag.Usage
+			if invoked.meta.Usage == "" {
+				invoked.meta.Usage = flag.Usage
 			}
 			return invoked.ToA()
 		})
@@ -177,8 +177,8 @@ func (s _storage) getPositional(cmd *cobra.Command, index int) Action {
 
 	return ActionCallback(func(c Context) Action {
 		invoked := a.Invoke(c)
-		if invoked.action.meta.Usage == "" && len(strings.Fields(cmd.Use)) > 1 {
-			invoked.action.meta.Usage = cmd.Use
+		if invoked.meta.Usage == "" && len(strings.Fields(cmd.Use)) > 1 {
+			invoked.meta.Usage = cmd.Use
 		}
 		return invoked.ToA()
 	})

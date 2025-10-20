@@ -22,8 +22,6 @@ import (
 )
 
 const (
-	DefaultDriverName = "mysql"
-
 	AutoRandomTag = "auto_random()" // Treated as an auto_random field for tidb
 )
 
@@ -82,7 +80,7 @@ func New(config Config) gorm.Dialector {
 }
 
 func (dialector Dialector) Name() string {
-	return DefaultDriverName
+	return "mysql"
 }
 
 // NowFunc return now func
@@ -109,7 +107,7 @@ func (dialector Dialector) Apply(config *gorm.Config) error {
 
 func (dialector Dialector) Initialize(db *gorm.DB) (err error) {
 	if dialector.DriverName == "" {
-		dialector.DriverName = DefaultDriverName
+		dialector.DriverName = "mysql"
 	}
 
 	if dialector.DefaultDatetimePrecision == nil {
@@ -185,9 +183,7 @@ func (dialector Dialector) Initialize(db *gorm.DB) (err error) {
 	callbacks.RegisterDefaultCallbacks(db, callbackConfig)
 
 	for k, v := range dialector.ClauseBuilders() {
-		if _, ok := db.ClauseBuilders[k]; !ok {
-			db.ClauseBuilders[k] = v
-		}
+		db.ClauseBuilders[k] = v
 	}
 	return
 }

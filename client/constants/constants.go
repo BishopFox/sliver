@@ -136,6 +136,7 @@ const (
 	C2GenerateStr      = "generate"
 	RegenerateStr      = "regenerate"
 	CompilerInfoStr    = "info"
+	MsfStagerStr       = "msf-stager"
 	ProfilesStr        = "profiles"
 	BeaconStr          = "beacon"
 	BeaconsStr         = "beacons"

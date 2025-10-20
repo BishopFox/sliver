@@ -3,7 +3,6 @@ package arm64
 import (
 	"context"
 	"fmt"
-	"math"
 	"strings"
 
 	"github.com/tetratelabs/wazero/internal/engine/wazevo/backend"
@@ -15,35 +14,12 @@ import (
 type (
 	// machine implements backend.Machine.
 	machine struct {
-		compiler   backend.Compiler
-		currentABI *backend.FunctionABI
-		instrPool  wazevoapi.Pool[instruction]
-		// labelPositionPool is the pool of labelPosition. The id is the label where
-		// if the label is less than the maxSSABlockID, it's the ssa.BasicBlockID.
-		labelPositionPool wazevoapi.IDedPool[labelPosition]
+		compiler          backend.Compiler
+		executableContext *backend.ExecutableContextT[instruction]
+		currentABI        *backend.FunctionABI
 
-		// nextLabel is the next label to be allocated. The first free label comes after maxSSABlockID
-		// so that we can have an identical label for the SSA block ID, which is useful for debugging.
-		nextLabel label
-		// rootInstr is the first instruction of the function.
-		rootInstr *instruction
-		// currentLabelPos is the currently-compiled ssa.BasicBlock's labelPosition.
-		currentLabelPos *labelPosition
-		// orderedSSABlockLabelPos is the ordered list of labelPosition in the generated code for each ssa.BasicBlock.
-		orderedSSABlockLabelPos []*labelPosition
-		// returnLabelPos is the labelPosition for the return block.
-		returnLabelPos labelPosition
-		// perBlockHead and perBlockEnd are the head and tail of the instruction list per currently-compiled ssa.BasicBlock.
-		perBlockHead, perBlockEnd *instruction
-		// pendingInstructions are the instructions which are not yet emitted into the instruction list.
-		pendingInstructions []*instruction
-		// maxSSABlockID is the maximum ssa.BasicBlockID in the current function.
-		maxSSABlockID label
-
-		regAlloc   regalloc.Allocator[*instruction, *labelPosition, *regAllocFn]
-		regAllocFn regAllocFn
-
-		amodePool wazevoapi.Pool[addressMode]
+		regAlloc   regalloc.Allocator
+		regAllocFn *backend.RegAllocFunction[*instruction, *machine]
 
 		// addendsWorkQueue is used during address lowering, defined here for reuse.
 		addendsWorkQueue wazevoapi.Queue[ssa.Value]
@@ -57,8 +33,6 @@ type (
 
 		// jmpTableTargets holds the labels of the jump table targets.
 		jmpTableTargets [][]uint32
-		// jmpTableTargetNext is the index to the jmpTableTargets slice to be used for the next jump table.
-		jmpTableTargetsNext int
 
 		// spillSlotSize is the size of the stack slot in bytes used for spilling registers.
 		// During the execution of the function, the stack looks like:
@@ -115,132 +89,44 @@ type (
 		nextLabel label
 		offset    int64
 	}
-)
 
-type (
-	// label represents a position in the generated code which is either
-	// a real instruction or the constant InstructionPool (e.g. jump tables).
-	//
-	// This is exactly the same as the traditional "label" in assembly code.
-	label uint32
-
-	// labelPosition represents the regions of the generated code which the label represents.
-	// This implements regalloc.Block.
-	labelPosition struct {
-		// sb is not nil if this corresponds to a ssa.BasicBlock.
-		sb ssa.BasicBlock
-		// cur is used to walk through the instructions in the block during the register allocation.
-		cur,
-		// begin and end are the first and last instructions of the block.
-		begin, end *instruction
-		// binaryOffset is the offset in the binary where the label is located.
-		binaryOffset int64
-	}
+	labelPosition = backend.LabelPosition[instruction]
+	label         = backend.Label
 )
 
 const (
-	labelReturn  label = math.MaxUint32
-	labelInvalid       = labelReturn - 1
+	labelReturn  = backend.LabelReturn
+	labelInvalid = backend.LabelInvalid
 )
-
-// String implements backend.Machine.
-func (l label) String() string {
-	return fmt.Sprintf("L%d", l)
-}
-
-func resetLabelPosition(l *labelPosition) {
-	*l = labelPosition{}
-}
 
 // NewBackend returns a new backend for arm64.
 func NewBackend() backend.Machine {
 	m := &machine{
 		spillSlots:        make(map[regalloc.VRegID]int64),
-		regAlloc:          regalloc.NewAllocator[*instruction, *labelPosition, *regAllocFn](regInfo),
-		amodePool:         wazevoapi.NewPool[addressMode](resetAddressMode),
-		instrPool:         wazevoapi.NewPool[instruction](resetInstruction),
-		labelPositionPool: wazevoapi.NewIDedPool[labelPosition](resetLabelPosition),
+		executableContext: newExecutableContext(),
+		regAlloc:          regalloc.NewAllocator(regInfo),
 	}
-	m.regAllocFn.m = m
 	return m
 }
 
-func ssaBlockLabel(sb ssa.BasicBlock) label {
-	if sb.ReturnBlock() {
-		return labelReturn
-	}
-	return label(sb.ID())
+func newExecutableContext() *backend.ExecutableContextT[instruction] {
+	return backend.NewExecutableContextT[instruction](resetInstruction, setNext, setPrev, asNop0)
 }
 
-// getOrAllocateSSABlockLabelPosition returns the labelPosition for the given basic block.
-func (m *machine) getOrAllocateSSABlockLabelPosition(sb ssa.BasicBlock) *labelPosition {
-	if sb.ReturnBlock() {
-		m.returnLabelPos.sb = sb
-		return &m.returnLabelPos
-	}
-
-	l := ssaBlockLabel(sb)
-	pos := m.labelPositionPool.GetOrAllocate(int(l))
-	pos.sb = sb
-	return pos
-}
-
-// LinkAdjacentBlocks implements backend.Machine.
-func (m *machine) LinkAdjacentBlocks(prev, next ssa.BasicBlock) {
-	prevPos, nextPos := m.getOrAllocateSSABlockLabelPosition(prev), m.getOrAllocateSSABlockLabelPosition(next)
-	prevPos.end.next = nextPos.begin
-}
-
-// StartBlock implements backend.Machine.
-func (m *machine) StartBlock(blk ssa.BasicBlock) {
-	m.currentLabelPos = m.getOrAllocateSSABlockLabelPosition(blk)
-	labelPos := m.currentLabelPos
-	end := m.allocateNop()
-	m.perBlockHead, m.perBlockEnd = end, end
-	labelPos.begin, labelPos.end = end, end
-	m.orderedSSABlockLabelPos = append(m.orderedSSABlockLabelPos, labelPos)
-}
-
-// EndBlock implements ExecutableContext.
-func (m *machine) EndBlock() {
-	// Insert nop0 as the head of the block for convenience to simplify the logic of inserting instructions.
-	m.insertAtPerBlockHead(m.allocateNop())
-
-	m.currentLabelPos.begin = m.perBlockHead
-
-	if m.currentLabelPos.sb.EntryBlock() {
-		m.rootInstr = m.perBlockHead
-	}
-}
-
-func (m *machine) insertAtPerBlockHead(i *instruction) {
-	if m.perBlockHead == nil {
-		m.perBlockHead = i
-		m.perBlockEnd = i
-		return
-	}
-
-	i.next = m.perBlockHead
-	m.perBlockHead.prev = i
-	m.perBlockHead = i
-}
-
-// FlushPendingInstructions implements backend.Machine.
-func (m *machine) FlushPendingInstructions() {
-	l := len(m.pendingInstructions)
-	if l == 0 {
-		return
-	}
-	for i := l - 1; i >= 0; i-- { // reverse because we lower instructions in reverse order.
-		m.insertAtPerBlockHead(m.pendingInstructions[i])
-	}
-	m.pendingInstructions = m.pendingInstructions[:0]
+// ExecutableContext implements backend.Machine.
+func (m *machine) ExecutableContext() backend.ExecutableContext {
+	return m.executableContext
 }
 
 // RegAlloc implements backend.Machine Function.
 func (m *machine) RegAlloc() {
+	rf := m.regAllocFn
+	for _, pos := range m.executableContext.OrderedBlockLabels {
+		rf.AddBlock(pos.SB, pos.L, pos.Begin, pos.End)
+	}
+
 	m.regAllocStarted = true
-	m.regAlloc.DoAllocation(&m.regAllocFn)
+	m.regAlloc.DoAllocation(rf)
 	// Now that we know the final spill slot size, we must align spillSlotSize to 16 bytes.
 	m.spillSlotSize = (m.spillSlotSize + 15) &^ 15
 }
@@ -257,22 +143,12 @@ func (m *machine) Reset() {
 	m.clobberedRegs = m.clobberedRegs[:0]
 	m.regAllocStarted = false
 	m.regAlloc.Reset()
+	m.regAllocFn.Reset()
 	m.spillSlotSize = 0
 	m.unresolvedAddressModes = m.unresolvedAddressModes[:0]
 	m.maxRequiredStackSizeForCalls = 0
-	m.jmpTableTargetsNext = 0
-	m.amodePool.Reset()
-	m.instrPool.Reset()
-	m.labelPositionPool.Reset()
-	m.pendingInstructions = m.pendingInstructions[:0]
-	m.perBlockHead, m.perBlockEnd, m.rootInstr = nil, nil, nil
-	m.orderedSSABlockLabelPos = m.orderedSSABlockLabelPos[:0]
-}
-
-// StartLoweringFunction implements backend.Machine StartLoweringFunction.
-func (m *machine) StartLoweringFunction(maxBlockID ssa.BasicBlockID) {
-	m.maxSSABlockID = label(maxBlockID)
-	m.nextLabel = label(maxBlockID) + 1
+	m.executableContext.Reset()
+	m.jmpTableTargets = m.jmpTableTargets[:0]
 }
 
 // SetCurrentABI implements backend.Machine SetCurrentABI.
@@ -288,11 +164,12 @@ func (m *machine) DisableStackCheck() {
 // SetCompiler implements backend.Machine.
 func (m *machine) SetCompiler(ctx backend.Compiler) {
 	m.compiler = ctx
-	m.regAllocFn.ssaB = ctx.SSABuilder()
+	m.regAllocFn = backend.NewRegAllocFunction[*instruction, *machine](m, ctx.SSABuilder(), ctx)
 }
 
 func (m *machine) insert(i *instruction) {
-	m.pendingInstructions = append(m.pendingInstructions, i)
+	ectx := m.executableContext
+	ectx.PendingInstructions = append(ectx.PendingInstructions, i)
 }
 
 func (m *machine) insertBrTargetLabel() label {
@@ -302,18 +179,19 @@ func (m *machine) insertBrTargetLabel() label {
 }
 
 func (m *machine) allocateBrTarget() (nop *instruction, l label) {
-	l = m.nextLabel
-	m.nextLabel++
+	ectx := m.executableContext
+	l = ectx.AllocateLabel()
 	nop = m.allocateInstr()
 	nop.asNop0WithLabel(l)
-	pos := m.labelPositionPool.GetOrAllocate(int(l))
-	pos.begin, pos.end = nop, nop
+	pos := ectx.AllocateLabelPosition(l)
+	pos.Begin, pos.End = nop, nop
+	ectx.LabelPositions[l] = pos
 	return
 }
 
 // allocateInstr allocates an instruction.
 func (m *machine) allocateInstr() *instruction {
-	instr := m.instrPool.Allocate()
+	instr := m.executableContext.InstructionPool.Allocate()
 	if !m.regAllocStarted {
 		instr.addedBeforeRegAlloc = true
 	}
@@ -331,7 +209,7 @@ func (m *machine) allocateNop() *instruction {
 }
 
 func (m *machine) resolveAddressingMode(arg0offset, ret0offset int64, i *instruction) {
-	amode := i.getAmode()
+	amode := &i.amode
 	switch amode.kind {
 	case addressModeKindResultStackSpace:
 		amode.imm += ret0offset
@@ -370,6 +248,7 @@ func (m *machine) resolveAddressingMode(arg0offset, ret0offset int64, i *instruc
 
 // resolveRelativeAddresses resolves the relative addresses before encoding.
 func (m *machine) resolveRelativeAddresses(ctx context.Context) {
+	ectx := m.executableContext
 	for {
 		if len(m.unresolvedAddressModes) > 0 {
 			arg0offset, ret0offset := m.arg0OffsetFromSP(), m.ret0OffsetFromSP()
@@ -383,36 +262,35 @@ func (m *machine) resolveRelativeAddresses(ctx context.Context) {
 
 		var fn string
 		var fnIndex int
-		var labelPosToLabel map[*labelPosition]label
+		var labelToSSABlockID map[label]ssa.BasicBlockID
 		if wazevoapi.PerfMapEnabled {
-			labelPosToLabel = make(map[*labelPosition]label)
-			for i := 0; i <= m.labelPositionPool.MaxIDEncountered(); i++ {
-				labelPosToLabel[m.labelPositionPool.Get(i)] = label(i)
-			}
-
 			fn = wazevoapi.GetCurrentFunctionName(ctx)
+			labelToSSABlockID = make(map[label]ssa.BasicBlockID)
+			for i, l := range ectx.SsaBlockIDToLabels {
+				labelToSSABlockID[l] = ssa.BasicBlockID(i)
+			}
 			fnIndex = wazevoapi.GetCurrentFunctionIndex(ctx)
 		}
 
 		// Next, in order to determine the offsets of relative jumps, we have to calculate the size of each label.
 		var offset int64
-		for i, pos := range m.orderedSSABlockLabelPos {
-			pos.binaryOffset = offset
+		for i, pos := range ectx.OrderedBlockLabels {
+			pos.BinaryOffset = offset
 			var size int64
-			for cur := pos.begin; ; cur = cur.next {
+			for cur := pos.Begin; ; cur = cur.next {
 				switch cur.kind {
 				case nop0:
 					l := cur.nop0Label()
-					if pos := m.labelPositionPool.Get(int(l)); pos != nil {
-						pos.binaryOffset = offset + size
+					if pos, ok := ectx.LabelPositions[l]; ok {
+						pos.BinaryOffset = offset + size
 					}
 				case condBr:
 					if !cur.condBrOffsetResolved() {
 						var nextLabel label
-						if i < len(m.orderedSSABlockLabelPos)-1 {
+						if i < len(ectx.OrderedBlockLabels)-1 {
 							// Note: this is only used when the block ends with fallthrough,
 							// therefore can be safely assumed that the next block exists when it's needed.
-							nextLabel = ssaBlockLabel(m.orderedSSABlockLabelPos[i+1].sb)
+							nextLabel = ectx.OrderedBlockLabels[i+1].L
 						}
 						m.condBrRelocs = append(m.condBrRelocs, condBrReloc{
 							cbr: cur, currentLabelPos: pos, offset: offset + size,
@@ -421,14 +299,21 @@ func (m *machine) resolveRelativeAddresses(ctx context.Context) {
 					}
 				}
 				size += cur.size()
-				if cur == pos.end {
+				if cur == pos.End {
 					break
 				}
 			}
 
 			if wazevoapi.PerfMapEnabled {
 				if size > 0 {
-					wazevoapi.PerfMap.AddModuleEntry(fnIndex, offset, uint64(size), fmt.Sprintf("%s:::::%s", fn, labelPosToLabel[pos]))
+					l := pos.L
+					var labelStr string
+					if blkID, ok := labelToSSABlockID[l]; ok {
+						labelStr = fmt.Sprintf("%s::SSA_Block[%s]", l, blkID)
+					} else {
+						labelStr = l.String()
+					}
+					wazevoapi.PerfMap.AddModuleEntry(fnIndex, offset, uint64(size), fmt.Sprintf("%s:::::%s", fn, labelStr))
 				}
 			}
 			offset += size
@@ -442,7 +327,7 @@ func (m *machine) resolveRelativeAddresses(ctx context.Context) {
 			offset := reloc.offset
 
 			target := cbr.condBrLabel()
-			offsetOfTarget := m.labelPositionPool.Get(int(target)).binaryOffset
+			offsetOfTarget := ectx.LabelPositions[target].BinaryOffset
 			diff := offsetOfTarget - offset
 			if divided := diff >> 2; divided < minSignedInt19 || divided > maxSignedInt19 {
 				// This case the conditional branch is too huge. We place the trampoline instructions at the end of the current block,
@@ -463,11 +348,11 @@ func (m *machine) resolveRelativeAddresses(ctx context.Context) {
 	}
 
 	var currentOffset int64
-	for cur := m.rootInstr; cur != nil; cur = cur.next {
+	for cur := ectx.RootInstr; cur != nil; cur = cur.next {
 		switch cur.kind {
 		case br:
 			target := cur.brLabel()
-			offsetOfTarget := m.labelPositionPool.Get(int(target)).binaryOffset
+			offsetOfTarget := ectx.LabelPositions[target].BinaryOffset
 			diff := offsetOfTarget - currentOffset
 			divided := diff >> 2
 			if divided < minSignedInt26 || divided > maxSignedInt26 {
@@ -478,7 +363,7 @@ func (m *machine) resolveRelativeAddresses(ctx context.Context) {
 		case condBr:
 			if !cur.condBrOffsetResolved() {
 				target := cur.condBrLabel()
-				offsetOfTarget := m.labelPositionPool.Get(int(target)).binaryOffset
+				offsetOfTarget := ectx.LabelPositions[target].BinaryOffset
 				diff := offsetOfTarget - currentOffset
 				if divided := diff >> 2; divided < minSignedInt19 || divided > maxSignedInt19 {
 					panic("BUG: branch relocation for large conditional branch larger than 19-bit range must be handled properly")
@@ -490,7 +375,7 @@ func (m *machine) resolveRelativeAddresses(ctx context.Context) {
 			targets := m.jmpTableTargets[tableIndex]
 			for i := range targets {
 				l := label(targets[i])
-				offsetOfTarget := m.labelPositionPool.Get(int(l)).binaryOffset
+				offsetOfTarget := ectx.LabelPositions[l].BinaryOffset
 				diff := offsetOfTarget - (currentOffset + brTableSequenceOffsetTableBegin)
 				targets[i] = uint32(diff)
 			}
@@ -511,7 +396,7 @@ const (
 )
 
 func (m *machine) insertConditionalJumpTrampoline(cbr *instruction, currentBlk *labelPosition, nextLabel label) {
-	cur := currentBlk.end
+	cur := currentBlk.End
 	originalTarget := cbr.condBrLabel()
 	endNext := cur.next
 
@@ -534,27 +419,30 @@ func (m *machine) insertConditionalJumpTrampoline(cbr *instruction, currentBlk *
 	cur = linkInstr(cur, br)
 
 	// Update the end of the current block.
-	currentBlk.end = cur
+	currentBlk.End = cur
 
 	linkInstr(cur, endNext)
 }
 
 // Format implements backend.Machine.
 func (m *machine) Format() string {
+	ectx := m.executableContext
 	begins := map[*instruction]label{}
-	for l := label(0); l < m.nextLabel; l++ {
-		pos := m.labelPositionPool.Get(int(l))
-		if pos != nil {
-			begins[pos.begin] = l
-		}
+	for l, pos := range ectx.LabelPositions {
+		begins[pos.Begin] = l
+	}
+
+	irBlocks := map[label]ssa.BasicBlockID{}
+	for i, l := range ectx.SsaBlockIDToLabels {
+		irBlocks[l] = ssa.BasicBlockID(i)
 	}
 
 	var lines []string
-	for cur := m.rootInstr; cur != nil; cur = cur.next {
+	for cur := ectx.RootInstr; cur != nil; cur = cur.next {
 		if l, ok := begins[cur]; ok {
 			var labelStr string
-			if l <= m.maxSSABlockID {
-				labelStr = fmt.Sprintf("%s (SSA Block: blk%d):", l, int(l))
+			if blkID, ok := irBlocks[l]; ok {
+				labelStr = fmt.Sprintf("%s (SSA Block: %s):", l, blkID)
 			} else {
 				labelStr = fmt.Sprintf("%s:", l)
 			}
@@ -615,17 +503,13 @@ func (m *machine) frameSize() int64 {
 	return s
 }
 
-func (m *machine) addJmpTableTarget(targets ssa.Values) (index int) {
-	if m.jmpTableTargetsNext == len(m.jmpTableTargets) {
-		m.jmpTableTargets = append(m.jmpTableTargets, make([]uint32, 0, len(targets.View())))
+func (m *machine) addJmpTableTarget(targets []ssa.BasicBlock) (index int) {
+	// TODO: reuse the slice!
+	labels := make([]uint32, len(targets))
+	for j, target := range targets {
+		labels[j] = uint32(m.executableContext.GetOrAllocateSSABlockLabel(target))
 	}
-
-	index = m.jmpTableTargetsNext
-	m.jmpTableTargetsNext++
-	m.jmpTableTargets[index] = m.jmpTableTargets[index][:0]
-	for _, targetBlockID := range targets.View() {
-		target := m.compiler.SSABuilder().BasicBlock(ssa.BasicBlockID(targetBlockID))
-		m.jmpTableTargets[index] = append(m.jmpTableTargets[index], uint32(target.ID()))
-	}
+	index = len(m.jmpTableTargets)
+	m.jmpTableTargets = append(m.jmpTableTargets, labels)
 	return
 }

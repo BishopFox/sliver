@@ -32,8 +32,6 @@ type Error interface {
 	fmt.Stringer
 }
 
-const maxErrno = 134
-
 // LINT.IfChange
 
 // ErrAborted indicates the operation was aborted.
@@ -275,19 +273,6 @@ func (*ErrDuplicateNICID) IgnoreStats() bool {
 	return false
 }
 func (*ErrDuplicateNICID) String() string { return "duplicate nic id" }
-
-// ErrInvalidNICID indicates the operation used an invalid NIC ID.
-//
-// +stateify savable
-type ErrInvalidNICID struct{}
-
-func (*ErrInvalidNICID) isError() {}
-
-// IgnoreStats implements Error.
-func (*ErrInvalidNICID) IgnoreStats() bool {
-	return false
-}
-func (*ErrInvalidNICID) String() string { return "invalid nic id" }
 
 // ErrInvalidEndpointState indicates the endpoint is in an invalid state.
 //
@@ -619,23 +604,5 @@ func (*ErrMulticastInputCannotBeOutput) IgnoreStats() bool {
 	return true
 }
 func (*ErrMulticastInputCannotBeOutput) String() string { return "output cannot contain input" }
-
-// ErrEndpointBusy indicates that the operation cannot be completed because the
-// endpoint is busy.
-//
-// +stateify savable
-type ErrEndpointBusy struct{}
-
-// isError implements Error.
-func (*ErrEndpointBusy) isError() {}
-
-// IgnoreStats implements Error.
-func (*ErrEndpointBusy) IgnoreStats() bool {
-	return true
-}
-
-func (*ErrEndpointBusy) String() string {
-	return "operation cannot be completed because the endpoint is busy"
-}
 
 // LINT.ThenChange(../syserr/netstack.go)

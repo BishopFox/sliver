@@ -3,13 +3,11 @@
 #ifdef __WIN32
 #include <windows.h>
 
-// {{range .Config.Exports}}
-void {{.}}();
-// {{end}}
+void StartW();
 
 DWORD WINAPI Start()
 {
-    {{ (index .Config.Exports 0) }}();
+    StartW();
     return 0;
 }
 
@@ -45,30 +43,27 @@ BOOL WINAPI DllMain(
 #elif __linux__
 #include <stdlib.h>
 
-// {{range .Config.Exports}}
-void {{.}}();
-// {{end}}
+void StartW();
 
 static void init(int argc, char **argv, char **envp)
 {
     unsetenv("LD_PRELOAD");
     unsetenv("LD_PARAMS");
     // {{if .Config.RunAtLoad}}
-    {{ (index .Config.Exports 0) }}();
+    StartW();
     // {{end}}
 }
 __attribute__((section(".init_array"), used)) static typeof(init) *init_p = init;
 #elif __APPLE__
 #include <stdlib.h>
-// {{range .Config.Exports}}
-void {{.}}();
-// {{end}}
+void StartW();
+
 __attribute__((constructor)) static void init(int argc, char **argv, char **envp)
 {
     unsetenv("DYLD_INSERT_LIBRARIES");
     unsetenv("LD_PARAMS");
     // {{if .Config.RunAtLoad}}
-    {{ (index .Config.Exports 0) }}();
+    StartW();
     // {{end}}
 }
 

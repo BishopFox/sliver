@@ -485,7 +485,6 @@ func Complete(h *Sources, forward, filter bool, maxLines int, regex *regexp.Rege
 	h.hint.Set(color.Bold + color.FgCyanBright + h.names[h.sourcePos] + color.Reset)
 
 	compLines := make([]completion.Candidate, 0)
-	printedLines := make([]string, 0)
 
 	// Set up iteration clauses
 	var (
@@ -523,18 +522,6 @@ func Complete(h *Sources, forward, filter bool, maxLines int, regex *regexp.Rege
 			continue
 		}
 
-		// If this history line is a duplicate of an existing one,
-		// remove the existing one and keep this one as it's more recent.
-		if yes, pos := contains(printedLines, line); yes {
-			printedLines = append(printedLines[:pos], printedLines[pos+1:]...)
-			printedLines = append(printedLines, line)
-
-			continue
-		}
-
-		// Add to the list of printed lines if we have a new one.
-		printedLines = append(printedLines, line)
-
 		display := strings.ReplaceAll(line, "\n", ` `)
 
 		// Proper pad for indexes
@@ -567,12 +554,12 @@ func (h *Sources) Name() string {
 
 func (h *Sources) match(match *core.Line, cur *core.Cursor, usePos, fwd, regex bool) (line string, pos int, found bool) {
 	if len(h.list) == 0 {
-		return line, pos, found
+		return
 	}
 
 	history := h.Current()
 	if history == nil {
-		return line, pos, found
+		return
 	}
 
 	// Set up iteration clauses
@@ -600,7 +587,7 @@ func (h *Sources) match(match *core.Line, cur *core.Cursor, usePos, fwd, regex b
 
 		histline, err := history.GetLine(histPos)
 		if err != nil {
-			return line, pos, found
+			return
 		}
 
 		cline := string(*match)
@@ -687,26 +674,4 @@ func (h *Sources) setLineCursorMatch(next string) {
 	} else {
 		h.cursor.Set(h.line.Len())
 	}
-}
-
-func contains(s []string, e string) (bool, int) {
-	for i, a := range s {
-		if a == e {
-			return true, i
-		}
-	}
-
-	return false, 0
-}
-
-func removeDuplicates(source []string) []string {
-	list := []string{}
-
-	for _, item := range source {
-		if no, _ := contains(list, item); no {
-			list = append(list, item)
-		}
-	}
-
-	return list
 }

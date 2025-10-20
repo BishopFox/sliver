@@ -15,6 +15,8 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"os/exec"
+	"runtime"
 	"strings"
 	"sync/atomic"
 
@@ -23,7 +25,7 @@ import (
 	"go4.org/mem"
 	"golang.org/x/sys/unix"
 	"tailscale.com/net/netaddr"
-	"tailscale.com/util/lineiter"
+	"tailscale.com/util/lineread"
 )
 
 func init() {
@@ -31,6 +33,11 @@ func init() {
 }
 
 var procNetRouteErr atomic.Bool
+
+// errStopReading is a sentinel error value used internally by
+// lineread.File callers to stop reading. It doesn't escape to
+// callers/users.
+var errStopReading = errors.New("stop reading")
 
 /*
 Parse 10.0.0.1 out of:
@@ -43,46 +50,54 @@ ens18   0000000A        00000000        0001    0       0       0       0000FFFF
 func likelyHomeRouterIPLinux() (ret netip.Addr, myIP netip.Addr, ok bool) {
 	if procNetRouteErr.Load() {
 		// If we failed to read /proc/net/route previously, don't keep trying.
+		if runtime.GOOS == "android" {
+			return likelyHomeRouterIPAndroid()
+		}
 		return ret, myIP, false
 	}
 	lineNum := 0
 	var f []mem.RO
-	for lr := range lineiter.File(procNetRoutePath) {
-		line, err := lr.Value()
-		if err != nil {
-			procNetRouteErr.Store(true)
-			log.Printf("interfaces: failed to read /proc/net/route: %v", err)
-			return ret, myIP, false
-		}
+	err := lineread.File(procNetRoutePath, func(line []byte) error {
 		lineNum++
 		if lineNum == 1 {
 			// Skip header line.
-			continue
+			return nil
 		}
 		if lineNum > maxProcNetRouteRead {
-			break
+			return errStopReading
 		}
 		f = mem.AppendFields(f[:0], mem.B(line))
 		if len(f) < 4 {
-			continue
+			return nil
 		}
 		gwHex, flagsHex := f[2], f[3]
 		flags, err := mem.ParseUint(flagsHex, 16, 16)
 		if err != nil {
-			continue // ignore error, skip line and keep going
+			return nil // ignore error, skip line and keep going
 		}
 		if flags&(unix.RTF_UP|unix.RTF_GATEWAY) != unix.RTF_UP|unix.RTF_GATEWAY {
-			continue
+			return nil
 		}
 		ipu32, err := mem.ParseUint(gwHex, 16, 32)
 		if err != nil {
-			continue // ignore error, skip line and keep going
+			return nil // ignore error, skip line and keep going
 		}
 		ip := netaddr.IPv4(byte(ipu32), byte(ipu32>>8), byte(ipu32>>16), byte(ipu32>>24))
 		if ip.IsPrivate() {
 			ret = ip
-			break
+			return errStopReading
 		}
+		return nil
+	})
+	if errors.Is(err, errStopReading) {
+		err = nil
+	}
+	if err != nil {
+		procNetRouteErr.Store(true)
+		if runtime.GOOS == "android" {
+			return likelyHomeRouterIPAndroid()
+		}
+		log.Printf("interfaces: failed to read /proc/net/route: %v", err)
 	}
 	if ret.IsValid() {
 		// Try to get the local IP of the interface associated with
@@ -120,6 +135,41 @@ func likelyHomeRouterIPLinux() (ret netip.Addr, myIP netip.Addr, ok bool) {
 		procNetRouteErr.Store(true)
 	}
 	return netip.Addr{}, netip.Addr{}, false
+}
+
+// Android apps don't have permission to read /proc/net/route, at
+// least on Google devices and the Android emulator.
+func likelyHomeRouterIPAndroid() (ret netip.Addr, _ netip.Addr, ok bool) {
+	cmd := exec.Command("/system/bin/ip", "route", "show", "table", "0")
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		return
+	}
+	if err := cmd.Start(); err != nil {
+		log.Printf("interfaces: running /system/bin/ip: %v", err)
+		return
+	}
+	// Search for line like "default via 10.0.2.2 dev radio0 table 1016 proto static mtu 1500 "
+	lineread.Reader(out, func(line []byte) error {
+		const pfx = "default via "
+		if !mem.HasPrefix(mem.B(line), mem.S(pfx)) {
+			return nil
+		}
+		line = line[len(pfx):]
+		sp := bytes.IndexByte(line, ' ')
+		if sp == -1 {
+			return nil
+		}
+		ipb := line[:sp]
+		if ip, err := netip.ParseAddr(string(ipb)); err == nil && ip.Is4() {
+			ret = ip
+			log.Printf("interfaces: found Android default route %v", ip)
+		}
+		return nil
+	})
+	cmd.Process.Kill()
+	cmd.Wait()
+	return ret, netip.Addr{}, ret.IsValid()
 }
 
 func defaultRoute() (d DefaultRouteDetails, err error) {

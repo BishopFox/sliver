@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"syscall"
 
 	"github.com/google/nftables/binaryutil"
 	"github.com/google/nftables/expr"
@@ -38,19 +37,15 @@ type Conn struct {
 	TestDial nltest.Func // for testing only; passed to nltest.Dial
 	NetNS    int         // fd referencing the network namespace netlink will interact with.
 
-	lasting     bool       // establish a lasting connection to be used across multiple netlink operations.
-	mu          sync.Mutex // protects the following state
-	messages    []netlink.Message
-	err         error
-	nlconn      *netlink.Conn // netlink socket using NETLINK_NETFILTER protocol.
-	sockOptions []SockOption
+	lasting  bool       // establish a lasting connection to be used across multiple netlink operations.
+	mu       sync.Mutex // protects the following state
+	messages []netlink.Message
+	err      error
+	nlconn   *netlink.Conn // netlink socket using NETLINK_NETFILTER protocol.
 }
 
 // ConnOption is an option to change the behavior of the nftables Conn returned by Open.
 type ConnOption func(*Conn)
-
-// SockOption is an option to change the behavior of the netlink socket used by the nftables Conn.
-type SockOption func(*netlink.Conn) error
 
 // New returns a netlink connection for querying and modifying nftables. Some
 // aspects of the new netlink connection can be configured using the options
@@ -103,14 +98,6 @@ func WithNetNSFd(fd int) ConnOption {
 func WithTestDial(f nltest.Func) ConnOption {
 	return func(cc *Conn) {
 		cc.TestDial = f
-	}
-}
-
-// WithSockOptions sets the specified socket options when creating a new netlink
-// connection.
-func WithSockOptions(opts ...SockOption) ConnOption {
-	return func(cc *Conn) {
-		cc.sockOptions = append(cc.sockOptions, opts...)
 	}
 }
 
@@ -267,8 +254,8 @@ func (cc *Conn) Flush() error {
 	// Fetch the requested acknowledgement for each message we sent.
 	for _, msg := range cc.messages {
 		if _, err := receiveAckAware(conn, msg.Header.Flags); err != nil {
-			if errors.Is(err, os.ErrPermission) || errors.Is(err, syscall.ENOBUFS) {
-				// Kernel will only send one error to user space.
+			if errors.Is(err, os.ErrPermission) {
+				// Kernel will only send one permission error to user space.
 				return err
 			}
 			errs = errors.Join(errs, err)
@@ -297,28 +284,11 @@ func (cc *Conn) FlushRuleset() {
 }
 
 func (cc *Conn) dialNetlink() (*netlink.Conn, error) {
-	var (
-		conn *netlink.Conn
-		err  error
-	)
-
 	if cc.TestDial != nil {
-		conn = nltest.Dial(cc.TestDial)
-	} else {
-		conn, err = netlink.Dial(unix.NETLINK_NETFILTER, &netlink.Config{NetNS: cc.NetNS})
+		return nltest.Dial(cc.TestDial), nil
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
-	for _, opt := range cc.sockOptions {
-		if err := opt(conn); err != nil {
-			return nil, err
-		}
-	}
-
-	return conn, nil
+	return netlink.Dial(unix.NETLINK_NETFILTER, &netlink.Config{NetNS: cc.NetNS})
 }
 
 func (cc *Conn) setErr(err error) {

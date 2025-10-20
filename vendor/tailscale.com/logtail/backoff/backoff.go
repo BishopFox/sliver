@@ -6,7 +6,7 @@ package backoff
 
 import (
 	"context"
-	"math/rand/v2"
+	"math/rand"
 	"time"
 
 	"tailscale.com/tstime"
@@ -44,8 +44,9 @@ func NewBackoff(name string, logf logger.Logf, maxBackoff time.Duration) *Backof
 	}
 }
 
-// BackOff sleeps an increasing amount of time if err is non-nil while the
-// context is active. It resets the backoff schedule once err is nil.
+// Backoff sleeps an increasing amount of time if err is non-nil.
+// and the context is not a
+// It resets the backoff schedule once err is nil.
 func (b *Backoff) BackOff(ctx context.Context, err error) {
 	if err == nil {
 		// No error. Reset number of consecutive failures.

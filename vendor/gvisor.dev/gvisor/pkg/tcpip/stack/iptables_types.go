@@ -84,7 +84,7 @@ type IPTables struct {
 
 	reaper tcpip.Timer
 
-	mu ipTablesRWMutex `state:"nosave"`
+	mu ipTablesRWMutex
 	// v4Tables and v6tables map tableIDs to tables. They hold builtin
 	// tables only, not user tables.
 	//

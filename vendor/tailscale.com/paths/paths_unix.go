@@ -21,11 +21,8 @@ func init() {
 }
 
 func statePath() string {
-	if runtime.GOOS == "linux" && distro.Get() == distro.JetKVM {
-		return "/userdata/tailscale/var/tailscaled.state"
-	}
 	switch runtime.GOOS {
-	case "linux", "illumos", "solaris":
+	case "linux":
 		return "/var/lib/tailscale/tailscaled.state"
 	case "freebsd", "openbsd":
 		return "/var/db/tailscale/tailscaled.state"

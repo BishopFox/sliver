@@ -5,12 +5,11 @@
 package zstd
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
 	"math/bits"
-
-	"github.com/klauspost/compress/internal/le"
 )
 
 // bitReader reads a bitstream in reverse.
@@ -19,7 +18,6 @@ import (
 type bitReader struct {
 	in       []byte
 	value    uint64 // Maybe use [16]byte, but shifting is awkward.
-	cursor   int    // offset where next read should end
 	bitsRead uint8
 }
 
@@ -34,7 +32,6 @@ func (b *bitReader) init(in []byte) error {
 	if v == 0 {
 		return errors.New("corrupt stream, did not find end of stream")
 	}
-	b.cursor = len(in)
 	b.bitsRead = 64
 	b.value = 0
 	if len(in) >= 8 {
@@ -70,15 +67,18 @@ func (b *bitReader) fillFast() {
 	if b.bitsRead < 32 {
 		return
 	}
-	b.cursor -= 4
-	b.value = (b.value << 32) | uint64(le.Load32(b.in, b.cursor))
+	v := b.in[len(b.in)-4:]
+	b.in = b.in[:len(b.in)-4]
+	low := (uint32(v[0])) | (uint32(v[1]) << 8) | (uint32(v[2]) << 16) | (uint32(v[3]) << 24)
+	b.value = (b.value << 32) | uint64(low)
 	b.bitsRead -= 32
 }
 
 // fillFastStart() assumes the bitreader is empty and there is at least 8 bytes to read.
 func (b *bitReader) fillFastStart() {
-	b.cursor -= 8
-	b.value = le.Load64(b.in, b.cursor)
+	v := b.in[len(b.in)-8:]
+	b.in = b.in[:len(b.in)-8]
+	b.value = binary.LittleEndian.Uint64(v)
 	b.bitsRead = 0
 }
 
@@ -87,23 +87,25 @@ func (b *bitReader) fill() {
 	if b.bitsRead < 32 {
 		return
 	}
-	if b.cursor >= 4 {
-		b.cursor -= 4
-		b.value = (b.value << 32) | uint64(le.Load32(b.in, b.cursor))
+	if len(b.in) >= 4 {
+		v := b.in[len(b.in)-4:]
+		b.in = b.in[:len(b.in)-4]
+		low := (uint32(v[0])) | (uint32(v[1]) << 8) | (uint32(v[2]) << 16) | (uint32(v[3]) << 24)
+		b.value = (b.value << 32) | uint64(low)
 		b.bitsRead -= 32
 		return
 	}
 
-	b.bitsRead -= uint8(8 * b.cursor)
-	for b.cursor > 0 {
-		b.cursor -= 1
-		b.value = (b.value << 8) | uint64(b.in[b.cursor])
+	b.bitsRead -= uint8(8 * len(b.in))
+	for len(b.in) > 0 {
+		b.value = (b.value << 8) | uint64(b.in[len(b.in)-1])
+		b.in = b.in[:len(b.in)-1]
 	}
 }
 
 // finished returns true if all bits have been read from the bit stream.
 func (b *bitReader) finished() bool {
-	return b.cursor == 0 && b.bitsRead >= 64
+	return len(b.in) == 0 && b.bitsRead >= 64
 }
 
 // overread returns true if more bits have been requested than is on the stream.
@@ -113,14 +115,13 @@ func (b *bitReader) overread() bool {
 
 // remain returns the number of bits remaining.
 func (b *bitReader) remain() uint {
-	return 8*uint(b.cursor) + 64 - uint(b.bitsRead)
+	return 8*uint(len(b.in)) + 64 - uint(b.bitsRead)
 }
 
 // close the bitstream and returns an error if out-of-buffer reads occurred.
 func (b *bitReader) close() error {
 	// Release reference.
 	b.in = nil
-	b.cursor = 0
 	if !b.finished() {
 		return fmt.Errorf("%d extra bits on block, should be 0", b.remain())
 	}

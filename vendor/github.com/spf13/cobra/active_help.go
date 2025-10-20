@@ -17,16 +17,20 @@ package cobra
 import (
 	"fmt"
 	"os"
+	"regexp"
+	"strings"
 )
 
 const (
 	activeHelpMarker = "_activeHelp_ "
 	// The below values should not be changed: programs will be using them explicitly
 	// in their user documentation, and users will be using them explicitly.
-	activeHelpEnvVarSuffix  = "ACTIVE_HELP"
-	activeHelpGlobalEnvVar  = configEnvVarGlobalPrefix + "_" + activeHelpEnvVarSuffix
+	activeHelpEnvVarSuffix  = "_ACTIVE_HELP"
+	activeHelpGlobalEnvVar  = "COBRA_ACTIVE_HELP"
 	activeHelpGlobalDisable = "0"
 )
+
+var activeHelpEnvVarPrefixSubstRegexp = regexp.MustCompile(`[^A-Z0-9_]`)
 
 // AppendActiveHelp adds the specified string to the specified array to be used as ActiveHelp.
 // Such strings will be processed by the completion script and will be shown as ActiveHelp
@@ -35,7 +39,7 @@ const (
 // This function can be called multiple times before and/or after completions are added to
 // the array.  Each time this function is called with the same array, the new
 // ActiveHelp line will be shown below the previous ones when completion is triggered.
-func AppendActiveHelp(compArray []Completion, activeHelpStr string) []Completion {
+func AppendActiveHelp(compArray []string, activeHelpStr string) []string {
 	return append(compArray, fmt.Sprintf("%s%s", activeHelpMarker, activeHelpStr))
 }
 
@@ -56,5 +60,8 @@ func GetActiveHelpConfig(cmd *Command) string {
 // variable.  It has the format <PROGRAM>_ACTIVE_HELP where <PROGRAM> is the name of the
 // root command in upper case, with all non-ASCII-alphanumeric characters replaced by `_`.
 func activeHelpEnvVar(name string) string {
-	return configEnvVar(name, activeHelpEnvVarSuffix)
+	// This format should not be changed: users will be using it explicitly.
+	activeHelpEnvVar := strings.ToUpper(fmt.Sprintf("%s%s", name, activeHelpEnvVarSuffix))
+	activeHelpEnvVar = activeHelpEnvVarPrefixSubstRegexp.ReplaceAllString(activeHelpEnvVar, "_")
+	return activeHelpEnvVar
 }

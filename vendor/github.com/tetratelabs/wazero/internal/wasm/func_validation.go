@@ -67,6 +67,11 @@ func (m *Module) validateFunctionWithMaxStackValues(
 	declaredFunctionIndexes map[Index]struct{},
 	br *bytes.Reader,
 ) error {
+	nonStaticLocals := make(map[Index]struct{})
+	if len(m.NonStaticLocals) > 0 {
+		m.NonStaticLocals[idx] = nonStaticLocals
+	}
+
 	functionType := &m.TypeSection[m.FunctionSection[idx]]
 	code := &m.CodeSection[idx]
 	body := code.Body
@@ -352,6 +357,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 					return fmt.Errorf("invalid local index for %s %d >= %d(=len(locals)+len(parameters))",
 						OpcodeLocalSetName, index, l)
 				}
+				nonStaticLocals[index] = struct{}{}
 				var expType ValueType
 				if index < inputLen {
 					expType = functionType.Params[index]
@@ -367,6 +373,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 					return fmt.Errorf("invalid local index for %s %d >= %d(=len(locals)+len(parameters))",
 						OpcodeLocalTeeName, index, l)
 				}
+				nonStaticLocals[index] = struct{}{}
 				var expType ValueType
 				if index < inputLen {
 					expType = functionType.Params[index]
@@ -451,14 +458,14 @@ func (m *Module) validateFunctionWithMaxStackValues(
 				return fmt.Errorf("read immediate: %w", err)
 			}
 
-			sts.ls = sts.ls[:0]
+			list := make([]uint32, nl)
 			for i := uint32(0); i < nl; i++ {
 				l, n, err := leb128.DecodeUint32(br)
 				if err != nil {
 					return fmt.Errorf("read immediate: %w", err)
 				}
 				num += n
-				sts.ls = append(sts.ls, l)
+				list[i] = l
 			}
 			ln, n, err := leb128.DecodeUint32(br)
 			if err != nil {
@@ -511,7 +518,7 @@ func (m *Module) validateFunctionWithMaxStackValues(
 				}
 			}
 
-			for _, l := range sts.ls {
+			for _, l := range list {
 				if int(l) >= len(controlBlockStack.stack) {
 					return fmt.Errorf("invalid l param given for %s", OpcodeBrTableName)
 				}
@@ -2003,8 +2010,6 @@ var vecSplatValueTypes = [...]ValueType{
 type stacks struct {
 	vs valueTypeStack
 	cs controlBlockStack
-	// ls is the label slice that is reused for each br_table instruction.
-	ls []uint32
 }
 
 func (sts *stacks) reset(functionType *FunctionType) {
@@ -2014,7 +2019,6 @@ func (sts *stacks) reset(functionType *FunctionType) {
 	sts.vs.maximumStackPointer = 0
 	sts.cs.stack = sts.cs.stack[:0]
 	sts.cs.stack = append(sts.cs.stack, controlBlock{blockType: functionType})
-	sts.ls = sts.ls[:0]
 }
 
 type controlBlockStack struct {

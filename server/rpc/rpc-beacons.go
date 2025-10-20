@@ -21,11 +21,11 @@ package rpc
 import (
 	"context"
 
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/server/db"
-	"github.com/bishopfox/sliver/server/db/models"
-	"github.com/bishopfox/sliver/server/log"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/commonpb"
+	"github.com/gsmith257-cyber/better-sliver-package/server/db"
+	"github.com/gsmith257-cyber/better-sliver-package/server/db/models"
+	"github.com/gsmith257-cyber/better-sliver-package/server/log"
 )
 
 var (
@@ -84,13 +84,13 @@ func (rpc *Server) RmBeacon(ctx context.Context, req *clientpb.Beacon) (*commonp
 }
 
 // GetBeaconTasks - Get a list of tasks for a specific beacon
-func (rpc *Server) GetBeaconTasks(ctx context.Context, req *clientpb.Beacon) (*clientpb.BeaconTasks, error) {
+func (rpc *Server) GetBeaconTasks(ctx context.Context, req *clientpb.Beacon) (*clientpb.BaconTasks, error) {
 	beacon, err := db.BeaconByID(req.ID)
 	if err != nil {
 		return nil, ErrInvalidBeaconID
 	}
 	tasks, err := db.BeaconTasksByBeaconID(beacon.ID.String())
-	return &clientpb.BeaconTasks{Tasks: tasks}, err
+	return &clientpb.BaconTasks{Tasks: tasks}, err
 }
 
 // GetBeaconTaskContent - Get the content of a specific task
@@ -109,10 +109,8 @@ func (rpc *Server) CancelBeaconTask(ctx context.Context, req *clientpb.BeaconTas
 		return nil, ErrInvalidBeaconTaskID
 	}
 	if task.State == models.PENDING {
-		err = db.Session().Model(&models.BeaconTask{}).
-			Where("id=?", task.ID).
-			Updates(map[string]interface{}{"state": models.CANCELED}).
-			Error
+		task.State = models.CANCELED
+		err = db.Session().Save(task).Error
 		if err != nil {
 			beaconRpcLog.Errorf("Database error: %s", err)
 			return nil, ErrDatabaseFailure

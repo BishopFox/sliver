@@ -2,14 +2,13 @@ package text
 
 import (
 	"fmt"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 )
 
-var colorsEnabled = areColorsOnInTheEnv() && areANSICodesSupported()
+var colorsEnabled = areANSICodesSupported()
 
 // DisableColors (forcefully) disables color coding globally.
 func DisableColors() {
@@ -19,15 +18,6 @@ func DisableColors() {
 // EnableColors (forcefully) enables color coding globally.
 func EnableColors() {
 	colorsEnabled = true
-}
-
-// areColorsOnInTheEnv returns true is colors are not disable using
-// well known environment variables.
-func areColorsOnInTheEnv() bool {
-	if os.Getenv("FORCE_COLOR") == "1" {
-		return true
-	}
-	return os.Getenv("NO_COLOR") == "" || os.Getenv("NO_COLOR") == "0"
 }
 
 // The logic here is inspired from github.com/fatih/color; the following is

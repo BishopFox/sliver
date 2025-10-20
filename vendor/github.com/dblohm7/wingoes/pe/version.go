@@ -48,6 +48,7 @@ const (
 	langEnUS        = 0x0409
 	codePageUTF16LE = 0x04B0
 	langNeutral     = 0
+	codePageNeutral = 0
 )
 
 // NewVersionInfo extracts any VERSIONINFO resource from filepath, parses its
@@ -110,7 +111,7 @@ func (vi *VersionInfo) maybeLoadTranslationIDs() {
 		},
 		langAndCodePage{
 			language: langNeutral,
-			codePage: codePageUTF16LE,
+			codePage: codePageNeutral,
 		},
 	}
 

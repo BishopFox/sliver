@@ -86,13 +86,12 @@ func (e *Engine) Refresh() {
 	// prompt end (thus indentation), cursor positions, etc.
 	e.computeCoordinates(true)
 
-	// Print the line, and any of the secondary and right prompts.
+	// Print the line, right prompt, hints and completions.
 	e.displayLine()
-	e.displayMultilinePrompts()
-
-	// Display hints and completions, go back
-	// to the start of the line, then to cursor.
+	e.prompt.RightPrint(e.lineCol, true)
 	e.displayHelpers()
+
+	// Go back to the start of the line, then to cursor.
 	e.cursorHintToLineStart()
 	e.lineStartToCursorPos()
 	fmt.Print(term.ShowCursor)
@@ -268,27 +267,6 @@ func (e *Engine) displayLine() {
 		fmt.Print(term.NewlineReturn)
 		fmt.Print(term.ClearLineAfter)
 	}
-}
-
-func (e *Engine) displayMultilinePrompts() {
-	// If we have more than one line, write the columns.
-	if e.line.Lines() > 1 {
-		term.MoveCursorUp(e.lineRows)
-		term.MoveCursorBackwards(term.GetWidth())
-		e.prompt.MultilineColumnPrint()
-	}
-
-	// Then if we have a line at all, rewrite the last column
-	// character with any secondary prompt available.
-	if e.line.Lines() > 0 {
-		term.MoveCursorBackwards(term.GetWidth())
-		e.prompt.SecondaryPrint()
-		term.MoveCursorBackwards(term.GetWidth())
-		term.MoveCursorForwards(e.lineCol)
-	}
-
-	// Then prompt the right-sided prompt if possible.
-	e.prompt.RightPrint(e.lineCol, true)
 }
 
 // displayHelpers renders the hint and completion sections.

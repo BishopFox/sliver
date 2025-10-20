@@ -9,7 +9,8 @@ import (
 )
 
 // AuthenticationOk is a message sent from the backend indicating that authentication was successful.
-type AuthenticationOk struct{}
+type AuthenticationOk struct {
+}
 
 // Backend identifies this message as sendable by the PostgreSQL backend.
 func (*AuthenticationOk) Backend() {}

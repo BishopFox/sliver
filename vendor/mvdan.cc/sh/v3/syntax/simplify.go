@@ -3,7 +3,7 @@
 
 package syntax
 
-import "strings"
+import "bytes"
 
 // Simplify modifies a node to remove redundant pieces of syntax, and returns
 // whether any changes were made.
@@ -27,63 +27,63 @@ type simplifier struct {
 }
 
 func (s *simplifier) visit(node Node) bool {
-	switch node := node.(type) {
+	switch x := node.(type) {
 	case *Assign:
-		node.Index = s.removeParensArithm(node.Index)
+		x.Index = s.removeParensArithm(x.Index)
 		// Don't inline params, as x[i] and x[$i] mean
 		// different things when x is an associative
 		// array; the first means "i", the second "$i".
 	case *ParamExp:
-		node.Index = s.removeParensArithm(node.Index)
+		x.Index = s.removeParensArithm(x.Index)
 		// don't inline params - same as above.
 
-		if node.Slice == nil {
+		if x.Slice == nil {
 			break
 		}
-		node.Slice.Offset = s.removeParensArithm(node.Slice.Offset)
-		node.Slice.Offset = s.inlineSimpleParams(node.Slice.Offset)
-		node.Slice.Length = s.removeParensArithm(node.Slice.Length)
-		node.Slice.Length = s.inlineSimpleParams(node.Slice.Length)
+		x.Slice.Offset = s.removeParensArithm(x.Slice.Offset)
+		x.Slice.Offset = s.inlineSimpleParams(x.Slice.Offset)
+		x.Slice.Length = s.removeParensArithm(x.Slice.Length)
+		x.Slice.Length = s.inlineSimpleParams(x.Slice.Length)
 	case *ArithmExp:
-		node.X = s.removeParensArithm(node.X)
-		node.X = s.inlineSimpleParams(node.X)
+		x.X = s.removeParensArithm(x.X)
+		x.X = s.inlineSimpleParams(x.X)
 	case *ArithmCmd:
-		node.X = s.removeParensArithm(node.X)
-		node.X = s.inlineSimpleParams(node.X)
+		x.X = s.removeParensArithm(x.X)
+		x.X = s.inlineSimpleParams(x.X)
 	case *ParenArithm:
-		node.X = s.removeParensArithm(node.X)
-		node.X = s.inlineSimpleParams(node.X)
+		x.X = s.removeParensArithm(x.X)
+		x.X = s.inlineSimpleParams(x.X)
 	case *BinaryArithm:
-		node.X = s.inlineSimpleParams(node.X)
-		node.Y = s.inlineSimpleParams(node.Y)
+		x.X = s.inlineSimpleParams(x.X)
+		x.Y = s.inlineSimpleParams(x.Y)
 	case *CmdSubst:
-		node.Stmts = s.inlineSubshell(node.Stmts)
+		x.Stmts = s.inlineSubshell(x.Stmts)
 	case *Subshell:
-		node.Stmts = s.inlineSubshell(node.Stmts)
+		x.Stmts = s.inlineSubshell(x.Stmts)
 	case *Word:
-		node.Parts = s.simplifyWord(node.Parts)
+		x.Parts = s.simplifyWord(x.Parts)
 	case *TestClause:
-		node.X = s.removeParensTest(node.X)
-		node.X = s.removeNegateTest(node.X)
+		x.X = s.removeParensTest(x.X)
+		x.X = s.removeNegateTest(x.X)
 	case *ParenTest:
-		node.X = s.removeParensTest(node.X)
-		node.X = s.removeNegateTest(node.X)
+		x.X = s.removeParensTest(x.X)
+		x.X = s.removeNegateTest(x.X)
 	case *BinaryTest:
-		node.X = s.unquoteParams(node.X)
-		node.X = s.removeNegateTest(node.X)
-		if node.Op == TsMatchShort {
+		x.X = s.unquoteParams(x.X)
+		x.X = s.removeNegateTest(x.X)
+		if x.Op == TsMatchShort {
 			s.modified = true
-			node.Op = TsMatch
+			x.Op = TsMatch
 		}
-		switch node.Op {
+		switch x.Op {
 		case TsMatch, TsNoMatch:
 			// unquoting enables globbing
 		default:
-			node.Y = s.unquoteParams(node.Y)
+			x.Y = s.unquoteParams(x.Y)
 		}
-		node.Y = s.removeNegateTest(node.Y)
+		x.Y = s.removeNegateTest(x.Y)
 	case *UnaryTest:
-		node.X = s.unquoteParams(node.X)
+		x.X = s.unquoteParams(x.X)
 	}
 	return true
 }
@@ -99,7 +99,7 @@ parts:
 		if lit == nil {
 			break
 		}
-		var sb strings.Builder
+		var buf bytes.Buffer
 		escaped := false
 		for _, r := range lit.Value {
 			switch r {
@@ -118,9 +118,9 @@ parts:
 				}
 				escaped = false
 			}
-			sb.WriteRune(r)
+			buf.WriteRune(r)
 		}
-		newVal := sb.String()
+		newVal := buf.String()
 		if newVal == lit.Value {
 			break
 		}

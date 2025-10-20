@@ -23,8 +23,6 @@ import (
 var _ stack.IPNetworkEndpointStats = (*Stats)(nil)
 
 // Stats holds statistics related to the IPv6 protocol family.
-//
-// +stateify savable
 type Stats struct {
 	// IP holds IPv6 statistics.
 	IP tcpip.IPStats
@@ -45,7 +43,6 @@ func (s *Stats) IPStats() *tcpip.IPStats {
 	return &s.IP
 }
 
-// +stateify savable
 type sharedStats struct {
 	localStats Stats
 	ip         ip.MultiCounterIPStats
@@ -54,7 +51,6 @@ type sharedStats struct {
 
 // LINT.IfChange(multiCounterICMPv6PacketStats)
 
-// +stateify savable
 type multiCounterICMPv6PacketStats struct {
 	echoRequest               tcpip.MultiCounterStat
 	echoReply                 tcpip.MultiCounterStat
@@ -95,7 +91,6 @@ func (m *multiCounterICMPv6PacketStats) init(a, b *tcpip.ICMPv6PacketStats) {
 
 // LINT.IfChange(multiCounterICMPv6SentPacketStats)
 
-// +stateify savable
 type multiCounterICMPv6SentPacketStats struct {
 	multiCounterICMPv6PacketStats
 	dropped     tcpip.MultiCounterStat
@@ -112,7 +107,6 @@ func (m *multiCounterICMPv6SentPacketStats) init(a, b *tcpip.ICMPv6SentPacketSta
 
 // LINT.IfChange(multiCounterICMPv6ReceivedPacketStats)
 
-// +stateify savable
 type multiCounterICMPv6ReceivedPacketStats struct {
 	multiCounterICMPv6PacketStats
 	unrecognized                   tcpip.MultiCounterStat
@@ -131,7 +125,6 @@ func (m *multiCounterICMPv6ReceivedPacketStats) init(a, b *tcpip.ICMPv6ReceivedP
 
 // LINT.IfChange(multiCounterICMPv6Stats)
 
-// +stateify savable
 type multiCounterICMPv6Stats struct {
 	packetsSent     multiCounterICMPv6SentPacketStats
 	packetsReceived multiCounterICMPv6ReceivedPacketStats

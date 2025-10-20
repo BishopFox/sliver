@@ -11,19 +11,14 @@ const (
 	RightToLeft
 )
 
-const (
-	RuneL2R = '\u202a'
-	RuneR2L = '\u202b'
-)
-
 // Modifier returns a character to force the given direction for the text that
 // follows the modifier.
 func (d Direction) Modifier() string {
 	switch d {
 	case LeftToRight:
-		return string(RuneL2R)
+		return "\u202a"
 	case RightToLeft:
-		return string(RuneR2L)
+		return "\u202b"
 	}
 	return ""
 }

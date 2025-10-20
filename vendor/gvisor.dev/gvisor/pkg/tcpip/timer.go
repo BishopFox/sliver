@@ -56,8 +56,6 @@ import (
 //
 // To address the above concerns the simplest solution was to give each timer
 // its own earlyReturn signal.
-//
-// +stateify savable
 type jobInstance struct {
 	timer Timer
 
@@ -95,8 +93,6 @@ func (j *jobInstance) stop() {
 //
 // Note, it is not safe to copy a Job as its timer instance creates
 // a closure over the address of the Job.
-//
-// +stateify savable
 type Job struct {
 	_ sync.NoCopy
 
@@ -110,7 +106,7 @@ type Job struct {
 	// be held when attempting to stop the timer.
 	//
 	// Must never change after being assigned.
-	locker sync.Locker `state:"nosave"`
+	locker sync.Locker
 
 	// fn is the function that will be called when a timer fires and has not been
 	// signaled to early return.
@@ -118,8 +114,7 @@ type Job struct {
 	// fn MUST NOT attempt to lock locker.
 	//
 	// Must never change after being assigned.
-	// TODO(b/341946753): Restore when netstack is savable.
-	fn func() `state:"nosave"`
+	fn func()
 }
 
 // Cancel prevents the Job from executing if it has not executed already.

@@ -13,7 +13,7 @@ type endpointElementMapper struct{}
 // This default implementation should be inlined.
 //
 //go:nosplit
-func (endpointElementMapper) linkerFor(elem *Endpoint) *Endpoint { return elem }
+func (endpointElementMapper) linkerFor(elem *endpoint) *endpoint { return elem }
 
 // List is an intrusive list. Entries can be added to or removed from the list
 // in O(1) time and with no additional memory allocations.
@@ -28,8 +28,8 @@ func (endpointElementMapper) linkerFor(elem *Endpoint) *Endpoint { return elem }
 //
 // +stateify savable
 type endpointList struct {
-	head *Endpoint
-	tail *Endpoint
+	head *endpoint
+	tail *endpoint
 }
 
 // Reset resets list l to the empty state.
@@ -48,14 +48,14 @@ func (l *endpointList) Empty() bool {
 // Front returns the first element of list l or nil.
 //
 //go:nosplit
-func (l *endpointList) Front() *Endpoint {
+func (l *endpointList) Front() *endpoint {
 	return l.head
 }
 
 // Back returns the last element of list l or nil.
 //
 //go:nosplit
-func (l *endpointList) Back() *Endpoint {
+func (l *endpointList) Back() *endpoint {
 	return l.tail
 }
 
@@ -74,7 +74,7 @@ func (l *endpointList) Len() (count int) {
 // PushFront inserts the element e at the front of list l.
 //
 //go:nosplit
-func (l *endpointList) PushFront(e *Endpoint) {
+func (l *endpointList) PushFront(e *endpoint) {
 	linker := endpointElementMapper{}.linkerFor(e)
 	linker.SetNext(l.head)
 	linker.SetPrev(nil)
@@ -107,7 +107,7 @@ func (l *endpointList) PushFrontList(m *endpointList) {
 // PushBack inserts the element e at the back of list l.
 //
 //go:nosplit
-func (l *endpointList) PushBack(e *Endpoint) {
+func (l *endpointList) PushBack(e *endpoint) {
 	linker := endpointElementMapper{}.linkerFor(e)
 	linker.SetNext(nil)
 	linker.SetPrev(l.tail)
@@ -140,7 +140,7 @@ func (l *endpointList) PushBackList(m *endpointList) {
 // InsertAfter inserts e after b.
 //
 //go:nosplit
-func (l *endpointList) InsertAfter(b, e *Endpoint) {
+func (l *endpointList) InsertAfter(b, e *endpoint) {
 	bLinker := endpointElementMapper{}.linkerFor(b)
 	eLinker := endpointElementMapper{}.linkerFor(e)
 
@@ -160,7 +160,7 @@ func (l *endpointList) InsertAfter(b, e *Endpoint) {
 // InsertBefore inserts e before a.
 //
 //go:nosplit
-func (l *endpointList) InsertBefore(a, e *Endpoint) {
+func (l *endpointList) InsertBefore(a, e *endpoint) {
 	aLinker := endpointElementMapper{}.linkerFor(a)
 	eLinker := endpointElementMapper{}.linkerFor(e)
 
@@ -179,7 +179,7 @@ func (l *endpointList) InsertBefore(a, e *Endpoint) {
 // Remove removes e from l.
 //
 //go:nosplit
-func (l *endpointList) Remove(e *Endpoint) {
+func (l *endpointList) Remove(e *endpoint) {
 	linker := endpointElementMapper{}.linkerFor(e)
 	prev := linker.Prev()
 	next := linker.Next()
@@ -206,34 +206,34 @@ func (l *endpointList) Remove(e *Endpoint) {
 //
 // +stateify savable
 type endpointEntry struct {
-	next *Endpoint
-	prev *Endpoint
+	next *endpoint
+	prev *endpoint
 }
 
 // Next returns the entry that follows e in the list.
 //
 //go:nosplit
-func (e *endpointEntry) Next() *Endpoint {
+func (e *endpointEntry) Next() *endpoint {
 	return e.next
 }
 
 // Prev returns the entry that precedes e in the list.
 //
 //go:nosplit
-func (e *endpointEntry) Prev() *Endpoint {
+func (e *endpointEntry) Prev() *endpoint {
 	return e.prev
 }
 
 // SetNext assigns 'entry' as the entry that follows e in the list.
 //
 //go:nosplit
-func (e *endpointEntry) SetNext(elem *Endpoint) {
+func (e *endpointEntry) SetNext(elem *endpoint) {
 	e.next = elem
 }
 
 // SetPrev assigns 'entry' as the entry that precedes e in the list.
 //
 //go:nosplit
-func (e *endpointEntry) SetPrev(elem *Endpoint) {
+func (e *endpointEntry) SetPrev(elem *endpoint) {
 	e.prev = elem
 }

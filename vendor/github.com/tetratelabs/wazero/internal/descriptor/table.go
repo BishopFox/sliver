@@ -1,9 +1,6 @@
 package descriptor
 
-import (
-	"math/bits"
-	"slices"
-)
+import "math/bits"
 
 // Table is a data structure mapping 32 bit descriptor to items.
 //
@@ -40,13 +37,23 @@ func (t *Table[Key, Item]) Len() (n int) {
 	return n
 }
 
-// grow grows the table by n * 64 items.
+// grow ensures that t has enough room for n items, potentially reallocating the
+// internal buffers if their capacity was too small to hold this many items.
 func (t *Table[Key, Item]) grow(n int) {
-	total := len(t.masks) + n
-	t.masks = slices.Grow(t.masks, n)[:total]
+	// Round up to a multiple of 64 since this is the smallest increment due to
+	// using 64 bits masks.
+	n = (n*64 + 63) / 64
 
-	total = len(t.items) + n*64
-	t.items = slices.Grow(t.items, n*64)[:total]
+	if n > len(t.masks) {
+		masks := make([]uint64, n)
+		copy(masks, t.masks)
+
+		items := make([]Item, n*64)
+		copy(items, t.items)
+
+		t.masks = masks
+		t.items = items
+	}
 }
 
 // Insert inserts the given item to the table, returning the key that it is
@@ -71,9 +78,13 @@ insert:
 		}
 	}
 
-	// No free slot found, grow the table and retry.
 	offset = len(t.masks)
-	t.grow(1)
+	n := 2 * len(t.masks)
+	if n == 0 {
+		n = 1
+	}
+
+	t.grow(n)
 	goto insert
 }
 
@@ -98,10 +109,10 @@ func (t *Table[Key, Item]) InsertAt(item Item, key Key) bool {
 	if key < 0 {
 		return false
 	}
-	index := uint(key) / 64
-	if diff := int(index) - len(t.masks) + 1; diff > 0 {
+	if diff := int(key) - t.Len(); diff > 0 {
 		t.grow(diff)
 	}
+	index := uint(key) / 64
 	shift := uint(key) % 64
 	t.masks[index] |= 1 << shift
 	t.items[key] = item
@@ -113,8 +124,7 @@ func (t *Table[Key, Item]) Delete(key Key) {
 	if key < 0 { // invalid key
 		return
 	}
-	if index := uint(key) / 64; int(index) < len(t.masks) {
-		shift := uint(key) % 64
+	if index, shift := key/64, key%64; int(index) < len(t.masks) {
 		mask := t.masks[index]
 		if (mask & (1 << shift)) != 0 {
 			var zero Item
@@ -144,6 +154,11 @@ func (t *Table[Key, Item]) Range(f func(Key, Item) bool) {
 
 // Reset clears the content of the table.
 func (t *Table[Key, Item]) Reset() {
-	clear(t.masks)
-	clear(t.items)
+	for i := range t.masks {
+		t.masks[i] = 0
+	}
+	var zero Item
+	for i := range t.items {
+		t.items[i] = zero
+	}
 }

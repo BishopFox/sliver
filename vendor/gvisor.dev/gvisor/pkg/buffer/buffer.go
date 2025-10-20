@@ -28,7 +28,7 @@ import (
 //
 // +stateify savable
 type Buffer struct {
-	data ViewList `state:".([]byte)"`
+	data viewList `state:".([]byte)"`
 	size int64
 }
 
@@ -318,11 +318,8 @@ func (b *Buffer) PullUp(offset, length int) (View, bool) {
 		if x := curr.Intersect(tgt); x.Len() == tgt.Len() {
 			// buf covers the whole requested target range.
 			sub := x.Offset(-curr.begin)
-			if v.sharesChunk() {
-				old := v.chunk
-				v.chunk = v.chunk.Clone()
-				old.DecRef()
-			}
+			// Don't increment the reference count of the underlying chunk. Views
+			// returned by PullUp are explicitly unowned and read only
 			new := View{
 				read:  v.read + sub.begin,
 				write: v.read + sub.end,
@@ -399,12 +396,6 @@ func (b *Buffer) Flatten() []byte {
 // Size indicates the total amount of data available in this Buffer.
 func (b *Buffer) Size() int64 {
 	return b.size
-}
-
-// AsViewList returns the ViewList backing b. Users may not save or modify the
-// ViewList returned.
-func (b *Buffer) AsViewList() ViewList {
-	return b.data
 }
 
 // Clone creates a copy-on-write clone of b. The underlying chunks are shared
@@ -485,7 +476,7 @@ func (b *Buffer) Checksum(offset int) uint16 {
 // operation completes.
 func (b *Buffer) Merge(other *Buffer) {
 	b.data.PushBackList(&other.data)
-	other.data = ViewList{}
+	other.data = viewList{}
 
 	// Adjust sizes.
 	b.size += other.size
@@ -495,18 +486,6 @@ func (b *Buffer) Merge(other *Buffer) {
 // WriteFromReader writes to the buffer from an io.Reader. A maximum read size
 // of MaxChunkSize is enforced to prevent allocating views from the heap.
 func (b *Buffer) WriteFromReader(r io.Reader, count int64) (int64, error) {
-	return b.WriteFromReaderAndLimitedReader(r, count, nil)
-}
-
-// WriteFromReaderAndLimitedReader is the same as WriteFromReader, but
-// optimized to avoid allocations if a LimitedReader is passed in.
-//
-// This function clobbers the values of lr.
-func (b *Buffer) WriteFromReaderAndLimitedReader(r io.Reader, count int64, lr *io.LimitedReader) (int64, error) {
-	if lr == nil {
-		lr = &io.LimitedReader{}
-	}
-
 	var done int64
 	for done < count {
 		vsize := count - done
@@ -514,9 +493,8 @@ func (b *Buffer) WriteFromReaderAndLimitedReader(r io.Reader, count int64, lr *i
 			vsize = MaxChunkSize
 		}
 		v := NewView(int(vsize))
-		lr.R = r
-		lr.N = vsize
-		n, err := io.Copy(v, lr)
+		lr := io.LimitedReader{R: r, N: vsize}
+		n, err := io.Copy(v, &lr)
 		b.Append(v)
 		done += n
 		if err == io.EOF {

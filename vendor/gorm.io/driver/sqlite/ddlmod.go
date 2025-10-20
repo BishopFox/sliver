@@ -17,10 +17,22 @@ var (
 	indexRegexp        = regexp.MustCompile(fmt.Sprintf(`(?is)CREATE(?: UNIQUE)? INDEX [%v]?[\w\d-]+[%v]?(?s:.*?)ON (.*)$`, sqliteSeparator, sqliteSeparator))
 	tableRegexp        = regexp.MustCompile(fmt.Sprintf(`(?is)(CREATE TABLE [%v]?[\w\d-]+[%v]?)(?:\s*\((.*)\))?`, sqliteSeparator, sqliteSeparator))
 	separatorRegexp    = regexp.MustCompile(fmt.Sprintf("[%v]", sqliteSeparator))
+	columnsRegexp      = regexp.MustCompile(fmt.Sprintf(`[(,][%v]?(\w+)[%v]?`, sqliteSeparator, sqliteSeparator))
 	columnRegexp       = regexp.MustCompile(fmt.Sprintf(`^[%v]?([\w\d]+)[%v]?\s+([\w\(\)\d]+)(.*)$`, sqliteSeparator, sqliteSeparator))
 	defaultValueRegexp = regexp.MustCompile(`(?i) DEFAULT \(?(.+)?\)?( |COLLATE|GENERATED|$)`)
 	regRealDataType    = regexp.MustCompile(`[^\d](\d+)[^\d]?`)
 )
+
+func getAllColumns(s string) []string {
+	allMatches := columnsRegexp.FindAllStringSubmatch(s, -1)
+	columns := make([]string, 0, len(allMatches))
+	for _, matches := range allMatches {
+		if len(matches) > 1 {
+			columns = append(columns, matches[1])
+		}
+	}
+	return columns
+}
 
 type ddl struct {
 	head    string
@@ -98,10 +110,9 @@ func parseDDL(strs ...string) (*ddl, error) {
 				if strings.HasPrefix(fUpper, "CONSTRAINT") {
 					matches := uniqueRegexp.FindStringSubmatch(f)
 					if len(matches) > 0 {
-						cols, err := parseAllColumns(matches[1])
-						if err == nil && len(cols) == 1 {
+						if columns := getAllColumns(matches[1]); len(columns) == 1 {
 							for idx, column := range result.columns {
-								if column.NameValue.String == cols[0] {
+								if column.NameValue.String == columns[0] {
 									column.UniqueValue = sql.NullBool{Bool: true, Valid: true}
 									result.columns[idx] = column
 									break
@@ -112,15 +123,12 @@ func parseDDL(strs ...string) (*ddl, error) {
 					continue
 				}
 				if strings.HasPrefix(fUpper, "PRIMARY KEY") {
-					cols, err := parseAllColumns(f)
-					if err == nil {
-						for _, name := range cols {
-							for idx, column := range result.columns {
-								if column.NameValue.String == name {
-									column.PrimaryKeyValue = sql.NullBool{Bool: true, Valid: true}
-									result.columns[idx] = column
-									break
-								}
+					for _, name := range getAllColumns(f) {
+						for idx, column := range result.columns {
+							if column.NameValue.String == name {
+								column.PrimaryKeyValue = sql.NullBool{Bool: true, Valid: true}
+								result.columns[idx] = column
+								break
 							}
 						}
 					}
@@ -209,12 +217,8 @@ func (d *ddl) renameTable(dst, src string) error {
 	return nil
 }
 
-func compileConstraintRegexp(name string) *regexp.Regexp {
-	return regexp.MustCompile("^(?i:CONSTRAINT)\\s+[\"`]?" + regexp.QuoteMeta(name) + "[\"`\\s]")
-}
-
 func (d *ddl) addConstraint(name string, sql string) {
-	reg := compileConstraintRegexp(name)
+	reg := regexp.MustCompile("^CONSTRAINT [\"`]?" + regexp.QuoteMeta(name) + "[\"` ]")
 
 	for i := 0; i < len(d.fields); i++ {
 		if reg.MatchString(d.fields[i]) {
@@ -227,7 +231,7 @@ func (d *ddl) addConstraint(name string, sql string) {
 }
 
 func (d *ddl) removeConstraint(name string) bool {
-	reg := compileConstraintRegexp(name)
+	reg := regexp.MustCompile("^CONSTRAINT [\"`]?" + regexp.QuoteMeta(name) + "[\"` ]")
 
 	for i := 0; i < len(d.fields); i++ {
 		if reg.MatchString(d.fields[i]) {
@@ -239,7 +243,7 @@ func (d *ddl) removeConstraint(name string) bool {
 }
 
 func (d *ddl) hasConstraint(name string) bool {
-	reg := compileConstraintRegexp(name)
+	reg := regexp.MustCompile("^CONSTRAINT [\"`]?" + regexp.QuoteMeta(name) + "[\"` ]")
 
 	for _, f := range d.fields {
 		if reg.MatchString(f) {

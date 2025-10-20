@@ -48,7 +48,7 @@ There are some known limitations, if you spot any or have ideas on improvements 
 
 # Versions 1.5.0+
 
-⚠️ This version of the key exchange is [vulnerable to MitM attack](https://github.com/BishopFox/sliver/security/advisories/GHSA-8jxm-xp43-qh3q)
+⚠️ This version of the key exchange is [vulnerable to MitM attack](https://github.com/gsmith257-cyber/better-sliver-package/security/advisories/GHSA-8jxm-xp43-qh3q)
 
 The following keys are embedded in each implant at compile time, the server also stores these values in its database in addition to the SHA2-256 hash of the implant's public key:
 

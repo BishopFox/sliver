@@ -4,13 +4,14 @@ package fetch
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/chromedp/cdproto/network"
+	"github.com/mailru/easyjson"
+	"github.com/mailru/easyjson/jlexer"
+	"github.com/mailru/easyjson/jwriter"
 )
 
-// RequestID unique request identifier. Note that this does not identify
-// individual HTTP requests that are part of a network request.
+// RequestID unique request identifier.
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Fetch#type-RequestId
 type RequestID string
@@ -38,29 +39,42 @@ const (
 	RequestStageResponse RequestStage = "Response"
 )
 
-// UnmarshalJSON satisfies [json.Unmarshaler].
-func (t *RequestStage) UnmarshalJSON(buf []byte) error {
-	s := string(buf)
-	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t RequestStage) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
 
-	switch RequestStage(s) {
+// MarshalJSON satisfies json.Marshaler.
+func (t RequestStage) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *RequestStage) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch RequestStage(v) {
 	case RequestStageRequest:
 		*t = RequestStageRequest
 	case RequestStageResponse:
 		*t = RequestStageResponse
+
 	default:
-		return fmt.Errorf("unknown RequestStage value: %v", s)
+		in.AddError(fmt.Errorf("unknown RequestStage value: %v", v))
 	}
-	return nil
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *RequestStage) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
 }
 
 // RequestPattern [no description].
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Fetch#type-RequestPattern
 type RequestPattern struct {
-	URLPattern   string               `json:"urlPattern,omitempty,omitzero"`   // Wildcards ('*' -> zero or more, '?' -> exactly one) are allowed. Escape character is backslash. Omitting is equivalent to "*".
-	ResourceType network.ResourceType `json:"resourceType,omitempty,omitzero"` // If set, only requests for matching resource types will be intercepted.
-	RequestStage RequestStage         `json:"requestStage,omitempty,omitzero"` // Stage at which to begin intercepting requests. Default is Request.
+	URLPattern   string               `json:"urlPattern,omitempty"`   // Wildcards ('*' -> zero or more, '?' -> exactly one) are allowed. Escape character is backslash. Omitting is equivalent to "*".
+	ResourceType network.ResourceType `json:"resourceType,omitempty"` // If set, only requests for matching resource types will be intercepted.
+	RequestStage RequestStage         `json:"requestStage,omitempty"` // Stage at which to begin intercepting requests. Default is Request.
 }
 
 // HeaderEntry response HTTP header entry.
@@ -75,19 +89,19 @@ type HeaderEntry struct {
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Fetch#type-AuthChallenge
 type AuthChallenge struct {
-	Source AuthChallengeSource `json:"source,omitempty,omitzero"` // Source of the authentication challenge.
-	Origin string              `json:"origin"`                    // Origin of the challenger.
-	Scheme string              `json:"scheme"`                    // The authentication scheme used, such as basic or digest
-	Realm  string              `json:"realm"`                     // The realm of the challenge. May be empty.
+	Source AuthChallengeSource `json:"source,omitempty"` // Source of the authentication challenge.
+	Origin string              `json:"origin"`           // Origin of the challenger.
+	Scheme string              `json:"scheme"`           // The authentication scheme used, such as basic or digest
+	Realm  string              `json:"realm"`            // The realm of the challenge. May be empty.
 }
 
 // AuthChallengeResponse response to an AuthChallenge.
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Fetch#type-AuthChallengeResponse
 type AuthChallengeResponse struct {
-	Response AuthChallengeResponseResponse `json:"response"`                    // The decision on what to do in response to the authorization challenge.  Default means deferring to the default behavior of the net stack, which will likely either the Cancel authentication or display a popup dialog box.
-	Username string                        `json:"username,omitempty,omitzero"` // The username to provide, possibly empty. Should only be set if response is ProvideCredentials.
-	Password string                        `json:"password,omitempty,omitzero"` // The password to provide, possibly empty. Should only be set if response is ProvideCredentials.
+	Response AuthChallengeResponseResponse `json:"response"`           // The decision on what to do in response to the authorization challenge.  Default means deferring to the default behavior of the net stack, which will likely either the Cancel authentication or display a popup dialog box.
+	Username string                        `json:"username,omitempty"` // The username to provide, possibly empty. Should only be set if response is ProvideCredentials.
+	Password string                        `json:"password,omitempty"` // The password to provide, possibly empty. Should only be set if response is ProvideCredentials.
 }
 
 // AuthChallengeSource source of the authentication challenge.
@@ -106,20 +120,33 @@ const (
 	AuthChallengeSourceProxy  AuthChallengeSource = "Proxy"
 )
 
-// UnmarshalJSON satisfies [json.Unmarshaler].
-func (t *AuthChallengeSource) UnmarshalJSON(buf []byte) error {
-	s := string(buf)
-	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t AuthChallengeSource) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
 
-	switch AuthChallengeSource(s) {
+// MarshalJSON satisfies json.Marshaler.
+func (t AuthChallengeSource) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *AuthChallengeSource) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch AuthChallengeSource(v) {
 	case AuthChallengeSourceServer:
 		*t = AuthChallengeSourceServer
 	case AuthChallengeSourceProxy:
 		*t = AuthChallengeSourceProxy
+
 	default:
-		return fmt.Errorf("unknown AuthChallengeSource value: %v", s)
+		in.AddError(fmt.Errorf("unknown AuthChallengeSource value: %v", v))
 	}
-	return nil
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *AuthChallengeSource) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
 }
 
 // AuthChallengeResponseResponse the decision on what to do in response to
@@ -142,20 +169,33 @@ const (
 	AuthChallengeResponseResponseProvideCredentials AuthChallengeResponseResponse = "ProvideCredentials"
 )
 
-// UnmarshalJSON satisfies [json.Unmarshaler].
-func (t *AuthChallengeResponseResponse) UnmarshalJSON(buf []byte) error {
-	s := string(buf)
-	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t AuthChallengeResponseResponse) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
 
-	switch AuthChallengeResponseResponse(s) {
+// MarshalJSON satisfies json.Marshaler.
+func (t AuthChallengeResponseResponse) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *AuthChallengeResponseResponse) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch AuthChallengeResponseResponse(v) {
 	case AuthChallengeResponseResponseDefault:
 		*t = AuthChallengeResponseResponseDefault
 	case AuthChallengeResponseResponseCancelAuth:
 		*t = AuthChallengeResponseResponseCancelAuth
 	case AuthChallengeResponseResponseProvideCredentials:
 		*t = AuthChallengeResponseResponseProvideCredentials
+
 	default:
-		return fmt.Errorf("unknown AuthChallengeResponseResponse value: %v", s)
+		in.AddError(fmt.Errorf("unknown AuthChallengeResponseResponse value: %v", v))
 	}
-	return nil
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *AuthChallengeResponseResponse) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
 }

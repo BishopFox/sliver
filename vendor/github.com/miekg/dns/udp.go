@@ -1,5 +1,5 @@
-//go:build !windows && !darwin
-// +build !windows,!darwin
+//go:build !windows
+// +build !windows
 
 package dns
 

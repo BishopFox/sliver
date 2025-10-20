@@ -2,7 +2,7 @@ package pgxpool
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"math/rand"
 	"runtime"
 	"strconv"
@@ -15,14 +15,11 @@ import (
 	"github.com/jackc/puddle/v2"
 )
 
-var (
-	defaultMaxConns          = int32(4)
-	defaultMinConns          = int32(0)
-	defaultMinIdleConns      = int32(0)
-	defaultMaxConnLifetime   = time.Hour
-	defaultMaxConnIdleTime   = time.Minute * 30
-	defaultHealthCheckPeriod = time.Minute
-)
+var defaultMaxConns = int32(4)
+var defaultMinConns = int32(0)
+var defaultMaxConnLifetime = time.Hour
+var defaultMaxConnIdleTime = time.Minute * 30
+var defaultHealthCheckPeriod = time.Minute
 
 type connResource struct {
 	conn       *pgx.Conn
@@ -86,12 +83,10 @@ type Pool struct {
 	config                *Config
 	beforeConnect         func(context.Context, *pgx.ConnConfig) error
 	afterConnect          func(context.Context, *pgx.Conn) error
-	prepareConn           func(context.Context, *pgx.Conn) (bool, error)
+	beforeAcquire         func(context.Context, *pgx.Conn) bool
 	afterRelease          func(*pgx.Conn) bool
 	beforeClose           func(*pgx.Conn)
-	shouldPing            func(context.Context, ShouldPingParams) bool
 	minConns              int32
-	minIdleConns          int32
 	maxConns              int32
 	maxConnLifetime       time.Duration
 	maxConnLifetimeJitter time.Duration
@@ -100,17 +95,8 @@ type Pool struct {
 
 	healthCheckChan chan struct{}
 
-	acquireTracer AcquireTracer
-	releaseTracer ReleaseTracer
-
 	closeOnce sync.Once
 	closeChan chan struct{}
-}
-
-// ShouldPingParams are the parameters passed to ShouldPing.
-type ShouldPingParams struct {
-	Conn         *pgx.Conn
-	IdleDuration time.Duration
 }
 
 // Config is the configuration struct for creating a pool. It must be created by [ParseConfig] and then it can be
@@ -128,22 +114,7 @@ type Config struct {
 	// BeforeAcquire is called before a connection is acquired from the pool. It must return true to allow the
 	// acquisition or false to indicate that the connection should be destroyed and a different connection should be
 	// acquired.
-	//
-	// Deprecated: Use PrepareConn instead. If both PrepareConn and BeforeAcquire are set, PrepareConn will take
-	// precedence, ignoring BeforeAcquire.
 	BeforeAcquire func(context.Context, *pgx.Conn) bool
-
-	// PrepareConn is called before a connection is acquired from the pool. If this function returns true, the connection
-	// is considered valid, otherwise the connection is destroyed. If the function returns a non-nil error, the instigating
-	// query will fail with the returned error.
-	//
-	// Specifically, this means that:
-	//
-	// 	- If it returns true and a nil error, the query proceeds as normal.
-	// 	- If it returns true and an error, the connection will be returned to the pool, and the instigating query will fail with the returned error.
-	// 	- If it returns false, and an error, the connection will be destroyed, and the query will fail with the returned error.
-	// 	- If it returns false and a nil error, the connection will be destroyed, and the instigating query will be retried on a new connection.
-	PrepareConn func(context.Context, *pgx.Conn) (bool, error)
 
 	// AfterRelease is called after a connection is released, but before it is returned to the pool. It must return true to
 	// return the connection to the pool or false to destroy the connection.
@@ -151,10 +122,6 @@ type Config struct {
 
 	// BeforeClose is called right before a connection is closed and removed from the pool.
 	BeforeClose func(*pgx.Conn)
-
-	// ShouldPing is called after a connection is acquired from the pool. If it returns true, the connection is pinged to check for liveness.
-	// If this func is not set, the default behavior is to ping connections that have been idle for at least 1 second.
-	ShouldPing func(context.Context, ShouldPingParams) bool
 
 	// MaxConnLifetime is the duration since creation after which a connection will be automatically closed.
 	MaxConnLifetime time.Duration
@@ -173,13 +140,6 @@ type Config struct {
 	// number of MinConns might mean the pool is empty after MaxConnLifetime until the health check has a chance
 	// to create new connections.
 	MinConns int32
-
-	// MinIdleConns is the minimum number of idle connections in the pool. You can increase this to ensure that
-	// there are always idle connections available. This can help reduce tail latencies during request processing,
-	// as you can avoid the latency of establishing a new connection while handling requests. It is superior
-	// to MinConns for this purpose.
-	// Similar to MinConns, the pool might temporarily dip below MinIdleConns after connection closes.
-	MinIdleConns int32
 
 	// HealthCheckPeriod is the duration between checks of the health of idle connections.
 	HealthCheckPeriod time.Duration
@@ -218,22 +178,14 @@ func NewWithConfig(ctx context.Context, config *Config) (*Pool, error) {
 		panic("config must be created by ParseConfig")
 	}
 
-	prepareConn := config.PrepareConn
-	if prepareConn == nil && config.BeforeAcquire != nil {
-		prepareConn = func(ctx context.Context, conn *pgx.Conn) (bool, error) {
-			return config.BeforeAcquire(ctx, conn), nil
-		}
-	}
-
 	p := &Pool{
 		config:                config,
 		beforeConnect:         config.BeforeConnect,
 		afterConnect:          config.AfterConnect,
-		prepareConn:           prepareConn,
+		beforeAcquire:         config.BeforeAcquire,
 		afterRelease:          config.AfterRelease,
 		beforeClose:           config.BeforeClose,
 		minConns:              config.MinConns,
-		minIdleConns:          config.MinIdleConns,
 		maxConns:              config.MaxConns,
 		maxConnLifetime:       config.MaxConnLifetime,
 		maxConnLifetimeJitter: config.MaxConnLifetimeJitter,
@@ -241,22 +193,6 @@ func NewWithConfig(ctx context.Context, config *Config) (*Pool, error) {
 		healthCheckPeriod:     config.HealthCheckPeriod,
 		healthCheckChan:       make(chan struct{}, 1),
 		closeChan:             make(chan struct{}),
-	}
-
-	if t, ok := config.ConnConfig.Tracer.(AcquireTracer); ok {
-		p.acquireTracer = t
-	}
-
-	if t, ok := config.ConnConfig.Tracer.(ReleaseTracer); ok {
-		p.releaseTracer = t
-	}
-
-	if config.ShouldPing != nil {
-		p.shouldPing = config.ShouldPing
-	} else {
-		p.shouldPing = func(ctx context.Context, params ShouldPingParams) bool {
-			return params.IdleDuration > time.Second
-		}
 	}
 
 	var err error
@@ -324,8 +260,7 @@ func NewWithConfig(ctx context.Context, config *Config) (*Pool, error) {
 	}
 
 	go func() {
-		targetIdleResources := max(int(p.minConns), int(p.minIdleConns))
-		p.createIdleResources(ctx, targetIdleResources)
+		p.createIdleResources(ctx, int(p.minConns))
 		p.backgroundHealthCheck()
 	}()
 
@@ -335,20 +270,20 @@ func NewWithConfig(ctx context.Context, config *Config) (*Pool, error) {
 // ParseConfig builds a Config from connString. It parses connString with the same behavior as [pgx.ParseConfig] with the
 // addition of the following variables:
 //
-//   - pool_max_conns: integer greater than 0 (default 4)
-//   - pool_min_conns: integer 0 or greater (default 0)
-//   - pool_max_conn_lifetime: duration string (default 1 hour)
-//   - pool_max_conn_idle_time: duration string (default 30 minutes)
-//   - pool_health_check_period: duration string (default 1 minute)
-//   - pool_max_conn_lifetime_jitter: duration string (default 0)
+//   - pool_max_conns: integer greater than 0
+//   - pool_min_conns: integer 0 or greater
+//   - pool_max_conn_lifetime: duration string
+//   - pool_max_conn_idle_time: duration string
+//   - pool_health_check_period: duration string
+//   - pool_max_conn_lifetime_jitter: duration string
 //
 // See Config for definitions of these arguments.
 //
-//	# Example Keyword/Value
-//	user=jack password=secret host=pg.example.com port=5432 dbname=mydb sslmode=verify-ca pool_max_conns=10 pool_max_conn_lifetime=1h30m
+//	# Example DSN
+//	user=jack password=secret host=pg.example.com port=5432 dbname=mydb sslmode=verify-ca pool_max_conns=10
 //
 //	# Example URL
-//	postgres://jack:secret@pg.example.com:5432/mydb?sslmode=verify-ca&pool_max_conns=10&pool_max_conn_lifetime=1h30m
+//	postgres://jack:secret@pg.example.com:5432/mydb?sslmode=verify-ca&pool_max_conns=10
 func ParseConfig(connString string) (*Config, error) {
 	connConfig, err := pgx.ParseConfig(connString)
 	if err != nil {
@@ -364,10 +299,10 @@ func ParseConfig(connString string) (*Config, error) {
 		delete(connConfig.Config.RuntimeParams, "pool_max_conns")
 		n, err := strconv.ParseInt(s, 10, 32)
 		if err != nil {
-			return nil, pgconn.NewParseConfigError(connString, "cannot parse pool_max_conns", err)
+			return nil, fmt.Errorf("cannot parse pool_max_conns: %w", err)
 		}
 		if n < 1 {
-			return nil, pgconn.NewParseConfigError(connString, "pool_max_conns too small", err)
+			return nil, fmt.Errorf("pool_max_conns too small: %d", n)
 		}
 		config.MaxConns = int32(n)
 	} else {
@@ -381,29 +316,18 @@ func ParseConfig(connString string) (*Config, error) {
 		delete(connConfig.Config.RuntimeParams, "pool_min_conns")
 		n, err := strconv.ParseInt(s, 10, 32)
 		if err != nil {
-			return nil, pgconn.NewParseConfigError(connString, "cannot parse pool_min_conns", err)
+			return nil, fmt.Errorf("cannot parse pool_min_conns: %w", err)
 		}
 		config.MinConns = int32(n)
 	} else {
 		config.MinConns = defaultMinConns
 	}
 
-	if s, ok := config.ConnConfig.Config.RuntimeParams["pool_min_idle_conns"]; ok {
-		delete(connConfig.Config.RuntimeParams, "pool_min_idle_conns")
-		n, err := strconv.ParseInt(s, 10, 32)
-		if err != nil {
-			return nil, pgconn.NewParseConfigError(connString, "cannot parse pool_min_idle_conns", err)
-		}
-		config.MinIdleConns = int32(n)
-	} else {
-		config.MinIdleConns = defaultMinIdleConns
-	}
-
 	if s, ok := config.ConnConfig.Config.RuntimeParams["pool_max_conn_lifetime"]; ok {
 		delete(connConfig.Config.RuntimeParams, "pool_max_conn_lifetime")
 		d, err := time.ParseDuration(s)
 		if err != nil {
-			return nil, pgconn.NewParseConfigError(connString, "cannot parse pool_max_conn_lifetime", err)
+			return nil, fmt.Errorf("invalid pool_max_conn_lifetime: %w", err)
 		}
 		config.MaxConnLifetime = d
 	} else {
@@ -414,7 +338,7 @@ func ParseConfig(connString string) (*Config, error) {
 		delete(connConfig.Config.RuntimeParams, "pool_max_conn_idle_time")
 		d, err := time.ParseDuration(s)
 		if err != nil {
-			return nil, pgconn.NewParseConfigError(connString, "cannot parse pool_max_conn_idle_time", err)
+			return nil, fmt.Errorf("invalid pool_max_conn_idle_time: %w", err)
 		}
 		config.MaxConnIdleTime = d
 	} else {
@@ -425,7 +349,7 @@ func ParseConfig(connString string) (*Config, error) {
 		delete(connConfig.Config.RuntimeParams, "pool_health_check_period")
 		d, err := time.ParseDuration(s)
 		if err != nil {
-			return nil, pgconn.NewParseConfigError(connString, "cannot parse pool_health_check_period", err)
+			return nil, fmt.Errorf("invalid pool_health_check_period: %w", err)
 		}
 		config.HealthCheckPeriod = d
 	} else {
@@ -436,7 +360,7 @@ func ParseConfig(connString string) (*Config, error) {
 		delete(connConfig.Config.RuntimeParams, "pool_max_conn_lifetime_jitter")
 		d, err := time.ParseDuration(s)
 		if err != nil {
-			return nil, pgconn.NewParseConfigError(connString, "cannot parse pool_max_conn_lifetime_jitter", err)
+			return nil, fmt.Errorf("invalid pool_max_conn_lifetime_jitter: %w", err)
 		}
 		config.MaxConnLifetimeJitter = d
 	}
@@ -537,9 +461,7 @@ func (p *Pool) checkMinConns() error {
 	// TotalConns can include ones that are being destroyed but we should have
 	// sleep(500ms) around all of the destroys to help prevent that from throwing
 	// off this check
-
-	// Create the number of connections needed to get to both minConns and minIdleConns
-	toCreate := max(p.minConns-p.Stat().TotalConns(), p.minIdleConns-p.Stat().IdleConns())
+	toCreate := p.minConns - p.Stat().TotalConns()
 	if toCreate > 0 {
 		return p.createIdleResources(context.Background(), int(toCreate))
 	}
@@ -576,22 +498,8 @@ func (p *Pool) createIdleResources(parentCtx context.Context, targetResources in
 }
 
 // Acquire returns a connection (*Conn) from the Pool
-func (p *Pool) Acquire(ctx context.Context) (c *Conn, err error) {
-	if p.acquireTracer != nil {
-		ctx = p.acquireTracer.TraceAcquireStart(ctx, p, TraceAcquireStartData{})
-		defer func() {
-			var conn *pgx.Conn
-			if c != nil {
-				conn = c.Conn()
-			}
-			p.acquireTracer.TraceAcquireEnd(ctx, p, TraceAcquireEndData{Conn: conn, Err: err})
-		}()
-	}
-
-	// Try to acquire from the connection pool up to maxConns + 1 times, so that
-	// any that fatal errors would empty the pool and still at least try 1 fresh
-	// connection.
-	for range p.maxConns + 1 {
+func (p *Pool) Acquire(ctx context.Context) (*Conn, error) {
+	for {
 		res, err := p.p.Acquire(ctx)
 		if err != nil {
 			return nil, err
@@ -599,8 +507,7 @@ func (p *Pool) Acquire(ctx context.Context) (c *Conn, err error) {
 
 		cr := res.Value()
 
-		shouldPingParams := ShouldPingParams{Conn: cr.conn, IdleDuration: res.IdleDuration()}
-		if p.shouldPing(ctx, shouldPingParams) {
+		if res.IdleDuration() > time.Second {
 			err := cr.conn.Ping(ctx)
 			if err != nil {
 				res.Destroy()
@@ -608,25 +515,12 @@ func (p *Pool) Acquire(ctx context.Context) (c *Conn, err error) {
 			}
 		}
 
-		if p.prepareConn != nil {
-			ok, err := p.prepareConn(ctx, cr.conn)
-			if !ok {
-				res.Destroy()
-			}
-			if err != nil {
-				if ok {
-					res.Release()
-				}
-				return nil, err
-			}
-			if !ok {
-				continue
-			}
+		if p.beforeAcquire == nil || p.beforeAcquire(ctx, cr.conn) {
+			return cr.getConn(p, res), nil
 		}
 
-		return cr.getConn(p, res), nil
+		res.Destroy()
 	}
-	return nil, errors.New("pgxpool: detected infinite loop acquiring connection; likely bug in PrepareConn or BeforeAcquire hook")
 }
 
 // AcquireFunc acquires a *Conn and calls f with that *Conn. ctx will only affect the Acquire. It has no effect on the
@@ -649,14 +543,11 @@ func (p *Pool) AcquireAllIdle(ctx context.Context) []*Conn {
 	conns := make([]*Conn, 0, len(resources))
 	for _, res := range resources {
 		cr := res.Value()
-		if p.prepareConn != nil {
-			ok, err := p.prepareConn(ctx, cr.conn)
-			if !ok || err != nil {
-				res.Destroy()
-				continue
-			}
+		if p.beforeAcquire == nil || p.beforeAcquire(ctx, cr.conn) {
+			conns = append(conns, cr.getConn(p, res))
+		} else {
+			res.Destroy()
 		}
-		conns = append(conns, cr.getConn(p, res))
 	}
 
 	return conns

@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build libc.membrk && !libc.memgrind && linux && (amd64 || arm64 || loong64 || ppc64le || s390x || riscv64 || 386 || arm)
+//go:build libc.membrk && !libc.memgrind && linux && (amd64 || loong64)
 
 // This is a debug-only version of the memory handling functions. When a
 // program is built with -tags=libc.membrk a simple but safe version of malloc
@@ -12,7 +12,7 @@
 // The fixed heap is initially filled with random bytes from a full cycle PRNG,
 // program startup time is substantially prolonged.
 
-package libc // import "modernc.org/libc"
+package libc // import "modernc.org/libc/v2"
 
 import (
 	"fmt"
@@ -279,17 +279,6 @@ func UsableSize(p uintptr) Tsize_t {
 	defer allocatorMu.Unlock()
 
 	return heapUsable[p]
-}
-
-type MemAllocatorStat struct {
-	Allocs int
-	Bytes  int
-	Mmaps  int
-}
-
-// MemStat no-op for this build tag
-func MemStat() MemAllocatorStat {
-	return MemAllocatorStat{}
 }
 
 // MemAuditStart locks the memory allocator, initializes and enables memory

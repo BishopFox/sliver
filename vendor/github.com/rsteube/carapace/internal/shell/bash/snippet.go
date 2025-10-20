@@ -12,10 +12,9 @@ import (
 func Snippet(cmd *cobra.Command) string {
 	result := fmt.Sprintf(`#!/bin/bash
 _%v_completion() {
+  export COMP_WORDBREAKS
   export COMP_LINE
   export COMP_POINT
-  export COMP_TYPE
-  export COMP_WORDBREAKS
 
   local nospace data compline="${COMP_LINE:0:${COMP_POINT}}"
 

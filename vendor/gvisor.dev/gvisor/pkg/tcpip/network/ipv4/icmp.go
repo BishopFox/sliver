@@ -232,7 +232,8 @@ func (e *endpoint) checkLocalAddress(addr tcpip.Address) bool {
 		return true
 	}
 
-	if addressEndpoint := e.AcquireAssignedAddress(addr, false, stack.NeverPrimaryEndpoint, true /* readOnly */); addressEndpoint != nil {
+	if addressEndpoint := e.AcquireAssignedAddress(addr, false, stack.NeverPrimaryEndpoint); addressEndpoint != nil {
+		addressEndpoint.DecRef()
 		return true
 	}
 	return false
@@ -356,19 +357,11 @@ func (e *endpoint) handleICMP(pkt *stack.PacketBuffer) {
 		replyData := stack.PayloadSince(pkt.TransportHeader())
 		defer replyData.Release()
 		ipHdr := header.IPv4(pkt.NetworkHeader().Slice())
-		localAddressTemporary := pkt.NetworkPacketInfo.LocalAddressTemporary
 		localAddressBroadcast := pkt.NetworkPacketInfo.LocalAddressBroadcast
 
-		// It's possible that a raw socket or custom defaultHandler expects to
-		// receive this packet.
+		// It's possible that a raw socket expects to receive this.
 		e.dispatcher.DeliverTransportPacket(header.ICMPv4ProtocolNumber, pkt)
 		pkt = nil
-
-		// Skip direct ICMP echo reply if the packet was received with a temporary
-		// address, allowing custom handlers to take over.
-		if localAddressTemporary {
-			return
-		}
 
 		sent := e.stats.icmp.packetsSent
 		if !e.protocol.allowICMPReply(header.ICMPv4EchoReply, header.ICMPv4UnusedCode) {
@@ -823,7 +816,7 @@ func (p *protocol) OnReassemblyTimeout(pkt *stack.PacketBuffer) {
 	//
 	//   If fragment zero is not available then no time exceeded need be sent at
 	//   all.
-	if pkt != nil {
+	if !pkt.IsNil() {
 		p.returnError(&icmpReasonReassemblyTimeout{}, pkt, true /* deliveredLocally */)
 	}
 }

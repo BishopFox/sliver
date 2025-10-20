@@ -6,11 +6,6 @@
 package magicsock
 
 import (
-	"log"
-	"net/netip"
-	"strings"
-	"sync"
-
 	"tailscale.com/envknob"
 )
 
@@ -25,6 +20,9 @@ var (
 	// debugOmitLocalAddresses removes all local interface addresses
 	// from magicsock's discovered local endpoints. Used in some tests.
 	debugOmitLocalAddresses = envknob.RegisterBool("TS_DEBUG_OMIT_LOCAL_ADDRS")
+	// debugUseDerpRoute temporarily (2020-03-22) controls whether DERP
+	// reverse routing is enabled (Issue 150).
+	debugUseDerpRoute = envknob.RegisterOptBool("TS_DEBUG_ENABLE_DERP_ROUTE")
 	// logDerpVerbose logs all received DERP packets, including their
 	// full payload.
 	logDerpVerbose = envknob.RegisterBool("TS_DEBUG_DERP")
@@ -62,9 +60,6 @@ var (
 	//
 	//lint:ignore U1000 used on Linux/Darwin only
 	debugPMTUD = envknob.RegisterBool("TS_DEBUG_PMTUD")
-	// debugNeverDirectUDP disables the use of direct UDP connections, forcing
-	// all peer communication over DERP or peer relay.
-	debugNeverDirectUDP = envknob.RegisterBool("TS_DEBUG_NEVER_DIRECT_UDP")
 	// Hey you! Adding a new debugknob? Make sure to stub it out in the
 	// debugknobs_stubs.go file too.
 )
@@ -76,25 +71,3 @@ var (
 // checked every time at runtime, because tests set this after program
 // startup.
 func inTest() bool { return envknob.Bool("IN_TS_TEST") }
-
-// pretendpoints returns TS_DEBUG_PRETENDPOINT as []AddrPort, if set.
-// See https://github.com/tailscale/tailscale/issues/12578 and
-// https://github.com/tailscale/tailscale/pull/12735.
-//
-// It can be between 0 and 3 comma-separated AddrPorts.
-var pretendpoints = sync.OnceValue(func() (ret []netip.AddrPort) {
-	all := envknob.String("TS_DEBUG_PRETENDPOINT")
-	const max = 3
-	remain := all
-	for remain != "" && len(ret) < max {
-		var s string
-		s, remain, _ = strings.Cut(remain, ",")
-		ap, err := netip.ParseAddrPort(s)
-		if err != nil {
-			log.Printf("ignoring invalid AddrPort %q in TS_DEBUG_PRETENDPOINT %q: %v", s, all, err)
-			continue
-		}
-		ret = append(ret, ap)
-	}
-	return
-})

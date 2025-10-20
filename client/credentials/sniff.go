@@ -21,7 +21,7 @@ package credentials
 import (
 	"strings"
 
-	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
 )
 
 // See EXAMPLES.md for example hashes, right now we just pick off low

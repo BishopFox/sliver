@@ -242,12 +242,12 @@ func (l *Logger) Flush() {
 	l.logger.StartFlush()
 }
 
-func (l *Logger) Shutdown(ctx context.Context) {
+func (l *Logger) Shutdown() {
 	if l.cancelFn != nil {
 		l.cancelFn()
 	}
 	l.filch.Close()
-	l.logger.Shutdown(ctx)
+	l.logger.Shutdown(context.Background())
 
 	type closeIdler interface {
 		CloseIdleConnections()

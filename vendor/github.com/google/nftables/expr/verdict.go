@@ -64,17 +64,7 @@ func (e *Verdict) marshal(fam byte) ([]byte, error) {
 	//     }
 	//   }
 	// }
-	data, err := e.marshalData(fam)
-	if err != nil {
-		return nil, err
-	}
-	return netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: unix.NFTA_EXPR_NAME, Data: []byte("immediate\x00")},
-		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
-	})
-}
 
-func (e *Verdict) marshalData(fam byte) ([]byte, error) {
 	attrs := []netlink.Attribute{
 		{Type: unix.NFTA_VERDICT_CODE, Data: binaryutil.BigEndian.PutUint32(uint32(e.Kind))},
 	}
@@ -93,9 +83,16 @@ func (e *Verdict) marshalData(fam byte) ([]byte, error) {
 		return nil, err
 	}
 
-	return netlink.MarshalAttributes([]netlink.Attribute{
+	data, err := netlink.MarshalAttributes([]netlink.Attribute{
 		{Type: unix.NFTA_IMMEDIATE_DREG, Data: binaryutil.BigEndian.PutUint32(unix.NFT_REG_VERDICT)},
 		{Type: unix.NLA_F_NESTED | unix.NFTA_IMMEDIATE_DATA, Data: immData},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return netlink.MarshalAttributes([]netlink.Attribute{
+		{Type: unix.NFTA_EXPR_NAME, Data: []byte("immediate\x00")},
+		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: data},
 	})
 }
 

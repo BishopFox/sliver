@@ -21,6 +21,7 @@ package taskrunner
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"strings"
 	"sync"
 
@@ -66,7 +67,7 @@ func Sideload(procName string, procArgs []string, _ uint32, data []byte, args []
 		cmd    *exec.Cmd
 	)
 	fdPath := fmt.Sprintf("/tmp/.%s", RandomString(10))
-	err := os.WriteFile(fdPath, data, 0755)
+	err := ioutil.WriteFile(fdPath, data, 0755)
 	if err != nil {
 		return "", err
 	}
@@ -95,7 +96,7 @@ func Sideload(procName string, procArgs []string, _ uint32, data []byte, args []
 	os.Remove(fdPath)
 
 	if len(stdErr.Bytes()) > 0 {
-		return "", fmt.Errorf("%s", stdErr.String())
+		return "", fmt.Errorf(stdErr.String())
 	}
 	//{{if .Config.Debug}}
 	log.Printf("Done, stdout: %s\n", stdOut.String())

@@ -4,9 +4,11 @@ package webaudio
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/chromedp/cdproto/cdp"
+	"github.com/mailru/easyjson"
+	"github.com/mailru/easyjson/jlexer"
+	"github.com/mailru/easyjson/jwriter"
 )
 
 // GraphObjectID an unique ID for a graph object (AudioContext, AudioNode,
@@ -36,20 +38,33 @@ const (
 	ContextTypeOffline  ContextType = "offline"
 )
 
-// UnmarshalJSON satisfies [json.Unmarshaler].
-func (t *ContextType) UnmarshalJSON(buf []byte) error {
-	s := string(buf)
-	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t ContextType) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
 
-	switch ContextType(s) {
+// MarshalJSON satisfies json.Marshaler.
+func (t ContextType) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *ContextType) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch ContextType(v) {
 	case ContextTypeRealtime:
 		*t = ContextTypeRealtime
 	case ContextTypeOffline:
 		*t = ContextTypeOffline
+
 	default:
-		return fmt.Errorf("unknown ContextType value: %v", s)
+		in.AddError(fmt.Errorf("unknown ContextType value: %v", v))
 	}
-	return nil
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *ContextType) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
 }
 
 // ContextState enum of AudioContextState from the spec.
@@ -64,30 +79,40 @@ func (t ContextState) String() string {
 
 // ContextState values.
 const (
-	ContextStateSuspended   ContextState = "suspended"
-	ContextStateRunning     ContextState = "running"
-	ContextStateClosed      ContextState = "closed"
-	ContextStateInterrupted ContextState = "interrupted"
+	ContextStateSuspended ContextState = "suspended"
+	ContextStateRunning   ContextState = "running"
+	ContextStateClosed    ContextState = "closed"
 )
 
-// UnmarshalJSON satisfies [json.Unmarshaler].
-func (t *ContextState) UnmarshalJSON(buf []byte) error {
-	s := string(buf)
-	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t ContextState) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
 
-	switch ContextState(s) {
+// MarshalJSON satisfies json.Marshaler.
+func (t ContextState) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *ContextState) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch ContextState(v) {
 	case ContextStateSuspended:
 		*t = ContextStateSuspended
 	case ContextStateRunning:
 		*t = ContextStateRunning
 	case ContextStateClosed:
 		*t = ContextStateClosed
-	case ContextStateInterrupted:
-		*t = ContextStateInterrupted
+
 	default:
-		return fmt.Errorf("unknown ContextState value: %v", s)
+		in.AddError(fmt.Errorf("unknown ContextState value: %v", v))
 	}
-	return nil
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *ContextState) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
 }
 
 // NodeType enum of AudioNode types.
@@ -117,22 +142,35 @@ const (
 	ChannelCountModeMax        ChannelCountMode = "max"
 )
 
-// UnmarshalJSON satisfies [json.Unmarshaler].
-func (t *ChannelCountMode) UnmarshalJSON(buf []byte) error {
-	s := string(buf)
-	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t ChannelCountMode) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
 
-	switch ChannelCountMode(s) {
+// MarshalJSON satisfies json.Marshaler.
+func (t ChannelCountMode) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *ChannelCountMode) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch ChannelCountMode(v) {
 	case ChannelCountModeClampedMax:
 		*t = ChannelCountModeClampedMax
 	case ChannelCountModeExplicit:
 		*t = ChannelCountModeExplicit
 	case ChannelCountModeMax:
 		*t = ChannelCountModeMax
+
 	default:
-		return fmt.Errorf("unknown ChannelCountMode value: %v", s)
+		in.AddError(fmt.Errorf("unknown ChannelCountMode value: %v", v))
 	}
-	return nil
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *ChannelCountMode) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
 }
 
 // ChannelInterpretation enum of AudioNode::ChannelInterpretation from the
@@ -152,20 +190,33 @@ const (
 	ChannelInterpretationSpeakers ChannelInterpretation = "speakers"
 )
 
-// UnmarshalJSON satisfies [json.Unmarshaler].
-func (t *ChannelInterpretation) UnmarshalJSON(buf []byte) error {
-	s := string(buf)
-	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t ChannelInterpretation) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
 
-	switch ChannelInterpretation(s) {
+// MarshalJSON satisfies json.Marshaler.
+func (t ChannelInterpretation) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *ChannelInterpretation) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch ChannelInterpretation(v) {
 	case ChannelInterpretationDiscrete:
 		*t = ChannelInterpretationDiscrete
 	case ChannelInterpretationSpeakers:
 		*t = ChannelInterpretationSpeakers
+
 	default:
-		return fmt.Errorf("unknown ChannelInterpretation value: %v", s)
+		in.AddError(fmt.Errorf("unknown ChannelInterpretation value: %v", v))
 	}
-	return nil
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *ChannelInterpretation) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
 }
 
 // ParamType enum of AudioParam types.
@@ -194,20 +245,33 @@ const (
 	AutomationRateKRate AutomationRate = "k-rate"
 )
 
-// UnmarshalJSON satisfies [json.Unmarshaler].
-func (t *AutomationRate) UnmarshalJSON(buf []byte) error {
-	s := string(buf)
-	s = strings.TrimSuffix(strings.TrimPrefix(s, `"`), `"`)
+// MarshalEasyJSON satisfies easyjson.Marshaler.
+func (t AutomationRate) MarshalEasyJSON(out *jwriter.Writer) {
+	out.String(string(t))
+}
 
-	switch AutomationRate(s) {
+// MarshalJSON satisfies json.Marshaler.
+func (t AutomationRate) MarshalJSON() ([]byte, error) {
+	return easyjson.Marshal(t)
+}
+
+// UnmarshalEasyJSON satisfies easyjson.Unmarshaler.
+func (t *AutomationRate) UnmarshalEasyJSON(in *jlexer.Lexer) {
+	v := in.String()
+	switch AutomationRate(v) {
 	case AutomationRateARate:
 		*t = AutomationRateARate
 	case AutomationRateKRate:
 		*t = AutomationRateKRate
+
 	default:
-		return fmt.Errorf("unknown AutomationRate value: %v", s)
+		in.AddError(fmt.Errorf("unknown AutomationRate value: %v", v))
 	}
-	return nil
+}
+
+// UnmarshalJSON satisfies json.Unmarshaler.
+func (t *AutomationRate) UnmarshalJSON(buf []byte) error {
+	return easyjson.Unmarshal(buf, t)
 }
 
 // ContextRealtimeData fields in AudioContext that change in real-time.
@@ -227,7 +291,7 @@ type BaseAudioContext struct {
 	ContextID             GraphObjectID        `json:"contextId"`
 	ContextType           ContextType          `json:"contextType"`
 	ContextState          ContextState         `json:"contextState"`
-	RealtimeData          *ContextRealtimeData `json:"realtimeData,omitempty,omitzero"`
+	RealtimeData          *ContextRealtimeData `json:"realtimeData,omitempty"`
 	CallbackBufferSize    float64              `json:"callbackBufferSize"`    // Platform-dependent callback buffer size.
 	MaxOutputChannelCount float64              `json:"maxOutputChannelCount"` // Number of output channels supported by audio hardware in use.
 	SampleRate            float64              `json:"sampleRate"`            // Context sample rate.

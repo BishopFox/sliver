@@ -22,7 +22,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/bishopfox/sliver/implant/sliver/winhttp"
+	"github.com/gsmith257-cyber/better-sliver-package/implant/sliver/winhttp"
 )
 
 /*

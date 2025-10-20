@@ -1,11 +1,11 @@
 package exec
 
 import (
-	"github.com/bishopfox/sliver/client/command/flags"
-	"github.com/bishopfox/sliver/client/command/generate"
-	"github.com/bishopfox/sliver/client/command/help"
-	"github.com/bishopfox/sliver/client/console"
-	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/flags"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/generate"
+	"github.com/gsmith257-cyber/better-sliver-package/client/command/help"
+	"github.com/gsmith257-cyber/better-sliver-package/client/console"
+	consts "github.com/gsmith257-cyber/better-sliver-package/client/constants"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -227,8 +227,8 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Annotations: flags.RestrictTargets(consts.WindowsCmdsFilter),
 	}
 	flags.Bind("", false, psExecCmd, func(f *pflag.FlagSet) {
-		f.StringP("service-name", "s", "Sliver", "name that will be used to register the service")
-		f.StringP("service-description", "d", "Sliver implant", "description of the service")
+		f.StringP("service-name", "s", ".NET Compiled", "name that will be used to register the service")
+		f.StringP("service-description", "d", ".NET Compiled Service", "description of the service")
 		f.StringP("profile", "p", "", "profile to use for service binary")
 		f.StringP("binpath", "b", "c:\\windows\\temp", "directory to which the executable will be uploaded")
 		f.StringP("custom-exe", "c", "", "custom service executable to use instead of generating a new Sliver")

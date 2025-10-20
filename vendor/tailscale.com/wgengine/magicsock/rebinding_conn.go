@@ -5,7 +5,6 @@ package magicsock
 
 import (
 	"errors"
-	"fmt"
 	"net"
 	"net/netip"
 	"sync"
@@ -13,9 +12,7 @@ import (
 	"syscall"
 
 	"golang.org/x/net/ipv6"
-	"tailscale.com/net/batching"
 	"tailscale.com/net/netaddr"
-	"tailscale.com/net/packet"
 	"tailscale.com/types/nettype"
 )
 
@@ -38,12 +35,12 @@ type RebindingUDPConn struct {
 
 // setConnLocked sets the provided nettype.PacketConn. It should be called only
 // after acquiring RebindingUDPConn.mu. It upgrades the provided
-// nettype.PacketConn to a batchingConn when appropriate. This upgrade is
-// intentionally pushed closest to where read/write ops occur in order to avoid
-// disrupting surrounding code that assumes nettype.PacketConn is a
+// nettype.PacketConn to a *batchingUDPConn when appropriate. This upgrade
+// is intentionally pushed closest to where read/write ops occur in order to
+// avoid disrupting surrounding code that assumes nettype.PacketConn is a
 // *net.UDPConn.
 func (c *RebindingUDPConn) setConnLocked(p nettype.PacketConn, network string, batchSize int) {
-	upc := batching.TryUpgradeToConn(p, network, batchSize)
+	upc := tryUpgradeToBatchingUDPConn(p, network, batchSize)
 	c.pconn = upc
 	c.pconnAtomic.Store(&upc)
 	c.port = uint16(c.localAddrLocked().Port)
@@ -73,39 +70,21 @@ func (c *RebindingUDPConn) ReadFromUDPAddrPort(b []byte) (int, netip.AddrPort, e
 	return c.readFromWithInitPconn(*c.pconnAtomic.Load(), b)
 }
 
-// WriteWireGuardBatchTo writes buffs to addr. It serves primarily as an alias
-// for [batching.Conn.WriteBatchTo], with fallback to single packet operations
-// if c.pconn is not a [batching.Conn].
-//
-// WriteWireGuardBatchTo assumes buffs are WireGuard packets, which is notable
-// for Geneve encapsulation: Geneve protocol is set to [packet.GeneveProtocolWireGuard],
-// and the control bit is left unset.
-func (c *RebindingUDPConn) WriteWireGuardBatchTo(buffs [][]byte, addr epAddr, offset int) error {
-	if offset != packet.GeneveFixedHeaderLength {
-		return fmt.Errorf("RebindingUDPConn.WriteWireGuardBatchTo: [unexpected] offset (%d) != Geneve header length (%d)", offset, packet.GeneveFixedHeaderLength)
-	}
-	gh := packet.GeneveHeader{
-		Protocol: packet.GeneveProtocolWireGuard,
-		VNI:      addr.vni,
-	}
+// WriteBatchTo writes buffs to addr.
+func (c *RebindingUDPConn) WriteBatchTo(buffs [][]byte, addr netip.AddrPort) error {
 	for {
 		pconn := *c.pconnAtomic.Load()
-		b, ok := pconn.(batching.Conn)
+		b, ok := pconn.(*batchingUDPConn)
 		if !ok {
 			for _, buf := range buffs {
-				if gh.VNI.IsSet() {
-					gh.Encode(buf)
-				} else {
-					buf = buf[offset:]
-				}
-				_, err := c.writeToUDPAddrPortWithInitPconn(pconn, buf, addr.ap)
+				_, err := c.writeToUDPAddrPortWithInitPconn(pconn, buf, addr)
 				if err != nil {
 					return err
 				}
 			}
 			return nil
 		}
-		err := b.WriteBatchTo(buffs, addr.ap, gh, offset)
+		err := b.WriteBatchTo(buffs, addr)
 		if err != nil {
 			if pconn != c.currentConn() {
 				continue
@@ -116,12 +95,13 @@ func (c *RebindingUDPConn) WriteWireGuardBatchTo(buffs [][]byte, addr epAddr, of
 	}
 }
 
-// ReadBatch is an alias for [batching.Conn.ReadBatch] with fallback to single
-// packet operations if c.pconn is not a [batching.Conn].
+// ReadBatch reads messages from c into msgs. It returns the number of messages
+// the caller should evaluate for nonzero len, as a zero len message may fall
+// on either side of a nonzero.
 func (c *RebindingUDPConn) ReadBatch(msgs []ipv6.Message, flags int) (int, error) {
 	for {
 		pconn := *c.pconnAtomic.Load()
-		b, ok := pconn.(batching.Conn)
+		b, ok := pconn.(*batchingUDPConn)
 		if !ok {
 			n, ap, err := c.readFromWithInitPconn(pconn, msgs[0].Buffers[0])
 			if err == nil {

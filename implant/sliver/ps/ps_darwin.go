@@ -48,8 +48,8 @@ func (p *DarwinProcess) Architecture() string {
 	return p.arch
 }
 
-func findProcess(pid int, fullInfo bool) (Process, error) {
-	ps, err := processes(fullInfo)
+func findProcess(pid int) (Process, error) {
+	ps, err := processes()
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func findProcess(pid int, fullInfo bool) (Process, error) {
 	return nil, nil
 }
 
-func processes(fullInfo bool) ([]Process, error) {
+func processes() ([]Process, error) {
 	var owner string
 	buf, _, err := procInfoSyscall()
 	if err != nil {
@@ -92,39 +92,29 @@ func processes(fullInfo bool) ([]Process, error) {
 			binPath, _ = pCommReader.ReadString(0x00)
 		}
 		binPath = strings.TrimSuffix(binPath, "\x00") // Trim the null byte
+		// Discard the error: if the call errors out, we'll just have an empty argv slice
+		cmdLine, _ := getArgvFromPid(int(p.Proc.P_pid))
 
-		if fullInfo {
-			// Discard the error: if the call errors out, we'll just have an empty argv slice
-			cmdLine, _ := getArgvFromPid(int(p.Proc.P_pid))
-
-			uid := fmt.Sprintf("%d", p.Eproc.Ucred.Uid)
-			u, err := user.LookupId(uid)
-			if err != nil {
-				owner = uid
-			} else {
-				owner = u.Username
-			}
-			if owner == "" {
-				owner = uid
-			}
-			arch := ""
-
-			darwinProcs[i] = &DarwinProcess{
-				pid:     int(p.Proc.P_pid),
-				ppid:    int(p.Eproc.Ppid),
-				binary:  binPath,
-				owner:   owner,
-				cmdLine: cmdLine,
-				arch:    arch,
-			}
+		uid := fmt.Sprintf("%d", p.Eproc.Ucred.Uid)
+		u, err := user.LookupId(uid)
+		if err != nil {
+			owner = uid
 		} else {
-			darwinProcs[i] = &DarwinProcess{
-				pid:    int(p.Proc.P_pid),
-				ppid:   int(p.Eproc.Ppid),
-				binary: binPath,
-			}
+			owner = u.Username
 		}
+		if owner == "" {
+			owner = uid
+		}
+		arch := ""
 
+		darwinProcs[i] = &DarwinProcess{
+			pid:     int(p.Proc.P_pid),
+			ppid:    int(p.Eproc.Ppid),
+			binary:  binPath,
+			owner:   owner,
+			cmdLine: cmdLine,
+			arch:    arch,
+		}
 	}
 
 	return darwinProcs, nil
@@ -237,9 +227,12 @@ func getArgvFromPid(pid int) ([]string, error) {
 		errStr := unix.ErrnoName(errno)
 		return []string{""}, fmt.Errorf("%s", errStr)
 	}
-	buffer := bytes.NewBuffer(processArgs[0:size])
-	numberOfArgsBytes := buffer.Next(4)
-	numberOfArgs := binary.LittleEndian.Uint32(numberOfArgsBytes)
+	buffer := bytes.NewBuffer(processArgs)
+	numberOfArgs, err := binary.ReadUvarint(buffer)
+	if err != nil {
+		return []string{""}, err
+	}
+	buffer.Next(3)                         // skip  sizeof(int32), the number of args
 	argv := make([]string, numberOfArgs+1) // executable name is present twice
 
 	// There's probably a way to optimize that loop.
@@ -255,7 +248,7 @@ func getArgvFromPid(pid int) ([]string, error) {
 	for {
 		arg, err := buffer.ReadString(0x00)
 		if err != nil {
-			break
+			continue
 		}
 		if strings.ReplaceAll(arg, "\x00", "") != "" {
 			argv[i] = arg

@@ -73,7 +73,7 @@ type endpoint struct {
 
 	// The following fields are initialized at creation time and are
 	// immutable.
-	stack       *stack.Stack
+	stack       *stack.Stack `state:"manual"`
 	transProto  tcpip.TransportProtocolNumber
 	waiterQueue *waiter.Queue
 	associated  bool
@@ -377,7 +377,7 @@ func (e *endpoint) write(p tcpip.Payloader, opts tcpip.WriteOptions) (int64, tcp
 	}
 
 	pkt := ctx.TryNewPacketBuffer(int(ctx.PacketInfo().MaxHeaderLength), payload.Clone())
-	if pkt == nil {
+	if pkt.IsNil() {
 		return 0, &tcpip.ErrWouldBlock{}
 	}
 	defer pkt.DecRef()

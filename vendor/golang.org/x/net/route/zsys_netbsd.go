@@ -8,8 +8,10 @@ const (
 	sizeofIfaMsghdrNetBSD7        = 0x18
 	sizeofIfAnnouncemsghdrNetBSD7 = 0x18
 
-	sizeofRtMsghdrNetBSD7 = 0x78
+	sizeofRtMsghdrNetBSD7  = 0x78
+	sizeofRtMetricsNetBSD7 = 0x50
 
-	sizeofSockaddrInet  = 0x10
-	sizeofSockaddrInet6 = 0x1c
+	sizeofSockaddrStorage = 0x80
+	sizeofSockaddrInet    = 0x10
+	sizeofSockaddrInet6   = 0x1c
 )

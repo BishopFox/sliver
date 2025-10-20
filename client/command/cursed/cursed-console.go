@@ -27,9 +27,9 @@ import (
 	"text/tabwriter"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/client/core"
-	"github.com/bishopfox/sliver/client/overlord"
+	"github.com/gsmith257-cyber/better-sliver-package/client/console"
+	"github.com/gsmith257-cyber/better-sliver-package/client/core"
+	"github.com/gsmith257-cyber/better-sliver-package/client/overlord"
 	"github.com/reeflective/readline"
 	"github.com/spf13/cobra"
 )

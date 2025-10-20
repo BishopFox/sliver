@@ -93,10 +93,6 @@ type _CONSOLE_CURSOR_INFO struct {
 	bVisible bool
 }
 
-type _FOCUS_EVENT_RECORD struct {
-	bSetFocus bool
-}
-
 // CallFunc is a function that calls a Windows API function.
 type CallFunc func(u ...uintptr) error
 

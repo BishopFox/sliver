@@ -46,7 +46,6 @@ func NewDefaultConfig(opts ...ConfigOption) *Config {
 	for _, o := range opts {
 		o(cfg)
 	}
-
 	return cfg
 }
 
@@ -55,7 +54,6 @@ func (cfg *Config) ReadFile(name string) ([]byte, error) {
 	if cfg.ReadFileFunc != nil {
 		return cfg.ReadFileFunc(name)
 	}
-
 	return nil, os.ErrNotExist
 }
 
@@ -64,11 +62,9 @@ func (cfg *Config) Do(name, value string) error {
 	if f, ok := cfg.Funcs[name]; ok {
 		return f(name, value)
 	}
-
 	if f, ok := cfg.Funcs[""]; ok {
 		return f(name, value)
 	}
-
 	return nil
 }
 
@@ -88,12 +84,10 @@ func (cfg *Config) Bind(keymap, sequence, action string, macro bool) error {
 	if cfg.Binds[keymap] == nil {
 		cfg.Binds[keymap] = make(map[string]Bind)
 	}
-
 	cfg.Binds[keymap][sequence] = Bind{
 		Action: action,
 		Macro:  macro,
 	}
-
 	return nil
 }
 
@@ -104,7 +98,6 @@ func (cfg *Config) GetString(name string) string {
 			return s
 		}
 	}
-
 	return ""
 }
 
@@ -115,7 +108,6 @@ func (cfg *Config) GetInt(name string) int {
 			return i
 		}
 	}
-
 	return 0
 }
 
@@ -126,7 +118,6 @@ func (cfg *Config) GetBool(name string) bool {
 			return b
 		}
 	}
-
 	return false
 }
 

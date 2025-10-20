@@ -8,12 +8,10 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"maps"
 	"net/netip"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -24,14 +22,10 @@ import (
 	"golang.org/x/sys/windows/registry"
 	"golang.zx2c4.com/wireguard/windows/tunnel/winipcfg"
 	"tailscale.com/atomicfile"
-	"tailscale.com/control/controlknobs"
 	"tailscale.com/envknob"
 	"tailscale.com/health"
 	"tailscale.com/types/logger"
 	"tailscale.com/util/dnsname"
-	"tailscale.com/util/syspolicy/pkey"
-	"tailscale.com/util/syspolicy/policyclient"
-	"tailscale.com/util/syspolicy/ptype"
 	"tailscale.com/util/winutil"
 )
 
@@ -44,39 +38,22 @@ var configureWSL = envknob.RegisterBool("TS_DEBUG_CONFIGURE_WSL")
 type windowsManager struct {
 	logf       logger.Logf
 	guid       string
-	knobs      *controlknobs.Knobs // or nil
 	nrptDB     *nrptRuleDatabase
 	wslManager *wslManager
-	polc       policyclient.Client
-
-	unregisterPolicyChangeCb func() // called when the manager is closing
 
 	mu      sync.Mutex
 	closing bool
 }
 
-// NewOSConfigurator created a new OS configurator.
-//
-// The health tracker and the knobs may be nil.
-func NewOSConfigurator(logf logger.Logf, health *health.Tracker, polc policyclient.Client, knobs *controlknobs.Knobs, interfaceName string) (OSConfigurator, error) {
-	if polc == nil {
-		panic("nil policyclient.Client")
-	}
+func NewOSConfigurator(logf logger.Logf, health *health.Tracker, interfaceName string) (OSConfigurator, error) {
 	ret := &windowsManager{
 		logf:       logf,
 		guid:       interfaceName,
-		knobs:      knobs,
-		polc:       polc,
 		wslManager: newWSLManager(logf, health),
 	}
 
 	if isWindows10OrBetter() {
 		ret.nrptDB = newNRPTRuleDatabase(logf)
-	}
-
-	var err error
-	if ret.unregisterPolicyChangeCb, err = polc.RegisterChangeCallback(ret.sysPolicyChanged); err != nil {
-		logf("error registering policy change callback: %v", err) // non-fatal
 	}
 
 	go func() {
@@ -157,8 +134,9 @@ func (m *windowsManager) setSplitDNS(resolvers []netip.Addr, domains []dnsname.F
 	return m.nrptDB.WriteSplitDNSConfig(servers, domains)
 }
 
-func setTailscaleHosts(logf logger.Logf, prevHostsFile []byte, hosts []*HostEntry) ([]byte, error) {
-	sc := bufio.NewScanner(bytes.NewReader(prevHostsFile))
+func setTailscaleHosts(prevHostsFile []byte, hosts []*HostEntry) ([]byte, error) {
+	b := bytes.ReplaceAll(prevHostsFile, []byte("\r\n"), []byte("\n"))
+	sc := bufio.NewScanner(bytes.NewReader(b))
 	const (
 		header = "# TailscaleHostsSectionStart"
 		footer = "# TailscaleHostsSectionEnd"
@@ -167,32 +145,6 @@ func setTailscaleHosts(logf logger.Logf, prevHostsFile []byte, hosts []*HostEntr
 		"# This section contains MagicDNS entries for Tailscale.",
 		"# Do not edit this section manually.",
 	}
-
-	prevEntries := make(map[netip.Addr][]string)
-	addPrevEntry := func(line string) {
-		if line == "" || line[0] == '#' {
-			return
-		}
-
-		parts := strings.Split(line, " ")
-		if len(parts) < 1 {
-			return
-		}
-
-		addr, err := netip.ParseAddr(parts[0])
-		if err != nil {
-			logf("Parsing address from hosts: %v", err)
-			return
-		}
-
-		prevEntries[addr] = parts[1:]
-	}
-
-	nextEntries := make(map[netip.Addr][]string, len(hosts))
-	for _, he := range hosts {
-		nextEntries[he.Addr] = he.Hosts
-	}
-
 	var out bytes.Buffer
 	var inSection bool
 	for sc.Scan() {
@@ -206,34 +158,26 @@ func setTailscaleHosts(logf logger.Logf, prevHostsFile []byte, hosts []*HostEntr
 			continue
 		}
 		if inSection {
-			addPrevEntry(line)
 			continue
 		}
-		fmt.Fprintf(&out, "%s\r\n", line)
+		fmt.Fprintln(&out, line)
 	}
 	if err := sc.Err(); err != nil {
 		return nil, err
 	}
-
-	unchanged := maps.EqualFunc(prevEntries, nextEntries, func(a, b []string) bool {
-		return slices.Equal(a, b)
-	})
-	if unchanged {
-		return nil, nil
-	}
-
 	if len(hosts) > 0 {
-		fmt.Fprintf(&out, "%s\r\n", header)
+		fmt.Fprintln(&out, header)
 		for _, c := range comments {
-			fmt.Fprintf(&out, "%s\r\n", c)
+			fmt.Fprintln(&out, c)
 		}
-		fmt.Fprintf(&out, "\r\n")
+		fmt.Fprintln(&out)
 		for _, he := range hosts {
-			fmt.Fprintf(&out, "%s %s\r\n", he.Addr, strings.Join(he.Hosts, " "))
+			fmt.Fprintf(&out, "%s %s\n", he.Addr, strings.Join(he.Hosts, " "))
 		}
-		fmt.Fprintf(&out, "\r\n%s\r\n", footer)
+		fmt.Fprintln(&out)
+		fmt.Fprintln(&out, footer)
 	}
-	return out.Bytes(), nil
+	return bytes.ReplaceAll(out.Bytes(), []byte("\n"), []byte("\r\n")), nil
 }
 
 // setHosts sets the hosts file to contain the given host entries.
@@ -247,15 +191,10 @@ func (m *windowsManager) setHosts(hosts []*HostEntry) error {
 	if err != nil {
 		return err
 	}
-	outB, err := setTailscaleHosts(m.logf, b, hosts)
+	outB, err := setTailscaleHosts(b, hosts)
 	if err != nil {
 		return err
 	}
-	if outB == nil {
-		// No change to hosts file, therefore no write necessary.
-		return nil
-	}
-
 	const fileMode = 0 // ignored on windows.
 
 	// This can fail spuriously with an access denied error, so retry it a
@@ -349,10 +288,6 @@ func (m *windowsManager) setPrimaryDNS(resolvers []netip.Addr, domains []dnsname
 	return nil
 }
 
-func (m *windowsManager) disableLocalDNSOverrideViaNRPT() bool {
-	return m.knobs != nil && m.knobs.DisableLocalDNSOverrideViaNRPT.Load()
-}
-
 func (m *windowsManager) SetDNS(cfg OSConfig) error {
 	// We can configure Windows DNS in one of two ways:
 	//
@@ -377,25 +312,17 @@ func (m *windowsManager) SetDNS(cfg OSConfig) error {
 	// configuration only, routing one set of things to the "split"
 	// resolver and the rest to the primary.
 
-	// Reconfigure DNS registration according to the [syspolicy.DNSRegistration]
-	// policy setting, and unconditionally disable NetBIOS on our interfaces.
-	m.reconfigureDNSRegistration()
+	// Unconditionally disable dynamic DNS updates and NetBIOS on our
+	// interfaces.
+	if err := m.disableDynamicUpdates(); err != nil {
+		m.logf("disableDynamicUpdates error: %v\n", err)
+	}
 	if err := m.disableNetBIOS(); err != nil {
 		m.logf("disableNetBIOS error: %v\n", err)
 	}
 
 	if len(cfg.MatchDomains) == 0 {
-		var resolvers []netip.Addr
-		var domains []dnsname.FQDN
-		if !m.disableLocalDNSOverrideViaNRPT() {
-			// Create a default catch-all rule to make ourselves the actual primary resolver.
-			// Without this rule, Windows 8.1 and newer devices issue parallel DNS requests to DNS servers
-			// associated with all network adapters, even when "Override local DNS" is enabled and/or
-			// a Mullvad exit node is being used, resulting in DNS leaks.
-			resolvers = cfg.Nameservers
-			domains = []dnsname.FQDN{"."}
-		}
-		if err := m.setSplitDNS(resolvers, domains); err != nil {
+		if err := m.setSplitDNS(nil, nil); err != nil {
 			return err
 		}
 		if err := m.setHosts(nil); err != nil {
@@ -404,6 +331,8 @@ func (m *windowsManager) SetDNS(cfg OSConfig) error {
 		if err := m.setPrimaryDNS(cfg.Nameservers, cfg.SearchDomains); err != nil {
 			return err
 		}
+	} else if m.nrptDB == nil {
+		return errors.New("cannot set per-domain resolvers on Windows 7")
 	} else {
 		if err := m.setSplitDNS(cfg.Nameservers, cfg.MatchDomains); err != nil {
 			return err
@@ -444,9 +373,7 @@ func (m *windowsManager) SetDNS(cfg OSConfig) error {
 		t0 := time.Now()
 		m.logf("running ipconfig /registerdns ...")
 		cmd := exec.Command("ipconfig", "/registerdns")
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			CreationFlags: windows.DETACHED_PROCESS,
-		}
+		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 		err := cmd.Run()
 		d := time.Since(t0).Round(time.Millisecond)
 		if err != nil {
@@ -458,9 +385,7 @@ func (m *windowsManager) SetDNS(cfg OSConfig) error {
 		t0 = time.Now()
 		m.logf("running ipconfig /flushdns ...")
 		cmd = exec.Command("ipconfig", "/flushdns")
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			CreationFlags: windows.DETACHED_PROCESS,
-		}
+		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 		err = cmd.Run()
 		d = time.Since(t0).Round(time.Millisecond)
 		if err != nil {
@@ -498,10 +423,6 @@ func (m *windowsManager) Close() error {
 	m.closing = true
 	m.mu.Unlock()
 
-	if m.unregisterPolicyChangeCb != nil {
-		m.unregisterPolicyChangeCb()
-	}
-
 	err := m.SetDNS(OSConfig{})
 	if m.nrptDB != nil {
 		m.nrptDB.Close()
@@ -510,60 +431,13 @@ func (m *windowsManager) Close() error {
 	return err
 }
 
-// sysPolicyChanged is a callback triggered by [syspolicy] when it detects
-// a change in one or more syspolicy settings.
-func (m *windowsManager) sysPolicyChanged(policy policyclient.PolicyChange) {
-	if policy.HasChanged(pkey.EnableDNSRegistration) {
-		m.reconfigureDNSRegistration()
-	}
-}
-
-// reconfigureDNSRegistration configures the DNS registration settings
-// using the [syspolicy.DNSRegistration] policy setting, if it is set.
-// If the policy is not configured, it disables DNS registration.
-func (m *windowsManager) reconfigureDNSRegistration() {
-	// Disable DNS registration by default (if the policy setting is not configured).
-	// This is primarily for historical reasons and to avoid breaking existing
-	// setups that rely on this behavior.
-	enableDNSRegistration, err := m.polc.GetPreferenceOption(pkey.EnableDNSRegistration, ptype.NeverByPolicy)
-	if err != nil {
-		m.logf("error getting DNSRegistration policy setting: %v", err) // non-fatal; we'll use the default
-	}
-
-	if enableDNSRegistration.Show() {
-		// "Show" reports whether the policy setting is configured as "user-decides".
-		// The name is a bit unfortunate in this context, as we don't actually "show" anything.
-		// Still, if the admin configured the policy as "user-decides", we shouldn't modify
-		// the adapter's settings and should leave them up to the user (admin rights required)
-		// or the system defaults.
-		return
-	}
-
-	// Otherwise, if the policy setting is configured as "always" or "never",
-	// we should configure the adapter accordingly.
-	if err := m.configureDNSRegistration(enableDNSRegistration.IsAlways()); err != nil {
-		m.logf("error configuring DNS registration: %v", err)
-	}
-}
-
-// configureDNSRegistration sets the appropriate registry values to allow or prevent
-// the Windows DHCP client from registering Tailscale IP addresses with DNS
-// and sending dynamic updates for our interface to AD domain controllers.
-func (m *windowsManager) configureDNSRegistration(enabled bool) error {
+// disableDynamicUpdates sets the appropriate registry values to prevent the
+// Windows DHCP client from sending dynamic DNS updates for our interface to
+// AD domain controllers.
+func (m *windowsManager) disableDynamicUpdates() error {
 	prefixen := []winutil.RegistryPathPrefix{
 		winutil.IPv4TCPIPInterfacePrefix,
 		winutil.IPv6TCPIPInterfacePrefix,
-	}
-
-	var (
-		registrationEnabled            = uint32(0)
-		disableDynamicUpdate           = uint32(1)
-		maxNumberOfAddressesToRegister = uint32(0)
-	)
-	if enabled {
-		registrationEnabled = 1
-		disableDynamicUpdate = 0
-		maxNumberOfAddressesToRegister = 1
 	}
 
 	for _, prefix := range prefixen {
@@ -573,13 +447,10 @@ func (m *windowsManager) configureDNSRegistration(enabled bool) error {
 		}
 		defer k.Close()
 
-		if err := k.SetDWordValue("RegistrationEnabled", registrationEnabled); err != nil {
+		if err := k.SetDWordValue("DisableDynamicUpdate", 1); err != nil {
 			return err
 		}
-		if err := k.SetDWordValue("DisableDynamicUpdate", disableDynamicUpdate); err != nil {
-			return err
-		}
-		if err := k.SetDWordValue("MaxNumberOfAddressesToRegister", maxNumberOfAddressesToRegister); err != nil {
+		if err := k.SetDWordValue("MaxNumberOfAddressesToRegister", 0); err != nil {
 			return err
 		}
 	}

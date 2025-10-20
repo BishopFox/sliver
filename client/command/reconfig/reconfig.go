@@ -22,9 +22,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/bishopfox/sliver/client/console"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/gsmith257-cyber/better-sliver-package/client/console"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/sliverpb"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/proto"
 )
@@ -48,26 +48,26 @@ func ReconfigCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		}
 	}
 
-	var beaconInterval time.Duration
-	var beaconJitter time.Duration
+	var BaconInterval time.Duration
+	var BaconJitter time.Duration
 	binterval, _ := cmd.Flags().GetString("beacon-interval")
 	bjitter, _ := cmd.Flags().GetString("beacon-jitter")
 
 	if beacon != nil {
 		if binterval != "" {
-			beaconInterval, err = time.ParseDuration(binterval)
+			BaconInterval, err = time.ParseDuration(binterval)
 			if err != nil {
 				con.PrintErrorf("Invalid beacon interval: %s\n", err)
 				return
 			}
 		}
 		if bjitter != "" {
-			beaconJitter, err = time.ParseDuration(bjitter)
+			BaconJitter, err = time.ParseDuration(bjitter)
 			if err != nil {
 				con.PrintErrorf("Invalid beacon jitter: %s\n", err)
 				return
 			}
-			if beaconInterval == 0 && beaconJitter != 0 {
+			if BaconInterval == 0 && BaconJitter != 0 {
 				con.PrintInfof("Modified beacon jitter will take effect after next check-in\n")
 			}
 		}
@@ -75,8 +75,8 @@ func ReconfigCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 
 	reconfig, err := con.Rpc.Reconfigure(context.Background(), &sliverpb.ReconfigureReq{
 		ReconnectInterval: int64(reconnectInterval),
-		BeaconInterval:    int64(beaconInterval),
-		BeaconJitter:      int64(beaconJitter),
+		BaconInterval:    int64(BaconInterval),
+		BaconJitter:      int64(BaconJitter),
 		Request:           con.ActiveTarget.Request(cmd),
 	})
 	if err != nil {

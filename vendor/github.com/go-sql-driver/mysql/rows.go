@@ -111,13 +111,19 @@ func (rows *mysqlRows) Close() (err error) {
 		return err
 	}
 
+	// flip the buffer for this connection if we need to drain it.
+	// note that for a successful query (i.e. one where rows.next()
+	// has been called until it returns false), `rows.mc` will be nil
+	// by the time the user calls `(*Rows).Close`, so we won't reach this
+	// see: https://github.com/golang/go/commit/651ddbdb5056ded455f47f9c494c67b389622a47
+	mc.buf.flip()
+
 	// Remove unread packets from stream
 	if !rows.rs.done {
 		err = mc.readUntilEOF()
 	}
 	if err == nil {
-		handleOk := mc.clearResult()
-		if err = handleOk.discardResults(); err != nil {
+		if err = mc.discardResults(); err != nil {
 			return err
 		}
 	}
@@ -154,15 +160,7 @@ func (rows *mysqlRows) nextResultSet() (int, error) {
 		return 0, io.EOF
 	}
 	rows.rs = resultSet{}
-	// rows.mc.affectedRows and rows.mc.insertIds accumulate on each call to
-	// nextResultSet.
-	resLen, err := rows.mc.resultUnchanged().readResultSetHeaderPacket()
-	if err != nil {
-		// Clean up about multi-results flag
-		rows.rs.done = true
-		rows.mc.status = rows.mc.status & (^statusMoreResultsExists)
-	}
-	return resLen, err
+	return rows.mc.readResultSetHeaderPacket()
 }
 
 func (rows *mysqlRows) nextNotEmptyResultSet() (int, error) {

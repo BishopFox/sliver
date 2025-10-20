@@ -14,7 +14,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/netip"
 	"net/url"
 	"os"
 	"strings"
@@ -178,10 +177,8 @@ func (cfg *config) useProxy(addr string) bool {
 	if host == "localhost" {
 		return false
 	}
-	nip, err := netip.ParseAddr(host)
-	var ip net.IP
-	if err == nil {
-		ip = net.IP(nip.AsSlice())
+	ip := net.ParseIP(host)
+	if ip != nil {
 		if ip.IsLoopback() {
 			return false
 		}
@@ -363,9 +360,6 @@ type domainMatch struct {
 }
 
 func (m domainMatch) match(host, port string, ip net.IP) bool {
-	if ip != nil {
-		return false
-	}
 	if strings.HasSuffix(host, m.host) || (m.matchHost && host == m.host[1:]) {
 		return m.port == "" || m.port == port
 	}

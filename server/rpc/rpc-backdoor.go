@@ -24,15 +24,15 @@ import (
 	"os"
 
 	"github.com/Binject/binjection/bj"
-	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/server/codenames"
-	"github.com/bishopfox/sliver/server/core"
-	"github.com/bishopfox/sliver/server/db"
-	"github.com/bishopfox/sliver/server/generate"
-	"github.com/bishopfox/sliver/util"
-	"github.com/bishopfox/sliver/util/encoders"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/clientpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/commonpb"
+	"github.com/gsmith257-cyber/better-sliver-package/protobuf/sliverpb"
+	"github.com/gsmith257-cyber/better-sliver-package/server/codenames"
+	"github.com/gsmith257-cyber/better-sliver-package/server/core"
+	"github.com/gsmith257-cyber/better-sliver-package/server/db"
+	"github.com/gsmith257-cyber/better-sliver-package/server/generate"
+	"github.com/gsmith257-cyber/better-sliver-package/util"
+	"github.com/gsmith257-cyber/better-sliver-package/util/encoders"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -137,7 +137,7 @@ func (rpc *Server) Backdoor(ctx context.Context, req *clientpb.BackdoorReq) (*cl
 	}
 
 	if upload.Response != nil && upload.Response.Err != "" {
-		return nil, fmt.Errorf("%s", upload.Response.Err)
+		return nil, fmt.Errorf(upload.Response.Err)
 	}
 
 	return resp, nil

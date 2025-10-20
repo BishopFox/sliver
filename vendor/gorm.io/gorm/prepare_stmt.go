@@ -7,35 +7,31 @@ import (
 	"errors"
 	"reflect"
 	"sync"
-	"time"
-
-	"gorm.io/gorm/internal/stmt_store"
 )
 
+type Stmt struct {
+	*sql.Stmt
+	Transaction bool
+	prepared    chan struct{}
+	prepareErr  error
+}
+
 type PreparedStmtDB struct {
-	Stmts stmt_store.Store
-	Mux   *sync.RWMutex
+	Stmts       map[string]*Stmt
+	PreparedSQL []string
+	Mux         *sync.RWMutex
 	ConnPool
 }
 
-// NewPreparedStmtDB creates and initializes a new instance of PreparedStmtDB.
-//
-// Parameters:
-// - connPool: A connection pool that implements the ConnPool interface, used for managing database connections.
-// - maxSize: The maximum number of prepared statements that can be stored in the statement store.
-// - ttl: The time-to-live duration for each prepared statement in the store. Statements older than this duration will be automatically removed.
-//
-// Returns:
-// - A pointer to a PreparedStmtDB instance, which manages prepared statements using the provided connection pool and configuration.
-func NewPreparedStmtDB(connPool ConnPool, maxSize int, ttl time.Duration) *PreparedStmtDB {
+func NewPreparedStmtDB(connPool ConnPool) *PreparedStmtDB {
 	return &PreparedStmtDB{
-		ConnPool: connPool,                     // Assigns the provided connection pool to manage database connections.
-		Stmts:    stmt_store.New(maxSize, ttl), // Initializes a new statement store with the specified maximum size and TTL.
-		Mux:      &sync.RWMutex{},              // Sets up a read-write mutex for synchronizing access to the statement store.
+		ConnPool:    connPool,
+		Stmts:       make(map[string]*Stmt),
+		Mux:         &sync.RWMutex{},
+		PreparedSQL: make([]string, 0, 100),
 	}
 }
 
-// GetDBConn returns the underlying *sql.DB connection
 func (db *PreparedStmtDB) GetDBConn() (*sql.DB, error) {
 	if sqldb, ok := db.ConnPool.(*sql.DB); ok {
 		return sqldb, nil
@@ -48,41 +44,84 @@ func (db *PreparedStmtDB) GetDBConn() (*sql.DB, error) {
 	return nil, ErrInvalidDB
 }
 
-// Close closes all prepared statements in the store
 func (db *PreparedStmtDB) Close() {
 	db.Mux.Lock()
 	defer db.Mux.Unlock()
 
-	for _, key := range db.Stmts.Keys() {
-		db.Stmts.Delete(key)
+	for _, query := range db.PreparedSQL {
+		if stmt, ok := db.Stmts[query]; ok {
+			delete(db.Stmts, query)
+			go stmt.Close()
+		}
 	}
 }
 
-// Reset Deprecated use Close instead
-func (db *PreparedStmtDB) Reset() {
-	db.Close()
+func (sdb *PreparedStmtDB) Reset() {
+	sdb.Mux.Lock()
+	defer sdb.Mux.Unlock()
+
+	for _, stmt := range sdb.Stmts {
+		go stmt.Close()
+	}
+	sdb.PreparedSQL = make([]string, 0, 100)
+	sdb.Stmts = make(map[string]*Stmt)
 }
 
-func (db *PreparedStmtDB) prepare(ctx context.Context, conn ConnPool, isTransaction bool, query string) (_ *stmt_store.Stmt, err error) {
+func (db *PreparedStmtDB) prepare(ctx context.Context, conn ConnPool, isTransaction bool, query string) (Stmt, error) {
 	db.Mux.RLock()
-	if db.Stmts != nil {
-		if stmt, ok := db.Stmts.Get(query); ok && (!stmt.Transaction || isTransaction) {
-			db.Mux.RUnlock()
-			return stmt, stmt.Error()
+	if stmt, ok := db.Stmts[query]; ok && (!stmt.Transaction || isTransaction) {
+		db.Mux.RUnlock()
+		// wait for other goroutines prepared
+		<-stmt.prepared
+		if stmt.prepareErr != nil {
+			return Stmt{}, stmt.prepareErr
 		}
+
+		return *stmt, nil
 	}
 	db.Mux.RUnlock()
 
-	// retry
 	db.Mux.Lock()
-	if db.Stmts != nil {
-		if stmt, ok := db.Stmts.Get(query); ok && (!stmt.Transaction || isTransaction) {
-			db.Mux.Unlock()
-			return stmt, stmt.Error()
+	// double check
+	if stmt, ok := db.Stmts[query]; ok && (!stmt.Transaction || isTransaction) {
+		db.Mux.Unlock()
+		// wait for other goroutines prepared
+		<-stmt.prepared
+		if stmt.prepareErr != nil {
+			return Stmt{}, stmt.prepareErr
 		}
+
+		return *stmt, nil
 	}
 
-	return db.Stmts.New(ctx, query, isTransaction, conn, db.Mux)
+	// cache preparing stmt first
+	cacheStmt := Stmt{Transaction: isTransaction, prepared: make(chan struct{})}
+	db.Stmts[query] = &cacheStmt
+	db.Mux.Unlock()
+
+	// prepare completed
+	defer close(cacheStmt.prepared)
+
+	// Reason why cannot lock conn.PrepareContext
+	// suppose the maxopen is 1, g1 is creating record and g2 is querying record.
+	// 1. g1 begin tx, g1 is requeue because of waiting for the system call, now `db.ConnPool` db.numOpen == 1.
+	// 2. g2 select lock `conn.PrepareContext(ctx, query)`, now db.numOpen == db.maxOpen , wait for release.
+	// 3. g1 tx exec insert, wait for unlock `conn.PrepareContext(ctx, query)` to finish tx and release.
+	stmt, err := conn.PrepareContext(ctx, query)
+	if err != nil {
+		cacheStmt.prepareErr = err
+		db.Mux.Lock()
+		delete(db.Stmts, query)
+		db.Mux.Unlock()
+		return Stmt{}, err
+	}
+
+	db.Mux.Lock()
+	cacheStmt.Stmt = stmt
+	db.PreparedSQL = append(db.PreparedSQL, query)
+	db.Mux.Unlock()
+
+	return cacheStmt, nil
 }
 
 func (db *PreparedStmtDB) BeginTx(ctx context.Context, opt *sql.TxOptions) (ConnPool, error) {
@@ -111,7 +150,10 @@ func (db *PreparedStmtDB) ExecContext(ctx context.Context, query string, args ..
 	if err == nil {
 		result, err = stmt.ExecContext(ctx, args...)
 		if errors.Is(err, driver.ErrBadConn) {
-			db.Stmts.Delete(query)
+			db.Mux.Lock()
+			defer db.Mux.Unlock()
+			go stmt.Close()
+			delete(db.Stmts, query)
 		}
 	}
 	return result, err
@@ -122,7 +164,11 @@ func (db *PreparedStmtDB) QueryContext(ctx context.Context, query string, args .
 	if err == nil {
 		rows, err = stmt.QueryContext(ctx, args...)
 		if errors.Is(err, driver.ErrBadConn) {
-			db.Stmts.Delete(query)
+			db.Mux.Lock()
+			defer db.Mux.Unlock()
+
+			go stmt.Close()
+			delete(db.Stmts, query)
 		}
 	}
 	return rows, err
@@ -172,7 +218,11 @@ func (tx *PreparedStmtTX) ExecContext(ctx context.Context, query string, args ..
 	if err == nil {
 		result, err = tx.Tx.StmtContext(ctx, stmt.Stmt).ExecContext(ctx, args...)
 		if errors.Is(err, driver.ErrBadConn) {
-			tx.PreparedStmtDB.Stmts.Delete(query)
+			tx.PreparedStmtDB.Mux.Lock()
+			defer tx.PreparedStmtDB.Mux.Unlock()
+
+			go stmt.Close()
+			delete(tx.PreparedStmtDB.Stmts, query)
 		}
 	}
 	return result, err
@@ -183,7 +233,11 @@ func (tx *PreparedStmtTX) QueryContext(ctx context.Context, query string, args .
 	if err == nil {
 		rows, err = tx.Tx.StmtContext(ctx, stmt.Stmt).QueryContext(ctx, args...)
 		if errors.Is(err, driver.ErrBadConn) {
-			tx.PreparedStmtDB.Stmts.Delete(query)
+			tx.PreparedStmtDB.Mux.Lock()
+			defer tx.PreparedStmtDB.Mux.Unlock()
+
+			go stmt.Close()
+			delete(tx.PreparedStmtDB.Stmts, query)
 		}
 	}
 	return rows, err

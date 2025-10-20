@@ -2,7 +2,6 @@ package dns
 
 // NameUsed sets the RRs in the prereq section to
 // "Name is in use" RRs. RFC 2136 section 2.4.4.
-// See [ANY] on how to make RRs without rdata.
 func (u *Msg) NameUsed(rr []RR) {
 	if u.Answer == nil {
 		u.Answer = make([]RR, 0, len(rr))
@@ -42,7 +41,6 @@ func (u *Msg) Used(rr []RR) {
 
 // RRsetUsed sets the RRs in the prereq section to
 // "RRset exists (value independent -- no rdata)" RRs. RFC 2136 section 2.4.1.
-// See [ANY] on how to make RRs without rdata.
 func (u *Msg) RRsetUsed(rr []RR) {
 	if u.Answer == nil {
 		u.Answer = make([]RR, 0, len(rr))
@@ -55,7 +53,6 @@ func (u *Msg) RRsetUsed(rr []RR) {
 
 // RRsetNotUsed sets the RRs in the prereq section to
 // "RRset does not exist" RRs. RFC 2136 section 2.4.3.
-// See [ANY] on how to make RRs without rdata.
 func (u *Msg) RRsetNotUsed(rr []RR) {
 	if u.Answer == nil {
 		u.Answer = make([]RR, 0, len(rr))
@@ -67,7 +64,6 @@ func (u *Msg) RRsetNotUsed(rr []RR) {
 }
 
 // Insert creates a dynamic update packet that adds an complete RRset, see RFC 2136 section 2.5.1.
-// See [ANY] on how to make RRs without rdata.
 func (u *Msg) Insert(rr []RR) {
 	if len(u.Question) == 0 {
 		panic("dns: empty question section")
@@ -82,7 +78,6 @@ func (u *Msg) Insert(rr []RR) {
 }
 
 // RemoveRRset creates a dynamic update packet that deletes an RRset, see RFC 2136 section 2.5.2.
-// See [ANY] on how to make RRs without rdata.
 func (u *Msg) RemoveRRset(rr []RR) {
 	if u.Ns == nil {
 		u.Ns = make([]RR, 0, len(rr))
@@ -94,7 +89,6 @@ func (u *Msg) RemoveRRset(rr []RR) {
 }
 
 // RemoveName creates a dynamic update packet that deletes all RRsets of a name, see RFC 2136 section 2.5.3
-// See [ANY] on how to make RRs without rdata.
 func (u *Msg) RemoveName(rr []RR) {
 	if u.Ns == nil {
 		u.Ns = make([]RR, 0, len(rr))
@@ -105,7 +99,6 @@ func (u *Msg) RemoveName(rr []RR) {
 }
 
 // Remove creates a dynamic update packet deletes RR from a RRSset, see RFC 2136 section 2.5.4
-// See [ANY] on how to make RRs without rdata.
 func (u *Msg) Remove(rr []RR) {
 	if u.Ns == nil {
 		u.Ns = make([]RR, 0, len(rr))

@@ -135,8 +135,7 @@ type conn struct {
 	// reply is the tuple in reply direction.
 	reply tuple
 
-	// TODO(b/341946753): Restore when netstack is savable.
-	finalizeOnce sync.Once `state:"nosave"`
+	finalizeOnce sync.Once
 	// Holds a finalizeResult.
 	finalizeResult atomicbitops.Uint32
 
@@ -229,8 +228,7 @@ type ConnTrack struct {
 
 	// clock provides timing used to determine conntrack reapings.
 	clock tcpip.Clock
-	// TODO(b/341946753): Restore when netstack is savable.
-	rand *rand.Rand `state:"nosave"`
+	rand  *rand.Rand
 
 	mu connTrackRWMutex `state:"nosave"`
 	// mu protects the buckets slice, but not buckets' contents. Only take
