@@ -1,0 +1,68 @@
+run:
+  tests: true
+
+output:
+  print-issued-lines: false
+
+linters:
+  enable-all: true
+  disable:
+    - maligned
+    - lll
+    - gochecknoglobals
+    - wsl
+    - funlen
+    - gocognit
+    - gomnd
+    - goprintffuncname
+    - paralleltest
+    - nlreturn
+    - goerr113
+    - ifshort
+    - testpackage
+    - wrapcheck
+    - exhaustivestruct
+    - forbidigo
+    - gci
+    - godot
+    - gofumpt
+    - cyclop
+    - errorlint
+    - nestif
+    - golint
+    - scopelint
+    - interfacer
+    - tagliatelle
+    - thelper
+    - godox
+    - goconst
+    - varnamelen
+    - ireturn
+    - exhaustruct
+    - nonamedreturns
+    - nilnil
+
+linters-settings:
+  govet:
+    check-shadowing: true
+  dupl:
+    threshold: 100
+  gocyclo:
+    min-complexity: 20
+  exhaustive:
+    default-signifies-exhaustive: true
+
+issues:
+  max-per-linter: 0
+  max-same: 0
+  exclude-use-default: false
+  exclude:
+    - '^(G104|G204):'
+    # Very commonly not checked.
+    - 'Error return value of .(.*\.Help|.*\.MarkFlagRequired|(os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*printf?|os\.(Un)?Setenv). is not checked'
+    - 'exported method (.*\.MarshalJSON|.*\.UnmarshalJSON) should have comment or be unexported'
+    - 'composite literal uses unkeyed fields'
+    - 'bad syntax for struct tag key'
+    - 'bad syntax for struct tag pair'
+    - 'result .* \(error\) is always nil'
+    - 'package io/ioutil is deprecated'

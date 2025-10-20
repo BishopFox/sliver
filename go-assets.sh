@@ -23,7 +23,7 @@ set -e
 GO_VER="1.25.1"
 GARBLE_VER="1.25.1"
 ZIG_VER="0.15.1"
-SGN_VER="0.0.3"
+SGN_VER="0.0.4"
 
 # Zig significantly throttles downloads from the main site, so we use
 # community mirrors. We fetch the list of mirrors at runtime, but
@@ -308,25 +308,6 @@ curl -L --fail --output $OUTPUT_DIR/darwin/amd64/garble https://github.com/moloc
 echo "curl -L --fail --output $OUTPUT_DIR/darwin/arm64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-arm64"
 curl -L --fail --output $OUTPUT_DIR/darwin/arm64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-arm64
 
-
-echo "-----------------------------------------------------------------"
-echo " Shikata ga nai (ノ ゜Д゜)ノ ︵ 仕方がない"
-echo "-----------------------------------------------------------------"
-# Linux (amd64)
-echo "curl -L --fail --output $OUTPUT_DIR/linux/amd64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_linux-amd64.zip"
-curl -L --fail --output $OUTPUT_DIR/linux/amd64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_linux-amd64.zip
-# Linux (arm64)
-echo "curl -L --fail --output $OUTPUT_DIR/linux/arm64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_linux-arm64.zip"
-curl -L --fail --output $OUTPUT_DIR/linux/arm64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_linux-arm64.zip
-# Windows (amd64)
-echo "curl -L --fail --output $OUTPUT_DIR/windows/amd64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_windows-amd64.zip"
-curl -L --fail --output $OUTPUT_DIR/windows/amd64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_windows-amd64.zip
-# MacOS (amd64)
-echo "curl -L --fail --output $OUTPUT_DIR/darwin/amd64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_macos-amd64.zip"
-curl -L --fail --output $OUTPUT_DIR/darwin/amd64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_macos-amd64.zip
-# MacOS (arm64)
-echo "curl -L --fail --output $OUTPUT_DIR/darwin/arm64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_macos-arm64.zip"
-curl -L --fail --output $OUTPUT_DIR/darwin/arm64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_macos-arm64.zip
 
 # --- Cleanup ---
 echo -e "clean up: $WORK_DIR"
