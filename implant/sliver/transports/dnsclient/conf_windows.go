@@ -59,14 +59,14 @@ func dnsClientConfig() (*dns.ClientConfig, error) {
 	}
 	var adapters []*windows.IpAdapterAddresses
 	for addr := (*windows.IpAdapterAddresses)(unsafe.Pointer(&b[0])); addr != nil; addr = addr.Next {
-		adapters = append(adapters, addr)
+		adapters = append(adapters, addr)		
+		// {{if .Config.Debug}}
 		adapterName := windows.BytePtrToString(addr.AdapterName)
 		adapterAddressString := ""
 		adapterIPAddress := addr.FirstUnicastAddress.Address.IP()
 		if adapterIPAddress != nil {
 			adapterAddressString = fmt.Sprintf(" with address %s", adapterIPAddress.To16())
 		}
-		// {{if .Config.Debug}}
 		log.Printf("[dns] found Windows network adapter '%s'%s", adapterName, adapterAddressString)
 		// {{end}}
 	}
