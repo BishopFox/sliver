@@ -7,39 +7,21 @@ import (
 )
 
 func ServerCommands(con *console.SliverClient) []*cobra.Command {
-  akaCommand := &cobra.Command{
-    Use: "aka",
-    Short: "Manage command aliases (aka's)",
-    Run: func(cmd *cobra.Command, args []string) {
-      AkaListCmd(cmd, con, args)
-    },
-    GroupID: constants.GenericHelpGroup,
-  }
-
-  createAka := &cobra.Command{
-    Use: "create <alias> <command> [args...]",
-    Short: "Create a new command alias (aka)",
-    Args: cobra.MinimumNArgs(2),
-    Run: func(cmd *cobra.Command, args []string) {
-      AkaCreateCmd(cmd, con, args)
-    },
-  }
-  akaCommand.AddCommand(createAka)
-
-  con.App.PreCmdRunLineHooks = append(con.App.PreCmdRunLineHooks, Cmdhook)
-
-  return []*cobra.Command{akaCommand}
+  return commands(con, constants.GenericHelpGroup)
 }
 
 func ImplantCommands(con *console.SliverClient) []*cobra.Command {
+  return commands(con, constants.SliverCoreHelpGroup)
+}
+
+func commands(con *console.SliverClient, group string) []*cobra.Command {
   akaCommand := &cobra.Command{
     Use: "aka",
     Short: "Manage command aliases (aka's)",
-    DisableFlagParsing: true,
     Run: func(cmd *cobra.Command, args []string) {
       AkaListCmd(cmd, con, args)
     },
-    GroupID: constants.SliverCoreHelpGroup,
+    GroupID: group,
   }
 
   createAka := &cobra.Command{
@@ -54,7 +36,6 @@ func ImplantCommands(con *console.SliverClient) []*cobra.Command {
   }
   createAka.InitDefaultHelpFlag()
   createAka.Flags().Lookup("help").Hidden = true
-  createAka.Flags().ParseErrorsWhitelist.UnknownFlags = true
   akaCommand.AddCommand(createAka)
 
   con.App.PreCmdRunLineHooks = append(con.App.PreCmdRunLineHooks, Cmdhook)

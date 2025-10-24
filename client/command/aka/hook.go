@@ -2,11 +2,9 @@ package aka
 
 import (
 	"strings"
-  "fmt"
 )
 
 func Cmdhook(args []string) ([]string, error) {
-  fmt.Printf("ARGS: %v\n", args)
   if len(args) == 0 {
     return args, nil
   }
@@ -19,7 +17,8 @@ func Cmdhook(args []string) ([]string, error) {
       expandedArgs = append(expandedArgs, parts...)
     }
 
-    expandedArgs = append(expandedArgs, args[1:]...)
+    // join the user passed args so the shell processes it without flags
+    expandedArgs = append(expandedArgs, strings.Join(args[1:], " "))
 
     return expandedArgs, nil
   }
