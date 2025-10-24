@@ -5,7 +5,8 @@ package storage
 import (
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/network"
-	"github.com/mailru/easyjson"
+	"github.com/chromedp/cdproto/target"
+	"github.com/go-json-experiment/json/jsontext"
 )
 
 // EventCacheStorageContentUpdated a cache's contents have been modified.
@@ -58,10 +59,10 @@ type EventInterestGroupAccessed struct {
 	Type                  InterestGroupAccessType `json:"type"`
 	OwnerOrigin           string                  `json:"ownerOrigin"`
 	Name                  string                  `json:"name"`
-	ComponentSellerOrigin string                  `json:"componentSellerOrigin,omitempty"` // For topLevelBid/topLevelAdditionalBid, and when appropriate, win and additionalBidWin
-	Bid                   float64                 `json:"bid,omitempty"`                   // For bid or somethingBid event, if done locally and not on a server.
-	BidCurrency           string                  `json:"bidCurrency,omitempty"`
-	UniqueAuctionID       InterestGroupAuctionID  `json:"uniqueAuctionId,omitempty"` // For non-global events --- links to interestGroupAuctionEvent
+	ComponentSellerOrigin string                  `json:"componentSellerOrigin,omitempty,omitzero"` // For topLevelBid/topLevelAdditionalBid, and when appropriate, win and additionalBidWin
+	Bid                   float64                 `json:"bid,omitempty,omitzero"`                   // For bid or somethingBid event, if done locally and not on a server.
+	BidCurrency           string                  `json:"bidCurrency,omitempty,omitzero"`
+	UniqueAuctionID       InterestGroupAuctionID  `json:"uniqueAuctionId,omitempty,omitzero"` // For non-global events --- links to interestGroupAuctionEvent
 }
 
 // EventInterestGroupAuctionEventOccurred an auction involving interest
@@ -72,8 +73,8 @@ type EventInterestGroupAuctionEventOccurred struct {
 	EventTime       *cdp.TimeSinceEpoch           `json:"eventTime"`
 	Type            InterestGroupAuctionEventType `json:"type"`
 	UniqueAuctionID InterestGroupAuctionID        `json:"uniqueAuctionId"`
-	ParentAuctionID InterestGroupAuctionID        `json:"parentAuctionId,omitempty"` // Set for child auctions.
-	AuctionConfig   easyjson.RawMessage           `json:"auctionConfig,omitempty"`
+	ParentAuctionID InterestGroupAuctionID        `json:"parentAuctionId,omitempty,omitzero"` // Set for child auctions.
+	AuctionConfig   jsontext.Value                `json:"auctionConfig,omitempty,omitzero"`
 }
 
 // EventInterestGroupAuctionNetworkRequestCreated specifies which auctions a
@@ -94,10 +95,27 @@ type EventInterestGroupAuctionNetworkRequestCreated struct {
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#event-sharedStorageAccessed
 type EventSharedStorageAccessed struct {
 	AccessTime  *cdp.TimeSinceEpoch        `json:"accessTime"`  // Time of the access.
-	Type        SharedStorageAccessType    `json:"type"`        // Enum value indicating the Shared Storage API method invoked.
+	Scope       SharedStorageAccessScope   `json:"scope"`       // Enum value indicating the access scope.
+	Method      SharedStorageAccessMethod  `json:"method"`      // Enum value indicating the Shared Storage API method invoked.
 	MainFrameID cdp.FrameID                `json:"mainFrameId"` // DevTools Frame Token for the primary frame tree's root.
-	OwnerOrigin string                     `json:"ownerOrigin"` // Serialized origin for the context that invoked the Shared Storage API.
+	OwnerOrigin string                     `json:"ownerOrigin"` // Serialization of the origin owning the Shared Storage data.
+	OwnerSite   string                     `json:"ownerSite"`   // Serialization of the site owning the Shared Storage data.
 	Params      *SharedStorageAccessParams `json:"params"`      // The sub-parameters wrapped by params are all optional and their presence/absence depends on type.
+}
+
+// EventSharedStorageWorkletOperationExecutionFinished a shared storage run
+// or selectURL operation finished its execution. The following parameters are
+// included in all events.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#event-sharedStorageWorkletOperationExecutionFinished
+type EventSharedStorageWorkletOperationExecutionFinished struct {
+	FinishedTime    *cdp.TimeSinceEpoch       `json:"finishedTime"`    // Time that the operation finished.
+	ExecutionTime   int64                     `json:"executionTime"`   // Time, in microseconds, from start of shared storage JS API call until end of operation execution in the worklet.
+	Method          SharedStorageAccessMethod `json:"method"`          // Enum value indicating the Shared Storage API method invoked.
+	OperationID     string                    `json:"operationId"`     // ID of the operation call.
+	WorkletTargetID target.ID                 `json:"workletTargetId"` // Hex representation of the DevTools token used as the TargetID for the associated shared storage worklet.
+	MainFrameID     cdp.FrameID               `json:"mainFrameId"`     // DevTools Frame Token for the primary frame tree's root.
+	OwnerOrigin     string                    `json:"ownerOrigin"`     // Serialization of the origin owning the Shared Storage data.
 }
 
 // EventStorageBucketCreatedOrUpdated [no description].
@@ -129,4 +147,27 @@ type EventAttributionReportingTriggerRegistered struct {
 	Registration *AttributionReportingTriggerRegistration `json:"registration"`
 	EventLevel   AttributionReportingEventLevelResult     `json:"eventLevel"`
 	Aggregatable AttributionReportingAggregatableResult   `json:"aggregatable"`
+}
+
+// EventAttributionReportingReportSent [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#event-attributionReportingReportSent
+type EventAttributionReportingReportSent struct {
+	URL            string                           `json:"url"`
+	Body           jsontext.Value                   `json:"body"`
+	Result         AttributionReportingReportResult `json:"result"`
+	NetError       int64                            `json:"netError,omitempty,omitzero"` // If result is sent, populated with net/HTTP status.
+	NetErrorName   string                           `json:"netErrorName,omitempty,omitzero"`
+	HTTPStatusCode int64                            `json:"httpStatusCode,omitempty,omitzero"`
+}
+
+// EventAttributionReportingVerboseDebugReportSent [no description].
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Storage#event-attributionReportingVerboseDebugReportSent
+type EventAttributionReportingVerboseDebugReportSent struct {
+	URL            string           `json:"url"`
+	Body           []jsontext.Value `json:"body,omitempty,omitzero"`
+	NetError       int64            `json:"netError,omitempty,omitzero"`
+	NetErrorName   string           `json:"netErrorName,omitempty,omitzero"`
+	HTTPStatusCode int64            `json:"httpStatusCode,omitempty,omitzero"`
 }

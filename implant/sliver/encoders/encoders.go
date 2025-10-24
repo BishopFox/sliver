@@ -45,7 +45,7 @@ var (
 	MaxN           = uint64(9999999)
 
 	Base32EncoderID, _  = strconv.ParseUint(`{{.Encoders.Base32EncoderID}}`, 10, 64)
-	Base58EncoderID, _  = strconv.ParseUint(`.Encoders.Base58EncoderID}}`, 10, 64)
+	Base58EncoderID, _  = strconv.ParseUint(`{{.Encoders.Base58EncoderID}}`, 10, 64)
 	Base64EncoderID, _  = strconv.ParseUint(`{{.Encoders.Base64EncoderID}}`, 10, 64)
 	EnglishEncoderID, _ = strconv.ParseUint(`{{.Encoders.EnglishEncoderID}}`, 10, 64)
 	GzipEncoderID, _    = strconv.ParseUint(`{{.Encoders.GzipEncoderID}}`, 10, 64)

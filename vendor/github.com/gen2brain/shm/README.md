@@ -1,6 +1,6 @@
 ## shm
-[![TravisCI Build Status](https://travis-ci.org/gen2brain/shm.svg?branch=master)](https://travis-ci.org/gen2brain/shm) 
-[![GoDoc](https://godoc.org/github.com/gen2brain/shm?status.svg)](https://godoc.org/github.com/gen2brain/shm) 
+[![Status](https://github.com/gen2brain/shm/actions/workflows/test.yml/badge.svg)](https://github.com/gen2brain/shm/actions)
+[![Go Reference](https://pkg.go.dev/badge/github.com/gen2brain/shm.svg)](https://pkg.go.dev/github.com/gen2brain/shm)
 [![Go Report Card](https://goreportcard.com/badge/github.com/gen2brain/shm?branch=master)](https://goreportcard.com/report/github.com/gen2brain/shm) 
 
 `shm` implements System V shared memory functions (`shmctl`, `shmget`, `shmat`, `shmdt`) in pure Go (except `solaris`, see [#24357](https://github.com/golang/go/issues/24357)).

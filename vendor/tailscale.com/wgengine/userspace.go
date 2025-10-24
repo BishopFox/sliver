@@ -26,7 +26,9 @@ import (
 	"tailscale.com/health"
 	"tailscale.com/ipn/ipnstate"
 	"tailscale.com/net/dns"
+	"tailscale.com/net/dns/resolver"
 	"tailscale.com/net/flowtrack"
+	"tailscale.com/net/ipset"
 	"tailscale.com/net/netmon"
 	"tailscale.com/net/packet"
 	"tailscale.com/net/sockstats"
@@ -45,14 +47,16 @@ import (
 	"tailscale.com/types/views"
 	"tailscale.com/util/clientmetric"
 	"tailscale.com/util/deephash"
+	"tailscale.com/util/eventbus"
 	"tailscale.com/util/mak"
 	"tailscale.com/util/set"
 	"tailscale.com/util/testenv"
+	"tailscale.com/util/usermetric"
 	"tailscale.com/version"
-	"tailscale.com/wgengine/capture"
 	"tailscale.com/wgengine/filter"
 	"tailscale.com/wgengine/magicsock"
 	"tailscale.com/wgengine/netlog"
+	"tailscale.com/wgengine/netstack/gro"
 	"tailscale.com/wgengine/router"
 	"tailscale.com/wgengine/wgcfg"
 	"tailscale.com/wgengine/wgint"
@@ -87,14 +91,19 @@ const statusPollInterval = 1 * time.Minute
 const networkLoggerUploadTimeout = 5 * time.Second
 
 type userspaceEngine struct {
+	// eventBus will eventually become required, but for now may be nil.
+	// TODO(creachadair): Enforce that this is non-nil at construction.
+	eventBus *eventbus.Bus
+
 	logf             logger.Logf
-	wgLogger         *wglog.Logger //a wireguard-go logging wrapper
+	wgLogger         *wglog.Logger // a wireguard-go logging wrapper
 	reqCh            chan struct{}
 	waitCh           chan struct{} // chan is closed when first Close call completes; contrast with closing bool
 	timeNow          func() mono.Time
 	tundev           *tstun.Wrapper
 	wgdev            *device.Device
 	router           router.Router
+	dialer           *tsdial.Dialer
 	confListenPort   uint16 // original conf.ListenPort
 	dns              *dns.Manager
 	magicConn        *magicsock.Conn
@@ -193,6 +202,10 @@ type Config struct {
 	// HealthTracker, if non-nil, is the health tracker to use.
 	HealthTracker *health.Tracker
 
+	// Metrics is the usermetrics registry to use.
+	// Mandatory, if not set, an error is returned.
+	Metrics *usermetric.Registry
+
 	// Dialer is the dialer to use for outbound connections.
 	// If nil, a new Dialer is created.
 	Dialer *tsdial.Dialer
@@ -221,6 +234,13 @@ type Config struct {
 	// DriveForLocal, if populated, will cause the engine to expose a Taildrive
 	// listener at 100.100.100.100:8080.
 	DriveForLocal drive.FileSystemForLocal
+
+	// EventBus, if non-nil, is used for event publication and subscription by
+	// the Engine and its subsystems.
+	//
+	// TODO(creachadair): As of 2025-03-19 this is optional, but is intended to
+	// become required non-nil.
+	EventBus *eventbus.Bus
 }
 
 // NewFakeUserspaceEngine returns a new userspace engine for testing.
@@ -247,6 +267,10 @@ func NewFakeUserspaceEngine(logf logger.Logf, opts ...any) (Engine, error) {
 			conf.ControlKnobs = v
 		case *health.Tracker:
 			conf.HealthTracker = v
+		case *usermetric.Registry:
+			conf.Metrics = v
+		case *eventbus.Bus:
+			conf.EventBus = v
 		default:
 			return nil, fmt.Errorf("unknown option type %T", v)
 		}
@@ -263,6 +287,10 @@ func NewUserspaceEngine(logf logger.Logf, conf Config) (_ Engine, reterr error) 
 
 	if testenv.InTest() && conf.HealthTracker == nil {
 		panic("NewUserspaceEngine called without HealthTracker (being strict in tests)")
+	}
+
+	if conf.Metrics == nil {
+		return nil, errors.New("NewUserspaceEngine: opts.Metrics is required, please pass a *usermetric.Registry")
 	}
 
 	if conf.Tun == nil {
@@ -287,9 +315,9 @@ func NewUserspaceEngine(logf logger.Logf, conf Config) (_ Engine, reterr error) 
 
 	var tsTUNDev *tstun.Wrapper
 	if conf.IsTAP {
-		tsTUNDev = tstun.WrapTAP(logf, conf.Tun)
+		tsTUNDev = tstun.WrapTAP(logf, conf.Tun, conf.Metrics)
 	} else {
-		tsTUNDev = tstun.Wrap(logf, conf.Tun)
+		tsTUNDev = tstun.Wrap(logf, conf.Tun, conf.Metrics)
 	}
 	closePool.add(tsTUNDev)
 
@@ -311,12 +339,14 @@ func NewUserspaceEngine(logf logger.Logf, conf Config) (_ Engine, reterr error) 
 	}
 
 	e := &userspaceEngine{
+		eventBus:       conf.EventBus,
 		timeNow:        mono.Now,
 		logf:           logf,
 		reqCh:          make(chan struct{}, 1),
 		waitCh:         make(chan struct{}),
 		tundev:         tsTUNDev,
 		router:         rtr,
+		dialer:         conf.Dialer,
 		confListenPort: conf.ListenPort,
 		birdClient:     conf.BIRDClient,
 		controlKnobs:   conf.ControlKnobs,
@@ -330,13 +360,13 @@ func NewUserspaceEngine(logf logger.Logf, conf Config) (_ Engine, reterr error) 
 			return nil, err
 		}
 	}
-	e.isLocalAddr.Store(tsaddr.FalseContainsIPFunc())
-	e.isDNSIPOverTailscale.Store(tsaddr.FalseContainsIPFunc())
+	e.isLocalAddr.Store(ipset.FalseContainsIPFunc())
+	e.isDNSIPOverTailscale.Store(ipset.FalseContainsIPFunc())
 
 	if conf.NetMon != nil {
 		e.netMon = conf.NetMon
 	} else {
-		mon, err := netmon.New(logf)
+		mon, err := netmon.New(conf.EventBus, logf)
 		if err != nil {
 			return nil, err
 		}
@@ -348,7 +378,7 @@ func NewUserspaceEngine(logf logger.Logf, conf Config) (_ Engine, reterr error) 
 	tunName, _ := conf.Tun.Name()
 	conf.Dialer.SetTUNName(tunName)
 	conf.Dialer.SetNetMon(e.netMon)
-	e.dns = dns.NewManager(logf, conf.DNS, e.health, conf.Dialer, fwdDNSLinkSelector{e, tunName}, conf.ControlKnobs)
+	e.dns = dns.NewManager(logf, conf.DNS, e.health, conf.Dialer, fwdDNSLinkSelector{e, tunName}, conf.ControlKnobs, runtime.GOOS)
 
 	// TODO: there's probably a better place for this
 	sockstats.SetNetMon(e.netMon)
@@ -373,10 +403,11 @@ func NewUserspaceEngine(logf logger.Logf, conf Config) (_ Engine, reterr error) 
 		e.logf("onPortUpdate(port=%v, network=%s)", port, network)
 
 		if err := e.router.UpdateMagicsockPort(port, network); err != nil {
-			e.logf("UpdateMagicsockPort(port=%v, network=%s) failed: %w", port, network, err)
+			e.logf("UpdateMagicsockPort(port=%v, network=%s) failed: %v", port, network, err)
 		}
 	}
 	magicsockOpts := magicsock.Options{
+		EventBus:         e.eventBus,
 		Logf:             logf,
 		Port:             conf.ListenPort,
 		EndpointsFunc:    endpointsFn,
@@ -385,6 +416,7 @@ func NewUserspaceEngine(logf logger.Logf, conf Config) (_ Engine, reterr error) 
 		NoteRecvActivity: e.noteRecvActivity,
 		NetMon:           e.netMon,
 		HealthTracker:    e.health,
+		Metrics:          conf.Metrics,
 		ControlKnobs:     conf.ControlKnobs,
 		OnPortUpdate:     onPortUpdate,
 		PeerByKeyFunc:    e.PeerByKey,
@@ -490,6 +522,7 @@ func NewUserspaceEngine(logf logger.Logf, conf Config) (_ Engine, reterr error) 
 	if err := e.router.Up(); err != nil {
 		return nil, fmt.Errorf("router.Up: %w", err)
 	}
+	tsTUNDev.SetLinkFeaturesPostUp()
 
 	// It's a little pointless to apply no-op settings here (they
 	// should already be empty?), but it at least exercises the
@@ -518,7 +551,7 @@ func NewUserspaceEngine(logf logger.Logf, conf Config) (_ Engine, reterr error) 
 }
 
 // echoRespondToAll is an inbound post-filter responding to all echo requests.
-func echoRespondToAll(p *packet.Parsed, t *tstun.Wrapper) filter.Response {
+func echoRespondToAll(p *packet.Parsed, t *tstun.Wrapper, gro *gro.GRO) (filter.Response, *gro.GRO) {
 	if p.IsEchoRequest() {
 		header := p.ICMP4Header()
 		header.ToResponse()
@@ -530,9 +563,9 @@ func echoRespondToAll(p *packet.Parsed, t *tstun.Wrapper) filter.Response {
 		// it away. If this ever gets run in non-fake mode, you'll
 		// get double responses to pings, which is an indicator you
 		// shouldn't be doing that I guess.)
-		return filter.Accept
+		return filter.Accept, gro
 	}
-	return filter.Accept
+	return filter.Accept, gro
 }
 
 // handleLocalPackets inspects packets coming from the local network
@@ -553,6 +586,17 @@ func (e *userspaceEngine) handleLocalPackets(p *packet.Parsed, t *tstun.Wrapper)
 			t.InjectInboundCopy(p.Buffer())
 			metricReflectToOS.Add(1)
 			return filter.Drop
+		}
+	}
+	if runtime.GOOS == "plan9" {
+		isLocalAddr, ok := e.isLocalAddr.LoadOk()
+		if ok {
+			if isLocalAddr(p.Dst.Addr()) {
+				// On Plan9's "tun" equivalent, everything goes back in and out
+				// the tun, even when the kernel's replying to itself.
+				t.InjectInboundCopy(p.Buffer())
+				return filter.Drop
+			}
 		}
 	}
 
@@ -837,8 +881,7 @@ func (e *userspaceEngine) updateActivityMapsLocked(trackNodes []key.NodePublic, 
 // hasOverlap checks if there is a IPPrefix which is common amongst the two
 // provided slices.
 func hasOverlap(aips, rips views.Slice[netip.Prefix]) bool {
-	for i := range aips.Len() {
-		aip := aips.At(i)
+	for _, aip := range aips.All() {
 		if views.SliceContains(rips, aip) {
 			return true
 		}
@@ -854,7 +897,7 @@ func (e *userspaceEngine) Reconfig(cfg *wgcfg.Config, routerCfg *router.Config, 
 		panic("dnsCfg must not be nil")
 	}
 
-	e.isLocalAddr.Store(tsaddr.NewContainsIPFunc(views.SliceOf(routerCfg.LocalAddrs)))
+	e.isLocalAddr.Store(ipset.NewContainsIPFunc(views.SliceOf(routerCfg.LocalAddrs)))
 
 	e.wgLock.Lock()
 	defer e.wgLock.Unlock()
@@ -912,7 +955,7 @@ func (e *userspaceEngine) Reconfig(cfg *wgcfg.Config, routerCfg *router.Config, 
 	// instead have ipnlocal populate a map of DNS IP => linkName and
 	// put that in the *dns.Config instead, and plumb it down to the
 	// dns.Manager. Maybe also with isLocalAddr above.
-	e.isDNSIPOverTailscale.Store(tsaddr.NewContainsIPFunc(views.SliceOf(dnsIPsOverTailscale(dnsCfg, routerCfg))))
+	e.isDNSIPOverTailscale.Store(ipset.NewContainsIPFunc(views.SliceOf(dnsIPsOverTailscale(dnsCfg, routerCfg))))
 
 	// See if any peers have changed disco keys, which means they've restarted.
 	// If so, we need to update the wireguard-go/device.Device in two phases:
@@ -988,6 +1031,14 @@ func (e *userspaceEngine) Reconfig(cfg *wgcfg.Config, routerCfg *router.Config, 
 		if err != nil {
 			return err
 		}
+
+		if resolver.ShouldUseRoutes(e.controlKnobs) {
+			e.logf("wgengine: Reconfig: user dialer")
+			e.dialer.SetRoutes(routerCfg.Routes, routerCfg.LocalRoutes)
+		} else {
+			e.dialer.SetRoutes(nil, nil)
+		}
+
 		// Keep DNS configuration after router configuration, as some
 		// DNS managers refuse to apply settings if the device has no
 		// assigned address.
@@ -1221,7 +1272,7 @@ func (e *userspaceEngine) linkChange(delta *netmon.ChangeDelta) {
 	// and Apple platforms.
 	if changed {
 		switch runtime.GOOS {
-		case "linux", "android", "ios", "darwin":
+		case "linux", "android", "ios", "darwin", "openbsd":
 			e.wgLock.Lock()
 			dnsCfg := e.lastDNSConfig
 			e.wgLock.Unlock()
@@ -1249,7 +1300,6 @@ func (e *userspaceEngine) linkChange(delta *netmon.ChangeDelta) {
 }
 
 func (e *userspaceEngine) SetNetworkMap(nm *netmap.NetworkMap) {
-	e.magicConn.SetNetworkMap(nm)
 	e.mu.Lock()
 	e.netMap = nm
 	e.mu.Unlock()
@@ -1314,9 +1364,9 @@ func (e *userspaceEngine) mySelfIPMatchingFamily(dst netip.Addr) (src netip.Addr
 	if addrs.Len() == 0 {
 		return zero, errors.New("no self address in netmap")
 	}
-	for i := range addrs.Len() {
-		if a := addrs.At(i); a.IsSingleIP() && a.Addr().BitLen() == dst.BitLen() {
-			return a.Addr(), nil
+	for _, p := range addrs.All() {
+		if p.IsSingleIP() && p.Addr().BitLen() == dst.BitLen() {
+			return p.Addr(), nil
 		}
 	}
 	return zero, errors.New("no self address in netmap matching address family")
@@ -1567,6 +1617,12 @@ type fwdDNSLinkSelector struct {
 }
 
 func (ls fwdDNSLinkSelector) PickLink(ip netip.Addr) (linkName string) {
+	// sandboxed macOS does not automatically bind to the loopback interface so
+	// we must be explicit about it.
+	if runtime.GOOS == "darwin" && ip.IsLoopback() {
+		return "lo0"
+	}
+
 	if ls.ue.isDNSIPOverTailscale.Load()(ip) {
 		return ls.tunName
 	}
@@ -1580,7 +1636,7 @@ var (
 	metricNumMinorChanges = clientmetric.NewCounter("wgengine_minor_changes")
 )
 
-func (e *userspaceEngine) InstallCaptureHook(cb capture.Callback) {
+func (e *userspaceEngine) InstallCaptureHook(cb packet.CaptureCallback) {
 	e.tundev.InstallCaptureHook(cb)
 	e.magicConn.InstallCaptureHook(cb)
 }

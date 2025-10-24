@@ -23,12 +23,13 @@ type IndexOption struct {
 	Sort       string // DESC, ASC
 	Collate    string
 	Length     int
-	priority   int
+	Priority   int
 }
 
 // ParseIndexes parse schema indexes
-func (schema *Schema) ParseIndexes() map[string]Index {
-	indexes := map[string]Index{}
+func (schema *Schema) ParseIndexes() []*Index {
+	indexesByName := map[string]*Index{}
+	indexes := []*Index{}
 
 	for _, field := range schema.Fields {
 		if field.TagSettings["INDEX"] != "" || field.TagSettings["UNIQUEINDEX"] != "" {
@@ -38,7 +39,12 @@ func (schema *Schema) ParseIndexes() map[string]Index {
 				break
 			}
 			for _, index := range fieldIndexes {
-				idx := indexes[index.Name]
+				idx := indexesByName[index.Name]
+				if idx == nil {
+					idx = &Index{Name: index.Name}
+					indexesByName[index.Name] = idx
+					indexes = append(indexes, idx)
+				}
 				idx.Name = index.Name
 				if idx.Class == "" {
 					idx.Class = index.Class
@@ -58,10 +64,8 @@ func (schema *Schema) ParseIndexes() map[string]Index {
 
 				idx.Fields = append(idx.Fields, index.Fields...)
 				sort.Slice(idx.Fields, func(i, j int) bool {
-					return idx.Fields[i].priority < idx.Fields[j].priority
+					return idx.Fields[i].Priority < idx.Fields[j].Priority
 				})
-
-				indexes[index.Name] = idx
 			}
 		}
 	}
@@ -78,12 +82,12 @@ func (schema *Schema) LookIndex(name string) *Index {
 		indexes := schema.ParseIndexes()
 		for _, index := range indexes {
 			if index.Name == name {
-				return &index
+				return index
 			}
 
 			for _, field := range index.Fields {
 				if field.Name == name {
-					return &index
+					return index
 				}
 			}
 		}
@@ -101,7 +105,7 @@ func parseFieldIndexes(field *Field) (indexes []Index, err error) {
 				var (
 					name       string
 					tag        = strings.Join(v[1:], ":")
-					idx        = strings.Index(tag, ",")
+					idx        = strings.IndexByte(tag, ',')
 					tagSetting = strings.Join(strings.Split(tag, ",")[1:], ",")
 					settings   = ParseTagSetting(tagSetting, ",")
 					length, _  = strconv.Atoi(settings["LENGTH"])
@@ -111,17 +115,14 @@ func parseFieldIndexes(field *Field) (indexes []Index, err error) {
 					idx = len(tag)
 				}
 
-				if idx != -1 {
-					name = tag[0:idx]
-				}
-
+				name = tag[0:idx]
 				if name == "" {
 					subName := field.Name
 					const key = "COMPOSITE"
 					if composite, found := settings[key]; found {
 						if len(composite) == 0 || composite == key {
 							err = fmt.Errorf(
-								"The composite tag of %s.%s cannot be empty",
+								"the composite tag of %s.%s cannot be empty",
 								field.Schema.Name,
 								field.Name)
 							return
@@ -154,7 +155,7 @@ func parseFieldIndexes(field *Field) (indexes []Index, err error) {
 						Sort:       settings["SORT"],
 						Collate:    settings["COLLATE"],
 						Length:     length,
-						priority:   priority,
+						Priority:   priority,
 					}},
 				})
 			}

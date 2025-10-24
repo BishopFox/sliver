@@ -35,7 +35,6 @@ import (
 
 	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
@@ -307,57 +306,6 @@ func LoadHTTPC2s() ([]*clientpb.HTTPC2Config, error) {
 	return pbC2Configs, nil
 }
 
-// used to prevent duplicate stager extensions
-func SearchStageExtensions(stagerExtension string, profileName string) error {
-	c2Config := models.HttpC2ImplantConfig{}
-	err := Session().Where(&models.HttpC2ImplantConfig{
-		StagerFileExtension: stagerExtension,
-	}).Find(&c2Config).Error
-
-	if err != nil {
-		return err
-	}
-
-	if c2Config.StagerFileExtension != "" && profileName != "" {
-		// check if the stager extension is used in the provided profile
-		httpC2Config := models.HttpC2Config{}
-		err = Session().Where(&models.HttpC2Config{ID: c2Config.HttpC2ConfigID}).Find(&httpC2Config).Error
-		if err != nil {
-			return err
-		}
-		if httpC2Config.Name == profileName {
-			return nil
-		}
-		return configs.ErrDuplicateStageExt
-	}
-	return nil
-}
-
-// used to prevent duplicate start session extensions
-func SearchStartSessionExtensions(StartSessionFileExt string, profileName string) error {
-	c2Config := models.HttpC2ImplantConfig{}
-	err := Session().Where(&models.HttpC2ImplantConfig{
-		StartSessionFileExtension: StartSessionFileExt,
-	}).Find(&c2Config).Error
-
-	if err != nil {
-		return err
-	}
-
-	if c2Config.StartSessionFileExtension != "" && profileName != "" {
-		httpC2Config := models.HttpC2Config{}
-		err = Session().Where(&models.HttpC2Config{ID: c2Config.HttpC2ConfigID}).Find(&httpC2Config).Error
-		if err != nil {
-			return err
-		}
-		if httpC2Config.Name == profileName {
-			return nil
-		}
-		return configs.ErrDuplicateStartSessionExt
-	}
-	return nil
-}
-
 func LoadHTTPC2ConfigByName(name string) (*clientpb.HTTPC2Config, error) {
 	if len(name) < 1 {
 		return nil, ErrRecordNotFound
@@ -471,8 +419,15 @@ func HTTPC2ConfigUpdate(newConf *clientpb.HTTPC2Config, oldConf *clientpb.HTTPC2
 	}
 
 	err = Session().Where(&models.HttpC2Header{
-		HttpC2ServerConfigID: &clientID,
+		HttpC2ImplantConfigID: &clientID,
 	}).Delete(&models.HttpC2Header{})
+	if err.Error != nil {
+		return err.Error
+	}
+
+	err = Session().Where(&models.HttpC2URLParameter{
+		HttpC2ImplantConfigID: clientID,
+	}).Delete(&models.HttpC2URLParameter{})
 	if err.Error != nil {
 		return err.Error
 	}
@@ -499,6 +454,16 @@ func HTTPC2ConfigUpdate(newConf *clientpb.HTTPC2Config, oldConf *clientpb.HTTPC2
 		err = Session().Clauses(clause.OnConflict{
 			UpdateAll: true,
 		}).Create(&header)
+		if err.Error != nil {
+			return err.Error
+		}
+	}
+
+	for _, urlParameter := range c2Config.ImplantConfig.ExtraURLParameters {
+		urlParameter.HttpC2ImplantConfigID = clientID
+		err = Session().Clauses(clause.OnConflict{
+			UpdateAll: true,
+		}).Create(&urlParameter)
 		if err.Error != nil {
 			return err.Error
 		}
@@ -550,7 +515,7 @@ func HTTPC2ConfigUpdate(newConf *clientpb.HTTPC2Config, oldConf *clientpb.HTTPC2
 	return nil
 }
 
-func SaveHTTPC2Listener(listenerConf *clientpb.ListenerJob) error {
+func SaveC2Listener(listenerConf *clientpb.ListenerJob) error {
 	dbListener := models.ListenerJobFromProtobuf(listenerConf)
 	dbSession := Session()
 	result := dbSession.Clauses(clause.OnConflict{
@@ -951,14 +916,18 @@ func BeaconTasksByBeaconID(beaconID string) ([]*clientpb.BeaconTask, error) {
 		return nil, ErrRecordNotFound
 	}
 	beaconTasks := []*models.BeaconTask{}
-	err := Session().Select([]string{
-		"ID", "EnvelopeID", "BeaconID", "CreatedAt", "State", "SentAt", "CompletedAt",
-		"Description",
-	}).Where(&models.BeaconTask{BeaconID: id}).Find(&beaconTasks).Error
+	/*
+		Even though we are fetching the request/response columns here, we will not send
+		them back in the response
+		If we SELECT those columns out, that will bypass GORM's reflection-based field
+		to column mapping and can cause GORM not to map the created_at field correctly
+	*/
+	err := Session().Where(&models.BeaconTask{BeaconID: id}).Find(&beaconTasks).Error
 
 	pbBeaconTasks := []*clientpb.BeaconTask{}
 	for _, beaconTask := range beaconTasks {
-		pbBeaconTasks = append(pbBeaconTasks, beaconTask.ToProtobuf(true))
+		// Do not preserve the request and response columns
+		pbBeaconTasks = append(pbBeaconTasks, beaconTask.ToProtobuf(false))
 	}
 	return pbBeaconTasks, err
 }

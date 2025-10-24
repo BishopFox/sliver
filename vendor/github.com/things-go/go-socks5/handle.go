@@ -80,29 +80,40 @@ func (sf *Server) handleRequest(write io.Writer, req *Request) error {
 		return fmt.Errorf("bind to %v blocked by rules", req.RawDestAddr)
 	}
 
+	var last Handler
 	// Switch on the command
 	switch req.Command {
 	case statute.CommandConnect:
+		last = sf.handleConnect
 		if sf.userConnectHandle != nil {
-			return sf.userConnectHandle(ctx, write, req)
+			last = sf.userConnectHandle
 		}
-		return sf.handleConnect(ctx, write, req)
+		if len(sf.userConnectMiddlewares) != 0 {
+			return sf.userConnectMiddlewares.Execute(ctx, write, req, last)
+		}
 	case statute.CommandBind:
+		last = sf.handleBind
 		if sf.userBindHandle != nil {
-			return sf.userBindHandle(ctx, write, req)
+			last = sf.userBindHandle
 		}
-		return sf.handleBind(ctx, write, req)
+		if len(sf.userBindMiddlewares) != 0 {
+			return sf.userBindMiddlewares.Execute(ctx, write, req, last)
+		}
 	case statute.CommandAssociate:
+		last = sf.handleAssociate
 		if sf.userAssociateHandle != nil {
-			return sf.userAssociateHandle(ctx, write, req)
+			last = sf.userAssociateHandle
 		}
-		return sf.handleAssociate(ctx, write, req)
+		if len(sf.userAssociateMiddlewares) != 0 {
+			return sf.userAssociateMiddlewares.Execute(ctx, write, req, last)
+		}
 	default:
 		if err := SendReply(write, statute.RepCommandNotSupported, nil); err != nil {
 			return fmt.Errorf("failed to send reply, %v", err)
 		}
 		return fmt.Errorf("unsupported command[%v]", req.Command)
 	}
+	return last(ctx, write, req)
 }
 
 // handleConnect is used to handle a connect command
@@ -117,7 +128,7 @@ func (sf *Server) handleConnect(ctx context.Context, writer io.Writer, request *
 		dial := sf.dial
 		if dial == nil {
 			dial = func(ctx context.Context, net_, addr string) (net.Conn, error) {
-				return net.Dial(net_, addr)
+				return net.Dial(net_, addr) // nolint: noctx
 			}
 		}
 		target, err = dial(ctx, "tcp", request.DestAddr.String())
@@ -135,7 +146,7 @@ func (sf *Server) handleConnect(ctx context.Context, writer io.Writer, request *
 		}
 		return fmt.Errorf("connect to %v failed, %v", request.RawDestAddr, err)
 	}
-	defer target.Close()
+	defer target.Close() // nolint: errcheck
 
 	// Send success
 	if err := SendReply(writer, statute.RepSuccess, target.LocalAddr()); err != nil {
@@ -172,10 +183,25 @@ func (sf *Server) handleAssociate(ctx context.Context, writer io.Writer, request
 	dial := sf.dial
 	if dial == nil {
 		dial = func(_ context.Context, net_, addr string) (net.Conn, error) {
-			return net.Dial(net_, addr)
+			return net.Dial(net_, addr) // nolint: noctx
 		}
 	}
-	bindLn, err := net.ListenUDP("udp", nil)
+
+	var udpAddr *net.UDPAddr
+	if sf.useBindIpBaseResolveAsUdpAddr {
+		if sf.bindIP != nil {
+			var err error
+			udpAddr, err = net.ResolveUDPAddr("udp", sf.bindIP.String()+":0")
+			if err != nil {
+				if err := SendReply(writer, statute.RepServerFailure, nil); err != nil {
+					return fmt.Errorf("failed to send reply, %v", err)
+				}
+			}
+		}
+	} else {
+		udpAddr = &net.UDPAddr{IP: request.LocalAddr.(*net.TCPAddr).IP, Port: 0}
+	}
+	bindLn, err := net.ListenUDP("udp", udpAddr)
 	if err != nil {
 		if err := SendReply(writer, statute.RepServerFailure, nil); err != nil {
 			return fmt.Errorf("failed to send reply, %v", err)
@@ -195,12 +221,12 @@ func (sf *Server) handleAssociate(ctx context.Context, writer io.Writer, request
 		bufPool := sf.bufferPool.Get()
 		defer func() {
 			sf.bufferPool.Put(bufPool)
-			bindLn.Close()
+			bindLn.Close() // nolint: errcheck
 			conns.Range(func(key, value any) bool {
 				if connTarget, ok := value.(net.Conn); !ok {
 					sf.logger.Errorf("conns has illegal item %v:%v", key, value)
 				} else {
-					connTarget.Close()
+					connTarget.Close() // nolint: errcheck
 				}
 				return true
 			})
@@ -239,7 +265,7 @@ func (sf *Server) handleAssociate(ctx context.Context, writer io.Writer, request
 				sf.goFunc(func() {
 					bufPool := sf.bufferPool.Get()
 					defer func() {
-						targetNew.Close()
+						targetNew.Close() // nolint: errcheck
 						conns.Delete(connKey)
 						sf.bufferPool.Put(bufPool)
 					}()
@@ -286,7 +312,7 @@ func (sf *Server) handleAssociate(ctx context.Context, writer io.Writer, request
 		_, err := request.Reader.Read(buf[:cap(buf)])
 		// sf.logger.Errorf("read data from client %s, %d bytesm, err is %+v", request.RemoteAddr.String(), num, err)
 		if err != nil {
-			bindLn.Close()
+			bindLn.Close() // nolint: errcheck
 			if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
 				return nil
 			}

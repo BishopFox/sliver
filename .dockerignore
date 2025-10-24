@@ -1,4 +1,9 @@
+# go-assets.sh downloads
 /server/assets/fs/**.zip
+/server/assets/fs/**/garble*
+/server/assets/fs/**/zig.tar.xz
+/server/assets/fs/**/zig.zip
+/server/assets/fs/src.zip
 
 /*.sdk.tar.xz
 
@@ -19,3 +24,5 @@
 /SECURITY.md
 /README.md
 /CONTRIBUTING.md
+
+.downloaded_assets

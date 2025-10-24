@@ -10,12 +10,11 @@ For this exercise, we will create a new beacon profile and prepare to stage it.
 
 If you look at the generated implant, you'll notice the `ID` field has been populated. When downloading your payload from the staging server your URL needs to be in the form of:
 ```
-https://sliver-ip/whatever.stager_file_ext?x=yourID
+https://sliver-ip/definitely/not/malware?x=yourID
 ```
 
 There is a lot of flexibility in the form of this URL, the conditions for successful staging are:
-* The file extension needs to match the c2 profile's stager_file_ext
-* There has to be a one character http url parameter
+* There has to be http url parameter containing the implant ID
 * The digits found in the ID need to match an implant ID, if your implant ID is 1234, abcd1234, 12beu34 are all valid values
 
 To expose a payload, you need to use the `implants stage` command and specifically select the implant to leave accessible.

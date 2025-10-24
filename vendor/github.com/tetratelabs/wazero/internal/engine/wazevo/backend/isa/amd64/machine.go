@@ -1918,6 +1918,9 @@ func (m *machine) lowerCall(si *ssa.Instruction) {
 		for i := regalloc.RealReg(0); i < 16; i++ {
 			m.insert(m.allocateInstr().asDefineUninitializedReg(regInfo.RealRegToVReg[xmm0+i]))
 		}
+		// Since Go 1.24 it may also use DX, which is not reserved for the function call's 3 args.
+		// https://github.com/golang/go/blob/go1.24.0/src/runtime/memmove_amd64.s#L123
+		m.insert(m.allocateInstr().asDefineUninitializedReg(regInfo.RealRegToVReg[rdx]))
 	}
 
 	if isDirectCall {
@@ -1933,6 +1936,7 @@ func (m *machine) lowerCall(si *ssa.Instruction) {
 		for i := regalloc.RealReg(0); i < 16; i++ {
 			m.insert(m.allocateInstr().asNopUseReg(regInfo.RealRegToVReg[xmm0+i]))
 		}
+		m.insert(m.allocateInstr().asNopUseReg(regInfo.RealRegToVReg[rdx]))
 	}
 
 	var index int

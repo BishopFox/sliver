@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 1.8.0
+
+- [Improvement]: Updated dependencies, test with Go 1.23 to 1.25.
+- [Improvement]: Use Go 1.21's binary.NativeEndian (#220)
+- [Improvement]: Expose socket ReadBuffer & WriteBuffer functions (#223)
+
 ## v1.7.2
 
 - [Improvement]: updated dependencies, test with Go 1.20.

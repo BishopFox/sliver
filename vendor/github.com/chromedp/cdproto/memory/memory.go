@@ -12,10 +12,10 @@ import (
 	"github.com/chromedp/cdproto/cdp"
 )
 
-// GetDOMCountersParams [no description].
+// GetDOMCountersParams retruns current DOM object counters.
 type GetDOMCountersParams struct{}
 
-// GetDOMCounters [no description].
+// GetDOMCounters retruns current DOM object counters.
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Memory#method-getDOMCounters
 func GetDOMCounters() *GetDOMCountersParams {
@@ -24,9 +24,9 @@ func GetDOMCounters() *GetDOMCountersParams {
 
 // GetDOMCountersReturns return values.
 type GetDOMCountersReturns struct {
-	Documents        int64 `json:"documents,omitempty"`
-	Nodes            int64 `json:"nodes,omitempty"`
-	JsEventListeners int64 `json:"jsEventListeners,omitempty"`
+	Documents        int64 `json:"documents,omitempty,omitzero"`
+	Nodes            int64 `json:"nodes,omitempty,omitzero"`
+	JsEventListeners int64 `json:"jsEventListeners,omitempty,omitzero"`
 }
 
 // Do executes Memory.getDOMCounters against the provided context.
@@ -47,10 +47,47 @@ func (p *GetDOMCountersParams) Do(ctx context.Context) (documents int64, nodes i
 	return res.Documents, res.Nodes, res.JsEventListeners, nil
 }
 
-// PrepareForLeakDetectionParams [no description].
+// GetDOMCountersForLeakDetectionParams retruns DOM object counters after
+// preparing renderer for leak detection.
+type GetDOMCountersForLeakDetectionParams struct{}
+
+// GetDOMCountersForLeakDetection retruns DOM object counters after preparing
+// renderer for leak detection.
+//
+// See: https://chromedevtools.github.io/devtools-protocol/tot/Memory#method-getDOMCountersForLeakDetection
+func GetDOMCountersForLeakDetection() *GetDOMCountersForLeakDetectionParams {
+	return &GetDOMCountersForLeakDetectionParams{}
+}
+
+// GetDOMCountersForLeakDetectionReturns return values.
+type GetDOMCountersForLeakDetectionReturns struct {
+	Counters []*DOMCounter `json:"counters,omitempty,omitzero"` // DOM object counters.
+}
+
+// Do executes Memory.getDOMCountersForLeakDetection against the provided context.
+//
+// returns:
+//
+//	counters - DOM object counters.
+func (p *GetDOMCountersForLeakDetectionParams) Do(ctx context.Context) (counters []*DOMCounter, err error) {
+	// execute
+	var res GetDOMCountersForLeakDetectionReturns
+	err = cdp.Execute(ctx, CommandGetDOMCountersForLeakDetection, nil, &res)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Counters, nil
+}
+
+// PrepareForLeakDetectionParams prepares for leak detection by terminating
+// workers, stopping spellcheckers, dropping non-essential internal caches,
+// running garbage collections, etc.
 type PrepareForLeakDetectionParams struct{}
 
-// PrepareForLeakDetection [no description].
+// PrepareForLeakDetection prepares for leak detection by terminating
+// workers, stopping spellcheckers, dropping non-essential internal caches,
+// running garbage collections, etc.
 //
 // See: https://chromedevtools.github.io/devtools-protocol/tot/Memory#method-prepareForLeakDetection
 func PrepareForLeakDetection() *PrepareForLeakDetectionParams {
@@ -131,8 +168,8 @@ func (p *SimulatePressureNotificationParams) Do(ctx context.Context) (err error)
 
 // StartSamplingParams start collecting native memory profile.
 type StartSamplingParams struct {
-	SamplingInterval   int64 `json:"samplingInterval,omitempty"`   // Average number of bytes between samples.
-	SuppressRandomness bool  `json:"suppressRandomness,omitempty"` // Do not randomize intervals between samples.
+	SamplingInterval   int64 `json:"samplingInterval,omitempty,omitzero"` // Average number of bytes between samples.
+	SuppressRandomness bool  `json:"suppressRandomness"`                  // Do not randomize intervals between samples.
 }
 
 // StartSampling start collecting native memory profile.
@@ -141,7 +178,9 @@ type StartSamplingParams struct {
 //
 // parameters:
 func StartSampling() *StartSamplingParams {
-	return &StartSamplingParams{}
+	return &StartSamplingParams{
+		SuppressRandomness: false,
+	}
 }
 
 // WithSamplingInterval average number of bytes between samples.
@@ -190,7 +229,7 @@ func GetAllTimeSamplingProfile() *GetAllTimeSamplingProfileParams {
 
 // GetAllTimeSamplingProfileReturns return values.
 type GetAllTimeSamplingProfileReturns struct {
-	Profile *SamplingProfile `json:"profile,omitempty"`
+	Profile *SamplingProfile `json:"profile,omitempty,omitzero"`
 }
 
 // Do executes Memory.getAllTimeSamplingProfile against the provided context.
@@ -223,7 +262,7 @@ func GetBrowserSamplingProfile() *GetBrowserSamplingProfileParams {
 
 // GetBrowserSamplingProfileReturns return values.
 type GetBrowserSamplingProfileReturns struct {
-	Profile *SamplingProfile `json:"profile,omitempty"`
+	Profile *SamplingProfile `json:"profile,omitempty,omitzero"`
 }
 
 // Do executes Memory.getBrowserSamplingProfile against the provided context.
@@ -256,7 +295,7 @@ func GetSamplingProfile() *GetSamplingProfileParams {
 
 // GetSamplingProfileReturns return values.
 type GetSamplingProfileReturns struct {
-	Profile *SamplingProfile `json:"profile,omitempty"`
+	Profile *SamplingProfile `json:"profile,omitempty,omitzero"`
 }
 
 // Do executes Memory.getSamplingProfile against the provided context.
@@ -278,6 +317,7 @@ func (p *GetSamplingProfileParams) Do(ctx context.Context) (profile *SamplingPro
 // Command names.
 const (
 	CommandGetDOMCounters                     = "Memory.getDOMCounters"
+	CommandGetDOMCountersForLeakDetection     = "Memory.getDOMCountersForLeakDetection"
 	CommandPrepareForLeakDetection            = "Memory.prepareForLeakDetection"
 	CommandForciblyPurgeJavaScriptMemory      = "Memory.forciblyPurgeJavaScriptMemory"
 	CommandSetPressureNotificationsSuppressed = "Memory.setPressureNotificationsSuppressed"

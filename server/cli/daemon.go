@@ -123,6 +123,12 @@ func StartPersistentJobs(listenerJobs []*clientpb.ListenerJob) error {
 					return err
 				}
 				j.JobID = uint32(id)
+			case constants.TCPListenerStr:
+				job, err := c2.StartTCPStagerListenerJob(listenerJob.TCPConf.Host, uint16(listenerJob.TCPConf.Port), listenerJob.TCPConf.ProfileName, listenerJob.TCPConf.Data)
+				if err != nil {
+					return err
+				}
+				j.JobID = uint32(job.ID)
 			}
 			db.UpdateHTTPC2Listener(j)
 		}

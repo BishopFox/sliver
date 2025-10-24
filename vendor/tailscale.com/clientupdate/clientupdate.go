@@ -27,21 +27,26 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/google/uuid"
-	"tailscale.com/clientupdate/distsign"
 	"tailscale.com/hostinfo"
+	"tailscale.com/types/lazy"
 	"tailscale.com/types/logger"
 	"tailscale.com/util/cmpver"
-	"tailscale.com/util/winutil"
 	"tailscale.com/version"
 	"tailscale.com/version/distro"
 )
 
 const (
-	CurrentTrack  = ""
 	StableTrack   = "stable"
 	UnstableTrack = "unstable"
 )
+
+var CurrentTrack = func() string {
+	if version.IsUnstableBuild() {
+		return UnstableTrack
+	} else {
+		return StableTrack
+	}
+}()
 
 func versionToTrack(v string) (string, error) {
 	_, rest, ok := strings.Cut(v, ".")
@@ -107,7 +112,7 @@ func (args Arguments) validate() error {
 		return fmt.Errorf("only one of Version(%q) or Track(%q) can be set", args.Version, args.Track)
 	}
 	switch args.Track {
-	case StableTrack, UnstableTrack, CurrentTrack:
+	case StableTrack, UnstableTrack, "":
 		// All valid values.
 	default:
 		return fmt.Errorf("unsupported track %q", args.Track)
@@ -120,11 +125,17 @@ type Updater struct {
 	// Update is a platform-specific method that updates the installation. May be
 	// nil (not all platforms support updates from within Tailscale).
 	Update func() error
+
+	// currentVersion is the short form of the current client version as
+	// returned by version.Short(), typically "x.y.z". Used for tests to
+	// override the actual current version.
+	currentVersion string
 }
 
 func NewUpdater(args Arguments) (*Updater, error) {
 	up := Updater{
-		Arguments: args,
+		Arguments:      args,
+		currentVersion: version.Short(),
 	}
 	if up.Stdout == nil {
 		up.Stdout = os.Stdout
@@ -140,18 +151,15 @@ func NewUpdater(args Arguments) (*Updater, error) {
 	if args.ForAutoUpdate && !canAutoUpdate {
 		return nil, errors.ErrUnsupported
 	}
-	if up.Track == CurrentTrack {
-		switch {
-		case up.Version != "":
+	if up.Track == "" {
+		if up.Version != "" {
 			var err error
 			up.Track, err = versionToTrack(args.Version)
 			if err != nil {
 				return nil, err
 			}
-		case version.IsUnstableBuild():
-			up.Track = UnstableTrack
-		default:
-			up.Track = StableTrack
+		} else {
+			up.Track = CurrentTrack
 		}
 	}
 	if up.Arguments.PkgsAddr == "" {
@@ -163,10 +171,15 @@ func NewUpdater(args Arguments) (*Updater, error) {
 type updateFunction func() error
 
 func (up *Updater) getUpdateFunction() (fn updateFunction, canAutoUpdate bool) {
-	canAutoUpdate = !hostinfo.New().Container.EqualBool(true) // EqualBool(false) would return false if the value is not set.
+	hi := hostinfo.New()
+	// We don't know how to update custom tsnet binaries, it's up to the user.
+	if hi.Package == "tsnet" {
+		return nil, false
+	}
+
 	switch runtime.GOOS {
 	case "windows":
-		return up.updateWindows, canAutoUpdate
+		return up.updateWindows, true
 	case "linux":
 		switch distro.Get() {
 		case distro.NixOS:
@@ -180,20 +193,20 @@ func (up *Updater) getUpdateFunction() (fn updateFunction, canAutoUpdate bool) {
 			// auto-update mechanism.
 			return up.updateSynology, false
 		case distro.Debian: // includes Ubuntu
-			return up.updateDebLike, canAutoUpdate
+			return up.updateDebLike, true
 		case distro.Arch:
 			if up.archPackageInstalled() {
 				// Arch update func just prints a message about how to update,
 				// it doesn't support auto-updates.
 				return up.updateArchLike, false
 			}
-			return up.updateLinuxBinary, canAutoUpdate
+			return up.updateLinuxBinary, true
 		case distro.Alpine:
-			return up.updateAlpineLike, canAutoUpdate
+			return up.updateAlpineLike, true
 		case distro.Unraid:
-			return up.updateUnraid, canAutoUpdate
+			return up.updateUnraid, true
 		case distro.QNAP:
-			return up.updateQNAP, canAutoUpdate
+			return up.updateQNAP, true
 		}
 		switch {
 		case haveExecutable("pacman"):
@@ -202,21 +215,21 @@ func (up *Updater) getUpdateFunction() (fn updateFunction, canAutoUpdate bool) {
 				// it doesn't support auto-updates.
 				return up.updateArchLike, false
 			}
-			return up.updateLinuxBinary, canAutoUpdate
+			return up.updateLinuxBinary, true
 		case haveExecutable("apt-get"): // TODO(awly): add support for "apt"
 			// The distro.Debian switch case above should catch most apt-based
 			// systems, but add this fallback just in case.
-			return up.updateDebLike, canAutoUpdate
+			return up.updateDebLike, true
 		case haveExecutable("dnf"):
-			return up.updateFedoraLike("dnf"), canAutoUpdate
+			return up.updateFedoraLike("dnf"), true
 		case haveExecutable("yum"):
-			return up.updateFedoraLike("yum"), canAutoUpdate
+			return up.updateFedoraLike("yum"), true
 		case haveExecutable("apk"):
-			return up.updateAlpineLike, canAutoUpdate
+			return up.updateAlpineLike, true
 		}
 		// If nothing matched, fall back to tarball updates.
 		if up.Update == nil {
-			return up.updateLinuxBinary, canAutoUpdate
+			return up.updateLinuxBinary, true
 		}
 	case "darwin":
 		switch {
@@ -232,14 +245,23 @@ func (up *Updater) getUpdateFunction() (fn updateFunction, canAutoUpdate bool) {
 			return nil, false
 		}
 	case "freebsd":
-		return up.updateFreeBSD, canAutoUpdate
+		return up.updateFreeBSD, true
 	}
 	return nil, false
 }
 
+var canAutoUpdateCache lazy.SyncValue[bool]
+
 // CanAutoUpdate reports whether auto-updating via the clientupdate package
 // is supported for the current os/distro.
-func CanAutoUpdate() bool {
+func CanAutoUpdate() bool { return canAutoUpdateCache.Get(canAutoUpdateUncached) }
+
+func canAutoUpdateUncached() bool {
+	if version.IsMacSysExt() {
+		// Macsys uses Sparkle for auto-updates, which doesn't have an update
+		// function in this package.
+		return true
+	}
 	_, canAutoUpdate := (&Updater{}).getUpdateFunction()
 	return canAutoUpdate
 }
@@ -261,13 +283,16 @@ func Update(args Arguments) error {
 }
 
 func (up *Updater) confirm(ver string) bool {
-	switch cmpver.Compare(version.Short(), ver) {
-	case 0:
-		up.Logf("already running %v version %v; no update needed", up.Track, ver)
-		return false
-	case 1:
-		up.Logf("installed %v version %v is newer than the latest available version %v; no update needed", up.Track, version.Short(), ver)
-		return false
+	// Only check version when we're not switching tracks.
+	if up.Track == "" || up.Track == CurrentTrack {
+		switch c := cmpver.Compare(up.currentVersion, ver); {
+		case c == 0:
+			up.Logf("already running %v version %v; no update needed", up.Track, ver)
+			return false
+		case c > 0:
+			up.Logf("installed %v version %v is newer than the latest available version %v; no update needed", up.Track, up.currentVersion, ver)
+			return false
+		}
 	}
 	if up.Confirm != nil {
 		return up.Confirm(ver)
@@ -653,6 +678,9 @@ func (up *Updater) updateAlpineLike() (err error) {
 		return fmt.Errorf(`failed to parse latest version from "apk info tailscale": %w`, err)
 	}
 	if !up.confirm(ver) {
+		if err := checkOutdatedAlpineRepo(up.Logf, ver, up.Track); err != nil {
+			up.Logf("failed to check whether Alpine release is outdated: %v", err)
+		}
 		return nil
 	}
 
@@ -680,7 +708,7 @@ func parseAlpinePackageVersion(out []byte) (string, error) {
 			return "", fmt.Errorf("malformed info line: %q", line)
 		}
 		ver := parts[1]
-		if cmpver.Compare(ver, maxVer) == 1 {
+		if cmpver.Compare(ver, maxVer) > 0 {
 			maxVer = ver
 		}
 	}
@@ -688,6 +716,37 @@ func parseAlpinePackageVersion(out []byte) (string, error) {
 		return maxVer, nil
 	}
 	return "", errors.New("tailscale version not found in output")
+}
+
+var apkRepoVersionRE = regexp.MustCompile(`v[0-9]+\.[0-9]+`)
+
+func checkOutdatedAlpineRepo(logf logger.Logf, apkVer, track string) error {
+	latest, err := LatestTailscaleVersion(track)
+	if err != nil {
+		return err
+	}
+	if latest == apkVer {
+		// Actually on latest release.
+		return nil
+	}
+	f, err := os.Open("/etc/apk/repositories")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	// Read the first repo line. Typically, there are multiple repos that all
+	// contain the same version in the path, like:
+	//   https://dl-cdn.alpinelinux.org/alpine/v3.20/main
+	//   https://dl-cdn.alpinelinux.org/alpine/v3.20/community
+	s := bufio.NewScanner(f)
+	if !s.Scan() {
+		return s.Err()
+	}
+	alpineVer := apkRepoVersionRE.FindString(s.Text())
+	if alpineVer != "" {
+		logf("The latest Tailscale release for Linux is %q, but your apk repository only provides %q.\nYour Alpine version is %q, you may need to upgrade the system to get the latest Tailscale version: https://wiki.alpinelinux.org/wiki/Upgrading_Alpine", latest, apkVer, alpineVer)
+	}
+	return nil
 }
 
 func (up *Updater) updateMacSys() error {
@@ -704,164 +763,6 @@ func (up *Updater) updateMacAppStore() error {
 		return fmt.Errorf("can't open the Tailscale page in App Store: %w, output:\n%s", err, string(out))
 	}
 	return nil
-}
-
-const (
-	// winMSIEnv is the environment variable that, if set, is the MSI file for
-	// the update command to install. It's passed like this so we can stop the
-	// tailscale.exe process from running before the msiexec process runs and
-	// tries to overwrite ourselves.
-	winMSIEnv = "TS_UPDATE_WIN_MSI"
-	// winExePathEnv is the environment variable that is set along with
-	// winMSIEnv and carries the full path of the calling tailscale.exe binary.
-	// It is used to re-launch the GUI process (tailscale-ipn.exe) after
-	// install is complete.
-	winExePathEnv = "TS_UPDATE_WIN_EXE_PATH"
-)
-
-var (
-	verifyAuthenticode func(string) error // set non-nil only on Windows
-	markTempFileFunc   func(string) error // set non-nil only on Windows
-)
-
-func (up *Updater) updateWindows() error {
-	if msi := os.Getenv(winMSIEnv); msi != "" {
-		// stdout/stderr from this part of the install could be lost since the
-		// parent tailscaled is replaced. Create a temp log file to have some
-		// output to debug with in case update fails.
-		close, err := up.switchOutputToFile()
-		if err != nil {
-			up.Logf("failed to create log file for installation: %v; proceeding with existing outputs", err)
-		} else {
-			defer close.Close()
-		}
-
-		up.Logf("installing %v ...", msi)
-		if err := up.installMSI(msi); err != nil {
-			up.Logf("MSI install failed: %v", err)
-			return err
-		}
-
-		up.Logf("success.")
-		return nil
-	}
-
-	if !winutil.IsCurrentProcessElevated() {
-		return errors.New(`update must be run as Administrator
-
-you can run the command prompt as Administrator one of these ways:
-* right-click cmd.exe, select 'Run as administrator'
-* press Windows+x, then press a
-* press Windows+r, type in "cmd", then press Ctrl+Shift+Enter`)
-	}
-	ver, err := requestedTailscaleVersion(up.Version, up.Track)
-	if err != nil {
-		return err
-	}
-	arch := runtime.GOARCH
-	if arch == "386" {
-		arch = "x86"
-	}
-	if !up.confirm(ver) {
-		return nil
-	}
-
-	tsDir := filepath.Join(os.Getenv("ProgramData"), "Tailscale")
-	msiDir := filepath.Join(tsDir, "MSICache")
-	if fi, err := os.Stat(tsDir); err != nil {
-		return fmt.Errorf("expected %s to exist, got stat error: %w", tsDir, err)
-	} else if !fi.IsDir() {
-		return fmt.Errorf("expected %s to be a directory; got %v", tsDir, fi.Mode())
-	}
-	if err := os.MkdirAll(msiDir, 0700); err != nil {
-		return err
-	}
-	up.cleanupOldDownloads(filepath.Join(msiDir, "*.msi"))
-	pkgsPath := fmt.Sprintf("%s/tailscale-setup-%s-%s.msi", up.Track, ver, arch)
-	msiTarget := filepath.Join(msiDir, path.Base(pkgsPath))
-	if err := up.downloadURLToFile(pkgsPath, msiTarget); err != nil {
-		return err
-	}
-
-	up.Logf("verifying MSI authenticode...")
-	if err := verifyAuthenticode(msiTarget); err != nil {
-		return fmt.Errorf("authenticode verification of %s failed: %w", msiTarget, err)
-	}
-	up.Logf("authenticode verification succeeded")
-
-	up.Logf("making tailscale.exe copy to switch to...")
-	up.cleanupOldDownloads(filepath.Join(os.TempDir(), "tailscale-updater-*.exe"))
-	selfOrig, selfCopy, err := makeSelfCopy()
-	if err != nil {
-		return err
-	}
-	defer os.Remove(selfCopy)
-	up.Logf("running tailscale.exe copy for final install...")
-
-	cmd := exec.Command(selfCopy, "update")
-	cmd.Env = append(os.Environ(), winMSIEnv+"="+msiTarget, winExePathEnv+"="+selfOrig)
-	cmd.Stdout = up.Stderr
-	cmd.Stderr = up.Stderr
-	cmd.Stdin = os.Stdin
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-	// Once it's started, exit ourselves, so the binary is free
-	// to be replaced.
-	os.Exit(0)
-	panic("unreachable")
-}
-
-func (up *Updater) switchOutputToFile() (io.Closer, error) {
-	var logFilePath string
-	exePath, err := os.Executable()
-	if err != nil {
-		logFilePath = filepath.Join(os.TempDir(), "tailscale-updater.log")
-	} else {
-		logFilePath = strings.TrimSuffix(exePath, ".exe") + ".log"
-	}
-
-	up.Logf("writing update output to %q", logFilePath)
-	logFile, err := os.Create(logFilePath)
-	if err != nil {
-		return nil, err
-	}
-
-	up.Logf = func(m string, args ...any) {
-		fmt.Fprintf(logFile, m+"\n", args...)
-	}
-	up.Stdout = logFile
-	up.Stderr = logFile
-	return logFile, nil
-}
-
-func (up *Updater) installMSI(msi string) error {
-	var err error
-	for tries := 0; tries < 2; tries++ {
-		cmd := exec.Command("msiexec.exe", "/i", filepath.Base(msi), "/quiet", "/norestart", "/qn")
-		cmd.Dir = filepath.Dir(msi)
-		cmd.Stdout = up.Stdout
-		cmd.Stderr = up.Stderr
-		cmd.Stdin = os.Stdin
-		err = cmd.Run()
-		if err == nil {
-			break
-		}
-		up.Logf("Install attempt failed: %v", err)
-		uninstallVersion := version.Short()
-		if v := os.Getenv("TS_DEBUG_UNINSTALL_VERSION"); v != "" {
-			uninstallVersion = v
-		}
-		// Assume it's a downgrade, which msiexec won't permit. Uninstall our current version first.
-		up.Logf("Uninstalling current version %q for downgrade...", uninstallVersion)
-		cmd = exec.Command("msiexec.exe", "/x", msiUUIDForVersion(uninstallVersion), "/norestart", "/qn")
-		cmd.Stdout = up.Stdout
-		cmd.Stderr = up.Stderr
-		cmd.Stdin = os.Stdin
-		err = cmd.Run()
-		up.Logf("msiexec uninstall: %v", err)
-	}
-	return err
 }
 
 // cleanupOldDownloads removes all files matching glob (see filepath.Glob).
@@ -886,53 +787,6 @@ func (up *Updater) cleanupOldDownloads(glob string) {
 			up.Logf("cleaning up old downloads: %v", err)
 		}
 	}
-}
-
-func msiUUIDForVersion(ver string) string {
-	arch := runtime.GOARCH
-	if arch == "386" {
-		arch = "x86"
-	}
-	track, err := versionToTrack(ver)
-	if err != nil {
-		track = UnstableTrack
-	}
-	msiURL := fmt.Sprintf("https://pkgs.tailscale.com/%s/tailscale-setup-%s-%s.msi", track, ver, arch)
-	return "{" + strings.ToUpper(uuid.NewSHA1(uuid.NameSpaceURL, []byte(msiURL)).String()) + "}"
-}
-
-func makeSelfCopy() (origPathExe, tmpPathExe string, err error) {
-	selfExe, err := os.Executable()
-	if err != nil {
-		return "", "", err
-	}
-	f, err := os.Open(selfExe)
-	if err != nil {
-		return "", "", err
-	}
-	defer f.Close()
-	f2, err := os.CreateTemp("", "tailscale-updater-*.exe")
-	if err != nil {
-		return "", "", err
-	}
-	if f := markTempFileFunc; f != nil {
-		if err := f(f2.Name()); err != nil {
-			return "", "", err
-		}
-	}
-	if _, err := io.Copy(f2, f); err != nil {
-		f2.Close()
-		return "", "", err
-	}
-	return selfExe, f2.Name(), f2.Close()
-}
-
-func (up *Updater) downloadURLToFile(pathSrc, fileDst string) (ret error) {
-	c, err := distsign.NewClient(up.Logf, up.PkgsAddr)
-	if err != nil {
-		return err
-	}
-	return c.Download(context.Background(), pathSrc, fileDst)
 }
 
 func (up *Updater) updateFreeBSD() (err error) {
@@ -1299,12 +1153,8 @@ func requestedTailscaleVersion(ver, track string) (string, error) {
 // LatestTailscaleVersion returns the latest released version for the given
 // track from pkgs.tailscale.com.
 func LatestTailscaleVersion(track string) (string, error) {
-	if track == CurrentTrack {
-		if version.IsUnstableBuild() {
-			track = UnstableTrack
-		} else {
-			track = StableTrack
-		}
+	if track == "" {
+		track = CurrentTrack
 	}
 
 	latest, err := latestPackages(track)

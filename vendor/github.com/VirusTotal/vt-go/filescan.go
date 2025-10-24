@@ -44,15 +44,8 @@ type FileScanner struct {
 	cli *Client
 }
 
-// Scan sends a file to VirusTotal for scanning. The file content is read from
-// the r io.Reader and sent to VirusTotal with the provided file name which can
-// be left blank. The function also sends a float32 through the progress channel
-// indicating the percentage of the file that has been already uploaded. The
-// progress channel can be nil if the caller is not interested in receiving
-// upload progress updates. An analysis object is returned as soon as the file
-// is uploaded.
-func (s *FileScanner) Scan(r io.Reader, filename string, progress chan<- float32) (*Object, error) {
-
+func (s *FileScanner) scanWithParameters(
+	r io.Reader, filename string, progress chan<- float32, parameters map[string]string) (*Object, error) {
 	var uploadURL *url.URL
 	var payloadSize int64
 
@@ -70,8 +63,15 @@ func (s *FileScanner) Scan(r io.Reader, filename string, progress chan<- float32
 		return nil, err
 	}
 
-	w.Close()
+	if parameters != nil {
+		for key, val := range parameters {
+			if err := w.WriteField(key, val); err != nil {
+				return nil, err
+			}
+		}
+	}
 
+	w.Close()
 
 	if payloadSize > maxFileSize {
 		return nil, fmt.Errorf("file size can't be larger than %d bytes", maxFileSize)
@@ -113,6 +113,38 @@ func (s *FileScanner) Scan(r io.Reader, filename string, progress chan<- float32
 	}
 
 	return analysis, nil
+}
+
+// ScanParameters sends a file to VirusTotal for scanning. The file content is
+// read from the r io.Reader and sent to VirusTotal with the provided file name
+// which can be left blank. The function also sends a float32 through the
+// progress channel indicating the percentage of the file that has been already
+// uploaded. The progress channel can be nil if the caller is not interested in
+// receiving upload progress updates. An analysis object is returned as soon as
+// the file is uploaded. Additional parameters can be passed to the scan
+// by using the parameters map[string]string argument.
+func (s *FileScanner) ScanParameters(
+	r io.Reader, filename string, progress chan<- float32, parameters map[string]string) (*Object, error) {
+	return s.scanWithParameters(r, filename, progress, parameters)
+}
+
+// ScanFileWithParameters sends a file to VirusTotal for scanning. This function
+// is similar to ScanWithParameters but it receives an *os.File instead of a
+// io.Reader and a file name.
+func (s *FileScanner) ScanFileWithParameters(
+	f *os.File, progress chan<- float32, parameters map[string]string) (*Object, error) {
+	return s.scanWithParameters(f, f.Name(), progress, parameters)
+}
+
+// Scan sends a file to VirusTotal for scanning. The file content is read from
+// the r io.Reader and sent to VirusTotal with the provided file name which can
+// be left blank. The function also sends a float32 through the progress channel
+// indicating the percentage of the file that has been already uploaded. The
+// progress channel can be nil if the caller is not interested in receiving
+// upload progress updates. An analysis object is returned as soon as the file
+// is uploaded.
+func (s *FileScanner) Scan(r io.Reader, filename string, progress chan<- float32) (*Object, error) {
+	return s.scanWithParameters(r, filename, progress, nil)
 }
 
 // ScanFile sends a file to VirusTotal for scanning. This function is similar to

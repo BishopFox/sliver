@@ -21,7 +21,6 @@ import (
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
 	"gvisor.dev/gvisor/pkg/tcpip/seqnum"
-	"gvisor.dev/gvisor/pkg/tcpip/stack"
 )
 
 // receiver holds the state necessary to receive TCP segments and turn them
@@ -29,8 +28,8 @@ import (
 //
 // +stateify savable
 type receiver struct {
-	stack.TCPReceiverState
-	ep *endpoint
+	TCPReceiverState
+	ep *Endpoint
 
 	// rcvWnd is the non-scaled receive window last advertised to the peer.
 	rcvWnd seqnum.Size
@@ -52,10 +51,10 @@ type receiver struct {
 	lastRcvdAckTime tcpip.MonotonicTime
 }
 
-func newReceiver(ep *endpoint, irs seqnum.Value, rcvWnd seqnum.Size, rcvWndScale uint8) *receiver {
+func newReceiver(ep *Endpoint, irs seqnum.Value, rcvWnd seqnum.Size, rcvWndScale uint8) *receiver {
 	return &receiver{
 		ep: ep,
-		TCPReceiverState: stack.TCPReceiverState{
+		TCPReceiverState: TCPReceiverState{
 			RcvNxt:      irs + 1,
 			RcvAcc:      irs.Add(rcvWnd + 1),
 			RcvWndScale: rcvWndScale,
@@ -97,6 +96,7 @@ func (r *receiver) currentWindow() (curWnd seqnum.Size) {
 // getSendParams returns the parameters needed by the sender when building
 // segments to send.
 // +checklocks:r.ep.mu
+// +checklocksalias:r.ep.snd.ep.mu=r.ep.mu
 func (r *receiver) getSendParams() (RcvNxt seqnum.Value, rcvWnd seqnum.Size) {
 	newWnd := r.ep.selectWindow()
 	curWnd := r.currentWindow()

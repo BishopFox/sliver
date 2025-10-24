@@ -228,18 +228,18 @@ func loadTrafficEncodersFromFS(encodersFS util.EncoderFS, logger func(string)) e
 		wasmEncoderModuleName := strings.TrimSuffix(wasmEncoderFile.Name(), ".wasm")
 		wasmEncoderData, err := encodersFS.ReadFile(path.Join("traffic-encoders", wasmEncoderFile.Name()))
 		if err != nil {
-			encodersLog.Errorf(fmt.Sprintf("failed to read file %s (%s)", wasmEncoderModuleName, err.Error()))
+			encodersLog.Errorf("%s", fmt.Sprintf("failed to read file %s (%s)", wasmEncoderModuleName, err.Error()))
 			return err
 		}
 		wasmEncoderID := traffic.CalculateWasmEncoderID(wasmEncoderData)
 		trafficEncoder, err := traffic.CreateTrafficEncoder(wasmEncoderModuleName, wasmEncoderData, logger)
 		if err != nil {
-			encodersLog.Errorf(fmt.Sprintf("failed to create traffic encoder from '%s': %s", wasmEncoderModuleName, err.Error()))
+			encodersLog.Errorf("%s", fmt.Sprintf("failed to create traffic encoder from '%s': %s", wasmEncoderModuleName, err.Error()))
 			return err
 		}
 		trafficEncoder.FileName = wasmEncoderFile.Name()
 		if _, ok := EncoderMap[uint64(wasmEncoderID)]; ok {
-			encodersLog.Errorf(fmt.Sprintf("duplicate encoder id: %d", wasmEncoderID))
+			encodersLog.Errorf("%s", fmt.Sprintf("duplicate encoder id: %d", wasmEncoderID))
 			return fmt.Errorf("duplicate encoder id: %d", wasmEncoderID)
 		}
 		EncoderMap[uint64(wasmEncoderID)] = trafficEncoder

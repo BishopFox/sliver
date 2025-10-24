@@ -7,6 +7,32 @@ import (
 	smithy "github.com/aws/smithy-go"
 )
 
+// The requester doesn't have permissions to perform the requested operation.
+type AccessDeniedException struct {
+	Message *string
+
+	ErrorCodeOverride *string
+
+	noSmithyDocumentSerde
+}
+
+func (e *AccessDeniedException) Error() string {
+	return fmt.Sprintf("%s: %s", e.ErrorCode(), e.ErrorMessage())
+}
+func (e *AccessDeniedException) ErrorMessage() string {
+	if e.Message == nil {
+		return ""
+	}
+	return *e.Message
+}
+func (e *AccessDeniedException) ErrorCode() string {
+	if e == nil || e.ErrorCodeOverride == nil {
+		return "AccessDeniedException"
+	}
+	return *e.ErrorCodeOverride
+}
+func (e *AccessDeniedException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
+
 // Error returned if an attempt is made to register a patch group with a patch
 // baseline that is already registered with a different patch baseline.
 type AlreadyExistsException struct {
@@ -474,10 +500,12 @@ func (e *DocumentLimitExceeded) ErrorFault() smithy.ErrorFault { return smithy.F
 
 // The document can't be shared with more Amazon Web Services accounts. You can
 // specify a maximum of 20 accounts per API operation to share a private document.
+//
 // By default, you can share a private document with a maximum of 1,000 accounts
-// and publicly share up to five documents. If you need to increase the quota for
-// privately or publicly shared Systems Manager documents, contact Amazon Web
-// Services Support.
+// and publicly share up to five documents.
+//
+// If you need to increase the quota for privately or publicly shared Systems
+// Manager documents, contact Amazon Web Services Support.
 type DocumentPermissionLimit struct {
 	Message *string
 
@@ -531,9 +559,12 @@ func (e *DocumentVersionLimitExceeded) ErrorCode() string {
 func (e *DocumentVersionLimitExceeded) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
 // Error returned when the ID specified for a resource, such as a maintenance
-// window or patch baseline, doesn't exist. For information about resource quotas
-// in Amazon Web Services Systems Manager, see Systems Manager service quotas (https://docs.aws.amazon.com/general/latest/gr/ssm.html#limits_ssm)
-// in the Amazon Web Services General Reference.
+// window or patch baseline, doesn't exist.
+//
+// For information about resource quotas in Amazon Web Services Systems Manager,
+// see [Systems Manager service quotas]in the Amazon Web Services General Reference.
+//
+// [Systems Manager service quotas]: https://docs.aws.amazon.com/general/latest/gr/ssm.html#limits_ssm
 type DoesNotExistException struct {
 	Message *string
 
@@ -666,9 +697,10 @@ func (e *FeatureNotAvailableException) ErrorCode() string {
 }
 func (e *FeatureNotAvailableException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// A hierarchy can have a maximum of 15 levels. For more information, see
-// Requirements and constraints for parameter names (https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-parameter-name-constraints.html)
-// in the Amazon Web Services Systems Manager User Guide.
+// A hierarchy can have a maximum of 15 levels. For more information, see [Requirements and constraints for parameter names] in the
+// Amazon Web Services Systems Manager User Guide.
+//
+// [Requirements and constraints for parameter names]: https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-parameter-name-constraints.html
 type HierarchyLevelLimitExceededException struct {
 	Message *string
 
@@ -832,7 +864,7 @@ func (e *InvalidActivation) ErrorCode() string {
 }
 func (e *InvalidActivation) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// The activation ID isn't valid. Verify the you entered the correct ActivationId
+// The activation ID isn't valid. Verify that you entered the correct ActivationId
 // or ActivationCode and try again.
 type InvalidActivationId struct {
 	Message *string
@@ -859,9 +891,8 @@ func (e *InvalidActivationId) ErrorCode() string {
 }
 func (e *InvalidActivationId) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// The specified aggregator isn't valid for inventory groups. Verify that the
-// aggregator uses a valid inventory type such as AWS:Application or
-// AWS:InstanceInformation .
+// The specified aggregator isn't valid for the group type. Verify that the
+// aggregator you provided is supported.
 type InvalidAggregatorException struct {
 	Message *string
 
@@ -1291,7 +1322,7 @@ func (e *InvalidDocumentVersion) ErrorCode() string {
 }
 func (e *InvalidDocumentVersion) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// The filter name isn't valid. Verify the you entered the correct name and try
+// The filter name isn't valid. Verify that you entered the correct name and try
 // again.
 type InvalidFilter struct {
 	Message *string
@@ -1398,13 +1429,17 @@ func (e *InvalidFilterValue) ErrorCode() string {
 func (e *InvalidFilterValue) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
 // The following problems can cause this exception:
+//
 //   - You don't have permission to access the managed node.
-//   - Amazon Web Services Systems Manager Agent(SSM Agent) isn't running. Verify
+//
+//   - Amazon Web Services Systems Manager Agent (SSM Agent) isn't running. Verify
 //     that SSM Agent is running.
+//
 //   - SSM Agent isn't registered with the SSM endpoint. Try reinstalling SSM
 //     Agent.
-//   - The managed node isn't in valid state. Valid states are: Running , Pending ,
-//     Stopped , and Stopping . Invalid states are: Shutting-down and Terminated .
+//
+//   - The managed node isn't in a valid state. Valid states are: Running , Pending
+//     , Stopped , and Stopping . Invalid states are: Shutting-down and Terminated .
 type InvalidInstanceId struct {
 	Message *string
 
@@ -1455,6 +1490,34 @@ func (e *InvalidInstanceInformationFilterValue) ErrorCode() string {
 	return *e.ErrorCodeOverride
 }
 func (e *InvalidInstanceInformationFilterValue) ErrorFault() smithy.ErrorFault {
+	return smithy.FaultClient
+}
+
+// The specified filter value isn't valid.
+type InvalidInstancePropertyFilterValue struct {
+	Message *string
+
+	ErrorCodeOverride *string
+
+	noSmithyDocumentSerde
+}
+
+func (e *InvalidInstancePropertyFilterValue) Error() string {
+	return fmt.Sprintf("%s: %s", e.ErrorCode(), e.ErrorMessage())
+}
+func (e *InvalidInstancePropertyFilterValue) ErrorMessage() string {
+	if e.Message == nil {
+		return ""
+	}
+	return *e.Message
+}
+func (e *InvalidInstancePropertyFilterValue) ErrorCode() string {
+	if e == nil || e.ErrorCodeOverride == nil {
+		return "InvalidInstancePropertyFilterValue"
+	}
+	return *e.ErrorCodeOverride
+}
+func (e *InvalidInstancePropertyFilterValue) ErrorFault() smithy.ErrorFault {
 	return smithy.FaultClient
 }
 
@@ -1942,9 +2005,10 @@ func (e *InvalidResultAttributeException) ErrorFault() smithy.ErrorFault { retur
 
 // The role name can't contain invalid characters. Also verify that you specified
 // an IAM role for notifications that includes the required trust policy. For
-// information about configuring the IAM role for Run Command notifications, see
-// Configuring Amazon SNS Notifications for Run Command (https://docs.aws.amazon.com/systems-manager/latest/userguide/rc-sns-notifications.html)
+// information about configuring the IAM role for Run Command notifications, see [Monitoring Systems Manager status changes using Amazon SNS notifications]
 // in the Amazon Web Services Systems Manager User Guide.
+//
+// [Monitoring Systems Manager status changes using Amazon SNS notifications]: https://docs.aws.amazon.com/systems-manager/latest/userguide/monitoring-sns-notifications.html
 type InvalidRole struct {
 	Message *string
 
@@ -2209,6 +2273,35 @@ func (e *ItemSizeLimitExceededException) ErrorCode() string {
 	return *e.ErrorCodeOverride
 }
 func (e *ItemSizeLimitExceededException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
+
+// The specified policy document is malformed or invalid, or excessive
+// PutResourcePolicy or DeleteResourcePolicy calls have been made.
+type MalformedResourcePolicyDocumentException struct {
+	Message *string
+
+	ErrorCodeOverride *string
+
+	noSmithyDocumentSerde
+}
+
+func (e *MalformedResourcePolicyDocumentException) Error() string {
+	return fmt.Sprintf("%s: %s", e.ErrorCode(), e.ErrorMessage())
+}
+func (e *MalformedResourcePolicyDocumentException) ErrorMessage() string {
+	if e.Message == nil {
+		return ""
+	}
+	return *e.Message
+}
+func (e *MalformedResourcePolicyDocumentException) ErrorCode() string {
+	if e == nil || e.ErrorCodeOverride == nil {
+		return "MalformedResourcePolicyDocumentException"
+	}
+	return *e.ErrorCodeOverride
+}
+func (e *MalformedResourcePolicyDocumentException) ErrorFault() smithy.ErrorFault {
+	return smithy.FaultClient
+}
 
 // The size limit of a document is 64 KB.
 type MaxDocumentSizeExceeded struct {
@@ -2686,18 +2779,22 @@ func (e *ParameterLimitExceeded) ErrorFault() smithy.ErrorFault { return smithy.
 // After this number of versions has been created, Parameter Store deletes the
 // oldest version when a new one is created. However, if the oldest version has a
 // label attached to it, Parameter Store won't delete the version and instead
-// presents this error message: An error occurred
-// (ParameterMaxVersionLimitExceeded) when calling the PutParameter operation: You
-// attempted to create a new version of parameter-name by calling the PutParameter
-// API with the overwrite flag. Version version-number, the oldest version, can't
-// be deleted because it has a label associated with it. Move the label to another
-// version of the parameter, and try again. This safeguard is to prevent parameter
-// versions with mission critical labels assigned to them from being deleted. To
-// continue creating new parameters, first move the label from the oldest version
-// of the parameter to a newer one for use in your operations. For information
-// about moving parameter labels, see Move a parameter label (console) (https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-paramstore-labels.html#sysman-paramstore-labels-console-move)
-// or Move a parameter label (CLI) (https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-paramstore-labels.html#sysman-paramstore-labels-cli-move)
-// in the Amazon Web Services Systems Manager User Guide.
+// presents this error message:
+//
+//	An error occurred (ParameterMaxVersionLimitExceeded) when calling the
+//	PutParameter operation: You attempted to create a new version of parameter-name
+//	by calling the PutParameter API with the overwrite flag. Version version-number,
+//	the oldest version, can't be deleted because it has a label associated with it.
+//	Move the label to another version of the parameter, and try again.
+//
+// This safeguard is to prevent parameter versions with mission critical labels
+// assigned to them from being deleted. To continue creating new parameters, first
+// move the label from the oldest version of the parameter to a newer one for use
+// in your operations. For information about moving parameter labels, see [Move a parameter label (console)]or [Move a parameter label (CLI)] in
+// the Amazon Web Services Systems Manager User Guide.
+//
+// [Move a parameter label (CLI)]: https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-paramstore-labels.html#sysman-paramstore-labels-cli-move
+// [Move a parameter label (console)]: https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-paramstore-labels.html#sysman-paramstore-labels-console-move
 type ParameterMaxVersionLimitExceeded struct {
 	Message *string
 
@@ -2724,6 +2821,10 @@ func (e *ParameterMaxVersionLimitExceeded) ErrorCode() string {
 func (e *ParameterMaxVersionLimitExceeded) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
 // The parameter couldn't be found. Verify the name and try again.
+//
+// For the DeleteParameter and GetParameter actions, if the specified parameter
+// doesn't exist, the ParameterNotFound exception is not recorded in CloudTrail
+// event logs.
 type ParameterNotFound struct {
 	Message *string
 
@@ -3027,10 +3128,12 @@ func (e *ResourceInUseException) ErrorCode() string {
 func (e *ResourceInUseException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
 // Error returned when the caller has exceeded the default resource quotas. For
-// example, too many maintenance windows or patch baselines have been created. For
-// information about resource quotas in Systems Manager, see Systems Manager
-// service quotas (https://docs.aws.amazon.com/general/latest/gr/ssm.html#limits_ssm)
-// in the Amazon Web Services General Reference.
+// example, too many maintenance windows or patch baselines have been created.
+//
+// For information about resource quotas in Systems Manager, see [Systems Manager service quotas] in the Amazon
+// Web Services General Reference.
+//
+// [Systems Manager service quotas]: https://docs.aws.amazon.com/general/latest/gr/ssm.html#limits_ssm
 type ResourceLimitExceededException struct {
 	Message *string
 
@@ -3055,6 +3158,32 @@ func (e *ResourceLimitExceededException) ErrorCode() string {
 	return *e.ErrorCodeOverride
 }
 func (e *ResourceLimitExceededException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
+
+// The specified parameter to be shared could not be found.
+type ResourceNotFoundException struct {
+	Message *string
+
+	ErrorCodeOverride *string
+
+	noSmithyDocumentSerde
+}
+
+func (e *ResourceNotFoundException) Error() string {
+	return fmt.Sprintf("%s: %s", e.ErrorCode(), e.ErrorMessage())
+}
+func (e *ResourceNotFoundException) ErrorMessage() string {
+	if e.Message == nil {
+		return ""
+	}
+	return *e.Message
+}
+func (e *ResourceNotFoundException) ErrorCode() string {
+	if e == nil || e.ErrorCodeOverride == nil {
+		return "ResourceNotFoundException"
+	}
+	return *e.ErrorCodeOverride
+}
+func (e *ResourceNotFoundException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
 // The hash provided in the call doesn't match the stored hash. This exception is
 // thrown when trying to update an obsolete policy version or when multiple
@@ -3115,9 +3244,9 @@ func (e *ResourcePolicyInvalidParameterException) ErrorFault() smithy.ErrorFault
 	return smithy.FaultClient
 }
 
-// The PutResourcePolicy API action enforces two limits. A policy can't be greater
-// than 1024 bytes in size. And only one policy can be attached to OpsItemGroup .
-// Verify these limits and try again.
+// The PutResourcePolicy API action enforces two limits. A policy can't be greater than 1024 bytes
+// in size. And only one policy can be attached to OpsItemGroup . Verify these
+// limits and try again.
 type ResourcePolicyLimitExceededException struct {
 	Message *string
 
@@ -3147,6 +3276,65 @@ func (e *ResourcePolicyLimitExceededException) ErrorCode() string {
 func (e *ResourcePolicyLimitExceededException) ErrorFault() smithy.ErrorFault {
 	return smithy.FaultClient
 }
+
+// No policies with the specified policy ID and hash could be found.
+type ResourcePolicyNotFoundException struct {
+	Message *string
+
+	ErrorCodeOverride *string
+
+	noSmithyDocumentSerde
+}
+
+func (e *ResourcePolicyNotFoundException) Error() string {
+	return fmt.Sprintf("%s: %s", e.ErrorCode(), e.ErrorMessage())
+}
+func (e *ResourcePolicyNotFoundException) ErrorMessage() string {
+	if e.Message == nil {
+		return ""
+	}
+	return *e.Message
+}
+func (e *ResourcePolicyNotFoundException) ErrorCode() string {
+	if e == nil || e.ErrorCodeOverride == nil {
+		return "ResourcePolicyNotFoundException"
+	}
+	return *e.ErrorCodeOverride
+}
+func (e *ResourcePolicyNotFoundException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
+
+// The request exceeds the service quota. Service quotas, also referred to as
+// limits, are the maximum number of service resources or operations for your
+// Amazon Web Services account.
+type ServiceQuotaExceededException struct {
+	Message *string
+
+	ErrorCodeOverride *string
+
+	ResourceId   *string
+	ResourceType *string
+	QuotaCode    *string
+	ServiceCode  *string
+
+	noSmithyDocumentSerde
+}
+
+func (e *ServiceQuotaExceededException) Error() string {
+	return fmt.Sprintf("%s: %s", e.ErrorCode(), e.ErrorMessage())
+}
+func (e *ServiceQuotaExceededException) ErrorMessage() string {
+	if e.Message == nil {
+		return ""
+	}
+	return *e.Message
+}
+func (e *ServiceQuotaExceededException) ErrorCode() string {
+	if e == nil || e.ErrorCodeOverride == nil {
+		return "ServiceQuotaExceededException"
+	}
+	return *e.ErrorCodeOverride
+}
+func (e *ServiceQuotaExceededException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
 // The specified service setting wasn't found. Either the service name or the
 // setting hasn't been provisioned by the Amazon Web Services service team.
@@ -3257,11 +3445,11 @@ func (e *TargetInUseException) ErrorCode() string {
 func (e *TargetInUseException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
 // The specified target managed node for the session isn't fully configured for
-// use with Session Manager. For more information, see Getting started with
-// Session Manager (https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-getting-started.html)
-// in the Amazon Web Services Systems Manager User Guide. This error is also
-// returned if you attempt to start a session on a managed node that is located in
-// a different account or Region
+// use with Session Manager. For more information, see [Setting up Session Manager]in the Amazon Web Services
+// Systems Manager User Guide. This error is also returned if you attempt to start
+// a session on a managed node that is located in a different account or Region
+//
+// [Setting up Session Manager]: https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-getting-started.html
 type TargetNotConnected struct {
 	Message *string
 
@@ -3286,6 +3474,36 @@ func (e *TargetNotConnected) ErrorCode() string {
 	return *e.ErrorCodeOverride
 }
 func (e *TargetNotConnected) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
+
+// The request or operation couldn't be performed because the service is
+// throttling requests.
+type ThrottlingException struct {
+	Message *string
+
+	ErrorCodeOverride *string
+
+	QuotaCode   *string
+	ServiceCode *string
+
+	noSmithyDocumentSerde
+}
+
+func (e *ThrottlingException) Error() string {
+	return fmt.Sprintf("%s: %s", e.ErrorCode(), e.ErrorMessage())
+}
+func (e *ThrottlingException) ErrorMessage() string {
+	if e.Message == nil {
+		return ""
+	}
+	return *e.Message
+}
+func (e *ThrottlingException) ErrorCode() string {
+	if e == nil || e.ErrorCodeOverride == nil {
+		return "ThrottlingException"
+	}
+	return *e.ErrorCodeOverride
+}
+func (e *ThrottlingException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
 // The Targets parameter includes too many tags. Remove one or more tags and try
 // the command again.
@@ -3395,8 +3613,9 @@ func (e *UnsupportedCalendarException) ErrorFault() smithy.ErrorFault { return s
 // Patching for applications released by Microsoft is only available on EC2
 // instances and advanced instances. To patch applications released by Microsoft on
 // on-premises servers and VMs, you must enable advanced instances. For more
-// information, see Enabling the advanced-instances tier (https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-managedinstances-advanced.html)
-// in the Amazon Web Services Systems Manager User Guide.
+// information, see [Turning on the advanced-instances tier]in the Amazon Web Services Systems Manager User Guide.
+//
+// [Turning on the advanced-instances tier]: https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-managedinstances-advanced.html
 type UnsupportedFeatureRequiredException struct {
 	Message *string
 
@@ -3513,6 +3732,33 @@ func (e *UnsupportedOperatingSystem) ErrorCode() string {
 }
 func (e *UnsupportedOperatingSystem) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
+// This operation is not supported for the current account. You must first enable
+// the Systems Manager integrated experience in your account.
+type UnsupportedOperationException struct {
+	Message *string
+
+	ErrorCodeOverride *string
+
+	noSmithyDocumentSerde
+}
+
+func (e *UnsupportedOperationException) Error() string {
+	return fmt.Sprintf("%s: %s", e.ErrorCode(), e.ErrorMessage())
+}
+func (e *UnsupportedOperationException) ErrorMessage() string {
+	if e.Message == nil {
+		return ""
+	}
+	return *e.Message
+}
+func (e *UnsupportedOperationException) ErrorCode() string {
+	if e == nil || e.ErrorCodeOverride == nil {
+		return "UnsupportedOperationException"
+	}
+	return *e.ErrorCodeOverride
+}
+func (e *UnsupportedOperationException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
+
 // The parameter type isn't supported.
 type UnsupportedParameterType struct {
 	Message *string
@@ -3539,7 +3785,7 @@ func (e *UnsupportedParameterType) ErrorCode() string {
 }
 func (e *UnsupportedParameterType) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// The document doesn't support the platform type of the given managed node ID(s).
+// The document doesn't support the platform type of the given managed node IDs.
 // For example, you sent an document for a Windows managed node to a Linux node.
 type UnsupportedPlatformType struct {
 	Message *string
@@ -3565,3 +3811,32 @@ func (e *UnsupportedPlatformType) ErrorCode() string {
 	return *e.ErrorCodeOverride
 }
 func (e *UnsupportedPlatformType) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
+
+// The request isn't valid. Verify that you entered valid contents for the command
+// and try again.
+type ValidationException struct {
+	Message *string
+
+	ErrorCodeOverride *string
+
+	ReasonCode *string
+
+	noSmithyDocumentSerde
+}
+
+func (e *ValidationException) Error() string {
+	return fmt.Sprintf("%s: %s", e.ErrorCode(), e.ErrorMessage())
+}
+func (e *ValidationException) ErrorMessage() string {
+	if e.Message == nil {
+		return ""
+	}
+	return *e.Message
+}
+func (e *ValidationException) ErrorCode() string {
+	if e == nil || e.ErrorCodeOverride == nil {
+		return "ValidationException"
+	}
+	return *e.ErrorCodeOverride
+}
+func (e *ValidationException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }

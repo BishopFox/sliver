@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:build windows
 // +build windows
 
 package common
@@ -41,19 +42,34 @@ func BuildAuthIdentity(domain, username, password string) (*sspi.SEC_WINNT_AUTH_
 }
 
 func UpdateContext(c *sspi.Context, dst, src []byte, targetName *uint16) (authCompleted bool, n int, err error) {
-	var inBuf, outBuf [1]sspi.SecBuffer
+	return UpdateContextWithChannelBindings(c, dst, src, nil, targetName)
+}
+
+// UpdateContextWithChannelBindings performs SSPI context update with optional channel binding tokens.
+func UpdateContextWithChannelBindings(c *sspi.Context, dst, src, channelBindings []byte, targetName *uint16) (authCompleted bool, n int, err error) {
+	var inBuf [2]sspi.SecBuffer
+
 	inBuf[0].Set(sspi.SECBUFFER_TOKEN, src)
 	inBufs := &sspi.SecBufferDesc{
 		Version:      sspi.SECBUFFER_VERSION,
 		BuffersCount: 1,
 		Buffers:      &inBuf[0],
 	}
+
+	if len(channelBindings) > 0 {
+		// With channel bindings: TOKEN buffer + CHANNEL_BINDINGS buffer
+		inBuf[1].Set(sspi.SECBUFFER_CHANNEL_BINDINGS, channelBindings)
+		inBufs.BuffersCount = 2
+	}
+
+	var outBuf [1]sspi.SecBuffer
 	outBuf[0].Set(sspi.SECBUFFER_TOKEN, dst)
 	outBufs := &sspi.SecBufferDesc{
 		Version:      sspi.SECBUFFER_VERSION,
 		BuffersCount: 1,
 		Buffers:      &outBuf[0],
 	}
+
 	ret := c.Update(targetName, outBufs, inBufs)
 	switch ret {
 	case sspi.SEC_E_OK:

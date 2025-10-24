@@ -771,7 +771,7 @@ func (es *encodeState) Save(obj reflect.Value) {
 		}
 	}); err != nil {
 		// Include the object in the error message.
-		Failf("encoding error at object %#v: %w", oes.obj.Interface(), err)
+		Failf("encoding error: %w\nfor object %#v", err, oes.obj.Interface())
 	}
 
 	// Check that we have objects to serialize.
@@ -780,7 +780,7 @@ func (es *encodeState) Save(obj reflect.Value) {
 	}
 
 	// Write the header with the number of objects.
-	if err := WriteHeader(es.w, uint64(len(es.pending)), true); err != nil {
+	if err := WriteHeader(&es.w, uint64(len(es.pending)), true); err != nil {
 		Failf("error writing header: %w", err)
 	}
 
@@ -790,7 +790,7 @@ func (es *encodeState) Save(obj reflect.Value) {
 	if err := safely(func() {
 		for _, wt := range es.pendingTypes {
 			// Encode the type.
-			wire.Save(es.w, &wt)
+			wire.Save(&es.w, &wt)
 		}
 		// Emit objects in ID order.
 		ids := make([]objectID, 0, len(es.pending))
@@ -802,10 +802,10 @@ func (es *encodeState) Save(obj reflect.Value) {
 		})
 		for _, id := range ids {
 			// Encode the id.
-			wire.Save(es.w, wire.Uint(id))
+			wire.Save(&es.w, wire.Uint(id))
 			// Marshal the object.
 			oes := es.pending[id]
-			wire.Save(es.w, oes.encoded)
+			wire.Save(&es.w, oes.encoded)
 		}
 	}); err != nil {
 		// Include the object and the error.
@@ -824,7 +824,7 @@ const objectFlag uint64 = 1 << 63
 // order to generate statefiles that play nicely with debugging tools, raw
 // writes should be prefixed with a header with object set to false and the
 // appropriate length. This will allow tools to skip these regions.
-func WriteHeader(w wire.Writer, length uint64, object bool) error {
+func WriteHeader(w *wire.Writer, length uint64, object bool) error {
 	// Sanity check the length.
 	if length&objectFlag != 0 {
 		Failf("impossibly huge length: %d", length)

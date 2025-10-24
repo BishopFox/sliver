@@ -10,7 +10,7 @@ as well as direct access to most of the [C SQLite API](https://sqlite.org/cintro
 
 It wraps a [Wasm](https://webassembly.org/) [build](embed/) of SQLite,
 and uses [wazero](https://wazero.io/) as the runtime.\
-Go, wazero and [`x/sys`](https://pkg.go.dev/golang.org/x/sys) are the _only_ runtime dependencies.
+Go, wazero and [`x/sys`](https://pkg.go.dev/golang.org/x/sys) are the _only_ direct dependencies.
 
 ### Getting started
 
@@ -30,10 +30,10 @@ db.QueryRow(`SELECT sqlite_version()`).Scan(&version)
 
 - [`github.com/ncruces/go-sqlite3`](https://pkg.go.dev/github.com/ncruces/go-sqlite3)
   wraps the [C SQLite API](https://sqlite.org/cintro.html)
-  ([example usage](https://pkg.go.dev/github.com/ncruces/go-sqlite3#example-package)).
+  ([example](https://pkg.go.dev/github.com/ncruces/go-sqlite3#example-package)).
 - [`github.com/ncruces/go-sqlite3/driver`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/driver)
   provides a [`database/sql`](https://pkg.go.dev/database/sql) driver
-  ([example usage](https://pkg.go.dev/github.com/ncruces/go-sqlite3/driver#example-package)).
+  ([example](https://pkg.go.dev/github.com/ncruces/go-sqlite3/driver#example-package)).
 - [`github.com/ncruces/go-sqlite3/embed`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/embed)
   embeds a build of SQLite into your application.
 - [`github.com/ncruces/go-sqlite3/vfs`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/vfs)
@@ -44,12 +44,19 @@ db.QueryRow(`SELECT sqlite_version()`).Scan(&version)
 ### Advanced features
 
 - [incremental BLOB I/O](https://sqlite.org/c3ref/blob_open.html)
+  ([example](https://pkg.go.dev/github.com/ncruces/go-sqlite3/ext/blobio#example-package))
 - [nested transactions](https://sqlite.org/lang_savepoint.html)
+  ([example](https://pkg.go.dev/github.com/ncruces/go-sqlite3/driver#example-Savepoint))
 - [custom functions](https://sqlite.org/c3ref/create_function.html)
+  ([example](https://pkg.go.dev/github.com/ncruces/go-sqlite3#example-Conn.CreateFunction))
 - [virtual tables](https://sqlite.org/vtab.html)
+  ([example](https://pkg.go.dev/github.com/ncruces/go-sqlite3#example-CreateModule))
 - [custom VFSes](https://sqlite.org/vfs.html)
+  ([examples](vfs/README.md#custom-vfses))
 - [online backup](https://sqlite.org/backup.html)
+  ([example](https://pkg.go.dev/github.com/ncruces/go-sqlite3/driver#Conn))
 - [JSON support](https://sqlite.org/json1.html)
+  ([example](https://pkg.go.dev/github.com/ncruces/go-sqlite3/driver#example-package-Json))
 - [math functions](https://sqlite.org/lang_mathfunc.html)
 - [full-text search](https://sqlite.org/fts5.html)
 - [geospatial search](https://sqlite.org/geopoly.html)
@@ -57,7 +64,6 @@ db.QueryRow(`SELECT sqlite_version()`).Scan(&version)
 - [statistics functions](https://pkg.go.dev/github.com/ncruces/go-sqlite3/ext/stats)
 - [encryption at rest](vfs/adiantum/README.md)
 - [many extensions](ext/README.md)
-- [custom VFSes](vfs/README.md#custom-vfses)
 - [and more…](embed/README.md)
 
 ### Caveats
@@ -65,30 +71,51 @@ db.QueryRow(`SELECT sqlite_version()`).Scan(&version)
 This module replaces the SQLite [OS Interface](https://sqlite.org/vfs.html)
 (aka VFS) with a [pure Go](vfs/) implementation,
 which has advantages and disadvantages.
-
 Read more about the Go VFS design [here](vfs/README.md).
+
+Because each database connection executes within a Wasm sandboxed environment,
+memory usage will be higher than alternatives.
 
 ### Testing
 
 This project aims for [high test coverage](https://github.com/ncruces/go-sqlite3/wiki/Test-coverage-report).
 It also benefits greatly from [SQLite's](https://sqlite.org/testing.html) and
-[wazero's](https://tetrate.io/blog/introducing-wazero-from-tetrate/#:~:text=Rock%2Dsolid%20test%20approach) thorough testing.
+[wazero's](https://tetrate.io/blog/introducing-wazero-from-tetrate/#:~:text=Rock%2Dsolid%20test%20approach)
+thorough testing.
 
-Every commit is [tested](https://github.com/ncruces/go-sqlite3/wiki/Test-matrix) on
-Linux (amd64/arm64/386/riscv64/ppc64le/s390x), macOS (amd64/arm64),
-Windows (amd64), FreeBSD (amd64), OpenBSD (amd64), NetBSD (amd64),
-DragonFly BSD (amd64), illumos (amd64), and Solaris (amd64).
+Every commit is tested on:
+* Linux: amd64, arm64, 386, riscv64, ppc64le, s390x
+* macOS: amd64, arm64
+* Windows: amd64
+* BSD:
+  * FreeBSD: amd64, arm64
+  * OpenBSD: amd64
+  * NetBSD: amd64, arm64
+  * DragonFly BSD: amd64
+* illumos: amd64
+* Solaris: amd64
+
+Certain operating system and CPU combinations have some limitations. See the [support matrix](https://github.com/ncruces/go-sqlite3/wiki/Support-matrix) for a complete overview.
 
 The Go VFS is tested by running SQLite's
 [mptest](https://github.com/sqlite/sqlite/blob/master/mptest/mptest.c).
 
 ### Performance
 
-Perfomance of the [`database/sql`](https://pkg.go.dev/database/sql) driver is
+Performance of the [`database/sql`](https://pkg.go.dev/database/sql) driver is
 [competitive](https://github.com/cvilsmeier/go-sqlite-bench) with alternatives.
 
-The Wasm and VFS layers are also tested by running SQLite's
+The Wasm and VFS layers are also benchmarked by running SQLite's
 [speedtest1](https://github.com/sqlite/sqlite/blob/master/test/speedtest1.c).
+
+### Concurrency
+
+This module behaves similarly to SQLite in [multi-thread](https://sqlite.org/threadsafe.html) mode:
+it is goroutine-safe, provided that no single database connection, or object derived from it,
+is used concurrently by multiple goroutines.
+
+The [`database/sql`](https://pkg.go.dev/database/sql) API is safe to use concurrently,
+according to its documentation.
 
 ### FAQ, issues, new features
 
@@ -98,7 +125,7 @@ Also, post there if you used this driver for something interesting
 ([_"Show and tell"_](https://github.com/ncruces/go-sqlite3/discussions/categories/show-and-tell)),
 have an [idea](https://github.com/ncruces/go-sqlite3/discussions/categories/ideas)…
 
-The [Issue](https://github.com/ncruces/go-sqlite3/issues) tracker is for bugs we want fixed,
+The [Issue](https://github.com/ncruces/go-sqlite3/issues) tracker is for bugs,
 and features we're working on, planning to work on, or asking for help with.
 
 ### Alternatives

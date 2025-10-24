@@ -8,17 +8,20 @@ import (
 	"reflect"
 )
 
-type JSONCodec struct{}
+type JSONCodec struct {
+	Marshal   func(v any) ([]byte, error)
+	Unmarshal func(data []byte, v any) error
+}
 
-func (JSONCodec) FormatSupported(format int16) bool {
+func (*JSONCodec) FormatSupported(format int16) bool {
 	return format == TextFormatCode || format == BinaryFormatCode
 }
 
-func (JSONCodec) PreferredFormat() int16 {
+func (*JSONCodec) PreferredFormat() int16 {
 	return TextFormatCode
 }
 
-func (c JSONCodec) PlanEncode(m *Map, oid uint32, format int16, value any) EncodePlan {
+func (c *JSONCodec) PlanEncode(m *Map, oid uint32, format int16, value any) EncodePlan {
 	switch value.(type) {
 	case string:
 		return encodePlanJSONCodecEitherFormatString{}
@@ -34,7 +37,7 @@ func (c JSONCodec) PlanEncode(m *Map, oid uint32, format int16, value any) Encod
 	//
 	// https://github.com/jackc/pgx/issues/1430
 	//
-	// Check for driver.Valuer must come before json.Marshaler so that it is guaranteed to beused
+	// Check for driver.Valuer must come before json.Marshaler so that it is guaranteed to be used
 	// when both are implemented https://github.com/jackc/pgx/issues/1805
 	case driver.Valuer:
 		return &encodePlanDriverValuer{m: m, oid: oid, formatCode: format}
@@ -44,7 +47,9 @@ func (c JSONCodec) PlanEncode(m *Map, oid uint32, format int16, value any) Encod
 	//
 	// https://github.com/jackc/pgx/issues/1681
 	case json.Marshaler:
-		return encodePlanJSONCodecEitherFormatMarshal{}
+		return &encodePlanJSONCodecEitherFormatMarshal{
+			marshal: c.Marshal,
+		}
 	}
 
 	// Because anything can be marshalled the normal wrapping in Map.PlanScan doesn't get a chance to run. So try the
@@ -61,7 +66,30 @@ func (c JSONCodec) PlanEncode(m *Map, oid uint32, format int16, value any) Encod
 		}
 	}
 
-	return encodePlanJSONCodecEitherFormatMarshal{}
+	return &encodePlanJSONCodecEitherFormatMarshal{
+		marshal: c.Marshal,
+	}
+}
+
+// JSON needs its on scan plan for pointers to handle 'null'::json(b).
+// Consider making pointerPointerScanPlan more flexible in the future.
+type jsonPointerScanPlan struct {
+	next ScanPlan
+}
+
+func (p jsonPointerScanPlan) Scan(src []byte, dst any) error {
+	el := reflect.ValueOf(dst).Elem()
+	if src == nil || string(src) == "null" {
+		el.SetZero()
+		return nil
+	}
+
+	el.Set(reflect.New(el.Type().Elem()))
+	if p.next != nil {
+		return p.next.Scan(src, el.Interface())
+	}
+
+	return nil
 }
 
 type encodePlanJSONCodecEitherFormatString struct{}
@@ -96,10 +124,12 @@ func (encodePlanJSONCodecEitherFormatJSONRawMessage) Encode(value any, buf []byt
 	return buf, nil
 }
 
-type encodePlanJSONCodecEitherFormatMarshal struct{}
+type encodePlanJSONCodecEitherFormatMarshal struct {
+	marshal func(v any) ([]byte, error)
+}
 
-func (encodePlanJSONCodecEitherFormatMarshal) Encode(value any, buf []byte) (newBuf []byte, err error) {
-	jsonBytes, err := json.Marshal(value)
+func (e *encodePlanJSONCodecEitherFormatMarshal) Encode(value any, buf []byte) (newBuf []byte, err error) {
+	jsonBytes, err := e.marshal(value)
 	if err != nil {
 		return nil, err
 	}
@@ -108,40 +138,36 @@ func (encodePlanJSONCodecEitherFormatMarshal) Encode(value any, buf []byte) (new
 	return buf, nil
 }
 
-func (JSONCodec) PlanScan(m *Map, oid uint32, format int16, target any) ScanPlan {
-	switch target.(type) {
-	case *string:
-		return scanPlanAnyToString{}
+func (c *JSONCodec) PlanScan(m *Map, oid uint32, formatCode int16, target any) ScanPlan {
+	return c.planScan(m, oid, formatCode, target, 0)
+}
 
-	case **string:
-		// This is to fix **string scanning. It seems wrong to special case **string, but it's not clear what a better
-		// solution would be.
-		//
-		// https://github.com/jackc/pgx/issues/1470 -- **string
-		// https://github.com/jackc/pgx/issues/1691 -- ** anything else
-
-		if wrapperPlan, nextDst, ok := TryPointerPointerScanPlan(target); ok {
-			if nextPlan := m.planScan(oid, format, nextDst); nextPlan != nil {
-				if _, failed := nextPlan.(*scanPlanFail); !failed {
-					wrapperPlan.SetNext(nextPlan)
-					return wrapperPlan
-				}
-			}
-		}
-
-	case *[]byte:
-		return scanPlanJSONToByteSlice{}
-	case BytesScanner:
-		return scanPlanBinaryBytesToBytesScanner{}
-
-	// Cannot rely on sql.Scanner being handled later because scanPlanJSONToJSONUnmarshal will take precedence.
-	//
-	// https://github.com/jackc/pgx/issues/1418
-	case sql.Scanner:
-		return &scanPlanSQLScanner{formatCode: format}
+// JSON cannot fallback to pointerPointerScanPlan because of 'null'::json(b),
+// so we need to duplicate the logic here.
+func (c *JSONCodec) planScan(m *Map, oid uint32, formatCode int16, target any, depth int) ScanPlan {
+	if depth > 8 {
+		return &scanPlanFail{m: m, oid: oid, formatCode: formatCode}
 	}
 
-	return scanPlanJSONToJSONUnmarshal{}
+	switch target.(type) {
+	case *string:
+		return &scanPlanAnyToString{}
+	case *[]byte:
+		return &scanPlanJSONToByteSlice{}
+	case BytesScanner:
+		return &scanPlanBinaryBytesToBytesScanner{}
+	case sql.Scanner:
+		return &scanPlanSQLScanner{formatCode: formatCode}
+	}
+
+	rv := reflect.ValueOf(target)
+	if rv.Kind() == reflect.Pointer && rv.Elem().Kind() == reflect.Pointer {
+		var plan jsonPointerScanPlan
+		plan.next = c.planScan(m, oid, formatCode, rv.Elem().Interface(), depth+1)
+		return plan
+	} else {
+		return &scanPlanJSONToJSONUnmarshal{unmarshal: c.Unmarshal}
+	}
 }
 
 type scanPlanAnyToString struct{}
@@ -166,16 +192,11 @@ func (scanPlanJSONToByteSlice) Scan(src []byte, dst any) error {
 	return nil
 }
 
-type scanPlanJSONToBytesScanner struct{}
-
-func (scanPlanJSONToBytesScanner) Scan(src []byte, dst any) error {
-	scanner := (dst).(BytesScanner)
-	return scanner.ScanBytes(src)
+type scanPlanJSONToJSONUnmarshal struct {
+	unmarshal func(data []byte, v any) error
 }
 
-type scanPlanJSONToJSONUnmarshal struct{}
-
-func (scanPlanJSONToJSONUnmarshal) Scan(src []byte, dst any) error {
+func (s *scanPlanJSONToJSONUnmarshal) Scan(src []byte, dst any) error {
 	if src == nil {
 		dstValue := reflect.ValueOf(dst)
 		if dstValue.Kind() == reflect.Ptr {
@@ -190,13 +211,18 @@ func (scanPlanJSONToJSONUnmarshal) Scan(src []byte, dst any) error {
 		return fmt.Errorf("cannot scan NULL into %T", dst)
 	}
 
-	elem := reflect.ValueOf(dst).Elem()
+	v := reflect.ValueOf(dst)
+	if v.Kind() != reflect.Pointer || v.IsNil() {
+		return fmt.Errorf("cannot scan into non-pointer or nil destinations %T", dst)
+	}
+
+	elem := v.Elem()
 	elem.Set(reflect.Zero(elem.Type()))
 
-	return json.Unmarshal(src, dst)
+	return s.unmarshal(src, dst)
 }
 
-func (c JSONCodec) DecodeDatabaseSQLValue(m *Map, oid uint32, format int16, src []byte) (driver.Value, error) {
+func (c *JSONCodec) DecodeDatabaseSQLValue(m *Map, oid uint32, format int16, src []byte) (driver.Value, error) {
 	if src == nil {
 		return nil, nil
 	}
@@ -206,12 +232,12 @@ func (c JSONCodec) DecodeDatabaseSQLValue(m *Map, oid uint32, format int16, src 
 	return dstBuf, nil
 }
 
-func (c JSONCodec) DecodeValue(m *Map, oid uint32, format int16, src []byte) (any, error) {
+func (c *JSONCodec) DecodeValue(m *Map, oid uint32, format int16, src []byte) (any, error) {
 	if src == nil {
 		return nil, nil
 	}
 
 	var dst any
-	err := json.Unmarshal(src, &dst)
+	err := c.Unmarshal(src, &dst)
 	return dst, err
 }

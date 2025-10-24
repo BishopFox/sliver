@@ -69,9 +69,6 @@ func wgStartPortfwdHandler(data []byte, resp RPCResponse) {
 			RemoteAddr: fwder.RemoteAddr(),
 		},
 	}
-	if err != nil {
-		fwdResp.Response.Err = err.Error()
-	}
 	data, err = proto.Marshal(fwdResp)
 	resp(data, err)
 }

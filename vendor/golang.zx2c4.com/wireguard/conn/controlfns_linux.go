@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2025 WireGuard LLC. All Rights Reserved.
  */
 
 package conn
@@ -12,6 +12,35 @@ import (
 
 	"golang.org/x/sys/unix"
 )
+
+// Taken from go/src/internal/syscall/unix/kernel_version_linux.go
+func kernelVersion() (major, minor int) {
+	var uname unix.Utsname
+	if err := unix.Uname(&uname); err != nil {
+		return
+	}
+
+	var (
+		values    [2]int
+		value, vi int
+	)
+	for _, c := range uname.Release {
+		if '0' <= c && c <= '9' {
+			value = (value * 10) + int(c-'0')
+		} else {
+			// Note that we're assuming N.N.N here.
+			// If we see anything else, we are likely to mis-parse it.
+			values[vi] = value
+			vi++
+			if vi >= len(values) {
+				break
+			}
+			value = 0
+		}
+	}
+
+	return values[0], values[1]
+}
 
 func init() {
 	controlFns = append(controlFns,
@@ -60,6 +89,17 @@ func init() {
 
 		// Attempt to enable UDP_GRO
 		func(network, address string, c syscall.RawConn) error {
+			// Kernels below 5.12 are missing 98184612aca0 ("net:
+			// udp: Add support for getsockopt(..., ..., UDP_GRO,
+			// ..., ...);"), which means we can't read this back
+			// later. We could pipe the return value through to
+			// the rest of the code, but UDP_GRO is kind of buggy
+			// anyway, so just gate this here.
+			major, minor := kernelVersion()
+			if major < 5 || (major == 5 && minor < 12) {
+				return nil
+			}
+
 			c.Control(func(fd uintptr) {
 				_ = unix.SetsockoptInt(int(fd), unix.IPPROTO_UDP, unix.UDP_GRO, 1)
 			})

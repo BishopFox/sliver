@@ -1,7 +1,7 @@
 
 gofumpt       := mvdan.cc/gofumpt@v0.6.0
 gosimports    := github.com/rinchsan/gosimports/cmd/gosimports@v0.3.8
-golangci_lint := github.com/golangci/golangci-lint/cmd/golangci-lint@v1.60.0
+golangci_lint := github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.5
 asmfmt        := github.com/klauspost/asmfmt/cmd/asmfmt@v1.3.2
 # sync this with netlify.toml!
 hugo          := github.com/gohugoio/hugo@v0.115.2
@@ -36,13 +36,23 @@ build.examples.as:
 build.examples.zig: examples/allocation/zig/testdata/greet.wasm imports/wasi_snapshot_preview1/example/testdata/zig/cat.wasm imports/wasi_snapshot_preview1/testdata/zig/wasi.wasm
 	@cd internal/testing/dwarftestdata/testdata/zig; zig build; mv zig-out/*/main.wasm ./ # Need DWARF custom sections.
 
-tinygo_sources := examples/basic/testdata/add.go examples/allocation/tinygo/testdata/greet.go examples/cli/testdata/cli.go imports/wasi_snapshot_preview1/example/testdata/tinygo/cat.go imports/wasi_snapshot_preview1/testdata/tinygo/wasi.go cmd/wazero/testdata/cat/cat.go
-.PHONY: build.examples.tinygo
-build.examples.tinygo: $(tinygo_sources)
+tinygo_reactor_sources_reactor := examples/basic/testdata/add.go examples/allocation/tinygo/testdata/greet.go
+.PHONY: build.examples.tinygo_reactor
+build.examples.tinygo_reactor: $(tinygo_sources_reactor)
 	@for f in $^; do \
-	    tinygo build -o $$(echo $$f | sed -e 's/\.go/\.wasm/') -scheduler=none --no-debug --target=wasi $$f; \
+	    tinygo build -o $$(echo $$f | sed -e 's/\.go/\.wasm/') -scheduler=none --no-debug --target=wasip1 -buildmode=c-shared $$f; \
+	done
+
+tinygo_sources_clis := examples/cli/testdata/cli.go imports/wasi_snapshot_preview1/example/testdata/tinygo/cat.go imports/wasi_snapshot_preview1/testdata/tinygo/wasi.go cmd/wazero/testdata/cat/cat.go
+.PHONY: build.examples.tinygo_clis
+build.examples.tinygo_clis: $(tinygo_sources_clis)
+	@for f in $^; do \
+	    tinygo build -o $$(echo $$f | sed -e 's/\.go/\.wasm/') -scheduler=none --no-debug --target=wasip1 $$f; \
 	done
 	@mv cmd/wazero/testdata/cat/cat.wasm cmd/wazero/testdata/cat/cat-tinygo.wasm
+
+.PHONY: build.examples.tinygo
+build.examples.tinygo: build.examples.tinygo_reactor build.examples.tinygo_clis
 
 # We use zig to build C as it is easy to install and embeds a copy of zig-cc.
 # Note: Don't use "-Oz" as that breaks our wasi sock example.
@@ -80,21 +90,21 @@ build.examples.emscripten: $(emscripten_sources)
 	done
 
 %/greet.wasm : cargo_target := wasm32-unknown-unknown
-%/cat.wasm : cargo_target := wasm32-wasi
-%/wasi.wasm : cargo_target := wasm32-wasi
+%/cat.wasm : cargo_target := wasm32-wasip1
+%/wasi.wasm : cargo_target := wasm32-wasip1
 
 .PHONY: build.examples.rust
 build.examples.rust: examples/allocation/rust/testdata/greet.wasm imports/wasi_snapshot_preview1/example/testdata/cargo-wasi/cat.wasm imports/wasi_snapshot_preview1/testdata/cargo-wasi/wasi.wasm internal/testing/dwarftestdata/testdata/rust/main.wasm.xz
 
 # Normally, we build release because it is smaller. Testing dwarf requires the debug build.
 internal/testing/dwarftestdata/testdata/rust/main.wasm.xz:
-	cd $(@D) && cargo wasi build
-	mv $(@D)/target/wasm32-wasi/debug/main.wasm $(@D)
+	cd $(@D) && cargo build --target wasm32-wasip1
+	mv $(@D)/target/wasm32-wasip1/debug/main.wasm $(@D)
 	cd $(@D) && xz -k -f ./main.wasm # Rust's DWARF section is huge, so compress it.
 
-# Builds rust using cargo normally, or cargo-wasi.
+# Builds rust using cargo normally
 %.wasm: %.rs
-	@(cd $(@D); cargo $(if $(findstring wasi,$(cargo_target)),wasi build,build --target $(cargo_target)) --release)
+	@(cd $(@D); cargo build --target $(cargo_target) --release)
 	@mv $(@D)/target/$(cargo_target)/release/$(@F) $(@D)
 
 spectest_base_dir := internal/integration_test/spectest

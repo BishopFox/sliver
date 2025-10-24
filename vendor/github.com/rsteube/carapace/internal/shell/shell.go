@@ -16,7 +16,6 @@ import (
 	"github.com/rsteube/carapace/internal/shell/nushell"
 	"github.com/rsteube/carapace/internal/shell/oil"
 	"github.com/rsteube/carapace/internal/shell/powershell"
-	"github.com/rsteube/carapace/internal/shell/spec"
 	"github.com/rsteube/carapace/internal/shell/tcsh"
 	"github.com/rsteube/carapace/internal/shell/xonsh"
 	"github.com/rsteube/carapace/internal/shell/zsh"
@@ -40,7 +39,6 @@ func Snippet(cmd *cobra.Command, shell string) (string, error) {
 		"nushell":    nushell.Snippet,
 		"oil":        oil.Snippet,
 		"powershell": powershell.Snippet,
-		"spec":       spec.Snippet,
 		"tcsh":       tcsh.Snippet,
 		"xonsh":      xonsh.Snippet,
 		"zsh":        zsh.Snippet,

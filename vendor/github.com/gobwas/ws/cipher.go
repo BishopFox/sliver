@@ -25,8 +25,8 @@ func Cipher(payload []byte, mask [4]byte, offset int) {
 	// Count number of bytes will processed one by one from the beginning of payload.
 	ln := remain[mpos]
 	// Count number of bytes will processed one by one from the end of payload.
-	// This is done to process payload by 8 bytes in each iteration of main loop.
-	rn := (n - ln) % 8
+	// This is done to process payload by 16 bytes in each iteration of main loop.
+	rn := (n - ln) % 16
 
 	for i := 0; i < ln; i++ {
 		payload[i] ^= mask[(mpos+i)%4]
@@ -44,15 +44,15 @@ func Cipher(payload []byte, mask [4]byte, offset int) {
 	)
 	// Skip already processed right part.
 	// Get number of uint64 parts remaining to process.
-	n = (n - ln - rn) >> 3
+	n = (n - ln - rn) >> 4
+	j := ln
 	for i := 0; i < n; i++ {
-		var (
-			j     = ln + (i << 3)
-			chunk = payload[j : j+8]
-		)
-		p := binary.LittleEndian.Uint64(chunk)
-		p = p ^ m2
+		chunk := payload[j : j+16]
+		p := binary.LittleEndian.Uint64(chunk) ^ m2
+		p2 := binary.LittleEndian.Uint64(chunk[8:]) ^ m2
 		binary.LittleEndian.PutUint64(chunk, p)
+		binary.LittleEndian.PutUint64(chunk[8:], p2)
+		j += 16
 	}
 }
 

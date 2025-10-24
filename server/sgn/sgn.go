@@ -22,14 +22,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"runtime"
+	"strconv"
 	"strings"
 
-	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/log"
+	sgnpkg "github.com/moloch--/sgn/pkg"
 )
 
 var (
@@ -56,148 +53,179 @@ type SGNConfig struct {
 	Input  string
 }
 
-// sgnCmd - Execute a sgn command
-func sgnCmd(appDir string, cwd string, command []string) ([]byte, error) {
-	sgnName := "sgn"
-	if runtime.GOOS == "windows" {
-		sgnName = "sgn.exe"
-	}
-	sgnBinPath := filepath.Join(appDir, "go", "bin", sgnName)
-
-	cmd := exec.Command(sgnBinPath, command...)
-	cmd.Dir = cwd
-	cmd.Env = []string{
-		fmt.Sprintf("PATH=%s:%s", filepath.Join(appDir, "go", "bin"), os.Getenv("PATH")),
-	}
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	sgnLog.Infof("sgn cmd: '%v'", cmd)
-	err := cmd.Run()
-	if err != nil {
-		sgnLog.Infof("--- env ---\n")
-		for _, envVar := range cmd.Env {
-			sgnLog.Infof("%s\n", envVar)
-		}
-		sgnLog.Infof("--- stdout ---\n%s\n", stdout.String())
-		sgnLog.Infof("--- stderr ---\n%s\n", stderr.String())
-		sgnLog.Info(err)
-	}
-	return stdout.Bytes(), err
-}
-
 // EncodeShellcode - Encode a shellcode
 func EncodeShellcode(shellcode []byte, arch string, iterations int, badChars []byte) ([]byte, error) {
-	sgnLog.Infof("[sgn] EncodeShellcode: %d bytes", len(shellcode))
-	inputFile, err := os.CreateTemp("", "sgn")
-	if err != nil {
-		sgnLog.Error(err)
-		return nil, ErrFailedToEncode
+	cfg := SGNConfig{
+		Architecture: arch,
+		Iterations:   iterations,
+		BadChars:     badChars,
 	}
-	_, err = inputFile.Write(shellcode)
-	if err != nil {
-		sgnLog.Error(err)
-		return nil, ErrFailedToEncode
-	}
-	defer os.Remove(inputFile.Name())
-	outputFile, err := os.CreateTemp("", "sgn")
-	if err != nil {
-		sgnLog.Error(err)
-		return nil, ErrFailedToEncode
-	}
-	outputFile.Close()
-	defer os.Remove(outputFile.Name())
-
-	config := SGNConfig{
-		AppDir: assets.GetRootAppDir(),
-
-		Architecture:   strings.ToLower(arch),
-		Iterations:     iterations,
-		MaxObfuscation: 20,
-		Safe:           false,
-		PlainDecoder:   false,
-		Asci:           false,
-		BadChars:       badChars,
-		Verbose:        false,
-
-		Input:  inputFile.Name(),
-		Output: outputFile.Name(),
-	}
-	_, err = sgnCmd(config.AppDir, ".", configToArgs(config))
-	if err != nil {
-		sgnLog.Error(err)
-		return nil, ErrFailedToEncode
-	}
-	data, err := os.ReadFile(outputFile.Name())
-	if err != nil {
-		sgnLog.Error(err)
-		return nil, ErrFailedToEncode
-	}
-	sgnLog.Infof("[sgn] successfully encoded to %d bytes", len(data))
-	return data, nil
+	return EncodeShellcodeWithConfig(shellcode, cfg)
 }
 
-func configToArgs(config SGNConfig) []string {
-	args := []string{}
+// EncodeShellcodeWithConfig encodes a shellcode payload using the supplied SGNConfig.
+func EncodeShellcodeWithConfig(shellcode []byte, cfg SGNConfig) ([]byte, error) {
+	sgnLog.Infof("[sgn] EncodeShellcode: %d bytes", len(shellcode))
 
-	// CPU Architecture
-	if config.Architecture == "386" || config.Architecture == "32" {
-		args = append(args, "-a", "32")
-	} else {
-		args = append(args, "-a", "64")
+	if len(shellcode) == 0 {
+		return nil, fmt.Errorf("%w: empty payload", ErrFailedToEncode)
 	}
 
-	// Iterations
-	if 1 < config.Iterations {
-		args = append(args, "-c", fmt.Sprintf("%d", config.Iterations))
-	} else {
-		args = append(args, "-c", "1")
+	arch, err := parseArchitecture(cfg.Architecture)
+	if err != nil {
+		sgnLog.Errorf("[sgn] EncodeShellcode invalid architecture %q: %s", cfg.Architecture, err)
+		return nil, fmt.Errorf("%w: %s", ErrFailedToEncode, err)
 	}
 
-	// Max obfuscation
-	if 0 < config.MaxObfuscation {
-		args = append(args, "-max", fmt.Sprintf("%d", config.MaxObfuscation))
-	} else {
-		args = append(args, "-max", "20")
+	if cfg.Iterations < 0 {
+		cfg.Iterations = 0
 	}
 
-	// Safe
-	if config.Safe {
-		args = append(args, "-safe")
-	}
+	needsConstraints := cfg.Asci || len(cfg.BadChars) > 0
+	seed := sgnpkg.GetRandomByte()
+	const maxAttempts = 512
 
-	// Plain decoder
-	if config.PlainDecoder {
-		args = append(args, "-plain-decoder")
-	}
-
-	// Asci
-	if config.Asci {
-		args = append(args, "-asci")
-	}
-
-	// Bad characters
-	if 0 < len(config.BadChars) {
-		badChars := []string{}
-		for _, b := range config.BadChars {
-			badChars = append(badChars, fmt.Sprintf("\\x%02x", b))
+	var lastErr error
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		encoder, err := newEncoderWithConfig(arch, cfg)
+		if err != nil {
+			sgnLog.Errorf("[sgn] EncodeShellcode setup failed: %s", err)
+			return nil, fmt.Errorf("%w: %s", ErrFailedToEncode, err)
 		}
-		args = append(args, "-b", strings.Join(badChars, ""))
+		encoder.Seed = seed
+
+		data, err := encoder.Encode(shellcode)
+		if err != nil {
+			fallbackEncoder, fallbackErr := newEncoderWithConfig(arch, cfg)
+			if fallbackErr != nil {
+				lastErr = fmt.Errorf("primary: %w, fallback setup: %w", err, fallbackErr)
+				sgnLog.Warnf("[sgn] EncodeShellcode attempt %d failed (fallback setup): %s / %s", attempt+1, err, fallbackErr)
+				seed = nextSeed(seed)
+				continue
+			}
+			fallbackEncoder.Seed = seed
+			data, fallbackErr = simpleEncode(fallbackEncoder, shellcode)
+			if fallbackErr != nil {
+				lastErr = fmt.Errorf("primary: %w, fallback encode: %w", err, fallbackErr)
+				sgnLog.Warnf("[sgn] EncodeShellcode attempt %d failed (fallback encode): %s / %s", attempt+1, err, fallbackErr)
+				seed = nextSeed(seed)
+				continue
+			}
+		}
+
+		if len(data) == 0 {
+			lastErr = fmt.Errorf("attempt %d returned empty payload", attempt+1)
+			sgnLog.Warnf("[sgn] EncodeShellcode attempt %d returned empty payload", attempt+1)
+			seed = nextSeed(seed)
+			continue
+		}
+
+		if !needsConstraints || meetsConstraints(data, cfg) {
+			return data, nil
+		}
+		seed = nextSeed(seed)
 	}
 
-	// Verbose
-	if config.Verbose {
-		args = append(args, "-v")
+	if lastErr != nil {
+		return nil, fmt.Errorf("%w: %s", ErrFailedToEncode, lastErr)
+	}
+	return nil, fmt.Errorf("%w: unable to satisfy encoding constraints", ErrFailedToEncode)
+}
+
+func newEncoderWithConfig(arch int, cfg SGNConfig) (*sgnpkg.Encoder, error) {
+	encoder, err := sgnpkg.NewEncoder(arch)
+	if err != nil {
+		return nil, err
 	}
 
-	// Output
-	args = append(args, "-o", config.Output)
+	if cfg.MaxObfuscation > 0 {
+		encoder.ObfuscationLimit = cfg.MaxObfuscation
+	}
 
-	// Input
-	sgnLog.Infof("[sgn] input file: %s", config.Input)
-	args = append(args, config.Input)
+	encoder.PlainDecoder = cfg.PlainDecoder
+	encoder.SaveRegisters = cfg.Safe
 
-	return args
+	if cfg.Iterations > 0 {
+		encoder.EncodingCount = cfg.Iterations
+	}
+
+	return encoder, nil
+}
+
+func meetsConstraints(data []byte, cfg SGNConfig) bool {
+	if cfg.Asci && !isASCIIPrintable(data) {
+		return false
+	}
+	if len(cfg.BadChars) == 0 {
+		return true
+	}
+	for _, bad := range cfg.BadChars {
+		if bytes.IndexByte(data, bad) != -1 {
+			return false
+		}
+	}
+	return true
+}
+
+func isASCIIPrintable(data []byte) bool {
+	for _, b := range data {
+		if b < 0x20 || b > 0x7e {
+			return false
+		}
+	}
+	return true
+}
+
+func nextSeed(seed byte) byte {
+	return byte((int(seed) + 1) % 255)
+}
+
+func parseArchitecture(arch string) (int, error) {
+	if arch == "" {
+		return 64, nil
+	}
+
+	normalized := strings.ToLower(strings.TrimSpace(arch))
+	switch normalized {
+	case "amd64", "x86_64", "x64", "win64", "64":
+		return 64, nil
+	case "386", "x86", "i386", "ia32", "win32", "32":
+		return 32, nil
+	}
+
+	if value, err := strconv.Atoi(normalized); err == nil {
+		switch value {
+		case 32, 386:
+			return 32, nil
+		case 64:
+			return 64, nil
+		}
+	}
+
+	return 0, fmt.Errorf("unsupported architecture %q", arch)
+}
+
+func simpleEncode(encoder *sgnpkg.Encoder, payload []byte) ([]byte, error) {
+	current := append([]byte{}, payload...)
+	if encoder.SaveRegisters {
+		current = append(current, sgnpkg.SafeRegisterSuffix[encoder.GetArchitecture()]...)
+	}
+
+	ciphered := sgnpkg.CipherADFL(current, encoder.Seed)
+	encoded, err := encoder.AddADFLDecoder(ciphered)
+	if err != nil {
+		return nil, err
+	}
+
+	if encoder.EncodingCount > 1 {
+		encoder.EncodingCount--
+		encoder.Seed = sgnpkg.GetRandomByte()
+		return simpleEncode(encoder, encoded)
+	}
+
+	if encoder.SaveRegisters {
+		encoded = append(sgnpkg.SafeRegisterPrefix[encoder.GetArchitecture()], encoded...)
+	}
+
+	return encoded, nil
 }

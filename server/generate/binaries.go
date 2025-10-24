@@ -153,6 +153,7 @@ func SliverShellcode(name string, build *clientpb.ImplantBuild, config *clientpb
 		Obfuscation: config.ObfuscateSymbols,
 		GOGARBLE:    goGarble(config),
 	}
+
 	pkgPath, err := renderSliverGoCode(name, build, config, goConfig, pbC2Implant)
 	if err != nil {
 		return "", err
@@ -226,6 +227,7 @@ func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clie
 		Obfuscation: config.ObfuscateSymbols,
 		GOGARBLE:    goGarble(config),
 	}
+
 	pkgPath, err := renderSliverGoCode(name, build, config, goConfig, pbC2Implant)
 	if err != nil {
 		return "", err
@@ -767,7 +769,7 @@ func findCrossCompilers(targetGOOS string, targetGOARCH string) (string, string)
 		}
 		if targetGOARCH == "arm64" && cc == "" {
 			buildLog.Debugf("Using default osxcross cc/cxx for %s/%s", targetGOOS, targetGOARCH)
-			cc = "/opt/osxcross/target/bin/aarch64-apple-darwin20.2-clang"
+			cc = "/opt/osxcross/bin/aarch64-apple-darwin25-clang"
 			if cxx == "" {
 				cxx = cc
 			}

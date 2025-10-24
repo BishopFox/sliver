@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
-	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/ssm/types"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
@@ -36,23 +35,45 @@ type RegisterTargetWithMaintenanceWindowInput struct {
 	ResourceType types.MaintenanceWindowResourceType
 
 	// The targets to register with the maintenance window. In other words, the
-	// managed nodes to run commands on when the maintenance window runs. If a single
-	// maintenance window task is registered with multiple targets, its task
-	// invocations occur sequentially and not in parallel. If your task must run on
-	// multiple targets at the same time, register a task for each target individually
-	// and assign each task the same priority level. You can specify targets using
-	// managed node IDs, resource group names, or tags that have been applied to
-	// managed nodes. Example 1: Specify managed node IDs Key=InstanceIds,Values=,,
-	// Example 2: Use tag key-pairs applied to managed nodes Key=tag:,Values=, Example
-	// 3: Use tag-keys applied to managed nodes Key=tag-key,Values=, Example 4: Use
-	// resource group names Key=resource-groups:Name,Values= Example 5: Use filters
-	// for resource group types Key=resource-groups:ResourceTypeFilters,Values=, For
-	// Key=resource-groups:ResourceTypeFilters , specify resource types in the
+	// managed nodes to run commands on when the maintenance window runs.
+	//
+	// If a single maintenance window task is registered with multiple targets, its
+	// task invocations occur sequentially and not in parallel. If your task must run
+	// on multiple targets at the same time, register a task for each target
+	// individually and assign each task the same priority level.
+	//
+	// You can specify targets using managed node IDs, resource group names, or tags
+	// that have been applied to managed nodes.
+	//
+	// Example 1: Specify managed node IDs
+	//
+	//     Key=InstanceIds,Values=,,
+	//
+	// Example 2: Use tag key-pairs applied to managed nodes
+	//
+	//     Key=tag:,Values=,
+	//
+	// Example 3: Use tag-keys applied to managed nodes
+	//
+	//     Key=tag-key,Values=,
+	//
+	// Example 4: Use resource group names
+	//
+	//     Key=resource-groups:Name,Values=
+	//
+	// Example 5: Use filters for resource group types
+	//
+	//     Key=resource-groups:ResourceTypeFilters,Values=,
+	//
+	// For Key=resource-groups:ResourceTypeFilters , specify resource types in the
 	// following format
-	// Key=resource-groups:ResourceTypeFilters,Values=AWS::EC2::INSTANCE,AWS::EC2::VPC
+	//
+	//     Key=resource-groups:ResourceTypeFilters,Values=AWS::EC2::INSTANCE,AWS::EC2::VPC
+	//
 	// For more information about these examples formats, including the best use case
-	// for each one, see Examples: Register targets with a maintenance window (https://docs.aws.amazon.com/systems-manager/latest/userguide/mw-cli-tutorial-targets-examples.html)
-	// in the Amazon Web Services Systems Manager User Guide.
+	// for each one, see [Examples: Register targets with a maintenance window]in the Amazon Web Services Systems Manager User Guide.
+	//
+	// [Examples: Register targets with a maintenance window]: https://docs.aws.amazon.com/systems-manager/latest/userguide/mw-cli-tutorial-targets-examples.html
 	//
 	// This member is required.
 	Targets []types.Target
@@ -111,25 +132,28 @@ func (c *Client) addOperationRegisterTargetWithMaintenanceWindowMiddlewares(stac
 	if err = addSetLoggerMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddClientRequestIDMiddleware(stack); err != nil {
+	if err = addClientRequestID(stack); err != nil {
 		return err
 	}
-	if err = smithyhttp.AddComputeContentLengthMiddleware(stack); err != nil {
+	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = v4.AddComputePayloadSHA256Middleware(stack); err != nil {
+	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetryMiddlewares(stack, options); err != nil {
+	if err = addRetry(stack, options); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRawResponseToMetadata(stack); err != nil {
+	if err = addRawResponseToMetadata(stack); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRecordResponseTiming(stack); err != nil {
+	if err = addRecordResponseTiming(stack); err != nil {
+		return err
+	}
+	if err = addSpanRetryLoop(stack, options); err != nil {
 		return err
 	}
 	if err = addClientUserAgent(stack, options); err != nil {
@@ -144,6 +168,15 @@ func (c *Client) addOperationRegisterTargetWithMaintenanceWindowMiddlewares(stac
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
+	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
 	if err = addIdempotencyToken_opRegisterTargetWithMaintenanceWindowMiddleware(stack, options); err != nil {
 		return err
 	}
@@ -153,7 +186,7 @@ func (c *Client) addOperationRegisterTargetWithMaintenanceWindowMiddlewares(stac
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opRegisterTargetWithMaintenanceWindow(options.Region), middleware.Before); err != nil {
 		return err
 	}
-	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
+	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -166,6 +199,48 @@ func (c *Client) addOperationRegisterTargetWithMaintenanceWindowMiddlewares(stac
 		return err
 	}
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAttempt(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptExecution(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSerialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterSigning(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptTransmit(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addInterceptAfterDeserialization(stack, options); err != nil {
+		return err
+	}
+	if err = addSpanInitializeStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanInitializeEnd(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestStart(stack); err != nil {
+		return err
+	}
+	if err = addSpanBuildRequestEnd(stack); err != nil {
 		return err
 	}
 	return nil

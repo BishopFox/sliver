@@ -34,6 +34,18 @@ type Lookup struct {
 }
 
 func (e *Lookup) marshal(fam byte) ([]byte, error) {
+	opData, err := e.marshalData(fam)
+	if err != nil {
+		return nil, err
+	}
+
+	return netlink.MarshalAttributes([]netlink.Attribute{
+		{Type: unix.NFTA_EXPR_NAME, Data: []byte("lookup\x00")},
+		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: opData},
+	})
+}
+
+func (e *Lookup) marshalData(fam byte) ([]byte, error) {
 	// See: https://git.netfilter.org/libnftnl/tree/src/expr/lookup.c?id=6dc1c3d8bb64077da7f3f28c7368fb087d10a492#n115
 	var opAttrs []netlink.Attribute
 	if e.SourceRegister != 0 {
@@ -49,15 +61,7 @@ func (e *Lookup) marshal(fam byte) ([]byte, error) {
 		netlink.Attribute{Type: unix.NFTA_LOOKUP_SET, Data: []byte(e.SetName + "\x00")},
 		netlink.Attribute{Type: unix.NFTA_LOOKUP_SET_ID, Data: binaryutil.BigEndian.PutUint32(e.SetID)},
 	)
-	opData, err := netlink.MarshalAttributes(opAttrs)
-	if err != nil {
-		return nil, err
-	}
-
-	return netlink.MarshalAttributes([]netlink.Attribute{
-		{Type: unix.NFTA_EXPR_NAME, Data: []byte("lookup\x00")},
-		{Type: unix.NLA_F_NESTED | unix.NFTA_EXPR_DATA, Data: opData},
-	})
+	return netlink.MarshalAttributes(opAttrs)
 }
 
 func (e *Lookup) unmarshal(fam byte, data []byte) error {

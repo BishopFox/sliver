@@ -15,7 +15,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"math/rand"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"net/netip"
@@ -165,7 +165,7 @@ func addAnyPortMapping(
 	// number in [0, 65535 - 1024] and then adding 1024 to it, shifting the
 	// range to [1024, 65535].
 	if externalPort < 1024 {
-		externalPort = uint16(rand.Intn(65535-1024) + 1024)
+		externalPort = uint16(rand.N(65535-1024) + 1024)
 	}
 
 	// First off, try using AddAnyPortMapping; if there's a conflict, the
@@ -610,8 +610,9 @@ func (c *Client) tryUPnPPortmapWithDevice(
 		}
 
 		// From the UPnP spec: http://upnp.org/specs/gw/UPnP-gw-WANIPConnection-v2-Service.pdf
+		//     402: Invalid Args (see: https://github.com/tailscale/tailscale/issues/15223)
 		//     725: OnlyPermanentLeasesSupported
-		if ok && code == 725 {
+		if ok && (code == 402 || code == 725) {
 			newPort, err = addAnyPortMapping(
 				ctx,
 				client,
@@ -620,7 +621,7 @@ func (c *Client) tryUPnPPortmapWithDevice(
 				internal.Addr().String(),
 				0, // permanent
 			)
-			c.vlogf("addAnyPortMapping: 725 retry %v, err=%q", newPort, err)
+			c.vlogf("addAnyPortMapping: errcode=%d retried: port=%v err=%v", code, newPort, err)
 		}
 	}
 	if err != nil {
@@ -636,6 +637,19 @@ func (c *Client) tryUPnPPortmapWithDevice(
 	externalIP, err := netip.ParseAddr(extIP)
 	if err != nil {
 		return netip.AddrPort{}, nil, err
+	}
+
+	// Do a bit of validation on the external IP; we've seen cases where
+	// UPnP devices return the public IP 0.0.0.0, which obviously doesn't
+	// work as an endpoint.
+	//
+	// See: https://github.com/tailscale/corp/issues/23538
+	if externalIP.IsUnspecified() {
+		c.logf("UPnP returned unspecified external IP %v", externalIP)
+		return netip.AddrPort{}, nil, fmt.Errorf("UPnP returned unspecified external IP")
+	} else if externalIP.IsLoopback() {
+		c.logf("UPnP returned loopback external IP %v", externalIP)
+		return netip.AddrPort{}, nil, fmt.Errorf("UPnP returned loopback external IP")
 	}
 
 	return netip.AddrPortFrom(externalIP, newPort), client, nil

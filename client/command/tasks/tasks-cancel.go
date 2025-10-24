@@ -50,6 +50,9 @@ func TasksCancelCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 			con.PrintErrorf("%s\n", err)
 			return
 		}
+		// Request and response content is not needed for cancelling a task
+		task.Request = nil
+		task.Response = nil
 	}
 
 	if task != nil {

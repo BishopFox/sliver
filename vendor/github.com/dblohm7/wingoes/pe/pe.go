@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/bits"
 	"os"
 	"reflect"
@@ -83,10 +84,14 @@ func (s *SectionHeader) NameString() string {
 	return string(s.Name[:])
 }
 
-type peReader interface {
-	io.Closer
+type peReaderBase interface {
 	io.ReaderAt
 	io.ReadSeeker
+}
+
+type peReader interface {
+	peReaderBase
+	io.Closer
 	Base() uintptr
 	Limit() uintptr
 }
@@ -136,7 +141,7 @@ func checkMagic(oh OptionalHeader, machine uint16) bool {
 	case dpe.IMAGE_FILE_MACHINE_AMD64, dpe.IMAGE_FILE_MACHINE_ARM64:
 		expectedMagic = 0x020B
 	default:
-		panic("unsupported machine")
+		panic(fmt.Sprintf("unsupported machine 0x%04X", machine))
 	}
 
 	return oh.GetMagic() == expectedMagic
@@ -148,8 +153,15 @@ type peBounds struct {
 }
 
 type peFile struct {
-	*os.File
+	peReaderBase
 	peBounds
+}
+
+func (pef *peFile) Close() error {
+	if cl, ok := pef.peReaderBase.(io.Closer); ok {
+		return cl.Close()
+	}
+	return nil
 }
 
 func (pef *peFile) Base() uintptr {
@@ -157,11 +169,6 @@ func (pef *peFile) Base() uintptr {
 }
 
 func (pef *peFile) Limit() uintptr {
-	if pef.limit == 0 {
-		if fi, err := pef.Stat(); err == nil {
-			pef.limit = uintptr(fi.Size())
-		}
-	}
 	return pef.limit
 }
 
@@ -193,8 +200,18 @@ func NewPEFromFileName(filename string) (*PEHeaders, error) {
 }
 
 func newPEFromFile(f *os.File) (*PEHeaders, error) {
-	// peBounds base is 0, limit is loaded lazily
-	pef := &peFile{File: f}
+	fi, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+
+	return newPEFromReaderBase(f, uintptr(fi.Size()))
+}
+
+func newPEFromReaderBase(rb peReaderBase, size uintptr) (*PEHeaders, error) {
+	// peBounds base is 0, limit is size
+	pef := &peFile{peReaderBase: rb, peBounds: peBounds{limit: size}}
 	peh, err := loadHeaders(pef)
 	if err != nil {
 		pef.Close()
@@ -202,6 +219,13 @@ func newPEFromFile(f *os.File) (*PEHeaders, error) {
 	}
 
 	return peh, nil
+}
+
+// NewPEFromBlob parses the PE headers in blob. Upon success it returns a
+// non-nil *PEHeaders, otherwise it returns a nil *PEHeaders and a non-nil error.
+// Call Close() on the returned *PEHeaders when it is no longer needed.
+func NewPEFromBlob(blob []byte) (*PEHeaders, error) {
+	return newPEFromReaderBase(bytes.NewReader(blob), uintptr(len(blob)))
 }
 
 // Close frees any resources that were opened when peh was created.
@@ -213,17 +237,20 @@ type rvaType interface {
 	~int8 | ~int16 | ~int32 | ~uint8 | ~uint16 | ~uint32
 }
 
-// addOffset ensures that, if off is negative, it does not underflow base.
-func addOffset[O rvaType](base uintptr, off O) uintptr {
+// addOffset ensures that off neither overflows nor underflows base.
+func addOffset[O rvaType](base uintptr, off O) (addr uintptr, ok bool) {
 	if off >= 0 {
-		return base + uintptr(off)
+		if upoff := uintptr(off); upoff <= (math.MaxUint - base) {
+			return base + upoff, true
+		}
+		return 0, false
 	}
 
 	negation := uintptr(-off)
 	if negation >= base {
-		return 0
+		return 0, false
 	}
-	return base - negation
+	return base - negation, true
 }
 
 func binaryRead(r io.Reader, data any) (err error) {
@@ -254,9 +281,12 @@ func readStruct[T any, R rvaType](r peReader, rva R) (*T, error) {
 
 		return result, nil
 	case *peModule:
-		addr := addOffset(r.Base(), rva)
-		szT := unsafe.Sizeof(*((*T)(nil)))
-		if addr+szT >= v.Limit() {
+		addr, ok := addOffset(r.Base(), rva)
+		if !ok {
+			return nil, ErrInvalidBinary
+		}
+		szT := uint32(unsafe.Sizeof(*((*T)(nil))))
+		if addr2, ok := addOffset(addr, szT); !ok || addr2 >= v.Limit() {
 			return nil, ErrInvalidBinary
 		}
 
@@ -285,9 +315,12 @@ func readStructArray[T any, R rvaType](r peReader, rva R, count int) ([]T, error
 
 		return result, nil
 	case *peModule:
-		addr := addOffset(r.Base(), rva)
-		szT := reflect.ArrayOf(count, reflect.TypeOf((*T)(nil)).Elem()).Size()
-		if addr+szT >= v.Limit() {
+		addr, ok := addOffset(r.Base(), rva)
+		if !ok {
+			return nil, ErrInvalidBinary
+		}
+		szT := uint32(reflect.ArrayOf(count, reflect.TypeFor[T]()).Size())
+		if addr2, ok := addOffset(addr, szT); !ok || addr2 >= v.Limit() {
 			return nil, ErrInvalidBinary
 		}
 
@@ -330,7 +363,7 @@ func loadHeaders(r peReader) (*PEHeaders, error) {
 	if e_lfanew <= 0 {
 		return nil, ErrInvalidBinary
 	}
-	if addOffset(r.Base(), e_lfanew) >= r.Limit() {
+	if addr, ok := addOffset(r.Base(), e_lfanew); !ok || addr >= r.Limit() {
 		return nil, ErrInvalidBinary
 	}
 
@@ -352,7 +385,7 @@ func loadHeaders(r peReader) (*PEHeaders, error) {
 
 	// Read the file header
 	fileHeaderOffset := uint32(e_lfanew) + uint32(unsafe.Sizeof(pe))
-	if r.Base()+uintptr(fileHeaderOffset) >= r.Limit() {
+	if addr, ok := addOffset(r.Base(), fileHeaderOffset); !ok || addr >= r.Limit() {
 		return nil, ErrInvalidBinary
 	}
 
@@ -368,7 +401,7 @@ func loadHeaders(r peReader) (*PEHeaders, error) {
 
 	// Read the optional header
 	optionalHeaderOffset := uint32(fileHeaderOffset) + uint32(unsafe.Sizeof(*fileHeader))
-	if r.Base()+uintptr(optionalHeaderOffset) >= r.Limit() {
+	if addr, ok := addOffset(r.Base(), optionalHeaderOffset); !ok || addr >= r.Limit() {
 		return nil, ErrInvalidBinary
 	}
 
@@ -402,7 +435,7 @@ func loadHeaders(r peReader) (*PEHeaders, error) {
 
 	// Read in the section table
 	sectionTableOffset := optionalHeaderOffset + uint32(fileHeader.SizeOfOptionalHeader)
-	if r.Base()+uintptr(sectionTableOffset) >= r.Limit() {
+	if addr, ok := addOffset(r.Base(), sectionTableOffset); !ok || addr >= r.Limit() {
 		return nil, ErrInvalidBinary
 	}
 
@@ -474,6 +507,8 @@ const (
 	IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR = DataDirectoryIndex(dpe.IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR)
 )
 
+const _IMAGE_NUMBEROF_DIRECTORY_ENTRIES = 16
+
 // DataDirectoryEntry returns information from nfo's data directory at index idx.
 // The type of the return value depends on the value of idx. Most values for idx
 // currently return the DataDirectoryEntry itself, however it will return more
@@ -486,9 +521,13 @@ const (
 // sophisticated return values, so be careful to structure your type assertions
 // accordingly.
 func (nfo *PEHeaders) DataDirectoryEntry(idx DataDirectoryIndex) (any, error) {
+	if int(idx) >= _IMAGE_NUMBEROF_DIRECTORY_ENTRIES {
+		return nil, ErrIndexOutOfRange
+	}
+
 	dd := nfo.optionalHeader.GetDataDirectory()
 	if int(idx) >= len(dd) {
-		return nil, ErrIndexOutOfRange
+		return nil, ErrNotPresent
 	}
 
 	dde := dd[idx]

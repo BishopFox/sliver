@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:build !goexperiment.jsonv2 || !go1.25
+
 package jsonwire
 
 import (
@@ -74,7 +76,7 @@ func ConsumeTrue(b []byte) int {
 func ConsumeLiteral(b []byte, lit string) (n int, err error) {
 	for i := 0; i < len(b) && i < len(lit); i++ {
 		if b[i] != lit[i] {
-			return i, NewInvalidCharacterError(b[i:], "within literal "+lit+" (expecting "+strconv.QuoteRune(rune(lit[i]))+")")
+			return i, NewInvalidCharacterError(b[i:], "in literal "+lit+" (expecting "+strconv.QuoteRune(rune(lit[i]))+")")
 		}
 	}
 	if len(b) < len(lit) {
@@ -240,7 +242,7 @@ func ConsumeStringResumable(flags *ValueFlags, b []byte, resumeOffset int, valid
 		// Handle invalid control characters.
 		case r < ' ':
 			flags.Join(stringNonVerbatim | stringNonCanonical)
-			return n, NewInvalidCharacterError(b[n:], "within string (expecting non-control character)")
+			return n, NewInvalidCharacterError(b[n:], "in string (expecting non-control character)")
 		default:
 			panic("BUG: unhandled character " + QuoteRune(b[n:]))
 		}
@@ -374,7 +376,7 @@ func AppendUnquote[Bytes ~[]byte | ~string](dst []byte, src Bytes) (v []byte, er
 		// Handle invalid control characters.
 		case r < ' ':
 			dst = append(dst, src[i:n]...)
-			return dst, NewInvalidCharacterError(src[n:], "within string (expecting non-control character)")
+			return dst, NewInvalidCharacterError(src[n:], "in string (expecting non-control character)")
 		default:
 			panic("BUG: unhandled character " + QuoteRune(src[n:]))
 		}
@@ -386,7 +388,7 @@ func AppendUnquote[Bytes ~[]byte | ~string](dst []byte, src Bytes) (v []byte, er
 // hasEscapedUTF16Prefix reports whether b is possibly
 // the truncated prefix of a \uFFFF escape sequence.
 func hasEscapedUTF16Prefix[Bytes ~[]byte | ~string](b Bytes, lowerSurrogateHalf bool) bool {
-	for i := 0; i < len(b); i++ {
+	for i := range len(b) {
 		switch c := b[i]; {
 		case i == 0 && c != '\\':
 			return false
@@ -513,7 +515,7 @@ beforeInteger:
 		}
 		state = withinIntegerDigits
 	default:
-		return n, state, NewInvalidCharacterError(b[n:], "within number (expecting digit)")
+		return n, state, NewInvalidCharacterError(b[n:], "in number (expecting digit)")
 	}
 
 	// Consume optional fractional component.
@@ -527,7 +529,7 @@ beforeFractional:
 		case '0' <= b[n] && b[n] <= '9':
 			n++
 		default:
-			return n, state, NewInvalidCharacterError(b[n:], "within number (expecting digit)")
+			return n, state, NewInvalidCharacterError(b[n:], "in number (expecting digit)")
 		}
 		for uint(len(b)) > uint(n) && ('0' <= b[n] && b[n] <= '9') {
 			n++
@@ -549,7 +551,7 @@ beforeExponent:
 		case '0' <= b[n] && b[n] <= '9':
 			n++
 		default:
-			return n, state, NewInvalidCharacterError(b[n:], "within number (expecting digit)")
+			return n, state, NewInvalidCharacterError(b[n:], "in number (expecting digit)")
 		}
 		for uint(len(b)) > uint(n) && ('0' <= b[n] && b[n] <= '9') {
 			n++
@@ -567,7 +569,7 @@ func parseHexUint16[Bytes ~[]byte | ~string](b Bytes) (v uint16, ok bool) {
 	if len(b) != 4 {
 		return 0, false
 	}
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		c := b[i]
 		switch {
 		case '0' <= c && c <= '9':
@@ -610,19 +612,6 @@ func ParseUint(b []byte) (v uint64, ok bool) {
 // then we return MaxFloat since any finite value will always be infinitely
 // more accurate at representing another finite value than an infinite value.
 func ParseFloat(b []byte, bits int) (v float64, ok bool) {
-	// Fast path for exact integer numbers which fit in the
-	// 24-bit or 53-bit significand of a float32 or float64.
-	var negLen int // either 0 or 1
-	if len(b) > 0 && b[0] == '-' {
-		negLen = 1
-	}
-	u, ok := ParseUint(b[negLen:])
-	if ok && ((bits == 32 && u <= 1<<24) || (bits == 64 && u <= 1<<53)) {
-		return math.Copysign(float64(u), float64(-1*negLen)), true
-	}
-
-	// Note that the []byte->string conversion unfortunately allocates.
-	// See https://go.dev/issue/42429 for more information.
 	fv, err := strconv.ParseFloat(string(b), bits)
 	if math.IsInf(fv, 0) {
 		switch {

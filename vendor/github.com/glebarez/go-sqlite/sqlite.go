@@ -1741,3 +1741,7 @@ func registerScalarFunction(
 
 	return nil
 }
+
+func RegisterAsSQLITE3() {
+	sql.Register("sqlite3", newDriver())
+}
