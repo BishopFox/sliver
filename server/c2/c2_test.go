@@ -21,8 +21,10 @@ package c2
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	implantCrypto "github.com/bishopfox/sliver/implant/sliver/cryptography"
 	"github.com/bishopfox/sliver/server/certs"
@@ -59,11 +61,12 @@ func setup() *models.ImplantConfig {
 	digest.Write([]byte(peerAgeKeyPair.Public))
 	publicKeyDigest := hex.EncodeToString(digest.Sum(nil))
 
+	// Use a unique name based on timestamp to avoid conflicts
 	implantBuild := &models.ImplantBuild{
+		Name:               fmt.Sprintf("test-build-%d", time.Now().UnixNano()),
 		PeerPublicKey:       peerAgeKeyPair.Public,
 		PeerPublicKeyDigest: publicKeyDigest,
 		PeerPrivateKey:      peerAgeKeyPair.Private,
-
 		AgeServerPublicKey: serverAgeKeyPair.Public,
 	}
 	err = db.Session().Create(implantBuild).Error
