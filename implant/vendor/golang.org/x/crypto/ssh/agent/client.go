@@ -10,12 +10,13 @@
 // References:
 //
 //	[PROTOCOL.agent]: https://tools.ietf.org/html/draft-miller-ssh-agent-00
-package agent // import "golang.org/x/crypto/ssh/agent"
+package agent
 
 import (
 	"bytes"
 	"crypto/dsa"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rsa"
 	"encoding/base64"
@@ -26,7 +27,6 @@ import (
 	"math/big"
 	"sync"
 
-	"golang.org/x/crypto/ed25519"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -141,9 +141,14 @@ const (
 	agentAddSmartcardKeyConstrained = 26
 
 	// 3.7 Key constraint identifiers
-	agentConstrainLifetime  = 1
-	agentConstrainConfirm   = 2
-	agentConstrainExtension = 3
+	agentConstrainLifetime = 1
+	agentConstrainConfirm  = 2
+	// Constraint extension identifier up to version 2 of the protocol. A
+	// backward incompatible change will be required if we want to add support
+	// for SSH_AGENT_CONSTRAIN_MAXSIGN which uses the same ID.
+	agentConstrainExtensionV00 = 3
+	// Constraint extension identifier in version 3 and later of the protocol.
+	agentConstrainExtension = 255
 )
 
 // maxAgentResponseBytes is the maximum agent reply size that is accepted. This
@@ -205,7 +210,7 @@ type constrainLifetimeAgentMsg struct {
 }
 
 type constrainExtensionAgentMsg struct {
-	ExtensionName    string `sshtype:"3"`
+	ExtensionName    string `sshtype:"255|3"`
 	ExtensionDetails []byte
 
 	// Rest is a field used for parsing, not part of message
@@ -550,7 +555,7 @@ func (c *client) insertKey(s interface{}, comment string, constraints []byte) er
 		})
 	case *dsa.PrivateKey:
 		req = ssh.Marshal(dsaKeyMsg{
-			Type:        ssh.KeyAlgoDSA,
+			Type:        ssh.InsecureKeyAlgoDSA,
 			P:           k.P,
 			Q:           k.Q,
 			G:           k.G,
@@ -798,16 +803,16 @@ var _ ssh.AlgorithmSigner = &agentKeyringSigner{}
 //
 // This map must be kept in sync with the one in certs.go.
 var certKeyAlgoNames = map[string]string{
-	ssh.CertAlgoRSAv01:        ssh.KeyAlgoRSA,
-	ssh.CertAlgoRSASHA256v01:  ssh.KeyAlgoRSASHA256,
-	ssh.CertAlgoRSASHA512v01:  ssh.KeyAlgoRSASHA512,
-	ssh.CertAlgoDSAv01:        ssh.KeyAlgoDSA,
-	ssh.CertAlgoECDSA256v01:   ssh.KeyAlgoECDSA256,
-	ssh.CertAlgoECDSA384v01:   ssh.KeyAlgoECDSA384,
-	ssh.CertAlgoECDSA521v01:   ssh.KeyAlgoECDSA521,
-	ssh.CertAlgoSKECDSA256v01: ssh.KeyAlgoSKECDSA256,
-	ssh.CertAlgoED25519v01:    ssh.KeyAlgoED25519,
-	ssh.CertAlgoSKED25519v01:  ssh.KeyAlgoSKED25519,
+	ssh.CertAlgoRSAv01:         ssh.KeyAlgoRSA,
+	ssh.CertAlgoRSASHA256v01:   ssh.KeyAlgoRSASHA256,
+	ssh.CertAlgoRSASHA512v01:   ssh.KeyAlgoRSASHA512,
+	ssh.InsecureCertAlgoDSAv01: ssh.InsecureKeyAlgoDSA,
+	ssh.CertAlgoECDSA256v01:    ssh.KeyAlgoECDSA256,
+	ssh.CertAlgoECDSA384v01:    ssh.KeyAlgoECDSA384,
+	ssh.CertAlgoECDSA521v01:    ssh.KeyAlgoECDSA521,
+	ssh.CertAlgoSKECDSA256v01:  ssh.KeyAlgoSKECDSA256,
+	ssh.CertAlgoED25519v01:     ssh.KeyAlgoED25519,
+	ssh.CertAlgoSKED25519v01:   ssh.KeyAlgoSKED25519,
 }
 
 // underlyingAlgo returns the signature algorithm associated with algo (which is
