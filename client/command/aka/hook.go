@@ -5,23 +5,23 @@ import (
 )
 
 func Cmdhook(args []string) ([]string, error) {
-  if len(args) == 0 {
-    return args, nil
-  }
+	if len(args) == 0 {
+		return args, nil
+	}
 
-  if aliasArgs, exists := akaAliases[args[0]]; exists {
-    var expandedArgs []string
+	if aliasArgs, exists := akaAliases[args[0]]; exists {
+		var expandedArgs []string
 
-    for _, aliasArg := range aliasArgs {
-      parts := strings.Fields(aliasArg)
-      expandedArgs = append(expandedArgs, parts...)
-    }
+		expandedArgs = append(expandedArgs, aliasArgs.Command)
+		expandedArgs = append(expandedArgs, aliasArgs.DefaultArgs...)
+		// join the user passed args so the shell processes it without flags if
+		// available
+		if len(args[1:]) > 0 {
+			expandedArgs = append(expandedArgs, strings.Join(args[1:], " "))
+		}
 
-    // join the user passed args so the shell processes it without flags
-    expandedArgs = append(expandedArgs, strings.Join(args[1:], " "))
+		return expandedArgs, nil
+	}
 
-    return expandedArgs, nil
-  }
-
-  return args, nil
+	return args, nil
 }
