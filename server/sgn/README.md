@@ -2,7 +2,7 @@
 
 ## Overview
 
-SGN (Sliver Guard Node) coordination and helpers. Implements SGN enrollment, messaging, and policy logic.
+SGN (Shikata Ga Nai) coordination and helpers. Implements SGN enrollment, messaging, and policy logic.
 
 ## Go Files
 
