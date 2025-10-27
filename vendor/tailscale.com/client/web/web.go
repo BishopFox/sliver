@@ -24,9 +24,10 @@ import (
 
 	"tailscale.com/client/local"
 	"tailscale.com/client/tailscale/apitype"
-	"tailscale.com/clientupdate"
 	"tailscale.com/envknob"
 	"tailscale.com/envknob/featureknob"
+	"tailscale.com/feature"
+	"tailscale.com/feature/buildfeatures"
 	"tailscale.com/hostinfo"
 	"tailscale.com/ipn"
 	"tailscale.com/ipn/ipnstate"
@@ -496,6 +497,10 @@ func (s *Server) authorizeRequest(w http.ResponseWriter, r *http.Request) (ok bo
 	// Client using system-specific auth.
 	switch distro.Get() {
 	case distro.Synology:
+		if !buildfeatures.HasSynology {
+			// Synology support not built in.
+			return false
+		}
 		authorized, _ := authorizeSynology(r)
 		return authorized
 	case distro.QNAP:
@@ -978,9 +983,18 @@ func (s *Server) serveGetNodeData(w http.ResponseWriter, r *http.Request) {
 		data.ClientVersion = cv
 	}
 
-	if st.CurrentTailnet != nil {
-		data.TailnetName = st.CurrentTailnet.MagicDNSSuffix
-		data.DomainName = st.CurrentTailnet.Name
+	profile, _, err := s.lc.ProfileStatus(r.Context())
+	if err != nil {
+		s.logf("error fetching profiles: %v", err)
+		// If for some reason we can't fetch profiles,
+		// continue to use st.CurrentTailnet if set.
+		if st.CurrentTailnet != nil {
+			data.TailnetName = st.CurrentTailnet.MagicDNSSuffix
+			data.DomainName = st.CurrentTailnet.Name
+		}
+	} else {
+		data.TailnetName = profile.NetworkProfile.MagicDNSName
+		data.DomainName = profile.NetworkProfile.DisplayNameOrDefault()
 	}
 	if st.Self.Tags != nil {
 		data.Tags = st.Self.Tags.AsSlice()
@@ -1040,7 +1054,7 @@ func availableFeatures() map[string]bool {
 		"advertise-routes":    true, // available on all platforms
 		"use-exit-node":       featureknob.CanUseExitNode() == nil,
 		"ssh":                 featureknob.CanRunTailscaleSSH() == nil,
-		"auto-update":         version.IsUnstableBuild() && clientupdate.CanAutoUpdate(),
+		"auto-update":         version.IsUnstableBuild() && feature.CanAutoUpdate(),
 	}
 	return features
 }

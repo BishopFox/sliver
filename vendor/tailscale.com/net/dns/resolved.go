@@ -1,7 +1,7 @@
 // Copyright (c) Tailscale Inc & AUTHORS
 // SPDX-License-Identifier: BSD-3-Clause
 
-//go:build linux && !android
+//go:build linux && !android && !ts_omit_resolved
 
 package dns
 
@@ -15,8 +15,8 @@ import (
 	"github.com/godbus/dbus/v5"
 	"golang.org/x/sys/unix"
 	"tailscale.com/health"
-	"tailscale.com/logtail/backoff"
 	"tailscale.com/types/logger"
+	"tailscale.com/util/backoff"
 	"tailscale.com/util/dnsname"
 )
 
@@ -70,7 +70,11 @@ type resolvedManager struct {
 	configCR chan changeRequest // tracks OSConfigs changes and error responses
 }
 
-func newResolvedManager(logf logger.Logf, health *health.Tracker, interfaceName string) (*resolvedManager, error) {
+func init() {
+	optNewResolvedManager.Set(newResolvedManager)
+}
+
+func newResolvedManager(logf logger.Logf, health *health.Tracker, interfaceName string) (OSConfigurator, error) {
 	iface, err := net.InterfaceByName(interfaceName)
 	if err != nil {
 		return nil, err

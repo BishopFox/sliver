@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"cmp"
 	"context"
-	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -28,20 +27,21 @@ import (
 	"sync"
 	"time"
 
-	"go4.org/mem"
 	"tailscale.com/client/tailscale/apitype"
 	"tailscale.com/drive"
 	"tailscale.com/envknob"
+	"tailscale.com/feature"
+	"tailscale.com/feature/buildfeatures"
 	"tailscale.com/ipn"
 	"tailscale.com/ipn/ipnstate"
 	"tailscale.com/net/netutil"
+	"tailscale.com/net/udprelay/status"
 	"tailscale.com/paths"
 	"tailscale.com/safesocket"
 	"tailscale.com/tailcfg"
-	"tailscale.com/tka"
+	"tailscale.com/types/appctype"
 	"tailscale.com/types/dnstype"
 	"tailscale.com/types/key"
-	"tailscale.com/types/tkatype"
 	"tailscale.com/util/eventbus"
 )
 
@@ -381,6 +381,9 @@ func (lc *Client) UserMetrics(ctx context.Context) ([]byte, error) {
 //
 // IncrementCounter does not support gauge metrics or negative delta values.
 func (lc *Client) IncrementCounter(ctx context.Context, name string, delta int) error {
+	if !buildfeatures.HasClientMetrics {
+		return nil
+	}
 	type metricUpdate struct {
 		Name  string `json:"name"`
 		Type  string `json:"type"`
@@ -593,70 +596,6 @@ func (lc *Client) DebugResultJSON(ctx context.Context, action string) (any, erro
 	return x, nil
 }
 
-// DebugPortmapOpts contains options for the [Client.DebugPortmap] command.
-type DebugPortmapOpts struct {
-	// Duration is how long the mapping should be created for. It defaults
-	// to 5 seconds if not set.
-	Duration time.Duration
-
-	// Type is the kind of portmap to debug. The empty string instructs the
-	// portmap client to perform all known types. Other valid options are
-	// "pmp", "pcp", and "upnp".
-	Type string
-
-	// GatewayAddr specifies the gateway address used during portmapping.
-	// If set, SelfAddr must also be set. If unset, it will be
-	// autodetected.
-	GatewayAddr netip.Addr
-
-	// SelfAddr specifies the gateway address used during portmapping. If
-	// set, GatewayAddr must also be set. If unset, it will be
-	// autodetected.
-	SelfAddr netip.Addr
-
-	// LogHTTP instructs the debug-portmap endpoint to print all HTTP
-	// requests and responses made to the logs.
-	LogHTTP bool
-}
-
-// DebugPortmap invokes the debug-portmap endpoint, and returns an
-// io.ReadCloser that can be used to read the logs that are printed during this
-// process.
-//
-// opts can be nil; if so, default values will be used.
-func (lc *Client) DebugPortmap(ctx context.Context, opts *DebugPortmapOpts) (io.ReadCloser, error) {
-	vals := make(url.Values)
-	if opts == nil {
-		opts = &DebugPortmapOpts{}
-	}
-
-	vals.Set("duration", cmp.Or(opts.Duration, 5*time.Second).String())
-	vals.Set("type", opts.Type)
-	vals.Set("log_http", strconv.FormatBool(opts.LogHTTP))
-
-	if opts.GatewayAddr.IsValid() != opts.SelfAddr.IsValid() {
-		return nil, fmt.Errorf("both GatewayAddr and SelfAddr must be provided if one is")
-	} else if opts.GatewayAddr.IsValid() {
-		vals.Set("gateway_and_self", fmt.Sprintf("%s/%s", opts.GatewayAddr, opts.SelfAddr))
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "GET", "http://"+apitype.LocalAPIHost+"/localapi/v0/debug-portmap?"+vals.Encode(), nil)
-	if err != nil {
-		return nil, err
-	}
-	res, err := lc.doLocalRequestNiceError(req)
-	if err != nil {
-		return nil, err
-	}
-	if res.StatusCode != 200 {
-		body, _ := io.ReadAll(res.Body)
-		res.Body.Close()
-		return nil, fmt.Errorf("HTTP %s: %s", res.Status, body)
-	}
-
-	return res.Body, nil
-}
-
 // SetDevStoreKeyValue set a statestore key/value. It's only meant for development.
 // The schema (including when keys are re-read) is not a stable interface.
 func (lc *Client) SetDevStoreKeyValue(ctx context.Context, key, value string) error {
@@ -674,6 +613,9 @@ func (lc *Client) SetDevStoreKeyValue(ctx context.Context, key, value string) er
 // the provided duration. If the duration is in the past, the debug logging
 // is disabled.
 func (lc *Client) SetComponentDebugLogging(ctx context.Context, component string, d time.Duration) error {
+	if !buildfeatures.HasDebug {
+		return feature.ErrUnavailable
+	}
 	body, err := lc.send(ctx, "POST",
 		fmt.Sprintf("/localapi/v0/component-debug-logging?component=%s&secs=%d",
 			url.QueryEscape(component), int64(d.Seconds())), 200, nil)
@@ -813,6 +755,9 @@ func (lc *Client) PushFile(ctx context.Context, target tailcfg.StableNodeID, siz
 // machine is properly configured to forward IP packets as a subnet router
 // or exit node.
 func (lc *Client) CheckIPForwarding(ctx context.Context) error {
+	if !buildfeatures.HasAdvertiseRoutes {
+		return nil
+	}
 	body, err := lc.get200(ctx, "/localapi/v0/check-ip-forwarding")
 	if err != nil {
 		return err
@@ -928,6 +873,9 @@ func (lc *Client) EditPrefs(ctx context.Context, mp *ipn.MaskedPrefs) (*ipn.Pref
 // GetDNSOSConfig returns the system DNS configuration for the current device.
 // That is, it returns the DNS configuration that the system would use if Tailscale weren't being used.
 func (lc *Client) GetDNSOSConfig(ctx context.Context) (*apitype.DNSOSConfig, error) {
+	if !buildfeatures.HasDNS {
+		return nil, feature.ErrUnavailable
+	}
 	body, err := lc.get200(ctx, "/localapi/v0/dns-osconfig")
 	if err != nil {
 		return nil, err
@@ -943,6 +891,9 @@ func (lc *Client) GetDNSOSConfig(ctx context.Context) (*apitype.DNSOSConfig, err
 // It returns the raw DNS response bytes and the resolvers that were used to answer the query
 // (often just one, but can be more if we raced multiple resolvers).
 func (lc *Client) QueryDNS(ctx context.Context, name string, queryType string) (bytes []byte, resolvers []*dnstype.Resolver, err error) {
+	if !buildfeatures.HasDNS {
+		return nil, nil, feature.ErrUnavailable
+	}
 	body, err := lc.get200(ctx, fmt.Sprintf("/localapi/v0/dns-query?name=%s&type=%s", url.QueryEscape(name), queryType))
 	if err != nil {
 		return nil, nil, err
@@ -970,28 +921,6 @@ func (lc *Client) Start(ctx context.Context, opts ipn.Options) error {
 // Logout logs out the current node.
 func (lc *Client) Logout(ctx context.Context) error {
 	_, err := lc.send(ctx, "POST", "/localapi/v0/logout", http.StatusNoContent, nil)
-	return err
-}
-
-// SetDNS adds a DNS TXT record for the given domain name, containing
-// the provided TXT value. The intended use case is answering
-// LetsEncrypt/ACME dns-01 challenges.
-//
-// The control plane will only permit SetDNS requests with very
-// specific names and values. The name should be
-// "_acme-challenge." + your node's MagicDNS name. It's expected that
-// clients cache the certs from LetsEncrypt (or whichever CA is
-// providing them) and only request new ones as needed; the control plane
-// rate limits SetDNS requests.
-//
-// This is a low-level interface; it's expected that most Tailscale
-// users use a higher level interface to getting/using TLS
-// certificates.
-func (lc *Client) SetDNS(ctx context.Context, name, value string) error {
-	v := url.Values{}
-	v.Set("name", name)
-	v.Set("value", value)
-	_, err := lc.send(ctx, "POST", "/localapi/v0/set-dns?"+v.Encode(), 200, nil)
 	return err
 }
 
@@ -1075,117 +1004,6 @@ func (lc *Client) CurrentDERPMap(ctx context.Context) (*tailcfg.DERPMap, error) 
 	return &derpMap, nil
 }
 
-// CertPair returns a cert and private key for the provided DNS domain.
-//
-// It returns a cached certificate from disk if it's still valid.
-//
-// Deprecated: use [Client.CertPair].
-func CertPair(ctx context.Context, domain string) (certPEM, keyPEM []byte, err error) {
-	return defaultClient.CertPair(ctx, domain)
-}
-
-// CertPair returns a cert and private key for the provided DNS domain.
-//
-// It returns a cached certificate from disk if it's still valid.
-//
-// API maturity: this is considered a stable API.
-func (lc *Client) CertPair(ctx context.Context, domain string) (certPEM, keyPEM []byte, err error) {
-	return lc.CertPairWithValidity(ctx, domain, 0)
-}
-
-// CertPairWithValidity returns a cert and private key for the provided DNS
-// domain.
-//
-// It returns a cached certificate from disk if it's still valid.
-// When minValidity is non-zero, the returned certificate will be valid for at
-// least the given duration, if permitted by the CA. If the certificate is
-// valid, but for less than minValidity, it will be synchronously renewed.
-//
-// API maturity: this is considered a stable API.
-func (lc *Client) CertPairWithValidity(ctx context.Context, domain string, minValidity time.Duration) (certPEM, keyPEM []byte, err error) {
-	res, err := lc.send(ctx, "GET", fmt.Sprintf("/localapi/v0/cert/%s?type=pair&min_validity=%s", domain, minValidity), 200, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-	// with ?type=pair, the response PEM is first the one private
-	// key PEM block, then the cert PEM blocks.
-	i := mem.Index(mem.B(res), mem.S("--\n--"))
-	if i == -1 {
-		return nil, nil, fmt.Errorf("unexpected output: no delimiter")
-	}
-	i += len("--\n")
-	keyPEM, certPEM = res[:i], res[i:]
-	if mem.Contains(mem.B(certPEM), mem.S(" PRIVATE KEY-----")) {
-		return nil, nil, fmt.Errorf("unexpected output: key in cert")
-	}
-	return certPEM, keyPEM, nil
-}
-
-// GetCertificate fetches a TLS certificate for the TLS ClientHello in hi.
-//
-// It returns a cached certificate from disk if it's still valid.
-//
-// It's the right signature to use as the value of
-// [tls.Config.GetCertificate].
-//
-// Deprecated: use [Client.GetCertificate].
-func GetCertificate(hi *tls.ClientHelloInfo) (*tls.Certificate, error) {
-	return defaultClient.GetCertificate(hi)
-}
-
-// GetCertificate fetches a TLS certificate for the TLS ClientHello in hi.
-//
-// It returns a cached certificate from disk if it's still valid.
-//
-// It's the right signature to use as the value of
-// [tls.Config.GetCertificate].
-//
-// API maturity: this is considered a stable API.
-func (lc *Client) GetCertificate(hi *tls.ClientHelloInfo) (*tls.Certificate, error) {
-	if hi == nil || hi.ServerName == "" {
-		return nil, errors.New("no SNI ServerName")
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-
-	name := hi.ServerName
-	if !strings.Contains(name, ".") {
-		if v, ok := lc.ExpandSNIName(ctx, name); ok {
-			name = v
-		}
-	}
-	certPEM, keyPEM, err := lc.CertPair(ctx, name)
-	if err != nil {
-		return nil, err
-	}
-	cert, err := tls.X509KeyPair(certPEM, keyPEM)
-	if err != nil {
-		return nil, err
-	}
-	return &cert, nil
-}
-
-// ExpandSNIName expands bare label name into the most likely actual TLS cert name.
-//
-// Deprecated: use [Client.ExpandSNIName].
-func ExpandSNIName(ctx context.Context, name string) (fqdn string, ok bool) {
-	return defaultClient.ExpandSNIName(ctx, name)
-}
-
-// ExpandSNIName expands bare label name into the most likely actual TLS cert name.
-func (lc *Client) ExpandSNIName(ctx context.Context, name string) (fqdn string, ok bool) {
-	st, err := lc.StatusWithoutPeers(ctx)
-	if err != nil {
-		return "", false
-	}
-	for _, d := range st.CertDomains {
-		if len(d) > len(name)+1 && strings.HasPrefix(d, name) && d[len(name)] == '.' {
-			return d, true
-		}
-	}
-	return "", false
-}
-
 // PingOpts contains options for the ping request.
 //
 // The zero value is valid, which means to use defaults.
@@ -1219,197 +1037,6 @@ func (lc *Client) Ping(ctx context.Context, ip netip.Addr, pingtype tailcfg.Ping
 	return lc.PingWithOpts(ctx, ip, pingtype, PingOpts{})
 }
 
-// NetworkLockStatus fetches information about the tailnet key authority, if one is configured.
-func (lc *Client) NetworkLockStatus(ctx context.Context) (*ipnstate.NetworkLockStatus, error) {
-	body, err := lc.send(ctx, "GET", "/localapi/v0/tka/status", 200, nil)
-	if err != nil {
-		return nil, fmt.Errorf("error: %w", err)
-	}
-	return decodeJSON[*ipnstate.NetworkLockStatus](body)
-}
-
-// NetworkLockInit initializes the tailnet key authority.
-//
-// TODO(tom): Plumb through disablement secrets.
-func (lc *Client) NetworkLockInit(ctx context.Context, keys []tka.Key, disablementValues [][]byte, supportDisablement []byte) (*ipnstate.NetworkLockStatus, error) {
-	var b bytes.Buffer
-	type initRequest struct {
-		Keys               []tka.Key
-		DisablementValues  [][]byte
-		SupportDisablement []byte
-	}
-
-	if err := json.NewEncoder(&b).Encode(initRequest{Keys: keys, DisablementValues: disablementValues, SupportDisablement: supportDisablement}); err != nil {
-		return nil, err
-	}
-
-	body, err := lc.send(ctx, "POST", "/localapi/v0/tka/init", 200, &b)
-	if err != nil {
-		return nil, fmt.Errorf("error: %w", err)
-	}
-	return decodeJSON[*ipnstate.NetworkLockStatus](body)
-}
-
-// NetworkLockWrapPreauthKey wraps a pre-auth key with information to
-// enable unattended bringup in the locked tailnet.
-func (lc *Client) NetworkLockWrapPreauthKey(ctx context.Context, preauthKey string, tkaKey key.NLPrivate) (string, error) {
-	encodedPrivate, err := tkaKey.MarshalText()
-	if err != nil {
-		return "", err
-	}
-
-	var b bytes.Buffer
-	type wrapRequest struct {
-		TSKey  string
-		TKAKey string // key.NLPrivate.MarshalText
-	}
-	if err := json.NewEncoder(&b).Encode(wrapRequest{TSKey: preauthKey, TKAKey: string(encodedPrivate)}); err != nil {
-		return "", err
-	}
-
-	body, err := lc.send(ctx, "POST", "/localapi/v0/tka/wrap-preauth-key", 200, &b)
-	if err != nil {
-		return "", fmt.Errorf("error: %w", err)
-	}
-	return string(body), nil
-}
-
-// NetworkLockModify adds and/or removes key(s) to the tailnet key authority.
-func (lc *Client) NetworkLockModify(ctx context.Context, addKeys, removeKeys []tka.Key) error {
-	var b bytes.Buffer
-	type modifyRequest struct {
-		AddKeys    []tka.Key
-		RemoveKeys []tka.Key
-	}
-
-	if err := json.NewEncoder(&b).Encode(modifyRequest{AddKeys: addKeys, RemoveKeys: removeKeys}); err != nil {
-		return err
-	}
-
-	if _, err := lc.send(ctx, "POST", "/localapi/v0/tka/modify", 204, &b); err != nil {
-		return fmt.Errorf("error: %w", err)
-	}
-	return nil
-}
-
-// NetworkLockSign signs the specified node-key and transmits that signature to the control plane.
-// rotationPublic, if specified, must be an ed25519 public key.
-func (lc *Client) NetworkLockSign(ctx context.Context, nodeKey key.NodePublic, rotationPublic []byte) error {
-	var b bytes.Buffer
-	type signRequest struct {
-		NodeKey        key.NodePublic
-		RotationPublic []byte
-	}
-
-	if err := json.NewEncoder(&b).Encode(signRequest{NodeKey: nodeKey, RotationPublic: rotationPublic}); err != nil {
-		return err
-	}
-
-	if _, err := lc.send(ctx, "POST", "/localapi/v0/tka/sign", 200, &b); err != nil {
-		return fmt.Errorf("error: %w", err)
-	}
-	return nil
-}
-
-// NetworkLockAffectedSigs returns all signatures signed by the specified keyID.
-func (lc *Client) NetworkLockAffectedSigs(ctx context.Context, keyID tkatype.KeyID) ([]tkatype.MarshaledSignature, error) {
-	body, err := lc.send(ctx, "POST", "/localapi/v0/tka/affected-sigs", 200, bytes.NewReader(keyID))
-	if err != nil {
-		return nil, fmt.Errorf("error: %w", err)
-	}
-	return decodeJSON[[]tkatype.MarshaledSignature](body)
-}
-
-// NetworkLockLog returns up to maxEntries number of changes to network-lock state.
-func (lc *Client) NetworkLockLog(ctx context.Context, maxEntries int) ([]ipnstate.NetworkLockUpdate, error) {
-	v := url.Values{}
-	v.Set("limit", fmt.Sprint(maxEntries))
-	body, err := lc.send(ctx, "GET", "/localapi/v0/tka/log?"+v.Encode(), 200, nil)
-	if err != nil {
-		return nil, fmt.Errorf("error %w: %s", err, body)
-	}
-	return decodeJSON[[]ipnstate.NetworkLockUpdate](body)
-}
-
-// NetworkLockForceLocalDisable forcibly shuts down network lock on this node.
-func (lc *Client) NetworkLockForceLocalDisable(ctx context.Context) error {
-	// This endpoint expects an empty JSON stanza as the payload.
-	var b bytes.Buffer
-	if err := json.NewEncoder(&b).Encode(struct{}{}); err != nil {
-		return err
-	}
-
-	if _, err := lc.send(ctx, "POST", "/localapi/v0/tka/force-local-disable", 200, &b); err != nil {
-		return fmt.Errorf("error: %w", err)
-	}
-	return nil
-}
-
-// NetworkLockVerifySigningDeeplink verifies the network lock deeplink contained
-// in url and returns information extracted from it.
-func (lc *Client) NetworkLockVerifySigningDeeplink(ctx context.Context, url string) (*tka.DeeplinkValidationResult, error) {
-	vr := struct {
-		URL string
-	}{url}
-
-	body, err := lc.send(ctx, "POST", "/localapi/v0/tka/verify-deeplink", 200, jsonBody(vr))
-	if err != nil {
-		return nil, fmt.Errorf("sending verify-deeplink: %w", err)
-	}
-
-	return decodeJSON[*tka.DeeplinkValidationResult](body)
-}
-
-// NetworkLockGenRecoveryAUM generates an AUM for recovering from a tailnet-lock key compromise.
-func (lc *Client) NetworkLockGenRecoveryAUM(ctx context.Context, removeKeys []tkatype.KeyID, forkFrom tka.AUMHash) ([]byte, error) {
-	vr := struct {
-		Keys     []tkatype.KeyID
-		ForkFrom string
-	}{removeKeys, forkFrom.String()}
-
-	body, err := lc.send(ctx, "POST", "/localapi/v0/tka/generate-recovery-aum", 200, jsonBody(vr))
-	if err != nil {
-		return nil, fmt.Errorf("sending generate-recovery-aum: %w", err)
-	}
-
-	return body, nil
-}
-
-// NetworkLockCosignRecoveryAUM co-signs a recovery AUM using the node's tailnet lock key.
-func (lc *Client) NetworkLockCosignRecoveryAUM(ctx context.Context, aum tka.AUM) ([]byte, error) {
-	r := bytes.NewReader(aum.Serialize())
-	body, err := lc.send(ctx, "POST", "/localapi/v0/tka/cosign-recovery-aum", 200, r)
-	if err != nil {
-		return nil, fmt.Errorf("sending cosign-recovery-aum: %w", err)
-	}
-
-	return body, nil
-}
-
-// NetworkLockSubmitRecoveryAUM submits a recovery AUM to the control plane.
-func (lc *Client) NetworkLockSubmitRecoveryAUM(ctx context.Context, aum tka.AUM) error {
-	r := bytes.NewReader(aum.Serialize())
-	_, err := lc.send(ctx, "POST", "/localapi/v0/tka/submit-recovery-aum", 200, r)
-	if err != nil {
-		return fmt.Errorf("sending cosign-recovery-aum: %w", err)
-	}
-	return nil
-}
-
-// SetServeConfig sets or replaces the serving settings.
-// If config is nil, settings are cleared and serving is disabled.
-func (lc *Client) SetServeConfig(ctx context.Context, config *ipn.ServeConfig) error {
-	h := make(http.Header)
-	if config != nil {
-		h.Set("If-Match", config.ETag)
-	}
-	_, _, err := lc.sendWithHeaders(ctx, "POST", "/localapi/v0/serve-config", 200, jsonBody(config), h)
-	if err != nil {
-		return fmt.Errorf("sending serve config: %w", err)
-	}
-	return nil
-}
-
 // DisconnectControl shuts down all connections to control, thus making control consider this node inactive. This can be
 // run on HA subnet router or app connector replicas before shutting them down to ensure peers get told to switch over
 // to another replica whilst there is still some grace period for the existing connections to terminate.
@@ -1419,40 +1046,6 @@ func (lc *Client) DisconnectControl(ctx context.Context) error {
 		return fmt.Errorf("error disconnecting control: %w", err)
 	}
 	return nil
-}
-
-// NetworkLockDisable shuts down network-lock across the tailnet.
-func (lc *Client) NetworkLockDisable(ctx context.Context, secret []byte) error {
-	if _, err := lc.send(ctx, "POST", "/localapi/v0/tka/disable", 200, bytes.NewReader(secret)); err != nil {
-		return fmt.Errorf("error: %w", err)
-	}
-	return nil
-}
-
-// GetServeConfig return the current serve config.
-//
-// If the serve config is empty, it returns (nil, nil).
-func (lc *Client) GetServeConfig(ctx context.Context) (*ipn.ServeConfig, error) {
-	body, h, err := lc.sendWithHeaders(ctx, "GET", "/localapi/v0/serve-config", 200, nil, nil)
-	if err != nil {
-		return nil, fmt.Errorf("getting serve config: %w", err)
-	}
-	sc, err := getServeConfigFromJSON(body)
-	if err != nil {
-		return nil, err
-	}
-	if sc == nil {
-		sc = new(ipn.ServeConfig)
-	}
-	sc.ETag = h.Get("Etag")
-	return sc, nil
-}
-
-func getServeConfigFromJSON(body []byte) (sc *ipn.ServeConfig, err error) {
-	if err := json.Unmarshal(body, &sc); err != nil {
-		return nil, err
-	}
-	return sc, nil
 }
 
 // tailscaledConnectHint gives a little thing about why tailscaled (or
@@ -1608,6 +1201,16 @@ func (lc *Client) DebugSetExpireIn(ctx context.Context, d time.Duration) error {
 	v := url.Values{"expiry": {fmt.Sprint(time.Now().Add(d).Unix())}}
 	_, err := lc.send(ctx, "POST", "/localapi/v0/set-expiry-sooner?"+v.Encode(), 200, nil)
 	return err
+}
+
+// DebugPeerRelaySessions returns debug information about the current peer
+// relay sessions running through this node.
+func (lc *Client) DebugPeerRelaySessions(ctx context.Context) (*status.ServerStatus, error) {
+	body, err := lc.send(ctx, "GET", "/localapi/v0/debug-peer-relay-sessions", 200, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error %w: %s", err, body)
+	}
+	return decodeJSON[*status.ServerStatus](body)
 }
 
 // StreamDebugCapture streams a pcap-formatted packet capture.
@@ -1782,4 +1385,18 @@ func (lc *Client) SuggestExitNode(ctx context.Context) (apitype.ExitNodeSuggesti
 		return apitype.ExitNodeSuggestionResponse{}, err
 	}
 	return decodeJSON[apitype.ExitNodeSuggestionResponse](body)
+}
+
+// ShutdownTailscaled requests a graceful shutdown of tailscaled.
+func (lc *Client) ShutdownTailscaled(ctx context.Context) error {
+	_, err := lc.send(ctx, "POST", "/localapi/v0/shutdown", 200, nil)
+	return err
+}
+
+func (lc *Client) GetAppConnectorRouteInfo(ctx context.Context) (appctype.RouteInfo, error) {
+	body, err := lc.get200(ctx, "/localapi/v0/appc-route-info")
+	if err != nil {
+		return appctype.RouteInfo{}, err
+	}
+	return decodeJSON[appctype.RouteInfo](body)
 }

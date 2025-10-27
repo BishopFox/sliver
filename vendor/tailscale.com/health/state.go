@@ -9,11 +9,15 @@ import (
 	"encoding/json"
 	"time"
 
+	"tailscale.com/feature/buildfeatures"
 	"tailscale.com/tailcfg"
 )
 
 // State contains the health status of the backend, and is
 // provided to the client UI via LocalAPI through ipn.Notify.
+//
+// It is also exposed via c2n for debugging purposes, so try
+// not to change its structure too gratuitously.
 type State struct {
 	// Each key-value pair in Warnings represents a Warnable that is currently
 	// unhealthy. If a Warnable is healthy, it will not be present in this map.
@@ -117,7 +121,7 @@ func (w *Warnable) unhealthyState(ws *warningState) *UnhealthyState {
 // The returned State is a snapshot of shared memory, and the caller should not
 // mutate the returned value.
 func (t *Tracker) CurrentState() *State {
-	if t.nil() {
+	if !buildfeatures.HasHealth || t.nil() {
 		return &State{}
 	}
 

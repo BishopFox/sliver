@@ -12,8 +12,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"tailscale.com/health"
-	"tailscale.com/logtail/backoff"
 	"tailscale.com/net/sockstats"
 	"tailscale.com/tailcfg"
 	"tailscale.com/tstime"
@@ -22,6 +20,7 @@ import (
 	"tailscale.com/types/netmap"
 	"tailscale.com/types/persist"
 	"tailscale.com/types/structs"
+	"tailscale.com/util/backoff"
 	"tailscale.com/util/clientmetric"
 	"tailscale.com/util/execqueue"
 )
@@ -122,8 +121,6 @@ type Auto struct {
 	observerQueue execqueue.ExecQueue
 	shutdownFn    func() // to be called prior to shutdown or nil
 
-	unregisterHealthWatch func()
-
 	mu sync.Mutex // mutex guards the following fields
 
 	wantLoggedIn bool   // whether the user wants to be logged in per last method call
@@ -193,19 +190,14 @@ func NewNoStart(opts Options) (_ *Auto, err error) {
 		observer:   opts.Observer,
 		shutdownFn: opts.Shutdown,
 	}
+
 	c.authCtx, c.authCancel = context.WithCancel(context.Background())
 	c.authCtx = sockstats.WithSockStats(c.authCtx, sockstats.LabelControlClientAuto, opts.Logf)
 
 	c.mapCtx, c.mapCancel = context.WithCancel(context.Background())
 	c.mapCtx = sockstats.WithSockStats(c.mapCtx, sockstats.LabelControlClientAuto, opts.Logf)
 
-	c.unregisterHealthWatch = opts.HealthTracker.RegisterWatcher(func(c health.Change) {
-		if c.WarnableChanged {
-			direct.ReportWarnableChange(c.Warnable, c.UnhealthyState)
-		}
-	})
 	return c, nil
-
 }
 
 // SetPaused controls whether HTTP activity should be paused.
@@ -422,6 +414,11 @@ func (c *Auto) unpausedChanLocked() <-chan bool {
 	unpaused := make(chan bool, 1)
 	c.unpauseWaiters = append(c.unpauseWaiters, unpaused)
 	return unpaused
+}
+
+// ClientID returns the ClientID of the direct controlClient
+func (c *Auto) ClientID() int64 {
+	return c.direct.ClientID()
 }
 
 // mapRoutineState is the state of Auto.mapRoutine while it's running.
@@ -779,7 +776,6 @@ func (c *Auto) Shutdown() {
 		shutdownFn()
 	}
 
-	c.unregisterHealthWatch()
 	<-c.authDone
 	<-c.mapDone
 	<-c.updateDone
@@ -817,14 +813,4 @@ func (c *Auto) SetDNS(ctx context.Context, req *tailcfg.SetDNSRequest) error {
 
 func (c *Auto) DoNoiseRequest(req *http.Request) (*http.Response, error) {
 	return c.direct.DoNoiseRequest(req)
-}
-
-// GetSingleUseNoiseRoundTripper returns a RoundTripper that can be only be used
-// once (and must be used once) to make a single HTTP request over the noise
-// channel to the coordination server.
-//
-// In addition to the RoundTripper, it returns the HTTP/2 channel's early noise
-// payload, if any.
-func (c *Auto) GetSingleUseNoiseRoundTripper(ctx context.Context) (http.RoundTripper, *tailcfg.EarlyNoise, error) {
-	return c.direct.GetSingleUseNoiseRoundTripper(ctx)
 }

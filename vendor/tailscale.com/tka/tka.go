@@ -1,7 +1,9 @@
 // Copyright (c) Tailscale Inc & AUTHORS
 // SPDX-License-Identifier: BSD-3-Clause
 
-// Package tka (WIP) implements the Tailnet Key Authority.
+//go:build !ts_omit_tailnetlock
+
+// Package tka implements the Tailnet Key Authority (TKA) for Tailnet Lock.
 package tka
 
 import (

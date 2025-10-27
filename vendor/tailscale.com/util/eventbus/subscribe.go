@@ -61,45 +61,45 @@ func newSubscribeState(c *Client) *subscribeState {
 	return ret
 }
 
-func (q *subscribeState) pump(ctx context.Context) {
+func (s *subscribeState) pump(ctx context.Context) {
 	var vals queue[DeliveredEvent]
 	acceptCh := func() chan DeliveredEvent {
 		if vals.Full() {
 			return nil
 		}
-		return q.write
+		return s.write
 	}
 	for {
 		if !vals.Empty() {
 			val := vals.Peek()
-			sub := q.subscriberFor(val.Event)
+			sub := s.subscriberFor(val.Event)
 			if sub == nil {
 				// Raced with unsubscribe.
 				vals.Drop()
 				continue
 			}
-			if !sub.dispatch(ctx, &vals, acceptCh, q.snapshot) {
+			if !sub.dispatch(ctx, &vals, acceptCh, s.snapshot) {
 				return
 			}
 
-			if q.debug.active() {
-				q.debug.run(DeliveredEvent{
+			if s.debug.active() {
+				s.debug.run(DeliveredEvent{
 					Event: val.Event,
 					From:  val.From,
-					To:    q.client,
+					To:    s.client,
 				})
 			}
 		} else {
 			// Keep the cases in this select in sync with
-			// Subscriber.dispatch below. The only difference should be
-			// that this select doesn't deliver queued values to
-			// anyone, and unconditionally accepts new values.
+			// Subscriber.dispatch and SubscriberFunc.dispatch below.
+			// The only difference should be that this select doesn't deliver
+			// queued values to anyone, and unconditionally accepts new values.
 			select {
-			case val := <-q.write:
+			case val := <-s.write:
 				vals.Add(val)
 			case <-ctx.Done():
 				return
-			case ch := <-q.snapshot:
+			case ch := <-s.snapshot:
 				ch <- vals.Snapshot()
 			}
 		}
@@ -152,13 +152,13 @@ func (s *subscribeState) deleteSubscriber(t reflect.Type) {
 	s.client.deleteSubscriber(t, s)
 }
 
-func (q *subscribeState) subscriberFor(val any) subscriber {
-	q.outputsMu.Lock()
-	defer q.outputsMu.Unlock()
-	return q.outputs[reflect.TypeOf(val)]
+func (s *subscribeState) subscriberFor(val any) subscriber {
+	s.outputsMu.Lock()
+	defer s.outputsMu.Unlock()
+	return s.outputs[reflect.TypeOf(val)]
 }
 
-// Close closes the subscribeState. Implicitly closes all Subscribers
+// Close closes the subscribeState. It implicitly closes all Subscribers
 // linked to this state, and any pending events are discarded.
 func (s *subscribeState) close() {
 	s.dispatcher.StopAndWait()
@@ -177,6 +177,7 @@ func (s *subscribeState) closed() <-chan struct{} {
 }
 
 // A Subscriber delivers one type of event from a [Client].
+// Events are sent to the [Subscriber.Events] channel.
 type Subscriber[T any] struct {
 	stop       stopFlag
 	read       chan T
@@ -213,7 +214,7 @@ func (s *Subscriber[T]) dispatch(ctx context.Context, vals *queue[DeliveredEvent
 	t := vals.Peek().Event.(T)
 	for {
 		// Keep the cases in this select in sync with subscribeState.pump
-		// above. The only different should be that this select
+		// above. The only difference should be that this select
 		// delivers a value on s.read.
 		select {
 		case s.read <- t:
@@ -244,7 +245,67 @@ func (s *Subscriber[T]) Done() <-chan struct{} {
 // Close closes the Subscriber, indicating the caller no longer wishes
 // to receive this event type. After Close, receives on
 // [Subscriber.Events] block for ever.
+//
+// If the Bus from which the Subscriber was created is closed,
+// the Subscriber is implicitly closed and does not need to be closed
+// separately.
 func (s *Subscriber[T]) Close() {
 	s.stop.Stop() // unblock receivers
 	s.unregister()
+}
+
+// A SubscriberFunc delivers one type of event from a [Client].
+// Events are forwarded synchronously to a function provided at construction.
+type SubscriberFunc[T any] struct {
+	stop       stopFlag
+	read       func(T)
+	unregister func()
+}
+
+func newSubscriberFunc[T any](r *subscribeState, f func(T)) *SubscriberFunc[T] {
+	return &SubscriberFunc[T]{
+		read:       f,
+		unregister: func() { r.deleteSubscriber(reflect.TypeFor[T]()) },
+	}
+}
+
+// Close closes the SubscriberFunc, indicating the caller no longer wishes to
+// receive this event type.  After Close, no further events will be passed to
+// the callback.
+//
+// If the [Bus] from which s was created is closed, s is implicitly closed and
+// does not need to be closed separately.
+func (s *SubscriberFunc[T]) Close() { s.stop.Stop(); s.unregister() }
+
+// subscribeType implements part of the subscriber interface.
+func (s *SubscriberFunc[T]) subscribeType() reflect.Type { return reflect.TypeFor[T]() }
+
+// dispatch implements part of the subscriber interface.
+func (s *SubscriberFunc[T]) dispatch(ctx context.Context, vals *queue[DeliveredEvent], acceptCh func() chan DeliveredEvent, snapshot chan chan []DeliveredEvent) bool {
+	t := vals.Peek().Event.(T)
+	callDone := make(chan struct{})
+	go s.runCallback(t, callDone)
+	// Keep the cases in this select in sync with subscribeState.pump
+	// above. The only difference should be that this select
+	// delivers a value by calling s.read.
+	for {
+		select {
+		case <-callDone:
+			vals.Drop()
+			return true
+		case val := <-acceptCh():
+			vals.Add(val)
+		case <-ctx.Done():
+			return false
+		case ch := <-snapshot:
+			ch <- vals.Snapshot()
+		}
+	}
+}
+
+// runCallback invokes the callback on v and closes ch when it returns.
+// This should be run in a goroutine.
+func (s *SubscriberFunc[T]) runCallback(v T, ch chan struct{}) {
+	defer close(ch)
+	s.read(v)
 }

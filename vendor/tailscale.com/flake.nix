@@ -46,8 +46,9 @@
     systems,
     flake-compat,
   }: let
-    go125Version = "1.25.0";
-    goHash = "sha256-S9AekSlyB7+kUOpA1NWpOxtTGl5DhHOyoG4Y4HciciU=";
+    goVersion = nixpkgs.lib.fileContents ./go.toolchain.version;
+    toolChainRev = nixpkgs.lib.fileContents ./go.toolchain.rev;
+    gitHash = nixpkgs.lib.fileContents ./go.toolchain.rev.sri;
     eachSystem = f:
       nixpkgs.lib.genAttrs (import systems) (system:
         f (import nixpkgs {
@@ -55,10 +56,12 @@
           overlays = [
             (final: prev: {
               go_1_25 = prev.go_1_25.overrideAttrs {
-                version = go125Version;
-                src = prev.fetchurl {
-                  url = "https://go.dev/dl/go${go125Version}.src.tar.gz";
-                  hash = goHash;
+                version = goVersion;
+                src = prev.fetchFromGitHub {
+                  owner = "tailscale";
+                  repo = "go";
+                  rev = toolChainRev;
+                  sha256 = gitHash;
                 };
               };
             })
@@ -148,5 +151,5 @@
     });
   };
 }
-# nix-direnv cache busting line: sha256-8aE6dWMkTLdWRD9WnLVSzpOQQh61voEnjZAJHtbGCSs=
+# nix-direnv cache busting line: sha256-rV3C2Vi48FCifGt58OdEO4+Av0HRIs8sUJVvp/gEBLw=
 
