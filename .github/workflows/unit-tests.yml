@@ -39,17 +39,18 @@ jobs:
       - name: Git Fetch Tags
         run: git fetch --prune --unshallow --tags -f
 
-      - name: Make Linux (amd64)
-        run: make linux-amd64
-
-      - name: Test Linux
-        run: ./sliver-server unpack --force && ./go-tests.sh
-
       - name: Make Windows (amd64)
         run: make windows-amd64
 
       - name: Make Linux (arm64)
         run: make linux-arm64
+
+      - name: Make Linux (amd64)
+        run: make linux-amd64
+
+      - name: Test Linux
+        run: make clean && make && ./sliver-server unpack --force && ./go-tests.sh
+
 
   macos-build-test:
     name: MacOS Test
@@ -61,9 +62,6 @@ jobs:
         with:
           go-version: "^1.25"
 
-      - name: Mingw
-        run: brew install mingw-w64
-
       - name: Check Out Code
         uses: actions/checkout@v5
 
@@ -73,11 +71,11 @@ jobs:
       - name: Make MacOS (amd64)
         run: make macos-amd64
 
-      - name: Test MacOS (amd64)
-        run: ./sliver-server unpack --force && ./go-tests.sh
-
       - name: Make MacOS (arm64)
         run: make macos-arm64
+
+      - name: Test MacOS
+        run: make clean && make && ./sliver-server unpack --force && ./go-tests.sh
 
   clients-build:
     name: Clients Build

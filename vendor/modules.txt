@@ -573,9 +573,15 @@ github.com/mitchellh/go-ps
 # github.com/moloch--/asciicast v0.1.1
 ## explicit; go 1.20
 github.com/moloch--/asciicast
+# github.com/moloch--/go-keystone v0.0.2
+## explicit; go 1.23
+github.com/moloch--/go-keystone
 # github.com/moloch--/memmod v0.0.0-20230225130813-fd77d905589e
 ## explicit; go 1.17
 github.com/moloch--/memmod
+# github.com/moloch--/sgn v0.0.4
+## explicit; go 1.23
+github.com/moloch--/sgn/pkg
 # github.com/ncruces/go-sqlite3 v0.29.1
 ## explicit; go 1.24.0
 github.com/ncruces/go-sqlite3
@@ -592,6 +598,9 @@ github.com/ncruces/go-strftime
 # github.com/ncruces/julianday v1.0.0
 ## explicit; go 1.17
 github.com/ncruces/julianday
+# github.com/olekukonko/tablewriter v0.0.5
+## explicit; go 1.12
+github.com/olekukonko/tablewriter
 # github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 ## explicit
 github.com/pmezard/go-difflib/difflib
@@ -685,7 +694,7 @@ github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.10
 ## explicit; go 1.12
 github.com/spf13/pflag
-# github.com/stretchr/testify v1.11.0
+# github.com/stretchr/testify v1.11.1
 ## explicit; go 1.17
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/assert/yaml
@@ -801,7 +810,7 @@ go4.org/mem
 # go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
 ## explicit; go 1.18
 go4.org/netipx
-# golang.org/x/crypto v0.42.0
+# golang.org/x/crypto v0.43.0
 ## explicit; go 1.24.0
 golang.org/x/crypto/acme
 golang.org/x/crypto/acme/autocert
@@ -843,7 +852,7 @@ golang.org/x/exp/slog/internal/buffer
 # golang.org/x/mod v0.28.0
 ## explicit; go 1.24.0
 golang.org/x/mod/semver
-# golang.org/x/net v0.44.0
+# golang.org/x/net v0.46.0
 ## explicit; go 1.24.0
 golang.org/x/net/bpf
 golang.org/x/net/dns/dnsmessage
@@ -868,7 +877,7 @@ golang.org/x/net/trace
 ## explicit; go 1.24.0
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.36.0
+# golang.org/x/sys v0.37.0
 ## explicit; go 1.24.0
 golang.org/x/sys/cpu
 golang.org/x/sys/plan9
@@ -877,10 +886,10 @@ golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
 golang.org/x/sys/windows/svc
 golang.org/x/sys/windows/svc/mgr
-# golang.org/x/term v0.35.0
+# golang.org/x/term v0.36.0
 ## explicit; go 1.24.0
 golang.org/x/term
-# golang.org/x/text v0.29.0
+# golang.org/x/text v0.30.0
 ## explicit; go 1.24.0
 golang.org/x/text/cases
 golang.org/x/text/encoding
@@ -943,11 +952,11 @@ golang.zx2c4.com/wireguard/wgctrl/wgtypes
 # golang.zx2c4.com/wireguard/windows v0.5.3
 ## explicit; go 1.18
 golang.zx2c4.com/wireguard/windows/tunnel/winipcfg
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20251002232023-7c0ddcbb5797
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20251014184007-4626949a642f
 ## explicit; go 1.24.0
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.75.1
-## explicit; go 1.23.0
+# google.golang.org/grpc v1.76.0
+## explicit; go 1.24.0
 google.golang.org/grpc
 google.golang.org/grpc/attributes
 google.golang.org/grpc/backoff
@@ -1212,7 +1221,7 @@ modernc.org/sqlite/lib
 ## explicit; go 1.23.0
 mvdan.cc/sh/v3/fileutil
 mvdan.cc/sh/v3/syntax
-# tailscale.com v1.88.3
+# tailscale.com v1.88.4
 ## explicit; go 1.25.1
 tailscale.com
 tailscale.com/appc

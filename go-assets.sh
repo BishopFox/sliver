@@ -20,10 +20,9 @@ set -e
 
 # Creates the static go asset archives
 
-GO_VER="1.25.1"
-GARBLE_VER="1.25.1"
+GO_VER="1.25.3"
+GARBLE_VER="1.25.3"
 ZIG_VER="0.15.1"
-SGN_VER="0.0.3"
 
 # Zig significantly throttles downloads from the main site, so we use
 # community mirrors. We fetch the list of mirrors at runtime, but
@@ -43,7 +42,7 @@ ZIG_MIRRORS=()
 MINISIGN_HELPER=""
 MINISIGN_HELPER_DIR=""
 
-BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt SECURITY.md CONTRIBUTING.md LICENSE README.md ./doc ./test ./api ./misc"
+BLOAT_FILES="AUTHORS CONTRIBUTORS PATENTS VERSION favicon.ico robots.txt SECURITY.md CONTRIBUTING.md README.md ./doc ./test ./api ./misc"
 
 if ! [ -x "$(command -v curl)" ]; then
   echo 'Error: curl is not installed.' >&2
@@ -293,40 +292,19 @@ download_zig "linux" "arm64" "zig-aarch64-linux-$ZIG_VER.tar.xz" "zig.tar.xz"
 # Windows ships a zip instead of a tarball
 download_zig "windows" "amd64" "zig-x86_64-windows-$ZIG_VER.zip" "zig.zip"
 
-
 echo "-----------------------------------------------------------------"
 echo " Garble"
 echo "-----------------------------------------------------------------"
-echo "curl -L --fail --output $OUTPUT_DIR/linux/amd64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux"
-curl -L --fail --output $OUTPUT_DIR/linux/amd64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux
+echo "curl -L --fail --output $OUTPUT_DIR/linux/amd64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux-amd64"
+curl -L --fail --output $OUTPUT_DIR/linux/amd64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux-amd64
 echo "curl -L --fail --output $OUTPUT_DIR/linux/arm64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux-arm64"
 curl -L --fail --output $OUTPUT_DIR/linux/arm64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux-arm64
-echo "curl -L --fail --output $OUTPUT_DIR/windows/amd64/garble.exe https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_windows.exe"
-curl -L --fail --output $OUTPUT_DIR/windows/amd64/garble.exe https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_windows.exe
-echo "curl -L --fail --output $OUTPUT_DIR/darwin/amd64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-amd64"
-curl -L --fail --output $OUTPUT_DIR/darwin/amd64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-amd64
-echo "curl -L --fail --output $OUTPUT_DIR/darwin/arm64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-arm64"
-curl -L --fail --output $OUTPUT_DIR/darwin/arm64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_macos-arm64
-
-
-echo "-----------------------------------------------------------------"
-echo " Shikata ga nai (ノ ゜Д゜)ノ ︵ 仕方がない"
-echo "-----------------------------------------------------------------"
-# Linux (amd64)
-echo "curl -L --fail --output $OUTPUT_DIR/linux/amd64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_linux-amd64.zip"
-curl -L --fail --output $OUTPUT_DIR/linux/amd64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_linux-amd64.zip
-# Linux (arm64)
-echo "curl -L --fail --output $OUTPUT_DIR/linux/arm64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_linux-arm64.zip"
-curl -L --fail --output $OUTPUT_DIR/linux/arm64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_linux-arm64.zip
-# Windows (amd64)
-echo "curl -L --fail --output $OUTPUT_DIR/windows/amd64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_windows-amd64.zip"
-curl -L --fail --output $OUTPUT_DIR/windows/amd64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_windows-amd64.zip
-# MacOS (amd64)
-echo "curl -L --fail --output $OUTPUT_DIR/darwin/amd64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_macos-amd64.zip"
-curl -L --fail --output $OUTPUT_DIR/darwin/amd64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_macos-amd64.zip
-# MacOS (arm64)
-echo "curl -L --fail --output $OUTPUT_DIR/darwin/arm64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_macos-arm64.zip"
-curl -L --fail --output $OUTPUT_DIR/darwin/arm64/sgn.zip https://github.com/moloch--/sgn/releases/download/v$SGN_VER/sgn_macos-arm64.zip
+echo "curl -L --fail --output $OUTPUT_DIR/windows/amd64/garble.exe https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_windows-amd64.exe"
+curl -L --fail --output $OUTPUT_DIR/windows/amd64/garble.exe https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_windows-amd64.exe
+echo "curl -L --fail --output $OUTPUT_DIR/darwin/amd64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_darwin-amd64"
+curl -L --fail --output $OUTPUT_DIR/darwin/amd64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_darwin-amd64
+echo "curl -L --fail --output $OUTPUT_DIR/darwin/arm64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_darwin-arm64"
+curl -L --fail --output $OUTPUT_DIR/darwin/arm64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_darwin-arm64
 
 # --- Cleanup ---
 echo -e "clean up: $WORK_DIR"
