@@ -4,7 +4,12 @@
 // Package feature tracks which features are linked into the binary.
 package feature
 
-import "reflect"
+import (
+	"errors"
+	"reflect"
+)
+
+var ErrUnavailable = errors.New("feature not included in this build")
 
 var in = map[string]bool{}
 
@@ -45,7 +50,8 @@ func (h *Hook[Func]) Set(f Func) {
 }
 
 // Get returns the hook function, or panics if it hasn't been set.
-// Use IsSet to check if it's been set.
+// Use IsSet to check if it's been set, or use GetOrNil if you're
+// okay with a nil return value.
 func (h *Hook[Func]) Get() Func {
 	if !h.ok {
 		panic("Get on unset feature hook, without IsSet")
@@ -57,6 +63,11 @@ func (h *Hook[Func]) Get() Func {
 // otherwise its zero value and false.
 func (h *Hook[Func]) GetOk() (f Func, ok bool) {
 	return h.f, h.ok
+}
+
+// GetOrNil returns the hook function or nil if it hasn't been set.
+func (h *Hook[Func]) GetOrNil() Func {
+	return h.f
 }
 
 // Hooks is a slice of funcs.
