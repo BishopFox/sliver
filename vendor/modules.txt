@@ -514,8 +514,8 @@ github.com/kballard/go-shellquote
 # github.com/kbinani/screenshot v0.0.0-20250624051815-089614a94018
 ## explicit; go 1.21
 github.com/kbinani/screenshot
-# github.com/klauspost/compress v1.18.0
-## explicit; go 1.22
+# github.com/klauspost/compress v1.18.1
+## explicit; go 1.23
 github.com/klauspost/compress
 github.com/klauspost/compress/flate
 github.com/klauspost/compress/fse
