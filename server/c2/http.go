@@ -27,7 +27,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	insecureRand "math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -131,11 +130,11 @@ type SliverHTTPC2 struct {
 
 func (s *SliverHTTPC2) getServerHeader() string {
 	if serverVersionHeader == "" {
-		switch insecureRand.Intn(2) {
+		switch util.Intn(2) {
 		case 0:
-			serverVersionHeader = fmt.Sprintf("Apache/2.4.%d (Unix)", insecureRand.Intn(48))
+			serverVersionHeader = fmt.Sprintf("Apache/2.4.%d (Unix)", util.Intn(48))
 		default:
-			serverVersionHeader = fmt.Sprintf("nginx/1.%d.%d (Ubuntu)", insecureRand.Intn(21), insecureRand.Intn(8))
+			serverVersionHeader = fmt.Sprintf("nginx/1.%d.%d (Ubuntu)", util.Intn(21), util.Intn(8))
 		}
 	}
 	return serverVersionHeader
@@ -148,7 +147,7 @@ func (s *SliverHTTPC2) getCookieName(c2ConfigName string) string {
 		return "SESSIONID"
 	}
 	cookies := httpC2Config.ServerConfig.Cookies
-	index := insecureRand.Intn(len(cookies))
+	index := util.Intn(len(cookies))
 	return cookies[index].Name
 }
 
@@ -236,7 +235,7 @@ func getHTTPSConfig(req *clientpb.HTTPListenerReq) *tls.Config {
 	}
 
 	// Randomize the JARM fingerprint
-	switch insecureRand.Intn(4) {
+	switch util.Intn(4) {
 
 	// So it turns out that Windows by default
 	// disables TLS v1.2 because it's horrible.
@@ -282,10 +281,10 @@ func getHTTPSConfig(req *clientpb.HTTPListenerReq) *tls.Config {
 	}
 	// CipherSuites ignores the order of the ciphers, this random shuffle
 	// is truncated resulting in a random selection from all ciphers
-	insecureRand.Shuffle(len(allCipherSuites), func(i, j int) {
+	util.Shuffle(len(allCipherSuites), func(i, j int) {
 		allCipherSuites[i], allCipherSuites[j] = allCipherSuites[j], allCipherSuites[i]
 	})
-	nCiphers := insecureRand.Intn(len(allCipherSuites)-8) + 8
+	nCiphers := util.Intn(len(allCipherSuites)-8) + 8
 	tlsConfig.CipherSuites = allCipherSuites[:nCiphers]
 
 	// Some TLS 1.2 stacks disable some of the older ciphers like RC4, so to ensure
@@ -307,7 +306,7 @@ func getHTTPSConfig(req *clientpb.HTTPListenerReq) *tls.Config {
 	}
 	if !found {
 		// We are lacking at least one modern RSA option, so randomly enable one
-		tlsConfig.CipherSuites = append(tlsConfig.CipherSuites, modernCiphers[insecureRand.Intn(len(modernCiphers))])
+		tlsConfig.CipherSuites = append(tlsConfig.CipherSuites, modernCiphers[util.Intn(len(modernCiphers))])
 	}
 
 	if certs.TLSKeyLogger != nil {
@@ -459,7 +458,7 @@ func (s *SliverHTTPC2) DefaultRespHeaders(next http.Handler) http.Handler {
 			}
 			for _, header := range s.c2Config[0].ServerConfig.Headers {
 				if 0 < header.Probability && header.Probability < 100 {
-					roll := insecureRand.Intn(99) + 1
+					roll := util.Intn(99) + 1
 					if header.Probability < int32(roll) {
 						continue
 					}
@@ -470,7 +469,7 @@ func (s *SliverHTTPC2) DefaultRespHeaders(next http.Handler) http.Handler {
 			// for anonymous requests user server-wide defaults
 			for _, header := range serverConfig.HTTPDefaults.Headers {
 				if 0 < header.Probability && header.Probability < 100 {
-					roll := insecureRand.Intn(99) + 1
+					roll := util.Intn(99) + 1
 					if header.Probability < int32(roll) {
 						continue
 					}
@@ -735,7 +734,7 @@ func (s *SliverHTTPC2) readReqBody(httpSession *HTTPSession, resp http.ResponseW
 func (s *SliverHTTPC2) getServerPollTimeout() time.Duration {
 	min := s.ServerConf.LongPollTimeout
 	max := s.ServerConf.LongPollTimeout + s.ServerConf.LongPollJitter
-	timeout := float64(min) + insecureRand.Float64()*(float64(max)-float64(min))
+	timeout := float64(min) + util.Float64()*(float64(max)-float64(min))
 	pollTimeout := time.Duration(int64(timeout))
 	if pollTimeout < minPollTimeout {
 		httpLog.Warnf("Poll timeout is too short, using default minimum %v", minPollTimeout)

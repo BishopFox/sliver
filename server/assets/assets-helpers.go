@@ -31,7 +31,6 @@ import (
 	"go/printer"
 	"go/token"
 	"io"
-	insecureRand "math/rand"
 	"os"
 	"path"
 	"path/filepath"
@@ -124,7 +123,7 @@ func pseudoRandStringRunes(n int) string {
 	letterRunes := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 	b := make([]rune, n)
 	for i := range b {
-		b[i] = letterRunes[insecureRand.Intn(len(letterRunes))]
+		b[i] = letterRunes[util.Intn(len(letterRunes))]
 	}
 	return string(b)
 }

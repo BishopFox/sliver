@@ -22,7 +22,6 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	insecureRand "math/rand"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -31,6 +30,7 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/util"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -142,7 +142,7 @@ func randomSuffix(n int) string {
 	letterRunes := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 	buf := make([]rune, n)
 	for i := range buf {
-		buf[i] = letterRunes[insecureRand.Intn(len(letterRunes))]
+		buf[i] = letterRunes[util.Intn(len(letterRunes))]
 	}
 	return string(buf)
 }

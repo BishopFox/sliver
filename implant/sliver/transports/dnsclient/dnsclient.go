@@ -57,7 +57,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"hash/crc32"
-	insecureRand "math/rand"
 	"net/url"
 	"strconv"
 	"strings"
@@ -70,6 +69,7 @@ import (
 
 	"github.com/bishopfox/sliver/implant/sliver/cryptography"
 	"github.com/bishopfox/sliver/implant/sliver/encoders"
+	"github.com/bishopfox/sliver/implant/sliver/util"
 	"github.com/bishopfox/sliver/protobuf/dnspb"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/miekg/dns"
@@ -1097,7 +1097,7 @@ func (s *SliverDNSClient) averageRtt(meta *ResolverMetadata) time.Duration {
 }
 
 func (s *SliverDNSClient) randomResolver() (DNSResolver, *ResolverMetadata) {
-	resolver := s.resolvers[insecureRand.Intn(len(s.resolvers))]
+	resolver := s.resolvers[util.Intn(len(s.resolvers))]
 	return resolver, s.metadata[resolver.Address()]
 }
 

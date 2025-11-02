@@ -21,10 +21,10 @@ package certs
 import (
 	"crypto/x509/pkix"
 	"fmt"
-	insecureRand "math/rand"
 	"strings"
 
 	"github.com/bishopfox/sliver/server/codenames"
+	"github.com/bishopfox/sliver/util"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -279,9 +279,9 @@ func randomPostalCode(country []string) []string {
 
 	case "US":
 		// American postal codes are 5 digits
-		switch insecureRand.Intn(postalProbability) {
+		switch util.Intn(postalProbability) {
 		case 0:
-			return []string{fmt.Sprintf("%05d", insecureRand.Intn(90000)+1000)}
+			return []string{fmt.Sprintf("%05d", util.Intn(90000)+1000)}
 		default:
 			return []string{}
 		}
@@ -289,16 +289,16 @@ func randomPostalCode(country []string) []string {
 	case "CA":
 		// Canadian postal codes are weird and include letter/number combo's
 		letters := "ABHLMNKGJPRSTVYX"
-		switch insecureRand.Intn(postalProbability) {
+		switch util.Intn(postalProbability) {
 		case 0:
-			letter1 := string(letters[insecureRand.Intn(len(letters))])
-			letter2 := string(letters[insecureRand.Intn(len(letters))])
-			if insecureRand.Intn(2) == 0 {
+			letter1 := string(letters[util.Intn(len(letters))])
+			letter2 := string(letters[util.Intn(len(letters))])
+			if util.Intn(2) == 0 {
 				letter1 = strings.ToLower(letter1)
 				letter2 = strings.ToLower(letter2)
 			}
 			return []string{
-				fmt.Sprintf("%s%d%s", letter1, insecureRand.Intn(9), letter2),
+				fmt.Sprintf("%s%d%s", letter1, util.Intn(9), letter2),
 			}
 		default:
 			return []string{}
@@ -320,7 +320,7 @@ func randomCountry() string {
 	for k := range subjects {
 		keys = append(keys, k)
 	}
-	return keys[insecureRand.Intn(len(keys))]
+	return keys[util.Intn(len(keys))]
 }
 
 func randomState(country string) string {
@@ -328,7 +328,7 @@ func randomState(country string) string {
 	for k := range subjects[country] {
 		keys = append(keys, k)
 	}
-	return keys[insecureRand.Intn(len(keys))]
+	return keys[util.Intn(len(keys))]
 }
 
 func randomLocality(country string, state string) string {
@@ -337,12 +337,12 @@ func randomLocality(country string, state string) string {
 	for k := range locales {
 		keys = append(keys, k)
 	}
-	return keys[insecureRand.Intn(len(keys))]
+	return keys[util.Intn(len(keys))]
 }
 
 func randomStreetAddress(country string, state string, locality string) string {
 	addresses := subjects[country][state][locality]
-	return addresses[insecureRand.Intn(len(addresses))]
+	return addresses[util.Intn(len(addresses))]
 }
 
 var (
@@ -419,7 +419,7 @@ var (
 func randomOrganization() []string {
 	adjective, _ := codenames.RandomAdjective()
 	noun, _ := codenames.RandomNoun()
-	suffix := orgSuffixes[insecureRand.Intn(len(orgSuffixes))]
+	suffix := orgSuffixes[util.Intn(len(orgSuffixes))]
 
 	// Not exactly sure this even matters much, but hey its fun to add more randomness
 	caseTitles := []cases.Caser{
@@ -427,10 +427,10 @@ func randomOrganization() []string {
 		cases.Title(language.AmericanEnglish),
 		cases.Title(language.BritishEnglish),
 	}
-	caseTitle := caseTitles[insecureRand.Intn(len(caseTitles))]
+	caseTitle := caseTitles[util.Intn(len(caseTitles))]
 
 	var orgName string
-	switch insecureRand.Intn(8) {
+	switch util.Intn(8) {
 	case 0:
 		orgName = strings.TrimSpace(fmt.Sprintf("%s %s, %s", adjective, noun, suffix))
 	case 1:
