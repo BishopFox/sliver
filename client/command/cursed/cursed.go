@@ -21,7 +21,6 @@ package cursed
 import (
 	"bytes"
 	"fmt"
-	insecureRand "math/rand"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -30,6 +29,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/util"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )
@@ -115,7 +115,7 @@ func selectCursedProcess(con *console.SliverClient) *core.CursedProcess {
 func getRemoteDebuggerPort(cmd *cobra.Command) int {
 	port, _ := cmd.Flags().GetInt("remote-debugging-port")
 	if port == 0 {
-		port = insecureRand.Intn(30000) + 10000
+		port = util.Intn(30000) + 10000
 	}
 	return port
 }

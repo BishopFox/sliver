@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	insecureRand "math/rand"
 	"os"
 	"strings"
 	"time"
@@ -36,6 +35,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/util"
 	"github.com/spf13/cobra"
 )
 
@@ -213,7 +213,7 @@ func startCursedChromeProcess(isEdge bool, session *clientpb.Session, cmd *cobra
 	con.PrintInfof("Waiting for %s process to initialize ... ", name)
 	time.Sleep(2 * time.Second)
 
-	bindPort := insecureRand.Intn(10000) + 40000
+	bindPort := util.Intn(10000) + 40000
 	bindAddr := fmt.Sprintf("127.0.0.1:%d", bindPort)
 
 	remoteAddr := fmt.Sprintf("127.0.0.1:%d", debugPort)

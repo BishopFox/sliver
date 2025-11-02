@@ -23,9 +23,8 @@ import (
 	"strings"
 	"time"
 
-	insecureRand "math/rand"
-
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/util"
 	"github.com/gofrs/uuid"
 
 	"gorm.io/gorm"
@@ -419,7 +418,7 @@ func ChromeVer(baseVer int32) string {
 	if chromeVer == 0 {
 		chromeVer = DefaultChromeBaseVer
 	}
-	return fmt.Sprintf("%d.0.%d.%d", baseVer+int32(insecureRand.Intn(3)), 1000+int32(insecureRand.Intn(8999)), int32(insecureRand.Intn(999)))
+	return fmt.Sprintf("%d.0.%d.%d", baseVer+int32(util.Intn(3)), 1000+int32(util.Intn(8999)), int32(util.Intn(999)))
 }
 
 func MacOSVer(MacOSVersion string) string {
@@ -465,7 +464,7 @@ func RandomPaths(httpC2PathSegments []*clientpb.HTTPC2PathSegment, minPaths int3
 }
 
 func randomSample(values []*clientpb.HTTPC2PathSegment, min int32, max int32) []*clientpb.HTTPC2PathSegment {
-	count := int32(insecureRand.Intn(len(values)))
+	count := int32(util.Intn(len(values)))
 	if count < min {
 		count = min
 	}

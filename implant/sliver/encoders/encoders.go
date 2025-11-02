@@ -23,7 +23,6 @@ import (
 	"embed"
 	"encoding/binary"
 	"errors"
-	insecureRand "math/rand"
 	"strconv"
 	"strings"
 
@@ -37,6 +36,7 @@ import (
 
 	// {{if .Config.TrafficEncodersEnabled}}
 	"github.com/bishopfox/sliver/implant/sliver/encoders/traffic"
+	"github.com/bishopfox/sliver/util"
 	// {{end}}
 )
 
@@ -139,7 +139,7 @@ func randomEncoderFromMap(encoderMap map[uint64]Encoder) (uint64, Encoder) {
 	for k := range encoderMap {
 		keys = append(keys, k)
 	}
-	encoderID := keys[insecureRand.Intn(len(keys))]
+	encoderID := keys[util.Intn(len(keys))]
 	nonce := (randomUint64(MaxN) * EncoderModulus) + encoderID
 	return nonce, encoderMap[encoderID]
 }

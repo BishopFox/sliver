@@ -23,10 +23,11 @@ import (
 	"log"
 	// {{end}}
 
-	insecureRand "math/rand"
 	"net/url"
 	"strconv"
 	"time"
+
+	"github.com/bishopfox/sliver/util"
 )
 
 const (
@@ -66,11 +67,11 @@ func C2Generator(abort <-chan struct{}, temporaryC2 ...string) <-chan *url.URL {
 			var next string
 			switch "{{.Config.ConnectionStrategy}}" {
 			case strategyRandom: // Random
-				next = c2Servers[insecureRand.Intn(len(c2Servers))]()
+				next = c2Servers[util.Intn(len(c2Servers))]()
 			case strategyRandomDomain: // Random Domain
 				// Select the next sequential C2 then use it's protocol to make a random
 				// selection from all C2s that share it's protocol.
-				next = c2Servers[insecureRand.Intn(len(c2Servers))]()
+				next = c2Servers[util.Intn(len(c2Servers))]()
 				next = randomCCDomain(c2Servers, next)
 			case strategySequential: // Sequential
 				next = c2Servers[c2Counter%uint(len(c2Servers))]()
@@ -124,7 +125,7 @@ func randomCCDomain(ccServers []func() string, next string) string {
 			pool = append(pool, cc)
 		}
 	}
-	return pool[insecureRand.Intn(len(pool))]()
+	return pool[util.Intn(len(pool))]()
 }
 
 var (

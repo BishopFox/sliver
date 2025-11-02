@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	insecureRand "math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -40,6 +39,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/util"
 	"github.com/gofrs/uuid"
 	"github.com/reeflective/console"
 	"github.com/reeflective/readline"
@@ -431,9 +431,9 @@ func (con *SliverClient) PrintLogo() {
 	}
 	serverSemVer := fmt.Sprintf("%d.%d.%d", serverVer.Major, serverVer.Minor, serverVer.Patch)
 
-	logo := asciiLogos[insecureRand.Intn(len(asciiLogos))]
+	logo := asciiLogos[util.Intn(len(asciiLogos))]
 	fmt.Println(strings.ReplaceAll(logo, "\n", "\r\n"))
-	fmt.Println("All hackers gain " + abilities[insecureRand.Intn(len(abilities))] + "\r")
+	fmt.Println("All hackers gain " + abilities[util.Intn(len(abilities))] + "\r")
 	fmt.Printf(Info+"Server v%s - %s%s\r\n", serverSemVer, serverVer.Commit, dirty)
 	if version.GitCommit != serverVer.Commit {
 		fmt.Printf(Info+"Client %s\r\n", version.FullVersion())

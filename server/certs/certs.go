@@ -31,13 +31,13 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	insecureRand "math/rand"
 	"net"
 	"time"
 
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/util"
 )
 
 const (
@@ -303,7 +303,7 @@ func randomInt(max int) int {
 
 func randomValidFor() time.Duration {
 	validFor := 3 * (365 * 24 * time.Hour)
-	switch insecureRand.Intn(2) {
+	switch util.Intn(2) {
 	case 0:
 		validFor = 2 * (365 * 24 * time.Hour)
 	case 1:

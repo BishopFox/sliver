@@ -19,8 +19,9 @@ package encoders
 */
 
 import (
-	insecureRand "math/rand"
 	"strings"
+
+	"github.com/bishopfox/sliver/util"
 )
 
 var dictionary map[int][]string
@@ -42,7 +43,7 @@ func (e EnglishEncoder) Encode(data []byte) ([]byte, error) {
 	words := []string{}
 	for _, b := range data {
 		possibleWords := dictionary[int(b)]
-		index := insecureRand.Intn(len(possibleWords))
+		index := util.Intn(len(possibleWords))
 		words = append(words, possibleWords[index])
 	}
 	return []byte(strings.Join(words, " ")), nil

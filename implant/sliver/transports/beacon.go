@@ -26,7 +26,6 @@ import (
 
 	// {{end}}
 
-	insecureRand "math/rand"
 	"net/url"
 	"time"
 
@@ -34,6 +33,7 @@ import (
 	"crypto/tls"
 
 	"github.com/bishopfox/sliver/implant/sliver/transports/mtls"
+	"github.com/bishopfox/sliver/util"
 
 	// {{end}}
 
@@ -103,7 +103,7 @@ func (b *Beacon) Duration() time.Duration {
 	// {{end}}
 	jitterDuration := time.Duration(0)
 	if 0 < b.Jitter() {
-		jitterDuration = time.Duration(insecureRand.Int63n(b.Jitter()))
+		jitterDuration = time.Duration(util.Int63n(b.Jitter()))
 	}
 	duration := time.Duration(b.Interval()) + jitterDuration
 	// {{if .Config.Debug}}
