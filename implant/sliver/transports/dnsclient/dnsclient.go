@@ -69,9 +69,9 @@ import (
 
 	"github.com/bishopfox/sliver/implant/sliver/cryptography"
 	"github.com/bishopfox/sliver/implant/sliver/encoders"
+	"github.com/bishopfox/sliver/implant/sliver/util"
 	"github.com/bishopfox/sliver/protobuf/dnspb"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/bishopfox/sliver/util"
 	"github.com/miekg/dns"
 	"google.golang.org/protobuf/proto"
 )

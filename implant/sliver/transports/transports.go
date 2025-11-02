@@ -27,7 +27,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/bishopfox/sliver/util"
+	"github.com/bishopfox/sliver/implant/sliver/util"
 )
 
 const (

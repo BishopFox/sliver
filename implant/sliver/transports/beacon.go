@@ -33,7 +33,6 @@ import (
 	"crypto/tls"
 
 	"github.com/bishopfox/sliver/implant/sliver/transports/mtls"
-	"github.com/bishopfox/sliver/util"
 
 	// {{end}}
 
@@ -59,6 +58,7 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/transports/dnsclient"
 	// {{end}}
 
+	"github.com/bishopfox/sliver/implant/sliver/util"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 

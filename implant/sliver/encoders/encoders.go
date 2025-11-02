@@ -26,6 +26,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/bishopfox/sliver/implant/sliver/util"
+
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
@@ -36,7 +38,6 @@ import (
 
 	// {{if .Config.TrafficEncodersEnabled}}
 	"github.com/bishopfox/sliver/implant/sliver/encoders/traffic"
-	"github.com/bishopfox/sliver/util"
 	// {{end}}
 )
 

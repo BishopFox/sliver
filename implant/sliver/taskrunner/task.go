@@ -24,7 +24,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/bishopfox/sliver/util"
+	"github.com/bishopfox/sliver/implant/sliver/util"
 )
 
 // Utility functions

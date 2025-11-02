@@ -21,7 +21,7 @@ package encoders
 import (
 	"strings"
 
-	"github.com/bishopfox/sliver/util"
+	"github.com/bishopfox/sliver/implant/sliver/util"
 )
 
 var dictionary map[int][]string
