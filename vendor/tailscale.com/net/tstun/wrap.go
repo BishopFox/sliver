@@ -22,10 +22,8 @@ import (
 	"github.com/tailscale/wireguard-go/device"
 	"github.com/tailscale/wireguard-go/tun"
 	"go4.org/mem"
-	"gvisor.dev/gvisor/pkg/tcpip/stack"
 	"tailscale.com/disco"
-	tsmetrics "tailscale.com/metrics"
-	"tailscale.com/net/connstats"
+	"tailscale.com/feature/buildfeatures"
 	"tailscale.com/net/packet"
 	"tailscale.com/net/packet/checksum"
 	"tailscale.com/net/tsaddr"
@@ -34,6 +32,7 @@ import (
 	"tailscale.com/types/ipproto"
 	"tailscale.com/types/key"
 	"tailscale.com/types/logger"
+	"tailscale.com/types/netlogfunc"
 	"tailscale.com/util/clientmetric"
 	"tailscale.com/util/usermetric"
 	"tailscale.com/wgengine/filter"
@@ -204,8 +203,8 @@ type Wrapper struct {
 	// disableTSMPRejected disables TSMP rejected responses. For tests.
 	disableTSMPRejected bool
 
-	// stats maintains per-connection counters.
-	stats atomic.Pointer[connstats.Statistics]
+	// connCounter maintains per-connection counters.
+	connCounter syncs.AtomicValue[netlogfunc.ConnectionCounter]
 
 	captureHook syncs.AtomicValue[packet.CaptureCallback]
 
@@ -213,8 +212,8 @@ type Wrapper struct {
 }
 
 type metrics struct {
-	inboundDroppedPacketsTotal  *tsmetrics.MultiLabelMap[usermetric.DropLabels]
-	outboundDroppedPacketsTotal *tsmetrics.MultiLabelMap[usermetric.DropLabels]
+	inboundDroppedPacketsTotal  *usermetric.MultiLabelMap[usermetric.DropLabels]
+	outboundDroppedPacketsTotal *usermetric.MultiLabelMap[usermetric.DropLabels]
 }
 
 func registerMetrics(reg *usermetric.Registry) *metrics {
@@ -228,7 +227,7 @@ func registerMetrics(reg *usermetric.Registry) *metrics {
 type tunInjectedRead struct {
 	// Only one of packet or data should be set, and are read in that order of
 	// precedence.
-	packet *stack.PacketBuffer
+	packet *netstack_PacketBuffer
 	data   []byte
 }
 
@@ -312,7 +311,9 @@ func (t *Wrapper) now() time.Time {
 //
 // The map ownership passes to the Wrapper. It must be non-nil.
 func (t *Wrapper) SetDestIPActivityFuncs(m map[netip.Addr]func()) {
-	t.destIPActivity.Store(m)
+	if buildfeatures.HasLazyWG {
+		t.destIPActivity.Store(m)
+	}
 }
 
 // SetDiscoKey sets the current discovery key.
@@ -948,12 +949,14 @@ func (t *Wrapper) Read(buffs [][]byte, sizes []int, offset int) (int, error) {
 	for _, data := range res.data {
 		p.Decode(data[res.dataOffset:])
 
-		if m := t.destIPActivity.Load(); m != nil {
-			if fn := m[p.Dst.Addr()]; fn != nil {
-				fn()
+		if buildfeatures.HasLazyWG {
+			if m := t.destIPActivity.Load(); m != nil {
+				if fn := m[p.Dst.Addr()]; fn != nil {
+					fn()
+				}
 			}
 		}
-		if captHook != nil {
+		if buildfeatures.HasCapture && captHook != nil {
 			captHook(packet.FromLocal, t.now(), p.Buffer(), p.CaptureMeta)
 		}
 		if !t.disableFilter {
@@ -973,8 +976,10 @@ func (t *Wrapper) Read(buffs [][]byte, sizes []int, offset int) (int, error) {
 			panic(fmt.Sprintf("short copy: %d != %d", n, len(data)-res.dataOffset))
 		}
 		sizes[buffsPos] = n
-		if stats := t.stats.Load(); stats != nil {
-			stats.UpdateTxVirtual(p.Buffer())
+		if buildfeatures.HasNetLog {
+			if update := t.connCounter.Load(); update != nil {
+				updateConnCounter(update, p.Buffer(), false)
+			}
 		}
 		buffsPos++
 	}
@@ -998,7 +1003,10 @@ const (
 	minTCPHeaderSize = 20
 )
 
-func stackGSOToTunGSO(pkt []byte, gso stack.GSO) (tun.GSOOptions, error) {
+func stackGSOToTunGSO(pkt []byte, gso netstack_GSO) (tun.GSOOptions, error) {
+	if !buildfeatures.HasNetstack {
+		panic("unreachable")
+	}
 	options := tun.GSOOptions{
 		CsumStart:  gso.L3HdrLen,
 		CsumOffset: gso.CsumOffset,
@@ -1006,12 +1014,12 @@ func stackGSOToTunGSO(pkt []byte, gso stack.GSO) (tun.GSOOptions, error) {
 		NeedsCsum:  gso.NeedsCsum,
 	}
 	switch gso.Type {
-	case stack.GSONone:
+	case netstack_GSONone:
 		options.GSOType = tun.GSONone
 		return options, nil
-	case stack.GSOTCPv4:
+	case netstack_GSOTCPv4:
 		options.GSOType = tun.GSOTCPv4
-	case stack.GSOTCPv6:
+	case netstack_GSOTCPv6:
 		options.GSOType = tun.GSOTCPv6
 	default:
 		return tun.GSOOptions{}, fmt.Errorf("unsupported gVisor GSOType: %v", gso.Type)
@@ -1034,7 +1042,10 @@ func stackGSOToTunGSO(pkt []byte, gso stack.GSO) (tun.GSOOptions, error) {
 // both before and after partial checksum updates where later checksum
 // offloading still expects a partial checksum.
 // TODO(jwhited): plumb partial checksum awareness into net/packet/checksum.
-func invertGSOChecksum(pkt []byte, gso stack.GSO) {
+func invertGSOChecksum(pkt []byte, gso netstack_GSO) {
+	if !buildfeatures.HasNetstack {
+		panic("unreachable")
+	}
 	if gso.NeedsCsum != true {
 		return
 	}
@@ -1048,10 +1059,13 @@ func invertGSOChecksum(pkt []byte, gso stack.GSO) {
 
 // injectedRead handles injected reads, which bypass filters.
 func (t *Wrapper) injectedRead(res tunInjectedRead, outBuffs [][]byte, sizes []int, offset int) (n int, err error) {
-	var gso stack.GSO
+	var gso netstack_GSO
 
 	pkt := outBuffs[0][offset:]
 	if res.packet != nil {
+		if !buildfeatures.HasNetstack {
+			panic("unreachable")
+		}
 		bufN := copy(pkt, res.packet.NetworkHeader().Slice())
 		bufN += copy(pkt[bufN:], res.packet.TransportHeader().Slice())
 		bufN += copy(pkt[bufN:], res.packet.Data().AsRange().ToSlice())
@@ -1074,9 +1088,11 @@ func (t *Wrapper) injectedRead(res tunInjectedRead, outBuffs [][]byte, sizes []i
 	pc.snat(p)
 	invertGSOChecksum(pkt, gso)
 
-	if m := t.destIPActivity.Load(); m != nil {
-		if fn := m[p.Dst.Addr()]; fn != nil {
-			fn()
+	if buildfeatures.HasLazyWG {
+		if m := t.destIPActivity.Load(); m != nil {
+			if fn := m[p.Dst.Addr()]; fn != nil {
+				fn()
+			}
 		}
 	}
 
@@ -1089,9 +1105,11 @@ func (t *Wrapper) injectedRead(res tunInjectedRead, outBuffs [][]byte, sizes []i
 		n, err = tun.GSOSplit(pkt, gsoOptions, outBuffs, sizes, offset)
 	}
 
-	if stats := t.stats.Load(); stats != nil {
-		for i := 0; i < n; i++ {
-			stats.UpdateTxVirtual(outBuffs[i][offset : offset+sizes[i]])
+	if buildfeatures.HasNetLog {
+		if update := t.connCounter.Load(); update != nil {
+			for i := 0; i < n; i++ {
+				updateConnCounter(update, outBuffs[i][offset:offset+sizes[i]], false)
+			}
 		}
 	}
 
@@ -1257,9 +1275,11 @@ func (t *Wrapper) Write(buffs [][]byte, offset int) (int, error) {
 }
 
 func (t *Wrapper) tdevWrite(buffs [][]byte, offset int) (int, error) {
-	if stats := t.stats.Load(); stats != nil {
-		for i := range buffs {
-			stats.UpdateRxVirtual((buffs)[i][offset:])
+	if buildfeatures.HasNetLog {
+		if update := t.connCounter.Load(); update != nil {
+			for i := range buffs {
+				updateConnCounter(update, buffs[i][offset:], true)
+			}
 		}
 	}
 	return t.tdev.Write(buffs, offset)
@@ -1297,7 +1317,10 @@ func (t *Wrapper) SetJailedFilter(filt *filter.Filter) {
 //
 // This path is typically used to deliver synthesized packets to the
 // host networking stack.
-func (t *Wrapper) InjectInboundPacketBuffer(pkt *stack.PacketBuffer, buffs [][]byte, sizes []int) error {
+func (t *Wrapper) InjectInboundPacketBuffer(pkt *netstack_PacketBuffer, buffs [][]byte, sizes []int) error {
+	if !buildfeatures.HasNetstack {
+		panic("unreachable")
+	}
 	buf := buffs[0][PacketStartOffset:]
 
 	bufN := copy(buf, pkt.NetworkHeader().Slice())
@@ -1436,7 +1459,10 @@ func (t *Wrapper) InjectOutbound(pkt []byte) error {
 // InjectOutboundPacketBuffer logically behaves as InjectOutbound. It takes ownership of one
 // reference count on the packet, and the packet may be mutated. The packet refcount will be
 // decremented after the injected buffer has been read.
-func (t *Wrapper) InjectOutboundPacketBuffer(pkt *stack.PacketBuffer) error {
+func (t *Wrapper) InjectOutboundPacketBuffer(pkt *netstack_PacketBuffer) error {
+	if !buildfeatures.HasNetstack {
+		panic("unreachable")
+	}
 	size := pkt.Size()
 	if size > MaxPacketSize {
 		pkt.DecRef()
@@ -1472,10 +1498,12 @@ func (t *Wrapper) Unwrap() tun.Device {
 	return t.tdev
 }
 
-// SetStatistics specifies a per-connection statistics aggregator.
+// SetConnectionCounter specifies a per-connection statistics aggregator.
 // Nil may be specified to disable statistics gathering.
-func (t *Wrapper) SetStatistics(stats *connstats.Statistics) {
-	t.stats.Store(stats)
+func (t *Wrapper) SetConnectionCounter(fn netlogfunc.ConnectionCounter) {
+	if buildfeatures.HasNetLog {
+		t.connCounter.Store(fn)
+	}
 }
 
 var (
@@ -1491,5 +1519,18 @@ var (
 )
 
 func (t *Wrapper) InstallCaptureHook(cb packet.CaptureCallback) {
+	if !buildfeatures.HasCapture {
+		return
+	}
 	t.captureHook.Store(cb)
+}
+
+func updateConnCounter(update netlogfunc.ConnectionCounter, b []byte, receive bool) {
+	var p packet.Parsed
+	p.Decode(b)
+	if receive {
+		update(p.IPProto, p.Dst, p.Src, 1, len(b), true)
+	} else {
+		update(p.IPProto, p.Src, p.Dst, 1, len(b), false)
+	}
 }

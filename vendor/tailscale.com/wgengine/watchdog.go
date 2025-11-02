@@ -1,7 +1,7 @@
 // Copyright (c) Tailscale Inc & AUTHORS
 // SPDX-License-Identifier: BSD-3-Clause
 
-//go:build !js
+//go:build !js && !ts_omit_debug
 
 package wgengine
 
@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"tailscale.com/envknob"
+	"tailscale.com/feature/buildfeatures"
 	"tailscale.com/ipn/ipnstate"
 	"tailscale.com/net/dns"
 	"tailscale.com/net/packet"
@@ -163,6 +164,9 @@ func (e *watchdogEngine) Done() <-chan struct{} {
 }
 
 func (e *watchdogEngine) InstallCaptureHook(cb packet.CaptureCallback) {
+	if !buildfeatures.HasCapture {
+		return
+	}
 	e.wrap.InstallCaptureHook(cb)
 }
 

@@ -60,6 +60,7 @@ type System struct {
 	DriveForLocal  SubSystem[drive.FileSystemForLocal]
 	DriveForRemote SubSystem[drive.FileSystemForRemote]
 	PolicyClient   SubSystem[policyclient.Client]
+	HealthTracker  SubSystem[*health.Tracker]
 
 	// InitialConfig is initial server config, if any.
 	// It is nil if the node is not in declarative mode.
@@ -74,22 +75,37 @@ type System struct {
 	controlKnobs controlknobs.Knobs
 	proxyMap     proxymap.Mapper
 
-	healthTracker       health.Tracker
 	userMetricsRegistry usermetric.Registry
 }
 
 // NewSystem constructs a new otherwise-empty [System] with a
 // freshly-constructed event bus populated.
-func NewSystem() *System {
+func NewSystem() *System { return NewSystemWithBus(eventbus.New()) }
+
+// NewSystemWithBus constructs a new otherwise-empty [System] with an
+// eventbus provided by the caller. The provided bus must not be nil.
+// This is mainly intended for testing; for production use call [NewBus].
+func NewSystemWithBus(bus *eventbus.Bus) *System {
+	if bus == nil {
+		panic("nil eventbus")
+	}
 	sys := new(System)
-	sys.Set(eventbus.New())
+	sys.Set(bus)
+
+	tracker := health.NewTracker(bus)
+	sys.Set(tracker)
+
 	return sys
 }
+
+// LocalBackend is a fake name for *ipnlocal.LocalBackend to avoid an import cycle.
+type LocalBackend = any
 
 // NetstackImpl is the interface that *netstack.Impl implements.
 // It's an interface for circular dependency reasons: netstack.Impl
 // references LocalBackend, and LocalBackend has a tsd.System.
 type NetstackImpl interface {
+	Start(LocalBackend) error
 	UpdateNetstackIPs(*netmap.NetworkMap)
 }
 
@@ -130,6 +146,8 @@ func (s *System) Set(v any) {
 		s.DriveForRemote.Set(v)
 	case policyclient.Client:
 		s.PolicyClient.Set(v)
+	case *health.Tracker:
+		s.HealthTracker.Set(v)
 	default:
 		panic(fmt.Sprintf("unknown type %T", v))
 	}
@@ -157,11 +175,6 @@ func (s *System) ControlKnobs() *controlknobs.Knobs {
 // ProxyMapper returns the ephemeral ip:port mapper.
 func (s *System) ProxyMapper() *proxymap.Mapper {
 	return &s.proxyMap
-}
-
-// HealthTracker returns the system health tracker.
-func (s *System) HealthTracker() *health.Tracker {
-	return &s.healthTracker
 }
 
 // UserMetricsRegistry returns the system usermetrics.
