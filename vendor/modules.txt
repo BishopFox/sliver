@@ -1095,7 +1095,7 @@ modernc.org/sqlite/lib
 ## explicit; go 1.23.0
 mvdan.cc/sh/v3/fileutil
 mvdan.cc/sh/v3/syntax
-# tailscale.com v1.90.2
+# tailscale.com v1.90.6
 ## explicit; go 1.25.3
 tailscale.com
 tailscale.com/appc
