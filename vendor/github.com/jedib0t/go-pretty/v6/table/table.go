@@ -28,6 +28,8 @@ type Table struct {
 	// columnConfigMap stores the custom-configuration by column
 	// number and is generated before rendering
 	columnConfigMap map[int]ColumnConfig
+	// directionModifier caches the direction modifier string to avoid repeated calls
+	directionModifier string
 	// firstRowOfPage tells if the renderer is on the first row of a page?
 	firstRowOfPage bool
 	// htmlCSSClass stores the HTML CSS Class to use on the <table> node
@@ -305,12 +307,12 @@ func (t *Table) SetRowPainter(painter interface{}) {
 	t.rowPainterWithAttributes = nil
 
 	// if called as SetRowPainter(RowPainter(func...))
-	switch painter.(type) {
+	switch p := painter.(type) {
 	case RowPainter:
-		t.rowPainter = painter.(RowPainter)
+		t.rowPainter = p
 		return
 	case RowPainterWithAttributes:
-		t.rowPainterWithAttributes = painter.(RowPainterWithAttributes)
+		t.rowPainterWithAttributes = p
 		return
 	}
 

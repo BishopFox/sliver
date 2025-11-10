@@ -27,7 +27,11 @@ func areColorsOnInTheEnv() bool {
 	if os.Getenv("FORCE_COLOR") == "1" {
 		return true
 	}
-	return os.Getenv("NO_COLOR") == "" || os.Getenv("NO_COLOR") == "0"
+	if os.Getenv("NO_COLOR") == "" || os.Getenv("NO_COLOR") == "0" {
+		return os.Getenv("TERM") != "dumb"
+	}
+
+	return false
 }
 
 // The logic here is inspired from github.com/fatih/color; the following is

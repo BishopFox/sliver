@@ -3,42 +3,7 @@
 
 Pretty-print tables into ASCII/Unicode strings.
 
-  - Add Rows one-by-one or as a group (`AppendRow`/`AppendRows`)
-  - Add Header(s) and Footer(s) (`AppendHeader`/`AppendFooter`)
-  - Add a Separator manually after any Row (`AppendSeparator`)
-  - Auto Index Rows (1, 2, 3 ...) and Columns (A, B, C, ...) (`SetAutoIndex`)
-  - Auto Merge (_not supported in CSV/Markdown/TSV modes_)
-    - Cells in a Row (`RowConfig.AutoMerge`)
-    - Columns (`ColumnConfig.AutoMerge`) (_not supported in HTML mode_)
-  - Limit the length of
-    - Rows (`SetAllowedRowLength`)
-    - Columns (`ColumnConfig.Width*`)
-  - Auto-size Rows (`Style().Size.WidthMin` and `Style().Size.WidthMax`)
-  - Page results by a specified number of Lines (`SetPageSize`)
-  - Alignment - Horizontal & Vertical
-    - Auto (horizontal) Align (numeric columns aligned Right)
-    - Custom (horizontal) Align per column (`ColumnConfig.Align*`)
-    - Custom (vertical) VAlign per column with multi-line cell support (`ColumnConfig.VAlign*`)
-  - Mirror output to an `io.Writer` (ex. `os.StdOut`) (`SetOutputMirror`)
-  - Sort by one or more Columns (`SortBy`)
-  - Suppress/hide columns with no content (`SuppressEmptyColumns`) 
-  - Suppress trailing spaces in the last column (`SupressTrailingSpaces`) 
-  - Customizable Cell rendering per Column (`ColumnConfig.Transformer*`)
-  - Hide any columns that you don't want displayed (`ColumnConfig.Hidden`)
-  - Reset Headers/Rows/Footers at will to reuse the same Table Writer (`Reset*`)
-  - Completely customizable styles (`SetStyle`/`Style`)
-    - Many ready-to-use styles: [style.go](style.go)
-    - Colorize Headers/Body/Footers using [../text/color.go](../text/color.go)
-    - Custom text-case for Headers/Body/Footers
-    - Enable separators between each row
-    - Render table without a Border
-    - and a lot more...
-  - Render as:
-    - (ASCII/Unicode) Table
-    - CSV
-    - HTML Table (with custom CSS Class)
-    - Markdown Table
-    - TSV
+## Sample Table Rendering
 
 ```
 +---------------------------------------------------------------------+
@@ -57,14 +22,110 @@ Pretty-print tables into ASCII/Unicode strings.
 A demonstration of all the capabilities can be found here:
 [../cmd/demo-table](../cmd/demo-table)
 
-If you want very specific examples, read ahead.
+If you want very specific examples, look at the [Examples](#examples) section.
 
-**Hint**: I've tried to ensure that almost all supported use-cases are covered
-by unit-tests and that they print the table rendered. Run
-`go test -v github.com/jedib0t/go-pretty/v6/table` to see the test outputs and
-help you figure out how to do something.
+## Features
 
-# Examples
+### Core Table Building
+
+  - Add Rows one-by-one or as a group (`AppendRow`/`AppendRows`)
+  - Add Header(s) and Footer(s) (`AppendHeader`/`AppendFooter`)
+  - Add a Separator manually after any Row (`AppendSeparator`)
+  - Add Title above the table (`SetTitle`)
+  - Add Caption below the table (`SetCaption`)
+  - Import 1D or 2D arrays/grids as rows (`ImportGrid`)
+  - Reset Headers/Rows/Footers at will to reuse the same Table Writer (`Reset*`)
+
+### Indexing & Navigation
+
+  - Auto Index Rows (1, 2, 3 ...) and Columns (A, B, C, ...) (`SetAutoIndex`)
+  - Set which column is the index column (`SetIndexColumn`)
+  - Pager interface for navigating through paged output (`Pager()`)
+    - `GoTo(pageNum)` - Jump to specific page
+    - `Next()` - Move to next page
+    - `Prev()` - Move to previous page
+    - `Location()` - Get current page number
+    - `Render()` - Render current page
+    - `SetOutputMirror()` - Mirror output to io.Writer
+
+### Auto Merge
+
+  - Auto Merge cells (_not supported in CSV/Markdown/TSV modes_)
+    - Cells in a Row (`RowConfig.AutoMerge`)
+    - Columns (`ColumnConfig.AutoMerge`) (_not supported in HTML mode_)
+    - Custom alignment for merged cells (`RowConfig.AutoMergeAlign`)
+
+### Size & Width Control
+
+  - Limit the length of Rows (`SetAllowedRowLength` or `Style().Size.WidthMax`)
+  - Auto-size Rows (`Style().Size.WidthMin` and `Style().Size.WidthMax`)
+  - Column width control (`ColumnConfig.WidthMin` and `ColumnConfig.WidthMax`)
+  - Custom width enforcement functions (`ColumnConfig.WidthMaxEnforcer`)
+    - Default: `text.WrapText`
+    - Options: `text.WrapSoft`, `text.WrapHard`, `text.Trim`, or custom function
+
+### Alignment
+
+  - **Horizontal Alignment**
+    - Auto (numeric columns aligned Right, text aligned Left)
+    - Custom per column (`ColumnConfig.Align`, `AlignHeader`, `AlignFooter`)
+    - Options: Left, Center, Right, Justify, Auto
+  - **Vertical Alignment**
+    - Custom per column with multi-line cell support (`ColumnConfig.VAlign`, `VAlignHeader`, `VAlignFooter`)
+    - Options: Top, Middle, Bottom
+
+### Sorting & Filtering
+
+  - Sort by one or more Columns (`SortBy`)
+    - Ascending or Descending mode per column
+    - Multiple column sorting support
+  - Suppress/hide columns with no content (`SuppressEmptyColumns`)
+  - Hide specific columns (`ColumnConfig.Hidden`)
+  - Suppress trailing spaces in the last column (`SuppressTrailingSpaces`)
+
+### Customization & Styling
+
+  - **Row Coloring**
+    - Custom row painter function (`SetRowPainter`)
+    - Row painter with attributes (`RowPainterWithAttributes`)
+    - Access to row number and sorted position
+  - **Cell Transformation**
+    - Customizable Cell rendering per Column (`ColumnConfig.Transformer`, `TransformerHeader`, `TransformerFooter`)
+    - Use built-in transformers from `text` package (Number, JSON, Time, URL, etc.)
+  - **Column Styling**
+    - Per-column colors (`ColumnConfig.Colors`, `ColorsHeader`, `ColorsFooter`)
+    - Per-column alignment (horizontal and vertical)
+    - Per-column width constraints
+  - **Completely customizable styles** (`SetStyle`/`Style`)
+    - Many ready-to-use styles: [style.go](style.go)
+      - `StyleDefault` - Classic ASCII borders
+      - `StyleLight` - Light box-drawing characters
+      - `StyleBold` - Bold box-drawing characters
+      - `StyleDouble` - Double box-drawing characters
+      - `StyleRounded` - Rounded box-drawing characters
+      - `StyleColoredBright` - Bright colors, no borders
+      - `StyleColoredDark` - Dark colors, no borders
+      - Many more colored variants (Blue, Cyan, Green, Magenta, Red, Yellow)
+    - Colorize Headers/Body/Footers using [../text/color.go](../text/color.go)
+    - Custom text-case for Headers/Body/Footers
+    - Enable/disable separators between rows
+    - Render table with or without borders
+    - Customize box-drawing characters
+    - Title and caption styling options
+    - HTML rendering options (CSS class, escaping, newlines)
+    - Bidirectional text support (`Style().Format.Direction`)
+
+### Output Formats
+
+  - **Render as:**
+    - (ASCII/Unicode) Table - Human-readable pretty format
+    - CSV - Comma-separated values
+    - HTML Table - With custom CSS Class and options
+    - Markdown Table - Markdown-compatible format
+    - TSV - Tab-separated values
+  - Mirror output to an `io.Writer` (ex. `os.StdOut`) (`SetOutputMirror`)
+
+## Examples
 
 All the examples below are going to start with the following block, although
 nothing except a single Row is mandatory for the `Render()` function to render
@@ -106,7 +167,7 @@ Running the above will result in:
 +-----+------------+-----------+--------+-----------------------------+
 ```
 
-## Styles
+### Styles
 
 You can customize almost every single thing about the table above. The previous
 example just defaulted to `StyleDefault` during `Render()`. You can use a
@@ -143,7 +204,7 @@ to get:
 
 <img src="images/table-StyleColoredBright.png" width="640px" alt="Colored Table"/>
 
-### Roll your own Style
+#### Roll your own Style
 
 You can also roll your own style:
 ```golang
@@ -198,7 +259,7 @@ Or you can use one of the ready-to-use Styles, and just make a few tweaks:
     t.Style().Options.DrawBorder = false
 ```
 
-## Auto-Merge
+### Auto-Merge
 
 You can auto-merge cells horizontally and vertically, but you have request for
 it specifically for each row/column using `RowConfig` or `ColumnConfig`.
@@ -255,10 +316,22 @@ to get:
 └───┴─────────┴────────┴───────────┴───────────┴─────┴─────┘
 ```
 
-## Paging
+### Paging
 
-You can limit then number of lines rendered in a single "Page". This logic
-can handle rows with multiple lines too. Here is a simple example:
+You can limit the number of lines rendered in a single "Page". This logic
+can handle rows with multiple lines too. The recommended way is to use the
+`Pager()` interface:
+
+```golang
+    pager := t.Pager(PageSize(1))
+    pager.Render()  // Render first page
+    pager.Next()    // Move to next page and render
+    pager.Prev()    // Move to previous page and render
+    pager.GoTo(3)   // Jump to page 3
+    pager.Location() // Get current page number
+```
+
+Or use the deprecated `SetPageSize()` method for simple cases:
 ```golang
     t.SetPageSize(1)
     t.Render()
@@ -290,7 +363,7 @@ to get:
 +-----+------------+-----------+--------+-----------------------------+
 ```
 
-## Sorting
+### Sorting
 
 Sorting can be done on one or more columns. The following code will make the
 rows be sorted first by "First Name" and then by "Last Name" (in case of similar
@@ -302,7 +375,7 @@ rows be sorted first by "First Name" and then by "Last Name" (in case of similar
     })
 ```
 
-## Wrapping (or) Row/Column Width restrictions
+### Wrapping (or) Row/Column Width restrictions
 
 You can restrict the maximum (text) width for a Row:
 ```golang
@@ -323,7 +396,7 @@ to get:
 +-----+------------+-----------+--------+------- ~
 ```
 
-## Column Control - Alignment, Colors, Width and more
+### Column Control - Alignment, Colors, Width and more
 
 You can control a lot of things about individual cells/columns which overrides
 global properties/styles using the `SetColumnConfig()` interface:
@@ -360,11 +433,11 @@ global properties/styles using the `SetColumnConfig()` interface:
     })
 ```
 
-## Render As ...
+### Render As ...
 
 Tables can be rendered in other common formats such as:
 
-### ... CSV
+#### ... CSV
 
 ```golang
     t.RenderCSV()
@@ -378,7 +451,7 @@ to get:
 ,,Total,10000,
 ```
 
-### ... HTML Table
+#### ... HTML Table
 
 ```golang
     t.Style().HTML = table.HTMLOptions{
@@ -436,7 +509,7 @@ to get:
 </table>
 ```
 
-### ... Markdown Table
+#### ... Markdown Table
 
 ```golang
     t.RenderMarkdown()

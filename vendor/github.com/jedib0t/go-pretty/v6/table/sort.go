@@ -63,7 +63,7 @@ func (t *Table) getSortedRowIndices() []int {
 		sortedIndices[idx] = idx
 	}
 
-	if t.sortBy != nil && len(t.sortBy) > 0 {
+	if len(t.sortBy) > 0 {
 		sort.Sort(rowsSorter{
 			rows:          t.rows,
 			sortBy:        t.parseSortBy(t.sortBy),
