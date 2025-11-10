@@ -20,11 +20,11 @@ type (
 type _ErrorCode uint32
 
 func (e _ErrorCode) Error() string {
-	return util.ErrorCodeString(uint32(e))
+	return util.ErrorCodeString(e)
 }
 
 const (
-	_OK                      _ErrorCode = util.OK
+	_OK                                 = util.OK
 	_ERROR                   _ErrorCode = util.ERROR
 	_PERM                    _ErrorCode = util.PERM
 	_BUSY                    _ErrorCode = util.BUSY

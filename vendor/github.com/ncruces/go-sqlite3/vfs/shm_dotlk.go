@@ -59,16 +59,16 @@ func (s *vfsShm) Close() error {
 	}
 
 	if err := dotlk.Unlock(s.path); err != nil {
-		return _IOERR_UNLOCK
+		return sysError{err, _IOERR_UNLOCK}
 	}
 	delete(vfsShmList, s.path)
 	s.vfsShmParent = nil
 	return nil
 }
 
-func (s *vfsShm) shmOpen() _ErrorCode {
+func (s *vfsShm) shmOpen() error {
 	if s.vfsShmParent != nil {
-		return _OK
+		return nil
 	}
 
 	vfsShmListMtx.Lock()
@@ -78,7 +78,7 @@ func (s *vfsShm) shmOpen() _ErrorCode {
 	if g, ok := vfsShmList[s.path]; ok {
 		s.vfsShmParent = g
 		g.refs++
-		return _OK
+		return nil
 	}
 
 	// Dead man's switch.
@@ -87,16 +87,16 @@ func (s *vfsShm) shmOpen() _ErrorCode {
 		return _BUSY
 	}
 	if err != nil {
-		return _IOERR_LOCK
+		return sysError{err, _IOERR_LOCK}
 	}
 
 	// Add the new shared buffer.
 	s.vfsShmParent = &vfsShmParent{}
 	vfsShmList[s.path] = s.vfsShmParent
-	return _OK
+	return nil
 }
 
-func (s *vfsShm) shmMap(ctx context.Context, mod api.Module, id, size int32, extend bool) (ptr_t, _ErrorCode) {
+func (s *vfsShm) shmMap(ctx context.Context, mod api.Module, id, size int32, extend bool) (ptr_t, error) {
 	if size != _WALINDEX_PGSZ {
 		return 0, _IOERR_SHMMAP
 	}
@@ -105,8 +105,8 @@ func (s *vfsShm) shmMap(ctx context.Context, mod api.Module, id, size int32, ext
 		s.free = mod.ExportedFunction("sqlite3_free")
 		s.alloc = mod.ExportedFunction("sqlite3_malloc64")
 	}
-	if rc := s.shmOpen(); rc != _OK {
-		return 0, rc
+	if err := s.shmOpen(); err != nil {
+		return 0, err
 	}
 
 	s.Lock()
@@ -116,7 +116,7 @@ func (s *vfsShm) shmMap(ctx context.Context, mod api.Module, id, size int32, ext
 	// Extend shared memory.
 	if int(id) >= len(s.shared) {
 		if !extend {
-			return 0, _OK
+			return 0, nil
 		}
 		s.shared = append(s.shared, make([][_WALINDEX_PGSZ]byte, int(id)-len(s.shared)+1)...)
 	}
@@ -140,16 +140,20 @@ func (s *vfsShm) shmMap(ctx context.Context, mod api.Module, id, size int32, ext
 	}
 
 	s.shadow[0][4] = 1
-	return s.ptrs[id], _OK
+	return s.ptrs[id], nil
 }
 
-func (s *vfsShm) shmLock(offset, n int32, flags _ShmFlag) (rc _ErrorCode) {
+func (s *vfsShm) shmLock(offset, n int32, flags _ShmFlag) (err error) {
+	if s.vfsShmParent == nil {
+		return _IOERR_SHMLOCK
+	}
+
 	s.Lock()
 	defer s.Unlock()
 
 	switch {
 	case flags&_SHM_LOCK != 0:
-		defer s.shmAcquire(&rc)
+		defer s.shmAcquire(&err)
 	case flags&_SHM_EXCLUSIVE != 0:
 		s.shmRelease()
 	}

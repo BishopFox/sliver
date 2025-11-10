@@ -33,7 +33,7 @@ require (
 	github.com/moloch--/asciicast v0.1.1
 	github.com/moloch--/memmod v0.0.0-20230225130813-fd77d905589e
 	github.com/moloch--/sgn v0.0.4
-	github.com/ncruces/go-sqlite3 v0.29.1
+	github.com/ncruces/go-sqlite3 v0.30.1
 	github.com/reeflective/console v0.1.25
 	github.com/reeflective/readline v1.1.3
 	github.com/rsteube/carapace v0.50.2
@@ -41,7 +41,7 @@ require (
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1
-	github.com/tetratelabs/wazero v1.9.0
+	github.com/tetratelabs/wazero v1.10.0
 	github.com/things-go/go-socks5 v0.1.0
 	github.com/ulikunitz/xz v0.5.15
 	github.com/xlab/treeprint v1.2.0
@@ -49,7 +49,7 @@ require (
 	golang.org/x/crypto v0.43.0
 	golang.org/x/exp v0.0.0-20251002181428-27f1f14c8bb9
 	golang.org/x/net v0.46.0
-	golang.org/x/sys v0.37.0
+	golang.org/x/sys v0.38.0
 	golang.org/x/term v0.36.0
 	golang.org/x/text v0.30.0
 	golang.zx2c4.com/wireguard v0.0.0-20250521234502-f333402bd9cb

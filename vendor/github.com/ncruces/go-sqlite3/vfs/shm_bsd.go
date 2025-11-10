@@ -3,6 +3,7 @@
 package vfs
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"io"
@@ -68,9 +69,9 @@ func (s *vfsShm) Close() error {
 	panic(util.AssertErr())
 }
 
-func (s *vfsShm) shmOpen() (rc _ErrorCode) {
+func (s *vfsShm) shmOpen() (err error) {
 	if s.vfsShmParent != nil {
-		return _OK
+		return nil
 	}
 
 	vfsShmListMtx.Lock()
@@ -80,7 +81,7 @@ func (s *vfsShm) shmOpen() (rc _ErrorCode) {
 	// Closing it would release all POSIX locks on it.
 	fi, err := os.Stat(s.path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return _IOERR_FSTAT
+		return sysError{err, _IOERR_FSTAT}
 	}
 
 	// Find a shared file, increase the reference count.
@@ -88,7 +89,7 @@ func (s *vfsShm) shmOpen() (rc _ErrorCode) {
 		if g != nil && os.SameFile(fi, g.info) {
 			s.vfsShmParent = g
 			g.refs++
-			return _OK
+			return nil
 		}
 	}
 
@@ -96,34 +97,34 @@ func (s *vfsShm) shmOpen() (rc _ErrorCode) {
 	f, err := os.OpenFile(s.path,
 		os.O_RDWR|os.O_CREATE|_O_NOFOLLOW, 0666)
 	if err != nil {
-		return _CANTOPEN
+		return sysError{err, _CANTOPEN}
 	}
 	defer func() {
-		if rc != _OK {
+		if err != nil {
 			f.Close()
 		}
 	}()
 
 	// Dead man's switch.
-	if lock, rc := osTestLock(f, _SHM_DMS, 1); rc != _OK {
-		return _IOERR_LOCK
+	if lock, err := osTestLock(f, _SHM_DMS, 1, _IOERR_LOCK); err != nil {
+		return err
 	} else if lock == unix.F_WRLCK {
 		return _BUSY
 	} else if lock == unix.F_UNLCK {
-		if rc := osWriteLock(f, _SHM_DMS, 1); rc != _OK {
-			return rc
+		if err := osWriteLock(f, _SHM_DMS, 1); err != nil {
+			return err
 		}
 		if err := f.Truncate(0); err != nil {
-			return _IOERR_SHMOPEN
+			return sysError{err, _IOERR_SHMOPEN}
 		}
 	}
-	if rc := osReadLock(f, _SHM_DMS, 1); rc != _OK {
-		return rc
+	if err := osReadLock(f, _SHM_DMS, 1); err != nil {
+		return err
 	}
 
 	fi, err = f.Stat()
 	if err != nil {
-		return _IOERR_FSTAT
+		return sysError{err, _IOERR_FSTAT}
 	}
 
 	// Add the new shared file.
@@ -134,53 +135,57 @@ func (s *vfsShm) shmOpen() (rc _ErrorCode) {
 	for i, g := range vfsShmList {
 		if g == nil {
 			vfsShmList[i] = s.vfsShmParent
-			return _OK
+			return nil
 		}
 	}
 	vfsShmList = append(vfsShmList, s.vfsShmParent)
-	return _OK
+	return nil
 }
 
-func (s *vfsShm) shmMap(ctx context.Context, mod api.Module, id, size int32, extend bool) (ptr_t, _ErrorCode) {
+func (s *vfsShm) shmMap(ctx context.Context, mod api.Module, id, size int32, extend bool) (ptr_t, error) {
 	// Ensure size is a multiple of the OS page size.
 	if int(size)&(unix.Getpagesize()-1) != 0 {
 		return 0, _IOERR_SHMMAP
 	}
 
-	if rc := s.shmOpen(); rc != _OK {
-		return 0, rc
+	if err := s.shmOpen(); err != nil {
+		return 0, err
 	}
 
 	// Check if file is big enough.
 	o, err := s.Seek(0, io.SeekEnd)
 	if err != nil {
-		return 0, _IOERR_SHMSIZE
+		return 0, sysError{err, _IOERR_SHMSIZE}
 	}
 	if n := (int64(id) + 1) * int64(size); n > o {
 		if !extend {
-			return 0, _OK
+			return 0, nil
 		}
-		if osAllocate(s.File, n) != nil {
-			return 0, _IOERR_SHMSIZE
+		if err := osAllocate(s.File, n); err != nil {
+			return 0, sysError{err, _IOERR_SHMSIZE}
 		}
 	}
 
 	r, err := util.MapRegion(ctx, mod, s.File, int64(id)*int64(size), size, false)
 	if err != nil {
-		return 0, _IOERR_SHMMAP
+		return 0, err
 	}
 	s.regions = append(s.regions, r)
-	return r.Ptr, _OK
+	return r.Ptr, nil
 }
 
-func (s *vfsShm) shmLock(offset, n int32, flags _ShmFlag) _ErrorCode {
+func (s *vfsShm) shmLock(offset, n int32, flags _ShmFlag) error {
+	if s.vfsShmParent == nil {
+		return _IOERR_SHMLOCK
+	}
+
 	s.Lock()
 	defer s.Unlock()
 
 	// Check if we can obtain/release locks locally.
-	rc := s.shmMemLock(offset, n, flags)
-	if rc != _OK {
-		return rc
+	err := s.shmMemLock(offset, n, flags)
+	if err != nil {
+		return err
 	}
 
 	// Obtain/release the appropriate file locks.
@@ -192,36 +197,38 @@ func (s *vfsShm) shmLock(offset, n int32, flags _ShmFlag) _ErrorCode {
 		for i := begin; i < end; i++ {
 			if s.vfsShmParent.lock[i] != 0 {
 				if i > begin {
-					rc |= osUnlock(s.File, _SHM_BASE+int64(begin), int64(i-begin))
+					err = cmp.Or(err,
+						osUnlock(s.File, _SHM_BASE+int64(begin), int64(i-begin)))
 				}
 				begin = i + 1
 			}
 		}
 		if end > begin {
-			rc |= osUnlock(s.File, _SHM_BASE+int64(begin), int64(end-begin))
+			err = cmp.Or(err,
+				osUnlock(s.File, _SHM_BASE+int64(begin), int64(end-begin)))
 		}
-		return rc
+		return err
 	case flags&_SHM_SHARED != 0:
 		// Acquiring a new shared lock on the file is only necessary
 		// if there was a new shared lock in the range.
 		for i := offset; i < offset+n; i++ {
 			if s.vfsShmParent.lock[i] == 1 {
-				rc = osReadLock(s.File, _SHM_BASE+int64(offset), int64(n))
+				err = osReadLock(s.File, _SHM_BASE+int64(offset), int64(n))
 				break
 			}
 		}
 	case flags&_SHM_EXCLUSIVE != 0:
 		// Acquiring an exclusive lock on the file is always necessary.
-		rc = osWriteLock(s.File, _SHM_BASE+int64(offset), int64(n))
+		err = osWriteLock(s.File, _SHM_BASE+int64(offset), int64(n))
 	default:
 		panic(util.AssertErr())
 	}
 
-	// Release the local locks we had acquired.
-	if rc != _OK {
+	if err != nil {
+		// Release the local locks we had acquired.
 		s.shmMemLock(offset, n, flags^(_SHM_UNLOCK|_SHM_LOCK))
 	}
-	return rc
+	return err
 }
 
 func (s *vfsShm) shmUnmap(delete bool) {

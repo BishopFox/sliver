@@ -5,12 +5,14 @@ import (
 	"context"
 	"math/bits"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"unsafe"
 
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/experimental"
 
 	"github.com/ncruces/go-sqlite3/internal/util"
 	"github.com/ncruces/go-sqlite3/vfs"
@@ -79,7 +81,9 @@ func compileSQLite() {
 		return
 	}
 
-	instance.compiled, instance.err = instance.runtime.CompileModule(ctx, bin)
+	instance.compiled, instance.err = instance.runtime.CompileModule(
+		experimental.WithCompilationWorkers(ctx, runtime.GOMAXPROCS(0)/4),
+		bin)
 }
 
 type sqlite struct {
@@ -125,14 +129,15 @@ func (sqlt *sqlite) error(rc res_t, handle ptr_t, sql ...string) error {
 		panic(util.OOMErr)
 	}
 
+	var msg, query string
 	if handle != 0 {
-		var msg, query string
 		if ptr := ptr_t(sqlt.call("sqlite3_errmsg", stk_t(handle))); ptr != 0 {
 			msg = util.ReadString(sqlt.mod, ptr, _MAX_LENGTH)
-			if msg == "not an error" {
+			msg = strings.TrimPrefix(msg, "sqlite3: ")
+			msg = strings.TrimPrefix(msg, util.ErrorCodeString(rc)[len("sqlite3: "):])
+			msg = strings.TrimPrefix(msg, ": ")
+			if msg == "" || msg == "not an error" {
 				msg = ""
-			} else {
-				msg = strings.TrimPrefix(msg, util.ErrorCodeString(uint32(rc))[len("sqlite3: "):])
 			}
 		}
 
@@ -141,10 +146,16 @@ func (sqlt *sqlite) error(rc res_t, handle ptr_t, sql ...string) error {
 				query = sql[0][i:]
 			}
 		}
+	}
 
-		if msg != "" || query != "" {
-			return &Error{code: rc, msg: msg, sql: query}
-		}
+	var sys error
+	switch ErrorCode(rc) {
+	case CANTOPEN, IOERR:
+		sys = util.GetSystemError(sqlt.ctx)
+	}
+
+	if sys != nil || msg != "" || query != "" {
+		return &Error{code: rc, sys: sys, msg: msg, sql: query}
 	}
 	return xErrorCode(rc)
 }

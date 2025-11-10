@@ -27,7 +27,10 @@ type vfsShm struct {
 
 var _ blockingSharedMemory = &vfsShm{}
 
-func (s *vfsShm) shmOpen() _ErrorCode {
+func (s *vfsShm) shmOpen() error {
+	if s.fileLock {
+		return nil
+	}
 	if s.File == nil {
 		f, err := os.OpenFile(s.path,
 			os.O_RDWR|os.O_CREATE|_O_NOFOLLOW, 0666)
@@ -37,17 +40,15 @@ func (s *vfsShm) shmOpen() _ErrorCode {
 			s.readOnly = true
 		}
 		if err != nil {
-			return _CANTOPEN
+			return sysError{err, _CANTOPEN}
 		}
+		s.fileLock = false
 		s.File = f
-	}
-	if s.fileLock {
-		return _OK
 	}
 
 	// Dead man's switch.
-	if lock, rc := osTestLock(s.File, _SHM_DMS, 1); rc != _OK {
-		return _IOERR_LOCK
+	if lock, err := osTestLock(s.File, _SHM_DMS, 1, _IOERR_LOCK); err != nil {
+		return err
 	} else if lock == unix.F_WRLCK {
 		return _BUSY
 	} else if lock == unix.F_UNLCK {
@@ -61,54 +62,57 @@ func (s *vfsShm) shmOpen() _ErrorCode {
 		// but only downgrade it to a shared lock.
 		// So no point in blocking here.
 		// The call below to obtain the shared DMS lock may use a blocking lock.
-		if rc := osWriteLock(s.File, _SHM_DMS, 1, 0); rc != _OK {
-			return rc
+		if err := osWriteLock(s.File, _SHM_DMS, 1, 0); err != nil {
+			return err
 		}
 		if err := s.Truncate(0); err != nil {
-			return _IOERR_SHMOPEN
+			return sysError{err, _IOERR_SHMOPEN}
 		}
 	}
-	rc := osReadLock(s.File, _SHM_DMS, 1, time.Millisecond)
-	s.fileLock = rc == _OK
-	return rc
+	err := osReadLock(s.File, _SHM_DMS, 1, time.Millisecond)
+	s.fileLock = err == nil
+	return err
 }
 
-func (s *vfsShm) shmMap(ctx context.Context, mod api.Module, id, size int32, extend bool) (ptr_t, _ErrorCode) {
+func (s *vfsShm) shmMap(ctx context.Context, mod api.Module, id, size int32, extend bool) (ptr_t, error) {
 	// Ensure size is a multiple of the OS page size.
 	if int(size)&(unix.Getpagesize()-1) != 0 {
 		return 0, _IOERR_SHMMAP
 	}
 
-	if rc := s.shmOpen(); rc != _OK {
-		return 0, rc
+	if err := s.shmOpen(); err != nil {
+		return 0, err
 	}
 
 	// Check if file is big enough.
 	o, err := s.Seek(0, io.SeekEnd)
 	if err != nil {
-		return 0, _IOERR_SHMSIZE
+		return 0, sysError{err, _IOERR_SHMSIZE}
 	}
 	if n := (int64(id) + 1) * int64(size); n > o {
 		if !extend {
-			return 0, _OK
+			return 0, nil
 		}
-		if s.readOnly || osAllocate(s.File, n) != nil {
+		if s.readOnly {
 			return 0, _IOERR_SHMSIZE
+		}
+		if err := osAllocate(s.File, n); err != nil {
+			return 0, sysError{err, _IOERR_SHMSIZE}
 		}
 	}
 
 	r, err := util.MapRegion(ctx, mod, s.File, int64(id)*int64(size), size, s.readOnly)
 	if err != nil {
-		return 0, _IOERR_SHMMAP
+		return 0, err
 	}
 	s.regions = append(s.regions, r)
 	if s.readOnly {
 		return r.Ptr, _READONLY
 	}
-	return r.Ptr, _OK
+	return r.Ptr, nil
 }
 
-func (s *vfsShm) shmLock(offset, n int32, flags _ShmFlag) _ErrorCode {
+func (s *vfsShm) shmLock(offset, n int32, flags _ShmFlag) error {
 	// Argument check.
 	switch {
 	case n <= 0:
@@ -127,6 +131,10 @@ func (s *vfsShm) shmLock(offset, n int32, flags _ShmFlag) _ErrorCode {
 		//
 	default:
 		panic(util.AssertErr())
+	}
+
+	if s.File == nil {
+		return _IOERR_SHMLOCK
 	}
 
 	var timeout time.Duration
@@ -163,6 +171,7 @@ func (s *vfsShm) shmUnmap(delete bool) {
 	}
 	s.Close()
 	s.File = nil
+	s.fileLock = false
 }
 
 func (s *vfsShm) shmBarrier() {

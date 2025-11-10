@@ -442,6 +442,22 @@ func (c *conn) CheckNamedValue(arg *driver.NamedValue) error {
 	return nil
 }
 
+// Deprecated: for Litestream use only; may be removed at any time.
+func (c *conn) FileControlPersistWAL(schema string, mode int) (int, error) {
+	// notest
+	arg := make([]any, 1)
+	if mode >= 0 {
+		arg[0] = mode > 0
+	} else {
+		arg = arg[:0]
+	}
+	res, err := c.Conn.FileControl(schema, sqlite3.FCNTL_PERSIST_WAL, arg...)
+	if res == true {
+		return 1, err
+	}
+	return 0, err
+}
+
 type stmt struct {
 	*sqlite3.Stmt
 	tmWrite sqlite3.TimeFormat
