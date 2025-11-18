@@ -19,8 +19,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			TasksCmd(cmd, con, args)
 		},
-		GroupID:     consts.SliverCoreHelpGroup,
-		Annotations: flags.RestrictTargets(consts.BeaconCmdsFilter),
+		GroupID: consts.SliverCoreHelpGroup,
 	}
 	flags.Bind("tasks", true, tasksCmd, func(f *pflag.FlagSet) {
 		f.IntP("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")

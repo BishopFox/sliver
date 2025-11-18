@@ -33,7 +33,7 @@ import (
 
 // TasksCmd - Manage beacon tasks.
 func TasksCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
-	beacon := con.ActiveTarget.GetBeaconInteractive()
+	beacon := con.ActiveTarget.GetSessionOrBeaconInteractive()
 	if beacon == nil {
 		return
 	}

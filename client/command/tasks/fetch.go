@@ -47,7 +47,7 @@ import (
 
 // TasksFetchCmd - Manage beacon tasks.
 func TasksFetchCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
-	beacon := con.ActiveTarget.GetBeaconInteractive()
+	beacon := con.ActiveTarget.GetSessionOrBeaconInteractive()
 	if beacon == nil {
 		return
 	}
