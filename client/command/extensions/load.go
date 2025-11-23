@@ -32,10 +32,12 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/help"
+	"github.com/bishopfox/sliver/client/command/loot"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/core"
@@ -378,6 +380,8 @@ func ExtensionRegisterCommand(extCmd *ExtCommand, cmd *cobra.Command, con *conso
 	// Flags
 	f := pflag.NewFlagSet(extCmd.CommandName, pflag.ContinueOnError)
 	f.BoolP("save", "s", false, "Save output to disk")
+	f.BoolP("loot", "X", false, "Save output as loot")
+	f.StringP("name", "n", "", "Name to assign loot (optional)")
 	f.IntP("timeout", "t", defaultTimeout, "command timeout in seconds")
 	extensionCmd.Flags().AddFlagSet(f)
 	extensionCmd.Flags().ParseErrorsWhitelist.UnknownFlags = true
@@ -542,12 +546,15 @@ func runExtensionCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	}
 	var goos string
 	var goarch string
+	var hostName string
 	if session != nil {
 		goos = session.OS
 		goarch = session.Arch
+		hostName = session.Hostname
 	} else {
 		goos = beacon.OS
 		goarch = beacon.Arch
+		hostName = beacon.Hostname
 	}
 
 	ext, ok := loadedExtensions[cmd.Name()]
@@ -651,16 +658,23 @@ func runExtensionCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 				con.PrintErrorf("Failed to decode call ext response %s\n", err)
 				return
 			}
-			PrintExtOutput(extName, ext.CommandName, ext.Schema, callExtResp, con)
+			PrintExtOutput(extName, ext.CommandName, ext.Schema, callExtResp, cmd, hostName, con)
 		})
 		con.PrintAsyncResponse(callExtResp.Response)
 	} else {
-		PrintExtOutput(extName, ext.CommandName, ext.Schema, callExtResp, con)
+		PrintExtOutput(extName, ext.CommandName, ext.Schema, callExtResp, cmd, hostName, con)
 	}
 }
 
 // PrintExtOutput - Print the ext execution output.
-func PrintExtOutput(extName string, commandName string, outputSchema *packages.OutputSchema, callExtension *sliverpb.CallExtension, con *console.SliverClient) {
+func PrintExtOutput(extName string, commandName string, outputSchema *packages.OutputSchema, callExtension *sliverpb.CallExtension, cmd *cobra.Command, hostName string, con *console.SliverClient) {
+	saveLoot, _ := cmd.Flags().GetBool("loot")
+	lootName, _ := cmd.Flags().GetString("name")
+
+	if saveLoot {
+		LootExtension(callExtension.Output, lootName, commandName, hostName, con)
+	}
+
 	if extName == commandName {
 		con.PrintInfof("Successfully executed %s\n", extName)
 	} else {
@@ -688,6 +702,24 @@ func PrintExtOutput(extName string, commandName string, outputSchema *packages.O
 		con.PrintErrorf("%s", callExtension.Response.Err)
 		return
 	}
+}
+
+// LootExtension - Save extension output as loot.
+func LootExtension(commandOutput []byte, lootName string, cmdName string, hostName string, con *console.SliverClient) {
+	if len(commandOutput) == 0 {
+		con.PrintInfof("There was no output from execution, so there is nothing to loot.\n")
+		return
+	}
+
+	timeNow := time.Now().UTC().Format("20060102150405")
+
+	fileName := fmt.Sprintf("extension_%s_%s_%s.log", hostName, cmdName, timeNow)
+	if lootName == "" {
+		lootName = fmt.Sprintf("[extension] %s on %s (%s)", cmdName, hostName, timeNow)
+	}
+
+	lootMessage := loot.CreateLootMessage(con.ActiveTarget.GetHostUUID(), fileName, lootName, clientpb.FileType_TEXT, commandOutput)
+	loot.SendLootMessage(lootMessage, con)
 }
 
 func getExtArgs(_ *cobra.Command, args []string, _ string, ext *ExtCommand) ([]byte, error) {
