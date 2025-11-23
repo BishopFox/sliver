@@ -668,11 +668,13 @@ func runExtensionCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 
 // PrintExtOutput - Print the ext execution output.
 func PrintExtOutput(extName string, commandName string, outputSchema *packages.OutputSchema, callExtension *sliverpb.CallExtension, cmd *cobra.Command, hostName string, con *console.SliverClient) {
-	saveLoot, _ := cmd.Flags().GetBool("loot")
-	lootName, _ := cmd.Flags().GetString("name")
+	if cmd != nil {
+		saveLoot, _ := cmd.Flags().GetBool("loot")
+		lootName, _ := cmd.Flags().GetString("name")
 
-	if saveLoot {
-		LootExtension(callExtension.Output, lootName, commandName, hostName, con)
+		if saveLoot {
+			LootExtension(callExtension.Output, lootName, commandName, hostName, con)
+		}
 	}
 
 	if extName == commandName {
