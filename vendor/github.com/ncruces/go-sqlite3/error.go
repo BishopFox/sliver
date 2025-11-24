@@ -11,6 +11,7 @@ import (
 //
 // https://sqlite.org/c3ref/errcode.html
 type Error struct {
+	sys  error
 	msg  string
 	sql  string
 	code res_t
@@ -33,14 +34,26 @@ func (e *Error) ExtendedCode() ExtendedErrorCode {
 // Error implements the error interface.
 func (e *Error) Error() string {
 	var b strings.Builder
-	b.WriteString(util.ErrorCodeString(uint32(e.code)))
+	b.WriteString(util.ErrorCodeString(e.code))
 
 	if e.msg != "" {
 		b.WriteString(": ")
 		b.WriteString(e.msg)
 	}
+	if e.sys != nil {
+		b.WriteString(": ")
+		b.WriteString(e.sys.Error())
+	}
 
 	return b.String()
+}
+
+// Unwrap returns the underlying operating system error
+// that caused the I/O error or failure to open a file.
+//
+// https://sqlite.org/c3ref/system_errno.html
+func (e *Error) Unwrap() error {
+	return e.sys
 }
 
 // Is tests whether this error matches a given [ErrorCode] or [ExtendedErrorCode].
@@ -90,7 +103,16 @@ func (e *Error) SQL() string {
 
 // Error implements the error interface.
 func (e ErrorCode) Error() string {
-	return util.ErrorCodeString(uint32(e))
+	return util.ErrorCodeString(e)
+}
+
+// As converts this error to an [ExtendedErrorCode].
+func (e ErrorCode) As(err any) bool {
+	c, ok := err.(*xErrorCode)
+	if ok {
+		*c = xErrorCode(e)
+	}
+	return ok
 }
 
 // Temporary returns true for [BUSY] errors.
@@ -105,7 +127,7 @@ func (e ErrorCode) ExtendedCode() ExtendedErrorCode {
 
 // Error implements the error interface.
 func (e ExtendedErrorCode) Error() string {
-	return util.ErrorCodeString(uint32(e))
+	return util.ErrorCodeString(e)
 }
 
 // Is tests whether this error matches a given [ErrorCode].
@@ -150,14 +172,10 @@ func errorCode(err error, def ErrorCode) (msg string, code res_t) {
 		return code.msg, res_t(code.code)
 	}
 
-	var ecode ErrorCode
 	var xcode xErrorCode
-	switch {
-	case errors.As(err, &xcode):
+	if errors.As(err, &xcode) {
 		code = res_t(xcode)
-	case errors.As(err, &ecode):
-		code = res_t(ecode)
-	default:
+	} else {
 		code = res_t(def)
 	}
 	return err.Error(), code

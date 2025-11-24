@@ -33,7 +33,7 @@ func osReadAt(file *os.File, p []byte, off int64) (int, error) {
 			unix.ERANGE,
 			unix.EIO,
 			unix.ENXIO:
-			return n, _IOERR_CORRUPTFS
+			return n, sysError{err, _IOERR_CORRUPTFS}
 		}
 	}
 	return n, err
@@ -42,7 +42,7 @@ func osReadAt(file *os.File, p []byte, off int64) (int, error) {
 func osWriteAt(file *os.File, p []byte, off int64) (int, error) {
 	n, err := file.WriteAt(p, off)
 	if errno, ok := err.(unix.Errno); ok && errno == unix.ENOSPC {
-		return n, _FULL
+		return n, sysError{err, _FULL}
 	}
 	return n, err
 }
@@ -59,7 +59,7 @@ func osSetMode(file *os.File, modeof string) error {
 	return nil
 }
 
-func osTestLock(file *os.File, start, len int64) (int16, _ErrorCode) {
+func osTestLock(file *os.File, start, len int64, def _ErrorCode) (int16, error) {
 	lock := unix.Flock_t{
 		Type:  unix.F_WRLCK,
 		Start: start,
@@ -68,17 +68,17 @@ func osTestLock(file *os.File, start, len int64) (int16, _ErrorCode) {
 	for {
 		err := unix.FcntlFlock(file.Fd(), unix.F_GETLK, &lock)
 		if err == nil {
-			return lock.Type, _OK
+			return lock.Type, nil
 		}
 		if err != unix.EINTR {
-			return 0, _IOERR_CHECKRESERVEDLOCK
+			return 0, sysError{err, def}
 		}
 	}
 }
 
-func osLockErrorCode(err error, def _ErrorCode) _ErrorCode {
+func osLockErrorCode(err error, def _ErrorCode) error {
 	if err == nil {
-		return _OK
+		return nil
 	}
 	if errno, ok := err.(unix.Errno); ok {
 		switch errno {
@@ -92,12 +92,12 @@ func osLockErrorCode(err error, def _ErrorCode) _ErrorCode {
 			unix.ETIMEDOUT:
 			return _BUSY
 		case unix.EPERM:
-			return _PERM
+			return sysError{err, _PERM}
 		}
 		// notest // usually EWOULDBLOCK == EAGAIN
 		if errno == unix.EWOULDBLOCK && unix.EWOULDBLOCK != unix.EAGAIN {
 			return _BUSY
 		}
 	}
-	return def
+	return sysError{err, def}
 }

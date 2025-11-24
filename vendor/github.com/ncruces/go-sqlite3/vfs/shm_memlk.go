@@ -5,7 +5,7 @@ package vfs
 import "github.com/ncruces/go-sqlite3/internal/util"
 
 // +checklocks:s.Mutex
-func (s *vfsShm) shmMemLock(offset, n int32, flags _ShmFlag) _ErrorCode {
+func (s *vfsShm) shmMemLock(offset, n int32, flags _ShmFlag) error {
 	switch {
 	case flags&_SHM_UNLOCK != 0:
 		for i := offset; i < offset+n; i++ {
@@ -48,6 +48,5 @@ func (s *vfsShm) shmMemLock(offset, n int32, flags _ShmFlag) _ErrorCode {
 	default:
 		panic(util.AssertErr())
 	}
-
-	return _OK
+	return nil
 }

@@ -10,7 +10,8 @@ import (
 
 // A VFS defines the interface between the SQLite core and the underlying operating system.
 //
-// Use sqlite3.ErrorCode or sqlite3.ExtendedErrorCode to return specific error codes to SQLite.
+// Use [SystemError], sqlite3.ErrorCode, or sqlite3.ExtendedErrorCode
+// to return specific error codes to SQLite.
 //
 // https://sqlite.org/c3ref/vfs.html
 type VFS interface {
@@ -31,8 +32,9 @@ type VFSFilename interface {
 
 // A File represents an open file in the OS interface layer.
 //
-// Use sqlite3.ErrorCode or sqlite3.ExtendedErrorCode to return specific error codes to SQLite.
-// In particular, sqlite3.BUSY is necessary to correctly implement lock methods.
+// Use [SystemError], sqlite3.ErrorCode, or sqlite3.ExtendedErrorCode
+// to return specific error codes to SQLite.
+// In particular, sqlite3.BUSY is needed to correctly implement lock methods.
 //
 // https://sqlite.org/c3ref/io_methods.html
 type File interface {
@@ -193,8 +195,8 @@ type FileSharedMemory interface {
 // SharedMemory is a shared-memory WAL-index implementation.
 // Use [NewSharedMemory] to create a shared-memory.
 type SharedMemory interface {
-	shmMap(context.Context, api.Module, int32, int32, bool) (ptr_t, _ErrorCode)
-	shmLock(int32, int32, _ShmFlag) _ErrorCode
+	shmMap(context.Context, api.Module, int32, int32, bool) (ptr_t, error)
+	shmLock(int32, int32, _ShmFlag) error
 	shmUnmap(bool)
 	shmBarrier()
 	io.Closer
@@ -205,6 +207,10 @@ type blockingSharedMemory interface {
 	shmEnableBlocking(block bool)
 }
 
+// FileControl makes it easy to forward all fileControl methods,
+// which we want to do for the checksum VFS.
+// However, this is not a safe default, and other VFSes
+// should explicitly wrap the methods they want to wrap.
 type fileControl interface {
 	File
 	fileControl(ctx context.Context, mod api.Module, op _FcntlOpcode, pArg ptr_t) _ErrorCode

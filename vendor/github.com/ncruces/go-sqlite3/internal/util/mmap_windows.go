@@ -1,12 +1,10 @@
 package util
 
 import (
-	"context"
 	"os"
 	"reflect"
 	"unsafe"
 
-	"github.com/tetratelabs/wazero/api"
 	"golang.org/x/sys/windows"
 )
 
@@ -16,14 +14,21 @@ type MappedRegion struct {
 	addr uintptr
 }
 
-func MapRegion(ctx context.Context, mod api.Module, f *os.File, offset int64, size int32) (*MappedRegion, error) {
-	h, err := windows.CreateFileMapping(windows.Handle(f.Fd()), nil, windows.PAGE_READWRITE, 0, 0, nil)
+func MapRegion(f *os.File, offset int64, size int32) (*MappedRegion, error) {
+	maxSize := offset + int64(size)
+	h, err := windows.CreateFileMapping(
+		windows.Handle(f.Fd()), nil, windows.PAGE_READWRITE,
+		uint32(maxSize>>32), uint32(maxSize), nil)
 	if h == 0 {
 		return nil, err
 	}
 
+	const allocationGranularity = 64 * 1024
+	align := offset % allocationGranularity
+	offset -= align
+
 	a, err := windows.MapViewOfFile(h, windows.FILE_MAP_WRITE,
-		uint32(offset>>32), uint32(offset), uintptr(size))
+		uint32(offset>>32), uint32(offset), uintptr(size)+uintptr(align))
 	if a == 0 {
 		windows.CloseHandle(h)
 		return nil, err
@@ -32,9 +37,9 @@ func MapRegion(ctx context.Context, mod api.Module, f *os.File, offset int64, si
 	ret := &MappedRegion{Handle: h, addr: a}
 	// SliceHeader, although deprecated, avoids a go vet warning.
 	sh := (*reflect.SliceHeader)(unsafe.Pointer(&ret.Data))
+	sh.Data = a + uintptr(align)
 	sh.Len = int(size)
 	sh.Cap = int(size)
-	sh.Data = a
 	return ret, nil
 }
 
