@@ -50,6 +50,7 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/implant/sliver/version"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/implant/sliver/virtualization"
 
 	"github.com/gofrs/uuid"
 	"google.golang.org/protobuf/proto"
@@ -716,5 +717,6 @@ func registerSliver() *sliverpb.Register {
 		ConfigID:          "{{ .Config.ID }}",
 		PeerID:            pivots.MyPeerID,
 		Locale:            locale.GetLocale(),
+		Virtualization:    virtualization.GetVirtualizationInfo(),
 	}
 }

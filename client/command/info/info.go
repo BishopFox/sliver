@@ -88,6 +88,7 @@ func InfoCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		con.Printf(console.Bold+"Reconnect Interval: %s%s\n", console.Normal, time.Duration(session.ReconnectInterval).String())
 		con.Printf(console.Bold+"     First Contact: %s%s\n", console.Normal, con.FormatDateDelta(time.Unix(session.FirstContact, 0), true, false))
 		con.Printf(console.Bold+"      Last Checkin: %s%s\n", console.Normal, con.FormatDateDelta(time.Unix(session.LastCheckin, 0), true, false))
+		con.Printf(console.Bold+"    Virtualization: %s%s\n", console.Normal, session.Virtualization)
 
 	} else if beacon != nil {
 
@@ -111,6 +112,7 @@ func InfoCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		con.Printf(console.Bold+"     First Contact: %s%s\n", console.Normal, con.FormatDateDelta(time.Unix(beacon.FirstContact, 0), true, false))
 		con.Printf(console.Bold+"      Last Checkin: %s%s\n", console.Normal, con.FormatDateDelta(time.Unix(beacon.LastCheckin, 0), true, false))
 		con.Printf(console.Bold+"      Next Checkin: %s%s\n", console.Normal, con.FormatDateDelta(time.Unix(beacon.NextCheckin, 0), true, true))
+		con.Printf(console.Bold+"    Virtualization: %s%s\n", console.Normal, beacon.Virtualization)
 
 	} else {
 		con.PrintErrorf("No target session, see `help %s`\n", consts.InfoStr)
