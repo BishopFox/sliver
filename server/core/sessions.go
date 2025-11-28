@@ -75,6 +75,7 @@ type Session struct {
 	Locale            string
 	FirstContact      int64
 	Integrity         string
+	Virtualization	string
 }
 
 // LastCheckin - Get the last time a session message was received
@@ -142,6 +143,7 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		Locale:            s.Locale,
 		FirstContact:      s.FirstContact,
 		Integrity:         s.Integrity,
+		Virtualization:    s.Virtualization,
 	}
 }
 
