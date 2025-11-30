@@ -119,7 +119,7 @@ github.com/things-go/go-socks5/statute
 ## explicit; go 1.14
 github.com/yiya1989/sshkrb5/krb5forssh
 # golang.org/x/crypto v0.42.0
-## explicit; go 1.24.0.0
+## explicit; go 1.24.0
 golang.org/x/crypto/blake2b
 golang.org/x/crypto/blake2s
 golang.org/x/crypto/blowfish
@@ -149,7 +149,7 @@ golang.org/x/net/internal/socket
 golang.org/x/net/ipv4
 golang.org/x/net/ipv6
 # golang.org/x/sync v0.17.0
-## explicit; go 1.24.0.0
+## explicit; go 1.24.0
 golang.org/x/sync/errgroup
 # golang.org/x/sys v0.36.0
 ## explicit; go 1.24.0
