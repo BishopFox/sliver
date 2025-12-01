@@ -263,10 +263,8 @@ func (n *connector) Connect(ctx context.Context) (ret driver.Conn, err error) {
 			return nil, err
 		}
 		defer s.Close()
-		if s.Step() && s.ColumnBool(0) {
-			c.readOnly = '1'
-		} else {
-			c.readOnly = '0'
+		if s.Step() {
+			c.readOnly = s.ColumnBool(0)
 		}
 		err = s.Close()
 		if err != nil {
@@ -322,7 +320,7 @@ type conn struct {
 	txReset  string
 	tmRead   sqlite3.TimeFormat
 	tmWrite  sqlite3.TimeFormat
-	readOnly byte
+	readOnly bool
 }
 
 var (
@@ -358,9 +356,9 @@ func (c *conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 
 	c.txReset = ``
 	txBegin := `BEGIN ` + txLock
-	if opts.ReadOnly {
+	if opts.ReadOnly && !c.readOnly {
 		txBegin += ` ; PRAGMA query_only=on`
-		c.txReset = `; PRAGMA query_only=` + string(c.readOnly)
+		c.txReset = `; PRAGMA query_only=off`
 	}
 
 	if old := c.Conn.SetInterrupt(ctx); old != ctx {
@@ -440,6 +438,22 @@ func (c *conn) CheckNamedValue(arg *driver.NamedValue) error {
 	// Fast path: short circuit argument verification.
 	// Arguments will be rejected by conn.ExecContext.
 	return nil
+}
+
+// Deprecated: for Litestream use only; may be removed at any time.
+func (c *conn) FileControlPersistWAL(schema string, mode int) (int, error) {
+	// notest
+	arg := make([]any, 1)
+	if mode >= 0 {
+		arg[0] = mode > 0
+	} else {
+		arg = arg[:0]
+	}
+	res, err := c.Conn.FileControl(schema, sqlite3.FCNTL_PERSIST_WAL, arg...)
+	if res == true {
+		return 1, err
+	}
+	return 0, err
 }
 
 type stmt struct {

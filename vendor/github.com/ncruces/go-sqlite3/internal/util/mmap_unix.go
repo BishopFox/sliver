@@ -7,8 +7,9 @@ import (
 	"os"
 	"unsafe"
 
-	"github.com/tetratelabs/wazero/api"
 	"golang.org/x/sys/unix"
+
+	"github.com/tetratelabs/wazero/api"
 )
 
 type mmapState struct {

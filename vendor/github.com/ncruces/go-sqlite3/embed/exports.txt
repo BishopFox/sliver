@@ -59,7 +59,7 @@ sqlite3_db_filename
 sqlite3_db_name
 sqlite3_db_readonly
 sqlite3_db_release_memory
-sqlite3_db_status
+sqlite3_db_status64
 sqlite3_declare_vtab
 sqlite3_errcode
 sqlite3_errmsg

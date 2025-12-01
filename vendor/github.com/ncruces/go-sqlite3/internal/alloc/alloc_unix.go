@@ -5,8 +5,9 @@ package alloc
 import (
 	"math"
 
-	"github.com/tetratelabs/wazero/experimental"
 	"golang.org/x/sys/unix"
+
+	"github.com/tetratelabs/wazero/experimental"
 )
 
 func NewMemory(cap, max uint64) experimental.LinearMemory {

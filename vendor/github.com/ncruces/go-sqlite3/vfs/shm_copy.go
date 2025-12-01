@@ -1,4 +1,4 @@
-//go:build (windows && (386 || arm || amd64 || arm64 || riscv64 || ppc64le)) || sqlite3_dotlk
+//go:build (windows && (386 || arm || amd64 || arm64 || riscv64 || ppc64le || loong64)) || sqlite3_dotlk
 
 package vfs
 
@@ -31,8 +31,8 @@ const (
 //
 // https://sqlite.org/walformat.html#the_wal_index_file_format
 
-func (s *vfsShm) shmAcquire(ptr *_ErrorCode) {
-	if ptr != nil && *ptr != _OK {
+func (s *vfsShm) shmAcquire(errp *error) {
+	if errp != nil && *errp != nil {
 		return
 	}
 	if len(s.ptrs) == 0 || shmEqual(s.shadow[0][:], s.shared[0][:]) {

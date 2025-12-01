@@ -20,31 +20,31 @@ func osWriteAt(file *os.File, p []byte, off int64) (int, error) {
 		case
 			windows.ERROR_HANDLE_DISK_FULL,
 			windows.ERROR_DISK_FULL:
-			return n, _FULL
+			return n, sysError{err, _FULL}
 		}
 	}
 	return n, err
 }
 
-func osGetSharedLock(file *os.File) _ErrorCode {
+func osGetSharedLock(file *os.File) error {
 	// Acquire the PENDING lock temporarily before acquiring a new SHARED lock.
-	rc := osReadLock(file, _PENDING_BYTE, 1, 0)
-	if rc == _OK {
+	err := osReadLock(file, _PENDING_BYTE, 1, 0)
+	if err == nil {
 		// Acquire the SHARED lock.
-		rc = osReadLock(file, _SHARED_FIRST, _SHARED_SIZE, 0)
+		err = osReadLock(file, _SHARED_FIRST, _SHARED_SIZE, 0)
 
 		// Release the PENDING lock.
 		osUnlock(file, _PENDING_BYTE, 1)
 	}
-	return rc
+	return err
 }
 
-func osGetReservedLock(file *os.File) _ErrorCode {
+func osGetReservedLock(file *os.File) error {
 	// Acquire the RESERVED lock.
 	return osWriteLock(file, _RESERVED_BYTE, 1, 0)
 }
 
-func osGetExclusiveLock(file *os.File, state *LockLevel) _ErrorCode {
+func osGetExclusiveLock(file *os.File, state *LockLevel) error {
 	// A PENDING lock is needed before releasing the SHARED lock.
 	if *state < LOCK_PENDING {
 		// If we were RESERVED, we can block indefinitely.
@@ -52,8 +52,8 @@ func osGetExclusiveLock(file *os.File, state *LockLevel) _ErrorCode {
 		if *state == LOCK_RESERVED {
 			timeout = -1
 		}
-		if rc := osWriteLock(file, _PENDING_BYTE, 1, timeout); rc != _OK {
-			return rc
+		if err := osWriteLock(file, _PENDING_BYTE, 1, timeout); err != nil {
+			return err
 		}
 		*state = LOCK_PENDING
 	}
@@ -63,25 +63,25 @@ func osGetExclusiveLock(file *os.File, state *LockLevel) _ErrorCode {
 
 	// Acquire the EXCLUSIVE lock.
 	// Can't wait here, because the file is not OVERLAPPED.
-	rc := osWriteLock(file, _SHARED_FIRST, _SHARED_SIZE, 0)
+	err := osWriteLock(file, _SHARED_FIRST, _SHARED_SIZE, 0)
 
-	if rc != _OK {
+	if err != nil {
 		// Reacquire the SHARED lock.
-		if rc := osReadLock(file, _SHARED_FIRST, _SHARED_SIZE, 0); rc != _OK {
+		if err := osReadLock(file, _SHARED_FIRST, _SHARED_SIZE, 0); err != nil {
 			// notest // this should never happen
 			return _IOERR_RDLOCK
 		}
 	}
-	return rc
+	return err
 }
 
-func osDowngradeLock(file *os.File, state LockLevel) _ErrorCode {
+func osDowngradeLock(file *os.File, state LockLevel) error {
 	if state >= LOCK_EXCLUSIVE {
 		// Release the EXCLUSIVE lock while holding the PENDING lock.
 		osUnlock(file, _SHARED_FIRST, _SHARED_SIZE)
 
 		// Reacquire the SHARED lock.
-		if rc := osReadLock(file, _SHARED_FIRST, _SHARED_SIZE, 0); rc != _OK {
+		if err := osReadLock(file, _SHARED_FIRST, _SHARED_SIZE, 0); err != nil {
 			// notest // this should never happen
 			return _IOERR_RDLOCK
 		}
@@ -94,10 +94,10 @@ func osDowngradeLock(file *os.File, state LockLevel) _ErrorCode {
 	if state >= LOCK_PENDING {
 		osUnlock(file, _PENDING_BYTE, 1)
 	}
-	return _OK
+	return nil
 }
 
-func osReleaseLock(file *os.File, state LockLevel) _ErrorCode {
+func osReleaseLock(file *os.File, state LockLevel) error {
 	// Release all locks, PENDING must be last.
 	if state >= LOCK_RESERVED {
 		osUnlock(file, _RESERVED_BYTE, 1)
@@ -108,31 +108,32 @@ func osReleaseLock(file *os.File, state LockLevel) _ErrorCode {
 	if state >= LOCK_PENDING {
 		osUnlock(file, _PENDING_BYTE, 1)
 	}
-	return _OK
+	return nil
 }
 
-func osCheckReservedLock(file *os.File) (bool, _ErrorCode) {
+func osCheckReservedLock(file *os.File) (bool, error) {
 	// Test the RESERVED lock.
-	rc := osLock(file, 0, _RESERVED_BYTE, 1, 0, _IOERR_CHECKRESERVEDLOCK)
-	if rc == _BUSY {
-		return true, _OK
+	err := osLock(file, 0, _RESERVED_BYTE, 1, 0, _IOERR_CHECKRESERVEDLOCK)
+	if err == _BUSY {
+		return true, nil
 	}
-	if rc == _OK {
+	if err == nil {
 		// Release the RESERVED lock.
 		osUnlock(file, _RESERVED_BYTE, 1)
+		return false, nil
 	}
-	return false, rc
+	return false, err
 }
 
-func osReadLock(file *os.File, start, len uint32, timeout time.Duration) _ErrorCode {
+func osReadLock(file *os.File, start, len uint32, timeout time.Duration) error {
 	return osLock(file, 0, start, len, timeout, _IOERR_RDLOCK)
 }
 
-func osWriteLock(file *os.File, start, len uint32, timeout time.Duration) _ErrorCode {
+func osWriteLock(file *os.File, start, len uint32, timeout time.Duration) error {
 	return osLock(file, windows.LOCKFILE_EXCLUSIVE_LOCK, start, len, timeout, _IOERR_LOCK)
 }
 
-func osLock(file *os.File, flags, start, len uint32, timeout time.Duration, def _ErrorCode) _ErrorCode {
+func osLock(file *os.File, flags, start, len uint32, timeout time.Duration, def _ErrorCode) error {
 	var err error
 	switch {
 	default:
@@ -143,16 +144,16 @@ func osLock(file *os.File, flags, start, len uint32, timeout time.Duration, def 
 	return osLockErrorCode(err, def)
 }
 
-func osUnlock(file *os.File, start, len uint32) _ErrorCode {
+func osUnlock(file *os.File, start, len uint32) error {
 	err := windows.UnlockFileEx(windows.Handle(file.Fd()),
 		0, len, 0, &windows.Overlapped{Offset: start})
 	if err == windows.ERROR_NOT_LOCKED {
-		return _OK
+		return nil
 	}
 	if err != nil {
-		return _IOERR_UNLOCK
+		return sysError{err, _IOERR_UNLOCK}
 	}
-	return _OK
+	return nil
 }
 
 func osLockEx(file *os.File, flags, start, len uint32) error {
@@ -160,9 +161,9 @@ func osLockEx(file *os.File, flags, start, len uint32) error {
 		0, len, 0, &windows.Overlapped{Offset: start})
 }
 
-func osLockErrorCode(err error, def _ErrorCode) _ErrorCode {
+func osLockErrorCode(err error, def _ErrorCode) error {
 	if err == nil {
-		return _OK
+		return nil
 	}
 	if errno, ok := err.(windows.Errno); ok {
 		// https://devblogs.microsoft.com/oldnewthing/20140905-00/?p=63
@@ -175,5 +176,5 @@ func osLockErrorCode(err error, def _ErrorCode) _ErrorCode {
 			return _BUSY
 		}
 	}
-	return def
+	return sysError{err, def}
 }
