@@ -20,8 +20,8 @@ set -e
 
 # Creates the static go asset archives
 
-GO_VER="1.25.3"
-GARBLE_VER="1.25.3"
+GO_VER="1.25.5"
+GARBLE_VER="1.25.5"
 ZIG_VER="0.15.1"
 
 # Zig significantly throttles downloads from the main site, so we use
