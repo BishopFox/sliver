@@ -28,6 +28,8 @@ type Table struct {
 	// columnConfigMap stores the custom-configuration by column
 	// number and is generated before rendering
 	columnConfigMap map[int]ColumnConfig
+	// directionModifier caches the direction modifier string to avoid repeated calls
+	directionModifier string
 	// firstRowOfPage tells if the renderer is on the first row of a page?
 	firstRowOfPage bool
 	// htmlCSSClass stores the HTML CSS Class to use on the <table> node
@@ -50,6 +52,8 @@ type Table struct {
 	outputMirror io.Writer
 	// pager controls how the output is separated into pages
 	pager pager
+	// renderMode contains the type of table to render
+	renderMode renderMode
 	// rows stores the rows that make up the body (in string form)
 	rows []rowStr
 	// rowsColors stores the text.Colors over-rides for each row as defined by
@@ -76,9 +80,11 @@ type Table struct {
 	rowPainter RowPainter
 	// rowPainterWithAttributes is same as rowPainter, but with attributes
 	rowPainterWithAttributes RowPainterWithAttributes
-	// rowSeparator is a dummy row that contains the separator columns (dashes
-	// that make up the separator between header/body/footer
-	rowSeparator rowStr
+	// rowSeparators contains the separator columns (dashes that make up the
+	// separators between title/header/body/footer
+	rowSeparators map[string]rowStr
+	// rowSeparatorStrings contains the separator strings for each separator type
+	rowSeparatorStrings map[separatorType]string
 	// separators is used to keep track of all rowIndices after which a
 	// separator has to be rendered
 	separators map[int]bool
@@ -305,12 +311,12 @@ func (t *Table) SetRowPainter(painter interface{}) {
 	t.rowPainterWithAttributes = nil
 
 	// if called as SetRowPainter(RowPainter(func...))
-	switch painter.(type) {
+	switch p := painter.(type) {
 	case RowPainter:
-		t.rowPainter = painter.(RowPainter)
+		t.rowPainter = p
 		return
 	case RowPainterWithAttributes:
-		t.rowPainterWithAttributes = painter.(RowPainterWithAttributes)
+		t.rowPainterWithAttributes = p
 		return
 	}
 
@@ -505,13 +511,13 @@ func (t *Table) getColumnSeparator(row rowStr, colIdx int, hint renderHint) stri
 	if hint.isSeparatorRow {
 		if hint.isBorderTop {
 			if t.shouldMergeCellsHorizontallyBelow(row, colIdx, hint) {
-				separator = t.style.Box.MiddleHorizontal
+				separator = t.style.Box.middleHorizontal(hint.separatorType)
 			} else {
 				separator = t.style.Box.TopSeparator
 			}
 		} else if hint.isBorderBottom {
 			if t.shouldMergeCellsHorizontallyAbove(row, colIdx, hint) {
-				separator = t.style.Box.MiddleHorizontal
+				separator = t.style.Box.middleHorizontal(hint.separatorType)
 			} else {
 				separator = t.style.Box.BottomSeparator
 			}
@@ -531,7 +537,7 @@ func (t *Table) getColumnSeparatorNonBorder(mergeCellsAbove bool, mergeCellsBelo
 	}
 
 	mergeCurrCol := t.shouldMergeCellsVerticallyAbove(colIdx-1, hint)
-	return t.getColumnSeparatorNonBorderNonAutoIndex(mergeCellsAbove, mergeCellsBelow, mergeCurrCol, mergeNextCol)
+	return t.getColumnSeparatorNonBorderNonAutoIndex(mergeCellsAbove, mergeCellsBelow, mergeCurrCol, mergeNextCol, hint)
 }
 
 func (t *Table) getColumnSeparatorNonBorderAutoIndex(mergeNextCol bool, hint renderHint) string {
@@ -546,11 +552,11 @@ func (t *Table) getColumnSeparatorNonBorderAutoIndex(mergeNextCol bool, hint ren
 	return t.style.Box.MiddleSeparator
 }
 
-func (t *Table) getColumnSeparatorNonBorderNonAutoIndex(mergeCellsAbove bool, mergeCellsBelow bool, mergeCurrCol bool, mergeNextCol bool) string {
+func (t *Table) getColumnSeparatorNonBorderNonAutoIndex(mergeCellsAbove bool, mergeCellsBelow bool, mergeCurrCol bool, mergeNextCol bool, hint renderHint) string {
 	if mergeCellsAbove && mergeCellsBelow && mergeCurrCol && mergeNextCol {
 		return t.style.Box.EmptySeparator
 	} else if mergeCellsAbove && mergeCellsBelow {
-		return t.style.Box.MiddleHorizontal
+		return t.style.Box.middleHorizontal(hint.separatorType)
 	} else if mergeCellsAbove {
 		return t.style.Box.TopSeparator
 	} else if mergeCellsBelow {

@@ -157,7 +157,7 @@ func terminateOutput(lastSeenEscSeq string, out *strings.Builder) {
 }
 
 func wrapHard(paragraph string, wrapLen int, out *strings.Builder) {
-	esp := escSeqParser{}
+	esp := EscSeqParser{}
 	lineLen, lastSeenEscSeq := 0, ""
 	words := strings.Fields(paragraph)
 	for wordIdx, word := range words {
@@ -186,7 +186,7 @@ func wrapHard(paragraph string, wrapLen int, out *strings.Builder) {
 }
 
 func wrapSoft(paragraph string, wrapLen int, out *strings.Builder) {
-	esp := escSeqParser{}
+	esp := EscSeqParser{}
 	lineLen, lastSeenEscSeq := 0, ""
 	words := strings.Fields(paragraph)
 	for wordIdx, word := range words {

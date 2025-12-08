@@ -60,7 +60,7 @@ const (
 //	  </tfoot>
 //	</table>
 func (t *Table) RenderHTML() string {
-	t.initForRender()
+	t.initForRender(renderModeHTML)
 
 	var out strings.Builder
 	if t.numColumns > 0 {
@@ -106,11 +106,15 @@ func (t *Table) htmlRenderCaption(out *strings.Builder) {
 }
 
 func (t *Table) htmlRenderColumn(out *strings.Builder, colStr string) {
-	if t.style.HTML.EscapeText {
+	// convertEscSequencesToSpans already escapes text content, so skip
+	// EscapeText if ConvertColorsToSpans is true
+	if t.style.HTML.ConvertColorsToSpans {
+		colStr = convertEscSequencesToSpans(colStr)
+	} else if t.style.HTML.EscapeText {
 		colStr = html.EscapeString(colStr)
 	}
 	if t.style.HTML.Newline != "\n" {
-		colStr = strings.Replace(colStr, "\n", t.style.HTML.Newline, -1)
+		colStr = strings.ReplaceAll(colStr, "\n", t.style.HTML.Newline)
 	}
 	out.WriteString(colStr)
 }

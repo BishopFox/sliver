@@ -28,7 +28,7 @@ func InsertEveryN(str string, runeToInsert rune, n int) string {
 	sLen := StringWidthWithoutEscSequences(str)
 	var out strings.Builder
 	out.Grow(sLen + (sLen / n))
-	outLen, esp := 0, escSeqParser{}
+	outLen, esp := 0, EscSeqParser{}
 	for idx, c := range str {
 		if esp.InSequence() {
 			esp.Consume(c)
@@ -52,7 +52,7 @@ func InsertEveryN(str string, runeToInsert rune, n int) string {
 //
 //	LongestLineLen("Ghost!\nCome back here!\nRight now!") == 15
 func LongestLineLen(str string) int {
-	maxLength, currLength, esp := 0, 0, escSeqParser{}
+	maxLength, currLength, esp := 0, 0, EscSeqParser{}
 	//fmt.Println(str)
 	for _, c := range str {
 		//fmt.Printf("%03d | %03d | %c | %5v | %v | %#v\n", idx, c, c, esp.inEscSeq, esp.Codes(), esp.escapeSeq)
@@ -248,7 +248,7 @@ func StringWidth(str string) int {
 //	StringWidthWithoutEscSequences("Ghost 生命"): 10
 //	StringWidthWithoutEscSequences("\x1b[33mGhost 生命\x1b[0m"): 10
 func StringWidthWithoutEscSequences(str string) int {
-	count, esp := 0, escSeqParser{}
+	count, esp := 0, EscSeqParser{}
 	for _, c := range str {
 		if esp.InSequence() {
 			esp.Consume(c)
@@ -277,7 +277,7 @@ func Trim(str string, maxLen int) string {
 	var out strings.Builder
 	out.Grow(maxLen)
 
-	outLen, esp := 0, escSeqParser{}
+	outLen, esp := 0, EscSeqParser{}
 	for _, sChr := range str {
 		if esp.InSequence() {
 			esp.Consume(sChr)
@@ -306,7 +306,7 @@ func Widen(str string) string {
 	sb := strings.Builder{}
 	sb.Grow(len(str))
 
-	esp := escSeqParser{}
+	esp := EscSeqParser{}
 	for _, c := range str {
 		if esp.InSequence() {
 			sb.WriteRune(c)
