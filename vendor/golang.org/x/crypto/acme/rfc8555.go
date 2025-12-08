@@ -232,7 +232,7 @@ func (c *Client) AuthorizeOrder(ctx context.Context, id []AuthzID, opt ...OrderO
 	return responseOrder(res)
 }
 
-// GetOrder retrives an order identified by the given URL.
+// GetOrder retrieves an order identified by the given URL.
 // For orders created with AuthorizeOrder, the url value is Order.URI.
 //
 // If a caller needs to poll an order until its status is final,
