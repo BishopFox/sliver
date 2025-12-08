@@ -102,7 +102,7 @@ func vfsFullPathname(ctx context.Context, mod api.Module, pVfs, zRelative ptr_t,
 	}
 	util.WriteString(mod, zFull, path)
 
-	return vfsErrorCode(err, _CANTOPEN_FULLPATH)
+	return vfsErrorCode(ctx, err, _CANTOPEN_FULLPATH)
 }
 
 func vfsDelete(ctx context.Context, mod api.Module, pVfs, zPath ptr_t, syncDir int32) _ErrorCode {
@@ -110,7 +110,7 @@ func vfsDelete(ctx context.Context, mod api.Module, pVfs, zPath ptr_t, syncDir i
 	path := util.ReadString(mod, zPath, _MAX_PATHNAME)
 
 	err := vfs.Delete(path, syncDir != 0)
-	return vfsErrorCode(err, _IOERR_DELETE)
+	return vfsErrorCode(ctx, err, _IOERR_DELETE)
 }
 
 func vfsAccess(ctx context.Context, mod api.Module, pVfs, zPath ptr_t, flags AccessFlag, pResOut ptr_t) _ErrorCode {
@@ -119,7 +119,7 @@ func vfsAccess(ctx context.Context, mod api.Module, pVfs, zPath ptr_t, flags Acc
 
 	ok, err := vfs.Access(path, flags)
 	util.WriteBool(mod, pResOut, ok)
-	return vfsErrorCode(err, _IOERR_ACCESS)
+	return vfsErrorCode(ctx, err, _IOERR_ACCESS)
 }
 
 func vfsOpen(ctx context.Context, mod api.Module, pVfs, zPath, pFile ptr_t, flags OpenFlag, pOutFlags, pOutVFS ptr_t) _ErrorCode {
@@ -134,7 +134,7 @@ func vfsOpen(ctx context.Context, mod api.Module, pVfs, zPath, pFile ptr_t, flag
 		file, flags, err = vfs.Open(name.String(), flags)
 	}
 	if err != nil {
-		return vfsErrorCode(err, _CANTOPEN)
+		return vfsErrorCode(ctx, err, _CANTOPEN)
 	}
 
 	if file, ok := file.(FilePowersafeOverwrite); ok {
@@ -155,7 +155,7 @@ func vfsOpen(ctx context.Context, mod api.Module, pVfs, zPath, pFile ptr_t, flag
 
 func vfsClose(ctx context.Context, mod api.Module, pFile ptr_t) _ErrorCode {
 	err := vfsFileClose(ctx, mod, pFile)
-	return vfsErrorCode(err, _IOERR_CLOSE)
+	return vfsErrorCode(ctx, err, _IOERR_CLOSE)
 }
 
 func vfsRead(ctx context.Context, mod api.Module, pFile, zBuf ptr_t, iAmt int32, iOfst int64) _ErrorCode {
@@ -167,7 +167,7 @@ func vfsRead(ctx context.Context, mod api.Module, pFile, zBuf ptr_t, iAmt int32,
 		return _OK
 	}
 	if err != io.EOF {
-		return vfsErrorCode(err, _IOERR_READ)
+		return vfsErrorCode(ctx, err, _IOERR_READ)
 	}
 	clear(buf[n:])
 	return _IOERR_SHORT_READ
@@ -178,45 +178,45 @@ func vfsWrite(ctx context.Context, mod api.Module, pFile, zBuf ptr_t, iAmt int32
 	buf := util.View(mod, zBuf, int64(iAmt))
 
 	_, err := file.WriteAt(buf, iOfst)
-	return vfsErrorCode(err, _IOERR_WRITE)
+	return vfsErrorCode(ctx, err, _IOERR_WRITE)
 }
 
 func vfsTruncate(ctx context.Context, mod api.Module, pFile ptr_t, nByte int64) _ErrorCode {
 	file := vfsFileGet(ctx, mod, pFile).(File)
 	err := file.Truncate(nByte)
-	return vfsErrorCode(err, _IOERR_TRUNCATE)
+	return vfsErrorCode(ctx, err, _IOERR_TRUNCATE)
 }
 
 func vfsSync(ctx context.Context, mod api.Module, pFile ptr_t, flags SyncFlag) _ErrorCode {
 	file := vfsFileGet(ctx, mod, pFile).(File)
 	err := file.Sync(flags)
-	return vfsErrorCode(err, _IOERR_FSYNC)
+	return vfsErrorCode(ctx, err, _IOERR_FSYNC)
 }
 
 func vfsFileSize(ctx context.Context, mod api.Module, pFile, pSize ptr_t) _ErrorCode {
 	file := vfsFileGet(ctx, mod, pFile).(File)
 	size, err := file.Size()
 	util.Write64(mod, pSize, size)
-	return vfsErrorCode(err, _IOERR_SEEK)
+	return vfsErrorCode(ctx, err, _IOERR_SEEK)
 }
 
 func vfsLock(ctx context.Context, mod api.Module, pFile ptr_t, eLock LockLevel) _ErrorCode {
 	file := vfsFileGet(ctx, mod, pFile).(File)
 	err := file.Lock(eLock)
-	return vfsErrorCode(err, _IOERR_LOCK)
+	return vfsErrorCode(ctx, err, _IOERR_LOCK)
 }
 
 func vfsUnlock(ctx context.Context, mod api.Module, pFile ptr_t, eLock LockLevel) _ErrorCode {
 	file := vfsFileGet(ctx, mod, pFile).(File)
 	err := file.Unlock(eLock)
-	return vfsErrorCode(err, _IOERR_UNLOCK)
+	return vfsErrorCode(ctx, err, _IOERR_UNLOCK)
 }
 
 func vfsCheckReservedLock(ctx context.Context, mod api.Module, pFile, pResOut ptr_t) _ErrorCode {
 	file := vfsFileGet(ctx, mod, pFile).(File)
 	locked, err := file.CheckReservedLock()
 	util.WriteBool(mod, pResOut, locked)
-	return vfsErrorCode(err, _IOERR_CHECKRESERVEDLOCK)
+	return vfsErrorCode(ctx, err, _IOERR_CHECKRESERVEDLOCK)
 }
 
 func vfsFileControl(ctx context.Context, mod api.Module, pFile ptr_t, op _FcntlOpcode, pArg ptr_t) _ErrorCode {
@@ -268,20 +268,20 @@ func vfsFileControlImpl(ctx context.Context, mod api.Module, file File, op _Fcnt
 		if file, ok := file.(FileSizeHint); ok {
 			size := util.Read64[int64](mod, pArg)
 			err := file.SizeHint(size)
-			return vfsErrorCode(err, _IOERR_TRUNCATE)
+			return vfsErrorCode(ctx, err, _IOERR_TRUNCATE)
 		}
 
 	case _FCNTL_HAS_MOVED:
 		if file, ok := file.(FileHasMoved); ok {
 			moved, err := file.HasMoved()
 			util.WriteBool(mod, pArg, moved)
-			return vfsErrorCode(err, _IOERR_FSTAT)
+			return vfsErrorCode(ctx, err, _IOERR_FSTAT)
 		}
 
 	case _FCNTL_OVERWRITE:
 		if file, ok := file.(FileOverwrite); ok {
 			err := file.Overwrite()
-			return vfsErrorCode(err, _IOERR)
+			return vfsErrorCode(ctx, err, _IOERR)
 		}
 
 	case _FCNTL_SYNC:
@@ -291,29 +291,29 @@ func vfsFileControlImpl(ctx context.Context, mod api.Module, file File, op _Fcnt
 				name = util.ReadString(mod, pArg, _MAX_PATHNAME)
 			}
 			err := file.SyncSuper(name)
-			return vfsErrorCode(err, _IOERR)
+			return vfsErrorCode(ctx, err, _IOERR)
 		}
 
 	case _FCNTL_COMMIT_PHASETWO:
 		if file, ok := file.(FileCommitPhaseTwo); ok {
 			err := file.CommitPhaseTwo()
-			return vfsErrorCode(err, _IOERR)
+			return vfsErrorCode(ctx, err, _IOERR)
 		}
 
 	case _FCNTL_BEGIN_ATOMIC_WRITE:
 		if file, ok := file.(FileBatchAtomicWrite); ok {
 			err := file.BeginAtomicWrite()
-			return vfsErrorCode(err, _IOERR_BEGIN_ATOMIC)
+			return vfsErrorCode(ctx, err, _IOERR_BEGIN_ATOMIC)
 		}
 	case _FCNTL_COMMIT_ATOMIC_WRITE:
 		if file, ok := file.(FileBatchAtomicWrite); ok {
 			err := file.CommitAtomicWrite()
-			return vfsErrorCode(err, _IOERR_COMMIT_ATOMIC)
+			return vfsErrorCode(ctx, err, _IOERR_COMMIT_ATOMIC)
 		}
 	case _FCNTL_ROLLBACK_ATOMIC_WRITE:
 		if file, ok := file.(FileBatchAtomicWrite); ok {
 			err := file.RollbackAtomicWrite()
-			return vfsErrorCode(err, _IOERR_ROLLBACK_ATOMIC)
+			return vfsErrorCode(ctx, err, _IOERR_ROLLBACK_ATOMIC)
 		}
 
 	case _FCNTL_CKPT_START:
@@ -338,7 +338,7 @@ func vfsFileControlImpl(ctx context.Context, mod api.Module, file File, op _Fcnt
 
 			out, err := file.Pragma(strings.ToLower(name), value)
 
-			ret := vfsErrorCode(err, _ERROR)
+			ret := vfsErrorCode(ctx, err, _ERROR)
 			if ret == _ERROR {
 				out = err.Error()
 			}
@@ -407,14 +407,15 @@ func vfsShmBarrier(ctx context.Context, mod api.Module, pFile ptr_t) {
 
 func vfsShmMap(ctx context.Context, mod api.Module, pFile ptr_t, iRegion, szRegion, bExtend int32, pp ptr_t) _ErrorCode {
 	shm := vfsFileGet(ctx, mod, pFile).(FileSharedMemory).SharedMemory()
-	p, rc := shm.shmMap(ctx, mod, iRegion, szRegion, bExtend != 0)
+	p, err := shm.shmMap(ctx, mod, iRegion, szRegion, bExtend != 0)
 	util.Write32(mod, pp, p)
-	return rc
+	return vfsErrorCode(ctx, err, _IOERR_SHMMAP)
 }
 
 func vfsShmLock(ctx context.Context, mod api.Module, pFile ptr_t, offset, n int32, flags _ShmFlag) _ErrorCode {
 	shm := vfsFileGet(ctx, mod, pFile).(FileSharedMemory).SharedMemory()
-	return shm.shmLock(offset, n, flags)
+	err := shm.shmLock(offset, n, flags)
+	return vfsErrorCode(ctx, err, _IOERR_SHMLOCK)
 }
 
 func vfsShmUnmap(ctx context.Context, mod api.Module, pFile ptr_t, bDelete int32) _ErrorCode {
@@ -454,13 +455,40 @@ func vfsFileClose(ctx context.Context, mod api.Module, pFile ptr_t) error {
 	return util.DelHandle(ctx, id)
 }
 
-func vfsErrorCode(err error, def _ErrorCode) _ErrorCode {
+func vfsErrorCode(ctx context.Context, err error, code _ErrorCode) _ErrorCode {
+	var sys error
+
+	switch err := err.(type) {
+	case nil:
+		code = _OK
+	case _ErrorCode:
+		code = err
+	case sysError:
+		code = err.code
+		sys = err.error
+	default:
+		switch v := reflect.ValueOf(err); v.Kind() {
+		case reflect.Uint8, reflect.Uint16:
+			code = _ErrorCode(v.Uint())
+		default:
+			sys = err
+		}
+	}
+
+	util.SetSystemError(ctx, sys)
+	return code
+}
+
+// SystemError tags an error with a given
+// sqlite3.ErrorCode or sqlite3.ExtendedErrorCode.
+func SystemError[T interface{ ~uint8 | ~uint16 }](err error, code T) error {
 	if err == nil {
-		return _OK
+		return nil
 	}
-	switch v := reflect.ValueOf(err); v.Kind() {
-	case reflect.Uint8, reflect.Uint16, reflect.Uint32:
-		return _ErrorCode(v.Uint())
-	}
-	return def
+	return sysError{error: err, code: _ErrorCode(code)}
+}
+
+type sysError struct {
+	error
+	code _ErrorCode
 }

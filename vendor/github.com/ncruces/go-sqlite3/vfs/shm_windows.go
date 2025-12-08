@@ -1,4 +1,4 @@
-//go:build (386 || arm || amd64 || arm64 || riscv64 || ppc64le) && !sqlite3_dotlk
+//go:build (386 || arm || amd64 || arm64 || riscv64 || ppc64le || loong64) && !sqlite3_dotlk
 
 package vfs
 
@@ -8,8 +8,9 @@ import (
 	"os"
 	"sync"
 
-	"github.com/tetratelabs/wazero/api"
 	"golang.org/x/sys/windows"
+
+	"github.com/tetratelabs/wazero/api"
 
 	"github.com/ncruces/go-sqlite3/internal/util"
 )
@@ -40,32 +41,33 @@ func (s *vfsShm) Close() error {
 	return s.File.Close()
 }
 
-func (s *vfsShm) shmOpen() _ErrorCode {
+func (s *vfsShm) shmOpen() error {
+	if s.fileLock {
+		return nil
+	}
 	if s.File == nil {
 		f, err := os.OpenFile(s.path, os.O_RDWR|os.O_CREATE, 0666)
 		if err != nil {
-			return _CANTOPEN
+			return sysError{err, _CANTOPEN}
 		}
+		s.fileLock = false
 		s.File = f
-	}
-	if s.fileLock {
-		return _OK
 	}
 
 	// Dead man's switch.
-	if rc := osWriteLock(s.File, _SHM_DMS, 1, 0); rc == _OK {
+	if osWriteLock(s.File, _SHM_DMS, 1, 0) == nil {
 		err := s.Truncate(0)
 		osUnlock(s.File, _SHM_DMS, 1)
 		if err != nil {
-			return _IOERR_SHMOPEN
+			return sysError{err, _IOERR_SHMOPEN}
 		}
 	}
-	rc := osReadLock(s.File, _SHM_DMS, 1, 0)
-	s.fileLock = rc == _OK
-	return rc
+	err := osReadLock(s.File, _SHM_DMS, 1, 0)
+	s.fileLock = err == nil
+	return err
 }
 
-func (s *vfsShm) shmMap(ctx context.Context, mod api.Module, id, size int32, extend bool) (_ ptr_t, rc _ErrorCode) {
+func (s *vfsShm) shmMap(ctx context.Context, mod api.Module, id, size int32, extend bool) (_ ptr_t, err error) {
 	// Ensure size is a multiple of the OS page size.
 	if size != _WALINDEX_PGSZ || (windows.Getpagesize()-1)&_WALINDEX_PGSZ != 0 {
 		return 0, _IOERR_SHMMAP
@@ -75,31 +77,31 @@ func (s *vfsShm) shmMap(ctx context.Context, mod api.Module, id, size int32, ext
 		s.free = mod.ExportedFunction("sqlite3_free")
 		s.alloc = mod.ExportedFunction("sqlite3_malloc64")
 	}
-	if rc := s.shmOpen(); rc != _OK {
-		return 0, rc
+	if err := s.shmOpen(); err != nil {
+		return 0, err
 	}
 
-	defer s.shmAcquire(&rc)
+	defer s.shmAcquire(&err)
 
 	// Check if file is big enough.
 	o, err := s.Seek(0, io.SeekEnd)
 	if err != nil {
-		return 0, _IOERR_SHMSIZE
+		return 0, sysError{err, _IOERR_SHMSIZE}
 	}
 	if n := (int64(id) + 1) * int64(size); n > o {
 		if !extend {
-			return 0, _OK
+			return 0, nil
 		}
-		if osAllocate(s.File, n) != nil {
-			return 0, _IOERR_SHMSIZE
+		if err := osAllocate(s.File, n); err != nil {
+			return 0, sysError{err, _IOERR_SHMSIZE}
 		}
 	}
 
 	// Maps regions into memory.
 	for int(id) >= len(s.shared) {
-		r, err := util.MapRegion(ctx, mod, s.File, int64(id)*int64(size), size)
+		r, err := util.MapRegion(s.File, int64(id)*int64(size), size)
 		if err != nil {
-			return 0, _IOERR_SHMMAP
+			return 0, err
 		}
 		s.regions = append(s.regions, r)
 		s.shared = append(s.shared, r.Data)
@@ -124,13 +126,17 @@ func (s *vfsShm) shmMap(ctx context.Context, mod api.Module, id, size int32, ext
 	}
 
 	s.shadow[0][4] = 1
-	return s.ptrs[id], _OK
+	return s.ptrs[id], nil
 }
 
-func (s *vfsShm) shmLock(offset, n int32, flags _ShmFlag) (rc _ErrorCode) {
+func (s *vfsShm) shmLock(offset, n int32, flags _ShmFlag) (err error) {
+	if s.File == nil {
+		return _IOERR_SHMLOCK
+	}
+
 	switch {
 	case flags&_SHM_LOCK != 0:
-		defer s.shmAcquire(&rc)
+		defer s.shmAcquire(&err)
 	case flags&_SHM_EXCLUSIVE != 0:
 		s.shmRelease()
 	}
@@ -168,6 +174,7 @@ func (s *vfsShm) shmUnmap(delete bool) {
 	// Close the file.
 	s.Close()
 	s.File = nil
+	s.fileLock = false
 	if delete {
 		os.Remove(s.path)
 	}

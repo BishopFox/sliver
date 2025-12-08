@@ -20,11 +20,12 @@ The main differences to be aware of are
 ### File Locking
 
 POSIX advisory locks,
-which SQLite uses on [Unix](https://github.com/sqlite/sqlite/blob/5d60f4/src/os_unix.c#L13-L14),
-are [broken by design](https://github.com/sqlite/sqlite/blob/5d60f4/src/os_unix.c#L1074-L1162).
+which SQLite uses on [Unix](https://github.com/sqlite/sqlite/blob/41fda52/src/os_unix.c#L13-L14),
+are [broken by design](https://github.com/sqlite/sqlite/blob/41fda52/src/os_unix.c#L1188-L1276).
 Instead, on Linux and macOS, this package uses
-[OFD locks](https://gnu.org/software/libc/manual/html_node/Open-File-Description-Locks.html)
+[OFD locks](https://sourceware.org/glibc/manual/2.25/html_node/Open-File-Description-Locks.html)
 to synchronize access to database files.
+OFD locks require [Linux 3.15](https://lwn.net/Articles/586904/).
 
 This package can also use
 [BSD locks](https://man.freebsd.org/cgi/man.cgi?query=flock&sektion=2),
@@ -73,7 +74,7 @@ to check if your build supports shared memory.
 
 ### Blocking Locks
 
-On Windows and macOS, this package implements
+On macOS, this package implements
 [Wal-mode blocking locks](https://sqlite.org/src/doc/tip/doc/wal-lock.md).
 
 ### Batch-Atomic Write
@@ -116,9 +117,13 @@ The VFS can be customized with a few build tags:
 
 - [`github.com/ncruces/go-sqlite3/vfs/memdb`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/vfs/memdb)
   implements an in-memory VFS.
+- [`github.com/ncruces/go-sqlite3/vfs/mvcc`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/vfs/mvcc)
+  implements an in-memory MVCC VFS.
 - [`github.com/ncruces/go-sqlite3/vfs/readervfs`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/vfs/readervfs)
   implements a VFS for immutable databases.
 - [`github.com/ncruces/go-sqlite3/vfs/adiantum`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/vfs/adiantum)
   wraps a VFS to offer encryption at rest.
 - [`github.com/ncruces/go-sqlite3/vfs/xts`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/vfs/xts)
   wraps a VFS to offer encryption at rest.
+- [`github.com/ncruces/go-sqlite3/litestream`](https://pkg.go.dev/github.com/ncruces/go-sqlite3/litestream)
+  implements Litestream [lightweight read-replicas](https://fly.io/blog/litestream-revamped/#lightweight-read-replicas).
