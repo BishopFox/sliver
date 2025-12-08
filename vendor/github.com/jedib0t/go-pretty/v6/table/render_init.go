@@ -43,11 +43,15 @@ func (t *Table) analyzeAndStringifyColumn(colIdx int, col interface{}, hint rend
 	} else if colStrVal, ok := col.(string); ok {
 		colStr = colStrVal
 	} else {
-		colStr = fmt.Sprint(col)
+		colStr = convertValueToString(col)
 	}
 	colStr = strings.ReplaceAll(colStr, "\t", "    ")
 	colStr = text.ProcessCRLF(colStr)
-	return fmt.Sprintf("%s%s", t.style.Format.Direction.Modifier(), colStr)
+	// Avoid fmt.Sprintf when direction modifier is empty (most common case)
+	if t.directionModifier == "" {
+		return colStr
+	}
+	return t.directionModifier + colStr
 }
 
 func (t *Table) extractMaxColumnLengths(rows []rowStr, hint renderHint) {
@@ -149,12 +153,17 @@ func (t *Table) reBalanceMaxMergedColumnLengths() {
 	}
 }
 
-func (t *Table) initForRender() {
+func (t *Table) initForRender(mode renderMode) {
+	t.renderMode = mode
+
 	// pick a default style if none was set until now
 	t.Style()
 
 	// reset rendering state
 	t.reset()
+
+	// cache the direction modifier to avoid repeated calls
+	t.directionModifier = t.style.Format.Direction.Modifier()
 
 	// initialize the column configs and normalize them
 	t.initForRenderColumnConfigs()
@@ -341,10 +350,57 @@ func (t *Table) initForRenderRowPainterColors() {
 }
 
 func (t *Table) initForRenderRowSeparator() {
-	t.rowSeparator = make(rowStr, t.numColumns)
-	for colIdx, maxColumnLength := range t.maxColumnLengths {
-		maxColumnLength += text.StringWidthWithoutEscSequences(t.style.Box.PaddingLeft + t.style.Box.PaddingRight)
-		t.rowSeparator[colIdx] = text.RepeatAndTrim(t.style.Box.MiddleHorizontal, maxColumnLength)
+	// this is needed only for default render mode
+	if t.renderMode != renderModeDefault {
+		return
+	}
+
+	// init the separatorType -> separator-string map
+	t.initForRenderRowSeparatorStrings()
+
+	// init the separator-string -> separator-row map
+	t.rowSeparators = make(map[string]rowStr, len(t.rowSeparatorStrings))
+	paddingLength := text.StringWidthWithoutEscSequences(t.style.Box.PaddingLeft + t.style.Box.PaddingRight)
+	for _, separator := range t.rowSeparatorStrings {
+		t.rowSeparators[separator] = make(rowStr, t.numColumns)
+		for colIdx, maxColumnLength := range t.maxColumnLengths {
+			t.rowSeparators[separator][colIdx] = text.RepeatAndTrim(separator, maxColumnLength+paddingLength)
+		}
+	}
+}
+
+func (t *Table) initForRenderRowSeparatorStrings() {
+	// allocate and init only the separators that are needed
+	t.rowSeparatorStrings = make(map[separatorType]string)
+	addSeparatorType := func(st separatorType) {
+		t.rowSeparatorStrings[st] = t.style.Box.middleHorizontal(st)
+	}
+
+	// for other render modes, we need all the separators
+	if t.title != "" {
+		addSeparatorType(separatorTypeTitleTop)
+		addSeparatorType(separatorTypeTitleBottom)
+	}
+	if len(t.rowsHeader) > 0 || t.autoIndex {
+		addSeparatorType(separatorTypeHeaderTop)
+		addSeparatorType(separatorTypeHeaderBottom)
+		if len(t.rowsHeader) > 1 {
+			addSeparatorType(separatorTypeHeaderMiddle)
+		}
+	}
+	if len(t.rows) > 0 {
+		addSeparatorType(separatorTypeRowTop)
+		addSeparatorType(separatorTypeRowBottom)
+		if len(t.rows) > 1 {
+			addSeparatorType(separatorTypeRowMiddle)
+		}
+	}
+	if len(t.rowsFooter) > 0 || t.autoIndex {
+		addSeparatorType(separatorTypeFooterTop)
+		addSeparatorType(separatorTypeFooterBottom)
+		if len(t.rowsFooter) > 1 {
+			addSeparatorType(separatorTypeFooterMiddle)
+		}
 	}
 }
 
@@ -402,7 +458,7 @@ func (t *Table) reset() {
 	t.maxRowLength = 0
 	t.numColumns = 0
 	t.numLinesRendered = 0
-	t.rowSeparator = nil
+	t.rowSeparators = nil
 	t.rows = nil
 	t.rowsColors = nil
 	t.rowsFooter = nil

@@ -6,7 +6,7 @@ import (
 )
 
 func (t *Table) RenderTSV() string {
-	t.initForRender()
+	t.initForRender(renderModeTSV)
 
 	var out strings.Builder
 

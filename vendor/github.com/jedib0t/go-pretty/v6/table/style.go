@@ -341,217 +341,6 @@ var (
 	}
 )
 
-// BoxStyle defines the characters/strings to use to render the borders and
-// separators for the Table.
-type BoxStyle struct {
-	BottomLeft       string
-	BottomRight      string
-	BottomSeparator  string
-	EmptySeparator   string
-	Left             string
-	LeftSeparator    string
-	MiddleHorizontal string
-	MiddleSeparator  string
-	MiddleVertical   string
-	PaddingLeft      string
-	PaddingRight     string
-	PageSeparator    string
-	Right            string
-	RightSeparator   string
-	TopLeft          string
-	TopRight         string
-	TopSeparator     string
-	UnfinishedRow    string
-}
-
-var (
-	// StyleBoxDefault defines a Boxed-Table like below:
-	//  +-----+------------+-----------+--------+-----------------------------+
-	//  |   # | FIRST NAME | LAST NAME | SALARY |                             |
-	//  +-----+------------+-----------+--------+-----------------------------+
-	//  |   1 | Arya       | Stark     |   3000 |                             |
-	//  |  20 | Jon        | Snow      |   2000 | You know nothing, Jon Snow! |
-	//  | 300 | Tyrion     | Lannister |   5000 |                             |
-	//  +-----+------------+-----------+--------+-----------------------------+
-	//  |     |            | TOTAL     |  10000 |                             |
-	//  +-----+------------+-----------+--------+-----------------------------+
-	StyleBoxDefault = BoxStyle{
-		BottomLeft:       "+",
-		BottomRight:      "+",
-		BottomSeparator:  "+",
-		EmptySeparator:   " ",
-		Left:             "|",
-		LeftSeparator:    "+",
-		MiddleHorizontal: "-",
-		MiddleSeparator:  "+",
-		MiddleVertical:   "|",
-		PaddingLeft:      " ",
-		PaddingRight:     " ",
-		PageSeparator:    "\n",
-		Right:            "|",
-		RightSeparator:   "+",
-		TopLeft:          "+",
-		TopRight:         "+",
-		TopSeparator:     "+",
-		UnfinishedRow:    " ~",
-	}
-
-	// StyleBoxBold defines a Boxed-Table like below:
-	//  ┏━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-	//  ┃   # ┃ FIRST NAME ┃ LAST NAME ┃ SALARY ┃                             ┃
-	//  ┣━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━╋━━━━━━━━╋━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
-	//  ┃   1 ┃ Arya       ┃ Stark     ┃   3000 ┃                             ┃
-	//  ┃  20 ┃ Jon        ┃ Snow      ┃   2000 ┃ You know nothing, Jon Snow! ┃
-	//  ┃ 300 ┃ Tyrion     ┃ Lannister ┃   5000 ┃                             ┃
-	//  ┣━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━╋━━━━━━━━╋━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
-	//  ┃     ┃            ┃ TOTAL     ┃  10000 ┃                             ┃
-	//  ┗━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━┻━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-	StyleBoxBold = BoxStyle{
-		BottomLeft:       "┗",
-		BottomRight:      "┛",
-		BottomSeparator:  "┻",
-		EmptySeparator:   " ",
-		Left:             "┃",
-		LeftSeparator:    "┣",
-		MiddleHorizontal: "━",
-		MiddleSeparator:  "╋",
-		MiddleVertical:   "┃",
-		PaddingLeft:      " ",
-		PaddingRight:     " ",
-		PageSeparator:    "\n",
-		Right:            "┃",
-		RightSeparator:   "┫",
-		TopLeft:          "┏",
-		TopRight:         "┓",
-		TopSeparator:     "┳",
-		UnfinishedRow:    " ≈",
-	}
-
-	// StyleBoxDouble defines a Boxed-Table like below:
-	//  ╔═════╦════════════╦═══════════╦════════╦═════════════════════════════╗
-	//  ║   # ║ FIRST NAME ║ LAST NAME ║ SALARY ║                             ║
-	//  ╠═════╬════════════╬═══════════╬════════╬═════════════════════════════╣
-	//  ║   1 ║ Arya       ║ Stark     ║   3000 ║                             ║
-	//  ║  20 ║ Jon        ║ Snow      ║   2000 ║ You know nothing, Jon Snow! ║
-	//  ║ 300 ║ Tyrion     ║ Lannister ║   5000 ║                             ║
-	//  ╠═════╬════════════╬═══════════╬════════╬═════════════════════════════╣
-	//  ║     ║            ║ TOTAL     ║  10000 ║                             ║
-	//  ╚═════╩════════════╩═══════════╩════════╩═════════════════════════════╝
-	StyleBoxDouble = BoxStyle{
-		BottomLeft:       "╚",
-		BottomRight:      "╝",
-		BottomSeparator:  "╩",
-		EmptySeparator:   " ",
-		Left:             "║",
-		LeftSeparator:    "╠",
-		MiddleHorizontal: "═",
-		MiddleSeparator:  "╬",
-		MiddleVertical:   "║",
-		PaddingLeft:      " ",
-		PaddingRight:     " ",
-		PageSeparator:    "\n",
-		Right:            "║",
-		RightSeparator:   "╣",
-		TopLeft:          "╔",
-		TopRight:         "╗",
-		TopSeparator:     "╦",
-		UnfinishedRow:    " ≈",
-	}
-
-	// StyleBoxLight defines a Boxed-Table like below:
-	//  ┌─────┬────────────┬───────────┬────────┬─────────────────────────────┐
-	//  │   # │ FIRST NAME │ LAST NAME │ SALARY │                             │
-	//  ├─────┼────────────┼───────────┼────────┼─────────────────────────────┤
-	//  │   1 │ Arya       │ Stark     │   3000 │                             │
-	//  │  20 │ Jon        │ Snow      │   2000 │ You know nothing, Jon Snow! │
-	//  │ 300 │ Tyrion     │ Lannister │   5000 │                             │
-	//  ├─────┼────────────┼───────────┼────────┼─────────────────────────────┤
-	//  │     │            │ TOTAL     │  10000 │                             │
-	//  └─────┴────────────┴───────────┴────────┴─────────────────────────────┘
-	StyleBoxLight = BoxStyle{
-		BottomLeft:       "└",
-		BottomRight:      "┘",
-		BottomSeparator:  "┴",
-		EmptySeparator:   " ",
-		Left:             "│",
-		LeftSeparator:    "├",
-		MiddleHorizontal: "─",
-		MiddleSeparator:  "┼",
-		MiddleVertical:   "│",
-		PaddingLeft:      " ",
-		PaddingRight:     " ",
-		PageSeparator:    "\n",
-		Right:            "│",
-		RightSeparator:   "┤",
-		TopLeft:          "┌",
-		TopRight:         "┐",
-		TopSeparator:     "┬",
-		UnfinishedRow:    " ≈",
-	}
-
-	// StyleBoxRounded defines a Boxed-Table like below:
-	//  ╭─────┬────────────┬───────────┬────────┬─────────────────────────────╮
-	//  │   # │ FIRST NAME │ LAST NAME │ SALARY │                             │
-	//  ├─────┼────────────┼───────────┼────────┼─────────────────────────────┤
-	//  │   1 │ Arya       │ Stark     │   3000 │                             │
-	//  │  20 │ Jon        │ Snow      │   2000 │ You know nothing, Jon Snow! │
-	//  │ 300 │ Tyrion     │ Lannister │   5000 │                             │
-	//  ├─────┼────────────┼───────────┼────────┼─────────────────────────────┤
-	//  │     │            │ TOTAL     │  10000 │                             │
-	//  ╰─────┴────────────┴───────────┴────────┴─────────────────────────────╯
-	StyleBoxRounded = BoxStyle{
-		BottomLeft:       "╰",
-		BottomRight:      "╯",
-		BottomSeparator:  "┴",
-		EmptySeparator:   " ",
-		Left:             "│",
-		LeftSeparator:    "├",
-		MiddleHorizontal: "─",
-		MiddleSeparator:  "┼",
-		MiddleVertical:   "│",
-		PaddingLeft:      " ",
-		PaddingRight:     " ",
-		PageSeparator:    "\n",
-		Right:            "│",
-		RightSeparator:   "┤",
-		TopLeft:          "╭",
-		TopRight:         "╮",
-		TopSeparator:     "┬",
-		UnfinishedRow:    " ≈",
-	}
-
-	// styleBoxTest defines a Boxed-Table like below:
-	//  (-----^------------^-----------^--------^-----------------------------)
-	//  [<  #>|<FIRST NAME>|<LAST NAME>|<SALARY>|<                           >]
-	//  {-----+------------+-----------+--------+-----------------------------}
-	//  [<  1>|<Arya      >|<Stark    >|<  3000>|<                           >]
-	//  [< 20>|<Jon       >|<Snow     >|<  2000>|<You know nothing, Jon Snow!>]
-	//  [<300>|<Tyrion    >|<Lannister>|<  5000>|<                           >]
-	//  {-----+------------+-----------+--------+-----------------------------}
-	//  [<   >|<          >|<TOTAL    >|< 10000>|<                           >]
-	//  \-----v------------v-----------v--------v-----------------------------/
-	styleBoxTest = BoxStyle{
-		BottomLeft:       "\\",
-		BottomRight:      "/",
-		BottomSeparator:  "v",
-		EmptySeparator:   " ",
-		Left:             "[",
-		LeftSeparator:    "{",
-		MiddleHorizontal: "--",
-		MiddleSeparator:  "+",
-		MiddleVertical:   "|",
-		PaddingLeft:      "<",
-		PaddingRight:     ">",
-		PageSeparator:    "\n",
-		Right:            "]",
-		RightSeparator:   "}",
-		TopLeft:          "(",
-		TopRight:         ")",
-		TopSeparator:     "^",
-		UnfinishedRow:    " ~~~",
-	}
-)
-
 // ColorOptions defines the ANSI colors to use for parts of the Table.
 type ColorOptions struct {
 	Border       text.Colors // borders (if nil, uses one of the below)
@@ -717,18 +506,20 @@ var FormatOptionsDefault = FormatOptions{
 
 // HTMLOptions defines the global options to control HTML rendering.
 type HTMLOptions struct {
-	CSSClass    string // CSS class to set on the overall <table> tag
-	EmptyColumn string // string to replace "" columns with (entire content being "")
-	EscapeText  bool   // escape text into HTML-safe content?
-	Newline     string // string to replace "\n" characters with
+	ConvertColorsToSpans bool   // convert ANSI escape sequences to HTML <span> tags with CSS classes? EscapeText will be true if this is true.
+	CSSClass             string // CSS class to set on the overall <table> tag
+	EmptyColumn          string // string to replace "" columns with (entire content being "")
+	EscapeText           bool   // escape text into HTML-safe content?
+	Newline              string // string to replace "\n" characters with
 }
 
 // DefaultHTMLOptions defines sensible HTML rendering defaults.
 var DefaultHTMLOptions = HTMLOptions{
-	CSSClass:    DefaultHTMLCSSClass,
-	EmptyColumn: "&nbsp;",
-	EscapeText:  true,
-	Newline:     "<br/>",
+	ConvertColorsToSpans: true,
+	CSSClass:             DefaultHTMLCSSClass,
+	EmptyColumn:          "&nbsp;",
+	EscapeText:           true,
+	Newline:              "<br/>",
 }
 
 // Options defines the global options that determine how the Table is
