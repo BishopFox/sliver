@@ -690,7 +690,7 @@ func (c *Client) addNonce(h http.Header) {
 }
 
 func (c *Client) fetchNonce(ctx context.Context, url string) (string, error) {
-	r, err := http.NewRequest("HEAD", url, nil)
+	r, err := http.NewRequestWithContext(ctx, "HEAD", url, nil)
 	if err != nil {
 		return "", err
 	}
