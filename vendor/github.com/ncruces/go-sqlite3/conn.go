@@ -420,21 +420,21 @@ func busyCallback(ctx context.Context, mod api.Module, pDB ptr_t, count int32) (
 // Status retrieves runtime status information about a database connection.
 //
 // https://sqlite.org/c3ref/db_status.html
-func (c *Conn) Status(op DBStatus, reset bool) (current, highwater int, err error) {
+func (c *Conn) Status(op DBStatus, reset bool) (current, highwater int64, err error) {
 	defer c.arena.mark()()
-	hiPtr := c.arena.new(intlen)
-	curPtr := c.arena.new(intlen)
+	hiPtr := c.arena.new(8)
+	curPtr := c.arena.new(8)
 
 	var i int32
 	if reset {
 		i = 1
 	}
 
-	rc := res_t(c.call("sqlite3_db_status", stk_t(c.handle),
+	rc := res_t(c.call("sqlite3_db_status64", stk_t(c.handle),
 		stk_t(op), stk_t(curPtr), stk_t(hiPtr), stk_t(i)))
 	if err = c.error(rc); err == nil {
-		current = int(util.Read32[int32](c.mod, curPtr))
-		highwater = int(util.Read32[int32](c.mod, hiPtr))
+		current = util.Read64[int64](c.mod, curPtr)
+		highwater = util.Read64[int64](c.mod, hiPtr)
 	}
 	return
 }

@@ -40,7 +40,7 @@ func evalSymlinks(path string) (string, error) {
 func (vfsOS) Delete(path string, syncDir bool) error {
 	err := os.Remove(path)
 	if errors.Is(err, fs.ErrNotExist) {
-		return _IOERR_DELETE_NOENT
+		return sysError{err, _IOERR_DELETE_NOENT}
 	}
 	if err != nil {
 		return err
@@ -48,12 +48,12 @@ func (vfsOS) Delete(path string, syncDir bool) error {
 	if isUnix && syncDir {
 		f, err := os.Open(filepath.Dir(path))
 		if err != nil {
-			return _OK
+			return nil
 		}
 		defer f.Close()
 		err = osSync(f, 0, SYNC_FULL)
 		if err != nil {
-			return _IOERR_DIR_FSYNC
+			return sysError{err, _IOERR_DIR_FSYNC}
 		}
 	}
 	return nil
@@ -108,14 +108,14 @@ func (vfsOS) OpenFilename(name *Filename, flags OpenFlag) (File, OpenFlag, error
 	}
 	if err != nil {
 		if name == nil {
-			return nil, flags, _IOERR_GETTEMPPATH
+			return nil, flags, sysError{err, _IOERR_GETTEMPPATH}
 		}
 		if errors.Is(err, syscall.EISDIR) {
-			return nil, flags, _CANTOPEN_ISDIR
+			return nil, flags, sysError{err, _CANTOPEN_ISDIR}
 		}
 		if isCreate && isJournl && errors.Is(err, fs.ErrPermission) &&
 			osAccess(name.String(), ACCESS_EXISTS) != nil {
-			return nil, flags, _READONLY_DIRECTORY
+			return nil, flags, sysError{err, _READONLY_DIRECTORY}
 		}
 		return nil, flags, err
 	}
@@ -123,7 +123,7 @@ func (vfsOS) OpenFilename(name *Filename, flags OpenFlag) (File, OpenFlag, error
 	if modeof := name.URIParameter("modeof"); modeof != "" {
 		if err = osSetMode(f, modeof); err != nil {
 			f.Close()
-			return nil, flags, _IOERR_FSTAT
+			return nil, flags, sysError{err, _IOERR_FSTAT}
 		}
 	}
 	if isUnix && flags&OPEN_DELETEONCLOSE != 0 {
@@ -193,7 +193,7 @@ func (f *vfsFile) Sync(flags SyncFlag) error {
 		defer d.Close()
 		err = osSync(f.File, f.flags, flags)
 		if err != nil {
-			return _IOERR_DIR_FSYNC
+			return sysError{err, _IOERR_DIR_FSYNC}
 		}
 	}
 	return nil

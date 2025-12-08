@@ -8,13 +8,13 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func osGetSharedLock(file *os.File) _ErrorCode {
+func osGetSharedLock(file *os.File) error {
 	return osFlock(file, unix.LOCK_SH|unix.LOCK_NB, _IOERR_RDLOCK)
 }
 
-func osGetReservedLock(file *os.File) _ErrorCode {
-	rc := osFlock(file, unix.LOCK_EX|unix.LOCK_NB, _IOERR_LOCK)
-	if rc == _BUSY {
+func osGetReservedLock(file *os.File) error {
+	err := osFlock(file, unix.LOCK_EX|unix.LOCK_NB, _IOERR_LOCK)
+	if err == _BUSY {
 		// The documentation states that a lock is upgraded by
 		// releasing the previous lock, then acquiring the new lock.
 		// Going over the source code of various BSDs, though,
@@ -26,19 +26,19 @@ func osGetReservedLock(file *os.File) _ErrorCode {
 		// and invoke the busy handler if appropriate.
 		return _BUSY_SNAPSHOT
 	}
-	return rc
+	return err
 }
 
-func osGetExclusiveLock(file *os.File, state *LockLevel) _ErrorCode {
+func osGetExclusiveLock(file *os.File, state *LockLevel) error {
 	if *state >= LOCK_RESERVED {
-		return _OK
+		return nil
 	}
 	return osGetReservedLock(file)
 }
 
-func osDowngradeLock(file *os.File, _ LockLevel) _ErrorCode {
-	rc := osFlock(file, unix.LOCK_SH|unix.LOCK_NB, _IOERR_RDLOCK)
-	if rc == _BUSY {
+func osDowngradeLock(file *os.File, _ LockLevel) error {
+	err := osFlock(file, unix.LOCK_SH|unix.LOCK_NB, _IOERR_RDLOCK)
+	if err == _BUSY {
 		// The documentation states that a lock is downgraded by
 		// releasing the previous lock then acquiring the new lock.
 		// Going over the source code of various BSDs, though,
@@ -46,44 +46,44 @@ func osDowngradeLock(file *os.File, _ LockLevel) _ErrorCode {
 		// Return IOERR_RDLOCK, as BUSY would cause an assert to fail.
 		return _IOERR_RDLOCK
 	}
-	return _OK
+	return err
 }
 
-func osReleaseLock(file *os.File, _ LockLevel) _ErrorCode {
+func osReleaseLock(file *os.File, _ LockLevel) error {
 	for {
 		err := unix.Flock(int(file.Fd()), unix.LOCK_UN)
 		if err == nil {
-			return _OK
+			return nil
 		}
 		if err != unix.EINTR {
-			return _IOERR_UNLOCK
+			return sysError{err, _IOERR_UNLOCK}
 		}
 	}
 }
 
-func osCheckReservedLock(file *os.File) (bool, _ErrorCode) {
+func osCheckReservedLock(file *os.File) (bool, error) {
 	// Test the RESERVED lock with fcntl(F_GETLK).
 	// This only works on systems where fcntl and flock are compatible.
 	// However, SQLite only calls this while holding a shared lock,
 	// so the difference is immaterial.
-	lock, rc := osTestLock(file, _RESERVED_BYTE, 1)
-	return lock == unix.F_WRLCK, rc
+	lock, err := osTestLock(file, _RESERVED_BYTE, 1, _IOERR_CHECKRESERVEDLOCK)
+	return lock == unix.F_WRLCK, err
 }
 
-func osFlock(file *os.File, how int, def _ErrorCode) _ErrorCode {
+func osFlock(file *os.File, how int, def _ErrorCode) error {
 	err := unix.Flock(int(file.Fd()), how)
 	return osLockErrorCode(err, def)
 }
 
-func osReadLock(file *os.File, start, len int64) _ErrorCode {
+func osReadLock(file *os.File, start, len int64) error {
 	return osLock(file, unix.F_RDLCK, start, len, _IOERR_RDLOCK)
 }
 
-func osWriteLock(file *os.File, start, len int64) _ErrorCode {
+func osWriteLock(file *os.File, start, len int64) error {
 	return osLock(file, unix.F_WRLCK, start, len, _IOERR_LOCK)
 }
 
-func osLock(file *os.File, typ int16, start, len int64, def _ErrorCode) _ErrorCode {
+func osLock(file *os.File, typ int16, start, len int64, def _ErrorCode) error {
 	err := unix.FcntlFlock(file.Fd(), unix.F_SETLK, &unix.Flock_t{
 		Type:  typ,
 		Start: start,
@@ -92,7 +92,7 @@ func osLock(file *os.File, typ int16, start, len int64, def _ErrorCode) _ErrorCo
 	return osLockErrorCode(err, def)
 }
 
-func osUnlock(file *os.File, start, len int64) _ErrorCode {
+func osUnlock(file *os.File, start, len int64) error {
 	lock := unix.Flock_t{
 		Type:  unix.F_UNLCK,
 		Start: start,
@@ -101,10 +101,10 @@ func osUnlock(file *os.File, start, len int64) _ErrorCode {
 	for {
 		err := unix.FcntlFlock(file.Fd(), unix.F_SETLK, &lock)
 		if err == nil {
-			return _OK
+			return nil
 		}
 		if err != unix.EINTR {
-			return _IOERR_UNLOCK
+			return sysError{err, _IOERR_UNLOCK}
 		}
 	}
 }

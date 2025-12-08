@@ -84,14 +84,14 @@ It also benefits greatly from [SQLite's](https://sqlite.org/testing.html) and
 thorough testing.
 
 Every commit is tested on:
-* Linux: amd64, arm64, 386, riscv64, ppc64le, s390x
+* Linux: amd64, arm64, 386, arm, riscv64, ppc64le, loong64, s390x
 * macOS: amd64, arm64
-* Windows: amd64
+* Windows: amd64, arm64
 * BSD:
   * FreeBSD: amd64, arm64
-  * OpenBSD: amd64
   * NetBSD: amd64, arm64
   * DragonFly BSD: amd64
+  * OpenBSD: amd64
 * illumos: amd64
 * Solaris: amd64
 
