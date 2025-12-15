@@ -255,7 +255,7 @@ github.com/fatih/color
 ## explicit; go 1.20
 github.com/fxamacker/cbor/v2
 # github.com/gaissmai/bart v0.25.0
-## explicit; go 1.24.0
+## explicit; go 1.24
 github.com/gaissmai/bart
 github.com/gaissmai/bart/internal/allot
 github.com/gaissmai/bart/internal/art
@@ -460,7 +460,7 @@ github.com/moloch--/memmod
 ## explicit; go 1.23
 github.com/moloch--/sgn/pkg
 # github.com/ncruces/go-sqlite3 v0.29.1
-## explicit; go 1.24.0
+## explicit; go 1.24
 github.com/ncruces/go-sqlite3
 github.com/ncruces/go-sqlite3/driver
 github.com/ncruces/go-sqlite3/embed
@@ -681,7 +681,7 @@ go4.org/mem
 ## explicit; go 1.18
 go4.org/netipx
 # golang.org/x/crypto v0.43.0
-## explicit; go 1.24.0
+## explicit; go 1.24
 golang.org/x/crypto/acme
 golang.org/x/crypto/acme/autocert
 golang.org/x/crypto/argon2
@@ -712,7 +712,7 @@ golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/agent
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
 # golang.org/x/exp v0.0.0-20251002181428-27f1f14c8bb9
-## explicit; go 1.24.0
+## explicit; go 1.24
 golang.org/x/exp/constraints
 golang.org/x/exp/maps
 golang.org/x/exp/slices
@@ -720,10 +720,10 @@ golang.org/x/exp/slog
 golang.org/x/exp/slog/internal
 golang.org/x/exp/slog/internal/buffer
 # golang.org/x/mod v0.28.0
-## explicit; go 1.24.0
+## explicit; go 1.24
 golang.org/x/mod/semver
 # golang.org/x/net v0.46.0
-## explicit; go 1.24.0
+## explicit; go 1.24
 golang.org/x/net/bpf
 golang.org/x/net/dns/dnsmessage
 golang.org/x/net/http/httpguts
@@ -748,11 +748,11 @@ golang.org/x/oauth2
 golang.org/x/oauth2/clientcredentials
 golang.org/x/oauth2/internal
 # golang.org/x/sync v0.17.0
-## explicit; go 1.24.0
+## explicit; go 1.24
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
 # golang.org/x/sys v0.37.0
-## explicit; go 1.24.0
+## explicit; go 1.24
 golang.org/x/sys/cpu
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
@@ -761,10 +761,10 @@ golang.org/x/sys/windows/registry
 golang.org/x/sys/windows/svc
 golang.org/x/sys/windows/svc/mgr
 # golang.org/x/term v0.36.0
-## explicit; go 1.24.0
+## explicit; go 1.24
 golang.org/x/term
 # golang.org/x/text v0.30.0
-## explicit; go 1.24.0
+## explicit; go 1.24
 golang.org/x/text/cases
 golang.org/x/text/encoding
 golang.org/x/text/encoding/internal
@@ -784,10 +784,10 @@ golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
 golang.org/x/text/width
 # golang.org/x/time v0.13.0
-## explicit; go 1.24.0
+## explicit; go 1.24
 golang.org/x/time/rate
 # golang.org/x/tools v0.37.0
-## explicit; go 1.24.0
+## explicit; go 1.24
 golang.org/x/tools/go/gcexportdata
 golang.org/x/tools/go/packages
 golang.org/x/tools/go/types/objectpath
@@ -827,10 +827,10 @@ golang.zx2c4.com/wireguard/wgctrl/wgtypes
 ## explicit; go 1.18
 golang.zx2c4.com/wireguard/windows/tunnel/winipcfg
 # google.golang.org/genproto/googleapis/rpc v0.0.0-20251014184007-4626949a642f
-## explicit; go 1.24.0
+## explicit; go 1.24
 google.golang.org/genproto/googleapis/rpc/status
 # google.golang.org/grpc v1.76.0
-## explicit; go 1.24.0
+## explicit; go 1.24
 google.golang.org/grpc
 google.golang.org/grpc/attributes
 google.golang.org/grpc/backoff
