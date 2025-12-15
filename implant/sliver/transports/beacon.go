@@ -362,6 +362,9 @@ func dnsBeacon(uri *url.URL) *Beacon {
 			return client.WriteEnvelope(envelope)
 		},
 		Close: func() error {
+			if client != nil {
+				return client.CloseSession()
+			}
 			return nil
 		},
 		Cleanup: func() error {
