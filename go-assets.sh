@@ -23,6 +23,7 @@ set -e
 GO_VER="1.25.5"
 GARBLE_VER="1.25.5"
 ZIG_VER="0.15.1"
+ZIG_SOURCE_PARAM="source=sliver"
 
 # Zig significantly throttles downloads from the main site, so we use
 # community mirrors. We fetch the list of mirrors at runtime, but
@@ -117,6 +118,16 @@ randomized_mirrors() {
   printf '%s\n' "${shuffled[@]}"
 }
 
+append_query_param() {
+  local url="$1"
+  local param="$2"
+  if [[ "$url" == *\?* ]]; then
+    printf '%s&%s' "$url" "$param"
+  else
+    printf '%s?%s' "$url" "$param"
+  fi
+}
+
 # Build a temporary helper that verifies signatures via util/minisign.
 ensure_minisign_helper() {
   if [ -n "$MINISIGN_HELPER" ] && [ -x "$MINISIGN_HELPER" ]; then
@@ -138,7 +149,7 @@ ensure_minisign_helper() {
 
 verify_minisig() {
   ensure_minisign_helper
-  ZIG_PUBLIC_KEY="$ZIG_MINISIGN_PUBKEY" "$MINISIGN_HELPER" "$1" "$2"
+  ZIG_PUBLIC_KEY="$ZIG_MINISIGN_PUBKEY" "$MINISIGN_HELPER" "$1" "$2" "$3"
 }
 
 download_zig() {
@@ -148,40 +159,49 @@ download_zig() {
   local local_name="$4"
   local dest_dir="$OUTPUT_DIR/$platform/$arch"
   local dest_path="$dest_dir/$local_name"
-  local minisig_url="https://ziglang.org/download/$ZIG_VER/$remote_name.minisig"
-  local mirror_url
   local success=0
 
   mkdir -p "$dest_dir"
   rm -f "$dest_path"
 
+  echo "Zig $platform/$arch: $remote_name"
   while read -r mirror; do
-    mirror_url="${mirror%/}/$ZIG_VER/$remote_name"
-    echo "Attempting Zig download from $mirror_url"
+    local mirror_base="${mirror%/}/$ZIG_VER"
+    local artifact_url="${mirror_base}/$remote_name"
+    local signature_url="${mirror_base}/${remote_name}.minisig"
+    artifact_url="$(append_query_param "$artifact_url" "$ZIG_SOURCE_PARAM")"
+    signature_url="$(append_query_param "$signature_url" "$ZIG_SOURCE_PARAM")"
+    echo "Attempting Zig mirror $mirror_base"
+    echo "  artifact:  $artifact_url"
+    echo "  signature: $signature_url"
     local tmp_tar
     local tmp_sig
     tmp_tar=$(mktemp)
     tmp_sig=$(mktemp)
     local verification_failed=0
-    if curl -L --fail --output "$tmp_tar" "$mirror_url"; then
-      if curl -L --fail --output "$tmp_sig" "$minisig_url"; then
-        if verify_minisig "$tmp_tar" "$tmp_sig"; then
+    if curl -L --fail --output "$tmp_tar" "$artifact_url"; then
+      if curl -L --fail --output "$tmp_sig" "$signature_url"; then
+        if verify_minisig "$tmp_tar" "$tmp_sig" "$remote_name"; then
           mv "$tmp_tar" "$dest_path"
           rm -f "$tmp_sig"
           echo "Downloaded and verified Zig package -> $dest_path"
           success=1
           break
         else
-          echo "[!] Signature verification failed for $mirror_url" >&2
+          echo "[!] Signature verification failed for $remote_name from $mirror_base" >&2
           verification_failed=1
         fi
+      else
+        echo "[!] Failed to download Zig signature from $signature_url" >&2
       fi
+    else
+      echo "[!] Failed to download Zig artifact from $artifact_url" >&2
     fi
     if [ "$verification_failed" -eq 1 ]; then
       echo "[!] Deleting corrupted download $tmp_tar" >&2
     fi
     rm -f "$tmp_tar" "$tmp_sig"
-    echo "[!] Failed to download or verify Zig from $mirror_url" >&2
+    echo "[!] Failed to download or verify Zig from $mirror_base" >&2
   done < <(randomized_mirrors)
 
   if [ "$success" -ne 1 ]; then
