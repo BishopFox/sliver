@@ -5,6 +5,7 @@
 #
 # For unit testing:
 #   docker build --target test .
+#   docker build --target test --build-arg GO_TESTS_FLAGS=--skip-generate .
 #
 
 # STAGE: base
@@ -31,6 +32,9 @@ RUN cp -vv sliver-server /opt/sliver-server
 ## Use `--target test` in the docker build command to run this stage
 FROM base AS test
 
+ARG GO_TESTS_FLAGS=""
+ENV GO_TESTS_FLAGS="${GO_TESTS_FLAGS}"
+
 RUN apt-get update --fix-missing \
     && apt-get -y upgrade \
     && apt-get -y install \
@@ -39,7 +43,7 @@ RUN apt-get update --fix-missing \
 RUN /opt/sliver-server unpack --force 
 
 ### Run unit tests
-RUN /go/src/github.com/bishopfox/sliver/go-tests.sh
+RUN /go/src/github.com/bishopfox/sliver/go-tests.sh ${GO_TESTS_FLAGS}
 
 # STAGE: production
 ## Final dockerized form of Sliver

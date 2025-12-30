@@ -45,7 +45,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/dnspb"
@@ -419,32 +418,17 @@ func (s *SliverDNSServer) handleC2(domain string, req *dns.Msg) *dns.Msg {
 // checksum calculation here to ensure that no one accidentally calculates the crc32
 // of the plaintext data (that would be very bad).
 func (s *SliverDNSServer) decodeSubdata(subdomain string) (*dnspb.DNSMessage, uint32, error) {
-	subdata := strings.Join(strings.Split(subdomain, "."), "")
+	subdata := strings.ToLower(strings.Join(strings.Split(subdomain, "."), ""))
 	dnsLog.Debugf("subdata = %s", subdata)
-	encoders := s.determineLikelyEncoders(subdata)
-	for _, encoder := range encoders {
-		data, err := encoder.Decode([]byte(subdata))
-		if err == nil {
-			msg := &dnspb.DNSMessage{}
-			err = proto.Unmarshal(data, msg)
-			if err == nil {
-				return msg, crc32.ChecksumIEEE(data), nil
-			}
-		}
-		dnsLog.Debugf("failed to decode subdata with %#v (%s)", encoder, err)
+	data, err := encoders.Base32{}.Decode([]byte(subdata))
+	if err != nil {
+		return nil, 0, ErrInvalidMsg
 	}
-	return nil, 0, ErrInvalidMsg
-}
-
-// Returns the most likely -> least likely encoders, if decoding fails fallback to
-// the next encoder until we run out of options.
-func (s *SliverDNSServer) determineLikelyEncoders(subdata string) []encoders.Encoder {
-	for _, char := range subdata {
-		if unicode.IsUpper(char) {
-			return []encoders.Encoder{encoders.Base58{}, encoders.Base32{}}
-		}
+	msg := &dnspb.DNSMessage{}
+	if err := proto.Unmarshal(data, msg); err != nil {
+		return nil, 0, ErrInvalidMsg
 	}
-	return []encoders.Encoder{encoders.Base32{}, encoders.Base58{}}
+	return msg, crc32.ChecksumIEEE(data), nil
 }
 
 func (s *SliverDNSServer) nameErrorResp(req *dns.Msg) *dns.Msg {
@@ -454,11 +438,50 @@ func (s *SliverDNSServer) nameErrorResp(req *dns.Msg) *dns.Msg {
 	return resp
 }
 
+func (s *SliverDNSServer) emptySuccessResp(req *dns.Msg) *dns.Msg {
+	resp := new(dns.Msg)
+	resp.SetReply(req)
+	resp.Authoritative = true
+	return resp
+}
+
 func (s *SliverDNSServer) refusedErrorResp(req *dns.Msg) *dns.Msg {
 	resp := new(dns.Msg)
 	resp.SetRcode(req, dns.RcodeRefused)
 	resp.Authoritative = true
 	return resp
+}
+
+func (s *SliverDNSServer) accumulateInitData(msg *dnspb.DNSMessage) ([]byte, bool, error) {
+	if msg.Size == 0 {
+		return nil, false, ErrInvalidMsg
+	}
+	pendingValue, loaded := s.messages.Load(msg.ID)
+	if !loaded {
+		pendingValue = &PendingEnvelope{
+			Size:     msg.Size,
+			received: uint32(0),
+			messages: map[uint32][]byte{},
+			mutex:    &sync.Mutex{},
+			complete: false,
+		}
+		actual, _ := s.messages.LoadOrStore(msg.ID, pendingValue)
+		pendingValue = actual
+	}
+	pending := pendingValue.(*PendingEnvelope)
+	if pending.Size != msg.Size && msg.Size != 0 {
+		s.messages.Delete(msg.ID)
+		return nil, false, ErrInvalidMsg
+	}
+	if !pending.Insert(msg) {
+		return nil, false, nil
+	}
+	data, err := pending.Reassemble()
+	s.messages.Delete(msg.ID)
+	if err != nil {
+		return nil, false, err
+	}
+	return data, true, nil
 }
 
 // ---------------------------
@@ -502,7 +525,7 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 	dnsLog.Debugf("[session init] with dns session id %d", msg.ID&sessionIDBitMask)
 	loadSession, _ := s.sessions.Load(msg.ID & sessionIDBitMask)
 	dnsSession := loadSession.(*DNSSession)
-	if len(msg.Data) <= 32 {
+	if msg.Size <= 32 {
 		dnsLog.Warnf("[session init] invalid msg data length")
 		return s.refusedErrorResp(req)
 	}
@@ -510,6 +533,16 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 		dnsLog.Warnf("[session init] session is already initialized")
 		return s.refusedErrorResp(req)
 	}
+
+	initData, complete, err := s.accumulateInitData(msg)
+	if err != nil {
+		dnsLog.Errorf("[session init] error reassembling init data: %s", err)
+		return s.refusedErrorResp(req)
+	}
+	if !complete {
+		return s.emptySuccessResp(req)
+	}
+	msg.Data = initData
 
 	var publicKeyDigest [32]byte
 	copy(publicKeyDigest[:], msg.Data[:32])

@@ -26,7 +26,7 @@
 
 ## Testing Guidelines
 - Go tests follow standard `_test.go` naming within each package.
-- Prefer `./go-tests.sh` (uses tags like `client`, `server`, `osusergo`, `netgo`, `go_sqlite`) to match CI expectations.
+- Prefer `docker build --target test --build-arg GO_TESTS_FLAGS=--skip-generate .` 
 - Add or update tests when behavior changes; some server packages run longer tests.
 
 ## Commit & Pull Request Guidelines

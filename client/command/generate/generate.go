@@ -576,7 +576,7 @@ func hasValidC2AdvancedOptions(options url.Values) (bool, error) {
 			if testValue != "wininet" {
 				return false, fmt.Errorf("C2 option \"driver\" must be empty for the default driver or \"wininet\" for the wininet driver (Windows only)")
 			}
-		case "force-http", "disable-accept-header", "disable-upgrade-header", "ask-proxy-creds", "force-base32":
+		case "force-http", "disable-accept-header", "disable-upgrade-header", "ask-proxy-creds":
 			if testValue != "true" && testValue != "false" {
 				return false, fmt.Errorf("C2 option \"%s\" must be a boolean value: true or false", key)
 			}

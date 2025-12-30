@@ -16,7 +16,7 @@ endif
 # Prerequisites 
 #
 # https://stackoverflow.com/questions/5618615/check-if-a-program-exists-from-a-makefile
-EXECUTABLES = uname sed git zip date cut $(GO)
+EXECUTABLES = uname sed git date cut $(GO)
 K := $(foreach exec,$(EXECUTABLES),\
         $(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH")))
 
@@ -83,7 +83,9 @@ endif
 # If no target is specified, determine GOARCH
 ifeq ($(UNAME_P),arm)
 	ifeq ($(MAKECMDGOALS), )
-		ENV += GOARCH=arm64
+		ifeq ($(origin GOARCH), undefined)
+			ENV += GOARCH=arm64
+		endif
 	endif
 endif
 
@@ -105,9 +107,10 @@ endif
 # Targets
 #
 .PHONY: default
-default: clean .downloaded_assets validate-go-version
-	$(ENV) CGO_ENABLED=$(CGO_ENABLED) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
-	$(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
+default: clean validate-go-version
+	env -u GOOS -u GOARCH $(MAKE) GOOS= GOARCH= .downloaded_assets
+	$(ENV) $(if $(GOOS),GOOS=$(GOOS)) $(if $(GOARCH),GOARCH=$(GOARCH)) CGO_ENABLED=$(CGO_ENABLED) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
+	$(ENV) $(if $(GOOS),GOOS=$(GOOS)) $(if $(GOARCH),GOARCH=$(GOARCH)) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
 
 # Allows you to build a CGO-free client for any target e.g. `GOOS=windows GOARCH=arm64 make client`
 # NOTE: WireGuard is not supported on all platforms, but most 64-bit GOOS/GOARCH combinations should work.
@@ -199,5 +202,5 @@ clean:
 	rm -f sliver-client sliver-client_* sliver-server sliver-server_* sliver-*.exe
 
 .downloaded_assets:
-	./go-assets.sh
+	$(ENV) $(GO) run -mod=vendor ./util/cmd/assets
 	touch ./.downloaded_assets
