@@ -18,6 +18,74 @@
 
 set -e
 
+VERBOSE=false
+
+for arg in "$@"; do
+  case "$arg" in
+    -v|--verbose)
+      VERBOSE=true
+      ;;
+    -h|--help)
+      echo "Usage: $(basename "$0") [--verbose]"
+      exit 0
+      ;;
+    *)
+      echo "Error: unknown argument '$arg'" >&2
+      exit 1
+      ;;
+  esac
+done
+
+log() {
+  echo "$@"
+}
+
+vlog() {
+  if [ "$VERBOSE" = true ]; then
+    echo "$@"
+  fi
+}
+
+GO_TOTAL=5
+GO_INDEX=0
+ZIG_TOTAL=5
+ZIG_INDEX=0
+GARBLE_TOTAL=5
+GARBLE_INDEX=0
+
+go_download() {
+  local label="$1"
+  local url="$2"
+  local output="$3"
+  GO_INDEX=$((GO_INDEX + 1))
+  log "Downloading Go $label ($GO_INDEX of $GO_TOTAL) ..."
+  curl ${CURL_FLAGS} --output "$output" "$url"
+}
+
+garble_download() {
+  local label="$1"
+  local url="$2"
+  local output="$3"
+  GARBLE_INDEX=$((GARBLE_INDEX + 1))
+  log "Downloading garble $label ($GARBLE_INDEX of $GARBLE_TOTAL) ..."
+  vlog "curl ${CURL_FLAGS} --output $output $url"
+  curl ${CURL_FLAGS} --output "$output" "$url"
+}
+
+if [ "$VERBOSE" = true ]; then
+  CURL_FLAGS="-L --fail"
+  TAR_FLAGS="xvf"
+  ZIP_FLAGS="-r"
+  UNZIP_FLAGS=""
+  CP_FLAGS="-vv"
+else
+  CURL_FLAGS="-sS -L --fail"
+  TAR_FLAGS="xf"
+  ZIP_FLAGS="-qr"
+  UNZIP_FLAGS="-q"
+  CP_FLAGS="-f"
+fi
+
 # Creates the static go asset archives
 
 GO_VER="1.25.5"
@@ -75,9 +143,9 @@ OUTPUT_DIR=$REPO_DIR/server/assets/fs
 mkdir -p $OUTPUT_DIR
 WORK_DIR=`mktemp -d`
 
-echo "-----------------------------------------------------------------"
-echo "$WORK_DIR (Output: $OUTPUT_DIR)"
-echo "-----------------------------------------------------------------"
+log "-----------------------------------------------------------------"
+log "$WORK_DIR (Output: $OUTPUT_DIR)"
+log "-----------------------------------------------------------------"
 cd $WORK_DIR
 
 # Load official Zig mirror list with a fallback to bundled defaults.
@@ -164,27 +232,32 @@ download_zig() {
   mkdir -p "$dest_dir"
   rm -f "$dest_path"
 
-  echo "Zig $platform/$arch: $remote_name"
-  while read -r mirror; do
+  ZIG_INDEX=$((ZIG_INDEX + 1))
+  local -a mirrors=()
+  while IFS= read -r mirror; do
+    mirrors+=("$mirror")
+  done < <(randomized_mirrors)
+  for idx in "${!mirrors[@]}"; do
+    local mirror="${mirrors[$idx]}"
     local mirror_base="${mirror%/}/$ZIG_VER"
     local artifact_url="${mirror_base}/$remote_name"
     local signature_url="${mirror_base}/${remote_name}.minisig"
     artifact_url="$(append_query_param "$artifact_url" "$ZIG_SOURCE_PARAM")"
     signature_url="$(append_query_param "$signature_url" "$ZIG_SOURCE_PARAM")"
-    echo "Attempting Zig mirror $mirror_base"
-    echo "  artifact:  $artifact_url"
-    echo "  signature: $signature_url"
+    log "Downloading Zig $platform/$arch ($ZIG_INDEX of $ZIG_TOTAL) from $mirror_base"
+    vlog "  artifact:  $artifact_url"
+    vlog "  signature: $signature_url"
     local tmp_tar
     local tmp_sig
     tmp_tar=$(mktemp)
     tmp_sig=$(mktemp)
     local verification_failed=0
-    if curl -L --fail --output "$tmp_tar" "$artifact_url"; then
-      if curl -L --fail --output "$tmp_sig" "$signature_url"; then
+    if curl ${CURL_FLAGS} --output "$tmp_tar" "$artifact_url"; then
+      if curl ${CURL_FLAGS} --output "$tmp_sig" "$signature_url"; then
         if verify_minisig "$tmp_tar" "$tmp_sig" "$remote_name"; then
           mv "$tmp_tar" "$dest_path"
           rm -f "$tmp_sig"
-          echo "Downloaded and verified Zig package -> $dest_path"
+          log "Downloaded and verified Zig package -> $dest_path"
           success=1
           break
         else
@@ -202,7 +275,10 @@ download_zig() {
     fi
     rm -f "$tmp_tar" "$tmp_sig"
     echo "[!] Failed to download or verify Zig from $mirror_base" >&2
-  done < <(randomized_mirrors)
+    if [ "$idx" -lt "$(( ${#mirrors[@]} - 1 ))" ]; then
+      log "trying alternate mirror"
+    fi
+  done
 
   if [ "$success" -ne 1 ]; then
     echo "[!] Error: unable to download and verify Zig package $remote_name" >&2
@@ -211,52 +287,60 @@ download_zig() {
 }
 
 # --- Darwin (amd64) --- 
-curl --output go$GO_VER.darwin-amd64.tar.gz https://dl.google.com/go/go$GO_VER.darwin-amd64.tar.gz
-tar xvf go$GO_VER.darwin-amd64.tar.gz
+GO_INDEX=0
+go_download "darwin/amd64" "https://dl.google.com/go/go$GO_VER.darwin-amd64.tar.gz" "go$GO_VER.darwin-amd64.tar.gz"
+log "Extracting Go darwin/amd64 ..."
+tar ${TAR_FLAGS} go$GO_VER.darwin-amd64.tar.gz
 
 cd go
 rm -rf $BLOAT_FILES
-zip -r ../src.zip ./src  # Zip up /src we only need to do this once
+log "Compressing src.zip (darwin/amd64) ..."
+zip ${ZIP_FLAGS} ../src.zip ./src  # Zip up /src we only need to do this once
 rm -rf ./src
 rm -f ./pkg/tool/darwin_amd64/doc
 rm -f ./pkg/tool/darwin_amd64/tour
 rm -f ./pkg/tool/darwin_amd64/test2json
 cd ..
-cp -vv src.zip $OUTPUT_DIR/src.zip
+cp ${CP_FLAGS} src.zip $OUTPUT_DIR/src.zip
 rm -f src.zip
 
-zip -r darwin-go.zip ./go
+log "Compressing Go darwin/amd64 ..."
+zip ${ZIP_FLAGS} darwin-go.zip ./go
 mkdir -p $OUTPUT_DIR/darwin/amd64
-cp -vv darwin-go.zip $OUTPUT_DIR/darwin/amd64/go.zip
+cp ${CP_FLAGS} darwin-go.zip $OUTPUT_DIR/darwin/amd64/go.zip
 
 rm -rf ./go
 rm -f darwin-go.zip go$GO_VER.darwin-amd64.tar.gz
 
 # --- Darwin (arm64) --- 
-curl --output go$GO_VER.darwin-arm64.tar.gz https://dl.google.com/go/go$GO_VER.darwin-arm64.tar.gz
-tar xvf go$GO_VER.darwin-arm64.tar.gz
+go_download "darwin/arm64" "https://dl.google.com/go/go$GO_VER.darwin-arm64.tar.gz" "go$GO_VER.darwin-arm64.tar.gz"
+log "Extracting Go darwin/arm64 ..."
+tar ${TAR_FLAGS} go$GO_VER.darwin-arm64.tar.gz
 
 cd go
 rm -rf $BLOAT_FILES
-zip -r ../src.zip ./src  # Zip up /src we only need to do this once
+log "Compressing src.zip (darwin/arm64) ..."
+zip ${ZIP_FLAGS} ../src.zip ./src  # Zip up /src we only need to do this once
 rm -rf ./src
 rm -f ./pkg/tool/darwin_arm64/doc
 rm -f ./pkg/tool/darwin_arm64/tour
 rm -f ./pkg/tool/darwin_arm64/test2json
 cd ..
-cp -vv src.zip $OUTPUT_DIR/src.zip
+cp ${CP_FLAGS} src.zip $OUTPUT_DIR/src.zip
 rm -f src.zip
 
-zip -r darwin-go.zip ./go
+log "Compressing Go darwin/arm64 ..."
+zip ${ZIP_FLAGS} darwin-go.zip ./go
 mkdir -p $OUTPUT_DIR/darwin/arm64
-cp -vv darwin-go.zip $OUTPUT_DIR/darwin/arm64/go.zip
+cp ${CP_FLAGS} darwin-go.zip $OUTPUT_DIR/darwin/arm64/go.zip
 
 rm -rf ./go
 rm -f darwin-go.zip go$GO_VER.darwin-arm64.tar.gz
 
 # --- Linux (amd64) --- 
-curl --output go$GO_VER.linux-amd64.tar.gz https://dl.google.com/go/go$GO_VER.linux-amd64.tar.gz
-tar xvf go$GO_VER.linux-amd64.tar.gz
+go_download "linux/amd64" "https://dl.google.com/go/go$GO_VER.linux-amd64.tar.gz" "go$GO_VER.linux-amd64.tar.gz"
+log "Extracting Go linux/amd64 ..."
+tar ${TAR_FLAGS} go$GO_VER.linux-amd64.tar.gz
 cd go
 rm -rf $BLOAT_FILES
 rm -rf ./src
@@ -264,15 +348,17 @@ rm -f ./pkg/tool/linux_amd64/doc
 rm -f ./pkg/tool/linux_amd64/tour
 rm -f ./pkg/tool/linux_amd64/test2json
 cd ..
-zip -r linux-go.zip ./go
+log "Compressing Go linux/amd64 ..."
+zip ${ZIP_FLAGS} linux-go.zip ./go
 mkdir -p $OUTPUT_DIR/linux/amd64
-cp -vv linux-go.zip $OUTPUT_DIR/linux/amd64/go.zip
+cp ${CP_FLAGS} linux-go.zip $OUTPUT_DIR/linux/amd64/go.zip
 rm -rf ./go
 rm -f linux-go.zip go$GO_VER.linux-amd64.tar.gz
 
 # --- Linux (arm64) --- 
-curl --output go$GO_VER.linux-arm64.tar.gz https://dl.google.com/go/go$GO_VER.linux-arm64.tar.gz
-tar xvf go$GO_VER.linux-arm64.tar.gz
+go_download "linux/arm64" "https://dl.google.com/go/go$GO_VER.linux-arm64.tar.gz" "go$GO_VER.linux-arm64.tar.gz"
+log "Extracting Go linux/arm64 ..."
+tar ${TAR_FLAGS} go$GO_VER.linux-arm64.tar.gz
 cd go
 rm -rf $BLOAT_FILES
 rm -rf ./src
@@ -280,15 +366,17 @@ rm -f ./pkg/tool/linux_arm64/doc
 rm -f ./pkg/tool/linux_arm64/tour
 rm -f ./pkg/tool/linux_arm64/test2json
 cd ..
-zip -r linux-go.zip ./go
+log "Compressing Go linux/arm64 ..."
+zip ${ZIP_FLAGS} linux-go.zip ./go
 mkdir -p $OUTPUT_DIR/linux/arm64
-cp -vv linux-go.zip $OUTPUT_DIR/linux/arm64/go.zip
+cp ${CP_FLAGS} linux-go.zip $OUTPUT_DIR/linux/arm64/go.zip
 rm -rf ./go
 rm -f linux-go.zip go$GO_VER.linux-arm64.tar.gz
 
 # --- Windows --- 
-curl --output go$GO_VER.windows-amd64.zip https://dl.google.com/go/go$GO_VER.windows-amd64.zip
-unzip go$GO_VER.windows-amd64.zip
+go_download "windows/amd64" "https://dl.google.com/go/go$GO_VER.windows-amd64.zip" "go$GO_VER.windows-amd64.zip"
+log "Extracting Go windows/amd64 ..."
+unzip ${UNZIP_FLAGS} go$GO_VER.windows-amd64.zip
 cd go
 rm -rf $BLOAT_FILES
 rm -rf ./src
@@ -296,15 +384,17 @@ rm -f ./pkg/tool/windows_amd64/doc.exe
 rm -f ./pkg/tool/windows_amd64/tour.exe
 rm -f ./pkg/tool/windows_amd64/test2json.exe
 cd ..
-zip -r windows-go.zip ./go
+log "Compressing Go windows/amd64 ..."
+zip ${ZIP_FLAGS} windows-go.zip ./go
 mkdir -p $OUTPUT_DIR/windows/amd64
-cp -vv windows-go.zip $OUTPUT_DIR/windows/amd64/go.zip
+cp ${CP_FLAGS} windows-go.zip $OUTPUT_DIR/windows/amd64/go.zip
 rm -rf ./go
 rm -f windows-go.zip go$GO_VER.windows-amd64.zip
 
-echo "-----------------------------------------------------------------"
-echo " Zig"
-echo "-----------------------------------------------------------------"
+log "-----------------------------------------------------------------"
+log " Zig"
+log "-----------------------------------------------------------------"
+ZIG_INDEX=0
 download_zig "darwin" "amd64" "zig-x86_64-macos-$ZIG_VER.tar.xz" "zig.tar.xz"
 download_zig "darwin" "arm64" "zig-aarch64-macos-$ZIG_VER.tar.xz" "zig.tar.xz"
 download_zig "linux" "amd64" "zig-x86_64-linux-$ZIG_VER.tar.xz" "zig.tar.xz"
@@ -312,21 +402,18 @@ download_zig "linux" "arm64" "zig-aarch64-linux-$ZIG_VER.tar.xz" "zig.tar.xz"
 # Windows ships a zip instead of a tarball
 download_zig "windows" "amd64" "zig-x86_64-windows-$ZIG_VER.zip" "zig.zip"
 
-echo "-----------------------------------------------------------------"
-echo " Garble"
-echo "-----------------------------------------------------------------"
-echo "curl -L --fail --output $OUTPUT_DIR/linux/amd64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux-amd64"
-curl -L --fail --output $OUTPUT_DIR/linux/amd64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux-amd64
-echo "curl -L --fail --output $OUTPUT_DIR/linux/arm64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux-arm64"
-curl -L --fail --output $OUTPUT_DIR/linux/arm64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux-arm64
-echo "curl -L --fail --output $OUTPUT_DIR/windows/amd64/garble.exe https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_windows-amd64.exe"
-curl -L --fail --output $OUTPUT_DIR/windows/amd64/garble.exe https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_windows-amd64.exe
-echo "curl -L --fail --output $OUTPUT_DIR/darwin/amd64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_darwin-amd64"
-curl -L --fail --output $OUTPUT_DIR/darwin/amd64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_darwin-amd64
-echo "curl -L --fail --output $OUTPUT_DIR/darwin/arm64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_darwin-arm64"
-curl -L --fail --output $OUTPUT_DIR/darwin/arm64/garble https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_darwin-arm64
+log "-----------------------------------------------------------------"
+log " Garble"
+log "-----------------------------------------------------------------"
+GARBLE_INDEX=0
+garble_download "linux/amd64" "https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux-amd64" "$OUTPUT_DIR/linux/amd64/garble"
+garble_download "linux/arm64" "https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_linux-arm64" "$OUTPUT_DIR/linux/arm64/garble"
+garble_download "windows/amd64" "https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_windows-amd64.exe" "$OUTPUT_DIR/windows/amd64/garble.exe"
+garble_download "darwin/amd64" "https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_darwin-amd64" "$OUTPUT_DIR/darwin/amd64/garble"
+garble_download "darwin/arm64" "https://github.com/moloch--/garble/releases/download/v$GARBLE_VER/garble_darwin-arm64" "$OUTPUT_DIR/darwin/arm64/garble"
 
 # --- Cleanup ---
-echo -e "clean up: $WORK_DIR"
+log "clean up: $WORK_DIR"
 rm -rf $WORK_DIR
-echo -e "\n[*] All done\n"
+log ""
+log "[*] All done"
