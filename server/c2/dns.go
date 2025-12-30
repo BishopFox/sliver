@@ -45,7 +45,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/dnspb"
@@ -419,32 +418,17 @@ func (s *SliverDNSServer) handleC2(domain string, req *dns.Msg) *dns.Msg {
 // checksum calculation here to ensure that no one accidentally calculates the crc32
 // of the plaintext data (that would be very bad).
 func (s *SliverDNSServer) decodeSubdata(subdomain string) (*dnspb.DNSMessage, uint32, error) {
-	subdata := strings.Join(strings.Split(subdomain, "."), "")
+	subdata := strings.ToLower(strings.Join(strings.Split(subdomain, "."), ""))
 	dnsLog.Debugf("subdata = %s", subdata)
-	encoders := s.determineLikelyEncoders(subdata)
-	for _, encoder := range encoders {
-		data, err := encoder.Decode([]byte(subdata))
-		if err == nil {
-			msg := &dnspb.DNSMessage{}
-			err = proto.Unmarshal(data, msg)
-			if err == nil {
-				return msg, crc32.ChecksumIEEE(data), nil
-			}
-		}
-		dnsLog.Debugf("failed to decode subdata with %#v (%s)", encoder, err)
+	data, err := encoders.Base32{}.Decode([]byte(subdata))
+	if err != nil {
+		return nil, 0, ErrInvalidMsg
 	}
-	return nil, 0, ErrInvalidMsg
-}
-
-// Returns the most likely -> least likely encoders, if decoding fails fallback to
-// the next encoder until we run out of options.
-func (s *SliverDNSServer) determineLikelyEncoders(subdata string) []encoders.Encoder {
-	for _, char := range subdata {
-		if unicode.IsUpper(char) {
-			return []encoders.Encoder{encoders.Base58{}, encoders.Base32{}}
-		}
+	msg := &dnspb.DNSMessage{}
+	if err := proto.Unmarshal(data, msg); err != nil {
+		return nil, 0, ErrInvalidMsg
 	}
-	return []encoders.Encoder{encoders.Base32{}, encoders.Base58{}}
+	return msg, crc32.ChecksumIEEE(data), nil
 }
 
 func (s *SliverDNSServer) nameErrorResp(req *dns.Msg) *dns.Msg {

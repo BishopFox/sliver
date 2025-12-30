@@ -36,9 +36,10 @@ import (
 
 const (
 	// Do not change these without updating the tests
-	parent1 = ".1.example.com."
-	parent2 = ".something-longer.example.com."
-	parent3 = ".something-even-longer.example.computer."
+	parent1        = ".1.example.com."
+	parent2        = ".something-longer.example.com."
+	parent3        = ".something-even-longer.example.computer."
+	base32Alphabet = "ab1c2d3e4f5g6h7j8k9m0npqrtuvwxyz"
 )
 
 var (
@@ -70,35 +71,13 @@ func randomData(size int) []byte {
 	return buf
 }
 
-func TestSplitBufferBase58(t *testing.T) {
-
-	t.Logf("Testing with client1")
-	client1 := NewDNSClient(parent1, opts)
-	testData := randomData(2048)
-	clientSplitBuffer(t, client1, encoders.Base58{}, testData)
-
-	t.Logf("Testing with client2")
-	client2 := NewDNSClient(parent2, opts)
-	testData2 := randomData(2048)
-	clientSplitBuffer(t, client2, encoders.Base58{}, testData2)
-
-	t.Logf("Testing with client3")
-	client3 := NewDNSClient(parent3, opts)
-	testData3 := randomData(2048)
-	clientSplitBuffer(t, client3, encoders.Base58{}, testData3)
-
-	t.Logf("Testing with client max")
-	clientMax := NewDNSClient(parentMax, opts)
-	testDataMax := randomData(2048)
-	clientSplitBuffer(t, clientMax, encoders.Base58{}, testDataMax)
-
-	t.Logf("Testing all clients with randomly sized data")
-	for _, client := range []*SliverDNSClient{client1, client2, client3} {
-		for count := 0; count < 10; count++ {
-			testData := randomDataRandomSize(2 * 1024 * 1024)
-			clientSplitBuffer(t, client, encoders.Base58{}, testData)
+func isBase32String(value string) bool {
+	for i := 0; i < len(value); i++ {
+		if strings.IndexByte(base32Alphabet, value[i]) == -1 {
+			return false
 		}
 	}
+	return true
 }
 
 func TestSplitBufferBase32(t *testing.T) {
@@ -128,6 +107,36 @@ func TestSplitBufferBase32(t *testing.T) {
 		for count := 0; count < 10; count++ {
 			testData := randomDataRandomSize(2 * 1024 * 1024)
 			clientSplitBuffer(t, client, encoders.Base32{}, testData)
+		}
+	}
+}
+
+func TestSplitBufferDomainConstraints(t *testing.T) {
+	client := NewDNSClient(parent1, opts)
+	testData := randomData(8192)
+	msg := &dnspb.DNSMessage{
+		Type: dnspb.DNSMessageType_DATA_FROM_IMPLANT,
+		Size: uint32(len(testData)),
+	}
+	domains, err := client.SplitBuffer(msg, encoders.Base32{}, testData)
+	if err != nil {
+		t.Fatalf("Unexpected error splitting buffer: %s", err)
+	}
+	for _, domain := range domains {
+		if !strings.HasSuffix(domain, parent1) {
+			t.Fatalf("Domain missing parent suffix: %s", domain)
+		}
+		if len(domain) > 254 {
+			t.Fatalf("Domain exceeds DNS length limit: %d", len(domain))
+		}
+		subdata := strings.TrimSuffix(domain, parent1)
+		if !isBase32String(strings.ReplaceAll(subdata, ".", "")) {
+			t.Fatalf("Subdata contains non-base32 characters: %s", subdata)
+		}
+		for _, label := range strings.Split(subdata, ".") {
+			if len(label) > 63 {
+				t.Fatalf("Label exceeds 63 chars: %s", label)
+			}
 		}
 	}
 }
@@ -162,25 +171,74 @@ func clientSplitBuffer(t *testing.T, client *SliverDNSClient, encoder encoders.E
 	}
 }
 
-// func addTestResolver(client *SliverDNSClient, enableBase58 bool) {
-// 	client.resolvers = []DNSResolver{
-// 		&GenericResolver{
-// 			address:   "127.0.0.1:53",
-// 			retries:   1,
-// 			retryWait: retryWait,
-// 			resolver: &dns.Client{
-// 				ReadTimeout:  timeout,
-// 				WriteTimeout: timeout,
-// 			},
-// 			base64: encoders.Base64{},
-// 		},
-// 	}
-// 	client.metadata["127.0.0.1:53"] = &ResolverMetadata{
-// 		Address:      "127.0.0.1:53",
-// 		EnableBase58: enableBase58,
-// 		Errors:       0,
-// 	}
-// }
+func TestOTPMsgRoundTrip(t *testing.T) {
+	client := NewDNSClient(parent1, opts)
+	encoded, err := client.otpMsg()
+	if err != nil {
+		t.Fatalf("Unexpected otpMsg error: %s", err)
+	}
+	if !isBase32String(encoded) {
+		t.Fatalf("otpMsg contains non-base32 characters: %s", encoded)
+	}
+	raw, err := encoders.Base32{}.Decode([]byte(encoded))
+	if err != nil {
+		t.Fatalf("Unexpected otpMsg decode error: %s", err)
+	}
+	msg := &dnspb.DNSMessage{}
+	if err := proto.Unmarshal(raw, msg); err != nil {
+		t.Fatalf("Unexpected otpMsg unmarshal error: %s", err)
+	}
+	if msg.Type != dnspb.DNSMessageType_TOTP {
+		t.Fatalf("Unexpected otpMsg type: %v", msg.Type)
+	}
+	if msg.ID != 0 {
+		t.Fatalf("Unexpected otpMsg id: %d", msg.ID)
+	}
+}
+
+func TestPollAndClearMsgRoundTrip(t *testing.T) {
+	client := NewDNSClient(parent1, opts)
+	client.dnsSessionID = 42
+	pollEncoded, err := client.pollMsg()
+	if err != nil {
+		t.Fatalf("Unexpected pollMsg error: %s", err)
+	}
+	clearEncoded, err := client.clearMsg(99)
+	if err != nil {
+		t.Fatalf("Unexpected clearMsg error: %s", err)
+	}
+	for _, test := range []struct {
+		name       string
+		encoded    string
+		wantType   dnspb.DNSMessageType
+		wantID     uint32
+		wantDataSz int
+	}{
+		{name: "poll", encoded: pollEncoded, wantType: dnspb.DNSMessageType_POLL, wantID: 42, wantDataSz: 8},
+		{name: "clear", encoded: clearEncoded, wantType: dnspb.DNSMessageType_CLEAR, wantID: 99, wantDataSz: 8},
+	} {
+		if !isBase32String(test.encoded) {
+			t.Fatalf("%s contains non-base32 characters: %s", test.name, test.encoded)
+		}
+		raw, err := encoders.Base32{}.Decode([]byte(test.encoded))
+		if err != nil {
+			t.Fatalf("%s decode error: %s", test.name, err)
+		}
+		msg := &dnspb.DNSMessage{}
+		if err := proto.Unmarshal(raw, msg); err != nil {
+			t.Fatalf("%s unmarshal error: %s", test.name, err)
+		}
+		if msg.Type != test.wantType {
+			t.Fatalf("%s type mismatch: %v", test.name, msg.Type)
+		}
+		if msg.ID != test.wantID {
+			t.Fatalf("%s id mismatch: %d", test.name, msg.ID)
+		}
+		if len(msg.Data) != test.wantDataSz {
+			t.Fatalf("%s data length mismatch: %d", test.name, len(msg.Data))
+		}
+	}
+}
 
 func TestSubdataSpace(t *testing.T) {
 

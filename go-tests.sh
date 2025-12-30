@@ -17,6 +17,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+SKIP_GENERATE=0
+for arg in "$@"; do
+    if [ "$arg" = "--skip-generate" ]; then
+        SKIP_GENERATE=1
+    fi
+done
+
 echo "----------------------------------------------------------------"
 echo "WARNING: Running unit tests on slow systems can take a LONG time"
 echo "         Recommended to only run on 16+ CPU cores and 32Gb+ RAM"
@@ -180,10 +187,14 @@ else
 fi
 
 # server / generate
-export GOPROXY=off
-if go test -tags=server,$TAGS ./server/generate -timeout 6h ; then
-    :
+if [ "$SKIP_GENERATE" -eq 0 ]; then
+    export GOPROXY=off
+    if go test -tags=server,$TAGS ./server/generate -timeout 6h ; then
+        :
+    else
+        cat ~/.sliver/logs/sliver.log
+        exit 1
+    fi
 else
-    cat ~/.sliver/logs/sliver.log
-    exit 1
+    echo "Skipping ./server/generate tests (--skip-generate)"
 fi
