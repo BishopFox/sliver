@@ -55,7 +55,7 @@ func extractTarGz(archivePath, destDir string) error {
 				return fmt.Errorf("create file: %w", err)
 			}
 			if _, err := io.Copy(out, tarReader); err != nil {
-				_ = out.Close()
+				out.Close()
 				return fmt.Errorf("write file: %w", err)
 			}
 			if err := out.Close(); err != nil {

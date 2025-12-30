@@ -121,7 +121,7 @@ func (r *runner) downloadZig(platform zigPlatform) error {
 		}
 		signaturePath, err := r.downloadToTemp(signatureURL, r.workDir)
 		if err != nil {
-			_ = os.Remove(artifactPath)
+			os.Remove(artifactPath)
 			r.logger.Errorf("Failed to download Zig signature from %s", signatureURL)
 			if idx < len(mirrors)-1 {
 				r.logger.Warnf("Trying alternate mirror")
@@ -132,8 +132,8 @@ func (r *runner) downloadZig(platform zigPlatform) error {
 		if err := verifyZigSignature(artifactPath, signaturePath, platform.remoteName); err != nil {
 			r.logger.Errorf("Signature verification failed for %s from %s", platform.remoteName, mirrorBase)
 			r.logger.Errorf("Deleting corrupted download %s", artifactPath)
-			_ = os.Remove(artifactPath)
-			_ = os.Remove(signaturePath)
+			os.Remove(artifactPath)
+			os.Remove(signaturePath)
 			if idx < len(mirrors)-1 {
 				r.logger.Warnf("Trying alternate mirror")
 			}
@@ -141,11 +141,11 @@ func (r *runner) downloadZig(platform zigPlatform) error {
 		}
 
 		if err := moveFile(artifactPath, destPath); err != nil {
-			_ = os.Remove(artifactPath)
-			_ = os.Remove(signaturePath)
+			os.Remove(artifactPath)
+			os.Remove(signaturePath)
 			return err
 		}
-		_ = os.Remove(signaturePath)
+		os.Remove(signaturePath)
 		r.logger.Successf("Verified zig package -> %s", destPath)
 		return nil
 	}
@@ -158,7 +158,6 @@ func (r *runner) randomizedMirrors() []string {
 	if len(mirrors) == 0 {
 		return mirrors
 	}
-	insecureRand.Seed(time.Now().UnixNano())
 	insecureRand.Shuffle(len(mirrors), func(i, j int) {
 		mirrors[i], mirrors[j] = mirrors[j], mirrors[i]
 	})

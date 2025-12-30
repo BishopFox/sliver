@@ -24,8 +24,8 @@ func (r *runner) downloadFileTo(url, dest string) error {
 	}
 	tmpName := tmpFile.Name()
 	defer func() {
-		_ = tmpFile.Close()
-		_ = os.Remove(tmpName)
+		tmpFile.Close()
+		os.Remove(tmpName)
 	}()
 
 	if err := r.logger.RunSpinner(fmt.Sprintf("fetch %s", downloadLabel(url)), func() error {
@@ -56,12 +56,12 @@ func (r *runner) downloadToTemp(url, dir string) (string, error) {
 	if err := r.logger.RunSpinner(fmt.Sprintf("fetch %s", downloadLabel(url)), func() error {
 		return r.fetchToWriter(url, file)
 	}); err != nil {
-		_ = file.Close()
-		_ = os.Remove(name)
+		file.Close()
+		os.Remove(name)
 		return "", err
 	}
 	if err := file.Close(); err != nil {
-		_ = os.Remove(name)
+		os.Remove(name)
 		return "", fmt.Errorf("flush download: %w", err)
 	}
 
