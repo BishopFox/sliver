@@ -24,7 +24,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/fs"
-	insecureRand "math/rand"
 	"os"
 	"path"
 	"path/filepath"
@@ -153,6 +152,7 @@ func SliverShellcode(name string, build *clientpb.ImplantBuild, config *clientpb
 		Obfuscation: config.ObfuscateSymbols,
 		GOGARBLE:    goGarble(config),
 	}
+
 	pkgPath, err := renderSliverGoCode(name, build, config, goConfig, pbC2Implant)
 	if err != nil {
 		return "", err
@@ -226,6 +226,7 @@ func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clie
 		Obfuscation: config.ObfuscateSymbols,
 		GOGARBLE:    goGarble(config),
 	}
+
 	pkgPath, err := renderSliverGoCode(name, build, config, goConfig, pbC2Implant)
 	if err != nil {
 		return "", err
@@ -573,7 +574,7 @@ func renderImplantEnglish() []string {
 	allWords := assets.English() // 178,543 words -> server/assets/fs/english.txt
 	meRiCaN := cases.Title(language.AmericanEnglish)
 	for i := 0; i < len(allWords); i++ {
-		switch insecureRand.Intn(3) {
+		switch util.Intn(3) {
 		case 0:
 			allWords[i] = strings.ToUpper(allWords[i])
 		case 1:
@@ -593,7 +594,7 @@ func renderImplantEnglish() []string {
 
 	// Shuffle the words for each byte value
 	for byteValue := 0; byteValue < 256; byteValue++ {
-		insecureRand.Shuffle(len(allWordsDictionary[byteValue]), func(i, j int) {
+		util.Shuffle(len(allWordsDictionary[byteValue]), func(i, j int) {
 			allWordsDictionary[byteValue][i], allWordsDictionary[byteValue][j] = allWordsDictionary[byteValue][j], allWordsDictionary[byteValue][i]
 		})
 	}
@@ -767,7 +768,7 @@ func findCrossCompilers(targetGOOS string, targetGOARCH string) (string, string)
 		}
 		if targetGOARCH == "arm64" && cc == "" {
 			buildLog.Debugf("Using default osxcross cc/cxx for %s/%s", targetGOOS, targetGOARCH)
-			cc = "/opt/osxcross/target/bin/aarch64-apple-darwin20.2-clang"
+			cc = "/opt/osxcross/bin/aarch64-apple-darwin25-clang"
 			if cxx == "" {
 				cxx = cc
 			}

@@ -4,7 +4,6 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"runtime"
 
 	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
 	"github.com/tetratelabs/wazero/internal/fsapi"
@@ -12,11 +11,17 @@ import (
 )
 
 func newOsFile(path string, flag experimentalsys.Oflag, perm fs.FileMode, f *os.File) fsapi.File {
-	// Windows cannot read files written to a directory after it was opened.
-	// This was noticed in #1087 in zig tests. Use a flag instead of a
-	// different type.
-	reopenDir := runtime.GOOS == "windows"
-	return &osFile{path: path, flag: flag, perm: perm, reopenDir: reopenDir, file: f, fd: f.Fd()}
+	// On POSIX, if a file is removed from or added to the directory after the
+	// most recent call to opendir() or rewinddir(), whether a subsequent call
+	// to readdir() returns an entry for that file is unspecified.
+	//
+	// And Windows cannot read files added to a directory after it was opened.
+	// This was noticed in #1087 in zig tests.
+	//
+	// So there is no guarantee that files added after opendir() will be visible
+	// in readdir(). Since we want those files to be visible, we need to
+	// reopendir() to get the new state of the directory before readdir().
+	return &osFile{path: path, flag: flag, perm: perm, reopenDir: true, file: f, fd: f.Fd()}
 }
 
 // osFile is a file opened with this package, and uses os.File or syscalls to
@@ -83,21 +88,12 @@ func (f *osFile) SetAppend(enable bool) (errno experimentalsys.Errno) {
 		f.flag &= ^experimentalsys.O_APPEND
 	}
 
-	// Clear any create or trunc flag, as we are re-opening, not re-creating.
-	f.flag &= ^(experimentalsys.O_CREAT | experimentalsys.O_TRUNC)
-
-	// appendMode (bool) cannot be changed later, so we have to re-open the
-	// file. https://github.com/golang/go/blob/go1.20/src/os/file_unix.go#L60
+	// appendMode cannot be changed later, so we have to re-open the file
+	// https://github.com/golang/go/blob/go1.23/src/os/file_unix.go#L60
 	return fileError(f, f.closed, f.reopen())
 }
 
-// compile-time check to ensure osFile.reopen implements reopenFile.
-var _ reopenFile = (*osFile)(nil).reopen
-
 func (f *osFile) reopen() (errno experimentalsys.Errno) {
-	// Clear any create flag, as we are re-opening, not re-creating.
-	f.flag &= ^experimentalsys.O_CREAT
-
 	var (
 		isDir  bool
 		offset int64
@@ -116,20 +112,45 @@ func (f *osFile) reopen() (errno experimentalsys.Errno) {
 		}
 	}
 
-	_ = f.close()
-	f.file, errno = OpenFile(f.path, f.flag, f.perm)
+	// Clear any create or trunc flag, as we are re-opening, not re-creating.
+	flag := f.flag &^ (experimentalsys.O_CREAT | experimentalsys.O_TRUNC)
+	file, errno := OpenFile(f.path, flag, f.perm)
+	if errno != 0 {
+		return errno
+	}
+	errno = f.checkSameFile(file)
 	if errno != 0 {
 		return errno
 	}
 
 	if !isDir {
-		_, err = f.file.Seek(offset, io.SeekStart)
+		_, err = file.Seek(offset, io.SeekStart)
 		if err != nil {
+			_ = file.Close()
 			return experimentalsys.UnwrapOSError(err)
 		}
 	}
 
+	// Only update f on success.
+	_ = f.file.Close()
+	f.file = file
+	f.fd = file.Fd()
 	return 0
+}
+
+func (f *osFile) checkSameFile(osf *os.File) experimentalsys.Errno {
+	fi1, err := f.file.Stat()
+	if err != nil {
+		return experimentalsys.UnwrapOSError(err)
+	}
+	fi2, err := osf.Stat()
+	if err != nil {
+		return experimentalsys.UnwrapOSError(err)
+	}
+	if os.SameFile(fi1, fi2) {
+		return 0
+	}
+	return experimentalsys.ENOENT
 }
 
 // IsNonblock implements the same method as documented on fsapi.File
@@ -254,6 +275,9 @@ func (f *osFile) Pwrite(buf []byte, off int64) (n int, errno experimentalsys.Err
 
 // Truncate implements the same method as documented on sys.File
 func (f *osFile) Truncate(size int64) (errno experimentalsys.Errno) {
+	if size < 0 {
+		return experimentalsys.EINVAL
+	}
 	if errno = experimentalsys.UnwrapOSError(f.file.Truncate(size)); errno != 0 {
 		// Defer validation overhead until we've already had an error.
 		errno = fileError(f, f.closed, errno)

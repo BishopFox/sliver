@@ -68,7 +68,7 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		if err != nil {
 			return nil, err
 		}
-	} else if err := util.AllowedName(name); err != nil {
+	} else if err := util.AllowedName(req.Name); err != nil {
 		return nil, err
 	} else {
 		name = req.Name
@@ -89,6 +89,10 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		config.IncludeDNS = models.IsC2Enabled([]string{"dns"}, config.C2)
 		config.IncludeNamePipe = models.IsC2Enabled([]string{"namedpipe"}, config.C2)
 		config.IncludeTCP = models.IsC2Enabled([]string{"tcppivot"}, config.C2)
+	}
+
+	if len(config.Exports) == 0 {
+		config.Exports = []string{"StartW"}
 	}
 
 	// generate config
@@ -154,6 +158,11 @@ func (rpc *Server) Regenerate(ctx context.Context, req *clientpb.RegenerateReq) 
 		return nil, status.Error(codes.InvalidArgument, "invalid implant name")
 	}
 
+	config, err := db.ImplantConfigByID(build.ImplantConfigID)
+	if err != nil {
+		return nil, err
+	}
+
 	fileData, err := generate.ImplantFileFromBuild(build)
 	if err != nil {
 		return nil, err
@@ -161,7 +170,7 @@ func (rpc *Server) Regenerate(ctx context.Context, req *clientpb.RegenerateReq) 
 
 	return &clientpb.Generate{
 		File: &commonpb.File{
-			Name: build.Name,
+			Name: build.Name + config.Extension,
 			Data: fileData,
 		},
 	}, nil
@@ -340,7 +349,7 @@ func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.ExternalG
 		if err != nil {
 			return nil, err
 		}
-	} else if err := util.AllowedName(name); err != nil {
+	} else if err := util.AllowedName(req.Name); err != nil {
 		return nil, err
 	} else {
 		name = req.Name
@@ -384,6 +393,7 @@ func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.
 		rcpGenLog.Errorf("Failed to write implant binary to temp file: %s", err)
 		return nil, status.Error(codes.Internal, "Failed to write implant binary to temp file")
 	}
+
 	rpcLog.Infof("Saving external build '%s' from %s", req.Name, tmpFile.Name())
 	err = generate.ImplantBuildSave(implantBuild, implantConfig, tmpFile.Name())
 	if err != nil {
@@ -699,6 +709,10 @@ func (rpc *Server) GenerateStage(ctx context.Context, req *clientpb.GenerateStag
 		return nil, err
 	}
 
+	if len(profile.Config.Exports) == 0 {
+		profile.Config.Exports = []string{"StartW"}
+	}
+
 	// generate config
 	build, err := generate.GenerateConfig(name, profile.Config)
 	if err != nil {
@@ -741,10 +755,11 @@ func (rpc *Server) GenerateStage(ctx context.Context, req *clientpb.GenerateStag
 	if req.PrependSize {
 		fileData = prependPayloadSize(fileData)
 	}
+	stage2 = fileData
 
 	if req.Compress != "" {
 		stageType = req.Compress + " - "
-		stage2, err = Compress(fileData, req.Compress)
+		stage2, err = Compress(stage2, req.Compress)
 		if err != nil {
 			return nil, err
 		}

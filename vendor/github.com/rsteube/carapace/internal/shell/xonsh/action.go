@@ -18,6 +18,7 @@ type richCompletion struct {
 	Value       string
 	Display     string
 	Description string
+	Style       string
 }
 
 // ActionRawValues formats values for xonsh.
@@ -38,7 +39,12 @@ func ActionRawValues(currentWord string, meta common.Meta, values common.RawValu
 			val.Value = val.Value + " "
 		}
 
-		vals[index] = richCompletion{Value: val.Value, Display: val.Display, Description: val.TrimmedDescription()}
+		vals[index] = richCompletion{
+			Value:       val.Value,
+			Display:     val.Display,
+			Description: val.TrimmedDescription(),
+			Style:       convertStyle("bg-default fg-default " + val.Style),
+		}
 	}
 	m, _ := json.Marshal(vals)
 	return string(m)

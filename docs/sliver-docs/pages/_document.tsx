@@ -15,11 +15,11 @@ class MyDocument extends Document {
 
   render() {
     return (
-      <Html lang="en">
+      <Html lang="en" suppressHydrationWarning>
         <Head>
           <meta httpEquiv="Content-Security-Policy" content={CSP} />
         </Head>
-        <body>
+        <body className="bg-background text-foreground">
           <Main />
           <NextScript />
         </body>

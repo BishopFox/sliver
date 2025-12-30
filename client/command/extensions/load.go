@@ -80,6 +80,7 @@ type ExtensionManifest_ struct {
 
 type ExtensionManifest struct {
 	Name            string `json:"name"`
+	PackageName     string `json:"package_name"`
 	Version         string `json:"version"`
 	ExtensionAuthor string `json:"extension_author"`
 	OriginalAuthor  string `json:"original_author"`
@@ -115,17 +116,24 @@ type extensionFile struct {
 }
 
 type extensionArgument struct {
-	Name     string `json:"name"`
-	Type     string `json:"type"`
-	Desc     string `json:"desc"`
-	Optional bool   `json:"optional"`
+	Name     string      `json:"name"`
+	Type     string      `json:"type"`
+	Desc     string      `json:"desc"`
+	Optional bool        `json:"optional"`
+	Default  interface{} `json:"default,omitempty"`
 }
 
 func (e *ExtCommand) getFileForTarget(targetOS string, targetArch string) (string, error) {
 	filePath := ""
 	for _, extFile := range e.Files {
 		if targetOS == extFile.OS && targetArch == extFile.Arch {
-			filePath = path.Join(assets.GetExtensionsDir(), e.Manifest.Name, extFile.Path)
+			if e.Manifest.RootPath != "" {
+				// Use RootPath for temporarily loaded extensions
+				filePath = path.Join(e.Manifest.RootPath, extFile.Path)
+			} else {
+				// Fall back to extensions dir for installed extensions
+				filePath = path.Join(assets.GetExtensionsDir(), e.Manifest.Name, extFile.Path)
+			}
 			break
 		}
 	}
@@ -140,10 +148,19 @@ func (e *ExtCommand) getFileForTarget(targetOS string, targetArch string) (strin
 	return filePath, nil
 }
 
-// ExtensionLoadCmd - Load extension command.
+// ExtensionLoadCmd - Temporarily installs an extension from a local directory into the client.
+// The extension must contain a valid manifest file. If commands from the extension
+// already exist, the user will be prompted to overwrite them.
 func ExtensionLoadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	dirPath := args[0]
-	// dirPath := ctx.Args.String("dir-path")
+
+	// Add directory check
+	fileInfo, err := os.Stat(dirPath)
+	if err != nil || !fileInfo.IsDir() {
+		con.PrintErrorf("Path is not a directory: %s\n", dirPath)
+		return
+	}
+
 	manifest, err := LoadExtensionManifest(filepath.Join(dirPath, ManifestFileName))
 	if err != nil {
 		return
@@ -165,7 +182,11 @@ func ExtensionLoadCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 	}
 }
 
-// LoadExtensionManifest - Parse extension files.
+// LoadExtensionManifest loads and parses an extension manifest file from the given path.
+// It registers each command defined in the manifest into the loadedExtensions map
+// and registers the complete manifest into loadedManifests. A single manifest may
+// contain multiple extension commands. The manifest's RootPath is set to its containing
+// directory. Returns the parsed manifest and any errors encountered.
 func LoadExtensionManifest(manifestPath string) (*ExtensionManifest, error) {
 	data, err := os.ReadFile(manifestPath)
 	if err != nil {
@@ -279,15 +300,20 @@ func validManifest(manifest *ExtensionManifest) error {
 	return nil
 }
 
-// ExtensionRegisterCommand - Register a new extension command
+// ExtensionRegisterCommand adds an extension command to the cobra command system.
+// It validates the extension's arguments, updates the loadedExtensions map, and
+// creates a cobra.Command with proper usage text, help documentation, and argument
+// handling. The command is added as a subcommand to the provided parent cobra.Command.
+// Arguments are displayed in the help text as uppercase, with optional args in square
+// brackets. The help text includes sections for command usage, description, and detailed
+// argument specifications.
 func ExtensionRegisterCommand(extCmd *ExtCommand, cmd *cobra.Command, con *console.SliverClient) {
 	if errInvalidArgs := checkExtensionArgs(extCmd); errInvalidArgs != nil {
-		con.PrintErrorf(errInvalidArgs.Error())
+		con.PrintErrorf("%s", errInvalidArgs.Error())
 		return
 	}
 
 	loadedExtensions[extCmd.CommandName] = extCmd
-	//helpMsg := extCmd.Help
 
 	usage := strings.Builder{}
 	usage.WriteString(extCmd.CommandName)
@@ -339,9 +365,9 @@ func ExtensionRegisterCommand(extCmd *ExtCommand, cmd *cobra.Command, con *conso
 
 	// Command
 	extensionCmd := &cobra.Command{
-		Use: usage.String(), //extCmd.CommandName,
-		//Short: helpMsg.String(), doesn't appear to be used?
-		Long: help.FormatHelpTmpl(longHelp.String()),
+		Use:   usage.String(),
+		Short: extCmd.Help,
+		Long:  help.FormatHelpTmpl(longHelp.String()),
 		Run: func(cmd *cobra.Command, args []string) {
 			runExtensionCmd(cmd, con, args)
 		},
@@ -559,11 +585,11 @@ func runExtensionCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 		extName = ext.DependsOn
 		entryPoint = loadedExtensions[extName].Entrypoint // should exist at this point
 	} else {
-		// Regular DLL
-		extensionArgs, err = getExtArgs(cmd, args, binPath, ext)
-		if err != nil {
-			con.PrintErrorf("ext args error: %s\n", err)
-			return
+		// Regular DLL - Just join the arguments with spaces
+		if len(args) > 0 {
+			extensionArgs = []byte(strings.Join(args, " "))
+		} else {
+			extensionArgs = []byte{}
 		}
 		extName = ext.CommandName
 		entryPoint = ext.Entrypoint
@@ -659,7 +685,7 @@ func PrintExtOutput(extName string, commandName string, outputSchema *packages.O
 		}
 	}
 	if callExtension.Response != nil && callExtension.Response.Err != "" {
-		con.PrintErrorf(callExtension.Response.Err)
+		con.PrintErrorf("%s", callExtension.Response.Err)
 		return
 	}
 }
@@ -771,7 +797,7 @@ func getBOFArgs(cmd *cobra.Command, args []string, binPath string, ext *ExtComma
 	if err != nil {
 		return nil, err
 	}
-	parsedArgs, err := getExtArgs(cmd, args, binPath, ext)
+	parsedArgs, err := ParseFlagArgumentsToBuffer(cmd, args, binPath, ext)
 	if err != nil {
 		return nil, err
 	}
@@ -829,7 +855,7 @@ func makeExtensionArgCompleter(extCmd *ExtCommand, _ *cobra.Command, comps *cara
 			usage += " (optional)"
 		}
 
-		actions = append(actions, action.Usage(usage))
+		actions = append(actions, action.Usage("%s", usage))
 	}
 
 	comps.PositionalCompletion(actions...)

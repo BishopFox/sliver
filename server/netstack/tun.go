@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2025 WireGuard LLC. All Rights Reserved.
  */
 
 package netstack
@@ -13,6 +13,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
+	insecurerand "math/rand"
 	"net"
 	"net/netip"
 	"os"
@@ -22,6 +24,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bishopfox/sliver/server/log"
 	"golang.zx2c4.com/wireguard/tun"
 
 	"golang.org/x/net/dns/dnsmessage"
@@ -43,19 +46,139 @@ type netTun struct {
 	ep             *channel.Endpoint
 	stack          *stack.Stack
 	events         chan tun.Event
+	notifyHandle   *channel.NotificationHandle
 	incomingPacket chan *buffer.View
 	mtu            int
 	dnsServers     []netip.Addr
 	hasV4, hasV6   bool
 }
 
+var (
+	netstackLog = log.NamedLogger("netstack", "tun")
+)
+
 type Net netTun
+
+func setupIPTables() *stack.IPTables {
+	// Use the standard clock and a random source for conntrack timeouts.
+	clock := tcpip.NewStdClock()
+
+	n, err := rand.Int(rand.Reader, big.NewInt(0xFFFFFFFF))
+	if err != nil {
+		panic("failed to create random number: " + err.Error())
+	}
+	// DefaultTables uses `math/rand.Rand`
+	rngSrc := insecurerand.NewSource(n.Int64())
+	rng := insecurerand.New(rngSrc)
+
+	// Grab the default tables (which accept everything).
+	ipt := stack.DefaultTables(clock, rng)
+
+	defaultRules := []stack.Rule{
+		// Input -- default drop
+		{Filter: stack.EmptyFilter4(), Target: &stack.ErrorTarget{NetworkProtocol: header.IPv4ProtocolNumber}},
+		// Forward -- default accept
+		{Filter: stack.EmptyFilter4(), Target: &stack.AcceptTarget{NetworkProtocol: header.IPv4ProtocolNumber}},
+		// Output -- default accept
+		{Filter: stack.EmptyFilter4(), Target: &stack.AcceptTarget{NetworkProtocol: header.IPv4ProtocolNumber}},
+		// Prerouting
+		{Filter: stack.EmptyFilter4(), Target: &stack.ErrorTarget{NetworkProtocol: header.IPv4ProtocolNumber}},
+	}
+
+	filterTable := stack.Table{
+		Rules: defaultRules,
+		BuiltinChains: [stack.NumHooks]int{
+			stack.Prerouting:  stack.HookUnset,
+			stack.Input:       0,
+			stack.Forward:     1,
+			stack.Output:      2,
+			stack.Postrouting: stack.HookUnset,
+		},
+		Underflows: [stack.NumHooks]int{
+			stack.Prerouting:  stack.HookUnset,
+			stack.Input:       0,
+			stack.Forward:     1,
+			stack.Output:      2,
+			stack.Postrouting: stack.HookUnset,
+		},
+	}
+
+	// IPv4
+	ipt.ReplaceTable(stack.FilterID, filterTable, false)
+	// IPv6
+	ipt.ReplaceTable(stack.NATID, filterTable, true)
+
+	return ipt
+}
+
+type tcpDstPortMatcher struct {
+	port uint16
+}
+
+func (m *tcpDstPortMatcher) Match(hook stack.Hook, pkt *stack.PacketBuffer, inNic, outNic string) (bool, bool) {
+	// Only match TCP packets.
+	if pkt.TransportProtocolNumber != header.TCPProtocolNumber {
+		return false, false
+	}
+	// Parse the TCP header and compare the DestPort.
+	tcp := header.TCP(pkt.TransportHeader().Slice())
+	return tcp.DestinationPort() == m.port, false
+}
+
+// allowTCPPort adds a rule to the iptables filter table to allow TCP packets.
+// It only supports IPv4 because we don't care about IPv6 for this use case.
+func allowTCPPort(ipt *stack.IPTables, dstIp tcpip.Address, dstPort uint16) error {
+	tbl := ipt.GetTable(stack.FilterID, false)
+
+	defaultMask, err := netip.ParseAddr("255.255.255.255")
+	if err != nil {
+		return err
+	}
+	dstMask := tcpip.AddrFrom4(defaultMask.As4())
+
+	// Create an empty filter first to initialize all fields
+	// otherwise we'll end up with some nil pointers dereference
+	// during the filtering process.
+	filter := stack.EmptyFilter4()
+	// Set the protocol to TCP and the destination address
+	filter.Protocol = header.TCPProtocolNumber
+	filter.Dst = dstIp
+	filter.DstMask = dstMask
+
+	acceptRule := stack.Rule{
+		Filter: filter,
+		Matchers: []stack.Matcher{
+			&tcpDstPortMatcher{port: dstPort},
+		},
+		Target: &stack.AcceptTarget{NetworkProtocol: header.IPv4ProtocolNumber},
+	}
+
+	// Add our rule to the beginning of the rules list
+	tbl.Rules = append([]stack.Rule{acceptRule}, tbl.Rules...)
+
+	// Update the builtin chains to point to the new rule
+	for h, u := range tbl.Underflows {
+		tbl.Underflows[h] = u + 1
+	}
+
+	// Update the builtin chains to point to the new rule
+	for h, idx := range tbl.BuiltinChains {
+		if h != int(stack.Input) {
+			tbl.BuiltinChains[h] = idx + 1
+		}
+	}
+	tbl.BuiltinChains[stack.Input] = 0
+
+	ipt.ReplaceTable(stack.FilterID, tbl, false)
+	return nil
+}
 
 func CreateNetTUN(localAddresses, dnsServers []netip.Addr, mtu int) (tun.Device, *Net, error) {
 	opts := stack.Options{
 		NetworkProtocols:   []stack.NetworkProtocolFactory{ipv4.NewProtocol, ipv6.NewProtocol},
 		TransportProtocols: []stack.TransportProtocolFactory{tcp.NewProtocol, udp.NewProtocol, icmp.NewProtocol6, icmp.NewProtocol4},
 		HandleLocal:        true,
+		IPTables:           setupIPTables(),
 	}
 	dev := &netTun{
 		ep:             channel.New(1024, uint32(mtu), ""),
@@ -70,7 +193,7 @@ func CreateNetTUN(localAddresses, dnsServers []netip.Addr, mtu int) (tun.Device,
 	if tcpipErr != nil {
 		return nil, nil, fmt.Errorf("could not enable TCP SACK: %v", tcpipErr)
 	}
-	dev.ep.AddNotify(dev)
+	dev.notifyHandle = dev.ep.AddNotify(dev)
 	tcpipErr = dev.stack.CreateNIC(1, dev.ep)
 	if tcpipErr != nil {
 		return nil, nil, fmt.Errorf("CreateNIC: %v", tcpipErr)
@@ -98,17 +221,9 @@ func CreateNetTUN(localAddresses, dnsServers []netip.Addr, mtu int) (tun.Device,
 	}
 	if dev.hasV4 {
 		dev.stack.AddRoute(tcpip.Route{Destination: header.IPv4EmptySubnet, NIC: 1})
-		tcpipErr = dev.stack.SetForwardingDefaultAndAllNICs(header.IPv4ProtocolNumber, true)
-		if tcpipErr != nil {
-			return nil, nil, fmt.Errorf("SetForwardingDefaultAndAllNICsV4: %v", tcpipErr)
-		}
 	}
 	if dev.hasV6 {
 		dev.stack.AddRoute(tcpip.Route{Destination: header.IPv6EmptySubnet, NIC: 1})
-		tcpipErr = dev.stack.SetForwardingDefaultAndAllNICs(header.IPv6ProtocolNumber, true)
-		if tcpipErr != nil {
-			return nil, nil, fmt.Errorf("SetForwardingDefaultAndAllNICsV6: %v", tcpipErr)
-		}
 	}
 
 	dev.events <- tun.EventUp
@@ -163,7 +278,7 @@ func (tun *netTun) Write(buf [][]byte, offset int) (int, error) {
 
 func (tun *netTun) WriteNotify() {
 	pkt := tun.ep.Read()
-	if pkt.IsNil() {
+	if pkt == nil {
 		return
 	}
 
@@ -175,12 +290,13 @@ func (tun *netTun) WriteNotify() {
 
 func (tun *netTun) Close() error {
 	tun.stack.RemoveNIC(1)
+	tun.stack.Close()
+	tun.ep.RemoveNotify(tun.notifyHandle)
+	tun.ep.Close()
 
 	if tun.events != nil {
 		close(tun.events)
 	}
-
-	tun.ep.Close()
 
 	if tun.incomingPacket != nil {
 		close(tun.incomingPacket)
@@ -209,6 +325,12 @@ func convertToFullAddr(endpoint netip.AddrPort) (tcpip.FullAddress, tcpip.Networ
 		Addr: tcpip.AddrFromSlice(endpoint.Addr().AsSlice()),
 		Port: endpoint.Port(),
 	}, protoNumber
+}
+
+func (ntun *Net) AllowTCPPort(ipAddr netip.Addr, dstPort uint16) error {
+	ipt := ntun.stack.IPTables()
+	dstIp := tcpip.AddrFrom4(ipAddr.As4())
+	return allowTCPPort(ipt, dstIp, dstPort)
 }
 
 func (net *Net) DialContextTCPAddrPort(ctx context.Context, addr netip.AddrPort) (*gonet.TCPConn, error) {

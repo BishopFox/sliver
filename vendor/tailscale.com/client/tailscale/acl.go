@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/netip"
+	"net/url"
 )
 
 // ACLRow defines a rule that grants access by a set of users or groups to a set
@@ -19,6 +20,7 @@ import (
 // Only one of Src/Dst or Users/Ports may be specified.
 type ACLRow struct {
 	Action string   `json:"action,omitempty"` // valid values: "accept"
+	Proto  string   `json:"proto,omitempty"`  // protocol
 	Users  []string `json:"users,omitempty"`  // old name for src
 	Ports  []string `json:"ports,omitempty"`  // old name for dst
 	Src    []string `json:"src,omitempty"`
@@ -31,10 +33,21 @@ type ACLRow struct {
 type ACLTest struct {
 	Src    string   `json:"src,omitempty"`    // source
 	User   string   `json:"user,omitempty"`   // old name for source
+	Proto  string   `json:"proto,omitempty"`  // protocol
 	Accept []string `json:"accept,omitempty"` // expected destination ip:port that user can access
 	Deny   []string `json:"deny,omitempty"`   // expected destination ip:port that user cannot access
 
 	Allow []string `json:"allow,omitempty"` // old name for accept
+}
+
+// NodeAttrGrant defines additional string attributes that apply to specific devices.
+type NodeAttrGrant struct {
+	// Target specifies which nodes the attributes apply to. The nodes can be a
+	// tag (tag:server), user (alice@example.com), group (group:kids), or *.
+	Target []string `json:"target,omitempty"`
+
+	// Attr are the attributes to set on Target(s).
+	Attr []string `json:"attr,omitempty"`
 }
 
 // ACLDetails contains all the details for an ACL.
@@ -44,6 +57,7 @@ type ACLDetails struct {
 	Groups    map[string][]string `json:"groups,omitempty"`
 	TagOwners map[string][]string `json:"tagowners,omitempty"`
 	Hosts     map[string]string   `json:"hosts,omitempty"`
+	NodeAttrs []NodeAttrGrant     `json:"nodeAttrs,omitempty"`
 }
 
 // ACL contains an ACLDetails and metadata.
@@ -70,7 +84,7 @@ func (c *Client) ACL(ctx context.Context) (acl *ACL, err error) {
 		}
 	}()
 
-	path := fmt.Sprintf("%s/api/v2/tailnet/%s/acl", c.baseURL(), c.tailnet)
+	path := c.BuildTailnetURL("acl")
 	req, err := http.NewRequestWithContext(ctx, "GET", path, nil)
 	if err != nil {
 		return nil, err
@@ -84,7 +98,7 @@ func (c *Client) ACL(ctx context.Context) (acl *ACL, err error) {
 	// If status code was not successful, return the error.
 	// TODO: Change the check for the StatusCode to include other 2XX success codes.
 	if resp.StatusCode != http.StatusOK {
-		return nil, handleErrorResponse(b, resp)
+		return nil, HandleErrorResponse(b, resp)
 	}
 
 	// Otherwise, try to decode the response.
@@ -113,7 +127,7 @@ func (c *Client) ACLHuJSON(ctx context.Context) (acl *ACLHuJSON, err error) {
 		}
 	}()
 
-	path := fmt.Sprintf("%s/api/v2/tailnet/%s/acl?details=1", c.baseURL(), c.tailnet)
+	path := c.BuildTailnetURL("acl", url.Values{"details": {"1"}})
 	req, err := http.NewRequestWithContext(ctx, "GET", path, nil)
 	if err != nil {
 		return nil, err
@@ -125,7 +139,7 @@ func (c *Client) ACLHuJSON(ctx context.Context) (acl *ACLHuJSON, err error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, handleErrorResponse(b, resp)
+		return nil, HandleErrorResponse(b, resp)
 	}
 
 	data := struct {
@@ -133,7 +147,7 @@ func (c *Client) ACLHuJSON(ctx context.Context) (acl *ACLHuJSON, err error) {
 		Warnings []string `json:"warnings"`
 	}{}
 	if err := json.Unmarshal(b, &data); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("json.Unmarshal %q: %w", b, err)
 	}
 
 	acl = &ACLHuJSON{
@@ -150,7 +164,12 @@ func (c *Client) ACLHuJSON(ctx context.Context) (acl *ACLHuJSON, err error) {
 // ACLTestFailureSummary specifies the JSON format sent to the
 // JavaScript client to be rendered in the HTML.
 type ACLTestFailureSummary struct {
-	User     string   `json:"user,omitempty"`
+	// User is the source ("src") value of the ACL test that failed.
+	// The name "user" is a legacy holdover from the original naming and
+	// is kept for compatibility but it may also contain any value
+	// that's valid in a ACL test "src" field.
+	User string `json:"user,omitempty"`
+
 	Errors   []string `json:"errors,omitempty"`
 	Warnings []string `json:"warnings,omitempty"`
 }
@@ -166,7 +185,7 @@ func (e ACLTestError) Error() string {
 }
 
 func (c *Client) aclPOSTRequest(ctx context.Context, body []byte, avoidCollisions bool, etag, acceptHeader string) ([]byte, string, error) {
-	path := fmt.Sprintf("%s/api/v2/tailnet/%s/acl", c.baseURL(), c.tailnet)
+	path := c.BuildTailnetURL("acl")
 	req, err := http.NewRequestWithContext(ctx, "POST", path, bytes.NewBuffer(body))
 	if err != nil {
 		return nil, "", err
@@ -270,6 +289,9 @@ type UserRuleMatch struct {
 	Users      []string `json:"users"`
 	Ports      []string `json:"ports"`
 	LineNumber int      `json:"lineNumber"`
+	// Via is the list of targets through which Users can access Ports.
+	// See https://tailscale.com/kb/1378/via for more information.
+	Via []string `json:"via,omitempty"`
 
 	// Postures is a list of posture policies that are
 	// associated with this match. The rules can be looked
@@ -307,7 +329,7 @@ type ACLPreview struct {
 }
 
 func (c *Client) previewACLPostRequest(ctx context.Context, body []byte, previewType string, previewFor string) (res *ACLPreviewResponse, err error) {
-	path := fmt.Sprintf("%s/api/v2/tailnet/%s/acl/preview", c.baseURL(), c.tailnet)
+	path := c.BuildTailnetURL("acl", "preview")
 	req, err := http.NewRequestWithContext(ctx, "POST", path, bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
@@ -329,7 +351,7 @@ func (c *Client) previewACLPostRequest(ctx context.Context, body []byte, preview
 	// If status code was not successful, return the error.
 	// TODO: Change the check for the StatusCode to include other 2XX success codes.
 	if resp.StatusCode != http.StatusOK {
-		return nil, handleErrorResponse(b, resp)
+		return nil, HandleErrorResponse(b, resp)
 	}
 	if err = json.Unmarshal(b, &res); err != nil {
 		return nil, err
@@ -467,7 +489,7 @@ func (c *Client) ValidateACLJSON(ctx context.Context, source, dest string) (test
 		return nil, err
 	}
 
-	path := fmt.Sprintf("%s/api/v2/tailnet/%s/acl/validate", c.baseURL(), c.tailnet)
+	path := c.BuildTailnetURL("acl", "validate")
 	req, err := http.NewRequestWithContext(ctx, "POST", path, bytes.NewBuffer(postData))
 	if err != nil {
 		return nil, err

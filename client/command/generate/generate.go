@@ -98,7 +98,7 @@ func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		save, _ = os.Getwd()
 	}
 	if external, _ := cmd.Flags().GetBool("external-builder"); !external {
-		compile(config, save, con)
+		compile(name, config, save, con)
 	} else {
 		_, err := externalBuild(name, config, save, con)
 		if err != nil {
@@ -290,6 +290,15 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 	isShellcode := false
 	sgnEnabled := false
 
+	var exports []string
+	exportsArg, _ := cmd.Flags().GetString("exports")
+	if exportsArg == "" {
+		con.PrintErrorf("Shared libraries need at least one export\n")
+		return "", nil
+	} else {
+		exports = strings.Split(exportsArg, ",")
+	}
+
 	format, _ := cmd.Flags().GetString("format")
 	runAtLoad := false
 	var configFormat clientpb.OutputFormat
@@ -364,6 +373,8 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		c2Profile = consts.DefaultC2Profile
 	}
 
+	// exports if its a shared library
+
 	config := &clientpb.ImplantConfig{
 		GOOS:             targetOS,
 		GOARCH:           targetArch,
@@ -395,6 +406,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		IsSharedLib: isSharedLib,
 		IsService:   isService,
 		IsShellcode: isShellcode,
+		Exports:     exports,
 
 		RunAtLoad:              runAtLoad,
 		NetGoEnabled:           netGo,
@@ -564,7 +576,7 @@ func hasValidC2AdvancedOptions(options url.Values) (bool, error) {
 			if testValue != "wininet" {
 				return false, fmt.Errorf("C2 option \"driver\" must be empty for the default driver or \"wininet\" for the wininet driver (Windows only)")
 			}
-		case "force-http", "disable-accept-header", "disable-upgrade-header", "ask-proxy-creds", "force-base32":
+		case "force-http", "disable-accept-header", "disable-upgrade-header", "ask-proxy-creds":
 			if testValue != "true" && testValue != "false" {
 				return false, fmt.Errorf("C2 option \"%s\" must be a boolean value: true or false", key)
 			}
@@ -905,7 +917,7 @@ func externalBuild(name string, config *clientpb.ImplantConfig, save string, con
 	return nil, nil
 }
 
-func compile(config *clientpb.ImplantConfig, save string, con *console.SliverClient) (*commonpb.File, error) {
+func compile(name string, config *clientpb.ImplantConfig, save string, con *console.SliverClient) (*commonpb.File, error) {
 	if config.IsBeacon {
 		interval := time.Duration(config.BeaconInterval)
 		con.PrintInfof("Generating new %s/%s beacon implant binary (%v)\n", config.GOOS, config.GOARCH, interval)
@@ -923,6 +935,7 @@ func compile(config *clientpb.ImplantConfig, save string, con *console.SliverCli
 	con.SpinUntil("Compiling, please wait ...", ctrl)
 
 	generated, err := con.Rpc.Generate(context.Background(), &clientpb.GenerateReq{
+		Name:   name,
 		Config: config,
 	})
 	ctrl <- true

@@ -178,6 +178,9 @@ var (
 
 	// IPv4AllRoutersGroup is a multicast address for all routers.
 	IPv4AllRoutersGroup = tcpip.AddrFrom4([4]byte{0xe0, 0x00, 0x00, 0x02})
+
+	// IPv4Loopback is the loopback IPv4 address.
+	IPv4Loopback = tcpip.AddrFrom4([4]byte{0x7f, 0x00, 0x00, 0x01})
 )
 
 // Flags that may be set in an IPv4 packet.
@@ -344,6 +347,18 @@ func (b IPv4) SourceAddress() tcpip.Address {
 // header.
 func (b IPv4) DestinationAddress() tcpip.Address {
 	return tcpip.AddrFrom4([4]byte(b[dstAddr : dstAddr+IPv4AddressSize]))
+}
+
+// SourceAddressSlice returns the "source address" field of the IPv4 header as a
+// byte slice.
+func (b IPv4) SourceAddressSlice() []byte {
+	return []byte(b[srcAddr : srcAddr+IPv4AddressSize])
+}
+
+// DestinationAddressSlice returns the "destination address" field of the IPv4
+// header as a byte slice.
+func (b IPv4) DestinationAddressSlice() []byte {
+	return []byte(b[dstAddr : dstAddr+IPv4AddressSize])
 }
 
 // SetSourceAddressWithChecksumUpdate implements ChecksummableNetwork.
@@ -559,7 +574,7 @@ func IsV4LoopbackAddress(addr tcpip.Address) bool {
 
 // ========================= Options ==========================
 
-// An IPv4OptionType can hold the valuse for the Type in an IPv4 option.
+// An IPv4OptionType can hold the value for the Type in an IPv4 option.
 type IPv4OptionType byte
 
 // These constants are needed to identify individual options in the option list.
@@ -587,6 +602,9 @@ const (
 
 	// IPv4OptionTimestampType is the option type for the Timestamp option.
 	IPv4OptionTimestampType IPv4OptionType = 68
+
+	// IPv4OptionExperimentType is the option type for the Experiment option.
+	IPv4OptionExperimentType IPv4OptionType = 30
 
 	// ipv4OptionTypeOffset is the offset in an option of its type field.
 	ipv4OptionTypeOffset = 0
@@ -784,6 +802,17 @@ func (i *IPv4OptionIterator) Next() (IPv4Option, bool, *IPv4OptParameterProblem)
 			}
 		}
 		retval := IPv4OptionRouterAlert(optionBody)
+		return &retval, false, nil
+
+	case IPv4OptionExperimentType:
+		if optLen != IPv4OptionExperimentLength {
+			i.ErrCursor++
+			return nil, false, &IPv4OptParameterProblem{
+				Pointer:  i.ErrCursor,
+				NeedICMP: true,
+			}
+		}
+		retval := IPv4OptionExperiment(optionBody)
 		return &retval, false, nil
 	}
 	retval := IPv4OptionGeneric(optionBody)
@@ -1059,6 +1088,35 @@ func (ra *IPv4OptionRouterAlert) Value() uint16 {
 	return binary.BigEndian.Uint16(ra.Contents()[IPv4OptionRouterAlertValueOffset:])
 }
 
+// Experiment option specific related constants.
+const (
+	// IPv4OptionExperimentLength  is the length of an Experiment option.
+	IPv4OptionExperimentLength = 4
+
+	// IPv4OptionExperimentValueOffset is the offset for the value of an
+	// Experiment option.
+	IPv4OptionExperimentValueOffset = 2
+)
+
+var _ IPv4Option = (*IPv4OptionExperiment)(nil)
+
+// IPv4OptionExperiment is an IPv4 option defined by RFC 4727.
+type IPv4OptionExperiment []byte
+
+// Type implements IPv4Option.
+func (*IPv4OptionExperiment) Type() IPv4OptionType { return IPv4OptionExperimentType }
+
+// Size implements IPv4Option.
+func (*IPv4OptionExperiment) Size() uint8 { return uint8(IPv4OptionExperimentLength) }
+
+// Contents implements IPv4Option.
+func (ex *IPv4OptionExperiment) Contents() []byte { return *ex }
+
+// Value returns the value of the IPv4OptionRouterAlert.
+func (ex *IPv4OptionExperiment) Value() uint16 {
+	return binary.BigEndian.Uint16(ex.Contents()[IPv4OptionExperimentValueOffset:])
+}
+
 // IPv4SerializableOption is an interface to represent serializable IPv4 option
 // types.
 type IPv4SerializableOption interface {
@@ -1161,6 +1219,28 @@ func (*IPv4SerializableRouterAlertOption) length() uint8 {
 // SerializeInto implements IPv4SerializableOption.
 func (o *IPv4SerializableRouterAlertOption) serializeInto(buffer []byte) uint8 {
 	binary.BigEndian.PutUint16(buffer, IPv4OptionRouterAlertValue)
+	return o.length()
+}
+
+var _ IPv4SerializableOptionPayload = (*IPv4SerializableExperimentOption)(nil)
+var _ IPv4SerializableOption = (*IPv4SerializableExperimentOption)(nil)
+
+// IPv4SerializableExperimentOption provides serialization for the IPv4
+// Experiment option.
+type IPv4SerializableExperimentOption struct {
+	Tag uint16
+}
+
+func (*IPv4SerializableExperimentOption) optionType() IPv4OptionType {
+	return IPv4OptionExperimentType
+}
+
+func (*IPv4SerializableExperimentOption) length() uint8 {
+	return IPv4OptionExperimentLength - IPv4OptionExperimentValueOffset
+}
+
+func (o *IPv4SerializableExperimentOption) serializeInto(buffer []byte) uint8 {
+	binary.BigEndian.PutUint16(buffer, o.Tag)
 	return o.length()
 }
 

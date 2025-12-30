@@ -19,12 +19,10 @@ import (
 	"github.com/dblohm7/wingoes"
 	"golang.org/x/sys/windows"
 	"tailscale.com/types/logger"
-	"tailscale.com/util/multierr"
 )
 
 var (
-	// ErrDefunctProcess is returned by (*UniqueProcess).AsRestartableProcess
-	// when the process no longer exists.
+	// ErrDefunctProcess is returned when the process no longer exists.
 	ErrDefunctProcess = errors.New("process is defunct")
 	// ErrProcessNotRestartable is returned by (*UniqueProcess).AsRestartableProcess
 	// when the process has previously indicated that it must not be restarted
@@ -539,7 +537,7 @@ func (rps RestartableProcesses) Terminate(logf logger.Logf, exitCode uint32, tim
 	}
 
 	if len(errs) != 0 {
-		return multierr.New(errs...)
+		return errors.Join(errs...)
 	}
 	return nil
 }
@@ -799,7 +797,7 @@ func startProcessInSessionInternal(sessID SessionID, cmdLineInfo CommandLineInfo
 	if err != nil {
 		return nil, fmt.Errorf("token environment: %w", err)
 	}
-	env16 := newEnvBlock(env)
+	env16 := NewEnvBlock(env)
 
 	// The privileges in privNames are required for CreateProcessAsUser to be
 	// able to start processes as other users in other logon sessions.
@@ -826,7 +824,11 @@ func startProcessInSessionInternal(sessID SessionID, cmdLineInfo CommandLineInfo
 	return &pi, nil
 }
 
-func newEnvBlock(env []string) *uint16 {
+// NewEnvBlock processes a slice of strings containing "NAME=value" pairs
+// representing a process envionment into the environment block format used by
+// Windows APIs such as CreateProcess. env must be sorted case-insensitively
+// by variable name.
+func NewEnvBlock(env []string) *uint16 {
 	// Intentionally using bytes.Buffer here because we're writing nul bytes (the standard library does this too).
 	var buf bytes.Buffer
 	for _, v := range env {

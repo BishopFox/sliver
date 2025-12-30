@@ -49,6 +49,10 @@ const (
 	// of an IPv6 payload, as per RFC 8200 section 4.7.
 	IPv6NoNextHeaderIdentifier IPv6ExtensionHeaderIdentifier = 59
 
+	// IPv6ExperimentExtHdrIdentifier is the header identifier of an Experiment
+	// extension header, as per RFC 4727 section 3.3.
+	IPv6ExperimentExtHdrIdentifier IPv6ExtensionHeaderIdentifier = 253
+
 	// IPv6UnknownExtHdrIdentifier is reserved by IANA.
 	// https://www.iana.org/assignments/ipv6-parameters/ipv6-parameters.xhtml#extension-header
 	// "254	Use for experimentation and testing	[RFC3692][RFC4727]"
@@ -411,6 +415,17 @@ type IPv6DestinationOptionsExtHdr struct {
 // isIPv6PayloadHeader implements IPv6PayloadHeader.isIPv6PayloadHeader.
 func (IPv6DestinationOptionsExtHdr) isIPv6PayloadHeader() {}
 
+// IPv6ExperimentExtHdr is a buffer holding the Experiment extension header.
+type IPv6ExperimentExtHdr struct {
+	Value uint16
+}
+
+// Release implements IPv6PayloadHeader.Release.
+func (IPv6ExperimentExtHdr) Release() {}
+
+// isIPv6PayloadHeader implements IPv6PayloadHeader.isIPv6PayloadHeader.
+func (IPv6ExperimentExtHdr) isIPv6PayloadHeader() {}
+
 // IPv6RoutingExtHdr is a buffer holding the Routing extension header specific
 // data as outlined in RFC 8200 section 4.4.
 type IPv6RoutingExtHdr struct {
@@ -580,7 +595,7 @@ func (i *IPv6PayloadIterator) Next() (IPv6PayloadHeader, bool, error) {
 	// Is the header we are parsing a known extension header?
 	switch i.nextHdrIdentifier {
 	case IPv6HopByHopOptionsExtHdrIdentifier:
-		nextHdrIdentifier, view, err := i.nextHeaderData(false /* fragmentHdr */, nil)
+		nextHdrIdentifier, view, err := i.nextHeaderData(false /* ignoreLength */, nil)
 		if err != nil {
 			return nil, true, err
 		}
@@ -588,7 +603,7 @@ func (i *IPv6PayloadIterator) Next() (IPv6PayloadHeader, bool, error) {
 		i.nextHdrIdentifier = nextHdrIdentifier
 		return IPv6HopByHopOptionsExtHdr{ipv6OptionsExtHdr{view}}, false, nil
 	case IPv6RoutingExtHdrIdentifier:
-		nextHdrIdentifier, view, err := i.nextHeaderData(false /* fragmentHdr */, nil)
+		nextHdrIdentifier, view, err := i.nextHeaderData(false /* ignoreLength */, nil)
 		if err != nil {
 			return nil, true, err
 		}
@@ -599,7 +614,7 @@ func (i *IPv6PayloadIterator) Next() (IPv6PayloadHeader, bool, error) {
 		var data [6]byte
 		// We ignore the returned bytes because we know the fragment extension
 		// header specific data will fit in data.
-		nextHdrIdentifier, _, err := i.nextHeaderData(true /* fragmentHdr */, data[:])
+		nextHdrIdentifier, _, err := i.nextHeaderData(true /* ignoreLength */, data[:])
 		if err != nil {
 			return nil, true, err
 		}
@@ -618,13 +633,24 @@ func (i *IPv6PayloadIterator) Next() (IPv6PayloadHeader, bool, error) {
 		i.nextHdrIdentifier = nextHdrIdentifier
 		return fragmentExtHdr, false, nil
 	case IPv6DestinationOptionsExtHdrIdentifier:
-		nextHdrIdentifier, view, err := i.nextHeaderData(false /* fragmentHdr */, nil)
+		nextHdrIdentifier, view, err := i.nextHeaderData(false /* ignoreLength */, nil)
 		if err != nil {
 			return nil, true, err
 		}
 
 		i.nextHdrIdentifier = nextHdrIdentifier
 		return IPv6DestinationOptionsExtHdr{ipv6OptionsExtHdr{view}}, false, nil
+	case IPv6ExperimentExtHdrIdentifier:
+		var data [IPv6ExperimentHdrLength - ipv6ExperimentHdrValueOffset]byte
+		nextHdrIdentifier, _, err := i.nextHeaderData(true /* ignoreLength */, data[:])
+		if err != nil {
+			return nil, true, err
+		}
+		i.nextHdrIdentifier = nextHdrIdentifier
+		hdr := IPv6ExperimentExtHdr{
+			Value: binary.BigEndian.Uint16(data[:ipv6ExperimentHdrTagLength]),
+		}
+		return hdr, false, nil
 	case IPv6NoNextHeaderIdentifier:
 		// This indicates the end of the IPv6 payload.
 		return nil, true, nil
@@ -644,14 +670,14 @@ func (i *IPv6PayloadIterator) NextHeaderIdentifier() IPv6ExtensionHeaderIdentifi
 
 // nextHeaderData returns the extension header's Next Header field and raw data.
 //
-// fragmentHdr indicates that the extension header being parsed is the Fragment
-// extension header so the Length field should be ignored as it is Reserved
-// for the Fragment extension header.
+// ignoreLength indicates that the extension header being parsed should ignore
+// the Length field as it is reserved. This is for the Fragment and Experiment
+// extension headers.
 //
 // If bytes is not nil, extension header specific data will be read into bytes
 // if it has enough capacity. If bytes is provided but does not have enough
 // capacity for the data, nextHeaderData will panic.
-func (i *IPv6PayloadIterator) nextHeaderData(fragmentHdr bool, bytes []byte) (IPv6ExtensionHeaderIdentifier, *buffer.View, error) {
+func (i *IPv6PayloadIterator) nextHeaderData(ignoreLength bool, bytes []byte) (IPv6ExtensionHeaderIdentifier, *buffer.View, error) {
 	// We ignore the number of bytes read because we know we will only ever read
 	// at max 1 bytes since rune has a length of 1. If we read 0 bytes, the Read
 	// would return io.EOF to indicate that io.Reader has reached the end of the
@@ -667,13 +693,13 @@ func (i *IPv6PayloadIterator) nextHeaderData(fragmentHdr bool, bytes []byte) (IP
 	length, err = rdr.ReadByte()
 
 	if err != nil {
-		if fragmentHdr {
+		if ignoreLength {
 			return 0, nil, fmt.Errorf("error when reading the Length field for extension header with id = %d: %w", i.nextHdrIdentifier, err)
 		}
 
 		return 0, nil, fmt.Errorf("error when reading the Reserved field for extension header with id = %d: %w", i.nextHdrIdentifier, err)
 	}
-	if fragmentHdr {
+	if ignoreLength {
 		length = 0
 	}
 
@@ -689,7 +715,7 @@ func (i *IPv6PayloadIterator) nextHeaderData(fragmentHdr bool, bytes []byte) (IP
 	i.nextOffset += uint32((length + 1) * ipv6ExtHdrLenBytesPerUnit)
 
 	bytesLen := int(length)*ipv6ExtHdrLenBytesPerUnit + ipv6ExtHdrLenBytesExcluded
-	if fragmentHdr {
+	if ignoreLength {
 		if n := len(bytes); n < bytesLen {
 			panic(fmt.Sprintf("bytes only has space for %d bytes but need space for %d bytes (length = %d) for extension header with id = %d", n, bytesLen, length, i.nextHdrIdentifier))
 		}
@@ -733,6 +759,36 @@ type IPv6SerializableExtHdr interface {
 	// serialize the receiver. Callers MAY provide a larger buffer than required
 	// to serialize into.
 	serializeInto(nextHeader uint8, b []byte) int
+}
+
+// ipv6RouterAlertPayloadLength is the length of the Router Alert payload
+// as defined in RFC 4727 section 3.3.
+const (
+	IPv6ExperimentHdrLength        = 8
+	ipv6ExperimentNextHeaderOffset = 0
+	ipv6ExperimentLengthOffset     = 1
+	ipv6ExperimentHdrValueOffset   = 2
+	ipv6ExperimentHdrTagLength     = 2
+)
+
+var _ IPv6SerializableExtHdr = (*IPv6ExperimentExtHdr)(nil)
+
+// identifier implements IPv6SerializableExtHdr.
+func (h IPv6ExperimentExtHdr) identifier() IPv6ExtensionHeaderIdentifier {
+	return IPv6ExperimentExtHdrIdentifier
+}
+
+// length implements IPv6SerializableExtHdr.
+func (h IPv6ExperimentExtHdr) length() int {
+	return IPv6ExperimentHdrLength
+}
+
+// serializeInto implements IPv6SerializableExtHdr.
+func (h IPv6ExperimentExtHdr) serializeInto(nextHeader uint8, b []byte) int {
+	b[ipv6ExperimentNextHeaderOffset] = nextHeader
+	b[ipv6ExperimentLengthOffset] = (IPv6ExperimentHdrLength / ipv6ExtHdrLenBytesPerUnit) - 1
+	binary.BigEndian.PutUint16(b[ipv6ExperimentHdrValueOffset:][:ipv6ExperimentHdrTagLength], uint16(h.Value))
+	return IPv6ExperimentHdrLength
 }
 
 var _ IPv6SerializableExtHdr = (*IPv6SerializableHopByHopExtHdr)(nil)

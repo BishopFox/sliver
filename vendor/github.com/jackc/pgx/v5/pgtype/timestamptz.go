@@ -11,10 +11,12 @@ import (
 	"github.com/jackc/pgx/v5/internal/pgio"
 )
 
-const pgTimestamptzHourFormat = "2006-01-02 15:04:05.999999999Z07"
-const pgTimestamptzMinuteFormat = "2006-01-02 15:04:05.999999999Z07:00"
-const pgTimestamptzSecondFormat = "2006-01-02 15:04:05.999999999Z07:00:00"
-const microsecFromUnixEpochToY2K = 946684800 * 1000000
+const (
+	pgTimestamptzHourFormat    = "2006-01-02 15:04:05.999999999Z07"
+	pgTimestamptzMinuteFormat  = "2006-01-02 15:04:05.999999999Z07:00"
+	pgTimestamptzSecondFormat  = "2006-01-02 15:04:05.999999999Z07:00:00"
+	microsecFromUnixEpochToY2K = 946684800 * 1000000
+)
 
 const (
 	negativeInfinityMicrosecondOffset = -9223372036854775808
@@ -36,16 +38,18 @@ type Timestamptz struct {
 	Valid            bool
 }
 
+// ScanTimestamptz implements the [TimestamptzScanner] interface.
 func (tstz *Timestamptz) ScanTimestamptz(v Timestamptz) error {
 	*tstz = v
 	return nil
 }
 
+// TimestamptzValue implements the [TimestamptzValuer] interface.
 func (tstz Timestamptz) TimestamptzValue() (Timestamptz, error) {
 	return tstz, nil
 }
 
-// Scan implements the database/sql Scanner interface.
+// Scan implements the [database/sql.Scanner] interface.
 func (tstz *Timestamptz) Scan(src any) error {
 	if src == nil {
 		*tstz = Timestamptz{}
@@ -54,7 +58,7 @@ func (tstz *Timestamptz) Scan(src any) error {
 
 	switch src := src.(type) {
 	case string:
-		return scanPlanTextTimestamptzToTimestamptzScanner{}.Scan([]byte(src), tstz)
+		return (&scanPlanTextTimestamptzToTimestamptzScanner{}).Scan([]byte(src), tstz)
 	case time.Time:
 		*tstz = Timestamptz{Time: src, Valid: true}
 		return nil
@@ -63,7 +67,7 @@ func (tstz *Timestamptz) Scan(src any) error {
 	return fmt.Errorf("cannot scan %T", src)
 }
 
-// Value implements the database/sql/driver Valuer interface.
+// Value implements the [database/sql/driver.Valuer] interface.
 func (tstz Timestamptz) Value() (driver.Value, error) {
 	if !tstz.Valid {
 		return nil, nil
@@ -75,6 +79,7 @@ func (tstz Timestamptz) Value() (driver.Value, error) {
 	return tstz.Time, nil
 }
 
+// MarshalJSON implements the [encoding/json.Marshaler] interface.
 func (tstz Timestamptz) MarshalJSON() ([]byte, error) {
 	if !tstz.Valid {
 		return []byte("null"), nil
@@ -94,6 +99,7 @@ func (tstz Timestamptz) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s)
 }
 
+// UnmarshalJSON implements the [encoding/json.Unmarshaler] interface.
 func (tstz *Timestamptz) UnmarshalJSON(b []byte) error {
 	var s *string
 	err := json.Unmarshal(b, &s)
@@ -124,17 +130,21 @@ func (tstz *Timestamptz) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type TimestamptzCodec struct{}
+type TimestamptzCodec struct {
+	// ScanLocation is the location to return scanned timestamptz values in. This does not change the instant in time that
+	// the timestamptz represents.
+	ScanLocation *time.Location
+}
 
-func (TimestamptzCodec) FormatSupported(format int16) bool {
+func (*TimestamptzCodec) FormatSupported(format int16) bool {
 	return format == TextFormatCode || format == BinaryFormatCode
 }
 
-func (TimestamptzCodec) PreferredFormat() int16 {
+func (*TimestamptzCodec) PreferredFormat() int16 {
 	return BinaryFormatCode
 }
 
-func (TimestamptzCodec) PlanEncode(m *Map, oid uint32, format int16, value any) EncodePlan {
+func (*TimestamptzCodec) PlanEncode(m *Map, oid uint32, format int16, value any) EncodePlan {
 	if _, ok := value.(TimestamptzValuer); !ok {
 		return nil
 	}
@@ -220,27 +230,26 @@ func (encodePlanTimestamptzCodecText) Encode(value any, buf []byte) (newBuf []by
 	return buf, nil
 }
 
-func (TimestamptzCodec) PlanScan(m *Map, oid uint32, format int16, target any) ScanPlan {
-
+func (c *TimestamptzCodec) PlanScan(m *Map, oid uint32, format int16, target any) ScanPlan {
 	switch format {
 	case BinaryFormatCode:
 		switch target.(type) {
 		case TimestamptzScanner:
-			return scanPlanBinaryTimestamptzToTimestamptzScanner{}
+			return &scanPlanBinaryTimestamptzToTimestamptzScanner{location: c.ScanLocation}
 		}
 	case TextFormatCode:
 		switch target.(type) {
 		case TimestamptzScanner:
-			return scanPlanTextTimestamptzToTimestamptzScanner{}
+			return &scanPlanTextTimestamptzToTimestamptzScanner{location: c.ScanLocation}
 		}
 	}
 
 	return nil
 }
 
-type scanPlanBinaryTimestamptzToTimestamptzScanner struct{}
+type scanPlanBinaryTimestamptzToTimestamptzScanner struct{ location *time.Location }
 
-func (scanPlanBinaryTimestamptzToTimestamptzScanner) Scan(src []byte, dst any) error {
+func (plan *scanPlanBinaryTimestamptzToTimestamptzScanner) Scan(src []byte, dst any) error {
 	scanner := (dst).(TimestamptzScanner)
 
 	if src == nil {
@@ -264,15 +273,18 @@ func (scanPlanBinaryTimestamptzToTimestamptzScanner) Scan(src []byte, dst any) e
 			microsecFromUnixEpochToY2K/1000000+microsecSinceY2K/1000000,
 			(microsecFromUnixEpochToY2K%1000000*1000)+(microsecSinceY2K%1000000*1000),
 		)
+		if plan.location != nil {
+			tim = tim.In(plan.location)
+		}
 		tstz = Timestamptz{Time: tim, Valid: true}
 	}
 
 	return scanner.ScanTimestamptz(tstz)
 }
 
-type scanPlanTextTimestamptzToTimestamptzScanner struct{}
+type scanPlanTextTimestamptzToTimestamptzScanner struct{ location *time.Location }
 
-func (scanPlanTextTimestamptzToTimestamptzScanner) Scan(src []byte, dst any) error {
+func (plan *scanPlanTextTimestamptzToTimestamptzScanner) Scan(src []byte, dst any) error {
 	scanner := (dst).(TimestamptzScanner)
 
 	if src == nil {
@@ -312,13 +324,17 @@ func (scanPlanTextTimestamptzToTimestamptzScanner) Scan(src []byte, dst any) err
 			tim = time.Date(year, tim.Month(), tim.Day(), tim.Hour(), tim.Minute(), tim.Second(), tim.Nanosecond(), tim.Location())
 		}
 
+		if plan.location != nil {
+			tim = tim.In(plan.location)
+		}
+
 		tstz = Timestamptz{Time: tim, Valid: true}
 	}
 
 	return scanner.ScanTimestamptz(tstz)
 }
 
-func (c TimestamptzCodec) DecodeDatabaseSQLValue(m *Map, oid uint32, format int16, src []byte) (driver.Value, error) {
+func (c *TimestamptzCodec) DecodeDatabaseSQLValue(m *Map, oid uint32, format int16, src []byte) (driver.Value, error) {
 	if src == nil {
 		return nil, nil
 	}
@@ -336,7 +352,7 @@ func (c TimestamptzCodec) DecodeDatabaseSQLValue(m *Map, oid uint32, format int1
 	return tstz.Time, nil
 }
 
-func (c TimestamptzCodec) DecodeValue(m *Map, oid uint32, format int16, src []byte) (any, error) {
+func (c *TimestamptzCodec) DecodeValue(m *Map, oid uint32, format int16, src []byte) (any, error) {
 	if src == nil {
 		return nil, nil
 	}

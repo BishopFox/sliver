@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:build !goexperiment.jsonv2 || !go1.25
+
 // jsonflags implements all the optional boolean flags.
 // These flags are shared across both "json", "jsontext", and "jsonopts".
 package jsonflags
@@ -14,7 +16,7 @@ import "github.com/go-json-experiment/json/internal"
 //
 // In common usage, this is OR'd with 0 or 1. For example:
 //   - (AllowInvalidUTF8 | 0) means "AllowInvalidUTF8 is false"
-//   - (Expand | Indent | 1) means "Expand and Indent are true"
+//   - (Multiline | Indent | 1) means "Multiline and Indent are true"
 type Bools uint64
 
 func (Bools) JSONOptions(internal.NotForPublicUse) {}
@@ -50,40 +52,60 @@ const (
 		AllowInvalidUTF8 |
 		EscapeForHTML |
 		EscapeForJS |
+		PreserveRawStrings |
 		Deterministic |
 		FormatNilMapAsNull |
 		FormatNilSliceAsNull |
 		MatchCaseInsensitiveNames |
+		CallMethodsWithLegacySemantics |
 		FormatByteArrayAsArray |
-		FormatTimeDurationAsNanosecond |
-		IgnoreStructErrors |
+		FormatBytesWithLegacySemantics |
+		FormatDurationAsNano |
 		MatchCaseSensitiveDelimiter |
 		MergeWithLegacySemantics |
-		OmitEmptyWithLegacyDefinition |
-		RejectFloatOverflow |
-		ReportLegacyErrorValues |
-		SkipUnaddressableMethods |
+		OmitEmptyWithLegacySemantics |
+		ParseBytesWithLooseRFC4648 |
+		ParseTimeWithLooseRFC3339 |
+		ReportErrorsWithLegacySemantics |
 		StringifyWithLegacySemantics |
 		UnmarshalArrayFromAnyLength
+
+	// AnyWhitespace reports whether the encoded output might have any whitespace.
+	AnyWhitespace = Multiline | SpaceAfterColon | SpaceAfterComma
+
+	// WhitespaceFlags is the set of flags related to whitespace formatting.
+	// In contrast to AnyWhitespace, this includes Indent and IndentPrefix
+	// as those settings take no effect if Multiline is false.
+	WhitespaceFlags = AnyWhitespace | Indent | IndentPrefix
+
+	// AnyEscape is the set of flags related to escaping in a JSON string.
+	AnyEscape = EscapeForHTML | EscapeForJS
+
+	// CanonicalizeNumbers is the set of flags related to raw number canonicalization.
+	CanonicalizeNumbers = CanonicalizeRawInts | CanonicalizeRawFloats
 )
 
 // Encoder and decoder flags.
 const (
 	initFlag Bools = 1 << iota // reserved for the boolean value itself
 
-	AllowDuplicateNames // encode or decode
-	AllowInvalidUTF8    // encode or decode
-	WithinArshalCall    // encode or decode; for internal use by json.Marshal and json.Unmarshal
-	OmitTopLevelNewline // encode only; for internal use by json.Marshal and json.MarshalWrite
-	PreserveRawStrings  // encode only; for internal use by jsontext.Value.Canonicalize
-	CanonicalizeNumbers // encode only; for internal use by jsontext.Value.Canonicalize
-	EscapeForHTML       // encode only
-	EscapeForJS         // encode only
-	Expand              // encode only
-	Indent              // encode only; non-boolean flag
-	IndentPrefix        // encode only; non-boolean flag
-	ByteLimit           // encode or decode; non-boolean flag
-	DepthLimit          // encode or decode; non-boolean flag
+	AllowDuplicateNames   // encode or decode
+	AllowInvalidUTF8      // encode or decode
+	WithinArshalCall      // encode or decode; for internal use by json.Marshal and json.Unmarshal
+	OmitTopLevelNewline   // encode only; for internal use by json.Marshal and json.MarshalWrite
+	PreserveRawStrings    // encode only
+	CanonicalizeRawInts   // encode only
+	CanonicalizeRawFloats // encode only
+	ReorderRawObjects     // encode only
+	EscapeForHTML         // encode only
+	EscapeForJS           // encode only
+	Multiline             // encode only
+	SpaceAfterColon       // encode only
+	SpaceAfterComma       // encode only
+	Indent                // encode only; non-boolean flag
+	IndentPrefix          // encode only; non-boolean flag
+	ByteLimit             // encode or decode; non-boolean flag
+	DepthLimit            // encode or decode; non-boolean flag
 
 	maxCoderFlag
 )
@@ -96,6 +118,7 @@ const (
 	Deterministic             // marshal only
 	FormatNilMapAsNull        // marshal only
 	FormatNilSliceAsNull      // marshal only
+	OmitZeroStructFields      // marshal only
 	MatchCaseInsensitiveNames // marshal or unmarshal
 	DiscardUnknownMembers     // marshal only
 	RejectUnknownMembers      // unmarshal only
@@ -109,21 +132,29 @@ const (
 const (
 	_ Bools = (maxArshalV2Flag >> 1) << iota
 
-	FormatByteArrayAsArray         // marshal or unmarshal
-	FormatTimeDurationAsNanosecond // marshal or unmarshal
-	IgnoreStructErrors             // marshal or unmarshal
-	MatchCaseSensitiveDelimiter    // marshal or unmarshal
-	MergeWithLegacySemantics       // unmarshal
-	OmitEmptyWithLegacyDefinition  // marshal
-	RejectFloatOverflow            // unmarshal
-	ReportLegacyErrorValues        // marshal or unmarshal
-	SkipUnaddressableMethods       // marshal or unmarshal
-	StringifyWithLegacySemantics   // marshal or unmarshal
-	UnmarshalAnyWithRawNumber      // unmarshal; for internal use by jsonv1.Decoder.UseNumber
-	UnmarshalArrayFromAnyLength    // unmarshal
+	CallMethodsWithLegacySemantics  // marshal or unmarshal
+	FormatByteArrayAsArray          // marshal or unmarshal
+	FormatBytesWithLegacySemantics  // marshal or unmarshal
+	FormatDurationAsNano            // marshal or unmarshal
+	MatchCaseSensitiveDelimiter     // marshal or unmarshal
+	MergeWithLegacySemantics        // unmarshal
+	OmitEmptyWithLegacySemantics    // marshal
+	ParseBytesWithLooseRFC4648      // unmarshal
+	ParseTimeWithLooseRFC3339       // unmarshal
+	ReportErrorsWithLegacySemantics // marshal or unmarshal
+	StringifyWithLegacySemantics    // marshal or unmarshal
+	StringifyBoolsAndStrings        // marshal or unmarshal; for internal use by jsonv2.makeStructArshaler
+	UnmarshalAnyWithRawNumber       // unmarshal; for internal use by jsonv1.Decoder.UseNumber
+	UnmarshalArrayFromAnyLength     // unmarshal
 
 	maxArshalV1Flag
 )
+
+// bitsUsed is the number of bits used in the 64-bit boolean flags
+const bitsUsed = 42
+
+// Static compile check that bitsUsed and maxArshalV1Flag are in sync.
+const _ = uint64((1<<bitsUsed)-maxArshalV1Flag) + uint64(maxArshalV1Flag-(1<<bitsUsed))
 
 // Flags is a set of boolean flags.
 // If the presence bit is zero, then the value bit must also be zero.
@@ -138,8 +169,8 @@ func (dst *Flags) Join(src Flags) {
 	// Copy over all source presence bits over to the destination (using OR),
 	// then invert the source presence bits to clear out source value (using AND-NOT),
 	// then copy over source value bits over to the destination (using OR).
-	//	e.g., dst := Flags{Presence: 0b_1100_0011, Value: 0b_1000_0011}
-	//	e.g., src := Flags{Presence: 0b_0101_1010, Value: 0b_1001_0010}
+	//	e.g., dst := Flags{Presence: 0b_1100_0011, Values: 0b_1000_0011}
+	//	e.g., src := Flags{Presence: 0b_0101_1010, Values: 0b_1001_0010}
 	dst.Presence |= src.Presence // e.g., 0b_1100_0011 | 0b_0101_1010 -> 0b_110_11011
 	dst.Values &= ^src.Presence  // e.g., 0b_1000_0011 & 0b_1010_0101 -> 0b_100_00001
 	dst.Values |= src.Values     // e.g., 0b_1000_0001 | 0b_1001_0010 -> 0b_100_10011
@@ -151,7 +182,7 @@ func (fs *Flags) Set(f Bools) {
 	// then set the presence for all the identifier bits (using OR),
 	// then invert the identifier bits to clear out the values (using AND-NOT),
 	// then copy over all the identifier bits to the value if LSB is 1.
-	//	e.g., fs := Flags{Presence: 0b_0101_0010, Value: 0b_0001_0010}
+	//	e.g., fs := Flags{Presence: 0b_0101_0010, Values: 0b_0001_0010}
 	//	e.g., f := 0b_1001_0001
 	id := uint64(f) &^ uint64(1)  // e.g., 0b_1001_0001 & 0b_1111_1110 -> 0b_1001_0000
 	fs.Presence |= id             // e.g., 0b_0101_0010 | 0b_1001_0000 -> 0b_1101_0011
@@ -176,7 +207,7 @@ func (fs Flags) Has(f Bools) bool {
 // The value bit of f (i.e., the LSB) is ignored.
 func (fs *Flags) Clear(f Bools) {
 	// Invert f to produce a mask to clear all bits in f (using AND).
-	//	e.g., fs := Flags{Presence: 0b_0101_0010, Value: 0b_0001_0010}
+	//	e.g., fs := Flags{Presence: 0b_0101_0010, Values: 0b_0001_0010}
 	//	e.g., f := 0b_0001_1000
 	mask := uint64(^f)  // e.g., 0b_0001_1000 -> 0b_1110_0111
 	fs.Presence &= mask // e.g., 0b_0101_0010 &  0b_1110_0111 -> 0b_0100_0010

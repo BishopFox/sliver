@@ -11,7 +11,7 @@ import (
 	shlex "github.com/rsteube/carapace-shlex"
 	"github.com/rsteube/carapace/internal/cache"
 	"github.com/rsteube/carapace/internal/common"
-	pkgcache "github.com/rsteube/carapace/pkg/cache"
+	"github.com/rsteube/carapace/pkg/cache/key"
 	"github.com/rsteube/carapace/pkg/match"
 	"github.com/rsteube/carapace/pkg/style"
 	pkgtraverse "github.com/rsteube/carapace/pkg/traverse"
@@ -31,7 +31,7 @@ type ActionMap map[string]Action
 type CompletionCallback func(c Context) Action
 
 // Cache cashes values of a CompletionCallback for given duration and keys.
-func (a Action) Cache(timeout time.Duration, keys ...pkgcache.Key) Action {
+func (a Action) Cache(timeout time.Duration, keys ...key.Key) Action {
 	if a.callback != nil { // only relevant for callback actions
 		cachedCallback := a.callback
 		_, file, line, _ := runtime.Caller(1) // generate uid from wherever Cache() was called
@@ -41,14 +41,14 @@ func (a Action) Cache(timeout time.Duration, keys ...pkgcache.Key) Action {
 				return cachedCallback(c)
 			}
 
-			if cached, err := cache.Load(cacheFile, timeout); err == nil {
+			if cached, err := cache.LoadE(cacheFile, timeout); err == nil {
 				return Action{meta: cached.Meta, rawValues: cached.Values}
 			}
 
 			invokedAction := (Action{callback: cachedCallback}).Invoke(c)
-			if invokedAction.meta.Messages.IsEmpty() {
+			if invokedAction.action.meta.Messages.IsEmpty() {
 				if cacheFile, err := cache.File(file, line, keys...); err == nil { // regenerate as cache keys might have changed due to invocation
-					_ = cache.Write(cacheFile, invokedAction.export())
+					_ = cache.WriteE(cacheFile, invokedAction.export())
 				}
 			}
 			return invokedAction.ToA()
@@ -122,7 +122,7 @@ func (a Action) Invoke(c Context) InvokedAction {
 
 	if a.rawValues == nil && a.callback != nil {
 		result := a.callback(c).Invoke(c)
-		result.meta.Merge(a.meta)
+		result.action.meta.Merge(a.meta)
 		return result
 	}
 	return InvokedAction{a}
@@ -154,7 +154,7 @@ func (a Action) MultiPartsP(delimiter string, pattern string, f func(placeholder
 			staticMatches := make(map[int]bool)
 
 		path:
-			for index, value := range invoked.rawValues {
+			for index, value := range invoked.action.rawValues {
 				segments := strings.Split(value.Value, delimiter)
 			segment:
 				for index, segment := range segments {
@@ -185,7 +185,7 @@ func (a Action) MultiPartsP(delimiter string, pattern string, f func(placeholder
 
 				// store segment as path matched so far and this is currently being completed
 				if len(segments) == (len(c.Parts) + 1) {
-					matchedSegments[segments[len(c.Parts)]] = invoked.rawValues[index]
+					matchedSegments[segments[len(c.Parts)]] = invoked.action.rawValues[index]
 				} else {
 					matchedSegments[segments[len(c.Parts)]+delimiter] = common.RawValue{}
 				}
@@ -200,8 +200,8 @@ func (a Action) MultiPartsP(delimiter string, pattern string, f func(placeholder
 					}
 					actions = append(actions, ActionCallback(func(c Context) Action {
 						invoked := f(trimmedKey, matchedData).Invoke(c).Suffix(suffix)
-						for index := range invoked.rawValues {
-							invoked.rawValues[index].Display += suffix
+						for index := range invoked.action.rawValues {
+							invoked.action.rawValues[index].Display += suffix
 						}
 						return invoked.ToA()
 					}))
@@ -211,7 +211,7 @@ func (a Action) MultiPartsP(delimiter string, pattern string, f func(placeholder
 			}
 
 			a := Batch(actions...).ToA()
-			a.meta.Merge(invoked.meta)
+			a.meta.Merge(invoked.action.meta)
 			return a
 		})
 	})
@@ -310,19 +310,19 @@ func (a Action) split(pipelines bool) Action {
 		}
 
 		invoked := a.Invoke(c)
-		for index, value := range invoked.rawValues {
-			if !invoked.meta.Nospace.Matches(value.Value) || strings.Contains(value.Value, " ") { // TODO special characters
+		for index, value := range invoked.action.rawValues {
+			if !invoked.action.meta.Nospace.Matches(value.Value) || strings.Contains(value.Value, " ") { // TODO special characters
 				switch tokens.CurrentToken().State {
 				case shlex.QUOTING_ESCAPING_STATE:
-					invoked.rawValues[index].Value = fmt.Sprintf(`"%v"`, strings.ReplaceAll(value.Value, `"`, `\"`))
+					invoked.action.rawValues[index].Value = fmt.Sprintf(`"%v"`, strings.ReplaceAll(value.Value, `"`, `\"`))
 				case shlex.QUOTING_STATE:
-					invoked.rawValues[index].Value = fmt.Sprintf(`'%v'`, strings.ReplaceAll(value.Value, `'`, `'"'"'`))
+					invoked.action.rawValues[index].Value = fmt.Sprintf(`'%v'`, strings.ReplaceAll(value.Value, `'`, `'"'"'`))
 				default:
-					invoked.rawValues[index].Value = strings.Replace(value.Value, ` `, `\ `, -1)
+					invoked.action.rawValues[index].Value = strings.Replace(value.Value, ` `, `\ `, -1)
 				}
 			}
-			if !invoked.meta.Nospace.Matches(value.Value) {
-				invoked.rawValues[index].Value += " "
+			if !invoked.action.meta.Nospace.Matches(value.Value) {
+				invoked.action.rawValues[index].Value += " "
 			}
 		}
 		return invoked.Prefix(prefix).ToA().NoSpace()
@@ -346,8 +346,8 @@ func (a Action) Style(s string) Action {
 func (a Action) StyleF(f func(s string, sc style.Context) string) Action {
 	return ActionCallback(func(c Context) Action {
 		invoked := a.Invoke(c)
-		for index, v := range invoked.rawValues {
-			invoked.rawValues[index].Style = f(v.Value, c)
+		for index, v := range invoked.action.rawValues {
+			invoked.action.rawValues[index].Style = f(v.Value, c)
 		}
 		return invoked.ToA()
 	})
@@ -379,7 +379,7 @@ func (a Action) Suffix(suffix string) Action {
 func (a Action) Suppress(expr ...string) Action {
 	return ActionCallback(func(c Context) Action {
 		invoked := a.Invoke(c)
-		if err := invoked.meta.Messages.Suppress(expr...); err != nil {
+		if err := invoked.action.meta.Messages.Suppress(expr...); err != nil {
 			return ActionMessage(err.Error())
 		}
 		return invoked.ToA()
@@ -403,8 +403,8 @@ func (a Action) Tag(tag string) Action {
 func (a Action) TagF(f func(s string) string) Action {
 	return ActionCallback(func(c Context) Action {
 		invoked := a.Invoke(c)
-		for index, v := range invoked.rawValues {
-			invoked.rawValues[index].Tag = f(v.Value)
+		for index, v := range invoked.action.rawValues {
+			invoked.action.rawValues[index].Tag = f(v.Value)
 		}
 		return invoked.ToA()
 	})
@@ -449,6 +449,16 @@ func (a Action) UniqueListF(divider string, f func(s string) string) Action {
 			c.Parts[i] = f(c.Parts[i])
 		}
 		return a.Filter(c.Parts...).NoSpace()
+	})
+}
+
+// Unless skips invokation if given condition succeeds.
+func (a Action) Unless(condition func(c Context) bool) Action {
+	return ActionCallback(func(c Context) Action {
+		if condition(c) {
+			return ActionValues()
+		}
+		return a
 	})
 }
 

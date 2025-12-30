@@ -30,7 +30,7 @@ type Client struct {
 	logf        logger.Logf
 	nc          Conn
 	br          *bufio.Reader
-	meshKey     string
+	meshKey     key.DERPMesh
 	canAckPings bool
 	isProber    bool
 
@@ -56,7 +56,7 @@ func (f clientOptFunc) update(o *clientOpt) { f(o) }
 
 // clientOpt are the options passed to newClient.
 type clientOpt struct {
-	MeshKey     string
+	MeshKey     key.DERPMesh
 	ServerPub   key.NodePublic
 	CanAckPings bool
 	IsProber    bool
@@ -66,7 +66,7 @@ type clientOpt struct {
 // access to join the mesh.
 //
 // An empty key means to not use a mesh key.
-func MeshKey(key string) ClientOpt { return clientOptFunc(func(o *clientOpt) { o.MeshKey = key }) }
+func MeshKey(k key.DERPMesh) ClientOpt { return clientOptFunc(func(o *clientOpt) { o.MeshKey = k }) }
 
 // IsProber returns a ClientOpt to pass to the DERP server during connect to
 // declare that this client is a a prober.
@@ -121,6 +121,8 @@ func newClient(privateKey key.NodePrivate, nc Conn, brw *bufio.ReadWriter, logf 
 	return c, nil
 }
 
+func (c *Client) PublicKey() key.NodePublic { return c.publicKey }
+
 func (c *Client) recvServerKey() error {
 	var buf [40]byte
 	t, flen, err := readFrame(c.br, 1<<10, buf[:])
@@ -131,17 +133,17 @@ func (c *Client) recvServerKey() error {
 	if err != nil {
 		return err
 	}
-	if flen < uint32(len(buf)) || t != frameServerKey || string(buf[:len(magic)]) != magic {
+	if flen < uint32(len(buf)) || t != FrameServerKey || string(buf[:len(Magic)]) != Magic {
 		return errors.New("invalid server greeting")
 	}
-	c.serverKey = key.NodePublicFromRaw32(mem.B(buf[len(magic):]))
+	c.serverKey = key.NodePublicFromRaw32(mem.B(buf[len(Magic):]))
 	return nil
 }
 
-func (c *Client) parseServerInfo(b []byte) (*serverInfo, error) {
-	const maxLength = nonceLen + maxInfoLen
+func (c *Client) parseServerInfo(b []byte) (*ServerInfo, error) {
+	const maxLength = NonceLen + MaxInfoLen
 	fl := len(b)
-	if fl < nonceLen {
+	if fl < NonceLen {
 		return nil, fmt.Errorf("short serverInfo frame")
 	}
 	if fl > maxLength {
@@ -151,19 +153,21 @@ func (c *Client) parseServerInfo(b []byte) (*serverInfo, error) {
 	if !ok {
 		return nil, fmt.Errorf("failed to open naclbox from server key %s", c.serverKey)
 	}
-	info := new(serverInfo)
+	info := new(ServerInfo)
 	if err := json.Unmarshal(msg, info); err != nil {
 		return nil, fmt.Errorf("invalid JSON: %v", err)
 	}
 	return info, nil
 }
 
-type clientInfo struct {
+// ClientInfo is the information a DERP client sends to the server
+// about itself when it connects.
+type ClientInfo struct {
 	// MeshKey optionally specifies a pre-shared key used by
 	// trusted clients.  It's required to subscribe to the
 	// connection list & forward packets. It's empty for regular
 	// users.
-	MeshKey string `json:"meshKey,omitempty"`
+	MeshKey key.DERPMesh `json:"meshKey,omitempty,omitzero"`
 
 	// Version is the DERP protocol version that the client was built with.
 	// See the ProtocolVersion const.
@@ -177,8 +181,19 @@ type clientInfo struct {
 	IsProber bool `json:",omitempty"`
 }
 
+// Equal reports if two clientInfo values are equal.
+func (c *ClientInfo) Equal(other *ClientInfo) bool {
+	if c == nil || other == nil {
+		return c == other
+	}
+	if c.Version != other.Version || c.CanAckPings != other.CanAckPings || c.IsProber != other.IsProber {
+		return false
+	}
+	return c.MeshKey.Equal(other.MeshKey)
+}
+
 func (c *Client) sendClientKey() error {
-	msg, err := json.Marshal(clientInfo{
+	msg, err := json.Marshal(ClientInfo{
 		Version:     ProtocolVersion,
 		MeshKey:     c.meshKey,
 		CanAckPings: c.canAckPings,
@@ -189,10 +204,10 @@ func (c *Client) sendClientKey() error {
 	}
 	msgbox := c.privateKey.SealTo(c.serverKey, msg)
 
-	buf := make([]byte, 0, keyLen+len(msgbox))
+	buf := make([]byte, 0, KeyLen+len(msgbox))
 	buf = c.publicKey.AppendTo(buf)
 	buf = append(buf, msgbox...)
-	return writeFrame(c.bw, frameClientInfo, buf)
+	return WriteFrame(c.bw, FrameClientInfo, buf)
 }
 
 // ServerPublicKey returns the server's public key.
@@ -217,12 +232,12 @@ func (c *Client) send(dstKey key.NodePublic, pkt []byte) (ret error) {
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
 	if c.rate != nil {
-		pktLen := frameHeaderLen + key.NodePublicRawLen + len(pkt)
+		pktLen := FrameHeaderLen + key.NodePublicRawLen + len(pkt)
 		if !c.rate.AllowN(c.clock.Now(), pktLen) {
 			return nil // drop
 		}
 	}
-	if err := writeFrameHeader(c.bw, frameSendPacket, uint32(key.NodePublicRawLen+len(pkt))); err != nil {
+	if err := WriteFrameHeader(c.bw, FrameSendPacket, uint32(key.NodePublicRawLen+len(pkt))); err != nil {
 		return err
 	}
 	if _, err := c.bw.Write(dstKey.AppendTo(nil)); err != nil {
@@ -251,7 +266,7 @@ func (c *Client) ForwardPacket(srcKey, dstKey key.NodePublic, pkt []byte) (err e
 	timer := c.clock.AfterFunc(5*time.Second, c.writeTimeoutFired)
 	defer timer.Stop()
 
-	if err := writeFrameHeader(c.bw, frameForwardPacket, uint32(keyLen*2+len(pkt))); err != nil {
+	if err := WriteFrameHeader(c.bw, FrameForwardPacket, uint32(KeyLen*2+len(pkt))); err != nil {
 		return err
 	}
 	if _, err := c.bw.Write(srcKey.AppendTo(nil)); err != nil {
@@ -269,17 +284,17 @@ func (c *Client) ForwardPacket(srcKey, dstKey key.NodePublic, pkt []byte) (err e
 func (c *Client) writeTimeoutFired() { c.nc.Close() }
 
 func (c *Client) SendPing(data [8]byte) error {
-	return c.sendPingOrPong(framePing, data)
+	return c.sendPingOrPong(FramePing, data)
 }
 
 func (c *Client) SendPong(data [8]byte) error {
-	return c.sendPingOrPong(framePong, data)
+	return c.sendPingOrPong(FramePong, data)
 }
 
-func (c *Client) sendPingOrPong(typ frameType, data [8]byte) error {
+func (c *Client) sendPingOrPong(typ FrameType, data [8]byte) error {
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
-	if err := writeFrameHeader(c.bw, typ, 8); err != nil {
+	if err := WriteFrameHeader(c.bw, typ, 8); err != nil {
 		return err
 	}
 	if _, err := c.bw.Write(data[:]); err != nil {
@@ -301,7 +316,7 @@ func (c *Client) NotePreferred(preferred bool) (err error) {
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
 
-	if err := writeFrameHeader(c.bw, frameNotePreferred, 1); err != nil {
+	if err := WriteFrameHeader(c.bw, FrameNotePreferred, 1); err != nil {
 		return err
 	}
 	var b byte = 0x00
@@ -319,7 +334,7 @@ func (c *Client) NotePreferred(preferred bool) (err error) {
 func (c *Client) WatchConnectionChanges() error {
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
-	if err := writeFrameHeader(c.bw, frameWatchConns, 0); err != nil {
+	if err := WriteFrameHeader(c.bw, FrameWatchConns, 0); err != nil {
 		return err
 	}
 	return c.bw.Flush()
@@ -330,7 +345,7 @@ func (c *Client) WatchConnectionChanges() error {
 func (c *Client) ClosePeer(target key.NodePublic) error {
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
-	return writeFrame(c.bw, frameClosePeer, target.AppendTo(nil))
+	return WriteFrame(c.bw, FrameClosePeer, target.AppendTo(nil))
 }
 
 // ReceivedMessage represents a type returned by Client.Recv. Unless
@@ -354,6 +369,10 @@ func (ReceivedPacket) msg() {}
 // PeerGoneMessage is a ReceivedMessage that indicates that the client
 // identified by the underlying public key is not connected to this
 // server.
+//
+// It has only historically been sent by the server when the client
+// connection count decremented from 1 to 0 and not from e.g. 2 to 1.
+// See https://github.com/tailscale/tailscale/issues/13566 for details.
 type PeerGoneMessage struct {
 	Peer   key.NodePublic
 	Reason PeerGoneReasonType
@@ -361,13 +380,20 @@ type PeerGoneMessage struct {
 
 func (PeerGoneMessage) msg() {}
 
-// PeerPresentMessage is a ReceivedMessage that indicates that the client
-// is connected to the server. (Only used by trusted mesh clients)
+// PeerPresentMessage is a ReceivedMessage that indicates that the client is
+// connected to the server. (Only used by trusted mesh clients)
+//
+// It will be sent to client watchers for every new connection from a client,
+// even if the client's already connected with that public key.
+// See https://github.com/tailscale/tailscale/issues/13566 for PeerPresentMessage
+// and PeerGoneMessage not being 1:1.
 type PeerPresentMessage struct {
 	// Key is the public key of the client.
 	Key key.NodePublic
 	// IPPort is the remote IP and port of the client.
 	IPPort netip.AddrPort
+	// Flags is a bitmask of info about the client.
+	Flags PeerPresentFlags
 }
 
 func (PeerPresentMessage) msg() {}
@@ -478,7 +504,7 @@ func (c *Client) recvTimeout(timeout time.Duration) (m ReceivedMessage, err erro
 			c.peeked = 0
 		}
 
-		t, n, err := readFrameHeader(c.br)
+		t, n, err := ReadFrameHeader(c.br)
 		if err != nil {
 			return nil, err
 		}
@@ -509,7 +535,7 @@ func (c *Client) recvTimeout(timeout time.Duration) (m ReceivedMessage, err erro
 		switch t {
 		default:
 			continue
-		case frameServerInfo:
+		case FrameServerInfo:
 			// Server sends this at start-up. Currently unused.
 			// Just has a JSON message saying "version: 2",
 			// but the protocol seems extensible enough as-is without
@@ -526,52 +552,67 @@ func (c *Client) recvTimeout(timeout time.Duration) (m ReceivedMessage, err erro
 			}
 			c.setSendRateLimiter(sm)
 			return sm, nil
-		case frameKeepAlive:
+		case FrameKeepAlive:
 			// A one-way keep-alive message that doesn't require an acknowledgement.
 			// This predated framePing/framePong.
 			return KeepAliveMessage{}, nil
-		case framePeerGone:
-			if n < keyLen {
+		case FramePeerGone:
+			if n < KeyLen {
 				c.logf("[unexpected] dropping short peerGone frame from DERP server")
 				continue
 			}
 			// Backward compatibility for the older peerGone without reason byte
 			reason := PeerGoneReasonDisconnected
-			if n > keyLen {
-				reason = PeerGoneReasonType(b[keyLen])
+			if n > KeyLen {
+				reason = PeerGoneReasonType(b[KeyLen])
 			}
 			pg := PeerGoneMessage{
-				Peer:   key.NodePublicFromRaw32(mem.B(b[:keyLen])),
+				Peer:   key.NodePublicFromRaw32(mem.B(b[:KeyLen])),
 				Reason: reason,
 			}
 			return pg, nil
 
-		case framePeerPresent:
-			if n < keyLen {
+		case FramePeerPresent:
+			remain := b
+			chunk, remain, ok := cutLeadingN(remain, KeyLen)
+			if !ok {
 				c.logf("[unexpected] dropping short peerPresent frame from DERP server")
 				continue
 			}
 			var msg PeerPresentMessage
-			msg.Key = key.NodePublicFromRaw32(mem.B(b[:keyLen]))
-			if n >= keyLen+16+2 {
-				msg.IPPort = netip.AddrPortFrom(
-					netip.AddrFrom16([16]byte(b[keyLen:keyLen+16])).Unmap(),
-					binary.BigEndian.Uint16(b[keyLen+16:keyLen+16+2]),
-				)
+			msg.Key = key.NodePublicFromRaw32(mem.B(chunk))
+
+			const ipLen = 16
+			const portLen = 2
+			chunk, remain, ok = cutLeadingN(remain, ipLen+portLen)
+			if !ok {
+				// Older server which didn't send the IP.
+				return msg, nil
 			}
+			msg.IPPort = netip.AddrPortFrom(
+				netip.AddrFrom16([16]byte(chunk[:ipLen])).Unmap(),
+				binary.BigEndian.Uint16(chunk[ipLen:]),
+			)
+
+			chunk, _, ok = cutLeadingN(remain, 1)
+			if !ok {
+				// Older server which doesn't send PeerPresentFlags.
+				return msg, nil
+			}
+			msg.Flags = PeerPresentFlags(chunk[0])
 			return msg, nil
 
-		case frameRecvPacket:
+		case FrameRecvPacket:
 			var rp ReceivedPacket
-			if n < keyLen {
+			if n < KeyLen {
 				c.logf("[unexpected] dropping short packet from DERP server")
 				continue
 			}
-			rp.Source = key.NodePublicFromRaw32(mem.B(b[:keyLen]))
-			rp.Data = b[keyLen:n]
+			rp.Source = key.NodePublicFromRaw32(mem.B(b[:KeyLen]))
+			rp.Data = b[KeyLen:n]
 			return rp, nil
 
-		case framePing:
+		case FramePing:
 			var pm PingMessage
 			if n < 8 {
 				c.logf("[unexpected] dropping short ping frame")
@@ -580,7 +621,7 @@ func (c *Client) recvTimeout(timeout time.Duration) (m ReceivedMessage, err erro
 			copy(pm[:], b[:])
 			return pm, nil
 
-		case framePong:
+		case FramePong:
 			var pm PongMessage
 			if n < 8 {
 				c.logf("[unexpected] dropping short ping frame")
@@ -589,10 +630,10 @@ func (c *Client) recvTimeout(timeout time.Duration) (m ReceivedMessage, err erro
 			copy(pm[:], b[:])
 			return pm, nil
 
-		case frameHealth:
+		case FrameHealth:
 			return HealthMessage{Problem: string(b[:])}, nil
 
-		case frameRestarting:
+		case FrameRestarting:
 			var m ServerRestartingMessage
 			if n < 8 {
 				c.logf("[unexpected] dropping short server restarting frame")
@@ -635,4 +676,11 @@ func (c *Client) LocalAddr() (netip.AddrPort, error) {
 		return netip.AddrPort{}, errors.New("nil addr")
 	}
 	return netip.ParseAddrPort(a.String())
+}
+
+func cutLeadingN(b []byte, n int) (chunk, remain []byte, ok bool) {
+	if len(b) >= n {
+		return b[:n], b[n:], true
+	}
+	return nil, b, false
 }

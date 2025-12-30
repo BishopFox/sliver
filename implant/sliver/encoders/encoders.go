@@ -23,9 +23,10 @@ import (
 	"embed"
 	"encoding/binary"
 	"errors"
-	insecureRand "math/rand"
 	"strconv"
 	"strings"
+
+	"github.com/bishopfox/sliver/implant/sliver/util"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -45,7 +46,7 @@ var (
 	MaxN           = uint64(9999999)
 
 	Base32EncoderID, _  = strconv.ParseUint(`{{.Encoders.Base32EncoderID}}`, 10, 64)
-	Base58EncoderID, _  = strconv.ParseUint(`.Encoders.Base58EncoderID}}`, 10, 64)
+	Base58EncoderID, _  = strconv.ParseUint(`{{.Encoders.Base58EncoderID}}`, 10, 64)
 	Base64EncoderID, _  = strconv.ParseUint(`{{.Encoders.Base64EncoderID}}`, 10, 64)
 	EnglishEncoderID, _ = strconv.ParseUint(`{{.Encoders.EnglishEncoderID}}`, 10, 64)
 	GzipEncoderID, _    = strconv.ParseUint(`{{.Encoders.GzipEncoderID}}`, 10, 64)
@@ -139,7 +140,7 @@ func randomEncoderFromMap(encoderMap map[uint64]Encoder) (uint64, Encoder) {
 	for k := range encoderMap {
 		keys = append(keys, k)
 	}
-	encoderID := keys[insecureRand.Intn(len(keys))]
+	encoderID := keys[util.Intn(len(keys))]
 	nonce := (randomUint64(MaxN) * EncoderModulus) + encoderID
 	return nonce, encoderMap[encoderID]
 }

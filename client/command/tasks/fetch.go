@@ -628,8 +628,11 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverClient) {
 		f.BoolP("overflow", "O", false, "overflow terminal width (display truncated rows)")
 		f.IntP("skip-pages", "S", 0, "skip the first n page(s)")
 		f.BoolP("tree", "T", false, "print process tree")
+		f.BoolP("full", "f", false, "show full process info (owner, command line, session information, may trigger EDR), default true on all non-Windows OSs, false on Windows")
 
-		processes.PrintPS(beacon.OS, ps, true, f, con)
+		fullInfo := beacon.OS != "windows"
+
+		processes.PrintPS(beacon.OS, ps, true, fullInfo, f, con)
 
 	case sliverpb.MsgTerminateReq:
 		terminate := &sliverpb.Terminate{}

@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:build windows
 // +build windows
 
 package sspi
@@ -96,19 +97,20 @@ type CredHandle struct {
 const (
 	SECURITY_NATIVE_DREP = 16
 
-	SECBUFFER_DATA           = 1
-	SECBUFFER_TOKEN          = 2
-	SECBUFFER_PKG_PARAMS     = 3
-	SECBUFFER_MISSING        = 4
-	SECBUFFER_EXTRA          = 5
-	SECBUFFER_STREAM_TRAILER = 6
-	SECBUFFER_STREAM_HEADER  = 7
-	SECBUFFER_PADDING        = 9
-	SECBUFFER_STREAM         = 10
-	SECBUFFER_READONLY       = 0x80000000
-	SECBUFFER_ATTRMASK       = 0xf0000000
-	SECBUFFER_VERSION        = 0
-	SECBUFFER_EMPTY          = 0
+	SECBUFFER_DATA             = 1
+	SECBUFFER_TOKEN            = 2
+	SECBUFFER_PKG_PARAMS       = 3
+	SECBUFFER_MISSING          = 4
+	SECBUFFER_EXTRA            = 5
+	SECBUFFER_STREAM_TRAILER   = 6
+	SECBUFFER_STREAM_HEADER    = 7
+	SECBUFFER_PADDING          = 9
+	SECBUFFER_STREAM           = 10
+	SECBUFFER_CHANNEL_BINDINGS = 14
+	SECBUFFER_READONLY         = 0x80000000
+	SECBUFFER_ATTRMASK         = 0xf0000000
+	SECBUFFER_VERSION          = 0
+	SECBUFFER_EMPTY            = 0
 
 	ISC_REQ_DELEGATE               = 1
 	ISC_REQ_MUTUAL_AUTH            = 2

@@ -23,7 +23,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -60,7 +59,7 @@ func GenerateCertificateAuthority(caType string, commonName string) (*x509.Certi
 	certFilePath := filepath.Join(storageDir, fmt.Sprintf("%s-ca-cert.pem", caType))
 	if _, err := os.Stat(certFilePath); os.IsNotExist(err) {
 		certsLog.Infof("Generating certificate authority for '%s'", caType)
-		cert, key := GenerateECCCertificate(caType, commonName, true, false)
+		cert, key := GenerateECCCertificate(caType, commonName, true, false, false)
 		SaveCertificateAuthority(caType, cert, key)
 	}
 	cert, key, err := GetCertificateAuthority(caType)
@@ -108,13 +107,13 @@ func GetCertificateAuthorityPEM(caType string) ([]byte, []byte, error) {
 	caCertPath := filepath.Join(getCertDir(), fmt.Sprintf("%s-ca-cert.pem", caType))
 	caKeyPath := filepath.Join(getCertDir(), fmt.Sprintf("%s-ca-key.pem", caType))
 
-	certPEM, err := ioutil.ReadFile(caCertPath)
+	certPEM, err := os.ReadFile(caCertPath)
 	if err != nil {
 		certsLog.Error(err)
 		return nil, nil, err
 	}
 
-	keyPEM, err := ioutil.ReadFile(caKeyPath)
+	keyPEM, err := os.ReadFile(caKeyPath)
 	if err != nil {
 		certsLog.Error(err)
 		return nil, nil, err
@@ -137,12 +136,12 @@ func SaveCertificateAuthority(caType string, cert []byte, key []byte) {
 	certFilePath := filepath.Join(storageDir, fmt.Sprintf("%s-ca-cert.pem", caType))
 	keyFilePath := filepath.Join(storageDir, fmt.Sprintf("%s-ca-key.pem", caType))
 
-	err := ioutil.WriteFile(certFilePath, cert, 0600)
+	err := os.WriteFile(certFilePath, cert, 0600)
 	if err != nil {
 		certsLog.Fatalf("Failed write certificate data to: %s", certFilePath)
 	}
 
-	err = ioutil.WriteFile(keyFilePath, key, 0600)
+	err = os.WriteFile(keyFilePath, key, 0600)
 	if err != nil {
 		certsLog.Fatalf("Failed write certificate data to: %s", keyFilePath)
 	}

@@ -18,6 +18,7 @@ import (
 	"net/url"
 	"reflect"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -54,6 +55,11 @@ const (
 	ptrSize                 = unsafe.Sizeof(uintptr(0))
 	sqliteLockedSharedcache = sqlite3.SQLITE_LOCKED | (1 << 8)
 )
+
+// https://gitlab.com/cznic/sqlite/-/issues/199
+func init() {
+	sqlite3.PatchIssue199()
+}
 
 // Error represents sqlite library error code.
 type Error struct {
@@ -249,7 +255,30 @@ func (r *rows) Next(dest []driver.Value) (err error) {
 					return err
 				}
 
-				dest[i] = v
+				if !r.c.intToTime {
+					dest[i] = v
+				} else {
+					// Inspired by mattn/go-sqlite3:
+					// https://github.com/mattn/go-sqlite3/blob/f76bae4b0044cbba8fb2c72b8e4559e8fbcffd86/sqlite3.go#L2254-L2262
+					// but we put make this compatibility optional behind a DSN
+					// query parameter, because this changes API behavior, so an
+					// opt-in is needed.
+					switch r.ColumnTypeDatabaseTypeName(i) {
+					case "DATE", "DATETIME", "TIMESTAMP":
+						// Is it a seconds timestamp or a milliseconds
+						// timestamp?
+						if v > 1e12 || v < -1e12 {
+							// time.Unix expects nanoseconds, but this is a
+							// milliseconds timestamp, so convert ms->ns.
+							v *= int64(time.Millisecond)
+							dest[i] = time.Unix(0, v).UTC()
+						} else {
+							dest[i] = time.Unix(v, 0)
+						}
+					default:
+						dest[i] = v
+					}
+				}
 			case sqlite3.SQLITE_FLOAT:
 				v, err := r.c.columnDouble(r.pstmt, i)
 				if err != nil {
@@ -504,6 +533,9 @@ func (s *stmt) exec(ctx context.Context, args []driver.NamedValue) (r driver.Res
 	}
 
 	defer func() {
+		if ctx != nil && atomic.LoadInt32(&done) != 0 {
+			r, err = nil, ctx.Err()
+		}
 		if pstmt != 0 {
 			// ensure stmt finalized.
 			e := s.c.finalize(pstmt)
@@ -513,10 +545,6 @@ func (s *stmt) exec(ctx context.Context, args []driver.NamedValue) (r driver.Res
 				// returned error.
 				err = e
 			}
-		}
-
-		if ctx != nil && atomic.LoadInt32(&done) != 0 {
-			r, err = nil, ctx.Err()
 		}
 	}()
 
@@ -619,6 +647,12 @@ func (s *stmt) query(ctx context.Context, args []driver.NamedValue) (r driver.Ro
 	var allocs []uintptr
 
 	defer func() {
+		if ctx != nil && atomic.LoadInt32(&done) != 0 {
+			r, err = nil, ctx.Err()
+		} else if r == nil && err == nil {
+			r, err = newRows(s.c, pstmt, allocs, true)
+		}
+
 		if pstmt != 0 {
 			// ensure stmt finalized.
 			e := s.c.finalize(pstmt)
@@ -630,11 +664,6 @@ func (s *stmt) query(ctx context.Context, args []driver.NamedValue) (r driver.Ro
 			}
 		}
 
-		if ctx != nil && atomic.LoadInt32(&done) != 0 {
-			r, err = nil, ctx.Err()
-		} else if r == nil && err == nil {
-			r, err = newRows(s.c, pstmt, allocs, true)
-		}
 	}()
 
 	for psql := s.psql; *(*byte)(unsafe.Pointer(psql)) != 0 && atomic.LoadInt32(&done) == 0; {
@@ -811,8 +840,10 @@ type conn struct {
 	// concurrently.
 	sync.Mutex
 
-	writeTimeFormat string
-	beginMode       string
+	writeTimeFormat   string
+	beginMode         string
+	intToTime         bool
+	integerTimeFormat string
 }
 
 func newConn(dsn string) (*conn, error) {
@@ -884,7 +915,25 @@ func applyQueryParams(c *conn, query string) error {
 		return err
 	}
 
+	var a []string
 	for _, v := range q["_pragma"] {
+		a = append(a, v)
+	}
+	// Push 'busy_timeout' first, the rest in lexicographic order, case insenstive.
+	// See https://gitlab.com/cznic/sqlite/-/issues/198#note_2233423463 for
+	// discussion.
+	sort.Slice(a, func(i, j int) bool {
+		x, y := strings.TrimSpace(strings.ToLower(a[i])), strings.TrimSpace(strings.ToLower(a[j]))
+		if strings.HasPrefix(x, "busy_timeout") {
+			return true
+		}
+		if strings.HasPrefix(y, "busy_timeout") {
+			return false
+		}
+
+		return x < y
+	})
+	for _, v := range a {
 		cmd := "pragma " + v
 		_, err := c.exec(context.Background(), cmd, nil)
 		if err != nil {
@@ -899,6 +948,17 @@ func applyQueryParams(c *conn, query string) error {
 		}
 		c.writeTimeFormat = f
 	}
+	if v := q.Get("_time_integer_format"); v != "" {
+		switch v {
+		case "unix":
+		case "unix_milli":
+		case "unix_micro":
+		case "unix_nano":
+		default:
+			return fmt.Errorf("unknown _time_integer_format %q", v)
+		}
+		c.integerTimeFormat = v
+	}
 
 	if v := q.Get("_txlock"); v != "" {
 		lower := strings.ToLower(v)
@@ -906,6 +966,15 @@ func applyQueryParams(c *conn, query string) error {
 			return fmt.Errorf("unknown _txlock %q", v)
 		}
 		c.beginMode = v
+	}
+
+	if v := q.Get("_inttotime"); v != "" {
+		onoff, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("unknown _inttotime %q, must be 1, t, T, TRUE, true, True, 0, f, F, FALSE, false, False",
+				v)
+		}
+		c.intToTime = onoff
 	}
 
 	return nil
@@ -1158,9 +1227,29 @@ func (c *conn) bind(pstmt uintptr, n int, args []driver.NamedValue) (allocs []ui
 				return allocs, err
 			}
 		case time.Time:
-			if p, err = c.bindText(pstmt, i, c.formatTime(x)); err != nil {
-				return allocs, err
+			switch c.integerTimeFormat {
+			case "unix":
+				if err := c.bindInt64(pstmt, i, x.Unix()); err != nil {
+					return allocs, err
+				}
+			case "unix_milli":
+				if err := c.bindInt64(pstmt, i, x.UnixMilli()); err != nil {
+					return allocs, err
+				}
+			case "unix_micro":
+				if err := c.bindInt64(pstmt, i, x.UnixMicro()); err != nil {
+					return allocs, err
+				}
+			case "unix_nano":
+				if err := c.bindInt64(pstmt, i, x.UnixNano()); err != nil {
+					return allocs, err
+				}
+			default:
+				if p, err = c.bindText(pstmt, i, c.formatTime(x)); err != nil {
+					return allocs, err
+				}
 			}
+
 		case nil:
 			if p, err = c.bindNull(pstmt, i); err != nil {
 				return allocs, err
@@ -1462,6 +1551,27 @@ func (c *conn) closeV2(db uintptr) error {
 	}
 
 	return nil
+}
+
+// ResetSession is called prior to executing a query on the connection if the
+// connection has been used before. If the driver returns ErrBadConn the
+// connection is discarded.
+func (c *conn) ResetSession(ctx context.Context) error {
+	if !c.usable() {
+		return driver.ErrBadConn
+	}
+
+	return nil
+}
+
+// IsValid is called prior to placing the connection into the connection pool.
+// The connection will be discarded if false is returned.
+func (c *conn) IsValid() bool {
+	return c.usable()
+}
+
+func (c *conn) usable() bool {
+	return c.db != 0 && sqlite3.Xsqlite3_is_interrupted(c.tls, c.db) == 0
 }
 
 // FunctionImpl describes an [application-defined SQL function]. If Scalar is
@@ -1942,6 +2052,19 @@ func newDriver() *Driver { return d }
 // including the timezone specifier. If this parameter is not specified, then
 // the default String() format will be used.
 //
+// _time_integer_format: The name of a integer format to use when writing time values.
+// By default, the time is stored as string and the format can be set with _time_format
+// parameter. If _time_integer_format is set, the time will be stored as an integer and
+// the integer value will depend on the integer format.
+// If you decide to set both _time_format and _time_integer_format, the time will be
+// converted as integer and the _time_format value will be ignored.
+// Currently the supported value are "unix","unix_milli", "unix_micro" and "unix_nano",
+// which corresponds to seconds, milliseconds, microseconds or nanoseconds
+// since unixepoch (1 January 1970 00:00:00 UTC).
+//
+// _inttotime: Enable conversion of time column (DATE, DATETIME,TIMESTAMP) from integer
+// to time if the field contain integer (int64).
+//
 // _txlock: The locking behavior to use when beginning a transaction. May be
 // "deferred" (the default), "immediate", or "exclusive" (case insensitive). See:
 // https://www.sqlite.org/lang_transaction.html#deferred_immediate_and_exclusive_transactions
@@ -2183,7 +2306,9 @@ func functionArgs(tls *libc.TLS, argc int32, argv uintptr) []driver.Value {
 			size := sqlite3.Xsqlite3_value_bytes(tls, valPtr)
 			blobPtr := sqlite3.Xsqlite3_value_blob(tls, valPtr)
 			v := make([]byte, size)
-			copy(v, (*libc.RawMem)(unsafe.Pointer(blobPtr))[:size:size])
+			if size != 0 {
+				copy(v, (*libc.RawMem)(unsafe.Pointer(blobPtr))[:size:size])
+			}
 			args[i] = v
 		default:
 			panic(fmt.Sprintf("unexpected argument type %q passed by sqlite", valType))
@@ -2496,4 +2621,30 @@ func Limit(c *sql.Conn, id int, newVal int) (r int, err error) {
 	})
 	return r, err
 
+}
+
+// C documentation
+//
+//	int sqlite3_bind_blob(sqlite3_stmt*, int, const void*, int n, void(*)(void*));
+func (c *conn) bindBlob(pstmt uintptr, idx1 int, value []byte) (uintptr, error) {
+	if value == nil {
+		if rc := sqlite3.Xsqlite3_bind_null(c.tls, pstmt, int32(idx1)); rc != sqlite3.SQLITE_OK {
+			return 0, c.errstr(rc)
+		}
+		return 0, nil
+	}
+
+	p, err := c.malloc(len(value))
+	if err != nil {
+		return 0, err
+	}
+	if len(value) != 0 {
+		copy((*libc.RawMem)(unsafe.Pointer(p))[:len(value):len(value)], value)
+	}
+	if rc := sqlite3.Xsqlite3_bind_blob(c.tls, pstmt, int32(idx1), p, int32(len(value)), 0); rc != sqlite3.SQLITE_OK {
+		c.free(p)
+		return 0, c.errstr(rc)
+	}
+
+	return p, nil
 }

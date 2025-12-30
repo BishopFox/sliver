@@ -45,7 +45,7 @@ type Client interface {
 	// LoginFinished flag (on success) or an auth URL (if further
 	// interaction is needed). It merely sets the process in motion,
 	// and doesn't wait for it to complete.
-	Login(*tailcfg.Oauth2Token, LoginFlags)
+	Login(LoginFlags)
 	// Logout starts a synchronous logout process. It doesn't return
 	// until the logout operation has been completed.
 	Logout(context.Context) error
@@ -81,6 +81,9 @@ type Client interface {
 	// in a separate http request. It has nothing to do with the rest of
 	// the state machine.
 	UpdateEndpoints(endpoints []tailcfg.Endpoint)
+	// ClientID returns the ClientID of a client. This ID is meant to
+	// distinguish one client from another.
+	ClientID() int64
 }
 
 // UserVisibleError is an error that should be shown to users.

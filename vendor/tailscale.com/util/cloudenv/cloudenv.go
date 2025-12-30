@@ -8,7 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	"math/rand"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"os"
@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"tailscale.com/feature/buildfeatures"
 	"tailscale.com/syncs"
 	"tailscale.com/types/lazy"
 )
@@ -51,6 +52,9 @@ const (
 // ResolverIP returns the cloud host's recursive DNS server or the
 // empty string if not available.
 func (c Cloud) ResolverIP() string {
+	if !buildfeatures.HasCloud {
+		return ""
+	}
 	switch c {
 	case GCP:
 		return GoogleMetadataAndDNSIP
@@ -74,8 +78,7 @@ func getDigitalOceanResolver() string {
 	// Randomly select one of the available resolvers so we don't overload
 	// one of them by sending all traffic there.
 	return digitalOceanResolver.Get(func() string {
-		rn := rand.New(rand.NewSource(time.Now().UnixNano()))
-		return digitalOceanResolvers[rn.Intn(len(digitalOceanResolvers))]
+		return digitalOceanResolvers[rand.IntN(len(digitalOceanResolvers))]
 	})
 }
 
@@ -93,6 +96,9 @@ var cloudAtomic syncs.AtomicValue[Cloud]
 
 // Get returns the current cloud, or the empty string if unknown.
 func Get() Cloud {
+	if !buildfeatures.HasCloud {
+		return ""
+	}
 	if c, ok := cloudAtomic.LoadOk(); ok {
 		return c
 	}

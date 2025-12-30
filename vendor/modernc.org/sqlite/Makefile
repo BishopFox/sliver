@@ -15,10 +15,10 @@ build_all_targets:
 	GOOS=darwin GOARCH=arm64 go build -v ./...
 	GOOS=freebsd GOARCH=amd64 go test -c -o /dev/null
 	GOOS=freebsd GOARCH=amd64 go build -v ./...
-	GOOS=freebsd GOARCH=386 go test -c -o /dev/null
-	GOOS=freebsd GOARCH=386 go build -v ./...
-	GOOS=freebsd GOARCH=arm go test -c -o /dev/null
-	GOOS=freebsd GOARCH=arm go build -v ./...
+	# GOOS=freebsd GOARCH=386 go test -c -o /dev/null
+	# GOOS=freebsd GOARCH=386 go build -v ./...
+	# GOOS=freebsd GOARCH=arm go test -c -o /dev/null
+	# GOOS=freebsd GOARCH=arm go build -v ./...
 	GOOS=freebsd GOARCH=arm64 go test -c -o /dev/null
 	GOOS=freebsd GOARCH=arm64 go build -v ./...
 	GOOS=linux GOARCH=386 go test -c -o /dev/null
@@ -37,14 +37,14 @@ build_all_targets:
 	GOOS=linux GOARCH=riscv64 go build -v ./...
 	GOOS=linux GOARCH=s390x go test -c -o /dev/null
 	GOOS=linux GOARCH=s390x go build -v ./...
-	GOOS=netbsd GOARCH=amd64 go test -c -o /dev/null
-	GOOS=netbsd GOARCH=amd64 go build -v ./...
+	# GOOS=netbsd GOARCH=amd64 go test -c -o /dev/null
+	# GOOS=netbsd GOARCH=amd64 go build -v ./...
 	GOOS=openbsd GOARCH=amd64 go test -c -o /dev/null
 	GOOS=openbsd GOARCH=amd64 go build -v ./...
 	GOOS=openbsd GOARCH=arm64 go test -c -o /dev/null
 	GOOS=openbsd GOARCH=arm64 go build -v ./...
-	# GOOS=windows GOARCH=386 go test -c -o /dev/null
-	# GOOS=windows GOARCH=386 go build -v ./...
+	GOOS=windows GOARCH=386 go test -c -o /dev/null
+	GOOS=windows GOARCH=386 go build -v ./...
 	GOOS=windows GOARCH=amd64 go test -c -o /dev/null
 	GOOS=windows GOARCH=amd64 go build -v ./...
 	GOOS=windows GOARCH=arm64 go test -c -o /dev/null
@@ -56,20 +56,21 @@ clean:
 	go clean
 
 edit:
-	@touch log
-	@if [ -f "Session.vim" ]; then novim -S & else novim -p Makefile go.mod builder.json all_test.go vendor_libsqlite3.go & fi
+	@if [ -f "Session.vim" ]; then gvim -S & else gvim -p Makefile go.mod builder.json all_test.go & fi
 
 editor:
-	gofmt -l -s -w . 2>&1 | tee log-editor
-	go test -c -o /dev/null 2>&1 | tee -a log-editor
-	go build -v  -o /dev/null ./... 2>&1 | tee -a log-editor
-	go build -o /dev/null vendor_libsqlite3.go
+	go test -c -o /dev/null
+	go build -v  -o /dev/null ./...
+	cd vendor_libsqlite3 && go build -o /dev/null main.go
 
 test:
-	go test -v -timeout 24h  . ./functest 2>&1 | tee log-test
+	go test -v -timeout 24h
 	
 vendor:
-	go run vendor_libsqlite3.go && make build_all_targets
+	cd vendor_libsqlite3 && go build -o ../vendor main.go
+	./vendor
+	rm -f vendor
+	make build_all_targets
 	make build_all_targets
 
 work:

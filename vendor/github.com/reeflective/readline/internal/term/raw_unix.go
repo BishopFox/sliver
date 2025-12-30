@@ -43,6 +43,7 @@ func MakeRaw(fd int) (*State, error) {
 	termios.Cflag |= unix.CS8
 	termios.Cc[unix.VMIN] = 1
 	termios.Cc[unix.VTIME] = 0
+
 	if err := unix.IoctlSetTermios(fd, ioctlWriteTermios, termios); err != nil {
 		return nil, err
 	}
@@ -73,5 +74,6 @@ func GetSize(fd int) (width, height int, err error) {
 	if err != nil {
 		return -1, -1, err
 	}
+
 	return int(ws.Col), int(ws.Row), nil
 }

@@ -8,7 +8,12 @@ const (
 	_MAX_PATHNAME        = 1024
 	_DEFAULT_SECTOR_SIZE = 4096
 
-	ptrlen = 4
+	ptrlen = util.PtrLen
+)
+
+type (
+	stk_t = util.Stk_t
+	ptr_t = util.Ptr_t
 )
 
 // https://sqlite.org/rescode.html
@@ -26,6 +31,7 @@ const (
 	_READONLY                _ErrorCode = util.READONLY
 	_IOERR                   _ErrorCode = util.IOERR
 	_NOTFOUND                _ErrorCode = util.NOTFOUND
+	_FULL                    _ErrorCode = util.FULL
 	_CANTOPEN                _ErrorCode = util.CANTOPEN
 	_IOERR_READ              _ErrorCode = util.IOERR_READ
 	_IOERR_SHORT_READ        _ErrorCode = util.IOERR_SHORT_READ
@@ -47,12 +53,17 @@ const (
 	_IOERR_SHMMAP            _ErrorCode = util.IOERR_SHMMAP
 	_IOERR_SEEK              _ErrorCode = util.IOERR_SEEK
 	_IOERR_DELETE_NOENT      _ErrorCode = util.IOERR_DELETE_NOENT
+	_IOERR_GETTEMPPATH       _ErrorCode = util.IOERR_GETTEMPPATH
 	_IOERR_BEGIN_ATOMIC      _ErrorCode = util.IOERR_BEGIN_ATOMIC
 	_IOERR_COMMIT_ATOMIC     _ErrorCode = util.IOERR_COMMIT_ATOMIC
 	_IOERR_ROLLBACK_ATOMIC   _ErrorCode = util.IOERR_ROLLBACK_ATOMIC
+	_IOERR_DATA              _ErrorCode = util.IOERR_DATA
+	_IOERR_CORRUPTFS         _ErrorCode = util.IOERR_CORRUPTFS
+	_BUSY_SNAPSHOT           _ErrorCode = util.BUSY_SNAPSHOT
 	_CANTOPEN_FULLPATH       _ErrorCode = util.CANTOPEN_FULLPATH
 	_CANTOPEN_ISDIR          _ErrorCode = util.CANTOPEN_ISDIR
 	_READONLY_CANTINIT       _ErrorCode = util.READONLY_CANTINIT
+	_READONLY_DIRECTORY      _ErrorCode = util.READONLY_DIRECTORY
 	_OK_SYMLINK              _ErrorCode = util.OK_SYMLINK
 )
 
@@ -83,6 +94,10 @@ const (
 	OPEN_PRIVATECACHE  OpenFlag = 0x00040000 /* Ok for sqlite3_open_v2() */
 	OPEN_WAL           OpenFlag = 0x00080000 /* VFS only */
 	OPEN_NOFOLLOW      OpenFlag = 0x01000000 /* Ok for sqlite3_open_v2() */
+	_FLAG_ATOMIC       OpenFlag = 0x10000000
+	_FLAG_KEEP_WAL     OpenFlag = 0x20000000
+	_FLAG_PSOW         OpenFlag = 0x40000000
+	_FLAG_SYNC_DIR     OpenFlag = 0x80000000
 )
 
 // AccessFlag is a flag for the [VFS] Access method.
@@ -174,6 +189,7 @@ const (
 	IOCAP_POWERSAFE_OVERWRITE   DeviceCharacteristic = 0x00001000
 	IOCAP_IMMUTABLE             DeviceCharacteristic = 0x00002000
 	IOCAP_BATCH_ATOMIC          DeviceCharacteristic = 0x00004000
+	IOCAP_SUBPAGE_READ          DeviceCharacteristic = 0x00008000
 )
 
 // https://sqlite.org/c3ref/c_fcntl_begin_atomic_write.html
@@ -221,6 +237,8 @@ const (
 	_FCNTL_EXTERNAL_READER       _FcntlOpcode = 40
 	_FCNTL_CKSM_FILE             _FcntlOpcode = 41
 	_FCNTL_RESET_CACHE           _FcntlOpcode = 42
+	_FCNTL_NULL_IO               _FcntlOpcode = 43
+	_FCNTL_BLOCK_ON_CONNECT      _FcntlOpcode = 44
 )
 
 // https://sqlite.org/c3ref/c_shm_exclusive.html
@@ -231,4 +249,8 @@ const (
 	_SHM_LOCK      _ShmFlag = 2
 	_SHM_SHARED    _ShmFlag = 4
 	_SHM_EXCLUSIVE _ShmFlag = 8
+
+	_SHM_NLOCK = 8
+	_SHM_BASE  = (22 + _SHM_NLOCK) * 4
+	_SHM_DMS   = _SHM_BASE + _SHM_NLOCK
 )

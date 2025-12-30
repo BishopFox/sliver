@@ -314,7 +314,7 @@ func (e *engine) compileModule(ctx context.Context, module *wasm.Module, listene
 
 	// Resolve relocations for local function calls.
 	if len(rels) > 0 {
-		machine.ResolveRelocations(refToBinaryOffset, executable, rels, callTrampolineIslandOffsets)
+		machine.ResolveRelocations(refToBinaryOffset, importedFns, executable, rels, callTrampolineIslandOffsets)
 	}
 
 	if runtime.GOARCH == "arm64" {

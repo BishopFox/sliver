@@ -77,7 +77,6 @@ func serverOnlyCmds() (commands []*cobra.Command) {
 		f.StringP("lhost", "L", "", "interface to bind server to")
 		f.Uint16P("lport", "l", 31337, "tcp listen port")
 		f.BoolP("tailscale", "T", false, "only expose multiplayer interface over Tailscale (requires TS_AUTHKEY)")
-		f.BoolP("persistent", "p", false, "make persistent across restarts")
 	})
 
 	commands = append(commands, startMultiplayer)

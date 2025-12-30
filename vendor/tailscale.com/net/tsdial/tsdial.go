@@ -19,14 +19,18 @@ import (
 	"time"
 
 	"github.com/gaissmai/bart"
+	"tailscale.com/feature"
+	"tailscale.com/feature/buildfeatures"
 	"tailscale.com/net/dnscache"
 	"tailscale.com/net/netknob"
 	"tailscale.com/net/netmon"
 	"tailscale.com/net/netns"
+	"tailscale.com/net/netx"
 	"tailscale.com/net/tsaddr"
 	"tailscale.com/types/logger"
 	"tailscale.com/types/netmap"
 	"tailscale.com/util/clientmetric"
+	"tailscale.com/util/eventbus"
 	"tailscale.com/util/mak"
 	"tailscale.com/util/testenv"
 	"tailscale.com/version"
@@ -41,6 +45,13 @@ func NewDialer(netMon *netmon.Monitor) *Dialer {
 	d := &Dialer{}
 	d.SetNetMon(netMon)
 	return d
+}
+
+// NewFromFuncForDebug is like NewDialer but takes a netx.DialFunc
+// and no netMon. It's meant exclusively for the "tailscale debug ts2021"
+// debug command, and perhaps tests.
+func NewFromFuncForDebug(logf logger.Logf, dial netx.DialFunc) *Dialer {
+	return &Dialer{sysDialForTest: dial, Logf: logf}
 }
 
 // Dialer dials out of tailscaled, while taking care of details while
@@ -59,6 +70,10 @@ type Dialer struct {
 	// If nil, it's not used.
 	NetstackDialTCP func(context.Context, netip.AddrPort) (net.Conn, error)
 
+	// NetstackDialUDP dials the provided IPPort using netstack.
+	// If nil, it's not used.
+	NetstackDialUDP func(context.Context, netip.AddrPort) (net.Conn, error)
+
 	peerClientOnce sync.Once
 	peerClient     *http.Client
 
@@ -67,6 +82,7 @@ type Dialer struct {
 
 	netnsDialerOnce sync.Once
 	netnsDialer     netns.Dialer
+	sysDialForTest  netx.DialFunc // or nil
 
 	routes atomic.Pointer[bart.Table[bool]] // or nil if UserDial should not use routes. `true` indicates routes that point into the Tailscale interface
 
@@ -80,6 +96,9 @@ type Dialer struct {
 	dnsCache         *dnscache.MessageCache // nil until first non-empty SetExitDNSDoH
 	nextSysConnID    int
 	activeSysConns   map[int]net.Conn // active connections not yet closed
+	bus              *eventbus.Bus    // only used for comparison with already set bus.
+	eventClient      *eventbus.Client
+	eventBusSubs     eventbus.Monitor
 }
 
 // sysConn wraps a net.Conn that was created using d.SystemDial.
@@ -119,6 +138,9 @@ func (d *Dialer) TUNName() string {
 //
 // For example, "http://100.68.82.120:47830/dns-query".
 func (d *Dialer) SetExitDNSDoH(doh string) {
+	if !buildfeatures.HasUseExitNode {
+		return
+	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if d.exitDNSDoHBase == doh {
@@ -145,12 +167,16 @@ func (d *Dialer) SetRoutes(routes, localRoutes []netip.Prefix) {
 		for _, r := range localRoutes {
 			rt.Insert(r, false)
 		}
+		d.logf("tsdial: bart table size: %d", rt.Size())
 	}
 
 	d.routes.Store(rt)
 }
 
 func (d *Dialer) Close() error {
+	if d.eventClient != nil {
+		d.eventBusSubs.Close()
+	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.closed = true
@@ -162,6 +188,7 @@ func (d *Dialer) Close() error {
 		c.Close()
 	}
 	d.activeSysConns = nil
+	d.PeerAPITransport().CloseIdleConnections()
 	return nil
 }
 
@@ -178,6 +205,14 @@ func (d *Dialer) SetNetMon(netMon *netmon.Monitor) {
 		d.netMonUnregister = nil
 	}
 	d.netMon = netMon
+	// Having multiple watchers could lead to problems,
+	// so remove the eventClient if it exists.
+	// This should really not happen, but better checking for it than not.
+	// TODO(cmol): Should this just be a panic?
+	if d.eventClient != nil {
+		d.eventBusSubs.Close()
+		d.eventClient = nil
+	}
 	d.netMonUnregister = d.netMon.RegisterChangeCallback(d.linkChanged)
 }
 
@@ -187,6 +222,38 @@ func (d *Dialer) NetMon() *netmon.Monitor {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	return d.netMon
+}
+
+func (d *Dialer) SetBus(bus *eventbus.Bus) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.bus == bus {
+		return
+	} else if d.bus != nil {
+		panic("different eventbus has already been set")
+	}
+	// Having multiple watchers could lead to problems,
+	// so unregister the callback if it exists.
+	if d.netMonUnregister != nil {
+		d.netMonUnregister()
+	}
+	d.bus = bus
+	d.eventClient = bus.Client("tsdial.Dialer")
+	d.eventBusSubs = d.eventClient.Monitor(d.linkChangeWatcher(d.eventClient))
+}
+
+func (d *Dialer) linkChangeWatcher(ec *eventbus.Client) func(*eventbus.Client) {
+	linkChangeSub := eventbus.Subscribe[netmon.ChangeDelta](ec)
+	return func(ec *eventbus.Client) {
+		for {
+			select {
+			case <-ec.Done():
+				return
+			case cd := <-linkChangeSub.Events():
+				d.linkChanged(&cd)
+			}
+		}
+	}
 }
 
 var (
@@ -237,7 +304,7 @@ func changeAffectsConn(delta *netmon.ChangeDelta, conn net.Conn) bool {
 	// In a few cases, we don't have a new DefaultRouteInterface (e.g. on
 	// Android; see tailscale/corp#19124); if so, pessimistically assume
 	// that all connections are affected.
-	if delta.New.DefaultRouteInterface == "" {
+	if delta.New.DefaultRouteInterface == "" && runtime.GOOS != "plan9" {
 		return true
 	}
 
@@ -314,7 +381,7 @@ func (d *Dialer) userDialResolve(ctx context.Context, network, addr string) (net
 	}
 
 	var r net.Resolver
-	if exitDNSDoH != "" && runtime.GOOS != "windows" { // Windows: https://github.com/golang/go/issues/33097
+	if buildfeatures.HasUseExitNode && buildfeatures.HasPeerAPIClient && exitDNSDoH != "" {
 		r.PreferGo = true
 		r.Dial = func(ctx context.Context, network, address string) (net.Conn, error) {
 			return &dohConn{
@@ -356,13 +423,20 @@ func (d *Dialer) logf(format string, args ...any) {
 	}
 }
 
+// SetSystemDialerForTest sets an alternate function to use for SystemDial
+// instead of netns.Dialer. This is intended for use with nettest.MemoryNetwork.
+func (d *Dialer) SetSystemDialerForTest(fn netx.DialFunc) {
+	testenv.AssertInTest()
+	d.sysDialForTest = fn
+}
+
 // SystemDial connects to the provided network address without going over
 // Tailscale. It prefers going over the default interface and closes existing
 // connections if the default interface changes. It is used to connect to
 // Control and (in the future, as of 2022-04-27) DERPs..
 func (d *Dialer) SystemDial(ctx context.Context, network, addr string) (net.Conn, error) {
 	d.mu.Lock()
-	if d.netMon == nil {
+	if d.netMon == nil && d.sysDialForTest == nil {
 		d.mu.Unlock()
 		if testenv.InTest() {
 			panic("SystemDial requires a netmon.Monitor; call SetNetMon first")
@@ -375,10 +449,16 @@ func (d *Dialer) SystemDial(ctx context.Context, network, addr string) (net.Conn
 		return nil, net.ErrClosed
 	}
 
-	d.netnsDialerOnce.Do(func() {
-		d.netnsDialer = netns.NewDialer(d.logf, d.netMon)
-	})
-	c, err := d.netnsDialer.DialContext(ctx, network, addr)
+	var c net.Conn
+	var err error
+	if d.sysDialForTest != nil {
+		c, err = d.sysDialForTest(ctx, network, addr)
+	} else {
+		d.netnsDialerOnce.Do(func() {
+			d.netnsDialer = netns.NewDialer(d.logf, d.netMon)
+		})
+		c, err = d.netnsDialer.DialContext(ctx, network, addr)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -403,14 +483,17 @@ func (d *Dialer) UserDial(ctx context.Context, network, addr string) (net.Conn, 
 		return nil, err
 	}
 	if d.UseNetstackForIP != nil && d.UseNetstackForIP(ipp.Addr()) {
-		if d.NetstackDialTCP == nil {
+		if d.NetstackDialTCP == nil || d.NetstackDialUDP == nil {
 			return nil, errors.New("Dialer not initialized correctly")
+		}
+		if strings.HasPrefix(network, "udp") {
+			return d.NetstackDialUDP(ctx, ipp)
 		}
 		return d.NetstackDialTCP(ctx, ipp)
 	}
 
 	if routes := d.routes.Load(); routes != nil {
-		if isTailscaleRoute, _ := routes.Get(ipp.Addr()); isTailscaleRoute {
+		if isTailscaleRoute, _ := routes.Lookup(ipp.Addr()); isTailscaleRoute {
 			return d.getPeerDialer().DialContext(ctx, network, ipp.String())
 		}
 
@@ -435,6 +518,9 @@ func (d *Dialer) UserDial(ctx context.Context, network, addr string) (net.Conn, 
 // network must a "tcp" type, and addr must be an ip:port. Name resolution
 // is not supported.
 func (d *Dialer) dialPeerAPI(ctx context.Context, network, addr string) (net.Conn, error) {
+	if !buildfeatures.HasPeerAPIClient {
+		return nil, feature.ErrUnavailable
+	}
 	switch network {
 	case "tcp", "tcp6", "tcp4":
 	default:
@@ -477,6 +563,9 @@ func (d *Dialer) getPeerDialer() *net.Dialer {
 // The returned Client must not be mutated; it's owned by the Dialer
 // and shared by callers.
 func (d *Dialer) PeerAPIHTTPClient() *http.Client {
+	if !buildfeatures.HasPeerAPIClient {
+		panic("unreachable")
+	}
 	d.peerClientOnce.Do(func() {
 		t := http.DefaultTransport.(*http.Transport).Clone()
 		t.Dial = nil

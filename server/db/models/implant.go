@@ -20,6 +20,7 @@ package models
 
 import (
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -136,8 +137,7 @@ func ImplantBuildFromProtobuf(ib *clientpb.ImplantBuild) *ImplantBuild {
 
 		WGImplantPrivKey: ib.WGImplantPrivKey,
 		WGServerPubKey:   ib.WGServerPubKey,
-		Stage:            ib.Stage,
-	}
+		Stage:            ib.Stage}
 	return &build
 }
 
@@ -168,6 +168,7 @@ type ImplantConfig struct {
 	MaxConnectionErrors uint32
 	ConnectionStrategy  string
 	SGNEnabled          bool
+	Exports             string
 
 	// WireGuard
 	WGPeerTunIP       string
@@ -207,6 +208,7 @@ type ImplantConfig struct {
 	NetGoEnabled           bool
 	TrafficEncodersEnabled bool
 	Assets                 []EncoderAsset
+	Extension              string
 }
 
 // BeforeCreate - GORM hook
@@ -284,6 +286,8 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		IncludeNamePipe: ic.IncludeNamePipe,
 		IncludeWG:       ic.IncludeWG,
 		IncludeTCP:      ic.IncludeTCP,
+		Extension:       ic.Extension,
+		Exports:         strings.Split(ic.Exports, ","),
 	}
 
 	if ic.ImplantProfileID != nil {
@@ -494,6 +498,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.IsShellcode = pbConfig.IsShellcode
 	cfg.RunAtLoad = pbConfig.RunAtLoad
 	cfg.DebugFile = pbConfig.DebugFile
+	cfg.Exports = strings.Join(pbConfig.Exports, ",")
 
 	cfg.HttpC2ConfigName = pbConfig.HTTPC2ConfigName
 	cfg.NetGoEnabled = pbConfig.NetGoEnabled
@@ -505,6 +510,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 			Name: pbAsset.Name,
 		})
 	}
+	cfg.Extension = pbConfig.Extension
 
 	return &cfg
 }

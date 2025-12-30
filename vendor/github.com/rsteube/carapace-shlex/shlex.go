@@ -417,3 +417,25 @@ func Split(s string) (TokenSlice, error) {
 		tokens = append(tokens, *token)
 	}
 }
+
+// Join concatenates words to create a single string.
+// It quotes and escapes where appropriate.
+// TODO experimental
+func Join(s []string) string {
+	replacer := strings.NewReplacer(
+		"$", "\\$",
+		"`", "\\`",
+	)
+
+	formatted := make([]string, 0, len(s))
+	for _, arg := range s {
+		switch {
+		case arg == "",
+			strings.ContainsAny(arg, `"' `+"\n\r\t"):
+			formatted = append(formatted, replacer.Replace(fmt.Sprintf("%#v", arg)))
+		default:
+			formatted = append(formatted, arg)
+		}
+	}
+	return strings.Join(formatted, " ")
+}

@@ -23,7 +23,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io/fs"
-	insecureRand "math/rand"
 	"os"
 	"path"
 	"path/filepath"
@@ -34,7 +33,9 @@ import (
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
-	util "github.com/bishopfox/sliver/util/encoders"
+	"github.com/bishopfox/sliver/util"
+
+	encutil "github.com/bishopfox/sliver/util/encoders"
 	"github.com/bishopfox/sliver/util/encoders/traffic"
 )
 
@@ -52,14 +53,14 @@ var (
 
 	TrafficEncoderFS = PassthroughEncoderFS{}
 
-	Base64  = util.Base64{}
-	Base58  = util.Base58{}
-	Base32  = util.Base32{}
-	Hex     = util.Hex{}
-	English = util.English{}
-	Gzip    = util.Gzip{}
-	PNG     = util.PNGEncoder{}
-	Nop     = util.NoEncoder{}
+	Base64  = encutil.Base64{}
+	Base58  = encutil.Base58{}
+	Base32  = encutil.Base32{}
+	Hex     = encutil.Hex{}
+	English = encutil.English{}
+	Gzip    = encutil.Gzip{}
+	PNG     = encutil.PNGEncoder{}
+	Nop     = encutil.NoEncoder{}
 
 	NoEncoderID      = uint64(0)
 	Base64EncoderID  = SetupDefaultEncoders("base64")
@@ -119,16 +120,16 @@ func PopulateID() []uint64 {
 
 // generate a random id and ensure it is not in use
 func GetRandomID() uint64 {
-	id := insecureRand.Intn(int(EncoderModulus))
+	id := util.Intn(int(EncoderModulus))
 	for slices.Contains(UnavailableID, uint64(id)) {
-		id = insecureRand.Intn(int(EncoderModulus))
+		id = util.Intn(int(EncoderModulus))
 	}
 	UnavailableID = append(UnavailableID, uint64(id))
 	return uint64(id)
 }
 
 func init() {
-	util.SetEnglishDictionary(assets.English())
+	encutil.SetEnglishDictionary(assets.English())
 	TrafficEncoderFS = PassthroughEncoderFS{
 		rootDir: filepath.Join(assets.GetRootAppDir(), "traffic-encoders"),
 	}
@@ -138,7 +139,7 @@ func init() {
 }
 
 // EncoderMap - A map of all available encoders (native and traffic/wasm)
-var EncoderMap = map[uint64]util.Encoder{
+var EncoderMap = map[uint64]encutil.Encoder{
 	Base64EncoderID:  Base64,
 	Base58EncoderID:  Base58,
 	Base32EncoderID:  Base32,
@@ -152,7 +153,7 @@ var EncoderMap = map[uint64]util.Encoder{
 var TrafficEncoderMap = map[uint64]*traffic.TrafficEncoder{}
 
 // FastEncoderMap - Keeps track of fast native encoders that can be used for large messages
-var FastEncoderMap = map[uint64]util.Encoder{
+var FastEncoderMap = map[uint64]encutil.Encoder{
 	Base64EncoderID: Base64,
 	Base58EncoderID: Base58,
 	Base32EncoderID: Base32,
@@ -202,7 +203,7 @@ func RemoveTrafficEncoder(name string) error {
 
 // loadTrafficEncodersFromFS - Loads the wasm traffic encoders from the filesystem, for the
 // server these will be loaded from: <app root>/traffic-encoders/*.wasm
-func loadTrafficEncodersFromFS(encodersFS util.EncoderFS, logger func(string)) error {
+func loadTrafficEncodersFromFS(encodersFS encutil.EncoderFS, logger func(string)) error {
 
 	// Reset references pointing to traffic encoders
 	for _, encoder := range TrafficEncoderMap {
@@ -228,18 +229,18 @@ func loadTrafficEncodersFromFS(encodersFS util.EncoderFS, logger func(string)) e
 		wasmEncoderModuleName := strings.TrimSuffix(wasmEncoderFile.Name(), ".wasm")
 		wasmEncoderData, err := encodersFS.ReadFile(path.Join("traffic-encoders", wasmEncoderFile.Name()))
 		if err != nil {
-			encodersLog.Errorf(fmt.Sprintf("failed to read file %s (%s)", wasmEncoderModuleName, err.Error()))
+			encodersLog.Errorf("%s", fmt.Sprintf("failed to read file %s (%s)", wasmEncoderModuleName, err.Error()))
 			return err
 		}
 		wasmEncoderID := traffic.CalculateWasmEncoderID(wasmEncoderData)
 		trafficEncoder, err := traffic.CreateTrafficEncoder(wasmEncoderModuleName, wasmEncoderData, logger)
 		if err != nil {
-			encodersLog.Errorf(fmt.Sprintf("failed to create traffic encoder from '%s': %s", wasmEncoderModuleName, err.Error()))
+			encodersLog.Errorf("%s", fmt.Sprintf("failed to create traffic encoder from '%s': %s", wasmEncoderModuleName, err.Error()))
 			return err
 		}
 		trafficEncoder.FileName = wasmEncoderFile.Name()
 		if _, ok := EncoderMap[uint64(wasmEncoderID)]; ok {
-			encodersLog.Errorf(fmt.Sprintf("duplicate encoder id: %d", wasmEncoderID))
+			encodersLog.Errorf("%s", fmt.Sprintf("duplicate encoder id: %d", wasmEncoderID))
 			return fmt.Errorf("duplicate encoder id: %d", wasmEncoderID)
 		}
 		EncoderMap[uint64(wasmEncoderID)] = trafficEncoder
@@ -251,10 +252,10 @@ func loadTrafficEncodersFromFS(encodersFS util.EncoderFS, logger func(string)) e
 }
 
 // EncoderFromNonce - Convert a nonce into an encoder
-func EncoderFromNonce(nonce uint64) (uint64, util.Encoder, error) {
+func EncoderFromNonce(nonce uint64) (uint64, encutil.Encoder, error) {
 	encoderID := uint64(nonce) % EncoderModulus
 	if encoderID == 0 {
-		return 0, new(util.NoEncoder), nil
+		return 0, new(encutil.NoEncoder), nil
 	}
 	if encoder, ok := EncoderMap[encoderID]; ok {
 		return encoderID, encoder, nil
@@ -263,12 +264,12 @@ func EncoderFromNonce(nonce uint64) (uint64, util.Encoder, error) {
 }
 
 // RandomEncoder - Get a random nonce identifier and a matching encoder
-func RandomEncoder() (uint64, util.Encoder) {
+func RandomEncoder() (uint64, encutil.Encoder) {
 	keys := make([]uint64, 0, len(EncoderMap))
 	for k := range EncoderMap {
 		keys = append(keys, k)
 	}
-	encoderID := keys[insecureRand.Intn(len(keys))]
+	encoderID := keys[util.Intn(len(keys))]
 	nonce := (randomUint64(MaxN) * EncoderModulus) + encoderID
 	return nonce, EncoderMap[encoderID]
 }

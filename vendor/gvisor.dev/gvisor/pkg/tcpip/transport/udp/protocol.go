@@ -43,6 +43,7 @@ const (
 	MaxBufferSize = 4 << 20 // 4MiB
 )
 
+// +stateify savable
 type protocol struct {
 	stack *stack.Stack
 }
@@ -122,6 +123,9 @@ func (*protocol) Pause() {}
 
 // Resume implements stack.TransportProtocol.Resume.
 func (*protocol) Resume() {}
+
+// Restore implements stack.TransportProtocol.Restore.
+func (*protocol) Restore() {}
 
 // Parse implements stack.TransportProtocol.Parse.
 func (*protocol) Parse(pkt *stack.PacketBuffer) bool {

@@ -10,12 +10,15 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"math/big"
 	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
+
+	"tailscale.com/feature/buildfeatures"
 )
 
 // dohOfIP maps from public DNS IPs to their DoH base URL.
@@ -122,11 +125,14 @@ func DoHIPsOfBase(dohBase string) []netip.Addr {
 		}
 	}
 	if pathStr, ok := strings.CutPrefix(dohBase, controlDBase); ok {
+		if i := strings.IndexFunc(pathStr, isSlashOrQuestionMark); i != -1 {
+			pathStr = pathStr[:i]
+		}
 		return []netip.Addr{
 			controlDv4One,
 			controlDv4Two,
-			controlDv6Gen(nextDNSv6RangeA.Addr(), pathStr),
-			controlDv6Gen(nextDNSv6RangeB.Addr(), pathStr),
+			controlDv6Gen(controlDv6RangeA.Addr(), pathStr),
+			controlDv6Gen(controlDv6RangeB.Addr(), pathStr),
 		}
 	}
 	return nil
@@ -159,6 +165,9 @@ const (
 
 // populate is called once to initialize the knownDoH and dohIPsOfBase maps.
 func populate() {
+	if !buildfeatures.HasDNS {
+		return
+	}
 	// Cloudflare
 	// https://developers.cloudflare.com/1.1.1.1/ip-addresses/
 	addDoH("1.1.1.1", "https://cloudflare-dns.com/dns-query")
@@ -318,7 +327,10 @@ func nextDNSv6Gen(ip netip.Addr, id []byte) netip.Addr {
 // e.g. https://dns.controld.com/hyq3ipr2ct
 func controlDv6Gen(ip netip.Addr, id string) netip.Addr {
 	b := make([]byte, 8)
-	decoded, _ := strconv.ParseUint(id, 36, 64)
+	decoded, err := strconv.ParseUint(id, 36, 64)
+	if err != nil {
+		log.Printf("controlDv6Gen: failed to parse id %q: %v", id, err)
+	}
 	binary.BigEndian.PutUint64(b, decoded)
 	a := ip.AsSlice()
 	copy(a[6:14], b)

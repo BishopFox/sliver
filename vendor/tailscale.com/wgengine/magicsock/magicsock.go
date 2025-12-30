@@ -7,39 +7,44 @@ package magicsock
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/netip"
+	"reflect"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/tailscale/wireguard-go/conn"
+	"github.com/tailscale/wireguard-go/device"
 	"go4.org/mem"
-	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
-
 	"tailscale.com/control/controlknobs"
 	"tailscale.com/disco"
 	"tailscale.com/envknob"
+	"tailscale.com/feature/buildfeatures"
+	"tailscale.com/feature/condlite/expvar"
 	"tailscale.com/health"
 	"tailscale.com/hostinfo"
 	"tailscale.com/ipn/ipnstate"
-	"tailscale.com/net/connstats"
+	"tailscale.com/net/batching"
 	"tailscale.com/net/netcheck"
 	"tailscale.com/net/neterror"
 	"tailscale.com/net/netmon"
 	"tailscale.com/net/netns"
 	"tailscale.com/net/packet"
 	"tailscale.com/net/ping"
-	"tailscale.com/net/portmapper"
+	"tailscale.com/net/portmapper/portmappertype"
+	"tailscale.com/net/sockopts"
 	"tailscale.com/net/sockstats"
 	"tailscale.com/net/stun"
 	"tailscale.com/net/tstun"
@@ -50,16 +55,19 @@ import (
 	"tailscale.com/types/key"
 	"tailscale.com/types/lazy"
 	"tailscale.com/types/logger"
+	"tailscale.com/types/netlogfunc"
 	"tailscale.com/types/netmap"
 	"tailscale.com/types/nettype"
 	"tailscale.com/types/views"
 	"tailscale.com/util/clientmetric"
+	"tailscale.com/util/eventbus"
 	"tailscale.com/util/mak"
-	"tailscale.com/util/ringbuffer"
+	"tailscale.com/util/ringlog"
 	"tailscale.com/util/set"
 	"tailscale.com/util/testenv"
-	"tailscale.com/util/uniq"
-	"tailscale.com/wgengine/capture"
+	"tailscale.com/util/usermetric"
+	"tailscale.com/wgengine/filter"
+	"tailscale.com/wgengine/router"
 	"tailscale.com/wgengine/wgint"
 )
 
@@ -78,11 +86,77 @@ const (
 	socketBufferSize = 7 << 20
 )
 
+// Path is a label indicating the type of path a packet took.
+type Path string
+
+const (
+	PathDirectIPv4    Path = "direct_ipv4"
+	PathDirectIPv6    Path = "direct_ipv6"
+	PathDERP          Path = "derp"
+	PathPeerRelayIPv4 Path = "peer_relay_ipv4"
+	PathPeerRelayIPv6 Path = "peer_relay_ipv6"
+)
+
+type pathLabel struct {
+	// Path indicates the path that the packet took:
+	// - direct_ipv4
+	// - direct_ipv6
+	// - derp
+	// - peer_relay_ipv4
+	// - peer_relay_ipv6
+	Path Path
+}
+
+// metrics in wgengine contains the usermetrics counters for magicsock, it
+// is however a bit special. All them metrics are labeled, but looking up
+// the metric everytime we need to record it has an overhead, and includes
+// a lock in MultiLabelMap. The metrics are therefore instead created with
+// wgengine and the underlying expvar.Int is stored to be used directly.
+type metrics struct {
+	// inboundPacketsTotal is the total number of inbound packets received,
+	// labeled by the path the packet took.
+	inboundPacketsIPv4Total          expvar.Int
+	inboundPacketsIPv6Total          expvar.Int
+	inboundPacketsDERPTotal          expvar.Int
+	inboundPacketsPeerRelayIPv4Total expvar.Int
+	inboundPacketsPeerRelayIPv6Total expvar.Int
+
+	// inboundBytesTotal is the total number of inbound bytes received,
+	// labeled by the path the packet took.
+	inboundBytesIPv4Total          expvar.Int
+	inboundBytesIPv6Total          expvar.Int
+	inboundBytesDERPTotal          expvar.Int
+	inboundBytesPeerRelayIPv4Total expvar.Int
+	inboundBytesPeerRelayIPv6Total expvar.Int
+
+	// outboundPacketsTotal is the total number of outbound packets sent,
+	// labeled by the path the packet took.
+	outboundPacketsIPv4Total          expvar.Int
+	outboundPacketsIPv6Total          expvar.Int
+	outboundPacketsDERPTotal          expvar.Int
+	outboundPacketsPeerRelayIPv4Total expvar.Int
+	outboundPacketsPeerRelayIPv6Total expvar.Int
+
+	// outboundBytesTotal is the total number of outbound bytes sent,
+	// labeled by the path the packet took.
+	outboundBytesIPv4Total          expvar.Int
+	outboundBytesIPv6Total          expvar.Int
+	outboundBytesDERPTotal          expvar.Int
+	outboundBytesPeerRelayIPv4Total expvar.Int
+	outboundBytesPeerRelayIPv6Total expvar.Int
+
+	// outboundPacketsDroppedErrors is the total number of outbound packets
+	// dropped due to errors.
+	outboundPacketsDroppedErrors expvar.Int
+}
+
 // A Conn routes UDP packets and actively manages a list of its endpoints.
 type Conn struct {
 	// This block mirrors the contents and field order of the Options
 	// struct. Initialized once at construction, then constant.
 
+	eventBus               *eventbus.Bus
+	eventClient            *eventbus.Client
 	logf                   logger.Logf
 	epFunc                 func([]tailcfg.Endpoint)
 	derpActiveFunc         func()
@@ -101,6 +175,12 @@ type Conn struct {
 	connCtx       context.Context // closed on Conn.Close
 	connCtxCancel func()          // closes connCtx
 	donec         <-chan struct{} // connCtx.Done()'s to avoid context.cancelCtx.Done()'s mutex per call
+
+	// A publisher for synchronization points to ensure correct ordering of
+	// config changes between magicsock and wireguard.
+	syncPub               *eventbus.Publisher[syncPoint]
+	allocRelayEndpointPub *eventbus.Publisher[UDPRelayAllocReq]
+	portUpdatePub         *eventbus.Publisher[router.PortUpdate]
 
 	// pconn4 and pconn6 are the underlying UDP sockets used to
 	// send/receive packets for wireguard and other magicsock
@@ -122,7 +202,8 @@ type Conn struct {
 
 	// portMapper is the NAT-PMP/PCP/UPnP prober/client, for requesting
 	// port mappings from NAT devices.
-	portMapper *portmapper.Client
+	// If nil, the portmapper is disabled.
+	portMapper portmappertype.Client
 
 	// derpRecvCh is used by receiveDERP to read DERP messages.
 	// It must have buffer size > 0; see issue 3736.
@@ -130,6 +211,9 @@ type Conn struct {
 
 	// bind is the wireguard-go conn.Bind for Conn.
 	bind *connBind
+
+	// cloudInfo is used to query cloud metadata services.
+	cloudInfo *cloudInfo
 
 	// ============================================================
 	// Fields that must be accessed via atomic load/stores.
@@ -177,11 +261,17 @@ type Conn struct {
 	//lint:ignore U1000 used on Linux/Darwin only
 	peerMTUEnabled atomic.Bool
 
-	// stats maintains per-connection counters.
-	stats atomic.Pointer[connstats.Statistics]
+	// connCounter maintains per-connection counters.
+	connCounter syncs.AtomicValue[netlogfunc.ConnectionCounter]
 
 	// captureHook, if non-nil, is the pcap logging callback when capturing.
-	captureHook syncs.AtomicValue[capture.Callback]
+	captureHook syncs.AtomicValue[packet.CaptureCallback]
+
+	// hasPeerRelayServers is whether [relayManager] is configured with at least
+	// one peer relay server via [relayManager.handleRelayServersSet]. It exists
+	// to suppress calls into [relayManager] leading to wasted work involving
+	// channel operations and goroutine creation.
+	hasPeerRelayServers atomic.Bool
 
 	// discoPrivate is the private naclbox key used for active
 	// discovery traffic. It is always present, and immutable.
@@ -253,7 +343,11 @@ type Conn struct {
 	// by node key, node ID, and discovery key.
 	peerMap peerMap
 
-	// discoInfo is the state for an active DiscoKey.
+	// relayManager manages allocation and handshaking of
+	// [tailscale.com/net/udprelay.Server] endpoints.
+	relayManager relayManager
+
+	// discoInfo is the state for an active peer DiscoKey.
 	discoInfo map[key.DiscoPublic]*discoInfo
 
 	// netInfoFunc is a callback that provides a tailcfg.NetInfo when
@@ -271,17 +365,19 @@ type Conn struct {
 	// magicsock could do with any complexity reduction it can get.
 	netInfoLast *tailcfg.NetInfo
 
-	derpMap          *tailcfg.DERPMap              // nil (or zero regions/nodes) means DERP is disabled
-	peers            views.Slice[tailcfg.NodeView] // from last SetNetworkMap update
-	lastFlags        debugFlags                    // at time of last SetNetworkMap
-	firstAddrForTest netip.Addr                    // from last SetNetworkMap update; for tests only
-	privateKey       key.NodePrivate               // WireGuard private key for this node
-	everHadKey       bool                          // whether we ever had a non-zero private key
-	myDerp           int                           // nearest DERP region ID; 0 means none/unknown
-	homeless         bool                          // if true, don't try to find & stay conneted to a DERP home (myDerp will stay 0)
-	derpStarted      chan struct{}                 // closed on first connection to DERP; for tests & cleaner Close
-	activeDerp       map[int]activeDerp            // DERP regionID -> connection to a node in that region
-	prevDerp         map[int]*syncs.WaitGroupChan
+	derpMap            *tailcfg.DERPMap              // nil (or zero regions/nodes) means DERP is disabled
+	self               tailcfg.NodeView              // from last onNodeViewsUpdate
+	peers              views.Slice[tailcfg.NodeView] // from last onNodeViewsUpdate, sorted by Node.ID; Note: [netmap.NodeMutation]'s rx'd in onNodeMutationsUpdate are never applied
+	filt               *filter.Filter                // from last onFilterUpdate
+	relayClientEnabled bool                          // whether we can allocate UDP relay endpoints on UDP relay servers or receive CallMeMaybeVia messages from peers
+	lastFlags          debugFlags                    // at time of last onNodeViewsUpdate
+	privateKey         key.NodePrivate               // WireGuard private key for this node
+	everHadKey         bool                          // whether we ever had a non-zero private key
+	myDerp             int                           // nearest DERP region ID; 0 means none/unknown
+	homeless           bool                          // if true, don't try to find & stay conneted to a DERP home (myDerp will stay 0)
+	derpStarted        chan struct{}                 // closed on first connection to DERP; for tests & cleaner Close
+	activeDerp         map[int]activeDerp            // DERP regionID -> connection to a node in that region
+	prevDerp           map[int]*syncs.WaitGroupChan
 
 	// derpRoute contains optional alternate routes to use as an
 	// optimization instead of contacting a peer via their home
@@ -299,17 +395,22 @@ type Conn struct {
 	// wgPinger is the WireGuard only pinger used for latency measurements.
 	wgPinger lazy.SyncValue[*ping.Pinger]
 
-	// onPortUpdate is called with the new port when magicsock rebinds to
-	// a new port.
-	onPortUpdate func(port uint16, network string)
-
 	// getPeerByKey optionally specifies a function to look up a peer's
 	// wireguard state by its public key. If nil, it's not used.
 	getPeerByKey func(key.NodePublic) (_ wgint.Peer, ok bool)
 
-	// lastEPERMRebind tracks the last time a rebind was performed
-	// after experiencing a syscall.EPERM.
-	lastEPERMRebind syncs.AtomicValue[time.Time]
+	// lastErrRebind tracks the last time a rebind was performed after
+	// experiencing a write error, and is used to throttle the rate of rebinds.
+	lastErrRebind syncs.AtomicValue[time.Time]
+
+	// staticEndpoints are user set endpoints that this node should
+	// advertise amongst its wireguard endpoints. It is user's
+	// responsibility to ensure that traffic from these endpoints is routed
+	// to the node.
+	staticEndpoints views.Slice[netip.AddrPort]
+
+	// metrics contains the metrics for the magicsock instance.
+	metrics *metrics
 }
 
 // SetDebugLoggingEnabled controls whether spammy debug logging is enabled.
@@ -332,8 +433,13 @@ func (c *Conn) dlogf(format string, a ...any) {
 
 // Options contains options for Listen.
 type Options struct {
-	// Logf optionally provides a log function to use.
-	// Must not be nil.
+	// EventBus, if non-nil, is used for event publication and subscription by
+	// each Conn created from these Options. It must not be nil outside of
+	// tests.
+	EventBus *eventbus.Bus
+
+	// Logf provides a log function to use. It must not be nil.
+	// Use [logger.Discard] to disrcard logs.
 	Logf logger.Logf
 
 	// Port is the port to listen on.
@@ -359,7 +465,8 @@ type Options struct {
 	// NoteRecvActivity, if provided, is a func for magicsock to call
 	// whenever it receives a packet from a a peer if it's been more
 	// than ~10 seconds since the last one. (10 seconds is somewhat
-	// arbitrary; the sole user just doesn't need or want it called on
+	// arbitrary; the sole user, lazy WireGuard configuration,
+	// just doesn't need or want it called on
 	// every packet, just every minute or two for WireGuard timeouts,
 	// and 10 seconds seems like a good trade-off between often enough
 	// and not too often.)
@@ -376,13 +483,12 @@ type Options struct {
 	// report errors and warnings to.
 	HealthTracker *health.Tracker
 
+	// Metrics specifies the metrics registry to record metrics to.
+	Metrics *usermetric.Registry
+
 	// ControlKnobs are the set of control knobs to use.
 	// If nil, they're ignored and not updated.
 	ControlKnobs *controlknobs.Knobs
-
-	// OnPortUpdate is called with the new port when magicsock rebinds to
-	// a new port.
-	OnPortUpdate func(port uint16, network string)
 
 	// PeerByKeyFunc optionally specifies a function to look up a peer's
 	// WireGuard state by its public key. If nil, it's not used.
@@ -415,11 +521,83 @@ func (o *Options) derpActiveFunc() func() {
 	return o.DERPActiveFunc
 }
 
+// NodeViewsUpdate represents an update event of [tailcfg.NodeView] for all
+// nodes. This event is published over an [eventbus.Bus]. It may be published
+// with an invalid SelfNode, and/or zero/nil Peers. [magicsock.Conn] is the sole
+// subscriber as of 2025-06. If you are adding more subscribers consider moving
+// this type out of magicsock.
+type NodeViewsUpdate struct {
+	SelfNode tailcfg.NodeView
+	Peers    []tailcfg.NodeView // sorted by Node.ID
+}
+
+// NodeMutationsUpdate represents an update event of one or more
+// [netmap.NodeMutation]. This event is published over an [eventbus.Bus].
+// [magicsock.Conn] is the sole subscriber as of 2025-06. If you are adding more
+// subscribers consider moving this type out of magicsock.
+type NodeMutationsUpdate struct {
+	Mutations []netmap.NodeMutation
+}
+
+// FilterUpdate represents an update event for a [*filter.Filter]. This event is
+// signaled over an [eventbus.Bus]. [magicsock.Conn] is the sole subscriber as
+// of 2025-06. If you are adding more subscribers consider moving this type out
+// of magicsock.
+type FilterUpdate struct {
+	*filter.Filter
+}
+
+// syncPoint is an event published over an [eventbus.Bus] by [Conn.Synchronize].
+// It serves as a synchronization point, allowing to wait until magicsock
+// has processed all pending events.
+type syncPoint chan struct{}
+
+// Wait blocks until [syncPoint.Signal] is called.
+func (s syncPoint) Wait() {
+	<-s
+}
+
+// Signal signals the sync point, unblocking the [syncPoint.Wait] call.
+func (s syncPoint) Signal() {
+	close(s)
+}
+
+// UDPRelayAllocReq represents a [*disco.AllocateUDPRelayEndpointRequest]
+// reception event. This is signaled over an [eventbus.Bus] from
+// [magicsock.Conn] towards [relayserver.extension].
+type UDPRelayAllocReq struct {
+	// RxFromNodeKey is the unauthenticated (DERP server claimed src) node key
+	// of the transmitting party, noted at disco message reception time over
+	// DERP. This node key is unambiguously-aligned with RxFromDiscoKey being
+	// that the disco message is received over DERP.
+	RxFromNodeKey key.NodePublic
+	// RxFromDiscoKey is the disco key of the transmitting party, noted and
+	// authenticated at reception time.
+	RxFromDiscoKey key.DiscoPublic
+	// Message is the disco message.
+	Message *disco.AllocateUDPRelayEndpointRequest
+}
+
+// UDPRelayAllocResp represents a [*disco.AllocateUDPRelayEndpointResponse]
+// that is yet to be transmitted over DERP (or delivered locally if
+// ReqRxFromNodeKey is self). This is signaled over an [eventbus.Bus] from
+// [relayserver.extension] towards [magicsock.Conn].
+type UDPRelayAllocResp struct {
+	// ReqRxFromNodeKey is copied from [UDPRelayAllocReq.RxFromNodeKey]. It
+	// enables peer lookup leading up to transmission over DERP.
+	ReqRxFromNodeKey key.NodePublic
+	// ReqRxFromDiscoKey is copied from [UDPRelayAllocReq.RxFromDiscoKey].
+	ReqRxFromDiscoKey key.DiscoPublic
+	// Message is the disco message.
+	Message *disco.AllocateUDPRelayEndpointResponse
+}
+
 // newConn is the error-free, network-listening-side-effect-free based
 // of NewConn. Mostly for tests.
-func newConn() *Conn {
+func newConn(logf logger.Logf) *Conn {
 	discoPrivate := key.NewDisco()
 	c := &Conn{
+		logf:         logf,
 		derpRecvCh:   make(chan derpReadResult, 1), // must be buffered, see issue 3736
 		derpStarted:  make(chan struct{}),
 		peerLastDerp: make(map[key.NodePublic]int),
@@ -427,6 +605,7 @@ func newConn() *Conn {
 		discoInfo:    make(map[key.DiscoPublic]*discoInfo),
 		discoPrivate: discoPrivate,
 		discoPublic:  discoPrivate.Public(),
+		cloudInfo:    newCloudInfo(logf),
 	}
 	c.discoShort = c.discoPublic.ShortString()
 	c.bind = &connBind{Conn: c, closed: true}
@@ -434,7 +613,7 @@ func newConn() *Conn {
 		msgs := make([]ipv6.Message, c.bind.BatchSize())
 		for i := range msgs {
 			msgs[i].Buffers = make([][]byte, 1)
-			msgs[i].OOB = make([]byte, controlMessageSize)
+			msgs[i].OOB = make([]byte, batching.MinControlMessageSize())
 		}
 		batch := &receiveBatch{
 			msgs: msgs,
@@ -446,64 +625,138 @@ func newConn() *Conn {
 	return c
 }
 
+func (c *Conn) onUDPRelayAllocResp(allocResp UDPRelayAllocResp) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	ep, ok := c.peerMap.endpointForNodeKey(allocResp.ReqRxFromNodeKey)
+	if !ok {
+		// If it's not a peer, it might be for self (we can peer relay through
+		// ourselves), in which case we want to hand it down to [relayManager]
+		// now versus taking a network round-trip through DERP.
+		selfNodeKey := c.publicKeyAtomic.Load()
+		if selfNodeKey.Compare(allocResp.ReqRxFromNodeKey) == 0 &&
+			allocResp.ReqRxFromDiscoKey.Compare(c.discoPublic) == 0 {
+			c.relayManager.handleRxDiscoMsg(c, allocResp.Message, selfNodeKey, allocResp.ReqRxFromDiscoKey, epAddr{})
+			metricLocalDiscoAllocUDPRelayEndpointResponse.Add(1)
+		}
+		return
+	}
+	disco := ep.disco.Load()
+	if disco == nil {
+		return
+	}
+	if disco.key.Compare(allocResp.ReqRxFromDiscoKey) != 0 {
+		return
+	}
+	ep.mu.Lock()
+	defer ep.mu.Unlock()
+	derpAddr := ep.derpAddr
+	go c.sendDiscoMessage(epAddr{ap: derpAddr}, ep.publicKey, disco.key, allocResp.Message, discoVerboseLog)
+}
+
+// Synchronize waits for all [eventbus] events published
+// prior to this call to be processed by the receiver.
+func (c *Conn) Synchronize() {
+	if c.syncPub == nil {
+		// Eventbus is not used; no need to synchronize (in certain tests).
+		return
+	}
+	sp := syncPoint(make(chan struct{}))
+	c.syncPub.Publish(sp)
+	sp.Wait()
+}
+
 // NewConn creates a magic Conn listening on opts.Port.
 // As the set of possible endpoints for a Conn changes, the
 // callback opts.EndpointsFunc is called.
 func NewConn(opts Options) (*Conn, error) {
-	if opts.NetMon == nil {
+	switch {
+	case opts.NetMon == nil:
 		return nil, errors.New("magicsock.Options.NetMon must be non-nil")
+	case opts.EventBus == nil:
+		return nil, errors.New("magicsock.Options.EventBus must be non-nil")
 	}
 
-	c := newConn()
+	c := newConn(opts.logf())
+	c.eventBus = opts.EventBus
 	c.port.Store(uint32(opts.Port))
 	c.controlKnobs = opts.ControlKnobs
-	c.logf = opts.logf()
 	c.epFunc = opts.endpointsFunc()
 	c.derpActiveFunc = opts.derpActiveFunc()
 	c.idleFunc = opts.IdleFunc
 	c.testOnlyPacketListener = opts.TestOnlyPacketListener
 	c.noteRecvActivity = opts.NoteRecvActivity
-	portMapOpts := &portmapper.DebugKnobs{
-		DisableAll: func() bool { return opts.DisablePortMapper || c.onlyTCP443.Load() },
+
+	// Set up publishers and subscribers. Subscribe calls must return before
+	// NewConn otherwise published events can be missed.
+	ec := c.eventBus.Client("magicsock.Conn")
+	c.eventClient = ec
+	c.syncPub = eventbus.Publish[syncPoint](ec)
+	c.allocRelayEndpointPub = eventbus.Publish[UDPRelayAllocReq](ec)
+	c.portUpdatePub = eventbus.Publish[router.PortUpdate](ec)
+	eventbus.SubscribeFunc(ec, c.onPortMapChanged)
+	eventbus.SubscribeFunc(ec, c.onFilterUpdate)
+	eventbus.SubscribeFunc(ec, c.onNodeViewsUpdate)
+	eventbus.SubscribeFunc(ec, c.onNodeMutationsUpdate)
+	eventbus.SubscribeFunc(ec, func(sp syncPoint) {
+		c.dlogf("magicsock: received sync point after reconfig")
+		sp.Signal()
+	})
+	eventbus.SubscribeFunc(ec, c.onUDPRelayAllocResp)
+
+	c.connCtx, c.connCtxCancel = context.WithCancel(context.Background())
+	c.donec = c.connCtx.Done()
+
+	// Don't log the same log messages possibly every few seconds in our
+	// portmapper.
+	if buildfeatures.HasPortMapper && !opts.DisablePortMapper {
+		portmapperLogf := logger.WithPrefix(c.logf, "portmapper: ")
+		portmapperLogf = netmon.LinkChangeLogLimiter(c.connCtx, portmapperLogf, opts.NetMon)
+		var disableUPnP func() bool
+		if c.controlKnobs != nil {
+			disableUPnP = c.controlKnobs.DisableUPnP.Load
+		}
+		newPortMapper, ok := portmappertype.HookNewPortMapper.GetOk()
+		if ok {
+			c.portMapper = newPortMapper(portmapperLogf, opts.EventBus, opts.NetMon, disableUPnP, c.onlyTCP443.Load)
+		}
+		// If !ok, the HookNewPortMapper hook is not set (so feature/portmapper
+		// isn't linked), but the build tag to explicitly omit the portmapper
+		// isn't set either. This should only happen to js/wasm builds, where
+		// the portmapper is a no-op even if linked (but it's no longer linked,
+		// since the move to feature/portmapper), or if people are wiring up
+		// their own Tailscale build from pieces.
 	}
-	c.portMapper = portmapper.NewClient(logger.WithPrefix(c.logf, "portmapper: "), opts.NetMon, portMapOpts, opts.ControlKnobs, c.onPortMapChanged)
-	c.portMapper.SetGatewayLookupFunc(opts.NetMon.GatewayAndSelfIP)
+
 	c.netMon = opts.NetMon
 	c.health = opts.HealthTracker
-	c.onPortUpdate = opts.OnPortUpdate
 	c.getPeerByKey = opts.PeerByKeyFunc
 
 	if err := c.rebind(keepCurrentPort); err != nil {
 		return nil, err
 	}
 
-	c.connCtx, c.connCtxCancel = context.WithCancel(context.Background())
-	c.donec = c.connCtx.Done()
 	c.netChecker = &netcheck.Client{
-		Logf:   logger.WithPrefix(c.logf, "netcheck: "),
-		NetMon: c.netMon,
-		SendPacket: func(b []byte, ap netip.AddrPort) (int, error) {
-			ok, err := c.sendUDP(ap, b)
-			if !ok {
-				return 0, err
-			}
-			return len(b), err
-		},
+		Logf:                logger.WithPrefix(c.logf, "netcheck: "),
+		NetMon:              c.netMon,
+		SendPacket:          c.sendUDPNetcheck,
 		SkipExternalNetwork: inTest(),
 		PortMapper:          c.portMapper,
 		UseDNSCache:         true,
 	}
 
+	c.metrics = registerMetrics(opts.Metrics)
+
 	if d4, err := c.listenRawDisco("ip4"); err == nil {
 		c.logf("[v1] using BPF disco receiver for IPv4")
 		c.closeDisco4 = d4
-	} else {
+	} else if !errors.Is(err, errors.ErrUnsupported) {
 		c.logf("[v1] couldn't create raw v4 disco listener, using regular listener instead: %v", err)
 	}
 	if d6, err := c.listenRawDisco("ip6"); err == nil {
 		c.logf("[v1] using BPF disco receiver for IPv6")
 		c.closeDisco6 = d6
-	} else {
+	} else if !errors.Is(err, errors.ErrUnsupported) {
 		c.logf("[v1] couldn't create raw v6 disco listener, using regular listener instead: %v", err)
 	}
 
@@ -511,11 +764,135 @@ func NewConn(opts Options) (*Conn, error) {
 	return c, nil
 }
 
+// registerMetrics wires up the metrics for wgengine, instead of
+// registering the label metric directly, the underlying expvar is exposed.
+// See metrics for more info.
+func registerMetrics(reg *usermetric.Registry) *metrics {
+	pathDirectV4 := pathLabel{Path: PathDirectIPv4}
+	pathDirectV6 := pathLabel{Path: PathDirectIPv6}
+	pathDERP := pathLabel{Path: PathDERP}
+	pathPeerRelayV4 := pathLabel{Path: PathPeerRelayIPv4}
+	pathPeerRelayV6 := pathLabel{Path: PathPeerRelayIPv6}
+	inboundPacketsTotal := usermetric.NewMultiLabelMapWithRegistry[pathLabel](
+		reg,
+		"tailscaled_inbound_packets_total",
+		"counter",
+		"Counts the number of packets received from other peers",
+	)
+	inboundBytesTotal := usermetric.NewMultiLabelMapWithRegistry[pathLabel](
+		reg,
+		"tailscaled_inbound_bytes_total",
+		"counter",
+		"Counts the number of bytes received from other peers",
+	)
+	outboundPacketsTotal := usermetric.NewMultiLabelMapWithRegistry[pathLabel](
+		reg,
+		"tailscaled_outbound_packets_total",
+		"counter",
+		"Counts the number of packets sent to other peers",
+	)
+	outboundBytesTotal := usermetric.NewMultiLabelMapWithRegistry[pathLabel](
+		reg,
+		"tailscaled_outbound_bytes_total",
+		"counter",
+		"Counts the number of bytes sent to other peers",
+	)
+	outboundPacketsDroppedErrors := reg.DroppedPacketsOutbound()
+
+	m := new(metrics)
+
+	// Map clientmetrics to the usermetric counters.
+	metricRecvDataPacketsIPv4.Register(&m.inboundPacketsIPv4Total)
+	metricRecvDataPacketsIPv6.Register(&m.inboundPacketsIPv6Total)
+	metricRecvDataPacketsDERP.Register(&m.inboundPacketsDERPTotal)
+	metricRecvDataPacketsPeerRelayIPv4.Register(&m.inboundPacketsPeerRelayIPv4Total)
+	metricRecvDataPacketsPeerRelayIPv6.Register(&m.inboundPacketsPeerRelayIPv6Total)
+	metricRecvDataBytesIPv4.Register(&m.inboundBytesIPv4Total)
+	metricRecvDataBytesIPv6.Register(&m.inboundBytesIPv6Total)
+	metricRecvDataBytesDERP.Register(&m.inboundBytesDERPTotal)
+	metricRecvDataBytesPeerRelayIPv4.Register(&m.inboundBytesPeerRelayIPv4Total)
+	metricRecvDataBytesPeerRelayIPv6.Register(&m.inboundBytesPeerRelayIPv6Total)
+	metricSendDataPacketsIPv4.Register(&m.outboundPacketsIPv4Total)
+	metricSendDataPacketsIPv6.Register(&m.outboundPacketsIPv6Total)
+	metricSendDataPacketsDERP.Register(&m.outboundPacketsDERPTotal)
+	metricSendDataPacketsPeerRelayIPv4.Register(&m.outboundPacketsPeerRelayIPv4Total)
+	metricSendDataPacketsPeerRelayIPv6.Register(&m.outboundPacketsPeerRelayIPv6Total)
+	metricSendDataBytesIPv4.Register(&m.outboundBytesIPv4Total)
+	metricSendDataBytesIPv6.Register(&m.outboundBytesIPv6Total)
+	metricSendDataBytesDERP.Register(&m.outboundBytesDERPTotal)
+	metricSendDataBytesPeerRelayIPv4.Register(&m.outboundBytesPeerRelayIPv4Total)
+	metricSendDataBytesPeerRelayIPv6.Register(&m.outboundBytesPeerRelayIPv6Total)
+	metricSendUDP.Register(&m.outboundPacketsIPv4Total)
+	metricSendUDP.Register(&m.outboundPacketsIPv6Total)
+	metricSendDERP.Register(&m.outboundPacketsDERPTotal)
+	metricSendPeerRelay.Register(&m.outboundPacketsPeerRelayIPv4Total)
+	metricSendPeerRelay.Register(&m.outboundPacketsPeerRelayIPv6Total)
+
+	inboundPacketsTotal.Set(pathDirectV4, &m.inboundPacketsIPv4Total)
+	inboundPacketsTotal.Set(pathDirectV6, &m.inboundPacketsIPv6Total)
+	inboundPacketsTotal.Set(pathDERP, &m.inboundPacketsDERPTotal)
+	inboundPacketsTotal.Set(pathPeerRelayV4, &m.inboundPacketsPeerRelayIPv4Total)
+	inboundPacketsTotal.Set(pathPeerRelayV6, &m.inboundPacketsPeerRelayIPv6Total)
+
+	inboundBytesTotal.Set(pathDirectV4, &m.inboundBytesIPv4Total)
+	inboundBytesTotal.Set(pathDirectV6, &m.inboundBytesIPv6Total)
+	inboundBytesTotal.Set(pathDERP, &m.inboundBytesDERPTotal)
+	inboundBytesTotal.Set(pathPeerRelayV4, &m.inboundBytesPeerRelayIPv4Total)
+	inboundBytesTotal.Set(pathPeerRelayV6, &m.inboundBytesPeerRelayIPv6Total)
+
+	outboundPacketsTotal.Set(pathDirectV4, &m.outboundPacketsIPv4Total)
+	outboundPacketsTotal.Set(pathDirectV6, &m.outboundPacketsIPv6Total)
+	outboundPacketsTotal.Set(pathDERP, &m.outboundPacketsDERPTotal)
+	outboundPacketsTotal.Set(pathPeerRelayV4, &m.outboundPacketsPeerRelayIPv4Total)
+	outboundPacketsTotal.Set(pathPeerRelayV6, &m.outboundPacketsPeerRelayIPv6Total)
+
+	outboundBytesTotal.Set(pathDirectV4, &m.outboundBytesIPv4Total)
+	outboundBytesTotal.Set(pathDirectV6, &m.outboundBytesIPv6Total)
+	outboundBytesTotal.Set(pathDERP, &m.outboundBytesDERPTotal)
+	outboundBytesTotal.Set(pathPeerRelayV4, &m.outboundBytesPeerRelayIPv4Total)
+	outboundBytesTotal.Set(pathPeerRelayV6, &m.outboundBytesPeerRelayIPv6Total)
+
+	outboundPacketsDroppedErrors.Set(usermetric.DropLabels{Reason: usermetric.ReasonError}, &m.outboundPacketsDroppedErrors)
+
+	return m
+}
+
+// deregisterMetrics unregisters the underlying usermetrics expvar counters
+// from clientmetrics.
+func deregisterMetrics() {
+	metricRecvDataPacketsIPv4.UnregisterAll()
+	metricRecvDataPacketsIPv6.UnregisterAll()
+	metricRecvDataPacketsDERP.UnregisterAll()
+	metricRecvDataPacketsPeerRelayIPv4.UnregisterAll()
+	metricRecvDataPacketsPeerRelayIPv6.UnregisterAll()
+	metricRecvDataBytesIPv4.UnregisterAll()
+	metricRecvDataBytesIPv6.UnregisterAll()
+	metricRecvDataBytesDERP.UnregisterAll()
+	metricRecvDataBytesPeerRelayIPv4.UnregisterAll()
+	metricRecvDataBytesPeerRelayIPv6.UnregisterAll()
+	metricSendDataPacketsIPv4.UnregisterAll()
+	metricSendDataPacketsIPv6.UnregisterAll()
+	metricSendDataPacketsDERP.UnregisterAll()
+	metricSendDataPacketsPeerRelayIPv4.UnregisterAll()
+	metricSendDataPacketsPeerRelayIPv6.UnregisterAll()
+	metricSendDataBytesIPv4.UnregisterAll()
+	metricSendDataBytesIPv6.UnregisterAll()
+	metricSendDataBytesDERP.UnregisterAll()
+	metricSendDataBytesPeerRelayIPv4.UnregisterAll()
+	metricSendDataBytesPeerRelayIPv6.UnregisterAll()
+	metricSendUDP.UnregisterAll()
+	metricSendDERP.UnregisterAll()
+	metricSendPeerRelay.UnregisterAll()
+}
+
 // InstallCaptureHook installs a callback which is called to
 // log debug information into the pcap stream. This function
 // can be called with a nil argument to uninstall the capture
 // hook.
-func (c *Conn) InstallCaptureHook(cb capture.Callback) {
+func (c *Conn) InstallCaptureHook(cb packet.CaptureCallback) {
+	if !buildfeatures.HasCapture {
+		return
+	}
 	c.captureHook.Store(cb)
 }
 
@@ -571,7 +948,7 @@ func (c *Conn) updateEndpoints(why string) {
 		c.muCond.Broadcast()
 	}()
 	c.dlogf("[v1] magicsock: starting endpoint update (%s)", why)
-	if c.noV4Send.Load() && runtime.GOOS != "js" {
+	if c.noV4Send.Load() && runtime.GOOS != "js" && !c.onlyTCP443.Load() && !hostinfo.IsInVM86() {
 		c.mu.Lock()
 		closed := c.closed
 		c.mu.Unlock()
@@ -635,6 +1012,23 @@ func (c *Conn) setEndpoints(endpoints []tailcfg.Endpoint) (changed bool) {
 	return true
 }
 
+// SetStaticEndpoints sets static endpoints to the provided value and triggers
+// an asynchronous update of the endpoints that this node advertises.
+// Static endpoints are endpoints explicitly configured by user.
+func (c *Conn) SetStaticEndpoints(ep views.Slice[netip.AddrPort]) {
+	c.mu.Lock()
+	if reflect.DeepEqual(c.staticEndpoints.AsSlice(), ep.AsSlice()) {
+		c.mu.Unlock()
+		return
+	}
+	c.staticEndpoints = ep
+	c.mu.Unlock()
+	// Technically this is not a reSTUNning, but ReSTUN does what we need at
+	// this point- calls updateEndpoints or queues an update if there is
+	// already an in-progress update.
+	c.ReSTUN("static-endpoint-change")
+}
+
 // setNetInfoHavePortMap updates NetInfo.HavePortMap to true.
 func (c *Conn) setNetInfoHavePortMap() {
 	c.mu.Lock()
@@ -661,9 +1055,6 @@ func (c *Conn) updateNetInfo(ctx context.Context) (*netcheck.Report, error) {
 		return new(netcheck.Report), nil
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
-
 	report, err := c.netChecker.GetReport(ctx, dm, &netcheck.GetReportOpts{
 		// Pass information about the last time that we received a
 		// frame from a DERP server to our netchecker to help avoid
@@ -674,6 +1065,7 @@ func (c *Conn) updateNetInfo(ctx context.Context) (*netcheck.Report, error) {
 		// health package here, but I'd rather do that and not store
 		// the exact same state in two different places.
 		GetLastDERPActivity: c.health.GetDERPRegionReceivedTime,
+		OnlyTCP443:          c.onlyTCP443.Load(),
 	})
 	if err != nil {
 		return nil, err
@@ -687,11 +1079,12 @@ func (c *Conn) updateNetInfo(ctx context.Context) (*netcheck.Report, error) {
 	ni := &tailcfg.NetInfo{
 		DERPLatency:           map[string]float64{},
 		MappingVariesByDestIP: report.MappingVariesByDestIP,
-		HairPinning:           report.HairPinning,
 		UPnP:                  report.UPnP,
 		PMP:                   report.PMP,
 		PCP:                   report.PCP,
-		HavePortMap:           c.portMapper.HaveMapping(),
+	}
+	if c.portMapper != nil {
+		ni.HavePortMap = c.portMapper.HaveMapping()
 	}
 	for rid, d := range report.RegionV4Latency {
 		ni.DERPLatency[fmt.Sprintf("%d-v4", rid)] = d.Seconds()
@@ -741,7 +1134,7 @@ func (c *Conn) callNetInfoCallbackLocked(ni *tailcfg.NetInfo) {
 func (c *Conn) addValidDiscoPathForTest(nodeKey key.NodePublic, addr netip.AddrPort) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.peerMap.setNodeKeyForIPPort(addr, nodeKey)
+	c.peerMap.setNodeKeyForEpAddr(epAddr{ap: addr}, nodeKey)
 }
 
 // SetNetInfoCallback sets the func to be called whenever the network conditions
@@ -810,13 +1203,17 @@ func (c *Conn) Ping(peer tailcfg.NodeView, res *ipnstate.PingResult, size int, c
 }
 
 // c.mu must be held
-func (c *Conn) populateCLIPingResponseLocked(res *ipnstate.PingResult, latency time.Duration, ep netip.AddrPort) {
+func (c *Conn) populateCLIPingResponseLocked(res *ipnstate.PingResult, latency time.Duration, ep epAddr) {
 	res.LatencySeconds = latency.Seconds()
-	if ep.Addr() != tailcfg.DerpMagicIPAddr {
-		res.Endpoint = ep.String()
+	if ep.ap.Addr() != tailcfg.DerpMagicIPAddr {
+		if ep.vni.IsSet() {
+			res.PeerRelay = ep.String()
+		} else {
+			res.Endpoint = ep.String()
+		}
 		return
 	}
-	regionID := int(ep.Port())
+	regionID := int(ep.ap.Port())
 	res.DERPRegionID = regionID
 	res.DERPRegionCode = c.derpRegionCodeLocked(regionID)
 }
@@ -845,14 +1242,16 @@ func (c *Conn) DiscoPublicKey() key.DiscoPublic {
 	return c.discoPublic
 }
 
-// determineEndpoints returns the machine's endpoint addresses. It
-// does a STUN lookup (via netcheck) to determine its public address.
+// determineEndpoints returns the machine's endpoint addresses. It does a STUN
+// lookup (via netcheck) to determine its public address. Additionally any
+// static enpoints provided by user are always added to the returned endpoints
+// without validating if the node can be reached via those endpoints.
 //
 // c.mu must NOT be held.
 func (c *Conn) determineEndpoints(ctx context.Context) ([]tailcfg.Endpoint, error) {
 	var havePortmap bool
 	var portmapExt netip.AddrPort
-	if runtime.GOOS != "js" {
+	if runtime.GOOS != "js" && c.portMapper != nil {
 		portmapExt, havePortmap = c.portMapper.GetCachedMappingOrStartCreatingOne()
 	}
 
@@ -892,7 +1291,7 @@ func (c *Conn) determineEndpoints(ctx context.Context) ([]tailcfg.Endpoint, erro
 	}
 
 	// If we didn't have a portmap earlier, maybe it's done by now.
-	if !havePortmap {
+	if !havePortmap && c.portMapper != nil {
 		portmapExt, havePortmap = c.portMapper.GetCachedMappingOrStartCreatingOne()
 	}
 	if havePortmap {
@@ -900,22 +1299,52 @@ func (c *Conn) determineEndpoints(ctx context.Context) ([]tailcfg.Endpoint, erro
 		c.setNetInfoHavePortMap()
 	}
 
-	if nr.GlobalV4 != "" {
-		addAddr(ipp(nr.GlobalV4), tailcfg.EndpointSTUN)
+	v4Addrs, v6Addrs := nr.GetGlobalAddrs()
+	for _, addr := range v4Addrs {
+		addAddr(addr, tailcfg.EndpointSTUN)
+	}
+	for _, addr := range v6Addrs {
+		addAddr(addr, tailcfg.EndpointSTUN)
+	}
 
+	if len(v4Addrs) >= 1 {
 		// If they're behind a hard NAT and are using a fixed
 		// port locally, assume they might've added a static
 		// port mapping on their router to the same explicit
 		// port that tailscaled is running with. Worst case
 		// it's an invalid candidate mapping.
 		if port := c.port.Load(); nr.MappingVariesByDestIP.EqualBool(true) && port != 0 {
-			if ip, _, err := net.SplitHostPort(nr.GlobalV4); err == nil {
-				addAddr(ipp(net.JoinHostPort(ip, strconv.Itoa(int(port)))), tailcfg.EndpointSTUN4LocalPort)
-			}
+			addAddr(netip.AddrPortFrom(v4Addrs[0].Addr(), uint16(port)), tailcfg.EndpointSTUN4LocalPort)
 		}
 	}
-	if nr.GlobalV6 != "" {
-		addAddr(ipp(nr.GlobalV6), tailcfg.EndpointSTUN)
+
+	// Temporarily (2024-07-08) during investigations, allow setting
+	// pretend endpoint(s) for testing NAT traversal scenarios.
+	// TODO(bradfitz): probably promote this to the config file.
+	// https://github.com/tailscale/tailscale/issues/12578
+	for _, ap := range pretendpoints() {
+		addAddr(ap, tailcfg.EndpointExplicitConf)
+	}
+
+	// If we're on a cloud instance, we might have a public IPv4 or IPv6
+	// address that we can be reached at. Find those, if they exist, and
+	// add them.
+	if addrs, err := c.cloudInfo.GetPublicIPs(ctx); err == nil {
+		var port4, port6 uint16
+		if addr := c.pconn4.LocalAddr(); addr != nil {
+			port4 = uint16(addr.Port)
+		}
+		if addr := c.pconn6.LocalAddr(); addr != nil {
+			port6 = uint16(addr.Port)
+		}
+
+		for _, addr := range addrs {
+			if addr.Is4() && port4 > 0 {
+				addAddr(netip.AddrPortFrom(addr, port4), tailcfg.EndpointLocal)
+			} else if addr.Is6() && port6 > 0 {
+				addAddr(netip.AddrPortFrom(addr, port6), tailcfg.EndpointLocal)
+			}
+		}
 	}
 
 	// Update our set of endpoints by adding any endpoints that we
@@ -933,6 +1362,10 @@ func (c *Conn) determineEndpoints(ctx context.Context) ([]tailcfg.Endpoint, erro
 	// For now, though, rely on a minor LinkChange event causing this to
 	// re-run.
 	eps = c.endpointTracker.update(time.Now(), eps)
+
+	for _, ep := range c.staticEndpoints.All() {
+		addAddr(ep, tailcfg.EndpointExplicitConf)
+	}
 
 	if localAddr := c.pconn4.LocalAddr(); localAddr.IP.IsUnspecified() {
 		ips, loopback, err := netmon.LocalAddresses()
@@ -1019,15 +1452,32 @@ func (c *Conn) networkDown() bool { return !c.networkUp.Load() }
 
 // Send implements conn.Bind.
 //
-// See https://pkg.go.dev/golang.zx2c4.com/wireguard/conn#Bind.Send
-func (c *Conn) Send(buffs [][]byte, ep conn.Endpoint) error {
+// See https://pkg.go.dev/github.com/tailscale/wireguard-go/conn#Bind.Send
+func (c *Conn) Send(buffs [][]byte, ep conn.Endpoint, offset int) (err error) {
 	n := int64(len(buffs))
+	defer func() {
+		if err != nil {
+			c.metrics.outboundPacketsDroppedErrors.Add(n)
+		}
+	}()
 	metricSendData.Add(n)
 	if c.networkDown() {
 		metricSendDataNetworkDown.Add(n)
 		return errNetworkDown
 	}
-	return ep.(*endpoint).send(buffs)
+	switch ep := ep.(type) {
+	case *endpoint:
+		return ep.send(buffs, offset)
+	case *lazyEndpoint:
+		// A [*lazyEndpoint] may end up on this TX codepath when wireguard-go is
+		// deemed "under handshake load" and ends up transmitting a cookie reply
+		// using the received [conn.Endpoint] in [device.SendHandshakeCookie].
+		if ep.src.ap.Addr().Is6() {
+			return c.pconn6.WriteWireGuardBatchTo(buffs, ep.src, offset)
+		}
+		return c.pconn4.WriteWireGuardBatchTo(buffs, ep.src, offset)
+	}
+	return nil
 }
 
 var errConnClosed = errors.New("Conn closed")
@@ -1038,25 +1488,19 @@ var errNoUDP = errors.New("no UDP available on platform")
 
 var errUnsupportedConnType = errors.New("unsupported connection type")
 
-var (
-	// This acts as a compile-time check for our usage of ipv6.Message in
-	// batchingUDPConn for both IPv6 and IPv4 operations.
-	_ ipv6.Message = ipv4.Message{}
-)
-
-func (c *Conn) sendUDPBatch(addr netip.AddrPort, buffs [][]byte) (sent bool, err error) {
+func (c *Conn) sendUDPBatch(addr epAddr, buffs [][]byte, offset int) (sent bool, err error) {
 	isIPv6 := false
 	switch {
-	case addr.Addr().Is4():
-	case addr.Addr().Is6():
+	case addr.ap.Addr().Is4():
+	case addr.ap.Addr().Is6():
 		isIPv6 = true
 	default:
 		panic("bogus sendUDPBatch addr type")
 	}
 	if isIPv6 {
-		err = c.pconn6.WriteBatchTo(buffs, addr)
+		err = c.pconn6.WriteWireGuardBatchTo(buffs, addr, offset)
 	} else {
-		err = c.pconn4.WriteBatchTo(buffs, addr)
+		err = c.pconn4.WriteWireGuardBatchTo(buffs, addr, offset)
 	}
 	if err != nil {
 		var errGSO neterror.ErrUDPGSODisabled
@@ -1064,7 +1508,7 @@ func (c *Conn) sendUDPBatch(addr netip.AddrPort, buffs [][]byte) (sent bool, err
 			c.logf("magicsock: %s", errGSO.Error())
 			err = errGSO.RetryErr
 		} else {
-			_ = c.maybeRebindOnError(runtime.GOOS, err)
+			c.maybeRebindOnError(err)
 		}
 	}
 	return err == nil, err
@@ -1072,51 +1516,80 @@ func (c *Conn) sendUDPBatch(addr netip.AddrPort, buffs [][]byte) (sent bool, err
 
 // sendUDP sends UDP packet b to ipp.
 // See sendAddr's docs on the return value meanings.
-func (c *Conn) sendUDP(ipp netip.AddrPort, b []byte) (sent bool, err error) {
+func (c *Conn) sendUDP(ipp netip.AddrPort, b []byte, isDisco bool, isGeneveEncap bool) (sent bool, err error) {
 	if runtime.GOOS == "js" {
 		return false, errNoUDP
 	}
 	sent, err = c.sendUDPStd(ipp, b)
 	if err != nil {
-		metricSendUDPError.Add(1)
-		_ = c.maybeRebindOnError(runtime.GOOS, err)
+		if isGeneveEncap {
+			metricSendPeerRelayError.Add(1)
+		} else {
+			metricSendUDPError.Add(1)
+		}
+		c.maybeRebindOnError(err)
 	} else {
-		if sent {
-			metricSendUDP.Add(1)
+		if sent && !isDisco {
+			switch {
+			case ipp.Addr().Is4():
+				if isGeneveEncap {
+					c.metrics.outboundPacketsPeerRelayIPv4Total.Add(1)
+					c.metrics.outboundBytesPeerRelayIPv4Total.Add(int64(len(b)))
+				} else {
+					c.metrics.outboundPacketsIPv4Total.Add(1)
+					c.metrics.outboundBytesIPv4Total.Add(int64(len(b)))
+				}
+			case ipp.Addr().Is6():
+				if isGeneveEncap {
+					c.metrics.outboundPacketsPeerRelayIPv6Total.Add(1)
+					c.metrics.outboundBytesPeerRelayIPv6Total.Add(int64(len(b)))
+				} else {
+					c.metrics.outboundPacketsIPv6Total.Add(1)
+					c.metrics.outboundBytesIPv6Total.Add(int64(len(b)))
+				}
+			}
 		}
 	}
 	return
 }
 
-// maybeRebindOnError performs a rebind and restun if the error is defined and
-// any conditionals are met.
-func (c *Conn) maybeRebindOnError(os string, err error) bool {
-	switch err {
-	case syscall.EPERM:
-		why := "operation-not-permitted-rebind"
-		switch os {
-		// We currently will only rebind and restun on a syscall.EPERM if it is experienced
-		// on a client running darwin.
-		// TODO(charlotte, raggi): expand os options if required.
-		case "darwin":
-			// TODO(charlotte): implement a backoff, so we don't end up in a rebind loop for persistent
-			// EPERMs.
-			if c.lastEPERMRebind.Load().Before(time.Now().Add(-5 * time.Second)) {
-				c.logf("magicsock: performing %q", why)
-				c.lastEPERMRebind.Store(time.Now())
-				c.Rebind()
-				go c.ReSTUN(why)
-				return true
-			}
-		default:
-			c.logf("magicsock: not performing %q", why)
-			return false
-		}
+// maybeRebindOnError performs a rebind and restun if the error is one that is
+// known to be healed by a rebind, and the rebind is not throttled.
+func (c *Conn) maybeRebindOnError(err error) {
+	ok, reason := shouldRebind(err)
+	if !ok {
+		return
 	}
-	return false
+
+	if c.lastErrRebind.Load().Before(time.Now().Add(-5 * time.Second)) {
+		c.logf("magicsock: performing rebind due to %q", reason)
+		c.lastErrRebind.Store(time.Now())
+		c.Rebind()
+		go c.ReSTUN(reason)
+	} else {
+		c.logf("magicsock: not performing %q rebind due to throttle", reason)
+	}
 }
 
-// sendUDP sends UDP packet b to addr.
+// sendUDPNetcheck sends b via UDP to addr. It is used exclusively by netcheck.
+// It returns the number of bytes sent along with any error encountered. It
+// returns errors.ErrUnsupported if the client is explicitly configured to only
+// send data over TCP port 443 and/or we're running on wasm.
+func (c *Conn) sendUDPNetcheck(b []byte, addr netip.AddrPort) (int, error) {
+	if c.onlyTCP443.Load() || runtime.GOOS == "js" {
+		return 0, errors.ErrUnsupported
+	}
+	switch {
+	case addr.Addr().Is4():
+		return c.pconn4.WriteToUDPAddrPort(b, addr)
+	case addr.Addr().Is6():
+		return c.pconn6.WriteToUDPAddrPort(b, addr)
+	default:
+		panic("bogus sendUDPNetcheck addr type")
+	}
+}
+
+// sendUDPStd sends UDP packet b to addr.
 // See sendAddr's docs on the return value meanings.
 func (c *Conn) sendUDPStd(addr netip.AddrPort, b []byte) (sent bool, err error) {
 	if c.onlyTCP443.Load() {
@@ -1149,12 +1622,13 @@ func (c *Conn) sendUDPStd(addr netip.AddrPort, b []byte) (sent bool, err error) 
 // An example of when they might be different: sending to an
 // IPv6 address when the local machine doesn't have IPv6 support
 // returns (false, nil); it's not an error, but nothing was sent.
-func (c *Conn) sendAddr(addr netip.AddrPort, pubKey key.NodePublic, b []byte) (sent bool, err error) {
+func (c *Conn) sendAddr(addr netip.AddrPort, pubKey key.NodePublic, b []byte, isDisco bool, isGeneveEncap bool) (sent bool, err error) {
 	if addr.Addr() != tailcfg.DerpMagicIPAddr {
-		return c.sendUDP(addr, b)
+		return c.sendUDP(addr, b, isDisco, isGeneveEncap)
 	}
 
-	ch := c.derpWriteChanOfAddr(addr, pubKey)
+	regionID := int(addr.Port())
+	ch := c.derpWriteChanForRegion(regionID, pubKey)
 	if ch == nil {
 		metricSendDERPErrorChan.Add(1)
 		return false, nil
@@ -1165,21 +1639,29 @@ func (c *Conn) sendAddr(addr netip.AddrPort, pubKey key.NodePublic, b []byte) (s
 	// to derpWriteRequest and waited for derphttp.Client.Send to
 	// complete, but that's too slow while holding wireguard-go
 	// internal locks.
-	pkt := make([]byte, len(b))
-	copy(pkt, b)
+	pkt := bytes.Clone(b)
 
-	select {
-	case <-c.donec:
-		metricSendDERPErrorClosed.Add(1)
-		return false, errConnClosed
-	case ch <- derpWriteRequest{addr, pubKey, pkt}:
-		metricSendDERPQueued.Add(1)
-		return true, nil
-	default:
-		metricSendDERPErrorQueue.Add(1)
-		// Too many writes queued. Drop packet.
-		return false, errDropDerpPacket
+	wr := derpWriteRequest{addr, pubKey, pkt, isDisco}
+	for range 3 {
+		select {
+		case <-c.donec:
+			metricSendDERPErrorClosed.Add(1)
+			return false, errConnClosed
+		case ch <- wr:
+			metricSendDERPQueued.Add(1)
+			return true, nil
+		default:
+			select {
+			case <-ch:
+				metricSendDERPDropped.Add(1)
+			default:
+			}
+		}
 	}
+	// gave up after 3 write attempts
+	metricSendDERPErrorQueue.Add(1)
+	// Too many writes queued. Drop packet.
+	return false, errDropDerpPacket
 }
 
 type receiveBatch struct {
@@ -1202,26 +1684,40 @@ func (c *Conn) putReceiveBatch(batch *receiveBatch) {
 	c.receiveBatchPool.Put(batch)
 }
 
-// receiveIPv4 creates an IPv4 ReceiveFunc reading from c.pconn4.
 func (c *Conn) receiveIPv4() conn.ReceiveFunc {
-	return c.mkReceiveFunc(&c.pconn4, c.health.ReceiveFuncStats(health.ReceiveIPv4), metricRecvDataIPv4)
+	return c.mkReceiveFunc(&c.pconn4, c.health.ReceiveFuncStats(health.ReceiveIPv4),
+		&c.metrics.inboundPacketsIPv4Total,
+		&c.metrics.inboundPacketsPeerRelayIPv4Total,
+		&c.metrics.inboundBytesIPv4Total,
+		&c.metrics.inboundBytesPeerRelayIPv4Total,
+	)
 }
 
 // receiveIPv6 creates an IPv6 ReceiveFunc reading from c.pconn6.
 func (c *Conn) receiveIPv6() conn.ReceiveFunc {
-	return c.mkReceiveFunc(&c.pconn6, c.health.ReceiveFuncStats(health.ReceiveIPv6), metricRecvDataIPv6)
+	return c.mkReceiveFunc(&c.pconn6, c.health.ReceiveFuncStats(health.ReceiveIPv6),
+		&c.metrics.inboundPacketsIPv6Total,
+		&c.metrics.inboundPacketsPeerRelayIPv6Total,
+		&c.metrics.inboundBytesIPv6Total,
+		&c.metrics.inboundBytesPeerRelayIPv6Total,
+	)
 }
 
 // mkReceiveFunc creates a ReceiveFunc reading from ruc.
-// The provided healthItem and metric are updated if non-nil.
-func (c *Conn) mkReceiveFunc(ruc *RebindingUDPConn, healthItem *health.ReceiveFuncStats, metric *clientmetric.Metric) conn.ReceiveFunc {
-	// epCache caches an IPPort->endpoint for hot flows.
-	var epCache ippEndpointCache
+// The provided healthItem and metrics are updated if non-nil.
+func (c *Conn) mkReceiveFunc(ruc *RebindingUDPConn, healthItem *health.ReceiveFuncStats, directPacketMetric, peerRelayPacketMetric, directBytesMetric, peerRelayBytesMetric *expvar.Int) conn.ReceiveFunc {
+	// epCache caches an epAddr->endpoint for hot flows.
+	var epCache epAddrEndpointCache
 
-	return func(buffs [][]byte, sizes []int, eps []conn.Endpoint) (int, error) {
-		if healthItem != nil {
+	return func(buffs [][]byte, sizes []int, eps []conn.Endpoint) (_ int, retErr error) {
+		if buildfeatures.HasHealth && healthItem != nil {
 			healthItem.Enter()
 			defer healthItem.Exit()
+			defer func() {
+				if retErr != nil && !c.closing.Load() {
+					c.logf("Receive func %s exiting with error: %T, %v", healthItem.Name(), retErr, retErr)
+				}
+			}()
 		}
 		if ruc == nil {
 			panic("nil RebindingUDPConn")
@@ -1245,12 +1741,24 @@ func (c *Conn) mkReceiveFunc(ruc *RebindingUDPConn, healthItem *health.ReceiveFu
 					continue
 				}
 				ipp := msg.Addr.(*net.UDPAddr).AddrPort()
-				if ep, ok := c.receiveIP(msg.Buffers[0][:msg.N], ipp, &epCache); ok {
-					if metric != nil {
-						metric.Add(1)
+				if ep, size, isGeneveEncap, ok := c.receiveIP(msg.Buffers[0][:msg.N], ipp, &epCache); ok {
+					if isGeneveEncap {
+						if peerRelayPacketMetric != nil {
+							peerRelayPacketMetric.Add(1)
+						}
+						if peerRelayBytesMetric != nil {
+							peerRelayBytesMetric.Add(int64(msg.N))
+						}
+					} else {
+						if directPacketMetric != nil {
+							directPacketMetric.Add(1)
+						}
+						if directBytesMetric != nil {
+							directBytesMetric.Add(int64(msg.N))
+						}
 					}
 					eps[i] = ep
-					sizes[i] = msg.N
+					sizes[i] = size
 					reportToCaller = true
 				} else {
 					sizes[i] = 0
@@ -1263,45 +1771,114 @@ func (c *Conn) mkReceiveFunc(ruc *RebindingUDPConn, healthItem *health.ReceiveFu
 	}
 }
 
+// looksLikeInitiationMsg returns true if b looks like a WireGuard initiation
+// message, otherwise it returns false.
+func looksLikeInitiationMsg(b []byte) bool {
+	return len(b) == device.MessageInitiationSize &&
+		binary.LittleEndian.Uint32(b) == device.MessageInitiationType
+}
+
 // receiveIP is the shared bits of ReceiveIPv4 and ReceiveIPv6.
+//
+// size is the length of 'b' to report up to wireguard-go (only relevant if
+// 'ok' is true).
+//
+// isGeneveEncap is whether 'b' is encapsulated by a Geneve header (only
+// relevant if 'ok' is true).
 //
 // ok is whether this read should be reported up to wireguard-go (our
 // caller).
-func (c *Conn) receiveIP(b []byte, ipp netip.AddrPort, cache *ippEndpointCache) (ep *endpoint, ok bool) {
-	if stun.Is(b) {
+func (c *Conn) receiveIP(b []byte, ipp netip.AddrPort, cache *epAddrEndpointCache) (_ conn.Endpoint, size int, isGeneveEncap bool, ok bool) {
+	var ep *endpoint
+	size = len(b)
+
+	var geneve packet.GeneveHeader
+	pt, isGeneveEncap := packetLooksLike(b)
+	src := epAddr{ap: ipp}
+	if isGeneveEncap {
+		err := geneve.Decode(b)
+		if err != nil {
+			// Decode only returns an error when 'b' is too short, and
+			// 'isGeneveEncap' indicates it's a sufficient length.
+			c.logf("[unexpected] geneve header decoding error: %v", err)
+			return nil, 0, false, false
+		}
+		src.vni = geneve.VNI
+	}
+	switch pt {
+	case packetLooksLikeDisco:
+		if isGeneveEncap {
+			b = b[packet.GeneveFixedHeaderLength:]
+		}
+		// The Geneve header control bit should only be set for relay handshake
+		// messages terminating on or originating from a UDP relay server. We
+		// have yet to open the encrypted disco payload to determine the
+		// [disco.MessageType], but we assert it should be handshake-related.
+		shouldByRelayHandshakeMsg := geneve.Control == true
+		c.handleDiscoMessage(b, src, shouldByRelayHandshakeMsg, key.NodePublic{}, discoRXPathUDP)
+		return nil, 0, false, false
+	case packetLooksLikeSTUNBinding:
 		c.netChecker.ReceiveSTUNPacket(b, ipp)
-		return nil, false
+		return nil, 0, false, false
+	default:
+		// Fall through for all other packet types as they are assumed to
+		// be potentially WireGuard.
 	}
-	if c.handleDiscoMessage(b, ipp, key.NodePublic{}, discoRXPathUDP) {
-		return nil, false
-	}
+
 	if !c.havePrivateKey.Load() {
 		// If we have no private key, we're logged out or
 		// stopped. Don't try to pass these wireguard packets
 		// up to wireguard-go; it'll just complain (issue 1167).
-		return nil, false
+		return nil, 0, false, false
 	}
-	if cache.ipp == ipp && cache.de != nil && cache.gen == cache.de.numStopAndReset() {
+
+	// geneveInclusivePacketLen holds the packet length prior to any potential
+	// Geneve header stripping.
+	geneveInclusivePacketLen := len(b)
+	if src.vni.IsSet() {
+		// Strip away the Geneve header before returning the packet to
+		// wireguard-go.
+		//
+		// TODO(jwhited): update [github.com/tailscale/wireguard-go/conn.ReceiveFunc]
+		//  to support returning start offset in order to get rid of this memmove perf
+		//  penalty.
+		size = copy(b, b[packet.GeneveFixedHeaderLength:])
+		b = b[:size]
+	}
+
+	if cache.epAddr == src && cache.de != nil && cache.gen == cache.de.numStopAndReset() {
 		ep = cache.de
 	} else {
 		c.mu.Lock()
-		de, ok := c.peerMap.endpointForIPPort(ipp)
+		de, ok := c.peerMap.endpointForEpAddr(src)
 		c.mu.Unlock()
 		if !ok {
-			return nil, false
+			// TODO(jwhited): reuse [lazyEndpoint] across calls to receiveIP()
+			//  for the same batch & [epAddr] src.
+			return &lazyEndpoint{c: c, src: src}, size, isGeneveEncap, true
 		}
-		cache.ipp = ipp
+		cache.epAddr = src
 		cache.de = de
 		cache.gen = de.numStopAndReset()
 		ep = de
 	}
 	now := mono.Now()
 	ep.lastRecvUDPAny.StoreAtomic(now)
-	ep.noteRecvActivity(ipp, now)
-	if stats := c.stats.Load(); stats != nil {
-		stats.UpdateRxPhysical(ep.nodeAddr, ipp, len(b))
+	connNoted := ep.noteRecvActivity(src, now)
+	if buildfeatures.HasNetLog {
+		if update := c.connCounter.Load(); update != nil {
+			update(0, netip.AddrPortFrom(ep.nodeAddr, 0), ipp, 1, geneveInclusivePacketLen, true)
+		}
 	}
-	return ep, true
+	if src.vni.IsSet() && (connNoted || looksLikeInitiationMsg(b)) {
+		// connNoted is periodic, but we also want to verify if the peer is who
+		// we believe for all initiation messages, otherwise we could get
+		// unlucky and fail to JIT configure the "correct" peer.
+		// TODO(jwhited): relax this to include direct connections
+		//  See http://go/corp/29422 & http://go/corp/30042
+		return &lazyEndpoint{c: c, maybeEP: ep, src: src}, size, isGeneveEncap, true
+	}
+	return ep, size, isGeneveEncap, true
 }
 
 // discoLogLevel controls the verbosity of discovery log messages.
@@ -1322,16 +1899,44 @@ const (
 // speeds.
 var debugIPv4DiscoPingPenalty = envknob.RegisterDuration("TS_DISCO_PONG_IPV4_DELAY")
 
+// sendDiscoAllocateUDPRelayEndpointRequest is primarily an alias for
+// sendDiscoMessage, but it will alternatively send m over the eventbus if dst
+// is a DERP IP:port, and dstKey is self. This saves a round-trip through DERP
+// when we are attempting to allocate on a self (in-process) peer relay server.
+func (c *Conn) sendDiscoAllocateUDPRelayEndpointRequest(dst epAddr, dstKey key.NodePublic, dstDisco key.DiscoPublic, allocReq *disco.AllocateUDPRelayEndpointRequest, logLevel discoLogLevel) (sent bool, err error) {
+	isDERP := dst.ap.Addr() == tailcfg.DerpMagicIPAddr
+	selfNodeKey := c.publicKeyAtomic.Load()
+	if isDERP && dstKey.Compare(selfNodeKey) == 0 {
+		c.allocRelayEndpointPub.Publish(UDPRelayAllocReq{
+			RxFromNodeKey:  selfNodeKey,
+			RxFromDiscoKey: c.discoPublic,
+			Message:        allocReq,
+		})
+		metricLocalDiscoAllocUDPRelayEndpointRequest.Add(1)
+		return true, nil
+	}
+	return c.sendDiscoMessage(dst, dstKey, dstDisco, allocReq, logLevel)
+}
+
 // sendDiscoMessage sends discovery message m to dstDisco at dst.
 //
-// If dst is a DERP IP:port, then dstKey must be non-zero.
+// If dst.ap is a DERP IP:port, then dstKey must be non-zero.
+//
+// If dst.vni.isSet(), the [disco.Message] will be preceded by a Geneve header
+// with the VNI field set to the value returned by vni.get().
 //
 // The dstKey should only be non-zero if the dstDisco key
 // unambiguously maps to exactly one peer.
-func (c *Conn) sendDiscoMessage(dst netip.AddrPort, dstKey key.NodePublic, dstDisco key.DiscoPublic, m disco.Message, logLevel discoLogLevel) (sent bool, err error) {
-	isDERP := dst.Addr() == tailcfg.DerpMagicIPAddr
-	if _, isPong := m.(*disco.Pong); isPong && !isDERP && dst.Addr().Is4() {
+func (c *Conn) sendDiscoMessage(dst epAddr, dstKey key.NodePublic, dstDisco key.DiscoPublic, m disco.Message, logLevel discoLogLevel) (sent bool, err error) {
+	isDERP := dst.ap.Addr() == tailcfg.DerpMagicIPAddr
+	if _, isPong := m.(*disco.Pong); isPong && !isDERP && dst.ap.Addr().Is4() {
 		time.Sleep(debugIPv4DiscoPingPenalty())
+	}
+
+	isRelayHandshakeMsg := false
+	switch m.(type) {
+	case *disco.BindUDPRelayEndpoint, *disco.BindUDPRelayEndpointAnswer:
+		isRelayHandshakeMsg = true
 	}
 
 	c.mu.Lock()
@@ -1339,11 +1944,43 @@ func (c *Conn) sendDiscoMessage(dst netip.AddrPort, dstKey key.NodePublic, dstDi
 		c.mu.Unlock()
 		return false, errConnClosed
 	}
+	var di *discoInfo
+	switch {
+	case isRelayHandshakeMsg:
+		var ok bool
+		di, ok = c.relayManager.discoInfo(dstDisco)
+		if !ok {
+			c.mu.Unlock()
+			return false, errors.New("unknown relay server")
+		}
+	case c.peerMap.knownPeerDiscoKey(dstDisco):
+		di = c.discoInfoForKnownPeerLocked(dstDisco)
+	default:
+		// This is an attempt to send to an unknown peer that is not a relay
+		// server. This can happen when a call to the current function, which is
+		// often via a new goroutine, races with applying a change in the
+		// netmap, e.g. the associated peer(s) for dstDisco goes away.
+		c.mu.Unlock()
+		return false, errors.New("unknown peer")
+	}
+	c.mu.Unlock()
+
 	pkt := make([]byte, 0, 512) // TODO: size it correctly? pool? if it matters.
+	if dst.vni.IsSet() {
+		gh := packet.GeneveHeader{
+			Version:  0,
+			Protocol: packet.GeneveProtocolDisco,
+			VNI:      dst.vni,
+			Control:  isRelayHandshakeMsg,
+		}
+		pkt = append(pkt, make([]byte, packet.GeneveFixedHeaderLength)...)
+		err := gh.Encode(pkt)
+		if err != nil {
+			return false, err
+		}
+	}
 	pkt = append(pkt, disco.Magic...)
 	pkt = c.discoPublic.AppendTo(pkt)
-	di := c.discoInfoLocked(dstDisco)
-	c.mu.Unlock()
 
 	if isDERP {
 		metricSendDiscoDERP.Add(1)
@@ -1353,7 +1990,8 @@ func (c *Conn) sendDiscoMessage(dst netip.AddrPort, dstKey key.NodePublic, dstDi
 
 	box := di.sharedKey.Seal(m.AppendMarshal(nil))
 	pkt = append(pkt, box...)
-	sent, err = c.sendAddr(dst, dstKey, pkt)
+	const isDisco = true
+	sent, err = c.sendAddr(dst.ap, dstKey, pkt, isDisco, dst.vni.IsSet())
 	if sent {
 		if logLevel == discoLog || (logLevel == discoVerboseLog && debugDisco()) {
 			node := "?"
@@ -1374,12 +2012,22 @@ func (c *Conn) sendDiscoMessage(dst netip.AddrPort, dstKey key.NodePublic, dstDi
 			metricSentDiscoPong.Add(1)
 		case *disco.CallMeMaybe:
 			metricSentDiscoCallMeMaybe.Add(1)
+		case *disco.CallMeMaybeVia:
+			metricSentDiscoCallMeMaybeVia.Add(1)
+		case *disco.BindUDPRelayEndpoint:
+			metricSentDiscoBindUDPRelayEndpoint.Add(1)
+		case *disco.BindUDPRelayEndpointAnswer:
+			metricSentDiscoBindUDPRelayEndpointAnswer.Add(1)
+		case *disco.AllocateUDPRelayEndpointRequest:
+			metricSentDiscoAllocUDPRelayEndpointRequest.Add(1)
+		case *disco.AllocateUDPRelayEndpointResponse:
+			metricSentDiscoAllocUDPRelayEndpointResponse.Add(1)
 		}
 	} else if err == nil {
 		// Can't send. (e.g. no IPv6 locally)
 	} else {
 		if !c.networkDown() && pmtuShouldLogDiscoTxErr(m, err) {
-			c.logf("magicsock: disco: failed to send %v to %v: %v", disco.MessageSummary(m), dst, err)
+			c.logf("magicsock: disco: failed to send %v to %v %s: %v", disco.MessageSummary(m), dst, dstKey.ShortString(), err)
 		}
 	}
 	return sent, err
@@ -1393,8 +2041,98 @@ const (
 	discoRXPathRawSocket discoRXPath = "raw socket"
 )
 
-// handleDiscoMessage handles a discovery message and reports whether
-// msg was a Tailscale inter-node discovery message.
+const discoHeaderLen = len(disco.Magic) + key.DiscoPublicRawLen
+
+type packetLooksLikeType int
+
+const (
+	packetLooksLikeWireGuard packetLooksLikeType = iota
+	packetLooksLikeSTUNBinding
+	packetLooksLikeDisco
+)
+
+// packetLooksLike reports a [packetsLooksLikeType] for 'msg', and whether
+// 'msg' is encapsulated by a Geneve header (or naked).
+//
+// [packetLooksLikeSTUNBinding] is never Geneve-encapsulated.
+//
+// Naked STUN binding, Naked Disco, Geneve followed by Disco, naked WireGuard,
+// and Geneve followed by WireGuard can be confidently distinguished based on
+// the following:
+//
+//  1. STUN binding @ msg[1] (0x01) is sufficiently non-overlapping with the
+//     Geneve header where the LSB is always 0 (part of 6 "reserved" bits).
+//
+//  2. STUN binding @ msg[1] (0x01) is sufficiently non-overlapping with naked
+//     WireGuard, which is always a 0 byte value (WireGuard message type
+//     occupies msg[0:4], and msg[1:4] are always 0).
+//
+//  3. STUN binding @ msg[1] (0x01) is sufficiently non-overlapping with the
+//     second byte of [disco.Magic] (0x53).
+//
+//  4. [disco.Magic] @ msg[2:4] (0xf09f) is sufficiently non-overlapping with a
+//     Geneve protocol field value of [packet.GeneveProtocolDisco] or
+//     [packet.GeneveProtocolWireGuard] .
+//
+//  5. [disco.Magic] @ msg[0] (0x54) is sufficiently non-overlapping with the
+//     first byte of a WireGuard packet (0x01-0x04).
+//
+//  6. [packet.GeneveHeader] with a Geneve protocol field value of
+//     [packet.GeneveProtocolDisco] or [packet.GeneveProtocolWireGuard]
+//     (msg[2:4]) is sufficiently non-overlapping with the second 2 bytes of a
+//     WireGuard packet which are always 0x0000.
+func packetLooksLike(msg []byte) (t packetLooksLikeType, isGeneveEncap bool) {
+	if stun.Is(msg) &&
+		msg[1] == 0x01 { // method binding
+		return packetLooksLikeSTUNBinding, false
+	}
+
+	// TODO(jwhited): potentially collapse into disco.LooksLikeDiscoWrapper()
+	//  if safe to do so.
+	looksLikeDisco := func(msg []byte) bool {
+		if len(msg) >= discoHeaderLen && string(msg[:len(disco.Magic)]) == disco.Magic {
+			return true
+		}
+		return false
+	}
+
+	// Do we have a Geneve header?
+	if len(msg) >= packet.GeneveFixedHeaderLength &&
+		msg[0]&0xC0 == 0 && // version bits that we always transmit as 0s
+		msg[1]&0x3F == 0 && // reserved bits that we always transmit as 0s
+		msg[7] == 0 { // reserved byte that we always transmit as 0
+		switch binary.BigEndian.Uint16(msg[2:4]) {
+		case packet.GeneveProtocolDisco:
+			if looksLikeDisco(msg[packet.GeneveFixedHeaderLength:]) {
+				return packetLooksLikeDisco, true
+			} else {
+				// The Geneve header is well-formed, and it indicated this
+				// was disco, but it's not. The evaluated bytes at this point
+				// are always distinct from naked WireGuard (msg[2:4] are always
+				// 0x0000) and naked Disco (msg[2:4] are always 0xf09f), but
+				// maintain pre-Geneve behavior and fall back to assuming it's
+				// naked WireGuard.
+				return packetLooksLikeWireGuard, false
+			}
+		case packet.GeneveProtocolWireGuard:
+			return packetLooksLikeWireGuard, true
+		default:
+			// The Geneve header is well-formed, but the protocol field value is
+			// unknown to us. The evaluated bytes at this point are not
+			// necessarily distinct from naked WireGuard or naked Disco, fall
+			// through.
+		}
+	}
+
+	if looksLikeDisco(msg) {
+		return packetLooksLikeDisco, false
+	} else {
+		return packetLooksLikeWireGuard, false
+	}
+}
+
+// handleDiscoMessage handles a discovery message. The caller is assumed to have
+// verified 'msg' returns [packetLooksLikeDisco] from packetLooksLike().
 //
 // A discovery message has the form:
 //
@@ -1403,23 +2141,18 @@ const (
 //   - nonce             [24]byte
 //   - naclbox of payload (see tailscale.com/disco package for inner payload format)
 //
-// For messages received over DERP, the src.Addr() will be derpMagicIP (with
-// src.Port() being the region ID) and the derpNodeSrc will be the node key
+// For messages received over DERP, the src.ap.Addr() will be derpMagicIP (with
+// src.ap.Port() being the region ID) and the derpNodeSrc will be the node key
 // it was received from at the DERP layer. derpNodeSrc is zero when received
 // over UDP.
-func (c *Conn) handleDiscoMessage(msg []byte, src netip.AddrPort, derpNodeSrc key.NodePublic, via discoRXPath) (isDiscoMsg bool) {
-	const headerLen = len(disco.Magic) + key.DiscoPublicRawLen
-	if len(msg) < headerLen || string(msg[:len(disco.Magic)]) != disco.Magic {
-		return false
-	}
-
-	// If the first four parts are the prefix of disco.Magic
-	// (0x5453f09f) then it's definitely not a valid WireGuard
-	// packet (which starts with little-endian uint32 1, 2, 3, 4).
-	// Use naked returns for all following paths.
-	isDiscoMsg = true
-
-	sender := key.DiscoPublicFromRaw32(mem.B(msg[len(disco.Magic):headerLen]))
+//
+// If 'msg' was encapsulated by a Geneve header it is assumed to have already
+// been stripped.
+//
+// 'shouldBeRelayHandshakeMsg' will be true if 'msg' was encapsulated
+// by a Geneve header with the control bit set.
+func (c *Conn) handleDiscoMessage(msg []byte, src epAddr, shouldBeRelayHandshakeMsg bool, derpNodeSrc key.NodePublic, via discoRXPath) {
+	sender := key.DiscoPublicFromRaw32(mem.B(msg[len(disco.Magic):discoHeaderLen]))
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -1432,11 +2165,23 @@ func (c *Conn) handleDiscoMessage(msg []byte, src netip.AddrPort, derpNodeSrc ke
 	}
 	if c.privateKey.IsZero() {
 		// Ignore disco messages when we're stopped.
-		// Still return true, to not pass it down to wireguard.
 		return
 	}
 
-	if !c.peerMap.knownPeerDiscoKey(sender) {
+	var di *discoInfo
+	switch {
+	case shouldBeRelayHandshakeMsg:
+		var ok bool
+		di, ok = c.relayManager.discoInfo(sender)
+		if !ok {
+			if debugDisco() {
+				c.logf("magicsock: disco: ignoring disco-looking relay handshake frame, no active handshakes with key %v over %v", sender.ShortString(), src)
+			}
+			return
+		}
+	case c.peerMap.knownPeerDiscoKey(sender):
+		di = c.discoInfoForKnownPeerLocked(sender)
+	default:
 		metricRecvDiscoBadPeer.Add(1)
 		if debugDisco() {
 			c.logf("magicsock: disco: ignoring disco-looking frame, don't know of key %v", sender.ShortString())
@@ -1444,26 +2189,22 @@ func (c *Conn) handleDiscoMessage(msg []byte, src netip.AddrPort, derpNodeSrc ke
 		return
 	}
 
-	isDERP := src.Addr() == tailcfg.DerpMagicIPAddr
-	if !isDERP {
+	isDERP := src.ap.Addr() == tailcfg.DerpMagicIPAddr
+	if !isDERP && !shouldBeRelayHandshakeMsg {
 		// Record receive time for UDP transport packets.
-		pi, ok := c.peerMap.byIPPort[src]
+		pi, ok := c.peerMap.byEpAddr[src]
 		if ok {
 			pi.ep.lastRecvUDPAny.StoreAtomic(mono.Now())
 		}
 	}
 
-	// We're now reasonably sure we're expecting communication from
-	// this peer, do the heavy crypto lifting to see what they want.
-	//
-	// From here on, peerNode and de are non-nil.
+	// We're now reasonably sure we're expecting communication from 'sender',
+	// do the heavy crypto lifting to see what they want.
 
-	di := c.discoInfoLocked(sender)
-
-	sealedBox := msg[headerLen:]
+	sealedBox := msg[discoHeaderLen:]
 	payload, ok := di.sharedKey.Open(sealedBox)
 	if !ok {
-		// This might be have been intended for a previous
+		// This might have been intended for a previous
 		// disco key.  When we restart we get a new disco key
 		// and old packets might've still been in flight (or
 		// scheduled). This is particularly the case for LANs
@@ -1483,7 +2224,8 @@ func (c *Conn) handleDiscoMessage(msg []byte, src netip.AddrPort, derpNodeSrc ke
 	// Emit information about the disco frame into the pcap stream
 	// if a capture hook is installed.
 	if cb := c.captureHook.Load(); cb != nil {
-		cb(capture.PathDisco, time.Now(), disco.ToPCAPFrame(src, derpNodeSrc, payload), packet.CaptureMeta{})
+		// TODO(jwhited): include VNI context?
+		cb(packet.PathDisco, time.Now(), disco.ToPCAPFrame(src.ap, derpNodeSrc, payload), packet.CaptureMeta{})
 	}
 
 	dm, err := disco.Parse(payload)
@@ -1506,6 +2248,20 @@ func (c *Conn) handleDiscoMessage(msg []byte, src netip.AddrPort, derpNodeSrc ke
 		metricRecvDiscoUDP.Add(1)
 	}
 
+	if shouldBeRelayHandshakeMsg {
+		challenge, ok := dm.(*disco.BindUDPRelayEndpointChallenge)
+		if !ok {
+			// We successfully parsed the disco message, but it wasn't a
+			// challenge. We should never receive other message types
+			// from a relay server with the Geneve header control bit set.
+			c.logf("[unexpected] %T packets should not come from a relay server with Geneve control bit set", dm)
+			return
+		}
+		c.relayManager.handleRxDiscoMsg(c, challenge, key.NodePublic{}, di.discoKey, src)
+		metricRecvDiscoBindUDPRelayEndpointChallenge.Add(1)
+		return
+	}
+
 	switch dm := dm.(type) {
 	case *disco.Ping:
 		metricRecvDiscoPing.Add(1)
@@ -1515,24 +2271,65 @@ func (c *Conn) handleDiscoMessage(msg []byte, src netip.AddrPort, derpNodeSrc ke
 		// There might be multiple nodes for the sender's DiscoKey.
 		// Ask each to handle it, stopping once one reports that
 		// the Pong's TxID was theirs.
+		knownTxID := false
 		c.peerMap.forEachEndpointWithDiscoKey(sender, func(ep *endpoint) (keepGoing bool) {
 			if ep.handlePongConnLocked(dm, di, src) {
+				knownTxID = true
 				return false
 			}
 			return true
 		})
-	case *disco.CallMeMaybe:
-		metricRecvDiscoCallMeMaybe.Add(1)
+		if !knownTxID && src.vni.IsSet() {
+			// If it's an unknown TxID, and it's Geneve-encapsulated, then
+			// make [relayManager] aware. It might be in the middle of probing
+			// src.
+			c.relayManager.handleRxDiscoMsg(c, dm, key.NodePublic{}, di.discoKey, src)
+		}
+	case *disco.CallMeMaybe, *disco.CallMeMaybeVia:
+		var via *disco.CallMeMaybeVia
+		isVia := false
+		msgType := "CallMeMaybe"
+		cmm, ok := dm.(*disco.CallMeMaybe)
+		if ok {
+			metricRecvDiscoCallMeMaybe.Add(1)
+		} else {
+			metricRecvDiscoCallMeMaybeVia.Add(1)
+			via = dm.(*disco.CallMeMaybeVia)
+			msgType = "CallMeMaybeVia"
+			isVia = true
+		}
+
 		if !isDERP || derpNodeSrc.IsZero() {
-			// CallMeMaybe messages should only come via DERP.
-			c.logf("[unexpected] CallMeMaybe packets should only come via DERP")
+			// CallMeMaybe{Via} messages should only come via DERP.
+			c.logf("[unexpected] %s packets should only come via DERP", msgType)
 			return
 		}
 		nodeKey := derpNodeSrc
 		ep, ok := c.peerMap.endpointForNodeKey(nodeKey)
 		if !ok {
-			metricRecvDiscoCallMeMaybeBadNode.Add(1)
-			c.logf("magicsock: disco: ignoring CallMeMaybe from %v; %v is unknown", sender.ShortString(), derpNodeSrc.ShortString())
+			if isVia {
+				metricRecvDiscoCallMeMaybeViaBadNode.Add(1)
+			} else {
+				metricRecvDiscoCallMeMaybeBadNode.Add(1)
+			}
+			c.logf("magicsock: disco: ignoring %s from %v; %v is unknown", msgType, sender.ShortString(), derpNodeSrc.ShortString())
+			return
+		}
+		// If the "disable-relay-client" node attr is set for this node, it
+		// can't be a UDP relay client, so drop any CallMeMaybeVia messages it
+		// receives.
+		if isVia && !c.relayClientEnabled {
+			c.logf("magicsock: disco: ignoring %s from %v; disable-relay-client node attr is set", msgType, sender.ShortString())
+			return
+		}
+
+		ep.mu.Lock()
+		relayCapable := ep.relayCapable
+		lastBest := ep.bestAddr
+		lastBestIsTrusted := mono.Now().Before(ep.trustBestAddrUntil)
+		ep.mu.Unlock()
+		if isVia && !relayCapable {
+			c.logf("magicsock: disco: ignoring %s from %v; %v is not known to be relay capable", msgType, sender.ShortString(), sender.ShortString())
 			return
 		}
 		epDisco := ep.disco.Load()
@@ -1540,15 +2337,116 @@ func (c *Conn) handleDiscoMessage(msg []byte, src netip.AddrPort, derpNodeSrc ke
 			return
 		}
 		if epDisco.key != di.discoKey {
-			metricRecvDiscoCallMeMaybeBadDisco.Add(1)
-			c.logf("[unexpected] CallMeMaybe from peer via DERP whose netmap discokey != disco source")
+			if isVia {
+				metricRecvDiscoCallMeMaybeViaBadDisco.Add(1)
+			} else {
+				metricRecvDiscoCallMeMaybeBadDisco.Add(1)
+			}
+			c.logf("[unexpected] %s from peer via DERP whose netmap discokey != disco source", msgType)
 			return
 		}
-		c.dlogf("[v1] magicsock: disco: %v<-%v (%v, %v)  got call-me-maybe, %d endpoints",
-			c.discoShort, epDisco.short,
-			ep.publicKey.ShortString(), derpStr(src.String()),
-			len(dm.MyNumber))
-		go ep.handleCallMeMaybe(dm)
+		if isVia {
+			c.dlogf("[v1] magicsock: disco: %v<-%v via %v (%v, %v)  got call-me-maybe-via, %d endpoints",
+				c.discoShort, epDisco.short, via.ServerDisco.ShortString(),
+				ep.publicKey.ShortString(), derpStr(src.String()),
+				len(via.AddrPorts))
+			c.relayManager.handleCallMeMaybeVia(ep, lastBest, lastBestIsTrusted, via)
+		} else {
+			c.dlogf("[v1] magicsock: disco: %v<-%v (%v, %v)  got call-me-maybe, %d endpoints",
+				c.discoShort, epDisco.short,
+				ep.publicKey.ShortString(), derpStr(src.String()),
+				len(cmm.MyNumber))
+			go ep.handleCallMeMaybe(cmm)
+		}
+	case *disco.AllocateUDPRelayEndpointRequest, *disco.AllocateUDPRelayEndpointResponse:
+		var resp *disco.AllocateUDPRelayEndpointResponse
+		isResp := false
+		msgType := "AllocateUDPRelayEndpointRequest"
+		req, ok := dm.(*disco.AllocateUDPRelayEndpointRequest)
+		if ok {
+			metricRecvDiscoAllocUDPRelayEndpointRequest.Add(1)
+		} else {
+			metricRecvDiscoAllocUDPRelayEndpointResponse.Add(1)
+			resp = dm.(*disco.AllocateUDPRelayEndpointResponse)
+			msgType = "AllocateUDPRelayEndpointResponse"
+			isResp = true
+		}
+
+		if !isDERP {
+			// These messages should only come via DERP.
+			c.logf("[unexpected] %s packets should only come via DERP", msgType)
+			return
+		}
+		nodeKey := derpNodeSrc
+		ep, ok := c.peerMap.endpointForNodeKey(nodeKey)
+		if !ok {
+			c.logf("magicsock: disco: ignoring %s from %v; %v is unknown", msgType, sender.ShortString(), derpNodeSrc.ShortString())
+			return
+		}
+		epDisco := ep.disco.Load()
+		if epDisco == nil {
+			return
+		}
+		if epDisco.key != di.discoKey {
+			if isResp {
+				metricRecvDiscoAllocUDPRelayEndpointResponseBadDisco.Add(1)
+			} else {
+				metricRecvDiscoAllocUDPRelayEndpointRequestBadDisco.Add(1)
+			}
+			c.logf("[unexpected] %s from peer via DERP whose netmap discokey != disco source", msgType)
+			return
+		}
+
+		if isResp {
+			c.dlogf("[v1] magicsock: disco: %v<-%v (%v, %v) got %s, %d endpoints",
+				c.discoShort, epDisco.short,
+				ep.publicKey.ShortString(), derpStr(src.String()),
+				msgType,
+				len(resp.AddrPorts))
+			c.relayManager.handleRxDiscoMsg(c, resp, nodeKey, di.discoKey, src)
+			return
+		} else if sender.Compare(req.ClientDisco[0]) != 0 && sender.Compare(req.ClientDisco[1]) != 0 {
+			// An allocation request must contain the sender's disco key in
+			// ClientDisco. One of the relay participants must be the sender.
+			c.logf("magicsock: disco: %s from %v; %v does not contain sender's disco key",
+				msgType, sender.ShortString(), derpNodeSrc.ShortString())
+			return
+		} else {
+			c.dlogf("[v1] magicsock: disco: %v<-%v (%v, %v) got %s disco[0]=%v disco[1]=%v",
+				c.discoShort, epDisco.short,
+				ep.publicKey.ShortString(), derpStr(src.String()),
+				msgType,
+				req.ClientDisco[0].ShortString(), req.ClientDisco[1].ShortString())
+		}
+
+		if c.filt == nil {
+			return
+		}
+		// Binary search of peers is O(log n) while c.mu is held.
+		// TODO: We might be able to use ep.nodeAddr instead of all addresses,
+		//  or we might be able to release c.mu before doing this work. Keep it
+		//  simple and slow for now. c.peers.AsSlice is a copy. We may need to
+		//  write our own binary search for a [views.Slice].
+		peerI, ok := slices.BinarySearchFunc(c.peers.AsSlice(), ep.nodeID, func(peer tailcfg.NodeView, target tailcfg.NodeID) int {
+			if peer.ID() < target {
+				return -1
+			} else if peer.ID() > target {
+				return 1
+			}
+			return 0
+		})
+		if !ok {
+			// unexpected
+			return
+		}
+		if !nodeHasCap(c.filt, c.peers.At(peerI), c.self, tailcfg.PeerCapabilityRelay) {
+			return
+		}
+		c.allocRelayEndpointPub.Publish(UDPRelayAllocReq{
+			RxFromDiscoKey: sender,
+			RxFromNodeKey:  nodeKey,
+			Message:        req,
+		})
 	}
 	return
 }
@@ -1593,25 +2491,45 @@ func (c *Conn) unambiguousNodeKeyOfPingLocked(dm *disco.Ping, dk key.DiscoPublic
 
 // di is the discoInfo of the source of the ping.
 // derpNodeSrc is non-zero if the ping arrived via DERP.
-func (c *Conn) handlePingLocked(dm *disco.Ping, src netip.AddrPort, di *discoInfo, derpNodeSrc key.NodePublic) {
+func (c *Conn) handlePingLocked(dm *disco.Ping, src epAddr, di *discoInfo, derpNodeSrc key.NodePublic) {
 	likelyHeartBeat := src == di.lastPingFrom && time.Since(di.lastPingTime) < 5*time.Second
 	di.lastPingFrom = src
 	di.lastPingTime = time.Now()
-	isDerp := src.Addr() == tailcfg.DerpMagicIPAddr
+	isDerp := src.ap.Addr() == tailcfg.DerpMagicIPAddr
+
+	if src.vni.IsSet() {
+		if isDerp {
+			c.logf("[unexpected] got Geneve-encapsulated disco ping from %v/%v over DERP", src, derpNodeSrc)
+			return
+		}
+
+		// [relayManager] is always responsible for handling (replying) to
+		// Geneve-encapsulated [disco.Ping] messages in the interest of
+		// simplicity. It might be in the middle of probing src, so it must be
+		// made aware.
+		c.relayManager.handleRxDiscoMsg(c, dm, key.NodePublic{}, di.discoKey, src)
+		return
+	}
+
+	// This is a naked [disco.Ping] without a VNI.
 
 	// If we can figure out with certainty which node key this disco
-	// message is for, eagerly update our IP<>node and disco<>node
+	// message is for, eagerly update our [epAddr]<>node and disco<>node
 	// mappings to make p2p path discovery faster in simple
 	// cases. Without this, disco would still work, but would be
 	// reliant on DERP call-me-maybe to establish the disco<>node
 	// mapping, and on subsequent disco handlePongConnLocked to establish
-	// the IP<>disco mapping.
+	// the IP:port<>disco mapping.
 	if nk, ok := c.unambiguousNodeKeyOfPingLocked(dm, di.discoKey, derpNodeSrc); ok {
 		if !isDerp {
-			c.peerMap.setNodeKeyForIPPort(src, nk)
+			c.peerMap.setNodeKeyForEpAddr(src, nk)
 		}
 	}
 
+	// numNodes tracks how many nodes (node keys) are associated with the disco
+	// key tied to this inbound ping. Multiple nodes may share the same disco
+	// key in the case of node sharing and users switching accounts.
+	var numNodes int
 	// If we got a ping over DERP, then derpNodeSrc is non-zero and we reply
 	// over DERP (in which case ipDst is also a DERP address).
 	// But if the ping was over UDP (ipDst is not a DERP address), then dstKey
@@ -1620,18 +2538,14 @@ func (c *Conn) handlePingLocked(dm *disco.Ping, src netip.AddrPort, di *discoInf
 	dstKey := derpNodeSrc
 
 	// Remember this route if not present.
-	var numNodes int
 	var dup bool
 	if isDerp {
-		if ep, ok := c.peerMap.endpointForNodeKey(derpNodeSrc); ok {
-			if ep.addCandidateEndpoint(src, dm.TxID) {
-				return
-			}
+		if _, ok := c.peerMap.endpointForNodeKey(derpNodeSrc); ok {
 			numNodes = 1
 		}
 	} else {
 		c.peerMap.forEachEndpointWithDiscoKey(di.discoKey, func(ep *endpoint) (keepGoing bool) {
-			if ep.addCandidateEndpoint(src, dm.TxID) {
+			if ep.addCandidateEndpoint(src.ap, dm.TxID) {
 				dup = true
 				return false
 			}
@@ -1668,7 +2582,7 @@ func (c *Conn) handlePingLocked(dm *disco.Ping, src netip.AddrPort, di *discoInf
 	discoDest := di.discoKey
 	go c.sendDiscoMessage(ipDst, dstKey, discoDest, &disco.Pong{
 		TxID: dm.TxID,
-		Src:  src,
+		Src:  src.ap,
 	}, discoVerboseLog)
 }
 
@@ -1711,19 +2625,24 @@ func (c *Conn) enqueueCallMeMaybe(derpAddr netip.AddrPort, de *endpoint) {
 	for _, ep := range c.lastEndpoints {
 		eps = append(eps, ep.Addr)
 	}
-	go de.c.sendDiscoMessage(derpAddr, de.publicKey, epDisco.key, &disco.CallMeMaybe{MyNumber: eps}, discoLog)
+	go de.c.sendDiscoMessage(epAddr{ap: derpAddr}, de.publicKey, epDisco.key, &disco.CallMeMaybe{MyNumber: eps}, discoLog)
 	if debugSendCallMeUnknownPeer() {
 		// Send a callMeMaybe packet to a non-existent peer
 		unknownKey := key.NewNode().Public()
 		c.logf("magicsock: sending CallMeMaybe to unknown peer per TS_DEBUG_SEND_CALLME_UNKNOWN_PEER")
-		go de.c.sendDiscoMessage(derpAddr, unknownKey, epDisco.key, &disco.CallMeMaybe{MyNumber: eps}, discoLog)
+		go de.c.sendDiscoMessage(epAddr{ap: derpAddr}, unknownKey, epDisco.key, &disco.CallMeMaybe{MyNumber: eps}, discoLog)
 	}
 }
 
-// discoInfoLocked returns the previous or new discoInfo for k.
+// discoInfoForKnownPeerLocked returns the previous or new discoInfo for k.
+//
+// Callers must only pass key.DiscoPublic's that are present in and
+// lifetime-managed via [Conn].peerMap. UDP relay server disco keys are discovered
+// at relay endpoint allocation time or [disco.CallMeMaybeVia] reception time
+// and therefore must never pass through this method.
 //
 // c.mu must be held.
-func (c *Conn) discoInfoLocked(k key.DiscoPublic) *discoInfo {
+func (c *Conn) discoInfoForKnownPeerLocked(k key.DiscoPublic) *discoInfo {
 	di, ok := c.discoInfo[k]
 	if !ok {
 		di = &discoInfo{
@@ -1749,7 +2668,9 @@ func (c *Conn) SetNetworkUp(up bool) {
 	if up {
 		c.startDerpHomeConnectLocked()
 	} else {
-		c.portMapper.NoteNetworkDown()
+		if c.portMapper != nil {
+			c.portMapper.NoteNetworkDown()
+		}
 		c.closeAllDerpLocked("network-down")
 	}
 }
@@ -1932,34 +2853,184 @@ func (c *Conn) SetProbeUDPLifetime(v bool) {
 	})
 }
 
-// SetNetworkMap is called when the control client gets a new network
-// map from the control server. It must always be non-nil.
+// capVerIsRelayCapable returns true if version is relay client and server
+// capable, otherwise it returns false.
+func capVerIsRelayCapable(version tailcfg.CapabilityVersion) bool {
+	return version >= 121
+}
+
+// onFilterUpdate is called when a [FilterUpdate] is received over the
+// [eventbus.Bus].
+func (c *Conn) onFilterUpdate(f FilterUpdate) {
+	c.mu.Lock()
+	c.filt = f.Filter
+	self := c.self
+	peers := c.peers
+	relayClientEnabled := c.relayClientEnabled
+	c.mu.Unlock() // release c.mu before potentially calling c.updateRelayServersSet which is O(m * n)
+
+	if !relayClientEnabled {
+		// Early return if we cannot operate as a relay client.
+		return
+	}
+
+	// The filter has changed, and we are operating as a relay server client.
+	// Re-evaluate it in order to produce an updated relay server set.
+	c.updateRelayServersSet(f.Filter, self, peers)
+}
+
+// updateRelayServersSet iterates all peers and self, evaluating filt for each
+// one in order to determine which are relay server candidates. filt, self, and
+// peers are passed as args (vs c.mu-guarded fields) to enable callers to
+// release c.mu before calling as this is O(m * n) (we iterate all cap rules 'm'
+// in filt for every peer 'n').
 //
-// It should not use the DERPMap field of NetworkMap; that's
-// conditionally sent to SetDERPMap instead.
-func (c *Conn) SetNetworkMap(nm *netmap.NetworkMap) {
+// Calls to updateRelayServersSet must never run concurrent to
+// [endpoint.setDERPHome], otherwise [candidatePeerRelay] DERP home changes may
+// be missed from the perspective of [relayManager].
+//
+// TODO: Optimize this so that it's not O(m * n). This might involve:
+//  1. Changes to [filter.Filter], e.g. adding a CapsWithValues() to check for
+//     a given capability instead of building and returning a map of all of
+//     them.
+//  2. Moving this work upstream into [nodeBackend] or similar, and publishing
+//     the computed result over the eventbus instead.
+func (c *Conn) updateRelayServersSet(filt *filter.Filter, self tailcfg.NodeView, peers views.Slice[tailcfg.NodeView]) {
+	relayServers := make(set.Set[candidatePeerRelay])
+	nodes := append(peers.AsSlice(), self)
+	for _, maybeCandidate := range nodes {
+		if maybeCandidate.ID() != self.ID() && !capVerIsRelayCapable(maybeCandidate.Cap()) {
+			// If maybeCandidate's [tailcfg.CapabilityVersion] is not relay-capable,
+			// we skip it. If maybeCandidate happens to be self, then this check is
+			// unnecessary as self is always capable from this point (the statically
+			// compiled [tailcfg.CurrentCapabilityVersion]) forward.
+			continue
+		}
+		if !nodeHasCap(filt, maybeCandidate, self, tailcfg.PeerCapabilityRelayTarget) {
+			continue
+		}
+		relayServers.Add(candidatePeerRelay{
+			nodeKey:          maybeCandidate.Key(),
+			discoKey:         maybeCandidate.DiscoKey(),
+			derpHomeRegionID: uint16(maybeCandidate.HomeDERP()),
+		})
+	}
+	c.relayManager.handleRelayServersSet(relayServers)
+	if len(relayServers) > 0 {
+		c.hasPeerRelayServers.Store(true)
+	} else {
+		c.hasPeerRelayServers.Store(false)
+	}
+}
+
+// nodeHasCap returns true if src has cap on dst, otherwise it returns false.
+func nodeHasCap(filt *filter.Filter, src, dst tailcfg.NodeView, cap tailcfg.PeerCapability) bool {
+	if filt == nil ||
+		!src.Valid() ||
+		!dst.Valid() {
+		return false
+	}
+	for _, srcPrefix := range src.Addresses().All() {
+		if !srcPrefix.IsSingleIP() {
+			continue
+		}
+		srcAddr := srcPrefix.Addr()
+		for _, dstPrefix := range dst.Addresses().All() {
+			if !dstPrefix.IsSingleIP() {
+				continue
+			}
+			dstAddr := dstPrefix.Addr()
+			if dstAddr.BitLen() == srcAddr.BitLen() { // same address family
+				// [nodeBackend.peerCapsLocked] only returns/considers the
+				// [tailcfg.PeerCapMap] between the passed src and the _first_
+				// host (/32 or /128) address for self. We are consistent with
+				// that behavior here. If src and dst host addresses are of the
+				// same address family they either have the capability or not.
+				// We do not check against additional host addresses of the same
+				// address family.
+				return filt.CapsWithValues(srcAddr, dstAddr).HasCapability(cap)
+			}
+		}
+	}
+	return false
+}
+
+// candidatePeerRelay represents the identifiers and DERP home region ID for a
+// peer relay server.
+type candidatePeerRelay struct {
+	nodeKey          key.NodePublic
+	discoKey         key.DiscoPublic
+	derpHomeRegionID uint16
+}
+
+func (c *candidatePeerRelay) isValid() bool {
+	return !c.nodeKey.IsZero() && !c.discoKey.IsZero()
+}
+
+// onNodeViewsUpdate is called when a [NodeViewsUpdate] is received over the
+// [eventbus.Bus].
+func (c *Conn) onNodeViewsUpdate(update NodeViewsUpdate) {
+	peersChanged := c.updateNodes(update)
+
+	relayClientEnabled := update.SelfNode.Valid() &&
+		!update.SelfNode.HasCap(tailcfg.NodeAttrDisableRelayClient) &&
+		!update.SelfNode.HasCap(tailcfg.NodeAttrOnlyTCP443)
+
+	c.mu.Lock()
+	relayClientChanged := c.relayClientEnabled != relayClientEnabled
+	c.relayClientEnabled = relayClientEnabled
+	filt := c.filt
+	self := c.self
+	peers := c.peers
+	isClosed := c.closed
+	c.mu.Unlock() // release c.mu before potentially calling c.updateRelayServersSet which is O(m * n)
+
+	if isClosed {
+		return // nothing to do here, the conn is closed and the update is no longer relevant
+	}
+
+	if peersChanged || relayClientChanged {
+		if !relayClientEnabled {
+			c.relayManager.handleRelayServersSet(nil)
+			c.hasPeerRelayServers.Store(false)
+		} else {
+			c.updateRelayServersSet(filt, self, peers)
+		}
+	}
+}
+
+// updateNodes updates [Conn] to reflect the [tailcfg.NodeView]'s contained
+// in update. It returns true if update.Peers was unequal to c.peers, otherwise
+// false.
+func (c *Conn) updateNodes(update NodeViewsUpdate) (peersChanged bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if c.closed {
-		return
+		return false
 	}
 
 	priorPeers := c.peers
-	metricNumPeers.Set(int64(len(nm.Peers)))
+	metricNumPeers.Set(int64(len(update.Peers)))
 
-	// Update c.netMap regardless, before the following early return.
-	curPeers := views.SliceOf(nm.Peers)
+	// Update c.self & c.peers regardless, before the following early return.
+	c.self = update.SelfNode
+	curPeers := views.SliceOf(update.Peers)
 	c.peers = curPeers
 
+	// [debugFlags] are mutable in [Conn.SetSilentDisco] &
+	// [Conn.SetProbeUDPLifetime]. These setters are passed [controlknobs.Knobs]
+	// values by [ipnlocal.LocalBackend] around netmap reception.
+	// [controlknobs.Knobs] are simply self [tailcfg.NodeCapability]'s. They are
+	// useful as a global view of notable feature toggles, but the magicsock
+	// setters are completely unnecessary as we have the same values right here
+	// (update.SelfNode.Capabilities) at a time they are considered most
+	// up-to-date.
+	// TODO: mutate [debugFlags] here instead of in various [Conn] setters.
 	flags := c.debugFlagsLocked()
-	if addrs := nm.GetAddresses(); addrs.Len() > 0 {
-		c.firstAddrForTest = addrs.At(0).Addr()
-	} else {
-		c.firstAddrForTest = netip.Addr{}
-	}
 
-	if nodesEqual(priorPeers, curPeers) && c.lastFlags == flags {
+	peersChanged = !nodesEqual(priorPeers, curPeers)
+	if !peersChanged && c.lastFlags == flags {
 		// The rest of this function is all adjusting state for peers that have
 		// changed. But if the set of peers is equal and the debug flags (for
 		// silent disco and probe UDP lifetime) haven't changed, there is no
@@ -1969,16 +3040,16 @@ func (c *Conn) SetNetworkMap(nm *netmap.NetworkMap) {
 
 	c.lastFlags = flags
 
-	c.logf("[v1] magicsock: got updated network map; %d peers", len(nm.Peers))
+	c.logf("[v1] magicsock: got updated network map; %d peers", len(update.Peers))
 
-	entriesPerBuffer := debugRingBufferSize(len(nm.Peers))
+	entriesPerBuffer := debugRingBufferSize(len(update.Peers))
 
 	// Try a pass of just upserting nodes and creating missing
 	// endpoints. If the set of nodes is the same, this is an
 	// efficient alloc-free update. If the set of nodes is different,
 	// we'll fall through to the next pass, which allocates but can
 	// handle full set updates.
-	for _, n := range nm.Peers {
+	for _, n := range update.Peers {
 		if n.ID() == 0 {
 			devPanicf("node with zero ID")
 			continue
@@ -2055,7 +3126,7 @@ func (c *Conn) SetNetworkMap(nm *netmap.NetworkMap) {
 			// ~1MB on mobile but we never used the data so the memory was just
 			// wasted.
 		default:
-			ep.debugUpdates = ringbuffer.New[EndpointChange](entriesPerBuffer)
+			ep.debugUpdates = ringlog.New[EndpointChange](entriesPerBuffer)
 		}
 		if n.Addresses().Len() > 0 {
 			ep.nodeAddr = n.Addresses().At(0).Addr()
@@ -2078,14 +3149,14 @@ func (c *Conn) SetNetworkMap(nm *netmap.NetworkMap) {
 		c.peerMap.upsertEndpoint(ep, key.DiscoPublic{})
 	}
 
-	// If the set of nodes changed since the last SetNetworkMap, the
+	// If the set of nodes changed since the last onNodeViewsUpdate, the
 	// upsert loop just above made c.peerMap contain the union of the
 	// old and new peers - which will be larger than the set from the
 	// current netmap. If that happens, go through the allocful
 	// deletion path to clean up moribund nodes.
-	if c.peerMap.nodeCount() != len(nm.Peers) {
+	if c.peerMap.nodeCount() != len(update.Peers) {
 		keep := set.Set[key.NodePublic]{}
-		for _, n := range nm.Peers {
+		for _, n := range update.Peers {
 			keep.Add(n.Key())
 		}
 		c.peerMap.forEachEndpoint(func(ep *endpoint) {
@@ -2101,6 +3172,8 @@ func (c *Conn) SetNetworkMap(nm *netmap.NetworkMap) {
 			delete(c.discoInfo, dk)
 		}
 	}
+
+	return peersChanged
 }
 
 func devPanicf(format string, a ...any) {
@@ -2111,10 +3184,7 @@ func devPanicf(format string, a ...any) {
 
 func (c *Conn) logEndpointCreated(n tailcfg.NodeView) {
 	c.logf("magicsock: created endpoint key=%s: disco=%s; %v", n.Key().ShortString(), n.DiscoKey().ShortString(), logger.ArgWriter(func(w *bufio.Writer) {
-		const derpPrefix = "127.3.3.40:"
-		if strings.HasPrefix(n.DERP(), derpPrefix) {
-			ipp, _ := netip.ParseAddrPort(n.DERP())
-			regionID := int(ipp.Port())
+		if regionID := n.HomeDERP(); regionID != 0 {
 			code := c.derpRegionCodeLocked(regionID)
 			if code != "" {
 				code = "(" + code + ")"
@@ -2122,16 +3192,14 @@ func (c *Conn) logEndpointCreated(n tailcfg.NodeView) {
 			fmt.Fprintf(w, "derp=%v%s ", regionID, code)
 		}
 
-		for i := range n.AllowedIPs().Len() {
-			a := n.AllowedIPs().At(i)
+		for _, a := range n.AllowedIPs().All() {
 			if a.IsSingleIP() {
 				fmt.Fprintf(w, "aip=%v ", a.Addr())
 			} else {
 				fmt.Fprintf(w, "aip=%v ", a)
 			}
 		}
-		for i := range n.Endpoints().Len() {
-			ep := n.Endpoints().At(i)
+		for _, ep := range n.Endpoints().All() {
 			fmt.Fprintf(w, "ep=%v ", ep)
 		}
 	}))
@@ -2250,6 +3318,13 @@ func (c *connBind) isClosed() bool {
 //
 // Only the first close does anything. Any later closes return nil.
 func (c *Conn) Close() error {
+	// Close the [eventbus.Client] to wait for subscribers to
+	// return before acquiring c.mu:
+	//  1. Event handlers also acquire c.mu, they can deadlock with c.Close().
+	//  2. Event handlers may not guard against undesirable post/in-progress
+	//     Conn.Close() behaviors.
+	c.eventClient.Close()
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.closed {
@@ -2260,7 +3335,9 @@ func (c *Conn) Close() error {
 		c.derpCleanupTimer.Stop()
 	}
 	c.stopPeriodicReSTUNTimerLocked()
-	c.portMapper.Close()
+	if c.portMapper != nil {
+		c.portMapper.Close()
+	}
 
 	c.peerMap.forEachEndpoint(func(ep *endpoint) {
 		ep.stopAndReset()
@@ -2279,7 +3356,6 @@ func (c *Conn) Close() error {
 	if c.closeDisco6 != nil {
 		c.closeDisco6.Close()
 	}
-
 	// Wait on goroutines updating right at the end, once everything is
 	// already closed. We want everything else in the Conn to be
 	// consistently in the closed state before we release mu to wait
@@ -2291,6 +3367,8 @@ func (c *Conn) Close() error {
 	if pinger := c.getPinger(); pinger != nil {
 		pinger.Close()
 	}
+
+	deregisterMetrics()
 
 	return nil
 }
@@ -2342,10 +3420,12 @@ func (c *Conn) shouldDoPeriodicReSTUNLocked() bool {
 	return true
 }
 
-func (c *Conn) onPortMapChanged() { c.ReSTUN("portmap-changed") }
+func (c *Conn) onPortMapChanged(portmappertype.Mapping) { c.ReSTUN("portmap-changed") }
 
 // ReSTUN triggers an address discovery.
 // The provided why string is for debug logging only.
+// If Conn.staticEndpoints have been updated, calling ReSTUN will also result in
+// the new endpoints being advertised.
 func (c *Conn) ReSTUN(why string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -2397,9 +3477,9 @@ func (c *Conn) listenPacket(network string, port uint16) (nettype.PacketConn, er
 	return nettype.MakePacketListenerWithNetIP(netns.Listener(c.logf, c.netMon)).ListenPacket(ctx, network, addr)
 }
 
-// bindSocket initializes rucPtr if necessary and binds a UDP socket to it.
+// bindSocket binds a UDP socket to ruc.
 // Network indicates the UDP socket type; it must be "udp4" or "udp6".
-// If rucPtr had an existing UDP socket bound, it closes that socket.
+// If ruc had an existing UDP socket bound, it closes that socket.
 // The caller is responsible for informing the portMapper of any changes.
 // If curPortFate is set to dropCurrentPort, no attempt is made to reuse
 // the current port.
@@ -2438,7 +3518,7 @@ func (c *Conn) bindSocket(ruc *RebindingUDPConn, network string, curPortFate cur
 	}
 	ports = append(ports, 0)
 	// Remove duplicates. (All duplicates are consecutive.)
-	uniq.ModifySlice(&ports)
+	ports = slices.Compact(ports)
 
 	if debugBindSocket() {
 		c.logf("magicsock: bindSocket: candidate ports: %+v", ports)
@@ -2457,7 +3537,7 @@ func (c *Conn) bindSocket(ruc *RebindingUDPConn, network string, curPortFate cur
 			c.logf("magicsock: unable to bind %v port %d: %v", network, port, err)
 			continue
 		}
-		if c.onPortUpdate != nil {
+		if c.portUpdatePub.ShouldPublish() {
 			_, gotPortStr, err := net.SplitHostPort(pconn.LocalAddr().String())
 			if err != nil {
 				c.logf("could not parse port from %s: %w", pconn.LocalAddr().String(), err)
@@ -2466,11 +3546,14 @@ func (c *Conn) bindSocket(ruc *RebindingUDPConn, network string, curPortFate cur
 				if err != nil {
 					c.logf("could not parse port from %s: %w", gotPort, err)
 				} else {
-					c.onPortUpdate(uint16(gotPort), network)
+					c.portUpdatePub.Publish(router.PortUpdate{
+						UDPPort:         uint16(gotPort),
+						EndpointNetwork: network,
+					})
 				}
 			}
 		}
-		trySetSocketBuffer(pconn, c.logf)
+		trySetUDPSocketOptions(pconn, c.logf)
 
 		// Success.
 		if debugBindSocket() {
@@ -2510,7 +3593,9 @@ func (c *Conn) rebind(curPortFate currentPortFate) error {
 	if err := c.bindSocket(&c.pconn4, "udp4", curPortFate); err != nil {
 		return fmt.Errorf("magicsock: Rebind IPv4 failed: %w", err)
 	}
-	c.portMapper.SetLocalPort(c.LocalPort())
+	if c.portMapper != nil {
+		c.portMapper.SetLocalPort(c.LocalPort())
+	}
 	c.UpdatePMTUD()
 	return nil
 }
@@ -2532,7 +3617,9 @@ func (c *Conn) Rebind() {
 		c.logf("Rebind; defIf=%q, ips=%v", defIf, ifIPs)
 	}
 
-	c.maybeCloseDERPsOnRebind(ifIPs)
+	if len(ifIPs) > 0 {
+		c.maybeCloseDERPsOnRebind(ifIPs)
+	}
 	c.resetEndpointStates()
 }
 
@@ -2587,153 +3674,6 @@ func (c *Conn) ParseEndpoint(nodeKeyStr string) (conn.Endpoint, error) {
 	return ep, nil
 }
 
-func (c *batchingUDPConn) writeBatch(msgs []ipv6.Message) error {
-	var head int
-	for {
-		n, err := c.xpc.WriteBatch(msgs[head:], 0)
-		if err != nil || n == len(msgs[head:]) {
-			// Returning the number of packets written would require
-			// unraveling individual msg len and gso size during a coalesced
-			// write. The top of the call stack disregards partial success,
-			// so keep this simple for now.
-			return err
-		}
-		head += n
-	}
-}
-
-// splitCoalescedMessages splits coalesced messages from the tail of dst
-// beginning at index 'firstMsgAt' into the head of the same slice. It reports
-// the number of elements to evaluate in msgs for nonzero len (msgs[i].N). An
-// error is returned if a socket control message cannot be parsed or a split
-// operation would overflow msgs.
-func (c *batchingUDPConn) splitCoalescedMessages(msgs []ipv6.Message, firstMsgAt int) (n int, err error) {
-	for i := firstMsgAt; i < len(msgs); i++ {
-		msg := &msgs[i]
-		if msg.N == 0 {
-			return n, err
-		}
-		var (
-			gsoSize    int
-			start      int
-			end        = msg.N
-			numToSplit = 1
-		)
-		gsoSize, err = c.getGSOSizeFromControl(msg.OOB[:msg.NN])
-		if err != nil {
-			return n, err
-		}
-		if gsoSize > 0 {
-			numToSplit = (msg.N + gsoSize - 1) / gsoSize
-			end = gsoSize
-		}
-		for j := 0; j < numToSplit; j++ {
-			if n > i {
-				return n, errors.New("splitting coalesced packet resulted in overflow")
-			}
-			copied := copy(msgs[n].Buffers[0], msg.Buffers[0][start:end])
-			msgs[n].N = copied
-			msgs[n].Addr = msg.Addr
-			start = end
-			end += gsoSize
-			if end > msg.N {
-				end = msg.N
-			}
-			n++
-		}
-		if i != n-1 {
-			// It is legal for bytes to move within msg.Buffers[0] as a result
-			// of splitting, so we only zero the source msg len when it is not
-			// the destination of the last split operation above.
-			msg.N = 0
-		}
-	}
-	return n, nil
-}
-
-func (c *batchingUDPConn) ReadBatch(msgs []ipv6.Message, flags int) (n int, err error) {
-	if !c.rxOffload || len(msgs) < 2 {
-		return c.xpc.ReadBatch(msgs, flags)
-	}
-	// Read into the tail of msgs, split into the head.
-	readAt := len(msgs) - 2
-	numRead, err := c.xpc.ReadBatch(msgs[readAt:], 0)
-	if err != nil || numRead == 0 {
-		return 0, err
-	}
-	return c.splitCoalescedMessages(msgs, readAt)
-}
-
-func (c *batchingUDPConn) LocalAddr() net.Addr {
-	return c.pc.LocalAddr().(*net.UDPAddr)
-}
-
-func (c *batchingUDPConn) WriteToUDPAddrPort(b []byte, addr netip.AddrPort) (int, error) {
-	return c.pc.WriteToUDPAddrPort(b, addr)
-}
-
-func (c *batchingUDPConn) Close() error {
-	return c.pc.Close()
-}
-
-// tryUpgradeToBatchingUDPConn probes the capabilities of the OS and pconn, and
-// upgrades pconn to a *batchingUDPConn if appropriate.
-func tryUpgradeToBatchingUDPConn(pconn nettype.PacketConn, network string, batchSize int) nettype.PacketConn {
-	if network != "udp4" && network != "udp6" {
-		return pconn
-	}
-	if runtime.GOOS != "linux" {
-		return pconn
-	}
-	if strings.HasPrefix(hostinfo.GetOSVersion(), "2.") {
-		// recvmmsg/sendmmsg were added in 2.6.33, but we support down to
-		// 2.6.32 for old NAS devices. See https://github.com/tailscale/tailscale/issues/6807.
-		// As a cheap heuristic: if the Linux kernel starts with "2", just
-		// consider it too old for mmsg. Nobody who cares about performance runs
-		// such ancient kernels. UDP offload was added much later, so no
-		// upgrades are available.
-		return pconn
-	}
-	uc, ok := pconn.(*net.UDPConn)
-	if !ok {
-		return pconn
-	}
-	b := &batchingUDPConn{
-		pc:                    pconn,
-		getGSOSizeFromControl: getGSOSizeFromControl,
-		setGSOSizeInControl:   setGSOSizeInControl,
-		sendBatchPool: sync.Pool{
-			New: func() any {
-				ua := &net.UDPAddr{
-					IP: make([]byte, 16),
-				}
-				msgs := make([]ipv6.Message, batchSize)
-				for i := range msgs {
-					msgs[i].Buffers = make([][]byte, 1)
-					msgs[i].Addr = ua
-					msgs[i].OOB = make([]byte, controlMessageSize)
-				}
-				return &sendBatch{
-					ua:   ua,
-					msgs: msgs,
-				}
-			},
-		},
-	}
-	switch network {
-	case "udp4":
-		b.xpc = ipv4.NewPacketConn(uc)
-	case "udp6":
-		b.xpc = ipv6.NewPacketConn(uc)
-	default:
-		panic("bogus network")
-	}
-	var txOffload bool
-	txOffload, b.rxOffload = tryEnableUDPOffload(uc)
-	b.txOffload.Store(txOffload)
-	return b
-}
-
 func newBlockForeverConn() *blockForeverConn {
 	c := new(blockForeverConn)
 	c.cond = sync.NewCond(&c.mu)
@@ -2751,12 +3691,13 @@ func simpleDur(d time.Duration) time.Duration {
 	return d.Round(time.Minute)
 }
 
-// UpdateNetmapDelta implements controlclient.NetmapDeltaUpdater.
-func (c *Conn) UpdateNetmapDelta(muts []netmap.NodeMutation) (handled bool) {
+// onNodeMutationsUpdate is called when a [NodeMutationsUpdate] is received over
+// the [eventbus.Bus]. Note: It does not apply these mutations to c.peers.
+func (c *Conn) onNodeMutationsUpdate(update NodeMutationsUpdate) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	for _, m := range muts {
+	for _, m := range update.Mutations {
 		nodeID := m.NodeIDBeingMutated()
 		ep, ok := c.peerMap.endpointForNodeID(nodeID)
 		if !ok {
@@ -2771,10 +3712,9 @@ func (c *Conn) UpdateNetmapDelta(muts []netmap.NodeMutation) (handled bool) {
 			ep.mu.Unlock()
 		}
 	}
-	return true
 }
 
-// UpdateStatus implements the interface nede by ipnstate.StatusBuilder.
+// UpdateStatus implements the interface needed by ipnstate.StatusBuilder.
 //
 // This method adds in the magicsock-specific information only. Most
 // of the status is otherwise populated by LocalBackend.
@@ -2809,10 +3749,12 @@ func (c *Conn) UpdateStatus(sb *ipnstate.StatusBuilder) {
 	})
 }
 
-// SetStatistics specifies a per-connection statistics aggregator.
+// SetConnectionCounter specifies a per-connection statistics aggregator.
 // Nil may be specified to disable statistics gathering.
-func (c *Conn) SetStatistics(stats *connstats.Statistics) {
-	c.stats.Store(stats)
+func (c *Conn) SetConnectionCounter(fn netlogfunc.ConnectionCounter) {
+	if buildfeatures.HasNetLog {
+		c.connCounter.Store(fn)
+	}
 }
 
 // SetHomeless sets whether magicsock should idle harder and not have a DERP
@@ -2840,9 +3782,17 @@ const (
 	// keep NAT mappings alive.
 	sessionActiveTimeout = 45 * time.Second
 
-	// upgradeInterval is how often we try to upgrade to a better path
-	// even if we have some non-DERP route that works.
-	upgradeInterval = 1 * time.Minute
+	// upgradeUDPDirectInterval is how often we try to upgrade to a better,
+	// direct UDP path even if we have some direct UDP path that works.
+	upgradeUDPDirectInterval = 1 * time.Minute
+
+	// upgradeUDPRelayInterval is how often we try to discover UDP relay paths
+	// even if we have a UDP relay path that works.
+	upgradeUDPRelayInterval = 1 * time.Minute
+
+	// discoverUDPRelayPathsInterval is the minimum time between UDP relay path
+	// discovery.
+	discoverUDPRelayPathsInterval = 30 * time.Second
 
 	// heartbeatInterval is how often pings to the best UDP address
 	// are sent.
@@ -2919,40 +3869,56 @@ func (c *Conn) DebugPickNewDERP() error {
 	return errors.New("too few regions")
 }
 
-// portableTrySetSocketBuffer sets SO_SNDBUF and SO_RECVBUF on pconn to socketBufferSize,
-// logging an error if it occurs.
-func portableTrySetSocketBuffer(pconn nettype.PacketConn, logf logger.Logf) {
-	if c, ok := pconn.(*net.UDPConn); ok {
-		// Attempt to increase the buffer size, and allow failures.
-		if err := c.SetReadBuffer(socketBufferSize); err != nil {
-			logf("magicsock: failed to set UDP read buffer size to %d: %v", socketBufferSize, err)
+func (c *Conn) DebugForcePreferDERP(n int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.logf("magicsock: [debug] force preferred DERP set to: %d", n)
+	c.netChecker.SetForcePreferredDERP(n)
+}
+
+func trySetUDPSocketOptions(pconn nettype.PacketConn, logf logger.Logf) {
+	directions := []sockopts.BufferDirection{sockopts.ReadDirection, sockopts.WriteDirection}
+	for _, direction := range directions {
+		forceErr, portableErr := sockopts.SetBufferSize(pconn, direction, socketBufferSize)
+		if forceErr != nil {
+			logf("magicsock: [warning] failed to force-set UDP %v buffer size to %d: %v; using kernel default values (impacts throughput only)", direction, socketBufferSize, forceErr)
 		}
-		if err := c.SetWriteBuffer(socketBufferSize); err != nil {
-			logf("magicsock: failed to set UDP write buffer size to %d: %v", socketBufferSize, err)
+		if portableErr != nil {
+			logf("magicsock: failed to set UDP %v buffer size to %d: %v", direction, socketBufferSize, portableErr)
 		}
+	}
+
+	err := sockopts.SetICMPErrImmunity(pconn)
+	if err != nil {
+		logf("magicsock: %v", err)
 	}
 }
 
 // derpStr replaces DERP IPs in s with "derp-".
 func derpStr(s string) string { return strings.ReplaceAll(s, "127.3.3.40:", "derp-") }
 
-// ippEndpointCache is a mutex-free single-element cache, mapping from
-// a single netip.AddrPort to a single endpoint.
-type ippEndpointCache struct {
-	ipp netip.AddrPort
-	gen int64
-	de  *endpoint
+// epAddrEndpointCache is a mutex-free single-element cache, mapping from
+// a single [epAddr] to a single [*endpoint].
+type epAddrEndpointCache struct {
+	epAddr epAddr
+	gen    int64
+	de     *endpoint
 }
 
 // discoInfo is the info and state for the DiscoKey
-// in the Conn.discoInfo map key.
+// in the [Conn.discoInfo] and [relayManager.discoInfoByServerDisco] map keys.
+//
+// When the disco protocol is used to handshake with a peer relay server, the
+// corresponding discoInfo is held in [relayManager.discoInfoByServerDisco]
+// instead of [Conn.discoInfo].
 //
 // Note that a DiscoKey does not necessarily map to exactly one
 // node. In the case of shared nodes and users switching accounts, two
 // nodes in the NetMap may legitimately have the same DiscoKey.  As
 // such, no fields in here should be considered node-specific.
 type discoInfo struct {
-	// discoKey is the same as the Conn.discoInfo map key,
+	// discoKey is the same as the corresponding map key,
 	// just so you can pass around a *discoInfo alone.
 	// Not modified once initialized.
 	discoKey key.DiscoPublic
@@ -2963,14 +3929,16 @@ type discoInfo struct {
 
 	// sharedKey is the precomputed key for communication with the
 	// peer that has the DiscoKey used to look up this *discoInfo in
-	// Conn.discoInfo.
+	// the corresponding map.
 	// Not modified once initialized.
 	sharedKey key.DiscoShared
 
-	// Mutable fields follow, owned by Conn.mu:
+	// Mutable fields follow, owned by [Conn.mu]. These are irrelevant when
+	// discoInfo is a peer relay server disco key in the
+	// [relayManager.discoInfoByServerDisco] map:
 
 	// lastPingFrom is the src of a ping for discoKey.
-	lastPingFrom netip.AddrPort
+	lastPingFrom epAddr
 
 	// lastPingTime is the last time of a ping for discoKey.
 	lastPingTime time.Time
@@ -2989,44 +3957,99 @@ var (
 	metricSendDERPErrorChan   = clientmetric.NewCounter("magicsock_send_derp_error_chan")
 	metricSendDERPErrorClosed = clientmetric.NewCounter("magicsock_send_derp_error_closed")
 	metricSendDERPErrorQueue  = clientmetric.NewCounter("magicsock_send_derp_error_queue")
-	metricSendUDP             = clientmetric.NewCounter("magicsock_send_udp")
+	metricSendDERPDropped     = clientmetric.NewCounter("magicsock_send_derp_dropped")
 	metricSendUDPError        = clientmetric.NewCounter("magicsock_send_udp_error")
-	metricSendDERP            = clientmetric.NewCounter("magicsock_send_derp")
+	metricSendPeerRelayError  = clientmetric.NewCounter("magicsock_send_peer_relay_error")
 	metricSendDERPError       = clientmetric.NewCounter("magicsock_send_derp_error")
 
+	// Sends (data)
+	//
+	// Note: Prior to v1.78 metricSendUDP & metricSendDERP counted sends of data
+	// AND disco packets. They were updated in v1.78 to only count data packets.
+	// metricSendPeerRelay was added in v1.86 and has always counted only data
+	// packets.
+	metricSendUDP       = clientmetric.NewAggregateCounter("magicsock_send_udp")
+	metricSendPeerRelay = clientmetric.NewAggregateCounter("magicsock_send_peer_relay")
+	metricSendDERP      = clientmetric.NewAggregateCounter("magicsock_send_derp")
+
 	// Data packets (non-disco)
-	metricSendData            = clientmetric.NewCounter("magicsock_send_data")
-	metricSendDataNetworkDown = clientmetric.NewCounter("magicsock_send_data_network_down")
-	metricRecvDataDERP        = clientmetric.NewCounter("magicsock_recv_data_derp")
-	metricRecvDataIPv4        = clientmetric.NewCounter("magicsock_recv_data_ipv4")
-	metricRecvDataIPv6        = clientmetric.NewCounter("magicsock_recv_data_ipv6")
+	metricSendData                     = clientmetric.NewCounter("magicsock_send_data")
+	metricSendDataNetworkDown          = clientmetric.NewCounter("magicsock_send_data_network_down")
+	metricRecvDataPacketsDERP          = clientmetric.NewAggregateCounter("magicsock_recv_data_derp")
+	metricRecvDataPacketsIPv4          = clientmetric.NewAggregateCounter("magicsock_recv_data_ipv4")
+	metricRecvDataPacketsIPv6          = clientmetric.NewAggregateCounter("magicsock_recv_data_ipv6")
+	metricRecvDataPacketsPeerRelayIPv4 = clientmetric.NewAggregateCounter("magicsock_recv_data_peer_relay_ipv4")
+	metricRecvDataPacketsPeerRelayIPv6 = clientmetric.NewAggregateCounter("magicsock_recv_data_peer_relay_ipv6")
+	metricSendDataPacketsDERP          = clientmetric.NewAggregateCounter("magicsock_send_data_derp")
+	metricSendDataPacketsIPv4          = clientmetric.NewAggregateCounter("magicsock_send_data_ipv4")
+	metricSendDataPacketsIPv6          = clientmetric.NewAggregateCounter("magicsock_send_data_ipv6")
+	metricSendDataPacketsPeerRelayIPv4 = clientmetric.NewAggregateCounter("magicsock_send_data_peer_relay_ipv4")
+	metricSendDataPacketsPeerRelayIPv6 = clientmetric.NewAggregateCounter("magicsock_send_data_peer_relay_ipv6")
+
+	// Data bytes (non-disco)
+	metricRecvDataBytesDERP          = clientmetric.NewAggregateCounter("magicsock_recv_data_bytes_derp")
+	metricRecvDataBytesIPv4          = clientmetric.NewAggregateCounter("magicsock_recv_data_bytes_ipv4")
+	metricRecvDataBytesIPv6          = clientmetric.NewAggregateCounter("magicsock_recv_data_bytes_ipv6")
+	metricRecvDataBytesPeerRelayIPv4 = clientmetric.NewAggregateCounter("magicsock_recv_data_bytes_peer_relay_ipv4")
+	metricRecvDataBytesPeerRelayIPv6 = clientmetric.NewAggregateCounter("magicsock_recv_data_bytes_peer_relay_ipv6")
+	metricSendDataBytesDERP          = clientmetric.NewAggregateCounter("magicsock_send_data_bytes_derp")
+	metricSendDataBytesIPv4          = clientmetric.NewAggregateCounter("magicsock_send_data_bytes_ipv4")
+	metricSendDataBytesIPv6          = clientmetric.NewAggregateCounter("magicsock_send_data_bytes_ipv6")
+	metricSendDataBytesPeerRelayIPv4 = clientmetric.NewAggregateCounter("magicsock_send_data_bytes_peer_relay_ipv4")
+	metricSendDataBytesPeerRelayIPv6 = clientmetric.NewAggregateCounter("magicsock_send_data_bytes_peer_relay_ipv6")
 
 	// Disco packets
-	metricSendDiscoUDP               = clientmetric.NewCounter("magicsock_disco_send_udp")
-	metricSendDiscoDERP              = clientmetric.NewCounter("magicsock_disco_send_derp")
-	metricSentDiscoUDP               = clientmetric.NewCounter("magicsock_disco_sent_udp")
-	metricSentDiscoDERP              = clientmetric.NewCounter("magicsock_disco_sent_derp")
-	metricSentDiscoPing              = clientmetric.NewCounter("magicsock_disco_sent_ping")
-	metricSentDiscoPong              = clientmetric.NewCounter("magicsock_disco_sent_pong")
-	metricSentDiscoPeerMTUProbes     = clientmetric.NewCounter("magicsock_disco_sent_peer_mtu_probes")
-	metricSentDiscoPeerMTUProbeBytes = clientmetric.NewCounter("magicsock_disco_sent_peer_mtu_probe_bytes")
-	metricSentDiscoCallMeMaybe       = clientmetric.NewCounter("magicsock_disco_sent_callmemaybe")
-	metricRecvDiscoBadPeer           = clientmetric.NewCounter("magicsock_disco_recv_bad_peer")
-	metricRecvDiscoBadKey            = clientmetric.NewCounter("magicsock_disco_recv_bad_key")
-	metricRecvDiscoBadParse          = clientmetric.NewCounter("magicsock_disco_recv_bad_parse")
+	metricSendDiscoUDP                           = clientmetric.NewCounter("magicsock_disco_send_udp")
+	metricSendDiscoDERP                          = clientmetric.NewCounter("magicsock_disco_send_derp")
+	metricSentDiscoUDP                           = clientmetric.NewCounter("magicsock_disco_sent_udp")
+	metricSentDiscoDERP                          = clientmetric.NewCounter("magicsock_disco_sent_derp")
+	metricSentDiscoPing                          = clientmetric.NewCounter("magicsock_disco_sent_ping")
+	metricSentDiscoPong                          = clientmetric.NewCounter("magicsock_disco_sent_pong")
+	metricSentDiscoPeerMTUProbes                 = clientmetric.NewCounter("magicsock_disco_sent_peer_mtu_probes")
+	metricSentDiscoPeerMTUProbeBytes             = clientmetric.NewCounter("magicsock_disco_sent_peer_mtu_probe_bytes")
+	metricSentDiscoCallMeMaybe                   = clientmetric.NewCounter("magicsock_disco_sent_callmemaybe")
+	metricSentDiscoCallMeMaybeVia                = clientmetric.NewCounter("magicsock_disco_sent_callmemaybevia")
+	metricSentDiscoBindUDPRelayEndpoint          = clientmetric.NewCounter("magicsock_disco_sent_bind_udp_relay_endpoint")
+	metricSentDiscoBindUDPRelayEndpointAnswer    = clientmetric.NewCounter("magicsock_disco_sent_bind_udp_relay_endpoint_answer")
+	metricSentDiscoAllocUDPRelayEndpointRequest  = clientmetric.NewCounter("magicsock_disco_sent_alloc_udp_relay_endpoint_request")
+	metricLocalDiscoAllocUDPRelayEndpointRequest = clientmetric.NewCounter("magicsock_disco_local_alloc_udp_relay_endpoint_request")
+	metricSentDiscoAllocUDPRelayEndpointResponse = clientmetric.NewCounter("magicsock_disco_sent_alloc_udp_relay_endpoint_response")
+	metricRecvDiscoBadPeer                       = clientmetric.NewCounter("magicsock_disco_recv_bad_peer")
+	metricRecvDiscoBadKey                        = clientmetric.NewCounter("magicsock_disco_recv_bad_key")
+	metricRecvDiscoBadParse                      = clientmetric.NewCounter("magicsock_disco_recv_bad_parse")
 
-	metricRecvDiscoUDP                 = clientmetric.NewCounter("magicsock_disco_recv_udp")
-	metricRecvDiscoDERP                = clientmetric.NewCounter("magicsock_disco_recv_derp")
-	metricRecvDiscoPing                = clientmetric.NewCounter("magicsock_disco_recv_ping")
-	metricRecvDiscoPong                = clientmetric.NewCounter("magicsock_disco_recv_pong")
-	metricRecvDiscoCallMeMaybe         = clientmetric.NewCounter("magicsock_disco_recv_callmemaybe")
-	metricRecvDiscoCallMeMaybeBadNode  = clientmetric.NewCounter("magicsock_disco_recv_callmemaybe_bad_node")
-	metricRecvDiscoCallMeMaybeBadDisco = clientmetric.NewCounter("magicsock_disco_recv_callmemaybe_bad_disco")
-	metricRecvDiscoDERPPeerNotHere     = clientmetric.NewCounter("magicsock_disco_recv_derp_peer_not_here")
-	metricRecvDiscoDERPPeerGoneUnknown = clientmetric.NewCounter("magicsock_disco_recv_derp_peer_gone_unknown")
+	metricRecvDiscoUDP                                   = clientmetric.NewCounter("magicsock_disco_recv_udp")
+	metricRecvDiscoDERP                                  = clientmetric.NewCounter("magicsock_disco_recv_derp")
+	metricRecvDiscoPing                                  = clientmetric.NewCounter("magicsock_disco_recv_ping")
+	metricRecvDiscoPong                                  = clientmetric.NewCounter("magicsock_disco_recv_pong")
+	metricRecvDiscoCallMeMaybe                           = clientmetric.NewCounter("magicsock_disco_recv_callmemaybe")
+	metricRecvDiscoCallMeMaybeVia                        = clientmetric.NewCounter("magicsock_disco_recv_callmemaybevia")
+	metricRecvDiscoCallMeMaybeBadNode                    = clientmetric.NewCounter("magicsock_disco_recv_callmemaybe_bad_node")
+	metricRecvDiscoCallMeMaybeViaBadNode                 = clientmetric.NewCounter("magicsock_disco_recv_callmemaybevia_bad_node")
+	metricRecvDiscoCallMeMaybeBadDisco                   = clientmetric.NewCounter("magicsock_disco_recv_callmemaybe_bad_disco")
+	metricRecvDiscoCallMeMaybeViaBadDisco                = clientmetric.NewCounter("magicsock_disco_recv_callmemaybevia_bad_disco")
+	metricRecvDiscoBindUDPRelayEndpointChallenge         = clientmetric.NewCounter("magicsock_disco_recv_bind_udp_relay_endpoint_challenge")
+	metricRecvDiscoAllocUDPRelayEndpointRequest          = clientmetric.NewCounter("magicsock_disco_recv_alloc_udp_relay_endpoint_request")
+	metricRecvDiscoAllocUDPRelayEndpointRequestBadDisco  = clientmetric.NewCounter("magicsock_disco_recv_alloc_udp_relay_endpoint_request_bad_disco")
+	metricRecvDiscoAllocUDPRelayEndpointResponseBadDisco = clientmetric.NewCounter("magicsock_disco_recv_alloc_udp_relay_endpoint_response_bad_disco")
+	metricRecvDiscoAllocUDPRelayEndpointResponse         = clientmetric.NewCounter("magicsock_disco_recv_alloc_udp_relay_endpoint_response")
+	metricLocalDiscoAllocUDPRelayEndpointResponse        = clientmetric.NewCounter("magicsock_disco_local_alloc_udp_relay_endpoint_response")
+	metricRecvDiscoDERPPeerNotHere                       = clientmetric.NewCounter("magicsock_disco_recv_derp_peer_not_here")
+	metricRecvDiscoDERPPeerGoneUnknown                   = clientmetric.NewCounter("magicsock_disco_recv_derp_peer_gone_unknown")
 	// metricDERPHomeChange is how many times our DERP home region DI has
 	// changed from non-zero to a different non-zero.
 	metricDERPHomeChange = clientmetric.NewCounter("derp_home_change")
+
+	// metricDERPHomeNoChangeNoControl is how many times our DERP home
+	// region did not change because we didn't have an active connection to
+	// the control server.
+	metricDERPHomeNoChangeNoControl = clientmetric.NewCounter("derp_home_no_change_no_control")
+
+	// metricDERPHomeFallback is how many times we picked a DERP fallback.
+	metricDERPHomeFallback = clientmetric.NewCounter("derp_home_fallback")
+
+	// metricDERPStaleCleaned is how many times we closed a stale DERP connection.
+	metricDERPStaleCleaned = clientmetric.NewCounter("derp_stale_cleaned")
 
 	// Disco packets received bpf read path
 	//lint:ignore U1000 used on Linux only
@@ -3075,22 +4098,144 @@ func getPeerMTUsProbedMetric(mtu tstun.WireMTU) *clientmetric.Metric {
 	return mm
 }
 
-// GetLastNetcheckReport returns the last netcheck report, running a new one if a recent one does not exist.
+// GetLastNetcheckReport returns the last netcheck report, returning nil if a recent one does not exist.
 func (c *Conn) GetLastNetcheckReport(ctx context.Context) *netcheck.Report {
-	lastReport := c.lastNetCheckReport.Load()
-	if lastReport == nil {
-		nr, err := c.updateNetInfo(ctx)
-		if err != nil {
-			c.logf("magicsock.Conn.GetLastNetcheckReport: updateNetInfo: %v", err)
-			return nil
-		}
-		return nr
-	}
-	return lastReport
+	return c.lastNetCheckReport.Load()
 }
 
-// SetLastNetcheckReport sets local backend's last netcheck report.
+// SetLastNetcheckReportForTest sets the magicsock conn's last netcheck report.
 // Used for testing purposes.
-func (c *Conn) SetLastNetcheckReport(ctx context.Context, report netcheck.Report) {
-	c.lastNetCheckReport.Store(&report)
+func (c *Conn) SetLastNetcheckReportForTest(ctx context.Context, report *netcheck.Report) {
+	c.lastNetCheckReport.Store(report)
+}
+
+// lazyEndpoint is a wireguard [conn.Endpoint] for when magicsock received a
+// non-disco (presumably WireGuard) packet from a UDP address from which we
+// can't map to a Tailscale peer. But WireGuard most likely can, once it
+// decrypts it. So we implement the [conn.InitiationAwareEndpoint] and
+// [conn.PeerAwareEndpoint] interfaces, to allow WireGuard to tell us who it is
+// later, just-in-time to configure the peer, and set the associated [epAddr]
+// in the [peerMap]. Future receives on the associated [epAddr] will then
+// resolve directly to an [*endpoint].
+//
+// We also sometimes (see [Conn.receiveIP]) return a [*lazyEndpoint] to
+// wireguard-go to verify an [epAddr] resolves to the [*endpoint] (maybeEP) we
+// believe it to be, to resolve [epAddr] collisions across peers. [epAddr]
+// collisions have a higher chance of occurrence for packets received over peer
+// relays versus direct connections, as peer relay connections do not upsert
+// into [peerMap] around disco packet reception, but direct connections do.
+type lazyEndpoint struct {
+	c       *Conn
+	maybeEP *endpoint // or nil if unknown
+	src     epAddr
+}
+
+var _ conn.InitiationAwareEndpoint = (*lazyEndpoint)(nil)
+var _ conn.PeerAwareEndpoint = (*lazyEndpoint)(nil)
+var _ conn.Endpoint = (*lazyEndpoint)(nil)
+
+// InitiationMessagePublicKey implements [conn.InitiationAwareEndpoint].
+// wireguard-go calls us here if we passed it a [*lazyEndpoint] for an
+// initiation message, for which it might not have the relevant peer configured,
+// enabling us to just-in-time configure it and note its activity via
+// [*endpoint.noteRecvActivity], before it performs peer lookup and attempts
+// decryption.
+//
+// Reception of all other WireGuard message types implies pre-existing knowledge
+// of the peer by wireguard-go for it to do useful work. See
+// [userspaceEngine.maybeReconfigWireguardLocked] &
+// [userspaceEngine.noteRecvActivity] for more details around just-in-time
+// wireguard-go peer (de)configuration.
+func (le *lazyEndpoint) InitiationMessagePublicKey(peerPublicKey [32]byte) {
+	pubKey := key.NodePublicFromRaw32(mem.B(peerPublicKey[:]))
+	if le.maybeEP != nil && pubKey.Compare(le.maybeEP.publicKey) == 0 {
+		return
+	}
+	le.c.mu.Lock()
+	ep, ok := le.c.peerMap.endpointForNodeKey(pubKey)
+	// [Conn.mu] must not be held while [Conn.noteRecvActivity] is called, which
+	// [endpoint.noteRecvActivity] can end up calling. See
+	// [Options.NoteRecvActivity] docs.
+	le.c.mu.Unlock()
+	if !ok {
+		return
+	}
+	now := mono.Now()
+	ep.lastRecvUDPAny.StoreAtomic(now)
+	ep.noteRecvActivity(le.src, now)
+	// [ep.noteRecvActivity] may end up JIT configuring the peer, but we don't
+	// update [peerMap] as wireguard-go hasn't decrypted the initiation
+	// message yet. wireguard-go will call us below in [lazyEndpoint.FromPeer]
+	// if it successfully decrypts the message, at which point it's safe to
+	// insert le.src into the [peerMap] for ep.
+}
+
+func (le *lazyEndpoint) ClearSrc()         {}
+func (le *lazyEndpoint) SrcIP() netip.Addr { return netip.Addr{} }
+
+// DstIP returns the remote address of the peer.
+//
+// Note: DstIP is used internally by wireguard-go as part of handshake DoS
+// mitigation.
+func (le *lazyEndpoint) DstIP() netip.Addr { return le.src.ap.Addr() }
+
+func (le *lazyEndpoint) SrcToString() string { return "" }
+func (le *lazyEndpoint) DstToString() string { return le.src.String() }
+
+// DstToBytes returns a binary representation of the remote address of the peer.
+//
+// Note: DstToBytes is used internally by wireguard-go as part of handshake DoS
+// mitigation.
+func (le *lazyEndpoint) DstToBytes() []byte {
+	b, _ := le.src.ap.MarshalBinary()
+	return b
+}
+
+// FromPeer implements [conn.PeerAwareEndpoint]. We return a [*lazyEndpoint] in
+// [Conn.receiveIP] when we are unable to identify the peer at WireGuard
+// packet reception time, pre-decryption, or we want wireguard-go to verify who
+// we believe it to be (le.maybeEP). If wireguard-go successfully decrypts the
+// packet it calls us here, and we update our [peerMap] to associate le.src with
+// peerPublicKey.
+func (le *lazyEndpoint) FromPeer(peerPublicKey [32]byte) {
+	pubKey := key.NodePublicFromRaw32(mem.B(peerPublicKey[:]))
+	if le.maybeEP != nil && pubKey.Compare(le.maybeEP.publicKey) == 0 {
+		return
+	}
+	le.c.mu.Lock()
+	defer le.c.mu.Unlock()
+	ep, ok := le.c.peerMap.endpointForNodeKey(pubKey)
+	if !ok {
+		return
+	}
+	// TODO(jwhited): Consider [lazyEndpoint] effectiveness as a means to make
+	//  this the sole call site for setNodeKeyForEpAddr. If this is the sole
+	//  call site, and we always update the mapping based on successful
+	//  Cryptokey Routing identification events, then we can go ahead and make
+	//  [epAddr]s singular per peer (like they are for Geneve-encapsulated ones
+	//  already).
+	//  See http://go/corp/29422 & http://go/corp/30042
+	le.c.peerMap.setNodeKeyForEpAddr(le.src, pubKey)
+	le.c.logf("magicsock: lazyEndpoint.FromPeer(%v) setting epAddr(%v) in peerMap for node(%v)", pubKey.ShortString(), le.src, ep.nodeAddr)
+}
+
+// PeerRelays returns the current set of candidate peer relays.
+func (c *Conn) PeerRelays() set.Set[netip.Addr] {
+	candidatePeerRelays := c.relayManager.getServers()
+	servers := make(set.Set[netip.Addr], len(candidatePeerRelays))
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for relay := range candidatePeerRelays {
+		pi, ok := c.peerMap.byNodeKey[relay.nodeKey]
+		if !ok {
+			if c.self.Key().Compare(relay.nodeKey) == 0 {
+				if c.self.Addresses().Len() > 0 {
+					servers.Add(c.self.Addresses().At(0).Addr())
+				}
+			}
+			continue
+		}
+		servers.Add(pi.ep.nodeAddr)
+	}
+	return servers
 }

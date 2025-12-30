@@ -1,6 +1,8 @@
 // Copyright (c) Tailscale Inc & AUTHORS
 // SPDX-License-Identifier: BSD-3-Clause
 
+//go:build !android && !ios
+
 package dns
 
 import (
@@ -21,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	"tailscale.com/feature"
 	"tailscale.com/health"
 	"tailscale.com/net/dns/resolvconffile"
 	"tailscale.com/net/tsaddr"
@@ -276,6 +279,14 @@ func (m *directManager) rename(old, new string) error {
 		return fmt.Errorf("writing to %q in rename of %q: %w", new, old, err)
 	}
 
+	// Explicitly set the permissions on the new file. This ensures that
+	// if we have a umask set which prevents creating world-readable files,
+	// the file will still have the correct permissions once it's renamed
+	// into place. See #12609.
+	if err := m.fs.Chmod(new, 0644); err != nil {
+		return fmt.Errorf("chmod %q in rename of %q: %w", new, old, err)
+	}
+
 	if err := m.fs.Remove(old); err != nil {
 		err2 := m.fs.Truncate(old)
 		if err2 != nil {
@@ -405,6 +416,73 @@ func (m *directManager) GetBaseConfig() (OSConfig, error) {
 	return oscfg, nil
 }
 
+// HookWatchFile is a hook for watching file changes, for platforms that support it.
+// The function is called with a directory and filename to watch, and a callback
+// to call when the file changes. It returns an error if the watch could not be set up.
+var HookWatchFile feature.Hook[func(ctx context.Context, dir, filename string, cb func()) error]
+
+func (m *directManager) runFileWatcher() {
+	watchFile, ok := HookWatchFile.GetOk()
+	if !ok {
+		return
+	}
+	if err := watchFile(m.ctx, "/etc/", resolvConf, m.checkForFileTrample); err != nil {
+		// This is all best effort for now, so surface warnings to users.
+		m.logf("dns: inotify: %s", err)
+	}
+}
+
+var resolvTrampleWarnable = health.Register(&health.Warnable{
+	Code:     "resolv-conf-overwritten",
+	Severity: health.SeverityMedium,
+	Title:    "DNS configuration issue",
+	Text:     health.StaticMessage("System DNS config not ideal. /etc/resolv.conf overwritten. See https://tailscale.com/s/dns-fight"),
+})
+
+// checkForFileTrample checks whether /etc/resolv.conf has been trampled
+// by another program on the system. (e.g. a DHCP client)
+func (m *directManager) checkForFileTrample() {
+	m.mu.Lock()
+	want := m.wantResolvConf
+	lastWarn := m.lastWarnContents
+	m.mu.Unlock()
+
+	if want == nil {
+		return
+	}
+
+	cur, err := m.fs.ReadFile(resolvConf)
+	if err != nil {
+		m.logf("trample: read error: %v", err)
+		return
+	}
+	if bytes.Equal(cur, want) {
+		m.health.SetHealthy(resolvTrampleWarnable)
+		if lastWarn != nil {
+			m.mu.Lock()
+			m.lastWarnContents = nil
+			m.mu.Unlock()
+			m.logf("trample: resolv.conf again matches expected content")
+		}
+		return
+	}
+	if bytes.Equal(cur, lastWarn) {
+		// We already logged about this, so not worth doing it again.
+		return
+	}
+
+	m.mu.Lock()
+	m.lastWarnContents = cur
+	m.mu.Unlock()
+
+	show := cur
+	if len(show) > 1024 {
+		show = show[:1024]
+	}
+	m.logf("trample: resolv.conf changed from what we expected. did some other program interfere? current contents: %q", show)
+	m.health.SetUnhealthy(resolvTrampleWarnable, nil)
+}
+
 func (m *directManager) Close() error {
 	m.ctxClose()
 
@@ -467,6 +545,14 @@ func (m *directManager) atomicWriteFile(fs wholeFileFS, filename string, data []
 	if err := fs.WriteFile(tmpName, data, perm); err != nil {
 		return fmt.Errorf("atomicWriteFile: %w", err)
 	}
+	// Explicitly set the permissions on the temporary file before renaming
+	// it. This ensures that if we have a umask set which prevents creating
+	// world-readable files, the file will still have the correct
+	// permissions once it's renamed into place. See #12609.
+	if err := fs.Chmod(tmpName, perm); err != nil {
+		return fmt.Errorf("atomicWriteFile: Chmod: %w", err)
+	}
+
 	return m.rename(tmpName, filename)
 }
 
@@ -475,10 +561,11 @@ func (m *directManager) atomicWriteFile(fs wholeFileFS, filename string, data []
 //
 // All name parameters are absolute paths.
 type wholeFileFS interface {
-	Stat(name string) (isRegular bool, err error)
-	Rename(oldName, newName string) error
-	Remove(name string) error
+	Chmod(name string, mode os.FileMode) error
 	ReadFile(name string) ([]byte, error)
+	Remove(name string) error
+	Rename(oldName, newName string) error
+	Stat(name string) (isRegular bool, err error)
 	Truncate(name string) error
 	WriteFile(name string, contents []byte, perm os.FileMode) error
 }
@@ -500,6 +587,10 @@ func (fs directFS) Stat(name string) (isRegular bool, err error) {
 		return false, err
 	}
 	return fi.Mode().IsRegular(), nil
+}
+
+func (fs directFS) Chmod(name string, mode os.FileMode) error {
+	return os.Chmod(fs.path(name), mode)
 }
 
 func (fs directFS) Rename(oldName, newName string) error {

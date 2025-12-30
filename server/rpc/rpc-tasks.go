@@ -444,7 +444,7 @@ func getOrdinal(index uint32, rawData []byte, fpe *pe.File, funcArrayFoa uint32)
 }
 
 // func getExportOffsetFromFile(filepath string, exportName string) (funcOffset uint32, err error) {
-// 	rawData, err := ioutil.ReadFile(filepath)
+// 	rawData, err := os.ReadFile(filepath)
 // 	if err != nil {
 // 		return 0, err
 // 	}

@@ -229,7 +229,7 @@ func StartHTTPListenerJob(req *clientpb.HTTPListenerReq) (*core.Job, error) {
 }
 
 // StartTCPStagerListenerJob - Start a TCP staging payload listener
-func StartTCPStagerListenerJob(host string, port uint16, profileName string, shellcode []byte) (*core.Job, error) {
+func StartTCPStagerListenerJob(host string, port uint16, name string, shellcode []byte) (*core.Job, error) {
 	ln, err := StartTCPListener(host, port, shellcode)
 	if err != nil {
 		return nil, err // If we fail to bind don't setup the Job
@@ -241,8 +241,8 @@ func StartTCPStagerListenerJob(host string, port uint16, profileName string, she
 		Description: "Raw TCP listener (stager only)",
 		Protocol:    "tcp",
 		Port:        port,
-		ProfileName: profileName,
 		JobCtrl:     make(chan bool),
+		ProfileName: name,
 	}
 
 	go func() {

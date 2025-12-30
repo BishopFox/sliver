@@ -204,7 +204,7 @@ Each of these encoders has a unique "Encoder ID," which is currently hardcoded b
 3. Generate a `nonce`, the nonce is equal to a random number times the `EncoderModulus` plus the encoder ID; the `EncoderModulus` is currently a hardcoded constant value, but we may generate this per-server in the future. The server does the opposite (nonce modulo `EncoderModulus`) to determine the original Encoder ID. In code this looks like:
 
 ```
-nonce := (insecureRand.Intn(maxN) * EncoderModulus) + encoderID
+nonce := (util.Intn(maxN) * EncoderModulus) + encoderID
 encoderId := nonce % EncoderModulus
 ```
 

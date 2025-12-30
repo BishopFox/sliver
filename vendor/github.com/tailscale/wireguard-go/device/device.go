@@ -368,10 +368,10 @@ func (device *Device) RemoveAllPeers() {
 }
 
 func (device *Device) Close() {
-	device.ipcMutex.Lock()
-	defer device.ipcMutex.Unlock()
 	device.state.Lock()
 	defer device.state.Unlock()
+	device.ipcMutex.Lock()
+	defer device.ipcMutex.Unlock()
 	if device.isClosed() {
 		return
 	}

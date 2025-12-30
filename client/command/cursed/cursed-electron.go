@@ -22,7 +22,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	insecureRand "math/rand"
 	"path"
 	"time"
 
@@ -34,6 +33,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/util"
 	"github.com/spf13/cobra"
 )
 
@@ -118,7 +118,7 @@ func avadaKedavraElectron(electronExe string, session *clientpb.Session, cmd *co
 	return curse
 }
 
-func checkElectronPath(electronExe string, session *clientpb.Session, cmd *cobra.Command, con *console.SliverClient) (bool, error) {
+func checkElectronPath(electronExe string, _ *clientpb.Session, cmd *cobra.Command, con *console.SliverClient) (bool, error) {
 	ls, err := con.Rpc.Ls(context.Background(), &sliverpb.LsReq{
 		Request: con.ActiveTarget.Request(cmd),
 		Path:    electronExe,
@@ -175,7 +175,7 @@ func startCursedElectronProcess(electronExe string, session *clientpb.Session, c
 	con.PrintInfof("Waiting for process to initialize ... ")
 	time.Sleep(2 * time.Second)
 
-	bindPort := insecureRand.Intn(10000) + 40000
+	bindPort := util.Intn(10000) + 40000
 	bindAddr := fmt.Sprintf("127.0.0.1:%d", bindPort)
 
 	remoteAddr := fmt.Sprintf("127.0.0.1:%d", debugPort)

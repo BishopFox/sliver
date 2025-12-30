@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 
@@ -39,6 +40,7 @@ type Device struct {
 	// It's currently just 1 element, the 100.x.y.z Tailscale IP.
 	Addresses []string `json:"addresses"`
 	DeviceID  string   `json:"id"`
+	NodeID    string   `json:"nodeId"`
 	User      string   `json:"user"`
 	Name      string   `json:"name"`
 	Hostname  string   `json:"hostname"`
@@ -77,6 +79,13 @@ type Device struct {
 	// Tailscale have attempted to collect this from the device but it has not
 	// opted in, PostureIdentity will have Disabled=true.
 	PostureIdentity *DevicePostureIdentity `json:"postureIdentity"`
+
+	// TailnetLockKey is the tailnet lock public key of the node as a hex string.
+	TailnetLockKey string `json:"tailnetLockKey,omitempty"`
+
+	// TailnetLockErr indicates an issue with the tailnet lock node-key signature
+	// on this device. This field is only populated when tailnet lock is enabled.
+	TailnetLockErr string `json:"tailnetLockError,omitempty"`
 }
 
 type DevicePostureIdentity struct {
@@ -129,7 +138,7 @@ func (c *Client) Devices(ctx context.Context, fields *DeviceFieldsOpts) (deviceL
 		}
 	}()
 
-	path := fmt.Sprintf("%s/api/v2/tailnet/%s/devices", c.baseURL(), c.tailnet)
+	path := c.BuildTailnetURL("devices")
 	req, err := http.NewRequestWithContext(ctx, "GET", path, nil)
 	if err != nil {
 		return nil, err
@@ -147,7 +156,7 @@ func (c *Client) Devices(ctx context.Context, fields *DeviceFieldsOpts) (deviceL
 	// If status code was not successful, return the error.
 	// TODO: Change the check for the StatusCode to include other 2XX success codes.
 	if resp.StatusCode != http.StatusOK {
-		return nil, handleErrorResponse(b, resp)
+		return nil, HandleErrorResponse(b, resp)
 	}
 
 	var devices GetDevicesResponse
@@ -186,7 +195,7 @@ func (c *Client) Device(ctx context.Context, deviceID string, fields *DeviceFiel
 	// If status code was not successful, return the error.
 	// TODO: Change the check for the StatusCode to include other 2XX success codes.
 	if resp.StatusCode != http.StatusOK {
-		return nil, handleErrorResponse(b, resp)
+		return nil, HandleErrorResponse(b, resp)
 	}
 
 	err = json.Unmarshal(b, &device)
@@ -213,10 +222,13 @@ func (c *Client) DeleteDevice(ctx context.Context, deviceID string) (err error) 
 	if err != nil {
 		return err
 	}
+
+	log.Printf("RESP: %di, path: %s", resp.StatusCode, path)
+
 	// If status code was not successful, return the error.
 	// TODO: Change the check for the StatusCode to include other 2XX success codes.
 	if resp.StatusCode != http.StatusOK {
-		return handleErrorResponse(b, resp)
+		return HandleErrorResponse(b, resp)
 	}
 	return nil
 }
@@ -248,7 +260,7 @@ func (c *Client) SetAuthorized(ctx context.Context, deviceID string, authorized 
 	// If status code was not successful, return the error.
 	// TODO: Change the check for the StatusCode to include other 2XX success codes.
 	if resp.StatusCode != http.StatusOK {
-		return handleErrorResponse(b, resp)
+		return HandleErrorResponse(b, resp)
 	}
 
 	return nil
@@ -276,7 +288,7 @@ func (c *Client) SetTags(ctx context.Context, deviceID string, tags []string) er
 	// If status code was not successful, return the error.
 	// TODO: Change the check for the StatusCode to include other 2XX success codes.
 	if resp.StatusCode != http.StatusOK {
-		return handleErrorResponse(b, resp)
+		return HandleErrorResponse(b, resp)
 	}
 
 	return nil

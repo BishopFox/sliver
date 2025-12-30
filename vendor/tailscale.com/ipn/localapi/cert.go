@@ -1,7 +1,7 @@
 // Copyright (c) Tailscale Inc & AUTHORS
 // SPDX-License-Identifier: BSD-3-Clause
 
-//go:build !ios && !android && !js
+//go:build !ios && !android && !js && !ts_omit_acme
 
 package localapi
 
@@ -9,9 +9,14 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"tailscale.com/ipn/ipnlocal"
 )
+
+func init() {
+	Register("cert/", (*Handler).serveCert)
+}
 
 func (h *Handler) serveCert(w http.ResponseWriter, r *http.Request) {
 	if !h.PermitWrite && !h.PermitCert {
@@ -23,7 +28,16 @@ func (h *Handler) serveCert(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal handler config wired wrong", 500)
 		return
 	}
-	pair, err := h.b.GetCertPEM(r.Context(), domain)
+	var minValidity time.Duration
+	if minValidityStr := r.URL.Query().Get("min_validity"); minValidityStr != "" {
+		var err error
+		minValidity, err = time.ParseDuration(minValidityStr)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("invalid validity parameter: %v", err), http.StatusBadRequest)
+			return
+		}
+	}
+	pair, err := h.b.GetCertPEMWithValidity(r.Context(), domain, minValidity)
 	if err != nil {
 		// TODO(bradfitz): 500 is a little lazy here. The errors returned from
 		// GetCertPEM (and everywhere) should carry info info to get whether

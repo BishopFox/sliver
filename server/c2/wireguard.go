@@ -62,6 +62,23 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 		return nil, nil, nil, err
 	}
 
+	tunIPAddr, err := netip.ParseAddr(tunIP)
+	if err != nil {
+		wgLog.Errorf("ParseAddr failed: %v", err)
+		return nil, nil, nil, err
+	}
+
+	// Allow netstack to listen on the ports we need
+	if err := tNet.AllowTCPPort(tunIPAddr, netstackPort); err != nil {
+		wgLog.Errorf("AllowTCPPort failed for netstackPort: %v", err)
+		return nil, nil, nil, err
+	}
+
+	if err := tNet.AllowTCPPort(tunIPAddr, keyExchangeListenPort); err != nil {
+		wgLog.Errorf("AllowTCPPort failed for keyExchangeListenPort: %v", err)
+		return nil, nil, nil, err
+	}
+
 	// Get existing server wg keys
 	privateKey, _, err := certs.GetWGServerKeys()
 

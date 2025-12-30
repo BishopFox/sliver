@@ -1,4 +1,4 @@
-//go:build (linux || darwin || windows || freebsd || openbsd || netbsd || dragonfly || illumos) && !sqlite3_nosys
+//go:build linux || darwin || windows || freebsd || openbsd || netbsd || dragonfly || illumos || sqlite3_flock || sqlite3_dotlk
 
 package vfs
 
@@ -20,12 +20,10 @@ const (
 )
 
 func (f *vfsFile) Lock(lock LockLevel) error {
-	// Argument check. SQLite never explicitly requests a pending lock.
-	if lock != LOCK_SHARED && lock != LOCK_RESERVED && lock != LOCK_EXCLUSIVE {
-		panic(util.AssertErr())
-	}
-
 	switch {
+	case lock != LOCK_SHARED && lock != LOCK_RESERVED && lock != LOCK_EXCLUSIVE:
+		// Argument check. SQLite never explicitly requests a pending lock.
+		panic(util.AssertErr())
 	case f.lock < LOCK_NONE || f.lock > LOCK_EXCLUSIVE:
 		// Connection state check.
 		panic(util.AssertErr())
@@ -43,7 +41,7 @@ func (f *vfsFile) Lock(lock LockLevel) error {
 	}
 
 	// Do not allow any kind of write-lock on a read-only database.
-	if f.readOnly && lock >= LOCK_RESERVED {
+	if lock >= LOCK_RESERVED && f.flags&OPEN_READONLY != 0 {
 		return _IOERR_LOCK
 	}
 
@@ -75,20 +73,7 @@ func (f *vfsFile) Lock(lock LockLevel) error {
 		if f.lock <= LOCK_NONE || f.lock >= LOCK_EXCLUSIVE {
 			panic(util.AssertErr())
 		}
-		reserved := f.lock == LOCK_RESERVED
-		// A PENDING lock is needed before acquiring an EXCLUSIVE lock.
-		if f.lock < LOCK_PENDING {
-			// If we're already RESERVED, we can block indefinitely,
-			// since only new readers may briefly hold the PENDING lock.
-			if rc := osGetPendingLock(f.File, reserved /* block */); rc != _OK {
-				return rc
-			}
-			f.lock = LOCK_PENDING
-		}
-		// We already have PENDING, so we're just waiting for readers to leave.
-		// If we were RESERVED, we can wait for a little while, before invoking
-		// the busy handler; we will only do this once.
-		if rc := osGetExclusiveLock(f.File, reserved /* wait */); rc != _OK {
+		if rc := osGetExclusiveLock(f.File, &f.lock); rc != _OK {
 			return rc
 		}
 		f.lock = LOCK_EXCLUSIVE
@@ -100,13 +85,12 @@ func (f *vfsFile) Lock(lock LockLevel) error {
 }
 
 func (f *vfsFile) Unlock(lock LockLevel) error {
-	// Argument check.
-	if lock != LOCK_NONE && lock != LOCK_SHARED {
+	switch {
+	case lock != LOCK_NONE && lock != LOCK_SHARED:
+		// Argument check.
 		panic(util.AssertErr())
-	}
-
-	// Connection state check.
-	if f.lock < LOCK_NONE || f.lock > LOCK_EXCLUSIVE {
+	case f.lock < LOCK_NONE || f.lock > LOCK_EXCLUSIVE:
+		// Connection state check.
 		panic(util.AssertErr())
 	}
 

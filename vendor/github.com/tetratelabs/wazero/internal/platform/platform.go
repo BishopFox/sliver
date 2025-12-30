@@ -6,20 +6,31 @@ package platform
 
 import (
 	"runtime"
+
+	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/experimental"
 )
 
-// archRequirementsVerified is set by platform-specific init to true if the platform is supported
-var archRequirementsVerified bool
-
-// CompilerSupported is exported for tests and includes constraints here and also the assembler.
+// CompilerSupported includes constraints here and also the assembler.
 func CompilerSupported() bool {
+	return CompilerSupports(api.CoreFeaturesV2)
+}
+
+func CompilerSupports(features api.CoreFeatures) bool {
 	switch runtime.GOOS {
-	case "darwin", "windows", "linux", "freebsd":
+	case "linux", "darwin", "freebsd", "netbsd", "dragonfly", "windows":
+		if runtime.GOARCH == "arm64" {
+			if features.IsEnabled(experimental.CoreFeaturesThreads) {
+				return CpuFeatures.Has(CpuFeatureArm64Atomic)
+			}
+			return true
+		}
+		fallthrough
+	case "solaris", "illumos":
+		return runtime.GOARCH == "amd64" && CpuFeatures.Has(CpuFeatureAmd64SSE4_1)
 	default:
 		return false
 	}
-
-	return archRequirementsVerified
 }
 
 // MmapCodeSegment copies the code into the executable region and returns the byte slice of the region.

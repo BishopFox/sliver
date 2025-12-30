@@ -490,6 +490,7 @@ func hasUpper(line []rune) bool {
 
 func longest(vals []string, trimEscapes bool) int {
 	var length int
+
 	for _, val := range vals {
 		if trimEscapes {
 			val = color.Strip(val)

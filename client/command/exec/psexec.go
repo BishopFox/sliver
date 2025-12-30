@@ -21,7 +21,6 @@ package exec
 import (
 	"context"
 	"fmt"
-	insecureRand "math/rand"
 	"os"
 	"strings"
 	"time"
@@ -32,6 +31,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/util"
 	"github.com/bishopfox/sliver/util/encoders"
 	"github.com/spf13/cobra"
 )
@@ -175,8 +175,8 @@ func PsExecCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 func randomString() string {
 	alphanumeric := "abcdefghijklmnopqrstuvwxyz0123456789"
 	str := ""
-	for index := 0; index < insecureRand.Intn(8)+1; index++ {
-		str += string(alphanumeric[insecureRand.Intn(len(alphanumeric))])
+	for index := 0; index < util.Intn(8)+1; index++ {
+		str += string(alphanumeric[util.Intn(len(alphanumeric))])
 	}
 	return str
 }
@@ -184,7 +184,7 @@ func randomString() string {
 func randomFileName() string {
 	noun := randomString()
 	noun = strings.ToLower(noun)
-	switch insecureRand.Intn(3) {
+	switch util.Intn(3) {
 	case 0:
 		noun = strings.ToUpper(noun)
 	case 1:
@@ -192,16 +192,16 @@ func randomFileName() string {
 	}
 
 	separators := []string{"", "", "", "", "", ".", "-", "_", "--", "__"}
-	sep := separators[insecureRand.Intn(len(separators))]
+	sep := separators[util.Intn(len(separators))]
 
 	alphanumeric := "abcdefghijklmnopqrstuvwxyz0123456789"
 	prefix := ""
-	for index := 0; index < insecureRand.Intn(3); index++ {
-		prefix += string(alphanumeric[insecureRand.Intn(len(alphanumeric))])
+	for index := 0; index < util.Intn(3); index++ {
+		prefix += string(alphanumeric[util.Intn(len(alphanumeric))])
 	}
 	suffix := ""
-	for index := 0; index < insecureRand.Intn(6)+1; index++ {
-		suffix += string(alphanumeric[insecureRand.Intn(len(alphanumeric))])
+	for index := 0; index < util.Intn(6)+1; index++ {
+		suffix += string(alphanumeric[util.Intn(len(alphanumeric))])
 	}
 
 	return fmt.Sprintf("%s%s%s%s%s", prefix, sep, noun, sep, suffix)

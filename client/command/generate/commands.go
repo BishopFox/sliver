@@ -143,6 +143,8 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind("profiles", false, profilesGenerateCmd, func(f *pflag.FlagSet) {
 		f.StringP("save", "s", "", "directory/file to the binary to")
 		f.BoolP("disable-sgn", "G", false, "disable shikata ga nai shellcode encoder")
+		f.StringP("name", "n", "", "Implant name")
+
 	})
 	flags.BindFlagCompletions(profilesGenerateCmd, func(comp *carapace.ActionMap) {
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
@@ -307,7 +309,7 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 		f.BoolP("evasion", "e", false, "enable evasion features (e.g. overwrite user space hooks)")
 		f.BoolP("skip-symbols", "l", false, "skip symbol obfuscation")
 		f.BoolP("disable-sgn", "G", false, "disable shikata ga nai shellcode encoder")
-
+		f.StringP("exports", "v", "StartW,VoidFunc,DllInstall,DllRegisterServer,DllUnregisterServer", "comma separated list of exports to include in the binary")
 		f.StringP("canary", "c", "", "canary domain(s)")
 
 		// C2 channels
@@ -353,6 +355,7 @@ func coreImplantFlagCompletions(cmd *cobra.Command, con *console.SliverClient) {
 		(*comp)["format"] = FormatCompleter()
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
 		(*comp)["traffic-encoders"] = TrafficEncodersCompleter(con).UniqueList(",")
+		(*comp)["c2profile"] = HTTPC2Completer(con)
 	})
 }
 

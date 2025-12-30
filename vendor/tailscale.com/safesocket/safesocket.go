@@ -6,10 +6,14 @@
 package safesocket
 
 import (
+	"context"
 	"errors"
 	"net"
 	"runtime"
 	"time"
+
+	"tailscale.com/feature"
+	"tailscale.com/feature/buildfeatures"
 )
 
 type closeable interface {
@@ -30,7 +34,8 @@ func ConnCloseWrite(c net.Conn) error {
 }
 
 var processStartTime = time.Now()
-var tailscaledProcExists = func() bool { return false } // set by safesocket_ps.go
+
+var tailscaledProcExists feature.Hook[func() bool]
 
 // tailscaledStillStarting reports whether tailscaled is probably
 // still starting up. That is, it reports whether the caller should
@@ -49,19 +54,33 @@ func tailscaledStillStarting() bool {
 	if d > 5*time.Second {
 		return false
 	}
-	return tailscaledProcExists()
+	f, ok := tailscaledProcExists.GetOk()
+	return ok && f()
 }
 
-// Connect connects to tailscaled using a unix socket or named pipe.
-func Connect(path string) (net.Conn, error) {
+// ConnectContext connects to tailscaled using a unix socket or named pipe.
+func ConnectContext(ctx context.Context, path string) (net.Conn, error) {
 	for {
-		c, err := connect(path)
+		c, err := connect(ctx, path)
 		if err != nil && tailscaledStillStarting() {
-			time.Sleep(250 * time.Millisecond)
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(250 * time.Millisecond):
+			}
 			continue
 		}
 		return c, err
 	}
+}
+
+// Connect connects to tailscaled using a unix socket or named pipe.
+// Deprecated: use ConnectContext instead.
+func Connect(path string) (net.Conn, error) {
+	return ConnectContext(context.Background(), path)
 }
 
 // Listen returns a listener either on Unix socket path (on Unix), or
@@ -90,7 +109,12 @@ func LocalTCPPortAndToken() (port int, token string, err error) {
 
 // PlatformUsesPeerCreds reports whether the current platform uses peer credentials
 // to authenticate connections.
-func PlatformUsesPeerCreds() bool { return GOOSUsesPeerCreds(runtime.GOOS) }
+func PlatformUsesPeerCreds() bool {
+	if !buildfeatures.HasUnixSocketIdentity {
+		return false
+	}
+	return GOOSUsesPeerCreds(runtime.GOOS)
+}
 
 // GOOSUsesPeerCreds is like PlatformUsesPeerCreds but takes a
 // runtime.GOOS value instead of using the current one.

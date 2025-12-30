@@ -44,22 +44,12 @@ func CheckHTTPC2ConfigErrors(config *clientpb.HTTPC2Config) error {
 
 var (
 	ErrMissingCookies             = errors.New("server config must specify at least one cookie")
-	ErrMissingStagerFileExt       = errors.New("implant config must specify a stager_file_ext")
-	ErrTooFewStagerFiles          = errors.New("implant config must specify at least one stager_files value")
-	ErrMissingPollFileExt         = errors.New("implant config must specify a poll_file_ext")
-	ErrTooFewPollFiles            = errors.New("implant config must specify at least one poll_files value")
-	ErrMissingKeyExchangeFileExt  = errors.New("implant config must specify a key_exchange_file_ext")
-	ErrTooFewKeyExchangeFiles     = errors.New("implant config must specify at least one key_exchange_files value")
-	ErrMissingCloseFileExt        = errors.New("implant config must specify a close_file_ext")
-	ErrTooFewCloseFiles           = errors.New("implant config must specify at least one close_files value")
-	ErrMissingStartSessionFileExt = errors.New("implant config must specify a start_session_file_ext")
-	ErrMissingSessionFileExt      = errors.New("implant config must specify a session_file_ext")
-	ErrTooFewSessionFiles         = errors.New("implant config must specify at least one session_files value")
-	ErrNonUniqueFileExt           = errors.New("implant config must specify unique file extensions")
-	ErrQueryParamNameLen          = errors.New("implant config url query parameter names must be 3 or more characters")
-	ErrDuplicateStageExt          = errors.New("stager extension is already used in another C2 profile")
-	ErrDuplicateStartSessionExt   = errors.New("start session extension is already used in another C2 profile")
+	ErrMissingExtensions          = errors.New("implant config must specify at least one file extension")
+	ErrMissingFiles               = errors.New("implant config must specify at least one files value")
+	ErrMissingPaths               = errors.New("implant config must specify at least one paths value")
 	ErrDuplicateC2ProfileName     = errors.New("C2 Profile name is already in use")
+	ErrMissingC2ProfileName       = errors.New("C2 Profile name is required")
+	ErrC2ProfileNotFound          = errors.New("C2 Profile does not exist")
 	ErrUserAgentIllegalCharacters = errors.New("user agent cannot contain the ` character")
 
 	fileNameExp = regexp.MustCompile(`[^a-zA-Z0-9\\._-]+`)
@@ -91,44 +81,31 @@ func checkServerConfig(config *clientpb.HTTPC2ServerConfig) error {
 
 func checkImplantConfig(config *clientpb.HTTPC2ImplantConfig) error {
 
-	// MinFiles and MaxFiles
-	if config.MinFiles < 1 {
-		config.MinFiles = 1
+	// min and max used during http c2 config generation
+	if config.MinFileGen < 1 {
+		config.MinFileGen = 1
 	}
-	if config.MaxFiles < config.MinFiles {
-		config.MaxFiles = config.MinFiles
+	if config.MaxFileGen < config.MinFileGen {
+		config.MaxFileGen = config.MinFileGen
 	}
-
-	// MinPaths and MaxPaths
-	if config.MinPaths < 0 {
-		config.MinPaths = 0
+	if config.MinPathGen < 0 {
+		config.MinPathGen = 0
 	}
-	if config.MaxPaths < config.MinPaths {
-		config.MaxPaths = config.MinPaths
+	if config.MaxPathGen < config.MinPathGen {
+		config.MaxPathGen = config.MinPathGen
 	}
 
-	// Stager
-	config.StagerFileExtension = coerceFileExt(config.StagerFileExtension)
-	if config.StagerFileExtension == "" {
-		return ErrMissingStagerFileExt
+	// Path length used during implant operation
+	if config.MinPathLength < 1 {
+		config.MinPathLength = 1
+	}
+	if config.MaxPathLength < config.MinPathLength {
+		config.MaxPathLength = config.MinPathLength
 	}
 
 	// File Extensions
-	config.PollFileExtension = coerceFileExt(config.PollFileExtension)
-	if config.PollFileExtension == "" {
-		return ErrMissingPollFileExt
-	}
-	config.StartSessionFileExtension = coerceFileExt(config.StartSessionFileExtension)
-	if config.StartSessionFileExtension == "" {
-		return ErrMissingStartSessionFileExt
-	}
-	config.SessionFileExtension = coerceFileExt(config.SessionFileExtension)
-	if config.SessionFileExtension == "" {
-		return ErrMissingSessionFileExt
-	}
-	config.CloseFileExtension = coerceFileExt(config.CloseFileExtension)
-	if config.CloseFileExtension == "" {
-		return ErrMissingCloseFileExt
+	if len(config.Extensions) < 1 {
+		return ErrMissingExtensions
 	}
 
 	/*
@@ -154,22 +131,24 @@ func GenerateDefaultHTTPC2Config() *clientpb.HTTPC2Config {
 	pathSegments := GenerateHTTPC2DefaultPathSegment()
 
 	implantConfig := clientpb.HTTPC2ImplantConfig{
-		UserAgent:                 "",
-		ChromeBaseVersion:         DefaultChromeBaseVer,
-		MacOSVersion:              DefaultMacOSVer,
-		NonceQueryArgChars:        "abcdefghijklmnopqrstuvwxyz",
-		ExtraURLParameters:        httpC2UrlParameters,
-		Headers:                   httpC2Headers,
-		MaxFiles:                  4,
-		MinFiles:                  2,
-		MaxPaths:                  4,
-		MinPaths:                  2,
-		StagerFileExtension:       "woff",
-		PollFileExtension:         "js",
-		StartSessionFileExtension: "html",
-		SessionFileExtension:      "php",
-		CloseFileExtension:        "png",
-		PathSegments:              pathSegments,
+		UserAgent:          "",
+		ChromeBaseVersion:  DefaultChromeBaseVer,
+		MacOSVersion:       DefaultMacOSVer,
+		NonceQueryArgChars: "abcdefghijklmnopqrstuvwxyz",
+		NonceQueryLength:   1,
+		NonceMode:          "UrlParam", // Url or UrlParam
+		ExtraURLParameters: httpC2UrlParameters,
+		Headers:            httpC2Headers,
+		MaxFileGen:         4,
+		MinFileGen:         2,
+		MaxPathGen:         4,
+		MinPathGen:         2,
+		MaxPathLength:      4,
+		MinPathLength:      2,
+		Extensions: []string{
+			"js", "", "php",
+		},
+		PathSegments: pathSegments,
 	}
 
 	// Server Config
@@ -214,73 +193,21 @@ func GenerateHTTPC2DefaultPathSegment() []*clientpb.HTTPC2PathSegment {
 
 	/*
 		IsFile      bool
-		SegmentType int32 // Poll, Session, Close, stager
 		Value       string
 	*/
 
 	// files
-	for _, poll := range PollFiles {
+	for _, file := range Files {
 		pathSegments = append(pathSegments, &clientpb.HTTPC2PathSegment{
-			IsFile:      true,
-			SegmentType: 0,
-			Value:       poll,
+			IsFile: true,
+			Value:  file,
 		})
 	}
 
-	for _, session := range SessionFiles {
+	for _, path := range Paths {
 		pathSegments = append(pathSegments, &clientpb.HTTPC2PathSegment{
-			IsFile:      true,
-			SegmentType: 1,
-			Value:       session,
-		})
-	}
-
-	for _, close := range CloseFiles {
-		pathSegments = append(pathSegments, &clientpb.HTTPC2PathSegment{
-			IsFile:      true,
-			SegmentType: 2,
-			Value:       close,
-		})
-	}
-
-	for _, stager := range StagerFiles {
-		pathSegments = append(pathSegments, &clientpb.HTTPC2PathSegment{
-			IsFile:      true,
-			SegmentType: 3,
-			Value:       stager,
-		})
-	}
-
-	// paths
-	for _, poll := range PollPaths {
-		pathSegments = append(pathSegments, &clientpb.HTTPC2PathSegment{
-			IsFile:      false,
-			SegmentType: 0,
-			Value:       poll,
-		})
-	}
-
-	for _, session := range SessionPaths {
-		pathSegments = append(pathSegments, &clientpb.HTTPC2PathSegment{
-			IsFile:      false,
-			SegmentType: 1,
-			Value:       session,
-		})
-	}
-
-	for _, close := range ClosePaths {
-		pathSegments = append(pathSegments, &clientpb.HTTPC2PathSegment{
-			IsFile:      false,
-			SegmentType: 2,
-			Value:       close,
-		})
-	}
-
-	for _, stager := range StagerPaths {
-		pathSegments = append(pathSegments, &clientpb.HTTPC2PathSegment{
-			IsFile:      false,
-			SegmentType: 3,
-			Value:       stager,
+			IsFile: false,
+			Value:  path,
 		})
 	}
 
@@ -374,7 +301,7 @@ var (
 		"csrf-state",
 		"AWSALBCORS",
 	}
-	PollFiles = []string{
+	Files = []string{
 		"bootstrap",
 		"bootstrap.min",
 		"jquery.min",
@@ -485,7 +412,7 @@ var (
 		"storage",
 		"offline",
 	}
-	PollPaths = []string{
+	Paths = []string{
 		"js",
 		"umd",
 		"assets",
@@ -552,380 +479,5 @@ var (
 		"srcscripts",
 		"libjs",
 		"libjsscripts",
-	}
-	SessionFiles = []string{
-		"login",
-		"signin",
-		"api",
-		"samples",
-		"rpc",
-		"index",
-		"admin",
-		"register",
-		"sign-up",
-		"index",
-		"config",
-		"functions",
-		"database",
-		"header",
-		"footer",
-		"login",
-		"register",
-		"logout",
-		"profile",
-		"dashboard",
-		"home",
-		"about",
-		"contact",
-		"services",
-		"utils",
-		"common",
-		"init",
-		"auth",
-		"session",
-		"error",
-		"handler",
-		"api",
-		"ajax",
-		"form",
-		"validation",
-		"upload",
-		"download",
-		"report",
-		"admin",
-		"user",
-		"account",
-		"settings",
-		"utility",
-		"script",
-		"mailer",
-		"cron",
-		"cache",
-		"template",
-		"page",
-		"model",
-		"view",
-		"controller",
-		"middleware",
-		"router",
-		"route",
-		"helper",
-		"library",
-		"plugin",
-		"widget",
-		"widgetized",
-		"search",
-		"filter",
-		"sort",
-		"pagination",
-		"backup",
-		"restore",
-		"upgrade",
-		"install",
-		"uninstall",
-		"upgrade",
-		"maintenance",
-		"sitemap",
-		"rss",
-		"atom",
-		"xml",
-		"json",
-		"rss",
-		"log",
-		"debug",
-		"test",
-		"mock",
-		"stub",
-		"mockup",
-		"mockdata",
-		"temp",
-		"tmp",
-		"backup",
-		"old",
-		"new",
-		"demo",
-		"example",
-		"sample",
-		"prototype",
-		"backup",
-		"import",
-		"export",
-		"sync",
-		"async",
-		"validate",
-		"authenticate",
-	}
-	SessionPaths = []string{
-		"php",
-		"api",
-		"upload",
-		"actions",
-		"rest",
-		"v1",
-		"auth",
-		"authenticate",
-		"oauth",
-		"oauth2",
-		"oauth2callback",
-		"database",
-		"db",
-		"namespaces",
-		"home",
-		"about",
-		"contact",
-		"services",
-		"products",
-		"blog",
-		"news",
-		"events",
-		"gallery",
-		"portfolio",
-		"shop",
-		"store",
-		"login",
-		"register",
-		"profile",
-		"dashboard",
-		"account",
-		"settings",
-		"faq",
-		"help",
-		"support",
-		"download",
-		"upload",
-		"subscribe",
-		"unsubscribe",
-		"search",
-		"sitemap",
-		"privacy",
-		"terms",
-		"conditions",
-		"policy",
-		"cookie",
-		"checkout",
-		"cart",
-		"order",
-		"payment",
-		"confirmation",
-		"feedback",
-		"survey",
-		"testimonial",
-		"newsletter",
-		"membership",
-		"forum",
-		"signin",
-		"signup",
-		"forum",
-		"contact-us",
-		"pricing",
-		"donate",
-		"partners",
-		"team",
-		"career",
-		"join-us",
-		"downloads",
-		"events",
-		"explore",
-		"insights",
-		"newsroom",
-		"press",
-		"media",
-		"blog",
-		"articles",
-		"research",
-		"library",
-		"resources",
-		"inspiration",
-		"academy",
-		"labs",
-		"developers",
-		"api",
-		"integration",
-		"status",
-		"changelog",
-		"roadmap",
-		"solutions",
-		"clients",
-		"testimonials",
-		"success-stories",
-		"clients",
-		"partners",
-		"404",
-		"500",
-		"error",
-		"maintenance",
-		"upgrade",
-	}
-	CloseFiles = []string{
-		"image",
-		"logo",
-		"icon",
-		"background",
-		"banner",
-		"button",
-		"avatar",
-		"photo",
-		"picture",
-		"header",
-		"footer",
-		"thumbnail",
-		"screenshot",
-		"cover",
-		"badge",
-		"illustration",
-		"graphic",
-		"map",
-		"diagram",
-		"chart",
-		"emoji",
-		"flag",
-		"arrow",
-		"social",
-		"media",
-		"document",
-		"product",
-		"menu",
-		"navigation",
-		"search",
-		"result",
-		"loading",
-		"progress",
-		"error",
-		"success",
-		"warning",
-		"info",
-		"question",
-		"exclamation",
-		"play",
-		"pause",
-		"stop",
-		"next",
-		"previous",
-		"rewind",
-		"forward",
-		"volume",
-		"mute",
-		"speaker",
-		"microphone",
-		"camera",
-		"video",
-		"audio",
-		"file",
-		"folder",
-		"download",
-		"upload",
-		"share",
-		"like",
-		"heart",
-		"star",
-		"comment",
-		"chat",
-		"speech bubble",
-		"message",
-		"envelope",
-		"mail",
-		"clock",
-		"calendar",
-		"location",
-		"pin",
-		"home",
-		"settings",
-		"gear",
-		"tools",
-		"user",
-		"profile",
-		"login",
-		"logout",
-		"register",
-		"lock",
-		"unlock",
-		"shield",
-		"security",
-		"privacy",
-		"checkmark",
-		"cross",
-		"delete",
-		"trash",
-		"restore",
-		"recycle",
-		"favorite",
-		"bookmark",
-		"star",
-		"eye",
-		"magnifier",
-		"question mark",
-		"information",
-		"exclamationmark",
-		"help",
-		"favicon",
-		"sample",
-		"example",
-	}
-	ClosePaths = []string{
-		"static",
-		"www",
-		"assets",
-		"images",
-		"icons",
-		"image",
-		"icon",
-		"png",
-		"images",
-		"photos",
-		"pictures",
-		"pics",
-		"gallery",
-		"media",
-		"uploads",
-		"assets",
-		"img",
-		"graphics",
-		"visuals",
-		"media-library",
-		"artwork",
-		"design",
-		"diagrams",
-		"icons",
-		"logos",
-		"banners",
-		"thumbnails",
-		"avatars",
-		"screenshots",
-		"headers",
-		"footers",
-		"backgrounds",
-		"buttons",
-		"illustrations",
-		"diagrams",
-		"photoshoots",
-		"picoftheday",
-		"imagebank",
-		"album",
-		"memories",
-		"memes",
-		"snapshots",
-		"portraits",
-		"posters",
-		"renders",
-		"cover-photos",
-		"wallpapers",
-		"photography",
-		"visualizations",
-		"moodboard",
-		"infographics",
-		"renders",
-		"icons",
-		"layers",
-		"picgallery",
-		"picdump",
-		"imagelibrary",
-	}
-	StagerFiles = []string{
-		"attribute_text_w01_regular", "ZillaSlab-Regular.subset.bbc33fb47cf6",
-		"ZillaSlab-Bold.subset.e96c15f68c68", "Inter-Regular",
-		"Inter-Medium",
-	}
-	StagerPaths = []string{
-		"static", "assets", "fonts", "locales",
 	}
 )

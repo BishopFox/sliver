@@ -31,7 +31,6 @@ import (
 	"go/printer"
 	"go/token"
 	"io"
-	insecureRand "math/rand"
 	"os"
 	"path"
 	"path/filepath"
@@ -124,7 +123,7 @@ func pseudoRandStringRunes(n int) string {
 	letterRunes := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 	b := make([]rune, n)
 	for i := range b {
-		b[i] = letterRunes[insecureRand.Intn(len(letterRunes))]
+		b[i] = letterRunes[util.Intn(len(letterRunes))]
 	}
 	return string(b)
 }
@@ -253,19 +252,7 @@ func setupGo(appDir string) error {
 		return err
 	}
 
-	return setupSGN(appDir)
-}
-
-func setupSGN(appDir string) error {
-	goBinPath := filepath.Join(appDir, "go", "bin")
-	sgnZipFSPath := path.Join("fs", runtime.GOOS, runtime.GOARCH, "sgn.zip")
-	sgnZip, err := assetsFs.ReadFile(sgnZipFSPath)
-	if err != nil {
-		setupLog.Errorf("static asset not found: %s", sgnZipFSPath)
-		return err
-	}
-	_, err = unzipBuf(sgnZip, goBinPath)
-	return err
+	return nil
 }
 
 // SetupGoPath - Extracts dependencies to goPathSrc
@@ -291,6 +278,7 @@ func SetupGoPath(goPathSrc string, includeDNS bool) error {
 	sliverpbGoSrc = xorPBRawBytes(sliverpbGoSrc)
 	sliverpbGoSrc = stripSliverpb(sliverpbGoSrc)
 	sliverpbDir := filepath.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "sliverpb")
+	setupLog.Infof("Creating sliverpb directory: %s", sliverpbDir)
 	os.MkdirAll(sliverpbDir, 0700)
 	os.WriteFile(filepath.Join(sliverpbDir, "sliver.pb.go"), sliverpbGoSrc, 0600)
 	os.WriteFile(filepath.Join(sliverpbDir, "constants.go"), sliverpbConstSrc, 0600)
