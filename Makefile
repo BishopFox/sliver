@@ -16,7 +16,7 @@ endif
 # Prerequisites 
 #
 # https://stackoverflow.com/questions/5618615/check-if-a-program-exists-from-a-makefile
-EXECUTABLES = uname sed git zip date cut $(GO)
+EXECUTABLES = uname sed git date cut $(GO)
 K := $(foreach exec,$(EXECUTABLES),\
         $(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH")))
 
@@ -199,5 +199,5 @@ clean:
 	rm -f sliver-client sliver-client_* sliver-server sliver-server_* sliver-*.exe
 
 .downloaded_assets:
-	./go-assets.sh
+	$(ENV) $(GO) run -mod=vendor ./util/cmd/assets
 	touch ./.downloaded_assets
