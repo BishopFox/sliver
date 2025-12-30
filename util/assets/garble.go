@@ -13,9 +13,7 @@ type garblePlatform struct {
 }
 
 func (r *runner) buildGarbleAssets() error {
-	r.logger.Logf("-----------------------------------------------------------------")
-	r.logger.Logf(" Garble")
-	r.logger.Logf("-----------------------------------------------------------------")
+	r.logger.Section("Garble")
 
 	platforms := []garblePlatform{
 		{
@@ -52,7 +50,7 @@ func (r *runner) buildGarbleAssets() error {
 
 	for _, platform := range platforms {
 		r.garbleIndex++
-		r.logger.Logf("Downloading garble %s/%s (%d of %d) ...", platform.os, platform.arch, r.garbleIndex, garbleTotal)
+		r.logger.Logf("Fetch garble %s/%s (%d/%d)", platform.os, platform.arch, r.garbleIndex, garbleTotal)
 		outputDir := filepath.Join(r.outputDir, platform.os, platform.arch)
 		if err := ensureDir(outputDir); err != nil {
 			return err

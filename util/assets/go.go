@@ -15,9 +15,7 @@ type goPlatform struct {
 }
 
 func (r *runner) buildGoAssets() error {
-	r.logger.Logf("-----------------------------------------------------------------")
-	r.logger.Logf(" Go")
-	r.logger.Logf("-----------------------------------------------------------------")
+	r.logger.Section("Go")
 
 	platforms := []goPlatform{
 		{
@@ -77,7 +75,7 @@ func (r *runner) buildGoAssets() error {
 	for _, platform := range platforms {
 		label := fmt.Sprintf("%s/%s", platform.os, platform.arch)
 		r.goIndex++
-		r.logger.Logf("Downloading Go %s (%d of %d) ...", label, r.goIndex, goTotal)
+		r.logger.Logf("Fetch go %s (%d/%d)", label, r.goIndex, goTotal)
 
 		archiveName := fmt.Sprintf("go%s.%s-%s.%s", goVersion, platform.os, platform.arch, platform.archiveExt)
 		archiveURL := fmt.Sprintf("https://dl.google.com/go/%s", archiveName)
@@ -87,7 +85,7 @@ func (r *runner) buildGoAssets() error {
 			return err
 		}
 
-		r.logger.Logf("Extracting Go %s ...", label)
+		r.logger.Logf("Extract go %s", label)
 		goDir := filepath.Join(r.workDir, "go")
 		if err := os.RemoveAll(goDir); err != nil {
 			return fmt.Errorf("remove previous go dir: %w", err)
@@ -108,7 +106,7 @@ func (r *runner) buildGoAssets() error {
 		}
 
 		if platform.includeSrc {
-			r.logger.Logf("Compressing src.zip (%s) ...", label)
+			r.logger.Logf("Pack src.zip (%s)", label)
 			srcZipPath := filepath.Join(r.outputDir, "src.zip")
 			if err := zipDir(goDir, "src", srcZipPath); err != nil {
 				return err
@@ -123,7 +121,7 @@ func (r *runner) buildGoAssets() error {
 			return err
 		}
 
-		r.logger.Logf("Compressing Go %s ...", label)
+		r.logger.Logf("Pack go.zip (%s)", label)
 		outputDir := filepath.Join(r.outputDir, platform.os, platform.arch)
 		if err := ensureDir(outputDir); err != nil {
 			return err

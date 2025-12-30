@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 )
 
@@ -26,7 +28,9 @@ func (r *runner) downloadFileTo(url, dest string) error {
 		_ = os.Remove(tmpName)
 	}()
 
-	if err := r.fetchToWriter(url, tmpFile); err != nil {
+	if err := r.logger.RunSpinner(fmt.Sprintf("fetch %s", downloadLabel(url)), func() error {
+		return r.fetchToWriter(url, tmpFile)
+	}); err != nil {
 		return err
 	}
 	if err := tmpFile.Close(); err != nil {
@@ -49,7 +53,9 @@ func (r *runner) downloadToTemp(url, dir string) (string, error) {
 	}
 	name := file.Name()
 
-	if err := r.fetchToWriter(url, file); err != nil {
+	if err := r.logger.RunSpinner(fmt.Sprintf("fetch %s", downloadLabel(url)), func() error {
+		return r.fetchToWriter(url, file)
+	}); err != nil {
 		_ = file.Close()
 		_ = os.Remove(name)
 		return "", err
@@ -119,4 +125,16 @@ func copyFile(src, dest string) error {
 		return fmt.Errorf("flush dest: %w", err)
 	}
 	return nil
+}
+
+func downloadLabel(rawURL string) string {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+	base := path.Base(parsed.Path)
+	if base == "." || base == "/" || base == "" {
+		return rawURL
+	}
+	return base
 }

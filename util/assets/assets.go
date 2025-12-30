@@ -23,6 +23,8 @@ type runner struct {
 
 type config struct {
 	verbose bool
+	quiet   bool
+	noColor bool
 }
 
 // Run executes the asset generation flow.
@@ -50,7 +52,7 @@ func Run(args []string) error {
 		return fmt.Errorf("create work dir: %w", err)
 	}
 
-	log := newLogger(cfg.verbose)
+	log := newLogger(cfg.verbose, cfg.quiet, cfg.noColor)
 	r := &runner{
 		logger:     log,
 		httpClient: &http.Client{Timeout: 15 * time.Minute},
@@ -58,11 +60,12 @@ func Run(args []string) error {
 		workDir:    workDir,
 	}
 
-	log.Logf("-----------------------------------------------------------------")
-	log.Logf("%s (Output: %s)", workDir, outputDir)
-	log.Logf("-----------------------------------------------------------------")
+	log.Header("Sliver Assets")
+	log.Meta("Workdir", workDir)
+	log.Meta("Output", outputDir)
 
 	defer func() {
+		log.ClearSection()
 		log.Logf("clean up: %s", workDir)
 		_ = os.RemoveAll(workDir)
 	}()
@@ -77,8 +80,9 @@ func Run(args []string) error {
 		return err
 	}
 
+	log.ClearSection()
 	log.Logf("")
-	log.Logf("[*] All done")
+	log.Successf("Done")
 
 	return nil
 }
@@ -91,6 +95,10 @@ func parseArgs(args []string) (config, bool, error) {
 		switch arg {
 		case "-v", "--verbose":
 			cfg.verbose = true
+		case "--no-colors":
+			cfg.noColor = true
+		case "--quiet":
+			cfg.quiet = true
 		case "-h", "--help":
 			showHelp = true
 		default:
@@ -98,11 +106,15 @@ func parseArgs(args []string) (config, bool, error) {
 		}
 	}
 
+	if cfg.quiet {
+		cfg.verbose = false
+	}
+
 	return cfg, showHelp, nil
 }
 
 func usage() string {
-	return "Usage: assets [--verbose]"
+	return "Usage: assets [--verbose] [--quiet] [--no-colors]"
 }
 
 func findRepoRoot() (string, error) {

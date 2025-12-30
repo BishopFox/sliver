@@ -24,9 +24,7 @@ type zigPlatform struct {
 }
 
 func (r *runner) buildZigAssets() error {
-	r.logger.Logf("-----------------------------------------------------------------")
-	r.logger.Logf(" Zig")
-	r.logger.Logf("-----------------------------------------------------------------")
+	r.logger.Section("Zig")
 
 	if err := r.loadZigMirrors(); err != nil {
 		return err
@@ -109,35 +107,35 @@ func (r *runner) downloadZig(platform zigPlatform) error {
 		artifactURL := appendQueryParam(mirrorBase+"/"+platform.remoteName, zigSourceParam)
 		signatureURL := appendQueryParam(mirrorBase+"/"+platform.remoteName+".minisig", zigSourceParam)
 
-		r.logger.Logf("Downloading Zig %s/%s (%d of %d) from %s", platform.os, platform.arch, r.zigIndex, zigTotal, mirrorBase)
+		r.logger.Logf("Fetch zig %s/%s (%d/%d) via %s", platform.os, platform.arch, r.zigIndex, zigTotal, mirrorBase)
 		r.logger.VLogf("  artifact:  %s", artifactURL)
 		r.logger.VLogf("  signature: %s", signatureURL)
 
 		artifactPath, err := r.downloadToTemp(artifactURL, r.workDir)
 		if err != nil {
-			r.logger.Errorf("[!] Failed to download Zig artifact from %s", artifactURL)
+			r.logger.Errorf("Failed to download Zig artifact from %s", artifactURL)
 			if idx < len(mirrors)-1 {
-				r.logger.Logf("trying alternate mirror")
+				r.logger.Warnf("Trying alternate mirror")
 			}
 			continue
 		}
 		signaturePath, err := r.downloadToTemp(signatureURL, r.workDir)
 		if err != nil {
 			_ = os.Remove(artifactPath)
-			r.logger.Errorf("[!] Failed to download Zig signature from %s", signatureURL)
+			r.logger.Errorf("Failed to download Zig signature from %s", signatureURL)
 			if idx < len(mirrors)-1 {
-				r.logger.Logf("trying alternate mirror")
+				r.logger.Warnf("Trying alternate mirror")
 			}
 			continue
 		}
 
 		if err := verifyZigSignature(artifactPath, signaturePath, platform.remoteName); err != nil {
-			r.logger.Errorf("[!] Signature verification failed for %s from %s", platform.remoteName, mirrorBase)
-			r.logger.Errorf("[!] Deleting corrupted download %s", artifactPath)
+			r.logger.Errorf("Signature verification failed for %s from %s", platform.remoteName, mirrorBase)
+			r.logger.Errorf("Deleting corrupted download %s", artifactPath)
 			_ = os.Remove(artifactPath)
 			_ = os.Remove(signaturePath)
 			if idx < len(mirrors)-1 {
-				r.logger.Logf("trying alternate mirror")
+				r.logger.Warnf("Trying alternate mirror")
 			}
 			continue
 		}
@@ -148,7 +146,7 @@ func (r *runner) downloadZig(platform zigPlatform) error {
 			return err
 		}
 		_ = os.Remove(signaturePath)
-		r.logger.Logf("Downloaded and verified Zig package -> %s", destPath)
+		r.logger.Successf("Verified zig package -> %s", destPath)
 		return nil
 	}
 
