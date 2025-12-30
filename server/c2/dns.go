@@ -438,11 +438,50 @@ func (s *SliverDNSServer) nameErrorResp(req *dns.Msg) *dns.Msg {
 	return resp
 }
 
+func (s *SliverDNSServer) emptySuccessResp(req *dns.Msg) *dns.Msg {
+	resp := new(dns.Msg)
+	resp.SetReply(req)
+	resp.Authoritative = true
+	return resp
+}
+
 func (s *SliverDNSServer) refusedErrorResp(req *dns.Msg) *dns.Msg {
 	resp := new(dns.Msg)
 	resp.SetRcode(req, dns.RcodeRefused)
 	resp.Authoritative = true
 	return resp
+}
+
+func (s *SliverDNSServer) accumulateInitData(msg *dnspb.DNSMessage) ([]byte, bool, error) {
+	if msg.Size == 0 {
+		return nil, false, ErrInvalidMsg
+	}
+	pendingValue, loaded := s.messages.Load(msg.ID)
+	if !loaded {
+		pendingValue = &PendingEnvelope{
+			Size:     msg.Size,
+			received: uint32(0),
+			messages: map[uint32][]byte{},
+			mutex:    &sync.Mutex{},
+			complete: false,
+		}
+		actual, _ := s.messages.LoadOrStore(msg.ID, pendingValue)
+		pendingValue = actual
+	}
+	pending := pendingValue.(*PendingEnvelope)
+	if pending.Size != msg.Size && msg.Size != 0 {
+		s.messages.Delete(msg.ID)
+		return nil, false, ErrInvalidMsg
+	}
+	if !pending.Insert(msg) {
+		return nil, false, nil
+	}
+	data, err := pending.Reassemble()
+	s.messages.Delete(msg.ID)
+	if err != nil {
+		return nil, false, err
+	}
+	return data, true, nil
 }
 
 // ---------------------------
@@ -486,7 +525,7 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 	dnsLog.Debugf("[session init] with dns session id %d", msg.ID&sessionIDBitMask)
 	loadSession, _ := s.sessions.Load(msg.ID & sessionIDBitMask)
 	dnsSession := loadSession.(*DNSSession)
-	if len(msg.Data) <= 32 {
+	if msg.Size <= 32 {
 		dnsLog.Warnf("[session init] invalid msg data length")
 		return s.refusedErrorResp(req)
 	}
@@ -494,6 +533,16 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 		dnsLog.Warnf("[session init] session is already initialized")
 		return s.refusedErrorResp(req)
 	}
+
+	initData, complete, err := s.accumulateInitData(msg)
+	if err != nil {
+		dnsLog.Errorf("[session init] error reassembling init data: %s", err)
+		return s.refusedErrorResp(req)
+	}
+	if !complete {
+		return s.emptySuccessResp(req)
+	}
+	msg.Data = initData
 
 	var publicKeyDigest [32]byte
 	copy(publicKeyDigest[:], msg.Data[:32])

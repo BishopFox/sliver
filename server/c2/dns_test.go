@@ -514,6 +514,62 @@ func TestHandleC2RejectsUnknownSession(t *testing.T) {
 	}
 }
 
+func TestAccumulateInitDataReassembles(t *testing.T) {
+	server := newTestDNSServer()
+	client := dnsclient.NewDNSClient(example1, opts)
+
+	testData := make([]byte, 2048)
+	rand.Read(testData)
+	msg := &dnspb.DNSMessage{
+		Type: dnspb.DNSMessageType_INIT,
+		ID:   0x01020304,
+		Size: uint32(len(testData)),
+	}
+	domains, err := client.SplitBuffer(msg, implantEncoders.Base32Encoder{}, testData)
+	if err != nil {
+		t.Fatalf("SplitBuffer failed: %s", err)
+	}
+	if len(domains) < 2 {
+		t.Fatalf("expected multiple init submessages, got %d", len(domains))
+	}
+
+	subMsgs := make([]*dnspb.DNSMessage, 0, len(domains))
+	for _, domain := range domains {
+		subdata := strings.TrimSuffix(domain, example1)
+		subdata = strings.ReplaceAll(subdata, ".", "")
+		raw, err := implantEncoders.Base32Encoder{}.Decode([]byte(subdata))
+		if err != nil {
+			t.Fatalf("decode subdata failed: %s", err)
+		}
+		subMsg := &dnspb.DNSMessage{}
+		if err := proto.Unmarshal(raw, subMsg); err != nil {
+			t.Fatalf("unmarshal submsg failed: %s", err)
+		}
+		subMsgs = append(subMsgs, subMsg)
+	}
+	shuffleDNSMsgs(subMsgs)
+
+	var reassembled []byte
+	for _, subMsg := range subMsgs {
+		data, complete, err := server.accumulateInitData(subMsg)
+		if err != nil {
+			t.Fatalf("accumulateInitData failed: %s", err)
+		}
+		if !complete && data != nil {
+			t.Fatalf("unexpected data before completion")
+		}
+		if complete {
+			reassembled = data
+		}
+	}
+	if reassembled == nil {
+		t.Fatalf("expected reassembled init data")
+	}
+	if !bytes.Equal(reassembled, testData) {
+		t.Fatalf("reassembled init data mismatch")
+	}
+}
+
 func TestSplitToChunksPadding(t *testing.T) {
 	data := []byte{1, 2, 3, 4, 5, 6}
 	chunks := splitToChunks(data, 4)

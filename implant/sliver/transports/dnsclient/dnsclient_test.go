@@ -80,6 +80,32 @@ func isBase32String(value string) bool {
 	return true
 }
 
+type initSequenceResolver struct {
+	responses [][]byte
+	index     int
+}
+
+func (r *initSequenceResolver) Address() string {
+	return "init-sequence"
+}
+
+func (r *initSequenceResolver) A(domain string) ([]byte, time.Duration, error) {
+	return nil, 0, nil
+}
+
+func (r *initSequenceResolver) AAAA(domain string) ([]byte, time.Duration, error) {
+	return nil, 0, nil
+}
+
+func (r *initSequenceResolver) TXT(domain string) ([]byte, time.Duration, error) {
+	if r.index >= len(r.responses) {
+		return nil, 0, nil
+	}
+	resp := r.responses[r.index]
+	r.index++
+	return resp, 0, nil
+}
+
 func TestSplitBufferBase32(t *testing.T) {
 
 	t.Logf("Testing with client1")
@@ -138,6 +164,39 @@ func TestSplitBufferDomainConstraints(t *testing.T) {
 				t.Fatalf("Label exceeds 63 chars: %s", label)
 			}
 		}
+	}
+}
+
+func TestSendInitAllowsEmptyResponses(t *testing.T) {
+	client := NewDNSClient(parent1, opts)
+	testData := randomData(4096)
+	msg := &dnspb.DNSMessage{
+		Type: dnspb.DNSMessageType_INIT,
+		ID:   1,
+		Size: uint32(len(testData)),
+	}
+	domains, err := client.SplitBuffer(msg, encoders.Base32{}, testData)
+	if err != nil {
+		t.Fatalf("Unexpected error splitting buffer: %s", err)
+	}
+	if len(domains) < 2 {
+		t.Fatalf("expected multiple subdata domains, got %d", len(domains))
+	}
+
+	expected := []byte{1, 2, 3, 4}
+	responses := make([][]byte, len(domains))
+	responses[len(responses)-1] = expected
+	resolver := &initSequenceResolver{responses: responses}
+
+	resp, err := client.sendInit(resolver, encoders.Base32{}, msg, testData)
+	if err != nil {
+		t.Fatalf("sendInit failed: %s", err)
+	}
+	if !bytes.Equal(resp, expected) {
+		t.Fatalf("unexpected init response: %v", resp)
+	}
+	if resolver.index != len(domains) {
+		t.Fatalf("expected %d resolver calls, got %d", len(domains), resolver.index)
 	}
 }
 

@@ -377,7 +377,8 @@ func (s *SliverDNSClient) sendInit(resolver DNSResolver, encoder encoders.Encode
 		return nil, err
 	}
 	resp := []byte{}
-	for _, subdata := range allSubdata {
+	receivedResponse := false
+	for index, subdata := range allSubdata {
 
 		var respData []byte
 		var err error
@@ -393,13 +394,24 @@ func (s *SliverDNSClient) sendInit(resolver DNSResolver, encoder encoders.Encode
 			return nil, err
 		}
 		if 0 < len(respData) {
-			resp = append(resp, respData...)
-		} else {
+			if len(allSubdata) == 1 {
+				resp = append(resp, respData...)
+			} else {
+				resp = respData
+			}
+			receivedResponse = true
+		} else if len(allSubdata) == 1 || (index == len(allSubdata)-1 && !receivedResponse) {
 			// {{if .Config.Debug}}
 			log.Printf("[dns] no data received in response")
 			// {{end}}
 			return nil, ErrInvalidResponse
 		}
+	}
+	if !receivedResponse {
+		// {{if .Config.Debug}}
+		log.Printf("[dns] no data received in response")
+		// {{end}}
+		return nil, ErrInvalidResponse
 	}
 	return resp, nil
 }
