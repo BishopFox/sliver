@@ -12,7 +12,7 @@ jobs:
   tag-check:
     name: Check Release Tag
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
@@ -63,7 +63,7 @@ jobs:
           MINISIGN_KEY: ${{ secrets.MINISIGN_SLIVER_RELEASE_KEY }}
         run: |
           echo "MINISIGN_KEY bytes: $(printf '%s' "$MINISIGN_KEY" | wc -c | tr -d ' ')"
-          printf '%s' "$MINISIGN_KEY" > minisign.key
+          printf '%b' "$MINISIGN_KEY" | tr -d '\r' > minisign.key
           chmod 600 minisign.key
           for file in artifacts/sliver-*; do
             [ -f "$file" ] || continue
