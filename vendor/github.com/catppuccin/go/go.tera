@@ -1,0 +1,28 @@
+---
+whiskers:
+  version: 2.5.1
+  matrix:
+    - flavor
+  filename: "{{flavor.identifier}}.go"
+---
+package catppuccingo
+
+// {{flavor.name}} variant
+type {{flavor.identifier}} struct{}
+
+// {{flavor.name}} flavor variant
+var {{flavor.identifier | title}} Flavor = {{flavor.identifier}}{}
+
+// {{flavor.name}}
+func ({{flavor.identifier}}) Name() string { return "{{flavor.identifier}}" }
+
+{% for _, color in flavor.colors %}
+// {{color.name}}
+func ({{flavor.identifier}}) {{color.identifier | title}}() Color {
+	return Color{
+		Hex: "#{{color.hex}}",
+		RGB: [3]uint8{ {{color.rgb.r}}, {{color.rgb.g}}, {{color.rgb.b}}},
+		HSL: [3]float32{ {{color.hsl.h | round(precision=2)}}, {{color.hsl.s | round(precision=2)}}, {{color.hsl.l | round(precision=2)}}},
+	}
+}
+{% endfor %}
