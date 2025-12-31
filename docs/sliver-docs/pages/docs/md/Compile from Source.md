@@ -2,8 +2,10 @@ You'll want to compile from a MacOS or Linux machine. Compiling from native Wind
 
 # Sliver v1.6.x
 
-- Go v1.24 or later
-- `make`, `sed`, `tar`, `curl`, `zip`, `cut` commands; most of these are installed by default but you may need to install `make`, `curl`, and `zip` depending on your distribution. On MacOS you may need to install XCode and accompanying cli tools.
+To compile from source you'll need:
+
+- Go v1.25 or later
+- `make` (on MacOS you may need to install XCode and accompanying cli tools)
 
 ```asciinema
 {"src": "/asciinema/compile-from-source.cast", "cols": "132"}
@@ -30,14 +32,10 @@ Sliver embeds its own copy of the Go compiler and a few internal tools. The firs
 
 ### Cross-compile to Specific Platforms
 
-You can also specify a target platform for the `make` file, though you may need cross-compilers (see below):
+You can also specify a target platform for the `make` file:
 
 ```
-$ make macos
-$ make macos-arm64
-$ make linux
-$ make linux-arm64
-$ make windows-amd64
+$ GOOS=windows GOARCH=amd64 make
 ```
 
 ### Docker Build

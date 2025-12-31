@@ -2,7 +2,7 @@ Download the latest server [release](https://github.com/BishopFox/sliver/release
 
 Sliver is designed for a one server deployment per operation. The server supports Linux, Windows, and MacOS however we strongly recommend running the server on a Linux host (or MacOS, well really anything that isn't Windows), as some features may be more difficult to get working on a Windows server. The Windows client should work just fine when accessing a Linux/MacOS server from Windows, so if for some odd reason your operators actually want to use Windows you can still accommodate them using [multiplayer mode](/docs?name=Multi-player+Mode).
 
-Obfuscated builds require `git` to be installed. Additionally, Sliver has two external dependencies for _optional_ features: MinGW and Metasploit. To enable DLL payloads (on a Linux server) you need to install MinGW. To enable some MSF integrations you'll need Metasploit installed on the server.
+Obfuscated builds require `git` to be installed. Additionally, Sliver has an external dependencies for _optional_ features: Metasploit. To enable some MSF integrations you'll need Metasploit installed on the server.
 
 For a Linux server, you can also use the one-liner installation `curl https://sliver.sh/install|sudo bash`
 
@@ -19,22 +19,6 @@ If you install Sliver via the one-liner, you can check that the server service i
 #### System Requirements
 
 The Sliver server can run effectively on almost any system, however we recommend 8GB or more of RAM for compiling obfuscated implants as the obfuscator may consume large amounts of memory depending on compile-time options. You can leverage [external builders](/docs?name=External+Builders) in conjunction with low-resource systems to work around hardware limitations of the server (e.g. a low-powered VPS). Symbol obfuscation can also be disabled per-build, see `generate --help` in the Sliver console.
-
-### MinGW Setup (Optional, Recommended)
-
-In order to enable shellcode/staged/DLL payloads you'll need to install MinGW on the server (clients connecting to the server do not need it installed). By default Sliver will look in the usual places for MinGW binaries but you can override this using the [environment variables](/docs?name=Environment+Variables).
-
-#### Linux (Debian-based)
-
-```
-apt install git mingw-w64
-```
-
-#### MacOS
-
-```
-brew install git mingw-w64
-```
 
 **Note:** On MacOS you may need to configure [environment variables](/docs?name=Environment+Variables) for MinGW.
 

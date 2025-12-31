@@ -6,11 +6,7 @@ Sliver supports [External Builders](/docs?name=External+Builders), which can be 
 
 ## From Linux to MacOS/Windows
 
-Sliver v1.6 embeds a Zig cross-compiler out of the box, so Windows shared library and shellcode implants from Linux do not require mingw-w64. If you prefer to use system toolchains instead, install mingw-w64:
-
-```
-sudo apt install mingw-w64
-```
+Sliver embeds a Zig cross-compiler out of the box, so Windows shared library and shellcode implants from Linux do not require mingw-w64.
 
 To compile MacOS shared library implants from Linux, we recommend using https://github.com/tpoechtrager/osxcross by default Sliver will look in `/opt/osxcross` but you can override this via [environment variables](/docs?name=Environment+Variables). If you do not have a MacOS-based machine you can use GitHub Actions' MacOS instances to build OSXCross.
 
@@ -41,22 +37,9 @@ Sliver automatically looks in the default paths for these cross-compilers; once 
 
 ## From MacOS to Linux/Windows
 
-Sliver v1.6 embeds a Zig cross-compiler out of the box, so Windows DLLs and Linux shared objects do not require mingw-w64 or musl-cross. If you prefer to use system toolchains instead, install the following:
+Sliver embeds a Zig cross-compiler out of the box, so Windows DLLs and Linux shared objects do not require mingw-w64 or musl-cross.
 
-To compile Windows shared library and shellcode implants from MacOS, install mingw from brew:
-
-```
-brew install mingw-w64
-```
-
-For Linux, we recommend `musl-cross` to target 64-bit Linux, which can be installed via brew:
-
-```
-brew install FiloSottile/musl-cross/musl-cross
-brew install mingw-w64
-```
-
-I'm not aware of any good options to target 32-bit Linux from MacOS. Sliver automatically looks in the default paths for these cross-compilers; once installed simply use the `generate` command with the desired `--os` and `--arch`, check `~/.sliver/logs/sliver.log` for build errors. You can override any cross-compiler location via the appropriate [environment variables](/docs?name=Environment+Variables).
+However, we're not aware of any good options to target 32-bit Linux from MacOS. Sliver automatically looks in the default paths for these cross-compilers; once installed simply use the `generate` command with the desired `--os` and `--arch`, check `~/.sliver/logs/sliver.log` for build errors. You can override any cross-compiler location via the appropriate [environment variables](/docs?name=Environment+Variables).
 
 ## From Windows to MacOS/Linux
 

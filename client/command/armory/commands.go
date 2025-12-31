@@ -37,7 +37,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Use:   consts.InstallStr,
 		Short: "Install an alias or extension",
 		Long:  help.GetHelpFor([]string{consts.ArmoryStr, consts.InstallStr}),
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.RangeArgs(0, 1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ArmoryInstallCmd(cmd, con, args)
 		},
