@@ -21,44 +21,24 @@ K := $(foreach exec,$(EXECUTABLES),\
         $(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH")))
 
 #
-# Version Information
+# Build Information
 #
-GO_VERSION = $(shell $(GO) version)
 GO_MAJOR_VERSION = $(shell $(GO) version | cut -c 14- | cut -d' ' -f1 | cut -d'.' -f1)
 GO_MINOR_VERSION = $(shell $(GO) version | cut -c 14- | cut -d' ' -f1 | cut -d'.' -f2)
 MIN_SUPPORTED_GO_MAJOR_VERSION = 1
 MIN_SUPPORTED_GO_MINOR_VERSION = 24
 GO_VERSION_VALIDATION_ERR_MSG = Golang version is not supported, please update to at least $(MIN_SUPPORTED_GO_MAJOR_VERSION).$(MIN_SUPPORTED_GO_MINOR_VERSION)
 
-VERSION ?= $(shell git describe --abbrev=0)
-COMPILED_AT = $(shell date +%s)
-RELEASES_URL ?= https://api.github.com/repos/BishopFox/sliver/releases
 ARMORY_PUBLIC_KEY ?= RWSBpxpRWDrD7Fe+VvRE3c2VEDC2NK80rlNCj+BX0gz44Xw07r6KQD9L
 ARMORY_REPO_URL ?= https://api.github.com/repos/sliverarmory/armory/releases
-VERSION_PKG = github.com/bishopfox/sliver/client/version
 CLIENT_ASSETS_PKG = github.com/bishopfox/sliver/client/assets
 
-GIT_DIRTY = $(shell git diff --quiet|| echo 'Dirty')
-GIT_COMMIT = $(shell git rev-parse HEAD)
-
 LDFLAGS = -ldflags "-s -w \
-	-X $(VERSION_PKG).Version=$(VERSION) \
-	-X \"$(VERSION_PKG).GoVersion=$(GO_VERSION)\" \
-	-X $(VERSION_PKG).CompiledAt=$(COMPILED_AT) \
-	-X $(VERSION_PKG).GithubReleasesURL=$(RELEASES_URL) \
-	-X $(VERSION_PKG).GitCommit=$(GIT_COMMIT) \
-	-X $(VERSION_PKG).GitDirty=$(GIT_DIRTY) \
 	-X $(CLIENT_ASSETS_PKG).DefaultArmoryPublicKey=$(ARMORY_PUBLIC_KEY) \
 	-X $(CLIENT_ASSETS_PKG).DefaultArmoryRepoURL=$(ARMORY_REPO_URL)"
 
 # Debug builds shouldn't be stripped (-s -w flags)
-LDFLAGS_DEBUG = -ldflags "-X $(VERSION_PKG).Version=$(VERSION) \
-	-X \"$(VERSION_PKG).GoVersion=$(GO_VERSION)\" \
-	-X $(VERSION_PKG).CompiledAt=$(COMPILED_AT) \
-	-X $(VERSION_PKG).GithubReleasesURL=$(RELEASES_URL) \
-	-X $(VERSION_PKG).GitCommit=$(GIT_COMMIT) \
-	-X $(VERSION_PKG).GitDirty=$(GIT_DIRTY) \
-	-X $(CLIENT_ASSETS_PKG).DefaultArmoryPublicKey=$(ARMORY_PUBLIC_KEY) \
+LDFLAGS_DEBUG = -ldflags "-X $(CLIENT_ASSETS_PKG).DefaultArmoryPublicKey=$(ARMORY_PUBLIC_KEY) \
 	-X $(CLIENT_ASSETS_PKG).DefaultArmoryRepoURL=$(ARMORY_REPO_URL)"
 
 SED_INPLACE := sed -i
@@ -93,12 +73,6 @@ ifeq ($(MAKECMDGOALS), linux)
 	# Redefine LDFLAGS to add the static part
 	LDFLAGS = -ldflags "-s -w \
 		-extldflags '-static' \
-		-X $(VERSION_PKG).Version=$(VERSION) \
-		-X \"$(VERSION_PKG).GoVersion=$(GO_VERSION)\" \
-		-X $(VERSION_PKG).CompiledAt=$(COMPILED_AT) \
-		-X $(VERSION_PKG).GithubReleasesURL=$(RELEASES_URL) \
-		-X $(VERSION_PKG).GitCommit=$(GIT_COMMIT) \
-		-X $(VERSION_PKG).GitDirty=$(GIT_DIRTY) \
 		-X $(CLIENT_ASSETS_PKG).DefaultArmoryPublicKey=$(ARMORY_PUBLIC_KEY) \
 		-X $(CLIENT_ASSETS_PKG).DefaultArmoryRepoURL=$(ARMORY_REPO_URL)"
 endif

@@ -30,13 +30,7 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-const (
-	normal = "\033[0m"
-	bold   = "\033[1m"
-
-	defaultVersion     = "devel"
-	defaultReleasesURL = "https://api.github.com/repos/BishopFox/sliver/releases"
-)
+const defaultVersion = "devel"
 
 var (
 	// Version - The semantic version in string form
@@ -56,9 +50,6 @@ var (
 )
 
 func init() {
-	if GithubReleasesURL == "" {
-		GithubReleasesURL = defaultReleasesURL
-	}
 	applyBuildInfo()
 }
 

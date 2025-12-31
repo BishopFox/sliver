@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/mod/semver"
 	"gorm.io/gorm/callbacks"
 
 	_ "github.com/ncruces/go-sqlite3"
@@ -200,6 +201,27 @@ func (dialectopr Dialector) RollbackTo(tx *gorm.DB, name string) error {
 }
 
 func compareVersion(version1, version2 string) int {
+	semver1 := canonicalSQLiteVersion(version1)
+	semver2 := canonicalSQLiteVersion(version2)
+	if semver1 != "" && semver2 != "" {
+		return semver.Compare(semver1, semver2)
+	}
+
+	return compareVersionLegacy(version1, version2)
+}
+
+func canonicalSQLiteVersion(version string) string {
+	version = strings.TrimSpace(version)
+	if version == "" {
+		return ""
+	}
+	if !strings.HasPrefix(version, "v") {
+		version = "v" + version
+	}
+	return semver.Canonical(version)
+}
+
+func compareVersionLegacy(version1, version2 string) int {
 	n, m := len(version1), len(version2)
 	i, j := 0, 0
 	for i < n || j < m {
