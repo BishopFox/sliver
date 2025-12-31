@@ -202,13 +202,10 @@ func saveLocation(save, DefaultName string, con *console.SliverClient) (string, 
 	save = expandPath(save)
 	fi, err := os.Stat(save)
 	if os.IsNotExist(err) {
-		con.Printf("%s does not exist\n", save)
 		if strings.HasSuffix(save, "/") {
-			con.Printf("%s is dir\n", save)
 			os.MkdirAll(save, 0o700)
 			saveTo, _ = filepath.Abs(filepath.Join(saveTo, DefaultName))
 		} else {
-			con.Printf("%s is not dir\n", save)
 			saveDir := filepath.Dir(save)
 			_, err := os.Stat(saveTo)
 			if os.IsNotExist(err) {
@@ -220,7 +217,6 @@ func saveLocation(save, DefaultName string, con *console.SliverClient) (string, 
 		if fi.IsDir() {
 			saveTo, _ = filepath.Abs(filepath.Join(save, DefaultName))
 		} else {
-			con.PrintInfof("%s is not dir\n", save)
 			prompt := &survey.Confirm{Message: "Overwrite existing file?"}
 			var confirm bool
 			survey.AskOne(prompt, &confirm)

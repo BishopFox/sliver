@@ -62,6 +62,7 @@ func GenerateForm() (*GenerateFormResult, error) {
 						}
 					}
 				}, &result.OS).
+				Height(3).
 				Value(&result.Arch),
 			huh.NewSelect[string]().
 				Title("Output format").
@@ -78,6 +79,7 @@ func GenerateForm() (*GenerateFormResult, error) {
 					}
 					return options
 				}, &result.OS).
+				Height(3).
 				Value(&result.Format),
 		),
 		huh.NewGroup(
@@ -107,6 +109,7 @@ func GenerateForm() (*GenerateFormResult, error) {
 					}
 					return options
 				}, &result.OS).
+				Height(6).
 				Value(&result.C2Type),
 			huh.NewInput().
 				Title("C2 connection string(s)").
