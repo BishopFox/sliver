@@ -14,10 +14,10 @@ type ArmoryInstallOption struct {
 
 // ArmoryInstallFormResult captures the selection from the armory install form.
 type ArmoryInstallFormResult struct {
-	Name string
+	SelectedNames []string
 }
 
-// ArmoryInstallForm prompts for an armory package or bundle to install.
+// ArmoryInstallForm prompts for armory packages or bundles to install.
 func ArmoryInstallForm(options []ArmoryInstallOption) (*ArmoryInstallFormResult, error) {
 	if len(options) == 0 {
 		return nil, errors.New("armory install options are required")
@@ -34,15 +34,14 @@ func ArmoryInstallForm(options []ArmoryInstallOption) (*ArmoryInstallFormResult,
 		selectOptions = append(selectOptions, huh.NewOption(option.Label, option.Value))
 	}
 
-	result := &ArmoryInstallFormResult{
-		Name: options[0].Value,
-	}
+	result := &ArmoryInstallFormResult{}
 
-	field := huh.NewSelect[string]().
-		Title("Select a package or bundle to install").
+	field := huh.NewMultiSelect[string]().
+		Title("Select packages or bundles to install").
+		Description("Use space to select and enter to install.").
 		Options(selectOptions...).
 		Height(listHeight(len(selectOptions))).
-		Value(&result.Name)
+		Value(&result.SelectedNames)
 
 	form := huh.NewForm(huh.NewGroup(field))
 	if err := form.Run(); err != nil {
