@@ -48,15 +48,15 @@ jobs:
         run: sudo apt-get update --fix-missing && sudo apt-get -y install minisign
 
       - name: Build Clients
-        run: make clients
+        run: |
+          make clients
+          mkdir -p artifacts
+          mv sliver-client_* artifacts/
 
       - name: Build Servers
-        run: make servers
-
-      - name: Collect Artifacts
         run: |
-          mkdir -p artifacts
-          cp sliver-server_* sliver-client_* artifacts/
+          make servers
+          mv sliver-server_* artifacts/
 
       - name: Sign Artifacts
         env:
