@@ -25,7 +25,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 
@@ -34,6 +33,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/util"
 )
 
@@ -305,9 +305,7 @@ func getUpdatesFromUser(con *console.SliverClient, updateKeys []UpdateIdentifier
 	var updateResponse string
 
 	con.Println("You can apply all, none, or some updates.\nTo apply some updates, specify the number of a single update, a range (1-3), or a combination of the two (1, 3-5, 7)\n")
-	err := survey.AskOne(&survey.Input{
-		Message: "Which updates would you like to apply? [A]ll, [N]one, or some:",
-	}, &updateResponse)
+	err := forms.Input("Which updates would you like to apply? [A]ll, [N]one, or some:", &updateResponse)
 	if err != nil {
 		// We do not need to set selectionError because an error here means the same thing as responding with "none"
 		return

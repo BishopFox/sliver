@@ -33,10 +33,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/util"
@@ -56,14 +56,12 @@ func UpdateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		con.Println()
 		con.Println(console.Warn + "You're trying to update over an insecure connection, this is a really bad idea!")
 		confirm := false
-		prompt := &survey.Confirm{Message: "Recklessly update?"}
-		survey.AskOne(prompt, &confirm)
+		_ = forms.Confirm("Recklessly update?", &confirm)
 		if !confirm {
 			return
 		}
 		confirm = false
-		prompt = &survey.Confirm{Message: "Seriously?"}
-		survey.AskOne(prompt, &confirm)
+		_ = forms.Confirm("Seriously?", &confirm)
 		if !confirm {
 			return
 		}
@@ -230,10 +228,7 @@ func updateAvailable(con *console.SliverClient, client *http.Client, release *ve
 	con.Println()
 
 	confirm := false
-	prompt := &survey.Confirm{
-		Message: "Download update?",
-	}
-	survey.AskOne(prompt, &confirm)
+	_ = forms.Confirm("Download update?", &confirm)
 	if confirm {
 		con.Printf("Please wait ...")
 		err := downloadAsset(client, serverAsset, saveTo)

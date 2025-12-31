@@ -24,9 +24,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/util"
 	"github.com/spf13/cobra"
 )
@@ -62,8 +62,7 @@ func installFromDir(aliasLocalPath string, con *console.SliverClient) {
 	if _, err := os.Stat(installPath); !os.IsNotExist(err) {
 		con.PrintInfof("Alias '%s' already exists", manifest.CommandName)
 		confirm := false
-		prompt := &survey.Confirm{Message: "Overwrite current install?"}
-		survey.AskOne(prompt, &confirm)
+		_ = forms.Confirm("Overwrite current install?", &confirm)
 		if !confirm {
 			return
 		}
@@ -122,8 +121,7 @@ func InstallFromFile(aliasGzFilePath string, aliasName string, promptToOverwrite
 		if promptToOverwrite {
 			con.PrintInfof("Alias '%s' already exists\n", manifest.CommandName)
 			confirm := false
-			prompt := &survey.Confirm{Message: "Overwrite current install?"}
-			survey.AskOne(prompt, &confirm)
+			_ = forms.Confirm("Overwrite current install?", &confirm)
 			if !confirm {
 				return nil
 			}

@@ -22,9 +22,9 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/spf13/cobra"
 )
@@ -44,7 +44,7 @@ func CursedRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	core.CloseCursedProcessesByBindPort(session.ID, bindPort)
 	if kill {
 		confirm := false
-		err := survey.AskOne(&survey.Confirm{Message: "Kill the cursed process?"}, &confirm)
+		err := forms.Confirm("Kill the cursed process?", &confirm)
 		if err != nil {
 			con.PrintErrorf("%s", err)
 			return

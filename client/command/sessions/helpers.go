@@ -27,8 +27,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
@@ -85,12 +85,8 @@ func SelectSession(onlyAlive bool, con *console.SliverClient) (*clientpb.Session
 
 	options := strings.Split(outputBuf.String(), "\n")
 	options = options[:len(options)-1] // Remove the last empty option
-	prompt := &survey.Select{
-		Message: "Select a session:",
-		Options: options,
-	}
 	selected := ""
-	survey.AskOne(prompt, &selected)
+	_ = forms.Select("Select a session:", options, &selected)
 	if selected == "" {
 		return nil, ErrNoSelection
 	}

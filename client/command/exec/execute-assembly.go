@@ -24,8 +24,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/spf13/cobra"
@@ -82,8 +82,7 @@ func ExecuteAssemblyCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 	if len(assemblyArgsStr) > 256 && !inProcess {
 		con.PrintWarnf(" Injected .NET assembly arguments are limited to 256 characters when using the default fork/exec model.\nConsider using the --in-process flag to execute the .NET assembly in-process and work around this limitation.\n")
 		confirm := false
-		prompt := &survey.Confirm{Message: "Do you want to continue?"}
-		survey.AskOne(prompt, &confirm, nil)
+		_ = forms.Confirm("Do you want to continue?", &confirm)
 		if !confirm {
 			return
 		}

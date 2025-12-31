@@ -25,9 +25,9 @@ import (
 	"path"
 	"time"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/client/overlord"
 	"github.com/bishopfox/sliver/client/tcpproxy"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -88,7 +88,7 @@ func avadaKedavraElectron(electronExe string, session *clientpb.Session, cmd *co
 		con.PrintWarnf("%sDATA LOSS MAY OCCUR!%s\n", console.Bold, console.Normal)
 		con.Printf("\n")
 		confirm := false
-		err = survey.AskOne(&survey.Confirm{Message: "Kill and restart the process?"}, &confirm)
+		err = forms.Confirm("Kill and restart the process?", &confirm)
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return nil

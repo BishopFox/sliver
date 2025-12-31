@@ -22,11 +22,11 @@ import (
 	"context"
 	"errors"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -39,7 +39,7 @@ func KillCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	confirm := false
 	con.PrintWarnf("WARNING: This will kill the remote implant process\n\n")
 	if session != nil {
-		survey.AskOne(&survey.Confirm{Message: "Kill the active session?"}, &confirm, nil)
+		_ = forms.Confirm("Kill the active session?", &confirm)
 		if !confirm {
 			return
 		}
@@ -52,7 +52,7 @@ func KillCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		con.ActiveTarget.Background()
 		return
 	} else if beacon != nil {
-		survey.AskOne(&survey.Confirm{Message: "Kill the active beacon?"}, &confirm, nil)
+		_ = forms.Confirm("Kill the active beacon?", &confirm)
 		if !confirm {
 			return
 		}

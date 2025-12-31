@@ -23,7 +23,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/forms"
@@ -114,8 +113,7 @@ func SettingsSmallTerm(cmd *cobra.Command, con *console.SliverClient, args []str
 		}
 	}
 	result := ""
-	prompt := &survey.Input{Message: "Set small width:"}
-	err = survey.AskOne(prompt, &result)
+	err = forms.Input("Set small width:", &result)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
@@ -149,11 +147,7 @@ func SettingsTablesCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 		options = append(options, option)
 	}
 	style := ""
-	prompt := &survey.Select{
-		Message: "Choose a style:",
-		Options: options,
-	}
-	err = survey.AskOne(prompt, &style)
+	err = forms.Select("Choose a style:", options, &style)
 	if err != nil {
 		con.PrintErrorf("No selection\n")
 		return

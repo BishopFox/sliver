@@ -22,9 +22,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/spf13/cobra"
 )
 
@@ -33,8 +33,7 @@ func ReactionSaveCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	reactionPath := GetReactionFilePath()
 	if _, err := os.Stat(reactionPath); !os.IsNotExist(err) {
 		confirm := false
-		prompt := &survey.Confirm{Message: fmt.Sprintf("Overwrite reactions (%s) on disk?", reactionPath)}
-		survey.AskOne(prompt, &confirm)
+		_ = forms.Confirm(fmt.Sprintf("Overwrite reactions (%s) on disk?", reactionPath), &confirm)
 		if !confirm {
 			return
 		}

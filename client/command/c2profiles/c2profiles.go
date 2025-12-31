@@ -29,7 +29,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slices"
@@ -38,6 +37,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
@@ -547,11 +547,7 @@ func selectC2Profile(c2profiles []*clientpb.HTTPC2Config) string {
 		choices = append(choices, c2profile.Name)
 	}
 
-	prompt := &survey.Select{
-		Message: "Select a c2 profile",
-		Options: choices,
-	}
-	survey.AskOne(prompt, &c2profile, nil)
+	_ = forms.Select("Select a c2 profile", choices, &c2profile)
 
 	return c2profile
 }

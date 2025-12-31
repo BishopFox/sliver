@@ -31,9 +31,9 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/cobra"
 
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
@@ -106,11 +106,7 @@ func SelectLoot(cmd *cobra.Command, rpc rpcpb.SliverRPCClient) (*clientpb.Loot, 
 	}
 
 	selected := ""
-	prompt := &survey.Select{
-		Message: "Select a piece of loot:",
-		Options: options,
-	}
-	err = survey.AskOne(prompt, &selected)
+	err = forms.Select("Select a piece of loot:", options, &selected)
 	if err != nil {
 		return nil, err
 	}

@@ -27,7 +27,6 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/bishopfox/sliver/client/assets"
@@ -35,6 +34,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/util"
 	"github.com/bishopfox/sliver/util/minisign"
 )
@@ -95,12 +95,9 @@ func ArmoryInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		if extCount == 1 {
 			pluralExtensions = ""
 		}
-		prompt := &survey.Confirm{
-			Message: fmt.Sprintf("Install %d alias%s and %d extension%s?",
-				aliasCount, pluralAliases, extCount, pluralExtensions,
-			),
-		}
-		survey.AskOne(prompt, &confirm)
+		forms.Confirm(fmt.Sprintf("Install %d alias%s and %d extension%s?",
+			aliasCount, pluralAliases, extCount, pluralExtensions,
+		), &confirm)
 		if !confirm {
 			return
 		}
@@ -296,11 +293,7 @@ func getPackageIDFromUser(name string, options map[string]string) string {
 	// Add a cancel option
 	optionKeys = append(optionKeys, doNotInstallOption)
 	options[doNotInstallOption] = doNotInstallPackageName
-	prompt := &survey.Select{
-		Message: fmt.Sprintf("More than one package contains the command %s. Please choose an option from the list below:", name),
-		Options: optionKeys,
-	}
-	survey.AskOne(prompt, &selectedPackageKey)
+	forms.Select(fmt.Sprintf("More than one package contains the command %s. Please choose an option from the list below:", name), optionKeys, &selectedPackageKey)
 	selectedPackageID := options[selectedPackageKey]
 
 	return selectedPackageID
