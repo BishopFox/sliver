@@ -90,6 +90,7 @@ github.com/alexbrainman/sspi/internal/common
 github.com/alexbrainman/sspi/negotiate
 # github.com/atotto/clipboard v0.1.4
 ## explicit
+github.com/atotto/clipboard
 # github.com/awgh/cppgo v0.0.0-20210224085512-3d24bca8edc0
 ## explicit; go 1.16
 github.com/awgh/cppgo/asmcall/cdecl
@@ -154,9 +155,19 @@ github.com/carapace-sh/carapace/third_party/golang.org/x/sys/execabs
 github.com/carapace-sh/carapace-shlex
 # github.com/catppuccin/go v0.3.0
 ## explicit; go 1.19
+github.com/catppuccin/go
 # github.com/charmbracelet/bubbles v0.21.1-0.20250623103423-23b8fd6302d7
 ## explicit; go 1.23.0
+github.com/charmbracelet/bubbles/cursor
+github.com/charmbracelet/bubbles/filepicker
+github.com/charmbracelet/bubbles/help
+github.com/charmbracelet/bubbles/key
+github.com/charmbracelet/bubbles/runeutil
 github.com/charmbracelet/bubbles/spinner
+github.com/charmbracelet/bubbles/textarea
+github.com/charmbracelet/bubbles/textarea/memoization
+github.com/charmbracelet/bubbles/textinput
+github.com/charmbracelet/bubbles/viewport
 # github.com/charmbracelet/bubbletea v1.3.10
 ## explicit; go 1.24.0
 github.com/charmbracelet/bubbletea
@@ -165,6 +176,9 @@ github.com/charmbracelet/bubbletea
 github.com/charmbracelet/colorprofile
 # github.com/charmbracelet/huh v0.8.0
 ## explicit; go 1.23.0
+github.com/charmbracelet/huh
+github.com/charmbracelet/huh/internal/accessibility
+github.com/charmbracelet/huh/internal/selector
 # github.com/charmbracelet/huh/spinner v0.0.0-20251215014908-6f7d32faaff3
 ## explicit; go 1.24.0
 github.com/charmbracelet/huh/spinner
@@ -180,6 +194,7 @@ github.com/charmbracelet/x/ansi/parser
 github.com/charmbracelet/x/cellbuf
 # github.com/charmbracelet/x/exp/strings v0.0.0-20240722160745-212f7b056ed0
 ## explicit; go 1.19
+github.com/charmbracelet/x/exp/strings
 # github.com/charmbracelet/x/term v0.2.1
 ## explicit; go 1.18
 github.com/charmbracelet/x/term
@@ -494,6 +509,7 @@ github.com/miekg/dns
 github.com/mitchellh/go-ps
 # github.com/mitchellh/hashstructure/v2 v2.0.2
 ## explicit; go 1.14
+github.com/mitchellh/hashstructure/v2
 # github.com/moloch--/asciicast v0.1.1
 ## explicit; go 1.20
 github.com/moloch--/asciicast
