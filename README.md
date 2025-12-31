@@ -46,3 +46,4 @@ Please take a moment and fill out [our survey](https://forms.gle/SwVsHFNh24ChG58
 ### License - GPLv3
 
 Sliver is licensed under [GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html), some sub-components may have separate licenses. See their respective subdirectories in this project for details.
+
