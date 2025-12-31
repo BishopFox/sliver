@@ -2,15 +2,15 @@ package assets
 
 const (
 	goVersion      = "1.25.5"
-	zigVersion     = "0.15.1"
+	zigVersion     = "0.15.2"
 	garbleVersion  = "1.25.5"
 	zigSourceParam = "source=sliver"
 
 	zigMinisignPublicKey = "RWSGOq2NVecA2UPNdBUZykf1CCb147pkmdtYxgb3Ti+JO/wCYvhbAb/U"
 
-	goTotal     = 5
-	zigTotal    = 5
-	garbleTotal = 5
+	goTotal     = 6
+	zigTotal    = 6
+	garbleTotal = 6
 )
 
 var defaultZigMirrors = []string{

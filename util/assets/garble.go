@@ -35,6 +35,12 @@ func (r *runner) buildGarbleAssets() error {
 			url:      fmt.Sprintf("https://github.com/moloch--/garble/releases/download/v%s/garble_windows-amd64.exe", garbleVersion),
 		},
 		{
+			os:       "windows",
+			arch:     "arm64",
+			filename: "garble.exe",
+			url:      fmt.Sprintf("https://github.com/moloch--/garble/releases/download/v%s/garble_windows-arm64.exe", garbleVersion),
+		},
+		{
 			os:       "darwin",
 			arch:     "amd64",
 			filename: "garble",

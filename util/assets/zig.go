@@ -36,6 +36,7 @@ func (r *runner) buildZigAssets() error {
 		{os: "linux", arch: "amd64", remoteName: fmt.Sprintf("zig-x86_64-linux-%s.tar.xz", zigVersion), localName: "zig.tar.xz"},
 		{os: "linux", arch: "arm64", remoteName: fmt.Sprintf("zig-aarch64-linux-%s.tar.xz", zigVersion), localName: "zig.tar.xz"},
 		{os: "windows", arch: "amd64", remoteName: fmt.Sprintf("zig-x86_64-windows-%s.zip", zigVersion), localName: "zig.zip"},
+		{os: "windows", arch: "arm64", remoteName: fmt.Sprintf("zig-aarch64-windows-%s.zip", zigVersion), localName: "zig.zip"},
 	}
 
 	for _, platform := range platforms {

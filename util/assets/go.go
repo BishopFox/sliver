@@ -70,6 +70,16 @@ func (r *runner) buildGoAssets() error {
 				"pkg/tool/windows_amd64/test2json.exe",
 			},
 		},
+		{
+			os:         "windows",
+			arch:       "arm64",
+			archiveExt: "zip",
+			toolRemoves: []string{
+				"pkg/tool/windows_arm64/doc.exe",
+				"pkg/tool/windows_arm64/tour.exe",
+				"pkg/tool/windows_arm64/test2json.exe",
+			},
+		},
 	}
 
 	for _, platform := range platforms {
