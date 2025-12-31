@@ -67,7 +67,7 @@ func Run(args []string) error {
 	defer func() {
 		log.ClearSection()
 		log.Logf("clean up: %s", workDir)
-		_ = os.RemoveAll(workDir)
+		os.RemoveAll(workDir)
 	}()
 
 	if err := r.buildGoAssets(); err != nil {
