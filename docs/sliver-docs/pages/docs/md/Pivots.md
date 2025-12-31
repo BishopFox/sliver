@@ -1,8 +1,8 @@
-⚠️ **IMPORTANT:** Pivots in Sliver are used for specifically pivoting C2 traffic, not to be confused with port forwarding `portfwd`, which is used for tunneling generic tcp connections into a target environment.
+⚠️ **IMPORTANT:** Pivots in Sliver are used for specifically pivoting C2 traffic, not to be confused with port forwarding `portfwd`, which is used for tunneling generic TCP connections into a target environment.
 
 ⚠️ **IMPORTANT:** Pivots can only be used in "session mode" (we may add beacon support later)
 
-Pivots allow you to create "chains" of implant connections, for example if you're trying to deploy a pivot into a highly restricted subnet that cannot route traffic directly to the internet you can instead create an implant that egresses all traffic via another implant in a less restricted subnet. Sliver v1.5 and later pivots can be arbitrarily nested, for example a pivot A can connect thru pivot B to a third egress implant.
+Pivots allow you to create "chains" of implant connections, for example if you're trying to deploy a pivot into a highly restricted subnet that cannot route traffic directly to the internet you can instead create an implant that egresses all traffic via another implant in a less restricted subnet. Pivots can be arbitrarily nested, for example a pivot A can connect through pivot B to a third egress implant.
 
 In Sliver you use an existing session to create a "pivot listener" and then generate new pivots that can connect back to that listener, just as you would with other C2 protocols/endpoints.
 
@@ -42,7 +42,7 @@ Named pipe pivots are only supported on Windows. Select a session to start a nam
 [*] Started named pipe pivot listener \\.\pipe\foobar with id 1
 ```
 
-Next we generate a named pipe implant using `generate --named-pipe 192.168.1.1/pipe/foobar` note here we may need to specify the IP address of the listener: `192.168.1.1`. The syntax is `<host>/pipe/<pipe name>`, note that `.` is equivalent to `127.0.0.1`. This is just the standard syntax for Windows named pipes.
+Next we generate a named pipe implant using `generate --named-pipe 192.168.1.1/pipe/foobar`. Note that we may need to specify the IP address of the listener: `192.168.1.1`. The syntax is `<host>/pipe/<pipe name>`, note that `.` is equivalent to `127.0.0.1`. This is just the standard syntax for Windows named pipes.
 
 ```
 [*] Session 13f9ee6b ROUND_ATELIER - 192.168.1.178:59290->WARM_DRIVEWAY-> (WIN-1TT1Q345B37) - windows/amd64 - Mon, 07 Feb 2022 10:15:11 CST
@@ -55,4 +55,4 @@ Next we generate a named pipe implant using `generate --named-pipe 192.168.1.1/p
  a2615359   WARM_DRIVEWAY   mtls        192.168.1.178:59290                    WIN-1TT1Q345B37   WIN-1TT1Q345B37\Administrator   windows/amd64      Mon, 07 Feb 2022 10:15:11 CST   [ALIVE]
 ```
 
-⚠️ **IMPORTANT:** In some environments you may need to use the `--allow-all` flag when starting the pviot listener to allow all users/groups
+⚠️ **IMPORTANT:** In some environments you may need to use the `--allow-all` flag when starting the pivot listener to allow all users/groups.

@@ -1,4 +1,4 @@
-Multiplayer-mode allows multiple operators (players) to connect to the same Sliver server and collaborate on engagements. The easiest way to setup a server for multiplayer is to use the [Linux install script](/docs?name=Linux+Install+Script) which will configure the server as a systemd service. However, any Sliver server binary supports multiplayer mode.
+Multiplayer-mode allows multiple operators (players) to connect to the same Sliver server and collaborate on engagements. The easiest way to set up a server for multiplayer is to use the [Linux install script](/docs?name=Linux+Install+Script) which will configure the server as a systemd service. However, any Sliver server binary supports multiplayer mode.
 
 ```
                     ┌──────────────────┐  C2
@@ -45,7 +45,7 @@ From the server use the `new-operator` command to generate a new operator config
 
 **IMPORTANT:** Before clients can connect to a server you must start an RPC listener with the `multiplayer` command. The default port is TCP/31337.
 
-You can now give this configuration file `moloch_example.com.cfg` to the operator and they can connect to the server using the `sliver-client` binary. The sliver client will look for configuration files in `~/.sliver-client/configs/` or you can import configs using the `import` cli. The configs directory can contain multiple configs for different servers.
+You can now give this configuration file `moloch_example.com.cfg` to the operator and they can connect to the server using the `sliver-client` binary. The Sliver client will look for configuration files in `~/.sliver-client/configs/` or you can import configs using the `import` CLI. The configs directory can contain multiple configs for different servers.
 
 ```
 $ ./sliver-client import ./moloch_example.com.cfg
@@ -68,9 +68,7 @@ The installation scripts by default will place the `sliver-server` binary in `/r
 
 ### Tailscale Integration
 
-⚠️ This section describes an unreleased feature from an upcoming version ⚠️
-
-Starting in v1.6 Sliver supports multiplayer integration with [Tailscale](https://tailscale.com/), which is an excellent option when wanting to maintain operational security.
+Sliver v1.6 supports multiplayer integration with [Tailscale](https://tailscale.com/), which is an excellent option when wanting to maintain operational security.
 
 ```
 $ export TS_AUTHKEY=<tailscale authkey>

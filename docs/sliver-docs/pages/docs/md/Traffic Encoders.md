@@ -1,10 +1,8 @@
-⚠️ This page describes an unreleased feature from an upcoming version ⚠️
+Sliver v1.6 supports user-defined "Traffic Encoders," which can be used to arbitrarily modify the Sliver implant's network communication over HTTP(S). Traffic Encoders are [Wasm-based](https://webassembly.org/) callback functions that encode/decode network traffic between the implant and the server. Traffic Encoders can be written in any language that compiles to [Wasm](https://webassembly.org/). Traffic Encoders are supported on all platforms and CPU architectures that Sliver can target, though performance may vary significantly.
 
-As of v1.6.0 Sliver supports user-defined "Traffic Encoders," which can be used to arbitrarily modify the Sliver implant's network communication over HTTP(S). Traffic Encoders are [Wasm-based](https://webassembly.org/) callback functions that encode/decode network traffic between the implant and the server. Traffic encoders can be written in any language that compiles to [Wasm](https://webassembly.org/). Traffic encoders are supported on all platforms and CPU architectures that Sliver can target, though performance may vary significantly.
+[Examples](https://github.com/BishopFox/sliver/tree/v1.6.0/server/assets/traffic-encoders) are provided in this repository of a [Rust](https://www.rust-lang.org/)-based and a [TinyGo](https://tinygo.org/)-based encoder. For performance reasons we recommend implementing Traffic Encoders in Rust.
 
-[Examples](https://github.com/BishopFox/sliver/tree/v1.6.0/master/server/assets/traffic-encoders) are provided in this repository of a [Rust](https://www.rust-lang.org/)-based and a [TinyGo](https://tinygo.org/)-based encoder. For performance reasons we recommend implementing Traffic Encoders in Rust.
-
-For performance reasons, by default C2 messages over 2Mb in size are NOT passed through user-defined Traffic Encoders, but instead always use a native built-in encoder; this limit can be configured at implant generation-time.
+For performance reasons, by default C2 messages over 2 MB in size are NOT passed through user-defined Traffic Encoders, but instead always use a native built-in encoder; this limit can be configured at implant generation-time.
 
 ## Traffic Encoder Specification
 
@@ -46,7 +44,7 @@ rand() uint64
 time() int64
 ```
 
-The `log` function takes a pointer to a buffer and the size of the buffer, and logs the contents of the buffer to the console if the implant is in debug mode. On the server will also log the contents if configured to log at the DEBUG level or higher.
+The `log` function takes a pointer to a buffer and the size of the buffer, and logs the contents of the buffer to the console if the implant is in debug mode. The server will also log the contents if configured to log at the DEBUG level or higher.
 
 The `rand()` function returns 64-bits of cryptographically secure random data.
 
