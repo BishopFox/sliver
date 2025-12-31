@@ -62,7 +62,11 @@ jobs:
         env:
           MINISIGN_KEY: ${{ secrets.MINISIGN_SLIVER_RELEASE_KEY }}
         run: |
-          printf '%s' "$MINISIGN_KEY" > minisign.key
+          if printf '%s' "$MINISIGN_KEY" | grep -q "MINISIGN_SECRET_KEY"; then
+            printf '%s\n' "$MINISIGN_KEY" > minisign.key
+          else
+            printf '%s' "$MINISIGN_KEY" | base64 -d > minisign.key
+          fi
           chmod 600 minisign.key
           for file in artifacts/sliver-*; do
             [ -f "$file" ] || continue
