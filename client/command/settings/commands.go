@@ -19,6 +19,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		},
 		GroupID: consts.GenericHelpGroup,
 	}
+	settingsCmd.Flags().Bool("show", false, "Show current settings without prompting")
 	settingsCmd.AddCommand(&cobra.Command{
 		Use:   consts.SaveStr,
 		Short: "Save the current settings to disk",

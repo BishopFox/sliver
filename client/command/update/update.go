@@ -28,7 +28,6 @@ import (
 	"net/url"
 	"os"
 	"os/user"
-	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -115,9 +114,9 @@ func UpdateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		con.PrintInfof("No new releases.\n")
 	}
 	now := time.Now()
-	lastCheck := []byte(fmt.Sprintf("%d", now.Unix()))
+	lastCheck := fmt.Appendf(nil, "%d", now.Unix())
 	appDir := assets.GetRootAppDir()
-	lastUpdateCheckPath := path.Join(appDir, consts.LastUpdateCheckFileName)
+	lastUpdateCheckPath := filepath.Join(appDir, consts.LastUpdateCheckFileName)
 	err = os.WriteFile(lastUpdateCheckPath, lastCheck, 0o600)
 	if err != nil {
 		con.Printf("Failed to save update check time %s", err)

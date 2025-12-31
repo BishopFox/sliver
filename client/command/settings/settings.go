@@ -19,11 +19,14 @@ package settings
 */
 
 import (
+	"errors"
 	"strconv"
+	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )
@@ -39,6 +42,25 @@ func SettingsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		}
 	}
 
+	if shouldRunSettingsForm(cmd, con, args) {
+		tableStyleOptions := make([]string, 0, len(tableStyles))
+		for option := range tableStyles {
+			tableStyleOptions = append(tableStyleOptions, option)
+		}
+		result, err := forms.SettingsForm(con.Settings, tableStyleOptions)
+		if err != nil {
+			if errors.Is(err, forms.ErrUserAborted) {
+				return
+			}
+			con.PrintErrorf("Settings form failed: %s\n", err)
+			return
+		}
+		if err := applySettingsForm(con.Settings, result); err != nil {
+			con.PrintErrorf("Failed to apply settings form values: %s\n", err)
+			return
+		}
+	}
+
 	tw := table.NewWriter()
 	tw.SetStyle(GetTableStyle(con))
 	tw.AppendHeader(table.Row{"Name", "Value", "Description"})
@@ -48,6 +70,7 @@ func SettingsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	tw.AppendRow(table.Row{"Small Term Width", con.Settings.SmallTermWidth, "Omit some table columns when terminal width is less than this value"})
 	tw.AppendRow(table.Row{"Always Overflow", con.Settings.AlwaysOverflow, "Disable table pagination"})
 	tw.AppendRow(table.Row{"Vim Mode", con.Settings.VimMode, "Navigation mode, vim style"})
+	tw.AppendRow(table.Row{"User Connect", con.Settings.UserConnect, "Show operator connect/disconnect events"})
 	tw.AppendRow(table.Row{"Console Logs", con.Settings.ConsoleLogs, "Log console output to disk"})
 	con.Printf("%s\n", tw.Render())
 }
@@ -172,4 +195,46 @@ func SettingsUserConnect(cmd *cobra.Command, con *console.SliverClient, args []s
 	}
 	con.Settings.UserConnect = !con.Settings.UserConnect
 	con.PrintInfof("User connect events = %v\n", con.Settings.UserConnect)
+}
+
+func shouldRunSettingsForm(cmd *cobra.Command, con *console.SliverClient, args []string) bool {
+	if con == nil || con.IsCLI {
+		return false
+	}
+	if len(args) != 0 {
+		return false
+	}
+	if show, err := cmd.Flags().GetBool("show"); err == nil && show {
+		return false
+	}
+	return cmd.Flags().NFlag() == 0
+}
+
+func applySettingsForm(settings *assets.ClientSettings, result *forms.SettingsFormResult) error {
+	if settings == nil {
+		return errors.New("settings are required")
+	}
+	if result == nil {
+		return errors.New("settings form result is required")
+	}
+	if _, ok := tableStyles[result.TableStyle]; !ok {
+		return errors.New("invalid table style")
+	}
+	width, err := strconv.Atoi(strings.TrimSpace(result.SmallTermWidth))
+	if err != nil {
+		return err
+	}
+	if width < 1 {
+		return errors.New("small terminal width must be 1 or greater")
+	}
+
+	settings.TableStyle = result.TableStyle
+	settings.AutoAdult = result.AutoAdult
+	settings.BeaconAutoResults = result.BeaconAutoResults
+	settings.SmallTermWidth = width
+	settings.AlwaysOverflow = result.AlwaysOverflow
+	settings.VimMode = result.VimMode
+	settings.UserConnect = result.UserConnect
+	settings.ConsoleLogs = result.ConsoleLogs
+	return nil
 }
