@@ -98,7 +98,7 @@ func ArmoryUpdateCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 			return
 		}
 	} else {
-		con.PrintSuccessf("All packages are up to date")
+		con.PrintSuccessf("All packages are up to date\n")
 		return
 	}
 

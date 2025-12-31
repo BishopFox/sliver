@@ -19,8 +19,6 @@ package assets
 */
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
 	"os"
 	"os/user"
@@ -30,8 +28,6 @@ import (
 
 	"github.com/bishopfox/sliver/server/log"
 	ver "github.com/bishopfox/sliver/server/version"
-	"golang.org/x/crypto/openpgp/armor"
-	"golang.org/x/crypto/openpgp/packet"
 )
 
 const (
@@ -150,33 +146,4 @@ func English() []string {
 	}
 	englishWords := strings.Split(string(rawEnglish), "\n")
 	return englishWords
-}
-
-// GetGPGPublicKey - Return the GPG public key from assets
-func GetGPGPublicKey() (*packet.PublicKey, error) {
-	rawPublicKey, err := assetsFs.ReadFile("fs/sliver.asc")
-	if err != nil {
-		return nil, err
-	}
-	// Decode armored public key
-	block, err := armor.Decode(bytes.NewReader(rawPublicKey))
-	if err != nil {
-		return nil, fmt.Errorf("error decoding public key: %s", err)
-	}
-	if block.Type != "PGP PUBLIC KEY BLOCK" {
-		return nil, errors.New("not an armored public key")
-	}
-
-	// Read the key
-	pack, err := packet.Read(block.Body)
-	if err != nil {
-		return nil, fmt.Errorf("error reading public key: %s", err)
-	}
-
-	// Was it really a public key file ? If yes, get the PublicKey
-	publicKey, ok := pack.(*packet.PublicKey)
-	if !ok {
-		return nil, errors.New("invalid public key")
-	}
-	return publicKey, nil
 }
