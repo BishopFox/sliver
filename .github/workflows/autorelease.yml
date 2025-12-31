@@ -62,8 +62,9 @@ jobs:
         env:
           MINISIGN_KEY: ${{ secrets.MINISIGN_SLIVER_RELEASE_KEY }}
         run: |
-          echo "MINISIGN_KEY bytes: $(printf '%s' "$MINISIGN_KEY" | wc -c | tr -d ' ')"
-          printf '%b' "$MINISIGN_KEY" | tr -d '\r' > minisign.key
+          echo "$MINISIGN_KEY" | base64 -d > minisign.key
+          echo "minisign.key bytes: $(wc -c < minisign.key | tr -d ' ')"
+          echo "minisign.key sha256: $(sha256sum minisign.key | awk '{print $1}')"
           chmod 600 minisign.key
           for file in artifacts/sliver-*; do
             [ -f "$file" ] || continue
