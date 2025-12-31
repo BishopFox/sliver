@@ -56,12 +56,12 @@ func UpdateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		con.Println()
 		con.Println(console.Warn + "You're trying to update over an insecure connection, this is a really bad idea!")
 		confirm := false
-		_ = forms.Confirm("Recklessly update?", &confirm)
+		forms.Confirm("Recklessly update?", &confirm)
 		if !confirm {
 			return
 		}
 		confirm = false
-		_ = forms.Confirm("Seriously?", &confirm)
+		forms.Confirm("Seriously?", &confirm)
 		if !confirm {
 			return
 		}
@@ -228,7 +228,7 @@ func updateAvailable(con *console.SliverClient, client *http.Client, release *ve
 	con.Println()
 
 	confirm := false
-	_ = forms.Confirm("Download update?", &confirm)
+	forms.Confirm("Download update?", &confirm)
 	if confirm {
 		con.Printf("Please wait ...")
 		err := downloadAsset(client, serverAsset, saveTo)

@@ -74,8 +74,7 @@ func SessionOrBeaconByID(id string, con *console.SliverClient) (*clientpb.Sessio
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		return nil, nil, err
-	}
-	if err == nil {
+	} else {
 		for _, session := range sessions.Sessions {
 			if strings.HasPrefix(session.ID, id) {
 				return session, nil, nil

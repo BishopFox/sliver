@@ -89,7 +89,7 @@ func ArmoryUpdateCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 		displayAvailableUpdates(con, updateKeys, aliasUpdates, extUpdates)
 		selectedUpdates, err = getUpdatesFromUser(con, updateKeys)
 		if err != nil {
-			con.PrintErrorf(err.Error() + "\n")
+			con.PrintErrorf("%s\n", err.Error())
 			return
 		}
 		if len(selectedUpdates) == 0 {
