@@ -2,136 +2,86 @@ name: Release
 
 on:
   push:
-    branches: [master]
+    branches:
+      - master
+
+permissions:
+  contents: write
 
 jobs:
-  servers-build:
-    name: Release Build Server
-    if: startsWith( github.ref, 'refs/tags/v')
+  tag-check:
+    name: Check Release Tag
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 10
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
     steps:
-      - name: Go 1.25
-        uses: actions/setup-go@v6
+      - name: Check Out Code
+        uses: actions/checkout@v6
         with:
-          go-version: "^1.25"
+          fetch-depth: 0
 
-      - name: OS Packages
+      - name: Find Semver Tag
+        id: tag
         run: |
-          sudo apt-get update --fix-missing && sudo apt-get -y install \
-          git build-essential zlib1g zlib1g-dev wget zip unzip
+          git fetch --prune --tags -f
+          tag=$(git tag --points-at "$GITHUB_SHA" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
+  release:
+    name: Release
+    needs: tag-check
+    if: needs.tag-check.outputs.tag != ''
+    runs-on: ubuntu-latest
+    environment: release
+    timeout-minutes: 45
+    steps:
       - name: Check Out Code
         uses: actions/checkout@v6
 
-      - name: Git Fetch Tags
-        run: git fetch --prune --unshallow --tags -f
-
-      - name: Make
-        run: make servers
-
-      - name: Server Artifacts
-        uses: actions/upload-artifact@v6
-        with:
-          name: servers
-          path: ./sliver-server_*
-
-  clients-build:
-    name: Release Build Client
-    if: startsWith( github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
       - name: Go 1.25
         uses: actions/setup-go@v6
         with:
           go-version: "^1.25"
 
-      - name: Check Out Code
-        uses: actions/checkout@v6
+      - name: Install Minisign
+        run: sudo apt-get update --fix-missing && sudo apt-get -y install minisign
 
-      - name: Git Fetch Tags
-        run: git fetch --prune --unshallow --tags -f
-
-      - name: Make
+      - name: Build Clients
         run: make clients
 
-      - name: Client Artifacts
-        uses: actions/upload-artifact@v6
-        with:
-          name: clients
-          path: ./sliver-client_*
+      - name: Build Servers
+        run: make servers
 
-  tagged-release:
-    needs: [servers-build, clients-build]
+      - name: Collect Artifacts
+        run: |
+          mkdir -p artifacts
+          cp sliver-server_* sliver-client_* artifacts/
 
-    name: "Tagged Release"
-    if: startsWith( github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
+      - name: Sign Artifacts
+        env:
+          MINISIGN_KEY: ${{ secrets.MINISIGN_SLIVER_RELEASE_KEY }}
+        run: |
+          printf '%s' "$MINISIGN_KEY" > minisign.key
+          chmod 600 minisign.key
+          for file in artifacts/sliver-*; do
+            [ -f "$file" ] || continue
+            minisign -S -s minisign.key -m "$file" -x "$file.minisig" -W
+          done
+          rm -f minisign.key
 
-    steps:
-      - run: mkdir -p ./builds
-      - uses: actions/download-artifact@v7
-        with:
-          path: ./builds
+      - name: Create Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ needs.tag-check.outputs.tag }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists."
+            exit 0
+          fi
+          gh release create "$tag" --generate-notes
 
-      - name: Extract Artifacts
-        run: |
-          mkdir -p ./artifacts
-          cp ./builds/clients/* ./artifacts
-          cp ./builds/servers/* ./artifacts
-
-      - name: GPG Key(s)
-        run: |
-          cat <(echo -e "${{ secrets.SLIVER_GPG }}") | gpg --batch --import
-          gpg --list-secret-keys --keyid-format LONG
-
-      # Linux
-      - name: Linux 386 (Client Only)
-        run: |
-          gpg --default-key 4449039C --output ./artifacts/sliver-client_linux-386.sig --detach-sig ./artifacts/sliver-client_linux-386
-      - name: Linux AMD64
-        run: |
-          gpg --default-key 4449039C --output ./artifacts/sliver-server_linux-amd64.sig --detach-sig ./artifacts/sliver-server_linux-amd64
-          gpg --default-key 4449039C --output ./artifacts/sliver-client_linux-amd64.sig --detach-sig ./artifacts/sliver-client_linux-amd64
-      - name: Linux ARM64
-        run: |
-          gpg --default-key 4449039C --output ./artifacts/sliver-server_linux-arm64.sig --detach-sig ./artifacts/sliver-server_linux-arm64
-          gpg --default-key 4449039C --output ./artifacts/sliver-client_linux-arm64.sig --detach-sig ./artifacts/sliver-client_linux-arm64
-
-      # Windows
-      - name: Windows 386 (Client Only)
-        run: |
-          gpg --default-key 4449039C --output ./artifacts/sliver-client_windows-386.sig --detach-sig ./artifacts/sliver-client_windows-386.exe
-      - name: Windows AMD64
-        run: |
-          gpg --default-key 4449039C --output ./artifacts/sliver-server_windows-amd64.sig --detach-sig ./artifacts/sliver-server_windows-amd64.exe
-          gpg --default-key 4449039C --output ./artifacts/sliver-client_windows-amd64.sig --detach-sig ./artifacts/sliver-client_windows-amd64.exe
-      - name: Windows ARM64 (Client Only)
-        run: |
-          gpg --default-key 4449039C --output ./artifacts/sliver-client_windows-arm64.sig --detach-sig ./artifacts/sliver-client_windows-arm64.exe
-
-      # MacOS
-      - name: MacOS AMD64
-        run: |
-          gpg --default-key 4449039C --output ./artifacts/sliver-server_macos-amd64.sig --detach-sig ./artifacts/sliver-server_macos-amd64
-          gpg --default-key 4449039C --output ./artifacts/sliver-client_macos-amd64.sig --detach-sig ./artifacts/sliver-client_macos-amd64
-      - name: Package MacOS ARM64
-        run: |
-          gpg --default-key 4449039C --output ./artifacts/sliver-server_macos-arm64.sig --detach-sig ./artifacts/sliver-server_macos-arm64
-          gpg --default-key 4449039C --output ./artifacts/sliver-client_macos-arm64.sig --detach-sig ./artifacts/sliver-client_macos-arm64
-
-      # FreeBSD
-      - name: FreeBSD AMD64 (Client Only)
-        run: |
-          gpg --default-key 4449039C --output ./artifacts/sliver-client_freebsd-amd64.sig --detach-sig ./artifacts/sliver-client_freebsd-amd64.exe
-      - name: FreeBSD ARM64 (Client Only)
-        run: |
-          gpg --default-key 4449039C --output ./artifacts/sliver-client_freebsd-arm64.sig --detach-sig ./artifacts/sliver-client_freebsd-arm64.exe
-
-      - name: "Publish Release"
-        uses: "bishopfox/action-gh-release@v1"
-        with:
-          files: |
-            ./artifacts/*
+      - name: Upload Artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ needs.tag-check.outputs.tag }}" artifacts/* --clobber
