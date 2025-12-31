@@ -26,12 +26,12 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/util"
@@ -111,8 +111,7 @@ func saveLootToDisk(cmd *cobra.Command, loot *clientpb.Loot) (string, error) {
 	}
 	if _, err := os.Stat(saveTo); err == nil {
 		overwrite := false
-		prompt := &survey.Confirm{Message: "Overwrite local file?"}
-		survey.AskOne(prompt, &overwrite, nil)
+		_ = forms.Confirm("Overwrite local file?", &overwrite)
 		if !overwrite {
 			return "", nil
 		}

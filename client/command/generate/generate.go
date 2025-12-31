@@ -32,7 +32,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/forms"
@@ -217,9 +216,8 @@ func saveLocation(save, DefaultName string, con *console.SliverClient) (string, 
 		if fi.IsDir() {
 			saveTo, _ = filepath.Abs(filepath.Join(save, DefaultName))
 		} else {
-			prompt := &survey.Confirm{Message: "Overwrite existing file?"}
 			var confirm bool
-			survey.AskOne(prompt, &confirm)
+			_ = forms.Confirm("Overwrite existing file?", &confirm)
 			if !confirm {
 				return "", errors.New("file already exists")
 			}
@@ -530,9 +528,8 @@ func getTargets(targetOS string, targetArch string, con *console.SliverClient) (
 			console.Bold, target, console.Normal,
 		)
 		con.Printf("⚠️  Generic implants do not support all commands/features.\n")
-		prompt := &survey.Confirm{Message: "Attempt to build generic implant?"}
 		var confirm bool
-		survey.AskOne(prompt, &confirm)
+		_ = forms.Confirm("Attempt to build generic implant?", &confirm)
 		if !confirm {
 			return "", ""
 		}
@@ -802,11 +799,8 @@ func ParseNamedPipec2(args string) ([]*clientpb.ImplantC2, error) {
 		}
 
 		if !strings.HasPrefix(uri.Path, "/pipe/") {
-			prompt := &survey.Confirm{
-				Message: fmt.Sprintf("Named pipe '%s' is missing the 'pipe' path prefix\nContinue anyways?", uri),
-			}
 			var confirm bool
-			survey.AskOne(prompt, &confirm)
+			_ = forms.Confirm(fmt.Sprintf("Named pipe '%s' is missing the 'pipe' path prefix\nContinue anyways?", uri), &confirm)
 			if !confirm {
 				return nil, fmt.Errorf("invalid namedpipe path: %s", uri.Path)
 			}
@@ -1113,8 +1107,7 @@ func warnMissingCrossCompiler(format clientpb.OutputFormat, targetOS string, tar
 	con.PrintWarnf("For more information please read %s\n", crossCompilerInfoURL)
 
 	confirm := false
-	prompt := &survey.Confirm{Message: "Try to compile anyways (will likely fail)?"}
-	survey.AskOne(prompt, &confirm, nil)
+	_ = forms.Confirm("Try to compile anyways (will likely fail)?", &confirm)
 	return confirm
 }
 
@@ -1150,11 +1143,7 @@ func selectExternalBuilder(builders []*clientpb.Builder, _ *console.SliverClient
 		choices = append(choices, builder.Name)
 	}
 	choice := ""
-	prompt := &survey.Select{
-		Message: "Select an external builder:",
-		Options: choices,
-	}
-	survey.AskOne(prompt, &choice, nil)
+	_ = forms.Select("Select an external builder:", choices, &choice)
 	for _, builder := range builders {
 		if builder.Name == choice {
 			return builder, nil

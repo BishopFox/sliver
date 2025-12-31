@@ -21,10 +21,10 @@ package loot
 import (
 	"context"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
@@ -37,8 +37,7 @@ func LootRenameCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 	}
 	oldName := loot.Name
 	newName := ""
-	prompt := &survey.Input{Message: "Enter new name: "}
-	survey.AskOne(prompt, &newName)
+	_ = forms.Input("Enter new name:", &newName)
 
 	loot, err = con.Rpc.LootUpdate(context.Background(), &clientpb.Loot{
 		ID:   loot.ID,

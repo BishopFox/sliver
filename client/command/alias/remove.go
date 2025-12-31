@@ -24,9 +24,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/spf13/cobra"
 )
 
@@ -39,8 +39,7 @@ func AliasesRemoveCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		return
 	}
 	confirm := false
-	prompt := &survey.Confirm{Message: fmt.Sprintf("Remove '%s' alias?", name)}
-	survey.AskOne(prompt, &confirm)
+	_ = forms.Confirm(fmt.Sprintf("Remove '%s' alias?", name), &confirm)
 	if !confirm {
 		return
 	}

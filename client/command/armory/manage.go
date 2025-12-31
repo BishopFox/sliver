@@ -8,10 +8,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )
@@ -602,8 +602,7 @@ func ModifyArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	if err != nil {
 		con.PrintErrorf("could not modify armory: %s\n", err)
 		confirm := false
-		prompt := &survey.Confirm{Message: "Would you like to revert the properties of the armory back to their previous values?"}
-		survey.AskOne(prompt, &confirm, nil)
+		_ = forms.Confirm("Would you like to revert the properties of the armory back to their previous values?", &confirm)
 		if !confirm {
 			return
 		} else {

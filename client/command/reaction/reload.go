@@ -21,8 +21,8 @@ package reaction
 import (
 	"os"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/spf13/cobra"
 )
 
@@ -33,8 +33,7 @@ func ReactionReloadCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 		return
 	}
 	confirm := false
-	prompt := &survey.Confirm{Message: "Reload reactions from disk?"}
-	survey.AskOne(prompt, &confirm)
+	_ = forms.Confirm("Reload reactions from disk?", &confirm)
 	if !confirm {
 		return
 	}

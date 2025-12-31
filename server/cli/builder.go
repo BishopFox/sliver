@@ -31,13 +31,13 @@ import (
 
 	clientAssets "github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/transport"
-	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/builder"
 	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/server/version"
 	"github.com/spf13/cobra"
 )
 

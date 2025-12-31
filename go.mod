@@ -6,7 +6,6 @@ replace github.com/rsteube/carapace v0.36.3 => github.com/reeflective/carapace v
 
 require (
 	filippo.io/age v1.2.1
-	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/Binject/binjection v0.0.0-20210701074423-605d46e35deb
 	github.com/Binject/debug v0.0.0-20230508195519-26db73212a7a
 	github.com/Binject/go-donut v0.0.0-20220908180326-fcdcc35d591c
@@ -51,6 +50,7 @@ require (
 	github.com/yiya1989/sshkrb5 v0.0.1
 	golang.org/x/crypto v0.46.0
 	golang.org/x/exp v0.0.0-20251002181428-27f1f14c8bb9
+	golang.org/x/mod v0.30.0
 	golang.org/x/net v0.47.0
 	golang.org/x/sys v0.39.0
 	golang.org/x/term v0.38.0
@@ -59,7 +59,6 @@ require (
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20241231184526-a9ab2273dd10
 	google.golang.org/grpc v1.76.0
 	google.golang.org/protobuf v1.36.10
-	gopkg.in/AlecAivazis/survey.v1 v1.8.8
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/driver/sqlite v1.6.0
@@ -140,7 +139,6 @@ require (
 	github.com/mattn/go-runewidth v0.0.19 // indirect
 	github.com/mdlayher/netlink v1.8.0 // indirect
 	github.com/mdlayher/socket v0.5.1 // indirect
-	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/mitchellh/go-ps v1.0.0 // indirect
 	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
 	github.com/moloch--/go-keystone v0.0.2 // indirect
@@ -168,7 +166,6 @@ require (
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	go4.org/mem v0.0.0-20240501181205-ae6ca9944745 // indirect
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
-	golang.org/x/mod v0.30.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/time v0.13.0 // indirect

@@ -22,9 +22,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
 	"golang.org/x/term"
@@ -212,10 +212,7 @@ func PaginateTable(tw table.Writer, skipPages int, overflow bool, interactive bo
 			if 1 < len(pages) {
 				if pageNumber+1 < len(pages) {
 					nextPage := false
-					prompt := &survey.Confirm{
-						Message: fmt.Sprintf("[%d/%d] Continue?", pageNumber+1, len(pages)),
-					}
-					survey.AskOne(prompt, &nextPage)
+					_ = forms.Confirm(fmt.Sprintf("[%d/%d] Continue?", pageNumber+1, len(pages)), &nextPage)
 					if !nextPage {
 						break
 					}

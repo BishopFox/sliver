@@ -33,12 +33,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/client/packages"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -171,8 +171,7 @@ func ExtensionLoadCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		if CmdExists(extCmd.CommandName, sliverMenu.Command) {
 			con.PrintErrorf("%s command already exists\n", extCmd.CommandName)
 			confirm := false
-			prompt := &survey.Confirm{Message: "Overwrite current command?"}
-			survey.AskOne(prompt, &confirm)
+			_ = forms.Confirm("Overwrite current command?", &confirm)
 			if !confirm {
 				return
 			}
