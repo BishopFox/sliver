@@ -20,8 +20,6 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-        with:
-          fetch-depth: 0
 
       - name: Find Semver Tag
         id: tag
@@ -40,6 +38,8 @@ jobs:
     steps:
       - name: Check Out Code
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Go 1.25
         uses: actions/setup-go@v6
