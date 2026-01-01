@@ -14,16 +14,15 @@ fi
 if command -v apt-get &> /dev/null; then
     echo "Installing dependencies using apt..."
     DEBIAN_FRONTEND=noninteractive apt-get install -yqq \
-        minisign curl build-essential git \
-        mingw-w64 binutils-mingw-w64 g++-mingw-w64
+        minisign curl build-essential git
     	INSTALLER=(apt-get install -yqq)
 elif command -v yum &> /dev/null; then # Redhat-based OS (Fedora, CentOS, RHEL)
     echo "Installing dependencies using yum..."
-    yum -y install minisign curl gcc gcc-c++ make mingw64-gcc git
+    yum -y install minisign curl make git
 	INSTALLER=(yum -y)
 elif command -v pacman &>/dev/null; then # Arch-based (Manjaro, Garuda, Blackarch)
 	echo "Installing dependencies using pacman..."
-	pacman --noconfirm -S minisign mingw-w64-gcc mingw-w64-binutils mingw-w64-headers
+	pacman --noconfirm -S minisign
     INSTALLER=(pacman --noconfirm -S)
 else
     echo "Unsupported OS, exiting"
@@ -47,7 +46,7 @@ echo "Using Minisign public key..."
 ARCH="$(uname -m)"
 case "$ARCH" in
     x86_64|amd64)
-        SLIVER_PLATFORM="linux"
+        SLIVER_PLATFORM="linux-amd64"
         ;;
     aarch64|arm64)
         SLIVER_PLATFORM="linux-arm64"
@@ -138,7 +137,7 @@ echo "Generating local configs ..."
 # Generate local configs
 echo "Generating operator configs ..."
 mkdir -p /root/.sliver-client/configs
-/root/sliver-server operator --name root --lhost localhost --save /root/.sliver-client/configs
+/root/sliver-server operator --name root --lhost localhost --permissions all --save /root/.sliver-client/configs
 chown -R root:root /root/.sliver-client/
 
 USER_DIRS=(/home/*)
@@ -147,7 +146,7 @@ for USER_DIR in "${USER_DIRS[@]}"; do
     if id -u "$USER" >/dev/null 2>&1; then
         echo "Generating operator configs for user $USER..."
         mkdir -p "$USER_DIR/.sliver-client/configs"
-        /root/sliver-server operator --name "$USER" --lhost localhost --save "$USER_DIR/.sliver-client/configs"
+        /root/sliver-server operator --name "$USER" --lhost localhost --permissions all --save "$USER_DIR/.sliver-client/configs"
         chown -R "$USER":"$(id -gn "$USER")" "$USER_DIR/.sliver-client/"
     fi
 done
