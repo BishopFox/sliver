@@ -47,7 +47,7 @@ echo "Using Minisign public key..."
 ARCH="$(uname -m)"
 case "$ARCH" in
     x86_64|amd64)
-        SLIVER_PLATFORM="linux"
+        SLIVER_PLATFORM="linux-amd64"
         ;;
     aarch64|arm64)
         SLIVER_PLATFORM="linux-arm64"
