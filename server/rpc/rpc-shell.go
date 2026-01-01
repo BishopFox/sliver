@@ -42,19 +42,22 @@ func (rpc *Server) Shell(ctx context.Context, req *sliverpb.ShellReq) (*sliverpb
 	}
 	tunnel := core.Tunnels.Get(req.TunnelID)
 	if tunnel == nil {
-		return nil, core.ErrInvalidTunnelID
+		return nil, rpcError(core.ErrInvalidTunnelID)
 	}
 	reqData, err := proto.Marshal(req)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	data, err := session.Request(sliverpb.MsgNumber(req), rpc.getTimeout(req), reqData)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	shell := &sliverpb.Shell{}
 	err = proto.Unmarshal(data, shell)
-	return shell, err
+	if err != nil {
+		return nil, rpcError(err)
+	}
+	return shell, nil
 }
 
 // RunSSHCommand runs a SSH command using the client built into the implant

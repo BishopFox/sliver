@@ -32,7 +32,7 @@ import (
 func (rpc *Server) LootAdd(ctx context.Context, lootReq *clientpb.Loot) (*clientpb.Loot, error) {
 	loot, err := loot.GetLootStore().Add(lootReq)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	core.EventBroker.Publish(core.Event{
 		EventType: consts.LootAddedEvent,
@@ -45,7 +45,7 @@ func (rpc *Server) LootAdd(ctx context.Context, lootReq *clientpb.Loot) (*client
 func (rpc *Server) LootRm(ctx context.Context, lootReq *clientpb.Loot) (*commonpb.Empty, error) {
 	err := loot.GetLootStore().Rm(lootReq.ID)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	core.EventBroker.Publish(core.Event{
 		EventType: consts.LootRemovedEvent,
@@ -57,7 +57,7 @@ func (rpc *Server) LootRm(ctx context.Context, lootReq *clientpb.Loot) (*commonp
 func (rpc *Server) LootUpdate(ctx context.Context, lootReq *clientpb.Loot) (*clientpb.Loot, error) {
 	loot, err := loot.GetLootStore().Update(lootReq)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	core.EventBroker.Publish(core.Event{
 		EventType: consts.LootAddedEvent,
@@ -67,7 +67,11 @@ func (rpc *Server) LootUpdate(ctx context.Context, lootReq *clientpb.Loot) (*cli
 
 // LootContent - Get a list of all loot of a specific type
 func (rpc *Server) LootContent(ctx context.Context, lootReq *clientpb.Loot) (*clientpb.Loot, error) {
-	return loot.GetLootStore().GetContent(lootReq.ID, true)
+	result, err := loot.GetLootStore().GetContent(lootReq.ID, true)
+	if err != nil {
+		return nil, rpcError(err)
+	}
+	return result, nil
 }
 
 // LootAll - Get a list of all loot

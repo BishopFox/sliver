@@ -42,7 +42,7 @@ func (rpc *Server) Websites(ctx context.Context, _ *commonpb.Empty) (*clientpb.W
 	websiteNames, err := website.Names()
 	if err != nil {
 		rpcWebsiteLog.Warnf("Failed to find website %s", err)
-		return nil, err
+		return nil, rpcError(err)
 	}
 	websites := &clientpb.Websites{Websites: []*clientpb.Website{}}
 	for _, name := range websiteNames {
@@ -60,24 +60,24 @@ func (rpc *Server) Websites(ctx context.Context, _ *commonpb.Empty) (*clientpb.W
 func (rpc *Server) WebsiteRemove(ctx context.Context, req *clientpb.Website) (*commonpb.Empty, error) {
 	web, err := website.MapContent(req.Name, false)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	for path := range web.Contents {
 		err := website.RemoveContent(req.Name, path)
 		if err != nil {
 			rpcWebsiteLog.Errorf("Failed to remove content %s", err)
-			return nil, err
+			return nil, rpcError(err)
 		}
 	}
 
 	dbWebsite, err := website.WebsiteByName(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	err = db.RemoveWebSite(dbWebsite.ID)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	core.EventBroker.Publish(core.Event{
@@ -90,7 +90,11 @@ func (rpc *Server) WebsiteRemove(ctx context.Context, req *clientpb.Website) (*c
 
 // Website - Get one website
 func (rpc *Server) Website(ctx context.Context, req *clientpb.Website) (*clientpb.Website, error) {
-	return website.MapContent(req.Name, false)
+	site, err := website.MapContent(req.Name, false)
+	if err != nil {
+		return nil, rpcError(err)
+	}
+	return site, nil
 }
 
 // WebsiteAddContent - Add content to a website, the website is created if `name` does not exist
@@ -111,13 +115,13 @@ func (rpc *Server) WebsiteAddContent(ctx context.Context, req *clientpb.WebsiteA
 			err := website.AddContent(req.Name, content)
 			if err != nil {
 				rpcWebsiteLog.Errorf("Failed to add content %s", err)
-				return nil, err
+				return nil, rpcError(err)
 			}
 		}
 	} else {
 		_, err := website.AddWebsite(req.Name)
 		if err != nil {
-			return nil, err
+			return nil, rpcError(err)
 		}
 	}
 
@@ -133,7 +137,7 @@ func (rpc *Server) WebsiteAddContent(ctx context.Context, req *clientpb.WebsiteA
 func (rpc *Server) WebsiteUpdateContent(ctx context.Context, req *clientpb.WebsiteAddContent) (*clientpb.Website, error) {
 	dbWebsite, err := website.WebsiteByName(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	for _, content := range req.Contents {
 		website.AddContent(dbWebsite.Name, content)
@@ -153,7 +157,7 @@ func (rpc *Server) WebsiteRemoveContent(ctx context.Context, req *clientpb.Websi
 		err := website.RemoveContent(req.Name, path)
 		if err != nil {
 			rpcWebsiteLog.Errorf("Failed to remove content %s", err)
-			return nil, err
+			return nil, rpcError(err)
 		}
 	}
 
