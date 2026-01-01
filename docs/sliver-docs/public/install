@@ -137,7 +137,7 @@ echo "Generating local configs ..."
 # Generate local configs
 echo "Generating operator configs ..."
 mkdir -p /root/.sliver-client/configs
-/root/sliver-server operator --name root --lhost localhost --save /root/.sliver-client/configs
+/root/sliver-server operator --name root --lhost localhost --permissions all  --save /root/.sliver-client/configs
 chown -R root:root /root/.sliver-client/
 
 USER_DIRS=(/home/*)
