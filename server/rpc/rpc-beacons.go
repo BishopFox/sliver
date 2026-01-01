@@ -90,7 +90,10 @@ func (rpc *Server) GetBeaconTasks(ctx context.Context, req *clientpb.Beacon) (*c
 		return nil, ErrInvalidBeaconID
 	}
 	tasks, err := db.BeaconTasksByBeaconID(beacon.ID.String())
-	return &clientpb.BeaconTasks{Tasks: tasks}, err
+	if err != nil {
+		return nil, rpcError(err)
+	}
+	return &clientpb.BeaconTasks{Tasks: tasks}, nil
 }
 
 // GetBeaconTaskContent - Get the content of a specific task
@@ -138,7 +141,7 @@ func (rpc *Server) UpdateBeaconIntegrityInformation(ctx context.Context, req *cl
 	beacon.Integrity = req.Integrity
 	err = db.Session().Save(beacon).Error
 	if err != nil {
-		return resp, err
+		return resp, rpcError(err)
 	}
 	return resp, nil
 }

@@ -34,7 +34,7 @@ import (
 func (rpc *Server) Hosts(ctx context.Context, _ *commonpb.Empty) (*clientpb.AllHosts, error) {
 	dbHosts, err := db.ListHosts()
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	hosts := []*clientpb.Host{}
 	for _, dbHost := range dbHosts {
@@ -47,7 +47,7 @@ func (rpc *Server) Hosts(ctx context.Context, _ *commonpb.Empty) (*clientpb.AllH
 func (rpc *Server) Host(ctx context.Context, req *clientpb.Host) (*clientpb.Host, error) {
 	dbHost, err := db.HostByHostUUID(req.HostUUID)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	return dbHost.ToProtobuf(), nil
 }
@@ -56,11 +56,11 @@ func (rpc *Server) Host(ctx context.Context, req *clientpb.Host) (*clientpb.Host
 func (rpc *Server) HostRm(ctx context.Context, req *clientpb.Host) (*commonpb.Empty, error) {
 	dbHost, err := db.HostByHostUUID(req.HostUUID)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	err = db.Session().Delete(*dbHost).Error
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	return &commonpb.Empty{}, nil
 }
@@ -69,11 +69,11 @@ func (rpc *Server) HostRm(ctx context.Context, req *clientpb.Host) (*commonpb.Em
 func (rpc *Server) HostIOCRm(ctx context.Context, req *clientpb.IOC) (*commonpb.Empty, error) {
 	dbIOC, err := db.IOCByID(req.ID)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	err = db.Session().Delete(dbIOC).Error
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	return &commonpb.Empty{}, nil
 }

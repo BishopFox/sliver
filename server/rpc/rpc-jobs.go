@@ -20,7 +20,6 @@ package rpc
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/bishopfox/sliver/client/constants"
@@ -29,6 +28,8 @@ import (
 	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -43,7 +44,7 @@ const (
 
 var (
 	// ErrInvalidPort - Invalid TCP port number
-	ErrInvalidPort = errors.New("invalid listener port")
+	ErrInvalidPort = status.Error(codes.InvalidArgument, "invalid listener port")
 )
 
 // GetJobs - List jobs
@@ -72,12 +73,12 @@ func (rpc *Server) RestartJobs(ctx context.Context, restartJobReq *clientpb.Rest
 		job := core.Jobs.Get(int(jobID))
 		listenerJob, err := db.ListenerByJobID(jobID)
 		if err != nil {
-			return &commonpb.Empty{}, err
+			return &commonpb.Empty{}, rpcError(err)
 		}
 		job.JobCtrl <- true
 		job, err = c2.StartHTTPListenerJob(listenerJob.HTTPConf)
 		if err != nil {
-			return &commonpb.Empty{}, err
+			return &commonpb.Empty{}, rpcError(err)
 		}
 		listenerJob.JobID = uint32(job.ID)
 		db.UpdateHTTPC2Listener(listenerJob)
@@ -96,11 +97,11 @@ func (rpc *Server) KillJob(ctx context.Context, kill *clientpb.KillJobReq) (*cli
 		killJob.Success = true
 		err = db.DeleteListener(killJob.ID)
 		if err != nil {
-			return nil, err
+			return nil, rpcError(err)
 		}
 	} else {
 		killJob.Success = false
-		err = errors.New("invalid Job ID")
+		err = status.Error(codes.NotFound, "invalid job ID")
 	}
 	return killJob, err
 }
@@ -116,12 +117,12 @@ func (rpc *Server) StartMTLSListener(ctx context.Context, req *clientpb.MTLSList
 
 	err := PortInUse(req.Port)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	job, err := c2.StartMTLSListenerJob(req)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	listenerJob := &clientpb.ListenerJob{
@@ -131,7 +132,7 @@ func (rpc *Server) StartMTLSListener(ctx context.Context, req *clientpb.MTLSList
 	}
 	err = db.SaveC2Listener(listenerJob)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	return &clientpb.ListenerJob{JobID: uint32(job.ID)}, nil
@@ -157,22 +158,22 @@ func (rpc *Server) StartWGListener(ctx context.Context, req *clientpb.WGListener
 
 	err := PortInUse(req.Port)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	err = PortInUse(req.NPort)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	err = PortInUse(req.KeyPort)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	job, err := c2.StartWGListenerJob(req)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	listenerJob := &clientpb.ListenerJob{
@@ -182,7 +183,7 @@ func (rpc *Server) StartWGListener(ctx context.Context, req *clientpb.WGListener
 	}
 	err = db.SaveC2Listener(listenerJob)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	return &clientpb.ListenerJob{JobID: uint32(job.ID)}, nil
@@ -192,12 +193,12 @@ func (rpc *Server) StartWGListener(ctx context.Context, req *clientpb.WGListener
 func (rpc *Server) StartDNSListener(ctx context.Context, req *clientpb.DNSListenerReq) (*clientpb.ListenerJob, error) {
 	err := PortInUse(req.Port)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	job, err := c2.StartDNSListenerJob(req)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	listenerJob := &clientpb.ListenerJob{
@@ -207,7 +208,7 @@ func (rpc *Server) StartDNSListener(ctx context.Context, req *clientpb.DNSListen
 	}
 	err = db.SaveC2Listener(listenerJob)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	return &clientpb.ListenerJob{JobID: uint32(job.ID)}, nil
@@ -224,12 +225,12 @@ func (rpc *Server) StartHTTPSListener(ctx context.Context, req *clientpb.HTTPLis
 
 	err := PortInUse(req.Port)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	job, err := c2.StartHTTPListenerJob(req)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	listenerJob := &clientpb.ListenerJob{
@@ -239,7 +240,7 @@ func (rpc *Server) StartHTTPSListener(ctx context.Context, req *clientpb.HTTPLis
 	}
 	err = db.SaveC2Listener(listenerJob)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	return &clientpb.ListenerJob{JobID: uint32(job.ID)}, nil
@@ -256,12 +257,12 @@ func (rpc *Server) StartHTTPListener(ctx context.Context, req *clientpb.HTTPList
 
 	err := PortInUse(req.Port)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	job, err := c2.StartHTTPListenerJob(req)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	listenerJob := &clientpb.ListenerJob{
@@ -271,7 +272,7 @@ func (rpc *Server) StartHTTPListener(ctx context.Context, req *clientpb.HTTPList
 	}
 	err = db.SaveC2Listener(listenerJob)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	return &clientpb.ListenerJob{JobID: uint32(job.ID)}, nil
@@ -280,13 +281,13 @@ func (rpc *Server) StartHTTPListener(ctx context.Context, req *clientpb.HTTPList
 func PortInUse(newPort uint32) error {
 	listenerJobs, err := db.ListenerJobs()
 	if err != nil {
-		return err
+		return rpcError(err)
 	}
 	var port uint32
 	for _, job := range listenerJobs {
 		listener, err := db.ListenerByJobID(job.JobID)
 		if err != nil {
-			return err
+			return rpcError(err)
 		}
 		switch job.Type {
 		case "http":
@@ -304,7 +305,7 @@ func PortInUse(newPort uint32) error {
 		}
 
 		if port == newPort {
-			return errors.New(fmt.Sprintf("port %d is in use", port))
+			return status.Error(codes.AlreadyExists, fmt.Sprintf("port %d is in use", port))
 		}
 	}
 	return nil
