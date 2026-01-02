@@ -29,7 +29,7 @@ type serverTransport interface {
 	Shutdown(ctx context.Context) error
 }
 
-type manager struct {
+type mcpManager struct {
 	mu        sync.Mutex
 	cfg       Config
 	running   bool
@@ -40,8 +40,8 @@ type manager struct {
 	done      chan struct{}
 }
 
-func newManager() *manager {
-	return &manager{
+func newManager() *mcpManager {
+	return &mcpManager{
 		cfg: DefaultConfig(),
 	}
 }
@@ -73,7 +73,7 @@ func Stop(ctx context.Context) error {
 	return defaultManager.stop(ctx)
 }
 
-func (m *manager) status() Status {
+func (m *mcpManager) status() Status {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return Status{
@@ -84,7 +84,7 @@ func (m *manager) status() Status {
 	}
 }
 
-func (m *manager) start(cfg Config, rpc rpcpb.SliverRPCClient) error {
+func (m *mcpManager) start(cfg Config, rpc rpcpb.SliverRPCClient) error {
 	cfg = cfg.WithDefaults()
 	if err := cfg.Validate(); err != nil {
 		return err
@@ -123,7 +123,7 @@ func (m *manager) start(cfg Config, rpc rpcpb.SliverRPCClient) error {
 	return nil
 }
 
-func (m *manager) run(addr string, transport serverTransport, done chan struct{}) {
+func (m *mcpManager) run(addr string, transport serverTransport, done chan struct{}) {
 	err := transport.Start(addr)
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		m.mu.Lock()
@@ -139,7 +139,7 @@ func (m *manager) run(addr string, transport serverTransport, done chan struct{}
 	close(done)
 }
 
-func (m *manager) stop(ctx context.Context) error {
+func (m *mcpManager) stop(ctx context.Context) error {
 	m.mu.Lock()
 	if !m.running {
 		m.mu.Unlock()
