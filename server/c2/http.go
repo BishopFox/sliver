@@ -69,6 +69,7 @@ var (
 
 const (
 	DefaultMaxBodyLength   = 2 * 1024 * 1024 * 1024 // 2Gb
+	DefaultMaxUnauthBodyLength = 8 * 1024 * 1024   // 8Mb
 	DefaultHTTPTimeout     = time.Minute
 	DefaultLongPollTimeout = time.Second
 	DefaultLongPollJitter  = time.Second
@@ -564,7 +565,10 @@ func (s *SliverHTTPC2) anonymousHandler(resp http.ResponseWriter, req *http.Requ
 func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.Request, encoder sliverEncoders.Encoder) {
 	httpLog.Debug("Start http session request")
 
-	body, err := io.ReadAll(req.Body)
+	body, err := io.ReadAll(&io.LimitedReader{
+		R: req.Body,
+		N: int64(DefaultMaxUnauthBodyLength),
+	})
 	if err != nil {
 		httpLog.Errorf("Failed to read body %s", err)
 		s.defaultHandler(resp, req)
