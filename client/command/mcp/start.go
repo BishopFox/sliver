@@ -2,14 +2,14 @@ package mcp
 
 import (
 	"github.com/bishopfox/sliver/client/console"
-	clientmcp "github.com/bishopfox/sliver/client/mcp"
+	slivermcp "github.com/bishopfox/sliver/client/mcp"
 	"github.com/spf13/cobra"
 )
 
 // McpStartCmd starts the local MCP server.
 func McpStartCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	rawTransport, _ := cmd.Flags().GetString("transport")
-	transport, err := clientmcp.ParseTransport(rawTransport)
+	transport, err := slivermcp.ParseTransport(rawTransport)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
@@ -19,14 +19,14 @@ func McpStartCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	name, _ := cmd.Flags().GetString("name")
 	version, _ := cmd.Flags().GetString("version")
 
-	cfg := clientmcp.Config{
+	cfg := slivermcp.Config{
 		Transport:     transport,
 		ListenAddress: listen,
 		ServerName:    name,
 		ServerVersion: version,
 	}.WithDefaults()
 
-	if err := clientmcp.Start(cfg); err != nil {
+	if err := slivermcp.Start(cfg, con.Rpc); err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	mcpserver "github.com/mark3labs/mcp-go/server"
 )
 
@@ -34,6 +35,7 @@ type manager struct {
 	running   bool
 	startedAt time.Time
 	lastErr   string
+	server    *SliverMCPServer
 	transport serverTransport
 	done      chan struct{}
 }
@@ -52,8 +54,8 @@ func GetStatus() Status {
 }
 
 // Start launches the MCP server using the provided configuration.
-func Start(cfg Config) error {
-	return defaultManager.start(cfg)
+func Start(cfg Config, rpc rpcpb.SliverRPCClient) error {
+	return defaultManager.start(cfg, rpc)
 }
 
 // Stop shuts down the MCP server.
@@ -72,7 +74,7 @@ func (m *manager) status() Status {
 	}
 }
 
-func (m *manager) start(cfg Config) error {
+func (m *manager) start(cfg Config, rpc rpcpb.SliverRPCClient) error {
 	cfg = cfg.WithDefaults()
 	if err := cfg.Validate(); err != nil {
 		return err
@@ -84,13 +86,13 @@ func (m *manager) start(cfg Config) error {
 		return ErrAlreadyRunning
 	}
 
-	mcpServer := newServer(cfg)
+	mcpServer := newServer(cfg, rpc)
 	var transport serverTransport
 	switch cfg.Transport {
 	case TransportHTTP:
-		transport = mcpserver.NewStreamableHTTPServer(mcpServer)
+		transport = mcpserver.NewStreamableHTTPServer(mcpServer.server)
 	case TransportSSE:
-		transport = mcpserver.NewSSEServer(mcpServer)
+		transport = mcpserver.NewSSEServer(mcpServer.server)
 	default:
 		m.mu.Unlock()
 		return errors.New("unsupported transport")
@@ -100,6 +102,7 @@ func (m *manager) start(cfg Config) error {
 	m.running = true
 	m.startedAt = time.Now()
 	m.lastErr = ""
+	m.server = mcpServer
 	m.transport = transport
 	m.done = make(chan struct{})
 	addr := cfg.ListenAddress
@@ -121,6 +124,7 @@ func (m *manager) run(addr string, transport serverTransport, done chan struct{}
 	m.mu.Lock()
 	m.running = false
 	m.transport = nil
+	m.server = nil
 	m.mu.Unlock()
 	close(done)
 }
