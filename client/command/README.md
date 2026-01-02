@@ -40,6 +40,7 @@ Shared registration glue, scaffolding, and helpers for Sliver client console com
 - `licenses/` – Implements the 'licenses' command group for the Sliver client console.
 - `loot/` – Implements the 'loot' command group for the Sliver client console.
 - `monitor/` – Implements the 'monitor' command group for the Sliver client console.
+- `mcp/` – Implements the 'mcp' command group for the Sliver client console.
 - `network/` – Implements the 'network' command group for the Sliver client console.
 - `operators/` – Implements the 'operators' command group for the Sliver client console.
 - `pivots/` – Implements the 'pivots' command group for the Sliver client console.

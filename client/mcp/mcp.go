@@ -1,0 +1,153 @@
+package mcp
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"sync"
+	"time"
+
+	mcpserver "github.com/mark3labs/mcp-go/server"
+)
+
+var (
+	ErrAlreadyRunning = errors.New("mcp server already running")
+	ErrNotRunning     = errors.New("mcp server not running")
+)
+
+// Status describes the running state of the MCP server.
+type Status struct {
+	Running   bool
+	StartedAt time.Time
+	Config    Config
+	LastError string
+}
+
+type serverTransport interface {
+	Start(addr string) error
+	Shutdown(ctx context.Context) error
+}
+
+type manager struct {
+	mu        sync.Mutex
+	cfg       Config
+	running   bool
+	startedAt time.Time
+	lastErr   string
+	transport serverTransport
+	done      chan struct{}
+}
+
+func newManager() *manager {
+	return &manager{
+		cfg: DefaultConfig(),
+	}
+}
+
+var defaultManager = newManager()
+
+// GetStatus returns the current MCP server state.
+func GetStatus() Status {
+	return defaultManager.status()
+}
+
+// Start launches the MCP server using the provided configuration.
+func Start(cfg Config) error {
+	return defaultManager.start(cfg)
+}
+
+// Stop shuts down the MCP server.
+func Stop(ctx context.Context) error {
+	return defaultManager.stop(ctx)
+}
+
+func (m *manager) status() Status {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return Status{
+		Running:   m.running,
+		StartedAt: m.startedAt,
+		Config:    m.cfg,
+		LastError: m.lastErr,
+	}
+}
+
+func (m *manager) start(cfg Config) error {
+	cfg = cfg.WithDefaults()
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+
+	m.mu.Lock()
+	if m.running {
+		m.mu.Unlock()
+		return ErrAlreadyRunning
+	}
+
+	mcpServer := newServer(cfg)
+	var transport serverTransport
+	switch cfg.Transport {
+	case TransportHTTP:
+		transport = mcpserver.NewStreamableHTTPServer(mcpServer)
+	case TransportSSE:
+		transport = mcpserver.NewSSEServer(mcpServer)
+	default:
+		m.mu.Unlock()
+		return errors.New("unsupported transport")
+	}
+
+	m.cfg = cfg
+	m.running = true
+	m.startedAt = time.Now()
+	m.lastErr = ""
+	m.transport = transport
+	m.done = make(chan struct{})
+	addr := cfg.ListenAddress
+	done := m.done
+	m.mu.Unlock()
+
+	go m.run(addr, transport, done)
+	return nil
+}
+
+func (m *manager) run(addr string, transport serverTransport, done chan struct{}) {
+	err := transport.Start(addr)
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		m.mu.Lock()
+		m.lastErr = err.Error()
+		m.mu.Unlock()
+	}
+
+	m.mu.Lock()
+	m.running = false
+	m.transport = nil
+	m.mu.Unlock()
+	close(done)
+}
+
+func (m *manager) stop(ctx context.Context) error {
+	m.mu.Lock()
+	if !m.running {
+		m.mu.Unlock()
+		return ErrNotRunning
+	}
+	transport := m.transport
+	done := m.done
+	m.mu.Unlock()
+
+	if transport == nil {
+		return ErrNotRunning
+	}
+	if err := transport.Shutdown(ctx); err != nil {
+		return err
+	}
+	if done == nil {
+		return nil
+	}
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
