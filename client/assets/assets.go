@@ -73,6 +73,18 @@ func GetConsoleLogsDir() string {
 	return consoleLogsDir
 }
 
+// GetMCPLogsDir - Get the Sliver client MCP logs dir ~/.sliver-client/logs/mcp/
+func GetMCPLogsDir() string {
+	mcpLogsDir := filepath.Join(GetClientLogsDir(), "mcp")
+	if _, err := os.Stat(mcpLogsDir); os.IsNotExist(err) {
+		err = os.MkdirAll(mcpLogsDir, 0700)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	return mcpLogsDir
+}
+
 func assetVersion() string {
 	appDir := GetRootAppDir()
 	data, err := os.ReadFile(filepath.Join(appDir, versionFileName))

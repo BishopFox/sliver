@@ -3,7 +3,9 @@ package mcp
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -38,6 +40,8 @@ type mcpManager struct {
 	server    *SliverMCPServer
 	transport serverTransport
 	done      chan struct{}
+	logger    *log.Logger
+	logFile   *os.File
 }
 
 func newManager() *mcpManager {
@@ -64,8 +68,20 @@ func ServeStdio(cfg Config, rpc rpcpb.SliverRPCClient) error {
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
-	srv := newServer(cfg, rpc)
-	return mcpserver.ServeStdio(srv.server)
+	logger, logFile, err := newMCPLogger()
+	if err != nil {
+		return err
+	}
+	defer logFile.Close()
+	logger.Printf("starting mcp stdio server")
+	srv := newServer(cfg, rpc, logger)
+	err = mcpserver.ServeStdio(srv.server)
+	if err != nil {
+		logger.Printf("mcp stdio server error: %v", err)
+	} else {
+		logger.Printf("mcp stdio server stopped")
+	}
+	return err
 }
 
 // Stop shuts down the MCP server.
@@ -95,8 +111,12 @@ func (m *mcpManager) start(cfg Config, rpc rpcpb.SliverRPCClient) error {
 		m.mu.Unlock()
 		return ErrAlreadyRunning
 	}
-
-	mcpServer := newServer(cfg, rpc)
+	logger, logFile, err := newMCPLogger()
+	if err != nil {
+		m.mu.Unlock()
+		return err
+	}
+	mcpServer := newServer(cfg, rpc, logger)
 	var transport serverTransport
 	switch cfg.Transport {
 	case TransportHTTP:
@@ -105,6 +125,7 @@ func (m *mcpManager) start(cfg Config, rpc rpcpb.SliverRPCClient) error {
 		transport = mcpserver.NewSSEServer(mcpServer.server)
 	default:
 		m.mu.Unlock()
+		logFile.Close()
 		return errors.New("unsupported transport")
 	}
 
@@ -115,10 +136,13 @@ func (m *mcpManager) start(cfg Config, rpc rpcpb.SliverRPCClient) error {
 	m.server = mcpServer
 	m.transport = transport
 	m.done = make(chan struct{})
+	m.logger = logger
+	m.logFile = logFile
 	addr := cfg.ListenAddress
 	done := m.done
 	m.mu.Unlock()
 
+	logger.Printf("starting mcp server transport=%s listen=%s", cfg.Transport, cfg.ListenAddress)
 	go m.run(addr, transport, done)
 	return nil
 }
@@ -126,16 +150,24 @@ func (m *mcpManager) start(cfg Config, rpc rpcpb.SliverRPCClient) error {
 func (m *mcpManager) run(addr string, transport serverTransport, done chan struct{}) {
 	err := transport.Start(addr)
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		m.logf("mcp server error: %v", err)
 		m.mu.Lock()
 		m.lastErr = err.Error()
 		m.mu.Unlock()
 	}
+	m.logf("mcp server stopped")
 
 	m.mu.Lock()
 	m.running = false
 	m.transport = nil
 	m.server = nil
+	logFile := m.logFile
+	m.logFile = nil
+	m.logger = nil
 	m.mu.Unlock()
+	if logFile != nil {
+		logFile.Close()
+	}
 	close(done)
 }
 
@@ -152,6 +184,7 @@ func (m *mcpManager) stop(ctx context.Context) error {
 	if transport == nil {
 		return ErrNotRunning
 	}
+	m.logf("mcp server shutdown requested")
 	if err := transport.Shutdown(ctx); err != nil {
 		return err
 	}

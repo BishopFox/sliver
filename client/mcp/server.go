@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"log"
 
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
@@ -61,9 +62,10 @@ type listSessionsAndBeaconsResult struct {
 type SliverMCPServer struct {
 	Rpc    rpcpb.SliverRPCClient
 	server *mcpserver.MCPServer
+	logger *log.Logger
 }
 
-func newServer(cfg Config, rpc rpcpb.SliverRPCClient) *SliverMCPServer {
+func newServer(cfg Config, rpc rpcpb.SliverRPCClient, logger *log.Logger) *SliverMCPServer {
 	base := mcpserver.NewMCPServer(
 		cfg.ServerName,
 		cfg.ServerVersion,
@@ -153,6 +155,7 @@ func newServer(cfg Config, rpc rpcpb.SliverRPCClient) *SliverMCPServer {
 	srv := &SliverMCPServer{
 		Rpc:    rpc,
 		server: base,
+		logger: logger,
 	}
 	srv.server.AddTool(listSessionsAndBeaconsTool, srv.listSessionsAndBeaconsHandler)
 	srv.server.AddTool(lsTool, srv.lsHandler)
@@ -172,6 +175,8 @@ func (s *SliverMCPServer) listSessionsAndBeaconsHandler(ctx context.Context, _ m
 	if s.Rpc == nil {
 		return mcpapi.NewToolResultError("rpc client not configured"), nil
 	}
+
+	s.logToolCall(listSessionsAndBeaconsToolName, "", "")
 
 	sessionsResp, err := s.Rpc.GetSessions(ctx, &commonpb.Empty{})
 	if err != nil {

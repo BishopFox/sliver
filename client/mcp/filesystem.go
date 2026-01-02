@@ -327,6 +327,8 @@ func (s *SliverMCPServer) handleLs(ctx context.Context, args lsArgs) (*mcpapi.Ca
 		return mcpapi.NewToolResultError("rpc client not configured"), nil
 	}
 
+	s.logToolCall(lsToolName, args.SessionID, args.BeaconID, fmt.Sprintf("path=%q", args.Path))
+
 	args.TimeoutSeconds = applyDefaultTimeout(args.Wait, args.TimeoutSeconds)
 	ctx, cancel := withTimeout(ctx, args.TimeoutSeconds)
 	if cancel != nil {
@@ -396,6 +398,8 @@ func (s *SliverMCPServer) handleCd(ctx context.Context, args cdArgs) (*mcpapi.Ca
 		return mcpapi.NewToolResultError("rpc client not configured"), nil
 	}
 
+	s.logToolCall(cdToolName, args.SessionID, args.BeaconID, fmt.Sprintf("path=%q", args.Path))
+
 	args.TimeoutSeconds = applyDefaultTimeout(args.Wait, args.TimeoutSeconds)
 	ctx, cancel := withTimeout(ctx, args.TimeoutSeconds)
 	if cancel != nil {
@@ -440,6 +444,15 @@ func (s *SliverMCPServer) handleCat(ctx context.Context, args catArgs) (*mcpapi.
 	if s.Rpc == nil {
 		return mcpapi.NewToolResultError("rpc client not configured"), nil
 	}
+
+	extras := []string{fmt.Sprintf("path=%q", args.Path)}
+	if args.MaxBytes > 0 {
+		extras = append(extras, fmt.Sprintf("max_bytes=%d", args.MaxBytes))
+	}
+	if args.MaxLines > 0 {
+		extras = append(extras, fmt.Sprintf("max_lines=%d", args.MaxLines))
+	}
+	s.logToolCall(catToolName, args.SessionID, args.BeaconID, extras...)
 
 	args.TimeoutSeconds = applyDefaultTimeout(args.Wait, args.TimeoutSeconds)
 	ctx, cancel := withTimeout(ctx, args.TimeoutSeconds)
@@ -494,6 +507,8 @@ func (s *SliverMCPServer) handlePwd(ctx context.Context, args pwdArgs) (*mcpapi.
 		return mcpapi.NewToolResultError("rpc client not configured"), nil
 	}
 
+	s.logToolCall(pwdToolName, args.SessionID, args.BeaconID)
+
 	args.TimeoutSeconds = applyDefaultTimeout(args.Wait, args.TimeoutSeconds)
 	ctx, cancel := withTimeout(ctx, args.TimeoutSeconds)
 	if cancel != nil {
@@ -535,6 +550,15 @@ func (s *SliverMCPServer) handleRm(ctx context.Context, args rmArgs) (*mcpapi.Ca
 	if s.Rpc == nil {
 		return mcpapi.NewToolResultError("rpc client not configured"), nil
 	}
+
+	s.logToolCall(
+		rmToolName,
+		args.SessionID,
+		args.BeaconID,
+		fmt.Sprintf("path=%q", args.Path),
+		fmt.Sprintf("recursive=%t", args.Recursive),
+		fmt.Sprintf("force=%t", args.Force),
+	)
 
 	args.TimeoutSeconds = applyDefaultTimeout(args.Wait, args.TimeoutSeconds)
 	ctx, cancel := withTimeout(ctx, args.TimeoutSeconds)
@@ -586,6 +610,14 @@ func (s *SliverMCPServer) handleMv(ctx context.Context, args mvArgs) (*mcpapi.Ca
 	if s.Rpc == nil {
 		return mcpapi.NewToolResultError("rpc client not configured"), nil
 	}
+
+	s.logToolCall(
+		mvToolName,
+		args.SessionID,
+		args.BeaconID,
+		fmt.Sprintf("src=%q", args.Src),
+		fmt.Sprintf("dst=%q", args.Dst),
+	)
 
 	args.TimeoutSeconds = applyDefaultTimeout(args.Wait, args.TimeoutSeconds)
 	ctx, cancel := withTimeout(ctx, args.TimeoutSeconds)
@@ -640,6 +672,14 @@ func (s *SliverMCPServer) handleCp(ctx context.Context, args cpArgs) (*mcpapi.Ca
 	if s.Rpc == nil {
 		return mcpapi.NewToolResultError("rpc client not configured"), nil
 	}
+
+	s.logToolCall(
+		cpToolName,
+		args.SessionID,
+		args.BeaconID,
+		fmt.Sprintf("src=%q", args.Src),
+		fmt.Sprintf("dst=%q", args.Dst),
+	)
 
 	args.TimeoutSeconds = applyDefaultTimeout(args.Wait, args.TimeoutSeconds)
 	ctx, cancel := withTimeout(ctx, args.TimeoutSeconds)
@@ -699,6 +739,8 @@ func (s *SliverMCPServer) handleMkdir(ctx context.Context, args mkdirArgs) (*mcp
 		return mcpapi.NewToolResultError("rpc client not configured"), nil
 	}
 
+	s.logToolCall(mkdirToolName, args.SessionID, args.BeaconID, fmt.Sprintf("path=%q", args.Path))
+
 	args.TimeoutSeconds = applyDefaultTimeout(args.Wait, args.TimeoutSeconds)
 	ctx, cancel := withTimeout(ctx, args.TimeoutSeconds)
 	if cancel != nil {
@@ -747,6 +789,15 @@ func (s *SliverMCPServer) handleChmod(ctx context.Context, args chmodArgs) (*mcp
 	if s.Rpc == nil {
 		return mcpapi.NewToolResultError("rpc client not configured"), nil
 	}
+
+	s.logToolCall(
+		chmodToolName,
+		args.SessionID,
+		args.BeaconID,
+		fmt.Sprintf("path=%q", args.Path),
+		fmt.Sprintf("file_mode=%q", args.FileMode),
+		fmt.Sprintf("recursive=%t", args.Recursive),
+	)
 
 	args.TimeoutSeconds = applyDefaultTimeout(args.Wait, args.TimeoutSeconds)
 	ctx, cancel := withTimeout(ctx, args.TimeoutSeconds)
@@ -798,6 +849,16 @@ func (s *SliverMCPServer) handleChown(ctx context.Context, args chownArgs) (*mcp
 	if s.Rpc == nil {
 		return mcpapi.NewToolResultError("rpc client not configured"), nil
 	}
+
+	s.logToolCall(
+		chownToolName,
+		args.SessionID,
+		args.BeaconID,
+		fmt.Sprintf("path=%q", args.Path),
+		fmt.Sprintf("uid=%q", args.UID),
+		fmt.Sprintf("gid=%q", args.GID),
+		fmt.Sprintf("recursive=%t", args.Recursive),
+	)
 
 	args.TimeoutSeconds = applyDefaultTimeout(args.Wait, args.TimeoutSeconds)
 	ctx, cancel := withTimeout(ctx, args.TimeoutSeconds)

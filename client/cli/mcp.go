@@ -50,7 +50,6 @@ func runMCP(cmd *cobra.Command, con *console.SliverClient) error {
 		return nil
 	}
 
-	fmt.Printf("Connecting to %s:%d ...\n", config.LHost, config.LPort)
 	rpc, ln, err := transport.MTLSConnect(config)
 	if err != nil {
 		fmt.Printf("Connection to server failed %s\n", err)
