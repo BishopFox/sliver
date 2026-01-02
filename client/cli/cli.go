@@ -69,6 +69,9 @@ func init() {
 	// other command trees below, such as the implant one.
 	rootCmd.AddCommand(consoleCmd(con))
 
+	// MCP stdio server.
+	rootCmd.AddCommand(mcpCmd(con))
+
 	// Implant.
 	// The implant command allows users to run commands on slivers from their
 	// system shell. It makes use of pre-runners for connecting to the server

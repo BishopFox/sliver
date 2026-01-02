@@ -58,6 +58,16 @@ func Start(cfg Config, rpc rpcpb.SliverRPCClient) error {
 	return defaultManager.start(cfg, rpc)
 }
 
+// ServeStdio runs the MCP server over stdio using the provided configuration.
+func ServeStdio(cfg Config, rpc rpcpb.SliverRPCClient) error {
+	cfg = cfg.WithDefaults()
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	srv := newServer(cfg, rpc)
+	return mcpserver.ServeStdio(srv.server)
+}
+
 // Stop shuts down the MCP server.
 func Stop(ctx context.Context) error {
 	return defaultManager.stop(ctx)
