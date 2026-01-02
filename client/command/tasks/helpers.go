@@ -9,8 +9,8 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/rsteube/carapace"
 )
@@ -32,11 +32,7 @@ func SelectBeaconTask(tasks []*clientpb.BeaconTask) (*clientpb.BeaconTask, error
 	}
 
 	selected := ""
-	prompt := &survey.Select{
-		Message: "Select a beacon task:",
-		Options: options,
-	}
-	err := survey.AskOne(prompt, &selected)
+	err := forms.Select("Select a beacon task:", options, &selected)
 	if err != nil {
 		return nil, err
 	}

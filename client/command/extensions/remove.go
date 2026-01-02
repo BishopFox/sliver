@@ -25,9 +25,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/util"
 	"github.com/spf13/cobra"
 )
@@ -40,8 +40,7 @@ func ExtensionsRemoveCmd(cmd *cobra.Command, con *console.SliverClient, args []s
 		return
 	}
 	confirm := false
-	prompt := &survey.Confirm{Message: fmt.Sprintf("Remove '%s' extension?", name)}
-	survey.AskOne(prompt, &confirm)
+	_ = forms.Confirm(fmt.Sprintf("Remove '%s' extension?", name), &confirm)
 	if !confirm {
 		return
 	}
@@ -104,8 +103,7 @@ func RemoveExtensionByManifestName(manifestName string, con *console.SliverClien
 		// If path is outside extensions directory, prompt for confirmation
 		if !strings.HasPrefix(extPath, assets.GetExtensionsDir()) {
 			confirm := false
-			prompt := &survey.Confirm{Message: fmt.Sprintf("Remove '%s' extension directory from filesystem?", manifestName)}
-			survey.AskOne(prompt, &confirm)
+			_ = forms.Confirm(fmt.Sprintf("Remove '%s' extension directory from filesystem?", manifestName), &confirm)
 			if !confirm {
 				// Skip the forceRemoveAll but continue with the rest
 				delete(loadedManifests, manifestName)

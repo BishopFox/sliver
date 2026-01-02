@@ -27,8 +27,8 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/spf13/cobra"
 )
@@ -130,8 +130,7 @@ func webAddFile(web *clientpb.WebsiteAddContent, webpath string, contentType str
 
 func confirmAddDirectory() bool {
 	confirm := false
-	prompt := &survey.Confirm{Message: "Recursively add entire directory?"}
-	survey.AskOne(prompt, &confirm, nil)
+	_ = forms.Confirm("Recursively add entire directory?", &confirm)
 	return confirm
 }
 

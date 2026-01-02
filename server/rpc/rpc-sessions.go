@@ -56,7 +56,7 @@ func (rpc *Server) KillSession(ctx context.Context, kill *sliverpb.KillReq) (*co
 	core.Sessions.Remove(session.ID)
 	data, err := proto.Marshal(kill)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	timeout := time.Duration(kill.Request.GetTimeout())
 	session.Request(sliverpb.MsgNumber(kill), timeout, data)

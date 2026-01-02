@@ -19,9 +19,9 @@ package settings
 */
 
 import (
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/spf13/cobra"
 )
 
@@ -45,8 +45,7 @@ func IsUserAnAdult(con *console.SliverClient) bool {
 		return true
 	}
 	confirm := false
-	prompt := &survey.Confirm{Message: "This action is bad OPSEC, are you an adult?"}
-	survey.AskOne(prompt, &confirm, nil)
+	_ = forms.Confirm("This action is bad OPSEC, are you an adult?", &confirm)
 	return confirm
 }
 

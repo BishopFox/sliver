@@ -25,10 +25,10 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/util"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
@@ -95,12 +95,8 @@ func selectCursedProcess(con *console.SliverClient) *core.CursedProcess {
 	table.Flush()
 	options := strings.Split(outputBuf.String(), "\n")
 	options = options[:len(options)-1] // Remove the last empty option
-	prompt := &survey.Select{
-		Message: "Select a curse:",
-		Options: options,
-	}
 	selected := ""
-	err := survey.AskOne(prompt, &selected)
+	err := forms.Select("Select a curse:", options, &selected)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return nil

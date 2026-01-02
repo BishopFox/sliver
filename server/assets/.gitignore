@@ -6,3 +6,4 @@ fs/darwin/arm64/
 fs/linux/amd64/
 fs/linux/arm64/
 fs/windows/amd64/
+fs/windows/arm64/

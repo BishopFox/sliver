@@ -252,19 +252,7 @@ func setupGo(appDir string) error {
 		return err
 	}
 
-	return setupSGN(appDir)
-}
-
-func setupSGN(appDir string) error {
-	goBinPath := filepath.Join(appDir, "go", "bin")
-	sgnZipFSPath := path.Join("fs", runtime.GOOS, runtime.GOARCH, "sgn.zip")
-	sgnZip, err := assetsFs.ReadFile(sgnZipFSPath)
-	if err != nil {
-		setupLog.Errorf("static asset not found: %s", sgnZipFSPath)
-		return err
-	}
-	_, err = unzipBuf(sgnZip, goBinPath)
-	return err
+	return nil
 }
 
 // SetupGoPath - Extracts dependencies to goPathSrc

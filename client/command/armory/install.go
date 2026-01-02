@@ -26,8 +26,9 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sort"
+	"strings"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/bishopfox/sliver/client/assets"
@@ -35,6 +36,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/util"
 	"github.com/bishopfox/sliver/util/minisign"
 )
@@ -51,10 +53,9 @@ const (
 // ArmoryInstallCmd - The armory install command
 func ArmoryInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var promptToOverwrite bool
-	name := args[0]
-	if name == "" {
-		con.PrintErrorf("A package or bundle name is required")
-		return
+	names := []string{}
+	if len(args) > 0 {
+		names = []string{args[0]}
 	}
 	forceInstallation, err := cmd.Flags().GetBool("force")
 	if err != nil {
@@ -83,51 +84,92 @@ func ArmoryInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 
 	clientConfig := parseArmoryHTTPConfig(cmd)
 	refresh(clientConfig)
-	if name == "all" {
-		aliases, extensions := packageManifestsInCache()
-		aliasCount, extCount := countUniqueCommandsFromManifests(aliases, extensions)
-		confirm := false
-		pluralAliases := "es"
-		if aliasCount == 1 {
-			pluralAliases = ""
+
+	if len(names) == 0 {
+		armoryFilterName := ""
+		if armoryPK != "" {
+			armoryFilterName = armoryName
 		}
-		pluralExtensions := "s"
-		if extCount == 1 {
-			pluralExtensions = ""
-		}
-		prompt := &survey.Confirm{
-			Message: fmt.Sprintf("Install %d alias%s and %d extension%s?",
-				aliasCount, pluralAliases, extCount, pluralExtensions,
-			),
-		}
-		survey.AskOne(prompt, &confirm)
-		if !confirm {
+		options := armoryInstallOptions(armoryPK, armoryFilterName)
+		if len(options) == 0 {
+			con.PrintInfof("No packages or bundles found\n")
 			return
 		}
-		promptToOverwrite = false
-	}
-	err = installPackageByName(name, armoryPK, forceInstallation, promptToOverwrite, clientConfig, con)
-	if err == nil {
-		return
-	}
-	if errors.Is(err, ErrPackageNotFound) {
-		bundles := bundlesInCache()
-		for _, bundle := range bundles {
-			if bundle.Name == name {
-				installBundle(bundle, armoryPK, forceInstallation, clientConfig, con)
+		result, err := forms.ArmoryInstallForm(options)
+		if err != nil {
+			if errors.Is(err, forms.ErrUserAborted) {
 				return
 			}
+			con.PrintErrorf("Armory install form failed: %s\n", err)
+			return
 		}
-		// If we have made it here, then there was not a bundle or package that matched the provided name
-		if armoryPK == "" {
-			con.PrintErrorf("No package or bundle named %q was found\n", name)
+		if len(result.SelectedNames) == 0 {
+			return
+		}
+		names = result.SelectedNames
+	}
+	if len(names) == 0 {
+		con.PrintErrorf("A package or bundle name is required")
+		return
+	}
+	if slices.Contains(names, "all") {
+		names = []string{"all"}
+	}
+
+	for _, name := range names {
+		if name == "" {
+			continue
+		}
+
+		promptOverwrite := promptToOverwrite
+		if name == "all" {
+			aliases, extensions := packageManifestsInCache()
+			aliasCount, extCount := countUniqueCommandsFromManifests(aliases, extensions)
+			confirm := false
+			pluralAliases := "es"
+			if aliasCount == 1 {
+				pluralAliases = ""
+			}
+			pluralExtensions := "s"
+			if extCount == 1 {
+				pluralExtensions = ""
+			}
+			forms.Confirm(fmt.Sprintf("Install %d alias%s and %d extension%s?",
+				aliasCount, pluralAliases, extCount, pluralExtensions,
+			), &confirm)
+			if !confirm {
+				return
+			}
+			promptOverwrite = false
+		}
+
+		err = installPackageByName(name, armoryPK, forceInstallation, promptOverwrite, clientConfig, con)
+		if err == nil {
+			continue
+		}
+		if errors.Is(err, ErrPackageNotFound) {
+			bundles := bundlesInCache()
+			for _, bundle := range bundles {
+				if bundle.Name == name {
+					installBundle(bundle, armoryPK, forceInstallation, clientConfig, con)
+					err = nil
+					break
+				}
+			}
+			if err == nil {
+				continue
+			}
+			// If we have made it here, then there was not a bundle or package that matched the provided name
+			if armoryPK == "" {
+				con.PrintErrorf("No package or bundle named %q was found\n", name)
+			} else {
+				con.PrintErrorf("No package or bundle named %q was found in armory %s\n", name, armoryName)
+			}
+		} else if errors.Is(err, ErrPackageAlreadyInstalled) {
+			con.PrintErrorf("Package %q is already installed - use the force option to overwrite it\n", name)
 		} else {
-			con.PrintErrorf("No package or bundle named %q was found in armory %s\n", name, armoryName)
+			con.PrintErrorf("Could not install package: %s\n", err)
 		}
-	} else if errors.Is(err, ErrPackageAlreadyInstalled) {
-		con.PrintErrorf("Package %q is already installed - use the force option to overwrite it\n", name)
-	} else {
-		con.PrintErrorf("Could not install package: %s\n", err)
 	}
 
 }
@@ -296,11 +338,7 @@ func getPackageIDFromUser(name string, options map[string]string) string {
 	// Add a cancel option
 	optionKeys = append(optionKeys, doNotInstallOption)
 	options[doNotInstallOption] = doNotInstallPackageName
-	prompt := &survey.Select{
-		Message: fmt.Sprintf("More than one package contains the command %s. Please choose an option from the list below:", name),
-		Options: optionKeys,
-	}
-	survey.AskOne(prompt, &selectedPackageKey)
+	forms.Select(fmt.Sprintf("More than one package contains the command %s. Please choose an option from the list below:", name), optionKeys, &selectedPackageKey)
 	selectedPackageID := options[selectedPackageKey]
 
 	return selectedPackageID
@@ -444,10 +482,112 @@ func installPackageByName(name, armoryPK string, forceInstallation, promptToOver
 
 	if name == "all" {
 		con.Printf("\n")
-		con.PrintInfof("Operation complete\n")
+		con.PrintSuccessf("Operation complete\n")
 	}
 
 	return nil
+}
+
+func armoryInstallOptions(armoryPK, armoryName string) []forms.ArmoryInstallOption {
+	options := []forms.ArmoryInstallOption{}
+	seen := make(map[string]bool)
+	packageCount := 0
+
+	pkgCache.Range(func(key, value interface{}) bool {
+		cacheEntry, ok := value.(pkgCacheEntry)
+		if !ok {
+			return true
+		}
+		if cacheEntry.LastErr != nil {
+			return true
+		}
+		if armoryPK != "" && cacheEntry.ArmoryConfig.PublicKey != armoryPK {
+			return true
+		}
+
+		if cacheEntry.Pkg.IsAlias {
+			name := cacheEntry.Alias.CommandName
+			if name == "" {
+				return true
+			}
+			if seen[name] {
+				return true
+			}
+			label := formatArmoryInstallLabel("alias", name, cacheEntry.Alias.Help)
+			options = append(options, forms.ArmoryInstallOption{
+				Value: name,
+				Label: label,
+			})
+			seen[name] = true
+			packageCount++
+			return true
+		}
+
+		for _, command := range cacheEntry.Extension.ExtCommand {
+			name := command.CommandName
+			if name == "" {
+				continue
+			}
+			if seen[name] {
+				continue
+			}
+			label := formatArmoryInstallLabel("extension", name, command.Help)
+			options = append(options, forms.ArmoryInstallOption{
+				Value: name,
+				Label: label,
+			})
+			seen[name] = true
+			packageCount++
+		}
+
+		return true
+	})
+
+	for _, bundle := range bundlesInCache() {
+		if bundle.Name == "" {
+			continue
+		}
+		if armoryName != "" && bundle.ArmoryName != armoryName {
+			continue
+		}
+		if seen[bundle.Name] {
+			continue
+		}
+		label := fmt.Sprintf("bundle: %s (%d packages)", bundle.Name, len(bundle.Packages))
+		options = append(options, forms.ArmoryInstallOption{
+			Value: bundle.Name,
+			Label: label,
+		})
+		seen[bundle.Name] = true
+	}
+
+	if len(options) == 0 {
+		return options
+	}
+
+	sort.Slice(options, func(i, j int) bool {
+		return options[i].Label < options[j].Label
+	})
+
+	if packageCount > 0 {
+		options = append([]forms.ArmoryInstallOption{
+			{
+				Value: "all",
+				Label: "all packages (aliases + extensions)",
+			},
+		}, options...)
+	}
+
+	return options
+}
+
+func formatArmoryInstallLabel(kind, name, help string) string {
+	help = strings.TrimSpace(help)
+	if help == "" {
+		return fmt.Sprintf("%s: %s", kind, name)
+	}
+	help = strings.Join(strings.Fields(help), " ")
+	return fmt.Sprintf("%s: %s - %s", kind, name, help)
 }
 
 func installAliasPackage(entry *pkgCacheEntry, promptToOverwrite bool, clientConfig ArmoryHTTPConfig, con *console.SliverClient) error {

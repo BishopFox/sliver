@@ -34,17 +34,20 @@ func (s *Server) Portfwd(ctx context.Context, req *sliverpb.PortfwdReq) (*sliver
 	}
 	tunnel := core.Tunnels.Get(req.TunnelID)
 	if tunnel == nil {
-		return nil, core.ErrInvalidTunnelID
+		return nil, rpcError(core.ErrInvalidTunnelID)
 	}
 	reqData, err := proto.Marshal(req)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	data, err := session.Request(sliverpb.MsgNumber(req), s.getTimeout(req), reqData)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	portfwd := &sliverpb.Portfwd{}
 	err = proto.Unmarshal(data, portfwd)
-	return portfwd, err
+	if err != nil {
+		return nil, rpcError(err)
+	}
+	return portfwd, nil
 }

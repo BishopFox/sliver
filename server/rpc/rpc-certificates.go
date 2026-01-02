@@ -89,7 +89,7 @@ func (rpc *Server) GetCertificateInfo(ctx context.Context, req *clientpb.Certifi
 
 	certInfoDB, err := db.GetCertificateInfo(req.CategoryFilters, req.CN)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	certInfo.Info = make([]*clientpb.CertificateData, len(certInfoDB))

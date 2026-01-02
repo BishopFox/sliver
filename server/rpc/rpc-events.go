@@ -51,7 +51,7 @@ func (rpc *Server) Events(_ *commonpb.Empty, stream rpcpb.SliverRPC_EventsServer
 			err := stream.Send(pbEvent)
 			if err != nil {
 				rpcEventsLog.Warnf(err.Error())
-				return err
+				return rpcError(err)
 			}
 		}
 	}

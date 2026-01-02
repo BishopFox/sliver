@@ -1,6 +1,6 @@
 ### General Server Configuration
 
-Starting in version 1.0.0 the Sliver server has a configuration file located the `configs` sub-directory of the [`SLIVER_ROOT_DIR`](/docs?name=Environment+Variables), by default this will be `~/.sliver/configs/server.json`. If no configuration file exists, a default configuration will be generated and written to disk on startup. The default configuration is shown below:
+The Sliver server has a configuration file located in the `configs` sub-directory of the [`SLIVER_ROOT_DIR`](/docs?name=Environment+Variables); by default this is `~/.sliver/configs/server.json`. If no configuration file exists, a default configuration will be generated and written to disk on startup. The default configuration is shown below:
 
 #### Default Server Config
 
@@ -24,15 +24,15 @@ Starting in version 1.0.0 the Sliver server has a configuration file located the
 - `daemon_mode` - Enable [daemon mode](/docs?name=Daemon+Mode)
 - `daemon` - An object containing options related to `daemon_mode`, these values are only used when `daemon_mode` is set to `true`.
   - `host` - What network interface to bind the `daemon_mode` client listener to. By default this is an empty string, which indicates binding to all interfaces.
-  - `port` - TCP port to bind the `deamon_mode` client listener to.
-- `logs` - An object containing configure options for server logs
-  - `level` - The `logrus` logging level (1 - 5), default this is set to `4`, which is the`INFO` level; increasing this value increases the verbosity of the logs e.g. `DEBUG` is `5` and `SILENT` is `1`
+  - `port` - TCP port to bind the `daemon_mode` client listener to.
+- `logs` - An object containing configuration options for server logs
+  - `level` - The `logrus` logging level (1 - 5), by default this is set to `4`, which is the `INFO` level; increasing this value increases the verbosity of the logs e.g. `DEBUG` is `5` and `SILENT` is `1`
   - `grpc_unary_payloads` - Log gRPC unary payloads
   - `grpc_stream_payloads` - Log gRPC streaming payloads
 
 ## Database Configuration
 
-Starting in version v1.1.0 Sliver supports SQL database configurations, by default this configuration file is located at `~/.sliver/configs/database.json`:
+Sliver supports SQL database configurations. By default this configuration file is located at `~/.sliver/configs/database.json`:
 
 #### Default Database Configuration
 
@@ -59,7 +59,7 @@ Starting in version v1.1.0 Sliver supports SQL database configurations, by defau
 - `password` - Database password.
 - `host` - Database host.
 - `port` - Database TCP port.
-- `params` - Is a key/value string map that can be used to pass dialect specific options to the DSN/connection string. This can be used for example to enable SSL/TLS on certain database connections.
+- `params` - Is a key/value string map that can be used to pass dialect-specific options to the DSN/connection string. This can be used, for example, to enable SSL/TLS on certain database connections.
 - `max_idle_conns` - Max idle connections in the database connection pool.
 - `max_open_conns` - Max open connections in the database connection pool.
 - `log_level` - Configures the log level for database logging, can be set to: `silent`, `error`, `warn`, or `info`. Default level is `warn`, note that setting this option to `info` may result in sensitive information being logged to disk!

@@ -23,8 +23,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/spf13/cobra"
@@ -145,8 +145,7 @@ func tryCredsFromLoot(con *console.SliverClient) (string, string, []byte) {
 		privKey  []byte
 	)
 	confirm := false
-	prompt := &survey.Confirm{Message: "No credentials provided, use from loot?"}
-	survey.AskOne(prompt, &confirm, nil)
+	_ = forms.Confirm("No credentials provided, use from loot?", &confirm)
 	if confirm {
 		// cred, err := loot.SelectCredentials(con)
 		// if err != nil {

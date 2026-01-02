@@ -21,10 +21,10 @@ package clean
 import (
 	"context"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -35,8 +35,7 @@ import (
 func CleanCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	con.Printf("This command will kill and remove all sessions, beacons and profiles \n")
 	confirm := false
-	prompt := &survey.Confirm{Message: "Are you sure you want to destroy everything?"}
-	survey.AskOne(prompt, &confirm)
+	_ = forms.Confirm("Are you sure you want to destroy everything?", &confirm)
 	if !confirm {
 		return
 	}

@@ -89,8 +89,9 @@ func (c *dataCache) DeleteSeq(tunnelID uint64, sequence uint64) {
 }
 
 // CreateTunnel - Create a new tunnel on the server, however based on only this request there's
-//                no way to associate the tunnel with the correct client, so the client must send
-//                a zero-byte message over TunnelData to bind itself to the newly created tunnel.
+//
+//	no way to associate the tunnel with the correct client, so the client must send
+//	a zero-byte message over TunnelData to bind itself to the newly created tunnel.
 func (s *Server) CreateTunnel(ctx context.Context, req *sliverpb.Tunnel) (*sliverpb.Tunnel, error) {
 	session := core.Sessions.Get(req.SessionID)
 	if session == nil {
@@ -124,14 +125,14 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 		}
 		if err != nil {
 			rpcLog.Warnf("Error on stream recv %s", err)
-			return err
+			return rpcError(err)
 		}
 		tunnelLog.Debugf("Tunnel %d: From client %d byte(s)",
 			fromClient.TunnelID, len(fromClient.Data))
 
 		tunnel := core.Tunnels.Get(fromClient.TunnelID)
 		if tunnel == nil {
-			return core.ErrInvalidTunnelID
+			return rpcError(core.ErrInvalidTunnelID)
 		}
 		if tunnel.Client == nil {
 			tunnel.Client = stream // Bind client to tunnel

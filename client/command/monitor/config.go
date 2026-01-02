@@ -22,9 +22,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -121,11 +121,7 @@ func selectWatchtowerConfig(configs *clientpb.MonitoringProviders) (*clientpb.Mo
 	}
 
 	selected := ""
-	prompt := &survey.Select{
-		Message: "Select a configuration:",
-		Options: options,
-	}
-	err := survey.AskOne(prompt, &selected)
+	err := forms.Select("Select a configuration:", options, &selected)
 	if err != nil {
 		return nil, err
 	}

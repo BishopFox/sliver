@@ -19,15 +19,23 @@ package version
 */
 
 import (
+	"errors"
 	"fmt"
+	"runtime"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/mod/semver"
 )
 
 const (
 	normal = "\033[0m"
 	bold   = "\033[1m"
+
+	defaultVersion     = "devel"
+	defaultReleasesURL = "https://api.github.com/repos/BishopFox/sliver/releases"
 )
 
 var (
@@ -47,22 +55,111 @@ var (
 	CompiledAt string
 )
 
+func init() {
+	if GithubReleasesURL == "" {
+		GithubReleasesURL = defaultReleasesURL
+	}
+	applyBuildInfo()
+}
+
+func applyBuildInfo() {
+	info, ok := debug.ReadBuildInfo()
+	if !ok || info == nil {
+		ensureDefaults()
+		return
+	}
+
+	if GoVersion == "" {
+		if info.GoVersion != "" {
+			GoVersion = info.GoVersion
+		} else {
+			GoVersion = runtime.Version()
+		}
+	}
+
+	if Version == "" {
+		Version = normalizeVersion(info.Main.Version)
+	}
+
+	settings := buildSettings(info.Settings)
+	if GitCommit == "" {
+		GitCommit = settings["vcs.revision"]
+	}
+	if GitDirty == "" && settings["vcs.modified"] == "true" {
+		GitDirty = "Dirty"
+	}
+	if CompiledAt == "" {
+		if vcsTime := settings["vcs.time"]; vcsTime != "" {
+			if compiled, err := time.Parse(time.RFC3339, vcsTime); err == nil {
+				CompiledAt = strconv.FormatInt(compiled.Unix(), 10)
+			}
+		}
+	}
+
+	ensureDefaults()
+}
+
+func ensureDefaults() {
+	if Version == "" {
+		Version = defaultVersion
+	}
+	if GoVersion == "" {
+		GoVersion = runtime.Version()
+	}
+}
+
+func buildSettings(settings []debug.BuildSetting) map[string]string {
+	values := make(map[string]string, len(settings))
+	for _, setting := range settings {
+		values[setting.Key] = setting.Value
+	}
+	return values
+}
+
+func normalizeVersion(version string) string {
+	if version == "" || version == "(devel)" {
+		return defaultVersion
+	}
+	if canonical := canonicalSemver(version); canonical != "" {
+		return canonical
+	}
+	return version
+}
+
+func canonicalSemver(version string) string {
+	version = strings.TrimSpace(version)
+	if version == "" || version == "(devel)" {
+		return ""
+	}
+	if !strings.HasPrefix(version, "v") {
+		version = "v" + version
+	}
+	return semver.Canonical(version)
+}
+
 // SemanticVersion - Get the structured sematic version
 func SemanticVersion() []int {
-	semVer := []int{}
-	version := Version
-	if strings.HasPrefix(version, "v") {
-		version = version[1:]
+	semVer := make([]int, 3)
+	canonical := canonicalSemver(Version)
+	if canonical == "" {
+		return semVer
 	}
-	for _, part := range strings.Split(version, ".") {
-		number, _ := strconv.Atoi(part)
-		semVer = append(semVer, number)
+	base := strings.TrimPrefix(canonical, "v")
+	if idx := strings.Index(base, "-"); idx != -1 {
+		base = base[:idx]
+	}
+	parts := strings.Split(base, ".")
+	for i := 0; i < 3 && i < len(parts); i++ {
+		semVer[i], _ = strconv.Atoi(parts[i])
 	}
 	return semVer
 }
 
 // Compiled - Get time this binary was compiled
 func Compiled() (time.Time, error) {
+	if CompiledAt == "" {
+		return time.Unix(0, 0), errors.New("compiled time not available")
+	}
 	compiled, err := strconv.ParseInt(CompiledAt, 10, 64)
 	if err != nil {
 		return time.Unix(0, 0), err
@@ -74,7 +171,7 @@ func Compiled() (time.Time, error) {
 func FullVersion() string {
 	ver := fmt.Sprintf("%s", Version)
 	compiled, err := Compiled()
-	if err != nil {
+	if err == nil {
 		ver += fmt.Sprintf(" - Compiled %s", compiled.String())
 	}
 	if GitCommit != "" {

@@ -32,9 +32,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/client/spin"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -89,6 +89,21 @@ var (
 
 // GenerateCmd - The main command used to generate implant binaries
 func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+	if shouldRunGenerateForm(cmd, con, args) {
+		result, err := forms.GenerateForm()
+		if err != nil {
+			if errors.Is(err, forms.ErrUserAborted) {
+				return
+			}
+			con.PrintErrorf("Generate form failed: %s\n", err)
+			return
+		}
+		if err := applyGenerateForm(cmd, result); err != nil {
+			con.PrintErrorf("Failed to apply generate form values: %s\n", err)
+			return
+		}
+	}
+
 	name, config := parseCompileFlags(cmd, con)
 	if config == nil {
 		return
@@ -117,6 +132,58 @@ func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 }
 
+func shouldRunGenerateForm(cmd *cobra.Command, con *console.SliverClient, args []string) bool {
+	if con == nil || con.IsCLI {
+		return false
+	}
+	if len(args) != 0 {
+		return false
+	}
+	return cmd.Flags().NFlag() == 0
+}
+
+func applyGenerateForm(cmd *cobra.Command, result *forms.GenerateFormResult) error {
+	if err := cmd.Flags().Set("os", result.OS); err != nil {
+		return err
+	}
+	if err := cmd.Flags().Set("arch", result.Arch); err != nil {
+		return err
+	}
+	if err := cmd.Flags().Set("format", result.Format); err != nil {
+		return err
+	}
+	name := strings.TrimSpace(result.Name)
+	if name != "" {
+		if err := cmd.Flags().Set("name", name); err != nil {
+			return err
+		}
+	}
+	save := strings.TrimSpace(result.Save)
+	if save != "" {
+		if err := cmd.Flags().Set("save", save); err != nil {
+			return err
+		}
+	}
+
+	c2Value := strings.TrimSpace(result.C2Value)
+	switch result.C2Type {
+	case "mtls":
+		return cmd.Flags().Set("mtls", c2Value)
+	case "wg":
+		return cmd.Flags().Set("wg", c2Value)
+	case "http":
+		return cmd.Flags().Set("http", c2Value)
+	case "dns":
+		return cmd.Flags().Set("dns", c2Value)
+	case "named-pipe":
+		return cmd.Flags().Set("named-pipe", c2Value)
+	case "tcp-pivot":
+		return cmd.Flags().Set("tcp-pivot", c2Value)
+	default:
+		return errors.New("unsupported C2 transport selection")
+	}
+}
+
 func expandPath(path string) string {
 	// unless path starts with ~
 	if len(path) == 0 || path[0] != 126 {
@@ -134,13 +201,10 @@ func saveLocation(save, DefaultName string, con *console.SliverClient) (string, 
 	save = expandPath(save)
 	fi, err := os.Stat(save)
 	if os.IsNotExist(err) {
-		con.Printf("%s does not exist\n", save)
 		if strings.HasSuffix(save, "/") {
-			con.Printf("%s is dir\n", save)
 			os.MkdirAll(save, 0o700)
 			saveTo, _ = filepath.Abs(filepath.Join(saveTo, DefaultName))
 		} else {
-			con.Printf("%s is not dir\n", save)
 			saveDir := filepath.Dir(save)
 			_, err := os.Stat(saveTo)
 			if os.IsNotExist(err) {
@@ -152,10 +216,8 @@ func saveLocation(save, DefaultName string, con *console.SliverClient) (string, 
 		if fi.IsDir() {
 			saveTo, _ = filepath.Abs(filepath.Join(save, DefaultName))
 		} else {
-			con.PrintInfof("%s is not dir\n", save)
-			prompt := &survey.Confirm{Message: "Overwrite existing file?"}
 			var confirm bool
-			survey.AskOne(prompt, &confirm)
+			_ = forms.Confirm("Overwrite existing file?", &confirm)
 			if !confirm {
 				return "", errors.New("file already exists")
 			}
@@ -467,9 +529,8 @@ func getTargets(targetOS string, targetArch string, con *console.SliverClient) (
 			console.Bold, target, console.Normal,
 		)
 		con.Printf("⚠️  Generic implants do not support all commands/features.\n")
-		prompt := &survey.Confirm{Message: "Attempt to build generic implant?"}
 		var confirm bool
-		survey.AskOne(prompt, &confirm)
+		_ = forms.Confirm("Attempt to build generic implant?", &confirm)
 		if !confirm {
 			return "", ""
 		}
@@ -577,7 +638,7 @@ func hasValidC2AdvancedOptions(options url.Values) (bool, error) {
 			if testValue != "wininet" {
 				return false, fmt.Errorf("C2 option \"driver\" must be empty for the default driver or \"wininet\" for the wininet driver (Windows only)")
 			}
-		case "force-http", "disable-accept-header", "disable-upgrade-header", "ask-proxy-creds", "force-base32":
+		case "force-http", "disable-accept-header", "disable-upgrade-header", "ask-proxy-creds":
 			if testValue != "true" && testValue != "false" {
 				return false, fmt.Errorf("C2 option \"%s\" must be a boolean value: true or false", key)
 			}
@@ -739,11 +800,8 @@ func ParseNamedPipec2(args string) ([]*clientpb.ImplantC2, error) {
 		}
 
 		if !strings.HasPrefix(uri.Path, "/pipe/") {
-			prompt := &survey.Confirm{
-				Message: fmt.Sprintf("Named pipe '%s' is missing the 'pipe' path prefix\nContinue anyways?", uri),
-			}
 			var confirm bool
-			survey.AskOne(prompt, &confirm)
+			_ = forms.Confirm(fmt.Sprintf("Named pipe '%s' is missing the 'pipe' path prefix\nContinue anyways?", uri), &confirm)
 			if !confirm {
 				return nil, fmt.Errorf("invalid namedpipe path: %s", uri.Path)
 			}
@@ -1050,8 +1108,7 @@ func warnMissingCrossCompiler(format clientpb.OutputFormat, targetOS string, tar
 	con.PrintWarnf("For more information please read %s\n", crossCompilerInfoURL)
 
 	confirm := false
-	prompt := &survey.Confirm{Message: "Try to compile anyways (will likely fail)?"}
-	survey.AskOne(prompt, &confirm, nil)
+	_ = forms.Confirm("Try to compile anyways (will likely fail)?", &confirm)
 	return confirm
 }
 
@@ -1087,11 +1144,7 @@ func selectExternalBuilder(builders []*clientpb.Builder, _ *console.SliverClient
 		choices = append(choices, builder.Name)
 	}
 	choice := ""
-	prompt := &survey.Select{
-		Message: "Select an external builder:",
-		Options: choices,
-	}
-	survey.AskOne(prompt, &choice, nil)
+	_ = forms.Select("Select an external builder:", choices, &choice)
 	for _, builder := range builders {
 		if builder.Name == choice {
 			return builder, nil

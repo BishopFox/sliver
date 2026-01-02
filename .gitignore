@@ -2,6 +2,10 @@
 /.devcontainer
 /.idea
 
+/artifacts
+/artifacts/**
+
+
 /Dockerfile.*
 /*.sdk.tar.xz
 

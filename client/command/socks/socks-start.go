@@ -27,8 +27,8 @@ import (
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/spf13/cobra"
-	"gopkg.in/AlecAivazis/survey.v1"
 )
 
 // SocksStartCmd - Add a new tunneled port forward.
@@ -56,8 +56,7 @@ func SocksStartCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 		con.PrintWarnf("SOCKS proxy authentication credentials are tunneled to the implant\n")
 		con.PrintWarnf("These credentials are recoverable from the implant's memory!\n\n")
 		confirm := false
-		prompt := &survey.Confirm{Message: "Do you understand the implication?"}
-		survey.AskOne(prompt, &confirm, nil)
+		_ = forms.Confirm("Do you understand the implication?", &confirm)
 		if !confirm {
 			return
 		}

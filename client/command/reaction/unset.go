@@ -25,9 +25,9 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/spf13/cobra"
 )
 
@@ -65,13 +65,8 @@ func selectReaction(con *console.SliverClient) (*core.Reaction, error) {
 	options := strings.Split(outputBuf.String(), "\n")
 	options = options[:len(options)-1] // Remove blank line at the end
 
-	// Prompt user with options
-	prompt := &survey.Select{
-		Message: "Select a reaction:",
-		Options: options,
-	}
 	selection := ""
-	err := survey.AskOne(prompt, &selection)
+	err := forms.Select("Select a reaction:", options, &selection)
 	if err != nil {
 		return nil, err
 	}

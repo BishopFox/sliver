@@ -24,7 +24,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/command/environment"
 	"github.com/bishopfox/sliver/client/command/exec"
 	"github.com/bishopfox/sliver/client/command/extensions"
@@ -36,6 +35,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
@@ -750,11 +750,7 @@ func taskResponseDownload(download *sliverpb.Download, con *console.SliverClient
 		saveTo = "Save to File ..."
 	)
 	action := saveTo
-	prompt := &survey.Select{
-		Message: "Choose an option:",
-		Options: []string{dump, saveTo},
-	}
-	err := survey.AskOne(prompt, &action, survey.WithValidator(survey.Required))
+	err := forms.SelectRequired("Choose an option:", []string{dump, saveTo}, &action)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
@@ -769,16 +765,14 @@ func taskResponseDownload(download *sliverpb.Download, con *console.SliverClient
 
 func promptSaveToFile(data []byte, con *console.SliverClient) {
 	saveTo := ""
-	saveToPrompt := &survey.Input{Message: "Save to: "}
-	err := survey.AskOne(saveToPrompt, &saveTo)
+	err := forms.Input("Save to:", &saveTo)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
 	if _, err := os.Stat(saveTo); !os.IsNotExist(err) {
 		confirm := false
-		prompt := &survey.Confirm{Message: "Overwrite existing file?"}
-		survey.AskOne(prompt, &confirm)
+		_ = forms.Confirm("Overwrite existing file?", &confirm)
 		if !confirm {
 			return
 		}

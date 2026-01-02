@@ -79,7 +79,7 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 		if download.Encoder == "gzip" {
 			download.Data, err = new(encoders.Gzip).Decode(download.Data)
 			if err != nil {
-				return nil, err
+				return nil, rpcError(err)
 			}
 		}
 		refDLL = download.Data
@@ -89,7 +89,7 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 	if req.ProfileName != "" {
 		profiles, err := rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
 		if err != nil {
-			return nil, err
+			return nil, rpcError(err)
 		}
 		var p *clientpb.ImplantProfile
 		for _, prof := range profiles.Profiles {
@@ -113,47 +113,47 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 		if req.Name == "" {
 			name, err = codenames.GetCodename()
 			if err != nil {
-				return nil, err
+				return nil, rpcError(err)
 			}
 		} else if err := util.AllowedName(name); err != nil {
-			return nil, err
+			return nil, status.Error(codes.InvalidArgument, err.Error())
 		} else {
 			name = req.Name
 		}
 		build, err := generate.GenerateConfig(name, config)
 		if err != nil {
-			return nil, err
+			return nil, rpcError(err)
 		}
 		// retrieve http c2 implant config
 		httpC2Config, err := db.LoadHTTPC2ConfigByName(p.Config.HTTPC2ConfigName)
 		if err != nil {
-			return nil, err
+			return nil, rpcError(err)
 		}
 
 		fPath, err := generate.SliverSharedLibrary(name, build, config, httpC2Config.ImplantConfig)
 
 		if err != nil {
-			return nil, err
+			return nil, rpcError(err)
 		}
 
 		targetDLLData, err = os.ReadFile(fPath)
 		if err != nil {
-			return nil, err
+			return nil, rpcError(err)
 		}
 	} else {
 		if len(req.TargetDLL) == 0 {
-			return nil, errors.New("missing target DLL")
+			return nil, status.Error(codes.InvalidArgument, "missing target DLL")
 		}
 		targetDLLData = req.TargetDLL
 	}
 	// call clone
 	result, err := cloneExports(targetDLLData, refDLL, req.ReferenceDLLPath)
 	if err != nil {
-		return resp, fmt.Errorf("failed to clone exports: %s", err)
+		return resp, status.Error(codes.InvalidArgument, fmt.Sprintf("failed to clone exports: %s", err))
 	}
 	targetBytes, err := result.Bytes()
 	if err != nil {
-		return resp, fmt.Errorf("failed to convert PE to bytes: %s", err)
+		return resp, status.Error(codes.Internal, fmt.Sprintf("failed to convert PE to bytes: %s", err))
 	}
 	// upload new dll
 	uploadGzip, _ := new(encoders.Gzip).Encode(targetBytes)
@@ -169,11 +169,11 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	if upload.Response != nil && upload.Response.Err != "" {
-		return nil, fmt.Errorf("%s", upload.Response.Err)
+		return nil, status.Error(codes.FailedPrecondition, upload.Response.Err)
 	}
 
 	return resp, nil
