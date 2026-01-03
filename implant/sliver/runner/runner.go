@@ -1,4 +1,4 @@
-package main
+package runner
 
 /*
 	Sliver Implant Framework
@@ -17,12 +17,6 @@ package main
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-
-// {{if or .Config.IsSharedLib }}
-//#include "sliver.h"
-import "C"
-
-// {{end}}
 
 import (
 	"errors"
@@ -105,26 +99,11 @@ func (serv *sliverService) Execute(args []string, r <-chan svc.ChangeRequest, ch
 			}
 		}
 	}
-	return
 }
 
 // {{end}}
 
-// {{if or .Config.IsSharedLib .Config.IsShellcode}}
-var isRunning bool = false
-
-// {{range .Config.Exports}}
-//export {{.}}
-func {{.}} () {
-	if !isRunning {
-		isRunning = true
-		main()
-	}
-}
-// {{end}}
-// {{end}}
-
-func main() {
+func Main() {
 
 	// {{if .Config.Debug}}
 	log.SetFlags(log.LstdFlags | log.Lshortfile)

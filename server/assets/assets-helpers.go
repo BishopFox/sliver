@@ -277,7 +277,7 @@ func SetupGoPath(goPathSrc string, includeDNS bool) error {
 	}
 	sliverpbGoSrc = xorPBRawBytes(sliverpbGoSrc)
 	sliverpbGoSrc = stripSliverpb(sliverpbGoSrc)
-	sliverpbDir := filepath.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "sliverpb")
+	sliverpbDir := filepath.Join(goPathSrc, "protobuf", "sliverpb")
 	setupLog.Infof("Creating sliverpb directory: %s", sliverpbDir)
 	os.MkdirAll(sliverpbDir, 0700)
 	os.WriteFile(filepath.Join(sliverpbDir, "sliver.pb.go"), sliverpbGoSrc, 0600)
@@ -290,7 +290,7 @@ func SetupGoPath(goPathSrc string, includeDNS bool) error {
 		return err
 	}
 	commonpbSrc = xorPBRawBytes(commonpbSrc)
-	commonpbDir := filepath.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "commonpb")
+	commonpbDir := filepath.Join(goPathSrc, "protobuf", "commonpb")
 	os.MkdirAll(commonpbDir, 0700)
 	os.WriteFile(filepath.Join(commonpbDir, "common.pb.go"), commonpbSrc, 0600)
 
@@ -302,7 +302,7 @@ func SetupGoPath(goPathSrc string, includeDNS bool) error {
 			return err
 		}
 		dnspbSrc = xorPBRawBytes(dnspbSrc)
-		dnspbDir := filepath.Join(goPathSrc, "github.com", "bishopfox", "sliver", "protobuf", "dnspb")
+		dnspbDir := filepath.Join(goPathSrc, "protobuf", "dnspb")
 		os.MkdirAll(dnspbDir, 0700)
 		os.WriteFile(filepath.Join(dnspbDir, "dns.pb.go"), dnspbSrc, 0600)
 	}
