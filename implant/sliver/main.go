@@ -19,7 +19,7 @@ package main
 */
 
 // {{if or .Config.IsSharedLib }}
-//#include "sliver.h"
+//#include "main.h"
 import "C"
 
 // {{end}}
