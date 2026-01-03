@@ -40,6 +40,7 @@ import (
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/encoders"
 	"github.com/bishopfox/sliver/server/gogo"
+	"github.com/bishopfox/sliver/server/gogo/goname"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/util"
 	utilEncoders "github.com/bishopfox/sliver/util/encoders"
@@ -520,6 +521,14 @@ func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clien
 		return "", err
 	}
 	buildLog.Debugf("Created %s", goModPath)
+
+	// refactor
+	result, err := goname.RenameModule(sliverPkgDir, "github.com/envoyproxy/envoy")
+	if err != nil {
+		buildLog.Errorf("Failed to rename module: %s", err)
+		return "", err
+	}
+	buildLog.Infof("Renamed module: %s -> %s (go.mod updated: %v)", result.OldModule, result.NewModule, result.GoModUpdated)
 
 	return sliverPkgDir, nil
 }
