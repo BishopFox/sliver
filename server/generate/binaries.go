@@ -44,6 +44,7 @@ import (
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/util"
 	utilEncoders "github.com/bishopfox/sliver/util/encoders"
+	"golang.org/x/mod/module"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -522,16 +523,23 @@ func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clien
 	}
 	buildLog.Debugf("Created %s", goModPath)
 
-	goPackage := "github.com/google/gvisor"
-	if config.GoPackage != "" {
-		goPackage = config.GoPackage
+	if !config.Debug {
+		goPackage := "github.com/google/gvisor"
+		if config.GoPackage != "" {
+			err := module.CheckPath(config.GoPackage)
+			if err != nil {
+				buildLog.Warnf("Invalid Go package path '%s', using default '%s'", config.GoPackage, goPackage)
+			} else {
+				goPackage = config.GoPackage
+			}
+		}
+		result, err := goname.RenameModule(sliverPkgDir, goPackage)
+		if err != nil {
+			buildLog.Errorf("Failed to rename module: %s", err)
+			return "", err
+		}
+		buildLog.Infof("Renamed module: %s -> %s (go.mod updated: %v)", result.OldModule, result.NewModule, result.GoModUpdated)
 	}
-	result, err := goname.RenameModule(sliverPkgDir, goPackage)
-	if err != nil {
-		buildLog.Errorf("Failed to rename module: %s", err)
-		return "", err
-	}
-	buildLog.Infof("Renamed module: %s -> %s (go.mod updated: %v)", result.OldModule, result.NewModule, result.GoModUpdated)
 
 	return sliverPkgDir, nil
 }
