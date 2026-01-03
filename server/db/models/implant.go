@@ -159,17 +159,17 @@ type ImplantConfig struct {
 	BeaconInterval int64
 	BeaconJitter   int64
 
-	Debug               bool
-	DebugFile           string
-	Evasion             bool
-	ObfuscateSymbols    bool
-	ReconnectInterval   int64
-	PollTimeout         int64
-	MaxConnectionErrors uint32
-	ConnectionStrategy  string
-	SGNEnabled          bool
-	Exports             string
-
+	Debug                     bool
+	DebugFile                 string
+	Evasion                   bool
+	ObfuscateSymbols          bool
+	ReconnectInterval         int64
+	PollTimeout               int64
+	MaxConnectionErrors       uint32
+	ConnectionStrategy        string
+	SGNEnabled                bool
+	Exports                   string
+	CollectVirtualizationInfo bool
 	// WireGuard
 	WGPeerTunIP       string
 	WGKeyExchangePort uint32
@@ -249,17 +249,17 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		GOOS:   ic.GOOS,
 		GOARCH: ic.GOARCH,
 
-		Debug:            ic.Debug,
-		DebugFile:        ic.DebugFile,
-		Evasion:          ic.Evasion,
-		ObfuscateSymbols: ic.ObfuscateSymbols,
-		TemplateName:     ic.TemplateName,
-		SGNEnabled:       ic.SGNEnabled,
-
-		ReconnectInterval:   ic.ReconnectInterval,
-		MaxConnectionErrors: ic.MaxConnectionErrors,
-		PollTimeout:         ic.PollTimeout,
-		ConnectionStrategy:  ic.ConnectionStrategy,
+		Debug:                     ic.Debug,
+		DebugFile:                 ic.DebugFile,
+		Evasion:                   ic.Evasion,
+		ObfuscateSymbols:          ic.ObfuscateSymbols,
+		TemplateName:              ic.TemplateName,
+		SGNEnabled:                ic.SGNEnabled,
+		CollectVirtualizationInfo: ic.CollectVirtualizationInfo,
+		ReconnectInterval:         ic.ReconnectInterval,
+		MaxConnectionErrors:       ic.MaxConnectionErrors,
+		PollTimeout:               ic.PollTimeout,
+		ConnectionStrategy:        ic.ConnectionStrategy,
 
 		LimitDatetime:     ic.LimitDatetime,
 		LimitDomainJoined: ic.LimitDomainJoined,
@@ -456,11 +456,12 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.Evasion = pbConfig.Evasion
 	cfg.ObfuscateSymbols = pbConfig.ObfuscateSymbols
 	cfg.TemplateName = pbConfig.TemplateName
+
 	if cfg.TemplateName == "" {
 		cfg.TemplateName = defaultTemplateName
 	}
 	cfg.SGNEnabled = pbConfig.SGNEnabled
-
+	cfg.CollectVirtualizationInfo = pbConfig.CollectVirtualizationInfo
 	cfg.IncludeMTLS = IsC2Enabled([]string{"mtls"}, pbConfig.C2)
 	cfg.IncludeWG = IsC2Enabled([]string{"wg"}, pbConfig.C2)
 	cfg.IncludeHTTP = IsC2Enabled([]string{"http", "https"}, pbConfig.C2)
