@@ -360,7 +360,7 @@ func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clien
 		return "", err
 	}
 
-	sliverPkgDir := filepath.Join(srcDir, "github.com", "bishopfox", "sliver") // "main"
+	sliverPkgDir := filepath.Join(srcDir) // "main"
 	err = os.MkdirAll(sliverPkgDir, 0700)
 	if err != nil {
 		return "", nil
