@@ -522,8 +522,11 @@ func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clien
 	}
 	buildLog.Debugf("Created %s", goModPath)
 
-	// refactor
-	result, err := goname.RenameModule(sliverPkgDir, "github.com/envoyproxy/envoy")
+	goPackage := "github.com/google/gvisor"
+	if config.GoPackage != "" {
+		goPackage = config.GoPackage
+	}
+	result, err := goname.RenameModule(sliverPkgDir, goPackage)
 	if err != nil {
 		buildLog.Errorf("Failed to rename module: %s", err)
 		return "", err
