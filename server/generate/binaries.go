@@ -381,14 +381,14 @@ func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clien
 		sliverGoCode := string(sliverGoCodeRaw)
 
 		// Skip dllmain files for anything non windows
-		if f.Name() == "sliver.c" || f.Name() == "sliver.h" {
+		if f.Name() == "main.c" || f.Name() == "main.h" {
 			if !config.IsSharedLib && !config.IsShellcode {
 				return nil
 			}
 		}
 
 		var sliverCodePath string
-		if f.Name() == "sliver.go" || f.Name() == "sliver.c" || f.Name() == "sliver.h" {
+		if f.Name() == "main.go" || f.Name() == "main.c" || f.Name() == "main.h" {
 			sliverCodePath = filepath.Join(sliverPkgDir, f.Name())
 		} else {
 			sliverCodePath = filepath.Join(sliverPkgDir, "implant", fsPath)
