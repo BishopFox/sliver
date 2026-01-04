@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/client/command/aka"
 	"github.com/bishopfox/sliver/client/command/alias"
 	"github.com/bishopfox/sliver/client/command/backdoor"
 	"github.com/bishopfox/sliver/client/command/cursed"
@@ -78,6 +79,7 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 			// use.Commands,
 			tasks.Commands,
 			pivots.Commands,
+      aka.ImplantCommands,
 		)
 
 		// [ Info ]
