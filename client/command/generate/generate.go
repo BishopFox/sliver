@@ -85,6 +85,7 @@ var (
 
 	ErrNoExternalBuilder = errors.New("no external builders are available")
 	ErrNoValidBuilders   = errors.New("no valid external builders for target")
+	ErrNoSelection       = errors.New("no selection")
 )
 
 // GenerateCmd - The main command used to generate implant binaries
@@ -1144,6 +1145,11 @@ func selectExternalBuilder(builders []*clientpb.Builder, _ *console.SliverClient
 	}
 	choice := ""
 	_ = forms.Select("Select an external builder:", choices, &choice)
+
+	if choice == "" {
+		return nil, ErrNoSelection
+	}
+
 	for _, builder := range builders {
 		if builder.Name == choice {
 			return builder, nil

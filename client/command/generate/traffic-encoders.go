@@ -283,6 +283,10 @@ func SelectTrafficEncoder(con *console.SliverClient) string {
 	}
 	sort.Strings(encoderNames)
 	var selectedEncoder string
-	_ = forms.Select("Select a traffic encoder:", encoderNames, &selectedEncoder)
+	err = forms.Select("Select a traffic encoder:", encoderNames, &selectedEncoder)
+	if err != nil {
+		con.PrintErrorf("%s", err)
+		return ""
+	}
 	return selectedEncoder
 }
