@@ -15,8 +15,6 @@ import (
 func Display(eng *Engine, maxRows int) {
 	eng.usedY = 0
 
-	defer fmt.Print(term.ClearScreenBelow)
-
 	// The completion engine might be inactive but still having
 	// a non-empty list of completions. This is on purpose, as
 	// sometimes it's better to keep completions printed for a

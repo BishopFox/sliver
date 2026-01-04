@@ -4,6 +4,8 @@ go 1.25.3
 
 replace github.com/rsteube/carapace v0.36.3 => github.com/reeflective/carapace v0.46.3-0.20231214181515-27e49f3c3b69
 
+replace github.com/reeflective/readline => github.com/moloch--/readline v0.0.0-20260104185423-d3ac1d6c561d
+
 require (
 	filippo.io/age v1.2.1
 	github.com/Binject/binjection v0.0.0-20210701074423-605d46e35deb

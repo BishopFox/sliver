@@ -92,9 +92,13 @@ func (e *Engine) Refresh() {
 
 	// Display hints and completions, go back
 	// to the start of the line, then to cursor.
-	e.displayHelpers()
-	e.cursorHintToLineStart()
-	e.lineStartToCursorPos()
+	helpersMoved := e.displayHelpers()
+	if helpersMoved {
+		e.cursorHintToLineStart()
+		e.lineStartToCursorPos()
+	} else {
+		e.lineEndToCursorPos()
+	}
 	fmt.Print(term.ShowCursor)
 }
 
@@ -294,22 +298,55 @@ func (e *Engine) displayMultilinePrompts() {
 // displayHelpers renders the hint and completion sections.
 // It assumes that the cursor is on the last line of input,
 // and goes back to this same line after displaying this.
-func (e *Engine) displayHelpers() {
-	fmt.Print(term.NewlineReturn)
-
+func (e *Engine) displayHelpers() bool {
 	// Recompute completions and hints if autocompletion is on.
 	e.completer.Autocomplete()
+
+	hintRows := ui.CoordinatesHint(e.hint)
+	compMatches := e.completer.Matches()
+	compSkip := e.completer.DisplaySkipped()
+
+	if e.hintRows == 0 && e.compRows == 0 && hintRows == 0 && (compMatches == 0 || compSkip) {
+		return false
+	}
+
+	fmt.Print(term.NewlineReturn)
+
+	prevHintRows := e.hintRows
+	prevCompRows := e.compRows
 
 	// Display hint and completions.
 	ui.DisplayHint(e.hint)
 	e.hintRows = ui.CoordinatesHint(e.hint)
-	completion.Display(e.completer, e.AvailableHelperLines())
-	e.compRows = completion.Coordinates(e.completer)
+	if compMatches > 0 && !compSkip {
+		completion.Display(e.completer, e.AvailableHelperLines())
+		e.compRows = completion.Coordinates(e.completer)
+	} else {
+		e.completer.ResetUsedRows()
+		e.compRows = 0
+	}
+
+	if e.hintRows+e.compRows < prevHintRows+prevCompRows {
+		fmt.Print(term.ClearScreenBelow)
+	}
 
 	// Go back to the first line below the input line.
 	term.MoveCursorBackwards(term.GetWidth())
 	term.MoveCursorUp(e.compRows)
-	term.MoveCursorUp(ui.CoordinatesHint(e.hint))
+	term.MoveCursorUp(e.hintRows)
+
+	return true
+}
+
+// lineEndToCursorPos moves the cursor from the end of the input line
+// to the current cursor position.
+func (e *Engine) lineEndToCursorPos() {
+	if e.lineRows > e.cursorRow {
+		term.MoveCursorUp(e.lineRows - e.cursorRow)
+	}
+
+	term.MoveCursorBackwards(term.GetWidth())
+	term.MoveCursorForwards(e.cursorCol)
 }
 
 // AvailableHelperLines returns the number of lines available below the hint section.
