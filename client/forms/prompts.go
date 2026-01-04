@@ -98,6 +98,8 @@ func selectPrompt(title string, options []string, value *string, required bool) 
 		return errors.New("select options are required")
 	}
 
+	// Save the original value in case the form is cancelled
+	originalValue := *value
 	ensureSelectedValue(options, value)
 
 	field := huh.NewSelect[string]().
@@ -116,7 +118,15 @@ func selectPrompt(title string, options []string, value *string, required bool) 
 	}
 
 	form := huh.NewForm(huh.NewGroup(field))
-	return form.Run()
+	err := form.Run()
+
+	// On error restore the originalValue and return err
+	if err != nil {
+		*value = originalValue
+		return err
+	}
+
+	return err
 }
 
 func ensureSelectedValue(options []string, value *string) {
