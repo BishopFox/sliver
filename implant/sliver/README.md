@@ -6,7 +6,7 @@ Core Go implementation of the Sliver implant runtime and supporting subsystems. 
 
 ## Go Files
 
-- `sliver.go` – Implant entry point that wires transports, handlers, and the task runner together at startup.
+- `main.go` – Implant entry point that wires transports, handlers, and the task runner together at startup.
 
 ## Sub-packages
 

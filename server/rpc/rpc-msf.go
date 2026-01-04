@@ -70,7 +70,7 @@ func (rpc *Server) Msf(ctx context.Context, req *clientpb.MSFReq) (*sliverpb.Tas
 	})
 	if err != nil {
 		rpcLog.Warnf("Error while generating msf payload: %v\n", err)
-		return nil, err
+		return nil, rpcError(err)
 	}
 	taskReq := &sliverpb.TaskReq{
 		Encoder:  "raw",
@@ -81,7 +81,7 @@ func (rpc *Server) Msf(ctx context.Context, req *clientpb.MSFReq) (*sliverpb.Tas
 	resp := &sliverpb.Task{Response: &commonpb.Response{}}
 	err = rpc.GenericHandler(taskReq, resp)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	return resp, nil
 }
@@ -121,7 +121,7 @@ func (rpc *Server) MsfRemote(ctx context.Context, req *clientpb.MSFRemoteReq) (*
 		Format:     "raw",
 	})
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	taskReq := &sliverpb.TaskReq{
 		Pid:      req.PID,
@@ -133,7 +133,7 @@ func (rpc *Server) MsfRemote(ctx context.Context, req *clientpb.MSFRemoteReq) (*
 	resp := &sliverpb.Task{Response: &commonpb.Response{}}
 	err = rpc.GenericHandler(taskReq, resp)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	return resp, nil
 }

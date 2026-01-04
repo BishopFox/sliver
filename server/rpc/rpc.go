@@ -20,12 +20,10 @@ package rpc
 
 import (
 	"context"
-	"errors"
 	"runtime"
 	"strings"
 	"time"
 
-	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
@@ -33,8 +31,11 @@ import (
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/server/version"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
@@ -106,7 +107,7 @@ func (rpc *Server) GenericHandler(req GenericRequest, resp GenericResponse) erro
 	}
 	if request.Async {
 		err = rpc.asyncGenericHandler(req, resp)
-		return err
+		return rpcError(err)
 	}
 
 	// Sync request
@@ -117,18 +118,18 @@ func (rpc *Server) GenericHandler(req GenericRequest, resp GenericResponse) erro
 
 	reqData, err := proto.Marshal(req)
 	if err != nil {
-		return err
+		return rpcError(err)
 	}
 
 	data, err := session.Request(sliverpb.MsgNumber(req), rpc.getTimeout(req), reqData)
 	if err != nil {
-		return err
+		return rpcError(err)
 	}
 	err = proto.Unmarshal(data, resp)
 	if err != nil {
-		return err
+		return rpcError(err)
 	}
-	return rpc.getError(resp)
+	return rpcError(rpc.getError(resp))
 }
 
 // asyncGenericHandler - Generic handler for async request/response's for beacon tasks
@@ -151,7 +152,7 @@ func (rpc *Server) asyncGenericHandler(req GenericRequest, resp GenericResponse)
 	request.BeaconID = ""
 	reqData, err := proto.Marshal(req)
 	if err != nil {
-		return err
+		return rpcError(err)
 	}
 	taskResponse := resp.GetResponse()
 	taskResponse.Async = true
@@ -208,7 +209,7 @@ func (rpc *Server) getTimeout(req GenericRequest) time.Duration {
 func (rpc *Server) getError(resp GenericResponse) error {
 	respHeader := resp.GetResponse()
 	if respHeader != nil && respHeader.Err != "" {
-		return errors.New(respHeader.Err)
+		return status.Error(codes.FailedPrecondition, respHeader.Err)
 	}
 	return nil
 }

@@ -21,10 +21,10 @@ package generate
 import (
 	"context"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
@@ -42,12 +42,8 @@ func ImplantsStageCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		options = append(options, name)
 	}
 
-	prompt := &survey.MultiSelect{
-		Message: "Select sessions and beacons to expose:",
-		Options: options,
-	}
 	selected := []string{}
-	survey.AskOne(prompt, &selected)
+	_ = forms.MultiSelect("Select sessions and beacons to expose:", options, &selected)
 
 	_, err = con.Rpc.StageImplantBuild(context.Background(), &clientpb.ImplantStageReq{Build: selected})
 	if err != nil {

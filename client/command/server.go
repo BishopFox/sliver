@@ -40,6 +40,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/jobs"
 	"github.com/bishopfox/sliver/client/command/licenses"
 	"github.com/bishopfox/sliver/client/command/loot"
+	"github.com/bishopfox/sliver/client/command/mcp"
 	"github.com/bishopfox/sliver/client/command/monitor"
 	"github.com/bishopfox/sliver/client/command/operators"
 	"github.com/bishopfox/sliver/client/command/reaction"
@@ -108,6 +109,7 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 		// C2 Network
 		bind(consts.NetworkHelpGroup,
 			jobs.Commands,
+			mcp.Commands,
 			websites.Commands,
 			wireguard.Commands,
 			c2profiles.Commands,

@@ -95,7 +95,7 @@ func (s *Server) SocksProxy(stream rpcpb.SliverRPC_SocksProxyServer) error {
 		//fmt.Println("Send Agent 1 ",fromClient.TunnelID,len(fromClient.Data))
 		if err != nil {
 			rpcLog.Warnf("Error on stream recv %s", err)
-			return err
+			return rpcError(err)
 		}
 		tunnelLog.Debugf("Tunnel %d: From client %d byte(s)",
 			fromClient.TunnelID, len(fromClient.Data))
@@ -173,7 +173,7 @@ func (s *Server) CloseSocks(ctx context.Context, req *sliverpb.Socks) (*commonpb
 	toImplantCacheSocks.DeleteTun(req.TunnelID)
 	fromImplantCacheSocks.DeleteTun(req.TunnelID)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	return &commonpb.Empty{}, nil
 }

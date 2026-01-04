@@ -8,7 +8,7 @@ Shared registration glue, scaffolding, and helpers for Sliver client console com
 
 - `command.go` – Provides helpers for binding Cobra commands, flag sets, and visibility filters into the client command tree.
 - `server.go` – Defines the server menu composition, wiring each server-side command group onto the root console structure at runtime.
-- `sliver.go` – Builds the implant/Sliver menu, attaching per-target command groups and loading alias/extension manifests before exposure.
+- `main.go` – Builds the implant/Sliver menu, attaching per-target command groups and loading alias/extension manifests before exposure.
 
 ## Sub-packages
 
@@ -40,6 +40,7 @@ Shared registration glue, scaffolding, and helpers for Sliver client console com
 - `licenses/` – Implements the 'licenses' command group for the Sliver client console.
 - `loot/` – Implements the 'loot' command group for the Sliver client console.
 - `monitor/` – Implements the 'monitor' command group for the Sliver client console.
+- `mcp/` – Implements the 'mcp' command group for the Sliver client console.
 - `network/` – Implements the 'network' command group for the Sliver client console.
 - `operators/` – Implements the 'operators' command group for the Sliver client console.
 - `pivots/` – Implements the 'pivots' command group for the Sliver client console.

@@ -1,4 +1,4 @@
-Starting in v1.5.30 Sliver supports "external builders," which allow a Sliver server to offload implant builds onto other systems. This can be used to increase platform support (e.g. connecting a MacBook to a Linux server to enable additional MacOS compiler targets) or increasing performance (e.g. having a low powered cloud host offload a local PC).
+Sliver supports "external builders," which allow a Sliver server to offload implant builds onto other systems. This can be used to increase platform support (e.g., connecting a MacBook to a Linux server to enable additional MacOS compiler targets) or increase performance (e.g., having a low-powered cloud host offload a local PC).
 
 External builders can also be used to create custom modifications to the implant source code, or potentially replace the default Sliver implant entirely.
 
@@ -84,7 +84,7 @@ Currently external builds do not support DNS canaries.
 
 You are welcome to customize the implant source code under the terms of Sliver's [GPLv3 license](https://github.com/BishopFox/sliver/blob/master/LICENSE). While we plan to improve the workflow over time, currently the easiest way to operationalize changes to the implant source code is:
 
-1. Fork the main Sliver Github repository
+1. Fork the main Sliver GitHub repository
 1. Make modifications to the source code
 1. [Compile a Sliver server binary](/docs?name=Compile+from+Source)
 1. Connect the customized Sliver server binary to any other C2 server (including mainline servers) as an external builder

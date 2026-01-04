@@ -183,6 +183,7 @@ func GoBuild(config GoConfig, src string, dest string, buildmode string, tags []
 	var goCommand = []string{"build"}
 
 	goCommand = append(goCommand, "-trimpath") // remove absolute paths from any compiled binary
+	goCommand = append(goCommand, "-mod=vendor")
 
 	if 0 < len(tags) {
 		goCommand = append(goCommand, "-tags")

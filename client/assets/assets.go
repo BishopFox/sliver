@@ -73,6 +73,18 @@ func GetConsoleLogsDir() string {
 	return consoleLogsDir
 }
 
+// GetMCPLogsDir - Get the Sliver client MCP logs dir ~/.sliver-client/logs/mcp/
+func GetMCPLogsDir() string {
+	mcpLogsDir := filepath.Join(GetClientLogsDir(), "mcp")
+	if _, err := os.Stat(mcpLogsDir); os.IsNotExist(err) {
+		err = os.MkdirAll(mcpLogsDir, 0700)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	return mcpLogsDir
+}
+
 func assetVersion() string {
 	appDir := GetRootAppDir()
 	data, err := os.ReadFile(filepath.Join(appDir, versionFileName))
@@ -96,7 +108,7 @@ func Setup(force bool, echo bool) {
 	if force || localVer == "" || localVer != ver.GitCommit {
 		if echo {
 			fmt.Printf(`
-Sliver  Copyright (C) 2022  Bishop Fox
+Sliver  Copyright (C) 2025  Bishop Fox
 This program comes with ABSOLUTELY NO WARRANTY; for details type 'licenses'.
 This is free software, and you are welcome to redistribute it
 under certain conditions; type 'licenses' for details.`)

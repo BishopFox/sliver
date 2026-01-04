@@ -44,7 +44,7 @@ func (rpc *Server) Creds(ctx context.Context, req *commonpb.Empty) (*clientpb.Cr
 	dbCreds := []*models.Credential{}
 	err := db.Session().Where(&models.Credential{}).Find(&dbCreds).Error
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	credentials := []*clientpb.Credential{}
 	for _, dbCred := range dbCreds {

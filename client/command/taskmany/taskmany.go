@@ -29,10 +29,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
@@ -214,12 +214,8 @@ func SelectMultipleBeaconsAndSessions(con *console.SliverClient) ([]*clientpb.Se
 
 	options := strings.Split(outputBuf.String(), "\n")
 	options = options[:len(options)-1] // Remove the last empty option
-	prompt := &survey.MultiSelect{
-		Message: "Select sessions and beacons:",
-		Options: options,
-	}
 	selected := []string{}
-	survey.AskOne(prompt, &selected)
+	_ = forms.MultiSelect("Select sessions and beacons:", options, &selected)
 
 	if len(selected) == 0 {
 		return nil, nil, fmt.Errorf("no sessions or beacons selected 🤔")

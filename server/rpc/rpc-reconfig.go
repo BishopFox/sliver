@@ -66,7 +66,7 @@ func (rpc *Server) Reconfigure(ctx context.Context, req *sliverpb.ReconfigureReq
 		}
 		err = db.Session().Save(beacon).Error
 		if err != nil {
-			return nil, err
+			return nil, rpcError(err)
 		}
 	} else {
 		return nil, ErrMissingRequestField
@@ -98,7 +98,7 @@ func (rpc *Server) Rename(ctx context.Context, req *clientpb.RenameReq) (*common
 		}
 		err = db.RenameBeacon(beacon.ID.String(), req.Name)
 		if err != nil {
-			return nil, err
+			return nil, rpcError(err)
 		}
 	} else {
 		return nil, ErrMissingRequestField

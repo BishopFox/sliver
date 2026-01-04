@@ -23,9 +23,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/spf13/cobra"
 )
@@ -45,8 +45,7 @@ func ExitCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		if 0 < len(sessions.Sessions) || 0 < len(beacons.Beacons) {
 			con.Printf("There are %d active sessions and %d active beacons.\n", len(sessions.Sessions), len(beacons.Beacons))
 			confirm := false
-			prompt := &survey.Confirm{Message: "Are you sure you want to exit?"}
-			survey.AskOne(prompt, &confirm)
+			_ = forms.Confirm("Are you sure you want to exit?", &confirm)
 			if !confirm {
 				return
 			}

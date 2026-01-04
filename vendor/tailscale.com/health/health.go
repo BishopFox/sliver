@@ -8,7 +8,6 @@ package health
 import (
 	"context"
 	"errors"
-	"expvar"
 	"fmt"
 	"maps"
 	"net/http"
@@ -20,15 +19,13 @@ import (
 	"time"
 
 	"tailscale.com/envknob"
-	"tailscale.com/metrics"
+	"tailscale.com/feature/buildfeatures"
 	"tailscale.com/tailcfg"
 	"tailscale.com/tstime"
 	"tailscale.com/types/opt"
 	"tailscale.com/util/cibuild"
+	"tailscale.com/util/eventbus"
 	"tailscale.com/util/mak"
-	"tailscale.com/util/multierr"
-	"tailscale.com/util/set"
-	"tailscale.com/util/usermetric"
 	"tailscale.com/version"
 )
 
@@ -64,6 +61,21 @@ var receiveNames = []string{
 // Tracker tracks the health of various Tailscale subsystems,
 // comparing each subsystems' state with each other to make sure
 // they're consistent based on the user's intended state.
+//
+// If a client [Warnable] becomes unhealthy or its unhealthy state is updated,
+// an event will be emitted with WarnableChanged set to true and the Warnable
+// and its UnhealthyState:
+//
+//	Change{WarnableChanged: true, Warnable: w, UnhealthyState: us}
+//
+// If a Warnable becomes healthy, an event will be emitted with
+// WarnableChanged set to true, the Warnable set, and UnhealthyState set to nil:
+//
+//	Change{WarnableChanged: true, Warnable: w, UnhealthyState: nil}
+//
+// If the health messages from the control-plane change, an event will be
+// emitted with ControlHealthChanged set to true. Recipients can fetch the set of
+// control-plane health messages by calling [Tracker.CurrentState]:
 type Tracker struct {
 	// MagicSockReceiveFuncs tracks the state of the three
 	// magicsock receive functions: IPv4, IPv6, and DERP.
@@ -76,6 +88,9 @@ type Tracker struct {
 
 	testClock tstime.Clock // nil means use time.Now / tstime.StdClock{}
 
+	eventClient *eventbus.Client
+	changePub   *eventbus.Publisher[Change]
+
 	// mu guards everything that follows.
 	mu sync.Mutex
 
@@ -87,9 +102,8 @@ type Tracker struct {
 
 	// sysErr maps subsystems to their current error (or nil if the subsystem is healthy)
 	// Deprecated: using Warnables should be preferred
-	sysErr   map[Subsystem]error
-	watchers set.HandleSet[func(Change)] // opt func to run if error state changes
-	timer    tstime.TimerController
+	sysErr map[Subsystem]error
+	timer  tstime.TimerController
 
 	latestVersion   *tailcfg.ClientVersion // or nil
 	checkForUpdates bool
@@ -116,7 +130,41 @@ type Tracker struct {
 	lastLoginErr                error
 	localLogConfigErr           error
 	tlsConnectionErrors         map[string]error // map[ServerName]error
-	metricHealthMessage         *metrics.MultiLabelMap[metricHealthMessageLabel]
+	metricHealthMessage         any              // nil or *metrics.MultiLabelMap[metricHealthMessageLabel]
+}
+
+// NewTracker contructs a new [Tracker] and attaches the given eventbus.
+// NewTracker will panic is no eventbus is given.
+func NewTracker(bus *eventbus.Bus) *Tracker {
+	if !buildfeatures.HasHealth {
+		return &Tracker{}
+	}
+	if bus == nil {
+		panic("no eventbus set")
+	}
+
+	ec := bus.Client("health.Tracker")
+	t := &Tracker{
+		eventClient: ec,
+		changePub:   eventbus.Publish[Change](ec),
+	}
+	t.timer = t.clock().AfterFunc(time.Minute, t.timerSelfCheck)
+
+	ec.Monitor(t.awaitEventClientDone)
+
+	return t
+}
+
+func (t *Tracker) awaitEventClientDone(ec *eventbus.Client) {
+	<-ec.Done()
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	for _, timer := range t.pendingVisibleTimers {
+		timer.Stop()
+	}
+	t.timer.Stop()
+	clear(t.pendingVisibleTimers)
 }
 
 func (t *Tracker) now() time.Time {
@@ -174,6 +222,9 @@ const legacyErrorArgKey = "LegacyError"
 // temporarily (2024-06-14) while we migrate the old health infrastructure based
 // on Subsystems to the new Warnables architecture.
 func (s Subsystem) Warnable() *Warnable {
+	if !buildfeatures.HasHealth {
+		return &noopWarnable
+	}
 	w, ok := subsystemsWarnables[s]
 	if !ok {
 		panic(fmt.Sprintf("health: no Warnable for Subsystem %q", s))
@@ -183,10 +234,15 @@ func (s Subsystem) Warnable() *Warnable {
 
 var registeredWarnables = map[WarnableCode]*Warnable{}
 
+var noopWarnable Warnable
+
 // Register registers a new Warnable with the health package and returns it.
 // Register panics if the Warnable was already registered, because Warnables
 // should be unique across the program.
 func Register(w *Warnable) *Warnable {
+	if !buildfeatures.HasHealth {
+		return &noopWarnable
+	}
 	if registeredWarnables[w.Code] != nil {
 		panic(fmt.Sprintf("health: a Warnable with code %q was already registered", w.Code))
 	}
@@ -198,6 +254,9 @@ func Register(w *Warnable) *Warnable {
 // unregister removes a Warnable from the health package. It should only be used
 // for testing purposes.
 func unregister(w *Warnable) {
+	if !buildfeatures.HasHealth {
+		return
+	}
 	if registeredWarnables[w.Code] == nil {
 		panic(fmt.Sprintf("health: attempting to unregister Warnable %q that was not registered", w.Code))
 	}
@@ -270,6 +329,9 @@ func StaticMessage(s string) func(Args) string {
 // some lost Tracker plumbing, we want to capture stack trace
 // samples when it occurs.
 func (t *Tracker) nil() bool {
+	if !buildfeatures.HasHealth {
+		return true
+	}
 	if t != nil {
 		return false
 	}
@@ -338,37 +400,10 @@ func (w *Warnable) IsVisible(ws *warningState, clockNow func() time.Time) bool {
 	return clockNow().Sub(ws.BrokenSince) >= w.TimeToVisible
 }
 
-// SetMetricsRegistry sets up the metrics for the Tracker. It takes
-// a usermetric.Registry and registers the metrics there.
-func (t *Tracker) SetMetricsRegistry(reg *usermetric.Registry) {
-	if reg == nil || t.metricHealthMessage != nil {
-		return
-	}
-
-	t.metricHealthMessage = usermetric.NewMultiLabelMapWithRegistry[metricHealthMessageLabel](
-		reg,
-		"tailscaled_health_messages",
-		"gauge",
-		"Number of health messages broken down by type.",
-	)
-
-	t.metricHealthMessage.Set(metricHealthMessageLabel{
-		Type: MetricLabelWarning,
-	}, expvar.Func(func() any {
-		if t.nil() {
-			return 0
-		}
-		t.mu.Lock()
-		defer t.mu.Unlock()
-		t.updateBuiltinWarnablesLocked()
-		return int64(len(t.stringsLocked()))
-	}))
-}
-
 // IsUnhealthy reports whether the current state is unhealthy because the given
 // warnable is set.
 func (t *Tracker) IsUnhealthy(w *Warnable) bool {
-	if t.nil() {
+	if !buildfeatures.HasHealth || t.nil() {
 		return false
 	}
 	t.mu.Lock()
@@ -382,7 +417,7 @@ func (t *Tracker) IsUnhealthy(w *Warnable) bool {
 // SetUnhealthy takes ownership of args. The args can be nil if no additional information is
 // needed for the unhealthy state.
 func (t *Tracker) SetUnhealthy(w *Warnable, args Args) {
-	if t.nil() {
+	if !buildfeatures.HasHealth || t.nil() {
 		return
 	}
 	t.mu.Lock()
@@ -391,7 +426,7 @@ func (t *Tracker) SetUnhealthy(w *Warnable, args Args) {
 }
 
 func (t *Tracker) setUnhealthyLocked(w *Warnable, args Args) {
-	if w == nil {
+	if !buildfeatures.HasHealth || w == nil {
 		return
 	}
 
@@ -418,25 +453,20 @@ func (t *Tracker) setUnhealthyLocked(w *Warnable, args Args) {
 			Warnable:        w,
 			UnhealthyState:  w.unhealthyState(ws),
 		}
-		for _, cb := range t.watchers {
-			// If the Warnable has been unhealthy for more than its TimeToVisible, the callback should be
-			// executed immediately. Otherwise, the callback should be enqueued to run once the Warnable
-			// becomes visible.
-			if w.IsVisible(ws, t.now) {
-				cb(change)
-				continue
-			}
-
-			// The time remaining until the Warnable will be visible to the user is the TimeToVisible
-			// minus the time that has already passed since the Warnable became unhealthy.
+		// Publish the change to the event bus. If the change is already visible
+		// now, publish it immediately; otherwise queue a timer to publish it at
+		// a future time when it becomes visible.
+		if w.IsVisible(ws, t.now) {
+			t.changePub.Publish(change)
+		} else {
 			visibleIn := w.TimeToVisible - t.now().Sub(brokenSince)
-			var tc tstime.TimerController = t.clock().AfterFunc(visibleIn, func() {
+			tc := t.clock().AfterFunc(visibleIn, func() {
 				t.mu.Lock()
 				defer t.mu.Unlock()
 				// Check if the Warnable is still unhealthy, as it could have become healthy between the time
 				// the timer was set for and the time it was executed.
 				if t.warnableVal[w] != nil {
-					cb(change)
+					t.changePub.Publish(change)
 					delete(t.pendingVisibleTimers, w)
 				}
 			})
@@ -447,7 +477,7 @@ func (t *Tracker) setUnhealthyLocked(w *Warnable, args Args) {
 
 // SetHealthy removes any warningState for the given Warnable.
 func (t *Tracker) SetHealthy(w *Warnable) {
-	if t.nil() {
+	if !buildfeatures.HasHealth || t.nil() {
 		return
 	}
 	t.mu.Lock()
@@ -456,7 +486,7 @@ func (t *Tracker) SetHealthy(w *Warnable) {
 }
 
 func (t *Tracker) setHealthyLocked(w *Warnable) {
-	if t.warnableVal[w] == nil {
+	if !buildfeatures.HasHealth || t.warnableVal[w] == nil {
 		// Nothing to remove
 		return
 	}
@@ -473,9 +503,7 @@ func (t *Tracker) setHealthyLocked(w *Warnable) {
 		WarnableChanged: true,
 		Warnable:        w,
 	}
-	for _, cb := range t.watchers {
-		cb(change)
-	}
+	t.changePub.Publish(change)
 }
 
 // notifyWatchersControlChangedLocked calls each watcher to signal that control
@@ -484,9 +512,7 @@ func (t *Tracker) notifyWatchersControlChangedLocked() {
 	change := Change{
 		ControlHealthChanged: true,
 	}
-	for _, cb := range t.watchers {
-		cb(change)
-	}
+	t.changePub.Publish(change)
 }
 
 // AppendWarnableDebugFlags appends to base any health items that are currently in failed
@@ -529,62 +555,6 @@ type Change struct {
 	// UnhealthyState is set if the changed Warnable is now unhealthy, or nil
 	// if Warnable is now healthy.
 	UnhealthyState *UnhealthyState
-}
-
-// RegisterWatcher adds a function that will be called its own goroutine
-// whenever the health state of any client [Warnable] or control-plane health
-// messages changes. The returned function can be used to unregister the
-// callback.
-//
-// If a client [Warnable] becomes unhealthy or its unhealthy state is updated,
-// the callback will be called with WarnableChanged set to true and the Warnable
-// and its UnhealthyState:
-//
-//	go cb(Change{WarnableChanged: true, Warnable: w, UnhealthyState: us})
-//
-// If a Warnable becomes healthy, the callback will be called with
-// WarnableChanged set to true, the Warnable set, and UnhealthyState set to nil:
-//
-//	go cb(Change{WarnableChanged: true, Warnable: w, UnhealthyState: nil})
-//
-// If the health messages from the control-plane change, the callback will be
-// called with ControlHealthChanged set to true. Recipients can fetch the set of
-// control-plane health messages by calling [Tracker.CurrentState]:
-//
-//	go cb(Change{ControlHealthChanged: true})
-func (t *Tracker) RegisterWatcher(cb func(Change)) (unregister func()) {
-	return t.registerSyncWatcher(func(c Change) {
-		go cb(c)
-	})
-}
-
-// registerSyncWatcher adds a function that will be called whenever the health
-// state changes. The provided callback function will be executed synchronously.
-// Call RegisterWatcher to register any callbacks that won't return from
-// execution immediately.
-func (t *Tracker) registerSyncWatcher(cb func(c Change)) (unregister func()) {
-	if t.nil() {
-		return func() {}
-	}
-	t.initOnce.Do(t.doOnceInit)
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	if t.watchers == nil {
-		t.watchers = set.HandleSet[func(Change)]{}
-	}
-	handle := t.watchers.Add(cb)
-	if t.timer == nil {
-		t.timer = t.clock().AfterFunc(time.Minute, t.timerSelfCheck)
-	}
-	return func() {
-		t.mu.Lock()
-		defer t.mu.Unlock()
-		delete(t.watchers, handle)
-		if len(t.watchers) == 0 && t.timer != nil {
-			t.timer.Stop()
-			t.timer = nil
-		}
-	}
 }
 
 // SetRouterHealth sets the state of the wgengine/router.Router.
@@ -1009,8 +979,8 @@ func (t *Tracker) selfCheckLocked() {
 
 // OverallError returns a summary of the health state.
 //
-// If there are multiple problems, the error will be of type
-// multierr.Error.
+// If there are multiple problems, the error will be joined using
+// [errors.Join].
 func (t *Tracker) OverallError() error {
 	if t.nil() {
 		return nil
@@ -1027,7 +997,7 @@ func (t *Tracker) OverallError() error {
 // each Warning to show a localized version of them instead. This function is
 // here for legacy compatibility purposes and is deprecated.
 func (t *Tracker) Strings() []string {
-	if t.nil() {
+	if !buildfeatures.HasHealth || t.nil() {
 		return nil
 	}
 	t.mu.Lock()
@@ -1036,6 +1006,9 @@ func (t *Tracker) Strings() []string {
 }
 
 func (t *Tracker) stringsLocked() []string {
+	if !buildfeatures.HasHealth {
+		return nil
+	}
 	result := []string{}
 	for w, ws := range t.warnableVal {
 		if !w.IsVisible(ws, t.now) {
@@ -1088,7 +1061,7 @@ func (t *Tracker) errorsLocked() []error {
 // This function is here for legacy compatibility purposes and is deprecated.
 func (t *Tracker) multiErrLocked() error {
 	errs := t.errorsLocked()
-	return multierr.New(errs...)
+	return errors.Join(errs...)
 }
 
 var fakeErrForTesting = envknob.RegisterString("TS_DEBUG_FAKE_HEALTH_ERROR")
@@ -1096,6 +1069,9 @@ var fakeErrForTesting = envknob.RegisterString("TS_DEBUG_FAKE_HEALTH_ERROR")
 // updateBuiltinWarnablesLocked performs a number of checks on the state of the backend,
 // and adds/removes Warnings from the Tracker as needed.
 func (t *Tracker) updateBuiltinWarnablesLocked() {
+	if !buildfeatures.HasHealth {
+		return
+	}
 	t.updateWarmingUpWarnableLocked()
 
 	if w, show := t.showUpdateWarnable(); show {
@@ -1334,11 +1310,17 @@ func (s *ReceiveFuncStats) Name() string {
 }
 
 func (s *ReceiveFuncStats) Enter() {
+	if !buildfeatures.HasHealth {
+		return
+	}
 	s.numCalls.Add(1)
 	s.inCall.Store(true)
 }
 
 func (s *ReceiveFuncStats) Exit() {
+	if !buildfeatures.HasHealth {
+		return
+	}
 	s.inCall.Store(false)
 }
 
@@ -1347,7 +1329,7 @@ func (s *ReceiveFuncStats) Exit() {
 //
 // If t is nil, it returns nil.
 func (t *Tracker) ReceiveFuncStats(which ReceiveFunc) *ReceiveFuncStats {
-	if t == nil {
+	if !buildfeatures.HasHealth || t == nil {
 		return nil
 	}
 	t.initOnce.Do(t.doOnceInit)
@@ -1355,6 +1337,9 @@ func (t *Tracker) ReceiveFuncStats(which ReceiveFunc) *ReceiveFuncStats {
 }
 
 func (t *Tracker) doOnceInit() {
+	if !buildfeatures.HasHealth {
+		return
+	}
 	for i := range t.MagicSockReceiveFuncs {
 		f := &t.MagicSockReceiveFuncs[i]
 		f.name = (ReceiveFunc(i)).String()
@@ -1402,11 +1387,4 @@ func (t *Tracker) LastNoiseDialWasRecent() bool {
 	dur := now.Sub(t.lastNoiseDial)
 	t.lastNoiseDial = now
 	return dur < 2*time.Minute
-}
-
-const MetricLabelWarning = "warning"
-
-type metricHealthMessageLabel struct {
-	// TODO: break down by warnable.severity as well?
-	Type string
 }

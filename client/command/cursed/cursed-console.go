@@ -26,9 +26,9 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/client/overlord"
 	"github.com/reeflective/readline"
 	"github.com/spf13/cobra"
@@ -71,12 +71,8 @@ func selectDebugTarget(targets []overlord.ChromeDebugTarget, con *console.Sliver
 	table.Flush()
 	options := strings.Split(outputBuf.String(), "\n")
 	options = options[:len(options)-1] // Remove the last empty option
-	prompt := &survey.Select{
-		Message: "Select a debug target:",
-		Options: options,
-	}
 	selected := ""
-	err := survey.AskOne(prompt, &selected)
+	err := forms.Select("Select a debug target:", options, &selected)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return nil

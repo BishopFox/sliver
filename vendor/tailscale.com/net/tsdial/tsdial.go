@@ -19,6 +19,8 @@ import (
 	"time"
 
 	"github.com/gaissmai/bart"
+	"tailscale.com/feature"
+	"tailscale.com/feature/buildfeatures"
 	"tailscale.com/net/dnscache"
 	"tailscale.com/net/netknob"
 	"tailscale.com/net/netmon"
@@ -28,6 +30,7 @@ import (
 	"tailscale.com/types/logger"
 	"tailscale.com/types/netmap"
 	"tailscale.com/util/clientmetric"
+	"tailscale.com/util/eventbus"
 	"tailscale.com/util/mak"
 	"tailscale.com/util/testenv"
 	"tailscale.com/version"
@@ -42,6 +45,13 @@ func NewDialer(netMon *netmon.Monitor) *Dialer {
 	d := &Dialer{}
 	d.SetNetMon(netMon)
 	return d
+}
+
+// NewFromFuncForDebug is like NewDialer but takes a netx.DialFunc
+// and no netMon. It's meant exclusively for the "tailscale debug ts2021"
+// debug command, and perhaps tests.
+func NewFromFuncForDebug(logf logger.Logf, dial netx.DialFunc) *Dialer {
+	return &Dialer{sysDialForTest: dial, Logf: logf}
 }
 
 // Dialer dials out of tailscaled, while taking care of details while
@@ -86,6 +96,9 @@ type Dialer struct {
 	dnsCache         *dnscache.MessageCache // nil until first non-empty SetExitDNSDoH
 	nextSysConnID    int
 	activeSysConns   map[int]net.Conn // active connections not yet closed
+	bus              *eventbus.Bus    // only used for comparison with already set bus.
+	eventClient      *eventbus.Client
+	eventBusSubs     eventbus.Monitor
 }
 
 // sysConn wraps a net.Conn that was created using d.SystemDial.
@@ -125,6 +138,9 @@ func (d *Dialer) TUNName() string {
 //
 // For example, "http://100.68.82.120:47830/dns-query".
 func (d *Dialer) SetExitDNSDoH(doh string) {
+	if !buildfeatures.HasUseExitNode {
+		return
+	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if d.exitDNSDoHBase == doh {
@@ -158,6 +174,9 @@ func (d *Dialer) SetRoutes(routes, localRoutes []netip.Prefix) {
 }
 
 func (d *Dialer) Close() error {
+	if d.eventClient != nil {
+		d.eventBusSubs.Close()
+	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.closed = true
@@ -186,6 +205,14 @@ func (d *Dialer) SetNetMon(netMon *netmon.Monitor) {
 		d.netMonUnregister = nil
 	}
 	d.netMon = netMon
+	// Having multiple watchers could lead to problems,
+	// so remove the eventClient if it exists.
+	// This should really not happen, but better checking for it than not.
+	// TODO(cmol): Should this just be a panic?
+	if d.eventClient != nil {
+		d.eventBusSubs.Close()
+		d.eventClient = nil
+	}
 	d.netMonUnregister = d.netMon.RegisterChangeCallback(d.linkChanged)
 }
 
@@ -195,6 +222,38 @@ func (d *Dialer) NetMon() *netmon.Monitor {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	return d.netMon
+}
+
+func (d *Dialer) SetBus(bus *eventbus.Bus) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.bus == bus {
+		return
+	} else if d.bus != nil {
+		panic("different eventbus has already been set")
+	}
+	// Having multiple watchers could lead to problems,
+	// so unregister the callback if it exists.
+	if d.netMonUnregister != nil {
+		d.netMonUnregister()
+	}
+	d.bus = bus
+	d.eventClient = bus.Client("tsdial.Dialer")
+	d.eventBusSubs = d.eventClient.Monitor(d.linkChangeWatcher(d.eventClient))
+}
+
+func (d *Dialer) linkChangeWatcher(ec *eventbus.Client) func(*eventbus.Client) {
+	linkChangeSub := eventbus.Subscribe[netmon.ChangeDelta](ec)
+	return func(ec *eventbus.Client) {
+		for {
+			select {
+			case <-ec.Done():
+				return
+			case cd := <-linkChangeSub.Events():
+				d.linkChanged(&cd)
+			}
+		}
+	}
 }
 
 var (
@@ -322,7 +381,7 @@ func (d *Dialer) userDialResolve(ctx context.Context, network, addr string) (net
 	}
 
 	var r net.Resolver
-	if exitDNSDoH != "" {
+	if buildfeatures.HasUseExitNode && buildfeatures.HasPeerAPIClient && exitDNSDoH != "" {
 		r.PreferGo = true
 		r.Dial = func(ctx context.Context, network, address string) (net.Conn, error) {
 			return &dohConn{
@@ -377,7 +436,7 @@ func (d *Dialer) SetSystemDialerForTest(fn netx.DialFunc) {
 // Control and (in the future, as of 2022-04-27) DERPs..
 func (d *Dialer) SystemDial(ctx context.Context, network, addr string) (net.Conn, error) {
 	d.mu.Lock()
-	if d.netMon == nil {
+	if d.netMon == nil && d.sysDialForTest == nil {
 		d.mu.Unlock()
 		if testenv.InTest() {
 			panic("SystemDial requires a netmon.Monitor; call SetNetMon first")
@@ -459,6 +518,9 @@ func (d *Dialer) UserDial(ctx context.Context, network, addr string) (net.Conn, 
 // network must a "tcp" type, and addr must be an ip:port. Name resolution
 // is not supported.
 func (d *Dialer) dialPeerAPI(ctx context.Context, network, addr string) (net.Conn, error) {
+	if !buildfeatures.HasPeerAPIClient {
+		return nil, feature.ErrUnavailable
+	}
 	switch network {
 	case "tcp", "tcp6", "tcp4":
 	default:
@@ -501,6 +563,9 @@ func (d *Dialer) getPeerDialer() *net.Dialer {
 // The returned Client must not be mutated; it's owned by the Dialer
 // and shared by callers.
 func (d *Dialer) PeerAPIHTTPClient() *http.Client {
+	if !buildfeatures.HasPeerAPIClient {
+		panic("unreachable")
+	}
 	d.peerClientOnce.Do(func() {
 		t := http.DefaultTransport.(*http.Transport).Clone()
 		t.Dial = nil

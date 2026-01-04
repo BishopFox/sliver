@@ -19,13 +19,11 @@ package armory
 */
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"sort"
-	"strconv"
-	"strings"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 
@@ -34,6 +32,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/util"
 )
 
@@ -87,16 +86,19 @@ func ArmoryUpdateCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	if len(aliasUpdates) > 0 || len(extUpdates) > 0 {
 		updateKeys := sortUpdateIdentifiers(aliasUpdates, extUpdates)
 		displayAvailableUpdates(con, updateKeys, aliasUpdates, extUpdates)
-		selectedUpdates, err = getUpdatesFromUser(con, updateKeys)
+		selectedUpdates, err = getUpdatesFromUser(updateKeys)
 		if err != nil {
-			con.PrintErrorf(err.Error() + "\n")
+			if errors.Is(err, forms.ErrUserAborted) {
+				return
+			}
+			con.PrintErrorf("%s\n", err.Error())
 			return
 		}
 		if len(selectedUpdates) == 0 {
 			return
 		}
 	} else {
-		con.PrintSuccessf("All packages are up to date")
+		con.PrintSuccessf("All packages are up to date\n")
 		return
 	}
 
@@ -299,76 +301,35 @@ func displayAvailableUpdates(con *console.SliverClient, updateKeys []UpdateIdent
 	con.Printf("%s\n\n", tw.Render())
 }
 
-func getUpdatesFromUser(con *console.SliverClient, updateKeys []UpdateIdentifier) (chosenUpdates []UpdateIdentifier, selectionError error) {
-	chosenUpdates = []UpdateIdentifier{}
+func getUpdatesFromUser(updateKeys []UpdateIdentifier) ([]UpdateIdentifier, error) {
+	options := make([]forms.ArmoryUpdateOption, 0, len(updateKeys))
+	optionIndex := make(map[string]UpdateIdentifier, len(updateKeys))
 
-	var updateResponse string
+	for _, key := range updateKeys {
+		packageType := "Alias"
+		if key.Type == ExtensionPackage {
+			packageType = "Extension"
+		}
+		optionID := fmt.Sprintf("%d:%s", key.Type, key.Name)
+		optionLabel := fmt.Sprintf("%s (%s)", key.Name, packageType)
+		options = append(options, forms.ArmoryUpdateOption{
+			ID:    optionID,
+			Label: optionLabel,
+		})
+		optionIndex[optionID] = key
+	}
 
-	con.Println("You can apply all, none, or some updates.\nTo apply some updates, specify the number of a single update, a range (1-3), or a combination of the two (1, 3-5, 7)\n")
-	err := survey.AskOne(&survey.Input{
-		Message: "Which updates would you like to apply? [A]ll, [N]one, or some:",
-	}, &updateResponse)
+	result, err := forms.ArmoryUpdateForm(options)
 	if err != nil {
-		// We do not need to set selectionError because an error here means the same thing as responding with "none"
-		return
+		return nil, err
 	}
 
-	updateResponse = strings.ToLower(updateResponse)
-	updateResponse = strings.Replace(updateResponse, " ", "", -1)
-	if updateResponse == "n" || updateResponse == "none" {
-		return
-	}
-
-	if updateResponse == "a" || updateResponse == "all" {
-		chosenUpdates = updateKeys
-		return
-	}
-
-	selections := strings.Split(updateResponse, ",")
-
-	for _, selection := range selections {
-		// Handle a range
-		if strings.Contains(selection, "-") {
-			rangeParts := strings.Split(selection, "-")
-			start, err := strconv.Atoi(rangeParts[0])
-			if err != nil {
-				selectionError = fmt.Errorf("%s is not a valid range", rangeParts[0])
-				return
-			}
-			end, err := strconv.Atoi(rangeParts[1])
-			if err != nil {
-				selectionError = fmt.Errorf("%s is not a valid range", rangeParts[1])
-				return
-			}
-			// Adjust for the 0 indexed slice we are working with
-			start -= 1
-			end -= 1
-			if start < 0 {
-				start = 0
-			}
-			if start > end {
-				selectionError = fmt.Errorf("%s is not a valid range", selection)
-				return
-			}
-			if end >= len(updateKeys) {
-				end = len(updateKeys) - 1
-			}
-
-			for i := start; i <= end; i++ {
-				chosenUpdates = append(chosenUpdates, updateKeys[i])
-			}
-		} else {
-			// Single entry
-			index, err := strconv.Atoi(selection)
-			if err != nil {
-				selectionError = fmt.Errorf("%s is not a valid range", selection)
-				return
-			}
-			index -= 1
-			if index >= 0 && index < len(updateKeys) {
-				chosenUpdates = append(chosenUpdates, updateKeys[index])
-			}
+	chosenUpdates := make([]UpdateIdentifier, 0, len(result.SelectedIDs))
+	for _, selectedID := range result.SelectedIDs {
+		if update, ok := optionIndex[selectedID]; ok {
+			chosenUpdates = append(chosenUpdates, update)
 		}
 	}
-	return
+
+	return chosenUpdates, nil
 }

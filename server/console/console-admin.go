@@ -28,12 +28,15 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/console/forms"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
@@ -172,14 +175,54 @@ func NewOperatorConfig(operatorName string, lhost string, lport uint16, permissi
 	return json.Marshal(config)
 }
 
-func kickOperatorCmd(cmd *cobra.Command, _ []string) {
+func kickOperatorCmd(cmd *cobra.Command, args []string) {
 	operator, _ := cmd.Flags().GetString("name")
 
+	if shouldPromptKickOperator(cmd, args) {
+		names, err := operatorNames()
+		if err != nil {
+			fmt.Printf(Warn+"Failed to list operators: %v\n", err)
+			return
+		}
+		if len(names) == 0 {
+			fmt.Printf(Warn + "No operators found.\n")
+			return
+		}
+		if err := forms.SelectOperator("Select operator to kick", names, &operator); err != nil {
+			if errors.Is(err, forms.ErrUserAborted) {
+				return
+			}
+			fmt.Printf(Warn+"Operator selection failed: %v\n", err)
+			return
+		}
+		if err := cmd.Flags().Set("name", operator); err != nil {
+			fmt.Printf(Warn+"Failed to set operator name: %v\n", err)
+			return
+		}
+	}
+
+	operator = strings.TrimSpace(operator)
+	if operator == "" {
+		fmt.Printf(Warn + "Operator name required (use --name).\n")
+		return
+	}
+
+	exists, err := operatorExists(operator)
+	if err != nil {
+		fmt.Printf(Warn+"Failed to lookup operator %s: %v\n", operator, err)
+		return
+	}
+	if !exists {
+		fmt.Printf(Warn+"Operator %s does not exist.\n", operator)
+		return
+	}
+
 	fmt.Printf(Info+"Removing auth token(s) for %s, please wait ... \n", operator)
-	err := db.Session().Where(&models.Operator{
+	err = db.Session().Where(&models.Operator{
 		Name: operator,
 	}).Delete(&models.Operator{}).Error
 	if err != nil {
+		fmt.Printf(Warn+"Failed to remove operator %s: %v\n", operator, err)
 		return
 	}
 	transport.ClearTokenCache()
@@ -190,6 +233,55 @@ func kickOperatorCmd(cmd *cobra.Command, _ []string) {
 		return
 	}
 	fmt.Printf(Info+"Operator %s has been kicked out.\n", operator)
+}
+
+func shouldPromptKickOperator(cmd *cobra.Command, args []string) bool {
+	if len(args) != 0 {
+		return false
+	}
+	return cmd.Flags().NFlag() == 0
+}
+
+func operatorNames() ([]string, error) {
+	operators, err := db.OperatorAll()
+	if err != nil {
+		return nil, err
+	}
+
+	names := make([]string, 0, len(operators))
+	seen := make(map[string]struct{}, len(operators))
+	for _, operator := range operators {
+		if operator == nil {
+			continue
+		}
+		name := strings.TrimSpace(operator.Name)
+		if name == "" {
+			continue
+		}
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
+func operatorExists(name string) (bool, error) {
+	if strings.TrimSpace(name) == "" {
+		return false, nil
+	}
+	err := db.Session().Where(&models.Operator{
+		Name: name,
+	}).First(&models.Operator{}).Error
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, db.ErrRecordNotFound) {
+		return false, nil
+	}
+	return false, err
 }
 
 func startMultiplayerModeCmd(cmd *cobra.Command, _ []string) {

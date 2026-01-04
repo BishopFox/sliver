@@ -276,6 +276,7 @@ const (
 	WgPortFwdStr          = "wg-portfwd"
 	MonitorStr            = "monitor"
 	MonitorConfigStr      = "config"
+	MCPStr                = "mcp"
 	SSHStr                = "ssh"
 	DLLHijackStr          = "dllhijack"
 	InteractiveStr        = "interactive"

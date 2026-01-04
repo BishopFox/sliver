@@ -27,12 +27,12 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 
 	"github.com/bishopfox/sliver/client/command/beacons"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
@@ -74,8 +74,7 @@ func SessionOrBeaconByID(id string, con *console.SliverClient) (*clientpb.Sessio
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		return nil, nil, err
-	}
-	if err == nil {
+	} else {
 		for _, session := range sessions.Sessions {
 			if strings.HasPrefix(session.ID, id) {
 				return session, nil, nil
@@ -162,12 +161,8 @@ func SelectSessionOrBeacon(con *console.SliverClient) (*clientpb.Session, *clien
 
 	options := strings.Split(outputBuf.String(), "\n")
 	options = options[:len(options)-1] // Remove the last empty option
-	prompt := &survey.Select{
-		Message: "Select a session or beacon:",
-		Options: options,
-	}
 	selected := ""
-	survey.AskOne(prompt, &selected)
+	_ = forms.Select("Select a session or beacon:", options, &selected)
 	if selected == "" {
 		return nil, nil, ErrNoSelection
 	}

@@ -133,10 +133,10 @@ func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb
 	crackStation := core.NewCrackstation(req)
 	err := core.AddCrackstation(crackStation)
 	if err == core.ErrDuplicateHosts {
-		status.Error(codes.AlreadyExists, "crackstation already running on host")
+		return status.Error(codes.AlreadyExists, "crackstation already running on host")
 	}
 	if err != nil {
-		return err
+		return rpcError(err)
 	}
 
 	dbCrackstation, err := db.CrackstationByHostUUID(req.HostUUID)
@@ -180,7 +180,7 @@ func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb
 			err := stream.Send(msg)
 			if err != nil {
 				crackRpcLog.Warnf(err.Error())
-				return err
+				return rpcError(err)
 			}
 		case event := <-events: // All server-side events
 			if !util.Contains(crackingEvents, event.EventType) {
@@ -207,7 +207,7 @@ func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb
 			err := stream.Send(pbEvent)
 			if err != nil {
 				crackRpcLog.Warnf(err.Error())
-				return err
+				return rpcError(err)
 			}
 		}
 	}

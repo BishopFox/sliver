@@ -26,9 +26,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/AlecAivazis/survey/v2"
-
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
@@ -83,12 +82,8 @@ func SelectBeacon(con *console.SliverClient) (*clientpb.Beacon, error) {
 
 	options := strings.Split(outputBuf.String(), "\n")
 	options = options[:len(options)-1] // Remove the last empty option
-	prompt := &survey.Select{
-		Message: "Select a beacon:",
-		Options: options,
-	}
 	selected := ""
-	survey.AskOne(prompt, &selected)
+	_ = forms.Select("Select a beacon:", options, &selected)
 	if selected == "" {
 		return nil, ErrNoSelection
 	}

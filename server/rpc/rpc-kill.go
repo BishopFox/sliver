@@ -52,7 +52,7 @@ func (rpc *Server) Kill(ctx context.Context, kill *sliverpb.KillReq) (*commonpb.
 func (rpc *Server) killSession(kill *sliverpb.KillReq, session *core.Session) (*commonpb.Empty, error) {
 	data, err := proto.Marshal(kill)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	timeout := time.Duration(kill.Request.GetTimeout())
 	// Do not block waiting for the msg send, the implant connection may already be dead
@@ -69,19 +69,22 @@ func (rpc *Server) killBeacon(kill *sliverpb.KillReq, beacon *models.Beacon) (*c
 	request.BeaconID = beacon.ID.String()
 	reqData, err := proto.Marshal(request)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	task, err := beacon.Task(&sliverpb.Envelope{
 		Type: sliverpb.MsgKillSessionReq,
 		Data: reqData,
 	})
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	parts := strings.Split(string(kill.ProtoReflect().Descriptor().FullName().Name()), ".")
 	name := parts[len(parts)-1]
 	task.Description = name
 	// Update db
 	err = db.Session().Save(task).Error
-	return resp, err
+	if err != nil {
+		return nil, rpcError(err)
+	}
+	return resp, nil
 }

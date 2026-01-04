@@ -6,9 +6,9 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strconv"
-	"strings"
 	"time"
+
+	"golang.org/x/mod/semver"
 )
 
 const (
@@ -90,42 +90,21 @@ func CheckForUpdates(client *http.Client, prereleases bool) (*Release, error) {
 		return nil, err
 	}
 
-	mySemVer := SemanticVersion()
+	current := canonicalSemver(Version)
+	if current == "" {
+		current = "v0.0.0"
+	}
 	for _, release := range *releases {
 		if release.Prerelease && !prereleases {
 			continue
 		}
-		releaseSemVer := parseGitTag(release.TagName)
-		for index, myVer := range mySemVer {
-			if index < len(releaseSemVer) {
-				if releaseSemVer[index] == myVer {
-					continue
-				}
-				if releaseSemVer[index] < myVer {
-					break
-				}
-				if myVer < releaseSemVer[index] {
-					return release, nil
-				}
-			}
+		releaseVersion := canonicalSemver(release.TagName)
+		if releaseVersion == "" {
+			continue
+		}
+		if semver.Compare(releaseVersion, current) > 0 {
+			return release, nil
 		}
 	}
 	return nil, nil
-}
-
-// parseGitTag - Get the structured sematic version
-func parseGitTag(tag string) []int {
-	semVer := []int{}
-	version := tag
-	if strings.Contains(version, "-") {
-		version = strings.Split(version, "-")[0]
-	}
-	if strings.HasPrefix(version, "v") {
-		version = version[1:]
-	}
-	for _, part := range strings.Split(version, ".") {
-		number, _ := strconv.Atoi(part)
-		semVer = append(semVer, number)
-	}
-	return semVer
 }

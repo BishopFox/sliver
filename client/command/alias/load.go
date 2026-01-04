@@ -27,11 +27,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/client/packages"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -313,8 +313,7 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 		}
 		con.PrintWarnf("%s", msgStr)
 		confirm := false
-		prompt := &survey.Confirm{Message: "Do you want to continue?"}
-		survey.AskOne(prompt, &confirm, nil)
+		_ = forms.Confirm("Do you want to continue?", &confirm)
 		if !confirm {
 			return
 		}

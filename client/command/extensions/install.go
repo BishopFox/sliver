@@ -24,9 +24,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/util"
 	"github.com/spf13/cobra"
 )
@@ -92,8 +92,7 @@ func InstallFromDir(extLocalPath string, promptToOverwrite bool, con *console.Sl
 		if promptToOverwrite {
 			con.PrintInfof("Extension '%s' already exists", manifestF.Name)
 			confirm := false
-			prompt := &survey.Confirm{Message: "Overwrite current install?"}
-			survey.AskOne(prompt, &confirm)
+			_ = forms.Confirm("Overwrite current install?", &confirm)
 			if !confirm {
 				return
 			}

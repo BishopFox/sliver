@@ -21,10 +21,10 @@ package beacons
 import (
 	"time"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
@@ -71,8 +71,7 @@ func BeaconsPruneCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	}
 	con.Println()
 	confirm := false
-	prompt := &survey.Confirm{Message: "Prune these beacons?"}
-	survey.AskOne(prompt, &confirm)
+	_ = forms.Confirm("Prune these beacons?", &confirm)
 	if !confirm {
 		return
 	}

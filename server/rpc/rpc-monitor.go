@@ -15,7 +15,7 @@ func (rpc *Server) MonitorStart(ctx context.Context, _ *commonpb.Empty) (*common
 	if err != nil {
 		resp.Err = err.Error()
 	}
-	return resp, err
+	return resp, rpcError(err)
 }
 
 func (rpc *Server) MonitorStop(ctx context.Context, _ *commonpb.Empty) (*commonpb.Empty, error) {
@@ -27,7 +27,7 @@ func (rpc *Server) MonitorStop(ctx context.Context, _ *commonpb.Empty) (*commonp
 func (rpc *Server) MonitorListConfig(ctx context.Context, _ *commonpb.Empty) (*clientpb.MonitoringProviders, error) {
 	resp, err := watchtower.ListConfig()
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	return resp, nil
 }
