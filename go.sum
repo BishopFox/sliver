@@ -270,8 +270,6 @@ github.com/jackc/puddle/v2 v2.2.2/go.mod h1:vriiEXHvEE654aYKXXjOvZM39qJ0q+azkZFr
 github.com/jcmturner/gofork v1.0.0/go.mod h1:MK8+TM0La+2rjBD4jE12Kj1pCCxK7d2LK/UM3ncEo0o=
 github.com/jcmturner/gofork v1.7.6 h1:QH0l3hzAU1tfT3rZCnW5zXl+orbkNMMRGJfdJjHVETg=
 github.com/jcmturner/gofork v1.7.6/go.mod h1:1622LH6i/EZqLloHfE7IeZ0uEJwMSUyQ/nDd82IeqRo=
-github.com/jedib0t/go-pretty/v6 v6.6.8 h1:JnnzQeRz2bACBobIaa/r+nqjvws4yEhcmaZ4n1QzsEc=
-github.com/jedib0t/go-pretty/v6 v6.6.8/go.mod h1:YwC5CE4fJ1HFUDeivSV1r//AmANFHyqczZk+U6BDALU=
 github.com/jedib0t/go-pretty/v6 v6.7.8 h1:BVYrDy5DPBA3Qn9ICT+PokP9cvCv1KaHv2i+Hc8sr5o=
 github.com/jedib0t/go-pretty/v6 v6.7.8/go.mod h1:YwC5CE4fJ1HFUDeivSV1r//AmANFHyqczZk+U6BDALU=
 github.com/jellydator/ttlcache/v3 v3.1.0 h1:0gPFG0IHHP6xyUyXq+JaD8fwkDCqgqwohXNJBcYE71g=
@@ -352,6 +350,8 @@ github.com/moloch--/go-keystone v0.0.2 h1:xThbYs45CSzoDUz5kBZxAyTPIpK3t5M7NB1x+N
 github.com/moloch--/go-keystone v0.0.2/go.mod h1:kpGRJpw9b7Eq3MluHrba+GPKZhSyDrvhLULSwH5nGGM=
 github.com/moloch--/memmod v0.0.0-20230225130813-fd77d905589e h1:IkFCPlAa0iTiLxck+NqAwBx8JDlnHYm4orOQBbs4BDQ=
 github.com/moloch--/memmod v0.0.0-20230225130813-fd77d905589e/go.mod h1:eYeI6cQ5YHhHt9i0BBW0zc1DaQnb4ZMXsSPuEV/V5Og=
+github.com/moloch--/readline v0.0.0-20260104185423-d3ac1d6c561d h1:9RbKockJl6ZdgoEh2QqU3An6Ij/NWZtRWS3J6yG0+qo=
+github.com/moloch--/readline v0.0.0-20260104185423-d3ac1d6c561d/go.mod h1:CwNkh9BmFBBCSO6mdDaNWb34rOqQsI9eYbxyqvOEazY=
 github.com/moloch--/sgn v0.0.4 h1:90IC5rx3TmPEfrqPnENB0yyiqcbcNk9LqezXx7uruF0=
 github.com/moloch--/sgn v0.0.4/go.mod h1:FyWfCtdynywgLmVR71vTJztZ3WkGSkR91Y4EOijUutE=
 github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 h1:ZK8zHtRHOkbHy6Mmr5D264iyp3TiX5OmNcI5cIARiQI=
@@ -393,8 +393,6 @@ github.com/prometheus/common v0.55.0 h1:KEi6DK7lXW/m7Ig5i47x0vRzuBsHuvJdi5ee6Y3G
 github.com/prometheus/common v0.55.0/go.mod h1:2SECS4xJG1kd8XF9IcM1gMX6510RAEL65zxzNImwdc8=
 github.com/reeflective/console v0.1.25 h1:do/r6rcKH6pCQDEzh5PhoVFcqHkqcjd0N6tNjpmYWWQ=
 github.com/reeflective/console v0.1.25/go.mod h1:It/IqEjo0PowaBuxBS9pEi5EYUgmtvQd0ytMtlS77kk=
-github.com/reeflective/readline v1.1.3 h1:meGkuEmujZHmalJ9eT3pYkwtkufH5EwYFPTnaph0T0s=
-github.com/reeflective/readline v1.1.3/go.mod h1:CwNkh9BmFBBCSO6mdDaNWb34rOqQsI9eYbxyqvOEazY=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=
 github.com/rivo/uniseg v0.4.7 h1:WUdvkW8uEhrYfLC4ZzdpI2ztxP1I582+49Oc5Mq64VQ=

@@ -288,6 +288,16 @@ func (e *Engine) Matches() int {
 	return comps
 }
 
+// DisplaySkipped reports whether completion display is suppressed.
+func (e *Engine) DisplaySkipped() bool {
+	return e.skipDisplay
+}
+
+// ResetUsedRows clears the cached displayed row count.
+func (e *Engine) ResetUsedRows() {
+	e.usedY = 0
+}
+
 // Line returns the relevant input line at the time this function is called:
 // if a candidate is currently selected, the line returned is the one containing
 // the candidate. If no candidate is selected, the normal input line is returned.
