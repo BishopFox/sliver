@@ -2,7 +2,10 @@ package goname
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
+	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -37,6 +40,9 @@ func RenameImport(dir, oldImportPrefix, newImportPrefix string) (*ImportResult, 
 	if result.ImportsUpdated == 0 {
 		return result, errors.New("no imports updated (check old/new import prefixes)")
 	}
+	if err := renameImportDir(dir, oldImportPrefix, newImportPrefix); err != nil {
+		return result, err
+	}
 
 	return result, nil
 }
@@ -67,4 +73,62 @@ func rewriteImportPrefixes(dir, oldImportPrefix, newImportPrefix string, result 
 		}
 		return nil
 	})
+}
+
+func renameImportDir(dir, oldImportPrefix, newImportPrefix string) error {
+	oldParts := splitImportPrefix(oldImportPrefix)
+	newParts := splitImportPrefix(newImportPrefix)
+	if len(oldParts) == 0 || len(newParts) == 0 {
+		return nil
+	}
+
+	for i := 0; i < len(oldParts); i++ {
+		suffixParts := oldParts[i:]
+		oldDir := filepath.Join(append([]string{dir}, suffixParts...)...)
+		info, err := os.Stat(oldDir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return err
+		}
+		if !info.IsDir() {
+			continue
+		}
+
+		if len(newParts) < len(suffixParts) {
+			return fmt.Errorf("new import prefix has fewer path segments than old import prefix")
+		}
+		newSuffixParts := newParts[len(newParts)-len(suffixParts):]
+		newDir := filepath.Join(append([]string{dir}, newSuffixParts...)...)
+
+		if oldDir == newDir {
+			return nil
+		}
+
+		if _, err := os.Stat(newDir); err == nil {
+			return fmt.Errorf("rename import dir: target exists: %s", newDir)
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+
+		if err := os.MkdirAll(filepath.Dir(newDir), 0700); err != nil {
+			return err
+		}
+		return os.Rename(oldDir, newDir)
+	}
+
+	return nil
+}
+
+func splitImportPrefix(prefix string) []string {
+	cleaned := path.Clean(strings.TrimSpace(prefix))
+	if cleaned == "." || cleaned == "/" {
+		return nil
+	}
+	cleaned = strings.TrimPrefix(cleaned, "/")
+	if cleaned == "" {
+		return nil
+	}
+	return strings.Split(cleaned, "/")
 }
