@@ -533,12 +533,23 @@ func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clien
 				goPackage = config.GoPackage
 			}
 		}
-		result, err := goname.RenameModule(sliverPkgDir, goPackage)
+		modResult, err := goname.RenameModule(sliverPkgDir, goPackage)
 		if err != nil {
 			buildLog.Errorf("Failed to rename module: %s", err)
 			return "", err
 		}
-		buildLog.Infof("Renamed module: %s -> %s (go.mod updated: %v)", result.OldModule, result.NewModule, result.GoModUpdated)
+		buildLog.Infof("Renamed module: %s -> %s (go.mod updated: %v)", modResult.OldModule, modResult.NewModule, modResult.GoModUpdated)
+
+		// Rename Import Paths
+		buildLog.Infof("Renaming import paths ...")
+		oldImportPrefix := path.Join(modResult.NewModule, "implant", "sliver")
+		newImportPrefix := path.Join(modResult.NewModule, "runc", "cgroup")
+		importResult, err := goname.RenameImport(sliverPkgDir, oldImportPrefix, newImportPrefix)
+		if err != nil {
+			buildLog.Errorf("Failed to rename imports: %s", err)
+			return "", err
+		}
+		buildLog.Infof("Renamed imports (%d files updated)", importResult.FilesUpdated)
 	}
 
 	return sliverPkgDir, nil

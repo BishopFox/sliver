@@ -42,9 +42,13 @@ func TestRenameImportBasic(t *testing.T) {
 		t.Fatalf("main.go still references old prefix")
 	}
 
-	barImports := importPaths(t, filepath.Join(tmp, "foo", "bar", "bar.go"))
+	barImports := importPaths(t, filepath.Join(tmp, "acme", "corp", "bar.go"))
 	if !barImports["acme/corp/baz"] {
 		t.Fatalf("bar.go import not updated")
+	}
+
+	if _, err := os.Stat(filepath.Join(tmp, "foo", "bar")); !os.IsNotExist(err) {
+		t.Fatalf("expected foo/bar to be renamed")
 	}
 
 	vendorImports := importPaths(t, filepath.Join(tmp, "vendor", "foo", "bar", "vendor.go"))
