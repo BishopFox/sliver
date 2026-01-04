@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/bishopfox/sliver/client/command/aka"
 	"github.com/bishopfox/sliver/client/command/alias"
 	"github.com/bishopfox/sliver/client/command/armory"
 	"github.com/bishopfox/sliver/client/command/beacons"
@@ -102,6 +103,7 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 			crack.Commands,
 			certificates.Commands,
 			clean.Command,
+      aka.ServerCommands,
 		)
 
 		// C2 Network
