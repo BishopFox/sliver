@@ -5,9 +5,19 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/huh"
+	"golang.org/x/term"
 )
 
 const defaultSelectHeight = 10
+
+func getTerminalWidth() int {
+	// Try to get actual terminal width
+	if width, _, err := term.GetSize(1); err == nil && width > 0 {
+		return width
+	}
+	// Fall back to a reasonable default
+	return 200
+}
 
 // Confirm prompts for a yes/no answer.
 func Confirm(title string, value *bool) error {
@@ -86,7 +96,7 @@ func MultiSelect(title string, options []string, value *[]string) error {
 		Height(listHeight(len(options))).
 		Value(value)
 
-	form := huh.NewForm(huh.NewGroup(field))
+	form := huh.NewForm(huh.NewGroup(field)).WithWidth(getTerminalWidth())
 	return form.Run()
 }
 
@@ -98,6 +108,8 @@ func selectPrompt(title string, options []string, value *string, required bool) 
 		return errors.New("select options are required")
 	}
 
+	// Save the original value in case the form is cancelled
+	originalValue := *value
 	ensureSelectedValue(options, value)
 
 	field := huh.NewSelect[string]().
@@ -115,8 +127,16 @@ func selectPrompt(title string, options []string, value *string, required bool) 
 		})
 	}
 
-	form := huh.NewForm(huh.NewGroup(field))
-	return form.Run()
+	form := huh.NewForm(huh.NewGroup(field)).WithWidth(getTerminalWidth())
+	err := form.Run()
+
+	// On error restore the originalValue and return err
+	if err != nil {
+		*value = originalValue
+		return err
+	}
+
+	return err
 }
 
 func ensureSelectedValue(options []string, value *string) {
