@@ -52,7 +52,7 @@ require (
 	github.com/yiya1989/sshkrb5 v0.0.1
 	golang.org/x/crypto v0.46.0
 	golang.org/x/exp v0.0.0-20251002181428-27f1f14c8bb9
-	golang.org/x/mod v0.30.0
+	golang.org/x/mod v0.31.0
 	golang.org/x/net v0.47.0
 	golang.org/x/sys v0.39.0
 	golang.org/x/term v0.38.0
