@@ -7,7 +7,7 @@ replace github.com/rsteube/carapace v0.36.3 => github.com/reeflective/carapace v
 replace github.com/reeflective/readline => github.com/moloch--/readline v0.0.0-20260104185423-d3ac1d6c561d
 
 require (
-	filippo.io/age v1.2.1
+	filippo.io/age v1.3.1
 	github.com/Binject/binjection v0.0.0-20210701074423-605d46e35deb
 	github.com/Binject/debug v0.0.0-20230508195519-26db73212a7a
 	github.com/Binject/go-donut v0.0.0-20220908180326-fcdcc35d591c
@@ -71,6 +71,7 @@ require (
 )
 
 require (
+	filippo.io/hpke v0.4.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
