@@ -33,8 +33,12 @@ func AssertErr() ErrorString {
 	return ErrorString(msg)
 }
 
-func ErrorCodeString(rc uint32) string {
-	switch rc {
+type errorCode interface {
+	~uint8 | ~uint16 | ~uint32 | ~int32
+}
+
+func ErrorCodeString[T errorCode](rc T) string {
+	switch uint32(rc) {
 	case ABORT_ROLLBACK:
 		return "sqlite3: abort due to ROLLBACK"
 	case ROW:
@@ -42,7 +46,7 @@ func ErrorCodeString(rc uint32) string {
 	case DONE:
 		return "sqlite3: no more rows available"
 	}
-	switch rc & 0xff {
+	switch uint8(rc) {
 	case OK:
 		return "sqlite3: not an error"
 	case ERROR:

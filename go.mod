@@ -37,7 +37,7 @@ require (
 	github.com/moloch--/asciicast v0.1.1
 	github.com/moloch--/memmod v0.0.0-20230225130813-fd77d905589e
 	github.com/moloch--/sgn v0.0.4
-	github.com/ncruces/go-sqlite3 v0.29.1
+	github.com/ncruces/go-sqlite3 v0.30.4
 	github.com/reeflective/console v0.1.25
 	github.com/reeflective/readline v1.1.3
 	github.com/rsteube/carapace v0.50.2
@@ -45,7 +45,7 @@ require (
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1
-	github.com/tetratelabs/wazero v1.9.0
+	github.com/tetratelabs/wazero v1.11.0
 	github.com/things-go/go-socks5 v0.1.0
 	github.com/ulikunitz/xz v0.5.15
 	github.com/xlab/treeprint v1.2.0

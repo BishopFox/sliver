@@ -17,5 +17,7 @@ import (
 var binary string
 
 func init() {
-	sqlite3.Binary = unsafe.Slice(unsafe.StringData(binary), len(binary))
+	if sqlite3.Binary == nil {
+		sqlite3.Binary = unsafe.Slice(unsafe.StringData(binary), len(binary))
+	}
 }

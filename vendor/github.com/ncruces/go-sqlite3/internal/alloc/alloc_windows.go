@@ -5,8 +5,9 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/tetratelabs/wazero/experimental"
 	"golang.org/x/sys/windows"
+
+	"github.com/tetratelabs/wazero/experimental"
 )
 
 func NewMemory(cap, max uint64) experimental.LinearMemory {

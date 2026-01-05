@@ -23,6 +23,7 @@ trap 'rm -f sqlite3.tmp' EXIT
 	-Wl,--import-undefined \
 	-Wl,--initial-memory=327680 \
 	-D_HAVE_SQLITE_CONFIG_H \
+	-DSQLITE_EXPERIMENTAL_PRAGMA_20251114 \
 	-DSQLITE_CUSTOM_INCLUDE=sqlite_opt.h \
 	$(awk '{print "-Wl,--export="$0}' exports.txt)
 
