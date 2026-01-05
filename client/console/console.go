@@ -41,6 +41,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/util"
 	"github.com/gofrs/uuid"
+	"github.com/kballard/go-shellquote"
 	"github.com/reeflective/console"
 	"github.com/reeflective/readline"
 	"github.com/spf13/cobra"
@@ -159,7 +160,7 @@ func NewConsole(isServer bool) *SliverClient {
 // Init requires a working RPC connection to the sliver server, and 2 different sets of commands.
 // If run is true, the console application is started, making this call blocking. Otherwise, commands and
 // RPC connection are bound to the console (making the console ready to run), but the console does not start.
-func StartClient(con *SliverClient, rpc rpcpb.SliverRPCClient, serverCmds, sliverCmds console.Commands, run bool) error {
+func StartClient(con *SliverClient, rpc rpcpb.SliverRPCClient, serverCmds, sliverCmds console.Commands, run bool, rcScript string) error {
 	con.Rpc = rpc
 	con.IsCLI = !run
 
@@ -206,8 +207,80 @@ func StartClient(con *SliverClient, rpc rpcpb.SliverRPCClient, serverCmds, slive
 		con.setupAsciicastRecord(asciicastLog, asciicastStream)
 	}
 
+	if rcScript != "" {
+		originalPrintf := con.printf
+		con.printf = fmt.Printf
+		con.runRCScript(serverCmds, sliverCmds, rcScript)
+		con.printf = originalPrintf
+	}
+
 	if !con.IsCLI {
 		return con.App.Start()
+	}
+
+	return nil
+}
+
+func (con *SliverClient) runRCScript(serverCmds, sliverCmds console.Commands, rcScript string) {
+	scanner := bufio.NewScanner(strings.NewReader(rcScript))
+	lineNumber := 0
+
+	for scanner.Scan() {
+		lineNumber++
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		if err := con.runRCLine(serverCmds, sliverCmds, line); err != nil {
+			con.PrintErrorf("rc line %d error: %s", lineNumber, err)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		con.PrintErrorf("rc script error: %s", err)
+	}
+}
+
+func (con *SliverClient) runRCLine(serverCmds, sliverCmds console.Commands, line string) error {
+	args, err := shellquote.Split(line)
+	if err != nil {
+		return fmt.Errorf("parse error: %w", err)
+	}
+
+	for _, hook := range con.App.PreCmdRunLineHooks {
+		args, err = hook(args)
+		if err != nil {
+			return fmt.Errorf("pre-run line error: %w", err)
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	menu := con.App.ActiveMenu()
+	if menu.Name() == consts.ImplantMenu {
+		menu.Command = sliverCmds()
+	} else {
+		menu.Command = serverCmds()
+	}
+
+	target, _, _ := menu.Command.Find(args)
+	if err := menu.CheckIsAvailable(target); err != nil {
+		return err
+	}
+
+	for _, hook := range con.App.PreCmdRunHooks {
+		if err := hook(); err != nil {
+			return fmt.Errorf("pre-run error: %w", err)
+		}
+	}
+
+	menu.SetArgs(args)
+	menu.SetContext(context.Background())
+
+	if err := menu.Execute(); err != nil {
+		return err
 	}
 
 	return nil
@@ -341,11 +414,12 @@ func (con *SliverClient) triggerReactions(event *clientpb.Event) {
 		con.ActiveTarget.Set(currentActiveSession, currentActiveBeacon)
 	}()
 
-	if event.EventType == consts.SessionOpenedEvent {
+	switch event.EventType {
+	case consts.SessionOpenedEvent:
 		con.ActiveTarget.Set(nil, nil)
 
 		con.ActiveTarget.Set(event.Session, nil)
-	} else if event.EventType == consts.BeaconRegisteredEvent {
+	case consts.BeaconRegisteredEvent:
 		con.ActiveTarget.Set(nil, nil)
 
 		beacon := &clientpb.Beacon{}

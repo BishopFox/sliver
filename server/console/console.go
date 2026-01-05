@@ -38,7 +38,7 @@ import (
 )
 
 // Start - Starts the server console
-func Start() {
+func Start(rcScript string) {
 	_, ln, _ := transport.LocalListener()
 	ctxDialer := grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 		return ln.Dial()
@@ -57,7 +57,7 @@ func Start() {
 	defer conn.Close()
 	localRPC := rpcpb.NewSliverRPCClient(conn)
 	con := console.NewConsole(false)
-	console.StartClient(con, localRPC, command.ServerCommands(con, serverOnlyCmds), command.SliverCommands(con), true)
+	console.StartClient(con, localRPC, command.ServerCommands(con, serverOnlyCmds), command.SliverCommands(con), true, rcScript)
 
 	con.App.Start()
 }

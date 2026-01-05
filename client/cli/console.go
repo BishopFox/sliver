@@ -40,6 +40,7 @@ func consoleCmd(con *console.SliverClient) *cobra.Command {
 		Short: "Start the sliver client console",
 	}
 
+	consoleCmd.Flags().String(RCFlagName, "", "path to rc script file")
 	consoleCmd.RunE, consoleCmd.PersistentPostRunE = consoleRunnerCmd(con, true)
 	return consoleCmd
 }
@@ -47,7 +48,7 @@ func consoleCmd(con *console.SliverClient) *cobra.Command {
 func consoleRunnerCmd(con *console.SliverClient, run bool) (pre, post func(cmd *cobra.Command, args []string) error) {
 	var ln *grpc.ClientConn
 
-	pre = func(_ *cobra.Command, _ []string) error {
+	pre = func(cmd *cobra.Command, _ []string) error {
 
 		configs := assets.GetConfigs()
 		if len(configs) == 0 {
@@ -59,13 +60,18 @@ func consoleRunnerCmd(con *console.SliverClient, run bool) (pre, post func(cmd *
 			return nil
 		}
 
+		rcScript, err := ReadRCScript(cmd)
+		if err != nil {
+			fmt.Printf("Failed to read rc script: %s\n", err)
+			return nil
+		}
+
 		// Don't clobber output when simply running an implant command from system shell.
 		if run {
 			fmt.Printf("Connecting to %s:%d ...\n", config.LHost, config.LPort)
 		}
 
 		var rpc rpcpb.SliverRPCClient
-		var err error
 
 		rpc, ln, err = transport.MTLSConnect(config)
 		if err != nil {
@@ -76,7 +82,7 @@ func consoleRunnerCmd(con *console.SliverClient, run bool) (pre, post func(cmd *
 		// Wait for any connection state changes and exit if the connection is lost.
 		go handleConnectionLost(ln)
 
-		return console.StartClient(con, rpc, command.ServerCommands(con, nil), command.SliverCommands(con), run)
+		return console.StartClient(con, rpc, command.ServerCommands(con, nil), command.SliverCommands(con), run, rcScript)
 	}
 
 	// Close the RPC connection once exiting

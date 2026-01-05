@@ -51,6 +51,7 @@ func init() {
 	defer logFile.Close()
 
 	rootCmd.TraverseChildren = true
+	rootCmd.Flags().String(RCFlagName, "", "path to rc script file")
 
 	// Create the console client, without any RPC or commands bound to it yet.
 	// This created before anything so that multiple commands can make use of
