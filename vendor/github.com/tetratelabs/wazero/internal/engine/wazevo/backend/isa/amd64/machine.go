@@ -1067,7 +1067,7 @@ func (m *machine) LowerInstr(instr *ssa.Instruction) {
 		dst := m.c.VRegOf(instr.Return())
 
 		// At this point, the ptr is ensured to be aligned, so using a normal load is atomic.
-		// https://github.com/golang/go/blob/adead1a93f472affa97c494ef19f2f492ee6f34a/src/runtime/internal/atomic/atomic_amd64.go#L30
+		// https://github.com/golang/go/blob/go1.24.0/src/internal/runtime/atomic/atomic_amd64.go#L29
 		mem := newOperandMem(m.lowerToAddressMode(ptr, 0))
 		load := m.allocateInstr()
 		switch size {
@@ -1108,6 +1108,9 @@ func (m *machine) LowerInstr(instr *ssa.Instruction) {
 		addr, val := instr.Arg2()
 		atomicOp, size := instr.AtomicRmwData()
 		m.lowerAtomicRmw(atomicOp, addr, val, size, instr.Return())
+
+	case ssa.OpcodeTailCallReturnCall, ssa.OpcodeTailCallReturnCallIndirect:
+		m.lowerTailCall(instr)
 
 	default:
 		panic("TODO: lowering " + op.String())
@@ -1407,7 +1410,7 @@ func (m *machine) lowerVconst(dst regalloc.VReg, lo, hi uint64) {
 }
 
 func (m *machine) lowerCtz(instr *ssa.Instruction) {
-	if m.cpuFeatures.HasExtra(platform.CpuExtraFeatureAmd64ABM) {
+	if m.cpuFeatures.Has(platform.CpuFeatureAmd64BMI1) {
 		m.lowerUnaryRmR(instr, unaryRmROpcodeTzcnt)
 	} else {
 		// On processors that do not support TZCNT, the BSF instruction is
@@ -1461,7 +1464,7 @@ func (m *machine) lowerCtz(instr *ssa.Instruction) {
 }
 
 func (m *machine) lowerClz(instr *ssa.Instruction) {
-	if m.cpuFeatures.HasExtra(platform.CpuExtraFeatureAmd64ABM) {
+	if m.cpuFeatures.Has(platform.CpuFeatureAmd64ABM) {
 		m.lowerUnaryRmR(instr, unaryRmROpcodeLzcnt)
 	} else {
 		// On processors that do not support LZCNT, we combine BSR (calculating
@@ -1885,6 +1888,40 @@ func (m *machine) lowerStore(si *ssa.Instruction) {
 
 func (m *machine) lowerCall(si *ssa.Instruction) {
 	isDirectCall := si.Opcode() == ssa.OpcodeCall
+	indirectCalleePtr, directCallee, isMemmove, calleeABI, stackSlotSize := m.prepareCall(si, isDirectCall)
+
+	if isMemmove {
+		// Go's memmove *might* use all xmm0-xmm15, so we need to release them.
+		// https://github.com/golang/go/blob/go1.24.0/src/cmd/compile/abi-internal.md#architecture-specifics
+		// https://github.com/golang/go/blob/go1.24.0/src/runtime/memmove_amd64.s#L286-L301
+		for i := regalloc.RealReg(0); i < 16; i++ {
+			m.insert(m.allocateInstr().asDefineUninitializedReg(regInfo.RealRegToVReg[xmm0+i]))
+		}
+		// Since Go 1.24 it may also use DX, which is not reserved for the function call's 3 args.
+		// https://github.com/golang/go/blob/go1.24.0/src/runtime/memmove_amd64.s#L123
+		m.insert(m.allocateInstr().asDefineUninitializedReg(regInfo.RealRegToVReg[rdx]))
+	}
+
+	if isDirectCall {
+		call := m.allocateInstr().asCall(directCallee, calleeABI)
+		m.insert(call)
+	} else {
+		ptrOp := m.getOperand_Mem_Reg(m.c.ValueDefinition(indirectCalleePtr))
+		callInd := m.allocateInstr().asCallIndirect(ptrOp, calleeABI)
+		m.insert(callInd)
+	}
+
+	if isMemmove {
+		for i := regalloc.RealReg(0); i < 16; i++ {
+			m.insert(m.allocateInstr().asNopUseReg(regInfo.RealRegToVReg[xmm0+i]))
+		}
+		m.insert(m.allocateInstr().asNopUseReg(regInfo.RealRegToVReg[rdx]))
+	}
+
+	m.insertReturns(si, calleeABI, stackSlotSize)
+}
+
+func (m *machine) prepareCall(si *ssa.Instruction, isDirectCall bool) (ssa.Value, ssa.FuncRef, bool, *backend.FunctionABI, int64) {
 	var indirectCalleePtr ssa.Value
 	var directCallee ssa.FuncRef
 	var sigID ssa.SignatureID
@@ -1910,35 +1947,10 @@ func (m *machine) lowerCall(si *ssa.Instruction) {
 		def := m.c.ValueDefinition(arg)
 		m.callerGenVRegToFunctionArg(calleeABI, i, reg, def, stackSlotSize)
 	}
+	return indirectCalleePtr, directCallee, isMemmove, calleeABI, stackSlotSize
+}
 
-	if isMemmove {
-		// Go's memmove *might* use all xmm0-xmm15, so we need to release them.
-		// https://github.com/golang/go/blob/49d42128fd8594c172162961ead19ac95e247d24/src/cmd/compile/abi-internal.md#architecture-specifics
-		// https://github.com/golang/go/blob/49d42128fd8594c172162961ead19ac95e247d24/src/runtime/memmove_amd64.s#L271-L286
-		for i := regalloc.RealReg(0); i < 16; i++ {
-			m.insert(m.allocateInstr().asDefineUninitializedReg(regInfo.RealRegToVReg[xmm0+i]))
-		}
-		// Since Go 1.24 it may also use DX, which is not reserved for the function call's 3 args.
-		// https://github.com/golang/go/blob/go1.24.0/src/runtime/memmove_amd64.s#L123
-		m.insert(m.allocateInstr().asDefineUninitializedReg(regInfo.RealRegToVReg[rdx]))
-	}
-
-	if isDirectCall {
-		call := m.allocateInstr().asCall(directCallee, calleeABI)
-		m.insert(call)
-	} else {
-		ptrOp := m.getOperand_Mem_Reg(m.c.ValueDefinition(indirectCalleePtr))
-		callInd := m.allocateInstr().asCallIndirect(ptrOp, calleeABI)
-		m.insert(callInd)
-	}
-
-	if isMemmove {
-		for i := regalloc.RealReg(0); i < 16; i++ {
-			m.insert(m.allocateInstr().asNopUseReg(regInfo.RealRegToVReg[xmm0+i]))
-		}
-		m.insert(m.allocateInstr().asNopUseReg(regInfo.RealRegToVReg[rdx]))
-	}
-
+func (m *machine) insertReturns(si *ssa.Instruction, calleeABI *backend.FunctionABI, stackSlotSize int64) {
 	var index int
 	r1, rs := si.Returns()
 	if r1.Valid() {
@@ -1950,6 +1962,43 @@ func (m *machine) lowerCall(si *ssa.Instruction) {
 		m.callerGenFunctionReturnVReg(calleeABI, index, m.c.VRegOf(r), stackSlotSize)
 		index++
 	}
+}
+
+func (m *machine) lowerTailCall(si *ssa.Instruction) {
+	isDirectCall := si.Opcode() == ssa.OpcodeTailCallReturnCall
+	indirectCalleePtr, directCallee, isMemmove, calleeABI, stackSlotSize := m.prepareCall(si, isDirectCall)
+	if isMemmove {
+		panic("memmove not supported in tail calls")
+	}
+
+	isAllRegs := stackSlotSize == 0
+
+	switch {
+	case isDirectCall && isAllRegs:
+		call := m.allocateInstr().asTailCallReturnCall(directCallee, calleeABI)
+		m.insert(call)
+	case !isDirectCall && isAllRegs:
+		// In a tail call we insert the epilogue before the jump instruction,
+		// so an arbitrary register might be overwritten while restoring the stack.
+		// So, as compared to a regular indirect call, we ensure the pointer is stored
+		// in a caller-saved register (r11).
+		// For details, see internal/engine/RATIONALE.md
+		ptrOp := m.getOperand_Reg(m.c.ValueDefinition(indirectCalleePtr))
+		tmpJmp := r11VReg
+		m.InsertMove(tmpJmp, ptrOp.reg(), ssa.TypeI64)
+		callInd := m.allocateInstr().asTailCallReturnCallIndirect(newOperandReg(tmpJmp), calleeABI)
+		m.insert(callInd)
+	case isDirectCall && !isAllRegs:
+		call := m.allocateInstr().asCall(directCallee, calleeABI)
+		m.insert(call)
+	case !isDirectCall && !isAllRegs:
+		ptrOp := m.getOperand_Mem_Reg(m.c.ValueDefinition(indirectCalleePtr))
+		callInd := m.allocateInstr().asCallIndirect(ptrOp, calleeABI)
+		m.insert(callInd)
+	}
+
+	// If this is a proper tail call, returns will be cleared in the postRegAlloc phase.
+	m.insertReturns(si, calleeABI, stackSlotSize)
 }
 
 // callerGenVRegToFunctionArg is the opposite of GenFunctionArgToVReg, which is used to generate the

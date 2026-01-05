@@ -23,7 +23,7 @@ type vfsDotLocker struct {
 	reserved *os.File // +checklocks:vfsDotLocksMtx
 }
 
-func osGetSharedLock(file *os.File) _ErrorCode {
+func osGetSharedLock(file *os.File) error {
 	vfsDotLocksMtx.Lock()
 	defer vfsDotLocksMtx.Unlock()
 
@@ -34,7 +34,7 @@ func osGetSharedLock(file *os.File) _ErrorCode {
 			if errors.Is(err, fs.ErrExist) {
 				return _BUSY // Another process has the lock.
 			}
-			return _IOERR_LOCK
+			return sysError{err, _IOERR_LOCK}
 		}
 		locker = &vfsDotLocker{}
 		vfsDotLocks[name] = locker
@@ -44,10 +44,10 @@ func osGetSharedLock(file *os.File) _ErrorCode {
 		return _BUSY
 	}
 	locker.shared++
-	return _OK
+	return nil
 }
 
-func osGetReservedLock(file *os.File) _ErrorCode {
+func osGetReservedLock(file *os.File) error {
 	vfsDotLocksMtx.Lock()
 	defer vfsDotLocksMtx.Unlock()
 
@@ -61,10 +61,10 @@ func osGetReservedLock(file *os.File) _ErrorCode {
 		return _BUSY
 	}
 	locker.reserved = file
-	return _OK
+	return nil
 }
 
-func osGetExclusiveLock(file *os.File, _ *LockLevel) _ErrorCode {
+func osGetExclusiveLock(file *os.File, _ *LockLevel) error {
 	vfsDotLocksMtx.Lock()
 	defer vfsDotLocksMtx.Unlock()
 
@@ -81,10 +81,10 @@ func osGetExclusiveLock(file *os.File, _ *LockLevel) _ErrorCode {
 	if locker.shared > 1 {
 		return _BUSY
 	}
-	return _OK
+	return nil
 }
 
-func osDowngradeLock(file *os.File, _ LockLevel) _ErrorCode {
+func osDowngradeLock(file *os.File, _ LockLevel) error {
 	vfsDotLocksMtx.Lock()
 	defer vfsDotLocksMtx.Unlock()
 
@@ -100,10 +100,10 @@ func osDowngradeLock(file *os.File, _ LockLevel) _ErrorCode {
 	if locker.pending == file {
 		locker.pending = nil
 	}
-	return _OK
+	return nil
 }
 
-func osReleaseLock(file *os.File, state LockLevel) _ErrorCode {
+func osReleaseLock(file *os.File, state LockLevel) error {
 	vfsDotLocksMtx.Lock()
 	defer vfsDotLocksMtx.Unlock()
 
@@ -115,7 +115,7 @@ func osReleaseLock(file *os.File, state LockLevel) _ErrorCode {
 
 	if locker.shared == 1 {
 		if err := dotlk.Unlock(name + ".lock"); err != nil {
-			return _IOERR_UNLOCK
+			return sysError{err, _IOERR_UNLOCK}
 		}
 		delete(vfsDotLocks, name)
 	}
@@ -127,17 +127,14 @@ func osReleaseLock(file *os.File, state LockLevel) _ErrorCode {
 		locker.pending = nil
 	}
 	locker.shared--
-	return _OK
+	return nil
 }
 
-func osCheckReservedLock(file *os.File) (bool, _ErrorCode) {
+func osCheckReservedLock(file *os.File) (bool, error) {
 	vfsDotLocksMtx.Lock()
 	defer vfsDotLocksMtx.Unlock()
 
 	name := file.Name()
 	locker := vfsDotLocks[name]
-	if locker == nil {
-		return false, _OK
-	}
-	return locker.reserved != nil, _OK
+	return locker != nil && locker.reserved != nil, nil
 }
