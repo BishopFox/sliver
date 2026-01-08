@@ -99,8 +99,11 @@ type SliverClient struct {
 	IsServer                 bool
 	IsCLI                    bool
 
-	jsonHandler slog.Handler
-	printf      func(format string, args ...any) (int, error)
+	jsonHandler      slog.Handler
+	printf           func(format string, args ...any) (int, error)
+	stdoutPipeWriter *os.File
+	stdoutPipeDone   chan struct{}
+	stdoutPipeOnce   sync.Once
 }
 
 // NewConsole creates the sliver client (and console), creating menus and prompts.
@@ -683,6 +686,7 @@ func (c *SliverClient) exitConsole(_ *console.Console) {
 	answer := strings.TrimSpace(text)
 
 	if (answer == "Y") || (answer == "y") {
+		c.FlushOutput()
 		os.Exit(0)
 	}
 }
