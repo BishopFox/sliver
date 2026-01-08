@@ -124,7 +124,14 @@ func (con *SliverClient) setupAsciicastRecord(logFile *os.File, server io.Writer
 	os.Stdout = w
 	os.Stderr = w
 
-	go io.Copy(mw, r)
+	done := make(chan struct{})
+	con.stdoutPipeWriter = w
+	con.stdoutPipeDone = done
+
+	go func() {
+		_, _ = io.Copy(mw, r)
+		close(done)
+	}()
 }
 
 func getConsoleLogFile() *os.File {
@@ -147,6 +154,25 @@ func getConsoleAsciicastFile() *os.File {
 		log.Fatalf("Could not open log file: %s", err)
 	}
 	return logFile
+}
+
+// FlushOutput drains any piped stdout before exiting.
+func (con *SliverClient) FlushOutput() {
+	if con.stdoutPipeWriter == nil {
+		_ = os.Stdout.Sync()
+		return
+	}
+
+	con.stdoutPipeOnce.Do(func() {
+		_ = con.stdoutPipeWriter.Close()
+	})
+
+	if con.stdoutPipeDone != nil {
+		select {
+		case <-con.stdoutPipeDone:
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
 }
 
 //
