@@ -20,7 +20,6 @@ package exit
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/bishopfox/sliver/client/console"
@@ -32,7 +31,6 @@ import (
 
 // ExitCmd - Exit the console.
 func ExitCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
-	fmt.Printf("exiting...")
 	if con.IsServer {
 		sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 		if err != nil {
