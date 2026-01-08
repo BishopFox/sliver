@@ -6,9 +6,11 @@ import (
 )
 
 var (
-	Rtunnels map[uint64]*RTunnel = make(map[uint64]*RTunnel)
-	mutex    sync.RWMutex
-	pending  sync.Map
+	Rtunnels  map[uint64]*RTunnel = make(map[uint64]*RTunnel)
+	mutex     sync.RWMutex
+	pending   map[string]map[string]int
+	listeners map[string]map[uint32]string
+	pendingMu sync.Mutex
 )
 
 // RTunnel - Duplex byte read/write
@@ -97,18 +99,105 @@ func RemoveRTunnel(ID uint64) {
 }
 
 func AddPending(sessionID string, connStr string) {
-	pending.Store(sessionID, connStr)
+	pendingMu.Lock()
+	defer pendingMu.Unlock()
+	if pending == nil {
+		pending = make(map[string]map[string]int)
+	}
+	addrMap := pending[sessionID]
+	if addrMap == nil {
+		addrMap = make(map[string]int)
+		pending[sessionID] = addrMap
+	}
+	addrMap[connStr]++
 }
 
-func DeletePending(sessionID string) {
-	pending.Delete(sessionID)
+func DeletePending(sessionID string, connStr string) {
+	pendingMu.Lock()
+	defer pendingMu.Unlock()
+	if pending == nil {
+		return
+	}
+	if addrMap, ok := pending[sessionID]; ok {
+		if count, ok := addrMap[connStr]; ok {
+			if count <= 1 {
+				delete(addrMap, connStr)
+			} else {
+				addrMap[connStr] = count - 1
+			}
+		}
+		if len(addrMap) == 0 {
+			delete(pending, sessionID)
+		}
+	}
 }
 
 func Check(sessionID string, connStr string) bool {
-	if val, ok := pending.Load(sessionID); ok {
-		return val == connStr
+	pendingMu.Lock()
+	defer pendingMu.Unlock()
+	if pending == nil {
+		return false
+	}
+	if addrMap, ok := pending[sessionID]; ok {
+		return addrMap[connStr] > 0
 	}
 	return false
+}
+
+func TrackListener(sessionID string, listenerID uint32, connStr string) {
+	pendingMu.Lock()
+	defer pendingMu.Unlock()
+	if listeners == nil {
+		listeners = make(map[string]map[uint32]string)
+	}
+	if pending == nil {
+		pending = make(map[string]map[string]int)
+	}
+	lm := listeners[sessionID]
+	if lm == nil {
+		lm = make(map[uint32]string)
+		listeners[sessionID] = lm
+	}
+	lm[listenerID] = connStr
+	addrMap := pending[sessionID]
+	if addrMap == nil {
+		addrMap = make(map[string]int)
+		pending[sessionID] = addrMap
+	}
+	addrMap[connStr]++
+}
+
+func UntrackListener(sessionID string, listenerID uint32) bool {
+	pendingMu.Lock()
+	defer pendingMu.Unlock()
+	if listeners == nil || pending == nil {
+		return false
+	}
+	lm, ok := listeners[sessionID]
+	if !ok {
+		return false
+	}
+	connStr, ok := lm[listenerID]
+	if !ok {
+		return false
+	}
+	delete(lm, listenerID)
+	if len(lm) == 0 {
+		delete(listeners, sessionID)
+	}
+	if addrMap, ok := pending[sessionID]; ok {
+		if count, ok := addrMap[connStr]; ok {
+			if count <= 1 {
+				delete(addrMap, connStr)
+			} else {
+				addrMap[connStr] = count - 1
+			}
+		}
+		if len(addrMap) == 0 {
+			delete(pending, sessionID)
+		}
+	}
+	return true
 }
 
 // func removeAndCloseAllRTunnels() {

@@ -231,7 +231,6 @@ func createReverseTunnelHandler(implantConn *core.ImplantConnection, data []byte
 		sessionHandlerLog.Errorf("Session %s attempted to create reverse tunnel to %s without being initiated by a client", session.ID, remoteAddress)
 		return nil
 	}
-	defer rtunnels.DeletePending(session.ID)
 
 	var defaultDialer = new(net.Dialer)
 

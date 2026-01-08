@@ -39,10 +39,16 @@ func (rpc *Server) GetRportFwdListeners(ctx context.Context, req *sliverpb.Rport
 // StartRportfwdListener - Instruct the implant to start a reverse port forward
 func (rpc *Server) StartRportFwdListener(ctx context.Context, req *sliverpb.RportFwdStartListenerReq) (*sliverpb.RportFwdListener, error) {
 	resp := &sliverpb.RportFwdListener{Response: &commonpb.Response{}}
-	rtunnels.AddPending(req.Request.SessionID, req.ForwardAddress)
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
+	}
+	if resp.Response.GetErr() == "" {
+		addr := req.ForwardAddress
+		if resp.ForwardAddress != "" {
+			addr = resp.ForwardAddress
+		}
+		rtunnels.TrackListener(req.Request.SessionID, resp.ID, addr)
 	}
 	return resp, nil
 }
@@ -53,6 +59,9 @@ func (rpc *Server) StopRportFwdListener(ctx context.Context, req *sliverpb.Rport
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
 		return nil, err
+	}
+	if resp.Response.GetErr() == "" {
+		rtunnels.UntrackListener(req.Request.SessionID, req.ID)
 	}
 	return resp, nil
 }
