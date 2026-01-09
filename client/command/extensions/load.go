@@ -30,7 +30,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/bishopfox/sliver/client/assets"
@@ -43,8 +42,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
+	"github.com/carapace-sh/carapace"
 	appConsole "github.com/reeflective/console"
-	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"google.golang.org/protobuf/proto"
@@ -689,94 +688,6 @@ func PrintExtOutput(extName string, commandName string, outputSchema *packages.O
 	}
 }
 
-func getExtArgs(_ *cobra.Command, args []string, _ string, ext *ExtCommand) ([]byte, error) {
-	var err error
-	argsBuffer := core.BOFArgsBuffer{
-		Buffer: new(bytes.Buffer),
-	}
-
-	// Parse BOF arguments from grumble
-	missingRequiredArgs := make([]string, 0)
-
-	// If we have an extension that expects a single string, but more than one has been parsed, combine them
-	if len(ext.Arguments) == 1 && strings.Contains(ext.Arguments[0].Type, "string") && len(args) > 0 {
-		// The loop below will only read the first element of args because ext.Arguments is 1
-		args[0] = strings.Join(args, " ")
-	}
-
-	for _, arg := range ext.Arguments {
-		// If we don't have any positional words left to consume,
-		// add the remaining required extension arguments in the
-		// error message.
-		if len(args) == 0 {
-			if !arg.Optional {
-				missingRequiredArgs = append(missingRequiredArgs, "`"+arg.Name+"`")
-			}
-			continue
-		}
-
-		// Else pop a word from the list
-		word := args[0]
-		args = args[1:]
-
-		switch arg.Type {
-		case "integer":
-			fallthrough
-		case "int":
-			val, err := strconv.Atoi(word)
-			if err != nil {
-				return nil, err
-			}
-			err = argsBuffer.AddInt(uint32(val))
-			if err != nil {
-				return nil, err
-			}
-		case "short":
-			val, err := strconv.Atoi(word)
-			if err != nil {
-				return nil, err
-			}
-			err = argsBuffer.AddShort(uint16(val))
-			if err != nil {
-				return nil, err
-			}
-		case "string":
-			err = argsBuffer.AddString(word)
-			if err != nil {
-				return nil, err
-			}
-		case "wstring":
-			err = argsBuffer.AddWString(word)
-			if err != nil {
-				return nil, err
-			}
-		// Adding support for filepaths so we can
-		// send binary data like shellcodes to BOFs
-		case "file":
-			data, err := os.ReadFile(word)
-			if err != nil {
-				return nil, err
-			}
-			err = argsBuffer.AddData(data)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	// Return if we have missing required arguments
-	if len(missingRequiredArgs) > 0 {
-		return nil, fmt.Errorf("required arguments %s were not provided", strings.Join(missingRequiredArgs, ", "))
-	}
-
-	parsedArgs, err := argsBuffer.GetBuffer()
-	if err != nil {
-		return nil, err
-	}
-
-	return parsedArgs, nil
-}
-
 func getBOFArgs(cmd *cobra.Command, args []string, binPath string, ext *ExtCommand) ([]byte, error) {
 	var extensionArgs []byte
 	binData, err := os.ReadFile(binPath)
@@ -837,7 +748,10 @@ func checkExtensionArgs(extCmd *ExtCommand) error {
 	return nil
 }
 
-// makeExtensionArgCompleter builds the positional arguments completer for the extension.
+// makeExtensionArgCompleter builds the positional and dash arguments completer for the extension.
+// It provides completion for:
+// 1. Positional arguments (before --)
+// 2. Flag-style arguments after -- (e.g., --process, --shellcode)
 func makeExtensionArgCompleter(extCmd *ExtCommand, _ *cobra.Command, comps *carapace.Carapace) {
 	var actions []carapace.Action
 
@@ -847,6 +761,9 @@ func makeExtensionArgCompleter(extCmd *ExtCommand, _ *cobra.Command, comps *cara
 		switch arg.Type {
 		case "file":
 			action = carapace.ActionFiles().Tag("extension data")
+		default:
+			// For other types, provide no completion but show usage info
+			action = carapace.ActionValues()
 		}
 
 		usage := fmt.Sprintf("(%s) %s", arg.Type, arg.Desc)
@@ -858,6 +775,66 @@ func makeExtensionArgCompleter(extCmd *ExtCommand, _ *cobra.Command, comps *cara
 	}
 
 	comps.PositionalCompletion(actions...)
+
+	// Add dash completion for flag-style arguments after --
+	// The extension arguments are parsed as flags (--name value) by argparser.go
+	if len(extCmd.Arguments) > 0 {
+		// Pre-build the flag completions at registration time (not in a callback)
+		// This ensures the values are captured correctly
+		flagCompletion := makeExtensionFlagNameCompletion(extCmd)
+
+		// Build value completions for each argument type
+		valueCompletions := make(map[string]carapace.Action)
+		for _, arg := range extCmd.Arguments {
+			switch arg.Type {
+			case "file":
+				valueCompletions[arg.Name] = carapace.ActionFiles().Tag("file path")
+			default:
+				valueCompletions[arg.Name] = carapace.ActionValues()
+			}
+		}
+
+		// Use DashAnyCompletion with a smart action that determines context
+		comps.DashAnyCompletion(
+			carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+				// If typing a flag (starts with -)
+				if strings.HasPrefix(c.Value, "-") {
+					return flagCompletion
+				}
+
+				// If previous arg was a flag, complete its value
+				if len(c.Args) > 0 {
+					lastArg := c.Args[len(c.Args)-1]
+					if strings.HasPrefix(lastArg, "-") {
+						flagName := strings.TrimLeft(lastArg, "-")
+						if action, ok := valueCompletions[flagName]; ok {
+							return action
+						}
+					}
+				}
+
+				// Default: show flag names
+				return flagCompletion
+			}),
+		)
+	}
+}
+
+// makeExtensionFlagNameCompletion creates completion for flag names
+func makeExtensionFlagNameCompletion(extCmd *ExtCommand) carapace.Action {
+	var results []string
+
+	for _, arg := range extCmd.Arguments {
+		flagName := fmt.Sprintf("--%s", arg.Name)
+		desc := arg.Desc
+		if arg.Optional {
+			desc = fmt.Sprintf("[optional] %s", desc)
+		}
+		desc = fmt.Sprintf("(%s) %s", arg.Type, desc)
+		results = append(results, flagName, desc)
+	}
+
+	return carapace.ActionValuesDescribed(results...).Tag("extension arguments")
 }
 
 func makeCommandPlatformFilters(extCmd *ExtCommand) map[string]string {

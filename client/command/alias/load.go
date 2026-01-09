@@ -36,6 +36,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
+	"github.com/carapace-sh/carapace"
 	app "github.com/reeflective/console"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -76,6 +77,15 @@ type AliasFile struct {
 	Path string `json:"path"`
 }
 
+// AliasArgument - An argument for an alias command.
+type AliasArgument struct {
+	Name     string      `json:"name"`
+	Type     string      `json:"type"`
+	Desc     string      `json:"desc"`
+	Optional bool        `json:"optional"`
+	Default  interface{} `json:"default,omitempty"`
+}
+
 // AliasManifest - The manifest for an alias, contains metadata.
 type AliasManifest struct {
 	Name           string `json:"name"`
@@ -89,6 +99,7 @@ type AliasManifest struct {
 	Entrypoint   string                 `json:"entrypoint"`
 	AllowArgs    bool                   `json:"allow_args"`
 	DefaultArgs  string                 `json:"default_args"`
+	Arguments    []*AliasArgument       `json:"arguments"`
 	Files        []*AliasFile           `json:"files"`
 	IsReflective bool                   `json:"is_reflective"`
 	IsAssembly   bool                   `json:"is_assembly"`
@@ -158,15 +169,60 @@ func LoadAlias(manifestPath string, cmd *cobra.Command, con *console.SliverClien
 	}
 	aliasManifest.RootPath = filepath.Dir(manifestPath)
 
+	// Build usage string including arguments
+	usage := strings.Builder{}
+	usage.WriteString(aliasManifest.CommandName)
+	for _, arg := range aliasManifest.Arguments {
+		usage.WriteString(" ")
+		if arg.Optional {
+			usage.WriteString("[")
+		}
+		usage.WriteString(strings.ToUpper(arg.Name))
+		if arg.Optional {
+			usage.WriteString("]")
+		}
+	}
+
+	// Build long help message
+	longHelp := strings.Builder{}
+	longHelp.WriteString("[[.Bold]]Command:[[.Normal]]")
+	longHelp.WriteString(usage.String())
+	longHelp.WriteString("\n")
+	if len(aliasManifest.Help) > 0 || len(aliasManifest.LongHelp) > 0 {
+		longHelp.WriteString("[[.Bold]]About:[[.Normal]]")
+		if len(aliasManifest.Help) > 0 {
+			longHelp.WriteString(aliasManifest.Help)
+			longHelp.WriteString("\n")
+		}
+		if len(aliasManifest.LongHelp) > 0 {
+			longHelp.WriteString(aliasManifest.LongHelp)
+			longHelp.WriteString("\n")
+		}
+	}
+	if len(aliasManifest.Arguments) > 0 {
+		longHelp.WriteString("[[.Bold]]Arguments:[[.Normal]]")
+		for _, arg := range aliasManifest.Arguments {
+			longHelp.WriteString("\n\t")
+			optStr := ""
+			if arg.Optional {
+				optStr = "[OPTIONAL]"
+			}
+			aType := arg.Type
+			if aType == "wstring" {
+				aType = "string"
+			}
+			longHelp.WriteString(fmt.Sprintf("%s (%s):\t%s%s", strings.ToUpper(arg.Name), aType, optStr, arg.Desc))
+		}
+	}
+	longHelp.WriteString("\n\n⚠️  If you're having issues passing arguments to the alias please read:\n")
+	longHelp.WriteString("https://github.com/BishopFox/sliver/wiki/Aliases-&-Extensions#aliases-command-parsing")
+
 	// for each alias command, add a new app command
 	helpMsg := fmt.Sprintf("[%s] %s", aliasManifest.Name, aliasManifest.Help)
-	longHelpMsg := help.FormatHelpTmpl(aliasManifest.LongHelp)
-	longHelpMsg += "\n\n⚠️  If you're having issues passing arguments to the alias please read:\n"
-	longHelpMsg += "https://github.com/BishopFox/sliver/wiki/Aliases-&-Extensions#aliases-command-parsing"
 	addAliasCmd := &cobra.Command{
-		Use:   aliasManifest.CommandName,
+		Use:   usage.String(),
 		Short: helpMsg,
-		Long:  longHelpMsg,
+		Long:  help.FormatHelpTmpl(longHelp.String()),
 		Run: func(cmd *cobra.Command, args []string) {
 			runAliasCommand(cmd, con, args)
 		},
@@ -195,6 +251,10 @@ func LoadAlias(manifestPath string, cmd *cobra.Command, con *console.SliverClien
 	f.BoolP("save", "s", false, "Save output to disk")
 	f.IntP("timeout", "t", defaultTimeout, "command timeout in seconds")
 	addAliasCmd.Flags().AddFlagSet(f)
+
+	// Setup completions for alias arguments
+	comps := carapace.Gen(addAliasCmd)
+	makeAliasArgCompleter(aliasManifest, comps)
 
 	cmd.AddCommand(addAliasCmd)
 
@@ -588,4 +648,95 @@ func makeAliasPlatformFilters(alias *AliasManifest) map[string]string {
 	return map[string]string{
 		app.CommandFilterKey: strings.Join(all, ","),
 	}
+}
+
+// makeAliasArgCompleter builds the positional and dash arguments completer for the alias.
+// It provides completion for:
+// 1. Positional arguments (before --)
+// 2. Flag-style arguments after -- (e.g., --target, --port)
+func makeAliasArgCompleter(alias *AliasManifest, comps *carapace.Carapace) {
+	if len(alias.Arguments) == 0 {
+		return
+	}
+
+	var actions []carapace.Action
+
+	for _, arg := range alias.Arguments {
+		var action carapace.Action
+
+		switch arg.Type {
+		case "file":
+			action = carapace.ActionFiles().Tag("alias data")
+		default:
+			// For other types, provide no completion but show usage info
+			action = carapace.ActionValues()
+		}
+
+		usage := fmt.Sprintf("(%s) %s", arg.Type, arg.Desc)
+		if arg.Optional {
+			usage += " (optional)"
+		}
+
+		actions = append(actions, action.Usage("%s", usage))
+	}
+
+	comps.PositionalCompletion(actions...)
+
+	// Add dash completion for flag-style arguments after --
+	// Pre-build the flag completions at registration time (not in a callback)
+	flagCompletion := makeAliasFlagNameCompletion(alias)
+
+	// Build value completions for each argument type
+	valueCompletions := make(map[string]carapace.Action)
+	for _, arg := range alias.Arguments {
+		switch arg.Type {
+		case "file":
+			valueCompletions[arg.Name] = carapace.ActionFiles().Tag("file path")
+		case "bool":
+			valueCompletions[arg.Name] = carapace.ActionValues("true", "false").Tag("boolean")
+		default:
+			valueCompletions[arg.Name] = carapace.ActionValues()
+		}
+	}
+
+	// Use DashAnyCompletion with a smart action that determines context
+	comps.DashAnyCompletion(
+		carapace.ActionCallback(func(c carapace.Context) carapace.Action {
+			// If typing a flag (starts with -)
+			if strings.HasPrefix(c.Value, "-") {
+				return flagCompletion
+			}
+
+			// If previous arg was a flag, complete its value
+			if len(c.Args) > 0 {
+				lastArg := c.Args[len(c.Args)-1]
+				if strings.HasPrefix(lastArg, "-") {
+					flagName := strings.TrimLeft(lastArg, "-")
+					if action, ok := valueCompletions[flagName]; ok {
+						return action
+					}
+				}
+			}
+
+			// Default: show flag names
+			return flagCompletion
+		}),
+	)
+}
+
+// makeAliasFlagNameCompletion creates completion for flag names
+func makeAliasFlagNameCompletion(alias *AliasManifest) carapace.Action {
+	var results []string
+
+	for _, arg := range alias.Arguments {
+		flagName := fmt.Sprintf("--%s", arg.Name)
+		desc := arg.Desc
+		if arg.Optional {
+			desc = fmt.Sprintf("[optional] %s", desc)
+		}
+		desc = fmt.Sprintf("(%s) %s", arg.Type, desc)
+		results = append(results, flagName, desc)
+	}
+
+	return carapace.ActionValuesDescribed(results...).Tag("alias arguments")
 }
