@@ -120,6 +120,7 @@ type extensionArgument struct {
 	Desc     string      `json:"desc"`
 	Optional bool        `json:"optional"`
 	Default  interface{} `json:"default,omitempty"`
+	Choices  []string    `json:"choices,omitempty"`
 }
 
 func (e *ExtCommand) getFileForTarget(targetOS string, targetArch string) (string, error) {
@@ -758,12 +759,17 @@ func makeExtensionArgCompleter(extCmd *ExtCommand, _ *cobra.Command, comps *cara
 	for _, arg := range extCmd.Arguments {
 		var action carapace.Action
 
-		switch arg.Type {
-		case "file":
-			action = carapace.ActionFiles().Tag("extension data")
-		default:
-			// For other types, provide no completion but show usage info
-			action = carapace.ActionValues()
+		// If choices are defined, use them for completion
+		if len(arg.Choices) > 0 {
+			action = carapace.ActionValues(arg.Choices...).Tag("choices")
+		} else {
+			// Fall back to type-based completion
+			switch arg.Type {
+			case "file":
+				action = carapace.ActionFiles().Tag("extension data")
+			default:
+				action = carapace.ActionValues()
+			}
 		}
 
 		usage := fmt.Sprintf("(%s) %s", arg.Type, arg.Desc)
@@ -786,11 +792,17 @@ func makeExtensionArgCompleter(extCmd *ExtCommand, _ *cobra.Command, comps *cara
 		// Build value completions for each argument type
 		valueCompletions := make(map[string]carapace.Action)
 		for _, arg := range extCmd.Arguments {
-			switch arg.Type {
-			case "file":
-				valueCompletions[arg.Name] = carapace.ActionFiles().Tag("file path")
-			default:
-				valueCompletions[arg.Name] = carapace.ActionValues()
+			// If choices are defined, use them for completion
+			if len(arg.Choices) > 0 {
+				valueCompletions[arg.Name] = carapace.ActionValues(arg.Choices...).Tag("choices")
+			} else {
+				// Fall back to type-based completion
+				switch arg.Type {
+				case "file":
+					valueCompletions[arg.Name] = carapace.ActionFiles().Tag("file path")
+				default:
+					valueCompletions[arg.Name] = carapace.ActionValues()
+				}
 			}
 		}
 
