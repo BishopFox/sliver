@@ -24,7 +24,7 @@ github.com/Binject/binjection/bj
 github.com/Binject/debug/elf
 github.com/Binject/debug/macho
 github.com/Binject/debug/pe
-# github.com/Binject/go-donut v0.0.0-20220908180326-fcdcc35d591c
+# github.com/Binject/go-donut v0.0.0-20210701074227-67a31e2d883e
 ## explicit; go 1.16
 github.com/Binject/go-donut/donut
 # github.com/Binject/shellcode v0.0.0-20191101084904-a8a90e7d4563
