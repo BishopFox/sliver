@@ -33,6 +33,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/pires/go-proxyproto"
 	"go4.org/mem"
 	"tailscale.com/ipn"
 	"tailscale.com/net/netutil"
@@ -40,6 +41,7 @@ import (
 	"tailscale.com/tailcfg"
 	"tailscale.com/types/lazy"
 	"tailscale.com/types/logger"
+	"tailscale.com/types/views"
 	"tailscale.com/util/backoff"
 	"tailscale.com/util/clientmetric"
 	"tailscale.com/util/ctxkey"
@@ -57,6 +59,9 @@ func init() {
 	hookServeClearVIPServicesTCPPortsInterceptedLocked.Set(func(b *LocalBackend) {
 		b.setVIPServicesTCPPortsInterceptedLocked(nil)
 	})
+
+	hookMaybeMutateHostinfoLocked.Add(maybeUpdateHostinfoServicesHashLocked)
+	hookMaybeMutateHostinfoLocked.Add(maybeUpdateHostinfoFunnelLocked)
 
 	RegisterC2N("GET /vip-services", handleC2NVIPServicesGet)
 }
@@ -80,6 +85,8 @@ type serveHTTPContext struct {
 
 	// provides funnel-specific context, nil if not funneled
 	Funnel *funnelFlow
+	// AppCapabilities lists all PeerCapabilities that should be forwarded by serve
+	AppCapabilities views.Slice[tailcfg.PeerCapability]
 }
 
 // funnelFlow represents a funneled connection initiated via IngressPeer
@@ -285,6 +292,10 @@ func (b *LocalBackend) updateServeTCPPortNetMapAddrListenersLocked(ports []uint1
 // SetServeConfig establishes or replaces the current serve config.
 // ETag is an optional parameter to enforce Optimistic Concurrency Control.
 // If it is an empty string, then the config will be overwritten.
+//
+// New foreground config cannot override existing listeners--neither existing
+// foreground listeners nor existing background listeners. Background config can
+// change as long as the serve type (e.g. HTTP, TCP, etc.) remains the same.
 func (b *LocalBackend) SetServeConfig(config *ipn.ServeConfig, etag string) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -298,12 +309,6 @@ func (b *LocalBackend) setServeConfigLocked(config *ipn.ServeConfig, etag string
 	}
 	if b.isConfigLocked_Locked() {
 		return errors.New("can't reconfigure tailscaled when using a config file; config file is locked")
-	}
-
-	if config != nil {
-		if err := config.CheckValidServicesConfig(); err != nil {
-			return err
-		}
 	}
 
 	nm := b.NetMap()
@@ -331,6 +336,10 @@ func (b *LocalBackend) setServeConfigLocked(config *ipn.ServeConfig, etag string
 		if etag != previousEtag {
 			return ErrETagMismatch
 		}
+	}
+
+	if err := validateServeConfigUpdate(prevConfig, config.View()); err != nil {
+		return err
 	}
 
 	var bs []byte
@@ -665,10 +674,81 @@ func (b *LocalBackend) tcpHandlerForServe(dport uint16, srcAddr netip.AddrPort, 
 				})
 			}
 
+			var proxyHeader []byte
+			if ver := tcph.ProxyProtocol(); ver > 0 {
+				// backAddr is the final "destination" of the connection,
+				// which is the connection to the proxied-to backend.
+				backAddr := backConn.RemoteAddr().(*net.TCPAddr)
+
+				// We always want to format the PROXY protocol
+				// header based on the IPv4 or IPv6-ness of
+				// the client. The SourceAddr and
+				// DestinationAddr need to match in type, so we
+				// need to be careful to not e.g. set a
+				// SourceAddr of type IPv6 and DestinationAddr
+				// of type IPv4.
+				//
+				// If this is an IPv6-mapped IPv4 address,
+				// though, unmap it.
+				proxySrcAddr := srcAddr
+				if proxySrcAddr.Addr().Is4In6() {
+					proxySrcAddr = netip.AddrPortFrom(
+						proxySrcAddr.Addr().Unmap(),
+						proxySrcAddr.Port(),
+					)
+				}
+
+				is4 := proxySrcAddr.Addr().Is4()
+
+				var destAddr netip.Addr
+				if self := b.currentNode().Self(); self.Valid() {
+					if is4 {
+						destAddr = nodeIP(self, netip.Addr.Is4)
+					} else {
+						destAddr = nodeIP(self, netip.Addr.Is6)
+					}
+				}
+				if !destAddr.IsValid() {
+					// Pick a best-effort destination address of localhost.
+					if is4 {
+						destAddr = netip.AddrFrom4([4]byte{127, 0, 0, 1})
+					} else {
+						destAddr = netip.IPv6Loopback()
+					}
+				}
+
+				header := &proxyproto.Header{
+					Version:    byte(ver),
+					Command:    proxyproto.PROXY,
+					SourceAddr: net.TCPAddrFromAddrPort(proxySrcAddr),
+					DestinationAddr: &net.TCPAddr{
+						IP:   destAddr.AsSlice(),
+						Port: backAddr.Port,
+					},
+				}
+				if is4 {
+					header.TransportProtocol = proxyproto.TCPv4
+				} else {
+					header.TransportProtocol = proxyproto.TCPv6
+				}
+				var err error
+				proxyHeader, err = header.Format()
+				if err != nil {
+					b.logf("localbackend: failed to format proxy protocol header for port %v (from %v) to %s: %v", dport, srcAddr, backDst, err)
+				}
+			}
+
 			// TODO(bradfitz): do the RegisterIPPortIdentity and
 			// UnregisterIPPortIdentity stuff that netstack does
 			errc := make(chan error, 1)
 			go func() {
+				if len(proxyHeader) > 0 {
+					if _, err := backConn.Write(proxyHeader); err != nil {
+						errc <- err
+						backConn.Close() // to ensure that the other side gets EOF
+						return
+					}
+				}
 				_, err := io.Copy(backConn, conn)
 				errc <- err
 			}()
@@ -803,9 +883,11 @@ func (rp *reverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		r.Out.Host = r.In.Host
 		addProxyForwardedHeaders(r)
 		rp.lb.addTailscaleIdentityHeaders(r)
-	}}
-
-	// There is no way to autodetect h2c as per RFC 9113
+		if err := rp.lb.addAppCapabilitiesHeader(r); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}} // There is no way to autodetect h2c as per RFC 9113
 	// https://datatracker.ietf.org/doc/html/rfc9113#name-starting-http-2.
 	// However, we assume that http:// proxy prefix in combination with the
 	// protoccol being HTTP/2 is sufficient to detect h2c for our needs. Only use this for
@@ -927,6 +1009,53 @@ func encTailscaleHeaderValue(v string) string {
 	return mime.QEncoding.Encode("utf-8", v)
 }
 
+func (b *LocalBackend) addAppCapabilitiesHeader(r *httputil.ProxyRequest) error {
+	const appCapabilitiesHeaderName = "Tailscale-App-Capabilities"
+	r.Out.Header.Del(appCapabilitiesHeaderName)
+
+	c, ok := serveHTTPContextKey.ValueOk(r.Out.Context())
+	if !ok || c.Funnel != nil {
+		return nil
+	}
+	acceptCaps := c.AppCapabilities
+	if acceptCaps.IsNil() {
+		return nil
+	}
+	peerCaps := b.PeerCaps(c.SrcAddr.Addr())
+	if peerCaps == nil {
+		return nil
+	}
+
+	peerCapsFiltered := make(map[tailcfg.PeerCapability][]tailcfg.RawMessage, acceptCaps.Len())
+	for _, cap := range acceptCaps.AsSlice() {
+		if peerCaps.HasCapability(cap) {
+			peerCapsFiltered[cap] = peerCaps[cap]
+		}
+	}
+
+	peerCapsSerialized, err := json.Marshal(peerCapsFiltered)
+	if err != nil {
+		b.logf("serve: failed to serialize filtered PeerCapMap: %v", err)
+		return fmt.Errorf("unable to process app capabilities")
+	}
+
+	r.Out.Header.Set(appCapabilitiesHeaderName, encTailscaleHeaderValue(string(peerCapsSerialized)))
+	return nil
+}
+
+// parseRedirectWithCode parses a redirect string that may optionally start with
+// a HTTP redirect status code ("3xx:").
+// Returns the status code and the final redirect URL.
+// If no code prefix is found, returns http.StatusFound (302).
+func parseRedirectWithCode(redirect string) (code int, url string) {
+	if len(redirect) >= 4 && redirect[3] == ':' {
+		if statusCode, err := strconv.Atoi(redirect[:3]); err == nil && statusCode >= 300 && statusCode <= 399 {
+			return statusCode, redirect[4:]
+		}
+	}
+	return http.StatusFound, redirect
+}
+
 // serveWebHandler is an http.HandlerFunc that maps incoming requests to the
 // correct *http.
 func (b *LocalBackend) serveWebHandler(w http.ResponseWriter, r *http.Request) {
@@ -940,6 +1069,13 @@ func (b *LocalBackend) serveWebHandler(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, s)
 		return
 	}
+	if v := h.Redirect(); v != "" {
+		code, v := parseRedirectWithCode(v)
+		v = strings.ReplaceAll(v, "${HOST}", r.Host)
+		v = strings.ReplaceAll(v, "${REQUEST_URI}", r.RequestURI)
+		http.Redirect(w, r, v, code)
+		return
+	}
 	if v := h.Path(); v != "" {
 		b.serveFileOrDirectory(w, r, v, mountPoint)
 		return
@@ -950,6 +1086,12 @@ func (b *LocalBackend) serveWebHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "unknown proxy destination", http.StatusInternalServerError)
 			return
 		}
+		// Inject app capabilities to forward into the request context
+		c, ok := serveHTTPContextKey.ValueOk(r.Context())
+		if !ok {
+			return
+		}
+		c.AppCapabilities = h.AcceptAppCaps()
 		h := p.(http.Handler)
 		// Trim the mount point from the URL path before proxying. (#6571)
 		if r.URL.Path != "/" {
@@ -1162,7 +1304,7 @@ func handleC2NVIPServicesGet(b *LocalBackend, w http.ResponseWriter, r *http.Req
 	b.logf("c2n: GET /vip-services received")
 	var res tailcfg.C2NVIPServicesResponse
 	res.VIPServices = b.VIPServices()
-	res.ServicesHash = b.vipServiceHash(res.VIPServices)
+	res.ServicesHash = vipServiceHash(b.logf, res.VIPServices)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(res)
@@ -1377,4 +1519,193 @@ func (b *LocalBackend) setVIPServicesTCPPortsInterceptedLocked(svcPorts map[tail
 	}
 
 	b.shouldInterceptVIPServicesTCPPortAtomic.Store(generateInterceptVIPServicesTCPPortFunc(svcAddrPorts))
+}
+
+func maybeUpdateHostinfoServicesHashLocked(b *LocalBackend, hi *tailcfg.Hostinfo, prefs ipn.PrefsView) bool {
+	latestHash := vipServiceHash(b.logf, b.vipServicesFromPrefsLocked(prefs))
+	if hi.ServicesHash != latestHash {
+		hi.ServicesHash = latestHash
+		return true
+	}
+	return false
+}
+
+func maybeUpdateHostinfoFunnelLocked(b *LocalBackend, hi *tailcfg.Hostinfo, prefs ipn.PrefsView) (changed bool) {
+	// The Hostinfo.IngressEnabled field is used to communicate to control whether
+	// the node has funnel enabled.
+	if ie := b.hasIngressEnabledLocked(); hi.IngressEnabled != ie {
+		b.logf("Hostinfo.IngressEnabled changed to %v", ie)
+		hi.IngressEnabled = ie
+		changed = true
+	}
+	// The Hostinfo.WireIngress field tells control whether the user intends
+	// to use funnel with this node even though it is not currently enabled.
+	// This is an optimization to control- Funnel requires creation of DNS
+	// records and because DNS propagation can take time, we want to ensure
+	// that the records exist for any node that intends to use funnel even
+	// if it's not enabled. If hi.IngressEnabled is true, control knows that
+	// DNS records are needed, so we can save bandwidth and not send
+	// WireIngress.
+	if wire := b.shouldWireInactiveIngressLocked(); hi.WireIngress != wire {
+		b.logf("Hostinfo.WireIngress changed to %v", wire)
+		hi.WireIngress = wire
+		changed = true
+	}
+	return changed
+}
+
+func vipServiceHash(logf logger.Logf, services []*tailcfg.VIPService) string {
+	if len(services) == 0 {
+		return ""
+	}
+	h := sha256.New()
+	jh := json.NewEncoder(h)
+	if err := jh.Encode(services); err != nil {
+		logf("vipServiceHashLocked: %v", err)
+		return ""
+	}
+	var buf [sha256.Size]byte
+	h.Sum(buf[:0])
+	return hex.EncodeToString(buf[:])
+}
+
+// validateServeConfigUpdate validates changes proposed by incoming serve
+// configuration.
+func validateServeConfigUpdate(existing, incoming ipn.ServeConfigView) error {
+	// Error messages returned by this function may be presented to end-users by
+	// frontends like the CLI. Thus these error messages should provide enough
+	// information for end-users to diagnose and resolve conflicts.
+
+	if !incoming.Valid() {
+		return nil
+	}
+
+	// For Services, TUN mode is mutually exclusive with L4 or L7 handlers.
+	for svcName, svcCfg := range incoming.Services().All() {
+		hasTCP := svcCfg.TCP().Len() > 0
+		hasWeb := svcCfg.Web().Len() > 0
+		if svcCfg.Tun() && (hasTCP || hasWeb) {
+			return fmt.Errorf("cannot configure TUN mode in combination with TCP or web handlers for %s", svcName)
+		}
+	}
+
+	if !existing.Valid() {
+		return nil
+	}
+
+	// New foreground listeners must be on open ports.
+	for sessionID, incomingFg := range incoming.Foreground().All() {
+		if !existing.Foreground().Has(sessionID) {
+			// This is a new session.
+			for port := range incomingFg.TCPs() {
+				if _, exists := existing.FindTCP(port); exists {
+					return fmt.Errorf("listener already exists for port %d", port)
+				}
+			}
+		}
+	}
+
+	// New background listeners cannot overwrite existing foreground listeners.
+	for port := range incoming.TCP().All() {
+		if _, exists := existing.FindForegroundTCP(port); exists {
+			return fmt.Errorf("foreground listener already exists for port %d", port)
+		}
+	}
+
+	// Incoming configuration cannot change the serve type in use by a port.
+	for port, incomingHandler := range incoming.TCP().All() {
+		existingHandler, exists := existing.FindTCP(port)
+		if !exists {
+			continue
+		}
+
+		existingServeType := serveTypeFromPortHandler(existingHandler)
+		incomingServeType := serveTypeFromPortHandler(incomingHandler)
+		if incomingServeType != existingServeType {
+			return fmt.Errorf("want to serve %q, but port %d is already serving %q", incomingServeType, port, existingServeType)
+		}
+	}
+
+	// Validations for Tailscale Services.
+	for svcName, incomingSvcCfg := range incoming.Services().All() {
+		existingSvcCfg, exists := existing.Services().GetOk(svcName)
+		if !exists {
+			continue
+		}
+
+		// Incoming configuration cannot change the serve type in use by a port.
+		for port, incomingHandler := range incomingSvcCfg.TCP().All() {
+			existingHandler, exists := existingSvcCfg.TCP().GetOk(port)
+			if !exists {
+				continue
+			}
+
+			existingServeType := serveTypeFromPortHandler(existingHandler)
+			incomingServeType := serveTypeFromPortHandler(incomingHandler)
+			if incomingServeType != existingServeType {
+				return fmt.Errorf("want to serve %q, but port %d is already serving %q for %s", incomingServeType, port, existingServeType, svcName)
+			}
+		}
+
+		existingHasTCP := existingSvcCfg.TCP().Len() > 0
+		existingHasWeb := existingSvcCfg.Web().Len() > 0
+
+		// A Service cannot turn on TUN mode if TCP or web handlers exist.
+		if incomingSvcCfg.Tun() && (existingHasTCP || existingHasWeb) {
+			return fmt.Errorf("cannot turn on TUN mode with existing TCP or web handlers for %s", svcName)
+		}
+
+		incomingHasTCP := incomingSvcCfg.TCP().Len() > 0
+		incomingHasWeb := incomingSvcCfg.Web().Len() > 0
+
+		// A Service cannot add TCP or web handlers if TUN mode is enabled.
+		if (incomingHasTCP || incomingHasWeb) && existingSvcCfg.Tun() {
+			return fmt.Errorf("cannot add TCP or web handlers as TUN mode is enabled for %s", svcName)
+		}
+	}
+
+	return nil
+}
+
+// serveType is a high-level descriptor of the kind of serve performed by a TCP
+// port handler.
+type serveType int
+
+const (
+	serveTypeHTTPS serveType = iota
+	serveTypeHTTP
+	serveTypeTCP
+	serveTypeTLSTerminatedTCP
+)
+
+func (s serveType) String() string {
+	switch s {
+	case serveTypeHTTP:
+		return "http"
+	case serveTypeHTTPS:
+		return "https"
+	case serveTypeTCP:
+		return "tcp"
+	case serveTypeTLSTerminatedTCP:
+		return "tls-terminated-tcp"
+	default:
+		return "unknownServeType"
+	}
+}
+
+// serveTypeFromPortHandler is used to get a high-level descriptor of the kind
+// of serve being performed by a port handler.
+func serveTypeFromPortHandler(ph ipn.TCPPortHandlerView) serveType {
+	switch {
+	case ph.HTTP():
+		return serveTypeHTTP
+	case ph.HTTPS():
+		return serveTypeHTTPS
+	case ph.TerminateTLS() != "":
+		return serveTypeTLSTerminatedTCP
+	case ph.TCPForward() != "":
+		return serveTypeTCP
+	default:
+		return -1
+	}
 }
