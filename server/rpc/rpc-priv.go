@@ -109,6 +109,12 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 	if err != nil {
 		req.Config.Format = clientpb.OutputFormat_SHELLCODE
 		req.Config.ObfuscateSymbols = false
+		req.Config.IsShellcode = true
+		req.Config.IsSharedLib = false
+		req.Config.TemplateName = "sliver"
+		if len(req.Config.Exports) == 0 {
+			req.Config.Exports = []string{"StartW"}
+		}
 		build, err := generate.GenerateConfig(name, req.Config)
 		if err != nil {
 			return nil, rpcError(err)
