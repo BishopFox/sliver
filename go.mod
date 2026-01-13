@@ -1,6 +1,6 @@
 module github.com/bishopfox/sliver
 
-go 1.25.3
+go 1.25.5
 
 replace github.com/rsteube/carapace v0.36.3 => github.com/reeflective/carapace v0.46.3-0.20231214181515-27e49f3c3b69
 
@@ -67,15 +67,17 @@ require (
 	gorm.io/gorm v1.31.0
 	gvisor.dev/gvisor v0.0.0-20250503011706-39ed1f5ac29c
 	modernc.org/sqlite v1.39.0
-	tailscale.com v1.90.6
+	tailscale.com v1.92.5
 )
 
 require (
 	filippo.io/hpke v0.4.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
+	github.com/creachadair/msync v0.7.1 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
+	github.com/pires/go-proxyproto v0.8.1 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
