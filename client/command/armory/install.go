@@ -274,19 +274,22 @@ func getInstalledPackageNames() []string {
 }
 
 // This is a convenience function to get the names of the commands in the cache
-func getCommandsInCache() []string {
+func getCommandsInCache(armoryPK string) []string {
 	commandNames := []string{}
 
 	pkgCache.Range(func(key, value interface{}) bool {
 		cacheEntry := value.(pkgCacheEntry)
 		if cacheEntry.LastErr == nil {
+			if armoryPK != "" && cacheEntry.ArmoryConfig.PublicKey != armoryPK {
+				return true
+			}
 			if cacheEntry.Pkg.IsAlias {
-				if !slices.Contains(commandNames, cacheEntry.Alias.CommandName) {
+				if cacheEntry.Alias.CommandName != "" && !slices.Contains(commandNames, cacheEntry.Alias.CommandName) {
 					commandNames = append(commandNames, cacheEntry.Alias.CommandName)
 				}
 			} else {
 				for _, command := range cacheEntry.Extension.ExtCommand {
-					if !slices.Contains(commandNames, command.CommandName) {
+					if command.CommandName != "" && !slices.Contains(commandNames, command.CommandName) {
 						commandNames = append(commandNames, command.CommandName)
 					}
 				}
@@ -398,7 +401,7 @@ func buildInstallList(name, armoryPK string, forceInstallation bool, pendingPack
 	var requestedPackageList []string
 	if name == "all" {
 		requestedPackageList = []string{}
-		allCommands := getCommandsInCache()
+		allCommands := getCommandsInCache(armoryPK)
 		for _, cmdName := range allCommands {
 			if !slices.Contains(installedPackages, cmdName) || forceInstallation {
 				// Check to see if there is a package pending with that name
@@ -457,6 +460,15 @@ func installPackageByName(name, armoryPK string, forceInstallation, promptToOver
 	packageInstallList, err := buildInstallList(name, armoryPK, forceInstallation, pendingPackages)
 	if err != nil {
 		return err
+	}
+	if len(packageInstallList) == 0 && name == "all" {
+		availableCommands := getCommandsInCache(armoryPK)
+		if len(availableCommands) == 0 {
+			con.PrintInfof("No packages or bundles found\n")
+		} else {
+			con.PrintInfof("All available packages are already installed\n")
+		}
+		return nil
 	}
 	if len(packageInstallList) > 0 {
 		for _, packageID := range packageInstallList {
