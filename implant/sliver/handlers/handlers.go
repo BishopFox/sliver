@@ -27,10 +27,12 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -1146,6 +1148,29 @@ func executeHandler(data []byte, resp RPCResponse) {
 		return
 	}
 	cmd := exec.Command(exePath, execReq.Args...)
+	if execReq.EnvInheritance || len(execReq.Env) > 0 {
+		envVars := make(map[string]string)
+		if execReq.EnvInheritance {
+			for _, entry := range os.Environ() {
+				parts := strings.SplitN(entry, "=", 2)
+				if len(parts) == 2 {
+					envVars[parts[0]] = parts[1]
+				} else if len(parts) == 1 {
+					envVars[parts[0]] = ""
+				}
+			}
+		}
+		maps.Copy(envVars, execReq.Env)
+		keys := make([]string, 0, len(envVars))
+		for key := range envVars {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		cmd.Env = make([]string, 0, len(envVars))
+		for _, key := range keys {
+			cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, envVars[key]))
+		}
+	}
 
 	if execReq.Output {
 		stdOutBuff := new(bytes.Buffer)

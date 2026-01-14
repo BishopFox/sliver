@@ -68,6 +68,7 @@ var (
 		consts.RunAsStr:            runAsHelp,
 		consts.ImpersonateStr:      impersonateHelp,
 		consts.RevToSelfStr:        revToSelfHelp,
+		consts.ExecuteStr:          executeHelp,
 		consts.ExecuteAssemblyStr:  executeAssemblyHelp,
 		consts.ExecuteShellcodeStr: executeShellcodeHelp,
 		consts.MigrateStr:          migrateHelp,
@@ -123,6 +124,22 @@ var (
 		consts.C2ProfileStr: c2ProfilesHelp,
 		consts.C2ProfileStr + sep + consts.C2GenerateStr: c2GenerateHelp,
 	}
+
+	executeHelp = `[[.Bold]]Command:[[.Normal]] execute <path to executable> [options] -- [args...]
+
+[[.Bold]]About:[[.Normal]] Execute a program on the remote system with optional arguments, note the subprocess 
+arguments are be separated from the sliver 'execute' arguments with '--' 
+
+[[.Bold]]Example:[[.Normal]]
+execute /bin/bash --env FOO=1 -- -c env
+
+[*] Execute: /bin/bash [-c env]
+[*] Output:
+FOO=1
+PWD=/Users/moloch/git/sliver
+SHLVL=1
+_=/usr/bin/env
+`
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
 	[[.Bold]]About:[[.Normal]] Manage jobs/listeners.`
