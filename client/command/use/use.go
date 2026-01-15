@@ -39,6 +39,77 @@ import (
 
 var ErrNoSelection = errors.New("no selection")
 
+func registerUseIDCompletion(cmd *cobra.Command, con *console.SliverClient, includeSessions, includeBeacons bool) {
+	if cmd == nil || cmd.ValidArgsFunction != nil {
+		return
+	}
+
+	cmd.ValidArgsFunction = func(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(args) > 0 {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+
+		values := useCompletionValues(con, includeSessions, includeBeacons)
+		return filterCompletionValues(values, toComplete), cobra.ShellCompDirectiveNoFileComp
+	}
+}
+
+func useCompletionValues(con *console.SliverClient, includeSessions, includeBeacons bool) []string {
+	results := []string{}
+	if con == nil || con.Rpc == nil {
+		return results
+	}
+
+	if includeSessions {
+		sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
+		if err == nil {
+			for _, session := range sessions.Sessions {
+				link := fmt.Sprintf("[%s <- %s]", session.ActiveC2, session.RemoteAddress)
+				id := fmt.Sprintf("%s (%d)", session.Name, session.PID)
+				userHost := fmt.Sprintf("%s@%s", session.Username, session.Hostname)
+				desc := strings.Join([]string{id, userHost, link}, " ")
+
+				results = append(results, fmt.Sprintf("%s\t%s", session.ID[:8], desc))
+			}
+		}
+	}
+
+	if includeBeacons {
+		beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
+		if err == nil {
+			for _, beacon := range beacons.Beacons {
+				link := fmt.Sprintf("[%s <- %s]", beacon.ActiveC2, beacon.RemoteAddress)
+				id := fmt.Sprintf("%s (%d)", beacon.Name, beacon.PID)
+				userHost := fmt.Sprintf("%s@%s", beacon.Username, beacon.Hostname)
+				desc := strings.Join([]string{id, userHost, link}, " ")
+
+				results = append(results, fmt.Sprintf("%s\t%s", beacon.ID[:8], desc))
+			}
+		}
+	}
+
+	return results
+}
+
+func filterCompletionValues(values []string, prefix string) []string {
+	if prefix == "" {
+		return values
+	}
+
+	filtered := make([]string, 0, len(values))
+	for _, value := range values {
+		candidate := value
+		if tab := strings.IndexByte(value, '\t'); tab >= 0 {
+			candidate = value[:tab]
+		}
+		if strings.HasPrefix(candidate, prefix) {
+			filtered = append(filtered, value)
+		}
+	}
+
+	return filtered
+}
+
 // UseCmd - Change the active session
 func UseCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var session *clientpb.Session
