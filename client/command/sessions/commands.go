@@ -43,6 +43,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		(*comp)["interact"] = SessionIDCompleter(con)
 		(*comp)["kill"] = SessionIDCompleter(con)
 	})
+	registerSessionIDFlagCompletion(sessionsCmd, "interact", con)
 
 	sessionsPruneCmd := &cobra.Command{
 		Use:   consts.PruneStr,
@@ -63,24 +64,76 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 // SessionIDCompleter completes session IDs.
 func SessionIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
-		results := make([]string, 0)
-
-		sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
-		if err == nil {
-			for _, s := range sessions.Sessions {
-				link := fmt.Sprintf("[%s <- %s]", s.ActiveC2, s.RemoteAddress)
-				id := fmt.Sprintf("%s (%d)", s.Name, s.PID)
-				userHost := fmt.Sprintf("%s@%s", s.Username, s.Hostname)
-				desc := strings.Join([]string{id, userHost, link}, " ")
-
-				results = append(results, s.ID[:8])
-				results = append(results, desc)
-			}
-		}
-		return carapace.ActionValuesDescribed(results...).Tag("sessions")
+		return carapace.ActionValuesDescribed(sessionCompletionPairs(con)...).Tag("sessions")
 	}
 
 	return carapace.ActionCallback(callback)
+}
+
+func registerSessionIDFlagCompletion(cmd *cobra.Command, name string, con *console.SliverClient) {
+	if cmd == nil {
+		return
+	}
+	if _, ok := cmd.GetFlagCompletionFunc(name); ok {
+		return
+	}
+	if cmd.Flags().Lookup(name) == nil && cmd.PersistentFlags().Lookup(name) == nil {
+		return
+	}
+	_ = cmd.RegisterFlagCompletionFunc(name, func(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		values := describedValuesToTabs(sessionCompletionPairs(con))
+		return filterCompletionValues(values, toComplete), cobra.ShellCompDirectiveNoFileComp
+	})
+}
+
+func sessionCompletionPairs(con *console.SliverClient) []string {
+	results := make([]string, 0)
+	if con == nil || con.Rpc == nil {
+		return results
+	}
+
+	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return results
+	}
+
+	for _, s := range sessions.Sessions {
+		link := fmt.Sprintf("[%s <- %s]", s.ActiveC2, s.RemoteAddress)
+		id := fmt.Sprintf("%s (%d)", s.Name, s.PID)
+		userHost := fmt.Sprintf("%s@%s", s.Username, s.Hostname)
+		desc := strings.Join([]string{id, userHost, link}, " ")
+
+		results = append(results, s.ID[:8], desc)
+	}
+
+	return results
+}
+
+func describedValuesToTabs(values []string) []string {
+	tabbed := make([]string, 0, len(values)/2)
+	for i := 0; i+1 < len(values); i += 2 {
+		tabbed = append(tabbed, fmt.Sprintf("%s\t%s", values[i], values[i+1]))
+	}
+	return tabbed
+}
+
+func filterCompletionValues(values []string, prefix string) []string {
+	if prefix == "" {
+		return values
+	}
+
+	filtered := make([]string, 0, len(values))
+	for _, value := range values {
+		candidate := value
+		if tab := strings.IndexByte(value, '\t'); tab >= 0 {
+			candidate = value[:tab]
+		}
+		if strings.HasPrefix(candidate, prefix) {
+			filtered = append(filtered, value)
+		}
+	}
+
+	return filtered
 }
 
 // SliverCommands returns all session control commands for the active target.

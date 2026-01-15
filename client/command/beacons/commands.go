@@ -33,6 +33,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind("beacons", false, beaconsCmd, func(f *pflag.FlagSet) {
 		f.StringP("kill", "k", "", "kill the designated beacon")
 		f.BoolP("kill-all", "K", false, "kill all beacons")
+		f.StringP("interact", "i", "", "interact with a beacon")
 		f.BoolP("force", "F", false, "force killing the beacon")
 
 		f.StringP("filter", "f", "", "filter beacons by substring")
@@ -40,7 +41,9 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	})
 	flags.BindFlagCompletions(beaconsCmd, func(comp *carapace.ActionMap) {
 		(*comp)["kill"] = BeaconIDCompleter(con)
+		(*comp)["interact"] = BeaconIDCompleter(con)
 	})
+	registerBeaconIDFlagCompletion(beaconsCmd, "interact", con)
 	beaconsRmCmd := &cobra.Command{
 		Use:   consts.RmStr,
 		Short: "Remove a beacon",
@@ -81,22 +84,74 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 // BeaconIDCompleter completes beacon IDs
 func BeaconIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
-		results := make([]string, 0)
-
-		beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
-		if err == nil {
-			for _, b := range beacons.Beacons {
-				link := fmt.Sprintf("[%s <- %s]", b.ActiveC2, b.RemoteAddress)
-				id := fmt.Sprintf("%s (%d)", b.Name, b.PID)
-				userHost := fmt.Sprintf("%s@%s", b.Username, b.Hostname)
-				desc := strings.Join([]string{id, userHost, link}, " ")
-
-				results = append(results, b.ID[:8])
-				results = append(results, desc)
-			}
-		}
-		return carapace.ActionValuesDescribed(results...).Tag("beacons")
+		return carapace.ActionValuesDescribed(beaconCompletionPairs(con)...).Tag("beacons")
 	}
 
 	return carapace.ActionCallback(callback)
+}
+
+func registerBeaconIDFlagCompletion(cmd *cobra.Command, name string, con *console.SliverClient) {
+	if cmd == nil {
+		return
+	}
+	if _, ok := cmd.GetFlagCompletionFunc(name); ok {
+		return
+	}
+	if cmd.Flags().Lookup(name) == nil && cmd.PersistentFlags().Lookup(name) == nil {
+		return
+	}
+	_ = cmd.RegisterFlagCompletionFunc(name, func(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		values := describedValuesToTabs(beaconCompletionPairs(con))
+		return filterCompletionValues(values, toComplete), cobra.ShellCompDirectiveNoFileComp
+	})
+}
+
+func beaconCompletionPairs(con *console.SliverClient) []string {
+	results := make([]string, 0)
+	if con == nil || con.Rpc == nil {
+		return results
+	}
+
+	beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return results
+	}
+
+	for _, b := range beacons.Beacons {
+		link := fmt.Sprintf("[%s <- %s]", b.ActiveC2, b.RemoteAddress)
+		id := fmt.Sprintf("%s (%d)", b.Name, b.PID)
+		userHost := fmt.Sprintf("%s@%s", b.Username, b.Hostname)
+		desc := strings.Join([]string{id, userHost, link}, " ")
+
+		results = append(results, b.ID[:8], desc)
+	}
+
+	return results
+}
+
+func describedValuesToTabs(values []string) []string {
+	tabbed := make([]string, 0, len(values)/2)
+	for i := 0; i+1 < len(values); i += 2 {
+		tabbed = append(tabbed, fmt.Sprintf("%s\t%s", values[i], values[i+1]))
+	}
+	return tabbed
+}
+
+func filterCompletionValues(values []string, prefix string) []string {
+	if prefix == "" {
+		return values
+	}
+
+	filtered := make([]string, 0, len(values))
+	for _, value := range values {
+		candidate := value
+		if tab := strings.IndexByte(value, '\t'); tab >= 0 {
+			candidate = value[:tab]
+		}
+		if strings.HasPrefix(candidate, prefix) {
+			filtered = append(filtered, value)
+		}
+	}
+
+	return filtered
 }
