@@ -22,7 +22,7 @@ export type TutorialCardCardProps = {
 
 export default function TutorialCard(props: TutorialCardCardProps) {
   return (
-    <Card isFooterBlurred>
+    <Card isFooterBlurred className="relative z-0">
       <CardHeader className="absolute z-10 top-1 flex-col items-end">
         <p className="text-md  text-white/70 uppercase font-bold">
           {props.name}
@@ -41,7 +41,7 @@ export default function TutorialCard(props: TutorialCardCardProps) {
         />
       </div>
 
-      <CardFooter className="absolute bg-black/40 bottom-0 z-100 border-t-1 border-default-600 dark:border-default-100">
+      <CardFooter className="absolute bottom-0 z-10 bg-black/40 border-t-1 border-default-600 dark:border-default-100">
         <div className="flex flex-row w-full items-center">
           <p
             className={
