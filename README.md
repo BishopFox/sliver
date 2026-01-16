@@ -43,4 +43,3 @@ See the [wiki](https://sliver.sh/docs?name=Compile+from+Source).
 
 Sliver is licensed under [GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html), some sub-components may have separate licenses. See their respective subdirectories in this project for details.
 
-
