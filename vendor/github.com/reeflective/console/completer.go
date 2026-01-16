@@ -60,9 +60,6 @@ func (c *Console) complete(input []rune, pos int) readline.Completions {
 	comps = comps.Usage("%s", completions.Usage)
 	comps = c.justifyCommandComps(comps)
 
-	// Display extension and alias arguments as a list (one per line)
-	comps = comps.DisplayList("extension arguments", "alias arguments")
-
 	// If any errors arose from the completion call itself.
 	if err != nil {
 		comps = readline.CompleteMessage("failed to load config: " + err.Error())

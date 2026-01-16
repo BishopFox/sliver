@@ -39,7 +39,7 @@ require (
 	github.com/moloch--/sgn v0.0.4
 	github.com/ncruces/go-sqlite3 v0.30.4
 	github.com/reeflective/console v0.1.25
-	github.com/reeflective/readline v1.1.3
+	github.com/reeflective/readline v1.1.4
 	github.com/rsteube/carapace v0.50.2
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.10.2
@@ -99,8 +99,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.31.12 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.65.1 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
-	github.com/carapace-sh/carapace v1.9.0 // indirect
-	github.com/carapace-sh/carapace-shlex v1.1.0 // indirect
+	github.com/carapace-sh/carapace v1.11.0 // indirect
+	github.com/carapace-sh/carapace-shlex v1.1.1 // indirect
 	github.com/catppuccin/go v0.3.0 // indirect
 	github.com/charmbracelet/bubbles v0.21.1-0.20250623103423-23b8fd6302d7 // indirect
 	github.com/charmbracelet/bubbletea v1.3.10 // indirect

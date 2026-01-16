@@ -44,8 +44,8 @@ func (s Style) SGR() string {
 
 // MergeFromOptions merges all recognized values from a map to the current
 // Style.
-func (s *Style) MergeFromOptions(options map[string]interface{}) error {
-	assignColor := func(val interface{}, colorField *Color) string {
+func (s *Style) MergeFromOptions(options map[string]any) error {
+	assignColor := func(val any, colorField *Color) string {
 		if val == "default" {
 			*colorField = nil
 			return ""
@@ -58,7 +58,7 @@ func (s *Style) MergeFromOptions(options map[string]interface{}) error {
 		}
 		return "valid color string"
 	}
-	assignBool := func(val interface{}, attrField *bool) string {
+	assignBool := func(val any, attrField *bool) string {
 		if b, ok := val.(bool); ok {
 			*attrField = b
 		} else {

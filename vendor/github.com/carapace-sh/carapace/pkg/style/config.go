@@ -17,7 +17,7 @@ import (
 //	func init() {
 //		Register("carapace", &Carapace)
 //	}
-func Register(name string, i interface{}) { config.RegisterStyle(name, i) }
+func Register(name string, i any) { config.RegisterStyle(name, i) }
 
 // Set a style
 //
