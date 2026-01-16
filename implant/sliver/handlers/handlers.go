@@ -166,10 +166,14 @@ func dirListHandler(data []byte, resp RPCResponse) {
 		dirList.Exists = true
 	} else {
 		dirList.Exists = false
+		dirList.Response = &commonpb.Response{Err: err.Error()}
 	}
 	dirList.Files = []*sliverpb.FileInfo{}
-	rootDirInfo, err := rootDirEntry.Info()
-	if err == nil && filter == "" {
+	var rootDirInfo fs.FileInfo
+	if rootDirEntry != nil {
+		rootDirInfo, err = rootDirEntry.Info()
+	}
+	if err == nil && rootDirInfo != nil && filter == "" {
 		// We should not get an error because we created the DirEntry object from the FileInfo object
 		dirList.Files = append(dirList.Files, &sliverpb.FileInfo{
 			Name:    ".", // Cannot use the name from the FileInfo / DirEntry because that is the name of the directory
@@ -193,6 +197,7 @@ func dirListHandler(data []byte, resp RPCResponse) {
 			if err != nil {
 				// Then this is a bad filter, and it will be a bad filter
 				// on every iteration of the loop, so we might as well break now
+				dirList.Response = &commonpb.Response{Err: err.Error()}
 				break
 			}
 		}
@@ -249,22 +254,26 @@ func getDirList(target string) (string, fs.DirEntry, []fs.DirEntry, error) {
 		// {{end}}
 		return "", nil, nil, err
 	}
-	if rootInfo, err := os.Stat(dir); !os.IsNotExist(err) {
-		/*
-			We could place the entry for the directory itself
-			at the beginning of the returned slice of DirEntry
-			objects, but then it is not clear if that is the
-			root directory or a directory / file in the root
-			directory with the same name as the root directory.
-
-			Using WalkDir is not great here because you cannot
-			tell it to not be recursive, so we will be wasting
-			cycles telling it to skip directories and files
-		*/
-		files, err := os.ReadDir(dir)
-		return dir, fs.FileInfoToDirEntry(rootInfo), files, err
+	rootInfo, err := os.Stat(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return dir, nil, []fs.DirEntry{}, errors.New("directory does not exist")
+		}
+		return dir, nil, []fs.DirEntry{}, err
 	}
-	return dir, nil, []fs.DirEntry{}, errors.New("directory does not exist")
+	/*
+		We could place the entry for the directory itself
+		at the beginning of the returned slice of DirEntry
+		objects, but then it is not clear if that is the
+		root directory or a directory / file in the root
+		directory with the same name as the root directory.
+
+		Using WalkDir is not great here because you cannot
+		tell it to not be recursive, so we will be wasting
+		cycles telling it to skip directories and files
+	*/
+	files, err := os.ReadDir(dir)
+	return dir, fs.FileInfoToDirEntry(rootInfo), files, err
 }
 
 func rmHandler(data []byte, resp RPCResponse) {
