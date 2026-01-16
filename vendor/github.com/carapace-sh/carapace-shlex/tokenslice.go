@@ -111,8 +111,12 @@ func (t TokenSlice) WordbreakPrefix() string {
 			break
 		}
 
-		if token.Type == WORDBREAK_TOKEN {
+		if !found && token.Type == WORDBREAK_TOKEN {
 			found = true
+			if token.Value == "@" {
+				// Seems although `@` is a wordbreak, it weirdly is not part of the prefix.
+				continue
+			}
 		}
 
 		if found {

@@ -36,7 +36,7 @@ func (f FlagSet) IsShorthandSeries(arg string) bool {
 func (f FlagSet) IsMutuallyExclusive(flag *pflag.Flag) bool {
 	if groups, ok := flag.Annotations["cobra_annotation_mutually_exclusive"]; ok {
 		for _, group := range groups {
-			for _, name := range strings.Split(group, " ") {
+			for name := range strings.SplitSeq(group, " ") {
 				if other := f.Lookup(name); other != nil && other.Changed && other != flag {
 					return true
 				}

@@ -22,7 +22,8 @@ var (
 // GenerateBeaconCmd - The main command used to generate implant binaries
 func GenerateBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if shouldRunGenerateBeaconForm(cmd, con, args) {
-		result, err := forms.GenerateBeaconForm()
+		compiler, _ := compilerTargets(con)
+		result, err := forms.GenerateBeaconForm(compiler)
 		if err != nil {
 			if errors.Is(err, forms.ErrUserAborted) {
 				return

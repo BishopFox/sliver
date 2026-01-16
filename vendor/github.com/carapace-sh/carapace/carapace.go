@@ -2,6 +2,7 @@
 package carapace
 
 import (
+	"maps"
 	"os"
 
 	"github.com/carapace-sh/carapace/internal/shell"
@@ -79,9 +80,7 @@ func (c Carapace) FlagCompletion(actions ActionMap) {
 	if e.flag == nil {
 		e.flag = actions
 	} else {
-		for name, action := range actions {
-			e.flag[name] = action
-		}
+		maps.Copy(e.flag, actions)
 	}
 }
 
@@ -126,7 +125,7 @@ func IsCallback() bool {
 //	func TestCarapace(t *testing.T) {
 //	    carapace.Test(t)
 //	}
-func Test(t interface{ Error(args ...interface{}) }) {
+func Test(t interface{ Error(args ...any) }) {
 	for _, e := range storage.check() {
 		t.Error(e)
 	}

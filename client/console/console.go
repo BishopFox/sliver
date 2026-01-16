@@ -263,6 +263,19 @@ func (con *SliverClient) runRCLine(serverCmds, sliverCmds console.Commands, line
 		return fmt.Errorf("parse error: %w", err)
 	}
 
+	if con.serverCmds == nil {
+		con.serverCmds = serverCmds
+	}
+	if con.sliverCmds == nil {
+		con.sliverCmds = sliverCmds
+	}
+
+	menu := con.App.ActiveMenu()
+	if menu != nil {
+		// Reset per line to avoid stale roots when rc scripts switch menus.
+		menu.Command = nil
+	}
+
 	for _, hook := range con.App.PreCmdRunLineHooks {
 		args, err = hook(args)
 		if err != nil {
@@ -274,15 +287,13 @@ func (con *SliverClient) runRCLine(serverCmds, sliverCmds console.Commands, line
 		return nil
 	}
 
-	if con.serverCmds == nil {
-		con.serverCmds = serverCmds
+	menu = con.App.ActiveMenu()
+	if menu == nil {
+		return fmt.Errorf("no active menu")
 	}
-	if con.sliverCmds == nil {
-		con.sliverCmds = sliverCmds
+	if menu.Command == nil {
+		con.setMenuCommand(menu, args)
 	}
-
-	menu := con.App.ActiveMenu()
-	con.setMenuCommand(menu, args)
 	if menu.Command == nil {
 		return fmt.Errorf("no commands available")
 	}

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/util"
 	"github.com/charmbracelet/huh"
 )
@@ -23,62 +24,57 @@ type GenerateFormResult struct {
 }
 
 // GenerateForm prompts for core generate flags and returns the collected values.
-func GenerateForm() (*GenerateFormResult, error) {
+func GenerateForm(compiler *clientpb.Compiler) (*GenerateFormResult, error) {
 	result := &GenerateFormResult{
 		OS:     "windows",
 		Arch:   "amd64",
 		Format: "exe",
 		C2Type: "mtls",
 	}
+	commonPlatformsOnly := true
+	lastCommonPlatformsOnly := commonPlatformsOnly
+	compilerTargets := compilerTargetList(compiler)
+	targetBindings := &targetOptionBindings{
+		Common: &commonPlatformsOnly,
+		OS:     &result.OS,
+		Arch:   &result.Arch,
+	}
 
 	form := huh.NewForm(
 		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Common Platforms Only").
+				Value(&commonPlatformsOnly),
 			huh.NewSelect[string]().
 				Title("Target operating system").
-				Options(
-					huh.NewOption("Windows", "windows"),
-					huh.NewOption("Linux", "linux"),
-					huh.NewOption("macOS", "darwin"),
-				).
+				OptionsFunc(func() []huh.Option[string] {
+					maybeResetTargets(commonPlatformsOnly, &lastCommonPlatformsOnly, compilerTargets, &result.OS, &result.Arch, &result.Format)
+					if commonPlatformsOnly || len(compilerTargets) == 0 {
+						return commonOSOptions()
+					}
+					return osOptionsFromTargets(compilerTargets)
+				}, targetBindings).
 				Value(&result.OS),
 			huh.NewSelect[string]().
 				Title("CPU architecture").
 				OptionsFunc(func() []huh.Option[string] {
-					switch result.OS {
-					case "darwin":
-						return []huh.Option[string]{
-							huh.NewOption("amd64", "amd64"),
-							huh.NewOption("arm64", "arm64"),
-						}
-					case "linux":
-						return []huh.Option[string]{
-							huh.NewOption("amd64", "amd64"),
-							huh.NewOption("386", "386"),
-						}
-					default:
-						return []huh.Option[string]{
-							huh.NewOption("amd64", "amd64"),
-							huh.NewOption("386", "386"),
-						}
+					maybeResetTargets(commonPlatformsOnly, &lastCommonPlatformsOnly, compilerTargets, &result.OS, &result.Arch, &result.Format)
+					if commonPlatformsOnly || len(compilerTargets) == 0 {
+						return commonArchOptions(result.OS)
 					}
-				}, &result.OS).
+					return archOptionsFromTargets(compilerTargets, result.OS)
+				}, targetBindings).
 				Height(3).
 				Value(&result.Arch),
 			huh.NewSelect[string]().
 				Title("Output format").
 				OptionsFunc(func() []huh.Option[string] {
-					options := []huh.Option[string]{
-						huh.NewOption("Executable", "exe"),
-						huh.NewOption("Shared library", "shared"),
+					maybeResetTargets(commonPlatformsOnly, &lastCommonPlatformsOnly, compilerTargets, &result.OS, &result.Arch, &result.Format)
+					if commonPlatformsOnly || len(compilerTargets) == 0 {
+						return commonFormatOptions(result.OS)
 					}
-					if result.OS == "windows" {
-						options = append(options,
-							huh.NewOption("Service", "service"),
-							huh.NewOption("Shellcode", "shellcode"),
-						)
-					}
-					return options
-				}, &result.OS).
+					return formatOptionsFromTargets(compilerTargets, result.OS, result.Arch)
+				}, targetBindings).
 				Height(3).
 				Value(&result.Format),
 		),
