@@ -1,5 +1,4 @@
 //go:build freebsd
-// +build freebsd
 
 package ps
 
@@ -188,7 +187,7 @@ func processes() ([]Process, error) {
 	count := int(length / uint64(procinfo_len))
 
 	// parse buf to procs
-	for i := 0; i < count; i++ {
+	for i := range count {
 		b := buf[i*procinfo_len : i*procinfo_len+procinfo_len]
 		k, err := parse_kinfo_proc(b)
 		if err != nil {

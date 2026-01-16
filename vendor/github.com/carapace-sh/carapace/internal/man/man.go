@@ -20,8 +20,8 @@ func Descriptions(s string) (descriptions map[string]string) {
 	}
 
 	r := regexp.MustCompile(`^(?P<name>[^ ]+) [^-]+- (?P<description>.*)$`)
-	lines := strings.Split(string(output), "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(string(output), "\n")
+	for line := range lines {
 		if matches := r.FindStringSubmatch(line); len(matches) > 2 {
 			descriptions[matches[1]] = matches[2]
 		}

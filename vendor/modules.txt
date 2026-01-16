@@ -113,8 +113,8 @@ github.com/bahlo/generic-list-go
 # github.com/buger/jsonparser v1.1.1
 ## explicit; go 1.13
 github.com/buger/jsonparser
-# github.com/carapace-sh/carapace v1.9.0
-## explicit; go 1.16
+# github.com/carapace-sh/carapace v1.11.0
+## explicit; go 1.24
 github.com/carapace-sh/carapace
 github.com/carapace-sh/carapace/internal/cache
 github.com/carapace-sh/carapace/internal/common
@@ -157,7 +157,7 @@ github.com/carapace-sh/carapace/third_party/github.com/elves/elvish/pkg/cli/lsco
 github.com/carapace-sh/carapace/third_party/github.com/elves/elvish/pkg/ui
 github.com/carapace-sh/carapace/third_party/github.com/mitchellh/go-ps
 github.com/carapace-sh/carapace/third_party/golang.org/x/sys/execabs
-# github.com/carapace-sh/carapace-shlex v1.1.0
+# github.com/carapace-sh/carapace-shlex v1.1.1
 ## explicit; go 1.15
 github.com/carapace-sh/carapace-shlex
 # github.com/catppuccin/go v0.3.0
@@ -589,7 +589,7 @@ github.com/reeflective/console/internal/completion
 github.com/reeflective/console/internal/line
 github.com/reeflective/console/internal/strutil
 github.com/reeflective/console/internal/ui
-# github.com/reeflective/readline v1.1.3 => github.com/moloch--/readline v0.0.0-20260104185423-d3ac1d6c561d
+# github.com/reeflective/readline v1.1.4 => github.com/moloch--/readline v0.0.0-20260104185423-d3ac1d6c561d
 ## explicit; go 1.23.6
 github.com/reeflective/readline
 github.com/reeflective/readline/inputrc

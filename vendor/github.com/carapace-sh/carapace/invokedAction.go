@@ -172,7 +172,7 @@ func (ia InvokedAction) ToMultiPartsA(dividers ...string) Action {
 	})
 }
 
-func (ia InvokedAction) Query(q string) InvokedAction {
+func (ia InvokedAction) QueryS(q string) InvokedAction {
 	ia.action.meta.Queries.Add(q)
 	return ia
 }
@@ -182,7 +182,7 @@ func (ia InvokedAction) value(shell string, value string) string {
 }
 
 func init() {
-	common.FromInvokedAction = func(i interface{}) (common.Meta, common.RawValues) {
+	common.FromInvokedAction = func(i any) (common.Meta, common.RawValues) {
 		if invoked, ok := i.(InvokedAction); ok {
 			return invoked.action.meta, invoked.action.rawValues
 		}
