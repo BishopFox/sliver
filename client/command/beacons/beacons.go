@@ -39,6 +39,7 @@ import (
 func BeaconsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	killFlag, _ := cmd.Flags().GetString("kill")
 	killAll, _ := cmd.Flags().GetBool("kill-all")
+	interact, _ := cmd.Flags().GetString("interact")
 
 	// Handle kill
 	if killFlag != "" {
@@ -72,6 +73,18 @@ func BeaconsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			con.PrintInfof("Killed %s (%s)\n", beacon.Name, beacon.ID)
 		}
 	}
+
+	if interact != "" {
+		beacon, err := GetBeacon(con, interact)
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+		con.ActiveTarget.Set(nil, beacon)
+		con.PrintInfof("Active beacon %s (%s)\n", beacon.Name, strings.Split(beacon.ID, "-")[0])
+		return
+	}
+
 	filter, _ := cmd.Flags().GetString("filter")
 	var filterRegex *regexp.Regexp
 	if filterRe, _ := cmd.Flags().GetString("filter-re"); filterRe != "" {
