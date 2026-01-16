@@ -98,6 +98,8 @@ type SliverClient struct {
 	Settings                 *assets.ClientSettings
 	IsServer                 bool
 	IsCLI                    bool
+	serverCmds               console.Commands
+	sliverCmds               console.Commands
 
 	jsonHandler      slog.Handler
 	printf           func(format string, args ...any) (int, error)
@@ -166,6 +168,8 @@ func NewConsole(isServer bool) *SliverClient {
 func StartClient(con *SliverClient, rpc rpcpb.SliverRPCClient, serverCmds, sliverCmds console.Commands, run bool, rcScript string) error {
 	con.Rpc = rpc
 	con.IsCLI = !run
+	con.serverCmds = serverCmds
+	con.sliverCmds = sliverCmds
 
 	// The console application needs to query the terminal for cursor positions
 	// when asynchronously printing logs (that is, when no command is running).
@@ -183,6 +187,15 @@ func StartClient(con *SliverClient, rpc rpcpb.SliverRPCClient, serverCmds, slive
 
 	sliver := con.App.Menu(consts.ImplantMenu)
 	sliver.SetCommands(sliverCmds)
+
+	con.App.PreCmdRunLineHooks = append(con.App.PreCmdRunLineHooks, con.allowServerRootCommands)
+	if shell := con.App.Shell(); shell != nil && shell.Completer != nil {
+		baseCompleter := shell.Completer
+		shell.Completer = func(line []rune, cursor int) readline.Completions {
+			con.prepareCompletion(line, cursor)
+			return baseCompleter(line, cursor)
+		}
+	}
 
 	// Events
 	go con.startEventLoop()
@@ -261,11 +274,17 @@ func (con *SliverClient) runRCLine(serverCmds, sliverCmds console.Commands, line
 		return nil
 	}
 
+	if con.serverCmds == nil {
+		con.serverCmds = serverCmds
+	}
+	if con.sliverCmds == nil {
+		con.sliverCmds = sliverCmds
+	}
+
 	menu := con.App.ActiveMenu()
-	if menu.Name() == consts.ImplantMenu {
-		menu.Command = sliverCmds()
-	} else {
-		menu.Command = serverCmds()
+	con.setMenuCommand(menu, args)
+	if menu.Command == nil {
+		return fmt.Errorf("no commands available")
 	}
 
 	target, _, _ := menu.Command.Find(args)
