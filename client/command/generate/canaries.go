@@ -32,7 +32,7 @@ func PrintCanaries(con *console.SliverClient, canaries []*clientpb.DNSCanary, bu
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{
-		"Sliver Name",
+		"Implant Name",
 		"Domain",
 		"Triggered",
 		"First Trigger",

@@ -91,7 +91,8 @@ var (
 // GenerateCmd - The main command used to generate implant binaries
 func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if shouldRunGenerateForm(cmd, con, args) {
-		result, err := forms.GenerateForm()
+		compiler, _ := compilerTargets(con)
+		result, err := forms.GenerateForm(compiler)
 		if err != nil {
 			if errors.Is(err, forms.ErrUserAborted) {
 				return
@@ -118,14 +119,15 @@ func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	} else {
 		_, err := externalBuild(name, config, save, con)
 		if err != nil {
-			if err == ErrNoExternalBuilder {
+			switch err {
+			case ErrNoExternalBuilder:
 				con.PrintErrorf("There are no external builders currently connected to the server\n")
 				con.PrintErrorf("See 'builders' command for more information\n")
-			} else if err == ErrNoValidBuilders {
+			case ErrNoValidBuilders:
 				con.PrintErrorf("There are external builders connected to the server, but none can build the target you specified\n")
 				con.PrintErrorf("Invalid target %s\n", fmt.Sprintf("%s:%s/%s", config.Format, config.GOOS, config.GOARCH))
 				con.PrintErrorf("See 'builders' command for more information\n")
-			} else {
+			default:
 				con.PrintErrorf("%s\n", err)
 			}
 			return
