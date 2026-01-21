@@ -91,6 +91,8 @@ func PrintWebsite(web *clientpb.Website, con *console.SliverClient) {
 		"Path",
 		"Content-type",
 		"Size",
+		"Original File",
+		"SHA256",
 	})
 	sortedContents := []*clientpb.WebContent{}
 	for _, content := range web.Contents {
@@ -104,6 +106,8 @@ func PrintWebsite(web *clientpb.Website, con *console.SliverClient) {
 			content.Path,
 			content.ContentType,
 			content.Size,
+			content.OriginalFile,
+			content.Sha256,
 		})
 	}
 	con.Println(tw.Render())

@@ -67,9 +67,11 @@ type WebContent struct {
 	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	WebsiteID uuid.UUID `gorm:"type:uuid;"`
 
-	Path        string `gorm:"primaryKey"`
-	Size        uint64
-	ContentType string
+	Path         string `gorm:"primaryKey"`
+	Size         uint64
+	ContentType  string
+	OriginalFile string
+	Sha256       string
 }
 
 // BeforeCreate - GORM hook to automatically set values
@@ -81,12 +83,14 @@ func (wc *WebContent) BeforeCreate(tx *gorm.DB) (err error) {
 // ToProtobuf - Converts to protobuf object
 func (wc *WebContent) ToProtobuf(content *[]byte) *clientpb.WebContent {
 	return &clientpb.WebContent{
-		ID:          wc.ID.String(),
-		WebsiteID:   wc.WebsiteID.String(),
-		Path:        wc.Path,
-		Size:        uint64(wc.Size),
-		ContentType: wc.ContentType,
-		Content:     *content,
+		ID:           wc.ID.String(),
+		WebsiteID:    wc.WebsiteID.String(),
+		Path:         wc.Path,
+		Size:         uint64(wc.Size),
+		ContentType:  wc.ContentType,
+		OriginalFile: wc.OriginalFile,
+		Sha256:       wc.Sha256,
+		Content:      *content,
 	}
 }
 
@@ -95,10 +99,12 @@ func WebContentFromProtobuf(pbWebContent *clientpb.WebContent) WebContent {
 	websiteUUID, _ := uuid.FromString(pbWebContent.WebsiteID)
 
 	return WebContent{
-		ID:          siteUUID,
-		WebsiteID:   websiteUUID,
-		Path:        pbWebContent.Path,
-		Size:        pbWebContent.Size,
-		ContentType: pbWebContent.ContentType,
+		ID:           siteUUID,
+		WebsiteID:    websiteUUID,
+		Path:         pbWebContent.Path,
+		Size:         pbWebContent.Size,
+		ContentType:  pbWebContent.ContentType,
+		OriginalFile: pbWebContent.OriginalFile,
+		Sha256:       pbWebContent.Sha256,
 	}
 }
