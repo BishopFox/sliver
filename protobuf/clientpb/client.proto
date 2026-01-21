@@ -586,6 +586,9 @@ message WebContent {
   string ContentType = 4;
   uint64 Size = 5 [ jstype = JS_STRING ];
 
+  string OriginalFile = 6;
+  string Sha256 = 7;
+
   bytes Content = 9;
 }
 
