@@ -26,6 +26,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/log"
@@ -47,6 +48,13 @@ var (
 	ErrInvalidDialect = errors.New("invalid SQL Dialect")
 
 	databaseConfigLog = log.NamedLogger("config", "database")
+
+	defaultSQLitePragmas = map[string]string{
+		"journal_mode": "WAL",    // reduce writer blocking, better concurrency
+		"busy_timeout": "5000",   // wait for locks instead of failing fast (ms)
+		"synchronous":  "NORMAL", // faster WAL syncs while retaining durability
+		"temp_store":   "MEMORY", // keep temp structures off disk for quicker startup
+	}
 )
 
 // GetDatabaseConfigPath - File path to config.json
@@ -66,7 +74,8 @@ type DatabaseConfig struct {
 	Host     string `json:"host"`
 	Port     uint16 `json:"port"`
 
-	Params map[string]string `json:"params"`
+	Params  map[string]string `json:"params"`
+	Pragmas map[string]string `json:"pragmas"`
 
 	MaxIdleConns int `json:"max_idle_conns"`
 	MaxOpenConns int `json:"max_open_conns"`
@@ -80,7 +89,7 @@ func (c *DatabaseConfig) DSN() (string, error) {
 	switch c.Dialect {
 	case Sqlite:
 		filePath := filepath.Join(assets.GetRootAppDir(), "sliver.db")
-		params := encodeParams(c.Params)
+		params := encodeSQLiteParams(c.Params, c.Pragmas)
 		return fmt.Sprintf("file:%s?%s", filePath, params), nil
 	case MySQL:
 		user := url.QueryEscape(c.Username)
@@ -109,6 +118,44 @@ func encodeParams(rawParams map[string]string) string {
 	for key, value := range rawParams {
 		params.Add(key, value)
 	}
+	return params.Encode()
+}
+
+func encodeSQLiteParams(rawParams map[string]string, pragmas map[string]string) string {
+	if rawParams == nil {
+		rawParams = map[string]string{}
+	}
+	params := url.Values{}
+
+	// Preserve any user-provided parameters first.
+	for key, value := range rawParams {
+		params.Add(key, value)
+	}
+
+	// Apply safer defaults only when the user has not set any custom pragma.
+	if _, ok := rawParams["_pragma"]; !ok {
+		selectedPragmas := pragmas
+		if len(selectedPragmas) == 0 {
+			selectedPragmas = defaultSQLitePragmas
+		}
+
+		keys := make([]string, 0, len(selectedPragmas))
+		for key := range selectedPragmas {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+
+		for _, key := range keys {
+			value := selectedPragmas[key]
+			params.Add("_pragma", fmt.Sprintf("%s(%s)", key, value))
+		}
+	}
+
+	// Encourage shared cache to play nicer with WAL and multiple connections.
+	if _, ok := rawParams["cache"]; !ok {
+		params.Add("cache", "shared")
+	}
+
 	return params.Encode()
 }
 
@@ -161,6 +208,8 @@ func GetDatabaseConfig() *DatabaseConfig {
 		config.MaxOpenConns = 1
 	}
 
+	ensureSQLiteDefaults(config)
+
 	err := config.Save() // This updates the config with any missing fields
 	if err != nil {
 		databaseConfigLog.Errorf("Failed to save default config %s", err)
@@ -171,9 +220,29 @@ func GetDatabaseConfig() *DatabaseConfig {
 func getDefaultDatabaseConfig() *DatabaseConfig {
 	return &DatabaseConfig{
 		Dialect:      Sqlite,
+		Pragmas:      defaultSQLitePragmas,
 		MaxIdleConns: 10,
 		MaxOpenConns: 100,
 
 		LogLevel: "warn",
+	}
+}
+
+func ensureSQLiteDefaults(c *DatabaseConfig) {
+	if c.Dialect != Sqlite {
+		return
+	}
+	if c.Params == nil {
+		c.Params = map[string]string{}
+	}
+	if _, ok := c.Params["_pragma"]; ok {
+		// User provided explicit pragmas; leave Pragmas untouched to avoid confusion.
+		return
+	}
+	if len(c.Pragmas) == 0 {
+		c.Pragmas = defaultSQLitePragmas
+	}
+	if _, ok := c.Params["cache"]; !ok {
+		c.Params["cache"] = "shared"
 	}
 }
