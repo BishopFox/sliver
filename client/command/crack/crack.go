@@ -64,10 +64,11 @@ func CrackStationsCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		con.PrintErrorf("%s\n", err)
 		return
 	}
+	showBenchmarks, _ := cmd.Flags().GetBool("show-benchmarks")
 	if len(crackers.Crackstations) == 0 {
 		PrintNoCrackstations(con)
 	} else {
-		PrintCrackers(crackers.Crackstations, con)
+		PrintCrackers(crackers.Crackstations, con, showBenchmarks)
 	}
 }
 
@@ -83,12 +84,12 @@ func AreCrackersOnline(con *console.SliverClient) bool {
 	return len(crackers.Crackstations) > 0
 }
 
-func PrintCrackers(crackers []*clientpb.Crackstation, con *console.SliverClient) {
+func PrintCrackers(crackers []*clientpb.Crackstation, con *console.SliverClient, showBenchmarks bool) {
 	sort.Slice(crackers, func(i, j int) bool {
 		return crackers[i].Name < crackers[j].Name
 	})
 	for index, cracker := range crackers {
-		printCracker(cracker, index, con)
+		printCracker(cracker, index, con, showBenchmarks)
 		if index < len(crackers)-1 {
 			con.Println()
 			con.Println()
@@ -96,7 +97,7 @@ func PrintCrackers(crackers []*clientpb.Crackstation, con *console.SliverClient)
 	}
 }
 
-func printCracker(cracker *clientpb.Crackstation, index int, con *console.SliverClient) {
+func printCracker(cracker *clientpb.Crackstation, index int, con *console.SliverClient, showBenchmarks bool) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.SetTitle(console.Bold + console.Orange + fmt.Sprintf(">>> Crackstation %02d - %s (%s)", index+1, cracker.Name, cracker.OperatorName) + console.Normal + "\n")
@@ -131,8 +132,10 @@ func printCracker(cracker *clientpb.Crackstation, index int, con *console.Sliver
 		}
 	}
 	con.Printf("%s\n", tw.Render())
-	con.Println()
-	printBenchmarks(cracker, con)
+	if showBenchmarks {
+		con.Println()
+		printBenchmarks(cracker, con)
+	}
 }
 
 func printBenchmarks(cracker *clientpb.Crackstation, con *console.SliverClient) {
@@ -140,9 +143,17 @@ func printBenchmarks(cracker *clientpb.Crackstation, con *console.SliverClient) 
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.SetTitle(console.Bold + "Benchmarks" + console.Normal)
 	tw.SortBy([]table.SortBy{{Name: "Hash Type"}})
-	tw.AppendHeader(table.Row{"Hash Type", "Rate (H/s)"})
-	for hashType, speed := range cracker.Benchmarks {
-		tw.AppendRow(table.Row{clientpb.HashType(hashType), fmt.Sprintf("%d", speed)})
+	tw.AppendHeader(table.Row{"Hash Type", "Rate"})
+	if len(cracker.Benchmarks) == 0 {
+		tw.AppendRow(table.Row{"No benchmarks reported", "-"})
+	} else {
+		for hashType, speed := range cracker.Benchmarks {
+			name, ok := hashcatHashTypeName(hashType)
+			if !ok {
+				name = clientpb.HashType(hashType).String()
+			}
+			tw.AppendRow(table.Row{name, humanizeHashRate(speed)})
+		}
 	}
 	con.Printf("%s\n", tw.Render())
 }

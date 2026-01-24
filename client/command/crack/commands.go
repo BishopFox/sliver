@@ -34,6 +34,9 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 			CrackStationsCmd(cmd, con, args)
 		},
 	}
+	flags.Bind("", false, crackStationsCmd, func(f *pflag.FlagSet) {
+		f.Bool("show-benchmarks", false, "show benchmark rates for crackstations")
+	})
 	crackCmd.AddCommand(crackStationsCmd)
 
 	wordlistsCmd := &cobra.Command{
