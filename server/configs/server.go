@@ -30,7 +30,8 @@ import (
 )
 
 const (
-	serverConfigFileName = "server.json"
+	serverConfigFileName               = "server.json"
+	defaultGRPCKeepaliveMinTimeSeconds = int64(30)
 )
 
 var (
@@ -51,6 +52,17 @@ type LogConfig struct {
 	GRPCUnaryPayloads  bool `json:"grpc_unary_payloads"`
 	GRPCStreamPayloads bool `json:"grpc_stream_payloads"`
 	TLSKeyLogger       bool `json:"tls_key_logger"`
+}
+
+// GRPCKeepaliveConfig - gRPC keepalive enforcement settings
+type GRPCKeepaliveConfig struct {
+	MinTimeSeconds      int64 `json:"min_time_seconds"`
+	PermitWithoutStream *bool `json:"permit_without_stream"`
+}
+
+// GRPCConfig - gRPC server settings
+type GRPCConfig struct {
+	Keepalive *GRPCKeepaliveConfig `json:"keepalive"`
 }
 
 // DaemonConfig - Configure daemon mode
@@ -135,6 +147,7 @@ type ServerConfig struct {
 	DaemonMode   bool               `json:"daemon_mode"`
 	DaemonConfig *DaemonConfig      `json:"daemon"`
 	Logs         *LogConfig         `json:"logs"`
+	GRPC         *GRPCConfig        `json:"grpc"`
 	Watchtower   *WatchTowerConfig  `json:"watch_tower"`
 	GoProxy      string             `json:"go_proxy"`
 	HTTPDefaults *HttpDefaultConfig `json:"http_default"`
@@ -199,6 +212,20 @@ func GetServerConfig() *ServerConfig {
 		config.DonutBypass = 1
 	}
 
+	if config.GRPC == nil {
+		config.GRPC = &GRPCConfig{}
+	}
+	if config.GRPC.Keepalive == nil {
+		config.GRPC.Keepalive = &GRPCKeepaliveConfig{}
+	}
+	if config.GRPC.Keepalive.MinTimeSeconds <= 0 {
+		config.GRPC.Keepalive.MinTimeSeconds = defaultGRPCKeepaliveMinTimeSeconds
+	}
+	if config.GRPC.Keepalive.PermitWithoutStream == nil {
+		defaultPermit := true
+		config.GRPC.Keepalive.PermitWithoutStream = &defaultPermit
+	}
+
 	err := config.Save() // This updates the config with any missing fields
 	if err != nil {
 		serverConfigLog.Errorf("Failed to save default config %s", err)
@@ -207,6 +234,7 @@ func GetServerConfig() *ServerConfig {
 }
 
 func getDefaultServerConfig() *ServerConfig {
+	defaultPermitWithoutStream := true
 	return &ServerConfig{
 		DaemonMode: false,
 		DaemonConfig: &DaemonConfig{
@@ -217,6 +245,12 @@ func getDefaultServerConfig() *ServerConfig {
 			Level:              int(logrus.InfoLevel),
 			GRPCUnaryPayloads:  false,
 			GRPCStreamPayloads: false,
+		},
+		GRPC: &GRPCConfig{
+			Keepalive: &GRPCKeepaliveConfig{
+				MinTimeSeconds:      defaultGRPCKeepaliveMinTimeSeconds,
+				PermitWithoutStream: &defaultPermitWithoutStream,
+			},
 		},
 		HTTPDefaults: &HttpDefaultConfig{
 			Headers: []models.HttpC2Header{

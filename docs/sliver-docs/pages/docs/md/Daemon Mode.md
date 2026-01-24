@@ -19,6 +19,12 @@ $ cat ~/.sliver/configs/server.json
         "level": 5,
         "grpc_unary_payloads": false,
         "grpc_stream_payloads": false
+    },
+    "grpc": {
+        "keepalive": {
+            "min_time_seconds": 30,
+            "permit_without_stream": true
+        }
     }
 }
 ```

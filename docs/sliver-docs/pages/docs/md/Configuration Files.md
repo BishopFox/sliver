@@ -15,6 +15,12 @@ The Sliver server has a configuration file located in the `configs` sub-director
     "level": 4,
     "grpc_unary_payloads": false,
     "grpc_stream_payloads": false
+  },
+  "grpc": {
+    "keepalive": {
+      "min_time_seconds": 30,
+      "permit_without_stream": true
+    }
   }
 }
 ```
@@ -29,6 +35,10 @@ The Sliver server has a configuration file located in the `configs` sub-director
   - `level` - The `logrus` logging level (1 - 5), by default this is set to `4`, which is the `INFO` level; increasing this value increases the verbosity of the logs e.g. `DEBUG` is `5` and `SILENT` is `1`
   - `grpc_unary_payloads` - Log gRPC unary payloads
   - `grpc_stream_payloads` - Log gRPC streaming payloads
+- `grpc` - An object containing options for the server gRPC stack
+  - `keepalive` - gRPC keepalive enforcement configuration
+    - `min_time_seconds` - Minimum amount of time (in seconds) between client pings before the server sends a GOAWAY with `too_many_pings`
+    - `permit_without_stream` - Allow client pings when there are no active streams
 
 ## Database Configuration
 
