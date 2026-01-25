@@ -22,6 +22,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
@@ -34,6 +35,37 @@ import (
 
 // CrackCmd - GPU password cracking interface
 func CrackCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+	if shouldRunCrack(cmd, args) {
+		crackCmd, err := buildCrackCommand(cmd, args)
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+
+		timeoutSeconds, _ := cmd.Flags().GetInt64("timeout")
+		ctx := context.Background()
+		if timeoutSeconds > 0 {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, time.Duration(timeoutSeconds)*time.Second)
+			defer cancel()
+		}
+
+		resp, err := con.Rpc.Crack(ctx, crackCmd)
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
+		if resp == nil || resp.Job == nil {
+			con.PrintInfof("Crack request submitted\n")
+			return
+		}
+		con.PrintInfof("Crack job %s created (status: %s)\n", resp.Job.ID, resp.Job.Status.String())
+		if resp.Job.Err != "" {
+			con.PrintErrorf("Crack job error: %s\n", resp.Job.Err)
+		}
+		return
+	}
+
 	if !AreCrackersOnline(con) {
 		PrintNoCrackstations(con)
 	} else {

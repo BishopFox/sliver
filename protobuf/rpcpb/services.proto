@@ -110,6 +110,7 @@ service SliverRPC {
   rpc GetCertificateInfo(clientpb.CertificatesReq) returns (clientpb.CertificateInfo);
 
   // *** Crackstation ***
+  rpc Crack(clientpb.CrackCommand) returns (clientpb.CrackResponse);
   rpc CrackstationRegister(clientpb.Crackstation)
       returns (stream clientpb.Event);
   rpc CrackstationTrigger(clientpb.Event) returns (commonpb.Empty);
