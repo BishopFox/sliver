@@ -4,7 +4,9 @@ go 1.25.5
 
 replace github.com/rsteube/carapace v0.36.3 => github.com/reeflective/carapace v0.46.3-0.20231214181515-27e49f3c3b69
 
-replace github.com/reeflective/readline => github.com/moloch--/readline v0.0.0-20260104185423-d3ac1d6c561d
+replace github.com/reeflective/readline => github.com/moloch--/readline v0.0.0-20260128035102-9f373ad18989
+
+replace github.com/reeflective/console => github.com/moloch--/console v0.0.0-20260128035037-680800942770
 
 require (
 	filippo.io/age v1.3.1
@@ -99,7 +101,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.31.12 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.65.1 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
-	github.com/carapace-sh/carapace v1.11.0 // indirect
+	github.com/carapace-sh/carapace v1.11.0
 	github.com/carapace-sh/carapace-shlex v1.1.1 // indirect
 	github.com/catppuccin/go v0.3.0 // indirect
 	github.com/charmbracelet/bubbles v0.21.1-0.20250623103423-23b8fd6302d7 // indirect
