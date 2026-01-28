@@ -136,6 +136,10 @@ func TestSliverSharedLibWindows(t *testing.T) {
 	// 386
 	multiLibrary(t, "windows", "386", true)
 	multiLibrary(t, "windows", "386", false)
+
+	// Shared Library Shellcode
+	multiWindowsLibraryShellcode(t, true)
+	multiWindowsLibraryShellcode(t, false)
 }
 
 func TestSliverExecutableLinux(t *testing.T) {

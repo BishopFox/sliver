@@ -20,10 +20,13 @@ package rpc
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/server/sgn"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // ShellcodeEncode - Encode a piece shellcode
@@ -35,9 +38,11 @@ func (rpc *Server) ShellcodeEncoder(ctx context.Context, req *clientpb.Shellcode
 	switch req.Encoder {
 	case clientpb.ShellcodeEncoder_SHIKATA_GA_NAI:
 		rpcLog.Infof("[rpc] Shellcode encoder request for: SHIKATA_GA_NAI")
+		rpcLog.Infof("[rpc] Encoding shellcode (%d bytes) for architecture %s with %d iterations and badchars: %v", len(req.Data), req.Architecture, req.Iterations, req.BadChars)
 		resp.Data, err = sgn.EncodeShellcode(req.Data, req.Architecture, int(req.Iterations), req.BadChars)
 		if err != nil {
-			resp.Response.Err = err.Error()
+			rpcLog.Errorf("[rpc] Failed to encode shellcode: %v", err)
+			return nil, status.Error(codes.Internal, fmt.Sprintf("Failed to encode shellcode (%s)", err))
 		}
 	default:
 		resp.Response.Err = "Unknown encoder"
