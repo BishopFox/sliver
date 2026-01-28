@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"strings"
 
 	keystone "github.com/moloch--/go-keystone"
 )
@@ -197,6 +198,12 @@ func (encoder Encoder) Assemble(asm string) ([]byte, bool) {
 		return nil, false
 	}
 
+	asm = normalizeAssembly(asm)
+	if asm == "" {
+		return []byte{}, true
+	}
+	asm = addCodeDirective(asm, encoder.architecture)
+
 	ks, err := keystone.NewEngine(keystone.ARCH_X86, mode)
 	if err != nil {
 		return nil, false
@@ -227,6 +234,12 @@ func (encoder Encoder) GetAssemblySize(asm string) int {
 		return -1
 	}
 
+	asm = normalizeAssembly(asm)
+	if asm == "" {
+		return 0
+	}
+	asm = addCodeDirective(asm, encoder.architecture)
+
 	ks, err := keystone.NewEngine(keystone.ARCH_X86, mode)
 	if err != nil {
 		return -1
@@ -245,6 +258,49 @@ func (encoder Encoder) GetAssemblySize(asm string) int {
 		return -1
 	}
 	return len(bin)
+}
+
+func normalizeAssembly(asm string) string {
+	if asm == "" {
+		return ""
+	}
+
+	cleaned := strings.ReplaceAll(asm, ";", "\n")
+	lines := strings.Split(cleaned, "\n")
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		out = append(out, line)
+	}
+	return strings.Join(out, "\n")
+}
+
+func addCodeDirective(asm string, arch int) string {
+	if asm == "" || hasCodeDirective(asm) {
+		return asm
+	}
+
+	switch arch {
+	case 32:
+		return ".code32\n" + asm
+	case 64:
+		return ".code64\n" + asm
+	default:
+		return asm
+	}
+}
+
+func hasCodeDirective(asm string) bool {
+	for _, line := range strings.Split(asm, "\n") {
+		trimmed := strings.ToLower(strings.TrimSpace(line))
+		if strings.HasPrefix(trimmed, ".code") {
+			return true
+		}
+	}
+	return false
 }
 
 // GenerateIPToStack function generates instructions series that pushes the instruction pointer to stack

@@ -540,7 +540,7 @@ github.com/moloch--/go-keystone
 # github.com/moloch--/memmod v0.0.0-20230225130813-fd77d905589e
 ## explicit; go 1.17
 github.com/moloch--/memmod
-# github.com/moloch--/sgn v0.0.4
+# github.com/moloch--/sgn v0.0.5
 ## explicit; go 1.23
 github.com/moloch--/sgn/pkg
 # github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6
