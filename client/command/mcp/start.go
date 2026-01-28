@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	slivermcp "github.com/bishopfox/sliver/client/mcp"
 	"github.com/spf13/cobra"
@@ -25,6 +26,11 @@ func McpStartCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		ServerName:    name,
 		ServerVersion: version,
 	}.WithDefaults()
+
+	msg := `Do you know what prompt injection is and are you an adult?`
+	if !settings.IsUserAnAdultWithPrompt(con, msg) {
+		return
+	}
 
 	if err := slivermcp.Start(cfg, con.Rpc); err != nil {
 		con.PrintErrorf("%s\n", err)
