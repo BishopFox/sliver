@@ -29,7 +29,7 @@ func McpStartCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 
 	msg := `Do you know what prompt injection is and are you an adult?`
 	if !settings.IsUserAnAdultWithPrompt(con, msg) {
-		con.Printf("Failed to start MCP server, the user is not qualified to use feature\n")
+		con.PrintErrorf("Failed to start MCP server, the user is not qualified to use feature\n")
 		return
 	}
 
