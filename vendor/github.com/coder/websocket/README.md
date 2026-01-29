@@ -1,7 +1,7 @@
 # websocket
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/coder/websocket.svg)](https://pkg.go.dev/github.com/coder/websocket)
-[![Go Coverage](https://img.shields.io/badge/coverage-91%25-success)](https://github.com/coder/websocket/coverage.html)
+[![Go Coverage](https://coder.github.io/websocket/coverage.svg)](https://coder.github.io/websocket/coverage.html)
 
 websocket is a minimal and idiomatic WebSocket library for Go.
 
@@ -63,10 +63,12 @@ http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
 	}
 	defer c.CloseNow()
 
-	ctx, cancel := context.WithTimeout(r.Context(), time.Second*10)
+	// Set the context as needed. Use of r.Context() is not recommended
+	// to avoid surprising behavior (see http.Hijacker).
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
-	var v interface{}
+	var v any
 	err = wsjson.Read(ctx, c, &v)
 	if err != nil {
 		// ...

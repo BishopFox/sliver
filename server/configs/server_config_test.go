@@ -37,6 +37,16 @@ http_default:
       value: "abc"
       probability: 50
 donut_bypass: 2
+notifications:
+  enabled: true
+  events:
+    - session-connected
+  services:
+    slack:
+      enabled: true
+      api_token: "slack-token"
+      channels:
+        - "C123"
 cc:
   linux/amd64: "/usr/bin/cc"
 cxx:
@@ -74,6 +84,21 @@ cxx:
 	}
 	if config.DonutBypass != 2 {
 		t.Fatalf("expected donut_bypass %d, got %d", 2, config.DonutBypass)
+	}
+	if config.Notifications == nil || !config.Notifications.Enabled {
+		t.Fatalf("expected notifications enabled")
+	}
+	if len(config.Notifications.Events) != 1 || config.Notifications.Events[0] != "session-connected" {
+		t.Fatalf("unexpected notifications events: %v", config.Notifications.Events)
+	}
+	if config.Notifications.Services == nil || config.Notifications.Services.Slack == nil {
+		t.Fatalf("expected slack notifications config")
+	}
+	if !config.Notifications.Services.Slack.Enabled || config.Notifications.Services.Slack.APIToken != "slack-token" {
+		t.Fatalf("unexpected slack notifications config: %#v", config.Notifications.Services.Slack)
+	}
+	if len(config.Notifications.Services.Slack.Channels) != 1 || config.Notifications.Services.Slack.Channels[0] != "C123" {
+		t.Fatalf("unexpected slack channels: %v", config.Notifications.Services.Slack.Channels)
 	}
 	if config.CC["linux/amd64"] != "/usr/bin/cc" {
 		t.Fatalf("expected cc override %q, got %q", "/usr/bin/cc", config.CC["linux/amd64"])

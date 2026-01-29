@@ -1,0 +1,5 @@
+*.test
+*~
+.idea/
+/vendor/
+.env*
