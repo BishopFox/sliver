@@ -34,12 +34,19 @@ const (
 	SliverClientDirName = ".sliver-client"
 
 	versionFileName = "version"
+	envVarName      = "SLIVER_CLIENT_ROOT_DIR"
 )
 
 // GetRootAppDir - Get the Sliver app dir ~/.sliver-client/
 func GetRootAppDir() string {
-	user, _ := user.Current()
-	dir := filepath.Join(user.HomeDir, SliverClientDirName)
+	value := os.Getenv(envVarName)
+	var dir string
+	if len(value) == 0 {
+		user, _ := user.Current()
+		dir = filepath.Join(user.HomeDir, SliverClientDirName)
+	} else {
+		dir = value
+	}
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		err = os.MkdirAll(dir, 0700)
 		if err != nil {
@@ -116,7 +123,5 @@ under certain conditions; type 'licenses' for details.`)
 		}
 		saveAssetVersion(appDir)
 	}
-	if _, err := os.Stat(filepath.Join(appDir, settingsFileName)); os.IsNotExist(err) {
-		SaveSettings(nil)
-	}
+	_, _ = LoadSettings()
 }
