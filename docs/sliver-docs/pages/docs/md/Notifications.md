@@ -39,7 +39,8 @@
   - [Viber](#viber)
   - [Web Push](#web-push)
   - [WeChat](#wechat)
-  - [WhatsApp](#whatsapp)
+- [WhatsApp](#whatsapp)
+- [Custom Templates](#custom-templates)
 - [Notes](#notes)
 
 #### Overview
@@ -544,6 +545,60 @@ services:
     enabled: true
     receivers:
       - "whatsapp-contact"
+```
+
+#### Custom Templates
+
+You can render notification messages using Go templates with either `template/text` or `template/html`. Templates are loaded from:
+
+```
+<app dir>/notifications/templates/
+```
+
+By default this is `~/.sliver/notifications/templates/`. Only a filename is allowed (no path separators) and `..` is rejected to prevent path traversal.
+
+Configure per-event templates under `notifications.templates`:
+
+```yaml
+notifications:
+  enabled: true
+  templates:
+    session-connected:
+      type: "text"        # text (default) or html
+      template: "session.tmpl"
+    session-disconnected:
+      type: "html"
+      template: "session.html"
+```
+
+Template data available:
+
+- `.EventType`
+- `.Session`
+- `.Beacon`
+- `.Job`
+- `.Client`
+- `.Error`
+- `.DefaultSubject`
+- `.DefaultMessage`
+- `.Timestamp` (UTC)
+
+Example `session.tmpl` (text):
+
+```txt
+{{ .DefaultSubject }}
+Event: {{ .EventType }}
+Host: {{ if .Session }}{{ .Session.Hostname }}{{ end }}
+User: {{ if .Session }}{{ .Session.Username }}{{ end }}
+```
+
+Example `session.html` (html):
+
+```html
+<h3>{{ .DefaultSubject }}</h3>
+<p>Event: {{ .EventType }}</p>
+<p>Host: {{ if .Session }}{{ .Session.Hostname }}{{ end }}</p>
+<p>User: {{ if .Session }}{{ .Session.Username }}{{ end }}</p>
 ```
 
 #### Notes

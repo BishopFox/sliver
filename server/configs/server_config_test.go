@@ -47,6 +47,10 @@ notifications:
       api_token: "slack-token"
       channels:
         - "C123"
+  templates:
+    session-connected:
+      type: "text"
+      template: "session.tmpl"
 cc:
   linux/amd64: "/usr/bin/cc"
 cxx:
@@ -99,6 +103,13 @@ cxx:
 	}
 	if len(config.Notifications.Services.Slack.Channels) != 1 || config.Notifications.Services.Slack.Channels[0] != "C123" {
 		t.Fatalf("unexpected slack channels: %v", config.Notifications.Services.Slack.Channels)
+	}
+	if config.Notifications.Templates == nil {
+		t.Fatalf("expected notifications templates config")
+	}
+	tmpl := config.Notifications.Templates["session-connected"]
+	if tmpl == nil || tmpl.Type != "text" || tmpl.Template != "session.tmpl" {
+		t.Fatalf("unexpected template config: %#v", tmpl)
 	}
 	if config.CC["linux/amd64"] != "/usr/bin/cc" {
 		t.Fatalf("expected cc override %q, got %q", "/usr/bin/cc", config.CC["linux/amd64"])

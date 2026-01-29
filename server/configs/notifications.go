@@ -2,15 +2,22 @@ package configs
 
 // NotificationsConfig - Notification configuration for the server.
 type NotificationsConfig struct {
-	Enabled  bool                         `json:"enabled" yaml:"enabled"`
-	Events   []string                     `json:"events,omitempty" yaml:"events,omitempty"`
-	Services *NotificationsServicesConfig `json:"services,omitempty" yaml:"services,omitempty"`
+	Enabled   bool                                   `json:"enabled" yaml:"enabled"`
+	Events    []string                               `json:"events,omitempty" yaml:"events,omitempty"`
+	Templates map[string]*NotificationTemplateConfig `json:"templates,omitempty" yaml:"templates,omitempty"`
+	Services  *NotificationsServicesConfig           `json:"services,omitempty" yaml:"services,omitempty"`
 }
 
 // NotificationServiceConfig - Shared settings for notification services.
 type NotificationServiceConfig struct {
 	Enabled bool     `json:"enabled" yaml:"enabled"`
 	Events  []string `json:"events,omitempty" yaml:"events,omitempty"`
+}
+
+// NotificationTemplateConfig - Per-event template configuration.
+type NotificationTemplateConfig struct {
+	Type     string `json:"type,omitempty" yaml:"type,omitempty"`
+	Template string `json:"template" yaml:"template"`
 }
 
 // NotificationsServicesConfig - Available notification services.
@@ -383,8 +390,9 @@ type WhatsAppConfig struct {
 
 func defaultNotificationsConfig() *NotificationsConfig {
 	return &NotificationsConfig{
-		Enabled:  false,
-		Events:   []string{},
-		Services: &NotificationsServicesConfig{},
+		Enabled:   false,
+		Events:    []string{},
+		Templates: map[string]*NotificationTemplateConfig{},
+		Services:  &NotificationsServicesConfig{},
 	}
 }

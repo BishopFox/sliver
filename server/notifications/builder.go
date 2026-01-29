@@ -7,6 +7,7 @@ import (
 	"log/syslog"
 	"net/http"
 	"net/textproto"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -71,6 +72,12 @@ func (e notifierEntry) allows(eventType string) bool {
 
 func Start() {
 	startOnce.Do(func() {
+		templateDir, err := ensureTemplatesDir()
+		if err != nil {
+			notificationsLog.Warnf("Failed to ensure notifications templates directory: %v", err)
+		} else {
+			notificationsLog.Debugf("Notifications templates directory: %s", templateDir)
+		}
 		serverConfig := configs.GetServerConfig()
 		if serverConfig.Notifications == nil || !serverConfig.Notifications.Enabled {
 			notificationsLog.Infof("Notifications are disabled")
@@ -108,10 +115,27 @@ func NewManager(cfg *configs.NotificationsConfig) (*Manager, error) {
 		return nil, err
 	}
 
+	templateDir, err := ensureTemplatesDir()
+	if err != nil {
+		notificationsLog.Warnf("Failed to create notifications templates directory: %v", err)
+		templateDir = ""
+	}
+	var renderer *templateRenderer
+	if templateDir != "" {
+		renderer = newTemplateRenderer(templateDir)
+	}
+	templates := buildTemplateSpecs(cfg)
+	if len(templates) > 0 && renderer == nil {
+		notificationsLog.Warnf("Templates configured but template directory is unavailable")
+	}
+	validateTemplateSpecs(renderer, templates)
+
 	notificationsLog.Infof("Notifications configured with %d service(s)", len(entries))
 	return &Manager{
-		enabled: cfg.Enabled,
-		entries: entries,
+		enabled:   cfg.Enabled,
+		entries:   entries,
+		renderer:  renderer,
+		templates: templates,
 	}, nil
 }
 
@@ -416,6 +440,56 @@ func buildEntries(cfg *configs.NotificationsConfig) ([]notifierEntry, error) {
 	}
 
 	return entries, nil
+}
+
+func buildTemplateSpecs(cfg *configs.NotificationsConfig) map[string]templateSpec {
+	specs := map[string]templateSpec{}
+	if cfg == nil || len(cfg.Templates) == 0 {
+		return specs
+	}
+	for eventType, tmpl := range cfg.Templates {
+		if strings.TrimSpace(eventType) == "" {
+			notificationsLog.Warnf("Ignoring template with empty event type")
+			continue
+		}
+		if tmpl == nil {
+			notificationsLog.Warnf("Ignoring template for event %q: config is nil", eventType)
+			continue
+		}
+		name := strings.TrimSpace(tmpl.Template)
+		if name == "" {
+			notificationsLog.Warnf("Ignoring template for event %q: template name is empty", eventType)
+			continue
+		}
+		typ, ok := parseTemplateType(tmpl.Type)
+		if !ok {
+			notificationsLog.Warnf("Unknown template type %q for event %q, defaulting to text", tmpl.Type, eventType)
+			typ = templateTypeText
+		}
+		specs[eventType] = templateSpec{name: name, typ: typ}
+		notificationsLog.Infof("Configured template %q (%s) for event %q", name, typ, eventType)
+	}
+	return specs
+}
+
+func validateTemplateSpecs(renderer *templateRenderer, specs map[string]templateSpec) {
+	if len(specs) == 0 {
+		return
+	}
+	if renderer == nil {
+		notificationsLog.Warnf("Templates configured but renderer is not available")
+		return
+	}
+	for eventType, spec := range specs {
+		path, err := resolveTemplatePath(renderer.baseDir, spec.name)
+		if err != nil {
+			notificationsLog.Warnf("Template %q for event %q is invalid: %v", spec.name, eventType, err)
+			continue
+		}
+		if _, err := os.Stat(path); err != nil {
+			notificationsLog.Warnf("Template %q for event %q not found at %s: %v", spec.name, eventType, path, err)
+		}
+	}
 }
 
 func resolveEvents(globalEvents, serviceEvents []string) map[string]struct{} {

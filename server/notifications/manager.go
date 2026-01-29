@@ -21,6 +21,9 @@ type Manager struct {
 	enabled bool
 	entries []notifierEntry
 
+	templates map[string]templateSpec
+	renderer  *templateRenderer
+
 	queue   chan core.Event
 	cancel  context.CancelFunc
 	started bool
@@ -84,7 +87,23 @@ func (m *Manager) Stop() {
 }
 
 func (m *Manager) dispatch(ctx context.Context, event core.Event) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			notificationsLog.Errorf("Notification dispatch panic for event %q: %v", event.EventType, recovered)
+		}
+	}()
 	subject, message := formatEvent(event)
+	if m.renderer != nil && len(m.templates) > 0 {
+		if spec, ok := m.templates[event.EventType]; ok {
+			rendered, err := m.renderer.render(spec, buildTemplateData(event, subject, message))
+			if err != nil {
+				notificationsLog.Warnf("Failed to render template %q for event %q: %v", spec.name, event.EventType, err)
+			} else {
+				message = rendered
+				notificationsLog.Debugf("Rendered %s template %q for event %q", spec.typ, spec.name, event.EventType)
+			}
+		}
+	}
 	for _, entry := range m.entries {
 		if !entry.allows(event.EventType) {
 			notificationsLog.Debugf("Skipping notification %s for event %q (filtered)", entry.name, event.EventType)
