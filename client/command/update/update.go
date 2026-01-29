@@ -299,8 +299,8 @@ func updateAvailable(con *console.SliverClient, client *http.Client, release *ve
 			if item.asset == nil {
 				continue
 			}
-			con.Printf("Downloading %s update ...\n", item.label)
-			if err := downloadAssetWithSignature(client, item.asset, release.Assets, saveTo, publicKey); err != nil {
+			con.Printf("Downloading %s update from %s ...\n", item.label, item.asset.BrowserDownloadURL)
+			if err := downloadAssetWithSignature(con, client, item.asset, release.Assets, saveTo, publicKey); err != nil {
 				con.PrintErrorf("Failed to download %s update: %s\n", item.label, err)
 				return
 			}
@@ -310,7 +310,7 @@ func updateAvailable(con *console.SliverClient, client *http.Client, release *ve
 	}
 }
 
-func downloadAssetWithSignature(client *http.Client, asset *version.Asset, assets []version.Asset, saveTo string, publicKey minisign.PublicKey) error {
+func downloadAssetWithSignature(con *console.SliverClient, client *http.Client, asset *version.Asset, assets []version.Asset, saveTo string, publicKey minisign.PublicKey) error {
 	if asset == nil {
 		return errors.New("no asset available for this platform")
 	}
@@ -319,6 +319,7 @@ func downloadAssetWithSignature(client *http.Client, asset *version.Asset, asset
 		return err
 	}
 	assetFileName := filepath.Base(downloadURL.Path)
+	finalPath := filepath.Join(saveTo, assetFileName)
 
 	sigURL := asset.BrowserDownloadURL + ".minisig"
 	var sigLimit int64
@@ -327,34 +328,27 @@ func downloadAssetWithSignature(client *http.Client, asset *version.Asset, asset
 		sigLimit = int64(sigAsset.Size)
 	}
 
-	sigTempPath, err := downloadWithRetries(client, sigURL, saveTo, sigLimit, "signature")
-	if err != nil {
-		return fmt.Errorf("download signature: %w", err)
-	}
 	assetTempPath, err := downloadWithRetries(client, asset.BrowserDownloadURL, saveTo, int64(asset.Size), "asset")
 	if err != nil {
-		os.Remove(sigTempPath)
 		return fmt.Errorf("download asset: %w", err)
 	}
 
-	if err := verifyMinisignSignature(assetTempPath, sigTempPath, assetFileName, publicKey); err != nil {
-		os.Remove(assetTempPath)
-		os.Remove(sigTempPath)
-		return err
+	sigData, err := downloadBytesWithRetries(client, sigURL, sigLimit, "signature")
+	if err != nil {
+		cleanupAssetFiles(assetTempPath, finalPath)
+		return fmt.Errorf("download signature: %w", err)
 	}
 
-	assetPath := filepath.Join(saveTo, assetFileName)
-	sigPath := assetPath + ".minisig"
-	if err := replaceFile(assetTempPath, assetPath); err != nil {
-		os.Remove(assetTempPath)
-		os.Remove(sigTempPath)
+	if err := verifyMinisignSignature(assetTempPath, sigData, assetFileName, publicKey); err != nil {
+		cleanupAssetFiles(assetTempPath, finalPath)
 		return err
 	}
-	if err := replaceFile(sigTempPath, sigPath); err != nil {
-		os.Remove(sigTempPath)
-		return err
-	}
+	con.PrintSuccessf("Signature verified for %s\n", finalPath)
 
+	if err := replaceFile(assetTempPath, finalPath); err != nil {
+		os.Remove(assetTempPath)
+		return err
+	}
 	return nil
 }
 
@@ -404,6 +398,24 @@ func downloadWithRetries(client *http.Client, downloadURL, saveTo string, limit 
 		backoff *= 2
 	}
 	return "", lastErr
+}
+
+func downloadBytesWithRetries(client *http.Client, downloadURL string, limit int64, label string) ([]byte, error) {
+	var lastErr error
+	backoff := downloadBackoff
+	for attempt := 1; attempt <= downloadAttempts; attempt++ {
+		data, err := downloadBytesOnce(client, downloadURL, limit, label)
+		if err == nil {
+			return data, nil
+		}
+		lastErr = err
+		if !isRetryableDownloadError(err) || attempt == downloadAttempts {
+			break
+		}
+		time.Sleep(backoff)
+		backoff *= 2
+	}
+	return nil, lastErr
 }
 
 func downloadOnce(client *http.Client, downloadURL, saveTo string, limit int64, label string) (string, error) {
@@ -481,6 +493,51 @@ func downloadOnce(client *http.Client, downloadURL, saveTo string, limit int64, 
 	return tmpFile.Name(), nil
 }
 
+func downloadBytesOnce(client *http.Client, downloadURL string, limit int64, label string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, downloadURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, httpStatusError{url: downloadURL, status: resp.StatusCode}
+	}
+
+	if limit <= 0 && resp.ContentLength > 0 {
+		limit = resp.ContentLength
+	}
+
+	var reader io.Reader = resp.Body
+	var bar *pb.ProgressBar
+	if limit > 0 {
+		bar = pb.Full.Start64(limit)
+		bar.Set("prefix", fmt.Sprintf("%s: ", label))
+		bar.Set(pb.Bytes, true)
+		bar.Set(pb.CleanOnFinish, true)
+		bar.Set(pb.ReturnSymbol, "\r")
+		if term.IsTerminal(int(os.Stdin.Fd())) {
+			bar.Set(pb.Terminal, true)
+		}
+		reader = bar.NewProxyReader(reader)
+	}
+
+	data, readErr := readAllWithLimit(reader, limit)
+	if bar != nil {
+		bar.Finish()
+	}
+	if readErr != nil {
+		return nil, readErr
+	}
+
+	return data, nil
+}
+
 func isRetryableDownloadError(err error) bool {
 	if err == nil {
 		return false
@@ -504,12 +561,7 @@ func isRetryableDownloadError(err error) bool {
 	return false
 }
 
-func verifyMinisignSignature(artifactPath, signaturePath, expectedFile string, publicKey minisign.PublicKey) error {
-	sigData, err := os.ReadFile(signaturePath)
-	if err != nil {
-		return fmt.Errorf("read signature: %w", err)
-	}
-
+func verifyMinisignSignature(artifactPath string, sigData []byte, expectedFile string, publicKey minisign.PublicKey) error {
 	artifact, err := os.Open(artifactPath)
 	if err != nil {
 		return fmt.Errorf("open artifact: %w", err)
@@ -530,6 +582,25 @@ func verifyMinisignSignature(artifactPath, signaturePath, expectedFile string, p
 	}
 
 	return nil
+}
+
+func readAllWithLimit(reader io.Reader, limit int64) ([]byte, error) {
+	if limit <= 0 {
+		return io.ReadAll(reader)
+	}
+
+	lr := &io.LimitedReader{R: reader, N: limit + 1}
+	data, err := io.ReadAll(lr)
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > limit {
+		return nil, fmt.Errorf("downloaded %d bytes, expected %d", len(data), limit)
+	}
+	if int64(len(data)) != limit {
+		return nil, fmt.Errorf("downloaded %d bytes, expected %d", len(data), limit)
+	}
+	return data, nil
 }
 
 func verifyTrustedComment(signature []byte, expectedFile string) error {
@@ -563,4 +634,13 @@ func replaceFile(src, dst string) error {
 		return err
 	}
 	return os.Rename(src, dst)
+}
+
+func cleanupAssetFiles(tempPath, finalPath string) {
+	if tempPath != "" {
+		_ = os.Remove(tempPath)
+	}
+	if finalPath != "" {
+		_ = os.Remove(finalPath)
+	}
 }
