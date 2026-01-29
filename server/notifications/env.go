@@ -7,16 +7,20 @@ import (
 	"unicode"
 )
 
-func resolveEnvString(value string) (string, bool) {
+func resolveEnvString(value string) (string, bool, bool) {
 	name, ok := parseEnvVar(value)
 	if !ok {
-		return value, false
+		return value, false, false
 	}
 	expanded, found := os.LookupEnv(name)
 	if !found {
-		return "", true
+		notificationsLog.Warnf("Notifications env var %q is not set", name)
+		return "", true, false
 	}
-	return expanded, true
+	if expanded == "" {
+		notificationsLog.Debugf("Notifications env var %q is set but empty", name)
+	}
+	return expanded, true, true
 }
 
 func parseEnvVar(value string) (string, bool) {
@@ -80,7 +84,7 @@ func expandEnvValue(value reflect.Value) {
 		if !value.CanSet() {
 			return
 		}
-		expanded, ok := resolveEnvString(value.String())
+		expanded, ok, _ := resolveEnvString(value.String())
 		if ok {
 			value.SetString(expanded)
 		}
@@ -99,7 +103,7 @@ func expandEnvValue(value reflect.Value) {
 		if value.Type().Elem().Kind() == reflect.String {
 			for _, key := range value.MapKeys() {
 				val := value.MapIndex(key)
-				expanded, ok := resolveEnvString(val.String())
+				expanded, ok, _ := resolveEnvString(val.String())
 				if ok {
 					value.SetMapIndex(key, reflect.ValueOf(expanded))
 				}

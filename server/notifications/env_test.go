@@ -9,23 +9,23 @@ import (
 func TestResolveEnvString(t *testing.T) {
 	t.Setenv("SLIVER_NOTIFY_TEST", "secret")
 
-	got, ok := resolveEnvString("$SLIVER_NOTIFY_TEST")
-	if !ok || got != "secret" {
+	got, ok, found := resolveEnvString("$SLIVER_NOTIFY_TEST")
+	if !ok || !found || got != "secret" {
 		t.Fatalf("expected env replacement, got %q (ok=%v)", got, ok)
 	}
 
-	got, ok = resolveEnvString("${SLIVER_NOTIFY_TEST}")
-	if !ok || got != "secret" {
+	got, ok, found = resolveEnvString("${SLIVER_NOTIFY_TEST}")
+	if !ok || !found || got != "secret" {
 		t.Fatalf("expected env replacement with braces, got %q (ok=%v)", got, ok)
 	}
 
-	got, ok = resolveEnvString("plain")
-	if ok || got != "plain" {
+	got, ok, found = resolveEnvString("plain")
+	if ok || found || got != "plain" {
 		t.Fatalf("expected literal value, got %q (ok=%v)", got, ok)
 	}
 
-	got, ok = resolveEnvString("$SLIVER_NOTIFY_MISSING")
-	if !ok || got != "" {
+	got, ok, found = resolveEnvString("$SLIVER_NOTIFY_MISSING")
+	if !ok || found || got != "" {
 		t.Fatalf("expected empty string for missing env, got %q (ok=%v)", got, ok)
 	}
 }

@@ -28,11 +28,15 @@ type Manager struct {
 
 func (m *Manager) Start() {
 	if m == nil || m.started || !m.enabled || len(m.entries) == 0 {
+		if m != nil && !m.enabled {
+			notificationsLog.Infof("Notifications disabled")
+		}
 		return
 	}
 	m.started = true
 	m.queue = make(chan core.Event, notificationQueueSize)
 
+	notificationsLog.Infof("Starting notifications with %d service(s)", len(m.entries))
 	ctx, cancel := context.WithCancel(context.Background())
 	m.cancel = cancel
 
@@ -76,17 +80,21 @@ func (m *Manager) Stop() {
 		m.cancel()
 	}
 	m.started = false
+	notificationsLog.Infof("Notifications stopped")
 }
 
 func (m *Manager) dispatch(ctx context.Context, event core.Event) {
 	subject, message := formatEvent(event)
 	for _, entry := range m.entries {
 		if !entry.allows(event.EventType) {
+			notificationsLog.Debugf("Skipping notification %s for event %q (filtered)", entry.name, event.EventType)
 			continue
 		}
 		sendCtx, cancel := context.WithTimeout(ctx, notificationTimeout)
 		if err := entry.notifier.Send(sendCtx, subject, message); err != nil {
 			notificationsLog.Warnf("Notification %s failed: %v", entry.name, err)
+		} else {
+			notificationsLog.Debugf("Notification %s delivered for event %q", entry.name, event.EventType)
 		}
 		cancel()
 	}

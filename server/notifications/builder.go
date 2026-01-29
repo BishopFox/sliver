@@ -72,10 +72,17 @@ func (e notifierEntry) allows(eventType string) bool {
 func Start() {
 	startOnce.Do(func() {
 		serverConfig := configs.GetServerConfig()
+		if serverConfig.Notifications == nil || !serverConfig.Notifications.Enabled {
+			notificationsLog.Infof("Notifications are disabled")
+			return
+		}
 		manager, err := NewManager(serverConfig.Notifications)
 		if err != nil {
 			notificationsLog.Warnf("Failed to initialize notifications: %v", err)
 			return
+		}
+		if len(manager.entries) == 0 {
+			notificationsLog.Warnf("Notifications enabled but no services are configured")
 		}
 		activeManager = manager
 		activeManager.Start()
@@ -90,6 +97,7 @@ func Stop() {
 
 func NewManager(cfg *configs.NotificationsConfig) (*Manager, error) {
 	if cfg == nil || !cfg.Enabled {
+		notificationsLog.Infof("Notifications disabled via config")
 		return &Manager{enabled: false}, nil
 	}
 
@@ -100,6 +108,7 @@ func NewManager(cfg *configs.NotificationsConfig) (*Manager, error) {
 		return nil, err
 	}
 
+	notificationsLog.Infof("Notifications configured with %d service(s)", len(entries))
 	return &Manager{
 		enabled: cfg.Enabled,
 		entries: entries,
@@ -121,6 +130,13 @@ func buildEntries(cfg *configs.NotificationsConfig) ([]notifierEntry, error) {
 			notifier: notifier,
 			events:   resolveEvents(cfg.Events, events),
 		})
+		if len(events) > 0 {
+			notificationsLog.Infof("Notifications enabled for %s with %d event filter(s)", name, len(events))
+		} else if len(cfg.Events) > 0 {
+			notificationsLog.Infof("Notifications enabled for %s with %d global event filter(s)", name, len(cfg.Events))
+		} else {
+			notificationsLog.Infof("Notifications enabled for %s (all events)", name)
+		}
 	}
 
 	services := cfg.Services
@@ -435,7 +451,11 @@ func buildAmazonSES(cfg *configs.AmazonSESConfig) (notify.Notifier, error) {
 	if err != nil {
 		return nil, err
 	}
-	service.AddReceivers(compactStrings(cfg.Receivers)...)
+	receivers := compactStrings(cfg.Receivers)
+	if len(receivers) == 0 {
+		return nil, errors.New("missing amazon ses receivers")
+	}
+	service.AddReceivers(receivers...)
 	return service, nil
 }
 
@@ -450,7 +470,11 @@ func buildAmazonSNS(cfg *configs.AmazonSNSConfig) (notify.Notifier, error) {
 	if err != nil {
 		return nil, err
 	}
-	service.AddReceivers(compactStrings(cfg.Receivers)...)
+	receivers := compactStrings(cfg.Receivers)
+	if len(receivers) == 0 {
+		return nil, errors.New("missing amazon sns receivers")
+	}
+	service.AddReceivers(receivers...)
 	return service, nil
 }
 
@@ -493,7 +517,11 @@ func buildDiscord(cfg *configs.DiscordConfig) (notify.Notifier, error) {
 	default:
 		return nil, fmt.Errorf("unsupported discord token type %q", cfg.TokenType)
 	}
-	service.AddReceivers(compactStrings(cfg.Channels)...)
+	channels := compactStrings(cfg.Channels)
+	if len(channels) == 0 {
+		return nil, errors.New("missing discord channels")
+	}
+	service.AddReceivers(channels...)
 	return service, nil
 }
 
@@ -513,7 +541,11 @@ func buildFCM(cfg *configs.FCMConfig) (notify.Notifier, error) {
 	if err != nil {
 		return nil, err
 	}
-	service.AddReceivers(compactStrings(cfg.DeviceTokens)...)
+	tokens := compactStrings(cfg.DeviceTokens)
+	if len(tokens) == 0 {
+		return nil, errors.New("missing fcm device_tokens")
+	}
+	service.AddReceivers(tokens...)
 	return service, nil
 }
 
@@ -532,7 +564,11 @@ func buildGoogleChat(cfg *configs.GoogleChatConfig) (notify.Notifier, error) {
 	if err != nil {
 		return nil, err
 	}
-	service.AddReceivers(compactStrings(cfg.Spaces)...)
+	spaces := compactStrings(cfg.Spaces)
+	if len(spaces) == 0 {
+		return nil, errors.New("missing google chat spaces")
+	}
+	service.AddReceivers(spaces...)
 	return service, nil
 }
 
@@ -542,10 +578,16 @@ func buildHTTP(cfg *configs.HTTPConfig) (notify.Notifier, error) {
 	}
 	service := notifyhttp.New()
 	if len(cfg.URLs) > 0 {
-		service.AddReceiversURLs(compactStrings(cfg.URLs)...)
+		urls := compactStrings(cfg.URLs)
+		if len(urls) == 0 {
+			notificationsLog.Warnf("HTTP notifications configured without valid urls")
+		} else {
+			service.AddReceiversURLs(urls...)
+		}
 	}
 	for _, hook := range cfg.Webhooks {
 		if hook.URL == "" {
+			notificationsLog.Warnf("HTTP webhook configured without URL")
 			continue
 		}
 		headers := http.Header{}
@@ -644,7 +686,11 @@ func buildLine(cfg *configs.LineConfig) (notify.Notifier, error) {
 	if err != nil {
 		return nil, err
 	}
-	service.AddReceivers(compactStrings(cfg.Receivers)...)
+	receivers := compactStrings(cfg.Receivers)
+	if len(receivers) == 0 {
+		return nil, errors.New("missing line receivers")
+	}
+	service.AddReceivers(receivers...)
 	return service, nil
 }
 
@@ -653,7 +699,11 @@ func buildLineNotify(cfg *configs.LineNotifyConfig) (notify.Notifier, error) {
 		return nil, errors.New("missing line notify tokens")
 	}
 	service := notifyline.NewNotify()
-	service.AddReceivers(compactStrings(cfg.Receivers)...)
+	receivers := compactStrings(cfg.Receivers)
+	if len(receivers) == 0 {
+		return nil, errors.New("missing line notify tokens")
+	}
+	service.AddReceivers(receivers...)
 	return service, nil
 }
 
@@ -671,7 +721,11 @@ func buildMail(cfg *configs.MailConfig) (notify.Notifier, error) {
 	if strings.EqualFold(cfg.BodyType, "plain") || strings.EqualFold(cfg.BodyType, "text") || strings.EqualFold(cfg.BodyType, "plaintext") {
 		service.BodyFormat(notifymail.PlainText)
 	}
-	service.AddReceivers(compactStrings(cfg.Receivers)...)
+	receivers := compactStrings(cfg.Receivers)
+	if len(receivers) == 0 {
+		return nil, errors.New("missing mail receivers")
+	}
+	service.AddReceivers(receivers...)
 	return service, nil
 }
 
@@ -683,7 +737,11 @@ func buildMailgun(cfg *configs.MailgunConfig) (notify.Notifier, error) {
 		return nil, errors.New("missing mailgun receivers")
 	}
 	service := notifymailgun.New(cfg.Domain, cfg.APIKey, cfg.SenderAddress)
-	service.AddReceivers(compactStrings(cfg.Receivers)...)
+	receivers := compactStrings(cfg.Receivers)
+	if len(receivers) == 0 {
+		return nil, errors.New("missing mailgun receivers")
+	}
+	service.AddReceivers(receivers...)
 	return service, nil
 }
 
@@ -714,7 +772,11 @@ func buildMattermost(cfg *configs.MattermostConfig) (notify.Notifier, error) {
 		}
 		cancel()
 	}
-	service.AddReceivers(compactStrings(cfg.Channels)...)
+	channels := compactStrings(cfg.Channels)
+	if len(channels) == 0 {
+		return nil, errors.New("missing mattermost channels")
+	}
+	service.AddReceivers(channels...)
 	return service, nil
 }
 
@@ -732,7 +794,11 @@ func buildMSTeams(cfg *configs.MSTeamsConfig) (notify.Notifier, error) {
 	if cfg.UserAgent != "" {
 		service.SetUseragent(cfg.UserAgent)
 	}
-	service.AddReceivers(compactStrings(cfg.Webhooks)...)
+	webhooks := compactStrings(cfg.Webhooks)
+	if len(webhooks) == 0 {
+		return nil, errors.New("missing msteams webhooks")
+	}
+	service.AddReceivers(webhooks...)
 	return service, nil
 }
 
@@ -748,7 +814,11 @@ func buildPagerDuty(cfg *configs.PagerDutyConfig) (notify.Notifier, error) {
 		return nil, err
 	}
 	service.Config.SetFromAddress(cfg.FromAddress)
-	service.Config.AddReceivers(compactStrings(cfg.Receivers)...)
+	receivers := compactStrings(cfg.Receivers)
+	if len(receivers) == 0 {
+		return nil, errors.New("missing pagerduty receivers")
+	}
+	service.Config.AddReceivers(receivers...)
 	if cfg.NotificationType != "" {
 		service.Config.SetNotificationType(cfg.NotificationType)
 	}
@@ -779,7 +849,11 @@ func buildPlivo(cfg *configs.PlivoConfig) (notify.Notifier, error) {
 	if err != nil {
 		return nil, err
 	}
-	service.AddReceivers(compactStrings(cfg.Receivers)...)
+	receivers := compactStrings(cfg.Receivers)
+	if len(receivers) == 0 {
+		return nil, errors.New("missing plivo receivers")
+	}
+	service.AddReceivers(receivers...)
 	return service, nil
 }
 
@@ -791,7 +865,11 @@ func buildPushbullet(cfg *configs.PushbulletConfig) (notify.Notifier, error) {
 		return nil, errors.New("missing pushbullet device_nicknames")
 	}
 	service := notifypushbullet.New(cfg.APIToken)
-	service.AddReceivers(compactStrings(cfg.DeviceNicknames)...)
+	devices := compactStrings(cfg.DeviceNicknames)
+	if len(devices) == 0 {
+		return nil, errors.New("missing pushbullet device_nicknames")
+	}
+	service.AddReceivers(devices...)
 	return service, nil
 }
 
@@ -806,7 +884,11 @@ func buildPushbulletSMS(cfg *configs.PushbulletSMSConfig) (notify.Notifier, erro
 	if err != nil {
 		return nil, err
 	}
-	service.AddReceivers(compactStrings(cfg.PhoneNumbers)...)
+	numbers := compactStrings(cfg.PhoneNumbers)
+	if len(numbers) == 0 {
+		return nil, errors.New("missing pushbullet sms phone_numbers")
+	}
+	service.AddReceivers(numbers...)
 	return service, nil
 }
 
@@ -818,7 +900,11 @@ func buildPushover(cfg *configs.PushoverConfig) (notify.Notifier, error) {
 		return nil, errors.New("missing pushover recipients")
 	}
 	service := notifypushover.New(cfg.AppToken)
-	service.AddReceivers(compactStrings(cfg.Recipients)...)
+	recipients := compactStrings(cfg.Recipients)
+	if len(recipients) == 0 {
+		return nil, errors.New("missing pushover recipients")
+	}
+	service.AddReceivers(recipients...)
 	return service, nil
 }
 
@@ -833,7 +919,11 @@ func buildReddit(cfg *configs.RedditConfig) (notify.Notifier, error) {
 	if err != nil {
 		return nil, err
 	}
-	service.AddReceivers(compactStrings(cfg.Recipients)...)
+	recipients := compactStrings(cfg.Recipients)
+	if len(recipients) == 0 {
+		return nil, errors.New("missing reddit recipients")
+	}
+	service.AddReceivers(recipients...)
 	return service, nil
 }
 
@@ -848,7 +938,11 @@ func buildRocketChat(cfg *configs.RocketChatConfig) (notify.Notifier, error) {
 	if err != nil {
 		return nil, err
 	}
-	service.AddReceivers(compactStrings(cfg.Channels)...)
+	channels := compactStrings(cfg.Channels)
+	if len(channels) == 0 {
+		return nil, errors.New("missing rocketchat channels")
+	}
+	service.AddReceivers(channels...)
 	return service, nil
 }
 
@@ -860,7 +954,11 @@ func buildSendGrid(cfg *configs.SendGridConfig) (notify.Notifier, error) {
 		return nil, errors.New("missing sendgrid receivers")
 	}
 	service := notifysendgrid.New(cfg.APIKey, cfg.SenderAddress, cfg.SenderName)
-	service.AddReceivers(compactStrings(cfg.Receivers)...)
+	receivers := compactStrings(cfg.Receivers)
+	if len(receivers) == 0 {
+		return nil, errors.New("missing sendgrid receivers")
+	}
+	service.AddReceivers(receivers...)
 	return service, nil
 }
 
@@ -872,7 +970,11 @@ func buildSlack(cfg *configs.SlackConfig) (notify.Notifier, error) {
 		return nil, errors.New("missing slack channels")
 	}
 	service := notifyslack.New(cfg.APIToken)
-	service.AddReceivers(compactStrings(cfg.Channels)...)
+	channels := compactStrings(cfg.Channels)
+	if len(channels) == 0 {
+		return nil, errors.New("missing slack channels")
+	}
+	service.AddReceivers(channels...)
 	return service, nil
 }
 
@@ -947,7 +1049,11 @@ func buildTextMagic(cfg *configs.TextMagicConfig) (notify.Notifier, error) {
 		return nil, errors.New("missing textmagic phone_numbers")
 	}
 	service := notifytextmagic.New(cfg.Username, cfg.APIKey)
-	service.AddReceivers(compactStrings(cfg.PhoneNumbers)...)
+	numbers := compactStrings(cfg.PhoneNumbers)
+	if len(numbers) == 0 {
+		return nil, errors.New("missing textmagic phone_numbers")
+	}
+	service.AddReceivers(numbers...)
 	return service, nil
 }
 
@@ -962,7 +1068,11 @@ func buildTwilio(cfg *configs.TwilioConfig) (notify.Notifier, error) {
 	if err != nil {
 		return nil, err
 	}
-	service.AddReceivers(compactStrings(cfg.PhoneNumbers)...)
+	numbers := compactStrings(cfg.PhoneNumbers)
+	if len(numbers) == 0 {
+		return nil, errors.New("missing twilio phone_numbers")
+	}
+	service.AddReceivers(numbers...)
 	return service, nil
 }
 
@@ -982,7 +1092,11 @@ func buildTwitter(cfg *configs.TwitterConfig) (notify.Notifier, error) {
 	if err != nil {
 		return nil, err
 	}
-	service.AddReceivers(compactStrings(cfg.Recipients)...)
+	recipients := compactStrings(cfg.Recipients)
+	if len(recipients) == 0 {
+		return nil, errors.New("missing twitter recipients")
+	}
+	service.AddReceivers(recipients...)
 	return service, nil
 }
 
@@ -999,7 +1113,11 @@ func buildViber(cfg *configs.ViberConfig) (notify.Notifier, error) {
 			return nil, err
 		}
 	}
-	service.AddReceivers(compactStrings(cfg.Receivers)...)
+	receivers := compactStrings(cfg.Receivers)
+	if len(receivers) == 0 {
+		return nil, errors.New("missing viber receivers")
+	}
+	service.AddReceivers(receivers...)
 	return service, nil
 }
 
@@ -1014,6 +1132,7 @@ func buildWebPush(cfg *configs.WebPushConfig) (notify.Notifier, error) {
 	subscriptions := make([]notifywebpush.Subscription, 0, len(cfg.Subscriptions))
 	for _, sub := range cfg.Subscriptions {
 		if sub.Endpoint == "" {
+			notificationsLog.Warnf("Webpush subscription missing endpoint")
 			continue
 		}
 		subscriptions = append(subscriptions, notifywebpush.Subscription{
@@ -1044,7 +1163,11 @@ func buildWeChat(cfg *configs.WeChatConfig) (notify.Notifier, error) {
 		Token:          cfg.Token,
 		EncodingAESKey: cfg.EncodingAESKey,
 	})
-	service.AddReceivers(compactStrings(cfg.Receivers)...)
+	receivers := compactStrings(cfg.Receivers)
+	if len(receivers) == 0 {
+		return nil, errors.New("missing wechat receivers")
+	}
+	service.AddReceivers(receivers...)
 	return service, nil
 }
 
@@ -1056,7 +1179,11 @@ func buildWhatsApp(cfg *configs.WhatsAppConfig) (notify.Notifier, error) {
 	if err != nil {
 		return nil, err
 	}
-	service.AddReceivers(compactStrings(cfg.Receivers)...)
+	receivers := compactStrings(cfg.Receivers)
+	if len(receivers) == 0 {
+		return nil, errors.New("missing whatsapp receivers")
+	}
+	service.AddReceivers(receivers...)
 	return service, nil
 }
 
