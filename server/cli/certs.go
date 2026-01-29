@@ -92,9 +92,17 @@ var cmdImportCA = &cobra.Command{
 			fmt.Printf("Failed to parse file %s", err)
 			os.Exit(1)
 		}
+		if strings.TrimSpace(importCA.Certificate) == "" || strings.TrimSpace(importCA.PrivateKey) == "" {
+			fmt.Printf("CA file missing certificate or private key data\n")
+			os.Exit(1)
+		}
 		cert := []byte(importCA.Certificate)
 		key := []byte(importCA.PrivateKey)
 		certs.SaveCertificateAuthority(ca, cert, key)
+		if _, _, err := certs.GetCertificateAuthorityPEM(ca); err != nil {
+			fmt.Printf("Failed to verify imported CA %s\n", err)
+			os.Exit(1)
+		}
 	},
 }
 
