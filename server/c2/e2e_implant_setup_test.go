@@ -1,8 +1,8 @@
-package c2
+package c2_test
 
 /*
 	Sliver Implant Framework
-	Copyright (C) 2021  Bishop Fox
+	Copyright (C) 2025  Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU General Public License as published by
@@ -22,7 +22,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"os"
 	"runtime"
 	"testing"
@@ -76,13 +75,13 @@ func setup() {
 		cryptography.MinisignServerPublicKey(),
 	)
 
-	if _, err := db.LoadHTTPC2ConfigByName(defaultHTTPC2ConfigName); err != nil {
-		if errors.Is(err, db.ErrRecordNotFound) {
-			defaultConfig := configs.GenerateDefaultHTTPC2Config()
-			if err := db.SaveHTTPC2Config(defaultConfig); err != nil {
-				panic(err)
-			}
-		} else {
+	httpConfig, err := db.LoadHTTPC2ConfigByName(defaultHTTPC2ConfigName)
+	if err != nil && !errors.Is(err, db.ErrRecordNotFound) {
+		panic(err)
+	}
+	if httpConfig == nil || httpConfig.ServerConfig == nil || len(httpConfig.ServerConfig.Cookies) == 0 {
+		defaultConfig := configs.GenerateDefaultHTTPC2Config()
+		if err := db.SaveHTTPC2Config(defaultConfig); err != nil {
 			panic(err)
 		}
 	}
@@ -92,6 +91,14 @@ func setup() {
 		panic(err)
 	}
 	mtlsCACertPEM = string(caPEM)
+
+	_, _, err = certs.GetECCCertificate(certs.MtlsServerCA, "localhost")
+	if errors.Is(err, certs.ErrCertDoesNotExist) {
+		_, _, err = certs.MtlsC2ServerGenerateECCCertificate("localhost")
+	}
+	if err != nil {
+		panic(err)
+	}
 
 	certPEM, keyPEM, err := certs.GetECCCertificate(certs.MtlsImplantCA, testImplantCertName)
 	if errors.Is(err, certs.ErrCertDoesNotExist) {
@@ -117,7 +124,7 @@ func setup() {
 
 	digest := sha256.Sum256([]byte(peerAgeKeyPair.Public))
 	testImplantBuild = &models.ImplantBuild{
-		Name:                    fmt.Sprintf("e2e-test-%d", time.Now().UnixNano()),
+		Name:                    "e2e-test-" + time.Now().Format("20060102150405.000000000"),
 		ImplantConfigID:         testImplantConfig.ID,
 		PeerPublicKey:           peerAgeKeyPair.Public,
 		PeerPublicKeyDigest:     hex.EncodeToString(digest[:]),

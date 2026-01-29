@@ -1,4 +1,4 @@
-package c2
+package c2_test
 
 /*
 	Sliver Implant Framework
@@ -21,130 +21,410 @@ package c2
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
+	"net/http/cookiejar"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"testing"
 	"time"
 
 	consts "github.com/bishopfox/sliver/client/constants"
+	implantCrypto "github.com/bishopfox/sliver/implant/sliver/cryptography"
 	implantHandlers "github.com/bishopfox/sliver/implant/sliver/handlers"
 	implantTransports "github.com/bishopfox/sliver/implant/sliver/transports"
+	implantHTTP "github.com/bishopfox/sliver/implant/sliver/transports/httpclient"
 	implantMTLS "github.com/bishopfox/sliver/implant/sliver/transports/mtls"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	c2 "github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/core"
+	serverTransport "github.com/bishopfox/sliver/server/transport"
 	"github.com/gofrs/uuid"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 )
 
 const (
 	sessionWaitTimeout = 10 * time.Second
 	requestTimeout     = 10 * time.Second
+
+	testMTLSServerHost = "localhost"
+	testHTTPOrigin     = "https://sliver.test"
 )
 
 func TestE2EMTLSInfoAndLs(t *testing.T) {
 	clearSessions()
 	implantMTLS.SetTestCertificates(mtlsCACertPEM, mtlsCertPEM, mtlsKeyPEM)
 
-	addr, cleanupServer := startMTLSListener(t)
-	defer cleanupServer()
+	serverTLS, clientTLS, cleanup := newMTLSConnPair(t)
+	defer cleanup()
 
-	register := newRegister(t, fmt.Sprintf("e2e-mtls-%d", time.Now().UnixNano()), "mtls://"+addr)
-	stopImplant := startImplantSession(t, "mtls://"+addr, register)
+	go c2.HandleSliverConnectionForTest(serverTLS)
+
+	register := newRegister(t, fmt.Sprintf("e2e-mtls-%d", time.Now().UnixNano()), "mtls://"+testMTLSServerHost)
+	conn := newMTLSConnection(t, clientTLS)
+	stopImplant := startImplantSession(t, conn, register)
 	defer stopImplant()
 
 	session := waitForSession(t, register.Name)
 	defer session.Connection.Cleanup()
 
+	rpcClient, rpcCleanup := newGRPCClient(t)
+	defer rpcCleanup()
+
 	assertSessionInfo(t, session, register, consts.MtlsStr)
-	assertLsRoundTrip(t, session)
+	assertLsRoundTrip(t, rpcClient, session.ID)
 }
 
 func TestE2EHTTPSInfoAndLs(t *testing.T) {
 	clearSessions()
 
-	addr, cleanupServer := startHTTPSServer(t)
-	defer cleanupServer()
+	server := newHTTPTestServer(t)
+	conn := newHTTPConnection(t, server.HTTPServer.Handler, testHTTPOrigin)
 
-	register := newRegister(t, fmt.Sprintf("e2e-https-%d", time.Now().UnixNano()), "https://"+addr)
-	stopImplant := startImplantSession(t, "https://"+addr, register)
+	register := newRegister(t, fmt.Sprintf("e2e-https-%d", time.Now().UnixNano()), testHTTPOrigin)
+	stopImplant := startImplantSession(t, conn, register)
 	defer stopImplant()
 
 	session := waitForSession(t, register.Name)
 	defer session.Connection.Cleanup()
 
+	rpcClient, rpcCleanup := newGRPCClient(t)
+	defer rpcCleanup()
+
 	assertSessionInfo(t, session, register, "http(s)")
-	assertLsRoundTrip(t, session)
+	assertLsRoundTrip(t, rpcClient, session.ID)
 }
 
-func startMTLSListener(t *testing.T) (string, func()) {
+func newMTLSConnPair(t *testing.T) (*tls.Conn, *tls.Conn, func()) {
 	t.Helper()
-	ln, err := StartMutualTLSListener("127.0.0.1", 0)
-	if err != nil {
-		t.Fatalf("start mtls listener: %v", err)
+	serverConfig := c2.TestServerTLSConfig(testMTLSServerHost)
+	if serverConfig == nil {
+		t.Fatalf("mtls server tls config missing")
 	}
-	addr := ln.Addr().String()
-	return addr, func() {
-		ln.Close()
+	clientConfig := testMTLSClientConfig(t)
+
+	serverRaw, clientRaw := net.Pipe()
+	serverTLS := tls.Server(serverRaw, serverConfig)
+	clientTLS := tls.Client(clientRaw, clientConfig)
+
+	errCh := make(chan error, 2)
+	go func() {
+		errCh <- serverTLS.Handshake()
+	}()
+	go func() {
+		errCh <- clientTLS.Handshake()
+	}()
+	for range 2 {
+		if err := <-errCh; err != nil {
+			serverTLS.Close()
+			clientTLS.Close()
+			t.Fatalf("mtls handshake failed: %v", err)
+		}
+	}
+
+	cleanup := func() {
+		_ = serverTLS.Close()
+		_ = clientTLS.Close()
+	}
+	return serverTLS, clientTLS, cleanup
+}
+
+func testMTLSClientConfig(t *testing.T) *tls.Config {
+	t.Helper()
+	cert, err := tls.X509KeyPair([]byte(mtlsCertPEM), []byte(mtlsKeyPEM))
+	if err != nil {
+		t.Fatalf("mtls client cert parse: %v", err)
+	}
+	return &tls.Config{
+		Certificates:       []tls.Certificate{cert},
+		InsecureSkipVerify: true,
+		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+			return implantCrypto.RootOnlyVerifyCertificate(mtlsCACertPEM, rawCerts, verifiedChains)
+		},
 	}
 }
 
-func startHTTPSServer(t *testing.T) (string, func()) {
+func newMTLSConnection(t *testing.T, conn *tls.Conn) *implantTransports.Connection {
+	t.Helper()
+	send := make(chan *sliverpb.Envelope)
+	recv := make(chan *sliverpb.Envelope)
+	done := make(chan struct{})
+
+	var once sync.Once
+	var wg sync.WaitGroup
+
+	start := func() error {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-done:
+					return
+				case envelope, ok := <-send:
+					if !ok {
+						return
+					}
+					if err := implantMTLS.WriteEnvelope(conn, envelope); err != nil {
+						return
+					}
+				case <-time.After(implantMTLS.PingInterval):
+					_ = implantMTLS.WritePing(conn)
+				}
+			}
+		}()
+
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-done:
+					return
+				default:
+					envelope, err := implantMTLS.ReadEnvelope(conn)
+					if err != nil {
+						return
+					}
+					if envelope == nil {
+						continue
+					}
+					select {
+					case recv <- envelope:
+					case <-done:
+						return
+					}
+				}
+			}
+		}()
+		return nil
+	}
+
+	stop := func() error {
+		once.Do(func() {
+			close(done)
+			close(send)
+			_ = conn.Close()
+		})
+		wg.Wait()
+		close(recv)
+		return nil
+	}
+
+	return &implantTransports.Connection{
+		Send:  send,
+		Recv:  recv,
+		Start: start,
+		Stop:  stop,
+	}
+}
+
+func newHTTPTestServer(t *testing.T) *c2.SliverHTTPC2 {
 	t.Helper()
 	req := &clientpb.HTTPListenerReq{
-		Host:   "127.0.0.1",
-		Port:   0,
+		Host:   "sliver.test",
+		Port:   443,
 		Secure: true,
+		Domain: "sliver.test",
 	}
-	server, err := StartHTTPListener(req)
+	server, err := c2.StartHTTPListener(req)
 	if err != nil {
 		t.Fatalf("start https listener: %v", err)
 	}
+	return server
+}
 
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+type inMemoryHTTPDriver struct {
+	handler    http.Handler
+	jar        http.CookieJar
+	baseURL    *url.URL
+	remoteAddr string
+}
+
+func newInMemoryHTTPDriver(t *testing.T, handler http.Handler, baseURL *url.URL) *inMemoryHTTPDriver {
+	t.Helper()
+	jar, err := cookiejar.New(nil)
 	if err != nil {
-		t.Fatalf("listen https: %v", err)
+		t.Fatalf("cookie jar: %v", err)
 	}
-
-	tlsConfig := server.HTTPServer.TLSConfig
-	if tlsConfig == nil {
-		t.Fatalf("https tls config missing")
-	}
-	cert, err := tls.X509KeyPair(req.Cert, req.Key)
-	if err != nil {
-		t.Fatalf("https cert parse: %v", err)
-	}
-	tlsConfig.Certificates = []tls.Certificate{cert}
-	tlsListener := tls.NewListener(tcpKeepAliveListener{ln.(*net.TCPListener)}, tlsConfig)
-
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- server.HTTPServer.Serve(tlsListener)
-	}()
-
-	addr := ln.Addr().String()
-	return addr, func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = server.HTTPServer.Shutdown(ctx)
-		ln.Close()
-		select {
-		case err := <-errCh:
-			if err != nil && err != http.ErrServerClosed {
-				t.Fatalf("https server error: %v", err)
-			}
-		default:
-		}
+	return &inMemoryHTTPDriver{
+		handler:    handler,
+		jar:        jar,
+		baseURL:    baseURL,
+		remoteAddr: "127.0.0.1:12345",
 	}
 }
 
-func startImplantSession(t *testing.T, c2URL string, register *sliverpb.Register) func() {
+func (d *inMemoryHTTPDriver) Do(req *http.Request) (*http.Response, error) {
+	if req.URL.Scheme == "" {
+		req.URL.Scheme = d.baseURL.Scheme
+	}
+	if req.URL.Host == "" {
+		req.URL.Host = d.baseURL.Host
+	}
+	if req.Host == "" {
+		req.Host = req.URL.Host
+	}
+	if req.RemoteAddr == "" {
+		req.RemoteAddr = d.remoteAddr
+	}
+	if req.TLS == nil && req.URL.Scheme == "https" {
+		req.TLS = &tls.ConnectionState{}
+	}
+	if req.RequestURI == "" {
+		req.RequestURI = req.URL.RequestURI()
+	}
+
+	for _, cookie := range d.jar.Cookies(req.URL) {
+		req.AddCookie(cookie)
+	}
+
+	rr := httptest.NewRecorder()
+	d.handler.ServeHTTP(rr, req)
+	resp := rr.Result()
+	d.jar.SetCookies(req.URL, resp.Cookies())
+	return resp, nil
+}
+
+func newHTTPConnection(t *testing.T, handler http.Handler, origin string) *implantTransports.Connection {
 	t.Helper()
-	conn := nextConnection(t, c2URL)
+	baseURL, err := url.Parse(origin)
+	if err != nil {
+		t.Fatalf("parse origin: %v", err)
+	}
+
+	driver := newInMemoryHTTPDriver(t, handler, baseURL)
+	opts := implantHTTP.ParseHTTPOptions(baseURL)
+	opts.NetTimeout = 5 * time.Second
+	opts.PollTimeout = 2 * time.Second
+	opts.MaxErrors = 3
+
+	client := implantHTTP.NewSliverHTTPClient(origin, driver, opts)
+	client.PathPrefix = baseURL.Path
+	if err := client.SessionInit(); err != nil {
+		t.Fatalf("http session init: %v", err)
+	}
+
+	send := make(chan *sliverpb.Envelope)
+	recv := make(chan *sliverpb.Envelope)
+	done := make(chan struct{})
+
+	var once sync.Once
+	var wg sync.WaitGroup
+
+	start := func() error {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-done:
+					return
+				case envelope, ok := <-send:
+					if !ok {
+						return
+					}
+					if err := client.WriteEnvelope(envelope); err != nil {
+						return
+					}
+				}
+			}
+		}()
+
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-done:
+					return
+				default:
+					envelope, err := client.ReadEnvelope()
+					if err == io.EOF {
+						return
+					}
+					if err != nil {
+						return
+					}
+					if envelope == nil {
+						continue
+					}
+					select {
+					case recv <- envelope:
+					case <-done:
+						return
+					}
+				}
+			}
+		}()
+		return nil
+	}
+
+	stop := func() error {
+		once.Do(func() {
+			close(done)
+			close(send)
+			_ = client.CloseSession()
+		})
+		wg.Wait()
+		close(recv)
+		return nil
+	}
+
+	return &implantTransports.Connection{
+		Send:  send,
+		Recv:  recv,
+		Start: start,
+		Stop:  stop,
+	}
+}
+
+func newGRPCClient(t *testing.T) (rpcpb.SliverRPCClient, func()) {
+	t.Helper()
+	grpcServer, ln, err := serverTransport.LocalListener()
+	if err != nil {
+		t.Fatalf("grpc listener: %v", err)
+	}
+
+	ctx := context.Background()
+	conn, err := grpc.DialContext(
+		ctx,
+		"bufnet",
+		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
+			return ln.Dial()
+		}),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		grpcServer.Stop()
+		_ = ln.Close()
+		t.Fatalf("grpc dial: %v", err)
+	}
+
+	cleanup := func() {
+		_ = conn.Close()
+		grpcServer.Stop()
+		_ = ln.Close()
+	}
+
+	return rpcpb.NewSliverRPCClient(conn), cleanup
+}
+
+func startImplantSession(t *testing.T, conn *implantTransports.Connection, register *sliverpb.Register) func() {
+	t.Helper()
+	if err := conn.Start(); err != nil {
+		t.Fatalf("start implant connection: %v", err)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
@@ -154,39 +434,21 @@ func startImplantSession(t *testing.T, c2URL string, register *sliverpb.Register
 
 	return func() {
 		cancel()
-		_ = conn.Stop()
 		select {
-		case <-done:
+		case err := <-done:
+			if err != nil {
+				t.Fatalf("implant session error: %v", err)
+			}
 		case <-time.After(5 * time.Second):
 			t.Fatalf("implant session did not stop")
 		}
+		_ = conn.Stop()
 	}
-}
-
-func nextConnection(t *testing.T, c2URL string) *implantTransports.Connection {
-	t.Helper()
-	abort := make(chan struct{})
-	connections := implantTransports.StartConnectionLoop(abort, c2URL)
-	var conn *implantTransports.Connection
-	select {
-	case conn = <-connections:
-	case <-time.After(5 * time.Second):
-		close(abort)
-		t.Fatalf("timed out waiting for implant connection")
-	}
-	close(abort)
-	if conn == nil {
-		t.Fatalf("nil implant connection")
-	}
-	return conn
 }
 
 func runImplantSession(ctx context.Context, conn *implantTransports.Connection, register *sliverpb.Register) error {
 	if conn == nil {
 		return fmt.Errorf("nil implant connection")
-	}
-	if err := conn.Start(); err != nil {
-		return err
 	}
 
 	regData, err := proto.Marshal(register)
@@ -211,15 +473,9 @@ func runImplantSession(ctx context.Context, conn *implantTransports.Connection, 
 			}
 			if handler, ok := sysHandlers[envelope.Type]; ok {
 				envelopeID := envelope.ID
-				if runtime.GOOS == "windows" {
-					go implantHandlers.WrapperHandler(handler, envelope.Data, func(data []byte, err error) {
-						conn.Send <- &sliverpb.Envelope{ID: envelopeID, Data: data}
-					})
-				} else {
-					go handler(envelope.Data, func(data []byte, err error) {
-						conn.Send <- &sliverpb.Envelope{ID: envelopeID, Data: data}
-					})
-				}
+				dispatchHandler(handler, envelope.Data, func(data []byte, err error) {
+					conn.Send <- &sliverpb.Envelope{ID: envelopeID, Data: data}
+				})
 				continue
 			}
 			conn.Send <- &sliverpb.Envelope{ID: envelope.ID, UnknownMessageType: true}
@@ -301,7 +557,7 @@ func assertSessionInfo(t *testing.T, session *core.Session, register *sliverpb.R
 	}
 }
 
-func assertLsRoundTrip(t *testing.T, session *core.Session) {
+func assertLsRoundTrip(t *testing.T, rpcClient rpcpb.SliverRPCClient, sessionID string) {
 	t.Helper()
 	tmpDir := t.TempDir()
 	fileName := "sliver-test.txt"
@@ -310,18 +566,18 @@ func assertLsRoundTrip(t *testing.T, session *core.Session) {
 		t.Fatalf("write temp file: %v", err)
 	}
 
-	req := &sliverpb.LsReq{Path: tmpDir}
-	reqData, err := proto.Marshal(req)
-	if err != nil {
-		t.Fatalf("encode ls request: %v", err)
-	}
-	respData, err := session.Request(sliverpb.MsgLsReq, requestTimeout, reqData)
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	defer cancel()
+
+	resp, err := rpcClient.Ls(ctx, &sliverpb.LsReq{
+		Path: tmpDir,
+		Request: &commonpb.Request{
+			SessionID: sessionID,
+			Timeout:   int64(requestTimeout),
+		},
+	})
 	if err != nil {
 		t.Fatalf("ls request failed: %v", err)
-	}
-	resp := &sliverpb.Ls{}
-	if err := proto.Unmarshal(respData, resp); err != nil {
-		t.Fatalf("decode ls response: %v", err)
 	}
 	if !resp.Exists {
 		t.Fatalf("ls response marked as non-existent: %v", resp.GetResponse())

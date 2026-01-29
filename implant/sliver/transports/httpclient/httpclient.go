@@ -176,6 +176,27 @@ type SliverHTTPClient struct {
 	Options *HTTPOptions
 }
 
+// NewSliverHTTPClient constructs a client using a provided driver.
+// Primarily intended for tests or custom transport wiring.
+func NewSliverHTTPClient(origin string, driver HTTPDriver, opts *HTTPOptions) *SliverHTTPClient {
+	if opts == nil {
+		opts = &HTTPOptions{
+			Driver:      goHTTPDriver,
+			NetTimeout:  30 * time.Second,
+			TlsTimeout:  30 * time.Second,
+			PollTimeout: 30 * time.Second,
+			MaxErrors:   10,
+		}
+	}
+	return &SliverHTTPClient{
+		Origin:    origin,
+		driver:    driver,
+		pollMutex: &sync.Mutex{},
+		Closed:    false,
+		Options:   opts,
+	}
+}
+
 // SessionInit - Initialize the session
 func (s *SliverHTTPClient) SessionInit() error {
 	sKey := cryptography.RandomSymmetricKey()
@@ -621,9 +642,27 @@ func (s *SliverHTTPClient) parseSegments() *url.URL {
 	extensions = append(extensions, "{{$extension}}")
 	// {{end}}
 
+	files = filterTemplatePlaceholders(files)
+	paths = filterTemplatePlaceholders(paths)
+	extensions = filterTemplatePlaceholders(extensions)
+
 	curl.Path = s.pathJoinURL(s.randomPath(paths, files, extensions))
 
 	return curl
+}
+
+func filterTemplatePlaceholders(values []string) []string {
+	if len(values) == 0 {
+		return values
+	}
+	filtered := values[:0]
+	for _, value := range values {
+		if strings.Contains(value, "{{") {
+			continue
+		}
+		filtered = append(filtered, value)
+	}
+	return filtered
 }
 
 func (s *SliverHTTPClient) startSessionURL() *url.URL {
@@ -657,6 +696,8 @@ func (s *SliverHTTPClient) randomPath(segments []string, filenames []string, ext
 	// {{end}}
 	if ext != "" {
 		genSegments = append(genSegments, fmt.Sprintf("%s.%s", filename, ext))
+	} else {
+		genSegments = append(genSegments, filename)
 	}
 	return genSegments
 }
