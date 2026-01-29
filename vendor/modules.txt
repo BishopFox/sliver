@@ -540,7 +540,7 @@ github.com/moloch--/go-keystone
 # github.com/moloch--/memmod v0.0.0-20230225130813-fd77d905589e
 ## explicit; go 1.17
 github.com/moloch--/memmod
-# github.com/moloch--/sgn v0.0.4
+# github.com/moloch--/sgn v0.0.5
 ## explicit; go 1.23
 github.com/moloch--/sgn/pkg
 # github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6
@@ -581,15 +581,15 @@ github.com/pmezard/go-difflib/difflib
 # github.com/prometheus-community/pro-bing v0.4.0
 ## explicit; go 1.19
 github.com/prometheus-community/pro-bing
-# github.com/reeflective/console v0.1.25
-## explicit; go 1.23.6
+# github.com/reeflective/console v0.1.25 => github.com/moloch--/console v0.0.0-20260129035459-883dcb25c701
+## explicit; go 1.24.0
 github.com/reeflective/console
 github.com/reeflective/console/commands/readline
 github.com/reeflective/console/internal/completion
 github.com/reeflective/console/internal/line
 github.com/reeflective/console/internal/strutil
 github.com/reeflective/console/internal/ui
-# github.com/reeflective/readline v1.1.4 => github.com/moloch--/readline v0.0.0-20260104185423-d3ac1d6c561d
+# github.com/reeflective/readline v1.1.4 => github.com/moloch--/readline v0.0.0-20260129035512-cb5b3e87d51a
 ## explicit; go 1.23.6
 github.com/reeflective/readline
 github.com/reeflective/readline/inputrc
@@ -1397,4 +1397,5 @@ tailscale.com/wgengine/wgcfg/nmcfg
 tailscale.com/wgengine/wgint
 tailscale.com/wgengine/wglog
 # github.com/rsteube/carapace v0.36.3 => github.com/reeflective/carapace v0.46.3-0.20231214181515-27e49f3c3b69
-# github.com/reeflective/readline => github.com/moloch--/readline v0.0.0-20260104185423-d3ac1d6c561d
+# github.com/reeflective/readline => github.com/moloch--/readline v0.0.0-20260129035512-cb5b3e87d51a
+# github.com/reeflective/console => github.com/moloch--/console v0.0.0-20260129035459-883dcb25c701

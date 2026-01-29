@@ -227,6 +227,15 @@ func (con *SliverClient) PrintSuccessf(format string, args ...any) {
 	con.printf(Clearln+Success+format, args...)
 }
 
+// PrintSuccess prints a success message with a default or provided message.
+func (con *SliverClient) PrintSuccess(args ...any) {
+	if len(args) == 0 {
+		con.PrintSuccessf("Success")
+		return
+	}
+	con.PrintSuccessf("%s", fmt.Sprint(args...))
+}
+
 // PrintWarnf a warning message immediately below the last line of output.
 func (con *SliverClient) PrintWarnf(format string, args ...any) {
 	logger := slog.New(con.jsonHandler)

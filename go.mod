@@ -4,7 +4,9 @@ go 1.25.5
 
 replace github.com/rsteube/carapace v0.36.3 => github.com/reeflective/carapace v0.46.3-0.20231214181515-27e49f3c3b69
 
-replace github.com/reeflective/readline => github.com/moloch--/readline v0.0.0-20260104185423-d3ac1d6c561d
+replace github.com/reeflective/readline => github.com/moloch--/readline v0.0.0-20260129035512-cb5b3e87d51a
+
+replace github.com/reeflective/console => github.com/moloch--/console v0.0.0-20260129035459-883dcb25c701
 
 require (
 	filippo.io/age v1.3.1
@@ -36,7 +38,7 @@ require (
 	github.com/miekg/dns v1.1.70
 	github.com/moloch--/asciicast v0.1.1
 	github.com/moloch--/memmod v0.0.0-20230225130813-fd77d905589e
-	github.com/moloch--/sgn v0.0.4
+	github.com/moloch--/sgn v0.0.5
 	github.com/ncruces/go-sqlite3 v0.30.4
 	github.com/reeflective/console v0.1.25
 	github.com/reeflective/readline v1.1.4
@@ -99,7 +101,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.31.12 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.65.1 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
-	github.com/carapace-sh/carapace v1.11.0 // indirect
+	github.com/carapace-sh/carapace v1.11.0
 	github.com/carapace-sh/carapace-shlex v1.1.1 // indirect
 	github.com/catppuccin/go v0.3.0 // indirect
 	github.com/charmbracelet/bubbles v0.21.1-0.20250623103423-23b8fd6302d7 // indirect
@@ -194,7 +196,7 @@ require (
 	gopkg.in/jcmturner/goidentity.v3 v3.0.0 // indirect
 	gopkg.in/jcmturner/gokrb5.v7 v7.5.0 // indirect
 	gopkg.in/jcmturner/rpc.v1 v1.1.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/libc v1.66.10 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
