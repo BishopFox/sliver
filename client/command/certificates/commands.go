@@ -23,6 +23,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -44,6 +45,19 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.BoolP("server", "s", false, "Show server certificates")
 		f.StringP("cn", "c", "", "Show certificate information for a provided common name")
 	})
+	flags.BindFlagCompletions(certificatesCmd, func(comp *carapace.ActionMap) {
+		(*comp)["cn"] = CertificateCommonNameCompleter(con)
+	})
+	registerCertificateCNFlagCompletion(certificatesCmd, "cn", con)
+
+	authoritiesCmd := &cobra.Command{
+		Use:   "authorities",
+		Short: "List certificate authorities",
+		Run: func(cmd *cobra.Command, args []string) {
+			CertificateAuthoritiesCmd(cmd, con, args)
+		},
+	}
+	certificatesCmd.AddCommand(authoritiesCmd)
 
 	return []*cobra.Command{
 		certificatesCmd,

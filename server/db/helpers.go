@@ -1494,3 +1494,13 @@ func GetCertificateInfo(categoryOptions uint32, cn string) ([]*models.Certificat
 	// Processing of the data can occur at the caller. It does not need to happen here.
 	return certInfo, nil
 }
+
+// CertificateAuthorities - Return all certificate authorities
+func CertificateAuthorities() ([]*models.CertificateAuthority, error) {
+	authorities := []*models.CertificateAuthority{}
+	err := Session().Where(&models.CertificateAuthority{}).Find(&authorities).Error
+	if err != nil {
+		return nil, err
+	}
+	return authorities, nil
+}
