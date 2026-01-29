@@ -30,8 +30,9 @@ import (
 )
 
 const (
-	serverConfigFileName       = "server.yaml"
-	serverLegacyConfigFileName = "server.json"
+	serverConfigFileName                     = "server.yaml"
+	serverLegacyConfigFileName               = "server.json"
+	defaultGRPCKeepaliveMinTimeSeconds int64 = 30
 )
 
 var (
@@ -61,13 +62,13 @@ type LogConfig struct {
 
 // GRPCKeepaliveConfig - gRPC keepalive enforcement settings
 type GRPCKeepaliveConfig struct {
-	MinTimeSeconds      int64 `json:"min_time_seconds"`
-	PermitWithoutStream *bool `json:"permit_without_stream"`
+	MinTimeSeconds      int64 `json:"min_time_seconds" yaml:"min_time_seconds"`
+	PermitWithoutStream *bool `json:"permit_without_stream" yaml:"permit_without_stream"`
 }
 
 // GRPCConfig - gRPC server settings
 type GRPCConfig struct {
-	Keepalive *GRPCKeepaliveConfig `json:"keepalive"`
+	Keepalive *GRPCKeepaliveConfig `json:"keepalive" yaml:"keepalive"`
 }
 
 // DaemonConfig - Configure daemon mode
@@ -194,6 +195,7 @@ type ServerConfig struct {
 	DaemonConfig *DaemonConfig      `json:"daemon" yaml:"daemon"`
 	Logs         *LogConfig         `json:"logs" yaml:"logs"`
 	Watchtower   *WatchTowerConfig  `json:"watch_tower" yaml:"watch_tower"`
+	GRPC         *GRPCConfig        `json:"grpc" yaml:"grpc"`
 	GoProxy      string             `json:"go_proxy" yaml:"go_proxy"`
 	HTTPDefaults *HttpDefaultConfig `json:"http_default" yaml:"http_default"`
 	DonutBypass  int                `json:"donut_bypass" yaml:"donut_bypass"` // 1=skip, 2=abort on fail, 3=continue on fail.
