@@ -4,9 +4,9 @@ go 1.25.5
 
 replace github.com/rsteube/carapace v0.36.3 => github.com/reeflective/carapace v0.46.3-0.20231214181515-27e49f3c3b69
 
-replace github.com/reeflective/readline => github.com/moloch--/readline v0.0.0-20260128035102-9f373ad18989
+replace github.com/reeflective/readline => github.com/moloch--/readline v0.0.0-20260129035512-cb5b3e87d51a
 
-replace github.com/reeflective/console => github.com/moloch--/console v0.0.0-20260128035037-680800942770
+replace github.com/reeflective/console => github.com/moloch--/console v0.0.0-20260129035459-883dcb25c701
 
 require (
 	filippo.io/age v1.3.1
@@ -196,7 +196,7 @@ require (
 	gopkg.in/jcmturner/goidentity.v3 v3.0.0 // indirect
 	gopkg.in/jcmturner/gokrb5.v7 v7.5.0 // indirect
 	gopkg.in/jcmturner/rpc.v1 v1.1.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/libc v1.66.10 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect

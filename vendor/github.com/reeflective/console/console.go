@@ -23,6 +23,7 @@ type Console struct {
 	menus         map[string]*Menu // Different command trees, prompt engines, etc.
 	filters       []string         // Hide commands based on their attributes and current context.
 	isExecuting   bool             // Used by log functions, which need to adapt behavior (print the prompt, etc.)
+	isReading     bool             // True while readline is waiting for input.
 	printed       bool             // Used to adjust asynchronous messages too.
 	mutex         *sync.RWMutex    // Concurrency management.
 
@@ -145,6 +146,27 @@ func (c *Console) SetDefaultFlagHighlight(seq string) {
 	c.flagHighlight = seq
 }
 
+func (c *Console) isExecutingSafe() bool {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.isExecuting
+}
+
+func (c *Console) isReadingSafe() bool {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.isReading
+}
+
+func (c *Console) setReading(reading bool) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.isReading = reading
+}
+
 //
 // Menu Management --------------------------------------------------------------------------------- //
 //
@@ -224,15 +246,8 @@ func (c *Console) SwitchMenu(menu string) {
 // If this function is called while a command is running, the console will simply print the log
 // below the line, and will not print the prompt. In any other case this function works normally.
 func (c *Console) TransientPrintf(msg string, args ...any) (n int, err error) {
-	if c.isExecuting {
+	if c.isExecutingSafe() && !c.isReadingSafe() {
 		return fmt.Printf(msg, args...)
-	}
-
-	// If the last message we printed asynchronously
-	// immediately precedes this new message, move up
-	// another row, so we don't waste too much space.
-	if c.printed && c.NewlineAfter {
-		fmt.Print("\x1b[1A")
 	}
 
 	if c.NewlineAfter {
@@ -250,7 +265,7 @@ func (c *Console) TransientPrintf(msg string, args ...any) (n int, err error) {
 // If this function is called while a command is running, the console will simply print the log
 // below the line, and will not print the prompt. In any other case this function works normally.
 func (c *Console) Printf(msg string, args ...any) (n int, err error) {
-	if c.isExecuting {
+	if c.isExecutingSafe() && !c.isReadingSafe() {
 		return fmt.Printf(msg, args...)
 	}
 
