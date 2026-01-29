@@ -39,7 +39,7 @@
   - [Viber](/docs?name=Notifications#viber)
   - [Web Push](/docs?name=Notifications#web-push)
   - [WeChat](/docs?name=Notifications#wechat)
-- [WhatsApp](/docs?name=Notifications#whatsapp)
+  - [WhatsApp](/docs?name=Notifications#whatsapp)
 - [Custom Templates](/docs?name=Notifications#custom-templates)
 - [Notes](/docs?name=Notifications#notes)
 
