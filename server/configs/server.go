@@ -24,7 +24,6 @@ import (
 	"path/filepath"
 
 	"github.com/bishopfox/sliver/server/assets"
-	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
@@ -133,8 +132,49 @@ type WatchTowerConfig struct {
 }
 
 // http server defaults for anonymous requests
+type HttpDefaultHeader struct {
+	Method      string `json:"method" yaml:"method"`
+	Name        string `json:"name" yaml:"name"`
+	Value       string `json:"value" yaml:"value"`
+	Probability int32  `json:"probability" yaml:"probability"`
+}
+
+type httpDefaultHeaderLegacy struct {
+	Method                string  `json:"method" yaml:"method"`
+	Name                  string  `json:"name" yaml:"name"`
+	Value                 string  `json:"value" yaml:"value"`
+	Probability           int32   `json:"probability" yaml:"probability"`
+	ID                    string  `json:"id" yaml:"id"`
+	HttpC2ServerConfigID  *string `json:"httpc2serverconfigid" yaml:"httpc2serverconfigid"`
+	HttpC2ImplantConfigID *string `json:"httpc2implantconfigid" yaml:"httpc2implantconfigid"`
+}
+
+func (h *HttpDefaultHeader) UnmarshalJSON(data []byte) error {
+	var raw httpDefaultHeaderLegacy
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	h.Method = raw.Method
+	h.Name = raw.Name
+	h.Value = raw.Value
+	h.Probability = raw.Probability
+	return nil
+}
+
+func (h *HttpDefaultHeader) UnmarshalYAML(node *yaml.Node) error {
+	var raw httpDefaultHeaderLegacy
+	if err := node.Decode(&raw); err != nil {
+		return err
+	}
+	h.Method = raw.Method
+	h.Name = raw.Name
+	h.Value = raw.Value
+	h.Probability = raw.Probability
+	return nil
+}
+
 type HttpDefaultConfig struct {
-	Headers []models.HttpC2Header `json:"headers" yaml:"headers"`
+	Headers []HttpDefaultHeader `json:"headers" yaml:"headers"`
 }
 
 // ServerConfig - Server config
@@ -180,6 +220,7 @@ func GetServerConfig() *ServerConfig {
 	configPath := GetServerConfigPath()
 	legacyPath := getServerLegacyConfigPath()
 	config := getDefaultServerConfig()
+	migratedLegacy := false
 	if _, err := os.Stat(configPath); !os.IsNotExist(err) {
 		data, err := os.ReadFile(configPath)
 		if err != nil {
@@ -202,6 +243,7 @@ func GetServerConfig() *ServerConfig {
 			serverConfigLog.Errorf("Failed to parse legacy config file %s", err)
 			return config
 		}
+		migratedLegacy = true
 		serverConfigLog.Infof("Migrating legacy config %s to %s", legacyPath, configPath)
 	} else {
 		serverConfigLog.Warnf("Config file does not exist, using defaults")
@@ -222,6 +264,12 @@ func GetServerConfig() *ServerConfig {
 	err := config.Save() // This updates the config with any missing fields
 	if err != nil {
 		serverConfigLog.Errorf("Failed to save default config %s", err)
+		return config
+	}
+	if migratedLegacy {
+		if err := renameLegacyConfig(legacyPath); err != nil {
+			serverConfigLog.Errorf("Failed to rename legacy config %s", err)
+		}
 	}
 	return config
 }
@@ -239,8 +287,8 @@ func getDefaultServerConfig() *ServerConfig {
 			GRPCStreamPayloads: false,
 		},
 		HTTPDefaults: &HttpDefaultConfig{
-			Headers: []models.HttpC2Header{
-				models.HttpC2Header{
+			Headers: []HttpDefaultHeader{
+				{
 					Method:      "GET",
 					Name:        "Cache-Control",
 					Value:       "no-store, no-cache, must-revalidate",

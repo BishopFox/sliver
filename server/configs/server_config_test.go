@@ -5,8 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/bishopfox/sliver/server/db/models"
 )
 
 func TestServerConfigParsesYAML(t *testing.T) {
@@ -106,7 +104,30 @@ func TestServerConfigMigratesLegacyJSON(t *testing.T) {
 	}
 	legacyPath := filepath.Join(configDir, serverLegacyConfigFileName)
 
-	legacy := &ServerConfig{
+	type legacyHeader struct {
+		ID                    string  `json:"id"`
+		HttpC2ServerConfigID  *string `json:"httpc2serverconfigid"`
+		HttpC2ImplantConfigID *string `json:"httpc2implantconfigid"`
+		Method                string  `json:"method"`
+		Name                  string  `json:"name"`
+		Value                 string  `json:"value"`
+		Probability           int32   `json:"probability"`
+	}
+	type legacyHTTPDefaults struct {
+		Headers []legacyHeader `json:"headers"`
+	}
+	type legacyServerConfig struct {
+		DaemonMode   bool                `json:"daemon_mode"`
+		DaemonConfig *DaemonConfig       `json:"daemon"`
+		Logs         *LogConfig          `json:"logs"`
+		Watchtower   *WatchTowerConfig   `json:"watch_tower"`
+		GoProxy      string              `json:"go_proxy"`
+		HTTPDefaults *legacyHTTPDefaults `json:"http_default"`
+		DonutBypass  int                 `json:"donut_bypass"`
+		CC           map[string]string   `json:"cc"`
+		CXX          map[string]string   `json:"cxx"`
+	}
+	legacy := &legacyServerConfig{
 		DaemonMode: true,
 		DaemonConfig: &DaemonConfig{
 			Host:      "127.0.0.1",
@@ -125,9 +146,10 @@ func TestServerConfigMigratesLegacyJSON(t *testing.T) {
 			XForceApiPassword: "secret",
 		},
 		GoProxy: "https://proxy.legacy",
-		HTTPDefaults: &HttpDefaultConfig{
-			Headers: []models.HttpC2Header{
+		HTTPDefaults: &legacyHTTPDefaults{
+			Headers: []legacyHeader{
 				{
+					ID:          "00000000-0000-0000-0000-000000000000",
 					Method:      "GET",
 					Name:        "Cache-Control",
 					Value:       "no-cache",
@@ -162,5 +184,11 @@ func TestServerConfigMigratesLegacyJSON(t *testing.T) {
 	}
 	if _, err := os.Stat(GetServerConfigPath()); err != nil {
 		t.Fatalf("expected migrated yaml config file to exist: %v", err)
+	}
+	if _, err := os.Stat(legacyPath); !os.IsNotExist(err) {
+		t.Fatalf("expected legacy config to be renamed: %v", err)
+	}
+	if _, err := os.Stat(legacyBackupPath(legacyPath)); err != nil {
+		t.Fatalf("expected legacy backup file to exist: %v", err)
 	}
 }

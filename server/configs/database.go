@@ -194,6 +194,7 @@ func GetDatabaseConfig() *DatabaseConfig {
 	configPath := GetDatabaseConfigPath()
 	legacyPath := getDatabaseLegacyConfigPath()
 	config := getDefaultDatabaseConfig()
+	migratedLegacy := false
 	if _, err := os.Stat(configPath); !os.IsNotExist(err) {
 		data, err := os.ReadFile(configPath)
 		if err != nil {
@@ -216,6 +217,7 @@ func GetDatabaseConfig() *DatabaseConfig {
 			databaseConfigLog.Errorf("Failed to parse legacy config file %s", err)
 			return config
 		}
+		migratedLegacy = true
 		databaseConfigLog.Infof("Migrating legacy config %s to %s", legacyPath, configPath)
 	} else {
 		databaseConfigLog.Warnf("Config file does not exist, using defaults")
@@ -233,6 +235,12 @@ func GetDatabaseConfig() *DatabaseConfig {
 	err := config.Save() // This updates the config with any missing fields
 	if err != nil {
 		databaseConfigLog.Errorf("Failed to save default config %s", err)
+		return config
+	}
+	if migratedLegacy {
+		if err := renameLegacyConfig(legacyPath); err != nil {
+			databaseConfigLog.Errorf("Failed to rename legacy config %s", err)
+		}
 	}
 	return config
 }

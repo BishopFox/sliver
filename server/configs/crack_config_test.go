@@ -92,4 +92,10 @@ func TestCrackConfigMigratesLegacyJSON(t *testing.T) {
 	if _, err := os.Stat(getCrackConfigPath()); err != nil {
 		t.Fatalf("expected migrated yaml config file to exist: %v", err)
 	}
+	if _, err := os.Stat(legacyPath); !os.IsNotExist(err) {
+		t.Fatalf("expected legacy config to be renamed: %v", err)
+	}
+	if _, err := os.Stat(legacyBackupPath(legacyPath)); err != nil {
+		t.Fatalf("expected legacy backup file to exist: %v", err)
+	}
 }

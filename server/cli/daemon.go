@@ -11,6 +11,7 @@ import (
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/console"
 	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/daemon"
@@ -63,6 +64,7 @@ var daemonCmd = &cobra.Command{
 		certs.SetupWGKeys()
 		cryptography.AgeServerKeyPair()
 		cryptography.MinisignServerPrivateKey()
+		_, _ = configs.LoadCrackConfig()
 
 		listenerJobs, err := db.ListenerJobs()
 		if err != nil {

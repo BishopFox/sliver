@@ -118,6 +118,7 @@ func LoadCrackConfig() (*clientpb.CrackConfig, error) {
 		ChunkSize:    defaultChunkSize,
 		MaxDiskUsage: defaultMaxDiskUsage,
 	}
+	migratedLegacy := false
 	if _, err := os.Stat(configPath); !os.IsNotExist(err) {
 		data, err := os.ReadFile(configPath)
 		if err != nil {
@@ -146,6 +147,7 @@ func LoadCrackConfig() (*clientpb.CrackConfig, error) {
 				MaxDiskUsage: defaultMaxDiskUsage,
 			}, err
 		}
+		migratedLegacy = true
 		crackConfigLog.Infof("Migrating legacy config %s to %s", legacyPath, configPath)
 	} else {
 		crackConfigLog.Debugf("Crack config file does not exist, using defaults")
@@ -173,6 +175,12 @@ func LoadCrackConfig() (*clientpb.CrackConfig, error) {
 	err := SaveCrackConfig(config) // This updates the config with any missing fields
 	if err != nil {
 		crackConfigLog.Errorf("Failed to save default config %s", err)
+		return config, err
+	}
+	if migratedLegacy {
+		if err := renameLegacyConfig(legacyPath); err != nil {
+			crackConfigLog.Errorf("Failed to rename legacy config %s", err)
+		}
 	}
 	return config, nil
 }
