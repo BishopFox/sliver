@@ -21,11 +21,16 @@ package c2
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"os"
+	"runtime"
 	"testing"
+	"time"
 
 	implantCrypto "github.com/bishopfox/sliver/implant/sliver/cryptography"
 	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
@@ -33,50 +38,107 @@ import (
 
 var (
 	serverAgeKeyPair *cryptography.AgeKeyPair
+	peerAgeKeyPair   *cryptography.AgeKeyPair
+
+	testImplantConfig *models.ImplantConfig
+	testImplantBuild  *models.ImplantBuild
+
+	mtlsCACertPEM string
+	mtlsCertPEM   string
+	mtlsKeyPEM    string
+)
+
+const (
+	defaultHTTPC2ConfigName = "default"
+	testImplantCertName     = "test-implant"
 )
 
 func TestMain(m *testing.M) {
-	implantConfig := setup()
-	code1 := m.Run()
-	cleanup(implantConfig)
-	os.Exit(code1)
+	setup()
+	code := m.Run()
+	cleanup()
+	os.Exit(code)
 }
 
-func setup() *models.ImplantConfig {
+func setup() {
 	var err error
 	certs.SetupCAs()
 	serverAgeKeyPair = cryptography.AgeServerKeyPair()
-	peerAgeKeyPair, _ := cryptography.RandomAgeKeyPair()
+	peerAgeKeyPair, err = cryptography.RandomAgeKeyPair()
+	if err != nil {
+		panic(err)
+	}
 	implantCrypto.SetSecrets(
 		peerAgeKeyPair.Public,
 		peerAgeKeyPair.Private,
-		"",
+		cryptography.MinisignServerSign([]byte(peerAgeKeyPair.Public)),
 		serverAgeKeyPair.Public,
 		cryptography.MinisignServerPublicKey(),
 	)
 
-	digest := sha256.New()
-	digest.Write([]byte(peerAgeKeyPair.Public))
-	publicKeyDigest := hex.EncodeToString(digest.Sum(nil))
-
-	implantBuild := &models.ImplantBuild{
-		PeerPublicKey:       peerAgeKeyPair.Public,
-		PeerPublicKeyDigest: publicKeyDigest,
-		PeerPrivateKey:      peerAgeKeyPair.Private,
-
-		AgeServerPublicKey: serverAgeKeyPair.Public,
+	if _, err := db.LoadHTTPC2ConfigByName(defaultHTTPC2ConfigName); err != nil {
+		if errors.Is(err, db.ErrRecordNotFound) {
+			defaultConfig := configs.GenerateDefaultHTTPC2Config()
+			if err := db.SaveHTTPC2Config(defaultConfig); err != nil {
+				panic(err)
+			}
+		} else {
+			panic(err)
+		}
 	}
-	err = db.Session().Create(implantBuild).Error
+
+	caPEM, _, err := certs.GetCertificateAuthorityPEM(certs.MtlsServerCA)
 	if err != nil {
 		panic(err)
 	}
+	mtlsCACertPEM = string(caPEM)
 
-	implantConfig := &models.ImplantConfig{
-		ImplantBuilds: []models.ImplantBuild{*implantBuild},
+	certPEM, keyPEM, err := certs.GetECCCertificate(certs.MtlsImplantCA, testImplantCertName)
+	if errors.Is(err, certs.ErrCertDoesNotExist) {
+		certPEM, keyPEM, err = certs.MtlsC2ImplantGenerateECCCertificate(testImplantCertName)
 	}
-	return implantConfig
+	if err != nil {
+		panic(err)
+	}
+	mtlsCertPEM = string(certPEM)
+	mtlsKeyPEM = string(keyPEM)
+
+	testImplantConfig = &models.ImplantConfig{
+		GOOS:               runtime.GOOS,
+		GOARCH:             runtime.GOARCH,
+		IncludeHTTP:        true,
+		IncludeMTLS:        true,
+		HttpC2ConfigName:   defaultHTTPC2ConfigName,
+		ConnectionStrategy: "s",
+	}
+	if err := db.Session().Create(testImplantConfig).Error; err != nil {
+		panic(err)
+	}
+
+	digest := sha256.Sum256([]byte(peerAgeKeyPair.Public))
+	testImplantBuild = &models.ImplantBuild{
+		Name:                    fmt.Sprintf("e2e-test-%d", time.Now().UnixNano()),
+		ImplantConfigID:         testImplantConfig.ID,
+		PeerPublicKey:           peerAgeKeyPair.Public,
+		PeerPublicKeyDigest:     hex.EncodeToString(digest[:]),
+		PeerPrivateKey:          peerAgeKeyPair.Private,
+		PeerPublicKeySignature:  cryptography.MinisignServerSign([]byte(peerAgeKeyPair.Public)),
+		AgeServerPublicKey:      serverAgeKeyPair.Public,
+		MinisignServerPublicKey: cryptography.MinisignServerPublicKey(),
+		MtlsCACert:              mtlsCACertPEM,
+		MtlsCert:                mtlsCertPEM,
+		MtlsKey:                 mtlsKeyPEM,
+	}
+	if err := db.Session().Create(testImplantBuild).Error; err != nil {
+		panic(err)
+	}
 }
 
-func cleanup(implantConfig *models.ImplantConfig) {
-	db.Session().Delete(implantConfig)
+func cleanup() {
+	if testImplantBuild != nil {
+		db.Session().Delete(testImplantBuild)
+	}
+	if testImplantConfig != nil {
+		db.Session().Delete(testImplantConfig)
+	}
 }

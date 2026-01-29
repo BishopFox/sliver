@@ -643,6 +643,12 @@ func (s *SliverHTTPClient) randomPath(segments []string, filenames []string, ext
 			genSegments = append(genSegments, seg)
 		}
 	}
+	if len(filenames) == 0 {
+		filenames = []string{"index"}
+	}
+	if len(exts) == 0 {
+		exts = []string{""}
+	}
 	filename := filenames[util.Intn(len(filenames))]
 	ext := exts[util.Intn(len(exts))]
 

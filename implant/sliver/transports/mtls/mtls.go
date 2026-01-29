@@ -52,6 +52,14 @@ var (
 	certPEM = `{{.Build.MtlsCert}}`
 )
 
+// SetTestCertificates allows tests to override the embedded mTLS materials.
+// This should only be used in test harnesses.
+func SetTestCertificates(caPEM, certPEMIn, keyPEMIn string) {
+	caCertPEM = caPEM
+	certPEM = certPEMIn
+	keyPEM = keyPEMIn
+}
+
 // WriteEnvelope - Writes a message to the TLS socket using length prefix framing
 // which is a fancy way of saying we write the length of the message then the message
 // e.g. [uint32 length|message] so the receiver can delimit messages properly
