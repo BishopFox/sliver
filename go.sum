@@ -358,8 +358,8 @@ github.com/moloch--/memmod v0.0.0-20230225130813-fd77d905589e h1:IkFCPlAa0iTiLxc
 github.com/moloch--/memmod v0.0.0-20230225130813-fd77d905589e/go.mod h1:eYeI6cQ5YHhHt9i0BBW0zc1DaQnb4ZMXsSPuEV/V5Og=
 github.com/moloch--/readline v0.0.0-20260128035102-9f373ad18989 h1:g0EfxAWzDGYarN0RAPibsjz2M/f0pAqYNiEpCPWRDok=
 github.com/moloch--/readline v0.0.0-20260128035102-9f373ad18989/go.mod h1:CwNkh9BmFBBCSO6mdDaNWb34rOqQsI9eYbxyqvOEazY=
-github.com/moloch--/sgn v0.0.4 h1:90IC5rx3TmPEfrqPnENB0yyiqcbcNk9LqezXx7uruF0=
-github.com/moloch--/sgn v0.0.4/go.mod h1:FyWfCtdynywgLmVR71vTJztZ3WkGSkR91Y4EOijUutE=
+github.com/moloch--/sgn v0.0.5 h1:92GFaRpe+353uhqzFiNKXKgmTiD4dBxnvb8gd4MaV/g=
+github.com/moloch--/sgn v0.0.5/go.mod h1:FyWfCtdynywgLmVR71vTJztZ3WkGSkR91Y4EOijUutE=
 github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 h1:ZK8zHtRHOkbHy6Mmr5D264iyp3TiX5OmNcI5cIARiQI=
 github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6/go.mod h1:CJlz5H+gyd6CUWT45Oy4q24RdLyn7Md9Vj2/ldJBSIo=
 github.com/muesli/cancelreader v0.2.2 h1:3I4Kt4BQjOR54NavqnDogx/MIoWBFa0StPA8ELUXHmA=
