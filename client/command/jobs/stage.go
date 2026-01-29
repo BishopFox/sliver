@@ -23,6 +23,7 @@ import (
 	"compress/zlib"
 	"context"
 	"encoding/binary"
+	"net"
 	"net/url"
 	"strconv"
 	"strings"
@@ -56,6 +57,14 @@ func StageListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		con.PrintErrorf("Listener-url format not supported")
 		return
 	}
+
+	// Handle interface names in host
+	host := stagingURL.Hostname()
+	if net.ParseIP(host) == nil {
+		// If not an IP, assume it's an interface name
+		con.PrintInfof("Using interface %s for stager listener\n", host)
+	}
+
 	stagingPort, err := strconv.ParseUint(stagingURL.Port(), 10, 32)
 	if err != nil {
 		con.PrintErrorf("error parsing staging port: %v\n", err)

@@ -20,6 +20,7 @@ package rpc
 
 import (
 	"context"
+	"fmt"
 	"net"
 
 	"github.com/bishopfox/sliver/client/constants"
@@ -31,9 +32,16 @@ import (
 // StartTCPStagerListener starts a TCP stager listener
 func (rpc *Server) StartTCPStagerListener(ctx context.Context, req *clientpb.StagerListenerReq) (*clientpb.StagerListener, error) {
 	host := req.GetHost()
-	if !checkInterface(req.GetHost()) {
-		host = "0.0.0.0"
+
+	// If host is not an IP address, try to resolve it as an interface name
+	if net.ParseIP(host) == nil {
+		ifaceIP, err := getInterfaceIP(host)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve interface %s: %v", host, err)
+		}
+		host = ifaceIP
 	}
+
 	job, err := c2.StartTCPStagerListenerJob(host, uint16(req.GetPort()), req.ProfileName, req.GetData())
 	if err != nil {
 		return nil, rpcError(err)
@@ -52,27 +60,59 @@ func (rpc *Server) StartTCPStagerListener(ctx context.Context, req *clientpb.Sta
 	return &clientpb.StagerListener{JobID: uint32(job.ID)}, nil
 }
 
-// checkInterface verifies if an IP address
-// is attached to an existing network interface
-func checkInterface(a string) bool {
-	interfaces, err := net.Interfaces()
+// checkInterface verifies if an IP address or interface name is attached to an existing network interface and returns the IP
+func checkInterface(host string) bool {
+	// First check if it's an IP address
+	if net.ParseIP(host) != nil {
+		return true
+	}
+
+	// If not an IP, try to resolve as interface name
+	ifaces, err := net.Interfaces()
 	if err != nil {
 		return false
 	}
-	for _, i := range interfaces {
-		addresses, err := i.Addrs()
-		if err != nil {
-			return false
-		}
-		for _, netAddr := range addresses {
-			addr, err := net.ResolveTCPAddr("tcp", netAddr.String())
+
+	for _, iface := range ifaces {
+		if iface.Name == host {
+			addrs, err := iface.Addrs()
 			if err != nil {
-				return false
+				continue
 			}
-			if addr.IP.String() == a {
-				return true
+			for _, addr := range addrs {
+				switch v := addr.(type) {
+				case *net.IPNet:
+					if v.IP.To4() != nil {
+						return true
+					}
+				}
 			}
 		}
 	}
+
 	return false
+}
+
+// getInterfaceIP returns the first IPv4 address of the specified interface
+func getInterfaceIP(ifaceName string) (string, error) {
+	iface, err := net.InterfaceByName(ifaceName)
+	if err != nil {
+		return "", err
+	}
+
+	addrs, err := iface.Addrs()
+	if err != nil {
+		return "", err
+	}
+
+	for _, addr := range addrs {
+		switch v := addr.(type) {
+		case *net.IPNet:
+			if v.IP.To4() != nil {
+				return v.IP.String(), nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no IPv4 address found for interface %s", ifaceName)
 }
