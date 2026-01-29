@@ -44,6 +44,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	SliverPublicKey string
+)
+
 // UpdateCmd - Check for updates.
 func UpdateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	VerboseVersionsCmd(cmd, con, args)

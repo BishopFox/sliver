@@ -29,11 +29,14 @@ MIN_SUPPORTED_GO_MAJOR_VERSION = 1
 MIN_SUPPORTED_GO_MINOR_VERSION = 24
 GO_VERSION_VALIDATION_ERR_MSG = Golang version is not supported, please update to at least $(MIN_SUPPORTED_GO_MAJOR_VERSION).$(MIN_SUPPORTED_GO_MINOR_VERSION)
 
+SLIVER_PUBLIC_KEY ?= RWTZPg959v3b7tLG7VzKHRB1/QT+d3c71Uzetfa44qAoX5rH7mGoQTTR
 ARMORY_PUBLIC_KEY ?= RWSBpxpRWDrD7Fe+VvRE3c2VEDC2NK80rlNCj+BX0gz44Xw07r6KQD9L
 ARMORY_REPO_URL ?= https://api.github.com/repos/sliverarmory/armory/releases
 CLIENT_ASSETS_PKG = github.com/bishopfox/sliver/client/assets
+SLIVER_UPDATE_PKG = github.com/bishopfox/sliver/client/command/update
 
 LDFLAGS = -ldflags "-s -w \
+	-X $(SLIVER_UPDATE_PKG).SliverPublicKey=$(SLIVER_PUBLIC_KEY) \
 	-X $(CLIENT_ASSETS_PKG).DefaultArmoryPublicKey=$(ARMORY_PUBLIC_KEY) \
 	-X $(CLIENT_ASSETS_PKG).DefaultArmoryRepoURL=$(ARMORY_REPO_URL)"
 
