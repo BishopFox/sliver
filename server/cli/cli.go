@@ -136,6 +136,7 @@ var rootCmd = &cobra.Command{
 		cryptography.AgeServerKeyPair()
 		cryptography.MinisignServerPrivateKey()
 		c2.SetupDefaultC2Profiles()
+		_, _ = configs.LoadCrackConfig()
 
 		serverConfig := configs.GetServerConfig()
 		listenerJobs, err := db.ListenerJobs()
