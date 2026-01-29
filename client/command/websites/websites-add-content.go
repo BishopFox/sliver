@@ -22,10 +22,12 @@ import (
 	"context"
 	"errors"
 	"io"
+	"mime"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/forms"
@@ -117,7 +119,7 @@ func webAddFile(web *clientpb.WebsiteAddContent, webpath string, contentType str
 	}
 
 	if contentType == "" {
-		contentType = sniffContentType(file)
+		contentType = sniffContentType(file, contentPath)
 	}
 
 	web.Contents[webpath] = &clientpb.WebContent{
@@ -135,13 +137,19 @@ func confirmAddDirectory() bool {
 	return confirm
 }
 
-func sniffContentType(out *os.File) string {
+func sniffContentType(out *os.File, contentPath string) string {
+	ext := strings.ToLower(filepath.Ext(contentPath))
+	if ext != "" {
+		contentType := mime.TypeByExtension(ext)
+		if contentType != "" {
+			return contentType
+		}
+	}
 	out.Seek(0, io.SeekStart)
 	buffer := make([]byte, fileSampleSize)
 	_, err := out.Read(buffer)
 	if err != nil {
 		return defaultMimeType
 	}
-	contentType := http.DetectContentType(buffer)
-	return contentType
+	return http.DetectContentType(buffer)
 }
