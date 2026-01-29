@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/syslog"
 	"net/http"
 	"net/textproto"
 	"os"
@@ -38,7 +37,6 @@ import (
 	notifyrocketchat "github.com/nikoksr/notify/service/rocketchat"
 	notifysendgrid "github.com/nikoksr/notify/service/sendgrid"
 	notifyslack "github.com/nikoksr/notify/service/slack"
-	notifysyslog "github.com/nikoksr/notify/service/syslog"
 	notifytelegram "github.com/nikoksr/notify/service/telegram"
 	notifytextmagic "github.com/nikoksr/notify/service/textmagic"
 	notifytwilio "github.com/nikoksr/notify/service/twilio"
@@ -1050,47 +1048,6 @@ func buildSlack(cfg *configs.SlackConfig) (notify.Notifier, error) {
 	}
 	service.AddReceivers(channels...)
 	return service, nil
-}
-
-func buildSyslog(cfg *configs.SyslogConfig) (notify.Notifier, error) {
-	priority := parseSyslogPriority(cfg.Priority)
-	network := strings.TrimSpace(cfg.Network)
-	address := strings.TrimSpace(cfg.Address)
-	tag := strings.TrimSpace(cfg.Tag)
-	if network != "" || address != "" {
-		return notifysyslog.NewFromDial(network, address, priority, tag)
-	}
-	return notifysyslog.New(priority, tag)
-}
-
-func parseSyslogPriority(value string) syslog.Priority {
-	value = strings.TrimSpace(strings.ToLower(value))
-	if value == "" {
-		return syslog.LOG_INFO
-	}
-	switch value {
-	case "emerg", "emergency":
-		return syslog.LOG_EMERG
-	case "alert":
-		return syslog.LOG_ALERT
-	case "crit", "critical":
-		return syslog.LOG_CRIT
-	case "err", "error":
-		return syslog.LOG_ERR
-	case "warning", "warn":
-		return syslog.LOG_WARNING
-	case "notice":
-		return syslog.LOG_NOTICE
-	case "info":
-		return syslog.LOG_INFO
-	case "debug":
-		return syslog.LOG_DEBUG
-	default:
-		if numeric, err := strconv.Atoi(value); err == nil {
-			return syslog.Priority(numeric)
-		}
-	}
-	return syslog.LOG_INFO
 }
 
 func buildTelegram(cfg *configs.TelegramConfig) (notify.Notifier, error) {
