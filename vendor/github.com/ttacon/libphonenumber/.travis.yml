@@ -1,0 +1,11 @@
+language: go
+go:
+  - 1.9
+  - "1.10.x"
+  - "1.11.x"
+  - tip
+
+script: 
+  - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+  - dep ensure
+  - go test ./...

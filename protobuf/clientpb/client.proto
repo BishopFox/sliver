@@ -1335,3 +1335,17 @@ message CertificateData {
 message CertificateInfo {
   repeated CertificateData info = 1;  
 }
+
+message CertificateAuthorityData {
+  string CN = 1;
+  string CreationTime = 2;
+  string ValidityStart = 3;
+  string ValidityExpiry = 4;
+  string Type = 5;
+  string KeyAlgorithm = 6;
+  string ID = 7;
+}
+
+message CertificateAuthorityInfo {
+  repeated CertificateAuthorityData info = 1;
+}

@@ -1,0 +1,75 @@
+# Viber
+
+## Prerequisites
+
+### Create a Viber Bot
+
+In order to use the Viber notification service, we'll need to create a new Viber bot [here](https://partners.viber.com/account/create-bot-account).
+
+### Setting the webhook
+
+After we have done with the bot setup, we'll need to have a webhook that will be used to receive callbacks from the Viber server otherwise we will not be able to send a message.
+
+Please note that your webhook needs to be valid otherwise it will not work properly. You can read more details about the Viber webhook [here](https://developers.viber.com/docs/api/rest-bot-api/#webhooks) and about the callback [here](https://developers.viber.com/docs/api/rest-bot-api/#callbacks).
+
+#### Tips: Easy setup for webhook
+
+If you need to set up webhook easily like for example only for local testing, you can utilize [Google App Scripts](https://www.google.com/script/start/) and create a simple Web app from it. Here is the example script:
+
+```javascript
+function doPost(e) {
+  const contents = JSON.parse(e.postData.contents)
+  Logger.log(JSON.stringify(contents))
+}
+```
+
+_In short, it will just receive the POST request, and log the content_.
+
+Don't forget to deploy the script as a web app and share the access with anyone.
+
+You'll get a URL like https://script.google.com/macros/s/xxx/exec and this URL will be your webhook URL.
+
+## Usage
+
+Here is an example use case on how you can use Viber:
+
+```go
+package main
+
+import (
+	"context"
+	"log"
+
+	"github.com/nikoksr/notify"
+	"github.com/nikoksr/notify/service/viber"
+)
+
+const appKey = "your-viber-token"
+const webhookURL = "https://webhook.com"
+const senderName = "vibersofyana"
+
+func main() {
+	viberSvc := viber.New(appKey, senderName, "")
+
+	err := viberSvc.SetWebhook(webhookURL) // this only needs to be called once
+	if err != nil {
+		log.Fatalf("set webhook to viber server failed: %v", err)
+	}
+
+	viberSvc.AddReceivers("receiver-viber-user-id") // can add as many as required
+	notifier := notify.New()
+
+	notifier.UseServices(viberSvc)
+	if err := notifier.Send(context.Background(), "TEST", "Message using golang notifier library"); err != nil {
+		log.Fatalf("notifier.Send() failed: %s", err.Error())
+	}
+
+	log.Println("Notification sent")
+}
+```
+
+> ❗️**Viber is only allowing the bot to send the message to their subscriber**. Therefore, in order to send the notification, we need to make sure that the receiver already subscribed to the bot. Read more details here: https://developers.viber.com/docs/api/rest-bot-api/#send-message
+
+## Attachment
+
+- [Viber API Documentation](https://developers.viber.com/docs/)

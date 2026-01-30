@@ -96,6 +96,7 @@ type SliverRPCClient interface {
 	Builders(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.Builders, error)
 	// *** Certificates ***
 	GetCertificateInfo(ctx context.Context, in *clientpb.CertificatesReq, opts ...grpc.CallOption) (*clientpb.CertificateInfo, error)
+	GetCertificateAuthorityInfo(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.CertificateAuthorityInfo, error)
 	// *** Crackstation ***
 	Crack(ctx context.Context, in *clientpb.CrackCommand, opts ...grpc.CallOption) (*clientpb.CrackResponse, error)
 	CrackstationRegister(ctx context.Context, in *clientpb.Crackstation, opts ...grpc.CallOption) (SliverRPC_CrackstationRegisterClient, error)
@@ -813,9 +814,9 @@ func (c *sliverRPCClient) GetCertificateInfo(ctx context.Context, in *clientpb.C
 	return out, nil
 }
 
-func (c *sliverRPCClient) Crack(ctx context.Context, in *clientpb.CrackCommand, opts ...grpc.CallOption) (*clientpb.CrackResponse, error) {
-	out := new(clientpb.CrackResponse)
-	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/Crack", in, out, opts...)
+func (c *sliverRPCClient) GetCertificateAuthorityInfo(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.CertificateAuthorityInfo, error) {
+	out := new(clientpb.CertificateAuthorityInfo)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GetCertificateAuthorityInfo", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2098,6 +2099,7 @@ type SliverRPCServer interface {
 	Builders(context.Context, *commonpb.Empty) (*clientpb.Builders, error)
 	// *** Certificates ***
 	GetCertificateInfo(context.Context, *clientpb.CertificatesReq) (*clientpb.CertificateInfo, error)
+	GetCertificateAuthorityInfo(context.Context, *commonpb.Empty) (*clientpb.CertificateAuthorityInfo, error)
 	// *** Crackstation ***
 	Crack(context.Context, *clientpb.CrackCommand) (*clientpb.CrackResponse, error)
 	CrackstationRegister(*clientpb.Crackstation, SliverRPC_CrackstationRegisterServer) error
@@ -2416,8 +2418,8 @@ func (UnimplementedSliverRPCServer) Builders(context.Context, *commonpb.Empty) (
 func (UnimplementedSliverRPCServer) GetCertificateInfo(context.Context, *clientpb.CertificatesReq) (*clientpb.CertificateInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCertificateInfo not implemented")
 }
-func (UnimplementedSliverRPCServer) Crack(context.Context, *clientpb.CrackCommand) (*clientpb.CrackResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Crack not implemented")
+func (UnimplementedSliverRPCServer) GetCertificateAuthorityInfo(context.Context, *commonpb.Empty) (*clientpb.CertificateAuthorityInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCertificateAuthorityInfo not implemented")
 }
 func (UnimplementedSliverRPCServer) CrackstationRegister(*clientpb.Crackstation, SliverRPC_CrackstationRegisterServer) error {
 	return status.Errorf(codes.Unimplemented, "method CrackstationRegister not implemented")
@@ -3856,20 +3858,20 @@ func _SliverRPC_GetCertificateInfo_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SliverRPC_Crack_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(clientpb.CrackCommand)
+func _SliverRPC_GetCertificateAuthorityInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(commonpb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SliverRPCServer).Crack(ctx, in)
+		return srv.(SliverRPCServer).GetCertificateAuthorityInfo(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/rpcpb.SliverRPC/Crack",
+		FullMethod: "/rpcpb.SliverRPC/GetCertificateAuthorityInfo",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SliverRPCServer).Crack(ctx, req.(*clientpb.CrackCommand))
+		return srv.(SliverRPCServer).GetCertificateAuthorityInfo(ctx, req.(*commonpb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -6342,8 +6344,8 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SliverRPC_GetCertificateInfo_Handler,
 		},
 		{
-			MethodName: "Crack",
-			Handler:    _SliverRPC_Crack_Handler,
+			MethodName: "GetCertificateAuthorityInfo",
+			Handler:    _SliverRPC_GetCertificateAuthorityInfo_Handler,
 		},
 		{
 			MethodName: "CrackstationTrigger",

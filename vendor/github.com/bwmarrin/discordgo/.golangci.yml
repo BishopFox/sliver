@@ -1,0 +1,19 @@
+linters:
+  disable-all: true
+  enable:
+    # - staticcheck
+    # - unused
+    - golint
+
+linters-settings:
+  staticcheck:
+    go: "1.13"
+
+    checks: ["all"]
+
+  unused:
+    go: "1.13"
+
+issues:
+  include:
+    - EXC0002

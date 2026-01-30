@@ -8,6 +8,7 @@ Database models and ORM definitions for server state. Defines data schemas, rela
 
 - `beacon.go` – Defines the beacon ORM model and associated relations.
 - `canary.go` – Stores DNS canary records and status flags.
+- `certificate_authorities.go` – Stores certificate authority PEM data for the server.
 - `certificates.go` – Persists certificate metadata for listeners and operators.
 - `crackstations.go` – Models cracking nodes and benchmark data.
 - `credentials.go` – Holds captured credential entries and tags.
