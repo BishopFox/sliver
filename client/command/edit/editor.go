@@ -2,6 +2,7 @@ package edit
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/alecthomas/chroma/v2"
@@ -312,6 +313,13 @@ func (m *editorModel) handleNormalRune(r rune) bool {
 }
 
 func (m *editorModel) executeCommand(cmd string) {
+	if isDigits(cmd) {
+		target, err := strconv.Atoi(cmd)
+		if err == nil {
+			m.gotoLine(target)
+			return
+		}
+	}
 	switch strings.ToLower(cmd) {
 	case "":
 		return
@@ -414,9 +422,9 @@ func (m *editorModel) commandLine() string {
 		return m.message
 	}
 	if m.mode == modeInsert {
-		return "ESC: normal  :wq save+quit  :q quit  :n line numbers"
+		return "ESC: normal  :wq save+quit  :q quit  :n line numbers  :<num> goto line"
 	}
-	return "i: insert  h/j/k/l: move  :wq save+quit  :q quit  :n line numbers"
+	return "i: insert  h/j/k/l: move  :wq save+quit  :q quit  :n line numbers  :<num> goto line"
 }
 
 func (m *editorModel) content() string {
@@ -568,6 +576,23 @@ func (m *editorModel) gotoBottom() {
 	}
 	m.row = len(m.lines) - 1
 	m.clampCol()
+}
+
+func (m *editorModel) gotoLine(lineNumber int) {
+	if lineNumber < 1 {
+		lineNumber = 1
+	}
+	if len(m.lines) == 0 {
+		m.row = 0
+		m.col = 0
+		return
+	}
+	if lineNumber > len(m.lines) {
+		lineNumber = len(m.lines)
+	}
+	m.row = lineNumber - 1
+	m.clampCol()
+	m.ensureCursorVisible()
 }
 
 func (m *editorModel) clampCol() {
@@ -781,6 +806,18 @@ func popRune(value string) string {
 		return value
 	}
 	return string(runes[:len(runes)-1])
+}
+
+func isDigits(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, r := range value {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func baseName(path string) string {
