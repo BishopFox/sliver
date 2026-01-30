@@ -220,6 +220,7 @@ const (
 	CdStr       = "cd"
 	PwdStr      = "pwd"
 	CatStr      = "cat"
+	EditStr     = "edit"
 	DownloadStr = "download"
 	HeadStr     = "head"
 	TailStr     = "tail"

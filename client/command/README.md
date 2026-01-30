@@ -25,6 +25,7 @@ Shared registration glue, scaffolding, and helpers for Sliver client console com
 - `creds/` – Implements the 'creds' command group for the Sliver client console.
 - `cursed/` – Implements the 'cursed' command group for the Sliver client console.
 - `dllhijack/` – Implements the 'dllhijack' command group for the Sliver client console.
+- `edit/` – Implements the 'edit' command for the Sliver client console.
 - `environment/` – Implements the 'environment' command group for the Sliver client console.
 - `exec/` – Implements the 'exec' command group for the Sliver client console.
 - `exit/` – Implements the 'exit' command group for the Sliver client console.
