@@ -138,15 +138,20 @@ func (c *CrackFileChunk) ToProtobuf() *clientpb.CrackFileChunk {
 // crack job contains the parent command, whose keyspace may get broken
 // up into multiple crack tasks and distributed to multiple crackstations
 type CrackJob struct {
-	ID          uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	CreatedAt   time.Time `gorm:"->;<-:create;"`
-	CompletedAt time.Time
-	Tasks       []CrackTask
+	ID           uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	CreatedAt    time.Time `gorm:"->;<-:create;"`
+	CompletedAt  time.Time
+	Err          string
+	ResultFileID string
+	Tasks        []CrackTask
 
 	Command CrackCommand // Parent command
 }
 
 func (c *CrackJob) Status() clientpb.CrackJobStatus {
+	if c.Err != "" {
+		return clientpb.CrackJobStatus_FAILED
+	}
 	if c.CompletedAt.IsZero() {
 		return clientpb.CrackJobStatus_IN_PROGRESS
 	}
@@ -158,9 +163,67 @@ func (c *CrackJob) Status() clientpb.CrackJobStatus {
 	return clientpb.CrackJobStatus_COMPLETED
 }
 
+// BeforeCreate - GORM hook
+func (c *CrackJob) BeforeCreate(tx *gorm.DB) (err error) {
+	if c.ID == uuid.Nil {
+		c.ID, err = uuid.NewV4()
+		if err != nil {
+			return err
+		}
+	}
+	if c.CreatedAt.IsZero() {
+		c.CreatedAt = time.Now()
+	}
+	return nil
+}
+
+func (c *CrackJob) ToProtobuf() *clientpb.CrackJob {
+	job := &clientpb.CrackJob{
+		ID:           c.ID.String(),
+		CreatedAt:    c.CreatedAt.UTC().Format(time.RFC3339),
+		Status:       c.Status(),
+		Err:          c.Err,
+		Command:      c.Command.ToProtobuf(),
+		ResultFileID: c.ResultFileID,
+	}
+	if !c.CompletedAt.IsZero() {
+		job.CompletedAt = c.CompletedAt.UTC().Format(time.RFC3339)
+	}
+	return job
+}
+
+func (CrackJob) FromProtobuf(c *clientpb.CrackJob) *CrackJob {
+	job := &CrackJob{}
+	if c == nil {
+		return job
+	}
+	jobID := uuid.FromStringOrNil(c.ID)
+	if jobID != uuid.Nil {
+		job.ID = jobID
+	}
+	if c.CreatedAt != "" {
+		if createdAt, err := time.Parse(time.RFC3339, c.CreatedAt); err == nil {
+			job.CreatedAt = createdAt
+		}
+	}
+	if c.CompletedAt != "" {
+		if completedAt, err := time.Parse(time.RFC3339, c.CompletedAt); err == nil {
+			job.CompletedAt = completedAt
+		}
+	}
+	job.Err = c.Err
+	job.ResultFileID = c.ResultFileID
+	if c.Command != nil {
+		job.Command = *CrackCommand{}.FromProtobuf(c.Command)
+		job.Command.CrackJobID = job.ID
+	}
+	return job
+}
+
 // CrackTask - An individual chunk of a job sent to a specific crackstation
 type CrackTask struct {
 	ID             uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	CrackJobID     uuid.UUID `gorm:"type:uuid;"`
 	CrackstationID uuid.UUID `gorm:"type:uuid;"`
 	CreatedAt      time.Time `gorm:"->;<-:create;"`
 	StartedAt      time.Time
@@ -201,6 +264,7 @@ type CrackCommand struct {
 	ID          uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt   time.Time `gorm:"->;<-:create;"`
 	CrackTaskID uuid.UUID `gorm:"type:uuid;"`
+	CrackJobID  uuid.UUID `gorm:"type:uuid;"`
 
 	// FLAGS
 	AttackMode             int32

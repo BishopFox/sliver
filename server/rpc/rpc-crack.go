@@ -20,11 +20,15 @@ package rpc
 
 import (
 	"context"
-	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/gofrs/uuid"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"gorm.io/gorm"
 )
 
 var (
@@ -38,25 +42,35 @@ func (rpc *Server) Crack(ctx context.Context, req *clientpb.CrackCommand) (*clie
 	}
 
 	crackCommandRpcLog.Infof(
-		"Crack request: attack=%s hashType=%s hashes=%d status=%t benchmark=%t",
+		"Crack request: attack=%s hashType=%s hashes=%d status=%t",
 		req.AttackMode.String(),
 		req.HashType.String(),
 		len(req.Hashes),
 		req.Status,
-		req.Benchmark || req.BenchmarkAll,
 	)
 
 	jobID, err := uuid.NewV4()
 	if err != nil {
-		return &clientpb.CrackResponse{}, nil
+		crackCommandRpcLog.Errorf("Failed to generate crack job ID: %s", err)
+		return nil, status.Error(codes.Internal, "failed to generate crack job id")
 	}
 
-	job := &clientpb.CrackJob{
-		ID:        jobID.String(),
-		CreatedAt: time.Now().UTC().Format(time.RFC3339),
-		Status:    clientpb.CrackJobStatus_IN_PROGRESS,
-		Command:   req,
+	job := &models.CrackJob{
+		ID: jobID,
+	}
+	command := models.CrackCommand{}.FromProtobuf(req)
+	command.CrackJobID = jobID
+
+	if err := db.Session().Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(job).Error; err != nil {
+			return err
+		}
+		return tx.Create(command).Error
+	}); err != nil {
+		crackCommandRpcLog.Errorf("Failed to save crack job: %s", err)
+		return nil, status.Error(codes.Internal, "failed to save crack job")
 	}
 
-	return &clientpb.CrackResponse{Job: job}, nil
+	job.Command = *command
+	return &clientpb.CrackResponse{Job: job.ToProtobuf()}, nil
 }
