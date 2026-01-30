@@ -18,7 +18,7 @@ package amd64
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 	------------------------------------------------------------------------
 
-	Based on the Metasploit x64/xor encoder.
+	Based on the Metasploit x64/xor encoder by stephen_fewer@harmonysecurity.com
 
 */
 
