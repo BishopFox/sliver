@@ -17,6 +17,41 @@ func TestCrackConfigParsesYAML(t *testing.T) {
 		t.Fatalf("failed to create config dir: %v", err)
 	}
 
+	data := []byte(`auto_fire: false
+max_file_size: 2048
+chunk_size: 1024
+max_disk_usage: 4096
+`)
+	if err := os.WriteFile(configPath, data, 0600); err != nil {
+		t.Fatalf("failed to write yaml config: %v", err)
+	}
+
+	config, err := LoadCrackConfig()
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if config.AutoFire {
+		t.Fatalf("expected AutoFire false")
+	}
+	if config.MaxFileSize != 2048 {
+		t.Fatalf("expected MaxFileSize %d, got %d", 2048, config.MaxFileSize)
+	}
+	if config.ChunkSize != 1024 {
+		t.Fatalf("expected ChunkSize %d, got %d", 1024, config.ChunkSize)
+	}
+	if config.MaxDiskUsage != 4096 {
+		t.Fatalf("expected MaxDiskUsage %d, got %d", 4096, config.MaxDiskUsage)
+	}
+}
+
+func TestCrackConfigParsesLegacyYAML(t *testing.T) {
+	t.Setenv("SLIVER_ROOT_DIR", t.TempDir())
+
+	configPath := getCrackConfigPath()
+	if err := os.MkdirAll(filepath.Dir(configPath), 0700); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
+	}
+
 	data := []byte(`AutoFire: false
 MaxFileSize: 2048
 ChunkSize: 1024

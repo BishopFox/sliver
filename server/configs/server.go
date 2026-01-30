@@ -194,6 +194,7 @@ type ServerConfig struct {
 	DaemonMode    bool                 `json:"daemon_mode" yaml:"daemon_mode"`
 	DaemonConfig  *DaemonConfig        `json:"daemon" yaml:"daemon"`
 	Logs          *LogConfig           `json:"logs" yaml:"logs"`
+	GRPC          *GRPCConfig          `json:"grpc" yaml:"grpc"`
 	Watchtower    *WatchTowerConfig    `json:"watch_tower" yaml:"watch_tower"`
 	GoProxy       string               `json:"go_proxy" yaml:"go_proxy"`
 	HTTPDefaults  *HttpDefaultConfig   `json:"http_default" yaml:"http_default"`
