@@ -64,7 +64,7 @@ func XorDynamic(data []byte, key []byte) ([]byte, error) {
 		if bytes.IndexByte(coreKey, keyTerm) != -1 {
 			return nil, fmt.Errorf("xor_dynamic encoder: key contains key terminator")
 		}
-		if bytes.Index(encoded, payloadTerm) != -1 {
+		if bytes.Contains(encoded, payloadTerm) {
 			return nil, fmt.Errorf("xor_dynamic encoder: encoded payload contains payload terminator")
 		}
 	}
