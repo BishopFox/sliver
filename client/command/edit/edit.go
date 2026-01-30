@@ -88,9 +88,10 @@ func EditCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
+	showLineNumbers, _ := cmd.Flags().GetBool("line-numbers")
 
 	for {
-		result, err := runEditor(content, path, lexer, lexerName)
+		result, err := runEditor(content, path, lexer, lexerName, showLineNumbers)
 		if err != nil {
 			con.PrintErrorf("Editor error: %s\n", err)
 			return
@@ -148,8 +149,8 @@ func EditCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 }
 
-func runEditor(content, filename string, lexer chroma.Lexer, lexerName string) (editorResult, error) {
-	model := newEditorModel(content, filename, lexer, lexerName)
+func runEditor(content, filename string, lexer chroma.Lexer, lexerName string, showLineNumbers bool) (editorResult, error) {
+	model := newEditorModel(content, filename, lexer, lexerName, showLineNumbers)
 	program := tea.NewProgram(model, tea.WithAltScreen())
 	finalModel, err := program.Run()
 	if err != nil {

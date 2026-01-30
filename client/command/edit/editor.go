@@ -37,29 +37,30 @@ type editorResult struct {
 }
 
 type editorModel struct {
-	lines          [][]rune
-	row            int
-	col            int
-	top            int
-	left           int
-	width          int
-	height         int
-	mode           editorMode
-	command        string
-	pending        rune
-	dirty          bool
-	filename       string
-	syntaxName     string
-	lexer          chroma.Lexer
-	formatter      chroma.Formatter
-	style          *chroma.Style
-	highlighted    []string
-	highlightOn    bool
-	highlightDirty bool
-	action         exitAction
-	forceQuit      bool
-	message        string
-	clearMessage   bool
+	lines           [][]rune
+	row             int
+	col             int
+	top             int
+	left            int
+	width           int
+	height          int
+	mode            editorMode
+	command         string
+	pending         rune
+	dirty           bool
+	filename        string
+	showLineNumbers bool
+	syntaxName      string
+	lexer           chroma.Lexer
+	formatter       chroma.Formatter
+	style           *chroma.Style
+	highlighted     []string
+	highlightOn     bool
+	highlightDirty  bool
+	action          exitAction
+	forceQuit       bool
+	message         string
+	clearMessage    bool
 }
 
 var (
@@ -68,12 +69,13 @@ var (
 	lineStyle   = lipgloss.NewStyle()
 )
 
-func newEditorModel(content, filename string, lexer chroma.Lexer, syntaxName string) *editorModel {
+func newEditorModel(content, filename string, lexer chroma.Lexer, syntaxName string, showLineNumbers bool) *editorModel {
 	lines := splitLines(content)
 	model := &editorModel{
-		lines:    lines,
-		mode:     modeNormal,
-		filename: filename,
+		lines:           lines,
+		mode:            modeNormal,
+		filename:        filename,
+		showLineNumbers: showLineNumbers,
 	}
 	model.setSyntax(lexer, syntaxName)
 	return model
@@ -323,6 +325,9 @@ func (m *editorModel) executeCommand(cmd string) {
 	case "w":
 		m.message = "Use :wq to upload and exit"
 		m.clearMessage = true
+	case "n":
+		m.showLineNumbers = !m.showLineNumbers
+		m.ensureCursorVisible()
 	default:
 		m.message = fmt.Sprintf("Unknown command: %s", cmd)
 		m.clearMessage = true
@@ -330,18 +335,24 @@ func (m *editorModel) executeCommand(cmd string) {
 }
 
 func (m *editorModel) renderLine(index int) string {
-	width := m.textWidth()
-	if width <= 0 {
+	totalWidth := m.textWidth()
+	if totalWidth <= 0 {
 		return ""
 	}
+	prefixWidth := m.lineNumberWidth()
+	contentWidth := totalWidth - prefixWidth
+	if contentWidth < 0 {
+		contentWidth = 0
+	}
+	prefix := m.linePrefix(index, prefixWidth)
 
 	if index >= len(m.lines) {
-		return lineStyle.Width(width).Render("~")
+		return lineStyle.Width(totalWidth).Render(prefix + "~")
 	}
 
 	line := m.lines[index]
 	start := clamp(m.left, 0, len(line))
-	end := clamp(start+width, 0, len(line))
+	end := clamp(start+contentWidth, 0, len(line))
 	if m.highlightOn {
 		m.ensureHighlighted()
 		highlighted := m.highlightedLine(index)
@@ -350,7 +361,7 @@ func (m *editorModel) renderLine(index int) string {
 			if index == m.row {
 				lineText = m.applyCursor(lineText, highlighted, line, start, end)
 			}
-			return lineStyle.Width(width).Render(lineText)
+			return lineStyle.Width(totalWidth).Render(prefix + lineText)
 		}
 	}
 
@@ -359,7 +370,7 @@ func (m *editorModel) renderLine(index int) string {
 
 	if index == m.row {
 		cursor := clamp(m.col, 0, len(line))
-		if cursor >= start && cursor <= start+width {
+		if cursor >= start && cursor <= start+contentWidth {
 			rel := cursor - start
 			if rel < len(visible) {
 				lineText = string(visible[:rel]) + cursorStyle.Render(string(visible[rel])) + string(visible[rel+1:])
@@ -369,7 +380,7 @@ func (m *editorModel) renderLine(index int) string {
 		}
 	}
 
-	return lineStyle.Width(width).Render(lineText)
+	return lineStyle.Width(totalWidth).Render(prefix + lineText)
 }
 
 func (m *editorModel) statusLine() string {
@@ -403,9 +414,9 @@ func (m *editorModel) commandLine() string {
 		return m.message
 	}
 	if m.mode == modeInsert {
-		return "ESC: normal  :wq save+quit  :q quit"
+		return "ESC: normal  :wq save+quit  :q quit  :n line numbers"
 	}
-	return "i: insert  h/j/k/l: move  :wq save+quit  :q quit"
+	return "i: insert  h/j/k/l: move  :wq save+quit  :q quit  :n line numbers"
 }
 
 func (m *editorModel) content() string {
@@ -431,6 +442,27 @@ func (m *editorModel) textWidth() int {
 		return 1
 	}
 	return m.width
+}
+
+func (m *editorModel) lineNumberWidth() int {
+	if !m.showLineNumbers {
+		return 0
+	}
+	total := len(m.lines)
+	if total < 1 {
+		total = 1
+	}
+	return len(fmt.Sprintf("%d", total)) + 1
+}
+
+func (m *editorModel) linePrefix(index, width int) string {
+	if width == 0 {
+		return ""
+	}
+	if index >= len(m.lines) {
+		return fmt.Sprintf("%*s ", width-1, "")
+	}
+	return fmt.Sprintf("%*d ", width-1, index+1)
 }
 
 func (m *editorModel) ensureCursorVisible() {
@@ -467,7 +499,10 @@ func (m *editorModel) ensureCursorVisible() {
 		m.top = 0
 	}
 
-	width := m.textWidth()
+	width := m.textWidth() - m.lineNumberWidth()
+	if width < 1 {
+		width = 1
+	}
 	if m.col < m.left {
 		m.left = m.col
 	} else if m.col >= m.left+width {

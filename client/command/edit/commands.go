@@ -26,6 +26,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind("", false, editCmd, func(f *pflag.FlagSet) {
 		f.String("syntax", "", "syntax highlighting lexer name (optional)")
 		f.Bool("syntax-select", false, "prompt to select syntax highlighting lexer")
+		f.Bool("line-numbers", false, "show line numbers")
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
 
