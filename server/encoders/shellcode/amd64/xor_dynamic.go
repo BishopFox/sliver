@@ -143,7 +143,7 @@ func selectPayloadTerm(encoded []byte) ([]byte, error) {
 	for _, first := range allowed {
 		for _, second := range allowed {
 			term := []byte{first, second}
-			if bytes.Index(encoded, term) == -1 {
+			if !bytes.Contains(encoded, term) {
 				return term, nil
 			}
 		}
