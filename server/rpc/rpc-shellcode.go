@@ -24,7 +24,7 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/bishopfox/sliver/server/sgn"
+	"github.com/bishopfox/sliver/server/encoders/shellcode/sgn"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
