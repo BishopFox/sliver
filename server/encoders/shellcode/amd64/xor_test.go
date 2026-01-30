@@ -52,7 +52,7 @@ func TestXorEncoderMatchesMSFVenom(t *testing.T) {
 				t.Fatalf("fixture %s: %v", name, err)
 			}
 
-			msfEncoded := msfvenomEncode(t, home, payload, platform)
+			msfEncoded := msfvenomEncode(t, home, payload, platform, "x64/xor")
 			key, err := extractMSFKey(msfEncoded)
 			if err != nil {
 				t.Fatalf("fixture %s: %v", name, err)
@@ -80,7 +80,7 @@ func keystoneAvailable() bool {
 	return true
 }
 
-func msfvenomEncode(t *testing.T, home string, payload []byte, platform string) []byte {
+func msfvenomEncode(t *testing.T, home string, payload []byte, platform string, encoder string) []byte {
 	t.Helper()
 
 	outFile, err := os.CreateTemp(home, "msf-xor-*.bin")
@@ -95,7 +95,7 @@ func msfvenomEncode(t *testing.T, home string, payload []byte, platform string) 
 		"-p", "-",
 		"-a", "x64",
 		"--platform", platform,
-		"-e", "x64/xor",
+		"-e", encoder,
 		"-i", "1",
 		"-f", "raw",
 		"-o", outPath,
