@@ -64,6 +64,7 @@ var (
 		consts.UploadStr:           uploadHelp,
 		consts.MkdirStr:            mkdirHelp,
 		consts.RmStr:               rmHelp,
+		consts.ChtimesStr:          chtimesHelp,
 		consts.ProcdumpStr:         procdumpHelp,
 		consts.ElevateStr:          elevateHelp,
 		consts.RunAsStr:            runAsHelp,
@@ -298,6 +299,24 @@ On Windows, escaping is disabled. Instead, '\\' is treated as path separator.
 
 	rmHelp = `[[.Bold]]Command:[[.Normal]] rm [remote path]
 [[.Bold]]About:[[.Normal]] Delete a remote file or directory.`
+
+	chtimesHelp = `[[.Bold]]Command:[[.Normal]] chtimes [--unix | --unix-ms | --rfc3339 | --rfc1123] <path> <atime> <mtime>
+[[.Bold]]About:[[.Normal]] Change access and modification times on a file (timestomp).
+
+[[.Bold]][[.Underline]]Time Formats[[.Normal]]
+Default (datetime): "2006-01-02 15:04:05"
+--unix: 1704067200
+--unix-ms: 1704067200000
+--rfc3339: 2024-01-01T00:00:00Z
+--rfc1123: Mon, 02 Jan 2006 15:04:05 MST
+
+[[.Bold]][[.Underline]]Examples[[.Normal]]
+chtimes /tmp/file "2024-01-01 12:34:56" "2024-01-01 12:35:56"
+chtimes --unix /tmp/file 1704112496 1704112556
+chtimes --unix-ms /tmp/file 1704112496000 1704112556000
+chtimes --rfc3339 /tmp/file 2024-01-01T12:34:56Z 2024-01-01T12:35:56Z
+chtimes --rfc1123 /tmp/file "Mon, 02 Jan 2006 15:04:05 MST" "Mon, 02 Jan 2006 16:04:05 MST"
+`
 
 	catHelp = `[[.Bold]]Command:[[.Normal]] cat <remote path> 
 [[.Bold]]About:[[.Normal]] Cat a remote file to stdout.`
