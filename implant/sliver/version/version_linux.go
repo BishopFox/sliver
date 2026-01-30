@@ -22,7 +22,10 @@ package version
 
 import (
 	"fmt"
+	//{{if .Config.Debug}}
 	"log"
+	//{{end}}
+	"os"
 	"strings"
 	"syscall"
 )
@@ -39,11 +42,111 @@ func getString(input [65]int8) string {
 	return ver
 }
 
+func readOSRelease() string {
+	paths := []string{"/etc/os-release", "/usr/lib/os-release"}
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		return buildOSRelease(parseOSRelease(string(data)))
+	}
+	return ""
+}
+
+func parseOSRelease(content string) map[string]string {
+	values := make(map[string]string)
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if !ok || key == "" {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		value = unescape(unquote(strings.TrimSpace(value)))
+		values[key] = value
+	}
+	return values
+}
+
+func unquote(s string) string {
+	if len(s) < 2 {
+		return s
+	}
+	if (s[0] == '"' || s[0] == '\'') && s[0] == s[len(s)-1] {
+		return s[1 : len(s)-1]
+	}
+	return s
+}
+
+func unescape(s string) string {
+	return strings.NewReplacer(
+		`\$`, `$`,
+		`\"`, `"`,
+		`\'`, `'`,
+		`\\`, `\`,
+		"\\`", "`",
+	).Replace(s)
+}
+
+func buildOSRelease(values map[string]string) string {
+	name := values["NAME"]
+	version := values["VERSION"]
+	if version == "" {
+		version = values["VERSION_ID"]
+	}
+	if name != "" && version != "" {
+		return fmt.Sprintf("%s %s", name, version)
+	}
+	return values["PRETTY_NAME"]
+}
+
+func normalizeArch(arch string) string {
+	arch = strings.TrimSpace(arch)
+	if arch == "" {
+		return ""
+	}
+	switch strings.ToLower(arch) {
+	case "amd64":
+		return "x86_64"
+	case "i386", "i486", "i586", "i686", "x86":
+		return "x86"
+	default:
+		return arch
+	}
+}
+
+func formatDetailedVersion(osRelease, kernel, arch string) string {
+	parts := make([]string, 0, 3)
+	if osRelease != "" {
+		parts = append(parts, osRelease)
+	}
+	if kernel != "" {
+		parts = append(parts, fmt.Sprintf("kernel %s", kernel))
+	}
+	if arch != "" {
+		parts = append(parts, arch)
+	}
+	return strings.Join(parts, " ")
+}
+
 // GetVersion returns the os version information
 func GetVersion() string {
+	osRelease := readOSRelease()
 	var uname syscall.Utsname
 	if err := syscall.Uname(&uname); err != nil {
-		log.Fatal(err)
+		//{{if .Config.Debug}}
+		log.Printf("error getting OS version: %v", err)
+		//{{end}}
+		return osRelease
 	}
-	return fmt.Sprintf("%s %s %s", getString(uname.Sysname), getString(uname.Nodename), getString(uname.Release))
+	if osRelease == "" {
+		osRelease = getString(uname.Sysname)
+	}
+	kernel := getString(uname.Release)
+	arch := normalizeArch(getString(uname.Machine))
+	return formatDetailedVersion(osRelease, kernel, arch)
 }
