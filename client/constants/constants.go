@@ -221,6 +221,7 @@ const (
 	PwdStr      = "pwd"
 	CatStr      = "cat"
 	EditStr     = "edit"
+	HexEditStr  = "hex-edit"
 	DownloadStr = "download"
 	HeadStr     = "head"
 	TailStr     = "tail"

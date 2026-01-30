@@ -48,8 +48,21 @@ jobs:
       - name: Make Linux (amd64)
         run: make linux-amd64
 
+      - name: Determine go-tests flags
+        id: go-tests-flags
+        shell: bash
+        run: |
+          set -euo pipefail
+          base_sha="${{ github.event.pull_request.base.sha }}"
+          head_sha="${{ github.sha }}"
+          if git diff --name-only "$base_sha" "$head_sha" | grep -qE '^(implant/|server/gogo/|server/generate/)'; then
+            echo "args=" >> "$GITHUB_OUTPUT"
+          else
+            echo "args=--skip-generate" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Test Linux
-        run: make clean && make && ./sliver-server unpack --force && ./go-tests.sh
+        run: make clean && make && ./sliver-server unpack --force && ./go-tests.sh ${{ steps.go-tests-flags.outputs.args }}
 
 
   macos-build-test:
@@ -74,8 +87,21 @@ jobs:
       - name: Make MacOS (arm64)
         run: make macos-arm64
 
+      - name: Determine go-tests flags
+        id: go-tests-flags
+        shell: bash
+        run: |
+          set -euo pipefail
+          base_sha="${{ github.event.pull_request.base.sha }}"
+          head_sha="${{ github.sha }}"
+          if git diff --name-only "$base_sha" "$head_sha" | grep -qE '^(implant/|server/gogo/|server/generate/)'; then
+            echo "args=" >> "$GITHUB_OUTPUT"
+          else
+            echo "args=--skip-generate" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Test MacOS
-        run: make clean && make && ./sliver-server unpack --force && ./go-tests.sh
+        run: make clean && make && ./sliver-server unpack --force && ./go-tests.sh ${{ steps.go-tests-flags.outputs.args }}
 
   clients-build:
     name: Clients Build
