@@ -180,6 +180,14 @@ github.com/alecthomas/chroma/lexers/x
 github.com/alecthomas/chroma/lexers/y
 github.com/alecthomas/chroma/lexers/z
 github.com/alecthomas/chroma/styles
+# github.com/alecthomas/chroma/v2 v2.23.1
+## explicit; go 1.22
+github.com/alecthomas/chroma/v2
+github.com/alecthomas/chroma/v2/formatters
+github.com/alecthomas/chroma/v2/formatters/html
+github.com/alecthomas/chroma/v2/formatters/svg
+github.com/alecthomas/chroma/v2/lexers
+github.com/alecthomas/chroma/v2/styles
 # github.com/alexbrainman/sspi v0.0.0-20250919150558-7d374ff0d59e
 ## explicit; go 1.13
 github.com/alexbrainman/sspi

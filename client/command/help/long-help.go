@@ -304,7 +304,8 @@ On Windows, escaping is disabled. Instead, '\\' is treated as path separator.
 
 	editHelp = `[[.Bold]]Command:[[.Normal]] edit <remote path>
 [[.Bold]]About:[[.Normal]] Download a remote text file, edit it in a built-in TUI editor, and optionally upload changes.
-[[.Bold]]Keys:[[.Normal]] Normal mode uses vim-like navigation (h/j/k/l) and insert mode (i). Use :wq to save+quit or :q to quit.`
+[[.Bold]]Keys:[[.Normal]] Normal mode uses vim-like navigation (h/j/k/l) and insert mode (i). Use :wq to save+quit or :q to quit.
+[[.Bold]]Syntax:[[.Normal]] Use --syntax <lexer> to force a lexer or --syntax-select to pick one interactively.`
 
 	downloadHelp = `[[.Bold]]Command:[[.Normal]] download [remote src] <local dst>
 [[.Bold]]About:[[.Normal]] Download a file or directory from the remote system. Directories will be downloaded as a gzipped TAR file.

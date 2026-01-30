@@ -4,8 +4,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/alecthomas/chroma/v2"
+	"github.com/alecthomas/chroma/v2/formatters"
+	"github.com/alecthomas/chroma/v2/styles"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"golang.org/x/term"
 )
 
@@ -33,22 +37,29 @@ type editorResult struct {
 }
 
 type editorModel struct {
-	lines        [][]rune
-	row          int
-	col          int
-	top          int
-	left         int
-	width        int
-	height       int
-	mode         editorMode
-	command      string
-	pending      rune
-	dirty        bool
-	filename     string
-	action       exitAction
-	forceQuit    bool
-	message      string
-	clearMessage bool
+	lines          [][]rune
+	row            int
+	col            int
+	top            int
+	left           int
+	width          int
+	height         int
+	mode           editorMode
+	command        string
+	pending        rune
+	dirty          bool
+	filename       string
+	syntaxName     string
+	lexer          chroma.Lexer
+	formatter      chroma.Formatter
+	style          *chroma.Style
+	highlighted    []string
+	highlightOn    bool
+	highlightDirty bool
+	action         exitAction
+	forceQuit      bool
+	message        string
+	clearMessage   bool
 }
 
 var (
@@ -57,13 +68,15 @@ var (
 	lineStyle   = lipgloss.NewStyle()
 )
 
-func newEditorModel(content, filename string) *editorModel {
+func newEditorModel(content, filename string, lexer chroma.Lexer, syntaxName string) *editorModel {
 	lines := splitLines(content)
-	return &editorModel{
+	model := &editorModel{
 		lines:    lines,
 		mode:     modeNormal,
 		filename: filename,
 	}
+	model.setSyntax(lexer, syntaxName)
+	return model
 }
 
 func (m *editorModel) Init() tea.Cmd {
@@ -329,6 +342,18 @@ func (m *editorModel) renderLine(index int) string {
 	line := m.lines[index]
 	start := clamp(m.left, 0, len(line))
 	end := clamp(start+width, 0, len(line))
+	if m.highlightOn {
+		m.ensureHighlighted()
+		highlighted := m.highlightedLine(index)
+		if highlighted != "" {
+			lineText := ansi.Cut(highlighted, start, end)
+			if index == m.row {
+				lineText = m.applyCursor(lineText, highlighted, line, start, end)
+			}
+			return lineStyle.Width(width).Render(lineText)
+		}
+	}
+
 	visible := line[start:end]
 	lineText := string(visible)
 
@@ -363,7 +388,11 @@ func (m *editorModel) statusLine() string {
 	if m.dirty {
 		modified = " [+]"
 	}
-	return fmt.Sprintf(" %s  %s  Ln %d, Col %d%s", mode, fileName, m.row+1, m.col+1, modified)
+	syntax := ""
+	if m.syntaxName != "" {
+		syntax = "  " + m.syntaxName
+	}
+	return fmt.Sprintf(" %s  %s  Ln %d, Col %d%s%s", mode, fileName, m.row+1, m.col+1, modified, syntax)
 }
 
 func (m *editorModel) commandLine() string {
@@ -522,6 +551,7 @@ func (m *editorModel) insertRune(r rune) {
 	m.lines[m.row] = line
 	m.col++
 	m.dirty = true
+	m.highlightDirty = true
 }
 
 func (m *editorModel) insertNewline() {
@@ -536,6 +566,7 @@ func (m *editorModel) insertNewline() {
 	m.row++
 	m.col = 0
 	m.dirty = true
+	m.highlightDirty = true
 }
 
 func (m *editorModel) backspace() {
@@ -545,6 +576,7 @@ func (m *editorModel) backspace() {
 		m.lines[m.row] = line
 		m.col--
 		m.dirty = true
+		m.highlightDirty = true
 		return
 	}
 	if m.row == 0 {
@@ -557,6 +589,7 @@ func (m *editorModel) backspace() {
 	m.lines = append(m.lines[:m.row], m.lines[m.row+1:]...)
 	m.row--
 	m.dirty = true
+	m.highlightDirty = true
 }
 
 func (m *editorModel) deleteChar() {
@@ -565,6 +598,7 @@ func (m *editorModel) deleteChar() {
 		line = append(line[:m.col], line[m.col+1:]...)
 		m.lines[m.row] = line
 		m.dirty = true
+		m.highlightDirty = true
 		return
 	}
 	if m.row < len(m.lines)-1 {
@@ -572,6 +606,7 @@ func (m *editorModel) deleteChar() {
 		m.lines[m.row] = append(line, next...)
 		m.lines = append(m.lines[:m.row+1], m.lines[m.row+2:]...)
 		m.dirty = true
+		m.highlightDirty = true
 	}
 }
 
@@ -581,6 +616,7 @@ func (m *editorModel) deleteCharNormal() {
 		line = append(line[:m.col], line[m.col+1:]...)
 		m.lines[m.row] = line
 		m.dirty = true
+		m.highlightDirty = true
 	}
 }
 
@@ -592,6 +628,7 @@ func (m *editorModel) deleteLine() {
 		m.lines[0] = []rune{}
 		m.col = 0
 		m.dirty = true
+		m.highlightDirty = true
 		return
 	}
 	m.lines = append(m.lines[:m.row], m.lines[m.row+1:]...)
@@ -600,6 +637,7 @@ func (m *editorModel) deleteLine() {
 	}
 	m.clampCol()
 	m.dirty = true
+	m.highlightDirty = true
 }
 
 func (m *editorModel) openLineBelow() {
@@ -608,6 +646,7 @@ func (m *editorModel) openLineBelow() {
 	m.col = 0
 	m.mode = modeInsert
 	m.dirty = true
+	m.highlightDirty = true
 }
 
 func (m *editorModel) openLineAbove() {
@@ -615,6 +654,78 @@ func (m *editorModel) openLineAbove() {
 	m.col = 0
 	m.mode = modeInsert
 	m.dirty = true
+	m.highlightDirty = true
+}
+
+func (m *editorModel) setSyntax(lexer chroma.Lexer, syntaxName string) {
+	if lexer == nil {
+		m.lexer = nil
+		m.syntaxName = "none"
+		m.highlightOn = false
+		m.highlighted = nil
+		m.highlightDirty = false
+		return
+	}
+	m.lexer = lexer
+	m.syntaxName = syntaxName
+	m.formatter = formatters.Get("terminal16m")
+	if m.formatter == nil {
+		m.formatter = formatters.Fallback
+	}
+	m.style = styles.Get("monokai")
+	if m.style == nil {
+		m.style = styles.Fallback
+	}
+	m.highlightOn = true
+	m.highlightDirty = true
+}
+
+func (m *editorModel) ensureHighlighted() {
+	if !m.highlightOn || !m.highlightDirty {
+		return
+	}
+	iterator, err := m.lexer.Tokenise(nil, m.content())
+	if err != nil {
+		m.highlighted = nil
+		m.highlightDirty = false
+		return
+	}
+	var b strings.Builder
+	if err := m.formatter.Format(&b, m.style, iterator); err != nil {
+		m.highlighted = nil
+		m.highlightDirty = false
+		return
+	}
+	lines := strings.Split(b.String(), "\n")
+	if len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	for len(lines) < len(m.lines) {
+		lines = append(lines, "")
+	}
+	m.highlighted = lines
+	m.highlightDirty = false
+}
+
+func (m *editorModel) highlightedLine(index int) string {
+	if index < 0 || index >= len(m.highlighted) {
+		return ""
+	}
+	return m.highlighted[index]
+}
+
+func (m *editorModel) applyCursor(rendered, highlighted string, line []rune, start, end int) string {
+	cursor := clamp(m.col, 0, len(line))
+	if cursor < start || cursor > end {
+		return rendered
+	}
+	if cursor == len(line) {
+		left := ansi.Cut(highlighted, start, cursor)
+		return left + cursorStyle.Render(" ")
+	}
+	left := ansi.Cut(highlighted, start, cursor)
+	right := ansi.Cut(highlighted, cursor+1, end)
+	return left + cursorStyle.Render(string(line[cursor])) + right
 }
 
 func splitLines(content string) [][]rune {

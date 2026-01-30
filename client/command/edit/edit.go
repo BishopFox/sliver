@@ -4,10 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
 
+	"github.com/alecthomas/chroma/v2"
+	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/bishopfox/sliver/client/command/filesystem"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/forms"
@@ -80,8 +83,14 @@ func EditCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	lineEnding := detectLineEnding(data)
 	content := normalizeLineEndings(data)
 
+	lexer, lexerName, err := resolveSyntax(cmd, path, string(data))
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+
 	for {
-		result, err := runEditor(content, path)
+		result, err := runEditor(content, path, lexer, lexerName)
 		if err != nil {
 			con.PrintErrorf("Editor error: %s\n", err)
 			return
@@ -139,8 +148,8 @@ func EditCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 }
 
-func runEditor(content, filename string) (editorResult, error) {
-	model := newEditorModel(content, filename)
+func runEditor(content, filename string, lexer chroma.Lexer, lexerName string) (editorResult, error) {
+	model := newEditorModel(content, filename, lexer, lexerName)
 	program := tea.NewProgram(model, tea.WithAltScreen())
 	finalModel, err := program.Run()
 	if err != nil {
@@ -243,6 +252,83 @@ func waitForBeaconTask(ctx context.Context, con *console.SliverClient, taskID st
 		case <-ticker.C:
 		}
 	}
+}
+
+func resolveSyntax(cmd *cobra.Command, path string, content string) (chroma.Lexer, string, error) {
+	syntaxName, _ := cmd.Flags().GetString("syntax")
+	selectSyntax, _ := cmd.Flags().GetBool("syntax-select")
+
+	syntaxName = strings.TrimSpace(syntaxName)
+	if strings.EqualFold(syntaxName, "auto") {
+		syntaxName = ""
+	}
+
+	if syntaxName != "" {
+		if strings.EqualFold(syntaxName, "none") {
+			return nil, "none", nil
+		}
+		lexer := lexers.Get(syntaxName)
+		if lexer == nil {
+			return nil, "", fmt.Errorf("unknown syntax lexer: %s", syntaxName)
+		}
+		name := lexer.Config().Name
+		if name == "" {
+			name = syntaxName
+		}
+		return lexer, name, nil
+	}
+
+	if selectSyntax {
+		options := syntaxOptions()
+		selection := "auto"
+		if err := forms.Select("Syntax highlighting", options, &selection); err != nil {
+			if errors.Is(err, forms.ErrUserAborted) {
+				return detectSyntax(path, content)
+			}
+			return nil, "", err
+		}
+		if strings.EqualFold(selection, "none") {
+			return nil, "none", nil
+		}
+		if strings.EqualFold(selection, "auto") {
+			return detectSyntax(path, content)
+		}
+		lexer := lexers.Get(selection)
+		if lexer == nil {
+			return nil, "", fmt.Errorf("unknown syntax lexer: %s", selection)
+		}
+		name := lexer.Config().Name
+		if name == "" {
+			name = selection
+		}
+		return lexer, name, nil
+	}
+
+	return detectSyntax(path, content)
+}
+
+func detectSyntax(path string, content string) (chroma.Lexer, string, error) {
+	lexer := lexers.Match(path)
+	if lexer == nil {
+		lexer = lexers.Analyse(content)
+	}
+	if lexer == nil {
+		lexer = lexers.Fallback
+	}
+	name := lexer.Config().Name
+	if name == "" {
+		name = "auto"
+	}
+	return lexer, name, nil
+}
+
+func syntaxOptions() []string {
+	names := lexers.Names(true)
+	sort.Strings(names)
+	options := make([]string, 0, len(names)+2)
+	options = append(options, "auto", "none")
+	options = append(options, names...)
+	return options
 }
 
 func confirm(title string) (bool, error) {
