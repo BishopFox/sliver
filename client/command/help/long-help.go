@@ -57,6 +57,7 @@ var (
 		consts.PwdStr:              pwdHelp,
 		consts.CatStr:              catHelp,
 		consts.EditStr:             editHelp,
+		consts.HexEditStr:          hexEditHelp,
 		consts.DownloadStr:         downloadHelp,
 		consts.GrepStr:             grepHelp,
 		consts.HeadStr:             headHelp,
@@ -326,6 +327,12 @@ chtimes --rfc1123 /tmp/file "Mon, 02 Jan 2006 15:04:05 MST" "Mon, 02 Jan 2006 16
 [[.Bold]]Keys:[[.Normal]] Normal mode uses vim-like navigation (h/j/k/l) and insert mode (i). Use :wq to save+quit or :q to quit.
 [[.Bold]]Syntax:[[.Normal]] Use --syntax <lexer> to force a lexer or --syntax-select to pick one interactively.
 [[.Bold]]Line Numbers:[[.Normal]] Use --line-numbers to start with line numbers on; toggle with :n.`
+
+	hexEditHelp = `[[.Bold]]Command:[[.Normal]] hex-edit [--max-size <size>] [--offset <byte offset>] <remote path>
+[[.Bold]]About:[[.Normal]] Download a remote file and edit it in a built-in hex editor, then optionally upload changes.
+[[.Bold]]Keys:[[.Normal]] Normal mode uses vim-like navigation (h/j/k/l). Use i for hex edit mode, a for ASCII edit mode, :wq to save+quit or :q to quit.
+[[.Bold]]Size Limit:[[.Normal]] Default max size is 8MB. Use --max-size to override (e.g., 512KB, 12MB).
+[[.Bold]]Offset:[[.Normal]] Use --offset to jump to a specific byte offset when opening the file.`
 
 	downloadHelp = `[[.Bold]]Command:[[.Normal]] download [remote src] <local dst>
 [[.Bold]]About:[[.Normal]] Download a file or directory from the remote system. Directories will be downloaded as a gzipped TAR file.
