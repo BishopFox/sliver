@@ -699,7 +699,7 @@ message ShellcodeEncodeReq {
   string Architecture = 2;
   uint32 Iterations = 3;
   bytes BadChars = 4;
-  bytes Key = 5;
+  reserved 5;
 
   bytes Data = 8;
   commonpb.Request Request = 9;
@@ -711,8 +711,13 @@ message ShellcodeEncode {
   commonpb.Response Response = 9;
 }
 
-message ShellcodeEncoderMap { 
-  map<string, ShellcodeEncoder> Encoders = 1; 
+message ShellcodeEncoderArchMap {
+  map<string, ShellcodeEncoder> Encoders = 1;
+  map<string, string> Descriptions = 2;
+}
+
+message ShellcodeEncoderMap {
+  map<string, ShellcodeEncoderArchMap> Encoders = 1;
 }
 
 // [ Builder ] ----------------------------------------

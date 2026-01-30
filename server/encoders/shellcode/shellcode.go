@@ -7,7 +7,7 @@ import (
 
 type ShellcodeEncoderArgs struct {
 	Iterations int
-	Key        []byte
+	BadChars   []byte
 }
 
 type ShellcodeEncoder interface {
@@ -18,8 +18,16 @@ type ShellcodeEncoder interface {
 type XorEncoder struct{}
 
 func (e *XorEncoder) Encode(data []byte, args ShellcodeEncoderArgs) ([]byte, error) {
-	for i := 0; i < args.Iterations; i++ {
-		encoded, err := amd64.Xor(data, args.Key)
+	iterations := args.Iterations
+	if iterations <= 0 {
+		iterations = 1
+	}
+	for i := 0; i < iterations; i++ {
+		key, err := amd64.XorKeyGen()
+		if err != nil {
+			return nil, err
+		}
+		encoded, err := amd64.Xor(data, key)
 		if err != nil {
 			return nil, err
 		}
@@ -35,8 +43,16 @@ func (e *XorEncoder) Description() string {
 type XorDynamicEncoder struct{}
 
 func (e *XorDynamicEncoder) Encode(data []byte, args ShellcodeEncoderArgs) ([]byte, error) {
-	for i := 0; i < args.Iterations; i++ {
-		encoded, err := amd64.XorDynamic(data, args.Key)
+	iterations := args.Iterations
+	if iterations <= 0 {
+		iterations = 1
+	}
+	for i := 0; i < iterations; i++ {
+		key, err := amd64.XorDynamicKeyGen()
+		if err != nil {
+			return nil, err
+		}
+		encoded, err := amd64.XorDynamic(data, key)
 		if err != nil {
 			return nil, err
 		}
@@ -52,7 +68,7 @@ func (e *XorDynamicEncoder) Description() string {
 type ShikataGaNaiEncoderAmd64 struct{}
 
 func (e *ShikataGaNaiEncoderAmd64) Encode(data []byte, args ShellcodeEncoderArgs) ([]byte, error) {
-	return sgn.EncodeShellcode(data, "amd64", args.Iterations, []byte{})
+	return sgn.EncodeShellcode(data, "amd64", args.Iterations, args.BadChars)
 }
 
 func (e *ShikataGaNaiEncoderAmd64) Description() string {
@@ -62,7 +78,7 @@ func (e *ShikataGaNaiEncoderAmd64) Description() string {
 type ShikataGaNaiEncoder386 struct{}
 
 func (e *ShikataGaNaiEncoder386) Encode(data []byte, args ShellcodeEncoderArgs) ([]byte, error) {
-	return sgn.EncodeShellcode(data, "386", args.Iterations, []byte{})
+	return sgn.EncodeShellcode(data, "386", args.Iterations, args.BadChars)
 }
 
 func (e *ShikataGaNaiEncoder386) Description() string {
