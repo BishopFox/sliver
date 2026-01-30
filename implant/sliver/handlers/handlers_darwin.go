@@ -25,6 +25,7 @@ import (
 	"syscall"
 
 	"github.com/bishopfox/sliver/implant/sliver/extension"
+	"github.com/bishopfox/sliver/implant/sliver/mount"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
@@ -56,6 +57,7 @@ var (
 		pb.MsgNetstatReq:    netstatHandler,
 
 		pb.MsgSideloadReq: sideloadHandler,
+		pb.MsgMountReq:    mountHandler,
 
 		pb.MsgReconfigureReq: reconfigureHandler,
 		pb.MsgSSHCommandReq:  runSSHCommandHandler,
@@ -151,6 +153,27 @@ func listExtensionsHandler(data []byte, resp RPCResponse) {
 		Names:    exts,
 	}
 	data, err = proto.Marshal(lstResp)
+	resp(data, err)
+}
+
+func mountHandler(data []byte, resp RPCResponse) {
+	mountReq := &pb.MountReq{}
+	err := proto.Unmarshal(data, mountReq)
+	if err != nil {
+		return
+	}
+
+	mountData, err := mount.GetMountInformation()
+	mountResp := &pb.Mount{
+		Info:     mountData,
+		Response: &commonpb.Response{},
+	}
+
+	if err != nil {
+		mountResp.Response.Err = err.Error()
+	}
+
+	data, err = proto.Marshal(mountResp)
 	resp(data, err)
 }
 
