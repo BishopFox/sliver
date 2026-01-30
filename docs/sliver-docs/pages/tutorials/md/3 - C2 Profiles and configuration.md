@@ -1,5 +1,3 @@
-# This course is intended for the 1.6 version of Sliver, which is not yet published
-
 When generating implants Sliver uses a C2Profile configuration to define how implant callbacks will look over HTTP/s. This allowed operators to control headers, cookies proxies, URL paths and so on. When the implant is generated the sliver server will then select portions of that configuration to generate the implant C2Profile.
 
 For example if configured to use `/admin` and `/demo` as callback urls, it might use one, the other or both depending on your configuration allowing two implants using the same configuration to still seem slightly different from a network traffic perspective.

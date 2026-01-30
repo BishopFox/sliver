@@ -57,6 +57,9 @@ type mapSession struct {
 	altClock       tstime.Clock       // if nil, regular time is used
 	cancel         context.CancelFunc // always non-nil, shuts down caller's base long poll context
 
+	keepAliveZ        []byte // if non-nil, the learned zstd encoding of the just-KeepAlive message for this session
+	ztdDecodesForTest int    // for testing
+
 	// sessionAliveCtx is a Background-based context that's alive for the
 	// duration of the mapSession that we own the lifetime of. It's closed by
 	// sessionAliveCtxClose.
@@ -864,7 +867,6 @@ func (ms *mapSession) netmap() *netmap.NetworkMap {
 
 	nm := &netmap.NetworkMap{
 		NodeKey:           ms.publicNodeKey,
-		PrivateKey:        ms.privateNodeKey,
 		MachineKey:        ms.machinePubKey,
 		Peers:             peerViews,
 		UserProfiles:      make(map[tailcfg.UserID]tailcfg.UserProfileView),
@@ -889,8 +891,6 @@ func (ms *mapSession) netmap() *netmap.NetworkMap {
 
 	if node := ms.lastNode; node.Valid() {
 		nm.SelfNode = node
-		nm.Expiry = node.KeyExpiry()
-		nm.Name = node.Name()
 		nm.AllCaps = ms.lastCapSet
 	}
 

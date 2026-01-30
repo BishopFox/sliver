@@ -15,15 +15,13 @@ import (
 func Display(eng *Engine, maxRows int) {
 	eng.usedY = 0
 
-	defer fmt.Print(term.ClearScreenBelow)
-
 	// The completion engine might be inactive but still having
 	// a non-empty list of completions. This is on purpose, as
 	// sometimes it's better to keep completions printed for a
 	// little more time. The engine itself is responsible for
 	// deleting those lists when it deems them useless.
 	if eng.Matches() == 0 || eng.skipDisplay {
-		fmt.Print(term.ClearLineAfter)
+		term.WriteString(term.ClearLineAfter)
 		return
 	}
 
@@ -38,7 +36,7 @@ func Display(eng *Engine, maxRows int) {
 	completions, eng.usedY = eng.cropCompletions(completions, maxRows)
 
 	if completions != "" {
-		fmt.Print(completions)
+		term.WriteString(completions)
 	}
 }
 

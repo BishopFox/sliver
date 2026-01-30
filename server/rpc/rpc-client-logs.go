@@ -22,7 +22,6 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	insecureRand "math/rand"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -31,6 +30,7 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/util"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -88,7 +88,7 @@ func (rpc *Server) ClientLog(stream rpcpb.SliverRPC_ClientLogServer) error {
 	logsDir, err := getClientLogsDir(commonName)
 	if err != nil {
 		rpcClientLogs.Errorf("Failed to get client console log directory: %s", err)
-		return err
+		return rpcError(err)
 	}
 	streams := make(map[string]*LogStream)
 	defer func() {
@@ -104,14 +104,14 @@ func (rpc *Server) ClientLog(stream rpcpb.SliverRPC_ClientLogServer) error {
 		}
 		if err != nil {
 			rpcClientLogs.Errorf("Failed to receive client console log data: %s", err)
-			return err
+			return rpcError(err)
 		}
 		streamName := fromClient.GetStream()
 		if _, ok := streams[streamName]; !ok {
 			streams[streamName], err = openNewLogStream(logsDir, streamName)
 			if err != nil {
 				rpcClientLogs.Errorf("Failed to open client console log file: %s", err)
-				return err
+				return rpcError(err)
 			}
 		}
 		rpcClientLogs.Debugf("Received %d bytes of client console log data for stream %s", len(fromClient.GetData()), streamName)
@@ -142,7 +142,7 @@ func randomSuffix(n int) string {
 	letterRunes := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 	buf := make([]rune, n)
 	for i := range buf {
-		buf[i] = letterRunes[insecureRand.Intn(len(letterRunes))]
+		buf[i] = letterRunes[util.Intn(len(letterRunes))]
 	}
 	return string(buf)
 }

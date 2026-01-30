@@ -56,9 +56,12 @@ type SGNConfig struct {
 // EncodeShellcode - Encode a shellcode
 func EncodeShellcode(shellcode []byte, arch string, iterations int, badChars []byte) ([]byte, error) {
 	cfg := SGNConfig{
-		Architecture: arch,
-		Iterations:   iterations,
-		BadChars:     badChars,
+		Architecture:   arch,
+		Iterations:     iterations,
+		BadChars:       badChars,
+		PlainDecoder:   false,
+		Safe:           true,
+		MaxObfuscation: 100,
 	}
 	return EncodeShellcodeWithConfig(shellcode, cfg)
 }
@@ -83,10 +86,10 @@ func EncodeShellcodeWithConfig(shellcode []byte, cfg SGNConfig) ([]byte, error) 
 
 	needsConstraints := cfg.Asci || len(cfg.BadChars) > 0
 	seed := sgnpkg.GetRandomByte()
-	const maxAttempts = 512
+	const maxAttempts = 64
 
 	var lastErr error
-	for attempt := 0; attempt < maxAttempts; attempt++ {
+	for attempt := range maxAttempts {
 		encoder, err := newEncoderWithConfig(arch, cfg)
 		if err != nil {
 			sgnLog.Errorf("[sgn] EncodeShellcode setup failed: %s", err)

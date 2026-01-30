@@ -11,7 +11,7 @@ import (
 // Snippet creates the bash completion script.
 func Snippet(cmd *cobra.Command) string {
 	result := fmt.Sprintf(`#!/bin/bash
-_%v_completion() {
+_%[1]v_completion() {
   export COMP_LINE
   export COMP_POINT
   export COMP_TYPE
@@ -19,12 +19,12 @@ _%v_completion() {
 
   local nospace data compline="${COMP_LINE:0:${COMP_POINT}}"
 
-  if echo ${compline}"''" | xargs echo 2>/dev/null > /dev/null; then
-  	data=$(echo ${compline}"''" | xargs %v _carapace bash)
-  elif echo ${compline} | sed "s/\$/'/" | xargs echo 2>/dev/null > /dev/null; then
-  	data=$(echo ${compline} | sed "s/\$/'/" | xargs %v _carapace bash)
-  else
-  	data=$(echo ${compline} | sed 's/$/"/' | xargs %v _carapace bash)
+  data=$(echo "${compline}''" | xargs %[2]v _carapace bash 2>/dev/null)
+  if [ $? -eq 1 ]; then
+    data=$(echo "${compline}'" | xargs %[2]v _carapace bash 2>/dev/null)
+    if [ $? -eq 1 ]; then
+    	data=$(echo "${compline}\"" | xargs %[2]v _carapace bash 2>/dev/null)
+    fi
   fi
 
   IFS=$'\001' read -r -d '' nospace data <<<"${data}"
@@ -36,8 +36,8 @@ _%v_completion() {
   [[ "${COMPREPLY[*]}" == "" ]] && COMPREPLY=() # fix for mapfile creating a non-empty array from empty command output
 }
 
-complete -o noquote -F _%v_completion %v
-`, cmd.Name(), uid.Executable(), uid.Executable(), uid.Executable(), cmd.Name(), cmd.Name())
+complete -o noquote -F _%[1]v_completion %[1]v
+`, cmd.Name(), uid.Executable())
 
 	return result
 }

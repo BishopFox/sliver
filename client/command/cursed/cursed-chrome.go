@@ -23,19 +23,19 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	insecureRand "math/rand"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/client/overlord"
 	"github.com/bishopfox/sliver/client/tcpproxy"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/util"
 	"github.com/spf13/cobra"
 )
 
@@ -123,7 +123,7 @@ func avadaKedavraChrome(session *clientpb.Session, cmd *cobra.Command, con *cons
 		con.PrintWarnf("Sliver will attempt to restore the user's session, however %sDATA LOSS MAY OCCUR!%s\n", console.Bold, console.Normal)
 		con.Printf("\n")
 		confirm := false
-		err = survey.AskOne(&survey.Confirm{Message: "Kill and restore existing Chrome process?"}, &confirm)
+		err = forms.Confirm("Kill and restore existing Chrome process?", &confirm)
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return nil
@@ -213,7 +213,7 @@ func startCursedChromeProcess(isEdge bool, session *clientpb.Session, cmd *cobra
 	con.PrintInfof("Waiting for %s process to initialize ... ", name)
 	time.Sleep(2 * time.Second)
 
-	bindPort := insecureRand.Intn(10000) + 40000
+	bindPort := util.Intn(10000) + 40000
 	bindAddr := fmt.Sprintf("127.0.0.1:%d", bindPort)
 
 	remoteAddr := fmt.Sprintf("127.0.0.1:%d", debugPort)

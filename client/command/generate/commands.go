@@ -357,6 +357,7 @@ func coreImplantFlagCompletions(cmd *cobra.Command, con *console.SliverClient) {
 		(*comp)["traffic-encoders"] = TrafficEncodersCompleter(con).UniqueList(",")
 		(*comp)["c2profile"] = HTTPC2Completer(con)
 	})
+	registerImplantTargetFlagCompletions(cmd, con)
 }
 
 // coreBeaconFlags binds all flags specific to beacon implants (profiles or compiled).

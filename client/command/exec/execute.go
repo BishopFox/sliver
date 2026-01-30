@@ -49,6 +49,13 @@ func ExecuteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	saveLoot, _ := cmd.Flags().GetBool("loot")
 	saveOutput, _ := cmd.Flags().GetBool("save")
 	ppid, _ := cmd.Flags().GetUint32("ppid")
+	envInheritance, _ := cmd.Flags().GetBool("env-inheritance")
+	envPairs, _ := cmd.Flags().GetStringArray("env")
+	envVars, err := parseEnvPairs(envPairs)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
 	hostName := getHostname(session, beacon)
 
 	// If the user wants to loot or save the output, we have to capture it regardless of if they specified -o
@@ -59,13 +66,17 @@ func ExecuteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 
 	var exec *sliverpb.Execute
-	var err error
 
 	ctrl := make(chan bool)
+	con.PrintInfof("Execute: %s [%s]\n", cmdPath, strings.Join(args, " "))
 	con.SpinUntil(fmt.Sprintf("Executing %s %s ...", cmdPath, strings.Join(args, " ")), ctrl)
 	if token || hidden || ppid != 0 {
 		if (session != nil && session.OS != "windows") || (beacon != nil && beacon.OS != "windows") {
 			con.PrintErrorf("The token, hide window, and ppid options are not valid on %s\n", session.OS)
+			return
+		}
+		if envInheritance || len(envVars) > 0 {
+			con.PrintErrorf("The env and env-inheritance options are not supported with token, hidden, or ppid\n")
 			return
 		}
 		exec, err = con.Rpc.ExecuteWindows(context.Background(), &sliverpb.ExecuteWindowsReq{
@@ -81,12 +92,14 @@ func ExecuteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		})
 	} else {
 		exec, err = con.Rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
-			Request: con.ActiveTarget.Request(cmd),
-			Path:    cmdPath,
-			Args:    args,
-			Output:  captureOutput,
-			Stderr:  stderr,
-			Stdout:  stdout,
+			Request:        con.ActiveTarget.Request(cmd),
+			Path:           cmdPath,
+			Args:           args,
+			Output:         captureOutput,
+			Stderr:         stderr,
+			Stdout:         stdout,
+			EnvInheritance: envInheritance,
+			Env:            envVars,
 		})
 	}
 	ctrl <- true
@@ -177,6 +190,21 @@ func getHostname(session *clientpb.Session, beacon *clientpb.Beacon) string {
 		return beacon.Hostname
 	}
 	return ""
+}
+
+func parseEnvPairs(envPairs []string) (map[string]string, error) {
+	if len(envPairs) == 0 {
+		return nil, nil
+	}
+	envVars := make(map[string]string, len(envPairs))
+	for _, pair := range envPairs {
+		parts := strings.SplitN(pair, "=", 2)
+		if len(parts) != 2 || parts[0] == "" {
+			return nil, fmt.Errorf("invalid --env value %q, expected key=value", pair)
+		}
+		envVars[parts[0]] = parts[1]
+	}
+	return envVars, nil
 }
 
 func determineCommandName(command string) string {

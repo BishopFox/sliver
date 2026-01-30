@@ -27,6 +27,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/db"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // GetC2Profiles - Retrieve C2 Profile names and id's
@@ -34,7 +36,7 @@ func (rpc *Server) GetHTTPC2Profiles(ctx context.Context, req *commonpb.Empty) (
 	c2Configs := clientpb.HTTPC2Configs{}
 	httpC2Config, err := db.LoadHTTPC2s()
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	c2Configs.Configs = httpC2Config
@@ -46,7 +48,7 @@ func (rpc *Server) GetHTTPC2Profiles(ctx context.Context, req *commonpb.Empty) (
 func (rpc *Server) GetHTTPC2ProfileByName(ctx context.Context, req *clientpb.C2ProfileReq) (*clientpb.HTTPC2Config, error) {
 	httpC2Config, err := db.LoadHTTPC2ConfigByName(req.Name)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	return httpC2Config, nil
@@ -56,24 +58,24 @@ func (rpc *Server) GetHTTPC2ProfileByName(ctx context.Context, req *clientpb.C2P
 func (rpc *Server) SaveHTTPC2Profile(ctx context.Context, req *clientpb.HTTPC2ConfigReq) (*commonpb.Empty, error) {
 	err := configs.CheckHTTPC2ConfigErrors(req.C2Config)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	if req.Overwrite && req.C2Config.Name == "" {
-		return nil, configs.ErrMissingC2ProfileName
+		return nil, status.Error(codes.InvalidArgument, configs.ErrMissingC2ProfileName.Error())
 	}
 
 	httpC2Config, err := db.LoadHTTPC2ConfigByName(req.C2Config.Name)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	if httpC2Config.Name != "" && req.Overwrite == false {
-		return nil, configs.ErrDuplicateC2ProfileName
+		return nil, status.Error(codes.AlreadyExists, configs.ErrDuplicateC2ProfileName.Error())
 	}
 
 	if req.Overwrite {
 		if httpC2Config.Name == "" {
-			return nil, configs.ErrC2ProfileNotFound
+			return nil, status.Error(codes.NotFound, configs.ErrC2ProfileNotFound.Error())
 		}
 		err = db.HTTPC2ConfigUpdate(req.C2Config, httpC2Config)
 		if err != nil {

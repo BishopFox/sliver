@@ -24,7 +24,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/fs"
-	insecureRand "math/rand"
 	"os"
 	"path"
 	"path/filepath"
@@ -41,9 +40,11 @@ import (
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/encoders"
 	"github.com/bishopfox/sliver/server/gogo"
+	"github.com/bishopfox/sliver/server/gogo/goname"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/util"
 	utilEncoders "github.com/bishopfox/sliver/util/encoders"
+	"golang.org/x/mod/module"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -361,7 +362,7 @@ func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clien
 		return "", err
 	}
 
-	sliverPkgDir := filepath.Join(srcDir, "github.com", "bishopfox", "sliver") // "main"
+	sliverPkgDir := filepath.Join(srcDir) // "main"
 	err = os.MkdirAll(sliverPkgDir, 0700)
 	if err != nil {
 		return "", nil
@@ -381,14 +382,14 @@ func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clien
 		sliverGoCode := string(sliverGoCodeRaw)
 
 		// Skip dllmain files for anything non windows
-		if f.Name() == "sliver.c" || f.Name() == "sliver.h" {
+		if f.Name() == "main.c" || f.Name() == "main.h" {
 			if !config.IsSharedLib && !config.IsShellcode {
 				return nil
 			}
 		}
 
 		var sliverCodePath string
-		if f.Name() == "sliver.go" || f.Name() == "sliver.c" || f.Name() == "sliver.h" {
+		if f.Name() == "main.go" || f.Name() == "main.c" || f.Name() == "main.h" {
 			sliverCodePath = filepath.Join(sliverPkgDir, f.Name())
 		} else {
 			sliverCodePath = filepath.Join(sliverPkgDir, "implant", fsPath)
@@ -522,6 +523,35 @@ func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clien
 	}
 	buildLog.Debugf("Created %s", goModPath)
 
+	if !config.Debug {
+		goPackage := "github.com/google/gvisor"
+		if config.GoPackage != "" {
+			err := module.CheckPath(config.GoPackage)
+			if err != nil {
+				buildLog.Warnf("Invalid Go package path '%s', using default '%s'", config.GoPackage, goPackage)
+			} else {
+				goPackage = config.GoPackage
+			}
+		}
+		modResult, err := goname.RenameModule(sliverPkgDir, goPackage)
+		if err != nil {
+			buildLog.Errorf("Failed to rename module: %s", err)
+			return "", err
+		}
+		buildLog.Infof("Renamed module: %s -> %s (go.mod updated: %v)", modResult.OldModule, modResult.NewModule, modResult.GoModUpdated)
+
+		// Rename Import Paths
+		buildLog.Infof("Renaming import paths ...")
+		oldImportPrefix := path.Join(modResult.NewModule, "implant", "sliver")
+		newImportPrefix := path.Join(modResult.NewModule, "runc", "cgroup")
+		importResult, err := goname.RenameImport(sliverPkgDir, oldImportPrefix, newImportPrefix)
+		if err != nil {
+			buildLog.Errorf("Failed to rename imports: %s", err)
+			return "", err
+		}
+		buildLog.Infof("Renamed imports (%d files updated)", importResult.FilesUpdated)
+	}
+
 	return sliverPkgDir, nil
 }
 
@@ -575,7 +605,7 @@ func renderImplantEnglish() []string {
 	allWords := assets.English() // 178,543 words -> server/assets/fs/english.txt
 	meRiCaN := cases.Title(language.AmericanEnglish)
 	for i := 0; i < len(allWords); i++ {
-		switch insecureRand.Intn(3) {
+		switch util.Intn(3) {
 		case 0:
 			allWords[i] = strings.ToUpper(allWords[i])
 		case 1:
@@ -595,7 +625,7 @@ func renderImplantEnglish() []string {
 
 	// Shuffle the words for each byte value
 	for byteValue := 0; byteValue < 256; byteValue++ {
-		insecureRand.Shuffle(len(allWordsDictionary[byteValue]), func(i, j int) {
+		util.Shuffle(len(allWordsDictionary[byteValue]), func(i, j int) {
 			allWordsDictionary[byteValue][i], allWordsDictionary[byteValue][j] = allWordsDictionary[byteValue][j], allWordsDictionary[byteValue][i]
 		})
 	}

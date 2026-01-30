@@ -28,9 +28,9 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -172,12 +172,8 @@ func SelectHost(con *console.SliverClient) (*clientpb.Host, error) {
 
 	options := strings.Split(outputBuf.String(), "\n")
 	options = options[:len(options)-1] // Remove the last empty option
-	prompt := &survey.Select{
-		Message: "Select a host:",
-		Options: options,
-	}
 	selected := ""
-	survey.AskOne(prompt, &selected)
+	_ = forms.Select("Select a host:", options, &selected)
 	if selected == "" {
 		return nil, ErrNoSelection
 	}

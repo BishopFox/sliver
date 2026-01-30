@@ -1,6 +1,8 @@
 // Copyright (c) Tailscale Inc & AUTHORS
 // SPDX-License-Identifier: BSD-3-Clause
 
+//go:build !ts_omit_clientmetrics
+
 // Package clientmetric provides client-side metrics whose values
 // get occasionally logged.
 package clientmetric
@@ -18,6 +20,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"tailscale.com/feature/buildfeatures"
 	"tailscale.com/util/set"
 )
 
@@ -130,15 +133,20 @@ func (m *Metric) Publish() {
 	metrics[m.name] = m
 	sortedDirty = true
 
-	if m.f != nil {
-		lastLogVal = append(lastLogVal, scanEntry{f: m.f})
-	} else {
+	if m.f == nil {
 		if len(valFreeList) == 0 {
 			valFreeList = make([]int64, 256)
 		}
 		m.v = &valFreeList[0]
 		valFreeList = valFreeList[1:]
-		lastLogVal = append(lastLogVal, scanEntry{v: m.v})
+	}
+
+	if buildfeatures.HasLogTail {
+		if m.f != nil {
+			lastLogVal = append(lastLogVal, scanEntry{f: m.f})
+		} else {
+			lastLogVal = append(lastLogVal, scanEntry{v: m.v})
+		}
 	}
 
 	m.regIdx = len(unsorted)
@@ -319,6 +327,9 @@ const (
 //   - increment a metric: (decrements if negative)
 //     'I' + hex(varint(wireid)) + hex(varint(value))
 func EncodeLogTailMetricsDelta() string {
+	if !buildfeatures.HasLogTail {
+		return ""
+	}
 	mu.Lock()
 	defer mu.Unlock()
 

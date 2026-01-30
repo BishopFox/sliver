@@ -1,0 +1,18 @@
+version: '3'
+
+services:
+
+  goSDK:
+    build:
+      context: .
+    image: gosdk
+    container_name: goSDK
+    environment:
+      - PLIVO_AUTH_ID=${PLIVO_AUTH_ID}
+      - PLIVO_AUTH_TOKEN=${PLIVO_AUTH_TOKEN}
+      - PLIVO_API_DEV_HOST=${PLIVO_API_DEV_HOST}
+      - PLIVO_API_PROD_HOST=${PLIVO_API_PROD_HOST}
+    volumes:
+      - .:/usr/src/app
+    stdin_open: true
+    tty: true

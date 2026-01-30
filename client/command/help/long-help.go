@@ -56,6 +56,7 @@ var (
 		consts.CdStr:               cdHelp,
 		consts.PwdStr:              pwdHelp,
 		consts.CatStr:              catHelp,
+		consts.EditStr:             editHelp,
 		consts.DownloadStr:         downloadHelp,
 		consts.GrepStr:             grepHelp,
 		consts.HeadStr:             headHelp,
@@ -68,6 +69,7 @@ var (
 		consts.RunAsStr:            runAsHelp,
 		consts.ImpersonateStr:      impersonateHelp,
 		consts.RevToSelfStr:        revToSelfHelp,
+		consts.ExecuteStr:          executeHelp,
 		consts.ExecuteAssemblyStr:  executeAssemblyHelp,
 		consts.ExecuteShellcodeStr: executeShellcodeHelp,
 		consts.MigrateStr:          migrateHelp,
@@ -123,6 +125,22 @@ var (
 		consts.C2ProfileStr: c2ProfilesHelp,
 		consts.C2ProfileStr + sep + consts.C2GenerateStr: c2GenerateHelp,
 	}
+
+	executeHelp = `[[.Bold]]Command:[[.Normal]] execute <path to executable> [options] -- [args...]
+
+[[.Bold]]About:[[.Normal]] Execute a program on the remote system with optional arguments, note the subprocess 
+arguments are be separated from the sliver 'execute' arguments with '--' 
+
+[[.Bold]]Example:[[.Normal]]
+execute /bin/bash --env FOO=1 -- -c env
+
+[*] Execute: /bin/bash [-c env]
+[*] Output:
+FOO=1
+PWD=/Users/moloch/git/sliver
+SHLVL=1
+_=/usr/bin/env
+`
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
 	[[.Bold]]About:[[.Normal]] Manage jobs/listeners.`
@@ -283,6 +301,12 @@ On Windows, escaping is disabled. Instead, '\\' is treated as path separator.
 
 	catHelp = `[[.Bold]]Command:[[.Normal]] cat <remote path> 
 [[.Bold]]About:[[.Normal]] Cat a remote file to stdout.`
+
+	editHelp = `[[.Bold]]Command:[[.Normal]] edit <remote path>
+[[.Bold]]About:[[.Normal]] Download a remote text file, edit it in a built-in TUI editor, and optionally upload changes.
+[[.Bold]]Keys:[[.Normal]] Normal mode uses vim-like navigation (h/j/k/l) and insert mode (i). Use :wq to save+quit or :q to quit.
+[[.Bold]]Syntax:[[.Normal]] Use --syntax <lexer> to force a lexer or --syntax-select to pick one interactively.
+[[.Bold]]Line Numbers:[[.Normal]] Use --line-numbers to start with line numbers on; toggle with :n.`
 
 	downloadHelp = `[[.Bold]]Command:[[.Normal]] download [remote src] <local dst>
 [[.Bold]]About:[[.Normal]] Download a file or directory from the remote system. Directories will be downloaded as a gzipped TAR file.

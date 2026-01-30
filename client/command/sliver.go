@@ -22,10 +22,12 @@ import (
 	"fmt"
 
 	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/client/command/aka"
 	"github.com/bishopfox/sliver/client/command/alias"
 	"github.com/bishopfox/sliver/client/command/backdoor"
 	"github.com/bishopfox/sliver/client/command/cursed"
 	"github.com/bishopfox/sliver/client/command/dllhijack"
+	"github.com/bishopfox/sliver/client/command/edit"
 	"github.com/bishopfox/sliver/client/command/environment"
 	"github.com/bishopfox/sliver/client/command/exec"
 	"github.com/bishopfox/sliver/client/command/extensions"
@@ -78,6 +80,7 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 			// use.Commands,
 			tasks.Commands,
 			pivots.Commands,
+			aka.ImplantCommands,
 		)
 
 		// [ Info ]
@@ -92,6 +95,7 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 
 		// [ Filesystem ]
 		bind(consts.FilesystemHelpGroup,
+			edit.Commands,
 			filesystem.Commands,
 		)
 

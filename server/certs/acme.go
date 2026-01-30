@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/log"
 	"golang.org/x/crypto/acme/autocert"
 )
@@ -37,7 +38,12 @@ var (
 
 // GetACMEDir - Dir to store ACME certs
 func GetACMEDir() string {
-	acmePath := filepath.Join(getCertDir(), ACMEDirName)
+	certDir := getCertDir()
+	baseDir := certDir
+	if fi, err := os.Stat(certDir); err != nil || !fi.IsDir() {
+		baseDir = assets.GetRootAppDir()
+	}
+	acmePath := filepath.Join(baseDir, ACMEDirName)
 	if _, err := os.Stat(acmePath); os.IsNotExist(err) {
 		acmeLog.Infof("[mkdir] %s", acmePath)
 		os.MkdirAll(acmePath, 0700)

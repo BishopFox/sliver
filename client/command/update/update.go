@@ -21,6 +21,7 @@ package update
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -28,21 +29,31 @@ import (
 	"net/url"
 	"os"
 	"os/user"
-	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/util"
+	"github.com/bishopfox/sliver/util/minisign"
 	"github.com/cheggaaa/pb/v3"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
+)
+
+var (
+	SliverPublicKey string
+)
+
+const (
+	downloadAttempts = 3
+	downloadBackoff  = 750 * time.Millisecond
 )
 
 // UpdateCmd - Check for updates.
@@ -57,14 +68,12 @@ func UpdateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		con.Println()
 		con.Println(console.Warn + "You're trying to update over an insecure connection, this is a really bad idea!")
 		confirm := false
-		prompt := &survey.Confirm{Message: "Recklessly update?"}
-		survey.AskOne(prompt, &confirm)
+		forms.Confirm("Recklessly update?", &confirm)
 		if !confirm {
 			return
 		}
 		confirm = false
-		prompt = &survey.Confirm{Message: "Seriously?"}
-		survey.AskOne(prompt, &confirm)
+		forms.Confirm("Seriously?", &confirm)
 		if !confirm {
 			return
 		}
@@ -97,7 +106,13 @@ func UpdateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 
 	con.Printf("\nChecking for updates ... ")
 	prereleases, _ := cmd.Flags().GetBool("prereleases")
-	release, err := version.CheckForUpdates(client, prereleases)
+	force, _ := cmd.Flags().GetBool("force")
+	var release *version.Release
+	if force {
+		release, err = version.LatestRelease(client, prereleases)
+	} else {
+		release, err = version.CheckForUpdates(client, prereleases)
+	}
 	con.Printf("done!\n\n")
 	if err != nil {
 		con.PrintErrorf("Update check failed %s\n", err)
@@ -110,14 +125,18 @@ func UpdateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			con.PrintErrorf("%s\n", err)
 			return
 		}
-		updateAvailable(con, client, release, saveTo)
+		updateAvailable(con, client, release, saveTo, force)
 	} else {
-		con.PrintInfof("No new releases.\n")
+		if force {
+			con.PrintInfof("No releases found.\n")
+		} else {
+			con.PrintInfof("No new releases.\n")
+		}
 	}
 	now := time.Now()
-	lastCheck := []byte(fmt.Sprintf("%d", now.Unix()))
+	lastCheck := fmt.Appendf(nil, "%d", now.Unix())
 	appDir := assets.GetRootAppDir()
-	lastUpdateCheckPath := path.Join(appDir, consts.LastUpdateCheckFileName)
+	lastUpdateCheckPath := filepath.Join(appDir, consts.LastUpdateCheckFileName)
 	err = os.WriteFile(lastUpdateCheckPath, lastCheck, 0o600)
 	if err != nil {
 		con.Printf("Failed to save update check time %s", err)
@@ -194,87 +213,434 @@ func findAssetFor(prefix string, suffixes []string, assets []version.Asset) *ver
 }
 
 func serverAssetForGOOS(assets []version.Asset) *version.Asset {
-	suffixes := []string{fmt.Sprintf("_%s.zip", runtime.GOOS), runtime.GOOS}
-	if runtime.GOOS == "darwin" {
-		suffixes = []string{"_macos.zip", "_macos"}
-		if runtime.GOARCH == "arm64" {
-			suffixes = []string{"_macos-arm64.zip", "_macos-arm64"}
-		}
-	}
+	suffixes := assetSuffixes(runtime.GOOS, runtime.GOARCH)
 	prefix := "sliver-server"
 	return findAssetFor(prefix, suffixes, assets)
 }
 
 func clientAssetForGOOS(assets []version.Asset) *version.Asset {
-	suffixes := []string{fmt.Sprintf("_%s.zip", runtime.GOOS), runtime.GOOS}
-	if runtime.GOOS == "darwin" {
-		suffixes = []string{"_macos.zip", "_macos"}
-		if runtime.GOARCH == "arm64" {
-			suffixes = []string{"_macos-arm64.zip", "_macos-arm64"}
-		}
-	}
+	suffixes := assetSuffixes(runtime.GOOS, runtime.GOARCH)
 	prefix := "sliver-client"
 	return findAssetFor(prefix, suffixes, assets)
 }
 
-func updateAvailable(con *console.SliverClient, client *http.Client, release *version.Release, saveTo string) {
+func assetSuffixes(goos, goarch string) []string {
+	suffixes := make([]string, 0, 8)
+	seen := make(map[string]struct{}, 8)
+	add := func(suffix string) {
+		if suffix == "" {
+			return
+		}
+		if _, ok := seen[suffix]; ok {
+			return
+		}
+		seen[suffix] = struct{}{}
+		suffixes = append(suffixes, suffix)
+	}
+
+	add(fmt.Sprintf("_%s-%s.zip", goos, goarch))
+	add(fmt.Sprintf("_%s-%s", goos, goarch))
+	add(fmt.Sprintf("_%s.zip", goos))
+	add(fmt.Sprintf("_%s", goos))
+
+	if goos == "darwin" {
+		add(fmt.Sprintf("_macos-%s.zip", goarch))
+		add(fmt.Sprintf("_macos-%s", goarch))
+		add("_macos.zip")
+		add("_macos")
+	}
+
+	return suffixes
+}
+
+func updateAvailable(con *console.SliverClient, client *http.Client, release *version.Release, saveTo string, force bool) {
 	serverAsset := serverAssetForGOOS(release.Assets)
 	clientAsset := clientAssetForGOOS(release.Assets)
 
-	con.Printf("New version available %s\n", release.TagName)
+	msg := "New version available"
+	if force {
+		msg = "Latest release available"
+	}
+	con.Printf("%s %s\n", msg, release.TagName)
 	if serverAsset != nil {
 		con.Printf(" - Server: %s\n", util.ByteCountBinary(int64(serverAsset.Size)))
 	}
 	if clientAsset != nil {
 		con.Printf(" - Client: %s\n", util.ByteCountBinary(int64(clientAsset.Size)))
 	}
+	if serverAsset == nil {
+		con.PrintWarnf("No server asset available for %s/%s\n", runtime.GOOS, runtime.GOARCH)
+	}
+	if clientAsset == nil {
+		con.PrintWarnf("No client asset available for %s/%s\n", runtime.GOOS, runtime.GOARCH)
+	}
 	con.Println()
 
 	confirm := false
-	prompt := &survey.Confirm{
-		Message: "Download update?",
-	}
-	survey.AskOne(prompt, &confirm)
+	forms.Confirm("Download update?", &confirm)
 	if confirm {
-		con.Printf("Please wait ...")
-		err := downloadAsset(client, serverAsset, saveTo)
+		if serverAsset == nil && clientAsset == nil {
+			con.PrintWarnf("No matching assets found for %s/%s\n", runtime.GOOS, runtime.GOARCH)
+			return
+		}
+		publicKey, err := loadSliverPublicKey()
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return
 		}
-		err = downloadAsset(client, clientAsset, saveTo)
-		if err != nil {
-			con.PrintErrorf("%s\n", err)
-			return
+		downloads := []struct {
+			label string
+			asset *version.Asset
+		}{
+			{label: "server", asset: serverAsset},
+			{label: "client", asset: clientAsset},
 		}
-		con.Println(console.Clearln)
+		for _, item := range downloads {
+			if item.asset == nil {
+				continue
+			}
+			con.Printf("Downloading %s update from %s ...\n", item.label, item.asset.BrowserDownloadURL)
+			if err := downloadAssetWithSignature(con, client, item.asset, release.Assets, saveTo, publicKey); err != nil {
+				con.PrintErrorf("Failed to download %s update: %s\n", item.label, err)
+				return
+			}
+			con.Println(console.Clearln)
+		}
 		con.PrintInfof("Saved updates to: %s\n", saveTo)
 	}
 }
 
-func downloadAsset(client *http.Client, asset *version.Asset, saveTo string) error {
+func downloadAssetWithSignature(con *console.SliverClient, client *http.Client, asset *version.Asset, assets []version.Asset, saveTo string, publicKey minisign.PublicKey) error {
+	if asset == nil {
+		return errors.New("no asset available for this platform")
+	}
 	downloadURL, err := url.Parse(asset.BrowserDownloadURL)
 	if err != nil {
 		return err
 	}
 	assetFileName := filepath.Base(downloadURL.Path)
+	finalPath := filepath.Join(saveTo, assetFileName)
 
-	limit := int64(asset.Size)
-	writer, err := os.Create(filepath.Join(saveTo, assetFileName))
+	sigURL := asset.BrowserDownloadURL + ".minisig"
+	var sigLimit int64
+	if sigAsset := signatureAssetFor(assetFileName, assets); sigAsset != nil && sigAsset.BrowserDownloadURL != "" {
+		sigURL = sigAsset.BrowserDownloadURL
+		sigLimit = int64(sigAsset.Size)
+	}
+
+	assetTempPath, err := downloadWithRetries(client, asset.BrowserDownloadURL, saveTo, int64(asset.Size), "asset")
 	if err != nil {
+		return fmt.Errorf("download asset: %w", err)
+	}
+
+	sigData, err := downloadBytesWithRetries(client, sigURL, sigLimit, "signature")
+	if err != nil {
+		cleanupAssetFiles(assetTempPath, finalPath)
+		return fmt.Errorf("download signature: %w", err)
+	}
+
+	if err := verifyMinisignSignature(assetTempPath, sigData, assetFileName, publicKey); err != nil {
+		cleanupAssetFiles(assetTempPath, finalPath)
 		return err
 	}
-	defer writer.Close()
+	con.PrintSuccessf("Signature verified for %s\n", finalPath)
 
-	resp, err := client.Get(asset.BrowserDownloadURL)
-	if err != nil {
+	if err := replaceFile(assetTempPath, finalPath); err != nil {
+		os.Remove(assetTempPath)
 		return err
+	}
+	return nil
+}
+
+func signatureAssetFor(assetFileName string, assets []version.Asset) *version.Asset {
+	want := assetFileName + ".minisig"
+	for _, asset := range assets {
+		if asset.Name == want {
+			return &asset
+		}
+	}
+	return nil
+}
+
+func loadSliverPublicKey() (minisign.PublicKey, error) {
+	if strings.TrimSpace(SliverPublicKey) == "" {
+		return minisign.PublicKey{}, errors.New("minisign public key not set at build time")
+	}
+	var publicKey minisign.PublicKey
+	if err := publicKey.UnmarshalText([]byte(SliverPublicKey)); err != nil {
+		return minisign.PublicKey{}, fmt.Errorf("invalid minisign public key: %w", err)
+	}
+	return publicKey, nil
+}
+
+type httpStatusError struct {
+	url    string
+	status int
+}
+
+func (e httpStatusError) Error() string {
+	return fmt.Sprintf("unexpected HTTP status %d for %s", e.status, e.url)
+}
+
+func downloadWithRetries(client *http.Client, downloadURL, saveTo string, limit int64, label string) (string, error) {
+	var lastErr error
+	backoff := downloadBackoff
+	for attempt := 1; attempt <= downloadAttempts; attempt++ {
+		path, err := downloadOnce(client, downloadURL, saveTo, limit, label)
+		if err == nil {
+			return path, nil
+		}
+		lastErr = err
+		if !isRetryableDownloadError(err) || attempt == downloadAttempts {
+			break
+		}
+		time.Sleep(backoff)
+		backoff *= 2
+	}
+	return "", lastErr
+}
+
+func downloadBytesWithRetries(client *http.Client, downloadURL string, limit int64, label string) ([]byte, error) {
+	var lastErr error
+	backoff := downloadBackoff
+	for attempt := 1; attempt <= downloadAttempts; attempt++ {
+		data, err := downloadBytesOnce(client, downloadURL, limit, label)
+		if err == nil {
+			return data, nil
+		}
+		lastErr = err
+		if !isRetryableDownloadError(err) || attempt == downloadAttempts {
+			break
+		}
+		time.Sleep(backoff)
+		backoff *= 2
+	}
+	return nil, lastErr
+}
+
+func downloadOnce(client *http.Client, downloadURL, saveTo string, limit int64, label string) (string, error) {
+	parsedURL, err := url.Parse(downloadURL)
+	if err != nil {
+		return "", err
+	}
+
+	baseName := filepath.Base(parsedURL.Path)
+	tmpFile, err := os.CreateTemp(saveTo, baseName+".tmp-*")
+	if err != nil {
+		return "", err
+	}
+	success := false
+	defer func() {
+		if !success {
+			tmpFile.Close()
+			os.Remove(tmpFile.Name())
+		}
+	}()
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, downloadURL, nil)
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
 	}
 	defer resp.Body.Close()
 
-	bar := pb.Full.Start64(limit)
-	barReader := bar.NewProxyReader(resp.Body)
-	io.Copy(writer, barReader)
-	bar.Finish()
+	if resp.StatusCode != http.StatusOK {
+		return "", httpStatusError{url: downloadURL, status: resp.StatusCode}
+	}
+
+	if limit <= 0 && resp.ContentLength > 0 {
+		limit = resp.ContentLength
+	}
+
+	var reader io.Reader = resp.Body
+	var bar *pb.ProgressBar
+	if limit > 0 {
+		bar = pb.Full.Start64(limit)
+		bar.Set("prefix", fmt.Sprintf("%s: ", label))
+		bar.Set(pb.Bytes, true)
+		bar.Set(pb.CleanOnFinish, true)
+		bar.Set(pb.ReturnSymbol, "\r")
+		if term.IsTerminal(int(os.Stdin.Fd())) {
+			bar.Set(pb.Terminal, true)
+		}
+		reader = bar.NewProxyReader(reader)
+	}
+
+	n, copyErr := io.Copy(tmpFile, reader)
+	if bar != nil {
+		bar.Finish()
+	}
+	if copyErr != nil {
+		return "", copyErr
+	}
+
+	if limit > 0 && n != limit {
+		return "", fmt.Errorf("downloaded %d bytes, expected %d", n, limit)
+	}
+
+	if err := tmpFile.Sync(); err != nil {
+		return "", err
+	}
+	if err := tmpFile.Close(); err != nil {
+		return "", err
+	}
+
+	success = true
+	return tmpFile.Name(), nil
+}
+
+func downloadBytesOnce(client *http.Client, downloadURL string, limit int64, label string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, downloadURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, httpStatusError{url: downloadURL, status: resp.StatusCode}
+	}
+
+	if limit <= 0 && resp.ContentLength > 0 {
+		limit = resp.ContentLength
+	}
+
+	var reader io.Reader = resp.Body
+	var bar *pb.ProgressBar
+	if limit > 0 {
+		bar = pb.Full.Start64(limit)
+		bar.Set("prefix", fmt.Sprintf("%s: ", label))
+		bar.Set(pb.Bytes, true)
+		bar.Set(pb.CleanOnFinish, true)
+		bar.Set(pb.ReturnSymbol, "\r")
+		if term.IsTerminal(int(os.Stdin.Fd())) {
+			bar.Set(pb.Terminal, true)
+		}
+		reader = bar.NewProxyReader(reader)
+	}
+
+	data, readErr := readAllWithLimit(reader, limit)
+	if bar != nil {
+		bar.Finish()
+	}
+	if readErr != nil {
+		return nil, readErr
+	}
+
+	return data, nil
+}
+
+func isRetryableDownloadError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, io.ErrUnexpectedEOF) {
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return netErr.Timeout() || netErr.Temporary()
+	}
+	var statusErr httpStatusError
+	if errors.As(err, &statusErr) {
+		switch statusErr.status {
+		case http.StatusTooManyRequests, http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+			return true
+		default:
+			return false
+		}
+	}
+	return false
+}
+
+func verifyMinisignSignature(artifactPath string, sigData []byte, expectedFile string, publicKey minisign.PublicKey) error {
+	artifact, err := os.Open(artifactPath)
+	if err != nil {
+		return fmt.Errorf("open artifact: %w", err)
+	}
+	defer artifact.Close()
+
+	reader := minisign.NewReader(artifact)
+	if _, err := io.Copy(io.Discard, reader); err != nil {
+		return fmt.Errorf("stream artifact: %w", err)
+	}
+
+	if !reader.Verify(publicKey, sigData) {
+		return errors.New("signature verification failed")
+	}
+
+	if err := verifyTrustedComment(sigData, expectedFile); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+func readAllWithLimit(reader io.Reader, limit int64) ([]byte, error) {
+	if limit <= 0 {
+		return io.ReadAll(reader)
+	}
+
+	lr := &io.LimitedReader{R: reader, N: limit + 1}
+	data, err := io.ReadAll(lr)
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > limit {
+		return nil, fmt.Errorf("downloaded %d bytes, expected %d", len(data), limit)
+	}
+	if int64(len(data)) != limit {
+		return nil, fmt.Errorf("downloaded %d bytes, expected %d", len(data), limit)
+	}
+	return data, nil
+}
+
+func verifyTrustedComment(signature []byte, expectedFile string) error {
+	var sig minisign.Signature
+	if err := sig.UnmarshalText(signature); err != nil {
+		return fmt.Errorf("parse signature: %w", err)
+	}
+
+	fileField := trustedCommentFile(sig.TrustedComment)
+	if fileField == "" {
+		return fmt.Errorf("trusted comment missing file field: %q", sig.TrustedComment)
+	}
+	if fileField != expectedFile {
+		return fmt.Errorf("trusted comment file mismatch: expected %q, got %q", expectedFile, fileField)
+	}
+
+	return nil
+}
+
+func trustedCommentFile(trustedComment string) string {
+	for _, field := range strings.Fields(trustedComment) {
+		if after, ok := strings.CutPrefix(field, "file:"); ok {
+			return after
+		}
+	}
+	return ""
+}
+
+func replaceFile(src, dst string) error {
+	if err := os.Remove(dst); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return os.Rename(src, dst)
+}
+
+func cleanupAssetFiles(tempPath, finalPath string) {
+	if tempPath != "" {
+		_ = os.Remove(tempPath)
+	}
+	if finalPath != "" {
+		_ = os.Remove(finalPath)
+	}
 }

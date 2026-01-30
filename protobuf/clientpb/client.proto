@@ -148,6 +148,7 @@ message ImplantConfig {
   bool ObfuscateSymbols = 12;
   string TemplateName = 13;
   bool SGNEnabled = 14;
+  string GoPackage = 15;
 
   bool IncludeMTLS = 53;
   bool IncludeHTTP = 16;
@@ -584,6 +585,9 @@ message WebContent {
   string Path = 3;
   string ContentType = 4;
   uint64 Size = 5 [ jstype = JS_STRING ];
+
+  string OriginalFile = 6;
+  string Sha256 = 7;
 
   bytes Content = 9;
 }
@@ -1315,4 +1319,18 @@ message CertificateData {
 
 message CertificateInfo {
   repeated CertificateData info = 1;  
+}
+
+message CertificateAuthorityData {
+  string CN = 1;
+  string CreationTime = 2;
+  string ValidityStart = 3;
+  string ValidityExpiry = 4;
+  string Type = 5;
+  string KeyAlgorithm = 6;
+  string ID = 7;
+}
+
+message CertificateAuthorityInfo {
+  repeated CertificateAuthorityData info = 1;
 }

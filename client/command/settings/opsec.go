@@ -19,9 +19,9 @@ package settings
 */
 
 import (
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/spf13/cobra"
 )
 
@@ -41,12 +41,16 @@ func SettingsAutoAdultCmd(cmd *cobra.Command, con *console.SliverClient, args []
 
 // IsUserAnAdult - This should be called for any dangerous (OPSEC-wise) functions.
 func IsUserAnAdult(con *console.SliverClient) bool {
+	return IsUserAnAdultWithPrompt(con, "This action is bad OPSEC, are you an adult?")
+}
+
+// IsUserAnAdultWithPrompt prompts with a custom message before continuing.
+func IsUserAnAdultWithPrompt(con *console.SliverClient, prompt string) bool {
 	if GetAutoAdult(con) {
 		return true
 	}
 	confirm := false
-	prompt := &survey.Confirm{Message: "This action is bad OPSEC, are you an adult?"}
-	survey.AskOne(prompt, &confirm, nil)
+	_ = forms.Confirm(prompt, &confirm)
 	return confirm
 }
 

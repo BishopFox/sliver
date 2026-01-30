@@ -21,13 +21,13 @@ package codenames
 import (
 	"bufio"
 	"fmt"
-	insecureRand "math/rand"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/util"
 
 	"github.com/sirupsen/logrus"
 )
@@ -73,7 +73,7 @@ func getRandomWord(txtFilePath string) (string, error) {
 	if wordsLen == 0 {
 		return "", fmt.Errorf("no words found in %s", txtFilePath)
 	}
-	word := words[insecureRand.Intn(wordsLen-1)]
+	word := words[util.Intn(wordsLen-1)]
 	return strings.TrimSpace(word), nil
 }
 

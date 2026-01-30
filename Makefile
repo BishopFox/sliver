@@ -16,49 +16,32 @@ endif
 # Prerequisites 
 #
 # https://stackoverflow.com/questions/5618615/check-if-a-program-exists-from-a-makefile
-EXECUTABLES = uname sed git zip date cut $(GO)
+EXECUTABLES = uname sed git date cut $(GO)
 K := $(foreach exec,$(EXECUTABLES),\
         $(if $(shell which $(exec)),some string,$(error "No $(exec) in PATH")))
 
 #
-# Version Information
+# Build Information
 #
-GO_VERSION = $(shell $(GO) version)
 GO_MAJOR_VERSION = $(shell $(GO) version | cut -c 14- | cut -d' ' -f1 | cut -d'.' -f1)
 GO_MINOR_VERSION = $(shell $(GO) version | cut -c 14- | cut -d' ' -f1 | cut -d'.' -f2)
 MIN_SUPPORTED_GO_MAJOR_VERSION = 1
 MIN_SUPPORTED_GO_MINOR_VERSION = 24
 GO_VERSION_VALIDATION_ERR_MSG = Golang version is not supported, please update to at least $(MIN_SUPPORTED_GO_MAJOR_VERSION).$(MIN_SUPPORTED_GO_MINOR_VERSION)
 
-VERSION ?= $(shell git describe --abbrev=0)
-COMPILED_AT = $(shell date +%s)
-RELEASES_URL ?= https://api.github.com/repos/BishopFox/sliver/releases
+SLIVER_PUBLIC_KEY ?= RWTZPg959v3b7tLG7VzKHRB1/QT+d3c71Uzetfa44qAoX5rH7mGoQTTR
 ARMORY_PUBLIC_KEY ?= RWSBpxpRWDrD7Fe+VvRE3c2VEDC2NK80rlNCj+BX0gz44Xw07r6KQD9L
 ARMORY_REPO_URL ?= https://api.github.com/repos/sliverarmory/armory/releases
-VERSION_PKG = github.com/bishopfox/sliver/client/version
 CLIENT_ASSETS_PKG = github.com/bishopfox/sliver/client/assets
-
-GIT_DIRTY = $(shell git diff --quiet|| echo 'Dirty')
-GIT_COMMIT = $(shell git rev-parse HEAD)
+SLIVER_UPDATE_PKG = github.com/bishopfox/sliver/client/command/update
 
 LDFLAGS = -ldflags "-s -w \
-	-X $(VERSION_PKG).Version=$(VERSION) \
-	-X \"$(VERSION_PKG).GoVersion=$(GO_VERSION)\" \
-	-X $(VERSION_PKG).CompiledAt=$(COMPILED_AT) \
-	-X $(VERSION_PKG).GithubReleasesURL=$(RELEASES_URL) \
-	-X $(VERSION_PKG).GitCommit=$(GIT_COMMIT) \
-	-X $(VERSION_PKG).GitDirty=$(GIT_DIRTY) \
+	-X $(SLIVER_UPDATE_PKG).SliverPublicKey=$(SLIVER_PUBLIC_KEY) \
 	-X $(CLIENT_ASSETS_PKG).DefaultArmoryPublicKey=$(ARMORY_PUBLIC_KEY) \
 	-X $(CLIENT_ASSETS_PKG).DefaultArmoryRepoURL=$(ARMORY_REPO_URL)"
 
 # Debug builds shouldn't be stripped (-s -w flags)
-LDFLAGS_DEBUG = -ldflags "-X $(VERSION_PKG).Version=$(VERSION) \
-	-X \"$(VERSION_PKG).GoVersion=$(GO_VERSION)\" \
-	-X $(VERSION_PKG).CompiledAt=$(COMPILED_AT) \
-	-X $(VERSION_PKG).GithubReleasesURL=$(RELEASES_URL) \
-	-X $(VERSION_PKG).GitCommit=$(GIT_COMMIT) \
-	-X $(VERSION_PKG).GitDirty=$(GIT_DIRTY) \
-	-X $(CLIENT_ASSETS_PKG).DefaultArmoryPublicKey=$(ARMORY_PUBLIC_KEY) \
+LDFLAGS_DEBUG = -ldflags "-X $(CLIENT_ASSETS_PKG).DefaultArmoryPublicKey=$(ARMORY_PUBLIC_KEY) \
 	-X $(CLIENT_ASSETS_PKG).DefaultArmoryRepoURL=$(ARMORY_REPO_URL)"
 
 SED_INPLACE := sed -i
@@ -83,7 +66,9 @@ endif
 # If no target is specified, determine GOARCH
 ifeq ($(UNAME_P),arm)
 	ifeq ($(MAKECMDGOALS), )
-		ENV += GOARCH=arm64
+		ifeq ($(origin GOARCH), undefined)
+			ENV += GOARCH=arm64
+		endif
 	endif
 endif
 
@@ -91,12 +76,6 @@ ifeq ($(MAKECMDGOALS), linux)
 	# Redefine LDFLAGS to add the static part
 	LDFLAGS = -ldflags "-s -w \
 		-extldflags '-static' \
-		-X $(VERSION_PKG).Version=$(VERSION) \
-		-X \"$(VERSION_PKG).GoVersion=$(GO_VERSION)\" \
-		-X $(VERSION_PKG).CompiledAt=$(COMPILED_AT) \
-		-X $(VERSION_PKG).GithubReleasesURL=$(RELEASES_URL) \
-		-X $(VERSION_PKG).GitCommit=$(GIT_COMMIT) \
-		-X $(VERSION_PKG).GitDirty=$(GIT_DIRTY) \
 		-X $(CLIENT_ASSETS_PKG).DefaultArmoryPublicKey=$(ARMORY_PUBLIC_KEY) \
 		-X $(CLIENT_ASSETS_PKG).DefaultArmoryRepoURL=$(ARMORY_REPO_URL)"
 endif
@@ -105,9 +84,10 @@ endif
 # Targets
 #
 .PHONY: default
-default: clean .downloaded_assets validate-go-version
-	$(ENV) CGO_ENABLED=$(CGO_ENABLED) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
-	$(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
+default: clean validate-go-version
+	env -u GOOS -u GOARCH $(MAKE) GOOS= GOARCH= .downloaded_assets
+	$(ENV) $(if $(GOOS),GOOS=$(GOOS)) $(if $(GOARCH),GOARCH=$(GOARCH)) CGO_ENABLED=$(CGO_ENABLED) $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server$(ARTIFACT_SUFFIX) ./server
+	$(ENV) $(if $(GOOS),GOOS=$(GOOS)) $(if $(GOARCH),GOARCH=$(GOARCH)) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client$(ARTIFACT_SUFFIX) ./client
 
 # Allows you to build a CGO-free client for any target e.g. `GOOS=windows GOARCH=arm64 make client`
 # NOTE: WireGuard is not supported on all platforms, but most 64-bit GOOS/GOARCH combinations should work.
@@ -154,8 +134,9 @@ clients: clean .downloaded_assets validate-go-version
 	GOOS=freebsd GOARCH=arm64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),client $(LDFLAGS) -o sliver-client_freebsd-arm64$(ARTIFACT_SUFFIX) ./client
 
 .PHONY: servers
-servers: 
+servers: clean .downloaded_assets validate-go-version
 	GOOS=windows GOARCH=amd64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_windows-amd64$(ARTIFACT_SUFFIX).exe ./server
+	GOOS=windows GOARCH=arm64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_windows-arm64$(ARTIFACT_SUFFIX).exe ./server
 	GOOS=linux GOARCH=amd64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_linux-amd64$(ARTIFACT_SUFFIX) ./server
 	GOOS=linux GOARCH=arm64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_linux-arm64$(ARTIFACT_SUFFIX) ./server
 	GOOS=darwin GOARCH=arm64 $(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor -trimpath $(TAGS),server $(LDFLAGS) -o sliver-server_darwin-arm64$(ARTIFACT_SUFFIX) ./server
@@ -199,5 +180,5 @@ clean:
 	rm -f sliver-client sliver-client_* sliver-server sliver-server_* sliver-*.exe
 
 .downloaded_assets:
-	./go-assets.sh
+	$(ENV) $(GO) run -mod=vendor ./util/cmd/assets
 	touch ./.downloaded_assets

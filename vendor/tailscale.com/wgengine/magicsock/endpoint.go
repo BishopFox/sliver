@@ -17,7 +17,6 @@ import (
 	"reflect"
 	"runtime"
 	"slices"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -28,6 +27,7 @@ import (
 	"tailscale.com/net/packet"
 	"tailscale.com/net/stun"
 	"tailscale.com/net/tstun"
+	"tailscale.com/syncs"
 	"tailscale.com/tailcfg"
 	"tailscale.com/tstime/mono"
 	"tailscale.com/types/key"
@@ -73,7 +73,7 @@ type endpoint struct {
 	disco atomic.Pointer[endpointDisco] // if the peer supports disco, the key and short string
 
 	// mu protects all following fields.
-	mu sync.Mutex // Lock ordering: Conn.mu, then endpoint.mu
+	mu syncs.Mutex // Lock ordering: Conn.mu, then endpoint.mu
 
 	heartBeatTimer            *time.Timer    // nil when idle
 	lastSendExt               mono.Time      // last time there were outgoing packets sent to this peer from an external trigger (e.g. wireguard-go or disco pingCLI)
@@ -697,7 +697,7 @@ func (de *endpoint) maybeProbeUDPLifetimeLocked() (afterInactivityFor time.Durat
 	// shuffling probing probability where the local node ends up with a large
 	// key value lexicographically relative to the other nodes it tends to
 	// communicate with. If de's disco key changes, the cycle will reset.
-	if de.c.discoPublic.Compare(epDisco.key) >= 0 {
+	if de.c.discoAtomic.Public().Compare(epDisco.key) >= 0 {
 		// lower disco pub key node probes higher
 		return afterInactivityFor, false
 	}
@@ -879,14 +879,6 @@ func (de *endpoint) setHeartbeatDisabled(v bool) {
 
 // discoverUDPRelayPathsLocked starts UDP relay path discovery.
 func (de *endpoint) discoverUDPRelayPathsLocked(now mono.Time) {
-	if !de.c.hasPeerRelayServers.Load() {
-		// Changes in this value between its access and the logic following
-		// are fine, we will eventually do the "right" thing during future path
-		// discovery. The worst case is we suppress path discovery for the
-		// current cycle, or we unnecessarily call into [relayManager] and do
-		// some wasted work.
-		return
-	}
 	de.lastUDPRelayPathDiscovery = now
 	lastBest := de.bestAddr
 	lastBestIsTrusted := mono.Now().Before(de.trustBestAddrUntil)
@@ -897,6 +889,14 @@ func (de *endpoint) discoverUDPRelayPathsLocked(now mono.Time) {
 // path discovery.
 func (de *endpoint) wantUDPRelayPathDiscoveryLocked(now mono.Time) bool {
 	if runtime.GOOS == "js" {
+		return false
+	}
+	if !de.c.hasPeerRelayServers.Load() {
+		// Changes in this value between its access and a call to
+		// [endpoint.discoverUDPRelayPathsLocked] are fine, we will eventually
+		// do the "right" thing during future path discovery. The worst case is
+		// we suppress path discovery for the current cycle, or we unnecessarily
+		// call into [relayManager] and do some wasted work.
 		return false
 	}
 	if !de.relayCapable {
@@ -1013,13 +1013,17 @@ func (de *endpoint) discoPing(res *ipnstate.PingResult, size int, cb func(*ipnst
 		// order to also try all candidate direct paths.
 		fallthrough
 	default:
-		// Ping all candidate direct paths. This work overlaps with what
-		// [de.heartbeat] will periodically fire when it calls
-		// [de.sendDiscoPingsLocked], but a user-initiated [pingCLI] is a
-		// "do it now" operation that should not be subject to
+		// Ping all candidate direct paths and start peer relay path discovery,
+		// if appropriate. This work overlaps with what [de.heartbeat] will
+		// periodically fire when it calls [de.sendDiscoPingsLocked] and
+		// [de.discoveryUDPRelayPathsLocked], but a user-initiated [pingCLI] is
+		// a "do it now" operation that should not be subject to
 		// [heartbeatInterval] tick or [discoPingInterval] rate-limiting.
 		for ep := range de.endpointState {
 			de.startDiscoPingLocked(epAddr{ap: ep}, now, pingCLI, size, resCB)
+		}
+		if de.wantUDPRelayPathDiscoveryLocked(now) {
+			de.discoverUDPRelayPathsLocked(now)
 		}
 	}
 }
@@ -1046,14 +1050,10 @@ func (de *endpoint) send(buffs [][]byte, offset int) error {
 		}
 	} else if !udpAddr.isDirect() || now.After(de.trustBestAddrUntil) {
 		de.sendDiscoPingsLocked(now, true)
+		if de.wantUDPRelayPathDiscoveryLocked(now) {
+			de.discoverUDPRelayPathsLocked(now)
+		}
 	}
-	// TODO(jwhited): consider triggering UDP relay path discovery here under
-	//  certain conditions. We currently only trigger it in heartbeat(), which
-	//  is both good and bad. It's good because the first heartbeat() tick is 3s
-	//  after the first packet, which gives us time to discover a UDP direct
-	//  path and potentially avoid what would be wasted UDP relay path discovery
-	//  work. It's bad because we might not discover a UDP direct path, and we
-	//  incur a 3s delay before we try to discover a UDP relay path.
 	de.noteTxActivityExtTriggerLocked(now)
 	de.lastSendAny = now
 	de.mu.Unlock()
@@ -1105,8 +1105,8 @@ func (de *endpoint) send(buffs [][]byte, offset int) error {
 		}
 
 		// TODO(raggi): needs updating for accuracy, as in error conditions we may have partial sends.
-		if stats := de.c.stats.Load(); err == nil && stats != nil {
-			stats.UpdateTxPhysical(de.nodeAddr, udpAddr.ap, len(buffs), txBytes)
+		if update := de.c.connCounter.Load(); err == nil && update != nil {
+			update(0, netip.AddrPortFrom(de.nodeAddr, 0), udpAddr.ap, len(buffs), txBytes, false)
 		}
 	}
 	if derpAddr.IsValid() {
@@ -1123,8 +1123,8 @@ func (de *endpoint) send(buffs [][]byte, offset int) error {
 			}
 		}
 
-		if stats := de.c.stats.Load(); stats != nil {
-			stats.UpdateTxPhysical(de.nodeAddr, derpAddr, len(buffs), txBytes)
+		if update := de.c.connCounter.Load(); update != nil {
+			update(0, netip.AddrPortFrom(de.nodeAddr, 0), derpAddr, len(buffs), txBytes, false)
 		}
 		if allOk {
 			return nil
@@ -1739,7 +1739,7 @@ func (de *endpoint) handlePongConnLocked(m *disco.Pong, di *discoInfo, src epAdd
 	}
 
 	if sp.purpose != pingHeartbeat && sp.purpose != pingHeartbeatForUDPLifetime {
-		de.c.dlogf("[v1] magicsock: disco: %v<-%v (%v, %v)  got pong tx=%x latency=%v pktlen=%v pong.src=%v%v", de.c.discoShort, de.discoShort(), de.publicKey.ShortString(), src, m.TxID[:6], latency.Round(time.Millisecond), pktLen, m.Src, logger.ArgWriter(func(bw *bufio.Writer) {
+		de.c.dlogf("[v1] magicsock: disco: %v<-%v (%v, %v)  got pong tx=%x latency=%v pktlen=%v pong.src=%v%v", de.c.discoAtomic.Short(), de.discoShort(), de.publicKey.ShortString(), src, m.TxID[:6], latency.Round(time.Millisecond), pktLen, m.Src, logger.ArgWriter(func(bw *bufio.Writer) {
 			if sp.to != src {
 				fmt.Fprintf(bw, " ping.to=%v", sp.to)
 			}
@@ -1768,11 +1768,6 @@ func (de *endpoint) handlePongConnLocked(m *disco.Pong, di *discoInfo, src epAdd
 		//  we don't clear direct UDP paths on disco ping timeout (see
 		//  discoPingTimeout).
 		if betterAddr(thisPong, de.bestAddr) {
-			if src.vni.IsSet() {
-				// This would be unexpected. Switching to a Geneve-encapsulated
-				// path should only happen in de.relayEndpointReady().
-				de.c.logf("[unexpected] switching to Geneve-encapsulated path %v from %v", thisPong, de.bestAddr)
-			}
 			de.c.logf("magicsock: disco: node %v %v now using %v mtu=%v tx=%x", de.publicKey.ShortString(), de.discoShort(), sp.to, thisPong.wireMTU, m.TxID[:6])
 			de.debugUpdates.Add(EndpointChange{
 				When: time.Now(),

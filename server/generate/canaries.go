@@ -20,12 +20,12 @@ package generate
 
 import (
 	"fmt"
-	insecureRand "math/rand"
 	"strings"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
+	"github.com/bishopfox/sliver/util"
 )
 
 const (
@@ -41,10 +41,10 @@ var (
 
 func canarySubDomain() string {
 	subdomain := []rune{}
-	index := insecureRand.Intn(len(dnsCharSet) - 12) // ensure first char is alphabetic
+	index := util.Intn(len(dnsCharSet) - 12) // ensure first char is alphabetic
 	subdomain = append(subdomain, dnsCharSet[index])
 	for i := 0; i < canarySize; i++ {
-		index := insecureRand.Intn(len(dnsCharSet))
+		index := util.Intn(len(dnsCharSet))
 		subdomain = append(subdomain, dnsCharSet[index])
 	}
 	return string(subdomain)
@@ -73,7 +73,7 @@ func (g *CanaryGenerator) GenerateCanary() string {
 	}
 
 	// Don't need secure random here
-	index := insecureRand.Intn(len(g.ParentDomains))
+	index := util.Intn(len(g.ParentDomains))
 
 	parentDomain := g.ParentDomains[index]
 	parentDomain = strings.TrimPrefix(parentDomain, ".")

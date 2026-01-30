@@ -6,9 +6,9 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strconv"
-	"strings"
 	"time"
+
+	"golang.org/x/mod/semver"
 )
 
 const (
@@ -63,6 +63,68 @@ func (r *Release) Published() (time.Time, error) {
 // occurs we don't really try to recover. If client is nil we just use the Go
 // default client with default settings.
 func CheckForUpdates(client *http.Client, prereleases bool) (*Release, error) {
+	releases, err := fetchReleases(client)
+	if err != nil {
+		return nil, err
+	}
+	if len(releases) == 0 {
+		return nil, nil
+	}
+
+	current := canonicalSemver(Version)
+	if current == "" {
+		current = "v0.0.0"
+	}
+	for _, release := range releases {
+		if release == nil {
+			continue
+		}
+		if release.Prerelease && !prereleases {
+			continue
+		}
+		releaseVersion := canonicalSemver(release.TagName)
+		if releaseVersion == "" {
+			continue
+		}
+		if semver.Compare(releaseVersion, current) > 0 {
+			return release, nil
+		}
+	}
+	return nil, nil
+}
+
+// LatestRelease - Returns the latest release without comparing to the current version.
+func LatestRelease(client *http.Client, prereleases bool) (*Release, error) {
+	releases, err := fetchReleases(client)
+	if err != nil {
+		return nil, err
+	}
+	if len(releases) == 0 {
+		return nil, nil
+	}
+
+	var latest *Release
+	var latestVersion string
+	for _, release := range releases {
+		if release == nil {
+			continue
+		}
+		if release.Prerelease && !prereleases {
+			continue
+		}
+		releaseVersion := canonicalSemver(release.TagName)
+		if releaseVersion == "" {
+			continue
+		}
+		if latest == nil || semver.Compare(releaseVersion, latestVersion) > 0 {
+			latest = release
+			latestVersion = releaseVersion
+		}
+	}
+	return latest, nil
+}
+
+func fetchReleases(client *http.Client) ([]*Release, error) {
 	skip := os.Getenv(skipCheckEnv)
 	if skip != "" || GithubReleasesURL == "" {
 		return nil, nil
@@ -84,48 +146,10 @@ func CheckForUpdates(client *http.Client, prereleases bool) (*Release, error) {
 	if resp.StatusCode != 200 {
 		return nil, errors.New("API returned non-200 status code")
 	}
-	releases := &[]*Release{}
-	err = json.Unmarshal(body, releases)
-	if err != nil {
+	releases := []*Release{}
+	if err := json.Unmarshal(body, &releases); err != nil {
 		return nil, err
 	}
 
-	mySemVer := SemanticVersion()
-	for _, release := range *releases {
-		if release.Prerelease && !prereleases {
-			continue
-		}
-		releaseSemVer := parseGitTag(release.TagName)
-		for index, myVer := range mySemVer {
-			if index < len(releaseSemVer) {
-				if releaseSemVer[index] == myVer {
-					continue
-				}
-				if releaseSemVer[index] < myVer {
-					break
-				}
-				if myVer < releaseSemVer[index] {
-					return release, nil
-				}
-			}
-		}
-	}
-	return nil, nil
-}
-
-// parseGitTag - Get the structured sematic version
-func parseGitTag(tag string) []int {
-	semVer := []int{}
-	version := tag
-	if strings.Contains(version, "-") {
-		version = strings.Split(version, "-")[0]
-	}
-	if strings.HasPrefix(version, "v") {
-		version = version[1:]
-	}
-	for _, part := range strings.Split(version, ".") {
-		number, _ := strconv.Atoi(part)
-		semVer = append(semVer, number)
-	}
-	return semVer
+	return releases, nil
 }

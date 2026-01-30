@@ -21,6 +21,7 @@ import (
 	"tailscale.com/net/netmon"
 	"tailscale.com/net/tsaddr"
 	"tailscale.com/types/logger"
+	"tailscale.com/version"
 )
 
 func control(logf logger.Logf, netMon *netmon.Monitor) func(network, address string, c syscall.RawConn) error {
@@ -33,18 +34,14 @@ var bindToInterfaceByRouteEnv = envknob.RegisterBool("TS_BIND_TO_INTERFACE_BY_RO
 
 var errInterfaceStateInvalid = errors.New("interface state invalid")
 
-// controlLogf marks c as necessary to dial in a separate network namespace.
-//
-// It's intentionally the same signature as net.Dialer.Control
-// and net.ListenConfig.Control.
+// controlLogf binds c to a particular interface as necessary to dial the
+// provided (network, address).
 func controlLogf(logf logger.Logf, netMon *netmon.Monitor, network, address string, c syscall.RawConn) error {
-	if isLocalhost(address) {
-		// Don't bind to an interface for localhost connections.
+	if disableBindConnToInterface.Load() || (version.IsMacGUIVariant() && disableBindConnToInterfaceAppleExt.Load()) {
 		return nil
 	}
 
-	if disableBindConnToInterface.Load() {
-		logf("netns_darwin: binding connection to interfaces disabled")
+	if isLocalhost(address) {
 		return nil
 	}
 

@@ -26,14 +26,15 @@ import (
 	"tailscale.com/derp"
 	"tailscale.com/derp/derphttp"
 	"tailscale.com/envknob"
+	"tailscale.com/feature"
+	"tailscale.com/feature/buildfeatures"
 	"tailscale.com/hostinfo"
-	"tailscale.com/net/captivedetection"
 	"tailscale.com/net/dnscache"
 	"tailscale.com/net/neterror"
 	"tailscale.com/net/netmon"
 	"tailscale.com/net/netns"
 	"tailscale.com/net/ping"
-	"tailscale.com/net/portmapper"
+	"tailscale.com/net/portmapper/portmappertype"
 	"tailscale.com/net/sockstats"
 	"tailscale.com/net/stun"
 	"tailscale.com/syncs"
@@ -215,7 +216,7 @@ type Client struct {
 
 	// PortMapper, if non-nil, is used for portmap queries.
 	// If nil, portmap discovery is not done.
-	PortMapper *portmapper.Client // lazily initialized on first use
+	PortMapper portmappertype.Client
 
 	// UseDNSCache controls whether this client should use a
 	// *dnscache.Resolver to resolve DERP hostnames, when no IP address is
@@ -234,7 +235,7 @@ type Client struct {
 	testEnoughRegions      int
 	testCaptivePortalDelay time.Duration
 
-	mu       sync.Mutex            // guards following
+	mu       syncs.Mutex           // guards following
 	nextFull bool                  // do a full region scan, even if last != nil
 	prev     map[time.Time]*Report // some previous reports
 	last     *Report               // most recent report
@@ -596,7 +597,7 @@ type reportState struct {
 	stopProbeCh chan struct{}
 	waitPortMap sync.WaitGroup
 
-	mu       sync.Mutex
+	mu       syncs.Mutex
 	report   *Report                            // to be returned by GetReport
 	inFlight map[stun.TxID]func(netip.AddrPort) // called without c.mu held
 	gotEP4   netip.AddrPort
@@ -730,7 +731,7 @@ func (rs *reportState) probePortMapServices() {
 
 	res, err := rs.c.PortMapper.Probe(context.Background())
 	if err != nil {
-		if !errors.Is(err, portmapper.ErrGatewayRange) {
+		if !errors.Is(err, portmappertype.ErrGatewayRange) {
 			// "skipping portmap; gateway range likely lacks support"
 			// is not very useful, and too spammy on cloud systems.
 			// If there are other errors, we want to log those.
@@ -785,6 +786,8 @@ func (c *Client) SetForcePreferredDERP(region int) {
 	defer c.mu.Unlock()
 	c.ForcePreferredDERP = region
 }
+
+var hookStartCaptivePortalDetection feature.Hook[func(ctx context.Context, rs *reportState, dm *tailcfg.DERPMap, preferredDERP int) (<-chan struct{}, func())]
 
 // GetReport gets a report. The 'opts' argument is optional and can be nil.
 // Callers are discouraged from passing a ctx with an arbitrary deadline as this
@@ -910,38 +913,9 @@ func (c *Client) GetReport(ctx context.Context, dm *tailcfg.DERPMap, opts *GetRe
 	// it's unnecessary.
 	captivePortalDone := syncs.ClosedChan()
 	captivePortalStop := func() {}
-	if !rs.incremental && !onlySTUN {
-		// NOTE(andrew): we can't simply add this goroutine to the
-		// `NewWaitGroupChan` below, since we don't wait for that
-		// waitgroup to finish when exiting this function and thus get
-		// a data race.
-		ch := make(chan struct{})
-		captivePortalDone = ch
-
-		tmr := time.AfterFunc(c.captivePortalDelay(), func() {
-			defer close(ch)
-			d := captivedetection.NewDetector(c.logf)
-			found := d.Detect(ctx, c.NetMon, dm, preferredDERP)
-			rs.report.CaptivePortal.Set(found)
-		})
-
-		captivePortalStop = func() {
-			// Don't cancel our captive portal check if we're
-			// explicitly doing a verbose netcheck.
-			if c.Verbose {
-				return
-			}
-
-			if tmr.Stop() {
-				// Stopped successfully; need to close the
-				// signal channel ourselves.
-				close(ch)
-				return
-			}
-
-			// Did not stop; do nothing and it'll finish by itself
-			// and close the signal channel.
-		}
+	if buildfeatures.HasCaptivePortal && !rs.incremental && !onlySTUN {
+		start := hookStartCaptivePortalDetection.Get()
+		captivePortalDone, captivePortalStop = start(ctx, rs, dm, preferredDERP)
 	}
 
 	wg := syncs.NewWaitGroupChan()
@@ -1019,9 +993,9 @@ func (c *Client) GetReport(ctx context.Context, dm *tailcfg.DERPMap, opts *GetRe
 					c.logf("[v1] netcheck: measuring HTTPS latency of %v (%d): %v", reg.RegionCode, reg.RegionID, err)
 				} else {
 					rs.mu.Lock()
-					if l, ok := rs.report.RegionLatency[reg.RegionID]; !ok {
+					if latency, ok := rs.report.RegionLatency[reg.RegionID]; !ok {
 						mak.Set(&rs.report.RegionLatency, reg.RegionID, d)
-					} else if l >= d {
+					} else if latency >= d {
 						rs.report.RegionLatency[reg.RegionID] = d
 					}
 					// We set these IPv4 and IPv6 but they're not really used
@@ -1099,7 +1073,6 @@ func (c *Client) runHTTPOnlyChecks(ctx context.Context, last *Report, rs *report
 			continue
 		}
 		wg.Add(1)
-		rg := rg
 		go func() {
 			defer wg.Done()
 			node := rg.Nodes[0]
@@ -1241,9 +1214,9 @@ func (c *Client) measureAllICMPLatency(ctx context.Context, rs *reportState, nee
 			} else if ok {
 				c.logf("[v1] ICMP latency of %v (%d): %v", reg.RegionCode, reg.RegionID, d)
 				rs.mu.Lock()
-				if l, ok := rs.report.RegionLatency[reg.RegionID]; !ok {
+				if latency, ok := rs.report.RegionLatency[reg.RegionID]; !ok {
 					mak.Set(&rs.report.RegionLatency, reg.RegionID, d)
-				} else if l >= d {
+				} else if latency >= d {
 					rs.report.RegionLatency[reg.RegionID] = d
 				}
 

@@ -22,35 +22,58 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+
+	"gopkg.in/yaml.v3"
 )
 
 const (
-	settingsFileName = "tui-settings.json"
+	settingsFileName       = "tui-settings.yaml"
+	settingsLegacyFileName = "tui-settings.json"
 )
 
 // ClientSettings - Client JSON config
 type ClientSettings struct {
-	TableStyle        string `json:"tables"`
-	AutoAdult         bool   `json:"autoadult"`
-	BeaconAutoResults bool   `json:"beacon_autoresults"`
-	SmallTermWidth    int    `json:"small_term_width"`
-	AlwaysOverflow    bool   `json:"always_overflow"`
-	VimMode           bool   `json:"vim_mode"`
-	UserConnect       bool   `json:"user_connect"`
-	ConsoleLogs       bool   `json:"console_logs"`
+	TableStyle        string `json:"tables" yaml:"tables"`
+	AutoAdult         bool   `json:"autoadult" yaml:"autoadult"`
+	BeaconAutoResults bool   `json:"beacon_autoresults" yaml:"beacon_autoresults"`
+	SmallTermWidth    int    `json:"small_term_width" yaml:"small_term_width"`
+	AlwaysOverflow    bool   `json:"always_overflow" yaml:"always_overflow"`
+	VimMode           bool   `json:"vim_mode" yaml:"vim_mode"`
+	UserConnect       bool   `json:"user_connect" yaml:"user_connect"`
+	ConsoleLogs       bool   `json:"console_logs" yaml:"console_logs"`
 }
 
 // LoadSettings - Load the client settings from disk
 func LoadSettings() (*ClientSettings, error) {
 	rootDir, _ := filepath.Abs(GetRootAppDir())
-	data, err := os.ReadFile(filepath.Join(rootDir, settingsFileName))
-	if err != nil {
+	settingsPath := filepath.Join(rootDir, settingsFileName)
+	legacyPath := filepath.Join(rootDir, settingsLegacyFileName)
+	settings := defaultSettings()
+	migratedLegacy := false
+
+	data, err := os.ReadFile(settingsPath)
+	if err == nil {
+		if err = yaml.Unmarshal(data, settings); err != nil {
+			return defaultSettings(), err
+		}
+	} else if !os.IsNotExist(err) {
+		return defaultSettings(), err
+	} else if data, err = os.ReadFile(legacyPath); err == nil {
+		if err = json.Unmarshal(data, settings); err != nil {
+			return defaultSettings(), err
+		}
+		migratedLegacy = true
+	} else if !os.IsNotExist(err) {
 		return defaultSettings(), err
 	}
-	settings := defaultSettings()
-	err = json.Unmarshal(data, settings)
-	if err != nil {
-		return defaultSettings(), err
+
+	if err := SaveSettings(settings); err != nil {
+		return settings, err
+	}
+	if migratedLegacy {
+		if err := renameLegacyConfig(legacyPath); err != nil {
+			return settings, err
+		}
 	}
 	return settings, nil
 }
@@ -73,7 +96,7 @@ func SaveSettings(settings *ClientSettings) error {
 	if settings == nil {
 		settings = defaultSettings()
 	}
-	data, err := json.MarshalIndent(settings, "", "  ")
+	data, err := yaml.Marshal(settings)
 	if err != nil {
 		return err
 	}

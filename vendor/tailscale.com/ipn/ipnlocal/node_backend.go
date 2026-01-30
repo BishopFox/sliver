@@ -12,9 +12,11 @@ import (
 	"sync/atomic"
 
 	"go4.org/netipx"
+	"tailscale.com/feature/buildfeatures"
 	"tailscale.com/ipn"
 	"tailscale.com/net/dns"
 	"tailscale.com/net/tsaddr"
+	"tailscale.com/syncs"
 	"tailscale.com/tailcfg"
 	"tailscale.com/types/dnstype"
 	"tailscale.com/types/key"
@@ -64,6 +66,8 @@ import (
 // Even if they're tied to the local node, instead of moving them here, we should extract the entire feature
 // into a separate package and have it install proper hooks.
 type nodeBackend struct {
+	logf logger.Logf
+
 	ctx       context.Context         // canceled by [nodeBackend.shutdown]
 	ctxCancel context.CancelCauseFunc // cancels ctx
 
@@ -72,13 +76,14 @@ type nodeBackend struct {
 	filterAtomic atomic.Pointer[filter.Filter]
 
 	// initialized once and immutable
-	eventClient  *eventbus.Client
-	filterPub    *eventbus.Publisher[magicsock.FilterUpdate]
-	nodeViewsPub *eventbus.Publisher[magicsock.NodeViewsUpdate]
-	nodeMutsPub  *eventbus.Publisher[magicsock.NodeMutationsUpdate]
+	eventClient    *eventbus.Client
+	filterPub      *eventbus.Publisher[magicsock.FilterUpdate]
+	nodeViewsPub   *eventbus.Publisher[magicsock.NodeViewsUpdate]
+	nodeMutsPub    *eventbus.Publisher[magicsock.NodeMutationsUpdate]
+	derpMapViewPub *eventbus.Publisher[tailcfg.DERPMapView]
 
 	// TODO(nickkhyl): maybe use sync.RWMutex?
-	mu sync.Mutex // protects the following fields
+	mu syncs.Mutex // protects the following fields
 
 	shutdownOnce sync.Once     // guards calling [nodeBackend.shutdown]
 	readyCh      chan struct{} // closed by [nodeBackend.ready]; nil after shutdown
@@ -103,9 +108,10 @@ type nodeBackend struct {
 	nodeByAddr map[netip.Addr]tailcfg.NodeID
 }
 
-func newNodeBackend(ctx context.Context, bus *eventbus.Bus) *nodeBackend {
+func newNodeBackend(ctx context.Context, logf logger.Logf, bus *eventbus.Bus) *nodeBackend {
 	ctx, ctxCancel := context.WithCancelCause(ctx)
 	nb := &nodeBackend{
+		logf:        logf,
 		ctx:         ctx,
 		ctxCancel:   ctxCancel,
 		eventClient: bus.Client("ipnlocal.nodeBackend"),
@@ -117,6 +123,7 @@ func newNodeBackend(ctx context.Context, bus *eventbus.Bus) *nodeBackend {
 	nb.filterPub = eventbus.Publish[magicsock.FilterUpdate](nb.eventClient)
 	nb.nodeViewsPub = eventbus.Publish[magicsock.NodeViewsUpdate](nb.eventClient)
 	nb.nodeMutsPub = eventbus.Publish[magicsock.NodeMutationsUpdate](nb.eventClient)
+	nb.derpMapViewPub = eventbus.Publish[tailcfg.DERPMapView](nb.eventClient)
 	nb.filterPub.Publish(magicsock.FilterUpdate{Filter: nb.filterAtomic.Load()})
 	return nb
 }
@@ -258,6 +265,12 @@ func (nb *nodeBackend) PeersForTest() []tailcfg.NodeView {
 	return ret
 }
 
+func (nb *nodeBackend) CollectServices() bool {
+	nb.mu.Lock()
+	defer nb.mu.Unlock()
+	return nb.netMap != nil && nb.netMap.CollectServices
+}
+
 // AppendMatchingPeers returns base with all peers that match pred appended.
 //
 // It acquires b.mu to read the netmap but releases it before calling pred.
@@ -352,6 +365,40 @@ func (nb *nodeBackend) PeerAPIBase(p tailcfg.NodeView) string {
 	return peerAPIBase(nm, p)
 }
 
+// PeerIsReachable reports whether the current node can reach p. If the ctx is
+// done, this function may return a result based on stale reachability data.
+func (nb *nodeBackend) PeerIsReachable(ctx context.Context, p tailcfg.NodeView) bool {
+	if !nb.SelfHasCap(tailcfg.NodeAttrClientSideReachability) {
+		// Legacy behavior is to always trust the control plane, which
+		// isn’t always correct because the peer could be slow to check
+		// in so that control marks it as offline.
+		// See tailscale/corp#32686.
+		return p.Online().Get()
+	}
+
+	nb.mu.Lock()
+	nm := nb.netMap
+	nb.mu.Unlock()
+
+	if self := nm.SelfNode; self.Valid() && self.ID() == p.ID() {
+		// This node can always reach itself.
+		return true
+	}
+	return nb.peerIsReachable(ctx, p)
+}
+
+func (nb *nodeBackend) peerIsReachable(ctx context.Context, p tailcfg.NodeView) bool {
+	// TODO(sfllaw): The following does not actually test for client-side
+	// reachability. This would require a mechanism that tracks whether the
+	// current node can actually reach this peer, either because they are
+	// already communicating or because they can ping each other.
+	//
+	// Instead, it makes the client ignore p.Online completely.
+	//
+	// See tailscale/corp#32686.
+	return true
+}
+
 func nodeIP(n tailcfg.NodeView, pred func(netip.Addr) bool) netip.Addr {
 	for _, pfx := range n.Addresses().All() {
 		if pfx.IsSingleIP() && pred(pfx.Addr()) {
@@ -391,6 +438,9 @@ func (nb *nodeBackend) SetNetMap(nm *netmap.NetworkMap) {
 	if nm != nil {
 		nv.SelfNode = nm.SelfNode
 		nv.Peers = nm.Peers
+		nb.derpMapViewPub.Publish(nm.DERPMap.View())
+	} else {
+		nb.derpMapViewPub.Publish(tailcfg.DERPMapView{})
 	}
 	nb.nodeViewsPub.Publish(nv)
 }
@@ -513,13 +563,16 @@ func (nb *nodeBackend) setFilter(f *filter.Filter) {
 	nb.filterPub.Publish(magicsock.FilterUpdate{Filter: f})
 }
 
-func (nb *nodeBackend) dnsConfigForNetmap(prefs ipn.PrefsView, selfExpired bool, logf logger.Logf, versionOS string) *dns.Config {
+func (nb *nodeBackend) dnsConfigForNetmap(prefs ipn.PrefsView, selfExpired bool, versionOS string) *dns.Config {
 	nb.mu.Lock()
 	defer nb.mu.Unlock()
-	return dnsConfigForNetmap(nb.netMap, nb.peers, prefs, selfExpired, logf, versionOS)
+	return dnsConfigForNetmap(nb.netMap, nb.peers, prefs, selfExpired, nb.logf, versionOS)
 }
 
 func (nb *nodeBackend) exitNodeCanProxyDNS(exitNodeID tailcfg.StableNodeID) (dohURL string, ok bool) {
+	if !buildfeatures.HasUseExitNode {
+		return "", false
+	}
 	nb.mu.Lock()
 	defer nb.mu.Unlock()
 	return exitNodeCanProxyDNS(nb.netMap, nb.peers, exitNodeID)
@@ -624,6 +677,9 @@ func dnsConfigForNetmap(nm *netmap.NetworkMap, peers map[tailcfg.NodeID]tailcfg.
 	if nm == nil {
 		return nil
 	}
+	if !buildfeatures.HasDNS {
+		return &dns.Config{}
+	}
 
 	// If the current node's key is expired, then we don't program any DNS
 	// configuration into the operating system. This ensures that if the
@@ -692,7 +748,7 @@ func dnsConfigForNetmap(nm *netmap.NetworkMap, peers map[tailcfg.NodeID]tailcfg.
 		}
 		dcfg.Hosts[fqdn] = ips
 	}
-	set(nm.Name, nm.GetAddresses())
+	set(nm.SelfName(), nm.GetAddresses())
 	for _, peer := range peers {
 		set(peer.Name(), peer.Addresses())
 	}
@@ -756,18 +812,20 @@ func dnsConfigForNetmap(nm *netmap.NetworkMap, peers map[tailcfg.NodeID]tailcfg.
 	// If we're using an exit node and that exit node is new enough (1.19.x+)
 	// to run a DoH DNS proxy, then send all our DNS traffic through it,
 	// unless we find resolvers with UseWithExitNode set, in which case we use that.
-	if dohURL, ok := exitNodeCanProxyDNS(nm, peers, prefs.ExitNodeID()); ok {
-		filtered := useWithExitNodeResolvers(nm.DNS.Resolvers)
-		if len(filtered) > 0 {
-			addDefault(filtered)
-		} else {
-			// If no default global resolvers with the override
-			// are configured, configure the exit node's resolver.
-			addDefault([]*dnstype.Resolver{{Addr: dohURL}})
-		}
+	if buildfeatures.HasUseExitNode {
+		if dohURL, ok := exitNodeCanProxyDNS(nm, peers, prefs.ExitNodeID()); ok {
+			filtered := useWithExitNodeResolvers(nm.DNS.Resolvers)
+			if len(filtered) > 0 {
+				addDefault(filtered)
+			} else {
+				// If no default global resolvers with the override
+				// are configured, configure the exit node's resolver.
+				addDefault([]*dnstype.Resolver{{Addr: dohURL}})
+			}
 
-		addSplitDNSRoutes(useWithExitNodeRoutes(nm.DNS.Routes))
-		return dcfg
+			addSplitDNSRoutes(useWithExitNodeRoutes(nm.DNS.Routes))
+			return dcfg
+		}
 	}
 
 	// If the user has set default resolvers ("override local DNS"), prefer to
@@ -775,7 +833,7 @@ func dnsConfigForNetmap(nm *netmap.NetworkMap, peers map[tailcfg.NodeID]tailcfg.
 	// node resolvers, use those as the default.
 	if len(nm.DNS.Resolvers) > 0 {
 		addDefault(nm.DNS.Resolvers)
-	} else {
+	} else if buildfeatures.HasUseExitNode {
 		if resolvers, ok := wireguardExitNodeDNSResolvers(nm, peers, prefs.ExitNodeID()); ok {
 			addDefault(resolvers)
 		}

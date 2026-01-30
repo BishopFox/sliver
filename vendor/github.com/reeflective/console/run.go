@@ -47,7 +47,9 @@ func (c *Console) StartContext(ctx context.Context) error {
 		}
 
 		// Block and read user input.
-		input , err := c.shell.Readline()
+		c.setReading(true)
+		input, err := c.shell.Readline()
+		c.setReading(false)
 
 		c.displayPostRun(input)
 
@@ -109,7 +111,7 @@ func (m *Menu) RunCommandArgs(ctx context.Context, args []string) (err error) {
 	m.resetPreRun()
 
 	// Run the command and associated helpers.
-	return m.console.execute(ctx, m, args, !m.console.isExecuting)
+	return m.console.execute(ctx, m, args, !m.console.isExecutingSafe())
 }
 
 // RunCommandLine is the equivalent of menu.RunCommandArgs(), but accepts
@@ -137,15 +139,15 @@ func (m *Menu) RunCommandLine(ctx context.Context, line string) (err error) {
 // command is running, the menu's root command will be overwritten.
 func (c *Console) execute(ctx context.Context, menu *Menu, args []string, async bool) error {
 	if !async {
-		c.mutex.RLock()
+		c.mutex.Lock()
 		c.isExecuting = true
-		c.mutex.RUnlock()
+		c.mutex.Unlock()
 	}
 
 	defer func() {
-		c.mutex.RLock()
+		c.mutex.Lock()
 		c.isExecuting = false
-		c.mutex.RUnlock()
+		c.mutex.Unlock()
 	}()
 
 	// Our root command of interest, used throughout this function.

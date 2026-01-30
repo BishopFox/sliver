@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 
 	"github.com/carapace-sh/carapace/internal/common"
@@ -135,6 +136,10 @@ func ActionExecute(cmd *cobra.Command) Action {
 // ActionDirectories completes directories.
 func ActionDirectories() Action {
 	return ActionCallback(func(c Context) Action {
+		cDir, err := c.Abs(c.Dir)
+		if err != nil {
+			return ActionMessage(err.Error())
+		}
 		return actionPath([]string{""}, true).
 			MultiParts("/").
 			StyleF(style.ForPath).
@@ -145,19 +150,17 @@ func ActionDirectories() Action {
 				}
 				return url.Parse("file://" + uid.PathEscape(abs))
 			}).
-			QueryF(func(s string, uc uid.Context) (*url.URL, error) {
-				abs, err := c.Abs(c.Dir)
-				if err != nil {
-					return nil, err
-				}
-				return url.Parse(fmt.Sprintf("file://%v?directories=true", uid.PathEscape(abs)))
-			})
+			Query("file", "directories", "", "C_DIR", cDir)
 	}).Tag("directories")
 }
 
 // ActionFiles completes files with optional suffix filtering.
 func ActionFiles(suffix ...string) Action {
 	return ActionCallback(func(c Context) Action {
+		cDir, err := c.Abs(c.Dir)
+		if err != nil {
+			return ActionMessage(err.Error())
+		}
 		return actionPath(suffix, false).
 			MultiParts("/").
 			StyleF(style.ForPath).
@@ -168,23 +171,9 @@ func ActionFiles(suffix ...string) Action {
 				}
 				return url.Parse("file://" + uid.PathEscape(abs))
 			}).
-			QueryF(func(s string, uc uid.Context) (*url.URL, error) {
-				abs, err := c.Abs(c.Dir)
-				if err != nil {
-					return nil, err
-				}
-				query := &url.URL{
-					Scheme: "file",
-					Path:   abs,
-				}
-				if len(suffix) > 0 {
-					values := query.Query()
-					values.Set("suffix", strings.Join(suffix, ","))
-					query.RawQuery = values.Encode()
-				}
-				return query, nil
-			})
-		// Query("file", "", c.Dir, "suffix", strings.Join(suffix, ","))
+			Query("file", "files", "",
+				"C_DIR", cDir,
+				"suffix", strings.Join(suffix, ","))
 	}).Tag("files")
 }
 
@@ -247,7 +236,7 @@ func ActionStyledValuesDescribed(values ...string) Action {
 }
 
 // ActionMessage displays a help messages in places where no completions can be generated.
-func ActionMessage(msg string, args ...interface{}) Action {
+func ActionMessage(msg string, args ...any) Action {
 	return ActionCallback(func(c Context) Action {
 		if len(args) > 0 {
 			msg = fmt.Sprintf(msg, args...)
@@ -477,14 +466,15 @@ func ActionExecutables(dirs ...string) Action {
 		}
 		manDescriptions := man.Descriptions(c.Value) // TODO allow additional descriptions to be registered somewhere for carapace-bin (key, value,...)
 		batch := Batch()
-		for i := len(dirs) - 1; i >= 0; i-- {
-			batch = append(batch, actionDirectoryExecutables(dirs[i], c.Value, manDescriptions))
+		for _, dir := range dirs {
+			batch = append(batch, actionDirectoryExecutables(dir, c.Value, manDescriptions))
 		}
 		return batch.ToA().
 			UidF(func(s string, uc uid.Context) (*url.URL, error) {
 				return &url.URL{Scheme: "cmd", Host: uid.PathEscape(s)}, nil
 			}).
-			Query("cmd", "", "", "directories", strings.Join(dirs, ", "))
+			Query("cmd", "", "", "directories", strings.Join(dirs, ", ")).
+			Unique()
 	}).Tag("executables")
 }
 
@@ -553,10 +543,8 @@ func ActionCommands(cmd *cobra.Command) Action {
 	return ActionCallback(func(c Context) Action {
 		if len(c.Args) > 0 {
 			for _, subCommand := range cmd.Commands() {
-				for _, name := range append(subCommand.Aliases, subCommand.Name()) {
-					if name == c.Args[0] { // cmd.Find is too lenient
-						return ActionCommands(subCommand).Shift(1)
-					}
+				if slices.Contains(append(subCommand.Aliases, subCommand.Name()), c.Args[0]) { // cmd.Find is too lenient
+					return ActionCommands(subCommand).Shift(1)
 				}
 			}
 			return ActionMessage("unknown subcommand %#v for %#v", c.Args[0], cmd.Name())

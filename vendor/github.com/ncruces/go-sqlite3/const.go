@@ -73,6 +73,9 @@ const (
 	ERROR_MISSING_COLLSEQ   ExtendedErrorCode = xErrorCode(ERROR) | (1 << 8)
 	ERROR_RETRY             ExtendedErrorCode = xErrorCode(ERROR) | (2 << 8)
 	ERROR_SNAPSHOT          ExtendedErrorCode = xErrorCode(ERROR) | (3 << 8)
+	ERROR_RESERVESIZE       ExtendedErrorCode = xErrorCode(ERROR) | (4 << 8)
+	ERROR_KEY               ExtendedErrorCode = xErrorCode(ERROR) | (5 << 8)
+	ERROR_UNABLE            ExtendedErrorCode = xErrorCode(ERROR) | (6 << 8)
 	IOERR_READ              ExtendedErrorCode = xErrorCode(IOERR) | (1 << 8)
 	IOERR_SHORT_READ        ExtendedErrorCode = xErrorCode(IOERR) | (2 << 8)
 	IOERR_WRITE             ExtendedErrorCode = xErrorCode(IOERR) | (3 << 8)
@@ -107,6 +110,8 @@ const (
 	IOERR_DATA              ExtendedErrorCode = xErrorCode(IOERR) | (32 << 8)
 	IOERR_CORRUPTFS         ExtendedErrorCode = xErrorCode(IOERR) | (33 << 8)
 	IOERR_IN_PAGE           ExtendedErrorCode = xErrorCode(IOERR) | (34 << 8)
+	IOERR_BADKEY            ExtendedErrorCode = xErrorCode(IOERR) | (35 << 8)
+	IOERR_CODEC             ExtendedErrorCode = xErrorCode(IOERR) | (36 << 8)
 	LOCKED_SHAREDCACHE      ExtendedErrorCode = xErrorCode(LOCKED) | (1 << 8)
 	LOCKED_VTAB             ExtendedErrorCode = xErrorCode(LOCKED) | (2 << 8)
 	BUSY_RECOVERY           ExtendedErrorCode = xErrorCode(BUSY) | (1 << 8)
@@ -229,7 +234,8 @@ const (
 	DBSTATUS_DEFERRED_FKS        DBStatus = 10
 	DBSTATUS_CACHE_USED_SHARED   DBStatus = 11
 	DBSTATUS_CACHE_SPILL         DBStatus = 12
-	// DBSTATUS_MAX              DBStatus = 12
+	DBSTATUS_TEMPBUF_SPILL       DBStatus = 13
+	// DBSTATUS_MAX              DBStatus = 13
 )
 
 // DBConfig are the available database connection configuration options.
@@ -362,13 +368,14 @@ const (
 // CheckpointMode are all the checkpoint mode values.
 //
 // https://sqlite.org/c3ref/c_checkpoint_full.html
-type CheckpointMode uint32
+type CheckpointMode int32
 
 const (
-	CHECKPOINT_PASSIVE  CheckpointMode = 0 /* Do as much as possible w/o blocking */
-	CHECKPOINT_FULL     CheckpointMode = 1 /* Wait for writers, then checkpoint */
-	CHECKPOINT_RESTART  CheckpointMode = 2 /* Like FULL but wait for readers */
-	CHECKPOINT_TRUNCATE CheckpointMode = 3 /* Like RESTART but also truncate WAL */
+	CHECKPOINT_NOOP     CheckpointMode = -1 /* Do no work at all */
+	CHECKPOINT_PASSIVE  CheckpointMode = 0  /* Do as much as possible w/o blocking */
+	CHECKPOINT_FULL     CheckpointMode = 1  /* Wait for writers, then checkpoint */
+	CHECKPOINT_RESTART  CheckpointMode = 2  /* Like FULL but wait for readers */
+	CHECKPOINT_TRUNCATE CheckpointMode = 3  /* Like RESTART but also truncate WAL */
 )
 
 // TxnState are the allowed return values from [Conn.TxnState].

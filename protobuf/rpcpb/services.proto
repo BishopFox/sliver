@@ -108,6 +108,8 @@ service SliverRPC {
 
   // *** Certificates ***
   rpc GetCertificateInfo(clientpb.CertificatesReq) returns (clientpb.CertificateInfo);
+  rpc GetCertificateAuthorityInfo(commonpb.Empty)
+      returns (clientpb.CertificateAuthorityInfo);
 
   // *** Crackstation ***
   rpc CrackstationRegister(clientpb.Crackstation)

@@ -51,6 +51,7 @@ func init() {
 	defer logFile.Close()
 
 	rootCmd.TraverseChildren = true
+	rootCmd.Flags().String(RCFlagName, "", "path to rc script file")
 
 	// Create the console client, without any RPC or commands bound to it yet.
 	// This created before anything so that multiple commands can make use of
@@ -68,6 +69,9 @@ func init() {
 	// that means there should be no redundant command tree/RPC connections with
 	// other command trees below, such as the implant one.
 	rootCmd.AddCommand(consoleCmd(con))
+
+	// MCP stdio server.
+	rootCmd.AddCommand(mcpCmd(con))
 
 	// Implant.
 	// The implant command allows users to run commands on slivers from their

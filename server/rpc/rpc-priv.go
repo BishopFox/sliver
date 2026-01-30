@@ -31,6 +31,8 @@ import (
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/util"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -89,16 +91,16 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 	// retrieve http c2 implant config
 	httpC2Config, err := db.LoadHTTPC2ConfigByName(req.Config.HTTPC2ConfigName)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	if req.Name == "" {
 		name, err = codenames.GetCodename()
 		if err != nil {
-			return nil, err
+			return nil, rpcError(err)
 		}
 	} else if err := util.AllowedName(name); err != nil {
-		return nil, err
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	} else {
 		name = req.Name
 	}
@@ -107,13 +109,19 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 	if err != nil {
 		req.Config.Format = clientpb.OutputFormat_SHELLCODE
 		req.Config.ObfuscateSymbols = false
+		req.Config.IsShellcode = true
+		req.Config.IsSharedLib = false
+		req.Config.TemplateName = "sliver"
+		if len(req.Config.Exports) == 0 {
+			req.Config.Exports = []string{"StartW"}
+		}
 		build, err := generate.GenerateConfig(name, req.Config)
 		if err != nil {
-			return nil, err
+			return nil, rpcError(err)
 		}
 		shellcodePath, err := generate.SliverShellcode(name, build, req.Config, httpC2Config.ImplantConfig)
 		if err != nil {
-			return nil, err
+			return nil, rpcError(err)
 		}
 		shellcode, _ = os.ReadFile(shellcodePath)
 	}
@@ -123,18 +131,18 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 		Request:        req.GetRequest(),
 	})
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	timeout := rpc.getTimeout(req)
 	data, err = session.Request(sliverpb.MsgInvokeGetSystemReq, timeout, data)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	getSystem := &sliverpb.GetSystem{}
 	err = proto.Unmarshal(data, getSystem)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 	return getSystem, nil
 }

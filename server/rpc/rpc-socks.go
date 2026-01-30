@@ -153,7 +153,7 @@ func (s *Server) SocksProxy(stream rpcpb.SliverRPC_SocksProxyServer) error {
 		}
 		if err != nil {
 			rpcLog.Warnf("Error on stream recv %s", err)
-			return err
+			return rpcError(err)
 		}
 
 		tunnelMutex.Lock()

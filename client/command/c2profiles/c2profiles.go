@@ -21,6 +21,7 @@ package c2profiles
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -29,7 +30,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slices"
@@ -38,8 +38,13 @@ import (
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+)
+
+var (
+	ErrNoSelection = errors.New("no selection")
 )
 
 // C2ProfileCmd list available http profiles
@@ -53,7 +58,11 @@ func C2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 			return
 		}
 		if len(httpC2Profiles.Configs) != 1 {
-			profileName = selectC2Profile(httpC2Profiles.Configs)
+			profileName, err = selectC2Profile(httpC2Profiles.Configs)
+			if err != nil {
+				con.PrintErrorf("%s\n", err)
+				return
+			}
 		}
 	}
 
@@ -124,7 +133,11 @@ func ExportC2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 			return
 		}
 		if len(httpC2Profiles.Configs) != 1 {
-			profileName = selectC2Profile(httpC2Profiles.Configs)
+			profileName, err = selectC2Profile(httpC2Profiles.Configs)
+			if err != nil {
+				con.PrintErrorf("%s\n", err)
+				return
+			}
 		}
 	}
 
@@ -540,20 +553,20 @@ func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverClient) 
 	con.Println("\n")
 }
 
-func selectC2Profile(c2profiles []*clientpb.HTTPC2Config) string {
+func selectC2Profile(c2profiles []*clientpb.HTTPC2Config) (string, error) {
 	c2profile := ""
 	var choices []string
 	for _, c2profile := range c2profiles {
 		choices = append(choices, c2profile.Name)
 	}
 
-	prompt := &survey.Select{
-		Message: "Select a c2 profile",
-		Options: choices,
-	}
-	survey.AskOne(prompt, &c2profile, nil)
+	_ = forms.Select("Select a c2 profile", choices, &c2profile)
 
-	return c2profile
+	if c2profile == "" {
+		return "", ErrNoSelection
+	}
+
+	return c2profile, nil
 }
 
 func updateC2Profile(template *assets.HTTPC2Config, urls []string) (*assets.HTTPC2Config, error) {

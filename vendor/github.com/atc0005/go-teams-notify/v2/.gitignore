@@ -1,0 +1,30 @@
+# Copyright 2020 Enrico Hoffmann
+# Copyright 2021 Adam Chalkley
+#
+# https://github.com/atc0005/go-teams-notify
+#
+# Licensed under the MIT License. See LICENSE file in the project root for
+# full license information.
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, build with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# refs GH-6, GH-15
+# Allow vendored files to be included in this repo
+#vendor
+
+# Ignore local scratch directory
+/scratch
+
+# Ignore local Visual Studio Code settings
+/.vscode

@@ -19,21 +19,20 @@ package taskrunner
 */
 
 import (
-	insecureRand "math/rand"
 	"os/exec"
 	"sync"
 	"syscall"
-	"time"
 	"unsafe"
+
+	"github.com/bishopfox/sliver/implant/sliver/util"
 )
 
 // Utility functions
 
 func stringWithCharset(length int, charset string) string {
-	seededRand := insecureRand.New(insecureRand.NewSource(time.Now().UnixNano()))
 	b := make([]byte, length)
 	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
+		b[i] = charset[util.Intn(len(charset))]
 	}
 	return string(b)
 }

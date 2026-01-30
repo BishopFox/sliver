@@ -26,10 +26,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/util"
@@ -140,10 +140,7 @@ func TrafficEncodersAddCmd(cmd *cobra.Command, con *console.SliverClient, args [
 // saveFailedSample - Save the sample the encoder failed to properly encode/decode.
 func saveFailedSample(encoderName string, test *clientpb.TrafficEncoderTest) {
 	confirm := false
-	prompt := &survey.Confirm{
-		Message: fmt.Sprintf("Failed to add traffic encoder %s, save failed sample to disk?", encoderName),
-	}
-	survey.AskOne(prompt, &confirm)
+	_ = forms.Confirm(fmt.Sprintf("Failed to add traffic encoder %s, save failed sample to disk?", encoderName), &confirm)
 	if !confirm {
 		return
 	}
@@ -286,10 +283,10 @@ func SelectTrafficEncoder(con *console.SliverClient) string {
 	}
 	sort.Strings(encoderNames)
 	var selectedEncoder string
-	prompt := &survey.Select{
-		Message: "Select a traffic encoder:",
-		Options: encoderNames,
+	err = forms.Select("Select a traffic encoder:", encoderNames, &selectedEncoder)
+	if err != nil {
+		con.PrintErrorf("%s", err)
+		return ""
 	}
-	survey.AskOne(prompt, &selectedEncoder)
 	return selectedEncoder
 }

@@ -81,7 +81,11 @@ func CoverDir() string {
 	return os.Getenv(CARAPACE_COVERDIR) // custom env for GOCOVERDIR so that it works together with `-coverprofile`
 }
 
-func isGoRun() bool { return strings.HasPrefix(os.Args[0], os.TempDir()+"/go-build") }
+func isGoRun() bool {
+	// go 1.24+: /home/rsteube/.cache/go-build/a7/a7883331b606dc3250005f1abdf4d17dea05c9eccf4ece0df5518311a118d211-d/example
+	// go 1.23-: /tmp/go-build1035720725/b001/exe/example
+	return strings.Contains(os.Args[0], "/go-build")
+}
 
 func Match() string { // see match.Match
 	return os.Getenv(CARAPACE_MATCH)

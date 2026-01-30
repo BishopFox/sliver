@@ -21,6 +21,8 @@ package generate
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -32,6 +34,23 @@ import (
 var (
 	nonce = 0
 )
+
+func cleanupGeneratedArtifacts(t *testing.T, outputPath string) {
+	t.Helper()
+	if outputPath == "" {
+		return
+	}
+	projectDir := filepath.Dir(filepath.Dir(outputPath))
+	sliversDir := GetSliversDir()
+	rel, err := filepath.Rel(sliversDir, projectDir)
+	if err != nil || rel == "." || strings.HasPrefix(rel, "..") {
+		t.Logf("cleanup skipped for unexpected path %q", projectDir)
+		return
+	}
+	if err := os.RemoveAll(projectDir); err != nil {
+		t.Logf("cleanup failed for %s: %v", projectDir, err)
+	}
+}
 
 func TestSliverExecutableWindows(t *testing.T) {
 
@@ -117,6 +136,10 @@ func TestSliverSharedLibWindows(t *testing.T) {
 	// 386
 	multiLibrary(t, "windows", "386", true)
 	multiLibrary(t, "windows", "386", false)
+
+	// Shared Library Shellcode
+	multiWindowsLibraryShellcode(t, true)
+	multiWindowsLibraryShellcode(t, false)
 }
 
 func TestSliverExecutableLinux(t *testing.T) {
@@ -228,10 +251,11 @@ func trafficEncodersExecutable(t *testing.T, goos string, goarch string) {
 	debugHttpC2Config := configs.GenerateDefaultHTTPC2Config()
 	build, _ := GenerateConfig(name, debugConfig)
 	nonce++
-	_, err := SliverExecutable(name, build, debugConfig, debugHttpC2Config.ImplantConfig)
+	binPath, err := SliverExecutable(name, build, debugConfig, debugHttpC2Config.ImplantConfig)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
+	cleanupGeneratedArtifacts(t, binPath)
 	name = fmt.Sprintf("trafficEncodersProd_test%d", nonce)
 	prodConfig := &clientpb.ImplantConfig{
 		GOOS:   goos,
@@ -247,10 +271,11 @@ func trafficEncodersExecutable(t *testing.T, goos string, goarch string) {
 	}
 	build, _ = GenerateConfig(name, prodConfig)
 	nonce++
-	_, err = SliverExecutable(name, build, prodConfig, debugHttpC2Config.ImplantConfig)
+	binPath, err = SliverExecutable(name, build, prodConfig, debugHttpC2Config.ImplantConfig)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
+	cleanupGeneratedArtifacts(t, binPath)
 }
 
 func mtlsExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) {
@@ -270,10 +295,11 @@ func mtlsExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) 
 	httpC2Config := configs.GenerateDefaultHTTPC2Config()
 	build, _ := GenerateConfig(name, config)
 	nonce++
-	_, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
+	binPath, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
+	cleanupGeneratedArtifacts(t, binPath)
 }
 
 func dnsExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) {
@@ -293,10 +319,11 @@ func dnsExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) {
 	httpC2Config := configs.GenerateDefaultHTTPC2Config()
 	build, _ := GenerateConfig(name, config)
 	nonce++
-	_, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
+	binPath, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
+	cleanupGeneratedArtifacts(t, binPath)
 }
 
 func httpExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) {
@@ -320,10 +347,11 @@ func httpExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) 
 	httpC2Config := configs.GenerateDefaultHTTPC2Config()
 	build, _ := GenerateConfig(name, config)
 	nonce++
-	_, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
+	binPath, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
+	cleanupGeneratedArtifacts(t, binPath)
 }
 
 func multiExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) {
@@ -351,10 +379,11 @@ func multiExe(t *testing.T, goos string, goarch string, beacon bool, debug bool)
 	httpC2Config := configs.GenerateDefaultHTTPC2Config()
 	build, _ := GenerateConfig(name, config)
 	nonce++
-	_, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
+	binPath, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
+	cleanupGeneratedArtifacts(t, binPath)
 }
 
 func multiWindowsService(t *testing.T, goos string, goarch string, beacon bool, debug bool) {
@@ -381,10 +410,11 @@ func multiWindowsService(t *testing.T, goos string, goarch string, beacon bool, 
 	httpC2Config := configs.GenerateDefaultHTTPC2Config()
 	build, _ := GenerateConfig(name, config)
 	nonce++
-	_, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
+	binPath, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
+	cleanupGeneratedArtifacts(t, binPath)
 }
 
 // Pivots do not support beacon mode
@@ -408,10 +438,11 @@ func tcpPivotExe(t *testing.T, goos string, goarch string, debug bool) {
 	httpC2Config := configs.GenerateDefaultHTTPC2Config()
 	build, _ := GenerateConfig(name, config)
 	nonce++
-	_, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
+	binPath, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
+	cleanupGeneratedArtifacts(t, binPath)
 }
 
 func namedPipeExe(t *testing.T, goos string, goarch string, debug bool) {
@@ -434,10 +465,11 @@ func namedPipeExe(t *testing.T, goos string, goarch string, debug bool) {
 	httpC2Config := configs.GenerateDefaultHTTPC2Config()
 	build, _ := GenerateConfig(name, config)
 	nonce++
-	_, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
+	binPath, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
+	cleanupGeneratedArtifacts(t, binPath)
 }
 
 func wireguardExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) {
@@ -465,10 +497,11 @@ func wireguardExe(t *testing.T, goos string, goarch string, beacon bool, debug b
 	nonce++
 	certs.SetupWGKeys()
 	build, _ := GenerateConfig(name, config)
-	_, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
+	binPath, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
+	cleanupGeneratedArtifacts(t, binPath)
 }
 
 func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
@@ -502,10 +535,11 @@ func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 	httpC2Config := configs.GenerateDefaultHTTPC2Config()
 	nonce++
 	build, _ := GenerateConfig(name, config)
-	_, err := SliverSharedLibrary(name, build, config, httpC2Config.ImplantConfig)
+	binPath, err := SliverSharedLibrary(name, build, config, httpC2Config.ImplantConfig)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
+	cleanupGeneratedArtifacts(t, binPath)
 }
 
 func multiWindowsLibraryShellcode(t *testing.T, debug bool) {
@@ -524,7 +558,8 @@ func multiWindowsLibraryShellcode(t *testing.T, debug bool) {
 		Debug:            debug,
 		ObfuscateSymbols: true,
 		Format:           clientpb.OutputFormat_SHELLCODE,
-		IsSharedLib:      true,
+		IsShellcode:      true,
+		IsSharedLib:      false,
 		Exports:          []string{"FoobarW"},
 		IncludeMTLS:      true,
 		IncludeHTTP:      true,
@@ -537,6 +572,7 @@ func multiWindowsLibraryShellcode(t *testing.T, debug bool) {
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
+	defer cleanupGeneratedArtifacts(t, binPath)
 
 	// encode bin with sgn
 	bin, err := os.ReadFile(binPath)
@@ -577,8 +613,9 @@ func symbolObfuscation(t *testing.T, goos string, goarch string) {
 	httpC2Config := configs.GenerateDefaultHTTPC2Config()
 	nonce++
 	build, _ := GenerateConfig(name, config)
-	_, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
+	binPath, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
+	cleanupGeneratedArtifacts(t, binPath)
 }

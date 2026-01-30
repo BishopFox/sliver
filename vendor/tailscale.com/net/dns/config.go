@@ -1,6 +1,8 @@
 // Copyright (c) Tailscale Inc & AUTHORS
 // SPDX-License-Identifier: BSD-3-Clause
 
+//go:generate go run tailscale.com/cmd/viewer --type=Config --clonefunc
+
 // Package dns contains code to configure and manage DNS settings.
 package dns
 
@@ -8,6 +10,7 @@ import (
 	"bufio"
 	"fmt"
 	"net/netip"
+	"reflect"
 	"slices"
 	"sort"
 
@@ -187,4 +190,11 @@ func sameResolverNames(a, b []*dnstype.Resolver) bool {
 		}
 	}
 	return true
+}
+
+func (c *Config) Equal(o *Config) bool {
+	if c == nil || o == nil {
+		return c == o
+	}
+	return reflect.DeepEqual(c, o)
 }

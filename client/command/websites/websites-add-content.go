@@ -22,13 +22,15 @@ import (
 	"context"
 	"errors"
 	"io"
+	"mime"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/spf13/cobra"
 )
@@ -117,31 +119,37 @@ func webAddFile(web *clientpb.WebsiteAddContent, webpath string, contentType str
 	}
 
 	if contentType == "" {
-		contentType = sniffContentType(file)
+		contentType = sniffContentType(file, contentPath)
 	}
 
 	web.Contents[webpath] = &clientpb.WebContent{
-		Path:        webpath,
-		ContentType: contentType,
-		Content:     data,
+		Path:         webpath,
+		ContentType:  contentType,
+		OriginalFile: filepath.Base(contentPath),
+		Content:      data,
 	}
 	return nil
 }
 
 func confirmAddDirectory() bool {
 	confirm := false
-	prompt := &survey.Confirm{Message: "Recursively add entire directory?"}
-	survey.AskOne(prompt, &confirm, nil)
+	_ = forms.Confirm("Recursively add entire directory?", &confirm)
 	return confirm
 }
 
-func sniffContentType(out *os.File) string {
+func sniffContentType(out *os.File, contentPath string) string {
+	ext := strings.ToLower(filepath.Ext(contentPath))
+	if ext != "" {
+		contentType := mime.TypeByExtension(ext)
+		if contentType != "" {
+			return contentType
+		}
+	}
 	out.Seek(0, io.SeekStart)
 	buffer := make([]byte, fileSampleSize)
 	_, err := out.Read(buffer)
 	if err != nil {
 		return defaultMimeType
 	}
-	contentType := http.DetectContentType(buffer)
-	return contentType
+	return http.DetectContentType(buffer)
 }

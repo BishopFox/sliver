@@ -28,6 +28,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	clientcli "github.com/bishopfox/sliver/client/cli"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/certs"
@@ -72,6 +73,8 @@ func initConsoleLogging(appDir string) *os.File {
 }
 
 func init() {
+	rootCmd.Flags().String(clientcli.RCFlagName, "", "path to rc script file")
+
 	// Unpack
 	unpackCmd.Flags().BoolP(forceFlagStr, "f", false, "Force unpack and overwrite")
 	rootCmd.AddCommand(unpackCmd)
@@ -133,6 +136,7 @@ var rootCmd = &cobra.Command{
 		cryptography.AgeServerKeyPair()
 		cryptography.MinisignServerPrivateKey()
 		c2.SetupDefaultC2Profiles()
+		_, _ = configs.LoadCrackConfig()
 
 		serverConfig := configs.GetServerConfig()
 		listenerJobs, err := db.ListenerJobs()
@@ -147,8 +151,14 @@ var rootCmd = &cobra.Command{
 		if serverConfig.DaemonMode {
 			daemon.Start(daemon.BlankHost, daemon.BlankPort, serverConfig.DaemonConfig.Tailscale)
 		} else {
+			rcScript, err := clientcli.ReadRCScript(cmd)
+			if err != nil {
+				fmt.Printf("Failed to read rc script: %s\n", err)
+				return
+			}
+
 			os.Args = os.Args[:1] // Hide cli from grumble console
-			console.Start()
+			console.Start(rcScript)
 		}
 	},
 }

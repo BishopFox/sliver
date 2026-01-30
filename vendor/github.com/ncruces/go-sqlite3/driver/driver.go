@@ -263,10 +263,8 @@ func (n *connector) Connect(ctx context.Context) (ret driver.Conn, err error) {
 			return nil, err
 		}
 		defer s.Close()
-		if s.Step() && s.ColumnBool(0) {
-			c.readOnly = '1'
-		} else {
-			c.readOnly = '0'
+		if s.Step() {
+			c.readOnly = s.ColumnBool(0)
 		}
 		err = s.Close()
 		if err != nil {
@@ -322,7 +320,7 @@ type conn struct {
 	txReset  string
 	tmRead   sqlite3.TimeFormat
 	tmWrite  sqlite3.TimeFormat
-	readOnly byte
+	readOnly bool
 }
 
 var (
@@ -358,9 +356,9 @@ func (c *conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, e
 
 	c.txReset = ``
 	txBegin := `BEGIN ` + txLock
-	if opts.ReadOnly {
+	if opts.ReadOnly && !c.readOnly {
 		txBegin += ` ; PRAGMA query_only=on`
-		c.txReset = `; PRAGMA query_only=` + string(c.readOnly)
+		c.txReset = `; PRAGMA query_only=off`
 	}
 
 	if old := c.Conn.SetInterrupt(ctx); old != ctx {
@@ -655,14 +653,12 @@ type rows struct {
 	names []string
 	types []string
 	scans []scantype
-	dest  []driver.Value
 }
 
 var (
 	// Ensure these interfaces are implemented:
 	_ driver.RowsColumnTypeDatabaseTypeName = &rows{}
 	_ driver.RowsColumnTypeNullable         = &rows{}
-	// _ driver.RowsColumnScanner           = &rows{}
 )
 
 func (r *rows) Close() error {
@@ -782,7 +778,6 @@ func (r *rows) ColumnTypeScanType(index int) (typ reflect.Type) {
 }
 
 func (r *rows) Next(dest []driver.Value) error {
-	r.dest = nil
 	c := r.Stmt.Conn()
 	if old := c.SetInterrupt(r.ctx); old != r.ctx {
 		defer c.SetInterrupt(old)
@@ -832,33 +827,5 @@ func (r *rows) Next(dest []driver.Value) error {
 			}
 		}
 	}
-	r.dest = dest
 	return nil
-}
-
-func (r *rows) ScanColumn(dest any, index int) (err error) {
-	// notest // Go 1.26
-	var tm *time.Time
-	var ok *bool
-	switch d := dest.(type) {
-	case *time.Time:
-		tm = d
-	case *sql.NullTime:
-		tm = &d.Time
-		ok = &d.Valid
-	case *sql.Null[time.Time]:
-		tm = &d.V
-		ok = &d.Valid
-	default:
-		return driver.ErrSkip
-	}
-	value := r.dest[index]
-	*tm, err = r.tmRead.Decode(value)
-	if ok != nil {
-		*ok = err == nil
-		if value == nil {
-			return nil
-		}
-	}
-	return err
 }

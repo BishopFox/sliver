@@ -1,0 +1,7 @@
+linters:
+  disable:
+    - errcheck
+    - structcheck
+    - unused
+  enable:
+    - misspell

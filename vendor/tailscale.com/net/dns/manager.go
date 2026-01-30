@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"tailscale.com/control/controlknobs"
+	"tailscale.com/feature/buildfeatures"
 	"tailscale.com/health"
 	"tailscale.com/net/dns/resolver"
 	"tailscale.com/net/netmon"
@@ -29,6 +30,7 @@ import (
 	"tailscale.com/types/logger"
 	"tailscale.com/util/clientmetric"
 	"tailscale.com/util/dnsname"
+	"tailscale.com/util/eventbus"
 	"tailscale.com/util/slicesx"
 	"tailscale.com/util/syspolicy/policyclient"
 )
@@ -71,6 +73,9 @@ type Manager struct {
 //
 // knobs may be nil.
 func NewManager(logf logger.Logf, oscfg OSConfigurator, health *health.Tracker, dialer *tsdial.Dialer, linkSel resolver.ForwardLinkSelector, knobs *controlknobs.Knobs, goos string) *Manager {
+	if !buildfeatures.HasDNS {
+		return nil
+	}
 	if dialer == nil {
 		panic("nil Dialer")
 	}
@@ -97,7 +102,12 @@ func NewManager(logf logger.Logf, oscfg OSConfigurator, health *health.Tracker, 
 }
 
 // Resolver returns the Manager's DNS Resolver.
-func (m *Manager) Resolver() *resolver.Resolver { return m.resolver }
+func (m *Manager) Resolver() *resolver.Resolver {
+	if !buildfeatures.HasDNS {
+		return nil
+	}
+	return m.resolver
+}
 
 // RecompileDNSConfig recompiles the last attempted DNS configuration, which has
 // the side effect of re-querying the OS's interface nameservers.  This should be used
@@ -111,6 +121,9 @@ func (m *Manager) Resolver() *resolver.Resolver { return m.resolver }
 //
 // It returns [ErrNoDNSConfig] if [Manager.Set] has never been called.
 func (m *Manager) RecompileDNSConfig() error {
+	if !buildfeatures.HasDNS {
+		return nil
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.config != nil {
@@ -120,6 +133,9 @@ func (m *Manager) RecompileDNSConfig() error {
 }
 
 func (m *Manager) Set(cfg Config) error {
+	if !buildfeatures.HasDNS {
+		return nil
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.setLocked(cfg)
@@ -127,6 +143,9 @@ func (m *Manager) Set(cfg Config) error {
 
 // GetBaseConfig returns the current base OS DNS configuration as provided by the OSConfigurator.
 func (m *Manager) GetBaseConfig() (OSConfig, error) {
+	if !buildfeatures.HasDNS {
+		panic("unreachable")
+	}
 	return m.os.GetBaseConfig()
 }
 
@@ -559,6 +578,9 @@ func (m *Manager) HandleTCPConn(conn net.Conn, srcAddr netip.AddrPort) {
 }
 
 func (m *Manager) Down() error {
+	if !buildfeatures.HasDNS {
+		return nil
+	}
 	m.ctxCancel()
 	if err := m.os.Close(); err != nil {
 		return err
@@ -568,6 +590,9 @@ func (m *Manager) Down() error {
 }
 
 func (m *Manager) FlushCaches() error {
+	if !buildfeatures.HasDNS {
+		return nil
+	}
 	return flushCaches()
 }
 
@@ -576,7 +601,10 @@ func (m *Manager) FlushCaches() error {
 // No other state needs to be instantiated before this runs.
 //
 // health must not be nil
-func CleanUp(logf logger.Logf, netMon *netmon.Monitor, health *health.Tracker, interfaceName string) {
+func CleanUp(logf logger.Logf, netMon *netmon.Monitor, bus *eventbus.Bus, health *health.Tracker, interfaceName string) {
+	if !buildfeatures.HasDNS {
+		return
+	}
 	oscfg, err := NewOSConfigurator(logf, health, policyclient.Get(), nil, interfaceName)
 	if err != nil {
 		logf("creating dns cleanup: %v", err)
@@ -584,6 +612,7 @@ func CleanUp(logf logger.Logf, netMon *netmon.Monitor, health *health.Tracker, i
 	}
 	d := &tsdial.Dialer{Logf: logf}
 	d.SetNetMon(netMon)
+	d.SetBus(bus)
 	dns := NewManager(logf, oscfg, health, d, nil, nil, runtime.GOOS)
 	if err := dns.Down(); err != nil {
 		logf("dns down: %v", err)

@@ -36,7 +36,7 @@ func (rpc *Server) StartTCPStagerListener(ctx context.Context, req *clientpb.Sta
 	}
 	job, err := c2.StartTCPStagerListenerJob(host, uint16(req.GetPort()), req.ProfileName, req.GetData())
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	listenerJob := &clientpb.ListenerJob{
@@ -46,7 +46,7 @@ func (rpc *Server) StartTCPStagerListener(ctx context.Context, req *clientpb.Sta
 	}
 	err = db.SaveC2Listener(listenerJob)
 	if err != nil {
-		return nil, err
+		return nil, rpcError(err)
 	}
 
 	return &clientpb.StagerListener{JobID: uint32(job.ID)}, nil

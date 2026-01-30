@@ -1,16 +1,16 @@
 Download the latest server [release](https://github.com/BishopFox/sliver/releases) for your platform, and just run the binary. That's it, you're pretty much done.
 
-Sliver is designed for a one server deployment per-operation. The server supports Linux, Windows, and MacOS however we strongly recommend running the server on a Linux host (or MacOS, well really anything that isn't Windows), as some features may be more difficult to get working on a Windows server. The Windows client should work just fine when accessing a Linux/MacOS server from Windows, so if for some odd reason your operators actually want to use Windows you can still accommodate them using [multiplayer mode](/docs?name=Multi-player+Mode).
+Sliver is designed for a one server deployment per operation. The server supports Linux, Windows, and MacOS however we strongly recommend running the server on a Linux host (or MacOS, well really anything that isn't Windows), as some features may be more difficult to get working on a Windows server. The Windows client should work just fine when accessing a Linux/MacOS server from Windows, so if for some odd reason your operators actually want to use Windows you can still accommodate them using [multiplayer mode](/docs?name=Multi-player+Mode).
 
-Obfuscated builds require `git` to be installed. Additionally, Sliver has two external dependencies for _optional_ features: MinGW and Metasploit. To enable DLL payloads (on a Linux server) you need to install MinGW. To enable some MSF integrations you'll need Metasploit installed on the server.
+Obfuscated builds require `git` to be installed. Additionally, Sliver has an external dependencies for _optional_ features: Metasploit. To enable some MSF integrations you'll need Metasploit installed on the server.
 
-For a Linux server, you can also use the one liner installation `curl https://sliver.sh/install|sudo bash`
+For a Linux server, you can also use the one-liner installation `curl https://sliver.sh/install|sudo bash`
 
 ```asciinema
 {"src": "/asciinema/install-1.cast", "cols": "132"}
 ```
 
-If you install Sliver via the one liner, you can check that the server service is running using `systemctl status sliver`. Note that the Sliver service is not configured to start automatically on boot by default (i.e., if you reboot the server you'll need to start the service again using `systemctl start sliver`):
+If you install Sliver via the one-liner, you can check that the server service is running using `systemctl status sliver`. Note that the Sliver service is not configured to start automatically on boot by default (i.e., if you reboot the server you'll need to start the service again using `systemctl start sliver`):
 
 ```asciinema
 {"src": "/asciinema/service-status-1.cast", "cols": "132", "rows": "14", "idleTimeLimit": 8}
@@ -18,23 +18,7 @@ If you install Sliver via the one liner, you can check that the server service i
 
 #### System Requirements
 
-The Sliver server can run effectively on almost any system, however we recommend 8GB or more of RAM for compiling obfuscated implants as the obfuscator may consume large amounts of memory depending on compile-time options. You can leverage [external builders](/docs?name=External+Builders) in conjunction with low resource systems to work around hardware limitations of the server (e.g. a low powered VPS). Symbol obfuscation can also be disabled per-build, see `generate --help` in the Sliver console.
-
-### MinGW Setup (Optional, Recommended)
-
-In order to enable shellcode/staged/DLL payloads you'll need to install MinGW on the server (clients connecting to the server do not need it installed). By default Sliver will look in the usual places for MinGW binaries but you can override this using the [environment variables](/docs?name=Environment+Variables).
-
-#### Linux (Debian-based)
-
-```
-apt install git mingw-w64
-```
-
-#### MacOS
-
-```
-brew install git mingw-w64
-```
+The Sliver server can run effectively on almost any system, however we recommend 8GB or more of RAM for compiling obfuscated implants as the obfuscator may consume large amounts of memory depending on compile-time options. You can leverage [external builders](/docs?name=External+Builders) in conjunction with low-resource systems to work around hardware limitations of the server (e.g. a low-powered VPS). Symbol obfuscation can also be disabled per-build, see `generate --help` in the Sliver console.
 
 **Note:** On MacOS you may need to configure [environment variables](/docs?name=Environment+Variables) for MinGW.
 
@@ -46,9 +30,9 @@ We strongly recommend using the [nightly framework installers](https://github.co
 
 ## Implants: Beacon vs. Session
 
-Sliver is generally designed as a stage 2 payload, and as such we've not yet endeavored to minimize the implant's file size. Depending on how many protocols you enable in your implant the file can get large, we strongly advise the use of [stagers](/docs?name=Stagers) for actual operations (at least in contexts where one may be concerned about file size). Such is the tradeoff for getting easy static compilation in Golang.
+Sliver is generally designed as a stage 2 payload, and as such we have not yet endeavored to minimize the implant's file size. Depending on how many protocols you enable in your implant the file can get large, we strongly advise the use of [stagers](/docs?name=Stagers) for actual operations (at least in contexts where one may be concerned about file size). Such is the tradeoff for getting easy static compilation in Go.
 
-Sliver implants in v1.5 and later support two modes of operation: "beacon mode" and "session mode." Beacon mode implements an asynchronous communication style where the implant periodically checks in with the server retrieves tasks, executes them, and returns the results. In "session mode" the implant will create an interactive real time session using either a persistent connection or using long polling depending on the underlying C2 protocol.
+Sliver implants support two modes of operation: "beacon mode" and "session mode." Beacon mode implements an asynchronous communication style where the implant periodically checks in with the server, retrieves tasks, executes them, and returns the results. In "session mode" the implant will create an interactive real-time session using either a persistent connection or long polling depending on the underlying C2 protocol.
 
 Beacons may be tasked to open interactive sessions over _any C2 protocol they were compiled with_ using the `interactive` command, i.e., if a beacon implant was not compiled with HTTP C2 it cannot open a session over HTTP (use the `close` command to close the session). Currently implants initially compiled for session mode cannot be converted to beacon mode (we may add this feature later). Take this into account during operational planning.
 
@@ -70,7 +54,7 @@ Generating implants is done using the `generate` command, you must specify at le
 {"src": "/asciinema/sliver-generate-2.cast", "cols": "132"}
 ```
 
-Sliver implants are cross-platform, you can change the compiler target with the `--os` flag. Sliver accepts any Golang GOOS and GOARCH as arguments `--os` and `--arch`, we officially only support Windows, MacOS, and Linux, but you can at least attempt to compile for any other [valid Golang GOOS/GOARCH](https://gist.github.com/asukakenji/f15ba7e588ac42795f421b48b8aede63) combination. The `generate info` command will also estimate what compiler targets can be used based on the server's host operating system and available cross-compilers.
+Sliver implants are cross-platform, you can change the compiler target with the `--os` flag. Sliver accepts any Go GOOS and GOARCH as arguments `--os` and `--arch`, we officially only support Windows, MacOS, and Linux, but you can at least attempt to compile for any other [valid Go GOOS/GOARCH](https://gist.github.com/asukakenji/f15ba7e588ac42795f421b48b8aede63) combination. The `generate info` command will also estimate what compiler targets can be used based on the server's host operating system and available cross-compilers.
 
 Some commands/features may not work on "unsupported" platforms.
 
@@ -98,7 +82,7 @@ MUSHY_TRADITIONALISM    windows/amd64  false  SHARED_LIB
 SICK_SPY                darwin/amd64   false  EXECUTABLE
 ```
 
-If you need to re-download a previously generated implant use the `regenerate` command, note that positional arguments (the implant name) comes after the command flags (e.g., `--save`):
+If you need to re-download a previously generated implant use the `regenerate` command, note that positional arguments (the implant name) come after the command flags (e.g., `--save`):
 
 ```
 sliver > regenerate --save /Users/moloch/Desktop NEW_GRAPE
@@ -108,7 +92,7 @@ sliver > regenerate --save /Users/moloch/Desktop NEW_GRAPE
 
 #### Additional Details
 
-For addition details about each C2 please see:
+For additional details about each C2 please see:
 
 - [HTTP(S) C2](/docs?name=HTTPS+C2)
 - [DNS C2](/docs?name=DNS+C2)
@@ -152,11 +136,11 @@ sliver (LONG_DRAMATURGE) > ls
 LONG_DRAMATURGE           6.3 MiB
 ```
 
-If you're having problems getting callbacks please see our [troubleshooting guide](/docs?name=Troubleshooting), (TL;DR add the `--debug` flag when generating an implant).
+If you're having problems getting callbacks please see our [troubleshooting guide](/docs?name=Troubleshooting) (TL;DR: add the `--debug` flag when generating an implant).
 
 ### Interacting with Beacons
 
-Upon initial execution the beacon will register itself with the C2 server and will show up under `beacons`, each instance of a beacon process will get its own id and this id is used for the lifetime of that process (i.e., across key renegotiation, etc). The "Next Check-in" value includes any random jitter (by default up to 30s), and you can also watch your beacons in real time using the `beacons watch` command. Remember to leverage tab complete for the uuid when using `use`:
+Upon initial execution the beacon will register itself with the C2 server and will show up under `beacons`, each instance of a beacon process will get its own ID and this ID is used for the lifetime of that process (i.e., across key renegotiation, etc). The "Next Check-in" value includes any random jitter (by default up to 30s), and you can also watch your beacons in real time using the `beacons watch` command. Remember to leverage tab-complete for the UUID when using `use`:
 
 ```
 [*] Beacon 8c465643 RELATIVE_ADVERTISEMENT - 192.168.1.178:54701 (WIN-1TT1Q345B37) - windows/amd64 - Sat, 22 Jan 2022 14:40:55 CST
@@ -174,7 +158,7 @@ Upon initial execution the beacon will register itself with the C2 server and wi
 [server] sliver (RELATIVE_ADVERTISEMENT) >
 ```
 
-You should see a blue prompt indicating that we're interacting with a beacon as apposed to a session (red). Commands are executed the same way as a session, though not all commands are supported in beacon mode.
+You should see a blue prompt indicating that we're interacting with a beacon as opposed to a session (red). Commands are executed the same way as a session, though not all commands are supported in beacon mode.
 
 ```
 [server] sliver (RELATIVE_ADVERTISEMENT) > ls
@@ -241,7 +225,7 @@ sliver > generate --mtls foo.com,bar.com,baz.com --strategy r
 
 ## What Next?
 
-Most commands have a `--help` and support tab complete, you may also find the following wiki articles of interest:
+Most commands have a `--help` and support tab-complete, you may also find the following wiki articles of interest:
 
 - [Armory](/docs?name=Armory)
 - [Stagers](/docs?name=Stagers)

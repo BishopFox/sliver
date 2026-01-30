@@ -30,12 +30,12 @@ import (
 
 	"github.com/bishopfox/sliver/client/command/loot"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util/encoders"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/proto"
-	"gopkg.in/AlecAivazis/survey.v1"
 )
 
 func DownloadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
@@ -189,8 +189,7 @@ func HandleDownloadResponse(download *sliverpb.Download, cmd *cobra.Command, arg
 
 		if _, err := os.Stat(dst); err == nil {
 			overwrite := false
-			prompt := &survey.Confirm{Message: "Overwrite local file?"}
-			survey.AskOne(prompt, &overwrite, nil)
+			_ = forms.Confirm("Overwrite local file?", &overwrite)
 			if !overwrite {
 				return
 			}

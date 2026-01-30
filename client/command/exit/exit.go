@@ -20,39 +20,36 @@ package exit
 
 import (
 	"context"
-	"fmt"
 	"os"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/spf13/cobra"
 )
 
 // ExitCmd - Exit the console.
 func ExitCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
-	fmt.Println("Exiting...")
 	if con.IsServer {
 		sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 		if err != nil {
-			os.Exit(1)
+			flushAndExit(con, 1)
 		}
 		beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
 		if err != nil {
-			os.Exit(1)
+			flushAndExit(con, 1)
 		}
 		if 0 < len(sessions.Sessions) || 0 < len(beacons.Beacons) {
 			con.Printf("There are %d active sessions and %d active beacons.\n", len(sessions.Sessions), len(beacons.Beacons))
 			confirm := false
-			prompt := &survey.Confirm{Message: "Are you sure you want to exit?"}
-			survey.AskOne(prompt, &confirm)
+			forms.Confirm("Are you sure you want to exit?", &confirm)
 			if !confirm {
 				return
 			}
 		}
 	}
-	os.Exit(0)
+	flushAndExit(con, 0)
 }
 
 // Commands returns the `exit` command.
@@ -65,4 +62,13 @@ func Command(con *console.SliverClient) []*cobra.Command {
 		},
 		GroupID: constants.GenericHelpGroup,
 	}}
+}
+
+func flushAndExit(con *console.SliverClient, code int) {
+	if con != nil {
+		con.FlushOutput()
+	} else {
+		os.Stdout.Sync()
+	}
+	os.Exit(code)
 }

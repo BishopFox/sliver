@@ -34,12 +34,19 @@ const (
 	SliverClientDirName = ".sliver-client"
 
 	versionFileName = "version"
+	envVarName      = "SLIVER_CLIENT_ROOT_DIR"
 )
 
 // GetRootAppDir - Get the Sliver app dir ~/.sliver-client/
 func GetRootAppDir() string {
-	user, _ := user.Current()
-	dir := filepath.Join(user.HomeDir, SliverClientDirName)
+	value := os.Getenv(envVarName)
+	var dir string
+	if len(value) == 0 {
+		user, _ := user.Current()
+		dir = filepath.Join(user.HomeDir, SliverClientDirName)
+	} else {
+		dir = value
+	}
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		err = os.MkdirAll(dir, 0700)
 		if err != nil {
@@ -73,6 +80,18 @@ func GetConsoleLogsDir() string {
 	return consoleLogsDir
 }
 
+// GetMCPLogsDir - Get the Sliver client MCP logs dir ~/.sliver-client/logs/mcp/
+func GetMCPLogsDir() string {
+	mcpLogsDir := filepath.Join(GetClientLogsDir(), "mcp")
+	if _, err := os.Stat(mcpLogsDir); os.IsNotExist(err) {
+		err = os.MkdirAll(mcpLogsDir, 0700)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	return mcpLogsDir
+}
+
 func assetVersion() string {
 	appDir := GetRootAppDir()
 	data, err := os.ReadFile(filepath.Join(appDir, versionFileName))
@@ -96,7 +115,7 @@ func Setup(force bool, echo bool) {
 	if force || localVer == "" || localVer != ver.GitCommit {
 		if echo {
 			fmt.Printf(`
-Sliver  Copyright (C) 2022  Bishop Fox
+Sliver  Copyright (C) 2025  Bishop Fox
 This program comes with ABSOLUTELY NO WARRANTY; for details type 'licenses'.
 This is free software, and you are welcome to redistribute it
 under certain conditions; type 'licenses' for details.`)
@@ -104,7 +123,5 @@ under certain conditions; type 'licenses' for details.`)
 		}
 		saveAssetVersion(appDir)
 	}
-	if _, err := os.Stat(filepath.Join(appDir, settingsFileName)); os.IsNotExist(err) {
-		SaveSettings(nil)
-	}
+	_, _ = LoadSettings()
 }

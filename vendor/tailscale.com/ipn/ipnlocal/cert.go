@@ -1,7 +1,7 @@
 // Copyright (c) Tailscale Inc & AUTHORS
 // SPDX-License-Identifier: BSD-3-Clause
 
-//go:build !js
+//go:build !js && !ts_omit_acme
 
 package ipnlocal
 
@@ -24,22 +24,25 @@ import (
 	"log"
 	randv2 "math/rand/v2"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"tailscale.com/atomicfile"
 	"tailscale.com/envknob"
+	"tailscale.com/feature/buildfeatures"
 	"tailscale.com/hostinfo"
 	"tailscale.com/ipn"
 	"tailscale.com/ipn/ipnstate"
 	"tailscale.com/ipn/store"
 	"tailscale.com/ipn/store/mem"
 	"tailscale.com/net/bakedroots"
+	"tailscale.com/syncs"
+	"tailscale.com/tailcfg"
 	"tailscale.com/tempfork/acme"
 	"tailscale.com/types/logger"
 	"tailscale.com/util/testenv"
@@ -47,15 +50,19 @@ import (
 	"tailscale.com/version/distro"
 )
 
+func init() {
+	RegisterC2N("GET /tls-cert-status", handleC2NTLSCertStatus)
+}
+
 // Process-wide cache. (A new *Handler is created per connection,
 // effectively per request)
 var (
 	// acmeMu guards all ACME operations, so concurrent requests
 	// for certs don't slam ACME. The first will go through and
 	// populate the on-disk cache and the rest should use that.
-	acmeMu sync.Mutex
+	acmeMu syncs.Mutex
 
-	renewMu     sync.Mutex // lock order: acmeMu before renewMu
+	renewMu     syncs.Mutex // lock order: acmeMu before renewMu
 	renewCertAt = map[string]time.Time{}
 )
 
@@ -67,7 +74,7 @@ func (b *LocalBackend) certDir() (string, error) {
 	// As a workaround for Synology DSM6 not having a "var" directory, use the
 	// app's "etc" directory (on a small partition) to hold certs at least.
 	// See https://github.com/tailscale/tailscale/issues/4060#issuecomment-1186592251
-	if d == "" && runtime.GOOS == "linux" && distro.Get() == distro.Synology && distro.DSMVersion() == 6 {
+	if buildfeatures.HasSynology && d == "" && runtime.GOOS == "linux" && distro.Get() == distro.Synology && distro.DSMVersion() == 6 {
 		d = "/var/packages/Tailscale/etc" // base; we append "certs" below
 	}
 	if d == "" {
@@ -137,7 +144,11 @@ func (b *LocalBackend) GetCertPEMWithValidity(ctx context.Context, domain string
 		if minValidity == 0 {
 			logf("starting async renewal")
 			// Start renewal in the background, return current valid cert.
-			b.goTracker.Go(func() { getCertPEM(context.Background(), b, cs, logf, traceACME, domain, now, minValidity) })
+			b.goTracker.Go(func() {
+				if _, err := getCertPEM(context.Background(), b, cs, logf, traceACME, domain, now, minValidity); err != nil {
+					logf("async renewal failed: getCertPem: %v", err)
+				}
+			})
 			return pair, nil
 		}
 		// If the caller requested a specific validity duration, fall through
@@ -540,8 +551,11 @@ var getCertPEM = func(ctx context.Context, b *LocalBackend, cs certStore, logf l
 	// If we have a previous cert, include it in the order. Assuming we're
 	// within the ARI renewal window this should exclude us from LE rate
 	// limits.
+	// Note that this order extension will fail renewals if the ACME account key has changed
+	// since the last issuance, see
+	// https://github.com/tailscale/tailscale/issues/18251
 	var opts []acme.OrderOption
-	if previous != nil {
+	if previous != nil && !envknob.Bool("TS_DEBUG_ACME_FORCE_RENEWAL") {
 		prevCrt, err := previous.parseCertificate()
 		if err == nil {
 			opts = append(opts, acme.WithOrderReplacesCert(prevCrt))
@@ -835,4 +849,55 @@ func checkCertDomain(st *ipnstate.Status, domain string) error {
 		return errors.New("your Tailscale account does not support getting TLS certs")
 	}
 	return fmt.Errorf("invalid domain %q; must be one of %q", domain, st.CertDomains)
+}
+
+// handleC2NTLSCertStatus returns info about the last TLS certificate issued for the
+// provided domain. This can be called by the controlplane to clean up DNS TXT
+// records when they're no longer needed by LetsEncrypt.
+//
+// It does not kick off a cert fetch or async refresh. It only reports anything
+// that's already sitting on disk, and only reports metadata about the public
+// cert (stuff that'd be the in CT logs anyway).
+func handleC2NTLSCertStatus(b *LocalBackend, w http.ResponseWriter, r *http.Request) {
+	cs, err := b.getCertStore()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	domain := r.FormValue("domain")
+	if domain == "" {
+		http.Error(w, "no 'domain'", http.StatusBadRequest)
+		return
+	}
+
+	ret := &tailcfg.C2NTLSCertInfo{}
+	pair, err := getCertPEMCached(cs, domain, b.clock.Now())
+	ret.Valid = err == nil
+	if err != nil {
+		ret.Error = err.Error()
+		if errors.Is(err, errCertExpired) {
+			ret.Expired = true
+		} else if errors.Is(err, ipn.ErrStateNotExist) {
+			ret.Missing = true
+			ret.Error = "no certificate"
+		}
+	} else {
+		block, _ := pem.Decode(pair.CertPEM)
+		if block == nil {
+			ret.Error = "invalid PEM"
+			ret.Valid = false
+		} else {
+			cert, err := x509.ParseCertificate(block.Bytes)
+			if err != nil {
+				ret.Error = fmt.Sprintf("invalid certificate: %v", err)
+				ret.Valid = false
+			} else {
+				ret.NotBefore = cert.NotBefore.UTC().Format(time.RFC3339)
+				ret.NotAfter = cert.NotAfter.UTC().Format(time.RFC3339)
+			}
+		}
+	}
+
+	writeJSON(w, ret)
 }

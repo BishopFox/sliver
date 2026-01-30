@@ -2,10 +2,10 @@ package info
 
 import (
 	"context"
-	insecureRand "math/rand"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/util"
 	"github.com/spf13/cobra"
 )
 
@@ -16,7 +16,7 @@ func PingCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		return
 	}
 
-	nonce := insecureRand.Intn(999999)
+	nonce := util.Intn(999999)
 	con.PrintInfof("Ping %d\n", nonce)
 	pong, err := con.Rpc.Ping(context.Background(), &sliverpb.Ping{
 		Nonce:   int32(nonce),

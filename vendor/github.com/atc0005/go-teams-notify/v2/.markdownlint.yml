@@ -1,0 +1,22 @@
+# Copyright 2021 Adam Chalkley
+#
+# https://github.com/atc0005/go-teams-notify
+#
+# Licensed under the MIT License. See LICENSE file in the project root for
+# full license information.
+
+# https://github.com/igorshubovych/markdownlint-cli#configuration
+# https://github.com/DavidAnson/markdownlint#optionsconfig
+
+# Setting the special default rule to true or false includes/excludes all
+# rules by default.
+"default": true
+
+# We know that line lengths will be long in the main README file, so don't
+# report those cases.
+"MD013": false
+
+# Don't complain if sub-heading names are duplicated since this is a common
+# practice in CHANGELOG.md (e.g., "Fixed").
+"MD024":
+  "siblings_only": true

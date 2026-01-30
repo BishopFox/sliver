@@ -22,9 +22,9 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/spf13/cobra"
 )
 
@@ -77,12 +77,8 @@ func getEventType(cmd *cobra.Command, con *console.SliverClient) (string, error)
 }
 
 func selectEventType(con *console.SliverClient) (string, error) {
-	prompt := &survey.Select{
-		Message: "Select an event:",
-		Options: core.ReactableEvents,
-	}
 	selection := ""
-	err := survey.AskOne(prompt, &selection)
+	err := forms.Select("Select an event:", core.ReactableEvents, &selection)
 	if err != nil {
 		return "", err
 	}
@@ -96,9 +92,6 @@ func selectEventType(con *console.SliverClient) (string, error) {
 
 func userCommands() (string, error) {
 	text := ""
-	prompt := &survey.Multiline{
-		Message: "Enter commands: ",
-	}
-	err := survey.AskOne(prompt, &text)
+	err := forms.Text("Enter commands:", &text)
 	return text, err
 }

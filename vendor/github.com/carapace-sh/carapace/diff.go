@@ -1,6 +1,8 @@
 package carapace
 
 import (
+	"fmt"
+
 	"github.com/carapace-sh/carapace/internal/common"
 	"github.com/carapace-sh/carapace/pkg/style"
 )
@@ -41,4 +43,28 @@ func Diff(original, new Action) Action {
 		}
 		return mergedBatch.ToA()
 	})
+}
+
+// TODO experimental - needs different signature
+// TODO return patch format
+func DiffPatch(original, new Action, c Context) []string {
+	diff := Diff(original, new).Invoke(c)
+	patch := make([]string, 0)
+	for _, v := range diff.action.rawValues {
+		s := v.Value
+		if v.Description != "" {
+			s += fmt.Sprintf(" (%v)", v.Description)
+		}
+
+		switch v.Style {
+		case style.Red:
+			s = "- " + s
+		case style.Green:
+			s = "+ " + s
+		default:
+			s = "  " + s
+		}
+		patch = append(patch, s)
+	}
+	return patch
 }

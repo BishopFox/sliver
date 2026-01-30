@@ -515,6 +515,9 @@ message ExecuteReq {
   bool Output = 3;
   string Stdout = 4;
   string Stderr = 5;
+  bool EnvInheritance = 6;
+  map<string, string> Env = 7;
+
   uint32 PPid = 10;
 
   commonpb.Request Request = 9;

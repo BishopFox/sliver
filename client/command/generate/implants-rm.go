@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/spf13/cobra"
 )
@@ -24,8 +24,7 @@ func ImplantsRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 		return
 	}
 	confirm := false
-	prompt := &survey.Confirm{Message: fmt.Sprintf("Remove '%s' build?", name)}
-	survey.AskOne(prompt, &confirm)
+	_ = forms.Confirm(fmt.Sprintf("Remove '%s' build?", name), &confirm)
 	if !confirm {
 		return
 	}

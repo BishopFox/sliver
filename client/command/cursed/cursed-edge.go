@@ -23,9 +23,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/client/overlord"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -106,7 +106,7 @@ func avadaKedavraEdge(session *clientpb.Session, cmd *cobra.Command, con *consol
 		con.PrintWarnf("Sliver will attempt to restore the user's session, however %sDATA LOSS MAY OCCUR!%s\n", console.Bold, console.Normal)
 		con.Printf("\n")
 		confirm := false
-		err = survey.AskOne(&survey.Confirm{Message: "Kill and restore existing Edge process?"}, &confirm)
+		err = forms.Confirm("Kill and restore existing Edge process?", &confirm)
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return nil

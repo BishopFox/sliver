@@ -21,7 +21,6 @@ package websites
 import (
 	"context"
 	"sort"
-	"strings"
 
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
@@ -58,11 +57,14 @@ func ListWebsites(cmd *cobra.Command, con *console.SliverClient, args []string) 
 		con.PrintInfof("No websites\n")
 		return
 	}
-	con.Println("Websites")
-	con.Println(strings.Repeat("=", len("Websites")))
+	tw := table.NewWriter()
+	tw.SetStyle(settings.GetTableStyle(con))
+	tw.AppendHeader(table.Row{"Name", "Objects"})
 	for _, site := range websites.Websites {
-		con.Printf("%s%s%s - %d page(s)\n", console.Bold, site.Name, console.Normal, len(site.Contents))
+		tw.AppendRow(table.Row{site.Name, len(site.Contents)})
 	}
+
+	con.Println(tw.Render())
 }
 
 // ListWebsiteContent - List the static contents of a website.
@@ -91,6 +93,8 @@ func PrintWebsite(web *clientpb.Website, con *console.SliverClient) {
 		"Path",
 		"Content-type",
 		"Size",
+		"Original File",
+		"SHA256",
 	})
 	sortedContents := []*clientpb.WebContent{}
 	for _, content := range web.Contents {
@@ -104,6 +108,8 @@ func PrintWebsite(web *clientpb.Website, con *console.SliverClient) {
 			content.Path,
 			content.ContentType,
 			content.Size,
+			content.OriginalFile,
+			content.Sha256,
 		})
 	}
 	con.Println(tw.Render())

@@ -235,10 +235,6 @@ func acceptOneHash(r rune, i int) bool {
 	return r == '#' && i == 1
 }
 
-func acceptNone(r rune, i int) bool {
-	return false
-}
-
 func acceptNotClosing(r rune, i int) bool {
 	return r != '}'
 }

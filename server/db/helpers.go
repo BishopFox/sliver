@@ -789,8 +789,18 @@ func AddContent(pbWebContent *clientpb.WebContent, webContentDir string) (*clien
 			return nil, err
 		}
 	} else {
-		dbWebContent.ContentType = pbWebContent.ContentType
-		dbWebContent.Size = pbWebContent.Size
+		if pbWebContent.ContentType != "" {
+			dbWebContent.ContentType = pbWebContent.ContentType
+		}
+		if pbWebContent.Size != 0 {
+			dbWebContent.Size = pbWebContent.Size
+		}
+		if pbWebContent.OriginalFile != "" {
+			dbWebContent.OriginalFile = pbWebContent.OriginalFile
+		}
+		if pbWebContent.Sha256 != "" {
+			dbWebContent.Sha256 = pbWebContent.Sha256
+		}
 
 		dbModelWebContent := models.WebContentFromProtobuf(dbWebContent)
 		err = Session().Save(&dbModelWebContent).Error
@@ -1483,4 +1493,14 @@ func GetCertificateInfo(categoryOptions uint32, cn string) ([]*models.Certificat
 	}
 	// Processing of the data can occur at the caller. It does not need to happen here.
 	return certInfo, nil
+}
+
+// CertificateAuthorities - Return all certificate authorities
+func CertificateAuthorities() ([]*models.CertificateAuthority, error) {
+	authorities := []*models.CertificateAuthority{}
+	err := Session().Where(&models.CertificateAuthority{}).Find(&authorities).Error
+	if err != nil {
+		return nil, err
+	}
+	return authorities, nil
 }

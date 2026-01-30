@@ -15,18 +15,22 @@ var ANSICodesSupported = areANSICodesSupported()
 //	Escape("Nymeria\x1b[94mGhost\x1b[0mLady", "\x1b[91m") == "\x1b[91mNymeria\x1b[94mGhost\x1b[0m\x1b[91mLady\x1b[0m"
 //	Escape("Nymeria \x1b[94mGhost\x1b[0m Lady", "\x1b[91m") == "\x1b[91mNymeria \x1b[94mGhost\x1b[0m\x1b[91m Lady\x1b[0m"
 func Escape(str string, escapeSeq string) string {
-	out := ""
+	var out strings.Builder
+	// Estimate capacity: original string + escape sequences
+	out.Grow(len(str) + len(escapeSeq)*3 + len(EscapeReset)*2)
+
 	if !strings.HasPrefix(str, EscapeStart) {
-		out += escapeSeq
+		out.WriteString(escapeSeq)
 	}
-	out += strings.Replace(str, EscapeReset, EscapeReset+escapeSeq, -1)
-	if !strings.HasSuffix(out, EscapeReset) {
-		out += EscapeReset
+	out.WriteString(strings.ReplaceAll(str, EscapeReset, EscapeReset+escapeSeq))
+	if !strings.HasSuffix(out.String(), EscapeReset) {
+		out.WriteString(EscapeReset)
 	}
-	if strings.Contains(out, escapeSeq+EscapeReset) {
-		out = strings.Replace(out, escapeSeq+EscapeReset, "", -1)
+	result := out.String()
+	if strings.Contains(result, escapeSeq+EscapeReset) {
+		result = strings.ReplaceAll(result, escapeSeq+EscapeReset, "")
 	}
-	return out
+	return result
 }
 
 // StripEscape strips all ANSI Escape Sequence from the string.
