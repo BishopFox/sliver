@@ -33,7 +33,7 @@ func DisplayShellcodeEncoders(encoderMap *clientpb.ShellcodeEncoderMap, con *con
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
-	tw.AppendHeader(table.Row{"Arch", "Encoder", "Enum", "Description"})
+	tw.AppendHeader(table.Row{"Arch", "Encoder", "Description"})
 	tw.SortBy([]table.SortBy{
 		{Name: "Arch", Mode: table.Asc},
 		{Name: "Encoder", Mode: table.Asc},
@@ -56,9 +56,8 @@ func DisplayShellcodeEncoders(encoderMap *clientpb.ShellcodeEncoderMap, con *con
 		}
 		sort.Strings(names)
 		for _, name := range names {
-			enumVal := archMap.GetEncoders()[name]
 			desc := archMap.GetDescriptions()[name]
-			tw.AppendRow(table.Row{arch, name, enumVal.String(), desc})
+			tw.AppendRow(table.Row{arch, name, desc})
 		}
 	}
 
