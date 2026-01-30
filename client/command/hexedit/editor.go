@@ -39,6 +39,9 @@ type editorResult struct {
 
 type editorModel struct {
 	data          []byte
+	original      []byte
+	modified      []bool
+	modifiedCount int
 	cursor        int
 	top           int
 	width         int
@@ -58,15 +61,19 @@ type editorModel struct {
 }
 
 var (
-	cursorStyle = lipgloss.NewStyle().Reverse(true)
-	statusStyle = lipgloss.NewStyle().Reverse(true)
-	lineStyle   = lipgloss.NewStyle()
+	cursorStyle         = lipgloss.NewStyle().Reverse(true)
+	modifiedStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("215"))
+	modifiedCursorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("215")).Reverse(true)
+	statusStyle         = lipgloss.NewStyle().Reverse(true)
+	lineStyle           = lipgloss.NewStyle()
 )
 
 func newEditorModel(data []byte, filename string, offset int) *editorModel {
 	copyData := append([]byte(nil), data...)
 	model := &editorModel{
 		data:          copyData,
+		original:      append([]byte(nil), data...),
+		modified:      make([]bool, len(copyData)),
 		mode:          modeNormal,
 		filename:      filename,
 		commandPrefix: ':',
@@ -385,14 +392,29 @@ func (m *editorModel) renderLine(lineIndex int) string {
 			continue
 		}
 		byteVal := m.data[idx]
-		hex := fmt.Sprintf("%02x", byteVal)
-		ascii := string(printableByte(byteVal))
-		if idx == m.cursor {
-			hex = cursorStyle.Render(hex)
-			ascii = cursorStyle.Render(ascii)
+		hexRaw := fmt.Sprintf("%02x", byteVal)
+		if idx == m.cursor && m.mode == modeHexEdit && m.nibbleSet {
+			hexRaw = string([]byte{hexChar(m.nibbleValue >> 4), '_'})
 		}
-		hexCells[i] = hex
-		asciiCells[i] = ascii
+		asciiRaw := string(printableByte(byteVal))
+		isModified := m.isModified(idx)
+		if idx == m.cursor {
+			if isModified {
+				hexCells[i] = modifiedCursorStyle.Render(hexRaw)
+				asciiCells[i] = modifiedCursorStyle.Render(asciiRaw)
+			} else {
+				hexCells[i] = cursorStyle.Render(hexRaw)
+				asciiCells[i] = cursorStyle.Render(asciiRaw)
+			}
+			continue
+		}
+		if isModified {
+			hexCells[i] = modifiedStyle.Render(hexRaw)
+			asciiCells[i] = modifiedStyle.Render(asciiRaw)
+			continue
+		}
+		hexCells[i] = hexRaw
+		asciiCells[i] = asciiRaw
 	}
 
 	var b strings.Builder
@@ -601,8 +623,24 @@ func (m *editorModel) setByte(value byte) {
 		m.clearMessage = true
 		return
 	}
+	if m.cursor >= len(m.data) || m.cursor >= len(m.original) {
+		return
+	}
+	wasModified := m.modified[m.cursor]
+	orig := m.original[m.cursor]
 	m.data[m.cursor] = value
-	m.dirty = true
+	if value == orig {
+		if wasModified {
+			m.modified[m.cursor] = false
+			if m.modifiedCount > 0 {
+				m.modifiedCount--
+			}
+		}
+	} else if !wasModified {
+		m.modified[m.cursor] = true
+		m.modifiedCount++
+	}
+	m.dirty = m.modifiedCount > 0
 }
 
 func printableByte(b byte) byte {
@@ -610,6 +648,20 @@ func printableByte(b byte) byte {
 		return b
 	}
 	return '.'
+}
+
+func (m *editorModel) isModified(idx int) bool {
+	if idx < 0 || idx >= len(m.modified) {
+		return false
+	}
+	return m.modified[idx]
+}
+
+func hexChar(n byte) byte {
+	if n < 10 {
+		return '0' + n
+	}
+	return 'a' + (n - 10)
 }
 
 func hexNibble(r rune) (byte, bool) {
