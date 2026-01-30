@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/formatters"
@@ -38,30 +39,33 @@ type editorResult struct {
 }
 
 type editorModel struct {
-	lines           [][]rune
-	row             int
-	col             int
-	top             int
-	left            int
-	width           int
-	height          int
-	mode            editorMode
-	command         string
-	pending         rune
-	dirty           bool
-	filename        string
-	showLineNumbers bool
-	syntaxName      string
-	lexer           chroma.Lexer
-	formatter       chroma.Formatter
-	style           *chroma.Style
-	highlighted     []string
-	highlightOn     bool
-	highlightDirty  bool
-	action          exitAction
-	forceQuit       bool
-	message         string
-	clearMessage    bool
+	lines             [][]rune
+	row               int
+	col               int
+	top               int
+	left              int
+	width             int
+	height            int
+	mode              editorMode
+	command           string
+	commandPrefix     rune
+	pending           rune
+	dirty             bool
+	filename          string
+	showLineNumbers   bool
+	syntaxName        string
+	lexer             chroma.Lexer
+	formatter         chroma.Formatter
+	style             *chroma.Style
+	highlighted       []string
+	highlightOn       bool
+	highlightDirty    bool
+	lastSearch        string
+	lastSearchForward bool
+	action            exitAction
+	forceQuit         bool
+	message           string
+	clearMessage      bool
 }
 
 var (
@@ -77,6 +81,7 @@ func newEditorModel(content, filename string, lexer chroma.Lexer, syntaxName str
 		mode:            modeNormal,
 		filename:        filename,
 		showLineNumbers: showLineNumbers,
+		commandPrefix:   ':',
 	}
 	model.setSyntax(lexer, syntaxName)
 	return model
@@ -176,10 +181,16 @@ func (m *editorModel) handleCommand(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case tea.KeyEsc:
 		m.mode = modeNormal
 		m.command = ""
+		m.commandPrefix = ':'
 	case tea.KeyEnter:
-		m.executeCommand(strings.TrimSpace(m.command))
+		if m.commandPrefix == '/' {
+			m.executeSearch(strings.TrimSpace(m.command))
+		} else {
+			m.executeCommand(strings.TrimSpace(m.command))
+		}
 		m.command = ""
 		m.mode = modeNormal
+		m.commandPrefix = ':'
 		if m.action != actionNone {
 			return m, tea.Quit
 		}
@@ -277,6 +288,14 @@ func (m *editorModel) handleNormalRune(r rune) bool {
 		m.moveUp()
 	case 'l':
 		m.moveRight()
+	case 'w':
+		m.moveWordForward()
+	case 'b':
+		m.moveWordBackward()
+	case 'e':
+		m.moveWordEnd()
+	case '^':
+		m.moveLineFirstNonWhitespace()
 	case '0':
 		m.moveLineStart()
 	case '$':
@@ -304,9 +323,18 @@ func (m *editorModel) handleNormalRune(r rune) bool {
 		m.pending = 'g'
 	case 'G':
 		m.gotoBottom()
+	case 'n':
+		m.searchNext(true)
+	case 'N':
+		m.searchNext(false)
 	case ':':
 		m.mode = modeCommand
 		m.command = ""
+		m.commandPrefix = ':'
+	case '/':
+		m.mode = modeCommand
+		m.command = ""
+		m.commandPrefix = '/'
 	}
 
 	return false
@@ -416,15 +444,19 @@ func (m *editorModel) statusLine() string {
 
 func (m *editorModel) commandLine() string {
 	if m.mode == modeCommand {
-		return ":" + m.command
+		prefix := ":"
+		if m.commandPrefix == '/' {
+			prefix = "/"
+		}
+		return prefix + m.command
 	}
 	if m.message != "" {
 		return m.message
 	}
 	if m.mode == modeInsert {
-		return "ESC: normal  :wq save+quit  :q quit  :n line numbers  :<num> goto line"
+		return "ESC: normal  / search  :wq save+quit  :q quit  :n line numbers  :<num> goto line"
 	}
-	return "i: insert  h/j/k/l: move  :wq save+quit  :q quit  :n line numbers  :<num> goto line"
+	return "i: insert  h/j/k/l: move  / search  :wq save+quit  :q quit  :n line numbers  :<num> goto line"
 }
 
 func (m *editorModel) content() string {
@@ -559,6 +591,18 @@ func (m *editorModel) moveLineStart() {
 	m.col = 0
 }
 
+func (m *editorModel) moveLineFirstNonWhitespace() {
+	line := m.lines[m.row]
+	col := 0
+	for col < len(line) {
+		if line[col] != ' ' && line[col] != '\t' {
+			break
+		}
+		col++
+	}
+	m.col = col
+}
+
 func (m *editorModel) moveLineEnd() {
 	m.col = len(m.lines[m.row])
 }
@@ -593,6 +637,98 @@ func (m *editorModel) gotoLine(lineNumber int) {
 	m.row = lineNumber - 1
 	m.clampCol()
 	m.ensureCursorVisible()
+}
+
+func (m *editorModel) moveWordForward() {
+	row := m.row
+	col := m.col
+	for {
+		if row >= len(m.lines) {
+			return
+		}
+		line := m.lines[row]
+		if col >= len(line) {
+			row++
+			col = 0
+			continue
+		}
+		if isWordChar(line[col]) {
+			for col < len(line) && isWordChar(line[col]) {
+				col++
+			}
+		}
+		for col < len(line) && !isWordChar(line[col]) {
+			col++
+		}
+		if col < len(line) {
+			m.row = row
+			m.col = col
+			return
+		}
+		row++
+		col = 0
+	}
+}
+
+func (m *editorModel) moveWordBackward() {
+	row := m.row
+	col := m.col - 1
+	for {
+		if row < 0 {
+			return
+		}
+		line := m.lines[row]
+		if col >= len(line) {
+			col = len(line) - 1
+		}
+		for col >= 0 && (col >= len(line) || !isWordChar(line[col])) {
+			col--
+		}
+		for col >= 0 && isWordChar(line[col]) {
+			col--
+		}
+		if col+1 >= 0 && col+1 < len(line) {
+			m.row = row
+			m.col = col + 1
+			return
+		}
+		row--
+		if row >= 0 {
+			col = len(m.lines[row]) - 1
+		}
+	}
+}
+
+func (m *editorModel) moveWordEnd() {
+	row := m.row
+	col := m.col
+	for {
+		if row >= len(m.lines) {
+			return
+		}
+		line := m.lines[row]
+		if col >= len(line) {
+			row++
+			col = 0
+			continue
+		}
+		if isWordChar(line[col]) {
+			for col+1 < len(line) && isWordChar(line[col+1]) {
+				col++
+			}
+			m.row = row
+			m.col = col
+			return
+		}
+		for col < len(line) && !isWordChar(line[col]) {
+			col++
+		}
+		if col < len(line) {
+			continue
+		}
+		row++
+		col = 0
+	}
 }
 
 func (m *editorModel) clampCol() {
@@ -788,6 +924,104 @@ func (m *editorModel) applyCursor(rendered, highlighted string, line []rune, sta
 	return left + cursorStyle.Render(string(line[cursor])) + right
 }
 
+func (m *editorModel) executeSearch(pattern string) {
+	if pattern == "" {
+		if m.lastSearch == "" {
+			return
+		}
+		pattern = m.lastSearch
+	}
+	m.lastSearch = pattern
+	m.lastSearchForward = true
+	if !m.searchNext(true) {
+		m.message = fmt.Sprintf("Pattern not found: %s", pattern)
+		m.clearMessage = true
+	}
+}
+
+func (m *editorModel) searchNext(forward bool) bool {
+	pattern := m.lastSearch
+	if pattern == "" {
+		m.message = "No previous search"
+		m.clearMessage = true
+		return false
+	}
+	row, col, ok := m.findMatch(pattern, forward)
+	if !ok {
+		m.message = fmt.Sprintf("Pattern not found: %s", pattern)
+		m.clearMessage = true
+		return false
+	}
+	m.row = row
+	m.col = col
+	m.lastSearchForward = forward
+	m.ensureCursorVisible()
+	return true
+}
+
+func (m *editorModel) findMatch(pattern string, forward bool) (int, int, bool) {
+	if pattern == "" {
+		return 0, 0, false
+	}
+	pat := []rune(pattern)
+	if forward {
+		return m.findForward(pat)
+	}
+	return m.findBackward(pat)
+}
+
+func (m *editorModel) findForward(pattern []rune) (int, int, bool) {
+	row := m.row
+	col := m.col + 1
+	for r := row; r < len(m.lines); r++ {
+		line := m.lines[r]
+		start := 0
+		if r == row {
+			start = col
+		}
+		if idx := indexOfRunes(line, pattern, start); idx >= 0 {
+			return r, idx, true
+		}
+	}
+	for r := 0; r <= row && r < len(m.lines); r++ {
+		line := m.lines[r]
+		end := len(line)
+		if r == row {
+			end = min(end, col)
+		}
+		if idx := indexOfRunes(line, pattern, 0); idx >= 0 && idx < end {
+			return r, idx, true
+		}
+	}
+	return 0, 0, false
+}
+
+func (m *editorModel) findBackward(pattern []rune) (int, int, bool) {
+	row := m.row
+	col := m.col - 1
+	for r := row; r >= 0; r-- {
+		line := m.lines[r]
+		end := len(line)
+		if r == row {
+			end = col + 1
+		}
+		if idx := lastIndexOfRunes(line, pattern, end); idx >= 0 {
+			return r, idx, true
+		}
+	}
+	for r := len(m.lines) - 1; r >= row && r >= 0; r-- {
+		line := m.lines[r]
+		end := len(line)
+		if r == row {
+			end = len(line)
+		}
+		if idx := lastIndexOfRunes(line, pattern, end); idx >= 0 {
+			return r, idx, true
+		}
+	}
+	return 0, 0, false
+}
+
 func splitLines(content string) [][]rune {
 	parts := strings.Split(content, "\n")
 	if len(parts) == 0 {
@@ -818,6 +1052,64 @@ func isDigits(value string) bool {
 		}
 	}
 	return true
+}
+
+func isWordChar(r rune) bool {
+	return r == '_' || unicode.IsLetter(r) || unicode.IsDigit(r)
+}
+
+func indexOfRunes(haystack, needle []rune, start int) int {
+	if len(needle) == 0 {
+		return -1
+	}
+	if start < 0 {
+		start = 0
+	}
+	if start >= len(haystack) {
+		return -1
+	}
+	for i := start; i+len(needle) <= len(haystack); i++ {
+		match := true
+		for j := range needle {
+			if haystack[i+j] != needle[j] {
+				match = false
+				break
+			}
+		}
+		if match {
+			return i
+		}
+	}
+	return -1
+}
+
+func lastIndexOfRunes(haystack, needle []rune, end int) int {
+	if len(needle) == 0 {
+		return -1
+	}
+	if end > len(haystack) {
+		end = len(haystack)
+	}
+	for i := end - len(needle); i >= 0; i-- {
+		match := true
+		for j := range needle {
+			if haystack[i+j] != needle[j] {
+				match = false
+				break
+			}
+		}
+		if match {
+			return i
+		}
+	}
+	return -1
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func baseName(path string) string {
