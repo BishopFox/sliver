@@ -2,6 +2,7 @@ package shellcode
 
 import (
 	"github.com/bishopfox/sliver/server/encoders/shellcode/amd64"
+	"github.com/bishopfox/sliver/server/encoders/shellcode/sgn"
 )
 
 type ShellcodeEncoderArgs struct {
@@ -48,11 +49,35 @@ func (e *XorDynamicEncoder) Description() string {
 	return "An x64 XOR encoder with dynamic key size for AMD64"
 }
 
+type ShikataGaNaiEncoderAmd64 struct{}
+
+func (e *ShikataGaNaiEncoderAmd64) Encode(data []byte, args ShellcodeEncoderArgs) ([]byte, error) {
+	return sgn.EncodeShellcode(data, "amd64", args.Iterations, []byte{})
+}
+
+func (e *ShikataGaNaiEncoderAmd64) Description() string {
+	return "Shikata Ga Nai encoder for AMD64"
+}
+
+type ShikataGaNaiEncoder386 struct{}
+
+func (e *ShikataGaNaiEncoder386) Encode(data []byte, args ShellcodeEncoderArgs) ([]byte, error) {
+	return sgn.EncodeShellcode(data, "386", args.Iterations, []byte{})
+}
+
+func (e *ShikataGaNaiEncoder386) Description() string {
+	return "Shikata Ga Nai encoder for 386"
+}
+
 var (
 	ShellcodeEncoders = map[string]map[string]ShellcodeEncoder{
 		"amd64": {
-			"xor":         &XorEncoder{},
-			"xor_dynamic": &XorDynamicEncoder{},
+			"xor":            &XorEncoder{},
+			"xor_dynamic":    &XorDynamicEncoder{},
+			"shikata_ga_nai": &ShikataGaNaiEncoderAmd64{},
+		},
+		"386": {
+			"shikata_ga_nai": &ShikataGaNaiEncoder386{},
 		},
 	}
 )
