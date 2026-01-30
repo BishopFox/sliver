@@ -37,8 +37,6 @@ var (
 
 // SGNConfig - Configuration for sgn
 type SGNConfig struct {
-	AppDir string
-
 	Architecture   string // Binary architecture (32/64) (default 32)
 	Asci           bool   // Generates a full ASCI printable payload (takes very long time to bruteforce)
 	BadChars       []byte // Don't use specified bad characters given in hex format (\x00\x01\x02...)

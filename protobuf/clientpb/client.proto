@@ -690,6 +690,8 @@ message Backdoor { commonpb.Response Response = 9; }
 enum ShellcodeEncoder {
   NONE = 0;
   SHIKATA_GA_NAI = 1;
+  XOR = 2;
+  XOR_DYNAMIC = 3;
 }
 
 message ShellcodeEncodeReq {
@@ -697,6 +699,7 @@ message ShellcodeEncodeReq {
   string Architecture = 2;
   uint32 Iterations = 3;
   bytes BadChars = 4;
+  reserved 5;
 
   bytes Data = 8;
   commonpb.Request Request = 9;
@@ -708,7 +711,14 @@ message ShellcodeEncode {
   commonpb.Response Response = 9;
 }
 
-message ShellcodeEncoderMap { map<string, ShellcodeEncoder> Encoders = 1; }
+message ShellcodeEncoderArchMap {
+  map<string, ShellcodeEncoder> Encoders = 1;
+  map<string, string> Descriptions = 2;
+}
+
+message ShellcodeEncoderMap {
+  map<string, ShellcodeEncoderArchMap> Encoders = 1;
+}
 
 // [ Builder ] ----------------------------------------
 
