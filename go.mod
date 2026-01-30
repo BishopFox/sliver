@@ -94,6 +94,7 @@ require (
 	github.com/MicahParks/keyfunc v1.9.0 // indirect
 	github.com/PagerDuty/go-pagerduty v1.8.0 // indirect
 	github.com/RocketChat/Rocket.Chat.Go.SDK v0.0.0-20250718055228-285ecf400b48 // indirect
+	github.com/alecthomas/chroma/v2 v2.23.1 // indirect
 	github.com/appleboy/go-fcm v1.2.6 // indirect
 	github.com/atc0005/go-teams-notify/v2 v2.14.0 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.5 // indirect

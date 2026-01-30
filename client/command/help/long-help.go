@@ -47,38 +47,44 @@ var (
 		consts.GenerateStr:      generateHelp,
 		consts.StageListenerStr: stageListenerHelp,
 
-		consts.MsfStr:              msfHelp,
-		consts.MsfInjectStr:        msfInjectHelp,
-		consts.PsStr:               psHelp,
-		consts.PingStr:             pingHelp,
-		consts.KillStr:             killHelp,
-		consts.LsStr:               lsHelp,
-		consts.CdStr:               cdHelp,
-		consts.PwdStr:              pwdHelp,
-		consts.CatStr:              catHelp,
-		consts.DownloadStr:         downloadHelp,
-		consts.GrepStr:             grepHelp,
-		consts.HeadStr:             headHelp,
-		consts.TailStr:             tailHelp,
-		consts.UploadStr:           uploadHelp,
-		consts.MkdirStr:            mkdirHelp,
-		consts.RmStr:               rmHelp,
-		consts.ProcdumpStr:         procdumpHelp,
-		consts.ElevateStr:          elevateHelp,
-		consts.RunAsStr:            runAsHelp,
-		consts.ImpersonateStr:      impersonateHelp,
-		consts.RevToSelfStr:        revToSelfHelp,
-		consts.ExecuteStr:          executeHelp,
-		consts.ExecuteAssemblyStr:  executeAssemblyHelp,
-		consts.ExecuteShellcodeStr: executeShellcodeHelp,
-		consts.MigrateStr:          migrateHelp,
-		consts.SideloadStr:         sideloadHelp,
-		consts.TerminateStr:        terminateHelp,
-		consts.AliasesStr:          loadAliasHelp,
-		consts.PsExecStr:           psExecHelp,
-		consts.BackdoorStr:         backdoorHelp,
-		consts.SpawnDllStr:         spawnDllHelp,
-		consts.MountStr:            mountHelp,
+		consts.MsfStr:               msfHelp,
+		consts.MsfInjectStr:         msfInjectHelp,
+		consts.PsStr:                psHelp,
+		consts.PingStr:              pingHelp,
+		consts.KillStr:              killHelp,
+		consts.LsStr:                lsHelp,
+		consts.CdStr:                cdHelp,
+		consts.PwdStr:               pwdHelp,
+		consts.CatStr:               catHelp,
+		consts.EditStr:              editHelp,
+		consts.HexEditStr:           hexEditHelp,
+		consts.DownloadStr:          downloadHelp,
+		consts.GrepStr:              grepHelp,
+		consts.HeadStr:              headHelp,
+		consts.TailStr:              tailHelp,
+		consts.UploadStr:            uploadHelp,
+		consts.MkdirStr:             mkdirHelp,
+		consts.RmStr:                rmHelp,
+		consts.ChtimesStr:           chtimesHelp,
+		consts.ProcdumpStr:          procdumpHelp,
+		consts.ElevateStr:           elevateHelp,
+		consts.RunAsStr:             runAsHelp,
+		consts.ImpersonateStr:       impersonateHelp,
+		consts.RevToSelfStr:         revToSelfHelp,
+		consts.ExecuteStr:           executeHelp,
+		consts.ExecuteAssemblyStr:   executeAssemblyHelp,
+		consts.ExecuteShellcodeStr:  executeShellcodeHelp,
+		consts.MigrateStr:           migrateHelp,
+		consts.SideloadStr:          sideloadHelp,
+		consts.TerminateStr:         terminateHelp,
+		consts.AliasesStr:           loadAliasHelp,
+		consts.PsExecStr:            psExecHelp,
+		consts.BackdoorStr:          backdoorHelp,
+		consts.SpawnDllStr:          spawnDllHelp,
+		consts.MountStr:             mountHelp,
+		consts.ShikataGaNai:         shikataGaNaiHelp,
+		consts.ShellcodeEncodersStr: shellcodeEncodersHelp,
+		consts.ShellcodeEncodersStr + sep + "encode": shellcodeEncodersEncodeHelp,
 
 		consts.WebsitesStr:                                  websitesHelp,
 		consts.ScreenshotStr:                                screenshotHelp,
@@ -298,8 +304,38 @@ On Windows, escaping is disabled. Instead, '\\' is treated as path separator.
 	rmHelp = `[[.Bold]]Command:[[.Normal]] rm [remote path]
 [[.Bold]]About:[[.Normal]] Delete a remote file or directory.`
 
+	chtimesHelp = `[[.Bold]]Command:[[.Normal]] chtimes [--unix | --unix-ms | --rfc3339 | --rfc1123] <path> <atime> <mtime>
+[[.Bold]]About:[[.Normal]] Change access and modification times on a file (timestomp).
+
+[[.Bold]][[.Underline]]Time Formats[[.Normal]]
+Default (datetime): "2006-01-02 15:04:05"
+--unix: 1704067200
+--unix-ms: 1704067200000
+--rfc3339: 2024-01-01T00:00:00Z
+--rfc1123: Mon, 02 Jan 2006 15:04:05 MST
+
+[[.Bold]][[.Underline]]Examples[[.Normal]]
+chtimes /tmp/file "2024-01-01 12:34:56" "2024-01-01 12:35:56"
+chtimes --unix /tmp/file 1704112496 1704112556
+chtimes --unix-ms /tmp/file 1704112496000 1704112556000
+chtimes --rfc3339 /tmp/file 2024-01-01T12:34:56Z 2024-01-01T12:35:56Z
+chtimes --rfc1123 /tmp/file "Mon, 02 Jan 2006 15:04:05 MST" "Mon, 02 Jan 2006 16:04:05 MST"
+`
+
 	catHelp = `[[.Bold]]Command:[[.Normal]] cat <remote path> 
 [[.Bold]]About:[[.Normal]] Cat a remote file to stdout.`
+
+	editHelp = `[[.Bold]]Command:[[.Normal]] edit <remote path>
+[[.Bold]]About:[[.Normal]] Download a remote text file, edit it in a built-in TUI editor, and optionally upload changes.
+[[.Bold]]Keys:[[.Normal]] Normal mode uses vim-like navigation (h/j/k/l) and insert mode (i). Use :wq to save+quit or :q to quit.
+[[.Bold]]Syntax:[[.Normal]] Use --syntax <lexer> to force a lexer or --syntax-select to pick one interactively.
+[[.Bold]]Line Numbers:[[.Normal]] Use --line-numbers to start with line numbers on; toggle with :n.`
+
+	hexEditHelp = `[[.Bold]]Command:[[.Normal]] hex-edit [--max-size <size>] [--offset <byte offset>] <remote path>
+[[.Bold]]About:[[.Normal]] Download a remote file and edit it in a built-in hex editor, then optionally upload changes.
+[[.Bold]]Keys:[[.Normal]] Normal mode uses vim-like navigation (h/j/k/l). Use i for hex edit mode, a for ASCII edit mode, :wq to save+quit or :q to quit.
+[[.Bold]]Size Limit:[[.Normal]] Default max size is 8MB. Use --max-size to override (e.g., 512KB, 12MB).
+[[.Bold]]Offset:[[.Normal]] Use --offset to jump to a specific byte offset when opening the file.`
 
 	downloadHelp = `[[.Bold]]Command:[[.Normal]] download [remote src] <local dst>
 [[.Bold]]About:[[.Normal]] Download a file or directory from the remote system. Directories will be downloaded as a gzipped TAR file.
@@ -384,6 +420,42 @@ On Windows, escaping is disabled. Instead, '\\' is treated as path separator.`
 [[.Bold]][[.Underline]]++ Shellcode ++[[.Normal]]
 Shellcode files should be binary encoded, you can generate Sliver shellcode files with the generate command:
 	generate --format shellcode
+`
+	shikataGaNaiHelp = `[[.Bold]]Command:[[.Normal]] shikata-ga-nai [local path to raw shellcode]
+[[.Bold]]About:[[.Normal]] Encodes shellcode with Shikata Ga Nai. This uses the same backend implementation as
+[[.Bold]]shellcode-encoders encode[[.Normal]] with the shikata_ga_nai encoder, but exposes SGN-specific options
+like architecture, iterations, and bad characters.
+
+[[.Bold]][[.Underline]]++ Examples ++[[.Normal]]
+Encode x64 shellcode with 3 iterations:
+	shikata-ga-nai -a amd64 -i 3 /tmp/payload.bin
+
+Avoid bad chars and write to a file:
+	shikata-ga-nai -b 000a0d -s /tmp/payload.sgn /tmp/payload.bin
+
+[[.Bold]]Related:[[.Normal]] shellcode-encoders encode --encoder shikata_ga_nai ...`
+
+	shellcodeEncodersHelp = `[[.Bold]]Command:[[.Normal]] shellcode-encoders
+[[.Bold]]About:[[.Normal]] Lists the shellcode encoders supported by the server along with architectures and descriptions.
+
+[[.Bold]][[.Underline]]++ Examples ++[[.Normal]]
+List encoders and supported architectures:
+	shellcode-encoders
+`
+
+	shellcodeEncodersEncodeHelp = `[[.Bold]]Command:[[.Normal]] shellcode-encoders encode [local path to raw shellcode]...
+[[.Bold]]About:[[.Normal]] Encodes one or more shellcode files using a server-side encoder. Encoder support depends on
+architecture; use [[.Bold]]shellcode-encoders[[.Normal]] to list valid combinations.
+
+[[.Bold]][[.Underline]]++ Examples ++[[.Normal]]
+Encode a single file with shikata_ga_nai:
+	shellcode-encoders encode --encoder shikata_ga_nai --arch amd64 /tmp/payload.bin
+
+Encode multiple files and write outputs to a directory:
+	shellcode-encoders encode --encoder xor --arch amd64 -o /tmp/out payload1.bin payload2.bin
+
+Avoid bad characters with SGN:
+	shellcode-encoders encode --encoder shikata_ga_nai --arch 386 -b 000a0d -o /tmp/encoded.bin /tmp/payload.bin
 `
 
 	migrateHelp = `[[.Bold]]Command:[[.Normal]] migrate <flags>

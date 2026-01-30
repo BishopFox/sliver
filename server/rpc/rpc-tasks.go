@@ -38,7 +38,7 @@ import (
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
-	"github.com/bishopfox/sliver/server/sgn"
+	"github.com/bishopfox/sliver/server/encoders/shellcode/sgn"
 	"github.com/bishopfox/sliver/util"
 
 	"google.golang.org/grpc/codes"

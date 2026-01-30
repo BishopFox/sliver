@@ -150,11 +150,15 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	}
 	flags.Bind("", false, chtimesCmd, func(f *pflag.FlagSet) {
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+		f.Bool("unix", false, "interpret timestamps as Unix seconds")
+		f.Bool("unix-ms", false, "interpret timestamps as Unix milliseconds")
+		f.Bool("rfc3339", false, "interpret timestamps as RFC3339")
+		f.Bool("rfc1123", false, "interpret timestamps as RFC1123")
 	})
 	carapace.Gen(chtimesCmd).PositionalCompletion(
 		carapace.ActionValues().Usage("path to file to change access timestamps"),
-		carapace.ActionValues().Usage("last accessed time in DateTime format, i.e. 2006-01-02 15:04:05"),
-		carapace.ActionValues().Usage("last modified time in DateTime format, i.e. 2006-01-02 15:04:05"),
+		carapace.ActionValues().Usage("last accessed time (default: 2006-01-02 15:04:05; see --help for format flags)"),
+		carapace.ActionValues().Usage("last modified time (default: 2006-01-02 15:04:05; see --help for format flags)"),
 	)
 
 	getprivsCmd := &cobra.Command{

@@ -23,7 +23,6 @@ import (
 	"crypto/rand"
 	insecureRand "math/rand"
 	"testing"
-	"time"
 
 	implantEncoders "github.com/bishopfox/sliver/implant/sliver/encoders"
 	util "github.com/bishopfox/sliver/util/encoders"
@@ -32,10 +31,6 @@ import (
 const (
 	sampleSizeMax = 8192
 )
-
-func init() {
-	insecureRand.Seed(time.Now().Unix())
-}
 
 func randomDataRandomSize(maxSize int) []byte {
 	buf := make([]byte, insecureRand.Intn(maxSize))
