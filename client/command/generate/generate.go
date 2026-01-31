@@ -409,6 +409,12 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		return "", nil
 	}
 
+	donutConfig, err := parseDonutFlags(cmd, targetOS, configFormat, con)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return "", nil
+	}
+
 	var tunIP net.IP
 	if wg, _ := cmd.Flags().GetString("wg"); wg != "" {
 		uniqueWGIP, err := con.Rpc.GenerateUniqueIP(context.Background(), &commonpb.Empty{})
@@ -480,9 +486,66 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 
 		DebugFile:        debugFile,
 		HTTPC2ConfigName: c2Profile,
+		DonutConfig:      donutConfig,
 	}
 
 	return name, config
+}
+
+func parseDonutFlags(cmd *cobra.Command, targetOS string, configFormat clientpb.OutputFormat, con *console.SliverClient) (*clientpb.DonutConfig, error) {
+	donutEntropy, _ := cmd.Flags().GetUint32("donut-entropy")
+	donutCompressEnabled, _ := cmd.Flags().GetBool("donut-compress")
+	donutExitOpt, _ := cmd.Flags().GetUint32("donut-exitopt")
+	donutBypass, _ := cmd.Flags().GetUint32("donut-bypass")
+	donutHeaders, _ := cmd.Flags().GetUint32("donut-headers")
+	donutThread, _ := cmd.Flags().GetBool("donut-thread")
+	donutUnicode, _ := cmd.Flags().GetBool("donut-unicode")
+	donutOEP, _ := cmd.Flags().GetUint32("donut-oep")
+
+	anyChanged := cmd.Flags().Changed("donut-entropy") ||
+		cmd.Flags().Changed("donut-compress") ||
+		cmd.Flags().Changed("donut-exitopt") ||
+		cmd.Flags().Changed("donut-bypass") ||
+		cmd.Flags().Changed("donut-headers") ||
+		cmd.Flags().Changed("donut-thread") ||
+		cmd.Flags().Changed("donut-unicode") ||
+		cmd.Flags().Changed("donut-oep")
+
+	if targetOS != "windows" || configFormat != clientpb.OutputFormat_SHELLCODE {
+		if anyChanged {
+			con.PrintWarnf("Donut options only apply to Windows shellcode, ignoring.\n")
+		}
+		return nil, nil
+	}
+
+	if donutEntropy < 1 || donutEntropy > 3 {
+		return nil, fmt.Errorf("donut-entropy must be between 1 and 3")
+	}
+	if donutExitOpt < 1 || donutExitOpt > 3 {
+		return nil, fmt.Errorf("donut-exitopt must be between 1 and 3")
+	}
+	if donutBypass < 1 || donutBypass > 3 {
+		return nil, fmt.Errorf("donut-bypass must be between 1 and 3")
+	}
+	if donutHeaders < 1 || donutHeaders > 2 {
+		return nil, fmt.Errorf("donut-headers must be 1 or 2")
+	}
+
+	donutCompress := uint32(1)
+	if donutCompressEnabled {
+		donutCompress = 2
+	}
+
+	return &clientpb.DonutConfig{
+		Entropy:  donutEntropy,
+		Compress: donutCompress,
+		ExitOpt:  donutExitOpt,
+		Bypass:   donutBypass,
+		Headers:  donutHeaders,
+		Thread:   donutThread,
+		Unicode:  donutUnicode,
+		OEP:      donutOEP,
+	}, nil
 }
 
 // parseTrafficEncoderArgs - parses the traffic encoder args and returns a bool indicating if traffic encoders are enabled.

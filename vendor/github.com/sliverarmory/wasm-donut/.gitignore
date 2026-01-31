@@ -1,0 +1,8 @@
+/.emscripten_cache
+/wasm-donut
+*.exe
+*.dll
+*.so
+*.dylib
+*.bin
+.DS_Store

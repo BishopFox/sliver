@@ -9,7 +9,7 @@ Server-side code generation and scaffolding utilities. Automates creation of boi
 - `binaries.go` – Generates binary artifacts and handles output formatting.
 - `binaries_test.go` *(tests)* – Tests binary generation workflows.
 - `canaries.go` – Generates DNS canary assets and configuration.
-- `donut.go` – Integrates with Donut to build .NET loaders.
+- `donut.go` – Integrates with wasm-donut to build .NET loaders.
 - `external.go` – Coordinates external builder invocations.
 - `implants.go` – Generates implant binaries from configs.
 - `profiles.go` – Creates implant profiles and configuration templates.

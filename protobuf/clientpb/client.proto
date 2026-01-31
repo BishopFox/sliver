@@ -132,6 +132,25 @@ enum OutputFormat {
   THIRD_PARTY = 4;
 }
 
+message DonutConfig {
+  // 1=none, 2=random names, 3=random names + symmetric encryption
+  uint32 Entropy = 2;
+  // 1=none, 2=aplib
+  uint32 Compress = 3;
+  // 1=exit thread, 2=exit process, 3=block
+  uint32 ExitOpt = 4;
+  // 1=none, 2=abort on failure, 3=continue on failure
+  uint32 Bypass = 5;
+  // 1=overwrite headers, 2=keep headers
+  uint32 Headers = 6;
+  // Run unmanaged EXE entrypoint as a new thread
+  bool Thread = 7;
+  // Convert command line to Unicode for unmanaged DLL entrypoints
+  bool Unicode = 8;
+  // Override original entry point (0 = default)
+  uint32 OEP = 9;
+}
+
 message ImplantConfig {
   string ID = 1;
   repeated ImplantBuild ImplantBuilds = 2;
@@ -184,6 +203,7 @@ message ImplantConfig {
   bool RunAtLoad = 105;
   string DebugFile = 106;
   repeated string exports = 107;
+  DonutConfig DonutConfig = 108;
 
   string HTTPC2ConfigName = 150;
   bool NetGoEnabled = 151;
