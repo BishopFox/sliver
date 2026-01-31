@@ -2078,6 +2078,81 @@ func (x *ImplantC2) GetOptions() string {
 	return ""
 }
 
+type DonutConfig struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// 1=skip, 2=abort on fail, 3=continue on fail
+	Bypass uint32 `protobuf:"varint,1,opt,name=Bypass,proto3" json:"Bypass,omitempty"`
+	// 0=sliver default, 1=disable, 2=random names, 3=random names + symmetric encryption
+	Entropy uint32 `protobuf:"varint,2,opt,name=Entropy,proto3" json:"Entropy,omitempty"`
+	// 1=disable, 2=LZNT1, 3=Xpress, 4=Xpress Huffman
+	Compress uint32 `protobuf:"varint,3,opt,name=Compress,proto3" json:"Compress,omitempty"`
+	// 1=exit thread, 2=exit process
+	ExitOpt uint32 `protobuf:"varint,4,opt,name=ExitOpt,proto3" json:"ExitOpt,omitempty"`
+}
+
+func (x *DonutConfig) Reset() {
+	*x = DonutConfig{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_clientpb_client_proto_msgTypes[9]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *DonutConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DonutConfig) ProtoMessage() {}
+
+func (x *DonutConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[9]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DonutConfig.ProtoReflect.Descriptor instead.
+func (*DonutConfig) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *DonutConfig) GetBypass() uint32 {
+	if x != nil {
+		return x.Bypass
+	}
+	return 0
+}
+
+func (x *DonutConfig) GetEntropy() uint32 {
+	if x != nil {
+		return x.Entropy
+	}
+	return 0
+}
+
+func (x *DonutConfig) GetCompress() uint32 {
+	if x != nil {
+		return x.Compress
+	}
+	return 0
+}
+
+func (x *DonutConfig) GetExitOpt() uint32 {
+	if x != nil {
+		return x.ExitOpt
+	}
+	return 0
+}
+
 type ImplantConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2126,6 +2201,7 @@ type ImplantConfig struct {
 	RunAtLoad              bool             `protobuf:"varint,105,opt,name=RunAtLoad,proto3" json:"RunAtLoad,omitempty"`
 	DebugFile              string           `protobuf:"bytes,106,opt,name=DebugFile,proto3" json:"DebugFile,omitempty"`
 	Exports                []string         `protobuf:"bytes,107,rep,name=exports,proto3" json:"exports,omitempty"`
+	DonutConfig            *DonutConfig     `protobuf:"bytes,108,opt,name=DonutConfig,proto3" json:"DonutConfig,omitempty"`
 	HTTPC2ConfigName       string           `protobuf:"bytes,150,opt,name=HTTPC2ConfigName,proto3" json:"HTTPC2ConfigName,omitempty"`
 	NetGoEnabled           bool             `protobuf:"varint,151,opt,name=NetGoEnabled,proto3" json:"NetGoEnabled,omitempty"`
 	TrafficEncodersEnabled bool             `protobuf:"varint,152,opt,name=TrafficEncodersEnabled,proto3" json:"TrafficEncodersEnabled,omitempty"`
@@ -2137,7 +2213,7 @@ type ImplantConfig struct {
 func (x *ImplantConfig) Reset() {
 	*x = ImplantConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[9]
+		mi := &file_clientpb_client_proto_msgTypes[10]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2150,7 +2226,7 @@ func (x *ImplantConfig) String() string {
 func (*ImplantConfig) ProtoMessage() {}
 
 func (x *ImplantConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[9]
+	mi := &file_clientpb_client_proto_msgTypes[10]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2163,7 +2239,7 @@ func (x *ImplantConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImplantConfig.ProtoReflect.Descriptor instead.
 func (*ImplantConfig) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{9}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ImplantConfig) GetID() string {
@@ -2460,6 +2536,13 @@ func (x *ImplantConfig) GetExports() []string {
 	return nil
 }
 
+func (x *ImplantConfig) GetDonutConfig() *DonutConfig {
+	if x != nil {
+		return x.DonutConfig
+	}
+	return nil
+}
+
 func (x *ImplantConfig) GetHTTPC2ConfigName() string {
 	if x != nil {
 		return x.HTTPC2ConfigName
@@ -2516,7 +2599,7 @@ type TrafficEncoder struct {
 func (x *TrafficEncoder) Reset() {
 	*x = TrafficEncoder{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[10]
+		mi := &file_clientpb_client_proto_msgTypes[11]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2529,7 +2612,7 @@ func (x *TrafficEncoder) String() string {
 func (*TrafficEncoder) ProtoMessage() {}
 
 func (x *TrafficEncoder) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[10]
+	mi := &file_clientpb_client_proto_msgTypes[11]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2542,7 +2625,7 @@ func (x *TrafficEncoder) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TrafficEncoder.ProtoReflect.Descriptor instead.
 func (*TrafficEncoder) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{10}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *TrafficEncoder) GetID() uint64 {
@@ -2585,7 +2668,7 @@ type TrafficEncoderMap struct {
 func (x *TrafficEncoderMap) Reset() {
 	*x = TrafficEncoderMap{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[11]
+		mi := &file_clientpb_client_proto_msgTypes[12]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2598,7 +2681,7 @@ func (x *TrafficEncoderMap) String() string {
 func (*TrafficEncoderMap) ProtoMessage() {}
 
 func (x *TrafficEncoderMap) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[11]
+	mi := &file_clientpb_client_proto_msgTypes[12]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2611,7 +2694,7 @@ func (x *TrafficEncoderMap) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TrafficEncoderMap.ProtoReflect.Descriptor instead.
 func (*TrafficEncoderMap) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{11}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *TrafficEncoderMap) GetEncoders() map[string]*TrafficEncoder {
@@ -2637,7 +2720,7 @@ type TrafficEncoderTest struct {
 func (x *TrafficEncoderTest) Reset() {
 	*x = TrafficEncoderTest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[12]
+		mi := &file_clientpb_client_proto_msgTypes[13]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2650,7 +2733,7 @@ func (x *TrafficEncoderTest) String() string {
 func (*TrafficEncoderTest) ProtoMessage() {}
 
 func (x *TrafficEncoderTest) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[12]
+	mi := &file_clientpb_client_proto_msgTypes[13]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2663,7 +2746,7 @@ func (x *TrafficEncoderTest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TrafficEncoderTest.ProtoReflect.Descriptor instead.
 func (*TrafficEncoderTest) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{12}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *TrafficEncoderTest) GetName() string {
@@ -2722,7 +2805,7 @@ type TrafficEncoderTests struct {
 func (x *TrafficEncoderTests) Reset() {
 	*x = TrafficEncoderTests{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[13]
+		mi := &file_clientpb_client_proto_msgTypes[14]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2735,7 +2818,7 @@ func (x *TrafficEncoderTests) String() string {
 func (*TrafficEncoderTests) ProtoMessage() {}
 
 func (x *TrafficEncoderTests) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[13]
+	mi := &file_clientpb_client_proto_msgTypes[14]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2748,7 +2831,7 @@ func (x *TrafficEncoderTests) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TrafficEncoderTests.ProtoReflect.Descriptor instead.
 func (*TrafficEncoderTests) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{13}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *TrafficEncoderTests) GetEncoder() *TrafficEncoder {
@@ -2793,7 +2876,7 @@ type ExternalImplantConfig struct {
 func (x *ExternalImplantConfig) Reset() {
 	*x = ExternalImplantConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[14]
+		mi := &file_clientpb_client_proto_msgTypes[15]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2806,7 +2889,7 @@ func (x *ExternalImplantConfig) String() string {
 func (*ExternalImplantConfig) ProtoMessage() {}
 
 func (x *ExternalImplantConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[14]
+	mi := &file_clientpb_client_proto_msgTypes[15]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2819,7 +2902,7 @@ func (x *ExternalImplantConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExternalImplantConfig.ProtoReflect.Descriptor instead.
 func (*ExternalImplantConfig) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{14}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ExternalImplantConfig) GetConfig() *ImplantConfig {
@@ -2863,7 +2946,7 @@ type ExternalImplantBinary struct {
 func (x *ExternalImplantBinary) Reset() {
 	*x = ExternalImplantBinary{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[15]
+		mi := &file_clientpb_client_proto_msgTypes[16]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2876,7 +2959,7 @@ func (x *ExternalImplantBinary) String() string {
 func (*ExternalImplantBinary) ProtoMessage() {}
 
 func (x *ExternalImplantBinary) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[15]
+	mi := &file_clientpb_client_proto_msgTypes[16]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2889,7 +2972,7 @@ func (x *ExternalImplantBinary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExternalImplantBinary.ProtoReflect.Descriptor instead.
 func (*ExternalImplantBinary) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{15}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ExternalImplantBinary) GetName() string {
@@ -2927,7 +3010,7 @@ type ImplantBuilds struct {
 func (x *ImplantBuilds) Reset() {
 	*x = ImplantBuilds{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[16]
+		mi := &file_clientpb_client_proto_msgTypes[17]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2940,7 +3023,7 @@ func (x *ImplantBuilds) String() string {
 func (*ImplantBuilds) ProtoMessage() {}
 
 func (x *ImplantBuilds) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[16]
+	mi := &file_clientpb_client_proto_msgTypes[17]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2953,7 +3036,7 @@ func (x *ImplantBuilds) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImplantBuilds.ProtoReflect.Descriptor instead.
 func (*ImplantBuilds) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{16}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ImplantBuilds) GetConfigs() map[string]*ImplantConfig {
@@ -2988,7 +3071,7 @@ type ImplantStageReq struct {
 func (x *ImplantStageReq) Reset() {
 	*x = ImplantStageReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[17]
+		mi := &file_clientpb_client_proto_msgTypes[18]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3001,7 +3084,7 @@ func (x *ImplantStageReq) String() string {
 func (*ImplantStageReq) ProtoMessage() {}
 
 func (x *ImplantStageReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[17]
+	mi := &file_clientpb_client_proto_msgTypes[18]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3014,7 +3097,7 @@ func (x *ImplantStageReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImplantStageReq.ProtoReflect.Descriptor instead.
 func (*ImplantStageReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{17}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ImplantStageReq) GetBuild() []string {
@@ -3054,7 +3137,7 @@ type ImplantBuild struct {
 func (x *ImplantBuild) Reset() {
 	*x = ImplantBuild{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[18]
+		mi := &file_clientpb_client_proto_msgTypes[19]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3067,7 +3150,7 @@ func (x *ImplantBuild) String() string {
 func (*ImplantBuild) ProtoMessage() {}
 
 func (x *ImplantBuild) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[18]
+	mi := &file_clientpb_client_proto_msgTypes[19]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3080,7 +3163,7 @@ func (x *ImplantBuild) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImplantBuild.ProtoReflect.Descriptor instead.
 func (*ImplantBuild) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{18}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ImplantBuild) GetID() string {
@@ -3236,7 +3319,7 @@ type CompilerTarget struct {
 func (x *CompilerTarget) Reset() {
 	*x = CompilerTarget{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[19]
+		mi := &file_clientpb_client_proto_msgTypes[20]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3249,7 +3332,7 @@ func (x *CompilerTarget) String() string {
 func (*CompilerTarget) ProtoMessage() {}
 
 func (x *CompilerTarget) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[19]
+	mi := &file_clientpb_client_proto_msgTypes[20]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3262,7 +3345,7 @@ func (x *CompilerTarget) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompilerTarget.ProtoReflect.Descriptor instead.
 func (*CompilerTarget) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{19}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *CompilerTarget) GetGOOS() string {
@@ -3300,7 +3383,7 @@ type CrossCompiler struct {
 func (x *CrossCompiler) Reset() {
 	*x = CrossCompiler{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[20]
+		mi := &file_clientpb_client_proto_msgTypes[21]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3313,7 +3396,7 @@ func (x *CrossCompiler) String() string {
 func (*CrossCompiler) ProtoMessage() {}
 
 func (x *CrossCompiler) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[20]
+	mi := &file_clientpb_client_proto_msgTypes[21]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3326,7 +3409,7 @@ func (x *CrossCompiler) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrossCompiler.ProtoReflect.Descriptor instead.
 func (*CrossCompiler) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{20}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *CrossCompiler) GetTargetGOOS() string {
@@ -3372,7 +3455,7 @@ type Compiler struct {
 func (x *Compiler) Reset() {
 	*x = Compiler{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[21]
+		mi := &file_clientpb_client_proto_msgTypes[22]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3385,7 +3468,7 @@ func (x *Compiler) String() string {
 func (*Compiler) ProtoMessage() {}
 
 func (x *Compiler) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[21]
+	mi := &file_clientpb_client_proto_msgTypes[22]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3398,7 +3481,7 @@ func (x *Compiler) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Compiler.ProtoReflect.Descriptor instead.
 func (*Compiler) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{21}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *Compiler) GetGOOS() string {
@@ -3447,7 +3530,7 @@ type DeleteReq struct {
 func (x *DeleteReq) Reset() {
 	*x = DeleteReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[22]
+		mi := &file_clientpb_client_proto_msgTypes[23]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3460,7 +3543,7 @@ func (x *DeleteReq) String() string {
 func (*DeleteReq) ProtoMessage() {}
 
 func (x *DeleteReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[22]
+	mi := &file_clientpb_client_proto_msgTypes[23]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3473,7 +3556,7 @@ func (x *DeleteReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteReq.ProtoReflect.Descriptor instead.
 func (*DeleteReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{22}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *DeleteReq) GetName() string {
@@ -3501,7 +3584,7 @@ type DNSCanary struct {
 func (x *DNSCanary) Reset() {
 	*x = DNSCanary{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[23]
+		mi := &file_clientpb_client_proto_msgTypes[24]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3514,7 +3597,7 @@ func (x *DNSCanary) String() string {
 func (*DNSCanary) ProtoMessage() {}
 
 func (x *DNSCanary) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[23]
+	mi := &file_clientpb_client_proto_msgTypes[24]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3527,7 +3610,7 @@ func (x *DNSCanary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DNSCanary.ProtoReflect.Descriptor instead.
 func (*DNSCanary) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{23}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *DNSCanary) GetID() string {
@@ -3590,7 +3673,7 @@ type Canaries struct {
 func (x *Canaries) Reset() {
 	*x = Canaries{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[24]
+		mi := &file_clientpb_client_proto_msgTypes[25]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3603,7 +3686,7 @@ func (x *Canaries) String() string {
 func (*Canaries) ProtoMessage() {}
 
 func (x *Canaries) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[24]
+	mi := &file_clientpb_client_proto_msgTypes[25]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3616,7 +3699,7 @@ func (x *Canaries) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Canaries.ProtoReflect.Descriptor instead.
 func (*Canaries) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{24}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *Canaries) GetCanaries() []*DNSCanary {
@@ -3638,7 +3721,7 @@ type UniqueWGIP struct {
 func (x *UniqueWGIP) Reset() {
 	*x = UniqueWGIP{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[25]
+		mi := &file_clientpb_client_proto_msgTypes[26]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3651,7 +3734,7 @@ func (x *UniqueWGIP) String() string {
 func (*UniqueWGIP) ProtoMessage() {}
 
 func (x *UniqueWGIP) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[25]
+	mi := &file_clientpb_client_proto_msgTypes[26]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3664,7 +3747,7 @@ func (x *UniqueWGIP) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UniqueWGIP.ProtoReflect.Descriptor instead.
 func (*UniqueWGIP) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{25}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *UniqueWGIP) GetIP() string {
@@ -3687,7 +3770,7 @@ type ImplantProfile struct {
 func (x *ImplantProfile) Reset() {
 	*x = ImplantProfile{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[26]
+		mi := &file_clientpb_client_proto_msgTypes[27]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3700,7 +3783,7 @@ func (x *ImplantProfile) String() string {
 func (*ImplantProfile) ProtoMessage() {}
 
 func (x *ImplantProfile) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[26]
+	mi := &file_clientpb_client_proto_msgTypes[27]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3713,7 +3796,7 @@ func (x *ImplantProfile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImplantProfile.ProtoReflect.Descriptor instead.
 func (*ImplantProfile) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{26}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ImplantProfile) GetID() string {
@@ -3748,7 +3831,7 @@ type ImplantProfiles struct {
 func (x *ImplantProfiles) Reset() {
 	*x = ImplantProfiles{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[27]
+		mi := &file_clientpb_client_proto_msgTypes[28]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3761,7 +3844,7 @@ func (x *ImplantProfiles) String() string {
 func (*ImplantProfiles) ProtoMessage() {}
 
 func (x *ImplantProfiles) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[27]
+	mi := &file_clientpb_client_proto_msgTypes[28]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3774,7 +3857,7 @@ func (x *ImplantProfiles) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImplantProfiles.ProtoReflect.Descriptor instead.
 func (*ImplantProfiles) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{27}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ImplantProfiles) GetProfiles() []*ImplantProfile {
@@ -3795,7 +3878,7 @@ type RegenerateReq struct {
 func (x *RegenerateReq) Reset() {
 	*x = RegenerateReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[28]
+		mi := &file_clientpb_client_proto_msgTypes[29]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3808,7 +3891,7 @@ func (x *RegenerateReq) String() string {
 func (*RegenerateReq) ProtoMessage() {}
 
 func (x *RegenerateReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[28]
+	mi := &file_clientpb_client_proto_msgTypes[29]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3821,7 +3904,7 @@ func (x *RegenerateReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegenerateReq.ProtoReflect.Descriptor instead.
 func (*RegenerateReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{28}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *RegenerateReq) GetImplantName() string {
@@ -3848,7 +3931,7 @@ type Job struct {
 func (x *Job) Reset() {
 	*x = Job{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[29]
+		mi := &file_clientpb_client_proto_msgTypes[30]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3861,7 +3944,7 @@ func (x *Job) String() string {
 func (*Job) ProtoMessage() {}
 
 func (x *Job) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[29]
+	mi := &file_clientpb_client_proto_msgTypes[30]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3874,7 +3957,7 @@ func (x *Job) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Job.ProtoReflect.Descriptor instead.
 func (*Job) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{29}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *Job) GetID() uint32 {
@@ -3937,7 +4020,7 @@ type Jobs struct {
 func (x *Jobs) Reset() {
 	*x = Jobs{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[30]
+		mi := &file_clientpb_client_proto_msgTypes[31]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3950,7 +4033,7 @@ func (x *Jobs) String() string {
 func (*Jobs) ProtoMessage() {}
 
 func (x *Jobs) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[30]
+	mi := &file_clientpb_client_proto_msgTypes[31]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3963,7 +4046,7 @@ func (x *Jobs) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Jobs.ProtoReflect.Descriptor instead.
 func (*Jobs) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{30}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *Jobs) GetActive() []*Job {
@@ -3984,7 +4067,7 @@ type KillJobReq struct {
 func (x *KillJobReq) Reset() {
 	*x = KillJobReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[31]
+		mi := &file_clientpb_client_proto_msgTypes[32]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3997,7 +4080,7 @@ func (x *KillJobReq) String() string {
 func (*KillJobReq) ProtoMessage() {}
 
 func (x *KillJobReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[31]
+	mi := &file_clientpb_client_proto_msgTypes[32]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4010,7 +4093,7 @@ func (x *KillJobReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KillJobReq.ProtoReflect.Descriptor instead.
 func (*KillJobReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{31}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *KillJobReq) GetID() uint32 {
@@ -4031,7 +4114,7 @@ type RestartJobReq struct {
 func (x *RestartJobReq) Reset() {
 	*x = RestartJobReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[32]
+		mi := &file_clientpb_client_proto_msgTypes[33]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4044,7 +4127,7 @@ func (x *RestartJobReq) String() string {
 func (*RestartJobReq) ProtoMessage() {}
 
 func (x *RestartJobReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[32]
+	mi := &file_clientpb_client_proto_msgTypes[33]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4057,7 +4140,7 @@ func (x *RestartJobReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestartJobReq.ProtoReflect.Descriptor instead.
 func (*RestartJobReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{32}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *RestartJobReq) GetJobIDs() []uint32 {
@@ -4079,7 +4162,7 @@ type KillJob struct {
 func (x *KillJob) Reset() {
 	*x = KillJob{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[33]
+		mi := &file_clientpb_client_proto_msgTypes[34]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4092,7 +4175,7 @@ func (x *KillJob) String() string {
 func (*KillJob) ProtoMessage() {}
 
 func (x *KillJob) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[33]
+	mi := &file_clientpb_client_proto_msgTypes[34]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4105,7 +4188,7 @@ func (x *KillJob) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KillJob.ProtoReflect.Descriptor instead.
 func (*KillJob) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{33}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *KillJob) GetID() uint32 {
@@ -4142,7 +4225,7 @@ type ListenerJob struct {
 func (x *ListenerJob) Reset() {
 	*x = ListenerJob{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[34]
+		mi := &file_clientpb_client_proto_msgTypes[35]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4155,7 +4238,7 @@ func (x *ListenerJob) String() string {
 func (*ListenerJob) ProtoMessage() {}
 
 func (x *ListenerJob) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[34]
+	mi := &file_clientpb_client_proto_msgTypes[35]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4168,7 +4251,7 @@ func (x *ListenerJob) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListenerJob.ProtoReflect.Descriptor instead.
 func (*ListenerJob) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{34}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ListenerJob) GetID() string {
@@ -4246,7 +4329,7 @@ type MultiplayerListenerReq struct {
 func (x *MultiplayerListenerReq) Reset() {
 	*x = MultiplayerListenerReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[35]
+		mi := &file_clientpb_client_proto_msgTypes[36]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4259,7 +4342,7 @@ func (x *MultiplayerListenerReq) String() string {
 func (*MultiplayerListenerReq) ProtoMessage() {}
 
 func (x *MultiplayerListenerReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[35]
+	mi := &file_clientpb_client_proto_msgTypes[36]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4272,7 +4355,7 @@ func (x *MultiplayerListenerReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MultiplayerListenerReq.ProtoReflect.Descriptor instead.
 func (*MultiplayerListenerReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{35}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *MultiplayerListenerReq) GetHost() string {
@@ -4301,7 +4384,7 @@ type MTLSListenerReq struct {
 func (x *MTLSListenerReq) Reset() {
 	*x = MTLSListenerReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[36]
+		mi := &file_clientpb_client_proto_msgTypes[37]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4314,7 +4397,7 @@ func (x *MTLSListenerReq) String() string {
 func (*MTLSListenerReq) ProtoMessage() {}
 
 func (x *MTLSListenerReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[36]
+	mi := &file_clientpb_client_proto_msgTypes[37]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4327,7 +4410,7 @@ func (x *MTLSListenerReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MTLSListenerReq.ProtoReflect.Descriptor instead.
 func (*MTLSListenerReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{36}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *MTLSListenerReq) GetHost() string {
@@ -4359,7 +4442,7 @@ type WGListenerReq struct {
 func (x *WGListenerReq) Reset() {
 	*x = WGListenerReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[37]
+		mi := &file_clientpb_client_proto_msgTypes[38]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4372,7 +4455,7 @@ func (x *WGListenerReq) String() string {
 func (*WGListenerReq) ProtoMessage() {}
 
 func (x *WGListenerReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[37]
+	mi := &file_clientpb_client_proto_msgTypes[38]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4385,7 +4468,7 @@ func (x *WGListenerReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WGListenerReq.ProtoReflect.Descriptor instead.
 func (*WGListenerReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{37}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *WGListenerReq) GetHost() string {
@@ -4438,7 +4521,7 @@ type DNSListenerReq struct {
 func (x *DNSListenerReq) Reset() {
 	*x = DNSListenerReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[38]
+		mi := &file_clientpb_client_proto_msgTypes[39]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4451,7 +4534,7 @@ func (x *DNSListenerReq) String() string {
 func (*DNSListenerReq) ProtoMessage() {}
 
 func (x *DNSListenerReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[38]
+	mi := &file_clientpb_client_proto_msgTypes[39]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4464,7 +4547,7 @@ func (x *DNSListenerReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DNSListenerReq.ProtoReflect.Descriptor instead.
 func (*DNSListenerReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{38}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *DNSListenerReq) GetDomains() []string {
@@ -4524,7 +4607,7 @@ type HTTPListenerReq struct {
 func (x *HTTPListenerReq) Reset() {
 	*x = HTTPListenerReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[39]
+		mi := &file_clientpb_client_proto_msgTypes[40]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4537,7 +4620,7 @@ func (x *HTTPListenerReq) String() string {
 func (*HTTPListenerReq) ProtoMessage() {}
 
 func (x *HTTPListenerReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[39]
+	mi := &file_clientpb_client_proto_msgTypes[40]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4550,7 +4633,7 @@ func (x *HTTPListenerReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPListenerReq.ProtoReflect.Descriptor instead.
 func (*HTTPListenerReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{39}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *HTTPListenerReq) GetDomain() string {
@@ -4650,7 +4733,7 @@ type NamedPipesReq struct {
 func (x *NamedPipesReq) Reset() {
 	*x = NamedPipesReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[40]
+		mi := &file_clientpb_client_proto_msgTypes[41]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4663,7 +4746,7 @@ func (x *NamedPipesReq) String() string {
 func (*NamedPipesReq) ProtoMessage() {}
 
 func (x *NamedPipesReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[40]
+	mi := &file_clientpb_client_proto_msgTypes[41]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4676,7 +4759,7 @@ func (x *NamedPipesReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NamedPipesReq.ProtoReflect.Descriptor instead.
 func (*NamedPipesReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{40}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *NamedPipesReq) GetPipeName() string {
@@ -4706,7 +4789,7 @@ type NamedPipes struct {
 func (x *NamedPipes) Reset() {
 	*x = NamedPipes{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[41]
+		mi := &file_clientpb_client_proto_msgTypes[42]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4719,7 +4802,7 @@ func (x *NamedPipes) String() string {
 func (*NamedPipes) ProtoMessage() {}
 
 func (x *NamedPipes) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[41]
+	mi := &file_clientpb_client_proto_msgTypes[42]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4732,7 +4815,7 @@ func (x *NamedPipes) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NamedPipes.ProtoReflect.Descriptor instead.
 func (*NamedPipes) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{41}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *NamedPipes) GetSuccess() bool {
@@ -4769,7 +4852,7 @@ type TCPPivotReq struct {
 func (x *TCPPivotReq) Reset() {
 	*x = TCPPivotReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[42]
+		mi := &file_clientpb_client_proto_msgTypes[43]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4782,7 +4865,7 @@ func (x *TCPPivotReq) String() string {
 func (*TCPPivotReq) ProtoMessage() {}
 
 func (x *TCPPivotReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[42]
+	mi := &file_clientpb_client_proto_msgTypes[43]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4795,7 +4878,7 @@ func (x *TCPPivotReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TCPPivotReq.ProtoReflect.Descriptor instead.
 func (*TCPPivotReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{42}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *TCPPivotReq) GetAddress() string {
@@ -4825,7 +4908,7 @@ type TCPPivot struct {
 func (x *TCPPivot) Reset() {
 	*x = TCPPivot{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[43]
+		mi := &file_clientpb_client_proto_msgTypes[44]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4838,7 +4921,7 @@ func (x *TCPPivot) String() string {
 func (*TCPPivot) ProtoMessage() {}
 
 func (x *TCPPivot) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[43]
+	mi := &file_clientpb_client_proto_msgTypes[44]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4851,7 +4934,7 @@ func (x *TCPPivot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TCPPivot.ProtoReflect.Descriptor instead.
 func (*TCPPivot) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{43}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *TCPPivot) GetSuccess() bool {
@@ -4887,7 +4970,7 @@ type Sessions struct {
 func (x *Sessions) Reset() {
 	*x = Sessions{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[44]
+		mi := &file_clientpb_client_proto_msgTypes[45]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4900,7 +4983,7 @@ func (x *Sessions) String() string {
 func (*Sessions) ProtoMessage() {}
 
 func (x *Sessions) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[44]
+	mi := &file_clientpb_client_proto_msgTypes[45]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4913,7 +4996,7 @@ func (x *Sessions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Sessions.ProtoReflect.Descriptor instead.
 func (*Sessions) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{44}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *Sessions) GetSessions() []*Session {
@@ -4936,7 +5019,7 @@ type RenameReq struct {
 func (x *RenameReq) Reset() {
 	*x = RenameReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[45]
+		mi := &file_clientpb_client_proto_msgTypes[46]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4949,7 +5032,7 @@ func (x *RenameReq) String() string {
 func (*RenameReq) ProtoMessage() {}
 
 func (x *RenameReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[45]
+	mi := &file_clientpb_client_proto_msgTypes[46]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4962,7 +5045,7 @@ func (x *RenameReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenameReq.ProtoReflect.Descriptor instead.
 func (*RenameReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{45}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *RenameReq) GetSessionID() string {
@@ -4998,7 +5081,7 @@ type GenerateReq struct {
 func (x *GenerateReq) Reset() {
 	*x = GenerateReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[46]
+		mi := &file_clientpb_client_proto_msgTypes[47]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -5011,7 +5094,7 @@ func (x *GenerateReq) String() string {
 func (*GenerateReq) ProtoMessage() {}
 
 func (x *GenerateReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[46]
+	mi := &file_clientpb_client_proto_msgTypes[47]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5024,7 +5107,7 @@ func (x *GenerateReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateReq.ProtoReflect.Descriptor instead.
 func (*GenerateReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{46}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *GenerateReq) GetConfig() *ImplantConfig {
@@ -5059,7 +5142,7 @@ type GenerateStageReq struct {
 func (x *GenerateStageReq) Reset() {
 	*x = GenerateStageReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[47]
+		mi := &file_clientpb_client_proto_msgTypes[48]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -5072,7 +5155,7 @@ func (x *GenerateStageReq) String() string {
 func (*GenerateStageReq) ProtoMessage() {}
 
 func (x *GenerateStageReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[47]
+	mi := &file_clientpb_client_proto_msgTypes[48]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5085,7 +5168,7 @@ func (x *GenerateStageReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateStageReq.ProtoReflect.Descriptor instead.
 func (*GenerateStageReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{47}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *GenerateStageReq) GetProfile() string {
@@ -5155,7 +5238,7 @@ type Generate struct {
 func (x *Generate) Reset() {
 	*x = Generate{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[48]
+		mi := &file_clientpb_client_proto_msgTypes[49]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -5168,7 +5251,7 @@ func (x *Generate) String() string {
 func (*Generate) ProtoMessage() {}
 
 func (x *Generate) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[48]
+	mi := &file_clientpb_client_proto_msgTypes[49]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5181,7 +5264,7 @@ func (x *Generate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Generate.ProtoReflect.Descriptor instead.
 func (*Generate) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{48}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *Generate) GetFile() *commonpb.File {
@@ -5207,7 +5290,7 @@ type MSFReq struct {
 func (x *MSFReq) Reset() {
 	*x = MSFReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[49]
+		mi := &file_clientpb_client_proto_msgTypes[50]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -5220,7 +5303,7 @@ func (x *MSFReq) String() string {
 func (*MSFReq) ProtoMessage() {}
 
 func (x *MSFReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[49]
+	mi := &file_clientpb_client_proto_msgTypes[50]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5233,7 +5316,7 @@ func (x *MSFReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MSFReq.ProtoReflect.Descriptor instead.
 func (*MSFReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{49}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *MSFReq) GetPayload() string {
@@ -5295,7 +5378,7 @@ type MSFRemoteReq struct {
 func (x *MSFRemoteReq) Reset() {
 	*x = MSFRemoteReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[50]
+		mi := &file_clientpb_client_proto_msgTypes[51]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -5308,7 +5391,7 @@ func (x *MSFRemoteReq) String() string {
 func (*MSFRemoteReq) ProtoMessage() {}
 
 func (x *MSFRemoteReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[50]
+	mi := &file_clientpb_client_proto_msgTypes[51]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5321,7 +5404,7 @@ func (x *MSFRemoteReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MSFRemoteReq.ProtoReflect.Descriptor instead.
 func (*MSFRemoteReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{50}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *MSFRemoteReq) GetPayload() string {
@@ -5388,7 +5471,7 @@ type StagerListenerReq struct {
 func (x *StagerListenerReq) Reset() {
 	*x = StagerListenerReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[51]
+		mi := &file_clientpb_client_proto_msgTypes[52]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -5401,7 +5484,7 @@ func (x *StagerListenerReq) String() string {
 func (*StagerListenerReq) ProtoMessage() {}
 
 func (x *StagerListenerReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[51]
+	mi := &file_clientpb_client_proto_msgTypes[52]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5414,7 +5497,7 @@ func (x *StagerListenerReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StagerListenerReq.ProtoReflect.Descriptor instead.
 func (*StagerListenerReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{51}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *StagerListenerReq) GetProtocol() StageProtocol {
@@ -5463,7 +5546,7 @@ type StagerListener struct {
 func (x *StagerListener) Reset() {
 	*x = StagerListener{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[52]
+		mi := &file_clientpb_client_proto_msgTypes[53]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -5476,7 +5559,7 @@ func (x *StagerListener) String() string {
 func (*StagerListener) ProtoMessage() {}
 
 func (x *StagerListener) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[52]
+	mi := &file_clientpb_client_proto_msgTypes[53]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5489,7 +5572,7 @@ func (x *StagerListener) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StagerListener.ProtoReflect.Descriptor instead.
 func (*StagerListener) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{52}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *StagerListener) GetJobID() uint32 {
@@ -5512,7 +5595,7 @@ type ShellcodeRDIReq struct {
 func (x *ShellcodeRDIReq) Reset() {
 	*x = ShellcodeRDIReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[53]
+		mi := &file_clientpb_client_proto_msgTypes[54]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -5525,7 +5608,7 @@ func (x *ShellcodeRDIReq) String() string {
 func (*ShellcodeRDIReq) ProtoMessage() {}
 
 func (x *ShellcodeRDIReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[53]
+	mi := &file_clientpb_client_proto_msgTypes[54]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5538,7 +5621,7 @@ func (x *ShellcodeRDIReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShellcodeRDIReq.ProtoReflect.Descriptor instead.
 func (*ShellcodeRDIReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{53}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *ShellcodeRDIReq) GetData() []byte {
@@ -5573,7 +5656,7 @@ type ShellcodeRDI struct {
 func (x *ShellcodeRDI) Reset() {
 	*x = ShellcodeRDI{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[54]
+		mi := &file_clientpb_client_proto_msgTypes[55]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -5586,7 +5669,7 @@ func (x *ShellcodeRDI) String() string {
 func (*ShellcodeRDI) ProtoMessage() {}
 
 func (x *ShellcodeRDI) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[54]
+	mi := &file_clientpb_client_proto_msgTypes[55]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5599,7 +5682,7 @@ func (x *ShellcodeRDI) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShellcodeRDI.ProtoReflect.Descriptor instead.
 func (*ShellcodeRDI) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{54}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *ShellcodeRDI) GetData() []byte {
@@ -5625,7 +5708,7 @@ type GetSystemReq struct {
 func (x *GetSystemReq) Reset() {
 	*x = GetSystemReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[55]
+		mi := &file_clientpb_client_proto_msgTypes[56]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -5638,7 +5721,7 @@ func (x *GetSystemReq) String() string {
 func (*GetSystemReq) ProtoMessage() {}
 
 func (x *GetSystemReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[55]
+	mi := &file_clientpb_client_proto_msgTypes[56]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5651,7 +5734,7 @@ func (x *GetSystemReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSystemReq.ProtoReflect.Descriptor instead.
 func (*GetSystemReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{55}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *GetSystemReq) GetHostingProcess() string {
@@ -5700,7 +5783,7 @@ type MigrateReq struct {
 func (x *MigrateReq) Reset() {
 	*x = MigrateReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[56]
+		mi := &file_clientpb_client_proto_msgTypes[57]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -5713,7 +5796,7 @@ func (x *MigrateReq) String() string {
 func (*MigrateReq) ProtoMessage() {}
 
 func (x *MigrateReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[56]
+	mi := &file_clientpb_client_proto_msgTypes[57]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5726,7 +5809,7 @@ func (x *MigrateReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MigrateReq.ProtoReflect.Descriptor instead.
 func (*MigrateReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{56}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *MigrateReq) GetPid() uint32 {
@@ -5783,7 +5866,7 @@ type CreateTunnelReq struct {
 func (x *CreateTunnelReq) Reset() {
 	*x = CreateTunnelReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[57]
+		mi := &file_clientpb_client_proto_msgTypes[58]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -5796,7 +5879,7 @@ func (x *CreateTunnelReq) String() string {
 func (*CreateTunnelReq) ProtoMessage() {}
 
 func (x *CreateTunnelReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[57]
+	mi := &file_clientpb_client_proto_msgTypes[58]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5809,7 +5892,7 @@ func (x *CreateTunnelReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTunnelReq.ProtoReflect.Descriptor instead.
 func (*CreateTunnelReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{57}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *CreateTunnelReq) GetRequest() *commonpb.Request {
@@ -5831,7 +5914,7 @@ type CreateTunnel struct {
 func (x *CreateTunnel) Reset() {
 	*x = CreateTunnel{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[58]
+		mi := &file_clientpb_client_proto_msgTypes[59]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -5844,7 +5927,7 @@ func (x *CreateTunnel) String() string {
 func (*CreateTunnel) ProtoMessage() {}
 
 func (x *CreateTunnel) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[58]
+	mi := &file_clientpb_client_proto_msgTypes[59]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5857,7 +5940,7 @@ func (x *CreateTunnel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTunnel.ProtoReflect.Descriptor instead.
 func (*CreateTunnel) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{58}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *CreateTunnel) GetSessionID() uint32 {
@@ -5886,7 +5969,7 @@ type CloseTunnelReq struct {
 func (x *CloseTunnelReq) Reset() {
 	*x = CloseTunnelReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[59]
+		mi := &file_clientpb_client_proto_msgTypes[60]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -5899,7 +5982,7 @@ func (x *CloseTunnelReq) String() string {
 func (*CloseTunnelReq) ProtoMessage() {}
 
 func (x *CloseTunnelReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[59]
+	mi := &file_clientpb_client_proto_msgTypes[60]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5912,7 +5995,7 @@ func (x *CloseTunnelReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CloseTunnelReq.ProtoReflect.Descriptor instead.
 func (*CloseTunnelReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{59}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *CloseTunnelReq) GetTunnelID() uint64 {
@@ -5944,7 +6027,7 @@ type PivotGraphEntry struct {
 func (x *PivotGraphEntry) Reset() {
 	*x = PivotGraphEntry{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[60]
+		mi := &file_clientpb_client_proto_msgTypes[61]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -5957,7 +6040,7 @@ func (x *PivotGraphEntry) String() string {
 func (*PivotGraphEntry) ProtoMessage() {}
 
 func (x *PivotGraphEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[60]
+	mi := &file_clientpb_client_proto_msgTypes[61]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5970,7 +6053,7 @@ func (x *PivotGraphEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PivotGraphEntry.ProtoReflect.Descriptor instead.
 func (*PivotGraphEntry) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{60}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *PivotGraphEntry) GetPeerID() int64 {
@@ -6012,7 +6095,7 @@ type PivotGraph struct {
 func (x *PivotGraph) Reset() {
 	*x = PivotGraph{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[61]
+		mi := &file_clientpb_client_proto_msgTypes[62]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6025,7 +6108,7 @@ func (x *PivotGraph) String() string {
 func (*PivotGraph) ProtoMessage() {}
 
 func (x *PivotGraph) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[61]
+	mi := &file_clientpb_client_proto_msgTypes[62]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6038,7 +6121,7 @@ func (x *PivotGraph) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PivotGraph.ProtoReflect.Descriptor instead.
 func (*PivotGraph) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{61}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *PivotGraph) GetChildren() []*PivotGraphEntry {
@@ -6062,7 +6145,7 @@ type Client struct {
 func (x *Client) Reset() {
 	*x = Client{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[62]
+		mi := &file_clientpb_client_proto_msgTypes[63]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6075,7 +6158,7 @@ func (x *Client) String() string {
 func (*Client) ProtoMessage() {}
 
 func (x *Client) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[62]
+	mi := &file_clientpb_client_proto_msgTypes[63]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6088,7 +6171,7 @@ func (x *Client) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Client.ProtoReflect.Descriptor instead.
 func (*Client) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{62}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *Client) GetID() uint32 {
@@ -6128,7 +6211,7 @@ type Event struct {
 func (x *Event) Reset() {
 	*x = Event{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[63]
+		mi := &file_clientpb_client_proto_msgTypes[64]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6141,7 +6224,7 @@ func (x *Event) String() string {
 func (*Event) ProtoMessage() {}
 
 func (x *Event) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[63]
+	mi := &file_clientpb_client_proto_msgTypes[64]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6154,7 +6237,7 @@ func (x *Event) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Event.ProtoReflect.Descriptor instead.
 func (*Event) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{63}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *Event) GetEventType() string {
@@ -6210,7 +6293,7 @@ type Operators struct {
 func (x *Operators) Reset() {
 	*x = Operators{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[64]
+		mi := &file_clientpb_client_proto_msgTypes[65]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6223,7 +6306,7 @@ func (x *Operators) String() string {
 func (*Operators) ProtoMessage() {}
 
 func (x *Operators) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[64]
+	mi := &file_clientpb_client_proto_msgTypes[65]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6236,7 +6319,7 @@ func (x *Operators) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Operators.ProtoReflect.Descriptor instead.
 func (*Operators) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{64}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *Operators) GetOperators() []*Operator {
@@ -6258,7 +6341,7 @@ type Operator struct {
 func (x *Operator) Reset() {
 	*x = Operator{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[65]
+		mi := &file_clientpb_client_proto_msgTypes[66]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6271,7 +6354,7 @@ func (x *Operator) String() string {
 func (*Operator) ProtoMessage() {}
 
 func (x *Operator) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[65]
+	mi := &file_clientpb_client_proto_msgTypes[66]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6284,7 +6367,7 @@ func (x *Operator) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Operator.ProtoReflect.Descriptor instead.
 func (*Operator) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{65}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *Operator) GetOnline() bool {
@@ -6320,7 +6403,7 @@ type WebContent struct {
 func (x *WebContent) Reset() {
 	*x = WebContent{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[66]
+		mi := &file_clientpb_client_proto_msgTypes[67]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6333,7 +6416,7 @@ func (x *WebContent) String() string {
 func (*WebContent) ProtoMessage() {}
 
 func (x *WebContent) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[66]
+	mi := &file_clientpb_client_proto_msgTypes[67]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6346,7 +6429,7 @@ func (x *WebContent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebContent.ProtoReflect.Descriptor instead.
 func (*WebContent) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{66}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *WebContent) GetID() string {
@@ -6417,7 +6500,7 @@ type WebsiteAddContent struct {
 func (x *WebsiteAddContent) Reset() {
 	*x = WebsiteAddContent{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[67]
+		mi := &file_clientpb_client_proto_msgTypes[68]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6430,7 +6513,7 @@ func (x *WebsiteAddContent) String() string {
 func (*WebsiteAddContent) ProtoMessage() {}
 
 func (x *WebsiteAddContent) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[67]
+	mi := &file_clientpb_client_proto_msgTypes[68]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6443,7 +6526,7 @@ func (x *WebsiteAddContent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebsiteAddContent.ProtoReflect.Descriptor instead.
 func (*WebsiteAddContent) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{67}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *WebsiteAddContent) GetName() string {
@@ -6472,7 +6555,7 @@ type WebsiteRemoveContent struct {
 func (x *WebsiteRemoveContent) Reset() {
 	*x = WebsiteRemoveContent{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[68]
+		mi := &file_clientpb_client_proto_msgTypes[69]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6485,7 +6568,7 @@ func (x *WebsiteRemoveContent) String() string {
 func (*WebsiteRemoveContent) ProtoMessage() {}
 
 func (x *WebsiteRemoveContent) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[68]
+	mi := &file_clientpb_client_proto_msgTypes[69]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6498,7 +6581,7 @@ func (x *WebsiteRemoveContent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebsiteRemoveContent.ProtoReflect.Descriptor instead.
 func (*WebsiteRemoveContent) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{68}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *WebsiteRemoveContent) GetName() string {
@@ -6528,7 +6611,7 @@ type Website struct {
 func (x *Website) Reset() {
 	*x = Website{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[69]
+		mi := &file_clientpb_client_proto_msgTypes[70]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6541,7 +6624,7 @@ func (x *Website) String() string {
 func (*Website) ProtoMessage() {}
 
 func (x *Website) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[69]
+	mi := &file_clientpb_client_proto_msgTypes[70]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6554,7 +6637,7 @@ func (x *Website) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Website.ProtoReflect.Descriptor instead.
 func (*Website) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{69}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *Website) GetID() string {
@@ -6589,7 +6672,7 @@ type Websites struct {
 func (x *Websites) Reset() {
 	*x = Websites{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[70]
+		mi := &file_clientpb_client_proto_msgTypes[71]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6602,7 +6685,7 @@ func (x *Websites) String() string {
 func (*Websites) ProtoMessage() {}
 
 func (x *Websites) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[70]
+	mi := &file_clientpb_client_proto_msgTypes[71]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6615,7 +6698,7 @@ func (x *Websites) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Websites.ProtoReflect.Descriptor instead.
 func (*Websites) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{70}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *Websites) GetWebsites() []*Website {
@@ -6639,7 +6722,7 @@ type WGClientConfig struct {
 func (x *WGClientConfig) Reset() {
 	*x = WGClientConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[71]
+		mi := &file_clientpb_client_proto_msgTypes[72]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6652,7 +6735,7 @@ func (x *WGClientConfig) String() string {
 func (*WGClientConfig) ProtoMessage() {}
 
 func (x *WGClientConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[71]
+	mi := &file_clientpb_client_proto_msgTypes[72]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6665,7 +6748,7 @@ func (x *WGClientConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WGClientConfig.ProtoReflect.Descriptor instead.
 func (*WGClientConfig) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{71}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *WGClientConfig) GetServerPubKey() string {
@@ -6712,7 +6795,7 @@ type Loot struct {
 func (x *Loot) Reset() {
 	*x = Loot{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[72]
+		mi := &file_clientpb_client_proto_msgTypes[73]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6725,7 +6808,7 @@ func (x *Loot) String() string {
 func (*Loot) ProtoMessage() {}
 
 func (x *Loot) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[72]
+	mi := &file_clientpb_client_proto_msgTypes[73]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6738,7 +6821,7 @@ func (x *Loot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Loot.ProtoReflect.Descriptor instead.
 func (*Loot) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{72}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *Loot) GetID() string {
@@ -6794,7 +6877,7 @@ type AllLoot struct {
 func (x *AllLoot) Reset() {
 	*x = AllLoot{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[73]
+		mi := &file_clientpb_client_proto_msgTypes[74]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6807,7 +6890,7 @@ func (x *AllLoot) String() string {
 func (*AllLoot) ProtoMessage() {}
 
 func (x *AllLoot) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[73]
+	mi := &file_clientpb_client_proto_msgTypes[74]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6820,7 +6903,7 @@ func (x *AllLoot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AllLoot.ProtoReflect.Descriptor instead.
 func (*AllLoot) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{73}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *AllLoot) GetLoot() []*Loot {
@@ -6844,7 +6927,7 @@ type IOC struct {
 func (x *IOC) Reset() {
 	*x = IOC{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[74]
+		mi := &file_clientpb_client_proto_msgTypes[75]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6857,7 +6940,7 @@ func (x *IOC) String() string {
 func (*IOC) ProtoMessage() {}
 
 func (x *IOC) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[74]
+	mi := &file_clientpb_client_proto_msgTypes[75]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6870,7 +6953,7 @@ func (x *IOC) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IOC.ProtoReflect.Descriptor instead.
 func (*IOC) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{74}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *IOC) GetPath() string {
@@ -6905,7 +6988,7 @@ type ExtensionData struct {
 func (x *ExtensionData) Reset() {
 	*x = ExtensionData{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[75]
+		mi := &file_clientpb_client_proto_msgTypes[76]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6918,7 +7001,7 @@ func (x *ExtensionData) String() string {
 func (*ExtensionData) ProtoMessage() {}
 
 func (x *ExtensionData) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[75]
+	mi := &file_clientpb_client_proto_msgTypes[76]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6931,7 +7014,7 @@ func (x *ExtensionData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExtensionData.ProtoReflect.Descriptor instead.
 func (*ExtensionData) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{75}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *ExtensionData) GetOutput() string {
@@ -6959,7 +7042,7 @@ type Host struct {
 func (x *Host) Reset() {
 	*x = Host{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[76]
+		mi := &file_clientpb_client_proto_msgTypes[77]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -6972,7 +7055,7 @@ func (x *Host) String() string {
 func (*Host) ProtoMessage() {}
 
 func (x *Host) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[76]
+	mi := &file_clientpb_client_proto_msgTypes[77]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6985,7 +7068,7 @@ func (x *Host) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Host.ProtoReflect.Descriptor instead.
 func (*Host) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{76}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *Host) GetID() string {
@@ -7055,7 +7138,7 @@ type AllHosts struct {
 func (x *AllHosts) Reset() {
 	*x = AllHosts{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[77]
+		mi := &file_clientpb_client_proto_msgTypes[78]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -7068,7 +7151,7 @@ func (x *AllHosts) String() string {
 func (*AllHosts) ProtoMessage() {}
 
 func (x *AllHosts) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[77]
+	mi := &file_clientpb_client_proto_msgTypes[78]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7081,7 +7164,7 @@ func (x *AllHosts) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AllHosts.ProtoReflect.Descriptor instead.
 func (*AllHosts) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{77}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *AllHosts) GetHosts() []*Host {
@@ -7109,7 +7192,7 @@ type DllHijackReq struct {
 func (x *DllHijackReq) Reset() {
 	*x = DllHijackReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[78]
+		mi := &file_clientpb_client_proto_msgTypes[79]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -7122,7 +7205,7 @@ func (x *DllHijackReq) String() string {
 func (*DllHijackReq) ProtoMessage() {}
 
 func (x *DllHijackReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[78]
+	mi := &file_clientpb_client_proto_msgTypes[79]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7135,7 +7218,7 @@ func (x *DllHijackReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DllHijackReq.ProtoReflect.Descriptor instead.
 func (*DllHijackReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{78}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *DllHijackReq) GetReferenceDLLPath() string {
@@ -7198,7 +7281,7 @@ type DllHijack struct {
 func (x *DllHijack) Reset() {
 	*x = DllHijack{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[79]
+		mi := &file_clientpb_client_proto_msgTypes[80]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -7211,7 +7294,7 @@ func (x *DllHijack) String() string {
 func (*DllHijack) ProtoMessage() {}
 
 func (x *DllHijack) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[79]
+	mi := &file_clientpb_client_proto_msgTypes[80]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7224,7 +7307,7 @@ func (x *DllHijack) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DllHijack.ProtoReflect.Descriptor instead.
 func (*DllHijack) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{79}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *DllHijack) GetResponse() *commonpb.Response {
@@ -7248,7 +7331,7 @@ type BackdoorReq struct {
 func (x *BackdoorReq) Reset() {
 	*x = BackdoorReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[80]
+		mi := &file_clientpb_client_proto_msgTypes[81]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -7261,7 +7344,7 @@ func (x *BackdoorReq) String() string {
 func (*BackdoorReq) ProtoMessage() {}
 
 func (x *BackdoorReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[80]
+	mi := &file_clientpb_client_proto_msgTypes[81]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7274,7 +7357,7 @@ func (x *BackdoorReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackdoorReq.ProtoReflect.Descriptor instead.
 func (*BackdoorReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{80}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *BackdoorReq) GetFilePath() string {
@@ -7316,7 +7399,7 @@ type Backdoor struct {
 func (x *Backdoor) Reset() {
 	*x = Backdoor{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[81]
+		mi := &file_clientpb_client_proto_msgTypes[82]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -7329,7 +7412,7 @@ func (x *Backdoor) String() string {
 func (*Backdoor) ProtoMessage() {}
 
 func (x *Backdoor) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[81]
+	mi := &file_clientpb_client_proto_msgTypes[82]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7342,7 +7425,7 @@ func (x *Backdoor) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Backdoor.ProtoReflect.Descriptor instead.
 func (*Backdoor) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{81}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *Backdoor) GetResponse() *commonpb.Response {
@@ -7368,7 +7451,7 @@ type ShellcodeEncodeReq struct {
 func (x *ShellcodeEncodeReq) Reset() {
 	*x = ShellcodeEncodeReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[82]
+		mi := &file_clientpb_client_proto_msgTypes[83]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -7381,7 +7464,7 @@ func (x *ShellcodeEncodeReq) String() string {
 func (*ShellcodeEncodeReq) ProtoMessage() {}
 
 func (x *ShellcodeEncodeReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[82]
+	mi := &file_clientpb_client_proto_msgTypes[83]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7394,7 +7477,7 @@ func (x *ShellcodeEncodeReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShellcodeEncodeReq.ProtoReflect.Descriptor instead.
 func (*ShellcodeEncodeReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{82}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{83}
 }
 
 func (x *ShellcodeEncodeReq) GetEncoder() ShellcodeEncoder {
@@ -7451,7 +7534,7 @@ type ShellcodeEncode struct {
 func (x *ShellcodeEncode) Reset() {
 	*x = ShellcodeEncode{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[83]
+		mi := &file_clientpb_client_proto_msgTypes[84]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -7464,7 +7547,7 @@ func (x *ShellcodeEncode) String() string {
 func (*ShellcodeEncode) ProtoMessage() {}
 
 func (x *ShellcodeEncode) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[83]
+	mi := &file_clientpb_client_proto_msgTypes[84]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7477,7 +7560,7 @@ func (x *ShellcodeEncode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShellcodeEncode.ProtoReflect.Descriptor instead.
 func (*ShellcodeEncode) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{83}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{84}
 }
 
 func (x *ShellcodeEncode) GetData() []byte {
@@ -7505,7 +7588,7 @@ type ShellcodeEncoderMap struct {
 func (x *ShellcodeEncoderMap) Reset() {
 	*x = ShellcodeEncoderMap{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[84]
+		mi := &file_clientpb_client_proto_msgTypes[85]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -7518,7 +7601,7 @@ func (x *ShellcodeEncoderMap) String() string {
 func (*ShellcodeEncoderMap) ProtoMessage() {}
 
 func (x *ShellcodeEncoderMap) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[84]
+	mi := &file_clientpb_client_proto_msgTypes[85]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7531,7 +7614,7 @@ func (x *ShellcodeEncoderMap) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShellcodeEncoderMap.ProtoReflect.Descriptor instead.
 func (*ShellcodeEncoderMap) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{84}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{85}
 }
 
 func (x *ShellcodeEncoderMap) GetEncoders() map[string]ShellcodeEncoder {
@@ -7554,7 +7637,7 @@ type ExternalGenerateReq struct {
 func (x *ExternalGenerateReq) Reset() {
 	*x = ExternalGenerateReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[85]
+		mi := &file_clientpb_client_proto_msgTypes[86]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -7567,7 +7650,7 @@ func (x *ExternalGenerateReq) String() string {
 func (*ExternalGenerateReq) ProtoMessage() {}
 
 func (x *ExternalGenerateReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[85]
+	mi := &file_clientpb_client_proto_msgTypes[86]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7580,7 +7663,7 @@ func (x *ExternalGenerateReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExternalGenerateReq.ProtoReflect.Descriptor instead.
 func (*ExternalGenerateReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{85}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{86}
 }
 
 func (x *ExternalGenerateReq) GetConfig() *ImplantConfig {
@@ -7615,7 +7698,7 @@ type Builders struct {
 func (x *Builders) Reset() {
 	*x = Builders{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[86]
+		mi := &file_clientpb_client_proto_msgTypes[87]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -7628,7 +7711,7 @@ func (x *Builders) String() string {
 func (*Builders) ProtoMessage() {}
 
 func (x *Builders) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[86]
+	mi := &file_clientpb_client_proto_msgTypes[87]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7641,7 +7724,7 @@ func (x *Builders) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Builders.ProtoReflect.Descriptor instead.
 func (*Builders) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{86}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{87}
 }
 
 func (x *Builders) GetBuilders() []*Builder {
@@ -7668,7 +7751,7 @@ type Builder struct {
 func (x *Builder) Reset() {
 	*x = Builder{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[87]
+		mi := &file_clientpb_client_proto_msgTypes[88]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -7681,7 +7764,7 @@ func (x *Builder) String() string {
 func (*Builder) ProtoMessage() {}
 
 func (x *Builder) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[87]
+	mi := &file_clientpb_client_proto_msgTypes[88]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7694,7 +7777,7 @@ func (x *Builder) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Builder.ProtoReflect.Descriptor instead.
 func (*Builder) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{87}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{88}
 }
 
 func (x *Builder) GetName() string {
@@ -7758,7 +7841,7 @@ type HTTPC2Configs struct {
 func (x *HTTPC2Configs) Reset() {
 	*x = HTTPC2Configs{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[88]
+		mi := &file_clientpb_client_proto_msgTypes[89]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -7771,7 +7854,7 @@ func (x *HTTPC2Configs) String() string {
 func (*HTTPC2Configs) ProtoMessage() {}
 
 func (x *HTTPC2Configs) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[88]
+	mi := &file_clientpb_client_proto_msgTypes[89]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7784,7 +7867,7 @@ func (x *HTTPC2Configs) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2Configs.ProtoReflect.Descriptor instead.
 func (*HTTPC2Configs) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{88}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{89}
 }
 
 func (x *HTTPC2Configs) GetConfigs() []*HTTPC2Config {
@@ -7805,7 +7888,7 @@ type C2ProfileReq struct {
 func (x *C2ProfileReq) Reset() {
 	*x = C2ProfileReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[89]
+		mi := &file_clientpb_client_proto_msgTypes[90]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -7818,7 +7901,7 @@ func (x *C2ProfileReq) String() string {
 func (*C2ProfileReq) ProtoMessage() {}
 
 func (x *C2ProfileReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[89]
+	mi := &file_clientpb_client_proto_msgTypes[90]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7831,7 +7914,7 @@ func (x *C2ProfileReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use C2ProfileReq.ProtoReflect.Descriptor instead.
 func (*C2ProfileReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{89}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{90}
 }
 
 func (x *C2ProfileReq) GetName() string {
@@ -7853,7 +7936,7 @@ type HTTPC2ConfigReq struct {
 func (x *HTTPC2ConfigReq) Reset() {
 	*x = HTTPC2ConfigReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[90]
+		mi := &file_clientpb_client_proto_msgTypes[91]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -7866,7 +7949,7 @@ func (x *HTTPC2ConfigReq) String() string {
 func (*HTTPC2ConfigReq) ProtoMessage() {}
 
 func (x *HTTPC2ConfigReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[90]
+	mi := &file_clientpb_client_proto_msgTypes[91]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7879,7 +7962,7 @@ func (x *HTTPC2ConfigReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2ConfigReq.ProtoReflect.Descriptor instead.
 func (*HTTPC2ConfigReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{90}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{91}
 }
 
 func (x *HTTPC2ConfigReq) GetOverwrite() bool {
@@ -7911,7 +7994,7 @@ type HTTPC2Config struct {
 func (x *HTTPC2Config) Reset() {
 	*x = HTTPC2Config{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[91]
+		mi := &file_clientpb_client_proto_msgTypes[92]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -7924,7 +8007,7 @@ func (x *HTTPC2Config) String() string {
 func (*HTTPC2Config) ProtoMessage() {}
 
 func (x *HTTPC2Config) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[91]
+	mi := &file_clientpb_client_proto_msgTypes[92]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7937,7 +8020,7 @@ func (x *HTTPC2Config) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2Config.ProtoReflect.Descriptor instead.
 func (*HTTPC2Config) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{91}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{92}
 }
 
 func (x *HTTPC2Config) GetID() string {
@@ -7989,7 +8072,7 @@ type HTTPC2ServerConfig struct {
 func (x *HTTPC2ServerConfig) Reset() {
 	*x = HTTPC2ServerConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[92]
+		mi := &file_clientpb_client_proto_msgTypes[93]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8002,7 +8085,7 @@ func (x *HTTPC2ServerConfig) String() string {
 func (*HTTPC2ServerConfig) ProtoMessage() {}
 
 func (x *HTTPC2ServerConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[92]
+	mi := &file_clientpb_client_proto_msgTypes[93]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8015,7 +8098,7 @@ func (x *HTTPC2ServerConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2ServerConfig.ProtoReflect.Descriptor instead.
 func (*HTTPC2ServerConfig) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{92}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{93}
 }
 
 func (x *HTTPC2ServerConfig) GetID() string {
@@ -8073,7 +8156,7 @@ type HTTPC2ImplantConfig struct {
 func (x *HTTPC2ImplantConfig) Reset() {
 	*x = HTTPC2ImplantConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[93]
+		mi := &file_clientpb_client_proto_msgTypes[94]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8086,7 +8169,7 @@ func (x *HTTPC2ImplantConfig) String() string {
 func (*HTTPC2ImplantConfig) ProtoMessage() {}
 
 func (x *HTTPC2ImplantConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[93]
+	mi := &file_clientpb_client_proto_msgTypes[94]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8099,7 +8182,7 @@ func (x *HTTPC2ImplantConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2ImplantConfig.ProtoReflect.Descriptor instead.
 func (*HTTPC2ImplantConfig) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{93}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{94}
 }
 
 func (x *HTTPC2ImplantConfig) GetID() string {
@@ -8233,7 +8316,7 @@ type HTTPC2Cookie struct {
 func (x *HTTPC2Cookie) Reset() {
 	*x = HTTPC2Cookie{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[94]
+		mi := &file_clientpb_client_proto_msgTypes[95]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8246,7 +8329,7 @@ func (x *HTTPC2Cookie) String() string {
 func (*HTTPC2Cookie) ProtoMessage() {}
 
 func (x *HTTPC2Cookie) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[94]
+	mi := &file_clientpb_client_proto_msgTypes[95]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8259,7 +8342,7 @@ func (x *HTTPC2Cookie) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2Cookie.ProtoReflect.Descriptor instead.
 func (*HTTPC2Cookie) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{94}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{95}
 }
 
 func (x *HTTPC2Cookie) GetID() string {
@@ -8291,7 +8374,7 @@ type HTTPC2Header struct {
 func (x *HTTPC2Header) Reset() {
 	*x = HTTPC2Header{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[95]
+		mi := &file_clientpb_client_proto_msgTypes[96]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8304,7 +8387,7 @@ func (x *HTTPC2Header) String() string {
 func (*HTTPC2Header) ProtoMessage() {}
 
 func (x *HTTPC2Header) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[95]
+	mi := &file_clientpb_client_proto_msgTypes[96]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8317,7 +8400,7 @@ func (x *HTTPC2Header) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2Header.ProtoReflect.Descriptor instead.
 func (*HTTPC2Header) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{95}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{96}
 }
 
 func (x *HTTPC2Header) GetID() string {
@@ -8370,7 +8453,7 @@ type HTTPC2URLParameter struct {
 func (x *HTTPC2URLParameter) Reset() {
 	*x = HTTPC2URLParameter{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[96]
+		mi := &file_clientpb_client_proto_msgTypes[97]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8383,7 +8466,7 @@ func (x *HTTPC2URLParameter) String() string {
 func (*HTTPC2URLParameter) ProtoMessage() {}
 
 func (x *HTTPC2URLParameter) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[96]
+	mi := &file_clientpb_client_proto_msgTypes[97]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8396,7 +8479,7 @@ func (x *HTTPC2URLParameter) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2URLParameter.ProtoReflect.Descriptor instead.
 func (*HTTPC2URLParameter) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{96}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{97}
 }
 
 func (x *HTTPC2URLParameter) GetID() string {
@@ -8447,7 +8530,7 @@ type HTTPC2PathSegment struct {
 func (x *HTTPC2PathSegment) Reset() {
 	*x = HTTPC2PathSegment{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[97]
+		mi := &file_clientpb_client_proto_msgTypes[98]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8460,7 +8543,7 @@ func (x *HTTPC2PathSegment) String() string {
 func (*HTTPC2PathSegment) ProtoMessage() {}
 
 func (x *HTTPC2PathSegment) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[97]
+	mi := &file_clientpb_client_proto_msgTypes[98]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8473,7 +8556,7 @@ func (x *HTTPC2PathSegment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2PathSegment.ProtoReflect.Descriptor instead.
 func (*HTTPC2PathSegment) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{97}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{98}
 }
 
 func (x *HTTPC2PathSegment) GetID() string {
@@ -8515,7 +8598,7 @@ type Credential struct {
 func (x *Credential) Reset() {
 	*x = Credential{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[98]
+		mi := &file_clientpb_client_proto_msgTypes[99]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8528,7 +8611,7 @@ func (x *Credential) String() string {
 func (*Credential) ProtoMessage() {}
 
 func (x *Credential) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[98]
+	mi := &file_clientpb_client_proto_msgTypes[99]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8541,7 +8624,7 @@ func (x *Credential) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Credential.ProtoReflect.Descriptor instead.
 func (*Credential) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{98}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{99}
 }
 
 func (x *Credential) GetID() string {
@@ -8611,7 +8694,7 @@ type Credentials struct {
 func (x *Credentials) Reset() {
 	*x = Credentials{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[99]
+		mi := &file_clientpb_client_proto_msgTypes[100]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8624,7 +8707,7 @@ func (x *Credentials) String() string {
 func (*Credentials) ProtoMessage() {}
 
 func (x *Credentials) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[99]
+	mi := &file_clientpb_client_proto_msgTypes[100]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8637,7 +8720,7 @@ func (x *Credentials) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Credentials.ProtoReflect.Descriptor instead.
 func (*Credentials) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{99}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{100}
 }
 
 func (x *Credentials) GetCredentials() []*Credential {
@@ -8659,7 +8742,7 @@ type Crackstations struct {
 func (x *Crackstations) Reset() {
 	*x = Crackstations{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[100]
+		mi := &file_clientpb_client_proto_msgTypes[101]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8672,7 +8755,7 @@ func (x *Crackstations) String() string {
 func (*Crackstations) ProtoMessage() {}
 
 func (x *Crackstations) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[100]
+	mi := &file_clientpb_client_proto_msgTypes[101]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8685,7 +8768,7 @@ func (x *Crackstations) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Crackstations.ProtoReflect.Descriptor instead.
 func (*Crackstations) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{100}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{101}
 }
 
 func (x *Crackstations) GetCrackstations() []*Crackstation {
@@ -8711,7 +8794,7 @@ type CrackstationStatus struct {
 func (x *CrackstationStatus) Reset() {
 	*x = CrackstationStatus{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[101]
+		mi := &file_clientpb_client_proto_msgTypes[102]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8724,7 +8807,7 @@ func (x *CrackstationStatus) String() string {
 func (*CrackstationStatus) ProtoMessage() {}
 
 func (x *CrackstationStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[101]
+	mi := &file_clientpb_client_proto_msgTypes[102]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8737,7 +8820,7 @@ func (x *CrackstationStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackstationStatus.ProtoReflect.Descriptor instead.
 func (*CrackstationStatus) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{101}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{102}
 }
 
 func (x *CrackstationStatus) GetName() string {
@@ -8794,7 +8877,7 @@ type CrackSyncStatus struct {
 func (x *CrackSyncStatus) Reset() {
 	*x = CrackSyncStatus{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[102]
+		mi := &file_clientpb_client_proto_msgTypes[103]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8807,7 +8890,7 @@ func (x *CrackSyncStatus) String() string {
 func (*CrackSyncStatus) ProtoMessage() {}
 
 func (x *CrackSyncStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[102]
+	mi := &file_clientpb_client_proto_msgTypes[103]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8820,7 +8903,7 @@ func (x *CrackSyncStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackSyncStatus.ProtoReflect.Descriptor instead.
 func (*CrackSyncStatus) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{102}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{103}
 }
 
 func (x *CrackSyncStatus) GetSpeed() float32 {
@@ -8850,7 +8933,7 @@ type CrackBenchmark struct {
 func (x *CrackBenchmark) Reset() {
 	*x = CrackBenchmark{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[103]
+		mi := &file_clientpb_client_proto_msgTypes[104]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8863,7 +8946,7 @@ func (x *CrackBenchmark) String() string {
 func (*CrackBenchmark) ProtoMessage() {}
 
 func (x *CrackBenchmark) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[103]
+	mi := &file_clientpb_client_proto_msgTypes[104]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8876,7 +8959,7 @@ func (x *CrackBenchmark) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackBenchmark.ProtoReflect.Descriptor instead.
 func (*CrackBenchmark) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{103}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{104}
 }
 
 func (x *CrackBenchmark) GetName() string {
@@ -8917,7 +9000,7 @@ type CrackTask struct {
 func (x *CrackTask) Reset() {
 	*x = CrackTask{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[104]
+		mi := &file_clientpb_client_proto_msgTypes[105]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8930,7 +9013,7 @@ func (x *CrackTask) String() string {
 func (*CrackTask) ProtoMessage() {}
 
 func (x *CrackTask) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[104]
+	mi := &file_clientpb_client_proto_msgTypes[105]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8943,7 +9026,7 @@ func (x *CrackTask) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackTask.ProtoReflect.Descriptor instead.
 func (*CrackTask) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{104}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{105}
 }
 
 func (x *CrackTask) GetID() string {
@@ -9017,7 +9100,7 @@ type Crackstation struct {
 func (x *Crackstation) Reset() {
 	*x = Crackstation{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[105]
+		mi := &file_clientpb_client_proto_msgTypes[106]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9030,7 +9113,7 @@ func (x *Crackstation) String() string {
 func (*Crackstation) ProtoMessage() {}
 
 func (x *Crackstation) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[105]
+	mi := &file_clientpb_client_proto_msgTypes[106]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9043,7 +9126,7 @@ func (x *Crackstation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Crackstation.ProtoReflect.Descriptor instead.
 func (*Crackstation) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{105}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{106}
 }
 
 func (x *Crackstation) GetID() string {
@@ -9150,7 +9233,7 @@ type CUDABackendInfo struct {
 func (x *CUDABackendInfo) Reset() {
 	*x = CUDABackendInfo{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[106]
+		mi := &file_clientpb_client_proto_msgTypes[107]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9163,7 +9246,7 @@ func (x *CUDABackendInfo) String() string {
 func (*CUDABackendInfo) ProtoMessage() {}
 
 func (x *CUDABackendInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[106]
+	mi := &file_clientpb_client_proto_msgTypes[107]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9176,7 +9259,7 @@ func (x *CUDABackendInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CUDABackendInfo.ProtoReflect.Descriptor instead.
 func (*CUDABackendInfo) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{106}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{107}
 }
 
 func (x *CUDABackendInfo) GetType() string {
@@ -9270,7 +9353,7 @@ type OpenCLBackendInfo struct {
 func (x *OpenCLBackendInfo) Reset() {
 	*x = OpenCLBackendInfo{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[107]
+		mi := &file_clientpb_client_proto_msgTypes[108]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9283,7 +9366,7 @@ func (x *OpenCLBackendInfo) String() string {
 func (*OpenCLBackendInfo) ProtoMessage() {}
 
 func (x *OpenCLBackendInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[107]
+	mi := &file_clientpb_client_proto_msgTypes[108]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9296,7 +9379,7 @@ func (x *OpenCLBackendInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OpenCLBackendInfo.ProtoReflect.Descriptor instead.
 func (*OpenCLBackendInfo) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{107}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{108}
 }
 
 func (x *OpenCLBackendInfo) GetType() string {
@@ -9396,7 +9479,7 @@ type MetalBackendInfo struct {
 func (x *MetalBackendInfo) Reset() {
 	*x = MetalBackendInfo{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[108]
+		mi := &file_clientpb_client_proto_msgTypes[109]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9409,7 +9492,7 @@ func (x *MetalBackendInfo) String() string {
 func (*MetalBackendInfo) ProtoMessage() {}
 
 func (x *MetalBackendInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[108]
+	mi := &file_clientpb_client_proto_msgTypes[109]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9422,7 +9505,7 @@ func (x *MetalBackendInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MetalBackendInfo.ProtoReflect.Descriptor instead.
 func (*MetalBackendInfo) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{108}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{109}
 }
 
 func (x *MetalBackendInfo) GetType() string {
@@ -9620,7 +9703,7 @@ type CrackCommand struct {
 func (x *CrackCommand) Reset() {
 	*x = CrackCommand{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[109]
+		mi := &file_clientpb_client_proto_msgTypes[110]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9633,7 +9716,7 @@ func (x *CrackCommand) String() string {
 func (*CrackCommand) ProtoMessage() {}
 
 func (x *CrackCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[109]
+	mi := &file_clientpb_client_proto_msgTypes[110]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9646,7 +9729,7 @@ func (x *CrackCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackCommand.ProtoReflect.Descriptor instead.
 func (*CrackCommand) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{109}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{110}
 }
 
 func (x *CrackCommand) GetAttackMode() CrackAttackMode {
@@ -10377,7 +10460,7 @@ type CrackConfig struct {
 func (x *CrackConfig) Reset() {
 	*x = CrackConfig{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[110]
+		mi := &file_clientpb_client_proto_msgTypes[111]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -10390,7 +10473,7 @@ func (x *CrackConfig) String() string {
 func (*CrackConfig) ProtoMessage() {}
 
 func (x *CrackConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[110]
+	mi := &file_clientpb_client_proto_msgTypes[111]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10403,7 +10486,7 @@ func (x *CrackConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackConfig.ProtoReflect.Descriptor instead.
 func (*CrackConfig) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{110}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{111}
 }
 
 func (x *CrackConfig) GetAutoFire() bool {
@@ -10447,7 +10530,7 @@ type CrackFiles struct {
 func (x *CrackFiles) Reset() {
 	*x = CrackFiles{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[111]
+		mi := &file_clientpb_client_proto_msgTypes[112]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -10460,7 +10543,7 @@ func (x *CrackFiles) String() string {
 func (*CrackFiles) ProtoMessage() {}
 
 func (x *CrackFiles) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[111]
+	mi := &file_clientpb_client_proto_msgTypes[112]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10473,7 +10556,7 @@ func (x *CrackFiles) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackFiles.ProtoReflect.Descriptor instead.
 func (*CrackFiles) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{111}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{112}
 }
 
 func (x *CrackFiles) GetFiles() []*CrackFile {
@@ -10518,7 +10601,7 @@ type CrackFile struct {
 func (x *CrackFile) Reset() {
 	*x = CrackFile{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[112]
+		mi := &file_clientpb_client_proto_msgTypes[113]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -10531,7 +10614,7 @@ func (x *CrackFile) String() string {
 func (*CrackFile) ProtoMessage() {}
 
 func (x *CrackFile) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[112]
+	mi := &file_clientpb_client_proto_msgTypes[113]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10544,7 +10627,7 @@ func (x *CrackFile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackFile.ProtoReflect.Descriptor instead.
 func (*CrackFile) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{112}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{113}
 }
 
 func (x *CrackFile) GetID() string {
@@ -10638,7 +10721,7 @@ type CrackFileChunk struct {
 func (x *CrackFileChunk) Reset() {
 	*x = CrackFileChunk{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[113]
+		mi := &file_clientpb_client_proto_msgTypes[114]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -10651,7 +10734,7 @@ func (x *CrackFileChunk) String() string {
 func (*CrackFileChunk) ProtoMessage() {}
 
 func (x *CrackFileChunk) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[113]
+	mi := &file_clientpb_client_proto_msgTypes[114]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10664,7 +10747,7 @@ func (x *CrackFileChunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackFileChunk.ProtoReflect.Descriptor instead.
 func (*CrackFileChunk) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{113}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{114}
 }
 
 func (x *CrackFileChunk) GetID() string {
@@ -10707,7 +10790,7 @@ type MonitoringProviders struct {
 func (x *MonitoringProviders) Reset() {
 	*x = MonitoringProviders{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[114]
+		mi := &file_clientpb_client_proto_msgTypes[115]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -10720,7 +10803,7 @@ func (x *MonitoringProviders) String() string {
 func (*MonitoringProviders) ProtoMessage() {}
 
 func (x *MonitoringProviders) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[114]
+	mi := &file_clientpb_client_proto_msgTypes[115]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10733,7 +10816,7 @@ func (x *MonitoringProviders) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MonitoringProviders.ProtoReflect.Descriptor instead.
 func (*MonitoringProviders) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{114}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{115}
 }
 
 func (x *MonitoringProviders) GetProviders() []*MonitoringProvider {
@@ -10757,7 +10840,7 @@ type MonitoringProvider struct {
 func (x *MonitoringProvider) Reset() {
 	*x = MonitoringProvider{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[115]
+		mi := &file_clientpb_client_proto_msgTypes[116]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -10770,7 +10853,7 @@ func (x *MonitoringProvider) String() string {
 func (*MonitoringProvider) ProtoMessage() {}
 
 func (x *MonitoringProvider) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[115]
+	mi := &file_clientpb_client_proto_msgTypes[116]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10783,7 +10866,7 @@ func (x *MonitoringProvider) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MonitoringProvider.ProtoReflect.Descriptor instead.
 func (*MonitoringProvider) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{115}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{116}
 }
 
 func (x *MonitoringProvider) GetID() string {
@@ -10829,7 +10912,7 @@ type ResourceID struct {
 func (x *ResourceID) Reset() {
 	*x = ResourceID{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[116]
+		mi := &file_clientpb_client_proto_msgTypes[117]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -10842,7 +10925,7 @@ func (x *ResourceID) String() string {
 func (*ResourceID) ProtoMessage() {}
 
 func (x *ResourceID) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[116]
+	mi := &file_clientpb_client_proto_msgTypes[117]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10855,7 +10938,7 @@ func (x *ResourceID) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceID.ProtoReflect.Descriptor instead.
 func (*ResourceID) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{116}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{117}
 }
 
 func (x *ResourceID) GetID() string {
@@ -10898,7 +10981,7 @@ type CertificatesReq struct {
 func (x *CertificatesReq) Reset() {
 	*x = CertificatesReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[117]
+		mi := &file_clientpb_client_proto_msgTypes[118]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -10911,7 +10994,7 @@ func (x *CertificatesReq) String() string {
 func (*CertificatesReq) ProtoMessage() {}
 
 func (x *CertificatesReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[117]
+	mi := &file_clientpb_client_proto_msgTypes[118]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10924,7 +11007,7 @@ func (x *CertificatesReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificatesReq.ProtoReflect.Descriptor instead.
 func (*CertificatesReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{117}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{118}
 }
 
 func (x *CertificatesReq) GetCategoryFilters() uint32 {
@@ -10958,7 +11041,7 @@ type CertificateData struct {
 func (x *CertificateData) Reset() {
 	*x = CertificateData{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[118]
+		mi := &file_clientpb_client_proto_msgTypes[119]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -10971,7 +11054,7 @@ func (x *CertificateData) String() string {
 func (*CertificateData) ProtoMessage() {}
 
 func (x *CertificateData) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[118]
+	mi := &file_clientpb_client_proto_msgTypes[119]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10984,7 +11067,7 @@ func (x *CertificateData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificateData.ProtoReflect.Descriptor instead.
 func (*CertificateData) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{118}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{119}
 }
 
 func (x *CertificateData) GetCN() string {
@@ -11047,7 +11130,7 @@ type CertificateInfo struct {
 func (x *CertificateInfo) Reset() {
 	*x = CertificateInfo{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[119]
+		mi := &file_clientpb_client_proto_msgTypes[120]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -11060,7 +11143,7 @@ func (x *CertificateInfo) String() string {
 func (*CertificateInfo) ProtoMessage() {}
 
 func (x *CertificateInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[119]
+	mi := &file_clientpb_client_proto_msgTypes[120]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11073,7 +11156,7 @@ func (x *CertificateInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificateInfo.ProtoReflect.Descriptor instead.
 func (*CertificateInfo) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{119}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{120}
 }
 
 func (x *CertificateInfo) GetInfo() []*CertificateData {
@@ -11100,7 +11183,7 @@ type CertificateAuthorityData struct {
 func (x *CertificateAuthorityData) Reset() {
 	*x = CertificateAuthorityData{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[120]
+		mi := &file_clientpb_client_proto_msgTypes[121]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -11113,7 +11196,7 @@ func (x *CertificateAuthorityData) String() string {
 func (*CertificateAuthorityData) ProtoMessage() {}
 
 func (x *CertificateAuthorityData) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[120]
+	mi := &file_clientpb_client_proto_msgTypes[121]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11126,7 +11209,7 @@ func (x *CertificateAuthorityData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificateAuthorityData.ProtoReflect.Descriptor instead.
 func (*CertificateAuthorityData) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{120}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{121}
 }
 
 func (x *CertificateAuthorityData) GetCN() string {
@@ -11189,7 +11272,7 @@ type CertificateAuthorityInfo struct {
 func (x *CertificateAuthorityInfo) Reset() {
 	*x = CertificateAuthorityInfo{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_clientpb_client_proto_msgTypes[121]
+		mi := &file_clientpb_client_proto_msgTypes[122]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -11202,7 +11285,7 @@ func (x *CertificateAuthorityInfo) String() string {
 func (*CertificateAuthorityInfo) ProtoMessage() {}
 
 func (x *CertificateAuthorityInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[121]
+	mi := &file_clientpb_client_proto_msgTypes[122]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11215,7 +11298,7 @@ func (x *CertificateAuthorityInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificateAuthorityInfo.ProtoReflect.Descriptor instead.
 func (*CertificateAuthorityInfo) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{121}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{122}
 }
 
 func (x *CertificateAuthorityInfo) GetInfo() []*CertificateAuthorityData {
@@ -11376,102 +11459,113 @@ var file_clientpb_client_proto_rawDesc = []byte{
 	0x79, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x08, 0x50, 0x72, 0x69, 0x6f, 0x72, 0x69, 0x74,
 	0x79, 0x12, 0x10, 0x0a, 0x03, 0x55, 0x52, 0x4c, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03,
 	0x55, 0x52, 0x4c, 0x12, 0x18, 0x0a, 0x07, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x18, 0x04,
-	0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x22, 0xee, 0x0d,
-	0x0a, 0x0d, 0x49, 0x6d, 0x70, 0x6c, 0x61, 0x6e, 0x74, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12,
-	0x0e, 0x0a, 0x02, 0x49, 0x44, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x02, 0x49, 0x44, 0x12,
-	0x3c, 0x0a, 0x0d, 0x49, 0x6d, 0x70, 0x6c, 0x61, 0x6e, 0x74, 0x42, 0x75, 0x69, 0x6c, 0x64, 0x73,
-	0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x16, 0x2e, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x70,
-	0x62, 0x2e, 0x49, 0x6d, 0x70, 0x6c, 0x61, 0x6e, 0x74, 0x42, 0x75, 0x69, 0x6c, 0x64, 0x52, 0x0d,
-	0x49, 0x6d, 0x70, 0x6c, 0x61, 0x6e, 0x74, 0x42, 0x75, 0x69, 0x6c, 0x64, 0x73, 0x12, 0x2a, 0x0a,
-	0x10, 0x49, 0x6d, 0x70, 0x6c, 0x61, 0x6e, 0x74, 0x50, 0x72, 0x6f, 0x66, 0x69, 0x6c, 0x65, 0x49,
-	0x44, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x10, 0x49, 0x6d, 0x70, 0x6c, 0x61, 0x6e, 0x74,
-	0x50, 0x72, 0x6f, 0x66, 0x69, 0x6c, 0x65, 0x49, 0x44, 0x12, 0x1a, 0x0a, 0x08, 0x49, 0x73, 0x42,
-	0x65, 0x61, 0x63, 0x6f, 0x6e, 0x18, 0x04, 0x20, 0x01, 0x28, 0x08, 0x52, 0x08, 0x49, 0x73, 0x42,
-	0x65, 0x61, 0x63, 0x6f, 0x6e, 0x12, 0x26, 0x0a, 0x0e, 0x42, 0x65, 0x61, 0x63, 0x6f, 0x6e, 0x49,
-	0x6e, 0x74, 0x65, 0x72, 0x76, 0x61, 0x6c, 0x18, 0x05, 0x20, 0x01, 0x28, 0x03, 0x52, 0x0e, 0x42,
-	0x65, 0x61, 0x63, 0x6f, 0x6e, 0x49, 0x6e, 0x74, 0x65, 0x72, 0x76, 0x61, 0x6c, 0x12, 0x22, 0x0a,
-	0x0c, 0x42, 0x65, 0x61, 0x63, 0x6f, 0x6e, 0x4a, 0x69, 0x74, 0x74, 0x65, 0x72, 0x18, 0x06, 0x20,
-	0x01, 0x28, 0x03, 0x52, 0x0c, 0x42, 0x65, 0x61, 0x63, 0x6f, 0x6e, 0x4a, 0x69, 0x74, 0x74, 0x65,
-	0x72, 0x12, 0x12, 0x0a, 0x04, 0x47, 0x4f, 0x4f, 0x53, 0x18, 0x07, 0x20, 0x01, 0x28, 0x09, 0x52,
-	0x04, 0x47, 0x4f, 0x4f, 0x53, 0x12, 0x16, 0x0a, 0x06, 0x47, 0x4f, 0x41, 0x52, 0x43, 0x48, 0x18,
-	0x08, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x47, 0x4f, 0x41, 0x52, 0x43, 0x48, 0x12, 0x14, 0x0a,
-	0x05, 0x44, 0x65, 0x62, 0x75, 0x67, 0x18, 0x0a, 0x20, 0x01, 0x28, 0x08, 0x52, 0x05, 0x44, 0x65,
-	0x62, 0x75, 0x67, 0x12, 0x18, 0x0a, 0x07, 0x45, 0x76, 0x61, 0x73, 0x69, 0x6f, 0x6e, 0x18, 0x0b,
-	0x20, 0x01, 0x28, 0x08, 0x52, 0x07, 0x45, 0x76, 0x61, 0x73, 0x69, 0x6f, 0x6e, 0x12, 0x2a, 0x0a,
-	0x10, 0x4f, 0x62, 0x66, 0x75, 0x73, 0x63, 0x61, 0x74, 0x65, 0x53, 0x79, 0x6d, 0x62, 0x6f, 0x6c,
-	0x73, 0x18, 0x0c, 0x20, 0x01, 0x28, 0x08, 0x52, 0x10, 0x4f, 0x62, 0x66, 0x75, 0x73, 0x63, 0x61,
-	0x74, 0x65, 0x53, 0x79, 0x6d, 0x62, 0x6f, 0x6c, 0x73, 0x12, 0x22, 0x0a, 0x0c, 0x54, 0x65, 0x6d,
-	0x70, 0x6c, 0x61, 0x74, 0x65, 0x4e, 0x61, 0x6d, 0x65, 0x18, 0x0d, 0x20, 0x01, 0x28, 0x09, 0x52,
-	0x0c, 0x54, 0x65, 0x6d, 0x70, 0x6c, 0x61, 0x74, 0x65, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x1e, 0x0a,
-	0x0a, 0x53, 0x47, 0x4e, 0x45, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x64, 0x18, 0x0e, 0x20, 0x01, 0x28,
-	0x08, 0x52, 0x0a, 0x53, 0x47, 0x4e, 0x45, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x64, 0x12, 0x1c, 0x0a,
-	0x09, 0x47, 0x6f, 0x50, 0x61, 0x63, 0x6b, 0x61, 0x67, 0x65, 0x18, 0x0f, 0x20, 0x01, 0x28, 0x09,
-	0x52, 0x09, 0x47, 0x6f, 0x50, 0x61, 0x63, 0x6b, 0x61, 0x67, 0x65, 0x12, 0x20, 0x0a, 0x0b, 0x49,
-	0x6e, 0x63, 0x6c, 0x75, 0x64, 0x65, 0x4d, 0x54, 0x4c, 0x53, 0x18, 0x35, 0x20, 0x01, 0x28, 0x08,
-	0x52, 0x0b, 0x49, 0x6e, 0x63, 0x6c, 0x75, 0x64, 0x65, 0x4d, 0x54, 0x4c, 0x53, 0x12, 0x20, 0x0a,
-	0x0b, 0x49, 0x6e, 0x63, 0x6c, 0x75, 0x64, 0x65, 0x48, 0x54, 0x54, 0x50, 0x18, 0x10, 0x20, 0x01,
-	0x28, 0x08, 0x52, 0x0b, 0x49, 0x6e, 0x63, 0x6c, 0x75, 0x64, 0x65, 0x48, 0x54, 0x54, 0x50, 0x12,
-	0x1c, 0x0a, 0x09, 0x49, 0x6e, 0x63, 0x6c, 0x75, 0x64, 0x65, 0x57, 0x47, 0x18, 0x11, 0x20, 0x01,
-	0x28, 0x08, 0x52, 0x09, 0x49, 0x6e, 0x63, 0x6c, 0x75, 0x64, 0x65, 0x57, 0x47, 0x12, 0x1e, 0x0a,
-	0x0a, 0x49, 0x6e, 0x63, 0x6c, 0x75, 0x64, 0x65, 0x44, 0x4e, 0x53, 0x18, 0x12, 0x20, 0x01, 0x28,
-	0x08, 0x52, 0x0a, 0x49, 0x6e, 0x63, 0x6c, 0x75, 0x64, 0x65, 0x44, 0x4e, 0x53, 0x12, 0x28, 0x0a,
-	0x0f, 0x49, 0x6e, 0x63, 0x6c, 0x75, 0x64, 0x65, 0x4e, 0x61, 0x6d, 0x65, 0x50, 0x69, 0x70, 0x65,
-	0x18, 0x13, 0x20, 0x01, 0x28, 0x08, 0x52, 0x0f, 0x49, 0x6e, 0x63, 0x6c, 0x75, 0x64, 0x65, 0x4e,
-	0x61, 0x6d, 0x65, 0x50, 0x69, 0x70, 0x65, 0x12, 0x1e, 0x0a, 0x0a, 0x49, 0x6e, 0x63, 0x6c, 0x75,
-	0x64, 0x65, 0x54, 0x43, 0x50, 0x18, 0x14, 0x20, 0x01, 0x28, 0x08, 0x52, 0x0a, 0x49, 0x6e, 0x63,
-	0x6c, 0x75, 0x64, 0x65, 0x54, 0x43, 0x50, 0x12, 0x20, 0x0a, 0x0b, 0x57, 0x47, 0x50, 0x65, 0x65,
-	0x72, 0x54, 0x75, 0x6e, 0x49, 0x50, 0x18, 0x20, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x57, 0x47,
-	0x50, 0x65, 0x65, 0x72, 0x54, 0x75, 0x6e, 0x49, 0x50, 0x12, 0x2c, 0x0a, 0x11, 0x57, 0x47, 0x4b,
-	0x65, 0x79, 0x45, 0x78, 0x63, 0x68, 0x61, 0x6e, 0x67, 0x65, 0x50, 0x6f, 0x72, 0x74, 0x18, 0x21,
-	0x20, 0x01, 0x28, 0x0d, 0x52, 0x11, 0x57, 0x47, 0x4b, 0x65, 0x79, 0x45, 0x78, 0x63, 0x68, 0x61,
-	0x6e, 0x67, 0x65, 0x50, 0x6f, 0x72, 0x74, 0x12, 0x26, 0x0a, 0x0e, 0x57, 0x47, 0x54, 0x63, 0x70,
-	0x43, 0x6f, 0x6d, 0x6d, 0x73, 0x50, 0x6f, 0x72, 0x74, 0x18, 0x22, 0x20, 0x01, 0x28, 0x0d, 0x52,
-	0x0e, 0x57, 0x47, 0x54, 0x63, 0x70, 0x43, 0x6f, 0x6d, 0x6d, 0x73, 0x50, 0x6f, 0x72, 0x74, 0x12,
-	0x2c, 0x0a, 0x11, 0x52, 0x65, 0x63, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x49, 0x6e, 0x74, 0x65,
-	0x72, 0x76, 0x61, 0x6c, 0x18, 0x28, 0x20, 0x01, 0x28, 0x03, 0x52, 0x11, 0x52, 0x65, 0x63, 0x6f,
-	0x6e, 0x6e, 0x65, 0x63, 0x74, 0x49, 0x6e, 0x74, 0x65, 0x72, 0x76, 0x61, 0x6c, 0x12, 0x30, 0x0a,
-	0x13, 0x4d, 0x61, 0x78, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x45, 0x72,
-	0x72, 0x6f, 0x72, 0x73, 0x18, 0x29, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x13, 0x4d, 0x61, 0x78, 0x43,
-	0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x73, 0x12,
-	0x20, 0x0a, 0x0b, 0x50, 0x6f, 0x6c, 0x6c, 0x54, 0x69, 0x6d, 0x65, 0x6f, 0x75, 0x74, 0x18, 0x2a,
-	0x20, 0x01, 0x28, 0x03, 0x52, 0x0b, 0x50, 0x6f, 0x6c, 0x6c, 0x54, 0x69, 0x6d, 0x65, 0x6f, 0x75,
-	0x74, 0x12, 0x23, 0x0a, 0x02, 0x43, 0x32, 0x18, 0x32, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x13, 0x2e,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x22, 0x75, 0x0a,
+	0x0b, 0x44, 0x6f, 0x6e, 0x75, 0x74, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x16, 0x0a, 0x06,
+	0x42, 0x79, 0x70, 0x61, 0x73, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x06, 0x42, 0x79,
+	0x70, 0x61, 0x73, 0x73, 0x12, 0x18, 0x0a, 0x07, 0x45, 0x6e, 0x74, 0x72, 0x6f, 0x70, 0x79, 0x18,
+	0x02, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x07, 0x45, 0x6e, 0x74, 0x72, 0x6f, 0x70, 0x79, 0x12, 0x1a,
+	0x0a, 0x08, 0x43, 0x6f, 0x6d, 0x70, 0x72, 0x65, 0x73, 0x73, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0d,
+	0x52, 0x08, 0x43, 0x6f, 0x6d, 0x70, 0x72, 0x65, 0x73, 0x73, 0x12, 0x18, 0x0a, 0x07, 0x45, 0x78,
+	0x69, 0x74, 0x4f, 0x70, 0x74, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x07, 0x45, 0x78, 0x69,
+	0x74, 0x4f, 0x70, 0x74, 0x22, 0xa7, 0x0e, 0x0a, 0x0d, 0x49, 0x6d, 0x70, 0x6c, 0x61, 0x6e, 0x74,
+	0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x0e, 0x0a, 0x02, 0x49, 0x44, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x02, 0x49, 0x44, 0x12, 0x3c, 0x0a, 0x0d, 0x49, 0x6d, 0x70, 0x6c, 0x61, 0x6e,
+	0x74, 0x42, 0x75, 0x69, 0x6c, 0x64, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x16, 0x2e,
 	0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x70, 0x62, 0x2e, 0x49, 0x6d, 0x70, 0x6c, 0x61, 0x6e, 0x74,
-	0x43, 0x32, 0x52, 0x02, 0x43, 0x32, 0x12, 0x24, 0x0a, 0x0d, 0x43, 0x61, 0x6e, 0x61, 0x72, 0x79,
-	0x44, 0x6f, 0x6d, 0x61, 0x69, 0x6e, 0x73, 0x18, 0x33, 0x20, 0x03, 0x28, 0x09, 0x52, 0x0d, 0x43,
-	0x61, 0x6e, 0x61, 0x72, 0x79, 0x44, 0x6f, 0x6d, 0x61, 0x69, 0x6e, 0x73, 0x12, 0x2e, 0x0a, 0x12,
-	0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x53, 0x74, 0x72, 0x61, 0x74, 0x65,
-	0x67, 0x79, 0x18, 0x34, 0x20, 0x01, 0x28, 0x09, 0x52, 0x12, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63,
-	0x74, 0x69, 0x6f, 0x6e, 0x53, 0x74, 0x72, 0x61, 0x74, 0x65, 0x67, 0x79, 0x12, 0x2c, 0x0a, 0x11,
+	0x42, 0x75, 0x69, 0x6c, 0x64, 0x52, 0x0d, 0x49, 0x6d, 0x70, 0x6c, 0x61, 0x6e, 0x74, 0x42, 0x75,
+	0x69, 0x6c, 0x64, 0x73, 0x12, 0x2a, 0x0a, 0x10, 0x49, 0x6d, 0x70, 0x6c, 0x61, 0x6e, 0x74, 0x50,
+	0x72, 0x6f, 0x66, 0x69, 0x6c, 0x65, 0x49, 0x44, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x10,
+	0x49, 0x6d, 0x70, 0x6c, 0x61, 0x6e, 0x74, 0x50, 0x72, 0x6f, 0x66, 0x69, 0x6c, 0x65, 0x49, 0x44,
+	0x12, 0x1a, 0x0a, 0x08, 0x49, 0x73, 0x42, 0x65, 0x61, 0x63, 0x6f, 0x6e, 0x18, 0x04, 0x20, 0x01,
+	0x28, 0x08, 0x52, 0x08, 0x49, 0x73, 0x42, 0x65, 0x61, 0x63, 0x6f, 0x6e, 0x12, 0x26, 0x0a, 0x0e,
+	0x42, 0x65, 0x61, 0x63, 0x6f, 0x6e, 0x49, 0x6e, 0x74, 0x65, 0x72, 0x76, 0x61, 0x6c, 0x18, 0x05,
+	0x20, 0x01, 0x28, 0x03, 0x52, 0x0e, 0x42, 0x65, 0x61, 0x63, 0x6f, 0x6e, 0x49, 0x6e, 0x74, 0x65,
+	0x72, 0x76, 0x61, 0x6c, 0x12, 0x22, 0x0a, 0x0c, 0x42, 0x65, 0x61, 0x63, 0x6f, 0x6e, 0x4a, 0x69,
+	0x74, 0x74, 0x65, 0x72, 0x18, 0x06, 0x20, 0x01, 0x28, 0x03, 0x52, 0x0c, 0x42, 0x65, 0x61, 0x63,
+	0x6f, 0x6e, 0x4a, 0x69, 0x74, 0x74, 0x65, 0x72, 0x12, 0x12, 0x0a, 0x04, 0x47, 0x4f, 0x4f, 0x53,
+	0x18, 0x07, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x47, 0x4f, 0x4f, 0x53, 0x12, 0x16, 0x0a, 0x06,
+	0x47, 0x4f, 0x41, 0x52, 0x43, 0x48, 0x18, 0x08, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x47, 0x4f,
+	0x41, 0x52, 0x43, 0x48, 0x12, 0x14, 0x0a, 0x05, 0x44, 0x65, 0x62, 0x75, 0x67, 0x18, 0x0a, 0x20,
+	0x01, 0x28, 0x08, 0x52, 0x05, 0x44, 0x65, 0x62, 0x75, 0x67, 0x12, 0x18, 0x0a, 0x07, 0x45, 0x76,
+	0x61, 0x73, 0x69, 0x6f, 0x6e, 0x18, 0x0b, 0x20, 0x01, 0x28, 0x08, 0x52, 0x07, 0x45, 0x76, 0x61,
+	0x73, 0x69, 0x6f, 0x6e, 0x12, 0x2a, 0x0a, 0x10, 0x4f, 0x62, 0x66, 0x75, 0x73, 0x63, 0x61, 0x74,
+	0x65, 0x53, 0x79, 0x6d, 0x62, 0x6f, 0x6c, 0x73, 0x18, 0x0c, 0x20, 0x01, 0x28, 0x08, 0x52, 0x10,
+	0x4f, 0x62, 0x66, 0x75, 0x73, 0x63, 0x61, 0x74, 0x65, 0x53, 0x79, 0x6d, 0x62, 0x6f, 0x6c, 0x73,
+	0x12, 0x22, 0x0a, 0x0c, 0x54, 0x65, 0x6d, 0x70, 0x6c, 0x61, 0x74, 0x65, 0x4e, 0x61, 0x6d, 0x65,
+	0x18, 0x0d, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0c, 0x54, 0x65, 0x6d, 0x70, 0x6c, 0x61, 0x74, 0x65,
+	0x4e, 0x61, 0x6d, 0x65, 0x12, 0x1e, 0x0a, 0x0a, 0x53, 0x47, 0x4e, 0x45, 0x6e, 0x61, 0x62, 0x6c,
+	0x65, 0x64, 0x18, 0x0e, 0x20, 0x01, 0x28, 0x08, 0x52, 0x0a, 0x53, 0x47, 0x4e, 0x45, 0x6e, 0x61,
+	0x62, 0x6c, 0x65, 0x64, 0x12, 0x1c, 0x0a, 0x09, 0x47, 0x6f, 0x50, 0x61, 0x63, 0x6b, 0x61, 0x67,
+	0x65, 0x18, 0x0f, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x47, 0x6f, 0x50, 0x61, 0x63, 0x6b, 0x61,
+	0x67, 0x65, 0x12, 0x20, 0x0a, 0x0b, 0x49, 0x6e, 0x63, 0x6c, 0x75, 0x64, 0x65, 0x4d, 0x54, 0x4c,
+	0x53, 0x18, 0x35, 0x20, 0x01, 0x28, 0x08, 0x52, 0x0b, 0x49, 0x6e, 0x63, 0x6c, 0x75, 0x64, 0x65,
+	0x4d, 0x54, 0x4c, 0x53, 0x12, 0x20, 0x0a, 0x0b, 0x49, 0x6e, 0x63, 0x6c, 0x75, 0x64, 0x65, 0x48,
+	0x54, 0x54, 0x50, 0x18, 0x10, 0x20, 0x01, 0x28, 0x08, 0x52, 0x0b, 0x49, 0x6e, 0x63, 0x6c, 0x75,
+	0x64, 0x65, 0x48, 0x54, 0x54, 0x50, 0x12, 0x1c, 0x0a, 0x09, 0x49, 0x6e, 0x63, 0x6c, 0x75, 0x64,
+	0x65, 0x57, 0x47, 0x18, 0x11, 0x20, 0x01, 0x28, 0x08, 0x52, 0x09, 0x49, 0x6e, 0x63, 0x6c, 0x75,
+	0x64, 0x65, 0x57, 0x47, 0x12, 0x1e, 0x0a, 0x0a, 0x49, 0x6e, 0x63, 0x6c, 0x75, 0x64, 0x65, 0x44,
+	0x4e, 0x53, 0x18, 0x12, 0x20, 0x01, 0x28, 0x08, 0x52, 0x0a, 0x49, 0x6e, 0x63, 0x6c, 0x75, 0x64,
+	0x65, 0x44, 0x4e, 0x53, 0x12, 0x28, 0x0a, 0x0f, 0x49, 0x6e, 0x63, 0x6c, 0x75, 0x64, 0x65, 0x4e,
+	0x61, 0x6d, 0x65, 0x50, 0x69, 0x70, 0x65, 0x18, 0x13, 0x20, 0x01, 0x28, 0x08, 0x52, 0x0f, 0x49,
+	0x6e, 0x63, 0x6c, 0x75, 0x64, 0x65, 0x4e, 0x61, 0x6d, 0x65, 0x50, 0x69, 0x70, 0x65, 0x12, 0x1e,
+	0x0a, 0x0a, 0x49, 0x6e, 0x63, 0x6c, 0x75, 0x64, 0x65, 0x54, 0x43, 0x50, 0x18, 0x14, 0x20, 0x01,
+	0x28, 0x08, 0x52, 0x0a, 0x49, 0x6e, 0x63, 0x6c, 0x75, 0x64, 0x65, 0x54, 0x43, 0x50, 0x12, 0x20,
+	0x0a, 0x0b, 0x57, 0x47, 0x50, 0x65, 0x65, 0x72, 0x54, 0x75, 0x6e, 0x49, 0x50, 0x18, 0x20, 0x20,
+	0x01, 0x28, 0x09, 0x52, 0x0b, 0x57, 0x47, 0x50, 0x65, 0x65, 0x72, 0x54, 0x75, 0x6e, 0x49, 0x50,
+	0x12, 0x2c, 0x0a, 0x11, 0x57, 0x47, 0x4b, 0x65, 0x79, 0x45, 0x78, 0x63, 0x68, 0x61, 0x6e, 0x67,
+	0x65, 0x50, 0x6f, 0x72, 0x74, 0x18, 0x21, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x11, 0x57, 0x47, 0x4b,
+	0x65, 0x79, 0x45, 0x78, 0x63, 0x68, 0x61, 0x6e, 0x67, 0x65, 0x50, 0x6f, 0x72, 0x74, 0x12, 0x26,
+	0x0a, 0x0e, 0x57, 0x47, 0x54, 0x63, 0x70, 0x43, 0x6f, 0x6d, 0x6d, 0x73, 0x50, 0x6f, 0x72, 0x74,
+	0x18, 0x22, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x0e, 0x57, 0x47, 0x54, 0x63, 0x70, 0x43, 0x6f, 0x6d,
+	0x6d, 0x73, 0x50, 0x6f, 0x72, 0x74, 0x12, 0x2c, 0x0a, 0x11, 0x52, 0x65, 0x63, 0x6f, 0x6e, 0x6e,
+	0x65, 0x63, 0x74, 0x49, 0x6e, 0x74, 0x65, 0x72, 0x76, 0x61, 0x6c, 0x18, 0x28, 0x20, 0x01, 0x28,
+	0x03, 0x52, 0x11, 0x52, 0x65, 0x63, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x49, 0x6e, 0x74, 0x65,
+	0x72, 0x76, 0x61, 0x6c, 0x12, 0x30, 0x0a, 0x13, 0x4d, 0x61, 0x78, 0x43, 0x6f, 0x6e, 0x6e, 0x65,
+	0x63, 0x74, 0x69, 0x6f, 0x6e, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x73, 0x18, 0x29, 0x20, 0x01, 0x28,
+	0x0d, 0x52, 0x13, 0x4d, 0x61, 0x78, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e,
+	0x45, 0x72, 0x72, 0x6f, 0x72, 0x73, 0x12, 0x20, 0x0a, 0x0b, 0x50, 0x6f, 0x6c, 0x6c, 0x54, 0x69,
+	0x6d, 0x65, 0x6f, 0x75, 0x74, 0x18, 0x2a, 0x20, 0x01, 0x28, 0x03, 0x52, 0x0b, 0x50, 0x6f, 0x6c,
+	0x6c, 0x54, 0x69, 0x6d, 0x65, 0x6f, 0x75, 0x74, 0x12, 0x23, 0x0a, 0x02, 0x43, 0x32, 0x18, 0x32,
+	0x20, 0x03, 0x28, 0x0b, 0x32, 0x13, 0x2e, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x70, 0x62, 0x2e,
+	0x49, 0x6d, 0x70, 0x6c, 0x61, 0x6e, 0x74, 0x43, 0x32, 0x52, 0x02, 0x43, 0x32, 0x12, 0x24, 0x0a,
+	0x0d, 0x43, 0x61, 0x6e, 0x61, 0x72, 0x79, 0x44, 0x6f, 0x6d, 0x61, 0x69, 0x6e, 0x73, 0x18, 0x33,
+	0x20, 0x03, 0x28, 0x09, 0x52, 0x0d, 0x43, 0x61, 0x6e, 0x61, 0x72, 0x79, 0x44, 0x6f, 0x6d, 0x61,
+	0x69, 0x6e, 0x73, 0x12, 0x2e, 0x0a, 0x12, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f,
+	0x6e, 0x53, 0x74, 0x72, 0x61, 0x74, 0x65, 0x67, 0x79, 0x18, 0x34, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x12, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x53, 0x74, 0x72, 0x61, 0x74,
+	0x65, 0x67, 0x79, 0x12, 0x2c, 0x0a, 0x11, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x44, 0x6f, 0x6d, 0x61,
+	0x69, 0x6e, 0x4a, 0x6f, 0x69, 0x6e, 0x65, 0x64, 0x18, 0x3c, 0x20, 0x01, 0x28, 0x08, 0x52, 0x11,
 	0x4c, 0x69, 0x6d, 0x69, 0x74, 0x44, 0x6f, 0x6d, 0x61, 0x69, 0x6e, 0x4a, 0x6f, 0x69, 0x6e, 0x65,
-	0x64, 0x18, 0x3c, 0x20, 0x01, 0x28, 0x08, 0x52, 0x11, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x44, 0x6f,
-	0x6d, 0x61, 0x69, 0x6e, 0x4a, 0x6f, 0x69, 0x6e, 0x65, 0x64, 0x12, 0x24, 0x0a, 0x0d, 0x4c, 0x69,
-	0x6d, 0x69, 0x74, 0x44, 0x61, 0x74, 0x65, 0x74, 0x69, 0x6d, 0x65, 0x18, 0x3d, 0x20, 0x01, 0x28,
-	0x09, 0x52, 0x0d, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x44, 0x61, 0x74, 0x65, 0x74, 0x69, 0x6d, 0x65,
-	0x12, 0x24, 0x0a, 0x0d, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x48, 0x6f, 0x73, 0x74, 0x6e, 0x61, 0x6d,
-	0x65, 0x18, 0x3e, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0d, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x48, 0x6f,
-	0x73, 0x74, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x24, 0x0a, 0x0d, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x55,
-	0x73, 0x65, 0x72, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x3f, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0d, 0x4c,
-	0x69, 0x6d, 0x69, 0x74, 0x55, 0x73, 0x65, 0x72, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x28, 0x0a, 0x0f,
-	0x4c, 0x69, 0x6d, 0x69, 0x74, 0x46, 0x69, 0x6c, 0x65, 0x45, 0x78, 0x69, 0x73, 0x74, 0x73, 0x18,
-	0x40, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0f, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x46, 0x69, 0x6c, 0x65,
-	0x45, 0x78, 0x69, 0x73, 0x74, 0x73, 0x12, 0x20, 0x0a, 0x0b, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x4c,
-	0x6f, 0x63, 0x61, 0x6c, 0x65, 0x18, 0x41, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x4c, 0x69, 0x6d,
-	0x69, 0x74, 0x4c, 0x6f, 0x63, 0x61, 0x6c, 0x65, 0x12, 0x2e, 0x0a, 0x06, 0x46, 0x6f, 0x72, 0x6d,
-	0x61, 0x74, 0x18, 0x64, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x16, 0x2e, 0x63, 0x6c, 0x69, 0x65, 0x6e,
-	0x74, 0x70, 0x62, 0x2e, 0x4f, 0x75, 0x74, 0x70, 0x75, 0x74, 0x46, 0x6f, 0x72, 0x6d, 0x61, 0x74,
-	0x52, 0x06, 0x46, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x12, 0x20, 0x0a, 0x0b, 0x49, 0x73, 0x53, 0x68,
-	0x61, 0x72, 0x65, 0x64, 0x4c, 0x69, 0x62, 0x18, 0x65, 0x20, 0x01, 0x28, 0x08, 0x52, 0x0b, 0x49,
-	0x73, 0x53, 0x68, 0x61, 0x72, 0x65, 0x64, 0x4c, 0x69, 0x62, 0x12, 0x1c, 0x0a, 0x09, 0x49, 0x73,
-	0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x18, 0x67, 0x20, 0x01, 0x28, 0x08, 0x52, 0x09, 0x49,
-	0x73, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x20, 0x0a, 0x0b, 0x49, 0x73, 0x53, 0x68,
-	0x65, 0x6c, 0x6c, 0x63, 0x6f, 0x64, 0x65, 0x18, 0x68, 0x20, 0x01, 0x28, 0x08, 0x52, 0x0b, 0x49,
-	0x73, 0x53, 0x68, 0x65, 0x6c, 0x6c, 0x63, 0x6f, 0x64, 0x65, 0x12, 0x1c, 0x0a, 0x09, 0x52, 0x75,
-	0x6e, 0x41, 0x74, 0x4c, 0x6f, 0x61, 0x64, 0x18, 0x69, 0x20, 0x01, 0x28, 0x08, 0x52, 0x09, 0x52,
-	0x75, 0x6e, 0x41, 0x74, 0x4c, 0x6f, 0x61, 0x64, 0x12, 0x1c, 0x0a, 0x09, 0x44, 0x65, 0x62, 0x75,
-	0x67, 0x46, 0x69, 0x6c, 0x65, 0x18, 0x6a, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x44, 0x65, 0x62,
-	0x75, 0x67, 0x46, 0x69, 0x6c, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x65, 0x78, 0x70, 0x6f, 0x72, 0x74,
-	0x73, 0x18, 0x6b, 0x20, 0x03, 0x28, 0x09, 0x52, 0x07, 0x65, 0x78, 0x70, 0x6f, 0x72, 0x74, 0x73,
+	0x64, 0x12, 0x24, 0x0a, 0x0d, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x44, 0x61, 0x74, 0x65, 0x74, 0x69,
+	0x6d, 0x65, 0x18, 0x3d, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0d, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x44,
+	0x61, 0x74, 0x65, 0x74, 0x69, 0x6d, 0x65, 0x12, 0x24, 0x0a, 0x0d, 0x4c, 0x69, 0x6d, 0x69, 0x74,
+	0x48, 0x6f, 0x73, 0x74, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x3e, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0d,
+	0x4c, 0x69, 0x6d, 0x69, 0x74, 0x48, 0x6f, 0x73, 0x74, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x24, 0x0a,
+	0x0d, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x55, 0x73, 0x65, 0x72, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x3f,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x0d, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x55, 0x73, 0x65, 0x72, 0x6e,
+	0x61, 0x6d, 0x65, 0x12, 0x28, 0x0a, 0x0f, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x46, 0x69, 0x6c, 0x65,
+	0x45, 0x78, 0x69, 0x73, 0x74, 0x73, 0x18, 0x40, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0f, 0x4c, 0x69,
+	0x6d, 0x69, 0x74, 0x46, 0x69, 0x6c, 0x65, 0x45, 0x78, 0x69, 0x73, 0x74, 0x73, 0x12, 0x20, 0x0a,
+	0x0b, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x4c, 0x6f, 0x63, 0x61, 0x6c, 0x65, 0x18, 0x41, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x0b, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x4c, 0x6f, 0x63, 0x61, 0x6c, 0x65, 0x12,
+	0x2e, 0x0a, 0x06, 0x46, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x18, 0x64, 0x20, 0x01, 0x28, 0x0e, 0x32,
+	0x16, 0x2e, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x70, 0x62, 0x2e, 0x4f, 0x75, 0x74, 0x70, 0x75,
+	0x74, 0x46, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x52, 0x06, 0x46, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x12,
+	0x20, 0x0a, 0x0b, 0x49, 0x73, 0x53, 0x68, 0x61, 0x72, 0x65, 0x64, 0x4c, 0x69, 0x62, 0x18, 0x65,
+	0x20, 0x01, 0x28, 0x08, 0x52, 0x0b, 0x49, 0x73, 0x53, 0x68, 0x61, 0x72, 0x65, 0x64, 0x4c, 0x69,
+	0x62, 0x12, 0x1c, 0x0a, 0x09, 0x49, 0x73, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x18, 0x67,
+	0x20, 0x01, 0x28, 0x08, 0x52, 0x09, 0x49, 0x73, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12,
+	0x20, 0x0a, 0x0b, 0x49, 0x73, 0x53, 0x68, 0x65, 0x6c, 0x6c, 0x63, 0x6f, 0x64, 0x65, 0x18, 0x68,
+	0x20, 0x01, 0x28, 0x08, 0x52, 0x0b, 0x49, 0x73, 0x53, 0x68, 0x65, 0x6c, 0x6c, 0x63, 0x6f, 0x64,
+	0x65, 0x12, 0x1c, 0x0a, 0x09, 0x52, 0x75, 0x6e, 0x41, 0x74, 0x4c, 0x6f, 0x61, 0x64, 0x18, 0x69,
+	0x20, 0x01, 0x28, 0x08, 0x52, 0x09, 0x52, 0x75, 0x6e, 0x41, 0x74, 0x4c, 0x6f, 0x61, 0x64, 0x12,
+	0x1c, 0x0a, 0x09, 0x44, 0x65, 0x62, 0x75, 0x67, 0x46, 0x69, 0x6c, 0x65, 0x18, 0x6a, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x09, 0x44, 0x65, 0x62, 0x75, 0x67, 0x46, 0x69, 0x6c, 0x65, 0x12, 0x18, 0x0a,
+	0x07, 0x65, 0x78, 0x70, 0x6f, 0x72, 0x74, 0x73, 0x18, 0x6b, 0x20, 0x03, 0x28, 0x09, 0x52, 0x07,
+	0x65, 0x78, 0x70, 0x6f, 0x72, 0x74, 0x73, 0x12, 0x37, 0x0a, 0x0b, 0x44, 0x6f, 0x6e, 0x75, 0x74,
+	0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18, 0x6c, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x63,
+	0x6c, 0x69, 0x65, 0x6e, 0x74, 0x70, 0x62, 0x2e, 0x44, 0x6f, 0x6e, 0x75, 0x74, 0x43, 0x6f, 0x6e,
+	0x66, 0x69, 0x67, 0x52, 0x0b, 0x44, 0x6f, 0x6e, 0x75, 0x74, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67,
 	0x12, 0x2b, 0x0a, 0x10, 0x48, 0x54, 0x54, 0x50, 0x43, 0x32, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67,
 	0x4e, 0x61, 0x6d, 0x65, 0x18, 0x96, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x10, 0x48, 0x54, 0x54,
 	0x50, 0x43, 0x32, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x23, 0x0a,
@@ -13033,7 +13127,7 @@ func file_clientpb_client_proto_rawDescGZIP() []byte {
 }
 
 var file_clientpb_client_proto_enumTypes = make([]protoimpl.EnumInfo, 13)
-var file_clientpb_client_proto_msgTypes = make([]protoimpl.MessageInfo, 134)
+var file_clientpb_client_proto_msgTypes = make([]protoimpl.MessageInfo, 135)
 var file_clientpb_client_proto_goTypes = []interface{}{
 	(OutputFormat)(0),                // 0: clientpb.OutputFormat
 	(StageProtocol)(0),               // 1: clientpb.StageProtocol
@@ -13057,259 +13151,261 @@ var file_clientpb_client_proto_goTypes = []interface{}{
 	(*BeaconTasks)(nil),              // 19: clientpb.BeaconTasks
 	(*BeaconIntegrity)(nil),          // 20: clientpb.BeaconIntegrity
 	(*ImplantC2)(nil),                // 21: clientpb.ImplantC2
-	(*ImplantConfig)(nil),            // 22: clientpb.ImplantConfig
-	(*TrafficEncoder)(nil),           // 23: clientpb.TrafficEncoder
-	(*TrafficEncoderMap)(nil),        // 24: clientpb.TrafficEncoderMap
-	(*TrafficEncoderTest)(nil),       // 25: clientpb.TrafficEncoderTest
-	(*TrafficEncoderTests)(nil),      // 26: clientpb.TrafficEncoderTests
-	(*ExternalImplantConfig)(nil),    // 27: clientpb.ExternalImplantConfig
-	(*ExternalImplantBinary)(nil),    // 28: clientpb.ExternalImplantBinary
-	(*ImplantBuilds)(nil),            // 29: clientpb.ImplantBuilds
-	(*ImplantStageReq)(nil),          // 30: clientpb.ImplantStageReq
-	(*ImplantBuild)(nil),             // 31: clientpb.ImplantBuild
-	(*CompilerTarget)(nil),           // 32: clientpb.CompilerTarget
-	(*CrossCompiler)(nil),            // 33: clientpb.CrossCompiler
-	(*Compiler)(nil),                 // 34: clientpb.Compiler
-	(*DeleteReq)(nil),                // 35: clientpb.DeleteReq
-	(*DNSCanary)(nil),                // 36: clientpb.DNSCanary
-	(*Canaries)(nil),                 // 37: clientpb.Canaries
-	(*UniqueWGIP)(nil),               // 38: clientpb.UniqueWGIP
-	(*ImplantProfile)(nil),           // 39: clientpb.ImplantProfile
-	(*ImplantProfiles)(nil),          // 40: clientpb.ImplantProfiles
-	(*RegenerateReq)(nil),            // 41: clientpb.RegenerateReq
-	(*Job)(nil),                      // 42: clientpb.Job
-	(*Jobs)(nil),                     // 43: clientpb.Jobs
-	(*KillJobReq)(nil),               // 44: clientpb.KillJobReq
-	(*RestartJobReq)(nil),            // 45: clientpb.RestartJobReq
-	(*KillJob)(nil),                  // 46: clientpb.KillJob
-	(*ListenerJob)(nil),              // 47: clientpb.ListenerJob
-	(*MultiplayerListenerReq)(nil),   // 48: clientpb.MultiplayerListenerReq
-	(*MTLSListenerReq)(nil),          // 49: clientpb.MTLSListenerReq
-	(*WGListenerReq)(nil),            // 50: clientpb.WGListenerReq
-	(*DNSListenerReq)(nil),           // 51: clientpb.DNSListenerReq
-	(*HTTPListenerReq)(nil),          // 52: clientpb.HTTPListenerReq
-	(*NamedPipesReq)(nil),            // 53: clientpb.NamedPipesReq
-	(*NamedPipes)(nil),               // 54: clientpb.NamedPipes
-	(*TCPPivotReq)(nil),              // 55: clientpb.TCPPivotReq
-	(*TCPPivot)(nil),                 // 56: clientpb.TCPPivot
-	(*Sessions)(nil),                 // 57: clientpb.Sessions
-	(*RenameReq)(nil),                // 58: clientpb.RenameReq
-	(*GenerateReq)(nil),              // 59: clientpb.GenerateReq
-	(*GenerateStageReq)(nil),         // 60: clientpb.GenerateStageReq
-	(*Generate)(nil),                 // 61: clientpb.Generate
-	(*MSFReq)(nil),                   // 62: clientpb.MSFReq
-	(*MSFRemoteReq)(nil),             // 63: clientpb.MSFRemoteReq
-	(*StagerListenerReq)(nil),        // 64: clientpb.StagerListenerReq
-	(*StagerListener)(nil),           // 65: clientpb.StagerListener
-	(*ShellcodeRDIReq)(nil),          // 66: clientpb.ShellcodeRDIReq
-	(*ShellcodeRDI)(nil),             // 67: clientpb.ShellcodeRDI
-	(*GetSystemReq)(nil),             // 68: clientpb.GetSystemReq
-	(*MigrateReq)(nil),               // 69: clientpb.MigrateReq
-	(*CreateTunnelReq)(nil),          // 70: clientpb.CreateTunnelReq
-	(*CreateTunnel)(nil),             // 71: clientpb.CreateTunnel
-	(*CloseTunnelReq)(nil),           // 72: clientpb.CloseTunnelReq
-	(*PivotGraphEntry)(nil),          // 73: clientpb.PivotGraphEntry
-	(*PivotGraph)(nil),               // 74: clientpb.PivotGraph
-	(*Client)(nil),                   // 75: clientpb.Client
-	(*Event)(nil),                    // 76: clientpb.Event
-	(*Operators)(nil),                // 77: clientpb.Operators
-	(*Operator)(nil),                 // 78: clientpb.Operator
-	(*WebContent)(nil),               // 79: clientpb.WebContent
-	(*WebsiteAddContent)(nil),        // 80: clientpb.WebsiteAddContent
-	(*WebsiteRemoveContent)(nil),     // 81: clientpb.WebsiteRemoveContent
-	(*Website)(nil),                  // 82: clientpb.Website
-	(*Websites)(nil),                 // 83: clientpb.Websites
-	(*WGClientConfig)(nil),           // 84: clientpb.WGClientConfig
-	(*Loot)(nil),                     // 85: clientpb.Loot
-	(*AllLoot)(nil),                  // 86: clientpb.AllLoot
-	(*IOC)(nil),                      // 87: clientpb.IOC
-	(*ExtensionData)(nil),            // 88: clientpb.ExtensionData
-	(*Host)(nil),                     // 89: clientpb.Host
-	(*AllHosts)(nil),                 // 90: clientpb.AllHosts
-	(*DllHijackReq)(nil),             // 91: clientpb.DllHijackReq
-	(*DllHijack)(nil),                // 92: clientpb.DllHijack
-	(*BackdoorReq)(nil),              // 93: clientpb.BackdoorReq
-	(*Backdoor)(nil),                 // 94: clientpb.Backdoor
-	(*ShellcodeEncodeReq)(nil),       // 95: clientpb.ShellcodeEncodeReq
-	(*ShellcodeEncode)(nil),          // 96: clientpb.ShellcodeEncode
-	(*ShellcodeEncoderMap)(nil),      // 97: clientpb.ShellcodeEncoderMap
-	(*ExternalGenerateReq)(nil),      // 98: clientpb.ExternalGenerateReq
-	(*Builders)(nil),                 // 99: clientpb.Builders
-	(*Builder)(nil),                  // 100: clientpb.Builder
-	(*HTTPC2Configs)(nil),            // 101: clientpb.HTTPC2Configs
-	(*C2ProfileReq)(nil),             // 102: clientpb.C2ProfileReq
-	(*HTTPC2ConfigReq)(nil),          // 103: clientpb.HTTPC2ConfigReq
-	(*HTTPC2Config)(nil),             // 104: clientpb.HTTPC2Config
-	(*HTTPC2ServerConfig)(nil),       // 105: clientpb.HTTPC2ServerConfig
-	(*HTTPC2ImplantConfig)(nil),      // 106: clientpb.HTTPC2ImplantConfig
-	(*HTTPC2Cookie)(nil),             // 107: clientpb.HTTPC2Cookie
-	(*HTTPC2Header)(nil),             // 108: clientpb.HTTPC2Header
-	(*HTTPC2URLParameter)(nil),       // 109: clientpb.HTTPC2URLParameter
-	(*HTTPC2PathSegment)(nil),        // 110: clientpb.HTTPC2PathSegment
-	(*Credential)(nil),               // 111: clientpb.Credential
-	(*Credentials)(nil),              // 112: clientpb.Credentials
-	(*Crackstations)(nil),            // 113: clientpb.Crackstations
-	(*CrackstationStatus)(nil),       // 114: clientpb.CrackstationStatus
-	(*CrackSyncStatus)(nil),          // 115: clientpb.CrackSyncStatus
-	(*CrackBenchmark)(nil),           // 116: clientpb.CrackBenchmark
-	(*CrackTask)(nil),                // 117: clientpb.CrackTask
-	(*Crackstation)(nil),             // 118: clientpb.Crackstation
-	(*CUDABackendInfo)(nil),          // 119: clientpb.CUDABackendInfo
-	(*OpenCLBackendInfo)(nil),        // 120: clientpb.OpenCLBackendInfo
-	(*MetalBackendInfo)(nil),         // 121: clientpb.MetalBackendInfo
-	(*CrackCommand)(nil),             // 122: clientpb.CrackCommand
-	(*CrackConfig)(nil),              // 123: clientpb.CrackConfig
-	(*CrackFiles)(nil),               // 124: clientpb.CrackFiles
-	(*CrackFile)(nil),                // 125: clientpb.CrackFile
-	(*CrackFileChunk)(nil),           // 126: clientpb.CrackFileChunk
-	(*MonitoringProviders)(nil),      // 127: clientpb.MonitoringProviders
-	(*MonitoringProvider)(nil),       // 128: clientpb.MonitoringProvider
-	(*ResourceID)(nil),               // 129: clientpb.ResourceID
-	(*CertificatesReq)(nil),          // 130: clientpb.CertificatesReq
-	(*CertificateData)(nil),          // 131: clientpb.CertificateData
-	(*CertificateInfo)(nil),          // 132: clientpb.CertificateInfo
-	(*CertificateAuthorityData)(nil), // 133: clientpb.CertificateAuthorityData
-	(*CertificateAuthorityInfo)(nil), // 134: clientpb.CertificateAuthorityInfo
-	nil,                              // 135: clientpb.TrafficEncoderMap.EncodersEntry
-	nil,                              // 136: clientpb.ExternalImplantConfig.EncodersEntry
-	nil,                              // 137: clientpb.ImplantBuilds.ConfigsEntry
-	nil,                              // 138: clientpb.ImplantBuilds.ResourceIDsEntry
-	nil,                              // 139: clientpb.ImplantBuilds.StagedEntry
-	nil,                              // 140: clientpb.WebsiteAddContent.ContentsEntry
-	nil,                              // 141: clientpb.Website.ContentsEntry
-	nil,                              // 142: clientpb.Host.ExtensionDataEntry
-	nil,                              // 143: clientpb.ShellcodeEncoderMap.EncodersEntry
-	nil,                              // 144: clientpb.CrackSyncStatus.ProgressEntry
-	nil,                              // 145: clientpb.CrackBenchmark.BenchmarksEntry
-	nil,                              // 146: clientpb.Crackstation.BenchmarksEntry
-	(*commonpb.File)(nil),            // 147: commonpb.File
-	(*commonpb.Request)(nil),         // 148: commonpb.Request
-	(*commonpb.Response)(nil),        // 149: commonpb.Response
+	(*DonutConfig)(nil),              // 22: clientpb.DonutConfig
+	(*ImplantConfig)(nil),            // 23: clientpb.ImplantConfig
+	(*TrafficEncoder)(nil),           // 24: clientpb.TrafficEncoder
+	(*TrafficEncoderMap)(nil),        // 25: clientpb.TrafficEncoderMap
+	(*TrafficEncoderTest)(nil),       // 26: clientpb.TrafficEncoderTest
+	(*TrafficEncoderTests)(nil),      // 27: clientpb.TrafficEncoderTests
+	(*ExternalImplantConfig)(nil),    // 28: clientpb.ExternalImplantConfig
+	(*ExternalImplantBinary)(nil),    // 29: clientpb.ExternalImplantBinary
+	(*ImplantBuilds)(nil),            // 30: clientpb.ImplantBuilds
+	(*ImplantStageReq)(nil),          // 31: clientpb.ImplantStageReq
+	(*ImplantBuild)(nil),             // 32: clientpb.ImplantBuild
+	(*CompilerTarget)(nil),           // 33: clientpb.CompilerTarget
+	(*CrossCompiler)(nil),            // 34: clientpb.CrossCompiler
+	(*Compiler)(nil),                 // 35: clientpb.Compiler
+	(*DeleteReq)(nil),                // 36: clientpb.DeleteReq
+	(*DNSCanary)(nil),                // 37: clientpb.DNSCanary
+	(*Canaries)(nil),                 // 38: clientpb.Canaries
+	(*UniqueWGIP)(nil),               // 39: clientpb.UniqueWGIP
+	(*ImplantProfile)(nil),           // 40: clientpb.ImplantProfile
+	(*ImplantProfiles)(nil),          // 41: clientpb.ImplantProfiles
+	(*RegenerateReq)(nil),            // 42: clientpb.RegenerateReq
+	(*Job)(nil),                      // 43: clientpb.Job
+	(*Jobs)(nil),                     // 44: clientpb.Jobs
+	(*KillJobReq)(nil),               // 45: clientpb.KillJobReq
+	(*RestartJobReq)(nil),            // 46: clientpb.RestartJobReq
+	(*KillJob)(nil),                  // 47: clientpb.KillJob
+	(*ListenerJob)(nil),              // 48: clientpb.ListenerJob
+	(*MultiplayerListenerReq)(nil),   // 49: clientpb.MultiplayerListenerReq
+	(*MTLSListenerReq)(nil),          // 50: clientpb.MTLSListenerReq
+	(*WGListenerReq)(nil),            // 51: clientpb.WGListenerReq
+	(*DNSListenerReq)(nil),           // 52: clientpb.DNSListenerReq
+	(*HTTPListenerReq)(nil),          // 53: clientpb.HTTPListenerReq
+	(*NamedPipesReq)(nil),            // 54: clientpb.NamedPipesReq
+	(*NamedPipes)(nil),               // 55: clientpb.NamedPipes
+	(*TCPPivotReq)(nil),              // 56: clientpb.TCPPivotReq
+	(*TCPPivot)(nil),                 // 57: clientpb.TCPPivot
+	(*Sessions)(nil),                 // 58: clientpb.Sessions
+	(*RenameReq)(nil),                // 59: clientpb.RenameReq
+	(*GenerateReq)(nil),              // 60: clientpb.GenerateReq
+	(*GenerateStageReq)(nil),         // 61: clientpb.GenerateStageReq
+	(*Generate)(nil),                 // 62: clientpb.Generate
+	(*MSFReq)(nil),                   // 63: clientpb.MSFReq
+	(*MSFRemoteReq)(nil),             // 64: clientpb.MSFRemoteReq
+	(*StagerListenerReq)(nil),        // 65: clientpb.StagerListenerReq
+	(*StagerListener)(nil),           // 66: clientpb.StagerListener
+	(*ShellcodeRDIReq)(nil),          // 67: clientpb.ShellcodeRDIReq
+	(*ShellcodeRDI)(nil),             // 68: clientpb.ShellcodeRDI
+	(*GetSystemReq)(nil),             // 69: clientpb.GetSystemReq
+	(*MigrateReq)(nil),               // 70: clientpb.MigrateReq
+	(*CreateTunnelReq)(nil),          // 71: clientpb.CreateTunnelReq
+	(*CreateTunnel)(nil),             // 72: clientpb.CreateTunnel
+	(*CloseTunnelReq)(nil),           // 73: clientpb.CloseTunnelReq
+	(*PivotGraphEntry)(nil),          // 74: clientpb.PivotGraphEntry
+	(*PivotGraph)(nil),               // 75: clientpb.PivotGraph
+	(*Client)(nil),                   // 76: clientpb.Client
+	(*Event)(nil),                    // 77: clientpb.Event
+	(*Operators)(nil),                // 78: clientpb.Operators
+	(*Operator)(nil),                 // 79: clientpb.Operator
+	(*WebContent)(nil),               // 80: clientpb.WebContent
+	(*WebsiteAddContent)(nil),        // 81: clientpb.WebsiteAddContent
+	(*WebsiteRemoveContent)(nil),     // 82: clientpb.WebsiteRemoveContent
+	(*Website)(nil),                  // 83: clientpb.Website
+	(*Websites)(nil),                 // 84: clientpb.Websites
+	(*WGClientConfig)(nil),           // 85: clientpb.WGClientConfig
+	(*Loot)(nil),                     // 86: clientpb.Loot
+	(*AllLoot)(nil),                  // 87: clientpb.AllLoot
+	(*IOC)(nil),                      // 88: clientpb.IOC
+	(*ExtensionData)(nil),            // 89: clientpb.ExtensionData
+	(*Host)(nil),                     // 90: clientpb.Host
+	(*AllHosts)(nil),                 // 91: clientpb.AllHosts
+	(*DllHijackReq)(nil),             // 92: clientpb.DllHijackReq
+	(*DllHijack)(nil),                // 93: clientpb.DllHijack
+	(*BackdoorReq)(nil),              // 94: clientpb.BackdoorReq
+	(*Backdoor)(nil),                 // 95: clientpb.Backdoor
+	(*ShellcodeEncodeReq)(nil),       // 96: clientpb.ShellcodeEncodeReq
+	(*ShellcodeEncode)(nil),          // 97: clientpb.ShellcodeEncode
+	(*ShellcodeEncoderMap)(nil),      // 98: clientpb.ShellcodeEncoderMap
+	(*ExternalGenerateReq)(nil),      // 99: clientpb.ExternalGenerateReq
+	(*Builders)(nil),                 // 100: clientpb.Builders
+	(*Builder)(nil),                  // 101: clientpb.Builder
+	(*HTTPC2Configs)(nil),            // 102: clientpb.HTTPC2Configs
+	(*C2ProfileReq)(nil),             // 103: clientpb.C2ProfileReq
+	(*HTTPC2ConfigReq)(nil),          // 104: clientpb.HTTPC2ConfigReq
+	(*HTTPC2Config)(nil),             // 105: clientpb.HTTPC2Config
+	(*HTTPC2ServerConfig)(nil),       // 106: clientpb.HTTPC2ServerConfig
+	(*HTTPC2ImplantConfig)(nil),      // 107: clientpb.HTTPC2ImplantConfig
+	(*HTTPC2Cookie)(nil),             // 108: clientpb.HTTPC2Cookie
+	(*HTTPC2Header)(nil),             // 109: clientpb.HTTPC2Header
+	(*HTTPC2URLParameter)(nil),       // 110: clientpb.HTTPC2URLParameter
+	(*HTTPC2PathSegment)(nil),        // 111: clientpb.HTTPC2PathSegment
+	(*Credential)(nil),               // 112: clientpb.Credential
+	(*Credentials)(nil),              // 113: clientpb.Credentials
+	(*Crackstations)(nil),            // 114: clientpb.Crackstations
+	(*CrackstationStatus)(nil),       // 115: clientpb.CrackstationStatus
+	(*CrackSyncStatus)(nil),          // 116: clientpb.CrackSyncStatus
+	(*CrackBenchmark)(nil),           // 117: clientpb.CrackBenchmark
+	(*CrackTask)(nil),                // 118: clientpb.CrackTask
+	(*Crackstation)(nil),             // 119: clientpb.Crackstation
+	(*CUDABackendInfo)(nil),          // 120: clientpb.CUDABackendInfo
+	(*OpenCLBackendInfo)(nil),        // 121: clientpb.OpenCLBackendInfo
+	(*MetalBackendInfo)(nil),         // 122: clientpb.MetalBackendInfo
+	(*CrackCommand)(nil),             // 123: clientpb.CrackCommand
+	(*CrackConfig)(nil),              // 124: clientpb.CrackConfig
+	(*CrackFiles)(nil),               // 125: clientpb.CrackFiles
+	(*CrackFile)(nil),                // 126: clientpb.CrackFile
+	(*CrackFileChunk)(nil),           // 127: clientpb.CrackFileChunk
+	(*MonitoringProviders)(nil),      // 128: clientpb.MonitoringProviders
+	(*MonitoringProvider)(nil),       // 129: clientpb.MonitoringProvider
+	(*ResourceID)(nil),               // 130: clientpb.ResourceID
+	(*CertificatesReq)(nil),          // 131: clientpb.CertificatesReq
+	(*CertificateData)(nil),          // 132: clientpb.CertificateData
+	(*CertificateInfo)(nil),          // 133: clientpb.CertificateInfo
+	(*CertificateAuthorityData)(nil), // 134: clientpb.CertificateAuthorityData
+	(*CertificateAuthorityInfo)(nil), // 135: clientpb.CertificateAuthorityInfo
+	nil,                              // 136: clientpb.TrafficEncoderMap.EncodersEntry
+	nil,                              // 137: clientpb.ExternalImplantConfig.EncodersEntry
+	nil,                              // 138: clientpb.ImplantBuilds.ConfigsEntry
+	nil,                              // 139: clientpb.ImplantBuilds.ResourceIDsEntry
+	nil,                              // 140: clientpb.ImplantBuilds.StagedEntry
+	nil,                              // 141: clientpb.WebsiteAddContent.ContentsEntry
+	nil,                              // 142: clientpb.Website.ContentsEntry
+	nil,                              // 143: clientpb.Host.ExtensionDataEntry
+	nil,                              // 144: clientpb.ShellcodeEncoderMap.EncodersEntry
+	nil,                              // 145: clientpb.CrackSyncStatus.ProgressEntry
+	nil,                              // 146: clientpb.CrackBenchmark.BenchmarksEntry
+	nil,                              // 147: clientpb.Crackstation.BenchmarksEntry
+	(*commonpb.File)(nil),            // 148: commonpb.File
+	(*commonpb.Request)(nil),         // 149: commonpb.Request
+	(*commonpb.Response)(nil),        // 150: commonpb.Response
 }
 var file_clientpb_client_proto_depIdxs = []int32{
 	16,  // 0: clientpb.Beacons.Beacons:type_name -> clientpb.Beacon
 	18,  // 1: clientpb.BeaconTasks.Tasks:type_name -> clientpb.BeaconTask
-	31,  // 2: clientpb.ImplantConfig.ImplantBuilds:type_name -> clientpb.ImplantBuild
+	32,  // 2: clientpb.ImplantConfig.ImplantBuilds:type_name -> clientpb.ImplantBuild
 	21,  // 3: clientpb.ImplantConfig.C2:type_name -> clientpb.ImplantC2
 	0,   // 4: clientpb.ImplantConfig.Format:type_name -> clientpb.OutputFormat
-	147, // 5: clientpb.ImplantConfig.Assets:type_name -> commonpb.File
-	147, // 6: clientpb.TrafficEncoder.Wasm:type_name -> commonpb.File
-	135, // 7: clientpb.TrafficEncoderMap.Encoders:type_name -> clientpb.TrafficEncoderMap.EncodersEntry
-	23,  // 8: clientpb.TrafficEncoderTests.Encoder:type_name -> clientpb.TrafficEncoder
-	25,  // 9: clientpb.TrafficEncoderTests.Tests:type_name -> clientpb.TrafficEncoderTest
-	22,  // 10: clientpb.ExternalImplantConfig.Config:type_name -> clientpb.ImplantConfig
-	31,  // 11: clientpb.ExternalImplantConfig.Build:type_name -> clientpb.ImplantBuild
-	104, // 12: clientpb.ExternalImplantConfig.HTTPC2:type_name -> clientpb.HTTPC2Config
-	136, // 13: clientpb.ExternalImplantConfig.encoders:type_name -> clientpb.ExternalImplantConfig.EncodersEntry
-	147, // 14: clientpb.ExternalImplantBinary.File:type_name -> commonpb.File
-	137, // 15: clientpb.ImplantBuilds.Configs:type_name -> clientpb.ImplantBuilds.ConfigsEntry
-	138, // 16: clientpb.ImplantBuilds.ResourceIDs:type_name -> clientpb.ImplantBuilds.ResourceIDsEntry
-	139, // 17: clientpb.ImplantBuilds.staged:type_name -> clientpb.ImplantBuilds.StagedEntry
-	0,   // 18: clientpb.CompilerTarget.Format:type_name -> clientpb.OutputFormat
-	32,  // 19: clientpb.Compiler.Targets:type_name -> clientpb.CompilerTarget
-	33,  // 20: clientpb.Compiler.CrossCompilers:type_name -> clientpb.CrossCompiler
-	32,  // 21: clientpb.Compiler.UnsupportedTargets:type_name -> clientpb.CompilerTarget
-	36,  // 22: clientpb.Canaries.Canaries:type_name -> clientpb.DNSCanary
-	22,  // 23: clientpb.ImplantProfile.Config:type_name -> clientpb.ImplantConfig
-	39,  // 24: clientpb.ImplantProfiles.Profiles:type_name -> clientpb.ImplantProfile
-	42,  // 25: clientpb.Jobs.Active:type_name -> clientpb.Job
-	49,  // 26: clientpb.ListenerJob.MTLSConf:type_name -> clientpb.MTLSListenerReq
-	50,  // 27: clientpb.ListenerJob.WGConf:type_name -> clientpb.WGListenerReq
-	51,  // 28: clientpb.ListenerJob.DNSConf:type_name -> clientpb.DNSListenerReq
-	52,  // 29: clientpb.ListenerJob.HTTPConf:type_name -> clientpb.HTTPListenerReq
-	48,  // 30: clientpb.ListenerJob.MultiConf:type_name -> clientpb.MultiplayerListenerReq
-	64,  // 31: clientpb.ListenerJob.TCPConf:type_name -> clientpb.StagerListenerReq
-	148, // 32: clientpb.NamedPipesReq.Request:type_name -> commonpb.Request
-	149, // 33: clientpb.NamedPipes.Response:type_name -> commonpb.Response
-	148, // 34: clientpb.TCPPivotReq.Request:type_name -> commonpb.Request
-	149, // 35: clientpb.TCPPivot.Response:type_name -> commonpb.Response
-	15,  // 36: clientpb.Sessions.Sessions:type_name -> clientpb.Session
-	22,  // 37: clientpb.GenerateReq.Config:type_name -> clientpb.ImplantConfig
-	147, // 38: clientpb.Generate.File:type_name -> commonpb.File
-	148, // 39: clientpb.MSFReq.Request:type_name -> commonpb.Request
-	148, // 40: clientpb.MSFRemoteReq.Request:type_name -> commonpb.Request
-	1,   // 41: clientpb.StagerListenerReq.Protocol:type_name -> clientpb.StageProtocol
-	22,  // 42: clientpb.GetSystemReq.Config:type_name -> clientpb.ImplantConfig
-	148, // 43: clientpb.GetSystemReq.Request:type_name -> commonpb.Request
-	22,  // 44: clientpb.MigrateReq.Config:type_name -> clientpb.ImplantConfig
-	3,   // 45: clientpb.MigrateReq.Encoder:type_name -> clientpb.ShellcodeEncoder
-	148, // 46: clientpb.MigrateReq.Request:type_name -> commonpb.Request
-	148, // 47: clientpb.CreateTunnelReq.Request:type_name -> commonpb.Request
-	148, // 48: clientpb.CloseTunnelReq.Request:type_name -> commonpb.Request
-	15,  // 49: clientpb.PivotGraphEntry.Session:type_name -> clientpb.Session
-	73,  // 50: clientpb.PivotGraphEntry.Children:type_name -> clientpb.PivotGraphEntry
-	73,  // 51: clientpb.PivotGraph.Children:type_name -> clientpb.PivotGraphEntry
-	78,  // 52: clientpb.Client.Operator:type_name -> clientpb.Operator
-	15,  // 53: clientpb.Event.Session:type_name -> clientpb.Session
-	42,  // 54: clientpb.Event.Job:type_name -> clientpb.Job
-	75,  // 55: clientpb.Event.Client:type_name -> clientpb.Client
-	78,  // 56: clientpb.Operators.Operators:type_name -> clientpb.Operator
-	140, // 57: clientpb.WebsiteAddContent.Contents:type_name -> clientpb.WebsiteAddContent.ContentsEntry
-	141, // 58: clientpb.Website.Contents:type_name -> clientpb.Website.ContentsEntry
-	82,  // 59: clientpb.Websites.Websites:type_name -> clientpb.Website
-	2,   // 60: clientpb.Loot.FileType:type_name -> clientpb.FileType
-	147, // 61: clientpb.Loot.File:type_name -> commonpb.File
-	85,  // 62: clientpb.AllLoot.Loot:type_name -> clientpb.Loot
-	87,  // 63: clientpb.Host.IOCs:type_name -> clientpb.IOC
-	142, // 64: clientpb.Host.ExtensionData:type_name -> clientpb.Host.ExtensionDataEntry
-	89,  // 65: clientpb.AllHosts.Hosts:type_name -> clientpb.Host
-	148, // 66: clientpb.DllHijackReq.Request:type_name -> commonpb.Request
-	149, // 67: clientpb.DllHijack.Response:type_name -> commonpb.Response
-	148, // 68: clientpb.BackdoorReq.Request:type_name -> commonpb.Request
-	149, // 69: clientpb.Backdoor.Response:type_name -> commonpb.Response
-	3,   // 70: clientpb.ShellcodeEncodeReq.Encoder:type_name -> clientpb.ShellcodeEncoder
-	148, // 71: clientpb.ShellcodeEncodeReq.Request:type_name -> commonpb.Request
-	149, // 72: clientpb.ShellcodeEncode.Response:type_name -> commonpb.Response
-	143, // 73: clientpb.ShellcodeEncoderMap.Encoders:type_name -> clientpb.ShellcodeEncoderMap.EncodersEntry
-	22,  // 74: clientpb.ExternalGenerateReq.Config:type_name -> clientpb.ImplantConfig
-	100, // 75: clientpb.Builders.Builders:type_name -> clientpb.Builder
-	32,  // 76: clientpb.Builder.Targets:type_name -> clientpb.CompilerTarget
-	33,  // 77: clientpb.Builder.CrossCompilers:type_name -> clientpb.CrossCompiler
-	104, // 78: clientpb.HTTPC2Configs.configs:type_name -> clientpb.HTTPC2Config
-	104, // 79: clientpb.HTTPC2ConfigReq.C2Config:type_name -> clientpb.HTTPC2Config
-	105, // 80: clientpb.HTTPC2Config.ServerConfig:type_name -> clientpb.HTTPC2ServerConfig
-	106, // 81: clientpb.HTTPC2Config.ImplantConfig:type_name -> clientpb.HTTPC2ImplantConfig
-	108, // 82: clientpb.HTTPC2ServerConfig.Headers:type_name -> clientpb.HTTPC2Header
-	107, // 83: clientpb.HTTPC2ServerConfig.Cookies:type_name -> clientpb.HTTPC2Cookie
-	109, // 84: clientpb.HTTPC2ImplantConfig.ExtraURLParameters:type_name -> clientpb.HTTPC2URLParameter
-	108, // 85: clientpb.HTTPC2ImplantConfig.Headers:type_name -> clientpb.HTTPC2Header
-	110, // 86: clientpb.HTTPC2ImplantConfig.PathSegments:type_name -> clientpb.HTTPC2PathSegment
-	5,   // 87: clientpb.Credential.HashType:type_name -> clientpb.HashType
-	111, // 88: clientpb.Credentials.Credentials:type_name -> clientpb.Credential
-	118, // 89: clientpb.Crackstations.Crackstations:type_name -> clientpb.Crackstation
-	6,   // 90: clientpb.CrackstationStatus.State:type_name -> clientpb.States
-	115, // 91: clientpb.CrackstationStatus.Syncing:type_name -> clientpb.CrackSyncStatus
-	144, // 92: clientpb.CrackSyncStatus.Progress:type_name -> clientpb.CrackSyncStatus.ProgressEntry
-	145, // 93: clientpb.CrackBenchmark.Benchmarks:type_name -> clientpb.CrackBenchmark.BenchmarksEntry
-	122, // 94: clientpb.CrackTask.Command:type_name -> clientpb.CrackCommand
-	146, // 95: clientpb.Crackstation.Benchmarks:type_name -> clientpb.Crackstation.BenchmarksEntry
-	119, // 96: clientpb.Crackstation.CUDA:type_name -> clientpb.CUDABackendInfo
-	121, // 97: clientpb.Crackstation.Metal:type_name -> clientpb.MetalBackendInfo
-	120, // 98: clientpb.Crackstation.OpenCL:type_name -> clientpb.OpenCLBackendInfo
-	8,   // 99: clientpb.CrackCommand.AttackMode:type_name -> clientpb.CrackAttackMode
-	5,   // 100: clientpb.CrackCommand.HashType:type_name -> clientpb.HashType
-	10,  // 101: clientpb.CrackCommand.OutfileFormat:type_name -> clientpb.CrackOutfileFormat
-	9,   // 102: clientpb.CrackCommand.EncodingFrom:type_name -> clientpb.CrackEncoding
-	9,   // 103: clientpb.CrackCommand.EncodingTo:type_name -> clientpb.CrackEncoding
-	11,  // 104: clientpb.CrackCommand.WorkloadProfile:type_name -> clientpb.CrackWorkloadProfile
-	125, // 105: clientpb.CrackFiles.Files:type_name -> clientpb.CrackFile
-	12,  // 106: clientpb.CrackFile.Type:type_name -> clientpb.CrackFileType
-	126, // 107: clientpb.CrackFile.Chunks:type_name -> clientpb.CrackFileChunk
-	128, // 108: clientpb.MonitoringProviders.providers:type_name -> clientpb.MonitoringProvider
-	131, // 109: clientpb.CertificateInfo.info:type_name -> clientpb.CertificateData
-	133, // 110: clientpb.CertificateAuthorityInfo.info:type_name -> clientpb.CertificateAuthorityData
-	23,  // 111: clientpb.TrafficEncoderMap.EncodersEntry.value:type_name -> clientpb.TrafficEncoder
-	22,  // 112: clientpb.ImplantBuilds.ConfigsEntry.value:type_name -> clientpb.ImplantConfig
-	129, // 113: clientpb.ImplantBuilds.ResourceIDsEntry.value:type_name -> clientpb.ResourceID
-	79,  // 114: clientpb.WebsiteAddContent.ContentsEntry.value:type_name -> clientpb.WebContent
-	79,  // 115: clientpb.Website.ContentsEntry.value:type_name -> clientpb.WebContent
-	88,  // 116: clientpb.Host.ExtensionDataEntry.value:type_name -> clientpb.ExtensionData
-	3,   // 117: clientpb.ShellcodeEncoderMap.EncodersEntry.value:type_name -> clientpb.ShellcodeEncoder
-	118, // [118:118] is the sub-list for method output_type
-	118, // [118:118] is the sub-list for method input_type
-	118, // [118:118] is the sub-list for extension type_name
-	118, // [118:118] is the sub-list for extension extendee
-	0,   // [0:118] is the sub-list for field type_name
+	22,  // 5: clientpb.ImplantConfig.DonutConfig:type_name -> clientpb.DonutConfig
+	148, // 6: clientpb.ImplantConfig.Assets:type_name -> commonpb.File
+	148, // 7: clientpb.TrafficEncoder.Wasm:type_name -> commonpb.File
+	136, // 8: clientpb.TrafficEncoderMap.Encoders:type_name -> clientpb.TrafficEncoderMap.EncodersEntry
+	24,  // 9: clientpb.TrafficEncoderTests.Encoder:type_name -> clientpb.TrafficEncoder
+	26,  // 10: clientpb.TrafficEncoderTests.Tests:type_name -> clientpb.TrafficEncoderTest
+	23,  // 11: clientpb.ExternalImplantConfig.Config:type_name -> clientpb.ImplantConfig
+	32,  // 12: clientpb.ExternalImplantConfig.Build:type_name -> clientpb.ImplantBuild
+	105, // 13: clientpb.ExternalImplantConfig.HTTPC2:type_name -> clientpb.HTTPC2Config
+	137, // 14: clientpb.ExternalImplantConfig.encoders:type_name -> clientpb.ExternalImplantConfig.EncodersEntry
+	148, // 15: clientpb.ExternalImplantBinary.File:type_name -> commonpb.File
+	138, // 16: clientpb.ImplantBuilds.Configs:type_name -> clientpb.ImplantBuilds.ConfigsEntry
+	139, // 17: clientpb.ImplantBuilds.ResourceIDs:type_name -> clientpb.ImplantBuilds.ResourceIDsEntry
+	140, // 18: clientpb.ImplantBuilds.staged:type_name -> clientpb.ImplantBuilds.StagedEntry
+	0,   // 19: clientpb.CompilerTarget.Format:type_name -> clientpb.OutputFormat
+	33,  // 20: clientpb.Compiler.Targets:type_name -> clientpb.CompilerTarget
+	34,  // 21: clientpb.Compiler.CrossCompilers:type_name -> clientpb.CrossCompiler
+	33,  // 22: clientpb.Compiler.UnsupportedTargets:type_name -> clientpb.CompilerTarget
+	37,  // 23: clientpb.Canaries.Canaries:type_name -> clientpb.DNSCanary
+	23,  // 24: clientpb.ImplantProfile.Config:type_name -> clientpb.ImplantConfig
+	40,  // 25: clientpb.ImplantProfiles.Profiles:type_name -> clientpb.ImplantProfile
+	43,  // 26: clientpb.Jobs.Active:type_name -> clientpb.Job
+	50,  // 27: clientpb.ListenerJob.MTLSConf:type_name -> clientpb.MTLSListenerReq
+	51,  // 28: clientpb.ListenerJob.WGConf:type_name -> clientpb.WGListenerReq
+	52,  // 29: clientpb.ListenerJob.DNSConf:type_name -> clientpb.DNSListenerReq
+	53,  // 30: clientpb.ListenerJob.HTTPConf:type_name -> clientpb.HTTPListenerReq
+	49,  // 31: clientpb.ListenerJob.MultiConf:type_name -> clientpb.MultiplayerListenerReq
+	65,  // 32: clientpb.ListenerJob.TCPConf:type_name -> clientpb.StagerListenerReq
+	149, // 33: clientpb.NamedPipesReq.Request:type_name -> commonpb.Request
+	150, // 34: clientpb.NamedPipes.Response:type_name -> commonpb.Response
+	149, // 35: clientpb.TCPPivotReq.Request:type_name -> commonpb.Request
+	150, // 36: clientpb.TCPPivot.Response:type_name -> commonpb.Response
+	15,  // 37: clientpb.Sessions.Sessions:type_name -> clientpb.Session
+	23,  // 38: clientpb.GenerateReq.Config:type_name -> clientpb.ImplantConfig
+	148, // 39: clientpb.Generate.File:type_name -> commonpb.File
+	149, // 40: clientpb.MSFReq.Request:type_name -> commonpb.Request
+	149, // 41: clientpb.MSFRemoteReq.Request:type_name -> commonpb.Request
+	1,   // 42: clientpb.StagerListenerReq.Protocol:type_name -> clientpb.StageProtocol
+	23,  // 43: clientpb.GetSystemReq.Config:type_name -> clientpb.ImplantConfig
+	149, // 44: clientpb.GetSystemReq.Request:type_name -> commonpb.Request
+	23,  // 45: clientpb.MigrateReq.Config:type_name -> clientpb.ImplantConfig
+	3,   // 46: clientpb.MigrateReq.Encoder:type_name -> clientpb.ShellcodeEncoder
+	149, // 47: clientpb.MigrateReq.Request:type_name -> commonpb.Request
+	149, // 48: clientpb.CreateTunnelReq.Request:type_name -> commonpb.Request
+	149, // 49: clientpb.CloseTunnelReq.Request:type_name -> commonpb.Request
+	15,  // 50: clientpb.PivotGraphEntry.Session:type_name -> clientpb.Session
+	74,  // 51: clientpb.PivotGraphEntry.Children:type_name -> clientpb.PivotGraphEntry
+	74,  // 52: clientpb.PivotGraph.Children:type_name -> clientpb.PivotGraphEntry
+	79,  // 53: clientpb.Client.Operator:type_name -> clientpb.Operator
+	15,  // 54: clientpb.Event.Session:type_name -> clientpb.Session
+	43,  // 55: clientpb.Event.Job:type_name -> clientpb.Job
+	76,  // 56: clientpb.Event.Client:type_name -> clientpb.Client
+	79,  // 57: clientpb.Operators.Operators:type_name -> clientpb.Operator
+	141, // 58: clientpb.WebsiteAddContent.Contents:type_name -> clientpb.WebsiteAddContent.ContentsEntry
+	142, // 59: clientpb.Website.Contents:type_name -> clientpb.Website.ContentsEntry
+	83,  // 60: clientpb.Websites.Websites:type_name -> clientpb.Website
+	2,   // 61: clientpb.Loot.FileType:type_name -> clientpb.FileType
+	148, // 62: clientpb.Loot.File:type_name -> commonpb.File
+	86,  // 63: clientpb.AllLoot.Loot:type_name -> clientpb.Loot
+	88,  // 64: clientpb.Host.IOCs:type_name -> clientpb.IOC
+	143, // 65: clientpb.Host.ExtensionData:type_name -> clientpb.Host.ExtensionDataEntry
+	90,  // 66: clientpb.AllHosts.Hosts:type_name -> clientpb.Host
+	149, // 67: clientpb.DllHijackReq.Request:type_name -> commonpb.Request
+	150, // 68: clientpb.DllHijack.Response:type_name -> commonpb.Response
+	149, // 69: clientpb.BackdoorReq.Request:type_name -> commonpb.Request
+	150, // 70: clientpb.Backdoor.Response:type_name -> commonpb.Response
+	3,   // 71: clientpb.ShellcodeEncodeReq.Encoder:type_name -> clientpb.ShellcodeEncoder
+	149, // 72: clientpb.ShellcodeEncodeReq.Request:type_name -> commonpb.Request
+	150, // 73: clientpb.ShellcodeEncode.Response:type_name -> commonpb.Response
+	144, // 74: clientpb.ShellcodeEncoderMap.Encoders:type_name -> clientpb.ShellcodeEncoderMap.EncodersEntry
+	23,  // 75: clientpb.ExternalGenerateReq.Config:type_name -> clientpb.ImplantConfig
+	101, // 76: clientpb.Builders.Builders:type_name -> clientpb.Builder
+	33,  // 77: clientpb.Builder.Targets:type_name -> clientpb.CompilerTarget
+	34,  // 78: clientpb.Builder.CrossCompilers:type_name -> clientpb.CrossCompiler
+	105, // 79: clientpb.HTTPC2Configs.configs:type_name -> clientpb.HTTPC2Config
+	105, // 80: clientpb.HTTPC2ConfigReq.C2Config:type_name -> clientpb.HTTPC2Config
+	106, // 81: clientpb.HTTPC2Config.ServerConfig:type_name -> clientpb.HTTPC2ServerConfig
+	107, // 82: clientpb.HTTPC2Config.ImplantConfig:type_name -> clientpb.HTTPC2ImplantConfig
+	109, // 83: clientpb.HTTPC2ServerConfig.Headers:type_name -> clientpb.HTTPC2Header
+	108, // 84: clientpb.HTTPC2ServerConfig.Cookies:type_name -> clientpb.HTTPC2Cookie
+	110, // 85: clientpb.HTTPC2ImplantConfig.ExtraURLParameters:type_name -> clientpb.HTTPC2URLParameter
+	109, // 86: clientpb.HTTPC2ImplantConfig.Headers:type_name -> clientpb.HTTPC2Header
+	111, // 87: clientpb.HTTPC2ImplantConfig.PathSegments:type_name -> clientpb.HTTPC2PathSegment
+	5,   // 88: clientpb.Credential.HashType:type_name -> clientpb.HashType
+	112, // 89: clientpb.Credentials.Credentials:type_name -> clientpb.Credential
+	119, // 90: clientpb.Crackstations.Crackstations:type_name -> clientpb.Crackstation
+	6,   // 91: clientpb.CrackstationStatus.State:type_name -> clientpb.States
+	116, // 92: clientpb.CrackstationStatus.Syncing:type_name -> clientpb.CrackSyncStatus
+	145, // 93: clientpb.CrackSyncStatus.Progress:type_name -> clientpb.CrackSyncStatus.ProgressEntry
+	146, // 94: clientpb.CrackBenchmark.Benchmarks:type_name -> clientpb.CrackBenchmark.BenchmarksEntry
+	123, // 95: clientpb.CrackTask.Command:type_name -> clientpb.CrackCommand
+	147, // 96: clientpb.Crackstation.Benchmarks:type_name -> clientpb.Crackstation.BenchmarksEntry
+	120, // 97: clientpb.Crackstation.CUDA:type_name -> clientpb.CUDABackendInfo
+	122, // 98: clientpb.Crackstation.Metal:type_name -> clientpb.MetalBackendInfo
+	121, // 99: clientpb.Crackstation.OpenCL:type_name -> clientpb.OpenCLBackendInfo
+	8,   // 100: clientpb.CrackCommand.AttackMode:type_name -> clientpb.CrackAttackMode
+	5,   // 101: clientpb.CrackCommand.HashType:type_name -> clientpb.HashType
+	10,  // 102: clientpb.CrackCommand.OutfileFormat:type_name -> clientpb.CrackOutfileFormat
+	9,   // 103: clientpb.CrackCommand.EncodingFrom:type_name -> clientpb.CrackEncoding
+	9,   // 104: clientpb.CrackCommand.EncodingTo:type_name -> clientpb.CrackEncoding
+	11,  // 105: clientpb.CrackCommand.WorkloadProfile:type_name -> clientpb.CrackWorkloadProfile
+	126, // 106: clientpb.CrackFiles.Files:type_name -> clientpb.CrackFile
+	12,  // 107: clientpb.CrackFile.Type:type_name -> clientpb.CrackFileType
+	127, // 108: clientpb.CrackFile.Chunks:type_name -> clientpb.CrackFileChunk
+	129, // 109: clientpb.MonitoringProviders.providers:type_name -> clientpb.MonitoringProvider
+	132, // 110: clientpb.CertificateInfo.info:type_name -> clientpb.CertificateData
+	134, // 111: clientpb.CertificateAuthorityInfo.info:type_name -> clientpb.CertificateAuthorityData
+	24,  // 112: clientpb.TrafficEncoderMap.EncodersEntry.value:type_name -> clientpb.TrafficEncoder
+	23,  // 113: clientpb.ImplantBuilds.ConfigsEntry.value:type_name -> clientpb.ImplantConfig
+	130, // 114: clientpb.ImplantBuilds.ResourceIDsEntry.value:type_name -> clientpb.ResourceID
+	80,  // 115: clientpb.WebsiteAddContent.ContentsEntry.value:type_name -> clientpb.WebContent
+	80,  // 116: clientpb.Website.ContentsEntry.value:type_name -> clientpb.WebContent
+	89,  // 117: clientpb.Host.ExtensionDataEntry.value:type_name -> clientpb.ExtensionData
+	3,   // 118: clientpb.ShellcodeEncoderMap.EncodersEntry.value:type_name -> clientpb.ShellcodeEncoder
+	119, // [119:119] is the sub-list for method output_type
+	119, // [119:119] is the sub-list for method input_type
+	119, // [119:119] is the sub-list for extension type_name
+	119, // [119:119] is the sub-list for extension extendee
+	0,   // [0:119] is the sub-list for field type_name
 }
 
 func init() { file_clientpb_client_proto_init() }
@@ -13427,7 +13523,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ImplantConfig); i {
+			switch v := v.(*DonutConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13439,7 +13535,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*TrafficEncoder); i {
+			switch v := v.(*ImplantConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13451,7 +13547,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*TrafficEncoderMap); i {
+			switch v := v.(*TrafficEncoder); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13463,7 +13559,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*TrafficEncoderTest); i {
+			switch v := v.(*TrafficEncoderMap); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13475,7 +13571,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*TrafficEncoderTests); i {
+			switch v := v.(*TrafficEncoderTest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13487,7 +13583,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ExternalImplantConfig); i {
+			switch v := v.(*TrafficEncoderTests); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13499,7 +13595,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ExternalImplantBinary); i {
+			switch v := v.(*ExternalImplantConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13511,7 +13607,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[16].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ImplantBuilds); i {
+			switch v := v.(*ExternalImplantBinary); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13523,7 +13619,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ImplantStageReq); i {
+			switch v := v.(*ImplantBuilds); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13535,7 +13631,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ImplantBuild); i {
+			switch v := v.(*ImplantStageReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13547,7 +13643,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[19].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CompilerTarget); i {
+			switch v := v.(*ImplantBuild); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13559,7 +13655,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CrossCompiler); i {
+			switch v := v.(*CompilerTarget); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13571,7 +13667,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[21].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Compiler); i {
+			switch v := v.(*CrossCompiler); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13583,7 +13679,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[22].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*DeleteReq); i {
+			switch v := v.(*Compiler); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13595,7 +13691,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[23].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*DNSCanary); i {
+			switch v := v.(*DeleteReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13607,7 +13703,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[24].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Canaries); i {
+			switch v := v.(*DNSCanary); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13619,7 +13715,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[25].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*UniqueWGIP); i {
+			switch v := v.(*Canaries); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13631,7 +13727,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[26].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ImplantProfile); i {
+			switch v := v.(*UniqueWGIP); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13643,7 +13739,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[27].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ImplantProfiles); i {
+			switch v := v.(*ImplantProfile); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13655,7 +13751,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[28].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RegenerateReq); i {
+			switch v := v.(*ImplantProfiles); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13667,7 +13763,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[29].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Job); i {
+			switch v := v.(*RegenerateReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13679,7 +13775,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[30].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Jobs); i {
+			switch v := v.(*Job); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13691,7 +13787,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[31].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*KillJobReq); i {
+			switch v := v.(*Jobs); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13703,7 +13799,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[32].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RestartJobReq); i {
+			switch v := v.(*KillJobReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13715,7 +13811,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[33].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*KillJob); i {
+			switch v := v.(*RestartJobReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13727,7 +13823,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[34].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListenerJob); i {
+			switch v := v.(*KillJob); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13739,7 +13835,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[35].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MultiplayerListenerReq); i {
+			switch v := v.(*ListenerJob); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13751,7 +13847,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[36].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MTLSListenerReq); i {
+			switch v := v.(*MultiplayerListenerReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13763,7 +13859,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[37].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*WGListenerReq); i {
+			switch v := v.(*MTLSListenerReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13775,7 +13871,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[38].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*DNSListenerReq); i {
+			switch v := v.(*WGListenerReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13787,7 +13883,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[39].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HTTPListenerReq); i {
+			switch v := v.(*DNSListenerReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13799,7 +13895,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[40].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*NamedPipesReq); i {
+			switch v := v.(*HTTPListenerReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13811,7 +13907,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[41].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*NamedPipes); i {
+			switch v := v.(*NamedPipesReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13823,7 +13919,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[42].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*TCPPivotReq); i {
+			switch v := v.(*NamedPipes); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13835,7 +13931,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[43].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*TCPPivot); i {
+			switch v := v.(*TCPPivotReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13847,7 +13943,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[44].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Sessions); i {
+			switch v := v.(*TCPPivot); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13859,7 +13955,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[45].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RenameReq); i {
+			switch v := v.(*Sessions); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13871,7 +13967,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[46].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GenerateReq); i {
+			switch v := v.(*RenameReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13883,7 +13979,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[47].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GenerateStageReq); i {
+			switch v := v.(*GenerateReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13895,7 +13991,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[48].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Generate); i {
+			switch v := v.(*GenerateStageReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13907,7 +14003,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[49].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MSFReq); i {
+			switch v := v.(*Generate); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13919,7 +14015,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[50].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MSFRemoteReq); i {
+			switch v := v.(*MSFReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13931,7 +14027,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[51].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*StagerListenerReq); i {
+			switch v := v.(*MSFRemoteReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13943,7 +14039,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[52].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*StagerListener); i {
+			switch v := v.(*StagerListenerReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13955,7 +14051,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[53].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ShellcodeRDIReq); i {
+			switch v := v.(*StagerListener); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13967,7 +14063,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[54].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ShellcodeRDI); i {
+			switch v := v.(*ShellcodeRDIReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13979,7 +14075,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[55].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetSystemReq); i {
+			switch v := v.(*ShellcodeRDI); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -13991,7 +14087,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[56].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MigrateReq); i {
+			switch v := v.(*GetSystemReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14003,7 +14099,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[57].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CreateTunnelReq); i {
+			switch v := v.(*MigrateReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14015,7 +14111,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[58].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CreateTunnel); i {
+			switch v := v.(*CreateTunnelReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14027,7 +14123,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[59].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CloseTunnelReq); i {
+			switch v := v.(*CreateTunnel); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14039,7 +14135,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[60].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PivotGraphEntry); i {
+			switch v := v.(*CloseTunnelReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14051,7 +14147,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[61].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PivotGraph); i {
+			switch v := v.(*PivotGraphEntry); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14063,7 +14159,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[62].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Client); i {
+			switch v := v.(*PivotGraph); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14075,7 +14171,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[63].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Event); i {
+			switch v := v.(*Client); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14087,7 +14183,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[64].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Operators); i {
+			switch v := v.(*Event); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14099,7 +14195,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[65].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Operator); i {
+			switch v := v.(*Operators); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14111,7 +14207,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[66].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*WebContent); i {
+			switch v := v.(*Operator); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14123,7 +14219,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[67].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*WebsiteAddContent); i {
+			switch v := v.(*WebContent); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14135,7 +14231,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[68].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*WebsiteRemoveContent); i {
+			switch v := v.(*WebsiteAddContent); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14147,7 +14243,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[69].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Website); i {
+			switch v := v.(*WebsiteRemoveContent); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14159,7 +14255,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[70].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Websites); i {
+			switch v := v.(*Website); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14171,7 +14267,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[71].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*WGClientConfig); i {
+			switch v := v.(*Websites); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14183,7 +14279,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[72].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Loot); i {
+			switch v := v.(*WGClientConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14195,7 +14291,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[73].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AllLoot); i {
+			switch v := v.(*Loot); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14207,7 +14303,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[74].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*IOC); i {
+			switch v := v.(*AllLoot); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14219,7 +14315,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[75].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ExtensionData); i {
+			switch v := v.(*IOC); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14231,7 +14327,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[76].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Host); i {
+			switch v := v.(*ExtensionData); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14243,7 +14339,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[77].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AllHosts); i {
+			switch v := v.(*Host); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14255,7 +14351,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[78].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*DllHijackReq); i {
+			switch v := v.(*AllHosts); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14267,7 +14363,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[79].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*DllHijack); i {
+			switch v := v.(*DllHijackReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14279,7 +14375,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[80].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*BackdoorReq); i {
+			switch v := v.(*DllHijack); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14291,7 +14387,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[81].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Backdoor); i {
+			switch v := v.(*BackdoorReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14303,7 +14399,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[82].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ShellcodeEncodeReq); i {
+			switch v := v.(*Backdoor); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14315,7 +14411,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[83].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ShellcodeEncode); i {
+			switch v := v.(*ShellcodeEncodeReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14327,7 +14423,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[84].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ShellcodeEncoderMap); i {
+			switch v := v.(*ShellcodeEncode); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14339,7 +14435,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[85].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ExternalGenerateReq); i {
+			switch v := v.(*ShellcodeEncoderMap); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14351,7 +14447,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[86].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Builders); i {
+			switch v := v.(*ExternalGenerateReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14363,7 +14459,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[87].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Builder); i {
+			switch v := v.(*Builders); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14375,7 +14471,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[88].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HTTPC2Configs); i {
+			switch v := v.(*Builder); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14387,7 +14483,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[89].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*C2ProfileReq); i {
+			switch v := v.(*HTTPC2Configs); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14399,7 +14495,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[90].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HTTPC2ConfigReq); i {
+			switch v := v.(*C2ProfileReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14411,7 +14507,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[91].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HTTPC2Config); i {
+			switch v := v.(*HTTPC2ConfigReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14423,7 +14519,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[92].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HTTPC2ServerConfig); i {
+			switch v := v.(*HTTPC2Config); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14435,7 +14531,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[93].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HTTPC2ImplantConfig); i {
+			switch v := v.(*HTTPC2ServerConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14447,7 +14543,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[94].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HTTPC2Cookie); i {
+			switch v := v.(*HTTPC2ImplantConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14459,7 +14555,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[95].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HTTPC2Header); i {
+			switch v := v.(*HTTPC2Cookie); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14471,7 +14567,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[96].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HTTPC2URLParameter); i {
+			switch v := v.(*HTTPC2Header); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14483,7 +14579,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[97].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*HTTPC2PathSegment); i {
+			switch v := v.(*HTTPC2URLParameter); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14495,7 +14591,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[98].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Credential); i {
+			switch v := v.(*HTTPC2PathSegment); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14507,7 +14603,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[99].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Credentials); i {
+			switch v := v.(*Credential); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14519,7 +14615,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[100].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Crackstations); i {
+			switch v := v.(*Credentials); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14531,7 +14627,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[101].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CrackstationStatus); i {
+			switch v := v.(*Crackstations); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14543,7 +14639,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[102].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CrackSyncStatus); i {
+			switch v := v.(*CrackstationStatus); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14555,7 +14651,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[103].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CrackBenchmark); i {
+			switch v := v.(*CrackSyncStatus); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14567,7 +14663,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[104].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CrackTask); i {
+			switch v := v.(*CrackBenchmark); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14579,7 +14675,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[105].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Crackstation); i {
+			switch v := v.(*CrackTask); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14591,7 +14687,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[106].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CUDABackendInfo); i {
+			switch v := v.(*Crackstation); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14603,7 +14699,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[107].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*OpenCLBackendInfo); i {
+			switch v := v.(*CUDABackendInfo); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14615,7 +14711,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[108].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MetalBackendInfo); i {
+			switch v := v.(*OpenCLBackendInfo); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14627,7 +14723,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[109].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CrackCommand); i {
+			switch v := v.(*MetalBackendInfo); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14639,7 +14735,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[110].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CrackConfig); i {
+			switch v := v.(*CrackCommand); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14651,7 +14747,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[111].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CrackFiles); i {
+			switch v := v.(*CrackConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14663,7 +14759,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[112].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CrackFile); i {
+			switch v := v.(*CrackFiles); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14675,7 +14771,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[113].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CrackFileChunk); i {
+			switch v := v.(*CrackFile); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14687,7 +14783,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[114].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MonitoringProviders); i {
+			switch v := v.(*CrackFileChunk); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14699,7 +14795,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[115].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MonitoringProvider); i {
+			switch v := v.(*MonitoringProviders); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14711,7 +14807,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[116].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ResourceID); i {
+			switch v := v.(*MonitoringProvider); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14723,7 +14819,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[117].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CertificatesReq); i {
+			switch v := v.(*ResourceID); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14735,7 +14831,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[118].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CertificateData); i {
+			switch v := v.(*CertificatesReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14747,7 +14843,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[119].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CertificateInfo); i {
+			switch v := v.(*CertificateData); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14759,7 +14855,7 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[120].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CertificateAuthorityData); i {
+			switch v := v.(*CertificateInfo); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -14771,6 +14867,18 @@ func file_clientpb_client_proto_init() {
 			}
 		}
 		file_clientpb_client_proto_msgTypes[121].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CertificateAuthorityData); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_clientpb_client_proto_msgTypes[122].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CertificateAuthorityInfo); i {
 			case 0:
 				return &v.state
@@ -14789,7 +14897,7 @@ func file_clientpb_client_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_clientpb_client_proto_rawDesc,
 			NumEnums:      13,
-			NumMessages:   134,
+			NumMessages:   135,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

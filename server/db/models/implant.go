@@ -203,6 +203,11 @@ type ImplantConfig struct {
 	IsShellcode bool
 
 	RunAtLoad bool
+	// Donut options (Windows shellcode only)
+	DonutBypass   uint32
+	DonutEntropy  uint32
+	DonutCompress uint32
+	DonutExitOpt  uint32
 
 	HttpC2ConfigName       string
 	NetGoEnabled           bool
@@ -288,6 +293,12 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		IncludeTCP:      ic.IncludeTCP,
 		Extension:       ic.Extension,
 		Exports:         strings.Split(ic.Exports, ","),
+		DonutConfig: &clientpb.DonutConfig{
+			Bypass:   ic.DonutBypass,
+			Entropy:  ic.DonutEntropy,
+			Compress: ic.DonutCompress,
+			ExitOpt:  ic.DonutExitOpt,
+		},
 	}
 
 	if ic.ImplantProfileID != nil {
@@ -499,6 +510,12 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.RunAtLoad = pbConfig.RunAtLoad
 	cfg.DebugFile = pbConfig.DebugFile
 	cfg.Exports = strings.Join(pbConfig.Exports, ",")
+	if pbConfig.DonutConfig != nil {
+		cfg.DonutBypass = pbConfig.DonutConfig.Bypass
+		cfg.DonutEntropy = pbConfig.DonutConfig.Entropy
+		cfg.DonutCompress = pbConfig.DonutConfig.Compress
+		cfg.DonutExitOpt = pbConfig.DonutConfig.ExitOpt
+	}
 
 	cfg.HttpC2ConfigName = pbConfig.HTTPC2ConfigName
 	cfg.NetGoEnabled = pbConfig.NetGoEnabled

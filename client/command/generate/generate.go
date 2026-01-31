@@ -409,6 +409,12 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		return "", nil
 	}
 
+	donutConfig, err := parseDonutFlags(cmd, targetOS, configFormat, con)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return "", nil
+	}
+
 	var tunIP net.IP
 	if wg, _ := cmd.Flags().GetString("wg"); wg != "" {
 		uniqueWGIP, err := con.Rpc.GenerateUniqueIP(context.Background(), &commonpb.Empty{})
@@ -480,9 +486,49 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 
 		DebugFile:        debugFile,
 		HTTPC2ConfigName: c2Profile,
+		DonutConfig:      donutConfig,
 	}
 
 	return name, config
+}
+
+func parseDonutFlags(cmd *cobra.Command, targetOS string, configFormat clientpb.OutputFormat, con *console.SliverClient) (*clientpb.DonutConfig, error) {
+	donutBypass, _ := cmd.Flags().GetUint32("donut-bypass")
+	donutEntropy, _ := cmd.Flags().GetUint32("donut-entropy")
+	donutCompress, _ := cmd.Flags().GetUint32("donut-compress")
+	donutExitOpt, _ := cmd.Flags().GetUint32("donut-exitopt")
+
+	anyChanged := cmd.Flags().Changed("donut-bypass") ||
+		cmd.Flags().Changed("donut-entropy") ||
+		cmd.Flags().Changed("donut-compress") ||
+		cmd.Flags().Changed("donut-exitopt")
+
+	if targetOS != "windows" || configFormat != clientpb.OutputFormat_SHELLCODE {
+		if anyChanged {
+			con.PrintWarnf("Donut options only apply to Windows shellcode, ignoring.\n")
+		}
+		return nil, nil
+	}
+
+	if donutBypass < 1 || donutBypass > 3 {
+		return nil, fmt.Errorf("donut-bypass must be between 1 and 3")
+	}
+	if donutEntropy > 3 {
+		return nil, fmt.Errorf("donut-entropy must be between 0 and 3")
+	}
+	if donutCompress < 1 || donutCompress > 4 {
+		return nil, fmt.Errorf("donut-compress must be between 1 and 4")
+	}
+	if donutExitOpt < 1 || donutExitOpt > 2 {
+		return nil, fmt.Errorf("donut-exitopt must be 1 or 2")
+	}
+
+	return &clientpb.DonutConfig{
+		Bypass:   donutBypass,
+		Entropy:  donutEntropy,
+		Compress: donutCompress,
+		ExitOpt:  donutExitOpt,
+	}, nil
 }
 
 // parseTrafficEncoderArgs - parses the traffic encoder args and returns a bool indicating if traffic encoders are enabled.

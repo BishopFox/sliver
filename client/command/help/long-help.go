@@ -196,6 +196,14 @@ To output a Linux ELF executable file, the following command would be used:
 	generate --os linux --mtls foo.example.com 
 
 
+[[.Bold]][[.Underline]]++ Donut Shellcode Options ++[[.Normal]]
+When generating Windows shellcode (--format shellcode), you can tune Donut:
+	--donut-bypass 1|2|3        # AMSI/WLDP bypass: 1=skip, 2=abort on fail, 3=continue on fail (default = 3)
+	--donut-entropy 0|1|2|3     # Entropy: 0=disable, 1=disable, 2=random names, 3=random+encrypt (default = 0)
+	--donut-compress 1|2|3|4    # Compression: 1=disable, 2=LZNT1, 3=Xpress, 4=Xpress Huffman (default = 1)
+	--donut-exitopt 1|2         # Exit behavior: 1=exit thread, 2=exit process (default = 1)
+
+
 [[.Bold]][[.Underline]]++ DNS Canaries ++[[.Normal]]
 DNS canaries are unique per-binary domains that are deliberately NOT obfuscated during the compilation process. 
 This is done so that these unique domains show up if someone runs 'strings' on the binary, if they then attempt 

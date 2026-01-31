@@ -183,7 +183,7 @@ func SliverShellcode(name string, build *clientpb.ImplantBuild, config *clientpb
 	if err != nil {
 		return "", err
 	}
-	shellcode, err := DonutShellcodeFromFile(dest, config.GOARCH, false, "", "", "")
+	shellcode, err := DonutShellcodeFromFile(dest, config.GOARCH, false, "", "", "", config.DonutConfig)
 	if err != nil {
 		return "", err
 	}

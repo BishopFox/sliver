@@ -132,6 +132,17 @@ enum OutputFormat {
   THIRD_PARTY = 4;
 }
 
+message DonutConfig {
+  // 1=skip, 2=abort on fail, 3=continue on fail
+  uint32 Bypass = 1;
+  // 0=sliver default, 1=disable, 2=random names, 3=random names + symmetric encryption
+  uint32 Entropy = 2;
+  // 1=disable, 2=LZNT1, 3=Xpress, 4=Xpress Huffman
+  uint32 Compress = 3;
+  // 1=exit thread, 2=exit process
+  uint32 ExitOpt = 4;
+}
+
 message ImplantConfig {
   string ID = 1;
   repeated ImplantBuild ImplantBuilds = 2;
@@ -184,6 +195,7 @@ message ImplantConfig {
   bool RunAtLoad = 105;
   string DebugFile = 106;
   repeated string exports = 107;
+  DonutConfig DonutConfig = 108;
 
   string HTTPC2ConfigName = 150;
   bool NetGoEnabled = 151;

@@ -7,21 +7,28 @@ import (
 	"strings"
 
 	"github.com/Binject/go-donut/donut"
-	"github.com/bishopfox/sliver/server/configs"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+)
+
+const (
+	defaultDonutBypass   = 3
+	defaultDonutEntropy  = 0
+	defaultDonutCompress = 1
+	defaultDonutExitOpt  = 1
 )
 
 // DonutShellcodeFromFile returns a Donut shellcode for the given PE file
-func DonutShellcodeFromFile(filePath string, arch string, dotnet bool, params string, className string, method string) (data []byte, err error) {
+func DonutShellcodeFromFile(filePath string, arch string, dotnet bool, params string, className string, method string, donutConfig *clientpb.DonutConfig) (data []byte, err error) {
 	pe, err := os.ReadFile(filePath)
 	if err != nil {
 		return
 	}
 	isDLL := (filepath.Ext(filePath) == ".dll")
-	return DonutShellcodeFromPE(pe, arch, dotnet, params, className, method, isDLL, false, true)
+	return DonutShellcodeFromPE(pe, arch, dotnet, params, className, method, isDLL, false, true, donutConfig)
 }
 
 // DonutShellcodeFromPE returns a Donut shellcode for the given PE file
-func DonutShellcodeFromPE(pe []byte, arch string, dotnet bool, params string, className string, method string, isDLL bool, isUnicode bool, createNewThread bool) (data []byte, err error) {
+func DonutShellcodeFromPE(pe []byte, arch string, dotnet bool, params string, className string, method string, isDLL bool, isUnicode bool, createNewThread bool, donutConfig *clientpb.DonutConfig) (data []byte, err error) {
 	ext := ".exe"
 	if isDLL {
 		ext = ".dll"
@@ -36,7 +43,7 @@ func DonutShellcodeFromPE(pe []byte, arch string, dotnet bool, params string, cl
 		thread = 1
 	}
 
-	serverConf := configs.GetServerConfig()
+	bypass, entropy, compress, exitOpt := normalizeDonutConfig(donutConfig)
 
 	donutArch := getDonutArch(arch)
 	// We don't use DonutConfig.Thread = 1 because we create our own remote thread
@@ -51,16 +58,39 @@ func DonutShellcodeFromPE(pe []byte, arch string, dotnet bool, params string, cl
 		Parameters: params,
 		Class:      className,
 		Method:     method,
-		Bypass:     serverConf.DonutBypass, // 1=skip, 2=abort on fail, 3=continue on fail.
-		Format:     uint32(1),              // 1=raw, 2=base64, 3=c, 4=ruby, 5=python, 6=powershell, 7=C#, 8=hex
+		Bypass:     bypass,    // 1=skip, 2=abort on fail, 3=continue on fail.
+		Format:     uint32(1), // 1=raw, 2=base64, 3=c, 4=ruby, 5=python, 6=powershell, 7=C#, 8=hex
 		Arch:       donutArch,
-		Entropy:    0,         // 1=disable, 2=use random names, 3=random names + symmetric encryption (default)
-		Compress:   uint32(1), // 1=disable, 2=LZNT1, 3=Xpress, 4=Xpress Huffman
-		ExitOpt:    1,         // exit thread
+		Entropy:    entropy,  // 1=disable, 2=use random names, 3=random names + symmetric encryption (default)
+		Compress:   compress, // 1=disable, 2=LZNT1, 3=Xpress, 4=Xpress Huffman
+		ExitOpt:    exitOpt,  // exit thread
 		Unicode:    isUnicodeVar,
 		Thread:     thread,
 	}
 	return getDonut(pe, &config)
+}
+
+func normalizeDonutConfig(config *clientpb.DonutConfig) (int, uint32, uint32, uint32) {
+	bypass := defaultDonutBypass
+	entropy := uint32(defaultDonutEntropy)
+	compress := uint32(defaultDonutCompress)
+	exitOpt := uint32(defaultDonutExitOpt)
+	if config == nil {
+		return bypass, entropy, compress, exitOpt
+	}
+	if config.Bypass >= 1 && config.Bypass <= 3 {
+		bypass = int(config.Bypass)
+	}
+	if config.Entropy <= 3 {
+		entropy = config.Entropy
+	}
+	if config.Compress >= 1 && config.Compress <= 4 {
+		compress = config.Compress
+	}
+	if config.ExitOpt >= 1 && config.ExitOpt <= 2 {
+		exitOpt = config.ExitOpt
+	}
+	return bypass, entropy, compress, exitOpt
 }
 
 // DonutFromAssembly - Generate a donut shellcode from a .NET assembly
