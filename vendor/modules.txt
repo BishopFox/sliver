@@ -98,9 +98,6 @@ github.com/Binject/binjection/bj
 github.com/Binject/debug/elf
 github.com/Binject/debug/macho
 github.com/Binject/debug/pe
-# github.com/Binject/go-donut v0.0.0-20210701074227-67a31e2d883e
-## explicit; go 1.16
-github.com/Binject/go-donut/donut
 # github.com/Binject/shellcode v0.0.0-20191101084904-a8a90e7d4563
 ## explicit
 github.com/Binject/shellcode
@@ -1265,6 +1262,9 @@ github.com/slack-go/slack/internal/backoff
 github.com/slack-go/slack/internal/errorsx
 github.com/slack-go/slack/internal/timex
 github.com/slack-go/slack/slackutilsx
+# github.com/sliverarmory/wasm-donut v0.0.2
+## explicit; go 1.25.6
+github.com/sliverarmory/wasm-donut
 # github.com/spf13/cast v1.10.0
 ## explicit; go 1.21.0
 github.com/spf13/cast
@@ -1341,8 +1341,10 @@ github.com/tetratelabs/wazero
 github.com/tetratelabs/wazero/api
 github.com/tetratelabs/wazero/experimental
 github.com/tetratelabs/wazero/experimental/sys
+github.com/tetratelabs/wazero/imports/emscripten
 github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1
 github.com/tetratelabs/wazero/internal/descriptor
+github.com/tetratelabs/wazero/internal/emscripten
 github.com/tetratelabs/wazero/internal/engine/interpreter
 github.com/tetratelabs/wazero/internal/engine/wazevo
 github.com/tetratelabs/wazero/internal/engine/wazevo/backend

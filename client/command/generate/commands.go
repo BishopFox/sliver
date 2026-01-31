@@ -342,10 +342,9 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 		f.StringP("limit-locale", "L", "", "limit execution to hosts that match this locale")
 
 		f.StringP("format", "f", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows only)")
-		f.Uint32("donut-bypass", 3, "Donut bypass (1=skip, 2=abort on fail, 3=continue on fail) (windows shellcode only)")
-		f.Uint32("donut-entropy", 0, "Donut entropy (0=sliver default, 1=disable, 2=random names, 3=random+encrypt) (windows shellcode only)")
-		f.Uint32("donut-compress", 1, "Donut compression (1=disable, 2=LZNT1, 3=Xpress, 4=Xpress Huffman) (windows shellcode only)")
-		f.Uint32("donut-exitopt", 1, "Donut exit option (1=exit thread, 2=exit process) (windows shellcode only)")
+		f.Uint32("donut-entropy", 1, "Donut entropy (1=none, 2=random names, 3=random+encrypt) (windows shellcode only)")
+		f.Uint32("donut-compress", 1, "Donut compression (1=none, 2=aplib) (windows shellcode only)")
+		f.Uint32("donut-exitopt", 1, "Donut exit option (1=exit thread, 2=exit process, 3=block) (windows shellcode only)")
 	})
 }
 

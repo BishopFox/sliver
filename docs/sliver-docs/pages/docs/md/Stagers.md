@@ -33,6 +33,18 @@ Name           Platform       Command & Control              Debug  Format      
 win-shellcode  windows/amd64  [1] mtls://192.168.122.1:8888  false  SHELLCODE   enabled
 ```
 
+You can tune Donut options for Windows shellcode profiles:
+
+- `--donut-entropy`: 1=none, 2=random names, 3=random+encrypt
+- `--donut-compress`: 1=none, 2=aplib
+- `--donut-exitopt`: 1=exit thread, 2=exit process, 3=block
+
+Example:
+
+```
+sliver > profiles new --mtls 192.168.122.1 --format shellcode --donut-entropy 2 --donut-compress 2 --donut-exitopt 3 win-shellcode
+```
+
 We can now create a staging listener and link it to the profile:
 
 ```

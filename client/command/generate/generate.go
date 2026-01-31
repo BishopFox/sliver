@@ -493,13 +493,11 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 }
 
 func parseDonutFlags(cmd *cobra.Command, targetOS string, configFormat clientpb.OutputFormat, con *console.SliverClient) (*clientpb.DonutConfig, error) {
-	donutBypass, _ := cmd.Flags().GetUint32("donut-bypass")
 	donutEntropy, _ := cmd.Flags().GetUint32("donut-entropy")
 	donutCompress, _ := cmd.Flags().GetUint32("donut-compress")
 	donutExitOpt, _ := cmd.Flags().GetUint32("donut-exitopt")
 
-	anyChanged := cmd.Flags().Changed("donut-bypass") ||
-		cmd.Flags().Changed("donut-entropy") ||
+	anyChanged := cmd.Flags().Changed("donut-entropy") ||
 		cmd.Flags().Changed("donut-compress") ||
 		cmd.Flags().Changed("donut-exitopt")
 
@@ -510,21 +508,17 @@ func parseDonutFlags(cmd *cobra.Command, targetOS string, configFormat clientpb.
 		return nil, nil
 	}
 
-	if donutBypass < 1 || donutBypass > 3 {
-		return nil, fmt.Errorf("donut-bypass must be between 1 and 3")
+	if donutEntropy < 1 || donutEntropy > 3 {
+		return nil, fmt.Errorf("donut-entropy must be between 1 and 3")
 	}
-	if donutEntropy > 3 {
-		return nil, fmt.Errorf("donut-entropy must be between 0 and 3")
+	if donutCompress < 1 || donutCompress > 2 {
+		return nil, fmt.Errorf("donut-compress must be 1 or 2")
 	}
-	if donutCompress < 1 || donutCompress > 4 {
-		return nil, fmt.Errorf("donut-compress must be between 1 and 4")
-	}
-	if donutExitOpt < 1 || donutExitOpt > 2 {
-		return nil, fmt.Errorf("donut-exitopt must be 1 or 2")
+	if donutExitOpt < 1 || donutExitOpt > 3 {
+		return nil, fmt.Errorf("donut-exitopt must be between 1 and 3")
 	}
 
 	return &clientpb.DonutConfig{
-		Bypass:   donutBypass,
 		Entropy:  donutEntropy,
 		Compress: donutCompress,
 		ExitOpt:  donutExitOpt,

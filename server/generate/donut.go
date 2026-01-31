@@ -1,20 +1,19 @@
 package generate
 
 import (
-	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/Binject/go-donut/donut"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	wasmdonut "github.com/sliverarmory/wasm-donut"
 )
 
 const (
-	defaultDonutBypass   = 3
-	defaultDonutEntropy  = 0
-	defaultDonutCompress = 1
-	defaultDonutExitOpt  = 1
+	defaultDonutEntropy  = wasmdonut.DonutEntropyNone
+	defaultDonutCompress = wasmdonut.DonutCompressNone
+	defaultDonutExitOpt  = wasmdonut.DonutExitThread
 )
 
 // DonutShellcodeFromFile returns a Donut shellcode for the given PE file
@@ -33,64 +32,49 @@ func DonutShellcodeFromPE(pe []byte, arch string, dotnet bool, params string, cl
 	if isDLL {
 		ext = ".dll"
 	}
-	var isUnicodeVar uint32
-	if isUnicode {
-		isUnicodeVar = 1
-	}
+	// wasm-donut does not expose Unicode or thread flags; keep params for compatibility.
+	_ = dotnet
+	_ = isUnicode
+	_ = createNewThread
 
-	thread := uint32(0)
-	if createNewThread {
-		thread = 1
-	}
-
-	bypass, entropy, compress, exitOpt := normalizeDonutConfig(donutConfig)
-
+	entropy, compress, exitOpt := normalizeDonutConfig(donutConfig)
 	donutArch := getDonutArch(arch)
-	// We don't use DonutConfig.Thread = 1 because we create our own remote thread
-	// in the task runner, and we're doing some housekeeping on it.
-	// Having DonutConfig.Thread = 1 means another thread will be created
-	// inside the one we created, and that will fuck up our monitoring
-	// since we can't grab a handle to the thread created by the Donut loader,
-	// and thus the waitForCompletion call will most of the time never complete.
-	config := donut.DonutConfig{
-		Type:       getDonutType(ext, false),
-		InstType:   donut.DONUT_INSTANCE_PIC,
-		Parameters: params,
-		Class:      className,
-		Method:     method,
-		Bypass:     bypass,    // 1=skip, 2=abort on fail, 3=continue on fail.
-		Format:     uint32(1), // 1=raw, 2=base64, 3=c, 4=ruby, 5=python, 6=powershell, 7=C#, 8=hex
-		Arch:       donutArch,
-		Entropy:    entropy,  // 1=disable, 2=use random names, 3=random names + symmetric encryption (default)
-		Compress:   compress, // 1=disable, 2=LZNT1, 3=Xpress, 4=Xpress Huffman
-		ExitOpt:    exitOpt,  // exit thread
-		Unicode:    isUnicodeVar,
-		Thread:     thread,
+
+	opts := wasmdonut.GenerateOptions{
+		Ext:      ext,
+		Args:     params,
+		Class:    className,
+		Method:   method,
+		Arch:     donutArch,
+		Entropy:  entropy,
+		Compress: compress,
+		ExitOpt:  exitOpt,
 	}
-	return getDonut(pe, &config)
+
+	shellcode, err := wasmdonut.Generate(context.Background(), pe, ext, opts)
+	if err != nil {
+		return nil, err
+	}
+	return addStackCheck(shellcode), nil
 }
 
-func normalizeDonutConfig(config *clientpb.DonutConfig) (int, uint32, uint32, uint32) {
-	bypass := defaultDonutBypass
-	entropy := uint32(defaultDonutEntropy)
-	compress := uint32(defaultDonutCompress)
-	exitOpt := uint32(defaultDonutExitOpt)
+func normalizeDonutConfig(config *clientpb.DonutConfig) (int, int, int) {
+	entropy := defaultDonutEntropy
+	compress := defaultDonutCompress
+	exitOpt := defaultDonutExitOpt
 	if config == nil {
-		return bypass, entropy, compress, exitOpt
+		return entropy, compress, exitOpt
 	}
-	if config.Bypass >= 1 && config.Bypass <= 3 {
-		bypass = int(config.Bypass)
+	if config.Entropy >= 1 && config.Entropy <= 3 {
+		entropy = int(config.Entropy)
 	}
-	if config.Entropy <= 3 {
-		entropy = config.Entropy
+	if config.Compress >= 1 && config.Compress <= 2 {
+		compress = int(config.Compress)
 	}
-	if config.Compress >= 1 && config.Compress <= 4 {
-		compress = config.Compress
+	if config.ExitOpt >= 1 && config.ExitOpt <= 3 {
+		exitOpt = int(config.ExitOpt)
 	}
-	if config.ExitOpt >= 1 && config.ExitOpt <= 2 {
-		exitOpt = config.ExitOpt
-	}
-	return bypass, entropy, compress, exitOpt
+	return entropy, compress, exitOpt
 }
 
 // DonutFromAssembly - Generate a donut shellcode from a .NET assembly
@@ -100,73 +84,43 @@ func DonutFromAssembly(assembly []byte, isDLL bool, arch string, params string, 
 		ext = ".dll"
 	}
 	donutArch := getDonutArch(arch)
-	config := donut.DefaultConfig()
-	config.Bypass = 3
-	config.Runtime = "v4.0.30319" // we might want to make this configurable
-	config.Format = 1
-	config.Arch = donutArch
-	config.Class = className
-	config.Parameters = params
-	config.Domain = appDomain
-	config.Method = method
-	config.Entropy = 3
-	config.Unicode = 0
-	config.Type = getDonutType(ext, true)
-	return getDonut(assembly, config)
+	_ = appDomain
+
+	opts := wasmdonut.GenerateOptions{
+		Ext:      ext,
+		Args:     params,
+		Class:    className,
+		Method:   method,
+		Arch:     donutArch,
+		Entropy:  wasmdonut.DonutEntropyDefault,
+		Compress: defaultDonutCompress,
+		ExitOpt:  defaultDonutExitOpt,
+	}
+	shellcode, err := wasmdonut.Generate(context.Background(), assembly, ext, opts)
+	if err != nil {
+		return nil, err
+	}
+	return addStackCheck(shellcode), nil
 }
 
-func getDonut(data []byte, config *donut.DonutConfig) (shellcode []byte, err error) {
-	buf := bytes.NewBuffer(data)
-	res, err := donut.ShellcodeFromBytes(buf, config)
-	if err != nil {
-		return
+func getDonutArch(arch string) int {
+	donutArch := wasmdonut.DonutArchX84
+	switch strings.ToLower(arch) {
+	case "x32", "386":
+		donutArch = wasmdonut.DonutArchX86
+	case "x64", "amd64":
+		donutArch = wasmdonut.DonutArchX64
+	case "x84":
+		donutArch = wasmdonut.DonutArchX84
 	}
-	shellcode = res.Bytes()
+	return donutArch
+}
+
+func addStackCheck(shellcode []byte) []byte {
 	stackCheckPrologue := []byte{
 		// Check stack is 8 byte but not 16 byte aligned or else errors in LoadLibrary
 		0x48, 0x83, 0xE4, 0xF0, // and rsp,0xfffffffffffffff0
 		0x48, 0x83, 0xC4, 0x08, // add rsp,0x8
 	}
-	shellcode = append(stackCheckPrologue, shellcode...)
-	return
-}
-
-func getDonutArch(arch string) donut.DonutArch {
-	var donutArch donut.DonutArch
-	switch strings.ToLower(arch) {
-	case "x32", "386":
-		donutArch = donut.X32
-	case "x64", "amd64":
-		donutArch = donut.X64
-	case "x84":
-		donutArch = donut.X84
-	default:
-		donutArch = donut.X84
-	}
-	return donutArch
-}
-
-func getDonutType(ext string, dotnet bool) donut.ModuleType {
-	var donutType donut.ModuleType
-	switch strings.ToLower(filepath.Ext(ext)) {
-	case ".exe", ".bin":
-		if dotnet {
-			donutType = donut.DONUT_MODULE_NET_EXE
-		} else {
-			donutType = donut.DONUT_MODULE_EXE
-		}
-	case ".dll":
-		if dotnet {
-			donutType = donut.DONUT_MODULE_NET_DLL
-		} else {
-			donutType = donut.DONUT_MODULE_DLL
-		}
-	case ".xsl":
-		donutType = donut.DONUT_MODULE_XSL
-	case ".js":
-		donutType = donut.DONUT_MODULE_JS
-	case ".vbs":
-		donutType = donut.DONUT_MODULE_VBS
-	}
-	return donutType
+	return append(stackCheckPrologue, shellcode...)
 }

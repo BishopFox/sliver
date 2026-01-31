@@ -133,13 +133,11 @@ enum OutputFormat {
 }
 
 message DonutConfig {
-  // 1=skip, 2=abort on fail, 3=continue on fail
-  uint32 Bypass = 1;
-  // 0=sliver default, 1=disable, 2=random names, 3=random names + symmetric encryption
+  // 1=none, 2=random names, 3=random names + symmetric encryption
   uint32 Entropy = 2;
-  // 1=disable, 2=LZNT1, 3=Xpress, 4=Xpress Huffman
+  // 1=none, 2=aplib
   uint32 Compress = 3;
-  // 1=exit thread, 2=exit process
+  // 1=exit thread, 2=exit process, 3=block
   uint32 ExitOpt = 4;
 }
 

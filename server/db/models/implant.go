@@ -204,7 +204,6 @@ type ImplantConfig struct {
 
 	RunAtLoad bool
 	// Donut options (Windows shellcode only)
-	DonutBypass   uint32
 	DonutEntropy  uint32
 	DonutCompress uint32
 	DonutExitOpt  uint32
@@ -294,7 +293,6 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		Extension:       ic.Extension,
 		Exports:         strings.Split(ic.Exports, ","),
 		DonutConfig: &clientpb.DonutConfig{
-			Bypass:   ic.DonutBypass,
 			Entropy:  ic.DonutEntropy,
 			Compress: ic.DonutCompress,
 			ExitOpt:  ic.DonutExitOpt,
@@ -511,7 +509,6 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.DebugFile = pbConfig.DebugFile
 	cfg.Exports = strings.Join(pbConfig.Exports, ",")
 	if pbConfig.DonutConfig != nil {
-		cfg.DonutBypass = pbConfig.DonutConfig.Bypass
 		cfg.DonutEntropy = pbConfig.DonutConfig.Entropy
 		cfg.DonutCompress = pbConfig.DonutConfig.Compress
 		cfg.DonutExitOpt = pbConfig.DonutConfig.ExitOpt
