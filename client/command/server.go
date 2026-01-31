@@ -46,6 +46,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/reaction"
 	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/command/settings"
+	shellcodeencoders "github.com/bishopfox/sliver/client/command/shellcode-encoders"
 	sgn "github.com/bishopfox/sliver/client/command/shikata-ga-nai"
 	"github.com/bishopfox/sliver/client/command/socks"
 	"github.com/bishopfox/sliver/client/command/taskmany"
@@ -103,7 +104,7 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 			crack.Commands,
 			certificates.Commands,
 			clean.Command,
-      aka.ServerCommands,
+			aka.ServerCommands,
 		)
 
 		// C2 Network
@@ -119,6 +120,7 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 		// Payloads
 		bind(consts.PayloadsHelpGroup,
 			sgn.Commands,
+			shellcodeencoders.Commands,
 			generate.Commands,
 			builders.Commands,
 		)

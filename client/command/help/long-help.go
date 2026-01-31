@@ -47,41 +47,44 @@ var (
 		consts.GenerateStr:      generateHelp,
 		consts.StageListenerStr: stageListenerHelp,
 
-		consts.MsfStr:              msfHelp,
-		consts.MsfInjectStr:        msfInjectHelp,
-		consts.PsStr:               psHelp,
-		consts.PingStr:             pingHelp,
-		consts.KillStr:             killHelp,
-		consts.LsStr:               lsHelp,
-		consts.CdStr:               cdHelp,
-		consts.PwdStr:              pwdHelp,
-		consts.CatStr:              catHelp,
-		consts.EditStr:             editHelp,
-		consts.HexEditStr:          hexEditHelp,
-		consts.DownloadStr:         downloadHelp,
-		consts.GrepStr:             grepHelp,
-		consts.HeadStr:             headHelp,
-		consts.TailStr:             tailHelp,
-		consts.UploadStr:           uploadHelp,
-		consts.MkdirStr:            mkdirHelp,
-		consts.RmStr:               rmHelp,
-		consts.ChtimesStr:          chtimesHelp,
-		consts.ProcdumpStr:         procdumpHelp,
-		consts.ElevateStr:          elevateHelp,
-		consts.RunAsStr:            runAsHelp,
-		consts.ImpersonateStr:      impersonateHelp,
-		consts.RevToSelfStr:        revToSelfHelp,
-		consts.ExecuteStr:          executeHelp,
-		consts.ExecuteAssemblyStr:  executeAssemblyHelp,
-		consts.ExecuteShellcodeStr: executeShellcodeHelp,
-		consts.MigrateStr:          migrateHelp,
-		consts.SideloadStr:         sideloadHelp,
-		consts.TerminateStr:        terminateHelp,
-		consts.AliasesStr:          loadAliasHelp,
-		consts.PsExecStr:           psExecHelp,
-		consts.BackdoorStr:         backdoorHelp,
-		consts.SpawnDllStr:         spawnDllHelp,
-		consts.MountStr:            mountHelp,
+		consts.MsfStr:               msfHelp,
+		consts.MsfInjectStr:         msfInjectHelp,
+		consts.PsStr:                psHelp,
+		consts.PingStr:              pingHelp,
+		consts.KillStr:              killHelp,
+		consts.LsStr:                lsHelp,
+		consts.CdStr:                cdHelp,
+		consts.PwdStr:               pwdHelp,
+		consts.CatStr:               catHelp,
+		consts.EditStr:              editHelp,
+		consts.HexEditStr:           hexEditHelp,
+		consts.DownloadStr:          downloadHelp,
+		consts.GrepStr:              grepHelp,
+		consts.HeadStr:              headHelp,
+		consts.TailStr:              tailHelp,
+		consts.UploadStr:            uploadHelp,
+		consts.MkdirStr:             mkdirHelp,
+		consts.RmStr:                rmHelp,
+		consts.ChtimesStr:           chtimesHelp,
+		consts.ProcdumpStr:          procdumpHelp,
+		consts.ElevateStr:           elevateHelp,
+		consts.RunAsStr:             runAsHelp,
+		consts.ImpersonateStr:       impersonateHelp,
+		consts.RevToSelfStr:         revToSelfHelp,
+		consts.ExecuteStr:           executeHelp,
+		consts.ExecuteAssemblyStr:   executeAssemblyHelp,
+		consts.ExecuteShellcodeStr:  executeShellcodeHelp,
+		consts.MigrateStr:           migrateHelp,
+		consts.SideloadStr:          sideloadHelp,
+		consts.TerminateStr:         terminateHelp,
+		consts.AliasesStr:           loadAliasHelp,
+		consts.PsExecStr:            psExecHelp,
+		consts.BackdoorStr:          backdoorHelp,
+		consts.SpawnDllStr:          spawnDllHelp,
+		consts.MountStr:             mountHelp,
+		consts.ShikataGaNai:         shikataGaNaiHelp,
+		consts.ShellcodeEncodersStr: shellcodeEncodersHelp,
+		consts.ShellcodeEncodersStr + sep + "encode": shellcodeEncodersEncodeHelp,
 
 		consts.WebsitesStr:                                  websitesHelp,
 		consts.ScreenshotStr:                                screenshotHelp,
@@ -429,6 +432,42 @@ On Windows, escaping is disabled. Instead, '\\' is treated as path separator.`
 [[.Bold]][[.Underline]]++ Shellcode ++[[.Normal]]
 Shellcode files should be binary encoded, you can generate Sliver shellcode files with the generate command:
 	generate --format shellcode
+`
+	shikataGaNaiHelp = `[[.Bold]]Command:[[.Normal]] shikata-ga-nai [local path to raw shellcode]
+[[.Bold]]About:[[.Normal]] Encodes shellcode with Shikata Ga Nai. This uses the same backend implementation as
+[[.Bold]]shellcode-encoders encode[[.Normal]] with the shikata_ga_nai encoder, but exposes SGN-specific options
+like architecture, iterations, and bad characters.
+
+[[.Bold]][[.Underline]]++ Examples ++[[.Normal]]
+Encode x64 shellcode with 3 iterations:
+	shikata-ga-nai -a amd64 -i 3 /tmp/payload.bin
+
+Avoid bad chars and write to a file:
+	shikata-ga-nai -b 000a0d -s /tmp/payload.sgn /tmp/payload.bin
+
+[[.Bold]]Related:[[.Normal]] shellcode-encoders encode --encoder shikata_ga_nai ...`
+
+	shellcodeEncodersHelp = `[[.Bold]]Command:[[.Normal]] shellcode-encoders
+[[.Bold]]About:[[.Normal]] Lists the shellcode encoders supported by the server along with architectures and descriptions.
+
+[[.Bold]][[.Underline]]++ Examples ++[[.Normal]]
+List encoders and supported architectures:
+	shellcode-encoders
+`
+
+	shellcodeEncodersEncodeHelp = `[[.Bold]]Command:[[.Normal]] shellcode-encoders encode [local path to raw shellcode]...
+[[.Bold]]About:[[.Normal]] Encodes one or more shellcode files using a server-side encoder. Encoder support depends on
+architecture; use [[.Bold]]shellcode-encoders[[.Normal]] to list valid combinations.
+
+[[.Bold]][[.Underline]]++ Examples ++[[.Normal]]
+Encode a single file with shikata_ga_nai:
+	shellcode-encoders encode --encoder shikata_ga_nai --arch amd64 /tmp/payload.bin
+
+Encode multiple files and write outputs to a directory:
+	shellcode-encoders encode --encoder xor --arch amd64 -o /tmp/out payload1.bin payload2.bin
+
+Avoid bad characters with SGN:
+	shellcode-encoders encode --encoder shikata_ga_nai --arch 386 -b 000a0d -o /tmp/encoded.bin /tmp/payload.bin
 `
 
 	migrateHelp = `[[.Bold]]Command:[[.Normal]] migrate <flags>

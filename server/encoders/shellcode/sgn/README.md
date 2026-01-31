@@ -1,4 +1,4 @@
-# server/sgn
+# server/encoders/shellcode/sgn
 
 ## Overview
 
@@ -27,7 +27,7 @@ These options mirror the upstream CLI flags so server-side tasks can reuse the s
 Shellcode fixtures used by the unit tests live under `testdata/` with a `.bin` extension. They are produced via `msfvenom` using a dedicated Go generator:
 
 ```bash
-go generate ./server/sgn
+go generate ./server/encoders/shellcode/sgn
 ```
 
 The generator invokes `msfvenom` three times (reverse TCP/HTTP stagers and an exec payload) and writes raw shellcode into the `testdata` directory. Ensure the Metasploit framework is installed and `msfvenom` is on `$PATH` before running the generation step.
@@ -40,7 +40,7 @@ The log subsystem expects a writable Sliver root directory. Point it to a tempor
 export SLIVER_ROOT_DIR=$(pwd)/.tmp-sliver
 export GOCACHE=$(pwd)/.tmp-gocache
 mkdir -p "$SLIVER_ROOT_DIR" "$GOCACHE"
-go test ./server/sgn
+go test ./server/encoders/shellcode/sgn
 ```
 
 The test suite focuses on option wiring and constraint helpers rather than the full stochastic encoding pipeline.

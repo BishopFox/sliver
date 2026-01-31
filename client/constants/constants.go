@@ -299,7 +299,8 @@ const (
 	GetPrivsStr = "getprivs"
 	ConnectStr  = "connect"
 
-	ShikataGaNai = "shikata-ga-nai"
+	ShikataGaNai         = "shikata-ga-nai"
+	ShellcodeEncodersStr = "shellcode-encoders"
 
 	Cursed         = "cursed"
 	CursedChrome   = "chrome"

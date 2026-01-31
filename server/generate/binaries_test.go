@@ -28,7 +28,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/configs"
-	"github.com/bishopfox/sliver/server/sgn"
+	"github.com/bishopfox/sliver/server/encoders/shellcode/sgn"
 )
 
 var (
