@@ -202,6 +202,7 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 		req.Method,
 		req.ClassName,
 		req.AppDomain,
+		req.Runtime,
 	)
 	if err != nil {
 		tasksLog.Errorf("Execute assembly failed: %s", err)

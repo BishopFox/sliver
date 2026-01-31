@@ -1262,7 +1262,7 @@ github.com/slack-go/slack/internal/backoff
 github.com/slack-go/slack/internal/errorsx
 github.com/slack-go/slack/internal/timex
 github.com/slack-go/slack/slackutilsx
-# github.com/sliverarmory/wasm-donut v0.0.2
+# github.com/sliverarmory/wasm-donut v0.0.3
 ## explicit; go 1.25.6
 github.com/sliverarmory/wasm-donut
 # github.com/spf13/cast v1.10.0

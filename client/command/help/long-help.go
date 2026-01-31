@@ -199,8 +199,13 @@ To output a Linux ELF executable file, the following command would be used:
 [[.Bold]][[.Underline]]++ Donut Shellcode Options ++[[.Normal]]
 When generating Windows shellcode (--format shellcode), you can tune Donut:
 	--donut-entropy 1|2|3      # Entropy: 1=none (default), 2=random names, 3=random+encrypt
-	--donut-compress 1|2       # Compression: 1=none (default), 2=aplib
+	--donut-compress 0|1       # Compression: 0=off (default), 1=aplib
 	--donut-exitopt 1|2|3      # Exit behavior: 1=exit thread (default), 2=exit process, 3=block
+	--donut-bypass 1|2|3       # Bypass: 1=none, 2=abort on failure, 3=continue (default)
+	--donut-headers 1|2        # PE headers: 1=overwrite (default), 2=keep
+	--donut-thread 0|1         # Unmanaged EXE: run entrypoint as a new thread (default 0)
+	--donut-unicode 0|1        # Unmanaged DLL: pass Unicode command line (default 0)
+	--donut-oep <uint32>       # Override original entry point (0=default)
 
 
 [[.Bold]][[.Underline]]++ DNS Canaries ++[[.Normal]]

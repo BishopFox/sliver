@@ -14,6 +14,8 @@ const (
 	defaultDonutEntropy  = wasmdonut.DonutEntropyNone
 	defaultDonutCompress = wasmdonut.DonutCompressNone
 	defaultDonutExitOpt  = wasmdonut.DonutExitThread
+	defaultDonutBypass   = wasmdonut.DonutBypassContinue
+	defaultDonutHeaders  = wasmdonut.DonutHeadersOverwrite
 )
 
 // DonutShellcodeFromFile returns a Donut shellcode for the given PE file
@@ -32,12 +34,9 @@ func DonutShellcodeFromPE(pe []byte, arch string, dotnet bool, params string, cl
 	if isDLL {
 		ext = ".dll"
 	}
-	// wasm-donut does not expose Unicode or thread flags; keep params for compatibility.
 	_ = dotnet
-	_ = isUnicode
-	_ = createNewThread
 
-	entropy, compress, exitOpt := normalizeDonutConfig(donutConfig)
+	donutOpts := normalizeDonutConfig(donutConfig, createNewThread, isUnicode)
 	donutArch := getDonutArch(arch)
 
 	opts := wasmdonut.GenerateOptions{
@@ -46,61 +45,95 @@ func DonutShellcodeFromPE(pe []byte, arch string, dotnet bool, params string, cl
 		Class:    className,
 		Method:   method,
 		Arch:     donutArch,
-		Entropy:  entropy,
-		Compress: compress,
-		ExitOpt:  exitOpt,
+		Bypass:   donutOpts.bypass,
+		Headers:  donutOpts.headers,
+		Entropy:  donutOpts.entropy,
+		Compress: donutOpts.compress,
+		ExitOpt:  donutOpts.exitOpt,
+		Thread:   donutOpts.thread,
+		Unicode:  donutOpts.unicode,
+		OEP:      donutOpts.oep,
 	}
 
-	shellcode, err := wasmdonut.Generate(context.Background(), pe, ext, opts)
+	result, err := wasmdonut.Generate(context.Background(), pe, ext, opts)
 	if err != nil {
 		return nil, err
 	}
-	return addStackCheck(shellcode), nil
+	return addStackCheck(result.Loader), nil
 }
 
-func normalizeDonutConfig(config *clientpb.DonutConfig) (int, int, int) {
-	entropy := defaultDonutEntropy
-	compress := defaultDonutCompress
-	exitOpt := defaultDonutExitOpt
+type donutOptions struct {
+	entropy  int
+	compress int
+	exitOpt  int
+	bypass   int
+	headers  int
+	thread   bool
+	unicode  bool
+	oep      uint32
+}
+
+func normalizeDonutConfig(config *clientpb.DonutConfig, fallbackThread bool, fallbackUnicode bool) donutOptions {
+	opts := donutOptions{
+		entropy:  defaultDonutEntropy,
+		compress: defaultDonutCompress,
+		exitOpt:  defaultDonutExitOpt,
+		bypass:   defaultDonutBypass,
+		headers:  defaultDonutHeaders,
+		thread:   fallbackThread,
+		unicode:  fallbackUnicode,
+	}
 	if config == nil {
-		return entropy, compress, exitOpt
+		return opts
 	}
 	if config.Entropy >= 1 && config.Entropy <= 3 {
-		entropy = int(config.Entropy)
+		opts.entropy = int(config.Entropy)
 	}
 	if config.Compress >= 1 && config.Compress <= 2 {
-		compress = int(config.Compress)
+		opts.compress = int(config.Compress)
 	}
 	if config.ExitOpt >= 1 && config.ExitOpt <= 3 {
-		exitOpt = int(config.ExitOpt)
+		opts.exitOpt = int(config.ExitOpt)
 	}
-	return entropy, compress, exitOpt
+	if config.Bypass >= 1 && config.Bypass <= 3 {
+		opts.bypass = int(config.Bypass)
+	}
+	if config.Headers >= 1 && config.Headers <= 2 {
+		opts.headers = int(config.Headers)
+	}
+	opts.thread = config.Thread
+	opts.unicode = config.Unicode
+	if config.OEP > 0 {
+		opts.oep = config.OEP
+	}
+	return opts
 }
 
 // DonutFromAssembly - Generate a donut shellcode from a .NET assembly
-func DonutFromAssembly(assembly []byte, isDLL bool, arch string, params string, method string, className string, appDomain string) ([]byte, error) {
+func DonutFromAssembly(assembly []byte, isDLL bool, arch string, params string, method string, className string, appDomain string, runtime string) ([]byte, error) {
 	ext := ".exe"
 	if isDLL {
 		ext = ".dll"
 	}
 	donutArch := getDonutArch(arch)
-	_ = appDomain
 
 	opts := wasmdonut.GenerateOptions{
 		Ext:      ext,
 		Args:     params,
 		Class:    className,
 		Method:   method,
+		Domain:   appDomain,
+		Runtime:  runtime,
 		Arch:     donutArch,
 		Entropy:  wasmdonut.DonutEntropyDefault,
 		Compress: defaultDonutCompress,
 		ExitOpt:  defaultDonutExitOpt,
 	}
-	shellcode, err := wasmdonut.Generate(context.Background(), assembly, ext, opts)
+	result, err := wasmdonut.Generate(context.Background(), assembly, ext, opts)
 	if err != nil {
 		return nil, err
 	}
-	return addStackCheck(shellcode), nil
+	return addStackCheck(result.Loader), nil
 }
 
 func getDonutArch(arch string) int {

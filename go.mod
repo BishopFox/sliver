@@ -46,7 +46,7 @@ require (
 	github.com/reeflective/readline v1.1.4
 	github.com/rsteube/carapace v0.50.2
 	github.com/sirupsen/logrus v1.9.3
-	github.com/sliverarmory/wasm-donut v0.0.2
+	github.com/sliverarmory/wasm-donut v0.0.3
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1

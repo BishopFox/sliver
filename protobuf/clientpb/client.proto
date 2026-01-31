@@ -139,6 +139,16 @@ message DonutConfig {
   uint32 Compress = 3;
   // 1=exit thread, 2=exit process, 3=block
   uint32 ExitOpt = 4;
+  // 1=none, 2=abort on failure, 3=continue on failure
+  uint32 Bypass = 5;
+  // 1=overwrite headers, 2=keep headers
+  uint32 Headers = 6;
+  // Run unmanaged EXE entrypoint as a new thread
+  bool Thread = 7;
+  // Convert command line to Unicode for unmanaged DLL entrypoints
+  bool Unicode = 8;
+  // Override original entry point (0 = default)
+  uint32 OEP = 9;
 }
 
 message ImplantConfig {

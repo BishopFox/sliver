@@ -207,6 +207,11 @@ type ImplantConfig struct {
 	DonutEntropy  uint32
 	DonutCompress uint32
 	DonutExitOpt  uint32
+	DonutBypass   uint32
+	DonutHeaders  uint32
+	DonutThread   bool
+	DonutUnicode  bool
+	DonutOEP      uint32
 
 	HttpC2ConfigName       string
 	NetGoEnabled           bool
@@ -296,6 +301,11 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 			Entropy:  ic.DonutEntropy,
 			Compress: ic.DonutCompress,
 			ExitOpt:  ic.DonutExitOpt,
+			Bypass:   ic.DonutBypass,
+			Headers:  ic.DonutHeaders,
+			Thread:   ic.DonutThread,
+			Unicode:  ic.DonutUnicode,
+			OEP:      ic.DonutOEP,
 		},
 	}
 
@@ -512,6 +522,11 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 		cfg.DonutEntropy = pbConfig.DonutConfig.Entropy
 		cfg.DonutCompress = pbConfig.DonutConfig.Compress
 		cfg.DonutExitOpt = pbConfig.DonutConfig.ExitOpt
+		cfg.DonutBypass = pbConfig.DonutConfig.Bypass
+		cfg.DonutHeaders = pbConfig.DonutConfig.Headers
+		cfg.DonutThread = pbConfig.DonutConfig.Thread
+		cfg.DonutUnicode = pbConfig.DonutConfig.Unicode
+		cfg.DonutOEP = pbConfig.DonutConfig.OEP
 	}
 
 	cfg.HttpC2ConfigName = pbConfig.HTTPC2ConfigName

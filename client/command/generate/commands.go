@@ -343,8 +343,13 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 
 		f.StringP("format", "f", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows only)")
 		f.Uint32("donut-entropy", 1, "Donut entropy (1=none, 2=random names, 3=random+encrypt) (windows shellcode only)")
-		f.Uint32("donut-compress", 1, "Donut compression (1=none, 2=aplib) (windows shellcode only)")
+		f.Bool("donut-compress", false, "Enable Donut compression (aplib) (windows shellcode only)")
 		f.Uint32("donut-exitopt", 1, "Donut exit option (1=exit thread, 2=exit process, 3=block) (windows shellcode only)")
+		f.Uint32("donut-bypass", 3, "Donut bypass mode (1=none, 2=abort, 3=continue) (windows shellcode only)")
+		f.Uint32("donut-headers", 1, "Donut headers handling (1=overwrite, 2=keep) (windows shellcode only)")
+		f.Bool("donut-thread", false, "Run unmanaged EXE entrypoint as a new thread (windows shellcode only)")
+		f.Bool("donut-unicode", false, "Use Unicode command line for unmanaged DLL entrypoints (windows shellcode only)")
+		f.Uint32("donut-oep", 0, "Donut original entry point override (0=default) (windows shellcode only)")
 	})
 }
 
