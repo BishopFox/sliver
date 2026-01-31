@@ -239,9 +239,9 @@ func LoadAlias(manifestPath string, cmd *cobra.Command, con *console.SliverClien
 		f.StringP("app-domain", "d", "", "AppDomain name to create for .NET assembly. Generated randomly if not set.")
 		f.StringP("arch", "a", "x84", "Assembly target architecture: x86, x64, x84 (x86+x64)")
 		f.BoolP("in-process", "i", false, "Run in the current sliver process")
-		f.StringP("runtime", "r", "", "Runtime to use for running the assembly (only supported when used with --in-process)")
-		f.BoolP("amsi-bypass", "M", false, "Bypass AMSI on Windows (only supported when used with --in-process)")
-		f.BoolP("etw-bypass", "E", false, "Bypass ETW on Windows (only supported when used with --in-process)")
+		f.StringP("runtime", "r", "v4.0.30319", "Runtime to use for running the assembly")
+		f.BoolP("amsi-bypass", "M", false, "Bypass AMSI on Windows")
+		f.BoolP("etw-bypass", "E", false, "Bypass ETW on Windows")
 		addAliasCmd.Flags().AddFlagSet(f)
 	}
 
@@ -374,7 +374,7 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 		}
 		con.PrintWarnf("%s", msgStr)
 		confirm := false
-		_ = forms.Confirm("Do you want to continue?", &confirm)
+		forms.Confirm("Do you want to continue?", &confirm)
 		if !confirm {
 			return
 		}
