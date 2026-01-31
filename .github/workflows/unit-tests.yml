@@ -26,7 +26,7 @@ jobs:
       - name: Go 1.25
         uses: actions/setup-go@v6
         with:
-          go-version: "^1.25"
+          go-version: "1.25.6"
 
       - name: OS Packages
         run: |
@@ -73,7 +73,7 @@ jobs:
       - name: Go 1.25
         uses: actions/setup-go@v6
         with:
-          go-version: "^1.25"
+          go-version: "1.25.6"
 
       - name: Check Out Code
         uses: actions/checkout@v6
@@ -111,7 +111,7 @@ jobs:
       - name: Go 1.25
         uses: actions/setup-go@v6
         with:
-          go-version: "^1.25"
+          go-version: "1.25.6"
 
       - name: Check Out Code
         uses: actions/checkout@v6

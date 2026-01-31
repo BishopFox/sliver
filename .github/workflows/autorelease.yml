@@ -44,7 +44,7 @@ jobs:
       - name: Go 1.25
         uses: actions/setup-go@v6
         with:
-          go-version: "^1.25"
+          go-version: "1.25.6"
 
       - name: Install Minisign
         run: sudo apt-get update --fix-missing && sudo apt-get -y install minisign
