@@ -70,6 +70,10 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 				HiddenDefaultCmd: true,
 			},
 		}
+		if !con.IsCLI {
+			server.SilenceErrors = true
+			server.SilenceUsage = true
+		}
 
 		// Utility function to be used for binding new commands to
 		// the sliver menu: call the function with the name of the
