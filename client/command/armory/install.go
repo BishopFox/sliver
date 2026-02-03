@@ -635,20 +635,15 @@ func installAliasPackage(entry *pkgCacheEntry, promptToOverwrite bool, clientCon
 		return errors.New("signature verification failed")
 	}
 
-	tmpFile, err := os.CreateTemp("", "sliver-armory-")
+	tmpFileName, err := writeArmoryTempFile(tarGz)
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tmpFile.Name())
-	_, err = tmpFile.Write(tarGz)
-	if err != nil {
-		return err
-	}
-	tmpFile.Close()
+	defer os.Remove(tmpFileName)
 
 	con.Printf(console.Clearln + "\r") // Clear the line
 
-	installPath := alias.InstallFromFile(tmpFile.Name(), entry.Alias.CommandName, promptToOverwrite, con)
+	installPath := alias.InstallFromFile(tmpFileName, entry.Alias.CommandName, promptToOverwrite, con)
 	if installPath == nil {
 		return errors.New("failed to install alias")
 	}
@@ -729,23 +724,45 @@ func installExtensionPackage(entry *pkgCacheEntry, promptToOverwrite bool, clien
 		return errors.New("signature verification failed")
 	}
 
-	tmpFile, err := os.CreateTemp("", "sliver-armory-")
+	tmpFileName, err := writeArmoryTempFile(tarGz)
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tmpFile.Name())
-	_, err = tmpFile.Write(tarGz)
-	if err != nil {
-		return err
-	}
-	err = tmpFile.Sync()
-	if err != nil {
-		return err
-	}
+	defer os.Remove(tmpFileName)
 
 	con.Printf(console.Clearln + "\r") // Clear download message
 
-	extensions.InstallFromDir(tmpFile.Name(), promptToOverwrite, con, true)
+	extensions.InstallFromDir(tmpFileName, promptToOverwrite, con, true)
 
 	return nil
+}
+
+func writeArmoryTempFile(data []byte) (string, error) {
+	if len(data) == 0 {
+		return "", errors.New("downloaded archive is empty")
+	}
+	tmpFile, err := os.CreateTemp("", "sliver-armory-")
+	if err != nil {
+		return "", err
+	}
+	tmpFileName := tmpFile.Name()
+	for len(data) > 0 {
+		n, err := tmpFile.Write(data)
+		if err != nil {
+			tmpFile.Close()
+			os.Remove(tmpFileName)
+			return "", err
+		}
+		data = data[n:]
+	}
+	if err := tmpFile.Sync(); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpFileName)
+		return "", err
+	}
+	if err := tmpFile.Close(); err != nil {
+		os.Remove(tmpFileName)
+		return "", err
+	}
+	return tmpFileName, nil
 }
