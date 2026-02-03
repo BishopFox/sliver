@@ -825,6 +825,8 @@ message ShellReq {
   string Path = 1;
   bool EnablePTY = 2;
   uint32 Pid = 3;
+  uint32 Rows = 4;
+  uint32 Cols = 5;
 
   uint64 TunnelID = 8 [jstype = JS_STRING]; // Bind to this tunnel
   commonpb.Request Request = 9;
@@ -838,6 +840,14 @@ message Shell {
 
   uint64 TunnelID = 8 [jstype = JS_STRING];
   commonpb.Response Response = 9;
+}
+
+message ShellResizeReq {
+  uint32 Rows = 1;
+  uint32 Cols = 2;
+
+  uint64 TunnelID = 8 [jstype = JS_STRING];
+  commonpb.Request Request = 9;
 }
 
 

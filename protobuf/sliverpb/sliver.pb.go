@@ -7408,6 +7408,8 @@ type ShellReq struct {
 	Path      string            `protobuf:"bytes,1,opt,name=Path,proto3" json:"Path,omitempty"`
 	EnablePTY bool              `protobuf:"varint,2,opt,name=EnablePTY,proto3" json:"EnablePTY,omitempty"`
 	Pid       uint32            `protobuf:"varint,3,opt,name=Pid,proto3" json:"Pid,omitempty"`
+	Rows      uint32            `protobuf:"varint,4,opt,name=Rows,proto3" json:"Rows,omitempty"`
+	Cols      uint32            `protobuf:"varint,5,opt,name=Cols,proto3" json:"Cols,omitempty"`
 	TunnelID  uint64            `protobuf:"varint,8,opt,name=TunnelID,proto3" json:"TunnelID,omitempty"` // Bind to this tunnel
 	Request   *commonpb.Request `protobuf:"bytes,9,opt,name=Request,proto3" json:"Request,omitempty"`
 }
@@ -7461,6 +7463,20 @@ func (x *ShellReq) GetEnablePTY() bool {
 func (x *ShellReq) GetPid() uint32 {
 	if x != nil {
 		return x.Pid
+	}
+	return 0
+}
+
+func (x *ShellReq) GetRows() uint32 {
+	if x != nil {
+		return x.Rows
+	}
+	return 0
+}
+
+func (x *ShellReq) GetCols() uint32 {
+	if x != nil {
+		return x.Cols
 	}
 	return 0
 }
@@ -7559,6 +7575,77 @@ func (x *Shell) GetResponse() *commonpb.Response {
 	return nil
 }
 
+type ShellResizeReq struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Rows     uint32            `protobuf:"varint,1,opt,name=Rows,proto3" json:"Rows,omitempty"`
+	Cols     uint32            `protobuf:"varint,2,opt,name=Cols,proto3" json:"Cols,omitempty"`
+	TunnelID uint64            `protobuf:"varint,8,opt,name=TunnelID,proto3" json:"TunnelID,omitempty"`
+	Request  *commonpb.Request `protobuf:"bytes,9,opt,name=Request,proto3" json:"Request,omitempty"`
+}
+
+func (x *ShellResizeReq) Reset() {
+	*x = ShellResizeReq{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_sliverpb_sliver_proto_msgTypes[107]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ShellResizeReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ShellResizeReq) ProtoMessage() {}
+
+func (x *ShellResizeReq) ProtoReflect() protoreflect.Message {
+	mi := &file_sliverpb_sliver_proto_msgTypes[107]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ShellResizeReq.ProtoReflect.Descriptor instead.
+func (*ShellResizeReq) Descriptor() ([]byte, []int) {
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{107}
+}
+
+func (x *ShellResizeReq) GetRows() uint32 {
+	if x != nil {
+		return x.Rows
+	}
+	return 0
+}
+
+func (x *ShellResizeReq) GetCols() uint32 {
+	if x != nil {
+		return x.Cols
+	}
+	return 0
+}
+
+func (x *ShellResizeReq) GetTunnelID() uint64 {
+	if x != nil {
+		return x.TunnelID
+	}
+	return 0
+}
+
+func (x *ShellResizeReq) GetRequest() *commonpb.Request {
+	if x != nil {
+		return x.Request
+	}
+	return nil
+}
+
 type PortfwdReq struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -7574,7 +7661,7 @@ type PortfwdReq struct {
 func (x *PortfwdReq) Reset() {
 	*x = PortfwdReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[107]
+		mi := &file_sliverpb_sliver_proto_msgTypes[108]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -7587,7 +7674,7 @@ func (x *PortfwdReq) String() string {
 func (*PortfwdReq) ProtoMessage() {}
 
 func (x *PortfwdReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[107]
+	mi := &file_sliverpb_sliver_proto_msgTypes[108]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7600,7 +7687,7 @@ func (x *PortfwdReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PortfwdReq.ProtoReflect.Descriptor instead.
 func (*PortfwdReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{107}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{108}
 }
 
 func (x *PortfwdReq) GetPort() uint32 {
@@ -7653,7 +7740,7 @@ type Portfwd struct {
 func (x *Portfwd) Reset() {
 	*x = Portfwd{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[108]
+		mi := &file_sliverpb_sliver_proto_msgTypes[109]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -7666,7 +7753,7 @@ func (x *Portfwd) String() string {
 func (*Portfwd) ProtoMessage() {}
 
 func (x *Portfwd) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[108]
+	mi := &file_sliverpb_sliver_proto_msgTypes[109]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7679,7 +7766,7 @@ func (x *Portfwd) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Portfwd.ProtoReflect.Descriptor instead.
 func (*Portfwd) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{108}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{109}
 }
 
 func (x *Portfwd) GetPort() uint32 {
@@ -7729,7 +7816,7 @@ type Socks struct {
 func (x *Socks) Reset() {
 	*x = Socks{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[109]
+		mi := &file_sliverpb_sliver_proto_msgTypes[110]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -7742,7 +7829,7 @@ func (x *Socks) String() string {
 func (*Socks) ProtoMessage() {}
 
 func (x *Socks) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[109]
+	mi := &file_sliverpb_sliver_proto_msgTypes[110]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7755,7 +7842,7 @@ func (x *Socks) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Socks.ProtoReflect.Descriptor instead.
 func (*Socks) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{109}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{110}
 }
 
 func (x *Socks) GetTunnelID() uint64 {
@@ -7789,7 +7876,7 @@ type SocksData struct {
 func (x *SocksData) Reset() {
 	*x = SocksData{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[110]
+		mi := &file_sliverpb_sliver_proto_msgTypes[111]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -7802,7 +7889,7 @@ func (x *SocksData) String() string {
 func (*SocksData) ProtoMessage() {}
 
 func (x *SocksData) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[110]
+	mi := &file_sliverpb_sliver_proto_msgTypes[111]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7815,7 +7902,7 @@ func (x *SocksData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SocksData.ProtoReflect.Descriptor instead.
 func (*SocksData) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{110}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{111}
 }
 
 func (x *SocksData) GetData() []byte {
@@ -7881,7 +7968,7 @@ type PivotStartListenerReq struct {
 func (x *PivotStartListenerReq) Reset() {
 	*x = PivotStartListenerReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[111]
+		mi := &file_sliverpb_sliver_proto_msgTypes[112]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -7894,7 +7981,7 @@ func (x *PivotStartListenerReq) String() string {
 func (*PivotStartListenerReq) ProtoMessage() {}
 
 func (x *PivotStartListenerReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[111]
+	mi := &file_sliverpb_sliver_proto_msgTypes[112]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7907,7 +7994,7 @@ func (x *PivotStartListenerReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PivotStartListenerReq.ProtoReflect.Descriptor instead.
 func (*PivotStartListenerReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{111}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{112}
 }
 
 func (x *PivotStartListenerReq) GetType() PivotType {
@@ -7950,7 +8037,7 @@ type PivotStopListenerReq struct {
 func (x *PivotStopListenerReq) Reset() {
 	*x = PivotStopListenerReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[112]
+		mi := &file_sliverpb_sliver_proto_msgTypes[113]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -7963,7 +8050,7 @@ func (x *PivotStopListenerReq) String() string {
 func (*PivotStopListenerReq) ProtoMessage() {}
 
 func (x *PivotStopListenerReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[112]
+	mi := &file_sliverpb_sliver_proto_msgTypes[113]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7976,7 +8063,7 @@ func (x *PivotStopListenerReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PivotStopListenerReq.ProtoReflect.Descriptor instead.
 func (*PivotStopListenerReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{112}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{113}
 }
 
 func (x *PivotStopListenerReq) GetID() uint32 {
@@ -8008,7 +8095,7 @@ type PivotListener struct {
 func (x *PivotListener) Reset() {
 	*x = PivotListener{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[113]
+		mi := &file_sliverpb_sliver_proto_msgTypes[114]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8021,7 +8108,7 @@ func (x *PivotListener) String() string {
 func (*PivotListener) ProtoMessage() {}
 
 func (x *PivotListener) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[113]
+	mi := &file_sliverpb_sliver_proto_msgTypes[114]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8034,7 +8121,7 @@ func (x *PivotListener) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PivotListener.ProtoReflect.Descriptor instead.
 func (*PivotListener) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{113}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{114}
 }
 
 func (x *PivotListener) GetID() uint32 {
@@ -8086,7 +8173,7 @@ type PivotHello struct {
 func (x *PivotHello) Reset() {
 	*x = PivotHello{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[114]
+		mi := &file_sliverpb_sliver_proto_msgTypes[115]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8099,7 +8186,7 @@ func (x *PivotHello) String() string {
 func (*PivotHello) ProtoMessage() {}
 
 func (x *PivotHello) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[114]
+	mi := &file_sliverpb_sliver_proto_msgTypes[115]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8112,7 +8199,7 @@ func (x *PivotHello) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PivotHello.ProtoReflect.Descriptor instead.
 func (*PivotHello) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{114}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{115}
 }
 
 func (x *PivotHello) GetPublicKey() []byte {
@@ -8155,7 +8242,7 @@ type PivotServerKeyExchange struct {
 func (x *PivotServerKeyExchange) Reset() {
 	*x = PivotServerKeyExchange{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[115]
+		mi := &file_sliverpb_sliver_proto_msgTypes[116]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8168,7 +8255,7 @@ func (x *PivotServerKeyExchange) String() string {
 func (*PivotServerKeyExchange) ProtoMessage() {}
 
 func (x *PivotServerKeyExchange) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[115]
+	mi := &file_sliverpb_sliver_proto_msgTypes[116]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8181,7 +8268,7 @@ func (x *PivotServerKeyExchange) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PivotServerKeyExchange.ProtoReflect.Descriptor instead.
 func (*PivotServerKeyExchange) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{115}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{116}
 }
 
 func (x *PivotServerKeyExchange) GetOriginID() int64 {
@@ -8210,7 +8297,7 @@ type PivotPeer struct {
 func (x *PivotPeer) Reset() {
 	*x = PivotPeer{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[116]
+		mi := &file_sliverpb_sliver_proto_msgTypes[117]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8223,7 +8310,7 @@ func (x *PivotPeer) String() string {
 func (*PivotPeer) ProtoMessage() {}
 
 func (x *PivotPeer) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[116]
+	mi := &file_sliverpb_sliver_proto_msgTypes[117]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8236,7 +8323,7 @@ func (x *PivotPeer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PivotPeer.ProtoReflect.Descriptor instead.
 func (*PivotPeer) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{116}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{117}
 }
 
 func (x *PivotPeer) GetPeerID() int64 {
@@ -8268,7 +8355,7 @@ type PivotPeerEnvelope struct {
 func (x *PivotPeerEnvelope) Reset() {
 	*x = PivotPeerEnvelope{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[117]
+		mi := &file_sliverpb_sliver_proto_msgTypes[118]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8281,7 +8368,7 @@ func (x *PivotPeerEnvelope) String() string {
 func (*PivotPeerEnvelope) ProtoMessage() {}
 
 func (x *PivotPeerEnvelope) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[117]
+	mi := &file_sliverpb_sliver_proto_msgTypes[118]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8294,7 +8381,7 @@ func (x *PivotPeerEnvelope) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PivotPeerEnvelope.ProtoReflect.Descriptor instead.
 func (*PivotPeerEnvelope) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{117}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{118}
 }
 
 func (x *PivotPeerEnvelope) GetPeers() []*PivotPeer {
@@ -8343,7 +8430,7 @@ type PivotPing struct {
 func (x *PivotPing) Reset() {
 	*x = PivotPing{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[118]
+		mi := &file_sliverpb_sliver_proto_msgTypes[119]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8356,7 +8443,7 @@ func (x *PivotPing) String() string {
 func (*PivotPing) ProtoMessage() {}
 
 func (x *PivotPing) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[118]
+	mi := &file_sliverpb_sliver_proto_msgTypes[119]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8369,7 +8456,7 @@ func (x *PivotPing) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PivotPing.ProtoReflect.Descriptor instead.
 func (*PivotPing) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{118}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{119}
 }
 
 func (x *PivotPing) GetNonce() uint32 {
@@ -8391,7 +8478,7 @@ type NetConnPivot struct {
 func (x *NetConnPivot) Reset() {
 	*x = NetConnPivot{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[119]
+		mi := &file_sliverpb_sliver_proto_msgTypes[120]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8404,7 +8491,7 @@ func (x *NetConnPivot) String() string {
 func (*NetConnPivot) ProtoMessage() {}
 
 func (x *NetConnPivot) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[119]
+	mi := &file_sliverpb_sliver_proto_msgTypes[120]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8417,7 +8504,7 @@ func (x *NetConnPivot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NetConnPivot.ProtoReflect.Descriptor instead.
 func (*NetConnPivot) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{119}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{120}
 }
 
 func (x *NetConnPivot) GetPeerID() int64 {
@@ -8447,7 +8534,7 @@ type PivotPeerFailure struct {
 func (x *PivotPeerFailure) Reset() {
 	*x = PivotPeerFailure{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[120]
+		mi := &file_sliverpb_sliver_proto_msgTypes[121]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8460,7 +8547,7 @@ func (x *PivotPeerFailure) String() string {
 func (*PivotPeerFailure) ProtoMessage() {}
 
 func (x *PivotPeerFailure) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[120]
+	mi := &file_sliverpb_sliver_proto_msgTypes[121]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8473,7 +8560,7 @@ func (x *PivotPeerFailure) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PivotPeerFailure.ProtoReflect.Descriptor instead.
 func (*PivotPeerFailure) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{120}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{121}
 }
 
 func (x *PivotPeerFailure) GetPeerID() int64 {
@@ -8508,7 +8595,7 @@ type PivotListenersReq struct {
 func (x *PivotListenersReq) Reset() {
 	*x = PivotListenersReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[121]
+		mi := &file_sliverpb_sliver_proto_msgTypes[122]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8521,7 +8608,7 @@ func (x *PivotListenersReq) String() string {
 func (*PivotListenersReq) ProtoMessage() {}
 
 func (x *PivotListenersReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[121]
+	mi := &file_sliverpb_sliver_proto_msgTypes[122]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8534,7 +8621,7 @@ func (x *PivotListenersReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PivotListenersReq.ProtoReflect.Descriptor instead.
 func (*PivotListenersReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{121}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{122}
 }
 
 func (x *PivotListenersReq) GetRequest() *commonpb.Request {
@@ -8556,7 +8643,7 @@ type PivotListeners struct {
 func (x *PivotListeners) Reset() {
 	*x = PivotListeners{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[122]
+		mi := &file_sliverpb_sliver_proto_msgTypes[123]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8569,7 +8656,7 @@ func (x *PivotListeners) String() string {
 func (*PivotListeners) ProtoMessage() {}
 
 func (x *PivotListeners) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[122]
+	mi := &file_sliverpb_sliver_proto_msgTypes[123]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8582,7 +8669,7 @@ func (x *PivotListeners) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PivotListeners.ProtoReflect.Descriptor instead.
 func (*PivotListeners) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{122}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{123}
 }
 
 func (x *PivotListeners) GetListeners() []*PivotListener {
@@ -8612,7 +8699,7 @@ type WGPortForwardStartReq struct {
 func (x *WGPortForwardStartReq) Reset() {
 	*x = WGPortForwardStartReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[123]
+		mi := &file_sliverpb_sliver_proto_msgTypes[124]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8625,7 +8712,7 @@ func (x *WGPortForwardStartReq) String() string {
 func (*WGPortForwardStartReq) ProtoMessage() {}
 
 func (x *WGPortForwardStartReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[123]
+	mi := &file_sliverpb_sliver_proto_msgTypes[124]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8638,7 +8725,7 @@ func (x *WGPortForwardStartReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WGPortForwardStartReq.ProtoReflect.Descriptor instead.
 func (*WGPortForwardStartReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{123}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{124}
 }
 
 func (x *WGPortForwardStartReq) GetLocalPort() int32 {
@@ -8674,7 +8761,7 @@ type WGPortForward struct {
 func (x *WGPortForward) Reset() {
 	*x = WGPortForward{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[124]
+		mi := &file_sliverpb_sliver_proto_msgTypes[125]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8687,7 +8774,7 @@ func (x *WGPortForward) String() string {
 func (*WGPortForward) ProtoMessage() {}
 
 func (x *WGPortForward) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[124]
+	mi := &file_sliverpb_sliver_proto_msgTypes[125]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8700,7 +8787,7 @@ func (x *WGPortForward) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WGPortForward.ProtoReflect.Descriptor instead.
 func (*WGPortForward) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{124}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{125}
 }
 
 func (x *WGPortForward) GetForwarder() *WGTCPForwarder {
@@ -8729,7 +8816,7 @@ type WGPortForwardStopReq struct {
 func (x *WGPortForwardStopReq) Reset() {
 	*x = WGPortForwardStopReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[125]
+		mi := &file_sliverpb_sliver_proto_msgTypes[126]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8742,7 +8829,7 @@ func (x *WGPortForwardStopReq) String() string {
 func (*WGPortForwardStopReq) ProtoMessage() {}
 
 func (x *WGPortForwardStopReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[125]
+	mi := &file_sliverpb_sliver_proto_msgTypes[126]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8755,7 +8842,7 @@ func (x *WGPortForwardStopReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WGPortForwardStopReq.ProtoReflect.Descriptor instead.
 func (*WGPortForwardStopReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{125}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{126}
 }
 
 func (x *WGPortForwardStopReq) GetID() int32 {
@@ -8784,7 +8871,7 @@ type WGSocksStartReq struct {
 func (x *WGSocksStartReq) Reset() {
 	*x = WGSocksStartReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[126]
+		mi := &file_sliverpb_sliver_proto_msgTypes[127]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8797,7 +8884,7 @@ func (x *WGSocksStartReq) String() string {
 func (*WGSocksStartReq) ProtoMessage() {}
 
 func (x *WGSocksStartReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[126]
+	mi := &file_sliverpb_sliver_proto_msgTypes[127]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8810,7 +8897,7 @@ func (x *WGSocksStartReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WGSocksStartReq.ProtoReflect.Descriptor instead.
 func (*WGSocksStartReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{126}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{127}
 }
 
 func (x *WGSocksStartReq) GetPort() int32 {
@@ -8839,7 +8926,7 @@ type WGSocks struct {
 func (x *WGSocks) Reset() {
 	*x = WGSocks{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[127]
+		mi := &file_sliverpb_sliver_proto_msgTypes[128]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8852,7 +8939,7 @@ func (x *WGSocks) String() string {
 func (*WGSocks) ProtoMessage() {}
 
 func (x *WGSocks) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[127]
+	mi := &file_sliverpb_sliver_proto_msgTypes[128]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8865,7 +8952,7 @@ func (x *WGSocks) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WGSocks.ProtoReflect.Descriptor instead.
 func (*WGSocks) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{127}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{128}
 }
 
 func (x *WGSocks) GetServer() *WGSocksServer {
@@ -8894,7 +8981,7 @@ type WGSocksStopReq struct {
 func (x *WGSocksStopReq) Reset() {
 	*x = WGSocksStopReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[128]
+		mi := &file_sliverpb_sliver_proto_msgTypes[129]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8907,7 +8994,7 @@ func (x *WGSocksStopReq) String() string {
 func (*WGSocksStopReq) ProtoMessage() {}
 
 func (x *WGSocksStopReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[128]
+	mi := &file_sliverpb_sliver_proto_msgTypes[129]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8920,7 +9007,7 @@ func (x *WGSocksStopReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WGSocksStopReq.ProtoReflect.Descriptor instead.
 func (*WGSocksStopReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{128}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{129}
 }
 
 func (x *WGSocksStopReq) GetID() int32 {
@@ -8948,7 +9035,7 @@ type WGTCPForwardersReq struct {
 func (x *WGTCPForwardersReq) Reset() {
 	*x = WGTCPForwardersReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[129]
+		mi := &file_sliverpb_sliver_proto_msgTypes[130]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -8961,7 +9048,7 @@ func (x *WGTCPForwardersReq) String() string {
 func (*WGTCPForwardersReq) ProtoMessage() {}
 
 func (x *WGTCPForwardersReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[129]
+	mi := &file_sliverpb_sliver_proto_msgTypes[130]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8974,7 +9061,7 @@ func (x *WGTCPForwardersReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WGTCPForwardersReq.ProtoReflect.Descriptor instead.
 func (*WGTCPForwardersReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{129}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{130}
 }
 
 func (x *WGTCPForwardersReq) GetRequest() *commonpb.Request {
@@ -8995,7 +9082,7 @@ type WGSocksServersReq struct {
 func (x *WGSocksServersReq) Reset() {
 	*x = WGSocksServersReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[130]
+		mi := &file_sliverpb_sliver_proto_msgTypes[131]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9008,7 +9095,7 @@ func (x *WGSocksServersReq) String() string {
 func (*WGSocksServersReq) ProtoMessage() {}
 
 func (x *WGSocksServersReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[130]
+	mi := &file_sliverpb_sliver_proto_msgTypes[131]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9021,7 +9108,7 @@ func (x *WGSocksServersReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WGSocksServersReq.ProtoReflect.Descriptor instead.
 func (*WGSocksServersReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{130}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{131}
 }
 
 func (x *WGSocksServersReq) GetRequest() *commonpb.Request {
@@ -9044,7 +9131,7 @@ type WGTCPForwarder struct {
 func (x *WGTCPForwarder) Reset() {
 	*x = WGTCPForwarder{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[131]
+		mi := &file_sliverpb_sliver_proto_msgTypes[132]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9057,7 +9144,7 @@ func (x *WGTCPForwarder) String() string {
 func (*WGTCPForwarder) ProtoMessage() {}
 
 func (x *WGTCPForwarder) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[131]
+	mi := &file_sliverpb_sliver_proto_msgTypes[132]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9070,7 +9157,7 @@ func (x *WGTCPForwarder) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WGTCPForwarder.ProtoReflect.Descriptor instead.
 func (*WGTCPForwarder) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{131}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{132}
 }
 
 func (x *WGTCPForwarder) GetID() int32 {
@@ -9106,7 +9193,7 @@ type WGSocksServer struct {
 func (x *WGSocksServer) Reset() {
 	*x = WGSocksServer{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[132]
+		mi := &file_sliverpb_sliver_proto_msgTypes[133]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9119,7 +9206,7 @@ func (x *WGSocksServer) String() string {
 func (*WGSocksServer) ProtoMessage() {}
 
 func (x *WGSocksServer) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[132]
+	mi := &file_sliverpb_sliver_proto_msgTypes[133]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9132,7 +9219,7 @@ func (x *WGSocksServer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WGSocksServer.ProtoReflect.Descriptor instead.
 func (*WGSocksServer) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{132}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{133}
 }
 
 func (x *WGSocksServer) GetID() int32 {
@@ -9161,7 +9248,7 @@ type WGSocksServers struct {
 func (x *WGSocksServers) Reset() {
 	*x = WGSocksServers{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[133]
+		mi := &file_sliverpb_sliver_proto_msgTypes[134]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9174,7 +9261,7 @@ func (x *WGSocksServers) String() string {
 func (*WGSocksServers) ProtoMessage() {}
 
 func (x *WGSocksServers) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[133]
+	mi := &file_sliverpb_sliver_proto_msgTypes[134]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9187,7 +9274,7 @@ func (x *WGSocksServers) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WGSocksServers.ProtoReflect.Descriptor instead.
 func (*WGSocksServers) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{133}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{134}
 }
 
 func (x *WGSocksServers) GetServers() []*WGSocksServer {
@@ -9216,7 +9303,7 @@ type WGTCPForwarders struct {
 func (x *WGTCPForwarders) Reset() {
 	*x = WGTCPForwarders{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[134]
+		mi := &file_sliverpb_sliver_proto_msgTypes[135]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9229,7 +9316,7 @@ func (x *WGTCPForwarders) String() string {
 func (*WGTCPForwarders) ProtoMessage() {}
 
 func (x *WGTCPForwarders) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[134]
+	mi := &file_sliverpb_sliver_proto_msgTypes[135]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9242,7 +9329,7 @@ func (x *WGTCPForwarders) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WGTCPForwarders.ProtoReflect.Descriptor instead.
 func (*WGTCPForwarders) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{134}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{135}
 }
 
 func (x *WGTCPForwarders) GetForwarders() []*WGTCPForwarder {
@@ -9274,7 +9361,7 @@ type ReconfigureReq struct {
 func (x *ReconfigureReq) Reset() {
 	*x = ReconfigureReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[135]
+		mi := &file_sliverpb_sliver_proto_msgTypes[136]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9287,7 +9374,7 @@ func (x *ReconfigureReq) String() string {
 func (*ReconfigureReq) ProtoMessage() {}
 
 func (x *ReconfigureReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[135]
+	mi := &file_sliverpb_sliver_proto_msgTypes[136]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9300,7 +9387,7 @@ func (x *ReconfigureReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReconfigureReq.ProtoReflect.Descriptor instead.
 func (*ReconfigureReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{135}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{136}
 }
 
 func (x *ReconfigureReq) GetReconnectInterval() int64 {
@@ -9342,7 +9429,7 @@ type Reconfigure struct {
 func (x *Reconfigure) Reset() {
 	*x = Reconfigure{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[136]
+		mi := &file_sliverpb_sliver_proto_msgTypes[137]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9355,7 +9442,7 @@ func (x *Reconfigure) String() string {
 func (*Reconfigure) ProtoMessage() {}
 
 func (x *Reconfigure) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[136]
+	mi := &file_sliverpb_sliver_proto_msgTypes[137]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9368,7 +9455,7 @@ func (x *Reconfigure) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Reconfigure.ProtoReflect.Descriptor instead.
 func (*Reconfigure) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{136}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{137}
 }
 
 func (x *Reconfigure) GetResponse() *commonpb.Response {
@@ -9391,7 +9478,7 @@ type PollIntervalReq struct {
 func (x *PollIntervalReq) Reset() {
 	*x = PollIntervalReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[137]
+		mi := &file_sliverpb_sliver_proto_msgTypes[138]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9404,7 +9491,7 @@ func (x *PollIntervalReq) String() string {
 func (*PollIntervalReq) ProtoMessage() {}
 
 func (x *PollIntervalReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[137]
+	mi := &file_sliverpb_sliver_proto_msgTypes[138]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9417,7 +9504,7 @@ func (x *PollIntervalReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PollIntervalReq.ProtoReflect.Descriptor instead.
 func (*PollIntervalReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{137}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{138}
 }
 
 func (x *PollIntervalReq) GetPollInterval() int64 {
@@ -9445,7 +9532,7 @@ type PollInterval struct {
 func (x *PollInterval) Reset() {
 	*x = PollInterval{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[138]
+		mi := &file_sliverpb_sliver_proto_msgTypes[139]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9458,7 +9545,7 @@ func (x *PollInterval) String() string {
 func (*PollInterval) ProtoMessage() {}
 
 func (x *PollInterval) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[138]
+	mi := &file_sliverpb_sliver_proto_msgTypes[139]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9471,7 +9558,7 @@ func (x *PollInterval) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PollInterval.ProtoReflect.Descriptor instead.
 func (*PollInterval) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{138}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{139}
 }
 
 func (x *PollInterval) GetResponse() *commonpb.Response {
@@ -9501,7 +9588,7 @@ type SSHCommandReq struct {
 func (x *SSHCommandReq) Reset() {
 	*x = SSHCommandReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[139]
+		mi := &file_sliverpb_sliver_proto_msgTypes[140]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9514,7 +9601,7 @@ func (x *SSHCommandReq) String() string {
 func (*SSHCommandReq) ProtoMessage() {}
 
 func (x *SSHCommandReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[139]
+	mi := &file_sliverpb_sliver_proto_msgTypes[140]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9527,7 +9614,7 @@ func (x *SSHCommandReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SSHCommandReq.ProtoReflect.Descriptor instead.
 func (*SSHCommandReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{139}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{140}
 }
 
 func (x *SSHCommandReq) GetUsername() string {
@@ -9613,7 +9700,7 @@ type SSHCommand struct {
 func (x *SSHCommand) Reset() {
 	*x = SSHCommand{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[140]
+		mi := &file_sliverpb_sliver_proto_msgTypes[141]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9626,7 +9713,7 @@ func (x *SSHCommand) String() string {
 func (*SSHCommand) ProtoMessage() {}
 
 func (x *SSHCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[140]
+	mi := &file_sliverpb_sliver_proto_msgTypes[141]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9639,7 +9726,7 @@ func (x *SSHCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SSHCommand.ProtoReflect.Descriptor instead.
 func (*SSHCommand) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{140}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{141}
 }
 
 func (x *SSHCommand) GetStdOut() string {
@@ -9674,7 +9761,7 @@ type GetPrivsReq struct {
 func (x *GetPrivsReq) Reset() {
 	*x = GetPrivsReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[141]
+		mi := &file_sliverpb_sliver_proto_msgTypes[142]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9687,7 +9774,7 @@ func (x *GetPrivsReq) String() string {
 func (*GetPrivsReq) ProtoMessage() {}
 
 func (x *GetPrivsReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[141]
+	mi := &file_sliverpb_sliver_proto_msgTypes[142]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9700,7 +9787,7 @@ func (x *GetPrivsReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPrivsReq.ProtoReflect.Descriptor instead.
 func (*GetPrivsReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{141}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{142}
 }
 
 func (x *GetPrivsReq) GetRequest() *commonpb.Request {
@@ -9726,7 +9813,7 @@ type WindowsPrivilegeEntry struct {
 func (x *WindowsPrivilegeEntry) Reset() {
 	*x = WindowsPrivilegeEntry{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[142]
+		mi := &file_sliverpb_sliver_proto_msgTypes[143]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9739,7 +9826,7 @@ func (x *WindowsPrivilegeEntry) String() string {
 func (*WindowsPrivilegeEntry) ProtoMessage() {}
 
 func (x *WindowsPrivilegeEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[142]
+	mi := &file_sliverpb_sliver_proto_msgTypes[143]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9752,7 +9839,7 @@ func (x *WindowsPrivilegeEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WindowsPrivilegeEntry.ProtoReflect.Descriptor instead.
 func (*WindowsPrivilegeEntry) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{142}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{143}
 }
 
 func (x *WindowsPrivilegeEntry) GetName() string {
@@ -9811,7 +9898,7 @@ type GetPrivs struct {
 func (x *GetPrivs) Reset() {
 	*x = GetPrivs{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[143]
+		mi := &file_sliverpb_sliver_proto_msgTypes[144]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9824,7 +9911,7 @@ func (x *GetPrivs) String() string {
 func (*GetPrivs) ProtoMessage() {}
 
 func (x *GetPrivs) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[143]
+	mi := &file_sliverpb_sliver_proto_msgTypes[144]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9837,7 +9924,7 @@ func (x *GetPrivs) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPrivs.ProtoReflect.Descriptor instead.
 func (*GetPrivs) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{143}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{144}
 }
 
 func (x *GetPrivs) GetPrivInfo() []*WindowsPrivilegeEntry {
@@ -9883,7 +9970,7 @@ type RegisterExtensionReq struct {
 func (x *RegisterExtensionReq) Reset() {
 	*x = RegisterExtensionReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[144]
+		mi := &file_sliverpb_sliver_proto_msgTypes[145]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9896,7 +9983,7 @@ func (x *RegisterExtensionReq) String() string {
 func (*RegisterExtensionReq) ProtoMessage() {}
 
 func (x *RegisterExtensionReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[144]
+	mi := &file_sliverpb_sliver_proto_msgTypes[145]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9909,7 +9996,7 @@ func (x *RegisterExtensionReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterExtensionReq.ProtoReflect.Descriptor instead.
 func (*RegisterExtensionReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{144}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{145}
 }
 
 func (x *RegisterExtensionReq) GetName() string {
@@ -9958,7 +10045,7 @@ type RegisterExtension struct {
 func (x *RegisterExtension) Reset() {
 	*x = RegisterExtension{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[145]
+		mi := &file_sliverpb_sliver_proto_msgTypes[146]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -9971,7 +10058,7 @@ func (x *RegisterExtension) String() string {
 func (*RegisterExtension) ProtoMessage() {}
 
 func (x *RegisterExtension) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[145]
+	mi := &file_sliverpb_sliver_proto_msgTypes[146]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9984,7 +10071,7 @@ func (x *RegisterExtension) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterExtension.ProtoReflect.Descriptor instead.
 func (*RegisterExtension) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{145}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{146}
 }
 
 func (x *RegisterExtension) GetResponse() *commonpb.Response {
@@ -10009,7 +10096,7 @@ type CallExtensionReq struct {
 func (x *CallExtensionReq) Reset() {
 	*x = CallExtensionReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[146]
+		mi := &file_sliverpb_sliver_proto_msgTypes[147]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -10022,7 +10109,7 @@ func (x *CallExtensionReq) String() string {
 func (*CallExtensionReq) ProtoMessage() {}
 
 func (x *CallExtensionReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[146]
+	mi := &file_sliverpb_sliver_proto_msgTypes[147]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10035,7 +10122,7 @@ func (x *CallExtensionReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CallExtensionReq.ProtoReflect.Descriptor instead.
 func (*CallExtensionReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{146}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{147}
 }
 
 func (x *CallExtensionReq) GetName() string {
@@ -10086,7 +10173,7 @@ type CallExtension struct {
 func (x *CallExtension) Reset() {
 	*x = CallExtension{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[147]
+		mi := &file_sliverpb_sliver_proto_msgTypes[148]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -10099,7 +10186,7 @@ func (x *CallExtension) String() string {
 func (*CallExtension) ProtoMessage() {}
 
 func (x *CallExtension) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[147]
+	mi := &file_sliverpb_sliver_proto_msgTypes[148]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10112,7 +10199,7 @@ func (x *CallExtension) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CallExtension.ProtoReflect.Descriptor instead.
 func (*CallExtension) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{147}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{148}
 }
 
 func (x *CallExtension) GetOutput() []byte {
@@ -10147,7 +10234,7 @@ type ListExtensionsReq struct {
 func (x *ListExtensionsReq) Reset() {
 	*x = ListExtensionsReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[148]
+		mi := &file_sliverpb_sliver_proto_msgTypes[149]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -10160,7 +10247,7 @@ func (x *ListExtensionsReq) String() string {
 func (*ListExtensionsReq) ProtoMessage() {}
 
 func (x *ListExtensionsReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[148]
+	mi := &file_sliverpb_sliver_proto_msgTypes[149]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10173,7 +10260,7 @@ func (x *ListExtensionsReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListExtensionsReq.ProtoReflect.Descriptor instead.
 func (*ListExtensionsReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{148}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{149}
 }
 
 func (x *ListExtensionsReq) GetRequest() *commonpb.Request {
@@ -10195,7 +10282,7 @@ type ListExtensions struct {
 func (x *ListExtensions) Reset() {
 	*x = ListExtensions{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[149]
+		mi := &file_sliverpb_sliver_proto_msgTypes[150]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -10208,7 +10295,7 @@ func (x *ListExtensions) String() string {
 func (*ListExtensions) ProtoMessage() {}
 
 func (x *ListExtensions) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[149]
+	mi := &file_sliverpb_sliver_proto_msgTypes[150]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10221,7 +10308,7 @@ func (x *ListExtensions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListExtensions.ProtoReflect.Descriptor instead.
 func (*ListExtensions) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{149}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{150}
 }
 
 func (x *ListExtensions) GetNames() []string {
@@ -10250,7 +10337,7 @@ type RportFwdStopListenerReq struct {
 func (x *RportFwdStopListenerReq) Reset() {
 	*x = RportFwdStopListenerReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[150]
+		mi := &file_sliverpb_sliver_proto_msgTypes[151]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -10263,7 +10350,7 @@ func (x *RportFwdStopListenerReq) String() string {
 func (*RportFwdStopListenerReq) ProtoMessage() {}
 
 func (x *RportFwdStopListenerReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[150]
+	mi := &file_sliverpb_sliver_proto_msgTypes[151]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10276,7 +10363,7 @@ func (x *RportFwdStopListenerReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RportFwdStopListenerReq.ProtoReflect.Descriptor instead.
 func (*RportFwdStopListenerReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{150}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{151}
 }
 
 func (x *RportFwdStopListenerReq) GetID() uint32 {
@@ -10308,7 +10395,7 @@ type RportFwdStartListenerReq struct {
 func (x *RportFwdStartListenerReq) Reset() {
 	*x = RportFwdStartListenerReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[151]
+		mi := &file_sliverpb_sliver_proto_msgTypes[152]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -10321,7 +10408,7 @@ func (x *RportFwdStartListenerReq) String() string {
 func (*RportFwdStartListenerReq) ProtoMessage() {}
 
 func (x *RportFwdStartListenerReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[151]
+	mi := &file_sliverpb_sliver_proto_msgTypes[152]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10334,7 +10421,7 @@ func (x *RportFwdStartListenerReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RportFwdStartListenerReq.ProtoReflect.Descriptor instead.
 func (*RportFwdStartListenerReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{151}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{152}
 }
 
 func (x *RportFwdStartListenerReq) GetBindAddress() string {
@@ -10388,7 +10475,7 @@ type RportFwdListener struct {
 func (x *RportFwdListener) Reset() {
 	*x = RportFwdListener{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[152]
+		mi := &file_sliverpb_sliver_proto_msgTypes[153]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -10401,7 +10488,7 @@ func (x *RportFwdListener) String() string {
 func (*RportFwdListener) ProtoMessage() {}
 
 func (x *RportFwdListener) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[152]
+	mi := &file_sliverpb_sliver_proto_msgTypes[153]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10414,7 +10501,7 @@ func (x *RportFwdListener) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RportFwdListener.ProtoReflect.Descriptor instead.
 func (*RportFwdListener) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{152}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{153}
 }
 
 func (x *RportFwdListener) GetID() uint32 {
@@ -10471,7 +10558,7 @@ type RportFwdListeners struct {
 func (x *RportFwdListeners) Reset() {
 	*x = RportFwdListeners{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[153]
+		mi := &file_sliverpb_sliver_proto_msgTypes[154]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -10484,7 +10571,7 @@ func (x *RportFwdListeners) String() string {
 func (*RportFwdListeners) ProtoMessage() {}
 
 func (x *RportFwdListeners) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[153]
+	mi := &file_sliverpb_sliver_proto_msgTypes[154]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10497,7 +10584,7 @@ func (x *RportFwdListeners) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RportFwdListeners.ProtoReflect.Descriptor instead.
 func (*RportFwdListeners) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{153}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{154}
 }
 
 func (x *RportFwdListeners) GetListeners() []*RportFwdListener {
@@ -10525,7 +10612,7 @@ type RportFwdListenersReq struct {
 func (x *RportFwdListenersReq) Reset() {
 	*x = RportFwdListenersReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[154]
+		mi := &file_sliverpb_sliver_proto_msgTypes[155]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -10538,7 +10625,7 @@ func (x *RportFwdListenersReq) String() string {
 func (*RportFwdListenersReq) ProtoMessage() {}
 
 func (x *RportFwdListenersReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[154]
+	mi := &file_sliverpb_sliver_proto_msgTypes[155]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10551,7 +10638,7 @@ func (x *RportFwdListenersReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RportFwdListenersReq.ProtoReflect.Descriptor instead.
 func (*RportFwdListenersReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{154}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{155}
 }
 
 func (x *RportFwdListenersReq) GetRequest() *commonpb.Request {
@@ -10576,7 +10663,7 @@ type RPortfwd struct {
 func (x *RPortfwd) Reset() {
 	*x = RPortfwd{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[155]
+		mi := &file_sliverpb_sliver_proto_msgTypes[156]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -10589,7 +10676,7 @@ func (x *RPortfwd) String() string {
 func (*RPortfwd) ProtoMessage() {}
 
 func (x *RPortfwd) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[155]
+	mi := &file_sliverpb_sliver_proto_msgTypes[156]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10602,7 +10689,7 @@ func (x *RPortfwd) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RPortfwd.ProtoReflect.Descriptor instead.
 func (*RPortfwd) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{155}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{156}
 }
 
 func (x *RPortfwd) GetPort() uint32 {
@@ -10655,7 +10742,7 @@ type RPortfwdReq struct {
 func (x *RPortfwdReq) Reset() {
 	*x = RPortfwdReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[156]
+		mi := &file_sliverpb_sliver_proto_msgTypes[157]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -10668,7 +10755,7 @@ func (x *RPortfwdReq) String() string {
 func (*RPortfwdReq) ProtoMessage() {}
 
 func (x *RPortfwdReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[156]
+	mi := &file_sliverpb_sliver_proto_msgTypes[157]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10681,7 +10768,7 @@ func (x *RPortfwdReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RPortfwdReq.ProtoReflect.Descriptor instead.
 func (*RPortfwdReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{156}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{157}
 }
 
 func (x *RPortfwdReq) GetPort() uint32 {
@@ -10733,7 +10820,7 @@ type ChmodReq struct {
 func (x *ChmodReq) Reset() {
 	*x = ChmodReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[157]
+		mi := &file_sliverpb_sliver_proto_msgTypes[158]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -10746,7 +10833,7 @@ func (x *ChmodReq) String() string {
 func (*ChmodReq) ProtoMessage() {}
 
 func (x *ChmodReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[157]
+	mi := &file_sliverpb_sliver_proto_msgTypes[158]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10759,7 +10846,7 @@ func (x *ChmodReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChmodReq.ProtoReflect.Descriptor instead.
 func (*ChmodReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{157}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{158}
 }
 
 func (x *ChmodReq) GetPath() string {
@@ -10802,7 +10889,7 @@ type Chmod struct {
 func (x *Chmod) Reset() {
 	*x = Chmod{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[158]
+		mi := &file_sliverpb_sliver_proto_msgTypes[159]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -10815,7 +10902,7 @@ func (x *Chmod) String() string {
 func (*Chmod) ProtoMessage() {}
 
 func (x *Chmod) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[158]
+	mi := &file_sliverpb_sliver_proto_msgTypes[159]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10828,7 +10915,7 @@ func (x *Chmod) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Chmod.ProtoReflect.Descriptor instead.
 func (*Chmod) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{158}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{159}
 }
 
 func (x *Chmod) GetPath() string {
@@ -10860,7 +10947,7 @@ type ChownReq struct {
 func (x *ChownReq) Reset() {
 	*x = ChownReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[159]
+		mi := &file_sliverpb_sliver_proto_msgTypes[160]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -10873,7 +10960,7 @@ func (x *ChownReq) String() string {
 func (*ChownReq) ProtoMessage() {}
 
 func (x *ChownReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[159]
+	mi := &file_sliverpb_sliver_proto_msgTypes[160]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10886,7 +10973,7 @@ func (x *ChownReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChownReq.ProtoReflect.Descriptor instead.
 func (*ChownReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{159}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{160}
 }
 
 func (x *ChownReq) GetPath() string {
@@ -10936,7 +11023,7 @@ type Chown struct {
 func (x *Chown) Reset() {
 	*x = Chown{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[160]
+		mi := &file_sliverpb_sliver_proto_msgTypes[161]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -10949,7 +11036,7 @@ func (x *Chown) String() string {
 func (*Chown) ProtoMessage() {}
 
 func (x *Chown) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[160]
+	mi := &file_sliverpb_sliver_proto_msgTypes[161]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10962,7 +11049,7 @@ func (x *Chown) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Chown.ProtoReflect.Descriptor instead.
 func (*Chown) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{160}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{161}
 }
 
 func (x *Chown) GetPath() string {
@@ -10993,7 +11080,7 @@ type ChtimesReq struct {
 func (x *ChtimesReq) Reset() {
 	*x = ChtimesReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[161]
+		mi := &file_sliverpb_sliver_proto_msgTypes[162]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -11006,7 +11093,7 @@ func (x *ChtimesReq) String() string {
 func (*ChtimesReq) ProtoMessage() {}
 
 func (x *ChtimesReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[161]
+	mi := &file_sliverpb_sliver_proto_msgTypes[162]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11019,7 +11106,7 @@ func (x *ChtimesReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChtimesReq.ProtoReflect.Descriptor instead.
 func (*ChtimesReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{161}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{162}
 }
 
 func (x *ChtimesReq) GetPath() string {
@@ -11062,7 +11149,7 @@ type Chtimes struct {
 func (x *Chtimes) Reset() {
 	*x = Chtimes{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[162]
+		mi := &file_sliverpb_sliver_proto_msgTypes[163]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -11075,7 +11162,7 @@ func (x *Chtimes) String() string {
 func (*Chtimes) ProtoMessage() {}
 
 func (x *Chtimes) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[162]
+	mi := &file_sliverpb_sliver_proto_msgTypes[163]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11088,7 +11175,7 @@ func (x *Chtimes) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Chtimes.ProtoReflect.Descriptor instead.
 func (*Chtimes) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{162}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{163}
 }
 
 func (x *Chtimes) GetPath() string {
@@ -11116,7 +11203,7 @@ type MemfilesListReq struct {
 func (x *MemfilesListReq) Reset() {
 	*x = MemfilesListReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[163]
+		mi := &file_sliverpb_sliver_proto_msgTypes[164]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -11129,7 +11216,7 @@ func (x *MemfilesListReq) String() string {
 func (*MemfilesListReq) ProtoMessage() {}
 
 func (x *MemfilesListReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[163]
+	mi := &file_sliverpb_sliver_proto_msgTypes[164]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11142,7 +11229,7 @@ func (x *MemfilesListReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemfilesListReq.ProtoReflect.Descriptor instead.
 func (*MemfilesListReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{163}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{164}
 }
 
 func (x *MemfilesListReq) GetRequest() *commonpb.Request {
@@ -11163,7 +11250,7 @@ type MemfilesAddReq struct {
 func (x *MemfilesAddReq) Reset() {
 	*x = MemfilesAddReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[164]
+		mi := &file_sliverpb_sliver_proto_msgTypes[165]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -11176,7 +11263,7 @@ func (x *MemfilesAddReq) String() string {
 func (*MemfilesAddReq) ProtoMessage() {}
 
 func (x *MemfilesAddReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[164]
+	mi := &file_sliverpb_sliver_proto_msgTypes[165]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11189,7 +11276,7 @@ func (x *MemfilesAddReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemfilesAddReq.ProtoReflect.Descriptor instead.
 func (*MemfilesAddReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{164}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{165}
 }
 
 func (x *MemfilesAddReq) GetRequest() *commonpb.Request {
@@ -11211,7 +11298,7 @@ type MemfilesAdd struct {
 func (x *MemfilesAdd) Reset() {
 	*x = MemfilesAdd{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[165]
+		mi := &file_sliverpb_sliver_proto_msgTypes[166]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -11224,7 +11311,7 @@ func (x *MemfilesAdd) String() string {
 func (*MemfilesAdd) ProtoMessage() {}
 
 func (x *MemfilesAdd) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[165]
+	mi := &file_sliverpb_sliver_proto_msgTypes[166]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11237,7 +11324,7 @@ func (x *MemfilesAdd) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemfilesAdd.ProtoReflect.Descriptor instead.
 func (*MemfilesAdd) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{165}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{166}
 }
 
 func (x *MemfilesAdd) GetFd() int64 {
@@ -11266,7 +11353,7 @@ type MemfilesRmReq struct {
 func (x *MemfilesRmReq) Reset() {
 	*x = MemfilesRmReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[166]
+		mi := &file_sliverpb_sliver_proto_msgTypes[167]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -11279,7 +11366,7 @@ func (x *MemfilesRmReq) String() string {
 func (*MemfilesRmReq) ProtoMessage() {}
 
 func (x *MemfilesRmReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[166]
+	mi := &file_sliverpb_sliver_proto_msgTypes[167]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11292,7 +11379,7 @@ func (x *MemfilesRmReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemfilesRmReq.ProtoReflect.Descriptor instead.
 func (*MemfilesRmReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{166}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{167}
 }
 
 func (x *MemfilesRmReq) GetFd() int64 {
@@ -11321,7 +11408,7 @@ type MemfilesRm struct {
 func (x *MemfilesRm) Reset() {
 	*x = MemfilesRm{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[167]
+		mi := &file_sliverpb_sliver_proto_msgTypes[168]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -11334,7 +11421,7 @@ func (x *MemfilesRm) String() string {
 func (*MemfilesRm) ProtoMessage() {}
 
 func (x *MemfilesRm) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[167]
+	mi := &file_sliverpb_sliver_proto_msgTypes[168]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11347,7 +11434,7 @@ func (x *MemfilesRm) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemfilesRm.ProtoReflect.Descriptor instead.
 func (*MemfilesRm) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{167}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{168}
 }
 
 func (x *MemfilesRm) GetFd() int64 {
@@ -11377,7 +11464,7 @@ type RegisterWasmExtensionReq struct {
 func (x *RegisterWasmExtensionReq) Reset() {
 	*x = RegisterWasmExtensionReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[168]
+		mi := &file_sliverpb_sliver_proto_msgTypes[169]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -11390,7 +11477,7 @@ func (x *RegisterWasmExtensionReq) String() string {
 func (*RegisterWasmExtensionReq) ProtoMessage() {}
 
 func (x *RegisterWasmExtensionReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[168]
+	mi := &file_sliverpb_sliver_proto_msgTypes[169]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11403,7 +11490,7 @@ func (x *RegisterWasmExtensionReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterWasmExtensionReq.ProtoReflect.Descriptor instead.
 func (*RegisterWasmExtensionReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{168}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{169}
 }
 
 func (x *RegisterWasmExtensionReq) GetName() string {
@@ -11438,7 +11525,7 @@ type RegisterWasmExtension struct {
 func (x *RegisterWasmExtension) Reset() {
 	*x = RegisterWasmExtension{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[169]
+		mi := &file_sliverpb_sliver_proto_msgTypes[170]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -11451,7 +11538,7 @@ func (x *RegisterWasmExtension) String() string {
 func (*RegisterWasmExtension) ProtoMessage() {}
 
 func (x *RegisterWasmExtension) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[169]
+	mi := &file_sliverpb_sliver_proto_msgTypes[170]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11464,7 +11551,7 @@ func (x *RegisterWasmExtension) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterWasmExtension.ProtoReflect.Descriptor instead.
 func (*RegisterWasmExtension) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{169}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{170}
 }
 
 func (x *RegisterWasmExtension) GetResponse() *commonpb.Response {
@@ -11486,7 +11573,7 @@ type DeregisterWasmExtensionReq struct {
 func (x *DeregisterWasmExtensionReq) Reset() {
 	*x = DeregisterWasmExtensionReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[170]
+		mi := &file_sliverpb_sliver_proto_msgTypes[171]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -11499,7 +11586,7 @@ func (x *DeregisterWasmExtensionReq) String() string {
 func (*DeregisterWasmExtensionReq) ProtoMessage() {}
 
 func (x *DeregisterWasmExtensionReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[170]
+	mi := &file_sliverpb_sliver_proto_msgTypes[171]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11512,7 +11599,7 @@ func (x *DeregisterWasmExtensionReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeregisterWasmExtensionReq.ProtoReflect.Descriptor instead.
 func (*DeregisterWasmExtensionReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{170}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{171}
 }
 
 func (x *DeregisterWasmExtensionReq) GetName() string {
@@ -11540,7 +11627,7 @@ type ListWasmExtensionsReq struct {
 func (x *ListWasmExtensionsReq) Reset() {
 	*x = ListWasmExtensionsReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[171]
+		mi := &file_sliverpb_sliver_proto_msgTypes[172]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -11553,7 +11640,7 @@ func (x *ListWasmExtensionsReq) String() string {
 func (*ListWasmExtensionsReq) ProtoMessage() {}
 
 func (x *ListWasmExtensionsReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[171]
+	mi := &file_sliverpb_sliver_proto_msgTypes[172]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11566,7 +11653,7 @@ func (x *ListWasmExtensionsReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWasmExtensionsReq.ProtoReflect.Descriptor instead.
 func (*ListWasmExtensionsReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{171}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{172}
 }
 
 func (x *ListWasmExtensionsReq) GetRequest() *commonpb.Request {
@@ -11588,7 +11675,7 @@ type ListWasmExtensions struct {
 func (x *ListWasmExtensions) Reset() {
 	*x = ListWasmExtensions{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[172]
+		mi := &file_sliverpb_sliver_proto_msgTypes[173]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -11601,7 +11688,7 @@ func (x *ListWasmExtensions) String() string {
 func (*ListWasmExtensions) ProtoMessage() {}
 
 func (x *ListWasmExtensions) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[172]
+	mi := &file_sliverpb_sliver_proto_msgTypes[173]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11614,7 +11701,7 @@ func (x *ListWasmExtensions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWasmExtensions.ProtoReflect.Descriptor instead.
 func (*ListWasmExtensions) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{172}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{173}
 }
 
 func (x *ListWasmExtensions) GetNames() []string {
@@ -11647,7 +11734,7 @@ type ExecWasmExtensionReq struct {
 func (x *ExecWasmExtensionReq) Reset() {
 	*x = ExecWasmExtensionReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[173]
+		mi := &file_sliverpb_sliver_proto_msgTypes[174]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -11660,7 +11747,7 @@ func (x *ExecWasmExtensionReq) String() string {
 func (*ExecWasmExtensionReq) ProtoMessage() {}
 
 func (x *ExecWasmExtensionReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[173]
+	mi := &file_sliverpb_sliver_proto_msgTypes[174]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11673,7 +11760,7 @@ func (x *ExecWasmExtensionReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecWasmExtensionReq.ProtoReflect.Descriptor instead.
 func (*ExecWasmExtensionReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{173}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{174}
 }
 
 func (x *ExecWasmExtensionReq) GetName() string {
@@ -11732,7 +11819,7 @@ type ExecWasmExtension struct {
 func (x *ExecWasmExtension) Reset() {
 	*x = ExecWasmExtension{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[174]
+		mi := &file_sliverpb_sliver_proto_msgTypes[175]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -11745,7 +11832,7 @@ func (x *ExecWasmExtension) String() string {
 func (*ExecWasmExtension) ProtoMessage() {}
 
 func (x *ExecWasmExtension) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[174]
+	mi := &file_sliverpb_sliver_proto_msgTypes[175]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11758,7 +11845,7 @@ func (x *ExecWasmExtension) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecWasmExtension.ProtoReflect.Descriptor instead.
 func (*ExecWasmExtension) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{174}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{175}
 }
 
 func (x *ExecWasmExtension) GetStdout() []byte {
@@ -11801,7 +11888,7 @@ type ServicesReq struct {
 func (x *ServicesReq) Reset() {
 	*x = ServicesReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[175]
+		mi := &file_sliverpb_sliver_proto_msgTypes[176]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -11814,7 +11901,7 @@ func (x *ServicesReq) String() string {
 func (*ServicesReq) ProtoMessage() {}
 
 func (x *ServicesReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[175]
+	mi := &file_sliverpb_sliver_proto_msgTypes[176]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11827,7 +11914,7 @@ func (x *ServicesReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServicesReq.ProtoReflect.Descriptor instead.
 func (*ServicesReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{175}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{176}
 }
 
 func (x *ServicesReq) GetHostname() string {
@@ -11856,7 +11943,7 @@ type ServiceDetailReq struct {
 func (x *ServiceDetailReq) Reset() {
 	*x = ServiceDetailReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[176]
+		mi := &file_sliverpb_sliver_proto_msgTypes[177]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -11869,7 +11956,7 @@ func (x *ServiceDetailReq) String() string {
 func (*ServiceDetailReq) ProtoMessage() {}
 
 func (x *ServiceDetailReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[176]
+	mi := &file_sliverpb_sliver_proto_msgTypes[177]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11882,7 +11969,7 @@ func (x *ServiceDetailReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServiceDetailReq.ProtoReflect.Descriptor instead.
 func (*ServiceDetailReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{176}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{177}
 }
 
 func (x *ServiceDetailReq) GetServiceInfo() *ServiceInfoReq {
@@ -11916,7 +12003,7 @@ type ServiceDetails struct {
 func (x *ServiceDetails) Reset() {
 	*x = ServiceDetails{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[177]
+		mi := &file_sliverpb_sliver_proto_msgTypes[178]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -11929,7 +12016,7 @@ func (x *ServiceDetails) String() string {
 func (*ServiceDetails) ProtoMessage() {}
 
 func (x *ServiceDetails) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[177]
+	mi := &file_sliverpb_sliver_proto_msgTypes[178]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11942,7 +12029,7 @@ func (x *ServiceDetails) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServiceDetails.ProtoReflect.Descriptor instead.
 func (*ServiceDetails) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{177}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{178}
 }
 
 func (x *ServiceDetails) GetName() string {
@@ -12007,7 +12094,7 @@ type Services struct {
 func (x *Services) Reset() {
 	*x = Services{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[178]
+		mi := &file_sliverpb_sliver_proto_msgTypes[179]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -12020,7 +12107,7 @@ func (x *Services) String() string {
 func (*Services) ProtoMessage() {}
 
 func (x *Services) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[178]
+	mi := &file_sliverpb_sliver_proto_msgTypes[179]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12033,7 +12120,7 @@ func (x *Services) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Services.ProtoReflect.Descriptor instead.
 func (*Services) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{178}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{179}
 }
 
 func (x *Services) GetDetails() []*ServiceDetails {
@@ -12070,7 +12157,7 @@ type ServiceDetail struct {
 func (x *ServiceDetail) Reset() {
 	*x = ServiceDetail{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[179]
+		mi := &file_sliverpb_sliver_proto_msgTypes[180]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -12083,7 +12170,7 @@ func (x *ServiceDetail) String() string {
 func (*ServiceDetail) ProtoMessage() {}
 
 func (x *ServiceDetail) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[179]
+	mi := &file_sliverpb_sliver_proto_msgTypes[180]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12096,7 +12183,7 @@ func (x *ServiceDetail) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServiceDetail.ProtoReflect.Descriptor instead.
 func (*ServiceDetail) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{179}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{180}
 }
 
 func (x *ServiceDetail) GetDetail() *ServiceDetails {
@@ -12132,7 +12219,7 @@ type StartServiceByNameReq struct {
 func (x *StartServiceByNameReq) Reset() {
 	*x = StartServiceByNameReq{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[180]
+		mi := &file_sliverpb_sliver_proto_msgTypes[181]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -12145,7 +12232,7 @@ func (x *StartServiceByNameReq) String() string {
 func (*StartServiceByNameReq) ProtoMessage() {}
 
 func (x *StartServiceByNameReq) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[180]
+	mi := &file_sliverpb_sliver_proto_msgTypes[181]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12158,7 +12245,7 @@ func (x *StartServiceByNameReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartServiceByNameReq.ProtoReflect.Descriptor instead.
 func (*StartServiceByNameReq) Descriptor() ([]byte, []int) {
-	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{180}
+	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{181}
 }
 
 func (x *StartServiceByNameReq) GetServiceInfo() *ServiceInfoReq {
@@ -12187,7 +12274,7 @@ type SockTabEntry_SockAddr struct {
 func (x *SockTabEntry_SockAddr) Reset() {
 	*x = SockTabEntry_SockAddr{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sliverpb_sliver_proto_msgTypes[183]
+		mi := &file_sliverpb_sliver_proto_msgTypes[184]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -12200,7 +12287,7 @@ func (x *SockTabEntry_SockAddr) String() string {
 func (*SockTabEntry_SockAddr) ProtoMessage() {}
 
 func (x *SockTabEntry_SockAddr) ProtoReflect() protoreflect.Message {
-	mi := &file_sliverpb_sliver_proto_msgTypes[183]
+	mi := &file_sliverpb_sliver_proto_msgTypes[184]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13115,27 +13202,38 @@ var file_sliverpb_sliver_proto_rawDesc = []byte{
 	0x1e, 0x0a, 0x08, 0x54, 0x75, 0x6e, 0x6e, 0x65, 0x6c, 0x49, 0x44, 0x18, 0x08, 0x20, 0x01, 0x28,
 	0x04, 0x42, 0x02, 0x30, 0x01, 0x52, 0x08, 0x54, 0x75, 0x6e, 0x6e, 0x65, 0x6c, 0x49, 0x44, 0x12,
 	0x1c, 0x0a, 0x09, 0x53, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x49, 0x44, 0x18, 0x09, 0x20, 0x01,
-	0x28, 0x09, 0x52, 0x09, 0x53, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x49, 0x44, 0x22, 0x9b, 0x01,
+	0x28, 0x09, 0x52, 0x09, 0x53, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x49, 0x44, 0x22, 0xc3, 0x01,
 	0x0a, 0x08, 0x53, 0x68, 0x65, 0x6c, 0x6c, 0x52, 0x65, 0x71, 0x12, 0x12, 0x0a, 0x04, 0x50, 0x61,
 	0x74, 0x68, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x50, 0x61, 0x74, 0x68, 0x12, 0x1c,
 	0x0a, 0x09, 0x45, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x50, 0x54, 0x59, 0x18, 0x02, 0x20, 0x01, 0x28,
 	0x08, 0x52, 0x09, 0x45, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x50, 0x54, 0x59, 0x12, 0x10, 0x0a, 0x03,
-	0x50, 0x69, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x03, 0x50, 0x69, 0x64, 0x12, 0x1e,
-	0x0a, 0x08, 0x54, 0x75, 0x6e, 0x6e, 0x65, 0x6c, 0x49, 0x44, 0x18, 0x08, 0x20, 0x01, 0x28, 0x04,
-	0x42, 0x02, 0x30, 0x01, 0x52, 0x08, 0x54, 0x75, 0x6e, 0x6e, 0x65, 0x6c, 0x49, 0x44, 0x12, 0x2b,
-	0x0a, 0x07, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x18, 0x09, 0x20, 0x01, 0x28, 0x0b, 0x32,
-	0x11, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x70, 0x62, 0x2e, 0x52, 0x65, 0x71, 0x75, 0x65,
-	0x73, 0x74, 0x52, 0x07, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22, 0x9b, 0x01, 0x0a, 0x05,
-	0x53, 0x68, 0x65, 0x6c, 0x6c, 0x12, 0x12, 0x0a, 0x04, 0x50, 0x61, 0x74, 0x68, 0x18, 0x01, 0x20,
-	0x01, 0x28, 0x09, 0x52, 0x04, 0x50, 0x61, 0x74, 0x68, 0x12, 0x1c, 0x0a, 0x09, 0x45, 0x6e, 0x61,
-	0x62, 0x6c, 0x65, 0x50, 0x54, 0x59, 0x18, 0x02, 0x20, 0x01, 0x28, 0x08, 0x52, 0x09, 0x45, 0x6e,
-	0x61, 0x62, 0x6c, 0x65, 0x50, 0x54, 0x59, 0x12, 0x10, 0x0a, 0x03, 0x50, 0x69, 0x64, 0x18, 0x03,
-	0x20, 0x01, 0x28, 0x0d, 0x52, 0x03, 0x50, 0x69, 0x64, 0x12, 0x1e, 0x0a, 0x08, 0x54, 0x75, 0x6e,
-	0x6e, 0x65, 0x6c, 0x49, 0x44, 0x18, 0x08, 0x20, 0x01, 0x28, 0x04, 0x42, 0x02, 0x30, 0x01, 0x52,
-	0x08, 0x54, 0x75, 0x6e, 0x6e, 0x65, 0x6c, 0x49, 0x44, 0x12, 0x2e, 0x0a, 0x08, 0x52, 0x65, 0x73,
-	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x18, 0x09, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x63, 0x6f,
-	0x6d, 0x6d, 0x6f, 0x6e, 0x70, 0x62, 0x2e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x52,
-	0x08, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x9d, 0x01, 0x0a, 0x0a, 0x50, 0x6f,
+	0x50, 0x69, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x03, 0x50, 0x69, 0x64, 0x12, 0x12,
+	0x0a, 0x04, 0x52, 0x6f, 0x77, 0x73, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x04, 0x52, 0x6f,
+	0x77, 0x73, 0x12, 0x12, 0x0a, 0x04, 0x43, 0x6f, 0x6c, 0x73, 0x18, 0x05, 0x20, 0x01, 0x28, 0x0d,
+	0x52, 0x04, 0x43, 0x6f, 0x6c, 0x73, 0x12, 0x1e, 0x0a, 0x08, 0x54, 0x75, 0x6e, 0x6e, 0x65, 0x6c,
+	0x49, 0x44, 0x18, 0x08, 0x20, 0x01, 0x28, 0x04, 0x42, 0x02, 0x30, 0x01, 0x52, 0x08, 0x54, 0x75,
+	0x6e, 0x6e, 0x65, 0x6c, 0x49, 0x44, 0x12, 0x2b, 0x0a, 0x07, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x18, 0x09, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e,
+	0x70, 0x62, 0x2e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x52, 0x07, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x22, 0x9b, 0x01, 0x0a, 0x05, 0x53, 0x68, 0x65, 0x6c, 0x6c, 0x12, 0x12, 0x0a,
+	0x04, 0x50, 0x61, 0x74, 0x68, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x50, 0x61, 0x74,
+	0x68, 0x12, 0x1c, 0x0a, 0x09, 0x45, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x50, 0x54, 0x59, 0x18, 0x02,
+	0x20, 0x01, 0x28, 0x08, 0x52, 0x09, 0x45, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x50, 0x54, 0x59, 0x12,
+	0x10, 0x0a, 0x03, 0x50, 0x69, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x03, 0x50, 0x69,
+	0x64, 0x12, 0x1e, 0x0a, 0x08, 0x54, 0x75, 0x6e, 0x6e, 0x65, 0x6c, 0x49, 0x44, 0x18, 0x08, 0x20,
+	0x01, 0x28, 0x04, 0x42, 0x02, 0x30, 0x01, 0x52, 0x08, 0x54, 0x75, 0x6e, 0x6e, 0x65, 0x6c, 0x49,
+	0x44, 0x12, 0x2e, 0x0a, 0x08, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x18, 0x09, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x70, 0x62, 0x2e, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x52, 0x08, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x22, 0x85, 0x01, 0x0a, 0x0e, 0x53, 0x68, 0x65, 0x6c, 0x6c, 0x52, 0x65, 0x73, 0x69, 0x7a,
+	0x65, 0x52, 0x65, 0x71, 0x12, 0x12, 0x0a, 0x04, 0x52, 0x6f, 0x77, 0x73, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x0d, 0x52, 0x04, 0x52, 0x6f, 0x77, 0x73, 0x12, 0x12, 0x0a, 0x04, 0x43, 0x6f, 0x6c, 0x73,
+	0x18, 0x02, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x04, 0x43, 0x6f, 0x6c, 0x73, 0x12, 0x1e, 0x0a, 0x08,
+	0x54, 0x75, 0x6e, 0x6e, 0x65, 0x6c, 0x49, 0x44, 0x18, 0x08, 0x20, 0x01, 0x28, 0x04, 0x42, 0x02,
+	0x30, 0x01, 0x52, 0x08, 0x54, 0x75, 0x6e, 0x6e, 0x65, 0x6c, 0x49, 0x44, 0x12, 0x2b, 0x0a, 0x07,
+	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x18, 0x09, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x11, 0x2e,
+	0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x70, 0x62, 0x2e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+	0x52, 0x07, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22, 0x9d, 0x01, 0x0a, 0x0a, 0x50, 0x6f,
 	0x72, 0x74, 0x66, 0x77, 0x64, 0x52, 0x65, 0x71, 0x12, 0x12, 0x0a, 0x04, 0x50, 0x6f, 0x72, 0x74,
 	0x18, 0x01, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x04, 0x50, 0x6f, 0x72, 0x74, 0x12, 0x1a, 0x0a, 0x08,
 	0x50, 0x72, 0x6f, 0x74, 0x6f, 0x63, 0x6f, 0x6c, 0x18, 0x02, 0x20, 0x01, 0x28, 0x05, 0x52, 0x08,
@@ -13718,7 +13816,7 @@ func file_sliverpb_sliver_proto_rawDescGZIP() []byte {
 }
 
 var file_sliverpb_sliver_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_sliverpb_sliver_proto_msgTypes = make([]protoimpl.MessageInfo, 185)
+var file_sliverpb_sliver_proto_msgTypes = make([]protoimpl.MessageInfo, 186)
 var file_sliverpb_sliver_proto_goTypes = []interface{}{
 	(RegistryType)(0),                      // 0: sliverpb.RegistryType
 	(PivotType)(0),                         // 1: sliverpb.PivotType
@@ -13830,289 +13928,291 @@ var file_sliverpb_sliver_proto_goTypes = []interface{}{
 	(*TunnelData)(nil),                     // 107: sliverpb.TunnelData
 	(*ShellReq)(nil),                       // 108: sliverpb.ShellReq
 	(*Shell)(nil),                          // 109: sliverpb.Shell
-	(*PortfwdReq)(nil),                     // 110: sliverpb.PortfwdReq
-	(*Portfwd)(nil),                        // 111: sliverpb.Portfwd
-	(*Socks)(nil),                          // 112: sliverpb.Socks
-	(*SocksData)(nil),                      // 113: sliverpb.SocksData
-	(*PivotStartListenerReq)(nil),          // 114: sliverpb.PivotStartListenerReq
-	(*PivotStopListenerReq)(nil),           // 115: sliverpb.PivotStopListenerReq
-	(*PivotListener)(nil),                  // 116: sliverpb.PivotListener
-	(*PivotHello)(nil),                     // 117: sliverpb.PivotHello
-	(*PivotServerKeyExchange)(nil),         // 118: sliverpb.PivotServerKeyExchange
-	(*PivotPeer)(nil),                      // 119: sliverpb.PivotPeer
-	(*PivotPeerEnvelope)(nil),              // 120: sliverpb.PivotPeerEnvelope
-	(*PivotPing)(nil),                      // 121: sliverpb.PivotPing
-	(*NetConnPivot)(nil),                   // 122: sliverpb.NetConnPivot
-	(*PivotPeerFailure)(nil),               // 123: sliverpb.PivotPeerFailure
-	(*PivotListenersReq)(nil),              // 124: sliverpb.PivotListenersReq
-	(*PivotListeners)(nil),                 // 125: sliverpb.PivotListeners
-	(*WGPortForwardStartReq)(nil),          // 126: sliverpb.WGPortForwardStartReq
-	(*WGPortForward)(nil),                  // 127: sliverpb.WGPortForward
-	(*WGPortForwardStopReq)(nil),           // 128: sliverpb.WGPortForwardStopReq
-	(*WGSocksStartReq)(nil),                // 129: sliverpb.WGSocksStartReq
-	(*WGSocks)(nil),                        // 130: sliverpb.WGSocks
-	(*WGSocksStopReq)(nil),                 // 131: sliverpb.WGSocksStopReq
-	(*WGTCPForwardersReq)(nil),             // 132: sliverpb.WGTCPForwardersReq
-	(*WGSocksServersReq)(nil),              // 133: sliverpb.WGSocksServersReq
-	(*WGTCPForwarder)(nil),                 // 134: sliverpb.WGTCPForwarder
-	(*WGSocksServer)(nil),                  // 135: sliverpb.WGSocksServer
-	(*WGSocksServers)(nil),                 // 136: sliverpb.WGSocksServers
-	(*WGTCPForwarders)(nil),                // 137: sliverpb.WGTCPForwarders
-	(*ReconfigureReq)(nil),                 // 138: sliverpb.ReconfigureReq
-	(*Reconfigure)(nil),                    // 139: sliverpb.Reconfigure
-	(*PollIntervalReq)(nil),                // 140: sliverpb.PollIntervalReq
-	(*PollInterval)(nil),                   // 141: sliverpb.PollInterval
-	(*SSHCommandReq)(nil),                  // 142: sliverpb.SSHCommandReq
-	(*SSHCommand)(nil),                     // 143: sliverpb.SSHCommand
-	(*GetPrivsReq)(nil),                    // 144: sliverpb.GetPrivsReq
-	(*WindowsPrivilegeEntry)(nil),          // 145: sliverpb.WindowsPrivilegeEntry
-	(*GetPrivs)(nil),                       // 146: sliverpb.GetPrivs
-	(*RegisterExtensionReq)(nil),           // 147: sliverpb.RegisterExtensionReq
-	(*RegisterExtension)(nil),              // 148: sliverpb.RegisterExtension
-	(*CallExtensionReq)(nil),               // 149: sliverpb.CallExtensionReq
-	(*CallExtension)(nil),                  // 150: sliverpb.CallExtension
-	(*ListExtensionsReq)(nil),              // 151: sliverpb.ListExtensionsReq
-	(*ListExtensions)(nil),                 // 152: sliverpb.ListExtensions
-	(*RportFwdStopListenerReq)(nil),        // 153: sliverpb.RportFwdStopListenerReq
-	(*RportFwdStartListenerReq)(nil),       // 154: sliverpb.RportFwdStartListenerReq
-	(*RportFwdListener)(nil),               // 155: sliverpb.RportFwdListener
-	(*RportFwdListeners)(nil),              // 156: sliverpb.RportFwdListeners
-	(*RportFwdListenersReq)(nil),           // 157: sliverpb.RportFwdListenersReq
-	(*RPortfwd)(nil),                       // 158: sliverpb.RPortfwd
-	(*RPortfwdReq)(nil),                    // 159: sliverpb.RPortfwdReq
-	(*ChmodReq)(nil),                       // 160: sliverpb.ChmodReq
-	(*Chmod)(nil),                          // 161: sliverpb.Chmod
-	(*ChownReq)(nil),                       // 162: sliverpb.ChownReq
-	(*Chown)(nil),                          // 163: sliverpb.Chown
-	(*ChtimesReq)(nil),                     // 164: sliverpb.ChtimesReq
-	(*Chtimes)(nil),                        // 165: sliverpb.Chtimes
-	(*MemfilesListReq)(nil),                // 166: sliverpb.MemfilesListReq
-	(*MemfilesAddReq)(nil),                 // 167: sliverpb.MemfilesAddReq
-	(*MemfilesAdd)(nil),                    // 168: sliverpb.MemfilesAdd
-	(*MemfilesRmReq)(nil),                  // 169: sliverpb.MemfilesRmReq
-	(*MemfilesRm)(nil),                     // 170: sliverpb.MemfilesRm
-	(*RegisterWasmExtensionReq)(nil),       // 171: sliverpb.RegisterWasmExtensionReq
-	(*RegisterWasmExtension)(nil),          // 172: sliverpb.RegisterWasmExtension
-	(*DeregisterWasmExtensionReq)(nil),     // 173: sliverpb.DeregisterWasmExtensionReq
-	(*ListWasmExtensionsReq)(nil),          // 174: sliverpb.ListWasmExtensionsReq
-	(*ListWasmExtensions)(nil),             // 175: sliverpb.ListWasmExtensions
-	(*ExecWasmExtensionReq)(nil),           // 176: sliverpb.ExecWasmExtensionReq
-	(*ExecWasmExtension)(nil),              // 177: sliverpb.ExecWasmExtension
-	(*ServicesReq)(nil),                    // 178: sliverpb.ServicesReq
-	(*ServiceDetailReq)(nil),               // 179: sliverpb.ServiceDetailReq
-	(*ServiceDetails)(nil),                 // 180: sliverpb.ServiceDetails
-	(*Services)(nil),                       // 181: sliverpb.Services
-	(*ServiceDetail)(nil),                  // 182: sliverpb.ServiceDetail
-	(*StartServiceByNameReq)(nil),          // 183: sliverpb.StartServiceByNameReq
-	nil,                                    // 184: sliverpb.Grep.ResultsEntry
-	nil,                                    // 185: sliverpb.ExecuteReq.EnvEntry
-	(*SockTabEntry_SockAddr)(nil),          // 186: sliverpb.SockTabEntry.SockAddr
-	nil,                                    // 187: sliverpb.ExecWasmExtensionReq.MemFSEntry
-	(*commonpb.Response)(nil),              // 188: commonpb.Response
-	(*commonpb.Request)(nil),               // 189: commonpb.Request
-	(*commonpb.Process)(nil),               // 190: commonpb.Process
-	(*commonpb.EnvVar)(nil),                // 191: commonpb.EnvVar
+	(*ShellResizeReq)(nil),                 // 110: sliverpb.ShellResizeReq
+	(*PortfwdReq)(nil),                     // 111: sliverpb.PortfwdReq
+	(*Portfwd)(nil),                        // 112: sliverpb.Portfwd
+	(*Socks)(nil),                          // 113: sliverpb.Socks
+	(*SocksData)(nil),                      // 114: sliverpb.SocksData
+	(*PivotStartListenerReq)(nil),          // 115: sliverpb.PivotStartListenerReq
+	(*PivotStopListenerReq)(nil),           // 116: sliverpb.PivotStopListenerReq
+	(*PivotListener)(nil),                  // 117: sliverpb.PivotListener
+	(*PivotHello)(nil),                     // 118: sliverpb.PivotHello
+	(*PivotServerKeyExchange)(nil),         // 119: sliverpb.PivotServerKeyExchange
+	(*PivotPeer)(nil),                      // 120: sliverpb.PivotPeer
+	(*PivotPeerEnvelope)(nil),              // 121: sliverpb.PivotPeerEnvelope
+	(*PivotPing)(nil),                      // 122: sliverpb.PivotPing
+	(*NetConnPivot)(nil),                   // 123: sliverpb.NetConnPivot
+	(*PivotPeerFailure)(nil),               // 124: sliverpb.PivotPeerFailure
+	(*PivotListenersReq)(nil),              // 125: sliverpb.PivotListenersReq
+	(*PivotListeners)(nil),                 // 126: sliverpb.PivotListeners
+	(*WGPortForwardStartReq)(nil),          // 127: sliverpb.WGPortForwardStartReq
+	(*WGPortForward)(nil),                  // 128: sliverpb.WGPortForward
+	(*WGPortForwardStopReq)(nil),           // 129: sliverpb.WGPortForwardStopReq
+	(*WGSocksStartReq)(nil),                // 130: sliverpb.WGSocksStartReq
+	(*WGSocks)(nil),                        // 131: sliverpb.WGSocks
+	(*WGSocksStopReq)(nil),                 // 132: sliverpb.WGSocksStopReq
+	(*WGTCPForwardersReq)(nil),             // 133: sliverpb.WGTCPForwardersReq
+	(*WGSocksServersReq)(nil),              // 134: sliverpb.WGSocksServersReq
+	(*WGTCPForwarder)(nil),                 // 135: sliverpb.WGTCPForwarder
+	(*WGSocksServer)(nil),                  // 136: sliverpb.WGSocksServer
+	(*WGSocksServers)(nil),                 // 137: sliverpb.WGSocksServers
+	(*WGTCPForwarders)(nil),                // 138: sliverpb.WGTCPForwarders
+	(*ReconfigureReq)(nil),                 // 139: sliverpb.ReconfigureReq
+	(*Reconfigure)(nil),                    // 140: sliverpb.Reconfigure
+	(*PollIntervalReq)(nil),                // 141: sliverpb.PollIntervalReq
+	(*PollInterval)(nil),                   // 142: sliverpb.PollInterval
+	(*SSHCommandReq)(nil),                  // 143: sliverpb.SSHCommandReq
+	(*SSHCommand)(nil),                     // 144: sliverpb.SSHCommand
+	(*GetPrivsReq)(nil),                    // 145: sliverpb.GetPrivsReq
+	(*WindowsPrivilegeEntry)(nil),          // 146: sliverpb.WindowsPrivilegeEntry
+	(*GetPrivs)(nil),                       // 147: sliverpb.GetPrivs
+	(*RegisterExtensionReq)(nil),           // 148: sliverpb.RegisterExtensionReq
+	(*RegisterExtension)(nil),              // 149: sliverpb.RegisterExtension
+	(*CallExtensionReq)(nil),               // 150: sliverpb.CallExtensionReq
+	(*CallExtension)(nil),                  // 151: sliverpb.CallExtension
+	(*ListExtensionsReq)(nil),              // 152: sliverpb.ListExtensionsReq
+	(*ListExtensions)(nil),                 // 153: sliverpb.ListExtensions
+	(*RportFwdStopListenerReq)(nil),        // 154: sliverpb.RportFwdStopListenerReq
+	(*RportFwdStartListenerReq)(nil),       // 155: sliverpb.RportFwdStartListenerReq
+	(*RportFwdListener)(nil),               // 156: sliverpb.RportFwdListener
+	(*RportFwdListeners)(nil),              // 157: sliverpb.RportFwdListeners
+	(*RportFwdListenersReq)(nil),           // 158: sliverpb.RportFwdListenersReq
+	(*RPortfwd)(nil),                       // 159: sliverpb.RPortfwd
+	(*RPortfwdReq)(nil),                    // 160: sliverpb.RPortfwdReq
+	(*ChmodReq)(nil),                       // 161: sliverpb.ChmodReq
+	(*Chmod)(nil),                          // 162: sliverpb.Chmod
+	(*ChownReq)(nil),                       // 163: sliverpb.ChownReq
+	(*Chown)(nil),                          // 164: sliverpb.Chown
+	(*ChtimesReq)(nil),                     // 165: sliverpb.ChtimesReq
+	(*Chtimes)(nil),                        // 166: sliverpb.Chtimes
+	(*MemfilesListReq)(nil),                // 167: sliverpb.MemfilesListReq
+	(*MemfilesAddReq)(nil),                 // 168: sliverpb.MemfilesAddReq
+	(*MemfilesAdd)(nil),                    // 169: sliverpb.MemfilesAdd
+	(*MemfilesRmReq)(nil),                  // 170: sliverpb.MemfilesRmReq
+	(*MemfilesRm)(nil),                     // 171: sliverpb.MemfilesRm
+	(*RegisterWasmExtensionReq)(nil),       // 172: sliverpb.RegisterWasmExtensionReq
+	(*RegisterWasmExtension)(nil),          // 173: sliverpb.RegisterWasmExtension
+	(*DeregisterWasmExtensionReq)(nil),     // 174: sliverpb.DeregisterWasmExtensionReq
+	(*ListWasmExtensionsReq)(nil),          // 175: sliverpb.ListWasmExtensionsReq
+	(*ListWasmExtensions)(nil),             // 176: sliverpb.ListWasmExtensions
+	(*ExecWasmExtensionReq)(nil),           // 177: sliverpb.ExecWasmExtensionReq
+	(*ExecWasmExtension)(nil),              // 178: sliverpb.ExecWasmExtension
+	(*ServicesReq)(nil),                    // 179: sliverpb.ServicesReq
+	(*ServiceDetailReq)(nil),               // 180: sliverpb.ServiceDetailReq
+	(*ServiceDetails)(nil),                 // 181: sliverpb.ServiceDetails
+	(*Services)(nil),                       // 182: sliverpb.Services
+	(*ServiceDetail)(nil),                  // 183: sliverpb.ServiceDetail
+	(*StartServiceByNameReq)(nil),          // 184: sliverpb.StartServiceByNameReq
+	nil,                                    // 185: sliverpb.Grep.ResultsEntry
+	nil,                                    // 186: sliverpb.ExecuteReq.EnvEntry
+	(*SockTabEntry_SockAddr)(nil),          // 187: sliverpb.SockTabEntry.SockAddr
+	nil,                                    // 188: sliverpb.ExecWasmExtensionReq.MemFSEntry
+	(*commonpb.Response)(nil),              // 189: commonpb.Response
+	(*commonpb.Request)(nil),               // 190: commonpb.Request
+	(*commonpb.Process)(nil),               // 191: commonpb.Process
+	(*commonpb.EnvVar)(nil),                // 192: commonpb.EnvVar
 }
 var file_sliverpb_sliver_proto_depIdxs = []int32{
 	3,   // 0: sliverpb.BeaconTasks.Tasks:type_name -> sliverpb.Envelope
 	5,   // 1: sliverpb.BeaconRegister.Register:type_name -> sliverpb.Register
 	5,   // 2: sliverpb.SessionRegister.Register:type_name -> sliverpb.Register
-	188, // 3: sliverpb.OpenSession.Response:type_name -> commonpb.Response
-	189, // 4: sliverpb.OpenSession.Request:type_name -> commonpb.Request
-	188, // 5: sliverpb.CloseSession.Response:type_name -> commonpb.Response
-	189, // 6: sliverpb.CloseSession.Request:type_name -> commonpb.Request
-	188, // 7: sliverpb.Ping.Response:type_name -> commonpb.Response
-	189, // 8: sliverpb.Ping.Request:type_name -> commonpb.Request
-	189, // 9: sliverpb.KillReq.Request:type_name -> commonpb.Request
-	189, // 10: sliverpb.PsReq.Request:type_name -> commonpb.Request
-	190, // 11: sliverpb.Ps.Processes:type_name -> commonpb.Process
-	188, // 12: sliverpb.Ps.Response:type_name -> commonpb.Response
-	189, // 13: sliverpb.TerminateReq.Request:type_name -> commonpb.Request
-	188, // 14: sliverpb.Terminate.Response:type_name -> commonpb.Response
-	189, // 15: sliverpb.IfconfigReq.Request:type_name -> commonpb.Request
+	189, // 3: sliverpb.OpenSession.Response:type_name -> commonpb.Response
+	190, // 4: sliverpb.OpenSession.Request:type_name -> commonpb.Request
+	189, // 5: sliverpb.CloseSession.Response:type_name -> commonpb.Response
+	190, // 6: sliverpb.CloseSession.Request:type_name -> commonpb.Request
+	189, // 7: sliverpb.Ping.Response:type_name -> commonpb.Response
+	190, // 8: sliverpb.Ping.Request:type_name -> commonpb.Request
+	190, // 9: sliverpb.KillReq.Request:type_name -> commonpb.Request
+	190, // 10: sliverpb.PsReq.Request:type_name -> commonpb.Request
+	191, // 11: sliverpb.Ps.Processes:type_name -> commonpb.Process
+	189, // 12: sliverpb.Ps.Response:type_name -> commonpb.Response
+	190, // 13: sliverpb.TerminateReq.Request:type_name -> commonpb.Request
+	189, // 14: sliverpb.Terminate.Response:type_name -> commonpb.Response
+	190, // 15: sliverpb.IfconfigReq.Request:type_name -> commonpb.Request
 	18,  // 16: sliverpb.Ifconfig.NetInterfaces:type_name -> sliverpb.NetInterface
-	188, // 17: sliverpb.Ifconfig.Response:type_name -> commonpb.Response
-	189, // 18: sliverpb.LsReq.Request:type_name -> commonpb.Request
+	189, // 17: sliverpb.Ifconfig.Response:type_name -> commonpb.Response
+	190, // 18: sliverpb.LsReq.Request:type_name -> commonpb.Request
 	21,  // 19: sliverpb.Ls.Files:type_name -> sliverpb.FileInfo
-	188, // 20: sliverpb.Ls.Response:type_name -> commonpb.Response
-	189, // 21: sliverpb.CdReq.Request:type_name -> commonpb.Request
-	189, // 22: sliverpb.PwdReq.Request:type_name -> commonpb.Request
-	188, // 23: sliverpb.Pwd.Response:type_name -> commonpb.Response
-	189, // 24: sliverpb.RmReq.Request:type_name -> commonpb.Request
-	188, // 25: sliverpb.Rm.Response:type_name -> commonpb.Response
-	189, // 26: sliverpb.MvReq.Request:type_name -> commonpb.Request
-	188, // 27: sliverpb.Mv.Response:type_name -> commonpb.Response
-	189, // 28: sliverpb.CpReq.Request:type_name -> commonpb.Request
-	188, // 29: sliverpb.Cp.Response:type_name -> commonpb.Response
-	189, // 30: sliverpb.MkdirReq.Request:type_name -> commonpb.Request
-	188, // 31: sliverpb.Mkdir.Response:type_name -> commonpb.Response
-	189, // 32: sliverpb.DownloadReq.Request:type_name -> commonpb.Request
-	188, // 33: sliverpb.Download.Response:type_name -> commonpb.Response
-	189, // 34: sliverpb.UploadReq.Request:type_name -> commonpb.Request
-	188, // 35: sliverpb.Upload.Response:type_name -> commonpb.Response
-	189, // 36: sliverpb.GrepReq.Request:type_name -> commonpb.Request
+	189, // 20: sliverpb.Ls.Response:type_name -> commonpb.Response
+	190, // 21: sliverpb.CdReq.Request:type_name -> commonpb.Request
+	190, // 22: sliverpb.PwdReq.Request:type_name -> commonpb.Request
+	189, // 23: sliverpb.Pwd.Response:type_name -> commonpb.Response
+	190, // 24: sliverpb.RmReq.Request:type_name -> commonpb.Request
+	189, // 25: sliverpb.Rm.Response:type_name -> commonpb.Response
+	190, // 26: sliverpb.MvReq.Request:type_name -> commonpb.Request
+	189, // 27: sliverpb.Mv.Response:type_name -> commonpb.Response
+	190, // 28: sliverpb.CpReq.Request:type_name -> commonpb.Request
+	189, // 29: sliverpb.Cp.Response:type_name -> commonpb.Response
+	190, // 30: sliverpb.MkdirReq.Request:type_name -> commonpb.Request
+	189, // 31: sliverpb.Mkdir.Response:type_name -> commonpb.Response
+	190, // 32: sliverpb.DownloadReq.Request:type_name -> commonpb.Request
+	189, // 33: sliverpb.Download.Response:type_name -> commonpb.Response
+	190, // 34: sliverpb.UploadReq.Request:type_name -> commonpb.Request
+	189, // 35: sliverpb.Upload.Response:type_name -> commonpb.Response
+	190, // 36: sliverpb.GrepReq.Request:type_name -> commonpb.Request
 	38,  // 37: sliverpb.GrepResult.Positions:type_name -> sliverpb.GrepLinePosition
 	39,  // 38: sliverpb.GrepResultsForFile.FileResults:type_name -> sliverpb.GrepResult
-	184, // 39: sliverpb.Grep.Results:type_name -> sliverpb.Grep.ResultsEntry
-	188, // 40: sliverpb.Grep.Response:type_name -> commonpb.Response
-	189, // 41: sliverpb.MountReq.Request:type_name -> commonpb.Request
+	185, // 39: sliverpb.Grep.Results:type_name -> sliverpb.Grep.ResultsEntry
+	189, // 40: sliverpb.Grep.Response:type_name -> commonpb.Response
+	190, // 41: sliverpb.MountReq.Request:type_name -> commonpb.Request
 	43,  // 42: sliverpb.Mount.Info:type_name -> sliverpb.MountInfo
-	188, // 43: sliverpb.Mount.Response:type_name -> commonpb.Response
-	189, // 44: sliverpb.ProcessDumpReq.Request:type_name -> commonpb.Request
-	188, // 45: sliverpb.ProcessDump.Response:type_name -> commonpb.Response
-	189, // 46: sliverpb.RunAsReq.Request:type_name -> commonpb.Request
-	188, // 47: sliverpb.RunAs.Response:type_name -> commonpb.Response
-	189, // 48: sliverpb.ImpersonateReq.Request:type_name -> commonpb.Request
-	188, // 49: sliverpb.Impersonate.Response:type_name -> commonpb.Response
-	189, // 50: sliverpb.RevToSelfReq.Request:type_name -> commonpb.Request
-	188, // 51: sliverpb.RevToSelf.Response:type_name -> commonpb.Response
-	189, // 52: sliverpb.CurrentTokenOwnerReq.Request:type_name -> commonpb.Request
-	188, // 53: sliverpb.CurrentTokenOwner.Response:type_name -> commonpb.Response
-	189, // 54: sliverpb.InvokeGetSystemReq.Request:type_name -> commonpb.Request
-	188, // 55: sliverpb.GetSystem.Response:type_name -> commonpb.Response
-	189, // 56: sliverpb.MakeTokenReq.Request:type_name -> commonpb.Request
-	188, // 57: sliverpb.MakeToken.Response:type_name -> commonpb.Response
-	189, // 58: sliverpb.TaskReq.Request:type_name -> commonpb.Request
-	188, // 59: sliverpb.Task.Response:type_name -> commonpb.Response
-	189, // 60: sliverpb.ExecuteAssemblyReq.Request:type_name -> commonpb.Request
-	189, // 61: sliverpb.InvokeExecuteAssemblyReq.Request:type_name -> commonpb.Request
-	189, // 62: sliverpb.InvokeInProcExecuteAssemblyReq.Request:type_name -> commonpb.Request
-	188, // 63: sliverpb.ExecuteAssembly.Response:type_name -> commonpb.Response
-	189, // 64: sliverpb.InvokeMigrateReq.Request:type_name -> commonpb.Request
-	188, // 65: sliverpb.Migrate.Response:type_name -> commonpb.Response
-	185, // 66: sliverpb.ExecuteReq.Env:type_name -> sliverpb.ExecuteReq.EnvEntry
-	189, // 67: sliverpb.ExecuteReq.Request:type_name -> commonpb.Request
-	189, // 68: sliverpb.ExecuteWindowsReq.Request:type_name -> commonpb.Request
-	188, // 69: sliverpb.Execute.Response:type_name -> commonpb.Response
-	189, // 70: sliverpb.SideloadReq.Request:type_name -> commonpb.Request
-	188, // 71: sliverpb.Sideload.Response:type_name -> commonpb.Response
-	189, // 72: sliverpb.InvokeSpawnDllReq.Request:type_name -> commonpb.Request
-	189, // 73: sliverpb.SpawnDllReq.Request:type_name -> commonpb.Request
-	188, // 74: sliverpb.SpawnDll.Response:type_name -> commonpb.Response
-	189, // 75: sliverpb.NetstatReq.Request:type_name -> commonpb.Request
-	186, // 76: sliverpb.SockTabEntry.LocalAddr:type_name -> sliverpb.SockTabEntry.SockAddr
-	186, // 77: sliverpb.SockTabEntry.RemoteAddr:type_name -> sliverpb.SockTabEntry.SockAddr
-	190, // 78: sliverpb.SockTabEntry.Process:type_name -> commonpb.Process
+	189, // 43: sliverpb.Mount.Response:type_name -> commonpb.Response
+	190, // 44: sliverpb.ProcessDumpReq.Request:type_name -> commonpb.Request
+	189, // 45: sliverpb.ProcessDump.Response:type_name -> commonpb.Response
+	190, // 46: sliverpb.RunAsReq.Request:type_name -> commonpb.Request
+	189, // 47: sliverpb.RunAs.Response:type_name -> commonpb.Response
+	190, // 48: sliverpb.ImpersonateReq.Request:type_name -> commonpb.Request
+	189, // 49: sliverpb.Impersonate.Response:type_name -> commonpb.Response
+	190, // 50: sliverpb.RevToSelfReq.Request:type_name -> commonpb.Request
+	189, // 51: sliverpb.RevToSelf.Response:type_name -> commonpb.Response
+	190, // 52: sliverpb.CurrentTokenOwnerReq.Request:type_name -> commonpb.Request
+	189, // 53: sliverpb.CurrentTokenOwner.Response:type_name -> commonpb.Response
+	190, // 54: sliverpb.InvokeGetSystemReq.Request:type_name -> commonpb.Request
+	189, // 55: sliverpb.GetSystem.Response:type_name -> commonpb.Response
+	190, // 56: sliverpb.MakeTokenReq.Request:type_name -> commonpb.Request
+	189, // 57: sliverpb.MakeToken.Response:type_name -> commonpb.Response
+	190, // 58: sliverpb.TaskReq.Request:type_name -> commonpb.Request
+	189, // 59: sliverpb.Task.Response:type_name -> commonpb.Response
+	190, // 60: sliverpb.ExecuteAssemblyReq.Request:type_name -> commonpb.Request
+	190, // 61: sliverpb.InvokeExecuteAssemblyReq.Request:type_name -> commonpb.Request
+	190, // 62: sliverpb.InvokeInProcExecuteAssemblyReq.Request:type_name -> commonpb.Request
+	189, // 63: sliverpb.ExecuteAssembly.Response:type_name -> commonpb.Response
+	190, // 64: sliverpb.InvokeMigrateReq.Request:type_name -> commonpb.Request
+	189, // 65: sliverpb.Migrate.Response:type_name -> commonpb.Response
+	186, // 66: sliverpb.ExecuteReq.Env:type_name -> sliverpb.ExecuteReq.EnvEntry
+	190, // 67: sliverpb.ExecuteReq.Request:type_name -> commonpb.Request
+	190, // 68: sliverpb.ExecuteWindowsReq.Request:type_name -> commonpb.Request
+	189, // 69: sliverpb.Execute.Response:type_name -> commonpb.Response
+	190, // 70: sliverpb.SideloadReq.Request:type_name -> commonpb.Request
+	189, // 71: sliverpb.Sideload.Response:type_name -> commonpb.Response
+	190, // 72: sliverpb.InvokeSpawnDllReq.Request:type_name -> commonpb.Request
+	190, // 73: sliverpb.SpawnDllReq.Request:type_name -> commonpb.Request
+	189, // 74: sliverpb.SpawnDll.Response:type_name -> commonpb.Response
+	190, // 75: sliverpb.NetstatReq.Request:type_name -> commonpb.Request
+	187, // 76: sliverpb.SockTabEntry.LocalAddr:type_name -> sliverpb.SockTabEntry.SockAddr
+	187, // 77: sliverpb.SockTabEntry.RemoteAddr:type_name -> sliverpb.SockTabEntry.SockAddr
+	191, // 78: sliverpb.SockTabEntry.Process:type_name -> commonpb.Process
 	76,  // 79: sliverpb.Netstat.Entries:type_name -> sliverpb.SockTabEntry
-	188, // 80: sliverpb.Netstat.Response:type_name -> commonpb.Response
-	189, // 81: sliverpb.EnvReq.Request:type_name -> commonpb.Request
-	191, // 82: sliverpb.EnvInfo.Variables:type_name -> commonpb.EnvVar
-	188, // 83: sliverpb.EnvInfo.Response:type_name -> commonpb.Response
-	191, // 84: sliverpb.SetEnvReq.Variable:type_name -> commonpb.EnvVar
-	189, // 85: sliverpb.SetEnvReq.Request:type_name -> commonpb.Request
-	188, // 86: sliverpb.SetEnv.Response:type_name -> commonpb.Response
-	189, // 87: sliverpb.UnsetEnvReq.Request:type_name -> commonpb.Request
-	188, // 88: sliverpb.UnsetEnv.Response:type_name -> commonpb.Response
-	189, // 89: sliverpb.ScreenshotReq.Request:type_name -> commonpb.Request
-	188, // 90: sliverpb.Screenshot.Response:type_name -> commonpb.Response
-	189, // 91: sliverpb.StartServiceReq.Request:type_name -> commonpb.Request
-	188, // 92: sliverpb.ServiceInfo.Response:type_name -> commonpb.Response
+	189, // 80: sliverpb.Netstat.Response:type_name -> commonpb.Response
+	190, // 81: sliverpb.EnvReq.Request:type_name -> commonpb.Request
+	192, // 82: sliverpb.EnvInfo.Variables:type_name -> commonpb.EnvVar
+	189, // 83: sliverpb.EnvInfo.Response:type_name -> commonpb.Response
+	192, // 84: sliverpb.SetEnvReq.Variable:type_name -> commonpb.EnvVar
+	190, // 85: sliverpb.SetEnvReq.Request:type_name -> commonpb.Request
+	189, // 86: sliverpb.SetEnv.Response:type_name -> commonpb.Response
+	190, // 87: sliverpb.UnsetEnvReq.Request:type_name -> commonpb.Request
+	189, // 88: sliverpb.UnsetEnv.Response:type_name -> commonpb.Response
+	190, // 89: sliverpb.ScreenshotReq.Request:type_name -> commonpb.Request
+	189, // 90: sliverpb.Screenshot.Response:type_name -> commonpb.Response
+	190, // 91: sliverpb.StartServiceReq.Request:type_name -> commonpb.Request
+	189, // 92: sliverpb.ServiceInfo.Response:type_name -> commonpb.Response
 	89,  // 93: sliverpb.StopServiceReq.ServiceInfo:type_name -> sliverpb.ServiceInfoReq
-	189, // 94: sliverpb.StopServiceReq.Request:type_name -> commonpb.Request
+	190, // 94: sliverpb.StopServiceReq.Request:type_name -> commonpb.Request
 	89,  // 95: sliverpb.RemoveServiceReq.ServiceInfo:type_name -> sliverpb.ServiceInfoReq
-	189, // 96: sliverpb.RemoveServiceReq.Request:type_name -> commonpb.Request
-	189, // 97: sliverpb.RegistryReadReq.Request:type_name -> commonpb.Request
-	188, // 98: sliverpb.RegistryRead.Response:type_name -> commonpb.Response
-	189, // 99: sliverpb.RegistryWriteReq.Request:type_name -> commonpb.Request
-	188, // 100: sliverpb.RegistryWrite.Response:type_name -> commonpb.Response
-	189, // 101: sliverpb.RegistryCreateKeyReq.Request:type_name -> commonpb.Request
-	188, // 102: sliverpb.RegistryCreateKey.Response:type_name -> commonpb.Response
-	189, // 103: sliverpb.RegistryDeleteKeyReq.Request:type_name -> commonpb.Request
-	188, // 104: sliverpb.RegistryDeleteKey.Response:type_name -> commonpb.Response
-	189, // 105: sliverpb.RegistrySubKeyListReq.Request:type_name -> commonpb.Request
-	188, // 106: sliverpb.RegistrySubKeyList.Response:type_name -> commonpb.Response
-	189, // 107: sliverpb.RegistryListValuesReq.Request:type_name -> commonpb.Request
-	188, // 108: sliverpb.RegistryValuesList.Response:type_name -> commonpb.Response
-	189, // 109: sliverpb.RegistryReadHiveReq.Request:type_name -> commonpb.Request
-	188, // 110: sliverpb.RegistryReadHive.Response:type_name -> commonpb.Response
-	158, // 111: sliverpb.TunnelData.rportfwd:type_name -> sliverpb.RPortfwd
-	189, // 112: sliverpb.ShellReq.Request:type_name -> commonpb.Request
-	188, // 113: sliverpb.Shell.Response:type_name -> commonpb.Response
-	189, // 114: sliverpb.PortfwdReq.Request:type_name -> commonpb.Request
-	188, // 115: sliverpb.Portfwd.Response:type_name -> commonpb.Response
-	189, // 116: sliverpb.SocksData.Request:type_name -> commonpb.Request
-	1,   // 117: sliverpb.PivotStartListenerReq.Type:type_name -> sliverpb.PivotType
-	189, // 118: sliverpb.PivotStartListenerReq.Request:type_name -> commonpb.Request
-	189, // 119: sliverpb.PivotStopListenerReq.Request:type_name -> commonpb.Request
-	1,   // 120: sliverpb.PivotListener.Type:type_name -> sliverpb.PivotType
-	122, // 121: sliverpb.PivotListener.Pivots:type_name -> sliverpb.NetConnPivot
-	188, // 122: sliverpb.PivotListener.Response:type_name -> commonpb.Response
-	119, // 123: sliverpb.PivotPeerEnvelope.Peers:type_name -> sliverpb.PivotPeer
-	2,   // 124: sliverpb.PivotPeerFailure.Type:type_name -> sliverpb.PeerFailureType
-	189, // 125: sliverpb.PivotListenersReq.Request:type_name -> commonpb.Request
-	116, // 126: sliverpb.PivotListeners.Listeners:type_name -> sliverpb.PivotListener
-	188, // 127: sliverpb.PivotListeners.Response:type_name -> commonpb.Response
-	189, // 128: sliverpb.WGPortForwardStartReq.Request:type_name -> commonpb.Request
-	134, // 129: sliverpb.WGPortForward.Forwarder:type_name -> sliverpb.WGTCPForwarder
-	188, // 130: sliverpb.WGPortForward.Response:type_name -> commonpb.Response
-	189, // 131: sliverpb.WGPortForwardStopReq.Request:type_name -> commonpb.Request
-	189, // 132: sliverpb.WGSocksStartReq.Request:type_name -> commonpb.Request
-	135, // 133: sliverpb.WGSocks.Server:type_name -> sliverpb.WGSocksServer
-	188, // 134: sliverpb.WGSocks.Response:type_name -> commonpb.Response
-	189, // 135: sliverpb.WGSocksStopReq.Request:type_name -> commonpb.Request
-	189, // 136: sliverpb.WGTCPForwardersReq.Request:type_name -> commonpb.Request
-	189, // 137: sliverpb.WGSocksServersReq.Request:type_name -> commonpb.Request
-	135, // 138: sliverpb.WGSocksServers.Servers:type_name -> sliverpb.WGSocksServer
-	188, // 139: sliverpb.WGSocksServers.Response:type_name -> commonpb.Response
-	134, // 140: sliverpb.WGTCPForwarders.Forwarders:type_name -> sliverpb.WGTCPForwarder
-	188, // 141: sliverpb.WGTCPForwarders.Response:type_name -> commonpb.Response
-	189, // 142: sliverpb.ReconfigureReq.Request:type_name -> commonpb.Request
-	188, // 143: sliverpb.Reconfigure.Response:type_name -> commonpb.Response
-	189, // 144: sliverpb.PollIntervalReq.Request:type_name -> commonpb.Request
-	188, // 145: sliverpb.PollInterval.Response:type_name -> commonpb.Response
-	189, // 146: sliverpb.SSHCommandReq.Request:type_name -> commonpb.Request
-	188, // 147: sliverpb.SSHCommand.Response:type_name -> commonpb.Response
-	189, // 148: sliverpb.GetPrivsReq.Request:type_name -> commonpb.Request
-	145, // 149: sliverpb.GetPrivs.PrivInfo:type_name -> sliverpb.WindowsPrivilegeEntry
-	188, // 150: sliverpb.GetPrivs.Response:type_name -> commonpb.Response
-	189, // 151: sliverpb.RegisterExtensionReq.Request:type_name -> commonpb.Request
-	188, // 152: sliverpb.RegisterExtension.Response:type_name -> commonpb.Response
-	189, // 153: sliverpb.CallExtensionReq.Request:type_name -> commonpb.Request
-	188, // 154: sliverpb.CallExtension.Response:type_name -> commonpb.Response
-	189, // 155: sliverpb.ListExtensionsReq.Request:type_name -> commonpb.Request
-	188, // 156: sliverpb.ListExtensions.Response:type_name -> commonpb.Response
-	189, // 157: sliverpb.RportFwdStopListenerReq.Request:type_name -> commonpb.Request
-	189, // 158: sliverpb.RportFwdStartListenerReq.Request:type_name -> commonpb.Request
-	188, // 159: sliverpb.RportFwdListener.Response:type_name -> commonpb.Response
-	155, // 160: sliverpb.RportFwdListeners.Listeners:type_name -> sliverpb.RportFwdListener
-	188, // 161: sliverpb.RportFwdListeners.Response:type_name -> commonpb.Response
-	189, // 162: sliverpb.RportFwdListenersReq.Request:type_name -> commonpb.Request
-	188, // 163: sliverpb.RPortfwd.Response:type_name -> commonpb.Response
-	189, // 164: sliverpb.RPortfwdReq.Request:type_name -> commonpb.Request
-	189, // 165: sliverpb.ChmodReq.Request:type_name -> commonpb.Request
-	188, // 166: sliverpb.Chmod.Response:type_name -> commonpb.Response
-	189, // 167: sliverpb.ChownReq.Request:type_name -> commonpb.Request
-	188, // 168: sliverpb.Chown.Response:type_name -> commonpb.Response
-	189, // 169: sliverpb.ChtimesReq.Request:type_name -> commonpb.Request
-	188, // 170: sliverpb.Chtimes.Response:type_name -> commonpb.Response
-	189, // 171: sliverpb.MemfilesListReq.Request:type_name -> commonpb.Request
-	189, // 172: sliverpb.MemfilesAddReq.Request:type_name -> commonpb.Request
-	188, // 173: sliverpb.MemfilesAdd.Response:type_name -> commonpb.Response
-	189, // 174: sliverpb.MemfilesRmReq.Request:type_name -> commonpb.Request
-	188, // 175: sliverpb.MemfilesRm.Response:type_name -> commonpb.Response
-	189, // 176: sliverpb.RegisterWasmExtensionReq.Request:type_name -> commonpb.Request
-	188, // 177: sliverpb.RegisterWasmExtension.Response:type_name -> commonpb.Response
-	189, // 178: sliverpb.DeregisterWasmExtensionReq.Request:type_name -> commonpb.Request
-	189, // 179: sliverpb.ListWasmExtensionsReq.Request:type_name -> commonpb.Request
-	188, // 180: sliverpb.ListWasmExtensions.Response:type_name -> commonpb.Response
-	187, // 181: sliverpb.ExecWasmExtensionReq.MemFS:type_name -> sliverpb.ExecWasmExtensionReq.MemFSEntry
-	189, // 182: sliverpb.ExecWasmExtensionReq.Request:type_name -> commonpb.Request
-	188, // 183: sliverpb.ExecWasmExtension.Response:type_name -> commonpb.Response
-	189, // 184: sliverpb.ServicesReq.Request:type_name -> commonpb.Request
-	89,  // 185: sliverpb.ServiceDetailReq.ServiceInfo:type_name -> sliverpb.ServiceInfoReq
-	189, // 186: sliverpb.ServiceDetailReq.Request:type_name -> commonpb.Request
-	180, // 187: sliverpb.Services.Details:type_name -> sliverpb.ServiceDetails
-	188, // 188: sliverpb.Services.Response:type_name -> commonpb.Response
-	180, // 189: sliverpb.ServiceDetail.Detail:type_name -> sliverpb.ServiceDetails
-	188, // 190: sliverpb.ServiceDetail.Response:type_name -> commonpb.Response
-	89,  // 191: sliverpb.StartServiceByNameReq.ServiceInfo:type_name -> sliverpb.ServiceInfoReq
-	189, // 192: sliverpb.StartServiceByNameReq.Request:type_name -> commonpb.Request
-	40,  // 193: sliverpb.Grep.ResultsEntry.value:type_name -> sliverpb.GrepResultsForFile
-	194, // [194:194] is the sub-list for method output_type
-	194, // [194:194] is the sub-list for method input_type
-	194, // [194:194] is the sub-list for extension type_name
-	194, // [194:194] is the sub-list for extension extendee
-	0,   // [0:194] is the sub-list for field type_name
+	190, // 96: sliverpb.RemoveServiceReq.Request:type_name -> commonpb.Request
+	190, // 97: sliverpb.RegistryReadReq.Request:type_name -> commonpb.Request
+	189, // 98: sliverpb.RegistryRead.Response:type_name -> commonpb.Response
+	190, // 99: sliverpb.RegistryWriteReq.Request:type_name -> commonpb.Request
+	189, // 100: sliverpb.RegistryWrite.Response:type_name -> commonpb.Response
+	190, // 101: sliverpb.RegistryCreateKeyReq.Request:type_name -> commonpb.Request
+	189, // 102: sliverpb.RegistryCreateKey.Response:type_name -> commonpb.Response
+	190, // 103: sliverpb.RegistryDeleteKeyReq.Request:type_name -> commonpb.Request
+	189, // 104: sliverpb.RegistryDeleteKey.Response:type_name -> commonpb.Response
+	190, // 105: sliverpb.RegistrySubKeyListReq.Request:type_name -> commonpb.Request
+	189, // 106: sliverpb.RegistrySubKeyList.Response:type_name -> commonpb.Response
+	190, // 107: sliverpb.RegistryListValuesReq.Request:type_name -> commonpb.Request
+	189, // 108: sliverpb.RegistryValuesList.Response:type_name -> commonpb.Response
+	190, // 109: sliverpb.RegistryReadHiveReq.Request:type_name -> commonpb.Request
+	189, // 110: sliverpb.RegistryReadHive.Response:type_name -> commonpb.Response
+	159, // 111: sliverpb.TunnelData.rportfwd:type_name -> sliverpb.RPortfwd
+	190, // 112: sliverpb.ShellReq.Request:type_name -> commonpb.Request
+	189, // 113: sliverpb.Shell.Response:type_name -> commonpb.Response
+	190, // 114: sliverpb.ShellResizeReq.Request:type_name -> commonpb.Request
+	190, // 115: sliverpb.PortfwdReq.Request:type_name -> commonpb.Request
+	189, // 116: sliverpb.Portfwd.Response:type_name -> commonpb.Response
+	190, // 117: sliverpb.SocksData.Request:type_name -> commonpb.Request
+	1,   // 118: sliverpb.PivotStartListenerReq.Type:type_name -> sliverpb.PivotType
+	190, // 119: sliverpb.PivotStartListenerReq.Request:type_name -> commonpb.Request
+	190, // 120: sliverpb.PivotStopListenerReq.Request:type_name -> commonpb.Request
+	1,   // 121: sliverpb.PivotListener.Type:type_name -> sliverpb.PivotType
+	123, // 122: sliverpb.PivotListener.Pivots:type_name -> sliverpb.NetConnPivot
+	189, // 123: sliverpb.PivotListener.Response:type_name -> commonpb.Response
+	120, // 124: sliverpb.PivotPeerEnvelope.Peers:type_name -> sliverpb.PivotPeer
+	2,   // 125: sliverpb.PivotPeerFailure.Type:type_name -> sliverpb.PeerFailureType
+	190, // 126: sliverpb.PivotListenersReq.Request:type_name -> commonpb.Request
+	117, // 127: sliverpb.PivotListeners.Listeners:type_name -> sliverpb.PivotListener
+	189, // 128: sliverpb.PivotListeners.Response:type_name -> commonpb.Response
+	190, // 129: sliverpb.WGPortForwardStartReq.Request:type_name -> commonpb.Request
+	135, // 130: sliverpb.WGPortForward.Forwarder:type_name -> sliverpb.WGTCPForwarder
+	189, // 131: sliverpb.WGPortForward.Response:type_name -> commonpb.Response
+	190, // 132: sliverpb.WGPortForwardStopReq.Request:type_name -> commonpb.Request
+	190, // 133: sliverpb.WGSocksStartReq.Request:type_name -> commonpb.Request
+	136, // 134: sliverpb.WGSocks.Server:type_name -> sliverpb.WGSocksServer
+	189, // 135: sliverpb.WGSocks.Response:type_name -> commonpb.Response
+	190, // 136: sliverpb.WGSocksStopReq.Request:type_name -> commonpb.Request
+	190, // 137: sliverpb.WGTCPForwardersReq.Request:type_name -> commonpb.Request
+	190, // 138: sliverpb.WGSocksServersReq.Request:type_name -> commonpb.Request
+	136, // 139: sliverpb.WGSocksServers.Servers:type_name -> sliverpb.WGSocksServer
+	189, // 140: sliverpb.WGSocksServers.Response:type_name -> commonpb.Response
+	135, // 141: sliverpb.WGTCPForwarders.Forwarders:type_name -> sliverpb.WGTCPForwarder
+	189, // 142: sliverpb.WGTCPForwarders.Response:type_name -> commonpb.Response
+	190, // 143: sliverpb.ReconfigureReq.Request:type_name -> commonpb.Request
+	189, // 144: sliverpb.Reconfigure.Response:type_name -> commonpb.Response
+	190, // 145: sliverpb.PollIntervalReq.Request:type_name -> commonpb.Request
+	189, // 146: sliverpb.PollInterval.Response:type_name -> commonpb.Response
+	190, // 147: sliverpb.SSHCommandReq.Request:type_name -> commonpb.Request
+	189, // 148: sliverpb.SSHCommand.Response:type_name -> commonpb.Response
+	190, // 149: sliverpb.GetPrivsReq.Request:type_name -> commonpb.Request
+	146, // 150: sliverpb.GetPrivs.PrivInfo:type_name -> sliverpb.WindowsPrivilegeEntry
+	189, // 151: sliverpb.GetPrivs.Response:type_name -> commonpb.Response
+	190, // 152: sliverpb.RegisterExtensionReq.Request:type_name -> commonpb.Request
+	189, // 153: sliverpb.RegisterExtension.Response:type_name -> commonpb.Response
+	190, // 154: sliverpb.CallExtensionReq.Request:type_name -> commonpb.Request
+	189, // 155: sliverpb.CallExtension.Response:type_name -> commonpb.Response
+	190, // 156: sliverpb.ListExtensionsReq.Request:type_name -> commonpb.Request
+	189, // 157: sliverpb.ListExtensions.Response:type_name -> commonpb.Response
+	190, // 158: sliverpb.RportFwdStopListenerReq.Request:type_name -> commonpb.Request
+	190, // 159: sliverpb.RportFwdStartListenerReq.Request:type_name -> commonpb.Request
+	189, // 160: sliverpb.RportFwdListener.Response:type_name -> commonpb.Response
+	156, // 161: sliverpb.RportFwdListeners.Listeners:type_name -> sliverpb.RportFwdListener
+	189, // 162: sliverpb.RportFwdListeners.Response:type_name -> commonpb.Response
+	190, // 163: sliverpb.RportFwdListenersReq.Request:type_name -> commonpb.Request
+	189, // 164: sliverpb.RPortfwd.Response:type_name -> commonpb.Response
+	190, // 165: sliverpb.RPortfwdReq.Request:type_name -> commonpb.Request
+	190, // 166: sliverpb.ChmodReq.Request:type_name -> commonpb.Request
+	189, // 167: sliverpb.Chmod.Response:type_name -> commonpb.Response
+	190, // 168: sliverpb.ChownReq.Request:type_name -> commonpb.Request
+	189, // 169: sliverpb.Chown.Response:type_name -> commonpb.Response
+	190, // 170: sliverpb.ChtimesReq.Request:type_name -> commonpb.Request
+	189, // 171: sliverpb.Chtimes.Response:type_name -> commonpb.Response
+	190, // 172: sliverpb.MemfilesListReq.Request:type_name -> commonpb.Request
+	190, // 173: sliverpb.MemfilesAddReq.Request:type_name -> commonpb.Request
+	189, // 174: sliverpb.MemfilesAdd.Response:type_name -> commonpb.Response
+	190, // 175: sliverpb.MemfilesRmReq.Request:type_name -> commonpb.Request
+	189, // 176: sliverpb.MemfilesRm.Response:type_name -> commonpb.Response
+	190, // 177: sliverpb.RegisterWasmExtensionReq.Request:type_name -> commonpb.Request
+	189, // 178: sliverpb.RegisterWasmExtension.Response:type_name -> commonpb.Response
+	190, // 179: sliverpb.DeregisterWasmExtensionReq.Request:type_name -> commonpb.Request
+	190, // 180: sliverpb.ListWasmExtensionsReq.Request:type_name -> commonpb.Request
+	189, // 181: sliverpb.ListWasmExtensions.Response:type_name -> commonpb.Response
+	188, // 182: sliverpb.ExecWasmExtensionReq.MemFS:type_name -> sliverpb.ExecWasmExtensionReq.MemFSEntry
+	190, // 183: sliverpb.ExecWasmExtensionReq.Request:type_name -> commonpb.Request
+	189, // 184: sliverpb.ExecWasmExtension.Response:type_name -> commonpb.Response
+	190, // 185: sliverpb.ServicesReq.Request:type_name -> commonpb.Request
+	89,  // 186: sliverpb.ServiceDetailReq.ServiceInfo:type_name -> sliverpb.ServiceInfoReq
+	190, // 187: sliverpb.ServiceDetailReq.Request:type_name -> commonpb.Request
+	181, // 188: sliverpb.Services.Details:type_name -> sliverpb.ServiceDetails
+	189, // 189: sliverpb.Services.Response:type_name -> commonpb.Response
+	181, // 190: sliverpb.ServiceDetail.Detail:type_name -> sliverpb.ServiceDetails
+	189, // 191: sliverpb.ServiceDetail.Response:type_name -> commonpb.Response
+	89,  // 192: sliverpb.StartServiceByNameReq.ServiceInfo:type_name -> sliverpb.ServiceInfoReq
+	190, // 193: sliverpb.StartServiceByNameReq.Request:type_name -> commonpb.Request
+	40,  // 194: sliverpb.Grep.ResultsEntry.value:type_name -> sliverpb.GrepResultsForFile
+	195, // [195:195] is the sub-list for method output_type
+	195, // [195:195] is the sub-list for method input_type
+	195, // [195:195] is the sub-list for extension type_name
+	195, // [195:195] is the sub-list for extension extendee
+	0,   // [0:195] is the sub-list for field type_name
 }
 
 func init() { file_sliverpb_sliver_proto_init() }
@@ -15406,7 +15506,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[107].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PortfwdReq); i {
+			switch v := v.(*ShellResizeReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15418,7 +15518,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[108].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Portfwd); i {
+			switch v := v.(*PortfwdReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15430,7 +15530,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[109].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Socks); i {
+			switch v := v.(*Portfwd); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15442,7 +15542,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[110].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*SocksData); i {
+			switch v := v.(*Socks); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15454,7 +15554,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[111].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PivotStartListenerReq); i {
+			switch v := v.(*SocksData); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15466,7 +15566,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[112].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PivotStopListenerReq); i {
+			switch v := v.(*PivotStartListenerReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15478,7 +15578,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[113].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PivotListener); i {
+			switch v := v.(*PivotStopListenerReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15490,7 +15590,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[114].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PivotHello); i {
+			switch v := v.(*PivotListener); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15502,7 +15602,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[115].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PivotServerKeyExchange); i {
+			switch v := v.(*PivotHello); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15514,7 +15614,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[116].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PivotPeer); i {
+			switch v := v.(*PivotServerKeyExchange); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15526,7 +15626,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[117].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PivotPeerEnvelope); i {
+			switch v := v.(*PivotPeer); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15538,7 +15638,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[118].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PivotPing); i {
+			switch v := v.(*PivotPeerEnvelope); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15550,7 +15650,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[119].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*NetConnPivot); i {
+			switch v := v.(*PivotPing); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15562,7 +15662,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[120].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PivotPeerFailure); i {
+			switch v := v.(*NetConnPivot); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15574,7 +15674,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[121].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PivotListenersReq); i {
+			switch v := v.(*PivotPeerFailure); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15586,7 +15686,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[122].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PivotListeners); i {
+			switch v := v.(*PivotListenersReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15598,7 +15698,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[123].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*WGPortForwardStartReq); i {
+			switch v := v.(*PivotListeners); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15610,7 +15710,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[124].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*WGPortForward); i {
+			switch v := v.(*WGPortForwardStartReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15622,7 +15722,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[125].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*WGPortForwardStopReq); i {
+			switch v := v.(*WGPortForward); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15634,7 +15734,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[126].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*WGSocksStartReq); i {
+			switch v := v.(*WGPortForwardStopReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15646,7 +15746,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[127].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*WGSocks); i {
+			switch v := v.(*WGSocksStartReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15658,7 +15758,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[128].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*WGSocksStopReq); i {
+			switch v := v.(*WGSocks); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15670,7 +15770,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[129].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*WGTCPForwardersReq); i {
+			switch v := v.(*WGSocksStopReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15682,7 +15782,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[130].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*WGSocksServersReq); i {
+			switch v := v.(*WGTCPForwardersReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15694,7 +15794,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[131].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*WGTCPForwarder); i {
+			switch v := v.(*WGSocksServersReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15706,7 +15806,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[132].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*WGSocksServer); i {
+			switch v := v.(*WGTCPForwarder); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15718,7 +15818,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[133].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*WGSocksServers); i {
+			switch v := v.(*WGSocksServer); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15730,7 +15830,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[134].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*WGTCPForwarders); i {
+			switch v := v.(*WGSocksServers); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15742,7 +15842,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[135].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ReconfigureReq); i {
+			switch v := v.(*WGTCPForwarders); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15754,7 +15854,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[136].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Reconfigure); i {
+			switch v := v.(*ReconfigureReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15766,7 +15866,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[137].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PollIntervalReq); i {
+			switch v := v.(*Reconfigure); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15778,7 +15878,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[138].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PollInterval); i {
+			switch v := v.(*PollIntervalReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15790,7 +15890,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[139].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*SSHCommandReq); i {
+			switch v := v.(*PollInterval); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15802,7 +15902,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[140].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*SSHCommand); i {
+			switch v := v.(*SSHCommandReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15814,7 +15914,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[141].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetPrivsReq); i {
+			switch v := v.(*SSHCommand); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15826,7 +15926,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[142].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*WindowsPrivilegeEntry); i {
+			switch v := v.(*GetPrivsReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15838,7 +15938,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[143].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetPrivs); i {
+			switch v := v.(*WindowsPrivilegeEntry); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15850,7 +15950,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[144].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RegisterExtensionReq); i {
+			switch v := v.(*GetPrivs); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15862,7 +15962,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[145].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RegisterExtension); i {
+			switch v := v.(*RegisterExtensionReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15874,7 +15974,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[146].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CallExtensionReq); i {
+			switch v := v.(*RegisterExtension); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15886,7 +15986,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[147].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CallExtension); i {
+			switch v := v.(*CallExtensionReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15898,7 +15998,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[148].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListExtensionsReq); i {
+			switch v := v.(*CallExtension); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15910,7 +16010,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[149].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListExtensions); i {
+			switch v := v.(*ListExtensionsReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15922,7 +16022,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[150].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RportFwdStopListenerReq); i {
+			switch v := v.(*ListExtensions); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15934,7 +16034,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[151].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RportFwdStartListenerReq); i {
+			switch v := v.(*RportFwdStopListenerReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15946,7 +16046,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[152].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RportFwdListener); i {
+			switch v := v.(*RportFwdStartListenerReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15958,7 +16058,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[153].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RportFwdListeners); i {
+			switch v := v.(*RportFwdListener); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15970,7 +16070,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[154].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RportFwdListenersReq); i {
+			switch v := v.(*RportFwdListeners); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15982,7 +16082,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[155].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RPortfwd); i {
+			switch v := v.(*RportFwdListenersReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -15994,7 +16094,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[156].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RPortfwdReq); i {
+			switch v := v.(*RPortfwd); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -16006,7 +16106,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[157].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ChmodReq); i {
+			switch v := v.(*RPortfwdReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -16018,7 +16118,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[158].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Chmod); i {
+			switch v := v.(*ChmodReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -16030,7 +16130,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[159].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ChownReq); i {
+			switch v := v.(*Chmod); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -16042,7 +16142,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[160].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Chown); i {
+			switch v := v.(*ChownReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -16054,7 +16154,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[161].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ChtimesReq); i {
+			switch v := v.(*Chown); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -16066,7 +16166,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[162].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Chtimes); i {
+			switch v := v.(*ChtimesReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -16078,7 +16178,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[163].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MemfilesListReq); i {
+			switch v := v.(*Chtimes); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -16090,7 +16190,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[164].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MemfilesAddReq); i {
+			switch v := v.(*MemfilesListReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -16102,7 +16202,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[165].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MemfilesAdd); i {
+			switch v := v.(*MemfilesAddReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -16114,7 +16214,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[166].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MemfilesRmReq); i {
+			switch v := v.(*MemfilesAdd); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -16126,7 +16226,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[167].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MemfilesRm); i {
+			switch v := v.(*MemfilesRmReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -16138,7 +16238,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[168].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RegisterWasmExtensionReq); i {
+			switch v := v.(*MemfilesRm); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -16150,7 +16250,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[169].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RegisterWasmExtension); i {
+			switch v := v.(*RegisterWasmExtensionReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -16162,7 +16262,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[170].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*DeregisterWasmExtensionReq); i {
+			switch v := v.(*RegisterWasmExtension); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -16174,7 +16274,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[171].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListWasmExtensionsReq); i {
+			switch v := v.(*DeregisterWasmExtensionReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -16186,7 +16286,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[172].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListWasmExtensions); i {
+			switch v := v.(*ListWasmExtensionsReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -16198,7 +16298,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[173].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ExecWasmExtensionReq); i {
+			switch v := v.(*ListWasmExtensions); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -16210,7 +16310,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[174].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ExecWasmExtension); i {
+			switch v := v.(*ExecWasmExtensionReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -16222,7 +16322,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[175].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ServicesReq); i {
+			switch v := v.(*ExecWasmExtension); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -16234,7 +16334,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[176].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ServiceDetailReq); i {
+			switch v := v.(*ServicesReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -16246,7 +16346,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[177].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ServiceDetails); i {
+			switch v := v.(*ServiceDetailReq); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -16258,7 +16358,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[178].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Services); i {
+			switch v := v.(*ServiceDetails); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -16270,7 +16370,7 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[179].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ServiceDetail); i {
+			switch v := v.(*Services); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -16282,6 +16382,18 @@ func file_sliverpb_sliver_proto_init() {
 			}
 		}
 		file_sliverpb_sliver_proto_msgTypes[180].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ServiceDetail); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_sliverpb_sliver_proto_msgTypes[181].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*StartServiceByNameReq); i {
 			case 0:
 				return &v.state
@@ -16293,7 +16405,7 @@ func file_sliverpb_sliver_proto_init() {
 				return nil
 			}
 		}
-		file_sliverpb_sliver_proto_msgTypes[183].Exporter = func(v interface{}, i int) interface{} {
+		file_sliverpb_sliver_proto_msgTypes[184].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*SockTabEntry_SockAddr); i {
 			case 0:
 				return &v.state
@@ -16312,7 +16424,7 @@ func file_sliverpb_sliver_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_sliverpb_sliver_proto_rawDesc,
 			NumEnums:      3,
-			NumMessages:   185,
+			NumMessages:   186,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
