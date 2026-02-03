@@ -64,6 +64,14 @@ var operatorCmd = &cobra.Command{
 			return
 		}
 
+		if !cmd.Flags().Changed(lportFlagStr) {
+			serverConfig := configs.GetServerConfig()
+
+			if serverConfig.DaemonMode {
+				lport = uint16(serverConfig.DaemonConfig.Port)
+			}
+		}
+
 		save, err := cmd.Flags().GetString(saveFlagStr)
 		if err != nil {
 			fmt.Printf("Failed to parse --%s flag %s", saveFlagStr, err)
