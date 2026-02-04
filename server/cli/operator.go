@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 
 	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/console"
 	"github.com/spf13/cobra"
 )
