@@ -352,6 +352,9 @@ const (
 
 	// MsgMountReq - Request filesystem mounts
 	MsgMountReq
+
+	// MsgShellResizeReq - Resize a shell PTY
+	MsgShellResizeReq
 )
 
 // Constants to replace enums
@@ -413,6 +416,8 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgShellReq
 	case *Shell:
 		return MsgShell
+	case *ShellResizeReq:
+		return MsgShellResizeReq
 	case *ProcessDumpReq:
 		return MsgProcessDumpReq
 	case *ProcessDump:

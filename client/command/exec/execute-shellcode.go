@@ -157,10 +157,25 @@ func executeInteractive(cmd *cobra.Command, hostProc string, shellcode []byte, r
 
 	tunnel := core.GetTunnels().Start(rpcTunnel.GetTunnelID(), rpcTunnel.GetSessionID())
 
+	var rows uint32
+	var cols uint32
+	if !noPty {
+		colsInt, rowsInt, err := term.GetSize(int(os.Stdout.Fd()))
+		if err != nil || rowsInt <= 0 || colsInt <= 0 {
+			colsInt, rowsInt, err = term.GetSize(int(os.Stdin.Fd()))
+		}
+		if err == nil && rowsInt > 0 && colsInt > 0 {
+			rows = uint32(rowsInt)
+			cols = uint32(colsInt)
+		}
+	}
+
 	shell, err := con.Rpc.Shell(context.Background(), &sliverpb.ShellReq{
 		Request:   con.ActiveTarget.Request(cmd),
 		Path:      hostProc,
 		EnablePTY: !noPty,
+		Rows:      rows,
+		Cols:      cols,
 		TunnelID:  tunnel.ID,
 	})
 	if err != nil {
@@ -199,6 +214,12 @@ func executeInteractive(cmd *cobra.Command, hostProc string, shellcode []byte, r
 			return
 		}
 	}
+
+	stopPtyResize := func() {}
+	if !noPty {
+		stopPtyResize = startPtyResizeWatcher(con, cmd, tunnel.ID)
+	}
+	defer stopPtyResize()
 
 	log.Printf("Starting stdin/stdout shell ...")
 	go func() {

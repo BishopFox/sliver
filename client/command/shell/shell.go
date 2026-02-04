@@ -84,10 +84,25 @@ func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *conso
 	// Start() takes an RPC tunnel and creates a local Reader/Writer tunnel object
 	tunnel := core.GetTunnels().Start(rpcTunnel.TunnelID, rpcTunnel.SessionID)
 
+	var rows uint32
+	var cols uint32
+	if !noPty {
+		colsInt, rowsInt, err := term.GetSize(int(os.Stdout.Fd()))
+		if err != nil || rowsInt <= 0 || colsInt <= 0 {
+			colsInt, rowsInt, err = term.GetSize(int(os.Stdin.Fd()))
+		}
+		if err == nil && rowsInt > 0 && colsInt > 0 {
+			rows = uint32(rowsInt)
+			cols = uint32(colsInt)
+		}
+	}
+
 	shell, err := con.Rpc.Shell(context.Background(), &sliverpb.ShellReq{
 		Request:   con.ActiveTarget.Request(cmd),
 		Path:      shellPath,
 		EnablePTY: !noPty,
+		Rows:      rows,
+		Cols:      cols,
 		TunnelID:  tunnel.ID,
 	})
 	if err != nil {
@@ -119,6 +134,12 @@ func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *conso
 			return
 		}
 	}
+
+	stopPtyResize := func() {}
+	if !noPty {
+		stopPtyResize = startPtyResizeWatcher(con, cmd, tunnel.ID)
+	}
+	defer stopPtyResize()
 
 	log.Printf("Starting stdin/stdout shell ...")
 	go func() {

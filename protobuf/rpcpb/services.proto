@@ -275,6 +275,7 @@ service SliverRPC {
 
   // *** Realtime Commands ***
   rpc Shell(sliverpb.ShellReq) returns (sliverpb.Shell);
+  rpc ShellResize(sliverpb.ShellResizeReq) returns (commonpb.Empty);
   rpc Portfwd(sliverpb.PortfwdReq) returns (sliverpb.Portfwd);
 
   // *** Socks5 ***
