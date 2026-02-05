@@ -52,7 +52,10 @@ func (w *Website) BeforeCreate(tx *gorm.DB) (err error) {
 func (w *Website) ToProtobuf(webContentDir string) *clientpb.Website {
 	WebContents := map[string]*clientpb.WebContent{}
 	for _, webcontent := range w.WebContents {
-		contents, _ := os.ReadFile(filepath.Join(webContentDir, webcontent.Path))
+		contents, err := os.ReadFile(filepath.Join(webContentDir, webcontent.ID.String()))
+		if err != nil {
+			continue
+		}
 		WebContents[webcontent.ID.String()] = webcontent.ToProtobuf(&contents)
 	}
 	return &clientpb.Website{
