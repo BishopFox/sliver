@@ -98,6 +98,13 @@ else
     exit 1
 fi
 
+# implant / sliver / transports / wireguard
+if go test ./implant/sliver/transports/wireguard ; then
+    :
+else
+    exit 1
+fi
+
 ## Server
 
 # server / assets / traffic encoders
