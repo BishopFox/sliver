@@ -178,9 +178,9 @@ else
     exit 1
 fi
 
-# server / c2 / e2e (mtls + yamux)
+# server / c2 / e2e (mtls + wg + yamux)
 SLIVER_ROOT_DIR_E2E="$(mktemp -d)"
-if SLIVER_ROOT_DIR="$SLIVER_ROOT_DIR_E2E" go test -tags=server,$TAGS,sliver_e2e ./server/c2 -run TestMTLSYamux_ -count=1 ; then
+if SLIVER_ROOT_DIR="$SLIVER_ROOT_DIR_E2E" go test -tags=server,$TAGS,sliver_e2e ./server/c2 -run 'Test(MTLS|WG)Yamux_' -count=1 ; then
     :
 else
     cat "$SLIVER_ROOT_DIR_E2E/logs/sliver.log" 2>/dev/null || true
