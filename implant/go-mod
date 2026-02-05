@@ -7,6 +7,7 @@ require (
 	github.com/Binject/universal v0.0.0-20220519011857-bea739e758c0
 	github.com/Ne0nd0g/go-clr v1.0.3
 	github.com/gofrs/uuid v4.0.0+incompatible
+	github.com/hashicorp/yamux v0.1.2
 	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
 	github.com/lesnuages/go-winio v0.4.19
 	github.com/miekg/dns v1.1.50

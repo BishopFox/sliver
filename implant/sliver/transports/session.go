@@ -75,6 +75,7 @@ import (
 
 var (
 	_ time.Duration // Force import
+	_ io.ReadCloser // Force import
 )
 
 type Start func() error

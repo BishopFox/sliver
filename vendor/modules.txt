@@ -803,7 +803,7 @@ github.com/grpc-ecosystem/go-grpc-middleware/util/metautils
 # github.com/hashicorp/go-uuid v1.0.3
 ## explicit
 github.com/hashicorp/go-uuid
-# github.com/hashicorp/yamux v0.1.1
+# github.com/hashicorp/yamux v0.1.2
 ## explicit
 github.com/hashicorp/yamux
 # github.com/hdevalence/ed25519consensus v0.2.0
