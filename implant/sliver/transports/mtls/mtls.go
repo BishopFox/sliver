@@ -45,6 +45,9 @@ var (
 	// PingInterval - Amount of time between in-band "pings"
 	PingInterval = 2 * time.Minute
 
+	// YamuxPreface - Magic bytes sent before yamux frames
+	YamuxPreface = "SLIVER/YAMUX/1\n"
+
 	// caCertPEM - PEM encoded CA certificate
 	caCertPEM = `{{.Build.MtlsCACert}}`
 
@@ -55,7 +58,7 @@ var (
 // WriteEnvelope - Writes a message to the TLS socket using length prefix framing
 // which is a fancy way of saying we write the length of the message then the message
 // e.g. [uint32 length|message] so the receiver can delimit messages properly
-func WriteEnvelope(connection *tls.Conn, envelope *pb.Envelope) error {
+func WriteEnvelope(w io.Writer, envelope *pb.Envelope) error {
 	data, err := proto.Marshal(envelope)
 	if err != nil {
 		// {{if .Config.Debug}}
@@ -65,13 +68,13 @@ func WriteEnvelope(connection *tls.Conn, envelope *pb.Envelope) error {
 	}
 	dataLengthBuf := new(bytes.Buffer)
 	binary.Write(dataLengthBuf, binary.LittleEndian, uint32(len(data)))
-	if _, werr := connection.Write(dataLengthBuf.Bytes()); werr != nil {
+	if _, werr := w.Write(dataLengthBuf.Bytes()); werr != nil {
 		// {{if .Config.Debug}}
 		log.Print("Error writing data length: ", werr)
 		// {{end}}
 		return werr
 	}
-	if _, werr := connection.Write(data); werr != nil {
+	if _, werr := w.Write(data); werr != nil {
 		// {{if .Config.Debug}}
 		log.Print("Error writing data: ", werr)
 		// {{end}}
@@ -81,7 +84,7 @@ func WriteEnvelope(connection *tls.Conn, envelope *pb.Envelope) error {
 }
 
 // WritePing - Send a "ping" message to the server
-func WritePing(connection *tls.Conn) error {
+func WritePing(w io.Writer) error {
 	// {{if .Config.Debug}}
 	log.Print("Socket ping")
 	// {{end}}
@@ -92,16 +95,16 @@ func WritePing(connection *tls.Conn) error {
 		Type: pb.MsgPing,
 		Data: pingBuf,
 	}
-	return WriteEnvelope(connection, &envelope)
+	return WriteEnvelope(w, &envelope)
 }
 
 // ReadEnvelope - Reads a message from the TLS connection using length prefix framing
-func ReadEnvelope(connection *tls.Conn) (*pb.Envelope, error) {
+func ReadEnvelope(r io.Reader) (*pb.Envelope, error) {
 	dataLengthBuf := make([]byte, 4) // Size of uint32
-	if len(dataLengthBuf) == 0 || connection == nil {
+	if len(dataLengthBuf) == 0 || r == nil {
 		panic("[[GenerateCanary]]")
 	}
-	n, err := io.ReadFull(connection, dataLengthBuf)
+	n, err := io.ReadFull(r, dataLengthBuf)
 	if err != nil || n != 4 {
 		// {{if .Config.Debug}}
 		log.Printf("Socket error (read msg-length): %v\n", err)
@@ -119,7 +122,7 @@ func ReadEnvelope(connection *tls.Conn) (*pb.Envelope, error) {
 
 	dataBuf := make([]byte, dataLength)
 
-	n, err = io.ReadFull(connection, dataBuf)
+	n, err = io.ReadFull(r, dataBuf)
 
 	if err != nil || n != dataLength {
 		// {{if .Config.Debug}}

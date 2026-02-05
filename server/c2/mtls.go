@@ -19,6 +19,7 @@ package c2
 */
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
@@ -27,6 +28,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -34,6 +36,7 @@ import (
 	"github.com/bishopfox/sliver/server/core"
 	serverHandlers "github.com/bishopfox/sliver/server/handlers"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/hashicorp/yamux"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -43,10 +46,17 @@ const (
 
 	// ServerMaxMessageSize - Server-side max GRPC message size
 	ServerMaxMessageSize = (2 * 1024 * 1024 * 1024) - 1
+
+	mtlsYamuxPreface = "SLIVER/YAMUX/1\n"
+
+	mtlsYamuxMaxConcurrentStreams = 128
+	mtlsYamuxMaxConcurrentSends   = 64
 )
 
 var (
 	mtlsLog = log.NamedLogger("c2", consts.MtlsStr)
+
+	mtlsYamuxPrefaceBytes = []byte(mtlsYamuxPreface)
 )
 
 // StartMutualTLSListener - Start a mutual TLS listener
@@ -94,11 +104,41 @@ func handleSliverConnection(conn net.Conn) {
 		implantConn.Cleanup()
 	}()
 
-	done := make(chan bool)
+	br := bufio.NewReader(conn)
+	bufferedConn := &mtlsBufferedConn{Conn: conn, r: br}
+
+	preface, err := br.Peek(len(mtlsYamuxPrefaceBytes))
+	if err == nil && bytes.Equal(preface, mtlsYamuxPrefaceBytes) {
+		if _, err := br.Discard(len(mtlsYamuxPrefaceBytes)); err != nil {
+			mtlsLog.Errorf("Failed to discard yamux preface: %v", err)
+			return
+		}
+		handleSliverConnectionYamux(bufferedConn, implantConn)
+		return
+	}
+	handleSliverConnectionLegacy(bufferedConn, implantConn)
+}
+
+type mtlsBufferedConn struct {
+	net.Conn
+	r *bufio.Reader
+}
+
+func (c *mtlsBufferedConn) Read(p []byte) (int, error) {
+	return c.r.Read(p)
+}
+
+func handleSliverConnectionLegacy(conn net.Conn, implantConn *core.ImplantConnection) {
+	done := make(chan struct{})
+	var doneOnce sync.Once
+	closeDone := func() {
+		doneOnce.Do(func() {
+			close(done)
+		})
+	}
+
 	go func() {
-		defer func() {
-			done <- true
-		}()
+		defer closeDone()
 		handlers := serverHandlers.GetHandlers()
 		for {
 			envelope, err := socketReadEnvelope(conn)
@@ -109,36 +149,150 @@ func handleSliverConnection(conn net.Conn) {
 			implantConn.UpdateLastMessage()
 			if envelope.ID != 0 {
 				implantConn.RespMutex.RLock()
-				if resp, ok := implantConn.Resp[envelope.ID]; ok {
-					resp <- envelope // Could deadlock, maybe want to investigate better solutions
-				}
+				resp, ok := implantConn.Resp[envelope.ID]
 				implantConn.RespMutex.RUnlock()
+				if ok {
+					resp <- envelope
+				}
 			} else if handler, ok := handlers[envelope.Type]; ok {
 				mtlsLog.Debugf("Received new mtls message type %d, data: %s", envelope.Type, envelope.Data)
-				go func() {
+				go func(envelope *sliverpb.Envelope) {
 					respEnvelope := handler(implantConn, envelope.Data)
 					if respEnvelope != nil {
 						implantConn.Send <- respEnvelope
 					}
-				}()
+				}(envelope)
 			}
 		}
 	}()
 
-Loop:
 	for {
 		select {
 		case envelope := <-implantConn.Send:
-			err := socketWriteEnvelope(conn, envelope)
-			if err != nil {
+			if err := socketWriteEnvelope(conn, envelope); err != nil {
 				mtlsLog.Errorf("Socket write failed %v", err)
-				break Loop
+				closeDone()
+				return
 			}
 		case <-done:
-			break Loop
+			return
 		}
 	}
-	mtlsLog.Debugf("Closing implant connection %s", implantConn.ID)
+}
+
+func handleSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConnection) {
+	session, err := yamux.Server(conn, nil)
+	if err != nil {
+		mtlsLog.Errorf("Failed to initialize yamux session: %v", err)
+		return
+	}
+	defer session.Close()
+
+	done := make(chan struct{})
+	var doneOnce sync.Once
+	closeDone := func() {
+		doneOnce.Do(func() {
+			close(done)
+			session.Close()
+		})
+	}
+
+	streamSem := make(chan struct{}, mtlsYamuxMaxConcurrentStreams)
+	sendSem := make(chan struct{}, mtlsYamuxMaxConcurrentSends)
+	handlers := serverHandlers.GetHandlers()
+
+	go func() {
+		defer closeDone()
+		for {
+			stream, err := session.Accept()
+			if err != nil {
+				if !errors.Is(err, io.EOF) {
+					mtlsLog.Errorf("yamux accept error: %v", err)
+				}
+				return
+			}
+
+			select {
+			case streamSem <- struct{}{}:
+			case <-done:
+				stream.Close()
+				return
+			}
+
+			go func(stream net.Conn) {
+				defer func() {
+					<-streamSem
+				}()
+				defer stream.Close()
+
+				envelope, err := socketReadEnvelope(stream)
+				if err != nil {
+					mtlsLog.Errorf("Stream read error %v", err)
+					return
+				}
+				implantConn.UpdateLastMessage()
+
+				if envelope.ID != 0 {
+					implantConn.RespMutex.RLock()
+					resp, ok := implantConn.Resp[envelope.ID]
+					implantConn.RespMutex.RUnlock()
+					if ok {
+						resp <- envelope
+					}
+					return
+				}
+
+				if handler, ok := handlers[envelope.Type]; ok {
+					mtlsLog.Debugf("Received new mtls message type %d, data: %s", envelope.Type, envelope.Data)
+					go func(envelope *sliverpb.Envelope) {
+						respEnvelope := handler(implantConn, envelope.Data)
+						if respEnvelope != nil {
+							implantConn.Send <- respEnvelope
+						}
+					}(envelope)
+				}
+			}(stream)
+		}
+	}()
+
+	go func() {
+		defer closeDone()
+		for {
+			select {
+			case envelope := <-implantConn.Send:
+				select {
+				case sendSem <- struct{}{}:
+				case <-done:
+					return
+				}
+
+				go func(envelope *sliverpb.Envelope) {
+					defer func() {
+						<-sendSem
+					}()
+
+					stream, err := session.Open()
+					if err != nil {
+						mtlsLog.Errorf("yamux open stream error: %v", err)
+						closeDone()
+						return
+					}
+					defer stream.Close()
+
+					if err := socketWriteEnvelope(stream, envelope); err != nil {
+						mtlsLog.Errorf("Stream write failed %v", err)
+						closeDone()
+						return
+					}
+				}(envelope)
+
+			case <-done:
+				return
+			}
+		}
+	}()
+
+	<-done
 }
 
 // socketWriteEnvelope - Writes a message to the TLS socket using length prefix framing
@@ -151,9 +305,16 @@ func socketWriteEnvelope(connection net.Conn, envelope *sliverpb.Envelope) error
 		return err
 	}
 	dataLengthBuf := new(bytes.Buffer)
-	binary.Write(dataLengthBuf, binary.LittleEndian, uint32(len(data)))
-	connection.Write(dataLengthBuf.Bytes())
-	connection.Write(data)
+	if err := binary.Write(dataLengthBuf, binary.LittleEndian, uint32(len(data))); err != nil {
+		mtlsLog.Errorf("Envelope marshaling error: %v", err)
+		return err
+	}
+	if _, err := connection.Write(dataLengthBuf.Bytes()); err != nil {
+		return err
+	}
+	if _, err := connection.Write(data); err != nil {
+		return err
+	}
 	return nil
 }
 

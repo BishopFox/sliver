@@ -803,6 +803,9 @@ github.com/grpc-ecosystem/go-grpc-middleware/util/metautils
 # github.com/hashicorp/go-uuid v1.0.3
 ## explicit
 github.com/hashicorp/go-uuid
+# github.com/hashicorp/yamux v0.1.1
+## explicit
+github.com/hashicorp/yamux
 # github.com/hdevalence/ed25519consensus v0.2.0
 ## explicit; go 1.19
 github.com/hdevalence/ed25519consensus
