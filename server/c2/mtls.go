@@ -54,7 +54,7 @@ const (
 	// ServerMaxMessageSize - Server-side max GRPC message size
 	ServerMaxMessageSize = (2 * 1024 * 1024 * 1024) - 1
 
-	mtlsYamuxPreface = "SLIVER/YAMUX/1\n"
+	mtlsYamuxPreface = "MUX/1"
 
 	mtlsYamuxMaxConcurrentStreams = 128
 	mtlsYamuxMaxConcurrentSends   = 64
@@ -68,7 +68,7 @@ var (
 	mtlsImplantSigKeyCache sync.Map // map[uint64]ed25519.PublicKey
 )
 
-const mtlsEnvelopeSigningSeedPrefix = "sliver-mtls-envelope-signing-v1:"
+const mtlsEnvelopeSigningSeedPrefix = "env-signing-v1:"
 
 func deriveImplantSigningKey(peerPrivateKey string) (uint64, ed25519.PublicKey, error) {
 	if peerPrivateKey == "" {

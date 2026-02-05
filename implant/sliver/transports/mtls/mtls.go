@@ -51,7 +51,7 @@ var (
 	PingInterval = 2 * time.Minute
 
 	// YamuxPreface - Magic bytes sent before yamux frames
-	YamuxPreface = "SLIVER/YAMUX/1\n"
+	YamuxPreface = "MUX/1"
 
 	// caCertPEM - PEM encoded CA certificate
 	caCertPEM = `{{.Build.MtlsCACert}}`
@@ -60,7 +60,7 @@ var (
 	certPEM = `{{.Build.MtlsCert}}`
 )
 
-const mtlsEnvelopeSigningSeedPrefix = "sliver-mtls-envelope-signing-v1:"
+const mtlsEnvelopeSigningSeedPrefix = "env-signing-v1:"
 
 var (
 	envelopeSigningOnce  sync.Once
