@@ -232,31 +232,55 @@ func reassemble(t *testing.T, parent string, size int, encoder encoders.Encoder)
 	}
 }
 
-func TestDNSHelloRoundTrip(t *testing.T) {
+func TestDNSSessionInitRoundTrip(t *testing.T) {
 	server := newTestDNSServer()
 	resolver := &testDNSResolver{server: server, parent: example1}
 
-	msg := &dnspb.DNSMessage{
-		Type: dnspb.DNSMessageType_TOTP,
-		ID:   0,
+	sessionID := uint32(0x123456)
+	if _, ok := server.sessions.Load(sessionID); ok {
+		t.Fatalf("expected session %d to not exist before init", sessionID)
 	}
-	domain, err := encodeMessageDomain(example1, msg)
+
+	key := implantCrypto.RandomSymmetricKey()
+	cipherCtx := implantCrypto.NewCipherContext(key)
+	initData, err := implantCrypto.AgeKeyExToServer(key[:])
 	if err != nil {
-		t.Fatalf("encodeMessageDomain failed: %s", err)
+		t.Fatalf("AgeKeyExToServer failed: %s", err)
 	}
-	data, _, err := resolver.A(domain)
+	initMsg := &dnspb.DNSMessage{
+		Type: dnspb.DNSMessageType_INIT,
+		ID:   0x01000000 | sessionID,
+		Size: uint32(len(initData)),
+	}
+	client := dnsclient.NewDNSClient(example1, opts)
+	domains, err := client.SplitBuffer(initMsg, implantEncoders.Base32Encoder{}, initData)
 	if err != nil {
-		t.Fatalf("resolver.A failed: %s", err)
+		t.Fatalf("SplitBuffer failed: %s", err)
 	}
-	if len(data) != 4 {
-		t.Fatalf("expected 4 bytes in response, got %d", len(data))
+
+	var respData []byte
+	for _, domain := range domains {
+		data, _, err := resolver.TXT(domain)
+		if err != nil {
+			t.Fatalf("resolver.TXT failed: %s", err)
+		}
+		if 0 < len(data) {
+			respData = data
+		}
 	}
-	sessionID := binary.LittleEndian.Uint32(data) & sessionIDBitMask
-	if sessionID == 0 {
-		t.Fatal("expected non-zero session id")
+	if len(respData) < 1 {
+		t.Fatal("expected non-empty init response")
+	}
+	plaintext, err := cipherCtx.Decrypt(respData)
+	if err != nil {
+		t.Fatalf("init response decrypt failed: %s", err)
+	}
+	got := binary.LittleEndian.Uint32(plaintext) & sessionIDBitMask
+	if got != sessionID {
+		t.Fatalf("expected session id %d, got %d", sessionID, got)
 	}
 	if _, ok := server.sessions.Load(sessionID); !ok {
-		t.Fatalf("expected session %d to be stored", sessionID)
+		t.Fatalf("expected session %d to be stored after init", sessionID)
 	}
 }
 
@@ -421,7 +445,8 @@ func TestDNSDataToImplantRejectsInvalidRead(t *testing.T) {
 }
 
 func TestIsC2Domain(t *testing.T) {
-	listener := StartDNSListener("", uint16(9999), c2Domains, false, true)
+	listener := StartDNSListener("", uint16(9999), c2Domains, false)
+	t.Cleanup(func() { _ = listener.Shutdown() })
 	isC2, domain := listener.isC2SubDomain(c2Domains, "asdf.1.example.com.")
 	if !isC2 {
 		t.Fatal("IsC2Domain expected true, got false")
@@ -444,7 +469,8 @@ func TestIsC2Domain(t *testing.T) {
 }
 
 func TestDecodeSubdataBase32(t *testing.T) {
-	listener := StartDNSListener("", uint16(9999), c2Domains, false, true)
+	listener := StartDNSListener("", uint16(9999), c2Domains, false)
+	t.Cleanup(func() { _ = listener.Shutdown() })
 	payload := make([]byte, 64)
 	rand.Read(payload)
 	original := &dnspb.DNSMessage{
@@ -476,7 +502,8 @@ func TestDecodeSubdataBase32(t *testing.T) {
 }
 
 func TestDecodeSubdataRejectsInvalid(t *testing.T) {
-	listener := StartDNSListener("", uint16(9999), c2Domains, false, true)
+	listener := StartDNSListener("", uint16(9999), c2Domains, false)
+	t.Cleanup(func() { _ = listener.Shutdown() })
 	_, _, err := listener.decodeSubdata("invalid")
 	if err != ErrInvalidMsg {
 		t.Fatalf("expected ErrInvalidMsg, got %v", err)
@@ -484,7 +511,8 @@ func TestDecodeSubdataRejectsInvalid(t *testing.T) {
 }
 
 func TestDecodeSubdataRejectsInvalidProto(t *testing.T) {
-	listener := StartDNSListener("", uint16(9999), c2Domains, false, true)
+	listener := StartDNSListener("", uint16(9999), c2Domains, false)
+	t.Cleanup(func() { _ = listener.Shutdown() })
 	encoded, err := implantEncoders.Base32Encoder{}.Encode([]byte{0x00})
 	if err != nil {
 		t.Fatalf("encode failed: %s", err)
@@ -658,7 +686,6 @@ func newTestDNSServer() *SliverDNSServer {
 		messages:     &sync.Map{},
 		TTL:          0,
 		MaxTXTLength: defaultMaxTXTLength,
-		EnforceOTP:   false,
 	}
 }
 

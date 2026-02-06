@@ -82,7 +82,6 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.BoolP("no-canaries", "c", false, "disable dns canary detection")
 		f.StringP("lhost", "L", "", "interface to bind server to")
 		f.Uint32P("lport", "l", generate.DefaultDNSLPort, "udp listen port")
-		f.BoolP("disable-otp", "D", false, "disable otp authentication")
 	})
 
 	// HTTP
