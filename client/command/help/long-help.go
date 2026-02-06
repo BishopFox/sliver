@@ -182,8 +182,8 @@ You can also stack the C2 configuration with multiple protocols:
 
 
 [[.Bold]][[.Underline]]++ Formats ++[[.Normal]]
-Supported output formats are Windows PE, Windows DLL, Windows Shellcode, Mach-O, and ELF. The output format is controlled
-with the --os and --format flags.
+Supported output formats include Windows PE, Windows DLL, Windows shellcode, macOS Mach-O, macOS shellcode (arm64),
+and Linux ELF. The output format is controlled with the --os and --format flags.
 
 To output a 64bit Windows PE file (defaults to WinPE/64bit), either of the following command would be used:
 	generate --mtls foo.example.com 
@@ -199,16 +199,16 @@ To output a Linux ELF executable file, the following command would be used:
 	generate --os linux --mtls foo.example.com 
 
 
-[[.Bold]][[.Underline]]++ Donut Shellcode Options ++[[.Normal]]
-When generating Windows shellcode (--format shellcode), you can tune Donut:
-	--donut-entropy 1|2|3      # Entropy: 1=none (default), 2=random names, 3=random+encrypt
-	--donut-compress 0|1       # Compression: 0=off (default), 1=aplib
-	--donut-exitopt 1|2|3      # Exit behavior: 1=exit thread (default), 2=exit process, 3=block
-	--donut-bypass 1|2|3       # Bypass: 1=none, 2=abort on failure, 3=continue (default)
-	--donut-headers 1|2        # PE headers: 1=overwrite (default), 2=keep
-	--donut-thread 0|1         # Unmanaged EXE: run entrypoint as a new thread (default 0)
-	--donut-unicode 0|1        # Unmanaged DLL: pass Unicode command line (default 0)
-	--donut-oep <uint32>       # Override original entry point (0=default)
+[[.Bold]][[.Underline]]++ Shellcode Options ++[[.Normal]]
+When generating shellcode (--format shellcode), you can tune the shellcode generator:
+	--shellcode-compress        # Enable aPLib compression (windows and macOS)
+	--shellcode-entropy 1|2|3   # (windows only) Entropy: 1=none (default), 2=random names, 3=random+encrypt
+	--shellcode-exitopt 1|2|3   # (windows only) Exit behavior: 1=exit thread (default), 2=exit process, 3=block
+	--shellcode-bypass 1|2|3    # (windows only) Bypass: 1=none, 2=abort on failure, 3=continue (default)
+	--shellcode-headers 1|2     # (windows only) PE headers: 1=overwrite (default), 2=keep
+	--shellcode-thread          # (windows only) Unmanaged EXE: run entrypoint as a new thread
+	--shellcode-unicode         # (windows only) Unmanaged DLL: pass Unicode command line
+	--shellcode-oep <uint32>    # (windows only) Override original entry point (0=default)
 
 
 [[.Bold]][[.Underline]]++ DNS Canaries ++[[.Normal]]

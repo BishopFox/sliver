@@ -132,22 +132,26 @@ enum OutputFormat {
   THIRD_PARTY = 4;
 }
 
-message DonutConfig {
-  // 1=none, 2=random names, 3=random names + symmetric encryption
+// ShellcodeConfig - options used when generating shellcode output.
+//
+// Note: Most fields map to Donut options for Windows shellcode generation.
+// On macOS (darwin/arm64), only `Compress` is currently used (beignet aPLib).
+message ShellcodeConfig {
+  // 1=none, 2=random names, 3=random names + symmetric encryption (Windows/Donut only)
   uint32 Entropy = 2;
-  // 1=none, 2=aplib
+  // 1=none, 2=aplib (Windows/Donut + macOS/beignet)
   uint32 Compress = 3;
-  // 1=exit thread, 2=exit process, 3=block
+  // 1=exit thread, 2=exit process, 3=block (Windows/Donut only)
   uint32 ExitOpt = 4;
-  // 1=none, 2=abort on failure, 3=continue on failure
+  // 1=none, 2=abort on failure, 3=continue on failure (Windows/Donut only)
   uint32 Bypass = 5;
-  // 1=overwrite headers, 2=keep headers
+  // 1=overwrite headers, 2=keep headers (Windows/Donut only)
   uint32 Headers = 6;
-  // Run unmanaged EXE entrypoint as a new thread
+  // Run unmanaged EXE entrypoint as a new thread (Windows/Donut only)
   bool Thread = 7;
-  // Convert command line to Unicode for unmanaged DLL entrypoints
+  // Convert command line to Unicode for unmanaged DLL entrypoints (Windows/Donut only)
   bool Unicode = 8;
-  // Override original entry point (0 = default)
+  // Override original entry point (0 = default) (Windows/Donut only)
   uint32 OEP = 9;
 }
 
@@ -203,7 +207,7 @@ message ImplantConfig {
   bool RunAtLoad = 105;
   string DebugFile = 106;
   repeated string exports = 107;
-  DonutConfig DonutConfig = 108;
+  ShellcodeConfig ShellcodeConfig = 108;
 
   string HTTPC2ConfigName = 150;
   bool NetGoEnabled = 151;

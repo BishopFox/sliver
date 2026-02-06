@@ -373,7 +373,7 @@ func getSliverShellcode(name string) ([]byte, string, error) {
 		if err != nil {
 			return []byte{}, "", err
 		}
-		data, err = generate.DonutShellcodeFromPE(fileData, config.GOARCH, false, "", "", "", false, false, false, config.DonutConfig)
+		data, err = generate.DonutShellcodeFromPE(fileData, config.GOARCH, false, "", "", "", false, false, false, config.ShellcodeConfig)
 		if err != nil {
 			rpcLog.Errorf("DonutShellcodeFromPE error: %v\n", err)
 			return []byte{}, "", err

@@ -395,9 +395,15 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 	if targetOS == "" || targetArch == "" {
 		return "", nil
 	}
-	if configFormat == clientpb.OutputFormat_SHELLCODE && targetOS != "windows" {
-		con.PrintErrorf("Shellcode format is currently only supported on Windows\n")
-		return "", nil
+	if configFormat == clientpb.OutputFormat_SHELLCODE {
+		if targetOS != "windows" && targetOS != "darwin" {
+			con.PrintErrorf("Shellcode format is currently only supported on Windows and macOS\n")
+			return "", nil
+		}
+		if targetOS == "darwin" && targetArch != "arm64" {
+			con.PrintErrorf("macOS shellcode format is only supported on darwin/arm64\n")
+			return "", nil
+		}
 	}
 	if len(namedPipeC2) > 0 && targetOS != "windows" {
 		con.PrintErrorf("Named pipe pivoting can only be used in Windows.")
@@ -409,7 +415,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		return "", nil
 	}
 
-	donutConfig, err := parseDonutFlags(cmd, targetOS, configFormat, con)
+	shellcodeConfig, err := parseShellcodeFlags(cmd, targetOS, configFormat, con)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return "", nil
@@ -486,23 +492,63 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 
 		DebugFile:        debugFile,
 		HTTPC2ConfigName: c2Profile,
-		DonutConfig:      donutConfig,
+		ShellcodeConfig:  shellcodeConfig,
 	}
 
 	return name, config
 }
 
-func parseDonutFlags(cmd *cobra.Command, targetOS string, configFormat clientpb.OutputFormat, con *console.SliverClient) (*clientpb.DonutConfig, error) {
-	donutEntropy, _ := cmd.Flags().GetUint32("donut-entropy")
-	donutCompressEnabled, _ := cmd.Flags().GetBool("donut-compress")
-	donutExitOpt, _ := cmd.Flags().GetUint32("donut-exitopt")
-	donutBypass, _ := cmd.Flags().GetUint32("donut-bypass")
-	donutHeaders, _ := cmd.Flags().GetUint32("donut-headers")
-	donutThread, _ := cmd.Flags().GetBool("donut-thread")
-	donutUnicode, _ := cmd.Flags().GetBool("donut-unicode")
-	donutOEP, _ := cmd.Flags().GetUint32("donut-oep")
+func parseShellcodeFlags(cmd *cobra.Command, targetOS string, configFormat clientpb.OutputFormat, con *console.SliverClient) (*clientpb.ShellcodeConfig, error) {
+	// Prefer the new `--shellcode-*` flags. Fall back to hidden deprecated `--donut-*` flags for compatibility.
+	shellcodeEntropy, _ := cmd.Flags().GetUint32("shellcode-entropy")
+	if !cmd.Flags().Changed("shellcode-entropy") {
+		shellcodeEntropy, _ = cmd.Flags().GetUint32("donut-entropy")
+	}
 
-	anyChanged := cmd.Flags().Changed("donut-entropy") ||
+	shellcodeCompressEnabled, _ := cmd.Flags().GetBool("shellcode-compress")
+	if !cmd.Flags().Changed("shellcode-compress") {
+		shellcodeCompressEnabled, _ = cmd.Flags().GetBool("donut-compress")
+	}
+
+	shellcodeExitOpt, _ := cmd.Flags().GetUint32("shellcode-exitopt")
+	if !cmd.Flags().Changed("shellcode-exitopt") {
+		shellcodeExitOpt, _ = cmd.Flags().GetUint32("donut-exitopt")
+	}
+
+	shellcodeBypass, _ := cmd.Flags().GetUint32("shellcode-bypass")
+	if !cmd.Flags().Changed("shellcode-bypass") {
+		shellcodeBypass, _ = cmd.Flags().GetUint32("donut-bypass")
+	}
+
+	shellcodeHeaders, _ := cmd.Flags().GetUint32("shellcode-headers")
+	if !cmd.Flags().Changed("shellcode-headers") {
+		shellcodeHeaders, _ = cmd.Flags().GetUint32("donut-headers")
+	}
+
+	shellcodeThread, _ := cmd.Flags().GetBool("shellcode-thread")
+	if !cmd.Flags().Changed("shellcode-thread") {
+		shellcodeThread, _ = cmd.Flags().GetBool("donut-thread")
+	}
+
+	shellcodeUnicode, _ := cmd.Flags().GetBool("shellcode-unicode")
+	if !cmd.Flags().Changed("shellcode-unicode") {
+		shellcodeUnicode, _ = cmd.Flags().GetBool("donut-unicode")
+	}
+
+	shellcodeOEP, _ := cmd.Flags().GetUint32("shellcode-oep")
+	if !cmd.Flags().Changed("shellcode-oep") {
+		shellcodeOEP, _ = cmd.Flags().GetUint32("donut-oep")
+	}
+
+	anyChanged := cmd.Flags().Changed("shellcode-entropy") ||
+		cmd.Flags().Changed("shellcode-compress") ||
+		cmd.Flags().Changed("shellcode-exitopt") ||
+		cmd.Flags().Changed("shellcode-bypass") ||
+		cmd.Flags().Changed("shellcode-headers") ||
+		cmd.Flags().Changed("shellcode-thread") ||
+		cmd.Flags().Changed("shellcode-unicode") ||
+		cmd.Flags().Changed("shellcode-oep") ||
+		cmd.Flags().Changed("donut-entropy") ||
 		cmd.Flags().Changed("donut-compress") ||
 		cmd.Flags().Changed("donut-exitopt") ||
 		cmd.Flags().Changed("donut-bypass") ||
@@ -511,40 +557,74 @@ func parseDonutFlags(cmd *cobra.Command, targetOS string, configFormat clientpb.
 		cmd.Flags().Changed("donut-unicode") ||
 		cmd.Flags().Changed("donut-oep")
 
-	if targetOS != "windows" || configFormat != clientpb.OutputFormat_SHELLCODE {
+	if configFormat != clientpb.OutputFormat_SHELLCODE {
 		if anyChanged {
-			con.PrintWarnf("Donut options only apply to Windows shellcode, ignoring.\n")
+			con.PrintWarnf("Shellcode options only apply when using `--format shellcode`, ignoring.\n")
 		}
 		return nil, nil
 	}
 
-	if donutEntropy < 1 || donutEntropy > 3 {
-		return nil, fmt.Errorf("donut-entropy must be between 1 and 3")
-	}
-	if donutExitOpt < 1 || donutExitOpt > 3 {
-		return nil, fmt.Errorf("donut-exitopt must be between 1 and 3")
-	}
-	if donutBypass < 1 || donutBypass > 3 {
-		return nil, fmt.Errorf("donut-bypass must be between 1 and 3")
-	}
-	if donutHeaders < 1 || donutHeaders > 2 {
-		return nil, fmt.Errorf("donut-headers must be 1 or 2")
+	windowsOnlyChanged := cmd.Flags().Changed("shellcode-entropy") ||
+		cmd.Flags().Changed("shellcode-exitopt") ||
+		cmd.Flags().Changed("shellcode-bypass") ||
+		cmd.Flags().Changed("shellcode-headers") ||
+		cmd.Flags().Changed("shellcode-thread") ||
+		cmd.Flags().Changed("shellcode-unicode") ||
+		cmd.Flags().Changed("shellcode-oep") ||
+		cmd.Flags().Changed("donut-entropy") ||
+		cmd.Flags().Changed("donut-exitopt") ||
+		cmd.Flags().Changed("donut-bypass") ||
+		cmd.Flags().Changed("donut-headers") ||
+		cmd.Flags().Changed("donut-thread") ||
+		cmd.Flags().Changed("donut-unicode") ||
+		cmd.Flags().Changed("donut-oep")
+
+	// macOS shellcode currently only supports compression.
+	if targetOS != "windows" {
+		if targetOS == "darwin" {
+			if windowsOnlyChanged {
+				con.PrintWarnf("Windows-only shellcode options are ignored on macOS shellcode.\n")
+			}
+		} else if anyChanged {
+			con.PrintWarnf("Shellcode options are only supported on Windows and macOS shellcode, ignoring.\n")
+		}
+
+		shellcodeCompress := uint32(1)
+		if shellcodeCompressEnabled {
+			shellcodeCompress = 2
+		}
+		return &clientpb.ShellcodeConfig{
+			Compress: shellcodeCompress,
+		}, nil
 	}
 
-	donutCompress := uint32(1)
-	if donutCompressEnabled {
-		donutCompress = 2
+	if shellcodeEntropy < 1 || shellcodeEntropy > 3 {
+		return nil, fmt.Errorf("shellcode-entropy must be between 1 and 3")
+	}
+	if shellcodeExitOpt < 1 || shellcodeExitOpt > 3 {
+		return nil, fmt.Errorf("shellcode-exitopt must be between 1 and 3")
+	}
+	if shellcodeBypass < 1 || shellcodeBypass > 3 {
+		return nil, fmt.Errorf("shellcode-bypass must be between 1 and 3")
+	}
+	if shellcodeHeaders < 1 || shellcodeHeaders > 2 {
+		return nil, fmt.Errorf("shellcode-headers must be 1 or 2")
 	}
 
-	return &clientpb.DonutConfig{
-		Entropy:  donutEntropy,
-		Compress: donutCompress,
-		ExitOpt:  donutExitOpt,
-		Bypass:   donutBypass,
-		Headers:  donutHeaders,
-		Thread:   donutThread,
-		Unicode:  donutUnicode,
-		OEP:      donutOEP,
+	shellcodeCompress := uint32(1)
+	if shellcodeCompressEnabled {
+		shellcodeCompress = 2
+	}
+
+	return &clientpb.ShellcodeConfig{
+		Entropy:  shellcodeEntropy,
+		Compress: shellcodeCompress,
+		ExitOpt:  shellcodeExitOpt,
+		Bypass:   shellcodeBypass,
+		Headers:  shellcodeHeaders,
+		Thread:   shellcodeThread,
+		Unicode:  shellcodeUnicode,
+		OEP:      shellcodeOEP,
 	}, nil
 }
 
@@ -1080,6 +1160,8 @@ func compile(name string, config *clientpb.ImplantConfig, save string, con *cons
 	if config.IsShellcode {
 		if !config.SGNEnabled {
 			con.PrintErrorf("Shikata ga nai encoder is %sdisabled%s\n", console.Bold, console.Normal)
+		} else if config.GOARCH != "amd64" && config.GOARCH != "386" {
+			con.PrintWarnf("Shikata ga nai encoder is not supported for %s, skipping.\n", config.GOARCH)
 		} else {
 			con.PrintInfof("Encoding shellcode with shikata ga nai ... ")
 			resp, err := con.Rpc.ShellcodeEncoder(context.Background(), &clientpb.ShellcodeEncodeReq{

@@ -134,7 +134,7 @@ func GetSliversDir() string {
 // Sliver Generation Code
 // -----------------------
 
-// SliverShellcode - Generates a sliver shellcode using Donut
+// SliverShellcode - Generates a sliver shellcode (Windows: Donut, macOS: beignet)
 func SliverShellcode(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
 	switch config.GOOS {
 	case WINDOWS:
@@ -148,6 +148,9 @@ func SliverShellcode(name string, build *clientpb.ImplantBuild, config *clientpb
 func darwinShellcode(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
 	if config.GOARCH != "arm64" {
 		return "", fmt.Errorf("darwin shellcode format is only supported for arm64 architecture")
+	}
+	if len(config.Exports) == 0 {
+		return "", fmt.Errorf("darwin shellcode requires at least one export symbol")
 	}
 
 	appDir := assets.GetRootAppDir()
@@ -180,6 +183,7 @@ func darwinShellcode(name string, build *clientpb.ImplantBuild, config *clientpb
 		GOGARBLE:    goGarble(config),
 	}
 
+	config.IsSharedLib = true
 	pkgPath, err := renderSliverGoCode(name, build, config, goConfig, pbC2Implant)
 	if err != nil {
 		return "", err
@@ -210,9 +214,13 @@ func darwinShellcode(name string, build *clientpb.ImplantBuild, config *clientpb
 	if err != nil {
 		return "", err
 	}
+	compress := false
+	if config.ShellcodeConfig != nil && config.ShellcodeConfig.Compress == 2 {
+		compress = true
+	}
 	shellcodeBin, err := beignet.DylibToShellcode(dylibData, beignet.Options{
-		EntrySymbol: "StartW",
-		Compress:    false,
+		EntrySymbol: config.Exports[0],
+		Compress:    compress,
 	})
 	if err != nil {
 		return "", err
@@ -251,7 +259,6 @@ func windowsShellcode(name string, build *clientpb.ImplantBuild, config *clientp
 		Obfuscation: config.ObfuscateSymbols,
 		GOGARBLE:    goGarble(config),
 	}
-
 	pkgPath, err := renderSliverGoCode(name, build, config, goConfig, pbC2Implant)
 	if err != nil {
 		return "", err
@@ -280,7 +287,7 @@ func windowsShellcode(name string, build *clientpb.ImplantBuild, config *clientp
 	if err != nil {
 		return "", err
 	}
-	shellcode, err := DonutShellcodeFromFile(dest, config.GOARCH, false, "", "", "", config.DonutConfig)
+	shellcode, err := DonutShellcodeFromFile(dest, config.GOARCH, false, "", "", "", config.ShellcodeConfig)
 	if err != nil {
 		return "", err
 	}
@@ -965,18 +972,43 @@ func GetCompilerTargets() []*clientpb.CompilerTarget {
 		})
 	}
 
-	// SHELLCODE - Can generate shellcode for Windows targets only
+	// SHELLCODE - Windows (Donut) and macOS (beignet, darwin/arm64 only)
 	for longPlatform := range SupportedCompilerTargets {
 		platform := strings.SplitN(longPlatform, "/", 2)
-		if platform[0] != WINDOWS {
-			continue
-		}
+		switch platform[0] {
+		case WINDOWS:
+			targets = append(targets, &clientpb.CompilerTarget{
+				GOOS:   platform[0],
+				GOARCH: platform[1],
+				Format: clientpb.OutputFormat_SHELLCODE,
+			})
+		case DARWIN:
+			if platform[1] != "arm64" {
+				continue
+			}
 
-		targets = append(targets, &clientpb.CompilerTarget{
-			GOOS:   platform[0],
-			GOARCH: platform[1],
-			Format: clientpb.OutputFormat_SHELLCODE,
-		})
+			// We can always try to build our own platform.
+			if runtime.GOOS == platform[0] {
+				targets = append(targets, &clientpb.CompilerTarget{
+					GOOS:   platform[0],
+					GOARCH: platform[1],
+					Format: clientpb.OutputFormat_SHELLCODE,
+				})
+				continue
+			}
+
+			// Cross-compile with the right configuration (same requirements as a darwin shared library build).
+			if runtime.GOOS == LINUX || runtime.GOOS == DARWIN {
+				cc, _ := findCrossCompilers(platform[0], platform[1])
+				if cc != "" {
+					targets = append(targets, &clientpb.CompilerTarget{
+						GOOS:   platform[0],
+						GOARCH: platform[1],
+						Format: clientpb.OutputFormat_SHELLCODE,
+					})
+				}
+			}
+		}
 	}
 
 	return targets
