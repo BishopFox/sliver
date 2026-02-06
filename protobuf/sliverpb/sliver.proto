@@ -517,6 +517,7 @@ message ExecuteReq {
   string Stderr = 5;
   bool EnvInheritance = 6;
   map<string, string> Env = 7;
+  bool Background = 8;
 
   uint32 PPid = 10;
 
@@ -531,6 +532,7 @@ message ExecuteWindowsReq {
   string Stderr = 5;
   bool UseToken = 6;
   bool HideWindow = 7;
+  bool Background = 8;
   uint32 PPid = 10;
 
   commonpb.Request Request = 9;
@@ -541,6 +543,31 @@ message Execute {
   bytes Stdout = 2;
   bytes Stderr = 3;
   uint32 Pid = 4;
+
+  commonpb.Response Response = 9;
+}
+
+message ExecuteChildrenReq {
+  commonpb.Request Request = 9;
+}
+
+message ExecuteChild {
+  int32 Pid = 1;
+  string Path = 2;
+  repeated string Args = 3;
+
+  int64 StartTime = 4;
+  bool Exited = 5;
+  int32 ExitCode = 6;
+  int64 ExitTime = 7;
+
+  string Stdout = 8;
+  string Stderr = 11;
+  string Error = 12;
+}
+
+message ExecuteChildren {
+  repeated ExecuteChild Children = 1;
 
   commonpb.Response Response = 9;
 }

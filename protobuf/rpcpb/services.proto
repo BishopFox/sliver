@@ -195,6 +195,7 @@ service SliverRPC {
   rpc Migrate(clientpb.MigrateReq) returns (sliverpb.Migrate);
   rpc Execute(sliverpb.ExecuteReq) returns (sliverpb.Execute);
   rpc ExecuteWindows(sliverpb.ExecuteWindowsReq) returns (sliverpb.Execute);
+  rpc ExecuteChildren(sliverpb.ExecuteChildrenReq) returns (sliverpb.ExecuteChildren);
   rpc Sideload(sliverpb.SideloadReq) returns (sliverpb.Sideload);
   rpc SpawnDll(sliverpb.InvokeSpawnDllReq) returns (sliverpb.SpawnDll);
   rpc Screenshot(sliverpb.ScreenshotReq) returns (sliverpb.Screenshot);

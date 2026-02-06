@@ -169,6 +169,7 @@ type SliverRPCClient interface {
 	Migrate(ctx context.Context, in *clientpb.MigrateReq, opts ...grpc.CallOption) (*sliverpb.Migrate, error)
 	Execute(ctx context.Context, in *sliverpb.ExecuteReq, opts ...grpc.CallOption) (*sliverpb.Execute, error)
 	ExecuteWindows(ctx context.Context, in *sliverpb.ExecuteWindowsReq, opts ...grpc.CallOption) (*sliverpb.Execute, error)
+	ExecuteChildren(ctx context.Context, in *sliverpb.ExecuteChildrenReq, opts ...grpc.CallOption) (*sliverpb.ExecuteChildren, error)
 	Sideload(ctx context.Context, in *sliverpb.SideloadReq, opts ...grpc.CallOption) (*sliverpb.Sideload, error)
 	SpawnDll(ctx context.Context, in *sliverpb.InvokeSpawnDllReq, opts ...grpc.CallOption) (*sliverpb.SpawnDll, error)
 	Screenshot(ctx context.Context, in *sliverpb.ScreenshotReq, opts ...grpc.CallOption) (*sliverpb.Screenshot, error)
@@ -1458,6 +1459,15 @@ func (c *sliverRPCClient) ExecuteWindows(ctx context.Context, in *sliverpb.Execu
 	return out, nil
 }
 
+func (c *sliverRPCClient) ExecuteChildren(ctx context.Context, in *sliverpb.ExecuteChildrenReq, opts ...grpc.CallOption) (*sliverpb.ExecuteChildren, error) {
+	out := new(sliverpb.ExecuteChildren)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/ExecuteChildren", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sliverRPCClient) Sideload(ctx context.Context, in *sliverpb.SideloadReq, opts ...grpc.CallOption) (*sliverpb.Sideload, error) {
 	out := new(sliverpb.Sideload)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/Sideload", in, out, opts...)
@@ -2181,6 +2191,7 @@ type SliverRPCServer interface {
 	Migrate(context.Context, *clientpb.MigrateReq) (*sliverpb.Migrate, error)
 	Execute(context.Context, *sliverpb.ExecuteReq) (*sliverpb.Execute, error)
 	ExecuteWindows(context.Context, *sliverpb.ExecuteWindowsReq) (*sliverpb.Execute, error)
+	ExecuteChildren(context.Context, *sliverpb.ExecuteChildrenReq) (*sliverpb.ExecuteChildren, error)
 	Sideload(context.Context, *sliverpb.SideloadReq) (*sliverpb.Sideload, error)
 	SpawnDll(context.Context, *sliverpb.InvokeSpawnDllReq) (*sliverpb.SpawnDll, error)
 	Screenshot(context.Context, *sliverpb.ScreenshotReq) (*sliverpb.Screenshot, error)
@@ -2633,6 +2644,9 @@ func (UnimplementedSliverRPCServer) Execute(context.Context, *sliverpb.ExecuteRe
 }
 func (UnimplementedSliverRPCServer) ExecuteWindows(context.Context, *sliverpb.ExecuteWindowsReq) (*sliverpb.Execute, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecuteWindows not implemented")
+}
+func (UnimplementedSliverRPCServer) ExecuteChildren(context.Context, *sliverpb.ExecuteChildrenReq) (*sliverpb.ExecuteChildren, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ExecuteChildren not implemented")
 }
 func (UnimplementedSliverRPCServer) Sideload(context.Context, *sliverpb.SideloadReq) (*sliverpb.Sideload, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Sideload not implemented")
@@ -5115,6 +5129,24 @@ func _SliverRPC_ExecuteWindows_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SliverRPC_ExecuteChildren_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.ExecuteChildrenReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).ExecuteChildren(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/ExecuteChildren",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).ExecuteChildren(ctx, req.(*sliverpb.ExecuteChildrenReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SliverRPC_Sideload_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(sliverpb.SideloadReq)
 	if err := dec(in); err != nil {
@@ -6644,6 +6676,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ExecuteWindows",
 			Handler:    _SliverRPC_ExecuteWindows_Handler,
+		},
+		{
+			MethodName: "ExecuteChildren",
+			Handler:    _SliverRPC_ExecuteChildren_Handler,
 		},
 		{
 			MethodName: "Sideload",

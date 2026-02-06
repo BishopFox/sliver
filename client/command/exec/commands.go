@@ -26,6 +26,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind("", false, executeCmd, func(f *pflag.FlagSet) {
 		f.BoolP("token", "T", false, "execute command with current token (Windows only)")
 		f.BoolP("output", "o", true, "capture command output")
+		f.Bool("background", false, "start the process in the background and track it")
 		f.BoolP("save", "s", false, "save output to a file")
 		f.BoolP("loot", "X", false, "save output as loot")
 		f.BoolP("ignore-stderr", "S", false, "don't print STDERR output")
@@ -43,6 +44,21 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 
 	carapace.Gen(executeCmd).PositionalCompletion(carapace.ActionValues().Usage("command to execute (required)"))
 	carapace.Gen(executeCmd).PositionalAnyCompletion(carapace.ActionValues().Usage("arguments to the command (optional)"))
+
+	executeChildrenCmd := &cobra.Command{
+		Use:   consts.ExecuteChildrenStr,
+		Short: "List tracked background execute child processes",
+		Long:  help.GetHelpFor([]string{consts.ExecuteStr, consts.ExecuteChildrenStr}),
+		Args:  cobra.NoArgs,
+		Run: func(cmd *cobra.Command, args []string) {
+			ExecuteChildrenCmd(cmd, con, args)
+		},
+		GroupID: consts.ExecutionHelpGroup,
+	}
+	flags.Bind("", false, executeChildrenCmd, func(f *pflag.FlagSet) {
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+	executeCmd.AddCommand(executeChildrenCmd)
 
 	executeAssemblyCmd := &cobra.Command{
 		Use:   consts.ExecuteAssemblyStr,
