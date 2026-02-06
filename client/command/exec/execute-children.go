@@ -102,5 +102,5 @@ func PrintExecuteChildren(execChildren *sliverpb.ExecuteChildren, con *console.S
 		tw.AppendRow(table.Row{child.Pid, state, exitCode, started, command, child.Stdout, child.Stderr})
 	}
 
-	con.PrintInfof("%s\n", tw.Render())
+	con.Printf("%s\n", tw.Render())
 }
