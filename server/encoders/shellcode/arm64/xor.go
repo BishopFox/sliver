@@ -33,7 +33,9 @@ const (
 )
 
 // Xor encodes an arm64 payload using a basic XOR scheme and a small aarch64
-// decoder stub (prepended) which decodes in-place then jumps to the payload.
+// decoder stub (prepended) which allocates a RW buffer, decodes into it,
+// marks it RX, then jumps to the decoded payload. This avoids in-place writes
+// (W^X-friendly loaders may map the initial shellcode RX).
 func Xor(data []byte, key []byte) ([]byte, error) {
 	if len(data) == 0 {
 		return nil, fmt.Errorf("xor encoder: empty payload")
@@ -83,18 +85,62 @@ func buildDecoderStub(blockCount int, key []byte) ([]byte, error) {
 	var sb strings.Builder
 	sb.Grow(512)
 
-	sb.WriteString("adr x0, payload\n") // x0 = payload start
-	sb.WriteString("mov x19, x0\n")     // x19 = payload base for final jump
-	fmt.Fprintf(&sb, "mov w1, #%d\n", blockCount)
-	emitMovImm64(&sb, "x2", keyValue) // x2 = xor key
+	sb.WriteString("adr x19, payload\n") // x19 = encoded payload base
+	emitMovImm64(&sb, "x20", uint64(blockCount))
+	emitMovImm64(&sb, "x21", keyValue) // x21 = xor key
 
+	// macOS runner maps the shellcode RX, so decoding in place will fault.
+	// Instead, allocate a RW buffer, decode into it, mprotect to RX, then jump.
+	sb.WriteString("mov x22, x20\n")
+	sb.WriteString("lsl x22, x22, #3\n") // x22 = payload len in bytes
+
+	// mmap(NULL, payloadLen, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0)
+	sb.WriteString("mov x0, #0\n")
+	sb.WriteString("mov x1, x22\n")
+	sb.WriteString("mov x2, #3\n")      // PROT_READ|PROT_WRITE
+	sb.WriteString("mov x3, #0x1002\n") // MAP_PRIVATE|MAP_ANON (darwin)
+	sb.WriteString("mov x4, #-1\n")
+	sb.WriteString("mov x5, #0\n")
+	sb.WriteString("mov x8, #222\n") // Linux: __NR_mmap
+	emitMovImm64(&sb, "x16", 0x020000C5)
+	sb.WriteString("svc #0\n")
+	// Darwin MAP_ANON is 0x1000, Linux MAP_ANONYMOUS is 0x20.
+	// Try Darwin flags first, then retry with Linux flags if the syscall fails.
+	sb.WriteString("tbnz x0, #63, mmap_linux\n")
+	sb.WriteString("b mmap_ok\n")
+	sb.WriteString("mmap_linux:\n")
+	sb.WriteString("mov x0, #0\n")
+	sb.WriteString("mov x1, x22\n")
+	sb.WriteString("mov x2, #3\n")    // PROT_READ|PROT_WRITE
+	sb.WriteString("mov x3, #0x22\n") // MAP_PRIVATE|MAP_ANONYMOUS (linux)
+	sb.WriteString("mov x4, #-1\n")
+	sb.WriteString("mov x5, #0\n")
+	sb.WriteString("mov x8, #222\n") // Linux: __NR_mmap
+	emitMovImm64(&sb, "x16", 0x020000C5)
+	sb.WriteString("svc #0\n")
+	sb.WriteString("mmap_ok:\n")
+	sb.WriteString("mov x23, x0\n") // x23 = dest base
+
+	// Decode/copy loop: src=x19, dst=x0, blocks=x1
+	sb.WriteString("mov x0, x23\n")
+	sb.WriteString("mov x1, x20\n")
+	sb.WriteString("mov x2, x19\n")
 	sb.WriteString("decode:\n")
-	sb.WriteString("ldr x3, [x0]\n")
-	sb.WriteString("eor x3, x3, x2\n")
+	sb.WriteString("ldr x3, [x2], #8\n")
+	sb.WriteString("eor x3, x3, x21\n")
 	sb.WriteString("str x3, [x0], #8\n")
-	sb.WriteString("subs w1, w1, #1\n")
+	sb.WriteString("subs x1, x1, #1\n")
 	sb.WriteString("b.ne decode\n")
-	sb.WriteString("br x19\n")
+
+	// mprotect(dst, payloadLen, PROT_READ|PROT_EXEC)
+	sb.WriteString("mov x0, x23\n")
+	sb.WriteString("mov x1, x22\n")
+	sb.WriteString("mov x2, #5\n")   // PROT_READ|PROT_EXEC
+	sb.WriteString("mov x8, #226\n") // Linux: __NR_mprotect
+	emitMovImm64(&sb, "x16", 0x0200004A)
+	sb.WriteString("svc #0\n")
+
+	sb.WriteString("br x23\n")
 	sb.WriteString("payload:\n")
 
 	inst, err := engine.Assemble(sb.String(), 0)

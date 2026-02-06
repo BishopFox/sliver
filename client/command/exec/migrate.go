@@ -20,14 +20,19 @@ package exec
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
 
 // MigrateCmd - Windows only, inject an implant into another process
@@ -55,9 +60,17 @@ func MigrateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		implantName = beacon.Name
 	}
 
-	encoder := clientpb.ShellcodeEncoder_SHIKATA_GA_NAI
-	if disableSgn, _ := cmd.Flags().GetBool("disable-sgn"); disableSgn {
-		encoder = clientpb.ShellcodeEncoder_NONE
+	targetArch := config.GetGOARCH()
+	if session != nil && session.Arch != "" {
+		targetArch = session.Arch
+	} else if beacon != nil && beacon.Arch != "" {
+		targetArch = beacon.Arch
+	}
+
+	encoder, err := parseShellcodeEncoderFlag(cmd, targetArch, con)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
 	}
 
 	ctrl := make(chan bool)
@@ -119,4 +132,119 @@ func MigrateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		}
 		con.PrintInfof("Successfully migrated to %d\n", migrate.Pid)
 	}
+}
+
+func normalizeShellcodeEncoderName(name string) string {
+	normalized := strings.ToLower(strings.TrimSpace(name))
+	normalized = strings.ReplaceAll(normalized, "-", "_")
+	return normalized
+}
+
+func normalizeShellcodeArch(arch string) string {
+	normalized := strings.ToLower(strings.TrimSpace(arch))
+	switch normalized {
+	case "amd64", "x64", "x86_64":
+		return "amd64"
+	case "386", "x86", "i386":
+		return "386"
+	case "arm64", "aarch64":
+		return "arm64"
+	default:
+		return normalized
+	}
+}
+
+func fetchShellcodeEncoderMap(con *console.SliverClient) (*clientpb.ShellcodeEncoderMap, error) {
+	if con == nil || con.Rpc == nil {
+		return nil, errors.New("no RPC client")
+	}
+	grpcCtx, cancel := con.GrpcContext(nil)
+	defer cancel()
+	return con.Rpc.ShellcodeEncoderMap(grpcCtx, &commonpb.Empty{})
+}
+
+func compatibleShellcodeEncoderNames(encoderMap *clientpb.ShellcodeEncoderMap, arch string) []string {
+	if encoderMap == nil {
+		return nil
+	}
+	arch = normalizeShellcodeArch(arch)
+	archMap := encoderMap.GetEncoders()[arch]
+	if archMap == nil {
+		return nil
+	}
+
+	names := make([]string, 0, len(archMap.GetEncoders()))
+	for name := range archMap.GetEncoders() {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func shellcodeEncoderEnumForArch(encoderMap *clientpb.ShellcodeEncoderMap, arch, name string) (clientpb.ShellcodeEncoder, bool) {
+	if encoderMap == nil {
+		return clientpb.ShellcodeEncoder_NONE, false
+	}
+	arch = normalizeShellcodeArch(arch)
+	name = normalizeShellcodeEncoderName(name)
+	archMap := encoderMap.GetEncoders()[arch]
+	if archMap == nil {
+		return clientpb.ShellcodeEncoder_NONE, false
+	}
+	encoder, ok := archMap.GetEncoders()[name]
+	return encoder, ok
+}
+
+func parseShellcodeEncoderFlag(cmd *cobra.Command, targetArch string, con *console.SliverClient) (clientpb.ShellcodeEncoder, error) {
+	rawEncoder, _ := cmd.Flags().GetString("shellcode-encoder")
+	rawEncoder = strings.TrimSpace(rawEncoder)
+
+	if cmd.Flags().Changed("shellcode-encoder") && rawEncoder == "" {
+		return clientpb.ShellcodeEncoder_NONE, fmt.Errorf("shellcode-encoder cannot be empty; use 'none' to disable encoding")
+	}
+
+	normalized := normalizeShellcodeEncoderName(rawEncoder)
+	if normalized == "none" {
+		return clientpb.ShellcodeEncoder_NONE, nil
+	}
+
+	encoderMap, err := fetchShellcodeEncoderMap(con)
+	if err != nil {
+		return clientpb.ShellcodeEncoder_NONE, err
+	}
+
+	// If no encoder specified, prompt for a compatible encoder (or none).
+	if rawEncoder == "" && !cmd.Flags().Changed("shellcode-encoder") {
+		compatible := compatibleShellcodeEncoderNames(encoderMap, targetArch)
+		if len(compatible) == 0 {
+			// No known compatible encoders for this arch.
+			return clientpb.ShellcodeEncoder_NONE, nil
+		}
+
+		options := append([]string{"none"}, compatible...)
+		choice := "none"
+		if err := forms.Select("Select a shellcode encoder (optional)", options, &choice); err != nil {
+			return clientpb.ShellcodeEncoder_NONE, err
+		}
+		if normalizeShellcodeEncoderName(choice) == "none" {
+			return clientpb.ShellcodeEncoder_NONE, nil
+		}
+
+		encoder, ok := shellcodeEncoderEnumForArch(encoderMap, targetArch, choice)
+		if !ok {
+			return clientpb.ShellcodeEncoder_NONE, fmt.Errorf("unsupported shellcode encoder %q for arch %s", choice, normalizeShellcodeArch(targetArch))
+		}
+		return encoder, nil
+	}
+
+	// Encoder explicitly specified by name.
+	encoder, ok := shellcodeEncoderEnumForArch(encoderMap, targetArch, rawEncoder)
+	if !ok {
+		compatible := compatibleShellcodeEncoderNames(encoderMap, targetArch)
+		if len(compatible) == 0 {
+			return clientpb.ShellcodeEncoder_NONE, fmt.Errorf("no shellcode encoders are available for arch %s", normalizeShellcodeArch(targetArch))
+		}
+		return clientpb.ShellcodeEncoder_NONE, fmt.Errorf("unsupported shellcode encoder %q for arch %s (valid: %s)", rawEncoder, normalizeShellcodeArch(targetArch), strings.Join(compatible, ", "))
+	}
+	return encoder, nil
 }
