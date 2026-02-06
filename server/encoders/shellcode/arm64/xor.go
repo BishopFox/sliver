@@ -85,7 +85,7 @@ func buildDecoderStub(blockCount int, key []byte) ([]byte, error) {
 
 	sb.WriteString("adr x0, payload\n") // x0 = payload start
 	sb.WriteString("mov x19, x0\n")     // x19 = payload base for final jump
-	sb.WriteString(fmt.Sprintf("mov w1, #%d\n", blockCount))
+	fmt.Fprintf(&sb, "mov w1, #%d\n", blockCount)
 	emitMovImm64(&sb, "x2", keyValue) // x2 = xor key
 
 	sb.WriteString("decode:\n")
@@ -114,8 +114,8 @@ func emitMovImm64(sb *strings.Builder, reg string, imm uint64) {
 	m48 := uint16((imm >> 48) & 0xffff)
 
 	// Explicit movz/movk keeps the stub stable across assemblers.
-	sb.WriteString(fmt.Sprintf("movz %s, #0x%X\n", reg, lo))
-	sb.WriteString(fmt.Sprintf("movk %s, #0x%X, lsl #16\n", reg, m16))
-	sb.WriteString(fmt.Sprintf("movk %s, #0x%X, lsl #32\n", reg, m32))
-	sb.WriteString(fmt.Sprintf("movk %s, #0x%X, lsl #48\n", reg, m48))
+	fmt.Fprintf(sb, "movz %s, #0x%X\n", reg, lo)
+	fmt.Fprintf(sb, "movk %s, #0x%X, lsl #16\n", reg, m16)
+	fmt.Fprintf(sb, "movk %s, #0x%X, lsl #32\n", reg, m32)
+	fmt.Fprintf(sb, "movk %s, #0x%X, lsl #48\n", reg, m48)
 }
