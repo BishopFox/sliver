@@ -44,6 +44,7 @@ func ExecuteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	token, _ := cmd.Flags().GetBool("token")
 	hidden, _ := cmd.Flags().GetBool("hidden")
 	output, _ := cmd.Flags().GetBool("output")
+	background, _ := cmd.Flags().GetBool("background")
 	stdout, _ := cmd.Flags().GetString("stdout")
 	stderr, _ := cmd.Flags().GetString("stderr")
 	saveLoot, _ := cmd.Flags().GetBool("loot")
@@ -58,10 +59,15 @@ func ExecuteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 	hostName := getHostname(session, beacon)
 
-	// If the user wants to loot or save the output, we have to capture it regardless of if they specified -o
-	captureOutput := output || saveLoot || saveOutput
+	if background && (saveLoot || saveOutput) {
+		con.PrintErrorf("The loot and save options are not supported with --background\n")
+		return
+	}
 
-	if output && beacon != nil {
+	// If the user wants to loot or save the output, we have to capture it regardless of if they specified -o
+	captureOutput := !background && (output || saveLoot || saveOutput)
+
+	if captureOutput && beacon != nil {
 		con.PrintWarnf("Using --output in beacon mode, if the command blocks the task will never complete\n\n")
 	}
 
@@ -84,6 +90,7 @@ func ExecuteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			Path:       cmdPath,
 			Args:       args,
 			Output:     captureOutput,
+			Background: background,
 			Stderr:     stderr,
 			Stdout:     stdout,
 			UseToken:   token,
@@ -96,6 +103,7 @@ func ExecuteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			Path:           cmdPath,
 			Args:           args,
 			Output:         captureOutput,
+			Background:     background,
 			Stderr:         stderr,
 			Stdout:         stdout,
 			EnvInheritance: envInheritance,
@@ -154,11 +162,23 @@ func PrintExecute(exec *sliverpb.Execute, cmd *cobra.Command, con *console.Slive
 	stderr, _ := cmd.Flags().GetString("stderr")
 
 	output, _ := cmd.Flags().GetBool("output")
+	background := false
+	if cmd.Flags().Lookup("background") != nil {
+		background, _ = cmd.Flags().GetBool("background")
+	}
+	if background {
+		// Background execution never returns inline output.
+		output = false
+	}
 	if !output {
-		if exec.Status == 0 {
-			con.PrintInfof("Command executed successfully\n")
+		if exec.Pid != 0 {
+			if background {
+				con.PrintInfof("Started background process (pid: %d)\n", exec.Pid)
+				return
+			}
+			con.PrintInfof("Started process (pid: %d)\n", exec.Pid)
 		} else {
-			con.PrintErrorf("Exit code %d\n", exec.Status)
+			con.PrintInfof("Process started\n")
 		}
 		return
 	}
