@@ -53,7 +53,6 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			ExecuteChildrenCmd(cmd, con, args)
 		},
-		GroupID: consts.ExecutionHelpGroup,
 	}
 	flags.Bind("", false, executeChildrenCmd, func(f *pflag.FlagSet) {
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
