@@ -44,6 +44,7 @@ import (
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/util"
 	utilEncoders "github.com/bishopfox/sliver/util/encoders"
+	"github.com/sliverarmory/beignet"
 	"golang.org/x/mod/module"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -135,9 +136,105 @@ func GetSliversDir() string {
 
 // SliverShellcode - Generates a sliver shellcode using Donut
 func SliverShellcode(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
-	if config.GOOS != "windows" {
-		return "", fmt.Errorf("shellcode format is currently only supported on Windows")
+	switch config.GOOS {
+	case WINDOWS:
+		return windowsShellcode(name, build, config, pbC2Implant)
+	case DARWIN:
+		return darwinShellcode(name, build, config, pbC2Implant)
 	}
+	return "", fmt.Errorf("shellcode format is not supported on %s", config.GOOS)
+}
+
+func darwinShellcode(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
+	if config.GOARCH != "arm64" {
+		return "", fmt.Errorf("darwin shellcode format is only supported for arm64 architecture")
+	}
+
+	appDir := assets.GetRootAppDir()
+
+	var cc string
+	var cxx string
+	if runtime.GOOS != config.GOOS || runtime.GOARCH != config.GOARCH {
+		buildLog.Debugf("Cross-compiling from %s/%s to %s/%s", runtime.GOOS, runtime.GOARCH, config.GOOS, config.GOARCH)
+		cc, cxx = findCrossCompilers(config.GOOS, config.GOARCH)
+	}
+
+	buildLog.Infof(" CC: %s", cc)
+	buildLog.Infof("CXX: %s", cxx)
+
+	goConfig := &gogo.GoConfig{
+		CGO: "1",
+		CC:  cc,
+		CXX: cxx,
+
+		GOOS:       config.GOOS,
+		GOARCH:     config.GOARCH,
+		GOCACHE:    gogo.GetGoCache(appDir),
+		GOMODCACHE: gogo.GetGoModCache(appDir),
+		GOROOT:     gogo.GetGoRootDir(appDir),
+		GOPROXY:    getGoProxy(),
+		HTTPPROXY:  getGoHttpProxy(),
+		HTTPSPROXY: getGoHttpsProxy(),
+
+		Obfuscation: config.ObfuscateSymbols,
+		GOGARBLE:    goGarble(config),
+	}
+
+	pkgPath, err := renderSliverGoCode(name, build, config, goConfig, pbC2Implant)
+	if err != nil {
+		return "", err
+	}
+
+	tmpFile, err := os.CreateTemp("", "sliver-*.dylib")
+	if err != nil {
+		return "", err
+	}
+	tmpFile.Close()
+	defer os.Remove(tmpFile.Name())
+	dylibDest := tmpFile.Name()
+
+	tags := []string{}
+	if config.NetGoEnabled {
+		tags = append(tags, "netgo")
+	}
+	ldflags := []string{""} // Garble will automatically add "-s -w -buildid="
+	// Keep those for potential later use
+	gcFlags := ""
+	asmFlags := ""
+	_, err = gogo.GoBuild(*goConfig, pkgPath, dylibDest, "c-shared", tags, ldflags, gcFlags, asmFlags)
+	if err != nil {
+		return "", err
+	}
+
+	dylibData, err := os.ReadFile(dylibDest)
+	if err != nil {
+		return "", err
+	}
+	shellcodeBin, err := beignet.DylibToShellcode(dylibData, beignet.Options{
+		EntrySymbol: "StartW",
+		Compress:    false,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	shellcodeDest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(name))
+	shellcodeDest += ".bin"
+
+	err = os.WriteFile(shellcodeDest, shellcodeBin, 0600)
+	if err != nil {
+		return "", err
+	}
+
+	return shellcodeDest, err
+
+}
+
+func windowsShellcode(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
+	if config.GOARCH != "amd64" && config.GOARCH != "386" {
+		return "", fmt.Errorf("windows shellcode format is only supported for amd64 and 386 architectures")
+	}
+
 	appDir := assets.GetRootAppDir()
 	goConfig := &gogo.GoConfig{
 		CGO: "0",

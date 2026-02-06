@@ -30,7 +30,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
-		github.com/hashicorp/yamux v0.1.2
+	github.com/hashicorp/yamux v0.1.2
 	github.com/jedib0t/go-pretty/v6 v6.7.8
 	github.com/kbinani/screenshot v0.0.0-20250624051815-089614a94018
 	github.com/klauspost/compress v1.18.1
@@ -47,6 +47,7 @@ require (
 	github.com/reeflective/readline v1.1.4
 	github.com/rsteube/carapace v0.50.2
 	github.com/sirupsen/logrus v1.9.3
+	github.com/sliverarmory/beignet v0.0.2
 	github.com/sliverarmory/wasm-donut v0.0.3
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
@@ -275,7 +276,7 @@ require (
 	github.com/mdlayher/socket v0.5.1 // indirect
 	github.com/mitchellh/go-ps v1.0.0 // indirect
 	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
-	github.com/moloch--/go-keystone v0.0.2 // indirect
+	github.com/moloch--/go-keystone v0.0.2
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
