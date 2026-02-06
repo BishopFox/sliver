@@ -46,6 +46,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"hash/crc32"
+	"net"
 	"net/url"
 	"strconv"
 	"strings"
@@ -278,8 +279,9 @@ func (s *SliverDNSClient) SessionInit() error {
 	}
 	s.resolvers = []DNSResolver{}
 	for _, server := range s.resolvConf.Servers {
+		address, port := splitResolverAddress(server, s.resolvConf.Port)
 		s.resolvers = append(s.resolvers,
-			NewGenericResolver(server, s.resolvConf.Port, s.retryWait, s.retryCount, s.queryTimeout, s.parent),
+			NewGenericResolver(address, port, s.retryWait, s.retryCount, s.queryTimeout, s.parent),
 		)
 	}
 	// {{if .Config.Debug}}
@@ -833,6 +835,24 @@ func (s *SliverDNSClient) loadResolvConf() error {
 		}
 	}
 	return err
+}
+
+func splitResolverAddress(server string, defaultPort string) (string, string) {
+	server = strings.TrimSpace(server)
+	if server == "" {
+		return "", defaultPort
+	}
+
+	// Allow tests/operators to specify an explicit port, e.g. "127.0.0.1:5353"
+	// or "[::1]:5353". Raw IPv6 addresses in resolv.conf typically do not include
+	// a port and will fail SplitHostPort, in which case we fall back to defaultPort.
+	if host, port, err := net.SplitHostPort(server); err == nil {
+		return host, port
+	}
+	if strings.HasPrefix(server, "[") && strings.HasSuffix(server, "]") {
+		return strings.TrimSuffix(strings.TrimPrefix(server, "["), "]"), defaultPort
+	}
+	return server, defaultPort
 }
 
 // Joins subdata to the parent domain, you must have already done the math to

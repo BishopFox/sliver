@@ -440,6 +440,9 @@ func (s *SliverDNSServer) HandleDNSRequest(domains []string, canaries bool, writ
 		resp = s.handleCanary(req)
 	}
 	if resp != nil {
+		// These responses often have near-max-length QNAMEs. Enable compression to
+		// keep UDP responses under the minimum DNS message size limits.
+		resp.Compress = true
 		writer.WriteMsg(resp)
 	} else {
 		dnsLog.Infof("Invalid query, no DNS response")

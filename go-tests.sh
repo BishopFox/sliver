@@ -202,6 +202,15 @@ else
     rm -rf "$SLIVER_ROOT_DIR_E2E"
     exit 1
 fi
+
+# server / c2 / e2e (dns)
+if SLIVER_ROOT_DIR="$SLIVER_ROOT_DIR_E2E" go test -tags=server,$TAGS,sliver_e2e ./server/c2 -run 'TestDNS_' -count=1 ; then
+    :
+else
+    cat "$SLIVER_ROOT_DIR_E2E/logs/sliver.log" 2>/dev/null || true
+    rm -rf "$SLIVER_ROOT_DIR_E2E"
+    exit 1
+fi
 rm -rf "$SLIVER_ROOT_DIR_E2E"
 
 # server / configs
