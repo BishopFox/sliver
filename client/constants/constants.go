@@ -208,8 +208,9 @@ const (
 	GetGIDStr = "getgid"
 	WhoamiStr = "whoami"
 
-	ShellStr   = "shell"
-	ExecuteStr = "execute"
+	ShellStr           = "shell"
+	ExecuteStr         = "execute"
+	ExecuteChildrenStr = "children"
 
 	LsStr       = "ls"
 	MvStr       = "mv"

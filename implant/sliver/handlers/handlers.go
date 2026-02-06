@@ -1181,7 +1181,7 @@ func executeHandler(data []byte, resp RPCResponse) {
 		}
 	}
 
-	if execReq.Output {
+	if execReq.Output && !execReq.Background {
 		stdOutBuff := new(bytes.Buffer)
 		stdErrBuff := new(bytes.Buffer)
 		stdErr = stdErrBuff
@@ -1242,19 +1242,14 @@ func executeHandler(data []byte, resp RPCResponse) {
 			execResp.Pid = uint32(cmd.Process.Pid)
 		}
 	} else {
-		err = cmd.Start()
-		if err != nil {
+		pid, startErr := startExecuteChild(cmd, execReq.Background, exePath, execReq.Args, execReq.Stdout, execReq.Stderr)
+		if startErr != nil {
 			execResp.Response = &commonpb.Response{
-				Err: fmt.Sprintf("%s", err),
+				Err: fmt.Sprintf("%s", startErr),
 			}
 		}
-
-		go func() {
-			cmd.Wait()
-		}()
-
-		if cmd.Process != nil {
-			execResp.Pid = uint32(cmd.Process.Pid)
+		if pid != 0 {
+			execResp.Pid = uint32(pid)
 		}
 	}
 	data, err = proto.Marshal(execResp)

@@ -40,7 +40,8 @@ func ArmoryInstallForm(options []ArmoryInstallOption) (*ArmoryInstallFormResult,
 		Title("Select packages or bundles to install").
 		Description("Use space to select and enter to install.").
 		Options(selectOptions...).
-		Height(listHeight(len(selectOptions))).
+		// huh.MultiSelect Height includes title/description, so add 2 lines for them.
+		Height(listHeight(len(selectOptions)) + 2).
 		Value(&result.SelectedNames)
 
 	form := huh.NewForm(huh.NewGroup(field))

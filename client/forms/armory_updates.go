@@ -39,7 +39,8 @@ func ArmoryUpdateForm(options []ArmoryUpdateOption) (*ArmoryUpdateFormResult, er
 		Title("Select updates to apply").
 		Description("Use space to select and enter to apply.").
 		Options(selectOptions...).
-		Height(listHeight(len(selectOptions))).
+		// huh.MultiSelect Height includes title/description, so add 2 lines for them.
+		Height(listHeight(len(selectOptions)) + 2).
 		Value(&result.SelectedIDs)
 
 	form := huh.NewForm(huh.NewGroup(field))

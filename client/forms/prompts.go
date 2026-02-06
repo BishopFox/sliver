@@ -2,13 +2,14 @@ package forms
 
 import (
 	"errors"
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/huh"
 	"golang.org/x/term"
 )
 
-const defaultSelectHeight = 10
+const defaultSelectHeight = 5
 
 func getTerminalWidth() int {
 	// Try to get actual terminal width
@@ -93,7 +94,8 @@ func MultiSelect(title string, options []string, value *[]string) error {
 	field := huh.NewMultiSelect[string]().
 		Title(title).
 		Options(makeStringOptions(options)...).
-		Height(listHeight(len(options))).
+		// huh.Select/MultiSelect Height includes title/description, so add 1 for the title line.
+		Height(listHeight(len(options)) + 1).
 		Value(value)
 
 	form := huh.NewForm(huh.NewGroup(field)).WithWidth(getTerminalWidth())
@@ -115,7 +117,8 @@ func selectPrompt(title string, options []string, value *string, required bool) 
 	field := huh.NewSelect[string]().
 		Title(title).
 		Options(makeStringOptions(options)...).
-		Height(listHeight(len(options))).
+		// huh.Select Height includes title/description, so add 1 for the title line.
+		Height(listHeight(len(options)) + 1).
 		Value(value)
 
 	if required {
@@ -147,10 +150,8 @@ func ensureSelectedValue(options []string, value *string) {
 		*value = options[0]
 		return
 	}
-	for _, option := range options {
-		if option == *value {
-			return
-		}
+	if slices.Contains(options, *value) {
+		return
 	}
 	*value = options[0]
 }
