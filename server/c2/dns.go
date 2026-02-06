@@ -21,14 +21,12 @@ package c2
 
 	We've put a little effort to making the server at least not super easily fingerprintable,
 	though I'm guessing it's also still not super hard to do. The server must receive a valid
-	TOTP code before we start returning any non-error records. All requests must be formatted
-	as valid protobuf and contain a 24-bit "dns session ID" (16777216 possible values), and a
-	8 bit "message ID." The server only responds to non-TOTP queries with valid dns session IDs
-	16,777,216 can probably be bruteforced but it'll at least be slow.
+	protobuf and contain a 24-bit "dns session ID" (16777216 possible values), and a 8 bit
+	"message ID." 16,777,216 can probably be bruteforced but it'll at least be slow.
 
 	DNS command and control outline:
-		1. Implant sends TOTP encoded message to DNS server, server checks validity
-		2. DNS server responds with the "DNS Session ID" which is just some random value
+		1. Implant generates a random DNS Session ID and sends an INIT (Age key exchange)
+		2. DNS server validates INIT and allocates session state
 		3. Requests with valid DNS session IDs enable the server to respond with CRC32 responses
 		4. Implant establishes encrypted session
 
@@ -44,6 +42,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -66,6 +65,17 @@ const (
 	messageIDBitMask = 0xff000000 // Bitwise mask to get the message ID
 
 	defaultMaxTXTLength = 254
+
+	// Upper bound on unauthenticated init reassembly state. INIT is split across multiple
+	// DNS queries, so we cap the number of pending init messages to avoid unbounded memory use.
+	defaultMaxPendingDNSInits = 1024
+
+	// Pending INIT messages are expected to complete quickly. If they don't, expire them.
+	defaultPendingDNSInitTTL        = 2 * time.Minute
+	defaultPendingDNSInitGCInterval = 30 * time.Second
+
+	// INIT carries only key-exchange material and should remain small.
+	defaultMaxDNSInitSize = 16 * 1024
 )
 
 var (
@@ -78,7 +88,7 @@ var (
 )
 
 // StartDNSListener - Start a DNS listener
-func StartDNSListener(bindIface string, lport uint16, domains []string, canaries bool, enforceOTP bool) *SliverDNSServer {
+func StartDNSListener(bindIface string, lport uint16, domains []string, canaries bool) *SliverDNSServer {
 	// StartPivotListener()
 	server := &SliverDNSServer{
 		server:       &dns.Server{Addr: fmt.Sprintf("%s:%d", bindIface, lport), Net: "udp"},
@@ -86,8 +96,8 @@ func StartDNSListener(bindIface string, lport uint16, domains []string, canaries
 		messages:     &sync.Map{}, // In progress message streams
 		TTL:          0,
 		MaxTXTLength: defaultMaxTXTLength,
-		EnforceOTP:   enforceOTP,
 	}
+	server.startInitGC()
 	dnsLog.Infof("Starting DNS listener for %v (canaries: %v) ...", domains, canaries)
 	dns.HandleFunc(".", func(writer dns.ResponseWriter, req *dns.Msg) {
 		started := time.Now()
@@ -103,6 +113,9 @@ type DNSSession struct {
 	ImplantConn *core.ImplantConnection
 	CipherCtx   *cryptography.CipherContext
 
+	Created  time.Time
+	lastSeen atomic.Int64 // unix nanos
+
 	dnsIdMsgIdMap   map[uint32]uint32
 	outgoingMsgIDs  []uint32
 	outgoingBuffers map[uint32][]byte
@@ -111,6 +124,10 @@ type DNSSession struct {
 	incomingEnvelopes map[uint32]*PendingEnvelope
 	incomingMutex     *sync.Mutex
 	msgCount          uint32
+}
+
+func (s *DNSSession) touch(now time.Time) {
+	s.lastSeen.Store(now.UnixNano())
 }
 
 func (s *DNSSession) msgID(id uint32) uint32 {
@@ -256,6 +273,13 @@ type PendingEnvelope struct {
 	complete bool
 }
 
+// pendingInit tracks the reassembly state for an INIT message (which may arrive
+// split across multiple DNS queries).
+type pendingInit struct {
+	Created  time.Time
+	Envelope *PendingEnvelope
+}
+
 // Reassemble - Reassemble a completed message
 func (p *PendingEnvelope) Reassemble() ([]byte, error) {
 	// There's some weird race here with a nil pointer
@@ -316,17 +340,79 @@ type SliverDNSServer struct {
 	messages     *sync.Map
 	TTL          uint32
 	MaxTXTLength int
-	EnforceOTP   bool
+
+	pendingInits atomic.Int64
+	gcStopOnce   sync.Once
+	gcStop       chan struct{}
+	gcDone       chan struct{}
 }
 
 // Shutdown - Shutdown the DNS server
 func (s *SliverDNSServer) Shutdown() error {
+	s.gcStopOnce.Do(func() {
+		if s.gcStop != nil {
+			close(s.gcStop)
+			if s.gcDone != nil {
+				<-s.gcDone
+			}
+		}
+	})
 	return s.server.Shutdown()
 }
 
 // ListenAndServe - Listen for DNS requests and respond
 func (s *SliverDNSServer) ListenAndServe() error {
 	return s.server.ListenAndServe()
+}
+
+func (s *SliverDNSServer) startInitGC() {
+	// Tests construct SliverDNSServer directly; only start GC for real listeners.
+	if s.gcStop != nil {
+		return
+	}
+	s.gcStop = make(chan struct{})
+	s.gcDone = make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(defaultPendingDNSInitGCInterval)
+		defer ticker.Stop()
+		defer close(s.gcDone)
+
+		for {
+			select {
+			case <-ticker.C:
+				s.gcPendingInits()
+			case <-s.gcStop:
+				return
+			}
+		}
+	}()
+}
+
+func (s *SliverDNSServer) gcPendingInits() {
+	now := time.Now()
+	var deleted int64
+	s.messages.Range(func(key, value any) bool {
+		p, ok := value.(*pendingInit)
+		if !ok || p == nil {
+			if _, loaded := s.messages.LoadAndDelete(key); loaded {
+				deleted++
+			}
+			return true
+		}
+		created := p.Created
+		if created.IsZero() {
+			created = now
+		}
+		if now.Sub(created) > defaultPendingDNSInitTTL {
+			if _, loaded := s.messages.LoadAndDelete(key); loaded {
+				deleted++
+			}
+		}
+		return true
+	})
+	if deleted > 0 {
+		s.pendingInits.Add(-deleted)
+	}
 }
 
 // ---------------------------
@@ -354,6 +440,9 @@ func (s *SliverDNSServer) HandleDNSRequest(domains []string, canaries bool, writ
 		resp = s.handleCanary(req)
 	}
 	if resp != nil {
+		// These responses often have near-max-length QNAMEs. Enable compression to
+		// keep UDP responses under the minimum DNS message size limits.
+		resp.Compress = true
 		writer.WriteMsg(resp)
 	} else {
 		dnsLog.Infof("Invalid query, no DNS response")
@@ -384,24 +473,26 @@ func (s *SliverDNSServer) handleC2(domain string, req *dns.Msg) *dns.Msg {
 		return s.nameErrorResp(req)
 	}
 
-	// TOTP Handler can be called without dns session ID
-	if msg.Type == dnspb.DNSMessageType_TOTP {
-		return s.handleHello(domain, msg, req)
+	// INIT can be called without an existing server-side session. The server only
+	// stores session state after validating the key exchange.
+	if msg.Type == dnspb.DNSMessageType_INIT {
+		return s.handleDNSSessionInit(domain, msg, checksum, req)
 	}
 
 	// All other handlers require a valid dns session ID
-	_, ok := s.sessions.Load(msg.ID & sessionIDBitMask)
+	sessionValue, ok := s.sessions.Load(msg.ID & sessionIDBitMask)
 	if !ok {
 		dnsLog.Warnf("[dns] session not found for id %v (%v)", msg.ID, msg.ID&sessionIDBitMask)
 		return s.nameErrorResp(req)
+	}
+	if session, ok := sessionValue.(*DNSSession); ok && session != nil {
+		session.touch(time.Now())
 	}
 
 	// Msg Type -> Handler
 	switch msg.Type {
 	case dnspb.DNSMessageType_NOP:
 		return s.handleNOP(domain, msg, checksum, req)
-	case dnspb.DNSMessageType_INIT:
-		return s.handleDNSSessionInit(domain, msg, checksum, req)
 	case dnspb.DNSMessageType_POLL:
 		return s.handlePoll(domain, msg, checksum, req)
 	case dnspb.DNSMessageType_DATA_FROM_IMPLANT:
@@ -456,81 +547,86 @@ func (s *SliverDNSServer) accumulateInitData(msg *dnspb.DNSMessage) ([]byte, boo
 	if msg.Size == 0 {
 		return nil, false, ErrInvalidMsg
 	}
+	if msg.Size > defaultMaxDNSInitSize {
+		return nil, false, ErrInvalidMsg
+	}
 	pendingValue, loaded := s.messages.Load(msg.ID)
 	if !loaded {
-		pendingValue = &PendingEnvelope{
-			Size:     msg.Size,
-			received: uint32(0),
-			messages: map[uint32][]byte{},
-			mutex:    &sync.Mutex{},
-			complete: false,
+		// Enforce a hard cap on pending INIT messages to prevent unbounded allocation.
+		next := s.pendingInits.Add(1)
+		if int64(defaultMaxPendingDNSInits) > 0 && next > int64(defaultMaxPendingDNSInits) {
+			s.pendingInits.Add(-1)
+			return nil, false, ErrInvalidMsg
 		}
-		actual, _ := s.messages.LoadOrStore(msg.ID, pendingValue)
-		pendingValue = actual
+
+		pendingValue = &pendingInit{
+			Created: time.Now(),
+			Envelope: &PendingEnvelope{
+				Size:     msg.Size,
+				received: uint32(0),
+				messages: map[uint32][]byte{},
+				mutex:    &sync.Mutex{},
+				complete: false,
+			},
+		}
+		actual, loaded := s.messages.LoadOrStore(msg.ID, pendingValue)
+		if loaded {
+			// Another goroutine won the race. Roll back our pending counter.
+			s.pendingInits.Add(-1)
+			pendingValue = actual
+		}
 	}
-	pending := pendingValue.(*PendingEnvelope)
+	p, ok := pendingValue.(*pendingInit)
+	if !ok || p == nil || p.Envelope == nil {
+		s.deletePendingInit(msg.ID)
+		return nil, false, ErrInvalidMsg
+	}
+	pending := p.Envelope
 	if pending.Size != msg.Size && msg.Size != 0 {
-		s.messages.Delete(msg.ID)
+		s.deletePendingInit(msg.ID)
 		return nil, false, ErrInvalidMsg
 	}
 	if !pending.Insert(msg) {
 		return nil, false, nil
 	}
+
+	if pending.received > pending.Size {
+		s.deletePendingInit(msg.ID)
+		return nil, false, ErrInvalidMsg
+	}
+
 	data, err := pending.Reassemble()
-	s.messages.Delete(msg.ID)
+	s.deletePendingInit(msg.ID)
 	if err != nil {
 		return nil, false, err
 	}
 	return data, true, nil
 }
 
-// ---------------------------
-// DNS Message Handlers
-// ---------------------------
-func (s *SliverDNSServer) handleHello(domain string, msg *dnspb.DNSMessage, req *dns.Msg) *dns.Msg {
-	dnsLog.Debugf("[dns] totp request: %v", msg)
-
-	dnsSessionID := dnsSessionID()
-	dnsLog.Debugf("[dns] Assigned new dns session id = %d", dnsSessionID&sessionIDBitMask)
-	s.sessions.Store(dnsSessionID&sessionIDBitMask, &DNSSession{
-		ID:                dnsSessionID & sessionIDBitMask,
-		dnsIdMsgIdMap:     map[uint32]uint32{},
-		outgoingMsgIDs:    []uint32{},
-		outgoingBuffers:   map[uint32][]byte{},
-		outgoingMutex:     &sync.RWMutex{},
-		incomingEnvelopes: map[uint32]*PendingEnvelope{},
-		incomingMutex:     &sync.Mutex{},
-		msgCount:          uint32(0),
-	})
-
-	resp := new(dns.Msg)
-	resp.SetReply(req)
-	resp.Authoritative = true
-	respBuf := make([]byte, 4)
-	binary.LittleEndian.PutUint32(respBuf, dnsSessionID)
-	for _, q := range req.Question {
-		switch q.Qtype {
-		case dns.TypeA:
-			a := &dns.A{
-				Hdr: dns.RR_Header{Name: q.Name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: s.TTL},
-				A:   respBuf,
-			}
-			resp.Answer = append(resp.Answer, a)
-		}
+func (s *SliverDNSServer) deletePendingInit(id uint32) {
+	if _, loaded := s.messages.LoadAndDelete(id); loaded {
+		s.pendingInits.Add(-1)
 	}
-	return resp
 }
 
 func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
-	dnsLog.Debugf("[session init] with dns session id %d", msg.ID&sessionIDBitMask)
-	loadSession, _ := s.sessions.Load(msg.ID & sessionIDBitMask)
-	dnsSession := loadSession.(*DNSSession)
+	sessionID := msg.ID & sessionIDBitMask
+	dnsLog.Debugf("[session init] with dns session id %d", sessionID)
+	if sessionID == 0 {
+		dnsLog.Warnf("[session init] invalid dns session id")
+		return s.refusedErrorResp(req)
+	}
 	if msg.Size <= 32 {
 		dnsLog.Warnf("[session init] invalid msg data length")
 		return s.refusedErrorResp(req)
 	}
-	if dnsSession.CipherCtx != nil {
-		dnsLog.Warnf("[session init] session is already initialized")
+	if existing, ok := s.sessions.Load(sessionID); ok {
+		// Defensive: INIT should only be called once per session ID.
+		if dnsSession, ok := existing.(*DNSSession); ok && dnsSession != nil && dnsSession.CipherCtx != nil {
+			dnsLog.Warnf("[session init] session is already initialized")
+			return s.refusedErrorResp(req)
+		}
+		dnsLog.Warnf("[session init] session already exists")
 		return s.refusedErrorResp(req)
 	}
 
@@ -564,7 +660,27 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 		return s.refusedErrorResp(req)
 	}
 
+	now := time.Now()
+	dnsSession := &DNSSession{
+		ID:                sessionID,
+		Created:           now,
+		dnsIdMsgIdMap:     map[uint32]uint32{},
+		outgoingMsgIDs:    []uint32{},
+		outgoingBuffers:   map[uint32][]byte{},
+		outgoingMutex:     &sync.RWMutex{},
+		incomingEnvelopes: map[uint32]*PendingEnvelope{},
+		incomingMutex:     &sync.Mutex{},
+		msgCount:          uint32(0),
+	}
+	dnsSession.touch(now)
 	dnsSession.ImplantConn = core.NewImplantConnection("dns", "n/a")
+	dnsSession.CipherCtx = cryptography.NewCipherContext(sessionKey)
+
+	if _, loaded := s.sessions.LoadOrStore(sessionID, dnsSession); loaded {
+		dnsLog.Warnf("[session init] session id collision for %d", sessionID)
+		return s.refusedErrorResp(req)
+	}
+
 	go func() {
 		dnsLog.Debugf("[dns] starting implant conn send loop")
 		for envelope := range dnsSession.ImplantConn.Send {
@@ -572,7 +688,6 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 		}
 		dnsLog.Debugf("[dns] closing implant conn send loop")
 	}()
-	dnsSession.CipherCtx = cryptography.NewCipherContext(sessionKey)
 	buf := make([]byte, 4)
 	binary.LittleEndian.PutUint32(buf, dnsSession.ID)
 	respData, err := dnsSession.CipherCtx.Encrypt(buf)
@@ -628,6 +743,7 @@ func (s *SliverDNSServer) handlePoll(domain string, msg *dnspb.DNSMessage, check
 	dnsLog.Debugf("[poll] with dns session id %d", msg.ID&sessionIDBitMask)
 	loadSession, _ := s.sessions.Load(msg.ID & sessionIDBitMask)
 	dnsSession := loadSession.(*DNSSession)
+	dnsSession.touch(time.Now())
 
 	msgID, msgLen, err := dnsSession.PopOutgoingMsgID(msg)
 	if err != nil {
@@ -709,6 +825,7 @@ func (s *SliverDNSServer) handleDataFromImplant(domain string, msg *dnspb.DNSMes
 	dnsLog.Debugf("[from implant] dns session id %d", msg.ID&sessionIDBitMask)
 	loadSession, _ := s.sessions.Load(msg.ID & sessionIDBitMask)
 	dnsSession := loadSession.(*DNSSession)
+	dnsSession.touch(time.Now())
 	dnsLog.Debugf("[from implant] msg id: %d, size: %d", msg.ID, msg.Size)
 	pending := dnsSession.IncomingPendingEnvelope(msg.ID, msg.Size)
 	complete := pending.Insert(msg)
@@ -739,6 +856,7 @@ func (s *SliverDNSServer) handleDataToImplant(domain string, msg *dnspb.DNSMessa
 	dnsLog.Debugf("[to implant] dns session id %d", msg.ID&sessionIDBitMask)
 	loadSession, _ := s.sessions.Load(msg.ID & sessionIDBitMask)
 	dnsSession := loadSession.(*DNSSession)
+	dnsSession.touch(time.Now())
 
 	data, err := dnsSession.OutgoingRead(msg.ID, msg.Start, msg.Stop)
 	if err != nil {
@@ -798,6 +916,7 @@ func (s *SliverDNSServer) handleClear(domain string, msg *dnspb.DNSMessage, chec
 	dnsLog.Debugf("[clear] dns session id %d", msg.ID&sessionIDBitMask)
 	loadSession, _ := s.sessions.Load(msg.ID & sessionIDBitMask)
 	dnsSession := loadSession.(*DNSSession)
+	dnsSession.touch(time.Now())
 	dnsSession.ClearOutgoingEnvelope(msg.ID)
 
 	respBuf := make([]byte, 4)
