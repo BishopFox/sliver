@@ -156,17 +156,11 @@ func (rpc *Server) StartWGListener(ctx context.Context, req *clientpb.WGListener
 		req.KeyPort = defaultWGKeyExPort
 	}
 
+	if req.NPort == req.KeyPort {
+		return nil, status.Error(codes.InvalidArgument, "wg nport and key-port must be different")
+	}
+
 	err := PortInUse(req.Port)
-	if err != nil {
-		return nil, rpcError(err)
-	}
-
-	err = PortInUse(req.NPort)
-	if err != nil {
-		return nil, rpcError(err)
-	}
-
-	err = PortInUse(req.KeyPort)
 	if err != nil {
 		return nil, rpcError(err)
 	}

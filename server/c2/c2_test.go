@@ -36,13 +36,13 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	implantConfig := setup()
+	implantBuild := setup()
 	code1 := m.Run()
-	cleanup(implantConfig)
+	cleanup(implantBuild)
 	os.Exit(code1)
 }
 
-func setup() *models.ImplantConfig {
+func setup() *models.ImplantBuild {
 	var err error
 	certs.SetupCAs()
 	serverAgeKeyPair = cryptography.AgeServerKeyPair()
@@ -60,6 +60,7 @@ func setup() *models.ImplantConfig {
 	publicKeyDigest := hex.EncodeToString(digest.Sum(nil))
 
 	implantBuild := &models.ImplantBuild{
+		Name:                "test-" + publicKeyDigest,
 		PeerPublicKey:       peerAgeKeyPair.Public,
 		PeerPublicKeyDigest: publicKeyDigest,
 		PeerPrivateKey:      peerAgeKeyPair.Private,
@@ -70,13 +71,11 @@ func setup() *models.ImplantConfig {
 	if err != nil {
 		panic(err)
 	}
-
-	implantConfig := &models.ImplantConfig{
-		ImplantBuilds: []models.ImplantBuild{*implantBuild},
-	}
-	return implantConfig
+	return implantBuild
 }
 
-func cleanup(implantConfig *models.ImplantConfig) {
-	db.Session().Delete(implantConfig)
+func cleanup(implantBuild *models.ImplantBuild) {
+	if implantBuild != nil {
+		db.Session().Delete(implantBuild)
+	}
 }
