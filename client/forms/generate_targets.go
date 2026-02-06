@@ -64,6 +64,8 @@ func commonFormatOptions(goos string) []huh.Option[string] {
 			huh.NewOption("Service", "service"),
 			huh.NewOption("Shellcode", "shellcode"),
 		)
+	} else if goos == "darwin" {
+		options = append(options, huh.NewOption("Shellcode", "shellcode"))
 	}
 	return options
 }

@@ -168,7 +168,9 @@ type ImplantConfig struct {
 	MaxConnectionErrors uint32
 	ConnectionStrategy  string
 	SGNEnabled          bool
-	Exports             string
+	// ShellcodeEncoder - client-side post-processing applied to shellcode output
+	ShellcodeEncoder int32
+	Exports          string
 
 	// WireGuard
 	WGPeerTunIP       string
@@ -203,7 +205,7 @@ type ImplantConfig struct {
 	IsShellcode bool
 
 	RunAtLoad bool
-	// Donut options (Windows shellcode only)
+	// Shellcode options (Windows: Donut; macOS: beignet uses Compress only)
 	DonutEntropy  uint32
 	DonutCompress uint32
 	DonutExitOpt  uint32
@@ -264,6 +266,7 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		ObfuscateSymbols: ic.ObfuscateSymbols,
 		TemplateName:     ic.TemplateName,
 		SGNEnabled:       ic.SGNEnabled,
+		ShellcodeEncoder: clientpb.ShellcodeEncoder(ic.ShellcodeEncoder),
 
 		ReconnectInterval:   ic.ReconnectInterval,
 		MaxConnectionErrors: ic.MaxConnectionErrors,
@@ -297,7 +300,7 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		IncludeTCP:      ic.IncludeTCP,
 		Extension:       ic.Extension,
 		Exports:         strings.Split(ic.Exports, ","),
-		DonutConfig: &clientpb.DonutConfig{
+		ShellcodeConfig: &clientpb.ShellcodeConfig{
 			Entropy:  ic.DonutEntropy,
 			Compress: ic.DonutCompress,
 			ExitOpt:  ic.DonutExitOpt,
@@ -479,6 +482,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 		cfg.TemplateName = defaultTemplateName
 	}
 	cfg.SGNEnabled = pbConfig.SGNEnabled
+	cfg.ShellcodeEncoder = int32(pbConfig.ShellcodeEncoder)
 
 	cfg.IncludeMTLS = IsC2Enabled([]string{"mtls"}, pbConfig.C2)
 	cfg.IncludeWG = IsC2Enabled([]string{"wg"}, pbConfig.C2)
@@ -518,15 +522,15 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.RunAtLoad = pbConfig.RunAtLoad
 	cfg.DebugFile = pbConfig.DebugFile
 	cfg.Exports = strings.Join(pbConfig.Exports, ",")
-	if pbConfig.DonutConfig != nil {
-		cfg.DonutEntropy = pbConfig.DonutConfig.Entropy
-		cfg.DonutCompress = pbConfig.DonutConfig.Compress
-		cfg.DonutExitOpt = pbConfig.DonutConfig.ExitOpt
-		cfg.DonutBypass = pbConfig.DonutConfig.Bypass
-		cfg.DonutHeaders = pbConfig.DonutConfig.Headers
-		cfg.DonutThread = pbConfig.DonutConfig.Thread
-		cfg.DonutUnicode = pbConfig.DonutConfig.Unicode
-		cfg.DonutOEP = pbConfig.DonutConfig.OEP
+	if pbConfig.ShellcodeConfig != nil {
+		cfg.DonutEntropy = pbConfig.ShellcodeConfig.Entropy
+		cfg.DonutCompress = pbConfig.ShellcodeConfig.Compress
+		cfg.DonutExitOpt = pbConfig.ShellcodeConfig.ExitOpt
+		cfg.DonutBypass = pbConfig.ShellcodeConfig.Bypass
+		cfg.DonutHeaders = pbConfig.ShellcodeConfig.Headers
+		cfg.DonutThread = pbConfig.ShellcodeConfig.Thread
+		cfg.DonutUnicode = pbConfig.ShellcodeConfig.Unicode
+		cfg.DonutOEP = pbConfig.ShellcodeConfig.OEP
 	}
 
 	cfg.HttpC2ConfigName = pbConfig.HTTPC2ConfigName

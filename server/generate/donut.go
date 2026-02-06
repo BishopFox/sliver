@@ -19,24 +19,24 @@ const (
 )
 
 // DonutShellcodeFromFile returns a Donut shellcode for the given PE file
-func DonutShellcodeFromFile(filePath string, arch string, dotnet bool, params string, className string, method string, donutConfig *clientpb.DonutConfig) (data []byte, err error) {
+func DonutShellcodeFromFile(filePath string, arch string, dotnet bool, params string, className string, method string, shellcodeConfig *clientpb.ShellcodeConfig) (data []byte, err error) {
 	pe, err := os.ReadFile(filePath)
 	if err != nil {
 		return
 	}
 	isDLL := (filepath.Ext(filePath) == ".dll")
-	return DonutShellcodeFromPE(pe, arch, dotnet, params, className, method, isDLL, false, true, donutConfig)
+	return DonutShellcodeFromPE(pe, arch, dotnet, params, className, method, isDLL, false, true, shellcodeConfig)
 }
 
 // DonutShellcodeFromPE returns a Donut shellcode for the given PE file
-func DonutShellcodeFromPE(pe []byte, arch string, dotnet bool, params string, className string, method string, isDLL bool, isUnicode bool, createNewThread bool, donutConfig *clientpb.DonutConfig) (data []byte, err error) {
+func DonutShellcodeFromPE(pe []byte, arch string, dotnet bool, params string, className string, method string, isDLL bool, isUnicode bool, createNewThread bool, shellcodeConfig *clientpb.ShellcodeConfig) (data []byte, err error) {
 	ext := ".exe"
 	if isDLL {
 		ext = ".dll"
 	}
 	_ = dotnet
 
-	donutOpts := normalizeDonutConfig(donutConfig, createNewThread, isUnicode)
+	donutOpts := normalizeDonutConfig(shellcodeConfig, createNewThread, isUnicode)
 	donutArch := getDonutArch(arch)
 
 	opts := wasmdonut.GenerateOptions{
@@ -73,7 +73,7 @@ type donutOptions struct {
 	oep      uint32
 }
 
-func normalizeDonutConfig(config *clientpb.DonutConfig, fallbackThread bool, fallbackUnicode bool) donutOptions {
+func normalizeDonutConfig(config *clientpb.ShellcodeConfig, fallbackThread bool, fallbackUnicode bool) donutOptions {
 	opts := donutOptions{
 		entropy:  defaultDonutEntropy,
 		compress: defaultDonutCompress,

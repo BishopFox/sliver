@@ -36,9 +36,9 @@ import (
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
+	shellcodeencoders "github.com/bishopfox/sliver/server/encoders/shellcode"
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
-	"github.com/bishopfox/sliver/server/encoders/shellcode/sgn"
 	"github.com/bishopfox/sliver/util"
 
 	"google.golang.org/grpc/codes"
@@ -61,7 +61,7 @@ func (rpc *Server) Task(ctx context.Context, req *sliverpb.TaskReq) (*sliverpb.T
 
 // Migrate - Migrate to a new process on the remote system (Windows only)
 func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliverpb.Migrate, error) {
-	var shellcode []byte
+	var sc []byte
 	var session *core.Session
 	var beacon *clientpb.Beacon
 	var dbBeacon *models.Beacon
@@ -85,7 +85,7 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 	}
 
 	name := filepath.Base(req.Name)
-	shellcode, arch, err := getSliverShellcode(name)
+	sc, arch, err := getSliverShellcode(name)
 	if err != nil {
 		config := req.Config
 		if req.Name == "" {
@@ -119,7 +119,7 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 		if err != nil {
 			return nil, rpcError(err)
 		}
-		shellcode, _ = os.ReadFile(shellcodePath)
+		sc, _ = os.ReadFile(shellcodePath)
 		// Save the implant config in the database so that the server recognizes it when it tries to connect
 		config.ID = ""
 		savedConfig, err := db.SaveImplantConfig(config)
@@ -140,23 +140,43 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 
 	}
 
-	if len(shellcode) < 1 {
+	if len(sc) < 1 {
 		return nil, status.Error(codes.OutOfRange, "shellcode is zero bytes")
 	}
 
-	switch req.Encoder {
-
-	case clientpb.ShellcodeEncoder_SHIKATA_GA_NAI:
-		shellcode, err = sgn.EncodeShellcode(shellcode, arch, 1, []byte{})
-		if err != nil {
-			return nil, rpcError(err)
+	if req.Encoder != clientpb.ShellcodeEncoder_NONE {
+		encoderName, ok := shellcodeEncoderNames[req.Encoder]
+		if !ok {
+			return nil, status.Error(codes.InvalidArgument, "Unknown encoder")
 		}
 
+		normalizedArch := normalizeShellcodeArch(arch)
+		if normalizedArch == "" {
+			return nil, status.Error(codes.InvalidArgument, "Unknown architecture")
+		}
+
+		encoderArchs := shellcodeencoders.ShellcodeEncoders[normalizedArch]
+		if encoderArchs == nil {
+			return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("Unknown architecture: %s", normalizedArch))
+		}
+		encoder := encoderArchs[encoderName]
+		if encoder == nil {
+			return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("Encoder %s not supported for architecture %s", encoderName, normalizedArch))
+		}
+
+		encoded, err := encoder.Encode(sc, shellcodeencoders.ShellcodeEncoderArgs{
+			Iterations: 1,
+			BadChars:   []byte{},
+		})
+		if err != nil {
+			return nil, status.Error(codes.Internal, fmt.Sprintf("Failed to encode shellcode (%s)", err))
+		}
+		sc = encoded
 	}
 
 	migrateReq := &sliverpb.InvokeMigrateReq{
 		Request:  req.Request,
-		Data:     shellcode,
+		Data:     sc,
 		Pid:      req.Pid,
 		ProcName: req.ProcName,
 	}
@@ -373,7 +393,7 @@ func getSliverShellcode(name string) ([]byte, string, error) {
 		if err != nil {
 			return []byte{}, "", err
 		}
-		data, err = generate.DonutShellcodeFromPE(fileData, config.GOARCH, false, "", "", "", false, false, false, config.DonutConfig)
+		data, err = generate.DonutShellcodeFromPE(fileData, config.GOARCH, false, "", "", "", false, false, false, config.ShellcodeConfig)
 		if err != nil {
 			rpcLog.Errorf("DonutShellcodeFromPE error: %v\n", err)
 			return []byte{}, "", err
