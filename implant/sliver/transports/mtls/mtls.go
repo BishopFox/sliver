@@ -21,7 +21,6 @@ package mtls
 // {{if .Config.IncludeMTLS}}
 
 import (
-	"bytes"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"crypto/tls"
@@ -30,6 +29,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"sync"
 	"time"
 
@@ -90,43 +90,77 @@ func mtlsEnvelopeSigningKey() (ed25519.PrivateKey, uint64, error) {
 	return envelopeSigningPriv, envelopeSigningKeyID, envelopeSigningErr
 }
 
+func isNilInterface(v any) bool {
+	if v == nil {
+		return true
+	}
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Map, reflect.Pointer, reflect.Interface, reflect.Slice:
+		return rv.IsNil()
+	default:
+		return false
+	}
+}
+
+func writeAll(w io.Writer, p []byte) error {
+	for len(p) > 0 {
+		n, err := w.Write(p)
+		if err != nil {
+			return err
+		}
+		if n <= 0 {
+			return io.ErrShortWrite
+		}
+		p = p[n:]
+	}
+	return nil
+}
+
 // WriteEnvelope - Writes a message to the TLS socket using length prefix framing
 // which is a fancy way of saying we write the length of the message then the message
 // e.g. [uint32 length|message] so the receiver can delimit messages properly
 func WriteEnvelope(w io.Writer, envelope *pb.Envelope) error {
+	if envelope == nil {
+		return errors.New("[mtls] nil envelope")
+	}
+	if isNilInterface(w) {
+		return errors.New("[mtls] nil writer")
+	}
+
 	data, err := proto.Marshal(envelope)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Print("Envelope marshaling error: ", err)
 		// {{end}}
-		return err
+		return fmt.Errorf("[mtls] marshal envelope: %w", err)
 	}
 
 	signingKey, keyID, err := mtlsEnvelopeSigningKey()
 	if err != nil {
-		return err
+		return fmt.Errorf("[mtls] envelope signing key: %w", err)
 	}
 	rawSigBuf := make([]byte, cryptography.RawSigSize)
 	binary.LittleEndian.PutUint16(rawSigBuf[:2], cryptography.EdDSA)
 	binary.LittleEndian.PutUint64(rawSigBuf[2:10], keyID)
 	copy(rawSigBuf[10:], ed25519.Sign(signingKey, data))
-	if _, werr := w.Write(rawSigBuf); werr != nil {
-		return werr
+	if werr := writeAll(w, rawSigBuf); werr != nil {
+		return fmt.Errorf("[mtls] write raw signature: %w", werr)
 	}
 
-	dataLengthBuf := new(bytes.Buffer)
-	binary.Write(dataLengthBuf, binary.LittleEndian, uint32(len(data)))
-	if _, werr := w.Write(dataLengthBuf.Bytes()); werr != nil {
+	var dataLengthBuf [4]byte
+	binary.LittleEndian.PutUint32(dataLengthBuf[:], uint32(len(data)))
+	if werr := writeAll(w, dataLengthBuf[:]); werr != nil {
 		// {{if .Config.Debug}}
 		log.Print("Error writing data length: ", werr)
 		// {{end}}
-		return werr
+		return fmt.Errorf("[mtls] write data length: %w", werr)
 	}
-	if _, werr := w.Write(data); werr != nil {
+	if werr := writeAll(w, data); werr != nil {
 		// {{if .Config.Debug}}
 		log.Print("Error writing data: ", werr)
 		// {{end}}
-		return werr
+		return fmt.Errorf("[mtls] write data: %w", werr)
 	}
 	return nil
 }

