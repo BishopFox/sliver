@@ -28,6 +28,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -353,7 +354,6 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 	isSharedLib := false
 	isService := false
 	isShellcode := false
-	sgnEnabled := false
 
 	var exports []string
 	exportsArg, _ := cmd.Flags().GetString("exports")
@@ -377,8 +377,6 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 	case "shellcode":
 		configFormat = clientpb.OutputFormat_SHELLCODE
 		isShellcode = true
-		sgnEnabled, _ = cmd.Flags().GetBool("disable-sgn")
-		sgnEnabled = !sgnEnabled
 	case "service":
 		configFormat = clientpb.OutputFormat_SERVICE
 		isService = true
@@ -421,6 +419,13 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		return "", nil
 	}
 
+	shellcodeEncoder, err := parseShellcodeEncoderFlag(cmd, targetArch, configFormat, con)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return "", nil
+	}
+	sgnEnabled := shellcodeEncoder == clientpb.ShellcodeEncoder_SHIKATA_GA_NAI // legacy field
+
 	var tunIP net.IP
 	if wg, _ := cmd.Flags().GetString("wg"); wg != "" {
 		uniqueWGIP, err := con.Rpc.GenerateUniqueIP(context.Background(), &commonpb.Empty{})
@@ -458,6 +463,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		Debug:            debug,
 		Evasion:          evasion,
 		SGNEnabled:       sgnEnabled,
+		ShellcodeEncoder: shellcodeEncoder,
 		ObfuscateSymbols: symbolObfuscation,
 		C2:               c2s,
 		CanaryDomains:    canaryDomains,
@@ -626,6 +632,126 @@ func parseShellcodeFlags(cmd *cobra.Command, targetOS string, configFormat clien
 		Unicode:  shellcodeUnicode,
 		OEP:      shellcodeOEP,
 	}, nil
+}
+
+func normalizeShellcodeEncoderName(name string) string {
+	normalized := strings.ToLower(strings.TrimSpace(name))
+	normalized = strings.ReplaceAll(normalized, "-", "_")
+	return normalized
+}
+
+func normalizeShellcodeArch(arch string) string {
+	normalized := strings.ToLower(strings.TrimSpace(arch))
+	switch normalized {
+	case "amd64", "x64", "x86_64":
+		return "amd64"
+	case "386", "x86", "i386":
+		return "386"
+	default:
+		return normalized
+	}
+}
+
+func fetchShellcodeEncoderMap(con *console.SliverClient) (*clientpb.ShellcodeEncoderMap, error) {
+	if con == nil || con.Rpc == nil {
+		return nil, errors.New("no RPC client")
+	}
+	grpcCtx, cancel := con.GrpcContext(nil)
+	defer cancel()
+	return con.Rpc.ShellcodeEncoderMap(grpcCtx, &commonpb.Empty{})
+}
+
+func compatibleShellcodeEncoderNames(encoderMap *clientpb.ShellcodeEncoderMap, arch string) []string {
+	if encoderMap == nil {
+		return nil
+	}
+	arch = normalizeShellcodeArch(arch)
+	archMap := encoderMap.GetEncoders()[arch]
+	if archMap == nil {
+		return nil
+	}
+
+	names := make([]string, 0, len(archMap.GetEncoders()))
+	for name := range archMap.GetEncoders() {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func shellcodeEncoderEnumForArch(encoderMap *clientpb.ShellcodeEncoderMap, arch, name string) (clientpb.ShellcodeEncoder, bool) {
+	if encoderMap == nil {
+		return clientpb.ShellcodeEncoder_NONE, false
+	}
+	arch = normalizeShellcodeArch(arch)
+	name = normalizeShellcodeEncoderName(name)
+	archMap := encoderMap.GetEncoders()[arch]
+	if archMap == nil {
+		return clientpb.ShellcodeEncoder_NONE, false
+	}
+	encoder, ok := archMap.GetEncoders()[name]
+	return encoder, ok
+}
+
+func parseShellcodeEncoderFlag(cmd *cobra.Command, targetArch string, configFormat clientpb.OutputFormat, con *console.SliverClient) (clientpb.ShellcodeEncoder, error) {
+	rawEncoder, _ := cmd.Flags().GetString("shellcode-encoder")
+	rawEncoder = strings.TrimSpace(rawEncoder)
+
+	if configFormat != clientpb.OutputFormat_SHELLCODE {
+		if cmd.Flags().Changed("shellcode-encoder") && rawEncoder != "" {
+			con.PrintWarnf("Shellcode encoder only applies when using `--format shellcode`, ignoring.\n")
+		}
+		return clientpb.ShellcodeEncoder_NONE, nil
+	}
+
+	if cmd.Flags().Changed("shellcode-encoder") && rawEncoder == "" {
+		return clientpb.ShellcodeEncoder_NONE, fmt.Errorf("shellcode-encoder cannot be empty; use 'none' to disable encoding")
+	}
+
+	normalized := normalizeShellcodeEncoderName(rawEncoder)
+	if normalized == "none" {
+		return clientpb.ShellcodeEncoder_NONE, nil
+	}
+
+	encoderMap, err := fetchShellcodeEncoderMap(con)
+	if err != nil {
+		return clientpb.ShellcodeEncoder_NONE, err
+	}
+
+	// If no encoder specified, prompt for a compatible encoder (or none).
+	if rawEncoder == "" && !cmd.Flags().Changed("shellcode-encoder") {
+		compatible := compatibleShellcodeEncoderNames(encoderMap, targetArch)
+		if len(compatible) == 0 {
+			// No known compatible encoders for this arch.
+			return clientpb.ShellcodeEncoder_NONE, nil
+		}
+
+		options := append([]string{"none"}, compatible...)
+		choice := "none"
+		if err := forms.Select("Select a shellcode encoder (optional)", options, &choice); err != nil {
+			return clientpb.ShellcodeEncoder_NONE, err
+		}
+		if normalizeShellcodeEncoderName(choice) == "none" {
+			return clientpb.ShellcodeEncoder_NONE, nil
+		}
+
+		encoder, ok := shellcodeEncoderEnumForArch(encoderMap, targetArch, choice)
+		if !ok {
+			return clientpb.ShellcodeEncoder_NONE, fmt.Errorf("unsupported shellcode encoder %q for arch %s", choice, normalizeShellcodeArch(targetArch))
+		}
+		return encoder, nil
+	}
+
+	// Encoder explicitly specified by name.
+	encoder, ok := shellcodeEncoderEnumForArch(encoderMap, targetArch, rawEncoder)
+	if !ok {
+		compatible := compatibleShellcodeEncoderNames(encoderMap, targetArch)
+		if len(compatible) == 0 {
+			return clientpb.ShellcodeEncoder_NONE, fmt.Errorf("no shellcode encoders are available for arch %s", normalizeShellcodeArch(targetArch))
+		}
+		return clientpb.ShellcodeEncoder_NONE, fmt.Errorf("unsupported shellcode encoder %q for arch %s (valid: %s)", rawEncoder, normalizeShellcodeArch(targetArch), strings.Join(compatible, ", "))
+	}
+	return encoder, nil
 }
 
 // parseTrafficEncoderArgs - parses the traffic encoder args and returns a bool indicating if traffic encoders are enabled.
@@ -1106,12 +1232,58 @@ func externalBuild(name string, config *clientpb.ImplantConfig, save string, con
 	}
 	con.PrintInfof("Build name: %s (%d bytes)\n", name, len(generated.File.Data))
 
+	fileData := generated.File.Data
+	if config.IsShellcode {
+		encoder := config.ShellcodeEncoder
+		legacySGN := false
+		if encoder == clientpb.ShellcodeEncoder_NONE && config.SGNEnabled {
+			encoder = clientpb.ShellcodeEncoder_SHIKATA_GA_NAI
+			legacySGN = true
+		}
+		if encoder != clientpb.ShellcodeEncoder_NONE {
+			encoderName := map[clientpb.ShellcodeEncoder]string{
+				clientpb.ShellcodeEncoder_SHIKATA_GA_NAI: "shikata_ga_nai",
+				clientpb.ShellcodeEncoder_XOR:            "xor",
+				clientpb.ShellcodeEncoder_XOR_DYNAMIC:    "xor_dynamic",
+			}[encoder]
+			if encoderName == "" {
+				return nil, fmt.Errorf("unknown shellcode encoder enum %d", int32(encoder))
+			}
+			encoderMap, err := fetchShellcodeEncoderMap(con)
+			if err != nil {
+				return nil, err
+			}
+			if _, ok := shellcodeEncoderEnumForArch(encoderMap, config.GOARCH, encoderName); !ok {
+				msg := fmt.Sprintf("Shellcode encoder %q is not supported for arch %s", encoderName, normalizeShellcodeArch(config.GOARCH))
+				if legacySGN {
+					con.PrintWarnf("%s, skipping.\n", msg)
+				} else {
+					return nil, errors.New(msg)
+				}
+			} else {
+				con.PrintInfof("Encoding shellcode with %s ... ", encoderName)
+				resp, err := con.Rpc.ShellcodeEncoder(context.Background(), &clientpb.ShellcodeEncodeReq{
+					Encoder:      encoder,
+					Architecture: config.GOARCH,
+					Iterations:   1,
+					BadChars:     []byte{},
+					Data:         fileData,
+				})
+				if err != nil {
+					return nil, err
+				}
+				con.Printf("success!\n")
+				fileData = resp.GetData()
+			}
+		}
+	}
+
 	saveTo, err := saveLocation(save, filepath.Base(generated.File.Name), con)
 	if err != nil {
 		return nil, err
 	}
 
-	err = os.WriteFile(saveTo, generated.File.Data, 0o700)
+	err = os.WriteFile(saveTo, fileData, 0o700)
 	if err != nil {
 		con.PrintErrorf("Failed to write to: %s\n", saveTo)
 		return nil, err
@@ -1158,24 +1330,49 @@ func compile(name string, config *clientpb.ImplantConfig, save string, con *cons
 
 	fileData := generated.File.Data
 	if config.IsShellcode {
-		if !config.SGNEnabled {
-			con.PrintErrorf("Shikata ga nai encoder is %sdisabled%s\n", console.Bold, console.Normal)
-		} else if config.GOARCH != "amd64" && config.GOARCH != "386" {
-			con.PrintWarnf("Shikata ga nai encoder is not supported for %s, skipping.\n", config.GOARCH)
-		} else {
-			con.PrintInfof("Encoding shellcode with shikata ga nai ... ")
-			resp, err := con.Rpc.ShellcodeEncoder(context.Background(), &clientpb.ShellcodeEncodeReq{
-				Encoder:      clientpb.ShellcodeEncoder_SHIKATA_GA_NAI,
-				Architecture: config.GOARCH,
-				Iterations:   1,
-				BadChars:     []byte{},
-				Data:         fileData,
-			})
-			if err != nil {
-				con.PrintErrorf("%s\n", err)
+		encoder := config.ShellcodeEncoder
+		legacySGN := false
+		if encoder == clientpb.ShellcodeEncoder_NONE && config.SGNEnabled {
+			encoder = clientpb.ShellcodeEncoder_SHIKATA_GA_NAI
+			legacySGN = true
+		}
+		if encoder != clientpb.ShellcodeEncoder_NONE {
+			encoderName := map[clientpb.ShellcodeEncoder]string{
+				clientpb.ShellcodeEncoder_SHIKATA_GA_NAI: "shikata_ga_nai",
+				clientpb.ShellcodeEncoder_XOR:            "xor",
+				clientpb.ShellcodeEncoder_XOR_DYNAMIC:    "xor_dynamic",
+			}[encoder]
+			if encoderName == "" {
+				con.PrintWarnf("Unknown shellcode encoder enum %d, skipping.\n", int32(encoder))
 			} else {
-				con.Printf("success!\n")
-				fileData = resp.GetData()
+				encoderMap, err := fetchShellcodeEncoderMap(con)
+				if err != nil {
+					return nil, err
+				}
+				if _, ok := shellcodeEncoderEnumForArch(encoderMap, config.GOARCH, encoderName); !ok {
+					msg := fmt.Sprintf("Shellcode encoder %q is not supported for arch %s", encoderName, normalizeShellcodeArch(config.GOARCH))
+					if legacySGN {
+						con.PrintWarnf("%s, skipping.\n", msg)
+					} else {
+						con.PrintErrorf("%s\n", msg)
+						return nil, errors.New(msg)
+					}
+				} else {
+					con.PrintInfof("Encoding shellcode with %s ... ", encoderName)
+					resp, err := con.Rpc.ShellcodeEncoder(context.Background(), &clientpb.ShellcodeEncodeReq{
+						Encoder:      encoder,
+						Architecture: config.GOARCH,
+						Iterations:   1,
+						BadChars:     []byte{},
+						Data:         fileData,
+					})
+					if err != nil {
+						con.PrintErrorf("%s\n", err)
+					} else {
+						con.Printf("success!\n")
+						fileData = resp.GetData()
+					}
+				}
 			}
 		}
 	}

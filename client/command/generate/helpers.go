@@ -2,6 +2,7 @@ package generate
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -30,19 +31,49 @@ func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverClient
 	}
 	data = generated.GetFile().GetData()
 
-	if profile.Config.Format == clientpb.OutputFormat_SHELLCODE && profile.Config.SGNEnabled {
-		encodeResp, err := con.Rpc.ShellcodeEncoder(context.Background(), &clientpb.ShellcodeEncodeReq{
-			Encoder:      clientpb.ShellcodeEncoder_SHIKATA_GA_NAI,
-			Architecture: profile.Config.GOARCH,
-			Iterations:   1,
-			BadChars:     []byte{},
-			Data:         data,
-		})
-		if err != nil {
-			con.PrintErrorf("Error encoding shellcode")
-			return nil, err
+	if profile.Config.Format == clientpb.OutputFormat_SHELLCODE {
+		encoder := profile.Config.ShellcodeEncoder
+		legacySGN := false
+		if encoder == clientpb.ShellcodeEncoder_NONE && profile.Config.SGNEnabled {
+			encoder = clientpb.ShellcodeEncoder_SHIKATA_GA_NAI
+			legacySGN = true
 		}
-		data = encodeResp.Data
+		if encoder != clientpb.ShellcodeEncoder_NONE {
+			encoderName := map[clientpb.ShellcodeEncoder]string{
+				clientpb.ShellcodeEncoder_SHIKATA_GA_NAI: "shikata_ga_nai",
+				clientpb.ShellcodeEncoder_XOR:            "xor",
+				clientpb.ShellcodeEncoder_XOR_DYNAMIC:    "xor_dynamic",
+			}[encoder]
+			if encoderName == "" {
+				return nil, fmt.Errorf("unknown shellcode encoder enum %d", int32(encoder))
+			}
+
+			encoderMap, err := fetchShellcodeEncoderMap(con)
+			if err != nil {
+				return nil, err
+			}
+			if _, ok := shellcodeEncoderEnumForArch(encoderMap, profile.Config.GOARCH, encoderName); !ok {
+				msg := fmt.Sprintf("shellcode encoder %q is not supported for arch %s", encoderName, normalizeShellcodeArch(profile.Config.GOARCH))
+				if legacySGN {
+					con.PrintWarnf("%s, skipping.\n", msg)
+				} else {
+					return nil, errors.New(msg)
+				}
+			} else {
+				encodeResp, err := con.Rpc.ShellcodeEncoder(context.Background(), &clientpb.ShellcodeEncodeReq{
+					Encoder:      encoder,
+					Architecture: profile.Config.GOARCH,
+					Iterations:   1,
+					BadChars:     []byte{},
+					Data:         data,
+				})
+				if err != nil {
+					con.PrintErrorf("Error encoding shellcode")
+					return nil, err
+				}
+				data = encodeResp.Data
+			}
+		}
 	}
 
 	_, err = con.Rpc.SaveImplantProfile(context.Background(), profile)

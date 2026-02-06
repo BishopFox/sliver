@@ -20,8 +20,10 @@ package generate
 
 import (
 	"os"
+	"strings"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/spf13/cobra"
 )
 
@@ -44,9 +46,40 @@ func ProfilesGenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []s
 	}
 	profile := GetImplantProfileByName(name, con)
 	if profile != nil {
-		// If SGN is explicitly disabled, make sure this compilation reflects that despite whatever is set in the profile
-		if SGNDisabled, _ := cmd.Flags().GetBool("disable-sgn"); SGNDisabled {
-			profile.Config.SGNEnabled = !SGNDisabled
+		// Override shellcode encoder if explicitly requested.
+		if cmd.Flags().Changed("shellcode-encoder") {
+			rawEncoder, _ := cmd.Flags().GetString("shellcode-encoder")
+			rawEncoder = strings.TrimSpace(rawEncoder)
+			if rawEncoder == "" {
+				con.PrintErrorf("shellcode-encoder cannot be empty; use 'none' to disable encoding\n")
+				return
+			}
+
+			normalized := normalizeShellcodeEncoderName(rawEncoder)
+			if normalized == "none" {
+				profile.Config.ShellcodeEncoder = clientpb.ShellcodeEncoder_NONE
+				profile.Config.SGNEnabled = false
+			} else if profile.Config.Format != clientpb.OutputFormat_SHELLCODE {
+				con.PrintWarnf("Shellcode encoder only applies when using `--format shellcode`, ignoring.\n")
+			} else {
+				encoderMap, err := fetchShellcodeEncoderMap(con)
+				if err != nil {
+					con.PrintErrorf("Failed to fetch shellcode encoders: %s\n", err)
+					return
+				}
+				encoder, ok := shellcodeEncoderEnumForArch(encoderMap, profile.Config.GOARCH, rawEncoder)
+				if !ok {
+					compatible := compatibleShellcodeEncoderNames(encoderMap, profile.Config.GOARCH)
+					if len(compatible) == 0 {
+						con.PrintErrorf("No shellcode encoders are available for arch %s\n", normalizeShellcodeArch(profile.Config.GOARCH))
+					} else {
+						con.PrintErrorf("Unsupported shellcode encoder %q for arch %s (valid: %s)\n", rawEncoder, normalizeShellcodeArch(profile.Config.GOARCH), strings.Join(compatible, ", "))
+					}
+					return
+				}
+				profile.Config.ShellcodeEncoder = encoder
+				profile.Config.SGNEnabled = encoder == clientpb.ShellcodeEncoder_SHIKATA_GA_NAI
+			}
 		}
 		_, err := compile(implantName, profile.Config, save, con)
 		if err != nil {

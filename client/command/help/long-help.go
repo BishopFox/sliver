@@ -201,6 +201,7 @@ To output a Linux ELF executable file, the following command would be used:
 
 [[.Bold]][[.Underline]]++ Shellcode Options ++[[.Normal]]
 When generating shellcode (--format shellcode), you can tune the shellcode generator:
+	--shellcode-encoder <name|none> # Apply a shellcode encoder (see: shellcode-encoders)
 	--shellcode-compress        # Enable aPLib compression (windows and macOS)
 	--shellcode-entropy 1|2|3   # (windows only) Entropy: 1=none (default), 2=random names, 3=random+encrypt
 	--shellcode-exitopt 1|2|3   # (windows only) Exit behavior: 1=exit thread (default), 2=exit process, 3=block

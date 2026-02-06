@@ -168,7 +168,9 @@ type ImplantConfig struct {
 	MaxConnectionErrors uint32
 	ConnectionStrategy  string
 	SGNEnabled          bool
-	Exports             string
+	// ShellcodeEncoder - client-side post-processing applied to shellcode output
+	ShellcodeEncoder int32
+	Exports          string
 
 	// WireGuard
 	WGPeerTunIP       string
@@ -264,6 +266,7 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		ObfuscateSymbols: ic.ObfuscateSymbols,
 		TemplateName:     ic.TemplateName,
 		SGNEnabled:       ic.SGNEnabled,
+		ShellcodeEncoder: clientpb.ShellcodeEncoder(ic.ShellcodeEncoder),
 
 		ReconnectInterval:   ic.ReconnectInterval,
 		MaxConnectionErrors: ic.MaxConnectionErrors,
@@ -479,6 +482,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 		cfg.TemplateName = defaultTemplateName
 	}
 	cfg.SGNEnabled = pbConfig.SGNEnabled
+	cfg.ShellcodeEncoder = int32(pbConfig.ShellcodeEncoder)
 
 	cfg.IncludeMTLS = IsC2Enabled([]string{"mtls"}, pbConfig.C2)
 	cfg.IncludeWG = IsC2Enabled([]string{"wg"}, pbConfig.C2)

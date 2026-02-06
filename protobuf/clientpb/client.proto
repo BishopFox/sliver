@@ -208,6 +208,7 @@ message ImplantConfig {
   string DebugFile = 106;
   repeated string exports = 107;
   ShellcodeConfig ShellcodeConfig = 108;
+  ShellcodeEncoder ShellcodeEncoder = 109;
 
   string HTTPC2ConfigName = 150;
   bool NetGoEnabled = 151;
