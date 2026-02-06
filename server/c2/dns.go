@@ -73,6 +73,9 @@ const (
 	// Pending INIT messages are expected to complete quickly. If they don't, expire them.
 	defaultPendingDNSInitTTL        = 2 * time.Minute
 	defaultPendingDNSInitGCInterval = 30 * time.Second
+
+	// INIT carries only key-exchange material and should remain small.
+	defaultMaxDNSInitSize = 16 * 1024
 )
 
 var (
@@ -541,6 +544,9 @@ func (s *SliverDNSServer) accumulateInitData(msg *dnspb.DNSMessage) ([]byte, boo
 	if msg.Size == 0 {
 		return nil, false, ErrInvalidMsg
 	}
+	if msg.Size > defaultMaxDNSInitSize {
+		return nil, false, ErrInvalidMsg
+	}
 	pendingValue, loaded := s.messages.Load(msg.ID)
 	if !loaded {
 		// Enforce a hard cap on pending INIT messages to prevent unbounded allocation.
@@ -580,6 +586,12 @@ func (s *SliverDNSServer) accumulateInitData(msg *dnspb.DNSMessage) ([]byte, boo
 	if !pending.Insert(msg) {
 		return nil, false, nil
 	}
+
+	if pending.received > pending.Size {
+		s.deletePendingInit(msg.ID)
+		return nil, false, ErrInvalidMsg
+	}
+
 	data, err := pending.Reassemble()
 	s.deletePendingInit(msg.ID)
 	if err != nil {

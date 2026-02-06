@@ -1080,3 +1080,53 @@ func randomBytes(size int) []byte {
 	rand.Read(buf)
 	return buf
 }
+
+func TestAccumulateInitDataRejectsOversizedInit(t *testing.T) {
+	server := newTestDNSServer()
+	msg := &dnspb.DNSMessage{
+		Type: dnspb.DNSMessageType_INIT,
+		ID:   0x01020304,
+		Size: defaultMaxDNSInitSize + 1,
+		Data: []byte{0x01},
+	}
+
+	_, _, err := server.accumulateInitData(msg)
+	if err != ErrInvalidMsg {
+		t.Fatalf("expected ErrInvalidMsg, got %v", err)
+	}
+}
+
+func TestAccumulateInitDataRejectsReceivedOverrun(t *testing.T) {
+	server := newTestDNSServer()
+
+	// Declared size is 8 bytes, but two chunks deliver 10 bytes total.
+	first := &dnspb.DNSMessage{
+		Type:  dnspb.DNSMessageType_INIT,
+		ID:    0x0a0b0c0d,
+		Size:  8,
+		Start: 0,
+		Stop:  5,
+		Data:  []byte("12345"),
+	}
+	second := &dnspb.DNSMessage{
+		Type:  dnspb.DNSMessageType_INIT,
+		ID:    0x0a0b0c0d,
+		Size:  8,
+		Start: 5,
+		Stop:  10,
+		Data:  []byte("67890"),
+	}
+
+	_, complete, err := server.accumulateInitData(first)
+	if err != nil {
+		t.Fatalf("unexpected error on first chunk: %v", err)
+	}
+	if complete {
+		t.Fatal("expected incomplete state after first chunk")
+	}
+
+	_, _, err = server.accumulateInitData(second)
+	if err != ErrInvalidMsg {
+		t.Fatalf("expected ErrInvalidMsg, got %v", err)
+	}
+}
