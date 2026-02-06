@@ -67,13 +67,13 @@ import (
 	// {{end}}
 
 	// {{if not .Config.IncludeNamePipe}}
-	"io"
 	"net/url"
 	"sync"
 
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	// {{end}}
 
+	"io"
 	"time"
 )
 
