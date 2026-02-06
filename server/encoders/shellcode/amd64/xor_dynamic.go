@@ -24,6 +24,7 @@ package amd64
 
 import (
 	"bytes"
+	"crypto/rand"
 	"fmt"
 	"strings"
 
@@ -34,6 +35,7 @@ const (
 	xorDynamicKeyPlaceholder     = 0x41
 	xorDynamicPayloadPlaceholder = 0x42
 	xorDynamicStubSize           = 46
+	xorDynamicStubSizeDword      = xorDynamicStubSize + 1
 )
 
 var xorDynamicBadchars = map[byte]bool{
@@ -45,6 +47,9 @@ var xorDynamicBadchars = map[byte]bool{
 // XorDynamic encodes an amd64 payload using the Metasploit x64/xor_dynamic scheme.
 // If key includes a trailing key terminator + payload terminator (3 bytes) that satisfy the
 // encoder constraints, those are used verbatim.
+//
+// Note: For large/high-entropy payloads, a 2-byte payload terminator may not exist. In
+// that case, this implementation falls back to a 4-byte payload terminator.
 func XorDynamic(data []byte, key []byte) ([]byte, error) {
 	if len(data) == 0 {
 		return nil, fmt.Errorf("xor_dynamic encoder: empty payload")
@@ -162,12 +167,34 @@ func selectKeyTerm(key []byte) (byte, error) {
 
 func selectPayloadTerm(encoded []byte) ([]byte, error) {
 	allowed := allowedDynamicChars()
+
+	// Fast path: try to find a distinct 2-byte terminator not present in the
+	// encoded payload. This preserves compatibility with the Metasploit stub.
+	present := make([]bool, 1<<16)
+	for i := 0; i+1 < len(encoded); i++ {
+		present[int(encoded[i])<<8|int(encoded[i+1])] = true
+	}
 	for _, first := range allowed {
 		for _, second := range allowed {
-			term := []byte{first, second}
-			if !bytes.Contains(encoded, term) {
-				return term, nil
+			if first == second {
+				continue // avoid periodic terminators (reduces cross-boundary false matches)
 			}
+			if !present[int(first)<<8|int(second)] {
+				return []byte{first, second}, nil
+			}
+		}
+	}
+
+	// Fallback: for large/high-entropy payloads it is possible for every allowed
+	// 2-byte sequence to occur. In that case, pick a 4-byte terminator (distinct
+	// bytes) which is overwhelmingly likely to be absent.
+	for attempts := 0; attempts < 2048; attempts++ {
+		term, err := randomDistinctBytes(allowed, 4)
+		if err != nil {
+			return nil, err
+		}
+		if !bytes.Contains(encoded, term) {
+			return term, nil
 		}
 	}
 	return nil, fmt.Errorf("xor_dynamic encoder: payload terminator not found")
@@ -185,9 +212,34 @@ func allowedDynamicChars() []byte {
 	return allowed
 }
 
+func randomDistinctBytes(allowed []byte, n int) ([]byte, error) {
+	if n <= 0 {
+		return nil, fmt.Errorf("xor_dynamic encoder: invalid terminator length %d", n)
+	}
+	if len(allowed) < n {
+		return nil, fmt.Errorf("xor_dynamic encoder: not enough allowed bytes (%d) for %d-byte terminator", len(allowed), n)
+	}
+
+	term := make([]byte, 0, n)
+	var seen [256]bool
+	var r [1]byte
+	for len(term) < n {
+		if _, err := rand.Read(r[:]); err != nil {
+			return nil, err
+		}
+		b := allowed[int(r[0])%len(allowed)]
+		if seen[b] {
+			continue
+		}
+		seen[b] = true
+		term = append(term, b)
+	}
+	return term, nil
+}
+
 func buildXorDynamicStub(keyTerm byte, payloadTerm []byte) ([]byte, error) {
-	if len(payloadTerm) != 2 {
-		return nil, fmt.Errorf("xor_dynamic encoder: payload terminator must be 2 bytes")
+	if len(payloadTerm) != 2 && len(payloadTerm) != 4 {
+		return nil, fmt.Errorf("xor_dynamic encoder: payload terminator must be 2 or 4 bytes")
 	}
 
 	engine, err := keystone.NewEngine(keystone.ARCH_X86, keystone.MODE_64)
@@ -198,6 +250,11 @@ func buildXorDynamicStub(keyTerm byte, payloadTerm []byte) ([]byte, error) {
 
 	if err := engine.Option(keystone.OPT_SYNTAX, keystone.OPT_SYNTAX_INTEL); err != nil {
 		return nil, err
+	}
+
+	cmpLine := "cmp word ptr [rdi], 0x4242"
+	if len(payloadTerm) == 4 {
+		cmpLine = "cmp dword ptr [rdi], 0x42424242"
 	}
 
 	src := strings.Join([]string{
@@ -222,7 +279,7 @@ func buildXorDynamicStub(keyTerm byte, payloadTerm []byte) ([]byte, error) {
 		"xor byte ptr [rdi], al",
 		"inc rdi",
 		"inc rsi",
-		"cmp word ptr [rdi], 0x4242",
+		cmpLine,
 		"je _jmp",
 		"cmp byte ptr [rsi], 0x41",
 		"jne _lp3",
@@ -238,7 +295,11 @@ func buildXorDynamicStub(keyTerm byte, payloadTerm []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	if len(inst) != xorDynamicStubSize {
+	expectedStubSize := xorDynamicStubSize
+	if len(payloadTerm) == 4 {
+		expectedStubSize = xorDynamicStubSizeDword
+	}
+	if len(inst) != expectedStubSize {
 		return nil, fmt.Errorf("xor_dynamic encoder: unexpected stub length %d", len(inst))
 	}
 
@@ -254,13 +315,14 @@ func buildXorDynamicStub(keyTerm byte, payloadTerm []byte) ([]byte, error) {
 	}
 
 	payloadReplaced := 0
-	for i := 0; i+1 < len(inst); i++ {
-		if inst[i] == xorDynamicPayloadPlaceholder && inst[i+1] == xorDynamicPayloadPlaceholder {
-			inst[i] = payloadTerm[0]
-			inst[i+1] = payloadTerm[1]
-			payloadReplaced++
-			i++
+	placeholder := bytes.Repeat([]byte{xorDynamicPayloadPlaceholder}, len(payloadTerm))
+	for i := 0; i+len(placeholder) <= len(inst); i++ {
+		if !bytes.Equal(inst[i:i+len(placeholder)], placeholder) {
+			continue
 		}
+		copy(inst[i:i+len(payloadTerm)], payloadTerm)
+		payloadReplaced++
+		i += len(payloadTerm) - 1
 	}
 	if payloadReplaced == 0 {
 		return nil, fmt.Errorf("xor_dynamic encoder: payload placeholder not found")
