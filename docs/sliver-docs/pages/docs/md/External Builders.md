@@ -47,6 +47,7 @@ sliver > builders
 =============================== ========== =========== ============== ==========================
  molochs-MacBook-Pro-111.local   moloch     sliver      darwin/arm64   EXECUTABLE:linux/386
                                                                        EXECUTABLE:linux/amd64
+                                                                       EXECUTABLE:linux/arm64
                                                                        EXECUTABLE:windows/386
                                                                        EXECUTABLE:windows/amd64
                                                                        EXECUTABLE:darwin/amd64
@@ -56,10 +57,14 @@ sliver > builders
                                                                        SHARED_LIB:darwin/amd64
                                                                        SHARED_LIB:darwin/arm64
                                                                        SHARED_LIB:linux/amd64
+                                                                       SHARED_LIB:linux/arm64
                                                                        SERVICE:windows/386
                                                                        SERVICE:windows/amd64
                                                                        SHELLCODE:windows/386
                                                                        SHELLCODE:windows/amd64
+                                                                       SHELLCODE:darwin/arm64
+                                                                       SHELLCODE:linux/amd64
+                                                                       SHELLCODE:linux/arm64
 ```
 
 Use the `--external-builder` flag to offload a `generate` or `generate beacon` command onto an external builder:

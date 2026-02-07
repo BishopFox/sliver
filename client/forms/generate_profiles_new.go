@@ -60,6 +60,7 @@ func GenerateProfilesNewForm() (*GenerateProfilesNewFormResult, error) {
 					case "linux":
 						return []huh.Option[string]{
 							huh.NewOption("amd64", "amd64"),
+							huh.NewOption("arm64", "arm64"),
 							huh.NewOption("386", "386"),
 						}
 					default:
@@ -83,6 +84,8 @@ func GenerateProfilesNewForm() (*GenerateProfilesNewFormResult, error) {
 							huh.NewOption("Service", "service"),
 							huh.NewOption("Shellcode", "shellcode"),
 						)
+					} else if result.OS == "darwin" || result.OS == "linux" {
+						options = append(options, huh.NewOption("Shellcode", "shellcode"))
 					}
 					return options
 				}, &result.OS).

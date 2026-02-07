@@ -80,6 +80,7 @@ var (
 		"darwin/arm64":  true,
 		"linux/386":     true,
 		"linux/amd64":   true,
+		"linux/arm64":   true,
 		"windows/386":   true,
 		"windows/amd64": true,
 	}
@@ -394,12 +395,25 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		return "", nil
 	}
 	if configFormat == clientpb.OutputFormat_SHELLCODE {
-		if targetOS != "windows" && targetOS != "darwin" {
-			con.PrintErrorf("Shellcode format is currently only supported on Windows and macOS\n")
-			return "", nil
-		}
-		if targetOS == "darwin" && targetArch != "arm64" {
-			con.PrintErrorf("macOS shellcode format is only supported on darwin/arm64\n")
+		switch targetOS {
+		case "windows":
+			// Server-side implementation supports amd64 and 386 only.
+			if targetArch != "amd64" && targetArch != "386" {
+				con.PrintErrorf("Windows shellcode format is only supported on windows/amd64 and windows/386\n")
+				return "", nil
+			}
+		case "darwin":
+			if targetArch != "arm64" {
+				con.PrintErrorf("macOS shellcode format is only supported on darwin/arm64\n")
+				return "", nil
+			}
+		case "linux":
+			if targetArch != "amd64" && targetArch != "arm64" {
+				con.PrintErrorf("Linux shellcode format is only supported on linux/amd64 and linux/arm64\n")
+				return "", nil
+			}
+		default:
+			con.PrintErrorf("Shellcode format is currently only supported on Windows, macOS, and Linux\n")
 			return "", nil
 		}
 	}
@@ -585,14 +599,22 @@ func parseShellcodeFlags(cmd *cobra.Command, targetOS string, configFormat clien
 		cmd.Flags().Changed("donut-unicode") ||
 		cmd.Flags().Changed("donut-oep")
 
-	// macOS shellcode currently only supports compression.
+	// macOS and Linux shellcode currently only support compression.
 	if targetOS != "windows" {
-		if targetOS == "darwin" {
-			if windowsOnlyChanged {
-				con.PrintWarnf("Windows-only shellcode options are ignored on macOS shellcode.\n")
+		if targetOS != "darwin" && targetOS != "linux" {
+			// parseCompileFlags normally blocks this, but keep a safe fallback.
+			if anyChanged {
+				con.PrintWarnf("Shellcode options are only supported on Windows, macOS, and Linux shellcode, ignoring.\n")
 			}
-		} else if anyChanged {
-			con.PrintWarnf("Shellcode options are only supported on Windows and macOS shellcode, ignoring.\n")
+			return nil, nil
+		}
+
+		if windowsOnlyChanged {
+			if targetOS == "darwin" {
+				con.PrintWarnf("Windows-only shellcode options are ignored on macOS shellcode.\n")
+			} else {
+				con.PrintWarnf("Windows-only shellcode options are ignored on Linux shellcode.\n")
+			}
 		}
 
 		shellcodeCompress := uint32(1)

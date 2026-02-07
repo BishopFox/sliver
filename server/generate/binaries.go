@@ -135,7 +135,7 @@ func GetSliversDir() string {
 // Sliver Generation Code
 // -----------------------
 
-// SliverShellcode - Generates a sliver shellcode (Windows: Donut, macOS: beignet)
+// SliverShellcode - Generates a sliver shellcode (Windows: Donut, macOS: beignet, Linux: malasada)
 func SliverShellcode(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
 	switch config.GOOS {
 	case WINDOWS:
@@ -1056,7 +1056,10 @@ func GetCompilerTargets() []*clientpb.CompilerTarget {
 		})
 	}
 
-	// SHELLCODE - Windows (Donut) and macOS (beignet, darwin/arm64 only)
+	// SHELLCODE
+	// - Windows: Donut
+	// - macOS: beignet (darwin/arm64 only)
+	// - Linux: malasada (linux/{amd64,arm64} only)
 	for longPlatform := range SupportedCompilerTargets {
 		platform := strings.SplitN(longPlatform, "/", 2)
 		switch platform[0] {
@@ -1082,6 +1085,32 @@ func GetCompilerTargets() []*clientpb.CompilerTarget {
 			}
 
 			// Cross-compile with the right configuration (same requirements as a darwin shared library build).
+			if runtime.GOOS == LINUX || runtime.GOOS == DARWIN {
+				cc, _ := findCrossCompilers(platform[0], platform[1])
+				if cc != "" {
+					targets = append(targets, &clientpb.CompilerTarget{
+						GOOS:   platform[0],
+						GOARCH: platform[1],
+						Format: clientpb.OutputFormat_SHELLCODE,
+					})
+				}
+			}
+		case LINUX:
+			if platform[1] != "amd64" && platform[1] != "arm64" {
+				continue
+			}
+
+			// We can always try to build our own platform.
+			if runtime.GOOS == platform[0] {
+				targets = append(targets, &clientpb.CompilerTarget{
+					GOOS:   platform[0],
+					GOARCH: platform[1],
+					Format: clientpb.OutputFormat_SHELLCODE,
+				})
+				continue
+			}
+
+			// Cross-compile with the right configuration (same requirements as a linux shared library build).
 			if runtime.GOOS == LINUX || runtime.GOOS == DARWIN {
 				cc, _ := findCrossCompilers(platform[0], platform[1])
 				if cc != "" {

@@ -190,7 +190,7 @@ You can also stack the C2 configuration with multiple protocols:
 
 [[.Bold]][[.Underline]]++ Formats ++[[.Normal]]
 Supported output formats include Windows PE, Windows DLL, Windows shellcode, macOS Mach-O, macOS shellcode (arm64),
-and Linux ELF. The output format is controlled with the --os and --format flags.
+Linux ELF, and Linux shellcode (amd64/arm64). The output format is controlled with the --os and --format flags.
 
 To output a 64bit Windows PE file (defaults to WinPE/64bit), either of the following command would be used:
 	generate --mtls foo.example.com 
@@ -209,7 +209,7 @@ To output a Linux ELF executable file, the following command would be used:
 [[.Bold]][[.Underline]]++ Shellcode Options ++[[.Normal]]
 When generating shellcode (--format shellcode), you can tune the shellcode generator:
 	--shellcode-encoder <name|none> # Apply a shellcode encoder (see: shellcode-encoders)
-	--shellcode-compress        # Enable aPLib compression (windows and macOS)
+	--shellcode-compress        # Enable aPLib compression (windows, macOS, and Linux)
 	--shellcode-entropy 1|2|3   # (windows only) Entropy: 1=none (default), 2=random names, 3=random+encrypt
 	--shellcode-exitopt 1|2|3   # (windows only) Exit behavior: 1=exit thread (default), 2=exit process, 3=block
 	--shellcode-bypass 1|2|3    # (windows only) Bypass: 1=none, 2=abort on failure, 3=continue (default)
@@ -217,6 +217,8 @@ When generating shellcode (--format shellcode), you can tune the shellcode gener
 	--shellcode-thread          # (windows only) Unmanaged EXE: run entrypoint as a new thread
 	--shellcode-unicode         # (windows only) Unmanaged DLL: pass Unicode command line
 	--shellcode-oep <uint32>    # (windows only) Override original entry point (0=default)
+
+Note: macOS and Linux shellcode currently only support --shellcode-compress; other options are Windows-only.
 
 
 [[.Bold]][[.Underline]]++ DNS Canaries ++[[.Normal]]

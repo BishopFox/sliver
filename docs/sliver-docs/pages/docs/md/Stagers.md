@@ -1,4 +1,4 @@
-**⚠️ Important:** You must have MinGW installed on your Sliver server to get some staged (e.g., Windows DLLs) payloads to work.
+**⚠️ Important:** Some staged payloads require a working cross-compiler toolchain on the Sliver server (especially shared libraries and non-native targets). Sliver bundles a Zig toolchain for many Windows/Linux targets, but macOS shared library/shellcode builds require osxcross.
 
 ## Overview
 
@@ -33,21 +33,33 @@ Name           Platform       Command & Control              Debug  Format      
 win-shellcode  windows/amd64  [1] mtls://192.168.122.1:8888  false  SHELLCODE   enabled
 ```
 
-You can tune shellcode options for shellcode profiles (Windows: Donut):
+Shellcode generation varies by platform:
 
-- `--shellcode-entropy`: 1=none, 2=random names, 3=random+encrypt
-- `--shellcode-compress`: enable/disable aPLib compression (boolean)
-- `--shellcode-exitopt`: 1=exit thread, 2=exit process, 3=block
-- `--shellcode-bypass`: 1=none, 2=abort on failure, 3=continue
-- `--shellcode-headers`: 1=overwrite, 2=keep
-- `--shellcode-thread`: run unmanaged EXE entrypoint as a new thread (boolean)
-- `--shellcode-unicode`: pass Unicode command line to unmanaged DLL entrypoints (boolean)
-- `--shellcode-oep`: override original entry point (uint32, 0=default)
+- Windows shellcode uses Donut and supports all shellcode tuning flags below.
+- macOS (darwin/arm64) and Linux (amd64/arm64) shellcode currently only support `--shellcode-compress`; other `--shellcode-*` options are Windows-only.
+
+Shellcode options:
+
+- `--shellcode-encoder`: apply an optional shellcode encoder (see: `shellcode-encoders`)
+- `--shellcode-compress`: enable/disable aPLib compression (boolean) (Windows, macOS, Linux)
+- `--shellcode-entropy`: 1=none, 2=random names, 3=random+encrypt (Windows only)
+- `--shellcode-exitopt`: 1=exit thread, 2=exit process, 3=block (Windows only)
+- `--shellcode-bypass`: 1=none, 2=abort on failure, 3=continue (Windows only)
+- `--shellcode-headers`: 1=overwrite, 2=keep (Windows only)
+- `--shellcode-thread`: run unmanaged EXE entrypoint as a new thread (boolean) (Windows only)
+- `--shellcode-unicode`: pass Unicode command line to unmanaged DLL entrypoints (boolean) (Windows only)
+- `--shellcode-oep`: override original entry point (uint32, 0=default) (Windows only)
 
 Example:
 
 ```
 sliver > profiles new --mtls 192.168.122.1 --format shellcode --shellcode-entropy 2 --shellcode-compress --shellcode-exitopt 3 win-shellcode
+```
+
+Linux example (compression only):
+
+```
+sliver > profiles new --os linux --arch amd64 --mtls 192.168.122.1 --format shellcode --shellcode-compress linux-shellcode
 ```
 
 We can now create a staging listener and link it to the profile:

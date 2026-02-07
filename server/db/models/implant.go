@@ -205,7 +205,7 @@ type ImplantConfig struct {
 	IsShellcode bool
 
 	RunAtLoad bool
-	// Shellcode options (Windows: Donut; macOS: beignet uses Compress only)
+	// Shellcode options (Windows: Donut; macOS/Linux: Compress only)
 	DonutEntropy  uint32
 	DonutCompress uint32
 	DonutExitOpt  uint32
