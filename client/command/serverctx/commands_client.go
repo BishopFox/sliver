@@ -15,6 +15,7 @@ import (
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
+	clienttheme "github.com/bishopfox/sliver/client/theme"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/charmbracelet/bubbles/key"
@@ -357,26 +358,26 @@ func newSwitchTUIModel(instances []*consoleInstance, activeID string, configKeys
 	keyMap.Select.Next = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select"))
 	keyMap.Select.Submit = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "submit"))
 
-	theme := huh.ThemeCharm()
+	huhTheme := clienttheme.HuhTheme()
 
 	styles := switchStyles{
 		frame: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("238")).
+			BorderForeground(clienttheme.DefaultMod(300)).
 			Padding(0, 1),
 		header: lipgloss.NewStyle().MarginBottom(1),
 		tabActive: lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("230")).
-			Background(lipgloss.Color("31")).
+			Foreground(clienttheme.DefaultMod(900)).
+			Background(clienttheme.Primary()).
 			Padding(0, 1),
 		tabInactive: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("245")).
-			Background(lipgloss.Color("236")).
+			Foreground(clienttheme.DefaultMod(500)).
+			Background(clienttheme.DefaultMod(50)).
 			Padding(0, 1),
 		footer:    lipgloss.NewStyle().MarginTop(1),
-		footerDim: lipgloss.NewStyle().Foreground(lipgloss.Color("242")),
-		divider:   lipgloss.NewStyle().Foreground(lipgloss.Color("238")),
+		footerDim: lipgloss.NewStyle().Foreground(clienttheme.DefaultMod(400)),
+		divider:   lipgloss.NewStyle().Foreground(clienttheme.DefaultMod(300)),
 	}
 
 	existingID := activeID
@@ -405,7 +406,7 @@ func newSwitchTUIModel(instances []*consoleInstance, activeID string, configKeys
 		Value(&existingID)
 
 	existingForm := huh.NewForm(huh.NewGroup(existingSelect)).
-		WithTheme(theme).
+		WithTheme(huhTheme).
 		WithKeyMap(keyMap).
 		WithShowHelp(false)
 
@@ -429,7 +430,7 @@ func newSwitchTUIModel(instances []*consoleInstance, activeID string, configKeys
 		Value(&newKey)
 
 	newForm := huh.NewForm(huh.NewGroup(newSelect)).
-		WithTheme(theme).
+		WithTheme(huhTheme).
 		WithKeyMap(keyMap).
 		WithShowHelp(false)
 
@@ -437,7 +438,7 @@ func newSwitchTUIModel(instances []*consoleInstance, activeID string, configKeys
 		tab:      tabExisting,
 		existing: existingForm,
 		newConn:  newForm,
-		theme:    theme,
+		theme:    huhTheme,
 		styles:   styles,
 		activeID: activeID,
 		counts:   counts,

@@ -3,6 +3,7 @@ package forms
 import (
 	"errors"
 
+	"github.com/bishopfox/sliver/client/theme"
 	"github.com/charmbracelet/huh"
 )
 
@@ -44,7 +45,7 @@ func ArmoryInstallForm(options []ArmoryInstallOption) (*ArmoryInstallFormResult,
 		Height(listHeight(len(selectOptions)) + 2).
 		Value(&result.SelectedNames)
 
-	form := huh.NewForm(huh.NewGroup(field))
+	form := huh.NewForm(huh.NewGroup(field)).WithTheme(theme.HuhTheme())
 	if err := form.Run(); err != nil {
 		return nil, err
 	}

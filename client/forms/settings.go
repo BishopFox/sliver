@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/client/theme"
 	"github.com/charmbracelet/huh"
 )
 
@@ -90,6 +91,7 @@ func SettingsForm(settings *assets.ClientSettings, tableStyleOptions []string) (
 		).Title("Behavior"),
 	)
 
+	form = form.WithTheme(theme.HuhTheme())
 	if err := form.Run(); err != nil {
 		return nil, err
 	}

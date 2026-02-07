@@ -798,9 +798,7 @@ func getTargets(targetOS string, targetArch string, con *console.SliverClient) (
 
 	target := fmt.Sprintf("%s/%s", targetOS, targetArch)
 	if _, ok := SupportedCompilerTargets[target]; !ok {
-		con.Printf("⚠️  Unsupported compiler target %s%s%s, but we can try to compile a generic implant.\n",
-			console.Bold, target, console.Normal,
-		)
+		con.Printf("⚠️  Unsupported compiler target %s, but we can try to compile a generic implant.\n", console.StyleBold.Render(target))
 		con.Printf("⚠️  Generic implants do not support all commands/features.\n")
 		var confirm bool
 		_ = forms.Confirm("Attempt to build generic implant?", &confirm)
@@ -1150,9 +1148,9 @@ func externalBuild(name string, config *clientpb.ImplantConfig, save string, con
 		con.PrintInfof("Externally generating new %s/%s implant binary\n", config.GOOS, config.GOARCH)
 	}
 	if config.ObfuscateSymbols {
-		con.PrintInfof("%sSymbol obfuscation is enabled%s\n", console.Bold, console.Normal)
+		con.PrintInfof("%s\n", console.StyleBold.Render("Symbol obfuscation is enabled"))
 	} else if !config.Debug {
-		con.PrintErrorf("Symbol obfuscation is %sdisabled%s\n", console.Bold, console.Normal)
+		con.PrintErrorf("Symbol obfuscation is %s\n", console.StyleBold.Render("disabled"))
 	}
 	start := time.Now()
 
@@ -1303,9 +1301,9 @@ func compile(name string, config *clientpb.ImplantConfig, save string, con *cons
 		con.PrintInfof("Generating new %s/%s implant binary\n", config.GOOS, config.GOARCH)
 	}
 	if config.ObfuscateSymbols {
-		con.PrintInfof("%sSymbol obfuscation is enabled%s\n", console.Bold, console.Normal)
+		con.PrintInfof("%s\n", console.StyleBold.Render("Symbol obfuscation is enabled"))
 	} else if !config.Debug {
-		con.PrintErrorf("Symbol obfuscation is %sdisabled%s\n", console.Bold, console.Normal)
+		con.PrintErrorf("Symbol obfuscation is %s\n", console.StyleBold.Render("disabled"))
 	}
 
 	start := time.Now()

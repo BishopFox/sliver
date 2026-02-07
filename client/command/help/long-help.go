@@ -23,12 +23,12 @@ package help
 */
 
 import (
-	"bytes"
 	"fmt"
 	"strings"
-	"text/template"
 
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/theme"
+	"github.com/charmbracelet/lipgloss"
 )
 
 const (
@@ -1416,24 +1416,6 @@ On Windows, escaping is disabled. Instead, '\\' is treated as path separator.`
 To get information about services, you need to be an authenticated user on the system or domain. To control services, you need administrator or higher privileges.`
 )
 
-const (
-	// ANSI Colors
-	normal    = "\033[0m"
-	black     = "\033[30m"
-	red       = "\033[31m"
-	green     = "\033[32m"
-	orange    = "\033[33m"
-	blue      = "\033[34m"
-	purple    = "\033[35m"
-	cyan      = "\033[36m"
-	gray      = "\033[37m"
-	bold      = "\033[1m"
-	clearln   = "\r\x1b[2K"
-	upN       = "\033[%dA"
-	downN     = "\033[%dB"
-	underline = "\033[4m"
-)
-
 // GetHelpFor - Get help string for a command
 func GetHelpFor(cmdName []string) string {
 	if 0 < len(cmdName) {
@@ -1444,34 +1426,100 @@ func GetHelpFor(cmdName []string) string {
 	return ""
 }
 
-// FormatHelpTmpl - Applies format template to help string
+type helpStyleState struct {
+	bold      bool
+	underline bool
+	fgSet     bool
+	fg        lipgloss.Color
+}
+
+func (s *helpStyleState) reset() {
+	s.bold = false
+	s.underline = false
+	s.fgSet = false
+	s.fg = ""
+}
+
+func (s *helpStyleState) apply(token string) bool {
+	switch token {
+	case "Normal":
+		s.reset()
+	case "Bold":
+		s.bold = true
+	case "Underline":
+		s.underline = true
+	case "Black":
+		s.fgSet, s.fg = true, theme.DefaultMod(50)
+	case "Red":
+		s.fgSet, s.fg = true, theme.Danger()
+	case "Green":
+		s.fgSet, s.fg = true, theme.Success()
+	case "Orange":
+		s.fgSet, s.fg = true, theme.Warning()
+	case "Blue":
+		s.fgSet, s.fg = true, theme.Primary()
+	case "Purple":
+		s.fgSet, s.fg = true, theme.Secondary()
+	case "Cyan":
+		s.fgSet, s.fg = true, theme.PrimaryMod(500)
+	case "Gray":
+		// ANSI "gray" (37) is typically light; map to the lightest neutral.
+		s.fgSet, s.fg = true, theme.DefaultMod(900)
+	default:
+		return false
+	}
+	return true
+}
+
+func (s helpStyleState) render(text string) string {
+	if text == "" {
+		return ""
+	}
+	st := lipgloss.NewStyle()
+	if s.bold {
+		st = st.Bold(true)
+	}
+	if s.underline {
+		st = st.Underline(true)
+	}
+	if s.fgSet {
+		st = st.Foreground(s.fg)
+	}
+	return st.Render(text)
+}
+
+// FormatHelpTmpl - Applies the help markup (e.g. [[.Bold]]...[[.Normal]]) using lipgloss.
 func FormatHelpTmpl(helpStr string) string {
-	outputBuf := bytes.NewBufferString("")
-	tmpl, _ := template.New("help").Delims("[[", "]]").Parse(helpStr)
-	tmpl.Execute(outputBuf, struct {
-		Normal    string
-		Bold      string
-		Underline string
-		Black     string
-		Red       string
-		Green     string
-		Orange    string
-		Blue      string
-		Purple    string
-		Cyan      string
-		Gray      string
-	}{
-		Normal:    normal,
-		Bold:      bold,
-		Underline: underline,
-		Black:     black,
-		Red:       red,
-		Green:     green,
-		Orange:    orange,
-		Blue:      blue,
-		Purple:    purple,
-		Cyan:      cyan,
-		Gray:      gray,
-	})
-	return outputBuf.String()
+	var (
+		out   strings.Builder
+		state helpStyleState
+	)
+	state.reset()
+
+	i := 0
+	for i < len(helpStr) {
+		j := strings.Index(helpStr[i:], "[[.")
+		if j < 0 {
+			out.WriteString(state.render(helpStr[i:]))
+			break
+		}
+		j += i
+		if j > i {
+			out.WriteString(state.render(helpStr[i:j]))
+		}
+
+		k := strings.Index(helpStr[j:], "]]")
+		if k < 0 {
+			out.WriteString(state.render(helpStr[j:]))
+			break
+		}
+		token := helpStr[j+3 : j+k]
+		if !state.apply(token) {
+			// Unknown token; preserve it as plain text.
+			out.WriteString(helpStr[j : j+k+2])
+		}
+		i = j + k + 2
+	}
+
+	return out.String()
 }

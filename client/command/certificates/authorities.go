@@ -2,7 +2,6 @@ package certificates
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/bishopfox/sliver/client/command/settings"
@@ -58,28 +57,28 @@ func printCertificateAuthorityInfo(con *console.SliverClient, authData []*client
 	}
 
 	for _, authority := range authData {
-		rowColor := console.Normal
+		rowStyle := console.StyleNormal
 
 		expiry, err := time.Parse(timeFormat, authority.ValidityExpiry)
 		if err == nil {
-			rowColor = checkCertExpiry(expiry)
+			rowStyle = checkCertExpiry(expiry)
 		}
 
 		if wideTermWidth {
 			tw.AppendRow(table.Row{
-				fmt.Sprintf(rowColor+"%s"+console.Normal, authority.ID),
-				fmt.Sprintf(rowColor+"%s"+console.Normal, authority.CN),
-				fmt.Sprintf(rowColor+"%s"+console.Normal, authority.CreationTime),
-				fmt.Sprintf(rowColor+"%s"+console.Normal, authority.Type),
-				fmt.Sprintf(rowColor+"%s"+console.Normal, authority.KeyAlgorithm),
-				fmt.Sprintf(rowColor+"%s"+console.Normal, authority.ValidityStart),
-				fmt.Sprintf(rowColor+"%s"+console.Normal, authority.ValidityExpiry),
+				rowStyle.Render(authority.ID),
+				rowStyle.Render(authority.CN),
+				rowStyle.Render(authority.CreationTime),
+				rowStyle.Render(authority.Type),
+				rowStyle.Render(authority.KeyAlgorithm),
+				rowStyle.Render(authority.ValidityStart),
+				rowStyle.Render(authority.ValidityExpiry),
 			})
 		} else {
 			tw.AppendRow(table.Row{
-				fmt.Sprintf(rowColor+"%s"+console.Normal, authority.ID),
-				fmt.Sprintf(rowColor+"%s"+console.Normal, authority.CN),
-				fmt.Sprintf(rowColor+"%s"+console.Normal, authority.ValidityExpiry),
+				rowStyle.Render(authority.ID),
+				rowStyle.Render(authority.CN),
+				rowStyle.Render(authority.ValidityExpiry),
 			})
 		}
 	}

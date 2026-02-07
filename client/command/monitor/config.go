@@ -20,7 +20,6 @@ package monitor
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
@@ -99,14 +98,12 @@ func PrintWTConfig(configs *clientpb.MonitoringProviders, con *console.SliverCli
 		"APIPassword",
 	})
 
-	color := console.Normal
-
 	for _, config := range configs.Providers {
 		row := table.Row{}
-		row = append(row, fmt.Sprintf(color+"%s"+console.Normal, config.ID))
-		row = append(row, fmt.Sprintf(color+"%s"+console.Normal, config.Type))
-		row = append(row, fmt.Sprintf(color+"%s"+console.Normal, config.APIKey))
-		row = append(row, fmt.Sprintf(color+"%s"+console.Normal, config.APIPassword))
+		row = append(row, config.ID)
+		row = append(row, config.Type)
+		row = append(row, config.APIKey)
+		row = append(row, config.APIPassword)
 		tw.AppendRow(row)
 	}
 

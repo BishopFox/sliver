@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/util"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -61,12 +62,20 @@ type editorModel struct {
 }
 
 var (
-	cursorStyle         = lipgloss.NewStyle().Reverse(true)
-	modifiedStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("215"))
-	modifiedCursorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("215")).Reverse(true)
-	statusStyle         = lipgloss.NewStyle().Reverse(true)
-	lineStyle           = lipgloss.NewStyle()
+	cursorStyle = lipgloss.NewStyle().Reverse(true)
+	statusStyle = lipgloss.NewStyle().Reverse(true)
+	lineStyle   = lipgloss.NewStyle()
 )
+
+func modifiedStyle() lipgloss.Style {
+	// Read from the global console theme so theme.yaml changes are reflected.
+	return console.StyleWarning
+}
+
+func modifiedCursorStyle() lipgloss.Style {
+	// Read from the global console theme so theme.yaml changes are reflected.
+	return console.StyleWarning.Copy().Reverse(true)
+}
 
 func newEditorModel(data []byte, filename string, offset int) *editorModel {
 	copyData := append([]byte(nil), data...)
@@ -400,8 +409,8 @@ func (m *editorModel) renderLine(lineIndex int) string {
 		isModified := m.isModified(idx)
 		if idx == m.cursor {
 			if isModified {
-				hexCells[i] = modifiedCursorStyle.Render(hexRaw)
-				asciiCells[i] = modifiedCursorStyle.Render(asciiRaw)
+				hexCells[i] = modifiedCursorStyle().Render(hexRaw)
+				asciiCells[i] = modifiedCursorStyle().Render(asciiRaw)
 			} else {
 				hexCells[i] = cursorStyle.Render(hexRaw)
 				asciiCells[i] = cursorStyle.Render(asciiRaw)
@@ -409,8 +418,8 @@ func (m *editorModel) renderLine(lineIndex int) string {
 			continue
 		}
 		if isModified {
-			hexCells[i] = modifiedStyle.Render(hexRaw)
-			asciiCells[i] = modifiedStyle.Render(asciiRaw)
+			hexCells[i] = modifiedStyle().Render(hexRaw)
+			asciiCells[i] = modifiedStyle().Render(asciiRaw)
 			continue
 		}
 		hexCells[i] = hexRaw

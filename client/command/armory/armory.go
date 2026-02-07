@@ -428,7 +428,7 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
-	tw.SetTitle(console.Bold + "Packages" + console.Normal)
+	tw.SetTitle(console.StyleBold.Render("Packages"))
 
 	urlMargin := 150 // Extra margin needed to show URL column
 
@@ -493,26 +493,26 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 
 	rows := []table.Row{}
 	for _, pkg := range entries {
-		color := console.Normal
+		style := console.StyleNormal
 		if extensions.CmdExists(pkg.CommandName, sliverMenu.Command) {
-			color = console.Green
+			style = console.StyleGreen
 		}
 		if con.Settings.SmallTermWidth+urlMargin < width {
 			rows = append(rows, table.Row{
-				fmt.Sprintf(color+"%s"+console.Normal, pkg.ArmoryName),
-				fmt.Sprintf(color+"%s"+console.Normal, pkg.CommandName),
-				fmt.Sprintf(color+"%s"+console.Normal, pkg.Version),
-				fmt.Sprintf(color+"%s"+console.Normal, pkg.Type),
-				fmt.Sprintf(color+"%s"+console.Normal, pkg.Help),
-				fmt.Sprintf(color+"%s"+console.Normal, pkg.URL),
+				style.Render(pkg.ArmoryName),
+				style.Render(pkg.CommandName),
+				style.Render(pkg.Version),
+				style.Render(pkg.Type),
+				style.Render(pkg.Help),
+				style.Render(pkg.URL),
 			})
 		} else {
 			rows = append(rows, table.Row{
-				fmt.Sprintf(color+"%s"+console.Normal, pkg.ArmoryName),
-				fmt.Sprintf(color+"%s"+console.Normal, pkg.CommandName),
-				fmt.Sprintf(color+"%s"+console.Normal, pkg.Version),
-				fmt.Sprintf(color+"%s"+console.Normal, pkg.Type),
-				fmt.Sprintf(color+"%s"+console.Normal, pkg.Help),
+				style.Render(pkg.ArmoryName),
+				style.Render(pkg.CommandName),
+				style.Render(pkg.Version),
+				style.Render(pkg.Type),
+				style.Render(pkg.Help),
 			})
 		}
 	}
@@ -524,7 +524,7 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 func PrintArmoryBundles(bundles []*ArmoryBundle, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
-	tw.SetTitle(console.Bold + "Bundles" + console.Normal)
+	tw.SetTitle(console.StyleBold.Render("Bundles"))
 	tw.AppendHeader(table.Row{
 		"Armory Name",
 		"Name",

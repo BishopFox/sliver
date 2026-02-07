@@ -278,7 +278,7 @@ func WasmLsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 				cacheLine = " (cached)"
 			} else {
 				wasmRegistrationCache[idOf(con)] = append(wasmRegistrationCache[idOf(con)], extName)
-				cacheLine = console.Bold + console.Green + " +++" + console.Normal
+				cacheLine = console.StyleBoldGreen.Render(" +++")
 			}
 			con.PrintInfof("  %s%s\n", extName, cacheLine)
 		}

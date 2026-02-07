@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/bishopfox/sliver/client/theme"
 	"github.com/bishopfox/sliver/util"
 	"github.com/charmbracelet/huh"
 )
@@ -131,6 +132,7 @@ func GenerateProfilesNewForm() (*GenerateProfilesNewFormResult, error) {
 		),
 	)
 
+	form = form.WithTheme(theme.HuhTheme())
 	if err := form.Run(); err != nil {
 		return nil, err
 	}

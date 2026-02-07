@@ -19,7 +19,6 @@ package reaction
 */
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/bishopfox/sliver/client/command/settings"
@@ -51,7 +50,7 @@ func ReactionCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 func displayReactionsTable(eventType string, reactions []core.Reaction, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
-	tw.SetTitle(fmt.Sprintf(console.Bold+"%s"+console.Normal, EventTypeToTitle(eventType)))
+	tw.SetTitle(console.StyleBold.Render(EventTypeToTitle(eventType)))
 	tw.AppendSeparator()
 	slackSpace := len(EventTypeToTitle(eventType)) - len("Commands") - len("ID") - 3
 	if slackSpace < 0 {

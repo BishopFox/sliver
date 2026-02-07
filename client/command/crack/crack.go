@@ -132,35 +132,35 @@ func PrintCrackers(crackers []*clientpb.Crackstation, con *console.SliverClient,
 func printCracker(cracker *clientpb.Crackstation, index int, con *console.SliverClient, showBenchmarks bool) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
-	tw.SetTitle(console.Bold + console.Orange + fmt.Sprintf(">>> Crackstation %02d - %s (%s)", index+1, cracker.Name, cracker.OperatorName) + console.Normal + "\n")
+	tw.SetTitle(console.StyleBoldOrange.Render(fmt.Sprintf(">>> Crackstation %02d - %s (%s)", index+1, cracker.Name, cracker.OperatorName)) + "\n")
 	tw.AppendSeparator()
-	tw.AppendRow(table.Row{console.Bold + "Operating System" + console.Normal, fmt.Sprintf("%s/%s", cracker.GOOS, cracker.GOARCH)})
-	tw.AppendRow(table.Row{console.Bold + "Hashcat Version" + console.Normal, cracker.HashcatVersion})
+	tw.AppendRow(table.Row{console.StyleBold.Render("Operating System"), fmt.Sprintf("%s/%s", cracker.GOOS, cracker.GOARCH)})
+	tw.AppendRow(table.Row{console.StyleBold.Render("Hashcat Version"), cracker.HashcatVersion})
 	if 0 < len(cracker.CUDA) {
 		for _, cuda := range cracker.CUDA {
 			tw.AppendSeparator()
-			tw.AppendRow(table.Row{console.Bold + "CUDA Device" + console.Normal, fmt.Sprintf(console.Bold+console.Green+"%s (%s)"+console.Normal, cuda.Name, cuda.Version)})
-			tw.AppendRow(table.Row{console.Bold + "Memory" + console.Normal, fmt.Sprintf("%s free of %s", cuda.MemoryFree, cuda.MemoryTotal)})
-			tw.AppendRow(table.Row{console.Bold + "Clock" + console.Normal, fmt.Sprintf("%d", cuda.Clock)})
-			tw.AppendRow(table.Row{console.Bold + "Processors" + console.Normal, fmt.Sprintf("%d", cuda.Processors)})
+			tw.AppendRow(table.Row{console.StyleBold.Render("CUDA Device"), console.StyleBoldGreen.Render(fmt.Sprintf("%s (%s)", cuda.Name, cuda.Version))})
+			tw.AppendRow(table.Row{console.StyleBold.Render("Memory"), fmt.Sprintf("%s free of %s", cuda.MemoryFree, cuda.MemoryTotal)})
+			tw.AppendRow(table.Row{console.StyleBold.Render("Clock"), fmt.Sprintf("%d", cuda.Clock)})
+			tw.AppendRow(table.Row{console.StyleBold.Render("Processors"), fmt.Sprintf("%d", cuda.Processors)})
 		}
 	}
 	if 0 < len(cracker.Metal) {
 		for _, metal := range cracker.Metal {
 			tw.AppendSeparator()
-			tw.AppendRow(table.Row{console.Bold + "Metal Device" + console.Normal, fmt.Sprintf(console.Bold+console.Green+"%s (%s)"+console.Normal, metal.Name, metal.Version)})
-			tw.AppendRow(table.Row{console.Bold + "Memory" + console.Normal, fmt.Sprintf("%s free of %s", metal.MemoryFree, metal.MemoryTotal)})
-			tw.AppendRow(table.Row{console.Bold + "Clock" + console.Normal, fmt.Sprintf("%d", metal.Clock)})
-			tw.AppendRow(table.Row{console.Bold + "Processors" + console.Normal, fmt.Sprintf("%d", metal.Processors)})
+			tw.AppendRow(table.Row{console.StyleBold.Render("Metal Device"), console.StyleBoldGreen.Render(fmt.Sprintf("%s (%s)", metal.Name, metal.Version))})
+			tw.AppendRow(table.Row{console.StyleBold.Render("Memory"), fmt.Sprintf("%s free of %s", metal.MemoryFree, metal.MemoryTotal)})
+			tw.AppendRow(table.Row{console.StyleBold.Render("Clock"), fmt.Sprintf("%d", metal.Clock)})
+			tw.AppendRow(table.Row{console.StyleBold.Render("Processors"), fmt.Sprintf("%d", metal.Processors)})
 		}
 	}
 	if 0 < len(cracker.OpenCL) {
 		for _, openCL := range cracker.OpenCL {
 			tw.AppendSeparator()
-			tw.AppendRow(table.Row{console.Bold + "OpenCL Device" + console.Normal, fmt.Sprintf(console.Bold+console.Green+console.Bold+"%s (%s)"+console.Normal, openCL.Name, openCL.Version)})
-			tw.AppendRow(table.Row{console.Bold + "Memory" + console.Normal, fmt.Sprintf("%s free of %s", openCL.MemoryFree, openCL.MemoryTotal)})
-			tw.AppendRow(table.Row{console.Bold + "Clock" + console.Normal, fmt.Sprintf("%d", openCL.Clock)})
-			tw.AppendRow(table.Row{console.Bold + "Processors" + console.Normal, fmt.Sprintf("%d", openCL.Processors)})
+			tw.AppendRow(table.Row{console.StyleBold.Render("OpenCL Device"), console.StyleBoldGreen.Render(fmt.Sprintf("%s (%s)", openCL.Name, openCL.Version))})
+			tw.AppendRow(table.Row{console.StyleBold.Render("Memory"), fmt.Sprintf("%s free of %s", openCL.MemoryFree, openCL.MemoryTotal)})
+			tw.AppendRow(table.Row{console.StyleBold.Render("Clock"), fmt.Sprintf("%d", openCL.Clock)})
+			tw.AppendRow(table.Row{console.StyleBold.Render("Processors"), fmt.Sprintf("%d", openCL.Processors)})
 		}
 	}
 	con.Printf("%s\n", tw.Render())
@@ -173,7 +173,7 @@ func printCracker(cracker *clientpb.Crackstation, index int, con *console.Sliver
 func printBenchmarks(cracker *clientpb.Crackstation, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
-	tw.SetTitle(console.Bold + "Benchmarks" + console.Normal)
+	tw.SetTitle(console.StyleBold.Render("Benchmarks"))
 	tw.SortBy([]table.SortBy{{Name: "Hash Type"}})
 	tw.AppendHeader(table.Row{"Hash Type", "Rate"})
 	if len(cracker.Benchmarks) == 0 {

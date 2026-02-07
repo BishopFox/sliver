@@ -77,7 +77,7 @@ func CursedEdgeCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 	}
 	if chromeExt != nil {
 		con.Printf("success!\n")
-		con.PrintInfof("Found viable Edge extension %s%s%s (%s)\n", console.Bold, chromeExt.Title, console.Normal, chromeExt.ID)
+		con.PrintInfof("Found viable Edge extension %s (%s)\n", console.StyleBold.Render(chromeExt.Title), chromeExt.ID)
 		con.PrintInfof("Injecting payload ... ")
 		cmd, _, _ := overlord.GetChromeContext(chromeExt.WebSocketDebuggerURL, curse)
 		// extCtxTimeout, cancel := context.WithTimeout(cmd, 10*time.Second)
@@ -103,7 +103,7 @@ func avadaKedavraEdge(session *clientpb.Session, cmd *cobra.Command, con *consol
 	if edgeProcess != nil {
 		con.PrintWarnf("Found running Edge process: %d (ppid: %d)\n", edgeProcess.GetPid(), edgeProcess.GetPpid())
 		con.PrintWarnf("Sliver will need to kill and restart the Edge process in order to perform code injection.\n")
-		con.PrintWarnf("Sliver will attempt to restore the user's session, however %sDATA LOSS MAY OCCUR!%s\n", console.Bold, console.Normal)
+		con.PrintWarnf("Sliver will attempt to restore the user's session, however %s\n", console.StyleBold.Render("DATA LOSS MAY OCCUR!"))
 		con.Printf("\n")
 		confirm := false
 		err = forms.Confirm("Kill and restore existing Edge process?", &confirm)

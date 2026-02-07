@@ -351,7 +351,7 @@ func (con *SliverClient) PrintWarnf(format string, args ...any) {
 
 	logger.Warn(fmt.Sprintf(format, args...))
 
-	con.printf(Clearln+"⚠️  "+Normal+format, args...)
+	con.printf(Clearln+"⚠️  "+format, args...)
 }
 
 // PrintErrorf prints an error message immediately below the last line of output.

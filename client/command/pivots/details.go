@@ -81,7 +81,7 @@ func PrintPivotListenerDetails(listener *sliverpb.PivotListener, con *console.Sl
 
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
-	tw.SetTitle(fmt.Sprintf(console.Bold+"%s Pivots"+console.Normal, PivotTypeToString(listener.Type)))
+	tw.SetTitle(console.StyleBold.Render(fmt.Sprintf("%s Pivots", PivotTypeToString(listener.Type))))
 	tw.AppendSeparator()
 	tw.AppendHeader(table.Row{
 		"ID",
