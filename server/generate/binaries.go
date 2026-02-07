@@ -21,8 +21,10 @@ package generate
 import (
 	"bytes"
 	"crypto/sha256"
+	"debug/elf"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path"
@@ -117,6 +119,185 @@ const (
 	SliverPlatformCXX32EnvVar = "SLIVER_%s_CXX_32"
 )
 
+func isZigCC(cc string) bool {
+	cc = strings.TrimSpace(cc)
+	if cc == "" {
+		return false
+	}
+	parts := strings.Fields(cc)
+	if len(parts) == 0 {
+		return false
+	}
+	// We typically set CC as: "<zigpath> cc -target <triple>"
+	if filepath.Base(parts[0]) == "zig" && len(parts) >= 2 && parts[1] == "cc" {
+		return true
+	}
+	// Fallback: user-provided CC might not match our canonical format.
+	return strings.Contains(cc, "zig cc")
+}
+
+func isZigCompilerCmd(cmd string) bool {
+	cmd = strings.TrimSpace(cmd)
+	if cmd == "" {
+		return false
+	}
+	parts := strings.Fields(cmd)
+	if len(parts) == 0 {
+		return false
+	}
+	// We typically set CC/CXX as: "<zigpath> cc|c++ -target <triple>"
+	if filepath.Base(parts[0]) == "zig" && len(parts) >= 2 && (parts[1] == "cc" || parts[1] == "c++") {
+		return true
+	}
+	// Fallback: user-provided compilers might not match our canonical format.
+	return strings.Contains(cmd, "zig cc") || strings.Contains(cmd, "zig c++")
+}
+
+func ensureZigPrefixMap(cmd string) string {
+	if !isZigCompilerCmd(cmd) {
+		return cmd
+	}
+	zigDir := assets.GetZigDir()
+	if zigDir == "" {
+		return cmd
+	}
+	mapPrefix := fmt.Sprintf("-fdebug-prefix-map=%s=", zigDir)
+	if strings.Contains(cmd, mapPrefix) {
+		return cmd
+	}
+	return strings.TrimSpace(cmd + fmt.Sprintf(" -fdebug-prefix-map=%s=/zig", zigDir))
+}
+
+func appendToLDFlags(ldflags []string, extra string) []string {
+	extra = strings.TrimSpace(extra)
+	if extra == "" {
+		return ldflags
+	}
+	if len(ldflags) == 0 {
+		return []string{extra}
+	}
+	if len(ldflags) == 1 {
+		if strings.TrimSpace(ldflags[0]) == "" {
+			ldflags[0] = extra
+			return ldflags
+		}
+		ldflags[0] = strings.TrimSpace(ldflags[0] + " " + extra)
+		return ldflags
+	}
+	// go build only accepts a single argument for -ldflags, but callers may have
+	// mistakenly provided multiple. Coalesce into one string.
+	joined := strings.TrimSpace(strings.Join(ldflags, " "))
+	if joined == "" {
+		joined = extra
+	} else {
+		joined = joined + " " + extra
+	}
+	return []string{joined}
+}
+
+func applyZigStaticLinking(goConfig *gogo.GoConfig, buildmode string, ldflags []string) (updated []string, enabled bool) {
+	if goConfig == nil {
+		return ldflags, false
+	}
+	if goConfig.GOOS != LINUX {
+		return ldflags, false
+	}
+	if !isZigCC(goConfig.CC) {
+		return ldflags, false
+	}
+	// zig/clang treats `-static` + `-shared` as "build a static archive", which
+	// results in an ar archive misnamed as ".so". Never force `-static` for
+	// c-shared builds.
+	if buildmode == "c-shared" {
+		return ldflags, false
+	}
+	// Force a fully static link for Linux executables when using zig. This keeps
+	// cross-compiled artifacts self-contained.
+	ldflags = appendToLDFlags(ldflags, "-linkmode=external -extldflags=-static")
+	return ldflags, true
+}
+
+func sanitizeZigForBuild(goConfig *gogo.GoConfig, buildmode string) {
+	if goConfig == nil {
+		return
+	}
+	// Always apply the prefix-map flags to any zig toolchain we invoke so we
+	// don't leak the Sliver-managed zig root dir (often under ~/.sliver/zig) into
+	// build artifacts.
+	goConfig.CC = ensureZigPrefixMap(goConfig.CC)
+	goConfig.CXX = ensureZigPrefixMap(goConfig.CXX)
+
+	if goConfig.GOOS != LINUX || buildmode != "c-shared" || !isZigCC(goConfig.CC) {
+		return
+	}
+
+	// Ensure we don't accidentally carry a user-provided `-static` into a shared
+	// object link (zig would emit an ar archive).
+	stripStatic := func(cmd string) string {
+		parts := strings.Fields(cmd)
+		if len(parts) == 0 {
+			return cmd
+		}
+		out := make([]string, 0, len(parts))
+		for _, p := range parts {
+			if p == "-static" {
+				continue
+			}
+			out = append(out, p)
+		}
+		return strings.Join(out, " ")
+	}
+	goConfig.CC = stripStatic(goConfig.CC)
+	goConfig.CXX = stripStatic(goConfig.CXX)
+
+	// zig's default linux toolchain target in Sliver is musl, which is great for
+	// static executables. For shared objects, musl shared libraries are rarely
+	// present on the target. Prefer a glibc target for shared objects.
+	goConfig.CC = strings.ReplaceAll(goConfig.CC, "-linux-musl", "-linux-gnu")
+	goConfig.CXX = strings.ReplaceAll(goConfig.CXX, "-linux-musl", "-linux-gnu")
+}
+
+func validateELFSharedObject(path string, requireFullyStatic bool) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	// Sniff common mis-builds first for clearer errors.
+	var hdr [8]byte
+	n, err := io.ReadFull(f, hdr[:])
+	if err != nil && err != io.ErrUnexpectedEOF {
+		return err
+	}
+	if 8 <= n && bytes.HasPrefix(hdr[:], []byte("!<arch>\n")) {
+		return fmt.Errorf("output %q is an ar archive (expected an ELF shared object). This usually means the build used -buildmode=c-archive or zig was invoked with -static while linking a shared object", path)
+	}
+	if n < 4 || !bytes.Equal(hdr[:4], []byte{0x7f, 'E', 'L', 'F'}) {
+		return fmt.Errorf("output %q does not look like an ELF file", path)
+	}
+
+	ef, err := elf.NewFile(f)
+	if err != nil {
+		return err
+	}
+	if ef.Type != elf.ET_DYN {
+		return fmt.Errorf("output %q is not an ELF shared object (ET_DYN), got %v", path, ef.Type)
+	}
+
+	if requireFullyStatic {
+		needed, err := ef.DynString(elf.DT_NEEDED)
+		if err != nil {
+			return fmt.Errorf("failed to read DT_NEEDED from %q: %w", path, err)
+		}
+		if len(needed) != 0 {
+			return fmt.Errorf("output %q is not fully static (DT_NEEDED=%v); this usually means zig did not link statically", path, needed)
+		}
+	}
+
+	return nil
+}
+
 // GetSliversDir - Get the binary directory
 func GetSliversDir() string {
 	appDir := assets.GetRootAppDir()
@@ -165,9 +346,6 @@ func linuxShellcode(name string, build *clientpb.ImplantBuild, config *clientpb.
 		cc, cxx = findCrossCompilers(config.GOOS, config.GOARCH)
 	}
 
-	buildLog.Infof(" CC: %s", cc)
-	buildLog.Infof("CXX: %s", cxx)
-
 	goConfig := &gogo.GoConfig{
 		CGO: "1",
 		CC:  cc,
@@ -185,6 +363,9 @@ func linuxShellcode(name string, build *clientpb.ImplantBuild, config *clientpb.
 		Obfuscation: config.ObfuscateSymbols,
 		GOGARBLE:    goGarble(config),
 	}
+	sanitizeZigForBuild(goConfig, "c-shared")
+	buildLog.Infof(" CC: %s", goConfig.CC)
+	buildLog.Infof("CXX: %s", goConfig.CXX)
 
 	config.IsSharedLib = true
 	pkgPath, err := renderSliverGoCode(name, build, config, goConfig, pbC2Implant)
@@ -205,11 +386,17 @@ func linuxShellcode(name string, build *clientpb.ImplantBuild, config *clientpb.
 		tags = append(tags, "netgo")
 	}
 	ldflags := []string{""} // Garble will automatically add "-s -w -buildid="
+	ldflags, wantStaticSO := applyZigStaticLinking(goConfig, "c-shared", ldflags)
 	gcFlags := ""
 	asmFlags := ""
 	_, err = gogo.GoBuild(*goConfig, pkgPath, soDest, "c-shared", tags, ldflags, gcFlags, asmFlags)
 	if err != nil {
 		return "", err
+	}
+	if goConfig.GOOS == LINUX {
+		if err := validateELFSharedObject(soDest, wantStaticSO); err != nil {
+			return "", err
+		}
 	}
 
 	compress := false
@@ -247,9 +434,6 @@ func darwinShellcode(name string, build *clientpb.ImplantBuild, config *clientpb
 		buildLog.Debugf("Cross-compiling from %s/%s to %s/%s", runtime.GOOS, runtime.GOARCH, config.GOOS, config.GOARCH)
 		cc, cxx = findCrossCompilers(config.GOOS, config.GOARCH)
 	}
-
-	buildLog.Infof(" CC: %s", cc)
-	buildLog.Infof("CXX: %s", cxx)
 
 	goConfig := &gogo.GoConfig{
 		CGO: "1",
@@ -418,6 +602,9 @@ func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clie
 		Obfuscation: config.ObfuscateSymbols,
 		GOGARBLE:    goGarble(config),
 	}
+	sanitizeZigForBuild(goConfig, "c-shared")
+	buildLog.Infof(" CC: %s", goConfig.CC)
+	buildLog.Infof("CXX: %s", goConfig.CXX)
 
 	pkgPath, err := renderSliverGoCode(name, build, config, goConfig, pbC2Implant)
 	if err != nil {
@@ -440,6 +627,7 @@ func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clie
 		tags = append(tags, "netgo")
 	}
 	ldflags := []string{""} // Garble will automatically add "-s -w -buildid="
+	ldflags, wantStaticSO := applyZigStaticLinking(goConfig, "c-shared", ldflags)
 	if !config.Debug && goConfig.GOOS == WINDOWS {
 		ldflags[0] += " -H=windowsgui"
 	}
@@ -451,6 +639,11 @@ func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clie
 	if err != nil {
 		return "", err
 	}
+	if goConfig.GOOS == LINUX {
+		if err := validateELFSharedObject(dest, wantStaticSO); err != nil {
+			return "", err
+		}
+	}
 
 	return dest, err
 }
@@ -458,18 +651,6 @@ func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clie
 // SliverExecutable - Generates a sliver executable binary
 func SliverExecutable(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
 	appDir := assets.GetRootAppDir()
-
-	// var cc string
-	// var cxx string
-	// cgo := "0"
-	// if runtime.GOOS != config.GOOS {
-	// 	buildLog.Debugf("Cross-compiling from %s/%s to %s/%s", runtime.GOOS, runtime.GOARCH, config.GOOS, config.GOARCH)
-	// 	cc, cxx = findCrossCompilers(config.GOOS, config.GOARCH)
-	// 	cgo = "1"
-	// }
-
-	// buildLog.Infof(" CC: %s", cc)
-	// buildLog.Infof("CXX: %s", cxx)
 
 	goConfig := &gogo.GoConfig{
 		CGO:        "0",
@@ -993,6 +1174,11 @@ func findCrossCompilers(targetGOOS string, targetGOARCH string) (string, string)
 			}
 		}
 	}
+
+	// Ensure all zig invocations have prefix maps applied (prevents absolute
+	// paths under the Sliver zig dir from leaking into artifacts).
+	cc = ensureZigPrefixMap(cc)
+	cxx = ensureZigPrefixMap(cxx)
 
 	return cc, cxx
 }
