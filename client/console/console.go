@@ -46,6 +46,7 @@ import (
 	"github.com/reeflective/readline"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slog"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -106,6 +107,21 @@ type SliverClient struct {
 	stdoutPipeWriter *os.File
 	stdoutPipeDone   chan struct{}
 	stdoutPipeOnce   sync.Once
+
+	connMu                 sync.Mutex
+	grpcConn               *grpc.ClientConn
+	connDetails            *ConnectionDetails
+	connCancel             context.CancelFunc
+	connWg                 *sync.WaitGroup
+	connectionHooksApplied bool
+	logCommandHookApplied  bool
+
+	// These writers are always safe to use (never error); the underlying stream
+	// can be swapped on server switch to avoid breaking io.MultiWriter/io.Copy.
+	jsonRemoteWriter      *optionalRemoteWriter
+	asciicastRemoteWriter *optionalRemoteWriter
+	jsonRemoteStream      rpcpb.SliverRPC_ClientLogClient
+	asciicastRemoteStream rpcpb.SliverRPC_ClientLogClient
 }
 
 // NewConsole creates the sliver client (and console), creating menus and prompts.
@@ -126,7 +142,10 @@ func NewConsole(isServer bool) *SliverClient {
 		BeaconTaskCallbacksMutex: &sync.Mutex{},
 		IsServer:                 isServer,
 		Settings:                 settings,
+		connWg:                   &sync.WaitGroup{},
 	}
+	// Ensure logging never panics even if console logs are disabled.
+	con.jsonHandler = slog.NewJSONHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelDebug})
 
 	// The active target needs access to the console
 	// to automatically switch between command menus.
@@ -165,8 +184,7 @@ func NewConsole(isServer bool) *SliverClient {
 // Init requires a working RPC connection to the sliver server, and 2 different sets of commands.
 // If run is true, the console application is started, making this call blocking. Otherwise, commands and
 // RPC connection are bound to the console (making the console ready to run), but the console does not start.
-func StartClient(con *SliverClient, rpc rpcpb.SliverRPCClient, serverCmds, sliverCmds console.Commands, run bool, rcScript string) error {
-	con.Rpc = rpc
+func StartClient(con *SliverClient, rpc rpcpb.SliverRPCClient, grpcConn *grpc.ClientConn, details *ConnectionDetails, serverCmds, sliverCmds console.Commands, run bool, rcScript string) error {
 	con.IsCLI = !run
 	con.serverCmds = serverCmds
 	con.sliverCmds = sliverCmds
@@ -188,39 +206,29 @@ func StartClient(con *SliverClient, rpc rpcpb.SliverRPCClient, serverCmds, slive
 	sliver := con.App.Menu(consts.ImplantMenu)
 	sliver.SetCommands(sliverCmds)
 
-	con.App.PreCmdRunLineHooks = append(con.App.PreCmdRunLineHooks, con.allowServerRootCommands)
-	if shell := con.App.Shell(); shell != nil && shell.Completer != nil {
-		baseCompleter := shell.Completer
-		shell.Completer = func(line []rune, cursor int) readline.Completions {
-			con.prepareCompletion(line, cursor)
-			return baseCompleter(line, cursor)
-		}
-	}
-
-	// Events
-	go con.startEventLoop()
-	go core.TunnelLoop(rpc)
+	con.applyConnectionHooksOnce()
 
 	// console logger
 	if con.Settings.ConsoleLogs {
 		// Classic logs
 		consoleLog := getConsoleLogFile()
-		consoleLogStream, err := con.ClientLogStream("json")
-		if err != nil {
-			log.Printf("Could not get client json log stream: %s", err)
-		}
-		con.setupLogger(consoleLog, consoleLogStream)
+		con.ensureJSONRemoteWriter()
+		con.setupLogger(consoleLog, con.jsonRemoteWriter)
 		defer consoleLog.Close()
 
-		// Ascii cast sessions (complete terminal interface).
-		asciicastLog := getConsoleAsciicastFile()
-		defer asciicastLog.Close()
+		// Ascii cast sessions (complete terminal interface) are only useful
+		// for the interactive console. In CLI mode they would clobber stdout.
+		if !con.IsCLI {
+			asciicastLog := getConsoleAsciicastFile()
+			defer asciicastLog.Close()
 
-		asciicastStream, err := con.ClientLogStream("asciicast")
-		if err != nil {
-			log.Printf("Could not get client asciicast log stream: %s", err)
+			con.ensureAsciicastRemoteWriter()
+			con.setupAsciicastRecord(asciicastLog, con.asciicastRemoteWriter)
 		}
-		con.setupAsciicastRecord(asciicastLog, asciicastStream)
+	}
+
+	if err := con.SetConnection(rpc, grpcConn, details); err != nil {
+		return err
 	}
 
 	if rcScript != "" {
@@ -319,8 +327,27 @@ func (con *SliverClient) runRCLine(serverCmds, sliverCmds console.Commands, line
 	return nil
 }
 
-func (con *SliverClient) startEventLoop() {
-	eventStream, err := con.Rpc.Events(context.Background(), &commonpb.Empty{})
+func (con *SliverClient) applyConnectionHooksOnce() {
+	con.connMu.Lock()
+	defer con.connMu.Unlock()
+
+	if con.connectionHooksApplied {
+		return
+	}
+	con.connectionHooksApplied = true
+
+	con.App.PreCmdRunLineHooks = append(con.App.PreCmdRunLineHooks, con.allowServerRootCommands)
+	if shell := con.App.Shell(); shell != nil && shell.Completer != nil {
+		baseCompleter := shell.Completer
+		shell.Completer = func(line []rune, cursor int) readline.Completions {
+			con.prepareCompletion(line, cursor)
+			return baseCompleter(line, cursor)
+		}
+	}
+}
+
+func (con *SliverClient) startEventLoop(ctx context.Context) {
+	eventStream, err := con.Rpc.Events(ctx, &commonpb.Empty{})
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
 		return
@@ -528,19 +555,33 @@ func (con *SliverClient) GetPrompt() string {
 }
 
 func (con *SliverClient) PrintLogo() {
-	serverVer, err := con.Rpc.GetVersion(context.Background(), &commonpb.Empty{})
+	// Always show a logo even if the server connection is transiently unavailable.
+	logo := asciiLogos[util.Intn(len(asciiLogos))]
+	fmt.Println(strings.ReplaceAll(logo, "\n", "\r\n"))
+	fmt.Println("All hackers gain " + abilities[util.Intn(len(abilities))] + "\r")
+
+	if con.Rpc == nil {
+		fmt.Println(Warn + "Not connected to a server\r")
+		fmt.Printf(Info+"Client %s\r\n", version.FullVersion())
+		fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options\r")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	serverVer, err := con.Rpc.GetVersion(ctx, &commonpb.Empty{})
 	if err != nil {
-		panic(err.Error())
+		fmt.Printf(Warn+"Could not query server version: %s\r\n", err)
+		fmt.Printf(Info+"Client %s\r\n", version.FullVersion())
+		fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options\r")
+		con.CheckLastUpdate()
+		return
 	}
 	dirty := ""
 	if serverVer.Dirty {
 		dirty = fmt.Sprintf(" - %sDirty%s", Bold, Normal)
 	}
 	serverSemVer := fmt.Sprintf("%d.%d.%d", serverVer.Major, serverVer.Minor, serverVer.Patch)
-
-	logo := asciiLogos[util.Intn(len(asciiLogos))]
-	fmt.Println(strings.ReplaceAll(logo, "\n", "\r\n"))
-	fmt.Println("All hackers gain " + abilities[util.Intn(len(abilities))] + "\r")
 	fmt.Printf(Info+"Server v%s - %s%s\r\n", serverSemVer, serverVer.Commit, dirty)
 	if version.GitCommit != serverVer.Commit {
 		fmt.Printf(Info+"Client %s\r\n", version.FullVersion())

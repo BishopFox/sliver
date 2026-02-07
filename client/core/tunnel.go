@@ -20,6 +20,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log"
 
@@ -27,21 +28,21 @@ import (
 )
 
 // TunnelLoop - Parses incoming tunnel messages and distributes them
-//              to session/tunnel objects
-// 				Expected to be called only once during initialization
-func TunnelLoop(rpc rpcpb.SliverRPCClient) error {
+//
+//	             to session/tunnel objects
+//					Expected to be called only once during initialization
+func TunnelLoop(ctx context.Context, rpc rpcpb.SliverRPCClient) error {
 	log.Println("Starting tunnel data loop ...")
 	defer log.Printf("Warning: TunnelLoop exited")
 
-	ctx, cancel := context.WithCancel(context.Background())
 	stream, err := rpc.TunnelData(ctx)
-	defer cancel()
 
 	if err != nil {
 		return err
 	}
 
 	GetTunnels().SetStream(stream)
+	defer GetTunnels().SetStream(nil)
 
 	for {
 		log.Printf("Waiting for TunnelData ...")
@@ -54,6 +55,9 @@ func TunnelLoop(rpc rpcpb.SliverRPCClient) error {
 			return nil
 		}
 		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				return nil
+			}
 			log.Printf("Tunnel data read error: %s", err)
 			return err
 		}

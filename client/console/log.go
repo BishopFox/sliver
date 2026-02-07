@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bishopfox/sliver/client/assets"
@@ -51,6 +52,109 @@ func (l *ConsoleClientLogger) Write(buf []byte) (int, error) {
 	return len(buf), err
 }
 
+// optionalRemoteWriter is an io.Writer that forwards to an optional remote writer.
+// It always returns len(buf), nil to avoid breaking io.MultiWriter/io.Copy when
+// a remote stream disconnects during a server switch.
+type optionalRemoteWriter struct {
+	mu sync.RWMutex
+	w  io.Writer
+}
+
+func (o *optionalRemoteWriter) Set(w io.Writer) {
+	o.mu.Lock()
+	o.w = w
+	o.mu.Unlock()
+}
+
+func (o *optionalRemoteWriter) Write(buf []byte) (int, error) {
+	o.mu.RLock()
+	w := o.w
+	o.mu.RUnlock()
+	if w != nil {
+		_, _ = w.Write(buf)
+	}
+	return len(buf), nil
+}
+
+func (con *SliverClient) ensureJSONRemoteWriter() {
+	con.connMu.Lock()
+	defer con.connMu.Unlock()
+
+	if con.jsonRemoteWriter == nil {
+		con.jsonRemoteWriter = &optionalRemoteWriter{}
+	}
+}
+
+func (con *SliverClient) ensureAsciicastRemoteWriter() {
+	con.connMu.Lock()
+	defer con.connMu.Unlock()
+
+	if con.asciicastRemoteWriter == nil {
+		con.asciicastRemoteWriter = &optionalRemoteWriter{}
+	}
+}
+
+func (con *SliverClient) refreshRemoteLogStreamsLocked() {
+	// Only refresh if the console logging stack has been initialized.
+	if con.jsonRemoteWriter == nil && con.asciicastRemoteWriter == nil {
+		return
+	}
+	if con.Rpc == nil {
+		con.setRemoteLogStreamsLocked(nil, nil)
+		return
+	}
+
+	var jsonStream *ConsoleClientLogger
+	var asciicastStream *ConsoleClientLogger
+
+	if con.jsonRemoteWriter != nil {
+		s, err := con.ClientLogStream("json")
+		if err != nil {
+			log.Printf("Could not get client json log stream: %s", err)
+		} else {
+			jsonStream = s
+		}
+	}
+	if con.asciicastRemoteWriter != nil {
+		s, err := con.ClientLogStream("asciicast")
+		if err != nil {
+			log.Printf("Could not get client asciicast log stream: %s", err)
+		} else {
+			asciicastStream = s
+		}
+	}
+
+	con.setRemoteLogStreamsLocked(jsonStream, asciicastStream)
+}
+
+func (con *SliverClient) setRemoteLogStreamsLocked(jsonStream, asciicastStream *ConsoleClientLogger) {
+	// Detach writers first so background pipes can't hit a closing stream.
+	if con.jsonRemoteWriter != nil {
+		con.jsonRemoteWriter.Set(nil)
+	}
+	if con.asciicastRemoteWriter != nil {
+		con.asciicastRemoteWriter.Set(nil)
+	}
+
+	if con.jsonRemoteStream != nil {
+		_ = con.jsonRemoteStream.CloseSend()
+		con.jsonRemoteStream = nil
+	}
+	if con.asciicastRemoteStream != nil {
+		_ = con.asciicastRemoteStream.CloseSend()
+		con.asciicastRemoteStream = nil
+	}
+
+	if jsonStream != nil && con.jsonRemoteWriter != nil {
+		con.jsonRemoteWriter.Set(jsonStream)
+		con.jsonRemoteStream = jsonStream.Stream
+	}
+	if asciicastStream != nil && con.asciicastRemoteWriter != nil {
+		con.asciicastRemoteWriter.Set(asciicastStream)
+		con.asciicastRemoteStream = asciicastStream.Stream
+	}
+}
+
 // ClientLogStream requires a log stream name, used to save the logs
 // going through this stream in a specific log subdirectory/file.
 func (con *SliverClient) ClientLogStream(name string) (*ConsoleClientLogger, error) {
@@ -69,7 +173,12 @@ func (con *SliverClient) setupLogger(writers ...io.Writer) {
 	con.jsonHandler = slog.NewJSONHandler(logWriter, jsonOptions)
 
 	// Log all commands before running them.
-	con.App.PreCmdRunLineHooks = append(con.App.PreCmdRunLineHooks, con.logCommand)
+	con.connMu.Lock()
+	defer con.connMu.Unlock()
+	if !con.logCommandHookApplied {
+		con.App.PreCmdRunLineHooks = append(con.App.PreCmdRunLineHooks, con.logCommand)
+		con.logCommandHookApplied = true
+	}
 }
 
 // logCommand logs non empty commands to the client log file.

@@ -19,9 +19,7 @@ package cli
 */
 
 import (
-	"context"
 	"fmt"
-	"os"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command"
@@ -30,7 +28,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
 )
 
 // consoleCmd generates the console with required pre/post runners.
@@ -46,8 +43,6 @@ func consoleCmd(con *console.SliverClient) *cobra.Command {
 }
 
 func consoleRunnerCmd(con *console.SliverClient, run bool) (pre, post func(cmd *cobra.Command, args []string) error) {
-	var ln *grpc.ClientConn
-
 	pre = func(cmd *cobra.Command, _ []string) error {
 
 		configs := assets.GetConfigs()
@@ -55,7 +50,7 @@ func consoleRunnerCmd(con *console.SliverClient, run bool) (pre, post func(cmd *
 			fmt.Printf("No config files found at %s (see --help)\n", assets.GetConfigDir())
 			return nil
 		}
-		config := selectConfig()
+		configKey, config := selectConfig()
 		if config == nil {
 			return nil
 		}
@@ -72,40 +67,20 @@ func consoleRunnerCmd(con *console.SliverClient, run bool) (pre, post func(cmd *
 		}
 
 		var rpc rpcpb.SliverRPCClient
+		var ln *grpc.ClientConn
 
 		rpc, ln, err = transport.MTLSConnect(config)
 		if err != nil {
 			fmt.Printf("Connection to server failed %s", err)
 			return nil
 		}
-
-		// Wait for any connection state changes and exit if the connection is lost.
-		go handleConnectionLost(ln)
-
-		return console.StartClient(con, rpc, command.ServerCommands(con, nil), command.SliverCommands(con), run, rcScript)
+		return console.StartClient(con, rpc, ln, &console.ConnectionDetails{ConfigKey: configKey, Config: config}, command.ServerCommands(con, nil), command.SliverCommands(con), run, rcScript)
 	}
 
 	// Close the RPC connection once exiting
 	post = func(_ *cobra.Command, _ []string) error {
-		if ln != nil {
-			return ln.Close()
-		}
-
-		return nil
+		return con.CloseConnection()
 	}
 
 	return pre, post
-}
-
-func handleConnectionLost(ln *grpc.ClientConn) {
-	currentState := ln.GetState()
-	// currentState should be "Ready" when the connection is established.
-	if ln.WaitForStateChange(context.Background(), currentState) {
-		newState := ln.GetState()
-		// newState will be "Idle" if the connection is lost.
-		if newState == connectivity.Idle {
-			fmt.Println("\nLost connection to server. Exiting now.")
-			os.Exit(1)
-		}
-	}
 }
