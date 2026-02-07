@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -83,57 +84,69 @@ var daemonCmd = &cobra.Command{
 func StartPersistentJobs(listenerJobs []*clientpb.ListenerJob) error {
 	if len(listenerJobs) > 0 {
 		// StartPersistentJobs - Start persistent jobs
+		var errs []error
 		for _, j := range listenerJobs {
 			listenerJob, err := db.ListenerByJobID(j.JobID)
 			if err != nil {
-				return err
+				errs = append(errs, err)
+				continue
 			}
 			switch j.Type {
 			case constants.HttpStr:
 				job, err := c2.StartHTTPListenerJob(listenerJob.HTTPConf)
 				if err != nil {
-					return err
+					errs = append(errs, err)
+					continue
 				}
 				j.JobID = uint32(job.ID)
 			case constants.HttpsStr:
 				job, err := c2.StartHTTPListenerJob(listenerJob.HTTPConf)
 				if err != nil {
-					return err
+					errs = append(errs, err)
+					continue
 				}
 				j.JobID = uint32(job.ID)
 			case constants.MtlsStr:
 				job, err := c2.StartMTLSListenerJob(listenerJob.MTLSConf)
 				if err != nil {
-					return err
+					errs = append(errs, err)
+					continue
 				}
 				j.JobID = uint32(job.ID)
 			case constants.WGStr:
 				job, err := c2.StartWGListenerJob(listenerJob.WGConf)
 				if err != nil {
-					return err
+					errs = append(errs, err)
+					continue
 				}
 				j.JobID = uint32(job.ID)
 			case constants.DnsStr:
 				job, err := c2.StartDNSListenerJob(listenerJob.DNSConf)
 				if err != nil {
-					return err
+					errs = append(errs, err)
+					continue
 				}
 				j.JobID = uint32(job.ID)
 			case constants.MultiplayerModeStr:
 				id, err := console.JobStartClientListener(listenerJob.MultiConf)
 				if err != nil {
-					return err
+					errs = append(errs, err)
+					continue
 				}
 				j.JobID = uint32(id)
 			case constants.TCPListenerStr:
 				job, err := c2.StartTCPStagerListenerJob(listenerJob.TCPConf.Host, uint16(listenerJob.TCPConf.Port), listenerJob.TCPConf.ProfileName, listenerJob.TCPConf.Data)
 				if err != nil {
-					return err
+					errs = append(errs, err)
+					continue
 				}
 				j.JobID = uint32(job.ID)
 			}
-			db.UpdateHTTPC2Listener(j)
+			if err := db.UpdateHTTPC2Listener(j); err != nil {
+				errs = append(errs, err)
+			}
 		}
+		return errors.Join(errs...)
 	}
 
 	return nil

@@ -86,9 +86,6 @@ func StartWGListenerJob(wgListener *clientpb.WGListenerReq) (*core.Job, error) {
 		JobCtrl:     make(chan bool),
 	}
 
-	ticker := time.NewTicker(5 * time.Second)
-	done := make(chan bool)
-
 	// Listener for new keys
 	go func(dev *device.Device) {
 		for event := range core.EventBroker.Subscribe() {
@@ -108,18 +105,14 @@ func StartWGListenerJob(wgListener *clientpb.WGListenerReq) (*core.Job, error) {
 	go func() {
 		<-job.JobCtrl
 		jobLog.Infof("Stopping wg listener (%d) ...", job.ID)
-		ticker.Stop()
 
-		err = ln.Close() // Kills listener GoRoutines in StartWGListener()
-		if err != nil {
+		if err := ln.Close(); err != nil { // Kills listener GoRoutines in StartWGListener()
 			jobLog.Fatal("Error closing listener", err)
 		}
-		err = dev.Down() // Kill wg tunnel
-		if err != nil {
+		if err := dev.Down(); err != nil { // Kill wg tunnel
 			jobLog.Fatal("Error closing wg tunnel", err)
 		}
 		core.Jobs.Remove(job)
-		done <- true
 	}()
 	core.Jobs.Add(job)
 

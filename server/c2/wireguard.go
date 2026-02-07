@@ -29,6 +29,7 @@ import (
 	"net"
 	"net/netip"
 	"sync"
+	"syscall"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/certs"
@@ -42,6 +43,7 @@ import (
 	"github.com/hashicorp/yamux"
 	"golang.zx2c4.com/wireguard/conn"
 	"golang.zx2c4.com/wireguard/device"
+	"golang.zx2c4.com/wireguard/ipc"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -65,6 +67,12 @@ var (
 func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uint16) (net.Listener, *device.Device, *bytes.Buffer, error) {
 	wgLog.Infof("Starting Wireguard listener on port: %d", port)
 
+	// Fail fast before spinning up the netstack + device when the port is already bound.
+	// In practice, leaving partially-initialized resources around has caused console hangs.
+	if err := wgUDPBindCheck(port); err != nil {
+		return nil, nil, nil, err
+	}
+
 	tun, tNet, err := netstack.CreateNetTUN(
 		[]netip.Addr{netip.MustParseAddr(tunIP)},
 		[]netip.Addr{netip.MustParseAddr("127.0.0.1")}, // We don't use DNS in the WG listener. Yet.
@@ -74,21 +82,32 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 		wgLog.Errorf("CreateNetTUN failed: %v", err)
 		return nil, nil, nil, err
 	}
+	var dev *device.Device
+	cleanup := func() {
+		if dev != nil {
+			dev.Close() // closes the underlying TUN as well
+			return
+		}
+		_ = tun.Close()
+	}
 
 	tunIPAddr, err := netip.ParseAddr(tunIP)
 	if err != nil {
 		wgLog.Errorf("ParseAddr failed: %v", err)
+		cleanup()
 		return nil, nil, nil, err
 	}
 
 	// Allow netstack to listen on the ports we need
 	if err := tNet.AllowTCPPort(tunIPAddr, netstackPort); err != nil {
 		wgLog.Errorf("AllowTCPPort failed for netstackPort: %v", err)
+		cleanup()
 		return nil, nil, nil, err
 	}
 
 	if err := tNet.AllowTCPPort(tunIPAddr, keyExchangeListenPort); err != nil {
 		wgLog.Errorf("AllowTCPPort failed for keyExchangeListenPort: %v", err)
+		cleanup()
 		return nil, nil, nil, err
 	}
 
@@ -99,6 +118,7 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 		isPeer := false
 		privateKey, _, err = certs.GenerateWGKeys(isPeer, "")
 		if err != nil {
+			cleanup()
 			return nil, nil, nil, err
 		}
 	}
@@ -107,7 +127,7 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 	// Set this to device.LogLevelVerbose when debugging for verbose logs
 	// We should probably set this to LogLevelError and figure out how to
 	// redirect the logs from stdout
-	dev := device.NewDevice(tun, conn.NewDefaultBind(), device.NewLogger(device.LogLevelSilent, "[c2/wg] "))
+	dev = device.NewDevice(tun, conn.NewDefaultBind(), device.NewLogger(device.LogLevelSilent, "[c2/wg] "))
 
 	wgConf := bytes.NewBuffer(nil)
 	fmt.Fprintf(wgConf, "private_key=%s\n", privateKey)
@@ -115,6 +135,7 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 
 	peers, err := certs.GetWGPeers()
 	if err != nil && err != certs.ErrWGPeerDoesNotExist {
+		cleanup()
 		return nil, nil, nil, err
 	}
 
@@ -125,12 +146,14 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 
 	// Set wg device config
 	if err := dev.IpcSetOperation(bufio.NewReader(wgConf)); err != nil {
+		cleanup()
 		return nil, nil, nil, err
 	}
 
 	err = dev.Up()
 	if err != nil {
 		wgLog.Errorf("Could not set up the device: %v", err)
+		cleanup()
 		return nil, nil, nil, err
 	}
 
@@ -138,6 +161,7 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 	keyExchangeListener, err := tNet.ListenTCP(&net.TCPAddr{IP: net.ParseIP(tunIP), Port: int(keyExchangeListenPort)})
 	if err != nil {
 		wgLog.Errorf("Failed to setup up wg key exchange listener: %v", err)
+		cleanup()
 		return nil, nil, nil, err
 	}
 	wgLog.Printf("Successfully setup up wg key exchange listener")
@@ -147,11 +171,31 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 	listener, err := tNet.ListenTCP(&net.TCPAddr{IP: net.ParseIP(tunIP), Port: int(netstackPort)})
 	if err != nil {
 		wgLog.Errorf("Failed to setup up wg sliver listener: %v", err)
+		keyExchangeListener.Close()
+		cleanup()
 		return nil, nil, nil, err
 	}
 	wgLog.Printf("Successfully setup up wg sliver listener")
 	go acceptWGSliverConnections(listener)
 	return listener, dev, wgConf, nil
+}
+
+func wgUDPBindCheck(port uint16) error {
+	addr := &net.UDPAddr{
+		IP:   net.IPv4zero,
+		Port: int(port),
+	}
+	c, err := net.ListenUDP("udp4", addr)
+	if err != nil {
+		// Match the user-visible error we'd otherwise get from WireGuard, but without leaving
+		// a partially-initialized device/netstack around.
+		if errors.Is(err, syscall.EADDRINUSE) {
+			return fmt.Errorf("IPC error %d: failed to set listen_port: %v", ipc.IpcErrorPortInUse, err)
+		}
+		return err
+	}
+	_ = c.Close()
+	return nil
 }
 
 // acceptKeyExchangeConnection - accept connections to key exchange socket
