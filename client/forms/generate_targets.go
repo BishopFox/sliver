@@ -44,6 +44,7 @@ func commonArchOptions(goos string) []huh.Option[string] {
 	case "linux":
 		return []huh.Option[string]{
 			huh.NewOption("amd64", "amd64"),
+			huh.NewOption("arm64", "arm64"),
 			huh.NewOption("386", "386"),
 		}
 	default:
@@ -65,6 +66,8 @@ func commonFormatOptions(goos string) []huh.Option[string] {
 			huh.NewOption("Shellcode", "shellcode"),
 		)
 	} else if goos == "darwin" {
+		options = append(options, huh.NewOption("Shellcode", "shellcode"))
+	} else if goos == "linux" {
 		options = append(options, huh.NewOption("Shellcode", "shellcode"))
 	}
 	return options

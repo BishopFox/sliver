@@ -343,13 +343,14 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 		f.StringP("limit-fileexists", "F", "", "limit execution to hosts with this file in the filesystem")
 		f.StringP("limit-locale", "L", "", "limit execution to hosts that match this locale")
 
-		f.StringP("format", "f", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows and darwin/arm64)")
+		f.StringP("format", "f", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows, darwin/arm64, linux/amd64, linux/arm64)")
 
 		// Shellcode generation options:
 		// - Windows: Donut
 		// - macOS: beignet
+		// - Linux: malasada
 		f.Uint32("shellcode-entropy", 1, "Shellcode entropy (Donut: 1=none, 2=random names, 3=random+encrypt) (windows shellcode only)")
-		f.Bool("shellcode-compress", false, "Enable shellcode compression (aPLib) (windows and macOS shellcode)")
+		f.Bool("shellcode-compress", false, "Enable shellcode compression (aPLib) (windows, macOS, and Linux shellcode)")
 		f.Uint32("shellcode-exitopt", 1, "Shellcode exit option (Donut: 1=exit thread, 2=exit process, 3=block) (windows shellcode only)")
 		f.Uint32("shellcode-bypass", 3, "Shellcode bypass mode (Donut: 1=none, 2=abort, 3=continue) (windows shellcode only)")
 		f.Uint32("shellcode-headers", 1, "Shellcode headers handling (Donut: 1=overwrite, 2=keep) (windows shellcode only)")
