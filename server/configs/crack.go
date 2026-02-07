@@ -52,10 +52,50 @@ func getCrackLegacyConfigPath() string {
 }
 
 type crackConfigYAML struct {
-	AutoFire     bool  `yaml:"AutoFire"`
-	MaxFileSize  int64 `yaml:"MaxFileSize"`
-	ChunkSize    int64 `yaml:"ChunkSize"`
-	MaxDiskUsage int64 `yaml:"MaxDiskUsage"`
+	AutoFire     bool  `yaml:"auto_fire"`
+	MaxFileSize  int64 `yaml:"max_file_size"`
+	ChunkSize    int64 `yaml:"chunk_size"`
+	MaxDiskUsage int64 `yaml:"max_disk_usage"`
+}
+
+type crackConfigYAMLCompat struct {
+	AutoFire     *bool  `yaml:"auto_fire"`
+	MaxFileSize  *int64 `yaml:"max_file_size"`
+	ChunkSize    *int64 `yaml:"chunk_size"`
+	MaxDiskUsage *int64 `yaml:"max_disk_usage"`
+
+	AutoFireLegacy     *bool  `yaml:"AutoFire"`
+	MaxFileSizeLegacy  *int64 `yaml:"MaxFileSize"`
+	ChunkSizeLegacy    *int64 `yaml:"ChunkSize"`
+	MaxDiskUsageLegacy *int64 `yaml:"MaxDiskUsage"`
+}
+
+func (c *crackConfigYAML) UnmarshalYAML(node *yaml.Node) error {
+	var raw crackConfigYAMLCompat
+	if err := node.Decode(&raw); err != nil {
+		return err
+	}
+	if raw.AutoFire != nil {
+		c.AutoFire = *raw.AutoFire
+	} else if raw.AutoFireLegacy != nil {
+		c.AutoFire = *raw.AutoFireLegacy
+	}
+	if raw.MaxFileSize != nil {
+		c.MaxFileSize = *raw.MaxFileSize
+	} else if raw.MaxFileSizeLegacy != nil {
+		c.MaxFileSize = *raw.MaxFileSizeLegacy
+	}
+	if raw.ChunkSize != nil {
+		c.ChunkSize = *raw.ChunkSize
+	} else if raw.ChunkSizeLegacy != nil {
+		c.ChunkSize = *raw.ChunkSizeLegacy
+	}
+	if raw.MaxDiskUsage != nil {
+		c.MaxDiskUsage = *raw.MaxDiskUsage
+	} else if raw.MaxDiskUsageLegacy != nil {
+		c.MaxDiskUsage = *raw.MaxDiskUsageLegacy
+	}
+	return nil
 }
 
 func crackConfigFromYAML(data []byte) (*clientpb.CrackConfig, error) {

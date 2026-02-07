@@ -1272,6 +1272,21 @@ message CrackCommand {
   string BrainSessionWhitelist = 113;
 }
 
+message CrackJob {
+  string ID = 1;
+  string CreatedAt = 2;
+  string CompletedAt = 3;
+  CrackJobStatus Status = 4;
+  string Err = 5;
+
+  CrackCommand Command = 7;
+  string ResultFileID = 8;
+}
+
+message CrackResponse {
+  CrackJob Job = 1;
+}
+
 message CrackConfig {
   bool AutoFire = 1;
   int64 MaxFileSize = 2;

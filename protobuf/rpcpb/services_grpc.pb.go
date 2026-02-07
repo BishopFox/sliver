@@ -98,6 +98,7 @@ type SliverRPCClient interface {
 	GetCertificateInfo(ctx context.Context, in *clientpb.CertificatesReq, opts ...grpc.CallOption) (*clientpb.CertificateInfo, error)
 	GetCertificateAuthorityInfo(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.CertificateAuthorityInfo, error)
 	// *** Crackstation ***
+	Crack(ctx context.Context, in *clientpb.CrackCommand, opts ...grpc.CallOption) (*clientpb.CrackResponse, error)
 	CrackstationRegister(ctx context.Context, in *clientpb.Crackstation, opts ...grpc.CallOption) (SliverRPC_CrackstationRegisterClient, error)
 	CrackstationTrigger(ctx context.Context, in *clientpb.Event, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	CrackstationBenchmark(ctx context.Context, in *clientpb.CrackBenchmark, opts ...grpc.CallOption) (*commonpb.Empty, error)
@@ -818,6 +819,15 @@ func (c *sliverRPCClient) GetCertificateInfo(ctx context.Context, in *clientpb.C
 func (c *sliverRPCClient) GetCertificateAuthorityInfo(ctx context.Context, in *commonpb.Empty, opts ...grpc.CallOption) (*clientpb.CertificateAuthorityInfo, error) {
 	out := new(clientpb.CertificateAuthorityInfo)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GetCertificateAuthorityInfo", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) Crack(ctx context.Context, in *clientpb.CrackCommand, opts ...grpc.CallOption) (*clientpb.CrackResponse, error) {
+	out := new(clientpb.CrackResponse)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/Crack", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2120,6 +2130,7 @@ type SliverRPCServer interface {
 	GetCertificateInfo(context.Context, *clientpb.CertificatesReq) (*clientpb.CertificateInfo, error)
 	GetCertificateAuthorityInfo(context.Context, *commonpb.Empty) (*clientpb.CertificateAuthorityInfo, error)
 	// *** Crackstation ***
+	Crack(context.Context, *clientpb.CrackCommand) (*clientpb.CrackResponse, error)
 	CrackstationRegister(*clientpb.Crackstation, SliverRPC_CrackstationRegisterServer) error
 	CrackstationTrigger(context.Context, *clientpb.Event) (*commonpb.Empty, error)
 	CrackstationBenchmark(context.Context, *clientpb.CrackBenchmark) (*commonpb.Empty, error)
@@ -2440,6 +2451,9 @@ func (UnimplementedSliverRPCServer) GetCertificateInfo(context.Context, *clientp
 }
 func (UnimplementedSliverRPCServer) GetCertificateAuthorityInfo(context.Context, *commonpb.Empty) (*clientpb.CertificateAuthorityInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCertificateAuthorityInfo not implemented")
+}
+func (UnimplementedSliverRPCServer) Crack(context.Context, *clientpb.CrackCommand) (*clientpb.CrackResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Crack not implemented")
 }
 func (UnimplementedSliverRPCServer) CrackstationRegister(*clientpb.Crackstation, SliverRPC_CrackstationRegisterServer) error {
 	return status.Errorf(codes.Unimplemented, "method CrackstationRegister not implemented")
@@ -3898,6 +3912,24 @@ func _SliverRPC_GetCertificateAuthorityInfo_Handler(srv interface{}, ctx context
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).GetCertificateAuthorityInfo(ctx, req.(*commonpb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_Crack_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.CrackCommand)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).Crack(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/Crack",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).Crack(ctx, req.(*clientpb.CrackCommand))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -6408,6 +6440,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetCertificateAuthorityInfo",
 			Handler:    _SliverRPC_GetCertificateAuthorityInfo_Handler,
+		},
+		{
+			MethodName: "Crack",
+			Handler:    _SliverRPC_Crack_Handler,
 		},
 		{
 			MethodName: "CrackstationTrigger",

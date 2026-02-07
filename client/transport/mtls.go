@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 
 	"github.com/bishopfox/sliver/client/assets"
@@ -71,15 +72,36 @@ func MTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *grpc.Clie
 	options := []grpc.DialOption{
 		grpc.WithTransportCredentials(transportCreds),
 		grpc.WithPerRPCCredentials(callCreds),
-		grpc.WithBlock(),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(ClientMaxReceiveMessageSize)),
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
-	defer cancel()
-	connection, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", config.LHost, config.LPort), options...)
+
+	if kp, ok := getKeepaliveParams(); ok {
+		options = append(options, grpc.WithKeepaliveParams(kp))
+	}
+
+	connection, err := grpc.NewClient(fmt.Sprintf("%s:%d", config.LHost, config.LPort), options...)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	// Preserve the legacy grpc.DialContext + grpc.WithBlock behavior: block
+	// until the channel becomes READY or the timeout expires.
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	for {
+		state := connection.GetState()
+		if state == connectivity.Idle {
+			connection.Connect()
+		}
+		if state == connectivity.Ready {
+			break
+		}
+		if !connection.WaitForStateChange(ctx, state) {
+			_ = connection.Close()
+			return nil, nil, ctx.Err()
+		}
+	}
+
 	return rpcpb.NewSliverRPCClient(connection), connection, nil
 }
 
@@ -120,7 +142,7 @@ func RootOnlyVerifyCertificate(caCertificate string, rawCerts [][]byte) error {
 
 	cert, err := x509.ParseCertificate(rawCerts[0]) // We should only get one cert
 	if err != nil {
-		log.Printf("Failed to parse certificate: " + err.Error())
+		log.Printf("Failed to parse certificate: %v", err)
 		return err
 	}
 
@@ -134,7 +156,7 @@ func RootOnlyVerifyCertificate(caCertificate string, rawCerts [][]byte) error {
 		panic("no root certificate")
 	}
 	if _, err := cert.Verify(options); err != nil {
-		log.Printf("Failed to verify certificate: " + err.Error())
+		log.Printf("Failed to verify certificate: %v", err)
 		return err
 	}
 

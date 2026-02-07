@@ -81,6 +81,7 @@ func StartTsNetClientListener(hostname string, port uint16) (*grpc.Server, net.L
 		grpc.MaxRecvMsgSize(ServerMaxMessageSize),
 		grpc.MaxSendMsgSize(ServerMaxMessageSize),
 	}
+	options = append(options, grpcKeepaliveOptions()...)
 	options = append(options, initMiddleware(true)...)
 	grpcServer := grpc.NewServer(options...)
 	rpcpb.RegisterSliverRPCServer(grpcServer, rpc.NewServer())

@@ -24,6 +24,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	}
 	flags.Bind("", true, crackCmd, func(f *pflag.FlagSet) {
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+		bindCrackFlags(f)
 	})
 
 	crackStationsCmd := &cobra.Command{
@@ -34,6 +35,9 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 			CrackStationsCmd(cmd, con, args)
 		},
 	}
+	flags.Bind("", false, crackStationsCmd, func(f *pflag.FlagSet) {
+		f.Bool("show-benchmarks", false, "show benchmark rates for crackstations")
+	})
 	crackCmd.AddCommand(crackStationsCmd)
 
 	wordlistsCmd := &cobra.Command{
