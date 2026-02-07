@@ -45,6 +45,7 @@ import (
 	"github.com/bishopfox/sliver/util"
 	utilEncoders "github.com/bishopfox/sliver/util/encoders"
 	"github.com/sliverarmory/beignet"
+	"github.com/sliverarmory/malasada"
 	"golang.org/x/mod/module"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -141,13 +142,98 @@ func SliverShellcode(name string, build *clientpb.ImplantBuild, config *clientpb
 		return windowsShellcode(name, build, config, pbC2Implant)
 	case DARWIN:
 		return darwinShellcode(name, build, config, pbC2Implant)
+	case LINUX:
+		return linuxShellcode(name, build, config, pbC2Implant)
 	}
 	return "", fmt.Errorf("shellcode format is not supported on %s", config.GOOS)
 }
 
+func linuxShellcode(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
+	if config.GOARCH != "amd64" && config.GOARCH != "arm64" {
+		return "", fmt.Errorf("linux shellcode format not supported on %s architecture", config.GOARCH)
+	}
+	if len(config.Exports) == 0 {
+		return "", fmt.Errorf("linux shellcode requires at least one export symbol")
+	}
+
+	appDir := assets.GetRootAppDir()
+
+	var cc string
+	var cxx string
+	if runtime.GOOS != config.GOOS || runtime.GOARCH != config.GOARCH {
+		buildLog.Debugf("Cross-compiling from %s/%s to %s/%s", runtime.GOOS, runtime.GOARCH, config.GOOS, config.GOARCH)
+		cc, cxx = findCrossCompilers(config.GOOS, config.GOARCH)
+	}
+
+	buildLog.Infof(" CC: %s", cc)
+	buildLog.Infof("CXX: %s", cxx)
+
+	goConfig := &gogo.GoConfig{
+		CGO: "1",
+		CC:  cc,
+		CXX: cxx,
+
+		GOOS:       config.GOOS,
+		GOARCH:     config.GOARCH,
+		GOCACHE:    gogo.GetGoCache(appDir),
+		GOMODCACHE: gogo.GetGoModCache(appDir),
+		GOROOT:     gogo.GetGoRootDir(appDir),
+		GOPROXY:    getGoProxy(),
+		HTTPPROXY:  getGoHttpProxy(),
+		HTTPSPROXY: getGoHttpsProxy(),
+
+		Obfuscation: config.ObfuscateSymbols,
+		GOGARBLE:    goGarble(config),
+	}
+
+	config.IsSharedLib = true
+	pkgPath, err := renderSliverGoCode(name, build, config, goConfig, pbC2Implant)
+	if err != nil {
+		return "", err
+	}
+
+	tmpFile, err := os.CreateTemp("", "sliver-*.so")
+	if err != nil {
+		return "", err
+	}
+	tmpFile.Close()
+	defer os.Remove(tmpFile.Name())
+	soDest := tmpFile.Name()
+
+	tags := []string{}
+	if config.NetGoEnabled {
+		tags = append(tags, "netgo")
+	}
+	ldflags := []string{""} // Garble will automatically add "-s -w -buildid="
+	gcFlags := ""
+	asmFlags := ""
+	_, err = gogo.GoBuild(*goConfig, pkgPath, soDest, "c-shared", tags, ldflags, gcFlags, asmFlags)
+	if err != nil {
+		return "", err
+	}
+
+	compress := false
+	if config.ShellcodeConfig != nil && config.ShellcodeConfig.Compress == 2 {
+		compress = true
+	}
+	shellcodeBin, err := malasada.ConvertSharedObject(soDest, config.Exports[0], compress)
+	if err != nil {
+		return "", err
+	}
+	shellcodeDest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(name))
+	shellcodeDest += ".bin"
+
+	err = os.WriteFile(shellcodeDest, shellcodeBin, 0600)
+	if err != nil {
+		return "", err
+	}
+
+	return shellcodeDest, nil
+}
+
 func darwinShellcode(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
 	if config.GOARCH != "arm64" {
-		return "", fmt.Errorf("darwin shellcode format is only supported for arm64 architecture")
+		return "", fmt.Errorf("darwin shellcode format not supported on %s architecture", config.GOARCH)
 	}
 	if len(config.Exports) == 0 {
 		return "", fmt.Errorf("darwin shellcode requires at least one export symbol")
