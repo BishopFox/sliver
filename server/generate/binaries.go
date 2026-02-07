@@ -357,10 +357,7 @@ func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clie
 	if !config.Debug && goConfig.GOOS == WINDOWS {
 		ldflags[0] += " -H=windowsgui"
 	}
-	// Statically link Linux .so files to avoid glibc hell
-	if goConfig.GOOS == LINUX && goConfig.CC != "" && goConfig.CGO == "1" {
-		ldflags[0] += " -linkmode external -extldflags \"-static\""
-	}
+
 	// Keep those for potential later use
 	gcFlags := ""
 	asmFlags := ""
