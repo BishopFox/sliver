@@ -128,7 +128,7 @@ func StartWGListenerJob(wgListener *clientpb.WGListenerReq) (*core.Job, error) {
 
 // StartDNSListenerJob - Start a DNS listener as a job
 func StartDNSListenerJob(dnsListener *clientpb.DNSListenerReq) (*core.Job, error) {
-	server := StartDNSListener(dnsListener.Host, uint16(dnsListener.Port), dnsListener.Domains, dnsListener.Canaries, dnsListener.EnforceOTP)
+	server := StartDNSListener(dnsListener.Host, uint16(dnsListener.Port), dnsListener.Domains, dnsListener.Canaries)
 	description := fmt.Sprintf("%s (canaries %v)", strings.Join(dnsListener.Domains, " "), dnsListener.Canaries)
 	job := &core.Job{
 		ID:          core.NextJobID(),

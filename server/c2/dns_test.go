@@ -232,31 +232,55 @@ func reassemble(t *testing.T, parent string, size int, encoder encoders.Encoder)
 	}
 }
 
-func TestDNSHelloRoundTrip(t *testing.T) {
+func TestDNSSessionInitRoundTrip(t *testing.T) {
 	server := newTestDNSServer()
 	resolver := &testDNSResolver{server: server, parent: example1}
 
-	msg := &dnspb.DNSMessage{
-		Type: dnspb.DNSMessageType_TOTP,
-		ID:   0,
+	sessionID := uint32(0x123456)
+	if _, ok := server.sessions.Load(sessionID); ok {
+		t.Fatalf("expected session %d to not exist before init", sessionID)
 	}
-	domain, err := encodeMessageDomain(example1, msg)
+
+	key := implantCrypto.RandomSymmetricKey()
+	cipherCtx := implantCrypto.NewCipherContext(key)
+	initData, err := implantCrypto.AgeKeyExToServer(key[:])
 	if err != nil {
-		t.Fatalf("encodeMessageDomain failed: %s", err)
+		t.Fatalf("AgeKeyExToServer failed: %s", err)
 	}
-	data, _, err := resolver.A(domain)
+	initMsg := &dnspb.DNSMessage{
+		Type: dnspb.DNSMessageType_INIT,
+		ID:   0x01000000 | sessionID,
+		Size: uint32(len(initData)),
+	}
+	client := dnsclient.NewDNSClient(example1, opts)
+	domains, err := client.SplitBuffer(initMsg, implantEncoders.Base32Encoder{}, initData)
 	if err != nil {
-		t.Fatalf("resolver.A failed: %s", err)
+		t.Fatalf("SplitBuffer failed: %s", err)
 	}
-	if len(data) != 4 {
-		t.Fatalf("expected 4 bytes in response, got %d", len(data))
+
+	var respData []byte
+	for _, domain := range domains {
+		data, _, err := resolver.TXT(domain)
+		if err != nil {
+			t.Fatalf("resolver.TXT failed: %s", err)
+		}
+		if 0 < len(data) {
+			respData = data
+		}
 	}
-	sessionID := binary.LittleEndian.Uint32(data) & sessionIDBitMask
-	if sessionID == 0 {
-		t.Fatal("expected non-zero session id")
+	if len(respData) < 1 {
+		t.Fatal("expected non-empty init response")
+	}
+	plaintext, err := cipherCtx.Decrypt(respData)
+	if err != nil {
+		t.Fatalf("init response decrypt failed: %s", err)
+	}
+	got := binary.LittleEndian.Uint32(plaintext) & sessionIDBitMask
+	if got != sessionID {
+		t.Fatalf("expected session id %d, got %d", sessionID, got)
 	}
 	if _, ok := server.sessions.Load(sessionID); !ok {
-		t.Fatalf("expected session %d to be stored", sessionID)
+		t.Fatalf("expected session %d to be stored after init", sessionID)
 	}
 }
 
@@ -421,7 +445,8 @@ func TestDNSDataToImplantRejectsInvalidRead(t *testing.T) {
 }
 
 func TestIsC2Domain(t *testing.T) {
-	listener := StartDNSListener("", uint16(9999), c2Domains, false, true)
+	listener := StartDNSListener("", uint16(9999), c2Domains, false)
+	t.Cleanup(func() { _ = listener.Shutdown() })
 	isC2, domain := listener.isC2SubDomain(c2Domains, "asdf.1.example.com.")
 	if !isC2 {
 		t.Fatal("IsC2Domain expected true, got false")
@@ -444,7 +469,8 @@ func TestIsC2Domain(t *testing.T) {
 }
 
 func TestDecodeSubdataBase32(t *testing.T) {
-	listener := StartDNSListener("", uint16(9999), c2Domains, false, true)
+	listener := StartDNSListener("", uint16(9999), c2Domains, false)
+	t.Cleanup(func() { _ = listener.Shutdown() })
 	payload := make([]byte, 64)
 	rand.Read(payload)
 	original := &dnspb.DNSMessage{
@@ -476,7 +502,8 @@ func TestDecodeSubdataBase32(t *testing.T) {
 }
 
 func TestDecodeSubdataRejectsInvalid(t *testing.T) {
-	listener := StartDNSListener("", uint16(9999), c2Domains, false, true)
+	listener := StartDNSListener("", uint16(9999), c2Domains, false)
+	t.Cleanup(func() { _ = listener.Shutdown() })
 	_, _, err := listener.decodeSubdata("invalid")
 	if err != ErrInvalidMsg {
 		t.Fatalf("expected ErrInvalidMsg, got %v", err)
@@ -484,7 +511,8 @@ func TestDecodeSubdataRejectsInvalid(t *testing.T) {
 }
 
 func TestDecodeSubdataRejectsInvalidProto(t *testing.T) {
-	listener := StartDNSListener("", uint16(9999), c2Domains, false, true)
+	listener := StartDNSListener("", uint16(9999), c2Domains, false)
+	t.Cleanup(func() { _ = listener.Shutdown() })
 	encoded, err := implantEncoders.Base32Encoder{}.Encode([]byte{0x00})
 	if err != nil {
 		t.Fatalf("encode failed: %s", err)
@@ -567,6 +595,199 @@ func TestAccumulateInitDataReassembles(t *testing.T) {
 	}
 	if !bytes.Equal(reassembled, testData) {
 		t.Fatalf("reassembled init data mismatch")
+	}
+}
+
+func TestAccumulateInitDataCapsPendingInits(t *testing.T) {
+	server := newTestDNSServer()
+
+	// Only send a single fragment per INIT so each call allocates one pending init.
+	for i := 0; i < defaultMaxPendingDNSInits+10; i++ {
+		id := uint32(i + 1) // avoid zero
+		msg := &dnspb.DNSMessage{
+			Type:  dnspb.DNSMessageType_INIT,
+			ID:    id,
+			Size:  2048,
+			Start: 0,
+			Data:  []byte{0xAA},
+		}
+		_, complete, err := server.accumulateInitData(msg)
+		if i < defaultMaxPendingDNSInits {
+			if err != nil {
+				t.Fatalf("unexpected error for pending init %d: %v", i, err)
+			}
+			if complete {
+				t.Fatalf("unexpected completion for pending init %d", i)
+			}
+			if _, ok := server.messages.Load(id); !ok {
+				t.Fatalf("expected pending init %d to be stored", id)
+			}
+			continue
+		}
+		if err != ErrInvalidMsg {
+			t.Fatalf("expected ErrInvalidMsg after cap, got %v", err)
+		}
+		if _, ok := server.messages.Load(id); ok {
+			t.Fatalf("expected pending init %d to not be stored after cap", id)
+		}
+	}
+
+	if got := server.pendingInits.Load(); got != int64(defaultMaxPendingDNSInits) {
+		t.Fatalf("expected pendingInits=%d, got %d", defaultMaxPendingDNSInits, got)
+	}
+
+	var count int64
+	server.messages.Range(func(key, value any) bool {
+		count++
+		return true
+	})
+	if count != int64(defaultMaxPendingDNSInits) {
+		t.Fatalf("expected %d pending init entries, got %d", defaultMaxPendingDNSInits, count)
+	}
+}
+
+func TestAccumulateInitDataCompletionCleansUpPendingInit(t *testing.T) {
+	server := newTestDNSServer()
+	client := dnsclient.NewDNSClient(example1, opts)
+
+	testData := make([]byte, 2048)
+	rand.Read(testData)
+	msg := &dnspb.DNSMessage{
+		Type: dnspb.DNSMessageType_INIT,
+		ID:   0x01020304,
+		Size: uint32(len(testData)),
+	}
+	domains, err := client.SplitBuffer(msg, implantEncoders.Base32Encoder{}, testData)
+	if err != nil {
+		t.Fatalf("SplitBuffer failed: %s", err)
+	}
+
+	subMsgs := make([]*dnspb.DNSMessage, 0, len(domains))
+	for _, domain := range domains {
+		subdata := strings.TrimSuffix(domain, example1)
+		subdata = strings.ReplaceAll(subdata, ".", "")
+		raw, err := implantEncoders.Base32Encoder{}.Decode([]byte(subdata))
+		if err != nil {
+			t.Fatalf("decode subdata failed: %s", err)
+		}
+		subMsg := &dnspb.DNSMessage{}
+		if err := proto.Unmarshal(raw, subMsg); err != nil {
+			t.Fatalf("unmarshal submsg failed: %s", err)
+		}
+		subMsgs = append(subMsgs, subMsg)
+	}
+
+	for _, subMsg := range subMsgs {
+		_, _, err := server.accumulateInitData(subMsg)
+		if err != nil {
+			t.Fatalf("accumulateInitData failed: %v", err)
+		}
+	}
+
+	if got := server.pendingInits.Load(); got != 0 {
+		t.Fatalf("expected pendingInits=0 after completion, got %d", got)
+	}
+	if _, ok := server.messages.Load(msg.ID); ok {
+		t.Fatalf("expected pending init %d to be deleted after completion", msg.ID)
+	}
+}
+
+func TestAccumulateInitDataSizeMismatchCleansUpPendingInit(t *testing.T) {
+	server := newTestDNSServer()
+	id := uint32(0x01020304)
+
+	// First fragment creates pending state.
+	_, complete, err := server.accumulateInitData(&dnspb.DNSMessage{
+		Type:  dnspb.DNSMessageType_INIT,
+		ID:    id,
+		Size:  2048,
+		Start: 0,
+		Data:  []byte{0xAA},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error creating pending init: %v", err)
+	}
+	if complete {
+		t.Fatal("unexpected completion creating pending init")
+	}
+	if got := server.pendingInits.Load(); got != 1 {
+		t.Fatalf("expected pendingInits=1, got %d", got)
+	}
+
+	// Mismatched Size should reject and delete pending state.
+	_, _, err = server.accumulateInitData(&dnspb.DNSMessage{
+		Type:  dnspb.DNSMessageType_INIT,
+		ID:    id,
+		Size:  2049,
+		Start: 1,
+		Data:  []byte{0xBB},
+	})
+	if err != ErrInvalidMsg {
+		t.Fatalf("expected ErrInvalidMsg for mismatched size, got %v", err)
+	}
+	if got := server.pendingInits.Load(); got != 0 {
+		t.Fatalf("expected pendingInits=0 after cleanup, got %d", got)
+	}
+	if _, ok := server.messages.Load(id); ok {
+		t.Fatalf("expected pending init %d to be deleted after size mismatch", id)
+	}
+}
+
+func TestGCPendingInitsExpiresOldEntries(t *testing.T) {
+	server := newTestDNSServer()
+
+	now := time.Now()
+	expiredAt := now.Add(-defaultPendingDNSInitTTL - time.Second)
+	freshAt := now.Add(-defaultPendingDNSInitTTL / 2)
+
+	expiredIDs := make([]uint32, 0, 10)
+	freshIDs := make([]uint32, 0, 5)
+
+	for i := 0; i < 10; i++ {
+		id := uint32(0x90000000 + i)
+		expiredIDs = append(expiredIDs, id)
+		server.messages.Store(id, &pendingInit{
+			Created: expiredAt,
+			Envelope: &PendingEnvelope{
+				Size:     1,
+				received: 0,
+				messages: map[uint32][]byte{},
+				mutex:    &sync.Mutex{},
+				complete: false,
+			},
+		})
+		server.pendingInits.Add(1)
+	}
+	for i := 0; i < 5; i++ {
+		id := uint32(0xA0000000 + i)
+		freshIDs = append(freshIDs, id)
+		server.messages.Store(id, &pendingInit{
+			Created: freshAt,
+			Envelope: &PendingEnvelope{
+				Size:     1,
+				received: 0,
+				messages: map[uint32][]byte{},
+				mutex:    &sync.Mutex{},
+				complete: false,
+			},
+		})
+		server.pendingInits.Add(1)
+	}
+
+	server.gcPendingInits()
+
+	for _, id := range expiredIDs {
+		if _, ok := server.messages.Load(id); ok {
+			t.Fatalf("expected expired pending init %d to be deleted", id)
+		}
+	}
+	for _, id := range freshIDs {
+		if _, ok := server.messages.Load(id); !ok {
+			t.Fatalf("expected fresh pending init %d to remain", id)
+		}
+	}
+	if got := server.pendingInits.Load(); got != int64(len(freshIDs)) {
+		t.Fatalf("expected pendingInits=%d, got %d", len(freshIDs), got)
 	}
 }
 
@@ -658,7 +879,6 @@ func newTestDNSServer() *SliverDNSServer {
 		messages:     &sync.Map{},
 		TTL:          0,
 		MaxTXTLength: defaultMaxTXTLength,
-		EnforceOTP:   false,
 	}
 }
 
@@ -859,4 +1079,54 @@ func randomBytes(size int) []byte {
 	buf := make([]byte, size)
 	rand.Read(buf)
 	return buf
+}
+
+func TestAccumulateInitDataRejectsOversizedInit(t *testing.T) {
+	server := newTestDNSServer()
+	msg := &dnspb.DNSMessage{
+		Type: dnspb.DNSMessageType_INIT,
+		ID:   0x01020304,
+		Size: defaultMaxDNSInitSize + 1,
+		Data: []byte{0x01},
+	}
+
+	_, _, err := server.accumulateInitData(msg)
+	if err != ErrInvalidMsg {
+		t.Fatalf("expected ErrInvalidMsg, got %v", err)
+	}
+}
+
+func TestAccumulateInitDataRejectsReceivedOverrun(t *testing.T) {
+	server := newTestDNSServer()
+
+	// Declared size is 8 bytes, but two chunks deliver 10 bytes total.
+	first := &dnspb.DNSMessage{
+		Type:  dnspb.DNSMessageType_INIT,
+		ID:    0x0a0b0c0d,
+		Size:  8,
+		Start: 0,
+		Stop:  5,
+		Data:  []byte("12345"),
+	}
+	second := &dnspb.DNSMessage{
+		Type:  dnspb.DNSMessageType_INIT,
+		ID:    0x0a0b0c0d,
+		Size:  8,
+		Start: 5,
+		Stop:  10,
+		Data:  []byte("67890"),
+	}
+
+	_, complete, err := server.accumulateInitData(first)
+	if err != nil {
+		t.Fatalf("unexpected error on first chunk: %v", err)
+	}
+	if complete {
+		t.Fatal("expected incomplete state after first chunk")
+	}
+
+	_, _, err = server.accumulateInitData(second)
+	if err != ErrInvalidMsg {
+		t.Fatalf("expected ErrInvalidMsg, got %v", err)
+	}
 }

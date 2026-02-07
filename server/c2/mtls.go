@@ -19,7 +19,10 @@ package c2
 */
 
 import (
+	"bufio"
 	"bytes"
+	"crypto/ed25519"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/binary"
@@ -27,13 +30,20 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
+	serverCrypto "github.com/bishopfox/sliver/server/cryptography"
+	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 	serverHandlers "github.com/bishopfox/sliver/server/handlers"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/util/minisign"
+	"github.com/hashicorp/yamux"
+	"golang.org/x/crypto/blake2b"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -43,11 +53,56 @@ const (
 
 	// ServerMaxMessageSize - Server-side max GRPC message size
 	ServerMaxMessageSize = (2 * 1024 * 1024 * 1024) - 1
+
+	mtlsYamuxPreface = "MUX/1"
+
+	mtlsYamuxMaxConcurrentStreams = 128
+	mtlsYamuxMaxConcurrentSends   = 64
 )
 
 var (
 	mtlsLog = log.NamedLogger("c2", consts.MtlsStr)
+
+	mtlsYamuxPrefaceBytes = []byte(mtlsYamuxPreface)
+
+	mtlsImplantSigKeyCache sync.Map // map[uint64]ed25519.PublicKey
 )
+
+const mtlsEnvelopeSigningSeedPrefix = "env-signing-v1:"
+
+func deriveImplantSigningKey(peerPrivateKey string) (uint64, ed25519.PublicKey, error) {
+	if peerPrivateKey == "" {
+		return 0, nil, errors.New("[mtls] missing peer private key")
+	}
+	seed := sha256.Sum256([]byte(mtlsEnvelopeSigningSeedPrefix + peerPrivateKey))
+	priv := ed25519.NewKeyFromSeed(seed[:])
+	pub := priv.Public().(ed25519.PublicKey)
+	digest := blake2b.Sum256(pub)
+	keyID := binary.LittleEndian.Uint64(digest[:8])
+	return keyID, pub, nil
+}
+
+func lookupImplantSigKey(keyID uint64) (ed25519.PublicKey, bool, error) {
+	if cached, ok := mtlsImplantSigKeyCache.Load(keyID); ok {
+		return cached.(ed25519.PublicKey), true, nil
+	}
+
+	builds := []*models.ImplantBuild{}
+	if err := db.Session().Where(&models.ImplantBuild{}).Find(&builds).Error; err != nil {
+		return nil, false, err
+	}
+	for _, build := range builds {
+		buildKeyID, pub, err := deriveImplantSigningKey(build.PeerPrivateKey)
+		if err != nil {
+			continue
+		}
+		if buildKeyID == keyID {
+			mtlsImplantSigKeyCache.Store(keyID, pub)
+			return pub, false, nil
+		}
+	}
+	return nil, false, errors.New("[mtls] unknown implant signature key")
+}
 
 // StartMutualTLSListener - Start a mutual TLS listener
 func StartMutualTLSListener(bindIface string, port uint16) (net.Listener, error) {
@@ -94,51 +149,144 @@ func handleSliverConnection(conn net.Conn) {
 		implantConn.Cleanup()
 	}()
 
-	done := make(chan bool)
+	br := bufio.NewReader(conn)
+	bufferedConn := &mtlsBufferedConn{Conn: conn, r: br}
+
+	preface, err := br.Peek(len(mtlsYamuxPrefaceBytes))
+	if err == nil && bytes.Equal(preface, mtlsYamuxPrefaceBytes) {
+		if _, err := br.Discard(len(mtlsYamuxPrefaceBytes)); err != nil {
+			mtlsLog.Errorf("Failed to discard yamux preface: %v", err)
+			return
+		}
+		handleSliverConnectionYamux(bufferedConn, implantConn)
+		return
+	}
+	mtlsLog.Warnf("Rejecting legacy mtls connection (missing yamux preface) from %s", conn.RemoteAddr())
+}
+
+type mtlsBufferedConn struct {
+	net.Conn
+	r *bufio.Reader
+}
+
+func (c *mtlsBufferedConn) Read(p []byte) (int, error) {
+	return c.r.Read(p)
+}
+
+func handleSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConnection) {
+	session, err := yamux.Server(conn, nil)
+	if err != nil {
+		mtlsLog.Errorf("Failed to initialize yamux session: %v", err)
+		return
+	}
+	defer session.Close()
+
+	done := make(chan struct{})
+	var doneOnce sync.Once
+	closeDone := func() {
+		doneOnce.Do(func() {
+			close(done)
+			session.Close()
+		})
+	}
+
+	streamSem := make(chan struct{}, mtlsYamuxMaxConcurrentStreams)
+	sendSem := make(chan struct{}, mtlsYamuxMaxConcurrentSends)
+	handlers := serverHandlers.GetHandlers()
+
 	go func() {
-		defer func() {
-			done <- true
-		}()
-		handlers := serverHandlers.GetHandlers()
+		defer closeDone()
 		for {
-			envelope, err := socketReadEnvelope(conn)
+			stream, err := session.Accept()
 			if err != nil {
-				mtlsLog.Errorf("Socket read error %v", err)
+				if !errors.Is(err, io.EOF) {
+					mtlsLog.Errorf("yamux accept error: %v", err)
+				}
 				return
 			}
-			implantConn.UpdateLastMessage()
-			if envelope.ID != 0 {
-				implantConn.RespMutex.RLock()
-				if resp, ok := implantConn.Resp[envelope.ID]; ok {
-					resp <- envelope // Could deadlock, maybe want to investigate better solutions
-				}
-				implantConn.RespMutex.RUnlock()
-			} else if handler, ok := handlers[envelope.Type]; ok {
-				mtlsLog.Debugf("Received new mtls message type %d, data: %s", envelope.Type, envelope.Data)
-				go func() {
-					respEnvelope := handler(implantConn, envelope.Data)
-					if respEnvelope != nil {
-						implantConn.Send <- respEnvelope
-					}
+
+			select {
+			case streamSem <- struct{}{}:
+			case <-done:
+				stream.Close()
+				return
+			}
+
+			go func(stream net.Conn) {
+				defer func() {
+					<-streamSem
 				}()
+				defer stream.Close()
+
+				envelope, err := socketReadEnvelope(stream)
+				if err != nil {
+					mtlsLog.Errorf("Stream read error %v", err)
+					closeDone()
+					return
+				}
+				implantConn.UpdateLastMessage()
+
+				if envelope.ID != 0 {
+					implantConn.RespMutex.RLock()
+					resp, ok := implantConn.Resp[envelope.ID]
+					implantConn.RespMutex.RUnlock()
+					if ok {
+						resp <- envelope
+					}
+					return
+				}
+
+				if handler, ok := handlers[envelope.Type]; ok {
+					mtlsLog.Debugf("Received new mtls message type %d, data: %s", envelope.Type, envelope.Data)
+					go func(envelope *sliverpb.Envelope) {
+						respEnvelope := handler(implantConn, envelope.Data)
+						if respEnvelope != nil {
+							implantConn.Send <- respEnvelope
+						}
+					}(envelope)
+				}
+			}(stream)
+		}
+	}()
+
+	go func() {
+		defer closeDone()
+		for {
+			select {
+			case envelope := <-implantConn.Send:
+				select {
+				case sendSem <- struct{}{}:
+				case <-done:
+					return
+				}
+
+				go func(envelope *sliverpb.Envelope) {
+					defer func() {
+						<-sendSem
+					}()
+
+					stream, err := session.Open()
+					if err != nil {
+						mtlsLog.Errorf("yamux open stream error: %v", err)
+						closeDone()
+						return
+					}
+					defer stream.Close()
+
+					if err := socketWriteEnvelope(stream, envelope); err != nil {
+						mtlsLog.Errorf("Stream write failed %v", err)
+						closeDone()
+						return
+					}
+				}(envelope)
+
+			case <-done:
+				return
 			}
 		}
 	}()
 
-Loop:
-	for {
-		select {
-		case envelope := <-implantConn.Send:
-			err := socketWriteEnvelope(conn, envelope)
-			if err != nil {
-				mtlsLog.Errorf("Socket write failed %v", err)
-				break Loop
-			}
-		case <-done:
-			break Loop
-		}
-	}
-	mtlsLog.Debugf("Closing implant connection %s", implantConn.ID)
+	<-done
 }
 
 // socketWriteEnvelope - Writes a message to the TLS socket using length prefix framing
@@ -150,19 +298,41 @@ func socketWriteEnvelope(connection net.Conn, envelope *sliverpb.Envelope) error
 		mtlsLog.Errorf("Envelope marshaling error: %v", err)
 		return err
 	}
+
+	// Prepend a fixed-length raw minisign signature (binary) so the implant can
+	// verify messages independent of the mTLS layer.
+	rawSig := minisign.SignRawBuf(*serverCrypto.MinisignServerPrivateKey(), data)
+	if _, err := connection.Write(rawSig[:]); err != nil {
+		return err
+	}
+
 	dataLengthBuf := new(bytes.Buffer)
-	binary.Write(dataLengthBuf, binary.LittleEndian, uint32(len(data)))
-	connection.Write(dataLengthBuf.Bytes())
-	connection.Write(data)
+	if err := binary.Write(dataLengthBuf, binary.LittleEndian, uint32(len(data))); err != nil {
+		mtlsLog.Errorf("Envelope marshaling error: %v", err)
+		return err
+	}
+	if _, err := connection.Write(dataLengthBuf.Bytes()); err != nil {
+		return err
+	}
+	if _, err := connection.Write(data); err != nil {
+		return err
+	}
 	return nil
 }
 
 // socketReadEnvelope - Reads a message from the TLS connection using length prefix framing
 // returns messageType, message, and error
 func socketReadEnvelope(connection net.Conn) (*sliverpb.Envelope, error) {
+	rawSigBuf := make([]byte, minisign.RawSigSize)
 	// Read the first four bytes to determine data length
 	dataLengthBuf := make([]byte, 4) // Size of uint32
-	n, err := io.ReadFull(connection, dataLengthBuf)
+	n, err := io.ReadFull(connection, rawSigBuf)
+	if err != nil || n != len(rawSigBuf) {
+		mtlsLog.Errorf("Socket error (read raw signature): %v", err)
+		return nil, err
+	}
+
+	n, err = io.ReadFull(connection, dataLengthBuf)
 	if err != nil || n != 4 {
 		mtlsLog.Errorf("Socket error (read msg-length): %v", err)
 		return nil, err
@@ -182,6 +352,21 @@ func socketReadEnvelope(connection net.Conn) (*sliverpb.Envelope, error) {
 	if err != nil || n != dataLength {
 		mtlsLog.Errorf("Socket error (read data): %v", err)
 		return nil, err
+	}
+
+	algorithm := binary.LittleEndian.Uint16(rawSigBuf[:2])
+	if algorithm != minisign.EdDSA {
+		return nil, errors.New("[mtls] unsupported signature algorithm")
+	}
+	keyID := binary.LittleEndian.Uint64(rawSigBuf[2:10])
+
+	pubKey, _, err := lookupImplantSigKey(keyID)
+	if err != nil {
+		return nil, err
+	}
+	signature := rawSigBuf[10:]
+	if !ed25519.Verify(pubKey, dataBuf, signature) {
+		return nil, errors.New("[mtls] invalid signature")
 	}
 
 	// Unmarshal the protobuf envelope

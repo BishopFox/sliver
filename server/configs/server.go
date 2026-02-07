@@ -198,7 +198,6 @@ type ServerConfig struct {
 	Watchtower    *WatchTowerConfig    `json:"watch_tower" yaml:"watch_tower"`
 	GoProxy       string               `json:"go_proxy" yaml:"go_proxy"`
 	HTTPDefaults  *HttpDefaultConfig   `json:"http_default" yaml:"http_default"`
-	DonutBypass   int                  `json:"donut_bypass" yaml:"donut_bypass"` // 1=skip, 2=abort on fail, 3=continue on fail.
 	Notifications *NotificationsConfig `json:"notifications" yaml:"notifications"`
 
 	// 'GOOS/GOARCH' -> CC path
@@ -331,7 +330,6 @@ func getDefaultServerConfig() *ServerConfig {
 				},
 			},
 		},
-		DonutBypass:   3,
 		Notifications: defaultNotificationsConfig(),
 		CC:            map[string]string{},
 		CXX:           map[string]string{},

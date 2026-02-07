@@ -170,6 +170,7 @@ type SliverRPCClient interface {
 	Migrate(ctx context.Context, in *clientpb.MigrateReq, opts ...grpc.CallOption) (*sliverpb.Migrate, error)
 	Execute(ctx context.Context, in *sliverpb.ExecuteReq, opts ...grpc.CallOption) (*sliverpb.Execute, error)
 	ExecuteWindows(ctx context.Context, in *sliverpb.ExecuteWindowsReq, opts ...grpc.CallOption) (*sliverpb.Execute, error)
+	ExecuteChildren(ctx context.Context, in *sliverpb.ExecuteChildrenReq, opts ...grpc.CallOption) (*sliverpb.ExecuteChildren, error)
 	Sideload(ctx context.Context, in *sliverpb.SideloadReq, opts ...grpc.CallOption) (*sliverpb.Sideload, error)
 	SpawnDll(ctx context.Context, in *sliverpb.InvokeSpawnDllReq, opts ...grpc.CallOption) (*sliverpb.SpawnDll, error)
 	Screenshot(ctx context.Context, in *sliverpb.ScreenshotReq, opts ...grpc.CallOption) (*sliverpb.Screenshot, error)
@@ -223,6 +224,7 @@ type SliverRPCClient interface {
 	WGListSocksServers(ctx context.Context, in *sliverpb.WGSocksServersReq, opts ...grpc.CallOption) (*sliverpb.WGSocksServers, error)
 	// *** Realtime Commands ***
 	Shell(ctx context.Context, in *sliverpb.ShellReq, opts ...grpc.CallOption) (*sliverpb.Shell, error)
+	ShellResize(ctx context.Context, in *sliverpb.ShellResizeReq, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	Portfwd(ctx context.Context, in *sliverpb.PortfwdReq, opts ...grpc.CallOption) (*sliverpb.Portfwd, error)
 	// *** Socks5 ***
 	CreateSocks(ctx context.Context, in *sliverpb.Socks, opts ...grpc.CallOption) (*sliverpb.Socks, error)
@@ -1467,6 +1469,15 @@ func (c *sliverRPCClient) ExecuteWindows(ctx context.Context, in *sliverpb.Execu
 	return out, nil
 }
 
+func (c *sliverRPCClient) ExecuteChildren(ctx context.Context, in *sliverpb.ExecuteChildrenReq, opts ...grpc.CallOption) (*sliverpb.ExecuteChildren, error) {
+	out := new(sliverpb.ExecuteChildren)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/ExecuteChildren", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sliverRPCClient) Sideload(ctx context.Context, in *sliverpb.SideloadReq, opts ...grpc.CallOption) (*sliverpb.Sideload, error) {
 	out := new(sliverpb.Sideload)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/Sideload", in, out, opts...)
@@ -1890,6 +1901,15 @@ func (c *sliverRPCClient) Shell(ctx context.Context, in *sliverpb.ShellReq, opts
 	return out, nil
 }
 
+func (c *sliverRPCClient) ShellResize(ctx context.Context, in *sliverpb.ShellResizeReq, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+	out := new(commonpb.Empty)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/ShellResize", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sliverRPCClient) Portfwd(ctx context.Context, in *sliverpb.PortfwdReq, opts ...grpc.CallOption) (*sliverpb.Portfwd, error) {
 	out := new(sliverpb.Portfwd)
 	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/Portfwd", in, out, opts...)
@@ -2182,6 +2202,7 @@ type SliverRPCServer interface {
 	Migrate(context.Context, *clientpb.MigrateReq) (*sliverpb.Migrate, error)
 	Execute(context.Context, *sliverpb.ExecuteReq) (*sliverpb.Execute, error)
 	ExecuteWindows(context.Context, *sliverpb.ExecuteWindowsReq) (*sliverpb.Execute, error)
+	ExecuteChildren(context.Context, *sliverpb.ExecuteChildrenReq) (*sliverpb.ExecuteChildren, error)
 	Sideload(context.Context, *sliverpb.SideloadReq) (*sliverpb.Sideload, error)
 	SpawnDll(context.Context, *sliverpb.InvokeSpawnDllReq) (*sliverpb.SpawnDll, error)
 	Screenshot(context.Context, *sliverpb.ScreenshotReq) (*sliverpb.Screenshot, error)
@@ -2235,6 +2256,7 @@ type SliverRPCServer interface {
 	WGListSocksServers(context.Context, *sliverpb.WGSocksServersReq) (*sliverpb.WGSocksServers, error)
 	// *** Realtime Commands ***
 	Shell(context.Context, *sliverpb.ShellReq) (*sliverpb.Shell, error)
+	ShellResize(context.Context, *sliverpb.ShellResizeReq) (*commonpb.Empty, error)
 	Portfwd(context.Context, *sliverpb.PortfwdReq) (*sliverpb.Portfwd, error)
 	// *** Socks5 ***
 	CreateSocks(context.Context, *sliverpb.Socks) (*sliverpb.Socks, error)
@@ -2637,6 +2659,9 @@ func (UnimplementedSliverRPCServer) Execute(context.Context, *sliverpb.ExecuteRe
 func (UnimplementedSliverRPCServer) ExecuteWindows(context.Context, *sliverpb.ExecuteWindowsReq) (*sliverpb.Execute, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecuteWindows not implemented")
 }
+func (UnimplementedSliverRPCServer) ExecuteChildren(context.Context, *sliverpb.ExecuteChildrenReq) (*sliverpb.ExecuteChildren, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ExecuteChildren not implemented")
+}
 func (UnimplementedSliverRPCServer) Sideload(context.Context, *sliverpb.SideloadReq) (*sliverpb.Sideload, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Sideload not implemented")
 }
@@ -2777,6 +2802,9 @@ func (UnimplementedSliverRPCServer) WGListSocksServers(context.Context, *sliverp
 }
 func (UnimplementedSliverRPCServer) Shell(context.Context, *sliverpb.ShellReq) (*sliverpb.Shell, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Shell not implemented")
+}
+func (UnimplementedSliverRPCServer) ShellResize(context.Context, *sliverpb.ShellResizeReq) (*commonpb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ShellResize not implemented")
 }
 func (UnimplementedSliverRPCServer) Portfwd(context.Context, *sliverpb.PortfwdReq) (*sliverpb.Portfwd, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Portfwd not implemented")
@@ -5133,6 +5161,24 @@ func _SliverRPC_ExecuteWindows_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SliverRPC_ExecuteChildren_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.ExecuteChildrenReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).ExecuteChildren(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/ExecuteChildren",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).ExecuteChildren(ctx, req.(*sliverpb.ExecuteChildrenReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SliverRPC_Sideload_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(sliverpb.SideloadReq)
 	if err := dec(in); err != nil {
@@ -5979,6 +6025,24 @@ func _SliverRPC_Shell_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SliverRPC_ShellResize_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(sliverpb.ShellResizeReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).ShellResize(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/ShellResize",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).ShellResize(ctx, req.(*sliverpb.ShellResizeReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SliverRPC_Portfwd_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(sliverpb.PortfwdReq)
 	if err := dec(in); err != nil {
@@ -6650,6 +6714,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SliverRPC_ExecuteWindows_Handler,
 		},
 		{
+			MethodName: "ExecuteChildren",
+			Handler:    _SliverRPC_ExecuteChildren_Handler,
+		},
+		{
 			MethodName: "Sideload",
 			Handler:    _SliverRPC_Sideload_Handler,
 		},
@@ -6836,6 +6904,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Shell",
 			Handler:    _SliverRPC_Shell_Handler,
+		},
+		{
+			MethodName: "ShellResize",
+			Handler:    _SliverRPC_ShellResize_Handler,
 		},
 		{
 			MethodName: "Portfwd",

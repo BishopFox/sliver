@@ -230,28 +230,17 @@ func clientSplitBuffer(t *testing.T, client *SliverDNSClient, encoder encoders.E
 	}
 }
 
-func TestOTPMsgRoundTrip(t *testing.T) {
+func TestRandomDNSSessionID(t *testing.T) {
 	client := NewDNSClient(parent1, opts)
-	encoded, err := client.otpMsg()
+	sid, err := client.randomDNSSessionID()
 	if err != nil {
-		t.Fatalf("Unexpected otpMsg error: %s", err)
+		t.Fatalf("Unexpected randomDNSSessionID error: %s", err)
 	}
-	if !isBase32String(encoded) {
-		t.Fatalf("otpMsg contains non-base32 characters: %s", encoded)
+	if sid == 0 {
+		t.Fatal("expected non-zero dns session id")
 	}
-	raw, err := encoders.Base32{}.Decode([]byte(encoded))
-	if err != nil {
-		t.Fatalf("Unexpected otpMsg decode error: %s", err)
-	}
-	msg := &dnspb.DNSMessage{}
-	if err := proto.Unmarshal(raw, msg); err != nil {
-		t.Fatalf("Unexpected otpMsg unmarshal error: %s", err)
-	}
-	if msg.Type != dnspb.DNSMessageType_TOTP {
-		t.Fatalf("Unexpected otpMsg type: %v", msg.Type)
-	}
-	if msg.ID != 0 {
-		t.Fatalf("Unexpected otpMsg id: %d", msg.ID)
+	if (sid & ^uint32(sessionIDBitMask)) != 0 {
+		t.Fatalf("expected 24-bit session id, got: 0x%08x", sid)
 	}
 }
 

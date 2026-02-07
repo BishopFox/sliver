@@ -51,7 +51,15 @@ func ShellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 	}
 
 	shellPath := shell.GetSystemShellPath(shellReq.Path)
-	systemShell, err := shell.StartInteractive(shellReq.TunnelID, shellPath, shellReq.EnablePTY)
+	rows := shellReq.GetRows()
+	cols := shellReq.GetCols()
+	if rows > 0xffff {
+		rows = 0xffff
+	}
+	if cols > 0xffff {
+		cols = 0xffff
+	}
+	systemShell, err := shell.StartInteractive(shellReq.TunnelID, shellPath, shellReq.EnablePTY, uint16(rows), uint16(cols))
 	if systemShell == nil {
 		// {{if .Config.Debug}}
 		log.Printf("[shell] Failed to get system shell")

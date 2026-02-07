@@ -36,7 +36,6 @@ http_default:
       name: "X-Test"
       value: "abc"
       probability: 50
-donut_bypass: 2
 notifications:
   enabled: true
   events:
@@ -85,9 +84,6 @@ cxx:
 	header := config.HTTPDefaults.Headers[0]
 	if header.Method != "POST" || header.Name != "X-Test" || header.Value != "abc" || header.Probability != 50 {
 		t.Fatalf("unexpected header values: %#v", header)
-	}
-	if config.DonutBypass != 2 {
-		t.Fatalf("expected donut_bypass %d, got %d", 2, config.DonutBypass)
 	}
 	if config.Notifications == nil || !config.Notifications.Enabled {
 		t.Fatalf("expected notifications enabled")
@@ -159,7 +155,6 @@ func TestServerConfigMigratesLegacyJSON(t *testing.T) {
 		Watchtower   *WatchTowerConfig   `json:"watch_tower"`
 		GoProxy      string              `json:"go_proxy"`
 		HTTPDefaults *legacyHTTPDefaults `json:"http_default"`
-		DonutBypass  int                 `json:"donut_bypass"`
 		CC           map[string]string   `json:"cc"`
 		CXX          map[string]string   `json:"cxx"`
 	}
@@ -193,9 +188,8 @@ func TestServerConfigMigratesLegacyJSON(t *testing.T) {
 				},
 			},
 		},
-		DonutBypass: 2,
-		CC:          map[string]string{"linux/amd64": "/usr/bin/cc"},
-		CXX:         map[string]string{"linux/amd64": "/usr/bin/c++"},
+		CC:  map[string]string{"linux/amd64": "/usr/bin/cc"},
+		CXX: map[string]string{"linux/amd64": "/usr/bin/c++"},
 	}
 	data, err := json.MarshalIndent(legacy, "", "    ")
 	if err != nil {

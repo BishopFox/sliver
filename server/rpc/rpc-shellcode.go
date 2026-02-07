@@ -147,6 +147,8 @@ func normalizeShellcodeArch(arch string) string {
 		return "amd64"
 	case "386", "x86", "i386":
 		return "386"
+	case "arm64", "aarch64":
+		return "arm64"
 	default:
 		return normalized
 	}

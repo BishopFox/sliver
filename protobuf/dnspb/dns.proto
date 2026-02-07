@@ -4,7 +4,7 @@ option go_package = "github.com/bishopfox/sliver/protobuf/dnspb";
 
 enum DNSMessageType {
     NOP = 0; // aka FINGERPRINT
-    TOTP = 1;
+    reserved 1; // formerly TOTP
     INIT = 2;
     POLL = 3;
     CLOSE = 4;
@@ -17,10 +17,7 @@ enum DNSMessageType {
 
 /*
     NOTE: DNS is very space sensitive so certain fields are re-purposed
-    depending on the DNSMessageType as noted below:
-
-    [Type TOTP]: ID field is used for the TOTP code
-
+    depending on the DNSMessageType.
 */
 message DNSMessage {
     DNSMessageType Type = 1;

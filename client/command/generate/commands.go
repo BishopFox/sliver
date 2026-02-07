@@ -3,6 +3,7 @@ package generate
 import (
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
+	shellcodeencoders "github.com/bishopfox/sliver/client/command/shellcode-encoders"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/rsteube/carapace"
@@ -142,12 +143,13 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	}
 	flags.Bind("profiles", false, profilesGenerateCmd, func(f *pflag.FlagSet) {
 		f.StringP("save", "s", "", "directory/file to the binary to")
-		f.BoolP("disable-sgn", "G", false, "disable shikata ga nai shellcode encoder")
+		f.String("shellcode-encoder", "", "shellcode encoder to apply (optional; see `shellcode-encoders`)")
 		f.StringP("name", "n", "", "Implant name")
 
 	})
 	flags.BindFlagCompletions(profilesGenerateCmd, func(comp *carapace.ActionMap) {
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
+		(*comp)["shellcode-encoder"] = shellcodeencoders.ShellcodeEncoderNameCompleter(con)
 	})
 	carapace.Gen(profilesGenerateCmd).PositionalCompletion(ProfileNameCompleter(con))
 	profilesCmd.AddCommand(profilesGenerateCmd)
@@ -308,7 +310,7 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 		f.StringP("debug-file", "O", "", "path to debug output")
 		f.BoolP("evasion", "e", false, "enable evasion features (e.g. overwrite user space hooks)")
 		f.BoolP("skip-symbols", "l", false, "skip symbol obfuscation")
-		f.BoolP("disable-sgn", "G", false, "disable shikata ga nai shellcode encoder")
+		f.String("shellcode-encoder", "", "shellcode encoder to apply (optional; see `shellcode-encoders`)")
 		f.StringP("exports", "v", "StartW,VoidFunc,DllInstall,DllRegisterServer,DllUnregisterServer", "comma separated list of exports to include in the binary")
 		f.StringP("canary", "c", "", "canary domain(s)")
 
@@ -341,7 +343,45 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 		f.StringP("limit-fileexists", "F", "", "limit execution to hosts with this file in the filesystem")
 		f.StringP("limit-locale", "L", "", "limit execution to hosts that match this locale")
 
-		f.StringP("format", "f", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows only)")
+		f.StringP("format", "f", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows and darwin/arm64)")
+
+		// Shellcode generation options:
+		// - Windows: Donut
+		// - macOS: beignet
+		f.Uint32("shellcode-entropy", 1, "Shellcode entropy (Donut: 1=none, 2=random names, 3=random+encrypt) (windows shellcode only)")
+		f.Bool("shellcode-compress", false, "Enable shellcode compression (aPLib) (windows and macOS shellcode)")
+		f.Uint32("shellcode-exitopt", 1, "Shellcode exit option (Donut: 1=exit thread, 2=exit process, 3=block) (windows shellcode only)")
+		f.Uint32("shellcode-bypass", 3, "Shellcode bypass mode (Donut: 1=none, 2=abort, 3=continue) (windows shellcode only)")
+		f.Uint32("shellcode-headers", 1, "Shellcode headers handling (Donut: 1=overwrite, 2=keep) (windows shellcode only)")
+		f.Bool("shellcode-thread", false, "Run unmanaged EXE entrypoint as a new thread (Donut) (windows shellcode only)")
+		f.Bool("shellcode-unicode", false, "Use Unicode command line for unmanaged DLL entrypoints (Donut) (windows shellcode only)")
+		f.Uint32("shellcode-oep", 0, "Override original entry point (OEP) (Donut) (windows shellcode only)")
+
+		// Backwards-compatible deprecated Donut flags (hidden).
+		f.Uint32("donut-entropy", 1, "Deprecated (use --shellcode-entropy)")
+		_ = f.MarkDeprecated("donut-entropy", "use --shellcode-entropy")
+		_ = f.MarkHidden("donut-entropy")
+		f.Bool("donut-compress", false, "Deprecated (use --shellcode-compress)")
+		_ = f.MarkDeprecated("donut-compress", "use --shellcode-compress")
+		_ = f.MarkHidden("donut-compress")
+		f.Uint32("donut-exitopt", 1, "Deprecated (use --shellcode-exitopt)")
+		_ = f.MarkDeprecated("donut-exitopt", "use --shellcode-exitopt")
+		_ = f.MarkHidden("donut-exitopt")
+		f.Uint32("donut-bypass", 3, "Deprecated (use --shellcode-bypass)")
+		_ = f.MarkDeprecated("donut-bypass", "use --shellcode-bypass")
+		_ = f.MarkHidden("donut-bypass")
+		f.Uint32("donut-headers", 1, "Deprecated (use --shellcode-headers)")
+		_ = f.MarkDeprecated("donut-headers", "use --shellcode-headers")
+		_ = f.MarkHidden("donut-headers")
+		f.Bool("donut-thread", false, "Deprecated (use --shellcode-thread)")
+		_ = f.MarkDeprecated("donut-thread", "use --shellcode-thread")
+		_ = f.MarkHidden("donut-thread")
+		f.Bool("donut-unicode", false, "Deprecated (use --shellcode-unicode)")
+		_ = f.MarkDeprecated("donut-unicode", "use --shellcode-unicode")
+		_ = f.MarkHidden("donut-unicode")
+		f.Uint32("donut-oep", 0, "Deprecated (use --shellcode-oep)")
+		_ = f.MarkDeprecated("donut-oep", "use --shellcode-oep")
+		_ = f.MarkHidden("donut-oep")
 	})
 }
 
@@ -354,6 +394,7 @@ func coreImplantFlagCompletions(cmd *cobra.Command, con *console.SliverClient) {
 		(*comp)["strategy"] = carapace.ActionValuesDescribed([]string{"r", "random", "rd", "random domain", "s", "sequential"}...).Tag("C2 strategy")
 		(*comp)["format"] = FormatCompleter()
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
+		(*comp)["shellcode-encoder"] = shellcodeencoders.ShellcodeEncoderNameCompleter(con)
 		(*comp)["traffic-encoders"] = TrafficEncodersCompleter(con).UniqueList(",")
 		(*comp)["c2profile"] = HTTPC2Completer(con)
 	})

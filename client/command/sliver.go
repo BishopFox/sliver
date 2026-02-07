@@ -65,6 +65,10 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 				HiddenDefaultCmd: true,
 			},
 		}
+		if !con.IsCLI {
+			sliver.SilenceErrors = true
+			sliver.SilenceUsage = true
+		}
 
 		// Utility function to be used for binding new commands to
 		// the sliver menu: call the function with the name of the

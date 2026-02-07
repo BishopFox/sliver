@@ -44,6 +44,7 @@ import (
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/util"
 	utilEncoders "github.com/bishopfox/sliver/util/encoders"
+	"github.com/sliverarmory/beignet"
 	"golang.org/x/mod/module"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -133,11 +134,115 @@ func GetSliversDir() string {
 // Sliver Generation Code
 // -----------------------
 
-// SliverShellcode - Generates a sliver shellcode using Donut
+// SliverShellcode - Generates a sliver shellcode (Windows: Donut, macOS: beignet)
 func SliverShellcode(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
-	if config.GOOS != "windows" {
-		return "", fmt.Errorf("shellcode format is currently only supported on Windows")
+	switch config.GOOS {
+	case WINDOWS:
+		return windowsShellcode(name, build, config, pbC2Implant)
+	case DARWIN:
+		return darwinShellcode(name, build, config, pbC2Implant)
 	}
+	return "", fmt.Errorf("shellcode format is not supported on %s", config.GOOS)
+}
+
+func darwinShellcode(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
+	if config.GOARCH != "arm64" {
+		return "", fmt.Errorf("darwin shellcode format is only supported for arm64 architecture")
+	}
+	if len(config.Exports) == 0 {
+		return "", fmt.Errorf("darwin shellcode requires at least one export symbol")
+	}
+
+	appDir := assets.GetRootAppDir()
+
+	var cc string
+	var cxx string
+	if runtime.GOOS != config.GOOS || runtime.GOARCH != config.GOARCH {
+		buildLog.Debugf("Cross-compiling from %s/%s to %s/%s", runtime.GOOS, runtime.GOARCH, config.GOOS, config.GOARCH)
+		cc, cxx = findCrossCompilers(config.GOOS, config.GOARCH)
+	}
+
+	buildLog.Infof(" CC: %s", cc)
+	buildLog.Infof("CXX: %s", cxx)
+
+	goConfig := &gogo.GoConfig{
+		CGO: "1",
+		CC:  cc,
+		CXX: cxx,
+
+		GOOS:       config.GOOS,
+		GOARCH:     config.GOARCH,
+		GOCACHE:    gogo.GetGoCache(appDir),
+		GOMODCACHE: gogo.GetGoModCache(appDir),
+		GOROOT:     gogo.GetGoRootDir(appDir),
+		GOPROXY:    getGoProxy(),
+		HTTPPROXY:  getGoHttpProxy(),
+		HTTPSPROXY: getGoHttpsProxy(),
+
+		Obfuscation: config.ObfuscateSymbols,
+		GOGARBLE:    goGarble(config),
+	}
+
+	config.IsSharedLib = true
+	pkgPath, err := renderSliverGoCode(name, build, config, goConfig, pbC2Implant)
+	if err != nil {
+		return "", err
+	}
+
+	tmpFile, err := os.CreateTemp("", "sliver-*.dylib")
+	if err != nil {
+		return "", err
+	}
+	tmpFile.Close()
+	defer os.Remove(tmpFile.Name())
+	dylibDest := tmpFile.Name()
+
+	tags := []string{}
+	if config.NetGoEnabled {
+		tags = append(tags, "netgo")
+	}
+	ldflags := []string{""} // Garble will automatically add "-s -w -buildid="
+	// Keep those for potential later use
+	gcFlags := ""
+	asmFlags := ""
+	_, err = gogo.GoBuild(*goConfig, pkgPath, dylibDest, "c-shared", tags, ldflags, gcFlags, asmFlags)
+	if err != nil {
+		return "", err
+	}
+
+	dylibData, err := os.ReadFile(dylibDest)
+	if err != nil {
+		return "", err
+	}
+	compress := false
+	if config.ShellcodeConfig != nil && config.ShellcodeConfig.Compress == 2 {
+		compress = true
+	}
+	shellcodeBin, err := beignet.DylibToShellcode(dylibData, beignet.Options{
+		EntrySymbol: config.Exports[0],
+		Compress:    compress,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	shellcodeDest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(name))
+	shellcodeDest += ".bin"
+
+	err = os.WriteFile(shellcodeDest, shellcodeBin, 0600)
+	if err != nil {
+		return "", err
+	}
+
+	return shellcodeDest, err
+
+}
+
+func windowsShellcode(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
+	if config.GOARCH != "amd64" && config.GOARCH != "386" {
+		return "", fmt.Errorf("windows shellcode format is only supported for amd64 and 386 architectures")
+	}
+
 	appDir := assets.GetRootAppDir()
 	goConfig := &gogo.GoConfig{
 		CGO: "0",
@@ -154,7 +259,6 @@ func SliverShellcode(name string, build *clientpb.ImplantBuild, config *clientpb
 		Obfuscation: config.ObfuscateSymbols,
 		GOGARBLE:    goGarble(config),
 	}
-
 	pkgPath, err := renderSliverGoCode(name, build, config, goConfig, pbC2Implant)
 	if err != nil {
 		return "", err
@@ -183,7 +287,7 @@ func SliverShellcode(name string, build *clientpb.ImplantBuild, config *clientpb
 	if err != nil {
 		return "", err
 	}
-	shellcode, err := DonutShellcodeFromFile(dest, config.GOARCH, false, "", "", "")
+	shellcode, err := DonutShellcodeFromFile(dest, config.GOARCH, false, "", "", "", config.ShellcodeConfig)
 	if err != nil {
 		return "", err
 	}
@@ -342,6 +446,7 @@ func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clien
 
 	buildLog.Debugf("Generating new sliver binary '%s'", name)
 	pbC2Implant = models.RandomizeImplantConfig(pbC2Implant, config.GOOS, config.GOARCH)
+
 	sliversDir := GetSliversDir() // ~/.sliver/slivers
 	projectGoPathDir := filepath.Join(sliversDir, config.GOOS, config.GOARCH, filepath.Base(name))
 	if _, err := os.Stat(projectGoPathDir); os.IsNotExist(err) {
@@ -868,18 +973,43 @@ func GetCompilerTargets() []*clientpb.CompilerTarget {
 		})
 	}
 
-	// SHELLCODE - Can generate shellcode for Windows targets only
+	// SHELLCODE - Windows (Donut) and macOS (beignet, darwin/arm64 only)
 	for longPlatform := range SupportedCompilerTargets {
 		platform := strings.SplitN(longPlatform, "/", 2)
-		if platform[0] != WINDOWS {
-			continue
-		}
+		switch platform[0] {
+		case WINDOWS:
+			targets = append(targets, &clientpb.CompilerTarget{
+				GOOS:   platform[0],
+				GOARCH: platform[1],
+				Format: clientpb.OutputFormat_SHELLCODE,
+			})
+		case DARWIN:
+			if platform[1] != "arm64" {
+				continue
+			}
 
-		targets = append(targets, &clientpb.CompilerTarget{
-			GOOS:   platform[0],
-			GOARCH: platform[1],
-			Format: clientpb.OutputFormat_SHELLCODE,
-		})
+			// We can always try to build our own platform.
+			if runtime.GOOS == platform[0] {
+				targets = append(targets, &clientpb.CompilerTarget{
+					GOOS:   platform[0],
+					GOARCH: platform[1],
+					Format: clientpb.OutputFormat_SHELLCODE,
+				})
+				continue
+			}
+
+			// Cross-compile with the right configuration (same requirements as a darwin shared library build).
+			if runtime.GOOS == LINUX || runtime.GOOS == DARWIN {
+				cc, _ := findCrossCompilers(platform[0], platform[1])
+				if cc != "" {
+					targets = append(targets, &clientpb.CompilerTarget{
+						GOOS:   platform[0],
+						GOARCH: platform[1],
+						Format: clientpb.OutputFormat_SHELLCODE,
+					})
+				}
+			}
+		}
 	}
 
 	return targets

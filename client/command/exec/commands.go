@@ -4,6 +4,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/command/help"
+	shellcodeencoders "github.com/bishopfox/sliver/client/command/shellcode-encoders"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/rsteube/carapace"
@@ -26,6 +27,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind("", false, executeCmd, func(f *pflag.FlagSet) {
 		f.BoolP("token", "T", false, "execute command with current token (Windows only)")
 		f.BoolP("output", "o", true, "capture command output")
+		f.Bool("background", false, "start the process in the background and track it")
 		f.BoolP("save", "s", false, "save output to a file")
 		f.BoolP("loot", "X", false, "save output as loot")
 		f.BoolP("ignore-stderr", "S", false, "don't print STDERR output")
@@ -43,6 +45,20 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 
 	carapace.Gen(executeCmd).PositionalCompletion(carapace.ActionValues().Usage("command to execute (required)"))
 	carapace.Gen(executeCmd).PositionalAnyCompletion(carapace.ActionValues().Usage("arguments to the command (optional)"))
+
+	executeChildrenCmd := &cobra.Command{
+		Use:   consts.ExecuteChildrenStr,
+		Short: "List tracked background execute child processes",
+		Long:  help.GetHelpFor([]string{consts.ExecuteStr, consts.ExecuteChildrenStr}),
+		Args:  cobra.NoArgs,
+		Run: func(cmd *cobra.Command, args []string) {
+			ExecuteChildrenCmd(cmd, con, args)
+		},
+	}
+	flags.Bind("", false, executeChildrenCmd, func(f *pflag.FlagSet) {
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+	executeCmd.AddCommand(executeChildrenCmd)
 
 	executeAssemblyCmd := &cobra.Command{
 		Use:   consts.ExecuteAssemblyStr,
@@ -171,10 +187,13 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Annotations: flags.RestrictTargets(consts.WindowsCmdsFilter),
 	}
 	flags.Bind("", false, migrateCmd, func(f *pflag.FlagSet) {
-		f.BoolP("disable-sgn", "S", true, "disable shikata ga nai shellcode encoder")
+		f.String("shellcode-encoder", "", "shellcode encoder to apply (optional; see `shellcode-encoders`)")
 		f.Uint32P("pid", "p", 0, "process id to migrate into")
 		f.StringP("process-name", "n", "", "name of the process to migrate into")
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+	flags.BindFlagCompletions(migrateCmd, func(comp *carapace.ActionMap) {
+		(*comp)["shellcode-encoder"] = shellcodeencoders.ShellcodeEncoderNameCompleter(con)
 	})
 	carapace.Gen(migrateCmd).PositionalCompletion(carapace.ActionValues().Usage("PID of process to migrate into"))
 

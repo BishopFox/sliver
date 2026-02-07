@@ -43,7 +43,7 @@ func Start(command string) error {
 }
 
 // StartInteractive - Start a shell
-func StartInteractive(tunnelID uint64, command []string, _ bool) (*Shell, error) {
+func StartInteractive(tunnelID uint64, command []string, _ bool, _, _ uint16) (*Shell, error) {
 	return pipedShell(tunnelID, command)
 }
 

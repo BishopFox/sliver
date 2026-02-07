@@ -47,44 +47,45 @@ var (
 		consts.GenerateStr:      generateHelp,
 		consts.StageListenerStr: stageListenerHelp,
 
-		consts.MsfStr:               msfHelp,
-		consts.MsfInjectStr:         msfInjectHelp,
-		consts.PsStr:                psHelp,
-		consts.PingStr:              pingHelp,
-		consts.KillStr:              killHelp,
-		consts.LsStr:                lsHelp,
-		consts.CdStr:                cdHelp,
-		consts.PwdStr:               pwdHelp,
-		consts.CatStr:               catHelp,
-		consts.EditStr:              editHelp,
-		consts.HexEditStr:           hexEditHelp,
-		consts.DownloadStr:          downloadHelp,
-		consts.GrepStr:              grepHelp,
-		consts.HeadStr:              headHelp,
-		consts.TailStr:              tailHelp,
-		consts.UploadStr:            uploadHelp,
-		consts.MkdirStr:             mkdirHelp,
-		consts.RmStr:                rmHelp,
-		consts.ChtimesStr:           chtimesHelp,
-		consts.ProcdumpStr:          procdumpHelp,
-		consts.ElevateStr:           elevateHelp,
-		consts.RunAsStr:             runAsHelp,
-		consts.ImpersonateStr:       impersonateHelp,
-		consts.RevToSelfStr:         revToSelfHelp,
-		consts.ExecuteStr:           executeHelp,
-		consts.ExecuteAssemblyStr:   executeAssemblyHelp,
-		consts.ExecuteShellcodeStr:  executeShellcodeHelp,
-		consts.MigrateStr:           migrateHelp,
-		consts.SideloadStr:          sideloadHelp,
-		consts.TerminateStr:         terminateHelp,
-		consts.AliasesStr:           loadAliasHelp,
-		consts.PsExecStr:            psExecHelp,
-		consts.BackdoorStr:          backdoorHelp,
-		consts.SpawnDllStr:          spawnDllHelp,
-		consts.MountStr:             mountHelp,
-		consts.ShikataGaNai:         shikataGaNaiHelp,
-		consts.ShellcodeEncodersStr: shellcodeEncodersHelp,
-		consts.ShellcodeEncodersStr + sep + "encode": shellcodeEncodersEncodeHelp,
+		consts.MsfStr:         msfHelp,
+		consts.MsfInjectStr:   msfInjectHelp,
+		consts.PsStr:          psHelp,
+		consts.PingStr:        pingHelp,
+		consts.KillStr:        killHelp,
+		consts.LsStr:          lsHelp,
+		consts.CdStr:          cdHelp,
+		consts.PwdStr:         pwdHelp,
+		consts.CatStr:         catHelp,
+		consts.EditStr:        editHelp,
+		consts.HexEditStr:     hexEditHelp,
+		consts.DownloadStr:    downloadHelp,
+		consts.GrepStr:        grepHelp,
+		consts.HeadStr:        headHelp,
+		consts.TailStr:        tailHelp,
+		consts.UploadStr:      uploadHelp,
+		consts.MkdirStr:       mkdirHelp,
+		consts.RmStr:          rmHelp,
+		consts.ChtimesStr:     chtimesHelp,
+		consts.ProcdumpStr:    procdumpHelp,
+		consts.ElevateStr:     elevateHelp,
+		consts.RunAsStr:       runAsHelp,
+		consts.ImpersonateStr: impersonateHelp,
+		consts.RevToSelfStr:   revToSelfHelp,
+		consts.ExecuteStr:     executeHelp,
+		consts.ExecuteStr + sep + consts.ExecuteChildrenStr: executeChildrenHelp,
+		consts.ExecuteAssemblyStr:                           executeAssemblyHelp,
+		consts.ExecuteShellcodeStr:                          executeShellcodeHelp,
+		consts.MigrateStr:                                   migrateHelp,
+		consts.SideloadStr:                                  sideloadHelp,
+		consts.TerminateStr:                                 terminateHelp,
+		consts.AliasesStr:                                   loadAliasHelp,
+		consts.PsExecStr:                                    psExecHelp,
+		consts.BackdoorStr:                                  backdoorHelp,
+		consts.SpawnDllStr:                                  spawnDllHelp,
+		consts.MountStr:                                     mountHelp,
+		consts.ShikataGaNai:                                 shikataGaNaiHelp,
+		consts.ShellcodeEncodersStr:                         shellcodeEncodersHelp,
+		consts.ShellcodeEncodersStr + sep + "encode":        shellcodeEncodersEncodeHelp,
 
 		consts.WebsitesStr:                                  websitesHelp,
 		consts.ScreenshotStr:                                screenshotHelp,
@@ -135,6 +136,7 @@ var (
 
 [[.Bold]]About:[[.Normal]] Execute a program on the remote system with optional arguments, note the subprocess 
 arguments are be separated from the sliver 'execute' arguments with '--' 
+Use [[.Bold]]--background[[.Normal]] to start the process without waiting for output (use [[.Bold]]--stdout[[.Normal]]/[[.Bold]]--stderr[[.Normal]] to redirect).
 
 [[.Bold]]Example:[[.Normal]]
 execute /bin/bash --env FOO=1 -- -c env
@@ -145,6 +147,11 @@ FOO=1
 PWD=/Users/moloch/git/sliver
 SHLVL=1
 _=/usr/bin/env
+`
+
+	executeChildrenHelp = `[[.Bold]]Command:[[.Normal]] execute children
+
+[[.Bold]]About:[[.Normal]] List tracked background child processes started with [[.Bold]]execute --background[[.Normal]].
 `
 
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
@@ -182,8 +189,8 @@ You can also stack the C2 configuration with multiple protocols:
 
 
 [[.Bold]][[.Underline]]++ Formats ++[[.Normal]]
-Supported output formats are Windows PE, Windows DLL, Windows Shellcode, Mach-O, and ELF. The output format is controlled
-with the --os and --format flags.
+Supported output formats include Windows PE, Windows DLL, Windows shellcode, macOS Mach-O, macOS shellcode (arm64),
+and Linux ELF. The output format is controlled with the --os and --format flags.
 
 To output a 64bit Windows PE file (defaults to WinPE/64bit), either of the following command would be used:
 	generate --mtls foo.example.com 
@@ -197,6 +204,19 @@ To output a MacOS Mach-O executable file, the following command would be used
 
 To output a Linux ELF executable file, the following command would be used:
 	generate --os linux --mtls foo.example.com 
+
+
+[[.Bold]][[.Underline]]++ Shellcode Options ++[[.Normal]]
+When generating shellcode (--format shellcode), you can tune the shellcode generator:
+	--shellcode-encoder <name|none> # Apply a shellcode encoder (see: shellcode-encoders)
+	--shellcode-compress        # Enable aPLib compression (windows and macOS)
+	--shellcode-entropy 1|2|3   # (windows only) Entropy: 1=none (default), 2=random names, 3=random+encrypt
+	--shellcode-exitopt 1|2|3   # (windows only) Exit behavior: 1=exit thread (default), 2=exit process, 3=block
+	--shellcode-bypass 1|2|3    # (windows only) Bypass: 1=none, 2=abort on failure, 3=continue (default)
+	--shellcode-headers 1|2     # (windows only) PE headers: 1=overwrite (default), 2=keep
+	--shellcode-thread          # (windows only) Unmanaged EXE: run entrypoint as a new thread
+	--shellcode-unicode         # (windows only) Unmanaged DLL: pass Unicode command line
+	--shellcode-oep <uint32>    # (windows only) Override original entry point (0=default)
 
 
 [[.Bold]][[.Underline]]++ DNS Canaries ++[[.Normal]]

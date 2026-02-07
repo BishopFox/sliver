@@ -1,6 +1,6 @@
 module github.com/bishopfox/sliver
 
-go 1.25.5
+go 1.25.6
 
 replace github.com/rsteube/carapace v0.36.3 => github.com/reeflective/carapace v0.46.3-0.20231214181515-27e49f3c3b69
 
@@ -12,11 +12,11 @@ require (
 	filippo.io/age v1.3.1
 	github.com/Binject/binjection v0.0.0-20210701074423-605d46e35deb
 	github.com/Binject/debug v0.0.0-20230508195519-26db73212a7a
-	github.com/Binject/go-donut v0.0.0-20210701074227-67a31e2d883e
 	github.com/Binject/universal v0.0.0-20220519011857-bea739e758c0
 	github.com/Ne0nd0g/go-clr v1.0.3
 	github.com/SherClockHolmes/webpush-go v1.4.0
 	github.com/alecthomas/chroma v0.10.0
+	github.com/alecthomas/chroma/v2 v2.23.1
 	github.com/charmbracelet/huh v0.8.0
 	github.com/charmbracelet/huh/spinner v0.0.0-20251215014908-6f7d32faaff3
 	github.com/charmbracelet/lipgloss v1.1.0
@@ -30,6 +30,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
+	github.com/hashicorp/yamux v0.1.2
 	github.com/jedib0t/go-pretty/v6 v6.7.8
 	github.com/kbinani/screenshot v0.0.0-20250624051815-089614a94018
 	github.com/klauspost/compress v1.18.1
@@ -46,6 +47,8 @@ require (
 	github.com/reeflective/readline v1.1.4
 	github.com/rsteube/carapace v0.50.2
 	github.com/sirupsen/logrus v1.9.3
+	github.com/sliverarmory/beignet v0.0.2
+	github.com/sliverarmory/wasm-donut v0.0.3
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1
@@ -94,7 +97,6 @@ require (
 	github.com/MicahParks/keyfunc v1.9.0 // indirect
 	github.com/PagerDuty/go-pagerduty v1.8.0 // indirect
 	github.com/RocketChat/Rocket.Chat.Go.SDK v0.0.0-20250718055228-285ecf400b48 // indirect
-	github.com/alecthomas/chroma/v2 v2.23.1 // indirect
 	github.com/appleboy/go-fcm v1.2.6 // indirect
 	github.com/atc0005/go-teams-notify/v2 v2.14.0 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.5 // indirect
@@ -220,9 +222,9 @@ require (
 	github.com/carapace-sh/carapace-shlex v1.1.1 // indirect
 	github.com/catppuccin/go v0.3.0 // indirect
 	github.com/charmbracelet/bubbles v0.21.1-0.20250623103423-23b8fd6302d7 // indirect
-	github.com/charmbracelet/bubbletea v1.3.10 // indirect
+	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/colorprofile v0.2.3-0.20250311203215-f60798e515dc // indirect
-	github.com/charmbracelet/x/ansi v0.10.1 // indirect
+	github.com/charmbracelet/x/ansi v0.10.1
 	github.com/charmbracelet/x/cellbuf v0.0.13 // indirect
 	github.com/charmbracelet/x/exp/strings v0.0.0-20240722160745-212f7b056ed0 // indirect
 	github.com/charmbracelet/x/term v0.2.1 // indirect
@@ -274,7 +276,7 @@ require (
 	github.com/mdlayher/socket v0.5.1 // indirect
 	github.com/mitchellh/go-ps v1.0.0 // indirect
 	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
-	github.com/moloch--/go-keystone v0.0.2 // indirect
+	github.com/moloch--/go-keystone v0.0.2
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
@@ -301,7 +303,7 @@ require (
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
 	golang.org/x/oauth2 v0.34.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/time v0.14.0 // indirect
+	golang.org/x/time v0.14.0
 	golang.org/x/tools v0.40.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	golang.zx2c4.com/wireguard/windows v0.5.3 // indirect
