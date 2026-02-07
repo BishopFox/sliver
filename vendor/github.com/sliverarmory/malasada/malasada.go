@@ -9,7 +9,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
+	keystone "github.com/moloch--/go-keystone"
 	"github.com/sliverarmory/malasada/internal/aplib"
 )
 
@@ -759,207 +761,136 @@ func makeEntryStub(arch Arch, stubVaddr uint64, exportVaddr uint64, initVaddrs [
 	case ArchLinuxAMD64:
 		return makeStubAMD64(stubVaddr, exportVaddr, initVaddrs)
 	case ArchLinuxARM64:
-		return makeStubARM64(stubVaddr, exportVaddr, initVaddrs), nil
+		return makeStubARM64(stubVaddr, exportVaddr, initVaddrs)
 	default:
 		return nil, fmt.Errorf("unsupported arch %v", arch)
 	}
 }
 
 func makeStubAMD64(stubVaddr uint64, exportVaddr uint64, initVaddrs []uint64) ([]byte, error) {
-	// call $+5 ; pop rbx ; sub rbx, imm32 ; mov rax, imm64 ; add rax, rbx ; call rax ; exit_group(0)
-	//
-	// rbx becomes the module base: module_base = (retaddr == stub+5) - (stub_vaddr+5)
 	if stubVaddr+5 > 0xffffffff {
 		// Keep the encoding simple (sub imm32).
 		return nil, fmt.Errorf("stub vaddr too large for amd64 stub encoding")
 	}
-	b := make([]byte, 0, 64)
 
-	// Base computation.
-	b = append(b,
-		0xE8, 0x00, 0x00, 0x00, 0x00, // call $+5
-		0x5B,                                     // pop rbx
-		0x48, 0x81, 0xEB, 0x00, 0x00, 0x00, 0x00, // sub rbx, imm32
-	)
-	binary.LittleEndian.PutUint32(b[9:13], uint32(stubVaddr+5))
+	// Assemble the stub from textual assembly to keep it readable and reduce
+	// manual byte encoding errors. We use explicit forms (like movabs) to keep
+	// output byte-for-byte compatible with the historical encoding.
+	var sb strings.Builder
+	sb.WriteString(".code64\n")
 
-	// Preserve the entry stack pointer and compute (argc, argv, envp) once for
-	// constructor calls.
-	//
+	// Base computation:
+	// call next; pop rbx; sub rbx, (stub_vaddr+5) => rbx becomes the module base.
+	// rbx = (retaddr == stub+5) - (stub_vaddr+5)
+	sb.WriteString("call 5\n")
+	sb.WriteString("pop rbx\n")
+	fmt.Fprintf(&sb, "sub rbx, 0x%X\n", stubVaddr+5)
+
+	// Preserve entry stack pointer and compute (argc, argv, envp) once.
 	// r15 = entry_rsp
 	// r12 = argc
 	// r13 = argv
 	// r14 = envp
-	b = append(b,
-		0x49, 0x89, 0xE7, // mov r15, rsp
-		0x4D, 0x8B, 0x27, // mov r12, [r15]
-		0x4D, 0x8D, 0x6F, 0x08, // lea r13, [r15+8]
-		0x4C, 0x89, 0xE1, // mov rcx, r12
-		0x48, 0x83, 0xC1, 0x02, // add rcx, 2
-		0x48, 0xC1, 0xE1, 0x03, // shl rcx, 3
-		0x4D, 0x8D, 0x34, 0x0F, // lea r14, [r15+rcx]
-	)
-
-	// Call init functions (DT_PREINIT_ARRAY/DT_INIT/DT_INIT_ARRAY) so c-shared
-	// libraries (Go, etc.) can initialize before we call the exported symbol.
-	for _, vaddr := range initVaddrs {
-		if vaddr == 0 {
-			continue
-		}
-		// rdi = argc, rsi = argv, rdx = envp
-		start := len(b)
-		b = append(b,
-			0x4C, 0x89, 0xE7, // mov rdi, r12
-			0x4C, 0x89, 0xEE, // mov rsi, r13
-			0x4C, 0x89, 0xF2, // mov rdx, r14
-			0x48, 0xB8, // mov rax, imm64
-			0, 0, 0, 0, 0, 0, 0, 0,
-			0x48, 0x01, 0xD8, // add rax, rbx
-			0xFF, 0xD0, // call rax
-		)
-		binary.LittleEndian.PutUint64(b[start+11:start+19], vaddr)
-	}
-
-	// Call the requested export.
-	start := len(b)
-	b = append(b,
-		0x48, 0xB8, // mov rax, imm64
-		0, 0, 0, 0, 0, 0, 0, 0,
-		0x48, 0x01, 0xD8, // add rax, rbx
-		0xFF, 0xD0, // call rax
-	)
-	binary.LittleEndian.PutUint64(b[start+2:start+10], exportVaddr)
-
-	// exit_group(0)
-	b = append(b,
-		0xB8, 0xE7, 0x00, 0x00, 0x00, // mov eax, 231 (exit_group)
-		0x31, 0xFF, // xor edi, edi
-		0x0F, 0x05, // syscall
-	)
-
-	return b, nil
-}
-
-func makeMovz64(rd uint32, imm16 uint16, shift uint32) uint32 {
-	// MOVZ Xd, #imm16, LSL #shift
-	// Encoding: 0xd2800000 | (hw<<21) | (imm16<<5) | rd
-	hw := (shift / 16) & 0x3
-	return 0xd2800000 | (hw << 21) | (uint32(imm16) << 5) | (rd & 0x1f)
-}
-
-func makeMovk64(rd uint32, imm16 uint16, shift uint32) uint32 {
-	hw := (shift / 16) & 0x3
-	return 0xf2800000 | (hw << 21) | (uint32(imm16) << 5) | (rd & 0x1f)
-}
-
-func makeMovReg64(rd uint32, rm uint32) uint32 {
-	// ORR Xd, XZR, Xm (alias: MOV Xd, Xm)
-	return 0xaa0003e0 | ((rm & 0x1f) << 16) | (31 << 5) | (rd & 0x1f)
-}
-
-func makeAddImm64(rd uint32, rn uint32, imm12 uint16) uint32 {
-	// ADD Xd, Xn/SP, #imm12
-	return 0x91000000 | (uint32(imm12) << 10) | ((rn & 0x1f) << 5) | (rd & 0x1f)
-}
-
-func makeLdrImm64(rt uint32, rn uint32, immBytes uint32) uint32 {
-	// LDR Xt, [Xn/SP, #imm] (unsigned immediate, 64-bit); imm is scaled by 8.
-	imm12 := (immBytes / 8) & 0xfff
-	return 0xf9400000 | (imm12 << 10) | ((rn & 0x1f) << 5) | (rt & 0x1f)
-}
-
-func makeAddRegShift64(rd uint32, rn uint32, rm uint32, shift uint32) uint32 {
-	// ADD Xd, Xn, Xm, LSL #shift (shift: 0-63)
-	return 0x8b000000 | ((rm & 0x1f) << 16) | ((shift & 0x3f) << 10) | ((rn & 0x1f) << 5) | (rd & 0x1f)
-}
-
-func makeStubARM64(stubVaddr uint64, exportVaddr uint64, initVaddrs []uint64) []byte {
-	// See internal notes in stage0: x19 = stub_start; base = x19 - stub_vaddr.
-	// Then call init functions (DT_INIT/DT_INIT_ARRAY) and the requested export.
-	const (
-		adrX19Dot      = 0x10000013
-		subX19X19X20   = 0xcb140273
-		addX16X19X20   = 0x8b140270
-		blrX16         = 0xd63f0200
-		svc0           = 0xd4000001
-		rdX0           = 0
-		rdX8           = 8
-		rdX19          = 19
-		rdX20          = 20
-		rdX21          = 21
-		rdX22          = 22
-		rdX23          = 23
-		_              = rdX19
-		_              = rdX20
-		exitGroupSysno = 94
-	)
-
-	words := make([]uint32, 0, 32)
-	words = append(words, adrX19Dot)
-
-	// x20 = stub_vaddr
-	words = append(words,
-		makeMovz64(20, uint16(stubVaddr>>0), 0),
-		makeMovk64(20, uint16(stubVaddr>>16), 16),
-		makeMovk64(20, uint16(stubVaddr>>32), 32),
-		makeMovk64(20, uint16(stubVaddr>>48), 48),
-	)
-	words = append(words, subX19X19X20)
-
-	// Compute (argc, argv, envp) from the entry stack. This matches the kernel
-	// entry contract and avoids depending on register contents.
-	//
-	// x21 = argc
-	// x22 = argv (points to argv[0])
-	// x23 = envp
-	words = append(words,
-		makeLdrImm64(rdX21, 31, 0),                // ldr x21, [sp]
-		makeAddImm64(rdX22, 31, 8),                // add x22, sp, #8
-		makeAddRegShift64(rdX23, rdX22, rdX21, 3), // add x23, x22, x21, lsl #3
-		makeAddImm64(rdX23, rdX23, 8),             // add x23, x23, #8 (skip argv NULL)
-	)
+	sb.WriteString("mov r15, rsp\n")
+	sb.WriteString("mov r12, [r15]\n")
+	sb.WriteString("lea r13, [r15+8]\n")
+	sb.WriteString("mov rcx, r12\n")
+	sb.WriteString("add rcx, 2\n")
+	sb.WriteString("shl rcx, 3\n")
+	sb.WriteString("lea r14, [r15+rcx]\n")
 
 	// Call init functions (DT_PREINIT_ARRAY/DT_INIT/DT_INIT_ARRAY).
 	for _, vaddr := range initVaddrs {
 		if vaddr == 0 {
 			continue
 		}
-		// Restore init args for each call.
-		words = append(words,
-			makeMovReg64(rdX0, rdX21),
-			makeMovReg64(1, rdX22),
-			makeMovReg64(2, rdX23),
-		)
-		words = append(words,
-			makeMovz64(20, uint16(vaddr>>0), 0),
-			makeMovk64(20, uint16(vaddr>>16), 16),
-			makeMovk64(20, uint16(vaddr>>32), 32),
-			makeMovk64(20, uint16(vaddr>>48), 48),
-		)
-		words = append(words, addX16X19X20, blrX16)
+		// rdi = argc, rsi = argv, rdx = envp
+		sb.WriteString("mov rdi, r12\n")
+		sb.WriteString("mov rsi, r13\n")
+		sb.WriteString("mov rdx, r14\n")
+		fmt.Fprintf(&sb, "movabs rax, 0x%X\n", vaddr)
+		sb.WriteString("add rax, rbx\n")
+		sb.WriteString("call rax\n")
 	}
 
 	// Call the requested export (no args).
-	words = append(words,
-		makeMovz64(20, uint16(exportVaddr>>0), 0),
-		makeMovk64(20, uint16(exportVaddr>>16), 16),
-		makeMovk64(20, uint16(exportVaddr>>32), 32),
-		makeMovk64(20, uint16(exportVaddr>>48), 48),
-	)
-	words = append(words, addX16X19X20, blrX16)
+	fmt.Fprintf(&sb, "movabs rax, 0x%X\n", exportVaddr)
+	sb.WriteString("add rax, rbx\n")
+	sb.WriteString("call rax\n")
 
 	// exit_group(0)
-	words = append(words,
-		makeMovz64(rdX8, exitGroupSysno, 0),
-		makeMovz64(rdX0, 0, 0),
-		svc0,
-	)
+	sb.WriteString("mov eax, 231\n")
+	sb.WriteString("xor edi, edi\n")
+	sb.WriteString("syscall\n")
 
-	b := make([]byte, 0, len(words)*4)
-	for _, w := range words {
-		var tmp [4]byte
-		binary.LittleEndian.PutUint32(tmp[:], w)
-		b = append(b, tmp[:]...)
+	engine, err := keystone.NewEngine(keystone.ARCH_X86, keystone.MODE_64)
+	if err != nil {
+		return nil, err
 	}
-	return b
+	defer func() { _ = engine.Close() }()
+	if err := engine.Option(keystone.OPT_SYNTAX, keystone.OPT_SYNTAX_INTEL); err != nil {
+		return nil, err
+	}
+	return engine.Assemble(sb.String(), 0)
+}
+
+func makeStubARM64(stubVaddr uint64, exportVaddr uint64, initVaddrs []uint64) ([]byte, error) {
+	// See internal notes in stage0: x19 = stub_start; base = x19 - stub_vaddr.
+	// Then call init functions (DT_INIT/DT_INIT_ARRAY) and the requested export.
+
+	var sb strings.Builder
+	sb.WriteString("stub_start:\n")
+	sb.WriteString("adr x19, stub_start\n")
+
+	// x20 = stub_vaddr
+	fmt.Fprintf(&sb, "movz x20, #0x%X\n", uint16(stubVaddr>>0))
+	fmt.Fprintf(&sb, "movk x20, #0x%X, lsl #16\n", uint16(stubVaddr>>16))
+	fmt.Fprintf(&sb, "movk x20, #0x%X, lsl #32\n", uint16(stubVaddr>>32))
+	fmt.Fprintf(&sb, "movk x20, #0x%X, lsl #48\n", uint16(stubVaddr>>48))
+	sb.WriteString("sub x19, x19, x20\n")
+
+	// Compute (argc, argv, envp) from the entry stack.
+	// x21 = argc
+	// x22 = argv (points to argv[0])
+	// x23 = envp
+	sb.WriteString("ldr x21, [sp]\n")
+	sb.WriteString("add x22, sp, #8\n")
+	sb.WriteString("add x23, x22, x21, lsl #3\n")
+	sb.WriteString("add x23, x23, #8\n")
+
+	// Call init functions (DT_PREINIT_ARRAY/DT_INIT/DT_INIT_ARRAY).
+	for _, vaddr := range initVaddrs {
+		if vaddr == 0 {
+			continue
+		}
+		sb.WriteString("mov x0, x21\n")
+		sb.WriteString("mov x1, x22\n")
+		sb.WriteString("mov x2, x23\n")
+		fmt.Fprintf(&sb, "movz x20, #0x%X\n", uint16(vaddr>>0))
+		fmt.Fprintf(&sb, "movk x20, #0x%X, lsl #16\n", uint16(vaddr>>16))
+		fmt.Fprintf(&sb, "movk x20, #0x%X, lsl #32\n", uint16(vaddr>>32))
+		fmt.Fprintf(&sb, "movk x20, #0x%X, lsl #48\n", uint16(vaddr>>48))
+		sb.WriteString("add x16, x19, x20\n")
+		sb.WriteString("blr x16\n")
+	}
+
+	// Call the requested export (no args).
+	fmt.Fprintf(&sb, "movz x20, #0x%X\n", uint16(exportVaddr>>0))
+	fmt.Fprintf(&sb, "movk x20, #0x%X, lsl #16\n", uint16(exportVaddr>>16))
+	fmt.Fprintf(&sb, "movk x20, #0x%X, lsl #32\n", uint16(exportVaddr>>32))
+	fmt.Fprintf(&sb, "movk x20, #0x%X, lsl #48\n", uint16(exportVaddr>>48))
+	sb.WriteString("add x16, x19, x20\n")
+	sb.WriteString("blr x16\n")
+
+	// exit_group(0)
+	sb.WriteString("movz x8, #94\n")
+	sb.WriteString("movz x0, #0\n")
+	sb.WriteString("svc #0\n")
+
+	engine, err := keystone.NewEngine(keystone.ARCH_ARM64, keystone.MODE_LITTLE_ENDIAN)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = engine.Close() }()
+	return engine.Assemble(sb.String(), 0)
 }
