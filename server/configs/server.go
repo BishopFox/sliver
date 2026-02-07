@@ -270,10 +270,6 @@ func GetServerConfig() *ServerConfig {
 	}
 	log.RootLogger.SetLevel(log.LevelFrom(config.Logs.Level))
 
-	if config.DonutBypass < 1 || config.DonutBypass > 3 {
-		config.DonutBypass = 1
-	}
-
 	if config.GRPC == nil {
 		config.GRPC = &GRPCConfig{}
 	}
