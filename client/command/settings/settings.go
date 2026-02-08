@@ -59,6 +59,10 @@ func SettingsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			con.PrintErrorf("Failed to apply settings form values: %s\n", err)
 			return
 		}
+		if err := assets.SaveSettings(con.Settings); err != nil {
+			con.PrintErrorf("Failed to save settings: %s\n", err)
+			return
+		}
 		if assets.NormalizePromptStyle(result.PromptStyle) == assets.PromptStyleCustom {
 			settingsPath := filepath.Join(assets.GetRootAppDir(), "tui-settings.yaml")
 			con.PrintInfof("Prompt style is %q. Edit %s to set %q.\n", assets.PromptStyleCustom, settingsPath, "prompt_template")
