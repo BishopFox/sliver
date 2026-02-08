@@ -20,6 +20,7 @@ type SettingsFormResult struct {
 	VimMode           bool
 	UserConnect       bool
 	ConsoleLogs       bool
+	PromptStyle       string
 }
 
 // SettingsForm prompts for client settings and returns the collected values.
@@ -40,9 +41,13 @@ func SettingsForm(settings *assets.ClientSettings, tableStyleOptions []string) (
 		VimMode:           settings.VimMode,
 		UserConnect:       settings.UserConnect,
 		ConsoleLogs:       settings.ConsoleLogs,
+		PromptStyle:       assets.NormalizePromptStyle(settings.PromptStyle),
 	}
 	if result.TableStyle == "" {
 		result.TableStyle = tableStyleOptions[0]
+	}
+	if result.PromptStyle == "" {
+		result.PromptStyle = assets.PromptStyleHost
 	}
 
 	styleOptions := make([]huh.Option[string], 0, len(tableStyleOptions))
@@ -52,6 +57,17 @@ func SettingsForm(settings *assets.ClientSettings, tableStyleOptions []string) (
 
 	form := huh.NewForm(
 		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Prompt style").
+				Description("Customize the sliver prompt prefix").
+				Options(
+					huh.NewOption(assets.PromptStyleHost, assets.PromptStyleHost),
+					huh.NewOption(assets.PromptStyleOperatorHost, assets.PromptStyleOperatorHost),
+					huh.NewOption(assets.PromptStyleBasic, assets.PromptStyleBasic),
+					huh.NewOption(assets.PromptStyleCustom, assets.PromptStyleCustom),
+				).
+				Height(4).
+				Value(&result.PromptStyle),
 			huh.NewSelect[string]().
 				Title("Table style").
 				Options(styleOptions...).

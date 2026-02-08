@@ -23,6 +23,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/connectivity"
 )
 
 // Commands returns client-only server connection context commands.
@@ -75,16 +76,42 @@ func serverInfo(_ *cobra.Command, con *console.SliverClient) {
 		return
 	}
 
-	con.Printf("Server:   %s\n", hostPort)
+	const keyWidth = 8 // Align on ": " (e.g., "Operator", "Version")
+
+	label := func(key string) string {
+		// Bold "default/white" label keys, padded so colons align.
+		return console.StyleBoldGray.Render(fmt.Sprintf("%-*s:", keyWidth, key))
+	}
+	valueSecondary := func(s string) string { return console.StylePurple.Render(s) }
+	valueDim := func(s string) string { return console.StyleGray.Render(s) }
+
+	stateStyle := console.StyleGray
+	switch state {
+	case connectivity.Ready:
+		stateStyle = console.StyleGreen
+	case connectivity.Connecting:
+		stateStyle = console.StyleOrange
+	case connectivity.TransientFailure, connectivity.Shutdown:
+		stateStyle = console.StyleRed
+	case connectivity.Idle:
+		stateStyle = console.StyleOrange
+	}
+
+	// Server/operator values should be "default" terminal text (not themed colorized).
+	con.Printf("%s %s\n", label("Server"), hostPort)
 	if details != nil && details.ConfigKey != "" {
-		con.Printf("Profile:  %s\n", details.ConfigKey)
+		con.Printf("%s %s\n", label("Profile"), valueSecondary(details.ConfigKey))
 	}
-	con.Printf("Operator: %s\n", operator)
+	con.Printf("%s %s\n", label("Operator"), operator)
 	if fingerprint != "" {
-		con.Printf("Cert:     %s\n", fingerprint)
+		con.Printf("%s %s\n", label("Cert"), valueDim(fingerprint))
 	}
-	con.Printf("gRPC:     %s\n", state.String())
-	con.Printf("Version:  %d.%d.%d (%s)\n", ver.Major, ver.Minor, ver.Patch, ver.Commit)
+	con.Printf("%s %s\n", label("gRPC"), stateStyle.Render(state.String()))
+	con.Printf("%s %s %s\n",
+		label("Version"),
+		console.StyleBold.Render(fmt.Sprintf("%d.%d.%d", ver.Major, ver.Minor, ver.Patch)),
+		valueDim("("+ver.Commit+")"),
+	)
 }
 
 func serverSwitch(_ *cobra.Command, con *console.SliverClient) {

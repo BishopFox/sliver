@@ -21,6 +21,8 @@ always_overflow: true
 vim_mode: true
 user_connect: true
 console_logs: false
+prompt: "basic"
+prompt_template: "{{.Host}}"
 `)
 	if err := os.WriteFile(settingsPath, data, 0o600); err != nil {
 		t.Fatalf("failed to write yaml settings: %v", err)
@@ -54,6 +56,12 @@ console_logs: false
 	if settings.ConsoleLogs {
 		t.Fatalf("expected ConsoleLogs false")
 	}
+	if settings.PromptStyle != PromptStyleBasic {
+		t.Fatalf("expected PromptStyle %q, got %q", PromptStyleBasic, settings.PromptStyle)
+	}
+	if settings.PromptTemplate != "{{.Host}}" {
+		t.Fatalf("expected PromptTemplate %q, got %q", "{{.Host}}", settings.PromptTemplate)
+	}
 }
 
 func TestLoadSettingsMigratesLegacyJSON(t *testing.T) {
@@ -71,6 +79,8 @@ func TestLoadSettingsMigratesLegacyJSON(t *testing.T) {
 		VimMode:           true,
 		UserConnect:       true,
 		ConsoleLogs:       false,
+		PromptStyle:       PromptStyleOperatorHost,
+		PromptTemplate:    "{{.Operator}}@{{.Host}} sliver > ",
 	}
 	data, err := json.MarshalIndent(legacy, "", "  ")
 	if err != nil {
@@ -86,6 +96,12 @@ func TestLoadSettingsMigratesLegacyJSON(t *testing.T) {
 	}
 	if settings.TableStyle != "Legacy" {
 		t.Fatalf("expected TableStyle %q, got %q", "Legacy", settings.TableStyle)
+	}
+	if settings.PromptStyle != PromptStyleOperatorHost {
+		t.Fatalf("expected PromptStyle %q, got %q", PromptStyleOperatorHost, settings.PromptStyle)
+	}
+	if settings.PromptTemplate != "{{.Operator}}@{{.Host}} sliver > " {
+		t.Fatalf("expected PromptTemplate %q, got %q", "{{.Operator}}@{{.Host}} sliver > ", settings.PromptTemplate)
 	}
 	if _, err := os.Stat(filepath.Join(rootDir, settingsFileName)); err != nil {
 		t.Fatalf("expected yaml settings to exist: %v", err)
@@ -107,6 +123,12 @@ func TestLoadSettingsWritesDefault(t *testing.T) {
 	}
 	if settings.TableStyle != "SliverDefault" {
 		t.Fatalf("expected default TableStyle %q, got %q", "SliverDefault", settings.TableStyle)
+	}
+	if settings.PromptStyle != PromptStyleHost {
+		t.Fatalf("expected default PromptStyle %q, got %q", PromptStyleHost, settings.PromptStyle)
+	}
+	if settings.PromptTemplate != DefaultPromptTemplate {
+		t.Fatalf("expected default PromptTemplate %q, got %q", DefaultPromptTemplate, settings.PromptTemplate)
 	}
 	rootDir, _ := filepath.Abs(GetRootAppDir())
 	if _, err := os.Stat(filepath.Join(rootDir, settingsFileName)); err != nil {

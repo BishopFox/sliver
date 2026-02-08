@@ -522,10 +522,57 @@ func (con *SliverClient) AddBeaconCallback(taskID string, callback BeaconTaskCal
 }
 
 func (con *SliverClient) GetPrompt() string {
-	prompt := StyleUnderline.Render("sliver")
+	promptStyle := assets.PromptStyleHost
+	if con.Settings != nil {
+		promptStyle = assets.NormalizePromptStyle(con.Settings.PromptStyle)
+	}
 
+	if promptStyle == assets.PromptStyleCustom {
+		src := assets.DefaultPromptTemplate
+		if con.Settings != nil && strings.TrimSpace(con.Settings.PromptTemplate) != "" {
+			src = con.Settings.PromptTemplate
+		}
+		out, err := renderPromptTemplate(con, src)
+		if err != nil {
+			return Clearln + " > "
+		}
+		if strings.TrimSpace(out) == "" {
+			return Clearln + " > "
+		}
+		return Clearln + out
+	}
+
+	prompt := StyleUnderline.Render("sliver")
 	if con.IsServer {
-		prompt = StyleBold.Render("[server]") + " " + prompt
+		if promptStyle != assets.PromptStyleBasic {
+			prompt = StyleBold.Render("[server]") + " " + prompt
+		}
+	} else if promptStyle != assets.PromptStyleBasic {
+		// sliver-client only: optionally include operator/host context.
+		if details, _, ok := con.CurrentConnection(); ok && details != nil && details.Config != nil {
+			operator := strings.TrimSpace(details.Config.Operator)
+			host := strings.TrimSpace(details.Config.LHost)
+
+			prefix := ""
+			switch promptStyle {
+			case assets.PromptStyleOperatorHost:
+				if operator != "" && host != "" {
+					prefix = operator + "@" + host
+				} else if operator != "" {
+					prefix = operator
+				} else if host != "" {
+					prefix = host
+				}
+			case assets.PromptStyleHost:
+				if host != "" {
+					prefix = host
+				}
+			}
+
+			if prefix != "" {
+				prompt = StyleBoldPrimary.Render("["+prefix+"]") + " " + prompt
+			}
+		}
 	}
 
 	if session := con.ActiveTarget.GetSession(); session != nil {
@@ -540,13 +587,14 @@ func (con *SliverClient) GetPrompt() string {
 func (con *SliverClient) PrintLogo() {
 	// Always show a logo even if the server connection is transiently unavailable.
 	logo := asciiLogos[util.Intn(len(asciiLogos))]
-	fmt.Println(strings.ReplaceAll(logo, "\n", "\r\n"))
+	fmt.Println(strings.ReplaceAll(logo.Render(), "\n", "\r\n"))
 	fmt.Println("All hackers gain " + abilities[util.Intn(len(abilities))] + "\r")
 
 	if con.Rpc == nil {
 		fmt.Println(Warn + "Not connected to a server\r")
 		fmt.Printf("%sClient %s\r\n", Info, version.FullVersion())
 		fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options\r")
+		fmt.Println("")
 		return
 	}
 
@@ -557,6 +605,7 @@ func (con *SliverClient) PrintLogo() {
 		fmt.Printf("%sCould not query server version: %s\r\n", Warn, err)
 		fmt.Printf("%sClient %s\r\n", Info, version.FullVersion())
 		fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options\r")
+		fmt.Println("")
 		con.CheckLastUpdate()
 		return
 	}
@@ -573,6 +622,7 @@ func (con *SliverClient) PrintLogo() {
 	if serverVer.Major != int32(version.SemanticVersion()[0]) {
 		fmt.Print(Warn + "Warning: Client and server may be running incompatible versions.\r\n")
 	}
+	fmt.Println("")
 	con.CheckLastUpdate()
 }
 
@@ -1061,8 +1111,34 @@ var abilities = []string{
 	"jump-start",
 }
 
-var asciiLogos = []string{
-	StyleRed.Render(`
+type asciiLogoStyle int
+
+const (
+	logoStyleRed asciiLogoStyle = iota
+	logoStyleGreen
+	logoStyleBoldGray
+)
+
+type asciiLogo struct {
+	style asciiLogoStyle
+	art   string
+}
+
+func (l asciiLogo) Render() string {
+	switch l.style {
+	case logoStyleRed:
+		return StyleRed.Render(l.art)
+	case logoStyleGreen:
+		return StyleGreen.Render(l.art)
+	case logoStyleBoldGray:
+		return StyleBoldGray.Render(l.art)
+	default:
+		return l.art
+	}
+}
+
+var asciiLogos = []asciiLogo{
+	{style: logoStyleRed, art: `
 	 	  ██████  ██▓     ██▓ ██▒   █▓▓█████  ██▀███
 		▒██    ▒ ▓██▒    ▓██▒▓██░   █▒▓█   ▀ ▓██ ▒ ██▒
 		░ ▓██▄   ▒██░    ▒██▒ ▓██  █▒░▒███   ▓██ ░▄█ ▒
@@ -1072,71 +1148,23 @@ var asciiLogos = []string{
 		░ ░▒  ░ ░░ ░ ▒  ░ ▒ ░   ░ ░░   ░ ░  ░  ░▒ ░ ▒░
 		░  ░  ░    ░ ░    ▒ ░     ░░     ░     ░░   ░
 			  ░      ░  ░ ░        ░     ░  ░   ░
-	`),
+	`},
 
-	StyleGreen.Render(`
+	{style: logoStyleGreen, art: `
 	    ███████╗██╗     ██╗██╗   ██╗███████╗██████╗
 	    ██╔════╝██║     ██║██║   ██║██╔════╝██╔══██╗
 	    ███████╗██║     ██║██║   ██║█████╗  ██████╔╝
 	    ╚════██║██║     ██║╚██╗ ██╔╝██╔══╝  ██╔══██╗
 	    ███████║███████╗██║ ╚████╔╝ ███████╗██║  ██║
 	    ╚══════╝╚══════╝╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
-	`),
+	`},
 
-	StyleBoldGray.Render(`
+	{style: logoStyleBoldGray, art: `
 .------..------..------..------..------..------.
 |S.--. ||L.--. ||I.--. ||V.--. ||E.--. ||R.--. |
 | :/\: || :/\: || (\/) || :(): || (\/) || :(): |
 | :\/: || (__) || :\/: || ()() || :\/: || ()() |
 | '--'S|| '--'L|| '--'I|| '--'V|| '--'E|| '--'R|
-	` + "`------'`------'`------'`------'`------'`------'" + `
-	`),
-
-	StylePurple.Render(`
-     ****@@                                                                      @@****         
-    @@@@@@***@                                                                @***@@@@@@        
-    @%%@@@%%#***@                                                          @***#%%@@@%%@        
-    %%%%%##%%%%****@                                                    @****%%%%##%%%%%        
-    %%%%#####%%%%#*###@                                              @#####%%%%#####%%%%        
-    @%%%*@#####%%%%@####@                                          @####@%%%%#####@#%%%@        
-     %%%+@**#####%%%%#####@                                      @#####%%%%#####**@+%%%@        
-     #%%=+*+**###%#%%%######                                    ######%%%%%###**+*+=%%%         
-     %#%===++@*####%@@@@######                                ######@@@@%####*@++===%%%         
-     @#@--===+**%%%@@@@@@#####%%                            %%#####@@@@@@%%#**+===--@#@         
-      #@----%=+*%%%%@@@%%%####%%%@  @                  @  @%%%####%%%@@@%%%%*+=%----@#          
-      #%----=#++*%%%%@%%%%%@%%%%%%%%%@                @%%%%%%%%%@%%%%%@%%%%*++#=----%#          
-      %+----===+**@%%@#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%@%%@**+===----+%          
-      @=----==++***@%@#%%%%%%%@%%%%@%%%%%%%%%%%%%%%%%%%%@%%%%@%%%%%%%#@%@***++==-----@          
-       -----==+#%**##@@%%%@%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%@%%%@@##**%#+==-----           
-       %----==+**%%%%@@@#@%%%%%%%%%%@%%%%%%%%%%%%%%%%%%@%%%%%%%%%%@#@@@%%%%*++==----%           
-        =--#+=+**#@%%####%####%%%%@@@@@%%%%%%##%%%%%%@@@@@@%%%####%####%%@#**+=+#--=            
-         +-==+*%%%%########%#######%@@@@@@%%%%%#%%@@@@@@%#######%########%%%%*+==-=             
-     -----==++**#%######################%@@@%%%%@@@%######################%#**++==-----         
-      =--===+**######@##############%%%%%%%%%%%%%%%%%%%%##############@######**+===--=          
-       %-==+%@@@#######%%%%%%%%%@@%%%%%%%%%%%%%%%%%%%%%%%%@@%%%%%%%%%#######@@@%+==-%           
-        @=@@@@@@@@#%%%%%%%%%%%%%%@@%%%%%%%%%%%%%%%%%%%%%%@@@%%%%%%%%%%%%%#@@@@@@@@=@            
-        @@@@@@@@@@@@@%%%%%%%%%%%%@@@@%%%%%%%%**%%%%%%%%@@@@%%%%%%%%%%%%@@@@@@@@@@@@@            
-      @@@@@@@@@@@@@@@@@%%#%@@%%%%@@@@@%%%%%@#**#@%%%%%@@@@@%%%%@@%#%%@@@@@@@@@@@@@@@@@          
-     @@@@@@@@@@@@@@@@@@@@%#####%#%%%%%%%@%###**###%@%%%%%%%#######%@@@@@@@@@@@@@@@@@@@@         
-    @@@@@@@@@@@@@@@@@@@@@@@*##%%%%%%%%%%%%%##**##%%%%%%%%%%%%###*@@@@@@@@@@@@@@@@@@@@@@@        
-  @%%%%%@@@@@@@@@@@@@@@@@@@   %%%%%%%%%%%%%##**##%%%%%%%%%%%%%   @@@@@@@@@@@@@@@@@@@%%%%%@      
- @%%%%%%%%%%%%%%@@@@@@@@@@@@  . %%%%%@%%%%%##**##%%%%%@%%%%%    @@@@@@@@@@@@%%%%%%%%%%%%%%@     
-%%%%%%%@+.    % :@%%%%%%%%@@@@@@@@@%@%%@@@@##**##@@@@%%@%@@@@@@@@@%%%%%%%%@: %   ..+@%%%%%%%    
-%#.      .       :    .-@%%%%%@@@@@@@@@@@@@@##**##@@@@@@@@@@@@@@%%%%%@-.    :              .*%   
- @%%@*             #..:--=++*@%@@@@@@@@@@@@##**##@@@@@@@@@@@@@@*++==-:. #             *@%%@     
-%%%%%%@..*.:+%   ..::+-==++++@-=@@@@@@@@@@@%####%@@@@@@@@@@@=-@++++==-+::..   #+:.*..@%%%%%%    
-@###%.......::%-==++**#@++#*:  .:-+@@@@@@@@@@%####%@@@@@@@@@@+-:.  .*#++@#**++==-%::.......%###@  
-#%..........:::-==%+*******@* .  .:-+@@@@@@@@@@####@@@@@@@@@@+-:     #@*******+%=--:::..........%# 
-@@@+:...::::--=++**@***##*==+    :-+@@@.@@@@%%##%%@@@@.@@@+-:    ++=*##***@**++=--::::...:+@@@   
-  @%%%***###%@#****##@##++++++. .:=*@+ @@@@%%##%%@@@@ =@*=:. .+++++=##@##****#@%###***%%%@      
-@@=====+++++***#####%%%%@++++**#.:=*@  .@@%%####%%@@.  @*=:.#***+++@%%%%#####***+++++=====@@    
-        @@@#+++++***##%%%%%***##%%*#    @@*------*@@    #*%%##***%%%%%##***+++++#@@@            
-                      @@@@%%%@%%%%%.    **--------**    .%%%%%%%%%@@@@                          
-                               @%%%%   %@@@@@@@@@@@@@   %%%%@                                   
-                                  @@  @::@@@@@@@@@@::@  @@                                      
-                                     -::::::@@@@:::::::                                         
-                                    *-----========-----+                                        
-                                     @###%%%@@@@%%%###@                                         
-                                          @%%%%%%@                                              
-	`),
+` + "`------'`------'`------'`------'`------'`------'" + `
+	`},
 }
