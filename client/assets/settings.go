@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -29,6 +30,18 @@ import (
 const (
 	settingsFileName       = "tui-settings.yaml"
 	settingsLegacyFileName = "tui-settings.json"
+)
+
+const (
+	// Accepted values for tui-settings.yaml "prompt:":
+	// - host: show "[host]" prefix on sliver-client, "[server]" on server console
+	// - operator-host: show "[operator@host]" prefix on sliver-client, "[server]" on server console
+	// - basic: show "sliver >" (no prefix)
+	// - custom: render full prompt from prompt_template
+	PromptStyleHost         = "host"
+	PromptStyleOperatorHost = "operator-host"
+	PromptStyleBasic        = "basic"
+	PromptStyleCustom       = "custom"
 )
 
 // ClientSettings - Client JSON config
@@ -41,6 +54,8 @@ type ClientSettings struct {
 	VimMode           bool   `json:"vim_mode" yaml:"vim_mode"`
 	UserConnect       bool   `json:"user_connect" yaml:"user_connect"`
 	ConsoleLogs       bool   `json:"console_logs" yaml:"console_logs"`
+	PromptStyle       string `json:"prompt" yaml:"prompt"`
+	PromptTemplate    string `json:"prompt_template" yaml:"prompt_template"`
 }
 
 // LoadSettings - Load the client settings from disk
@@ -67,6 +82,8 @@ func LoadSettings() (*ClientSettings, error) {
 		return defaultSettings(), err
 	}
 
+	// Ensure any missing/unknown values are coerced to a supported prompt style.
+	settings.PromptStyle = NormalizePromptStyle(settings.PromptStyle)
 	if err := SaveSettings(settings); err != nil {
 		return settings, err
 	}
@@ -78,6 +95,38 @@ func LoadSettings() (*ClientSettings, error) {
 	return settings, nil
 }
 
+// NormalizePromptStyle canonicalizes prompt style strings and returns a safe
+// default if the value is empty/unknown.
+func NormalizePromptStyle(v string) string {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case PromptStyleOperatorHost:
+		return PromptStyleOperatorHost
+	case PromptStyleHost:
+		return PromptStyleHost
+	case PromptStyleBasic:
+		return PromptStyleBasic
+	case PromptStyleCustom:
+		return PromptStyleCustom
+
+	// Backward compatible aliases.
+	case "show host":
+		return PromptStyleHost
+	case "show user and host":
+		return PromptStyleOperatorHost
+	case "show operator and host":
+		return PromptStyleOperatorHost
+	case "operator@host":
+		return PromptStyleOperatorHost
+	case "user@host":
+		return PromptStyleOperatorHost
+
+	case "":
+		return PromptStyleHost
+	default:
+		return PromptStyleHost
+	}
+}
+
 func defaultSettings() *ClientSettings {
 	return &ClientSettings{
 		TableStyle:        "SliverDefault",
@@ -87,8 +136,12 @@ func defaultSettings() *ClientSettings {
 		AlwaysOverflow:    false,
 		VimMode:           false,
 		ConsoleLogs:       true,
+		PromptStyle:       PromptStyleHost,
+		PromptTemplate:    DefaultPromptTemplate,
 	}
 }
+
+const DefaultPromptTemplate = `{{- if .IsServer -}}{{ .Styles.Bold.Render "[server]" }} {{ .Styles.Underline.Render "sliver" }}{{ .Target.Suffix }} > {{- else -}}{{- if .Host -}}{{ .Styles.BoldPrimary.Render (printf "[%s]" .Host) }} {{- end -}}{{ .Styles.Underline.Render "sliver" }}{{ .Target.Suffix }} > {{- end -}}`
 
 // SaveSettings - Save the current settings to disk
 func SaveSettings(settings *ClientSettings) error {

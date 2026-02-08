@@ -26,16 +26,16 @@ import (
 	"github.com/bishopfox/sliver/client/forms"
 )
 
-func selectConfig() *assets.ClientConfig {
+func selectConfig() (string, *assets.ClientConfig) {
 	configs := assets.GetConfigs()
 
 	if len(configs) == 0 {
-		return nil
+		return "", nil
 	}
 
 	if len(configs) == 1 {
-		for _, config := range configs {
-			return config
+		for key, config := range configs {
+			return key, config
 		}
 	}
 
@@ -49,8 +49,8 @@ func selectConfig() *assets.ClientConfig {
 	err := forms.Select("Select a server:", keys, &selection)
 	if err != nil {
 		fmt.Println(err.Error())
-		return nil
+		return "", nil
 	}
 
-	return configs[selection]
+	return selection, configs[selection]
 }

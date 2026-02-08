@@ -31,9 +31,6 @@ import (
 )
 
 const (
-	normal = "\033[0m"
-	bold   = "\033[1m"
-
 	defaultVersion     = "devel"
 	defaultReleasesURL = "https://api.github.com/repos/BishopFox/sliver/releases"
 )

@@ -56,10 +56,8 @@ func Start(rcScript string) {
 	}
 	defer conn.Close()
 	localRPC := rpcpb.NewSliverRPCClient(conn)
-	con := console.NewConsole(false)
-	console.StartClient(con, localRPC, command.ServerCommands(con, serverOnlyCmds), command.SliverCommands(con), true, rcScript)
-
-	con.App.Start()
+	con := console.NewConsole(true)
+	_ = console.StartClient(con, localRPC, conn, nil, command.ServerCommands(con, serverOnlyCmds), command.SliverCommands(con), true, rcScript)
 }
 
 // serverOnlyCmds - Server only commands

@@ -42,20 +42,20 @@ func PrintCanaries(con *console.SliverClient, canaries []*clientpb.DNSCanary, bu
 		if burnedOnly && !canary.Triggered {
 			continue
 		}
-		lineColor := console.Normal
+		lineStyle := console.StyleNormal
 		if canary.Triggered {
-			lineColor = console.Bold + console.Red
+			lineStyle = console.StyleBoldRed
 		}
 		firstTrigger := "Never"
 		latestTrigger := "Never"
 		if canary.Triggered {
-			firstTrigger = fmt.Sprintf(lineColor+"%s"+console.Normal, canary.FirstTriggered)
-			latestTrigger = fmt.Sprintf(lineColor+"%s"+console.Normal, canary.LatestTrigger)
+			firstTrigger = lineStyle.Render(canary.FirstTriggered)
+			latestTrigger = lineStyle.Render(canary.LatestTrigger)
 		}
 		row := table.Row{
-			fmt.Sprintf(lineColor+"%s"+console.Normal, canary.ImplantName),
-			fmt.Sprintf(lineColor+"%s"+console.Normal, canary.Domain),
-			fmt.Sprintf(lineColor+"%v"+console.Normal, canary.Triggered),
+			lineStyle.Render(canary.ImplantName),
+			lineStyle.Render(canary.Domain),
+			lineStyle.Render(fmt.Sprintf("%v", canary.Triggered)),
 			firstTrigger,
 			latestTrigger,
 		}

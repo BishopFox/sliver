@@ -178,10 +178,10 @@ func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regex
 	}
 
 	for _, beacon := range beacons {
-		color := console.Normal
+		style := console.StyleNormal
 		activeBeacon := con.ActiveTarget.GetBeacon()
 		if activeBeacon != nil && activeBeacon.ID == beacon.ID {
-			color = console.Green
+			style = console.StyleGreen
 		}
 		if beacon.Integrity == "" {
 			beacon.Integrity = "-"
@@ -192,34 +192,34 @@ func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regex
 
 		if wideTermWidth {
 			rowEntries = []string{
-				fmt.Sprintf(color+"%s"+console.Normal, strings.Split(beacon.ID, "-")[0]),
-				fmt.Sprintf(color+"%s"+console.Normal, beacon.Name),
-				fmt.Sprintf(color+"%d/%d"+console.Normal, beacon.TasksCountCompleted, beacon.TasksCount),
-				fmt.Sprintf(color+"%s"+console.Normal, beacon.Transport),
-				fmt.Sprintf(color+"%s"+console.Normal, beacon.RemoteAddress),
-				fmt.Sprintf(color+"%s"+console.Normal, beacon.Hostname),
-				fmt.Sprintf(color+"%s"+console.Normal, strings.TrimPrefix(beacon.Username, beacon.Hostname+"\\")),
-				fmt.Sprintf(color+"%s (%d)"+console.Normal, beacon.Filename, beacon.PID),
+				style.Render(strings.Split(beacon.ID, "-")[0]),
+				style.Render(beacon.Name),
+				style.Render(fmt.Sprintf("%d/%d", beacon.TasksCountCompleted, beacon.TasksCount)),
+				style.Render(beacon.Transport),
+				style.Render(beacon.RemoteAddress),
+				style.Render(beacon.Hostname),
+				style.Render(strings.TrimPrefix(beacon.Username, beacon.Hostname+"\\")),
+				style.Render(fmt.Sprintf("%s (%d)", beacon.Filename, beacon.PID)),
 			}
 
 			if windowsBeaconInList {
-				rowEntries = append(rowEntries, fmt.Sprintf(color+"%s"+console.Normal, beacon.Integrity))
+				rowEntries = append(rowEntries, style.Render(beacon.Integrity))
 			}
 
 			rowEntries = append(rowEntries, []string{
-				fmt.Sprintf(color+"%s/%s"+console.Normal, beacon.OS, beacon.Arch),
-				fmt.Sprintf(color+"%s"+console.Normal, beacon.Locale),
+				style.Render(fmt.Sprintf("%s/%s", beacon.OS, beacon.Arch)),
+				style.Render(beacon.Locale),
 				con.FormatDateDelta(time.Unix(beacon.LastCheckin, 0), wideTermWidth, false),
 				con.FormatDateDelta(time.Unix(beacon.NextCheckin, 0), wideTermWidth, true),
 			}...)
 		} else {
 			rowEntries = []string{
-				fmt.Sprintf(color+"%s"+console.Normal, strings.Split(beacon.ID, "-")[0]),
-				fmt.Sprintf(color+"%s"+console.Normal, beacon.Name),
-				fmt.Sprintf(color+"%s"+console.Normal, beacon.Transport),
-				fmt.Sprintf(color+"%s"+console.Normal, beacon.Hostname),
-				fmt.Sprintf(color+"%s"+console.Normal, strings.TrimPrefix(beacon.Username, beacon.Hostname+"\\")),
-				fmt.Sprintf(color+"%s/%s"+console.Normal, beacon.OS, beacon.Arch),
+				style.Render(strings.Split(beacon.ID, "-")[0]),
+				style.Render(beacon.Name),
+				style.Render(beacon.Transport),
+				style.Render(beacon.Hostname),
+				style.Render(strings.TrimPrefix(beacon.Username, beacon.Hostname+"\\")),
+				style.Render(fmt.Sprintf("%s/%s", beacon.OS, beacon.Arch)),
 				con.FormatDateDelta(time.Unix(beacon.LastCheckin, 0), wideTermWidth, false),
 				con.FormatDateDelta(time.Unix(beacon.NextCheckin, 0), wideTermWidth, true),
 			}

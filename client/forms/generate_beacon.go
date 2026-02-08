@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/bishopfox/sliver/client/theme"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/util"
 	"github.com/charmbracelet/huh"
@@ -154,6 +155,7 @@ func GenerateBeaconForm(compiler *clientpb.Compiler) (*GenerateBeaconFormResult,
 		),
 	)
 
+	form = form.WithTheme(theme.HuhTheme())
 	if err := form.Run(); err != nil {
 		return nil, err
 	}

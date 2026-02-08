@@ -257,7 +257,7 @@ func displayAvailableUpdates(con *console.SliverClient, updateKeys []UpdateIdent
 	if len(extensionUpdates) != 1 {
 		extensionSuffix = "s"
 	}
-	tw.SetTitle(console.Bold + fmt.Sprintf(title, len(aliasUpdates), aliasSuffix, len(extensionUpdates), extensionSuffix) + console.Normal)
+	tw.SetTitle(console.StyleBold.Render(fmt.Sprintf(title, len(aliasUpdates), aliasSuffix, len(extensionUpdates), extensionSuffix)))
 	tw.AppendHeader(table.Row{
 		"Package Name",
 		"Package Type",

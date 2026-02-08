@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/bishopfox/sliver/client/theme"
 	"github.com/charmbracelet/huh"
 	"golang.org/x/term"
 )
@@ -32,7 +33,7 @@ func Confirm(title string, value *bool) error {
 				Title(title).
 				Value(value),
 		),
-	)
+	).WithTheme(theme.HuhTheme())
 
 	return form.Run()
 }
@@ -49,7 +50,7 @@ func Input(title string, value *string) error {
 				Title(title).
 				Value(value),
 		),
-	)
+	).WithTheme(theme.HuhTheme())
 
 	return form.Run()
 }
@@ -67,7 +68,7 @@ func Text(title string, value *string) error {
 				ExternalEditor(false).
 				Value(value),
 		),
-	)
+	).WithTheme(theme.HuhTheme())
 
 	return form.Run()
 }
@@ -98,7 +99,9 @@ func MultiSelect(title string, options []string, value *[]string) error {
 		Height(listHeight(len(options)) + 1).
 		Value(value)
 
-	form := huh.NewForm(huh.NewGroup(field)).WithWidth(getTerminalWidth())
+	form := huh.NewForm(huh.NewGroup(field)).
+		WithTheme(theme.HuhTheme()).
+		WithWidth(getTerminalWidth())
 	return form.Run()
 }
 
@@ -130,7 +133,9 @@ func selectPrompt(title string, options []string, value *string, required bool) 
 		})
 	}
 
-	form := huh.NewForm(huh.NewGroup(field)).WithWidth(getTerminalWidth())
+	form := huh.NewForm(huh.NewGroup(field)).
+		WithTheme(theme.HuhTheme()).
+		WithWidth(getTerminalWidth())
 	err := form.Run()
 
 	// On error restore the originalValue and return err

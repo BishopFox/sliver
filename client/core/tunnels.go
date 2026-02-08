@@ -160,3 +160,19 @@ func (t *tunnels) CloseForSession(sessionID string) {
 		}
 	}
 }
+
+// Reset closes all open tunnels and clears the underlying storage/stream.
+// This is used when switching servers inside a single client process.
+func (t *tunnels) Reset() {
+	t.SetStream(nil)
+
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	for tunnelID, tunnel := range *t.tunnels {
+		if tunnel != nil {
+			_ = tunnel.Close()
+		}
+		delete(*t.tunnels, tunnelID)
+	}
+}

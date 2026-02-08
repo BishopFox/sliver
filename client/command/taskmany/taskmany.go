@@ -190,7 +190,7 @@ func SelectMultipleBeaconsAndSessions(con *console.SliverClient) ([]*clientpb.Se
 			session.Username,
 			fmt.Sprintf("%s/%s", session.OS, session.Arch),
 		)
-		fmt.Fprintf(table, option+"\n")
+		fmt.Fprintln(table, option)
 		o := strings.ReplaceAll(option, "\t", "")
 		sessionOptionMap[o] = session
 	}
@@ -206,7 +206,7 @@ func SelectMultipleBeaconsAndSessions(con *console.SliverClient) ([]*clientpb.Se
 			beacon.Username,
 			fmt.Sprintf("%s/%s", beacon.OS, beacon.Arch),
 		)
-		fmt.Fprintf(table, option+"\n")
+		fmt.Fprintln(table, option)
 		o := strings.ReplaceAll(option, "\t", "")
 		beaconOptionMap[o] = beacon
 	}

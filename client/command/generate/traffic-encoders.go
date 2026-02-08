@@ -71,7 +71,7 @@ func DisplayTrafficEncoders(encoderMap *clientpb.TrafficEncoderMap, con *console
 		allIDs = append(allIDs, encoder.ID)
 		name := encoder.Wasm.Name
 		if isDuplicate {
-			name = fmt.Sprintf(console.Bold+console.Red+"%s (duplicate id)"+console.Normal, name)
+			name = console.StyleBoldRed.Render(fmt.Sprintf("%s (duplicate id)", name))
 		}
 		tw.AppendRow(table.Row{
 			encoder.ID,
@@ -212,9 +212,9 @@ func displayTrafficEncoderTests(running bool, tests *clientpb.TrafficEncoderTest
 	for _, test := range tests.Tests {
 		var success string
 		if test.Success {
-			success = console.Bold + console.Green + "Passed" + console.Normal
+			success = console.StyleBoldGreen.Render("Passed")
 		} else {
-			success = console.Bold + console.Red + "Failed!" + console.Normal
+			success = console.StyleBoldRed.Render("Failed!")
 		}
 		errorMsg := "N/A"
 		if test.Err != "" {
@@ -234,7 +234,7 @@ func displayTrafficEncoderTests(running bool, tests *clientpb.TrafficEncoderTest
 	if running {
 		con.Println()
 		con.Println()
-		con.Printf(console.Bold+"  >>> Running test %d of %d please wait ...\r"+console.Normal, len(tests.Tests), tests.TotalTests)
+		con.Printf("%s\r", console.StyleBold.Render(fmt.Sprintf("  >>> Running test %d of %d please wait ...", len(tests.Tests), tests.TotalTests)))
 		lineCount += 2
 	}
 

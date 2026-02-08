@@ -126,7 +126,7 @@ func filterTasksByTaskType(taskType string, tasks []*clientpb.BeaconTask) []*cli
 func PrintTask(task *clientpb.BeaconTask, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableWithBordersStyle(con))
-	tw.AppendRow(table.Row{console.Bold + "Beacon Task" + console.Normal, task.ID})
+	tw.AppendRow(table.Row{console.StyleBold.Render("Beacon Task"), task.ID})
 	tw.AppendSeparator()
 	tw.AppendRow(table.Row{"State", emojiState(task.State) + " " + prettyState(strings.Title(task.State))})
 	tw.AppendRow(table.Row{"Description", task.Description})

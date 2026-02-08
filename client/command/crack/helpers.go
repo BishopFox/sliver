@@ -25,7 +25,7 @@ func CrackHcstat2Completer(con *console.SliverClient) carapace.Action {
 			}
 
 			results = append(results, file.Name)
-			desc := fmt.Sprintf("%s (%s chunks, chunk size: %s)", byteCountSI(file.UncompressedSize), len(file.Chunks), byteCountSI(file.ChunkSize))
+			desc := fmt.Sprintf("%s (%d chunks, chunk size: %s)", byteCountSI(file.UncompressedSize), len(file.Chunks), byteCountSI(file.ChunkSize))
 			results = append(results, desc)
 		}
 
