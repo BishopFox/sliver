@@ -352,6 +352,14 @@ func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.ExternalG
 		err  error
 		name string
 	)
+	if req.BuilderName == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing builder name")
+	}
+	builder := core.GetBuilder(req.BuilderName)
+	if builder == nil {
+		return nil, status.Error(codes.NotFound, "unknown builder")
+	}
+
 	config := req.Config
 	if req.Name == "" {
 		name, err = codenames.GetCodename()
@@ -370,6 +378,7 @@ func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.ExternalG
 	if err != nil {
 		return nil, rpcError(err)
 	}
+	core.TrackExternalBuildAssignment(externalConfig.Build.ID, req.BuilderName, builder.OperatorName)
 
 	core.EventBroker.Publish(core.Event{
 		EventType: consts.ExternalBuildEvent,
@@ -381,6 +390,13 @@ func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.ExternalG
 
 // GenerateExternalSaveBuild - Allows an external builder to save the build to the server
 func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.ExternalImplantBinary) (*commonpb.Empty, error) {
+	if req.GetFile() == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing build file")
+	}
+	if err := rpc.authorizeBuilderForExternalBuild(ctx, req.Name, req.ImplantBuildID); err != nil {
+		return nil, err
+	}
+
 	implantBuild, err := db.ImplantBuildByID(req.ImplantBuildID)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid implant build id")
@@ -403,7 +419,7 @@ func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.
 		return nil, status.Error(codes.Internal, "Failed to write implant binary to temp file")
 	}
 
-	rpcLog.Infof("Saving external build '%s' from %s", req.Name, tmpFile.Name())
+	rpcLog.Infof("Saving external build %s from builder '%s' (%s)", req.ImplantBuildID, req.Name, tmpFile.Name())
 	err = generate.ImplantBuildSave(implantBuild, implantConfig, tmpFile.Name())
 	if err != nil {
 		rpcLog.Errorf("Failed to save external build: %s", err)
@@ -420,6 +436,10 @@ func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.
 
 // GenerateExternalGetImplantConfig - Get an implant config for external builder
 func (rpc *Server) GenerateExternalGetBuildConfig(ctx context.Context, req *clientpb.ImplantBuild) (*clientpb.ExternalImplantConfig, error) {
+	if err := rpc.authorizeBuilderForExternalBuild(ctx, req.Name, req.ID); err != nil {
+		return nil, err
+	}
+
 	build, err := db.ImplantBuildByID(req.ID)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid implant build id")
@@ -488,6 +508,16 @@ func (rpc *Server) BuilderRegister(req *clientpb.Builder, stream rpcpb.SliverRPC
 			if !util.Contains(buildEvents, event.EventType) {
 				continue // Skip events not relevant to the builder
 			}
+			if event.EventType == consts.ExternalBuildEvent {
+				targetBuilderName, _, err := splitExternalBuildEventData(event.Data)
+				if err != nil {
+					rpcEventsLog.Warnf("Invalid external build event data: %s", err)
+					continue
+				}
+				if targetBuilderName != req.Name {
+					continue
+				}
+			}
 
 			pbEvent := &clientpb.Event{
 				EventType: event.EventType,
@@ -522,23 +552,132 @@ func (rpc *Server) Builders(ctx context.Context, _ *commonpb.Empty) (*clientpb.B
 
 // BuilderTrigger - Trigger a builder event
 func (rpc *Server) BuilderTrigger(ctx context.Context, req *clientpb.Event) (*commonpb.Empty, error) {
-
 	switch req.EventType {
 
 	// Only allow certain event types to be triggered
 	case consts.ExternalBuildFailedEvent:
-		fallthrough
-	case consts.AcknowledgeBuildEvent:
-		fallthrough
-	case consts.ExternalBuildCompletedEvent:
+		buildID, _, err := splitExternalBuildProgressData(req.Data)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		if err = rpc.authorizeBuilderOperatorForExternalBuild(ctx, buildID); err != nil {
+			return nil, err
+		}
+		core.RemoveExternalBuildAssignment(buildID)
 		core.EventBroker.Publish(core.Event{
 			EventType: req.EventType,
 			Data:      req.Data,
 		})
-
+	case consts.AcknowledgeBuildEvent:
+		buildID := strings.TrimSpace(string(req.Data))
+		if buildID == "" {
+			return nil, status.Error(codes.InvalidArgument, "missing implant build id")
+		}
+		err := rpc.authorizeBuilderOperatorForExternalBuild(ctx, buildID)
+		if err != nil {
+			return nil, err
+		}
+		core.EventBroker.Publish(core.Event{
+			EventType: req.EventType,
+			Data:      req.Data,
+		})
+	case consts.ExternalBuildCompletedEvent:
+		buildID, _, err := splitExternalBuildProgressData(req.Data)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		if err = rpc.authorizeBuilderOperatorForExternalBuild(ctx, buildID); err != nil {
+			return nil, err
+		}
+		core.RemoveExternalBuildAssignment(buildID)
+		core.EventBroker.Publish(core.Event{
+			EventType: req.EventType,
+			Data:      req.Data,
+		})
+	default:
+		return nil, status.Error(codes.InvalidArgument, "unsupported builder event type")
 	}
 
 	return &commonpb.Empty{}, nil
+}
+
+func (rpc *Server) authorizeBuilderForExternalBuild(ctx context.Context, builderName string, buildID string) error {
+	builderName = strings.TrimSpace(builderName)
+	buildID = strings.TrimSpace(buildID)
+	if builderName == "" {
+		return status.Error(codes.InvalidArgument, "missing builder name")
+	}
+	if buildID == "" {
+		return status.Error(codes.InvalidArgument, "missing implant build id")
+	}
+
+	callerName := rpc.getClientCommonName(ctx)
+	if callerName == "" {
+		return status.Error(codes.Unauthenticated, "Authentication failure")
+	}
+	builder := core.GetBuilder(builderName)
+	if builder == nil {
+		return status.Error(codes.PermissionDenied, "builder is not registered")
+	}
+	if builder.OperatorName != callerName {
+		return status.Error(codes.PermissionDenied, "builder identity mismatch")
+	}
+	assignment := core.GetExternalBuildAssignment(buildID)
+	if assignment == nil {
+		return status.Error(codes.PermissionDenied, "build is not assigned")
+	}
+	if assignment.BuilderName != builderName || assignment.OperatorName != callerName {
+		return status.Error(codes.PermissionDenied, "build is assigned to a different builder")
+	}
+	return nil
+}
+
+func (rpc *Server) authorizeBuilderOperatorForExternalBuild(ctx context.Context, buildID string) error {
+	buildID = strings.TrimSpace(buildID)
+	if buildID == "" {
+		return status.Error(codes.InvalidArgument, "missing implant build id")
+	}
+
+	callerName := rpc.getClientCommonName(ctx)
+	if callerName == "" {
+		return status.Error(codes.Unauthenticated, "Authentication failure")
+	}
+	assignment := core.GetExternalBuildAssignment(buildID)
+	if assignment == nil {
+		return status.Error(codes.PermissionDenied, "build is not assigned")
+	}
+	if assignment.OperatorName != callerName {
+		return status.Error(codes.PermissionDenied, "build is assigned to a different builder operator")
+	}
+	return nil
+}
+
+func splitExternalBuildEventData(data []byte) (builderName string, buildID string, err error) {
+	payload := strings.TrimSpace(string(data))
+	parts := strings.Split(payload, ":")
+	if len(parts) < 2 {
+		return "", "", fmt.Errorf("invalid build event data")
+	}
+	buildID = strings.TrimSpace(parts[len(parts)-1])
+	builderName = strings.TrimSpace(strings.Join(parts[:len(parts)-1], ":"))
+	if builderName == "" || buildID == "" {
+		return "", "", fmt.Errorf("invalid build event data")
+	}
+	return builderName, buildID, nil
+}
+
+func splitExternalBuildProgressData(data []byte) (buildID string, details string, err error) {
+	payload := strings.TrimSpace(string(data))
+	parts := strings.SplitN(payload, ":", 2)
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid external build status data")
+	}
+	buildID = strings.TrimSpace(parts[0])
+	details = strings.TrimSpace(parts[1])
+	if buildID == "" {
+		return "", "", fmt.Errorf("invalid external build status data")
+	}
+	return buildID, details, nil
 }
 
 // TrafficEncoderMap - Get a map of the server's traffic encoders

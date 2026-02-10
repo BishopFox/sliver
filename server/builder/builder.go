@@ -132,7 +132,8 @@ func (b *Builder) handleBuildEvent(event *clientpb.Event) {
 	implantBuildID := parts[1]
 	builderLog.Infof("Build event for implant build id: %s", implantBuildID)
 	extConfig, err := b.rpc.GenerateExternalGetBuildConfig(context.Background(), &clientpb.ImplantBuild{
-		ID: implantBuildID,
+		ID:   implantBuildID,
+		Name: b.externalBuilder.Name,
 	})
 	if err != nil {
 		builderLog.Errorf("Failed to get build config: %s", err)
@@ -245,7 +246,7 @@ func (b *Builder) handleBuildEvent(event *clientpb.Event) {
 
 	builderLog.Infof("Uploading '%s' to server ...", extConfig.Build.Name)
 	_, err = b.rpc.GenerateExternalSaveBuild(context.Background(), &clientpb.ExternalImplantBinary{
-		Name:           extConfig.Build.Name,
+		Name:           b.externalBuilder.Name,
 		ImplantBuildID: extConfig.Build.ID,
 		File: &commonpb.File{
 			Name: fileName,
