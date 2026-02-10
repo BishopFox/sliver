@@ -73,7 +73,7 @@ func getRandomWord(txtFilePath string) (string, error) {
 	if wordsLen == 0 {
 		return "", fmt.Errorf("no words found in %s", txtFilePath)
 	}
-	word := words[util.Intn(wordsLen-1)]
+	word := words[util.Intn(wordsLen)]
 	return strings.TrimSpace(word), nil
 }
 
