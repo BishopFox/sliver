@@ -125,6 +125,8 @@ func ShellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 			Type: sliverpb.MsgTunnelClose,
 			Data: tunnelClose,
 		}
+
+		systemShell.Wait()
 	}
 
 	for _, rc := range tunnel.Readers {
