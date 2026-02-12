@@ -30,12 +30,18 @@ import (
 	"google.golang.org/grpc"
 )
 
+// consoleCmd 构造一个 CLI 命令对象，并在其执行前后绑定特定的钩子逻辑。
 // consoleCmd generates the console with required pre/post runners.
 func consoleCmd(con *console.SliverClient) *cobra.Command {
 	consoleCmd := &cobra.Command{
 		Use:   "console",
 		Short: "Start the sliver client console",
 	}
+	// 典型 CLI 生命周期设计
+	// 执行流程
+	// 1. PreRun -初始化配置，检查环境，建立连接，加载证书，启动日志
+	// 2. Run -真正执行主逻辑，启动交互 console，处理命令循环
+	// 3. PostRun -清理资源，关闭连接，保存状态
 
 	consoleCmd.Flags().String(RCFlagName, "", "path to rc script file")
 	consoleCmd.RunE, consoleCmd.PersistentPostRunE = consoleRunnerCmd(con, true)
@@ -44,7 +50,6 @@ func consoleCmd(con *console.SliverClient) *cobra.Command {
 
 func consoleRunnerCmd(con *console.SliverClient, run bool) (pre, post func(cmd *cobra.Command, args []string) error) {
 	pre = func(cmd *cobra.Command, _ []string) error {
-
 		configs := assets.GetConfigs()
 		if len(configs) == 0 {
 			fmt.Printf("No config files found at %s (see --help)\n", assets.GetConfigDir())
