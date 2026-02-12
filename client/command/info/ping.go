@@ -10,6 +10,7 @@ import (
 )
 
 // PingCmd - Send a round trip C2 message to an implant (does not use ICMP).
+// PingCmd - Send 到 implant 的往返 C2 消息（不使用 ICMP）。
 func PingCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {

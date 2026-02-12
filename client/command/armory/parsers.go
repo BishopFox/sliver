@@ -3,19 +3,30 @@ package armory
 /*
 	Sliver Implant Framework
 	Copyright (C) 2021  Bishop Fox
+	Copyright (C) 2021 Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
+	This 程序是免费软件：您可以重新分发它 and/or 修改
 	it under the terms of the GNU General Public License as published by
+	它根据 GNU General Public License 发布的条款
 	the Free Software Foundation, either version 3 of the License, or
+	Free Software Foundation，License 的版本 3，或
 	(at your option) any later version.
+	（由您选择）稍后 version.
 
 	This program is distributed in the hope that it will be useful,
+	This 程序被分发，希望它有用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但是WITHOUT ANY WARRANTY；甚至没有默示保证
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY 或 FITNESS FOR A PARTICULAR PURPOSE. See
 	GNU General Public License for more details.
+	GNU General Public License 更多 details.
 
 	You should have received a copy of the GNU General Public License
+	You 应已收到 GNU General Public License 的副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	与此 program. If 不一起，请参见 <__PH0__
 */
 
 import (
@@ -39,9 +50,11 @@ import (
 )
 
 // ArmoryIndexParser - Generic interface to fetch armory indexes
+// ArmoryIndexParser - 用于获取 armory 索引的 Generic 接口
 type ArmoryIndexParser func(*assets.ArmoryConfig, ArmoryHTTPConfig) (*ArmoryIndex, error)
 
 // ArmoryPackageParser - Generic interface to fetch armory package manifests
+// ArmoryPackageParser - 用于获取 armory 包清单的 Generic 接口
 type ArmoryPackageParser func(*assets.ArmoryConfig, *ArmoryPackage, bool, ArmoryHTTPConfig) (*minisign.Signature, []byte, error)
 
 var (
@@ -67,6 +80,7 @@ type armoryIndexResponse struct {
 type armoryPkgResponse struct {
 	Minisig  string `json:"minisig"`    // Minisig (Base64)
 	TarGzURL string `json:"tar_gz_url"` // Raw tar.gz url
+	TarGzURL string `json:"tar_gz_url"` // Raw tar.gz 网址
 }
 
 func calculatePackageHash(pkg *ArmoryPackage) string {
@@ -76,6 +90,7 @@ func calculatePackageHash(pkg *ArmoryPackage) string {
 
 	hasher := sha256.New()
 	// Hash some of the things that make the package unique
+	// Hash 一些使包装独一无二的东西
 	packageIdentifier := []byte(pkg.RepoURL + pkg.PublicKey + pkg.ArmoryName + pkg.CommandName)
 	hasher.Write(packageIdentifier)
 	return fmt.Sprintf("%x", hasher.Sum(nil))
@@ -83,9 +98,11 @@ func calculatePackageHash(pkg *ArmoryPackage) string {
 
 //
 // Default Parsers for Self-Hosted Armories
+// Default Parsers 对于 Self__PH0__ Armories
 //
 
 // DefaultArmoryParser - Parse the armory index directly from the url
+// DefaultArmoryParser - Parse 直接来自 url 的 armory 索引
 func DefaultArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig ArmoryHTTPConfig) (*ArmoryIndex, error) {
 	var publicKey minisign.PublicKey
 	err := publicKey.UnmarshalText([]byte(armoryConfig.PublicKey))
@@ -116,6 +133,7 @@ func DefaultArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig Ar
 	}
 
 	// Verify index is signed by trusted key
+	// Verify 索引由可信密钥签名
 	valid := minisign.Verify(publicKey, armoryIndexData, armoryIndexSigData)
 	if !valid {
 		return nil, errors.New("index has invalid signature")
@@ -129,6 +147,7 @@ func DefaultArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig Ar
 		return nil, err
 	}
 	// Populate armory name and ID information for assets
+	// Populate armory 名称和 ID 资产信息
 	for _, bundle := range armoryIndex.Bundles {
 		bundle.ArmoryName = armoryIndex.ArmoryConfig.Name
 	}
@@ -137,7 +156,9 @@ func DefaultArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig Ar
 		alias.ArmoryPK = armoryIndex.ArmoryConfig.PublicKey
 		if cached := packageCacheLookupByCmdAndArmory(alias.CommandName, armoryIndex.ArmoryConfig.PublicKey); cached != nil {
 			// A package with this name is in the cache, so we will remove it here so that the latest version is added
+			// 具有此名称的 A 包在缓存中，因此我们将在这里删除它，以便添加最新版本
 			// when the index is parsed
+			// 当解析索引时
 			pkgCache.Delete(cached.ID)
 		}
 		alias.ID = calculatePackageHash(alias)
@@ -147,7 +168,9 @@ func DefaultArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig Ar
 		extension.ArmoryPK = armoryIndex.ArmoryConfig.PublicKey
 		if cached := packageCacheLookupByCmdAndArmory(extension.CommandName, armoryIndex.ArmoryConfig.PublicKey); cached != nil {
 			// A package with this name is in the cache, so we will remove it here so that the latest version is added
+			// 具有此名称的 A 包在缓存中，因此我们将在这里删除它，以便添加最新版本
 			// when the index is parsed
+			// 当解析索引时
 			pkgCache.Delete(cached.ID)
 		}
 		extension.ID = calculatePackageHash(extension)
@@ -157,17 +180,20 @@ func DefaultArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig Ar
 
 func decodePackageSignature(sigString string) ([]byte, error) {
 	// Base64 decode the signature
+	// Base64 解码签名
 	decodedData := make([]byte, base64.StdEncoding.DecodedLen(len(sigString)))
 	_, err := base64.StdEncoding.Decode(decodedData, []byte(sigString))
 	if err != nil {
 		return nil, err
 	}
 	// If decodedData does not end up being base64.StdEncoding.DecodedLen(len(data)) bytes long, trim the null bytes
+	// If decodedData 最终不会是 base64.StdEncoding.DecodedLen(len(data)) 字节长，修剪空字节
 	decodedData = bytes.Trim(decodedData, "\x00")
 	return decodedData, nil
 }
 
 // DefaultArmoryPkgParser - Parse the armory package manifest directly from the url
+// DefaultArmoryPkgParser - Parse armory 包清单直接来自 url
 func DefaultArmoryPkgParser(armoryConfig *assets.ArmoryConfig, armoryPkg *ArmoryPackage, sigOnly bool, clientConfig ArmoryHTTPConfig) (*minisign.Signature, []byte, error) {
 	var publicKey minisign.PublicKey
 	err := publicKey.UnmarshalText([]byte(armoryPkg.PublicKey))
@@ -241,6 +267,7 @@ type GithubRelease struct {
 }
 
 // GithubAPIArmoryIndexParser - Parse the armory index from a GitHub release
+// GithubAPIArmoryIndexParser - Parse GitHub 版本中的 armory 索引
 func GithubAPIArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig ArmoryHTTPConfig) (*ArmoryIndex, error) {
 	var publicKey minisign.PublicKey
 	err := publicKey.UnmarshalText([]byte(armoryConfig.PublicKey))
@@ -268,6 +295,7 @@ func GithubAPIArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig 
 		return nil, errors.New("no releases found")
 	}
 	release := releases[0] // Latest only right now
+	release := releases[0] // Latest 仅现在
 
 	var armoryIndexData []byte
 	var sigData []byte
@@ -287,6 +315,7 @@ func GithubAPIArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig 
 	}
 
 	// Verify index is signed by trusted key
+	// Verify 索引由可信密钥签名
 	valid := minisign.Verify(publicKey, armoryIndexData, sigData)
 	if !valid {
 		return nil, errors.New("invalid signature")
@@ -300,6 +329,7 @@ func GithubAPIArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig 
 		return nil, err
 	}
 	// Populate armory name and ID information for assets
+	// Populate armory 名称和 ID 资产信息
 	for _, bundle := range armoryIndex.Bundles {
 		bundle.ArmoryName = armoryIndex.ArmoryConfig.Name
 	}
@@ -317,6 +347,7 @@ func GithubAPIArmoryIndexParser(armoryConfig *assets.ArmoryConfig, clientConfig 
 }
 
 // GithubAPIArmoryPackageParser - Retrieve the minisig and tar.gz for an armory package from a GitHub release
+// GithubAPIArmoryPackageParser - Retrieve GitHub 版本中的 armory 包的 minisig 和 tar.gz
 func GithubAPIArmoryPackageParser(armoryConfig *assets.ArmoryConfig, armoryPkg *ArmoryPackage, sigOnly bool, clientConfig ArmoryHTTPConfig) (*minisign.Signature, []byte, error) {
 	var publicKey minisign.PublicKey
 	err := publicKey.UnmarshalText([]byte(armoryPkg.PublicKey))
@@ -341,6 +372,7 @@ func GithubAPIArmoryPackageParser(armoryConfig *assets.ArmoryConfig, armoryPkg *
 		return nil, nil, err
 	}
 	release := releases[0] // Latest only right now
+	release := releases[0] // Latest 仅现在
 
 	var sig *minisign.Signature
 	var tarGz []byte
@@ -370,6 +402,7 @@ func GithubAPIArmoryPackageParser(armoryConfig *assets.ArmoryConfig, armoryPkg *
 //
 
 // GithubArmoryPackageParser - Uses github.com instead of api.github.com to download packages
+// GithubArmoryPackageParser - Uses github.com 而不是 api.github.com 来下载软件包
 func GithubArmoryPackageParser(_ *assets.ArmoryConfig, armoryPkg *ArmoryPackage, sigOnly bool, clientConfig ArmoryHTTPConfig) (*minisign.Signature, []byte, error) {
 	latestTag, err := githubLatestTagParser(armoryPkg, clientConfig)
 	if err != nil {
@@ -383,6 +416,7 @@ func GithubArmoryPackageParser(_ *assets.ArmoryConfig, armoryPkg *ArmoryPackage,
 	sigURL.Path = path.Join(sigURL.Path, "releases", "download", latestTag, fmt.Sprintf("%s.minisig", armoryPkg.CommandName))
 
 	// Setup dummy auth here as the non-api endpoints don't support the Authorization header
+	// Setup 虚拟身份验证，因为 non__PH0__ 端点不支持 Authorization 标头
 	noAuth := &assets.ArmoryConfig{
 		Authorization: "",
 	}
@@ -413,6 +447,7 @@ func GithubArmoryPackageParser(_ *assets.ArmoryConfig, armoryPkg *ArmoryPackage,
 }
 
 // We need to intercept the 302 redirect to determine the latest version tag
+// We 需要拦截302重定向以确定最新版本标签
 func githubLatestTagParser(armoryPkg *ArmoryPackage, clientConfig ArmoryHTTPConfig) (string, error) {
 	client := httpClient(clientConfig)
 	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {

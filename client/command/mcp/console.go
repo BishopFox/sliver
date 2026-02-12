@@ -17,6 +17,7 @@ import (
 )
 
 // McpConsoleCmd connects to an MCP server and starts a minimal console.
+// McpConsoleCmd 连接到 MCP 服务器并启动最小的 console.
 func McpConsoleCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	rawTransport, _ := cmd.Flags().GetString("transport")
 	transport, err := clientmcp.ParseTransport(rawTransport)

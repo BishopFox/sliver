@@ -15,6 +15,7 @@ func AkaDeleteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	delete(akaAliases, aliasName)
 
 	// Save updated map to disk
+	// 将更新后的 map 保存到磁盘
 	err := SaveAkaAliases()
 	if err != nil {
 		con.PrintErrorf("Failed to save aliases to disk: %s\n", err)

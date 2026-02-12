@@ -12,8 +12,10 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
+// Commands 返回“命令及其 subcommands.
 func Commands(con *console.SliverClient) []*cobra.Command {
 	// [ Generate ] --------------------------------------------------------------
+	// [ Generate ] --------------------------------------------------------------------------
 	generateCmd := &cobra.Command{
 		Use:   consts.GenerateStr,
 		Short: "Generate an implant binary",
@@ -28,6 +30,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	})
 
 	// Session flags and completions.
+	// Session 标志和 completions.
 	coreImplantFlags("session", generateCmd)
 	compileImplantFlags("session", generateCmd)
 	coreImplantFlagCompletions(generateCmd, con)
@@ -42,6 +45,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	}
 
 	// Beacon flags and completions.
+	// Beacon 标志和 completions.
 	coreImplantFlags("beacon", generateBeaconCmd)
 	compileImplantFlags("beacon", generateBeaconCmd)
 	coreBeaconFlags("beacon", generateBeaconCmd)
@@ -98,6 +102,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	trafficEncodersCmd.AddCommand(trafficEncodersRmCmd)
 
 	// [ Regenerate ] --------------------------------------------------------------
+	// [ Regenerate ] --------------------------------------------------------------------------
 
 	regenerateCmd := &cobra.Command{
 		Use:   consts.RegenerateStr,
@@ -118,6 +123,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	carapace.Gen(regenerateCmd).PositionalCompletion(ImplantBuildNameCompleter(con))
 
 	// [ Profiles ] --------------------------------------------------------------
+	// [ Profiles ] --------------------------------------------------------------------------
 
 	profilesCmd := &cobra.Command{
 		Use:   consts.ProfilesStr,
@@ -187,6 +193,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	profilesCmd.AddCommand(profilesStageCmd)
 
 	// Session flags and completions.
+	// Session 标志和 completions.
 	coreImplantFlags("session", profilesNewCmd)
 	compileImplantFlags("session", profilesNewCmd)
 	coreImplantFlagCompletions(profilesNewCmd, con)
@@ -202,6 +209,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	profilesNewCmd.AddCommand(profilesNewBeaconCmd)
 
 	// Beacon flags and completions.
+	// Beacon 标志和 completions.
 	coreImplantFlags("beacon", profilesNewBeaconCmd)
 	compileImplantFlags("beacon", profilesNewBeaconCmd)
 	coreBeaconFlags("beacon", profilesNewBeaconCmd)
@@ -232,6 +240,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	profilesCmd.AddCommand(profilesInfoCmd)
 
 	// [ Implants ] --------------------------------------------------------------
+	// [ Implants ] --------------------------------------------------------------------------
 
 	implantBuildsCmd := &cobra.Command{
 		Use:   consts.ImplantBuildsStr,
@@ -299,10 +308,13 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 }
 
 // coreImplantFlags binds all flags common to all sliver implant types.
+// coreImplantFlags 绑定所有 sliver implant types. 共有的所有标志
 // This is used by all sliver compilation and profiles generation commands.
+// This 由所有 sliver 编译和配置文件生成 commands. 使用
 func coreImplantFlags(name string, cmd *cobra.Command) {
 	flags.Bind(name, false, cmd, func(f *pflag.FlagSet) {
 		// Core compile
+		// Core 编译
 		f.StringP("os", "o", "windows", "operating system")
 		f.StringP("arch", "a", "amd64", "cpu architecture")
 		f.StringP("name", "N", "", "agent name") //
@@ -315,6 +327,7 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 		f.StringP("canary", "c", "", "canary domain(s)")
 
 		// C2 channels
+		// C2 频道
 		f.StringP("mtls", "m", "", "mtls connection strings")
 		f.StringP("wg", "g", "", "wg connection strings")
 		f.StringP("http", "b", "", "http(s) connection strings")
@@ -346,9 +359,12 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 		f.StringP("format", "f", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows, darwin/arm64, linux/amd64, linux/arm64)")
 
 		// Shellcode generation options:
+		// Shellcode 生成选项：
 		// - Windows: Donut
 		// - macOS: beignet
+		// - macOS: 贝奈特
 		// - Linux: malasada
+		// - Linux: 马拉萨达
 		f.Uint32("shellcode-entropy", 1, "Shellcode entropy (Donut: 1=none, 2=random names, 3=random+encrypt) (windows shellcode only)")
 		f.Bool("shellcode-compress", false, "Enable shellcode compression (aPLib) (windows, macOS, and Linux shellcode)")
 		f.Uint32("shellcode-exitopt", 1, "Shellcode exit option (Donut: 1=exit thread, 2=exit process, 3=block) (windows shellcode only)")
@@ -359,6 +375,7 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 		f.Uint32("shellcode-oep", 0, "Override original entry point (OEP) (Donut) (windows shellcode only)")
 
 		// Backwards-compatible deprecated Donut flags (hidden).
+		// Backwards__PH0__ 已弃用 Donut 标志（隐藏）。
 		f.Uint32("donut-entropy", 1, "Deprecated (use --shellcode-entropy)")
 		_ = f.MarkDeprecated("donut-entropy", "use --shellcode-entropy")
 		_ = f.MarkHidden("donut-entropy")
@@ -387,6 +404,7 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 }
 
 // coreImplantFlagCompletions binds completions to flags registered in coreImplantFlags.
+// coreImplantFlagCompletions 将完成绑定到 coreImplantFlags. 中注册的标志
 func coreImplantFlagCompletions(cmd *cobra.Command, con *console.SliverClient) {
 	flags.BindFlagCompletions(cmd, func(comp *carapace.ActionMap) {
 		(*comp)["debug-file"] = carapace.ActionFiles()
@@ -403,6 +421,7 @@ func coreImplantFlagCompletions(cmd *cobra.Command, con *console.SliverClient) {
 }
 
 // coreBeaconFlags binds all flags specific to beacon implants (profiles or compiled).
+// coreBeaconFlags 绑定特定于 beacon 植入物（配置文件或编译）的所有标志。
 func coreBeaconFlags(name string, cmd *cobra.Command) {
 	flags.Bind(name, false, cmd, func(f *pflag.FlagSet) {
 		f.Int64P("days", "D", 0, "beacon interval days")
@@ -414,6 +433,7 @@ func coreBeaconFlags(name string, cmd *cobra.Command) {
 }
 
 // compileImplantFlags binds all flags used when actually compiling an implant (not when creating a profile).
+// compileImplantFlags 绑定实际编译 implant 时使用的所有标志（而不是创建配置文件时）。
 func compileImplantFlags(name string, cmd *cobra.Command) {
 	flags.Bind(name, false, cmd, func(f *pflag.FlagSet) {
 		f.StringP("name", "N", "", "agent name")

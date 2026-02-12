@@ -3,19 +3,30 @@ package armory
 /*
 	Sliver Implant Framework
 	Copyright (C) 2021  Bishop Fox
+	Copyright (C) 2021 Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
+	This 程序是免费软件：您可以重新分发它 and/or 修改
 	it under the terms of the GNU General Public License as published by
+	它根据 GNU General Public License 发布的条款
 	the Free Software Foundation, either version 3 of the License, or
+	Free Software Foundation，License 的版本 3，或
 	(at your option) any later version.
+	（由您选择）稍后 version.
 
 	This program is distributed in the hope that it will be useful,
+	This 程序被分发，希望它有用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但是WITHOUT ANY WARRANTY；甚至没有默示保证
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY 或 FITNESS FOR A PARTICULAR PURPOSE. See
 	GNU General Public License for more details.
+	GNU General Public License 更多 details.
 
 	You should have received a copy of the GNU General Public License
+	You 应已收到 GNU General Public License 的副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	与此 program. If 不一起，请参见 <__PH0__
 */
 
 import (
@@ -41,6 +52,7 @@ import (
 )
 
 // ArmoryIndex - Index JSON containing alias/extension/bundle information
+// ArmoryIndex - Index JSON 包含 alias/extension/bundle 信息
 type ArmoryIndex struct {
 	ArmoryConfig *assets.ArmoryConfig `json:"-"`
 	Aliases      []*ArmoryPackage     `json:"aliases"`
@@ -49,6 +61,7 @@ type ArmoryIndex struct {
 }
 
 // ArmoryPackage - JSON metadata for alias or extension
+// 别名或扩展名的 ArmoryPackage - JSON 元数据
 type ArmoryPackage struct {
 	Name        string `json:"name"`
 	CommandName string `json:"command_name"`
@@ -59,16 +72,21 @@ type ArmoryPackage struct {
 	ArmoryName string `json:"-"`
 	/*
 		With support for multiple armories, the command name of a package
+		With 支持多个armouries，一个包的命令名
 		is not unique anymore, so we need something that is unique
+		不再是唯一的，所以我们需要一些独特的东西
 		to be able to keep track of packages.
+		能够跟踪 packages.
 
 		This ID will be a hash calculated from properties of the package.
+		This ID 将是根据 package. 的属性计算出的哈希值
 	*/
 	ID       string `json:"-"`
 	ArmoryPK string `json:"-"`
 }
 
 // ArmoryBundle - A list of packages
+// ArmoryBundle - A 包列表
 type ArmoryBundle struct {
 	Name       string   `json:"name"`
 	Packages   []string `json:"packages"`
@@ -76,6 +94,7 @@ type ArmoryBundle struct {
 }
 
 // ArmoryHTTPConfig - Configuration for armory HTTP client
+// ArmoryHTTPConfig - Configuration 用于 armory HTTP 客户端
 type ArmoryHTTPConfig struct {
 	ArmoryConfig         *assets.ArmoryConfig
 	IgnoreCache          bool
@@ -102,32 +121,41 @@ type pkgCacheEntry struct {
 	Extension    *extensions.ExtensionManifest
 	LastErr      error
 	// This corresponds to Pkg.ID
+	// This 对应于 Pkg.ID
 	ID string
 }
 
 var (
 	// public key -> armoryCacheEntry
+	// 公钥 -> armoryCacheEntry
 	indexCache = sync.Map{}
 	// package ID -> armoryPkgCacheEntry
+	// 包 ID -> armoryPkgCacheEntry
 	pkgCache = sync.Map{}
 	// public key -> assets.ArmoryConfig
+	// 公钥 -> assets.ArmoryConfig
 	currentArmories = sync.Map{}
 
 	// cacheTime - How long to cache the index/pkg manifests
+	// cacheTime - How long 用于缓存 index/pkg 清单
 	//cacheTime = time.Hour
 	cacheTime = 2 * time.Minute
 
 	// This will kill a download if exceeded so needs to be large
+	// 如果超过 This 将终止下载，因此需要很大
 	defaultTimeout = 15 * time.Minute
 
 	// Track whether armories have been initialized so that we know if we need to pull from the config
+	// Track 军械库是否已初始化，以便我们知道是否需要从配置中提取
 	armoriesInitialized = false
 
 	// Track whether the default armory has been removed by the user (this is needed to prevent it from being readded in if they have removed it)
+	// Track 默认的 armory 是否已被用户删除（这​​是为了防止在删除它时将其读入）
 	defaultArmoryRemoved = false
 )
 
 // ArmoryCmd - The main armory command
+// ArmoryCmd - The 主 armory 命令
 func ArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	armoriesConfig := getCurrentArmoryConfiguration()
 	if len(armoriesConfig) == 1 {
@@ -164,6 +192,7 @@ func ArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			cacheEntry, ok := value.(pkgCacheEntry)
 			if !ok {
 				// Something is wrong with this entry
+				// Something 此条目有误
 				pkgCache.Delete(value)
 				return true
 			}
@@ -181,6 +210,7 @@ func ArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 					aliases = append(aliases, cacheEntry.Alias)
 				} else {
 					exts = append(exts, cacheEntry.Extension) //todo: check this isn't a bug
+					exts = append(exts, cacheEntry.Extension) //todo：检查这不是一个错误
 				}
 			}
 			return true
@@ -243,6 +273,7 @@ func packageManifestsInCache() ([]*alias.AliasManifest, []*extensions.ExtensionM
 				aliases = append(aliases, cacheEntry.Alias)
 			} else {
 				exts = append(exts, cacheEntry.Extension) //todo: check this isn't a bug
+				exts = append(exts, cacheEntry.Extension) //todo：检查这不是一个错误
 			}
 		}
 		return true
@@ -257,6 +288,7 @@ func armoryLookupByName(name string) *assets.ArmoryConfig {
 		indexEntry, ok := value.(indexCacheEntry)
 		if !ok {
 			// Keep going
+			// Keep 去
 			return true
 		}
 		if indexEntry.ArmoryConfig.Name == name {
@@ -270,6 +302,7 @@ func armoryLookupByName(name string) *assets.ArmoryConfig {
 }
 
 // Returns the packages in the cache with a given name
+// Returns 缓存中具有给定名称的包
 func packageCacheLookupByName(name string) []*pkgCacheEntry {
 	var result []*pkgCacheEntry = make([]*pkgCacheEntry, 0)
 
@@ -277,6 +310,7 @@ func packageCacheLookupByName(name string) []*pkgCacheEntry {
 		cacheEntry, ok := value.(pkgCacheEntry)
 		if !ok {
 			// Keep going
+			// Keep 去
 			return true
 		}
 		if cacheEntry.Pkg.Name == name {
@@ -289,6 +323,7 @@ func packageCacheLookupByName(name string) []*pkgCacheEntry {
 }
 
 // Returns the packages in the cache for a given command name
+// Returns 缓存中给定命令名称的包
 func packageCacheLookupByCmd(commandName string) []*pkgCacheEntry {
 	var result []*pkgCacheEntry = make([]*pkgCacheEntry, 0)
 
@@ -296,6 +331,7 @@ func packageCacheLookupByCmd(commandName string) []*pkgCacheEntry {
 		cacheEntry, ok := value.(pkgCacheEntry)
 		if !ok {
 			// Keep going
+			// Keep 去
 			return true
 		}
 		if cacheEntry.Pkg.CommandName == commandName {
@@ -308,6 +344,7 @@ func packageCacheLookupByCmd(commandName string) []*pkgCacheEntry {
 }
 
 // Returns the package in the cache for a given command name and armory
+// Returns 缓存中给定命令名的包和 armory
 func packageCacheLookupByCmdAndArmory(commandName string, armoryPublicKey string) *pkgCacheEntry {
 	var result *pkgCacheEntry
 
@@ -315,11 +352,13 @@ func packageCacheLookupByCmdAndArmory(commandName string, armoryPublicKey string
 		cacheEntry, ok := value.(pkgCacheEntry)
 		if !ok {
 			// Keep going
+			// Keep 去
 			return true
 		}
 		if cacheEntry.ArmoryConfig.PublicKey == armoryPublicKey && cacheEntry.Pkg.CommandName == commandName {
 			result = &cacheEntry
 			// Stop iterating
+			// Stop 迭代
 			return false
 		}
 		return true
@@ -329,6 +368,7 @@ func packageCacheLookupByCmdAndArmory(commandName string, armoryPublicKey string
 }
 
 // Returns the package hashes in the cache for a given armory
+// Returns 包在缓存中针对给定的 armory 进行哈希值
 func packageHashLookupByArmory(armoryPublicKey string) []string {
 	result := []string{}
 
@@ -336,6 +376,7 @@ func packageHashLookupByArmory(armoryPublicKey string) []string {
 		cacheEntry, ok := value.(pkgCacheEntry)
 		if !ok {
 			// Keep going
+			// Keep 去
 			return true
 		}
 		if cacheEntry.ArmoryConfig.PublicKey == armoryPublicKey {
@@ -354,12 +395,14 @@ func packageCacheLookupByID(packageID string) *pkgCacheEntry {
 		cacheEntry, ok := value.(pkgCacheEntry)
 		if !ok {
 			// Keep going
+			// Keep 去
 			return true
 		}
 		if cacheEntry.LastErr == nil {
 			if cacheEntry.ID == packageID {
 				packageEntry = &cacheEntry
 				// Stop iterating
+				// Stop 迭代
 				return false
 			}
 		}
@@ -380,6 +423,7 @@ func bundlesInCache() []*ArmoryBundle {
 }
 
 // AliasExtensionOrBundleCompleter - Completer for alias, extension, and bundle names
+// AliasExtensionOrBundleCompleter - Completer 用于别名、扩展名和捆绑包名称
 func AliasExtensionOrBundleCompleter() carapace.Action {
 	comps := func(ctx carapace.Context) carapace.Action {
 		var action carapace.Action
@@ -420,6 +464,7 @@ func AliasExtensionOrBundleCompleter() carapace.Action {
 }
 
 // PrintArmoryPackages - Prints the armory packages
+// PrintArmoryPackages - Prints armory 包
 func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.ExtensionManifest, con *console.SliverClient) {
 	width, _, err := term.GetSize(0)
 	if err != nil {
@@ -431,6 +476,7 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 	tw.SetTitle(console.StyleBold.Render("Packages"))
 
 	urlMargin := 150 // Extra margin needed to show URL column
+	urlMargin := 150 // 显示 URL 列需要 Extra 边距
 
 	if con.Settings.SmallTermWidth+urlMargin < width {
 		tw.AppendHeader(table.Row{
@@ -452,6 +498,7 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 	}
 
 	// Columns start at 1 for some dumb reason
+	// 由于某些愚蠢的原因 Columns 从 1 开始
 	tw.SortBy([]table.SortBy{
 		{Number: 2, Mode: table.Asc},
 	})
@@ -521,6 +568,7 @@ func PrintArmoryPackages(aliases []*alias.AliasManifest, exts []*extensions.Exte
 }
 
 // PrintArmoryBundles - Prints the armory bundles
+// PrintArmoryBundles - Prints armory 捆绑包
 func PrintArmoryBundles(bundles []*ArmoryBundle, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
@@ -589,10 +637,13 @@ func parseArmoryHTTPConfig(cmd *cobra.Command) ArmoryHTTPConfig {
 }
 
 // fetch armory indexes, only returns indexes that were fetched successfully
+// 获取 armory 索引，仅返回成功获取的索引
 // errors are still in the cache objects however and can be checked
+// 但是错误仍然存​​在于缓存对象中并且可以检查
 func fetchIndexes(clientConfig ArmoryHTTPConfig) []ArmoryIndex {
 	wg := &sync.WaitGroup{}
 	// Try to get a max of 10 indexes at a time
+	// Try 一次最多获取 10 个索引
 	currentRequests := make(chan struct{}, 10)
 	currentArmories.Range(func(key, value interface{}) bool {
 		armoryEntry := value.(assets.ArmoryConfig)
@@ -627,6 +678,7 @@ func fetchIndex(armoryConfig *assets.ArmoryConfig, requestChannel chan struct{},
 			return
 		} else if time.Since(cached.Fetched) >= cacheTime {
 			// If an index has gone stale, remove it from the index cache
+			// If 索引已过时，将其从索引缓存中删除
 			indexCache.Delete(armoryConfig.PublicKey)
 		}
 	}
@@ -682,11 +734,13 @@ func makePackageCacheConsistent(index ArmoryIndex) {
 	packagesToRemove := []string{}
 
 	// Get the packages for the armory out of the cache
+	// Get 缓存中 armory 的包
 	cacheHashesForArmory := packageHashLookupByArmory(index.ArmoryConfig.PublicKey)
 	indexHashesForArmory := calculateHashesForIndex(index)
 
 	if len(cacheHashesForArmory) > len(indexHashesForArmory) {
 		// Then there are packages in the cache that do not exist in the armory
+		// Then 缓存中存在 armory 中不存在的包
 		if len(indexHashesForArmory) == 0 {
 			packagesToRemove = cacheHashesForArmory
 		} else {
@@ -698,8 +752,11 @@ func makePackageCacheConsistent(index ArmoryIndex) {
 		}
 	}
 	// The remaining case of there being packages in the armory that do not exist in the cache
+	// The 剩下的情况是 armory 中存在缓存中不存在的包
 	// will have to be solved with fetchPackageSignatures, and that function calls this one
+	// 必须用 fetchPackageSignatures 来解决，该函数调用这个函数
 	// after fetching signatures and storing them in the cache, so that case should not apply
+	// 在获取签名并将其存储在缓存中之后，因此这种情况不适用
 
 	for _, packageHash := range packagesToRemove {
 		pkgCache.Delete(packageHash)
@@ -709,7 +766,9 @@ func makePackageCacheConsistent(index ArmoryIndex) {
 func fetchPackageSignatures(index ArmoryIndex, clientConfig ArmoryHTTPConfig) {
 	wg := &sync.WaitGroup{}
 	// Be kind to armories and limit concurrent requests to 10
+	// Be 对军械库友善并将并发请求限制为 10
 	// This is an arbritrary number and we may have to tweak it if it causes problems
+	// This 是一个任意数字，如果它导致问题，我们可能需要调整它
 	currentRequests := make(chan struct{}, 10)
 	for _, armoryPkg := range index.Extensions {
 		wg.Add(1)
@@ -726,6 +785,7 @@ func fetchPackageSignatures(index ArmoryIndex, clientConfig ArmoryHTTPConfig) {
 	wg.Wait()
 
 	// If packages were deleted from the index, make sure the cache is consistent
+	// If 包已从索引中删除，确保缓存一致
 	makePackageCacheConsistent(index)
 }
 
@@ -741,6 +801,7 @@ func fetchPackageSignature(wg *sync.WaitGroup, requestChannel chan struct{}, arm
 			return
 		} else if time.Since(cached.Fetched) >= cacheTime {
 			// If a package has gone stale, remove it from the package cache
+			// If 包已过时，将其从包缓存中删除
 			pkgCache.Delete(armoryPkg.ID)
 		}
 	}
@@ -822,6 +883,7 @@ func clearAllCaches() {
 
 func getArmoryPublicKey(armoryName string) string {
 	// Find PK for the armory name
+	// Find PK 表示 armory 名称
 	armoryPK := ""
 	currentArmories.Range(func(key, value any) bool {
 		armoryEntry := value.(assets.ArmoryConfig)

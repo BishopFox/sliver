@@ -12,6 +12,7 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
+// Commands 返回“命令及其 subcommands.
 func Commands(con *console.SliverClient) []*cobra.Command {
 	lootCmd := &cobra.Command{
 		Use:   consts.LootStr,
@@ -120,11 +121,13 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 }
 
 // FileTypeCompleter completes valid filetypes for loot.
+// FileTypeCompleter 完成 loot. 的有效文件类型
 func FileTypeCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionValues("binary", "text").Tag("loot file type")
 }
 
 // LootTypeCompleter completes valid loot type for a loot.
+// LootTypeCompleter 完成 loot. 的有效战利品类型
 func LootTypeCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionValues("file", "cred").Tag("loot type")
 }

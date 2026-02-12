@@ -3,19 +3,30 @@ package settings
 /*
 	Sliver Implant Framework
 	Copyright (C) 2021  Bishop Fox
+	Copyright (C) 2021 Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
+	This 程序是免费软件：您可以重新分发它 and/or 修改
 	it under the terms of the GNU General Public License as published by
+	它根据 GNU General Public License 发布的条款
 	the Free Software Foundation, either version 3 of the License, or
+	Free Software Foundation，License 的版本 3，或
 	(at your option) any later version.
+	（由您选择）稍后 version.
 
 	This program is distributed in the hope that it will be useful,
+	This 程序被分发，希望它有用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但是WITHOUT ANY WARRANTY；甚至没有默示保证
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY 或 FITNESS FOR A PARTICULAR PURPOSE. See
 	GNU General Public License for more details.
+	GNU General Public License 更多 details.
 
 	You should have received a copy of the GNU General Public License
+	You 应已收到 GNU General Public License 的副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	与此 program. If 不一起，请参见 <__PH0__
 */
 
 import (
@@ -32,6 +43,7 @@ import (
 )
 
 // SettingsCmd - The client settings command.
+// SettingsCmd - The 客户端设置 command.
 func SettingsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var err error
 	if con.Settings == nil {
@@ -86,6 +98,7 @@ func SettingsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 }
 
 // SettingsAlwaysOverflow - Toggle always overflow.
+// SettingsAlwaysOverflow - Toggle 始终 overflow.
 func SettingsAlwaysOverflow(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var err error
 	if con.Settings == nil {
@@ -100,6 +113,7 @@ func SettingsAlwaysOverflow(cmd *cobra.Command, con *console.SliverClient, args 
 }
 
 // SettingsConsoleLogs - Toggle console logs.
+// SettingsConsoleLogs - Toggle 控制台 logs.
 func SettingsConsoleLogs(cmd *cobra.Command, con *console.SliverClient) {
 	var err error
 	if con.Settings == nil {
@@ -114,6 +128,7 @@ func SettingsConsoleLogs(cmd *cobra.Command, con *console.SliverClient) {
 }
 
 // SettingsSmallTerm - Modify small terminal width value.
+// SettingsSmallTerm - Modify 小端子宽度 value.
 func SettingsSmallTerm(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var err error
 	if con.Settings == nil {
@@ -143,6 +158,7 @@ func SettingsSmallTerm(cmd *cobra.Command, con *console.SliverClient, args []str
 }
 
 // SettingsTablesCmd - The client settings command.
+// SettingsTablesCmd - The 客户端设置 command.
 func SettingsTablesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var err error
 	if con.Settings == nil {
@@ -171,6 +187,7 @@ func SettingsTablesCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 }
 
 // SettingsSaveCmd - The client settings command.
+// SettingsSaveCmd - The 客户端设置 command.
 func SettingsSaveCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var err error
 	if con.Settings == nil {
@@ -189,6 +206,7 @@ func SettingsSaveCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 }
 
 // SettingsAlwaysOverflow - Toggle always overflow.
+// SettingsAlwaysOverflow - Toggle 始终 overflow.
 func SettingsUserConnect(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var err error
 	if con.Settings == nil {

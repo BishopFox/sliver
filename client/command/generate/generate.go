@@ -3,19 +3,30 @@ package generate
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
+	Copyright (C) 2019 Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
+	This 程序是免费软件：您可以重新分发它 and/or 修改
 	it under the terms of the GNU General Public License as published by
+	它根据 GNU General Public License 发布的条款
 	the Free Software Foundation, either version 3 of the License, or
+	Free Software Foundation，License 的版本 3，或
 	(at your option) any later version.
+	（由您选择）稍后 version.
 
 	This program is distributed in the hope that it will be useful,
+	This 程序被分发，希望它有用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但是WITHOUT ANY WARRANTY；甚至没有默示保证
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY 或 FITNESS FOR A PARTICULAR PURPOSE. See
 	GNU General Public License for more details.
+	GNU General Public License 更多 details.
 
 	You should have received a copy of the GNU General Public License
+	You 应已收到 GNU General Public License 的副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	与此 program. If 不一起，请参见 <__PH0__
 */
 
 import (
@@ -45,27 +56,39 @@ import (
 
 const (
 	// DefaultMTLSLPort is the default port for mtls.
+	// DefaultMTLSLPort 是 mtls. 的默认端口
 	DefaultMTLSLPort = 8888
 	// DefaultWGPort is the default port for wg.
+	// DefaultWGPort 是 wg. 的默认端口
 	DefaultWGLPort = 53
 	// DefaultWGNPort is the default n port for wg.
+	// DefaultWGNPort 是 wg. 的默认 n 端口
 	DefaultWGNPort = 8888
 	// DefaultWGKeyExPort is the default port for wg key exchange.
+	// DefaultWGKeyExPort 是 wg key exchange. 的默认端口
 	DefaultWGKeyExPort = 1337
 	// DefaultHTTPLPort is the default port for http.
+	// DefaultHTTPLPort 是 http. 的默认端口
 	DefaultHTTPLPort = 80
 	// DefaultHTTPSLPort is the default port for https.
+	// DefaultHTTPSLPort 是 https. 的默认端口
 	DefaultHTTPSLPort = 443
 	// DefaultDNSLPortis the default port for dns.
+	// DefaultDNSLPortis dns. 的默认端口
 	DefaultDNSLPort = 53
 	// DefaultTCPPivotPort is the default port for tcp pivots.
+	// DefaultTCPPivotPort 是 tcp pivots. 的默认端口
 	DefaultTCPPivotPort = 9898
 
 	// DefaultReconnect is the default reconnect time.
+	// DefaultReconnect 是默认重新连接 time.
 	DefaultReconnect = 60
 	// DefaultPollTimeout is the default poll timeout.
+	// DefaultPollTimeout 是默认轮询 timeout.
 	DefaultPollTimeout = 360 // 6 minutes
+	DefaultPollTimeout = 360 // 6分钟
 	// DefaultMaxErrors is the default max reconnection errors before giving up.
+	// DefaultMaxErrors 是给出 up. 之前的默认最大重新连接错误数
 	DefaultMaxErrors = 1000
 )
 
@@ -75,6 +98,7 @@ const (
 
 var (
 	// SupportedCompilerTargets - Supported compiler targets.
+	// SupportedCompilerTargets - Supported 编译器 targets.
 	SupportedCompilerTargets = map[string]bool{
 		"darwin/amd64":  true,
 		"darwin/arm64":  true,
@@ -91,6 +115,7 @@ var (
 )
 
 // GenerateCmd - The main command used to generate implant binaries
+// GenerateCmd - The 用于生成 implant 二进制文件的主命令
 func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if shouldRunGenerateForm(cmd, con, args) {
 		compiler, _ := compilerTargets(con)
@@ -191,6 +216,7 @@ func applyGenerateForm(cmd *cobra.Command, result *forms.GenerateFormResult) err
 
 func expandPath(path string) string {
 	// unless path starts with ~
+	// 除非路径以 ~ 开头
 	if len(path) == 0 || path[0] != 126 {
 		return path
 	}
@@ -248,6 +274,7 @@ func nameOfOutputFormat(value clientpb.OutputFormat) string {
 }
 
 // Shared function that extracts the compile flags from the grumble context
+// 从 grumble 上下文中提取编译标志的 Shared 函数
 func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *clientpb.ImplantConfig) {
 	var name string
 	if nameF, _ := cmd.Flags().GetString("name"); nameF != "" {
@@ -331,6 +358,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		for _, canaryDomain := range strings.Split(rawCanaries, ",") {
 			if !strings.HasSuffix(canaryDomain, ".") {
 				canaryDomain += "." // Ensure we have the FQDN
+				canaryDomain += "." // Ensure 我们有 FQDN
 			}
 			canaryDomains = append(canaryDomains, canaryDomain)
 		}
@@ -383,6 +411,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		isService = true
 	default:
 		// Default to exe
+		// Default 到 exe
 		configFormat = clientpb.OutputFormat_EXECUTABLE
 	}
 
@@ -398,6 +427,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		switch targetOS {
 		case "windows":
 			// Server-side implementation supports amd64 and 386 only.
+			// Server__PH0__ 实现支持 amd64 和 386 only.
 			if targetArch != "amd64" && targetArch != "386" {
 				con.PrintErrorf("Windows shellcode format is only supported on windows/amd64 and windows/386\n")
 				return "", nil
@@ -423,6 +453,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 	}
 
 	// Check to see if we can *probably* build the target binary
+	// Check 看看我们是否可以*可能*构建目标二进制文件
 	if !checkBuildTargetCompatibility(configFormat, targetOS, targetArch, con) {
 		return "", nil
 	}
@@ -439,6 +470,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		return "", nil
 	}
 	sgnEnabled := shellcodeEncoder == clientpb.ShellcodeEncoder_SHIKATA_GA_NAI // legacy field
+	sgnEnabled := shellcodeEncoder == clientpb.ShellcodeEncoder_SHIKATA_GA_NAI // 遗留领域
 
 	var tunIP net.IP
 	if wg, _ := cmd.Flags().GetString("wg"); wg != "" {
@@ -454,6 +486,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 	netGo, _ := cmd.Flags().GetBool("netgo")
 
 	// TODO: Use generics or something to check in a slice
+	// TODO: Use 泛型或要在切片中检查的内容
 	connectionStrategy, _ := cmd.Flags().GetString("strategy")
 	if connectionStrategy != "" && connectionStrategy != "s" && connectionStrategy != "r" && connectionStrategy != "rd" {
 		con.PrintErrorf("Invalid connection strategy: %s\n", connectionStrategy)
@@ -470,6 +503,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 	}
 
 	// exports if its a shared library
+	// 如果是共享库则导出
 
 	config := &clientpb.ImplantConfig{
 		GOOS:             targetOS,
@@ -520,6 +554,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 
 func parseShellcodeFlags(cmd *cobra.Command, targetOS string, configFormat clientpb.OutputFormat, con *console.SliverClient) (*clientpb.ShellcodeConfig, error) {
 	// Prefer the new `--shellcode-*` flags. Fall back to hidden deprecated `--donut-*` flags for compatibility.
+	// Prefer 新的 __PH0__ flags. Fall 回到 compatibility. 隐藏的已弃用的 __PH1__ 标志
 	shellcodeEntropy, _ := cmd.Flags().GetUint32("shellcode-entropy")
 	if !cmd.Flags().Changed("shellcode-entropy") {
 		shellcodeEntropy, _ = cmd.Flags().GetUint32("donut-entropy")
@@ -600,9 +635,11 @@ func parseShellcodeFlags(cmd *cobra.Command, targetOS string, configFormat clien
 		cmd.Flags().Changed("donut-oep")
 
 	// macOS and Linux shellcode currently only support compression.
+	// macOS 和 Linux shellcode 目前仅支持 compression.
 	if targetOS != "windows" {
 		if targetOS != "darwin" && targetOS != "linux" {
 			// parseCompileFlags normally blocks this, but keep a safe fallback.
+			// parseCompileFlags 通常会阻止此操作，但请保留安全的 fallback.
 			if anyChanged {
 				con.PrintWarnf("Shellcode options are only supported on Windows, macOS, and Linux shellcode, ignoring.\n")
 			}
@@ -743,10 +780,12 @@ func parseShellcodeEncoderFlag(cmd *cobra.Command, targetArch string, configForm
 	}
 
 	// If no encoder specified, prompt for a compatible encoder (or none).
+	// If 未指定编码器，提示兼容的编码器（或无）。
 	if rawEncoder == "" && !cmd.Flags().Changed("shellcode-encoder") {
 		compatible := compatibleShellcodeEncoderNames(encoderMap, targetArch)
 		if len(compatible) == 0 {
 			// No known compatible encoders for this arch.
+			// No 已知与此 arch. 兼容的编码器
 			return clientpb.ShellcodeEncoder_NONE, nil
 		}
 
@@ -767,6 +806,7 @@ func parseShellcodeEncoderFlag(cmd *cobra.Command, targetArch string, configForm
 	}
 
 	// Encoder explicitly specified by name.
+	// Encoder 由 name. 显式指定
 	encoder, ok := shellcodeEncoderEnumForArch(encoderMap, targetArch, rawEncoder)
 	if !ok {
 		compatible := compatibleShellcodeEncoderNames(encoderMap, targetArch)
@@ -779,6 +819,7 @@ func parseShellcodeEncoderFlag(cmd *cobra.Command, targetArch string, configForm
 }
 
 // parseTrafficEncoderArgs - parses the traffic encoder args and returns a bool indicating if traffic encoders are enabled.
+// parseTrafficEncoderArgs - 解析流量编码器参数并返回一个布尔值，指示流量编码器是否为 enabled.
 func parseTrafficEncoderArgs(cmd *cobra.Command, httpC2Enabled bool, con *console.SliverClient) (bool, []*commonpb.File) {
 	trafficEncoders, _ := cmd.Flags().GetString("traffic-encoders")
 	encoders := []*commonpb.File{}
@@ -800,7 +841,8 @@ func parseTrafficEncoderArgs(cmd *cobra.Command, httpC2Enabled bool, con *consol
 }
 
 func getTargets(targetOS string, targetArch string, con *console.SliverClient) (string, string) {
-	/* For UX we convert some synonymous terms */
+	/* For UX we convert some synonymous terms 
+ For UX 我们转换一些同义词*/
 	if targetOS == "darwin" || targetOS == "mac" || targetOS == "macos" || targetOS == "osx" {
 		targetOS = "darwin"
 	}
@@ -833,6 +875,7 @@ func getTargets(targetOS string, targetArch string, con *console.SliverClient) (
 }
 
 // ParseMTLSc2 - Parse mtls connection string arg.
+// ParseMTLSc2 - Parse mtls 连接字符串 arg.
 func ParseMTLSc2(args string) ([]*clientpb.ImplantC2, error) {
 	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
@@ -868,6 +911,7 @@ func ParseMTLSc2(args string) ([]*clientpb.ImplantC2, error) {
 }
 
 // ParseWGc2 - Parse wg connect string arg.
+// ParseWGc2 - Parse wg 连接字符串 arg.
 func ParseWGc2(args string) ([]*clientpb.ImplantC2, error) {
 	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
@@ -912,11 +956,17 @@ func hasValidC2AdvancedOptions(options url.Values) (bool, error) {
 		switch key {
 		/*
 			The following options are passed through as-is:
+			The 以下选项通过 as__PH0__: 传递
 			proxy-username
+			proxy__PH0__
 			proxy-password
+			proxy__PH0__
 			host-header
+			host__PH0__
 			force-resolv-conf (validation is handled server side)
+			force__PH0__（验证在服务器端处理）
 			resolvers
+			解析器
 		*/
 		case "net-timeout", "tls-timeout", "poll-timeout", "timeout", "retry-wait":
 			if _, err := time.ParseDuration(testValue); err != nil {
@@ -928,6 +978,7 @@ func hasValidC2AdvancedOptions(options url.Values) (bool, error) {
 			}
 		case "driver":
 			// If this is specified, then it should be wininet (the only alternative driver currently supported)
+			// If 这是指定的，那么它应该是wininet（当前支持的唯一替代驱动程序）
 			if testValue != "wininet" {
 				return false, fmt.Errorf("C2 option \"driver\" must be empty for the default driver or \"wininet\" for the wininet driver (Windows only)")
 			}
@@ -974,6 +1025,7 @@ func checkOptionValue(c2Options url.Values, option string, value string) bool {
 func uriWithoutProxyOptions(uri *url.URL) {
 	options := uri.Query()
 	// If any of the options do not exist, there is no error
+	// If 任何一个选项不存在，则没有错误
 	options.Del("proxy")
 	options.Del("proxy-username")
 	options.Del("proxy-password")
@@ -984,6 +1036,7 @@ func uriWithoutProxyOptions(uri *url.URL) {
 }
 
 // ParseHTTPc2 - Parse HTTP connection string arg.
+// ParseHTTPc2 - Parse HTTP 连接字符串 arg.
 func ParseHTTPc2(args string) ([]*clientpb.ImplantC2, error) {
 	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
@@ -1016,7 +1069,9 @@ func ParseHTTPc2(args string) ([]*clientpb.ImplantC2, error) {
 			URL:      uri.String(),
 		})
 		/* If a proxy is defined and the operator wants to fallback to connecting directly, add
+ If 定义了代理，并且 operator 想要回退到直接连接，请添加
 		   a C2 that connects directly without the proxy settings.
+		   不通过代理 settings. 直接连接的 C2
 		*/
 		if checkOptionValue(uri.Query(), "fallback", "true") && uri.Query().Has("proxy") && !checkOptionValue(uri.Query(), "driver", "wininet") {
 			uriWithoutProxyOptions(uri)
@@ -1030,6 +1085,7 @@ func ParseHTTPc2(args string) ([]*clientpb.ImplantC2, error) {
 }
 
 // ParseDNSc2 - Parse DNS connection string arg.
+// ParseDNSc2 - Parse DNS 连接字符串 arg.
 func ParseDNSc2(args string) ([]*clientpb.ImplantC2, error) {
 	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
@@ -1065,6 +1121,7 @@ func ParseDNSc2(args string) ([]*clientpb.ImplantC2, error) {
 }
 
 // ParseNamedPipec2 - Parse named pipe connection string arg.
+// ParseNamedPipec2 - Parse 命名管道连接字符串 arg.
 func ParseNamedPipec2(args string) ([]*clientpb.ImplantC2, error) {
 	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
@@ -1109,6 +1166,7 @@ func ParseNamedPipec2(args string) ([]*clientpb.ImplantC2, error) {
 }
 
 // ParseTCPPivotc2 - Parse tcp pivot connection string arg.
+// ParseTCPPivotc2 - Parse tcp 枢轴连接串 arg.
 func ParseTCPPivotc2(args string) ([]*clientpb.ImplantC2, error) {
 	c2s := []*clientpb.ImplantC2{}
 	if args == "" {
@@ -1182,6 +1240,7 @@ func externalBuild(name string, config *clientpb.ImplantConfig, save string, con
 	spinner := spin.New()
 
 	sigint := make(chan os.Signal, 1) // Catch keyboard interrupts
+	sigint := make(chan os.Signal, 1) // Catch 键盘中断
 	signal.Notify(sigint, os.Interrupt)
 
 	con.PrintInfof("Creating external build ... ")
@@ -1439,6 +1498,7 @@ func getLimitsString(config *clientpb.ImplantConfig) string {
 func checkBuildTargetCompatibility(format clientpb.OutputFormat, targetOS string, targetArch string, con *console.SliverClient) bool {
 	if format == clientpb.OutputFormat_EXECUTABLE {
 		return true // We don't need cross-compilers when targeting EXECUTABLE formats
+		return true // 当定位 EXECUTABLE 格式时，We 不需要 cross__PH0__
 	}
 
 	compilers, err := con.Rpc.GetCompiler(context.Background(), &commonpb.Empty{})

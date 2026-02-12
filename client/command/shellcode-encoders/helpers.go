@@ -50,6 +50,7 @@ func fetchShellcodeEncoderMap(con *console.SliverClient) (*clientpb.ShellcodeEnc
 }
 
 // ShellcodeEncoderNameCompleter returns available encoder names with supported arches.
+// ShellcodeEncoderNameCompleter 返回支持 arches. 的可用编码器名称
 func ShellcodeEncoderNameCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
 		encoderMap, err := fetchShellcodeEncoderMap(con)
@@ -86,6 +87,7 @@ func ShellcodeEncoderNameCompleter(con *console.SliverClient) carapace.Action {
 }
 
 // ShellcodeEncoderArchCompleter returns available architectures.
+// ShellcodeEncoderArchCompleter 返回可用 architectures.
 func ShellcodeEncoderArchCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
 		encoderMap, err := fetchShellcodeEncoderMap(con)

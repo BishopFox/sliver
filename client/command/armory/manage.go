@@ -203,6 +203,7 @@ func viewDetailedInformation(con *console.SliverClient, entity string) {
 	})
 
 	// See where this name exists in the armory and package indexes
+	// See，该名称存在于 armory 和包索引中
 	armoryResult := armoryLookupByName(entity)
 	if armoryResult != nil {
 		tw.AppendRows(generateRowsForArmory(armoryResult))
@@ -213,6 +214,7 @@ func viewDetailedInformation(con *console.SliverClient, entity string) {
 	}
 
 	// Get packages with this name
+	// 具有此名称的 Get 包
 	packageResult := packageCacheLookupByName(entity)
 	if len(packageResult) > 0 {
 		con.Printf("Packages named %s\n\n", entity)
@@ -225,6 +227,7 @@ func viewDetailedInformation(con *console.SliverClient, entity string) {
 	}
 
 	// Get extensions containing commands with this name
+	// Get 扩展包含具有此名称的命令
 	commandResult := packageCacheLookupByCmd(entity)
 	commandResultFiltered := make([]*pkgCacheEntry, 0)
 	for _, cmd := range commandResult {
@@ -249,6 +252,7 @@ func ArmoryInfoCommand(cmd *cobra.Command, con *console.SliverClient, args []str
 		return
 	}
 	// If the user wants info on something specific, make sure the caches are up to date
+	// If 用户想要有关特定内容的信息，请确保缓存是最新的
 	refresh(parseArmoryHTTPConfig(cmd))
 	viewDetailedInformation(con, args[0])
 }
@@ -256,6 +260,7 @@ func ArmoryInfoCommand(cmd *cobra.Command, con *console.SliverClient, args []str
 func verifyArmory(armoryInfo *assets.ArmoryConfig, clientConfig ArmoryHTTPConfig) error {
 	wg := &sync.WaitGroup{}
 	// Only making one request, so we can limit ourselves to one concurrent request
+	// Only 发出一个请求，因此我们可以将自己限制为一个并发请求
 	requestChannel := make(chan struct{}, 1)
 	wg.Add(1)
 	requestChannel <- struct{}{}
@@ -274,11 +279,13 @@ func getCurrentArmoryConfiguration() []*assets.ArmoryConfig {
 	configs := []*assets.ArmoryConfig{}
 	armoryNames := []string{}
 	// If the default armory is in the configuration, force it to be last
+	// If 默认 armory 在配置中，强制将其放在最后
 	var defaultConfig *assets.ArmoryConfig
 
 	currentArmories.Range(func(key, value interface{}) bool {
 		armoryEntry := value.(assets.ArmoryConfig)
 		// Skip over the default armory for now
+		// 目前 Skip 超过默认 armory
 		if armoryEntry.Name != assets.DefaultArmoryName {
 			configs = append(configs, &armoryEntry)
 			armoryNames = append(armoryNames, armoryEntry.Name)
@@ -291,8 +298,11 @@ func getCurrentArmoryConfiguration() []*assets.ArmoryConfig {
 	if !armoriesInitialized {
 		/*
 			Armories are initialized on the first call to the armory command
+			Armories 在第一次调用 armory 命令时初始化
 			If armories are added or removed before the first call, we want
+			If 军械库在第一次调用之前添加或删除，我们想要
 			to make sure we still load in the ones from the configuration
+			确保我们仍然从配置中加载
 			file.
 		*/
 		persistentConfigs := assets.GetArmoriesConfig()
@@ -303,6 +313,7 @@ func getCurrentArmoryConfiguration() []*assets.ArmoryConfig {
 						continue
 					} else if defaultConfig != nil {
 						// The user potentially changed something about the default config
+						// The 用户可能更改了默认配置的某些内容
 						configs = append(configs, defaultConfig)
 						currentArmories.Store(config.PublicKey, *defaultConfig)
 						continue
@@ -349,6 +360,7 @@ func armoryKeyExists(pubKey string) bool {
 
 func AddArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	// Get necessary information
+	// Get必要信息
 	url, _ := cmd.Flags().GetString("url")
 	pubKey, _ := cmd.Flags().GetString("pubkey")
 	auth, _ := cmd.Flags().GetString("auth")
@@ -362,6 +374,7 @@ func AddArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 		return
 	}
 	// Make sure we do not already have an armory config with the supplied name
+	// Make 确保我们还没有具有所提供名称的 armory 配置
 	if armoryNameExists(name) {
 		con.PrintErrorf("armory %s already exists\n", name)
 		return
@@ -378,6 +391,7 @@ func AddArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	}
 
 	// verifyArmory will add the armory index to the cache on success, so we do not have to force a refresh
+	// 成功后 verifyArmory 会将 armory 索引添加到缓存中，因此我们不必强制刷新
 	err := verifyArmory(&armoryConfig, clientConfig)
 	if err != nil {
 		con.PrintErrorf("could not add armory: %s\n", err)
@@ -397,6 +411,7 @@ func AddArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 }
 
 // Get a list of package IDs for an armory by its public key
+// Get 一个 armory 的包 IDs 的列表（按其公钥）
 func getPackageIDsForArmory(armoryPublicKey string) []string {
 	packageIDs := []string{}
 
@@ -430,8 +445,11 @@ func RemoveArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 			indexCache.Delete(armory.PublicKey)
 			/*
 				To delete from the package cache, we will have
+				To 从包缓存中删除，我们将有
 				to gather a list of package IDs for the
+				收集 IDs 包的列表
 				armory then delete them from the cache.
+				armory 然后从 cache. 中删除它们
 			*/
 			armoryPackageIDs := getPackageIDsForArmory(armory.PublicKey)
 			for _, id := range armoryPackageIDs {
@@ -494,6 +512,7 @@ func getArmoryConfig(name string) (assets.ArmoryConfig, error) {
 
 func ChangeArmoryEnabledState(cmd *cobra.Command, con *console.SliverClient, args []string, enabled bool) {
 	// Get the armory's public key, change its state, then update the cache to remove packages from the armory
+	// Get armory 的公钥，更改其状态，然后更新缓存以从 armory 中删除包
 	var name string
 	if len(args) > 0 && args[0] != "" {
 		name = args[0]
@@ -513,6 +532,7 @@ func ChangeArmoryEnabledState(cmd *cobra.Command, con *console.SliverClient, arg
 
 	if !enabled {
 		// Remove cached info for the armory if it is disabled
+		// Remove 缓存 armory 的信息（如果已禁用）
 		armoryPackageIDs := getPackageIDsForArmory(armoryPublicKey)
 		for _, id := range armoryPackageIDs {
 			pkgCache.Delete(id)
@@ -520,6 +540,7 @@ func ChangeArmoryEnabledState(cmd *cobra.Command, con *console.SliverClient, arg
 		indexCache.Delete(armoryPublicKey)
 	}
 	// Force a refresh
+	// Force 刷新
 	clientConfig := parseArmoryHTTPConfig(cmd)
 	con.PrintInfof("Refreshing armory information...\n")
 	refresh(clientConfig)
@@ -529,6 +550,7 @@ func ChangeArmoryEnabledState(cmd *cobra.Command, con *console.SliverClient, arg
 
 func ModifyArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	// Quick check to make sure we were provided with a name
+	// Quick 检查以确保我们获得了姓名
 	var name string
 	if len(args) > 0 && args[0] != "" {
 		name = args[0]
@@ -539,6 +561,7 @@ func ModifyArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	}
 
 	// Get the record for the armory
+	// Get armory 的记录
 	armoryConfig, err := getArmoryConfig(name)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -546,7 +569,9 @@ func ModifyArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	}
 
 	// Save the old config so we can delete the existing config
+	// Save 旧配置，以便我们可以删除现有配置
 	// and revert if needed
+	// 并在需要时恢复
 	previousConfig := assets.ArmoryConfig{
 		PublicKey:        armoryConfig.PublicKey,
 		RepoURL:          armoryConfig.RepoURL,
@@ -559,6 +584,7 @@ func ModifyArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	if cmd.Flags().Changed("name") {
 		newName, _ := cmd.Flags().GetString("name")
 		// Make sure the name does not already exist
+		// Make 确保该名称尚不存在
 		if armoryNameExists(newName) {
 			con.PrintErrorf("armory with name %s already exists\n", name)
 			return
@@ -569,7 +595,9 @@ func ModifyArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 		newPubKey, _ := cmd.Flags().GetString("pubkey")
 		/*
 			Since public keys are used as the key for the index cache,
+			Since 公钥用作索引缓存的密钥，
 			make sure we have not been given a key that already exists
+			确保我们没有获得已经存在的密钥
 		*/
 		if armoryKeyExists(newPubKey) {
 			con.PrintErrorf("armory provided public key already exists\n")
@@ -591,6 +619,7 @@ func ModifyArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	}
 
 	// We will remove the old armory and add a new one with the changed properties to force a refresh
+	// We 将删除旧的 armory 并添加一个具有更改属性的新的 armory 以强制刷新
 	currentArmories.Delete(previousConfig.PublicKey)
 	indexCache.Delete(previousConfig.PublicKey)
 	armoryPackageIDs := getPackageIDsForArmory(previousConfig.PublicKey)
@@ -620,6 +649,7 @@ func ModifyArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 		SaveArmories(con)
 	}
 	// Force a refresh
+	// Force 刷新
 	con.PrintInfof("Refreshing armory information...\n")
 	refresh(clientConfig)
 	con.PrintSuccessf("Done\n")
@@ -628,6 +658,7 @@ func ModifyArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 func RefreshArmories(cmd *cobra.Command, con *console.SliverClient) {
 	clientConfig := parseArmoryHTTPConfig(cmd)
 	// Since this being called from the refresh command, force the refresh
+	// Since 这是从刷新命令调用的，强制刷新
 	clientConfig.IgnoreCache = true
 	clearAllCaches()
 	armoriesInitialized = false
@@ -647,6 +678,7 @@ func ResetArmoryConfig(cmd *cobra.Command, con *console.SliverClient) {
 	con.PrintSuccessf("Removed armory configuration file %s\n", armoryConfigPath)
 
 	// Force a refresh
+	// Force 刷新
 	RefreshArmories(cmd, con)
 	con.PrintSuccessf("Successfully reset armory configuration\n")
 }

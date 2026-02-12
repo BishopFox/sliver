@@ -11,6 +11,7 @@ import (
 )
 
 // Commands returns the edit command.
+// Commands 返回编辑 command.
 func Commands(con *console.SliverClient) []*cobra.Command {
 	editCmd := &cobra.Command{
 		Use:   consts.EditStr,

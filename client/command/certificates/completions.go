@@ -12,6 +12,7 @@ import (
 )
 
 // CertificateCommonNameCompleter completes common names for stored certificates.
+// CertificateCommonNameCompleter 完成存储的 certificates. 的通用名称
 func CertificateCommonNameCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
 		if con == nil || con.Rpc == nil {

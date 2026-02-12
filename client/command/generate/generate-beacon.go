@@ -20,6 +20,7 @@ var (
 )
 
 // GenerateBeaconCmd - The main command used to generate implant binaries
+// GenerateBeaconCmd - The 用于生成 implant 二进制文件的主命令
 func GenerateBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if shouldRunGenerateBeaconForm(cmd, con, args) {
 		compiler, _ := compilerTargets(con)
@@ -68,12 +69,16 @@ func parseBeaconFlags(cmd *cobra.Command, config *clientpb.ImplantConfig) error 
 
 	/*
 		If seconds has not been specified but any of the other time units have, then do not add
+		If 秒尚未指定，但任何其他时间单位已指定，则不添加
 		the default 60 seconds to the interval.
+		默认 60 秒到 interval.
 
 		If seconds have been specified, then add them regardless.
+		已指定 If 秒，然后添加 regardless.
 	*/
 	if (!cmd.Flags().Changed("seconds") && interval.Seconds() == 0) || (cmd.Flags().Changed("seconds")) {
 		// if (ctx.Flags["seconds"].IsDefault && interval.Seconds() == 0) || (!ctx.Flags["seconds"].IsDefault) {
+		// 如果 (ctx.Flags[__PH0__].IsDefault && interval.Seconds() == 0) || (!ctx.Flags[__PH1__].IsDefault) {
 		seconds, _ := cmd.Flags().GetInt64("seconds")
 		interval += time.Duration(seconds) * time.Second
 	}

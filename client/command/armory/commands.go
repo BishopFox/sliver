@@ -13,6 +13,7 @@ import (
 )
 
 // Commands returns the `armory` command and its subcommands.
+// Commands 返回 `armory` 命令及其子命令。
 func Commands(con *console.SliverClient) []*cobra.Command {
 	armoryCmd := &cobra.Command{
 		Use:   consts.ArmoryStr,
@@ -95,6 +96,8 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Short: "Add a new armory",
 		Long:  help.GetHelpFor([]string{consts.ArmoryStr, consts.AddStr}),
 		Args:  cobra.ExactArgs(1), // the name of the armory
+		Args:  cobra.ExactArgs(1), // armory 的名称
+		// armory 名称
 		Run: func(cmd *cobra.Command, args []string) {
 			AddArmoryCmd(cmd, con, args)
 		},
@@ -118,6 +121,8 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Short: "Remove an armory",
 		Long:  help.GetHelpFor([]string{consts.ArmoryStr, consts.RmStr}),
 		Args:  cobra.ExactArgs(1), // the name of the armory
+		Args:  cobra.ExactArgs(1), // armory 的名称
+		// armory 名称
 		Run: func(cmd *cobra.Command, args []string) {
 			RemoveArmoryCmd(cmd, con, args)
 		},
@@ -142,6 +147,8 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Short: "Enable an armory",
 		Long:  help.GetHelpFor([]string{consts.ArmoryStr, consts.EnableStr}),
 		Args:  cobra.ExactArgs(1), // The name of the armory
+		Args:  cobra.ExactArgs(1), // The armory 的名称
+		// armory 名称
 		Run: func(cmd *cobra.Command, args []string) {
 			ChangeArmoryEnabledState(cmd, con, args, true)
 		},
@@ -156,6 +163,8 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Short: "Disable an armory",
 		Long:  help.GetHelpFor([]string{consts.ArmoryStr, consts.DisableStr}),
 		Args:  cobra.ExactArgs(1), // The name of the armory
+		Args:  cobra.ExactArgs(1), // The armory 的名称
+		// armory 名称
 		Run: func(cmd *cobra.Command, args []string) {
 			ChangeArmoryEnabledState(cmd, con, args, false)
 		},
@@ -170,6 +179,8 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Short: "Modify an armory configuration",
 		Long:  help.GetHelpFor([]string{consts.ArmoryStr, consts.ModifyStr}),
 		Args:  cobra.ExactArgs(1), // The name of the armory
+		Args:  cobra.ExactArgs(1), // The armory 的名称
+		// armory 名称
 		Run: func(cmd *cobra.Command, args []string) {
 			ModifyArmoryCmd(cmd, con, args)
 		},

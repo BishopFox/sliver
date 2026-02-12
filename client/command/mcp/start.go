@@ -8,6 +8,7 @@ import (
 )
 
 // McpStartCmd starts the local MCP server.
+// McpStartCmd 启动本地 MCP server.
 func McpStartCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	rawTransport, _ := cmd.Flags().GetString("transport")
 	transport, err := slivermcp.ParseTransport(rawTransport)

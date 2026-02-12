@@ -3,19 +3,30 @@ package sessions
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
+	Copyright (C) 2019 Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
+	This 程序是免费软件：您可以重新分发它 and/or 修改
 	it under the terms of the GNU General Public License as published by
+	它根据 GNU General Public License 发布的条款
 	the Free Software Foundation, either version 3 of the License, or
+	Free Software Foundation，License 的版本 3，或
 	(at your option) any later version.
+	（由您选择）稍后 version.
 
 	This program is distributed in the hope that it will be useful,
+	This 程序被分发，希望它有用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但是WITHOUT ANY WARRANTY；甚至没有默示保证
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY 或 FITNESS FOR A PARTICULAR PURPOSE. See
 	GNU General Public License for more details.
+	GNU General Public License 更多 details.
 
 	You should have received a copy of the GNU General Public License
+	You 应已收到 GNU General Public License 的副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	与此 program. If 不一起，请参见 <__PH0__
 */
 
 import (
@@ -36,6 +47,7 @@ import (
 )
 
 // SessionsCmd - Display/interact with sessions.
+// SessionsCmd - Display/interact 和 sessions.
 func SessionsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	interact, _ := cmd.Flags().GetString("interact")
 	killFlag, _ := cmd.Flags().GetString("kill")
@@ -126,6 +138,7 @@ func SessionsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 }
 
 // PrintSessions - Print the current sessions.
+// PrintSessions - Print 当前 sessions.
 func PrintSessions(sessions map[string]*clientpb.Session, filter string, filterRegex *regexp.Regexp, con *console.SliverClient) {
 	width, _, err := term.GetSize(0)
 	if err != nil {
@@ -207,6 +220,7 @@ func PrintSessions(sessions map[string]*clientpb.Session, filter string, filterR
 			burned = "🔥"
 		}
 		username := strings.TrimPrefix(session.Username, session.Hostname+"\\") // For non-AD Windows users
+		username := strings.TrimPrefix(session.Username, session.Hostname+"\\") // For non__PH0__ Windows 用户
 
 		var rowEntries []string
 		if wideTermWidth {
@@ -242,11 +256,13 @@ func PrintSessions(sessions map[string]*clientpb.Session, filter string, filterR
 			}
 		}
 		// Build the row struct
+		// Build 行结构
 		row := table.Row{}
 		for _, entry := range rowEntries {
 			row = append(row, entry)
 		}
 		// Apply filters if any
+		// Apply 过滤器（如果有）
 		if filter == "" && filterRegex == nil {
 			tw.AppendRow(row)
 		} else {
@@ -271,6 +287,7 @@ func PrintSessions(sessions map[string]*clientpb.Session, filter string, filterR
 }
 
 // ShortSessionID - Shorten the session ID.
+// ShortSessionID - Shorten session ID.
 func ShortSessionID(id string) string {
 	return strings.Split(id, "-")[0]
 }

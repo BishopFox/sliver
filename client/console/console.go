@@ -3,19 +3,30 @@ package console
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
+	Copyright (C) 2019 Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
+	This 程序是免费软件：您可以重新分发它 and/or 修改
 	it under the terms of the GNU General Public License as published by
+	它根据 GNU General Public License 发布的条款
 	the Free Software Foundation, either version 3 of the License, or
+	Free Software Foundation，License 的版本 3，或
 	(at your option) any later version.
+	（由您选择）稍后 version.
 
 	This program is distributed in the hope that it will be useful,
+	This 程序被分发，希望它有用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但是WITHOUT ANY WARRANTY；甚至没有默示保证
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY 或 FITNESS FOR A PARTICULAR PURPOSE. See
 	GNU General Public License for more details.
+	GNU General Public License 更多 details.
 
 	You should have received a copy of the GNU General Public License
+	You 应已收到 GNU General Public License 的副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	与此 program. If 不一起，请参见 <__PH0__
 */
 
 import (
@@ -57,21 +68,23 @@ const (
 
 const (
 	// Terminal control sequences (not "styling").
+	// Terminal 控制序列（不是__PH0__）。
 	Clearln = "\r\x1b[2K"
 	UpN     = "\033[%dA"
 	DownN   = "\033[%dB"
 )
 
 // Observer - A function to call when the sessions changes.
+// Observer - A 在会话 changes. 时调用的函数
 type (
 	Observer           func(*clientpb.Session, *clientpb.Beacon)
 	BeaconTaskCallback func(*clientpb.BeaconTask)
 )
 
 type SliverClient struct {
-	App                      *console.Console
-	Rpc                      rpcpb.SliverRPCClient
-	ActiveTarget             *ActiveTarget
+	App                      *console.Console      //控制台对象
+	Rpc                      rpcpb.SliverRPCClient //rpc对象
+	ActiveTarget             *ActiveTarget         //当前活跃目标
 	EventListeners           *sync.Map
 	BeaconTaskCallbacks      map[string]BeaconTaskCallback
 	BeaconTaskCallbacksMutex *sync.Mutex
@@ -96,7 +109,9 @@ type SliverClient struct {
 	logCommandHookApplied  bool
 
 	// These writers are always safe to use (never error); the underlying stream
+	// These writers 始终可以安全使用（不会出错）；底层流
 	// can be swapped on server switch to avoid breaking io.MultiWriter/io.Copy.
+	// 可以在服务器交换机上交换以避免破坏 io.MultiWriter/io.Copy.
 	jsonRemoteWriter      *optionalRemoteWriter
 	asciicastRemoteWriter *optionalRemoteWriter
 	jsonRemoteStream      rpcpb.SliverRPC_ClientLogClient
@@ -104,8 +119,11 @@ type SliverClient struct {
 }
 
 // NewConsole creates the sliver client (and console), creating menus and prompts.
+// NewConsole 创建 sliver 客户端（和控制台），创建菜单和 prompts.
 // The returned console does neither have commands nor a working RPC connection yet,
+// The 返回的控制台既没有命令，也没有有效的 RPC 连接，
 // thus has not started monitoring any server events, or started the application.
+// 因此尚未开始监视任何服务器事件，或启动 application.
 func NewConsole(isServer bool) *SliverClient {
 	assets.Setup(false, false)
 	_ = theme.LoadAndSetCurrentTheme()
@@ -126,18 +144,23 @@ func NewConsole(isServer bool) *SliverClient {
 		connWg:                   &sync.WaitGroup{},
 	}
 	// Ensure logging never panics even if console logs are disabled.
+	// 即使控制台日志是 disabled.，Ensure 日志记录也不会出现恐慌
 	con.jsonHandler = slog.NewJSONHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelDebug})
 
 	// The active target needs access to the console
+	// The 活动目标需要访问控制台
 	// to automatically switch between command menus.
+	// 在命令 menus. 之间自动切换
 	con.ActiveTarget.con = con
 
 	// Readline-shell (edition) settings
+	// Readline__PH0__（版本）设置
 	if settings.VimMode {
 		con.App.Shell().Config.Set("editing-mode", "vi")
 	}
 
 	// Global console settings
+	// Global 控制台设置
 	con.App.NewlineBefore = true
 	con.App.NewlineAfter = true
 
@@ -146,6 +169,7 @@ func NewConsole(isServer bool) *SliverClient {
 	server.Short = "Server commands"
 	server.Prompt().Primary = con.GetPrompt
 	server.AddInterrupt(readline.ErrInterrupt, con.exitConsole) // Ctrl-C
+	server.AddInterrupt(readline.ErrInterrupt, con.exitConsole) // Ctrl__PH0__
 
 	server.AddHistorySourceFile("server history", filepath.Join(assets.GetRootAppDir(), "history"))
 
@@ -154,6 +178,7 @@ func NewConsole(isServer bool) *SliverClient {
 	sliver.Short = "Implant commands"
 	sliver.Prompt().Primary = con.GetPrompt
 	sliver.AddInterrupt(io.EOF, con.exitImplantMenu) // Ctrl-D
+	sliver.AddInterrupt(io.EOF, con.exitImplantMenu) // Ctrl__PH0__
 
 	con.App.SetPrintLogo(func(_ *console.Console) {
 		con.PrintLogo()
@@ -163,17 +188,24 @@ func NewConsole(isServer bool) *SliverClient {
 }
 
 // Init requires a working RPC connection to the sliver server, and 2 different sets of commands.
+// Init 需要与 sliver 服务器的工作 RPC 连接，以及 2 组不同的 commands.
 // If run is true, the console application is started, making this call blocking. Otherwise, commands and
+// If run 为 true，控制台应用程序启动，调用 blocking. Otherwise，命令和
 // RPC connection are bound to the console (making the console ready to run), but the console does not start.
+// RPC 连接绑定到控制台（使控制台准备好运行），但控制台不 start.
 func StartClient(con *SliverClient, rpc rpcpb.SliverRPCClient, grpcConn *grpc.ClientConn, details *ConnectionDetails, serverCmds, sliverCmds console.Commands, run bool, rcScript string) error {
 	con.IsCLI = !run
 	con.serverCmds = serverCmds
 	con.sliverCmds = sliverCmds
 
 	// The console application needs to query the terminal for cursor positions
+	// The 控制台应用程序需要查询终端的光标位置
 	// when asynchronously printing logs (that is, when no command is running).
+	// 异步打印日志时（即没有命令运行时）。
 	// If ran from a system shell, however, those queries will block because
+	// If 从系统 shell 运行，但是，这些查询将被阻止，因为
 	// the system shell is in control of stdin. So just use the classic Printf.
+	// 系统 shell 控制 stdin. So 只需使用经典的 Printf.
 	if con.IsCLI {
 		con.printf = fmt.Printf
 	} else {
@@ -181,6 +213,7 @@ func StartClient(con *SliverClient, rpc rpcpb.SliverRPCClient, grpcConn *grpc.Cl
 	}
 
 	// Bind commands to the app
+	// Bind 对应用程序的命令
 	server := con.App.Menu(consts.ServerMenu)
 	server.SetCommands(serverCmds)
 
@@ -190,15 +223,19 @@ func StartClient(con *SliverClient, rpc rpcpb.SliverRPCClient, grpcConn *grpc.Cl
 	con.applyConnectionHooksOnce()
 
 	// console logger
+	// 控制台记录器
 	if con.Settings.ConsoleLogs {
 		// Classic logs
+		// Classic 日志
 		consoleLog := getConsoleLogFile()
 		con.ensureJSONRemoteWriter()
 		con.setupLogger(consoleLog, con.jsonRemoteWriter)
 		defer consoleLog.Close()
 
 		// Ascii cast sessions (complete terminal interface) are only useful
+		// Ascii 投射会话（完整的终端界面）仅有用
 		// for the interactive console. In CLI mode they would clobber stdout.
+		// 对于交互式 console. In CLI 模式，他们会破坏 stdout.
 		if !con.IsCLI {
 			asciicastLog := getConsoleAsciicastFile()
 			defer asciicastLog.Close()
@@ -262,6 +299,7 @@ func (con *SliverClient) runRCLine(serverCmds, sliverCmds console.Commands, line
 	menu := con.App.ActiveMenu()
 	if menu != nil {
 		// Reset per line to avoid stale roots when rc scripts switch menus.
+		// 每行 Reset 以避免 rc 脚本切换 menus. 时出现陈旧根
 		menu.Command = nil
 	}
 
@@ -342,6 +380,7 @@ func (con *SliverClient) startEventLoop(ctx context.Context) {
 		go con.triggerEventListeners(event)
 
 		// Trigger event based on type
+		// Trigger 基于类型的事件
 		switch event.EventType {
 
 		case consts.CanaryEvent:
@@ -419,6 +458,7 @@ func (con *SliverClient) startEventLoop(ctx context.Context) {
 }
 
 // CreateEventListener - creates a new event listener and returns its ID.
+// CreateEventListener - 创建一个新事件 listener 并返回其 ID.
 func (con *SliverClient) CreateEventListener() (string, <-chan *clientpb.Event) {
 	listener := make(chan *clientpb.Event, 100)
 	listenerID, _ := uuid.NewV4()
@@ -427,6 +467,7 @@ func (con *SliverClient) CreateEventListener() (string, <-chan *clientpb.Event) 
 }
 
 // RemoveEventListener - removes an event listener given its id.
+// RemoveEventListener - 删除事件 listener（给定其 id.）
 func (con *SliverClient) RemoveEventListener(listenerID string) {
 	value, ok := con.EventListeners.LoadAndDelete(listenerID)
 	if ok {
@@ -438,6 +479,7 @@ func (con *SliverClient) triggerEventListeners(event *clientpb.Event) {
 	con.EventListeners.Range(func(key, value interface{}) bool {
 		listener := value.(chan *clientpb.Event)
 		listener <- event // Do not block while sending the event to the listener
+		listener <- event // Do 在将事件发送到 listener 时不会阻塞
 		return true
 	})
 }
@@ -449,7 +491,9 @@ func (con *SliverClient) triggerReactions(event *clientpb.Event) {
 	}
 
 	// We need some special handling for SessionOpenedEvent to
+	// We 需要对 SessionOpenedEvent 进行一些特殊处理
 	// set the new session as the active session
+	// 将新的 session 设置为活动 session
 	currentActiveSession, currentActiveBeacon := con.ActiveTarget.Get()
 	defer func() {
 		con.ActiveTarget.Set(currentActiveSession, currentActiveBeacon)
@@ -480,6 +524,7 @@ func (con *SliverClient) triggerReactions(event *clientpb.Event) {
 }
 
 // triggerBeaconTaskCallback - Triggers the callback for a beacon task.
+// triggerBeaconTaskCallback - Triggers callback 对应 beacon task.
 func (con *SliverClient) triggerBeaconTaskCallback(data []byte) {
 	task := &clientpb.BeaconTask{}
 	err := proto.Unmarshal(data, task)
@@ -492,8 +537,11 @@ func (con *SliverClient) triggerBeaconTaskCallback(data []byte) {
 	beacon, _ := con.Rpc.GetBeacon(ctx, &clientpb.Beacon{ID: task.BeaconID})
 
 	// If the callback is not in our map then we don't do anything, the beacon task
+	// If callback 不在我们的地图中，那么我们什么也不做， beacon task
 	// was either issued by another operator in multiplayer mode or the client process
+	// 是由多人模式中的另一个 operator 或客户端进程发出的
 	// was restarted between the time the task was created and when the server got the result
+	// 在创建 task 和服务器获得结果之间重新启动
 	con.BeaconTaskCallbacksMutex.Lock()
 	defer con.BeaconTaskCallbacksMutex.Unlock()
 	if callback, ok := con.BeaconTaskCallbacks[task.ID]; ok {
@@ -549,6 +597,7 @@ func (con *SliverClient) GetPrompt() string {
 		}
 	} else if promptStyle != assets.PromptStyleBasic {
 		// sliver-client only: optionally include operator/host context.
+		// 仅 sliver__PH0__：可选择包括 operator/host context.
 		if details, _, ok := con.CurrentConnection(); ok && details != nil && details.Config != nil {
 			operator := strings.TrimSpace(details.Config.Operator)
 			host := strings.TrimSpace(details.Config.LHost)
@@ -586,6 +635,7 @@ func (con *SliverClient) GetPrompt() string {
 
 func (con *SliverClient) PrintLogo() {
 	// Always show a logo even if the server connection is transiently unavailable.
+	// 即使服务器连接是暂时的 Always 也会显示徽标 unavailable.
 	logo := asciiLogos[util.Intn(len(asciiLogos))]
 	fmt.Println(strings.ReplaceAll(logo.Render(), "\n", "\r\n"))
 	fmt.Println("All hackers gain " + abilities[util.Intn(len(abilities))] + "\r")
@@ -675,6 +725,7 @@ func (con *SliverClient) GetSession(arg string) *clientpb.Session {
 }
 
 // GetSessionsByName - Return all sessions for an Implant by name.
+// GetSessionsByName - Return name. 的 Implant 的所有课程
 func (con *SliverClient) GetSessionsByName(name string) []*clientpb.Session {
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
@@ -691,7 +742,9 @@ func (con *SliverClient) GetSessionsByName(name string) []*clientpb.Session {
 }
 
 // GetActiveSessionConfig - Get the active sessions's config
+// GetActiveSessionConfig - Get 活动会话的配置
 // TODO: Switch to query config based on ConfigID.
+// TODO: Switch 根据 ConfigID. 查询配置
 func (con *SliverClient) GetActiveSessionConfig() *clientpb.ImplantConfig {
 	session := con.ActiveTarget.GetSession()
 	if session == nil {
@@ -716,8 +769,11 @@ func (con *SliverClient) GetActiveSessionConfig() *clientpb.ImplantConfig {
 		C2:                  c2s,
 	}
 	/* If this config will be used to build an implant,
+ If 此配置将用于构建 implant，
 	we need to make sure to include the correct transport
-	for the build */
+	我们需要确保包含正确的交通工具
+	for the build 
+	用于构建*/
 	switch session.Transport {
 	case "mtls":
 		config.IncludeMTLS = true
@@ -763,8 +819,11 @@ func (con *SliverClient) GetActiveBeaconConfig() *clientpb.ImplantConfig {
 		C2:                  c2s,
 	}
 	/* If this config will be used to build an implant,
+ If 此配置将用于构建 implant，
 	we need to make sure to include the correct transport
-	for the build */
+	我们需要确保包含正确的交通工具
+	for the build 
+	用于构建*/
 	switch beacon.Transport {
 	case "mtls":
 		config.IncludeMTLS = true
@@ -783,6 +842,7 @@ func (con *SliverClient) GetActiveBeaconConfig() *clientpb.ImplantConfig {
 }
 
 // exitConsole prompts the user for confirmation to exit the console.
+// exitConsole 提示用户确认退出 console.
 func (c *SliverClient) exitConsole(_ *console.Console) {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Print("Confirm exit (Y/y, Ctrl-C): ")
@@ -796,6 +856,7 @@ func (c *SliverClient) exitConsole(_ *console.Console) {
 }
 
 // exitImplantMenu uses the background command to detach from the implant menu.
+// exitImplantMenu 使用后台命令与 implant menu. 分离
 func (c *SliverClient) exitImplantMenu(_ *console.Console) {
 	root := c.App.Menu(consts.ImplantMenu).Command
 	root.SetArgs([]string{"background"})
@@ -807,6 +868,7 @@ func (con *SliverClient) SpinUntil(message string, ctrl chan bool) {
 }
 
 // FormatDateDelta - Generate formatted date string of the time delta between then and now.
+// FormatDateDelta - Generate 格式的日期字符串，表示当时和 now. 之间的时间增量
 func (con *SliverClient) FormatDateDelta(t time.Time, includeDate bool, color bool) string {
 	nextTime := t.Format(time.UnixDate)
 
@@ -835,6 +897,7 @@ func (con *SliverClient) FormatDateDelta(t time.Time, includeDate bool, color bo
 }
 
 // GrpcContext - Generate a context for a GRPC request, if no grumble context or an invalid flag is provided 60 seconds is used instead.
+// GrpcContext - Generate GRPC 请求的上下文，如果没有提供 grumble 上下文或提供无效标志，则使用 60 秒 instead.
 func (con *SliverClient) GrpcContext(cmd *cobra.Command) (context.Context, context.CancelFunc) {
 	if cmd == nil {
 		return context.WithTimeout(context.Background(), 60*time.Second)
@@ -861,6 +924,7 @@ type ActiveTarget struct {
 }
 
 // GetSessionInteractive - Get the active target(s).
+// GetSessionInteractive - Get 活动目标。
 func (s *ActiveTarget) GetInteractive() (*clientpb.Session, *clientpb.Beacon) {
 	if s.session == nil && s.beacon == nil {
 		fmt.Print(Warn + "Please select a session or beacon via `use`\n")
@@ -870,11 +934,13 @@ func (s *ActiveTarget) GetInteractive() (*clientpb.Session, *clientpb.Beacon) {
 }
 
 // GetSessionInteractive - Get the active target(s).
+// GetSessionInteractive - Get 活动目标。
 func (s *ActiveTarget) Get() (*clientpb.Session, *clientpb.Beacon) {
 	return s.session, s.beacon
 }
 
 // GetSessionInteractive - GetSessionInteractive the active session.
+// GetSessionInteractive - GetSessionInteractive 活跃 session.
 func (s *ActiveTarget) GetSessionInteractive() *clientpb.Session {
 	if s.session == nil {
 		fmt.Print(Warn + "Please select a session via `use`\n")
@@ -884,11 +950,13 @@ func (s *ActiveTarget) GetSessionInteractive() *clientpb.Session {
 }
 
 // GetSession - Same as GetSession() but doesn't print a warning.
+// GetSession - Same 作为 GetSession() 但不打印 warning.
 func (s *ActiveTarget) GetSession() *clientpb.Session {
 	return s.session
 }
 
 // GetBeaconInteractive - Get beacon interactive the active session.
+// GetBeaconInteractive - Get beacon 互动主动 session.
 func (s *ActiveTarget) GetBeaconInteractive() *clientpb.Beacon {
 	if s.beacon == nil {
 		fmt.Print(Warn + "Please select a beacon via `use`\n")
@@ -898,21 +966,25 @@ func (s *ActiveTarget) GetBeaconInteractive() *clientpb.Beacon {
 }
 
 // GetBeacon - Same as GetBeacon() but doesn't print a warning.
+// GetBeacon - Same 作为 GetBeacon() 但不打印 warning.
 func (s *ActiveTarget) GetBeacon() *clientpb.Beacon {
 	return s.beacon
 }
 
 // IsSession - Is the current target a session?
+// IsSession - Is 当前目标是 session？
 func (s *ActiveTarget) IsSession() bool {
 	return s.session != nil
 }
 
 // IsBeacon - Is the current target a beacon?
+// IsBeacon - Is 当前目标是 beacon？
 func (s *ActiveTarget) IsBeacon() bool {
 	return s.beacon != nil
 }
 
 // AddObserver - Observers to notify when the active session changes
+// AddObserver - Observers 在活动 session 发生变化时发出通知
 func (s *ActiveTarget) AddObserver(observer Observer) int {
 	s.observerID++
 	s.observers[s.observerID] = observer
@@ -929,6 +1001,7 @@ func (s *ActiveTarget) Request(cmd *cobra.Command) *commonpb.Request {
 	}
 
 	// One less than the gRPC timeout so that the server should timeout first
+	// One 小于 gRPC 超时，因此服务器应首先超时
 	timeOutF := int64(defaultTimeout) - 1
 	if cmd != nil {
 		timeOutF, _ = cmd.Flags().GetInt64("timeout")
@@ -950,6 +1023,7 @@ func (s *ActiveTarget) Request(cmd *cobra.Command) *commonpb.Request {
 }
 
 // Set - Change the active session.
+// Set - Change 活跃 session.
 func (s *ActiveTarget) Set(session *clientpb.Session, beacon *clientpb.Beacon) {
 	if session != nil && beacon != nil {
 		s.con.PrintErrorf("cannot set both an active beacon and an active session")
@@ -971,6 +1045,7 @@ func (s *ActiveTarget) Set(session *clientpb.Session, beacon *clientpb.Beacon) {
 		}
 
 		// Switch back to server menu.
+		// Switch 返回服务器 menu.
 		if s.con.App.ActiveMenu().Name() == consts.ImplantMenu {
 			s.con.App.SwitchMenu(consts.ServerMenu)
 		}
@@ -998,12 +1073,14 @@ func (s *ActiveTarget) Set(session *clientpb.Session, beacon *clientpb.Beacon) {
 	}
 
 	// Update menus, prompts and commands
+	// Update 菜单、提示和命令
 	if s.con.App.ActiveMenu().Name() != consts.ImplantMenu {
 		s.con.App.SwitchMenu(consts.ImplantMenu)
 	}
 }
 
 // Background - Background the active session.
+// Background - Background 活跃 session.
 func (s *ActiveTarget) Background() {
 	defer s.con.App.ShowCommands()
 
@@ -1014,12 +1091,14 @@ func (s *ActiveTarget) Background() {
 	}
 
 	// Switch back to server menu.
+	// Switch 返回服务器 menu.
 	if !s.con.IsCLI && s.con.App.ActiveMenu().Name() == consts.ImplantMenu {
 		s.con.App.SwitchMenu(consts.ServerMenu)
 	}
 }
 
 // GetHostUUID - Get the Host's UUID (ID in the database)
+// GetHostUUID - Get Host 的 UUID （数据库中的 ID）
 func (s *ActiveTarget) GetHostUUID() string {
 	if s.IsSession() {
 		return s.session.UUID
@@ -1031,7 +1110,9 @@ func (s *ActiveTarget) GetHostUUID() string {
 }
 
 // Expose or hide commands if the active target does support them (or not).
+// Expose 或隐藏命令（如果活动目标支持（或不支持））。
 // Ex; hide Windows commands on Linux implants, Wireguard tools on HTTP C2, etc.
+// Ex；隐藏 Linux 种植体上的 Windows 命令，隐藏 HTTP C2、etc. 上的 Wireguard 工具
 func (con *SliverClient) ExposeCommands() {
 	con.App.ShowCommands()
 
@@ -1048,11 +1129,13 @@ func (con *SliverClient) ExposeCommands() {
 		filters = append(filters, consts.BeaconCmdsFilter)
 
 		// Operating system
+		// Operating系统
 		if session.OS != "windows" {
 			filters = append(filters, consts.WindowsCmdsFilter)
 		}
 
 		// C2 stack
+		// C2 堆栈
 		if session.Transport != "wg" {
 			filters = append(filters, consts.WireguardCmdsFilter)
 		}
@@ -1062,17 +1145,20 @@ func (con *SliverClient) ExposeCommands() {
 		filters = append(filters, consts.SessionCmdsFilter)
 
 		// Operating system
+		// Operating系统
 		if beacon.OS != "windows" {
 			filters = append(filters, consts.WindowsCmdsFilter)
 		}
 
 		// C2 stack
+		// C2 堆栈
 		if beacon.Transport != "wg" {
 			filters = append(filters, consts.WireguardCmdsFilter)
 		}
 	}
 
 	// Use all defined filters.
+	// Use 全部定义 filters.
 	con.App.HideCommands(filters...)
 }
 

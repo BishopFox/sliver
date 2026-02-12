@@ -48,6 +48,8 @@ func consoleCmd(con *console.SliverClient) *cobra.Command {
 	return consoleCmd
 }
 
+// consoleRunnerCmd -TODO:在控制台进行初始化操作
+// 闭包操作将客户端对象在上下文进行传递
 func consoleRunnerCmd(con *console.SliverClient, run bool) (pre, post func(cmd *cobra.Command, args []string) error) {
 	pre = func(cmd *cobra.Command, _ []string) error {
 		configs := assets.GetConfigs()
@@ -59,7 +61,7 @@ func consoleRunnerCmd(con *console.SliverClient, run bool) (pre, post func(cmd *
 		if config == nil {
 			return nil
 		}
-
+		//TODO: 读取了一组自定义的脚本，可能为了初始化？
 		rcScript, err := ReadRCScript(cmd)
 		if err != nil {
 			fmt.Printf("Failed to read rc script: %s\n", err)
@@ -67,6 +69,7 @@ func consoleRunnerCmd(con *console.SliverClient, run bool) (pre, post func(cmd *
 		}
 
 		// Don't clobber output when simply running an implant command from system shell.
+		// 仅从系统 shell 运行 implant 命令时，不要覆盖输出。
 		if run {
 			fmt.Printf("Connecting to %s:%d ...\n", config.LHost, config.LPort)
 		}

@@ -25,6 +25,7 @@ const (
 )
 
 // HexEditCmd downloads a remote file, opens it in a hex editor, and optionally uploads changes.
+// HexEditCmd 下载远程文件，在十六进制编辑器中打开它，并可选择上传 changes.
 func HexEditCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {

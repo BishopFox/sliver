@@ -2,19 +2,30 @@ package filesystem
 
 /*
 	Copyright (C) 2023 b0yd
+	Copyright (C) 2023 岁
 
 	This program is free software: you can redistribute it and/or modify
+	This 程序是免费软件：您可以重新分发它 and/or 修改
 	it under the terms of the GNU General Public License as published by
+	它根据 GNU General Public License 发布的条款
 	the Free Software Foundation, either version 3 of the License, or
+	Free Software Foundation，License 的版本 3，或
 	(at your option) any later version.
+	（由您选择）稍后 version.
 
 	This program is distributed in the hope that it will be useful,
+	This 程序被分发，希望它有用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但是WITHOUT ANY WARRANTY；甚至没有默示保证
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY 或 FITNESS FOR A PARTICULAR PURPOSE. See
 	GNU General Public License for more details.
+	GNU General Public License 更多 details.
 
 	You should have received a copy of the GNU General Public License
+	You 应已收到 GNU General Public License 的副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	与此 program. If 不一起，请参见 <__PH0__
 */
 
 import (
@@ -96,6 +107,7 @@ func chtimesFormatFromFlags(cmd *cobra.Command) (chtimesTimeFormat, error) {
 }
 
 // ChtimesCmd - Change the access and modified time of a file on the remote file system.
+// ChtimesCmd - Change 远程文件 system. 上文件的访问和修改时间
 func ChtimesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -164,6 +176,7 @@ func ChtimesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 }
 
 // PrintChtimes - Print the Chtimes response.
+// PrintChtimes - Print Chtimes response.
 func PrintChtimes(chtimes *sliverpb.Chtimes, con *console.SliverClient) {
 	if chtimes.Response != nil && chtimes.Response.Err != "" {
 		con.PrintErrorf("%s\n", chtimes.Response.Err)

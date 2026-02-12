@@ -16,8 +16,10 @@ import (
 )
 
 // SelectBeaconTask - Select a beacon task interactively.
+// SelectBeaconTask - Select 和 beacon task interactively.
 func SelectBeaconTask(tasks []*clientpb.BeaconTask) (*clientpb.BeaconTask, error) {
 	// Render selection table
+	// Render选型表
 	buf := bytes.NewBufferString("")
 	table := tabwriter.NewWriter(buf, 0, 2, 2, ' ', 0)
 	for _, task := range tasks {
@@ -45,6 +47,7 @@ func SelectBeaconTask(tasks []*clientpb.BeaconTask) (*clientpb.BeaconTask, error
 }
 
 // BeaconTaskIDCompleter returns a structured list of tasks completions, grouped by state.
+// BeaconTaskIDCompleter 返回任务完成情况的结构化列表，按 state. 分组
 func BeaconTaskIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(ctx carapace.Context) carapace.Action {
 		beacon := con.ActiveTarget.GetBeacon()
@@ -110,6 +113,7 @@ func BeaconTaskIDCompleter(con *console.SliverClient) carapace.Action {
 }
 
 // BeaconPendingTasksCompleter completes pending tasks.
+// BeaconPendingTasksCompleter 完成待处理的 tasks.
 func BeaconPendingTasksCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(ctx carapace.Context) carapace.Action {
 		beacon := con.ActiveTarget.GetBeacon()

@@ -15,6 +15,7 @@ import (
 )
 
 // SelectCredential - Interactive menu for the user to select a credentials from the database.
+// SelectCredential - Interactive 菜单，供用户从 database. 中选择凭证
 func SelectCredential(plaintext bool, hashType clientpb.HashType, con *console.SliverClient) (*clientpb.Credential, error) {
 	var creds *clientpb.Credentials
 	var err error
@@ -34,6 +35,7 @@ func SelectCredential(plaintext bool, hashType clientpb.HashType, con *console.S
 	}
 
 	// Render selection table
+	// Render选型表
 	buf := bytes.NewBufferString("")
 	table := tabwriter.NewWriter(buf, 0, 2, 2, ' ', 0)
 	for _, cred := range creds.Credentials {

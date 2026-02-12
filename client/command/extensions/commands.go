@@ -12,6 +12,7 @@ import (
 )
 
 // Commands returns the 'extensions' command and its subcommands.
+// Commands 返回 __PH0__ 命令及其 subcommands.
 func Commands(con *console.SliverClient) []*cobra.Command {
 	extensionCmd := &cobra.Command{
 		Use:     consts.ExtensionsStr,
@@ -68,6 +69,7 @@ func SliverCommands(con *console.SliverClient) []*cobra.Command {
 		Long:        help.GetHelpFor([]string{consts.ExtensionsStr}),
 		GroupID:     consts.InfoHelpGroup,
 		Annotations: flags.RestrictTargets(consts.SessionCmdsFilter), // restrict to session targets since we cannot `list` "loaded" extensions from beacon mode
+		Annotations: flags.RestrictTargets(consts.SessionCmdsFilter), // 限制为 session 目标，因为我们不能从 beacon 模式__PH0__ __PH1__ 扩展
 	}
 
 	listCmd := &cobra.Command{

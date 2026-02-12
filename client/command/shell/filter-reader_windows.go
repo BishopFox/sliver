@@ -19,6 +19,7 @@ func (r *filterReader) Read(data []byte) (int, error) {
 	}
 
 	// Remove Windows new line
+	// Remove Windows 新行
 	if n >= 2 {
 		if data[n-2] == byte('\r') {
 			data = data[0 : n-2]

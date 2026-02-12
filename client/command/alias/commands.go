@@ -10,6 +10,7 @@ import (
 )
 
 // Commands returns the `alias` command and its child commands.
+// Commands 返回 `alias` 命令及其子命令。
 func Commands(con *console.SliverClient) []*cobra.Command {
 	aliasCmd := &cobra.Command{
 		Use:   consts.AliasesStr,

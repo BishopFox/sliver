@@ -11,6 +11,7 @@ import (
 )
 
 // Commands returns the shellcode-encoders command and its subcommands.
+// Commands 返回 shellcode__PH0__ 命令及其 subcommands.
 func Commands(con *console.SliverClient) []*cobra.Command {
 	shellcodeEncodersCmd := &cobra.Command{
 		Use:   consts.ShellcodeEncodersStr,

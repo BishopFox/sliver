@@ -3,19 +3,30 @@ package generate
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
+	Copyright (C) 2019 Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
+	This 程序是免费软件：您可以重新分发它 and/or 修改
 	it under the terms of the GNU General Public License as published by
+	它根据 GNU General Public License 发布的条款
 	the Free Software Foundation, either version 3 of the License, or
+	Free Software Foundation，License 的版本 3，或
 	(at your option) any later version.
+	（由您选择）稍后 version.
 
 	This program is distributed in the hope that it will be useful,
+	This 程序被分发，希望它有用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但是WITHOUT ANY WARRANTY；甚至没有默示保证
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY 或 FITNESS FOR A PARTICULAR PURPOSE. See
 	GNU General Public License for more details.
+	GNU General Public License 更多 details.
 
 	You should have received a copy of the GNU General Public License
+	You 应已收到 GNU General Public License 的副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	与此 program. If 不一起，请参见 <__PH0__
 */
 
 import (
@@ -43,6 +54,7 @@ type ImplantBuildFilter struct {
 }
 
 // ImplantsCmd - Displays archived implant builds.
+// ImplantsCmd - Displays 已归档 implant builds.
 func ImplantsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	builds, err := con.Rpc.ImplantBuilds(context.Background(), &commonpb.Empty{})
 	if err != nil {
@@ -59,6 +71,7 @@ func ImplantsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 }
 
 // PrintImplantBuilds - Print the implant builds on the server
+// PrintImplantBuilds - Print implant 在服务器上构建
 func PrintImplantBuilds(builds *clientpb.ImplantBuilds, filters ImplantBuildFilter, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
@@ -135,6 +148,7 @@ func PrintImplantBuilds(builds *clientpb.ImplantBuilds, filters ImplantBuildFilt
 }
 
 // ImplantBuildNameCompleter - Completer for implant build names.
+// ImplantBuildNameCompleter - Completer 用于 implant 构建 names.
 func ImplantBuildNameCompleter(con *console.SliverClient) carapace.Action {
 	comps := func(ctx carapace.Context) carapace.Action {
 		var action carapace.Action
@@ -205,6 +219,7 @@ func ImplantBuildNameCompleter(con *console.SliverClient) carapace.Action {
 }
 
 // ImplantBuildByName - Get an implant build by name.
+// ImplantBuildByName - Get 和 implant 由 name. 构建
 func ImplantBuildByName(name string, con *console.SliverClient) *clientpb.ImplantConfig {
 	builds, err := con.Rpc.ImplantBuilds(context.Background(), &commonpb.Empty{})
 	if err != nil {

@@ -12,6 +12,7 @@ import (
 const mcpStopTimeout = 5 * time.Second
 
 // McpStopCmd stops the local MCP server.
+// McpStopCmd 停止本地 MCP server.
 func McpStopCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	ctx, cancel := context.WithTimeout(context.Background(), mcpStopTimeout)
 	defer cancel()

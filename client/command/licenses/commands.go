@@ -10,6 +10,7 @@ import (
 )
 
 // Commands returns the `licences` command.
+// Commands 返回 __PH0__ command.
 func Commands(con *console.SliverClient) []*cobra.Command {
 	licensesCmd := &cobra.Command{
 		Use:   consts.LicensesStr,

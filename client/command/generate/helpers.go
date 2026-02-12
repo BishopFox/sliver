@@ -14,6 +14,7 @@ import (
 )
 
 // GetSliverBinary - Get the binary of an implant based on it's profile.
+// GetSliverBinary - Get 基于 profile. 的 implant 的二进制文件
 func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverClient) ([]byte, error) {
 	var data []byte
 
@@ -170,6 +171,7 @@ func registerImplantTargetFlagCompletions(cmd *cobra.Command, con *console.Slive
 }
 
 // FormatCompleter completes builds' architectures.
+// FormatCompleter 完成构建' architectures.
 func ArchCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
 		compiler, err := compilerTargets(con)
@@ -182,6 +184,7 @@ func ArchCompleter(con *console.SliverClient) carapace.Action {
 }
 
 // FormatCompleter completes build operating systems.
+// FormatCompleter 完成构建操作 systems.
 func OSCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
 		compiler, err := compilerTargets(con)
@@ -194,6 +197,7 @@ func OSCompleter(con *console.SliverClient) carapace.Action {
 }
 
 // FormatCompleter completes build formats.
+// FormatCompleter 完成构建 formats.
 func FormatCompleter() carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
 		return carapace.ActionValues([]string{
@@ -203,6 +207,7 @@ func FormatCompleter() carapace.Action {
 }
 
 // HTTPC2Completer - Completes the HTTP C2 PROFILES
+// HTTPC2Completer - Completes HTTP C2 PROFILES
 func HTTPC2Completer(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
 		grpcCtx, cancel := con.GrpcContext(nil)
@@ -221,6 +226,7 @@ func HTTPC2Completer(con *console.SliverClient) carapace.Action {
 }
 
 // TrafficEncoderCompleter - Completes the names of traffic encoders.
+// TrafficEncoderCompleter - Completes 流量名称 encoders.
 func TrafficEncodersCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {
 		grpcCtx, cancel := con.GrpcContext(nil)

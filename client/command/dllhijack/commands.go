@@ -13,6 +13,7 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
+// Commands 返回“命令及其 subcommands.
 func Commands(con *console.SliverClient) []*cobra.Command {
 	dllhijackCmd := &cobra.Command{
 		Use:         consts.DLLHijackStr,

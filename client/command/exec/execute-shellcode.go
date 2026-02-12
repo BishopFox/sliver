@@ -3,19 +3,30 @@ package exec
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
+	Copyright (C) 2019 Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
+	This 程序是免费软件：您可以重新分发它 and/or 修改
 	it under the terms of the GNU General Public License as published by
+	它根据 GNU General Public License 发布的条款
 	the Free Software Foundation, either version 3 of the License, or
+	Free Software Foundation，License 的版本 3，或
 	(at your option) any later version.
+	（由您选择）稍后 version.
 
 	This program is distributed in the hope that it will be useful,
+	This 程序被分发，希望它有用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但是WITHOUT ANY WARRANTY；甚至没有默示保证
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY 或 FITNESS FOR A PARTICULAR PURPOSE. See
 	GNU General Public License for more details.
+	GNU General Public License 更多 details.
 
 	You should have received a copy of the GNU General Public License
+	You 应已收到 GNU General Public License 的副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	与此 program. If 不一起，请参见 <__PH0__
 */
 
 import (
@@ -36,6 +47,7 @@ import (
 )
 
 // ExecuteShellcodeCmd - Execute shellcode in-memory.
+// ExecuteShellcodeCmd - Execute shellcode in__PH0__.
 func ExecuteShellcodeCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -127,6 +139,7 @@ func ExecuteShellcodeCmd(cmd *cobra.Command, con *console.SliverClient, args []s
 }
 
 // PrintExecuteShellcode - Display result of shellcode execution.
+// shellcode execution. 的 PrintExecuteShellcode - Display 结果
 func PrintExecuteShellcode(task *sliverpb.Task, con *console.SliverClient) {
 	if task.Response.GetErr() != "" {
 		con.PrintErrorf("%s\n", task.Response.GetErr())
@@ -137,14 +150,17 @@ func PrintExecuteShellcode(task *sliverpb.Task, con *console.SliverClient) {
 
 func executeInteractive(cmd *cobra.Command, hostProc string, shellcode []byte, rwxPages bool, con *console.SliverClient) {
 	// Check active session
+	// Check 活跃 session
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
 		return
 	}
 	// Start remote process and tunnel
+	// Start 远程进程和隧道
 	noPty := false
 	if session.GetOS() == "windows" {
 		noPty = true // Windows of course doesn't have PTYs
+		noPty = true // Windows 当然没有 PTYs
 	}
 
 	rpcTunnel, err := con.Rpc.CreateTunnel(context.Background(), &sliverpb.Tunnel{
@@ -183,6 +199,7 @@ func executeInteractive(cmd *cobra.Command, hostProc string, shellcode []byte, r
 		return
 	}
 	// Retrieve PID and start remote task
+	// Retrieve PID 并启动远程 task
 	pid := shell.GetPid()
 
 	ctrl := make(chan bool)

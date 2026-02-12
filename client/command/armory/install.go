@@ -3,19 +3,30 @@ package armory
 /*
 	Sliver Implant Framework
 	Copyright (C) 2021  Bishop Fox
+	Copyright (C) 2021 Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
+	This 程序是免费软件：您可以重新分发它 and/or 修改
 	it under the terms of the GNU General Public License as published by
+	它根据 GNU General Public License 发布的条款
 	the Free Software Foundation, either version 3 of the License, or
+	Free Software Foundation，License 的版本 3，或
 	(at your option) any later version.
+	（由您选择）稍后 version.
 
 	This program is distributed in the hope that it will be useful,
+	This 程序被分发，希望它有用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但是WITHOUT ANY WARRANTY；甚至没有默示保证
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY 或 FITNESS FOR A PARTICULAR PURPOSE. See
 	GNU General Public License for more details.
+	GNU General Public License 更多 details.
 
 	You should have received a copy of the GNU General Public License
+	You 应已收到 GNU General Public License 的副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	与此 program. If 不一起，请参见 <__PH0__
 */
 
 import (
@@ -42,6 +53,7 @@ import (
 )
 
 // ErrPackageNotFound - The package was not found
+// ErrPackageNotFound - 未找到 The 包
 var ErrPackageNotFound = errors.New("package not found")
 var ErrPackageAlreadyInstalled = errors.New("package is already installed")
 
@@ -51,6 +63,7 @@ const (
 )
 
 // ArmoryInstallCmd - The armory install command
+// ArmoryInstallCmd - The armory 安装命令
 func ArmoryInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var promptToOverwrite bool
 	names := []string{}
@@ -75,9 +88,11 @@ func ArmoryInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 	}
 
 	// Find PK for the armory name
+	// Find PK 表示 armory 名称
 	armoryPK := getArmoryPublicKey(armoryName)
 
 	// If the armory with the name is not found, print a warning
+	// 未找到该名称的 If 和 armory，打印警告
 	if cmd.Flags().Changed("armory") && armoryPK == "" {
 		con.PrintWarnf("Could not find a configured armory named %q - searching all configured armories\n\n", armoryName)
 	}
@@ -160,6 +175,7 @@ func ArmoryInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 				continue
 			}
 			// If we have made it here, then there was not a bundle or package that matched the provided name
+			// If 我们已经做到了这里，然后没有与提供的名称匹配的捆绑包或包
 			if armoryPK == "" {
 				con.PrintErrorf("No package or bundle named %q was found\n", name)
 			} else {
@@ -252,8 +268,11 @@ func getInstalledPackageNames() []string {
 		if len(extension.ExtCommand) == 0 {
 			extensionOld := &extensions.ExtensionManifest_{}
 			// Some extension manifests are using an older version
+			// Some 扩展清单正在使用旧版本
 			// To maintain compatibility with those extensions, we will
+			// To 保持与这些扩展的兼容性，我们将
 			// re-unmarshal the data as the older version
+			// re__PH0__ 数据为旧版本
 			err = json.Unmarshal(manifestData, extensionOld)
 			if err != nil {
 				continue
@@ -274,6 +293,7 @@ func getInstalledPackageNames() []string {
 }
 
 // This is a convenience function to get the names of the commands in the cache
+// This 是一个方便的函数，用于获取缓存中命令的名称
 func getCommandsInCache(armoryPK string) []string {
 	commandNames := []string{}
 
@@ -339,6 +359,7 @@ func getPackageIDFromUser(name string, options map[string]string) string {
 	optionKeys := util.Keys(options)
 	slices.Sort(optionKeys)
 	// Add a cancel option
+	// Add 取消选项
 	optionKeys = append(optionKeys, doNotInstallOption)
 	options[doNotInstallOption] = doNotInstallPackageName
 	forms.Select(fmt.Sprintf("More than one package contains the command %s. Please choose an option from the list below:", name), optionKeys, &selectedPackageKey)
@@ -352,6 +373,7 @@ func getPackageForCommand(name, armoryPK, minimumVersion string) (*pkgCacheEntry
 
 	if len(packagesWithCommand) > 1 {
 		// Build an option map for the user to choose from (option -> pkgID)
+		// Build 供用户选择的选项映射（选项 -> pkgID）
 		optionMap := make(map[string]string)
 		for _, packageEntry := range packagesWithCommand {
 			var optionName string
@@ -394,9 +416,12 @@ func buildInstallList(name, armoryPK string, forceInstallation bool, pendingPack
 
 	/*
 		Gather information about what we are working with
+		Gather 有关我们正在处理的内容的信息
 
 		Find all conflicts within aliases for a given name (or all names), same thing with extensions
+		Find 给定名称（或所有名称）的别名内的所有冲突，与扩展名相同
 		Then if there are aliases and extensions with a given name, make sure to note that for when we ask the user what to do
+		Then 如果有给定名称的别名和扩展名，请务必注意，以便当我们询问用户要做什么时
 	*/
 	var requestedPackageList []string
 	if name == "all" {
@@ -405,6 +430,7 @@ func buildInstallList(name, armoryPK string, forceInstallation bool, pendingPack
 		for _, cmdName := range allCommands {
 			if !slices.Contains(installedPackages, cmdName) || forceInstallation {
 				// Check to see if there is a package pending with that name
+				// Check 查看是否有具有该名称的待处理包
 				if _, ok := pendingPackages[cmdName]; !ok {
 					requestedPackageList = append(requestedPackageList, cmdName)
 				}
@@ -413,6 +439,7 @@ func buildInstallList(name, armoryPK string, forceInstallation bool, pendingPack
 	} else {
 		if !slices.Contains(installedPackages, name) || forceInstallation {
 			// Check to see if there is a package pending with that name
+			// Check 查看是否有具有该名称的待处理包
 			if _, ok := pendingPackages[name]; !ok {
 				requestedPackageList = []string{name}
 			}
@@ -424,6 +451,7 @@ func buildInstallList(name, armoryPK string, forceInstallation bool, pendingPack
 	for _, packageName := range requestedPackageList {
 		if _, ok := pendingPackages[packageName]; ok {
 			// We are already going to install a package with this name, so do not try to resolve it
+			// We 已经要安装具有此名称的软件包，因此不要尝试解析它
 			continue
 		}
 		packageEntry, err := getPackageForCommand(packageName, armoryPK, "")
@@ -642,6 +670,7 @@ func installAliasPackage(entry *pkgCacheEntry, promptToOverwrite bool, clientCon
 	defer os.Remove(tmpFileName)
 
 	con.Printf(console.Clearln + "\r") // Clear the line
+	con.Printf(console.Clearln + "\r") // Clear 线
 
 	installPath := alias.InstallFromFile(tmpFileName, entry.Alias.CommandName, promptToOverwrite, con)
 	if installPath == nil {
@@ -658,22 +687,29 @@ func installAliasPackage(entry *pkgCacheEntry, promptToOverwrite bool, clientCon
 }
 
 const maxDepDepth = 10 // Arbitrary recursive limit for dependencies
+const maxDepDepth = 10 // Arbitrary 依赖项的递归限制
 
 func resolveExtensionPackageDependencies(pkg *pkgCacheEntry, deps map[string]*pkgCacheEntry, pendingPackages map[string]string) error {
 	for _, multiExt := range pkg.Extension.ExtCommand {
 		if multiExt.DependsOn == "" {
 			continue // Avoid adding empty dependency
+			continue // Avoid 添加空依赖项
 		}
 
 		if multiExt.DependsOn == pkg.Extension.Name {
 			continue // Avoid infinite loop of something that depends on itself
+			continue // Avoid 依赖于自身的事物的无限循环
 		}
 		// We also need to look out for circular dependencies, so if we've already
+		// We 还需要注意循环依赖，所以如果我们已经
 		// seen this dependency, we stop resolving
+		// 看到这种依赖关系，我们停止解析
 		if _, ok := deps[multiExt.DependsOn]; ok {
 			continue // Already resolved
+			continue // Already 已解决
 		}
 		// Check to make sure we are not already going to install a package with this name
+		// Check 以确保我们不会安装具有此名称的软件包
 		if _, ok := pendingPackages[multiExt.DependsOn]; ok {
 			continue
 		}
@@ -681,6 +717,7 @@ func resolveExtensionPackageDependencies(pkg *pkgCacheEntry, deps map[string]*pk
 			continue
 		}
 		// Figure out what package we need for the dependency
+		// Figure 出我们需要什么依赖包
 		dependencyEntry, err := getPackageForCommand(multiExt.DependsOn, "", "")
 		if err != nil {
 			return fmt.Errorf("could not resolve dependency %s for %s: %s", multiExt.DependsOn, pkg.Extension.Name, err)
@@ -731,6 +768,7 @@ func installExtensionPackage(entry *pkgCacheEntry, promptToOverwrite bool, clien
 	defer os.Remove(tmpFileName)
 
 	con.Printf(console.Clearln + "\r") // Clear download message
+	con.Printf(console.Clearln + "\r") // Clear 下载消息
 
 	extensions.InstallFromDir(tmpFileName, promptToOverwrite, con, true)
 

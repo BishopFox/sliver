@@ -69,11 +69,13 @@ var (
 
 func modifiedStyle() lipgloss.Style {
 	// Read from the global console theme so theme.yaml changes are reflected.
+	// Read 来自全局控制台主题，因此 theme.yaml 更改为 reflected.
 	return console.StyleWarning
 }
 
 func modifiedCursorStyle() lipgloss.Style {
 	// Read from the global console theme so theme.yaml changes are reflected.
+	// Read 来自全局控制台主题，因此 theme.yaml 更改为 reflected.
 	return console.StyleWarning.Copy().Reverse(true)
 }
 

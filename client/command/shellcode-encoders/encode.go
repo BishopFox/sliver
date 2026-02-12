@@ -14,6 +14,7 @@ import (
 )
 
 // ShellcodeEncodersEncodeCmd - Encode shellcode files with server encoders.
+// ShellcodeEncodersEncodeCmd - Encode shellcode 文件与服务器 encoders.
 func ShellcodeEncodersEncodeCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	encoderFlag, _ := cmd.Flags().GetString("encoder")
 	if strings.TrimSpace(encoderFlag) == "" {

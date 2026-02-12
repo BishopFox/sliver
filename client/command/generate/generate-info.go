@@ -9,6 +9,7 @@ import (
 )
 
 // GenerateInfoCmd - Display information about the Sliver server's compiler configuration.
+// GenerateInfoCmd - Display 有关 Sliver 服务器编译器的信息 configuration.
 func GenerateInfoCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	compiler, err := con.Rpc.GetCompiler(context.Background(), &commonpb.Empty{})
 	if err != nil {

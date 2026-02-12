@@ -1,10 +1,14 @@
 package creds
 
 // List of all available hash-types, for completions.
+// 所有可用 hash__PH0__ 中的 List，对于 completions.
 // Unfortunately this list has to be maintained manually,
+// Unfortunately 这个列表必须手动维护，
 // until someone devises a way to do so automatically.
+// 直到有人想出一种方法来做到这一点automatically.
 var hashTypes = map[string]string{
 	"MD5": "MD5", // Enum 0 in proto file.
+	"MD5": "MD5", // 原型 file. 中的 Enum 0
 
 	"MD4":                   "MD4",
 	"SHA1":                  "SHA1",
@@ -42,6 +46,7 @@ var hashTypes = map[string]string{
 	"MD5_SALT_MD5_PW":       "md5($salt.md5($pass))",
 
 	// ... TODO fill in the rest ...,
+	// ... TODO 填写其余...，
 
 	"CRC32":                        "CRC32",
 	"CRC32C":                       "CRC32B",
@@ -136,8 +141,10 @@ var hashTypes = map[string]string{
 	// ...
 
 	// INVALID = 9999; // Invalid hash type
+	// INVALID = 9999； // Invalid 哈希类型
 
 	// Out of order
+	// 订单的 Out
 	"BCRYPT_UNIX":       "bcrypt",
 	"SHA512_CRYPT_UNIX": "sha512crypt $6$, SHA512 (Unix)",
 }

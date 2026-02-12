@@ -3,19 +3,30 @@ package generate
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
+	Copyright (C) 2019 Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
+	This 程序是免费软件：您可以重新分发它 and/or 修改
 	it under the terms of the GNU General Public License as published by
+	它根据 GNU General Public License 发布的条款
 	the Free Software Foundation, either version 3 of the License, or
+	Free Software Foundation，License 的版本 3，或
 	(at your option) any later version.
+	（由您选择）稍后 version.
 
 	This program is distributed in the hope that it will be useful,
+	This 程序被分发，希望它有用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但是WITHOUT ANY WARRANTY；甚至没有默示保证
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY 或 FITNESS FOR A PARTICULAR PURPOSE. See
 	GNU General Public License for more details.
+	GNU General Public License 更多 details.
 
 	You should have received a copy of the GNU General Public License
+	You 应已收到 GNU General Public License 的副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	与此 program. If 不一起，请参见 <__PH0__
 */
 
 import (
@@ -49,6 +60,7 @@ func ProfilesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 }
 
 // PrintProfiles - Print the profiles.
+// PrintProfiles - Print profiles.
 func PrintProfiles(profiles []*clientpb.ImplantProfile, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
@@ -63,6 +75,7 @@ func PrintProfiles(profiles []*clientpb.ImplantProfile, con *console.SliverClien
 		"Limitations",
 		"C2 Profile",
 		// "Nonce",
+		// __PH0__,
 	})
 	tw.SortBy([]table.SortBy{
 		{Name: "Profile Name", Mode: table.Asc},
@@ -94,6 +107,7 @@ func PrintProfiles(profiles []*clientpb.ImplantProfile, con *console.SliverClien
 			getLimitsString(config),
 			config.HTTPC2ConfigName,
 			// profile.ImplantID,
+			// profile.ImplantID，
 		})
 	}
 
@@ -110,6 +124,7 @@ func getImplantProfiles(con *console.SliverClient) []*clientpb.ImplantProfile {
 }
 
 // GetImplantProfileByName - Get an implant profile by a specific name.
+// GetImplantProfileByName - Get 和特定 name. 的 implant 配置文件
 func GetImplantProfileByName(name string, con *console.SliverClient) *clientpb.ImplantProfile {
 	pbProfiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
 	if err != nil {
@@ -278,6 +293,7 @@ func populateProfileProperties(config *clientpb.ImplantConfig) map[string]string
 }
 
 // PrintProfileInfo - Print detailed information about a given profile.
+// PrintProfileInfo - Print 有关给定 profile. 的详细信息
 func PrintProfileInfo(name string, con *console.SliverClient) {
 	profile := GetImplantProfileByName(name, con)
 	if profile == nil {
@@ -330,6 +346,7 @@ func PrintProfileInfo(name string, con *console.SliverClient) {
 	con.Printf("%s\n\n", tw.Render())
 
 	// Timeouts and Intervals
+	// Timeouts 和 Intervals
 	tw.ResetRows()
 	if config.IsBeacon {
 		tw.AppendRow(table.Row{
@@ -414,6 +431,7 @@ func PrintProfileInfo(name string, con *console.SliverClient) {
 	}
 
 	// Traffic encoders
+	// Traffic 编码器
 	if config.TrafficEncodersEnabled {
 		tw.ResetRows()
 		tw.AppendRow(table.Row{
@@ -425,6 +443,7 @@ func PrintProfileInfo(name string, con *console.SliverClient) {
 	}
 
 	// Output messages that would otherwise get lost in between the tables
+	// Output 消息否则会在表之间丢失
 	if properties["outputlimits"] == "n" {
 		con.PrintInfof("Execution is not subject to any restrictions\n")
 	}
@@ -435,6 +454,7 @@ func PrintProfileInfo(name string, con *console.SliverClient) {
 }
 
 // ProfileNameCompleter - Completer for implant build names.
+// ProfileNameCompleter - Completer 用于 implant 构建 names.
 func ProfileNameCompleter(con *console.SliverClient) carapace.Action {
 	comps := func(ctx carapace.Context) carapace.Action {
 		var action carapace.Action

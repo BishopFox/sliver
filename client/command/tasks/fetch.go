@@ -3,19 +3,30 @@ package tasks
 /*
 	Sliver Implant Framework
 	Copyright (C) 2021  Bishop Fox
+	Copyright (C) 2021 Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
+	This 程序是免费软件：您可以重新分发它 and/or 修改
 	it under the terms of the GNU General Public License as published by
+	它根据 GNU General Public License 发布的条款
 	the Free Software Foundation, either version 3 of the License, or
+	Free Software Foundation，License 的版本 3，或
 	(at your option) any later version.
+	（由您选择）稍后 version.
 
 	This program is distributed in the hope that it will be useful,
+	This 程序被分发，希望它有用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但是WITHOUT ANY WARRANTY；甚至没有默示保证
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY 或 FITNESS FOR A PARTICULAR PURPOSE. See
 	GNU General Public License for more details.
+	GNU General Public License 更多 details.
 
 	You should have received a copy of the GNU General Public License
+	You 应已收到 GNU General Public License 的副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	与此 program. If 不一起，请参见 <__PH0__
 */
 
 import (
@@ -123,6 +134,7 @@ func filterTasksByTaskType(taskType string, tasks []*clientpb.BeaconTask) []*cli
 }
 
 // PrintTask - Print the details of a beacon task.
+// PrintTask - Print beacon task. 的详细信息
 func PrintTask(task *clientpb.BeaconTask, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableWithBordersStyle(con))
@@ -170,6 +182,7 @@ func emojiState(state string) string {
 }
 
 // Decode and render message specific content.
+// Decode 并呈现消息特定的 content.
 func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverClient) {
 	reqEnvelope := &sliverpb.Envelope{}
 	proto.Unmarshal(task.Request, reqEnvelope)
@@ -177,6 +190,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverClient) {
 
 	// ---------------------
 	// Environment commands
+	// Environment 命令
 	// ---------------------
 	case sliverpb.MsgEnvReq:
 		envInfo := &sliverpb.EnvInfo{}
@@ -219,6 +233,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverClient) {
 
 	// ---------------------
 	// Call extension commands
+	// Call 扩展命令
 	// ---------------------
 	case sliverpb.MsgCallExtensionReq:
 		callExtension := &sliverpb.CallExtension{}
@@ -231,6 +246,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverClient) {
 
 	// ---------------------
 	// Exec commands
+	// Exec 命令
 	// ---------------------
 	case sliverpb.MsgInvokeExecuteAssemblyReq:
 		fallthrough
@@ -261,6 +277,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverClient) {
 		exec.HandleExecuteAssemblyResponse(execAssembly, assemblyPath, hostname, assemblyCmd, con)
 
 	// execute-shellcode
+	// execute__PH0__
 	case sliverpb.MsgTaskReq:
 		shellcodeExec := &sliverpb.Task{}
 		err := proto.Unmarshal(task.Response, shellcodeExec)
@@ -362,8 +379,10 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverClient) {
 
 	// ---------------------
 	// File system commands
+	// File 系统命令
 	// ---------------------
 	// Cat = download
+	// Cat = 下载
 	case sliverpb.MsgCdReq:
 		pwd := &sliverpb.Pwd{}
 		err := proto.Unmarshal(task.Response, pwd)
@@ -497,6 +516,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverClient) {
 
 	// ---------------------
 	// Network commands
+	// Network 命令
 	// ---------------------
 	case sliverpb.MsgIfconfigReq:
 		ifconfig := &sliverpb.Ifconfig{}
@@ -523,6 +543,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverClient) {
 
 	// ---------------------
 	// Privilege commands
+	// Privilege 命令
 	// ---------------------
 	case sliverpb.MsgGetPrivsReq:
 		privs := &sliverpb.GetPrivs{}
@@ -607,6 +628,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverClient) {
 
 	// ---------------------
 	// Processes commands
+	// Processes 命令
 	// ---------------------
 	case sliverpb.MsgProcessDumpReq:
 		dump := &sliverpb.ProcessDump{}
@@ -631,6 +653,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverClient) {
 		}
 
 		f := pflag.NewFlagSet("ps", pflag.ContinueOnError) // Create the flag set.
+		f := pflag.NewFlagSet("ps", pflag.ContinueOnError) // Create 标志 set.
 		f.IntP("pid", "p", -1, "filter based on pid")
 		f.StringP("exe", "e", "", "filter based on executable name")
 		f.StringP("owner", "o", "", "filter based on owner")
@@ -655,6 +678,7 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverClient) {
 
 	// ---------------------
 	// Registry commands
+	// Registry 命令
 	// ---------------------
 	case sliverpb.MsgRegistryCreateKeyReq:
 		createKeyReq := &sliverpb.RegistryCreateKeyReq{}

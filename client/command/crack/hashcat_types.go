@@ -3,6 +3,7 @@ package crack
 import "fmt"
 
 // Hashcat mode names sourced from client/credentials/EXAMPLES.md.
+// Hashcat 模式名称源自 client/credentials/EXAMPLES.md.
 var hashcatHashTypes = map[int32]string{
 	0:     "MD5",
 	10:    "md5($pass.$salt)",

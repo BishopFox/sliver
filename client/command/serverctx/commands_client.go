@@ -27,6 +27,7 @@ import (
 )
 
 // Commands returns client-only server connection context commands.
+// Commands 返回 client__PH0__ 服务器连接上下文 commands.
 func Commands(con *console.SliverClient) []*cobra.Command {
 	root := &cobra.Command{
 		Use:   "server",
@@ -77,9 +78,11 @@ func serverInfo(_ *cobra.Command, con *console.SliverClient) {
 	}
 
 	const keyWidth = 8 // Align on ": " (e.g., "Operator", "Version")
+	const keyWidth = 8 // Align 于 __PH0__（e.g.、__PH1__、__PH2__）
 
 	label := func(key string) string {
 		// Bold "default/white" label keys, padded so colons align.
+		// Bold __PH0__ 标签键，填充冒号 align.
 		return console.StyleBoldGray.Render(fmt.Sprintf("%-*s:", keyWidth, key))
 	}
 	valueSecondary := func(s string) string { return console.StylePurple.Render(s) }
@@ -98,6 +101,7 @@ func serverInfo(_ *cobra.Command, con *console.SliverClient) {
 	}
 
 	// Server/operator values should be "default" terminal text (not themed colorized).
+	// Server/operator 值应为 __PH0__ 终端文本（未主题着色）。
 	con.Printf("%s %s\n", label("Server"), hostPort)
 	if details != nil && details.ConfigKey != "" {
 		con.Printf("%s %s\n", label("Profile"), valueSecondary(details.ConfigKey))
@@ -239,6 +243,7 @@ func (m *consoleManager) syncActiveFromConsole(con *console.SliverClient) {
 	defer m.mu.Unlock()
 
 	// If we already have an active instance, keep it. Otherwise create one from the current connection.
+	// If 我们已经有一个活动实例，保留 it. Otherwise 从当前 connection. 创建一个实例
 	if m.activeID != "" {
 		return
 	}
@@ -309,6 +314,7 @@ func (m *consoleManager) addInstance(configKey string, cfg *assets.ClientConfig)
 
 func (m *consoleManager) configInstanceCountsLocked(insts []*consoleInstance) map[string]int {
 	// Caller provides insts snapshot; we just count.
+	// Caller 提供insts快照；我们只是 count.
 	counts := map[string]int{}
 	for _, inst := range insts {
 		if inst == nil {
@@ -382,6 +388,7 @@ func runSwitchTUI(instances []*consoleInstance, activeID string, configKeys []st
 func newSwitchTUIModel(instances []*consoleInstance, activeID string, configKeys []string, counts map[string]int) switchTUIModel {
 	keyMap := huh.NewDefaultKeyMap()
 	// Free up tab for switching between views; use enter to select/advance.
+	// Free 向上选项卡用于在视图之间切换；使用 Enter 键进入 select/advance.
 	keyMap.Select.Next = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select"))
 	keyMap.Select.Submit = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "submit"))
 
@@ -422,6 +429,7 @@ func newSwitchTUIModel(instances []*consoleInstance, activeID string, configKeys
 
 	if len(existingOptions) == 0 {
 		// Always provide at least one option so Huh doesn't error.
+		// Always 至少提供一个选项，因此 Huh 不会 error.
 		existingOptions = append(existingOptions, huh.NewOption("(no existing consoles)", ""))
 	}
 
@@ -475,6 +483,7 @@ func newSwitchTUIModel(instances []*consoleInstance, activeID string, configKeys
 
 func (m switchTUIModel) Init() tea.Cmd {
 	// Initialize both forms so they're ready when switching tabs.
+	// Initialize 两种形式，因此它们在切换 tabs. 时已准备就绪
 	return tea.Batch(m.existing.Init(), m.newConn.Init())
 }
 
@@ -485,6 +494,7 @@ func (m switchTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 
 		// Forward to both forms so they size correctly.
+		// Forward 到两种形式，因此它们的大小为 correctly.
 		modelA, cmdA := m.existing.Update(msg)
 		modelB, cmdB := m.newConn.Update(msg)
 		m.existing = modelA.(*huh.Form)
@@ -511,6 +521,7 @@ func (m switchTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Delegate to active tab's form.
+	// Delegate 到活动选项卡的 form.
 	switch m.tab {
 	case tabExisting:
 		model, cmd := m.existing.Update(msg)
@@ -587,6 +598,7 @@ func operatorFromConfig(cfg *assets.ClientConfig) string {
 		return ""
 	}
 	// Prefer the certificate CN, since config.Operator is mostly informational.
+	// Prefer 证书 CN，因为 config.Operator 主要是 informational.
 	block, _ := pem.Decode([]byte(cfg.Certificate))
 	if block != nil {
 		cert, err := x509.ParseCertificate(block.Bytes)

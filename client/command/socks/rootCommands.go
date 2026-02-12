@@ -11,6 +11,7 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
+// Commands 返回“命令及其 subcommands.
 func RootCommands(con *console.SliverClient) []*cobra.Command {
 	socksCmd := &cobra.Command{
 		Use:         consts.Socks5Str,

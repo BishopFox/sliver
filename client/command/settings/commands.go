@@ -9,6 +9,7 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
+// Commands 返回“命令及其 subcommands.
 func Commands(con *console.SliverClient) []*cobra.Command {
 	settingsCmd := &cobra.Command{
 		Use:   consts.SettingsStr,
@@ -85,7 +86,9 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	})
 
 	// Bind a readline subcommand to the `settings` one, for allowing users to
+	// Bind 是 __PH0__ 的 readline 子命令，允许用户
 	// manipulate the shell instance keymaps, bindings, macros and global options.
+	// 操作 shell 实例键盘映射、绑定、宏和全局 options.
 	settingsCmd.AddCommand(readline.Commands(con.App.Shell()))
 
 	return []*cobra.Command{settingsCmd}

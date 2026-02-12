@@ -29,6 +29,8 @@ func commands(con *console.SliverClient, group string) []*cobra.Command {
 		Short:                 "Create a new command alias (aka)",
 		Args:                  cobra.MinimumNArgs(2),
 		DisableFlagParsing:    true, // No flags with aka create so we capture flags to other commands
+		DisableFlagParsing:    true, // No 标志又名创建，因此我们捕获其他命令的标志
+		// aka create 不使用 flags，因此这里捕获 flags 以传递给其他命令
 		DisableFlagsInUseLine: true,
 		Run: func(cmd *cobra.Command, args []string) {
 			AkaCreateCmd(cmd, con, args)

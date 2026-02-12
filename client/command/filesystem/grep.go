@@ -3,19 +3,30 @@ package filesystem
 /*
 	Sliver Implant Framework
 	Copyright (C) 2023  Bishop Fox
+	Copyright (C) 2023 Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
+	This 程序是免费软件：您可以重新分发它 and/or 修改
 	it under the terms of the GNU General Public License as published by
+	它根据 GNU General Public License 发布的条款
 	the Free Software Foundation, either version 3 of the License, or
+	Free Software Foundation，License 的版本 3，或
 	(at your option) any later version.
+	（由您选择）稍后 version.
 
 	This program is distributed in the hope that it will be useful,
+	This 程序被分发，希望它有用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但是WITHOUT ANY WARRANTY；甚至没有默示保证
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY 或 FITNESS FOR A PARTICULAR PURPOSE. See
 	GNU General Public License for more details.
+	GNU General Public License 更多 details.
 
 	You should have received a copy of the GNU General Public License
+	You 应已收到 GNU General Public License 的副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	与此 program. If 不一起，请参见 <__PH0__
 */
 
 import (
@@ -48,6 +59,7 @@ func processFlags(searchPattern string, insensitive bool, exact bool) string {
 	if insensitive {
 		if flagsSpecifiedIndex != nil {
 			// If we matched, flagsSpecifiedIndex[0] will always be 0 (the start of the string)
+			// If 我们匹配，flagsSpecifiedIndex[0] 将始终为 0（字符串的开头）
 			flags := searchPattern[:flagsSpecifiedIndex[1]]
 			if !strings.Contains(flags, "i") {
 				processedSearchPattern = "(?i" + searchPattern[2:]
@@ -58,6 +70,7 @@ func processFlags(searchPattern string, insensitive bool, exact bool) string {
 	}
 
 	// For exact matches, we will replace any start and end of line anchors with (^|\s) and (\s|$) respectively
+	// For 完全匹配，我们将分别用 (^|\s) 和 (\s|$) 替换任何行首和行尾锚点
 	flagsSpecifiedIndex = flagsAtBeginning.FindStringIndex(processedSearchPattern)
 
 	if exact {
@@ -98,6 +111,7 @@ func GrepCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	searchPatternProcessed := processFlags(searchPattern, insensitive, exact)
 
 	// Sanity check the search pattern to validate that it is a valid regex
+	// Sanity 检查搜索模式以验证它是否是有效的正则表达式
 	_, err := regexp.Compile(searchPattern)
 	if err != nil {
 		con.PrintErrorf("%s is not a valid regex: %s\n", searchPattern, err)
@@ -105,6 +119,7 @@ func GrepCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 
 	// Context overrides individual values for before and after
+	// Context 覆盖之前和之后的各个值
 	var linesBefore int32 = 0
 	var linesAfter int32 = 0
 
@@ -142,6 +157,7 @@ func GrepCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 				return
 			}
 			// Using args[0] so that the operator's original input is preserved
+			// Using args[0] 以便保留 operator 的原始输入
 			printGrep(grep, args[0], searchPath, cmd, con)
 		})
 		con.PrintAsyncResponse(grep.Response)
@@ -151,6 +167,7 @@ func GrepCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 }
 
 // printGrep - Print the results from the grep operation to stdout
+// printGrep - Print grep 操作到 stdout 的结果
 func printGrep(grep *sliverpb.Grep, searchPattern string, searchPath string, cmd *cobra.Command, con *console.SliverClient) {
 	saveLoot, _ := cmd.Flags().GetBool("loot")
 	lootName, _ := cmd.Flags().GetString("name")
@@ -159,6 +176,7 @@ func printGrep(grep *sliverpb.Grep, searchPattern string, searchPath string, cmd
 	currentDateTime := time.Now().Format("2006-01-02_150405")
 	if !cmd.Flags().Changed("lootName") {
 		// If the loot name has not been specified by the operator, generate one
+		// If 战利品名称尚未由 operator 指定，生成一个
 		con.GetActiveSessionConfig()
 		lootName = fmt.Sprintf("grep from %s on %s (%s)", searchPath, con.GetActiveSessionConfig().ID, currentDateTime)
 	}
@@ -170,6 +188,7 @@ func printGrep(grep *sliverpb.Grep, searchPattern string, searchPath string, cmd
 	grepResults, numberOfResults, binaryFilesMatched := printGrepResults(grep.Results, colorize, true)
 	if len(grepResults) > maxLinesDisplayed {
 		// If there are more than maxResultsDisplayed results, then loot the rest so that we do not overfill the console
+		// If 有多个 maxResultsDisplayed 结果，然后掠夺其余的，这样我们就不会填满控制台
 		saveLoot = true
 	}
 
@@ -205,6 +224,7 @@ func printGrep(grep *sliverpb.Grep, searchPattern string, searchPath string, cmd
 
 	if saveLoot {
 		// Do not allow escape sequences in the output when looting
+		// Do 抢劫时不允许在输出中出现转义序列
 		grepResultsForLoot, numberOfResults, binaryFilesMatched := printGrepResults(grep.Results, false, false)
 
 		lootFileName := fmt.Sprintf("grep_%s_%s.txt", con.GetActiveSessionConfig().ID, currentDateTime)
@@ -220,6 +240,7 @@ func printGrep(grep *sliverpb.Grep, searchPattern string, searchPath string, cmd
 		}
 
 		// Add a header to the looted grep results to indicate what the pattern was and what was searched
+		// Add 被掠夺的 grep 结果的标头，指示模式是什么以及搜索的内容
 		grepResultsString := fmt.Sprintf("Search pattern: %s\nSearch location: %s\n", searchPattern, grep.SearchPathAbsolute)
 		if len(flags) > 0 {
 			grepResultsString += fmt.Sprintf("Search flags: %s\n", strings.Join(flags, ", "))
@@ -236,6 +257,7 @@ func printGrep(grep *sliverpb.Grep, searchPattern string, searchPath string, cmd
 }
 
 // grepLineResult - Add color or formatting for results for console output
+// grepLineResult - Add 控制台输出结果的颜色或格式
 func grepLineResult(positions []*sliverpb.GrepLinePosition, line string, colorize bool, allowFormatting bool) string {
 	var result string = ""
 	var previousPositionEnd int32 = 0
@@ -265,6 +287,7 @@ func grepLineResult(positions []*sliverpb.GrepLinePosition, line string, coloriz
 }
 
 // printGrepResults - Take the results from the implant and put them together for output to the console or loot
+// printGrepResults - Take 来自 implant 的结果并将它们放在一起以输出到控制台或战利品
 func printGrepResults(results map[string]*sliverpb.GrepResultsForFile, colorize bool, allowFormatting bool) ([]string, int, []string) {
 	var resultOutput []string
 	var numberOfResults = 0

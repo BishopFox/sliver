@@ -2,20 +2,32 @@ package alias
 
 /*
 	Sliver Implant Framework
+	Sliver implant 框架
 	Copyright (C) 2019  Bishop Fox
+	版权所有 (C) 2019 Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
+	本程序是自由软件：你可以再发布和/或修改它
 	it under the terms of the GNU General Public License as published by
+	在自由软件基金会发布的 GNU General Public License 条款下，
 	the Free Software Foundation, either version 3 of the License, or
+	可以使用许可证第 3 版，或
 	(at your option) any later version.
+	（由你选择）任何更高版本。
 
 	This program is distributed in the hope that it will be useful,
+	发布本程序是希望它能发挥作用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但不提供任何担保；甚至不包括
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	对适销性或特定用途适用性的默示担保。请参阅
 	GNU General Public License for more details.
+	GNU General Public License 以获取更多细节。
 
 	You should have received a copy of the GNU General Public License
+	你应当已随本程序收到一份 GNU General Public License 副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	如果没有，请参见 <https://www.gnu.org/licenses/>。
 */
 
 import (
@@ -55,6 +67,7 @@ const (
 
 var (
 	// alias name -> manifest/command.
+	// alias 名称 -> manifest/command。
 	loadedAliases = map[string]*loadedAlias{}
 
 	defaultHostProc = map[string]string{
@@ -65,12 +78,14 @@ var (
 )
 
 // Ties the manifest struct to the command struct.
+// 将 manifest 结构体与命令结构体绑定。
 type loadedAlias struct {
 	Manifest *AliasManifest
 	Command  *cobra.Command
 }
 
 // AliasFile - An OS/Arch specific file.
+// AliasFile - OS/Arch 特定文件。
 type AliasFile struct {
 	OS   string `json:"os"`
 	Arch string `json:"arch"`
@@ -78,6 +93,7 @@ type AliasFile struct {
 }
 
 // AliasArgument - An argument for an alias command.
+// AliasArgument - alias 命令的参数。
 type AliasArgument struct {
 	Name     string      `json:"name"`
 	Type     string      `json:"type"`
@@ -88,6 +104,7 @@ type AliasArgument struct {
 }
 
 // AliasManifest - The manifest for an alias, contains metadata.
+// AliasManifest - alias 的 manifest，包含 metadata。
 type AliasManifest struct {
 	Name           string `json:"name"`
 	Version        string `json:"version"`
@@ -139,9 +156,11 @@ func (a *AliasManifest) getFileForTarget(_ string, targetOS string, targetArch s
 }
 
 // AliasesLoadCmd - Locally load a alias into the Sliver shell.
+// AliasesLoadCmd - 在本地将 alias 加载到 Sliver shell。
 func AliasesLoadCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	dirPath := args[0]
 	// dirPath := ctx.Args.String("dir-path")
+	// 从 ctx 读取 dir-path 参数
 	alias, err := LoadAlias(dirPath, cmd.Root(), con)
 	if err != nil {
 		con.PrintErrorf("Failed to load alias: %s\n", err)
@@ -151,8 +170,10 @@ func AliasesLoadCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 }
 
 // LoadAlias - Load an alias into the Sliver shell from a given directory.
+// LoadAlias - 从给定目录将 alias 加载到 Sliver shell。
 func LoadAlias(manifestPath string, cmd *cobra.Command, con *console.SliverClient) (*AliasManifest, error) {
 	// retrieve alias manifest
+	// 获取 alias manifest
 	var err error
 	manifestPath, err = filepath.Abs(manifestPath)
 	if err != nil {
@@ -160,6 +181,7 @@ func LoadAlias(manifestPath string, cmd *cobra.Command, con *console.SliverClien
 	}
 
 	// parse it
+	// 解析它
 	data, err := os.ReadFile(manifestPath)
 	if err != nil {
 		return nil, err
@@ -171,6 +193,7 @@ func LoadAlias(manifestPath string, cmd *cobra.Command, con *console.SliverClien
 	aliasManifest.RootPath = filepath.Dir(manifestPath)
 
 	// Build usage string including arguments
+	// 构建包含参数的用法字符串
 	usage := strings.Builder{}
 	usage.WriteString(aliasManifest.CommandName)
 	for _, arg := range aliasManifest.Arguments {
@@ -185,6 +208,7 @@ func LoadAlias(manifestPath string, cmd *cobra.Command, con *console.SliverClien
 	}
 
 	// Build long help message
+	// 构建长帮助信息
 	longHelp := strings.Builder{}
 	longHelp.WriteString("[[.Bold]]Command:[[.Normal]]")
 	longHelp.WriteString(usage.String())
@@ -219,6 +243,7 @@ func LoadAlias(manifestPath string, cmd *cobra.Command, con *console.SliverClien
 	longHelp.WriteString("https://github.com/BishopFox/sliver/wiki/Aliases-&-Extensions#aliases-command-parsing")
 
 	// for each alias command, add a new app command
+	// 为每个 alias 命令添加一个新的 app 命令
 	helpMsg := fmt.Sprintf("[%s] %s", aliasManifest.Name, aliasManifest.Help)
 	addAliasCmd := &cobra.Command{
 		Use:   usage.String(),
@@ -228,6 +253,9 @@ func LoadAlias(manifestPath string, cmd *cobra.Command, con *console.SliverClien
 			runAliasCommand(cmd, con, args)
 		},
 		Args:        cobra.ArbitraryArgs, // 	a.StringList("arguments", "arguments", grumble.Default([]string{}))
+		Args:        cobra.ArbitraryArgs, // 	a.StringList(__PH0__, __PH1__, grumble.Default([]字符串{}))
+		// Args:        cobra.ArbitraryArgs, // 	a.StringList("arguments", "arguments", grumble.Default([]string{}))
+		// 使用任意参数（对应原 grumble 参数列表）
 		GroupID:     consts.AliasHelpGroup,
 		Annotations: makeAliasPlatformFilters(aliasManifest),
 	}
@@ -254,13 +282,16 @@ func LoadAlias(manifestPath string, cmd *cobra.Command, con *console.SliverClien
 	addAliasCmd.Flags().AddFlagSet(f)
 
 	// Setup completions for alias arguments
+	// 为 alias 参数设置补全
 	comps := carapace.Gen(addAliasCmd)
 	makeAliasArgCompleter(aliasManifest, comps)
 
 	cmd.AddCommand(addAliasCmd)
 
 	// Have to use a global map here, as passing the aliasCmd
+	// 这里必须使用全局 map，因为传递 aliasCmd
 	// either by value or by ref fucks things up
+	// 无论按值还是按引用都会把事情搞乱
 	loadedAliases[aliasManifest.CommandName] = &loadedAlias{
 		Manifest: aliasManifest,
 		Command:  addAliasCmd,
@@ -270,8 +301,10 @@ func LoadAlias(manifestPath string, cmd *cobra.Command, con *console.SliverClien
 }
 
 // ParseAliasManifest - Parse an alias manifest.
+// ParseAliasManifest - 解析 alias manifest。
 func ParseAliasManifest(data []byte) (*AliasManifest, error) {
 	// parse it
+	// 解析它
 	alias := &AliasManifest{}
 	err := json.Unmarshal(data, alias)
 	if err != nil {
@@ -339,6 +372,7 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 		return
 	}
 	// args := ctx.Args.StringList("arguments")
+	// 从 ctx 读取 arguments 参数列表
 	var extArgsStr string
 	if len(aliasManifest.DefaultArgs) != 0 && len(args) == 0 {
 		extArgsStr = aliasManifest.DefaultArgs
@@ -350,13 +384,19 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 	entryPoint := aliasManifest.Entrypoint
 	processArgsStr, _ := cmd.Flags().GetString("process-arguments")
 	// Special case for payloads with pass to Donut (.NET assemblies and sideloaded payloads):
+	// 传递到 Donut 的 payload 特殊情况（.NET assembly 和 sideloaded payload）：
 	// The Donut loader has a hard limit of 256 characters for the command line arguments, so
+	// Donut loader 对命令行参数有 256 字符的硬限制，因此
 	// we're alerting the user that the arguments will be truncated.
+	// 我们会提醒用户参数将被截断。
 	if len(extArgsStr) > 256 && (aliasManifest.IsAssembly || !aliasManifest.IsReflective) {
 		msgStr := ""
 		// The --in-process flag only exists for .NET assemblies (aliasManifest.IsAssembly == true).
+		// --in-process 参数仅适用于 .NET assembly（aliasManifest.IsAssembly == true）。
 		// Groupping the two conditions together could crash the client since ctx.Flags.Type panics
+		// 将这两个条件合并可能导致 client 崩溃，因为 ctx.Flags.Type 会 panic
 		// if the flag is not registered.
+		// 当该参数未注册时。
 		if aliasManifest.IsAssembly {
 			inProcess, _ := cmd.Flags().GetBool("in-process")
 			runtime, _ := cmd.Flags().GetString("runtime")
@@ -411,6 +451,7 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 	if aliasManifest.IsAssembly {
 
 		// Flags
+		// 参数
 		arch, _ := cmd.Flags().GetString("arch")
 		method, _ := cmd.Flags().GetString("method")
 		className, _ := cmd.Flags().GetString("class")
@@ -422,6 +463,7 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 		etwBypass, _ := cmd.Flags().GetBool("etw-bypass")
 
 		// Execute Assembly
+		// 执行 Assembly
 		ctrl := make(chan bool)
 		msg := fmt.Sprintf("Executing %s %s ...", cmd.Name(), extArgsStr)
 		con.SpinUntil(msg, ctrl)
@@ -465,9 +507,11 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 
 	} else if aliasManifest.IsReflective {
 		// Flags
+		// 参数
 		pPid, _ := cmd.Flags().GetUint32("ppid")
 
 		// Spawn DLL
+		// 执行 Spawn DLL
 		ctrl := make(chan bool)
 		msg := fmt.Sprintf("Executing %s %s ...", cmd.Name(), extArgsStr)
 		con.SpinUntil(msg, ctrl)
@@ -504,9 +548,11 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 
 	} else {
 		// Flags
+		// 参数
 		pPid, _ := cmd.Flags().GetUint32("ppid")
 
 		// Sideload
+		// 执行 Sideload
 		ctrl := make(chan bool)
 		msg := fmt.Sprintf("Executing %s %s ...", cmd.Name(), extArgsStr)
 		con.SpinUntil(msg, ctrl)
@@ -562,6 +608,7 @@ func getOutputWithSchema(schema *packages.OutputSchema, result string) string {
 }
 
 // PrintSpawnDLLOutput - Prints the output of a spawn dll command.
+// PrintSpawnDLLOutput - 打印 spawn dll 命令输出。
 func PrintSpawnDLLOutput(cmdName string, schema *packages.OutputSchema, spawnDllResp *sliverpb.SpawnDll, outFilePath *os.File, con *console.SliverClient) {
 	var result string
 
@@ -573,6 +620,7 @@ func PrintSpawnDLLOutput(cmdName string, schema *packages.OutputSchema, spawnDll
 	con.PrintInfof("%s output:\n%s", cmdName, result)
 
 	// Output the raw result to the file
+	// 将原始结果输出到文件
 	if outFilePath != nil {
 		outFilePath.WriteString(spawnDllResp.GetResult())
 		con.PrintInfof("Output saved to %s\n", outFilePath.Name())
@@ -580,6 +628,7 @@ func PrintSpawnDLLOutput(cmdName string, schema *packages.OutputSchema, spawnDll
 }
 
 // PrintSideloadOutput - Prints the output of a sideload command.
+// PrintSideloadOutput - 打印 sideload 命令输出。
 func PrintSideloadOutput(cmdName string, schema *packages.OutputSchema, sideloadResp *sliverpb.Sideload, outFilePath *os.File, con *console.SliverClient) {
 	var result string
 
@@ -591,6 +640,7 @@ func PrintSideloadOutput(cmdName string, schema *packages.OutputSchema, sideload
 	con.PrintInfof("%s output:\n%s", cmdName, result)
 
 	// Output the raw result to the file
+	// 将原始结果输出到文件
 	if outFilePath != nil {
 		outFilePath.WriteString(sideloadResp.GetResult())
 		con.PrintInfof("Output saved to %s\n", outFilePath.Name())
@@ -598,6 +648,7 @@ func PrintSideloadOutput(cmdName string, schema *packages.OutputSchema, sideload
 }
 
 // PrintAssemblyOutput - Prints the output of an execute-assembly command.
+// PrintAssemblyOutput - 打印 execute-assembly 命令输出。
 func PrintAssemblyOutput(cmdName string, schema *packages.OutputSchema, execAsmResp *sliverpb.ExecuteAssembly, outFilePath *os.File, con *console.SliverClient) {
 	var result string
 
@@ -609,6 +660,7 @@ func PrintAssemblyOutput(cmdName string, schema *packages.OutputSchema, execAsmR
 	con.PrintInfof("%s output:\n%s", cmdName, result)
 
 	// Output the raw result to the file
+	// 将原始结果输出到文件
 	if outFilePath != nil {
 		outFilePath.Write(execAsmResp.GetOutput())
 		con.PrintInfof("Output saved to %s\n", outFilePath.Name())
@@ -622,6 +674,7 @@ func makeAliasPlatformFilters(alias *AliasManifest) map[string]string {
 	var all []string
 
 	// Only add filters for architectures when there OS matters.
+	// 仅在 OS 相关时为 architecture 添加过滤器。
 	for _, file := range alias.Files {
 		filtersOS[file.OS] = true
 
@@ -652,9 +705,13 @@ func makeAliasPlatformFilters(alias *AliasManifest) map[string]string {
 }
 
 // makeAliasArgCompleter builds the positional and dash arguments completer for the alias.
+// makeAliasArgCompleter 为 alias 构建位置参数与 dash 参数补全器。
 // It provides completion for:
+// 它提供以下补全：
 // 1. Positional arguments (before --)
+// 1. 位置参数（-- 之前）
 // 2. Flag-style arguments after -- (e.g., --target, --port)
+// 2. -- 之后的 flag 风格参数（例如 --target、--port）
 func makeAliasArgCompleter(alias *AliasManifest, comps *carapace.Carapace) {
 	if len(alias.Arguments) == 0 {
 		return
@@ -666,10 +723,12 @@ func makeAliasArgCompleter(alias *AliasManifest, comps *carapace.Carapace) {
 		var action carapace.Action
 
 		// If choices are defined, use them for completion
+		// 如果定义了 choices，则用其进行补全
 		if len(arg.Choices) > 0 {
 			action = carapace.ActionValues(arg.Choices...).Tag("choices")
 		} else {
 			// Fall back to type-based completion
+			// 否则回退到基于类型的补全
 			switch arg.Type {
 			case "file":
 				action = carapace.ActionFiles().Tag("alias data")
@@ -689,17 +748,22 @@ func makeAliasArgCompleter(alias *AliasManifest, comps *carapace.Carapace) {
 	comps.PositionalCompletion(actions...)
 
 	// Add dash completion for flag-style arguments after --
+	// 为 -- 之后的 flag 风格参数添加 dash 补全
 	// Pre-build the flag completions at registration time (not in a callback)
+	// 在注册阶段预构建 flag 补全（不在回调中）
 	flagCompletion := makeAliasFlagNameCompletion(alias)
 
 	// Build value completions for each argument type
+	// 为每种参数类型构建取值补全
 	valueCompletions := make(map[string]carapace.Action)
 	for _, arg := range alias.Arguments {
 		// If choices are defined, use them for completion
+		// 如果定义了 choices，则用其进行补全
 		if len(arg.Choices) > 0 {
 			valueCompletions[arg.Name] = carapace.ActionValues(arg.Choices...).Tag("choices")
 		} else {
 			// Fall back to type-based completion
+			// 否则回退到基于类型的补全
 			switch arg.Type {
 			case "file":
 				valueCompletions[arg.Name] = carapace.ActionFiles().Tag("file path")
@@ -712,14 +776,17 @@ func makeAliasArgCompleter(alias *AliasManifest, comps *carapace.Carapace) {
 	}
 
 	// Use DashAnyCompletion with a smart action that determines context
+	// 使用 DashAnyCompletion，通过智能动作判断上下文
 	comps.DashAnyCompletion(
 		carapace.ActionCallback(func(c carapace.Context) carapace.Action {
 			// If typing a flag (starts with -)
+			// 如果正在输入 flag（以 - 开头）
 			if strings.HasPrefix(c.Value, "-") {
 				return flagCompletion
 			}
 
 			// If previous arg was a flag, complete its value
+			// 如果前一个参数是 flag，则补全其取值
 			if len(c.Args) > 0 {
 				lastArg := c.Args[len(c.Args)-1]
 				if strings.HasPrefix(lastArg, "-") {
@@ -731,12 +798,14 @@ func makeAliasArgCompleter(alias *AliasManifest, comps *carapace.Carapace) {
 			}
 
 			// Default: show flag names
+			// 默认：显示 flag 名称
 			return flagCompletion
 		}),
 	)
 }
 
 // makeAliasFlagNameCompletion creates completion for flag names
+// makeAliasFlagNameCompletion 为 flag 名称创建补全
 func makeAliasFlagNameCompletion(alias *AliasManifest) carapace.Action {
 	var results []string
 

@@ -11,6 +11,7 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
+// Commands 返回“命令及其 subcommands.
 func Commands(con *console.SliverClient) []*cobra.Command {
 	wgConfigCmd := &cobra.Command{
 		Use:   consts.WgConfigStr,
@@ -36,6 +37,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 }
 
 // SliverCommands returns all Wireguard commands that can be used on an active target.
+// SliverCommands 返回可在活动 target. 上使用的所有 Wireguard 命令
 func SliverCommands(con *console.SliverClient) []*cobra.Command {
 	wgPortFwdCmd := &cobra.Command{
 		Use:     consts.WgPortFwdStr,

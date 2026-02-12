@@ -9,6 +9,7 @@ import (
 )
 
 // TasksCancelCmd - Cancel a beacon task before it's sent to the implant.
+// TasksCancelCmd - Cancel a beacon task 在发送到 implant. 之前
 func TasksCancelCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	beacon := con.ActiveTarget.GetBeaconInteractive()
 	if beacon == nil {
@@ -51,6 +52,7 @@ func TasksCancelCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 			return
 		}
 		// Request and response content is not needed for cancelling a task
+		// Request 且取消 task 不需要响应内容
 		task.Request = nil
 		task.Response = nil
 	}

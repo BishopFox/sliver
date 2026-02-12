@@ -3,19 +3,30 @@ package c2profiles
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
+	Copyright (C) 2019 Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
+	This 程序是免费软件：您可以重新分发它 and/or 修改
 	it under the terms of the GNU General Public License as published by
+	它根据 GNU General Public License 发布的条款
 	the Free Software Foundation, either version 3 of the License, or
+	Free Software Foundation，License 的版本 3，或
 	(at your option) any later version.
+	（由您选择）稍后 version.
 
 	This program is distributed in the hope that it will be useful,
+	This 程序被分发，希望它有用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但是WITHOUT ANY WARRANTY；甚至没有默示保证
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY 或 FITNESS FOR A PARTICULAR PURPOSE. See
 	GNU General Public License for more details.
+	GNU General Public License 更多 details.
 
 	You should have received a copy of the GNU General Public License
+	You 应已收到 GNU General Public License 的副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	与此 program. If 不一起，请参见 <__PH0__
 */
 
 import (
@@ -48,6 +59,7 @@ var (
 )
 
 // C2ProfileCmd list available http profiles
+// C2ProfileCmd 列出可用的 http 配置文件
 func C2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	profileName, _ := cmd.Flags().GetString("name")
 
@@ -90,6 +102,7 @@ func ImportC2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 	overwrite, _ := cmd.Flags().GetBool("overwrite")
 
 	// retrieve and unmarshal profile config
+	// 检索并解组配置文件配置
 	jsonFile, err := os.Open(filepath)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -171,6 +184,7 @@ func ExportC2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 func GenerateC2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 
 	// load template to use as starting point
+	// 加载模板以用作起点
 	template, err := cmd.Flags().GetString("template")
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -196,6 +210,7 @@ func GenerateC2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []
 	}
 
 	// read urls files and replace segments
+	// 读取 urls 文件并替换片段
 	filepath, err := cmd.Flags().GetString("file")
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -221,6 +236,7 @@ func GenerateC2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []
 	}
 
 	// save or display config
+	// 保存或显示配置
 	importC2Profile, err := cmd.Flags().GetBool("import")
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
@@ -240,6 +256,7 @@ func GenerateC2ProfileCmd(cmd *cobra.Command, con *console.SliverClient, args []
 }
 
 // convert protobuf to json
+// 将 protobuf 转换为 json
 func C2ConfigToJSON(profileName string, profile *clientpb.HTTPC2Config) (*assets.HTTPC2Config, error) {
 	implantConfig := assets.HTTPC2ImplantConfig{
 		UserAgent:          profile.ImplantConfig.UserAgent,
@@ -323,6 +340,7 @@ func C2ConfigToJSON(profileName string, profile *clientpb.HTTPC2Config) (*assets
 }
 
 // convert json to protobuf
+// 将 json 转换为 protobuf
 func C2ConfigToProtobuf(profileName string, config *assets.HTTPC2Config) *clientpb.HTTPC2Config {
 
 	httpC2UrlParameters := []*clientpb.HTTPC2URLParameter{}
@@ -330,6 +348,7 @@ func C2ConfigToProtobuf(profileName string, config *assets.HTTPC2Config) *client
 	pathSegments := []*clientpb.HTTPC2PathSegment{}
 
 	// files
+	// 文件
 	for _, file := range config.ImplantConfig.Files {
 		pathSegments = append(pathSegments, &clientpb.HTTPC2PathSegment{
 			IsFile: true,
@@ -412,6 +431,7 @@ func C2ConfigToProtobuf(profileName string, config *assets.HTTPC2Config) *client
 }
 
 // PrintImplantBuilds - Print the implant builds on the server
+// PrintImplantBuilds - Print implant 在服务器上构建
 func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverClient) {
 
 	tw := table.NewWriter()
@@ -422,6 +442,7 @@ func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverClient) 
 	})
 
 	// Profile metadata
+	// Profile 元数据
 
 	tw.AppendRow(table.Row{
 		"Profile Name",
@@ -429,6 +450,7 @@ func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverClient) 
 	})
 
 	// Server side configuration
+	// Server 侧面配置
 
 	var serverHeaders []string
 	for _, header := range profile.ServerConfig.Headers {
@@ -454,6 +476,7 @@ func PrintC2Profiles(profile *clientpb.HTTPC2Config, con *console.SliverClient) 
 	})
 
 	// Client side configuration
+	// Client 侧面配置
 
 	var clientHeaders []string
 	for _, header := range profile.ImplantConfig.Headers {
@@ -571,6 +594,7 @@ func selectC2Profile(c2profiles []*clientpb.HTTPC2Config) (string, error) {
 
 func updateC2Profile(template *assets.HTTPC2Config, urls []string) (*assets.HTTPC2Config, error) {
 	// update the template with the urls
+	// 使用 url 更新模板
 
 	var (
 		paths      []string
@@ -611,6 +635,7 @@ func updateC2Profile(template *assets.HTTPC2Config, urls []string) (*assets.HTTP
 	filenames = slices.Compact(filenames)
 
 	// 5 is arbitrarily used as a minimum value
+	// 任意使用5作为最小值
 	if len(paths) < 5 {
 		return nil, fmt.Errorf("got %d paths need at least 5", len(paths))
 	}

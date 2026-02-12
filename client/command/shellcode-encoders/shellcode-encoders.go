@@ -12,6 +12,7 @@ import (
 )
 
 // ShellcodeEncodersCmd - Display supported shellcode encoders and architectures.
+// ShellcodeEncodersCmd - Display 支持的 shellcode 编码器和 architectures.
 func ShellcodeEncodersCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	grpcCtx, cancel := con.GrpcContext(cmd)
 	defer cancel()
@@ -25,6 +26,7 @@ func ShellcodeEncodersCmd(cmd *cobra.Command, con *console.SliverClient, args []
 }
 
 // DisplayShellcodeEncoders - Display shellcode encoder map from server.
+// 来自 server. 的 DisplayShellcodeEncoders - Display shellcode 编码器映射
 func DisplayShellcodeEncoders(encoderMap *clientpb.ShellcodeEncoderMap, con *console.SliverClient) {
 	if encoderMap == nil || len(encoderMap.GetEncoders()) == 0 {
 		con.PrintInfof("No shellcode encoders available\n")

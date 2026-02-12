@@ -16,6 +16,7 @@ import (
 )
 
 // Commands returns the `sessions` command and its subcommands.
+// Commands 返回 __PH0__ 命令及其 subcommands.
 func Commands(con *console.SliverClient) []*cobra.Command {
 	sessionsCmd := &cobra.Command{
 		Use:   consts.SessionsStr,
@@ -62,6 +63,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 }
 
 // SessionIDCompleter completes session IDs.
+// SessionIDCompleter 完成 session IDs.
 func SessionIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
 		return carapace.ActionValuesDescribed(sessionCompletionPairs(con)...).Tag("sessions")
@@ -137,6 +139,7 @@ func filterCompletionValues(values []string, prefix string) []string {
 }
 
 // SliverCommands returns all session control commands for the active target.
+// SliverCommands 返回活动 target. 的所有 session 控制命令
 func SliverCommands(con *console.SliverClient) []*cobra.Command {
 	backgroundCmd := &cobra.Command{
 		Use:   consts.BackgroundStr,

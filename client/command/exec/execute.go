@@ -3,16 +3,27 @@ package exec
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
+	Copyright (C) 2019 Bishop Fox
 	This program is free software: you can redistribute it and/or modify
+	This 程序是免费软件：您可以重新分发它 and/or 修改
 	it under the terms of the GNU General Public License as published by
+	它根据 GNU General Public License 发布的条款
 	the Free Software Foundation, either version 3 of the License, or
+	Free Software Foundation，License 的版本 3，或
 	(at your option) any later version.
+	（由您选择）稍后 version.
 	This program is distributed in the hope that it will be useful,
+	This 程序被分发，希望它有用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但是WITHOUT ANY WARRANTY；甚至没有默示保证
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY 或 FITNESS FOR A PARTICULAR PURPOSE. See
 	GNU General Public License for more details.
+	GNU General Public License 更多 details.
 	You should have received a copy of the GNU General Public License
+	You 应已收到 GNU General Public License 的副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	与此 program. If 不一起，请参见 <__PH0__
 */
 
 import (
@@ -32,6 +43,7 @@ import (
 )
 
 // ExecuteCmd - Run a command on the remote system.
+// ExecuteCmd - Run 遥控器上的命令 system.
 func ExecuteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -65,6 +77,7 @@ func ExecuteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 
 	// If the user wants to loot or save the output, we have to capture it regardless of if they specified -o
+	// If 用户想要掠夺或保存输出，我们必须捕获它，无论他们是否指定__PH0__
 	captureOutput := !background && (output || saveLoot || saveOutput)
 
 	if captureOutput && beacon != nil {
@@ -156,6 +169,7 @@ func HandleExecuteResponse(exec *sliverpb.Execute, cmdPath string, hostName stri
 }
 
 // PrintExecute - Print the output of an executed command.
+// PrintExecute - Print 执行的 command. 的输出
 func PrintExecute(exec *sliverpb.Execute, cmd *cobra.Command, con *console.SliverClient) {
 	ignoreStderr, _ := cmd.Flags().GetBool("ignore-stderr")
 	stdout, _ := cmd.Flags().GetString("stdout")
@@ -168,6 +182,7 @@ func PrintExecute(exec *sliverpb.Execute, cmd *cobra.Command, con *console.Slive
 	}
 	if background {
 		// Background execution never returns inline output.
+		// Background 执行永远不会返回内联 output.
 		output = false
 	}
 	if !output {

@@ -12,8 +12,10 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
+// Commands 返回“命令及其 subcommands.
 func Commands(con *console.SliverClient) []*cobra.Command {
 	// Job control
+	// Job 控制
 	jobsCmd := &cobra.Command{
 		Use:   consts.JobsStr,
 		Short: "Job control",
@@ -134,6 +136,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	})
 
 	// Staging listeners
+	// Staging 听众
 	stageCmd := &cobra.Command{
 		Use:   consts.StageListenerStr,
 		Short: "Start a stager listener",

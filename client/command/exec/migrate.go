@@ -3,19 +3,30 @@ package exec
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
+	Copyright (C) 2019 Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
+	This 程序是免费软件：您可以重新分发它 and/or 修改
 	it under the terms of the GNU General Public License as published by
+	它根据 GNU General Public License 发布的条款
 	the Free Software Foundation, either version 3 of the License, or
+	Free Software Foundation，License 的版本 3，或
 	(at your option) any later version.
+	（由您选择）稍后 version.
 
 	This program is distributed in the hope that it will be useful,
+	This 程序被分发，希望它有用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但是WITHOUT ANY WARRANTY；甚至没有默示保证
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY 或 FITNESS FOR A PARTICULAR PURPOSE. See
 	GNU General Public License for more details.
+	GNU General Public License 更多 details.
 
 	You should have received a copy of the GNU General Public License
+	You 应已收到 GNU General Public License 的副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	与此 program. If 不一起，请参见 <__PH0__
 */
 
 import (
@@ -36,6 +47,7 @@ import (
 )
 
 // MigrateCmd - Windows only, inject an implant into another process
+// MigrateCmd - 仅 Windows，将 implant 注入另一个进程
 func MigrateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -81,10 +93,15 @@ func MigrateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 
 	/* If the HTTP C2 Config name is not defined, then put in the default value
+ If HTTP C2 Config 名称没有定义，则放入默认值
 	   This will have no effect on implants that do not use HTTP C2
+	   This 对不使用 HTTP C2 的种植体没有影响
 	   Also this should be overridden when the build info is pulled from the
+	   Also 当从 中提取构建信息时，应该覆盖它
 	   database, but if there is no build info and we have to create the build
+	   数据库，但如果没有构建信息，我们必须创建构建
 	   from scratch, we need to have something in here.
+	   从头开始，我们需要在 here. 中有一些东西
 	*/
 	if config.HTTPC2ConfigName == "" {
 		config.HTTPC2ConfigName = consts.DefaultC2Profile
@@ -214,10 +231,12 @@ func parseShellcodeEncoderFlag(cmd *cobra.Command, targetArch string, con *conso
 	}
 
 	// If no encoder specified, prompt for a compatible encoder (or none).
+	// If 未指定编码器，提示兼容的编码器（或无）。
 	if rawEncoder == "" && !cmd.Flags().Changed("shellcode-encoder") {
 		compatible := compatibleShellcodeEncoderNames(encoderMap, targetArch)
 		if len(compatible) == 0 {
 			// No known compatible encoders for this arch.
+			// No 已知与此 arch. 兼容的编码器
 			return clientpb.ShellcodeEncoder_NONE, nil
 		}
 
@@ -238,6 +257,7 @@ func parseShellcodeEncoderFlag(cmd *cobra.Command, targetArch string, con *conso
 	}
 
 	// Encoder explicitly specified by name.
+	// Encoder 由 name. 显式指定
 	encoder, ok := shellcodeEncoderEnumForArch(encoderMap, targetArch, rawEncoder)
 	if !ok {
 		compatible := compatibleShellcodeEncoderNames(encoderMap, targetArch)

@@ -12,6 +12,7 @@ import (
 )
 
 // Commands returns the “ command and its subcommands.
+// Commands 返回“命令及其 subcommands.
 func Commands(con *console.SliverClient) []*cobra.Command {
 	mvCmd := &cobra.Command{
 		Use:   consts.MvStr,
@@ -280,7 +281,9 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			/*
 				The last argument tells head if the user requested the head or tail of the file
+				The 最后一个参数告诉 head 用户是否请求文件的头部或尾部
 				True means head, false means tail
+				True 表示头部， false 表示尾部
 			*/
 			HeadCmd(cmd, con, args, true)
 		},
@@ -307,7 +310,9 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			/*
 				The last argument tells head if the user requested the head or tail of the file
+				The 最后一个参数告诉 head 用户是否请求文件的头部或尾部
 				True means head, false means tail
+				True 表示头部， false 表示尾部
 			*/
 			HeadCmd(cmd, con, args, false)
 		},

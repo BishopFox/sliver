@@ -13,23 +13,30 @@ import (
 )
 
 // ParseFlagArgumentsToBuffer parses flag-style arguments based on extension manifest
+// ParseFlagArgumentsToBuffer 根据扩展清单解析 flag__PH0__ 参数
 // and converts them to a BOF-compatible binary buffer
+// 并将它们转换为 BOF__PH0__ 二进制缓冲区
 func ParseFlagArgumentsToBuffer(_ *cobra.Command, args []string, _ string, ext *ExtCommand) ([]byte, error) {
 	// Create a flag set and parse the arguments
+	// Create 设置标志并解析参数
 	fs, stringValues, wstringValues, intValues, shortValues, fileValues, err := bofSetupAndParseFlags(args, ext)
 	if err != nil {
 		return nil, err
 	}
 
 	// Print debug information about parsed flags
+	// Print 有关已解析标志的调试信息
 	//bofDebugPrintParsedFlags(fs, ext, stringValues, wstringValues, intValues, shortValues, fileValues)
+	//bofDebugPrintParsedFlags（文件系统，外部，stringValues，wstringValues，intValues，shortValues，fileValues）
 
 	// Initialize the BOF arguments buffer
+	// Initialize BOF 参数缓冲区
 	argsBuffer := core.BOFArgsBuffer{
 		Buffer: new(bytes.Buffer),
 	}
 
 	// Process arguments and build the buffer
+	// Process 参数并构建缓冲区
 	missingRequiredArgs, err := bofProcessArgumentsToBuffer(fs, ext, argsBuffer,
 		stringValues, wstringValues, intValues, shortValues, fileValues)
 	if err != nil {
@@ -37,11 +44,13 @@ func ParseFlagArgumentsToBuffer(_ *cobra.Command, args []string, _ string, ext *
 	}
 
 	// Return error if we have missing required arguments
+	// 如果我们缺少必需的参数，则会出现 Return 错误
 	if len(missingRequiredArgs) > 0 {
 		return nil, fmt.Errorf("required arguments %s were not provided", strings.Join(missingRequiredArgs, ", "))
 	}
 
 	// Get the final binary buffer
+	// Get 最终的二进制缓冲区
 	parsedArgs, err := argsBuffer.GetBuffer()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get buffer: %v", err)
@@ -51,21 +60,27 @@ func ParseFlagArgumentsToBuffer(_ *cobra.Command, args []string, _ string, ext *
 }
 
 // bofSetupAndParseFlags creates a flag set, defines expected flags based on the extension manifest,
+// bofSetupAndParseFlags 创建一个标志集，根据扩展清单定义预期标志，
 // and parses the provided arguments
+// 并解析提供的参数
 func bofSetupAndParseFlags(args []string, ext *ExtCommand) (*flag.FlagSet,
 	map[string]*string, map[string]*string, map[string]*int, map[string]*int, map[string]*string, error) {
 
 	// Create a new FlagSet
+	// Create 一个新的 FlagSet
 	fs := flag.NewFlagSet("sliver-bof", flag.ContinueOnError)
 
 	// Maps to store flag value pointers
+	// Maps 存储标志值指针
 	stringValues := make(map[string]*string)
 	intValues := make(map[string]*int)
 	shortValues := make(map[string]*int)
 	fileValues := make(map[string]*string) // Path to file data
+	fileValues := make(map[string]*string) // Path 到文件数据
 	wstringValues := make(map[string]*string)
 
 	// Define expected flags based on manifest arguments
+	// Define 基于清单参数的预期标志
 	for _, arg := range ext.Arguments {
 		flagName := arg.Name
 		flagDesc := arg.Desc
@@ -87,6 +102,7 @@ func bofSetupAndParseFlags(args []string, ext *ExtCommand) (*flag.FlagSet,
 	}
 
 	// Parse the arguments
+	// Parse 参数
 	if err := fs.Parse(args); err != nil {
 		return nil, nil, nil, nil, nil, nil, err
 	}
@@ -95,7 +111,9 @@ func bofSetupAndParseFlags(args []string, ext *ExtCommand) (*flag.FlagSet,
 }
 
 // bofProcessArgumentsToBuffer processes each argument and adds its value to the buffer
+// bofProcessArgumentsToBuffer 处理每个参数并将其值添加到缓冲区
 // Returns a list of missing required arguments and any error encountered
+// Returns 缺少必需参数和遇到的任何错误的列表
 func bofProcessArgumentsToBuffer(fs *flag.FlagSet, ext *ExtCommand, argsBuffer core.BOFArgsBuffer,
 	stringValues, wstringValues map[string]*string,
 	intValues, shortValues map[string]*int,
@@ -108,6 +126,7 @@ func bofProcessArgumentsToBuffer(fs *flag.FlagSet, ext *ExtCommand, argsBuffer c
 		var err error
 
 		// Process based on argument type
+		// Process 基于参数类型
 		switch argDef.Type {
 		case "string":
 			provided, err = bofProcessStringArg(fs, argDef, stringValues, argsBuffer)
@@ -126,15 +145,18 @@ func bofProcessArgumentsToBuffer(fs *flag.FlagSet, ext *ExtCommand, argsBuffer c
 		}
 
 		// If argument not provided, handle according to rules
+		// 未提供If参数，按规则处理
 		if !provided {
 			if argDef.Optional {
 				// Try to apply default or type-appropriate zero value
+				// Try 应用默认值或 type__PH0__ 零值
 				err = bofApplyDefaultValue(argDef, argsBuffer)
 				if err != nil {
 					return nil, err
 				}
 			} else {
 				// Required argument was not provided
+				// 未提供 Required 参数
 				missingRequiredArgs = append(missingRequiredArgs, "`"+argDef.Name+"`")
 			}
 		}
@@ -144,6 +166,7 @@ func bofProcessArgumentsToBuffer(fs *flag.FlagSet, ext *ExtCommand, argsBuffer c
 }
 
 // bofProcessStringArg processes a string argument
+// bofProcessStringArg 处理字符串参数
 func bofProcessStringArg(fs *flag.FlagSet, argDef *extensionArgument, stringValues map[string]*string,
 	argsBuffer core.BOFArgsBuffer) (bool, error) {
 
@@ -162,6 +185,7 @@ func bofProcessStringArg(fs *flag.FlagSet, argDef *extensionArgument, stringValu
 }
 
 // bofProcessWStringArg processes a wide string argument
+// bofProcessWStringArg 处理宽字符串参数
 func bofProcessWStringArg(fs *flag.FlagSet, argDef *extensionArgument, wstringValues map[string]*string,
 	argsBuffer core.BOFArgsBuffer) (bool, error) {
 
@@ -180,6 +204,7 @@ func bofProcessWStringArg(fs *flag.FlagSet, argDef *extensionArgument, wstringVa
 }
 
 // bofProcessIntArg processes an integer argument
+// bofProcessIntArg 处理整数参数
 func bofProcessIntArg(fs *flag.FlagSet, argDef *extensionArgument, intValues map[string]*int,
 	argsBuffer core.BOFArgsBuffer) (bool, error) {
 
@@ -198,6 +223,7 @@ func bofProcessIntArg(fs *flag.FlagSet, argDef *extensionArgument, intValues map
 }
 
 // bofProcessShortArg processes a short integer argument
+// bofProcessShortArg 处理短整数参数
 func bofProcessShortArg(fs *flag.FlagSet, argDef *extensionArgument, shortValues map[string]*int,
 	argsBuffer core.BOFArgsBuffer) (bool, error) {
 
@@ -216,6 +242,7 @@ func bofProcessShortArg(fs *flag.FlagSet, argDef *extensionArgument, shortValues
 }
 
 // bofProcessFileArg processes a file argument
+// bofProcessFileArg 处理文件参数
 func bofProcessFileArg(fs *flag.FlagSet, argDef *extensionArgument, fileValues map[string]*string,
 	argsBuffer core.BOFArgsBuffer) (bool, error) {
 
@@ -224,6 +251,7 @@ func bofProcessFileArg(fs *flag.FlagSet, argDef *extensionArgument, fileValues m
 
 	if flagWasSet {
 		// Validate file exists and read it
+		// Validate 文件存在并读取它
 		data, err := os.ReadFile(*ptr)
 		if err != nil {
 			return false, fmt.Errorf("error reading file for argument %s: %v", argDef.Name, err)
@@ -239,15 +267,19 @@ func bofProcessFileArg(fs *flag.FlagSet, argDef *extensionArgument, fileValues m
 }
 
 // bofApplyDefaultValue applies a default value based on the argument definition
+// bofApplyDefaultValue 根据参数定义应用默认值
 func bofApplyDefaultValue(argDef *extensionArgument, argsBuffer core.BOFArgsBuffer) error {
 	// Try to use default value from manifest if available
+	// Try 使用清单中的默认值（如果可用）
 	if argDef.Default != nil {
 		switch argDef.Type {
 		case "string":
 			// Handle string default - could be string literal or numeric in JSON
+			// Handle 字符串默认值 - 可以是 JSON 中的字符串文字或数字
 			defaultVal, ok := argDef.Default.(string)
 			if !ok {
 				// Try to convert from other types
+				// Try 从其他类型转换
 				defaultVal = fmt.Sprintf("%v", argDef.Default)
 			}
 			err := argsBuffer.AddString(defaultVal)
@@ -258,6 +290,7 @@ func bofApplyDefaultValue(argDef *extensionArgument, argsBuffer core.BOFArgsBuff
 
 		case "wstring":
 			// Handle wstring default
+			// Handle wstring 默认值
 			defaultVal, ok := argDef.Default.(string)
 			if !ok {
 				defaultVal = fmt.Sprintf("%v", argDef.Default)
@@ -270,14 +303,18 @@ func bofApplyDefaultValue(argDef *extensionArgument, argsBuffer core.BOFArgsBuff
 
 		case "int", "integer":
 			// Handle int default - could be number or string in JSON
+			// Handle int 默认值 - 可以是 JSON 中的数字或字符串
 			var defaultInt uint32
 
 			// Try as number first
+			// Try 作为数字优先
 			numVal, ok := argDef.Default.(float64) // JSON unmarshals numbers as float64
+			numVal, ok := argDef.Default.(float64) // JSON 将数字解组为 float64
 			if ok {
 				defaultInt = uint32(numVal)
 			} else {
 				// Try as string
+				// Try 作为字符串
 				strVal, ok := argDef.Default.(string)
 				if ok {
 					val, err := strconv.ParseUint(strVal, 10, 32)
@@ -295,14 +332,18 @@ func bofApplyDefaultValue(argDef *extensionArgument, argsBuffer core.BOFArgsBuff
 
 		case "short":
 			// Handle short default - could be number or string in JSON
+			// Handle 短默认值 - 可以是 JSON 中的数字或字符串
 			var defaultShort uint16
 
 			// Try as number first
+			// Try 作为数字优先
 			numVal, ok := argDef.Default.(float64) // JSON unmarshals numbers as float64
+			numVal, ok := argDef.Default.(float64) // JSON 将数字解组为 float64
 			if ok {
 				defaultShort = uint16(numVal)
 			} else {
 				// Try as string
+				// Try 作为字符串
 				strVal, ok := argDef.Default.(string)
 				if ok {
 					val, err := strconv.ParseUint(strVal, 10, 16)
@@ -320,6 +361,7 @@ func bofApplyDefaultValue(argDef *extensionArgument, argsBuffer core.BOFArgsBuff
 
 		case "file":
 			// Default for file doesn't really make sense, but handle for completeness
+			// Default 对于文件来说并没有什么意义，但是为了完整性而处理
 			err := argsBuffer.AddData([]byte{})
 			if err != nil {
 				return fmt.Errorf("failed to add default file data: %v", err)
@@ -328,6 +370,7 @@ func bofApplyDefaultValue(argDef *extensionArgument, argsBuffer core.BOFArgsBuff
 		}
 	} else {
 		// No default specified in manifest, use type-appropriate zero values
+		// No 默认在清单中指定，使用 type__PH0__ 零值
 		switch argDef.Type {
 		case "string":
 			err := argsBuffer.AddString("")
@@ -359,6 +402,7 @@ func bofApplyDefaultValue(argDef *extensionArgument, argsBuffer core.BOFArgsBuff
 
 		case "file":
 			// Empty data for optional file
+			// Empty 可选文件的数据
 			err := argsBuffer.AddData([]byte{})
 			if err != nil {
 				return fmt.Errorf("failed to add default file data: %v", err)
@@ -371,6 +415,7 @@ func bofApplyDefaultValue(argDef *extensionArgument, argsBuffer core.BOFArgsBuff
 }
 
 // bofDebugPrintParsedFlags prints information about the parsed flags
+// bofDebugPrintParsedFlags 打印有关已解析标志的信息
 func bofDebugPrintParsedFlags(fs *flag.FlagSet, ext *ExtCommand,
 	stringValues map[string]*string,
 	wstringValues map[string]*string,
@@ -402,6 +447,7 @@ func bofDebugPrintParsedFlags(fs *flag.FlagSet, ext *ExtCommand,
 }
 
 // bofFlagWasProvided checks if a flag was explicitly set
+// bofFlagWasProvided 检查是否显式设置了标志
 func bofFlagWasProvided(fs *flag.FlagSet, name string) bool {
 	provided := false
 	fs.Visit(func(f *flag.Flag) {

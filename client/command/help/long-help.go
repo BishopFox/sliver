@@ -3,23 +3,36 @@ package help
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
+	Copyright (C) 2019 Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
+	This 程序是免费软件：您可以重新分发它 and/or 修改
 	it under the terms of the GNU General Public License as published by
+	它根据 GNU General Public License 发布的条款
 	the Free Software Foundation, either version 3 of the License, or
+	Free Software Foundation，License 的版本 3，或
 	(at your option) any later version.
+	（由您选择）稍后 version.
 
 	This program is distributed in the hope that it will be useful,
+	This 程序被分发，希望它有用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但是WITHOUT ANY WARRANTY；甚至没有默示保证
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY 或 FITNESS FOR A PARTICULAR PURPOSE. See
 	GNU General Public License for more details.
+	GNU General Public License 更多 details.
 
 	You should have received a copy of the GNU General Public License
+	You 应已收到 GNU General Public License 的副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	与此 program. If 不一起，请参见 <__PH0__
 
 	---
 	This file contains all of the long-form help templates, all commands should have a long form help,
+	This 文件包含所有 long__PH0__ 帮助模板，所有命令都应有长格式帮助，
 	even if the command is pretty simple. Try to include example commands in your template.
+	即使命令非常 simple. Try 以便在 template. 中包含示例命令
 */
 
 import (
@@ -38,6 +51,7 @@ const (
 var (
 
 	// NOTE: For sub-commands use a "." hierarchy, for example root.sub for "sub" help
+	// NOTE: For sub__PH2__ 使用 __PH0__ 层次结构，例如 root.sub 用于 __PH1__ 帮助
 	cmdHelp = map[string]string{
 		consts.JobsStr:          jobsHelp,
 		consts.SessionsStr:      sessionsHelp,
@@ -1419,6 +1433,7 @@ To get information about services, you need to be an authenticated user on the s
 )
 
 // GetHelpFor - Get help string for a command
+// GetHelpFor - Get 命令的帮助字符串
 func GetHelpFor(cmdName []string) string {
 	if 0 < len(cmdName) {
 		if helpTmpl, ok := cmdHelp[strings.Join(cmdName, sep)]; ok {
@@ -1466,6 +1481,7 @@ func (s *helpStyleState) apply(token string) bool {
 		s.fgSet, s.fg = true, theme.PrimaryMod(500)
 	case "Gray":
 		// ANSI "gray" (37) is typically light; map to the lightest neutral.
+		// ANSI __PH0__ (37) 通常较轻；映射到最轻的 neutral.
 		s.fgSet, s.fg = true, theme.DefaultMod(900)
 	default:
 		return false
@@ -1491,6 +1507,7 @@ func (s helpStyleState) render(text string) string {
 }
 
 // FormatHelpTmpl - Applies the help markup (e.g. [[.Bold]]...[[.Normal]]) using lipgloss.
+// FormatHelpTmpl - Applies 使用 lipgloss. 的帮助标记 (e.g. [[.Bold]]...[[.Normal]])
 func FormatHelpTmpl(helpStr string) string {
 	var (
 		out   strings.Builder
@@ -1518,6 +1535,7 @@ func FormatHelpTmpl(helpStr string) string {
 		token := helpStr[j+3 : j+k]
 		if !state.apply(token) {
 			// Unknown token; preserve it as plain text.
+			// Unknown token;将其保留为普通 text.
 			out.WriteString(helpStr[j : j+k+2])
 		}
 		i = j + k + 2

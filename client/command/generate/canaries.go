@@ -13,6 +13,7 @@ import (
 )
 
 // CanariesCmd - Display canaries from the database and their status.
+// 数据库中的 CanariesCmd - Display 金丝雀及其 status.
 func CanariesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	canaries, err := con.Rpc.Canaries(context.Background(), &commonpb.Empty{})
 	if err != nil {
@@ -28,6 +29,7 @@ func CanariesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 }
 
 // PrintCanaries - Print the canaries tracked by the server.
+// PrintCanaries - Print 由 server. 追踪的金丝雀
 func PrintCanaries(con *console.SliverClient, canaries []*clientpb.DNSCanary, burnedOnly bool) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))

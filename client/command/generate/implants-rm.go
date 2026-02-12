@@ -11,9 +11,11 @@ import (
 )
 
 // ImplantsRmCmd - Deletes an archived implant build from the server.
+// ImplantsRmCmd - Deletes 是从 server. 构建的存档 implant
 func ImplantsRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	name := args[0]
 	// name := ctx.Args.String("name")
+	// 名称 := ctx.Args.String(__PH0__)
 	if name == "" {
 		con.PrintErrorf("No name specified\n")
 		return

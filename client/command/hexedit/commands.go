@@ -11,6 +11,7 @@ import (
 )
 
 // Commands returns the hex-edit command.
+// Commands 返回 hex__PH0__ command.
 func Commands(con *console.SliverClient) []*cobra.Command {
 	hexEditCmd := &cobra.Command{
 		Use:     consts.HexEditStr + " <remote path>",

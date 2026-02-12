@@ -3,19 +3,30 @@ package cursed
 /*
 	Sliver Implant Framework
 	Copyright (C) 2022  Bishop Fox
+	Copyright (C) 2022 Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
+	This 程序是免费软件：您可以重新分发它 and/or 修改
 	it under the terms of the GNU General Public License as published by
+	它根据 GNU General Public License 发布的条款
 	the Free Software Foundation, either version 3 of the License, or
+	Free Software Foundation，License 的版本 3，或
 	(at your option) any later version.
+	（由您选择）稍后 version.
 
 	This program is distributed in the hope that it will be useful,
+	This 程序被分发，希望它有用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但是WITHOUT ANY WARRANTY；甚至没有默示保证
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY 或 FITNESS FOR A PARTICULAR PURPOSE. See
 	GNU General Public License for more details.
+	GNU General Public License 更多 details.
 
 	You should have received a copy of the GNU General Public License
+	You 应已收到 GNU General Public License 的副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	与此 program. If 不一起，请参见 <__PH0__
 */
 
 import (
@@ -35,8 +46,10 @@ import (
 )
 
 // CursedChromeCmd - Execute a .NET assembly in-memory.
+// CursedChromeCmd - Execute 一个 .NET 组件 in__PH0__.
 func CursedCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	// Collect existing curses from core
+	// Collect 核心现有的诅咒
 	cursedProcesses := [][]string{}
 	core.CursedProcesses.Range(func(key, value interface{}) bool {
 		curse := value.(*core.CursedProcess)
@@ -51,6 +64,7 @@ func CursedCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		return true
 	})
 	// Display table if we have 1 or more curses
+	// 如果我们有 1 个或多个诅咒，则 Display 表
 	if 0 < len(cursedProcesses) {
 		tw := table.NewWriter()
 		tw.SetStyle(settings.GetTableStyle(con))
@@ -71,6 +85,7 @@ func CursedCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 }
 
 // selectCursedProcess - Interactively select a cursed process from a list.
+// selectCursedProcess - Interactively 从 list. 中选择一个被诅咒的进程
 func selectCursedProcess(con *console.SliverClient) *core.CursedProcess {
 	cursedProcesses := []*core.CursedProcess{}
 	core.CursedProcesses.Range(func(key, value interface{}) bool {
@@ -95,6 +110,7 @@ func selectCursedProcess(con *console.SliverClient) *core.CursedProcess {
 	table.Flush()
 	options := strings.Split(outputBuf.String(), "\n")
 	options = options[:len(options)-1] // Remove the last empty option
+	options = options[:len(options)-1] // Remove 最后一个空选项
 	selected := ""
 	err := forms.Select("Select a curse:", options, &selected)
 	if err != nil {

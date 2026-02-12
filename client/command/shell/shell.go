@@ -3,19 +3,30 @@ package shell
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
+	Copyright (C) 2019 Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
+	This 程序是免费软件：您可以重新分发它 and/or 修改
 	it under the terms of the GNU General Public License as published by
+	它根据 GNU General Public License 发布的条款
 	the Free Software Foundation, either version 3 of the License, or
+	Free Software Foundation，License 的版本 3，或
 	(at your option) any later version.
+	（由您选择）稍后 version.
 
 	This program is distributed in the hope that it will be useful,
+	This 程序被分发，希望它有用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但是WITHOUT ANY WARRANTY；甚至没有默示保证
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY 或 FITNESS FOR A PARTICULAR PURPOSE. See
 	GNU General Public License for more details.
+	GNU General Public License 更多 details.
 
 	You should have received a copy of the GNU General Public License
+	You 应已收到 GNU General Public License 的副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	与此 program. If 不一起，请参见 <__PH0__
 */
 
 import (
@@ -40,6 +51,7 @@ const (
 )
 
 // ShellCmd - Start an interactive shell on the remote system.
+// ShellCmd - Start 远程 system. 上的交互式 shell
 func ShellCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session := con.ActiveTarget.GetSessionInteractive()
 	if session == nil {
@@ -54,6 +66,7 @@ func ShellCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	noPty, _ := cmd.Flags().GetBool("no-pty")
 	if con.ActiveTarget.GetSession().OS != linux && con.ActiveTarget.GetSession().OS != darwin {
 		noPty = true // Sliver's PTYs are only supported on linux/darwin
+		noPty = true // Sliver 的 PTYs 仅在 linux/darwin 上受支持
 	}
 	runInteractive(cmd, shellPath, noPty, con)
 	con.Println("Shell exited")
@@ -69,6 +82,7 @@ func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *conso
 	}
 
 	// Create an RPC tunnel, then start it before binding the shell to the newly created tunnel
+	// Create 一个 RPC 隧道，然后在将 shell 绑定到新创建的隧道之前启动它
 	ctxTunnel, cancelTunnel := context.WithCancel(context.Background())
 
 	rpcTunnel, err := con.Rpc.CreateTunnel(ctxTunnel, &sliverpb.Tunnel{
@@ -82,6 +96,7 @@ func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *conso
 	log.Printf("Created new tunnel with id: %d, binding to shell ...", rpcTunnel.TunnelID)
 
 	// Start() takes an RPC tunnel and creates a local Reader/Writer tunnel object
+	// Start() 采用 RPC 隧道并创建本地 Reader/Writer 隧道对象
 	tunnel := core.GetTunnels().Start(rpcTunnel.TunnelID, rpcTunnel.SessionID)
 
 	var rows uint32

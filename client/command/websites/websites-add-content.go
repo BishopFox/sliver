@@ -3,19 +3,30 @@ package websites
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
+	Copyright (C) 2019 Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
+	This 程序是免费软件：您可以重新分发它 and/or 修改
 	it under the terms of the GNU General Public License as published by
+	它根据 GNU General Public License 发布的条款
 	the Free Software Foundation, either version 3 of the License, or
+	Free Software Foundation，License 的版本 3，或
 	(at your option) any later version.
+	（由您选择）稍后 version.
 
 	This program is distributed in the hope that it will be useful,
+	This 程序被分发，希望它有用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但是WITHOUT ANY WARRANTY；甚至没有默示保证
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY 或 FITNESS FOR A PARTICULAR PURPOSE. See
 	GNU General Public License for more details.
+	GNU General Public License 更多 details.
 
 	You should have received a copy of the GNU General Public License
+	You 应已收到 GNU General Public License 的副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	与此 program. If 不一起，请参见 <__PH0__
 */
 
 import (
@@ -36,6 +47,7 @@ import (
 )
 
 // WebsitesAddContentCmd - Add static content to a website.
+// WebsitesAddContentCmd - Add 静态内容到 website.
 func WebsitesAddContentCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	websiteName, _ := cmd.Flags().GetString("website")
 	if websiteName == "" {
@@ -92,6 +104,7 @@ func webAddDirectory(web *clientpb.WebsiteAddContent, webpath string, contentPat
 		}
 		if !info.IsDir() {
 			// localPath is the full absolute path to the file, so we cut it down
+			// localPath 是文件的完整绝对路径，所以我们把它删掉
 			fullWebpath := path.Join(webpath, localPath[len(fullLocalPath):])
 			webAddFile(web, fullWebpath, "", localPath)
 		}
@@ -103,6 +116,7 @@ func webAddFile(web *clientpb.WebsiteAddContent, webpath string, contentType str
 	fileInfo, err := os.Stat(contentPath)
 	if os.IsNotExist(err) {
 		return err // contentPath does not exist
+		return err // contentPath 不存在
 	}
 	if fileInfo.IsDir() {
 		return errors.New("file content path is directory")

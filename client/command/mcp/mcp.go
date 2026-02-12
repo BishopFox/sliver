@@ -9,6 +9,7 @@ import (
 )
 
 // McpCmd prints the current MCP server state.
+// McpCmd 打印当前 MCP 服务器 state.
 func McpCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	status := clientmcp.GetStatus()
 	state := "stopped"

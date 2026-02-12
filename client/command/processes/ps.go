@@ -3,19 +3,30 @@ package processes
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
+	Copyright (C) 2019 Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
+	This 程序是免费软件：您可以重新分发它 and/or 修改
 	it under the terms of the GNU General Public License as published by
+	它根据 GNU General Public License 发布的条款
 	the Free Software Foundation, either version 3 of the License, or
+	Free Software Foundation，License 的版本 3，或
 	(at your option) any later version.
+	（由您选择）稍后 version.
 
 	This program is distributed in the hope that it will be useful,
+	This 程序被分发，希望它有用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但是WITHOUT ANY WARRANTY；甚至没有默示保证
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY 或 FITNESS FOR A PARTICULAR PURPOSE. See
 	GNU General Public License for more details.
+	GNU General Public License 更多 details.
 
 	You should have received a copy of the GNU General Public License
+	You 应已收到 GNU General Public License 的副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	与此 program. If 不一起，请参见 <__PH0__
 */
 
 import (
@@ -37,7 +48,9 @@ import (
 )
 
 // Known security tools shown by `ps`/`pstree`.
+// __PH0__/__PH1__. 显示的 Known 安全工具
 // Process executable -> product name.
+// Process 可执行文件 -> 产品 name.
 var knownSecurityTools = map[string]string{
 	"ccSvcHst.exe":                    "Symantec Endpoint Protection", // Symantec Endpoint Protection (SEP)
 	"cb.exe":                          "Carbon Black",                 // Carbon Black
@@ -49,15 +62,19 @@ var knownSecurityTools = map[string]string{
 	"elastic-agent.exe":               "Elastic Agent",                // Elastic Agent
 	"elastic-endpoint.exe":            "Elastic Agent",                // Elastic Agent
 	"filebeat.exe":                    "Elastic Agent",                // Elastic Agent - log shipper
+	"filebeat.exe":                    "Elastic Agent",                // Elastic Agent - 原木托运人
 	"metricbeat.exe":                  "Elastic Agent",                // Elastic Agent - metric shipper
+	"metricbeat.exe":                  "Elastic Agent",                // Elastic Agent - 公制托运人
 	"smartscreen.exe":                 "Windows Smart Screen",         // Windows Defender Smart Screen
 	"MpCmdRun.exe":                    "Windows Defender",             // Windows Defender Command-line
+	"MpCmdRun.exe":                    "Windows Defender",             // Windows Defender Command__PH0__
 	"MonitoringHost.exe":              "Windows Defender",             // Microsoft Monitoring Agent
 	"HealthService.exe":               "Windows Defender",             // Microsoft Monitoring Agent
 	"MsMpEng.exe":                     "Windows Defender",             // Windows Defender (Service Executable)
 	"NisSrv.exe":                      "Windows Defender",             // Windows Defender (Network Realtime Inspection)
 	"SenseIR.exe":                     "Windows Defender MDE",         // Windows Defender Endpoint (Live Response Session)
 	"SenseNdr.exe":                    "Windows Defender MDE",         // Windows Defender Endpoint (Network Detection and Response)
+	"SenseNdr.exe":                    "Windows Defender MDE",         // Windows Defender Endpoint （Network Detection 和 Response）
 	"SenseSC.exe":                     "Windows Defender MDE",         // Windows Defender Endpoint (Screenshot Capture Module)
 	"SenseCE.exe":                     "Windows Defender MDE",         // Windows Defender Endpoint (Classification Engine Module)
 	"SenseCM.exe":                     "Windows Defender MDE",         // Windows Defender Endpoint (Configuration Management Module)
@@ -69,13 +86,19 @@ var knownSecurityTools = map[string]string{
 	"bdservicehost.exe":               "Bitdefender",                  // Bitdefender (Total Security)
 	"bdagent.exe":                     "Bitdefender",                  // Bitdefender (Total Security)
 	"bdredline.exe":                   "Bitdefender",                  // Bitdefender Redline Update Service (Source https://community.bitdefender.com/en/discussion/82135/bdredline-exe-bitdefender-total-security-2020)
+	"bdredline.exe":                   "Bitdefender",                  // Bitdefender Redline Update Service (Source __PH0__
 	"Deep Security Manager.exe":       "Trend Micro",                  // TM Deep Security Manager
 	"coreServiceShell.exe":            "Trend Micro",                  // TM Anti-malware scan process
+	"coreServiceShell.exe":            "Trend Micro",                  // TM Anti__PH0__ 扫描过程
 	"ds_monitor.exe":                  "Trend Micro",                  // TM Deep Security Monitor
 	"Notifier.exe":                    "Trend Micro",                  // TM Deep Security Notifier's process
+	"Notifier.exe":                    "Trend Micro",                  // TM Deep Security Notifier 的流程
 	"dsa.exe":                         "Trend Micro",                  // TM Agent's main process
+	"dsa.exe":                         "Trend Micro",                  // TM Agent的主要流程
 	"ds_nuagent.exe":                  "Trend Micro",                  // TM Advanced TLS traffic inspection
+	"ds_nuagent.exe":                  "Trend Micro",                  // TM Advanced TLS 交通检查
 	"coreFrameworkHost.exe":           "Trend Micro",                  // TM Anti-malware scan process
+	"coreFrameworkHost.exe":           "Trend Micro",                  // TM Anti__PH0__ 扫描过程
 	"SentinelServiceHost.exe":         "SentinelOne",                  // Sentinel One
 	"SentinelStaticEngine.exe":        "SentinelOne",                  // Sentinel One
 	"SentinelStaticEngineScanner.exe": "SentinelOne",                  // Sentinel One
@@ -101,15 +124,23 @@ var knownSecurityTools = map[string]string{
 	"CrsSvc.exe":                      "Cybereason ActiveProbe",       // Cybereason ActiveProbe
 	"CybereasonAV.exe":                "Cybereason ActiveProbe",       // Cybereason ActiveProbe
 	"cortex-xdr-payload.exe":          "Palo Alto Cortex",             // Cortex XDR - offline triage
+	"cortex-xdr-payload.exe":          "Palo Alto Cortex",             // Cortex XDR - 离线分类
 	"cysandbox.exe":                   "Palo Alto Cortex",             // Cortex XDR - sandbox
+	"cysandbox.exe":                   "Palo Alto Cortex",             // Cortex XDR - 沙箱
 	"cyuserservice.exe":               "Palo Alto Cortex",             // Cortex XDR - user service
+	"cyuserservice.exe":               "Palo Alto Cortex",             // Cortex XDR - 用户服务
 	"cywscsvc.exe":                    "Palo Alto Cortex",             // Cortex XDR - security center service
+	"cywscsvc.exe":                    "Palo Alto Cortex",             // Cortex XDR - 安全中心服务
 	"tlaworker.exe":                   "Palo Alto Cortex",             // Cortex XDR - local analysis worker
+	"tlaworker.exe":                   "Palo Alto Cortex",             // Cortex XDR - 本地分析人员
 	"AEEngine.exe":                    "Faronics Anti-Executable",     // Faronics Anti-Executable - security service
+	"AEEngine.exe":                    "Faronics Anti-Executable",     // Faronics Anti__PH0__ - 安全服务
 	"Antiexecutable.exe":              "Faronics Anti-Executable",     // Faronics Anti-Executable - gui and tray icon
+	"Antiexecutable.exe":              "Faronics Anti-Executable",     // Faronics Anti__PH0__ - GUI 和托盘图标
 }
 
 // PsCmd - List processes on the remote system
+// 远程系统上的 PsCmd - List 进程
 func PsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
@@ -138,12 +169,16 @@ func PsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 
 	// Get OS information
+	// Get OS 信息
 	os := getOS(session, beacon)
 
 	/*
 		Because a full list can trigger EDR on some platforms,
+		Because 完整列表可以在某些平台上触发 EDR，
 		namely Windows, filtering of the process list must be
+		即Windows，进程列表的过滤必须是
 		done on the implant side.
+		在 implant side. 上完成
 	*/
 	ps, err := con.Rpc.Ps(context.Background(), &sliverpb.PsReq{
 		FullInfo: fullInfo,
@@ -189,6 +224,7 @@ func getOS(session *clientpb.Session, beacon *clientpb.Beacon) string {
 }
 
 // PrintPS - Prints the process list
+// PrintPS - Prints 进程列表
 func PrintPS(os string, ps *sliverpb.Ps, interactive bool, fullInfo bool, flags *pflag.FlagSet, con *console.SliverClient) {
 	pidFilter, _ := flags.GetInt("pid")
 	exeFilter, _ := flags.GetString("exe")
@@ -206,6 +242,7 @@ func PrintPS(os string, ps *sliverpb.Ps, interactive bool, fullInfo bool, flags 
 			currentPID = beacon.PID
 		}
 		// Print the process tree
+		// Print 进程树
 		sorted := SortProcessesByPID(ps.Processes)
 		tree := NewPsTree(currentPID)
 		for _, p := range sorted {
@@ -278,6 +315,7 @@ func findKnownSecurityProducts(ps *sliverpb.Ps) []string {
 }
 
 // procRow - Stylizes the process information
+// procRow - Stylizes 进程信息
 func procRow(proc *commonpb.Process, cmdLine bool, fullInfo bool, con *console.SliverClient) table.Row {
 	session, beacon := con.ActiveTarget.GetInteractive()
 
@@ -369,6 +407,7 @@ func procRow(proc *commonpb.Process, cmdLine bool, fullInfo bool, con *console.S
 }
 
 // GetPIDByName - Get a PID by name from the active session
+// GetPIDByName - Get 和 PID 的名称来自活动 session
 func GetPIDByName(cmd *cobra.Command, name string, con *console.SliverClient) int {
 	ps, err := con.Rpc.Ps(context.Background(), &sliverpb.PsReq{
 		Request: con.ActiveTarget.Request(cmd),
@@ -385,6 +424,7 @@ func GetPIDByName(cmd *cobra.Command, name string, con *console.SliverClient) in
 }
 
 // SortProcessesByPID - Sorts a list of processes by PID
+// SortProcessesByPID - Sorts PID 的进程列表
 func SortProcessesByPID(ps []*commonpb.Process) []*commonpb.Process {
 	sort.Slice(ps, func(i, j int) bool {
 		return ps[i].Pid < ps[j].Pid

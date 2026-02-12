@@ -3,19 +3,30 @@ package use
 /*
 	Sliver Implant Framework
 	Copyright (C) 2021  Bishop Fox
+	Copyright (C) 2021 Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
+	This 程序是免费软件：您可以重新分发它 and/or 修改
 	it under the terms of the GNU General Public License as published by
+	它根据 GNU General Public License 发布的条款
 	the Free Software Foundation, either version 3 of the License, or
+	Free Software Foundation，License 的版本 3，或
 	(at your option) any later version.
+	（由您选择）稍后 version.
 
 	This program is distributed in the hope that it will be useful,
+	This 程序被分发，希望它有用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但是WITHOUT ANY WARRANTY；甚至没有默示保证
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY 或 FITNESS FOR A PARTICULAR PURPOSE. See
 	GNU General Public License for more details.
+	GNU General Public License 更多 details.
 
 	You should have received a copy of the GNU General Public License
+	You 应已收到 GNU General Public License 的副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	与此 program. If 不一起，请参见 <__PH0__
 */
 
 import (
@@ -111,6 +122,7 @@ func filterCompletionValues(values []string, prefix string) []string {
 }
 
 // UseCmd - Change the active session
+// UseCmd - Change 活跃 session
 func UseCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var session *clientpb.Session
 	var beacon *clientpb.Beacon
@@ -122,6 +134,7 @@ func UseCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 
 	// idArg := ctx.Args.String("id")
+	// idArg := ctx.Args.String(__PH0__)
 	if idArg != "" {
 		session, beacon, err = SessionOrBeaconByID(idArg, con)
 	} else {
@@ -141,6 +154,7 @@ func UseCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 }
 
 // SessionOrBeaconByID - Select a session or beacon by ID
+// SessionOrBeaconByID - Select a session 或 beacon by ID
 func SessionOrBeaconByID(id string, con *console.SliverClient) (*clientpb.Session, *clientpb.Beacon, error) {
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
@@ -165,8 +179,10 @@ func SessionOrBeaconByID(id string, con *console.SliverClient) (*clientpb.Sessio
 }
 
 // SelectSessionOrBeacon - Select a session or beacon
+// SelectSessionOrBeacon - Select 一个 session 或 beacon
 func SelectSessionOrBeacon(con *console.SliverClient) (*clientpb.Session, *clientpb.Beacon, error) {
 	// Get and sort sessions
+	// Get 并对会话进行排序
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		return nil, nil, err
@@ -182,6 +198,7 @@ func SelectSessionOrBeacon(con *console.SliverClient) (*clientpb.Session, *clien
 	sort.Strings(sessionKeys)
 
 	// Get and sort beacons
+	// Get 和排序信标
 	beacons, err := con.Rpc.GetBeacons(context.Background(), &commonpb.Empty{})
 	if err != nil {
 		return nil, nil, err
@@ -201,6 +218,7 @@ func SelectSessionOrBeacon(con *console.SliverClient) (*clientpb.Session, *clien
 	}
 
 	// Render selection table
+	// Render选型表
 	outputBuf := bytes.NewBufferString("")
 	table := tabwriter.NewWriter(outputBuf, 0, 2, 2, ' ', 0)
 
@@ -232,6 +250,7 @@ func SelectSessionOrBeacon(con *console.SliverClient) (*clientpb.Session, *clien
 
 	options := strings.Split(outputBuf.String(), "\n")
 	options = options[:len(options)-1] // Remove the last empty option
+	options = options[:len(options)-1] // Remove 最后一个空选项
 	selected := ""
 	_ = forms.Select("Select a session or beacon:", options, &selected)
 	if selected == "" {
@@ -249,6 +268,7 @@ func SelectSessionOrBeacon(con *console.SliverClient) (*clientpb.Session, *clien
 }
 
 // BeaconAndSessionIDCompleter - BeaconAndSessionIDCompleter for beacon / session ids
+// BeaconAndSessionIDCompleter - BeaconAndSessionIDCompleter 用于 beacon / session ID
 func BeaconAndSessionIDCompleter(con *console.SliverClient) carapace.Action {
 	comps := func(ctx carapace.Context) carapace.Action {
 		var action carapace.Action
@@ -263,6 +283,7 @@ func BeaconAndSessionIDCompleter(con *console.SliverClient) carapace.Action {
 }
 
 // SessionIDCompleter completes session IDs
+// SessionIDCompleter 完成 session IDs
 func SessionIDCompleter(con *console.SliverClient) carapace.Action {
 	callback := func(_ carapace.Context) carapace.Action {
 		results := make([]string, 0)

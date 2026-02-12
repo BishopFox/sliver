@@ -3,19 +3,30 @@ package crack
 /*
 	Sliver Implant Framework
 	Copyright (C) 2022  Bishop Fox
+	Copyright (C) 2022 Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
+	This 程序是免费软件：您可以重新分发它 and/or 修改
 	it under the terms of the GNU General Public License as published by
+	它根据 GNU General Public License 发布的条款
 	the Free Software Foundation, either version 3 of the License, or
+	Free Software Foundation，License 的版本 3，或
 	(at your option) any later version.
+	（由您选择）稍后 version.
 
 	This program is distributed in the hope that it will be useful,
+	This 程序被分发，希望它有用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但是WITHOUT ANY WARRANTY；甚至没有默示保证
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY 或 FITNESS FOR A PARTICULAR PURPOSE. See
 	GNU General Public License for more details.
+	GNU General Public License 更多 details.
 
 	You should have received a copy of the GNU General Public License
+	You 应已收到 GNU General Public License 的副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	与此 program. If 不一起，请参见 <__PH0__
 */
 
 import (
@@ -35,6 +46,7 @@ import (
 )
 
 // CrackWordlistsCmd - Manage GPU cracking stations.
+// CrackWordlistsCmd - Manage GPU 开裂 stations.
 func CrackWordlistsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	wordlists, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_WORDLIST})
 	if err != nil {
@@ -55,6 +67,7 @@ func CrackWordlistsCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 }
 
 // CrackRulesCmd - Manage GPU cracking stations.
+// CrackRulesCmd - Manage GPU 开裂 stations.
 func CrackRulesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	rules, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_RULES})
 	if err != nil {
@@ -75,6 +88,7 @@ func CrackRulesCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 }
 
 // CrackHcstat2Cmd - Manage GPU cracking stations.
+// CrackHcstat2Cmd - Manage GPU 开裂 stations.
 func CrackHcstat2Cmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	hcstat2, err := con.Rpc.CrackFilesList(context.Background(), &clientpb.CrackFile{Type: clientpb.CrackFileType_MARKOV_HCSTAT2})
 	if err != nil {
@@ -162,6 +176,7 @@ func PrintCrackFilesByType(crackFiles *clientpb.CrackFiles, con *console.SliverC
 }
 
 // CrackWordlistsAddCmd - Manage GPU cracking stations.
+// CrackWordlistsAddCmd - Manage GPU 开裂 stations.
 func CrackWordlistsAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	name, _ := cmd.Flags().GetString("name")
 
@@ -206,6 +221,7 @@ func CrackWordlistsAddCmd(cmd *cobra.Command, con *console.SliverClient, args []
 }
 
 // CrackRulesAddCmd - add a rules file.
+// CrackRulesAddCmd - 添加规则 file.
 func CrackRulesAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	name, _ := cmd.Flags().GetString("name")
 
@@ -250,6 +266,7 @@ func CrackRulesAddCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 }
 
 // CrackHcstat2AddCmd - add a hcstat2 file.
+// CrackHcstat2AddCmd - 添加 hcstat2 file.
 func CrackHcstat2AddCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	name, _ := cmd.Flags().GetString("name")
 
@@ -298,6 +315,7 @@ func addCrackFile(localFile *os.File, crackFile *clientpb.CrackFile, con *consol
 	wordlistReader := io.TeeReader(localFile, digest)
 
 	chunks := make(chan []byte, 1) // Chunks are in-memory!
+	chunks := make(chan []byte, 1) // Chunks 是 in__PH0__！
 
 	var chunkReaderErr error
 	go func() {
@@ -402,6 +420,7 @@ func readChunkAt(tmpFile *os.File, offset int64, chunkSize int64) ([]byte, error
 }
 
 // CrackWordlistsRmCmd - Manage GPU cracking stations.
+// CrackWordlistsRmCmd - Manage GPU 开裂 stations.
 func CrackWordlistsRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var wordlistName string
 	if len(args) > 0 {
@@ -436,6 +455,7 @@ func CrackWordlistsRmCmd(cmd *cobra.Command, con *console.SliverClient, args []s
 }
 
 // CrackRulesRmCmd - Manage GPU cracking stations.
+// CrackRulesRmCmd - Manage GPU 开裂 stations.
 func CrackRulesRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var rulesName string
 	if len(args) > 0 {
@@ -470,6 +490,7 @@ func CrackRulesRmCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 }
 
 // CrackHcstat2RmCmd - remove a hcstat2 file.
+// CrackHcstat2RmCmd - 删除 hcstat2 file.
 func CrackHcstat2RmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	var hcstat2Name string
 	if len(args) > 0 {

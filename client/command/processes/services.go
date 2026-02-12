@@ -37,6 +37,7 @@ func ServicesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 
 	// Hopefully this command being Windows only is temporary
+	// Hopefully 该命令为 Windows 只是临时的
 	activeOS := getOS(session, beacon)
 	if activeOS != "windows" {
 		con.PrintErrorf("The services command is currently only available on Windows")
@@ -76,6 +77,7 @@ func ServiceInfoCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 	}
 
 	// Hopefully this command being Windows only is temporary
+	// Hopefully 该命令为 Windows 只是临时的
 	activeOS := getOS(session, beacon)
 	if activeOS != "windows" {
 		con.PrintErrorf("The services command is currently only available on Windows")
@@ -121,6 +123,7 @@ func ServiceStopCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 	}
 
 	// Hopefully this command being Windows only is temporary
+	// Hopefully 该命令为 Windows 只是临时的
 	activeOS := getOS(session, beacon)
 	if activeOS != "windows" {
 		con.PrintErrorf("The services command is currently only available on Windows")
@@ -152,6 +155,7 @@ func ServiceStopCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 				return
 			}
 			// We only get a response with content if there is an error
+			// We 仅在出现错误时获得包含内容的响应
 			if stopService.Response != nil {
 				con.PrintErrorf("Error when stopping %s on %s: %s", serviceName, hostname, stopService.Response.Err)
 			} else {
@@ -183,6 +187,7 @@ func ServiceStartCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	}
 
 	// Hopefully this command being Windows only is temporary
+	// Hopefully 该命令为 Windows 只是临时的
 	activeOS := getOS(session, beacon)
 	if activeOS != "windows" {
 		con.PrintErrorf("The services command is currently only available on Windows")
@@ -214,6 +219,7 @@ func ServiceStartCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 				return
 			}
 			// We only get a response with content if there is an error
+			// We 仅在出现错误时获得包含内容的响应
 			if startService.Response != nil {
 				con.PrintErrorf("Error when starting %s on %s: %s", serviceName, hostname, startService.Response.Err)
 			} else {
@@ -278,6 +284,7 @@ func translateServiceStartup(startup uint32) string {
 
 func PrintServices(serviceInfo *sliverpb.Services, con *console.SliverClient) {
 	// Get terminal width
+	// Get 端子宽度
 	width, _, err := term.GetSize(0)
 	if err != nil {
 		width = 999

@@ -12,6 +12,7 @@ import (
 )
 
 // Commands returns the `mcp` command and its subcommands.
+// Commands 返回 __PH0__ 命令及其 subcommands.
 func Commands(con *console.SliverClient) []*cobra.Command {
 	defaultConfig := clientmcp.DefaultConfig()
 

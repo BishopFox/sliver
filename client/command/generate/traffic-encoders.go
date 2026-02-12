@@ -3,19 +3,30 @@ package generate
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
+	Copyright (C) 2019 Bishop Fox
 
 	This program is free software: you can redistribute it and/or modify
+	This 程序是免费软件：您可以重新分发它 and/or 修改
 	it under the terms of the GNU General Public License as published by
+	它根据 GNU General Public License 发布的条款
 	the Free Software Foundation, either version 3 of the License, or
+	Free Software Foundation，License 的版本 3，或
 	(at your option) any later version.
+	（由您选择）稍后 version.
 
 	This program is distributed in the hope that it will be useful,
+	This 程序被分发，希望它有用，
 	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	但是WITHOUT ANY WARRANTY；甚至没有默示保证
 	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	MERCHANTABILITY 或 FITNESS FOR A PARTICULAR PURPOSE. See
 	GNU General Public License for more details.
+	GNU General Public License 更多 details.
 
 	You should have received a copy of the GNU General Public License
+	You 应已收到 GNU General Public License 的副本
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	与此 program. If 不一起，请参见 <__PH0__
 */
 
 import (
@@ -42,6 +53,7 @@ import (
 )
 
 // TrafficEncodersCmd - Generate traffic encoders command implementation.
+// TrafficEncodersCmd - Generate 流量编码器命令 implementation.
 func TrafficEncodersCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	grpcCtx, cancel := con.GrpcContext(cmd)
 	defer cancel()
@@ -54,6 +66,7 @@ func TrafficEncodersCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 }
 
 // DisplayTrafficEncoders - Display traffic encoders map from server.
+// DisplayTrafficEncoders - Display 流量编码器映射自 server.
 func DisplayTrafficEncoders(encoderMap *clientpb.TrafficEncoderMap, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
@@ -83,6 +96,7 @@ func DisplayTrafficEncoders(encoderMap *clientpb.TrafficEncoderMap, con *console
 }
 
 // TrafficEncodersAddCmd - Add a new traffic encoder to the server.
+// TrafficEncodersAddCmd - Add 到 server. 的新流量编码器
 func TrafficEncodersAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	grpcCtx, cancel := con.GrpcContext(cmd)
 	defer cancel()
@@ -105,12 +119,14 @@ func TrafficEncodersAddCmd(cmd *cobra.Command, con *console.SliverClient, args [
 	}
 
 	// Spin out a goroutine to display progress
+	// Spin 出一个 goroutine 来显示进度
 	completed := make(chan interface{})
 	go func() {
 		displayTrafficEncoderTestProgress(testID, completed, con)
 	}()
 
 	// Wait for tests to complete, then display final result
+	// Wait 用于完成测试，然后显示最终结果
 	tests, err := con.Rpc.TrafficEncoderAdd(grpcCtx, trafficEncoder)
 	completed <- nil
 	<-completed
@@ -138,6 +154,7 @@ func TrafficEncodersAddCmd(cmd *cobra.Command, con *console.SliverClient, args [
 }
 
 // saveFailedSample - Save the sample the encoder failed to properly encode/decode.
+// saveFailedSample - Save 编码器未能正确采样 encode/decode.
 func saveFailedSample(encoderName string, test *clientpb.TrafficEncoderTest) {
 	confirm := false
 	_ = forms.Confirm(fmt.Sprintf("Failed to add traffic encoder %s, save failed sample to disk?", encoderName), &confirm)
@@ -153,6 +170,7 @@ func saveFailedSample(encoderName string, test *clientpb.TrafficEncoderTest) {
 }
 
 // allTestsPassed - Check if all tests passed.
+// allTestsPassed - Check 如果所有测试都是 passed.
 func allTestsPassed(tests *clientpb.TrafficEncoderTests) bool {
 	for _, test := range tests.Tests {
 		if !test.Success {
@@ -163,6 +181,7 @@ func allTestsPassed(tests *clientpb.TrafficEncoderTests) bool {
 }
 
 // displayTrafficEncoderTests - Display traffic encoder tests in real time.
+// displayTrafficEncoderTests - Display 流量编码器实际测试 time.
 func displayTrafficEncoderTestProgress(testID string, completed chan interface{}, con *console.SliverClient) {
 	listenerID, events := con.CreateEventListener()
 	defer con.RemoveEventListener(listenerID)
@@ -188,6 +207,7 @@ func displayTrafficEncoderTestProgress(testID string, completed chan interface{}
 }
 
 // clearLines - Clear a number of lines from the console.
+// clearLines - Clear 来自 console. 的多行
 func clearLines(count int, con *console.SliverClient) {
 	for i := 0; i < count; i++ {
 		con.Printf(console.Clearln + "\r")
@@ -196,6 +216,7 @@ func clearLines(count int, con *console.SliverClient) {
 }
 
 // displayTrafficEncoderTests - Display the results of traffic encoder tests, return number of lines written.
+// displayTrafficEncoderTests - Display 流量编码器测试结果，返回行数 written.
 func displayTrafficEncoderTests(running bool, tests *clientpb.TrafficEncoderTests, con *console.SliverClient) int {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
@@ -242,6 +263,7 @@ func displayTrafficEncoderTests(running bool, tests *clientpb.TrafficEncoderTest
 }
 
 // TrafficEncodersRemoveCmd - Remove a traffic encoder.
+// TrafficEncodersRemoveCmd - Remove 交通 encoder.
 func TrafficEncodersRemoveCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	_, cancel := con.GrpcContext(cmd)
 	defer cancel()
@@ -269,6 +291,7 @@ func TrafficEncodersRemoveCmd(cmd *cobra.Command, con *console.SliverClient, arg
 }
 
 // SelectTrafficEncoder - Select a traffic encoder from a list.
+// SelectTrafficEncoder - Select 来自 list. 的流量编码器
 func SelectTrafficEncoder(con *console.SliverClient) string {
 	grpcCtx, cancel := con.GrpcContext(nil)
 	defer cancel()

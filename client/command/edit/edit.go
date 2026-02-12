@@ -25,6 +25,7 @@ import (
 const beaconPollInterval = 1 * time.Second
 
 // EditCmd downloads a remote text file, opens it in a TUI editor, and optionally uploads changes.
+// EditCmd 下载远程文本文件，在 TUI 编辑器中打开它，并可选择上传 changes.
 func EditCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
