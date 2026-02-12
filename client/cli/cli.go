@@ -93,6 +93,7 @@ var rootCmd = &cobra.Command{
 	Long:  ``,
 }
 
+// Execute-挂载根命令
 // Execute - Execute root command.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
