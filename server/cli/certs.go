@@ -146,7 +146,7 @@ var cmdExportCA = &cobra.Command{
 		saveTo, _ := filepath.Abs(save)
 		fi, err := os.Stat(saveTo)
 		if !os.IsNotExist(err) && !fi.IsDir() {
-			fmt.Printf("File already exists: %s\n", err)
+			fmt.Printf("File already exists: %s\n", saveTo)
 			os.Exit(1)
 		}
 		if !os.IsNotExist(err) && fi.IsDir() {
