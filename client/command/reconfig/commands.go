@@ -26,6 +26,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("beacon-interval", "i", "", "beacon callback interval")
 		f.StringP("beacon-jitter", "j", "", "beacon callback jitter (random up to)")
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+		f.StringP("c2-uri", "c", "", "C2 URI to switch to")
 	})
 
 	renameCmd := &cobra.Command{
