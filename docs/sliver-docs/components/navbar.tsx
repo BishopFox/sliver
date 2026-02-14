@@ -133,6 +133,17 @@ export default function TopNavbar(props: TopNavbarProps) {
           </Button>
         </NavbarItem>
 
+        <NavbarItem isActive={router.pathname.startsWith("/talks")}>
+          <Button
+            variant="light"
+            color={router.pathname === "/talks" ? "primary" : "default"}
+            as={Link}
+            onPress={() => router.push("/talks")}
+          >
+            Talks
+          </Button>
+        </NavbarItem>
+
         <NavbarItem isActive={router.pathname.startsWith("/docs")}>
           <Button
             variant="light"
@@ -211,6 +222,16 @@ export default function TopNavbar(props: TopNavbarProps) {
               }}
             >
               Tutorials
+            </Button>
+            <Button
+              variant={router.pathname.startsWith("/talks") ? "solid" : "light"}
+              color={router.pathname.startsWith("/talks") ? "primary" : "default"}
+              onPress={() => {
+                router.push("/talks");
+                setIsMobileMenuOpen(false);
+              }}
+            >
+              Talks
             </Button>
             <Button
               variant={router.pathname.startsWith("/docs") ? "solid" : "light"}
