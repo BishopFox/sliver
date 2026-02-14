@@ -1,4 +1,4 @@
-You'll want to compile from a MacOS or Linux machine. Compiling from native Windows is possible in theory, but none of the asset scripts are designed to run on Windows. You can cross-compile the Windows server/client binaries from a better operating system like Linux or MacOS. If you only have a Windows machine, see "Windows Builds" below (TL;DR: use WSL).
+You'll want to compile Sliver from a MacOS or Linux machine. Compiling from native Windows is possible in theory, but none of the scripts are designed to run on Windows. You can cross-compile the Windows server/client binaries from a better operating systems like Linux or MacOS. If you only have a Windows machine, you should be able to use the Windows Subsystem for Linux (WSL).
 
 To compile from source you'll need:
 
@@ -60,7 +60,7 @@ The Docker build includes mingw and Metasploit, so it can take a while to build 
 
 ### Windows Builds
 
-If all you have is a Windows machine, the easiest way to build Sliver is using [WSL](https://docs.microsoft.com/en-us/windows/wsl/install-win10) and following the Linux/cross-compile instructions above. To cross-compile a native Windows binary use `make windows-amd64` and copy it to your Windows file system (i.e. `/mnt/c/Users/foo/Desktop`) and run it using a terminal that supports ANSI sequences such as the [Windows Terminal](https://github.com/microsoft/terminal).
+If all you have is a Windows machine, the easiest way to build Sliver is using [WSL](https://docs.microsoft.com/en-us/windows/wsl/install-win10) and following the Linux/cross-compile instructions above. To cross-compile a Windows binary use `make windows-amd64` and copy it to your Windows file system (i.e. `/mnt/c/Users/foo/Desktop`) and, you will need to run it using a terminal that supports ANSI sequences such as the [Windows Terminal](https://github.com/microsoft/terminal).
 
 # Developers
 
