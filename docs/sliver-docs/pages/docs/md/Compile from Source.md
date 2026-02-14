@@ -1,7 +1,5 @@
 You'll want to compile from a MacOS or Linux machine. Compiling from native Windows is possible in theory, but none of the asset scripts are designed to run on Windows. You can cross-compile the Windows server/client binaries from a better operating system like Linux or MacOS. If you only have a Windows machine, see "Windows Builds" below (TL;DR: use WSL).
 
-# Sliver v1.6.x
-
 To compile from source you'll need:
 
 - Go v1.25 or later

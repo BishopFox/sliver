@@ -32,8 +32,6 @@ Any `sliver-server` binary can be started as a builder process using [operator c
 
 When started as a builder, the Sliver process will mirror log output to stdout by default, however this can be disabled (see `sliver-server builder --help`).
 
-**⚠️ IMPORTANT:** Make sure the builder and server have identical `http-c2.json` configuration files to avoid incompatibility problems.
-
 **⚠️ IMPORTANT:** Builders must have unique names, by default the builder's hostname will be used, but this can be changed using the `--name` cli flag.
 
 #### External Builds
