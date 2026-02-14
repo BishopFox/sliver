@@ -1,14 +1,14 @@
-**NOTE:** Any platform can cross-compile a standalone executable to any other platform out of the box; you primarily need cross-compilers when using CGO-based formats like `--format shared`, and for `--format shellcode` on macOS/Linux.
+Any platform can cross-compile a standalone executable to any other platform out of the box; you primarily need cross-compilers when using CGO-based formats like `--format shared`, and for `--format shellcode` on macOS/Linux.
 
 Sliver can tell you which platforms it can likely target based on the server's platform and available cross-compilers by running the `generate info` command in the console.
 
 Sliver supports [External Builders](/docs?name=External+Builders), which can be used to easily cross-compile implants.
 
-## From Linux to MacOS/Windows
+## From Linux to MacOS
 
 Sliver embeds a Zig cross-compiler out of the box, so Windows shared library and shellcode implants from Linux do not require mingw-w64.
 
-To compile MacOS shared library implants from Linux, we recommend using https://github.com/tpoechtrager/osxcross by default Sliver will look in `/opt/osxcross` but you can override this via [environment variables](/docs?name=Environment+Variables). If you do not have a MacOS-based machine you can use GitHub Actions' MacOS instances to build OSXCross.
+To compile MacOS shared library or shellcode payloads from Linux, we recommend using https://github.com/tpoechtrager/osxcross by default Sliver will look in `/opt/osxcross` but you can override this via [environment variables](/docs?name=Environment+Variables). If you do not have a MacOS-based machine you can use GitHub Actions' MacOS instances to build OSXCross.
 
 **NOTE:** Sliver expects the root of the osxcross git repo to be located at `/opt/osxcross` and the actual binaries in `/opt/osxcross/target/bin`.
 
