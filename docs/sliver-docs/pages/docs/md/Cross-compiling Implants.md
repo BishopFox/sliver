@@ -8,7 +8,7 @@ Sliver supports [External Builders](/docs?name=External+Builders), which can be 
 
 Sliver embeds a Zig cross-compiler out of the box, so Windows shared library and shellcode implants from Linux do not require mingw-w64.
 
-To compile MacOS shared library or shellcode payloads from Linux, we recommend using https://github.com/tpoechtrager/osxcross by default Sliver will look in `/opt/osxcross` but you can override this via [environment variables](/docs?name=Environment+Variables). If you do not have a MacOS-based machine you can use GitHub Actions' MacOS instances to build OSXCross.
+To compile MacOS shared library or shellcode payloads from Linux, we recommend using [OSX Cross](https://github.com/tpoechtrager/osxcross) by default Sliver will look in `/opt/osxcross` but you can override this via [environment variables](/docs?name=Environment+Variables). If you do not have a MacOS-based machine you can use GitHub Actions' MacOS instances to build OSXCross.
 
 **NOTE:** Sliver expects the root of the osxcross git repo to be located at `/opt/osxcross` and the actual binaries in `/opt/osxcross/target/bin`.
 
