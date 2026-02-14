@@ -25,7 +25,6 @@ import AsciinemaPlayer from "./asciinema";
 import Youtube from "./youtube";
 
 export type MarkdownProps = {
-  key?: string;
   markdown: string;
 };
 
@@ -252,7 +251,6 @@ const MarkdownViewer = (props: MarkdownProps) => {
     <div className="relative">
       <div className={proseClassName}>
         <Markdown
-          key={props.key || `${Math.random()}`}
           remarkPlugins={[remarkGfm]}
           components={{
           ...headingComponents,

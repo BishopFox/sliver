@@ -171,7 +171,7 @@ const DocsIndexPage: NextPage = () => {
               <Divider />
               <CardBody>
                 <MarkdownViewer
-                  key={name || `${Math.random()}`}
+                  key={name}
                   markdown={markdown || ""}
                 />
               </CardBody>
