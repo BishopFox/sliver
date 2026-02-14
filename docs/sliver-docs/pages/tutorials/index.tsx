@@ -129,6 +129,7 @@ const TutorialsIndexPage: NextPage = () => {
         <aside className="hidden lg:block lg:col-span-3">
           <div className="sticky top-16 ml-4 flex flex-col gap-3">
             <Input
+              className="mt-2"
               placeholder="Filter..."
               startContent={<FontAwesomeIcon icon={faSearch} />}
               value={filterValue}
