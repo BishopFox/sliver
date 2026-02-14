@@ -21,6 +21,11 @@ type TalkSection = {
 
 const workshopTalks: Talk[] = [
   {
+    title:"Getting Started with Sliver v1.6",
+    description: "Introductory workshop covering basics and new features.",
+    url: "https://www.youtube.com/watch?v=IOiyXYp1lDc",
+  },
+  {
     title: "Building Traffic Encoders",
     description: "From concept to practical encoder strategy in Sliver.",
     url: "https://www.youtube.com/watch?v=6unwFhurm-E",
