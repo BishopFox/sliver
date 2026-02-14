@@ -13,10 +13,17 @@ body {
   scrollbar-gutter: stable both-edges;
 }
 
+/*
+  Keep html as the single scrolling element. Setting overflow on both html
+  and body breaks sticky sidebar behavior on docs/tutorial pages.
+*/
+html {
+  overflow-y: scroll;
+}
+
 /* Fallback for engines that do not support scrollbar-gutter. */
 @supports not (scrollbar-gutter: stable) {
-  html,
-  body {
+  html {
     overflow-y: scroll;
   }
 }
@@ -26,8 +33,7 @@ body {
   scrollbar appears/disappears. Keep the page scrollbar track persistent.
 */
 @media (min-width: 1024px) {
-  html,
-  body {
+  html {
     overflow-y: scroll;
   }
 }
