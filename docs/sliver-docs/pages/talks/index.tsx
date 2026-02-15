@@ -96,10 +96,7 @@ const TalksIndexPage: NextPage = () => {
                   <div key={talk.url} className="sm:col-span-1 lg:col-span-3">
                     <Card isFooterBlurred className="relative z-0 overflow-hidden">
                       <CardHeader className="absolute z-10 top-1 flex-col items-end">
-                        <p className="text-xs text-white/70 uppercase font-bold">
-                          {section.badge}
-                        </p>
-                        <p className="text-sm text-right text-white">{talk.title}</p>
+
                       </CardHeader>
 
                       <Youtube
