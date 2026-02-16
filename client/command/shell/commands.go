@@ -48,8 +48,27 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 			ShellAttachCmd(cmd, con, args)
 		},
 	}
+	flags.Bind("", false, shellAttachCmd, func(f *pflag.FlagSet) {
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
 	shellCmd.AddCommand(shellAttachCmd)
 	carapace.Gen(shellAttachCmd).PositionalCompletion(ShellIDCompleter(con).Usage("managed shell ID"))
+
+	shellKillCmd := &cobra.Command{
+		Use:   consts.KillStr + " <id>",
+		Short: "Kill a managed shell and clean up remote process state",
+		Long:  help.GetHelpFor([]string{consts.ShellStr}),
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			ShellKillCmd(cmd, con, args)
+		},
+	}
+	flags.Bind("", false, shellKillCmd, func(f *pflag.FlagSet) {
+		f.BoolP("force", "F", false, "force process cleanup via terminate rpc")
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+	shellCmd.AddCommand(shellKillCmd)
+	carapace.Gen(shellKillCmd).PositionalCompletion(ShellIDCompleter(con).Usage("managed shell ID"))
 
 	return []*cobra.Command{shellCmd}
 }

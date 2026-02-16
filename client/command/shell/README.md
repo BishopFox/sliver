@@ -6,7 +6,7 @@ Implements the 'shell' command group for the Sliver client console. Handlers map
 
 ## Go Files
 
-- `commands.go` – Exposes the shell command group (`shell`, `shell ls`, `shell attach`) and binds options.
+- `commands.go` – Exposes the shell command group (`shell`, `shell ls`, `shell attach`, `shell kill`) and binds options.
 - `completers.go` – Shell-specific command completion helpers.
 - `filter-reader_generic.go` – Provides output filtering for shell streams on POSIX targets.
 - `filter-reader_windows.go` – Implements CRLF-aware filtering and decoding for Windows shell sessions.

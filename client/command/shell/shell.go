@@ -24,6 +24,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bishopfox/sliver/client/command/settings"
@@ -164,6 +165,72 @@ func ShellAttachCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 		con.Println("Shell detached")
 	} else if result == shellExited {
 		con.Println("Shell exited")
+	}
+}
+
+// ShellKillCmd kills a managed shell from the REPL and cleans up remote state.
+func ShellKillCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+	if len(args) < 1 {
+		con.PrintErrorf("Usage: shell kill <id>\n")
+		return
+	}
+
+	shellID, err := strconv.Atoi(args[0])
+	if err != nil || shellID <= 0 {
+		con.PrintErrorf("Invalid shell id: %s\n", args[0])
+		return
+	}
+	force, _ := cmd.Flags().GetBool("force")
+
+	sh, ok := shells.Get(shellID)
+	if !ok {
+		con.PrintErrorf("Unknown shell id: %d\n", shellID)
+		return
+	}
+
+	session := con.ActiveTarget.GetSession()
+	if session == nil || session.ID != sh.SessionID {
+		con.PrintErrorf("Shell %d belongs to %s; switch targets before killing\n", shellID, sessionLabel(sh.SessionID, sh.SessionName))
+		return
+	}
+
+	sh.setState(shellStateClosing)
+	sh.SetOutput(io.Discard)
+	shells.Remove(sh.ID)
+
+	// Best-effort graceful request before closing the tunnel.
+	requestRemoteShellExit(sh.Tunnel())
+
+	if err := closeShellTunnel(con, sh.TunnelID, sh.SessionID); err != nil {
+		con.PrintWarnf("Error closing shell tunnel %d: %s\n", sh.TunnelID, err)
+	}
+
+	if force && sh.Pid > 1 {
+		terminate, err := con.Rpc.Terminate(context.Background(), &sliverpb.TerminateReq{
+			Request: con.ActiveTarget.Request(cmd),
+			Pid:     int32(sh.Pid),
+			Force:   force,
+		})
+		if err != nil {
+			con.PrintWarnf("Error terminating shell process %d: %s\n", sh.Pid, err)
+		} else if terminate.Response != nil && terminate.Response.GetErr() != "" {
+			errMsg := terminate.Response.GetErr()
+			// If shell already exited, that is an acceptable cleanup outcome.
+			if strings.Contains(strings.ToLower(errMsg), "no such process") ||
+				strings.Contains(strings.ToLower(errMsg), "process not found") {
+				con.PrintInfof("Shell process %d already exited\n", sh.Pid)
+			} else {
+				con.PrintWarnf("Terminate response for shell process %d: %s\n", sh.Pid, errMsg)
+			}
+		} else {
+			con.PrintInfof("Shell process %d terminated\n", sh.Pid)
+		}
+	}
+
+	if force {
+		con.PrintInfof("Shell %d killed (force)\n", sh.ID)
+	} else {
+		con.PrintInfof("Shell %d killed\n", sh.ID)
 	}
 }
 
@@ -314,17 +381,42 @@ func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *conso
 }
 
 func backgroundCloseShell(con *console.SliverClient, tunnelID uint64, sessionID string) {
+	err := closeShellTunnel(con, tunnelID, sessionID)
+	if err != nil {
+		log.Printf("Background close tunnel %d failed: %v", tunnelID, err)
+	}
+}
+
+func closeShellTunnel(con *console.SliverClient, tunnelID uint64, sessionID string) error {
 	core.GetTunnels().Close(tunnelID)
 	if con == nil || con.Rpc == nil {
-		return
+		return nil
 	}
 
 	_, err := con.Rpc.CloseTunnel(context.Background(), &sliverpb.Tunnel{
 		TunnelID:  tunnelID,
 		SessionID: sessionID,
 	})
-	if err != nil {
-		log.Printf("Background close tunnel %d failed: %v", tunnelID, err)
+	return err
+}
+
+func requestRemoteShellExit(tunnel *core.TunnelIO) {
+	if tunnel == nil || !tunnel.IsOpen() {
+		return
+	}
+
+	for _, payload := range [][]byte{[]byte("exit\n"), []byte("logout\n")} {
+		func(data []byte) {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("Shell exit write skipped: %v", r)
+				}
+			}()
+			select {
+			case tunnel.Send <- append([]byte(nil), data...):
+			default:
+			}
+		}(payload)
 	}
 }
 
