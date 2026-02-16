@@ -215,6 +215,7 @@ message ImplantConfig {
   bool TrafficEncodersEnabled = 152;
   repeated string TrafficEncoders = 153;
   string Extension = 154;
+  bytes SpoofData = 155;
 
   repeated commonpb.File Assets = 200;
 }

@@ -515,6 +515,19 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		ShellcodeConfig:  shellcodeConfig,
 	}
 
+	if spoof, _ := cmd.Flags().GetString("spoof"); spoof != "" {
+		if _, err := os.Stat(spoof); os.IsNotExist(err) {
+			con.PrintErrorf("Spoof file does not exist: %s\n", spoof)
+			return "", nil
+		}
+		data, err := os.ReadFile(spoof)
+		if err != nil {
+			con.PrintErrorf("Failed to read spoof file: %s\n", err)
+			return "", nil
+		}
+		config.SpoofData = data
+	}
+
 	return name, config
 }
 

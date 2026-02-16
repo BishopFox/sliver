@@ -342,6 +342,7 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 		f.StringP("limit-hostname", "z", "", "limit execution to specified hostname")
 		f.StringP("limit-fileexists", "F", "", "limit execution to hosts with this file in the filesystem")
 		f.StringP("limit-locale", "L", "", "limit execution to hosts that match this locale")
+		f.StringP("spoof", "", "", "spoof file metadata (e.g. icon, version info)")
 
 		f.StringP("format", "f", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows, darwin/arm64, linux/amd64, linux/arm64)")
 
