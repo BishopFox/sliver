@@ -58,3 +58,34 @@ func TestGzipGunzip(t *testing.T) {
 		}
 	}
 }
+
+func TestGzipDecodeWithMaxLen(t *testing.T) {
+	payload := bytes.Repeat([]byte("A"), 8192)
+	gzip := new(Gzip)
+	encoded, err := gzip.Encode(payload)
+	if err != nil {
+		t.Fatalf("gzip encode failed: %v", err)
+	}
+
+	decoded, err := gzip.DecodeWithMaxLen(encoded, int64(len(payload)))
+	if err != nil {
+		t.Fatalf("gzip decode failed: %v", err)
+	}
+	if !bytes.Equal(payload, decoded) {
+		t.Fatal("decoded payload does not match original")
+	}
+}
+
+func TestGzipDecodeWithMaxLenRejectsOversizedOutput(t *testing.T) {
+	payload := bytes.Repeat([]byte("A"), 8192)
+	gzip := new(Gzip)
+	encoded, err := gzip.Encode(payload)
+	if err != nil {
+		t.Fatalf("gzip encode failed: %v", err)
+	}
+
+	_, err = gzip.DecodeWithMaxLen(encoded, int64(len(payload)-1))
+	if err == nil {
+		t.Fatal("expected decode to fail for oversized payload")
+	}
+}
