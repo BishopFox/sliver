@@ -2,22 +2,13 @@ Sliver supports "external builders," which allow a Sliver server to offload impl
 
 External builders can also be used to create custom modifications to the implant source code, or potentially replace the default Sliver implant entirely.
 
-```
-          MacOS .dylib Implant Builds
-      ┌─────────────────────────────────────┐
-      │                                     │
-      ▼                                     │
-┌───────────┐                         ┌─────┴─────┐
-│ MacOS     │ Multiplayer             │ Linux     │
-│ Builder   ├────────────────────────►│ Server    │
-│           │                         │           │
-└───────────┘                         └───────────┘
-                                          ▲
-┌───────────┐                             │
-│Windows    │ Multiplayer                 │
-│ Operator  ├─────────────────────────────┘
-│           │
-└───────────┘
+```mermaid:minh=340
+flowchart LR
+    subgraph "External MacOS Builder"
+        builder["MacOS Builder"] -- "Multiplayer" --> server["Linux Server"]
+        operator["Windows Operator"] -- "Multiplayer" --> server
+        server -- ".dylib build task" --> builder
+    end
 ```
 
 ## Builders

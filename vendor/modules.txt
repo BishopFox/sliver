@@ -1274,7 +1274,7 @@ github.com/sliverarmory/beignet/internal/stager
 ## explicit; go 1.25.6
 github.com/sliverarmory/malasada
 github.com/sliverarmory/malasada/internal/aplib
-# github.com/sliverarmory/wasm-donut v0.0.3
+# github.com/sliverarmory/wasm-donut v0.0.5
 ## explicit; go 1.25.6
 github.com/sliverarmory/wasm-donut
 # github.com/spf13/cast v1.10.0
@@ -1602,7 +1602,7 @@ golang.org/x/oauth2/jwt
 ## explicit; go 1.24.0
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.40.0
+# golang.org/x/sys v0.41.0
 ## explicit; go 1.24.0
 golang.org/x/sys/cpu
 golang.org/x/sys/plan9
