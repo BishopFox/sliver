@@ -5,6 +5,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -27,6 +28,28 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
+
+	shellLsCmd := &cobra.Command{
+		Use:   consts.LsStr,
+		Short: "List managed local shell tunnels",
+		Long:  help.GetHelpFor([]string{consts.ShellStr}),
+		Run: func(cmd *cobra.Command, args []string) {
+			ShellLsCmd(cmd, con, args)
+		},
+	}
+	shellCmd.AddCommand(shellLsCmd)
+
+	shellAttachCmd := &cobra.Command{
+		Use:   "attach <id>",
+		Short: "Attach to a managed local shell tunnel",
+		Long:  help.GetHelpFor([]string{consts.ShellStr}),
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			ShellAttachCmd(cmd, con, args)
+		},
+	}
+	shellCmd.AddCommand(shellAttachCmd)
+	carapace.Gen(shellAttachCmd).PositionalCompletion(ShellIDCompleter(con).Usage("managed shell ID"))
 
 	return []*cobra.Command{shellCmd}
 }
