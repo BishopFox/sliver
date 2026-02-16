@@ -1,4 +1,5 @@
 import MarkdownViewer from "@/components/markdown";
+import LoadingState from "@/components/loading-state";
 import { Docs } from "@/util/docs";
 import { PREBUILD_VERSION } from "@/util/__generated__/prebuild-version";
 import { fetchDocs as fetchDocsContent } from "@/util/content-fetchers";
@@ -34,14 +35,17 @@ const DocsIndexPage: NextPage = () => {
   });
 
   const params = useSearchParams();
-  const [name, setName] = React.useState("");
-  const [markdown, setMarkdown] = React.useState("");
-
-  React.useEffect(() => {
-    const _name = params.get("name");
-    setName(_name || "");
-    setMarkdown(docs?.docs.find((doc) => doc.name === _name)?.content || "");
-  }, [params, docs]);
+  const name = params.get("name") || "";
+  const markdown = React.useMemo(() => {
+    return docs?.docs.find((doc) => doc.name === name)?.content || "";
+  }, [docs, name]);
+  const hasNameQueryInPath = React.useMemo(() => {
+    const query = router.asPath.split("?")[1];
+    if (!query) {
+      return false;
+    }
+    return new URLSearchParams(query).has("name");
+  }, [router.asPath]);
 
   const [filterValue, setFilterValue] = React.useState("");
   const fuse = React.useMemo(() => {
@@ -79,8 +83,8 @@ const DocsIndexPage: NextPage = () => {
     }
   }, [theme]);
 
-  if (isLoading || !docs) {
-    return <div>Loading...</div>;
+  if (isLoading || !docs || (hasNameQueryInPath && !name)) {
+    return <LoadingState />;
   }
 
   return (
