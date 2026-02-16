@@ -1,94 +1,131 @@
 ### General Server Configuration
 
-The Sliver server has a configuration file located in the `configs` sub-directory of the [`SLIVER_ROOT_DIR`](/docs?name=Environment+Variables); by default this is `~/.sliver/configs/server.json`. If no configuration file exists, a default configuration will be generated and written to disk on startup. The default configuration is shown below:
+The Sliver server configuration file is located in the `configs` sub-directory of [`SLIVER_ROOT_DIR`](/docs?name=Environment+Variables); by default this is `~/.sliver/configs/server.yaml`.
+
+If no configuration file exists, a default YAML configuration is generated and written to disk on startup. If a legacy `server.json` file exists, Sliver reads it, writes `server.yaml`, and renames the old file to `.server.json-old`.
 
 #### Default Server Config
 
-```json
-{
-  "daemon_mode": false,
-  "daemon": {
-    "host": "",
-    "port": 31337
-  },
-  "logs": {
-    "level": 4,
-    "grpc_unary_payloads": false,
-    "grpc_stream_payloads": false
-  },
-  "grpc": {
-    "keepalive": {
-      "min_time_seconds": 30,
-      "permit_without_stream": true
-    }
-  }
-}
+```yaml
+daemon_mode: false
+daemon:
+    host: ""
+    port: 31337
+    tailscale: false
+logs:
+    level: 4
+    grpc_unary_payloads: false
+    grpc_stream_payloads: false
+    tls_key_logger: false
+grpc:
+    keepalive:
+        min_time_seconds: 30
+        permit_without_stream: true
+watch_tower: null
+go_proxy: ""
+http_default:
+    headers:
+        - method: GET
+          name: Cache-Control
+          value: no-store, no-cache, must-revalidate
+          probability: 100
+notifications:
+    enabled: false
+    services: {}
+cc: {}
+cxx: {}
 ```
 
 #### Configuration Options
 
-- `daemon_mode` - Enable [daemon mode](/docs?name=Daemon+Mode)
-- `daemon` - An object containing options related to `daemon_mode`, these values are only used when `daemon_mode` is set to `true`.
-  - `host` - What network interface to bind the `daemon_mode` client listener to. By default this is an empty string, which indicates binding to all interfaces.
-  - `port` - TCP port to bind the `daemon_mode` client listener to.
-- `logs` - An object containing configuration options for server logs
-  - `level` - The `logrus` logging level (1 - 5), by default this is set to `4`, which is the `INFO` level; increasing this value increases the verbosity of the logs e.g. `DEBUG` is `5` and `SILENT` is `1`
-  - `grpc_unary_payloads` - Log gRPC unary payloads
-  - `grpc_stream_payloads` - Log gRPC streaming payloads
-- `grpc` - An object containing options for the server gRPC stack
-  - `keepalive` - gRPC keepalive enforcement configuration
-    - `min_time_seconds` - Minimum amount of time (in seconds) between client pings before the server sends a GOAWAY with `too_many_pings`
-    - `permit_without_stream` - Allow client pings when there are no active streams
+- `daemon_mode` - Enable [daemon mode](/docs?name=Daemon+Mode).
+- `daemon` - Options for daemon mode.
+  - `host` - Interface to bind the daemon listener to. Empty string means all interfaces.
+  - `port` - TCP port for the daemon listener.
+  - `tailscale` - Enable Tailscale for daemon listener setup.
+- `logs` - Server logging options.
+  - `level` - `logrus` level (`0`-`6`, clamped by Sliver). `4` is `INFO`, `5` is `DEBUG`, `6` is `TRACE`.
+  - `grpc_unary_payloads` - Log gRPC unary payloads.
+  - `grpc_stream_payloads` - Log gRPC streaming payloads.
+  - `tls_key_logger` - Enable TLS key logging (for debugging/traffic analysis only; sensitive).
+- `grpc.keepalive` - gRPC keepalive enforcement configuration.
+  - `min_time_seconds` - Minimum time (seconds) between client pings before sending GOAWAY (`too_many_pings`).
+  - `permit_without_stream` - Allow client pings when there are no active streams.
+- `watch_tower` - Optional API keys for Watchtower integrations.
+  - `vt_api_key` - VirusTotal API key.
+  - `xforce_api_key` - IBM X-Force API key.
+  - `xforce_api_password` - IBM X-Force API password.
+- `go_proxy` - Optional `GOPROXY` override used by server-side builds.
+- `http_default.headers` - Default HTTP headers for anonymous server responses.
+  - `method` - HTTP method to apply to (for example `GET`).
+  - `name` - Header name.
+  - `value` - Header value.
+  - `probability` - Percent chance (0-100) that the header is added.
+- `notifications` - Server notification config. See [Notifications](/docs?name=Notifications) for the full schema.
+- `cc` - Optional compiler overrides map (`GOOS/GOARCH` -> C compiler path).
+- `cxx` - Optional compiler overrides map (`GOOS/GOARCH` -> C++ compiler path).
 
 ## Database Configuration
 
-Sliver supports SQL database configurations. By default this configuration file is located at `~/.sliver/configs/database.json`:
+Sliver supports SQL database configurations in `~/.sliver/configs/database.yaml`.
+
+If no configuration file exists, a default YAML configuration is generated and written to disk on startup. If a legacy `database.json` exists, Sliver reads it, writes `database.yaml`, and renames the old file to `.database.json-old`.
 
 #### Default Database Configuration
 
-```json
-{
-  "dialect": "sqlite3",
-  "database": "",
-  "username": "",
-  "password": "",
-  "host": "",
-  "port": 0,
-  "params": null,
-  "max_idle_conns": 10,
-  "max_open_conns": 100,
-  "log_level": "warn"
-}
+```yaml
+dialect: sqlite3
+database: ""
+username: ""
+password: ""
+host: ""
+port: 0
+params:
+    cache: shared
+pragmas:
+    busy_timeout: "5000"
+    journal_mode: WAL
+    synchronous: NORMAL
+    temp_store: MEMORY
+max_idle_conns: 10
+max_open_conns: 100
+log_level: warn
 ```
 
 #### Configuration Options
 
-- `dialect` - Defines the type of database to connect to, Sliver supports `mysql`, `postgresql`, and `sqlite3`. By default an internal version of `sqlite3` is used, which is saved to `~/.sliver/sliver.db` by default.
-- `database` - The name of the database to connect to, note that this option is ignored when using `sqlite3`.
+- `dialect` - Database backend (`mysql`, `postgresql`, or `sqlite3`).
+- `database` - Database name (ignored for `sqlite3`).
 - `username` - Database username.
 - `password` - Database password.
 - `host` - Database host.
 - `port` - Database TCP port.
-- `params` - Is a key/value string map that can be used to pass dialect-specific options to the DSN/connection string. This can be used, for example, to enable SSL/TLS on certain database connections.
-- `max_idle_conns` - Max idle connections in the database connection pool.
-- `max_open_conns` - Max open connections in the database connection pool.
-- `log_level` - Configures the log level for database logging, can be set to: `silent`, `error`, `warn`, or `info`. Default level is `warn`, note that setting this option to `info` may result in sensitive information being logged to disk!
+- `params` - Key/value map of dialect-specific DSN parameters.
+- `pragmas` - SQLite pragma map. Used when `dialect` is `sqlite3` and `params` does not already set `_pragma`.
+- `max_idle_conns` - Max idle DB connections (minimum enforced value is `1`).
+- `max_open_conns` - Max open DB connections (minimum enforced value is `1`).
+- `log_level` - GORM DB logging level (`silent`, `error`, `warn`, `info`).
+
+With the default SQLite configuration, Sliver stores the DB at `~/.sliver/sliver.db`.
 
 # Client Configuration
 
 ### Operator
 
-Client configurations must be generated by the server (they contain per-user key pairs). For more details see [multiplayer mode](/docs?name=Multi-player+Mode), and example configuration is shown below. Client configuration files can be copied into `~/.sliver-client/configs/`:
+Operator client configs are generated by the server and should be copied into `~/.sliver-client/configs/`. These files are currently JSON (`*.cfg`), not YAML.
+
+For details on generating them, see [multiplayer mode](/docs?name=Multi-player+Mode).
 
 ```json
 {
-  "operator": "moloch",
+  "operator": "alice",
+  "token": "<operator-auth-token>",
   "lhost": "localhost",
   "lport": 31337,
-  "ca_certificate": "-----BEGIN CERTIFICATE-----\nMIIBoTCCASegAwIBAgIRAPhwFTptJKJM4Bef71nA29YwCgYIKoZIzj0EAwMwCzEJ\nMAcGA1UEChMAMB4XDTIwMDExNDIyNTY1NloXDTIzMDExMzIyNTY1NlowCzEJMAcG\nA1UEChMAMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAEmvGJZ8zDqLxge2PfhK1QcdOi\n6kEV8vgz/S1fSiU9h21JDVaX+FFhG2cYIzr1Q3zE2Ml+pUdnwUSk24pFFTUhjlsO\n4H2YQC/W46DXSa8VQdvpfDaTPYLzXuBhsdVcn2rdo08wTTAOBgNVHQ8BAf8EBAMC\nAqQwHQYDVR0lBBYwFAYIKwYBBQUHAwEGCCsGAQUFBwMCMA8GA1UdEwEB/wQFMAMB\nAf8wCwYDVR0RBAQwAoIAMAoGCCqGSM49BAMDA2gAMGUCMQDOj0sVrVoJSkN4qiqn\nS9wMFNeVOZ+5TVZOOpTn19nc4C/wq9jwdYRHW1dlmvWu2LMCMCm2y1TkaWLa/i4t\nArTCIiCmNVRxAR1xFsWama9yv7wFY0+5xKS7W944418v0jYJKA==\n-----END CERTIFICATE-----\n",
-  "private_key": "-----BEGIN EC PRIVATE KEY-----\nMIGkAgEBBDBido1KtKSwQah/WIoGkDZDX2WPXdexUVAmi0tf6Pd9vK5pfpt2II+n\n8BqkV0ifyjugBwYFK4EEACKhZANiAATHATh7e8uX/MN5mokguQf4ywXgTaihYD//\nyraEUcZAYsrCtDHmdAH356GPrxlPSpwyWhFV3fIQJKI2Hf/8/mAd3wqCGQQzq5Mt\ncM0B36+vP9wOGsTI/tc32+0glRZoxo8=\n-----END EC PRIVATE KEY-----\n",
-  "certificate": "-----BEGIN CERTIFICATE-----\nMIIBiTCCAQ+gAwIBAgIQZLa8QUXWDnuht3G9+g9yKTAKBggqhkjOPQQDAzALMQkw\nBwYDVQQKEwAwHhcNMTkwNzIyMjE1MzAzWhcNMjIwNzIxMjE1MzAzWjAcMQkwBwYD\nVQQKEwAxDzANBgNVBAMTBm1vbG9jaDB2MBAGByqGSM49AgEGBSuBBAAiA2IABMcB\nOHt7y5f8w3maiSC5B/jLBeBNqKFgP//KtoRRxkBiysK0MeZ0AffnoY+vGU9KnDJa\nEVXd8hAkojYd//z+YB3fCoIZBDOrky1wzQHfr68/3A4axMj+1zfb7SCVFmjGj6Mn\nMCUwDgYDVR0PAQH/BAQDAgWgMBMGA1UdJQQMMAoGCCsGAQUFBwMCMAoGCCqGSM49\nBAMDA2gAMGUCMH0hbeghZfMkhp9Wf2a7eqj8IruwKH6vQql/6nxQ8aunfCUUxWo8\nOrxxaqp+bGCCCQIxAK5Icqww8m9llhprfzENaFZUCkpyvBMm9EB8B69SBFBHcVFm\n7bqHjFFMH39g2JCy9Q==\n-----END CERTIFICATE-----\n"
+  "ca_certificate": "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----\n",
+  "private_key": "-----BEGIN EC PRIVATE KEY-----\n...\n-----END EC PRIVATE KEY-----\n",
+  "certificate": "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----\n"
 }
 ```
 
-**Note:** The `operator` field in this configuration file only modifies the value displayed by the client when selecting configurations, modifying it will not change what name the server uses to identify the user. The server determines the user based on the `CommonName` in the certificate. If you want to change the user name you need to regenerate the client configuration with the new name.
+**Note:** The `operator` field is mostly a local label in the client. Server-side identity is derived from the client certificate (`CommonName`) and token material generated by the server. If you need to rename an operator, generate a new client configuration.
