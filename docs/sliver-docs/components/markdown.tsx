@@ -22,6 +22,7 @@ import {
   oneLight,
 } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import AsciinemaPlayer from "./asciinema";
+import Mermaid from "./mermaid";
 import Youtube from "./youtube";
 
 export type MarkdownProps = {
@@ -39,6 +40,49 @@ type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
 
 type HeadingProps = ComponentPropsWithoutRef<"h1"> & {
   node?: unknown;
+};
+
+const parseMermaidMinHeight = (lang: string, node: any): number | undefined => {
+  const [, ...langOptionParts] = lang.split(":");
+  const langOptions = langOptionParts.join(":").trim();
+
+  const nodeMeta =
+    typeof node?.data?.meta === "string"
+      ? node.data.meta
+      : typeof node?.meta === "string"
+      ? node.meta
+      : typeof node?.properties?.metastring === "string"
+      ? node.properties.metastring
+      : "";
+
+  const optionSources = [langOptions, nodeMeta]
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  const parseValue = (raw: string): number | undefined => {
+    const directNumber = raw.match(/^(\d{2,4})$/);
+    if (directNumber) {
+      return Number.parseInt(directNumber[1], 10);
+    }
+
+    const keyedNumber = raw.match(
+      /(?:^|[,\s;])(?:min[-_]?h(?:eight)?|h(?:eight)?)\s*[:=]\s*(\d{2,4})\b/i
+    );
+    if (keyedNumber) {
+      return Number.parseInt(keyedNumber[1], 10);
+    }
+
+    return undefined;
+  };
+
+  for (const source of optionSources) {
+    const parsed = parseValue(source);
+    if (parsed !== undefined && Number.isFinite(parsed)) {
+      return Math.min(1200, Math.max(120, parsed));
+    }
+  }
+
+  return undefined;
 };
 
 const mergeClassNames = (
@@ -542,6 +586,12 @@ const MarkdownViewer = (props: MarkdownProps) => {
             const { children, className, node, ...rest } = preProps as any;
             const childClass = (children as any)?.props?.className;
             if (
+              typeof childClass === "string" &&
+              childClass.startsWith("language-mermaid")
+            ) {
+              return <>{children}</>;
+            }
+            if (
               childClass &&
               childClass.startsWith("language-") &&
               childClass !== "language-plaintext"
@@ -596,7 +646,8 @@ const MarkdownViewer = (props: MarkdownProps) => {
             const lang = languageClass
               ? languageClass.replace("language-", "")
               : "plaintext";
-            const normalizedLang = lang.toLowerCase();
+            const [baseLang] = lang.split(":");
+            const normalizedLang = baseLang.toLowerCase();
             const childValue = Array.isArray(children)
               ? children.join("")
               : children;
@@ -625,6 +676,15 @@ const MarkdownViewer = (props: MarkdownProps) => {
                   preload={true}
                   autoPlay={true}
                   loop={true}
+                />
+              );
+            }
+
+            if (normalizedLang === "mermaid") {
+              return (
+                <Mermaid
+                  diagram={sourceCode.replace(/\n$/, "")}
+                  minHeight={parseMermaidMinHeight(lang, node)}
                 />
               );
             }
