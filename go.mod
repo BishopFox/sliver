@@ -49,7 +49,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/sliverarmory/beignet v0.0.2
 	github.com/sliverarmory/malasada v0.0.2
-	github.com/sliverarmory/wasm-donut v0.0.3
+	github.com/sliverarmory/wasm-donut v0.0.5
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1
@@ -62,7 +62,7 @@ require (
 	golang.org/x/exp v0.0.0-20251209150349-8475f28825e9
 	golang.org/x/mod v0.31.0
 	golang.org/x/net v0.48.0
-	golang.org/x/sys v0.40.0
+	golang.org/x/sys v0.41.0
 	golang.org/x/term v0.38.0
 	golang.org/x/text v0.32.0
 	golang.zx2c4.com/wireguard v0.0.0-20250521234502-f333402bd9cb
