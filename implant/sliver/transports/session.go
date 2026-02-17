@@ -500,6 +500,7 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 		cfg.Logger = nil
 		cfg.LogOutput = io.Discard
 		// {{end}}
+		muxSession, err = yamux.Client(conn, cfg)
 		if err != nil {
 			conn.Close()
 			dev.Down()
