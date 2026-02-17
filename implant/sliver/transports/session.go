@@ -268,7 +268,15 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 			conn.Close()
 			return err
 		}
-		muxSession, err = yamux.Client(conn, nil)
+		cfg := yamux.DefaultConfig()
+		// {{if .Config.Debug}}
+		cfg.Logger = log.Default()
+		cfg.LogOutput = nil
+		// {{else}}
+		cfg.Logger = nil
+		cfg.LogOutput = io.Discard
+		// {{end}}
+		muxSession, err = yamux.Client(conn, cfg)
 		if err != nil {
 			conn.Close()
 			return err
@@ -484,7 +492,14 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 			dev.Down()
 			return err
 		}
-		muxSession, err = yamux.Client(conn, nil)
+		cfg := yamux.DefaultConfig()
+		// {{if .Config.Debug}}
+		cfg.Logger = log.Default()
+		cfg.LogOutput = nil
+		// {{else}}
+		cfg.Logger = nil
+		cfg.LogOutput = io.Discard
+		// {{end}}
 		if err != nil {
 			conn.Close()
 			dev.Down()
