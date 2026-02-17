@@ -5,6 +5,7 @@ package c2_test
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -321,7 +322,9 @@ func startTestBeacon(t *testing.T, conn net.Conn, beaconID string) *testBeacon {
 		t.Fatalf("write yamux preface: %v", err)
 	}
 
-	muxSession, err := yamux.Client(conn, nil)
+	cfg := yamux.DefaultConfig()
+	cfg.LogOutput = io.Discard
+	muxSession, err = yamux.Client(conn, cfg)
 	if err != nil {
 		t.Fatalf("start yamux client session: %v", err)
 	}
