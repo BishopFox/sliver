@@ -356,7 +356,7 @@ func startTestImplant(t *testing.T, conn net.Conn) func() {
 
 	cfg := yamux.DefaultConfig()
 	cfg.LogOutput = io.Discard
-	muxSession, err = yamux.Client(conn, cfg)
+	muxSession, err := yamux.Client(conn, cfg)
 	if err != nil {
 		t.Fatalf("start yamux client session: %v", err)
 	}
