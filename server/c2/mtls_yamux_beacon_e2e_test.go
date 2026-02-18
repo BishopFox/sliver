@@ -324,7 +324,7 @@ func startTestBeacon(t *testing.T, conn net.Conn, beaconID string) *testBeacon {
 
 	cfg := yamux.DefaultConfig()
 	cfg.LogOutput = io.Discard
-	muxSession, err = yamux.Client(conn, cfg)
+	muxSession, err := yamux.Client(conn, cfg)
 	if err != nil {
 		t.Fatalf("start yamux client session: %v", err)
 	}
