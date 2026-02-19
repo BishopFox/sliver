@@ -79,10 +79,14 @@ func ExecuteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if token || hidden || ppid != 0 {
 		if (session != nil && session.OS != "windows") || (beacon != nil && beacon.OS != "windows") {
 			con.PrintErrorf("The token, hide window, and ppid options are not valid on %s\n", session.OS)
+			ctrl <- true
+			<-ctrl
 			return
 		}
 		if envInheritance || len(envVars) > 0 {
 			con.PrintErrorf("The env and env-inheritance options are not supported with token, hidden, or ppid\n")
+			ctrl <- true
+			<-ctrl
 			return
 		}
 		exec, err = con.Rpc.ExecuteWindows(context.Background(), &sliverpb.ExecuteWindowsReq{
