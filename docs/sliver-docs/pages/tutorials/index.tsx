@@ -1,4 +1,5 @@
 import MarkdownViewer from "@/components/markdown";
+import LoadingState from "@/components/loading-state";
 import { Tutorials } from "@/util/tutorials";
 import { PREBUILD_VERSION } from "@/util/__generated__/prebuild-version";
 import { fetchTutorials as fetchTutorialsContent } from "@/util/content-fetchers";
@@ -34,14 +35,17 @@ const TutorialsIndexPage: NextPage = () => {
   });
 
   const params = useSearchParams();
-  const [name, setName] = React.useState("");
-  const [markdown, setMarkdown] = React.useState("");
-
-  React.useEffect(() => {
-    const _name = params.get("name");
-    setName(_name || "");
-    setMarkdown(tutorials?.tutorials.find((tutorial) => tutorial.name === _name)?.content || "");
-  }, [params, tutorials]);
+  const name = params.get("name") || "";
+  const markdown = React.useMemo(() => {
+    return tutorials?.tutorials.find((tutorial) => tutorial.name === name)?.content || "";
+  }, [tutorials, name]);
+  const hasNameQueryInPath = React.useMemo(() => {
+    const query = router.asPath.split("?")[1];
+    if (!query) {
+      return false;
+    }
+    return new URLSearchParams(query).has("name");
+  }, [router.asPath]);
 
   const [filterValue, setFilterValue] = React.useState("");
   const fuse = React.useMemo(() => {
@@ -79,8 +83,8 @@ const TutorialsIndexPage: NextPage = () => {
     }
   }, [theme]);
 
-  if (isLoading || !tutorials) {
-    return <div>Loading...</div>;
+  if (isLoading || !tutorials || (hasNameQueryInPath && !name)) {
+    return <LoadingState />;
   }
 
   return (

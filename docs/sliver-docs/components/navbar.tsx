@@ -3,7 +3,7 @@
 import { SliversIcon } from "@/components/icons/slivers";
 import { useSearchContext } from "@/util/search-context";
 import { Themes } from "@/util/themes";
-import { faGithub } from "@fortawesome/free-brands-svg-icons";
+import { faDiscord, faGithub } from "@fortawesome/free-brands-svg-icons";
 import {
   faBars,
   faHome,
@@ -158,43 +158,69 @@ export default function TopNavbar(props: TopNavbarProps) {
 
       <NavbarContent as="div" justify="end" className="hidden md:flex">
         {renderSearchInput("w-64")}
-        <Button
-          variant="ghost"
-          onPress={() => {
-            setTheme(theme === Themes.DARK ? Themes.LIGHT : Themes.DARK);
-          }}
-          isDisabled={!mounted}
+        <Tooltip
+          content={theme === Themes.DARK ? "Switch to light mode" : "Switch to dark mode"}
         >
-          <FontAwesomeIcon icon={lightDarkModeIcon} />
-        </Button>
+          <Button
+            variant="ghost"
+            onPress={() => {
+              setTheme(theme === Themes.DARK ? Themes.LIGHT : Themes.DARK);
+            }}
+            isDisabled={!mounted}
+          >
+            <FontAwesomeIcon icon={lightDarkModeIcon} />
+          </Button>
+        </Tooltip>
 
-        <Button
-          variant="ghost"
-          onPress={() => {
-            window.open("https://github.com/BishopFox/sliver", "_blank");
-          }}
-        >
-          <FontAwesomeIcon icon={faGithub} />
-        </Button>
+        <Tooltip content="Join Discord">
+          <Button
+            variant="ghost"
+            onPress={() => {
+              window.open(
+                "https://discord.com/channels/791066041198968873/1339996286514106409",
+                "_blank",
+              );
+            }}
+          >
+            <FontAwesomeIcon icon={faDiscord} />
+          </Button>
+        </Tooltip>
+
+        <Tooltip content="View on GitHub">
+          <Button
+            variant="ghost"
+            onPress={() => {
+              window.open("https://github.com/BishopFox/sliver", "_blank");
+            }}
+          >
+            <FontAwesomeIcon icon={faGithub} />
+          </Button>
+        </Tooltip>
       </NavbarContent>
 
       <div className="flex items-center gap-2 md:hidden">
-        <Button
-          variant="ghost"
-          onPress={() => {
-            setTheme(theme === Themes.DARK ? Themes.LIGHT : Themes.DARK);
-          }}
-          isDisabled={!mounted}
+        <Tooltip
+          content={theme === Themes.DARK ? "Switch to light mode" : "Switch to dark mode"}
         >
-          <FontAwesomeIcon icon={lightDarkModeIcon} />
-        </Button>
-        <Button
-          variant="ghost"
-          aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
-          onPress={() => setIsMobileMenuOpen((current) => !current)}
-        >
-          <FontAwesomeIcon icon={isMobileMenuOpen ? faXmark : faBars} />
-        </Button>
+          <Button
+            variant="ghost"
+            onPress={() => {
+              setTheme(theme === Themes.DARK ? Themes.LIGHT : Themes.DARK);
+            }}
+            isDisabled={!mounted}
+          >
+            <FontAwesomeIcon icon={lightDarkModeIcon} />
+          </Button>
+        </Tooltip>
+        <Tooltip content={isMobileMenuOpen ? "Close menu" : "Open menu"}>
+          <Button
+            variant="ghost"
+            aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+            onPress={() => setIsMobileMenuOpen((current) => !current)}
+          >
+            <FontAwesomeIcon icon={isMobileMenuOpen ? faXmark : faBars} />
+          </Button>
+        </Tooltip>
       </div>
     </Navbar>
 
@@ -242,6 +268,18 @@ export default function TopNavbar(props: TopNavbarProps) {
               }}
             >
               Docs
+            </Button>
+            <Button
+              variant="light"
+              onPress={() => {
+                window.open(
+                  "https://discord.com/channels/791066041198968873/1339996286514106409",
+                  "_blank",
+                );
+              }}
+              startContent={<FontAwesomeIcon icon={faDiscord} />}
+            >
+              Discord
             </Button>
             <Button
               variant="light"
