@@ -33,7 +33,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.BoolP("ignore-stderr", "S", false, "don't print STDERR output")
 		f.StringP("stdout", "O", "", "remote path to redirect STDOUT to")
 		f.StringP("stderr", "E", "", "remote path to redirect STDERR to")
-		f.Bool("env-inheritance", true, "inherit environment variables from the current process")
+		f.Bool("env-inheritance", false, "inherit environment variables from the current process")
 		f.StringArray("env", nil, "set an environment variable for the child process (key=value)")
 		f.StringP("name", "n", "", "name to assign loot (optional)")
 		f.Uint32P("ppid", "P", 0, "parent process id (optional, Windows only)")
