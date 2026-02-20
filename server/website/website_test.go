@@ -157,6 +157,31 @@ func TestContentMap(t *testing.T) {
 
 }
 
+func TestContentMapWithoutEagerUsesPathKeys(t *testing.T) {
+	websiteName := "testWebsiteMapContentNoEager"
+	webPath := "/content-map-no-eager"
+	webContent := clientpb.WebContent{
+		Path:        webPath,
+		ContentType: contentType1,
+		Size:        uint64(len(data1)),
+		Content:     data1,
+	}
+
+	err := AddContent(websiteName, &webContent)
+	if err != nil {
+		t.Error(err)
+	}
+
+	contentMap, err := MapContent(websiteName, false)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if _, ok := contentMap.Contents[webPath]; !ok {
+		t.Fatalf("expected content map key %q, got keys: %v", webPath, contentMap.Contents)
+	}
+}
+
 func contains(haystack []string, needle string) bool {
 	for _, elem := range haystack {
 		if elem == needle {

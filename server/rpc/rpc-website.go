@@ -62,8 +62,13 @@ func (rpc *Server) WebsiteRemove(ctx context.Context, req *clientpb.Website) (*c
 	if err != nil {
 		return nil, rpcError(err)
 	}
-	for path := range web.Contents {
-		err := website.RemoveContent(req.Name, path)
+	for path, content := range web.Contents {
+		contentPath := path
+		if content.GetPath() != "" {
+			contentPath = content.GetPath()
+		}
+
+		err := website.RemoveContent(req.Name, contentPath)
 		if err != nil {
 			rpcWebsiteLog.Errorf("Failed to remove content %s", err)
 			return nil, rpcError(err)
