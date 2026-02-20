@@ -21,8 +21,9 @@ package transports
 // {{if .Config.IsBeacon}}
 
 import (
-	// {{if .Config.Debug}}
 	"io"
+
+	// {{if .Config.Debug}}
 	"log"
 
 	// {{end}}
@@ -71,6 +72,7 @@ import (
 
 var (
 	_ url.URL
+	_ io.Writer
 )
 
 type BeaconInit func() error
