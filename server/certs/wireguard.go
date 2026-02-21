@@ -22,6 +22,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net/netip"
+	"strings"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/server/core"
@@ -136,6 +138,14 @@ func saveWGKeys(isPeer bool, wgPeerTunIP string, privKey string, pubKey string) 
 	var result *gorm.DB
 
 	if isPeer {
+		wgPeerTunIP = strings.TrimSpace(wgPeerTunIP)
+		if wgPeerTunIP == "" {
+			return errors.New("wg peer tunnel IP cannot be empty")
+		}
+		if _, err := netip.ParseAddr(wgPeerTunIP); err != nil {
+			return fmt.Errorf("invalid wg peer tunnel IP %q: %w", wgPeerTunIP, err)
+		}
+
 		wgPeerModels := &models.WGPeer{
 			PrivKey: privKey,
 			PubKey:  pubKey,
@@ -150,11 +160,12 @@ func saveWGKeys(isPeer bool, wgPeerTunIP string, privKey string, pubKey string) 
 		}
 		result = dbSession.Create(&wgKeysModel)
 	}
-	core.EventBroker.Publish(core.Event{
-		EventType: consts.WireGuardNewPeer,
-		Data: []byte(fmt.Sprintf("public_key=%s\nallowed_ip=%s/32\n", pubKey, wgPeerTunIP)),
-	})
-
+	if isPeer {
+		core.EventBroker.Publish(core.Event{
+			EventType: consts.WireGuardNewPeer,
+			Data:      []byte(fmt.Sprintf("public_key=%s\nallowed_ip=%s/32\n", pubKey, wgPeerTunIP)),
+		})
+	}
 
 	return result.Error
 }

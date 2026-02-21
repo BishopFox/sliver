@@ -80,8 +80,9 @@ func (rpc *Server) RestartJobs(ctx context.Context, restartJobReq *clientpb.Rest
 		if err != nil {
 			return &commonpb.Empty{}, rpcError(err)
 		}
-		listenerJob.JobID = uint32(job.ID)
-		db.UpdateHTTPC2Listener(listenerJob)
+		if err := db.UpdateListenerJobID(jobID, uint32(job.ID)); err != nil {
+			return &commonpb.Empty{}, rpcError(err)
+		}
 	}
 	return &commonpb.Empty{}, nil
 }
