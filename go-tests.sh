@@ -241,3 +241,11 @@ if [ "$SKIP_GENERATE" -eq 0 ]; then
 else
     echo "Skipping ./server/generate tests (--skip-generate)"
 fi
+
+# server / rpc / spoof metadata
+if go test -vet=off -tags=server,$TAGS ./server/rpc -run '^TestGenerateSpoofMetadataAppliesPETimestampOverBufnet$' -count=1 -timeout 30m ; then
+    :
+else
+    cat ~/.sliver/logs/sliver.log 2>/dev/null || true
+    exit 1
+fi

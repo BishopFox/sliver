@@ -85,6 +85,8 @@ service SliverRPC {
 
   // *** Implants ***
   rpc Generate(clientpb.GenerateReq) returns (clientpb.Generate);
+  rpc GenerateSpoofMetadata(clientpb.GenerateSpoofMetadataReq)
+      returns (commonpb.Empty);
   rpc GenerateExternal(clientpb.ExternalGenerateReq)
       returns (clientpb.ExternalImplantConfig);
   rpc GenerateExternalSaveBuild(clientpb.ExternalImplantBinary)

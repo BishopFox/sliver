@@ -528,11 +528,49 @@ func SaveC2Listener(listenerConf *clientpb.ListenerJob) error {
 }
 
 func UpdateHTTPC2Listener(listenerConf *clientpb.ListenerJob) error {
-	dbListener := models.ListenerJobFromProtobuf(listenerConf)
-	dbSession := Session()
-	result := dbSession.Save(dbListener)
+	if listenerConf == nil {
+		return errors.New("listener config is nil")
+	}
+	if listenerConf.ID == "" {
+		return errors.New("listener config id is empty")
+	}
+
+	listenerID := uuid.FromStringOrNil(listenerConf.ID)
+	if listenerID == uuid.Nil {
+		return fmt.Errorf("invalid listener config id %q", listenerConf.ID)
+	}
+
+	result := Session().
+		Model(&models.ListenerJob{}).
+		Where(&models.ListenerJob{ID: listenerID}).
+		Updates(map[string]any{
+			"job_id": listenerConf.JobID,
+			"type":   listenerConf.Type,
+		})
 	if result.Error != nil {
 		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("listener record %s not found", listenerConf.ID)
+	}
+	return nil
+}
+
+// UpdateListenerJobID - Update a listener record's job id while preserving listener configuration rows.
+func UpdateListenerJobID(oldJobID uint32, newJobID uint32) error {
+	if oldJobID == newJobID {
+		return nil
+	}
+
+	result := Session().
+		Model(&models.ListenerJob{}).
+		Where("job_id = ?", oldJobID).
+		Update("job_id", newJobID)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("listener job id %d not found", oldJobID)
 	}
 	return nil
 }

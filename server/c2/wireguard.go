@@ -28,6 +28,7 @@ import (
 	"io"
 	"net"
 	"net/netip"
+	"strings"
 	"sync"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -118,14 +119,25 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 		return nil, nil, nil, err
 	}
 
+	validPeerCount := 0
 	for k, v := range peers {
+		tunPeerIP := strings.TrimSpace(v)
+		if tunPeerIP == "" {
+			wgLog.Warnf("Skipping wireguard peer %q with empty tunnel IP in the database", k)
+			continue
+		}
+		if _, err := netip.ParseAddr(tunPeerIP); err != nil {
+			wgLog.Warnf("Skipping wireguard peer %q with invalid tunnel IP %q: %v", k, tunPeerIP, err)
+			continue
+		}
+		validPeerCount++
 		fmt.Fprintf(wgConf, "public_key=%s\n", k)
-		fmt.Fprintf(wgConf, "allowed_ip=%s/32\n", v)
+		fmt.Fprintf(wgConf, "allowed_ip=%s/32\n", tunPeerIP)
 	}
 
 	// Set wg device config
 	if err := dev.IpcSetOperation(bufio.NewReader(wgConf)); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, fmt.Errorf("failed to apply wireguard interface config (%d valid peer entries): %w", validPeerCount, err)
 	}
 
 	err = dev.Up()

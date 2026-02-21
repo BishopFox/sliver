@@ -81,7 +81,7 @@ func ProfilesGenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []s
 				profile.Config.SGNEnabled = encoder == clientpb.ShellcodeEncoder_SHIKATA_GA_NAI
 			}
 		}
-		_, err := compile(implantName, profile.Config, save, con)
+		_, err := compile(implantName, profile.Config, nil, save, con)
 		if err != nil {
 			return
 		}

@@ -1049,6 +1049,14 @@ func GenerateConfig(name string, implantConfig *clientpb.ImplantConfig) (*client
 
 	// Generate wg Keys as needed
 	if models.IsC2Enabled([]string{"wg"}, implantConfig.C2) {
+		if strings.TrimSpace(implantConfig.WGPeerTunIP) == "" {
+			uniqueIP, err := GenerateUniqueIP()
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate wireguard peer tunnel IP: %w", err)
+			}
+			implantConfig.WGPeerTunIP = uniqueIP.String()
+		}
+
 		implantPrivKey, _, err := certs.ImplantGenerateWGKeys(implantConfig.WGPeerTunIP)
 		if err != nil {
 			return nil, err
