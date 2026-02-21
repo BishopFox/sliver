@@ -645,12 +645,6 @@ func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clie
 		}
 	}
 
-	if len(config.SpoofData) > 0 {
-		if err := SpoofMetadata(dest, config.SpoofData); err != nil {
-			buildLog.Errorf("failed to spoof metadata: %v", err)
-		}
-	}
-
 	return dest, err
 }
 
@@ -699,12 +693,6 @@ func SliverExecutable(name string, build *clientpb.ImplantBuild, config *clientp
 	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "", tags, ldflags, gcFlags, asmFlags)
 	if err != nil {
 		return "", err
-	}
-
-	if len(config.SpoofData) > 0 {
-		if err := SpoofMetadata(dest, config.SpoofData); err != nil {
-			buildLog.Errorf("failed to spoof metadata: %v", err)
-		}
 	}
 
 	return dest, err

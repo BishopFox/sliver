@@ -1,6 +1,8 @@
 package generate
 
 import (
+	"strings"
+
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	shellcodeencoders "github.com/bishopfox/sliver/client/command/shellcode-encoders"
@@ -10,6 +12,15 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
+
+const spoofMetadataLongHelp = `
+
+Spoof Metadata:
+  --spoof-metadata
+    Use metadata settings from <client app dir>/spoof-metadata.yaml.
+  --spoof-metadata /path/to/donor.exe
+    Use metadata from the specified donor file. The donor must match the target format/goos/goarch.
+`
 
 // Commands returns the “ command and its subcommands.
 func Commands(con *console.SliverClient) []*cobra.Command {
@@ -342,7 +353,7 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 		f.StringP("limit-hostname", "z", "", "limit execution to specified hostname")
 		f.StringP("limit-fileexists", "F", "", "limit execution to hosts with this file in the filesystem")
 		f.StringP("limit-locale", "L", "", "limit execution to hosts that match this locale")
-		f.StringP("spoof", "", "", "spoof file metadata (e.g. icon, version info)")
+		bindSpoofMetadataFlag(f)
 
 		f.StringP("format", "f", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows, darwin/arm64, linux/amd64, linux/arm64)")
 
@@ -385,6 +396,32 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 		_ = f.MarkDeprecated("donut-oep", "use --shellcode-oep")
 		_ = f.MarkHidden("donut-oep")
 	})
+	appendSpoofMetadataLongHelp(cmd)
+}
+
+func bindSpoofMetadataFlag(f *pflag.FlagSet) {
+	if f == nil {
+		return
+	}
+	spoofMetadataFlag := f.VarPF(newSpoofMetadataFlagValue(), spoofMetadataFlagName, "", "spoof executable metadata (optional donor path)")
+	if spoofMetadataFlag != nil {
+		spoofMetadataFlag.NoOptDefVal = "true"
+	}
+}
+
+func appendSpoofMetadataLongHelp(cmd *cobra.Command) {
+	if cmd == nil {
+		return
+	}
+	if strings.Contains(cmd.Long, "--spoof-metadata") {
+		return
+	}
+	trimmed := strings.TrimRight(cmd.Long, "\n")
+	if trimmed == "" {
+		cmd.Long = strings.TrimLeft(spoofMetadataLongHelp, "\n")
+		return
+	}
+	cmd.Long = trimmed + spoofMetadataLongHelp
 }
 
 // coreImplantFlagCompletions binds completions to flags registered in coreImplantFlags.
@@ -396,6 +433,7 @@ func coreImplantFlagCompletions(cmd *cobra.Command, con *console.SliverClient) {
 		(*comp)["strategy"] = carapace.ActionValuesDescribed([]string{"r", "random", "rd", "random domain", "s", "sequential"}...).Tag("C2 strategy")
 		(*comp)["format"] = FormatCompleter()
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
+		(*comp)[spoofMetadataFlagName] = carapace.ActionFiles().Tag("optional donor metadata file")
 		(*comp)["shellcode-encoder"] = shellcodeencoders.ShellcodeEncoderNameCompleter(con)
 		(*comp)["traffic-encoders"] = TrafficEncodersCompleter(con).UniqueList(",")
 		(*comp)["c2profile"] = HTTPC2Completer(con)

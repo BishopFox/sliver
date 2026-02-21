@@ -215,9 +215,73 @@ message ImplantConfig {
   bool TrafficEncodersEnabled = 152;
   repeated string TrafficEncoders = 153;
   string Extension = 154;
-  bytes SpoofData = 155;
+  reserved 155;
+  reserved "SpoofData";
 
   repeated commonpb.File Assets = 200;
+}
+
+message SpoofMetadataFile {
+  string Name = 1;
+  bytes Data = 2;
+}
+
+message IMAGE_RESOURCE_DIRECTORY {
+  uint32 Characteristics = 1;
+  uint32 TimeDateStamp = 2;
+  // uint16 in PE headers; encoded as uint32 for protobuf transport.
+  uint32 MajorVersion = 3;
+  // uint16 in PE headers; encoded as uint32 for protobuf transport.
+  uint32 MinorVersion = 4;
+  // uint16 in PE headers; encoded as uint32 for protobuf transport.
+  uint32 NumberOfNamedEntries = 5;
+  // uint16 in PE headers; encoded as uint32 for protobuf transport.
+  uint32 NumberOfIdEntries = 6;
+}
+
+message IMAGE_RESOURCE_DIRECTORY_ENTRY {
+  uint32 Name = 1;
+  uint32 OffsetToData = 2;
+}
+
+message IMAGE_RESOURCE_DATA_ENTRY {
+  uint32 OffsetToData = 1;
+  uint32 Size = 2;
+  uint32 CodePage = 3;
+  uint32 Reserved = 4;
+}
+
+message IMAGE_EXPORT_DIRECTORY {
+  uint32 Characteristics = 1;
+  uint32 TimeDateStamp = 2;
+  // uint16 in PE headers; encoded as uint32 for protobuf transport.
+  uint32 MajorVersion = 3;
+  // uint16 in PE headers; encoded as uint32 for protobuf transport.
+  uint32 MinorVersion = 4;
+  uint32 Name = 5;
+  uint32 Base = 6;
+  uint32 NumberOfFunctions = 7;
+  uint32 NumberOfNames = 8;
+  uint32 AddressOfFunctions = 9;
+  uint32 AddressOfNames = 10;
+  uint32 AddressOfNameOrdinals = 11;
+}
+
+message PESpoofMetadataConfig {
+  // Reference PE used to clone metadata/resources/timestamps.
+  SpoofMetadataFile Source = 1;
+  // Reserved for future standalone icon mutation support.
+  SpoofMetadataFile Icon = 2;
+  IMAGE_RESOURCE_DIRECTORY ResourceDirectory = 10;
+  repeated IMAGE_RESOURCE_DIRECTORY_ENTRY ResourceDirectoryEntries = 11;
+  repeated IMAGE_RESOURCE_DATA_ENTRY ResourceDataEntries = 12;
+  IMAGE_EXPORT_DIRECTORY ExportDirectory = 13;
+}
+
+message SpoofMetadataConfig {
+  // Keep executable formats separated so additional formats can be added later
+  // without changing request semantics.
+  PESpoofMetadataConfig PE = 1;
 }
 
 message TrafficEncoder {
@@ -485,7 +549,19 @@ message GenerateStageReq {
   string Compress = 8;
 }
 
-message Generate { commonpb.File File = 1; }
+message Generate {
+  commonpb.File File = 1;
+  string ImplantName = 2;
+  string ImplantBuildID = 3;
+}
+
+message GenerateSpoofMetadataReq {
+  string ImplantBuildID = 1;
+  string ImplantName = 2;
+  uint64 ResourceID = 3;
+
+  SpoofMetadataConfig SpoofMetadata = 10;
+}
 
 message MSFReq {
   string Payload = 1;
