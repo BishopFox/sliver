@@ -124,4 +124,5 @@ under certain conditions; type 'licenses' for details.`)
 		saveAssetVersion(appDir)
 	}
 	_, _ = LoadSettings()
+	_, _ = LoadSpoofMetadataConfig()
 }

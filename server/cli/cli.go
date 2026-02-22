@@ -141,12 +141,12 @@ var rootCmd = &cobra.Command{
 		serverConfig := configs.GetServerConfig()
 		listenerJobs, err := db.ListenerJobs()
 		if err != nil {
-			fmt.Println(err)
+			fmt.Printf("[!] Failed to load persistent listener jobs: %s\n", err)
 		}
 
 		err = StartPersistentJobs(listenerJobs)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Printf("[!] %s\n", err)
 		}
 		if serverConfig.DaemonMode {
 			daemon.Start(daemon.BlankHost, daemon.BlankPort, serverConfig.DaemonConfig.Tailscale)

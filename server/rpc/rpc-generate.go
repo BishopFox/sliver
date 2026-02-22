@@ -146,6 +146,8 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 			Name: fileName,
 			Data: fileData,
 		},
+		ImplantName:    build.Name,
+		ImplantBuildID: build.ID,
 	}, err
 }
 
@@ -173,7 +175,244 @@ func (rpc *Server) Regenerate(ctx context.Context, req *clientpb.RegenerateReq) 
 			Name: build.Name + config.Extension,
 			Data: fileData,
 		},
+		ImplantName:    build.Name,
+		ImplantBuildID: build.ID,
 	}, nil
+}
+
+// GenerateSpoofMetadata applies spoof metadata to an existing build artifact.
+func (rpc *Server) GenerateSpoofMetadata(_ context.Context, req *clientpb.GenerateSpoofMetadataReq) (*commonpb.Empty, error) {
+	build, err := spoofMetadataTargetBuild(req)
+	if err != nil {
+		return nil, err
+	}
+
+	spoofConfig, err := spoofMetadataConfigFromProto(req.GetSpoofMetadata())
+	if err != nil {
+		return nil, err
+	}
+
+	buildData, err := generate.ImplantFileFromBuild(build)
+	if err != nil {
+		return nil, rpcError(err)
+	}
+
+	tmpFile, err := os.CreateTemp(assets.GetRootAppDir(), "tmp-spoof-metadata-*")
+	if err != nil {
+		rpcLog.Errorf("Failed to create temporary file: %s", err)
+		return nil, status.Error(codes.Internal, "failed to create temporary file")
+	}
+	defer os.Remove(tmpFile.Name())
+
+	if _, err = tmpFile.Write(buildData); err != nil {
+		_ = tmpFile.Close()
+		rcpGenLog.Errorf("Failed to write temporary build file: %s", err)
+		return nil, status.Error(codes.Internal, "failed to write temporary build file")
+	}
+	if err = tmpFile.Close(); err != nil {
+		rcpGenLog.Errorf("Failed to close temporary build file: %s", err)
+		return nil, status.Error(codes.Internal, "failed to close temporary build file")
+	}
+
+	if err = generate.SpoofMetadata(tmpFile.Name(), spoofConfig); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	modifiedBuildData, err := os.ReadFile(tmpFile.Name())
+	if err != nil {
+		return nil, rpcError(err)
+	}
+
+	if err = generate.ImplantBuildUpdateFile(build, modifiedBuildData); err != nil {
+		rpcLog.Errorf("Failed to update build %s: %s", build.ID, err)
+		return nil, rpcError(err)
+	}
+
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.BuildCompletedEvent,
+		Data:      []byte(build.Name),
+	})
+
+	return &commonpb.Empty{}, nil
+}
+
+func spoofMetadataTargetBuild(req *clientpb.GenerateSpoofMetadataReq) (*clientpb.ImplantBuild, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing request")
+	}
+
+	var (
+		build *clientpb.ImplantBuild
+		err   error
+	)
+	selected := 0
+
+	if req.GetImplantBuildID() != "" {
+		selected++
+		build, err = db.ImplantBuildByID(req.GetImplantBuildID())
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid implant build id")
+		}
+	}
+	if req.GetImplantName() != "" {
+		selected++
+		build, err = db.ImplantBuildByName(req.GetImplantName())
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid implant name")
+		}
+	}
+	if req.GetResourceID() != 0 {
+		selected++
+		build, err = db.ImplantBuildByResourceID(req.GetResourceID())
+		if err != nil || build.GetID() == "" {
+			return nil, status.Error(codes.InvalidArgument, "invalid resource id")
+		}
+	}
+	if selected != 1 {
+		return nil, status.Error(codes.InvalidArgument, "exactly one build selector is required (implant_build_id, implant_name, or resource_id)")
+	}
+	return build, nil
+}
+
+func spoofMetadataConfigFromProto(req *clientpb.SpoofMetadataConfig) (*generate.SpoofMetadataConfig, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing spoof metadata configuration")
+	}
+
+	config := &generate.SpoofMetadataConfig{}
+	if req.GetPE() != nil {
+		resourceDirectory, err := imageResourceDirectoryFromProto(req.GetPE().GetResourceDirectory())
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		exportDirectory, err := imageExportDirectoryFromProto(req.GetPE().GetExportDirectory())
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		config.PE = &generate.PESpoofMetadataConfig{
+			Source:                   spoofMetadataFileFromProto(req.GetPE().GetSource()),
+			Icon:                     spoofMetadataFileFromProto(req.GetPE().GetIcon()),
+			ResourceDirectory:        resourceDirectory,
+			ResourceDirectoryEntries: imageResourceDirectoryEntriesFromProto(req.GetPE().GetResourceDirectoryEntries()),
+			ResourceDataEntries:      imageResourceDataEntriesFromProto(req.GetPE().GetResourceDataEntries()),
+			ExportDirectory:          exportDirectory,
+		}
+	}
+
+	if config.PE == nil {
+		return nil, status.Error(codes.InvalidArgument, "spoof metadata has no supported executable format")
+	}
+	return config, nil
+}
+
+func spoofMetadataFileFromProto(req *clientpb.SpoofMetadataFile) *generate.SpoofMetadataFile {
+	if req == nil {
+		return nil
+	}
+	return &generate.SpoofMetadataFile{
+		Name: req.GetName(),
+		Data: req.GetData(),
+	}
+}
+
+func imageResourceDirectoryFromProto(req *clientpb.IMAGE_RESOURCE_DIRECTORY) (*generate.IMAGE_RESOURCE_DIRECTORY, error) {
+	if req == nil {
+		return nil, nil
+	}
+	major, err := uint16Field("pe.resource_directory.major_version", req.GetMajorVersion())
+	if err != nil {
+		return nil, err
+	}
+	minor, err := uint16Field("pe.resource_directory.minor_version", req.GetMinorVersion())
+	if err != nil {
+		return nil, err
+	}
+	namedEntries, err := uint16Field("pe.resource_directory.number_of_named_entries", req.GetNumberOfNamedEntries())
+	if err != nil {
+		return nil, err
+	}
+	idEntries, err := uint16Field("pe.resource_directory.number_of_id_entries", req.GetNumberOfIdEntries())
+	if err != nil {
+		return nil, err
+	}
+	return &generate.IMAGE_RESOURCE_DIRECTORY{
+		Characteristics:      req.GetCharacteristics(),
+		TimeDateStamp:        req.GetTimeDateStamp(),
+		MajorVersion:         major,
+		MinorVersion:         minor,
+		NumberOfNamedEntries: namedEntries,
+		NumberOfIdEntries:    idEntries,
+	}, nil
+}
+
+func imageResourceDirectoryEntriesFromProto(req []*clientpb.IMAGE_RESOURCE_DIRECTORY_ENTRY) []*generate.IMAGE_RESOURCE_DIRECTORY_ENTRY {
+	if len(req) == 0 {
+		return nil
+	}
+	entries := make([]*generate.IMAGE_RESOURCE_DIRECTORY_ENTRY, 0, len(req))
+	for _, entry := range req {
+		if entry == nil {
+			continue
+		}
+		entries = append(entries, &generate.IMAGE_RESOURCE_DIRECTORY_ENTRY{
+			Name:         entry.GetName(),
+			OffsetToData: entry.GetOffsetToData(),
+		})
+	}
+	return entries
+}
+
+func imageResourceDataEntriesFromProto(req []*clientpb.IMAGE_RESOURCE_DATA_ENTRY) []*generate.IMAGE_RESOURCE_DATA_ENTRY {
+	if len(req) == 0 {
+		return nil
+	}
+	entries := make([]*generate.IMAGE_RESOURCE_DATA_ENTRY, 0, len(req))
+	for _, entry := range req {
+		if entry == nil {
+			continue
+		}
+		entries = append(entries, &generate.IMAGE_RESOURCE_DATA_ENTRY{
+			OffsetToData: entry.GetOffsetToData(),
+			Size:         entry.GetSize(),
+			CodePage:     entry.GetCodePage(),
+			Reserved:     entry.GetReserved(),
+		})
+	}
+	return entries
+}
+
+func imageExportDirectoryFromProto(req *clientpb.IMAGE_EXPORT_DIRECTORY) (*generate.IMAGE_EXPORT_DIRECTORY, error) {
+	if req == nil {
+		return nil, nil
+	}
+	major, err := uint16Field("pe.export_directory.major_version", req.GetMajorVersion())
+	if err != nil {
+		return nil, err
+	}
+	minor, err := uint16Field("pe.export_directory.minor_version", req.GetMinorVersion())
+	if err != nil {
+		return nil, err
+	}
+	return &generate.IMAGE_EXPORT_DIRECTORY{
+		Characteristics:       req.GetCharacteristics(),
+		TimeDateStamp:         req.GetTimeDateStamp(),
+		MajorVersion:          major,
+		MinorVersion:          minor,
+		Name:                  req.GetName(),
+		Base:                  req.GetBase(),
+		NumberOfFunctions:     req.GetNumberOfFunctions(),
+		NumberOfNames:         req.GetNumberOfNames(),
+		AddressOfFunctions:    req.GetAddressOfFunctions(),
+		AddressOfNames:        req.GetAddressOfNames(),
+		AddressOfNameOrdinals: req.GetAddressOfNameOrdinals(),
+	}, nil
+}
+
+func uint16Field(fieldName string, value uint32) (uint16, error) {
+	if value > 0xffff {
+		return 0, fmt.Errorf("%s value %d exceeds uint16", fieldName, value)
+	}
+	return uint16(value), nil
 }
 
 // ImplantBuilds - List existing implant builds

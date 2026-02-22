@@ -464,6 +464,10 @@ func RandomPaths(httpC2PathSegments []*clientpb.HTTPC2PathSegment, minPaths int3
 }
 
 func randomSample(values []*clientpb.HTTPC2PathSegment, min int32, max int32) []*clientpb.HTTPC2PathSegment {
+	if len(values) == 0 {
+		return nil
+	}
+
 	count := int32(util.Intn(len(values)))
 	if count < min {
 		count = min

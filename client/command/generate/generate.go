@@ -19,7 +19,9 @@ package generate
 */
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net"
@@ -33,6 +35,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Binject/debug/pe"
+	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/forms"
@@ -90,6 +94,11 @@ var (
 	ErrNoSelection       = errors.New("no selection")
 )
 
+const (
+	spoofMetadataFlagName      = "spoof-metadata"
+	imageFileDLLCharacteristic = 0x2000
+)
+
 // GenerateCmd - The main command used to generate implant binaries
 func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if shouldRunGenerateForm(cmd, con, args) {
@@ -112,14 +121,19 @@ func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if config == nil {
 		return
 	}
+	spoofMetadata, err := parseSpoofMetadataFlag(cmd, config)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
 	save, _ := cmd.Flags().GetString("save")
 	if save == "" {
 		save, _ = os.Getwd()
 	}
 	if external, _ := cmd.Flags().GetBool("external-builder"); !external {
-		compile(name, config, save, con)
+		compile(name, config, spoofMetadata, save, con)
 	} else {
-		_, err := externalBuild(name, config, save, con)
+		_, err := externalBuild(name, config, spoofMetadata, save, con)
 		if err != nil {
 			switch err {
 			case ErrNoExternalBuilder:
@@ -516,6 +530,315 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 	}
 
 	return name, config
+}
+
+func parseSpoofMetadataFlag(cmd *cobra.Command, config *clientpb.ImplantConfig) (*clientpb.SpoofMetadataConfig, error) {
+	if cmd == nil {
+		return nil, nil
+	}
+	spoofMetadataFlag := cmd.Flags().Lookup(spoofMetadataFlagName)
+	if spoofMetadataFlag == nil || !spoofMetadataFlag.Changed {
+		return nil, nil
+	}
+
+	spoofMetadataValue := ""
+	if spoofMetadataFlag.Value != nil {
+		spoofMetadataValue = strings.TrimSpace(spoofMetadataFlag.Value.String())
+	}
+
+	switch strings.ToLower(spoofMetadataValue) {
+	case "false":
+		if len(cmd.Flags().Args()) > 0 {
+			return nil, fmt.Errorf("--%s=false does not accept a donor path argument", spoofMetadataFlagName)
+		}
+		return nil, nil
+	case "", "true":
+		pathArg, err := spoofMetadataPathArg(cmd)
+		if err != nil {
+			return nil, err
+		}
+		if pathArg == "" {
+			return parseSpoofMetadataFromConfigFile()
+		}
+		return parseSpoofMetadataFromPath(pathArg, config)
+	default:
+		if len(cmd.Flags().Args()) > 0 {
+			return nil, fmt.Errorf("--%s accepts a donor path from either the flag value or positional argument, not both", spoofMetadataFlagName)
+		}
+		return parseSpoofMetadataFromPath(spoofMetadataValue, config)
+	}
+}
+
+func spoofMetadataPathArg(cmd *cobra.Command) (string, error) {
+	if cmd == nil {
+		return "", nil
+	}
+	switch args := cmd.Flags().Args(); len(args) {
+	case 0:
+		return "", nil
+	case 1:
+		return strings.TrimSpace(args[0]), nil
+	default:
+		return "", fmt.Errorf("--%s accepts at most one donor path argument", spoofMetadataFlagName)
+	}
+}
+
+func parseSpoofMetadataFromConfigFile() (*clientpb.SpoofMetadataConfig, error) {
+	configPath := assets.SpoofMetadataConfigPath()
+	config, err := assets.LoadSpoofMetadataConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load spoof metadata config %s: %w", configPath, err)
+	}
+
+	spoofMetadata, err := spoofMetadataConfigToProtobuf(config)
+	if err != nil {
+		return nil, fmt.Errorf("invalid spoof metadata config %s: %w", configPath, err)
+	}
+	return spoofMetadata, nil
+}
+
+func parseSpoofMetadataFromPath(pathValue string, config *clientpb.ImplantConfig) (*clientpb.SpoofMetadataConfig, error) {
+	if config == nil {
+		return nil, errors.New("missing implant configuration for spoof metadata validation")
+	}
+	pathValue = expandPath(pathValue)
+	sourceData, err := os.ReadFile(pathValue)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read spoof metadata source path %s: %w", pathValue, err)
+	}
+	if err := validateSpoofMetadataSourceForTarget(config, pathValue, sourceData); err != nil {
+		return nil, err
+	}
+	return &clientpb.SpoofMetadataConfig{
+		PE: &clientpb.PESpoofMetadataConfig{
+			Source: &clientpb.SpoofMetadataFile{
+				Name: filepath.Base(pathValue),
+				Data: sourceData,
+			},
+		},
+	}, nil
+}
+
+func validateSpoofMetadataSourceForTarget(config *clientpb.ImplantConfig, sourcePath string, sourceData []byte) error {
+	if config == nil {
+		return errors.New("missing implant configuration for spoof metadata validation")
+	}
+	if strings.ToLower(config.GetGOOS()) != "windows" {
+		return fmt.Errorf("--%s path source currently supports only windows PE targets (got %s/%s)", spoofMetadataFlagName, config.GetGOOS(), config.GetGOARCH())
+	}
+	switch config.GetFormat() {
+	case clientpb.OutputFormat_EXECUTABLE, clientpb.OutputFormat_SERVICE, clientpb.OutputFormat_SHARED_LIB:
+	default:
+		return fmt.Errorf("--%s path source requires an executable/service/shared target format (got %s)", spoofMetadataFlagName, nameOfOutputFormat(config.GetFormat()))
+	}
+
+	peFile, err := pe.NewFile(bytes.NewReader(sourceData))
+	if err != nil {
+		return fmt.Errorf("spoof metadata source %s is not a valid PE: %w", sourcePath, err)
+	}
+	defer peFile.Close()
+
+	expectedMachine, err := expectedPEMachineForGoArch(config.GetGOARCH())
+	if err != nil {
+		return err
+	}
+	if peFile.FileHeader.Machine != expectedMachine {
+		return fmt.Errorf(
+			"spoof metadata source %s has machine %s, expected %s for target arch %s",
+			sourcePath,
+			peMachineName(peFile.FileHeader.Machine),
+			peMachineName(expectedMachine),
+			config.GetGOARCH(),
+		)
+	}
+
+	isDLL := peFile.FileHeader.Characteristics&imageFileDLLCharacteristic != 0
+	if config.GetFormat() == clientpb.OutputFormat_SHARED_LIB && !isDLL {
+		return fmt.Errorf("spoof metadata source %s must be a DLL for shared target format", sourcePath)
+	}
+	if (config.GetFormat() == clientpb.OutputFormat_EXECUTABLE || config.GetFormat() == clientpb.OutputFormat_SERVICE) && isDLL {
+		return fmt.Errorf("spoof metadata source %s appears to be a DLL but target format is %s", sourcePath, nameOfOutputFormat(config.GetFormat()))
+	}
+
+	return nil
+}
+
+func expectedPEMachineForGoArch(goarch string) (uint16, error) {
+	switch strings.ToLower(strings.TrimSpace(goarch)) {
+	case "amd64", "x64":
+		return pe.IMAGE_FILE_MACHINE_AMD64, nil
+	case "386", "x86", "i386":
+		return pe.IMAGE_FILE_MACHINE_I386, nil
+	case "arm64", "aarch64":
+		return pe.IMAGE_FILE_MACHINE_ARM64, nil
+	default:
+		return 0, fmt.Errorf("unsupported windows architecture for spoof metadata source validation: %s", goarch)
+	}
+}
+
+func peMachineName(machine uint16) string {
+	switch machine {
+	case pe.IMAGE_FILE_MACHINE_AMD64:
+		return "amd64"
+	case pe.IMAGE_FILE_MACHINE_I386:
+		return "386"
+	case pe.IMAGE_FILE_MACHINE_ARM64:
+		return "arm64"
+	default:
+		return fmt.Sprintf("0x%x", machine)
+	}
+}
+
+func spoofMetadataConfigToProtobuf(config *assets.SpoofMetadataConfig) (*clientpb.SpoofMetadataConfig, error) {
+	if config == nil {
+		return nil, errors.New("missing spoof metadata configuration")
+	}
+
+	spoofMetadata := &clientpb.SpoofMetadataConfig{}
+	if config.PE != nil {
+		source, err := resolveSpoofMetadataDataSource("pe.source", config.PE.Source)
+		if err != nil {
+			return nil, err
+		}
+		icon, err := resolveSpoofMetadataDataSource("pe.icon", config.PE.Icon)
+		if err != nil {
+			return nil, err
+		}
+		spoofMetadata.PE = &clientpb.PESpoofMetadataConfig{
+			Source:                   source,
+			Icon:                     icon,
+			ResourceDirectory:        imageResourceDirectoryToProtobuf(config.PE.ResourceDirectory),
+			ResourceDirectoryEntries: imageResourceDirectoryEntriesToProtobuf(config.PE.ResourceDirectoryEntries),
+			ResourceDataEntries:      imageResourceDataEntriesToProtobuf(config.PE.ResourceDataEntries),
+			ExportDirectory:          imageExportDirectoryToProtobuf(config.PE.ExportDirectory),
+		}
+	}
+
+	if spoofMetadata.GetPE() == nil {
+		return nil, errors.New("no supported executable metadata configuration found")
+	}
+	if spoofMetadata.GetPE().GetSource() == nil || len(spoofMetadata.GetPE().GetSource().GetData()) == 0 {
+		return nil, errors.New("pe.source requires either path or base64 content")
+	}
+
+	return spoofMetadata, nil
+}
+
+func resolveSpoofMetadataDataSource(name string, source *assets.SpoofMetadataDataSource) (*clientpb.SpoofMetadataFile, error) {
+	if source == nil {
+		return nil, nil
+	}
+
+	pathValue := strings.TrimSpace(source.Path)
+	base64Value := strings.TrimSpace(source.Base64)
+
+	if pathValue != "" && base64Value != "" {
+		return nil, fmt.Errorf("%s cannot set both path and base64", name)
+	}
+	if pathValue == "" && base64Value == "" {
+		return nil, nil
+	}
+
+	var (
+		data []byte
+		err  error
+	)
+	fileName := strings.TrimSpace(source.Name)
+	if pathValue != "" {
+		pathValue = expandPath(pathValue)
+		data, err = os.ReadFile(pathValue)
+		if err != nil {
+			return nil, fmt.Errorf("%s failed to read path %s: %w", name, pathValue, err)
+		}
+		if fileName == "" {
+			fileName = filepath.Base(pathValue)
+		}
+	} else {
+		data, err = base64.StdEncoding.DecodeString(base64Value)
+		if err != nil {
+			data, err = base64.RawStdEncoding.DecodeString(base64Value)
+			if err != nil {
+				return nil, fmt.Errorf("%s has invalid base64 data: %w", name, err)
+			}
+		}
+		if fileName == "" {
+			fileName = "inline-data"
+		}
+	}
+
+	return &clientpb.SpoofMetadataFile{
+		Name: fileName,
+		Data: data,
+	}, nil
+}
+
+func imageResourceDirectoryToProtobuf(src *assets.ImageResourceDirectory) *clientpb.IMAGE_RESOURCE_DIRECTORY {
+	if src == nil {
+		return nil
+	}
+	return &clientpb.IMAGE_RESOURCE_DIRECTORY{
+		Characteristics:      src.Characteristics,
+		TimeDateStamp:        src.TimeDateStamp,
+		MajorVersion:         src.MajorVersion,
+		MinorVersion:         src.MinorVersion,
+		NumberOfNamedEntries: src.NumberOfNamedEntries,
+		NumberOfIdEntries:    src.NumberOfIDEntries,
+	}
+}
+
+func imageResourceDirectoryEntriesToProtobuf(src []*assets.ImageResourceDirectoryEntry) []*clientpb.IMAGE_RESOURCE_DIRECTORY_ENTRY {
+	if len(src) == 0 {
+		return nil
+	}
+	out := make([]*clientpb.IMAGE_RESOURCE_DIRECTORY_ENTRY, 0, len(src))
+	for _, entry := range src {
+		if entry == nil {
+			continue
+		}
+		out = append(out, &clientpb.IMAGE_RESOURCE_DIRECTORY_ENTRY{
+			Name:         entry.Name,
+			OffsetToData: entry.OffsetToData,
+		})
+	}
+	return out
+}
+
+func imageResourceDataEntriesToProtobuf(src []*assets.ImageResourceDataEntry) []*clientpb.IMAGE_RESOURCE_DATA_ENTRY {
+	if len(src) == 0 {
+		return nil
+	}
+	out := make([]*clientpb.IMAGE_RESOURCE_DATA_ENTRY, 0, len(src))
+	for _, entry := range src {
+		if entry == nil {
+			continue
+		}
+		out = append(out, &clientpb.IMAGE_RESOURCE_DATA_ENTRY{
+			OffsetToData: entry.OffsetToData,
+			Size:         entry.Size,
+			CodePage:     entry.CodePage,
+			Reserved:     entry.Reserved,
+		})
+	}
+	return out
+}
+
+func imageExportDirectoryToProtobuf(src *assets.ImageExportDirectory) *clientpb.IMAGE_EXPORT_DIRECTORY {
+	if src == nil {
+		return nil
+	}
+	return &clientpb.IMAGE_EXPORT_DIRECTORY{
+		Characteristics:       src.Characteristics,
+		TimeDateStamp:         src.TimeDateStamp,
+		MajorVersion:          src.MajorVersion,
+		MinorVersion:          src.MinorVersion,
+		Name:                  src.Name,
+		Base:                  src.Base,
+		NumberOfFunctions:     src.NumberOfFunctions,
+		NumberOfNames:         src.NumberOfNames,
+		AddressOfFunctions:    src.AddressOfFunctions,
+		AddressOfNames:        src.AddressOfNames,
+		AddressOfNameOrdinals: src.AddressOfNameOrdinals,
+	}
 }
 
 func parseShellcodeFlags(cmd *cobra.Command, targetOS string, configFormat clientpb.OutputFormat, con *console.SliverClient) (*clientpb.ShellcodeConfig, error) {
@@ -1146,7 +1469,150 @@ func ParseTCPPivotc2(args string) ([]*clientpb.ImplantC2, error) {
 	return c2s, nil
 }
 
-func externalBuild(name string, config *clientpb.ImplantConfig, save string, con *console.SliverClient) (*commonpb.File, error) {
+func applySpoofMetadataToBuild(implantBuildID string, implantName string, spoofMetadata *clientpb.SpoofMetadataConfig, con *console.SliverClient) error {
+	if spoofMetadata == nil {
+		return nil
+	}
+
+	req := &clientpb.GenerateSpoofMetadataReq{
+		SpoofMetadata: spoofMetadata,
+	}
+	if buildID := strings.TrimSpace(implantBuildID); buildID != "" {
+		req.ImplantBuildID = buildID
+	} else if buildName := strings.TrimSpace(implantName); buildName != "" {
+		req.ImplantName = buildName
+	}
+
+	if req.GetImplantBuildID() == "" && req.GetImplantName() == "" {
+		return errors.New("unable to determine build selector for spoof metadata")
+	}
+
+	printSpoofMetadataSummary(spoofMetadata, con)
+	con.PrintInfof("Applying spoof metadata to %s ... ", spoofMetadataBuildSelectorDescription(req))
+	_, err := con.Rpc.GenerateSpoofMetadata(context.Background(), req)
+	if err != nil {
+		con.Printf("failed\n")
+		return err
+	}
+	con.Printf("done\n")
+	return nil
+}
+
+func printSpoofMetadataSummary(spoofMetadata *clientpb.SpoofMetadataConfig, con *console.SliverClient) {
+	if spoofMetadata == nil || con == nil {
+		return
+	}
+	peMetadata := spoofMetadata.GetPE()
+	if peMetadata == nil {
+		return
+	}
+
+	sourceName := "<unset>"
+	sourceSize := 0
+	if source := peMetadata.GetSource(); source != nil {
+		sourceName = strings.TrimSpace(source.GetName())
+		if sourceName == "" {
+			sourceName = "inline-data"
+		}
+		sourceSize = len(source.GetData())
+	}
+
+	iconSummary := "none"
+	if icon := peMetadata.GetIcon(); icon != nil && len(icon.GetData()) > 0 {
+		iconName := strings.TrimSpace(icon.GetName())
+		if iconName == "" {
+			iconName = "inline-data"
+		}
+		iconSummary = fmt.Sprintf("%s (%d bytes)", iconName, len(icon.GetData()))
+	}
+
+	overrideLabels := []string{}
+	if peMetadata.GetResourceDirectory() != nil {
+		overrideLabels = append(overrideLabels, "resource-directory")
+	}
+	if len(peMetadata.GetResourceDirectoryEntries()) > 0 {
+		overrideLabels = append(overrideLabels, fmt.Sprintf("resource-entries(%d)", len(peMetadata.GetResourceDirectoryEntries())))
+	}
+	if len(peMetadata.GetResourceDataEntries()) > 0 {
+		overrideLabels = append(overrideLabels, fmt.Sprintf("resource-data-entries(%d)", len(peMetadata.GetResourceDataEntries())))
+	}
+	if peMetadata.GetExportDirectory() != nil {
+		overrideLabels = append(overrideLabels, "export-directory")
+	}
+	overridesSummary := "none"
+	if len(overrideLabels) > 0 {
+		overridesSummary = strings.Join(overrideLabels, ", ")
+	}
+
+	con.PrintInfof("%s\n", console.StyleBold.Render("Spoof Metadata Details:"))
+	con.PrintInfof("  Source: %s (%d bytes)\n", sourceName, sourceSize)
+	con.PrintInfof("  Icon: %s\n", iconSummary)
+	con.PrintInfof("  Overrides: %s\n", overridesSummary)
+}
+
+func spoofMetadataBuildSelectorDescription(req *clientpb.GenerateSpoofMetadataReq) string {
+	if req == nil {
+		return "build"
+	}
+	if buildID := strings.TrimSpace(req.GetImplantBuildID()); buildID != "" {
+		return fmt.Sprintf("build id %s", buildID)
+	}
+	if buildName := strings.TrimSpace(req.GetImplantName()); buildName != "" {
+		return fmt.Sprintf("build name %s", buildName)
+	}
+	return "build"
+}
+
+func requiresWindowsExecutableSuffix(config *clientpb.ImplantConfig) bool {
+	if config == nil || !strings.EqualFold(config.GetGOOS(), "windows") {
+		return false
+	}
+	switch config.GetFormat() {
+	case clientpb.OutputFormat_EXECUTABLE, clientpb.OutputFormat_SERVICE:
+		return true
+	default:
+		return false
+	}
+}
+
+func ensureOutputPathSuffix(pathValue string, config *clientpb.ImplantConfig) string {
+	if pathValue == "" || !requiresWindowsExecutableSuffix(config) {
+		return pathValue
+	}
+	if strings.HasSuffix(strings.ToLower(pathValue), ".exe") {
+		return pathValue
+	}
+	return pathValue + ".exe"
+}
+
+func outputSavePath(save string, defaultName string, config *clientpb.ImplantConfig, con *console.SliverClient) (string, error) {
+	defaultName = ensureOutputPathSuffix(defaultName, config)
+	saveTo, err := saveLocation(save, defaultName, con)
+	if err != nil {
+		return "", err
+	}
+	adjustedPath := ensureOutputPathSuffix(saveTo, config)
+	if adjustedPath == saveTo {
+		return saveTo, nil
+	}
+
+	if info, err := os.Stat(adjustedPath); err == nil && !info.IsDir() {
+		var confirm bool
+		_ = forms.Confirm("Overwrite existing file?", &confirm)
+		if !confirm {
+			return "", errors.New("file already exists")
+		}
+	} else if err != nil && !os.IsNotExist(err) {
+		return "", err
+	}
+
+	if con != nil {
+		con.PrintInfof("Adjusted output filename to %s for Windows executable format\n", adjustedPath)
+	}
+	return adjustedPath, nil
+}
+
+func externalBuild(name string, config *clientpb.ImplantConfig, spoofMetadata *clientpb.SpoofMetadataConfig, save string, con *console.SliverClient) (*commonpb.File, error) {
 	potentialBuilders, err := findExternalBuilders(config, con)
 	if err != nil {
 		return nil, err
@@ -1246,6 +1712,12 @@ func externalBuild(name string, config *clientpb.ImplantConfig, save string, con
 	elapsed := time.Since(start)
 	con.PrintInfof("Build completed in %s\n", elapsed.Round(time.Second))
 
+	if spoofMetadata != nil {
+		if err := applySpoofMetadataToBuild("", name, spoofMetadata, con); err != nil {
+			return nil, err
+		}
+	}
+
 	generated, err := con.Rpc.Regenerate(context.Background(), &clientpb.RegenerateReq{
 		ImplantName: name,
 	})
@@ -1300,7 +1772,7 @@ func externalBuild(name string, config *clientpb.ImplantConfig, save string, con
 		}
 	}
 
-	saveTo, err := saveLocation(save, filepath.Base(generated.File.Name), con)
+	saveTo, err := outputSavePath(save, filepath.Base(generated.File.Name), config, con)
 	if err != nil {
 		return nil, err
 	}
@@ -1315,7 +1787,7 @@ func externalBuild(name string, config *clientpb.ImplantConfig, save string, con
 	return nil, nil
 }
 
-func compile(name string, config *clientpb.ImplantConfig, save string, con *console.SliverClient) (*commonpb.File, error) {
+func compile(name string, config *clientpb.ImplantConfig, spoofMetadata *clientpb.SpoofMetadataConfig, save string, con *console.SliverClient) (*commonpb.File, error) {
 	if config.IsBeacon {
 		interval := time.Duration(config.BeaconInterval)
 		con.PrintInfof("Generating new %s/%s beacon implant binary (%v)\n", config.GOOS, config.GOARCH, interval)
@@ -1341,6 +1813,25 @@ func compile(name string, config *clientpb.ImplantConfig, save string, con *cons
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return nil, err
+	}
+
+	if spoofMetadata != nil {
+		if err := applySpoofMetadataToBuild(generated.GetImplantBuildID(), generated.GetImplantName(), spoofMetadata, con); err != nil {
+			con.PrintErrorf("%s\n", err)
+			return nil, err
+		}
+
+		implantName := generated.GetImplantName()
+		if implantName == "" {
+			implantName = name
+		}
+		generated, err = con.Rpc.Regenerate(context.Background(), &clientpb.RegenerateReq{
+			ImplantName: implantName,
+		})
+		if err != nil {
+			con.PrintErrorf("%s\n", err)
+			return nil, err
+		}
 	}
 
 	elapsed := time.Since(start)
@@ -1399,7 +1890,7 @@ func compile(name string, config *clientpb.ImplantConfig, save string, con *cons
 		}
 	}
 
-	saveTo, err := saveLocation(save, generated.File.Name, con)
+	saveTo, err := outputSavePath(save, generated.File.Name, config, con)
 	if err != nil {
 		return nil, err
 	}
