@@ -22,6 +22,7 @@ import (
 	"net"
 
 	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
 )
 
 // ClientInterfacesCompleter completes interface addresses on the client host.
@@ -82,5 +83,26 @@ func LocalProxyCompleter() carapace.Action {
 				return carapace.ActionValues()
 			}
 		}).Invoke(c).Prefix(prefix).ToA()
+	})
+}
+
+// LocalFilePathCompleter completes local file and directory paths.
+func LocalFilePathCompleter() carapace.Action {
+	return carapace.ActionFiles().Tag("local file path")
+}
+
+// RegisterLocalFilePathFlagCompletion registers local file-path completion for a flag.
+func RegisterLocalFilePathFlagCompletion(cmd *cobra.Command, name string) {
+	if cmd == nil {
+		return
+	}
+	if _, ok := cmd.GetFlagCompletionFunc(name); ok {
+		return
+	}
+	if cmd.Flags().Lookup(name) == nil && cmd.PersistentFlags().Lookup(name) == nil {
+		return
+	}
+	_ = cmd.RegisterFlagCompletionFunc(name, func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return nil, cobra.ShellCompDirectiveDefault
 	})
 }

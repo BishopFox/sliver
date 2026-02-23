@@ -3,6 +3,7 @@ package generate
 import (
 	"strings"
 
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	shellcodeencoders "github.com/bishopfox/sliver/client/command/shellcode-encoders"
@@ -432,12 +433,13 @@ func coreImplantFlagCompletions(cmd *cobra.Command, con *console.SliverClient) {
 		(*comp)["arch"] = ArchCompleter(con)
 		(*comp)["strategy"] = carapace.ActionValuesDescribed([]string{"r", "random", "rd", "random domain", "s", "sequential"}...).Tag("C2 strategy")
 		(*comp)["format"] = FormatCompleter()
-		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
+		(*comp)["save"] = completers.LocalFilePathCompleter().Tag("directory/file to save implant")
 		(*comp)[spoofMetadataFlagName] = carapace.ActionFiles().Tag("optional donor metadata file")
 		(*comp)["shellcode-encoder"] = shellcodeencoders.ShellcodeEncoderNameCompleter(con)
 		(*comp)["traffic-encoders"] = TrafficEncodersCompleter(con).UniqueList(",")
 		(*comp)["c2profile"] = HTTPC2Completer(con)
 	})
+	completers.RegisterLocalFilePathFlagCompletion(cmd, "save")
 	registerImplantTargetFlagCompletions(cmd, con)
 }
 
