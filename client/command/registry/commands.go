@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -56,6 +57,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("name", "n", "", "name to assign loot (optional)")
 		f.StringP("type", "T", "", "force a specific loot type (file/cred) if looting (optional)")
 	})
+	completers.RegisterLocalFilePathFlagCompletion(registryReadHiveCmd, "save")
 	registryReadCmd.AddCommand(registryReadHiveCmd)
 
 	registryWriteCmd := &cobra.Command{

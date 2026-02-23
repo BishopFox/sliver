@@ -1,6 +1,7 @@
 package creds
 
 import (
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
@@ -65,6 +66,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		(*comp)["hash-type"] = CredsHashTypeCompleter(con)
 	})
 	carapace.Gen(credsAddFileCmd).PositionalCompletion(carapace.ActionFiles().Tag("credential file"))
+	completers.RegisterLocalFilePathPositionalCompletion(credsAddFileCmd, 0)
 	credsAddCmd.AddCommand(credsAddFileCmd)
 
 	credsRmCmd := &cobra.Command{

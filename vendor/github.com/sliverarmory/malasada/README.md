@@ -8,6 +8,7 @@ This project intentionally avoids `memfd` (`memfd_create`, `execveat` on memfd, 
 
 - Linux `amd64`
 - Linux `arm64`
+- Linux `386`
 
 ## Build
 
@@ -55,6 +56,7 @@ The repo embeds prebuilt `stage0` blobs:
 
 - `internal/stage0/stage0_linux_amd64.bin`
 - `internal/stage0/stage0_linux_arm64.bin`
+- `internal/stage0/stage0_linux_386.bin`
 
 If you edit `internal/stage0/stage0.c` or `internal/stage0/linker.ld`, regenerate them:
 
@@ -77,4 +79,8 @@ Examples:
 ```bash
 docker buildx build --platform linux/amd64 -f testdata/Dockerfile .
 docker buildx build --platform linux/arm64 -f testdata/Dockerfile .
+docker buildx build --platform linux/386 -f testdata/Dockerfile .
+
+# Or via Makefile:
+make docker-test-386
 ```

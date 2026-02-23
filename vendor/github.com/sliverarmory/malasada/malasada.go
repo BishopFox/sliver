@@ -22,6 +22,7 @@ const (
 	ArchUnknown Arch = iota
 	ArchLinuxAMD64
 	ArchLinuxARM64
+	ArchLinux386
 )
 
 func (a Arch) String() string {
@@ -30,6 +31,8 @@ func (a Arch) String() string {
 		return "linux/amd64"
 	case ArchLinuxARM64:
 		return "linux/arm64"
+	case ArchLinux386:
+		return "linux/386"
 	default:
 		return "unknown"
 	}
@@ -41,6 +44,8 @@ func archFromELFMachine(m elf.Machine) (Arch, error) {
 		return ArchLinuxAMD64, nil
 	case elf.EM_AARCH64:
 		return ArchLinuxARM64, nil
+	case elf.EM_386:
+		return ArchLinux386, nil
 	default:
 		return ArchUnknown, fmt.Errorf("unsupported ELF machine %v", m)
 	}
@@ -153,6 +158,9 @@ var stage0LinuxAMD64Prebuilt []byte
 //go:embed internal/stage0/stage0_linux_arm64.bin
 var stage0LinuxARM64Prebuilt []byte
 
+//go:embed internal/stage0/stage0_linux_386.bin
+var stage0Linux386Prebuilt []byte
+
 func patchStage0PayloadLen(stage0 []byte, payloadLen uint64) error {
 	// The stage0 linker script forces the msda header to the end of the extracted
 	// .text. We enforce that invariant so we can append the payload bytes directly
@@ -168,7 +176,7 @@ func patchStage0PayloadLen(stage0 []byte, payloadLen uint64) error {
 		return fmt.Errorf("stage0 has unexpected msda version")
 	}
 	arch := binary.LittleEndian.Uint32(hdr[12:16])
-	if arch != 1 && arch != 2 {
+	if arch != 1 && arch != 2 && arch != 3 {
 		return fmt.Errorf("stage0 has unexpected msda arch")
 	}
 
@@ -189,6 +197,8 @@ func buildStage0(arch Arch) ([]byte, error) {
 		prebuilt = stage0LinuxAMD64Prebuilt
 	case ArchLinuxARM64:
 		prebuilt = stage0LinuxARM64Prebuilt
+	case ArchLinux386:
+		prebuilt = stage0Linux386Prebuilt
 	default:
 		return nil, fmt.Errorf("unsupported arch %v", arch)
 	}
@@ -205,6 +215,8 @@ func buildStage0(arch Arch) ([]byte, error) {
 // -----------------------------
 
 const (
+	elf32HeaderSize = 52
+	elf32PhdrSize   = 32
 	elf64HeaderSize = 64
 	elf64PhdrSize   = 56
 
@@ -273,6 +285,40 @@ type elf64Phdr struct {
 	fileOff int // where this phdr starts in the file
 }
 
+type elf32Ehdr struct {
+	ident      [16]byte
+	typ        uint16
+	machine    uint16
+	version    uint32
+	entry      uint32
+	phoff      uint32
+	shoff      uint32
+	flags      uint32
+	ehsize     uint16
+	phentsize  uint16
+	phnum      uint16
+	shentsize  uint16
+	shnum      uint16
+	shstrndx   uint16
+	_entryOff  int
+	_phoffOff  int
+	_phnumOff  int
+	_phentsOff int
+}
+
+type elf32Phdr struct {
+	typ    uint32
+	off    uint32
+	vaddr  uint32
+	paddr  uint32
+	filesz uint32
+	memsz  uint32
+	flags  uint32
+	align  uint32
+
+	fileOff int // where this phdr starts in the file
+}
+
 func parseELF64Header(b []byte) (*elf64Ehdr, error) {
 	if len(b) < elf64HeaderSize {
 		return nil, errBadELF
@@ -323,6 +369,56 @@ func parseELF64Header(b []byte) (*elf64Ehdr, error) {
 	return &h, nil
 }
 
+func parseELF32Header(b []byte) (*elf32Ehdr, error) {
+	if len(b) < elf32HeaderSize {
+		return nil, errBadELF
+	}
+	var h elf32Ehdr
+	copy(h.ident[:], b[:16])
+	if h.ident[0] != 0x7f || h.ident[1] != 'E' || h.ident[2] != 'L' || h.ident[3] != 'F' {
+		return nil, errBadELF
+	}
+	if h.ident[4] != 1 { // ELFCLASS32
+		return nil, fmt.Errorf("%w: not ELF32", errBadELF)
+	}
+	if h.ident[5] != 1 { // ELFDATA2LSB
+		return nil, fmt.Errorf("%w: not little-endian", errBadELF)
+	}
+	h.typ = binary.LittleEndian.Uint16(b[16:18])
+	h.machine = binary.LittleEndian.Uint16(b[18:20])
+	h.version = binary.LittleEndian.Uint32(b[20:24])
+	h.entry = binary.LittleEndian.Uint32(b[24:28])
+	h.phoff = binary.LittleEndian.Uint32(b[28:32])
+	h.shoff = binary.LittleEndian.Uint32(b[32:36])
+	h.flags = binary.LittleEndian.Uint32(b[36:40])
+	h.ehsize = binary.LittleEndian.Uint16(b[40:42])
+	h.phentsize = binary.LittleEndian.Uint16(b[42:44])
+	h.phnum = binary.LittleEndian.Uint16(b[44:46])
+	h.shentsize = binary.LittleEndian.Uint16(b[46:48])
+	h.shnum = binary.LittleEndian.Uint16(b[48:50])
+	h.shstrndx = binary.LittleEndian.Uint16(b[50:52])
+
+	h._entryOff = 24
+	h._phoffOff = 28
+	h._phentsOff = 42
+	h._phnumOff = 44
+
+	if h.ehsize != elf32HeaderSize {
+		return nil, fmt.Errorf("%w: unexpected ehsize %d", errBadELF, h.ehsize)
+	}
+	if h.phentsize != elf32PhdrSize {
+		return nil, fmt.Errorf("%w: unexpected phentsize %d", errBadELF, h.phentsize)
+	}
+	if h.phoff == 0 || h.phnum == 0 {
+		return nil, fmt.Errorf("%w: missing program headers", errBadELF)
+	}
+	phEnd := uint64(h.phoff) + uint64(h.phnum)*uint64(h.phentsize)
+	if phEnd > uint64(len(b)) {
+		return nil, fmt.Errorf("%w: phdrs outside file", errBadELF)
+	}
+	return &h, nil
+}
+
 func parseELF64Phdrs(b []byte, h *elf64Ehdr) ([]elf64Phdr, error) {
 	out := make([]elf64Phdr, 0, h.phnum)
 	off := int(h.phoff)
@@ -344,8 +440,33 @@ func parseELF64Phdrs(b []byte, h *elf64Ehdr) ([]elf64Phdr, error) {
 	return out, nil
 }
 
+func parseELF32Phdrs(b []byte, h *elf32Ehdr) ([]elf32Phdr, error) {
+	out := make([]elf32Phdr, 0, h.phnum)
+	off := int(h.phoff)
+	for i := 0; i < int(h.phnum); i++ {
+		p := b[off+i*elf32PhdrSize : off+(i+1)*elf32PhdrSize]
+		ph := elf32Phdr{
+			typ:     binary.LittleEndian.Uint32(p[0:4]),
+			off:     binary.LittleEndian.Uint32(p[4:8]),
+			vaddr:   binary.LittleEndian.Uint32(p[8:12]),
+			paddr:   binary.LittleEndian.Uint32(p[12:16]),
+			filesz:  binary.LittleEndian.Uint32(p[16:20]),
+			memsz:   binary.LittleEndian.Uint32(p[20:24]),
+			flags:   binary.LittleEndian.Uint32(p[24:28]),
+			align:   binary.LittleEndian.Uint32(p[28:32]),
+			fileOff: off + i*elf32PhdrSize,
+		}
+		out = append(out, ph)
+	}
+	return out, nil
+}
+
 func writeELF64Entry(b []byte, entry uint64) {
 	binary.LittleEndian.PutUint64(b[24:32], entry)
+}
+
+func writeELF32Entry(b []byte, entry uint32) {
+	binary.LittleEndian.PutUint32(b[24:28], entry)
 }
 
 func writeELF64Phdr(b []byte, ph elf64Phdr) {
@@ -360,10 +481,36 @@ func writeELF64Phdr(b []byte, ph elf64Phdr) {
 	binary.LittleEndian.PutUint64(p[48:56], ph.align)
 }
 
+func writeELF32Phdr(b []byte, ph elf32Phdr) {
+	p := b[ph.fileOff : ph.fileOff+elf32PhdrSize]
+	binary.LittleEndian.PutUint32(p[0:4], ph.typ)
+	binary.LittleEndian.PutUint32(p[4:8], ph.off)
+	binary.LittleEndian.PutUint32(p[8:12], ph.vaddr)
+	binary.LittleEndian.PutUint32(p[12:16], ph.paddr)
+	binary.LittleEndian.PutUint32(p[16:20], ph.filesz)
+	binary.LittleEndian.PutUint32(p[20:24], ph.memsz)
+	binary.LittleEndian.PutUint32(p[24:28], ph.flags)
+	binary.LittleEndian.PutUint32(p[28:32], ph.align)
+}
+
 // swapELF64PhdrContents swaps the payload-relevant fields of a and b, but keeps
 // their fileOff values unchanged (fileOff represents the slot/location in the
 // program header table).
 func swapELF64PhdrContents(a, b *elf64Phdr) {
+	a.typ, b.typ = b.typ, a.typ
+	a.flags, b.flags = b.flags, a.flags
+	a.off, b.off = b.off, a.off
+	a.vaddr, b.vaddr = b.vaddr, a.vaddr
+	a.paddr, b.paddr = b.paddr, a.paddr
+	a.filesz, b.filesz = b.filesz, a.filesz
+	a.memsz, b.memsz = b.memsz, a.memsz
+	a.align, b.align = b.align, a.align
+}
+
+// swapELF32PhdrContents swaps the payload-relevant fields of a and b, but keeps
+// their fileOff values unchanged (fileOff represents the slot/location in the
+// program header table).
+func swapELF32PhdrContents(a, b *elf32Phdr) {
 	a.typ, b.typ = b.typ, a.typ
 	a.flags, b.flags = b.flags, a.flags
 	a.off, b.off = b.off, a.off
@@ -387,8 +534,11 @@ func patchSOToCallExport(so []byte, exportName string) (Arch, []byte, error) {
 	if err != nil {
 		return ArchUnknown, nil, err
 	}
-	if f.Class != elf.ELFCLASS64 || f.Data != elf.ELFDATA2LSB {
-		return ArchUnknown, nil, fmt.Errorf("unsupported ELF (need 64-bit little-endian)")
+	if f.Class != elf.ELFCLASS32 && f.Class != elf.ELFCLASS64 {
+		return ArchUnknown, nil, fmt.Errorf("unsupported ELF class %v (need ELF32 or ELF64)", f.Class)
+	}
+	if f.Data != elf.ELFDATA2LSB {
+		return ArchUnknown, nil, fmt.Errorf("unsupported ELF endianness %v (need little-endian)", f.Data)
 	}
 	if f.Type != elf.ET_DYN {
 		return ArchUnknown, nil, fmt.Errorf("expected ET_DYN (.so), got %v", f.Type)
@@ -416,6 +566,21 @@ func patchSOToCallExport(so []byte, exportName string) (Arch, []byte, error) {
 		return ArchUnknown, nil, fmt.Errorf("export %q not found in .dynsym", exportName)
 	}
 
+	switch f.Class {
+	case elf.ELFCLASS64:
+		return patchSOToCallExport64(so, arch, f.Machine, exportVaddr)
+	case elf.ELFCLASS32:
+		return patchSOToCallExport32(so, arch, f.Machine, exportVaddr)
+	default:
+		return ArchUnknown, nil, fmt.Errorf("unsupported ELF class %v", f.Class)
+	}
+}
+
+func patchSOToCallExport64(so []byte, arch Arch, machine elf.Machine, exportVaddr uint64) (Arch, []byte, error) {
+	if arch != ArchLinuxAMD64 && arch != ArchLinuxARM64 {
+		return ArchUnknown, nil, fmt.Errorf("unsupported 64-bit arch %v", arch)
+	}
+
 	h, err := parseELF64Header(so)
 	if err != nil {
 		return ArchUnknown, nil, err
@@ -423,7 +588,7 @@ func patchSOToCallExport(so []byte, exportName string) (Arch, []byte, error) {
 	if elf.Type(h.typ) != elf.ET_DYN {
 		return ArchUnknown, nil, fmt.Errorf("%w: not ET_DYN", errBadELF)
 	}
-	if elf.Machine(h.machine) != f.Machine {
+	if elf.Machine(h.machine) != machine {
 		return ArchUnknown, nil, fmt.Errorf("%w: machine mismatch", errBadELF)
 	}
 	phdrs, err := parseELF64Phdrs(so, h)
@@ -532,7 +697,7 @@ func patchSOToCallExport(so []byte, exportName string) (Arch, []byte, error) {
 	stubFileOff := alignUp(uint64(len(so)), maxAlign)
 	stubVaddr := alignUp(maxVaddrEnd, maxAlign)
 
-	initVaddrs, err := extractInitVaddrs(so, phdrs, *dynPh)
+	initVaddrs, err := extractInitVaddrs64(so, phdrs, *dynPh)
 	if err != nil {
 		return ArchUnknown, nil, err
 	}
@@ -621,14 +786,230 @@ func patchSOToCallExport(so []byte, exportName string) (Arch, []byte, error) {
 	}
 
 	// Patch DT_FLAGS_1 |= DF_1_PIE if present.
-	if err := patchDTFlags1Pie(so2, *dynPh); err != nil {
+	if err := patchDTFlags1Pie64(so2, *dynPh); err != nil {
 		return ArchUnknown, nil, err
 	}
 
 	return arch, so2, nil
 }
 
-func patchDTFlags1Pie(so []byte, dynPh elf64Phdr) error {
+func patchSOToCallExport32(so []byte, arch Arch, machine elf.Machine, exportVaddr uint64) (Arch, []byte, error) {
+	if arch != ArchLinux386 {
+		return ArchUnknown, nil, fmt.Errorf("unsupported 32-bit arch %v", arch)
+	}
+
+	h, err := parseELF32Header(so)
+	if err != nil {
+		return ArchUnknown, nil, err
+	}
+	if elf.Type(h.typ) != elf.ET_DYN {
+		return ArchUnknown, nil, fmt.Errorf("%w: not ET_DYN", errBadELF)
+	}
+	if elf.Machine(h.machine) != machine {
+		return ArchUnknown, nil, fmt.Errorf("%w: machine mismatch", errBadELF)
+	}
+	phdrs, err := parseELF32Phdrs(so, h)
+	if err != nil {
+		return ArchUnknown, nil, err
+	}
+
+	// Find a program header we can repurpose into a new executable PT_LOAD for the entry stub.
+	stubPhIdx := -1
+	for i := range phdrs {
+		if phdrs[i].typ == ptNote {
+			stubPhIdx = i
+			break
+		}
+	}
+	if stubPhIdx < 0 {
+		for i := range phdrs {
+			if phdrs[i].typ == ptGnuEhFrame {
+				stubPhIdx = i
+				break
+			}
+		}
+	}
+	if stubPhIdx < 0 {
+		return ArchUnknown, nil, fmt.Errorf("no suitable program header to repurpose (need PT_NOTE or PT_GNU_EH_FRAME)")
+	}
+
+	// Find a program header we can repurpose into PT_INTERP so glibc's dynamic
+	// loader treats the payload like a normal PIE executable.
+	interpPhIdx := -1
+	for i := range phdrs {
+		if i == stubPhIdx {
+			continue
+		}
+		if phdrs[i].typ == ptGnuStack {
+			interpPhIdx = i
+			break
+		}
+	}
+	if interpPhIdx < 0 {
+		for i := range phdrs {
+			if i == stubPhIdx {
+				continue
+			}
+			// Fall back to repurposing another low-value header if needed.
+			if phdrs[i].typ == ptNote || phdrs[i].typ == ptGnuEhFrame {
+				interpPhIdx = i
+				break
+			}
+		}
+	}
+	if interpPhIdx < 0 {
+		return ArchUnknown, nil, fmt.Errorf("no suitable program header to repurpose for PT_INTERP (need PT_GNU_STACK, PT_NOTE, or PT_GNU_EH_FRAME)")
+	}
+
+	// Ensure the payload has a PT_PHDR entry. Some glibc rtld code paths rely on
+	// this when computing the executable's load bias.
+	phdrIdx := -1
+	for i := range phdrs {
+		if phdrs[i].typ == ptPhdr {
+			phdrIdx = i
+			break
+		}
+	}
+	phdrPhIdx := -1
+	if phdrIdx < 0 {
+		for i := range phdrs {
+			if i == stubPhIdx || i == interpPhIdx {
+				continue
+			}
+			if phdrs[i].typ == ptGnuEhFrame {
+				phdrPhIdx = i
+				break
+			}
+		}
+		if phdrPhIdx < 0 {
+			return ArchUnknown, nil, fmt.Errorf("no suitable program header to repurpose for PT_PHDR (need PT_PHDR or PT_GNU_EH_FRAME)")
+		}
+	}
+
+	var maxVaddrEnd uint64
+	var maxAlign uint64 = 0x1000
+	var dynPh *elf32Phdr
+	for i := range phdrs {
+		ph := &phdrs[i]
+		if ph.typ == ptLoad {
+			end := uint64(ph.vaddr) + uint64(ph.memsz)
+			if end > maxVaddrEnd {
+				maxVaddrEnd = end
+			}
+			if ph.align != 0 && uint64(ph.align) > maxAlign {
+				maxAlign = uint64(ph.align)
+			}
+		}
+		if ph.typ == ptDynamic {
+			dynPh = ph
+		}
+	}
+	if maxVaddrEnd == 0 {
+		return ArchUnknown, nil, fmt.Errorf("%w: no PT_LOAD segments", errBadELF)
+	}
+	if dynPh == nil {
+		return ArchUnknown, nil, fmt.Errorf("%w: no PT_DYNAMIC segment", errBadELF)
+	}
+
+	stubFileOff := alignUp(uint64(len(so)), maxAlign)
+	stubVaddr := alignUp(maxVaddrEnd, maxAlign)
+	const maxU32 = uint64(^uint32(0))
+	if stubFileOff > maxU32 || stubVaddr > maxU32 || maxAlign > maxU32 {
+		return ArchUnknown, nil, fmt.Errorf("ELF32 layout overflow while placing entry stub")
+	}
+
+	initVaddrs, err := extractInitVaddrs32(so, phdrs, *dynPh)
+	if err != nil {
+		return ArchUnknown, nil, err
+	}
+
+	// Append padding then the entry stub itself.
+	so2 := make([]byte, 0, int(stubFileOff)+1024)
+	so2 = append(so2, so...)
+	if pad := int(stubFileOff) - len(so2); pad > 0 {
+		so2 = append(so2, bytes.Repeat([]byte{0}, pad)...)
+	}
+
+	stub, err := makeEntryStub(arch, stubVaddr, exportVaddr, initVaddrs)
+	if err != nil {
+		return ArchUnknown, nil, err
+	}
+	so2 = append(so2, stub...)
+
+	// Add a PT_INTERP string (within the stub PT_LOAD) so glibc ld-linux treats
+	// the payload like a normal executable (needed for some rtld invariants).
+	interpPath := "/lib/ld-linux.so.2"
+	interpStr := append([]byte(interpPath), 0)
+	interpFileOff := uint64(len(so2))
+	interpVaddr := stubVaddr + uint64(len(stub))
+	if interpFileOff > maxU32 || interpVaddr > maxU32 || uint64(len(stub))+uint64(len(interpStr)) > maxU32 {
+		return ArchUnknown, nil, fmt.Errorf("ELF32 layout overflow while adding PT_INTERP")
+	}
+	so2 = append(so2, interpStr...)
+
+	// Convert the selected phdr into our stub PT_LOAD.
+	stubPh := phdrs[stubPhIdx]
+	stubPh.typ = ptLoad
+	stubPh.flags = pfR | pfX
+	stubPh.off = uint32(stubFileOff)
+	stubPh.vaddr = uint32(stubVaddr)
+	stubPh.paddr = uint32(stubVaddr)
+	stubPh.filesz = uint32(len(stub) + len(interpStr))
+	stubPh.memsz = uint32(len(stub) + len(interpStr))
+	stubPh.align = uint32(maxAlign)
+	phdrs[stubPhIdx] = stubPh
+
+	// Repurpose another phdr into PT_INTERP.
+	interpPh := phdrs[interpPhIdx]
+	interpPh.typ = ptInterp
+	interpPh.flags = pfR
+	interpPh.off = uint32(interpFileOff)
+	interpPh.vaddr = uint32(interpVaddr)
+	interpPh.paddr = uint32(interpVaddr)
+	interpPh.filesz = uint32(len(interpStr))
+	interpPh.memsz = uint32(len(interpStr))
+	interpPh.align = 1
+	phdrs[interpPhIdx] = interpPh
+
+	// Add PT_PHDR if we had to repurpose one, and ensure it is the first phdr.
+	if phdrPhIdx >= 0 {
+		phdrPh := phdrs[phdrPhIdx]
+		phdrPh.typ = ptPhdr
+		phdrPh.flags = pfR
+		phdrPh.off = h.phoff
+		phdrPh.vaddr = h.phoff
+		phdrPh.paddr = h.phoff
+		phdrPh.filesz = uint32(h.phnum) * uint32(h.phentsize)
+		phdrPh.memsz = phdrPh.filesz
+		phdrPh.align = 4
+		phdrs[phdrPhIdx] = phdrPh
+		phdrIdx = phdrPhIdx
+	}
+	if phdrIdx >= 0 && phdrIdx != 0 {
+		// glibc's rtld startup code expects to discover the load bias from PT_PHDR
+		// before processing PT_DYNAMIC for the main program. Put PT_PHDR in slot 0
+		// to match normal PIE executables.
+		swapELF32PhdrContents(&phdrs[0], &phdrs[phdrIdx])
+		phdrIdx = 0
+	}
+
+	// Patch e_entry to point at the stub.
+	writeELF32Entry(so2, uint32(stubVaddr))
+
+	// Write back all program headers (some are repurposed/reordered above).
+	for i := range phdrs {
+		writeELF32Phdr(so2, phdrs[i])
+	}
+
+	// Patch DT_FLAGS_1 |= DF_1_PIE if present.
+	if err := patchDTFlags1Pie32(so2, *dynPh); err != nil {
+		return ArchUnknown, nil, err
+	}
+
+	return arch, so2, nil
+}
+
+func patchDTFlags1Pie64(so []byte, dynPh elf64Phdr) error {
 	// dynPh.off points to the dynamic entries in the file.
 	if dynPh.off+dynPh.filesz > uint64(len(so)) {
 		return fmt.Errorf("%w: PT_DYNAMIC outside file", errBadELF)
@@ -655,7 +1036,34 @@ func patchDTFlags1Pie(so []byte, dynPh elf64Phdr) error {
 	return nil
 }
 
-func vaddrToFileOff(phdrs []elf64Phdr, vaddr uint64, size uint64) (uint64, error) {
+func patchDTFlags1Pie32(so []byte, dynPh elf32Phdr) error {
+	// dynPh.off points to the dynamic entries in the file.
+	if uint64(dynPh.off)+uint64(dynPh.filesz) > uint64(len(so)) {
+		return fmt.Errorf("%w: PT_DYNAMIC outside file", errBadELF)
+	}
+	dyn := so[dynPh.off : uint64(dynPh.off)+uint64(dynPh.filesz)]
+	if len(dyn)%8 != 0 {
+		// Not fatal; still try to parse what we can.
+	}
+	for off := 0; off+8 <= len(dyn); off += 8 {
+		tag := int32(binary.LittleEndian.Uint32(dyn[off : off+4]))
+		val := binary.LittleEndian.Uint32(dyn[off+4 : off+8])
+		if tag == dtNull {
+			break
+		}
+		if uint32(tag) == dtFlags1 {
+			val |= df1Pie
+			binary.LittleEndian.PutUint32(dyn[off+4:off+8], val)
+			return nil
+		}
+	}
+	// If there's no DT_FLAGS_1, we still proceed; glibc will treat it as a normal
+	// shared object, but for our exec-like jump into ld-linux we primarily need
+	// a non-zero e_entry.
+	return nil
+}
+
+func vaddrToFileOff64(phdrs []elf64Phdr, vaddr uint64, size uint64) (uint64, error) {
 	for i := range phdrs {
 		ph := phdrs[i]
 		if ph.typ != ptLoad {
@@ -672,7 +1080,26 @@ func vaddrToFileOff(phdrs []elf64Phdr, vaddr uint64, size uint64) (uint64, error
 	return 0, fmt.Errorf("%w: vaddr 0x%x not in any PT_LOAD file range", errBadELF, vaddr)
 }
 
-func extractInitVaddrs(so []byte, phdrs []elf64Phdr, dynPh elf64Phdr) ([]uint64, error) {
+func vaddrToFileOff32(phdrs []elf32Phdr, vaddr uint64, size uint64) (uint64, error) {
+	for i := range phdrs {
+		ph := phdrs[i]
+		if ph.typ != ptLoad {
+			continue
+		}
+		phVaddr := uint64(ph.vaddr)
+		phFilesz := uint64(ph.filesz)
+		// For file-backed data (like init arrays), we need it to be within the
+		// segment's file image, not just its in-memory range.
+		if vaddr < phVaddr || vaddr+size > phVaddr+phFilesz {
+			continue
+		}
+		off := uint64(ph.off) + (vaddr - phVaddr)
+		return off, nil
+	}
+	return 0, fmt.Errorf("%w: vaddr 0x%x not in any PT_LOAD file range", errBadELF, vaddr)
+}
+
+func extractInitVaddrs64(so []byte, phdrs []elf64Phdr, dynPh elf64Phdr) ([]uint64, error) {
 	// dynPh.off points to the dynamic entries in the file.
 	if dynPh.off+dynPh.filesz > uint64(len(so)) {
 		return nil, fmt.Errorf("%w: PT_DYNAMIC outside file", errBadELF)
@@ -714,7 +1141,7 @@ func extractInitVaddrs(so []byte, phdrs []elf64Phdr, dynPh elf64Phdr) ([]uint64,
 		if arraySz%8 != 0 {
 			return nil, fmt.Errorf("%w: init array size 0x%x not 8-byte aligned", errBadELF, arraySz)
 		}
-		fileOff, err := vaddrToFileOff(phdrs, arrayVaddr, arraySz)
+		fileOff, err := vaddrToFileOff64(phdrs, arrayVaddr, arraySz)
 		if err != nil {
 			return nil, err
 		}
@@ -756,15 +1183,177 @@ func extractInitVaddrs(so []byte, phdrs []elf64Phdr, dynPh elf64Phdr) ([]uint64,
 	return initCalls, nil
 }
 
+func extractInitVaddrs32(so []byte, phdrs []elf32Phdr, dynPh elf32Phdr) ([]uint64, error) {
+	// dynPh.off points to the dynamic entries in the file.
+	if uint64(dynPh.off)+uint64(dynPh.filesz) > uint64(len(so)) {
+		return nil, fmt.Errorf("%w: PT_DYNAMIC outside file", errBadELF)
+	}
+	dyn := so[dynPh.off : uint64(dynPh.off)+uint64(dynPh.filesz)]
+
+	var (
+		initVaddr         uint64
+		preinitArrayVaddr uint64
+		preinitArraySz    uint64
+		initArrayVaddr    uint64
+		initArraySz       uint64
+	)
+
+	for off := 0; off+8 <= len(dyn); off += 8 {
+		tag := int32(binary.LittleEndian.Uint32(dyn[off : off+4]))
+		val := uint64(binary.LittleEndian.Uint32(dyn[off+4 : off+8]))
+		if tag == dtNull {
+			break
+		}
+		switch uint32(tag) {
+		case dtInit:
+			initVaddr = val
+		case dtPreinitArray:
+			preinitArrayVaddr = val
+		case dtPreinitArraySz:
+			preinitArraySz = val
+		case dtInitArray:
+			initArrayVaddr = val
+		case dtInitArraySz:
+			initArraySz = val
+		}
+	}
+
+	readPtrArray := func(arrayVaddr, arraySz uint64) ([]uint64, error) {
+		if arrayVaddr == 0 || arraySz == 0 {
+			return nil, nil
+		}
+		if arraySz%4 != 0 {
+			return nil, fmt.Errorf("%w: init array size 0x%x not 4-byte aligned", errBadELF, arraySz)
+		}
+		fileOff, err := vaddrToFileOff32(phdrs, arrayVaddr, arraySz)
+		if err != nil {
+			return nil, err
+		}
+		if fileOff+arraySz > uint64(len(so)) {
+			return nil, fmt.Errorf("%w: init array outside file", errBadELF)
+		}
+		b := so[fileOff : fileOff+arraySz]
+		out := make([]uint64, 0, arraySz/4)
+		for i := uint64(0); i < arraySz; i += 4 {
+			ptr := uint64(binary.LittleEndian.Uint32(b[i : i+4]))
+			if ptr != 0 {
+				out = append(out, ptr)
+			}
+		}
+		return out, nil
+	}
+
+	var initCalls []uint64
+	// Match glibc's overall ordering:
+	// - DT_PREINIT_ARRAY (executables)
+	// - DT_INIT
+	// - DT_INIT_ARRAY
+	pre, err := readPtrArray(preinitArrayVaddr, preinitArraySz)
+	if err != nil {
+		return nil, err
+	}
+	initCalls = append(initCalls, pre...)
+
+	if initVaddr != 0 {
+		initCalls = append(initCalls, initVaddr)
+	}
+
+	initArr, err := readPtrArray(initArrayVaddr, initArraySz)
+	if err != nil {
+		return nil, err
+	}
+	initCalls = append(initCalls, initArr...)
+
+	return initCalls, nil
+}
+
 func makeEntryStub(arch Arch, stubVaddr uint64, exportVaddr uint64, initVaddrs []uint64) ([]byte, error) {
 	switch arch {
 	case ArchLinuxAMD64:
 		return makeStubAMD64(stubVaddr, exportVaddr, initVaddrs)
 	case ArchLinuxARM64:
 		return makeStubARM64(stubVaddr, exportVaddr, initVaddrs)
+	case ArchLinux386:
+		return makeStub386(stubVaddr, exportVaddr, initVaddrs)
 	default:
 		return nil, fmt.Errorf("unsupported arch %v", arch)
 	}
+}
+
+func makeStub386(stubVaddr uint64, exportVaddr uint64, initVaddrs []uint64) ([]byte, error) {
+	const maxU32 = uint64(^uint32(0))
+	if stubVaddr+5 > maxU32 {
+		// Keep the encoding simple (sub imm32).
+		return nil, fmt.Errorf("stub vaddr too large for i386 stub encoding")
+	}
+	if exportVaddr > maxU32 {
+		return nil, fmt.Errorf("export vaddr too large for i386")
+	}
+	for _, vaddr := range initVaddrs {
+		if vaddr > maxU32 {
+			return nil, fmt.Errorf("init vaddr too large for i386")
+		}
+	}
+
+	// Assemble the stub from textual assembly to keep it readable and reduce
+	// manual byte encoding errors.
+	var sb strings.Builder
+	sb.WriteString(".code32\n")
+
+	// Base computation:
+	// call next; pop ebx; sub ebx, (stub_vaddr+5) => ebx becomes the module base.
+	// ebx = (retaddr == stub+5) - (stub_vaddr+5)
+	sb.WriteString("call 5\n")
+	sb.WriteString("pop ebx\n")
+	fmt.Fprintf(&sb, "sub ebx, 0x%X\n", stubVaddr+5)
+
+	// Preserve entry stack pointer and compute (argc, argv, envp) once.
+	// esi = entry_esp
+	// edi = argc
+	// ebp = argv
+	// edx = envp
+	sb.WriteString("mov esi, esp\n")
+	sb.WriteString("mov edi, [esi]\n")
+	sb.WriteString("lea ebp, [esi+4]\n")
+	sb.WriteString("mov ecx, edi\n")
+	sb.WriteString("add ecx, 2\n")
+	sb.WriteString("shl ecx, 2\n")
+	sb.WriteString("lea edx, [esi+ecx]\n")
+
+	// Call init functions (DT_PREINIT_ARRAY/DT_INIT/DT_INIT_ARRAY).
+	for _, vaddr := range initVaddrs {
+		if vaddr == 0 {
+			continue
+		}
+		// cdecl: push envp, argv, argc (right-to-left).
+		sb.WriteString("push edx\n")
+		sb.WriteString("push ebp\n")
+		sb.WriteString("push edi\n")
+		fmt.Fprintf(&sb, "mov eax, 0x%X\n", vaddr)
+		sb.WriteString("add eax, ebx\n")
+		sb.WriteString("call eax\n")
+		sb.WriteString("add esp, 12\n")
+	}
+
+	// Call the requested export (no args).
+	fmt.Fprintf(&sb, "mov eax, 0x%X\n", exportVaddr)
+	sb.WriteString("add eax, ebx\n")
+	sb.WriteString("call eax\n")
+
+	// exit_group(0)
+	sb.WriteString("mov eax, 252\n")
+	sb.WriteString("xor ebx, ebx\n")
+	sb.WriteString("int 0x80\n")
+
+	engine, err := keystone.NewEngine(keystone.ARCH_X86, keystone.MODE_32)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = engine.Close() }()
+	if err := engine.Option(keystone.OPT_SYNTAX, keystone.OPT_SYNTAX_INTEL); err != nil {
+		return nil, err
+	}
+	return engine.Assemble(sb.String(), 0)
 }
 
 func makeStubAMD64(stubVaddr uint64, exportVaddr uint64, initVaddrs []uint64) ([]byte, error) {

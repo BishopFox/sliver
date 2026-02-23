@@ -1,6 +1,7 @@
 package loot
 
 import (
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -50,6 +51,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	})
 	carapace.Gen(lootAddCmd).PositionalCompletion(
 		carapace.ActionFiles().Tag("local loot file").Usage("The local file path to the loot"))
+	completers.RegisterLocalFilePathPositionalCompletion(lootAddCmd, 0)
 
 	lootRemoteCmd := &cobra.Command{
 		Use:   consts.LootRemoteStr,
@@ -99,6 +101,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save loot")
 		(*comp)["filter"] = FileTypeCompleter(con)
 	})
+	completers.RegisterLocalFilePathFlagCompletion(lootFetchCmd, "save")
 
 	lootRmCmd := &cobra.Command{
 		Use:   consts.RmStr,

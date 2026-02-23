@@ -1,6 +1,7 @@
 package crack
 
 import (
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -61,6 +62,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("name", "n", "", "wordlist name (blank = filename)")
 	})
 	carapace.Gen(wordlistsAddCmd).PositionalCompletion(carapace.ActionFiles().Usage("path to local wordlist file"))
+	completers.RegisterLocalFilePathPositionalCompletion(wordlistsAddCmd, 0)
 	wordlistsCmd.AddCommand(wordlistsAddCmd)
 
 	wordlistsRmCmd := &cobra.Command{
@@ -95,6 +97,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("name", "n", "", "rules name (blank = filename)")
 	})
 	carapace.Gen(rulesAddCmd).PositionalCompletion(carapace.ActionFiles().Usage("path to local rules file"))
+	completers.RegisterLocalFilePathPositionalCompletion(rulesAddCmd, 0)
 	rulesCmd.AddCommand(rulesAddCmd)
 
 	rulesRmCmd := &cobra.Command{
@@ -130,6 +133,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("name", "n", "", "hcstat2 name (blank = filename)")
 	})
 	carapace.Gen(hcstat2AddCmd).PositionalCompletion(carapace.ActionFiles().Usage("path to local hcstat2 file"))
+	completers.RegisterLocalFilePathPositionalCompletion(hcstat2AddCmd, 0)
 	hcstat2Cmd.AddCommand(hcstat2AddCmd)
 
 	hcstat2RmCmd := &cobra.Command{

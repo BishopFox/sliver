@@ -3,6 +3,7 @@ package generate
 import (
 	"strings"
 
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	shellcodeencoders "github.com/bishopfox/sliver/client/command/shellcode-encoders"
@@ -94,6 +95,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.BoolP("skip-tests", "s", false, "skip testing the traffic encoder (not recommended)")
 	})
 	carapace.Gen(trafficEncodersAddCmd).PositionalCompletion(carapace.ActionFiles("wasm").Tag("wasm files").Usage("local file path (expects .wasm)"))
+	completers.RegisterLocalFilePathPositionalCompletion(trafficEncodersAddCmd, 0)
 	trafficEncodersCmd.AddCommand(trafficEncodersAddCmd)
 
 	trafficEncodersRmCmd := &cobra.Command{
@@ -126,6 +128,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.BindFlagCompletions(regenerateCmd, func(comp *carapace.ActionMap) {
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
 	})
+	completers.RegisterLocalFilePathFlagCompletion(regenerateCmd, "save")
 	carapace.Gen(regenerateCmd).PositionalCompletion(ImplantBuildNameCompleter(con))
 
 	// [ Profiles ] --------------------------------------------------------------
@@ -162,6 +165,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
 		(*comp)["shellcode-encoder"] = shellcodeencoders.ShellcodeEncoderNameCompleter(con)
 	})
+	completers.RegisterLocalFilePathFlagCompletion(profilesGenerateCmd, "save")
 	carapace.Gen(profilesGenerateCmd).PositionalCompletion(ProfileNameCompleter(con))
 	profilesCmd.AddCommand(profilesGenerateCmd)
 
@@ -193,6 +197,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.BoolP("prepend-size", "p", false, "Prepend stage size")
 		f.StringP("compress", "c", "", "Compress stage (zlib, gzip, deflate9 or deflate)")
 	})
+	completers.RegisterLocalFilePathFlagCompletion(profilesStageCmd, "save")
 
 	carapace.Gen(profilesStageCmd).PositionalCompletion(ProfileNameCompleter(con))
 	profilesCmd.AddCommand(profilesStageCmd)
@@ -432,12 +437,13 @@ func coreImplantFlagCompletions(cmd *cobra.Command, con *console.SliverClient) {
 		(*comp)["arch"] = ArchCompleter(con)
 		(*comp)["strategy"] = carapace.ActionValuesDescribed([]string{"r", "random", "rd", "random domain", "s", "sequential"}...).Tag("C2 strategy")
 		(*comp)["format"] = FormatCompleter()
-		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
+		(*comp)["save"] = completers.LocalFilePathCompleter().Tag("directory/file to save implant")
 		(*comp)[spoofMetadataFlagName] = carapace.ActionFiles().Tag("optional donor metadata file")
 		(*comp)["shellcode-encoder"] = shellcodeencoders.ShellcodeEncoderNameCompleter(con)
 		(*comp)["traffic-encoders"] = TrafficEncodersCompleter(con).UniqueList(",")
 		(*comp)["c2profile"] = HTTPC2Completer(con)
 	})
+	completers.RegisterLocalFilePathFlagCompletions(cmd, "save", "debug-file", spoofMetadataFlagName)
 	registerImplantTargetFlagCompletions(cmd, con)
 }
 

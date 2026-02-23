@@ -19,6 +19,7 @@ package jobs
 */
 
 import (
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/command/help"
@@ -155,6 +156,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		(*comp)["cert"] = carapace.ActionFiles().Tag("certificate file")
 		(*comp)["key"] = carapace.ActionFiles().Tag("key file")
 	})
+	completers.RegisterLocalFilePathFlagCompletions(httpsCmd, "cert", "key")
 	registerWebsiteFlagCompletion(httpsCmd, "website", con)
 
 	// Staging listeners
@@ -185,6 +187,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		(*comp)["key"] = carapace.ActionFiles().Tag("key file")
 		(*comp)["compress"] = carapace.ActionValues([]string{"zlib", "gzip", "deflate9", "none"}...).Tag("compression formats")
 	})
+	completers.RegisterLocalFilePathFlagCompletions(stageCmd, "cert", "key")
 
 	return []*cobra.Command{jobsCmd, mtlsCmd, wgCmd, dnsCmd, httpCmd, httpsCmd, stageCmd}
 }

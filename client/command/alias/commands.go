@@ -1,6 +1,7 @@
 package alias
 
 import (
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
@@ -32,6 +33,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	}
 	aliasCmd.AddCommand(aliasLoadCmd)
 	flags.NewCompletions(aliasLoadCmd).PositionalCompletion(carapace.ActionDirectories().Tag("alias directory").Usage("path to the alias directory"))
+	completers.RegisterLocalFilePathPositionalCompletion(aliasLoadCmd, 0)
 
 	aliasInstallCmd := &cobra.Command{
 		Use:   consts.InstallStr + " [ALIAS]",
@@ -44,6 +46,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	}
 	aliasCmd.AddCommand(aliasInstallCmd)
 	flags.NewCompletions(aliasInstallCmd).PositionalCompletion(carapace.ActionFiles().Tag("alias file"))
+	completers.RegisterLocalFilePathPositionalCompletion(aliasInstallCmd, 0)
 
 	aliasRemove := &cobra.Command{
 		Use:   consts.RmStr + " [ALIAS]",

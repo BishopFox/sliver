@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
@@ -127,6 +128,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		(*comp)["content"] = carapace.ActionFiles().Tag("content directory/files")
 		(*comp)["website"] = WebsiteNameCompleter(con)
 	})
+	completers.RegisterLocalFilePathFlagCompletion(websitesContentCmd, "content")
 	websitesCmd.AddCommand(websitesContentCmd)
 
 	websitesContentTypeCmd := &cobra.Command{

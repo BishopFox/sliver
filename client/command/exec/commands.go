@@ -1,6 +1,7 @@
 package exec
 
 import (
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/command/help"
@@ -93,6 +94,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 
 	carapace.Gen(executeAssemblyCmd).PositionalCompletion(carapace.ActionFiles().Usage("path to assembly file (required)"))
 	carapace.Gen(executeAssemblyCmd).PositionalAnyCompletion(carapace.ActionValues().Usage("arguments to pass to the assembly entrypoint (optional)"))
+	completers.RegisterLocalFilePathPositionalCompletion(executeAssemblyCmd, 0)
 
 	executeShellcodeCmd := &cobra.Command{
 		Use:   consts.ExecuteShellcodeStr,
@@ -119,6 +121,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		(*comp)["shikata-ga-nai"] = carapace.ActionValues("386", "amd64").Tag("shikata-ga-nai architectures")
 	})
 	carapace.Gen(executeShellcodeCmd).PositionalCompletion(carapace.ActionFiles().Usage("path to shellcode file (required)"))
+	completers.RegisterLocalFilePathPositionalCompletion(executeShellcodeCmd, 0)
 
 	sideloadCmd := &cobra.Command{
 		Use:   consts.SideloadStr,
@@ -147,6 +150,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 
 	carapace.Gen(sideloadCmd).PositionalCompletion(carapace.ActionFiles().Usage("path to shared library file (required)"))
 	carapace.Gen(sideloadCmd).PositionalAnyCompletion(carapace.ActionValues().Usage("arguments to pass to the binary (optional)"))
+	completers.RegisterLocalFilePathPositionalCompletion(sideloadCmd, 0)
 
 	spawnDllCmd := &cobra.Command{
 		Use:   consts.SpawnDllStr,
@@ -175,6 +179,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 
 	carapace.Gen(spawnDllCmd).PositionalCompletion(carapace.ActionFiles().Usage("path to DLL file (required)"))
 	carapace.Gen(spawnDllCmd).PositionalAnyCompletion(carapace.ActionValues().Usage("arguments to pass to the DLL entrypoint (optional)"))
+	completers.RegisterLocalFilePathPositionalCompletion(spawnDllCmd, 0)
 
 	migrateCmd := &cobra.Command{
 		Use:   consts.MigrateStr,
@@ -260,6 +265,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		(*comp)["custom-exe"] = carapace.ActionFiles()
 		(*comp)["profile"] = generate.ProfileNameCompleter(con)
 	})
+	completers.RegisterLocalFilePathFlagCompletion(psExecCmd, "custom-exe")
 	carapace.Gen(psExecCmd).PositionalCompletion(carapace.ActionValues().Usage("hostname (required)"))
 
 	sshCmd := &cobra.Command{
@@ -290,6 +296,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		(*comp)["private-key"] = carapace.ActionFiles()
 		(*comp)["kerberos-keytab"] = carapace.ActionFiles()
 	})
+	completers.RegisterLocalFilePathFlagCompletions(sshCmd, "private-key", "kerberos-keytab")
 
 	carapace.Gen(sshCmd).PositionalCompletion(carapace.ActionValues().Usage("remote host to SSH to (required)"))
 	carapace.Gen(sshCmd).PositionalAnyCompletion(carapace.ActionValues().Usage("command line with arguments"))
