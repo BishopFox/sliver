@@ -46,6 +46,13 @@ else
     exit 1
 fi
 
+# client / command / generate
+if go test -tags=client,$TAGS ./client/command/generate ; then
+    :
+else
+    exit 1
+fi
+
 # client / credentials
 if go test -tags=client,$TAGS ./client/credentials ; then
     :

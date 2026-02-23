@@ -106,3 +106,39 @@ func RegisterLocalFilePathFlagCompletion(cmd *cobra.Command, name string) {
 		return nil, cobra.ShellCompDirectiveDefault
 	})
 }
+
+// RegisterLocalFilePathFlagCompletions registers local file-path completion for a list of flags.
+func RegisterLocalFilePathFlagCompletions(cmd *cobra.Command, names ...string) {
+	for _, name := range names {
+		RegisterLocalFilePathFlagCompletion(cmd, name)
+	}
+}
+
+// RegisterLocalFilePathPositionalCompletion registers local file-path completion for a positional argument index.
+func RegisterLocalFilePathPositionalCompletion(cmd *cobra.Command, index int) {
+	if cmd == nil || index < 0 {
+		return
+	}
+	if cmd.ValidArgsFunction != nil {
+		return
+	}
+	cmd.ValidArgsFunction = func(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
+		if len(args) == index {
+			return nil, cobra.ShellCompDirectiveDefault
+		}
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+}
+
+// RegisterLocalFilePathPositionalAnyCompletion registers local file-path completion for all positional arguments.
+func RegisterLocalFilePathPositionalAnyCompletion(cmd *cobra.Command) {
+	if cmd == nil {
+		return
+	}
+	if cmd.ValidArgsFunction != nil {
+		return
+	}
+	cmd.ValidArgsFunction = func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return nil, cobra.ShellCompDirectiveDefault
+	}
+}

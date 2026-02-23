@@ -1,6 +1,7 @@
 package cursed
 
 import (
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
@@ -75,6 +76,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.BindFlagCompletions(cursedChromeCmd, func(comp *carapace.ActionMap) {
 		(*comp)["payload"] = carapace.ActionFiles("js").Tag("javascript files")
 	})
+	completers.RegisterLocalFilePathFlagCompletion(cursedChromeCmd, "payload")
 	cursedChromeCmd.Flags().ParseErrorsWhitelist.UnknownFlags = true
 	carapace.Gen(cursedChromeCmd).PositionalAnyCompletion(carapace.ActionValues().Usage("additional Chrome CLI arguments"))
 
@@ -99,6 +101,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.BindFlagCompletions(cursedEdgeCmd, func(comp *carapace.ActionMap) {
 		(*comp)["payload"] = carapace.ActionFiles("js").Tag("javascript files")
 	})
+	completers.RegisterLocalFilePathFlagCompletion(cursedEdgeCmd, "payload")
 	cursedEdgeCmd.Flags().ParseErrorsWhitelist.UnknownFlags = true
 	carapace.Gen(cursedEdgeCmd).PositionalAnyCompletion(carapace.ActionValues().Usage("additional Edge CLI arguments"))
 
@@ -130,6 +133,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind("", false, CursedCookiesCmd, func(f *pflag.FlagSet) {
 		f.StringP("save", "s", "", "save to file")
 	})
+	completers.RegisterLocalFilePathFlagCompletion(CursedCookiesCmd, "save")
 
 	cursedScreenshotCmd := &cobra.Command{
 		Use:   consts.ScreenshotStr,
@@ -144,6 +148,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.Int64P("quality", "q", 100, "screenshot quality (1 - 100)")
 		f.StringP("save", "s", "", "save to file")
 	})
+	completers.RegisterLocalFilePathFlagCompletion(cursedScreenshotCmd, "save")
 
 	return []*cobra.Command{cursedCmd}
 }

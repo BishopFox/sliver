@@ -1,6 +1,7 @@
 package shellcodeencoders
 
 import (
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
@@ -48,7 +49,9 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		(*comp)["arch"] = ShellcodeEncoderArchCompleter(con)
 		(*comp)["output"] = carapace.ActionFiles().Tag("output file/directory")
 	})
+	completers.RegisterLocalFilePathFlagCompletion(shellcodeEncodersEncodeCmd, "output")
 	carapace.Gen(shellcodeEncodersEncodeCmd).PositionalCompletion(carapace.ActionFiles().Tag("shellcode file"))
+	completers.RegisterLocalFilePathPositionalAnyCompletion(shellcodeEncodersEncodeCmd)
 	shellcodeEncodersCmd.AddCommand(shellcodeEncodersEncodeCmd)
 
 	return []*cobra.Command{shellcodeEncodersCmd}

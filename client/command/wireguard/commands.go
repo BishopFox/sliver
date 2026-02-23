@@ -1,6 +1,7 @@
 package wireguard
 
 import (
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
@@ -31,6 +32,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.BindFlagCompletions(wgConfigCmd, func(comp *carapace.ActionMap) {
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save config")
 	})
+	completers.RegisterLocalFilePathFlagCompletion(wgConfigCmd, "save")
 
 	return []*cobra.Command{wgConfigCmd}
 }
