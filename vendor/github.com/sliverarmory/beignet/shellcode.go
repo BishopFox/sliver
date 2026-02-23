@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/sliverarmory/beignet/internal/aplib"
@@ -17,7 +18,7 @@ const (
 )
 
 var (
-	ErrUnsupportedArch = errors.New("beignet: only darwin/arm64 is supported")
+	ErrUnsupportedArch = errors.New("beignet: unsupported architecture (supported: darwin/arm64, darwin/amd64)")
 	ErrInvalidMachO    = errors.New("beignet: invalid Mach-O")
 )
 
@@ -32,7 +33,7 @@ type Options struct {
 }
 
 func DylibFileToShellcode(path string, opts Options) ([]byte, error) {
-	payload, err := readMachOArm64Slice(path)
+	payload, err := readMachOSupportedSlice(path)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +41,8 @@ func DylibFileToShellcode(path string, opts Options) ([]byte, error) {
 }
 
 func DylibToShellcode(dylib []byte, opts Options) ([]byte, error) {
-	if err := validateMachOArm64(dylib); err != nil {
+	cpu, err := validateMachOSupported(dylib)
+	if err != nil {
 		return nil, err
 	}
 	entrySymbol, err := normalizeEntrySymbol(opts.EntrySymbol)
@@ -57,14 +59,14 @@ func DylibToShellcode(dylib []byte, opts Options) ([]byte, error) {
 		payload = packed
 	}
 
-	loaderText, loaderEntryOff, err := stager.LoaderText()
+	loaderText, loaderEntryOff, err := stager.LoaderText(cpu)
 	if err != nil {
 		return nil, err
 	}
 
-	bootstrap, err := buildArm64Bootstrap(0, 0, 0, 0)
+	bootstrap, err := buildBootstrap(cpu, 0, 0, 0, 0)
 	if err != nil {
-		return nil, fmt.Errorf("beignet: assemble arm64 bootstrap: %w", err)
+		return nil, fmt.Errorf("beignet: build bootstrap (%s): %w", cpu, err)
 	}
 	// The embedded loader is a (mostly) position-independent Mach-O image blob.
 	// It expects to start at a page boundary so ADRP-based addressing remains valid.
@@ -80,9 +82,9 @@ func DylibToShellcode(dylib []byte, opts Options) ([]byte, error) {
 	payloadSize := uint64(len(payload))
 	entrySymbolStart := payloadStart + payloadSize
 
-	bootstrap, err = buildArm64Bootstrap(payloadStart, payloadSize, entrySymbolStart, loaderEntryAbs)
+	bootstrap, err = buildBootstrap(cpu, payloadStart, payloadSize, entrySymbolStart, loaderEntryAbs)
 	if err != nil {
-		return nil, fmt.Errorf("beignet: assemble arm64 bootstrap: %w", err)
+		return nil, fmt.Errorf("beignet: build bootstrap (%s): %w", cpu, err)
 	}
 
 	out := make([]byte, 0, int(entrySymbolStart)+len(entrySymbol)+1)
@@ -121,26 +123,26 @@ func normalizeEntrySymbol(sym string) ([]byte, error) {
 	return []byte(sym), nil
 }
 
-func validateMachOArm64(b []byte) error {
+func validateMachOSupported(b []byte) (macho.Cpu, error) {
 	f, err := macho.NewFile(bytes.NewReader(b))
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidMachO, err)
+		return 0, fmt.Errorf("%w: %v", ErrInvalidMachO, err)
 	}
 	_ = f.Close()
 
-	if f.Cpu != macho.CpuArm64 {
-		return fmt.Errorf("%w: %s", ErrUnsupportedArch, f.Cpu)
+	if !isSupportedCPU(f.Cpu) {
+		return 0, fmt.Errorf("%w: %s", ErrUnsupportedArch, f.Cpu)
 	}
 
 	switch f.Type {
 	case macho.TypeDylib, macho.TypeBundle:
-		return nil
+		return f.Cpu, nil
 	default:
-		return fmt.Errorf("%w: unexpected file type %v", ErrInvalidMachO, f.Type)
+		return 0, fmt.Errorf("%w: unexpected file type %v", ErrInvalidMachO, f.Type)
 	}
 }
 
-func readMachOArm64Slice(path string) ([]byte, error) {
+func readMachOSupportedSlice(path string) ([]byte, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -149,22 +151,70 @@ func readMachOArm64Slice(path string) ([]byte, error) {
 	ff, err := macho.NewFatFile(bytes.NewReader(b))
 	if err == nil {
 		defer ff.Close()
-		for _, arch := range ff.Arches {
-			if arch.Cpu != macho.CpuArm64 {
-				continue
+		for _, cpu := range preferredCPUOrder() {
+			for _, arch := range ff.Arches {
+				if arch.Cpu != cpu {
+					continue
+				}
+				off := int(arch.Offset)
+				size := int(arch.Size)
+				if off < 0 || size < 0 || off+size > len(b) {
+					return nil, fmt.Errorf("%w: invalid fat arch bounds", ErrInvalidMachO)
+				}
+				return b[off : off+size], nil
 			}
-			off := int(arch.Offset)
-			size := int(arch.Size)
-			if off < 0 || size < 0 || off+size > len(b) {
-				return nil, fmt.Errorf("%w: invalid fat arch bounds", ErrInvalidMachO)
-			}
-			return b[off : off+size], nil
 		}
-		return nil, fmt.Errorf("%w: no arm64 slice in fat Mach-O", ErrUnsupportedArch)
+		return nil, fmt.Errorf("%w: no supported slice in fat Mach-O", ErrUnsupportedArch)
 	}
 
 	// Not a fat Mach-O; treat as thin.
 	return b, nil
+}
+
+func buildBootstrap(cpu macho.Cpu, payloadOffset, payloadSize, symbolOffset, loaderEntryOffsetAbs uint64) ([]byte, error) {
+	switch cpu {
+	case macho.CpuArm64:
+		return buildArm64Bootstrap(payloadOffset, payloadSize, symbolOffset, loaderEntryOffsetAbs)
+	case macho.CpuAmd64:
+		return buildAMD64Bootstrap(payloadOffset, payloadSize, symbolOffset, loaderEntryOffsetAbs)
+	default:
+		return nil, fmt.Errorf("%w: %s", ErrUnsupportedArch, cpu)
+	}
+}
+
+func isSupportedCPU(cpu macho.Cpu) bool {
+	switch cpu {
+	case macho.CpuArm64, macho.CpuAmd64:
+		return true
+	default:
+		return false
+	}
+}
+
+func preferredCPUOrder() []macho.Cpu {
+	order := []macho.Cpu{}
+
+	switch runtime.GOARCH {
+	case "arm64":
+		order = append(order, macho.CpuArm64)
+	case "amd64":
+		order = append(order, macho.CpuAmd64)
+	}
+
+	// Keep a deterministic fallback order.
+	for _, cpu := range []macho.Cpu{macho.CpuArm64, macho.CpuAmd64} {
+		exists := false
+		for _, existing := range order {
+			if existing == cpu {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			order = append(order, cpu)
+		}
+	}
+	return order
 }
 
 func alignUp(v uint64, align uint64) uint64 {

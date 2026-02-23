@@ -9,11 +9,14 @@
  * in-memory image and executed as shellcode.
  *
  * Diskless requirement:
- * - This loader must never write to disk (no open/write/unlink temp files).
+ * - The primary load path must never write to disk (no open/write/unlink temp files).
  * - It uses dyld4's JustInTimeLoader to load a Mach-O image from memory.
+ * - On x86_64, we use legacy NS* APIs with an in-memory MH_BUNDLE image.
+ *   MH_DYLIB payloads are normalized to MH_BUNDLE in a private copy before
+ *   NSCreateObjectFileImageFromMemory() to avoid disk-backed fallback paths.
  *
  * Platform:
- * - darwin/arm64 only
+ * - darwin/arm64 and darwin/amd64
  */
 
 #include <mach-o/loader.h>
@@ -110,9 +113,8 @@ struct shared_file_mapping {
   uint32_t init_prot;
 };
 
-struct diagnostics {
-  void* _buffer;
-};
+// Diagnostics is a C++ type in dyld. We treat it opaquely and call its
+// constructor/methods via resolved function pointers.
 
 // Stored in PrebuiltLoaders and generated on the fly by JustInTimeLoaders.
 struct Region
@@ -229,35 +231,38 @@ struct LockGuardRet
   uint64_t _pad[3];
 };
 
-typedef void* NSModule;
-typedef void* NSSymbol;
-typedef NSSymbol (*NSLookupSymbolInModule_ptr)(NSModule module, const char* symbolName);
-typedef void* (*NSAddressOfSymbol_ptr)(NSSymbol symbol);
-
-typedef void (*WithVMLayout_ptr)(void* ma, struct diagnostics* diag, void (^callback)(const void* layout));
+typedef void (*WithVMLayout_ptr)(void* ma, void* diag, void (^callback)(const void* layout));
 typedef void* (*JustInTimeLoaderMake2_ptr)(void* apis, void* ma, const char* path, const struct FileID* fileId,
                                           uint64_t sliceOffset, bool willNeverUnload, bool leaveMapped, bool overridesCache,
                                           uint16_t overridesDylibIndex, const void* layout);
 typedef void* (*AnalyzeSegmentsLayout_ptr)(void* ma, uintptr_t* vmSpace, bool* hasZeroFill);
 typedef void* (*WithRegions_ptr)(void* ma, void* callback);
-typedef void* (*MMap_ptr)(void* sdg, void* addr, size_t length, int prot, int flags, int fd, uint64_t offset);
-typedef void* (*Mprotect_ptr)(void* sdg, void* dst, uint64_t length, int prot);
-typedef void (*LoadDependents_ptr)(void* topLoader, const struct diagnostics* diag, void* apis, const struct LoadOptions* lo);
+typedef void (*LoadDependents_ptr)(void* topLoader, void* diag, void* apis, const struct LoadOptions* lo);
 typedef void (*RunInitializers_ptr)(void* topLoader, void* apis);
-typedef void* (*HandleFromLoader_ptr)(void* loader, bool firstOnly);
 typedef void (*IncDlRefCount_ptr)(void* apis, void* topLoader);
-typedef void (*NotifyLoad_ptr)(void* apis, struct ArrayOfLoaderPointers* newLoaders);
-typedef void (*NotifyDebuggerLoad_ptr)(void* apis, const struct ArrayOfLoaderPointers* aolp);
-typedef void (*NotifyDtrace_ptr)(void* apis, const struct ArrayOfLoaderPointers* aolp);
-typedef void (*RebindMissingFlatLazySymbols_ptr)(void* apis, const struct ArrayOfLoaderPointers* aolp);
-typedef void (*AddWeakDefs_ptr)(void* apis, void* newLoaders);
-typedef void (*ApplyFixups_ptr)(void* ldr, const struct diagnostics* diag, void* apis,
+typedef void (*ApplyFixups_ptr)(void* ldr, void* diag, void* apis,
                                struct DyldCacheDataConstLazyScopedWriter* dcd, bool b, void* outPairs);
 typedef void* (*MemoryManager_ptr)(void);
 typedef struct LockGuardRet (*LockGuard_ptr)(void* mm);
 typedef void (*WriteProtect_ptr)(void* mm, bool protect);
+typedef void (*LockLock_ptr)(void* lock);
 typedef void (*LockUnlock_ptr)(void* lock);
 typedef void (*WithProtectedStack_ptr)(void* protectedStack, void (^callback)(void));
+
+typedef void (*DiagnosticsCtor_ptr)(void* diag);
+typedef void (*DiagnosticsClearError_ptr)(void* diag);
+typedef bool (*DiagnosticsHasError_ptr)(const void* diag);
+
+// Legacy dyld API wrappers (exported by libdyld). These are stable and work
+// under Rosetta for x86_64 bundles, whereas the dyld4 internals used below are
+// more fragile across versions/architectures.
+typedef int (*NSCreateObjectFileImageFromMemory_ptr)(const void* mem, size_t size, void** outOFI);
+typedef void* (*NSLinkModule_ptr)(void* ofi, const char* moduleName, uint32_t options);
+typedef void* (*NSLookupSymbolInModule_ptr)(void* module, const char* symbolName);
+typedef void* (*NSAddressOfSymbol_ptr)(void* symbol);
+typedef bool (*NSDestroyObjectFileImage_ptr)(void* ofi);
+
+static void* syscall_mmap(void* addr, uint64_t length, int prot, int flags, int fd, uint64_t offset);
 
 static int string_compare(const char* s1, const char* s2)
 {
@@ -276,6 +281,56 @@ static void* memcpy2(void* dest, const void* src, size_t len)
     *d++ = *s++;
   }
   return dest;
+}
+
+static bool prepare_ns_memory_image(const void* src, uint64_t srcLen, void** outImage, uint64_t* outLen)
+{
+  if (!src || !outImage || !outLen || srcLen < sizeof(struct mach_header_64)) {
+    return false;
+  }
+
+  void* copy = syscall_mmap(0, srcLen, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+  if (copy == (void*)-1 || copy == 0) {
+    return false;
+  }
+  memcpy2(copy, src, (size_t)srcLen);
+
+  struct mach_header_64* mh = (struct mach_header_64*)copy;
+  if (mh->magic != MH_MAGIC_64) {
+    return false;
+  }
+  if (mh->sizeofcmds > srcLen || (uint64_t)sizeof(*mh) + (uint64_t)mh->sizeofcmds > srcLen) {
+    return false;
+  }
+
+  struct load_command* lc = (struct load_command*)((char*)mh + sizeof(*mh));
+  uint64_t cmdBytes = mh->sizeofcmds;
+  bool sawIDDylib = false;
+  while (cmdBytes >= sizeof(struct load_command)) {
+    if (lc->cmdsize < sizeof(struct load_command) || lc->cmdsize > cmdBytes) {
+      return false;
+    }
+    if (lc->cmd == LC_ID_DYLIB) {
+      sawIDDylib = true;
+      lc->cmd = LC_LAZY_LOAD_DYLIB;
+    }
+    cmdBytes -= lc->cmdsize;
+    lc = (struct load_command*)((char*)lc + lc->cmdsize);
+  }
+  if (cmdBytes != 0) {
+    return false;
+  }
+
+  if (mh->filetype == MH_DYLIB) {
+    mh->filetype = MH_BUNDLE;
+    (void)sawIDDylib;
+  } else if (mh->filetype != MH_BUNDLE) {
+    return false;
+  }
+
+  *outImage = copy;
+  *outLen = srcLen;
+  return true;
 }
 
 /*
@@ -566,21 +621,122 @@ static uint64_t syscall_shared_region_check_np()
 {
   long shared_region_check_np = 0x2000126; // #294
   uint64_t address = 0;
-  unsigned long ret = 0;
+  uint64_t ret = 0;
+  unsigned int carry = 0;
 #ifdef __aarch64__
   __asm__ volatile(
-      "mov x16, %1;\n"
-      "mov x0, %2;\n"
+      "mov x16, %2;\n"
+      "mov x0, %3;\n"
       "svc #0;\n"
       "mov %0, x0;\n"
-      : "=r"(ret)
+      "cset %w1, cs;\n"
+      : "=r"(ret), "=r"(carry)
       : "r"(shared_region_check_np), "r"(&address)
       : "x16", "x0", "memory");
+#elif defined(__x86_64__)
+  unsigned char cflag = 0;
+  ret = (uint64_t)shared_region_check_np;
+  __asm__ volatile(
+      "syscall;\n"
+      "setc %b0;\n"
+      : "=q"(cflag), "+a"(ret)
+      : "D"(&address)
+      : "rcx", "r11", "memory");
+  carry = cflag;
 #else
   (void)shared_region_check_np;
-  (void)ret;
 #endif
+  if (carry != 0 || ret != 0) {
+    return 0;
+  }
   return address;
+}
+
+static void* syscall_mmap(void* addr, uint64_t length, int prot, int flags, int fd, uint64_t offset)
+{
+  uint64_t mmap_num = 0x20000c5; // #197
+  uint64_t ret = (uint64_t)-1;
+  unsigned int carry = 0;
+#ifdef __aarch64__
+  __asm__ volatile(
+      "mov x16, %2;\n"
+      "mov x0, %3;\n"
+      "mov x1, %4;\n"
+      "mov x2, %5;\n"
+      "mov x3, %6;\n"
+      "mov x4, %7;\n"
+      "mov x5, %8;\n"
+      "svc #0;\n"
+      "mov %0, x0;\n"
+      "cset %w1, cs;\n"
+      : "=r"(ret), "=r"(carry)
+      : "r"(mmap_num), "r"(addr), "r"(length), "r"((uint64_t)prot), "r"((uint64_t)flags), "r"((uint64_t)fd), "r"(offset)
+      : "x16", "x0", "x1", "x2", "x3", "x4", "x5", "memory");
+#elif defined(__x86_64__)
+  unsigned char cflag = 0;
+  register uint64_t r10 __asm__("r10") = (uint64_t)flags;
+  register uint64_t r8 __asm__("r8") = (uint64_t)fd;
+  register uint64_t r9 __asm__("r9") = offset;
+  ret = mmap_num;
+  __asm__ volatile(
+      "syscall;\n"
+      "setc %b0;\n"
+      : "=q"(cflag), "+a"(ret)
+      : "D"(addr), "S"(length), "d"((uint64_t)prot), "r"(r10), "r"(r8), "r"(r9)
+      : "rcx", "r11", "memory");
+  carry = cflag;
+#else
+  (void)addr;
+  (void)length;
+  (void)prot;
+  (void)flags;
+  (void)fd;
+  (void)offset;
+  return (void*)-1;
+#endif
+  if (carry != 0) {
+    return (void*)-1;
+  }
+  return (void*)(uintptr_t)ret;
+}
+
+static int syscall_mprotect(void* addr, uint64_t length, int prot)
+{
+  uint64_t mprotect_num = 0x200004a; // #74
+  uint64_t ret = (uint64_t)-1;
+  unsigned int carry = 0;
+#ifdef __aarch64__
+  __asm__ volatile(
+      "mov x16, %2;\n"
+      "mov x0, %3;\n"
+      "mov x1, %4;\n"
+      "mov x2, %5;\n"
+      "svc #0;\n"
+      "mov %0, x0;\n"
+      "cset %w1, cs;\n"
+      : "=r"(ret), "=r"(carry)
+      : "r"(mprotect_num), "r"(addr), "r"(length), "r"((uint64_t)prot)
+      : "x16", "x0", "x1", "x2", "memory");
+#elif defined(__x86_64__)
+  unsigned char cflag = 0;
+  ret = mprotect_num;
+  __asm__ volatile(
+      "syscall;\n"
+      "setc %b0;\n"
+      : "=q"(cflag), "+a"(ret)
+      : "D"(addr), "S"(length), "d"((uint64_t)prot)
+      : "rcx", "r11", "memory");
+  carry = cflag;
+#else
+  (void)addr;
+  (void)length;
+  (void)prot;
+  return -1;
+#endif
+  if (carry != 0) {
+    return -1;
+  }
+  return (int)ret;
 }
 
 static void* find_symbol(uint64_t base, const char* symbol, uint64_t offset)
@@ -709,6 +865,41 @@ static void exit_writable_dyld_state(void* mm, LockGuard_ptr lockGuard, WritePro
   unlockFunc(guard.lock);
 }
 
+static bool enter_writable_dyld_state_lock(void* mm, LockLock_ptr lockFunc, WriteProtect_ptr writeProtect, LockUnlock_ptr unlockFunc)
+{
+  if (!mm || !lockFunc || !writeProtect || !unlockFunc) {
+    return false;
+  }
+  lockFunc(mm);
+  uint64_t* counter = (uint64_t*)((char*)mm + 0x18);
+  uint64_t c = *counter;
+  if (c == 0) {
+    writeProtect(mm, false);
+    c = *counter;
+  }
+  *counter = c + 1;
+  unlockFunc(mm);
+  return true;
+}
+
+static void exit_writable_dyld_state_lock(void* mm, LockLock_ptr lockFunc, WriteProtect_ptr writeProtect, LockUnlock_ptr unlockFunc)
+{
+  if (!mm || !lockFunc || !writeProtect || !unlockFunc) {
+    return;
+  }
+  lockFunc(mm);
+  uint64_t* counter = (uint64_t*)((char*)mm + 0x18);
+  uint64_t c = *counter;
+  if (c != 0) {
+    c = c - 1;
+    *counter = c;
+    if (c == 0) {
+      writeProtect(mm, true);
+    }
+  }
+  unlockFunc(mm);
+}
+
 __attribute__((used, noinline)) int beignet_loader(void* buffer_ro, uint64_t buffer_size, const char* entry_symbol)
 {
   if (buffer_ro == 0 || buffer_size == 0 || entry_symbol == 0) {
@@ -757,73 +948,11 @@ __attribute__((used, noinline)) int beignet_loader(void* buffer_ro, uint64_t buf
     return 3;
   }
 
-  // SyscallDelegate* inside RuntimeState. dyld methods take it as their first argument.
-  void* sdg = *(void**)((char*)apis + 8);
-  if (!sdg) {
-    return 3;
-  }
-
-  // Resolve the dyld4 internals we need from /usr/lib/dyld.
-  MMap_ptr MMap_func = (MMap_ptr)find_symbol(dyld, "__ZNK5dyld415SyscallDelegate4mmapEPvmiiim", slide);
-  Mprotect_ptr Mprotect_func = (Mprotect_ptr)find_symbol(dyld, "__ZNK5dyld415SyscallDelegate8mprotectEPvmi", slide);
-  JustInTimeLoaderMake2_ptr JustInTimeLoaderMake2_func = (JustInTimeLoaderMake2_ptr)find_symbol(
-      dyld, "__ZN5dyld416JustInTimeLoader4makeERNS_12RuntimeStateEPKN5dyld39MachOFileEPKcRKNS_6FileIDEybbbtPKN6mach_o6LayoutE", slide);
-  WithVMLayout_ptr WithVMLayout_func =
-      (WithVMLayout_ptr)find_symbol(dyld, "__ZNK5dyld313MachOAnalyzer12withVMLayoutER11DiagnosticsU13block_pointerFvRKN6mach_o6LayoutEE", slide);
-  AnalyzeSegmentsLayout_ptr AnalyzeSegmentsLayout_func =
-      (AnalyzeSegmentsLayout_ptr)find_symbol(dyld, "__ZNK5dyld39MachOFile21analyzeSegmentsLayoutERyRb", slide);
-  WithRegions_ptr WithRegions_func = (WithRegions_ptr)find_symbol(
-      dyld, "__ZN5dyld416JustInTimeLoader11withRegionsEPKN5dyld39MachOFileEU13block_pointerFvRKNS1_5ArrayINS_6Loader6RegionEEEE", slide);
-  LoadDependents_ptr LoadDependents_func =
-      (LoadDependents_ptr)find_symbol(dyld, "__ZN5dyld46Loader14loadDependentsER11DiagnosticsRNS_12RuntimeStateERKNS0_11LoadOptionsE", slide);
-  NotifyDebuggerLoad_ptr NotifyDebuggerLoad_func = (NotifyDebuggerLoad_ptr)find_symbol(
-      dyld, "__ZN5dyld412RuntimeState18notifyDebuggerLoadERKNSt3__14spanIPKNS_6LoaderELm18446744073709551615EEE", slide);
-  AddWeakDefs_ptr AddWeakDefs_func = (AddWeakDefs_ptr)find_symbol(
-      dyld, "__ZN5dyld46Loader16addWeakDefsToMapERNS_12RuntimeStateERKNSt3__14spanIPKS0_Lm18446744073709551615EEE", slide);
-  ApplyFixups_ptr ApplyFixups_func = (ApplyFixups_ptr)find_symbol(
-      dyld, "__ZNK5dyld46Loader11applyFixupsER11DiagnosticsRNS_12RuntimeStateERNS_34DyldCacheDataConstLazyScopedWriterEbPN3lsl6VectorINSt3__14pairIPKS0_PKcEEEE", slide);
-  NotifyDtrace_ptr NotifyDtrace_func = (NotifyDtrace_ptr)find_symbol(
-      dyld, "__ZN5dyld412RuntimeState12notifyDtraceERKNSt3__14spanIPKNS_6LoaderELm18446744073709551615EEE", slide);
-  RebindMissingFlatLazySymbols_ptr RebindMissingFlatLazySymbols_func = (RebindMissingFlatLazySymbols_ptr)find_symbol(
-      dyld, "__ZN5dyld412RuntimeState28rebindMissingFlatLazySymbolsERKNSt3__14spanIPKNS_6LoaderELm18446744073709551615EEE", slide);
-  IncDlRefCount_ptr IncDlRefCount_func =
-      (IncDlRefCount_ptr)find_symbol(dyld, "__ZN5dyld412RuntimeState13incDlRefCountEPKNS_6LoaderE", slide);
-  NotifyLoad_ptr NotifyLoad_func = (NotifyLoad_ptr)find_symbol(
-      dyld, "__ZN5dyld412RuntimeState10notifyLoadERKNSt3__14spanIPKNS_6LoaderELm18446744073709551615EEE", slide);
-  RunInitializers_ptr RunInitializers_func =
-      (RunInitializers_ptr)find_symbol(dyld, "__ZNK5dyld46Loader38runInitializersBottomUpPlusUpwardLinksERNS_12RuntimeStateE", slide);
-  HandleFromLoader_ptr HandleFromLoader_func =
-      (HandleFromLoader_ptr)find_symbol(dyld, "__ZN5dyld4L16handleFromLoaderEPKNS_6LoaderEb", slide);
-
-  if (!MMap_func || !Mprotect_func || !JustInTimeLoaderMake2_func || !WithVMLayout_func || !AnalyzeSegmentsLayout_func || !WithRegions_func ||
-      !LoadDependents_func || !NotifyDebuggerLoad_func || !AddWeakDefs_func || !ApplyFixups_func || !NotifyDtrace_func ||
-      !RebindMissingFlatLazySymbols_func || !IncDlRefCount_func || !NotifyLoad_func || !RunInitializers_func ||
-      !HandleFromLoader_func) {
-    return 4;
-  }
-
-  // Optional helpers for working with dyld's internal write-protected allocator/state.
-  MemoryManager_ptr MemoryManager_func = (MemoryManager_ptr)find_symbol(dyld, "__ZN3lsl13MemoryManager13memoryManagerEv", slide);
-  LockGuard_ptr LockGuard_func = (LockGuard_ptr)find_symbol(dyld, "__ZN3lsl13MemoryManager9lockGuardEv", slide);
-  WriteProtect_ptr WriteProtect_func = (WriteProtect_ptr)find_symbol(dyld, "__ZN3lsl13MemoryManager12writeProtectEb", slide);
-  LockUnlock_ptr LockUnlock_func = (LockUnlock_ptr)find_symbol(dyld, "__ZN3lsl4Lock6unlockEv", slide);
-  WithProtectedStack_ptr WithProtectedStack_func =
-      (WithProtectedStack_ptr)find_symbol(dyld, "__ZN3lsl14ProtectedStack18withProtectedStackEU13block_pointerFvvE", slide);
-
-  void* mm = 0;
-  void* protectedStack = 0;
-  if (MemoryManager_func) {
-    mm = MemoryManager_func();
-    if (mm) {
-      protectedStack = *(void**)((char*)mm + 0x30);
-    }
-  }
-
   uint64_t buffer = (uint64_t)buffer_ro;
   uint64_t bufferLen = buffer_size;
 
-  // If the staged buffer is aPLib safe-packed ("AP32"), depack it before handing
-  // it to dyld4's Mach-O analyzers.
+  // If the staged buffer is aPLib safe-packed ("AP32"), depack it before
+  // handing it to dyld.
   if (bufferLen >= APLIB_SAFE_HEADER_MIN) {
     const struct aplib_safe_header* hdr = (const struct aplib_safe_header*)(uintptr_t)buffer;
     if (hdr->tag == APLIB_SAFE_TAG) {
@@ -841,7 +970,7 @@ __attribute__((used, noinline)) int beignet_loader(void* buffer_ro, uint64_t buf
         return 14;
       }
 
-      void* depacked = MMap_func(sdg, 0, (size_t)origSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+      void* depacked = syscall_mmap(0, origSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
       if (depacked == (void*)-1 || depacked == 0) {
         return 15;
       }
@@ -856,6 +985,109 @@ __attribute__((used, noinline)) int beignet_loader(void* buffer_ro, uint64_t buf
     }
   }
 
+#if defined(__x86_64__)
+  // x86_64 path: always use NS* in-memory loading. For MH_DYLIB, normalize to
+  // MH_BUNDLE first to keep loading memory-only.
+  NSCreateObjectFileImageFromMemory_ptr NSCreateObjectFileImageFromMemory_func =
+      (NSCreateObjectFileImageFromMemory_ptr)find_symbol(libdyld, "_NSCreateObjectFileImageFromMemory", slide);
+  NSLinkModule_ptr NSLinkModule_func = (NSLinkModule_ptr)find_symbol(libdyld, "_NSLinkModule", slide);
+  NSLookupSymbolInModule_ptr NSLookupSymbolInModule_func =
+      (NSLookupSymbolInModule_ptr)find_symbol(libdyld, "_NSLookupSymbolInModule", slide);
+  NSAddressOfSymbol_ptr NSAddressOfSymbol_func = (NSAddressOfSymbol_ptr)find_symbol(libdyld, "_NSAddressOfSymbol", slide);
+  NSDestroyObjectFileImage_ptr NSDestroyObjectFileImage_func =
+      (NSDestroyObjectFileImage_ptr)find_symbol(libdyld, "_NSDestroyObjectFileImage", slide);
+
+  if (!NSCreateObjectFileImageFromMemory_func || !NSLinkModule_func || !NSLookupSymbolInModule_func || !NSAddressOfSymbol_func ||
+      !NSDestroyObjectFileImage_func) {
+    return 4;
+  }
+
+  void* nsImage = 0;
+  uint64_t nsImageLen = 0;
+  if (!prepare_ns_memory_image((const void*)(uintptr_t)buffer, bufferLen, &nsImage, &nsImageLen)) {
+    return 16;
+  }
+
+  void* ofi = 0;
+  int ofiRc = NSCreateObjectFileImageFromMemory_func((const void*)nsImage, (size_t)nsImageLen, &ofi);
+  if (ofiRc != 1 || !ofi) {
+    return 16;
+  }
+
+  // NSLINKMODULE_OPTION_RETURN_ON_ERROR (0x4)
+  void* module = NSLinkModule_func(ofi, "mem", 0x4);
+  if (!module) {
+    (void)NSDestroyObjectFileImage_func(ofi);
+    return 17;
+  }
+
+  void* sym = NSLookupSymbolInModule_func(module, entry_symbol);
+  if (!sym) {
+    (void)NSDestroyObjectFileImage_func(ofi);
+    return 12;
+  }
+  void* ns_addr_entry = NSAddressOfSymbol_func(sym);
+  if (!ns_addr_entry) {
+    (void)NSDestroyObjectFileImage_func(ofi);
+    return 12;
+  }
+
+  void (*ns_entry_func)(void) = (void (*)(void))ns_addr_entry;
+  ns_entry_func();
+  (void)NSDestroyObjectFileImage_func(ofi);
+  return 0;
+#endif
+
+  // Resolve the dyld4 internals we need from /usr/lib/dyld.
+  JustInTimeLoaderMake2_ptr JustInTimeLoaderMake2_func = (JustInTimeLoaderMake2_ptr)find_symbol(
+      dyld, "__ZN5dyld416JustInTimeLoader4makeERNS_12RuntimeStateEPKN5dyld39MachOFileEPKcRKNS_6FileIDEybbbtPKN6mach_o6LayoutE", slide);
+  WithVMLayout_ptr WithVMLayout_func =
+      (WithVMLayout_ptr)find_symbol(dyld, "__ZNK5dyld313MachOAnalyzer12withVMLayoutER11DiagnosticsU13block_pointerFvRKN6mach_o6LayoutEE", slide);
+  AnalyzeSegmentsLayout_ptr AnalyzeSegmentsLayout_func =
+      (AnalyzeSegmentsLayout_ptr)find_symbol(dyld, "__ZNK5dyld39MachOFile21analyzeSegmentsLayoutERyRb", slide);
+  WithRegions_ptr WithRegions_func = (WithRegions_ptr)find_symbol(
+      dyld, "__ZN5dyld416JustInTimeLoader11withRegionsEPKN5dyld39MachOFileEU13block_pointerFvRKNS1_5ArrayINS_6Loader6RegionEEEE", slide);
+  LoadDependents_ptr LoadDependents_func =
+      (LoadDependents_ptr)find_symbol(dyld, "__ZN5dyld46Loader14loadDependentsER11DiagnosticsRNS_12RuntimeStateERKNS0_11LoadOptionsE", slide);
+  ApplyFixups_ptr ApplyFixups_func = (ApplyFixups_ptr)find_symbol(
+      dyld, "__ZNK5dyld46Loader11applyFixupsER11DiagnosticsRNS_12RuntimeStateERNS_34DyldCacheDataConstLazyScopedWriterEbPN3lsl6VectorINSt3__14pairIPKS0_PKcEEEE", slide);
+  IncDlRefCount_ptr IncDlRefCount_func =
+      (IncDlRefCount_ptr)find_symbol(dyld, "__ZN5dyld412RuntimeState13incDlRefCountEPKNS_6LoaderE", slide);
+  RunInitializers_ptr RunInitializers_func =
+      (RunInitializers_ptr)find_symbol(dyld, "__ZNK5dyld46Loader38runInitializersBottomUpPlusUpwardLinksERNS_12RuntimeStateE", slide);
+
+  DiagnosticsCtor_ptr DiagnosticsCtor_func = (DiagnosticsCtor_ptr)find_symbol(dyld, "__ZN11DiagnosticsC1Ev", slide);
+  DiagnosticsClearError_ptr DiagnosticsClearError_func = (DiagnosticsClearError_ptr)find_symbol(dyld, "__ZN11Diagnostics10clearErrorEv", slide);
+  DiagnosticsHasError_ptr DiagnosticsHasError_func = (DiagnosticsHasError_ptr)find_symbol(dyld, "__ZNK11Diagnostics8hasErrorEv", slide);
+
+  if (!JustInTimeLoaderMake2_func || !WithVMLayout_func || !AnalyzeSegmentsLayout_func || !WithRegions_func || !LoadDependents_func ||
+      !ApplyFixups_func || !IncDlRefCount_func || !RunInitializers_func || !DiagnosticsCtor_func || !DiagnosticsClearError_func ||
+      !DiagnosticsHasError_func) {
+    return 4;
+  }
+
+#if defined(__aarch64__)
+  // Optional helpers for working with dyld's internal write-protected allocator/state.
+  MemoryManager_ptr MemoryManager_func = (MemoryManager_ptr)find_symbol(dyld, "__ZN3lsl13MemoryManager13memoryManagerEv", slide);
+  LockGuard_ptr LockGuard_func = (LockGuard_ptr)find_symbol(dyld, "__ZN3lsl13MemoryManager9lockGuardEv", slide);
+  WriteProtect_ptr WriteProtect_func = (WriteProtect_ptr)find_symbol(dyld, "__ZN3lsl13MemoryManager12writeProtectEb", slide);
+  LockUnlock_ptr LockUnlock_func = (LockUnlock_ptr)find_symbol(dyld, "__ZN3lsl4Lock6unlockEv", slide);
+  WithProtectedStack_ptr WithProtectedStack_func =
+      (WithProtectedStack_ptr)find_symbol(dyld, "__ZN3lsl14ProtectedStack18withProtectedStackEU13block_pointerFvvE", slide);
+
+  void* mm = 0;
+  void* protectedStack = 0;
+  if (MemoryManager_func) {
+    mm = MemoryManager_func();
+    if (mm) {
+      protectedStack = *(void**)((char*)mm + 0x30);
+    }
+  }
+#elif defined(__x86_64__)
+  // Under Rosetta/x86_64, direct lsl::MemoryManager manipulation is unstable
+  // across dyld builds. Keep the amd64 path on dyld RuntimeState APIs only.
+#endif
+
   // Allocate a region large enough for the mapped Mach-O.
   uintptr_t vmSpace = 0;
   bool hasZeroFill;
@@ -865,7 +1097,7 @@ __attribute__((used, noinline)) int beignet_loader(void* buffer_ro, uint64_t buf
     return 5;
   }
 
-  void* loadAddressP = MMap_func(sdg, 0, (size_t)vmSpace, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+  void* loadAddressP = syscall_mmap(0, vmSpace, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON | MAP_JIT, -1, 0);
   if (loadAddressP == (void*)-1 || loadAddressP == 0) {
     return 6;
   }
@@ -884,19 +1116,19 @@ __attribute__((used, noinline)) int beignet_loader(void* buffer_ro, uint64_t buf
         continue;
       }
       int perms = (int)region.perms;
-      void* segAddress = MMap_func(sdg, (void*)(loadAddress + region.vmOffset), (size_t)region.fileSize, PROT_WRITE,
-                                  MAP_FIXED | MAP_PRIVATE | MAP_ANON, -1, 0);
-      if (segAddress == (void*)-1 || segAddress == 0) {
+      if ((region.vmOffset >= vmSpace) || (region.fileSize > (vmSpace - region.vmOffset))) {
         continue;
       }
+      void* segAddress = (void*)(loadAddress + region.vmOffset);
       memcpy2(segAddress, (const void*)(buffer + sliceOffset + region.fileOffset), (size_t)region.fileSize);
-      Mprotect_func(sdg, segAddress, (uint64_t)region.fileSize, perms);
+      syscall_mprotect(segAddress, region.fileSize, perms);
       ++segIndex;
     }
   });
 
-  // Scratch space for dyld4 structs (avoid __block).
-  void* structspaceP = MMap_func(sdg, 0, 0x1000, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+  // Scratch space for dyld4 structs (avoid __block). Keep this large enough to
+  // host a real dyld Diagnostics object.
+  void* structspaceP = syscall_mmap(0, 0x4000, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
   if (structspaceP == (void*)-1 || structspaceP == 0) {
     return 7;
   }
@@ -911,9 +1143,9 @@ __attribute__((used, noinline)) int beignet_loader(void* buffer_ro, uint64_t buf
   fileid->modTime = 0;
   fileid->isValid = false;
 
-  struct diagnostics* diag = (struct diagnostics*)cursor;
-  cursor += 0x200;
-  diag->_buffer = 0;
+  void* diag = (void*)cursor;
+  cursor += 0x1000;
+  DiagnosticsCtor_func(diag);
 
   struct LoadChain* loadChainMain = (struct LoadChain*)cursor;
   cursor += sizeof(struct LoadChain);
@@ -930,27 +1162,31 @@ __attribute__((used, noinline)) int beignet_loader(void* buffer_ro, uint64_t buf
   cursor += 8;
   *rcSlot = 0;
 
-  void (^doLoad)(void) = ^(){
-    struct Loaded* loaded = (struct Loaded*)((char*)apis + 32);
-    uintptr_t startLoaderCount = loaded->size;
+	  void (^doLoad)(void) = ^(){
+	    struct Loaded* loaded = (struct Loaded*)((char*)apis + 32);
+	    uintptr_t startLoaderCount = loaded->size;
 
-    diag->_buffer = 0;
-    *rtopLoader = 0;
-    WithVMLayout_func((void*)loadAddress, diag, ^(const void* layout) {
-      *rtopLoader = (uint64_t)JustInTimeLoaderMake2_func(apis, (void*)loadAddress, "A", fileid, 0, false, true, false, 0, layout);
-    });
-    void* topLoader = (void*)(uintptr_t)(*rtopLoader);
-    if (!topLoader) {
-      *rcSlot = 8;
-      return;
-    }
-    ((struct PartialLoader*)topLoader)->lateLeaveMapped = 1;
+	    DiagnosticsClearError_func(diag);
+	    *rtopLoader = 0;
+	    WithVMLayout_func((void*)loadAddress, diag, ^(const void* layout) {
+	      *rtopLoader = (uint64_t)JustInTimeLoaderMake2_func(apis, (void*)loadAddress, "A", fileid, 0, false, true, false, 0, layout);
+	    });
+	    if (DiagnosticsHasError_func(diag)) {
+	      *rcSlot = 8;
+	      return;
+	    }
+	    void* topLoader = (void*)(uintptr_t)(*rtopLoader);
+	    if (!topLoader) {
+	      *rcSlot = 8;
+	      return;
+	    }
+	    ((struct PartialLoader*)topLoader)->lateLeaveMapped = 1;
 
     loadChainMain->previous = 0;
     loadChainMain->image = *(void**)((char*)apis + 24);
 
     loadChainCaller->previous = loadChainMain;
-    loadChainCaller->image = &(loaded->elements[0]);
+    loadChainCaller->image = loaded->elements[0];
 
     loadChain->previous = loadChainCaller;
     loadChain->image = topLoader;
@@ -959,41 +1195,37 @@ __attribute__((used, noinline)) int beignet_loader(void* buffer_ro, uint64_t buf
     depOptions->rtldLocal = false;
     depOptions->rtldNoDelete = true;
     depOptions->canBeDylib = true;
-    depOptions->rpathStack = loadChain;
-    depOptions->useFallBackPaths = true;
+	    depOptions->rpathStack = loadChain;
+	    depOptions->useFallBackPaths = true;
 
-    LoadDependents_func(topLoader, diag, apis, depOptions);
-    if (diag->_buffer != 0) {
-      *rcSlot = 9;
-      return;
-    }
+	    DiagnosticsClearError_func(diag);
+	    LoadDependents_func(topLoader, diag, apis, depOptions);
+	    if (DiagnosticsHasError_func(diag)) {
+	      *rcSlot = 9;
+	      return;
+	    }
 
     uintptr_t newLoadersCount = loaded->size - startLoaderCount;
-    void** newLoaders = &loaded->elements[startLoaderCount];
-    struct ArrayOfLoaderPointers newLoadersArray = { newLoaders, newLoadersCount, newLoadersCount };
-    if (newLoadersCount != 0) {
-      NotifyDebuggerLoad_func(apis, &newLoadersArray);
-      if (*(char*)((char*)apis + 0x7f) != '\0') {
-        AddWeakDefs_func(apis, &newLoadersArray);
-      }
+	    void** newLoaders = &loaded->elements[startLoaderCount];
+	    if (newLoadersCount != 0) {
+	      ApplyFixups_ptr ApplyFixups = ApplyFixups_func;
+	      struct DyldCacheDataConstLazyScopedWriter dcdclsw = { apis, false };
+	      for (uintptr_t i = 0; i != newLoadersCount; ++i) {
+	        void* ldr = newLoaders[i];
+	        ApplyFixups(ldr, diag, apis, &dcdclsw, true, 0);
+	      }
+	      if (DiagnosticsHasError_func(diag)) {
+	        *rcSlot = 9;
+	        return;
+	      }
+	    }
 
-      ApplyFixups_ptr ApplyFixups = ApplyFixups_func;
-      struct DyldCacheDataConstLazyScopedWriter dcdclsw = { apis, false };
-      for (uintptr_t i = 0; i != newLoadersCount; ++i) {
-        void* ldr = newLoaders[i];
-        ApplyFixups(ldr, diag, apis, &dcdclsw, true, 0);
-      }
+	    IncDlRefCount_func(apis, topLoader);
+	    RunInitializers_func(topLoader, apis);
+	    *rtopLoader = (uint64_t)topLoader;
+	  };
 
-      NotifyDtrace_func(apis, &newLoadersArray);
-      RebindMissingFlatLazySymbols_func(apis, &newLoadersArray);
-    }
-
-    IncDlRefCount_func(apis, topLoader);
-    NotifyLoad_func(apis, &newLoadersArray);
-    RunInitializers_func(topLoader, apis);
-    *rtopLoader = (uint64_t)topLoader;
-  };
-
+#if defined(__aarch64__)
   void (^doLoadWithWritableDyldState)(void) = ^(){
     bool entered = enter_writable_dyld_state(mm, LockGuard_func, WriteProtect_func, LockUnlock_func);
     doLoad();
@@ -1009,6 +1241,11 @@ __attribute__((used, noinline)) int beignet_loader(void* buffer_ro, uint64_t buf
   } else {
     doLoadWithWritableDyldState();
   }
+#elif defined(__x86_64__)
+  doLoad();
+#else
+  doLoad();
+#endif
 
   if (*rcSlot != 0) {
     return *rcSlot;
@@ -1019,25 +1256,32 @@ __attribute__((used, noinline)) int beignet_loader(void* buffer_ro, uint64_t buf
     return 8;
   }
 
-  void* handle = HandleFromLoader_func((void*)*rtopLoader, false);
-  if (!handle) {
+  // Resolve the entry symbol directly from the loaded image. This avoids
+  // dyld-private handle conversion APIs that vary across versions/architectures.
+  struct mach_header_64* loadedMh = (struct mach_header_64*)(uintptr_t)loadAddress;
+  struct segment_command_64* loadedText = 0;
+  struct load_command* llc = (struct load_command*)((char*)loadedMh + sizeof(*loadedMh));
+  for (uint32_t i = 0; i < loadedMh->ncmds; i++) {
+    if (llc->cmd == LC_SEGMENT_64) {
+      struct segment_command_64* seg = (struct segment_command_64*)llc;
+      if (string_compare(seg->segname, "__TEXT") == 0) {
+        loadedText = seg;
+        break;
+      }
+    }
+    llc = (struct load_command*)((char*)llc + llc->cmdsize);
+  }
+  if (!loadedText) {
     return 10;
   }
-
-  NSLookupSymbolInModule_ptr NSLookupSymbolInModule_func = (NSLookupSymbolInModule_ptr)find_symbol(libdyld, "_NSLookupSymbolInModule", slide);
-  NSAddressOfSymbol_ptr NSAddressOfSymbol_func = (NSAddressOfSymbol_ptr)find_symbol(libdyld, "_NSAddressOfSymbol", slide);
-  if (!NSLookupSymbolInModule_func || !NSAddressOfSymbol_func) {
+  if (loadAddress < loadedText->vmaddr) {
     return 11;
   }
 
-  NSSymbol sym_entry = NSLookupSymbolInModule_func((NSModule)handle, entry_symbol);
-  if (!sym_entry) {
-    return 12;
-  }
-
-  void* addr_entry = NSAddressOfSymbol_func(sym_entry);
+  uint64_t imageSlide = loadAddress - loadedText->vmaddr;
+  void* addr_entry = find_symbol((uint64_t)loadAddress, entry_symbol, imageSlide);
   if (!addr_entry) {
-    return 13;
+    return 12;
   }
 
   void (*entry_func)(void) = (void (*)(void))addr_entry;
