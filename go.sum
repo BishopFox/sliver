@@ -667,6 +667,8 @@ github.com/sliverarmory/beignet v0.0.2 h1:kUpztl/yEKp/U3FFulguC7r+qKjmBIg0AwLKJn
 github.com/sliverarmory/beignet v0.0.2/go.mod h1:xXfTKBJqFBY/pakRFwJ+5+oGiSlg2CiCVUg/76kW1H4=
 github.com/sliverarmory/malasada v0.0.2 h1:X2+7dNGPWfm4ijsr/rMvZlIMalskdCVpBZUYs50RHIA=
 github.com/sliverarmory/malasada v0.0.2/go.mod h1:F96IgTOoX72FU995F+Jip0ni8Z5sXiYOwfmlRGobJkQ=
+github.com/sliverarmory/malasada v0.0.3 h1:b2KG2NhQVfBIIrbP8rGJwmdh7o8LH6NKYKH1DF4No1U=
+github.com/sliverarmory/malasada v0.0.3/go.mod h1:F96IgTOoX72FU995F+Jip0ni8Z5sXiYOwfmlRGobJkQ=
 github.com/sliverarmory/wasm-donut v0.0.3 h1:sldbfAsz1YziULlhDKpU3DY/+/dAfv5gl26qSqHIpzE=
 github.com/sliverarmory/wasm-donut v0.0.3/go.mod h1:D6OLBZBfFm2Tk857vqGqFS9uUi4CXqnqHxKqtONllVk=
 github.com/sliverarmory/wasm-donut v0.0.5 h1:QWnkVy1mTgkmVg0bvJ8X9xqGGX2YI0pbpqt5uA3qw84=
