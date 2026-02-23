@@ -1270,7 +1270,7 @@ github.com/slack-go/slack/slackutilsx
 github.com/sliverarmory/beignet
 github.com/sliverarmory/beignet/internal/aplib
 github.com/sliverarmory/beignet/internal/stager
-# github.com/sliverarmory/malasada v0.0.2
+# github.com/sliverarmory/malasada v0.0.3
 ## explicit; go 1.25.6
 github.com/sliverarmory/malasada
 github.com/sliverarmory/malasada/internal/aplib
