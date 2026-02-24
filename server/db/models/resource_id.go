@@ -38,11 +38,15 @@ type ResourceID struct {
 
 // BeforeCreate - GORM hook
 func (h *ResourceID) BeforeCreate(tx *gorm.DB) (err error) {
+	if h.ID == uuid.Nil {
 		h.ID, err = uuid.NewV4()
 		if err != nil {
 			return err
 		}
-	h.CreatedAt = time.Now()
+	}
+	if h.CreatedAt.IsZero() {
+		h.CreatedAt = time.Now()
+	}
 	return nil
 }
 

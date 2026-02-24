@@ -77,11 +77,15 @@ type ImplantBuild struct {
 
 // BeforeCreate - GORM hook
 func (ib *ImplantBuild) BeforeCreate(tx *gorm.DB) (err error) {
-	ib.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
+	if ib.ID == uuid.Nil {
+		ib.ID, err = uuid.NewV4()
+		if err != nil {
+			return err
+		}
 	}
-	ib.CreatedAt = time.Now()
+	if ib.CreatedAt.IsZero() {
+		ib.CreatedAt = time.Now()
+	}
 	return nil
 }
 
@@ -224,11 +228,15 @@ type ImplantConfig struct {
 
 // BeforeCreate - GORM hook
 func (ic *ImplantConfig) BeforeCreate(tx *gorm.DB) (err error) {
-	ic.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
+	if ic.ID == uuid.Nil {
+		ic.ID, err = uuid.NewV4()
+		if err != nil {
+			return err
+		}
 	}
-	ic.CreatedAt = time.Now()
+	if ic.CreatedAt.IsZero() {
+		ic.CreatedAt = time.Now()
+	}
 	return nil
 }
 
@@ -356,11 +364,15 @@ type CanaryDomain struct {
 
 // BeforeCreate - GORM hook
 func (c *CanaryDomain) BeforeCreate(tx *gorm.DB) (err error) {
-	c.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
+	if c.ID == uuid.Nil {
+		c.ID, err = uuid.NewV4()
+		if err != nil {
+			return err
+		}
 	}
-	c.CreatedAt = time.Now()
+	if c.CreatedAt.IsZero() {
+		c.CreatedAt = time.Now()
+	}
 	return nil
 }
 
@@ -416,11 +428,15 @@ type ImplantProfile struct {
 
 // BeforeCreate - GORM hook
 func (ip *ImplantProfile) BeforeCreate(tx *gorm.DB) (err error) {
-	ip.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
+	if ip.ID == uuid.Nil {
+		ip.ID, err = uuid.NewV4()
+		if err != nil {
+			return err
+		}
 	}
-	ip.CreatedAt = time.Now()
+	if ip.CreatedAt.IsZero() {
+		ip.CreatedAt = time.Now()
+	}
 	return nil
 }
 
