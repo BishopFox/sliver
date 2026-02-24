@@ -1274,7 +1274,7 @@ github.com/sliverarmory/beignet/internal/stager
 ## explicit; go 1.25.6
 github.com/sliverarmory/malasada
 github.com/sliverarmory/malasada/internal/aplib
-# github.com/sliverarmory/wasm-donut v0.0.5
+# github.com/sliverarmory/wasm-donut v0.0.6
 ## explicit; go 1.25.6
 github.com/sliverarmory/wasm-donut
 # github.com/spf13/cast v1.10.0
