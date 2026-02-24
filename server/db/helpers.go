@@ -1104,6 +1104,24 @@ func GetKeyValue(key string) (string, error) {
 	return keyValue.Value, err
 }
 
+func GetKeyValuesByPrefix(prefix string) ([]string, error) {
+	kvs, err := GetKeyValuesByPrefixEx(prefix)
+	if err != nil {
+		return nil, err
+	}
+	values := []string{}
+	for _, kv := range kvs {
+		values = append(values, kv.Value)
+	}
+	return values, nil
+}
+
+func GetKeyValuesByPrefixEx(prefix string) ([]*models.KeyValue, error) {
+	keyValues := []*models.KeyValue{}
+	err := Session().Where("key LIKE ?", prefix+"%").Find(&keyValues).Error
+	return keyValues, err
+}
+
 // SetKeyValue - Set the value for a key/value pair
 func SetKeyValue(key string, value string) error {
 	err := Session().Where(&models.KeyValue{

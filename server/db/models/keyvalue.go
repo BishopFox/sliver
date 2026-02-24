@@ -36,10 +36,14 @@ type KeyValue struct {
 
 // BeforeCreate - GORM hook
 func (k *KeyValue) BeforeCreate(tx *gorm.DB) (err error) {
-	k.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
+	if k.ID == uuid.Nil {
+		k.ID, err = uuid.NewV4()
+		if err != nil {
+			return err
+		}
 	}
-	k.CreatedAt = time.Now()
+	if k.CreatedAt.IsZero() {
+		k.CreatedAt = time.Now()
+	}
 	return nil
 }

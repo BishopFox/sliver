@@ -602,10 +602,10 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 		return
 	}
 
-	serverKeyPair := cryptography.AgeServerKeyPair()
-	sessionInitData, err := cryptography.AgeKeyExFromImplant(serverKeyPair.Private, implantBuild.PeerPrivateKey, data[32:])
+	httpLog.Infof("[*] New HTTP session request, initiating multi-key handshake ...")
+	sessionInitData, err := cryptography.MultiAgeKeyExFromImplant(implantBuild.PeerPrivateKey, data[32:])
 	if err != nil {
-		httpLog.Error("age key exchange decryption failed")
+		httpLog.Errorf("Multi-key age key exchange decryption failed: %v", err)
 		s.defaultHandler(resp, req)
 		return
 	}

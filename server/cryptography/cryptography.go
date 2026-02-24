@@ -37,9 +37,14 @@ import (
 
 	"filippo.io/age"
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/util/encoders"
 	"github.com/bishopfox/sliver/util/minisign"
 	"golang.org/x/crypto/chacha20poly1305"
+)
+
+var (
+	cryptLog = log.NamedLogger("cryptography", "multi-identity")
 )
 
 const (
@@ -376,4 +381,66 @@ func generateServerMinisignPrivateKey() (*minisign.PrivateKey, error) {
 		return nil, err
 	}
 	return &privateKey, err
+}
+
+// try all server keys to dec
+func MultiAgeKeyExFromImplant(implantPrivateKey string, ciphertext []byte) ([]byte, error) {
+	if err := db.CheckKeyExReplay(ciphertext); err != nil {
+		return nil, ErrDecryptFailed
+	}
+
+	keyPairs := AllAgeServerKeyPairs()
+	var plaintext []byte
+	var err error
+	success := false
+
+	for i, kp := range keyPairs {
+		plaintext, err = AgeDecrypt(kp.Private, ciphertext)
+		if err == nil {
+			cryptLog.Infof("[+] SUCCESS: Decrypted handshake using server key %d (Public: %s)", i+1, kp.Public)
+			success = true
+			break
+		}
+	}
+
+	if !success {
+		cryptLog.Errorf("[-] FAILURE: Could not decrypt handshake with any of the %d available server keys", len(keyPairs))
+		return nil, ErrDecryptFailed
+	}
+
+	if len(plaintext) <= sha256Size {
+		return nil, ErrDecryptFailed
+	}
+
+	privateKeyDigest := sha256.Sum256([]byte(implantPrivateKey))
+	mac := hmac.New(sha256.New, privateKeyDigest[:])
+	mac.Write(plaintext[sha256Size:])
+
+	if !hmac.Equal(mac.Sum(nil), plaintext[:sha256Size]) {
+		return nil, ErrDecryptFailed
+	}
+	return plaintext[sha256Size:], nil
+}
+
+// Load all server Age key pairs from DB
+func AllAgeServerKeyPairs() []*AgeKeyPair {
+	keyValues, err := db.GetKeyValuesByPrefixEx(serverAgeKeyPairKey)
+	if err != nil || len(keyValues) == 0 {
+		return []*AgeKeyPair{AgeServerKeyPair()}
+	}
+
+	keyPairs := []*AgeKeyPair{}
+	for _, kv := range keyValues {
+		kp := &AgeKeyPair{}
+		if err := json.Unmarshal([]byte(kv.Value), kp); err == nil {
+			keyPairs = append(keyPairs, kp)
+		} else {
+			cryptLog.Errorf("[!] Failed to unmarshal key %s: %v", kv.Key, err)
+		}
+	}
+
+	if len(keyPairs) == 0 {
+		return []*AgeKeyPair{AgeServerKeyPair()}
+	}
+	return keyPairs
 }
