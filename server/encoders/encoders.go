@@ -28,6 +28,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/assets"
@@ -138,6 +139,41 @@ func init() {
 	})
 }
 
+var (
+	encMapMutex     sync.RWMutex
+	encodersByLogic = map[string]encutil.Encoder{
+		"base64":  Base64,
+		"base58":  Base58,
+		"base32":  Base32,
+		"hex":     Hex,
+		"english": English,
+		"gzip":    Gzip,
+		"png":     PNG,
+		"nop":     Nop,
+	}
+)
+
+func ReloadEncoderMap() {
+	encoders, err := db.ResourceIDByType("encoder")
+	if err != nil {
+		encodersLog.Errorf("Failed to fetch encoders from DB: %s", err)
+		return
+	}
+
+	encMapMutex.Lock()
+	defer encMapMutex.Unlock()
+
+	for _, e := range encoders {
+		if logic, ok := encodersByLogic[e.Name]; ok {
+			EncoderMap[e.Value] = logic
+			if e.Name != "english" && e.Name != "png" && e.Name != "nop" {
+				FastEncoderMap[e.Value] = logic
+			}
+		}
+	}
+	encodersLog.Infof("Reloaded EncoderMap with %d values from database", len(encoders))
+}
+
 // EncoderMap - A map of all available encoders (native and traffic/wasm)
 var EncoderMap = map[uint64]encutil.Encoder{
 	Base64EncoderID:  Base64,
@@ -238,13 +274,19 @@ func loadTrafficEncodersFromFS(encodersFS encutil.EncoderFS, logger func(string)
 			encodersLog.Errorf("%s", fmt.Sprintf("failed to create traffic encoder from '%s': %s", wasmEncoderModuleName, err.Error()))
 			return err
 		}
+		trafficEncoder.Name = wasmEncoderModuleName
 		trafficEncoder.FileName = wasmEncoderFile.Name()
+
+		encMapMutex.Lock()
 		if _, ok := EncoderMap[uint64(wasmEncoderID)]; ok {
+			encMapMutex.Unlock()
 			encodersLog.Errorf("%s", fmt.Sprintf("duplicate encoder id: %d", wasmEncoderID))
 			return fmt.Errorf("duplicate encoder id: %d", wasmEncoderID)
 		}
 		EncoderMap[uint64(wasmEncoderID)] = trafficEncoder
 		TrafficEncoderMap[uint64(wasmEncoderID)] = trafficEncoder
+		encMapMutex.Unlock()
+
 		encodersLog.Info(fmt.Sprintf("loading %s (id: %d, bytes: %d)", wasmEncoderModuleName, wasmEncoderID, len(wasmEncoderData)))
 	}
 	encodersLog.Info(fmt.Sprintf("loaded %d traffic encoders", len(wasmEncoderFiles)))
@@ -257,7 +299,22 @@ func EncoderFromNonce(nonce uint64) (uint64, encutil.Encoder, error) {
 	if encoderID == 0 {
 		return 0, new(encutil.NoEncoder), nil
 	}
-	if encoder, ok := EncoderMap[encoderID]; ok {
+
+	encMapMutex.RLock()
+	encoder, ok := EncoderMap[encoderID]
+	encMapMutex.RUnlock()
+
+	if ok {
+		return encoderID, encoder, nil
+	}
+
+	ReloadEncoderMap()
+
+	encMapMutex.RLock()
+	encoder, ok = EncoderMap[encoderID]
+	encMapMutex.RUnlock()
+
+	if ok {
 		return encoderID, encoder, nil
 	}
 	return 0, nil, fmt.Errorf("invalid encoder id: %d", encoderID)

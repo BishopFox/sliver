@@ -433,6 +433,16 @@ type EncoderAsset struct {
 	Name string
 }
 
+func (ea *EncoderAsset) BeforeCreate(tx *gorm.DB) (err error) {
+	if ea.ID == uuid.Nil {
+		ea.ID, err = uuid.NewV4()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (t *EncoderAsset) ToProtobuf() *commonpb.File {
 	return &commonpb.File{Name: t.Name}
 }

@@ -38,6 +38,7 @@ func CalculateWasmEncoderID(wasmEncoderData []byte) uint64 {
 // TrafficEncoder - Implements the `Encoder` interface using a wasm backend
 type TrafficEncoder struct {
 	ID       uint64
+	Name     string
 	FileName string
 	Data     []byte
 

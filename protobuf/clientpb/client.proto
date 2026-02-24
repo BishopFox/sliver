@@ -1401,5 +1401,5 @@ message ImplantBundle {
 
 message ExportImplantBundle {
   repeated ImplantBundle Bundles = 1;
-  // repeated ResourceID    Encoders = 2;
+  repeated ResourceID    Encoders = 2;
 }

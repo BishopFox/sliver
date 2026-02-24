@@ -25,6 +25,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
+	"github.com/bishopfox/sliver/server/encoders"
 	"github.com/bishopfox/sliver/server/log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -71,7 +72,11 @@ func (rpc *Server) ExportImplant(ctx context.Context, req *clientpb.ExportImplan
 		bundle.Bundles = append(bundle.Bundles, b)
 	}
 
-	migrateLog.Infof("Exported %d implant bundle(s)", len(bundle.Bundles))
+	// --- Export Encoders ---
+	encoders, _ := db.ResourceIDByType("encoder")
+	bundle.Encoders = encoders
+
+	migrateLog.Infof("Exported %d implant bundle(s) and %d encoder(s)", len(bundle.Bundles), len(bundle.Encoders))
 	return bundle, nil
 }
 
@@ -151,17 +156,38 @@ func (rpc *Server) ImportImplant(ctx context.Context, req *clientpb.ExportImplan
 		} else {
 			migrateLog.Debugf("Build %q already exists — skipping", buildName)
 		}
-
-		// ── Resource ID ──────────────────────────────────────────────────────
-		if b.ResID != nil {
-			importResourceID(dbSession, b.ResID)
-		}
-
 		imported++
 	}
 
-	migrateLog.Infof("Import complete — %d imported, %d skipped", imported, skipped)
+	// ── Reload ─────────────────────────────────────────────────────────
+	encoders.ReloadEncoderMap()
+
+	migrateLog.Infof("Import complete — %d bundles processed (%d errors/skipped)", imported, skipped)
 	return &commonpb.Empty{}, nil
+}
+
+// importResourceID - Import a ResourceID record.
+// If the ID already exists, we skip it. This ensures we don't crash
+// while allowing you to merge your old server's IDs into the new one.
+func importResourceID(dbSession *gorm.DB, res *clientpb.ResourceID) {
+	if res == nil {
+		return
+	}
+
+	if res.ID != "" {
+		existing := models.ResourceID{}
+		if err := dbSession.Unscoped().Where("id = ?", res.ID).First(&existing).Error; err == nil {
+			migrateLog.Debugf("ResourceID %q (ID=%s) already exists — skipping", res.Name, res.ID)
+			return
+		}
+	}
+
+	dbRes := models.ResourceIDFromProtobuf(res)
+	if err := dbSession.Create(&dbRes).Error; err != nil {
+		migrateLog.Errorf("Failed to create ResourceID %q: %v", res.Name, err)
+		return
+	}
+	migrateLog.Debugf("Imported ResourceID %q (Value: %d)", res.Name, dbRes.Value)
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -185,29 +211,4 @@ func buildAlreadyExists(id, name string) bool {
 		}
 	}
 	return false
-}
-
-func importResourceID(dbSession *gorm.DB, res *clientpb.ResourceID) {
-	if res == nil {
-		return
-	}
-
-	if res.ID != "" {
-		existing := models.ResourceID{}
-		if err := dbSession.Where("id = ?", res.ID).First(&existing).Error; err == nil {
-			migrateLog.Debugf("ResourceID %q already exists — skipping", res.Name)
-			return
-		}
-	}
-	if _, err := db.ResourceIDByName(res.Name); err == nil {
-		migrateLog.Debugf("ResourceID %q already exists by name — skipping", res.Name)
-		return
-	}
-
-	dbRes := models.ResourceIDFromProtobuf(res)
-	if err := dbSession.Create(&dbRes).Error; err != nil {
-		migrateLog.Errorf("Failed to create ResourceID %q: %v", res.Name, err)
-		return
-	}
-	migrateLog.Debugf("Created ResourceID %q", res.Name)
 }
