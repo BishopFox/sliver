@@ -34,181 +34,109 @@ import (
 
 var migrateLog = log.NamedLogger("rpc", "migrate")
 
-// ExportImplant exports one or all implant builds as a portable bundle.
-// Each bundle carries the config, build metadata, C2 endpoints, and resource ID —
-// everything needed to reconstruct the entry on another server.
 func (rpc *Server) ExportImplant(ctx context.Context, req *clientpb.ExportImplantReq) (*clientpb.ExportImplantBundle, error) {
 	if req.Name == "" && !req.All {
-		return nil, status.Error(codes.InvalidArgument, "either --name <codename> or --all is required")
+		return nil, status.Error(codes.InvalidArgument, "must specify --name <codename> or --all")
 	}
 
 	bundle := &clientpb.ExportImplantBundle{}
 
 	if req.All {
 		builds, err := db.ImplantBuilds()
-		if err != nil {
-			return nil, rpcError(err)
-		}
-
-		for name, config := range builds.Configs {
-			b, err := db.ImplantBuildByName(name)
-			if err != nil {
-				migrateLog.Warnf("Skipping build %q — failed to fetch: %v", name, err)
-				continue
+		if err == nil {
+			for name := range builds.Configs {
+				if b, err := exportSingleBuild(name); err == nil {
+					bundle.Bundles = append(bundle.Bundles, b)
+				}
 			}
-			resID, _ := db.ResourceIDByName(name)
-			bundle.Bundles = append(bundle.Bundles, &clientpb.ImplantBundle{
-				Config: config,
-				Build:  b,
-				C2S:    config.C2,
-				ResID:  resID,
-			})
 		}
 	} else {
-		b, err := exportSingleBuild(req.Name)
-		if err != nil {
+		if b, err := exportSingleBuild(req.Name); err == nil {
+			bundle.Bundles = append(bundle.Bundles, b)
+		} else {
 			return nil, err
 		}
-		bundle.Bundles = append(bundle.Bundles, b)
 	}
 
-	// --- Export Encoders ---
-	encoders, _ := db.ResourceIDByType("encoder")
-	bundle.Encoders = encoders
+	bundle.Encoders, _ = db.ResourceIDByType("encoder")
 
-	migrateLog.Infof("Exported %d implant bundle(s) and %d encoder(s)", len(bundle.Bundles), len(bundle.Encoders))
+	migrateLog.Infof("Exported %d bundle(s) and %d resource(s)", len(bundle.Bundles), len(bundle.Encoders))
 	return bundle, nil
 }
 
+func (rpc *Server) ImportImplant(ctx context.Context, req *clientpb.ExportImplantBundle) (*commonpb.Empty, error) {
+	migrateLog.Infof("Starting import of %d bundle(s) and %d resource(s)", len(req.Bundles), len(req.Encoders))
+	dbSession := db.Session().Debug()
+
+	for _, res := range req.Encoders {
+		importResourceID(dbSession, res)
+	}
+
+	var imported int
+	for _, b := range req.Bundles {
+		if importBundle(dbSession, b) {
+			imported++
+		}
+	}
+
+	// sync the server's memory-mapped encoders
+	encoders.ReloadEncoderMap()
+
+	migrateLog.Infof("Import complete: %d bundles processed", imported)
+	return &commonpb.Empty{}, nil
+}
+
+// helpers 
 func exportSingleBuild(name string) (*clientpb.ImplantBundle, error) {
-	build, err := db.ImplantBuildByName(name)
+	b, err := db.ImplantBuildByName(name)
 	if err != nil {
-		return nil, status.Errorf(codes.NotFound, "no build found with name %q", name)
+		return nil, status.Errorf(codes.NotFound, "build %q not found", name)
 	}
-
-	config, err := db.ImplantConfigByID(build.ImplantConfigID)
-	if err != nil {
-		migrateLog.Errorf("Failed to load config for build %q (configID=%s): %v", name, build.ImplantConfigID, err)
-		return nil, status.Errorf(codes.Internal, "config missing for build %q — check server logs", name)
-	}
-
+	config, _ := db.ImplantConfigByID(b.ImplantConfigID)
 	resID, _ := db.ResourceIDByName(name)
 	return &clientpb.ImplantBundle{
 		Config: config,
-		Build:  build,
+		Build:  b,
 		C2S:    config.C2,
 		ResID:  resID,
 	}, nil
 }
 
-// ImportImplant imports a bundle produced by ExportImplant.
-// Existing records (matched by ID or name) are left untouched — this is
-// intentionally idempotent so re-running an import is always safe.
-func (rpc *Server) ImportImplant(ctx context.Context, req *clientpb.ExportImplantBundle) (*commonpb.Empty, error) {
-	if len(req.Bundles) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "bundle is empty — nothing to import")
-	}
-
-	migrateLog.Infof("Starting import of %d bundle(s)", len(req.Bundles))
-
-	dbSession := db.Session().Debug()
-
-	var imported, skipped int
-
-	for _, b := range req.Bundles {
-		if b.Config == nil || b.Build == nil {
-			migrateLog.Warn("Skipping malformed bundle — nil config or build")
-			skipped++
-			continue
-		}
-
-		buildName := b.Build.Name
-		migrateLog.Debugf("Processing bundle for %q (configID=%s)", buildName, b.Config.ID)
-
-		// ── Config ──────────────────────────────────────────────────────────
-		if !configExists(b.Config.ID) {
-			if len(b.Config.C2) == 0 {
-				b.Config.C2 = b.C2S
-			}
-
-			dbConfig := models.ImplantConfigFromProtobuf(b.Config)
-			dbConfig.ImplantBuilds = nil
-
-			if err := dbSession.Create(&dbConfig).Error; err != nil {
-				migrateLog.Errorf("Failed to create config %s for build %q: %v", dbConfig.ID, buildName, err)
-				skipped++
-				continue
-			}
-			migrateLog.Debugf("Created config %s", dbConfig.ID)
-		} else {
-			migrateLog.Debugf("Config %s already exists — skipping", b.Config.ID)
-		}
-
-		// ── Build ────────────────────────────────────────────────────────────
-		if !buildAlreadyExists(b.Build.ID, buildName) {
-			dbBuild := models.ImplantBuildFromProtobuf(b.Build)
-			if err := dbSession.Create(&dbBuild).Error; err != nil {
-				migrateLog.Errorf("Failed to create build %q: %v", buildName, err)
-				skipped++
-				continue
-			}
-			migrateLog.Debugf("Created build %q", buildName)
-		} else {
-			migrateLog.Debugf("Build %q already exists — skipping", buildName)
-		}
-		imported++
-	}
-
-	// ── Reload ─────────────────────────────────────────────────────────
-	encoders.ReloadEncoderMap()
-
-	migrateLog.Infof("Import complete — %d bundles processed (%d errors/skipped)", imported, skipped)
-	return &commonpb.Empty{}, nil
-}
-
-// importResourceID - Import a ResourceID record.
-// If the ID already exists, we skip it. This ensures we don't crash
-// while allowing you to merge your old server's IDs into the new one.
-func importResourceID(dbSession *gorm.DB, res *clientpb.ResourceID) {
-	if res == nil {
-		return
-	}
-
-	if res.ID != "" {
-		existing := models.ResourceID{}
-		if err := dbSession.Unscoped().Where("id = ?", res.ID).First(&existing).Error; err == nil {
-			migrateLog.Debugf("ResourceID %q (ID=%s) already exists — skipping", res.Name, res.ID)
-			return
-		}
-	}
-
-	dbRes := models.ResourceIDFromProtobuf(res)
-	if err := dbSession.Create(&dbRes).Error; err != nil {
-		migrateLog.Errorf("Failed to create ResourceID %q: %v", res.Name, err)
-		return
-	}
-	migrateLog.Debugf("Imported ResourceID %q (Value: %d)", res.Name, dbRes.Value)
-}
-
-// ── helpers ──────────────────────────────────────────────────────────────────
-func configExists(id string) bool {
-	if id == "" {
+func importBundle(dbSession *gorm.DB, b *clientpb.ImplantBundle) bool {
+	if b.Config == nil || b.Build == nil {
 		return false
 	}
-	_, err := db.ImplantConfigByID(id)
-	return err == nil
+
+	// implant_configs ──────────────────────────────────────────────────────────
+	if _, err := db.ImplantConfigByID(b.Config.ID); err != nil {
+		dbCfg := models.ImplantConfigFromProtobuf(b.Config)
+		dbCfg.ImplantBuilds = nil
+		dbSession.Create(&dbCfg)
+	}
+
+	// implant_builds ──────────────────────────────────────────────────────────
+	if _, err := db.ImplantBuildByID(b.Build.ID); err != nil {
+		dbBuild := models.ImplantBuildFromProtobuf(b.Build)
+		dbSession.Create(&dbBuild)
+	}
+
+	// resource_ids ──────────────────────────────────────────────────────────
+	if b.ResID != nil {
+		importResourceID(dbSession, b.ResID)
+	}
+	return true
 }
 
-func buildAlreadyExists(id, name string) bool {
-	if id != "" {
-		if _, err := db.ImplantBuildByID(id); err == nil {
-			return true
-		}
+func importResourceID(dbSession *gorm.DB, res *clientpb.ResourceID) {
+	if res == nil || res.ID == "" {
+		return
 	}
-	if name != "" {
-		if _, err := db.ImplantBuildByName(name); err == nil {
-			return true
-		}
+	// skip if ID already exists
+	var existing models.ResourceID
+	if err := dbSession.Unscoped().Where("id = ?", res.ID).First(&existing).Error; err == nil {
+		return
 	}
-	return false
+	dbRes := models.ResourceIDFromProtobuf(res)
+	dbSession.Create(dbRes)
+	migrateLog.Debugf("Imported ResourceID %q (%s)", res.Name, res.Type)
 }
