@@ -667,8 +667,8 @@ github.com/sliverarmory/beignet v0.0.3 h1:ssR6AK9lirVulHZhQMyMmVAi0FcFwWxlh9LwKC
 github.com/sliverarmory/beignet v0.0.3/go.mod h1:xXfTKBJqFBY/pakRFwJ+5+oGiSlg2CiCVUg/76kW1H4=
 github.com/sliverarmory/malasada v0.0.3 h1:b2KG2NhQVfBIIrbP8rGJwmdh7o8LH6NKYKH1DF4No1U=
 github.com/sliverarmory/malasada v0.0.3/go.mod h1:F96IgTOoX72FU995F+Jip0ni8Z5sXiYOwfmlRGobJkQ=
-github.com/sliverarmory/wasm-donut v0.0.6 h1:R02hhZNjZptqCyBRJYS/dMbHkugFvpevVpVFR50xMzQ=
-github.com/sliverarmory/wasm-donut v0.0.6/go.mod h1:D6OLBZBfFm2Tk857vqGqFS9uUi4CXqnqHxKqtONllVk=
+github.com/sliverarmory/wasm-donut v0.0.3 h1:sldbfAsz1YziULlhDKpU3DY/+/dAfv5gl26qSqHIpzE=
+github.com/sliverarmory/wasm-donut v0.0.3/go.mod h1:D6OLBZBfFm2Tk857vqGqFS9uUi4CXqnqHxKqtONllVk=
 github.com/sony/sonyflake v1.0.0 h1:MpU6Ro7tfXwgn2l5eluf9xQvQJDROTBImNCfRXn/YeM=
 github.com/sony/sonyflake v1.0.0/go.mod h1:Jv3cfhf/UFtolOTTRd3q4Nl6ENqM+KfyZ5PseKfZGF4=
 github.com/spf13/cast v1.4.1/go.mod h1:Qx5cxh0v+4UWYiBimWS+eyWzqEqokIECu5etghLkUJE=

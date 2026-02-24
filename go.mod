@@ -48,7 +48,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/sliverarmory/beignet v0.0.3
 	github.com/sliverarmory/malasada v0.0.3
-	github.com/sliverarmory/wasm-donut v0.0.6
+	github.com/sliverarmory/wasm-donut v0.0.3
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1
