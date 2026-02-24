@@ -218,7 +218,7 @@ func ImplantBuildByID(id string) (*clientpb.ImplantBuild, error) {
 	uuid, _ := uuid.FromString(id)
 	err := Session().Where(&models.ImplantBuild{
 		ID: uuid,
-	}).Find(&build).Error
+	}).First(&build).Error
 	if err != nil {
 		return nil, err
 	}

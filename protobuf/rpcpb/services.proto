@@ -96,6 +96,12 @@ service SliverRPC {
   rpc StageImplantBuild(clientpb.ImplantStageReq)
       returns (commonpb.Empty);
 
+  // *** Implant Migration ***
+  rpc ExportImplant(clientpb.ExportImplantReq)
+      returns (clientpb.ExportImplantBundle);
+  rpc ImportImplant(clientpb.ExportImplantBundle)
+      returns (commonpb.Empty);
+
   // *** HTTP C2 Profiles ***
   rpc GetHTTPC2Profiles(commonpb.Empty) returns (clientpb.HTTPC2Configs);
   rpc GetHTTPC2ProfileByName(clientpb.C2ProfileReq) returns (clientpb.HTTPC2Config);

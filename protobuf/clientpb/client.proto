@@ -1385,3 +1385,21 @@ message CertificateAuthorityData {
 message CertificateAuthorityInfo {
   repeated CertificateAuthorityData info = 1;
 }
+
+// [ Implant Migration ] ----------------------------------------
+message ExportImplantReq {
+  string Name = 1; // codename of a specific build (mutually exclusive with All)
+  bool   All  = 2; // export all builds
+}
+
+message ImplantBundle {
+  ImplantConfig Config = 1;
+  ImplantBuild  Build  = 2;
+  repeated ImplantC2 C2s = 3;
+  ResourceID ResID = 4;
+}
+
+message ExportImplantBundle {
+  repeated ImplantBundle Bundles = 1;
+  // repeated ResourceID    Encoders = 2;
+}

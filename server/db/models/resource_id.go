@@ -38,10 +38,10 @@ type ResourceID struct {
 
 // BeforeCreate - GORM hook
 func (h *ResourceID) BeforeCreate(tx *gorm.DB) (err error) {
-	h.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+		h.ID, err = uuid.NewV4()
+		if err != nil {
+			return err
+		}
 	h.CreatedAt = time.Now()
 	return nil
 }
@@ -53,5 +53,15 @@ func (rid *ResourceID) ToProtobuf() *clientpb.ResourceID {
 		Type:  rid.Type,
 		Name:  rid.Name,
 		Value: rid.Value,
+	}
+}
+
+func ResourceIDFromProtobuf(pb *clientpb.ResourceID) *ResourceID {
+	id, _ := uuid.FromString(pb.ID)
+	return &ResourceID{
+		ID:    id,
+		Type:  pb.Type,
+		Name:  pb.Name,
+		Value: pb.Value,
 	}
 }
