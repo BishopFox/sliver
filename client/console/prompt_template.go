@@ -1,5 +1,23 @@
 package console
 
+/*
+	Sliver Implant Framework
+	Copyright (C) 2026  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 import (
 	"bytes"
 	"fmt"
@@ -9,12 +27,11 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/client/theme"
-	"github.com/charmbracelet/lipgloss"
 )
 
 type promptPalette struct {
-	Default lipgloss.Color
-	Mods    map[int]lipgloss.Color
+	Default string
+	Mods    map[int]string
 }
 
 type promptColors struct {
@@ -89,11 +106,11 @@ var promptTemplateCache struct {
 
 func toPromptPalette(p theme.Palette) promptPalette {
 	out := promptPalette{
-		Default: lipgloss.Color(p.Default),
-		Mods:    map[int]lipgloss.Color{},
+		Default: p.Default,
+		Mods:    map[int]string{},
 	}
 	for k, v := range p.Mods {
-		out.Mods[k] = lipgloss.Color(v)
+		out.Mods[k] = v
 	}
 	return out
 }

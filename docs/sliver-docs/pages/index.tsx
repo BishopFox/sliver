@@ -2,7 +2,9 @@ import AsciinemaPlayer from "@/components/asciinema";
 import { SliversIcon } from "@/components/icons/slivers";
 import TutorialCard from "@/components/tutorial-card";
 import { Themes } from "@/util/themes";
-import { Card, CardBody, CardHeader, Divider } from "@heroui/react";
+import { faDownload, faExternalLink } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { Button, Card, CardBody, CardHeader, Divider, Link } from "@heroui/react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/router";
 import React from "react";
@@ -64,6 +66,32 @@ export default function Home() {
               making it an indispensable tool for conducting comprehensive
               offensive security operations.
             </p>
+            <div className="mt-4 flex w-full gap-3">
+              <Button
+                className="flex-1"
+                color="primary"
+                variant="shadow"
+                as={Link}
+                href="https://github.com/BishopFox/sliver/releases/latest"
+                target="_blank"
+                rel="noopener noreferrer"
+                startContent={<FontAwesomeIcon icon={faDownload} />}
+              >
+                Download Latest Release
+              </Button>
+              <Button
+                className="flex-1"
+                color="secondary"
+                variant="ghost"
+                as={Link}
+                href="https://github.com/sliverarmory"
+                target="_blank"
+                rel="noopener noreferrer"
+                endContent={<FontAwesomeIcon icon={faExternalLink} />}
+              >
+                Visit the Armory
+              </Button>
+            </div>
           </CardBody>
         </Card>
       </div>

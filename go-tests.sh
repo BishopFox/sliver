@@ -46,6 +46,13 @@ else
     exit 1
 fi
 
+# client / command / generate
+if go test -tags=client,$TAGS ./client/command/generate ; then
+    :
+else
+    exit 1
+fi
+
 # client / credentials
 if go test -tags=client,$TAGS ./client/credentials ; then
     :
@@ -240,4 +247,12 @@ if [ "$SKIP_GENERATE" -eq 0 ]; then
     fi
 else
     echo "Skipping ./server/generate tests (--skip-generate)"
+fi
+
+# server / rpc / spoof metadata
+if go test -vet=off -tags=server,$TAGS ./server/rpc -run '^TestGenerateSpoofMetadataAppliesPETimestampOverBufnet$' -count=1 -timeout 30m ; then
+    :
+else
+    cat ~/.sliver/logs/sliver.log 2>/dev/null || true
+    exit 1
 fi

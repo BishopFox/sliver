@@ -33,6 +33,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.BindFlagCompletions(updateCmd, func(comp *carapace.ActionMap) {
 		(*comp)["proxy"] = completers.LocalProxyCompleter()
 	})
+	completers.RegisterLocalFilePathFlagCompletion(updateCmd, "save")
 
 	versionCmd := &cobra.Command{
 		Use:   consts.VersionStr,

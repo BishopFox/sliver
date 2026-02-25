@@ -1,8 +1,28 @@
 package console
 
+/*
+	Sliver Implant Framework
+	Copyright (C) 2026  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 import (
+	"image/color"
+
+	"charm.land/lipgloss/v2"
 	"github.com/bishopfox/sliver/client/theme"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // TextStyle is the shared styling type for the client/server consoles.
@@ -69,13 +89,13 @@ func init() {
 // Note: this is intentionally a "global theme" for the console, since most of
 // the existing code expects these styles to be package-level values.
 func ApplyTheme(t theme.Theme) {
-	palette := func(p theme.Palette) lipgloss.Color {
+	palette := func(p theme.Palette) color.Color {
 		if p.Default != "" {
 			return lipgloss.Color(p.Default)
 		}
 		return lipgloss.Color("#ffffff")
 	}
-	paletteMod := func(p theme.Palette, mod int) lipgloss.Color {
+	paletteMod := func(p theme.Palette, mod int) color.Color {
 		if mod != 0 {
 			if v, ok := p.Mods[mod]; ok && v != "" {
 				return lipgloss.Color(v)

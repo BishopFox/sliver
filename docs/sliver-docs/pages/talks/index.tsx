@@ -1,7 +1,7 @@
 import Youtube from "@/components/youtube";
 import { faChevronRight } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Button, Card, CardFooter, CardHeader } from "@heroui/react";
+import { Accordion, AccordionItem, Button, Card, CardFooter } from "@heroui/react";
 import { NextPage } from "next";
 import Head from "next/head";
 import React from "react";
@@ -13,9 +13,9 @@ type Talk = {
 };
 
 type TalkSection = {
-  title: "Workshops" | "General Tradecraft";
+  key: "workshops" | "general-tradecraft" | "community";
+  title: "Workshops" | "General Tradecraft" | "Community";
   description: string;
-  badge: string;
   talks: Talk[];
 };
 
@@ -50,18 +50,52 @@ const generalTradecraftTalks: Talk[] = [
   }
 ];
 
+const communityTalks: Talk[] = [
+  {
+    title: "Community Guide Video 1",
+    description: "Linked from Community Guides.",
+    url: "https://youtu.be/3R6WKUgN0K4?t=456",
+  },
+  {
+    title: "Community Guide Video 2",
+    description: "Linked from Community Guides.",
+    url: "https://www.youtube.com/watch?v=QO_1UMaiWHk",
+  },
+  {
+    title: "Community Guide Video 3",
+    description: "Linked from Community Guides.",
+    url: "https://www.youtube.com/watch?v=izMMmOaLn9g",
+  },
+  {
+    title: "Community Guide Video 4",
+    description: "Linked from Community Guides.",
+    url: "https://www.youtube.com/watch?v=qIbrozlf2wM",
+  },
+  {
+    title: "Community Guide Video 5",
+    description: "Linked from Community Guides.",
+    url: "https://www.youtube.com/watch?v=CKfjLnEMfvI",
+  },
+];
+
 const talkSections: TalkSection[] = [
   {
+    key: "workshops",
     title: "Workshops",
     description: "Hands-on workshop recordings focused on Sliver workflows.",
-    badge: "Workshop",
     talks: workshopTalks,
   },
   {
+    key: "general-tradecraft",
     title: "General Tradecraft",
     description: "Broader offensive engineering and tradecraft talks.",
-    badge: "Tradecraft",
     talks: generalTradecraftTalks,
+  },
+  {
+    key: "community",
+    title: "Community",
+    description: "Community-created videos listed in Community Guides.",
+    talks: communityTalks,
   },
 ];
 
@@ -80,25 +114,23 @@ const TalksIndexPage: NextPage = () => {
         <title>Sliver Talks</title>
       </Head>
       <div className="mt-6 px-4 pb-8 sm:px-6 lg:px-12">
-        {talkSections.map((section, sectionIndex) => {
-          return (
-            <section
-              key={section.title}
-              className={sectionIndex === 0 ? "" : "mt-8"}
+        <Accordion
+          selectionMode="multiple"
+          defaultExpandedKeys={["workshops", "general-tradecraft"]}
+          showDivider={false}
+          className="px-0"
+        >
+          {talkSections.map((section) => (
+            <AccordionItem
+              key={section.key}
               aria-label={section.title}
+              title={section.title}
+              subtitle={section.description}
             >
-              <div className="mb-4">
-                <h2 className="text-3xl font-semibold">{section.title}</h2>
-                <p className="mt-2 text-sm text-default-500">{section.description}</p>
-              </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-9">
                 {section.talks.map((talk) => (
                   <div key={talk.url} className="sm:col-span-1 lg:col-span-3">
                     <Card isFooterBlurred className="relative z-0 overflow-hidden">
-                      <CardHeader className="absolute z-10 top-1 flex-col items-end">
-
-                      </CardHeader>
-
                       <Youtube
                         className="w-full"
                         url={talk.url}
@@ -128,9 +160,9 @@ const TalksIndexPage: NextPage = () => {
                   </div>
                 ))}
               </div>
-            </section>
-          );
-        })}
+            </AccordionItem>
+          ))}
+        </Accordion>
       </div>
     </>
   );

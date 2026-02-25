@@ -1,6 +1,7 @@
 package dllhijack
 
 import (
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -37,6 +38,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		(*comp)["file"] = carapace.ActionFiles()
 		(*comp)["profile"] = generate.ProfileNameCompleter(con)
 	})
+	completers.RegisterLocalFilePathFlagCompletions(dllhijackCmd, "reference-file", "file")
 	carapace.Gen(dllhijackCmd).PositionalCompletion(carapace.ActionValues().Usage("Path to upload the DLL to on the remote system"))
 
 	return []*cobra.Command{dllhijackCmd}

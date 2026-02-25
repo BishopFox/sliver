@@ -26,6 +26,7 @@
     "framer-motion": "^12.23.22",
     "fuse.js": "^7.1.0",
     "lunr": "^2.3.9",
+    "mermaid": "^11.12.2",
     "next": "^16.1.6",
     "next-themes": "^0.4.6",
     "react": "^19.2.0",

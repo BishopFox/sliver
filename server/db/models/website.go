@@ -56,7 +56,7 @@ func (w *Website) ToProtobuf(webContentDir string) *clientpb.Website {
 		if err != nil {
 			continue
 		}
-		WebContents[webcontent.ID.String()] = webcontent.ToProtobuf(&contents)
+		WebContents[webcontent.Path] = webcontent.ToProtobuf(&contents)
 	}
 	return &clientpb.Website{
 		ID:       w.ID.String(),

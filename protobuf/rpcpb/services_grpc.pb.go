@@ -275,6 +275,7 @@ type SliverRPCClient interface {
 	HostIOCRm(ctx context.Context, in *clientpb.IOC, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	// *** Implants ***
 	Generate(ctx context.Context, in *clientpb.GenerateReq, opts ...grpc.CallOption) (*clientpb.Generate, error)
+	GenerateSpoofMetadata(ctx context.Context, in *clientpb.GenerateSpoofMetadataReq, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	GenerateExternal(ctx context.Context, in *clientpb.ExternalGenerateReq, opts ...grpc.CallOption) (*clientpb.ExternalImplantConfig, error)
 	GenerateExternalSaveBuild(ctx context.Context, in *clientpb.ExternalImplantBinary, opts ...grpc.CallOption) (*commonpb.Empty, error)
 	GenerateExternalGetBuildConfig(ctx context.Context, in *clientpb.ImplantBuild, opts ...grpc.CallOption) (*clientpb.ExternalImplantConfig, error)
@@ -900,6 +901,15 @@ func (c *sliverRPCClient) Generate(ctx context.Context, in *clientpb.GenerateReq
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(clientpb.Generate)
 	err := c.cc.Invoke(ctx, SliverRPC_Generate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sliverRPCClient) GenerateSpoofMetadata(ctx context.Context, in *clientpb.GenerateSpoofMetadataReq, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+	out := new(commonpb.Empty)
+	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GenerateSpoofMetadata", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2413,6 +2423,7 @@ type SliverRPCServer interface {
 	HostIOCRm(context.Context, *clientpb.IOC) (*commonpb.Empty, error)
 	// *** Implants ***
 	Generate(context.Context, *clientpb.GenerateReq) (*clientpb.Generate, error)
+	GenerateSpoofMetadata(context.Context, *clientpb.GenerateSpoofMetadataReq) (*commonpb.Empty, error)
 	GenerateExternal(context.Context, *clientpb.ExternalGenerateReq) (*clientpb.ExternalImplantConfig, error)
 	GenerateExternalSaveBuild(context.Context, *clientpb.ExternalImplantBinary) (*commonpb.Empty, error)
 	GenerateExternalGetBuildConfig(context.Context, *clientpb.ImplantBuild) (*clientpb.ExternalImplantConfig, error)
@@ -2718,6 +2729,9 @@ func (UnimplementedSliverRPCServer) HostIOCRm(context.Context, *clientpb.IOC) (*
 }
 func (UnimplementedSliverRPCServer) Generate(context.Context, *clientpb.GenerateReq) (*clientpb.Generate, error) {
 	return nil, status.Error(codes.Unimplemented, "method Generate not implemented")
+}
+func (UnimplementedSliverRPCServer) GenerateSpoofMetadata(context.Context, *clientpb.GenerateSpoofMetadataReq) (*commonpb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GenerateSpoofMetadata not implemented")
 }
 func (UnimplementedSliverRPCServer) GenerateExternal(context.Context, *clientpb.ExternalGenerateReq) (*clientpb.ExternalImplantConfig, error) {
 	return nil, status.Error(codes.Unimplemented, "method GenerateExternal not implemented")
@@ -3976,6 +3990,24 @@ func _SliverRPC_Generate_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).Generate(ctx, req.(*clientpb.GenerateReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SliverRPC_GenerateSpoofMetadata_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(clientpb.GenerateSpoofMetadataReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SliverRPCServer).GenerateSpoofMetadata(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcpb.SliverRPC/GenerateSpoofMetadata",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SliverRPCServer).GenerateSpoofMetadata(ctx, req.(*clientpb.GenerateSpoofMetadataReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -6661,6 +6693,10 @@ var SliverRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Generate",
 			Handler:    _SliverRPC_Generate_Handler,
+		},
+		{
+			MethodName: "GenerateSpoofMetadata",
+			Handler:    _SliverRPC_GenerateSpoofMetadata_Handler,
 		},
 		{
 			MethodName: "GenerateExternal",

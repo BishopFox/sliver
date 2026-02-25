@@ -24,11 +24,12 @@ package help
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 
+	"charm.land/lipgloss/v2"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/theme"
-	"github.com/charmbracelet/lipgloss"
 )
 
 const (
@@ -1432,14 +1433,14 @@ type helpStyleState struct {
 	bold      bool
 	underline bool
 	fgSet     bool
-	fg        lipgloss.Color
+	fg        color.Color
 }
 
 func (s *helpStyleState) reset() {
 	s.bold = false
 	s.underline = false
 	s.fgSet = false
-	s.fg = ""
+	s.fg = nil
 }
 
 func (s *helpStyleState) apply(token string) bool {

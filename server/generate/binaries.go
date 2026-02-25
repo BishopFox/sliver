@@ -645,12 +645,6 @@ func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clie
 		}
 	}
 
-	if len(config.SpoofData) > 0 {
-		if err := SpoofMetadata(dest, config.SpoofData); err != nil {
-			buildLog.Errorf("failed to spoof metadata: %v", err)
-		}
-	}
-
 	return dest, err
 }
 
@@ -699,12 +693,6 @@ func SliverExecutable(name string, build *clientpb.ImplantBuild, config *clientp
 	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "", tags, ldflags, gcFlags, asmFlags)
 	if err != nil {
 		return "", err
-	}
-
-	if len(config.SpoofData) > 0 {
-		if err := SpoofMetadata(dest, config.SpoofData); err != nil {
-			buildLog.Errorf("failed to spoof metadata: %v", err)
-		}
 	}
 
 	return dest, err
@@ -1061,6 +1049,14 @@ func GenerateConfig(name string, implantConfig *clientpb.ImplantConfig) (*client
 
 	// Generate wg Keys as needed
 	if models.IsC2Enabled([]string{"wg"}, implantConfig.C2) {
+		if strings.TrimSpace(implantConfig.WGPeerTunIP) == "" {
+			uniqueIP, err := GenerateUniqueIP()
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate wireguard peer tunnel IP: %w", err)
+			}
+			implantConfig.WGPeerTunIP = uniqueIP.String()
+		}
+
 		implantPrivKey, _, err := certs.ImplantGenerateWGKeys(implantConfig.WGPeerTunIP)
 		if err != nil {
 			return nil, err

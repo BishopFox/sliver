@@ -1,6 +1,7 @@
 package c2profiles
 
 import (
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/command/help"
@@ -27,6 +28,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("file", "f", "", "Path to C2 configuration file to import")
 		f.BoolP("overwrite", "o", false, "Overwrite profile if it exists")
 	})
+	completers.RegisterLocalFilePathFlagCompletion(importC2ProfileCmd, "file")
 
 	exportC2ProfileCmd := &cobra.Command{
 		Use:   consts.ExportC2ProfileStr,
@@ -40,6 +42,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("file", "f", "", "Path to file to export C2 configuration to")
 		f.StringP("name", "n", consts.DefaultC2Profile, "HTTP C2 Profile name")
 	})
+	completers.RegisterLocalFilePathFlagCompletion(exportC2ProfileCmd, "file")
 	flags.BindFlagCompletions(exportC2ProfileCmd, func(comp *carapace.ActionMap) {
 		(*comp)["name"] = generate.HTTPC2Completer(con)
 	})
@@ -76,6 +79,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("name", "n", "", "HTTP C2 Profile name to save C2Profile as")
 		f.StringP("template", "t", consts.DefaultC2Profile, "HTTP C2 Profile to use as a template for the new profile")
 	})
+	completers.RegisterLocalFilePathFlagCompletion(generateC2ProfileCmd, "file")
 
 	flags.BindFlagCompletions(generateC2ProfileCmd, func(comp *carapace.ActionMap) {
 		(*comp)["template"] = generate.HTTPC2Completer(con)

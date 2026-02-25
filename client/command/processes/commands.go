@@ -1,6 +1,7 @@
 package processes
 
 import (
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -56,6 +57,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.BindFlagCompletions(procdumpCmd, func(comp *carapace.ActionMap) {
 		(*comp)["save"] = carapace.ActionFiles()
 	})
+	completers.RegisterLocalFilePathFlagCompletion(procdumpCmd, "save")
 
 	terminateCmd := &cobra.Command{
 		Use:   consts.TerminateStr,

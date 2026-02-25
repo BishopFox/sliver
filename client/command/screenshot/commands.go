@@ -1,6 +1,7 @@
 package screenshot
 
 import (
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
@@ -31,6 +32,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.BindFlagCompletions(screenshotCmd, func(comp *carapace.ActionMap) {
 		(*comp)["save"] = carapace.ActionFiles()
 	})
+	completers.RegisterLocalFilePathFlagCompletion(screenshotCmd, "save")
 
 	return []*cobra.Command{screenshotCmd}
 }

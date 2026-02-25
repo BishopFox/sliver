@@ -1,4 +1,4 @@
-You'll want to compile Sliver from a MacOS or Linux machine. Compiling from native Windows is possible in theory, but none of the scripts are designed to run on Windows. You can cross-compile the Windows server/client binaries from a better operating systems like Linux or MacOS. If you only have a Windows machine, you should be able to use the Windows Subsystem for Linux (WSL).
+You'll want to compile Sliver from a MacOS or Linux machine. Compiling from native Windows is possible in theory, but none of the scripts are designed to run on Windows. You can cross-compile the Windows server/client binaries from a better operating system like Linux or MacOS. If you only have a Windows machine, you should be able to use the Windows Subsystem for Linux (WSL).
 
 To compile from source you'll need:
 

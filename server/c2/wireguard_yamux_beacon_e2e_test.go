@@ -4,6 +4,7 @@ package c2_test
 
 import (
 	"context"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -316,7 +317,9 @@ func startTestWGBeacon(t *testing.T, conn net.Conn, beaconID string) *wgTestBeac
 		t.Fatalf("write yamux preface: %v", err)
 	}
 
-	muxSession, err := yamux.Client(conn, nil)
+	cfg := yamux.DefaultConfig()
+	cfg.LogOutput = io.Discard
+	muxSession, err := yamux.Client(conn, cfg)
 	if err != nil {
 		t.Fatalf("start yamux client session: %v", err)
 	}
