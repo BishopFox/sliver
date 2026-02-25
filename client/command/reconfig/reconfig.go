@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/spf13/cobra"
@@ -94,16 +95,23 @@ func ReconfigCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		if activeC2 != "" {
 			currentURI, err := url.Parse(activeC2)
 			if err == nil {
-				// must be the same protocol
-				if newURI.Scheme != currentURI.Scheme {
+				// must be the same transport
+				isHTTP := func(s string) bool { return s == "http" || s == "https" }
+				if newURI.Scheme != currentURI.Scheme && !(isHTTP(newURI.Scheme) && isHTTP(currentURI.Scheme)) {
 					con.PrintErrorf("Cannot switch protocol from %s to %s (protocol must match compiled implant)\n",
 						currentURI.Scheme, newURI.Scheme)
 					return
 				}
 				// for now only support the same Host/C2 Server (becuase the implant crypto keys problem)
 				if newURI.Hostname() != currentURI.Hostname() {
-					con.PrintWarnf("Switching to a different host (%s -> %s). This only works if both servers share the same crypto keys.\n",
-						currentURI.Hostname(), newURI.Hostname())
+					con.PrintWarnf("Changing C2 host: %s -> %s. (THIS SESSION WILL END ON THIS SERVER)\n", currentURI.Hostname(), newURI.Hostname())
+					con.PrintInfof("Ensure build identities are migrated via 'implants export' to avoid losing the session.\n")
+
+					confirm := false
+					_ = forms.Confirm("Are you sure you want to change the C2-URI?", &confirm)
+					if !confirm {
+						return
+					}
 				}
 			}
 		}
