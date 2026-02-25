@@ -21,6 +21,7 @@ package c2
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"testing"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
+	"github.com/bishopfox/sliver/server/testutils"
 )
 
 var (
@@ -36,10 +38,25 @@ var (
 )
 
 func TestMain(m *testing.M) {
+	envState, err := testutils.SetupTestEnv(testutils.EnvOptions{
+		ForceFreshServerRoot: true,
+		ForceFreshClientRoot: true,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "setup test env: %v\n", err)
+		os.Exit(1)
+	}
+
 	implantBuild := setup()
-	code1 := m.Run()
+	exitCode := m.Run()
 	cleanup(implantBuild)
-	os.Exit(code1)
+	if cleanupErr := envState.Cleanup(); cleanupErr != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", cleanupErr)
+		if exitCode == 0 {
+			exitCode = 1
+		}
+	}
+	os.Exit(exitCode)
 }
 
 func setup() *models.ImplantBuild {

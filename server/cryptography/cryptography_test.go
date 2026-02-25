@@ -21,12 +21,14 @@ package cryptography
 import (
 	"bytes"
 	"crypto/rand"
+	"fmt"
 	insecureRand "math/rand"
 	"os"
 	"sync"
 	"testing"
 
 	implantCrypto "github.com/bishopfox/sliver/implant/sliver/cryptography"
+	"github.com/bishopfox/sliver/server/testutils"
 	"github.com/bishopfox/sliver/util/minisign"
 )
 
@@ -45,8 +47,24 @@ func randomData() []byte {
 }
 
 func TestMain(m *testing.M) {
+	envState, err := testutils.SetupTestEnv(testutils.EnvOptions{
+		ForceFreshServerRoot: true,
+		ForceFreshClientRoot: true,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "setup test env: %v\n", err)
+		os.Exit(1)
+	}
+
 	setup()
-	os.Exit(m.Run())
+	exitCode := m.Run()
+	if cleanupErr := envState.Cleanup(); cleanupErr != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", cleanupErr)
+		if exitCode == 0 {
+			exitCode = 1
+		}
+	}
+	os.Exit(exitCode)
 }
 
 func setup() {

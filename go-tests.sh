@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 # Sliver Implant Framework
 # Copyright (C) 2019  Bishop Fox
 
@@ -17,6 +16,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+set -euo pipefail
+
 SKIP_GENERATE=0
 for arg in "$@"; do
     if [ "$arg" = "--skip-generate" ]; then
@@ -28,231 +29,59 @@ echo "----------------------------------------------------------------"
 echo "WARNING: Running unit tests on slow systems can take a LONG time"
 echo "         Recommended to only run on 16+ CPU cores and 32Gb+ RAM"
 echo "----------------------------------------------------------------"
-TAGS=osusergo,netgo,go_sqlite
 
-## Client
+BASE_TAGS="osusergo,netgo,go_sqlite"
+ALL_TAGS="server,client,${BASE_TAGS}"
 
-# client / command / alias
-if go test -tags=client,$TAGS ./client/command/alias ; then
-    :
-else
+SLIVER_ROOT_DIR="$(mktemp -d)"
+SLIVER_CLIENT_ROOT_DIR="$(mktemp -d)"
+export SLIVER_ROOT_DIR
+export SLIVER_CLIENT_ROOT_DIR
+
+cleanup() {
+    rm -rf "${SLIVER_ROOT_DIR:-}" "${SLIVER_CLIENT_ROOT_DIR:-}" "${SLIVER_ROOT_DIR_E2E:-}" "${SLIVER_CLIENT_ROOT_DIR_E2E:-}"
+}
+trap cleanup EXIT
+
+TEST_PKGS=()
+while IFS= read -r pkg; do
+    TEST_PKGS+=("$pkg")
+done < <(
+    go list -e -tags="$ALL_TAGS" -f '{{if not .Error}}{{.ImportPath}}{{end}}' ./... \
+        | rg -v '^github.com/bishopfox/sliver/implant/sliver$' \
+        | rg -v '^github.com/bishopfox/sliver/implant/sliver/runner$' \
+        | rg -v '^github.com/bishopfox/sliver/implant/sliver/proxy$' \
+        | rg -v '^github.com/bishopfox/sliver/implant/sliver/transports/httpclient/drivers/win/wininet$' \
+        | rg -v '^github.com/bishopfox/sliver/client/command/websites$' \
+        | rg -v '^github.com/bishopfox/sliver/server/generate$'
+)
+
+if [ "${#TEST_PKGS[@]}" -eq 0 ]; then
+    echo "No test packages selected"
     exit 1
 fi
 
-# client / command / extensions
-if go test -tags=client,$TAGS ./client/command/extensions ; then
-    :
-else
-    exit 1
-fi
+go test -vet=off -count=1 -timeout 45m -tags="$ALL_TAGS" "${TEST_PKGS[@]}"
 
-# client / command / generate
-if go test -tags=client,$TAGS ./client/command/generate ; then
-    :
-else
-    exit 1
-fi
-
-# client / credentials
-if go test -tags=client,$TAGS ./client/credentials ; then
-    :
-else
-    exit 1
-fi
-
-## Util
-
-# util 
-if go test -tags=server,$TAGS ./util ; then
-    :
-else
-    exit 1
-fi
-
-# util / encoders
-if go test -tags=server,$TAGS ./util/encoders/basex ; then
-    :
-else
-    exit 1
-fi
-if go test -tags=server,$TAGS ./util/encoders ; then
-    :
-else
-    exit 1
-fi
-
-# util / minisign
-if go test -tags=server,$TAGS ./util/minisign ; then
-    :
-else
-    cat ~/.sliver/logs/sliver.log
-    exit 1
-fi
-
-## Implant
-
-# implant / sliver / extension
-if go test ./implant/sliver/extension ; then
-    :
-else
-    exit 1
-fi
-
-# implant / sliver / transports / dnsclient
-if go test ./implant/sliver/transports/dnsclient ; then
-    :
-else
-    exit 1
-fi
-
-# implant / sliver / transports / wireguard
-if go test ./implant/sliver/transports/wireguard ; then
-    :
-else
-    exit 1
-fi
-
-## Server
-
-# server / assets / traffic encoders
-if go test -timeout 10m -tags=server,$TAGS ./server/assets/traffic-encoders ; then
-    :
-else
-    exit 1
-fi
-
-# server / encoders
-if go test -timeout 10m -tags=server,$TAGS ./server/encoders ; then
-    :
-else
-    exit 1
-fi
-
-# server / website
-if go test -tags=server,$TAGS ./server/website ; then
-    :
-else
-    cat ~/.sliver/logs/sliver.log
-    exit 1
-fi
-
-# server / loot
-if go test -tags=server,$TAGS ./server/loot ; then
-    :
-else
-    cat ~/.sliver/logs/sliver.log
-    exit 1
-fi
-
-# server / certs
-if go test -tags=server,$TAGS ./server/certs ; then
-    :
-else
-    cat ~/.sliver/logs/sliver.log
-    exit 1
-fi
-
-# server / cryptography
-if go test -tags=server,$TAGS ./server/cryptography ; then
-    :
-else
-    cat ~/.sliver/logs/sliver.log
-    exit 1
-fi
-
-# server / encoders / shellcode / sgn
-if go test -tags=server,$TAGS ./server/encoders/shellcode/sgn ; then
-    :
-else
-    cat ~/.sliver/logs/sliver.log
-    exit 1
-fi
-
-# server / encoders / shellcode / arm64
-if go test -tags=server,$TAGS ./server/encoders/shellcode/arm64 ; then
-    :
-else
-    cat ~/.sliver/logs/sliver.log
-    exit 1
-fi
-
-# server / gogo / goname
-if go test -tags=server,$TAGS ./server/gogo/goname ; then
-    :
-else
-    cat ~/.sliver/logs/sliver.log
-    exit 1
-fi
-
-# server / gogo
-if go test -tags=server,$TAGS ./server/gogo ; then
-    :
-else
-    cat ~/.sliver/logs/sliver.log
-    exit 1
-fi
-
-# server / c2
-if go test -tags=server,$TAGS ./server/c2 ; then
-    :
-else
-    cat ~/.sliver/logs/sliver.log
-    exit 1
-fi
-
-# server / c2 / e2e (mtls + wg + yamux)
-SLIVER_ROOT_DIR_E2E="$(mktemp -d)"
-if SLIVER_ROOT_DIR="$SLIVER_ROOT_DIR_E2E" go test -tags=server,$TAGS,sliver_e2e ./server/c2 -run 'Test(MTLS|WG)Yamux_' -count=1 ; then
-    :
-else
-    cat "$SLIVER_ROOT_DIR_E2E/logs/sliver.log" 2>/dev/null || true
-    rm -rf "$SLIVER_ROOT_DIR_E2E"
-    exit 1
-fi
-
-# server / c2 / e2e (dns)
-if SLIVER_ROOT_DIR="$SLIVER_ROOT_DIR_E2E" go test -tags=server,$TAGS,sliver_e2e ./server/c2 -run 'TestDNS_' -count=1 ; then
-    :
-else
-    cat "$SLIVER_ROOT_DIR_E2E/logs/sliver.log" 2>/dev/null || true
-    rm -rf "$SLIVER_ROOT_DIR_E2E"
-    exit 1
-fi
-rm -rf "$SLIVER_ROOT_DIR_E2E"
-
-# server / configs
-if go test -tags=server,$TAGS ./server/configs ; then
-    :
-else
-    cat ~/.sliver/logs/sliver.log
-    exit 1
-fi
-
-# server / console
-if go test -tags=server,$TAGS ./server/console ; then
-    :
-else
-    cat ~/.sliver/logs/sliver.log
-    exit 1
-fi
-
-# server / generate
 if [ "$SKIP_GENERATE" -eq 0 ]; then
-    export GOPROXY=off
-    if go test -tags=server,$TAGS ./server/generate -timeout 6h ; then
-        :
-    else
-        cat ~/.sliver/logs/sliver.log
-        exit 1
-    fi
+    GOPROXY=off go test -vet=off -count=1 -timeout 6h -tags="server,${BASE_TAGS}" ./server/generate
 else
     echo "Skipping ./server/generate tests (--skip-generate)"
 fi
 
-# server / rpc / spoof metadata
-if go test -vet=off -tags=server,$TAGS ./server/rpc -run '^TestGenerateSpoofMetadataAppliesPETimestampOverBufnet$' -count=1 -timeout 30m ; then
+SLIVER_ROOT_DIR_E2E="$(mktemp -d)"
+SLIVER_CLIENT_ROOT_DIR_E2E="$(mktemp -d)"
+
+if SLIVER_ROOT_DIR="$SLIVER_ROOT_DIR_E2E" SLIVER_CLIENT_ROOT_DIR="$SLIVER_CLIENT_ROOT_DIR_E2E" go test -vet=off -tags="server,${BASE_TAGS},sliver_e2e" ./server/c2 -run 'Test(MTLS|WG)Yamux_' -count=1 -timeout 30m ; then
     :
 else
-    cat ~/.sliver/logs/sliver.log 2>/dev/null || true
+    cat "$SLIVER_ROOT_DIR_E2E/logs/sliver.log" 2>/dev/null || true
+    exit 1
+fi
+
+if SLIVER_ROOT_DIR="$SLIVER_ROOT_DIR_E2E" SLIVER_CLIENT_ROOT_DIR="$SLIVER_CLIENT_ROOT_DIR_E2E" go test -vet=off -tags="server,${BASE_TAGS},sliver_e2e" ./server/c2 -run 'TestDNS_' -count=1 -timeout 30m ; then
+    :
+else
+    cat "$SLIVER_ROOT_DIR_E2E/logs/sliver.log" 2>/dev/null || true
     exit 1
 fi
