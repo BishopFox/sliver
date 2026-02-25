@@ -12,16 +12,17 @@ import (
 func HuhTheme() *huh.Theme {
 	t := huh.ThemeBase()
 
-	border := DefaultMod(300)
-	text := DefaultMod(900)
-	dim := DefaultMod(500)
-	faint := DefaultMod(400)
+	current := Current()
+	border := paletteModV1(current.Default, 300)
+	text := paletteModV1(current.Default, 900)
+	dim := paletteModV1(current.Default, 500)
+	faint := paletteModV1(current.Default, 400)
 
-	primary := Primary()
-	accent := Secondary()
+	primary := paletteColorV1(current.Primary)
+	accent := paletteColorV1(current.Secondary)
 
-	success := Success()
-	danger := Danger()
+	success := paletteColorV1(current.Success)
+	danger := paletteColorV1(current.Danger)
 
 	// Focused styles.
 	t.Focused.Base = t.Focused.Base.BorderForeground(border)
@@ -45,7 +46,7 @@ func HuhTheme() *huh.Theme {
 
 	t.Focused.FocusedButton = t.Focused.FocusedButton.Foreground(text).Background(primary)
 	t.Focused.Next = t.Focused.FocusedButton
-	t.Focused.BlurredButton = t.Focused.BlurredButton.Foreground(text).Background(lipgloss.Color(DefaultMod(100)))
+	t.Focused.BlurredButton = t.Focused.BlurredButton.Foreground(text).Background(paletteModV1(current.Default, 100))
 
 	t.Focused.TextInput.Cursor = t.Focused.TextInput.Cursor.Foreground(primary)
 	t.Focused.TextInput.Placeholder = t.Focused.TextInput.Placeholder.Foreground(faint)
@@ -64,4 +65,20 @@ func HuhTheme() *huh.Theme {
 	t.Group.Description = t.Focused.Description
 
 	return t
+}
+
+func paletteColorV1(p Palette) lipgloss.TerminalColor {
+	if p.Default != "" {
+		return lipgloss.Color(p.Default)
+	}
+	return lipgloss.Color("#ffffff")
+}
+
+func paletteModV1(p Palette, mod int) lipgloss.TerminalColor {
+	if mod != 0 {
+		if v, ok := p.Mods[mod]; ok && v != "" {
+			return lipgloss.Color(v)
+		}
+	}
+	return paletteColorV1(p)
 }

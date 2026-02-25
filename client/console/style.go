@@ -19,8 +19,10 @@ package console
 */
 
 import (
+	"image/color"
+
+	"charm.land/lipgloss/v2"
 	"github.com/bishopfox/sliver/client/theme"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // TextStyle is the shared styling type for the client/server consoles.
@@ -87,13 +89,13 @@ func init() {
 // Note: this is intentionally a "global theme" for the console, since most of
 // the existing code expects these styles to be package-level values.
 func ApplyTheme(t theme.Theme) {
-	palette := func(p theme.Palette) lipgloss.Color {
+	palette := func(p theme.Palette) color.Color {
 		if p.Default != "" {
 			return lipgloss.Color(p.Default)
 		}
 		return lipgloss.Color("#ffffff")
 	}
-	paletteMod := func(p theme.Palette, mod int) lipgloss.Color {
+	paletteMod := func(p theme.Palette, mod int) color.Color {
 		if mod != 0 {
 			if v, ok := p.Mods[mod]; ok && v != "" {
 				return lipgloss.Color(v)

@@ -27,12 +27,11 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/client/theme"
-	"github.com/charmbracelet/lipgloss"
 )
 
 type promptPalette struct {
-	Default lipgloss.Color
-	Mods    map[int]lipgloss.Color
+	Default string
+	Mods    map[int]string
 }
 
 type promptColors struct {
@@ -107,11 +106,11 @@ var promptTemplateCache struct {
 
 func toPromptPalette(p theme.Palette) promptPalette {
 	out := promptPalette{
-		Default: lipgloss.Color(p.Default),
-		Mods:    map[int]lipgloss.Color{},
+		Default: p.Default,
+		Mods:    map[int]string{},
 	}
 	for k, v := range p.Mods {
-		out.Mods[k] = lipgloss.Color(v)
+		out.Mods[k] = v
 	}
 	return out
 }
