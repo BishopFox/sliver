@@ -68,6 +68,7 @@ const (
 	SliverRPC_HostRm_FullMethodName                           = "/rpcpb.SliverRPC/HostRm"
 	SliverRPC_HostIOCRm_FullMethodName                        = "/rpcpb.SliverRPC/HostIOCRm"
 	SliverRPC_Generate_FullMethodName                         = "/rpcpb.SliverRPC/Generate"
+	SliverRPC_GenerateSpoofMetadata_FullMethodName            = "/rpcpb.SliverRPC/GenerateSpoofMetadata"
 	SliverRPC_GenerateExternal_FullMethodName                 = "/rpcpb.SliverRPC/GenerateExternal"
 	SliverRPC_GenerateExternalSaveBuild_FullMethodName        = "/rpcpb.SliverRPC/GenerateExternalSaveBuild"
 	SliverRPC_GenerateExternalGetBuildConfig_FullMethodName   = "/rpcpb.SliverRPC/GenerateExternalGetBuildConfig"
@@ -908,8 +909,9 @@ func (c *sliverRPCClient) Generate(ctx context.Context, in *clientpb.GenerateReq
 }
 
 func (c *sliverRPCClient) GenerateSpoofMetadata(ctx context.Context, in *clientpb.GenerateSpoofMetadataReq, opts ...grpc.CallOption) (*commonpb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(commonpb.Empty)
-	err := c.cc.Invoke(ctx, "/rpcpb.SliverRPC/GenerateSpoofMetadata", in, out, opts...)
+	err := c.cc.Invoke(ctx, SliverRPC_GenerateSpoofMetadata_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2731,7 +2733,7 @@ func (UnimplementedSliverRPCServer) Generate(context.Context, *clientpb.Generate
 	return nil, status.Error(codes.Unimplemented, "method Generate not implemented")
 }
 func (UnimplementedSliverRPCServer) GenerateSpoofMetadata(context.Context, *clientpb.GenerateSpoofMetadataReq) (*commonpb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GenerateSpoofMetadata not implemented")
+	return nil, status.Error(codes.Unimplemented, "method GenerateSpoofMetadata not implemented")
 }
 func (UnimplementedSliverRPCServer) GenerateExternal(context.Context, *clientpb.ExternalGenerateReq) (*clientpb.ExternalImplantConfig, error) {
 	return nil, status.Error(codes.Unimplemented, "method GenerateExternal not implemented")
@@ -4004,7 +4006,7 @@ func _SliverRPC_GenerateSpoofMetadata_Handler(srv interface{}, ctx context.Conte
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/rpcpb.SliverRPC/GenerateSpoofMetadata",
+		FullMethod: SliverRPC_GenerateSpoofMetadata_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SliverRPCServer).GenerateSpoofMetadata(ctx, req.(*clientpb.GenerateSpoofMetadataReq))
