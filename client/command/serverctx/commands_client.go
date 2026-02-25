@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"charm.land/lipgloss/v2"
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
 	clienttheme "github.com/bishopfox/sliver/client/theme"
@@ -21,7 +22,6 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/connectivity"
 )

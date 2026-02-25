@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"strings"
 
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/util"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/term"
 )
 
@@ -62,19 +62,17 @@ type editorModel struct {
 }
 
 var (
-	cursorStyle = lipgloss.NewStyle().Reverse(true)
-	statusStyle = lipgloss.NewStyle().Reverse(true)
-	lineStyle   = lipgloss.NewStyle()
+	lineStyle = lipgloss.NewStyle()
+)
+
+const (
+	ansiReverseOn  = "\x1b[7m"
+	ansiReverseOff = "\x1b[0m"
 )
 
 func modifiedStyle() lipgloss.Style {
 	// Read from the global console theme so theme.yaml changes are reflected.
 	return console.StyleWarning
-}
-
-func modifiedCursorStyle() lipgloss.Style {
-	// Read from the global console theme so theme.yaml changes are reflected.
-	return console.StyleWarning.Copy().Reverse(true)
 }
 
 func newEditorModel(data []byte, filename string, offset int) *editorModel {
@@ -114,30 +112,31 @@ func (m *editorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		m.ensureCursorVisible()
 		return m, nil
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		if m.clearMessage {
 			m.message = ""
 			m.clearMessage = false
 		}
-		if msg.Type == tea.KeyCtrlC {
+		key := msg.Key()
+		if key.Mod.Contains(tea.ModCtrl) && key.Code == 'c' {
 			m.action = actionQuit
 			return m, tea.Quit
 		}
 		switch m.mode {
 		case modeCommand:
-			return m.handleCommand(msg)
+			return m.handleCommand(key)
 		case modeHexEdit:
-			return m.handleHexEdit(msg)
+			return m.handleHexEdit(key)
 		case modeASCIIEdit:
-			return m.handleASCIIEdit(msg)
+			return m.handleASCIIEdit(key)
 		default:
-			return m.handleNormal(msg)
+			return m.handleNormal(key)
 		}
 	}
 	return m, nil
 }
 
-func (m *editorModel) View() string {
+func (m *editorModel) View() tea.View {
 	if m.width == 0 || m.height == 0 {
 		if w, h, err := term.GetSize(0); err == nil && w > 0 && h > 0 {
 			m.width = w
@@ -160,19 +159,33 @@ func (m *editorModel) View() string {
 	}
 
 	if m.height < 2 {
-		return b.String()
+		return hexEditorView(b.String())
 	}
 
 	b.WriteByte('\n')
-	b.WriteString(statusStyle.Width(m.width).Render(m.statusLine()))
+	b.WriteString(renderStatusBar(m.width, m.statusLine()))
 
 	if m.height < 3 {
-		return b.String()
+		return hexEditorView(b.String())
 	}
 
 	b.WriteByte('\n')
 	b.WriteString(lineStyle.Width(m.width).Render(m.commandLine()))
-	return b.String()
+	return hexEditorView(b.String())
+}
+
+func renderStatusBar(width int, text string) string {
+	return ansiReverseOn + lineStyle.Width(width).Render(text) + ansiReverseOff
+}
+
+func renderCursorCell(cell string) string {
+	return ansiReverseOn + cell + ansiReverseOff
+}
+
+func hexEditorView(content string) tea.View {
+	v := tea.NewView(content)
+	v.AltScreen = true
+	return v
 }
 
 func (m *editorModel) result() editorResult {
@@ -185,8 +198,8 @@ func (m *editorModel) result() editorResult {
 	}
 }
 
-func (m *editorModel) handleCommand(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.Type {
+func (m *editorModel) handleCommand(key tea.Key) (tea.Model, tea.Cmd) {
+	switch key.Code {
 	case tea.KeyEsc:
 		m.mode = modeNormal
 		m.command = ""
@@ -201,14 +214,16 @@ func (m *editorModel) handleCommand(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case tea.KeyBackspace:
 		m.command = popRune(m.command)
-	case tea.KeyRunes:
-		m.command += string(msg.Runes)
+	default:
+		if key.Text != "" {
+			m.command += key.Text
+		}
 	}
 	return m, nil
 }
 
-func (m *editorModel) handleHexEdit(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.Type {
+func (m *editorModel) handleHexEdit(key tea.Key) (tea.Model, tea.Cmd) {
+	switch key.Code {
 	case tea.KeyEsc:
 		m.mode = modeNormal
 		m.nibbleSet = false
@@ -230,8 +245,8 @@ func (m *editorModel) handleHexEdit(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case tea.KeyDown:
 		m.moveDown()
 		m.nibbleSet = false
-	case tea.KeyRunes:
-		for _, r := range msg.Runes {
+	default:
+		for _, r := range key.Text {
 			val, ok := hexNibble(r)
 			if !ok {
 				continue
@@ -250,8 +265,8 @@ func (m *editorModel) handleHexEdit(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *editorModel) handleASCIIEdit(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.Type {
+func (m *editorModel) handleASCIIEdit(key tea.Key) (tea.Model, tea.Cmd) {
+	switch key.Code {
 	case tea.KeyEsc:
 		m.mode = modeNormal
 	case tea.KeyLeft:
@@ -262,8 +277,8 @@ func (m *editorModel) handleASCIIEdit(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.moveUp()
 	case tea.KeyDown:
 		m.moveDown()
-	case tea.KeyRunes:
-		for _, r := range msg.Runes {
+	default:
+		for _, r := range key.Text {
 			if r < 0 || r > 0xFF {
 				continue
 			}
@@ -275,8 +290,8 @@ func (m *editorModel) handleASCIIEdit(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *editorModel) handleNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.Type {
+func (m *editorModel) handleNormal(key tea.Key) (tea.Model, tea.Cmd) {
+	switch key.Code {
 	case tea.KeyEsc:
 		m.pending = 0
 	case tea.KeyLeft:
@@ -287,8 +302,8 @@ func (m *editorModel) handleNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.moveUp()
 	case tea.KeyDown:
 		m.moveDown()
-	case tea.KeyRunes:
-		for _, r := range msg.Runes {
+	default:
+		for _, r := range key.Text {
 			if m.handleNormalRune(r) {
 				break
 			}
@@ -408,13 +423,8 @@ func (m *editorModel) renderLine(lineIndex int) string {
 		asciiRaw := string(printableByte(byteVal))
 		isModified := m.isModified(idx)
 		if idx == m.cursor {
-			if isModified {
-				hexCells[i] = modifiedCursorStyle().Render(hexRaw)
-				asciiCells[i] = modifiedCursorStyle().Render(asciiRaw)
-			} else {
-				hexCells[i] = cursorStyle.Render(hexRaw)
-				asciiCells[i] = cursorStyle.Render(asciiRaw)
-			}
+			hexCells[i] = renderCursorCell(hexRaw)
+			asciiCells[i] = renderCursorCell(asciiRaw)
 			continue
 		}
 		if isModified {

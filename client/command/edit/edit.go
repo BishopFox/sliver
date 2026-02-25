@@ -9,6 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/bishopfox/sliver/client/command/filesystem"
@@ -17,8 +18,9 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util/encoders"
-	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/colorprofile"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -151,7 +153,15 @@ func EditCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 
 func runEditor(content, filename string, lexer chroma.Lexer, lexerName string, showLineNumbers bool) (editorResult, error) {
 	model := newEditorModel(content, filename, lexer, lexerName, showLineNumbers)
-	program := tea.NewProgram(model, tea.WithAltScreen())
+	width, height := 80, 24
+	if w, h, err := term.GetSize(0); err == nil && w > 0 && h > 0 {
+		width, height = w, h
+	}
+	program := tea.NewProgram(
+		model,
+		tea.WithWindowSize(width, height),
+		tea.WithColorProfile(colorprofile.TrueColor),
+	)
 	finalModel, err := program.Run()
 	if err != nil {
 		return editorResult{}, err

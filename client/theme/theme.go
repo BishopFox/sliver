@@ -2,12 +2,13 @@ package theme
 
 import (
 	"errors"
+	"image/color"
 	"os"
 	"path/filepath"
 	"sync"
 
+	"charm.land/lipgloss/v2"
 	"github.com/bishopfox/sliver/client/assets"
-	"github.com/charmbracelet/lipgloss"
 	"gopkg.in/yaml.v3"
 )
 
@@ -106,7 +107,7 @@ func normalizePalette(p *Palette) {
 	}
 }
 
-func (t Theme) paletteColor(p Palette) lipgloss.Color {
+func (t Theme) paletteColor(p Palette) color.Color {
 	if p.Default != "" {
 		return lipgloss.Color(p.Default)
 	}
@@ -114,7 +115,7 @@ func (t Theme) paletteColor(p Palette) lipgloss.Color {
 	return lipgloss.Color("#ffffff")
 }
 
-func (t Theme) paletteMod(p Palette, mod int) lipgloss.Color {
+func (t Theme) paletteMod(p Palette, mod int) color.Color {
 	if mod != 0 {
 		if v, ok := p.Mods[mod]; ok && v != "" {
 			return lipgloss.Color(v)
@@ -124,43 +125,43 @@ func (t Theme) paletteMod(p Palette, mod int) lipgloss.Color {
 }
 
 // Primary returns the theme primary color.
-func Primary() lipgloss.Color { return Current().paletteColor(Current().Primary) }
-func PrimaryMod(mod int) lipgloss.Color {
+func Primary() color.Color { return Current().paletteColor(Current().Primary) }
+func PrimaryMod(mod int) color.Color {
 	t := Current()
 	return t.paletteMod(t.Primary, mod)
 }
 
 // Secondary returns the theme secondary color.
-func Secondary() lipgloss.Color { return Current().paletteColor(Current().Secondary) }
-func SecondaryMod(mod int) lipgloss.Color {
+func Secondary() color.Color { return Current().paletteColor(Current().Secondary) }
+func SecondaryMod(mod int) color.Color {
 	t := Current()
 	return t.paletteMod(t.Secondary, mod)
 }
 
 // Default returns the theme default/neutral color.
-func Default() lipgloss.Color { return Current().paletteColor(Current().Default) }
-func DefaultMod(mod int) lipgloss.Color {
+func Default() color.Color { return Current().paletteColor(Current().Default) }
+func DefaultMod(mod int) color.Color {
 	t := Current()
 	return t.paletteMod(t.Default, mod)
 }
 
 // Success returns the theme success color.
-func Success() lipgloss.Color { return Current().paletteColor(Current().Success) }
-func SuccessMod(mod int) lipgloss.Color {
+func Success() color.Color { return Current().paletteColor(Current().Success) }
+func SuccessMod(mod int) color.Color {
 	t := Current()
 	return t.paletteMod(t.Success, mod)
 }
 
 // Warning returns the theme warning color.
-func Warning() lipgloss.Color { return Current().paletteColor(Current().Warning) }
-func WarningMod(mod int) lipgloss.Color {
+func Warning() color.Color { return Current().paletteColor(Current().Warning) }
+func WarningMod(mod int) color.Color {
 	t := Current()
 	return t.paletteMod(t.Warning, mod)
 }
 
 // Danger returns the theme danger color.
-func Danger() lipgloss.Color { return Current().paletteColor(Current().Danger) }
-func DangerMod(mod int) lipgloss.Color {
+func Danger() color.Color { return Current().paletteColor(Current().Danger) }
+func DangerMod(mod int) color.Color {
 	t := Current()
 	return t.paletteMod(t.Danger, mod)
 }
