@@ -60,12 +60,20 @@ func (rpc *Server) ExportImplant(ctx context.Context, req *clientpb.ExportImplan
 
 	bundle.Encoders, _ = db.ResourceIDByType("encoder")
 
-	migrateLog.Infof("Exported %d bundle(s) and %d resource(s)", len(bundle.Bundles), len(bundle.Encoders))
+	// certificates ──────────────────────────────────────────────────────────
+	bundle.Certificates = exportCertificates()
+
+	// key_values ──────────────────────────────────────────────────────────
+	bundle.KeyValues = exportKeyValues()
+
+	migrateLog.Infof("Exported %d bundle(s), %d resource(s), %d certificate(s), %d key_value(s)",
+		len(bundle.Bundles), len(bundle.Encoders), len(bundle.Certificates), len(bundle.KeyValues))
 	return bundle, nil
 }
 
 func (rpc *Server) ImportImplant(ctx context.Context, req *clientpb.ExportImplantBundle) (*commonpb.Empty, error) {
-	migrateLog.Infof("Starting import of %d bundle(s) and %d resource(s)", len(req.Bundles), len(req.Encoders))
+	migrateLog.Infof("Starting import of %d bundle(s), %d resource(s), %d certificate(s), %d key_value(s)",
+		len(req.Bundles), len(req.Encoders), len(req.Certificates), len(req.KeyValues))
 	dbSession := db.Session().Debug()
 
 	for _, res := range req.Encoders {
@@ -79,6 +87,16 @@ func (rpc *Server) ImportImplant(ctx context.Context, req *clientpb.ExportImplan
 		}
 	}
 
+	// certificates ──────────────────────────────────────────────────────────
+	for _, cert := range req.Certificates {
+		importCertificate(dbSession, cert)
+	}
+
+	// key_values ──────────────────────────────────────────────────────────
+	for _, kv := range req.KeyValues {
+		importKeyValue(dbSession, kv)
+	}
+
 	// sync the server's memory-mapped encoders
 	encoders.ReloadEncoderMap()
 
@@ -86,7 +104,7 @@ func (rpc *Server) ImportImplant(ctx context.Context, req *clientpb.ExportImplan
 	return &commonpb.Empty{}, nil
 }
 
-// helpers 
+// helpers
 func exportSingleBuild(name string) (*clientpb.ImplantBundle, error) {
 	b, err := db.ImplantBuildByName(name)
 	if err != nil {
@@ -139,4 +157,79 @@ func importResourceID(dbSession *gorm.DB, res *clientpb.ResourceID) {
 	dbRes := models.ResourceIDFromProtobuf(res)
 	dbSession.Create(dbRes)
 	migrateLog.Debugf("Imported ResourceID %q (%s)", res.Name, res.Type)
+}
+
+// certificates ──────────────────────────────────────────────────────────
+
+func exportCertificates() []*clientpb.CertificateEntry {
+	var certs []models.Certificate
+	db.Session().Find(&certs)
+
+	out := make([]*clientpb.CertificateEntry, 0, len(certs))
+	for _, c := range certs {
+		out = append(out, &clientpb.CertificateEntry{
+			ID:             c.ID.String(),
+			CommonName:     c.CommonName,
+			CAType:         c.CAType,
+			KeyType:        c.KeyType,
+			CertificatePEM: c.CertificatePEM,
+			PrivateKeyPEM:  c.PrivateKeyPEM,
+			CreatedAt:      c.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		})
+	}
+	return out
+}
+
+func importCertificate(dbSession *gorm.DB, entry *clientpb.CertificateEntry) {
+	if entry == nil || entry.ID == "" {
+		return
+	}
+	var existing models.Certificate
+	if err := dbSession.Where("id = ?", entry.ID).First(&existing).Error; err == nil {
+		return // already exists, skip
+	}
+	cert := models.Certificate{
+		CommonName:     entry.CommonName,
+		CAType:         entry.CAType,
+		KeyType:        entry.KeyType,
+		CertificatePEM: entry.CertificatePEM,
+		PrivateKeyPEM:  entry.PrivateKeyPEM,
+	}
+	dbSession.Create(&cert)
+	migrateLog.Debugf("Imported Certificate CN=%q CAType=%q", entry.CommonName, entry.CAType)
+}
+
+// key_values ──────────────────────────────────────────────────────────
+
+func exportKeyValues() []*clientpb.KeyValueEntry {
+	var kvs []models.KeyValue
+	db.Session().Find(&kvs)
+
+	out := make([]*clientpb.KeyValueEntry, 0, len(kvs))
+	for _, kv := range kvs {
+		out = append(out, &clientpb.KeyValueEntry{
+			ID:        kv.ID.String(),
+			Key:       kv.Key,
+			Value:     kv.Value,
+			CreatedAt: kv.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		})
+	}
+	return out
+}
+
+func importKeyValue(dbSession *gorm.DB, entry *clientpb.KeyValueEntry) {
+	if entry == nil || entry.ID == "" {
+		return
+	}
+	// skip if ID already exists
+	var existing models.KeyValue
+	if err := dbSession.Where("id = ?", entry.ID).First(&existing).Error; err == nil {
+		return
+	}
+	kv := models.KeyValue{
+		Key:   entry.Key,
+		Value: entry.Value,
+	}
+	dbSession.Create(&kv)
+	migrateLog.Debugf("Imported KeyValue key=%q", entry.Key)
 }

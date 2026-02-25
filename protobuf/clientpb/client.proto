@@ -1399,7 +1399,26 @@ message ImplantBundle {
   ResourceID ResID = 4;
 }
 
+message CertificateEntry {
+  string ID             = 1;
+  string CommonName     = 2;
+  string CAType         = 3;
+  string KeyType        = 4;
+  string CertificatePEM = 5;
+  string PrivateKeyPEM  = 6;
+  string CreatedAt      = 7;
+}
+
+message KeyValueEntry {
+  string ID        = 1;
+  string Key       = 2;
+  string Value     = 3;
+  string CreatedAt = 4;
+}
+
 message ExportImplantBundle {
-  repeated ImplantBundle Bundles = 1;
-  repeated ResourceID    Encoders = 2;
+  repeated ImplantBundle     Bundles      = 1;
+  repeated ResourceID        Encoders     = 2;
+  repeated CertificateEntry  Certificates = 3;
+  repeated KeyValueEntry     KeyValues    = 4;
 }

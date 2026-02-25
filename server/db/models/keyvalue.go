@@ -30,7 +30,7 @@ type KeyValue struct {
 	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
-	Key   string `gorm:"unique;"`
+	Key   string
 	Value string
 }
 

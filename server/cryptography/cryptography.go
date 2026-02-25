@@ -246,10 +246,20 @@ func NewCipherContext(key [chacha20poly1305.KeySize]byte) *CipherContext {
 	}
 }
 
+// NewCipherContextWithSigningKey - creates a cipher context that signs with a specific minisign key
+func NewCipherContextWithSigningKey(key [chacha20poly1305.KeySize]byte, signingKey *minisign.PrivateKey) *CipherContext {
+	return &CipherContext{
+		Key:        key,
+		SigningKey: signingKey,
+		replay:     &sync.Map{},
+	}
+}
+
 // CipherContext - Tracks a series of messages encrypted under the same key
 // and detects/prevents replay attacks.
 type CipherContext struct {
 	Key    [chacha20poly1305.KeySize]byte
+	SigningKey *minisign.PrivateKey // per-session signing key (nil = use default)
 	replay *sync.Map
 }
 
@@ -280,13 +290,23 @@ func (c *CipherContext) Encrypt(plaintext []byte) ([]byte, error) {
 		b64Digest := base64.RawStdEncoding.EncodeToString(digest[:])
 		c.replay.Store(b64Digest, true)
 	}
-	rawSig := serverSignRawBuf(ciphertext)
+	var rawSig []byte
+	if c.SigningKey != nil {
+		rawSig = signRawBufWith(c.SigningKey, ciphertext)
+	} else {
+		rawSig = serverSignRawBuf(ciphertext)
+	}
 	return append(rawSig, ciphertext...), nil
 }
 
 // serverSignRawBuf - Sign a buffer with the server's minisign private key
 func serverSignRawBuf(buf []byte) []byte {
 	privateKey := MinisignServerPrivateKey()
+	return signRawBufWith(privateKey, buf)
+}
+
+// signRawBufWith - Sign a buffer with a specific minisign private key
+func signRawBufWith(privateKey *minisign.PrivateKey, buf []byte) []byte {
 	rawSig := minisign.SignRawBuf(*privateKey, buf)
 	return rawSig[:]
 }
@@ -381,6 +401,40 @@ func generateServerMinisignPrivateKey() (*minisign.PrivateKey, error) {
 		return nil, err
 	}
 	return &privateKey, err
+}
+
+// MinisignPrivateKeyForPublic - Find the minisign private key that matches the given public key string.
+// This is used for multi-identity support: each implant build stores the server's minisign
+// public key at build time, and we need to sign responses with the matching private key
+func MinisignPrivateKeyForPublic(publicKeyStr string) *minisign.PrivateKey {
+	if publicKeyStr == "" {
+		return MinisignServerPrivateKey()
+	}
+	keyValues, err := db.GetKeyValuesByPrefixEx(serverMinisignPrivateKey)
+	if err != nil || len(keyValues) == 0 {
+		return MinisignServerPrivateKey()
+	}
+	for _, kv := range keyValues {
+		pk := &minisignPrivateKey{}
+		if err := json.Unmarshal([]byte(kv.Value), pk); err != nil {
+			continue
+		}
+		rawBytes := [ed25519.PrivateKeySize]byte{}
+		copy(rawBytes[:], pk.PrivateKey)
+		privKey := &minisign.PrivateKey{
+			RawID:    pk.ID,
+			RawBytes: rawBytes,
+		}
+		pubKey := privKey.Public().(minisign.PublicKey)
+		pubKeyText, err := pubKey.MarshalText()
+		if err != nil {
+			continue
+		}
+		if string(pubKeyText) == publicKeyStr {
+			return privKey
+		}
+	}
+	return MinisignServerPrivateKey()
 }
 
 // try all server keys to dec

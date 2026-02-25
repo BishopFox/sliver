@@ -65,6 +65,7 @@ func ExportImplantCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		return
 	}
 	con.PrintInfof("Exported %d implant bundle(s) to %s\n", len(bundle.Bundles), save)
+	con.PrintInfof("  %d certificate(s), %d key_value(s)\n", len(bundle.Certificates), len(bundle.KeyValues))
 	for _, b := range bundle.Bundles {
 		if b.Build != nil {
 			c2Count := len(b.C2S)
@@ -72,7 +73,7 @@ func ExportImplantCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		}
 	}
 }
- 
+
 func ImportImplantCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	filePath, _ := cmd.Flags().GetString("file")
 	if filePath == "" {
@@ -94,7 +95,8 @@ func ImportImplantCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		con.PrintInfof("No bundles found in import file\n")
 		return
 	}
-	con.PrintInfof("Importing %d implant bundle(s) from %s ...\n", len(bundle.Bundles), filePath)
+	con.PrintInfof("Importing %d implant bundles, %d certificates, %d key_values from %s ...\n",
+		len(bundle.Bundles), len(bundle.Certificates), len(bundle.KeyValues), filePath)
 	for _, b := range bundle.Bundles {
 		if b.Build != nil {
 			con.PrintInfof("  → %s\n", b.Build.Name)

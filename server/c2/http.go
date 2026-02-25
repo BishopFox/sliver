@@ -622,7 +622,8 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 		httpLog.Error("Failed to convert bytes to session key")
 		return
 	}
-	httpSession.CipherCtx = cryptography.NewCipherContext(sKey)
+	httpSession.CipherCtx = cryptography.NewCipherContextWithSigningKey(sKey,
+	cryptography.MinisignPrivateKeyForPublic(implantBuild.MinisignServerPublicKey))
 	httpSession.ImplantConn = core.NewImplantConnection("http(s)", getRemoteAddr(req))
 	httpSession.C2Profile = implantConfig.HTTPC2ConfigName
 	s.HTTPSessions.Add(httpSession)

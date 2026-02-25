@@ -179,8 +179,8 @@ const (
 	RenameStr = "rename"
 
 	ImplantBuildsStr = "implants"
-	ExportImplantStr = "export-implant"
-	ImportImplantStr = "import-implant"
+	ExportImplantStr = "export"
+	ImportImplantStr = "import"
 	CanariesStr      = "canaries"
 
 	JobsStr        = "jobs"

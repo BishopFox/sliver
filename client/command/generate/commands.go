@@ -284,12 +284,12 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	exportImplantCmd := &cobra.Command{
 		Use:   consts.ExportImplantStr,
 		Short: "Export implant build identity to a JSON file",
-		Long:  `Export the identity data (config, build, C2 endpoints) of one or all implant builds to a JSON file for migration to another server.`,
+		Long:  `Export identity data (config, build, C2 endpoints, certificates, etc.) of one or all implant builds to a JSON file for migration to another server.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			ExportImplantCmd(cmd, con, args)
 		},
 	}
-	flags.Bind("export-implant", false, exportImplantCmd, func(f *pflag.FlagSet) {
+	flags.Bind(consts.ExportImplantStr, false, exportImplantCmd, func(f *pflag.FlagSet) {
 		f.StringP("name", "n", "", "codename of the implant build to export")
 		f.BoolP("all", "a", false, "export all implant builds")
 		f.StringP("save", "s", "", "output file path (e.g. export.json)")
@@ -303,12 +303,12 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	importImplantCmd := &cobra.Command{
 		Use:   consts.ImportImplantStr,
 		Short: "Import implant build identity from a JSON file",
-		Long:  `Import implant identity data (config, build, C2 endpoints) from a JSON file previously exported from another server.`,
+		Long:  `Import implant identity data (config, build, C2 endpoints, certificates, etc.) from a JSON file previously exported from another server.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			ImportImplantCmd(cmd, con, args)
 		},
 	}
-	flags.Bind("import-implant", false, importImplantCmd, func(f *pflag.FlagSet) {
+	flags.Bind(consts.ImportImplantStr, false, importImplantCmd, func(f *pflag.FlagSet) {
 		f.StringP("file", "f", "", "path to the import JSON file")
 	})
 	flags.BindFlagCompletions(importImplantCmd, func(comp *carapace.ActionMap) {
