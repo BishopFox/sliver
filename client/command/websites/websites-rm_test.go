@@ -41,7 +41,7 @@ func TestWebsiteRemoveConfirmationPrompt(t *testing.T) {
 
 func TestWebsiteRemoveSuccessMessage(t *testing.T) {
 	got := websiteRemoveSuccessMessage("test", 2)
-	want := "removed test and 2 content items"
+	want := "Removed test and 2 content items"
 	if got != want {
 		t.Fatalf("unexpected message: got %q want %q", got, want)
 	}
