@@ -40,7 +40,28 @@ fi
 
 cleanup() {
 	local status=$?
-	rm -rf "$TEST_TMP_ROOT"
+	trap - EXIT INT TERM
+
+	# Some long-running tests (notably in server/generate) may still have child
+	# build processes touching files under the temp root when cleanup starts.
+	if command -v pkill >/dev/null 2>&1; then
+		pkill -TERM -P $$ 2>/dev/null || true
+		pkill -TERM -f "$TEST_TMP_ROOT" 2>/dev/null || true
+	fi
+	wait 2>/dev/null || true
+
+	for _ in 1 2 3 4 5; do
+		rm -rf "$TEST_TMP_ROOT" 2>/dev/null || true
+		if [ ! -e "$TEST_TMP_ROOT" ]; then
+			break
+		fi
+		sleep 1
+	done
+
+	if [ -e "$TEST_TMP_ROOT" ]; then
+		echo "WARNING: Failed to fully clean temp dir: $TEST_TMP_ROOT" >&2
+	fi
+
 	exit "$status"
 }
 trap cleanup EXIT INT TERM
@@ -108,16 +129,30 @@ should_skip_package() {
 	return 1
 }
 
-if [ -x "./sliver-server" ]; then
-	run_test_cmd "unpack server assets" ./sliver-server unpack --force || exit 1
-else
-	run_test_cmd "unpack server assets" go run ./server unpack --force || exit 1
-fi
+collect_test_dirs() {
+	if command -v rg >/dev/null 2>&1; then
+		rg --files -g '*_test.go'
+	else
+		find client implant server util -type f -name '*_test.go' -print
+	fi
+}
+
+unpack_server_assets() {
+	if [ -x "./sliver-server" ]; then
+		if ./sliver-server unpack --force; then
+			return 0
+		fi
+		echo "sliver-server unpack failed, falling back to go run ./server unpack --force"
+	fi
+	go run -tags=server,go_sqlite ./server unpack --force
+}
+
+run_test_cmd "unpack server assets" unpack_server_assets || exit 1
 
 TEST_DIRS=()
 while IFS= read -r test_dir; do
 	TEST_DIRS+=("$test_dir")
-done < <(rg --files -g '*_test.go' | xargs -n1 dirname | sort -u)
+done < <(collect_test_dirs | xargs -n1 dirname | sort -u)
 
 CLIENT_TEST_PKGS=()
 IMPLANT_TEST_PKGS=()
