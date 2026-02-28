@@ -126,6 +126,8 @@ func StartMutualTLSListener(bindIface string, port uint16) (net.Listener, error)
 }
 
 func acceptSliverConnections(ln net.Listener) {
+	defer recoverAndLogPanic(mtlsLog.Errorf, "mtls acceptSliverConnections")
+
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -140,6 +142,8 @@ func acceptSliverConnections(ln net.Listener) {
 }
 
 func handleSliverConnection(conn net.Conn) {
+	defer recoverAndLogPanic(mtlsLog.Errorf, "mtls handleSliverConnection")
+
 	mtlsLog.Infof("Accepted incoming connection: %s", conn.RemoteAddr())
 	implantConn := core.NewImplantConnection(consts.MtlsStr, conn.RemoteAddr().String())
 
@@ -174,6 +178,8 @@ func (c *mtlsBufferedConn) Read(p []byte) (int, error) {
 }
 
 func handleSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConnection) {
+	defer recoverAndLogPanic(mtlsLog.Errorf, "mtls handleSliverConnectionYamux")
+
 	session, err := yamux.Server(conn, nil)
 	if err != nil {
 		mtlsLog.Errorf("Failed to initialize yamux session: %v", err)
@@ -196,6 +202,7 @@ func handleSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConnect
 
 	go func() {
 		defer closeDone()
+		defer recoverAndLogPanic(mtlsLog.Errorf, "mtls yamux accept loop")
 		for {
 			stream, err := session.Accept()
 			if err != nil {
@@ -216,6 +223,7 @@ func handleSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConnect
 				defer func() {
 					<-streamSem
 				}()
+				defer recoverAndLogPanic(mtlsLog.Errorf, "mtls yamux stream")
 				defer stream.Close()
 
 				envelope, err := socketReadEnvelope(stream)
@@ -239,6 +247,8 @@ func handleSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConnect
 				if handler, ok := handlers[envelope.Type]; ok {
 					mtlsLog.Debugf("Received new mtls message type %d, data: %s", envelope.Type, envelope.Data)
 					go func(envelope *sliverpb.Envelope) {
+						defer recoverAndLogPanic(mtlsLog.Errorf, "mtls message handler")
+
 						respEnvelope := handler(implantConn, envelope.Data)
 						if respEnvelope != nil {
 							implantConn.Send <- respEnvelope
@@ -251,6 +261,7 @@ func handleSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConnect
 
 	go func() {
 		defer closeDone()
+		defer recoverAndLogPanic(mtlsLog.Errorf, "mtls yamux sender loop")
 		for {
 			select {
 			case envelope := <-implantConn.Send:
@@ -264,6 +275,7 @@ func handleSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConnect
 					defer func() {
 						<-sendSem
 					}()
+					defer recoverAndLogPanic(mtlsLog.Errorf, "mtls yamux sender stream")
 
 					stream, err := session.Open()
 					if err != nil {

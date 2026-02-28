@@ -100,6 +100,8 @@ func StartDNSListener(bindIface string, lport uint16, domains []string, canaries
 	server.startInitGC()
 	dnsLog.Infof("Starting DNS listener for %v (canaries: %v) ...", domains, canaries)
 	dns.HandleFunc(".", func(writer dns.ResponseWriter, req *dns.Msg) {
+		defer recoverAndLogPanic(dnsLog.Errorf, "dns request callback")
+
 		started := time.Now()
 		server.HandleDNSRequest(domains, canaries, writer, req)
 		dnsLog.Debugf("DNS server took %s", time.Since(started))
@@ -226,6 +228,8 @@ func (s *DNSSession) IncomingPendingEnvelope(msgID uint32, size uint32) *Pending
 
 // ForwardCompletedEnvelope - Reassembles and forwards envelopes to core
 func (s *DNSSession) ForwardCompletedEnvelope(msgID uint32, pending *PendingEnvelope) {
+	defer recoverAndLogPanic(dnsLog.Errorf, "dns ForwardCompletedEnvelope")
+
 	dnsLog.Debugf("[dns] dns session id: %d, msg id: %d completed message", s.ID, msgID)
 	s.incomingMutex.Lock()
 	delete(s.incomingEnvelopes, msgID) // Remove pending message
@@ -373,6 +377,8 @@ func (s *SliverDNSServer) startInitGC() {
 	s.gcStop = make(chan struct{})
 	s.gcDone = make(chan struct{})
 	go func() {
+		defer recoverAndLogPanic(dnsLog.Errorf, "dns init gc")
+
 		ticker := time.NewTicker(defaultPendingDNSInitGCInterval)
 		defer ticker.Stop()
 		defer close(s.gcDone)
@@ -420,6 +426,8 @@ func (s *SliverDNSServer) gcPendingInits() {
 // ---------------------------
 // Handles all DNS queries, first we determine if the query is C2 or a canary
 func (s *SliverDNSServer) HandleDNSRequest(domains []string, canaries bool, writer dns.ResponseWriter, req *dns.Msg) {
+	defer recoverAndLogPanic(dnsLog.Errorf, "dns HandleDNSRequest")
+
 	if req == nil {
 		dnsLog.Info("req can not be nil")
 		return
@@ -682,6 +690,8 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 	}
 
 	go func() {
+		defer recoverAndLogPanic(dnsLog.Errorf, "dns session send loop")
+
 		dnsLog.Debugf("[dns] starting implant conn send loop")
 		for envelope := range dnsSession.ImplantConn.Send {
 			dnsSession.StageOutgoingEnvelope(envelope)
@@ -830,7 +840,10 @@ func (s *SliverDNSServer) handleDataFromImplant(domain string, msg *dnspb.DNSMes
 	pending := dnsSession.IncomingPendingEnvelope(msg.ID, msg.Size)
 	complete := pending.Insert(msg)
 	if complete {
-		go dnsSession.ForwardCompletedEnvelope(msg.ID, pending)
+		go func() {
+			defer recoverAndLogPanic(dnsLog.Errorf, "dns completed envelope dispatch")
+			dnsSession.ForwardCompletedEnvelope(msg.ID, pending)
+		}()
 	}
 
 	resp := new(dns.Msg)
@@ -981,6 +994,8 @@ func (s *SliverDNSServer) handleNOP(domain string, msg *dnspb.DNSMessage, checks
 func (s *SliverDNSServer) handleCanary(req *dns.Msg) *dns.Msg {
 	// Don't block, return error as fast as possible
 	go func() {
+		defer recoverAndLogPanic(dnsLog.Errorf, "dns handleCanary")
+
 		reqDomain := strings.ToLower(req.Question[0].Name)
 		if !strings.HasSuffix(reqDomain, ".") {
 			reqDomain += "." // Ensure we have the FQDN

@@ -38,6 +38,11 @@ var (
 func (rpc *Server) Msf(ctx context.Context, req *clientpb.MSFReq) (*sliverpb.Task, error) {
 	var os string
 	var arch string
+
+	if req == nil || req.Request == nil {
+		return nil, ErrMissingRequestField
+	}
+
 	if !req.Request.Async {
 		session := core.Sessions.Get(req.Request.SessionID)
 		if session == nil {
@@ -90,6 +95,11 @@ func (rpc *Server) Msf(ctx context.Context, req *clientpb.MSFReq) (*sliverpb.Tas
 func (rpc *Server) MsfRemote(ctx context.Context, req *clientpb.MSFRemoteReq) (*sliverpb.Task, error) {
 	var os string
 	var arch string
+
+	if req == nil || req.Request == nil {
+		return nil, ErrMissingRequestField
+	}
+
 	if !req.Request.Async {
 		session := core.Sessions.Get(req.Request.SessionID)
 		if session == nil {

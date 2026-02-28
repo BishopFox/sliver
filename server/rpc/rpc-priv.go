@@ -83,6 +83,10 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 		name      string
 	)
 
+	if req == nil || req.Request == nil {
+		return nil, ErrMissingRequestField
+	}
+
 	session := core.Sessions.Get(req.Request.SessionID)
 	if session == nil {
 		return nil, ErrInvalidSessionID
@@ -159,6 +163,10 @@ func (rpc *Server) MakeToken(ctx context.Context, req *sliverpb.MakeTokenReq) (*
 
 // GetPrivs - gRPC interface to get privilege information from the current process
 func (rpc *Server) GetPrivs(ctx context.Context, req *sliverpb.GetPrivsReq) (*sliverpb.GetPrivs, error) {
+	if req == nil || req.Request == nil {
+		return nil, ErrMissingRequestField
+	}
+
 	sessionID := req.Request.SessionID
 
 	resp := &sliverpb.GetPrivs{Response: &commonpb.Response{}}

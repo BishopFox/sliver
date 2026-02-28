@@ -33,6 +33,10 @@ const maxNameLength = 32
 
 // Reconfigure - Reconfigure a beacon/session
 func (rpc *Server) Reconfigure(ctx context.Context, req *sliverpb.ReconfigureReq) (*sliverpb.Reconfigure, error) {
+	if req == nil || req.Request == nil {
+		return nil, ErrMissingRequestField
+	}
+
 	// We have to preserve these because GenericHandler clears them in req.Request
 	sessionID := req.Request.SessionID
 	beaconID := req.Request.BeaconID

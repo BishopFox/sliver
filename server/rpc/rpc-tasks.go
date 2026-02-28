@@ -67,6 +67,10 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 	var dbBeacon *models.Beacon
 	var err error
 
+	if req == nil || req.Request == nil {
+		return nil, ErrMissingRequestField
+	}
+
 	if !req.Request.Async { // is this a session?
 		session = core.Sessions.Get(req.Request.SessionID)
 		if session == nil {
@@ -197,6 +201,11 @@ func (rpc *Server) ExecuteAssembly(ctx context.Context, req *sliverpb.ExecuteAss
 	var beacon *clientpb.Beacon
 	var dbBeacon *models.Beacon
 	var err error
+
+	if req == nil || req.Request == nil {
+		return nil, ErrMissingRequestField
+	}
+
 	if !req.Request.Async {
 		session = core.Sessions.Get(req.Request.SessionID)
 		if session == nil {
@@ -267,6 +276,11 @@ func (rpc *Server) Sideload(ctx context.Context, req *sliverpb.SideloadReq) (*sl
 		err      error
 		arch     string
 	)
+
+	if req == nil || req.Request == nil {
+		return nil, ErrMissingRequestField
+	}
+
 	if !req.Request.Async {
 		session = core.Sessions.Get(req.Request.SessionID)
 		if session == nil {
@@ -315,6 +329,11 @@ func (rpc *Server) SpawnDll(ctx context.Context, req *sliverpb.InvokeSpawnDllReq
 	var beacon *clientpb.Beacon
 	var dbBeacon *models.Beacon
 	var err error
+
+	if req == nil || req.Request == nil {
+		return nil, ErrMissingRequestField
+	}
+
 	if !req.Request.Async {
 		session = core.Sessions.Get(req.Request.SessionID)
 		if session == nil {

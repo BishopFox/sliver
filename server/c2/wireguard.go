@@ -168,6 +168,8 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 
 // acceptKeyExchangeConnection - accept connections to key exchange socket
 func acceptKeyExchangeConnection(ln net.Listener) {
+	defer recoverAndLogPanic(wgLog.Errorf, "wireguard acceptKeyExchangeConnection")
+
 	wgLog.Printf("Polling for connections to key exchange listener")
 	for {
 		conn, err := ln.Accept()
@@ -188,6 +190,8 @@ func acceptKeyExchangeConnection(ln net.Listener) {
 // Generate new implant wg keys. Generate new unique IP for implant.
 // Write all retrieved data to socket connection.
 func handleKeyExchangeConnection(conn net.Conn) {
+	defer recoverAndLogPanic(wgLog.Errorf, "wireguard handleKeyExchangeConnection")
+
 	wgLog.Infof("Handling connection to key exchange listener")
 
 	defer conn.Close()
@@ -213,6 +217,8 @@ func handleKeyExchangeConnection(conn net.Conn) {
 }
 
 func acceptWGSliverConnections(ln net.Listener) {
+	defer recoverAndLogPanic(wgLog.Errorf, "wireguard acceptWGSliverConnections")
+
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -227,6 +233,8 @@ func acceptWGSliverConnections(ln net.Listener) {
 }
 
 func handleWGSliverConnection(conn net.Conn) {
+	defer recoverAndLogPanic(wgLog.Errorf, "wireguard handleWGSliverConnection")
+
 	wgLog.Infof("Accepted incoming connection: %s", conn.RemoteAddr())
 
 	implantConn := core.NewImplantConnection("wg", conn.RemoteAddr().String())
@@ -262,6 +270,8 @@ func (c *wgBufferedConn) Read(p []byte) (int, error) {
 }
 
 func handleWGSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConnection) {
+	defer recoverAndLogPanic(wgLog.Errorf, "wireguard handleWGSliverConnectionYamux")
+
 	session, err := yamux.Server(conn, nil)
 	if err != nil {
 		wgLog.Errorf("Failed to initialize yamux session: %v", err)
@@ -284,6 +294,7 @@ func handleWGSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConne
 
 	go func() {
 		defer closeDone()
+		defer recoverAndLogPanic(wgLog.Errorf, "wireguard yamux accept loop")
 		for {
 			stream, err := session.Accept()
 			if err != nil {
@@ -304,6 +315,7 @@ func handleWGSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConne
 				defer func() {
 					<-streamSem
 				}()
+				defer recoverAndLogPanic(wgLog.Errorf, "wireguard yamux stream")
 				defer stream.Close()
 
 				envelope, err := socketWGReadEnvelope(stream)
@@ -326,6 +338,8 @@ func handleWGSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConne
 
 				if handler, ok := handlers[envelope.Type]; ok {
 					go func(envelope *sliverpb.Envelope) {
+						defer recoverAndLogPanic(wgLog.Errorf, "wireguard message handler")
+
 						respEnvelope := handler(implantConn, envelope.Data)
 						if respEnvelope != nil {
 							implantConn.Send <- respEnvelope
@@ -338,6 +352,7 @@ func handleWGSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConne
 
 	go func() {
 		defer closeDone()
+		defer recoverAndLogPanic(wgLog.Errorf, "wireguard yamux sender loop")
 		for {
 			select {
 			case envelope := <-implantConn.Send:
@@ -351,6 +366,7 @@ func handleWGSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConne
 					defer func() {
 						<-sendSem
 					}()
+					defer recoverAndLogPanic(wgLog.Errorf, "wireguard yamux sender stream")
 
 					stream, err := session.Open()
 					if err != nil {
