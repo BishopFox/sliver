@@ -49,6 +49,10 @@ func (rpc *Server) GetSessions(ctx context.Context, _ *commonpb.Empty) (*clientp
 
 // KillSession - Kill a session
 func (rpc *Server) KillSession(ctx context.Context, kill *sliverpb.KillReq) (*commonpb.Empty, error) {
+	if kill == nil || kill.Request == nil {
+		return &commonpb.Empty{}, ErrMissingRequestField
+	}
+
 	session := core.Sessions.Get(kill.Request.SessionID)
 	if session == nil {
 		return &commonpb.Empty{}, ErrInvalidSessionID
@@ -75,6 +79,10 @@ func (rpc *Server) OpenSession(ctx context.Context, openSession *sliverpb.OpenSe
 
 // CloseSession - Close an interactive session, but do not kill the remote process
 func (rpc *Server) CloseSession(ctx context.Context, closeSession *sliverpb.CloseSession) (*commonpb.Empty, error) {
+	if closeSession == nil || closeSession.Request == nil {
+		return nil, ErrMissingRequestField
+	}
+
 	session := core.Sessions.Get(closeSession.Request.SessionID)
 	if session == nil {
 		return nil, ErrInvalidSessionID

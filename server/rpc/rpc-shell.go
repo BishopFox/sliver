@@ -36,6 +36,10 @@ var (
 
 // Shell - Open an interactive shell
 func (rpc *Server) Shell(ctx context.Context, req *sliverpb.ShellReq) (*sliverpb.Shell, error) {
+	if req == nil || req.Request == nil {
+		return nil, ErrMissingRequestField
+	}
+
 	session := core.Sessions.Get(req.Request.SessionID)
 	if session == nil {
 		return nil, ErrInvalidSessionID
@@ -62,6 +66,10 @@ func (rpc *Server) Shell(ctx context.Context, req *sliverpb.ShellReq) (*sliverpb
 
 // ShellResize - Resize a shell PTY (best effort)
 func (rpc *Server) ShellResize(ctx context.Context, req *sliverpb.ShellResizeReq) (*commonpb.Empty, error) {
+	if req == nil || req.Request == nil {
+		return nil, ErrMissingRequestField
+	}
+
 	session := core.Sessions.Get(req.Request.SessionID)
 	if session == nil {
 		return nil, ErrInvalidSessionID

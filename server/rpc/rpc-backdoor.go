@@ -39,6 +39,11 @@ import (
 
 // Backdoor - Inject a sliver payload in a file on the remote system
 func (rpc *Server) Backdoor(ctx context.Context, req *clientpb.BackdoorReq) (*clientpb.Backdoor, error) {
+	resp := &clientpb.Backdoor{}
+	if req == nil || req.Request == nil {
+		return resp, ErrMissingRequestField
+	}
+
 	var (
 		name string
 		err  error
@@ -55,8 +60,10 @@ func (rpc *Server) Backdoor(ctx context.Context, req *clientpb.BackdoorReq) (*cl
 		name = req.Name
 	}
 
-	resp := &clientpb.Backdoor{}
 	session := core.Sessions.Get(req.Request.SessionID)
+	if session == nil {
+		return nil, ErrInvalidSessionID
+	}
 	if session.OS != "windows" {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("%s is currently not supported", session.OS))
 	}

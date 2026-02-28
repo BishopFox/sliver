@@ -155,6 +155,13 @@ func (s *Server) SocksProxy(stream rpcpb.SliverRPC_SocksProxyServer) error {
 			rpcLog.Warnf("Error on stream recv %s", err)
 			return rpcError(err)
 		}
+		if fromClient == nil {
+			continue
+		}
+		if fromClient.Request == nil {
+			rpcLog.Warnf("Ignoring SOCKS frame with missing request metadata for tunnel %d", fromClient.TunnelID)
+			continue
+		}
 
 		tunnelMutex.Lock()
 		activeTunnels[fromClient.TunnelID] = true // Mark this as an active tunnel
@@ -346,6 +353,10 @@ func (s *Server) SocksProxy(stream rpcpb.SliverRPC_SocksProxyServer) error {
 							for {
 								recv, ok := toImplantCacheSocks.Get(fromClient.TunnelID, sequence)
 								if !ok {
+									break
+								}
+								if fromClient.Request == nil {
+									rpcLog.Error("Missing request metadata for SOCKS tunnel")
 									break
 								}
 
