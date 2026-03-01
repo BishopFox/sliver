@@ -47,6 +47,9 @@ cleanup() {
 	if command -v pkill >/dev/null 2>&1; then
 		pkill -TERM -P $$ 2>/dev/null || true
 		pkill -TERM -f "$TEST_TMP_ROOT" 2>/dev/null || true
+		sleep 1
+		pkill -KILL -P $$ 2>/dev/null || true
+		pkill -KILL -f "$TEST_TMP_ROOT" 2>/dev/null || true
 	fi
 	wait 2>/dev/null || true
 
@@ -73,6 +76,9 @@ export HOME="$TEST_TMP_ROOT/home"
 export XDG_CONFIG_HOME="$TEST_TMP_ROOT/xdg-config"
 export XDG_CACHE_HOME="$TEST_TMP_ROOT/xdg-cache"
 export XDG_DATA_HOME="$TEST_TMP_ROOT/xdg-data"
+export TMPDIR="$TEST_TMP_ROOT/tmp"
+export TMP="$TMPDIR"
+export TEMP="$TMPDIR"
 export GOCACHE="$TEST_TMP_ROOT/go-cache"
 export GOTMPDIR="$TEST_TMP_ROOT/go-tmp"
 export GOFLAGS="${GOFLAGS:-} -mod=vendor"
@@ -84,6 +90,7 @@ mkdir -p \
 	"$XDG_CONFIG_HOME" \
 	"$XDG_CACHE_HOME" \
 	"$XDG_DATA_HOME" \
+	"$TMPDIR" \
 	"$GOCACHE" \
 	"$GOTMPDIR"
 export PATH="$SLIVER_ROOT_DIR/go/bin:$PATH"
@@ -218,7 +225,14 @@ run_test_cmd "./server/c2 (e2e dns)" go test -tags="server,$TAGS,sliver_e2e" ./s
 ## Server generate
 if [ "$SKIP_GENERATE" -eq 0 ]; then
 	export GOPROXY=off
-	run_test_cmd "./server/generate" go test -timeout 6h -tags="server,$TAGS" ./server/generate || exit 1
+	# Generate tests are memory intensive (garble/c-shared cross-builds). Keep
+	# parallelism conservative by default to avoid OOM kills on smaller systems.
+	GENERATE_GOMAXPROCS="${SLIVER_GENERATE_GOMAXPROCS:-2}"
+	GENERATE_GO_P="${SLIVER_GENERATE_GO_P:-1}"
+	GENERATE_TEST_PARALLEL="${SLIVER_GENERATE_TEST_PARALLEL:-1}"
+	run_test_cmd "./server/generate" \
+		env GOMAXPROCS="$GENERATE_GOMAXPROCS" \
+		go test -timeout 6h -p "$GENERATE_GO_P" -parallel "$GENERATE_TEST_PARALLEL" -tags="server,$TAGS" ./server/generate || exit 1
 else
 	echo
 	echo "Skipping ./server/generate tests (--skip-generate)"
