@@ -26,7 +26,7 @@ K := $(foreach exec,$(EXECUTABLES),\
 GO_MAJOR_VERSION = $(shell $(GO) version | cut -c 14- | cut -d' ' -f1 | cut -d'.' -f1)
 GO_MINOR_VERSION = $(shell $(GO) version | cut -c 14- | cut -d' ' -f1 | cut -d'.' -f2)
 MIN_SUPPORTED_GO_MAJOR_VERSION = 1
-MIN_SUPPORTED_GO_MINOR_VERSION = 24
+MIN_SUPPORTED_GO_MINOR_VERSION = 25
 GO_VERSION_VALIDATION_ERR_MSG = Golang version is not supported, please update to at least $(MIN_SUPPORTED_GO_MAJOR_VERSION).$(MIN_SUPPORTED_GO_MINOR_VERSION)
 
 SLIVER_PUBLIC_KEY ?= RWTZPg959v3b7tLG7VzKHRB1/QT+d3c71Uzetfa44qAoX5rH7mGoQTTR

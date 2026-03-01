@@ -27,6 +27,7 @@ import (
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var (
@@ -66,7 +67,10 @@ func hostsSessionCallback(session *Session) {
 	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		coreLog.Infof("Session %v is from a new host", session.ID)
-		err := dbSession.Create(&models.Host{
+		err := dbSession.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "host_uuid"}},
+			DoNothing: true,
+		}).Create(&models.Host{
 			HostUUID:      uuid.FromStringOrNil(session.UUID),
 			Hostname:      session.Hostname,
 			OSVersion:     session.OS,
@@ -94,7 +98,10 @@ func hostsBeaconCallback(beacon *models.Beacon) {
 	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		coreLog.Infof("Beacon %v is from a new host", beacon.ID)
-		err := dbSession.Create(&models.Host{
+		err := dbSession.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "host_uuid"}},
+			DoNothing: true,
+		}).Create(&models.Host{
 			HostUUID:      uuid.FromStringOrNil(beacon.UUID.String()),
 			Hostname:      beacon.Hostname,
 			OSVersion:     beacon.OS,
