@@ -437,8 +437,9 @@ On Windows, escaping is disabled. Instead, '\\' is treated as path separator.`
 	mountHelp = `[[.Bold]]Command:[[.Normal]] mount
 [[.Bold]]About:[[.Normal]] Displays information about mounted drives on the system, including mount point, space metrics, and filesystem.`
 
-	executeShellcodeHelp = `[[.Bold]]Command:[[.Normal]] execute-shellcode [local path to raw shellcode]
-[[.Bold]]About:[[.Normal]] Executes the given shellcode in the implant's process.
+	executeShellcodeHelp = `[[.Bold]]Command:[[.Normal]] execute-shellcode [local path to raw shellcode or PE]
+[[.Bold]]About:[[.Normal]] Executes the given shellcode in the implant's process. On Windows targets, PE input can be
+converted with Donut before execution and tuned with [[.Bold]]--shellcode-*[[.Normal]] flags.
 
 [[.Bold]][[.Underline]]++ Shellcode ++[[.Normal]]
 Shellcode files should be binary encoded, you can generate Sliver shellcode files with the generate command:
