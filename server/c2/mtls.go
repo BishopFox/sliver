@@ -358,10 +358,8 @@ func socketReadEnvelope(connection net.Conn) (*sliverpb.Envelope, error) {
 		return nil, errors.New("[pivot] invalid data length")
 	}
 
-	dataBuf := make([]byte, dataLength)
-
-	n, err = io.ReadFull(connection, dataBuf)
-	if err != nil || n != dataLength {
+	dataBuf, err := readSocketEnvelopeData(connection, dataLength, socketEnvelopeDiskSpoolThreshold)
+	if err != nil {
 		mtlsLog.Errorf("Socket error (read data): %v", err)
 		return nil, err
 	}
