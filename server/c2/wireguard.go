@@ -452,11 +452,8 @@ func socketWGReadEnvelope(connection net.Conn) (*sliverpb.Envelope, error) {
 		return nil, errors.New("[wireguard] zero data length")
 	}
 
-	dataBuf := make([]byte, dataLength)
-
-	n, err = io.ReadFull(connection, dataBuf)
-
-	if err != nil || n != dataLength {
+	dataBuf, err := readSocketEnvelopeData(connection, dataLength, socketEnvelopeDiskSpoolThreshold)
+	if err != nil {
 		wgLog.Errorf("Socket error (read data): %v", err)
 		return nil, err
 	}
