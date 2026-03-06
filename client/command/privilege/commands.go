@@ -74,7 +74,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 			GetSystemCmd(cmd, con, args)
 		},
 		GroupID:     consts.PrivilegesHelpGroup,
-		Annotations: flags.RestrictTargets(consts.WindowsCmdsFilter),
+		Annotations: flags.RestrictTargets(consts.WindowsCmdsFilter, consts.SessionCmdsFilter),
 	}
 	flags.Bind("", false, getSystemCmd, func(f *pflag.FlagSet) {
 		f.StringP("process", "p", "spoolsv.exe", "SYSTEM process to inject into")

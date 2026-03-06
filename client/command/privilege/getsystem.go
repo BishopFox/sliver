@@ -37,6 +37,10 @@ func GetSystemCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	if session == nil && beacon == nil {
 		return
 	}
+	if session == nil {
+		con.PrintErrorf("Command is only supported for sessions.\n")
+		return
+	}
 	targetOS := getOS(session, beacon)
 	if targetOS != "windows" {
 		con.PrintErrorf("Command only supported on Windows.\n")
@@ -45,6 +49,10 @@ func GetSystemCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 
 	process, _ := cmd.Flags().GetString("process")
 	config := con.GetActiveSessionConfig()
+	if config == nil {
+		con.PrintErrorf("Failed to derive active session config.\n")
+		return
+	}
 
 	/* If the HTTP C2 Config name is not defined, then put in the default value
 	   This will have no effect on implants that do not use HTTP C2
