@@ -39,7 +39,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind("", false, rportfwdAddCmd, func(f *pflag.FlagSet) {
 		f.StringP("remote", "r", "", "remote address <ip>:<port> connection is forwarded to")
 		f.StringP("bind", "b", "", "bind address <ip>:<port> for implants to listen on")
-		f.Int32P("keepalive", "k", 0, "keepalive period in seconds. Default is 30s")
+		f.Int32P("keepalive", "k", 0, "keepalive period in seconds (default 30s, -1 to disable)")
 	})
 	flags.BindFlagCompletions(rportfwdAddCmd, func(comp *carapace.ActionMap) {
 		(*comp)["remote"] = completers.ClientInterfacesCompleter()

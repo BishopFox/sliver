@@ -81,11 +81,15 @@ func PortfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 		// {{if .Config.Debug}}
 		log.Printf("[portfwd] Configuring keep alive")
 		// {{end}}
-		conn.SetKeepAlive(true)
-		if portfwdReq.KeepAlive != 0 {
-			conn.SetKeepAlivePeriod(time.Duration(portfwdReq.KeepAlive) * time.Second)
+		if portfwdReq.KeepAlive < 0 {
+			conn.SetKeepAlive(false)
 		} else {
-			conn.SetKeepAlivePeriod(30 * time.Second)
+			conn.SetKeepAlive(true)
+			if portfwdReq.KeepAlive > 0 {
+				conn.SetKeepAlivePeriod(time.Duration(portfwdReq.KeepAlive) * time.Second)
+			} else {
+				conn.SetKeepAlivePeriod(30 * time.Second)
+			}
 		}
 	}
 

@@ -70,8 +70,10 @@ func PortfwdAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 
 	keepAlive, _ := cmd.Flags().GetInt32("keepalive")
 	var keepAlivePeriod time.Duration
-	if keepAlive != 0 {
+	if keepAlive > 0 {
 		keepAlivePeriod = time.Duration(keepAlive) * time.Second
+	} else if keepAlive < 0 {
+		keepAlivePeriod = -1 * time.Second
 	} else {
 		keepAlivePeriod = 60 * time.Second
 	}

@@ -98,10 +98,12 @@ func rportFwdStartListenerHandler(envelope *pb.Envelope, connection *transports.
 	}
 	tcpProxy := &tcpproxy.Proxy{}
 	var keepAlivePeriod time.Duration
-	if req.KeepAlive != 0 {
+	if req.KeepAlive > 0 {
 		keepAlivePeriod = time.Duration(req.KeepAlive) * time.Second
+	} else if req.KeepAlive < 0 {
+		keepAlivePeriod = -1 * time.Second
 	} else {
-		keepAlivePeriod = 30 * time.Second 
+		keepAlivePeriod = 30 * time.Second
 	}
 
 	channelProxy := &rportfwd.ChannelProxy{
