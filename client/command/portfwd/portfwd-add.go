@@ -68,13 +68,21 @@ func PortfwdAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 		bindAddr = fmt.Sprintf("127.0.0.1:%s", bindAddr)
 	}
 
+	keepAlive, _ := cmd.Flags().GetInt32("keepalive")
+	var keepAlivePeriod time.Duration
+	if keepAlive != 0 {
+		keepAlivePeriod = time.Duration(keepAlive) * time.Second
+	} else {
+		keepAlivePeriod = 60 * time.Second
+	}
+
 	tcpProxy := &tcpproxy.Proxy{}
 	channelProxy := &core.ChannelProxy{
 		Rpc:             con.Rpc,
 		Session:         session,
 		RemoteAddr:      remoteAddr,
 		BindAddr:        bindAddr,
-		KeepAlivePeriod: 60 * time.Second,
+		KeepAlivePeriod: keepAlivePeriod,
 		DialTimeout:     30 * time.Second,
 	}
 	tcpProxy.AddRoute(bindAddr, channelProxy)

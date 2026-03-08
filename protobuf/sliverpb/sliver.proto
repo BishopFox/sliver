@@ -883,6 +883,7 @@ message PortfwdReq {
   int32 Protocol = 2;
   string Host = 3;
 
+  int32 KeepAlive = 4; 
   uint64 TunnelID = 8 [jstype = JS_STRING]; // Bind to this tunnel
   commonpb.Request Request = 9;
 }
@@ -1185,6 +1186,7 @@ message RportFwdStartListenerReq {
   uint32 BindPort = 2;
   uint32 ForwardPort = 3;
   string ForwardAddress = 4;
+  int32 KeepAlive = 5; 
 
   commonpb.Request Request = 9;
 }

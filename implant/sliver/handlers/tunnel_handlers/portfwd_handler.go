@@ -82,8 +82,11 @@ func PortfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 		log.Printf("[portfwd] Configuring keep alive")
 		// {{end}}
 		conn.SetKeepAlive(true)
-		// TODO: Make KeepAlive configurable
-		conn.SetKeepAlivePeriod(30 * time.Second)
+		if portfwdReq.KeepAlive != 0 {
+			conn.SetKeepAlivePeriod(time.Duration(portfwdReq.KeepAlive) * time.Second)
+		} else {
+			conn.SetKeepAlivePeriod(30 * time.Second)
+		}
 	}
 
 	// Add tunnel
