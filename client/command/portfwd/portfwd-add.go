@@ -75,7 +75,7 @@ func PortfwdAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 	} else if keepAlive < 0 {
 		keepAlivePeriod = -1 * time.Second
 	} else {
-		keepAlivePeriod = 60 * time.Second
+		keepAlivePeriod = 30 * time.Second
 	}
 
 	tcpProxy := &tcpproxy.Proxy{}
