@@ -22,7 +22,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Annotations: flags.RestrictTargets(consts.WindowsCmdsFilter),
 	}
 	flags.Bind("registry", true, registryCmd, func(f *pflag.FlagSet) {
-		f.IntP("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
 
 	registryReadCmd := &cobra.Command{

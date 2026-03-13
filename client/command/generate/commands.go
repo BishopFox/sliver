@@ -36,7 +36,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		GroupID: consts.PayloadsHelpGroup,
 	}
 	flags.Bind("generate", true, generateCmd, func(f *pflag.FlagSet) {
-		f.IntP("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
 
 	// Session flags and completions.

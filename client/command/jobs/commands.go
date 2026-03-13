@@ -43,12 +43,12 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		GroupID: consts.NetworkHelpGroup,
 	}
 	flags.Bind("jobs", true, jobsCmd, func(f *pflag.FlagSet) {
-		f.IntP("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
 	flags.Bind("jobs", false, jobsCmd, func(f *pflag.FlagSet) {
 		f.Int32P("kill", "k", -1, "kill a background job")
 		f.BoolP("kill-all", "K", false, "kill all jobs")
-		f.IntP("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
 	flags.BindFlagCompletions(jobsCmd, func(comp *carapace.ActionMap) {
 		(*comp)["kill"] = JobsIDCompleter(con)

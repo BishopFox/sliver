@@ -23,7 +23,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Annotations: flags.RestrictTargets(consts.BeaconCmdsFilter),
 	}
 	flags.Bind("tasks", true, tasksCmd, func(f *pflag.FlagSet) {
-		f.IntP("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 		f.BoolP("overflow", "O", false, "overflow terminal width (display truncated rows)")
 		f.IntP("skip-pages", "S", 0, "skip the first n page(s)")
 		f.StringP("filter", "f", "", "filter based on task type (case-insensitive prefix matching)")

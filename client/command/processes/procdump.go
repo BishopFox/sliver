@@ -55,7 +55,7 @@ func ProcdumpCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		return
 	}
 
-	timeout, _ := cmd.Flags().GetInt32("timeout")
+	timeout, _ := cmd.Flags().GetInt64("timeout")
 
 	if timeout < 1 {
 		con.PrintErrorf("Invalid timeout argument\n")
@@ -68,7 +68,7 @@ func ProcdumpCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	dump, err := con.Rpc.ProcessDump(context.Background(), &sliverpb.ProcessDumpReq{
 		Request: con.ActiveTarget.Request(cmd),
 		Pid:     int32(pid),
-		Timeout: timeout,
+		Timeout: int32(timeout),
 	})
 	ctrl <- true
 	<-ctrl
