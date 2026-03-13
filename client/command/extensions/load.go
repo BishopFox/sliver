@@ -377,7 +377,7 @@ func ExtensionRegisterCommand(extCmd *ExtCommand, cmd *cobra.Command, con *conso
 	// Flags
 	f := pflag.NewFlagSet(extCmd.CommandName, pflag.ContinueOnError)
 	f.BoolP("save", "s", false, "Save output to disk")
-	f.IntP("timeout", "t", defaultTimeout, "command timeout in seconds")
+	f.Int64P("timeout", "t", defaultTimeout, "command timeout in seconds")
 	extensionCmd.Flags().AddFlagSet(f)
 	extensionCmd.Flags().ParseErrorsWhitelist.UnknownFlags = true
 
