@@ -21,6 +21,7 @@ package certs
 import (
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 
 	"github.com/bishopfox/sliver/server/db"
@@ -33,6 +34,17 @@ const (
 
 	clientNamespace = "client" // Operator clients
 	serverNamespace = "server" // Operator servers
+)
+
+var (
+	// ErrOperatorClientCertificateNotFound indicates that the presented operator
+	// client certificate is no longer trusted because it is not present in the
+	// certificate store.
+	ErrOperatorClientCertificateNotFound = errors.New("operator client certificate not found in database")
+
+	// ErrInvalidOperatorClientCertificate indicates that the presented
+	// certificate is not shaped like an operator client leaf certificate.
+	ErrInvalidOperatorClientCertificate = errors.New("invalid operator client certificate")
 )
 
 // OperatorClientGenerateCertificate - Generate a certificate signed with a given CA
@@ -50,6 +62,52 @@ func OperatorClientGetCertificate(operator string) ([]byte, []byte, error) {
 // OperatorClientRemoveCertificate - Helper function to remove a client cert
 func OperatorClientRemoveCertificate(operator string) error {
 	return RemoveCertificate(OperatorCA, ECCKey, fmt.Sprintf("%s.%s", clientNamespace, operator))
+}
+
+// ValidateOperatorClientCertificate ensures that the presented operator client
+// certificate is still present in the database. A valid chain alone is not
+// enough; the exact leaf certificate must still exist in storage.
+func ValidateOperatorClientCertificate(peerCertificates []*x509.Certificate) error {
+	if len(peerCertificates) == 0 || peerCertificates[0] == nil {
+		return ErrInvalidOperatorClientCertificate
+	}
+
+	leaf := peerCertificates[0]
+	if leaf.IsCA || leaf.Subject.CommonName == "" || !hasExtKeyUsage(leaf, x509.ExtKeyUsageClientAuth) {
+		return ErrInvalidOperatorClientCertificate
+	}
+
+	pemBytes := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: leaf.Raw,
+	})
+	if len(pemBytes) == 0 {
+		return ErrInvalidOperatorClientCertificate
+	}
+
+	record := &models.Certificate{}
+	result := db.Session().Select("id").Where(&models.Certificate{
+		CommonName:     fmt.Sprintf("%s.%s", clientNamespace, leaf.Subject.CommonName),
+		CAType:         OperatorCA,
+		KeyType:        ECCKey,
+		CertificatePEM: string(pemBytes),
+	}).First(record)
+	if result.Error == nil {
+		return nil
+	}
+	if errors.Is(result.Error, db.ErrRecordNotFound) {
+		return ErrOperatorClientCertificateNotFound
+	}
+	return result.Error
+}
+
+func hasExtKeyUsage(cert *x509.Certificate, usage x509.ExtKeyUsage) bool {
+	for _, extKeyUsage := range cert.ExtKeyUsage {
+		if extKeyUsage == usage {
+			return true
+		}
+	}
+	return false
 }
 
 // OperatorServerGetCertificate - Helper function to fetch a server cert

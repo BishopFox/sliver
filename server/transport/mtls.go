@@ -21,6 +21,7 @@ package transport
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"net"
 	"runtime/debug"
@@ -50,15 +51,34 @@ var (
 // StartMtlsClientListener - Start a mutual TLS listener
 func StartMtlsClientListener(host string, port uint16) (*grpc.Server, net.Listener, error) {
 	mtlsLog.Infof("Starting gRPC/mtls  listener on %s:%d", host, port)
-
-	tlsConfig := getOperatorServerTLSConfig("multiplayer")
-
-	creds := credentials.NewTLS(tlsConfig)
 	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
 		mtlsLog.Error(err)
 		return nil, nil, err
 	}
+
+	grpcServer, err := StartMtlsClientServer(ln)
+	if err != nil {
+		ln.Close()
+		return nil, nil, err
+	}
+	return grpcServer, ln, nil
+}
+
+// StartMtlsClientServer serves the authenticated multiplayer gRPC server on an
+// existing listener. This is primarily useful for tests that need the full mTLS
+// + auth stack without opening a real TCP socket.
+func StartMtlsClientServer(ln net.Listener) (*grpc.Server, error) {
+	if ln == nil {
+		return nil, errors.New("listener is required")
+	}
+
+	tlsConfig := getOperatorServerTLSConfig("multiplayer")
+	if tlsConfig == nil {
+		return nil, errors.New("failed to create operator TLS config")
+	}
+
+	creds := credentials.NewTLS(tlsConfig)
 	options := []grpc.ServerOption{
 		grpc.Creds(creds),
 		grpc.MaxRecvMsgSize(ServerMaxMessageSize),
@@ -81,7 +101,7 @@ func StartMtlsClientListener(host string, port uint16) (*grpc.Server, net.Listen
 			panicked = false
 		}
 	}()
-	return grpcServer, ln, nil
+	return grpcServer, nil
 }
 
 // getOperatorServerTLSConfig - Generate the TLS configuration, we do now allow the end user
@@ -115,6 +135,9 @@ func getOperatorServerTLSConfig(host string) *tls.Config {
 		ClientCAs:    caCertPool,
 		Certificates: []tls.Certificate{cert},
 		MinVersion:   tls.VersionTLS13,
+		VerifyConnection: func(state tls.ConnectionState) error {
+			return certs.ValidateOperatorClientCertificate(state.PeerCertificates)
+		},
 	}
 
 	return tlsConfig

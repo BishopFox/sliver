@@ -218,18 +218,9 @@ func kickOperatorCmd(cmd *cobra.Command, args []string) {
 	}
 
 	fmt.Printf(Info+"Removing auth token(s) for %s, please wait ... \n", operator)
-	err = db.Session().Where(&models.Operator{
-		Name: operator,
-	}).Delete(&models.Operator{}).Error
+	err = kickOperator(operator)
 	if err != nil {
-		fmt.Printf(Warn+"Failed to remove operator %s: %v\n", operator, err)
-		return
-	}
-	transport.ClearTokenCache()
-	fmt.Printf(Info+"Removing client certificate(s) for %s, please wait ... \n", operator)
-	err = certs.OperatorClientRemoveCertificate(operator)
-	if err != nil {
-		fmt.Printf(Warn+"Failed to remove the operator certificate: %v \n", err)
+		fmt.Printf(Warn+"Failed to kick operator %s: %v\n", operator, err)
 		return
 	}
 	fmt.Printf(Info+"Operator %s has been kicked out.\n", operator)
@@ -240,6 +231,33 @@ func shouldPromptKickOperator(cmd *cobra.Command, args []string) bool {
 		return false
 	}
 	return cmd.Flags().NFlag() == 0
+}
+
+func removeOperator(operator string) error {
+	err := db.Session().Where(&models.Operator{
+		Name: operator,
+	}).Delete(&models.Operator{}).Error
+	if err != nil {
+		return err
+	}
+	transport.ClearTokenCache()
+	return nil
+}
+
+func revokeOperatorClientCertificate(operator string) error {
+	return certs.OperatorClientRemoveCertificate(operator)
+}
+
+func closeOperatorStreams(operator string) {
+	transport.CloseOperatorStreams(operator)
+}
+
+func kickOperator(operator string) error {
+	if err := removeOperator(operator); err != nil {
+		return err
+	}
+	defer closeOperatorStreams(operator)
+	return revokeOperatorClientCertificate(operator)
 }
 
 func operatorNames() ([]string, error) {

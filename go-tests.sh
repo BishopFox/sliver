@@ -20,8 +20,13 @@ set -u
 set -o pipefail
 
 SKIP_GENERATE=0
+UNIT_ONLY=0
 for arg in "$@"; do
 	if [ "$arg" = "--skip-generate" ]; then
+		SKIP_GENERATE=1
+	fi
+	if [ "$arg" = "--unit-only" ]; then
+		UNIT_ONLY=1
 		SKIP_GENERATE=1
 	fi
 done
@@ -219,8 +224,13 @@ done
 
 ## Server c2 (unit + e2e)
 run_test_cmd "./server/c2" go test -tags="server,$TAGS" ./server/c2 || exit 1
-run_test_cmd "./server/c2 (e2e yamux)" go test -tags="server,$TAGS,sliver_e2e" ./server/c2 -run 'Test(MTLS|WG)Yamux_' -count=1 || exit 1
-run_test_cmd "./server/c2 (e2e dns)" go test -tags="server,$TAGS,sliver_e2e" ./server/c2 -run 'TestDNS_' -count=1 || exit 1
+if [ "$UNIT_ONLY" -eq 1 ]; then
+	echo
+	echo "Skipping ./server/c2 e2e tests (--unit-only)"
+else
+	run_test_cmd "./server/c2 (e2e yamux)" go test -tags="server,$TAGS,sliver_e2e" ./server/c2 -run 'Test(MTLS|WG)Yamux_' -count=1 || exit 1
+	run_test_cmd "./server/c2 (e2e dns)" go test -tags="server,$TAGS,sliver_e2e" ./server/c2 -run 'TestDNS_' -count=1 || exit 1
+fi
 
 ## Server generate
 if [ "$SKIP_GENERATE" -eq 0 ]; then
@@ -235,5 +245,9 @@ if [ "$SKIP_GENERATE" -eq 0 ]; then
 		go test -timeout 6h -p "$GENERATE_GO_P" -parallel "$GENERATE_TEST_PARALLEL" -tags="server,$TAGS" ./server/generate || exit 1
 else
 	echo
-	echo "Skipping ./server/generate tests (--skip-generate)"
+	if [ "$UNIT_ONLY" -eq 1 ]; then
+		echo "Skipping ./server/generate tests (--unit-only)"
+	else
+		echo "Skipping ./server/generate tests (--skip-generate)"
+	fi
 fi
