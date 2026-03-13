@@ -24,7 +24,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		GroupID: consts.SliverHelpGroup,
 	}
 	flags.Bind("loot", true, lootCmd, func(f *pflag.FlagSet) {
-		f.IntP("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
 	flags.Bind("loot", false, lootCmd, func(f *pflag.FlagSet) {
 		f.StringP("filter", "f", "", "filter based on loot type")

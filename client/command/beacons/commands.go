@@ -28,7 +28,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		},
 	}
 	flags.Bind("beacons", true, beaconsCmd, func(f *pflag.FlagSet) {
-		f.IntP("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
 	flags.Bind("beacons", false, beaconsCmd, func(f *pflag.FlagSet) {
 		f.StringP("kill", "k", "", "kill the designated beacon")

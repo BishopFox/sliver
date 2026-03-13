@@ -28,7 +28,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("save", "s", "", "save downloaded files to specific directory (default downloads dir)")
 		f.BoolP("insecure", "I", false, "skip tls certificate validation")
 		f.Bool("force", false, "skip version comparison and download the latest release")
-		f.IntP("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
 	flags.BindFlagCompletions(updateCmd, func(comp *carapace.ActionMap) {
 		(*comp)["proxy"] = completers.LocalProxyCompleter()

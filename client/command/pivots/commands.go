@@ -81,7 +81,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	}
 	pivotsCmd.AddCommand(pivotDetailsCmd)
 	flags.Bind("", false, pivotDetailsCmd, func(f *pflag.FlagSet) {
-		f.IntP("id", "i", 0, "id of the pivot listener to get details for")
+		f.Uint32P("id", "i", 0, "id of the pivot listener to get details for")
 	})
 	flags.BindFlagCompletions(pivotDetailsCmd, func(comp *carapace.ActionMap) {
 		(*comp)["id"] = PivotIDCompleter(con)
