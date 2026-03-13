@@ -4,7 +4,7 @@
 - `make` builds server + client using vendored modules and runs `go-assets.sh`.
 - `make client` builds a CGO-free client; `make debug` keeps symbols.
 - `make pb` regenerates protobuf stubs from `protobuf/`.
-- `./go-tests.sh` runs the curated Go test suite with build tags.
+- `./go-tests.sh` runs the Go test suite, this is the only way you should run unit tests.
 - Docs site: `cd docs/sliver-docs && npm install && npm run dev` for local dev; `npm run build` for a static build.
 
 ## Coding Style & Naming Conventions
