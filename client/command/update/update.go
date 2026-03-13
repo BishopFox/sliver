@@ -60,7 +60,7 @@ const (
 func UpdateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	VerboseVersionsCmd(cmd, con, args)
 
-	timeoutF, _ := cmd.Flags().GetInt("timeout")
+	timeoutF, _ := cmd.Flags().GetInt64("timeout")
 	timeout := time.Duration(timeoutF) * time.Second
 
 	insecure, _ := cmd.Flags().GetBool("insecure")

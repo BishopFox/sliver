@@ -250,7 +250,7 @@ func LoadAlias(manifestPath string, cmd *cobra.Command, con *console.SliverClien
 	f.StringP("process-arguments", "A", "", "arguments to pass to the hosting process")
 	f.Uint32P("ppid", "P", 0, "parent process ID to use when creating the hosting process (Windows only)")
 	f.BoolP("save", "s", false, "Save output to disk")
-	f.IntP("timeout", "t", defaultTimeout, "command timeout in seconds")
+	f.Int64P("timeout", "t", defaultTimeout, "command timeout in seconds")
 	addAliasCmd.Flags().AddFlagSet(f)
 
 	// Setup completions for alias arguments
