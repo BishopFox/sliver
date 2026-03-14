@@ -220,6 +220,7 @@ const (
 	MkdirStr    = "mkdir"
 	CdStr       = "cd"
 	PwdStr      = "pwd"
+	AIStr       = "ai"
 	CatStr      = "cat"
 	EditStr     = "edit"
 	HexEditStr  = "hex-edit"

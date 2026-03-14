@@ -56,6 +56,7 @@ var (
 		consts.LsStr:          lsHelp,
 		consts.CdStr:          cdHelp,
 		consts.PwdStr:         pwdHelp,
+		consts.AIStr:          aiHelp,
 		consts.CatStr:         catHelp,
 		consts.EditStr:        editHelp,
 		consts.HexEditStr:     hexEditHelp,
@@ -166,6 +167,14 @@ _=/usr/bin/env
 
 	infoHelp = `[[.Bold]]Command:[[.Normal]] info <sliver name/session>
 [[.Bold]]About:[[.Normal]] Get information about a Sliver by name, or for the active Sliver.`
+
+	aiHelp = `[[.Bold]]Command:[[.Normal]] ai
+[[.Bold]]About:[[.Normal]] Launch the Sliver AI Bubble Tea layout preview. This currently provides a full-screen TUI shell with placeholder conversations, context panes, and a composer, but does not yet execute real chat or tool actions.
+
+[[.Bold]]Example:[[.Normal]]
+	use my-session
+	ai
+`
 
 	useHelp = `[[.Bold]]Command:[[.Normal]] use [sliver name/session]
 [[.Bold]]About:[[.Normal]] Switch the active Sliver, a valid name must be provided (see sessions).`
