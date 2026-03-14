@@ -1,5 +1,5 @@
 # client/command/ai
 
-Implements the `ai` implant command for the Sliver client console.
+Implements the `ai` command for the Sliver client console.
 
-Current scope: a Bubble Tea TUI layout preview with placeholder sidebar, transcript, context, and composer panes. Chat execution and tool wiring are intentionally stubbed for a later change.
+The TUI loads server-backed AI conversation threads over gRPC, submits prompts to the server, and refreshes when `AIConversationEvent` updates arrive with assistant replies or failure messages.

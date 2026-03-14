@@ -3,6 +3,7 @@ package ai
 import (
 	"fmt"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	tea "charm.land/bubbletea/v2"
@@ -24,6 +25,7 @@ const (
 
 	aiPaneHorizontalChrome = 4
 	aiPaneVerticalChrome   = 2
+	aiModalDismissDelay    = 250 * time.Millisecond
 )
 
 type aiFocus int
@@ -89,8 +91,9 @@ type aiStartupConfigInvalidMsg struct {
 }
 
 type aiModalState struct {
-	title string
-	body  string
+	title          string
+	body           string
+	dismissReadyAt time.Time
 }
 
 type aiModel struct {
@@ -221,6 +224,9 @@ func (m *aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.height = msg.Height
 			return m, nil
 		case tea.KeyPressMsg:
+			if time.Now().Before(m.modal.dismissReadyAt) {
+				return m, nil
+			}
 			return m, tea.Quit
 		default:
 			return m, nil
@@ -237,8 +243,9 @@ func (m *aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loading = false
 		m.status = msg.err
 		m.modal = &aiModalState{
-			title: "AI Configuration Error",
-			body:  msg.err,
+			title:          "AI Configuration Error",
+			body:           msg.err,
+			dismissReadyAt: time.Now().Add(aiModalDismissDelay),
 		}
 		return m, nil
 

@@ -9,6 +9,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	serverai "github.com/bishopfox/sliver/server/ai"
+	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"google.golang.org/grpc/codes"
@@ -151,6 +152,130 @@ func (rpc *Server) SaveAIConversationMessage(ctx context.Context, req *clientpb.
 		return nil, rpcError(err)
 	}
 	publishAIConversationEvent(conversation)
+	if shouldTriggerAICompletion(req, message) {
+		go runAIConversationCompletion(message.GetConversationID(), message.GetOperatorName())
+	}
 
 	return message, nil
+}
+
+func shouldTriggerAICompletion(req *clientpb.AIConversationMessage, saved *clientpb.AIConversationMessage) bool {
+	if req == nil || saved == nil {
+		return false
+	}
+	if strings.TrimSpace(req.GetID()) != "" {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(saved.GetRole()), "user")
+}
+
+func runAIConversationCompletion(conversationID string, operatorName string) {
+	conversation, err := db.AIConversationByID(conversationID, operatorName, true)
+	if err != nil {
+		rpcLog.Warnf("Failed to load AI conversation %q for completion: %s", conversationID, err)
+		return
+	}
+
+	runtime, resolveErr := serverai.ResolveRuntimeConfig(configs.GetServerConfig(), conversation)
+	if runtime != nil && (runtime.Provider != "" || runtime.Model != "") {
+		if updatedConversation, err := persistAIConversationRuntime(conversation, operatorName, runtime); err != nil {
+			rpcLog.Warnf("Failed to persist AI conversation runtime for %q: %s", conversationID, err)
+		} else if updatedConversation != nil {
+			conversation = updatedConversation
+		}
+	}
+	if resolveErr != nil {
+		persistAIConversationFailure(conversationID, operatorName, runtime, resolveErr)
+		return
+	}
+
+	completion, err := serverai.CompleteConversation(context.Background(), runtime, conversation)
+	if err != nil {
+		persistAIConversationFailure(conversationID, operatorName, runtime, err)
+		return
+	}
+
+	if _, err := db.SaveAIConversationMessage(&clientpb.AIConversationMessage{
+		ConversationID:    conversationID,
+		OperatorName:      operatorName,
+		Provider:          completion.Provider,
+		Model:             completion.Model,
+		Role:              "assistant",
+		Content:           completion.Content,
+		ProviderMessageID: completion.ProviderMessageID,
+		FinishReason:      completion.FinishReason,
+	}, operatorName); err != nil {
+		rpcLog.Warnf("Failed to save AI assistant reply for %q: %s", conversationID, err)
+		return
+	}
+
+	publishAIConversationByID(conversationID, operatorName)
+}
+
+func persistAIConversationRuntime(conversation *clientpb.AIConversation, operatorName string, runtime *serverai.RuntimeConfig) (*clientpb.AIConversation, error) {
+	if conversation == nil || runtime == nil {
+		return conversation, nil
+	}
+	if strings.TrimSpace(runtime.Provider) == "" && strings.TrimSpace(runtime.Model) == "" {
+		return conversation, nil
+	}
+
+	provider := fallbackAIString(conversation.GetProvider(), runtime.Provider)
+	model := fallbackAIString(conversation.GetModel(), runtime.Model)
+	if provider == conversation.GetProvider() && model == conversation.GetModel() {
+		return conversation, nil
+	}
+
+	return db.SaveAIConversation(&clientpb.AIConversation{
+		ID:           conversation.GetID(),
+		OperatorName: conversation.GetOperatorName(),
+		Provider:     provider,
+		Model:        model,
+		Title:        conversation.GetTitle(),
+		Summary:      conversation.GetSummary(),
+		SystemPrompt: conversation.GetSystemPrompt(),
+	}, operatorName)
+}
+
+func persistAIConversationFailure(conversationID string, operatorName string, runtime *serverai.RuntimeConfig, failure error) {
+	content := "AI request failed."
+	if failure != nil && strings.TrimSpace(failure.Error()) != "" {
+		content = "AI request failed: " + strings.TrimSpace(failure.Error())
+	}
+
+	message := &clientpb.AIConversationMessage{
+		ConversationID: conversationID,
+		OperatorName:   operatorName,
+		Role:           "system",
+		Content:        content,
+		FinishReason:   "error",
+	}
+	if runtime != nil {
+		message.Provider = runtime.Provider
+		message.Model = runtime.Model
+	}
+
+	if _, err := db.SaveAIConversationMessage(message, operatorName); err != nil {
+		rpcLog.Warnf("Failed to save AI failure message for %q: %s", conversationID, err)
+		return
+	}
+
+	publishAIConversationByID(conversationID, operatorName)
+}
+
+func publishAIConversationByID(conversationID string, operatorName string) {
+	conversation, err := db.AIConversationByID(conversationID, operatorName, false)
+	if err != nil {
+		rpcLog.Warnf("Failed to publish AI conversation update for %q: %s", conversationID, err)
+		return
+	}
+	publishAIConversationEvent(conversation)
+}
+
+func fallbackAIString(value string, fallback string) string {
+	value = strings.TrimSpace(value)
+	if value != "" {
+		return value
+	}
+	return strings.TrimSpace(fallback)
 }

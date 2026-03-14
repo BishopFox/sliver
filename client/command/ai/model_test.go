@@ -3,7 +3,9 @@ package ai
 import (
 	"strings"
 	"testing"
+	"time"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
@@ -101,5 +103,51 @@ func TestIsRelevantAIConversationEventHonorsOperatorName(t *testing.T) {
 	}
 	if isRelevantAIConversationEvent(event, "bob") {
 		t.Fatal("expected mismatched operator names to be ignored")
+	}
+}
+
+func TestStartupConfigErrorModalIgnoresImmediateKeypress(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+
+	updated, cmd := model.Update(aiStartupConfigInvalidMsg{err: "server AI configuration is invalid"})
+	if cmd != nil {
+		t.Fatalf("did not expect command when showing modal, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal == nil {
+		t.Fatal("expected modal to be visible")
+	}
+
+	updated, cmd = updatedModel.Update(tea.KeyPressMsg{})
+	if cmd != nil {
+		t.Fatalf("expected immediate keypress to be ignored, got %v", cmd)
+	}
+
+	stillOpen := updated.(*aiModel)
+	if stillOpen.modal == nil {
+		t.Fatal("expected modal to remain visible after immediate keypress")
+	}
+}
+
+func TestStartupConfigErrorModalQuitsAfterDismissDelay(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.modal = &aiModalState{
+		title:          "AI Configuration Error",
+		body:           "server AI configuration is invalid",
+		dismissReadyAt: time.Now().Add(-time.Second),
+	}
+
+	updated, cmd := model.Update(tea.KeyPressMsg{})
+	if updated == nil {
+		t.Fatal("expected model to be returned")
+	}
+	if cmd == nil {
+		t.Fatal("expected keypress after dismiss delay to quit")
+	}
+
+	msg := cmd()
+	if _, ok := msg.(tea.QuitMsg); !ok {
+		t.Fatalf("expected tea.QuitMsg, got %#v", msg)
 	}
 }
