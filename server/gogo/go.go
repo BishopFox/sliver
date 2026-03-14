@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/bishopfox/sliver/server/assets"
@@ -97,6 +98,17 @@ func joinPathList(paths ...string) string {
 	return strings.Join(filtered, string(os.PathListSeparator))
 }
 
+func goToolExecutableName(name, hostGOOS string) string {
+	if hostGOOS == "windows" {
+		return name + ".exe"
+	}
+	return name
+}
+
+func goToolPath(goRoot string, toolName string) string {
+	return filepath.Join(goRoot, "bin", goToolExecutableName(toolName, runtime.GOOS))
+}
+
 func buildCommandEnv(config GoConfig, extra map[string]string) []string {
 	goBinDir := ""
 	if strings.TrimSpace(config.GOROOT) != "" {
@@ -132,7 +144,7 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 	if _, ok := ValidCompilerTargets(config)[target]; !ok {
 		return nil, fmt.Errorf("%s", fmt.Sprintf("Invalid compiler target: %s", target))
 	}
-	garbleBinPath := filepath.Join(config.GOROOT, "bin", "garble")
+	garbleBinPath := goToolPath(config.GOROOT, "garble")
 	garbleFlags := []string{"-seed=random", "-literals", "-tiny"}
 	command = append(garbleFlags, command...)
 	cmd := exec.Command(garbleBinPath, command...)
@@ -165,7 +177,7 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 
 // GoCmd - Execute a go command
 func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
-	goBinPath := filepath.Join(config.GOROOT, "bin", "go")
+	goBinPath := goToolPath(config.GOROOT, "go")
 	cmd := exec.Command(goBinPath, command...)
 	cmd.Dir = cwd
 	cmd.Env = buildCommandEnv(config, nil)

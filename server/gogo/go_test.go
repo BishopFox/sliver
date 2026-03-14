@@ -25,6 +25,42 @@ import (
 	"github.com/bishopfox/sliver/server/assets"
 )
 
+func TestGoToolExecutableName(t *testing.T) {
+	tests := []struct {
+		name     string
+		toolName string
+		hostGOOS string
+		want     string
+	}{
+		{
+			name:     "windows go binary",
+			toolName: "go",
+			hostGOOS: "windows",
+			want:     "go.exe",
+		},
+		{
+			name:     "windows garble binary",
+			toolName: "garble",
+			hostGOOS: "windows",
+			want:     "garble.exe",
+		},
+		{
+			name:     "unix go binary",
+			toolName: "go",
+			hostGOOS: "linux",
+			want:     "go",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := goToolExecutableName(test.toolName, test.hostGOOS); got != test.want {
+				t.Fatalf("goToolExecutableName(%q, %q) = %q, want %q", test.toolName, test.hostGOOS, got, test.want)
+			}
+		})
+	}
+}
+
 func TestGoGoVersion(t *testing.T) {
 	appDir := assets.GetRootAppDir()
 	winConfig := GoConfig{
