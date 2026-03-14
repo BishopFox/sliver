@@ -50,8 +50,8 @@ var (
 	// PingInterval - Amount of time between in-band "pings"
 	PingInterval = 2 * time.Minute
 
-	// YamuxPreface - Magic bytes sent before yamux frames
-	YamuxPreface = "MUX/1"
+	// YamuxPreface - Custom value to avoid default "MUX/1" network signature
+	YamuxPreface = "HSK/2"
 
 	// caCertPEM - PEM encoded CA certificate
 	caCertPEM = `{{.Build.MtlsCACert}}`
@@ -60,7 +60,7 @@ var (
 	certPEM = `{{.Build.MtlsCert}}`
 )
 
-const mtlsEnvelopeSigningSeedPrefix = "env-signing-v1:"
+const mtlsEnvelopeSigningSeedPrefix = "tls-auth-seed:"
 
 var (
 	envelopeSigningOnce  sync.Once

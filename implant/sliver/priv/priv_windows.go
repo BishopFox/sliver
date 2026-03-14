@@ -32,6 +32,7 @@ import (
 	"fmt"
 	"os/exec"
 	"runtime"
+	"strings"
 	"syscall"
 
 	"golang.org/x/sys/windows"
@@ -214,25 +215,65 @@ func impersonateUser(username string) (token windows.Token, err error) {
 		return
 	}
 
-	// We do not need full process info here, just PID and executable name
 	p, err := ps.Processes(true)
 	if err != nil {
 		return
 	}
+
+	// Try multiple matching strategies to handle DOMAIN\user vs user formats
+	// Priority: exact match > suffix match (DOMAIN\username) > case-insensitive
+	type candidate struct {
+		pid  int
+		exe  string
+		prio int // lower = better
+	}
+	var candidates []candidate
+
+	lowerUsername := strings.ToLower(username)
 	for _, proc := range p {
-		if proc.Owner() == username {
-			token, err = impersonateProcess(uint32(proc.Pid()))
+		owner := proc.Owner()
+		if owner == "" {
+			continue
+		}
+		lowerOwner := strings.ToLower(owner)
+
+		prio := -1
+		if owner == username {
+			prio = 0 // exact match
+		} else if lowerOwner == lowerUsername {
+			prio = 1 // case-insensitive exact
+		} else {
+			// Check suffix: owner="CORP\admin", username="admin"
+			idx := strings.LastIndex(lowerOwner, "\\")
+			if idx >= 0 && lowerOwner[idx+1:] == lowerUsername {
+				prio = 2 // domain\user suffix match
+			}
+		}
+		if prio >= 0 {
+			candidates = append(candidates, candidate{pid: proc.Pid(), exe: proc.Executable(), prio: prio})
+		}
+	}
+
+	// Sort by priority (best match first), then try each
+	// Try best matches first
+	for bestPrio := 0; bestPrio <= 2; bestPrio++ {
+		for _, c := range candidates {
+			if c.prio != bestPrio {
+				continue
+			}
+			token, err = impersonateProcess(uint32(c.pid))
 			// {{if .Config.Debug}}
-			log.Printf("[%d] %s\n", proc.Pid(), proc.Executable())
+			log.Printf("[%d] %s (prio %d)\n", c.pid, c.exe, c.prio)
 			// {{end}}
 			if err == nil {
 				// {{if .Config.Debug}}
-				log.Println("Got token for process", proc.Pid(), proc.Executable())
+				log.Println("Got token for process", c.pid, c.exe)
 				// {{end}}
 				return
 			}
 		}
 	}
+
 	windows.RevertToSelf()
 	err = fmt.Errorf("Could not acquire a token belonging to %s", username)
 	return
