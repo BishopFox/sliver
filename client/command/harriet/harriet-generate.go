@@ -167,21 +167,26 @@ func generateSliverShellcode(con *console.SliverClient, listener string, arch st
 func buildHarrietPayload(con *console.SliverClient, harrietPath string, shellcodePath string, output string, method string, format string, skipSign bool) (string, error) {
 	// Determine which Harriet module to use
 	// harrietPath points to the Harriet root (e.g. /opt/Home-Grown-Red-Team/Harriet)
-	// Modules are directly under it: FULLAes/, FULLInj/, etc.
+	// Modules are under Harriet/Harriet/: DirectSyscalls/, FULLAes/, etc.
 	modulePath := ""
+	moduleBase := harrietPath
+	// Check for double-nested structure (Harriet/Harriet/DirectSyscalls)
+	if _, err := os.Stat(filepath.Join(harrietPath, "Harriet", "DirectSyscalls")); err == nil {
+		moduleBase = filepath.Join(harrietPath, "Harriet")
+	}
 	switch method {
 	case "aes":
-		modulePath = filepath.Join(harrietPath, "FULLAes")
+		modulePath = filepath.Join(moduleBase, "FULLAes")
 	case "inject":
-		modulePath = filepath.Join(harrietPath, "FULLInj")
+		modulePath = filepath.Join(moduleBase, "FULLInj")
 	case "queueapc":
-		modulePath = filepath.Join(harrietPath, "QueueUserAPC")
+		modulePath = filepath.Join(moduleBase, "QueueUserAPC")
 	case "nativeapi":
-		modulePath = filepath.Join(harrietPath, "NativeAPI")
+		modulePath = filepath.Join(moduleBase, "NativeAPI")
 	case "directsyscall":
-		modulePath = filepath.Join(harrietPath, "DirectSyscalls")
+		modulePath = filepath.Join(moduleBase, "DirectSyscalls")
 	default:
-		modulePath = filepath.Join(harrietPath, "FULLAes")
+		modulePath = filepath.Join(moduleBase, "FULLAes")
 	}
 
 	if _, err := os.Stat(modulePath); os.IsNotExist(err) {
