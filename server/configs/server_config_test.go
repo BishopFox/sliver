@@ -26,10 +26,15 @@ logs:
   grpc_stream_payloads: true
   tls_key_logger: true
 ai:
+  provider: "openai"
+  model: "gpt-test"
+  thinking_level: "high"
   anthropic:
     api_key: "anthropic-key"
+    base_url: "https://api.anthropic.example"
   openai:
     api_key: "openai-key"
+    base_url: "https://api.openai.example"
 watch_tower:
   vt_api_key: "vt"
   xforce_api_key: "xforce"
@@ -80,8 +85,23 @@ cxx:
 	if config.AI == nil || config.AI.Anthropic == nil || config.AI.Anthropic.APIKey != "anthropic-key" {
 		t.Fatalf("expected ai anthropic api key %q, got %#v", "anthropic-key", config.AI)
 	}
+	if config.AI == nil || config.AI.Anthropic == nil || config.AI.Anthropic.BaseURL != "https://api.anthropic.example" {
+		t.Fatalf("expected ai anthropic base url %q, got %#v", "https://api.anthropic.example", config.AI)
+	}
 	if config.AI == nil || config.AI.OpenAI == nil || config.AI.OpenAI.APIKey != "openai-key" {
 		t.Fatalf("expected ai openai api key %q, got %#v", "openai-key", config.AI)
+	}
+	if config.AI == nil || config.AI.OpenAI == nil || config.AI.OpenAI.BaseURL != "https://api.openai.example" {
+		t.Fatalf("expected ai openai base url %q, got %#v", "https://api.openai.example", config.AI)
+	}
+	if config.AI == nil || config.AI.Provider != "openai" {
+		t.Fatalf("expected ai provider %q, got %#v", "openai", config.AI)
+	}
+	if config.AI == nil || config.AI.Model != "gpt-test" {
+		t.Fatalf("expected ai model %q, got %#v", "gpt-test", config.AI)
+	}
+	if config.AI == nil || config.AI.ThinkingLevel != "high" {
+		t.Fatalf("expected ai thinking level %q, got %#v", "high", config.AI)
 	}
 	if config.Watchtower == nil || config.Watchtower.VTApiKey != "vt" {
 		t.Fatalf("expected watch_tower vt_api_key %q, got %v", "vt", config.Watchtower)
@@ -136,6 +156,9 @@ func TestServerConfigWritesDefault(t *testing.T) {
 	if config.AI == nil || config.AI.Anthropic == nil || config.AI.OpenAI == nil {
 		t.Fatalf("expected default ai config")
 	}
+	if config.AI.Provider != "" || config.AI.Model != "" || config.AI.ThinkingLevel != "" {
+		t.Fatalf("expected empty default ai selections, got %#v", config.AI)
+	}
 	if _, err := os.Stat(GetServerConfigPath()); err != nil {
 		t.Fatalf("expected default config file to exist: %v", err)
 	}
@@ -187,8 +210,11 @@ func TestServerConfigMigratesLegacyJSON(t *testing.T) {
 			TLSKeyLogger:       true,
 		},
 		AI: &AIConfig{
-			Anthropic: &AIProviderConfig{APIKey: "anthropic-legacy"},
-			OpenAI:    &AIProviderConfig{APIKey: "openai-legacy"},
+			Provider:      "anthropic",
+			Model:         "claude-test",
+			ThinkingLevel: "medium",
+			Anthropic:     &AIProviderConfig{APIKey: "anthropic-legacy", BaseURL: "https://legacy.anthropic.example"},
+			OpenAI:        &AIProviderConfig{APIKey: "openai-legacy", BaseURL: "https://legacy.openai.example"},
 		},
 		Watchtower: &WatchTowerConfig{
 			VTApiKey:          "vt-legacy",
@@ -225,8 +251,17 @@ func TestServerConfigMigratesLegacyJSON(t *testing.T) {
 	if config.AI == nil || config.AI.Anthropic == nil || config.AI.Anthropic.APIKey != "anthropic-legacy" {
 		t.Fatalf("expected legacy ai anthropic config to load")
 	}
+	if config.AI == nil || config.AI.Anthropic == nil || config.AI.Anthropic.BaseURL != "https://legacy.anthropic.example" {
+		t.Fatalf("expected legacy ai anthropic base url to load")
+	}
 	if config.AI == nil || config.AI.OpenAI == nil || config.AI.OpenAI.APIKey != "openai-legacy" {
 		t.Fatalf("expected legacy ai openai config to load")
+	}
+	if config.AI == nil || config.AI.OpenAI == nil || config.AI.OpenAI.BaseURL != "https://legacy.openai.example" {
+		t.Fatalf("expected legacy ai openai base url to load")
+	}
+	if config.AI == nil || config.AI.Provider != "anthropic" || config.AI.Model != "claude-test" || config.AI.ThinkingLevel != "medium" {
+		t.Fatalf("expected legacy ai selections to load, got %#v", config.AI)
 	}
 	if config.Watchtower == nil || config.Watchtower.VTApiKey != "vt-legacy" {
 		t.Fatalf("expected legacy watch_tower to load")

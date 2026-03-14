@@ -57,6 +57,7 @@ var (
 		consts.CdStr:          cdHelp,
 		consts.PwdStr:         pwdHelp,
 		consts.AIStr:          aiHelp,
+		consts.AIConfigStr:    aiConfigHelp,
 		consts.CatStr:         catHelp,
 		consts.EditStr:        editHelp,
 		consts.HexEditStr:     hexEditHelp,
@@ -174,6 +175,13 @@ _=/usr/bin/env
 [[.Bold]]Example:[[.Normal]]
 	use my-session
 	ai
+`
+
+	aiConfigHelp = `[[.Bold]]Command:[[.Normal]] ai-config
+[[.Bold]]About:[[.Normal]] Open a server-side form to update the AI block in server.yaml. The form stores the default provider, model, thinking level, and provider-specific credentials such as the API key and optional base URL.
+
+[[.Bold]]Example:[[.Normal]]
+	ai-config
 `
 
 	useHelp = `[[.Bold]]Command:[[.Normal]] use [sliver name/session]

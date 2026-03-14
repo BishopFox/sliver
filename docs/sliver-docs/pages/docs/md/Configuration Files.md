@@ -21,6 +21,16 @@ grpc:
     keepalive:
         min_time_seconds: 30
         permit_without_stream: true
+ai:
+    provider: ""
+    model: ""
+    thinking_level: ""
+    anthropic:
+        api_key: ""
+        base_url: ""
+    openai:
+        api_key: ""
+        base_url: ""
 watch_tower: null
 go_proxy: ""
 http_default:
@@ -51,6 +61,12 @@ cxx: {}
 - `grpc.keepalive` - gRPC keepalive enforcement configuration.
   - `min_time_seconds` - Minimum time (seconds) between client pings before sending GOAWAY (`too_many_pings`).
   - `permit_without_stream` - Allow client pings when there are no active streams.
+- `ai` - Optional server-side AI defaults and provider credentials.
+  - `provider` - Default AI provider (`openai` or `anthropic`).
+  - `model` - Optional default model identifier.
+  - `thinking_level` - Optional reasoning level (for example `low`, `medium`, `high`, or `disabled`).
+  - `anthropic.api_key` / `openai.api_key` - Provider API key.
+  - `anthropic.base_url` / `openai.base_url` - Optional provider API endpoint override.
 - `watch_tower` - Optional API keys for Watchtower integrations.
   - `vt_api_key` - VirusTotal API key.
   - `xforce_api_key` - IBM X-Force API key.

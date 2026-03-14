@@ -224,6 +224,7 @@ const (
 	CdStr       = "cd"
 	PwdStr      = "pwd"
 	AIStr       = "ai"
+	AIConfigStr = "ai-config"
 	CatStr      = "cat"
 	EditStr     = "edit"
 	HexEditStr  = "hex-edit"

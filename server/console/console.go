@@ -111,6 +111,18 @@ func serverOnlyCmds() (commands []*cobra.Command) {
 	})
 	commands = append(commands, kickOperator)
 
+	aiConfig := &cobra.Command{
+		Use:   consts.AIConfigStr,
+		Short: "Configure the server-side AI settings",
+		Long:  help.GetHelpFor([]string{consts.AIConfigStr}),
+		Args:  cobra.NoArgs,
+		Run: func(cmd *cobra.Command, args []string) {
+			aiConfigCmd(cmd, args)
+		},
+		GroupID: consts.GenericHelpGroup,
+	}
+	commands = append(commands, aiConfig)
+
 	return
 }
 

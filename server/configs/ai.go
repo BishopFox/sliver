@@ -18,15 +18,21 @@ package configs
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import "strings"
+
 // AIProviderConfig - Shared AI provider configuration.
 type AIProviderConfig struct {
-	APIKey string `json:"api_key" yaml:"api_key"`
+	APIKey  string `json:"api_key" yaml:"api_key"`
+	BaseURL string `json:"base_url" yaml:"base_url"`
 }
 
 // AIConfig - Server-side AI provider configuration.
 type AIConfig struct {
-	Anthropic *AIProviderConfig `json:"anthropic" yaml:"anthropic"`
-	OpenAI    *AIProviderConfig `json:"openai" yaml:"openai"`
+	Provider      string            `json:"provider" yaml:"provider"`
+	Model         string            `json:"model" yaml:"model"`
+	ThinkingLevel string            `json:"thinking_level" yaml:"thinking_level"`
+	Anthropic     *AIProviderConfig `json:"anthropic" yaml:"anthropic"`
+	OpenAI        *AIProviderConfig `json:"openai" yaml:"openai"`
 }
 
 func defaultAIProviderConfig() *AIProviderConfig {
@@ -35,8 +41,11 @@ func defaultAIProviderConfig() *AIProviderConfig {
 
 func defaultAIConfig() *AIConfig {
 	return &AIConfig{
-		Anthropic: defaultAIProviderConfig(),
-		OpenAI:    defaultAIProviderConfig(),
+		Provider:      "",
+		Model:         "",
+		ThinkingLevel: "",
+		Anthropic:     defaultAIProviderConfig(),
+		OpenAI:        defaultAIProviderConfig(),
 	}
 }
 
@@ -44,10 +53,17 @@ func normalizeAIConfig(config *ServerConfig) {
 	if config.AI == nil {
 		config.AI = defaultAIConfig()
 	}
+	config.AI.Provider = strings.ToLower(strings.TrimSpace(config.AI.Provider))
+	config.AI.Model = strings.TrimSpace(config.AI.Model)
+	config.AI.ThinkingLevel = strings.ToLower(strings.TrimSpace(config.AI.ThinkingLevel))
 	if config.AI.Anthropic == nil {
 		config.AI.Anthropic = defaultAIProviderConfig()
 	}
+	config.AI.Anthropic.APIKey = strings.TrimSpace(config.AI.Anthropic.APIKey)
+	config.AI.Anthropic.BaseURL = strings.TrimSpace(config.AI.Anthropic.BaseURL)
 	if config.AI.OpenAI == nil {
 		config.AI.OpenAI = defaultAIProviderConfig()
 	}
+	config.AI.OpenAI.APIKey = strings.TrimSpace(config.AI.OpenAI.APIKey)
+	config.AI.OpenAI.BaseURL = strings.TrimSpace(config.AI.OpenAI.BaseURL)
 }
