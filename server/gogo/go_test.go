@@ -19,10 +19,9 @@ package gogo
 */
 
 import (
-	"fmt"
+	"runtime"
+	"strings"
 	"testing"
-
-	"github.com/bishopfox/sliver/server/assets"
 )
 
 func TestGoToolExecutableName(t *testing.T) {
@@ -61,15 +60,23 @@ func TestGoToolExecutableName(t *testing.T) {
 	}
 }
 
-func TestGoGoVersion(t *testing.T) {
-	appDir := assets.GetRootAppDir()
-	winConfig := GoConfig{
-		GOOS:   "windows",
-		GOARCH: "amd64",
-		GOROOT: GetGoRootDir(appDir),
+func TestGoVersionUsesHostToolchain(t *testing.T) {
+	goRoot := runtime.GOROOT()
+	if goRoot == "" {
+		t.Fatal("runtime.GOROOT() is empty")
 	}
-	_, err := GoVersion(winConfig)
+
+	config := GoConfig{
+		GOOS:   runtime.GOOS,
+		GOARCH: runtime.GOARCH,
+		GOROOT: goRoot,
+	}
+
+	output, err := GoVersion(config)
 	if err != nil {
-		t.Errorf("%s", fmt.Sprintf("version cmd failed %v", err))
+		t.Fatalf("GoVersion failed: %v", err)
+	}
+	if !strings.Contains(string(output), "go version") {
+		t.Fatalf("unexpected go version output: %q", string(output))
 	}
 }
