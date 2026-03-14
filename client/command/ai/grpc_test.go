@@ -306,6 +306,10 @@ type aiRPCServer struct {
 	getConversationReqs   []*clientpb.AIConversationReq
 	saveConversationReqs  []*clientpb.AIConversation
 	saveMessageReqs       []*clientpb.AIConversationMessage
+	getConversationStart  chan struct{}
+	getConversationWait   <-chan struct{}
+	saveMessageStarted    chan struct{}
+	saveMessageRelease    <-chan struct{}
 }
 
 func (s *aiRPCServer) GetAIProviders(context.Context, *commonpb.Empty) (*clientpb.AIProviderConfigs, error) {
@@ -332,6 +336,17 @@ func (s *aiRPCServer) GetAIConversation(_ context.Context, req *clientpb.AIConve
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.getConversationReqs = append(s.getConversationReqs, proto.Clone(req).(*clientpb.AIConversationReq))
+	if s.getConversationStart != nil {
+		select {
+		case s.getConversationStart <- struct{}{}:
+		default:
+		}
+	}
+	if s.getConversationWait != nil {
+		s.mu.Unlock()
+		<-s.getConversationWait
+		s.mu.Lock()
+	}
 	if s.conversationByID == nil {
 		return &clientpb.AIConversation{}, nil
 	}
@@ -356,6 +371,17 @@ func (s *aiRPCServer) SaveAIConversationMessage(_ context.Context, req *clientpb
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.saveMessageReqs = append(s.saveMessageReqs, proto.Clone(req).(*clientpb.AIConversationMessage))
+	if s.saveMessageStarted != nil {
+		select {
+		case s.saveMessageStarted <- struct{}{}:
+		default:
+		}
+	}
+	if s.saveMessageRelease != nil {
+		s.mu.Unlock()
+		<-s.saveMessageRelease
+		s.mu.Lock()
+	}
 	if s.saveMessageResp == nil {
 		return proto.Clone(req).(*clientpb.AIConversationMessage), nil
 	}

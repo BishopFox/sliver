@@ -116,6 +116,7 @@ type Settings struct {
 	GradColorA  color.Color
 	GradColorB  color.Color
 	CycleColors bool
+	SkipIntro   bool
 }
 
 // Anim is a Bubble Tea component for Crush's pending/thinking animation.
@@ -236,6 +237,9 @@ func New(opts Settings) *Anim {
 	a.birthOffsets = make([]time.Duration, a.width)
 	for i := range a.birthOffsets {
 		a.birthOffsets[i] = time.Duration(rand.N(int64(maxBirthOffset))) * time.Nanosecond
+	}
+	if opts.SkipIntro {
+		a.initialized.Store(true)
 	}
 
 	return a
