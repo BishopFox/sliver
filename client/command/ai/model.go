@@ -9,6 +9,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	aithinking "github.com/bishopfox/sliver/client/spin/thinking"
 	clienttheme "github.com/bishopfox/sliver/client/theme"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -56,9 +57,11 @@ type aiStyles struct {
 
 type aiLoadedMsg struct {
 	providers     []*clientpb.AIProviderConfig
+	config        *clientpb.AIConfigSummary
 	conversations []*clientpb.AIConversation
 	conversation  *clientpb.AIConversation
 	selectedID    string
+	status        string
 }
 
 type aiConversationCreatedMsg struct {
@@ -81,6 +84,15 @@ type aiAsyncErrMsg struct {
 	err error
 }
 
+type aiStartupConfigInvalidMsg struct {
+	err string
+}
+
+type aiModalState struct {
+	title string
+	body  string
+}
+
 type aiModel struct {
 	width                int
 	height               int
@@ -89,6 +101,7 @@ type aiModel struct {
 	con                  *console.SliverClient
 	listener             <-chan *clientpb.Event
 	providers            []*clientpb.AIProviderConfig
+	config               *clientpb.AIConfigSummary
 	conversations        []*clientpb.AIConversation
 	currentConversation  *clientpb.AIConversation
 	selectedConversation int
@@ -96,6 +109,9 @@ type aiModel struct {
 	cursor               int
 	status               string
 	loading              bool
+	awaitingResponse     bool
+	modal                *aiModalState
+	thinkingAnim         *aithinking.Anim
 	styles               aiStyles
 	transcriptCacheKey   string
 	transcriptCache      string
@@ -109,7 +125,15 @@ func newAIModel(con *console.SliverClient, ctx aiContext, listener <-chan *clien
 		listener: listener,
 		status:   ctx.status,
 		loading:  true,
-		styles:   newAIStyles(),
+		thinkingAnim: aithinking.New(aithinking.Settings{
+			Size:        10,
+			Label:       "Thinking",
+			LabelColor:  clienttheme.DefaultMod(500),
+			GradColorA:  clienttheme.Primary(),
+			GradColorB:  clienttheme.Secondary(),
+			CycleColors: true,
+		}),
+		styles: newAIStyles(),
 	}
 }
 
@@ -190,15 +214,38 @@ func (m *aiModel) Init() tea.Cmd {
 }
 
 func (m *aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.modal != nil {
+		switch msg := msg.(type) {
+		case tea.WindowSizeMsg:
+			m.width = msg.Width
+			m.height = msg.Height
+			return m, nil
+		case tea.KeyPressMsg:
+			return m, tea.Quit
+		default:
+			return m, nil
+		}
+	}
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
 		return m, nil
 
+	case aiStartupConfigInvalidMsg:
+		m.loading = false
+		m.status = msg.err
+		m.modal = &aiModalState{
+			title: "AI Configuration Error",
+			body:  msg.err,
+		}
+		return m, nil
+
 	case aiLoadedMsg:
 		m.loading = false
 		m.providers = msg.providers
+		m.config = msg.config
 		m.conversations = msg.conversations
 		m.currentConversation = msg.conversation
 		m.selectedConversation = conversationIndexByID(m.conversations, selectedConversationID(msg.conversation, msg.selectedID))
@@ -206,12 +253,14 @@ func (m *aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.selectedConversation = 0
 		}
 		m.invalidateTranscriptCache()
-		if len(m.conversations) == 0 {
+		if strings.TrimSpace(msg.status) != "" {
+			m.status = msg.status
+		} else if len(m.conversations) == 0 {
 			m.status = "No AI conversations yet. Press n or send a prompt to create one."
 		} else if m.status == "" || strings.HasPrefix(m.status, "Loading") || strings.HasPrefix(m.status, "Refreshing") {
 			m.status = "Loaded AI conversations from the server."
 		}
-		return m, nil
+		return m, m.syncAwaitingResponse()
 
 	case aiConversationCreatedMsg:
 		m.loading = true
@@ -251,6 +300,12 @@ func (m *aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status = "AI sync failed: " + msg.err.Error()
 		}
 		return m, nil
+
+	case aithinking.StepMsg:
+		if !m.awaitingResponse || m.thinkingAnim == nil {
+			return m, nil
+		}
+		return m, m.thinkingAnim.Animate(msg)
 
 	case tea.KeyPressMsg:
 		key := msg.Key()
@@ -317,7 +372,7 @@ func (m *aiModel) handleGlobalKey(key tea.Key) (tea.Model, tea.Cmd) {
 		}
 		m.loading = true
 		m.status = "Creating a new AI conversation..."
-		return m, createConversationCmd(m.con, m.defaultProvider(), "New conversation")
+		return m, createConversationCmd(m.con, m.defaultProvider(), m.defaultModel(), "New conversation")
 
 	case "r":
 		m.loading = true
@@ -353,14 +408,14 @@ func (m *aiModel) handleComposerKey(key tea.Key) (tea.Model, tea.Cmd) {
 			m.status = "Type a prompt first."
 			return m, nil
 		}
-		if m.loading {
-			m.status = "Wait for the current AI sync to finish before sending another prompt."
+		if m.isBusy() {
+			m.status = "Wait for the current AI request to finish before sending another prompt."
 			return m, nil
 		}
 
 		m.loading = true
 		m.status = "Saving prompt to the server..."
-		return m, submitPromptCmd(m.con, m.currentConversation, m.defaultProvider(), prompt)
+		return m, submitPromptCmd(m.con, m.currentConversation, m.defaultProvider(), m.defaultModel(), prompt)
 
 	case tea.KeyBackspace:
 		if m.cursor > 0 {
@@ -401,6 +456,9 @@ func (m *aiModel) handleComposerKey(key tea.Key) (tea.Model, tea.Cmd) {
 }
 
 func (m *aiModel) View() tea.View {
+	if m.modal != nil {
+		return aiView(m.renderModal())
+	}
 	if m.width < aiMinWidth || m.height < aiMinHeight {
 		return aiView(m.renderTooSmall())
 	}
@@ -424,6 +482,32 @@ func (m *aiModel) View() tea.View {
 	return aiView(lipgloss.JoinVertical(lipgloss.Left, header, body, composer, footer))
 }
 
+func (m *aiModel) renderModal() string {
+	boxWidth := minInt(maxInt(20, m.width-4), 84)
+	bodyWidth := maxInt(20, boxWidth-6)
+	bodyLines := wrapText(m.modal.body, bodyWidth)
+
+	lines := []string{
+		m.styles.warning.Width(bodyWidth).Render(m.modal.title),
+		"",
+	}
+	for _, line := range bodyLines {
+		lines = append(lines, lipgloss.NewStyle().Width(bodyWidth).Render(line))
+	}
+	lines = append(lines,
+		"",
+		m.styles.subtleText.Width(bodyWidth).Render("Press any key to return to the REPL."),
+	)
+
+	box := lipgloss.NewStyle().
+		Border(lipgloss.DoubleBorder()).
+		BorderForeground(clienttheme.Warning()).
+		Padding(1, 2).
+		Render(strings.Join(lines, "\n"))
+
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, box)
+}
+
 func (m *aiModel) renderTooSmall() string {
 	lines := []string{
 		m.styles.badge.Render("SLIVER AI"),
@@ -438,6 +522,8 @@ func (m *aiModel) renderHeader(height int) string {
 	statusChip := "synced"
 	if m.loading {
 		statusChip = "syncing"
+	} else if m.awaitingResponse {
+		statusChip = strings.ToLower(m.pendingLabel())
 	}
 
 	pieces := []string{
@@ -579,8 +665,26 @@ func (m *aiModel) renderTranscript(width, height int) string {
 	)
 
 	bodyHeight := maxInt(1, innerHeight-len(lines))
+	thinkingLines := m.renderAwaitingResponseLines(innerWidth)
+	messageBodyHeight := bodyHeight
+	if len(thinkingLines) > 0 {
+		reserve := len(thinkingLines)
+		if bodyHeight > reserve {
+			reserve++
+		}
+		messageBodyHeight = maxInt(0, bodyHeight-reserve)
+	}
+
 	markdownLines := strings.Split(m.renderTranscriptMarkdown(innerWidth), "\n")
-	lines = append(lines, tailLines(markdownLines, bodyHeight)...)
+	if messageBodyHeight > 0 {
+		lines = append(lines, tailLines(markdownLines, messageBodyHeight)...)
+	}
+	if len(thinkingLines) > 0 {
+		if messageBodyHeight > 0 {
+			lines = append(lines, "")
+		}
+		lines = append(lines, thinkingLines...)
+	}
 
 	return m.renderPane(width, height, aiFocusTranscript, lines)
 }
@@ -624,6 +728,20 @@ func (m *aiModel) renderDetails(width, height int) string {
 		}
 	}
 
+	lines = append(lines, m.styles.heading.Render("Defaults"))
+	if m.config == nil {
+		lines = append(lines, m.styles.subtleText.Width(innerWidth).Render("AI defaults unavailable."))
+	} else {
+		defaultLines := []string{
+			"provider: " + fallback(m.config.GetProvider(), "<unset>"),
+			"model: " + fallback(m.config.GetModel(), "provider default"),
+			"thinking: " + fallback(m.config.GetThinkingLevel(), "provider default"),
+		}
+		for _, line := range defaultLines {
+			lines = append(lines, m.styles.subtleText.Width(innerWidth).Render(truncateText(line, innerWidth)))
+		}
+	}
+
 	if m.currentConversation != nil {
 		lines = append(lines, m.styles.heading.Render("Thread"))
 		threadLines := []string{
@@ -659,6 +777,17 @@ func (m *aiModel) renderComposer(height int) string {
 	}
 
 	return m.renderPane(m.width, height, aiFocusComposer, headLines(lines, innerHeight))
+}
+
+func (m *aiModel) renderAwaitingResponseLines(width int) []string {
+	if !m.awaitingResponse || m.thinkingAnim == nil {
+		return nil
+	}
+
+	m.thinkingAnim.SetLabel(m.pendingLabel())
+	return []string{
+		lipgloss.NewStyle().Width(width).Render(m.thinkingAnim.Render()),
+	}
 }
 
 func (m *aiModel) renderFooter() string {
@@ -717,6 +846,10 @@ func (m *aiModel) renderInputContent(width int) string {
 	return b.String()
 }
 
+func (m *aiModel) isBusy() bool {
+	return m.loading || m.awaitingResponse
+}
+
 func (m *aiModel) moveSelection(delta int) tea.Cmd {
 	if len(m.conversations) == 0 {
 		return nil
@@ -744,6 +877,9 @@ func (m *aiModel) selectedConversationID() string {
 }
 
 func (m *aiModel) defaultProvider() string {
+	if m.config != nil && strings.TrimSpace(m.config.GetProvider()) != "" {
+		return strings.TrimSpace(m.config.GetProvider())
+	}
 	for _, provider := range m.providers {
 		if provider.GetConfigured() && strings.TrimSpace(provider.GetName()) != "" {
 			return provider.GetName()
@@ -755,6 +891,42 @@ func (m *aiModel) defaultProvider() string {
 		}
 	}
 	return "openai"
+}
+
+func (m *aiModel) defaultModel() string {
+	if m.config == nil {
+		return ""
+	}
+	return strings.TrimSpace(m.config.GetModel())
+}
+
+func (m *aiModel) pendingLabel() string {
+	if m.config != nil && strings.TrimSpace(m.config.GetThinkingLevel()) != "" {
+		return "Thinking"
+	}
+	return "Working"
+}
+
+func (m *aiModel) pendingStatus() string {
+	return "Waiting for AI response..."
+}
+
+func (m *aiModel) syncAwaitingResponse() tea.Cmd {
+	wasAwaiting := m.awaitingResponse
+	m.awaitingResponse = conversationAwaitingResponse(m.currentConversation)
+
+	if m.thinkingAnim != nil {
+		m.thinkingAnim.SetLabel(m.pendingLabel())
+	}
+
+	if m.awaitingResponse && (m.status == "" || strings.HasPrefix(m.status, "Loaded AI conversations") || strings.HasPrefix(m.status, "Conversation updated")) {
+		m.status = m.pendingStatus()
+	}
+
+	if m.awaitingResponse && !wasAwaiting && m.thinkingAnim != nil {
+		return m.thinkingAnim.Start()
+	}
+	return nil
 }
 
 func (m *aiModel) renderTranscriptMarkdown(width int) string {
@@ -834,6 +1006,10 @@ func loadAIStateCmd(con *console.SliverClient, selectedID string) tea.Cmd {
 		if err != nil {
 			return aiAsyncErrMsg{err: err}
 		}
+		config := safeAIConfigSummary(providersResp)
+		if !config.GetValid() {
+			return aiStartupConfigInvalidMsg{err: aiConfigError(config)}
+		}
 
 		conversationsResp, err := con.Rpc.GetAIConversations(grpcCtx, &commonpb.Empty{})
 		if err != nil {
@@ -842,6 +1018,20 @@ func loadAIStateCmd(con *console.SliverClient, selectedID string) tea.Cmd {
 
 		conversations := conversationsResp.GetConversations()
 		activeID := strings.TrimSpace(selectedID)
+		status := ""
+		if len(conversations) == 0 {
+			createdConversation, err := con.Rpc.SaveAIConversation(grpcCtx, &clientpb.AIConversation{
+				Provider: config.GetProvider(),
+				Model:    config.GetModel(),
+				Title:    "New conversation",
+			})
+			if err != nil {
+				return aiAsyncErrMsg{err: err}
+			}
+			conversations = []*clientpb.AIConversation{createdConversation}
+			activeID = createdConversation.GetID()
+			status = "Created a new AI conversation."
+		}
 		if activeID == "" && len(conversations) > 0 {
 			activeID = conversations[0].GetID()
 		}
@@ -869,14 +1059,16 @@ func loadAIStateCmd(con *console.SliverClient, selectedID string) tea.Cmd {
 
 		return aiLoadedMsg{
 			providers:     providersResp.GetProviders(),
+			config:        config,
 			conversations: conversations,
 			conversation:  conversation,
 			selectedID:    activeID,
+			status:        status,
 		}
 	}
 }
 
-func createConversationCmd(con *console.SliverClient, provider string, title string) tea.Cmd {
+func createConversationCmd(con *console.SliverClient, provider string, model string, title string) tea.Cmd {
 	return func() tea.Msg {
 		if con == nil || con.Rpc == nil {
 			return aiAsyncErrMsg{err: fmt.Errorf("AI RPC client is unavailable")}
@@ -887,6 +1079,7 @@ func createConversationCmd(con *console.SliverClient, provider string, title str
 
 		conversation, err := con.Rpc.SaveAIConversation(grpcCtx, &clientpb.AIConversation{
 			Provider: provider,
+			Model:    strings.TrimSpace(model),
 			Title:    strings.TrimSpace(title),
 		})
 		if err != nil {
@@ -900,7 +1093,7 @@ func createConversationCmd(con *console.SliverClient, provider string, title str
 	}
 }
 
-func submitPromptCmd(con *console.SliverClient, conversation *clientpb.AIConversation, provider string, prompt string) tea.Cmd {
+func submitPromptCmd(con *console.SliverClient, conversation *clientpb.AIConversation, provider string, model string, prompt string) tea.Cmd {
 	return func() tea.Msg {
 		if con == nil || con.Rpc == nil {
 			return aiAsyncErrMsg{err: fmt.Errorf("AI RPC client is unavailable")}
@@ -914,6 +1107,7 @@ func submitPromptCmd(con *console.SliverClient, conversation *clientpb.AIConvers
 		if activeConversation == nil || strings.TrimSpace(activeConversation.GetID()) == "" {
 			activeConversation, err = con.Rpc.SaveAIConversation(grpcCtx, &clientpb.AIConversation{
 				Provider: provider,
+				Model:    strings.TrimSpace(model),
 				Title:    promptConversationTitle(prompt),
 			})
 			if err != nil {
@@ -939,7 +1133,7 @@ func submitPromptCmd(con *console.SliverClient, conversation *clientpb.AIConvers
 
 		return aiPromptSubmittedMsg{
 			conversationID: activeConversation.GetID(),
-			status:         "Saved prompt to " + conversationTitle(activeConversation) + ".",
+			status:         "Saved prompt to " + conversationTitle(activeConversation) + ". Waiting for AI response...",
 		}
 	}
 }
@@ -994,10 +1188,6 @@ func buildConversationMarkdown(conversation *clientpb.AIConversation) string {
 	}
 
 	for i, message := range messages {
-		markdown.WriteString("## ")
-		markdown.WriteString(messageHeading(message.GetRole()))
-		markdown.WriteString("\n\n")
-
 		meta := []string{}
 		if ts := formatUnix(message.GetCreatedAt()); ts != "<unknown>" {
 			meta = append(meta, ts)
@@ -1014,11 +1204,7 @@ func buildConversationMarkdown(conversation *clientpb.AIConversation) string {
 			markdown.WriteString("_\n\n")
 		}
 
-		content := strings.TrimSpace(message.GetContent())
-		if content == "" {
-			content = "_Empty message._"
-		}
-		markdown.WriteString(content)
+		markdown.WriteString(fencedConversationBlock(conversation, message))
 		if i < len(messages)-1 {
 			markdown.WriteString("\n\n---\n\n")
 		}
@@ -1049,22 +1235,6 @@ func renderMarkdownWithGlow(width int, markdown string) (string, error) {
 		lines[i] = strings.TrimRight(line, " \t")
 	}
 	return strings.Join(lines, "\n"), nil
-}
-
-func messageHeading(role string) string {
-	switch strings.ToLower(strings.TrimSpace(role)) {
-	case "system":
-		return "System"
-	case "assistant":
-		return "Assistant"
-	case "user":
-		return "You"
-	default:
-		if role == "" {
-			return "Message"
-		}
-		return strings.ToUpper(role[:1]) + role[1:]
-	}
 }
 
 func isRelevantAIConversationEvent(conversation *clientpb.AIConversation, operatorName string) bool {
@@ -1147,6 +1317,27 @@ func conversationListLabel(conversation *clientpb.AIConversation, width int) str
 	return truncateText(title, width)
 }
 
+func conversationAwaitingResponse(conversation *clientpb.AIConversation) bool {
+	message := lastConversationMessage(conversation)
+	if message == nil {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(message.GetRole()), "user")
+}
+
+func lastConversationMessage(conversation *clientpb.AIConversation) *clientpb.AIConversationMessage {
+	if conversation == nil {
+		return nil
+	}
+	messages := conversation.GetMessages()
+	for i := len(messages) - 1; i >= 0; i-- {
+		if messages[i] != nil {
+			return messages[i]
+		}
+	}
+	return nil
+}
+
 func providerDisplay(provider *clientpb.AIProviderConfig) string {
 	if provider == nil {
 		return "<unknown provider>"
@@ -1156,6 +1347,86 @@ func providerDisplay(provider *clientpb.AIProviderConfig) string {
 		status = "configured"
 	}
 	return fmt.Sprintf("%s: %s", fallback(provider.GetName(), "<unnamed>"), status)
+}
+
+func safeAIConfigSummary(resp *clientpb.AIProviderConfigs) *clientpb.AIConfigSummary {
+	if resp == nil || resp.GetConfig() == nil {
+		return &clientpb.AIConfigSummary{
+			Error: "server did not return AI configuration status; update the server and try again",
+		}
+	}
+	return resp.GetConfig()
+}
+
+func aiConfigError(config *clientpb.AIConfigSummary) string {
+	if config == nil {
+		return "server AI configuration is unavailable"
+	}
+	if err := strings.TrimSpace(config.GetError()); err != "" {
+		return err
+	}
+	return "server AI configuration is invalid"
+}
+
+func fencedConversationBlock(conversation *clientpb.AIConversation, message *clientpb.AIConversationMessage) string {
+	label := messageBlockLabel(conversation, message)
+	content := ""
+	if message != nil {
+		content = strings.TrimSpace(message.GetContent())
+	}
+	if content == "" {
+		content = "Empty message."
+	}
+
+	fence := markdownFence(content)
+	return fence + "text\n[" + label + "]\n" + content + "\n" + fence
+}
+
+func messageBlockLabel(conversation *clientpb.AIConversation, message *clientpb.AIConversationMessage) string {
+	role := ""
+	if message != nil {
+		role = strings.ToLower(strings.TrimSpace(message.GetRole()))
+	}
+
+	switch role {
+	case "user":
+		if message != nil {
+			if operatorName := strings.TrimSpace(message.GetOperatorName()); operatorName != "" {
+				return operatorName
+			}
+		}
+		if conversation != nil {
+			if operatorName := strings.TrimSpace(conversation.GetOperatorName()); operatorName != "" {
+				return operatorName
+			}
+		}
+		return "User"
+	case "assistant":
+		return "AI"
+	case "system":
+		return "System"
+	default:
+		if role == "" {
+			return "Message"
+		}
+		return strings.ToUpper(role[:1]) + role[1:]
+	}
+}
+
+func markdownFence(content string) string {
+	longest := 0
+	current := 0
+	for _, r := range content {
+		if r == '`' {
+			current++
+			if current > longest {
+				longest = current
+			}
+			continue
+		}
+		current = 0
+	}
+	return strings.Repeat("`", maxInt(3, longest+1))
 }
 
 func promptConversationTitle(prompt string) string {

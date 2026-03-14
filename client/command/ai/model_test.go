@@ -14,9 +14,10 @@ func TestPromptConversationTitleUsesFirstNonEmptyLine(t *testing.T) {
 	}
 }
 
-func TestBuildConversationMarkdownIncludesRolesAndContent(t *testing.T) {
+func TestBuildConversationMarkdownUsesFencedBlocksAndOperatorLabel(t *testing.T) {
 	conversation := &clientpb.AIConversation{
-		Summary: "Operator context",
+		OperatorName: "alice",
+		Summary:      "Operator context",
 		Messages: []*clientpb.AIConversationMessage{
 			{Role: "user", Content: "Hello"},
 			{Role: "assistant", Content: "## Reply"},
@@ -26,15 +27,70 @@ func TestBuildConversationMarkdownIncludesRolesAndContent(t *testing.T) {
 	markdown := buildConversationMarkdown(conversation)
 	expected := []string{
 		"Operator context",
-		"## You",
-		"Hello",
-		"## Assistant",
-		"## Reply",
+		"```text\n[alice]\nHello\n```",
+		"```text\n[AI]\n## Reply\n```",
 	}
 	for _, fragment := range expected {
 		if !strings.Contains(markdown, fragment) {
 			t.Fatalf("expected markdown to contain %q, got %q", fragment, markdown)
 		}
+	}
+}
+
+func TestBuildConversationMarkdownFallsBackToUserLabel(t *testing.T) {
+	conversation := &clientpb.AIConversation{
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "user", Content: "Hello"},
+		},
+	}
+
+	markdown := buildConversationMarkdown(conversation)
+	if !strings.Contains(markdown, "```text\n[User]\nHello\n```") {
+		t.Fatalf("expected markdown to contain user fallback label, got %q", markdown)
+	}
+}
+
+func TestConversationAwaitingResponseWhenLastMessageIsUser(t *testing.T) {
+	conversation := &clientpb.AIConversation{
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "assistant", Content: "Previous reply"},
+			{Role: "user", Content: "Still waiting"},
+		},
+	}
+
+	if !conversationAwaitingResponse(conversation) {
+		t.Fatal("expected conversation to be waiting on an assistant response")
+	}
+}
+
+func TestConversationAwaitingResponseStopsWhenAssistantReplies(t *testing.T) {
+	conversation := &clientpb.AIConversation{
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "user", Content: "Question"},
+			{Role: "assistant", Content: "Answer"},
+		},
+	}
+
+	if conversationAwaitingResponse(conversation) {
+		t.Fatal("expected conversation to be settled once the assistant replies")
+	}
+}
+
+func TestPendingLabelUsesThinkingWhenConfigured(t *testing.T) {
+	model := &aiModel{
+		config: &clientpb.AIConfigSummary{ThinkingLevel: "high"},
+	}
+
+	if got := model.pendingLabel(); got != "Thinking" {
+		t.Fatalf("expected pending label %q, got %q", "Thinking", got)
+	}
+}
+
+func TestPendingLabelFallsBackToWorking(t *testing.T) {
+	model := &aiModel{}
+
+	if got := model.pendingLabel(); got != "Working" {
+		t.Fatalf("expected pending label %q, got %q", "Working", got)
 	}
 }
 

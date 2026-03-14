@@ -54,6 +54,7 @@ func publishAIConversationEvent(conversation *clientpb.AIConversation) {
 func (rpc *Server) GetAIProviders(ctx context.Context, _ *commonpb.Empty) (*clientpb.AIProviderConfigs, error) {
 	return &clientpb.AIProviderConfigs{
 		Providers: serverai.ConfiguredProviders(),
+		Config:    serverai.SafeConfigSummary(),
 	}, nil
 }
 

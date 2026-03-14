@@ -20,6 +20,7 @@ package ai
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -87,16 +88,83 @@ func ProviderFromConfig(name string) (*Provider, error) {
 
 // ConfiguredProviders - Return provider availability without exposing configured secrets.
 func ConfiguredProviders() []*clientpb.AIProviderConfig {
+	return ConfiguredProvidersFromConfig(configs.GetServerConfig())
+}
+
+// ConfiguredProvidersFromConfig - Return provider availability for a specific config.
+func ConfiguredProvidersFromConfig(cfg *configs.ServerConfig) []*clientpb.AIProviderConfig {
 	providers := make([]*clientpb.AIProviderConfig, 0, len(SupportedProviders()))
 	for _, name := range SupportedProviders() {
-		provider, err := ProviderFromConfig(name)
-		if err != nil {
-			continue
-		}
+		providerConfig := aiProviderConfig(cfg, name)
 		providers = append(providers, &clientpb.AIProviderConfig{
-			Name:       provider.Name,
-			Configured: strings.TrimSpace(provider.APIKey) != "",
+			Name:       name,
+			Configured: providerConfig != nil && strings.TrimSpace(providerConfig.APIKey) != "",
 		})
 	}
 	return providers
+}
+
+// SafeConfigSummary - Return the client-safe AI configuration summary.
+func SafeConfigSummary() *clientpb.AIConfigSummary {
+	return SafeConfigSummaryFromConfig(configs.GetServerConfig())
+}
+
+// SafeConfigSummaryFromConfig - Return the client-safe AI configuration summary for a specific config.
+func SafeConfigSummaryFromConfig(cfg *configs.ServerConfig) *clientpb.AIConfigSummary {
+	summary := &clientpb.AIConfigSummary{}
+	if cfg != nil && cfg.AI != nil {
+		summary.Model = strings.TrimSpace(cfg.AI.Model)
+		summary.ThinkingLevel = strings.TrimSpace(cfg.AI.ThinkingLevel)
+	}
+
+	provider, providerConfig := selectedProviderConfig(cfg)
+	summary.Provider = provider
+
+	switch {
+	case cfg == nil || cfg.AI == nil:
+		summary.Error = "server AI is not configured; run `ai-config` on the server"
+	case provider == "":
+		summary.Error = "server AI is missing a configured provider; run `ai-config` on the server"
+	case providerConfig == nil || strings.TrimSpace(providerConfig.APIKey) == "":
+		summary.Error = fmt.Sprintf("server AI provider %q is missing an API key; run `ai-config` on the server", provider)
+	default:
+		summary.Valid = true
+	}
+
+	return summary
+}
+
+func selectedProviderConfig(cfg *configs.ServerConfig) (string, *configs.AIProviderConfig) {
+	if cfg == nil || cfg.AI == nil {
+		return "", nil
+	}
+
+	explicitProvider := NormalizeProviderName(cfg.AI.Provider)
+	if IsSupportedProvider(explicitProvider) {
+		return explicitProvider, aiProviderConfig(cfg, explicitProvider)
+	}
+
+	for _, provider := range SupportedProviders() {
+		providerConfig := aiProviderConfig(cfg, provider)
+		if providerConfig != nil && strings.TrimSpace(providerConfig.APIKey) != "" {
+			return provider, providerConfig
+		}
+	}
+
+	return "", nil
+}
+
+func aiProviderConfig(cfg *configs.ServerConfig, provider string) *configs.AIProviderConfig {
+	if cfg == nil || cfg.AI == nil {
+		return nil
+	}
+
+	switch NormalizeProviderName(provider) {
+	case ProviderAnthropic:
+		return cfg.AI.Anthropic
+	case ProviderOpenAI:
+		return cfg.AI.OpenAI
+	default:
+		return nil
+	}
 }

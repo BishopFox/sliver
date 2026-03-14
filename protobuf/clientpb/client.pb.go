@@ -11283,6 +11283,7 @@ func (x *CrackFileChunk) GetData() []byte {
 type AIProviderConfigs struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Providers     []*AIProviderConfig    `protobuf:"bytes,1,rep,name=Providers,proto3" json:"Providers,omitempty"`
+	Config        *AIConfigSummary       `protobuf:"bytes,2,opt,name=Config,proto3" json:"Config,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -11320,6 +11321,13 @@ func (*AIProviderConfigs) Descriptor() ([]byte, []int) {
 func (x *AIProviderConfigs) GetProviders() []*AIProviderConfig {
 	if x != nil {
 		return x.Providers
+	}
+	return nil
+}
+
+func (x *AIProviderConfigs) GetConfig() *AIConfigSummary {
+	if x != nil {
+		return x.Config
 	}
 	return nil
 }
@@ -11376,6 +11384,82 @@ func (x *AIProviderConfig) GetConfigured() bool {
 	return false
 }
 
+type AIConfigSummary struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Provider      string                 `protobuf:"bytes,1,opt,name=Provider,proto3" json:"Provider,omitempty"`
+	Model         string                 `protobuf:"bytes,2,opt,name=Model,proto3" json:"Model,omitempty"`
+	ThinkingLevel string                 `protobuf:"bytes,3,opt,name=ThinkingLevel,proto3" json:"ThinkingLevel,omitempty"`
+	Valid         bool                   `protobuf:"varint,4,opt,name=Valid,proto3" json:"Valid,omitempty"`
+	Error         string                 `protobuf:"bytes,5,opt,name=Error,proto3" json:"Error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AIConfigSummary) Reset() {
+	*x = AIConfigSummary{}
+	mi := &file_clientpb_client_proto_msgTypes[128]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AIConfigSummary) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AIConfigSummary) ProtoMessage() {}
+
+func (x *AIConfigSummary) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[128]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AIConfigSummary.ProtoReflect.Descriptor instead.
+func (*AIConfigSummary) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{128}
+}
+
+func (x *AIConfigSummary) GetProvider() string {
+	if x != nil {
+		return x.Provider
+	}
+	return ""
+}
+
+func (x *AIConfigSummary) GetModel() string {
+	if x != nil {
+		return x.Model
+	}
+	return ""
+}
+
+func (x *AIConfigSummary) GetThinkingLevel() string {
+	if x != nil {
+		return x.ThinkingLevel
+	}
+	return ""
+}
+
+func (x *AIConfigSummary) GetValid() bool {
+	if x != nil {
+		return x.Valid
+	}
+	return false
+}
+
+func (x *AIConfigSummary) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
 type AIConversationReq struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	ID              string                 `protobuf:"bytes,1,opt,name=ID,proto3" json:"ID,omitempty"`
@@ -11386,7 +11470,7 @@ type AIConversationReq struct {
 
 func (x *AIConversationReq) Reset() {
 	*x = AIConversationReq{}
-	mi := &file_clientpb_client_proto_msgTypes[128]
+	mi := &file_clientpb_client_proto_msgTypes[129]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11398,7 +11482,7 @@ func (x *AIConversationReq) String() string {
 func (*AIConversationReq) ProtoMessage() {}
 
 func (x *AIConversationReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[128]
+	mi := &file_clientpb_client_proto_msgTypes[129]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11411,7 +11495,7 @@ func (x *AIConversationReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIConversationReq.ProtoReflect.Descriptor instead.
 func (*AIConversationReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{128}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{129}
 }
 
 func (x *AIConversationReq) GetID() string {
@@ -11437,7 +11521,7 @@ type AIConversations struct {
 
 func (x *AIConversations) Reset() {
 	*x = AIConversations{}
-	mi := &file_clientpb_client_proto_msgTypes[129]
+	mi := &file_clientpb_client_proto_msgTypes[130]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11449,7 +11533,7 @@ func (x *AIConversations) String() string {
 func (*AIConversations) ProtoMessage() {}
 
 func (x *AIConversations) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[129]
+	mi := &file_clientpb_client_proto_msgTypes[130]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11462,7 +11546,7 @@ func (x *AIConversations) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIConversations.ProtoReflect.Descriptor instead.
 func (*AIConversations) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{129}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{130}
 }
 
 func (x *AIConversations) GetConversations() []*AIConversation {
@@ -11490,7 +11574,7 @@ type AIConversation struct {
 
 func (x *AIConversation) Reset() {
 	*x = AIConversation{}
-	mi := &file_clientpb_client_proto_msgTypes[130]
+	mi := &file_clientpb_client_proto_msgTypes[131]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11502,7 +11586,7 @@ func (x *AIConversation) String() string {
 func (*AIConversation) ProtoMessage() {}
 
 func (x *AIConversation) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[130]
+	mi := &file_clientpb_client_proto_msgTypes[131]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11515,7 +11599,7 @@ func (x *AIConversation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIConversation.ProtoReflect.Descriptor instead.
 func (*AIConversation) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{130}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{131}
 }
 
 func (x *AIConversation) GetID() string {
@@ -11598,7 +11682,7 @@ type AIConversationMessages struct {
 
 func (x *AIConversationMessages) Reset() {
 	*x = AIConversationMessages{}
-	mi := &file_clientpb_client_proto_msgTypes[131]
+	mi := &file_clientpb_client_proto_msgTypes[132]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11610,7 +11694,7 @@ func (x *AIConversationMessages) String() string {
 func (*AIConversationMessages) ProtoMessage() {}
 
 func (x *AIConversationMessages) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[131]
+	mi := &file_clientpb_client_proto_msgTypes[132]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11623,7 +11707,7 @@ func (x *AIConversationMessages) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIConversationMessages.ProtoReflect.Descriptor instead.
 func (*AIConversationMessages) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{131}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{132}
 }
 
 func (x *AIConversationMessages) GetConversationID() string {
@@ -11660,7 +11744,7 @@ type AIConversationMessage struct {
 
 func (x *AIConversationMessage) Reset() {
 	*x = AIConversationMessage{}
-	mi := &file_clientpb_client_proto_msgTypes[132]
+	mi := &file_clientpb_client_proto_msgTypes[133]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11672,7 +11756,7 @@ func (x *AIConversationMessage) String() string {
 func (*AIConversationMessage) ProtoMessage() {}
 
 func (x *AIConversationMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[132]
+	mi := &file_clientpb_client_proto_msgTypes[133]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11685,7 +11769,7 @@ func (x *AIConversationMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIConversationMessage.ProtoReflect.Descriptor instead.
 func (*AIConversationMessage) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{132}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{133}
 }
 
 func (x *AIConversationMessage) GetID() string {
@@ -11782,7 +11866,7 @@ type MonitoringProviders struct {
 
 func (x *MonitoringProviders) Reset() {
 	*x = MonitoringProviders{}
-	mi := &file_clientpb_client_proto_msgTypes[133]
+	mi := &file_clientpb_client_proto_msgTypes[134]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11794,7 +11878,7 @@ func (x *MonitoringProviders) String() string {
 func (*MonitoringProviders) ProtoMessage() {}
 
 func (x *MonitoringProviders) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[133]
+	mi := &file_clientpb_client_proto_msgTypes[134]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11807,7 +11891,7 @@ func (x *MonitoringProviders) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MonitoringProviders.ProtoReflect.Descriptor instead.
 func (*MonitoringProviders) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{133}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{134}
 }
 
 func (x *MonitoringProviders) GetProviders() []*MonitoringProvider {
@@ -11829,7 +11913,7 @@ type MonitoringProvider struct {
 
 func (x *MonitoringProvider) Reset() {
 	*x = MonitoringProvider{}
-	mi := &file_clientpb_client_proto_msgTypes[134]
+	mi := &file_clientpb_client_proto_msgTypes[135]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11841,7 +11925,7 @@ func (x *MonitoringProvider) String() string {
 func (*MonitoringProvider) ProtoMessage() {}
 
 func (x *MonitoringProvider) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[134]
+	mi := &file_clientpb_client_proto_msgTypes[135]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11854,7 +11938,7 @@ func (x *MonitoringProvider) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MonitoringProvider.ProtoReflect.Descriptor instead.
 func (*MonitoringProvider) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{134}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{135}
 }
 
 func (x *MonitoringProvider) GetID() string {
@@ -11898,7 +11982,7 @@ type ResourceID struct {
 
 func (x *ResourceID) Reset() {
 	*x = ResourceID{}
-	mi := &file_clientpb_client_proto_msgTypes[135]
+	mi := &file_clientpb_client_proto_msgTypes[136]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11910,7 +11994,7 @@ func (x *ResourceID) String() string {
 func (*ResourceID) ProtoMessage() {}
 
 func (x *ResourceID) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[135]
+	mi := &file_clientpb_client_proto_msgTypes[136]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11923,7 +12007,7 @@ func (x *ResourceID) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceID.ProtoReflect.Descriptor instead.
 func (*ResourceID) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{135}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{136}
 }
 
 func (x *ResourceID) GetID() string {
@@ -11964,7 +12048,7 @@ type CertificatesReq struct {
 
 func (x *CertificatesReq) Reset() {
 	*x = CertificatesReq{}
-	mi := &file_clientpb_client_proto_msgTypes[136]
+	mi := &file_clientpb_client_proto_msgTypes[137]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11976,7 +12060,7 @@ func (x *CertificatesReq) String() string {
 func (*CertificatesReq) ProtoMessage() {}
 
 func (x *CertificatesReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[136]
+	mi := &file_clientpb_client_proto_msgTypes[137]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11989,7 +12073,7 @@ func (x *CertificatesReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificatesReq.ProtoReflect.Descriptor instead.
 func (*CertificatesReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{136}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{137}
 }
 
 func (x *CertificatesReq) GetCategoryFilters() uint32 {
@@ -12021,7 +12105,7 @@ type CertificateData struct {
 
 func (x *CertificateData) Reset() {
 	*x = CertificateData{}
-	mi := &file_clientpb_client_proto_msgTypes[137]
+	mi := &file_clientpb_client_proto_msgTypes[138]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12033,7 +12117,7 @@ func (x *CertificateData) String() string {
 func (*CertificateData) ProtoMessage() {}
 
 func (x *CertificateData) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[137]
+	mi := &file_clientpb_client_proto_msgTypes[138]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12046,7 +12130,7 @@ func (x *CertificateData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificateData.ProtoReflect.Descriptor instead.
 func (*CertificateData) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{137}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{138}
 }
 
 func (x *CertificateData) GetCN() string {
@@ -12107,7 +12191,7 @@ type CertificateInfo struct {
 
 func (x *CertificateInfo) Reset() {
 	*x = CertificateInfo{}
-	mi := &file_clientpb_client_proto_msgTypes[138]
+	mi := &file_clientpb_client_proto_msgTypes[139]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12119,7 +12203,7 @@ func (x *CertificateInfo) String() string {
 func (*CertificateInfo) ProtoMessage() {}
 
 func (x *CertificateInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[138]
+	mi := &file_clientpb_client_proto_msgTypes[139]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12132,7 +12216,7 @@ func (x *CertificateInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificateInfo.ProtoReflect.Descriptor instead.
 func (*CertificateInfo) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{138}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{139}
 }
 
 func (x *CertificateInfo) GetInfo() []*CertificateData {
@@ -12157,7 +12241,7 @@ type CertificateAuthorityData struct {
 
 func (x *CertificateAuthorityData) Reset() {
 	*x = CertificateAuthorityData{}
-	mi := &file_clientpb_client_proto_msgTypes[139]
+	mi := &file_clientpb_client_proto_msgTypes[140]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12169,7 +12253,7 @@ func (x *CertificateAuthorityData) String() string {
 func (*CertificateAuthorityData) ProtoMessage() {}
 
 func (x *CertificateAuthorityData) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[139]
+	mi := &file_clientpb_client_proto_msgTypes[140]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12182,7 +12266,7 @@ func (x *CertificateAuthorityData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificateAuthorityData.ProtoReflect.Descriptor instead.
 func (*CertificateAuthorityData) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{139}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{140}
 }
 
 func (x *CertificateAuthorityData) GetCN() string {
@@ -12243,7 +12327,7 @@ type CertificateAuthorityInfo struct {
 
 func (x *CertificateAuthorityInfo) Reset() {
 	*x = CertificateAuthorityInfo{}
-	mi := &file_clientpb_client_proto_msgTypes[140]
+	mi := &file_clientpb_client_proto_msgTypes[141]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12255,7 +12339,7 @@ func (x *CertificateAuthorityInfo) String() string {
 func (*CertificateAuthorityInfo) ProtoMessage() {}
 
 func (x *CertificateAuthorityInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[140]
+	mi := &file_clientpb_client_proto_msgTypes[141]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12268,7 +12352,7 @@ func (x *CertificateAuthorityInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificateAuthorityInfo.ProtoReflect.Descriptor instead.
 func (*CertificateAuthorityInfo) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{140}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{141}
 }
 
 func (x *CertificateAuthorityInfo) GetInfo() []*CertificateAuthorityData {
@@ -13244,14 +13328,21 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\x02ID\x18\x01 \x01(\tR\x02ID\x12 \n" +
 	"\vCrackFileID\x18\x02 \x01(\tR\vCrackFileID\x12\f\n" +
 	"\x01N\x18\x03 \x01(\rR\x01N\x12\x12\n" +
-	"\x04Data\x18\t \x01(\fR\x04Data\"M\n" +
+	"\x04Data\x18\t \x01(\fR\x04Data\"\x80\x01\n" +
 	"\x11AIProviderConfigs\x128\n" +
-	"\tProviders\x18\x01 \x03(\v2\x1a.clientpb.AIProviderConfigR\tProviders\"F\n" +
+	"\tProviders\x18\x01 \x03(\v2\x1a.clientpb.AIProviderConfigR\tProviders\x121\n" +
+	"\x06Config\x18\x02 \x01(\v2\x19.clientpb.AIConfigSummaryR\x06Config\"F\n" +
 	"\x10AIProviderConfig\x12\x12\n" +
 	"\x04Name\x18\x01 \x01(\tR\x04Name\x12\x1e\n" +
 	"\n" +
 	"Configured\x18\x02 \x01(\bR\n" +
-	"Configured\"M\n" +
+	"Configured\"\x95\x01\n" +
+	"\x0fAIConfigSummary\x12\x1a\n" +
+	"\bProvider\x18\x01 \x01(\tR\bProvider\x12\x14\n" +
+	"\x05Model\x18\x02 \x01(\tR\x05Model\x12$\n" +
+	"\rThinkingLevel\x18\x03 \x01(\tR\rThinkingLevel\x12\x14\n" +
+	"\x05Valid\x18\x04 \x01(\bR\x05Valid\x12\x14\n" +
+	"\x05Error\x18\x05 \x01(\tR\x05Error\"M\n" +
 	"\x11AIConversationReq\x12\x0e\n" +
 	"\x02ID\x18\x01 \x01(\tR\x02ID\x12(\n" +
 	"\x0fIncludeMessages\x18\x02 \x01(\bR\x0fIncludeMessages\"Q\n" +
@@ -13546,7 +13637,7 @@ func file_clientpb_client_proto_rawDescGZIP() []byte {
 }
 
 var file_clientpb_client_proto_enumTypes = make([]protoimpl.EnumInfo, 13)
-var file_clientpb_client_proto_msgTypes = make([]protoimpl.MessageInfo, 155)
+var file_clientpb_client_proto_msgTypes = make([]protoimpl.MessageInfo, 156)
 var file_clientpb_client_proto_goTypes = []any{
 	(OutputFormat)(0),                      // 0: clientpb.OutputFormat
 	(StageProtocol)(0),                     // 1: clientpb.StageProtocol
@@ -13689,36 +13780,37 @@ var file_clientpb_client_proto_goTypes = []any{
 	(*CrackFileChunk)(nil),                 // 138: clientpb.CrackFileChunk
 	(*AIProviderConfigs)(nil),              // 139: clientpb.AIProviderConfigs
 	(*AIProviderConfig)(nil),               // 140: clientpb.AIProviderConfig
-	(*AIConversationReq)(nil),              // 141: clientpb.AIConversationReq
-	(*AIConversations)(nil),                // 142: clientpb.AIConversations
-	(*AIConversation)(nil),                 // 143: clientpb.AIConversation
-	(*AIConversationMessages)(nil),         // 144: clientpb.AIConversationMessages
-	(*AIConversationMessage)(nil),          // 145: clientpb.AIConversationMessage
-	(*MonitoringProviders)(nil),            // 146: clientpb.MonitoringProviders
-	(*MonitoringProvider)(nil),             // 147: clientpb.MonitoringProvider
-	(*ResourceID)(nil),                     // 148: clientpb.ResourceID
-	(*CertificatesReq)(nil),                // 149: clientpb.CertificatesReq
-	(*CertificateData)(nil),                // 150: clientpb.CertificateData
-	(*CertificateInfo)(nil),                // 151: clientpb.CertificateInfo
-	(*CertificateAuthorityData)(nil),       // 152: clientpb.CertificateAuthorityData
-	(*CertificateAuthorityInfo)(nil),       // 153: clientpb.CertificateAuthorityInfo
-	nil,                                    // 154: clientpb.TrafficEncoderMap.EncodersEntry
-	nil,                                    // 155: clientpb.ExternalImplantConfig.EncodersEntry
-	nil,                                    // 156: clientpb.ImplantBuilds.ConfigsEntry
-	nil,                                    // 157: clientpb.ImplantBuilds.ResourceIDsEntry
-	nil,                                    // 158: clientpb.ImplantBuilds.StagedEntry
-	nil,                                    // 159: clientpb.WebsiteAddContent.ContentsEntry
-	nil,                                    // 160: clientpb.Website.ContentsEntry
-	nil,                                    // 161: clientpb.Host.ExtensionDataEntry
-	nil,                                    // 162: clientpb.ShellcodeEncoderArchMap.EncodersEntry
-	nil,                                    // 163: clientpb.ShellcodeEncoderArchMap.DescriptionsEntry
-	nil,                                    // 164: clientpb.ShellcodeEncoderMap.EncodersEntry
-	nil,                                    // 165: clientpb.CrackSyncStatus.ProgressEntry
-	nil,                                    // 166: clientpb.CrackBenchmark.BenchmarksEntry
-	nil,                                    // 167: clientpb.Crackstation.BenchmarksEntry
-	(*commonpb.File)(nil),                  // 168: commonpb.File
-	(*commonpb.Request)(nil),               // 169: commonpb.Request
-	(*commonpb.Response)(nil),              // 170: commonpb.Response
+	(*AIConfigSummary)(nil),                // 141: clientpb.AIConfigSummary
+	(*AIConversationReq)(nil),              // 142: clientpb.AIConversationReq
+	(*AIConversations)(nil),                // 143: clientpb.AIConversations
+	(*AIConversation)(nil),                 // 144: clientpb.AIConversation
+	(*AIConversationMessages)(nil),         // 145: clientpb.AIConversationMessages
+	(*AIConversationMessage)(nil),          // 146: clientpb.AIConversationMessage
+	(*MonitoringProviders)(nil),            // 147: clientpb.MonitoringProviders
+	(*MonitoringProvider)(nil),             // 148: clientpb.MonitoringProvider
+	(*ResourceID)(nil),                     // 149: clientpb.ResourceID
+	(*CertificatesReq)(nil),                // 150: clientpb.CertificatesReq
+	(*CertificateData)(nil),                // 151: clientpb.CertificateData
+	(*CertificateInfo)(nil),                // 152: clientpb.CertificateInfo
+	(*CertificateAuthorityData)(nil),       // 153: clientpb.CertificateAuthorityData
+	(*CertificateAuthorityInfo)(nil),       // 154: clientpb.CertificateAuthorityInfo
+	nil,                                    // 155: clientpb.TrafficEncoderMap.EncodersEntry
+	nil,                                    // 156: clientpb.ExternalImplantConfig.EncodersEntry
+	nil,                                    // 157: clientpb.ImplantBuilds.ConfigsEntry
+	nil,                                    // 158: clientpb.ImplantBuilds.ResourceIDsEntry
+	nil,                                    // 159: clientpb.ImplantBuilds.StagedEntry
+	nil,                                    // 160: clientpb.WebsiteAddContent.ContentsEntry
+	nil,                                    // 161: clientpb.Website.ContentsEntry
+	nil,                                    // 162: clientpb.Host.ExtensionDataEntry
+	nil,                                    // 163: clientpb.ShellcodeEncoderArchMap.EncodersEntry
+	nil,                                    // 164: clientpb.ShellcodeEncoderArchMap.DescriptionsEntry
+	nil,                                    // 165: clientpb.ShellcodeEncoderMap.EncodersEntry
+	nil,                                    // 166: clientpb.CrackSyncStatus.ProgressEntry
+	nil,                                    // 167: clientpb.CrackBenchmark.BenchmarksEntry
+	nil,                                    // 168: clientpb.Crackstation.BenchmarksEntry
+	(*commonpb.File)(nil),                  // 169: commonpb.File
+	(*commonpb.Request)(nil),               // 170: commonpb.Request
+	(*commonpb.Response)(nil),              // 171: commonpb.Response
 }
 var file_clientpb_client_proto_depIdxs = []int32{
 	16,  // 0: clientpb.Beacons.Beacons:type_name -> clientpb.Beacon
@@ -13728,7 +13820,7 @@ var file_clientpb_client_proto_depIdxs = []int32{
 	0,   // 4: clientpb.ImplantConfig.Format:type_name -> clientpb.OutputFormat
 	22,  // 5: clientpb.ImplantConfig.ShellcodeConfig:type_name -> clientpb.ShellcodeConfig
 	3,   // 6: clientpb.ImplantConfig.ShellcodeEncoder:type_name -> clientpb.ShellcodeEncoder
-	168, // 7: clientpb.ImplantConfig.Assets:type_name -> commonpb.File
+	169, // 7: clientpb.ImplantConfig.Assets:type_name -> commonpb.File
 	24,  // 8: clientpb.PESpoofMetadataConfig.Source:type_name -> clientpb.SpoofMetadataFile
 	24,  // 9: clientpb.PESpoofMetadataConfig.Icon:type_name -> clientpb.SpoofMetadataFile
 	25,  // 10: clientpb.PESpoofMetadataConfig.ResourceDirectory:type_name -> clientpb.IMAGE_RESOURCE_DIRECTORY
@@ -13736,18 +13828,18 @@ var file_clientpb_client_proto_depIdxs = []int32{
 	27,  // 12: clientpb.PESpoofMetadataConfig.ResourceDataEntries:type_name -> clientpb.IMAGE_RESOURCE_DATA_ENTRY
 	28,  // 13: clientpb.PESpoofMetadataConfig.ExportDirectory:type_name -> clientpb.IMAGE_EXPORT_DIRECTORY
 	29,  // 14: clientpb.SpoofMetadataConfig.PE:type_name -> clientpb.PESpoofMetadataConfig
-	168, // 15: clientpb.TrafficEncoder.Wasm:type_name -> commonpb.File
-	154, // 16: clientpb.TrafficEncoderMap.Encoders:type_name -> clientpb.TrafficEncoderMap.EncodersEntry
+	169, // 15: clientpb.TrafficEncoder.Wasm:type_name -> commonpb.File
+	155, // 16: clientpb.TrafficEncoderMap.Encoders:type_name -> clientpb.TrafficEncoderMap.EncodersEntry
 	31,  // 17: clientpb.TrafficEncoderTests.Encoder:type_name -> clientpb.TrafficEncoder
 	33,  // 18: clientpb.TrafficEncoderTests.Tests:type_name -> clientpb.TrafficEncoderTest
 	23,  // 19: clientpb.ExternalImplantConfig.Config:type_name -> clientpb.ImplantConfig
 	39,  // 20: clientpb.ExternalImplantConfig.Build:type_name -> clientpb.ImplantBuild
 	114, // 21: clientpb.ExternalImplantConfig.HTTPC2:type_name -> clientpb.HTTPC2Config
-	155, // 22: clientpb.ExternalImplantConfig.encoders:type_name -> clientpb.ExternalImplantConfig.EncodersEntry
-	168, // 23: clientpb.ExternalImplantBinary.File:type_name -> commonpb.File
-	156, // 24: clientpb.ImplantBuilds.Configs:type_name -> clientpb.ImplantBuilds.ConfigsEntry
-	157, // 25: clientpb.ImplantBuilds.ResourceIDs:type_name -> clientpb.ImplantBuilds.ResourceIDsEntry
-	158, // 26: clientpb.ImplantBuilds.staged:type_name -> clientpb.ImplantBuilds.StagedEntry
+	156, // 22: clientpb.ExternalImplantConfig.encoders:type_name -> clientpb.ExternalImplantConfig.EncodersEntry
+	169, // 23: clientpb.ExternalImplantBinary.File:type_name -> commonpb.File
+	157, // 24: clientpb.ImplantBuilds.Configs:type_name -> clientpb.ImplantBuilds.ConfigsEntry
+	158, // 25: clientpb.ImplantBuilds.ResourceIDs:type_name -> clientpb.ImplantBuilds.ResourceIDsEntry
+	159, // 26: clientpb.ImplantBuilds.staged:type_name -> clientpb.ImplantBuilds.StagedEntry
 	0,   // 27: clientpb.CompilerTarget.Format:type_name -> clientpb.OutputFormat
 	40,  // 28: clientpb.Compiler.Targets:type_name -> clientpb.CompilerTarget
 	41,  // 29: clientpb.Compiler.CrossCompilers:type_name -> clientpb.CrossCompiler
@@ -13762,24 +13854,24 @@ var file_clientpb_client_proto_depIdxs = []int32{
 	60,  // 38: clientpb.ListenerJob.HTTPConf:type_name -> clientpb.HTTPListenerReq
 	56,  // 39: clientpb.ListenerJob.MultiConf:type_name -> clientpb.MultiplayerListenerReq
 	73,  // 40: clientpb.ListenerJob.TCPConf:type_name -> clientpb.StagerListenerReq
-	169, // 41: clientpb.NamedPipesReq.Request:type_name -> commonpb.Request
-	170, // 42: clientpb.NamedPipes.Response:type_name -> commonpb.Response
-	169, // 43: clientpb.TCPPivotReq.Request:type_name -> commonpb.Request
-	170, // 44: clientpb.TCPPivot.Response:type_name -> commonpb.Response
+	170, // 41: clientpb.NamedPipesReq.Request:type_name -> commonpb.Request
+	171, // 42: clientpb.NamedPipes.Response:type_name -> commonpb.Response
+	170, // 43: clientpb.TCPPivotReq.Request:type_name -> commonpb.Request
+	171, // 44: clientpb.TCPPivot.Response:type_name -> commonpb.Response
 	15,  // 45: clientpb.Sessions.Sessions:type_name -> clientpb.Session
 	23,  // 46: clientpb.GenerateReq.Config:type_name -> clientpb.ImplantConfig
-	168, // 47: clientpb.Generate.File:type_name -> commonpb.File
+	169, // 47: clientpb.Generate.File:type_name -> commonpb.File
 	30,  // 48: clientpb.GenerateSpoofMetadataReq.SpoofMetadata:type_name -> clientpb.SpoofMetadataConfig
-	169, // 49: clientpb.MSFReq.Request:type_name -> commonpb.Request
-	169, // 50: clientpb.MSFRemoteReq.Request:type_name -> commonpb.Request
+	170, // 49: clientpb.MSFReq.Request:type_name -> commonpb.Request
+	170, // 50: clientpb.MSFRemoteReq.Request:type_name -> commonpb.Request
 	1,   // 51: clientpb.StagerListenerReq.Protocol:type_name -> clientpb.StageProtocol
 	23,  // 52: clientpb.GetSystemReq.Config:type_name -> clientpb.ImplantConfig
-	169, // 53: clientpb.GetSystemReq.Request:type_name -> commonpb.Request
+	170, // 53: clientpb.GetSystemReq.Request:type_name -> commonpb.Request
 	23,  // 54: clientpb.MigrateReq.Config:type_name -> clientpb.ImplantConfig
 	3,   // 55: clientpb.MigrateReq.Encoder:type_name -> clientpb.ShellcodeEncoder
-	169, // 56: clientpb.MigrateReq.Request:type_name -> commonpb.Request
-	169, // 57: clientpb.CreateTunnelReq.Request:type_name -> commonpb.Request
-	169, // 58: clientpb.CloseTunnelReq.Request:type_name -> commonpb.Request
+	170, // 56: clientpb.MigrateReq.Request:type_name -> commonpb.Request
+	170, // 57: clientpb.CreateTunnelReq.Request:type_name -> commonpb.Request
+	170, // 58: clientpb.CloseTunnelReq.Request:type_name -> commonpb.Request
 	15,  // 59: clientpb.PivotGraphEntry.Session:type_name -> clientpb.Session
 	82,  // 60: clientpb.PivotGraphEntry.Children:type_name -> clientpb.PivotGraphEntry
 	82,  // 61: clientpb.PivotGraph.Children:type_name -> clientpb.PivotGraphEntry
@@ -13788,25 +13880,25 @@ var file_clientpb_client_proto_depIdxs = []int32{
 	50,  // 64: clientpb.Event.Job:type_name -> clientpb.Job
 	84,  // 65: clientpb.Event.Client:type_name -> clientpb.Client
 	87,  // 66: clientpb.Operators.Operators:type_name -> clientpb.Operator
-	159, // 67: clientpb.WebsiteAddContent.Contents:type_name -> clientpb.WebsiteAddContent.ContentsEntry
-	160, // 68: clientpb.Website.Contents:type_name -> clientpb.Website.ContentsEntry
+	160, // 67: clientpb.WebsiteAddContent.Contents:type_name -> clientpb.WebsiteAddContent.ContentsEntry
+	161, // 68: clientpb.Website.Contents:type_name -> clientpb.Website.ContentsEntry
 	91,  // 69: clientpb.Websites.Websites:type_name -> clientpb.Website
 	2,   // 70: clientpb.Loot.FileType:type_name -> clientpb.FileType
-	168, // 71: clientpb.Loot.File:type_name -> commonpb.File
+	169, // 71: clientpb.Loot.File:type_name -> commonpb.File
 	94,  // 72: clientpb.AllLoot.Loot:type_name -> clientpb.Loot
 	96,  // 73: clientpb.Host.IOCs:type_name -> clientpb.IOC
-	161, // 74: clientpb.Host.ExtensionData:type_name -> clientpb.Host.ExtensionDataEntry
+	162, // 74: clientpb.Host.ExtensionData:type_name -> clientpb.Host.ExtensionDataEntry
 	98,  // 75: clientpb.AllHosts.Hosts:type_name -> clientpb.Host
-	169, // 76: clientpb.DllHijackReq.Request:type_name -> commonpb.Request
-	170, // 77: clientpb.DllHijack.Response:type_name -> commonpb.Response
-	169, // 78: clientpb.BackdoorReq.Request:type_name -> commonpb.Request
-	170, // 79: clientpb.Backdoor.Response:type_name -> commonpb.Response
+	170, // 76: clientpb.DllHijackReq.Request:type_name -> commonpb.Request
+	171, // 77: clientpb.DllHijack.Response:type_name -> commonpb.Response
+	170, // 78: clientpb.BackdoorReq.Request:type_name -> commonpb.Request
+	171, // 79: clientpb.Backdoor.Response:type_name -> commonpb.Response
 	3,   // 80: clientpb.ShellcodeEncodeReq.Encoder:type_name -> clientpb.ShellcodeEncoder
-	169, // 81: clientpb.ShellcodeEncodeReq.Request:type_name -> commonpb.Request
-	170, // 82: clientpb.ShellcodeEncode.Response:type_name -> commonpb.Response
-	162, // 83: clientpb.ShellcodeEncoderArchMap.Encoders:type_name -> clientpb.ShellcodeEncoderArchMap.EncodersEntry
-	163, // 84: clientpb.ShellcodeEncoderArchMap.Descriptions:type_name -> clientpb.ShellcodeEncoderArchMap.DescriptionsEntry
-	164, // 85: clientpb.ShellcodeEncoderMap.Encoders:type_name -> clientpb.ShellcodeEncoderMap.EncodersEntry
+	170, // 81: clientpb.ShellcodeEncodeReq.Request:type_name -> commonpb.Request
+	171, // 82: clientpb.ShellcodeEncode.Response:type_name -> commonpb.Response
+	163, // 83: clientpb.ShellcodeEncoderArchMap.Encoders:type_name -> clientpb.ShellcodeEncoderArchMap.EncodersEntry
+	164, // 84: clientpb.ShellcodeEncoderArchMap.Descriptions:type_name -> clientpb.ShellcodeEncoderArchMap.DescriptionsEntry
+	165, // 85: clientpb.ShellcodeEncoderMap.Encoders:type_name -> clientpb.ShellcodeEncoderMap.EncodersEntry
 	23,  // 86: clientpb.ExternalGenerateReq.Config:type_name -> clientpb.ImplantConfig
 	110, // 87: clientpb.Builders.Builders:type_name -> clientpb.Builder
 	40,  // 88: clientpb.Builder.Targets:type_name -> clientpb.CompilerTarget
@@ -13825,10 +13917,10 @@ var file_clientpb_client_proto_depIdxs = []int32{
 	128, // 101: clientpb.Crackstations.Crackstations:type_name -> clientpb.Crackstation
 	6,   // 102: clientpb.CrackstationStatus.State:type_name -> clientpb.States
 	125, // 103: clientpb.CrackstationStatus.Syncing:type_name -> clientpb.CrackSyncStatus
-	165, // 104: clientpb.CrackSyncStatus.Progress:type_name -> clientpb.CrackSyncStatus.ProgressEntry
-	166, // 105: clientpb.CrackBenchmark.Benchmarks:type_name -> clientpb.CrackBenchmark.BenchmarksEntry
+	166, // 104: clientpb.CrackSyncStatus.Progress:type_name -> clientpb.CrackSyncStatus.ProgressEntry
+	167, // 105: clientpb.CrackBenchmark.Benchmarks:type_name -> clientpb.CrackBenchmark.BenchmarksEntry
 	132, // 106: clientpb.CrackTask.Command:type_name -> clientpb.CrackCommand
-	167, // 107: clientpb.Crackstation.Benchmarks:type_name -> clientpb.Crackstation.BenchmarksEntry
+	168, // 107: clientpb.Crackstation.Benchmarks:type_name -> clientpb.Crackstation.BenchmarksEntry
 	129, // 108: clientpb.Crackstation.CUDA:type_name -> clientpb.CUDABackendInfo
 	131, // 109: clientpb.Crackstation.Metal:type_name -> clientpb.MetalBackendInfo
 	130, // 110: clientpb.Crackstation.OpenCL:type_name -> clientpb.OpenCLBackendInfo
@@ -13845,25 +13937,26 @@ var file_clientpb_client_proto_depIdxs = []int32{
 	12,  // 121: clientpb.CrackFile.Type:type_name -> clientpb.CrackFileType
 	138, // 122: clientpb.CrackFile.Chunks:type_name -> clientpb.CrackFileChunk
 	140, // 123: clientpb.AIProviderConfigs.Providers:type_name -> clientpb.AIProviderConfig
-	143, // 124: clientpb.AIConversations.Conversations:type_name -> clientpb.AIConversation
-	145, // 125: clientpb.AIConversation.Messages:type_name -> clientpb.AIConversationMessage
-	145, // 126: clientpb.AIConversationMessages.Messages:type_name -> clientpb.AIConversationMessage
-	147, // 127: clientpb.MonitoringProviders.providers:type_name -> clientpb.MonitoringProvider
-	150, // 128: clientpb.CertificateInfo.info:type_name -> clientpb.CertificateData
-	152, // 129: clientpb.CertificateAuthorityInfo.info:type_name -> clientpb.CertificateAuthorityData
-	31,  // 130: clientpb.TrafficEncoderMap.EncodersEntry.value:type_name -> clientpb.TrafficEncoder
-	23,  // 131: clientpb.ImplantBuilds.ConfigsEntry.value:type_name -> clientpb.ImplantConfig
-	148, // 132: clientpb.ImplantBuilds.ResourceIDsEntry.value:type_name -> clientpb.ResourceID
-	88,  // 133: clientpb.WebsiteAddContent.ContentsEntry.value:type_name -> clientpb.WebContent
-	88,  // 134: clientpb.Website.ContentsEntry.value:type_name -> clientpb.WebContent
-	97,  // 135: clientpb.Host.ExtensionDataEntry.value:type_name -> clientpb.ExtensionData
-	3,   // 136: clientpb.ShellcodeEncoderArchMap.EncodersEntry.value:type_name -> clientpb.ShellcodeEncoder
-	106, // 137: clientpb.ShellcodeEncoderMap.EncodersEntry.value:type_name -> clientpb.ShellcodeEncoderArchMap
-	138, // [138:138] is the sub-list for method output_type
-	138, // [138:138] is the sub-list for method input_type
-	138, // [138:138] is the sub-list for extension type_name
-	138, // [138:138] is the sub-list for extension extendee
-	0,   // [0:138] is the sub-list for field type_name
+	141, // 124: clientpb.AIProviderConfigs.Config:type_name -> clientpb.AIConfigSummary
+	144, // 125: clientpb.AIConversations.Conversations:type_name -> clientpb.AIConversation
+	146, // 126: clientpb.AIConversation.Messages:type_name -> clientpb.AIConversationMessage
+	146, // 127: clientpb.AIConversationMessages.Messages:type_name -> clientpb.AIConversationMessage
+	148, // 128: clientpb.MonitoringProviders.providers:type_name -> clientpb.MonitoringProvider
+	151, // 129: clientpb.CertificateInfo.info:type_name -> clientpb.CertificateData
+	153, // 130: clientpb.CertificateAuthorityInfo.info:type_name -> clientpb.CertificateAuthorityData
+	31,  // 131: clientpb.TrafficEncoderMap.EncodersEntry.value:type_name -> clientpb.TrafficEncoder
+	23,  // 132: clientpb.ImplantBuilds.ConfigsEntry.value:type_name -> clientpb.ImplantConfig
+	149, // 133: clientpb.ImplantBuilds.ResourceIDsEntry.value:type_name -> clientpb.ResourceID
+	88,  // 134: clientpb.WebsiteAddContent.ContentsEntry.value:type_name -> clientpb.WebContent
+	88,  // 135: clientpb.Website.ContentsEntry.value:type_name -> clientpb.WebContent
+	97,  // 136: clientpb.Host.ExtensionDataEntry.value:type_name -> clientpb.ExtensionData
+	3,   // 137: clientpb.ShellcodeEncoderArchMap.EncodersEntry.value:type_name -> clientpb.ShellcodeEncoder
+	106, // 138: clientpb.ShellcodeEncoderMap.EncodersEntry.value:type_name -> clientpb.ShellcodeEncoderArchMap
+	139, // [139:139] is the sub-list for method output_type
+	139, // [139:139] is the sub-list for method input_type
+	139, // [139:139] is the sub-list for extension type_name
+	139, // [139:139] is the sub-list for extension extendee
+	0,   // [0:139] is the sub-list for field type_name
 }
 
 func init() { file_clientpb_client_proto_init() }
@@ -13877,7 +13970,7 @@ func file_clientpb_client_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_clientpb_client_proto_rawDesc), len(file_clientpb_client_proto_rawDesc)),
 			NumEnums:      13,
-			NumMessages:   155,
+			NumMessages:   156,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
