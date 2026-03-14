@@ -205,6 +205,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("username", "u", "", "username to impersonate")
 		f.StringP("password", "p", "", "password (creates Type 9 logon if provided)")
 		f.StringP("domain", "d", "", "domain")
+		f.StringP("pid", "P", "", "steal token from PID (resolves owner automatically)")
 		f.StringP("exec", "e", "", "command to execute after impersonation")
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})

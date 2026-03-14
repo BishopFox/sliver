@@ -99,10 +99,10 @@ func (c *socksDataCache) recordActivity(tunnelID uint64) {
 // Socks - Open an in-band port forward
 
 const (
-	writeTimeout            = 5 * time.Second
-	batchSize               = 100 // Maximum number of sequences to batch
-	inactivityCheckInterval = 4 * time.Second
-	inactivityTimeout       = 15 * time.Second
+	writeTimeout            = 10 * time.Second
+	batchSize               = 200 // Maximum number of sequences to batch
+	inactivityCheckInterval = 15 * time.Second
+	inactivityTimeout       = 120 * time.Second // RDP sessions can idle for minutes
 	ToImplantTickerInterval = 10 * time.Millisecond // data going towards implant is usually smaller request data
 	ToClientTickerInterval  = 5 * time.Millisecond  // data coming back from implant is usually larger response data
 )
@@ -174,7 +174,7 @@ func (s *Server) SocksProxy(stream rpcpb.SliverRPC_SocksProxyServer) error {
 
 		if tunnel.Client == nil {
 			tunnel.Client = stream
-			tunnel.FromImplant = make(chan *sliverpb.SocksData, 100) // Buffered channel for 100 messages
+			tunnel.FromImplant = make(chan *sliverpb.SocksData, 512) // Large buffer for RDP/high-bandwidth
 
 			// Monitor tunnel goroutines for inactivity and cleanup
 			wg.Add(1)

