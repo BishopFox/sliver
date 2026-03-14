@@ -175,5 +175,39 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
 
-	return []*cobra.Command{runAsCmd, impersonateCmd, revToSelfCmd, makeTokenCmd, getSystemCmd, chtimesCmd, chmodCmd, chownCmd, getprivsCmd}
+	stealTokenCmd := &cobra.Command{
+		Use:   consts.StealTokenStr,
+		Short: "Steal token from a process by PID (Windows only)",
+		Long:  help.GetHelpFor([]string{consts.StealTokenStr}),
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			StealTokenCmd(cmd, con, args)
+		},
+		GroupID:     consts.PrivilegesHelpGroup,
+		Annotations: flags.RestrictTargets(consts.WindowsCmdsFilter),
+	}
+	flags.Bind("", false, stealTokenCmd, func(f *pflag.FlagSet) {
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+	carapace.Gen(stealTokenCmd).PositionalCompletion(carapace.ActionValues().Usage("PID of target process"))
+
+	quickImpersonateCmd := &cobra.Command{
+		Use:   consts.QuickImpersonateStr,
+		Short: "Impersonate user + execute command in one step (Windows only)",
+		Long:  help.GetHelpFor([]string{consts.QuickImpersonateStr}),
+		Run: func(cmd *cobra.Command, args []string) {
+			ImpersonateAndExecCmd(cmd, con, args)
+		},
+		GroupID:     consts.PrivilegesHelpGroup,
+		Annotations: flags.RestrictTargets(consts.WindowsCmdsFilter),
+	}
+	flags.Bind("", false, quickImpersonateCmd, func(f *pflag.FlagSet) {
+		f.StringP("username", "u", "", "username to impersonate")
+		f.StringP("password", "p", "", "password (creates Type 9 logon if provided)")
+		f.StringP("domain", "d", "", "domain")
+		f.StringP("exec", "e", "", "command to execute after impersonation")
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+
+	return []*cobra.Command{runAsCmd, impersonateCmd, revToSelfCmd, makeTokenCmd, getSystemCmd, chtimesCmd, chmodCmd, chownCmd, getprivsCmd, stealTokenCmd, quickImpersonateCmd}
 }

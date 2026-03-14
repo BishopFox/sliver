@@ -67,13 +67,13 @@ type TcpProxy struct {
 func (tcp *TcpProxy) Stop() error {
 	err := tcp.Listener.Close()
 
-	// Closing all connections in pool
+	// Closing all connections in pool - always iterate all entries
 	SocksConnPool.Range(func(key, value interface{}) bool {
-		con := value.(net.Conn)
-
-		con.Close()
-
-		return err == nil
+		if con, ok := value.(net.Conn); ok {
+			con.Close()
+		}
+		SocksConnPool.Delete(key)
+		return true // always continue iteration
 	})
 
 	return err
@@ -117,18 +117,19 @@ func (f *socksProxy) Add(tcpProxy *TcpProxy) *SocksProxy {
 
 func (f *socksProxy) Start(tcpProxy *TcpProxy) error {
 	ctx, cancel := context.WithCancel(context.Background())
-	proxy, err := tcpProxy.Rpc.SocksProxy(ctx)
 	defer cancel()
 
+	proxy, err := tcpProxy.Rpc.SocksProxy(ctx)
 	if err != nil {
 		return err
 	}
+
+	// Receiver goroutine: reads data from implant and writes to local connections
 	go func() {
 		for {
-			FromImplantSequence := 0
 			socksData, err := proxy.Recv()
 			if err != nil {
-				log.Printf("Failed to Recv from proxy, %s\n", err)
+				log.Printf("[socks] recv stream closed: %s", err)
 				return
 			}
 
@@ -140,29 +141,40 @@ func (f *socksProxy) Start(tcpProxy *TcpProxy) error {
 					SocksConnPool.Delete(socksData.TunnelID)
 					continue
 				}
-				log.Printf("[socks] agent to Server To (Client to User) Data Sequence %d , Data Size %d \n", FromImplantSequence, len(socksData.Data))
-				//fmt.Printf("recv data len %d \n", len(p.Data))
 				_, err := conn.Write(socksData.Data)
 				if err != nil {
-					log.Printf("Failed to write data to proxy connection, %s\n", err)
+					log.Printf("[socks] write error tunnel %d: %s", socksData.TunnelID, err)
+					// Close the dead connection and notify
+					conn.Close()
+					SocksConnPool.Delete(socksData.TunnelID)
 					continue
 				}
-				FromImplantSequence++
 			}
 		}
 	}()
+
+	// Accept loop: accepts new SOCKS connections
 	for {
 		connection, err := tcpProxy.Listener.Accept()
 		if err != nil {
-			log.Printf("Failed to accept new listener, probably already closed: %s\n", err)
+			log.Printf("[socks] listener closed: %s", err)
 			break
 		}
+
+		// Set TCP options on accepted connections for stability
+		if tcpConn, ok := connection.(*net.TCPConn); ok {
+			tcpConn.SetKeepAlive(true)
+			tcpConn.SetKeepAlivePeriod(60 * time.Second)
+			tcpConn.SetNoDelay(true)
+		}
+
 		rpcSocks, err := tcpProxy.Rpc.CreateSocks(context.Background(), &sliverpb.Socks{
 			SessionID: tcpProxy.Session.ID,
 		})
 		if err != nil {
-			log.Printf("Failed rcp call to create socks %s\n", err)
-			break
+			log.Printf("[socks] failed to create tunnel: %s", err)
+			connection.Close()
+			continue // Don't break - allow retry on next connection
 		}
 
 		go connect(connection, proxy, &sliverpb.SocksData{
@@ -172,8 +184,8 @@ func (f *socksProxy) Start(tcpProxy *TcpProxy) error {
 			Request:  &commonpb.Request{SessionID: rpcSocks.SessionID},
 		})
 	}
-	log.Printf("Socks Stop -> %s\n", tcpProxy.BindAddr)
-	tcpProxy.Stop() // well, at this moment we already in stop state, but anyway
+	log.Printf("[socks] proxy stopped: %s", tcpProxy.BindAddr)
+	tcpProxy.Stop()
 	proxy.CloseSend()
 	return nil
 }
@@ -206,30 +218,44 @@ func nextSocksProxyID() uint64 {
 	return atomic.AddUint64(&SocksProxyID, 1)
 }
 
-const leakyBufSize = 4108 // data.len(2) + hmacsha1(10) + data(4096)
+// Increased buffer size from 4KB to 64KB for high-bandwidth protocols (RDP, etc.)
+const leakyBufSize = 65546 // data.len(2) + hmacsha1(10) + data(65534)
 
 var leakyBuf = leaky.NewLeakyBuf(2048, leakyBufSize)
 
 func connect(conn net.Conn, stream rpcpb.SliverRPC_SocksProxyClient, frame *sliverpb.SocksData) {
-	// Client Rate Limiter: 10 operations per second, burst of 1
-	limiter := rate.NewLimiter(rate.Limit(10), 1)
+	// Removed aggressive rate limiter (was 10 ops/s) - use generous limit for RDP/high-bandwidth
+	limiter := rate.NewLimiter(rate.Limit(50000), 100)
 
 	SocksConnPool.Store(frame.TunnelID, conn)
 
+	// Set TCP keepalive on the connection to detect dead peers
+	if tcpConn, ok := conn.(*net.TCPConn); ok {
+		tcpConn.SetKeepAlive(true)
+		tcpConn.SetKeepAlivePeriod(30 * time.Second)
+		tcpConn.SetNoDelay(true) // Disable Nagle for lower latency
+	}
+
 	defer func() {
-		// It's neccessary to close and remove connection once we done with it
 		c, ok := SocksConnPool.LoadAndDelete(frame.TunnelID)
 		if !ok {
 			return
 		}
 		conn := c.(net.Conn)
-
 		conn.Close()
-
-		log.Printf("[socks] connection closed")
+		// Send close notification to implant
+		closeFrame := &sliverpb.SocksData{
+			TunnelID:  frame.TunnelID,
+			CloseConn: true,
+			Request:   frame.Request,
+			Username:  frame.Username,
+			Password:  frame.Password,
+		}
+		stream.Send(closeFrame)
+		log.Printf("[socks] connection closed for tunnel %d", frame.TunnelID)
 	}()
 
-	log.Printf("tcp conn %q<--><-->%q \n", conn.LocalAddr(), conn.RemoteAddr())
+	log.Printf("[socks] new connection %q <-> %q (tunnel %d)", conn.LocalAddr(), conn.RemoteAddr(), frame.TunnelID)
 
 	buff := leakyBuf.Get()
 	defer leakyBuf.Put(buff)
@@ -238,9 +264,7 @@ func connect(conn net.Conn, stream rpcpb.SliverRPC_SocksProxyClient, frame *sliv
 		n, err := conn.Read(buff)
 
 		if err != nil {
-			log.Printf("[socks] (User to Client) failed to read data, %s ", err)
-			// Error basically means that the connection is closed(EOF) OR deadline exceeded
-			// In any of that cases, it's better to just giveup
+			log.Printf("[socks] read error on tunnel %d: %s", frame.TunnelID, err)
 			return
 		}
 		if n > 0 {
@@ -249,17 +273,16 @@ func connect(conn net.Conn, stream rpcpb.SliverRPC_SocksProxyClient, frame *sliv
 				return
 			}
 
-			frame.Data = buff[:n]
+			data := make([]byte, n)
+			copy(data, buff[:n])
+			frame.Data = data
 			frame.Sequence = ToImplantSequence
-			log.Printf("[socks] (User to Client) to Server to agent  Data Sequence %d , Data Size %d \n", ToImplantSequence, len(frame.Data))
 			err := stream.Send(frame)
 			if err != nil {
-				log.Printf("[socks] (User to Client) failed to send data, %s ", err)
+				log.Printf("[socks] send error on tunnel %d: %s", frame.TunnelID, err)
 				return
 			}
 			ToImplantSequence++
-
 		}
-
 	}
 }

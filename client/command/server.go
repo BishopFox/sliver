@@ -49,6 +49,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/settings"
 	shellcodeencoders "github.com/bishopfox/sliver/client/command/shellcode-encoders"
 	sgn "github.com/bishopfox/sliver/client/command/shikata-ga-nai"
+	"github.com/bishopfox/sliver/client/command/harriet"
 	"github.com/bishopfox/sliver/client/command/socks"
 	"github.com/bishopfox/sliver/client/command/taskmany"
 	"github.com/bishopfox/sliver/client/command/update"
@@ -129,6 +130,7 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 			shellcodeencoders.Commands,
 			generate.Commands,
 			builders.Commands,
+			harriet.Commands,
 		)
 
 		// Slivers

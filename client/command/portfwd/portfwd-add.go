@@ -55,9 +55,6 @@ func PortfwdAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 		con.PrintErrorf("Failed to parse remote target %s\n", err)
 		return
 	}
-	if remotePort == "3389" {
-		con.PrintWarnf("RDP is generally broken over tunneled portfwds, we recommend using WireGuard portfwds\n")
-	}
 	bindAddr, _ := cmd.Flags().GetString("bind")
 	if bindAddr == "" {
 		con.PrintErrorf("Must specify a bind target host:port (e.g. 127.0.0.1:8000)")
@@ -76,6 +73,14 @@ func PortfwdAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 		keepAlivePeriod = -1 * time.Second
 	} else {
 		keepAlivePeriod = 30 * time.Second
+	}
+
+	// Optimize keepalive for RDP connections
+	if remotePort == "3389" {
+		con.PrintInfof("RDP port forward detected - using optimized settings\n")
+		if keepAlive == 0 {
+			keepAlivePeriod = 15 * time.Second
+		}
 	}
 
 	tcpProxy := &tcpproxy.Proxy{}

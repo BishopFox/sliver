@@ -78,8 +78,11 @@ func SocksStartCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 	go func(channelProxy *core.TcpProxy) {
 		core.SocksProxies.Start(channelProxy)
 	}(core.SocksProxies.Add(channelProxy).ChannelProxy)
-	con.PrintInfof("Started SOCKS5 %s %s %s %s\n", host, port, username, password)
-	con.PrintWarnf("In-band SOCKS proxies can be a little unstable depending on protocol\n")
+	con.PrintInfof("Started SOCKS5 %s:%s\n", host, port)
+	if username != "" {
+		con.PrintInfof("Auth: %s / %s\n", username, password)
+	}
+	con.PrintInfof("Use with: proxychains, xfreerdp /proxy:socks5://%s:%s, etc.\n", host, port)
 }
 
 func randomPassword() string {

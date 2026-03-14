@@ -289,6 +289,7 @@ const (
 	PortfwdStr  = "portfwd"
 	Socks5Str   = "socks5"
 	RportfwdStr = "rportfwd"
+	RdpStr      = "rdp"
 
 	ReactionStr = "reaction"
 
@@ -297,7 +298,10 @@ const (
 
 	LicensesStr = "licenses"
 
-	GetPrivsStr = "getprivs"
+	GetPrivsStr       = "getprivs"
+	StealTokenStr     = "steal-token"
+	QuickImpersonateStr = "quick-impersonate"
+	HarrietStr        = "harriet"
 	ConnectStr  = "connect"
 
 	ShikataGaNai         = "shikata-ga-nai"
