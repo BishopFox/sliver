@@ -484,12 +484,12 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.SGNEnabled = pbConfig.SGNEnabled
 	cfg.ShellcodeEncoder = int32(pbConfig.ShellcodeEncoder)
 
-	cfg.IncludeMTLS = IsC2Enabled([]string{"mtls"}, pbConfig.C2)
-	cfg.IncludeWG = IsC2Enabled([]string{"wg"}, pbConfig.C2)
-	cfg.IncludeHTTP = IsC2Enabled([]string{"http", "https"}, pbConfig.C2)
-	cfg.IncludeDNS = IsC2Enabled([]string{"dns"}, pbConfig.C2)
-	cfg.IncludeNamePipe = IsC2Enabled([]string{"namedpipe"}, pbConfig.C2)
-	cfg.IncludeTCP = IsC2Enabled([]string{"tcppivot"}, pbConfig.C2)
+	cfg.IncludeMTLS = pbConfig.IncludeMTLS || IsC2Enabled([]string{"mtls"}, pbConfig.C2)
+	cfg.IncludeWG = pbConfig.IncludeWG || IsC2Enabled([]string{"wg"}, pbConfig.C2)
+	cfg.IncludeHTTP = pbConfig.IncludeHTTP || IsC2Enabled([]string{"http", "https"}, pbConfig.C2)
+	cfg.IncludeDNS = pbConfig.IncludeDNS || IsC2Enabled([]string{"dns"}, pbConfig.C2)
+	cfg.IncludeNamePipe = pbConfig.IncludeNamePipe || IsC2Enabled([]string{"namedpipe"}, pbConfig.C2)
+	cfg.IncludeTCP = pbConfig.IncludeTCP || IsC2Enabled([]string{"tcppivot"}, pbConfig.C2)
 
 	cfg.WGPeerTunIP = pbConfig.WGPeerTunIP
 	cfg.WGKeyExchangePort = pbConfig.WGKeyExchangePort
