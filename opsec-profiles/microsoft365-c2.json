@@ -1,0 +1,44 @@
+{
+  "implant_config": {
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
+    "chrome_base_version": 120,
+    "macos_version": "10_15_7",
+    "nonce_query_args": "abcdefghijklmnopqrstuvwxyz0123456789",
+    "nonce_query_length": 12,
+    "nonce_mode": "UrlParam",
+    "url_parameters": [
+      {"name": "client_id", "value": "4765445b-32c6-49b0-83e6-1d93765276ca", "probability": 80, "method": "GET"},
+      {"name": "api-version", "value": "2.0", "probability": 90, "method": "GET"},
+      {"name": "x-client-SKU", "value": "MSAL.JS", "probability": 60, "method": "GET"}
+    ],
+    "headers": [
+      {"name": "Accept", "value": "application/json, text/plain, */*", "probability": 100, "method": "GET"},
+      {"name": "Accept-Language", "value": "en-US,en;q=0.9", "probability": 100, "method": "GET"},
+      {"name": "sec-ch-ua", "value": "\"Not_A Brand\";v=\"8\", \"Chromium\";v=\"120\", \"Microsoft Edge\";v=\"120\"", "probability": 90, "method": "GET"},
+      {"name": "sec-ch-ua-platform", "value": "\"Windows\"", "probability": 90, "method": "GET"},
+      {"name": "sec-fetch-dest", "value": "empty", "probability": 80, "method": "GET"},
+      {"name": "sec-fetch-mode", "value": "cors", "probability": 80, "method": "GET"},
+      {"name": "Origin", "value": "https://outlook.office365.com", "probability": 70, "method": "POST"}
+    ],
+    "max_files": 3,
+    "min_files": 1,
+    "max_paths": 3,
+    "min_paths": 1,
+    "max_path_length": 6,
+    "min_path_length": 3,
+    "extensions": ["", "json", "js", "aspx"],
+    "files": ["login", "token", "authorize", "oauth2", "common", "consumers", "v2.0", "devicecode", "userinfo", "openid-configuration", "discovery", "keys", "logout"],
+    "paths": ["common", "oauth2", "v2.0", "api", "owa", "mail", "calendar", "people", "me", "users", "messages", "beta", "v1.0"]
+  },
+  "server_config": {
+    "random_version_headers": false,
+    "headers": [
+      {"name": "Cache-Control", "value": "no-cache, no-store", "probability": 100, "method": "GET"},
+      {"name": "Content-Type", "value": "application/json; charset=utf-8", "probability": 100, "method": "GET"},
+      {"name": "X-Content-Type-Options", "value": "nosniff", "probability": 100, "method": "GET"},
+      {"name": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains", "probability": 100, "method": "GET"},
+      {"name": "x-ms-request-id", "value": "a3b2c1d0-e5f6-7890-abcd-ef1234567890", "probability": 80, "method": "GET"}
+    ],
+    "cookies": ["ESTSAUTHPERSISTENT", "ESTSAUTH", "ESTSAUTHLIGHT", "buid", "fpc", "x-ms-gateway-slice", "stsservicecookie"]
+  }
+}

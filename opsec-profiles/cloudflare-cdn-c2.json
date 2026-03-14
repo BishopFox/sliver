@@ -1,0 +1,44 @@
+{
+  "implant_config": {
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    "chrome_base_version": 121,
+    "macos_version": "10_15_7",
+    "nonce_query_args": "abcdefghijklmnopqrstuvwxyz0123456789",
+    "nonce_query_length": 8,
+    "nonce_mode": "UrlParam",
+    "url_parameters": [
+      {"name": "v", "value": "4.8.1", "probability": 70, "method": "GET"},
+      {"name": "cb", "value": "1705432891", "probability": 60, "method": "GET"}
+    ],
+    "headers": [
+      {"name": "Accept", "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8", "probability": 100, "method": "GET"},
+      {"name": "Accept-Language", "value": "en-US,en;q=0.5", "probability": 100, "method": "GET"},
+      {"name": "Accept-Encoding", "value": "gzip, deflate, br", "probability": 100, "method": "GET"},
+      {"name": "sec-ch-ua", "value": "\"Not A(Brand\";v=\"99\", \"Google Chrome\";v=\"121\", \"Chromium\";v=\"121\"", "probability": 90, "method": "GET"},
+      {"name": "sec-fetch-dest", "value": "document", "probability": 80, "method": "GET"},
+      {"name": "sec-fetch-mode", "value": "navigate", "probability": 80, "method": "GET"}
+    ],
+    "max_files": 4,
+    "min_files": 2,
+    "max_paths": 3,
+    "min_paths": 1,
+    "max_path_length": 5,
+    "min_path_length": 2,
+    "extensions": ["js", "css", "woff2", "png", "svg", "json", ""],
+    "files": ["app", "main", "chunk", "vendor", "runtime", "polyfills", "styles", "analytics", "gtm", "pixel", "beacon", "collect", "event"],
+    "paths": ["cdn-cgi", "assets", "static", "dist", "build", "bundles", "wp-content", "wp-includes", "themes", "plugins", "uploads", "fonts", "images"]
+  },
+  "server_config": {
+    "random_version_headers": false,
+    "headers": [
+      {"name": "Cache-Control", "value": "public, max-age=14400", "probability": 100, "method": "GET"},
+      {"name": "Content-Type", "value": "application/javascript; charset=UTF-8", "probability": 80, "method": "GET"},
+      {"name": "CF-Cache-Status", "value": "HIT", "probability": 90, "method": "GET"},
+      {"name": "CF-RAY", "value": "84a2b3c4d5e6f-IAD", "probability": 100, "method": "GET"},
+      {"name": "Server", "value": "cloudflare", "probability": 100, "method": "GET"},
+      {"name": "alt-svc", "value": "h3=\":443\"; ma=86400", "probability": 80, "method": "GET"},
+      {"name": "X-Content-Type-Options", "value": "nosniff", "probability": 100, "method": "GET"}
+    ],
+    "cookies": ["__cf_bm", "__cflb", "__cfruid", "_cfuvid", "cf_clearance"]
+  }
+}

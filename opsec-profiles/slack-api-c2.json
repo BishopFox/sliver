@@ -1,0 +1,44 @@
+{
+  "implant_config": {
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    "chrome_base_version": 121,
+    "macos_version": "10_15_7",
+    "nonce_query_args": "abcdefghijklmnopqrstuvwxyz0123456789",
+    "nonce_query_length": 10,
+    "nonce_mode": "UrlParam",
+    "url_parameters": [
+      {"name": "token", "value": "xoxb-not-a-real-token", "probability": 50, "method": "POST"},
+      {"name": "t", "value": "1705432891", "probability": 60, "method": "GET"},
+      {"name": "channel", "value": "C04ABCDEF12", "probability": 40, "method": "POST"}
+    ],
+    "headers": [
+      {"name": "Accept", "value": "application/json, text/plain, */*", "probability": 100, "method": "GET"},
+      {"name": "Accept-Language", "value": "en-US,en;q=0.9", "probability": 100, "method": "GET"},
+      {"name": "sec-ch-ua", "value": "\"Not A(Brand\";v=\"99\", \"Google Chrome\";v=\"121\", \"Chromium\";v=\"121\"", "probability": 90, "method": "GET"},
+      {"name": "sec-fetch-dest", "value": "empty", "probability": 80, "method": "GET"},
+      {"name": "sec-fetch-mode", "value": "cors", "probability": 80, "method": "GET"},
+      {"name": "sec-fetch-site", "value": "same-origin", "probability": 70, "method": "GET"}
+    ],
+    "max_files": 3,
+    "min_files": 1,
+    "max_paths": 3,
+    "min_paths": 1,
+    "max_path_length": 4,
+    "min_path_length": 2,
+    "extensions": ["", "json"],
+    "files": ["conversations.history", "chat.postMessage", "users.list", "channels.list", "rtm.connect", "auth.test", "files.upload", "reactions.add", "team.info", "search.messages"],
+    "paths": ["api", "services", "hooks", "apps", "workflows", "functions", "triggers", "events-api", "oauth", "openid"]
+  },
+  "server_config": {
+    "random_version_headers": false,
+    "headers": [
+      {"name": "Content-Type", "value": "application/json; charset=utf-8", "probability": 100, "method": "GET"},
+      {"name": "X-Content-Type-Options", "value": "nosniff", "probability": 100, "method": "GET"},
+      {"name": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains; preload", "probability": 100, "method": "GET"},
+      {"name": "X-Slack-Req-Id", "value": "a1b2c3d4-e5f6-7890-abcd-1234567890ab", "probability": 90, "method": "GET"},
+      {"name": "Vary", "value": "Accept-Encoding", "probability": 80, "method": "GET"},
+      {"name": "Access-Control-Allow-Origin", "value": "*", "probability": 60, "method": "GET"}
+    ],
+    "cookies": ["d", "b", "x", "lc", "shown_ssb_redirect"]
+  }
+}
