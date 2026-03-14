@@ -119,9 +119,9 @@ Transfer `mgstate.cfg` to your operator machine, then connect:
 ## Step 3: Import Opsec C2 Profiles
 
 ```
-sliver > c2profiles import ~/sliver/opsec-profiles/microsoft365-c2.json --name microsoft365
-sliver > c2profiles import ~/sliver/opsec-profiles/cloudflare-cdn-c2.json --name cloudflare
-sliver > c2profiles import ~/sliver/opsec-profiles/slack-api-c2.json --name slack
+sliver > c2profiles import -n microsoft365 -f ~/sliver/opsec-profiles/microsoft365-c2.json
+sliver > c2profiles import -n cloudflare -f ~/sliver/opsec-profiles/cloudflare-cdn-c2.json
+sliver > c2profiles import -n slack -f ~/sliver/opsec-profiles/slack-api-c2.json
 
 # Verify loaded:
 sliver > c2profiles
@@ -457,7 +457,7 @@ make
 ./sliver-server
 
 # 3. Import profiles
-c2profiles import opsec-profiles/cloudflare-cdn-c2.json --name cloudflare
+c2profiles import -n cloudflare -f opsec-profiles/cloudflare-cdn-c2.json
 
 # 4. Start listeners
 mtls -l 0.0.0.0 -p 8888

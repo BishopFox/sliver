@@ -66,9 +66,9 @@ cd ~/sliver && make
 
 ### Import C2 Profiles
 ```
-sliver > c2profiles import opsec-profiles/cloudflare-cdn-c2.json --name cloudflare
-sliver > c2profiles import opsec-profiles/microsoft365-c2.json --name microsoft365
-sliver > c2profiles import opsec-profiles/slack-api-c2.json --name slack
+sliver > c2profiles import -n cloudflare -f opsec-profiles/cloudflare-cdn-c2.json
+sliver > c2profiles import -n microsoft365 -f opsec-profiles/microsoft365-c2.json
+sliver > c2profiles import -n slack -f opsec-profiles/slack-api-c2.json
 ```
 
 ### Start Listeners

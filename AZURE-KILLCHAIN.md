@@ -694,8 +694,8 @@ Same lateral movement chain, using this enhanced Sliver fork.
 ./sliver-server
 
 # Import opsec profiles
-sliver > c2profiles import opsec-profiles/cloudflare-cdn-c2.json --name cloudflare
-sliver > c2profiles import opsec-profiles/microsoft365-c2.json --name microsoft365
+sliver > c2profiles import -n cloudflare -f opsec-profiles/cloudflare-cdn-c2.json
+sliver > c2profiles import -n microsoft365 -f opsec-profiles/microsoft365-c2.json
 
 # Start listeners
 sliver > mtls --lhost 0.0.0.0 --lport 8888
