@@ -73,8 +73,8 @@ sliver > c2profiles import -n slack -f opsec-profiles/slack-api-c2.json
 
 ### Start Listeners
 ```
-sliver > mtls -l 0.0.0.0 -p 8888
-sliver > https -l 0.0.0.0 -p 443 -d cdn.yourdomain.com
+sliver > mtls --lhost 0.0.0.0 --lport 8888
+sliver > https --lhost 0.0.0.0 --lport 443 -d cdn.yourdomain.com
 ```
 
 ### Generate Implant

