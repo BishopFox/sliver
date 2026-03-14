@@ -86,6 +86,46 @@ func getHomeDir() string {
 	return home
 }
 
+func joinPathList(paths ...string) string {
+	filtered := make([]string, 0, len(paths))
+	for _, path := range paths {
+		if strings.TrimSpace(path) == "" {
+			continue
+		}
+		filtered = append(filtered, path)
+	}
+	return strings.Join(filtered, string(os.PathListSeparator))
+}
+
+func buildCommandEnv(config GoConfig, extra map[string]string) []string {
+	goBinDir := ""
+	if strings.TrimSpace(config.GOROOT) != "" {
+		goBinDir = filepath.Join(config.GOROOT, "bin")
+	}
+
+	env := append([]string{}, os.Environ()...)
+	overrides := []string{
+		fmt.Sprintf("CC=%s", config.CC),
+		fmt.Sprintf("CGO_ENABLED=%s", config.CGO),
+		fmt.Sprintf("GOOS=%s", config.GOOS),
+		fmt.Sprintf("GOARCH=%s", config.GOARCH),
+		fmt.Sprintf("GOROOT=%s", config.GOROOT),
+		fmt.Sprintf("GOPATH=%s", config.ProjectDir),
+		fmt.Sprintf("GOCACHE=%s", config.GOCACHE),
+		fmt.Sprintf("GOMODCACHE=%s", config.GOMODCACHE),
+		fmt.Sprintf("GOPROXY=%s", config.GOPROXY),
+		fmt.Sprintf("HTTP_PROXY=%s", config.HTTPPROXY),
+		fmt.Sprintf("HTTPS_PROXY=%s", config.HTTPSPROXY),
+		fmt.Sprintf("PATH=%s", joinPathList(goBinDir, assets.GetZigDir(), os.Getenv("PATH"))),
+		fmt.Sprintf("HOME=%s", getHomeDir()),
+	}
+	for name, value := range extra {
+		overrides = append(overrides, fmt.Sprintf("%s=%s", name, value))
+	}
+
+	return append(env, overrides...)
+}
+
 // GarbleCmd - Execute a go command
 func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
@@ -97,21 +137,9 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 	command = append(garbleFlags, command...)
 	cmd := exec.Command(garbleBinPath, command...)
 	cmd.Dir = cwd
-	cmd.Env = []string{
-		fmt.Sprintf("CC=%s", config.CC),
-		fmt.Sprintf("CGO_ENABLED=%s", config.CGO),
-		fmt.Sprintf("GOOS=%s", config.GOOS),
-		fmt.Sprintf("GOARCH=%s", config.GOARCH),
-		fmt.Sprintf("GOPATH=%s", config.ProjectDir),
-		fmt.Sprintf("GOCACHE=%s", config.GOCACHE),
-		fmt.Sprintf("GOMODCACHE=%s", config.GOMODCACHE),
-		fmt.Sprintf("GOPROXY=%s", config.GOPROXY),
-		fmt.Sprintf("HTTP_PROXY=%s", config.HTTPPROXY),
-		fmt.Sprintf("HTTPS_PROXY=%s", config.HTTPSPROXY),
-		fmt.Sprintf("PATH=%s:%s:%s", filepath.Join(config.GOROOT, "bin"), assets.GetZigDir(), os.Getenv("PATH")),
-		fmt.Sprintf("GOGARBLE=%s", config.GOGARBLE),
-		fmt.Sprintf("HOME=%s", getHomeDir()),
-	}
+	cmd.Env = buildCommandEnv(config, map[string]string{
+		"GOGARBLE": config.GOGARBLE,
+	})
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -140,20 +168,7 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 	goBinPath := filepath.Join(config.GOROOT, "bin", "go")
 	cmd := exec.Command(goBinPath, command...)
 	cmd.Dir = cwd
-	cmd.Env = []string{
-		fmt.Sprintf("CC=%s", config.CC),
-		fmt.Sprintf("CGO_ENABLED=%s", config.CGO),
-		fmt.Sprintf("GOOS=%s", config.GOOS),
-		fmt.Sprintf("GOARCH=%s", config.GOARCH),
-		fmt.Sprintf("GOPATH=%s", config.ProjectDir),
-		fmt.Sprintf("GOCACHE=%s", config.GOCACHE),
-		fmt.Sprintf("GOMODCACHE=%s", config.GOMODCACHE),
-		fmt.Sprintf("GOPROXY=%s", config.GOPROXY),
-		fmt.Sprintf("HTTP_PROXY=%s", config.HTTPPROXY),
-		fmt.Sprintf("HTTPS_PROXY=%s", config.HTTPSPROXY),
-		fmt.Sprintf("PATH=%s:%s:%s", filepath.Join(config.GOROOT, "bin"), assets.GetZigDir(), os.Getenv("PATH")),
-		fmt.Sprintf("HOME=%s", getHomeDir()),
-	}
+	cmd.Env = buildCommandEnv(config, nil)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout

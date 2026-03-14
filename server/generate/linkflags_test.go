@@ -81,7 +81,7 @@ func TestApplyZigStaticLinking_NotLinux(t *testing.T) {
 }
 
 func TestSanitizeZigForBuild_LinuxSharedObject(t *testing.T) {
-	t.Setenv("SLIVER_ROOT_DIR", "/tmp/sliver-test-root")
+	t.Setenv("SLIVER_ROOT_DIR", t.TempDir())
 	cfg := &gogo.GoConfig{
 		GOOS: "linux",
 		CGO:  "1",
@@ -108,7 +108,7 @@ func TestSanitizeZigForBuild_LinuxSharedObject(t *testing.T) {
 }
 
 func TestSanitizeZigForBuild_Windows(t *testing.T) {
-	t.Setenv("SLIVER_ROOT_DIR", "/tmp/sliver-test-root")
+	t.Setenv("SLIVER_ROOT_DIR", t.TempDir())
 	cfg := &gogo.GoConfig{
 		GOOS: "windows",
 		CGO:  "1",
