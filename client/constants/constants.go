@@ -114,6 +114,9 @@ const (
 
 	// WireGuardNewPeer - New Wireguard peer added.
 	WireGuardNewPeer = "wireguard-newpeer"
+
+	// AIConversationEvent - Fires whenever an AI conversation or message changes.
+	AIConversationEvent = "ai-conversation"
 )
 
 // Commands.

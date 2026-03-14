@@ -1,13 +1,20 @@
 package ai
 
 import (
+	"fmt"
 	"strings"
 	"unicode/utf8"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/bishopfox/sliver/client/console"
+	consts "github.com/bishopfox/sliver/client/constants"
 	clienttheme "github.com/bishopfox/sliver/client/theme"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/charmbracelet/glamour"
 	"golang.org/x/term"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -39,14 +46,39 @@ type aiStyles struct {
 	item             lipgloss.Style
 	itemSelected     lipgloss.Style
 	itemFocused      lipgloss.Style
-	roleSystem       lipgloss.Style
-	roleAssistant    lipgloss.Style
-	roleUser         lipgloss.Style
 	heading          lipgloss.Style
 	cursor           lipgloss.Style
 	inputText        lipgloss.Style
 	inputPlaceholder lipgloss.Style
+	roleUser         lipgloss.Style
 	warning          lipgloss.Style
+}
+
+type aiLoadedMsg struct {
+	providers     []*clientpb.AIProviderConfig
+	conversations []*clientpb.AIConversation
+	conversation  *clientpb.AIConversation
+	selectedID    string
+}
+
+type aiConversationCreatedMsg struct {
+	conversationID string
+	status         string
+}
+
+type aiPromptSubmittedMsg struct {
+	conversationID string
+	status         string
+}
+
+type aiConversationEventMsg struct {
+	conversation *clientpb.AIConversation
+}
+
+type aiListenerClosedMsg struct{}
+
+type aiAsyncErrMsg struct {
+	err error
 }
 
 type aiModel struct {
@@ -54,19 +86,30 @@ type aiModel struct {
 	height               int
 	focus                aiFocus
 	ctx                  aiContext
+	con                  *console.SliverClient
+	listener             <-chan *clientpb.Event
+	providers            []*clientpb.AIProviderConfig
+	conversations        []*clientpb.AIConversation
+	currentConversation  *clientpb.AIConversation
 	selectedConversation int
 	input                []rune
 	cursor               int
 	status               string
+	loading              bool
 	styles               aiStyles
+	transcriptCacheKey   string
+	transcriptCache      string
 }
 
-func newAIModel(ctx aiContext) *aiModel {
+func newAIModel(con *console.SliverClient, ctx aiContext, listener <-chan *clientpb.Event) *aiModel {
 	return &aiModel{
-		focus:  aiFocusSidebar,
-		ctx:    ctx,
-		status: ctx.status,
-		styles: newAIStyles(),
+		focus:    aiFocusSidebar,
+		ctx:      ctx,
+		con:      con,
+		listener: listener,
+		status:   ctx.status,
+		loading:  true,
+		styles:   newAIStyles(),
 	}
 }
 
@@ -109,15 +152,6 @@ func newAIStyles() aiStyles {
 			Bold(true).
 			Foreground(clienttheme.DefaultMod(900)).
 			Background(clienttheme.PrimaryMod(800)),
-		roleSystem: lipgloss.NewStyle().
-			Bold(true).
-			Foreground(clienttheme.Secondary()),
-		roleAssistant: lipgloss.NewStyle().
-			Bold(true).
-			Foreground(clienttheme.Primary()),
-		roleUser: lipgloss.NewStyle().
-			Bold(true).
-			Foreground(clienttheme.Warning()),
 		heading: lipgloss.NewStyle().
 			Bold(true).
 			Foreground(clienttheme.DefaultMod(900)),
@@ -128,6 +162,9 @@ func newAIStyles() aiStyles {
 			Foreground(clienttheme.DefaultMod(900)),
 		inputPlaceholder: lipgloss.NewStyle().
 			Foreground(clienttheme.DefaultMod(400)),
+		roleUser: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(clienttheme.Warning()),
 		warning: lipgloss.NewStyle().
 			Foreground(clienttheme.Warning()).
 			Bold(true),
@@ -144,7 +181,12 @@ func (m *aiModel) Init() tea.Cmd {
 			m.height = 30
 		}
 	}
-	return nil
+
+	cmds := []tea.Cmd{loadAIStateCmd(m.con, "")}
+	if m.listener != nil {
+		cmds = append(cmds, waitForAIConversationEventCmd(m.listener))
+	}
+	return tea.Batch(cmds...)
 }
 
 func (m *aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -153,6 +195,63 @@ func (m *aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		return m, nil
+
+	case aiLoadedMsg:
+		m.loading = false
+		m.providers = msg.providers
+		m.conversations = msg.conversations
+		m.currentConversation = msg.conversation
+		m.selectedConversation = conversationIndexByID(m.conversations, selectedConversationID(msg.conversation, msg.selectedID))
+		if m.selectedConversation < 0 {
+			m.selectedConversation = 0
+		}
+		m.invalidateTranscriptCache()
+		if len(m.conversations) == 0 {
+			m.status = "No AI conversations yet. Press n or send a prompt to create one."
+		} else if m.status == "" || strings.HasPrefix(m.status, "Loading") || strings.HasPrefix(m.status, "Refreshing") {
+			m.status = "Loaded AI conversations from the server."
+		}
+		return m, nil
+
+	case aiConversationCreatedMsg:
+		m.loading = true
+		m.status = msg.status
+		return m, loadAIStateCmd(m.con, msg.conversationID)
+
+	case aiPromptSubmittedMsg:
+		m.loading = true
+		m.status = msg.status
+		m.input = nil
+		m.cursor = 0
+		return m, loadAIStateCmd(m.con, msg.conversationID)
+
+	case aiConversationEventMsg:
+		selectedID := m.selectedConversationID()
+		if selectedID == "" && msg.conversation != nil {
+			selectedID = msg.conversation.GetID()
+		}
+		if !isRelevantAIConversationEvent(msg.conversation, m.ctx.connection.Operator) {
+			return m, waitForAIConversationEventCmd(m.listener)
+		}
+
+		m.loading = true
+		m.status = "Conversation updated on the server. Refreshing..."
+		return m, tea.Batch(
+			waitForAIConversationEventCmd(m.listener),
+			loadAIStateCmd(m.con, selectedID),
+		)
+
+	case aiListenerClosedMsg:
+		m.status = "AI event stream closed. Reopen the AI TUI to resume live updates."
+		return m, nil
+
+	case aiAsyncErrMsg:
+		m.loading = false
+		if msg.err != nil {
+			m.status = "AI sync failed: " + msg.err.Error()
+		}
+		return m, nil
+
 	case tea.KeyPressMsg:
 		key := msg.Key()
 		if key.Mod.Contains(tea.ModCtrl) && key.Code == 'c' {
@@ -163,6 +262,7 @@ func (m *aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m.handleGlobalKey(key)
 	}
+
 	return m, nil
 }
 
@@ -172,21 +272,26 @@ func (m *aiModel) handleGlobalKey(key tea.Key) (tea.Model, tea.Cmd) {
 		m.focus = (m.focus + 1) % 4
 		m.status = "Focus moved to " + m.focus.String() + "."
 		return m, nil
+
 	case tea.KeyEsc:
 		return m, tea.Quit
+
 	case tea.KeyUp:
 		if m.focus == aiFocusSidebar {
-			m.moveSelection(-1)
+			return m, m.moveSelection(-1)
 		}
 		return m, nil
+
 	case tea.KeyDown:
 		if m.focus == aiFocusSidebar {
-			m.moveSelection(1)
+			return m, m.moveSelection(1)
 		}
 		return m, nil
+
 	case tea.KeyEnter:
 		if m.focus == aiFocusSidebar {
-			m.status = "Selected placeholder thread: " + m.currentConversation().Title + "."
+			m.focus = aiFocusTranscript
+			m.status = "Conversation opened."
 		}
 		return m, nil
 	}
@@ -194,15 +299,32 @@ func (m *aiModel) handleGlobalKey(key tea.Key) (tea.Model, tea.Cmd) {
 	switch key.Text {
 	case "q":
 		return m, tea.Quit
+
 	case "j":
 		if m.focus == aiFocusSidebar {
-			m.moveSelection(1)
+			return m, m.moveSelection(1)
 		}
+
 	case "k":
 		if m.focus == aiFocusSidebar {
-			m.moveSelection(-1)
+			return m, m.moveSelection(-1)
 		}
+
+	case "n":
+		if m.loading {
+			m.status = "A conversation sync is already in progress."
+			return m, nil
+		}
+		m.loading = true
+		m.status = "Creating a new AI conversation..."
+		return m, createConversationCmd(m.con, m.defaultProvider(), "New conversation")
+
+	case "r":
+		m.loading = true
+		m.status = "Refreshing AI conversations..."
+		return m, loadAIStateCmd(m.con, m.selectedConversationID())
 	}
+
 	return m, nil
 }
 
@@ -226,28 +348,47 @@ func (m *aiModel) handleComposerKey(key tea.Key) (tea.Model, tea.Cmd) {
 
 	switch key.Code {
 	case tea.KeyEnter:
-		m.capturePlaceholderPrompt()
+		prompt := strings.TrimSpace(string(m.input))
+		if prompt == "" {
+			m.status = "Type a prompt first."
+			return m, nil
+		}
+		if m.loading {
+			m.status = "Wait for the current AI sync to finish before sending another prompt."
+			return m, nil
+		}
+
+		m.loading = true
+		m.status = "Saving prompt to the server..."
+		return m, submitPromptCmd(m.con, m.currentConversation, m.defaultProvider(), prompt)
+
 	case tea.KeyBackspace:
 		if m.cursor > 0 {
 			m.input = append(m.input[:m.cursor-1], m.input[m.cursor:]...)
 			m.cursor--
 		}
+
 	case tea.KeyDelete:
 		if m.cursor < len(m.input) {
 			m.input = append(m.input[:m.cursor], m.input[m.cursor+1:]...)
 		}
+
 	case tea.KeyLeft:
 		if m.cursor > 0 {
 			m.cursor--
 		}
+
 	case tea.KeyRight:
 		if m.cursor < len(m.input) {
 			m.cursor++
 		}
+
 	case tea.KeyHome:
 		m.cursor = 0
+
 	case tea.KeyEnd:
 		m.cursor = len(m.input)
+
 	default:
 		if key.Text != "" {
 			insert := []rune(key.Text)
@@ -255,6 +396,7 @@ func (m *aiModel) handleComposerKey(key tea.Key) (tea.Model, tea.Cmd) {
 			m.cursor += len(insert)
 		}
 	}
+
 	return m, nil
 }
 
@@ -286,18 +428,23 @@ func (m *aiModel) renderTooSmall() string {
 	lines := []string{
 		m.styles.badge.Render("SLIVER AI"),
 		"",
-		m.styles.warning.Render("Terminal too small for the AI layout preview."),
-		m.styles.subtleText.Render("Resize to at least 72x18 to see the full sidebar/chat/context shell."),
+		m.styles.warning.Render("Terminal too small for the AI conversation view."),
+		m.styles.subtleText.Render("Resize to at least 72x18 to view the sidebar, markdown transcript, and context panes."),
 	}
 	return strings.Join(lines, "\n")
 }
 
 func (m *aiModel) renderHeader(height int) string {
+	statusChip := "synced"
+	if m.loading {
+		statusChip = "syncing"
+	}
+
 	pieces := []string{
 		m.styles.badge.Render("SLIVER AI"),
-		m.styles.chip.Render("layout preview"),
+		m.styles.chip.Render(statusChip),
+		m.styles.chipMuted.Render(m.ctx.connection.Operator),
 		m.styles.chipMuted.Render(m.ctx.target.Label),
-		m.styles.chipMuted.Render(m.ctx.connection.State),
 		m.styles.chipMuted.Render(m.layoutName()),
 	}
 	row := fitStyledPieces(m.width, pieces)
@@ -306,7 +453,7 @@ func (m *aiModel) renderHeader(height int) string {
 		return row
 	}
 
-	subtitle := "Bubble Tea shell for future target-aware chat, tool traces, and operator context."
+	subtitle := "Server-backed AI conversation threads with live sync across connected clients."
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
 		row,
@@ -318,7 +465,7 @@ func (m *aiModel) renderBody(height int) string {
 	switch {
 	case m.width >= 110:
 		sidebarWidth := clampInt(m.width/5, 24, 28)
-		detailsWidth := clampInt(m.width/4, 28, 32)
+		detailsWidth := clampInt(m.width/4, 28, 34)
 		transcriptWidth := maxInt(34, m.width-sidebarWidth-detailsWidth)
 		return lipgloss.JoinHorizontal(
 			lipgloss.Top,
@@ -326,10 +473,11 @@ func (m *aiModel) renderBody(height int) string {
 			m.renderTranscript(transcriptWidth, height),
 			m.renderDetails(detailsWidth, height),
 		)
+
 	case m.width >= 78:
 		sidebarWidth := clampInt(m.width/4, 24, 28)
 		mainWidth := maxInt(34, m.width-sidebarWidth)
-		detailsHeight := clampInt(height/3, 5, 8)
+		detailsHeight := clampInt(height/3, 6, 9)
 		if height-detailsHeight < 7 {
 			detailsHeight = maxInt(4, height-7)
 		}
@@ -344,9 +492,10 @@ func (m *aiModel) renderBody(height int) string {
 			m.renderSidebar(sidebarWidth, height),
 			mainColumn,
 		)
+
 	default:
 		sidebarHeight := clampInt(height/4, 5, 7)
-		detailsHeight := clampInt(height/4, 5, 7)
+		detailsHeight := clampInt(height/4, 5, 8)
 		transcriptHeight := maxInt(6, height-sidebarHeight-detailsHeight)
 		return lipgloss.JoinVertical(
 			lipgloss.Left,
@@ -363,10 +512,19 @@ func (m *aiModel) renderSidebar(width, height int) string {
 	lines := []string{
 		m.styles.paneTitle.Render("Conversations"),
 	}
-	bodyHeight := maxInt(1, innerHeight-1)
 
-	for i, conversation := range m.ctx.conversations {
-		line := truncateText(conversation.Title, maxInt(1, innerWidth-2))
+	if len(m.conversations) == 0 {
+		lines = append(lines,
+			"",
+			m.styles.subtleText.Width(innerWidth).Render(truncateText("No stored AI conversations yet.", innerWidth)),
+			m.styles.subtleText.Width(innerWidth).Render(truncateText("Press n to create one or send a prompt below.", innerWidth)),
+		)
+		return m.renderPane(width, height, aiFocusSidebar, headLines(lines, innerHeight))
+	}
+
+	bodyHeight := maxInt(1, innerHeight-1)
+	for i, conversation := range m.conversations {
+		line := conversationListLabel(conversation, maxInt(1, innerWidth-2))
 		if i == m.selectedConversation {
 			line = "> " + line
 			style := m.styles.itemSelected
@@ -378,23 +536,22 @@ func (m *aiModel) renderSidebar(width, height int) string {
 			lines = append(lines, m.styles.item.Width(innerWidth).Render("  "+line))
 		}
 		if len(lines)-1 >= bodyHeight {
-			return m.renderPane(width, height, aiFocusSidebar, lines)
+			break
 		}
 	}
 
-	quickPrompts := []string{
-		"Quick prompts:",
-		"- summarize target",
-		"- plan next step",
-		"- explain latest result",
-	}
 	if remaining := bodyHeight - (len(lines) - 1); remaining > 2 {
 		lines = append(lines, "")
-		for _, prompt := range quickPrompts {
+		hints := []string{
+			"n new thread",
+			"r refresh",
+			"j/k move",
+		}
+		for _, hint := range hints {
 			if len(lines)-1 >= bodyHeight {
 				break
 			}
-			lines = append(lines, m.styles.subtleText.Width(innerWidth).Render(truncateText(prompt, innerWidth)))
+			lines = append(lines, m.styles.subtleText.Width(innerWidth).Render(truncateText(hint, innerWidth)))
 		}
 	}
 
@@ -404,24 +561,26 @@ func (m *aiModel) renderSidebar(width, height int) string {
 func (m *aiModel) renderTranscript(width, height int) string {
 	innerWidth := innerPaneWidth(width)
 	innerHeight := innerPaneHeight(height)
+
 	lines := []string{
 		m.styles.paneTitle.Render("Conversation"),
 	}
 
-	conversation := m.currentConversation()
-	header := []string{
-		m.styles.heading.Width(innerWidth).Render(truncateText(conversation.Title, innerWidth)),
-		m.styles.subtleText.Width(innerWidth).Render(truncateText(conversation.Subtitle, innerWidth)),
+	title := "No conversation selected"
+	subtitle := "Create a thread or choose one from the sidebar."
+	if m.currentConversation != nil {
+		title = conversationTitle(m.currentConversation)
+		subtitle = conversationSubtitle(m.currentConversation)
 	}
-	lines = append(lines, header...)
+
+	lines = append(lines,
+		m.styles.heading.Width(innerWidth).Render(truncateText(title, innerWidth)),
+		m.styles.subtleText.Width(innerWidth).Render(truncateText(subtitle, innerWidth)),
+	)
 
 	bodyHeight := maxInt(1, innerHeight-len(lines))
-	messageLines := make([]string, 0, bodyHeight)
-	for _, message := range conversation.Messages {
-		messageLines = append(messageLines, m.renderMessageLines(message, innerWidth)...)
-	}
-	messageLines = tailLines(messageLines, bodyHeight)
-	lines = append(lines, messageLines...)
+	markdownLines := strings.Split(m.renderTranscriptMarkdown(innerWidth), "\n")
+	lines = append(lines, tailLines(markdownLines, bodyHeight)...)
 
 	return m.renderPane(width, height, aiFocusTranscript, lines)
 }
@@ -429,6 +588,7 @@ func (m *aiModel) renderTranscript(width, height int) string {
 func (m *aiModel) renderDetails(width, height int) string {
 	innerWidth := innerPaneWidth(width)
 	innerHeight := innerPaneHeight(height)
+
 	lines := []string{
 		m.styles.paneTitle.Render("Context"),
 		m.styles.heading.Render("Target"),
@@ -455,11 +615,26 @@ func (m *aiModel) renderDetails(width, height int) string {
 		lines = append(lines, m.styles.subtleText.Width(innerWidth).Render(truncateText(line, innerWidth)))
 	}
 
-	lines = append(lines, m.styles.heading.Render("Planned"))
-	for _, line := range m.ctx.planned {
-		wrapped := wrapText("- "+line, innerWidth)
-		for _, wrappedLine := range wrapped {
-			lines = append(lines, m.styles.subtleText.Width(innerWidth).Render(truncateText(wrappedLine, innerWidth)))
+	lines = append(lines, m.styles.heading.Render("Providers"))
+	if len(m.providers) == 0 {
+		lines = append(lines, m.styles.subtleText.Width(innerWidth).Render("No AI providers reported by the server."))
+	} else {
+		for _, provider := range m.providers {
+			lines = append(lines, m.styles.subtleText.Width(innerWidth).Render(truncateText(providerDisplay(provider), innerWidth)))
+		}
+	}
+
+	if m.currentConversation != nil {
+		lines = append(lines, m.styles.heading.Render("Thread"))
+		threadLines := []string{
+			"id: " + shortenID(m.currentConversation.GetID()),
+			"provider: " + fallback(m.currentConversation.GetProvider(), "<unset>"),
+			"model: " + fallback(m.currentConversation.GetModel(), "<default>"),
+			fmt.Sprintf("messages: %d", len(m.currentConversation.GetMessages())),
+			"updated: " + formatUnix(m.currentConversation.GetUpdatedAt()),
+		}
+		for _, line := range threadLines {
+			lines = append(lines, m.styles.subtleText.Width(innerWidth).Render(truncateText(line, innerWidth)))
 		}
 	}
 
@@ -469,6 +644,7 @@ func (m *aiModel) renderDetails(width, height int) string {
 func (m *aiModel) renderComposer(height int) string {
 	innerWidth := innerPaneWidth(m.width)
 	innerHeight := innerPaneHeight(height)
+
 	lines := []string{
 		m.styles.paneTitle.Render("Composer"),
 		m.renderInputLine(innerWidth),
@@ -478,7 +654,7 @@ func (m *aiModel) renderComposer(height int) string {
 	lines = append(lines, m.styles.subtleText.Width(innerWidth).Render(status))
 
 	if innerHeight-len(lines) > 0 {
-		help := "tab focus  enter placeholder-send  ctrl+u clear  esc blur  q quit"
+		help := "tab focus  enter send  n new-thread  r refresh  ctrl+u clear  esc blur  q quit"
 		lines = append(lines, m.styles.subtleText.Width(innerWidth).Render(truncateText(help, innerWidth)))
 	}
 
@@ -489,9 +665,9 @@ func (m *aiModel) renderFooter() string {
 	pieces := []string{
 		m.styles.chipMuted.Render("focus: " + m.focus.String()),
 		m.styles.footerHint.Render("tab: next pane"),
-		m.styles.footerHint.Render("j/k: move"),
+		m.styles.footerHint.Render("n: new thread"),
+		m.styles.footerHint.Render("r: refresh"),
 		m.styles.footerHint.Render("enter: select/send"),
-		m.styles.footerHint.Render("esc: back"),
 		m.styles.footerHint.Render("q: quit"),
 	}
 	return lipgloss.NewStyle().Width(m.width).Render(fitStyledPieces(m.width, pieces))
@@ -504,33 +680,6 @@ func (m *aiModel) renderPane(width, height int, focus aiFocus, lines []string) s
 		style = m.styles.paneFocused
 	}
 	return style.Width(width).Height(height).Render(body)
-}
-
-func (m *aiModel) renderMessageLines(message aiMessage, width int) []string {
-	label, style := m.messageLabel(message.Role)
-	bodyWidth := maxInt(10, width-5)
-	wrapped := wrapText(message.Body, bodyWidth)
-	lines := make([]string, 0, len(wrapped)+1)
-	for i, line := range wrapped {
-		prefix := "    "
-		if i == 0 {
-			prefix = style.Render(label)
-		}
-		lines = append(lines, prefix+" "+line)
-	}
-	lines = append(lines, "")
-	return lines
-}
-
-func (m *aiModel) messageLabel(role string) (string, lipgloss.Style) {
-	switch role {
-	case "system":
-		return "SYS ", m.styles.roleSystem
-	case "user":
-		return "YOU ", m.styles.roleUser
-	default:
-		return "AI  ", m.styles.roleAssistant
-	}
 }
 
 func (m *aiModel) renderInputLine(width int) string {
@@ -568,40 +717,76 @@ func (m *aiModel) renderInputContent(width int) string {
 	return b.String()
 }
 
-func (m *aiModel) moveSelection(delta int) {
-	if len(m.ctx.conversations) == 0 {
-		return
+func (m *aiModel) moveSelection(delta int) tea.Cmd {
+	if len(m.conversations) == 0 {
+		return nil
 	}
-	m.selectedConversation = clampInt(m.selectedConversation+delta, 0, len(m.ctx.conversations)-1)
-	m.status = "Viewing placeholder thread: " + m.currentConversation().Title + "."
+
+	next := clampInt(m.selectedConversation+delta, 0, len(m.conversations)-1)
+	if next == m.selectedConversation {
+		return nil
+	}
+
+	m.selectedConversation = next
+	m.loading = true
+	m.status = "Loading conversation..."
+	return loadAIStateCmd(m.con, m.conversations[next].GetID())
 }
 
-func (m *aiModel) capturePlaceholderPrompt() {
-	prompt := strings.TrimSpace(string(m.input))
-	if prompt == "" {
-		m.status = "Type a prompt first. Submission is still placeholder-only for now."
-		return
+func (m *aiModel) selectedConversationID() string {
+	if m.currentConversation != nil && strings.TrimSpace(m.currentConversation.GetID()) != "" {
+		return m.currentConversation.GetID()
 	}
-
-	conversation := m.currentConversation()
-	conversation.Messages = append(conversation.Messages,
-		aiMessage{Role: "user", Body: prompt},
-		aiMessage{Role: "assistant", Body: "Placeholder response: this prompt was captured locally so we can exercise the transcript layout before wiring the real AI backend."},
-	)
-	m.input = nil
-	m.cursor = 0
-	m.status = "Captured placeholder prompt in " + conversation.Title + "."
+	if m.selectedConversation >= 0 && m.selectedConversation < len(m.conversations) {
+		return m.conversations[m.selectedConversation].GetID()
+	}
+	return ""
 }
 
-func (m *aiModel) currentConversation() *aiConversation {
-	if len(m.ctx.conversations) == 0 {
-		m.ctx.conversations = []aiConversation{{Title: "Untitled", Subtitle: "", Messages: nil}}
-		m.selectedConversation = 0
+func (m *aiModel) defaultProvider() string {
+	for _, provider := range m.providers {
+		if provider.GetConfigured() && strings.TrimSpace(provider.GetName()) != "" {
+			return provider.GetName()
+		}
 	}
-	if m.selectedConversation < 0 || m.selectedConversation >= len(m.ctx.conversations) {
-		m.selectedConversation = 0
+	for _, provider := range m.providers {
+		if strings.TrimSpace(provider.GetName()) != "" {
+			return provider.GetName()
+		}
 	}
-	return &m.ctx.conversations[m.selectedConversation]
+	return "openai"
+}
+
+func (m *aiModel) renderTranscriptMarkdown(width int) string {
+	key := m.transcriptRenderKey(width)
+	if key == m.transcriptCacheKey && m.transcriptCache != "" {
+		return m.transcriptCache
+	}
+
+	markdown := buildConversationMarkdown(m.currentConversation)
+	rendered, err := renderMarkdownWithGlow(width, markdown)
+	if err != nil {
+		rendered = markdown
+	}
+
+	m.transcriptCacheKey = key
+	m.transcriptCache = strings.TrimSpace(rendered)
+	if m.transcriptCache == "" {
+		m.transcriptCache = "_No messages yet._"
+	}
+	return m.transcriptCache
+}
+
+func (m *aiModel) transcriptRenderKey(width int) string {
+	if m.currentConversation == nil {
+		return fmt.Sprintf("empty:%d", width)
+	}
+	return fmt.Sprintf("%s:%d:%d:%d", m.currentConversation.GetID(), m.currentConversation.GetUpdatedAt(), len(m.currentConversation.GetMessages()), width)
+}
+
+func (m *aiModel) invalidateTranscriptCache() {
+	m.transcriptCacheKey = ""
+	m.transcriptCache = ""
 }
 
 func (m aiFocus) String() string {
@@ -636,6 +821,363 @@ func aiView(content string) tea.View {
 	return view
 }
 
+func loadAIStateCmd(con *console.SliverClient, selectedID string) tea.Cmd {
+	return func() tea.Msg {
+		if con == nil || con.Rpc == nil {
+			return aiAsyncErrMsg{err: fmt.Errorf("AI RPC client is unavailable")}
+		}
+
+		grpcCtx, cancel := con.GrpcContext(nil)
+		defer cancel()
+
+		providersResp, err := con.Rpc.GetAIProviders(grpcCtx, &commonpb.Empty{})
+		if err != nil {
+			return aiAsyncErrMsg{err: err}
+		}
+
+		conversationsResp, err := con.Rpc.GetAIConversations(grpcCtx, &commonpb.Empty{})
+		if err != nil {
+			return aiAsyncErrMsg{err: err}
+		}
+
+		conversations := conversationsResp.GetConversations()
+		activeID := strings.TrimSpace(selectedID)
+		if activeID == "" && len(conversations) > 0 {
+			activeID = conversations[0].GetID()
+		}
+
+		var conversation *clientpb.AIConversation
+		if activeID != "" {
+			conversation, err = con.Rpc.GetAIConversation(grpcCtx, &clientpb.AIConversationReq{
+				ID:              activeID,
+				IncludeMessages: true,
+			})
+			if err != nil && len(conversations) > 0 {
+				fallbackID := conversations[0].GetID()
+				if fallbackID != activeID {
+					conversation, err = con.Rpc.GetAIConversation(grpcCtx, &clientpb.AIConversationReq{
+						ID:              fallbackID,
+						IncludeMessages: true,
+					})
+					activeID = fallbackID
+				}
+			}
+			if err != nil {
+				return aiAsyncErrMsg{err: err}
+			}
+		}
+
+		return aiLoadedMsg{
+			providers:     providersResp.GetProviders(),
+			conversations: conversations,
+			conversation:  conversation,
+			selectedID:    activeID,
+		}
+	}
+}
+
+func createConversationCmd(con *console.SliverClient, provider string, title string) tea.Cmd {
+	return func() tea.Msg {
+		if con == nil || con.Rpc == nil {
+			return aiAsyncErrMsg{err: fmt.Errorf("AI RPC client is unavailable")}
+		}
+
+		grpcCtx, cancel := con.GrpcContext(nil)
+		defer cancel()
+
+		conversation, err := con.Rpc.SaveAIConversation(grpcCtx, &clientpb.AIConversation{
+			Provider: provider,
+			Title:    strings.TrimSpace(title),
+		})
+		if err != nil {
+			return aiAsyncErrMsg{err: err}
+		}
+
+		return aiConversationCreatedMsg{
+			conversationID: conversation.GetID(),
+			status:         "Created a new AI conversation.",
+		}
+	}
+}
+
+func submitPromptCmd(con *console.SliverClient, conversation *clientpb.AIConversation, provider string, prompt string) tea.Cmd {
+	return func() tea.Msg {
+		if con == nil || con.Rpc == nil {
+			return aiAsyncErrMsg{err: fmt.Errorf("AI RPC client is unavailable")}
+		}
+
+		grpcCtx, cancel := con.GrpcContext(nil)
+		defer cancel()
+
+		activeConversation := conversation
+		var err error
+		if activeConversation == nil || strings.TrimSpace(activeConversation.GetID()) == "" {
+			activeConversation, err = con.Rpc.SaveAIConversation(grpcCtx, &clientpb.AIConversation{
+				Provider: provider,
+				Title:    promptConversationTitle(prompt),
+			})
+			if err != nil {
+				return aiAsyncErrMsg{err: err}
+			}
+		}
+
+		messageProvider := strings.TrimSpace(activeConversation.GetProvider())
+		if messageProvider == "" {
+			messageProvider = strings.TrimSpace(provider)
+		}
+
+		_, err = con.Rpc.SaveAIConversationMessage(grpcCtx, &clientpb.AIConversationMessage{
+			ConversationID: activeConversation.GetID(),
+			Provider:       messageProvider,
+			Model:          activeConversation.GetModel(),
+			Role:           "user",
+			Content:        prompt,
+		})
+		if err != nil {
+			return aiAsyncErrMsg{err: err}
+		}
+
+		return aiPromptSubmittedMsg{
+			conversationID: activeConversation.GetID(),
+			status:         "Saved prompt to " + conversationTitle(activeConversation) + ".",
+		}
+	}
+}
+
+func waitForAIConversationEventCmd(listener <-chan *clientpb.Event) tea.Cmd {
+	return func() tea.Msg {
+		if listener == nil {
+			return nil
+		}
+
+		for {
+			event, ok := <-listener
+			if !ok {
+				return aiListenerClosedMsg{}
+			}
+			if event == nil || event.GetEventType() != consts.AIConversationEvent {
+				continue
+			}
+
+			conversation := &clientpb.AIConversation{}
+			if len(event.GetData()) > 0 {
+				if err := proto.Unmarshal(event.GetData(), conversation); err != nil {
+					continue
+				}
+			}
+
+			return aiConversationEventMsg{conversation: conversation}
+		}
+	}
+}
+
+func buildConversationMarkdown(conversation *clientpb.AIConversation) string {
+	if conversation == nil {
+		return "### No conversation selected\n\nCreate a new thread with `n` or submit a prompt to start one."
+	}
+
+	var markdown strings.Builder
+	if summary := strings.TrimSpace(conversation.GetSummary()); summary != "" {
+		markdown.WriteString(summary)
+		markdown.WriteString("\n\n---\n\n")
+	}
+	if systemPrompt := strings.TrimSpace(conversation.GetSystemPrompt()); systemPrompt != "" {
+		markdown.WriteString("## System Prompt\n\n```text\n")
+		markdown.WriteString(systemPrompt)
+		markdown.WriteString("\n```\n\n---\n\n")
+	}
+
+	messages := conversation.GetMessages()
+	if len(messages) == 0 {
+		markdown.WriteString("_No messages yet. Type a prompt below to start this thread._")
+		return markdown.String()
+	}
+
+	for i, message := range messages {
+		markdown.WriteString("## ")
+		markdown.WriteString(messageHeading(message.GetRole()))
+		markdown.WriteString("\n\n")
+
+		meta := []string{}
+		if ts := formatUnix(message.GetCreatedAt()); ts != "<unknown>" {
+			meta = append(meta, ts)
+		}
+		if provider := strings.TrimSpace(message.GetProvider()); provider != "" {
+			meta = append(meta, provider)
+		}
+		if model := strings.TrimSpace(message.GetModel()); model != "" {
+			meta = append(meta, model)
+		}
+		if len(meta) > 0 {
+			markdown.WriteString("_")
+			markdown.WriteString(strings.Join(meta, " | "))
+			markdown.WriteString("_\n\n")
+		}
+
+		content := strings.TrimSpace(message.GetContent())
+		if content == "" {
+			content = "_Empty message._"
+		}
+		markdown.WriteString(content)
+		if i < len(messages)-1 {
+			markdown.WriteString("\n\n---\n\n")
+		}
+	}
+
+	return markdown.String()
+}
+
+func renderMarkdownWithGlow(width int, markdown string) (string, error) {
+	// Glow uses Glamour for terminal markdown rendering; reuse the same renderer
+	// for the embedded conversation pane so the transcript stays readable.
+	renderer, err := glamour.NewTermRenderer(
+		glamour.WithAutoStyle(),
+		glamour.WithWordWrap(maxInt(8, width)),
+		glamour.WithPreservedNewLines(),
+	)
+	if err != nil {
+		return "", err
+	}
+
+	rendered, err := renderer.Render(markdown)
+	if err != nil {
+		return "", err
+	}
+
+	lines := strings.Split(rendered, "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimRight(line, " \t")
+	}
+	return strings.Join(lines, "\n"), nil
+}
+
+func messageHeading(role string) string {
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "system":
+		return "System"
+	case "assistant":
+		return "Assistant"
+	case "user":
+		return "You"
+	default:
+		if role == "" {
+			return "Message"
+		}
+		return strings.ToUpper(role[:1]) + role[1:]
+	}
+}
+
+func isRelevantAIConversationEvent(conversation *clientpb.AIConversation, operatorName string) bool {
+	if conversation == nil {
+		return true
+	}
+	eventOperator := strings.TrimSpace(conversation.GetOperatorName())
+	currentOperator := strings.TrimSpace(operatorName)
+	if eventOperator == "" || currentOperator == "" {
+		return true
+	}
+	return eventOperator == currentOperator
+}
+
+func selectedConversationID(conversation *clientpb.AIConversation, fallbackID string) string {
+	if conversation != nil && strings.TrimSpace(conversation.GetID()) != "" {
+		return conversation.GetID()
+	}
+	return strings.TrimSpace(fallbackID)
+}
+
+func conversationIndexByID(conversations []*clientpb.AIConversation, id string) int {
+	if strings.TrimSpace(id) == "" {
+		if len(conversations) == 0 {
+			return 0
+		}
+		return 0
+	}
+	for i, conversation := range conversations {
+		if conversation.GetID() == id {
+			return i
+		}
+	}
+	return -1
+}
+
+func conversationTitle(conversation *clientpb.AIConversation) string {
+	if conversation == nil {
+		return "Untitled conversation"
+	}
+	title := strings.TrimSpace(conversation.GetTitle())
+	if title != "" {
+		return title
+	}
+	if shortID := shortenID(conversation.GetID()); shortID != "" {
+		return "Conversation " + shortID
+	}
+	return "Untitled conversation"
+}
+
+func conversationSubtitle(conversation *clientpb.AIConversation) string {
+	if conversation == nil {
+		return ""
+	}
+
+	parts := []string{}
+	if provider := strings.TrimSpace(conversation.GetProvider()); provider != "" {
+		parts = append(parts, provider)
+	}
+	if model := strings.TrimSpace(conversation.GetModel()); model != "" {
+		parts = append(parts, model)
+	}
+	if count := len(conversation.GetMessages()); count > 0 {
+		parts = append(parts, fmt.Sprintf("%d messages", count))
+	}
+	if updated := formatUnix(conversation.GetUpdatedAt()); updated != "<unknown>" {
+		parts = append(parts, "updated "+updated)
+	}
+	if len(parts) == 0 {
+		return "No provider or message metadata yet."
+	}
+	return strings.Join(parts, " | ")
+}
+
+func conversationListLabel(conversation *clientpb.AIConversation, width int) string {
+	title := conversationTitle(conversation)
+	if provider := strings.TrimSpace(conversation.GetProvider()); provider != "" {
+		title += " [" + provider + "]"
+	}
+	return truncateText(title, width)
+}
+
+func providerDisplay(provider *clientpb.AIProviderConfig) string {
+	if provider == nil {
+		return "<unknown provider>"
+	}
+	status := "not configured"
+	if provider.GetConfigured() {
+		status = "configured"
+	}
+	return fmt.Sprintf("%s: %s", fallback(provider.GetName(), "<unnamed>"), status)
+}
+
+func promptConversationTitle(prompt string) string {
+	for _, line := range strings.Split(prompt, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		return truncateText(line, 48)
+	}
+	return "New conversation"
+}
+
+func shortenID(id string) string {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return ""
+	}
+	parts := strings.SplitN(id, "-", 2)
+	return parts[0]
+}
+
 func inputWindow(input []rune, cursor, width int) ([]rune, int) {
 	if width <= 0 {
 		return nil, 0
@@ -646,6 +1188,7 @@ func inputWindow(input []rune, cursor, width int) ([]rune, int) {
 	if cursor > len(input) {
 		cursor = len(input)
 	}
+
 	start := 0
 	if len(input) > width {
 		start = cursor - width + 1
@@ -664,6 +1207,7 @@ func fitStyledPieces(width int, pieces []string) string {
 	if width <= 0 {
 		return ""
 	}
+
 	var kept []string
 	for _, piece := range pieces {
 		candidate := strings.Join(append(kept, piece), " ")
@@ -679,6 +1223,7 @@ func wrapText(text string, width int) []string {
 	if width <= 1 {
 		return []string{truncateText(text, width)}
 	}
+
 	paragraphs := strings.Split(text, "\n")
 	lines := make([]string, 0, len(paragraphs))
 	for _, paragraph := range paragraphs {
@@ -687,6 +1232,7 @@ func wrapText(text string, width int) []string {
 			lines = append(lines, "")
 			continue
 		}
+
 		current := words[0]
 		for _, word := range words[1:] {
 			if utf8.RuneCountInString(current)+1+utf8.RuneCountInString(word) <= width {

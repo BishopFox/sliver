@@ -1494,55 +1494,66 @@ func SaveAIConversationMessage(message *clientpb.AIConversationMessage, operator
 	}
 
 	dbSession := Session()
-	if dbMessage.ID == uuid.Nil {
-		if dbMessage.Sequence == 0 {
-			lastMessage := &models.AIConversationMessage{}
-			err := dbSession.Where("conversation_id = ?", dbMessage.ConversationID).
-				Order("sequence desc").
-				Order("created_at desc").
-				First(lastMessage).Error
-			if err != nil {
-				if !errors.Is(err, ErrRecordNotFound) {
-					return nil, err
+	var savedMessage *models.AIConversationMessage
+	err = dbSession.Transaction(func(tx *gorm.DB) error {
+		if dbMessage.ID == uuid.Nil {
+			if dbMessage.Sequence == 0 {
+				lastMessage := &models.AIConversationMessage{}
+				err := tx.Where("conversation_id = ?", dbMessage.ConversationID).
+					Order("sequence desc").
+					Order("created_at desc").
+					First(lastMessage).Error
+				if err != nil {
+					if !errors.Is(err, ErrRecordNotFound) {
+						return err
+					}
+					dbMessage.Sequence = 1
+				} else {
+					dbMessage.Sequence = lastMessage.Sequence + 1
 				}
-				dbMessage.Sequence = 1
-			} else {
-				dbMessage.Sequence = lastMessage.Sequence + 1
 			}
+
+			if err := tx.Create(dbMessage).Error; err != nil {
+				return err
+			}
+			savedMessage = dbMessage
+		} else {
+			existing := &models.AIConversationMessage{}
+			query := tx.Where("id = ?", dbMessage.ID).Where("conversation_id = ?", dbMessage.ConversationID)
+			if operatorName != "" {
+				query = query.Where("operator_name = ?", operatorName)
+			}
+			if err := query.First(existing).Error; err != nil {
+				return err
+			}
+
+			if dbMessage.OperatorName != "" {
+				existing.OperatorName = dbMessage.OperatorName
+			}
+			existing.Provider = dbMessage.Provider
+			existing.Model = dbMessage.Model
+			if dbMessage.Sequence != 0 {
+				existing.Sequence = dbMessage.Sequence
+			}
+			existing.Role = dbMessage.Role
+			existing.Content = dbMessage.Content
+			existing.ProviderMessageID = dbMessage.ProviderMessageID
+			existing.FinishReason = dbMessage.FinishReason
+
+			if err := tx.Save(existing).Error; err != nil {
+				return err
+			}
+			savedMessage = existing
 		}
 
-		if err := dbSession.Create(dbMessage).Error; err != nil {
-			return nil, err
-		}
-		return dbMessage.ToProtobuf(), nil
-	}
-
-	existing := &models.AIConversationMessage{}
-	query := dbSession.Where("id = ?", dbMessage.ID).Where("conversation_id = ?", dbMessage.ConversationID)
-	if operatorName != "" {
-		query = query.Where("operator_name = ?", operatorName)
-	}
-	if err := query.First(existing).Error; err != nil {
+		return tx.Model(&models.AIConversation{}).
+			Where("id = ?", dbMessage.ConversationID).
+			Update("updated_at", time.Now()).Error
+	})
+	if err != nil {
 		return nil, err
 	}
-
-	if dbMessage.OperatorName != "" {
-		existing.OperatorName = dbMessage.OperatorName
-	}
-	existing.Provider = dbMessage.Provider
-	existing.Model = dbMessage.Model
-	if dbMessage.Sequence != 0 {
-		existing.Sequence = dbMessage.Sequence
-	}
-	existing.Role = dbMessage.Role
-	existing.Content = dbMessage.Content
-	existing.ProviderMessageID = dbMessage.ProviderMessageID
-	existing.FinishReason = dbMessage.FinishReason
-
-	if err := dbSession.Save(existing).Error; err != nil {
-		return nil, err
-	}
-	return existing.ToProtobuf(), nil
+	return savedMessage.ToProtobuf(), nil
 }
 
 // watchtower - List configurations

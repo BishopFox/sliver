@@ -12,9 +12,19 @@ import (
 	"golang.org/x/term"
 )
 
-// AICmd launches the placeholder Sliver AI TUI.
+// AICmd launches the AI conversation TUI.
 func AICmd(_ *cobra.Command, con *console.SliverClient, _ []string) {
-	model := newAIModel(buildAIContext(con))
+	if con == nil || con.Rpc == nil {
+		if con != nil {
+			con.PrintErrorf("Connect to a server before using `ai`.\n")
+		}
+		return
+	}
+
+	listenerID, listener := con.CreateEventListener()
+	defer con.RemoveEventListener(listenerID)
+
+	model := newAIModel(con, buildAIContext(con), listener)
 
 	width, height := 100, 30
 	if w, h, err := term.GetSize(0); err == nil && w > 0 && h > 0 {
@@ -32,11 +42,9 @@ func AICmd(_ *cobra.Command, con *console.SliverClient, _ []string) {
 }
 
 type aiContext struct {
-	target        aiTargetSummary
-	connection    aiConnectionSummary
-	conversations []aiConversation
-	planned       []string
-	status        string
+	target     aiTargetSummary
+	connection aiConnectionSummary
+	status     string
 }
 
 type aiTargetSummary struct {
@@ -56,17 +64,6 @@ type aiConnectionSummary struct {
 	State    string
 }
 
-type aiConversation struct {
-	Title    string
-	Subtitle string
-	Messages []aiMessage
-}
-
-type aiMessage struct {
-	Role string
-	Body string
-}
-
 func buildAIContext(con *console.SliverClient) aiContext {
 	ctx := aiContext{
 		target: aiTargetSummary{
@@ -83,12 +80,7 @@ func buildAIContext(con *console.SliverClient) aiContext {
 			Operator: "<unknown>",
 			State:    "idle",
 		},
-		planned: []string{
-			"Streaming chat transcript for operator prompts and assistant replies.",
-			"Target-aware actions that can call Sliver commands and summarize output.",
-			"Conversation history, pinned context, and tool traces in the side panels.",
-		},
-		status: "Layout preview only. Prompt submission is captured locally until the AI backend is implemented.",
+		status: "Loading AI conversations from the server...",
 	}
 
 	if con != nil {
@@ -132,42 +124,6 @@ func buildAIContext(con *console.SliverClient) aiContext {
 				},
 			}
 		}
-	}
-
-	ctx.conversations = []aiConversation{
-		{
-			Title:    "Current Target",
-			Subtitle: fmt.Sprintf("%s on %s (%s/%s)", ctx.target.Label, ctx.target.Host, ctx.target.OS, ctx.target.Arch),
-			Messages: []aiMessage{
-				{Role: "system", Body: "Bubble Tea layout preview for the future Sliver AI workspace."},
-				{Role: "assistant", Body: fmt.Sprintf("Active target context is loaded as %s with %s over %s.", ctx.target.Mode, ctx.target.Label, ctx.target.C2)},
-				{Role: "user", Body: "Summarize the target, operator context, and likely next steps."},
-				{Role: "assistant", Body: "Placeholder only: chat execution, command orchestration, and result streaming will be added in a later pass."},
-			},
-		},
-		{
-			Title:    "Recon Ideas",
-			Subtitle: "Placeholder thread for future guided workflows",
-			Messages: []aiMessage{
-				{Role: "assistant", Body: "This thread will eventually hold scoped recon plans, command suggestions, and concise result summaries."},
-				{Role: "assistant", Body: "For now it exists to exercise the sidebar, transcript pane, and context inspector layout."},
-			},
-		},
-		{
-			Title:    "Tooling Backlog",
-			Subtitle: "Stubbed product notes for the upcoming AI integration",
-			Messages: []aiMessage{
-				{Role: "system", Body: "Planned modules: conversation persistence, tool traces, target-aware prompts, and execution approvals."},
-				{Role: "assistant", Body: fmt.Sprintf("Current server profile: %s (%s).", ctx.connection.Profile, ctx.connection.State)},
-			},
-		},
-		{
-			Title:    "Operator Scratchpad",
-			Subtitle: "Local-only placeholder messages",
-			Messages: []aiMessage{
-				{Role: "assistant", Body: "Submitting a prompt here will append a local placeholder exchange so we can exercise the composer and transcript layout before backend work starts."},
-			},
-		},
 	}
 
 	return ctx

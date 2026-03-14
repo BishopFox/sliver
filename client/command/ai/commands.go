@@ -20,7 +20,7 @@ func ServerCommands(con *console.SliverClient) []*cobra.Command {
 func newAICommand(groupID string, con *console.SliverClient) *cobra.Command {
 	return &cobra.Command{
 		Use:     consts.AIStr,
-		Short:   "Open the Sliver AI TUI layout preview",
+		Short:   "Open the Sliver AI conversation TUI",
 		Long:    help.GetHelpFor([]string{consts.AIStr}),
 		Args:    cobra.NoArgs,
 		GroupID: groupID,

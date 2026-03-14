@@ -169,7 +169,7 @@ _=/usr/bin/env
 [[.Bold]]About:[[.Normal]] Get information about a Sliver by name, or for the active Sliver.`
 
 	aiHelp = `[[.Bold]]Command:[[.Normal]] ai
-[[.Bold]]About:[[.Normal]] Launch the Sliver AI Bubble Tea layout preview. This currently provides a full-screen TUI shell with placeholder conversations, context panes, and a composer, but does not yet execute real chat or tool actions.
+[[.Bold]]About:[[.Normal]] Launch the Sliver AI Bubble Tea TUI. The AI workspace now loads server-side conversation threads over gRPC, keeps them synced through the shared event stream, and renders conversation transcripts as markdown in the main pane.
 
 [[.Bold]]Example:[[.Normal]]
 	use my-session
