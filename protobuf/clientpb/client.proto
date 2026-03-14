@@ -1407,6 +1407,59 @@ message CrackFileChunk {
   bytes Data = 9;
 }
 
+// [ AI ] ----------------------------------------
+
+message AIProviderConfigs {
+  repeated AIProviderConfig Providers = 1;
+}
+
+message AIProviderConfig {
+  string Name = 1;
+  bool Configured = 2;
+}
+
+message AIConversationReq {
+  string ID = 1;
+  bool IncludeMessages = 2;
+}
+
+message AIConversations {
+  repeated AIConversation Conversations = 1;
+}
+
+message AIConversation {
+  string ID = 1;
+  int64 CreatedAt = 2;
+  int64 UpdatedAt = 3;
+  string OperatorName = 4;
+  string Provider = 5;
+  string Model = 6;
+  string Title = 7;
+  string Summary = 8;
+  string SystemPrompt = 9;
+  repeated AIConversationMessage Messages = 10;
+}
+
+message AIConversationMessages {
+  string ConversationID = 1;
+  repeated AIConversationMessage Messages = 2;
+}
+
+message AIConversationMessage {
+  string ID = 1;
+  string ConversationID = 2;
+  int64 CreatedAt = 3;
+  int64 UpdatedAt = 4;
+  string OperatorName = 5;
+  string Provider = 6;
+  string Model = 7;
+  uint32 Sequence = 8;
+  string Role = 9;
+  string Content = 10;
+  string ProviderMessageID = 11;
+  string FinishReason = 12;
+}
+
 // watchtower 
 message MonitoringProviders {
   repeated MonitoringProvider providers = 1;

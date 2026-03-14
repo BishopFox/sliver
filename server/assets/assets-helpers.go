@@ -36,6 +36,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 
 	protobufs "github.com/bishopfox/sliver/protobuf"
@@ -435,12 +436,10 @@ func unzipSkipTopLevel(dst string, z *zip.Reader) error {
 
 func xorPBRawBytes(src []byte) []byte {
 	var (
-		fileAst                   *ast.File
-		err                       error
-		sliverpbVarName           = "file_sliverpb_sliver_proto_rawDesc"
-		sliverPbProtoInitFuncName = "file_sliverpb_sliver_proto_init"
-		fset                      = token.NewFileSet()
-		parserMode                = parser.ParseComments
+		fileAst    *ast.File
+		err        error
+		fset       = token.NewFileSet()
+		parserMode = parser.ParseComments
 	)
 	fileAst, err = parser.ParseFile(fset, "", src, parserMode)
 	if err != nil {
@@ -455,154 +454,70 @@ func xorPBRawBytes(src []byte) []byte {
 	}
 
 	ast.Inspect(fileAst, func(n ast.Node) bool {
-		switch node := n.(type) {
-		// Look for the protobuf init function and decode the XORed
-		// data at the top of the function
-		case *ast.FuncDecl:
-			// add an ast.AssignStmt at the top of the function Body
-			// that calls the xor function on the file_sliverpb_sliver_proto_rawDesc object
-			if node.Name.Name == sliverPbProtoInitFuncName {
-				newStmt := &ast.AssignStmt{
-					Lhs: []ast.Expr{
-						ast.NewIdent(sliverpbVarName),
-					},
-					Tok: token.ASSIGN,
-					Rhs: []ast.Expr{
-						&ast.CallExpr{
-							Fun: ast.NewIdent("xor"),
-							Args: []ast.Expr{
-								ast.NewIdent(sliverpbVarName),
-								ast.NewIdent("xorKey"),
-							},
-						},
-					},
-				}
-				node.Body.List = append([]ast.Stmt{newStmt}, node.Body.List...)
+		node, ok := n.(*ast.GenDecl)
+		if !ok {
+			return true
+		}
+		for _, spec := range node.Specs {
+			valueSpec, ok := spec.(*ast.ValueSpec)
+			if !ok {
+				continue
 			}
+			for valueIndex, id := range valueSpec.Names {
+				if !strings.HasSuffix(id.Name, "_rawDesc") || strings.HasSuffix(id.Name, "_rawDescData") {
+					continue
+				}
+				if valueIndex >= len(valueSpec.Values) {
+					continue
+				}
 
-		// Look for the protobuf rawDesc variable and XOR each byte
-		case *ast.GenDecl:
-			for _, spec := range node.Specs {
-				switch spec := spec.(type) {
-				case *ast.ValueSpec:
-					for _, id := range spec.Names {
-						if id.Name == sliverpbVarName {
-							values := spec.Values[0].(*ast.CompositeLit).Elts
-							// XOR each value of the slice
-							for i, v := range values {
-								elt := v.(*ast.BasicLit)
-								elt.Value = xorByte(elt.Value, xorKey[i%len(xorKey)])
-							}
-
-						}
+				switch rawDesc := valueSpec.Values[valueIndex].(type) {
+				case *ast.CompositeLit:
+					for i, v := range rawDesc.Elts {
+						elt := v.(*ast.BasicLit)
+						elt.Value = xorByte(elt.Value, xorKey[i%len(xorKey)])
+					}
+					valueSpec.Values[valueIndex] = &ast.CallExpr{
+						Fun: ast.NewIdent("xorBytes"),
+						Args: []ast.Expr{
+							rawDesc,
+							ast.NewIdent("xorKey"),
+						},
 					}
 				default:
+					offset := 0
+					if xorStringExpr(rawDesc, xorKey, &offset) {
+						node.Tok = token.VAR
+						valueSpec.Values[valueIndex] = &ast.CallExpr{
+							Fun: ast.NewIdent("xorString"),
+							Args: []ast.Expr{
+								rawDesc,
+								ast.NewIdent("xorKey"),
+							},
+						}
+					}
 				}
 			}
-		default:
 		}
 		return true
 	})
 
-	// Add the XOR function to the AST
-	fileAst.Decls = append(fileAst.Decls, ast.Decl(&ast.FuncDecl{
-		Name: ast.NewIdent("xor"),
-		Type: &ast.FuncType{
-			Params: &ast.FieldList{
-				List: []*ast.Field{
-					{
-						Names: []*ast.Ident{ast.NewIdent("input")},
-						Type:  ast.NewIdent("[]byte"),
-					},
-					{
-						Names: []*ast.Ident{ast.NewIdent("key")},
-						Type:  ast.NewIdent("[]byte"),
-					},
-				},
-			},
-			Results: &ast.FieldList{
-				List: []*ast.Field{
-					{
-						Type: ast.NewIdent("[]byte"),
-					},
-				},
-			},
-		},
-		Body: &ast.BlockStmt{
-			List: []ast.Stmt{
-				&ast.AssignStmt{
-					Lhs: []ast.Expr{
-						ast.NewIdent("out"),
-					},
-					Tok: token.DEFINE,
-					Rhs: []ast.Expr{
-						&ast.CallExpr{
-							Fun: ast.NewIdent("make"),
-							Args: []ast.Expr{
-								&ast.ArrayType{
-									Elt: ast.NewIdent("byte"),
-								},
-								&ast.CallExpr{
-									Fun: ast.NewIdent("len"),
-									Args: []ast.Expr{
-										ast.NewIdent("input"),
-									},
-								},
-							},
-						},
-					},
-				},
-				&ast.RangeStmt{
-					Key:   ast.NewIdent("i"),
-					Value: ast.NewIdent("_"),
-					Tok:   token.DEFINE,
-					X:     ast.NewIdent("input"),
-					Body: &ast.BlockStmt{
-						List: []ast.Stmt{
-							&ast.AssignStmt{
-								Lhs: []ast.Expr{
-									&ast.IndexExpr{
-										X:     ast.NewIdent("out"),
-										Index: ast.NewIdent("i"),
-									},
-								},
-								Tok: token.ASSIGN,
-								Rhs: []ast.Expr{
-									&ast.BinaryExpr{
-										X: &ast.IndexExpr{
-											X:     ast.NewIdent("input"),
-											Index: ast.NewIdent("i"),
-										},
-										Op: token.XOR,
-										Y: &ast.IndexExpr{
-											X: ast.NewIdent("key"),
-											Index: &ast.BinaryExpr{
-												X: &ast.Ident{
-													Name: "i",
-												},
-												Op: token.REM,
-												Y: &ast.CallExpr{
-													Fun: ast.NewIdent("len"),
-													Args: []ast.Expr{
-														ast.NewIdent("key"),
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				&ast.ReturnStmt{
-					Results: []ast.Expr{
-						ast.NewIdent("out"),
-					},
-				},
-			},
-		},
-	}))
+	fileAst.Decls = append(fileAst.Decls,
+		parseHelperDecl(`func xorBytes(input []byte, key []byte) []byte {
+	out := make([]byte, len(input))
+	for i := range input {
+		out[i] = input[i] ^ key[i%len(key)]
+	}
+	return out
+}`),
+		parseHelperDecl(`func xorString(input string, key []byte) string {
+	out := make([]byte, len(input))
+	for i := 0; i < len(input); i++ {
+		out[i] = input[i] ^ key[i%len(key)]
+	}
+	return string(out)
+}`),
+	)
 
 	xorTokens := make([]ast.Expr, len(xorKey))
 	// map xorKey to a slice of ast.BasicLit
@@ -635,6 +550,14 @@ func xorPBRawBytes(src []byte) []byte {
 	return outBuff.Bytes()
 }
 
+func parseHelperDecl(src string) ast.Decl {
+	fileAst, err := parser.ParseFile(token.NewFileSet(), "", "package assets\n"+src, 0)
+	if err != nil {
+		panic(err)
+	}
+	return fileAst.Decls[0]
+}
+
 func xorByte(raw string, key byte) string {
 	// strip 0x
 	raw = raw[2:]
@@ -648,6 +571,37 @@ func xorByte(raw string, key byte) string {
 	}
 	newByte := hex.EncodeToString([]byte{hexByte[0] ^ key})
 	return fmt.Sprintf("0x%s", newByte)
+}
+
+func xorStringExpr(expr ast.Expr, key [8]byte, offset *int) bool {
+	switch node := expr.(type) {
+	case *ast.BasicLit:
+		if node.Kind != token.STRING {
+			return false
+		}
+		raw, err := strconv.Unquote(node.Value)
+		if err != nil {
+			panic(err)
+		}
+		rawBytes := []byte(raw)
+		for i := range rawBytes {
+			rawBytes[i] ^= key[(*offset+i)%len(key)]
+		}
+		*offset += len(rawBytes)
+		node.Value = strconv.Quote(string(rawBytes))
+		return true
+	case *ast.BinaryExpr:
+		if node.Op != token.ADD {
+			return false
+		}
+		leftOkay := xorStringExpr(node.X, key, offset)
+		rightOkay := xorStringExpr(node.Y, key, offset)
+		return leftOkay && rightOkay
+	case *ast.ParenExpr:
+		return xorStringExpr(node.X, key, offset)
+	default:
+		return false
+	}
 }
 
 func unzip(src string, dest string) ([]string, error) {

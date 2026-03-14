@@ -25,6 +25,11 @@ logs:
   grpc_unary_payloads: true
   grpc_stream_payloads: true
   tls_key_logger: true
+ai:
+  anthropic:
+    api_key: "anthropic-key"
+  openai:
+    api_key: "openai-key"
 watch_tower:
   vt_api_key: "vt"
   xforce_api_key: "xforce"
@@ -71,6 +76,12 @@ cxx:
 	}
 	if config.Logs == nil || !config.Logs.TLSKeyLogger {
 		t.Fatalf("expected tls_key_logger true")
+	}
+	if config.AI == nil || config.AI.Anthropic == nil || config.AI.Anthropic.APIKey != "anthropic-key" {
+		t.Fatalf("expected ai anthropic api key %q, got %#v", "anthropic-key", config.AI)
+	}
+	if config.AI == nil || config.AI.OpenAI == nil || config.AI.OpenAI.APIKey != "openai-key" {
+		t.Fatalf("expected ai openai api key %q, got %#v", "openai-key", config.AI)
 	}
 	if config.Watchtower == nil || config.Watchtower.VTApiKey != "vt" {
 		t.Fatalf("expected watch_tower vt_api_key %q, got %v", "vt", config.Watchtower)
@@ -122,6 +133,9 @@ func TestServerConfigWritesDefault(t *testing.T) {
 	if config.DaemonConfig == nil {
 		t.Fatalf("expected default daemon config")
 	}
+	if config.AI == nil || config.AI.Anthropic == nil || config.AI.OpenAI == nil {
+		t.Fatalf("expected default ai config")
+	}
 	if _, err := os.Stat(GetServerConfigPath()); err != nil {
 		t.Fatalf("expected default config file to exist: %v", err)
 	}
@@ -152,6 +166,7 @@ func TestServerConfigMigratesLegacyJSON(t *testing.T) {
 		DaemonMode   bool                `json:"daemon_mode"`
 		DaemonConfig *DaemonConfig       `json:"daemon"`
 		Logs         *LogConfig          `json:"logs"`
+		AI           *AIConfig           `json:"ai"`
 		Watchtower   *WatchTowerConfig   `json:"watch_tower"`
 		GoProxy      string              `json:"go_proxy"`
 		HTTPDefaults *legacyHTTPDefaults `json:"http_default"`
@@ -170,6 +185,10 @@ func TestServerConfigMigratesLegacyJSON(t *testing.T) {
 			GRPCUnaryPayloads:  true,
 			GRPCStreamPayloads: true,
 			TLSKeyLogger:       true,
+		},
+		AI: &AIConfig{
+			Anthropic: &AIProviderConfig{APIKey: "anthropic-legacy"},
+			OpenAI:    &AIProviderConfig{APIKey: "openai-legacy"},
 		},
 		Watchtower: &WatchTowerConfig{
 			VTApiKey:          "vt-legacy",
@@ -202,6 +221,12 @@ func TestServerConfigMigratesLegacyJSON(t *testing.T) {
 	config := GetServerConfig()
 	if !config.DaemonMode || config.DaemonConfig == nil || config.DaemonConfig.Port != 31338 {
 		t.Fatalf("expected legacy daemon config to load")
+	}
+	if config.AI == nil || config.AI.Anthropic == nil || config.AI.Anthropic.APIKey != "anthropic-legacy" {
+		t.Fatalf("expected legacy ai anthropic config to load")
+	}
+	if config.AI == nil || config.AI.OpenAI == nil || config.AI.OpenAI.APIKey != "openai-legacy" {
+		t.Fatalf("expected legacy ai openai config to load")
 	}
 	if config.Watchtower == nil || config.Watchtower.VTApiKey != "vt-legacy" {
 		t.Fatalf("expected legacy watch_tower to load")

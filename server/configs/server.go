@@ -195,6 +195,7 @@ type ServerConfig struct {
 	DaemonConfig  *DaemonConfig        `json:"daemon" yaml:"daemon"`
 	Logs          *LogConfig           `json:"logs" yaml:"logs"`
 	GRPC          *GRPCConfig          `json:"grpc" yaml:"grpc"`
+	AI            *AIConfig            `json:"ai" yaml:"ai"`
 	Watchtower    *WatchTowerConfig    `json:"watch_tower" yaml:"watch_tower"`
 	GoProxy       string               `json:"go_proxy" yaml:"go_proxy"`
 	HTTPDefaults  *HttpDefaultConfig   `json:"http_default" yaml:"http_default"`
@@ -283,6 +284,7 @@ func GetServerConfig() *ServerConfig {
 		defaultPermit := true
 		config.GRPC.Keepalive.PermitWithoutStream = &defaultPermit
 	}
+	normalizeAIConfig(config)
 
 	err := config.Save() // This updates the config with any missing fields
 	if err != nil {
@@ -316,6 +318,7 @@ func getDefaultServerConfig() *ServerConfig {
 				PermitWithoutStream: &defaultPermitWithoutStream,
 			},
 		},
+		AI: defaultAIConfig(),
 		HTTPDefaults: &HttpDefaultConfig{
 			Headers: []HttpDefaultHeader{
 				{
