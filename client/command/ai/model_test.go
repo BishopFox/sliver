@@ -22,7 +22,7 @@ func TestPromptConversationTitleUsesFirstNonEmptyLine(t *testing.T) {
 	}
 }
 
-func TestBuildConversationMarkdownUsesFencedBlocksAndOperatorLabel(t *testing.T) {
+func TestBuildConversationMarkdownUsesMarkdownSectionsAndOperatorLabel(t *testing.T) {
 	conversation := &clientpb.AIConversation{
 		OperatorName: "alice",
 		Summary:      "Operator context",
@@ -35,13 +35,18 @@ func TestBuildConversationMarkdownUsesFencedBlocksAndOperatorLabel(t *testing.T)
 	markdown := buildConversationMarkdown(conversation)
 	expected := []string{
 		"Operator context",
-		"```text\n[alice]\nHello\n```",
-		"```text\n[AI]\n## Reply\n```",
+		"### alice",
+		"Hello",
+		"### AI",
+		"## Reply",
 	}
 	for _, fragment := range expected {
 		if !strings.Contains(markdown, fragment) {
 			t.Fatalf("expected markdown to contain %q, got %q", fragment, markdown)
 		}
+	}
+	if strings.Contains(markdown, "```text") {
+		t.Fatalf("expected markdown messages to avoid text fences, got %q", markdown)
 	}
 }
 
@@ -53,8 +58,26 @@ func TestBuildConversationMarkdownFallsBackToUserLabel(t *testing.T) {
 	}
 
 	markdown := buildConversationMarkdown(conversation)
-	if !strings.Contains(markdown, "```text\n[User]\nHello\n```") {
+	if !strings.Contains(markdown, "### User\n\nHello") {
 		t.Fatalf("expected markdown to contain user fallback label, got %q", markdown)
+	}
+}
+
+func TestRenderTranscriptMarkdownLinesRendersAssistantMarkdown(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.currentConversation = &clientpb.AIConversation{
+		ID: "conv-1",
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "assistant", Content: "## Reply\n\n- first item"},
+		},
+	}
+
+	rendered := ansi.Strip(strings.Join(model.renderTranscriptMarkdownLines(48), "\n"))
+	if !strings.Contains(rendered, "Reply") {
+		t.Fatalf("expected rendered transcript to contain the assistant heading text, got %q", rendered)
+	}
+	if !strings.Contains(rendered, "• first item") {
+		t.Fatalf("expected assistant markdown list to be rendered with glow styling, got %q", rendered)
 	}
 }
 

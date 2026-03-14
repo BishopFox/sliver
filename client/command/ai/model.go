@@ -1436,15 +1436,9 @@ func buildConversationMarkdown(conversation *clientpb.AIConversation) string {
 		if model := strings.TrimSpace(message.GetModel()); model != "" {
 			meta = append(meta, model)
 		}
-		if len(meta) > 0 {
-			markdown.WriteString("_")
-			markdown.WriteString(strings.Join(meta, " | "))
-			markdown.WriteString("_\n\n")
-		}
-
-		markdown.WriteString(fencedConversationBlock(conversation, message))
+		markdown.WriteString(conversationMessageMarkdown(conversation, message, meta))
 		if i < len(messages)-1 {
-			markdown.WriteString("\n\n---\n\n")
+			markdown.WriteString("\n\n***\n\n")
 		}
 	}
 
@@ -1452,8 +1446,8 @@ func buildConversationMarkdown(conversation *clientpb.AIConversation) string {
 }
 
 func renderMarkdownWithGlow(width int, markdown string) (string, error) {
-	// Glow uses Glamour for terminal markdown rendering; reuse the same renderer
-	// for the embedded conversation pane so the transcript stays readable.
+	// Glow renders markdown through Glamour; mirror that render path here so AI
+	// conversation content is displayed with the same terminal markdown renderer.
 	// Use a fixed style to avoid Glamour's auto-style terminal color queries,
 	// which can leak OSC/CSI responses back into the TUI input stream.
 	renderer, err := glamour.NewTermRenderer(
@@ -1711,18 +1705,27 @@ func aiConfigError(config *clientpb.AIConfigSummary) string {
 	return "server AI configuration is invalid"
 }
 
-func fencedConversationBlock(conversation *clientpb.AIConversation, message *clientpb.AIConversationMessage) string {
-	label := messageBlockLabel(conversation, message)
+func conversationMessageMarkdown(conversation *clientpb.AIConversation, message *clientpb.AIConversationMessage, meta []string) string {
+	label := escapeMarkdownText(messageBlockLabel(conversation, message))
 	content := ""
 	if message != nil {
-		content = strings.TrimSpace(message.GetContent())
+		content = strings.Trim(message.GetContent(), "\n")
 	}
-	if content == "" {
-		content = "Empty message."
+	if strings.TrimSpace(content) == "" {
+		content = "_Empty message._"
 	}
 
-	fence := markdownFence(content)
-	return fence + "text\n[" + label + "]\n" + content + "\n" + fence
+	var markdown strings.Builder
+	markdown.WriteString("### ")
+	markdown.WriteString(label)
+	markdown.WriteString("\n\n")
+	if len(meta) > 0 {
+		markdown.WriteString("> ")
+		markdown.WriteString(escapeMarkdownText(strings.Join(meta, " | ")))
+		markdown.WriteString("\n\n")
+	}
+	markdown.WriteString(content)
+	return markdown.String()
 }
 
 func messageBlockLabel(conversation *clientpb.AIConversation, message *clientpb.AIConversationMessage) string {
@@ -1756,20 +1759,19 @@ func messageBlockLabel(conversation *clientpb.AIConversation, message *clientpb.
 	}
 }
 
-func markdownFence(content string) string {
-	longest := 0
-	current := 0
-	for _, r := range content {
-		if r == '`' {
-			current++
-			if current > longest {
-				longest = current
-			}
-			continue
-		}
-		current = 0
-	}
-	return strings.Repeat("`", maxInt(3, longest+1))
+func escapeMarkdownText(text string) string {
+	replacer := strings.NewReplacer(
+		"\\", "\\\\",
+		"`", "\\`",
+		"*", "\\*",
+		"_", "\\_",
+		"[", "\\[",
+		"]", "\\]",
+		"#", "\\#",
+		"|", "\\|",
+		">", "\\>",
+	)
+	return replacer.Replace(text)
 }
 
 func promptConversationTitle(prompt string) string {
