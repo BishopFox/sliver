@@ -51,7 +51,7 @@ echo ""
 ###############################################################################
 # Step 1: System Dependencies
 ###############################################################################
-info "Step 1/5: Installing system dependencies..."
+info "Step 1/6: Installing system dependencies..."
 if command -v apt-get &>/dev/null; then
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -qq 2>/dev/null
@@ -97,7 +97,7 @@ fi
 ###############################################################################
 # Step 2: Go Installation
 ###############################################################################
-info "Step 2/5: Setting up Go $GO_VERSION..."
+info "Step 2/6: Setting up Go $GO_VERSION..."
 
 INSTALL_GO=0
 
@@ -184,7 +184,7 @@ go version || err "Go installation failed — 'go version' not working"
 ###############################################################################
 # Step 3: Harriet Loader (AV/EDR Bypass)
 ###############################################################################
-info "Step 3/5: Setting up Harriet loader..."
+info "Step 3/6: Setting up Harriet loader..."
 
 HARRIET_REPO_DIR="$(dirname "$(dirname "$HARRIET_DIR")")/Home-Grown-Red-Team"
 
@@ -216,9 +216,33 @@ else
 fi
 
 ###############################################################################
-# Step 4: Build Sliver
+# Step 4: Download Post-Exploitation Tools
 ###############################################################################
-info "Step 4/5: Building Sliver server + client..."
+info "Step 4/6: Downloading post-exploitation tools..."
+TOOLS_DIR="$SLIVER_DIR/tools"
+mkdir -p "$TOOLS_DIR"
+
+# LSA Whisperer (Credential Guard bypass — SpecterOps)
+if [ ! -d "$TOOLS_DIR/lsa-whisperer" ]; then
+    info "Cloning LSA Whisperer..."
+    git clone https://github.com/EvanMcBroom/lsa-whisperer.git "$TOOLS_DIR/lsa-whisperer" 2>/dev/null || warn "LSA Whisperer clone failed"
+fi
+
+# pypykatz (parse LSASS dumps offline)
+pip3 install pypykatz 2>/dev/null || true
+
+# impacket (secretsdump, psexec, wmiexec)
+pip3 install impacket 2>/dev/null || true
+
+# netexec / crackmapexec
+pip3 install netexec 2>/dev/null || true
+
+ok "Tools downloaded to $TOOLS_DIR"
+
+###############################################################################
+# Step 5: Build Sliver
+###############################################################################
+info "Step 5/6: Building Sliver server + client..."
 cd "$SLIVER_DIR"
 
 # Ensure Go modules are available
@@ -243,7 +267,7 @@ fi
 ###############################################################################
 # Step 5: Create Helper Scripts
 ###############################################################################
-info "Step 5/5: Creating helper scripts..."
+info "Step 6/6: Creating helper scripts..."
 
 # ─── start.sh ───
 cat > "$SLIVER_DIR/start.sh" << 'STARTEOF'

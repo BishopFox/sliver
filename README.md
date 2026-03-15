@@ -470,6 +470,7 @@ pip3 install netexec
 |-------|-------------|
 | [OPSEC-GUIDE.md](OPSEC-GUIDE.md) | Full step-by-step: build, profiles, listeners, implant generation, Harriet wrapping, deployment, post-exploitation, cleanup |
 | [AZURE-KILLCHAIN.md](AZURE-KILLCHAIN.md) | Azure RunCommand lateral movement kill chain — proven engagement guide with Meatball C2 + Sliver C2 |
+| [ATTACKPATH.md](ATTACKPATH.md) | Proven attack path: RunCommand initial access, BOF recon, LSA Whisperer, Kerberoast, lateral movement, DC takeover |
 
 ## Helper Scripts
 
