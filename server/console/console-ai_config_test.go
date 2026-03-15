@@ -11,8 +11,11 @@ import (
 func TestCurrentAIConfigFormResultUsesConfiguredProviderFallback(t *testing.T) {
 	serverConfig := &configs.ServerConfig{
 		AI: &configs.AIConfig{
-			Anthropic: &configs.AIProviderConfig{APIKey: "anthropic-key", BaseURL: "https://api.anthropic.test"},
-			OpenAI:    &configs.AIProviderConfig{},
+			Anthropic:    &configs.AIProviderConfig{APIKey: "anthropic-key", BaseURL: "https://api.anthropic.test"},
+			Google:       &configs.AIProviderConfig{},
+			OpenAI:       &configs.AIProviderConfig{},
+			OpenAICompat: &configs.AIProviderConfig{},
+			OpenRouter:   &configs.AIProviderConfig{},
 		},
 	}
 
@@ -35,16 +38,22 @@ func TestApplyAIConfigFormResultUpdatesOnlySelectedProvider(t *testing.T) {
 			Model:         "old-model",
 			ThinkingLevel: "low",
 			Anthropic:     &configs.AIProviderConfig{APIKey: "anthropic-key"},
+			Google:        &configs.AIProviderConfig{},
 			OpenAI:        &configs.AIProviderConfig{APIKey: "openai-key", BaseURL: "https://api.openai.test"},
+			OpenAICompat:  &configs.AIProviderConfig{},
+			OpenRouter:    &configs.AIProviderConfig{},
 		},
 	}
 
 	applyAIConfigFormResult(serverConfig, &forms.AIConfigFormResult{
-		Provider:      ai.ProviderOpenAI,
-		Model:         "gpt-test",
-		ThinkingLevel: "high",
-		APIKey:        "new-openai-key",
-		BaseURL:       "https://override.openai.test",
+		Provider:        ai.ProviderOpenAI,
+		Model:           "gpt-test",
+		ThinkingLevel:   "high",
+		APIKey:          "new-openai-key",
+		BaseURL:         "https://override.openai.test",
+		Organization:    "org-test",
+		Project:         "proj-test",
+		UseResponsesAPI: true,
 	})
 
 	if serverConfig.AI.Provider != ai.ProviderOpenAI {
@@ -61,6 +70,15 @@ func TestApplyAIConfigFormResultUpdatesOnlySelectedProvider(t *testing.T) {
 	}
 	if serverConfig.AI.OpenAI.BaseURL != "https://override.openai.test" {
 		t.Fatalf("expected updated openai base url, got %q", serverConfig.AI.OpenAI.BaseURL)
+	}
+	if serverConfig.AI.OpenAI.Organization != "org-test" {
+		t.Fatalf("expected updated openai organization, got %q", serverConfig.AI.OpenAI.Organization)
+	}
+	if serverConfig.AI.OpenAI.Project != "proj-test" {
+		t.Fatalf("expected updated openai project, got %q", serverConfig.AI.OpenAI.Project)
+	}
+	if serverConfig.AI.OpenAI.UseResponsesAPI == nil || !*serverConfig.AI.OpenAI.UseResponsesAPI {
+		t.Fatal("expected openai responses api flag to be updated")
 	}
 	if serverConfig.AI.Anthropic.APIKey != "anthropic-key" {
 		t.Fatalf("expected anthropic api key to remain unchanged, got %q", serverConfig.AI.Anthropic.APIKey)

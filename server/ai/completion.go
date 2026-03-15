@@ -1,30 +1,30 @@
 package ai
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
+	"charm.land/fantasy"
+	fantasyanthropic "charm.land/fantasy/providers/anthropic"
+	fantasygoogle "charm.land/fantasy/providers/google"
+	fantasyopenai "charm.land/fantasy/providers/openai"
+	fantasyopenaicompat "charm.land/fantasy/providers/openaicompat"
+	fantasyopenrouter "charm.land/fantasy/providers/openrouter"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/configs"
 )
 
 const (
-	defaultOpenAIBaseURL       = "https://api.openai.com/v1"
-	defaultOpenAIModel         = "gpt-5.2"
-	openAIResponsesPath        = "/responses"
-	defaultAnthropicBaseURL    = "https://api.anthropic.com"
-	defaultAnthropicModel      = "claude-sonnet-4-0"
-	anthropicMessagesPath      = "/v1/messages"
-	anthropicAPIVersion        = "2023-06-01"
-	defaultCompletionTimeout   = 2 * time.Minute
-	defaultAnthropicMaxTokens  = 8192
+	defaultOpenAIModel       = "gpt-5.2"
+	defaultAnthropicModel    = "claude-sonnet-4-0"
+	defaultGoogleModel       = "gemini-2.5-pro"
+	defaultOpenRouterModel   = "openai/gpt-5"
+	defaultCompletionTimeout = 2 * time.Minute
+
 	anthropicThinkingBudgetLow = 1024
 )
 
@@ -44,11 +44,26 @@ func SetHTTPClientForTests(client *http.Client) func() {
 
 // RuntimeConfig captures the provider settings used for a single completion run.
 type RuntimeConfig struct {
-	Provider      string
-	APIKey        string
-	BaseURL       string
-	Model         string
-	ThinkingLevel string
+	Provider         string
+	Model            string
+	ThinkingLevel    string
+	MaxOutputTokens  int64
+	Temperature      *float64
+	TopP             *float64
+	TopK             *int64
+	PresencePenalty  *float64
+	FrequencyPenalty *float64
+
+	APIKey          string
+	BaseURL         string
+	Headers         map[string]string
+	UserAgent       string
+	Organization    string
+	Project         string
+	Location        string
+	SkipAuth        bool
+	UseResponsesAPI bool
+	UseBedrock      bool
 }
 
 // Completion contains the persisted assistant response details.
@@ -65,78 +80,19 @@ type providerMessage struct {
 	Content string
 }
 
-type openAIRequest struct {
-	Model     string           `json:"model"`
-	Input     []openAIMessage  `json:"input"`
-	Reasoning *openAIReasoning `json:"reasoning,omitempty"`
-}
-
-type openAIMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-type openAIReasoning struct {
-	Effort string `json:"effort,omitempty"`
-}
-
-type openAIResponse struct {
-	ID         string                 `json:"id"`
-	Model      string                 `json:"model"`
-	Status     string                 `json:"status"`
-	OutputText string                 `json:"output_text"`
-	Output     []openAIResponseOutput `json:"output"`
-}
-
-type openAIResponseOutput struct {
-	ID      string                   `json:"id"`
-	Type    string                   `json:"type"`
-	Role    string                   `json:"role"`
-	Status  string                   `json:"status"`
-	Content []map[string]interface{} `json:"content"`
-}
-
-type openAIErrorResponse struct {
-	Error struct {
-		Message string `json:"message"`
-	} `json:"error"`
-}
-
-type anthropicRequest struct {
-	Model     string             `json:"model"`
-	System    string             `json:"system,omitempty"`
-	Messages  []anthropicMessage `json:"messages"`
-	MaxTokens int                `json:"max_tokens"`
-	Thinking  *anthropicThinking `json:"thinking,omitempty"`
-}
-
-type anthropicMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-type anthropicThinking struct {
-	Type         string `json:"type"`
-	BudgetTokens int    `json:"budget_tokens"`
-}
-
-type anthropicResponse struct {
-	ID         string                   `json:"id"`
-	Model      string                   `json:"model"`
-	StopReason string                   `json:"stop_reason"`
-	Content    []map[string]interface{} `json:"content"`
-}
-
-type anthropicErrorResponse struct {
-	Error struct {
-		Message string `json:"message"`
-	} `json:"error"`
-}
-
 // ResolveRuntimeConfig derives the provider settings for a stored conversation.
 func ResolveRuntimeConfig(cfg *configs.ServerConfig, conversation *clientpb.AIConversation) (*RuntimeConfig, error) {
 	runtime := &RuntimeConfig{
 		ThinkingLevel: normalizeThinkingLevel(cfg),
+	}
+	var providerConfig *configs.AIProviderConfig
+	if cfg != nil && cfg.AI != nil {
+		runtime.MaxOutputTokens = cfg.AI.MaxOutputTokens
+		runtime.Temperature = copyOptionalFloat(cfg.AI.Temperature)
+		runtime.TopP = copyOptionalFloat(cfg.AI.TopP)
+		runtime.TopK = copyOptionalInt(cfg.AI.TopK)
+		runtime.PresencePenalty = copyOptionalFloat(cfg.AI.PresencePenalty)
+		runtime.FrequencyPenalty = copyOptionalFloat(cfg.AI.FrequencyPenalty)
 	}
 
 	if conversation != nil {
@@ -145,21 +101,16 @@ func ResolveRuntimeConfig(cfg *configs.ServerConfig, conversation *clientpb.AICo
 	}
 
 	if runtime.Provider == "" {
-		selectedProvider, providerConfig := selectedProviderConfig(cfg)
+		selectedProvider, selectedProviderConfig := selectedProviderConfig(cfg)
 		runtime.Provider = selectedProvider
-		if providerConfig != nil {
-			runtime.APIKey = strings.TrimSpace(providerConfig.APIKey)
-			runtime.BaseURL = strings.TrimSpace(providerConfig.BaseURL)
-		}
+		providerConfig = selectedProviderConfig
+		applyProviderRuntimeConfig(runtime, providerConfig)
 	} else {
 		if !IsSupportedProvider(runtime.Provider) {
 			return runtime, fmt.Errorf("unsupported AI provider %q", runtime.Provider)
 		}
-		providerConfig := aiProviderConfig(cfg, runtime.Provider)
-		if providerConfig != nil {
-			runtime.APIKey = strings.TrimSpace(providerConfig.APIKey)
-			runtime.BaseURL = strings.TrimSpace(providerConfig.BaseURL)
-		}
+		providerConfig = aiProviderConfig(cfg, runtime.Provider)
+		applyProviderRuntimeConfig(runtime, providerConfig)
 	}
 
 	if runtime.Model == "" && cfg != nil && cfg.AI != nil {
@@ -168,14 +119,15 @@ func ResolveRuntimeConfig(cfg *configs.ServerConfig, conversation *clientpb.AICo
 	if runtime.Model == "" {
 		runtime.Model = defaultModelForProvider(runtime.Provider)
 	}
+	runtime.UseResponsesAPI = useResponsesAPI(runtime.Provider, providerConfig)
 
 	switch {
 	case runtime.Provider == "":
 		return runtime, fmt.Errorf("server AI provider is not configured; run `ai-config` on the server")
 	case !IsSupportedProvider(runtime.Provider):
 		return runtime, fmt.Errorf("unsupported AI provider %q", runtime.Provider)
-	case runtime.APIKey == "":
-		return runtime, fmt.Errorf("server AI provider %q is missing an API key; run `ai-config` on the server", runtime.Provider)
+	case !runtimeProviderConfigured(runtime):
+		return runtime, errors.New(missingProviderConfigError(runtime.Provider))
 	case runtime.Model == "":
 		return runtime, fmt.Errorf("server AI provider %q is missing a model; update `ai.model` or choose a provider default", runtime.Provider)
 	default:
@@ -197,168 +149,229 @@ func CompleteConversation(ctx context.Context, runtime *RuntimeConfig, conversat
 		return nil, err
 	}
 
+	provider, err := newFantasyProvider(runtime)
+	if err != nil {
+		return nil, err
+	}
+
+	model, err := provider.LanguageModel(ctx, runtime.Model)
+	if err != nil {
+		return nil, formatFantasyError(runtime.Provider, err)
+	}
+
+	response, err := model.Generate(ctx, buildFantasyCall(runtime, systemPrompt, messages))
+	if err != nil {
+		return nil, formatFantasyError(runtime.Provider, err)
+	}
+
+	content := extractFantasyResponseText(response)
+	if content == "" {
+		return nil, fmt.Errorf("%s response did not include assistant text", runtime.Provider)
+	}
+
+	finishReason := strings.TrimSpace(string(response.FinishReason))
+	if finishReason == "" || finishReason == string(fantasy.FinishReasonUnknown) {
+		finishReason = "completed"
+	}
+
+	return &Completion{
+		Provider:          fallbackString(model.Provider(), runtime.Provider),
+		Model:             fallbackString(model.Model(), runtime.Model),
+		Content:           content,
+		ProviderMessageID: extractProviderMessageID(response),
+		FinishReason:      finishReason,
+	}, nil
+}
+
+func newFantasyProvider(runtime *RuntimeConfig) (fantasy.Provider, error) {
+	if runtime == nil {
+		return nil, fmt.Errorf("AI runtime config is required")
+	}
+
+	headers := providerHeaders(runtime)
+
 	switch runtime.Provider {
-	case ProviderOpenAI:
-		return completeWithOpenAI(ctx, runtime, systemPrompt, messages)
 	case ProviderAnthropic:
-		return completeWithAnthropic(ctx, runtime, systemPrompt, messages)
+		opts := []fantasyanthropic.Option{
+			fantasyanthropic.WithName(ProviderAnthropic),
+			fantasyanthropic.WithHTTPClient(httpClient),
+		}
+		if runtime.APIKey != "" {
+			opts = append(opts, fantasyanthropic.WithAPIKey(runtime.APIKey))
+		}
+		if runtime.BaseURL != "" {
+			opts = append(opts, fantasyanthropic.WithBaseURL(runtime.BaseURL))
+		}
+		if len(headers) > 0 {
+			opts = append(opts, fantasyanthropic.WithHeaders(headers))
+		}
+		if runtime.Project != "" && runtime.Location != "" {
+			opts = append(opts, fantasyanthropic.WithVertex(runtime.Project, runtime.Location))
+		}
+		if runtime.SkipAuth {
+			opts = append(opts, fantasyanthropic.WithSkipAuth(true))
+		}
+		if runtime.UseBedrock {
+			opts = append(opts, fantasyanthropic.WithBedrock())
+		}
+		return fantasyanthropic.New(opts...)
+	case ProviderGoogle:
+		opts := []fantasygoogle.Option{
+			fantasygoogle.WithName(ProviderGoogle),
+			fantasygoogle.WithHTTPClient(httpClient),
+		}
+		if runtime.BaseURL != "" {
+			opts = append(opts, fantasygoogle.WithBaseURL(runtime.BaseURL))
+		}
+		if len(headers) > 0 {
+			opts = append(opts, fantasygoogle.WithHeaders(headers))
+		}
+		if runtime.APIKey != "" {
+			opts = append(opts, fantasygoogle.WithGeminiAPIKey(runtime.APIKey))
+		} else if runtime.Project != "" && runtime.Location != "" {
+			opts = append(opts, fantasygoogle.WithVertex(runtime.Project, runtime.Location))
+		}
+		if runtime.SkipAuth {
+			opts = append(opts, fantasygoogle.WithSkipAuth(true))
+		}
+		return fantasygoogle.New(opts...)
+	case ProviderOpenAI:
+		opts := []fantasyopenai.Option{
+			fantasyopenai.WithName(ProviderOpenAI),
+			fantasyopenai.WithHTTPClient(httpClient),
+		}
+		if runtime.APIKey != "" {
+			opts = append(opts, fantasyopenai.WithAPIKey(runtime.APIKey))
+		}
+		if runtime.BaseURL != "" {
+			opts = append(opts, fantasyopenai.WithBaseURL(runtime.BaseURL))
+		}
+		if len(headers) > 0 {
+			opts = append(opts, fantasyopenai.WithHeaders(headers))
+		}
+		if runtime.Organization != "" {
+			opts = append(opts, fantasyopenai.WithOrganization(runtime.Organization))
+		}
+		if runtime.Project != "" {
+			opts = append(opts, fantasyopenai.WithProject(runtime.Project))
+		}
+		if runtime.UseResponsesAPI {
+			opts = append(opts, fantasyopenai.WithUseResponsesAPI())
+		}
+		return fantasyopenai.New(opts...)
+	case ProviderOpenAICompat:
+		opts := []fantasyopenaicompat.Option{
+			fantasyopenaicompat.WithName(ProviderOpenAICompat),
+			fantasyopenaicompat.WithHTTPClient(httpClient),
+		}
+		if runtime.APIKey != "" {
+			opts = append(opts, fantasyopenaicompat.WithAPIKey(runtime.APIKey))
+		}
+		if runtime.BaseURL != "" {
+			opts = append(opts, fantasyopenaicompat.WithBaseURL(runtime.BaseURL))
+		}
+		if len(headers) > 0 {
+			opts = append(opts, fantasyopenaicompat.WithHeaders(headers))
+		}
+		if runtime.UseResponsesAPI {
+			opts = append(opts, fantasyopenaicompat.WithUseResponsesAPI())
+		}
+		return fantasyopenaicompat.New(opts...)
+	case ProviderOpenRouter:
+		opts := []fantasyopenrouter.Option{
+			fantasyopenrouter.WithName(ProviderOpenRouter),
+			fantasyopenrouter.WithHTTPClient(httpClient),
+		}
+		if runtime.APIKey != "" {
+			opts = append(opts, fantasyopenrouter.WithAPIKey(runtime.APIKey))
+		}
+		if len(headers) > 0 {
+			opts = append(opts, fantasyopenrouter.WithHeaders(headers))
+		}
+		return fantasyopenrouter.New(opts...)
 	default:
 		return nil, fmt.Errorf("unsupported AI provider %q", runtime.Provider)
 	}
 }
 
-func completeWithOpenAI(ctx context.Context, runtime *RuntimeConfig, systemPrompt string, messages []providerMessage) (*Completion, error) {
-	endpoint, err := resolveProviderEndpoint(runtime.BaseURL, defaultOpenAIBaseURL, openAIResponsesPath)
-	if err != nil {
-		return nil, err
-	}
-
-	input := make([]openAIMessage, 0, len(messages)+1)
+func buildFantasyCall(runtime *RuntimeConfig, systemPrompt string, messages []providerMessage) fantasy.Call {
+	prompt := make(fantasy.Prompt, 0, len(messages)+1)
 	if strings.TrimSpace(systemPrompt) != "" {
-		input = append(input, openAIMessage{Role: "system", Content: systemPrompt})
+		prompt = append(prompt, fantasy.Message{
+			Role: fantasy.MessageRoleSystem,
+			Content: []fantasy.MessagePart{
+				fantasy.TextPart{Text: strings.TrimSpace(systemPrompt)},
+			},
+		})
 	}
 	for _, message := range messages {
-		input = append(input, openAIMessage{
-			Role:    message.Role,
-			Content: message.Content,
+		prompt = append(prompt, fantasy.Message{
+			Role: toFantasyMessageRole(message.Role),
+			Content: []fantasy.MessagePart{
+				fantasy.TextPart{Text: message.Content},
+			},
 		})
 	}
 
-	reqBody := &openAIRequest{
-		Model: runtime.Model,
-		Input: input,
+	call := fantasy.Call{
+		Prompt:           prompt,
+		ProviderOptions:  fantasyProviderOptions(runtime),
+		MaxOutputTokens:  optionalRuntimeInt(runtime.MaxOutputTokens),
+		Temperature:      copyOptionalFloat(runtime.Temperature),
+		TopP:             copyOptionalFloat(runtime.TopP),
+		TopK:             copyOptionalInt(runtime.TopK),
+		PresencePenalty:  copyOptionalFloat(runtime.PresencePenalty),
+		FrequencyPenalty: copyOptionalFloat(runtime.FrequencyPenalty),
 	}
-	if effort := openAIReasoningEffort(runtime.ThinkingLevel); effort != "" {
-		reqBody.Reasoning = &openAIReasoning{Effort: effort}
-	}
-
-	payload, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, fmt.Errorf("marshal openai request: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(payload))
-	if err != nil {
-		return nil, fmt.Errorf("create openai request: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+runtime.APIKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("openai request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read openai response: %w", err)
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, providerHTTPError("openai", resp.StatusCode, body, parseOpenAIError)
-	}
-
-	var parsed openAIResponse
-	if err := json.Unmarshal(body, &parsed); err != nil {
-		return nil, fmt.Errorf("decode openai response: %w", err)
-	}
-
-	content := strings.TrimSpace(parsed.OutputText)
-	if content == "" {
-		content = joinTextBlocks(extractOpenAIOutputText(parsed.Output))
-	}
-	if content == "" {
-		return nil, fmt.Errorf("openai response did not include assistant text")
-	}
-
-	finishReason := strings.TrimSpace(parsed.Status)
-	if finishReason == "" {
-		finishReason = "completed"
-	}
-
-	return &Completion{
-		Provider:          runtime.Provider,
-		Model:             fallbackString(strings.TrimSpace(parsed.Model), runtime.Model),
-		Content:           content,
-		ProviderMessageID: strings.TrimSpace(parsed.ID),
-		FinishReason:      finishReason,
-	}, nil
+	return call
 }
 
-func completeWithAnthropic(ctx context.Context, runtime *RuntimeConfig, systemPrompt string, messages []providerMessage) (*Completion, error) {
-	endpoint, err := resolveProviderEndpoint(runtime.BaseURL, defaultAnthropicBaseURL, anthropicMessagesPath)
-	if err != nil {
-		return nil, err
+func fantasyProviderOptions(runtime *RuntimeConfig) fantasy.ProviderOptions {
+	if runtime == nil {
+		return nil
 	}
 
-	reqBody := &anthropicRequest{
-		Model:     runtime.Model,
-		System:    strings.TrimSpace(systemPrompt),
-		MaxTokens: defaultAnthropicMaxTokens,
-		Messages:  make([]anthropicMessage, 0, len(messages)),
-	}
-	for _, message := range messages {
-		reqBody.Messages = append(reqBody.Messages, anthropicMessage{
-			Role:    message.Role,
-			Content: message.Content,
-		})
-	}
-	if budget := anthropicThinkingBudget(runtime.ThinkingLevel); budget > 0 {
-		reqBody.Thinking = &anthropicThinking{
-			Type:         "enabled",
-			BudgetTokens: budget,
+	switch runtime.Provider {
+	case ProviderAnthropic:
+		if budget := anthropicThinkingBudget(runtime.ThinkingLevel); budget > 0 {
+			return fantasyanthropic.NewProviderOptions(&fantasyanthropic.ProviderOptions{
+				Thinking: &fantasyanthropic.ThinkingProviderOption{BudgetTokens: budget},
+			})
+		}
+	case ProviderGoogle:
+		if thinkingConfig := googleThinkingConfig(runtime.ThinkingLevel); thinkingConfig != nil {
+			return fantasy.ProviderOptions{
+				fantasygoogle.Name: &fantasygoogle.ProviderOptions{
+					ThinkingConfig: thinkingConfig,
+				},
+			}
+		}
+	case ProviderOpenAI:
+		if effort := openAIReasoningEffort(runtime.ThinkingLevel); effort != nil {
+			if runtime.UseResponsesAPI && fantasyopenai.IsResponsesModel(runtime.Model) {
+				return fantasyopenai.NewResponsesProviderOptions(&fantasyopenai.ResponsesProviderOptions{
+					ReasoningEffort: effort,
+				})
+			}
+			return fantasyopenai.NewProviderOptions(&fantasyopenai.ProviderOptions{
+				ReasoningEffort: effort,
+			})
+		}
+	case ProviderOpenAICompat:
+		if effort := openAIReasoningEffort(runtime.ThinkingLevel); effort != nil {
+			return fantasyopenaicompat.NewProviderOptions(&fantasyopenaicompat.ProviderOptions{
+				ReasoningEffort: effort,
+			})
+		}
+	case ProviderOpenRouter:
+		if reasoning := openRouterReasoningOptions(runtime.ThinkingLevel); reasoning != nil {
+			return fantasyopenrouter.NewProviderOptions(&fantasyopenrouter.ProviderOptions{
+				Reasoning: reasoning,
+			})
 		}
 	}
 
-	payload, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, fmt.Errorf("marshal anthropic request: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(payload))
-	if err != nil {
-		return nil, fmt.Errorf("create anthropic request: %w", err)
-	}
-	req.Header.Set("x-api-key", runtime.APIKey)
-	req.Header.Set("anthropic-version", anthropicAPIVersion)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("anthropic request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read anthropic response: %w", err)
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, providerHTTPError("anthropic", resp.StatusCode, body, parseAnthropicError)
-	}
-
-	var parsed anthropicResponse
-	if err := json.Unmarshal(body, &parsed); err != nil {
-		return nil, fmt.Errorf("decode anthropic response: %w", err)
-	}
-
-	content := joinTextBlocks(extractTypedTextBlocks(parsed.Content, "text"))
-	if content == "" {
-		return nil, fmt.Errorf("anthropic response did not include assistant text")
-	}
-
-	finishReason := strings.TrimSpace(parsed.StopReason)
-	if finishReason == "" {
-		finishReason = "completed"
-	}
-
-	return &Completion{
-		Provider:          runtime.Provider,
-		Model:             fallbackString(strings.TrimSpace(parsed.Model), runtime.Model),
-		Content:           content,
-		ProviderMessageID: strings.TrimSpace(parsed.ID),
-		FinishReason:      finishReason,
-	}, nil
+	return nil
 }
 
 func conversationHistory(conversation *clientpb.AIConversation) (string, []providerMessage, error) {
@@ -410,6 +423,10 @@ func defaultModelForProvider(provider string) string {
 		return defaultOpenAIModel
 	case ProviderAnthropic:
 		return defaultAnthropicModel
+	case ProviderGoogle:
+		return defaultGoogleModel
+	case ProviderOpenRouter:
+		return defaultOpenRouterModel
 	default:
 		return ""
 	}
@@ -427,16 +444,20 @@ func normalizeThinkingLevel(cfg *configs.ServerConfig) string {
 	}
 }
 
-func openAIReasoningEffort(thinkingLevel string) string {
+func openAIReasoningEffort(thinkingLevel string) *fantasyopenai.ReasoningEffort {
 	switch strings.ToLower(strings.TrimSpace(thinkingLevel)) {
-	case "low", "medium", "high":
-		return strings.ToLower(strings.TrimSpace(thinkingLevel))
+	case "low":
+		return fantasyopenai.ReasoningEffortOption(fantasyopenai.ReasoningEffortLow)
+	case "medium":
+		return fantasyopenai.ReasoningEffortOption(fantasyopenai.ReasoningEffortMedium)
+	case "high":
+		return fantasyopenai.ReasoningEffortOption(fantasyopenai.ReasoningEffortHigh)
 	default:
-		return ""
+		return nil
 	}
 }
 
-func anthropicThinkingBudget(thinkingLevel string) int {
+func anthropicThinkingBudget(thinkingLevel string) int64 {
 	switch strings.ToLower(strings.TrimSpace(thinkingLevel)) {
 	case "low":
 		return anthropicThinkingBudgetLow
@@ -449,101 +470,217 @@ func anthropicThinkingBudget(thinkingLevel string) int {
 	}
 }
 
-func resolveProviderEndpoint(baseURL string, defaultBase string, requiredPath string) (string, error) {
-	rawURL := strings.TrimSpace(baseURL)
-	if rawURL == "" {
-		rawURL = defaultBase
-	}
-
-	parsed, err := url.Parse(rawURL)
-	if err != nil {
-		return "", fmt.Errorf("invalid AI provider base URL %q: %w", rawURL, err)
-	}
-	if parsed.Scheme == "" || parsed.Host == "" {
-		return "", fmt.Errorf("invalid AI provider base URL %q", rawURL)
-	}
-
-	if !strings.HasSuffix(parsed.Path, requiredPath) {
-		if strings.TrimSpace(parsed.Path) == "" || parsed.Path == "/" {
-			parsed.Path = requiredPath
-		} else {
-			parsed.Path = strings.TrimRight(parsed.Path, "/") + requiredPath
-		}
-	}
-	parsed.Fragment = ""
-
-	return parsed.String(), nil
-}
-
-func extractOpenAIOutputText(output []openAIResponseOutput) []string {
-	var blocks []string
-	for _, item := range output {
-		if strings.ToLower(strings.TrimSpace(item.Type)) != "message" {
-			continue
-		}
-		blocks = append(blocks, extractTypedTextBlocks(item.Content, "output_text", "text")...)
-	}
-	return blocks
-}
-
-func extractTypedTextBlocks(items []map[string]interface{}, allowedTypes ...string) []string {
-	if len(items) == 0 {
+func googleThinkingConfig(thinkingLevel string) *fantasygoogle.ThinkingConfig {
+	var budget int64
+	switch strings.ToLower(strings.TrimSpace(thinkingLevel)) {
+	case "low":
+		budget = 1024
+	case "medium":
+		budget = 2048
+	case "high":
+		budget = 4096
+	default:
 		return nil
 	}
 
-	allowed := map[string]struct{}{}
-	for _, allowedType := range allowedTypes {
-		allowed[strings.ToLower(strings.TrimSpace(allowedType))] = struct{}{}
+	return &fantasygoogle.ThinkingConfig{
+		ThinkingBudget: fantasy.Opt(budget),
+	}
+}
+
+func openRouterReasoningOptions(thinkingLevel string) *fantasyopenrouter.ReasoningOptions {
+	switch strings.ToLower(strings.TrimSpace(thinkingLevel)) {
+	case "low":
+		return &fantasyopenrouter.ReasoningOptions{
+			Enabled: fantasy.Opt(true),
+			Effort:  fantasyopenrouter.ReasoningEffortOption(fantasyopenrouter.ReasoningEffortLow),
+		}
+	case "medium":
+		return &fantasyopenrouter.ReasoningOptions{
+			Enabled: fantasy.Opt(true),
+			Effort:  fantasyopenrouter.ReasoningEffortOption(fantasyopenrouter.ReasoningEffortMedium),
+		}
+	case "high":
+		return &fantasyopenrouter.ReasoningOptions{
+			Enabled: fantasy.Opt(true),
+			Effort:  fantasyopenrouter.ReasoningEffortOption(fantasyopenrouter.ReasoningEffortHigh),
+		}
+	default:
+		return nil
+	}
+}
+
+func applyProviderRuntimeConfig(runtime *RuntimeConfig, providerConfig *configs.AIProviderConfig) {
+	if runtime == nil || providerConfig == nil {
+		return
+	}
+	runtime.APIKey = strings.TrimSpace(providerConfig.APIKey)
+	runtime.BaseURL = strings.TrimSpace(providerConfig.BaseURL)
+	runtime.Headers = copyStringMap(providerConfig.Headers)
+	runtime.UserAgent = strings.TrimSpace(providerConfig.UserAgent)
+	runtime.Organization = strings.TrimSpace(providerConfig.Organization)
+	runtime.Project = strings.TrimSpace(providerConfig.Project)
+	runtime.Location = strings.TrimSpace(providerConfig.Location)
+	runtime.SkipAuth = providerConfig.SkipAuth
+	if providerConfig.UseResponsesAPI != nil {
+		runtime.UseResponsesAPI = *providerConfig.UseResponsesAPI
+	}
+	runtime.UseBedrock = providerConfig.UseBedrock
+}
+
+func useResponsesAPI(provider string, providerConfig *configs.AIProviderConfig) bool {
+	if providerConfig != nil && providerConfig.UseResponsesAPI != nil {
+		return *providerConfig.UseResponsesAPI
+	}
+	return NormalizeProviderName(provider) == ProviderOpenAI
+}
+
+func providerHeaders(runtime *RuntimeConfig) map[string]string {
+	if runtime == nil {
+		return nil
 	}
 
-	blocks := make([]string, 0, len(items))
-	for _, item := range items {
-		itemType := strings.ToLower(strings.TrimSpace(asString(item["type"])))
-		if len(allowed) > 0 {
-			if _, ok := allowed[itemType]; !ok {
-				continue
-			}
-		}
+	if len(runtime.Headers) == 0 && runtime.UserAgent == "" {
+		return nil
+	}
 
-		text := strings.TrimSpace(asString(item["text"]))
-		if text == "" {
-			if nested, ok := item["text"].(map[string]interface{}); ok {
-				text = strings.TrimSpace(asString(nested["value"]))
-			}
-		}
-		if text == "" {
+	headers := make(map[string]string, len(runtime.Headers)+1)
+	for key, value := range runtime.Headers {
+		if strings.TrimSpace(key) == "" || strings.TrimSpace(value) == "" {
 			continue
 		}
-		blocks = append(blocks, text)
+		headers[key] = value
 	}
-	return blocks
+	if runtime.UserAgent != "" {
+		headers["User-Agent"] = runtime.UserAgent
+	}
+	if len(headers) == 0 {
+		return nil
+	}
+	return headers
 }
 
-func providerHTTPError(provider string, statusCode int, body []byte, parser func([]byte) string) error {
-	message := strings.TrimSpace(parser(body))
-	if message == "" {
-		message = strings.TrimSpace(string(body))
+func runtimeProviderConfigured(runtime *RuntimeConfig) bool {
+	if runtime == nil {
+		return false
 	}
-	if message == "" {
-		message = http.StatusText(statusCode)
+	switch runtime.Provider {
+	case ProviderAnthropic:
+		return runtime.APIKey != "" ||
+			runtime.UseBedrock ||
+			(runtime.Project != "" && runtime.Location != "")
+	case ProviderGoogle:
+		return runtime.APIKey != "" ||
+			(runtime.Project != "" && runtime.Location != "")
+	case ProviderOpenAI:
+		return runtime.APIKey != ""
+	case ProviderOpenAICompat:
+		return runtime.BaseURL != ""
+	case ProviderOpenRouter:
+		return runtime.APIKey != ""
+	default:
+		return false
 	}
-	return fmt.Errorf("%s API request failed with HTTP %d: %s", provider, statusCode, truncateForError(message))
 }
 
-func parseOpenAIError(body []byte) string {
-	var parsed openAIErrorResponse
-	if err := json.Unmarshal(body, &parsed); err != nil {
+func extractFantasyResponseText(response *fantasy.Response) string {
+	if response == nil {
 		return ""
 	}
-	return parsed.Error.Message
+	blocks := make([]string, 0, len(response.Content))
+	for _, content := range response.Content {
+		if content == nil || content.GetType() != fantasy.ContentTypeText {
+			continue
+		}
+		textContent, ok := fantasy.AsContentType[fantasy.TextContent](content)
+		if !ok {
+			continue
+		}
+		if strings.TrimSpace(textContent.Text) == "" {
+			continue
+		}
+		blocks = append(blocks, textContent.Text)
+	}
+	return joinTextBlocks(blocks)
 }
 
-func parseAnthropicError(body []byte) string {
-	var parsed anthropicErrorResponse
-	if err := json.Unmarshal(body, &parsed); err != nil {
-		return ""
+func extractProviderMessageID(_ *fantasy.Response) string {
+	// Fantasy's unified response model does not currently expose a stable top-level
+	// provider message ID for plain text generations.
+	return ""
+}
+
+func formatFantasyError(provider string, err error) error {
+	if err == nil {
+		return nil
 	}
-	return parsed.Error.Message
+
+	var providerErr *fantasy.ProviderError
+	if errors.As(err, &providerErr) {
+		message := strings.TrimSpace(providerErr.Error())
+		if providerErr.StatusCode > 0 {
+			if message == "" {
+				message = http.StatusText(providerErr.StatusCode)
+			}
+			return fmt.Errorf("%s API request failed with HTTP %d: %s", provider, providerErr.StatusCode, truncateForError(message))
+		}
+		if message != "" {
+			return fmt.Errorf("%s API request failed: %s", provider, truncateForError(message))
+		}
+	}
+
+	return err
+}
+
+func toFantasyMessageRole(role string) fantasy.MessageRole {
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "assistant":
+		return fantasy.MessageRoleAssistant
+	default:
+		return fantasy.MessageRoleUser
+	}
+}
+
+func optionalRuntimeInt(value int64) *int64 {
+	if value <= 0 {
+		return nil
+	}
+	return fantasy.Opt(value)
+}
+
+func copyOptionalFloat(value *float64) *float64 {
+	if value == nil {
+		return nil
+	}
+	normalized := *value
+	return &normalized
+}
+
+func copyOptionalInt(value *int64) *int64 {
+	if value == nil {
+		return nil
+	}
+	normalized := *value
+	return &normalized
+}
+
+func copyStringMap(values map[string]string) map[string]string {
+	if len(values) == 0 {
+		return nil
+	}
+	copied := make(map[string]string, len(values))
+	for key, value := range values {
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+		if key == "" || value == "" {
+			continue
+		}
+		copied[key] = value
+	}
+	if len(copied) == 0 {
+		return nil
+	}
+	return copied
 }
 
 func joinTextBlocks(blocks []string) string {
@@ -565,16 +702,6 @@ func truncateForError(value string) string {
 		return value
 	}
 	return strings.TrimSpace(value[:maxLen]) + "..."
-}
-
-func asString(value interface{}) string {
-	if value == nil {
-		return ""
-	}
-	if text, ok := value.(string); ok {
-		return text
-	}
-	return fmt.Sprintf("%v", value)
 }
 
 func fallbackString(value string, fallback string) string {

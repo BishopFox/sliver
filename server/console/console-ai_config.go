@@ -62,14 +62,14 @@ func aiConfigCmd(_ *cobra.Command, args []string) {
 		formatAIValue(serverConfig.AI.Provider, ai.ProviderOpenAI),
 		formatAIValue(serverConfig.AI.Model, "provider default"),
 		formatAIValue(serverConfig.AI.ThinkingLevel, "provider default"),
-		apiKeyStatus(aiProviderConfig(serverConfig.AI, serverConfig.AI.Provider)),
+		apiKeyStatus(serverConfig.AI.Provider, aiProviderConfig(serverConfig.AI, serverConfig.AI.Provider)),
 	)
 	fmt.Printf(Info + "Run ai-config again to configure credentials for a different provider.\n")
 }
 
 func currentAIConfigFormResult(serverConfig *configs.ServerConfig) *forms.AIConfigFormResult {
 	if serverConfig == nil {
-		return &forms.AIConfigFormResult{Provider: ai.ProviderOpenAI}
+		return &forms.AIConfigFormResult{Provider: ai.ProviderOpenAI, UseResponsesAPI: true}
 	}
 
 	provider := selectedAIProvider(serverConfig.AI)
@@ -85,6 +85,16 @@ func currentAIConfigFormResult(serverConfig *configs.ServerConfig) *forms.AIConf
 	if providerConfig != nil {
 		result.APIKey = strings.TrimSpace(providerConfig.APIKey)
 		result.BaseURL = strings.TrimSpace(providerConfig.BaseURL)
+		result.UserAgent = strings.TrimSpace(providerConfig.UserAgent)
+		result.Organization = strings.TrimSpace(providerConfig.Organization)
+		result.Project = strings.TrimSpace(providerConfig.Project)
+		result.Location = strings.TrimSpace(providerConfig.Location)
+		result.UseResponsesAPI = provider == ai.ProviderOpenAI
+		if providerConfig.UseResponsesAPI != nil {
+			result.UseResponsesAPI = *providerConfig.UseResponsesAPI
+		}
+		result.SkipAuth = providerConfig.SkipAuth
+		result.UseBedrock = providerConfig.UseBedrock
 	}
 	return result
 }
@@ -108,6 +118,17 @@ func applyAIConfigFormResult(serverConfig *configs.ServerConfig, result *forms.A
 	}
 	providerConfig.APIKey = strings.TrimSpace(result.APIKey)
 	providerConfig.BaseURL = strings.TrimSpace(result.BaseURL)
+	providerConfig.UserAgent = strings.TrimSpace(result.UserAgent)
+	providerConfig.Organization = strings.TrimSpace(result.Organization)
+	providerConfig.Project = strings.TrimSpace(result.Project)
+	providerConfig.Location = strings.TrimSpace(result.Location)
+	providerConfig.UseResponsesAPI = boolPtr(result.UseResponsesAPI)
+	providerConfig.SkipAuth = result.SkipAuth
+	providerConfig.UseBedrock = result.UseBedrock
+}
+
+func boolPtr(value bool) *bool {
+	return &value
 }
 
 func selectedAIProvider(aiConfig *configs.AIConfig) string {
@@ -116,7 +137,7 @@ func selectedAIProvider(aiConfig *configs.AIConfig) string {
 	}
 
 	for _, provider := range ai.SupportedProviders() {
-		if providerConfig := aiProviderConfig(aiConfig, provider); providerConfig != nil && strings.TrimSpace(providerConfig.APIKey) != "" {
+		if providerConfig := aiProviderConfig(aiConfig, provider); providerConfig != nil && aiProviderConfigured(provider, providerConfig) {
 			return provider
 		}
 	}
@@ -135,11 +156,26 @@ func aiProviderConfig(aiConfig *configs.AIConfig, provider string) *configs.AIPr
 			aiConfig.Anthropic = &configs.AIProviderConfig{}
 		}
 		return aiConfig.Anthropic
+	case ai.ProviderGoogle:
+		if aiConfig.Google == nil {
+			aiConfig.Google = &configs.AIProviderConfig{}
+		}
+		return aiConfig.Google
 	case ai.ProviderOpenAI:
 		if aiConfig.OpenAI == nil {
 			aiConfig.OpenAI = &configs.AIProviderConfig{}
 		}
 		return aiConfig.OpenAI
+	case ai.ProviderOpenAICompat:
+		if aiConfig.OpenAICompat == nil {
+			aiConfig.OpenAICompat = &configs.AIProviderConfig{}
+		}
+		return aiConfig.OpenAICompat
+	case ai.ProviderOpenRouter:
+		if aiConfig.OpenRouter == nil {
+			aiConfig.OpenRouter = &configs.AIProviderConfig{}
+		}
+		return aiConfig.OpenRouter
 	default:
 		return nil
 	}
@@ -152,9 +188,36 @@ func formatAIValue(value string, fallback string) string {
 	return strings.TrimSpace(value)
 }
 
-func apiKeyStatus(providerConfig *configs.AIProviderConfig) string {
+func apiKeyStatus(provider string, providerConfig *configs.AIProviderConfig) string {
+	if aiProviderConfigured(provider, providerConfig) {
+		return "configured"
+	}
 	if providerConfig == nil || strings.TrimSpace(providerConfig.APIKey) == "" {
 		return "not set"
 	}
-	return "configured"
+	return "partial"
+}
+
+func aiProviderConfigured(provider string, providerConfig *configs.AIProviderConfig) bool {
+	if providerConfig == nil {
+		return false
+	}
+
+	switch ai.NormalizeProviderName(provider) {
+	case ai.ProviderAnthropic:
+		return strings.TrimSpace(providerConfig.APIKey) != "" ||
+			providerConfig.UseBedrock ||
+			(strings.TrimSpace(providerConfig.Project) != "" && strings.TrimSpace(providerConfig.Location) != "")
+	case ai.ProviderGoogle:
+		return strings.TrimSpace(providerConfig.APIKey) != "" ||
+			(strings.TrimSpace(providerConfig.Project) != "" && strings.TrimSpace(providerConfig.Location) != "")
+	case ai.ProviderOpenAI:
+		return strings.TrimSpace(providerConfig.APIKey) != ""
+	case ai.ProviderOpenAICompat:
+		return strings.TrimSpace(providerConfig.BaseURL) != ""
+	case ai.ProviderOpenRouter:
+		return strings.TrimSpace(providerConfig.APIKey) != ""
+	default:
+		return false
+	}
 }

@@ -35,8 +35,11 @@ func TestSafeConfigSummaryFromConfigUsesExplicitConfiguredProvider(t *testing.T)
 func TestSafeConfigSummaryFromConfigFallsBackToConfiguredProvider(t *testing.T) {
 	cfg := &configs.ServerConfig{
 		AI: &configs.AIConfig{
-			OpenAI:    &configs.AIProviderConfig{},
-			Anthropic: &configs.AIProviderConfig{APIKey: "anthropic-key"},
+			OpenAI:       &configs.AIProviderConfig{},
+			OpenAICompat: &configs.AIProviderConfig{},
+			OpenRouter:   &configs.AIProviderConfig{},
+			Google:       &configs.AIProviderConfig{},
+			Anthropic:    &configs.AIProviderConfig{APIKey: "anthropic-key"},
 		},
 	}
 
@@ -71,22 +74,73 @@ func TestSafeConfigSummaryFromConfigRejectsExplicitProviderWithoutAPIKey(t *test
 	}
 }
 
+func TestSafeConfigSummaryFromConfigAcceptsGoogleVertexConfiguration(t *testing.T) {
+	cfg := &configs.ServerConfig{
+		AI: &configs.AIConfig{
+			Provider: ProviderGoogle,
+			Google: &configs.AIProviderConfig{
+				Project:  "vertex-project",
+				Location: "us-central1",
+			},
+		},
+	}
+
+	summary := SafeConfigSummaryFromConfig(cfg)
+	if !summary.GetValid() {
+		t.Fatalf("expected google vertex config to be valid, got error %q", summary.GetError())
+	}
+	if summary.GetProvider() != ProviderGoogle {
+		t.Fatalf("expected provider %q, got %q", ProviderGoogle, summary.GetProvider())
+	}
+}
+
+func TestSafeConfigSummaryFromConfigAcceptsOpenAICompatBaseURL(t *testing.T) {
+	cfg := &configs.ServerConfig{
+		AI: &configs.AIConfig{
+			Provider: ProviderOpenAICompat,
+			OpenAICompat: &configs.AIProviderConfig{
+				BaseURL: "http://127.0.0.1:11434/v1",
+			},
+		},
+	}
+
+	summary := SafeConfigSummaryFromConfig(cfg)
+	if !summary.GetValid() {
+		t.Fatalf("expected openai-compat config to be valid, got error %q", summary.GetError())
+	}
+	if summary.GetProvider() != ProviderOpenAICompat {
+		t.Fatalf("expected provider %q, got %q", ProviderOpenAICompat, summary.GetProvider())
+	}
+}
+
 func TestConfiguredProvidersFromConfigReportsAvailabilityOnly(t *testing.T) {
 	cfg := &configs.ServerConfig{
 		AI: &configs.AIConfig{
-			OpenAI:    &configs.AIProviderConfig{APIKey: "openai-key"},
-			Anthropic: &configs.AIProviderConfig{},
+			Anthropic:    &configs.AIProviderConfig{},
+			Google:       &configs.AIProviderConfig{Project: "vertex-project", Location: "us-central1"},
+			OpenAI:       &configs.AIProviderConfig{APIKey: "openai-key"},
+			OpenAICompat: &configs.AIProviderConfig{BaseURL: "http://127.0.0.1:8080/v1"},
+			OpenRouter:   &configs.AIProviderConfig{},
 		},
 	}
 
 	providers := ConfiguredProvidersFromConfig(cfg)
-	if len(providers) != 2 {
-		t.Fatalf("expected 2 providers, got %d", len(providers))
+	if len(providers) != len(SupportedProviders()) {
+		t.Fatalf("expected %d providers, got %d", len(SupportedProviders()), len(providers))
 	}
 	if providers[0].GetName() != ProviderAnthropic || providers[0].GetConfigured() {
 		t.Fatalf("expected anthropic to be present and unconfigured, got %+v", providers[0])
 	}
-	if providers[1].GetName() != ProviderOpenAI || !providers[1].GetConfigured() {
-		t.Fatalf("expected openai to be present and configured, got %+v", providers[1])
+	if providers[1].GetName() != ProviderGoogle || !providers[1].GetConfigured() {
+		t.Fatalf("expected google to be present and configured, got %+v", providers[1])
+	}
+	if providers[2].GetName() != ProviderOpenAI || !providers[2].GetConfigured() {
+		t.Fatalf("expected openai to be present and configured, got %+v", providers[2])
+	}
+	if providers[3].GetName() != ProviderOpenAICompat || !providers[3].GetConfigured() {
+		t.Fatalf("expected openai-compat to be present and configured, got %+v", providers[3])
+	}
+	if providers[4].GetName() != ProviderOpenRouter || providers[4].GetConfigured() {
+		t.Fatalf("expected openrouter to be present and unconfigured, got %+v", providers[4])
 	}
 }

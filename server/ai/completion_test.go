@@ -2,7 +2,6 @@ package ai
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -16,7 +15,7 @@ func TestCompleteConversationOpenAIUsesConfiguredCredentialsAndSettings(t *testi
 	type capturedRequest struct {
 		Path          string
 		Authorization string
-		Body          openAIRequest
+		Body          string
 	}
 
 	requests := make(chan capturedRequest, 1)
@@ -24,15 +23,15 @@ func TestCompleteConversationOpenAIUsesConfiguredCredentialsAndSettings(t *testi
 		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 			defer r.Body.Close()
 
-			var body openAIRequest
-			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-				t.Fatalf("decode request: %v", err)
+			payload, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatalf("read request body: %v", err)
 			}
 
 			requests <- capturedRequest{
 				Path:          r.URL.Path,
 				Authorization: r.Header.Get("Authorization"),
-				Body:          body,
+				Body:          string(payload),
 			}
 
 			return jsonResponse(http.StatusOK, `{
@@ -58,8 +57,9 @@ func TestCompleteConversationOpenAIUsesConfiguredCredentialsAndSettings(t *testi
 			Provider:      ProviderOpenAI,
 			ThinkingLevel: "high",
 			OpenAI: &configs.AIProviderConfig{
-				APIKey:  "openai-key",
-				BaseURL: "https://openai.example/proxy/v1",
+				APIKey:          "openai-key",
+				BaseURL:         "https://openai.example/proxy/v1",
+				UseResponsesAPI: boolPtr(true),
 			},
 			Anthropic: &configs.AIProviderConfig{},
 		},
@@ -93,30 +93,23 @@ func TestCompleteConversationOpenAIUsesConfiguredCredentialsAndSettings(t *testi
 	if request.Authorization != "Bearer openai-key" {
 		t.Fatalf("unexpected authorization header: %q", request.Authorization)
 	}
-	if request.Body.Model != defaultOpenAIModel {
-		t.Fatalf("unexpected openai model: got=%q want=%q", request.Body.Model, defaultOpenAIModel)
-	}
-	if request.Body.Reasoning == nil || request.Body.Reasoning.Effort != "high" {
-		t.Fatalf("unexpected reasoning config: %+v", request.Body.Reasoning)
-	}
-	if len(request.Body.Input) != 3 {
-		t.Fatalf("unexpected input message count: got=%d want=%d", len(request.Body.Input), 3)
-	}
-	if request.Body.Input[0].Role != "system" || request.Body.Input[0].Content != "Keep it brief." {
-		t.Fatalf("unexpected system prompt in request: %+v", request.Body.Input[0])
-	}
-	if request.Body.Input[1].Role != "assistant" || request.Body.Input[1].Content != "Earlier answer." {
-		t.Fatalf("unexpected assistant history in request: %+v", request.Body.Input[1])
-	}
-	if request.Body.Input[2].Role != "user" || request.Body.Input[2].Content != "Explain the workflow." {
-		t.Fatalf("unexpected user prompt in request: %+v", request.Body.Input[2])
+	for _, fragment := range []string{
+		`"model":"gpt-5.2"`,
+		`"effort":"high"`,
+		`"Keep it brief."`,
+		`"Earlier answer."`,
+		`"Explain the workflow."`,
+	} {
+		if !strings.Contains(request.Body, fragment) {
+			t.Fatalf("expected openai request body to contain %q, got %s", fragment, request.Body)
+		}
 	}
 
 	if completion.Content != "OpenAI assistant reply" {
 		t.Fatalf("unexpected completion content: %q", completion.Content)
 	}
-	if completion.ProviderMessageID != "resp_123" {
-		t.Fatalf("unexpected provider message id: %q", completion.ProviderMessageID)
+	if completion.ProviderMessageID != "" {
+		t.Fatalf("expected fantasy-backed completion to leave provider message id empty, got %q", completion.ProviderMessageID)
 	}
 }
 
@@ -125,7 +118,7 @@ func TestCompleteConversationAnthropicUsesConfiguredCredentialsAndSettings(t *te
 		Path             string
 		APIKey           string
 		AnthropicVersion string
-		Body             anthropicRequest
+		Body             string
 	}
 
 	requests := make(chan capturedRequest, 1)
@@ -133,16 +126,16 @@ func TestCompleteConversationAnthropicUsesConfiguredCredentialsAndSettings(t *te
 		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 			defer r.Body.Close()
 
-			var body anthropicRequest
-			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-				t.Fatalf("decode request: %v", err)
+			payload, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatalf("read request body: %v", err)
 			}
 
 			requests <- capturedRequest{
 				Path:             r.URL.Path,
 				APIKey:           r.Header.Get("x-api-key"),
 				AnthropicVersion: r.Header.Get("anthropic-version"),
-				Body:             body,
+				Body:             string(payload),
 			}
 
 			return jsonResponse(http.StatusOK, `{
@@ -150,7 +143,7 @@ func TestCompleteConversationAnthropicUsesConfiguredCredentialsAndSettings(t *te
 			"model": "claude-sonnet-4-0",
 			"stop_reason": "end_turn",
 			"content": [
-				{"type": "thinking", "text": "internal reasoning"},
+				{"type": "thinking", "thinking": "internal reasoning"},
 				{"type": "text", "text": "Anthropic assistant reply"}
 			]
 		}`), nil
@@ -199,33 +192,143 @@ func TestCompleteConversationAnthropicUsesConfiguredCredentialsAndSettings(t *te
 	if request.APIKey != "anthropic-key" {
 		t.Fatalf("unexpected anthropic api key header: %q", request.APIKey)
 	}
-	if request.AnthropicVersion != anthropicAPIVersion {
-		t.Fatalf("unexpected anthropic version header: got=%q want=%q", request.AnthropicVersion, anthropicAPIVersion)
+	if request.AnthropicVersion == "" {
+		t.Fatal("expected anthropic version header to be set")
 	}
-	if request.Body.Model != defaultAnthropicModel {
-		t.Fatalf("unexpected anthropic model: got=%q want=%q", request.Body.Model, defaultAnthropicModel)
-	}
-	if request.Body.System != "Use short answers." {
-		t.Fatalf("unexpected anthropic system prompt: %q", request.Body.System)
-	}
-	if request.Body.Thinking == nil || request.Body.Thinking.BudgetTokens != anthropicThinkingBudget("medium") {
-		t.Fatalf("unexpected anthropic thinking config: %+v", request.Body.Thinking)
-	}
-	if len(request.Body.Messages) != 3 {
-		t.Fatalf("unexpected anthropic message count: got=%d want=%d", len(request.Body.Messages), 3)
-	}
-	if request.Body.Messages[1].Role != "assistant" || request.Body.Messages[1].Content != "Hi there" {
-		t.Fatalf("unexpected anthropic assistant history: %+v", request.Body.Messages[1])
+	for _, fragment := range []string{
+		`"model":"claude-sonnet-4-0"`,
+		`"Use short answers."`,
+		`"budget_tokens":2048`,
+		`"Hello"`,
+		`"Hi there"`,
+		`"What changed?"`,
+	} {
+		if !strings.Contains(request.Body, fragment) {
+			t.Fatalf("expected anthropic request body to contain %q, got %s", fragment, request.Body)
+		}
 	}
 
 	if completion.Content != "Anthropic assistant reply" {
 		t.Fatalf("unexpected completion content: %q", completion.Content)
 	}
-	if completion.ProviderMessageID != "msg_123" {
-		t.Fatalf("unexpected provider message id: %q", completion.ProviderMessageID)
-	}
-	if completion.FinishReason != "end_turn" {
+	if completion.FinishReason != "stop" {
 		t.Fatalf("unexpected finish reason: %q", completion.FinishReason)
+	}
+}
+
+func TestResolveRuntimeConfigOpenAICompatAllowsBaseURLWithoutAPIKey(t *testing.T) {
+	cfg := &configs.ServerConfig{
+		AI: &configs.AIConfig{
+			Provider: ProviderOpenAICompat,
+			Model:    "gpt-oss-120b",
+			OpenAICompat: &configs.AIProviderConfig{
+				BaseURL: "http://127.0.0.1:8080/v1",
+			},
+		},
+	}
+
+	runtime, err := ResolveRuntimeConfig(cfg, &clientpb.AIConversation{
+		Provider: ProviderOpenAICompat,
+	})
+	if err != nil {
+		t.Fatalf("resolve runtime config: %v", err)
+	}
+	if runtime.Provider != ProviderOpenAICompat {
+		t.Fatalf("expected provider %q, got %q", ProviderOpenAICompat, runtime.Provider)
+	}
+	if runtime.BaseURL != "http://127.0.0.1:8080/v1" {
+		t.Fatalf("expected openai-compat base url, got %q", runtime.BaseURL)
+	}
+	if runtime.APIKey != "" {
+		t.Fatalf("expected openai-compat api key to remain empty, got %q", runtime.APIKey)
+	}
+}
+
+func TestCompleteConversationOpenAICompatUsesBaseURLWithoutAuth(t *testing.T) {
+	type capturedRequest struct {
+		Path          string
+		Authorization string
+		Body          string
+	}
+
+	requests := make(chan capturedRequest, 1)
+	restoreClient := SetHTTPClientForTests(&http.Client{
+		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			defer r.Body.Close()
+
+			payload, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatalf("read request body: %v", err)
+			}
+
+			requests <- capturedRequest{
+				Path:          r.URL.Path,
+				Authorization: r.Header.Get("Authorization"),
+				Body:          string(payload),
+			}
+
+			return jsonResponse(http.StatusOK, `{
+			"id": "chatcmpl_123",
+			"object": "chat.completion",
+			"model": "gpt-oss-120b",
+			"choices": [
+				{
+					"index": 0,
+					"finish_reason": "stop",
+					"message": {
+						"role": "assistant",
+						"content": "OpenAI-compatible assistant reply"
+					}
+				}
+			],
+			"usage": {
+				"prompt_tokens": 10,
+				"completion_tokens": 5,
+				"total_tokens": 15
+			}
+		}`), nil
+		}),
+	})
+	defer restoreClient()
+
+	cfg := &configs.ServerConfig{
+		AI: &configs.AIConfig{
+			Provider: ProviderOpenAICompat,
+			Model:    "gpt-oss-120b",
+			OpenAICompat: &configs.AIProviderConfig{
+				BaseURL: "http://127.0.0.1:8080/v1",
+			},
+		},
+	}
+	conversation := &clientpb.AIConversation{
+		Provider: ProviderOpenAICompat,
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "user", Content: "Say hi."},
+		},
+	}
+
+	runtime, err := ResolveRuntimeConfig(cfg, conversation)
+	if err != nil {
+		t.Fatalf("resolve runtime config: %v", err)
+	}
+
+	completion, err := CompleteConversation(context.Background(), runtime, conversation)
+	if err != nil {
+		t.Fatalf("complete conversation: %v", err)
+	}
+
+	request := <-requests
+	if request.Path != "/v1/chat/completions" {
+		t.Fatalf("unexpected openai-compatible request path: got=%q want=%q", request.Path, "/v1/chat/completions")
+	}
+	if request.Authorization != "" {
+		t.Fatalf("expected no authorization header for unauthenticated openai-compatible endpoint, got %q", request.Authorization)
+	}
+	if !strings.Contains(request.Body, `"Say hi."`) {
+		t.Fatalf("expected openai-compatible request body to contain the user prompt, got %s", request.Body)
+	}
+	if completion.Content != "OpenAI-compatible assistant reply" {
+		t.Fatalf("unexpected completion content: %q", completion.Content)
 	}
 }
 
@@ -241,4 +344,8 @@ func jsonResponse(statusCode int, body string) *http.Response {
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
 		Body:       io.NopCloser(strings.NewReader(body)),
 	}
+}
+
+func boolPtr(value bool) *bool {
+	return &value
 }

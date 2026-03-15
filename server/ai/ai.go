@@ -28,8 +28,11 @@ import (
 )
 
 const (
-	ProviderAnthropic = "anthropic"
-	ProviderOpenAI    = "openai"
+	ProviderAnthropic    = "anthropic"
+	ProviderGoogle       = "google"
+	ProviderOpenAI       = "openai"
+	ProviderOpenAICompat = "openai-compat"
+	ProviderOpenRouter   = "openrouter"
 )
 
 var (
@@ -40,23 +43,37 @@ var (
 // Provider - Provider metadata derived from server configuration.
 type Provider struct {
 	Name   string
-	APIKey string
+	Config *configs.AIProviderConfig
 }
 
 // SupportedProviders - Returns the currently supported server-side AI providers.
 func SupportedProviders() []string {
-	return []string{ProviderAnthropic, ProviderOpenAI}
+	return []string{
+		ProviderAnthropic,
+		ProviderGoogle,
+		ProviderOpenAI,
+		ProviderOpenAICompat,
+		ProviderOpenRouter,
+	}
 }
 
 // NormalizeProviderName - Convert user supplied provider names to canonical identifiers.
 func NormalizeProviderName(name string) string {
-	return strings.ToLower(strings.TrimSpace(name))
+	normalized := strings.ToLower(strings.TrimSpace(name))
+	switch normalized {
+	case "gemini":
+		return ProviderGoogle
+	case "openai_compat", "openaicompat", "openai-compatible":
+		return ProviderOpenAICompat
+	default:
+		return normalized
+	}
 }
 
 // IsSupportedProvider - Indicates whether the provider is supported by the server scaffolding.
 func IsSupportedProvider(name string) bool {
 	switch NormalizeProviderName(name) {
-	case ProviderAnthropic, ProviderOpenAI:
+	case ProviderAnthropic, ProviderGoogle, ProviderOpenAI, ProviderOpenAICompat, ProviderOpenRouter:
 		return true
 	default:
 		return false
@@ -72,15 +89,15 @@ func ProviderFromConfig(name string) (*Provider, error) {
 
 	switch NormalizeProviderName(name) {
 	case ProviderAnthropic:
-		if cfg.AI.Anthropic == nil {
-			return &Provider{Name: ProviderAnthropic}, nil
-		}
-		return &Provider{Name: ProviderAnthropic, APIKey: cfg.AI.Anthropic.APIKey}, nil
+		return &Provider{Name: ProviderAnthropic, Config: cfg.AI.Anthropic}, nil
+	case ProviderGoogle:
+		return &Provider{Name: ProviderGoogle, Config: cfg.AI.Google}, nil
 	case ProviderOpenAI:
-		if cfg.AI.OpenAI == nil {
-			return &Provider{Name: ProviderOpenAI}, nil
-		}
-		return &Provider{Name: ProviderOpenAI, APIKey: cfg.AI.OpenAI.APIKey}, nil
+		return &Provider{Name: ProviderOpenAI, Config: cfg.AI.OpenAI}, nil
+	case ProviderOpenAICompat:
+		return &Provider{Name: ProviderOpenAICompat, Config: cfg.AI.OpenAICompat}, nil
+	case ProviderOpenRouter:
+		return &Provider{Name: ProviderOpenRouter, Config: cfg.AI.OpenRouter}, nil
 	default:
 		return nil, ErrUnsupportedProvider
 	}
@@ -98,7 +115,7 @@ func ConfiguredProvidersFromConfig(cfg *configs.ServerConfig) []*clientpb.AIProv
 		providerConfig := aiProviderConfig(cfg, name)
 		providers = append(providers, &clientpb.AIProviderConfig{
 			Name:       name,
-			Configured: providerConfig != nil && strings.TrimSpace(providerConfig.APIKey) != "",
+			Configured: isProviderConfigured(name, providerConfig),
 		})
 	}
 	return providers
@@ -125,8 +142,8 @@ func SafeConfigSummaryFromConfig(cfg *configs.ServerConfig) *clientpb.AIConfigSu
 		summary.Error = "server AI is not configured; run `ai-config` on the server"
 	case provider == "":
 		summary.Error = "server AI is missing a configured provider; run `ai-config` on the server"
-	case providerConfig == nil || strings.TrimSpace(providerConfig.APIKey) == "":
-		summary.Error = fmt.Sprintf("server AI provider %q is missing an API key; run `ai-config` on the server", provider)
+	case !isProviderConfigured(provider, providerConfig):
+		summary.Error = missingProviderConfigError(provider)
 	default:
 		summary.Valid = true
 	}
@@ -146,7 +163,7 @@ func selectedProviderConfig(cfg *configs.ServerConfig) (string, *configs.AIProvi
 
 	for _, provider := range SupportedProviders() {
 		providerConfig := aiProviderConfig(cfg, provider)
-		if providerConfig != nil && strings.TrimSpace(providerConfig.APIKey) != "" {
+		if isProviderConfigured(provider, providerConfig) {
 			return provider, providerConfig
 		}
 	}
@@ -162,9 +179,56 @@ func aiProviderConfig(cfg *configs.ServerConfig, provider string) *configs.AIPro
 	switch NormalizeProviderName(provider) {
 	case ProviderAnthropic:
 		return cfg.AI.Anthropic
+	case ProviderGoogle:
+		return cfg.AI.Google
 	case ProviderOpenAI:
 		return cfg.AI.OpenAI
+	case ProviderOpenAICompat:
+		return cfg.AI.OpenAICompat
+	case ProviderOpenRouter:
+		return cfg.AI.OpenRouter
 	default:
 		return nil
+	}
+}
+
+func isProviderConfigured(provider string, providerConfig *configs.AIProviderConfig) bool {
+	if providerConfig == nil {
+		return false
+	}
+
+	switch NormalizeProviderName(provider) {
+	case ProviderAnthropic:
+		return strings.TrimSpace(providerConfig.APIKey) != "" ||
+			providerConfig.UseBedrock ||
+			(strings.TrimSpace(providerConfig.Project) != "" && strings.TrimSpace(providerConfig.Location) != "")
+	case ProviderGoogle:
+		return strings.TrimSpace(providerConfig.APIKey) != "" ||
+			(strings.TrimSpace(providerConfig.Project) != "" && strings.TrimSpace(providerConfig.Location) != "")
+	case ProviderOpenAI:
+		return strings.TrimSpace(providerConfig.APIKey) != ""
+	case ProviderOpenAICompat:
+		return strings.TrimSpace(providerConfig.BaseURL) != ""
+	case ProviderOpenRouter:
+		return strings.TrimSpace(providerConfig.APIKey) != ""
+	default:
+		return false
+	}
+}
+
+func missingProviderConfigError(provider string) string {
+	switch NormalizeProviderName(provider) {
+	case ProviderAnthropic:
+		return "server AI provider \"anthropic\" needs an API key, Bedrock mode, or a Vertex project/location; run `ai-config` on the server"
+	case ProviderGoogle:
+		return "server AI provider \"google\" needs a Gemini API key or a Vertex project/location; run `ai-config` on the server"
+	case ProviderOpenAI:
+		return "server AI provider \"openai\" is missing an API key; run `ai-config` on the server"
+	case ProviderOpenAICompat:
+		return "server AI provider \"openai-compat\" is missing a base URL; run `ai-config` on the server"
+	case ProviderOpenRouter:
+		return "server AI provider \"openrouter\" is missing an API key; run `ai-config` on the server"
+	default:
+		return fmt.Sprintf("server AI provider %q is not fully configured; run `ai-config` on the server", provider)
 	}
 }

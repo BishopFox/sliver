@@ -414,8 +414,8 @@ func AppendUnquote[Bytes ~[]byte | ~string](dst []byte, src Bytes) ([]byte, erro
 // The name of a duplicate JSON object member can be extracted as:
 //
 //	err := ...
-//	var serr jsontext.SyntacticError
-//	if errors.As(err, &serr) && serr.Err == jsontext.ErrDuplicateName {
+//	serr, ok := errors.AsType[*jsontext.SyntacticError](err)
+//	if ok && serr.Err == jsontext.ErrDuplicateName {
 //		ptr := serr.JSONPointer // JSON pointer to duplicate name
 //		name := ptr.LastToken() // duplicate name itself
 //		...
@@ -496,23 +496,25 @@ func Uint(n uint64) Token {
 	return jsontext.Uint(n)
 }
 
+// A Kind represents the kind of a JSON token.
+//
 // Kind represents each possible JSON token kind with a single byte,
 // which is conveniently the first byte of that kind's grammar
-// with the restriction that numbers always be represented with '0':
-//
-//   - 'n': null
-//   - 'f': false
-//   - 't': true
-//   - '"': string
-//   - '0': number
-//   - '{': object begin
-//   - '}': object end
-//   - '[': array begin
-//   - ']': array end
-//
-// An invalid kind is usually represented using 0,
-// but may be non-zero due to invalid JSON data.
+// with the restriction that numbers always be represented with '0'.
 type Kind = jsontext.Kind
+
+const (
+	KindInvalid     = jsontext.KindInvalid
+	KindNull        = jsontext.KindNull
+	KindFalse       = jsontext.KindFalse
+	KindTrue        = jsontext.KindTrue
+	KindString      = jsontext.KindString
+	KindNumber      = jsontext.KindNumber
+	KindBeginObject = jsontext.KindBeginObject
+	KindEndObject   = jsontext.KindEndObject
+	KindBeginArray  = jsontext.KindBeginArray
+	KindEndArray    = jsontext.KindEndArray
+)
 
 // AppendFormat formats the JSON value in src and appends it to dst
 // according to the specified options.

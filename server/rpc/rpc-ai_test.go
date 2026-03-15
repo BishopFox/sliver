@@ -192,8 +192,9 @@ func saveOpenAICompletionConfig(t *testing.T, model string, thinkingLevel string
 		Model:         model,
 		ThinkingLevel: thinkingLevel,
 		OpenAI: &configs.AIProviderConfig{
-			APIKey:  apiKey,
-			BaseURL: baseURL,
+			APIKey:          apiKey,
+			BaseURL:         baseURL,
+			UseResponsesAPI: boolPtr(true),
 		},
 		Anthropic: &configs.AIProviderConfig{},
 	}
@@ -279,4 +280,8 @@ func jsonResponse(statusCode int, body string) *http.Response {
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
 		Body:       io.NopCloser(strings.NewReader(body)),
 	}
+}
+
+func boolPtr(value bool) *bool {
+	return &value
 }

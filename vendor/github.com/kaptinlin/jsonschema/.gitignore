@@ -1,0 +1,54 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Log files
+*.log
+
+# Output of the go coverage tool
+*.out
+
+# Dependency directories
+# vendor/
+
+# Go workspace file
+go.work
+go.work.sum
+
+# IntelliJ files
+.idea/
+
+# Coverage files
+cover.out
+cover.html
+
+# Local binary folder
+bin/
+
+# Local build folder
+build/
+
+# Mac OS files
+**/.DS_Store
+
+# .ralphy
+.ralphy/deferred.json
+.ralphy/*.txt
+
+# todo files
+.todo
+TODO.md
+
+# Project-specific
+.gocache
+.gomodcache
+.vscode/
+/schemagen
+cmd/schemagen/jshcemagen
+debug/
