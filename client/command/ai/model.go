@@ -1235,7 +1235,7 @@ func (m *aiModel) renderPendingPromptLines(width int) []string {
 		OperatorName: m.ctx.connection.Operator,
 		Role:         "user",
 	})
-	return renderTranscriptFenceBlock(width, label, "user", []string{"pending"}, wrapText(prompt, maxInt(1, width-4)))
+	return renderTranscriptBoxBlock(width, label, "user", []string{"pending"}, wrapText(prompt, maxInt(1, width-4)))
 }
 
 func (m *aiModel) renderAwaitingResponseLines(width int) []string {
@@ -1243,7 +1243,7 @@ func (m *aiModel) renderAwaitingResponseLines(width int) []string {
 		return nil
 	}
 
-	return renderTranscriptFenceBlock(width, "AI", "assistant", []string{strings.ToLower(m.pendingLabel())}, []string{m.thinkingAnim.Render()})
+	return renderTranscriptBoxBlock(width, "AI", "assistant", []string{strings.ToLower(m.pendingLabel())}, []string{m.thinkingAnim.Render()})
 }
 
 func (m *aiModel) renderFooter() string {
@@ -1308,12 +1308,14 @@ func (m *aiModel) renderDeleteConfirmActions(width int) string {
 }
 
 func (m *aiModel) renderPane(width, height int, focus aiFocus, lines []string) string {
-	body := strings.Join(headLines(lines, innerPaneHeight(height)), "\n")
+	innerWidth := innerPaneWidth(width)
+	innerHeight := innerPaneHeight(height)
+	body := clampANSIBlock(strings.Join(lines, "\n"), innerWidth, innerHeight)
 	style := m.styles.pane
 	if m.focus == focus {
 		style = m.styles.paneFocused
 	}
-	return style.Width(width).Height(height).Render(body)
+	return style.Width(width).MaxWidth(width).Height(height).MaxHeight(height).Render(body)
 }
 
 func (m *aiModel) renderInputLine(width int) string {
@@ -2697,9 +2699,9 @@ func promptConversationTitle(prompt string) string {
 }
 
 type transcriptSpeakerStyles struct {
-	fence lipgloss.Style
-	label lipgloss.Style
-	meta  lipgloss.Style
+	border lipgloss.Style
+	label  lipgloss.Style
+	meta   lipgloss.Style
 }
 
 func renderConversationTranscriptLines(width int, conversation *clientpb.AIConversation) []string {
@@ -2708,7 +2710,7 @@ func renderConversationTranscriptLines(width int, conversation *clientpb.AIConve
 	}
 
 	if conversation == nil {
-		return renderTranscriptFenceBlock(width, "Conversation", "system", nil, wrapText("Create a new conversation or submit a prompt to start one.", maxInt(1, width-4)))
+		return renderTranscriptSectionBlock(width, "Conversation", "system", nil, wrapText("Create a new conversation or submit a prompt to start one.", maxInt(1, width)))
 	}
 
 	lines := []string{}
@@ -2723,10 +2725,10 @@ func renderConversationTranscriptLines(width int, conversation *clientpb.AIConve
 	}
 
 	if summary := strings.TrimSpace(conversation.GetSummary()); summary != "" {
-		appendBlock(renderTranscriptFenceBlock(width, "Summary", "system", nil, wrapText(summary, maxInt(1, width-4))))
+		appendBlock(renderTranscriptSectionBlock(width, "Summary", "system", nil, wrapText(summary, maxInt(1, width))))
 	}
 	if systemPrompt := strings.TrimSpace(conversation.GetSystemPrompt()); systemPrompt != "" {
-		appendBlock(renderTranscriptFenceBlock(width, "System Prompt", "system", nil, wrapText(systemPrompt, maxInt(1, width-4))))
+		appendBlock(renderTranscriptSectionBlock(width, "System Prompt", "system", nil, wrapText(systemPrompt, maxInt(1, width))))
 	}
 
 	messageCount := 0
@@ -2745,7 +2747,7 @@ func renderConversationTranscriptLines(width int, conversation *clientpb.AIConve
 		if model := strings.TrimSpace(message.GetModel()); model != "" {
 			meta = append(meta, model)
 		}
-		appendBlock(renderTranscriptFenceBlock(
+		appendBlock(renderTranscriptBoxBlock(
 			width,
 			messageBlockLabel(conversation, message),
 			strings.ToLower(strings.TrimSpace(message.GetRole())),
@@ -2755,7 +2757,7 @@ func renderConversationTranscriptLines(width int, conversation *clientpb.AIConve
 	}
 
 	if messageCount == 0 {
-		appendBlock(renderTranscriptFenceBlock(width, "Conversation", "system", nil, wrapText("No messages yet. Type a prompt below to start this thread.", maxInt(1, width-4))))
+		appendBlock(renderTranscriptSectionBlock(width, "Conversation", "system", nil, wrapText("No messages yet. Type a prompt below to start this thread.", maxInt(1, width))))
 	}
 
 	return lines
@@ -2779,13 +2781,12 @@ func renderTranscriptMessageBodyLines(width int, content string) []string {
 	return trimRenderedLines(strings.Split(rendered, "\n"))
 }
 
-func renderTranscriptFenceBlock(width int, label, role string, meta []string, contentLines []string) []string {
+func renderTranscriptBoxBlock(width int, label, role string, meta []string, contentLines []string) []string {
 	if width <= 0 {
 		return nil
 	}
 
 	styles := transcriptSpeakerStyle(label, role)
-	fenceWidth := maxInt(1, width)
 	label = fallback(label, "Message")
 	if len(contentLines) == 0 {
 		contentLines = []string{""}
@@ -2796,23 +2797,42 @@ func renderTranscriptFenceBlock(width int, label, role string, meta []string, co
 		pieces = append(pieces, styles.meta.Render(metaText))
 	}
 
-	openFence := "```"
-	if header := fitStyledPieces(maxInt(1, fenceWidth-len(openFence)-1), pieces); header != "" {
-		openFence += " " + header
+	header := fitStyledPieces(maxInt(1, width-3), pieces)
+	lines := []string{renderTranscriptBoxTopLine(width, styles.border, header)}
+	for _, line := range contentLines {
+		lines = append(lines, renderTranscriptBoxContentLine(width, styles.border, line))
+	}
+	lines = append(lines, renderTranscriptBoxBottomLine(width, styles.border))
+	return lines
+}
+
+func renderTranscriptSectionBlock(width int, label, role string, meta []string, contentLines []string) []string {
+	if width <= 0 {
+		return nil
 	}
 
-	lines := []string{styles.fence.Width(fenceWidth).Render(ansi.Cut(openFence, 0, fenceWidth))}
-	for _, line := range contentLines {
-		lines = append(lines, padANSIRight(line, fenceWidth))
+	styles := transcriptSpeakerStyle(label, role)
+	label = fallback(label, "Message")
+	if len(contentLines) == 0 {
+		contentLines = []string{""}
 	}
-	lines = append(lines, styles.fence.Width(fenceWidth).Render("```"))
+
+	pieces := []string{styles.label.Render(label)}
+	if metaText := strings.Join(meta, " | "); strings.TrimSpace(metaText) != "" {
+		pieces = append(pieces, styles.meta.Render(metaText))
+	}
+
+	lines := []string{padANSIRight(fitStyledPieces(width, pieces), width)}
+	for _, line := range contentLines {
+		lines = append(lines, padANSIRight(line, width))
+	}
 	return lines
 }
 
 func transcriptSpeakerStyle(label, role string) transcriptSpeakerStyles {
 	accent := transcriptSpeakerPalette()[transcriptSpeakerPaletteIndex(label, role)]
 	return transcriptSpeakerStyles{
-		fence: lipgloss.NewStyle().Foreground(accent),
+		border: lipgloss.NewStyle().Foreground(accent),
 		label: lipgloss.NewStyle().
 			Bold(true).
 			Foreground(clienttheme.DefaultMod(900)).
@@ -2820,6 +2840,46 @@ func transcriptSpeakerStyle(label, role string) transcriptSpeakerStyles {
 			Padding(0, 1),
 		meta: lipgloss.NewStyle().Foreground(accent),
 	}
+}
+
+func renderTranscriptBoxTopLine(width int, border lipgloss.Style, header string) string {
+	if width <= 0 {
+		return ""
+	}
+	if width == 1 {
+		return border.Render("╭")
+	}
+	if width == 2 {
+		return border.Render("╭─")
+	}
+
+	line := border.Render("╭─")
+	if strings.TrimSpace(ansi.Strip(header)) != "" {
+		line += " " + header
+	}
+	return padANSIRight(line, width)
+}
+
+func renderTranscriptBoxBottomLine(width int, border lipgloss.Style) string {
+	if width <= 0 {
+		return ""
+	}
+	if width == 1 {
+		return border.Render("╰")
+	}
+	return padANSIRight(border.Render("╰─"), width)
+}
+
+func renderTranscriptBoxContentLine(width int, border lipgloss.Style, content string) string {
+	if width <= 0 {
+		return ""
+	}
+	if width == 1 {
+		return border.Render("│")
+	}
+
+	contentWidth := width - 2
+	return border.Render("│ ") + padANSIRight(content, contentWidth)
 }
 
 func transcriptSpeakerPalette() []color.Color {

@@ -93,7 +93,7 @@ func TestRenderTranscriptMarkdownLinesRendersAssistantMarkdown(t *testing.T) {
 	}
 }
 
-func TestRenderConversationTranscriptLinesWrapsMessagesInFences(t *testing.T) {
+func TestRenderConversationTranscriptLinesWrapsMessagesInBoxes(t *testing.T) {
 	conversation := &clientpb.AIConversation{
 		OperatorName: "alice",
 		Messages: []*clientpb.AIConversationMessage{
@@ -108,14 +108,66 @@ func TestRenderConversationTranscriptLinesWrapsMessagesInFences(t *testing.T) {
 	expected := []string{"alice", "bob", "AI", "hello", "second voice", "Reply"}
 	for _, fragment := range expected {
 		if !strings.Contains(rendered, fragment) {
-			t.Fatalf("expected fenced transcript to contain %q, got %q", fragment, rendered)
+			t.Fatalf("expected boxed transcript to contain %q, got %q", fragment, rendered)
 		}
 	}
-	if !strings.Contains(rendered, "```") {
-		t.Fatalf("expected fenced transcript framing, got %q", rendered)
+	for _, fragment := range []string{"╭", "╰"} {
+		if !strings.Contains(rendered, fragment) {
+			t.Fatalf("expected boxed transcript framing %q, got %q", fragment, rendered)
+		}
+	}
+	if strings.Contains(rendered, "╮") || strings.Contains(rendered, "╯") {
+		t.Fatalf("expected message framing to stay open on the right, got %q", rendered)
+	}
+	for _, needle := range []string{"hello", "second voice"} {
+		var found bool
+		for _, line := range strings.Split(rendered, "\n") {
+			if strings.Contains(line, needle) {
+				found = true
+				if !strings.HasPrefix(line, "│") {
+					t.Fatalf("expected %q line to stay inside the box, got %q", needle, line)
+				}
+			}
+		}
+		if !found {
+			t.Fatalf("expected to find content line for %q, got %q", needle, rendered)
+		}
 	}
 	if !strings.Contains(renderedRaw, "\x1b[") {
-		t.Fatalf("expected fenced transcript to include ANSI styling, got %q", renderedRaw)
+		t.Fatalf("expected boxed transcript to include ANSI styling, got %q", renderedRaw)
+	}
+}
+
+func TestRenderConversationTranscriptLinesOnlyBoxesMessages(t *testing.T) {
+	conversation := &clientpb.AIConversation{
+		Summary:      "Operator context",
+		SystemPrompt: "Stay concise.",
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "assistant", Content: "hello"},
+		},
+	}
+
+	lines := renderConversationTranscriptLines(64, conversation)
+	rendered := ansi.Strip(strings.Join(lines, "\n"))
+
+	for _, fragment := range []string{"Summary", "Operator context", "System Prompt", "Stay concise.", "AI", "hello"} {
+		if !strings.Contains(rendered, fragment) {
+			t.Fatalf("expected transcript to contain %q, got %q", fragment, rendered)
+		}
+	}
+
+	var summaryLine string
+	for _, line := range strings.Split(rendered, "\n") {
+		if strings.Contains(line, "Summary") {
+			summaryLine = line
+			break
+		}
+	}
+	if summaryLine == "" {
+		t.Fatalf("expected summary header line, got %q", rendered)
+	}
+	if strings.HasPrefix(summaryLine, "╭") || strings.HasPrefix(summaryLine, "│") || strings.HasPrefix(summaryLine, "╰") {
+		t.Fatalf("expected summary to remain unboxed, got %q", summaryLine)
 	}
 }
 
@@ -463,6 +515,75 @@ func TestRenderComposerOmitsInlineControls(t *testing.T) {
 	rendered := ansi.Strip(model.renderComposer(5))
 	if strings.Contains(rendered, "ctrl+u clear") || strings.Contains(rendered, "q quit") {
 		t.Fatalf("expected composer pane to omit inline control hints, got %q", rendered)
+	}
+}
+
+func TestRenderPaneClampsEmbeddedContentToViewport(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.focus = aiFocusTranscript
+
+	rendered := model.renderPane(24, 6, aiFocusTranscript, []string{
+		"Conversation",
+		"line one\nline two\nline three\nline four",
+		strings.Repeat("x", 48),
+	})
+
+	if got := lipgloss.Width(rendered); got != 24 {
+		t.Fatalf("expected pane width 24, got %d", got)
+	}
+	if got := lipgloss.Height(rendered); got != 6 {
+		t.Fatalf("expected pane height 6, got %d", got)
+	}
+
+	for _, line := range strings.Split(rendered, "\n") {
+		if got := ansi.StringWidth(line); got > 24 {
+			t.Fatalf("expected pane line width <= 24, got %d for %q", got, ansi.Strip(line))
+		}
+	}
+}
+
+func TestViewKeepsComposerVisibleWhenTranscriptLinesEmbedNewlines(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.loading = false
+	model.width = 120
+	model.height = 24
+	model.status = "Ready"
+	model.conversations = []*clientpb.AIConversation{
+		{ID: "conv-1", Title: "Thread", Provider: "openai", Model: "gpt-5.4"},
+	}
+	model.currentConversation = &clientpb.AIConversation{
+		ID:        "conv-1",
+		Title:     "Thread",
+		Provider:  "openai",
+		Model:     "gpt-5.4",
+		UpdatedAt: time.Now().Unix(),
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "assistant", Content: "hello"},
+		},
+	}
+
+	width := model.currentTranscriptWidth()
+	model.transcriptCacheKey = model.transcriptRenderKey(width)
+	model.transcriptCacheLines = []string{
+		"╭─ box ─╮",
+		"│ alpha │\n│ beta  │\n│ gamma │\n│ delta │\n│ eps   │",
+		"╰───────╯",
+	}
+
+	view := model.View()
+	rendered := ansi.Strip(view.Content)
+
+	if !strings.Contains(rendered, "Composer") {
+		t.Fatalf("expected composer pane to remain visible, got %q", rendered)
+	}
+	if !strings.Contains(rendered, "YOU") {
+		t.Fatalf("expected composer input line to remain visible, got %q", rendered)
+	}
+	if !strings.Contains(rendered, "focus: sidebar") {
+		t.Fatalf("expected footer to remain visible, got %q", rendered)
+	}
+	if got := lipgloss.Height(view.Content); got > model.height {
+		t.Fatalf("expected view height <= %d, got %d", model.height, got)
 	}
 }
 
@@ -1079,8 +1200,8 @@ func TestRenderTranscriptContentLinesIncludesPendingAssistantBlock(t *testing.T)
 	if !strings.Contains(rendered, "AI") {
 		t.Fatalf("expected pending assistant block label in transcript, got %q", rendered)
 	}
-	if !strings.Contains(rendered, "```") {
-		t.Fatalf("expected pending assistant block to use fence framing, got %q", rendered)
+	if !strings.Contains(rendered, "╭") || !strings.Contains(rendered, "│") || !strings.Contains(rendered, "╰") {
+		t.Fatalf("expected pending assistant block to use box framing, got %q", rendered)
 	}
 	if !strings.Contains(rendered, ".") {
 		t.Fatalf("expected pending assistant animation content in transcript, got %q", rendered)
@@ -1102,11 +1223,23 @@ func TestRenderTranscriptContentLinesIncludesPendingUserPrompt(t *testing.T) {
 	if !strings.Contains(rendered, "alice") {
 		t.Fatalf("expected pending prompt to render the operator label, got %q", rendered)
 	}
-	if !strings.Contains(rendered, "```") {
-		t.Fatalf("expected pending prompt to use fence framing, got %q", rendered)
+	if !strings.Contains(rendered, "╭") || !strings.Contains(rendered, "╰") {
+		t.Fatalf("expected pending prompt to use box framing, got %q", rendered)
 	}
 	if !strings.Contains(rendered, "still saving") {
 		t.Fatalf("expected pending prompt content in transcript, got %q", rendered)
+	}
+	var wrapped bool
+	for _, line := range strings.Split(rendered, "\n") {
+		if strings.Contains(line, "still saving") {
+			wrapped = true
+			if !strings.HasPrefix(line, "│") {
+				t.Fatalf("expected pending prompt content to stay inside the box, got %q", line)
+			}
+		}
+	}
+	if !wrapped {
+		t.Fatalf("expected pending prompt line in transcript, got %q", rendered)
 	}
 	if !strings.Contains(rendered, "AI") {
 		t.Fatalf("expected pending assistant placeholder to stay visible, got %q", rendered)
