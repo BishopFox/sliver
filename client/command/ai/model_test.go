@@ -9,6 +9,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/bishopfox/sliver/client/console"
 	aithinking "github.com/bishopfox/sliver/client/spin/thinking"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -78,6 +79,189 @@ func TestRenderTranscriptMarkdownLinesRendersAssistantMarkdown(t *testing.T) {
 	}
 	if !strings.Contains(rendered, "• first item") {
 		t.Fatalf("expected assistant markdown list to be rendered with glow styling, got %q", rendered)
+	}
+}
+
+func TestWindowResizeQueuesTranscriptRenderAsync(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 100
+	model.height = 30
+	model.currentConversation = &clientpb.AIConversation{
+		ID: "conv-1",
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "assistant", Content: "## Reply\n\n- first item"},
+		},
+	}
+	model.invalidateTranscriptCache()
+
+	updated, cmd := model.Update(tea.WindowSizeMsg{Width: 120, Height: 36})
+	if cmd == nil {
+		t.Fatal("expected resize to queue transcript rendering")
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.transcriptPendingKey == "" {
+		t.Fatal("expected resize to mark a transcript render as pending")
+	}
+
+	placeholder := ansi.Strip(strings.Join(updatedModel.transcriptDisplayLines(updatedModel.currentTranscriptWidth()), "\n"))
+	if !strings.Contains(placeholder, "Rendering transcript") {
+		t.Fatalf("expected resize to show a placeholder while rendering, got %q", placeholder)
+	}
+
+	msg := cmd()
+	renderedMsg, ok := msg.(aiTranscriptRenderedMsg)
+	if !ok {
+		t.Fatalf("expected transcript render message, got %T", msg)
+	}
+	if !strings.Contains(ansi.Strip(strings.Join(renderedMsg.lines, "\n")), "• first item") {
+		t.Fatalf("expected rendered resize transcript to include markdown formatting, got %#v", renderedMsg.lines)
+	}
+
+	updated, _ = updatedModel.Update(renderedMsg)
+	updatedModel = updated.(*aiModel)
+	if updatedModel.transcriptPendingKey != "" {
+		t.Fatal("expected transcript render to clear the pending state")
+	}
+
+	rendered := ansi.Strip(strings.Join(updatedModel.transcriptDisplayLines(updatedModel.currentTranscriptWidth()), "\n"))
+	if !strings.Contains(rendered, "• first item") {
+		t.Fatalf("expected cached transcript render after resize, got %q", rendered)
+	}
+}
+
+func TestWindowPollSchedulesWindowSizeMsgAndKeepsPolling(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 100
+	model.height = 30
+
+	updated, cmd := model.Update(aiWindowPollMsg{width: 120, height: 36})
+	if cmd == nil {
+		t.Fatal("expected poll tick to emit a window size message and keep polling")
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.width != 100 || updatedModel.height != 30 {
+		t.Fatalf("expected poll tick to leave dimensions unchanged until a WindowSizeMsg arrives, got %dx%d", updatedModel.width, updatedModel.height)
+	}
+
+	msg := cmd()
+	batch, ok := msg.(tea.BatchMsg)
+	if !ok {
+		t.Fatalf("expected poll tick to return a tea.BatchMsg, got %T", msg)
+	}
+	if len(batch) != 2 {
+		t.Fatalf("expected poll tick batch to contain 2 commands, got %d", len(batch))
+	}
+
+	var sawWindowSizeMsg bool
+	var sawPollTick bool
+	for _, subcmd := range batch {
+		if subcmd == nil {
+			continue
+		}
+		submsg := subcmd()
+		switch msg := submsg.(type) {
+		case tea.WindowSizeMsg:
+			sawWindowSizeMsg = true
+			if msg.Width != 120 || msg.Height != 36 {
+				t.Fatalf("expected polled window size 120x36, got %dx%d", msg.Width, msg.Height)
+			}
+		case aiWindowPollMsg:
+			sawPollTick = true
+		}
+	}
+
+	if !sawWindowSizeMsg {
+		t.Fatal("expected poll tick to include a tea.WindowSizeMsg")
+	}
+	if !sawPollTick {
+		t.Fatal("expected poll tick to schedule the next polling tick")
+	}
+}
+
+func TestApplyWindowSizeSkipsUnchangedDimensions(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 100
+	model.height = 30
+
+	if cmd := model.applyWindowSize(100, 30); cmd != nil {
+		t.Fatal("expected unchanged dimensions to avoid scheduling a rerender")
+	}
+}
+
+func TestViewWidthTracksResize(t *testing.T) {
+	model := newAIModel(nil, aiContext{
+		target: aiTargetSummary{
+			Label: "No active target",
+			Host:  "Select a session or beacon with `use`",
+			OS:    "unknown",
+			Arch:  "unknown",
+			C2:    "n/a",
+		},
+		connection: aiConnectionSummary{
+			Profile:  "<disconnected>",
+			Server:   "<unknown>",
+			Operator: "<unknown>",
+			State:    "ready",
+		},
+	}, nil)
+	model.loading = false
+	model.width = 140
+	model.height = 36
+	model.conversations = []*clientpb.AIConversation{
+		{ID: "conv-1", Title: "New conversation", Provider: "openai", Model: "gpt-5.4"},
+	}
+	model.currentConversation = &clientpb.AIConversation{
+		ID:        "conv-1",
+		Title:     "New conversation",
+		Provider:  "openai",
+		Model:     "gpt-5.4",
+		UpdatedAt: time.Now().Unix(),
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "assistant", Content: "## Reply\n\n- first item"},
+		},
+	}
+
+	renderCmd := model.scheduleTranscriptRender()
+	if renderCmd == nil {
+		t.Fatal("expected initial transcript render command")
+	}
+	msg := renderCmd()
+	renderedMsg, ok := msg.(aiTranscriptRenderedMsg)
+	if !ok {
+		t.Fatalf("expected initial transcript render message, got %T", msg)
+	}
+	updated, _ := model.Update(renderedMsg)
+	model = updated.(*aiModel)
+
+	view := model.View()
+	if got := lipgloss.Width(view.Content); got > model.width {
+		t.Fatalf("expected initial view width <= %d, got %d", model.width, got)
+	}
+	if got := lipgloss.Height(view.Content); got > model.height {
+		t.Fatalf("expected initial view height <= %d, got %d", model.height, got)
+	}
+
+	updated, cmd := model.Update(tea.WindowSizeMsg{Width: 108, Height: 32})
+	if cmd == nil {
+		t.Fatal("expected resize to queue transcript rendering")
+	}
+	model = updated.(*aiModel)
+	msg = cmd()
+	renderedMsg, ok = msg.(aiTranscriptRenderedMsg)
+	if !ok {
+		t.Fatalf("expected resize transcript render message, got %T", msg)
+	}
+	updated, _ = model.Update(renderedMsg)
+	model = updated.(*aiModel)
+
+	view = model.View()
+	if got := lipgloss.Width(view.Content); got > model.width {
+		t.Fatalf("expected resized view width <= %d, got %d", model.width, got)
+	}
+	if got := lipgloss.Height(view.Content); got > model.height {
+		t.Fatalf("expected resized view height <= %d, got %d", model.height, got)
 	}
 }
 
