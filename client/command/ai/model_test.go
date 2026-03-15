@@ -525,6 +525,74 @@ func TestHandleGlobalKeyScrollsTranscript(t *testing.T) {
 	}
 }
 
+func TestRenderTranscriptShowsScrollbarAndTracksScrollPosition(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 108
+	model.height = 32
+	model.focus = aiFocusTranscript
+	model.loading = false
+
+	messages := make([]*clientpb.AIConversationMessage, 0, 18)
+	for i := 0; i < 18; i++ {
+		messages = append(messages, &clientpb.AIConversationMessage{
+			Role:    "assistant",
+			Content: fmt.Sprintf("Message %02d detail", i),
+		})
+	}
+	model.currentConversation = &clientpb.AIConversation{
+		ID:       "conv-1",
+		Title:    "Thread",
+		Provider: "openai",
+		Model:    "gpt-test",
+		Messages: messages,
+	}
+
+	renderCmd := model.scheduleTranscriptRender()
+	if renderCmd == nil {
+		t.Fatal("expected transcript render command")
+	}
+
+	msg := renderCmd()
+	renderedMsg, ok := msg.(aiTranscriptRenderedMsg)
+	if !ok {
+		t.Fatalf("expected transcript render message, got %T", msg)
+	}
+
+	updated, _ := model.Update(renderedMsg)
+	model = updated.(*aiModel)
+
+	viewportWidth, viewportHeight := model.currentTranscriptViewportSize()
+	contentLines := model.renderTranscriptDisplayContentLines(viewportWidth)
+	bottomCells := model.transcriptScrollbarCells(viewportHeight, len(contentLines))
+	if len(bottomCells) != viewportHeight {
+		t.Fatalf("expected scrollbar height %d, got %d", viewportHeight, len(bottomCells))
+	}
+	if !bottomCells[len(bottomCells)-1] {
+		t.Fatalf("expected bottom-pinned scrollbar thumb to reach the last row, got %#v", bottomCells)
+	}
+
+	paneWidth, paneHeight := model.currentTranscriptPaneSize()
+	rendered := ansi.Strip(model.renderTranscript(paneWidth, paneHeight))
+	if !strings.Contains(rendered, "#") || !strings.Contains(rendered, ":") {
+		t.Fatalf("expected rendered transcript to include scrollbar thumb and track, got %q", rendered)
+	}
+	for _, line := range strings.Split(rendered, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "#") || strings.HasPrefix(trimmed, ":") {
+			t.Fatalf("expected scrollbar to stay on the right edge without wrapping into content, got %q", rendered)
+		}
+	}
+
+	model.scrollTranscriptToTop()
+	topCells := model.transcriptScrollbarCells(viewportHeight, len(contentLines))
+	if !topCells[0] {
+		t.Fatalf("expected top-scrolled scrollbar thumb to reach the first row, got %#v", topCells)
+	}
+	if topCells[len(topCells)-1] {
+		t.Fatalf("expected top-scrolled scrollbar thumb to move away from the last row, got %#v", topCells)
+	}
+}
+
 func TestComposerEnterStartsAwaitingResponseImmediately(t *testing.T) {
 	model := newAIModel(nil, aiContext{}, nil)
 	model.focus = aiFocusComposer

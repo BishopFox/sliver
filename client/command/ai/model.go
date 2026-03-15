@@ -26,10 +26,11 @@ const (
 	aiMinWidth  = 72
 	aiMinHeight = 18
 
-	aiPaneHorizontalChrome = 4
-	aiPaneVerticalChrome   = 2
-	aiModalDismissDelay    = 250 * time.Millisecond
-	aiWindowPollInterval   = 100 * time.Millisecond
+	aiPaneHorizontalChrome     = 4
+	aiPaneVerticalChrome       = 2
+	aiTranscriptScrollbarWidth = 1
+	aiModalDismissDelay        = 250 * time.Millisecond
+	aiWindowPollInterval       = 100 * time.Millisecond
 )
 
 type aiFocus int
@@ -1145,13 +1146,26 @@ func (m *aiModel) renderSidebar(width, height int) string {
 func (m *aiModel) renderTranscript(width, height int) string {
 	innerWidth := innerPaneWidth(width)
 	innerHeight := innerPaneHeight(height)
-	contentLines := m.renderTranscriptDisplayContentLines(innerWidth)
+	contentWidth := m.transcriptContentWidth(innerWidth)
+	contentLines := m.renderTranscriptDisplayContentLines(contentWidth)
 	bodyHeight := maxInt(1, innerHeight-m.transcriptHeaderLineCount())
 	headerLines := m.renderTranscriptHeaderLines(innerWidth, bodyHeight, contentLines)
 	lines := append([]string(nil), headerLines...)
 	lines = append(lines, m.visibleTranscriptLines(contentLines, bodyHeight)...)
 
-	return m.renderPane(width, height, aiFocusTranscript, lines)
+	pane := m.renderPane(width, height, aiFocusTranscript, lines)
+	scrollbar := m.renderTranscriptScrollbar(bodyHeight, len(contentLines))
+	if scrollbar == "" {
+		return pane
+	}
+
+	return overlayContent(
+		pane,
+		scrollbar,
+		maxInt(0, width-3),
+		1+m.transcriptHeaderLineCount(),
+		width,
+	)
 }
 
 func (m *aiModel) renderComposer(height int) string {
@@ -1363,7 +1377,7 @@ func (m *aiModel) currentTranscriptViewportSize() (int, int) {
 	paneWidth, paneHeight := m.currentTranscriptPaneSize()
 	innerWidth := innerPaneWidth(paneWidth)
 	innerHeight := innerPaneHeight(paneHeight)
-	return innerWidth, maxInt(1, innerHeight-m.transcriptHeaderLineCount())
+	return m.transcriptContentWidth(innerWidth), maxInt(1, innerHeight-m.transcriptHeaderLineCount())
 }
 
 func (m *aiModel) transcriptHeaderLineCount() int {
@@ -1441,6 +1455,59 @@ func (m *aiModel) visibleTranscriptLines(contentLines []string, viewportHeight i
 
 	end := minInt(len(contentLines), scroll+viewportHeight)
 	return contentLines[scroll:end]
+}
+
+func (m *aiModel) transcriptScrollbarCells(viewportHeight, totalLines int) []bool {
+	if viewportHeight <= 0 || totalLines <= viewportHeight {
+		return nil
+	}
+
+	maxScroll := maxInt(1, totalLines-viewportHeight)
+	scroll := clampInt(m.transcriptScroll, 0, maxScroll)
+	if m.transcriptFollow {
+		scroll = maxScroll
+	}
+
+	thumbHeight := maxInt(1, (viewportHeight*viewportHeight+totalLines/2)/totalLines)
+	thumbHeight = minInt(viewportHeight, thumbHeight)
+	trackSpan := maxInt(0, viewportHeight-thumbHeight)
+	thumbStart := 0
+	if trackSpan > 0 {
+		thumbStart = (scroll*trackSpan + maxScroll/2) / maxScroll
+	}
+
+	cells := make([]bool, viewportHeight)
+	for i := 0; i < thumbHeight; i++ {
+		idx := thumbStart + i
+		if idx >= 0 && idx < len(cells) {
+			cells[idx] = true
+		}
+	}
+	return cells
+}
+
+func (m *aiModel) renderTranscriptScrollbar(viewportHeight, totalLines int) string {
+	cells := m.transcriptScrollbarCells(viewportHeight, totalLines)
+	if len(cells) == 0 {
+		return ""
+	}
+
+	lines := make([]string, 0, len(cells))
+	for _, thumb := range cells {
+		lines = append(lines, m.renderTranscriptScrollbarCell(thumb))
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (m *aiModel) renderTranscriptScrollbarCell(thumb bool) string {
+	if thumb {
+		style := lipgloss.NewStyle().Foreground(clienttheme.PrimaryMod(500))
+		if m.focus == aiFocusTranscript {
+			style = style.Foreground(clienttheme.Primary()).Bold(true)
+		}
+		return style.Render("#")
+	}
+	return lipgloss.NewStyle().Foreground(clienttheme.DefaultMod(300)).Render(":")
 }
 
 func (m *aiModel) pinTranscriptToLatest() {
@@ -1867,9 +1934,20 @@ func (m *aiModel) transcriptDisplayLines(width int) []string {
 	}
 }
 
+func (m *aiModel) transcriptContentWidth(innerWidth int) int {
+	return maxInt(1, innerWidth-m.transcriptScrollbarColumns(innerWidth))
+}
+
+func (m *aiModel) transcriptScrollbarColumns(innerWidth int) int {
+	if innerWidth <= 1 {
+		return 0
+	}
+	return aiTranscriptScrollbarWidth
+}
+
 func (m *aiModel) currentTranscriptWidth() int {
 	paneWidth, _ := m.currentTranscriptPaneSize()
-	return maxInt(1, innerPaneWidth(paneWidth))
+	return m.transcriptContentWidth(innerPaneWidth(paneWidth))
 }
 
 func (m *aiModel) scheduleTranscriptRender() tea.Cmd {
