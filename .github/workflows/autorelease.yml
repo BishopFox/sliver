@@ -41,10 +41,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Go 1.25
+      - name: Go 1.26
         uses: actions/setup-go@v6
         with:
-          go-version: "1.25.6"
+          go-version: "1.26.1"
 
       - name: Install Minisign
         run: sudo apt-get update --fix-missing && sudo apt-get -y install minisign
