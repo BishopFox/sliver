@@ -15,6 +15,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/charmbracelet/glamour"
+	"github.com/charmbracelet/x/ansi"
 	"golang.org/x/term"
 	"google.golang.org/protobuf/proto"
 )
@@ -30,12 +31,18 @@ const (
 )
 
 type aiFocus int
+type aiModalKind int
 
 const (
 	aiFocusSidebar aiFocus = iota
 	aiFocusTranscript
 	aiFocusDetails
 	aiFocusComposer
+)
+
+const (
+	aiModalKindInfo aiModalKind = iota
+	aiModalKindDeleteConfirm
 )
 
 type aiStyles struct {
@@ -79,6 +86,12 @@ type aiPromptSubmittedMsg struct {
 	status         string
 }
 
+type aiConversationDeletedMsg struct {
+	conversationID string
+	selectedID     string
+	status         string
+}
+
 type aiConversationEventMsg struct {
 	conversation *clientpb.AIConversation
 }
@@ -105,9 +118,14 @@ type aiStartupConfigInvalidMsg struct {
 }
 
 type aiModalState struct {
+	kind           aiModalKind
 	title          string
 	body           string
 	dismissReadyAt time.Time
+	confirmDelete  bool
+	conversationID string
+	selectedID     string
+	status         string
 }
 
 type aiModel struct {
@@ -248,19 +266,7 @@ func (m *aiModel) Init() tea.Cmd {
 
 func (m *aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.modal != nil {
-		switch msg := msg.(type) {
-		case tea.WindowSizeMsg:
-			return m, m.applyWindowSize(msg.Width, msg.Height)
-		case aiWindowPollMsg:
-			return m, tea.Batch(m.windowSizeCmd(msg.width, msg.height), aiWindowPollCmd())
-		case tea.KeyPressMsg:
-			if time.Now().Before(m.modal.dismissReadyAt) {
-				return m, nil
-			}
-			return m, tea.Quit
-		default:
-			return m, nil
-		}
+		return m.handleModalMsg(msg)
 	}
 
 	switch msg := msg.(type) {
@@ -274,6 +280,7 @@ func (m *aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loading = false
 		m.status = msg.err
 		m.modal = &aiModalState{
+			kind:           aiModalKindInfo,
 			title:          "AI Configuration Error",
 			body:           msg.err,
 			dismissReadyAt: time.Now().Add(aiModalDismissDelay),
@@ -297,12 +304,13 @@ func (m *aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if strings.TrimSpace(msg.status) != "" {
 			m.status = msg.status
 		} else if len(m.conversations) == 0 {
-			m.status = "No AI conversations yet. Press n or send a prompt to create one."
+			m.status = "No AI conversations yet. Create one or send a prompt below."
 		} else if m.status == "" ||
 			strings.HasPrefix(m.status, "Loading") ||
 			strings.HasPrefix(m.status, "Refreshing") ||
 			strings.HasPrefix(m.status, "Saved prompt to") ||
-			strings.HasPrefix(m.status, "Waiting for AI response") {
+			strings.HasPrefix(m.status, "Waiting for AI response") ||
+			strings.HasPrefix(m.status, "Deleted ") {
 			m.status = "Loaded AI conversations from the server."
 		}
 		return m, tea.Batch(
@@ -325,6 +333,19 @@ func (m *aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.syncAwaitingResponse(),
 			m.scheduleTranscriptRender(),
 		)
+
+	case aiConversationDeletedMsg:
+		m.loading = true
+		m.removeConversation(msg.conversationID)
+		if m.currentConversation != nil && strings.TrimSpace(m.currentConversation.GetID()) == strings.TrimSpace(msg.conversationID) {
+			m.currentConversation = nil
+			m.awaitingResponse = false
+			m.submittingPrompt = false
+			m.pendingPrompt = ""
+		}
+		m.invalidateTranscriptCache()
+		m.status = msg.status
+		return m, loadAIStateWithStatusCmd(m.con, msg.selectedID, msg.status)
 
 	case aiConversationEventMsg:
 		selectedID := m.selectedConversationID()
@@ -422,6 +443,9 @@ func (m *aiModel) handleGlobalKey(key tea.Key) (tea.Model, tea.Cmd) {
 			m.status = "Conversation opened."
 		}
 		return m, nil
+
+	case tea.KeyDelete:
+		return m.showDeleteConversationModal()
 	}
 
 	switch key.Text {
@@ -451,6 +475,9 @@ func (m *aiModel) handleGlobalKey(key tea.Key) (tea.Model, tea.Cmd) {
 		m.loading = true
 		m.status = "Refreshing AI conversations..."
 		return m, loadAIStateCmd(m.con, m.selectedConversationID())
+
+	case "x":
+		return m.showDeleteConversationModal()
 	}
 
 	return m, nil
@@ -541,12 +568,104 @@ func (m *aiModel) handleComposerKey(key tea.Key) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *aiModel) View() tea.View {
-	if m.modal != nil {
-		return aiView(m.renderModal())
+func (m *aiModel) handleModalMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		return m, m.applyWindowSize(msg.Width, msg.Height)
+	case aiWindowPollMsg:
+		return m, tea.Batch(m.windowSizeCmd(msg.width, msg.height), aiWindowPollCmd())
+	case tea.KeyPressMsg:
+		if msg.Key().Mod.Contains(tea.ModCtrl) && msg.Key().Code == 'c' {
+			return m, tea.Quit
+		}
+		switch m.modal.kind {
+		case aiModalKindDeleteConfirm:
+			return m.handleDeleteConfirmModalKey(msg.Key())
+		default:
+			return m.handleInfoModalKey()
+		}
+	default:
+		return m, nil
 	}
+}
+
+func (m *aiModel) handleInfoModalKey() (tea.Model, tea.Cmd) {
+	if time.Now().Before(m.modal.dismissReadyAt) {
+		return m, nil
+	}
+	return m, tea.Quit
+}
+
+func (m *aiModel) handleDeleteConfirmModalKey(key tea.Key) (tea.Model, tea.Cmd) {
+	switch key.Code {
+	case tea.KeyEsc:
+		m.modal = nil
+		return m, nil
+	case tea.KeyLeft:
+		m.modal.confirmDelete = false
+		return m, nil
+	case tea.KeyRight:
+		m.modal.confirmDelete = true
+		return m, nil
+	case tea.KeyTab:
+		m.modal.confirmDelete = !m.modal.confirmDelete
+		return m, nil
+	case tea.KeyEnter:
+		if !m.modal.confirmDelete {
+			m.modal = nil
+			return m, nil
+		}
+		return m.confirmDeleteConversation()
+	}
+
+	switch key.Text {
+	case "h":
+		m.modal.confirmDelete = false
+		return m, nil
+	case "l":
+		m.modal.confirmDelete = true
+		return m, nil
+	case "n", "q":
+		m.modal = nil
+		return m, nil
+	case "y":
+		m.modal.confirmDelete = true
+		return m.confirmDeleteConversation()
+	}
+
+	return m, nil
+}
+
+func (m *aiModel) confirmDeleteConversation() (tea.Model, tea.Cmd) {
+	if m.modal == nil {
+		return m, nil
+	}
+
+	conversationID := strings.TrimSpace(m.modal.conversationID)
+	selectedID := strings.TrimSpace(m.modal.selectedID)
+	status := strings.TrimSpace(m.modal.status)
+	m.modal = nil
+
+	if conversationID == "" {
+		m.status = "No AI conversation selected."
+		return m, nil
+	}
+	if status == "" {
+		status = "Deleted AI conversation."
+	}
+
+	m.loading = true
+	m.status = "Deleting AI conversation..."
+	return m, deleteConversationCmd(m.con, conversationID, selectedID, status)
+}
+
+func (m *aiModel) View() tea.View {
 	if m.width < aiMinWidth || m.height < aiMinHeight {
-		return aiView(m.renderTooSmall())
+		content := m.renderTooSmall()
+		if m.modal != nil {
+			content = m.renderModalOverlay(content)
+		}
+		return aiView(content)
 	}
 
 	headerHeight := 1
@@ -567,10 +686,22 @@ func (m *aiModel) View() tea.View {
 
 	frame := lipgloss.JoinVertical(lipgloss.Left, header, body, composer, footer)
 	frame = lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, frame)
+	if m.modal != nil {
+		frame = m.renderModalOverlay(frame)
+	}
 	return aiView(frame)
 }
 
 func (m *aiModel) renderModal() string {
+	switch m.modal.kind {
+	case aiModalKindDeleteConfirm:
+		return m.renderDeleteConfirmModal()
+	default:
+		return m.renderInfoModal()
+	}
+}
+
+func (m *aiModel) renderInfoModal() string {
 	boxWidth := minInt(maxInt(20, m.width-4), 84)
 	bodyWidth := maxInt(20, boxWidth-6)
 	bodyLines := wrapText(m.modal.body, bodyWidth)
@@ -593,7 +724,39 @@ func (m *aiModel) renderModal() string {
 		Padding(1, 2).
 		Render(strings.Join(lines, "\n"))
 
-	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, box)
+	return box
+}
+
+func (m *aiModel) renderDeleteConfirmModal() string {
+	boxWidth := minInt(maxInt(20, m.width-4), 84)
+	bodyWidth := maxInt(20, boxWidth-6)
+	bodyLines := wrapText(m.modal.body, bodyWidth)
+
+	lines := []string{
+		m.styles.warning.Width(bodyWidth).Render(m.modal.title),
+		"",
+	}
+	for _, line := range bodyLines {
+		lines = append(lines, lipgloss.NewStyle().Width(bodyWidth).Render(line))
+	}
+	lines = append(lines, "", m.renderDeleteConfirmActions(bodyWidth))
+
+	box := lipgloss.NewStyle().
+		Border(lipgloss.DoubleBorder()).
+		BorderForeground(clienttheme.Warning()).
+		Padding(1, 2).
+		Render(strings.Join(lines, "\n"))
+
+	return box
+}
+
+func (m *aiModel) renderModalOverlay(base string) string {
+	box := m.renderModal()
+	boxWidth := lipgloss.Width(box)
+	boxHeight := lipgloss.Height(box)
+	left := maxInt(0, (m.width-boxWidth)/2)
+	top := maxInt(0, (m.height-boxHeight)/2)
+	return overlayContent(base, box, left, top, m.width)
 }
 
 func (m *aiModel) renderTooSmall() string {
@@ -691,7 +854,7 @@ func (m *aiModel) renderSidebar(width, height int) string {
 		lines = append(lines,
 			"",
 			m.styles.subtleText.Width(innerWidth).Render(truncateText("No stored AI conversations yet.", innerWidth)),
-			m.styles.subtleText.Width(innerWidth).Render(truncateText("Press n to create one or send a prompt below.", innerWidth)),
+			m.styles.subtleText.Width(innerWidth).Render(truncateText("Create one or send a prompt below.", innerWidth)),
 		)
 		return m.renderPane(width, height, aiFocusSidebar, headLines(lines, innerHeight))
 	}
@@ -711,21 +874,6 @@ func (m *aiModel) renderSidebar(width, height int) string {
 		}
 		if len(lines)-1 >= bodyHeight {
 			break
-		}
-	}
-
-	if remaining := bodyHeight - (len(lines) - 1); remaining > 2 {
-		lines = append(lines, "")
-		hints := []string{
-			"n new thread",
-			"r refresh",
-			"j/k move",
-		}
-		for _, hint := range hints {
-			if len(lines)-1 >= bodyHeight {
-				break
-			}
-			lines = append(lines, m.styles.subtleText.Width(innerWidth).Render(truncateText(hint, innerWidth)))
 		}
 	}
 
@@ -841,11 +989,6 @@ func (m *aiModel) renderComposer(height int) string {
 	status := truncateText(m.status, innerWidth)
 	lines = append(lines, m.styles.subtleText.Width(innerWidth).Render(status))
 
-	if innerHeight-len(lines) > 0 {
-		help := "tab focus  enter send  n new-thread  r refresh  ctrl+u clear  esc blur  q quit"
-		lines = append(lines, m.styles.subtleText.Width(innerWidth).Render(truncateText(help, innerWidth)))
-	}
-
 	return m.renderPane(m.width, height, aiFocusComposer, headLines(lines, innerHeight))
 }
 
@@ -922,15 +1065,62 @@ func (m *aiModel) renderAwaitingResponseLines(width int) []string {
 }
 
 func (m *aiModel) renderFooter() string {
-	pieces := []string{
-		m.styles.chipMuted.Render("focus: " + m.focus.String()),
-		m.styles.footerHint.Render("tab: next pane"),
-		m.styles.footerHint.Render("n: new thread"),
-		m.styles.footerHint.Render("r: refresh"),
-		m.styles.footerHint.Render("enter: select/send"),
-		m.styles.footerHint.Render("q: quit"),
+	pieces := []string{m.styles.chipMuted.Render("focus: " + m.focus.String())}
+	for _, hint := range m.footerHints() {
+		pieces = append(pieces, m.styles.footerHint.Render(hint))
 	}
 	return lipgloss.NewStyle().Width(m.width).Render(fitStyledPieces(m.width, pieces))
+}
+
+func (m *aiModel) footerHints() []string {
+	switch m.focus {
+	case aiFocusSidebar:
+		hints := []string{"tab: next", "j/k: move", "enter: open"}
+		if m.deleteTargetConversation() != nil {
+			hints = append(hints, "x: delete")
+		}
+		hints = append(hints, "n: new", "r: refresh", "q/esc: quit")
+		return hints
+	case aiFocusComposer:
+		return []string{"tab: sidebar", "enter: send", "ctrl+u: clear", "esc: blur", "ctrl+c: quit"}
+	default:
+		hints := []string{"tab: next"}
+		if m.deleteTargetConversation() != nil {
+			hints = append(hints, "x: delete")
+		}
+		hints = append(hints, "n: new", "r: refresh", "q/esc: quit")
+		return hints
+	}
+}
+
+func (m *aiModel) renderDeleteConfirmActions(width int) string {
+	cancelStyle := lipgloss.NewStyle().
+		Foreground(clienttheme.DefaultMod(700)).
+		Background(clienttheme.DefaultMod(50)).
+		Padding(0, 1)
+	deleteStyle := lipgloss.NewStyle().
+		Foreground(clienttheme.Warning()).
+		Padding(0, 1)
+
+	if !m.modal.confirmDelete {
+		cancelStyle = cancelStyle.
+			Bold(true).
+			Foreground(clienttheme.DefaultMod(900)).
+			Background(clienttheme.DefaultMod(200))
+	} else {
+		deleteStyle = deleteStyle.
+			Bold(true).
+			Foreground(clienttheme.DefaultMod(900)).
+			Background(clienttheme.Warning())
+	}
+
+	actions := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		cancelStyle.Render("Cancel"),
+		" ",
+		deleteStyle.Render("Delete"),
+	)
+	return lipgloss.Place(width, 1, lipgloss.Center, lipgloss.Center, actions)
 }
 
 func (m *aiModel) renderPane(width, height int, focus aiFocus, lines []string) string {
@@ -995,6 +1185,89 @@ func (m *aiModel) moveSelection(delta int) tea.Cmd {
 	m.loading = true
 	m.status = "Loading conversation..."
 	return loadAIStateCmd(m.con, m.conversations[next].GetID())
+}
+
+func (m *aiModel) showDeleteConversationModal() (tea.Model, tea.Cmd) {
+	if m.loading {
+		m.status = "Wait for the current conversation sync to finish before deleting."
+		return m, nil
+	}
+	if m.submittingPrompt {
+		m.status = "Wait for the current prompt to finish saving before deleting the conversation."
+		return m, nil
+	}
+
+	target := m.deleteTargetConversation()
+	if target == nil || strings.TrimSpace(target.GetID()) == "" {
+		m.status = "No AI conversation selected."
+		return m, nil
+	}
+
+	title := conversationTitle(target)
+	m.modal = &aiModalState{
+		kind:           aiModalKindDeleteConfirm,
+		title:          "Delete Conversation?",
+		body:           fmt.Sprintf("Delete %q and all of its stored messages from the server? This cannot be undone.", title),
+		conversationID: target.GetID(),
+		selectedID:     m.nextConversationIDAfterDelete(target.GetID()),
+		status:         fmt.Sprintf("Deleted %q.", title),
+	}
+	return m, nil
+}
+
+func (m *aiModel) deleteTargetConversation() *clientpb.AIConversation {
+	if m.selectedConversation >= 0 && m.selectedConversation < len(m.conversations) {
+		target := m.conversations[m.selectedConversation]
+		if target == nil {
+			return m.currentConversation
+		}
+		if m.currentConversation != nil && strings.TrimSpace(m.currentConversation.GetID()) == strings.TrimSpace(target.GetID()) {
+			return m.currentConversation
+		}
+		return target
+	}
+	return m.currentConversation
+}
+
+func (m *aiModel) nextConversationIDAfterDelete(conversationID string) string {
+	conversationID = strings.TrimSpace(conversationID)
+	if conversationID == "" || len(m.conversations) == 0 {
+		return ""
+	}
+
+	idx := conversationIndexByID(m.conversations, conversationID)
+	if idx < 0 {
+		return ""
+	}
+	if len(m.conversations) == 1 {
+		return ""
+	}
+	if idx < len(m.conversations)-1 {
+		return m.conversations[idx+1].GetID()
+	}
+	return m.conversations[idx-1].GetID()
+}
+
+func (m *aiModel) removeConversation(conversationID string) {
+	conversationID = strings.TrimSpace(conversationID)
+	if conversationID == "" || len(m.conversations) == 0 {
+		return
+	}
+
+	filtered := make([]*clientpb.AIConversation, 0, len(m.conversations))
+	for _, conversation := range m.conversations {
+		if conversation == nil || strings.TrimSpace(conversation.GetID()) == conversationID {
+			continue
+		}
+		filtered = append(filtered, conversation)
+	}
+	m.conversations = filtered
+
+	next := conversationIndexByID(m.conversations, m.selectedConversationID())
+	if next < 0 {
+		next = 0
+	}
+	m.selectedConversation = next
 }
 
 func (m *aiModel) selectedConversationID() string {
@@ -1375,6 +1648,10 @@ func currentTerminalSize() (int, int, bool) {
 }
 
 func loadAIStateCmd(con *console.SliverClient, selectedID string) tea.Cmd {
+	return loadAIStateWithStatusCmd(con, selectedID, "")
+}
+
+func loadAIStateWithStatusCmd(con *console.SliverClient, selectedID string, baseStatus string) tea.Cmd {
 	return func() tea.Msg {
 		if con == nil || con.Rpc == nil {
 			return aiAsyncErrMsg{err: fmt.Errorf("AI RPC client is unavailable")}
@@ -1399,7 +1676,7 @@ func loadAIStateCmd(con *console.SliverClient, selectedID string) tea.Cmd {
 
 		conversations := conversationsResp.GetConversations()
 		activeID := strings.TrimSpace(selectedID)
-		status := ""
+		status := strings.TrimSpace(baseStatus)
 		if len(conversations) == 0 {
 			createdConversation, err := con.Rpc.SaveAIConversation(grpcCtx, &clientpb.AIConversation{
 				Provider: config.GetProvider(),
@@ -1411,7 +1688,11 @@ func loadAIStateCmd(con *console.SliverClient, selectedID string) tea.Cmd {
 			}
 			conversations = []*clientpb.AIConversation{createdConversation}
 			activeID = createdConversation.GetID()
-			status = "Created a new AI conversation."
+			if status == "" {
+				status = "Created a new AI conversation."
+			} else {
+				status += " Created a new AI conversation."
+			}
 		}
 		if activeID == "" && len(conversations) > 0 {
 			activeID = conversations[0].GetID()
@@ -1470,6 +1751,28 @@ func createConversationCmd(con *console.SliverClient, provider string, model str
 		return aiConversationCreatedMsg{
 			conversationID: conversation.GetID(),
 			status:         "Created a new AI conversation.",
+		}
+	}
+}
+
+func deleteConversationCmd(con *console.SliverClient, conversationID string, selectedID string, status string) tea.Cmd {
+	return func() tea.Msg {
+		if con == nil || con.Rpc == nil {
+			return aiAsyncErrMsg{err: fmt.Errorf("AI RPC client is unavailable")}
+		}
+
+		grpcCtx, cancel := con.GrpcContext(nil)
+		defer cancel()
+
+		_, err := con.Rpc.DeleteAIConversation(grpcCtx, &clientpb.AIConversationReq{ID: conversationID})
+		if err != nil {
+			return aiAsyncErrMsg{err: err}
+		}
+
+		return aiConversationDeletedMsg{
+			conversationID: conversationID,
+			selectedID:     selectedID,
+			status:         status,
 		}
 	}
 }
@@ -1572,7 +1875,7 @@ func waitForAIConversationEventCmd(listener <-chan *clientpb.Event) tea.Cmd {
 
 func buildConversationMarkdown(conversation *clientpb.AIConversation) string {
 	if conversation == nil {
-		return "### No conversation selected\n\nCreate a new thread with `n` or submit a prompt to start one."
+		return "### No conversation selected\n\nCreate a new conversation or submit a prompt to start one."
 	}
 
 	var markdown strings.Builder
@@ -2000,6 +2303,56 @@ func fitStyledPieces(width int, pieces []string) string {
 		kept = append(kept, piece)
 	}
 	return strings.Join(kept, " ")
+}
+
+func overlayContent(base string, overlay string, left, top, width int) string {
+	if strings.TrimSpace(overlay) == "" {
+		return base
+	}
+
+	baseLines := strings.Split(base, "\n")
+	overlayLines := strings.Split(overlay, "\n")
+	requiredHeight := maxInt(len(baseLines), top+len(overlayLines))
+	for len(baseLines) < requiredHeight {
+		baseLines = append(baseLines, "")
+	}
+
+	for i, overlayLine := range overlayLines {
+		row := top + i
+		if row < 0 || row >= len(baseLines) {
+			continue
+		}
+		baseLines[row] = overlayLineAt(baseLines[row], overlayLine, left, width)
+	}
+
+	return strings.Join(baseLines, "\n")
+}
+
+func overlayLineAt(baseLine string, overlayLine string, left, width int) string {
+	if left < 0 {
+		left = 0
+	}
+	if width <= 0 {
+		width = maxInt(
+			ansi.StringWidth(baseLine),
+			left+ansi.StringWidth(overlayLine),
+		)
+	}
+
+	prefix := ansi.Cut(baseLine, 0, minInt(left, width))
+	prefixWidth := ansi.StringWidth(prefix)
+	if prefixWidth < left {
+		prefix += strings.Repeat(" ", left-prefixWidth)
+	}
+
+	suffixStart := minInt(width, left+ansi.StringWidth(overlayLine))
+	suffix := ansi.Cut(baseLine, suffixStart, width)
+	visibleWidth := left + ansi.StringWidth(overlayLine) + ansi.StringWidth(suffix)
+	if visibleWidth < width {
+		suffix += strings.Repeat(" ", width-visibleWidth)
+	}
+
+	return prefix + overlayLine + suffix
 }
 
 func wrapText(text string, width int) []string {

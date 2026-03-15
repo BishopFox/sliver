@@ -64,6 +64,16 @@ func TestBuildConversationMarkdownFallsBackToUserLabel(t *testing.T) {
 	}
 }
 
+func TestBuildConversationMarkdownWithoutConversationAvoidsKeyHints(t *testing.T) {
+	markdown := buildConversationMarkdown(nil)
+	if strings.Contains(markdown, "`n`") {
+		t.Fatalf("expected empty-state markdown to avoid inline key hints, got %q", markdown)
+	}
+	if !strings.Contains(markdown, "Create a new conversation") {
+		t.Fatalf("expected empty-state markdown to describe the action without keybindings, got %q", markdown)
+	}
+}
+
 func TestRenderTranscriptMarkdownLinesRendersAssistantMarkdown(t *testing.T) {
 	model := newAIModel(nil, aiContext{}, nil)
 	model.currentConversation = &clientpb.AIConversation{
@@ -309,6 +319,48 @@ func TestPendingLabelFallsBackToWorking(t *testing.T) {
 	}
 }
 
+func TestRenderFooterUsesPaneSpecificControls(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 200
+	model.focus = aiFocusSidebar
+	model.conversations = []*clientpb.AIConversation{{ID: "conv-1", Title: "Thread"}}
+	model.currentConversation = &clientpb.AIConversation{ID: "conv-1", Title: "Thread"}
+
+	footer := ansi.Strip(model.renderFooter())
+	expected := []string{"focus: sidebar", "j/k: move", "enter: open", "x: delete", "q/esc: quit"}
+	for _, fragment := range expected {
+		if !strings.Contains(footer, fragment) {
+			t.Fatalf("expected sidebar footer to contain %q, got %q", fragment, footer)
+		}
+	}
+	if strings.Contains(footer, "enter: send") {
+		t.Fatalf("expected sidebar footer to avoid composer controls, got %q", footer)
+	}
+
+	model.focus = aiFocusComposer
+	footer = ansi.Strip(model.renderFooter())
+	expected = []string{"focus: composer", "tab: sidebar", "enter: send", "ctrl+u: clear", "esc: blur", "ctrl+c: quit"}
+	for _, fragment := range expected {
+		if !strings.Contains(footer, fragment) {
+			t.Fatalf("expected composer footer to contain %q, got %q", fragment, footer)
+		}
+	}
+	if strings.Contains(footer, "x: delete") {
+		t.Fatalf("expected composer footer to avoid sidebar controls, got %q", footer)
+	}
+}
+
+func TestRenderComposerOmitsInlineControls(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 120
+	model.status = "Ready"
+
+	rendered := ansi.Strip(model.renderComposer(5))
+	if strings.Contains(rendered, "ctrl+u clear") || strings.Contains(rendered, "q quit") {
+		t.Fatalf("expected composer pane to omit inline control hints, got %q", rendered)
+	}
+}
+
 func TestComposerEnterStartsAwaitingResponseImmediately(t *testing.T) {
 	model := newAIModel(nil, aiContext{}, nil)
 	model.focus = aiFocusComposer
@@ -339,6 +391,117 @@ func TestComposerEnterStartsAwaitingResponseImmediately(t *testing.T) {
 	}
 	if len(updatedModel.input) != 0 || updatedModel.cursor != 0 {
 		t.Fatal("expected enter to clear the composer immediately")
+	}
+}
+
+func TestShowDeleteConversationModalTargetsSelectedConversation(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.loading = false
+	model.focus = aiFocusSidebar
+	model.conversations = []*clientpb.AIConversation{
+		{ID: "conv-1", Title: "One"},
+		{ID: "conv-2", Title: "Two"},
+	}
+	model.currentConversation = &clientpb.AIConversation{ID: "conv-1", Title: "One"}
+	model.selectedConversation = 1
+
+	updated, cmd := model.handleGlobalKey(tea.Key{Text: "x"})
+	if cmd != nil {
+		t.Fatalf("did not expect delete modal to start RPC work yet, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal == nil || updatedModel.modal.kind != aiModalKindDeleteConfirm {
+		t.Fatalf("expected delete confirmation modal, got %+v", updatedModel.modal)
+	}
+	if updatedModel.modal.conversationID != "conv-2" {
+		t.Fatalf("expected selected conversation to be targeted, got %+v", updatedModel.modal)
+	}
+	if updatedModel.modal.selectedID != "conv-1" {
+		t.Fatalf("expected delete modal to preselect the remaining conversation, got %+v", updatedModel.modal)
+	}
+}
+
+func TestDeleteConversationModalCancelsOnEscape(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.modal = &aiModalState{
+		kind:           aiModalKindDeleteConfirm,
+		conversationID: "conv-1",
+	}
+
+	updated, cmd := model.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+	if cmd != nil {
+		t.Fatalf("did not expect cancel to queue work, got %v", cmd)
+	}
+	if updated.(*aiModel).modal != nil {
+		t.Fatal("expected escape to close the delete confirmation modal")
+	}
+}
+
+func TestModalViewRetainsBackgroundContent(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 120
+	model.height = 30
+	model.loading = false
+	model.conversations = []*clientpb.AIConversation{{ID: "conv-1", Title: "Thread"}}
+	model.currentConversation = &clientpb.AIConversation{ID: "conv-1", Title: "Thread"}
+	model.modal = &aiModalState{
+		kind:           aiModalKindDeleteConfirm,
+		title:          "Delete Conversation?",
+		body:           `Delete "Thread" and all of its stored messages from the server? This cannot be undone.`,
+		conversationID: "conv-1",
+	}
+
+	view := ansi.Strip(model.View().Content)
+	if !strings.Contains(view, "Conversations") {
+		t.Fatalf("expected modal view to retain the background TUI, got %q", view)
+	}
+	if !strings.Contains(view, "Delete Conversation?") {
+		t.Fatalf("expected modal view to include the overlay content, got %q", view)
+	}
+}
+
+func TestDeletedConversationMsgRemovesConversationBeforeReload(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.loading = false
+	model.awaitingResponse = true
+	model.pendingPrompt = "waiting"
+	model.conversations = []*clientpb.AIConversation{
+		{ID: "conv-1", Title: "One"},
+		{ID: "conv-2", Title: "Two"},
+	}
+	model.currentConversation = &clientpb.AIConversation{
+		ID:    "conv-1",
+		Title: "One",
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "user", Content: "waiting"},
+		},
+	}
+
+	updated, cmd := model.Update(aiConversationDeletedMsg{
+		conversationID: "conv-1",
+		selectedID:     "conv-2",
+		status:         `Deleted "One".`,
+	})
+	if cmd == nil {
+		t.Fatal("expected delete completion to reload AI state")
+	}
+
+	updatedModel := updated.(*aiModel)
+	if len(updatedModel.conversations) != 1 || updatedModel.conversations[0].GetID() != "conv-2" {
+		t.Fatalf("expected deleted conversation to be removed locally, got %+v", updatedModel.conversations)
+	}
+	if updatedModel.currentConversation != nil {
+		t.Fatalf("expected deleted current conversation to be cleared, got %+v", updatedModel.currentConversation)
+	}
+	if updatedModel.awaitingResponse {
+		t.Fatal("expected delete to clear pending response state for the removed conversation")
+	}
+	if updatedModel.pendingPrompt != "" {
+		t.Fatalf("expected delete to clear pending prompt, got %q", updatedModel.pendingPrompt)
+	}
+	if updatedModel.status != `Deleted "One".` {
+		t.Fatalf("expected delete status to be preserved, got %q", updatedModel.status)
 	}
 }
 

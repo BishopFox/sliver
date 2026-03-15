@@ -230,6 +230,37 @@ func TestSubmitPromptCmdUsesExistingConversationSettings(t *testing.T) {
 	}
 }
 
+func TestDeleteConversationCmdSendsDeleteRequest(t *testing.T) {
+	server := &aiRPCServer{}
+
+	rpcClient, cleanup := newAITestRPCClient(t, server)
+	defer cleanup()
+
+	msg := deleteConversationCmd(
+		&console.SliverClient{Rpc: rpcClient},
+		"conv-1",
+		"conv-2",
+		`Deleted "Thread".`,
+	)()
+
+	deleted, ok := msg.(aiConversationDeletedMsg)
+	if !ok {
+		t.Fatalf("expected aiConversationDeletedMsg, got %T", msg)
+	}
+	if deleted.conversationID != "conv-1" || deleted.selectedID != "conv-2" {
+		t.Fatalf("unexpected delete message: %+v", deleted)
+	}
+
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	if len(server.deleteConversationReqs) != 1 {
+		t.Fatalf("expected DeleteAIConversation to be called once, got %d", len(server.deleteConversationReqs))
+	}
+	if server.deleteConversationReqs[0].GetID() != "conv-1" {
+		t.Fatalf("unexpected DeleteAIConversation request: %+v", server.deleteConversationReqs[0])
+	}
+}
+
 func TestWaitForAIConversationEventCmdFiltersForAIEvents(t *testing.T) {
 	conversation := &clientpb.AIConversation{ID: "conv-1", OperatorName: "alice"}
 	data, err := proto.Marshal(conversation)
@@ -301,15 +332,16 @@ type aiRPCServer struct {
 	saveConversationResp *clientpb.AIConversation
 	saveMessageResp      *clientpb.AIConversationMessage
 
-	getProvidersCalls     int
-	getConversationsCalls int
-	getConversationReqs   []*clientpb.AIConversationReq
-	saveConversationReqs  []*clientpb.AIConversation
-	saveMessageReqs       []*clientpb.AIConversationMessage
-	getConversationStart  chan struct{}
-	getConversationWait   <-chan struct{}
-	saveMessageStarted    chan struct{}
-	saveMessageRelease    <-chan struct{}
+	getProvidersCalls      int
+	getConversationsCalls  int
+	getConversationReqs    []*clientpb.AIConversationReq
+	deleteConversationReqs []*clientpb.AIConversationReq
+	saveConversationReqs   []*clientpb.AIConversation
+	saveMessageReqs        []*clientpb.AIConversationMessage
+	getConversationStart   chan struct{}
+	getConversationWait    <-chan struct{}
+	saveMessageStarted     chan struct{}
+	saveMessageRelease     <-chan struct{}
 }
 
 func (s *aiRPCServer) GetAIProviders(context.Context, *commonpb.Empty) (*clientpb.AIProviderConfigs, error) {
@@ -365,6 +397,13 @@ func (s *aiRPCServer) SaveAIConversation(_ context.Context, req *clientpb.AIConv
 		return proto.Clone(req).(*clientpb.AIConversation), nil
 	}
 	return proto.Clone(s.saveConversationResp).(*clientpb.AIConversation), nil
+}
+
+func (s *aiRPCServer) DeleteAIConversation(_ context.Context, req *clientpb.AIConversationReq) (*commonpb.Empty, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.deleteConversationReqs = append(s.deleteConversationReqs, proto.Clone(req).(*clientpb.AIConversationReq))
+	return &commonpb.Empty{}, nil
 }
 
 func (s *aiRPCServer) SaveAIConversationMessage(_ context.Context, req *clientpb.AIConversationMessage) (*clientpb.AIConversationMessage, error) {
