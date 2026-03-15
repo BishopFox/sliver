@@ -38,13 +38,13 @@ type aiModalKind int
 const (
 	aiFocusSidebar aiFocus = iota
 	aiFocusTranscript
-	aiFocusDetails
 	aiFocusComposer
 )
 
 const (
 	aiModalKindInfo aiModalKind = iota
 	aiModalKindDeleteConfirm
+	aiModalKindContext
 )
 
 type aiStyles struct {
@@ -129,6 +129,17 @@ type aiModalState struct {
 	conversationID string
 	selectedID     string
 	status         string
+}
+
+type aiContextField struct {
+	label string
+	value string
+	muted bool
+}
+
+type aiContextSection struct {
+	title  string
+	fields []aiContextField
 }
 
 type aiModel struct {
@@ -440,7 +451,7 @@ func (m *aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *aiModel) handleGlobalKey(key tea.Key) (tea.Model, tea.Cmd) {
 	switch key.Code {
 	case tea.KeyTab:
-		m.focus = (m.focus + 1) % 4
+		m.focus = (m.focus + 1) % (aiFocusComposer + 1)
 		m.status = "Focus moved to " + m.focus.String() + "."
 		return m, nil
 
@@ -562,6 +573,9 @@ func (m *aiModel) handleComposerKey(key tea.Key) (tea.Model, tea.Cmd) {
 		m.status = "Composer blurred. Press q or Esc again outside the composer to exit."
 		return m, nil
 	}
+	if key.Mod.Contains(tea.ModCtrl) && key.Code == 'o' {
+		return m.showContextModal()
+	}
 	if key.Mod.Contains(tea.ModCtrl) && key.Code == 'u' {
 		m.input = nil
 		m.cursor = 0
@@ -652,6 +666,8 @@ func (m *aiModel) handleModalMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch m.modal.kind {
 		case aiModalKindDeleteConfirm:
 			return m.handleDeleteConfirmModalKey(msg.Key())
+		case aiModalKindContext:
+			return m.handleContextModalKey(msg.Key())
 		default:
 			return m.handleInfoModalKey()
 		}
@@ -702,6 +718,22 @@ func (m *aiModel) handleDeleteConfirmModalKey(key tea.Key) (tea.Model, tea.Cmd) 
 	case "y":
 		m.modal.confirmDelete = true
 		return m.confirmDeleteConversation()
+	}
+
+	return m, nil
+}
+
+func (m *aiModel) handleContextModalKey(key tea.Key) (tea.Model, tea.Cmd) {
+	switch key.Code {
+	case tea.KeyEsc, tea.KeyEnter, tea.KeyTab:
+		m.modal = nil
+		return m, nil
+	}
+
+	switch key.Text {
+	case "q", "c":
+		m.modal = nil
+		return m, nil
 	}
 
 	return m, nil
@@ -759,6 +791,8 @@ func (m *aiModel) renderModal() string {
 	switch m.modal.kind {
 	case aiModalKindDeleteConfirm:
 		return m.renderDeleteConfirmModal()
+	case aiModalKindContext:
+		return m.renderContextModal()
 	default:
 		return m.renderInfoModal()
 	}
@@ -813,6 +847,194 @@ func (m *aiModel) renderDeleteConfirmModal() string {
 	return box
 }
 
+func (m *aiModel) renderContextModal() string {
+	boxWidth := minInt(maxInt(44, m.width-6), 96)
+	bodyWidth := maxInt(24, boxWidth-6)
+
+	lines := []string{
+		lipgloss.NewStyle().
+			Bold(true).
+			Foreground(clienttheme.Primary()).
+			Width(bodyWidth).
+			Render(m.modal.title),
+		m.styles.subtleText.Width(bodyWidth).Render("Active target, connection, provider defaults, and thread metadata."),
+		"",
+	}
+
+	sectionBlocks := m.renderContextModalSections(bodyWidth)
+	for i, block := range sectionBlocks {
+		lines = append(lines, strings.Split(block, "\n")...)
+		if i < len(sectionBlocks)-1 {
+			lines = append(lines, "")
+		}
+	}
+
+	dismissHint := m.styles.chip.Width(bodyWidth).Render("esc / enter / q closes")
+	maxLines := maxInt(6, m.height-6)
+	if len(lines)+2 > maxLines {
+		lines = headLines(lines, maxInt(1, maxLines-3))
+		lines = append(lines, m.styles.subtleText.Width(bodyWidth).Render("Resize the terminal to view more context."))
+	}
+	lines = append(lines, "", dismissHint)
+
+	box := lipgloss.NewStyle().
+		Border(lipgloss.DoubleBorder()).
+		BorderForeground(clienttheme.Primary()).
+		Padding(1, 2).
+		Render(strings.Join(lines, "\n"))
+
+	return box
+}
+
+func (m *aiModel) renderContextModalSections(width int) []string {
+	sections := m.contextModalSections()
+	blocks := make([]string, 0, len(sections))
+	for _, section := range sections {
+		blocks = append(blocks, m.renderContextModalSection(width, section))
+	}
+	return blocks
+}
+
+func (m *aiModel) contextModalSections() []aiContextSection {
+	targetFields := []aiContextField{
+		{label: "Target", value: fallback(m.ctx.target.Label, "No active target")},
+		{label: "Host", value: fallback(m.ctx.target.Host, "<unknown host>")},
+		{label: "Platform", value: fallback(m.ctx.target.OS, "unknown") + "/" + fallback(m.ctx.target.Arch, "unknown")},
+		{label: "Mode", value: fallback(m.ctx.target.Mode, "<unknown mode>"), muted: true},
+		{label: "C2", value: fallback(m.ctx.target.C2, "unknown"), muted: true},
+	}
+	for _, detail := range m.ctx.target.Details {
+		if strings.TrimSpace(detail) == "" {
+			continue
+		}
+		targetFields = append(targetFields, aiContextField{label: "Detail", value: detail, muted: true})
+	}
+
+	connectionFields := []aiContextField{
+		{label: "Profile", value: fallback(m.ctx.connection.Profile, "<profile unavailable>")},
+		{label: "Server", value: fallback(m.ctx.connection.Server, "<unknown>")},
+		{label: "Operator", value: fallback(m.ctx.connection.Operator, "<unknown>"), muted: true},
+		{label: "State", value: fallback(m.ctx.connection.State, "<unknown>"), muted: true},
+	}
+
+	providerFields := []aiContextField{}
+	if len(m.providers) == 0 {
+		providerFields = append(providerFields, aiContextField{
+			label: "Available",
+			value: "No AI providers reported by the server.",
+			muted: true,
+		})
+	} else {
+		for _, provider := range m.providers {
+			if provider == nil {
+				continue
+			}
+			status := "not configured"
+			if provider.GetConfigured() {
+				status = "configured"
+			}
+			providerFields = append(providerFields, aiContextField{
+				label: fallback(provider.GetName(), "<unnamed>"),
+				value: status,
+				muted: true,
+			})
+		}
+	}
+
+	defaultFields := []aiContextField{}
+	if m.config == nil {
+		defaultFields = append(defaultFields, aiContextField{
+			label: "Status",
+			value: "AI defaults unavailable.",
+			muted: true,
+		})
+	} else {
+		defaultFields = append(defaultFields,
+			aiContextField{label: "Provider", value: fallback(m.config.GetProvider(), "<unset>")},
+			aiContextField{label: "Model", value: fallback(m.config.GetModel(), "provider default")},
+			aiContextField{label: "Thinking", value: fallback(m.config.GetThinkingLevel(), "provider default"), muted: true},
+		)
+	}
+
+	threadFields := []aiContextField{}
+	if m.currentConversation == nil {
+		threadFields = append(threadFields, aiContextField{
+			label: "Status",
+			value: "No conversation selected yet.",
+			muted: true,
+		})
+	} else {
+		threadFields = append(threadFields,
+			aiContextField{label: "Title", value: conversationTitle(m.currentConversation)},
+			aiContextField{label: "ID", value: shortenID(m.currentConversation.GetID()), muted: true},
+			aiContextField{label: "Provider", value: fallback(m.currentConversation.GetProvider(), "<unset>")},
+			aiContextField{label: "Model", value: fallback(m.currentConversation.GetModel(), "<default>"), muted: true},
+			aiContextField{label: "Messages", value: fmt.Sprintf("%d", len(m.currentConversation.GetMessages()))},
+			aiContextField{label: "Updated", value: formatUnix(m.currentConversation.GetUpdatedAt()), muted: true},
+		)
+	}
+
+	return []aiContextSection{
+		{title: "Target", fields: targetFields},
+		{title: "Connection", fields: connectionFields},
+		{title: "Thread", fields: threadFields},
+		{title: "Defaults", fields: defaultFields},
+		{title: "Providers", fields: providerFields},
+	}
+}
+
+func (m *aiModel) renderContextModalSection(width int, section aiContextSection) string {
+	title := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(clienttheme.PrimaryMod(200)).
+		Background(clienttheme.PrimaryMod(900)).
+		Padding(0, 1).
+		Render(section.title)
+
+	lines := []string{title}
+	for _, field := range section.fields {
+		lines = append(lines, m.renderContextModalFieldLines(width, field)...)
+	}
+
+	return lipgloss.NewStyle().Width(width).Render(strings.Join(lines, "\n"))
+}
+
+func (m *aiModel) renderContextModalFieldLines(width int, field aiContextField) []string {
+	labelWidth := clampInt(width/6, 8, 12)
+	valueWidth := maxInt(1, width-(labelWidth+4))
+	value := strings.TrimSpace(field.value)
+	if value == "" {
+		value = "<unset>"
+	}
+
+	labelStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(clienttheme.DefaultMod(700))
+	valueStyle := lipgloss.NewStyle().
+		Foreground(clienttheme.DefaultMod(900))
+	if field.muted {
+		valueStyle = valueStyle.Foreground(clienttheme.DefaultMod(600))
+	}
+
+	label := truncateText(field.label, labelWidth)
+	wrapped := wrapText(value, valueWidth)
+	lines := make([]string, 0, len(wrapped))
+	for i, line := range wrapped {
+		labelText := strings.Repeat(" ", labelWidth)
+		if i == 0 {
+			labelText = labelStyle.Width(labelWidth).Render(label)
+		}
+		lines = append(lines, lipgloss.NewStyle().Width(width).Render(
+			lipgloss.NewStyle().Foreground(clienttheme.PrimaryMod(500)).Render("|")+
+				" "+
+				labelText+
+				" "+
+				valueStyle.Render(line),
+		))
+	}
+	return lines
+}
+
 func (m *aiModel) renderModalOverlay(base string) string {
 	box := m.renderModal()
 	boxWidth := lipgloss.Width(box)
@@ -827,7 +1049,7 @@ func (m *aiModel) renderTooSmall() string {
 		m.styles.badge.Render("SLIVER AI"),
 		"",
 		m.styles.warning.Render("Terminal too small for the AI conversation view."),
-		m.styles.subtleText.Render("Resize to at least 72x18 to view the sidebar, markdown transcript, and context panes."),
+		m.styles.subtleText.Render("Resize to at least 72x18 to view the sidebar, markdown transcript, and composer."),
 	}
 	return strings.Join(lines, "\n")
 }
@@ -853,7 +1075,7 @@ func (m *aiModel) renderHeader(height int) string {
 		return row
 	}
 
-	subtitle := "Server-backed AI conversation threads with live sync across connected clients."
+	subtitle := "Server-backed AI conversation threads with live sync and on-demand operator context."
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
 		row,
@@ -863,45 +1085,22 @@ func (m *aiModel) renderHeader(height int) string {
 
 func (m *aiModel) renderBody(height int) string {
 	switch {
-	case m.width >= 110:
-		sidebarWidth := clampInt(m.width/5, 24, 28)
-		detailsWidth := clampInt(m.width/4, 28, 34)
-		transcriptWidth := maxInt(34, m.width-sidebarWidth-detailsWidth)
+	case m.width >= 78:
+		sidebarWidth := clampInt(m.width/4, 24, 28)
+		transcriptWidth := maxInt(40, m.width-sidebarWidth)
 		return lipgloss.JoinHorizontal(
 			lipgloss.Top,
 			m.renderSidebar(sidebarWidth, height),
 			m.renderTranscript(transcriptWidth, height),
-			m.renderDetails(detailsWidth, height),
-		)
-
-	case m.width >= 78:
-		sidebarWidth := clampInt(m.width/4, 24, 28)
-		mainWidth := maxInt(34, m.width-sidebarWidth)
-		detailsHeight := clampInt(height/3, 6, 9)
-		if height-detailsHeight < 7 {
-			detailsHeight = maxInt(4, height-7)
-		}
-		chatHeight := maxInt(6, height-detailsHeight)
-		mainColumn := lipgloss.JoinVertical(
-			lipgloss.Left,
-			m.renderTranscript(mainWidth, chatHeight),
-			m.renderDetails(mainWidth, detailsHeight),
-		)
-		return lipgloss.JoinHorizontal(
-			lipgloss.Top,
-			m.renderSidebar(sidebarWidth, height),
-			mainColumn,
 		)
 
 	default:
 		sidebarHeight := clampInt(height/4, 5, 7)
-		detailsHeight := clampInt(height/4, 5, 8)
-		transcriptHeight := maxInt(6, height-sidebarHeight-detailsHeight)
+		transcriptHeight := maxInt(6, height-sidebarHeight)
 		return lipgloss.JoinVertical(
 			lipgloss.Left,
 			m.renderSidebar(m.width, sidebarHeight),
 			m.renderTranscript(m.width, transcriptHeight),
-			m.renderDetails(m.width, detailsHeight),
 		)
 	}
 }
@@ -948,87 +1147,11 @@ func (m *aiModel) renderTranscript(width, height int) string {
 	innerHeight := innerPaneHeight(height)
 	contentLines := m.renderTranscriptDisplayContentLines(innerWidth)
 	bodyHeight := maxInt(1, innerHeight-m.transcriptHeaderLineCount())
-	if m.focus == aiFocusTranscript {
-		bodyHeight = maxInt(1, bodyHeight-1)
-	}
 	headerLines := m.renderTranscriptHeaderLines(innerWidth, bodyHeight, contentLines)
 	lines := append([]string(nil), headerLines...)
 	lines = append(lines, m.visibleTranscriptLines(contentLines, bodyHeight)...)
-	if m.focus == aiFocusTranscript {
-		lines = append(lines, m.transcriptFocusHint(innerWidth))
-	}
 
 	return m.renderPane(width, height, aiFocusTranscript, lines)
-}
-
-func (m *aiModel) renderDetails(width, height int) string {
-	innerWidth := innerPaneWidth(width)
-	innerHeight := innerPaneHeight(height)
-
-	lines := []string{
-		m.styles.paneTitle.Render("Context"),
-		m.styles.heading.Render("Target"),
-	}
-
-	targetLines := []string{
-		m.ctx.target.Label,
-		m.ctx.target.Host,
-		m.ctx.target.OS + "/" + m.ctx.target.Arch + " via " + m.ctx.target.C2,
-	}
-	targetLines = append(targetLines, m.ctx.target.Details...)
-	for _, line := range targetLines {
-		lines = append(lines, m.styles.item.Width(innerWidth).Render(truncateText(line, innerWidth)))
-	}
-
-	lines = append(lines, m.styles.heading.Render("Connection"))
-	connectionLines := []string{
-		m.ctx.connection.Profile,
-		m.ctx.connection.Server,
-		"operator: " + m.ctx.connection.Operator,
-		"state: " + m.ctx.connection.State,
-	}
-	for _, line := range connectionLines {
-		lines = append(lines, m.styles.subtleText.Width(innerWidth).Render(truncateText(line, innerWidth)))
-	}
-
-	lines = append(lines, m.styles.heading.Render("Providers"))
-	if len(m.providers) == 0 {
-		lines = append(lines, m.styles.subtleText.Width(innerWidth).Render("No AI providers reported by the server."))
-	} else {
-		for _, provider := range m.providers {
-			lines = append(lines, m.styles.subtleText.Width(innerWidth).Render(truncateText(providerDisplay(provider), innerWidth)))
-		}
-	}
-
-	lines = append(lines, m.styles.heading.Render("Defaults"))
-	if m.config == nil {
-		lines = append(lines, m.styles.subtleText.Width(innerWidth).Render("AI defaults unavailable."))
-	} else {
-		defaultLines := []string{
-			"provider: " + fallback(m.config.GetProvider(), "<unset>"),
-			"model: " + fallback(m.config.GetModel(), "provider default"),
-			"thinking: " + fallback(m.config.GetThinkingLevel(), "provider default"),
-		}
-		for _, line := range defaultLines {
-			lines = append(lines, m.styles.subtleText.Width(innerWidth).Render(truncateText(line, innerWidth)))
-		}
-	}
-
-	if m.currentConversation != nil {
-		lines = append(lines, m.styles.heading.Render("Thread"))
-		threadLines := []string{
-			"id: " + shortenID(m.currentConversation.GetID()),
-			"provider: " + fallback(m.currentConversation.GetProvider(), "<unset>"),
-			"model: " + fallback(m.currentConversation.GetModel(), "<default>"),
-			fmt.Sprintf("messages: %d", len(m.currentConversation.GetMessages())),
-			"updated: " + formatUnix(m.currentConversation.GetUpdatedAt()),
-		}
-		for _, line := range threadLines {
-			lines = append(lines, m.styles.subtleText.Width(innerWidth).Render(truncateText(line, innerWidth)))
-		}
-	}
-
-	return m.renderPane(width, height, aiFocusDetails, headLines(lines, innerHeight))
 }
 
 func (m *aiModel) renderComposer(height int) string {
@@ -1036,7 +1159,10 @@ func (m *aiModel) renderComposer(height int) string {
 	innerHeight := innerPaneHeight(height)
 
 	lines := []string{
-		m.styles.paneTitle.Render("Composer"),
+		lipgloss.NewStyle().Width(innerWidth).Render(fitStyledPieces(innerWidth, []string{
+			m.styles.paneTitle.Render("Composer"),
+			m.styles.chipMuted.Render("ctrl+o context"),
+		})),
 		m.renderInputLine(innerWidth),
 	}
 
@@ -1126,14 +1252,9 @@ func (m *aiModel) footerHints() []string {
 		hints = append(hints, "n: new", "r: refresh", "q/esc: quit")
 		return hints
 	case aiFocusComposer:
-		return []string{"tab: sidebar", "enter: send", "ctrl+u: clear", "esc: blur", "ctrl+c: quit"}
+		return []string{"tab: sidebar", "enter: send", "ctrl+o: context", "ctrl+u: clear", "esc: blur", "ctrl+c: quit"}
 	default:
-		hints := []string{"tab: next"}
-		if m.deleteTargetConversation() != nil {
-			hints = append(hints, "x: delete")
-		}
-		hints = append(hints, "n: new", "r: refresh", "q/esc: quit")
-		return hints
+		return []string{"tab: next", "q/esc: quit"}
 	}
 }
 
@@ -1229,23 +1350,12 @@ func (m *aiModel) currentTranscriptPaneSize() (int, int) {
 	_, _, _, bodyHeight := m.layoutHeights()
 
 	switch {
-	case m.width >= 110:
-		sidebarWidth := clampInt(m.width/5, 24, 28)
-		detailsWidth := clampInt(m.width/4, 28, 34)
-		return maxInt(34, m.width-sidebarWidth-detailsWidth), bodyHeight
 	case m.width >= 78:
 		sidebarWidth := clampInt(m.width/4, 24, 28)
-		mainWidth := maxInt(34, m.width-sidebarWidth)
-		detailsHeight := clampInt(bodyHeight/3, 6, 9)
-		if bodyHeight-detailsHeight < 7 {
-			detailsHeight = maxInt(4, bodyHeight-7)
-		}
-		chatHeight := maxInt(6, bodyHeight-detailsHeight)
-		return mainWidth, chatHeight
+		return maxInt(40, m.width-sidebarWidth), bodyHeight
 	default:
 		sidebarHeight := clampInt(bodyHeight/4, 5, 7)
-		detailsHeight := clampInt(bodyHeight/4, 5, 8)
-		return m.width, maxInt(6, bodyHeight-sidebarHeight-detailsHeight)
+		return m.width, maxInt(6, bodyHeight-sidebarHeight)
 	}
 }
 
@@ -1401,11 +1511,6 @@ func (m *aiModel) scrollTranscriptToBottom() {
 	m.syncTranscriptViewport()
 }
 
-func (m *aiModel) transcriptFocusHint(width int) string {
-	hint := "scroll j/k pgup/pgdn g/G"
-	return m.styles.footerHint.Width(maxInt(1, width)).Render(truncateText(hint, maxInt(1, width)))
-}
-
 func (m *aiModel) isBusy() bool {
 	return m.loading || m.awaitingResponse
 }
@@ -1424,6 +1529,15 @@ func (m *aiModel) moveSelection(delta int) tea.Cmd {
 	m.loading = true
 	m.status = "Loading conversation..."
 	return loadAIStateCmd(m.con, m.conversations[next].GetID())
+}
+
+func (m *aiModel) showContextModal() (tea.Model, tea.Cmd) {
+	m.modal = &aiModalState{
+		kind:  aiModalKindContext,
+		title: "Context",
+	}
+	m.status = "Context opened."
+	return m, nil
 }
 
 func (m *aiModel) showDeleteConversationModal() (tea.Model, tea.Cmd) {
@@ -1821,8 +1935,6 @@ func (m aiFocus) String() string {
 		return "sidebar"
 	case aiFocusTranscript:
 		return "conversation"
-	case aiFocusDetails:
-		return "context"
 	case aiFocusComposer:
 		return "composer"
 	default:
@@ -1832,8 +1944,6 @@ func (m aiFocus) String() string {
 
 func (m *aiModel) layoutName() string {
 	switch {
-	case m.width >= 110:
-		return "three-pane"
 	case m.width >= 78:
 		return "split"
 	default:

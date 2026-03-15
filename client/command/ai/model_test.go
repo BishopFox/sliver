@@ -418,13 +418,14 @@ func TestRenderFooterUsesPaneSpecificControls(t *testing.T) {
 	if strings.Contains(footer, "enter: open") || strings.Contains(footer, "enter: send") {
 		t.Fatalf("expected transcript footer to avoid sidebar/composer controls, got %q", footer)
 	}
-	if hint := ansi.Strip(model.transcriptFocusHint(48)); !strings.Contains(hint, "scroll j/k pgup/pgdn g/G") {
-		t.Fatalf("expected transcript focus hint to mention scroll controls, got %q", hint)
+	renderedTranscript := ansi.Strip(model.renderTranscript(96, 12))
+	if strings.Contains(renderedTranscript, "scroll j/k pgup/pgdn g/G") {
+		t.Fatalf("expected transcript pane to omit inline focus controls, got %q", renderedTranscript)
 	}
 
 	model.focus = aiFocusComposer
 	footer = ansi.Strip(model.renderFooter())
-	expected = []string{"focus: composer", "tab: sidebar", "enter: send", "ctrl+u: clear", "esc: blur", "ctrl+c: quit"}
+	expected = []string{"focus: composer", "tab: sidebar", "enter: send", "ctrl+o: context", "ctrl+u: clear", "esc: blur", "ctrl+c: quit"}
 	for _, fragment := range expected {
 		if !strings.Contains(footer, fragment) {
 			t.Fatalf("expected composer footer to contain %q, got %q", fragment, footer)
@@ -432,6 +433,25 @@ func TestRenderFooterUsesPaneSpecificControls(t *testing.T) {
 	}
 	if strings.Contains(footer, "x: delete") {
 		t.Fatalf("expected composer footer to avoid sidebar controls, got %q", footer)
+	}
+}
+
+func TestTabCyclesVisiblePanesOnly(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+
+	updated, _ := model.handleGlobalKey(tea.Key{Code: tea.KeyTab})
+	if got := updated.(*aiModel).focus; got != aiFocusTranscript {
+		t.Fatalf("expected tab to move from sidebar to transcript, got %s", got.String())
+	}
+
+	updated, _ = updated.(*aiModel).handleGlobalKey(tea.Key{Code: tea.KeyTab})
+	if got := updated.(*aiModel).focus; got != aiFocusComposer {
+		t.Fatalf("expected tab to move from transcript to composer, got %s", got.String())
+	}
+
+	updated, _ = updated.(*aiModel).handleGlobalKey(tea.Key{Code: tea.KeyTab})
+	if got := updated.(*aiModel).focus; got != aiFocusSidebar {
+		t.Fatalf("expected tab to wrap back to sidebar, got %s", got.String())
 	}
 }
 
@@ -538,6 +558,39 @@ func TestComposerEnterStartsAwaitingResponseImmediately(t *testing.T) {
 	}
 }
 
+func TestComposerCtrlOOpensContextModal(t *testing.T) {
+	model := newAIModel(nil, aiContext{
+		target: aiTargetSummary{
+			Label: "Session demo",
+			Host:  "demo-host",
+			OS:    "linux",
+			Arch:  "amd64",
+			C2:    "mtls",
+			Mode:  "interactive session",
+		},
+		connection: aiConnectionSummary{
+			Profile:  "default",
+			Server:   "127.0.0.1:31337",
+			Operator: "alice",
+			State:    "ready",
+		},
+	}, nil)
+	model.focus = aiFocusComposer
+
+	updated, cmd := model.handleComposerKey(tea.Key{Code: 'o', Mod: tea.ModCtrl})
+	if cmd != nil {
+		t.Fatalf("did not expect context modal to queue work, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal == nil || updatedModel.modal.kind != aiModalKindContext {
+		t.Fatalf("expected context modal, got %+v", updatedModel.modal)
+	}
+	if updatedModel.modal.title != "Context" {
+		t.Fatalf("expected context modal title, got %+v", updatedModel.modal)
+	}
+}
+
 func TestShowDeleteConversationModalTargetsSelectedConversation(t *testing.T) {
 	model := newAIModel(nil, aiContext{}, nil)
 	model.loading = false
@@ -582,6 +635,22 @@ func TestDeleteConversationModalCancelsOnEscape(t *testing.T) {
 	}
 }
 
+func TestContextModalCancelsOnEscape(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.modal = &aiModalState{
+		kind:  aiModalKindContext,
+		title: "Context",
+	}
+
+	updated, cmd := model.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+	if cmd != nil {
+		t.Fatalf("did not expect context modal escape to queue work, got %v", cmd)
+	}
+	if updated.(*aiModel).modal != nil {
+		t.Fatal("expected escape to close the context modal")
+	}
+}
+
 func TestModalViewRetainsBackgroundContent(t *testing.T) {
 	model := newAIModel(nil, aiContext{}, nil)
 	model.width = 120
@@ -602,6 +671,50 @@ func TestModalViewRetainsBackgroundContent(t *testing.T) {
 	}
 	if !strings.Contains(view, "Delete Conversation?") {
 		t.Fatalf("expected modal view to include the overlay content, got %q", view)
+	}
+}
+
+func TestContextModalViewIncludesStyledContextContent(t *testing.T) {
+	model := newAIModel(nil, aiContext{
+		target: aiTargetSummary{
+			Label:   "Session demo",
+			Host:    "demo-host",
+			OS:      "linux",
+			Arch:    "amd64",
+			C2:      "mtls",
+			Mode:    "interactive session",
+			Details: []string{"User: alice"},
+		},
+		connection: aiConnectionSummary{
+			Profile:  "default",
+			Server:   "127.0.0.1:31337",
+			Operator: "alice",
+			State:    "ready",
+		},
+	}, nil)
+	model.width = 120
+	model.height = 30
+	model.loading = false
+	model.conversations = []*clientpb.AIConversation{{ID: "conv-1", Title: "Thread"}}
+	model.currentConversation = &clientpb.AIConversation{
+		ID:       "conv-1",
+		Title:    "Thread",
+		Provider: "openai",
+		Model:    "gpt-test",
+	}
+	model.providers = []*clientpb.AIProviderConfig{{Name: "openai", Configured: true}}
+	model.config = &clientpb.AIConfigSummary{Provider: "openai", Model: "gpt-test", ThinkingLevel: "high"}
+	model.modal = &aiModalState{
+		kind:  aiModalKindContext,
+		title: "Context",
+	}
+
+	view := ansi.Strip(model.View().Content)
+	expected := []string{"Composer", "focus: sidebar", "Context", "Target", "Connection", "Thread", "Session demo", "127.0.0.1:31337"}
+	for _, fragment := range expected {
+		if !strings.Contains(view, fragment) {
+			t.Fatalf("expected context modal view to contain %q, got %q", fragment, view)
+		}
 	}
 }
 
