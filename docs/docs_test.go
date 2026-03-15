@@ -84,3 +84,56 @@ func TestReadAcceptsDocNameWithoutSuffix(t *testing.T) {
 		t.Fatal("Read() returned unexpected content")
 	}
 }
+
+func TestAsciinemaFSMatchesEmbeddedSources(t *testing.T) {
+	dirEntries, err := os.ReadDir("sliver-docs/public/asciinema")
+	if err != nil {
+		t.Fatalf("read asciinema source directory: %v", err)
+	}
+
+	expected := make(map[string][]byte, len(dirEntries))
+	for _, entry := range dirEntries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".cast" {
+			continue
+		}
+
+		content, err := os.ReadFile(filepath.Join("sliver-docs/public/asciinema", entry.Name()))
+		if err != nil {
+			t.Fatalf("read asciinema source %q: %v", entry.Name(), err)
+		}
+		expected[entry.Name()] = content
+	}
+
+	embeddedEntries, err := fs.ReadDir(AsciinemaFS, ".")
+	if err != nil {
+		t.Fatalf("read embedded asciinema directory: %v", err)
+	}
+	if len(embeddedEntries) != len(expected) {
+		t.Fatalf("embedded asciinema entry count = %d, want %d", len(embeddedEntries), len(expected))
+	}
+
+	for filename, want := range expected {
+		got, err := fs.ReadFile(AsciinemaFS, filename)
+		if err != nil {
+			t.Fatalf("read embedded asciinema %q: %v", filename, err)
+		}
+		if string(got) != string(want) {
+			t.Fatalf("embedded asciinema mismatch for %q", filename)
+		}
+	}
+}
+
+func TestReadAsciinemaAcceptsNameWithoutSuffix(t *testing.T) {
+	want, err := os.ReadFile(filepath.Join("sliver-docs/public/asciinema", "intro.cast"))
+	if err != nil {
+		t.Fatalf("read source asciinema: %v", err)
+	}
+
+	got, err := ReadAsciinema("intro")
+	if err != nil {
+		t.Fatalf("ReadAsciinema(): %v", err)
+	}
+	if string(got) != string(want) {
+		t.Fatal("ReadAsciinema() returned unexpected content")
+	}
+}

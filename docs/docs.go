@@ -25,15 +25,21 @@ import (
 	"strings"
 )
 
-const markdownDir = "sliver-docs/pages/docs/md"
+const (
+	markdownDir  = "sliver-docs/pages/docs/md"
+	asciinemaDir = "sliver-docs/public/asciinema"
+)
 
 var (
-	// rawFS stores the embedded markdown sources for the Sliver docs site.
-	//go:embed sliver-docs/pages/docs/md/*.md
+	// rawFS stores embedded docs content from the Sliver docs site.
+	//go:embed sliver-docs/pages/docs/md/*.md sliver-docs/public/asciinema/*
 	rawFS embed.FS
 
 	// FS provides access to the embedded markdown docs rooted at the md directory.
 	FS = mustSubFS(rawFS, markdownDir)
+
+	// AsciinemaFS provides access to the embedded asciinema recordings.
+	AsciinemaFS = mustSubFS(rawFS, asciinemaDir)
 )
 
 // Doc is a single embedded markdown document.
@@ -84,6 +90,14 @@ func Read(name string) (string, error) {
 		return "", err
 	}
 	return string(content), nil
+}
+
+// ReadAsciinema returns the embedded asciinema recording, with or without the .cast suffix.
+func ReadAsciinema(name string) ([]byte, error) {
+	if !strings.HasSuffix(name, ".cast") {
+		name += ".cast"
+	}
+	return fs.ReadFile(AsciinemaFS, name)
 }
 
 func mustSubFS(embedded fs.FS, dir string) fs.FS {
