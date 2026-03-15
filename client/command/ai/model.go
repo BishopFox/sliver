@@ -63,6 +63,7 @@ type aiStyles struct {
 	inputPlaceholder lipgloss.Style
 	roleUser         lipgloss.Style
 	warning          lipgloss.Style
+	danger           lipgloss.Style
 }
 
 type aiLoadedMsg struct {
@@ -238,6 +239,9 @@ func newAIStyles() aiStyles {
 			Foreground(clienttheme.Warning()),
 		warning: lipgloss.NewStyle().
 			Foreground(clienttheme.Warning()).
+			Bold(true),
+		danger: lipgloss.NewStyle().
+			Foreground(clienttheme.Danger()).
 			Bold(true),
 	}
 }
@@ -733,7 +737,7 @@ func (m *aiModel) renderDeleteConfirmModal() string {
 	bodyLines := wrapText(m.modal.body, bodyWidth)
 
 	lines := []string{
-		m.styles.warning.Width(bodyWidth).Render(m.modal.title),
+		m.styles.danger.Width(bodyWidth).Render(m.modal.title),
 		"",
 	}
 	for _, line := range bodyLines {
@@ -743,7 +747,7 @@ func (m *aiModel) renderDeleteConfirmModal() string {
 
 	box := lipgloss.NewStyle().
 		Border(lipgloss.DoubleBorder()).
-		BorderForeground(clienttheme.Warning()).
+		BorderForeground(clienttheme.Danger()).
 		Padding(1, 2).
 		Render(strings.Join(lines, "\n"))
 
@@ -1099,7 +1103,7 @@ func (m *aiModel) renderDeleteConfirmActions(width int) string {
 		Background(clienttheme.DefaultMod(50)).
 		Padding(0, 1)
 	deleteStyle := lipgloss.NewStyle().
-		Foreground(clienttheme.Warning()).
+		Foreground(clienttheme.Danger()).
 		Padding(0, 1)
 
 	if !m.modal.confirmDelete {
@@ -1111,7 +1115,7 @@ func (m *aiModel) renderDeleteConfirmActions(width int) string {
 		deleteStyle = deleteStyle.
 			Bold(true).
 			Foreground(clienttheme.DefaultMod(900)).
-			Background(clienttheme.Warning())
+			Background(clienttheme.Danger())
 	}
 
 	actions := lipgloss.JoinHorizontal(
