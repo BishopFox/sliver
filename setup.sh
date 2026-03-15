@@ -94,6 +94,18 @@ else
     warn "  build-essential mingw-w64 osslsigncode python3-pycryptodome git curl jq"
 fi
 
+# Install Azure CLI (needed for ATTACKPATH.md RunCommand operations)
+if ! command -v az &>/dev/null; then
+    info "Installing Azure CLI..."
+    if command -v apt-get &>/dev/null; then
+        curl -sL https://aka.ms/InstallAzureCLIDeb | bash 2>/dev/null || warn "Az CLI install failed (install manually: curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash)"
+    else
+        warn "Install Azure CLI manually: https://learn.microsoft.com/en-us/cli/azure/install-azure-cli"
+    fi
+else
+    ok "Azure CLI already installed ($(az version --query '\"azure-cli\"' -o tsv 2>/dev/null))"
+fi
+
 ###############################################################################
 # Step 2: Go Installation
 ###############################################################################
@@ -362,6 +374,24 @@ IMPORT
     mkdir -p "$HOME/.sliver" 2>/dev/null
     touch "$MARKER"
     echo "[+] Profile imported (persists across restarts)"
+fi
+
+# ─── Install armory extensions (first run only) ───
+ARMORY_MARKER="$HOME/.sliver/.armory_installed"
+if [ ! -f "$ARMORY_MARKER" ]; then
+    echo "[*] Installing armory extensions (first run — takes a few minutes)..."
+    "$SCRIPT_DIR/sliver-client" << ARMORY
+armory install windows-credentials
+armory install kerberos
+armory install situational-awareness
+armory install windows-pivot
+armory install windows-bypass
+armory install .net-pivot
+armory install .net-recon
+armory install .net-execute
+ARMORY
+    touch "$ARMORY_MARKER"
+    echo "[+] Armory extensions installed (persists per-client)"
 fi
 
 # ─── Start listeners ───

