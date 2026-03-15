@@ -222,10 +222,16 @@ info "Step 4/6: Downloading post-exploitation tools..."
 TOOLS_DIR="$SLIVER_DIR/tools"
 mkdir -p "$TOOLS_DIR"
 
-# LSA Whisperer (Credential Guard bypass — SpecterOps)
-if [ ! -d "$TOOLS_DIR/lsa-whisperer" ]; then
-    info "Cloning LSA Whisperer..."
-    git clone https://github.com/EvanMcBroom/lsa-whisperer.git "$TOOLS_DIR/lsa-whisperer" 2>/dev/null || warn "LSA Whisperer clone failed"
+# LSA Whisperer BOF (Credential Guard bypass — loads directly into Sliver)
+if [ ! -d "$TOOLS_DIR/lsawhisper-bof" ]; then
+    info "Cloning LSA Whisperer BOF..."
+    git clone https://github.com/dazzyddos/lsawhisper-bof.git "$TOOLS_DIR/lsawhisper-bof" 2>/dev/null || warn "LSA Whisperer BOF clone failed"
+fi
+
+# No-Consolation (run unmanaged EXEs in-process via BOF)
+if [ ! -d "$TOOLS_DIR/No-Consolation" ]; then
+    info "Cloning No-Consolation..."
+    git clone https://github.com/fortra/No-Consolation.git "$TOOLS_DIR/No-Consolation" 2>/dev/null || warn "No-Consolation clone failed"
 fi
 
 # pypykatz (parse LSASS dumps offline)

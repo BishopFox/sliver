@@ -85,6 +85,24 @@ IMPORT
     echo "[+] Profile imported (persists across restarts)"
 fi
 
+# ─── Install armory extensions (first run only) ───
+ARMORY_MARKER="$HOME/.sliver/.armory_installed"
+if [ ! -f "$ARMORY_MARKER" ]; then
+    echo "[*] Installing armory extensions (first run — takes a few minutes)..."
+    "$SCRIPT_DIR/sliver-client" << ARMORY
+armory install windows-credentials
+armory install kerberos
+armory install situational-awareness
+armory install windows-pivot
+armory install windows-bypass
+armory install .net-pivot
+armory install .net-recon
+armory install .net-execute
+ARMORY
+    touch "$ARMORY_MARKER"
+    echo "[+] Armory extensions installed (persists per-client)"
+fi
+
 # ─── Start listeners ───
 echo "[*] Starting mTLS listener on 0.0.0.0:$MTLS_PORT..."
 LISTENER_CMDS="mtls --lhost 0.0.0.0 --lport $MTLS_PORT"
