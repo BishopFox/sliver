@@ -43,6 +43,10 @@ func mcpCmd(con *console.SliverClient) *cobra.Command {
 }
 
 func runMCP(cmd *cobra.Command, con *console.SliverClient) error {
+	if err := applyMultiplayerConnectMode(cmd); err != nil {
+		return err
+	}
+
 	configPath, _ := cmd.Flags().GetString("config")
 	config, err := loadMCPClientConfig(configPath)
 	if err != nil {
@@ -55,7 +59,7 @@ func runMCP(cmd *cobra.Command, con *console.SliverClient) error {
 		fmt.Printf("Connection to server failed %s\n", err)
 		return nil
 	}
-	defer ln.Close()
+	defer transport.CloseGRPCConnection(ln)
 
 	con.Rpc = rpc
 	go handleConnectionLost(ln)

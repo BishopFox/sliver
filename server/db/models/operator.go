@@ -37,6 +37,8 @@ type Operator struct {
 	PermissionAll          bool   `gorm:"default:false"` // Access all gRPC APIs
 	PermissionBuilder      bool   `gorm:"default:false"` // Access Builder gRPC APIs
 	PermissionCrackstation bool   `gorm:"default:false"` // Access Crackstation gRPC APIs
+	WGPubKey               string
+	WGTunIP                string
 }
 
 // BeforeCreate - GORM hook

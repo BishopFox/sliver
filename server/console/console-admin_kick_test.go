@@ -116,7 +116,7 @@ func TestKickOperatorClosesActiveEventStreams(t *testing.T) {
 func mustNewOperatorAssetsConfig(t *testing.T, operatorName string) *clientassets.ClientConfig {
 	t.Helper()
 
-	configJSON, err := NewOperatorConfig(operatorName, "bufnet", 31337, []string{"all"})
+	configJSON, err := NewOperatorConfig(operatorName, "bufnet", 31337, []string{"all"}, false)
 	if err != nil {
 		t.Fatalf("generate operator config: %v", err)
 	}

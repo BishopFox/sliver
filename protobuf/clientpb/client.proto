@@ -456,6 +456,7 @@ message ListenerJob {
 message MultiplayerListenerReq {
   string Host = 1;
   uint32 Port = 2;
+  bool WireGuard = 3;
 }
 
 message MTLSListenerReq {
