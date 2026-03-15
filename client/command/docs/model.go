@@ -8,7 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"charm.land/bubbles/v2/list"
+	"charm.land/bubbles/v2/paginator"
+	"charm.land/bubbles/v2/textinput"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/glamour/v2"
@@ -20,15 +21,19 @@ import (
 )
 
 const (
-	docsMinWidth           = 72
-	docsMinHeight          = 18
-	docsFooterHeight       = 1
-	docsPaneGap            = 1
-	docsPaneHeaderLines    = 1
-	docsNarrowWidth        = 96
-	docsBrowserMinWidth    = 28
-	docsBrowserMaxWidth    = 40
-	docsWindowPollInterval = 100 * time.Millisecond
+	docsMinWidth            = 72
+	docsMinHeight           = 18
+	docsPaneGap             = 1
+	docsViewerHeaderLines   = 1
+	docsNarrowWidth         = 96
+	docsBrowserMinWidth     = 32
+	docsBrowserMaxWidth     = 46
+	docsWindowPollInterval  = 100 * time.Millisecond
+	docsBrowserItemHeight   = 3
+	docsBrowserHeaderGap    = 1
+	docsBrowserFooterGap    = 1
+	docsBrowserFooterLines  = 1
+	docsBrowserFullHelpRows = 3
 )
 
 var (
@@ -43,31 +48,45 @@ const (
 	docsFocusViewer
 )
 
+type docsFilterState int
+
+const (
+	docsFilterStateUnfiltered docsFilterState = iota
+	docsFilterStateFiltering
+	docsFilterStateApplied
+)
+
 type docEntry struct {
 	Name        string
 	Content     string
 	Description string
 }
 
-type docsItem struct {
-	entry docEntry
+type docsHelpEntry struct {
+	key    string
+	action string
 }
 
-func (d docsItem) Title() string       { return d.entry.Name }
-func (d docsItem) Description() string { return d.entry.Description }
-func (d docsItem) FilterValue() string { return d.entry.Name + " " + d.entry.Description }
-
 type docsStyles struct {
-	app         lipgloss.Style
-	pane        lipgloss.Style
-	paneFocused lipgloss.Style
-	header      lipgloss.Style
-	headerMeta  lipgloss.Style
-	footer      lipgloss.Style
-	footerMuted lipgloss.Style
-	empty       lipgloss.Style
-	error       lipgloss.Style
-	minSize     lipgloss.Style
+	app                 lipgloss.Style
+	pane                lipgloss.Style
+	paneFocused         lipgloss.Style
+	header              lipgloss.Style
+	headerMeta          lipgloss.Style
+	empty               lipgloss.Style
+	error               lipgloss.Style
+	minSize             lipgloss.Style
+	browserCount        lipgloss.Style
+	browserCountActive  lipgloss.Style
+	browserTitle        lipgloss.Style
+	browserTitleMuted   lipgloss.Style
+	browserTitleActive  lipgloss.Style
+	browserMeta         lipgloss.Style
+	browserMetaActive   lipgloss.Style
+	browserHelpKey      lipgloss.Style
+	browserHelpText     lipgloss.Style
+	browserHelpDivider  lipgloss.Style
+	browserHelpOverflow lipgloss.Style
 }
 
 type docsWindowPollMsg struct {
@@ -76,16 +95,24 @@ type docsWindowPollMsg struct {
 }
 
 type docsModel struct {
-	width          int
-	height         int
-	focus          docsFocus
-	browser        list.Model
-	viewer         viewport.Model
-	entries        []docEntry
-	entriesByName  map[string]docEntry
-	currentDocName string
-	renderCache    map[string]string
-	styles         docsStyles
+	width                 int
+	height                int
+	focus                 docsFocus
+	filterState           docsFilterState
+	browserShowFullHelp   bool
+	browserWidth          int
+	browserHeight         int
+	browserCursor         int
+	browserFilter         textinput.Model
+	browserFilterSnapshot string
+	browserPaginator      paginator.Model
+	filteredEntries       []docEntry
+	viewer                viewport.Model
+	entries               []docEntry
+	entriesByName         map[string]docEntry
+	currentDocName        string
+	renderCache           map[string]string
+	styles                docsStyles
 }
 
 func loadDocEntries() ([]docEntry, error) {
@@ -109,84 +136,46 @@ func loadDocEntries() ([]docEntry, error) {
 }
 
 func newDocsModel(entries []docEntry) *docsModel {
-	items := make([]list.Item, 0, len(entries))
-	entriesByName := make(map[string]docEntry, len(entries))
-	for _, entry := range entries {
-		items = append(items, docsItem{entry: entry})
-		entriesByName[entry.Name] = entry
-	}
+	filter := textinput.New()
+	filter.Prompt = "Find: "
+	filter.Placeholder = "Search docs"
+	filterStyles := textinput.DefaultStyles(true)
+	filterStyles.Focused.Prompt = filterStyles.Focused.Prompt.Foreground(clienttheme.Primary()).Bold(true)
+	filterStyles.Blurred.Prompt = filterStyles.Blurred.Prompt.Foreground(clienttheme.DefaultMod(500))
+	filterStyles.Focused.Text = filterStyles.Focused.Text.Foreground(clienttheme.DefaultMod(900))
+	filterStyles.Blurred.Text = filterStyles.Blurred.Text.Foreground(clienttheme.DefaultMod(700))
+	filterStyles.Focused.Placeholder = filterStyles.Focused.Placeholder.Foreground(clienttheme.DefaultMod(400))
+	filterStyles.Blurred.Placeholder = filterStyles.Blurred.Placeholder.Foreground(clienttheme.DefaultMod(400))
+	filter.SetStyles(filterStyles)
+	filter.Blur()
 
-	delegate := list.NewDefaultDelegate()
-	delegate.SetHeight(2)
-	delegate.SetSpacing(0)
-	delegate.Styles.NormalTitle = lipgloss.NewStyle().
-		Foreground(clienttheme.DefaultMod(900)).
-		Padding(0, 0, 0, 1)
-	delegate.Styles.NormalDesc = lipgloss.NewStyle().
-		Foreground(clienttheme.DefaultMod(500)).
-		Padding(0, 0, 0, 1)
-	delegate.Styles.SelectedTitle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(clienttheme.Primary()).
-		Border(lipgloss.NormalBorder(), false, false, false, true).
-		BorderForeground(clienttheme.Primary()).
-		Padding(0, 0, 0, 1)
-	delegate.Styles.SelectedDesc = lipgloss.NewStyle().
-		Foreground(clienttheme.DefaultMod(700)).
-		Border(lipgloss.NormalBorder(), false, false, false, true).
-		BorderForeground(clienttheme.Primary()).
-		Padding(0, 0, 0, 1)
-	delegate.Styles.DimmedTitle = lipgloss.NewStyle().
-		Foreground(clienttheme.DefaultMod(400)).
-		Padding(0, 0, 0, 1)
-	delegate.Styles.DimmedDesc = lipgloss.NewStyle().
-		Foreground(clienttheme.DefaultMod(300)).
-		Padding(0, 0, 0, 1)
-	delegate.Styles.FilterMatch = lipgloss.NewStyle().
-		Underline(true).
-		Foreground(clienttheme.Secondary())
-
-	browser := list.New(items, delegate, 0, 0)
-	browser.DisableQuitKeybindings()
-	browser.Title = "Docs"
-	browser.SetShowTitle(false)
-	browser.SetShowHelp(false)
-	browser.SetShowStatusBar(true)
-	browser.SetShowPagination(true)
-	browser.SetStatusBarItemName("doc", "docs")
-	browser.FilterInput.Prompt = "Search: "
-	browser.FilterInput.Placeholder = "Filter docs"
-	browser.Styles.TitleBar = lipgloss.NewStyle()
-	browser.Styles.Filter.Cursor.Color = clienttheme.Primary()
-	browser.Styles.Filter.Focused.Prompt = lipgloss.NewStyle().Foreground(clienttheme.Primary())
-	browser.Styles.Filter.Blurred.Prompt = lipgloss.NewStyle().Foreground(clienttheme.DefaultMod(500))
-	browser.Styles.StatusBar = lipgloss.NewStyle().Foreground(clienttheme.DefaultMod(500))
-	browser.Styles.StatusEmpty = lipgloss.NewStyle().Foreground(clienttheme.DefaultMod(400))
-	browser.Styles.StatusBarActiveFilter = lipgloss.NewStyle().Foreground(clienttheme.DefaultMod(900))
-	browser.Styles.StatusBarFilterCount = lipgloss.NewStyle().Foreground(clienttheme.DefaultMod(400))
-	browser.Styles.NoItems = lipgloss.NewStyle().Foreground(clienttheme.DefaultMod(400))
-	browser.Styles.ActivePaginationDot = lipgloss.NewStyle().Foreground(clienttheme.Primary()).SetString("•")
-	browser.Styles.InactivePaginationDot = lipgloss.NewStyle().Foreground(clienttheme.DefaultMod(300)).SetString("•")
-	browser.Styles.ArabicPagination = lipgloss.NewStyle().Foreground(clienttheme.DefaultMod(500))
-	browser.Styles.DividerDot = lipgloss.NewStyle().Foreground(clienttheme.DefaultMod(300)).SetString(" • ")
-	browser.Styles.PaginationStyle = lipgloss.NewStyle()
+	browserPager := paginator.New()
+	browserPager.Type = paginator.Dots
+	browserPager.ActiveDot = lipgloss.NewStyle().Foreground(clienttheme.Primary()).Render("•")
+	browserPager.InactiveDot = lipgloss.NewStyle().Foreground(clienttheme.DefaultMod(300)).Render("•")
 
 	viewer := viewport.New()
 	viewer.MouseWheelEnabled = true
 	viewer.SoftWrap = false
 
 	model := &docsModel{
-		focus:         docsFocusBrowser,
-		browser:       browser,
-		viewer:        viewer,
-		entries:       entries,
-		entriesByName: entriesByName,
-		renderCache:   make(map[string]string),
-		styles:        newDocsStyles(),
+		focus:            docsFocusBrowser,
+		filterState:      docsFilterStateUnfiltered,
+		browserFilter:    filter,
+		browserPaginator: browserPager,
+		viewer:           viewer,
+		entries:          entries,
+		entriesByName:    make(map[string]docEntry, len(entries)),
+		renderCache:      make(map[string]string),
+		styles:           newDocsStyles(),
+	}
+
+	for _, entry := range entries {
+		model.entriesByName[entry.Name] = entry
 	}
 
 	if idx := preferredDocIndex(entries); idx >= 0 {
-		model.browser.Select(idx)
+		model.selectVisibleIndex(idx)
 		model.setCurrentDoc(entries[idx].Name, false)
 	}
 
@@ -195,8 +184,7 @@ func newDocsModel(entries []docEntry) *docsModel {
 
 func newDocsStyles() docsStyles {
 	return docsStyles{
-		app: lipgloss.NewStyle().
-			Padding(0, 0, 0, 0),
+		app: lipgloss.NewStyle(),
 		pane: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(clienttheme.DefaultMod(300)).
@@ -210,10 +198,6 @@ func newDocsStyles() docsStyles {
 			Foreground(clienttheme.DefaultMod(900)),
 		headerMeta: lipgloss.NewStyle().
 			Foreground(clienttheme.DefaultMod(500)),
-		footer: lipgloss.NewStyle().
-			Foreground(clienttheme.DefaultMod(700)),
-		footerMuted: lipgloss.NewStyle().
-			Foreground(clienttheme.DefaultMod(500)),
 		empty: lipgloss.NewStyle().
 			Foreground(clienttheme.DefaultMod(500)),
 		error: lipgloss.NewStyle().
@@ -221,6 +205,28 @@ func newDocsStyles() docsStyles {
 		minSize: lipgloss.NewStyle().
 			Foreground(clienttheme.Warning()).
 			Bold(true),
+		browserCount: lipgloss.NewStyle().
+			Foreground(clienttheme.DefaultMod(500)),
+		browserCountActive: lipgloss.NewStyle().
+			Foreground(clienttheme.DefaultMod(700)),
+		browserTitle: lipgloss.NewStyle().
+			Foreground(clienttheme.DefaultMod(900)),
+		browserTitleMuted: lipgloss.NewStyle().
+			Foreground(clienttheme.DefaultMod(400)),
+		browserTitleActive: lipgloss.NewStyle().
+			Foreground(clienttheme.Primary()),
+		browserMeta: lipgloss.NewStyle().
+			Foreground(clienttheme.DefaultMod(500)),
+		browserMetaActive: lipgloss.NewStyle().
+			Foreground(clienttheme.DefaultMod(700)),
+		browserHelpKey: lipgloss.NewStyle().
+			Foreground(clienttheme.DefaultMod(700)),
+		browserHelpText: lipgloss.NewStyle().
+			Foreground(clienttheme.DefaultMod(500)),
+		browserHelpDivider: lipgloss.NewStyle().
+			Foreground(clienttheme.DefaultMod(300)),
+		browserHelpOverflow: lipgloss.NewStyle().
+			Foreground(clienttheme.DefaultMod(400)),
 	}
 }
 
@@ -302,15 +308,20 @@ func (m *docsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.windowSizeCmd(msg.width, msg.height), docsWindowPollCmd())
 
 	case tea.KeyPressMsg:
-		return m.handleKey(msg)
+		return m, m.handleKey(msg)
 	}
 
 	var cmds []tea.Cmd
 	var cmd tea.Cmd
 
-	m.browser, cmd = m.browser.Update(msg)
-	cmds = append(cmds, cmd)
-	m.syncSelectionFromBrowser()
+	if m.filterState == docsFilterStateFiltering {
+		before := m.browserFilter.Value()
+		m.browserFilter, cmd = m.browserFilter.Update(msg)
+		cmds = append(cmds, cmd)
+		if before != m.browserFilter.Value() {
+			m.updateFilteredEntries(true)
+		}
+	}
 
 	m.viewer, cmd = m.viewer.Update(msg)
 	cmds = append(cmds, cmd)
@@ -318,16 +329,38 @@ func (m *docsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m *docsModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+func (m *docsModel) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	if msg.String() == "ctrl+c" {
-		return m, tea.Quit
+		return tea.Quit
 	}
 
-	if m.focus == docsFocusBrowser && m.browser.FilterState() == list.Filtering {
-		updated, cmd := m.browser.Update(msg)
-		m.browser = updated
-		m.syncSelectionFromBrowser()
-		return m, cmd
+	if m.filterState == docsFilterStateFiltering {
+		switch msg.Code {
+		case tea.KeyEnter:
+			m.finishFiltering(true)
+			return nil
+		case tea.KeyEsc:
+			m.cancelFiltering()
+			return nil
+		case tea.KeyTab:
+			m.finishFiltering(false)
+			m.focus = docsFocusViewer
+			return nil
+		}
+
+		switch msg.String() {
+		case "k", "ctrl+k", "up", "j", "ctrl+j", "down", "home", "g", "end", "G", "h", "left", "l", "right":
+			m.handleBrowserKey(msg)
+			return nil
+		}
+
+		before := m.browserFilter.Value()
+		updated, cmd := m.browserFilter.Update(msg)
+		m.browserFilter = updated
+		if before != m.browserFilter.Value() {
+			m.updateFilteredEntries(true)
+		}
+		return cmd
 	}
 
 	switch msg.Code {
@@ -337,43 +370,310 @@ func (m *docsModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		} else {
 			m.focus = docsFocusBrowser
 		}
-		return m, nil
-
+		return nil
 	case tea.KeyEsc:
 		if m.focus == docsFocusViewer {
 			m.focus = docsFocusBrowser
-			return m, nil
+			return nil
+		}
+		if m.filterState == docsFilterStateApplied {
+			m.clearFilter()
+			return nil
 		}
 	}
 
 	switch msg.String() {
 	case "q":
-		return m, tea.Quit
-
+		return tea.Quit
+	case "?":
+		m.browserShowFullHelp = !m.browserShowFullHelp
+		m.updateBrowserPagination()
+		return nil
 	case "/":
-		m.focus = docsFocusBrowser
-		updated, cmd := m.browser.Update(msg)
-		m.browser = updated
-		m.syncSelectionFromBrowser()
-		return m, cmd
-
+		return m.startFiltering()
 	case "enter":
-		if m.focus == docsFocusBrowser {
+		if m.focus == docsFocusBrowser && m.selectedEntry() != nil {
 			m.focus = docsFocusViewer
-			return m, nil
 		}
+		return nil
 	}
 
 	if m.focus == docsFocusBrowser {
-		updated, cmd := m.browser.Update(msg)
-		m.browser = updated
-		m.syncSelectionFromBrowser()
-		return m, cmd
+		m.handleBrowserKey(msg)
+		return nil
 	}
 
 	updated, cmd := m.viewer.Update(msg)
 	m.viewer = updated
-	return m, cmd
+	return cmd
+}
+
+func (m *docsModel) handleBrowserKey(msg tea.KeyPressMsg) {
+	switch msg.String() {
+	case "k", "ctrl+k", "up":
+		m.moveBrowserCursorUp()
+	case "j", "ctrl+j", "down":
+		m.moveBrowserCursorDown()
+	case "home", "g":
+		m.moveBrowserToStart()
+	case "end", "G":
+		m.moveBrowserToEnd()
+	case "h", "left":
+		m.browserPrevPage()
+	case "l", "right":
+		m.browserNextPage()
+	default:
+		return
+	}
+	m.syncSelectionFromBrowser()
+}
+
+func (m *docsModel) startFiltering() tea.Cmd {
+	m.focus = docsFocusBrowser
+	m.filterState = docsFilterStateFiltering
+	m.browserFilterSnapshot = m.browserFilter.Value()
+	m.browserFilter.CursorEnd()
+	return m.browserFilter.Focus()
+}
+
+func (m *docsModel) cancelFiltering() {
+	m.browserFilter.SetValue(m.browserFilterSnapshot)
+	m.browserFilter.Blur()
+	if strings.TrimSpace(m.browserFilter.Value()) == "" {
+		m.clearFilter()
+		return
+	}
+	m.filterState = docsFilterStateApplied
+	m.updateFilteredEntries(true)
+}
+
+func (m *docsModel) finishFiltering(openViewer bool) {
+	m.browserFilter.Blur()
+	if strings.TrimSpace(m.browserFilter.Value()) == "" {
+		m.clearFilter()
+		return
+	}
+	m.filterState = docsFilterStateApplied
+	m.updateFilteredEntries(true)
+	if openViewer && m.selectedEntry() != nil {
+		m.focus = docsFocusViewer
+	}
+}
+
+func (m *docsModel) clearFilter() {
+	m.browserFilter.Reset()
+	m.browserFilter.Blur()
+	m.browserFilterSnapshot = ""
+	m.filterState = docsFilterStateUnfiltered
+	m.filteredEntries = nil
+	m.updateBrowserPagination()
+	if !m.selectDocInVisible(m.currentDocName) {
+		m.selectVisibleIndex(0)
+	}
+	m.syncSelectionFromBrowser()
+}
+
+func (m *docsModel) updateFilteredEntries(preferCurrent bool) {
+	query := strings.TrimSpace(strings.ToLower(m.browserFilter.Value()))
+	if query == "" {
+		m.filteredEntries = nil
+		m.updateBrowserPagination()
+		if !m.selectDocInVisible(m.currentDocName) {
+			m.selectVisibleIndex(0)
+		}
+		m.syncSelectionFromBrowser()
+		return
+	}
+
+	filtered := make([]docEntry, 0, len(m.entries))
+	for _, entry := range m.entries {
+		if matchesDocQuery(entry, query) {
+			filtered = append(filtered, entry)
+		}
+	}
+	m.filteredEntries = filtered
+	m.updateBrowserPagination()
+
+	if preferCurrent && m.selectDocInVisible(m.currentDocName) {
+		m.syncSelectionFromBrowser()
+		return
+	}
+	m.selectVisibleIndex(0)
+	m.syncSelectionFromBrowser()
+}
+
+func matchesDocQuery(entry docEntry, query string) bool {
+	if query == "" {
+		return true
+	}
+	haystack := strings.ToLower(entry.Name + ".md\n" + entry.Description)
+	return strings.Contains(haystack, query)
+}
+
+func (m *docsModel) moveBrowserCursorUp() {
+	if len(m.visibleEntries()) == 0 {
+		return
+	}
+
+	m.browserCursor--
+	if m.browserCursor >= 0 {
+		return
+	}
+	if !m.browserPaginator.OnFirstPage() {
+		m.browserPaginator.PrevPage()
+		m.browserCursor = maxInt(0, m.browserPaginator.ItemsOnPage(len(m.visibleEntries()))-1)
+		return
+	}
+	m.browserCursor = 0
+}
+
+func (m *docsModel) moveBrowserCursorDown() {
+	if len(m.visibleEntries()) == 0 {
+		return
+	}
+
+	m.browserCursor++
+	itemsOnPage := m.browserPaginator.ItemsOnPage(len(m.visibleEntries()))
+	if m.browserCursor < itemsOnPage {
+		return
+	}
+	if !m.browserPaginator.OnLastPage() {
+		m.browserPaginator.NextPage()
+		m.browserCursor = 0
+		return
+	}
+	m.browserCursor = maxInt(0, itemsOnPage-1)
+}
+
+func (m *docsModel) moveBrowserToStart() {
+	if len(m.visibleEntries()) == 0 {
+		return
+	}
+	m.browserPaginator.Page = 0
+	m.browserCursor = 0
+}
+
+func (m *docsModel) moveBrowserToEnd() {
+	visible := m.visibleEntries()
+	if len(visible) == 0 {
+		return
+	}
+	m.selectVisibleIndex(len(visible) - 1)
+}
+
+func (m *docsModel) browserPrevPage() {
+	if m.browserPaginator.OnFirstPage() {
+		return
+	}
+	m.browserPaginator.PrevPage()
+	m.clampBrowserSelection()
+}
+
+func (m *docsModel) browserNextPage() {
+	if m.browserPaginator.OnLastPage() {
+		return
+	}
+	m.browserPaginator.NextPage()
+	m.clampBrowserSelection()
+}
+
+func (m *docsModel) visibleEntries() []docEntry {
+	if strings.TrimSpace(m.browserFilter.Value()) == "" {
+		return m.entries
+	}
+	return m.filteredEntries
+}
+
+func (m *docsModel) currentPageEntries() []docEntry {
+	visible := m.visibleEntries()
+	if len(visible) == 0 {
+		return nil
+	}
+	start, end := m.browserPaginator.GetSliceBounds(len(visible))
+	if start < 0 || start >= len(visible) || start >= end {
+		return nil
+	}
+	return visible[start:end]
+}
+
+func (m *docsModel) selectedEntry() *docEntry {
+	visible := m.visibleEntries()
+	if len(visible) == 0 {
+		return nil
+	}
+	index := m.browserPaginator.Page*maxInt(1, m.browserPaginator.PerPage) + m.browserCursor
+	if index < 0 || index >= len(visible) {
+		return nil
+	}
+	return &visible[index]
+}
+
+func (m *docsModel) selectVisibleIndex(index int) {
+	visible := m.visibleEntries()
+	if len(visible) == 0 {
+		m.browserPaginator.Page = 0
+		m.browserCursor = 0
+		return
+	}
+
+	index = clampInt(index, 0, len(visible)-1)
+	perPage := maxInt(1, m.browserPaginator.PerPage)
+	m.browserPaginator.Page = index / perPage
+	m.browserCursor = index % perPage
+	m.clampBrowserSelection()
+}
+
+func (m *docsModel) selectDocInVisible(name string) bool {
+	if name == "" {
+		return false
+	}
+	for i, entry := range m.visibleEntries() {
+		if strings.EqualFold(entry.Name, name) {
+			m.selectVisibleIndex(i)
+			return true
+		}
+	}
+	return false
+}
+
+func (m *docsModel) clampBrowserSelection() {
+	visible := m.visibleEntries()
+	total := len(visible)
+	if total == 0 {
+		m.browserPaginator.Page = 0
+		m.browserCursor = 0
+		return
+	}
+
+	if m.browserPaginator.TotalPages <= 0 {
+		m.browserPaginator.SetTotalPages(total)
+	}
+	if m.browserPaginator.Page > maxInt(0, m.browserPaginator.TotalPages-1) {
+		m.browserPaginator.Page = maxInt(0, m.browserPaginator.TotalPages-1)
+	}
+	if m.browserPaginator.Page < 0 {
+		m.browserPaginator.Page = 0
+	}
+
+	itemsOnPage := m.browserPaginator.ItemsOnPage(total)
+	if itemsOnPage <= 0 {
+		m.browserCursor = 0
+		return
+	}
+	if m.browserCursor > itemsOnPage-1 {
+		m.browserCursor = itemsOnPage - 1
+	}
+	if m.browserCursor < 0 {
+		m.browserCursor = 0
+	}
+}
+
+func (m *docsModel) syncSelectionFromBrowser() {
+	selected := m.selectedEntry()
+	if selected == nil || selected.Name == m.currentDocName {
+		return
+	}
+	m.setCurrentDoc(selected.Name, false)
 }
 
 func (m *docsModel) View() tea.View {
@@ -385,14 +685,12 @@ func (m *docsModel) View() tea.View {
 		return view
 	}
 
-	bodyHeight := maxInt(1, m.height-docsFooterHeight)
-	browserPane, viewerPane := m.renderPanes(bodyHeight)
-	footer := m.styles.footer.Render(m.footerText())
-
-	layout := lipgloss.JoinVertical(lipgloss.Left, lipgloss.JoinHorizontal(lipgloss.Top, browserPane, strings.Repeat(" ", docsPaneGap), viewerPane), footer)
+	browserPane, viewerPane := m.renderPanes(m.height)
+	layout := lipgloss.JoinHorizontal(lipgloss.Top, browserPane, strings.Repeat(" ", docsPaneGap), viewerPane)
 	if m.isNarrow() {
-		layout = lipgloss.JoinVertical(lipgloss.Left, browserPane, viewerPane, footer)
+		layout = lipgloss.JoinVertical(lipgloss.Left, browserPane, viewerPane)
 	}
+
 	view := tea.NewView(m.styles.app.Render(layout))
 	view.AltScreen = true
 	return view
@@ -400,7 +698,7 @@ func (m *docsModel) View() tea.View {
 
 func (m *docsModel) renderPanes(bodyHeight int) (string, string) {
 	if m.isNarrow() {
-		browserHeight := clampInt(bodyHeight/3, 8, 12)
+		browserHeight := clampInt(bodyHeight/3, 8, 13)
 		viewerHeight := maxInt(5, bodyHeight-browserHeight-docsPaneGap)
 		browserPane := m.renderBrowserPane(m.width, browserHeight)
 		viewerPane := m.renderViewerPane(m.width, viewerHeight)
@@ -409,7 +707,6 @@ func (m *docsModel) renderPanes(bodyHeight int) (string, string) {
 
 	browserWidth := clampInt(m.width/3, docsBrowserMinWidth, docsBrowserMaxWidth)
 	viewerWidth := maxInt(docsMinWidth-browserWidth, m.width-browserWidth-docsPaneGap)
-
 	return m.renderBrowserPane(browserWidth, bodyHeight), m.renderViewerPane(viewerWidth, bodyHeight)
 }
 
@@ -420,13 +717,273 @@ func (m *docsModel) renderBrowserPane(width, height int) string {
 	}
 
 	innerWidth := maxInt(1, width-style.GetHorizontalFrameSize())
-	header := truncateText(
-		m.styles.header.Render("Docs Browser")+" "+m.styles.headerMeta.Render(m.browserMeta()),
-		innerWidth,
+	innerHeight := maxInt(1, height-style.GetVerticalFrameSize())
+	body := m.renderBrowserBody(innerWidth, innerHeight)
+	return style.Width(width).Height(height).Render(body)
+}
+
+func (m *docsModel) renderBrowserBody(width, height int) string {
+	if width <= 0 || height <= 0 {
+		return ""
+	}
+
+	headerLines := m.browserHeaderLines(width)
+	helpLines := m.browserHelpLines(width)
+	footerLines := []string{
+		"",
+		m.browserPaginationLine(width),
+	}
+	footerLines = append(footerLines, helpLines...)
+
+	itemHeight := maxInt(0, height-len(headerLines)-len(footerLines))
+	itemLines := m.renderBrowserItems(width, itemHeight)
+
+	lines := append([]string{}, headerLines...)
+	lines = append(lines, itemLines...)
+	lines = append(lines, footerLines...)
+
+	for len(lines) < height {
+		lines = append(lines, "")
+	}
+	if len(lines) > height {
+		lines = lines[:height]
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (m *docsModel) browserHeaderLines(width int) []string {
+	countStyle := m.styles.browserCount
+	if strings.TrimSpace(m.browserFilter.Value()) != "" {
+		countStyle = m.styles.browserCountActive
+	}
+
+	lines := []string{
+		truncateText(countStyle.Render(m.browserCountText()), width),
+	}
+	if m.filterState == docsFilterStateFiltering || strings.TrimSpace(m.browserFilter.Value()) != "" {
+		lines = append(lines, truncateText(m.browserFilter.View(), width))
+	}
+	lines = append(lines, "")
+	return lines
+}
+
+func (m *docsModel) browserCountText() string {
+	total := len(m.entries)
+	visible := len(m.visibleEntries())
+	if strings.TrimSpace(m.browserFilter.Value()) == "" {
+		if total == 1 {
+			return "1 document"
+		}
+		return fmt.Sprintf("%d documents", total)
+	}
+	if visible == 1 {
+		return fmt.Sprintf("1 of %d documents", total)
+	}
+	return fmt.Sprintf("%d of %d documents", visible, total)
+}
+
+func (m *docsModel) browserPaginationLine(width int) string {
+	if m.browserPaginator.TotalPages <= 1 {
+		return ""
+	}
+	return truncateText(m.browserPaginator.View(), width)
+}
+
+func (m *docsModel) browserHelpLines(width int) []string {
+	groups := m.browserHelpGroups()
+	if !m.browserShowFullHelp {
+		return []string{m.renderHelpLine(width, m.browserMiniHelpEntries())}
+	}
+
+	lines := make([]string, 0, len(groups))
+	for _, group := range groups {
+		if len(group) == 0 {
+			continue
+		}
+		lines = append(lines, m.renderHelpLine(width, group))
+	}
+	if len(lines) == 0 {
+		return []string{""}
+	}
+	return lines
+}
+
+func (m *docsModel) browserMiniHelpEntries() []docsHelpEntry {
+	if m.filterState == docsFilterStateFiltering {
+		action := "apply"
+		if len(m.visibleEntries()) > 0 {
+			action = "open"
+		}
+		return []docsHelpEntry{
+			{key: "enter", action: action},
+			{key: "esc", action: "cancel"},
+		}
+	}
+
+	entries := make([]docsHelpEntry, 0, 5)
+	if m.filterState != docsFilterStateApplied && m.browserPaginator.TotalPages > 1 {
+		entries = append(entries, docsHelpEntry{key: "h/l", action: "page"})
+	}
+	if m.filterState == docsFilterStateApplied {
+		entries = append(entries,
+			docsHelpEntry{key: "/", action: "edit"},
+			docsHelpEntry{key: "esc", action: "clear"},
+		)
+	} else {
+		entries = append(entries, docsHelpEntry{key: "/", action: "find"})
+	}
+	entries = append(entries,
+		docsHelpEntry{key: "q", action: "quit"},
+		docsHelpEntry{key: "?", action: ternaryHelpLabel(m.browserShowFullHelp)},
 	)
-	body := m.browser.View()
-	content := lipgloss.JoinVertical(lipgloss.Left, header, body)
-	return style.Width(width).Height(height).Render(content)
+	return entries
+}
+
+func (m *docsModel) browserHelpGroups() [][]docsHelpEntry {
+	switchTarget := "viewer"
+	if m.focus == docsFocusViewer {
+		switchTarget = "browser"
+	}
+
+	if m.filterState == docsFilterStateFiltering {
+		var nav []docsHelpEntry
+		if len(m.visibleEntries()) > 1 {
+			nav = append(nav, docsHelpEntry{key: "j/k", action: "move"})
+		}
+		if m.browserPaginator.TotalPages > 1 {
+			nav = append(nav, docsHelpEntry{key: "h/l", action: "page"})
+		}
+
+		action := "apply"
+		if len(m.visibleEntries()) > 0 {
+			action = "open"
+		}
+
+		return [][]docsHelpEntry{
+			nav,
+			{
+				{key: "enter", action: action},
+				{key: "esc", action: "cancel"},
+			},
+			{
+				{key: "tab", action: switchTarget},
+				{key: "ctrl+c", action: "quit"},
+			},
+		}
+	}
+
+	var nav []docsHelpEntry
+	if len(m.visibleEntries()) > 0 {
+		nav = append(nav, docsHelpEntry{key: "j/k", action: "move"})
+	}
+	if m.browserPaginator.TotalPages > 1 {
+		nav = append(nav, docsHelpEntry{key: "h/l", action: "page"})
+	}
+
+	filter := []docsHelpEntry{{key: "/", action: "find"}}
+	if m.filterState == docsFilterStateApplied {
+		filter = []docsHelpEntry{
+			{key: "/", action: "edit"},
+			{key: "esc", action: "clear"},
+		}
+	}
+	if len(m.visibleEntries()) > 0 {
+		filter = append(filter, docsHelpEntry{key: "enter", action: "open"})
+	}
+
+	return [][]docsHelpEntry{
+		nav,
+		filter,
+		{
+			{key: "tab", action: switchTarget},
+			{key: "q", action: "quit"},
+			{key: "?", action: ternaryHelpLabel(m.browserShowFullHelp)},
+		},
+	}
+}
+
+func ternaryHelpLabel(showFull bool) string {
+	if showFull {
+		return "less"
+	}
+	return "more"
+}
+
+func (m *docsModel) renderHelpLine(width int, entries []docsHelpEntry) string {
+	if width <= 0 || len(entries) == 0 {
+		return ""
+	}
+
+	var builder strings.Builder
+	overflow := m.styles.browserHelpOverflow.Render("…")
+
+	for i, entry := range entries {
+		segment := m.styles.browserHelpKey.Render(entry.key) + " " + m.styles.browserHelpText.Render(entry.action)
+		if i < len(entries)-1 {
+			segment += m.styles.browserHelpDivider.Render(" • ")
+		}
+		if lipgloss.Width(builder.String())+lipgloss.Width(segment) > width {
+			if builder.Len() == 0 {
+				return truncateText(segment, width)
+			}
+			builder.WriteString(overflow)
+			break
+		}
+		builder.WriteString(segment)
+	}
+
+	return builder.String()
+}
+
+func (m *docsModel) renderBrowserItems(width, height int) []string {
+	if height <= 0 {
+		return nil
+	}
+
+	pageEntries := m.currentPageEntries()
+	lines := make([]string, 0, height)
+	if len(pageEntries) == 0 {
+		lines = append(lines, truncateText(m.styles.empty.Render("No matching documents."), width))
+		for len(lines) < height {
+			lines = append(lines, "")
+		}
+		return lines
+	}
+
+	for i, entry := range pageEntries {
+		lines = append(lines, m.browserItemLines(entry, width, i == m.browserCursor)...)
+	}
+
+	for len(lines) < height {
+		lines = append(lines, "")
+	}
+	if len(lines) > height {
+		lines = lines[:height]
+	}
+	return lines
+}
+
+func (m *docsModel) browserItemLines(entry docEntry, width int, selected bool) []string {
+	contentWidth := maxInt(1, width-2)
+	title := truncatePlain(entry.Name+".md", contentWidth)
+	meta := truncatePlain(entry.Description, contentWidth)
+	gutter := " "
+
+	titleStyle := m.styles.browserTitle
+	metaStyle := m.styles.browserMeta
+	if selected {
+		gutter = lipgloss.NewStyle().Foreground(clienttheme.Primary()).Render("│")
+		titleStyle = m.styles.browserTitleActive
+		metaStyle = m.styles.browserMetaActive
+	} else if m.filterState == docsFilterStateFiltering && strings.TrimSpace(m.browserFilter.Value()) == "" {
+		titleStyle = m.styles.browserTitleMuted
+	}
+
+	return []string{
+		truncateText(gutter+" "+titleStyle.Render(title), width),
+		truncateText(gutter+" "+metaStyle.Render(meta), width),
+		"",
+	}
 }
 
 func (m *docsModel) renderViewerPane(width, height int) string {
@@ -457,19 +1014,21 @@ func (m *docsModel) applyWindowSize(width, height int) {
 		return
 	}
 
-	bodyHeight := maxInt(1, m.height-docsFooterHeight)
 	if m.isNarrow() {
-		browserHeight := clampInt(bodyHeight/3, 8, 12)
-		viewerHeight := maxInt(5, bodyHeight-browserHeight-docsPaneGap)
+		browserHeight := clampInt(m.height/3, 8, 13)
+		viewerHeight := maxInt(5, m.height-browserHeight-docsPaneGap)
 		m.setBrowserSize(m.width, browserHeight)
 		m.setViewerSize(m.width, viewerHeight)
 	} else {
 		browserWidth := clampInt(m.width/3, docsBrowserMinWidth, docsBrowserMaxWidth)
 		viewerWidth := maxInt(docsMinWidth-browserWidth, m.width-browserWidth-docsPaneGap)
-		m.setBrowserSize(browserWidth, bodyHeight)
-		m.setViewerSize(viewerWidth, bodyHeight)
+		m.setBrowserSize(browserWidth, m.height)
+		m.setViewerSize(viewerWidth, m.height)
 	}
 
+	if m.currentDocName != "" {
+		m.selectDocInVisible(m.currentDocName)
+	}
 	m.renderCurrentDoc(true)
 }
 
@@ -488,32 +1047,56 @@ func (m *docsModel) windowSizeCmd(width, height int) tea.Cmd {
 func (m *docsModel) setBrowserSize(width, height int) {
 	style := m.styles.pane
 	innerWidth := maxInt(1, width-style.GetHorizontalFrameSize())
-	innerHeight := maxInt(3, height-style.GetVerticalFrameSize()-docsPaneHeaderLines)
-	m.browser.SetSize(innerWidth, innerHeight)
+	innerHeight := maxInt(6, height-style.GetVerticalFrameSize())
+	m.browserWidth = innerWidth
+	m.browserHeight = innerHeight
+	m.browserFilter.SetWidth(maxInt(8, innerWidth-lipgloss.Width(m.browserFilter.Prompt)-1))
+	m.updateBrowserPagination()
+}
+
+func (m *docsModel) browserHeaderHeight() int {
+	height := 1 + docsBrowserHeaderGap
+	if m.filterState == docsFilterStateFiltering || strings.TrimSpace(m.browserFilter.Value()) != "" {
+		height++
+	}
+	return height
+}
+
+func (m *docsModel) browserHelpHeight() int {
+	if !m.browserShowFullHelp {
+		return 1
+	}
+
+	rows := 0
+	for _, group := range m.browserHelpGroups() {
+		if len(group) > 0 {
+			rows++
+		}
+	}
+	if rows == 0 {
+		return 1
+	}
+	return minInt(rows, docsBrowserFullHelpRows)
+}
+
+func (m *docsModel) updateBrowserPagination() {
+	availableHeight := m.browserHeight -
+		m.browserHeaderHeight() -
+		docsBrowserFooterGap -
+		docsBrowserFooterLines -
+		m.browserHelpHeight()
+
+	m.browserPaginator.PerPage = maxInt(1, availableHeight/docsBrowserItemHeight)
+	m.browserPaginator.SetTotalPages(len(m.visibleEntries()))
+	m.clampBrowserSelection()
 }
 
 func (m *docsModel) setViewerSize(width, height int) {
 	style := m.styles.pane
 	innerWidth := maxInt(12, width-style.GetHorizontalFrameSize())
-	innerHeight := maxInt(3, height-style.GetVerticalFrameSize()-docsPaneHeaderLines)
+	innerHeight := maxInt(3, height-style.GetVerticalFrameSize()-docsViewerHeaderLines)
 	m.viewer.SetWidth(innerWidth)
 	m.viewer.SetHeight(innerHeight)
-}
-
-func (m *docsModel) syncSelectionFromBrowser() {
-	selected := m.browser.SelectedItem()
-	if selected == nil {
-		return
-	}
-
-	item, ok := selected.(docsItem)
-	if !ok {
-		return
-	}
-	if item.entry.Name == m.currentDocName {
-		return
-	}
-	m.setCurrentDoc(item.entry.Name, false)
 }
 
 func (m *docsModel) setCurrentDoc(name string, preserveScroll bool) {
@@ -563,15 +1146,6 @@ func (m *docsModel) isNarrow() bool {
 	return m.width < docsNarrowWidth
 }
 
-func (m *docsModel) browserMeta() string {
-	if selected := m.browser.SelectedItem(); selected != nil {
-		if item, ok := selected.(docsItem); ok {
-			return fmt.Sprintf("selected: %s", item.entry.Name)
-		}
-	}
-	return fmt.Sprintf("%d docs", len(m.entries))
-}
-
 func (m *docsModel) viewerTitle() string {
 	if m.currentDocName == "" {
 		return "Document"
@@ -588,21 +1162,33 @@ func (m *docsModel) viewerMeta() string {
 	return fmt.Sprintf("line %d/%d", line, total)
 }
 
-func (m *docsModel) footerText() string {
-	if m.focus == docsFocusBrowser && m.browser.FilterState() == list.Filtering {
-		return "Type to filter docs, enter to apply, esc to cancel, ctrl+c to quit"
-	}
-	if m.focus == docsFocusBrowser {
-		return "tab switch pane, / search, enter open doc, arrows/jk move, q quit"
-	}
-	return "tab switch pane, / search, arrows/jk scroll, g/G jump, esc browser, q quit"
-}
-
 func truncateText(value string, width int) string {
-	if lipgloss.Width(value) <= width {
+	if width <= 0 || lipgloss.Width(value) <= width {
 		return value
 	}
 	return lipgloss.NewStyle().MaxWidth(width).Render(value)
+}
+
+func truncatePlain(value string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	if lipgloss.Width(value) <= width {
+		return value
+	}
+	if width == 1 {
+		return "…"
+	}
+
+	runes := []rune(value)
+	for len(runes) > 0 {
+		candidate := string(runes) + "…"
+		if lipgloss.Width(candidate) <= width {
+			return candidate
+		}
+		runes = runes[:len(runes)-1]
+	}
+	return "…"
 }
 
 func minInt(a, b int) int {

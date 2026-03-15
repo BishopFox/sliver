@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 )
@@ -20,6 +19,11 @@ func sampleDocs() []docEntry {
 			Name:        "Operators",
 			Content:     "# Operators\n\nTeam workflows",
 			Description: "Team workflows",
+		},
+		{
+			Name:        "Networking",
+			Content:     "# Networking\n\nTransport details",
+			Description: "Transport details",
 		},
 	}
 }
@@ -66,19 +70,32 @@ func TestDocsModelSlashFocusesBrowserAndStartsFiltering(t *testing.T) {
 
 	updated, cmd := model.Update(tea.KeyPressMsg{Text: "/", Code: '/'})
 	if cmd == nil {
-		t.Fatal("expected slash to delegate to the browser filter")
+		t.Fatal("expected slash to focus the search input")
 	}
 
 	updatedModel := updated.(*docsModel)
 	if updatedModel.focus != docsFocusBrowser {
 		t.Fatalf("expected slash to move focus to browser, got %v", updatedModel.focus)
 	}
+	if updatedModel.filterState != docsFilterStateFiltering {
+		t.Fatalf("expected slash to enter filtering state, got %v", updatedModel.filterState)
+	}
+}
 
-	msg := cmd()
-	updated, _ = updatedModel.Update(msg)
-	updatedModel = updated.(*docsModel)
-	if updatedModel.browser.FilterState() != list.Filtering && updatedModel.browser.FilterState() != list.FilterApplied {
-		t.Fatalf("expected slash to enter browser filtering, got %s", updatedModel.browser.FilterState())
+func TestDocsModelFilteringUpdatesVisibleEntries(t *testing.T) {
+	model := newDocsModel(sampleDocs())
+	model.applyWindowSize(120, 32)
+
+	model.startFiltering()
+	model.browserFilter.SetValue("oper")
+	model.updateFilteredEntries(false)
+
+	visible := model.visibleEntries()
+	if len(visible) != 1 || visible[0].Name != "Operators" {
+		t.Fatalf("expected Operators to be the only filtered result, got %+v", visible)
+	}
+	if model.currentDocName != "Operators" {
+		t.Fatalf("expected filtering to sync selection to Operators, got %q", model.currentDocName)
 	}
 }
 
@@ -90,6 +107,38 @@ func TestDocsModelEnterMovesFocusToViewer(t *testing.T) {
 	updatedModel := updated.(*docsModel)
 	if updatedModel.focus != docsFocusViewer {
 		t.Fatalf("expected enter to focus viewer, got %v", updatedModel.focus)
+	}
+}
+
+func TestDocsModelEscClearsAppliedFilter(t *testing.T) {
+	model := newDocsModel(sampleDocs())
+	model.applyWindowSize(120, 32)
+
+	model.startFiltering()
+	model.browserFilter.SetValue("net")
+	model.finishFiltering(false)
+
+	updated, _ := model.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+	updatedModel := updated.(*docsModel)
+	if updatedModel.filterState != docsFilterStateUnfiltered {
+		t.Fatalf("expected esc to clear the filter, got %v", updatedModel.filterState)
+	}
+	if len(updatedModel.visibleEntries()) != len(sampleDocs()) {
+		t.Fatalf("expected filter clear to restore all docs, got %d visible", len(updatedModel.visibleEntries()))
+	}
+}
+
+func TestDocsModelBrowserBodyPinsHelpToBottom(t *testing.T) {
+	model := newDocsModel(sampleDocs())
+	model.applyWindowSize(120, 28)
+
+	body := ansi.Strip(model.renderBrowserBody(model.browserWidth, model.browserHeight))
+	lines := strings.Split(body, "\n")
+	if len(lines) != model.browserHeight {
+		t.Fatalf("expected browser body height %d, got %d lines", model.browserHeight, len(lines))
+	}
+	if !strings.Contains(lines[len(lines)-1], "q quit") {
+		t.Fatalf("expected help controls on the last browser line, got %q", lines[len(lines)-1])
 	}
 }
 
