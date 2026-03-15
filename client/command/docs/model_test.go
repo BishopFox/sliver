@@ -50,6 +50,13 @@ func TestSummarizeMarkdownPrefersFirstMeaningfulLine(t *testing.T) {
 	}
 }
 
+func TestSummarizeMarkdownStripsMarkdownAndUnicodeSymbols(t *testing.T) {
+	summary := summarizeMarkdown("⚠️ **IMPORTANT:** This content was NOT created by the Sliver authors.")
+	if summary != "IMPORTANT: This content was NOT created by the Sliver authors." {
+		t.Fatalf("expected sanitized browser summary, got %q", summary)
+	}
+}
+
 func TestDocsModelDefaultsToGettingStarted(t *testing.T) {
 	model := newDocsModel(sampleDocs())
 	model.applyWindowSize(120, 32)

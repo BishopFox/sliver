@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 
 	"charm.land/bubbles/v2/paginator"
 	"charm.land/bubbles/v2/textinput"
@@ -17,6 +18,7 @@ import (
 	"charm.land/lipgloss/v2"
 	clienttheme "github.com/bishopfox/sliver/client/theme"
 	embeddeddocs "github.com/bishopfox/sliver/docs"
+	"github.com/charmbracelet/x/ansi"
 	"golang.org/x/term"
 )
 
@@ -37,8 +39,17 @@ const (
 )
 
 var (
-	markdownTrimChars    = regexp.MustCompile(`^[#>\-\*\+\d\.\)\s` + "`" + `]+`)
-	yamlFrontmatterBound = regexp.MustCompile(`(?m)^---\r?\n(\s*\r?\n)?`)
+	markdownTrimChars      = regexp.MustCompile(`^[#>\-\*\+\d\.\)\s` + "`" + `]+`)
+	yamlFrontmatterBound   = regexp.MustCompile(`(?m)^---\r?\n(\s*\r?\n)?`)
+	markdownLinkPattern    = regexp.MustCompile(`!?\[([^\]]+)\]\([^)]+\)`)
+	markdownInlineReplacer = strings.NewReplacer(
+		"**", "",
+		"__", "",
+		"~~", "",
+		"`", "",
+		"*", "",
+		"_", "",
+	)
 )
 
 type docsFocus int
@@ -250,12 +261,38 @@ func summarizeMarkdown(markdown string) string {
 			continue
 		}
 		line = markdownTrimChars.ReplaceAllString(line, "")
-		line = strings.TrimSpace(line)
+		line = sanitizeBrowserSummary(line)
 		if line != "" {
 			return line
 		}
 	}
 	return "Embedded Sliver documentation"
+}
+
+func sanitizeBrowserSummary(value string) string {
+	value = markdownLinkPattern.ReplaceAllString(value, "$1")
+	value = markdownInlineReplacer.Replace(value)
+
+	var builder strings.Builder
+	lastWasSpace := true
+	for _, r := range value {
+		switch {
+		case unicode.IsSpace(r):
+			if !lastWasSpace {
+				builder.WriteByte(' ')
+				lastWasSpace = true
+			}
+		case r > unicode.MaxASCII:
+			continue
+		case !unicode.IsPrint(r):
+			continue
+		default:
+			builder.WriteRune(r)
+			lastWasSpace = false
+		}
+	}
+
+	return strings.TrimSpace(builder.String())
 }
 
 func renderMarkdownWithGlow(width int, markdown string) (string, error) {
@@ -1173,22 +1210,11 @@ func truncatePlain(value string, width int) string {
 	if width <= 0 {
 		return ""
 	}
-	if lipgloss.Width(value) <= width {
+	value = strings.TrimSpace(value)
+	if ansi.StringWidth(value) <= width {
 		return value
 	}
-	if width == 1 {
-		return "…"
-	}
-
-	runes := []rune(value)
-	for len(runes) > 0 {
-		candidate := string(runes) + "…"
-		if lipgloss.Width(candidate) <= width {
-			return candidate
-		}
-		runes = runes[:len(runes)-1]
-	}
-	return "…"
+	return ansi.Truncate(value, width, "…")
 }
 
 func minInt(a, b int) int {
