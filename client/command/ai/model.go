@@ -24,7 +24,7 @@ import (
 
 const (
 	aiMinWidth  = 72
-	aiMinHeight = 18
+	aiMinHeight = 17
 
 	aiPaneHorizontalChrome     = 4
 	aiPaneVerticalChrome       = 2
@@ -772,9 +772,9 @@ func (m *aiModel) View() tea.View {
 		return aiView(content)
 	}
 
-	headerHeight, composerHeight, _, bodyHeight := m.layoutHeights()
+	_, composerHeight, _, bodyHeight := m.layoutHeights()
 
-	header := m.renderHeader(headerHeight)
+	header := m.renderHeader()
 	body := m.renderBody(bodyHeight)
 	composer := m.renderComposer(composerHeight)
 	footer := m.renderFooter()
@@ -1050,12 +1050,12 @@ func (m *aiModel) renderTooSmall() string {
 		m.styles.badge.Render("SLIVER AI"),
 		"",
 		m.styles.warning.Render("Terminal too small for the AI conversation view."),
-		m.styles.subtleText.Render("Resize to at least 72x18 to view the sidebar, markdown transcript, and composer."),
+		m.styles.subtleText.Render("Resize to at least 72x17 to view the sidebar, markdown transcript, and composer."),
 	}
 	return strings.Join(lines, "\n")
 }
 
-func (m *aiModel) renderHeader(height int) string {
+func (m *aiModel) renderHeader() string {
 	statusChip := "synced"
 	if m.loading {
 		statusChip = "syncing"
@@ -1070,18 +1070,7 @@ func (m *aiModel) renderHeader(height int) string {
 		m.styles.chipMuted.Render(m.ctx.target.Label),
 		m.styles.chipMuted.Render(m.layoutName()),
 	}
-	row := fitStyledPieces(m.width, pieces)
-	row = lipgloss.NewStyle().Width(m.width).Render(row)
-	if height == 1 {
-		return row
-	}
-
-	subtitle := "Server-backed AI conversation threads with live sync and on-demand operator context."
-	return lipgloss.JoinVertical(
-		lipgloss.Left,
-		row,
-		m.styles.subtleText.Width(m.width).Render(truncateText(subtitle, m.width)),
-	)
+	return lipgloss.NewStyle().Width(m.width).Render(fitStyledPieces(m.width, pieces))
 }
 
 func (m *aiModel) renderBody(height int) string {
@@ -1319,7 +1308,7 @@ func (m *aiModel) renderPane(width, height int, focus aiFocus, lines []string) s
 }
 
 func (m *aiModel) renderInputLine(width int) string {
-	prefix := m.styles.roleUser.Render("YOU")
+	prefix := m.styles.roleUser.Render(">>>")
 	available := maxInt(1, width-4)
 	content := m.renderInputContent(available)
 	return prefix + " " + content
@@ -1355,9 +1344,6 @@ func (m *aiModel) renderInputContent(width int) string {
 
 func (m *aiModel) layoutHeights() (int, int, int, int) {
 	headerHeight := 1
-	if m.width >= 90 {
-		headerHeight = 2
-	}
 	composerHeight := 4
 	if m.width >= 96 {
 		composerHeight = 5

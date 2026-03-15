@@ -198,6 +198,32 @@ func TestRenderTranscriptHeaderLinesUsesCompactInlineMetadata(t *testing.T) {
 	}
 }
 
+func TestRenderHeaderUsesSingleCompactRow(t *testing.T) {
+	model := newAIModel(nil, aiContext{
+		target: aiTargetSummary{
+			Label: "Session demo",
+		},
+		connection: aiConnectionSummary{
+			Operator: "alice",
+		},
+	}, nil)
+	model.width = 120
+	model.loading = false
+
+	rendered := ansi.Strip(model.renderHeader())
+	if strings.Contains(rendered, "\n") {
+		t.Fatalf("expected compact header to stay on one line, got %q", rendered)
+	}
+	if strings.Contains(rendered, "Server-backed AI conversation threads") {
+		t.Fatalf("expected compact header to omit the old subtitle, got %q", rendered)
+	}
+	for _, fragment := range []string{"SLIVER AI", "synced", "alice", "Session demo"} {
+		if !strings.Contains(rendered, fragment) {
+			t.Fatalf("expected compact header to contain %q, got %q", fragment, rendered)
+		}
+	}
+}
+
 func TestTranscriptSpeakerPaletteVariesAcrossUsers(t *testing.T) {
 	seen := map[int]struct{}{}
 	for _, label := range []string{"alice", "bob", "charlie", "dana", "erin", "frank"} {
@@ -397,6 +423,31 @@ func TestViewWidthTracksResize(t *testing.T) {
 	}
 }
 
+func TestViewRendersAtHeightSeventeen(t *testing.T) {
+	model := newAIModel(nil, aiContext{
+		target: aiTargetSummary{
+			Label: "No active target",
+		},
+		connection: aiConnectionSummary{
+			Operator: "alice",
+		},
+	}, nil)
+	model.width = 96
+	model.height = 17
+	model.loading = false
+	model.status = "Ready"
+
+	rendered := ansi.Strip(model.View().Content)
+	if strings.Contains(rendered, "Terminal too small for the AI conversation view.") {
+		t.Fatalf("expected 96x17 to render the TUI, got %q", rendered)
+	}
+	for _, fragment := range []string{"Conversations", "Composer", "focus: sidebar"} {
+		if !strings.Contains(rendered, fragment) {
+			t.Fatalf("expected rendered minimum-height view to contain %q, got %q", fragment, rendered)
+		}
+	}
+}
+
 func TestConversationAwaitingResponseWhenLastMessageIsUser(t *testing.T) {
 	conversation := &clientpb.AIConversation{
 		Messages: []*clientpb.AIConversationMessage{
@@ -576,7 +627,7 @@ func TestViewKeepsComposerVisibleWhenTranscriptLinesEmbedNewlines(t *testing.T) 
 	if !strings.Contains(rendered, "Composer") {
 		t.Fatalf("expected composer pane to remain visible, got %q", rendered)
 	}
-	if !strings.Contains(rendered, "YOU") {
+	if !strings.Contains(rendered, ">>>") {
 		t.Fatalf("expected composer input line to remain visible, got %q", rendered)
 	}
 	if !strings.Contains(rendered, "focus: sidebar") {
