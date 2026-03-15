@@ -1155,15 +1155,20 @@ func (m *aiModel) renderTranscript(width, height int) string {
 
 	pane := m.renderPane(width, height, aiFocusTranscript, lines)
 	scrollbar := m.renderTranscriptScrollbar(bodyHeight, len(contentLines))
-	if scrollbar == "" {
-		return pane
+	if scrollbar != "" {
+		pane = overlayContent(
+			pane,
+			scrollbar,
+			maxInt(0, width-4),
+			1+m.transcriptHeaderLineCount(),
+			width,
+		)
 	}
-
 	return overlayContent(
 		pane,
-		scrollbar,
-		maxInt(0, width-3),
-		1+m.transcriptHeaderLineCount(),
+		m.renderTranscriptRightEdge(height),
+		maxInt(0, width-1),
+		0,
 		width,
 	)
 }
@@ -1495,6 +1500,31 @@ func (m *aiModel) renderTranscriptScrollbar(viewportHeight, totalLines int) stri
 	lines := make([]string, 0, len(cells))
 	for _, thumb := range cells {
 		lines = append(lines, m.renderTranscriptScrollbarCell(thumb))
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (m *aiModel) renderTranscriptRightEdge(height int) string {
+	if height <= 0 {
+		return ""
+	}
+
+	style := lipgloss.NewStyle().Foreground(clienttheme.DefaultMod(300))
+	if m.focus == aiFocusTranscript {
+		style = style.Foreground(clienttheme.Primary())
+	}
+
+	border := lipgloss.RoundedBorder()
+	lines := make([]string, 0, height)
+	for i := 0; i < height; i++ {
+		switch {
+		case i == 0:
+			lines = append(lines, style.Render(border.TopRight))
+		case i == height-1:
+			lines = append(lines, style.Render(border.BottomRight))
+		default:
+			lines = append(lines, style.Render(border.Right))
+		}
 	}
 	return strings.Join(lines, "\n")
 }
@@ -1942,7 +1972,10 @@ func (m *aiModel) transcriptScrollbarColumns(innerWidth int) int {
 	if innerWidth <= 1 {
 		return 0
 	}
-	return aiTranscriptScrollbarWidth
+	if innerWidth == 2 {
+		return 1
+	}
+	return aiTranscriptScrollbarWidth + 1
 }
 
 func (m *aiModel) currentTranscriptWidth() int {

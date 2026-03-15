@@ -582,6 +582,14 @@ func TestRenderTranscriptShowsScrollbarAndTracksScrollPosition(t *testing.T) {
 			t.Fatalf("expected scrollbar to stay on the right edge without wrapping into content, got %q", rendered)
 		}
 	}
+	for i, line := range strings.Split(rendered, "\n") {
+		if i == 0 || i == paneHeight-1 {
+			continue
+		}
+		if !strings.HasSuffix(line, "│") {
+			t.Fatalf("expected transcript pane right border to stay visible on line %d, got %q in %q", i, line, rendered)
+		}
+	}
 
 	model.scrollTranscriptToTop()
 	topCells := model.transcriptScrollbarCells(viewportHeight, len(contentLines))
@@ -590,6 +598,78 @@ func TestRenderTranscriptShowsScrollbarAndTracksScrollPosition(t *testing.T) {
 	}
 	if topCells[len(topCells)-1] {
 		t.Fatalf("expected top-scrolled scrollbar thumb to move away from the last row, got %#v", topCells)
+	}
+}
+
+func TestViewKeepsTranscriptRightBorderVisibleWhileScrolled(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 120
+	model.height = 32
+	model.focus = aiFocusTranscript
+	model.loading = false
+	model.conversations = []*clientpb.AIConversation{{ID: "conv-1", Title: "Thread"}}
+
+	messages := make([]*clientpb.AIConversationMessage, 0, 18)
+	for i := 0; i < 18; i++ {
+		messages = append(messages, &clientpb.AIConversationMessage{
+			Role:    "assistant",
+			Content: fmt.Sprintf("Message %02d detail", i),
+		})
+	}
+	model.currentConversation = &clientpb.AIConversation{
+		ID:       "conv-1",
+		Title:    "Thread",
+		Provider: "openai",
+		Model:    "gpt-test",
+		Messages: messages,
+	}
+
+	renderCmd := model.scheduleTranscriptRender()
+	if renderCmd == nil {
+		t.Fatal("expected transcript render command")
+	}
+
+	msg := renderCmd()
+	renderedMsg, ok := msg.(aiTranscriptRenderedMsg)
+	if !ok {
+		t.Fatalf("expected transcript render message, got %T", msg)
+	}
+
+	updated, _ := model.Update(renderedMsg)
+	model = updated.(*aiModel)
+	model.scrollTranscript(-6)
+
+	view := ansi.Strip(model.View().Content)
+	lines := strings.Split(view, "\n")
+	headerHeight, _, _, _ := model.layoutHeights()
+	sidebarWidth := clampInt(model.width/4, 24, 28)
+	transcriptWidth := maxInt(40, model.width-sidebarWidth)
+	rightEdge := sidebarWidth + transcriptWidth - 1
+	_, transcriptPaneHeight := model.currentTranscriptPaneSize()
+	topRow := headerHeight
+	bottomRow := headerHeight + transcriptPaneHeight - 1
+
+	if topRow >= len(lines) {
+		t.Fatalf("expected transcript top row %d within view height %d", topRow, len(lines))
+	}
+	if []rune(lines[topRow])[rightEdge] != '╮' {
+		t.Fatalf("expected transcript top-right corner at row %d col %d, got %q in %q", topRow, rightEdge, string([]rune(lines[topRow])[rightEdge]), lines[topRow])
+	}
+
+	for row := headerHeight + 1; row < headerHeight+transcriptPaneHeight-1 && row < len(lines); row++ {
+		line := []rune(lines[row])
+		if rightEdge >= len(line) {
+			t.Fatalf("expected transcript right edge index %d within line %d: %q", rightEdge, row, lines[row])
+		}
+		if line[rightEdge] != '│' {
+			t.Fatalf("expected transcript right border at row %d col %d, got %q in %q", row, rightEdge, string(line[rightEdge]), lines[row])
+		}
+	}
+	if bottomRow >= len(lines) {
+		t.Fatalf("expected transcript bottom row %d within view height %d", bottomRow, len(lines))
+	}
+	if []rune(lines[bottomRow])[rightEdge] != '╯' {
+		t.Fatalf("expected transcript bottom-right corner at row %d col %d, got %q in %q", bottomRow, rightEdge, string([]rune(lines[bottomRow])[rightEdge]), lines[bottomRow])
 	}
 }
 
