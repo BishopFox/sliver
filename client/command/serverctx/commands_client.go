@@ -158,7 +158,7 @@ func serverSwitch(_ *cobra.Command, con *console.SliverClient) {
 		}
 
 		if err := con.SetConnection(rpc, conn, &console.ConnectionDetails{ConfigKey: inst.ConfigKey, Config: inst.Config}); err != nil {
-			_ = conn.Close()
+			_ = transport.CloseGRPCConnection(conn)
 			con.PrintErrorf("Switch failed: %s\n", err)
 			return
 		}
@@ -180,7 +180,7 @@ func serverSwitch(_ *cobra.Command, con *console.SliverClient) {
 		}
 
 		if err := con.SetConnection(rpc, conn, &console.ConnectionDetails{ConfigKey: result.ConfigKey, Config: cfg}); err != nil {
-			_ = conn.Close()
+			_ = transport.CloseGRPCConnection(conn)
 			con.PrintErrorf("Switch failed: %s\n", err)
 			return
 		}

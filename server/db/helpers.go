@@ -872,6 +872,14 @@ func WGPeerIPs() ([]string, error) {
 	for _, peer := range wgPeers {
 		ips = append(ips, peer.TunIP)
 	}
+	operators := []*models.Operator{}
+	err = Session().Where("wg_tun_ip <> ''").Find(&operators).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, operator := range operators {
+		ips = append(ips, operator.WGTunIP)
+	}
 	return ips, nil
 }
 

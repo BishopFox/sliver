@@ -76,6 +76,7 @@ type DaemonConfig struct {
 	Host      string `json:"host" yaml:"host"`
 	Port      int    `json:"port" yaml:"port"`
 	Tailscale bool   `json:"tailscale" yaml:"tailscale"`
+	DisableWG bool   `json:"disable_wg" yaml:"disable_wg"`
 }
 
 // JobConfig - Restart Jobs on Load
@@ -92,6 +93,7 @@ type MultiplayerJobConfig struct {
 	Port      uint16 `json:"port" yaml:"port"`
 	JobID     string `json:"job_id" yaml:"job_id"`
 	Tailscale bool   `json:"tailscale" yaml:"tailscale"`
+	WireGuard bool   `json:"wire_guard" yaml:"wire_guard"`
 }
 
 // MTLSJobConfig - Per-type job configs

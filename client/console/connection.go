@@ -11,6 +11,7 @@ import (
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/core"
+	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
@@ -123,7 +124,7 @@ func (con *SliverClient) detachConnectionLocked() {
 	}
 
 	if con.grpcConn != nil {
-		_ = con.grpcConn.Close()
+		_ = transport.CloseGRPCConnection(con.grpcConn)
 		con.grpcConn = nil
 	}
 	con.Rpc = nil

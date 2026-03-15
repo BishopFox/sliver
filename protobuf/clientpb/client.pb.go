@@ -4786,6 +4786,7 @@ type MultiplayerListenerReq struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Host          string                 `protobuf:"bytes,1,opt,name=Host,proto3" json:"Host,omitempty"`
 	Port          uint32                 `protobuf:"varint,2,opt,name=Port,proto3" json:"Port,omitempty"`
+	WireGuard     bool                   `protobuf:"varint,3,opt,name=WireGuard,proto3" json:"WireGuard,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4832,6 +4833,13 @@ func (x *MultiplayerListenerReq) GetPort() uint32 {
 		return x.Port
 	}
 	return 0
+}
+
+func (x *MultiplayerListenerReq) GetWireGuard() bool {
+	if x != nil {
+		return x.WireGuard
+	}
+	return false
 }
 
 type MTLSListenerReq struct {
@@ -12719,10 +12727,11 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\aDNSConf\x18\x06 \x01(\v2\x18.clientpb.DNSListenerReqR\aDNSConf\x125\n" +
 	"\bHTTPConf\x18\a \x01(\v2\x19.clientpb.HTTPListenerReqR\bHTTPConf\x12>\n" +
 	"\tMultiConf\x18\b \x01(\v2 .clientpb.MultiplayerListenerReqR\tMultiConf\x125\n" +
-	"\aTCPConf\x18\t \x01(\v2\x1b.clientpb.StagerListenerReqR\aTCPConf\"@\n" +
+	"\aTCPConf\x18\t \x01(\v2\x1b.clientpb.StagerListenerReqR\aTCPConf\"^\n" +
 	"\x16MultiplayerListenerReq\x12\x12\n" +
 	"\x04Host\x18\x01 \x01(\tR\x04Host\x12\x12\n" +
-	"\x04Port\x18\x02 \x01(\rR\x04Port\"9\n" +
+	"\x04Port\x18\x02 \x01(\rR\x04Port\x12\x1c\n" +
+	"\tWireGuard\x18\x03 \x01(\bR\tWireGuard\"9\n" +
 	"\x0fMTLSListenerReq\x12\x12\n" +
 	"\x04Host\x18\x01 \x01(\tR\x04Host\x12\x12\n" +
 	"\x04Port\x18\x02 \x01(\rR\x04Port\"}\n" +

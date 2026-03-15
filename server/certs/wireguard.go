@@ -64,6 +64,11 @@ func ImplantGenerateWGKeys(wgPeerTunIP string) (string, string, error) {
 	return privKey, pubKey, nil
 }
 
+// GenerateWGKeyPair - Generate a WireGuard keypair without persisting it.
+func GenerateWGKeyPair() (string, string, error) {
+	return genWGKeys()
+}
+
 // GetWGSPeers - Get a map of Pubkey:TunIP for existing wg peers
 func GetWGPeers() (map[string]string, error) {
 
@@ -80,6 +85,25 @@ func GetWGPeers() (map[string]string, error) {
 
 	for _, v := range wgPeerModels {
 		peers[v.PubKey] = v.TunIP
+	}
+	return peers, nil
+}
+
+// GetOperatorWGPeers - Get a map of operator WG public keys to tunnel IPs.
+func GetOperatorWGPeers() (map[string]string, error) {
+	peers := make(map[string]string)
+
+	operators := []models.Operator{}
+	dbSession := db.Session()
+	err := dbSession.Where("wg_pub_key <> '' AND wg_tun_ip <> ''").Find(&operators).Error
+	if errors.Is(err, db.ErrRecordNotFound) {
+		return nil, ErrWGPeerDoesNotExist
+	} else if err != nil {
+		return nil, err
+	}
+
+	for _, operator := range operators {
+		peers[operator.WGPubKey] = operator.WGTunIP
 	}
 	return peers, nil
 }

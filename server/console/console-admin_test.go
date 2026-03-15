@@ -12,7 +12,7 @@ import (
 func TestRootOnlyVerifyCertificate(t *testing.T) {
 	certs.SetupCAs()
 
-	data, err := NewOperatorConfig("zerocool", "localhost", uint16(1337), []string{"all"})
+	data, err := NewOperatorConfig("zerocool", "localhost", uint16(1337), []string{"all"}, false)
 	if err != nil {
 		t.Fatalf("failed to generate test player profile %s", err)
 	}

@@ -113,7 +113,9 @@ const (
 	CrackStatusEvent = "crack-status"
 
 	// WireGuardNewPeer - New Wireguard peer added.
-	WireGuardNewPeer = "wireguard-newpeer"
+	WireGuardNewPeer            = "wireguard-newpeer"
+	MultiplayerWireGuardNewPeer = "multiplayer-wireguard-newpeer"
+	MultiplayerWireGuardRemoved = "multiplayer-wireguard-removed"
 
 	// AIConversationEvent - Fires whenever an AI conversation or message changes.
 	AIConversationEvent = "ai-conversation"
