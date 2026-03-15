@@ -126,7 +126,7 @@ func GenerateForm(compiler *clientpb.Compiler) (*GenerateFormResult, error) {
 	)
 
 	form = form.WithTheme(theme.HuhTheme())
-	if err := form.Run(); err != nil {
+	if err := runForm(form); err != nil {
 		return nil, err
 	}
 

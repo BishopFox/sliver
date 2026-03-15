@@ -45,7 +45,7 @@ func ArmoryUpdateForm(options []ArmoryUpdateOption) (*ArmoryUpdateFormResult, er
 		Value(&result.SelectedIDs)
 
 	form := huh.NewForm(huh.NewGroup(field)).WithTheme(theme.HuhTheme())
-	if err := form.Run(); err != nil {
+	if err := runForm(form); err != nil {
 		return nil, err
 	}
 

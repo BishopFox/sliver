@@ -35,7 +35,7 @@ func Confirm(title string, value *bool) error {
 		),
 	).WithTheme(theme.HuhTheme())
 
-	return form.Run()
+	return runForm(form)
 }
 
 // Input prompts for a single-line string.
@@ -52,7 +52,7 @@ func Input(title string, value *string) error {
 		),
 	).WithTheme(theme.HuhTheme())
 
-	return form.Run()
+	return runForm(form)
 }
 
 // Text prompts for multi-line input.
@@ -70,7 +70,7 @@ func Text(title string, value *string) error {
 		),
 	).WithTheme(theme.HuhTheme())
 
-	return form.Run()
+	return runForm(form)
 }
 
 // Select prompts for a single selection from options.
@@ -102,7 +102,7 @@ func MultiSelect(title string, options []string, value *[]string) error {
 	form := huh.NewForm(huh.NewGroup(field)).
 		WithTheme(theme.HuhTheme()).
 		WithWidth(getTerminalWidth())
-	return form.Run()
+	return runForm(form)
 }
 
 func selectPrompt(title string, options []string, value *string, required bool) error {
@@ -136,7 +136,7 @@ func selectPrompt(title string, options []string, value *string, required bool) 
 	form := huh.NewForm(huh.NewGroup(field)).
 		WithTheme(theme.HuhTheme()).
 		WithWidth(getTerminalWidth())
-	err := form.Run()
+	err := runForm(form)
 
 	// On error restore the originalValue and return err
 	if err != nil {
