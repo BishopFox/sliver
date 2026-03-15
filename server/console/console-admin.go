@@ -34,6 +34,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	clientassets "github.com/bishopfox/sliver/client/assets"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/certs"
@@ -76,27 +77,6 @@ const (
 var namePattern = regexp.MustCompile("^[a-zA-Z0-9_-]*$") // Only allow alphanumeric chars
 
 const multiplayerWireGuardServerIP = "100.64.0.1"
-
-// ClientWGConfig - Optional WireGuard wrapper configuration.
-type ClientWGConfig struct {
-	ServerPubKey     string `json:"server_pub_key"`
-	ClientPrivateKey string `json:"client_private_key"`
-	ClientPubKey     string `json:"client_pub_key"`
-	ClientIP         string `json:"client_ip"`
-	ServerIP         string `json:"server_ip"`
-}
-
-// ClientConfig - Client JSON config
-type ClientConfig struct {
-	Operator      string          `json:"operator"`
-	Token         string          `json:"token"`
-	LHost         string          `json:"lhost"`
-	LPort         int             `json:"lport"`
-	CACertificate string          `json:"ca_certificate"`
-	PrivateKey    string          `json:"private_key"`
-	Certificate   string          `json:"certificate"`
-	WG            *ClientWGConfig `json:"wg,omitempty"`
-}
 
 func newOperatorCmd(cmd *cobra.Command, _ []string) {
 	name, _ := cmd.Flags().GetString("name")
@@ -202,7 +182,7 @@ func NewOperatorConfig(operatorName string, lhost string, lport uint16, permissi
 		}
 	}
 
-	var wgConfig *ClientWGConfig
+	var wgConfig *clientassets.ClientWGConfig
 	if includeWG {
 		certs.SetupWGKeys()
 		clientIP, err := generateOperatorWGIP()
@@ -220,7 +200,7 @@ func NewOperatorConfig(operatorName string, lhost string, lport uint16, permissi
 
 		dbOperator.WGPubKey = clientPubKey
 		dbOperator.WGTunIP = clientIP
-		wgConfig = &ClientWGConfig{
+		wgConfig = &clientassets.ClientWGConfig{
 			ServerPubKey:     serverPubKey,
 			ClientPrivateKey: clientPrivKey,
 			ClientPubKey:     clientPubKey,
@@ -239,7 +219,7 @@ func NewOperatorConfig(operatorName string, lhost string, lport uint16, permissi
 		return nil, fmt.Errorf("failed to generate certificate %s", err)
 	}
 	caCertPEM, _, _ := certs.GetCertificateAuthorityPEM(certs.OperatorCA)
-	config := ClientConfig{
+	config := clientassets.ClientConfig{
 		Operator:      operatorName,
 		Token:         rawToken,
 		LHost:         lhost,

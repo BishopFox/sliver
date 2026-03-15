@@ -51,6 +51,13 @@ type TokenAuth struct {
 	token string
 }
 
+type multiplayerDialStrategy int
+
+const (
+	multiplayerDialDirect multiplayerDialStrategy = iota
+	multiplayerDialWireGuard
+)
+
 // Return value is mapped to request headers.
 func (t TokenAuth) GetRequestMetadata(ctx context.Context, in ...string) (map[string]string, error) {
 	return map[string]string{
@@ -64,20 +71,40 @@ func (TokenAuth) RequireTransportSecurity() bool {
 
 // MTLSConnect - Connect to the sliver server
 func MTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
+	strategy, err := selectMultiplayerDialStrategy(config)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	switch strategy {
+	case multiplayerDialWireGuard:
+		return wireGuardMTLSConnect(config)
+	default:
+		return directMTLSConnect(config)
+	}
+}
+
+func selectMultiplayerDialStrategy(config *assets.ClientConfig) (multiplayerDialStrategy, error) {
 	if config == nil {
-		return nil, nil, errors.New("client config is required")
+		return multiplayerDialDirect, errors.New("client config is required")
 	}
 
 	switch getMultiplayerConnectMode() {
 	case MultiplayerConnectDisableWG:
-		return directMTLSConnect(config)
+		return multiplayerDialDirect, nil
 	case MultiplayerConnectRequireWG:
-		return wireGuardMTLSConnect(config)
-	default:
-		if config.WG != nil {
-			return wireGuardMTLSConnect(config)
+		if err := validateWireGuardConfig(config); err != nil {
+			return multiplayerDialDirect, err
 		}
-		return directMTLSConnect(config)
+		return multiplayerDialWireGuard, nil
+	default:
+		if config.WG == nil {
+			return multiplayerDialDirect, nil
+		}
+		if err := validateWireGuardConfig(config); err != nil {
+			return multiplayerDialDirect, err
+		}
+		return multiplayerDialWireGuard, nil
 	}
 }
 

@@ -25,6 +25,11 @@ const (
 	multiplayerWireGuardKeepalive       = 25
 )
 
+var (
+	ErrMissingWireGuardConfig    = errors.New("operator config has no wg block")
+	ErrIncompleteWireGuardConfig = errors.New("operator config has incomplete wg block")
+)
+
 type wireGuardTunnel struct {
 	dev *device.Device
 	net *transportNet
@@ -70,8 +75,8 @@ func wireGuardMTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *
 }
 
 func newWireGuardTunnel(config *assets.ClientConfig) (*wireGuardTunnel, string, error) {
-	if config == nil || config.WG == nil {
-		return nil, "", errors.New("wireguard transport requested but operator config has no wg block")
+	if err := validateWireGuardConfig(config); err != nil {
+		return nil, "", err
 	}
 	if config.LPort <= 0 || 65535 < config.LPort {
 		return nil, "", fmt.Errorf("invalid multiplayer port %d", config.LPort)
@@ -120,6 +125,30 @@ func newWireGuardTunnel(config *assets.ClientConfig) (*wireGuardTunnel, string, 
 
 	target := net.JoinHostPort(serverIP.String(), strconv.Itoa(config.LPort))
 	return &wireGuardTunnel{dev: dev, net: tNet}, target, nil
+}
+
+func validateWireGuardConfig(config *assets.ClientConfig) error {
+	if config == nil {
+		return errors.New("client config is required")
+	}
+	if config.WG == nil {
+		return ErrMissingWireGuardConfig
+	}
+
+	missing := make([]string, 0, 3)
+	if strings.TrimSpace(config.WG.ServerPubKey) == "" {
+		missing = append(missing, "server_pub_key")
+	}
+	if strings.TrimSpace(config.WG.ClientPrivateKey) == "" {
+		missing = append(missing, "client_private_key")
+	}
+	if strings.TrimSpace(config.WG.ClientIP) == "" {
+		missing = append(missing, "client_ip")
+	}
+	if len(missing) != 0 {
+		return fmt.Errorf("%w: missing %s", ErrIncompleteWireGuardConfig, strings.Join(missing, ", "))
+	}
+	return nil
 }
 
 func resolveWireGuardEndpoint(host string, port int) (netip.AddrPort, error) {

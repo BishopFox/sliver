@@ -39,6 +39,21 @@ func TestNewOperatorConfigWithWireGuardConnectsToWrappedMultiplayer(t *testing.T
 	if config.WG == nil {
 		t.Fatal("expected wireguard config block to be present")
 	}
+	if config.WG.ServerPubKey == "" {
+		t.Fatal("expected operator config to include wireguard server public key")
+	}
+	if config.WG.ClientPrivateKey == "" {
+		t.Fatal("expected operator config to include wireguard client private key")
+	}
+	if config.WG.ClientPubKey == "" {
+		t.Fatal("expected operator config to include wireguard client public key")
+	}
+	if config.WG.ClientIP == "" {
+		t.Fatal("expected operator config to include wireguard client tunnel IP")
+	}
+	if config.WG.ServerIP != multiplayerWireGuardServerIP {
+		t.Fatalf("expected wireguard server IP %q, got %q", multiplayerWireGuardServerIP, config.WG.ServerIP)
+	}
 
 	operators, err := operatorRecordsByName(operatorName)
 	if err != nil {
