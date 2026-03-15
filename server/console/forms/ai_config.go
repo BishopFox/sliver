@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/huh/v2"
 	"github.com/bishopfox/sliver/server/ai"
-	"github.com/charmbracelet/huh"
 )
 
 // AIConfigFormResult captures the server-side AI configuration collected from the form.

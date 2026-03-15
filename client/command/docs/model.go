@@ -11,12 +11,11 @@ import (
 	"charm.land/bubbles/v2/list"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/glamour/v2"
+	glamourstyles "charm.land/glamour/v2/styles"
 	"charm.land/lipgloss/v2"
 	clienttheme "github.com/bishopfox/sliver/client/theme"
 	embeddeddocs "github.com/bishopfox/sliver/docs"
-	"github.com/charmbracelet/glamour"
-	glamourstyles "github.com/charmbracelet/glamour/styles"
-	glowutils "github.com/charmbracelet/glow/v2/utils"
 	"golang.org/x/term"
 )
 
@@ -32,7 +31,10 @@ const (
 	docsWindowPollInterval = 100 * time.Millisecond
 )
 
-var markdownTrimChars = regexp.MustCompile(`^[#>\-\*\+\d\.\)\s` + "`" + `]+`)
+var (
+	markdownTrimChars    = regexp.MustCompile(`^[#>\-\*\+\d\.\)\s` + "`" + `]+`)
+	yamlFrontmatterBound = regexp.MustCompile(`(?m)^---\r?\n(\s*\r?\n)?`)
+)
 
 type docsFocus int
 
@@ -235,7 +237,7 @@ func preferredDocIndex(entries []docEntry) int {
 }
 
 func summarizeMarkdown(markdown string) string {
-	text := string(glowutils.RemoveFrontmatter([]byte(markdown)))
+	text := string(removeFrontmatter([]byte(markdown)))
 	for _, line := range strings.Split(text, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "```") {
@@ -252,7 +254,7 @@ func summarizeMarkdown(markdown string) string {
 
 func renderMarkdownWithGlow(width int, markdown string) (string, error) {
 	renderer, err := glamour.NewTermRenderer(
-		glowutils.GlamourStyle(glamourstyles.DarkStyle, false),
+		glamour.WithStandardStyle(glamourstyles.DarkStyle),
 		glamour.WithWordWrap(maxInt(12, width)),
 		glamour.WithPreservedNewLines(),
 	)
@@ -260,7 +262,7 @@ func renderMarkdownWithGlow(width int, markdown string) (string, error) {
 		return "", err
 	}
 
-	rendered, err := renderer.Render(string(glowutils.RemoveFrontmatter([]byte(markdown))))
+	rendered, err := renderer.Render(string(removeFrontmatter([]byte(markdown))))
 	if err != nil {
 		return "", err
 	}
@@ -270,6 +272,20 @@ func renderMarkdownWithGlow(width int, markdown string) (string, error) {
 		lines[i] = strings.TrimRight(line, " \t")
 	}
 	return strings.Join(lines, "\n"), nil
+}
+
+func removeFrontmatter(content []byte) []byte {
+	if frontmatterBoundaries := detectFrontmatter(content); frontmatterBoundaries[0] == 0 {
+		return content[frontmatterBoundaries[1]:]
+	}
+	return content
+}
+
+func detectFrontmatter(content []byte) []int {
+	if matches := yamlFrontmatterBound.FindAllIndex(content, 2); len(matches) > 1 {
+		return []int{matches[0][0], matches[1][1]}
+	}
+	return []int{-1, -1}
 }
 
 func (m *docsModel) Init() tea.Cmd {

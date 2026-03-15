@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"strings"
 
+	"charm.land/huh/v2"
 	"github.com/bishopfox/sliver/client/theme"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/util"
-	"github.com/charmbracelet/huh"
 )
 
 // GenerateBeaconFormResult captures the inputs needed to drive the generate beacon command.

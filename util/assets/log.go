@@ -7,8 +7,8 @@ import (
 	"os"
 	"strings"
 
-	huhspinner "github.com/charmbracelet/huh/spinner"
-	"github.com/charmbracelet/lipgloss"
+	huhspinner "charm.land/huh/v2/spinner"
+	"charm.land/lipgloss/v2"
 	"golang.org/x/term"
 )
 
@@ -156,9 +156,13 @@ func (l *logger) RunSpinner(label string, action func() error) error {
 	spin := huhspinner.New().
 		Type(huhspinner.Pulse).
 		Title(label).
-		TitleStyle(l.styles.muted).
-		Style(l.styles.spinner).
-		Output(l.out).
+		WithTheme(huhspinner.ThemeFunc(func(bool) *huhspinner.Styles {
+			return &huhspinner.Styles{
+				Spinner: l.styles.spinner,
+				Title:   l.styles.muted,
+			}
+		})).
+		WithOutput(l.out).
 		ActionWithErr(func(context.Context) error {
 			return action()
 		})

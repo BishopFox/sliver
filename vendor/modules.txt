@@ -4,15 +4,18 @@ cel.dev/expr
 # charm.land/bubbles/v2 v2.0.0
 ## explicit; go 1.24.2
 charm.land/bubbles/v2/cursor
+charm.land/bubbles/v2/filepicker
 charm.land/bubbles/v2/help
+charm.land/bubbles/v2/internal/memoization
 charm.land/bubbles/v2/internal/runeutil
 charm.land/bubbles/v2/key
 charm.land/bubbles/v2/list
 charm.land/bubbles/v2/paginator
 charm.land/bubbles/v2/spinner
+charm.land/bubbles/v2/textarea
 charm.land/bubbles/v2/textinput
 charm.land/bubbles/v2/viewport
-# charm.land/bubbletea/v2 v2.0.0
+# charm.land/bubbletea/v2 v2.0.2
 ## explicit; go 1.24.2
 charm.land/bubbletea/v2
 # charm.land/fantasy v0.8.1
@@ -26,9 +29,23 @@ charm.land/fantasy/providers/openai
 charm.land/fantasy/providers/openaicompat
 charm.land/fantasy/providers/openrouter
 charm.land/fantasy/schema
-# charm.land/lipgloss/v2 v2.0.0
-## explicit; go 1.24.2
+# charm.land/glamour/v2 v2.0.0
+## explicit; go 1.25.8
+charm.land/glamour/v2
+charm.land/glamour/v2/ansi
+charm.land/glamour/v2/internal/autolink
+charm.land/glamour/v2/styles
+# charm.land/huh/v2 v2.0.3
+## explicit; go 1.25.8
+charm.land/huh/v2
+charm.land/huh/v2/internal/accessibility
+charm.land/huh/v2/internal/compat
+charm.land/huh/v2/internal/selector
+charm.land/huh/v2/spinner
+# charm.land/lipgloss/v2 v2.0.2
+## explicit; go 1.25.0
 charm.land/lipgloss/v2
+charm.land/lipgloss/v2/table
 # cloud.google.com/go v0.123.0
 ## explicit; go 1.24.0
 cloud.google.com/go/civil
@@ -357,9 +374,6 @@ github.com/aws/smithy-go/tracing
 github.com/aws/smithy-go/transport/http
 github.com/aws/smithy-go/transport/http/internal/io
 github.com/aws/smithy-go/waiter
-# github.com/aymanbagabas/go-osc52/v2 v2.0.1
-## explicit; go 1.16
-github.com/aymanbagabas/go-osc52/v2
 # github.com/aymerick/douceur v0.2.0
 ## explicit
 github.com/aymerick/douceur/css
@@ -379,8 +393,6 @@ github.com/buger/jsonparser
 # github.com/bwmarrin/discordgo v0.29.0
 ## explicit; go 1.13
 github.com/bwmarrin/discordgo
-# github.com/caarlos0/env/v11 v11.3.1
-## explicit; go 1.18
 # github.com/caarlos0/go-reddit/v3 v3.0.1
 ## explicit; go 1.17
 github.com/caarlos0/go-reddit/v3/reddit
@@ -463,47 +475,9 @@ github.com/charmbracelet/anthropic-sdk-go/packages/ssestream
 github.com/charmbracelet/anthropic-sdk-go/shared
 github.com/charmbracelet/anthropic-sdk-go/shared/constant
 github.com/charmbracelet/anthropic-sdk-go/vertex
-# github.com/charmbracelet/bubbles v0.21.1-0.20250623103423-23b8fd6302d7
-## explicit; go 1.23.0
-github.com/charmbracelet/bubbles/cursor
-github.com/charmbracelet/bubbles/filepicker
-github.com/charmbracelet/bubbles/help
-github.com/charmbracelet/bubbles/key
-github.com/charmbracelet/bubbles/runeutil
-github.com/charmbracelet/bubbles/spinner
-github.com/charmbracelet/bubbles/textarea
-github.com/charmbracelet/bubbles/textarea/memoization
-github.com/charmbracelet/bubbles/textinput
-github.com/charmbracelet/bubbles/viewport
-# github.com/charmbracelet/bubbletea v1.3.10
-## explicit; go 1.24.0
-github.com/charmbracelet/bubbletea
 # github.com/charmbracelet/colorprofile v0.4.2
 ## explicit; go 1.24.2
 github.com/charmbracelet/colorprofile
-# github.com/charmbracelet/glamour v0.10.0
-## explicit; go 1.23.0
-github.com/charmbracelet/glamour
-github.com/charmbracelet/glamour/ansi
-github.com/charmbracelet/glamour/internal/autolink
-github.com/charmbracelet/glamour/styles
-# github.com/charmbracelet/glow/v2 v2.1.1
-## explicit; go 1.23.6
-github.com/charmbracelet/glow/v2/utils
-# github.com/charmbracelet/huh v0.8.0
-## explicit; go 1.23.0
-github.com/charmbracelet/huh
-github.com/charmbracelet/huh/internal/accessibility
-github.com/charmbracelet/huh/internal/selector
-# github.com/charmbracelet/huh/spinner v0.0.0-20251215014908-6f7d32faaff3
-## explicit; go 1.24.0
-github.com/charmbracelet/huh/spinner
-# github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834
-## explicit; go 1.18
-github.com/charmbracelet/lipgloss
-github.com/charmbracelet/lipgloss/table
-# github.com/charmbracelet/log v0.4.2
-## explicit; go 1.19
 # github.com/charmbracelet/ultraviolet v0.0.0-20260205113103-524a6607adb8
 ## explicit; go 1.24.2
 github.com/charmbracelet/ultraviolet
@@ -512,14 +486,12 @@ github.com/charmbracelet/ultraviolet
 github.com/charmbracelet/x/ansi
 github.com/charmbracelet/x/ansi/kitty
 github.com/charmbracelet/x/ansi/parser
-# github.com/charmbracelet/x/cellbuf v0.0.15
-## explicit; go 1.24.2
-github.com/charmbracelet/x/cellbuf
-# github.com/charmbracelet/x/editor v0.1.0
-## explicit; go 1.19
 # github.com/charmbracelet/x/exp/charmtone v0.0.0-20260109001716-2fbdffcb221f
 ## explicit; go 1.24.0
 github.com/charmbracelet/x/exp/charmtone
+# github.com/charmbracelet/x/exp/ordered v0.1.0
+## explicit; go 1.21
+github.com/charmbracelet/x/exp/ordered
 # github.com/charmbracelet/x/exp/slice v0.0.0-20250904123553-b4e2667e5ad5
 ## explicit; go 1.23.0
 github.com/charmbracelet/x/exp/slice
@@ -712,9 +684,6 @@ github.com/envoyproxy/go-control-plane/envoy/type/v3
 # github.com/envoyproxy/protoc-gen-validate v1.3.3
 ## explicit; go 1.24.1
 github.com/envoyproxy/protoc-gen-validate/validate
-# github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f
-## explicit; go 1.16
-github.com/erikgeiser/coninput
 # github.com/fatih/color v1.18.0
 ## explicit; go 1.17
 github.com/fatih/color
@@ -764,8 +733,6 @@ github.com/go-json-experiment/json/jsontext
 github.com/go-lark/lark
 github.com/go-lark/lark/card
 github.com/go-lark/lark/card/i18n
-# github.com/go-logfmt/logfmt v0.6.0
-## explicit; go 1.17
 # github.com/go-logr/logr v1.4.3
 ## explicit; go 1.18
 github.com/go-logr/logr
@@ -1079,9 +1046,6 @@ github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.20
 ## explicit; go 1.15
 github.com/mattn/go-isatty
-# github.com/mattn/go-localereader v0.0.1
-## explicit
-github.com/mattn/go-localereader
 # github.com/mattn/go-runewidth v0.0.20
 ## explicit; go 1.20
 github.com/mattn/go-runewidth
@@ -1105,9 +1069,6 @@ github.com/miekg/dns
 # github.com/mileusna/viber v1.0.1
 ## explicit; go 1.14
 github.com/mileusna/viber
-# github.com/mitchellh/go-homedir v1.1.0
-## explicit
-github.com/mitchellh/go-homedir
 # github.com/mitchellh/go-ps v1.0.0
 ## explicit; go 1.13
 github.com/mitchellh/go-ps
@@ -1132,34 +1093,9 @@ github.com/moloch--/memmod
 # github.com/moloch--/sgn v0.0.5
 ## explicit; go 1.23
 github.com/moloch--/sgn/pkg
-# github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6
-## explicit; go 1.17
-github.com/muesli/ansi
-github.com/muesli/ansi/compressor
 # github.com/muesli/cancelreader v0.2.2
 ## explicit; go 1.17
 github.com/muesli/cancelreader
-# github.com/muesli/gitcha v0.3.0
-## explicit; go 1.15
-# github.com/muesli/go-app-paths v0.2.2
-## explicit; go 1.14
-# github.com/muesli/mango v0.1.0
-## explicit; go 1.17
-# github.com/muesli/mango-cobra v1.2.0
-## explicit; go 1.17
-# github.com/muesli/mango-pflag v0.1.0
-## explicit; go 1.17
-# github.com/muesli/reflow v0.3.0
-## explicit; go 1.13
-github.com/muesli/reflow/ansi
-github.com/muesli/reflow/indent
-github.com/muesli/reflow/padding
-github.com/muesli/reflow/wordwrap
-# github.com/muesli/roff v0.1.0
-## explicit; go 1.17
-# github.com/muesli/termenv v0.16.0
-## explicit; go 1.17
-github.com/muesli/termenv
 # github.com/ncruces/go-sqlite3 v0.30.4
 ## explicit; go 1.24.0
 github.com/ncruces/go-sqlite3
@@ -1241,8 +1177,6 @@ github.com/openai/openai-go/v2/responses
 github.com/openai/openai-go/v2/shared
 github.com/openai/openai-go/v2/shared/constant
 github.com/openai/openai-go/v2/webhooks
-# github.com/pelletier/go-toml/v2 v2.2.4
-## explicit; go 1.21.0
 # github.com/pires/go-proxyproto v0.8.1
 ## explicit; go 1.24
 github.com/pires/go-proxyproto
@@ -1347,13 +1281,9 @@ github.com/rsteube/carapace/third_party/golang.org/x/sys/execabs
 # github.com/rsteube/carapace-shlex v0.1.2
 ## explicit; go 1.15
 github.com/rsteube/carapace-shlex
-# github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
-## explicit
 # github.com/safchain/ethtool v0.6.2
 ## explicit; go 1.23.0
 github.com/safchain/ethtool
-# github.com/sagikazarmark/locafero v0.7.0
-## explicit; go 1.21
 # github.com/sahilm/fuzzy v0.1.1
 ## explicit
 github.com/sahilm/fuzzy
@@ -1471,10 +1401,6 @@ github.com/sliverarmory/malasada/internal/aplib
 # github.com/sliverarmory/wasm-donut v0.0.3
 ## explicit; go 1.25.6
 github.com/sliverarmory/wasm-donut
-# github.com/sourcegraph/conc v0.3.0
-## explicit; go 1.19
-# github.com/spf13/afero v1.15.0
-## explicit; go 1.23.0
 # github.com/spf13/cast v1.10.0
 ## explicit; go 1.21.0
 github.com/spf13/cast
@@ -1485,8 +1411,6 @@ github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.10
 ## explicit; go 1.12
 github.com/spf13/pflag
-# github.com/spf13/viper v1.20.1
-## explicit; go 1.21.0
 # github.com/spiffe/go-spiffe/v2 v2.6.0
 ## explicit; go 1.24.0
 github.com/spiffe/go-spiffe/v2/bundle/jwtbundle
@@ -1505,8 +1429,6 @@ github.com/stretchr/objx
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/assert/yaml
 github.com/stretchr/testify/mock
-# github.com/subosito/gotenv v1.6.0
-## explicit; go 1.18
 # github.com/tailscale/certstore v0.1.1-0.20231202035212-d3fa0460f47e
 ## explicit; go 1.20
 github.com/tailscale/certstore
@@ -1735,8 +1657,6 @@ go.opentelemetry.io/otel/trace
 go.opentelemetry.io/otel/trace/embedded
 go.opentelemetry.io/otel/trace/internal/telemetry
 go.opentelemetry.io/otel/trace/noop
-# go.uber.org/multierr v1.11.0
-## explicit; go 1.19
 # go4.org/mem v0.0.0-20240501181205-ae6ca9944745
 ## explicit; go 1.14
 go4.org/mem
@@ -1828,8 +1748,8 @@ golang.org/x/oauth2/jwt
 ## explicit; go 1.24.0
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.41.0
-## explicit; go 1.24.0
+# golang.org/x/sys v0.42.0
+## explicit; go 1.25.0
 golang.org/x/sys/cpu
 golang.org/x/sys/plan9
 golang.org/x/sys/unix

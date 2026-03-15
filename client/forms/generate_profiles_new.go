@@ -4,9 +4,9 @@ import (
 	"errors"
 	"strings"
 
+	"charm.land/huh/v2"
 	"github.com/bishopfox/sliver/client/theme"
 	"github.com/bishopfox/sliver/util"
-	"github.com/charmbracelet/huh"
 )
 
 // GenerateProfilesNewFormResult captures the inputs needed to drive the profiles new command.

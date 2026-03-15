@@ -3,8 +3,8 @@ package forms
 import (
 	"errors"
 
+	"charm.land/huh/v2"
 	"github.com/bishopfox/sliver/client/theme"
-	"github.com/charmbracelet/huh"
 )
 
 // ArmoryUpdateOption represents an update option in the armory update form.
