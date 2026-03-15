@@ -29,6 +29,7 @@ const (
 	aiPaneHorizontalChrome     = 4
 	aiPaneVerticalChrome       = 2
 	aiTranscriptScrollbarWidth = 1
+	aiTranscriptMouseWheelStep = 3
 	aiModalDismissDelay        = 250 * time.Millisecond
 	aiWindowPollInterval       = 100 * time.Millisecond
 )
@@ -152,6 +153,28 @@ type aiContextField struct {
 type aiContextSection struct {
 	title  string
 	fields []aiContextField
+}
+
+type aiPaneRect struct {
+	x      int
+	y      int
+	width  int
+	height int
+}
+
+func (r aiPaneRect) contains(x, y int) bool {
+	return r.width > 0 &&
+		r.height > 0 &&
+		x >= r.x &&
+		x < r.x+r.width &&
+		y >= r.y &&
+		y < r.y+r.height
+}
+
+type aiPaneRects struct {
+	sidebar    aiPaneRect
+	transcript aiPaneRect
+	composer   aiPaneRect
 }
 
 type aiModel struct {
@@ -452,6 +475,12 @@ func (m *aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleComposerKey(key)
 		}
 		return m.handleGlobalKey(key)
+
+	case tea.MouseClickMsg:
+		return m.handleMouseClick(tea.Mouse(msg))
+
+	case tea.MouseWheelMsg:
+		return m.handleMouseWheel(tea.Mouse(msg))
 	}
 
 	return m, nil
@@ -559,6 +588,37 @@ func (m *aiModel) handleGlobalKey(key tea.Key) (tea.Model, tea.Cmd) {
 
 	case "x":
 		return m.showDeleteConversationModal()
+	}
+
+	return m, nil
+}
+
+func (m *aiModel) handleMouseClick(mouse tea.Mouse) (tea.Model, tea.Cmd) {
+	if mouse.Button != tea.MouseLeft {
+		return m, nil
+	}
+
+	focus, ok := m.paneFocusAt(mouse.X, mouse.Y)
+	if !ok {
+		return m, nil
+	}
+
+	m.focus = focus
+	return m, nil
+}
+
+func (m *aiModel) handleMouseWheel(mouse tea.Mouse) (tea.Model, tea.Cmd) {
+	if !m.currentPaneRects().transcript.contains(mouse.X, mouse.Y) {
+		return m, nil
+	}
+
+	switch mouse.Button {
+	case tea.MouseWheelUp:
+		m.focus = aiFocusTranscript
+		m.scrollTranscript(-aiTranscriptMouseWheelStep)
+	case tea.MouseWheelDown:
+		m.focus = aiFocusTranscript
+		m.scrollTranscript(aiTranscriptMouseWheelStep)
 	}
 
 	return m, nil
@@ -1598,6 +1658,77 @@ func (m *aiModel) layoutHeights() (int, int, int, int) {
 	return headerHeight, composerHeight, footerHeight, bodyHeight
 }
 
+func (m *aiModel) currentPaneRects() aiPaneRects {
+	if m.width < aiMinWidth || m.height < aiMinHeight {
+		return aiPaneRects{}
+	}
+
+	headerHeight, composerHeight, _, bodyHeight := m.layoutHeights()
+	bodyY := headerHeight
+	composerY := bodyY + bodyHeight
+
+	switch {
+	case m.width >= 78:
+		sidebarWidth := clampInt(m.width/4, 24, 28)
+		return aiPaneRects{
+			sidebar: aiPaneRect{
+				x:      0,
+				y:      bodyY,
+				width:  sidebarWidth,
+				height: bodyHeight,
+			},
+			transcript: aiPaneRect{
+				x:      sidebarWidth,
+				y:      bodyY,
+				width:  maxInt(40, m.width-sidebarWidth),
+				height: bodyHeight,
+			},
+			composer: aiPaneRect{
+				x:      0,
+				y:      composerY,
+				width:  m.width,
+				height: composerHeight,
+			},
+		}
+	default:
+		sidebarHeight := clampInt(bodyHeight/4, 5, 7)
+		return aiPaneRects{
+			sidebar: aiPaneRect{
+				x:      0,
+				y:      bodyY,
+				width:  m.width,
+				height: sidebarHeight,
+			},
+			transcript: aiPaneRect{
+				x:      0,
+				y:      bodyY + sidebarHeight,
+				width:  m.width,
+				height: maxInt(6, bodyHeight-sidebarHeight),
+			},
+			composer: aiPaneRect{
+				x:      0,
+				y:      composerY,
+				width:  m.width,
+				height: composerHeight,
+			},
+		}
+	}
+}
+
+func (m *aiModel) paneFocusAt(x, y int) (aiFocus, bool) {
+	rects := m.currentPaneRects()
+	switch {
+	case rects.sidebar.contains(x, y):
+		return aiFocusSidebar, true
+	case rects.transcript.contains(x, y):
+		return aiFocusTranscript, true
+	case rects.composer.contains(x, y):
+		return aiFocusComposer, true
+	default:
+		return aiFocusSidebar, false
+	}
+}
+
 func (m *aiModel) currentTranscriptPaneSize() (int, int) {
 	_, _, _, bodyHeight := m.layoutHeights()
 
@@ -2342,6 +2473,7 @@ func (m *aiModel) layoutName() string {
 func aiView(content string) tea.View {
 	view := tea.NewView(content)
 	view.AltScreen = true
+	view.MouseMode = tea.MouseModeCellMotion
 	return view
 }
 

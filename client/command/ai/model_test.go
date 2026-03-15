@@ -558,6 +558,82 @@ func TestTabCyclesVisiblePanesOnly(t *testing.T) {
 	}
 }
 
+func TestAIViewEnablesMouseCellMotion(t *testing.T) {
+	view := aiView("hello")
+	if view.MouseMode != tea.MouseModeCellMotion {
+		t.Fatalf("expected AI view mouse mode %v, got %v", tea.MouseModeCellMotion, view.MouseMode)
+	}
+}
+
+func TestMouseClickSwitchesFocusAcrossPanesWide(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 108
+	model.height = 32
+	model.focus = aiFocusSidebar
+
+	rects := model.currentPaneRects()
+
+	updated, _ := model.Update(tea.MouseClickMsg{
+		X:      rects.transcript.x + rects.transcript.width/2,
+		Y:      rects.transcript.y + rects.transcript.height/2,
+		Button: tea.MouseLeft,
+	})
+	if got := updated.(*aiModel).focus; got != aiFocusTranscript {
+		t.Fatalf("expected transcript click to focus transcript, got %s", got.String())
+	}
+
+	rects = updated.(*aiModel).currentPaneRects()
+	updated, _ = updated.(*aiModel).Update(tea.MouseClickMsg{
+		X:      rects.composer.x + rects.composer.width/2,
+		Y:      rects.composer.y + rects.composer.height/2,
+		Button: tea.MouseLeft,
+	})
+	if got := updated.(*aiModel).focus; got != aiFocusComposer {
+		t.Fatalf("expected composer click to focus composer, got %s", got.String())
+	}
+
+	rects = updated.(*aiModel).currentPaneRects()
+	updated, _ = updated.(*aiModel).Update(tea.MouseClickMsg{
+		X:      rects.sidebar.x + rects.sidebar.width/2,
+		Y:      rects.sidebar.y + rects.sidebar.height/2,
+		Button: tea.MouseLeft,
+	})
+	if got := updated.(*aiModel).focus; got != aiFocusSidebar {
+		t.Fatalf("expected sidebar click to focus sidebar, got %s", got.String())
+	}
+}
+
+func TestMouseClickSwitchesFocusAcrossPanesStacked(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 76
+	model.height = 24
+	model.focus = aiFocusSidebar
+
+	rects := model.currentPaneRects()
+	if rects.transcript.y <= rects.sidebar.y {
+		t.Fatalf("expected stacked transcript pane below sidebar, got sidebar=%+v transcript=%+v", rects.sidebar, rects.transcript)
+	}
+
+	updated, _ := model.Update(tea.MouseClickMsg{
+		X:      rects.transcript.x + rects.transcript.width/2,
+		Y:      rects.transcript.y + rects.transcript.height/2,
+		Button: tea.MouseLeft,
+	})
+	if got := updated.(*aiModel).focus; got != aiFocusTranscript {
+		t.Fatalf("expected transcript click to focus transcript in stacked layout, got %s", got.String())
+	}
+
+	rects = updated.(*aiModel).currentPaneRects()
+	updated, _ = updated.(*aiModel).Update(tea.MouseClickMsg{
+		X:      rects.composer.x + rects.composer.width/2,
+		Y:      rects.composer.y + rects.composer.height/2,
+		Button: tea.MouseLeft,
+	})
+	if got := updated.(*aiModel).focus; got != aiFocusComposer {
+		t.Fatalf("expected composer click to focus composer in stacked layout, got %s", got.String())
+	}
+}
+
 func TestRenderComposerOmitsInlineControls(t *testing.T) {
 	model := newAIModel(nil, aiContext{}, nil)
 	model.width = 120
@@ -717,6 +793,78 @@ func TestHandleGlobalKeyScrollsTranscript(t *testing.T) {
 	}
 	if model.transcriptScroll != initialScroll {
 		t.Fatalf("expected transcript end-jump to restore bottom scroll %d, got %d", initialScroll, model.transcriptScroll)
+	}
+}
+
+func TestMouseWheelScrollsTranscriptAndFocusesConversation(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 108
+	model.height = 32
+	model.focus = aiFocusSidebar
+	model.loading = false
+
+	messages := make([]*clientpb.AIConversationMessage, 0, 24)
+	for i := 0; i < 24; i++ {
+		messages = append(messages, &clientpb.AIConversationMessage{
+			Role:    "assistant",
+			Content: fmt.Sprintf("Message %02d\n\n- detail", i),
+		})
+	}
+	model.currentConversation = &clientpb.AIConversation{
+		ID:       "conv-1",
+		Title:    "Thread",
+		Provider: "openai",
+		Model:    "gpt-test",
+		Messages: messages,
+	}
+
+	renderCmd := model.scheduleTranscriptRender()
+	if renderCmd == nil {
+		t.Fatal("expected transcript render command")
+	}
+
+	msg := renderCmd()
+	renderedMsg, ok := msg.(aiTranscriptRenderedMsg)
+	if !ok {
+		t.Fatalf("expected transcript render message, got %T", msg)
+	}
+
+	updated, _ := model.Update(renderedMsg)
+	model = updated.(*aiModel)
+	initialScroll := model.transcriptScroll
+	if initialScroll < aiTranscriptMouseWheelStep {
+		t.Fatalf("expected transcript to have enough scrollback for wheel scrolling, got %d", initialScroll)
+	}
+
+	rect := model.currentPaneRects().transcript
+	updated, _ = model.Update(tea.MouseWheelMsg{
+		X:      rect.x + rect.width/2,
+		Y:      rect.y + rect.height/2,
+		Button: tea.MouseWheelUp,
+	})
+	model = updated.(*aiModel)
+
+	if got := model.focus; got != aiFocusTranscript {
+		t.Fatalf("expected transcript wheel to focus transcript, got %s", got.String())
+	}
+	if model.transcriptFollow {
+		t.Fatal("expected wheel-up scrolling to disable follow mode")
+	}
+	if want := initialScroll - aiTranscriptMouseWheelStep; model.transcriptScroll != want {
+		t.Fatalf("expected wheel-up scroll %d, got %d", want, model.transcriptScroll)
+	}
+
+	updated, _ = model.Update(tea.MouseWheelMsg{
+		X:      rect.x + rect.width/2,
+		Y:      rect.y + rect.height/2,
+		Button: tea.MouseWheelDown,
+	})
+	model = updated.(*aiModel)
+	if !model.transcriptFollow {
+		t.Fatal("expected wheel-down at the bottom to restore follow mode")
+	}
+	if model.transcriptScroll != initialScroll {
+		t.Fatalf("expected wheel-down to restore bottom scroll %d, got %d", initialScroll, model.transcriptScroll)
 	}
 }
 
