@@ -528,7 +528,7 @@ func TestRenderFooterUsesPaneSpecificControls(t *testing.T) {
 
 	model.focus = aiFocusComposer
 	footer = ansi.Strip(model.renderFooter())
-	expected = []string{"focus: composer", "tab: sidebar", "enter: send", "ctrl+o: context", "ctrl+u: clear", "esc: blur", "ctrl+c: quit"}
+	expected = []string{"focus: composer", "tab: sidebar", "enter: send", "/exit: quit", "ctrl+o: context", "ctrl+u: clear", "esc: blur", "ctrl+c: quit"}
 	for _, fragment := range expected {
 		if !strings.Contains(footer, fragment) {
 			t.Fatalf("expected composer footer to contain %q, got %q", fragment, footer)
@@ -563,9 +563,32 @@ func TestRenderComposerOmitsInlineControls(t *testing.T) {
 	model.width = 120
 	model.status = "Ready"
 
-	rendered := ansi.Strip(model.renderComposer(5))
+	rendered := ansi.Strip(model.renderComposer(4))
 	if strings.Contains(rendered, "ctrl+u clear") || strings.Contains(rendered, "q quit") {
 		t.Fatalf("expected composer pane to omit inline control hints, got %q", rendered)
+	}
+	if strings.Contains(rendered, "Ready") {
+		t.Fatalf("expected composer pane to omit the inline status row, got %q", rendered)
+	}
+}
+
+func TestLayoutHeightsKeepWideComposerCompact(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 120
+	model.height = 30
+
+	headerHeight, composerHeight, footerHeight, bodyHeight := model.layoutHeights()
+	if headerHeight != 1 {
+		t.Fatalf("expected header height 1, got %d", headerHeight)
+	}
+	if composerHeight != 4 {
+		t.Fatalf("expected wide composer height 4, got %d", composerHeight)
+	}
+	if footerHeight != 1 {
+		t.Fatalf("expected footer height 1, got %d", footerHeight)
+	}
+	if bodyHeight != 24 {
+		t.Fatalf("expected body height 24 after reclaiming the composer status row, got %d", bodyHeight)
 	}
 }
 
@@ -878,6 +901,61 @@ func TestComposerEnterStartsAwaitingResponseImmediately(t *testing.T) {
 	}
 }
 
+func TestComposerSlashExitQuitsProgram(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.focus = aiFocusComposer
+	model.loading = true
+	model.input = []rune("/exit")
+	model.cursor = len(model.input)
+
+	updated, cmd := model.handleComposerKey(tea.Key{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected /exit to quit the TUI")
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.submittingPrompt {
+		t.Fatal("expected /exit to avoid prompt submission")
+	}
+	if updatedModel.pendingPrompt != "" {
+		t.Fatalf("expected /exit to avoid staging a prompt, got %q", updatedModel.pendingPrompt)
+	}
+	if len(updatedModel.input) != 0 || updatedModel.cursor != 0 {
+		t.Fatal("expected /exit to clear the composer before quitting")
+	}
+
+	msg := cmd()
+	if _, ok := msg.(tea.QuitMsg); !ok {
+		t.Fatalf("expected tea.QuitMsg, got %#v", msg)
+	}
+}
+
+func TestComposerUnknownSlashCommandStaysLocal(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.focus = aiFocusComposer
+	model.input = []rune("/wat")
+	model.cursor = len(model.input)
+
+	updated, cmd := model.handleComposerKey(tea.Key{Code: tea.KeyEnter})
+	if cmd != nil {
+		t.Fatalf("did not expect unknown slash command to queue work, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.submittingPrompt {
+		t.Fatal("expected unknown slash command to avoid prompt submission")
+	}
+	if updatedModel.awaitingResponse {
+		t.Fatal("expected unknown slash command to avoid awaiting-response state")
+	}
+	if updatedModel.status != `Unknown composer command "/wat". Available: /exit.` {
+		t.Fatalf("unexpected unknown command status: %q", updatedModel.status)
+	}
+	if string(updatedModel.input) != "/wat" {
+		t.Fatalf("expected unknown slash command to remain in the composer, got %q", string(updatedModel.input))
+	}
+}
+
 func TestComposerCtrlOOpensContextModal(t *testing.T) {
 	model := newAIModel(nil, aiContext{
 		target: aiTargetSummary{
@@ -936,6 +1014,171 @@ func TestShowDeleteConversationModalTargetsSelectedConversation(t *testing.T) {
 	}
 	if updatedModel.modal.selectedID != "conv-1" {
 		t.Fatalf("expected delete modal to preselect the remaining conversation, got %+v", updatedModel.modal)
+	}
+}
+
+func TestShowNewConversationModalOnNKey(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.loading = false
+
+	updated, cmd := model.handleGlobalKey(tea.Key{Text: "n", Code: 'n'})
+	if cmd != nil {
+		t.Fatalf("did not expect new conversation modal to start RPC work yet, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal == nil || updatedModel.modal.kind != aiModalKindNewConversation {
+		t.Fatalf("expected new conversation modal, got %+v", updatedModel.modal)
+	}
+	if updatedModel.modal.title != "New Conversation" {
+		t.Fatalf("expected new conversation modal title, got %+v", updatedModel.modal)
+	}
+	if got := string(updatedModel.modal.input); got != "New conversation" {
+		t.Fatalf("expected default modal input, got %q", got)
+	}
+	if updatedModel.modal.focus != aiModalFocusInput {
+		t.Fatalf("expected modal input focus, got %v", updatedModel.modal.focus)
+	}
+	if updatedModel.modal.cursor != len([]rune("New conversation")) {
+		t.Fatalf("expected cursor at end of default title, got %d", updatedModel.modal.cursor)
+	}
+}
+
+func TestNewConversationModalCreatesConversationWithTypedTitle(t *testing.T) {
+	server := &aiRPCServer{
+		saveConversationResp: &clientpb.AIConversation{
+			ID:       "conv-created",
+			Provider: "openai",
+			Model:    "gpt-test",
+			Title:    "Operator notes",
+		},
+	}
+
+	rpcClient, cleanup := newAITestRPCClient(t, server)
+	defer cleanup()
+
+	model := newAIModel(&console.SliverClient{Rpc: rpcClient}, aiContext{}, nil)
+	model.loading = false
+
+	updated, cmd := model.handleGlobalKey(tea.Key{Text: "n", Code: 'n'})
+	if cmd != nil {
+		t.Fatalf("did not expect modal open to queue work, got %v", cmd)
+	}
+	model = updated.(*aiModel)
+
+	for range len([]rune("New conversation")) {
+		updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyBackspace})
+		if cmd != nil {
+			t.Fatalf("did not expect backspace to queue work, got %v", cmd)
+		}
+		model = updated.(*aiModel)
+	}
+
+	for _, r := range "Operator notes" {
+		updated, cmd = model.Update(tea.KeyPressMsg{Text: string(r), Code: r})
+		if cmd != nil {
+			t.Fatalf("did not expect typing to queue work, got %v", cmd)
+		}
+		model = updated.(*aiModel)
+	}
+
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected enter to create the conversation")
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal != nil {
+		t.Fatalf("expected modal to close after create, got %+v", updatedModel.modal)
+	}
+	if !updatedModel.loading {
+		t.Fatal("expected create to mark the model as loading")
+	}
+
+	msg := cmd()
+	created, ok := msg.(aiConversationCreatedMsg)
+	if !ok {
+		t.Fatalf("expected aiConversationCreatedMsg, got %T", msg)
+	}
+	if created.conversationID != "conv-created" {
+		t.Fatalf("unexpected created conversation id: %q", created.conversationID)
+	}
+
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	if len(server.saveConversationReqs) != 1 {
+		t.Fatalf("expected SaveAIConversation to be called once, got %d", len(server.saveConversationReqs))
+	}
+	if got := server.saveConversationReqs[0].GetTitle(); got != "Operator notes" {
+		t.Fatalf("expected created title %q, got %q", "Operator notes", got)
+	}
+}
+
+func TestNewConversationModalRequiresTitle(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.modal = &aiModalState{
+		kind:  aiModalKindNewConversation,
+		title: "New Conversation",
+		focus: aiModalFocusInput,
+	}
+
+	updated, cmd := model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd != nil {
+		t.Fatalf("did not expect empty title submit to queue work, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal == nil {
+		t.Fatal("expected modal to stay open when the title is empty")
+	}
+	if updatedModel.status != "Type a conversation name first." {
+		t.Fatalf("unexpected status: %q", updatedModel.status)
+	}
+}
+
+func TestNewConversationModalCancelActionClosesModal(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.loading = false
+
+	updated, cmd := model.handleGlobalKey(tea.Key{Text: "n", Code: 'n'})
+	if cmd != nil {
+		t.Fatalf("did not expect modal open to queue work, got %v", cmd)
+	}
+	model = updated.(*aiModel)
+
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	if cmd != nil {
+		t.Fatalf("did not expect tab to queue work, got %v", cmd)
+	}
+	model = updated.(*aiModel)
+	if model.modal == nil || model.modal.focus != aiModalFocusCancel {
+		t.Fatalf("expected cancel action to be focused, got %+v", model.modal)
+	}
+
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd != nil {
+		t.Fatalf("did not expect cancel to queue work, got %v", cmd)
+	}
+	if updated.(*aiModel).modal != nil {
+		t.Fatal("expected cancel action to close the new conversation modal")
+	}
+}
+
+func TestNewConversationModalCancelsOnEscape(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.modal = &aiModalState{
+		kind:  aiModalKindNewConversation,
+		title: "New Conversation",
+		focus: aiModalFocusInput,
+		input: []rune("New conversation"),
+	}
+
+	updated, cmd := model.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+	if cmd != nil {
+		t.Fatalf("did not expect escape to queue work, got %v", cmd)
+	}
+	if updated.(*aiModel).modal != nil {
+		t.Fatal("expected escape to close the new conversation modal")
 	}
 }
 
@@ -1034,6 +1277,30 @@ func TestContextModalViewIncludesStyledContextContent(t *testing.T) {
 	for _, fragment := range expected {
 		if !strings.Contains(view, fragment) {
 			t.Fatalf("expected context modal view to contain %q, got %q", fragment, view)
+		}
+	}
+}
+
+func TestNewConversationModalViewIncludesOverlayContent(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 120
+	model.height = 30
+	model.loading = false
+	model.conversations = []*clientpb.AIConversation{{ID: "conv-1", Title: "Thread"}}
+	model.currentConversation = &clientpb.AIConversation{ID: "conv-1", Title: "Thread"}
+	model.modal = &aiModalState{
+		kind:   aiModalKindNewConversation,
+		title:  "New Conversation",
+		focus:  aiModalFocusInput,
+		input:  []rune("New conversation"),
+		cursor: len([]rune("New conversation")),
+	}
+
+	view := ansi.Strip(model.View().Content)
+	expected := []string{"Conversations", "New Conversation", "Name", "New conversation", "Cancel", "Create"}
+	for _, fragment := range expected {
+		if !strings.Contains(view, fragment) {
+			t.Fatalf("expected new conversation modal view to contain %q, got %q", fragment, view)
 		}
 	}
 }

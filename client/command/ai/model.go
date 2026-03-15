@@ -35,6 +35,7 @@ const (
 
 type aiFocus int
 type aiModalKind int
+type aiModalFocusTarget int
 
 const (
 	aiFocusSidebar aiFocus = iota
@@ -46,6 +47,13 @@ const (
 	aiModalKindInfo aiModalKind = iota
 	aiModalKindDeleteConfirm
 	aiModalKindContext
+	aiModalKindNewConversation
+)
+
+const (
+	aiModalFocusInput aiModalFocusTarget = iota
+	aiModalFocusCancel
+	aiModalFocusConfirm
 )
 
 type aiStyles struct {
@@ -126,6 +134,9 @@ type aiModalState struct {
 	title          string
 	body           string
 	dismissReadyAt time.Time
+	focus          aiModalFocusTarget
+	input          []rune
+	cursor         int
 	confirmDelete  bool
 	conversationID string
 	selectedID     string
@@ -453,7 +464,6 @@ func (m *aiModel) handleGlobalKey(key tea.Key) (tea.Model, tea.Cmd) {
 	switch key.Code {
 	case tea.KeyTab:
 		m.focus = (m.focus + 1) % (aiFocusComposer + 1)
-		m.status = "Focus moved to " + m.focus.String() + "."
 		return m, nil
 
 	case tea.KeyEsc:
@@ -543,13 +553,7 @@ func (m *aiModel) handleGlobalKey(key tea.Key) (tea.Model, tea.Cmd) {
 		}
 
 	case "n":
-		if m.loading {
-			m.status = "A conversation sync is already in progress."
-			return m, nil
-		}
-		m.loading = true
-		m.status = "Creating a new AI conversation..."
-		return m, createConversationCmd(m.con, m.defaultProvider(), m.defaultModel(), "New conversation")
+		return m.showNewConversationModal()
 
 	case "r":
 		m.loading = true
@@ -566,12 +570,10 @@ func (m *aiModel) handleGlobalKey(key tea.Key) (tea.Model, tea.Cmd) {
 func (m *aiModel) handleComposerKey(key tea.Key) (tea.Model, tea.Cmd) {
 	if key.Code == tea.KeyTab {
 		m.focus = aiFocusSidebar
-		m.status = "Focus moved to " + m.focus.String() + "."
 		return m, nil
 	}
 	if key.Code == tea.KeyEsc {
 		m.focus = aiFocusTranscript
-		m.status = "Composer blurred. Press q or Esc again outside the composer to exit."
 		return m, nil
 	}
 	if key.Mod.Contains(tea.ModCtrl) && key.Code == 'o' {
@@ -590,6 +592,9 @@ func (m *aiModel) handleComposerKey(key tea.Key) (tea.Model, tea.Cmd) {
 		if prompt == "" {
 			m.status = "Type a prompt first."
 			return m, nil
+		}
+		if cmd, handled := m.handleComposerSlashCommand(prompt); handled {
+			return m, cmd
 		}
 		if m.isBusy() {
 			m.status = "Wait for the current AI request to finish before sending another prompt."
@@ -654,6 +659,31 @@ func (m *aiModel) handleComposerKey(key tea.Key) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m *aiModel) handleComposerSlashCommand(input string) (tea.Cmd, bool) {
+	command, _, ok := parseComposerSlashCommand(input)
+	if !ok {
+		return nil, false
+	}
+
+	switch command {
+	case "/exit":
+		m.input = nil
+		m.cursor = 0
+		return tea.Quit, true
+	default:
+		m.status = fmt.Sprintf("Unknown composer command %q. Available: /exit.", command)
+		return nil, true
+	}
+}
+
+func parseComposerSlashCommand(input string) (string, []string, bool) {
+	fields := strings.Fields(strings.TrimSpace(input))
+	if len(fields) == 0 || !strings.HasPrefix(fields[0], "/") {
+		return "", nil, false
+	}
+	return strings.ToLower(fields[0]), fields[1:], true
+}
+
 func (m *aiModel) handleModalMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -669,6 +699,8 @@ func (m *aiModel) handleModalMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleDeleteConfirmModalKey(msg.Key())
 		case aiModalKindContext:
 			return m.handleContextModalKey(msg.Key())
+		case aiModalKindNewConversation:
+			return m.handleNewConversationModalKey(msg.Key())
 		default:
 			return m.handleInfoModalKey()
 		}
@@ -740,6 +772,116 @@ func (m *aiModel) handleContextModalKey(key tea.Key) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m *aiModel) handleNewConversationModalKey(key tea.Key) (tea.Model, tea.Cmd) {
+	switch key.Code {
+	case tea.KeyEsc:
+		return m.cancelNewConversationModal()
+	case tea.KeyTab:
+		switch m.modal.focus {
+		case aiModalFocusInput:
+			m.modal.focus = aiModalFocusCancel
+		case aiModalFocusCancel:
+			m.modal.focus = aiModalFocusConfirm
+		default:
+			m.modal.focus = aiModalFocusInput
+		}
+		return m, nil
+	case tea.KeyEnter:
+		if m.modal.focus == aiModalFocusCancel {
+			return m.cancelNewConversationModal()
+		}
+		return m.confirmCreateConversation()
+	case tea.KeyLeft:
+		if m.modal.focus == aiModalFocusInput {
+			if m.modal.cursor > 0 {
+				m.modal.cursor--
+			}
+			return m, nil
+		}
+		m.modal.focus = aiModalFocusCancel
+		return m, nil
+	case tea.KeyRight:
+		if m.modal.focus == aiModalFocusInput {
+			if m.modal.cursor < len(m.modal.input) {
+				m.modal.cursor++
+			}
+			return m, nil
+		}
+		m.modal.focus = aiModalFocusConfirm
+		return m, nil
+	case tea.KeyHome:
+		if m.modal.focus == aiModalFocusInput {
+			m.modal.cursor = 0
+		}
+		return m, nil
+	case tea.KeyEnd:
+		if m.modal.focus == aiModalFocusInput {
+			m.modal.cursor = len(m.modal.input)
+		}
+		return m, nil
+	case tea.KeyBackspace:
+		if m.modal.focus == aiModalFocusInput && m.modal.cursor > 0 {
+			m.modal.input = append(m.modal.input[:m.modal.cursor-1], m.modal.input[m.modal.cursor:]...)
+			m.modal.cursor--
+		}
+		return m, nil
+	case tea.KeyDelete:
+		if m.modal.focus == aiModalFocusInput && m.modal.cursor < len(m.modal.input) {
+			m.modal.input = append(m.modal.input[:m.modal.cursor], m.modal.input[m.modal.cursor+1:]...)
+		}
+		return m, nil
+	}
+
+	if m.modal.focus != aiModalFocusInput {
+		switch key.Text {
+		case "q":
+			return m.cancelNewConversationModal()
+		case "h":
+			m.modal.focus = aiModalFocusCancel
+			return m, nil
+		case "l":
+			m.modal.focus = aiModalFocusConfirm
+			return m, nil
+		}
+		return m, nil
+	}
+
+	if key.Text != "" {
+		if looksLikeTerminalResponseFragment(key.Text) {
+			return m, nil
+		}
+		insert := []rune(key.Text)
+		m.modal.input = append(m.modal.input[:m.modal.cursor], append(insert, m.modal.input[m.modal.cursor:]...)...)
+		m.modal.cursor += len(insert)
+	}
+
+	return m, nil
+}
+
+func (m *aiModel) cancelNewConversationModal() (tea.Model, tea.Cmd) {
+	m.modal = nil
+	m.status = "Canceled new conversation creation."
+	return m, nil
+}
+
+func (m *aiModel) confirmCreateConversation() (tea.Model, tea.Cmd) {
+	if m.modal == nil {
+		return m, nil
+	}
+
+	title := strings.TrimSpace(string(m.modal.input))
+	if title == "" {
+		m.modal.focus = aiModalFocusInput
+		m.status = "Type a conversation name first."
+		return m, nil
+	}
+
+	m.modal = nil
+	m.loading = true
+	m.status = "Creating a new AI conversation..."
+	return m, createConversationCmd(m.con, m.defaultProvider(), m.defaultModel(), title)
+}
+
 func (m *aiModel) confirmDeleteConversation() (tea.Model, tea.Cmd) {
 	if m.modal == nil {
 		return m, nil
@@ -794,6 +936,8 @@ func (m *aiModel) renderModal() string {
 		return m.renderDeleteConfirmModal()
 	case aiModalKindContext:
 		return m.renderContextModal()
+	case aiModalKindNewConversation:
+		return m.renderNewConversationModal()
 	default:
 		return m.renderInfoModal()
 	}
@@ -877,6 +1021,34 @@ func (m *aiModel) renderContextModal() string {
 		lines = append(lines, m.styles.subtleText.Width(bodyWidth).Render("Resize the terminal to view more context."))
 	}
 	lines = append(lines, "", dismissHint)
+
+	box := lipgloss.NewStyle().
+		Border(lipgloss.DoubleBorder()).
+		BorderForeground(clienttheme.Primary()).
+		Padding(1, 2).
+		Render(strings.Join(lines, "\n"))
+
+	return box
+}
+
+func (m *aiModel) renderNewConversationModal() string {
+	boxWidth := minInt(maxInt(36, m.width-6), 84)
+	bodyWidth := maxInt(24, boxWidth-6)
+
+	lines := []string{
+		lipgloss.NewStyle().
+			Bold(true).
+			Foreground(clienttheme.Primary()).
+			Width(bodyWidth).
+			Render(m.modal.title),
+		m.styles.subtleText.Width(bodyWidth).Render("Name the new conversation before creating it."),
+		"",
+		m.renderNewConversationInput(bodyWidth),
+		"",
+		m.renderNewConversationActions(bodyWidth),
+		"",
+		m.styles.chip.Width(bodyWidth).Render("tab: focus  enter: create  esc: cancel"),
+	}
 
 	box := lipgloss.NewStyle().
 		Border(lipgloss.DoubleBorder()).
@@ -1174,9 +1346,6 @@ func (m *aiModel) renderComposer(height int) string {
 		m.renderInputLine(innerWidth),
 	}
 
-	status := truncateText(m.status, innerWidth)
-	lines = append(lines, m.styles.subtleText.Width(innerWidth).Render(status))
-
 	return m.renderPane(m.width, height, aiFocusComposer, headLines(lines, innerHeight))
 }
 
@@ -1260,7 +1429,7 @@ func (m *aiModel) footerHints() []string {
 		hints = append(hints, "n: new", "r: refresh", "q/esc: quit")
 		return hints
 	case aiFocusComposer:
-		return []string{"tab: sidebar", "enter: send", "ctrl+o: context", "ctrl+u: clear", "esc: blur", "ctrl+c: quit"}
+		return []string{"tab: sidebar", "enter: send", "/exit: quit", "ctrl+o: context", "ctrl+u: clear", "esc: blur", "ctrl+c: quit"}
 	default:
 		return []string{"tab: next", "q/esc: quit"}
 	}
@@ -1292,6 +1461,88 @@ func (m *aiModel) renderDeleteConfirmActions(width int) string {
 		cancelStyle.Render("Cancel"),
 		" ",
 		deleteStyle.Render("Delete"),
+	)
+	return lipgloss.Place(width, 1, lipgloss.Center, lipgloss.Center, actions)
+}
+
+func (m *aiModel) renderNewConversationInput(width int) string {
+	contentWidth := maxInt(1, width-4)
+	label := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(clienttheme.Primary()).
+		Render("Name")
+	borderColor := clienttheme.PrimaryMod(400)
+	if m.modal.focus == aiModalFocusInput {
+		borderColor = clienttheme.Primary()
+	}
+	field := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(borderColor).
+		Padding(0, 1).
+		Render(clampANSIBlock(m.renderNewConversationInputContent(contentWidth), contentWidth, 1))
+	return lipgloss.JoinVertical(
+		lipgloss.Left,
+		lipgloss.NewStyle().Width(width).Render(label),
+		field,
+	)
+}
+
+func (m *aiModel) renderNewConversationInputContent(width int) string {
+	if len(m.modal.input) == 0 {
+		placeholder := truncateText("New conversation", maxInt(1, width))
+		if m.modal.focus == aiModalFocusInput {
+			if width == 1 {
+				return m.styles.cursor.Render(" ")
+			}
+			return m.styles.cursor.Render(" ") + m.styles.inputPlaceholder.Render(truncateText(placeholder, width-1))
+		}
+		return m.styles.inputPlaceholder.Render(placeholder)
+	}
+
+	visible, cursor := inputWindow(m.modal.input, m.modal.cursor, width)
+	var b strings.Builder
+	for i, r := range visible {
+		ch := string(r)
+		if i == cursor && m.modal.focus == aiModalFocusInput {
+			b.WriteString(m.styles.cursor.Render(ch))
+			continue
+		}
+		b.WriteString(m.styles.inputText.Render(ch))
+	}
+	if cursor == len(visible) && m.modal.focus == aiModalFocusInput && lipgloss.Width(b.String()) < width {
+		b.WriteString(m.styles.cursor.Render(" "))
+	}
+	return b.String()
+}
+
+func (m *aiModel) renderNewConversationActions(width int) string {
+	cancelStyle := lipgloss.NewStyle().
+		Foreground(clienttheme.DefaultMod(700)).
+		Background(clienttheme.DefaultMod(50)).
+		Padding(0, 1)
+	createStyle := lipgloss.NewStyle().
+		Foreground(clienttheme.PrimaryMod(700)).
+		Background(clienttheme.PrimaryMod(50)).
+		Padding(0, 1)
+
+	switch m.modal.focus {
+	case aiModalFocusCancel:
+		cancelStyle = cancelStyle.
+			Bold(true).
+			Foreground(clienttheme.DefaultMod(900)).
+			Background(clienttheme.DefaultMod(200))
+	case aiModalFocusConfirm:
+		createStyle = createStyle.
+			Bold(true).
+			Foreground(clienttheme.DefaultMod(900)).
+			Background(clienttheme.Primary())
+	}
+
+	actions := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		cancelStyle.Render("Cancel"),
+		" ",
+		createStyle.Render("Create"),
 	)
 	return lipgloss.Place(width, 1, lipgloss.Center, lipgloss.Center, actions)
 }
@@ -1345,9 +1596,6 @@ func (m *aiModel) renderInputContent(width int) string {
 func (m *aiModel) layoutHeights() (int, int, int, int) {
 	headerHeight := 1
 	composerHeight := 4
-	if m.width >= 96 {
-		composerHeight = 5
-	}
 	footerHeight := 1
 	bodyHeight := maxInt(1, m.height-headerHeight-composerHeight-footerHeight)
 	return headerHeight, composerHeight, footerHeight, bodyHeight
@@ -1622,6 +1870,24 @@ func (m *aiModel) showContextModal() (tea.Model, tea.Cmd) {
 		title: "Context",
 	}
 	m.status = "Context opened."
+	return m, nil
+}
+
+func (m *aiModel) showNewConversationModal() (tea.Model, tea.Cmd) {
+	if m.loading {
+		m.status = "A conversation sync is already in progress."
+		return m, nil
+	}
+
+	input := []rune("New conversation")
+	m.modal = &aiModalState{
+		kind:   aiModalKindNewConversation,
+		title:  "New Conversation",
+		focus:  aiModalFocusInput,
+		input:  input,
+		cursor: len(input),
+	}
+	m.status = "Name the new conversation."
 	return m, nil
 }
 
