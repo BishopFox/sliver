@@ -136,6 +136,7 @@ var rootCmd = &cobra.Command{
 		assets.Setup(false, true)
 		certs.SetupCAs()
 		certs.SetupWGKeys()
+		certs.SetupMultiplayerWGKeys()
 		cryptography.AgeServerKeyPair()
 		cryptography.MinisignServerPrivateKey()
 		c2.SetupDefaultC2Profiles()

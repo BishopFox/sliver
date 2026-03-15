@@ -72,6 +72,7 @@ var daemonCmd = &cobra.Command{
 		c2.SetupDefaultC2Profiles()
 		certs.SetupCAs()
 		certs.SetupWGKeys()
+		certs.SetupMultiplayerWGKeys()
 		cryptography.AgeServerKeyPair()
 		cryptography.MinisignServerPrivateKey()
 		_, _ = configs.LoadCrackConfig()

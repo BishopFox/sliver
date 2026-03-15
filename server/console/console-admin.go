@@ -33,6 +33,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"gorm.io/gorm"
 
 	clientassets "github.com/bishopfox/sliver/client/assets"
 	consts "github.com/bishopfox/sliver/client/constants"
@@ -43,7 +44,6 @@ import (
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
-	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/transport"
 )
 
@@ -75,8 +75,6 @@ const (
 )
 
 var namePattern = regexp.MustCompile("^[a-zA-Z0-9_-]*$") // Only allow alphanumeric chars
-
-const multiplayerWireGuardServerIP = "100.64.0.1"
 
 func newOperatorCmd(cmd *cobra.Command, _ []string) {
 	name, _ := cmd.Flags().GetString("name")
@@ -183,35 +181,63 @@ func NewOperatorConfig(operatorName string, lhost string, lport uint16, permissi
 	}
 
 	var wgConfig *clientassets.ClientWGConfig
+	operatorSaved := false
 	if includeWG {
-		certs.SetupWGKeys()
-		clientIP, err := generateOperatorWGIP()
-		if err != nil {
-			return nil, err
-		}
+		certs.SetupMultiplayerWGKeys()
 		clientPrivKey, clientPubKey, err := certs.GenerateWGKeyPair()
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate wireguard keys: %w", err)
 		}
-		_, serverPubKey, err := certs.GetWGServerKeys()
+		_, serverPubKey, err := certs.GetMultiplayerWGServerKeys()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get server wireguard keys: %w", err)
 		}
 
-		dbOperator.WGPubKey = clientPubKey
-		dbOperator.WGTunIP = clientIP
-		wgConfig = &clientassets.ClientWGConfig{
-			ServerPubKey:     serverPubKey,
-			ClientPrivateKey: clientPrivKey,
-			ClientPubKey:     clientPubKey,
-			ClientIP:         clientIP,
-			ServerIP:         multiplayerWireGuardServerIP,
-		}
-	}
+		for attempt := 0; attempt < 32; attempt++ {
+			clientIP, err := db.NextAvailableMultiplayerWGIP()
+			if err != nil {
+				return nil, fmt.Errorf("failed to allocate wireguard address: %w", err)
+			}
 
-	err := db.Session().Save(dbOperator).Error
-	if err != nil {
-		return nil, err
+			operatorRecord := *dbOperator
+			operatorRecord.WGPubKey = clientPubKey
+			operatorRecord.WGTunIP = clientIP
+			err = db.Session().Transaction(func(tx *gorm.DB) error {
+				if err := db.ReserveWGIPTx(tx, clientIP, models.WGIPOwnerTypeOperator, operatorName); err != nil {
+					return err
+				}
+				return tx.Create(&operatorRecord).Error
+			})
+			if errors.Is(err, gorm.ErrDuplicatedKey) {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+
+			dbOperator = &operatorRecord
+			wgConfig = &clientassets.ClientWGConfig{
+				ServerPubKey:     serverPubKey,
+				ClientPrivateKey: clientPrivKey,
+				ClientPubKey:     clientPubKey,
+				ClientIP:         clientIP,
+				ServerIP:         certs.MultiplayerWireGuardServerIP,
+			}
+			operatorSaved = true
+			break
+		}
+		if !operatorSaved {
+			return nil, fmt.Errorf("failed to allocate a unique wireguard address after %d attempts", 32)
+		}
+	} else {
+		err := db.Session().Create(dbOperator).Error
+		if err != nil {
+			return nil, err
+		}
+		operatorSaved = true
+	}
+	if !operatorSaved {
+		return nil, errors.New("failed to persist operator")
 	}
 
 	publicKey, privateKey, err := certs.OperatorClientGenerateCertificate(operatorName)
@@ -294,11 +320,23 @@ func shouldPromptKickOperator(cmd *cobra.Command, args []string) bool {
 }
 
 func removeOperator(operator string) error {
-	err := db.Session().Where(&models.Operator{
+	operators, err := operatorRecordsByName(operator)
+	if err != nil {
+		return err
+	}
+	err = db.Session().Where(&models.Operator{
 		Name: operator,
 	}).Delete(&models.Operator{}).Error
 	if err != nil {
 		return err
+	}
+	for _, dbOperator := range operators {
+		if dbOperator == nil {
+			continue
+		}
+		if err := db.ReleaseWGIP(dbOperator.WGTunIP); err != nil {
+			return err
+		}
 	}
 	transport.ClearTokenCache()
 	return nil
@@ -394,14 +432,6 @@ func publishOperatorWGPeerAddition(operator *models.Operator) {
 		EventType: consts.MultiplayerWireGuardNewPeer,
 		Data:      []byte(fmt.Sprintf("public_key=%s\nallowed_ip=%s/32\n", operator.WGPubKey, operator.WGTunIP)),
 	})
-}
-
-func generateOperatorWGIP() (string, error) {
-	clientIP, err := generate.GenerateUniqueIP()
-	if err != nil {
-		return "", fmt.Errorf("failed to allocate wireguard address: %w", err)
-	}
-	return clientIP.String(), nil
 }
 
 func startMultiplayerModeCmd(cmd *cobra.Command, _ []string) {

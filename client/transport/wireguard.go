@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	multiplayerWireGuardDefaultServerIP = "100.64.0.1"
+	multiplayerWireGuardDefaultServerIP = "100.65.0.1"
 	multiplayerWireGuardMTU             = 1420
 	multiplayerWireGuardKeepalive       = 25
 )

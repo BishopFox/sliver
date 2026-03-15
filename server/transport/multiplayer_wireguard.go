@@ -19,8 +19,7 @@ import (
 )
 
 const (
-	multiplayerWireGuardServerIP = "100.64.0.1"
-	multiplayerWireGuardMTU      = 1420
+	multiplayerWireGuardMTU = 1420
 )
 
 type wireGuardWrappedClientListener struct {
@@ -70,7 +69,7 @@ func (l *wireGuardWrappedClientListener) processPeerEvents() {
 func StartWGWrappedMtlsClientListener(host string, port uint16) (*grpc.Server, net.Listener, error) {
 	mtlsLog.Infof("Starting gRPC/mtls listener on %s:%d inside WireGuard", host, port)
 
-	tunAddr := netip.MustParseAddr(multiplayerWireGuardServerIP)
+	tunAddr := netip.MustParseAddr(certs.MultiplayerWireGuardServerIP)
 	tun, tNet, err := servernetstack.CreateNetTUN([]netip.Addr{tunAddr}, nil, multiplayerWireGuardMTU)
 	if err != nil {
 		return nil, nil, err
@@ -81,10 +80,10 @@ func StartWGWrappedMtlsClientListener(host string, port uint16) (*grpc.Server, n
 		return nil, nil, err
 	}
 
-	privateKey, _, err := certs.GetWGServerKeys()
-	if err == certs.ErrWGServerKeysDoNotExist {
-		certs.SetupWGKeys()
-		privateKey, _, err = certs.GetWGServerKeys()
+	privateKey, _, err := certs.GetMultiplayerWGServerKeys()
+	if err == certs.ErrMultiplayerWGServerKeysDoNotExist {
+		certs.SetupMultiplayerWGKeys()
+		privateKey, _, err = certs.GetMultiplayerWGServerKeys()
 	}
 	if err != nil {
 		_ = tun.Close()
@@ -109,7 +108,7 @@ func StartWGWrappedMtlsClientListener(host string, port uint16) (*grpc.Server, n
 		return nil, nil, err
 	}
 
-	innerListener, err := tNet.ListenTCP(&net.TCPAddr{IP: net.ParseIP(multiplayerWireGuardServerIP), Port: int(port)})
+	innerListener, err := tNet.ListenTCP(&net.TCPAddr{IP: net.ParseIP(certs.MultiplayerWireGuardServerIP), Port: int(port)})
 	if err != nil {
 		dev.Close()
 		return nil, nil, err

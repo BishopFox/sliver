@@ -861,7 +861,8 @@ func RemoveWebSite(id string) error {
 	return err
 }
 
-// WGPeerIPs - Fetch a list of ips for all wireguard peers
+// WGPeerIPs - Fetch a list of all persisted WireGuard tunnel IPs and
+// reservations across both the C2 and multiplayer features.
 func WGPeerIPs() ([]string, error) {
 	wgPeers := []*models.WGPeer{}
 	err := Session().Where(&models.WGPeer{}).Find(&wgPeers).Error
@@ -879,6 +880,14 @@ func WGPeerIPs() ([]string, error) {
 	}
 	for _, operator := range operators {
 		ips = append(ips, operator.WGTunIP)
+	}
+	reservations := []*models.WGIPReservation{}
+	err = Session().Where(&models.WGIPReservation{}).Find(&reservations).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, reservation := range reservations {
+		ips = append(ips, reservation.TunIP)
 	}
 	return ips, nil
 }
