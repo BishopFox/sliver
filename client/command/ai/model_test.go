@@ -3,6 +3,7 @@ package ai
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -89,6 +90,69 @@ func TestRenderTranscriptMarkdownLinesRendersAssistantMarkdown(t *testing.T) {
 	}
 	if !strings.Contains(rendered, "• first item") {
 		t.Fatalf("expected assistant markdown list to be rendered with glow styling, got %q", rendered)
+	}
+}
+
+func TestRenderConversationTranscriptLinesWrapsMessagesInFences(t *testing.T) {
+	conversation := &clientpb.AIConversation{
+		OperatorName: "alice",
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "user", OperatorName: "alice", Content: "hello"},
+			{Role: "user", OperatorName: "bob", Content: "second voice"},
+			{Role: "assistant", Content: "## Reply"},
+		},
+	}
+
+	renderedRaw := strings.Join(renderConversationTranscriptLines(64, conversation), "\n")
+	rendered := ansi.Strip(renderedRaw)
+	expected := []string{"alice", "bob", "AI", "hello", "second voice", "Reply"}
+	for _, fragment := range expected {
+		if !strings.Contains(rendered, fragment) {
+			t.Fatalf("expected fenced transcript to contain %q, got %q", fragment, rendered)
+		}
+	}
+	if !strings.Contains(rendered, "```") {
+		t.Fatalf("expected fenced transcript framing, got %q", rendered)
+	}
+	if !strings.Contains(renderedRaw, "\x1b[") {
+		t.Fatalf("expected fenced transcript to include ANSI styling, got %q", renderedRaw)
+	}
+}
+
+func TestRenderTranscriptHeaderLinesUsesCompactInlineMetadata(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.currentConversation = &clientpb.AIConversation{
+		ID:        "conv-1",
+		Title:     "Thread",
+		Provider:  "openai",
+		Model:     "gpt-5.4",
+		UpdatedAt: time.Now().Unix(),
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "assistant", Content: "hello"},
+		},
+	}
+
+	lines := model.renderTranscriptHeaderLines(96, 12, renderConversationTranscriptLines(96, model.currentConversation))
+	if len(lines) != 2 {
+		t.Fatalf("expected compact transcript header to use 2 lines, got %d", len(lines))
+	}
+
+	rendered := ansi.Strip(strings.Join(lines, "\n"))
+	expected := []string{"Conversation", "Thread", "provider openai", "model gpt-5.4", "1 msgs"}
+	for _, fragment := range expected {
+		if !strings.Contains(rendered, fragment) {
+			t.Fatalf("expected transcript header to contain %q, got %q", fragment, rendered)
+		}
+	}
+}
+
+func TestTranscriptSpeakerPaletteVariesAcrossUsers(t *testing.T) {
+	seen := map[int]struct{}{}
+	for _, label := range []string{"alice", "bob", "charlie", "dana", "erin", "frank"} {
+		seen[transcriptSpeakerPaletteIndex(label, "user")] = struct{}{}
+	}
+	if len(seen) < 2 {
+		t.Fatalf("expected distinct users to map to more than one transcript color, got %d palette entries", len(seen))
 	}
 }
 
@@ -273,6 +337,12 @@ func TestViewWidthTracksResize(t *testing.T) {
 	if got := lipgloss.Height(view.Content); got > model.height {
 		t.Fatalf("expected resized view height <= %d, got %d", model.height, got)
 	}
+
+	for _, line := range strings.Split(view.Content, "\n") {
+		if got := ansi.StringWidth(line); got > model.width {
+			t.Fatalf("expected resized view line width <= %d, got %d for %q", model.width, got, ansi.Strip(line))
+		}
+	}
 }
 
 func TestConversationAwaitingResponseWhenLastMessageIsUser(t *testing.T) {
@@ -337,6 +407,21 @@ func TestRenderFooterUsesPaneSpecificControls(t *testing.T) {
 		t.Fatalf("expected sidebar footer to avoid composer controls, got %q", footer)
 	}
 
+	model.focus = aiFocusTranscript
+	footer = ansi.Strip(model.renderFooter())
+	expected = []string{"focus: conversation", "j/k: scroll", "pgup/pgdn: page", "g/G: ends", "x: delete", "q/esc: quit"}
+	for _, fragment := range expected {
+		if !strings.Contains(footer, fragment) {
+			t.Fatalf("expected transcript footer to contain %q, got %q", fragment, footer)
+		}
+	}
+	if strings.Contains(footer, "enter: open") || strings.Contains(footer, "enter: send") {
+		t.Fatalf("expected transcript footer to avoid sidebar/composer controls, got %q", footer)
+	}
+	if hint := ansi.Strip(model.transcriptFocusHint(48)); !strings.Contains(hint, "scroll j/k pgup/pgdn g/G") {
+		t.Fatalf("expected transcript focus hint to mention scroll controls, got %q", hint)
+	}
+
 	model.focus = aiFocusComposer
 	footer = ansi.Strip(model.renderFooter())
 	expected = []string{"focus: composer", "tab: sidebar", "enter: send", "ctrl+u: clear", "esc: blur", "ctrl+c: quit"}
@@ -358,6 +443,65 @@ func TestRenderComposerOmitsInlineControls(t *testing.T) {
 	rendered := ansi.Strip(model.renderComposer(5))
 	if strings.Contains(rendered, "ctrl+u clear") || strings.Contains(rendered, "q quit") {
 		t.Fatalf("expected composer pane to omit inline control hints, got %q", rendered)
+	}
+}
+
+func TestHandleGlobalKeyScrollsTranscript(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 108
+	model.height = 32
+	model.focus = aiFocusTranscript
+	model.loading = false
+
+	messages := make([]*clientpb.AIConversationMessage, 0, 16)
+	for i := 0; i < 16; i++ {
+		messages = append(messages, &clientpb.AIConversationMessage{
+			Role:    "assistant",
+			Content: fmt.Sprintf("Message %02d\n\n- detail", i),
+		})
+	}
+	model.currentConversation = &clientpb.AIConversation{
+		ID:       "conv-1",
+		Title:    "Thread",
+		Provider: "openai",
+		Model:    "gpt-test",
+		Messages: messages,
+	}
+
+	renderCmd := model.scheduleTranscriptRender()
+	if renderCmd == nil {
+		t.Fatal("expected transcript render command")
+	}
+
+	msg := renderCmd()
+	renderedMsg, ok := msg.(aiTranscriptRenderedMsg)
+	if !ok {
+		t.Fatalf("expected transcript render message, got %T", msg)
+	}
+
+	updated, _ := model.Update(renderedMsg)
+	model = updated.(*aiModel)
+	initialScroll := model.transcriptScroll
+	if initialScroll == 0 {
+		t.Fatalf("expected transcript to start pinned near the bottom, got scroll %d", initialScroll)
+	}
+
+	updated, _ = model.handleGlobalKey(tea.Key{Text: "k"})
+	model = updated.(*aiModel)
+	if model.transcriptFollow {
+		t.Fatal("expected transcript scroll-up to disable follow mode")
+	}
+	if model.transcriptScroll != initialScroll-1 {
+		t.Fatalf("expected transcript scroll to move up by one line, got %d want %d", model.transcriptScroll, initialScroll-1)
+	}
+
+	updated, _ = model.handleGlobalKey(tea.Key{Text: "G"})
+	model = updated.(*aiModel)
+	if !model.transcriptFollow {
+		t.Fatal("expected transcript end-jump to restore follow mode")
+	}
+	if model.transcriptScroll != initialScroll {
+		t.Fatalf("expected transcript end-jump to restore bottom scroll %d, got %d", initialScroll, model.transcriptScroll)
 	}
 }
 
@@ -670,9 +814,12 @@ func TestRenderTranscriptContentLinesIncludesPendingAssistantBlock(t *testing.T)
 	}
 
 	lines := model.renderTranscriptContentLines(48)
-	rendered := strings.Join(lines, "\n")
-	if !strings.Contains(rendered, "[AI]") {
+	rendered := ansi.Strip(strings.Join(lines, "\n"))
+	if !strings.Contains(rendered, "AI") {
 		t.Fatalf("expected pending assistant block label in transcript, got %q", rendered)
+	}
+	if !strings.Contains(rendered, "```") {
+		t.Fatalf("expected pending assistant block to use fence framing, got %q", rendered)
 	}
 	if !strings.Contains(rendered, ".") {
 		t.Fatalf("expected pending assistant animation content in transcript, got %q", rendered)
@@ -691,13 +838,16 @@ func TestRenderTranscriptContentLinesIncludesPendingUserPrompt(t *testing.T) {
 
 	lines := model.renderTranscriptContentLines(48)
 	rendered := ansi.Strip(strings.Join(lines, "\n"))
-	if !strings.Contains(rendered, "[alice]") {
+	if !strings.Contains(rendered, "alice") {
 		t.Fatalf("expected pending prompt to render the operator label, got %q", rendered)
+	}
+	if !strings.Contains(rendered, "```") {
+		t.Fatalf("expected pending prompt to use fence framing, got %q", rendered)
 	}
 	if !strings.Contains(rendered, "still saving") {
 		t.Fatalf("expected pending prompt content in transcript, got %q", rendered)
 	}
-	if !strings.Contains(rendered, "[AI]") {
+	if !strings.Contains(rendered, "AI") {
 		t.Fatalf("expected pending assistant placeholder to stay visible, got %q", rendered)
 	}
 }
