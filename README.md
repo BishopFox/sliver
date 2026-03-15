@@ -36,7 +36,7 @@ Pre-built HTTP traffic mimicry profiles in `opsec-profiles/`:
 - **slack** — Slack Web API calls (conversations.history, chat.postMessage)
 
 ### Harriet Integration
-Built-in command wraps shellcode with [Harriet](https://github.com/assume-breach/Home-Grown-Red-Team/tree/main/Harriet) AES-encrypted loader. 5 execution methods: `directsyscall`, `queueapc`, `nativeapi`, `inject`, `aes`. EXE or DLL output.
+Built-in command wraps shellcode with [Harriet](https://github.com/assume-breach/Home-Grown-Red-Team/tree/main/Harriet) AES-encrypted loader using Harriet's native `EXE.sh`/`DLL.sh` build scripts. 5 execution methods: `directsyscall`, `queueapc`, `nativeapi`, `inject`, `aes`. EXE or DLL output.
 
 ---
 
@@ -53,7 +53,7 @@ This installs Go, MinGW, Harriet, builds Sliver, and creates helper scripts.
 
 ### Manual Build
 ```bash
-# Prerequisites: Go 1.21+, MinGW (for Harriet)
+# Prerequisites: Go 1.25+, MinGW (for Harriet)
 sudo apt install -y mingw-w64 osslsigncode python3-pycryptodome
 git clone https://github.com/mgstate/sliver.git ~/sliver
 cd ~/sliver && make

