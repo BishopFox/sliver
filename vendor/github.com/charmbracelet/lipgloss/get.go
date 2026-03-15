@@ -530,7 +530,7 @@ func (s Style) implicitBorders() bool {
 		bottomSet   = s.isSet(borderBottomKey)
 		leftSet     = s.isSet(borderLeftKey)
 	)
-	return borderStyle != noBorder && !(topSet || rightSet || bottomSet || leftSet)
+	return borderStyle != noBorder && !(topSet || rightSet || bottomSet || leftSet) //nolint:staticcheck
 }
 
 func (s Style) getAsTransform(propKey) func(string) string {

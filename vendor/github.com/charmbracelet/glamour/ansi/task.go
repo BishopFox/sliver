@@ -9,6 +9,7 @@ type TaskElement struct {
 	Checked bool
 }
 
+// Render renders a TaskElement.
 func (e *TaskElement) Render(w io.Writer, ctx RenderContext) error {
 	var el *BaseElement
 

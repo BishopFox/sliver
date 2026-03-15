@@ -109,7 +109,7 @@ type RendererConfig struct {
 }
 
 // DefaultTwemojiTemplate is a default value for RendererConfig.TwemojiTemplate.
-const DefaultTwemojiTemplate = `<img class="emoji" draggable="false" alt="%[1]s" src="https://twemoji.maxcdn.com/v/latest/72x72/%[2]s.png"%[3]s>`
+const DefaultTwemojiTemplate = `<img class="emoji" draggable="false" alt="%[1]s" src="https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/72x72/%[2]s.png"%[3]s>`
 
 // SetOption implements renderer.SetOptioner.
 func (c *RendererConfig) SetOption(name renderer.OptionName, value interface{}) {

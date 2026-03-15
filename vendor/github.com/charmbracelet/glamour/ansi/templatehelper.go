@@ -4,9 +4,12 @@ import (
 	"regexp"
 	"strings"
 	"text/template"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
-// TemplateFuncMap contains a few useful template helpers
+// TemplateFuncMap contains a few useful template helpers.
 var (
 	TemplateFuncMap = template.FuncMap{
 		"Left": func(values ...interface{}) string {
@@ -29,7 +32,7 @@ var (
 				l = len(s)
 			}
 
-			if len(values) > 2 {
+			if len(values) > 2 { //nolint:mnd
 				r := values[2].(int)
 				if r > len(s) {
 					r = len(s)
@@ -69,9 +72,9 @@ var (
 		"SplitAfter":   strings.SplitAfter,
 		"SplitAfterN":  strings.SplitAfterN,
 		"SplitN":       strings.SplitN,
-		"Title":        strings.Title,
-		"ToLower":      strings.ToLower,
-		"ToTitle":      strings.ToTitle,
+		"Title":        cases.Title(language.English).String,
+		"ToLower":      cases.Lower(language.English).String,
+		"ToTitle":      cases.Upper(language.English).String,
 		"ToUpper":      strings.ToUpper,
 		"Trim":         strings.Trim,
 		"TrimLeft":     strings.TrimLeft,

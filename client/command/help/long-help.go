@@ -58,6 +58,7 @@ var (
 		consts.PwdStr:         pwdHelp,
 		consts.AIStr:          aiHelp,
 		consts.AIConfigStr:    aiConfigHelp,
+		consts.DocsStr:        docsHelp,
 		consts.CatStr:         catHelp,
 		consts.EditStr:        editHelp,
 		consts.HexEditStr:     hexEditHelp,
@@ -182,6 +183,14 @@ _=/usr/bin/env
 
 [[.Bold]]Example:[[.Normal]]
 	ai-config
+`
+
+	docsHelp = `[[.Bold]]Command:[[.Normal]] docs
+[[.Bold]]About:[[.Normal]] Browse the embedded Sliver documentation in a Bubble Tea TUI. The left pane is a searchable docs browser, and the right pane renders markdown with Glow styling.
+[[.Bold]]Keys:[[.Normal]] Use / to filter docs, enter to focus the selected document, tab to switch panes, and q to quit.
+
+[[.Bold]]Example:[[.Normal]]
+	docs
 `
 
 	useHelp = `[[.Bold]]Command:[[.Normal]] use [sliver name/session]

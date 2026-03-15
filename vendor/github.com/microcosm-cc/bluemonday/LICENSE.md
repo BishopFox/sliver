@@ -1,6 +1,3 @@
-SPDX short identifier: BSD-3-Clause
-https://opensource.org/licenses/BSD-3-Clause
-
 Copyright (c) 2014, David Kitchen <david@buro9.com>
 
 All rights reserved.

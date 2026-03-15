@@ -225,6 +225,7 @@ const (
 	PwdStr      = "pwd"
 	AIStr       = "ai"
 	AIConfigStr = "ai-config"
+	DocsStr     = "docs"
 	CatStr      = "cat"
 	EditStr     = "edit"
 	HexEditStr  = "hex-edit"

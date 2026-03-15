@@ -1,6 +1,7 @@
 package ansi
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/muesli/reflow/indent"
@@ -28,7 +29,7 @@ func NewMarginWriter(ctx RenderContext, w io.Writer, rules StyleBlock) *MarginWr
 		margin = *rules.Margin
 	}
 
-	pw := padding.NewWriterPipe(w, bs.Width(ctx), func(wr io.Writer) {
+	pw := padding.NewWriterPipe(w, bs.Width(ctx), func(_ io.Writer) {
 		renderText(w, ctx.options.ColorProfile, rules.StylePrimitive, " ")
 	})
 
@@ -36,7 +37,7 @@ func NewMarginWriter(ctx RenderContext, w io.Writer, rules StyleBlock) *MarginWr
 	if rules.IndentToken != nil {
 		ic = *rules.IndentToken
 	}
-	iw := indent.NewWriterPipe(pw, indentation+margin, func(wr io.Writer) {
+	iw := indent.NewWriterPipe(pw, indentation+margin, func(_ io.Writer) {
 		renderText(w, ctx.options.ColorProfile, bs.Parent().Style.StylePrimitive, ic)
 	})
 
@@ -48,5 +49,9 @@ func NewMarginWriter(ctx RenderContext, w io.Writer, rules StyleBlock) *MarginWr
 }
 
 func (w *MarginWriter) Write(b []byte) (int, error) {
-	return w.iw.Write(b)
+	n, err := w.iw.Write(b)
+	if err != nil {
+		return 0, fmt.Errorf("glamour: error writing bytes: %w", err)
+	}
+	return n, nil
 }

@@ -1,20 +1,23 @@
 #!/bin/bash
 
-for style in ./styles/*.json; do
-    echo "Generating screenshot for ${style}"
-    filename="`basename -s .json ${style}`.png"
+if ! command -v freeze &> /dev/null; then
+    echo "freeze not found. Please install freeze to capture images."
+    echo "https://github.com/charmbracelet/freeze/"
+    exit 1
+fi
 
-    light=""
+defaultStyles=("ascii" "auto" "dark" "dracula" "light" "notty" "pink")
+
+for style in "${defaultStyles[@]}"; do
+    echo "Generating screenshot for ${style}"
+    # take screenshot
     if [[ $style == *"light"* ]]; then
-        light="-l"
+        # Provide a light background to images
+        freeze  -x "go run ./examples/artichokes ${style}" -b "#FAFAFA" -o "./styles/gallery/${style}.png"
+    else
+        freeze  -x "go run ./examples/artichokes ${style}" -o "./styles/gallery/${style}.png"
     fi
 
-    # take screenshot
-    ./termshot ${light} -o ./styles/gallery/ -f "$filename" glow -s ${style}
-
-    # add border
-    convert -bordercolor black -border 16x16 "./styles/gallery/$filename" "./styles/gallery/$filename"
-
     # optimize filesize
-    pngcrush -ow "./styles/gallery/$filename"
+    pngcrush -ow "./styles/gallery/$style.png"
 done

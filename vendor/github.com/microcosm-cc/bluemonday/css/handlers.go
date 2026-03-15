@@ -291,7 +291,7 @@ var (
 	Font              = regexp.MustCompile(`^('[a-z \-]+'|[a-z \-]+)$`)
 	Grayscale         = regexp.MustCompile(`^grayscale\(([0-9]{1,2}|100)%\)$`)
 	GridTemplateAreas = regexp.MustCompile(`^['"]?[a-z ]+['"]?$`)
-	HexRGB            = regexp.MustCompile(`^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$`)
+	HexRGB            = regexp.MustCompile(`^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$`)
 	HSL               = regexp.MustCompile(`^hsl\([ ]*([012]?[0-9]{1,2}|3[0-5][0-9]|360),[ ]*([0-9]{0,2}|100)\%,[ ]*([0-9]{0,2}|100)\%\)$`)
 	HSLA              = regexp.MustCompile(`^hsla\(([ ]*[012]?[0-9]{1,2}|3[0-5][0-9]|360),[ ]*([0-9]{0,2}|100)\%,[ ]*([0-9]{0,2}|100)\%,[ ]*(1|1\.0|0|(0\.[0-9]+))\)$`)
 	HueRotate         = regexp.MustCompile(`^hue-rotate\(([12]?[0-9]{1,2}|3[0-5][0-9]|360)?\)$`)
@@ -366,10 +366,11 @@ func in(value []string, arr []string) bool {
 
 func splitValues(value string) []string {
 	values := strings.Split(value, ",")
+	newValues := []string{}
 	for _, strippedValue := range values {
-		strippedValue = strings.ToLower(strings.TrimSpace(strippedValue))
+		newValues = append(newValues, strings.ToLower(strings.TrimSpace(strippedValue)))
 	}
-	return values
+	return newValues
 }
 
 func GetDefaultHandler(attr string) func(string) bool {

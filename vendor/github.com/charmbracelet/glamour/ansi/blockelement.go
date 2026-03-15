@@ -2,9 +2,10 @@ package ansi
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 
-	"github.com/muesli/reflow/wordwrap"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // BlockElement provides a render buffer for children of a block element.
@@ -17,6 +18,7 @@ type BlockElement struct {
 	Newline bool
 }
 
+// Render renders a BlockElement.
 func (e *BlockElement) Render(w io.Writer, ctx RenderContext) error {
 	bs := ctx.blockStack
 	bs.Push(*e)
@@ -26,27 +28,31 @@ func (e *BlockElement) Render(w io.Writer, ctx RenderContext) error {
 	return nil
 }
 
+// Finish finishes rendering a BlockElement.
 func (e *BlockElement) Finish(w io.Writer, ctx RenderContext) error {
 	bs := ctx.blockStack
 
-	if e.Margin {
+	if e.Margin { //nolint: nestif
+		s := ansi.Wordwrap(
+			bs.Current().Block.String(),
+			int(bs.Width(ctx)), //nolint: gosec
+			" ,.;-+|",
+		)
+
 		mw := NewMarginWriter(ctx, w, bs.Current().Style)
-		_, err := mw.Write(
-			wordwrap.Bytes(bs.Current().Block.Bytes(), int(bs.Width(ctx))))
-		if err != nil {
-			return err
+		if _, err := io.WriteString(mw, s); err != nil {
+			return fmt.Errorf("glamour: error writing to writer: %w", err)
 		}
 
 		if e.Newline {
-			_, err = mw.Write([]byte("\n"))
-			if err != nil {
-				return err
+			if _, err := io.WriteString(mw, "\n"); err != nil {
+				return fmt.Errorf("glamour: error writing to writer: %w", err)
 			}
 		}
 	} else {
 		_, err := bs.Parent().Block.Write(bs.Current().Block.Bytes())
 		if err != nil {
-			return err
+			return fmt.Errorf("glamour: error writing to writer: %w", err)
 		}
 	}
 

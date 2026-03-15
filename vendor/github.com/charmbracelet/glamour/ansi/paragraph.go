@@ -2,6 +2,7 @@ package ansi
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"strings"
 
@@ -13,12 +14,13 @@ type ParagraphElement struct {
 	First bool
 }
 
+// Render renders a ParagraphElement.
 func (e *ParagraphElement) Render(w io.Writer, ctx RenderContext) error {
 	bs := ctx.blockStack
 	rules := ctx.options.Styles.Paragraph
 
 	if !e.First {
-		_, _ = w.Write([]byte("\n"))
+		_, _ = io.WriteString(w, "\n")
 	}
 	be := BlockElement{
 		Block: &bytes.Buffer{},
@@ -31,22 +33,25 @@ func (e *ParagraphElement) Render(w io.Writer, ctx RenderContext) error {
 	return nil
 }
 
+// Finish finishes rendering a ParagraphElement.
 func (e *ParagraphElement) Finish(w io.Writer, ctx RenderContext) error {
 	bs := ctx.blockStack
 	rules := bs.Current().Style
 
 	mw := NewMarginWriter(ctx, w, rules)
 	if len(strings.TrimSpace(bs.Current().Block.String())) > 0 {
-		flow := wordwrap.NewWriter(int(bs.Width(ctx)))
+		flow := wordwrap.NewWriter(int(bs.Width(ctx))) //nolint: gosec
 		flow.KeepNewlines = ctx.options.PreserveNewLines
 		_, _ = flow.Write(bs.Current().Block.Bytes())
-		flow.Close()
+		if err := flow.Close(); err != nil {
+			return fmt.Errorf("glamour: error closing flow: %w", err)
+		}
 
 		_, err := mw.Write(flow.Bytes())
 		if err != nil {
 			return err
 		}
-		_, _ = mw.Write([]byte("\n"))
+		_, _ = io.WriteString(mw, "\n")
 	}
 
 	renderText(w, ctx.options.ColorProfile, bs.Current().Style.StylePrimitive, rules.Suffix)

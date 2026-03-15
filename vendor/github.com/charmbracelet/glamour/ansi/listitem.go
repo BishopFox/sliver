@@ -11,12 +11,13 @@ type ItemElement struct {
 	Enumeration uint
 }
 
+// Render renders an ItemElement.
 func (e *ItemElement) Render(w io.Writer, ctx RenderContext) error {
 	var el *BaseElement
 	if e.IsOrdered {
 		el = &BaseElement{
 			Style:  ctx.options.Styles.Enumeration,
-			Prefix: strconv.FormatInt(int64(e.Enumeration), 10),
+			Prefix: strconv.FormatInt(int64(e.Enumeration), 10), //nolint: gosec
 		}
 	} else {
 		el = &BaseElement{

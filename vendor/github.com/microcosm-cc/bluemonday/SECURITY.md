@@ -4,12 +4,10 @@
 
 Latest tag and tip are supported.
 
-Older tags remain present but changes result in new tags and are not back ported... please verify any issue against the latest tag and tip.
+Changes are not backported, please verify any issue against the latest tag and tip.
 
 ## Reporting a Vulnerability
 
-Email: <bluemonday@buro9.com>
+Report vulnerabilities either via [GitHub's private reporting flow](https://github.com/microcosm-cc/bluemonday/security/advisories/new) or via email to the security@ alias of geomys.org.
 
-Bluemonday is pure OSS and not maintained by a company. As such there is no bug bounty program but security issues will be taken seriously and resolved as soon as possible.
-
-The maintainer lives in the United Kingdom and whilst the email is monitored expect a reply or ACK when the maintainer is awake.
+There is no bug bounty program but security issues will be taken seriously and resolved as soon as possible.

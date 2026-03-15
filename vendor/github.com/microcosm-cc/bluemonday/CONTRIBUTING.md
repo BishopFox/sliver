@@ -8,8 +8,9 @@ Third-party patches are essential for keeping bluemonday secure and offering the
 
 ## Guidelines
 
-1. Do not vendor dependencies. As a security package, were we to vendor dependencies the projects that then vendor bluemonday may not receive the latest security updates to the dependencies. By not vendoring dependencies the project that implements bluemonday will vendor the latest version of any dependent packages. Vendoring is a project problem, not a package problem. bluemonday will be tested against the latest version of dependencies periodically and during any PR/merge.
+1. Do not vendor dependencies. Vendoring is a project problem, not a package problem. 
 2. I do not care about spelling mistakes or whitespace and I do not believe that you should either. PRs therefore must be functional in their nature or be substantial and impactful if documentation or examples.
+3. This module does not participate in hacktober, please make your contributions meaningful.
 
 ## Submitting an Issue
 
@@ -30,10 +31,9 @@ If you are reporting a security flaw, you may expect that we will provide the co
   1. Include tests for your patch, 1 test should encapsulate the entire patch and should refer to the Github issue
   1. If you have added new exposed/public functionality, you should ensure it is documented appropriately
   1. If you have added new exposed/public functionality, you should consider demonstrating how to use it within one of the helpers or shipped policies if appropriate or within a test if modifying a helper or policy is not appropriate
-  1. Run all of the tests `go test -v ./...` or `make test` and ensure all tests pass
-  1. Run gofmt `gofmt -w ./$*` or `make fmt`
-  1. Run vet `go tool vet *.go` or `make vet` and resolve any issues
-  1. Install golint using `go get -u github.com/golang/lint/golint` and run vet `golint *.go` or `make lint` and resolve every warning
+  1. Run all of the tests `go test -v ./...` and ensure all tests pass
+  1. Run gofmt `go fmt ./...`
+  1. Run vet `go vet ./...` and resolve any issues
 * When submitting the pull request you should
   1. Note the issue(s) it resolves, i.e. `Closes #6` in the pull request comment to close issue #6 when the pull request is accepted
 
@@ -45,8 +45,6 @@ We haven't gone for the formal "Sign a Contributor Licence Agreement" thing that
 
 But we do need to know that we can accept and merge your contributions, so for now the act of contributing a pull request should be considered equivalent to agreeing to a contributor licence agreement, specifically:
 
-You accept that the act of submitting code to the bluemonday project is to grant a copyright licence to the project that is perpetual, worldwide, non-exclusive, no-charge, royalty free and irrevocable.
-
-You accept that all who comply with the licence of the project (BSD 3-clause) are permitted to use your contributions to the project.
-
-You accept, and by submitting code do declare, that you have the legal right to grant such a licence to the project and that each of the contributions is your own original creation.
+* You accept that the act of submitting code to the bluemonday project is to grant a copyright licence to the project that is perpetual, worldwide, non-exclusive, no-charge, royalty free and irrevocable.
+* You accept that all who comply with the licence of the project (BSD 3-clause) are permitted to use your contributions to the project.
+* You accept, and by submitting code do declare, that you have the legal right to grant such a licence to the project and that each of the contributions is your own original creation.

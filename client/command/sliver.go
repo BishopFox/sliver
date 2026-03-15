@@ -28,6 +28,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/backdoor"
 	"github.com/bishopfox/sliver/client/command/cursed"
 	"github.com/bishopfox/sliver/client/command/dllhijack"
+	docscmd "github.com/bishopfox/sliver/client/command/docs"
 	"github.com/bishopfox/sliver/client/command/edit"
 	"github.com/bishopfox/sliver/client/command/environment"
 	"github.com/bishopfox/sliver/client/command/exec"
@@ -80,6 +81,7 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 		// [ Core ]
 		bind(consts.SliverCoreHelpGroup,
 			ai.Commands,
+			docscmd.Commands,
 			reconfig.Commands,
 			// sessions.Commands,
 			sessions.SliverCommands,

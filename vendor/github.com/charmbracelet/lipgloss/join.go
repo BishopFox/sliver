@@ -165,7 +165,7 @@ func JoinVertical(pos Position, strs ...string) string {
 
 			// Write a newline as long as we're not on the last line of the
 			// last block.
-			if !(i == len(blocks)-1 && j == len(block)-1) {
+			if !(i == len(blocks)-1 && j == len(block)-1) { //nolint:staticcheck
 				b.WriteRune('\n')
 			}
 		}

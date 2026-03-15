@@ -1,6 +1,7 @@
 package ansi
 
 import (
+	"fmt"
 	"io"
 	"net/url"
 	"strings"
@@ -17,13 +18,16 @@ import (
 type Options struct {
 	BaseURL          string
 	WordWrap         int
+	TableWrap        *bool
+	InlineTableLinks bool
 	PreserveNewLines bool
 	ColorProfile     termenv.Profile
 	Styles           StyleConfig
+	ChromaFormatter  string
 }
 
 // ANSIRenderer renders markdown content as ANSI escaped sequences.
-type ANSIRenderer struct {
+type ANSIRenderer struct { //nolint: revive
 	context RenderContext
 }
 
@@ -87,7 +91,6 @@ func (r *ANSIRenderer) RegisterFuncs(reg renderer.NodeRendererFuncRegisterer) {
 }
 
 func (r *ANSIRenderer) renderNode(w util.BufWriter, source []byte, node ast.Node, entering bool) (ast.WalkStatus, error) {
-	// _, _ = w.Write([]byte(node.Type.String()))
 	writeTo := io.Writer(w)
 	bs := r.context.blockStack
 
@@ -97,17 +100,17 @@ func (r *ANSIRenderer) renderNode(w util.BufWriter, source []byte, node ast.Node
 	}
 
 	e := r.NewElement(node, source)
-	if entering {
+	if entering { //nolint: nestif
 		// everything below the Document element gets rendered into a block buffer
 		if bs.Len() > 0 {
 			writeTo = io.Writer(bs.Current().Block)
 		}
 
-		_, _ = writeTo.Write([]byte(e.Entering))
+		_, _ = io.WriteString(writeTo, e.Entering)
 		if e.Renderer != nil {
 			err := e.Renderer.Render(writeTo, r.context)
 			if err != nil {
-				return ast.WalkStop, err
+				return ast.WalkStop, fmt.Errorf("glamour: error rendering: %w", err)
 			}
 		}
 	} else {
@@ -125,24 +128,21 @@ func (r *ANSIRenderer) renderNode(w util.BufWriter, source []byte, node ast.Node
 		if e.Finisher != nil {
 			err := e.Finisher.Finish(writeTo, r.context)
 			if err != nil {
-				return ast.WalkStop, err
+				return ast.WalkStop, fmt.Errorf("glamour: error finishing render: %w", err)
 			}
 		}
-		_, _ = bs.Current().Block.Write([]byte(e.Exiting))
+
+		_, _ = io.WriteString(bs.Current().Block, e.Exiting)
 	}
 
 	return ast.WalkContinue, nil
 }
 
 func isChild(node ast.Node) bool {
-	if node.Parent() != nil && node.Parent().Kind() == ast.KindBlockquote {
-		// skip paragraph within blockquote to avoid reflowing text
-		return true
-	}
 	for n := node.Parent(); n != nil; n = n.Parent() {
 		// These types are already rendered by their parent
 		switch n.Kind() {
-		case ast.KindLink, ast.KindImage, ast.KindEmphasis, astext.KindStrikethrough, astext.KindTableCell:
+		case ast.KindCodeSpan, ast.KindAutoLink, ast.KindLink, ast.KindImage, ast.KindEmphasis, astext.KindStrikethrough, astext.KindTableCell:
 			return true
 		}
 	}

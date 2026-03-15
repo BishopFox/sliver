@@ -529,9 +529,11 @@ attrsLoop:
 				if ap.regexp != nil {
 					if ap.regexp.MatchString(htmlAttr.Val) {
 						cleanAttrs = append(cleanAttrs, htmlAttr)
+						continue attrsLoop
 					}
 				} else {
 					cleanAttrs = append(cleanAttrs, htmlAttr)
+					continue attrsLoop
 				}
 			}
 		}
@@ -762,10 +764,10 @@ attrsLoop:
 		switch elementName {
 		case "audio", "img", "link", "script", "video":
 			var crossOriginFound bool
-			for _, htmlAttr := range cleanAttrs {
+			for i, htmlAttr := range cleanAttrs {
 				if htmlAttr.Key == "crossorigin" {
 					crossOriginFound = true
-					htmlAttr.Val = "anonymous"
+					cleanAttrs[i].Val = "anonymous"
 				}
 			}
 
@@ -998,7 +1000,7 @@ func linkable(elementName string) bool {
 // stringInSlice returns true if needle exists in haystack
 func stringInSlice(needle string, haystack []string) bool {
 	for _, straw := range haystack {
-		if strings.ToLower(straw) == strings.ToLower(needle) {
+		if strings.EqualFold(straw, needle) {
 			return true
 		}
 	}
@@ -1086,4 +1088,9 @@ func normaliseElementName(str string) string {
 			`"`),
 		`"`,
 	)
+}
+
+type stringWriterWriter interface {
+	io.Writer
+	io.StringWriter
 }

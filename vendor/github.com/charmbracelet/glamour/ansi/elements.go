@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/charmbracelet/glamour/internal/autolink"
 	east "github.com/yuin/goldmark-emoji/ast"
 	"github.com/yuin/goldmark/ast"
 	astext "github.com/yuin/goldmark/extension/ast"
@@ -15,6 +16,11 @@ import (
 // ElementRenderer is called when entering a markdown node.
 type ElementRenderer interface {
 	Render(w io.Writer, ctx RenderContext) error
+}
+
+// StyleOverriderElementRenderer is called when entering a markdown node with a specific style.
+type StyleOverriderElementRenderer interface {
+	StyleOverrideRender(w io.Writer, ctx RenderContext, style StylePrimitive) error
 }
 
 // ElementFinisher is called when leaving a markdown node.
@@ -34,8 +40,6 @@ type Element struct {
 // NewElement returns the appropriate render Element for a given node.
 func (tr *ANSIRenderer) NewElement(node ast.Node, source []byte) Element {
 	ctx := tr.context
-	// fmt.Print(strings.Repeat("  ", ctx.blockStack.Len()), node.Type(), node.Kind())
-	// defer fmt.Println()
 
 	switch node.Kind() {
 	// Document
@@ -65,8 +69,11 @@ func (tr *ANSIRenderer) NewElement(node ast.Node, source []byte) Element {
 
 	// Paragraph
 	case ast.KindParagraph:
-		if node.Parent() != nil && node.Parent().Kind() == ast.KindListItem {
-			return Element{}
+		if node.Parent() != nil {
+			kind := node.Parent().Kind()
+			if kind == ast.KindListItem {
+				return Element{}
+			}
 		}
 		return Element{
 			Renderer: &ParagraphElement{
@@ -78,10 +85,9 @@ func (tr *ANSIRenderer) NewElement(node ast.Node, source []byte) Element {
 	// Blockquote
 	case ast.KindBlockquote:
 		e := &BlockElement{
-			Block:   &bytes.Buffer{},
-			Style:   cascadeStyle(ctx.blockStack.Current().Style, ctx.options.Styles.BlockQuote, false),
-			Margin:  true,
-			Newline: true,
+			Block:  &bytes.Buffer{},
+			Style:  cascadeStyle(ctx.blockStack.Current().Style, ctx.options.Styles.BlockQuote, false),
+			Margin: true,
 		}
 		return Element{
 			Entering: "\n",
@@ -130,7 +136,7 @@ func (tr *ANSIRenderer) NewElement(node ast.Node, source []byte) Element {
 		if node.Parent().(*ast.List).IsOrdered() {
 			e = l
 			if node.Parent().(*ast.List).Start != 1 {
-				e += uint(node.Parent().(*ast.List).Start) - 1
+				e += uint(node.Parent().(*ast.List).Start) - 1 //nolint: gosec
 			}
 		}
 
@@ -178,22 +184,22 @@ func (tr *ANSIRenderer) NewElement(node ast.Node, source []byte) Element {
 
 	case ast.KindEmphasis:
 		n := node.(*ast.Emphasis)
-		s := string(n.Text(source))
-		style := ctx.options.Styles.Emph
-		if n.Level > 1 {
-			style = ctx.options.Styles.Strong
+		var children []ElementRenderer
+		nn := n.FirstChild()
+		for nn != nil {
+			children = append(children, tr.NewElement(nn, source).Renderer)
+			nn = nn.NextSibling()
 		}
-
 		return Element{
-			Renderer: &BaseElement{
-				Token: html.UnescapeString(s),
-				Style: style,
+			Renderer: &EmphasisElement{
+				Level:    n.Level,
+				Children: children,
 			},
 		}
 
 	case astext.KindStrikethrough:
 		n := node.(*astext.Strikethrough)
-		s := string(n.Text(source))
+		s := string(n.Text(source)) //nolint: staticcheck
 		style := ctx.options.Styles.Strikethrough
 
 		return Element{
@@ -215,38 +221,109 @@ func (tr *ANSIRenderer) NewElement(node ast.Node, source []byte) Element {
 	// Links
 	case ast.KindLink:
 		n := node.(*ast.Link)
+		isFooterLinks := !ctx.options.InlineTableLinks && isInsideTable(node)
+
+		var children []ElementRenderer
+		content, err := nodeContent(node, source)
+
+		if isFooterLinks && err == nil {
+			text := string(content)
+			tl := tableLink{
+				content:  text,
+				href:     string(n.Destination),
+				title:    string(n.Title),
+				linkType: linkTypeRegular,
+			}
+			text = linkWithSuffix(tl, ctx.table.tableLinks)
+			children = []ElementRenderer{&BaseElement{Token: text}}
+		} else {
+			nn := n.FirstChild()
+			for nn != nil {
+				children = append(children, tr.NewElement(nn, source).Renderer)
+				nn = nn.NextSibling()
+			}
+		}
+
 		return Element{
 			Renderer: &LinkElement{
-				Text:    textFromChildren(node, source),
-				BaseURL: ctx.options.BaseURL,
-				URL:     string(n.Destination),
+				BaseURL:  ctx.options.BaseURL,
+				URL:      string(n.Destination),
+				Children: children,
+				SkipHref: isFooterLinks,
 			},
 		}
 	case ast.KindAutoLink:
 		n := node.(*ast.AutoLink)
 		u := string(n.URL(source))
-		label := string(n.Label(source))
+		isFooterLinks := !ctx.options.InlineTableLinks && isInsideTable(node)
+
+		var children []ElementRenderer
+		nn := n.FirstChild()
+		for nn != nil {
+			children = append(children, tr.NewElement(nn, source).Renderer)
+			nn = nn.NextSibling()
+		}
+
+		if len(children) == 0 {
+			children = append(children, &BaseElement{Token: u})
+		}
+
 		if n.AutoLinkType == ast.AutoLinkEmail && !strings.HasPrefix(strings.ToLower(u), "mailto:") {
 			u = "mailto:" + u
 		}
 
-		return Element{
-			Renderer: &LinkElement{
-				Text:    label,
-				BaseURL: ctx.options.BaseURL,
-				URL:     u,
-			},
+		var renderer ElementRenderer
+		if isFooterLinks {
+			domain := linkDomain(u)
+			tl := tableLink{
+				content:  domain,
+				href:     u,
+				linkType: linkTypeAuto,
+			}
+			if shortned, ok := autolink.Detect(u); ok {
+				tl.content = shortned
+			}
+			text := linkWithSuffix(tl, ctx.table.tableLinks)
+
+			renderer = &LinkElement{
+				Children: []ElementRenderer{&BaseElement{Token: text}},
+				URL:      u,
+				SkipHref: true,
+			}
+		} else {
+			renderer = &LinkElement{
+				Children: children,
+				URL:      u,
+				SkipText: n.AutoLinkType != ast.AutoLinkEmail,
+			}
 		}
+		return Element{Renderer: renderer}
 
 	// Images
 	case ast.KindImage:
 		n := node.(*ast.Image)
-		text := string(n.Text(source))
+		text := string(n.Text(source)) //nolint: staticcheck
+		isFooterLinks := !ctx.options.InlineTableLinks && isInsideTable(node)
+
+		if isFooterLinks {
+			if text == "" {
+				text = linkDomain(string(n.Destination))
+			}
+			tl := tableLink{
+				title:    string(n.Title),
+				content:  text,
+				href:     string(n.Destination),
+				linkType: linkTypeImage,
+			}
+			text = linkWithSuffix(tl, ctx.table.tableImages)
+		}
+
 		return Element{
 			Renderer: &ImageElement{
-				Text:    text,
-				BaseURL: ctx.options.BaseURL,
-				URL:     string(n.Destination),
+				Text:     text,
+				BaseURL:  ctx.options.BaseURL,
+				URL:      string(n.Destination),
+				TextOnly: isFooterLinks,
 			},
 		}
 
@@ -283,39 +360,44 @@ func (tr *ANSIRenderer) NewElement(node ast.Node, source []byte) Element {
 		}
 
 	case ast.KindCodeSpan:
-		// n := node.(*ast.CodeSpan)
-		e := &BlockElement{
-			Block: &bytes.Buffer{},
-			Style: cascadeStyle(ctx.blockStack.Current().Style, ctx.options.Styles.Code, false),
-		}
+		n := node.(*ast.CodeSpan)
+		s := string(n.Text(source)) //nolint: staticcheck
 		return Element{
-			Renderer: e,
-			Finisher: e,
+			Renderer: &CodeSpanElement{
+				Text:  html.UnescapeString(s),
+				Style: cascadeStyle(ctx.blockStack.Current().Style, ctx.options.Styles.Code, false).StylePrimitive,
+			},
 		}
 
 	// Tables
 	case astext.KindTable:
-		te := &TableElement{}
+		table := node.(*astext.Table)
+		te := &TableElement{
+			table:  table,
+			source: source,
+		}
 		return Element{
 			Entering: "\n",
+			Exiting:  "\n",
 			Renderer: te,
 			Finisher: te,
 		}
 
 	case astext.KindTableCell:
-		s := ""
-		n := node.FirstChild()
-		for n != nil {
-			s += string(n.Text(source))
-			// s += string(n.LinkData.Destination)
-			n = n.NextSibling()
+		n := node.(*astext.TableCell)
+		var children []ElementRenderer
+		nn := n.FirstChild()
+		for nn != nil {
+			children = append(children, tr.NewElement(nn, source).Renderer)
+			nn = nn.NextSibling()
 		}
 
+		r := &TableCellElement{
+			Children: children,
+			Head:     node.Parent().Kind() == astext.KindTableHeader,
+		}
 		return Element{
-			Renderer: &TableCellElement{
-				Text: s,
-				Head: node.Parent().Kind() == astext.KindTableHeader,
-			},
+			Renderer: r,
 		}
 
 	case astext.KindTableHeader:
@@ -332,7 +414,7 @@ func (tr *ANSIRenderer) NewElement(node ast.Node, source []byte) Element {
 		n := node.(*ast.HTMLBlock)
 		return Element{
 			Renderer: &BaseElement{
-				Token: ctx.SanitizeHTML(string(n.Text(source)), true),
+				Token: ctx.SanitizeHTML(string(n.Text(source)), true), //nolint: staticcheck
 				Style: ctx.options.Styles.HTMLBlock.StylePrimitive,
 			},
 		}
@@ -340,7 +422,7 @@ func (tr *ANSIRenderer) NewElement(node ast.Node, source []byte) Element {
 		n := node.(*ast.RawHTML)
 		return Element{
 			Renderer: &BaseElement{
-				Token: ctx.SanitizeHTML(string(n.Text(source)), true),
+				Token: ctx.SanitizeHTML(string(n.Text(source)), true), //nolint: staticcheck
 				Style: ctx.options.Styles.HTMLSpan.StylePrimitive,
 			},
 		}
@@ -354,13 +436,13 @@ func (tr *ANSIRenderer) NewElement(node ast.Node, source []byte) Element {
 			Newline: true,
 		}
 		return Element{
-			Entering: "\n",
 			Renderer: e,
 			Finisher: e,
 		}
 
 	case astext.KindDefinitionTerm:
 		return Element{
+			Entering: "\n",
 			Renderer: &BaseElement{
 				Style: ctx.options.Styles.DefinitionTerm,
 			},
@@ -368,6 +450,7 @@ func (tr *ANSIRenderer) NewElement(node ast.Node, source []byte) Element {
 
 	case astext.KindDefinitionDescription:
 		return Element{
+			Exiting: "\n",
 			Renderer: &BaseElement{
 				Style: ctx.options.Styles.DefinitionDescription,
 			},
@@ -393,22 +476,4 @@ func (tr *ANSIRenderer) NewElement(node ast.Node, source []byte) Element {
 		fmt.Println("Warning: unhandled element", node.Kind().String())
 		return Element{}
 	}
-}
-
-func textFromChildren(node ast.Node, source []byte) string {
-	var s string
-	for c := node.FirstChild(); c != nil; c = c.NextSibling() {
-		if c.Kind() == ast.KindText {
-			cn := c.(*ast.Text)
-			s += string(cn.Segment.Value(source))
-
-			if cn.HardLineBreak() || (cn.SoftLineBreak()) {
-				s += "\n"
-			}
-		} else {
-			s += string(c.Text(source))
-		}
-	}
-
-	return s
 }

@@ -15,9 +15,9 @@ type Emoji struct {
 // NewEmoji returns a new Emoji.
 func NewEmoji(name string, unicode []rune, shortNames ...string) Emoji {
 	if len(shortNames) == 0 {
-		panic("Emoji must have at leat 1 short name.")
+		panic("Emoji must have at least 1 short name.")
 	}
-	if unicode == nil || len(unicode) == 0 {
+	if len(unicode) == 0 {
 		unicode = []rune{0xFFFD}
 	}
 	return Emoji{
@@ -57,7 +57,7 @@ func NewEmojis(es ...Emoji) Emojis {
 		m:        map[string]*Emoji{},
 		children: []Emojis{},
 	}
-	for i, _ := range es {
+	for i := range es {
 		emoji := &m.list[i]
 		for _, s := range emoji.ShortNames {
 			m.m[s] = emoji
