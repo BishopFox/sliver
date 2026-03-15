@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
 
@@ -169,7 +168,7 @@ func encodeSQLiteParams(rawParams map[string]string, pragmas map[string]string) 
 // Save - Save config file to disk
 func (c *DatabaseConfig) Save() error {
 	configPath := GetDatabaseConfigPath()
-	configDir := path.Dir(configPath)
+	configDir := filepath.Dir(configPath)
 	if _, err := os.Stat(configDir); os.IsNotExist(err) {
 		databaseConfigLog.Debugf("Creating config dir %s", configDir)
 		err := os.MkdirAll(configDir, 0700)
