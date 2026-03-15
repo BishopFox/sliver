@@ -60,7 +60,7 @@ func (rpc *Server) GetAIProviders(ctx context.Context, _ *commonpb.Empty) (*clie
 }
 
 func (rpc *Server) GetAIConversations(ctx context.Context, _ *commonpb.Empty) (*clientpb.AIConversations, error) {
-	conversations, err := db.AIConversationsByOperator(rpc.aiOperatorName(ctx, ""))
+	conversations, err := db.AIConversationsByOperator("")
 	if err != nil {
 		return nil, rpcError(err)
 	}
@@ -72,7 +72,7 @@ func (rpc *Server) GetAIConversation(ctx context.Context, req *clientpb.AIConver
 		return nil, status.Error(codes.InvalidArgument, "missing AI conversation id")
 	}
 
-	conversation, err := db.AIConversationByID(req.ID, rpc.aiOperatorName(ctx, ""), req.IncludeMessages)
+	conversation, err := db.AIConversationByID(req.ID, "", req.IncludeMessages)
 	if err != nil {
 		return nil, rpcError(err)
 	}
@@ -102,7 +102,7 @@ func (rpc *Server) DeleteAIConversation(ctx context.Context, req *clientpb.AICon
 	}
 
 	operatorName := rpc.aiOperatorName(ctx, "")
-	err := db.DeleteAIConversation(req.ID, operatorName)
+	err := db.DeleteAIConversation(req.ID, "")
 	if err != nil {
 		return nil, rpcError(err)
 	}
@@ -118,7 +118,7 @@ func (rpc *Server) GetAIConversationMessages(ctx context.Context, req *clientpb.
 		return nil, status.Error(codes.InvalidArgument, "missing AI conversation id")
 	}
 
-	messages, err := db.AIConversationMessagesByID(req.ID, rpc.aiOperatorName(ctx, ""))
+	messages, err := db.AIConversationMessagesByID(req.ID, "")
 	if err != nil {
 		return nil, rpcError(err)
 	}
@@ -147,7 +147,7 @@ func (rpc *Server) SaveAIConversationMessage(ctx context.Context, req *clientpb.
 		return nil, rpcError(err)
 	}
 
-	conversation, err := db.AIConversationByID(message.ConversationID, req.OperatorName, false)
+	conversation, err := db.AIConversationByID(message.ConversationID, "", false)
 	if err != nil {
 		return nil, rpcError(err)
 	}
@@ -170,7 +170,7 @@ func shouldTriggerAICompletion(req *clientpb.AIConversationMessage, saved *clien
 }
 
 func runAIConversationCompletion(conversationID string, operatorName string) {
-	conversation, err := db.AIConversationByID(conversationID, operatorName, true)
+	conversation, err := db.AIConversationByID(conversationID, "", true)
 	if err != nil {
 		rpcLog.Warnf("Failed to load AI conversation %q for completion: %s", conversationID, err)
 		return
@@ -209,7 +209,7 @@ func runAIConversationCompletion(conversationID string, operatorName string) {
 		return
 	}
 
-	publishAIConversationByID(conversationID, operatorName)
+	publishAIConversationByID(conversationID)
 }
 
 func persistAIConversationRuntime(conversation *clientpb.AIConversation, operatorName string, runtime *serverai.RuntimeConfig) (*clientpb.AIConversation, error) {
@@ -260,11 +260,11 @@ func persistAIConversationFailure(conversationID string, operatorName string, ru
 		return
 	}
 
-	publishAIConversationByID(conversationID, operatorName)
+	publishAIConversationByID(conversationID)
 }
 
-func publishAIConversationByID(conversationID string, operatorName string) {
-	conversation, err := db.AIConversationByID(conversationID, operatorName, false)
+func publishAIConversationByID(conversationID string) {
+	conversation, err := db.AIConversationByID(conversationID, "", false)
 	if err != nil {
 		rpcLog.Warnf("Failed to publish AI conversation update for %q: %s", conversationID, err)
 		return

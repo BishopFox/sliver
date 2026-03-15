@@ -17,6 +17,8 @@ import (
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -155,6 +157,88 @@ func TestSaveAIConversationMessagePublishesFailureMessageWhenProviderErrors(t *t
 	}
 	if lastMessage.GetFinishReason() != "error" {
 		t.Fatalf("unexpected finish reason: %q", lastMessage.GetFinishReason())
+	}
+}
+
+func TestAIConversationsAreSharedAcrossOperators(t *testing.T) {
+	setupAIRPCTestEnv(t)
+
+	rpc := &Server{}
+	aliceCtx := contextWithCommonName("alice")
+	bobCtx := contextWithCommonName("bob")
+
+	conversation, err := rpc.SaveAIConversation(aliceCtx, &clientpb.AIConversation{
+		Provider: serverai.ProviderOpenAI,
+		Title:    "Shared thread",
+	})
+	if err != nil {
+		t.Fatalf("save shared conversation: %v", err)
+	}
+	if conversation.GetOperatorName() != "alice" {
+		t.Fatalf("expected conversation creator to be preserved, got %q", conversation.GetOperatorName())
+	}
+
+	conversations, err := rpc.GetAIConversations(bobCtx, &commonpb.Empty{})
+	if err != nil {
+		t.Fatalf("list shared conversations as bob: %v", err)
+	}
+	if len(conversations.GetConversations()) != 1 {
+		t.Fatalf("unexpected shared conversation count: got=%d want=%d", len(conversations.GetConversations()), 1)
+	}
+	if conversations.GetConversations()[0].GetID() != conversation.GetID() {
+		t.Fatalf("unexpected shared conversation id: got=%q want=%q", conversations.GetConversations()[0].GetID(), conversation.GetID())
+	}
+
+	current, err := rpc.GetAIConversation(bobCtx, &clientpb.AIConversationReq{
+		ID:              conversation.GetID(),
+		IncludeMessages: true,
+	})
+	if err != nil {
+		t.Fatalf("load shared conversation as bob: %v", err)
+	}
+	if current.GetOperatorName() != "alice" {
+		t.Fatalf("expected shared conversation to keep alice as creator, got %q", current.GetOperatorName())
+	}
+
+	message, err := rpc.SaveAIConversationMessage(bobCtx, &clientpb.AIConversationMessage{
+		ConversationID: conversation.GetID(),
+		Role:           "system",
+		Content:        "Bob joined the shared thread.",
+	})
+	if err != nil {
+		t.Fatalf("save shared conversation message as bob: %v", err)
+	}
+	if message.GetOperatorName() != "bob" {
+		t.Fatalf("expected saved message author to be bob, got %q", message.GetOperatorName())
+	}
+
+	current, err = rpc.GetAIConversation(aliceCtx, &clientpb.AIConversationReq{
+		ID:              conversation.GetID(),
+		IncludeMessages: true,
+	})
+	if err != nil {
+		t.Fatalf("reload shared conversation as alice: %v", err)
+	}
+	if current.GetOperatorName() != "alice" {
+		t.Fatalf("expected shared conversation creator to remain alice, got %q", current.GetOperatorName())
+	}
+	if len(current.GetMessages()) != 1 {
+		t.Fatalf("unexpected shared message count: got=%d want=%d", len(current.GetMessages()), 1)
+	}
+	if current.GetMessages()[0].GetOperatorName() != "bob" {
+		t.Fatalf("expected shared message author to be bob, got %q", current.GetMessages()[0].GetOperatorName())
+	}
+
+	if _, err := rpc.DeleteAIConversation(bobCtx, &clientpb.AIConversationReq{ID: conversation.GetID()}); err != nil {
+		t.Fatalf("delete shared conversation as bob: %v", err)
+	}
+
+	_, err = rpc.GetAIConversation(aliceCtx, &clientpb.AIConversationReq{
+		ID:              conversation.GetID(),
+		IncludeMessages: true,
+	})
+	if status.Code(err) != codes.NotFound {
+		t.Fatalf("expected deleted shared conversation to be missing, got %v", err)
 	}
 }
 

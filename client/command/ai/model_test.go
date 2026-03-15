@@ -1840,16 +1840,6 @@ func TestAIProgramSkipsRedundantPendingConversationReload(t *testing.T) {
 	close(blockConversationLoad)
 }
 
-func TestIsRelevantAIConversationEventHonorsOperatorName(t *testing.T) {
-	event := &clientpb.AIConversation{OperatorName: "alice"}
-	if !isRelevantAIConversationEvent(event, "alice") {
-		t.Fatal("expected matching operator names to be relevant")
-	}
-	if isRelevantAIConversationEvent(event, "bob") {
-		t.Fatal("expected mismatched operator names to be ignored")
-	}
-}
-
 type testErr string
 
 func (e testErr) Error() string {

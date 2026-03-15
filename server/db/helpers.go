@@ -1413,7 +1413,7 @@ func AIConversationByID(id string, operatorName string, includeMessages bool) (*
 // SaveAIConversation - Create or update an AI conversation thread.
 func SaveAIConversation(conversation *clientpb.AIConversation, operatorName string) (*clientpb.AIConversation, error) {
 	dbConversation := models.AIConversationFromProtobuf(conversation)
-	if operatorName != "" {
+	if dbConversation.OperatorName == "" && operatorName != "" {
 		dbConversation.OperatorName = operatorName
 	}
 
@@ -1426,15 +1426,11 @@ func SaveAIConversation(conversation *clientpb.AIConversation, operatorName stri
 	}
 
 	existing := &models.AIConversation{}
-	query := dbSession.Where("id = ?", dbConversation.ID)
-	if operatorName != "" {
-		query = query.Where("operator_name = ?", operatorName)
-	}
-	if err := query.First(existing).Error; err != nil {
+	if err := dbSession.Where("id = ?", dbConversation.ID).First(existing).Error; err != nil {
 		return nil, err
 	}
 
-	if dbConversation.OperatorName != "" {
+	if existing.OperatorName == "" && dbConversation.OperatorName != "" {
 		existing.OperatorName = dbConversation.OperatorName
 	}
 	existing.Provider = dbConversation.Provider
@@ -1451,7 +1447,7 @@ func SaveAIConversation(conversation *clientpb.AIConversation, operatorName stri
 
 // DeleteAIConversation - Delete an AI conversation thread and all related messages.
 func DeleteAIConversation(id string, operatorName string) error {
-	conversation, err := AIConversationByID(id, operatorName, false)
+	conversation, err := AIConversationByID(id, "", false)
 	if err != nil {
 		return err
 	}
@@ -1493,7 +1489,7 @@ func SaveAIConversationMessage(message *clientpb.AIConversationMessage, operator
 		return nil, ErrRecordNotFound
 	}
 
-	conversation, err := AIConversationByID(dbMessage.ConversationID.String(), operatorName, false)
+	conversation, err := AIConversationByID(dbMessage.ConversationID.String(), "", false)
 	if err != nil {
 		return nil, err
 	}
@@ -1536,11 +1532,7 @@ func SaveAIConversationMessage(message *clientpb.AIConversationMessage, operator
 			savedMessage = dbMessage
 		} else {
 			existing := &models.AIConversationMessage{}
-			query := tx.Where("id = ?", dbMessage.ID).Where("conversation_id = ?", dbMessage.ConversationID)
-			if operatorName != "" {
-				query = query.Where("operator_name = ?", operatorName)
-			}
-			if err := query.First(existing).Error; err != nil {
+			if err := tx.Where("id = ?", dbMessage.ID).Where("conversation_id = ?", dbMessage.ConversationID).First(existing).Error; err != nil {
 				return err
 			}
 

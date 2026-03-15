@@ -395,9 +395,6 @@ func (m *aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if selectedID == "" && msg.conversation != nil {
 			selectedID = msg.conversation.GetID()
 		}
-		if !isRelevantAIConversationEvent(msg.conversation, m.ctx.connection.Operator) {
-			return m, waitForAIConversationEventCmd(m.listener)
-		}
 		if m.shouldSkipConversationEventReload(msg.conversation) {
 			return m, waitForAIConversationEventCmd(m.listener)
 		}
@@ -2273,6 +2270,9 @@ func (m *aiModel) shouldSkipConversationEventReload(conversation *clientpb.AICon
 	if conversation == nil || !m.awaitingResponse {
 		return false
 	}
+	if isAIConversationDeleteEvent(conversation) {
+		return false
+	}
 	if !conversationAwaitingResponse(m.currentConversation) {
 		return false
 	}
@@ -2291,6 +2291,29 @@ func (m *aiModel) shouldSkipConversationEventReload(conversation *clientpb.AICon
 
 	// Ignore redundant sync events for the same optimistic user message and keep
 	// the local pending animation running until the assistant reply arrives.
+	return true
+}
+
+func isAIConversationDeleteEvent(conversation *clientpb.AIConversation) bool {
+	if conversation == nil {
+		return false
+	}
+	if strings.TrimSpace(conversation.GetID()) == "" {
+		return false
+	}
+	if conversation.GetCreatedAt() != 0 || conversation.GetUpdatedAt() != 0 {
+		return false
+	}
+	if len(conversation.GetMessages()) != 0 {
+		return false
+	}
+	if strings.TrimSpace(conversation.GetProvider()) != "" ||
+		strings.TrimSpace(conversation.GetModel()) != "" ||
+		strings.TrimSpace(conversation.GetTitle()) != "" ||
+		strings.TrimSpace(conversation.GetSummary()) != "" ||
+		strings.TrimSpace(conversation.GetSystemPrompt()) != "" {
+		return false
+	}
 	return true
 }
 
@@ -2634,18 +2657,6 @@ func renderMarkdownWithGlow(width int, markdown string) (string, error) {
 		lines[i] = strings.TrimRight(line, " \t")
 	}
 	return strings.Join(lines, "\n"), nil
-}
-
-func isRelevantAIConversationEvent(conversation *clientpb.AIConversation, operatorName string) bool {
-	if conversation == nil {
-		return true
-	}
-	eventOperator := strings.TrimSpace(conversation.GetOperatorName())
-	currentOperator := strings.TrimSpace(operatorName)
-	if eventOperator == "" || currentOperator == "" {
-		return true
-	}
-	return eventOperator == currentOperator
 }
 
 func looksLikeTerminalResponseFragment(text string) bool {

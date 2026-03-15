@@ -293,7 +293,7 @@ func TestWaitForAIConversationEventCmdReturnsClosedMessage(t *testing.T) {
 	}
 }
 
-func TestAIModelIgnoresIrrelevantConversationEvents(t *testing.T) {
+func TestAIModelReloadsSharedConversationEvents(t *testing.T) {
 	listener := make(chan *clientpb.Event)
 	close(listener)
 
@@ -308,16 +308,46 @@ func TestAIModelIgnoresIrrelevantConversationEvents(t *testing.T) {
 	}})
 
 	nextModel := updated.(*aiModel)
-	if nextModel.loading {
-		t.Fatal("expected irrelevant event to avoid forcing a reload")
+	if !nextModel.loading {
+		t.Fatal("expected shared conversation event to trigger a reload")
+	}
+	if nextModel.status != "Conversation updated on the server. Refreshing..." {
+		t.Fatalf("unexpected reload status: %q", nextModel.status)
 	}
 	if cmd == nil {
-		t.Fatal("expected to keep waiting for the next AI event")
+		t.Fatal("expected shared conversation event to schedule a refresh")
+	}
+}
+
+func TestAIModelReloadsDeleteEventsWhileAwaitingResponse(t *testing.T) {
+	listener := make(chan *clientpb.Event)
+	close(listener)
+
+	model := newAIModel(nil, aiContext{
+		connection: aiConnectionSummary{Operator: "alice"},
+	}, listener)
+	model.loading = false
+	model.awaitingResponse = true
+	model.currentConversation = &clientpb.AIConversation{
+		ID:           "conv-2",
+		OperatorName: "alice",
+		UpdatedAt:    100,
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "user", Content: "still waiting"},
+		},
 	}
 
-	nextMsg := cmd()
-	if _, ok := nextMsg.(aiListenerClosedMsg); !ok {
-		t.Fatalf("expected aiListenerClosedMsg from closed listener, got %T", nextMsg)
+	updated, cmd := model.Update(aiConversationEventMsg{conversation: &clientpb.AIConversation{
+		ID:           "conv-2",
+		OperatorName: "bob",
+	}})
+
+	nextModel := updated.(*aiModel)
+	if !nextModel.loading {
+		t.Fatal("expected delete tombstone to reload the conversation")
+	}
+	if cmd == nil {
+		t.Fatal("expected delete tombstone to schedule a refresh")
 	}
 }
 
