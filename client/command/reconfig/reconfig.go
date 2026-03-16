@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/spf13/cobra"
@@ -94,16 +95,24 @@ func ReconfigCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		if activeC2 != "" {
 			currentURI, err := url.Parse(activeC2)
 			if err == nil {
-				// must be the same protocol
 				if newURI.Scheme != currentURI.Scheme {
-					con.PrintErrorf("Cannot switch protocol from %s to %s (protocol must match compiled implant)\n",
+					confirm := false
+					con.PrintWarnf("Switching protocol from %s to %s. This will only work if the protocol was included in the compiled implant. If it was NOT included, YOU WILL LOSE THE BEACON CONNECTION PERMANENTLY.\n",
 						currentURI.Scheme, newURI.Scheme)
-					return
+					_ = forms.Confirm("Do you want to continue?", &confirm)
+					if !confirm {
+						return
+					}
 				}
-				// for now only support the same Host/C2 Server (becuase the implant crypto keys problem)
+				// Warning: Switching to a different host typically fails because the implant and server must share the same crypto keys.
 				if newURI.Hostname() != currentURI.Hostname() {
 					con.PrintWarnf("Switching to a different host (%s -> %s). This only works if both servers share the same crypto keys.\n",
 						currentURI.Hostname(), newURI.Hostname())
+					confirm := false
+					_ = forms.Confirm("Do you want to continue?", &confirm)
+					if !confirm {
+						return
+					}
 				}
 			}
 		}
