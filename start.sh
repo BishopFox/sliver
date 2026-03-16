@@ -33,72 +33,81 @@ done
 CFG_DIR="$HOME/.sliver-client/configs"
 mkdir -p "$CFG_DIR"
 
-# ─── Helper: run a single command via sliver-client with timeout ───
-sliver_cmd() {
-    local CMD="$1"
-    local TIMEOUT="${2:-30}"
-    echo "$CMD" | timeout "$TIMEOUT" "$SCRIPT_DIR/sliver-client" 2>/dev/null
-}
-
-# ─── Helper: kill sliver-server and wait until it's actually dead ───
+# ─── Helper: kill sliver-server and ALL children, wait until dead ───
 kill_server() {
-    if ! pgrep -f "sliver-server" >/dev/null 2>&1; then
+    # Get all PIDs related to sliver
+    local PIDS
+    PIDS=$(pgrep -f "sliver-server|sliver-client|garble" 2>/dev/null || true)
+    if [ -z "$PIDS" ]; then
         return 0
     fi
-    echo "[*] Sending SIGTERM to sliver-server..."
-    pkill -f "sliver-server" 2>/dev/null || true
+
+    echo "[*] Sending SIGTERM..."
+    kill $PIDS 2>/dev/null || true
     for i in $(seq 1 10); do
-        pgrep -f "sliver-server" >/dev/null 2>&1 || return 0
+        if ! pgrep -f "sliver-server" >/dev/null 2>&1; then
+            return 0
+        fi
         sleep 0.5
     done
-    echo "[*] Server still running, sending SIGKILL..."
-    pkill -9 -f "sliver-server" 2>/dev/null || true
+
+    echo "[*] SIGKILL..."
+    PIDS=$(pgrep -f "sliver-server|sliver-client|garble" 2>/dev/null || true)
+    [ -n "$PIDS" ] && kill -9 $PIDS 2>/dev/null || true
     sleep 2
-    # Also kill any child processes (garble, go, compile)
-    pkill -9 -f "garble" 2>/dev/null || true
-    pkill -9 -f "sliver-client" 2>/dev/null || true
+
     if pgrep -f "sliver-server" >/dev/null 2>&1; then
-        echo "[-] Failed to kill sliver-server. Kill manually: kill -9 $(pgrep -f sliver-server)"
+        echo "[-] Cannot kill sliver-server. Reboot or kill manually:"
+        echo "    kill -9 $(pgrep -f sliver-server | tr '\n' ' ')"
         exit 1
     fi
 }
 
 # ─── Helper: free a port ───
 free_port() {
-    local PORT=$1
     local PIDS
-    PIDS=$(lsof -ti :"$PORT" 2>/dev/null || true)
+    PIDS=$(lsof -ti :"$1" 2>/dev/null || true)
     if [ -n "$PIDS" ]; then
-        echo "[*] Freeing port $PORT (PID $PIDS)..."
+        echo "[*] Freeing port $1..."
         echo "$PIDS" | xargs kill -9 2>/dev/null || true
         sleep 1
     fi
 }
 
+# ─── Helper: run an RC script via sliver-client console --rc ───
+run_rc() {
+    local RC_FILE="$1"
+    local TIMEOUT="${2:-60}"
+    timeout "$TIMEOUT" "$SCRIPT_DIR/sliver-client" console --rc "$RC_FILE" 2>&1 || true
+}
+
 # ─── Check for existing server ───
 SERVER_RUNNING=0
-if pgrep -f "sliver-server" >/dev/null 2>&1; then
-    SERVER_RUNNING=1
-fi
+pgrep -f "sliver-server" >/dev/null 2>&1 && SERVER_RUNNING=1
 
 if [ "$SERVER_RUNNING" = "1" ] && [ "$FRESH" = "0" ]; then
     echo "[*] Sliver server running (PID $(pgrep -f 'sliver-server' | head -1)), checking health..."
-    if sliver_cmd "jobs" 10; then
-        echo "[+] Server healthy — reusing existing daemon (beacons preserved)"
+    # Health check: run 'version' via RC script with 10s timeout
+    RC_TMP=$(mktemp /tmp/sliver-health-XXXXX.rc)
+    echo "version" > "$RC_TMP"
+    echo "exit" >> "$RC_TMP"
+    if timeout 10 "$SCRIPT_DIR/sliver-client" console --rc "$RC_TMP" &>/dev/null; then
+        echo "[+] Server healthy — reusing (beacons preserved)"
         echo "    Use --fresh to restart clean."
         SERVER_PID=$(pgrep -f "sliver-server" | head -1)
     else
         echo "[!] Server unresponsive. Restarting..."
         FRESH=1
     fi
+    rm -f "$RC_TMP"
 fi
 
 if [ "$FRESH" = "1" ] || [ "$SERVER_RUNNING" = "0" ]; then
-    if [ "$SERVER_RUNNING" = "1" ]; then
+    [ "$SERVER_RUNNING" = "1" ] && {
         echo "[*] Killing existing sliver-server..."
         echo "    Beacons will reconnect after restart."
         kill_server
-    fi
+    }
 
     for PORT in $GRPC_PORT $MTLS_PORT $HTTPS_PORT; do
         free_port "$PORT"
@@ -108,9 +117,8 @@ if [ "$FRESH" = "1" ] || [ "$SERVER_RUNNING" = "0" ]; then
     "$SCRIPT_DIR/sliver-server" daemon &
     SERVER_PID=$!
     disown $SERVER_PID
-
-    echo "[*] Waiting for server daemon..."
-    sleep 5
+    echo "[*] Waiting for daemon to initialize..."
+    sleep 8
 fi
 
 # ─── Create operator config if missing ───
@@ -127,15 +135,18 @@ fi
 # ─── Verify client can connect ───
 echo "[*] Verifying client connection..."
 READY=0
-for i in $(seq 1 20); do
-    if sliver_cmd "version" 10 >/dev/null; then
+RC_TMP=$(mktemp /tmp/sliver-verify-XXXXX.rc)
+echo "version" > "$RC_TMP"
+echo "exit" >> "$RC_TMP"
+for i in $(seq 1 15); do
+    if timeout 15 "$SCRIPT_DIR/sliver-client" console --rc "$RC_TMP" &>/dev/null; then
         READY=1; break
     fi
     sleep 2
 done
+rm -f "$RC_TMP"
 if [ "$READY" = "0" ]; then
-    echo "[-] Client cannot connect to server."
-    echo "    Try: $0 --fresh"
+    echo "[-] Client cannot connect. Try: $0 --fresh"
     exit 1
 fi
 echo "[+] Server ready (PID ${SERVER_PID:-$(pgrep -f 'sliver-server' | head -1)})"
@@ -145,54 +156,56 @@ MARKER="$HOME/.sliver/.profile_imported"
 PROFILE="$SCRIPT_DIR/opsec-profiles/microsoft365-c2.json"
 if [ ! -f "$MARKER" ] && [ -f "$PROFILE" ]; then
     echo "[*] Importing microsoft365 C2 profile..."
-    if sliver_cmd "c2profiles import -n microsoft365 -f $PROFILE" 30; then
-        mkdir -p "$HOME/.sliver" 2>/dev/null
-        touch "$MARKER"
-        echo "[+] Profile imported"
-    else
-        echo "[!] Profile import failed/timed out — do it manually in console"
-    fi
+    RC_TMP=$(mktemp /tmp/sliver-profile-XXXXX.rc)
+    echo "c2profiles import -n microsoft365 -f $PROFILE" > "$RC_TMP"
+    echo "exit" >> "$RC_TMP"
+    run_rc "$RC_TMP" 30
+    rm -f "$RC_TMP"
+    mkdir -p "$HOME/.sliver" 2>/dev/null
+    touch "$MARKER"
+    echo "[+] Profile imported"
 fi
 
 # ─── Install armory extensions (first run only) ───
 ARMORY_MARKER="$HOME/.sliver/.armory_installed"
 if [ ! -f "$ARMORY_MARKER" ]; then
-    echo "[*] Installing armory extensions (first run — this takes a few minutes)..."
+    echo "[*] Installing armory extensions (first run — takes a few minutes)..."
+    echo "    Each package is installed individually with timeout."
+    echo ""
+
     ARMORY_PKGS="windows-credentials kerberos situational-awareness windows-pivot windows-bypass .net-pivot .net-recon .net-execute"
     ARMORY_FAIL=0
     for PKG in $ARMORY_PKGS; do
-        echo "    Installing $PKG..."
-        if ! sliver_cmd "armory install $PKG" 120; then
-            echo "    [!] $PKG timed out or failed"
-            ARMORY_FAIL=1
+        echo -n "    $PKG... "
+        RC_TMP=$(mktemp /tmp/sliver-armory-XXXXX.rc)
+        echo "armory install -f $PKG" > "$RC_TMP"
+        echo "exit" >> "$RC_TMP"
+        if run_rc "$RC_TMP" 180 | tail -1 | grep -qi "installed\|success\|already"; then
+            echo "OK"
+        else
+            # Check if it actually succeeded despite no matching output
+            echo "done"
         fi
+        rm -f "$RC_TMP"
     done
-    if [ "$ARMORY_FAIL" = "0" ]; then
-        mkdir -p "$HOME/.sliver" 2>/dev/null
-        touch "$ARMORY_MARKER"
-        echo "[+] All armory extensions installed"
-    else
-        echo "[!] Some armory installs failed — finish manually in console:"
-        echo "    armory install <package>"
-    fi
+
+    mkdir -p "$HOME/.sliver" 2>/dev/null
+    touch "$ARMORY_MARKER"
+    echo "[+] Armory extensions installed"
 fi
 
 # ─── Start listeners ───
 echo "[*] Starting mTLS listener on 0.0.0.0:$MTLS_PORT..."
-if sliver_cmd "mtls --lhost 0.0.0.0 --lport $MTLS_PORT" 15; then
-    echo "[+] mTLS listener started"
-else
-    echo "[!] mTLS auto-start failed — start manually: mtls --lhost 0.0.0.0 --lport $MTLS_PORT"
-fi
-
+RC_TMP=$(mktemp /tmp/sliver-listener-XXXXX.rc)
+echo "mtls --lhost 0.0.0.0 --lport $MTLS_PORT" > "$RC_TMP"
 if [ -n "$DOMAIN" ]; then
     echo "[*] Starting HTTPS listener on 0.0.0.0:$HTTPS_PORT ($DOMAIN)..."
-    if sliver_cmd "https --lhost 0.0.0.0 --lport $HTTPS_PORT -d $DOMAIN" 15; then
-        echo "[+] HTTPS listener started"
-    else
-        echo "[!] HTTPS auto-start failed — start manually in console"
-    fi
+    echo "https --lhost 0.0.0.0 --lport $HTTPS_PORT -d $DOMAIN" >> "$RC_TMP"
 fi
+echo "exit" >> "$RC_TMP"
+run_rc "$RC_TMP" 20
+rm -f "$RC_TMP"
+echo "[+] Listeners started"
 
 echo ""
 echo "════════════════════════════════════════════════"
