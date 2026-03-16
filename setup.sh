@@ -288,9 +288,11 @@ fi
 info "Step 6/6: Creating helper scripts..."
 
 # ─── start.sh ───
-# Note: This template is kept in sync with the standalone start.sh in the repo root.
-# The standalone file is the source of truth — this recreates it if missing.
-cp "$SLIVER_DIR/start.sh" "$SLIVER_DIR/start.sh" 2>/dev/null || cat > "$SLIVER_DIR/start.sh" << 'STARTEOF'
+# The git-cloned start.sh is the source of truth. Only create if missing.
+if [ -f "$SLIVER_DIR/start.sh" ]; then
+    ok "start.sh already exists (from git clone)"
+else
+cat > "$SLIVER_DIR/start.sh" << 'STARTEOF'
 #!/bin/bash
 # Start Sliver server with auto-listener setup.
 # Reuses existing daemon if running. Starts listeners, drops into client.
@@ -442,6 +444,7 @@ echo ""
 echo "[*] Dropping into interactive console..."
 exec "$SCRIPT_DIR/sliver-client"
 STARTEOF
+fi
 chmod +x "$SLIVER_DIR/start.sh"
 
 # ─── gen-implant.sh ───

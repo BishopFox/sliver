@@ -79,7 +79,7 @@ fi
 if [ "$SERVER_RUNNING" = "1" ] && [ "$FRESH" = "0" ]; then
     # Verify the existing server actually works (not just PID exists)
     echo "[*] Sliver server running (PID $(pgrep -f 'sliver-server' | head -1)), checking health..."
-    if "$SCRIPT_DIR/sliver-client" version &>/dev/null; then
+    if echo "jobs" | "$SCRIPT_DIR/sliver-client" &>/dev/null; then
         echo "[+] Server healthy — reusing existing daemon (beacons preserved)"
         echo "    Use --fresh to restart clean."
         SERVER_PID=$(pgrep -f "sliver-server" | head -1)
@@ -125,7 +125,7 @@ fi
 echo "[*] Verifying client connection..."
 READY=0
 for i in $(seq 1 20); do
-    if "$SCRIPT_DIR/sliver-client" version &>/dev/null; then
+    if echo "version" | "$SCRIPT_DIR/sliver-client" &>/dev/null; then
         READY=1; break
     fi
     sleep 2
