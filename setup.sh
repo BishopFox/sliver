@@ -339,26 +339,36 @@ echo "[*] Starting sliver-server daemon..."
 SERVER_PID=$!
 disown $SERVER_PID
 
+# ─── Wait for server daemon to be ready ───
+echo "[*] Waiting for server daemon..."
+sleep 5
+
 # ─── Create operator config if needed ───
 CFG_DIR="$HOME/.sliver-client/configs"
 mkdir -p "$CFG_DIR"
 if [ -z "$(ls -A "$CFG_DIR" 2>/dev/null)" ]; then
     echo "[*] Creating operator config..."
-    sleep 3
-    "$SCRIPT_DIR/sliver-server" operator --name local --lhost localhost --save "$CFG_DIR/local.cfg" 2>/dev/null
+    "$SCRIPT_DIR/sliver-server" operator --name local --lhost localhost --permissions all --save "$CFG_DIR/local.cfg"
+    if [ -z "$(ls -A "$CFG_DIR" 2>/dev/null)" ]; then
+        echo "[-] Operator config creation failed. Check sliver-server logs."
+        exit 1
+    fi
+    echo "[+] Operator config created"
 fi
 
-# ─── Wait for server to be ready ───
-echo "[*] Waiting for server..."
+# ─── Verify client can connect ───
+echo "[*] Verifying client connection..."
 READY=0
-for i in $(seq 1 20); do
+for i in $(seq 1 15); do
     if "$SCRIPT_DIR/sliver-client" version &>/dev/null; then
         READY=1; break
     fi
     sleep 2
 done
 if [ "$READY" = "0" ]; then
-    echo "[-] Server did not start in time. Check: $SCRIPT_DIR/sliver-server daemon"
+    echo "[-] Client cannot connect to server. Check: $SCRIPT_DIR/sliver-server daemon"
+    echo "    Config dir: $CFG_DIR"
+    ls -la "$CFG_DIR" 2>/dev/null
     exit 1
 fi
 echo "[+] Server ready (PID $SERVER_PID)"
