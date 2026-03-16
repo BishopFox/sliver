@@ -65,6 +65,7 @@ import (
 //   - [FormatNilMapAsNull] affects marshaling only
 //   - [OmitZeroStructFields] affects marshaling only
 //   - [MatchCaseInsensitiveNames] affects marshaling and unmarshaling
+//   - [DiscardUnknownMembers] affects marshaling only
 //   - [RejectUnknownMembers] affects unmarshaling only
 //   - [WithMarshalers] affects marshaling only
 //   - [WithUnmarshalers] affects unmarshaling only
@@ -199,8 +200,22 @@ func MatchCaseInsensitiveNames(v bool) Options {
 	}
 }
 
+// DiscardUnknownMembers specifies that marshaling should ignore any
+// JSON object members stored in Go struct fields dedicated to storing
+// unknown JSON object members.
+//
+// This only affects marshaling and is ignored when unmarshaling.
+func DiscardUnknownMembers(v bool) Options {
+	if v {
+		return jsonflags.DiscardUnknownMembers | 1
+	} else {
+		return jsonflags.DiscardUnknownMembers | 0
+	}
+}
+
 // RejectUnknownMembers specifies that unknown members should be rejected
-// when unmarshaling a JSON object.
+// when unmarshaling a JSON object, regardless of whether there is a field
+// to store unknown members.
 //
 // This only affects unmarshaling and is ignored when marshaling.
 func RejectUnknownMembers(v bool) Options {

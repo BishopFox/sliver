@@ -1,3 +1,6 @@
+// Package jsonpointer provides JSON Pointer (RFC 6901) implementation for Go.
+// This is a direct port of the TypeScript json-pointer library with identical behavior,
+// using modern Go generics for type safety and performance.
 package jsonpointer
 
 import (
@@ -61,13 +64,22 @@ func IsArrayReference(ref Reference) bool {
 		return false
 	}
 
+	// Check if obj is a slice/array
 	objType := reflect.TypeOf(ref.Obj)
 	if objType.Kind() != reflect.Slice {
 		return false
 	}
 
+	// Check if key is a valid numeric string
 	_, err := strconv.Atoi(ref.Key)
 	return err == nil
+}
+
+// IsArrayEnd checks if an array reference points to the end of the array.
+// TypeScript original code:
+// export const isArrayEnd = (ref: ArrayReference): boolean => ref.obj.length === ref.key;
+func IsArrayEnd[T any](ref ArrayReference[T]) bool {
+	return len(ref.Obj) == ref.Key
 }
 
 // IsObjectReference checks if a Reference points to an object property.
@@ -80,6 +92,11 @@ func IsObjectReference(ref Reference) bool {
 		return false
 	}
 
+	// Check if obj is a map with string keys
 	objType := reflect.TypeOf(ref.Obj)
-	return objType.Kind() == reflect.Map && objType.Key().Kind() == reflect.String
+	if objType.Kind() != reflect.Map || objType.Key().Kind() != reflect.String {
+		return false
+	}
+
+	return true
 }

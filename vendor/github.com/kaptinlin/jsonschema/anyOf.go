@@ -35,7 +35,7 @@ func evaluateAnyOf(
 
 			if result != nil {
 				results = append(results, result.SetEvaluationPath(fmt.Sprintf("/anyOf/%d", i)).
-					SetSchemaLocation(schema.SchemaLocation(fmt.Sprintf("/anyOf/%d", i))),
+					SetSchemaLocation(schema.GetSchemaLocation(fmt.Sprintf("/anyOf/%d", i))),
 				)
 
 				if result.IsValid() {

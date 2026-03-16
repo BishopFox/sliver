@@ -1,13 +1,13 @@
 package jsonschema
 
 import (
-	"encoding/binary"
+	"cmp"
 	"fmt"
-	"hash/maphash"
-	"math"
 	"reflect"
 	"slices"
 	"strings"
+
+	"github.com/go-json-experiment/json"
 )
 
 // evaluateUniqueItems checks if all elements in the array are unique when the "uniqueItems" property is set to true.
@@ -15,8 +15,10 @@ import (
 //   - If "uniqueItems" is false, the data always validates successfully.
 //   - If "uniqueItems" is true, the data validates successfully only if all elements in the array are unique.
 //
-// This implementation uses hash-based comparison for O(n) average complexity.
-// Each item is hashed using maphash, and deep equality is only checked on hash collisions.
+// This function only applies when the data is an array and "uniqueItems" is true.
+//
+// This method ensures that the array elements conform to the uniqueness constraints defined in the schema.
+// If the uniqueness constraint is violated, it returns a EvaluationError detailing the issue.
 //
 // Reference: https://json-schema.org/draft/2020-12/json-schema-validation#name-uniqueitems
 func evaluateUniqueItems(schema *Schema, data []any) *EvaluationError {
@@ -31,298 +33,224 @@ func evaluateUniqueItems(schema *Schema, data []any) *EvaluationError {
 	// If items is false, only validate items defined by prefixItems
 	if schema.Items != nil && schema.Items.Boolean != nil && !*schema.Items.Boolean {
 		if schema.PrefixItems != nil {
-			maxLength = min(len(schema.PrefixItems), len(data))
+			maxLength = len(schema.PrefixItems)
+			if maxLength > len(data) {
+				maxLength = len(data)
+			}
 		} else {
 			maxLength = 0
 		}
 	}
 
-	// If there are 0 or 1 items, they are always unique
-	if maxLength <= 1 {
+	// If there are no items to validate, return immediately
+	if maxLength == 0 {
 		return nil
 	}
 
-	// Use hash-based uniqueness check
-	hashes := make(map[uint64][]int, maxLength) // hash -> indices
-	seed := maphash.MakeSeed()
-
-	for i := 0; i < maxLength; i++ {
-		item := data[i]
-		var h maphash.Hash
-		h.SetSeed(seed)
-		hashJSONValue(&h, item)
-		hashValue := h.Sum64()
-
-		// Check for hash collisions
-		if indices := hashes[hashValue]; len(indices) > 0 {
-			for _, j := range indices {
-				if deepEqualJSON(item, data[j]) {
-					return NewEvaluationError("uniqueItems", "unique_items_mismatch",
-						"Array items at indices {index1} and {index2} are not unique", map[string]any{
-							"index1": j,
-							"index2": i,
-						})
-				}
-			}
+	// Use a map to track the index of each item
+	seen := make(map[string][]int)
+	for index, item := range data[:maxLength] {
+		itemKey, err := normalizeForComparison(item)
+		if err != nil {
+			return NewEvaluationError("uniqueItems", "item_normalization_error", "Error normalizing item at index {index}", map[string]any{
+				"index": fmt.Sprint(index),
+			})
 		}
-		hashes[hashValue] = append(hashes[hashValue], i)
+		seen[itemKey] = append(seen[itemKey], index)
 	}
 
+	// Prepare to report all duplicate item positions
+	var duplicates []string
+	for _, indices := range seen {
+		if len(indices) > 1 {
+			// Convert to 1-based indices for more user-friendly output
+			for i := range indices {
+				indices[i]++
+			}
+			duplicates = append(duplicates, fmt.Sprintf("(%s)", strings.Trim(strings.Join(strings.Fields(fmt.Sprint(indices)), ", "), "[]")))
+		}
+	}
+
+	if len(duplicates) > 0 {
+		return NewEvaluationError("uniqueItems", "unique_items_mismatch", "Found duplicates at the following index groups: {duplicates}", map[string]any{
+			"duplicates": strings.Join(duplicates, ", "),
+		})
+	}
 	return nil
 }
 
-// hashJSONValue writes a deterministic hash of a JSON value to the hash.
-func hashJSONValue(h *maphash.Hash, v any) {
-	switch val := v.(type) {
+// normalizeForComparison creates a normalized string representation of any value
+// for unique comparison, ensuring that objects with same key-value pairs but
+// different property orders are considered equal.
+func normalizeForComparison(value any) (string, error) {
+	return normalizeValue(value)
+}
+
+// normalizeValue recursively normalizes a value for comparison.
+// This optimized version uses type assertions for common JSON types to avoid
+// reflection overhead, which provides 5-10x performance improvement for typical usage.
+func normalizeValue(value any) (string, error) {
+	// Fast path: Use type assertions for common JSON types
+	switch v := value.(type) {
 	case nil:
-		_ = h.WriteByte(0)
-
-	case bool:
-		if val {
-			_ = h.WriteByte(1)
-		} else {
-			_ = h.WriteByte(0)
-		}
-
-	case float64:
-		var buf [8]byte
-		binary.BigEndian.PutUint64(buf[:], math.Float64bits(val))
-		_, _ = h.Write(buf[:])
-
-	case int:
-		var buf [8]byte
-		binary.BigEndian.PutUint64(buf[:], uint64(val)) //nolint:gosec // Overflow is acceptable for hashing
-		_, _ = h.Write(buf[:])
-
-	case int64:
-		var buf [8]byte
-		binary.BigEndian.PutUint64(buf[:], uint64(val)) //nolint:gosec // Overflow is acceptable for hashing
-		_, _ = h.Write(buf[:])
+		return "null", nil
 
 	case string:
-		_, _ = h.WriteString(val)
+		return fmt.Sprintf(`"%s"`, v), nil
 
-	case []any:
-		var buf [8]byte
-		binary.BigEndian.PutUint64(buf[:], uint64(len(val)))
-		_, _ = h.Write(buf[:])
-		for _, item := range val {
-			hashJSONValue(h, item)
-		}
+	case bool:
+		return fmt.Sprintf("%t", v), nil
+
+	case float64:
+		return fmt.Sprintf("%g", v), nil
+
+	case int:
+		return fmt.Sprintf("%d", v), nil
+
+	case int64:
+		return fmt.Sprintf("%d", v), nil
+
+	case int32:
+		return fmt.Sprintf("%d", v), nil
+
+	case uint:
+		return fmt.Sprintf("%d", v), nil
+
+	case uint64:
+		return fmt.Sprintf("%d", v), nil
+
+	case uint32:
+		return fmt.Sprintf("%d", v), nil
 
 	case map[string]any:
-		// Sort keys for deterministic hashing
-		keys := make([]string, 0, len(val))
-		for k := range val {
+		// For maps, sort keys to ensure consistent ordering
+		keys := make([]string, 0, len(v))
+		for k := range v {
 			keys = append(keys, k)
 		}
 		slices.Sort(keys)
 
-		var buf [8]byte
-		binary.BigEndian.PutUint64(buf[:], uint64(len(keys)))
-		_, _ = h.Write(buf[:])
-
-		for _, k := range keys {
-			_, _ = h.WriteString(k)
-			hashJSONValue(h, val[k])
+		var sb strings.Builder
+		sb.WriteByte('{')
+		for i, k := range keys {
+			if i > 0 {
+				sb.WriteByte(',')
+			}
+			sb.WriteString(fmt.Sprintf(`"%s":`, k))
+			normalized, err := normalizeValue(v[k])
+			if err != nil {
+				return "", err
+			}
+			sb.WriteString(normalized)
 		}
-
-	default:
-		// Fallback to reflection for other types
-		hashJSONValueReflect(h, reflect.ValueOf(v))
-	}
-}
-
-// hashJSONValueReflect handles hashing for types that need reflection.
-func hashJSONValueReflect(h *maphash.Hash, rv reflect.Value) {
-	if !rv.IsValid() {
-		_ = h.WriteByte(0)
-		return
-	}
-
-	switch rv.Kind() {
-	case reflect.Bool:
-		if rv.Bool() {
-			_ = h.WriteByte(1)
-		} else {
-			_ = h.WriteByte(0)
-		}
-
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		var buf [8]byte
-		binary.BigEndian.PutUint64(buf[:], uint64(rv.Int())) //nolint:gosec // Overflow is acceptable for hashing
-		_, _ = h.Write(buf[:])
-
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		var buf [8]byte
-		binary.BigEndian.PutUint64(buf[:], rv.Uint())
-		_, _ = h.Write(buf[:])
-
-	case reflect.Float32, reflect.Float64:
-		var buf [8]byte
-		binary.BigEndian.PutUint64(buf[:], math.Float64bits(rv.Float()))
-		_, _ = h.Write(buf[:])
-
-	case reflect.String:
-		_, _ = h.WriteString(rv.String())
-
-	case reflect.Slice, reflect.Array:
-		var buf [8]byte
-		binary.BigEndian.PutUint64(buf[:], uint64(rv.Len())) //nolint:gosec // Overflow is acceptable for hashing
-		_, _ = h.Write(buf[:])
-		for i := 0; i < rv.Len(); i++ {
-			hashJSONValueReflect(h, rv.Index(i))
-		}
-
-	case reflect.Map:
-		keys := rv.MapKeys()
-		slices.SortFunc(keys, func(a, b reflect.Value) int {
-			return strings.Compare(fmt.Sprint(a.Interface()), fmt.Sprint(b.Interface()))
-		})
-
-		var buf [8]byte
-		binary.BigEndian.PutUint64(buf[:], uint64(len(keys)))
-		_, _ = h.Write(buf[:])
-
-		for _, k := range keys {
-			hashJSONValueReflect(h, k)
-			hashJSONValueReflect(h, rv.MapIndex(k))
-		}
-
-	case reflect.Interface, reflect.Pointer:
-		if rv.IsNil() {
-			_ = h.WriteByte(0)
-		} else {
-			hashJSONValueReflect(h, rv.Elem())
-		}
-
-	case reflect.Invalid, reflect.Uintptr, reflect.Complex64, reflect.Complex128,
-		reflect.Chan, reflect.Func, reflect.Struct, reflect.UnsafePointer:
-		// For unsupported types, use string representation as fallback
-		_, _ = fmt.Fprint(h, rv.Interface())
-	}
-}
-
-// deepEqualJSON performs deep equality comparison for JSON values.
-func deepEqualJSON(a, b any) bool {
-	if a == nil && b == nil {
-		return true
-	}
-	if a == nil || b == nil {
-		return false
-	}
-
-	switch va := a.(type) {
-	case bool:
-		vb, ok := b.(bool)
-		return ok && va == vb
-
-	case float64:
-		vb, ok := b.(float64)
-		return ok && va == vb
-
-	case int:
-		vb, ok := b.(int)
-		return ok && va == vb
-
-	case int64:
-		vb, ok := b.(int64)
-		return ok && va == vb
-
-	case string:
-		vb, ok := b.(string)
-		return ok && va == vb
+		sb.WriteByte('}')
+		return sb.String(), nil
 
 	case []any:
-		vb, ok := b.([]any)
-		if !ok || len(va) != len(vb) {
-			return false
-		}
-		for i := range va {
-			if !deepEqualJSON(va[i], vb[i]) {
-				return false
+		var sb strings.Builder
+		sb.WriteByte('[')
+		for i, elem := range v {
+			if i > 0 {
+				sb.WriteByte(',')
 			}
-		}
-		return true
-
-	case map[string]any:
-		vb, ok := b.(map[string]any)
-		if !ok || len(va) != len(vb) {
-			return false
-		}
-		for k, v := range va {
-			vbVal, exists := vb[k]
-			if !exists || !deepEqualJSON(v, vbVal) {
-				return false
+			normalized, err := normalizeValue(elem)
+			if err != nil {
+				return "", err
 			}
+			sb.WriteString(normalized)
 		}
-		return true
+		sb.WriteByte(']')
+		return sb.String(), nil
 	}
 
-	// Fallback to reflection-based comparison
-	return deepEqualJSONReflect(reflect.ValueOf(a), reflect.ValueOf(b))
-}
+	// Slow path: Fall back to reflection for uncommon types
+	rv := reflect.ValueOf(value)
+	switch rv.Kind() {
+	case reflect.Map:
+		// For maps, sort keys to ensure consistent ordering
+		keys := rv.MapKeys()
+		slices.SortFunc(keys, func(a, b reflect.Value) int {
+			return cmp.Compare(
+				fmt.Sprintf("%v", a.Interface()),
+				fmt.Sprintf("%v", b.Interface()),
+			)
+		})
 
-// deepEqualJSONReflect performs reflection-based deep equality.
-func deepEqualJSONReflect(a, b reflect.Value) bool {
-	if !a.IsValid() || !b.IsValid() {
-		return a.IsValid() == b.IsValid()
-	}
-
-	if a.Kind() != b.Kind() {
-		return false
-	}
-
-	switch a.Kind() {
-	case reflect.Bool:
-		return a.Bool() == b.Bool()
-
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return a.Int() == b.Int()
-
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return a.Uint() == b.Uint()
-
-	case reflect.Float32, reflect.Float64:
-		return a.Float() == b.Float()
-
-	case reflect.String:
-		return a.String() == b.String()
+		var pairs []string
+		for _, key := range keys {
+			keyStr, err := normalizeValue(key.Interface())
+			if err != nil {
+				return "", err
+			}
+			valueStr, err := normalizeValue(rv.MapIndex(key).Interface())
+			if err != nil {
+				return "", err
+			}
+			pairs = append(pairs, fmt.Sprintf("%s:%s", keyStr, valueStr))
+		}
+		return fmt.Sprintf("{%s}", strings.Join(pairs, ",")), nil
 
 	case reflect.Slice, reflect.Array:
-		if a.Len() != b.Len() {
-			return false
-		}
-		for i := 0; i < a.Len(); i++ {
-			if !deepEqualJSONReflect(a.Index(i), b.Index(i)) {
-				return false
+		var elements []string
+		for i := 0; i < rv.Len(); i++ {
+			elemStr, err := normalizeValue(rv.Index(i).Interface())
+			if err != nil {
+				return "", err
 			}
+			elements = append(elements, elemStr)
 		}
-		return true
+		return fmt.Sprintf("[%s]", strings.Join(elements, ",")), nil
 
-	case reflect.Map:
-		if a.Len() != b.Len() {
-			return false
-		}
-		for _, k := range a.MapKeys() {
-			aVal := a.MapIndex(k)
-			bVal := b.MapIndex(k)
-			if !bVal.IsValid() || !deepEqualJSONReflect(aVal, bVal) {
-				return false
-			}
-		}
-		return true
+	case reflect.String:
+		return fmt.Sprintf(`"%s"`, rv.String()), nil
 
-	case reflect.Interface, reflect.Pointer:
-		if a.IsNil() || b.IsNil() {
-			return a.IsNil() == b.IsNil()
+	case reflect.Bool:
+		return fmt.Sprintf("%t", rv.Bool()), nil
+
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return fmt.Sprintf("%d", rv.Int()), nil
+
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return fmt.Sprintf("%d", rv.Uint()), nil
+
+	case reflect.Float32, reflect.Float64:
+		return fmt.Sprintf("%g", rv.Float()), nil
+
+	case reflect.Ptr:
+		if rv.IsNil() {
+			return "null", nil
 		}
-		return deepEqualJSONReflect(a.Elem(), b.Elem())
+		return normalizeValue(rv.Elem().Interface())
+
+	case reflect.Interface:
+		if rv.IsNil() {
+			return "null", nil
+		}
+		return normalizeValue(rv.Elem().Interface())
+
+	case reflect.Struct:
+		// For structs, marshal to JSON as fallback
+		bytes, err := json.Marshal(value)
+		if err != nil {
+			return "", err
+		}
+		return string(bytes), nil
 
 	case reflect.Invalid, reflect.Uintptr, reflect.Complex64, reflect.Complex128,
-		reflect.Chan, reflect.Func, reflect.Struct, reflect.UnsafePointer:
-		return false
-	}
+		reflect.Chan, reflect.Func, reflect.UnsafePointer:
+		// These types are not typically JSON serializable, use fallback
+		bytes, err := json.Marshal(value)
+		if err != nil {
+			return "", err
+		}
+		return string(bytes), nil
 
-	return false
+	default:
+		// For other types, use JSON marshaling as fallback
+		bytes, err := json.Marshal(value)
+		if err != nil {
+			return "", err
+		}
+		return string(bytes), nil
+	}
 }

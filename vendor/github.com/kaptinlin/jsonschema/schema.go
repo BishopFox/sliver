@@ -220,49 +220,19 @@ func (s *Schema) initializeSchemaWithoutReferences(compiler *Compiler, parent *S
 // When resolveRefs is true, references are resolved immediately after nested schema initialization.
 // When resolveRefs is false, reference resolution is deferred (used by CompileBatch).
 func (s *Schema) initializeSchemaCore(compiler *Compiler, parent *Schema, resolveRefs bool) {
+	// Only set compiler if it's not nil (for constructor usage)
 	if compiler != nil {
 		s.compiler = compiler
 	}
 	s.parent = parent
 
-	effectiveCompiler := s.Compiler()
+	// Get effective compiler for initialization
+	effectiveCompiler := s.GetCompiler()
 
-	// Resolve base URI
-	s.resolveBaseURI(effectiveCompiler)
-
-	// Set anchors
-	if s.Anchor != "" {
-		s.setAnchor(s.Anchor)
-	}
-	if s.DynamicAnchor != "" {
-		s.setDynamicAnchor(s.DynamicAnchor)
-	}
-
-	// Register schema in root
-	if s.uri != "" && isValidURI(s.uri) {
-		root := s.rootSchema()
-		root.setSchema(s.uri, s)
-	}
-
-	// Initialize nested schemas
-	initializeNestedSchemasCore(s, compiler, resolveRefs)
-	if resolveRefs {
-		s.resolveReferences()
-	}
-
-	// Handle PreserveExtra option
-	if effectiveCompiler != nil && !effectiveCompiler.PreserveExtra {
-		s.Extra = nil
-	}
-}
-
-// resolveBaseURI resolves the base URI for the schema
-func (s *Schema) resolveBaseURI(compiler *Compiler) {
-	parentBaseURI := s.parentBaseURI()
+	parentBaseURI := s.getParentBaseURI()
 	if parentBaseURI == "" {
-		parentBaseURI = compiler.DefaultBaseURI
+		parentBaseURI = effectiveCompiler.DefaultBaseURI
 	}
-
 	if s.ID != "" {
 		if isValidURI(s.ID) {
 			s.uri = s.ID
@@ -276,8 +246,36 @@ func (s *Schema) resolveBaseURI(compiler *Compiler) {
 		s.baseURI = parentBaseURI
 	}
 
-	if s.baseURI == "" && s.uri != "" && isValidURI(s.uri) {
-		s.baseURI = getBaseURI(s.uri)
+	if s.baseURI == "" {
+		if s.uri != "" && isValidURI(s.uri) {
+			s.baseURI = getBaseURI(s.uri)
+		}
+	}
+
+	if s.Anchor != "" {
+		s.setAnchor(s.Anchor)
+	}
+
+	if s.DynamicAnchor != "" {
+		s.setDynamicAnchor(s.DynamicAnchor)
+	}
+
+	if s.uri != "" && isValidURI(s.uri) {
+		root := s.getRootSchema()
+		root.setSchema(s.uri, s)
+	}
+
+	// For constructor usage (compiler=nil), don't pass compiler to children
+	// They should inherit through parent-child relationship via GetCompiler()
+	initializeNestedSchemasCore(s, compiler, resolveRefs)
+	if resolveRefs {
+		s.resolveReferences()
+	}
+
+	// Handle PreserveExtra option
+	// If false (default), clear any collected extra fields
+	if effectiveCompiler != nil && !effectiveCompiler.PreserveExtra {
+		s.Extra = nil
 	}
 }
 
@@ -295,19 +293,34 @@ func initializeNestedSchemasCore(s *Schema, compiler *Compiler, resolveRefs bool
 		}
 	}
 	// Initialize logical schema groupings
-	for _, schemas := range [][]*Schema{s.AllOf, s.AnyOf, s.OneOf} {
-		for _, schema := range schemas {
-			if schema != nil {
-				initChild(schema)
-			}
+	for _, schema := range s.AllOf {
+		if schema != nil {
+			initChild(schema)
+		}
+	}
+	for _, schema := range s.AnyOf {
+		if schema != nil {
+			initChild(schema)
+		}
+	}
+	for _, schema := range s.OneOf {
+		if schema != nil {
+			initChild(schema)
 		}
 	}
 
 	// Initialize conditional schemas
-	for _, schema := range []*Schema{s.Not, s.If, s.Then, s.Else} {
-		if schema != nil {
-			initChild(schema)
-		}
+	if s.Not != nil {
+		initChild(s.Not)
+	}
+	if s.If != nil {
+		initChild(s.If)
+	}
+	if s.Then != nil {
+		initChild(s.Then)
+	}
+	if s.Else != nil {
+		initChild(s.Else)
 	}
 	if s.DependentSchemas != nil {
 		for _, depSchema := range s.DependentSchemas {
@@ -321,10 +334,14 @@ func initializeNestedSchemasCore(s *Schema, compiler *Compiler, resolveRefs bool
 			initChild(item)
 		}
 	}
-	for _, schema := range []*Schema{s.Items, s.Contains, s.AdditionalProperties} {
-		if schema != nil {
-			initChild(schema)
-		}
+	if s.Items != nil {
+		initChild(s.Items)
+	}
+	if s.Contains != nil {
+		initChild(s.Contains)
+	}
+	if s.AdditionalProperties != nil {
+		initChild(s.AdditionalProperties)
 	}
 	if s.Properties != nil {
 		for _, prop := range *s.Properties {
@@ -336,10 +353,17 @@ func initializeNestedSchemasCore(s *Schema, compiler *Compiler, resolveRefs bool
 			initChild(prop)
 		}
 	}
-	for _, schema := range []*Schema{s.UnevaluatedProperties, s.UnevaluatedItems, s.ContentSchema, s.PropertyNames} {
-		if schema != nil {
-			initChild(schema)
-		}
+	if s.UnevaluatedProperties != nil {
+		initChild(s.UnevaluatedProperties)
+	}
+	if s.UnevaluatedItems != nil {
+		initChild(s.UnevaluatedItems)
+	}
+	if s.ContentSchema != nil {
+		initChild(s.ContentSchema)
+	}
+	if s.PropertyNames != nil {
+		initChild(s.PropertyNames)
 	}
 }
 
@@ -478,14 +502,17 @@ func (s *Schema) setAnchor(anchor string) {
 	}
 	s.anchors[anchor] = s
 
-	root := s.rootSchema()
+	root := s.getRootSchema()
 	if root.anchors == nil {
 		root.anchors = make(map[string]*Schema)
 	}
 
 	// Only set anchor at root level if it's in the same scope as root
-	if (s.ID == "" || s.ID == root.ID) && root.anchors[anchor] == nil {
-		root.anchors[anchor] = s
+	// If this schema has its own $id that's different from root, it's in a different scope
+	if s.ID == "" || s.ID == root.ID {
+		if _, ok := root.anchors[anchor]; !ok {
+			root.anchors[anchor] = s
+		}
 	}
 }
 
@@ -494,16 +521,16 @@ func (s *Schema) setDynamicAnchor(anchor string) {
 	if s.dynamicAnchors == nil {
 		s.dynamicAnchors = make(map[string]*Schema)
 	}
-	if s.dynamicAnchors[anchor] == nil {
+	if _, ok := s.dynamicAnchors[anchor]; !ok {
 		s.dynamicAnchors[anchor] = s
 	}
 
-	scope := s.scopeSchema()
+	scope := s.getScopeSchema()
 	if scope.dynamicAnchors == nil {
 		scope.dynamicAnchors = make(map[string]*Schema)
 	}
 
-	if scope.dynamicAnchors[anchor] == nil {
+	if _, ok := scope.dynamicAnchors[anchor]; !ok {
 		scope.dynamicAnchors[anchor] = s
 	}
 }
@@ -531,12 +558,12 @@ func (s *Schema) getSchema(ref string) (*Schema, error) {
 	return nil, ErrReferenceResolution
 }
 
-// SchemaURI returns the resolved URI for the schema, or an empty string if no URI is defined.
-func (s *Schema) SchemaURI() string {
+// GetSchemaURI returns the resolved URI for the schema, or an empty string if no URI is defined.
+func (s *Schema) GetSchemaURI() string {
 	if s.uri != "" {
 		return s.uri
 	}
-	root := s.rootSchema()
+	root := s.getRootSchema()
 	if root.uri != "" {
 		return root.uri
 	}
@@ -544,36 +571,36 @@ func (s *Schema) SchemaURI() string {
 	return ""
 }
 
-// SchemaLocation returns the schema location with the given anchor
-func (s *Schema) SchemaLocation(anchor string) string {
-	uri := s.SchemaURI()
+// GetSchemaLocation returns the schema location with the given anchor
+func (s *Schema) GetSchemaLocation(anchor string) string {
+	uri := s.GetSchemaURI()
 
 	return uri + "#" + anchor
 }
 
-// rootSchema returns the highest-level parent schema, serving as the root in the schema tree.
-func (s *Schema) rootSchema() *Schema {
+// getRootSchema returns the highest-level parent schema, serving as the root in the schema tree.
+func (s *Schema) getRootSchema() *Schema {
 	if s.parent != nil {
-		return s.parent.rootSchema()
+		return s.parent.getRootSchema()
 	}
 
 	return s
 }
 
-func (s *Schema) scopeSchema() *Schema {
+func (s *Schema) getScopeSchema() *Schema {
 	if s.ID != "" {
 		return s
 	}
 	if s.parent != nil {
-		return s.parent.scopeSchema()
+		return s.parent.getScopeSchema()
 	}
 
 	return s
 }
 
-// parentBaseURI returns the base URI from the nearest parent schema that has one defined,
+// getParentBaseURI returns the base URI from the nearest parent schema that has one defined,
 // or an empty string if none of the parents up to the root define a base URI.
-func (s *Schema) parentBaseURI() string {
+func (s *Schema) getParentBaseURI() string {
 	for p := s.parent; p != nil; p = p.parent {
 		if p.baseURI != "" {
 			return p.baseURI
@@ -665,18 +692,24 @@ func (s *Schema) UnmarshalJSON(data []byte) error {
 
 	// Smart handling for "items" polymorphism (Draft 07 vs 2020-12)
 	if len(aux.Items) > 0 {
+		// Simple check for array start token '['
 		trimmed := bytes.TrimSpace(aux.Items)
 		if len(trimmed) > 0 && trimmed[0] == '[' {
 			// Case 1: items is an array (Draft 07 Tuple Validation)
+			// Map JSON "items" -> Go "PrefixItems"
 			if err := json.Unmarshal(aux.Items, &s.PrefixItems); err != nil {
 				return err
 			}
-			// In Draft 07, "additionalItems" validates the rest
+
+			// In Draft 07, "additionalItems" validates the rest.
+			// Map JSON "additionalItems" -> Go "Items"
+			// (Note: In 2020-12, "items" handles what "additionalItems" used to do when prefixItems is present)
 			if aux.AdditionalItems != nil {
 				s.Items = aux.AdditionalItems
 			}
 		} else {
 			// Case 2: items is a schema object (Draft 2020-12 List Validation)
+			// Map JSON "items" -> Go "Items"
 			if err := json.Unmarshal(aux.Items, &s.Items); err != nil {
 				return err
 			}
@@ -690,12 +723,15 @@ func (s *Schema) UnmarshalJSON(data []byte) error {
 	}
 
 	// Handle backward compatibility: "definitions" (Draft-7) -> "$defs" (Draft 2020-12)
-	if defsData, ok := raw["definitions"]; ok && s.Defs == nil {
-		var defs map[string]*Schema
-		if err := json.Unmarshal(defsData, &defs); err != nil {
-			return err
+	if defsData, ok := raw["definitions"]; ok {
+		// Only use "definitions" if "$defs" is not already set
+		if s.Defs == nil {
+			var defs map[string]*Schema
+			if err := json.Unmarshal(defsData, &defs); err != nil {
+				return err
+			}
+			s.Defs = defs
 		}
-		s.Defs = defs
 	}
 
 	// Special handling for the const field
@@ -703,7 +739,8 @@ func (s *Schema) UnmarshalJSON(data []byte) error {
 		if s.Const == nil {
 			s.Const = &ConstValue{}
 		}
-		if err := s.Const.UnmarshalJSON(constData); err != nil {
+		err := s.Const.UnmarshalJSON(constData)
+		if err != nil {
 			return err
 		}
 	}
@@ -788,7 +825,7 @@ func (st *SchemaType) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
-	return ErrInvalidSchemaType
+	return ErrInvalidJSONSchemaType
 }
 
 // ConstValue represents a constant value in a JSON Schema.
@@ -799,10 +836,12 @@ type ConstValue struct {
 
 // UnmarshalJSON handles unmarshaling a JSON value into the ConstValue type.
 func (cv *ConstValue) UnmarshalJSON(data []byte) error {
+	// Ensure cv is not nil
 	if cv == nil {
 		return ErrNilConstValue
 	}
 
+	// Set IsSet to true because we are setting a value
 	cv.IsSet = true
 
 	// If the input is "null", explicitly set Value to nil
@@ -811,6 +850,7 @@ func (cv *ConstValue) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
+	// Otherwise parse the value normally
 	return json.Unmarshal(data, &cv.Value)
 }
 
@@ -828,16 +868,16 @@ func (s *Schema) SetCompiler(compiler *Compiler) *Schema {
 	return s
 }
 
-// Compiler gets the effective Compiler for the Schema
+// GetCompiler gets the effective Compiler for the Schema
 // Lookup order: current Schema -> parent Schema -> defaultCompiler
-func (s *Schema) Compiler() *Compiler {
+func (s *Schema) GetCompiler() *Compiler {
 	if s.compiler != nil {
 		return s.compiler
 	}
 
 	// Look up parent Schema's compiler
 	if s.parent != nil {
-		return s.parent.Compiler()
+		return s.parent.GetCompiler()
 	}
 
 	return defaultCompiler

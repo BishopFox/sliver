@@ -118,6 +118,17 @@
 //     while many non-fallback fields may be specified. This option
 //     must not be specified with any other option (including the JSON name).
 //
+//   - unknown: The "unknown" option is a specialized variant
+//     of the inlined fallback to indicate that this Go struct field
+//     contains any number of unknown JSON object members. The field type must
+//     be a [jsontext.Value], map[~string]T, or an unnamed pointer to such types.
+//     If [DiscardUnknownMembers] is specified when marshaling,
+//     the contents of this field are ignored.
+//     If [RejectUnknownMembers] is specified when unmarshaling,
+//     any unknown object members are rejected regardless of whether
+//     an inlined fallback with the "unknown" option exists. This option
+//     must not be specified with any other option (including the JSON name).
+//
 //   - format: The "format" option specifies a format flag
 //     used to specialize the formatting of the field value.
 //     The option is a key-value pair specified as "format:value" where
@@ -271,13 +282,11 @@ import (
 //
 //   - If any type-specific functions in a [WithMarshalers] option match
 //     the value type, then those functions are called to encode the value.
-//     If all applicable functions return [errors.ErrUnsupported],
+//     If all applicable functions return [SkipFunc],
 //     then the value is encoded according to subsequent rules.
 //
 //   - If the value type implements [MarshalerTo],
 //     then the MarshalJSONTo method is called to encode the value.
-//     If the method returns [errors.ErrUnsupported],
-//     then the input is encoded according to subsequent rules.
 //
 //   - If the value type implements [Marshaler],
 //     then the MarshalJSON method is called to encode the value.
@@ -432,13 +441,11 @@ func MarshalEncode(out *jsontext.Encoder, in any, opts ...Options) (err error) {
 //
 //   - If any type-specific functions in a [WithUnmarshalers] option match
 //     the value type, then those functions are called to decode the JSON
-//     value. If all applicable functions return [errors.ErrUnsupported],
+//     value. If all applicable functions return [SkipFunc],
 //     then the input is decoded according to subsequent rules.
 //
 //   - If the value type implements [UnmarshalerFrom],
 //     then the UnmarshalJSONFrom method is called to decode the JSON value.
-//     If the method returns [errors.ErrUnsupported],
-//     then the input is decoded according to subsequent rules.
 //
 //   - If the value type implements [Unmarshaler],
 //     then the UnmarshalJSON method is called to decode the JSON value.
@@ -602,6 +609,15 @@ func UnmarshalDecode(in *jsontext.Decoder, out any, opts ...Options) (err error)
 	return json.UnmarshalDecode(in, out, opts...)
 }
 
+// SkipFunc may be returned by [MarshalToFunc] and [UnmarshalFromFunc] functions.
+//
+// Any function that returns SkipFunc must not cause observable side effects
+// on the provided [jsontext.Encoder] or [jsontext.Decoder].
+// For example, it is permissible to call [jsontext.Decoder.PeekKind],
+// but not permissible to call [jsontext.Decoder.ReadToken] or
+// [jsontext.Encoder.WriteToken] since such methods mutate the state.
+var SkipFunc = json.SkipFunc
+
 // Marshalers is a list of functions that may override the marshal behavior
 // of specific types. Populate [WithMarshalers] to use it with
 // [Marshal], [MarshalWrite], or [MarshalEncode].
@@ -612,8 +628,7 @@ type Marshalers = json.Marshalers
 // JoinMarshalers constructs a flattened list of marshal functions.
 // If multiple functions in the list are applicable for a value of a given type,
 // then those earlier in the list take precedence over those that come later.
-// If a function returns [errors.ErrUnsupported],
-// then the next applicable function is called,
+// If a function returns [SkipFunc], then the next applicable function is called,
 // otherwise the default marshaling behavior is used.
 //
 // For example:
@@ -635,8 +650,7 @@ type Unmarshalers = json.Unmarshalers
 // JoinUnmarshalers constructs a flattened list of unmarshal functions.
 // If multiple functions in the list are applicable for a value of a given type,
 // then those earlier in the list take precedence over those that come later.
-// If a function returns [errors.ErrUnsupported],
-// then the next applicable function is called,
+// If a function returns [SkipFunc], then the next applicable function is called,
 // otherwise the default unmarshaling behavior is used.
 //
 // For example:
@@ -656,7 +670,7 @@ func JoinUnmarshalers(us ...*Unmarshalers) *Unmarshalers {
 //
 // The function must marshal exactly one JSON value.
 // The value of T must not be retained outside the function call.
-// It may not return [errors.ErrUnsupported].
+// It may not return [SkipFunc].
 func MarshalFunc[T any](fn func(T) ([]byte, error)) *Marshalers {
 	return json.MarshalFunc[T](fn)
 }
@@ -668,9 +682,9 @@ func MarshalFunc[T any](fn func(T) ([]byte, error)) *Marshalers {
 // if T is an interface or pointer type.
 //
 // The function must marshal exactly one JSON value by calling write methods
-// on the provided encoder. It may return [errors.ErrUnsupported] such that marshaling can
+// on the provided encoder. It may return [SkipFunc] such that marshaling can
 // move on to the next marshal function. However, no mutable method calls may
-// be called on the encoder if [errors.ErrUnsupported] is returned.
+// be called on the encoder if [SkipFunc] is returned.
 // The pointer to [jsontext.Encoder] and the value of T
 // must not be retained outside the function call.
 func MarshalToFunc[T any](fn func(*jsontext.Encoder, T) error) *Marshalers {
@@ -685,7 +699,7 @@ func MarshalToFunc[T any](fn func(*jsontext.Encoder, T) error) *Marshalers {
 // The function must unmarshal exactly one JSON value.
 // The input []byte must not be mutated.
 // The input []byte and value T must not be retained outside the function call.
-// It may not return [errors.ErrUnsupported].
+// It may not return [SkipFunc].
 func UnmarshalFunc[T any](fn func([]byte, T) error) *Unmarshalers {
 	return json.UnmarshalFunc[T](fn)
 }
@@ -696,9 +710,9 @@ func UnmarshalFunc[T any](fn func([]byte, T) error) *Unmarshalers {
 // The function is always provided with a non-nil pointer value.
 //
 // The function must unmarshal exactly one JSON value by calling read methods
-// on the provided decoder. It may return [errors.ErrUnsupported] such that unmarshaling can
+// on the provided decoder. It may return [SkipFunc] such that unmarshaling can
 // move on to the next unmarshal function. However, no mutable method calls may
-// be called on the decoder if [errors.ErrUnsupported] is returned.
+// be called on the decoder if [SkipFunc] is returned.
 // The pointer to [jsontext.Decoder] and the value of T
 // must not be retained outside the function call.
 func UnmarshalFromFunc[T any](fn func(*jsontext.Decoder, T) error) *Unmarshalers {
@@ -724,20 +738,13 @@ type Marshaler = json.Marshaler
 // then MarshalerTo takes precedence. In such a case, both implementations
 // should aim to have equivalent behavior for the default marshal options.
 //
-// The implementation must write only one JSON value to the Encoder.
-// Alternatively, it may return [errors.ErrUnsupported] without mutating
-// the Encoder. The "json" package calling the method will
-// use the next available JSON representation for the receiver type.
-// Implementations must not retain the pointer to [jsontext.Encoder].
+// The implementation must write only one JSON value to the Encoder and
+// must not retain the pointer to [jsontext.Encoder].
 //
 // If the returned error is a [SemanticError], then unpopulated fields
 // of the error may be populated by [json] with additional context.
 // Errors of other types are wrapped within a [SemanticError],
 // unless it is an IO error.
-//
-// The MarshalJSONTo method should not be directly called as it may
-// return sentinel errors that need special handling.
-// Users should instead call [MarshalEncode], which handles such cases.
 type MarshalerTo = json.MarshalerTo
 
 // Unmarshaler is implemented by types that can unmarshal themselves.
@@ -767,19 +774,13 @@ type Unmarshaler = json.Unmarshaler
 // The implementation must read only one JSON value from the Decoder.
 // It is recommended that UnmarshalJSONFrom implement merge semantics when
 // unmarshaling into a pre-populated value.
-// Alternatively, it may return [errors.ErrUnsupported] without mutating
-// the Decoder. The "json" package calling the method will
-// use the next available JSON representation for the receiver type.
+//
 // Implementations must not retain the pointer to [jsontext.Decoder].
 //
 // If the returned error is a [SemanticError], then unpopulated fields
 // of the error may be populated by [json] with additional context.
 // Errors of other types are wrapped within a [SemanticError],
 // unless it is a [jsontext.SyntacticError] or an IO error.
-//
-// The UnmarshalJSONFrom method should not be directly called as it may
-// return sentinel errors that need special handling.
-// Users should instead call [UnmarshalDecode], which handles such cases.
 type UnmarshalerFrom = json.UnmarshalerFrom
 
 // ErrUnknownName indicates that a JSON object member could not be
@@ -861,6 +862,7 @@ type SemanticError = json.SemanticError
 //   - [FormatNilMapAsNull] affects marshaling only
 //   - [OmitZeroStructFields] affects marshaling only
 //   - [MatchCaseInsensitiveNames] affects marshaling and unmarshaling
+//   - [DiscardUnknownMembers] affects marshaling only
 //   - [RejectUnknownMembers] affects unmarshaling only
 //   - [WithMarshalers] affects marshaling only
 //   - [WithUnmarshalers] affects unmarshaling only
@@ -969,8 +971,18 @@ func MatchCaseInsensitiveNames(v bool) Options {
 	return json.MatchCaseInsensitiveNames(v)
 }
 
+// DiscardUnknownMembers specifies that marshaling should ignore any
+// JSON object members stored in Go struct fields dedicated to storing
+// unknown JSON object members.
+//
+// This only affects marshaling and is ignored when unmarshaling.
+func DiscardUnknownMembers(v bool) Options {
+	return json.DiscardUnknownMembers(v)
+}
+
 // RejectUnknownMembers specifies that unknown members should be rejected
-// when unmarshaling a JSON object.
+// when unmarshaling a JSON object, regardless of whether there is a field
+// to store unknown members.
 //
 // This only affects unmarshaling and is ignored when marshaling.
 func RejectUnknownMembers(v bool) Options {

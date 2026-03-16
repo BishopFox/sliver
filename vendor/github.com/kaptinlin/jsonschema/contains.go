@@ -33,7 +33,7 @@ func evaluateContains(
 		if result != nil {
 			//nolint:errcheck
 			result.SetEvaluationPath("/contains").
-				SetSchemaLocation(schema.SchemaLocation("/contains")).
+				SetSchemaLocation(schema.GetSchemaLocation("/contains")).
 				SetInstanceLocation(fmt.Sprintf("/%d", i))
 
 			if result.IsValid() {

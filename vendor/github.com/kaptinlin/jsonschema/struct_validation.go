@@ -73,7 +73,7 @@ func parseStructType(structType reflect.Type) *FieldCache {
 		FieldsByName: make(map[string]FieldInfo),
 	}
 
-	for i := range structType.NumField() {
+	for i := 0; i < structType.NumField(); i++ {
 		field := structType.Field(i)
 
 		// Skip unexported fields
@@ -159,7 +159,7 @@ func isEmptyValue(rv reflect.Value) bool {
 		return rv.Uint() == 0
 	case reflect.Float32, reflect.Float64:
 		return rv.Float() == 0
-	case reflect.Interface, reflect.Pointer:
+	case reflect.Interface, reflect.Ptr:
 		return rv.IsNil()
 	case reflect.Struct:
 		// Use IsZero method if available (time.Time, custom types)
@@ -181,7 +181,7 @@ func isMissingValue(rv reflect.Value) bool {
 	switch rv.Kind() {
 	case reflect.Invalid:
 		return true
-	case reflect.Interface, reflect.Pointer:
+	case reflect.Interface, reflect.Ptr:
 		return rv.IsNil()
 	case reflect.Struct:
 		// Use IsZero method if available (time.Time, custom types)
@@ -212,7 +212,7 @@ func isMissingValue(rv reflect.Value) bool {
 // extractValue safely gets the any value from a reflect.Value
 func extractValue(rv reflect.Value) any {
 	// Handle pointers by dereferencing them first
-	for rv.Kind() == reflect.Pointer {
+	for rv.Kind() == reflect.Ptr {
 		if rv.IsNil() {
 			return nil
 		}
@@ -220,7 +220,7 @@ func extractValue(rv reflect.Value) any {
 	}
 
 	// Special handling for time.Time - convert to string for JSON schema validation
-	if rv.Type() == reflect.TypeFor[time.Time]() {
+	if rv.Type() == reflect.TypeOf(time.Time{}) {
 		t, ok := rv.Interface().(time.Time)
 		if !ok {
 			return nil
@@ -250,7 +250,7 @@ func extractValue(rv reflect.Value) any {
 func convertSliceToAny(rv reflect.Value) []any {
 	length := rv.Len()
 	result := make([]any, length)
-	for i := range length {
+	for i := 0; i < length; i++ {
 		elem := rv.Index(i)
 		// Recursively extract values to handle nested pointers and special types
 		result[i] = extractValue(elem)
@@ -459,15 +459,7 @@ func evaluatePatternPropertiesStruct(schema *Schema, structValue reflect.Value, 
 		}
 
 		for pattern, patternSchema := range *schema.PatternProperties {
-			// Use pre-compiled regex from schema; fall back to compile on demand.
-			re, ok := schema.compiledPatterns[pattern]
-			if !ok {
-				var err error
-				if re, err = regexp.Compile(pattern); err != nil {
-					continue // skip invalid pattern
-				}
-			}
-			if re.MatchString(jsonName) {
+			if matched, _ := regexp.MatchString(pattern, jsonName); matched {
 				evaluatedProps[jsonName] = true
 				value := extractValue(fieldValue)
 

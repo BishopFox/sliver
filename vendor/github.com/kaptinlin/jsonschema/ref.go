@@ -11,7 +11,7 @@ import (
 // resolveRef resolves a reference to another schema, either locally or globally, supporting both $ref and $dynamicRef.
 func (s *Schema) resolveRef(ref string) (*Schema, error) {
 	if ref == "#" {
-		return s.rootSchema(), nil
+		return s.getRootSchema(), nil
 	}
 
 	if strings.HasPrefix(ref, "#") {
@@ -52,12 +52,13 @@ func (s *Schema) resolveAnchor(anchorName string) (*Schema, error) {
 
 // resolveRefWithFullURL resolves a full URL reference to another schema.
 func (s *Schema) resolveRefWithFullURL(ref string) (*Schema, error) {
-	root := s.rootSchema()
+	root := s.getRootSchema()
 	if resolved, err := root.getSchema(ref); err == nil {
 		return resolved, nil
 	}
 
-	resolved, err := s.Compiler().Schema(ref)
+	// If not found in the current schema or its parents, look for the reference in the compiler
+	resolved, err := s.GetCompiler().GetSchema(ref)
 	if err != nil {
 		return nil, ErrGlobalReferenceResolution
 	}
@@ -70,11 +71,15 @@ func (s *Schema) resolveJSONPointer(pointer string) (*Schema, error) {
 		return s, nil
 	}
 
+	// Parse JSON Pointer using the jsonpointer library
+	// This handles ~ escaping (~ -> ~0, / -> ~1) automatically
 	segments := jsonpointer.Parse(pointer)
 	currentSchema := s
 	previousSegment := ""
 
 	for i, segment := range segments {
+		// jsonpointer.Parse handles ~0 and ~1 escaping, but not URL percent encoding
+		// We need to handle URL percent encoding separately for JSON Schema compatibility
 		decodedSegment, err := url.PathUnescape(segment)
 		if err != nil {
 			return nil, ErrJSONPointerSegmentDecode
@@ -87,7 +92,8 @@ func (s *Schema) resolveJSONPointer(pointer string) (*Schema, error) {
 			continue
 		}
 
-		if i == len(segments)-1 {
+		if !found && i == len(segments)-1 {
+			// If no schema is found and it's the last segment, throw error
 			return nil, ErrJSONPointerSegmentNotFound
 		}
 
@@ -108,10 +114,11 @@ func findSchemaInSegment(currentSchema *Schema, segment string, previousSegment 
 		}
 	case "prefixItems":
 		index, err := strconv.Atoi(segment)
+
 		if err == nil && currentSchema.PrefixItems != nil && index < len(currentSchema.PrefixItems) {
 			return currentSchema.PrefixItems[index], true
 		}
-	case "$defs", "definitions":
+	case "$defs", "definitions": // Support both $defs (2020-12) and definitions (Draft-7) for backward compatibility
 		if defSchema, exists := currentSchema.Defs[segment]; exists {
 			return defSchema, true
 		}
@@ -144,16 +151,21 @@ func (s *Schema) ResolveUnresolvedReferences() {
 }
 
 func (s *Schema) resolveReferences() {
+	// Resolve the root reference if this schema itself is a reference.
 	if s.Ref != "" {
-		if resolved, err := s.resolveRef(s.Ref); err == nil {
+		resolved, err := s.resolveRef(s.Ref)
+		if err == nil {
 			s.ResolvedRef = resolved
 		}
+		// If resolution fails, leave ResolvedRef as nil and validation will handle this gracefully.
 	}
 
 	if s.DynamicRef != "" {
-		if resolved, err := s.resolveRef(s.DynamicRef); err == nil {
+		resolved, err := s.resolveRef(s.DynamicRef)
+		if err == nil {
 			s.ResolvedDynamicRef = resolved
 		}
+		// If resolution fails, leave ResolvedDynamicRef as nil and validation will handle this gracefully.
 	}
 
 	s.walkNestedSchemas((*Schema).resolveReferences)
@@ -205,21 +217,77 @@ func (s *Schema) walkNestedSchemas(fn func(*Schema)) {
 	}
 }
 
-// UnresolvedReferenceURIs returns a list of URIs that this schema references but are not yet resolved.
-func (s *Schema) UnresolvedReferenceURIs() []string {
+// GetUnresolvedReferenceURIs returns a list of URIs that this schema references but are not yet resolved.
+func (s *Schema) GetUnresolvedReferenceURIs() []string {
 	var unresolvedURIs []string
 
-	var collect func(*Schema)
-	collect = func(schema *Schema) {
-		if schema.Ref != "" && schema.ResolvedRef == nil {
-			unresolvedURIs = append(unresolvedURIs, schema.Ref)
-		}
-		if schema.DynamicRef != "" && schema.ResolvedDynamicRef == nil {
-			unresolvedURIs = append(unresolvedURIs, schema.DynamicRef)
-		}
-		schema.walkNestedSchemas(collect)
+	// Check direct references
+	if s.Ref != "" && s.ResolvedRef == nil {
+		unresolvedURIs = append(unresolvedURIs, s.Ref)
 	}
-	collect(s)
 
+	if s.DynamicRef != "" && s.ResolvedDynamicRef == nil {
+		unresolvedURIs = append(unresolvedURIs, s.DynamicRef)
+	}
+
+	// Recursively check nested schemas
+	if s.Defs != nil {
+		for _, defSchema := range s.Defs {
+			unresolvedURIs = append(unresolvedURIs, defSchema.GetUnresolvedReferenceURIs()...)
+		}
+	}
+
+	if s.Properties != nil {
+		for _, propSchema := range *s.Properties {
+			if propSchema != nil {
+				unresolvedURIs = append(unresolvedURIs, propSchema.GetUnresolvedReferenceURIs()...)
+			}
+		}
+	}
+
+	// Check other schema fields
+	unresolvedURIs = append(unresolvedURIs, getUnresolvedFromList(s.AllOf)...)
+	unresolvedURIs = append(unresolvedURIs, getUnresolvedFromList(s.AnyOf)...)
+	unresolvedURIs = append(unresolvedURIs, getUnresolvedFromList(s.OneOf)...)
+
+	if s.Not != nil {
+		unresolvedURIs = append(unresolvedURIs, s.Not.GetUnresolvedReferenceURIs()...)
+	}
+
+	if s.Items != nil {
+		unresolvedURIs = append(unresolvedURIs, s.Items.GetUnresolvedReferenceURIs()...)
+	}
+
+	if s.PrefixItems != nil {
+		for _, schema := range s.PrefixItems {
+			unresolvedURIs = append(unresolvedURIs, schema.GetUnresolvedReferenceURIs()...)
+		}
+	}
+
+	if s.AdditionalProperties != nil {
+		unresolvedURIs = append(unresolvedURIs, s.AdditionalProperties.GetUnresolvedReferenceURIs()...)
+	}
+
+	if s.Contains != nil {
+		unresolvedURIs = append(unresolvedURIs, s.Contains.GetUnresolvedReferenceURIs()...)
+	}
+
+	if s.PatternProperties != nil {
+		for _, schema := range *s.PatternProperties {
+			unresolvedURIs = append(unresolvedURIs, schema.GetUnresolvedReferenceURIs()...)
+		}
+	}
+
+	return unresolvedURIs
+}
+
+// getUnresolvedFromList returns unresolved references from a list of schemas.
+func getUnresolvedFromList(schemas []*Schema) []string {
+	var unresolvedURIs []string
+	for _, schema := range schemas {
+		if schema != nil {
+			unresolvedURIs = append(unresolvedURIs, schema.GetUnresolvedReferenceURIs()...)
+		}
+	}
 	return unresolvedURIs
 }

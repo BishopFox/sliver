@@ -20,7 +20,7 @@ func evaluateNot(schema *Schema, instance any, _ map[string]bool, _ map[int]bool
 	if result != nil {
 		//nolint:errcheck
 		result.SetEvaluationPath("/not").
-			SetSchemaLocation(schema.SchemaLocation("/not"))
+			SetSchemaLocation(schema.GetSchemaLocation("/not"))
 
 		if result.IsValid() {
 			return result, NewEvaluationError("not", "not_schema_mismatch", "Value should not match the not schema")

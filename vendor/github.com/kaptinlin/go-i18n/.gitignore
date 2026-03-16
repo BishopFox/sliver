@@ -8,18 +8,17 @@
 # Test binary, built with `go test -c`
 *.test
 
-# Log files
+# log
 *.log
 
-# Output of the go coverage tool
+# Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
-# Dependency directories
+# Dependency directories (remove the comment below to include it)
 # vendor/
 
 # Go workspace file
 go.work
-go.work.sum
 
 # IntelliJ files
 .idea/
@@ -31,16 +30,11 @@ cover.html
 # Local binary folder
 bin/
 
-# Local build folder
+# Local build folder for storing build artifacts
 build/
 
 # Mac OS files
 **/.DS_Store
 
-# .ralphy
-.ralphy/deferred.json
-.ralphy/*.txt
-
-# todo files
+# todo
 .todo
-TODO.md

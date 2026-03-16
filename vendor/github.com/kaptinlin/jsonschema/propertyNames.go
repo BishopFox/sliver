@@ -32,7 +32,7 @@ func evaluatePropertyNames(schema *Schema, object map[string]any, _ map[string]b
 			if result != nil {
 				//nolint:errcheck
 				result.SetEvaluationPath(fmt.Sprintf("/propertyNames/%s", propName)).
-					SetSchemaLocation(schema.SchemaLocation(fmt.Sprintf("/propertyNames/%s", propName))).
+					SetSchemaLocation(schema.GetSchemaLocation(fmt.Sprintf("/propertyNames/%s", propName))).
 					SetInstanceLocation(fmt.Sprintf("/%s", propName))
 			}
 

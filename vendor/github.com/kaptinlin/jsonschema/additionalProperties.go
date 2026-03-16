@@ -46,7 +46,7 @@ func evaluateAdditionalProperties(
 				if result != nil {
 					//nolint:errcheck
 					result.SetEvaluationPath(fmt.Sprintf("/additionalProperties/%s", propName)).
-						SetSchemaLocation(schema.SchemaLocation(fmt.Sprintf("/additionalProperties/%s", propName))).
+						SetSchemaLocation(schema.GetSchemaLocation(fmt.Sprintf("/additionalProperties/%s", propName))).
 						SetInstanceLocation(fmt.Sprintf("/%s", propName))
 
 					results = append(results, result)

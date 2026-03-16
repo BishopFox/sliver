@@ -111,8 +111,8 @@ func RegisterCustomValidator(name string, validator CustomValidatorFunc) {
 	globalValidatorRegistry.validators[name] = validator
 }
 
-// CustomValidator retrieves a custom validator by name
-func (r *ValidatorRegistry) CustomValidator(name string) (CustomValidatorFunc, bool) {
+// GetCustomValidator retrieves a custom validator by name
+func (r *ValidatorRegistry) GetCustomValidator(name string) (CustomValidatorFunc, bool) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 	validator, exists := r.validators[name]
@@ -297,8 +297,8 @@ func ClearSchemaCache() {
 	})
 }
 
-// CacheStats returns statistics about the global schema cache - useful for monitoring
-func CacheStats() map[string]int {
+// GetCacheStats returns statistics about the global schema cache - useful for monitoring
+func GetCacheStats() map[string]int {
 	stats := map[string]int{
 		"cached_schemas": 0,
 	}
@@ -314,7 +314,7 @@ func CacheStats() map[string]int {
 // generateSchemaWithDependencyAnalysis generates schema using schemagen-style dependency analysis
 func (g *structTagGenerator) generateSchemaWithDependencyAnalysis(structType reflect.Type) (*Schema, error) {
 	// Handle pointers
-	for structType.Kind() == reflect.Pointer {
+	for structType.Kind() == reflect.Ptr {
 		structType = structType.Elem()
 	}
 
@@ -428,7 +428,7 @@ func (g *structTagGenerator) generateFieldSchemaWithValidators(structType reflec
 
 	// Handle pointer types - make nullable
 	var isNullable bool
-	for fieldType.Kind() == reflect.Pointer {
+	for fieldType.Kind() == reflect.Ptr {
 		isNullable = true
 		fieldType = fieldType.Elem()
 	}
@@ -563,7 +563,7 @@ func (g *structTagGenerator) handleArrayType(fieldType reflect.Type) (*Schema, e
 	elemType := fieldType.Elem()
 
 	// Handle pointer element types
-	for elemType.Kind() == reflect.Pointer {
+	for elemType.Kind() == reflect.Ptr {
 		elemType = elemType.Elem()
 	}
 
@@ -610,7 +610,7 @@ func (g *structTagGenerator) handleMapType(fieldType reflect.Type) (*Schema, err
 	valueType := fieldType.Elem()
 
 	// Handle pointer value types
-	for valueType.Kind() == reflect.Pointer {
+	for valueType.Kind() == reflect.Ptr {
 		valueType = valueType.Elem()
 	}
 
@@ -688,7 +688,7 @@ func (g *structTagGenerator) applyValidationRules(rules []tagparser.TagRule, fie
 		}
 
 		// Check custom validators
-		if customValidator, exists := globalValidatorRegistry.CustomValidator(rule.Name); exists {
+		if customValidator, exists := globalValidatorRegistry.GetCustomValidator(rule.Name); exists {
 			ruleKeywords := customValidator(fieldType, rule.Params)
 			keywords = append(keywords, ruleKeywords...)
 			continue
@@ -861,7 +861,7 @@ func createRuntimeValidatorMapping() map[string]validatorFunc {
 				return nil
 			}
 			if length, err := strconv.Atoi(params[0]); err == nil {
-				return []Keyword{MinLength(length)}
+				return []Keyword{MinLen(length)}
 			}
 			return nil
 		},
@@ -870,7 +870,7 @@ func createRuntimeValidatorMapping() map[string]validatorFunc {
 				return nil
 			}
 			if length, err := strconv.Atoi(params[0]); err == nil {
-				return []Keyword{MaxLength(length)}
+				return []Keyword{MaxLen(length)}
 			}
 			return nil
 		},
@@ -1083,7 +1083,7 @@ func createRuntimeValidatorMapping() map[string]validatorFunc {
 
 			// Unwrap pointer type to get the underlying type
 			actualType := fieldType
-			if fieldType.Kind() == reflect.Pointer {
+			if fieldType.Kind() == reflect.Ptr {
 				actualType = fieldType.Elem()
 			}
 
@@ -1504,7 +1504,7 @@ func (g *structTagGenerator) separateArrayAndItemKeywords(keywords []Keyword, fi
 
 	// Get the element type to determine if item-level constraints make sense
 	elemType := fieldType.Elem()
-	for elemType.Kind() == reflect.Pointer {
+	for elemType.Kind() == reflect.Ptr {
 		elemType = elemType.Elem()
 	}
 

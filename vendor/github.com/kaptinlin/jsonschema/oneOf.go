@@ -33,7 +33,7 @@ func evaluateOneOf(
 			result, schemaEvaluatedProps, schemaEvaluatedItems := subSchema.evaluate(instance, dynamicScope)
 			if result != nil {
 				results = append(results, result.SetEvaluationPath(fmt.Sprintf("/oneOf/%d", i)).
-					SetSchemaLocation(schema.SchemaLocation(fmt.Sprintf("/oneOf/%d", i))),
+					SetSchemaLocation(schema.GetSchemaLocation(fmt.Sprintf("/oneOf/%d", i))),
 				)
 
 				if result.IsValid() {

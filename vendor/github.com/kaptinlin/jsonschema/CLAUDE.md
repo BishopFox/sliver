@@ -31,21 +31,21 @@ Individual files implement JSON Schema validation keywords (e.g., `properties.go
 ## Build and Development Commands
 
 ### Basic Commands
-- `task test` - Run all tests with race detection
-- `task lint` - Run all linters (golangci-lint + go mod tidy check)  
+- `make test` - Run all tests with race detection
+- `make lint` - Run all linters (golangci-lint + go mod tidy check)  
 - `make bench` - Run benchmarks
-- `task verify` - Run complete verification (deps + fmt + vet + lint + test)
+- `make verify` - Run complete verification (deps + fmt + vet + lint + test)
 
 ### Test Commands
-- `task test-unit` - Run unit tests only
-- `task test-coverage` - Generate coverage report (creates coverage.html)
-- `task test-verbose` - Run tests with verbose output
+- `make test-unit` - Run unit tests only
+- `make test-coverage` - Generate coverage report (creates coverage.html)
+- `make test-verbose` - Run tests with verbose output
 
 ### Code Quality
 - `make fmt` - Format Go code
 - `make vet` - Run go vet
-- `task clean` - Clean build artifacts and caches
-- `task deps` - Download and tidy Go module dependencies
+- `make clean` - Clean build artifacts and caches
+- `make deps` - Download and tidy Go module dependencies
 
 ### Code Generation
 - `go install github.com/kaptinlin/jsonschema/cmd/schemagen@latest` - Install schemagen tool
@@ -79,7 +79,7 @@ Individual files implement JSON Schema validation keywords (e.g., `properties.go
 
 ## Configuration Files
 
-- `go.mod` - Go module definition (requires Go 1.26)
+- `go.mod` - Go module definition (requires Go 1.25)
 - `Makefile` - Build automation and development commands
 - `.golangci.version` - Required golangci-lint version for consistent linting
 - `locales/*.json` - Translation files for error messages
@@ -95,7 +95,7 @@ Individual files implement JSON Schema validation keywords (e.g., `properties.go
 
 Run tests before committing:
 ```bash
-task verify
+make verify
 ```
 
 Generate schemas from struct tags:

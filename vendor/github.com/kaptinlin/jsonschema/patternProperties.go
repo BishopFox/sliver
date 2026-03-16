@@ -69,7 +69,7 @@ func evaluatePatternProperties(
 				if result != nil {
 					//nolint:errcheck
 					result.SetEvaluationPath(fmt.Sprintf("/patternProperties/%s", propName)).
-						SetSchemaLocation(schema.SchemaLocation(fmt.Sprintf("/patternProperties/%s", propName))).
+						SetSchemaLocation(schema.GetSchemaLocation(fmt.Sprintf("/patternProperties/%s", propName))).
 						SetInstanceLocation(fmt.Sprintf("/%s", propName))
 
 					results = append(results, result)

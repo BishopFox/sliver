@@ -2,7 +2,6 @@ package jsonschema
 
 import (
 	"fmt"
-	"maps"
 	"math/big"
 	"net/url"
 	"path"
@@ -22,13 +21,17 @@ func replace(template string, params map[string]any) string {
 
 // mergeIntMaps merges two integer maps. The values in the second map overwrite the first where keys overlap.
 func mergeIntMaps(map1, map2 map[int]bool) map[int]bool {
-	maps.Copy(map1, map2)
+	for key, value := range map2 {
+		map1[key] = value
+	}
 	return map1
 }
 
 // mergeStringMaps merges two string maps. The values in the second map overwrite the first where keys overlap.
 func mergeStringMaps(map1, map2 map[string]bool) map[string]bool {
-	maps.Copy(map1, map2)
+	for key, value := range map2 {
+		map1[key] = value
+	}
 	return map1
 }
 
@@ -39,11 +42,13 @@ func getDataType(v any) string {
 		return "null"
 	case bool:
 		return "boolean"
+	// json.Number is not available in go-json-experiment/json
+	// Numbers are handled as float64 by default
 	case float32, float64:
 		// Convert to big.Float to check if it can be considered an integer
 		bigFloat := new(big.Float).SetFloat64(reflect.ValueOf(v).Float())
 		if _, acc := bigFloat.Int(nil); acc == big.Exact {
-			return "integer"
+			return "integer" // Treated as integer if no fractional part
 		}
 		return "number"
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
@@ -57,6 +62,7 @@ func getDataType(v any) string {
 	case map[string]any:
 		return "object"
 	default:
+		// Use reflection for other types (struct, slices, maps, etc.)
 		return getDataTypeReflect(v)
 	}
 }
@@ -66,7 +72,7 @@ func getDataTypeReflect(v any) string {
 	rv := reflect.ValueOf(v)
 
 	// Handle pointers by dereferencing them
-	for rv.Kind() == reflect.Pointer {
+	for rv.Kind() == reflect.Ptr {
 		if rv.IsNil() {
 			return "null"
 		}
@@ -104,7 +110,7 @@ func getDataTypeReflect(v any) string {
 			return "null"
 		}
 		return getDataType(rv.Interface())
-	case reflect.Uintptr, reflect.Complex64, reflect.Complex128, reflect.Chan, reflect.Func, reflect.Pointer, reflect.UnsafePointer:
+	case reflect.Uintptr, reflect.Complex64, reflect.Complex128, reflect.Chan, reflect.Func, reflect.Ptr, reflect.UnsafePointer:
 		return "unknown"
 	default:
 		return "unknown"
@@ -112,12 +118,12 @@ func getDataTypeReflect(v any) string {
 }
 
 // getURLScheme extracts the scheme component of a URL string.
-func getURLScheme(rawURL string) string {
-	parsed, err := url.Parse(rawURL)
+func getURLScheme(urlStr string) string {
+	parsedURL, err := url.Parse(urlStr)
 	if err != nil {
 		return ""
 	}
-	return parsed.Scheme
+	return parsedURL.Scheme
 }
 
 // isValidURI verifies if the provided string is a valid URI.
@@ -133,18 +139,18 @@ func resolveRelativeURI(baseURI, relativeURL string) string {
 	}
 	base, err := url.Parse(baseURI)
 	if err != nil || base.Scheme == "" || base.Host == "" {
-		return relativeURL
+		return relativeURL // Return the original if there's a base URL parsing error
 	}
 	rel, err := url.Parse(relativeURL)
 	if err != nil {
-		return relativeURL
+		return relativeURL // Return the original if there's a relative URL parsing error
 	}
 	return base.ResolveReference(rel).String()
 }
 
 // isAbsoluteURI checks if the given URL is absolute.
-func isAbsoluteURI(rawURL string) bool {
-	u, err := url.Parse(rawURL)
+func isAbsoluteURI(urlStr string) bool {
+	u, err := url.Parse(urlStr)
 	return err == nil && u.Scheme != "" && u.Host != ""
 }
 

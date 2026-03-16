@@ -2,10 +2,10 @@
 
 `kaptinlin/go-i18n` is a high-performance, modern localization and internationalization library for Go.
 
-## Features
+## ✨ Features
 
 - **Token-based** (`hello_world`) and **Text-based** (`Hello, world!`) translation
-- **High Performance**: Optimized with Go 1.26 features (slices, maps, built-in functions)
+- **High Performance**: Optimized with Go 1.25 features (slices, maps, built-in functions)
 - **ICU MessageFormat v1**: Full support with [kaptinlin/messageformat-go](https://github.com/kaptinlin/messageformat-go)
 - **Flexible Loading**: From maps, files, glob patterns, or `go:embed`
 - **Smart Fallbacks**: Recursive fallback chains with language confidence matching
@@ -539,7 +539,7 @@ message_with_number = "{count, plural, =0 {没有消息} one {1 条消息} other
 
 ### INI Unmarshaler
 
-Uses [`go-ini/ini`](https://gopkg.in/ini.v1) to read the files, so you can write the translation files in INI format.
+Uses [`go-ini/ini`](https://github.com/go-ini/ini) to read the files, so you can write the translation files in INI format.
 
 ```go
 package main
@@ -621,7 +621,7 @@ Orders of the languages that passed to `NewLocalizer` won't affect the fallback 
 
 ## Performance
 
-This library is optimized with Go 1.26 features for maximum performance:
+This library is optimized with Go 1.25 features for maximum performance:
 
 ### Optimizations Applied
 

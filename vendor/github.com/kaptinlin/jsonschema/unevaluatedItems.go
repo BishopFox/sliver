@@ -2,7 +2,6 @@ package jsonschema
 
 import (
 	"fmt"
-	"maps"
 	"strconv"
 	"strings"
 )
@@ -68,7 +67,7 @@ func evaluateUnevaluatedItems(
 			if result != nil {
 				//nolint:errcheck
 				result.SetEvaluationPath(fmt.Sprintf("/unevaluatedItems/%d", i)).
-					SetSchemaLocation(schema.SchemaLocation(fmt.Sprintf("/unevaluatedItems/%d", i))).
+					SetSchemaLocation(schema.GetSchemaLocation(fmt.Sprintf("/unevaluatedItems/%d", i))).
 					SetInstanceLocation(fmt.Sprintf("/%d", i))
 
 				results = append(results, result)
@@ -79,7 +78,9 @@ func evaluateUnevaluatedItems(
 				}
 			}
 			// Merge evaluation states
-			maps.Copy(evaluatedItems, evaluatedMap)
+			for k, v := range evaluatedMap {
+				evaluatedItems[k] = v
+			}
 		}
 	}
 

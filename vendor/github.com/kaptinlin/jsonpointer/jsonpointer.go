@@ -33,12 +33,18 @@ package jsonpointer
 // Get retrieves a value from document using string path components.
 // Returns errors for invalid operations, similar to Find function.
 func Get(doc any, path ...string) (any, error) {
+	if len(path) == 0 {
+		return doc, nil
+	}
 	return get(doc, Path(path))
 }
 
 // Find locates a reference in document using string path components.
 // Returns errors for invalid operations.
 func Find(doc any, path ...string) (*Reference, error) {
+	if len(path) == 0 {
+		return &Reference{Val: doc}, nil
+	}
 	return find(doc, Path(path))
 }
 
@@ -74,12 +80,12 @@ func Unescape(component string) string {
 	return unescapeComponent(component)
 }
 
-// Validate validates a JSON Pointer string.
-func Validate(pointer string) error {
-	return validatePointerString(pointer)
+// Validate validates a JSON Pointer string or Path.
+func Validate(pointer any) error {
+	return validateJSONPointer(pointer)
 }
 
 // ValidatePath validates a path array.
-func ValidatePath(path Path) error {
+func ValidatePath(path any) error {
 	return validatePath(path)
 }

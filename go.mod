@@ -1,8 +1,6 @@
 module github.com/bishopfox/sliver
 
-go 1.25
-
-toolchain go1.25.8
+go 1.25.8
 
 replace github.com/rsteube/carapace v0.36.3 => github.com/reeflective/carapace v0.46.3-0.20231214181515-27e49f3c3b69
 
@@ -170,10 +168,10 @@ require (
 	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/jordan-wright/email v4.0.1-0.20210109023952-943e75fe5223+incompatible // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/kaptinlin/go-i18n v0.2.12 // indirect
-	github.com/kaptinlin/jsonpointer v0.4.17 // indirect
-	github.com/kaptinlin/jsonschema v0.7.5 // indirect
-	github.com/kaptinlin/messageformat-go v0.4.18 // indirect
+	github.com/kaptinlin/go-i18n v0.2.3 // indirect
+	github.com/kaptinlin/jsonpointer v0.4.9 // indirect
+	github.com/kaptinlin/jsonschema v0.6.10 // indirect
+	github.com/kaptinlin/messageformat-go v0.4.9 // indirect
 	github.com/kevinburke/go-types v0.0.0-20240719050749-165e75e768f7 // indirect
 	github.com/kevinburke/rest v0.0.0-20250718180114-1a15e4f2364f // indirect
 	github.com/kevinburke/twilio-go v0.0.0-20250718182727-5fe7adc01f29 // indirect
@@ -194,7 +192,6 @@ require (
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/plivo/plivo-go/v7 v7.59.2 // indirect
 	github.com/rs/zerolog v1.34.0 // indirect
-	github.com/sahilm/fuzzy v0.1.1 // indirect
 	github.com/sendgrid/rest v2.6.9+incompatible // indirect
 	github.com/sendgrid/sendgrid-go v3.16.1+incompatible // indirect
 	github.com/silenceper/wechat/v2 v2.1.11 // indirect
@@ -269,7 +266,7 @@ require (
 	github.com/gaissmai/bart v0.25.0 // indirect
 	github.com/gen2brain/shm v0.1.1 // indirect
 	github.com/glebarez/go-sqlite v1.22.0 // indirect
-	github.com/go-json-experiment/json v0.0.0-20260214004413-d219187c3433 // indirect
+	github.com/go-json-experiment/json v0.0.0-20251027170946-4849db3c2f7e // indirect
 	github.com/go-sql-driver/mysql v1.9.3 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect

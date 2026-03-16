@@ -245,11 +245,11 @@ func IsPeriod(v any) bool {
 	if !ok {
 		return true
 	}
-	before, after, ok0 := strings.Cut(s, "/")
-	if !ok0 {
+	slash := strings.IndexByte(s, '/')
+	if slash == -1 {
 		return false
 	}
-	start, end := before, after
+	start, end := s[:slash], s[slash+1:]
 	if IsDateTime(start) {
 		return IsDateTime(end) || IsDuration(end)
 	}
@@ -273,7 +273,7 @@ func IsHostname(v any) bool {
 	}
 
 	// Hostnames are composed of series of labels concatenated with dots, as are all domain names
-	for label := range strings.SplitSeq(s, ".") {
+	for _, label := range strings.Split(s, ".") {
 		// Each label must be from 1 to 63 characters long
 		if labelLen := len(label); labelLen < 1 || labelLen > 63 {
 			return false
@@ -333,8 +333,8 @@ func IsEmail(v any) bool {
 	// domain if enclosed in brackets, must match an IP address
 	if len(domain) >= 2 && domain[0] == '[' && domain[len(domain)-1] == ']' {
 		ip := domain[1 : len(domain)-1]
-		if after, ok0 := strings.CutPrefix(ip, "IPv6:"); ok0 {
-			return IsIPV6(after)
+		if strings.HasPrefix(ip, "IPv6:") {
+			return IsIPV6(strings.TrimPrefix(ip, "IPv6:"))
 		}
 		return IsIPV4(ip)
 	}
@@ -440,7 +440,7 @@ func IsURITemplate(v any) bool {
 	if err != nil {
 		return false
 	}
-	for item := range strings.SplitSeq(u.RawPath, "/") {
+	for _, item := range strings.Split(u.RawPath, "/") {
 		depth := 0
 		for _, ch := range item {
 			switch ch {

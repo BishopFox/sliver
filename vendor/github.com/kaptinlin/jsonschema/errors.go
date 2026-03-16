@@ -398,3 +398,221 @@ var (
 	// ErrUnderlyingError is returned as a generic underlying error.
 	ErrUnderlyingError = errors.New("underlying error") // To be deprecated: insufficient information
 )
+
+// === Backward Compatibility Aliases ===
+// The following are deprecated aliases defined to maintain backward compatibility,
+// to be removed in future versions
+
+var (
+	// ErrFailedToReadData is deprecated: Use ErrDataRead instead
+	ErrFailedToReadData = ErrDataRead
+
+	// ErrFailedToFetch is deprecated: Use ErrNetworkFetch instead
+	ErrFailedToFetch = ErrNetworkFetch
+
+	// ErrInvalidHTTPStatusCode is deprecated: Use ErrInvalidStatusCode instead
+	ErrInvalidHTTPStatusCode = ErrInvalidStatusCode
+
+	// ErrFailedToWriteFile is deprecated: Use ErrFileWrite instead
+	ErrFailedToWriteFile = ErrFileWrite
+
+	// ErrFailedToCreateFile is deprecated: Use ErrFileCreation instead
+	ErrFailedToCreateFile = ErrFileCreation
+
+	// ErrFailedToCreateDirectory is deprecated: Use ErrDirectoryCreation instead
+	ErrFailedToCreateDirectory = ErrDirectoryCreation
+
+	// ErrFailedToWriteContent is deprecated: Use ErrContentWrite instead
+	ErrFailedToWriteContent = ErrContentWrite
+
+	// ErrJSONUnmarshalError is deprecated: Use ErrJSONUnmarshal instead
+	ErrJSONUnmarshalError = ErrJSONUnmarshal
+
+	// ErrXMLUnmarshalError is deprecated: Use ErrXMLUnmarshal instead
+	ErrXMLUnmarshalError = ErrXMLUnmarshal
+
+	// ErrYAMLUnmarshalError is deprecated: Use ErrYAMLUnmarshal instead
+	ErrYAMLUnmarshalError = ErrYAMLUnmarshal
+
+	// ErrFailedToDecodeJSON is deprecated: Use ErrJSONDecode instead
+	ErrFailedToDecodeJSON = ErrJSONDecode
+
+	// ErrFailedToEncodeSource is deprecated: Use ErrSourceEncode instead
+	ErrFailedToEncodeSource = ErrSourceEncode
+
+	// ErrFailedToDecodeIntermediateJSON is deprecated: Use ErrIntermediateJSONDecode instead
+	ErrFailedToDecodeIntermediateJSON = ErrIntermediateJSONDecode
+
+	// ErrFailedToEncodeData is deprecated: Use ErrDataEncode instead
+	ErrFailedToEncodeData = ErrDataEncode
+
+	// ErrFailedToEncodeNestedValue is deprecated: Use ErrNestedValueEncode instead
+	ErrFailedToEncodeNestedValue = ErrNestedValueEncode
+
+	// ErrFailedToCompileSchema is deprecated: Use ErrSchemaCompilation instead
+	ErrFailedToCompileSchema = ErrSchemaCompilation
+
+	// ErrFailedToResolveReference is deprecated: Use ErrReferenceResolution instead
+	ErrFailedToResolveReference = ErrReferenceResolution
+
+	// ErrFailedToResolveGlobalReference is deprecated: Use ErrGlobalReferenceResolution instead
+	ErrFailedToResolveGlobalReference = ErrGlobalReferenceResolution
+
+	// ErrFailedToResolveDefinitions is deprecated: Use ErrDefinitionResolution instead
+	ErrFailedToResolveDefinitions = ErrDefinitionResolution
+
+	// ErrFailedToResolveItems is deprecated: Use ErrItemResolution instead
+	ErrFailedToResolveItems = ErrItemResolution
+
+	// ErrFailedToDecodeSegmentWithJSONPointer is deprecated: Use ErrJSONPointerSegmentDecode instead
+	ErrFailedToDecodeSegmentWithJSONPointer = ErrJSONPointerSegmentDecode
+
+	// ErrSegmentNotFoundForJSONPointer is deprecated: Use ErrJSONPointerSegmentNotFound instead
+	ErrSegmentNotFoundForJSONPointer = ErrJSONPointerSegmentNotFound
+
+	// ErrInvalidJSONSchemaType is deprecated: Use ErrInvalidSchemaType instead
+	ErrInvalidJSONSchemaType = ErrInvalidSchemaType
+
+	// ErrTimeTypeConversion is deprecated: Use ErrTimeConversion instead
+	ErrTimeTypeConversion = ErrTimeConversion
+
+	// ErrTimeParseFailure is deprecated: Use ErrTimeParsing instead
+	ErrTimeParseFailure = ErrTimeParsing
+
+	// ErrFailedToConvertToRat is deprecated: Use ErrRatConversion instead
+	ErrFailedToConvertToRat = ErrRatConversion
+
+	// ErrCannotConvertSlice is deprecated: Use ErrSliceConversion instead
+	ErrCannotConvertSlice = ErrSliceConversion
+
+	// ErrCannotConvertSliceElement is deprecated: Use ErrSliceElementConversion instead
+	ErrCannotConvertSliceElement = ErrSliceElementConversion
+
+	// ErrCannotConvertFirstSlice is deprecated: Use ErrFirstSliceConversion instead
+	ErrCannotConvertFirstSlice = ErrFirstSliceConversion
+
+	// ErrCannotConvertSecondSlice is deprecated: Use ErrSecondSliceConversion instead
+	ErrCannotConvertSecondSlice = ErrSecondSliceConversion
+
+	// ErrCannotConvertNil is deprecated: Use ErrNilConversion instead
+	ErrCannotConvertNil = ErrNilConversion
+
+	// ErrCannotConvertNilPointer is deprecated: Use ErrNilPointerConversion instead
+	ErrCannotConvertNilPointer = ErrNilPointerConversion
+
+	// ErrCannotParseValue is deprecated: Use ErrValueParsing instead
+	ErrCannotParseValue = ErrValueParsing
+
+	// ErrCannotAssignValue is deprecated: Use ErrValueAssignment instead
+	ErrCannotAssignValue = ErrValueAssignment
+
+	// ErrUnsupportedTypeForRat is deprecated: Use ErrUnsupportedRatType instead
+	ErrUnsupportedTypeForRat = ErrUnsupportedRatType
+
+	// ErrUnsupportedTypeForGeneration is deprecated: Use ErrUnsupportedGenerationType instead
+	ErrUnsupportedTypeForGeneration = ErrUnsupportedGenerationType
+
+	// ErrInvalidTypeForTransform is deprecated: Use ErrInvalidTransformType instead
+	ErrInvalidTypeForTransform = ErrInvalidTransformType
+
+	// ErrFailedToParseStructTags is deprecated: Use ErrStructTagParse instead
+	// ErrStructTagParsing is deprecated: Use ErrStructTagParsing instead
+	ErrFailedToParseStructTags = ErrStructTagParsing
+
+	// ErrFailedToSetField is deprecated: Use ErrFieldAssignment instead
+	ErrFailedToSetField = ErrFieldAssignment
+
+	// ErrFailedToAnalyzeFields is deprecated: Use ErrFieldAnalysis instead
+	ErrFailedToAnalyzeFields = ErrFieldAnalysis
+
+	// ErrFailedToApplyDefaults is deprecated: Use ErrDefaultApply instead
+	// ErrDefaultApplication is deprecated: Use ErrDefaultApplication instead
+	ErrFailedToApplyDefaults = ErrDefaultApplication
+
+	// ErrFailedToEvaluateDefaultValue is deprecated: Use ErrDefaultEvaluation instead
+	ErrFailedToEvaluateDefaultValue = ErrDefaultEvaluation
+
+	// ErrFailedToApplyArrayDefaults is deprecated: Use ErrArrayDefaultApplication instead
+	ErrFailedToApplyArrayDefaults = ErrArrayDefaultApplication
+
+	// ErrFailedToParseFunctionCall is deprecated: Use ErrFunctionCallParsing instead
+	ErrFailedToParseFunctionCall = ErrFunctionCallParsing
+
+	// ErrConfigCannotBeNil is deprecated: Use ErrConfigNil instead
+	// ErrNilConfig is deprecated: Use ErrNilConfig instead
+	ErrConfigCannotBeNil = ErrNilConfig
+
+	// ErrFailedToCreateAnalyzer is deprecated: Use ErrAnalyzerCreation instead
+	ErrFailedToCreateAnalyzer = ErrAnalyzerCreation
+
+	// ErrFailedToCreateWriter is deprecated: Use ErrWriterCreation instead
+	ErrFailedToCreateWriter = ErrWriterCreation
+
+	// ErrFailedToAnalyzePackage is deprecated: Use ErrPackageAnalysis instead
+	ErrFailedToAnalyzePackage = ErrPackageAnalysis
+
+	// ErrFailedToGenerateCode is deprecated: Use ErrCodeGeneration instead
+	ErrFailedToGenerateCode = ErrCodeGeneration
+
+	// ErrFailedToGenerateProperty is deprecated: Use ErrPropertyGeneration instead
+	ErrFailedToGenerateProperty = ErrPropertyGeneration
+
+	// ErrFailedToParseJSONSchemaTag is deprecated: Use ErrJSONSchemaTagParsing instead
+	ErrFailedToParseJSONSchemaTag = ErrJSONSchemaTagParsing
+
+	// ErrFailedToParseGozodTag is deprecated: Use ErrGozodTagParsing instead
+	ErrFailedToParseGozodTag = ErrGozodTagParsing
+
+	// ErrFailedToLoadTemplates is deprecated: Use ErrTemplateLoading instead
+	ErrFailedToLoadTemplates = ErrTemplateLoading
+
+	// ErrFailedToCreateOutputDirectory is deprecated: Use ErrOutputDirectoryCreation instead
+	ErrFailedToCreateOutputDirectory = ErrOutputDirectoryCreation
+
+	// ErrFailedToGenerateFieldSchemas is deprecated: Use ErrFieldSchemaGeneration instead
+	ErrFailedToGenerateFieldSchemas = ErrFieldSchemaGeneration
+
+	// ErrFailedToExecuteTemplate is deprecated: Use ErrTemplateExecution instead
+	ErrFailedToExecuteTemplate = ErrTemplateExecution
+
+	// ErrFailedToParseMainTemplate is deprecated: Use ErrMainTemplateParsing instead
+	ErrFailedToParseMainTemplate = ErrMainTemplateParsing
+
+	// ErrFailedToAnalyzeDependencies is deprecated: Use ErrDependencyAnalysis instead
+	ErrFailedToAnalyzeDependencies = ErrDependencyAnalysis
+
+	// ErrFailedToParseTemplate is deprecated: Use ErrTemplateParsing instead
+	ErrFailedToParseTemplate = ErrTemplateParsing
+
+	// ErrFailedToFormatCode is deprecated: Use ErrCodeFormatting instead
+	ErrFailedToFormatCode = ErrCodeFormatting
+
+	// ErrNegativeValue is deprecated: Use ErrValueNegative instead
+	// ErrNegativeValueConversion is deprecated: Use ErrNegativeValueConversion instead
+	ErrNegativeValue = ErrNegativeValueConversion
+
+	// ErrNotWholeNumber is deprecated: Use ErrNonWholeNumber instead
+	ErrNotWholeNumber = ErrNonWholeNumber
+
+	// ErrNotSliceArrayOrString is deprecated: Use ErrInvalidSliceArrayString instead
+	ErrNotSliceArrayOrString = ErrInvalidSliceArrayString
+
+	// ErrIPv6AddressNotEnclosed is deprecated: Use ErrIPv6AddressFormat instead
+	ErrIPv6AddressNotEnclosed = ErrIPv6AddressFormat
+
+	// ErrInvalidIPv6Address is deprecated: Use ErrInvalidIPv6 instead
+	ErrInvalidIPv6Address = ErrInvalidIPv6
+
+	// ErrFailedToResolveAbsolutePath is deprecated: Use ErrPathResolve instead
+	// ErrAbsolutePathResolution is deprecated: Use ErrAbsolutePathResolution instead
+	ErrFailedToResolveAbsolutePath = ErrAbsolutePathResolution
+
+	// ErrFailedToGetCurrentDirectory is deprecated: Use ErrCurrentDirectoryAccess instead
+	ErrFailedToGetCurrentDirectory = ErrCurrentDirectoryAccess
+
+	// ErrPathOutsideCurrentDirectory is deprecated: Use ErrPathOutsideDirectory instead
+	ErrPathOutsideCurrentDirectory = ErrPathOutsideDirectory
+
+	// === Aliases from unmarshal.go ===
+	// Note: ErrTimeParseFailure and ErrTimeTypeConversion aliases are already defined above
+)

@@ -1,27 +1,27 @@
 package i18n
 
-import "golang.org/x/text/language"
+import (
+	"slices"
 
-// MatchAvailableLocale returns the best matching locale for the given
-// Accept-Language header strings. Returns the default locale if no match is found.
-func (i *I18n) MatchAvailableLocale(accepts ...string) string {
-	tags := make([]language.Tag, 0, max(len(accepts)*3, 4))
-	for _, s := range accepts {
-		parsed, _, err := language.ParseAcceptLanguage(s)
+	"golang.org/x/text/language"
+)
+
+// MatchAvailableLocale return one of the available locales
+func (bundle *I18n) MatchAvailableLocale(locales ...string) string {
+	var tags []language.Tag
+
+	for _, accept := range locales {
+		desired, _, err := language.ParseAcceptLanguage(accept)
 		if err != nil {
 			continue
 		}
-		tags = append(tags, parsed...)
+		tags = slices.Grow(tags, len(desired)) // Pre-allocate capacity
+		tags = append(tags, desired...)
 	}
 
-	if len(tags) == 0 {
-		return i.languages[0].String()
+	if _, index, conf := bundle.languageMatcher.Match(tags...); conf > language.No {
+		return bundle.languages[index].String()
 	}
 
-	_, idx, conf := i.languageMatcher.Match(tags...)
-	if conf > language.No {
-		return i.languages[idx].String()
-	}
-
-	return i.languages[0].String()
+	return bundle.languages[0].String()
 }

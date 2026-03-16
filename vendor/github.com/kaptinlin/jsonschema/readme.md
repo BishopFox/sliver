@@ -1,6 +1,6 @@
 # JSON Schema Validator for Go
 
-[![Go Version](https://img.shields.io/badge/go-%3E%3D1.26-blue)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/go-%3E%3D1.25-blue)](https://golang.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Test Status](https://img.shields.io/badge/tests-passing-brightgreen)](https://github.com/json-schema-org/JSON-Schema-Test-Suite)
 
@@ -160,7 +160,7 @@ Create JSON schemas directly in Go code with type-safe constructors:
 ```go
 // Define schemas with fluent API
 schema := jsonschema.Object(
-    jsonschema.Prop("name", jsonschema.String(jsonschema.MinLength(1))),
+    jsonschema.Prop("name", jsonschema.String(jsonschema.MinLen(1))),
     jsonschema.Prop("email", jsonschema.Email()),
     jsonschema.Required("name", "email"),
 )
@@ -322,7 +322,7 @@ These fields are preserved during the compile -> marshal round-trip, making it u
 
 ```go
 // Get i18n bundle with embedded locales
-i18nBundle, _ := jsonschema.I18n()
+i18nBundle, _ := jsonschema.GetI18n()
 
 // Create localizer for desired language
 // Supported: en, zh-Hans, zh-Hant, de-DE, es-ES, fr-FR, ja-JP, ko-KR, pt-BR

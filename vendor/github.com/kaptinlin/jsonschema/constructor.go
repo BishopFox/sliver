@@ -1,30 +1,30 @@
 package jsonschema
 
-// defaultCompiler is the default compiler instance for initializing Schema.
+// Default compiler instance for initializing Schema
 var defaultCompiler = NewCompiler()
 
-// SetDefaultCompiler sets a custom compiler for the constructor API.
+// SetDefaultCompiler allows setting a custom compiler for the constructor API
 func SetDefaultCompiler(c *Compiler) {
 	defaultCompiler = c
 }
 
-// DefaultCompiler returns the current default compiler.
-func DefaultCompiler() *Compiler {
+// GetDefaultCompiler returns the current default compiler
+func GetDefaultCompiler() *Compiler {
 	return defaultCompiler
 }
 
-// Property represents a Schema property definition.
+// Property represents a Schema property definition
 type Property struct {
 	Name   string
 	Schema *Schema
 }
 
-// Prop creates a property definition.
+// Prop creates a property definition
 func Prop(name string, schema *Schema) Property {
 	return Property{Name: name, Schema: schema}
 }
 
-// Object creates an object Schema with properties and keywords.
+// Object creates an object Schema with properties and keywords
 func Object(items ...any) *Schema {
 	schema := &Schema{Type: SchemaType{"object"}}
 
@@ -60,12 +60,9 @@ func Object(items ...any) *Schema {
 	return schema
 }
 
-// newTypedSchema creates a schema with the given type and applies keywords.
-func newTypedSchema(typeName string, keywords []Keyword) *Schema {
-	schema := &Schema{}
-	if typeName != "" {
-		schema.Type = SchemaType{typeName}
-	}
+// String creates a string Schema with validation keywords
+func String(keywords ...Keyword) *Schema {
+	schema := &Schema{Type: SchemaType{"string"}}
 	for _, keyword := range keywords {
 		keyword(schema)
 	}
@@ -73,26 +70,65 @@ func newTypedSchema(typeName string, keywords []Keyword) *Schema {
 	return schema
 }
 
-// String creates a string Schema with validation keywords
-func String(keywords ...Keyword) *Schema { return newTypedSchema("string", keywords) }
-
 // Integer creates an integer Schema with validation keywords
-func Integer(keywords ...Keyword) *Schema { return newTypedSchema("integer", keywords) }
+func Integer(keywords ...Keyword) *Schema {
+	schema := &Schema{Type: SchemaType{"integer"}}
+	for _, keyword := range keywords {
+		keyword(schema)
+	}
+	schema.initializeSchema(nil, nil)
+	return schema
+}
 
 // Number creates a number Schema with validation keywords
-func Number(keywords ...Keyword) *Schema { return newTypedSchema("number", keywords) }
+func Number(keywords ...Keyword) *Schema {
+	schema := &Schema{Type: SchemaType{"number"}}
+	for _, keyword := range keywords {
+		keyword(schema)
+	}
+	schema.initializeSchema(nil, nil)
+	return schema
+}
 
 // Boolean creates a boolean Schema
-func Boolean(keywords ...Keyword) *Schema { return newTypedSchema("boolean", keywords) }
+func Boolean(keywords ...Keyword) *Schema {
+	schema := &Schema{Type: SchemaType{"boolean"}}
+	for _, keyword := range keywords {
+		keyword(schema)
+	}
+	schema.initializeSchema(nil, nil)
+	return schema
+}
 
 // Null creates a null Schema
-func Null(keywords ...Keyword) *Schema { return newTypedSchema("null", keywords) }
+func Null(keywords ...Keyword) *Schema {
+	schema := &Schema{Type: SchemaType{"null"}}
+	for _, keyword := range keywords {
+		keyword(schema)
+	}
+	schema.initializeSchema(nil, nil)
+	return schema
+}
 
 // Array creates an array Schema with validation keywords
-func Array(keywords ...Keyword) *Schema { return newTypedSchema("array", keywords) }
+func Array(keywords ...Keyword) *Schema {
+	schema := &Schema{Type: SchemaType{"array"}}
+	for _, keyword := range keywords {
+		keyword(schema)
+	}
+	schema.initializeSchema(nil, nil)
+	return schema
+}
 
 // Any creates a Schema without type restriction
-func Any(keywords ...Keyword) *Schema { return newTypedSchema("", keywords) }
+func Any(keywords ...Keyword) *Schema {
+	schema := &Schema{}
+	for _, keyword := range keywords {
+		keyword(schema)
+	}
+	schema.initializeSchema(nil, nil)
+	return schema
+}
 
 // Const creates a const Schema
 func Const(value any) *Schema {

@@ -184,9 +184,9 @@ func ParseNumberSkeleton(src string, onError ...func(error)) (Skeleton, error) {
 	}
 
 	parser := NewTokenParser(errorHandler)
-	parts := strings.FieldsSeq(src) // Split by whitespace
+	parts := strings.Fields(src) // Split by whitespace
 
-	for part := range parts {
+	for _, part := range parts {
 		if part != "" {
 			components := strings.Split(part, "/")
 			stem := components[0]

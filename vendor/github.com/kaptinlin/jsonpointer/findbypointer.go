@@ -49,11 +49,13 @@ func findByPointer(pointer string, val any) (*Reference, error) {
 	indexAfterSlash := 1
 
 	for indexOfSlash > -1 {
+		// Find next slash or end of string
 		indexOfSlash = strings.Index(pointer[indexAfterSlash:], "/")
 		if indexOfSlash > -1 {
-			indexOfSlash += indexAfterSlash
+			indexOfSlash += indexAfterSlash // Adjust for substring offset
 		}
 
+		// Extract key substring
 		var keyStr string
 		if indexOfSlash > -1 {
 			keyStr = pointer[indexAfterSlash:indexOfSlash]
@@ -66,38 +68,45 @@ func findByPointer(pointer string, val any) (*Reference, error) {
 
 		switch {
 		case isSliceOrArray(obj):
+			// Handle array access
 			arrayVal, err := derefValue(reflect.ValueOf(obj))
 			if err != nil {
 				return nil, err
 			}
+			length := arrayVal.Len()
 
-			index, err := validateAndAccessArray(keyStr, arrayVal.Len())
+			index, err := validateAndAccessArray(keyStr, length)
 			if err != nil {
 				return nil, err
 			}
 			val = arrayVal.Index(index).Interface()
 			key = keyStr
-
 		case isObjectPointer(obj) && obj != nil:
+			// Handle object/map access
+			// Unescape the key component
 			keyStr = unescapeComponent(keyStr)
 			key = keyStr
 
 			objVal := reflect.ValueOf(obj)
 			if objVal.Kind() == reflect.Map {
+				// Handle map
 				mapKey := reflect.ValueOf(keyStr)
 				mapVal := objVal.MapIndex(mapKey)
-				if !mapVal.IsValid() {
-					return nil, ErrKeyNotFound
+				if mapVal.IsValid() {
+					val = mapVal.Interface()
+				} else {
+					return nil, ErrKeyNotFound // Key not found
 				}
-				val = mapVal.Interface()
 			} else {
-				if !structField(keyStr, &objVal) {
-					return nil, ErrFieldNotFound
+				// Handle struct with optimized field lookup
+				if structField(keyStr, &objVal) {
+					val = objVal.Interface()
+				} else {
+					return nil, ErrFieldNotFound // Field not found
 				}
-				val = objVal.Interface()
 			}
-
 		default:
+			// Not an array or object, can't traverse further
 			return nil, ErrNotFound
 		}
 	}
@@ -110,12 +119,14 @@ func findByPointer(pointer string, val any) (*Reference, error) {
 }
 
 // isSliceOrArray checks if a value is a slice or array type after dereferencing pointers.
+// Returns false if the value is nil or not a slice/array type.
 func isSliceOrArray(obj any) bool {
 	if obj == nil {
 		return false
 	}
 	objVal := reflect.ValueOf(obj)
-	for objVal.Kind() == reflect.Pointer {
+	// Handle pointer dereferencing
+	for objVal.Kind() == reflect.Ptr {
 		if objVal.IsNil() {
 			return false
 		}
@@ -125,11 +136,11 @@ func isSliceOrArray(obj any) bool {
 	return kind == reflect.Slice || kind == reflect.Array
 }
 
-// isObjectPointer checks if a value is an object (map or struct) for pointer operations.
+// Helper function to check if value is an object (map or struct) for pointer operations
 func isObjectPointer(val any) bool {
 	if val == nil {
 		return false
 	}
 	kind := reflect.TypeOf(val).Kind()
-	return kind == reflect.Map || kind == reflect.Struct || kind == reflect.Pointer
+	return kind == reflect.Map || kind == reflect.Struct || kind == reflect.Ptr
 }

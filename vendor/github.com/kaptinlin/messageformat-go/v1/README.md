@@ -26,7 +26,7 @@ A **production-ready**, **TypeScript-compatible** Go implementation of ICU Messa
 go get github.com/kaptinlin/messageformat-go/v1
 ```
 
-**Requirements**: Go 1.26 or later
+**Requirements**: Go 1.25 or later
 
 ### Basic Example
 

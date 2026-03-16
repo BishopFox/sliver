@@ -424,8 +424,8 @@ func (l *Lexer) matchSelectState() *LexerToken {
 	// }
 	if match := patternCase.FindString(remaining); match != "" {
 		// Process value: substring(0, indexOf('{')).trim()
-		before, _, _ := strings.Cut(match, "{")
-		value := strings.TrimSpace(before)
+		idx := strings.Index(match, "{")
+		value := strings.TrimSpace(match[:idx])
 		lineBreaks := l.countLineBreaks(match)
 		token := l.createToken(TokenCase, value, match, lineBreaks)
 		l.advance(len(match))

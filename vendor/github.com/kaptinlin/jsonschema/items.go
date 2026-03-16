@@ -40,7 +40,7 @@ func evaluateItems(
 			if result != nil {
 				//nolint:errcheck
 				result.SetEvaluationPath(fmt.Sprintf("/items/%d", i)).
-					SetSchemaLocation(schema.SchemaLocation(fmt.Sprintf("/items/%d", i))).
+					SetSchemaLocation(schema.GetSchemaLocation(fmt.Sprintf("/items/%d", i))).
 					SetInstanceLocation(fmt.Sprintf("/%d", i))
 
 				if result.IsValid() {

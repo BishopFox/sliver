@@ -9,8 +9,8 @@ import (
 //go:embed locales/*.json
 var localesFS embed.FS
 
-// I18n returns an initialized internationalization bundle with embedded locales
-func I18n() (*i18n.I18n, error) {
+// GetI18n returns an initialized internationalization bundle with embedded locales
+func GetI18n() (*i18n.I18n, error) {
 	bundle := i18n.NewBundle(
 		i18n.WithDefaultLocale("en"),
 		i18n.WithLocales("en", "zh-Hans"),

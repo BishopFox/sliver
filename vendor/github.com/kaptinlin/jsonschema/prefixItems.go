@@ -34,7 +34,7 @@ func evaluatePrefixItems(
 		result, _, _ := itemSchema.evaluate(array[i], dynamicScope)
 		if result != nil {
 			results = append(results, result.SetEvaluationPath(fmt.Sprintf("/prefixItems/%d", i)).
-				SetSchemaLocation(schema.SchemaLocation(fmt.Sprintf("/prefixItems/%d", i))).
+				SetSchemaLocation(schema.GetSchemaLocation(fmt.Sprintf("/prefixItems/%d", i))).
 				SetInstanceLocation(fmt.Sprintf("/%d", i)),
 			)
 

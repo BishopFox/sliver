@@ -21,7 +21,7 @@ func evaluateFormat(schema *Schema, value any) *EvaluationError {
 	var customValidator func(any) bool
 
 	// Get the effective compiler (may be from parent or defaultCompiler)
-	compiler := schema.Compiler()
+	compiler := schema.GetCompiler()
 
 	// 1. Check compiler-specific custom formats first
 	if compiler != nil {
@@ -62,9 +62,7 @@ func evaluateFormat(schema *Schema, value any) *EvaluationError {
 	return nil // Default behavior: ignore unknown formats
 }
 
-// matchesType checks if a value type matches the required type.
-// It returns true if there's no type restriction or if the types match.
-// Special case: integer values are considered valid for number types.
+// matchesType checks if a value type matches the required type
 func matchesType(valueType, requiredType string) bool {
 	if requiredType == "" {
 		return true // No type restriction

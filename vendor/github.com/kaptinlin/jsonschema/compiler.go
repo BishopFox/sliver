@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"slices"
 	"sync"
 	"time"
 
@@ -151,9 +150,17 @@ func (c *Compiler) Compile(jsonSchema []byte, uris ...string) (*Schema, error) {
 // trackUnresolvedReferences tracks which schemas have unresolved references to which URIs.
 // This method should be called with mutex locked.
 func (c *Compiler) trackUnresolvedReferences(schema *Schema) {
-	unresolvedURIs := schema.UnresolvedReferenceURIs()
+	unresolvedURIs := schema.GetUnresolvedReferenceURIs()
 	for _, uri := range unresolvedURIs {
-		if !slices.Contains(c.unresolvedRefs[uri], schema) {
+		// Check if schema is already in the list to avoid duplicates
+		found := false
+		for _, existing := range c.unresolvedRefs[uri] {
+			if existing == schema {
+				found = true
+				break
+			}
+		}
+		if !found {
 			c.unresolvedRefs[uri] = append(c.unresolvedRefs[uri], schema)
 		}
 	}
@@ -168,7 +175,7 @@ func (c *Compiler) resolveSchemaURL(url string) (*Schema, error) {
 	c.mu.RUnlock()
 
 	if exists {
-		return schema, nil
+		return schema, nil // Return cached schema if available
 	}
 
 	loader, ok := c.Loaders[getURLScheme(url)]
@@ -184,7 +191,7 @@ func (c *Compiler) resolveSchemaURL(url string) (*Schema, error) {
 
 	data, err := io.ReadAll(body)
 	if err != nil {
-		return nil, fmt.Errorf("reading from %s: %w", url, err)
+		return nil, fmt.Errorf("%w: reading from %s: %w", ErrDataRead, url, err)
 	}
 
 	compiledSchema, err := c.Compile(data, id)
@@ -207,8 +214,8 @@ func (c *Compiler) SetSchema(uri string, schema *Schema) *Compiler {
 	return c
 }
 
-// Schema retrieves a schema by reference. If the schema is not found in the cache and the ref is a URL, it tries to resolve it.
-func (c *Compiler) Schema(ref string) (*Schema, error) {
+// GetSchema retrieves a schema by reference. If the schema is not found in the cache and the ref is a URL, it tries to resolve it.
+func (c *Compiler) GetSchema(ref string) (*Schema, error) {
 	baseURI, anchor := splitRef(ref)
 
 	c.mu.RLock()
@@ -273,8 +280,8 @@ func (c *Compiler) RegisterDefaultFunc(name string, fn DefaultFunc) *Compiler {
 	return c
 }
 
-// defaultFunc retrieves a registered default function by name.
-func (c *Compiler) defaultFunc(name string) (DefaultFunc, bool) {
+// getDefaultFunc retrieves a registered default function by name.
+func (c *Compiler) getDefaultFunc(name string) (DefaultFunc, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -319,7 +326,7 @@ func (c *Compiler) setupMediaTypes() {
 // setupLoaders configures default loaders for fetching schemas via HTTP/HTTPS.
 func (c *Compiler) setupLoaders() {
 	client := &http.Client{
-		Timeout: 10 * time.Second,
+		Timeout: 10 * time.Second, // Set a reasonable timeout for network requests.
 	}
 
 	defaultHTTPLoader := func(url string) (io.ReadCloser, error) {
@@ -334,7 +341,10 @@ func (c *Compiler) setupLoaders() {
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			_ = resp.Body.Close()
+			err = resp.Body.Close()
+			if err != nil {
+				return nil, err
+			}
 			return nil, ErrInvalidStatusCode
 		}
 
@@ -355,7 +365,7 @@ func (c *Compiler) CompileBatch(schemas map[string][]byte) (map[string]*Schema, 
 	for id, schemaBytes := range schemas {
 		schema, err := newSchema(schemaBytes)
 		if err != nil {
-			return nil, fmt.Errorf("compiling schema %s: %w", id, err)
+			return nil, fmt.Errorf("%w: %s: %w", ErrSchemaCompilation, id, err)
 		}
 
 		if schema.ID == "" {

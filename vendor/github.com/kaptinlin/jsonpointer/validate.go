@@ -1,5 +1,10 @@
 package jsonpointer
 
+import (
+	"reflect"
+	"strings"
+)
+
 // Validation limits aligned with TypeScript implementation
 const (
 	// MaxPointerLength is the maximum allowed length for JSON Pointer strings.
@@ -11,6 +16,21 @@ const (
 	MaxPathLength = 256
 )
 
+// validateJsonPointer validates a JSON Pointer string or Path.
+// Returns an error if the pointer is invalid according to RFC 6901.
+func validateJSONPointer(pointer any) error {
+	switch p := pointer.(type) {
+	case string:
+		return validatePointerString(p)
+	case Path:
+		return validatePath(p)
+	case []string:
+		return validatePath(Path(p))
+	default:
+		return ErrPointerInvalid
+	}
+}
+
 // validatePointerString validates a JSON Pointer string.
 func validatePointerString(pointer string) error {
 	// Empty string is valid (root pointer)
@@ -19,7 +39,7 @@ func validatePointerString(pointer string) error {
 	}
 
 	// Must start with "/"
-	if pointer[0] != '/' {
+	if !strings.HasPrefix(pointer, "/") {
 		return ErrPointerInvalid
 	}
 
@@ -45,11 +65,30 @@ func validatePointerString(pointer string) error {
 	return nil
 }
 
-// validatePath validates a Path array.
-// Returns an error if the path exceeds the maximum allowed length.
-func validatePath(path Path) error {
-	if len(path) > MaxPathLength {
+// validatePath validates a path array using reflection.
+// Returns an error if the path contains invalid components.
+func validatePath(path any) error {
+	// Check if path is a string slice
+	val := reflect.ValueOf(path)
+	if val.Kind() != reflect.Slice {
+		return ErrInvalidPath
+	}
+
+	// Check length (aligned with TypeScript: > 256)
+	length := val.Len()
+	if length > MaxPathLength {
 		return ErrPathTooLong
 	}
+
+	// Validate each step - all must be strings - using range over integer (Go 1.22+)
+	for i := range length {
+		step := val.Index(i).Interface()
+
+		// Check if step is string
+		if _, ok := step.(string); !ok {
+			return ErrInvalidPathStep
+		}
+	}
+
 	return nil
 }

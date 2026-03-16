@@ -36,7 +36,7 @@ func evaluateDependentSchemas(
 				if result != nil {
 					//nolint:errcheck
 					result.SetEvaluationPath(fmt.Sprintf("/dependentSchemas/%s", propName)).
-						SetSchemaLocation(schema.SchemaLocation(fmt.Sprintf("/dependentSchemas/%s", propName))).
+						SetSchemaLocation(schema.GetSchemaLocation(fmt.Sprintf("/dependentSchemas/%s", propName))).
 						SetInstanceLocation(fmt.Sprintf("/%s", propName))
 				}
 

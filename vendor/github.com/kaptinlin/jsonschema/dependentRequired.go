@@ -37,7 +37,6 @@ func evaluateDependentRequired(schema *Schema, object map[string]any) *Evaluatio
 	}
 
 	if len(dependentMissingProps) > 0 {
-		// json.Marshal on map[string][]string never fails in practice.
 		missingPropsJSON, _ := json.Marshal(dependentMissingProps)
 		return NewEvaluationError(
 			"dependentRequired", "dependent_property_required",

@@ -7,35 +7,33 @@ import (
 	"strings"
 )
 
-// fastAtoi converts a string to an integer quickly without allocations.
+// fastAtoi converts a string to an integer quickly.
 // Returns -1 if the string is not a valid non-negative integer.
-// This is optimized for JSON Pointer array index parsing.
 func fastAtoi(s string) int {
 	if len(s) == 0 {
 		return -1
 	}
 
-	// Special case: "0" is valid
+	// Handle special case for "0"
 	if s == "0" {
 		return 0
 	}
 
-	// Leading zeros are invalid per RFC 6901
+	// Check for leading zeros (invalid except for "0")
 	if s[0] == '0' {
 		return -1
 	}
 
 	var n int
-	for i := range len(s) {
-		c := s[i]
-		if c < '0' || c > '9' {
-			return -1 // Non-digit character
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return -1 // non-digit character
 		}
-		next := n*10 + int(c-'0')
-		if next < n {
-			return -1 // Integer overflow detected
+		t := n*10 + int(r-'0')
+		if t < n {
+			return -1 // overflow
 		}
-		n = next
+		n = t
 	}
 	return n
 }
@@ -44,7 +42,7 @@ func fastAtoi(s string) int {
 // Returns an error if any pointer in the chain is nil.
 // This is a helper function to eliminate duplicated pointer dereferencing logic.
 func derefValue(v reflect.Value) (reflect.Value, error) {
-	for v.Kind() == reflect.Pointer {
+	for v.Kind() == reflect.Ptr {
 		if v.IsNil() {
 			return reflect.Value{}, ErrNilPointer
 		}
@@ -54,6 +52,7 @@ func derefValue(v reflect.Value) (reflect.Value, error) {
 }
 
 // unescapeComponent un-escapes a JSON pointer path component.
+// Returns the unescaped component string.
 //
 // TypeScript Original:
 //
@@ -62,20 +61,22 @@ func derefValue(v reflect.Value) (reflect.Value, error) {
 //	  return component.replace(r1, '/').replace(r2, '~');
 //	}
 func unescapeComponent(component string) string {
-	if !strings.Contains(component, "~") {
+	// Use strings.IndexByte for fast check if escaping is needed
+	if strings.IndexByte(component, '~') == -1 {
 		return component
 	}
 
+	// Pre-allocate result string capacity
 	result := make([]byte, 0, len(component))
 	for i := 0; i < len(component); i++ {
 		if component[i] == '~' && i+1 < len(component) {
 			switch component[i+1] {
 			case '0':
 				result = append(result, '~')
-				i++
+				i++ // Skip next character
 			case '1':
 				result = append(result, '/')
-				i++
+				i++ // Skip next character
 			default:
 				result = append(result, component[i])
 			}
@@ -86,7 +87,8 @@ func unescapeComponent(component string) string {
 	return string(result)
 }
 
-// escapeComponent escapes a JSON pointer path component.
+// EscapeComponent escapes a JSON pointer path component.
+// Returns the escaped component string.
 //
 // TypeScript Original:
 //
@@ -95,12 +97,14 @@ func unescapeComponent(component string) string {
 //	  return component.replace(r3, '~0').replace(r4, '~1');
 //	}
 func escapeComponent(component string) string {
-	if !strings.Contains(component, "/") && !strings.Contains(component, "~") {
+	// Use strings.IndexByte for fast check
+	if strings.IndexByte(component, '/') == -1 && strings.IndexByte(component, '~') == -1 {
 		return component
 	}
 
+	// Pre-allocate result string capacity (worst case: every character needs escaping)
 	result := make([]byte, 0, len(component)*2)
-	for i := range len(component) {
+	for i := 0; i < len(component); i++ {
 		switch component[i] {
 		case '~':
 			result = append(result, '~', '0')
@@ -113,8 +117,8 @@ func escapeComponent(component string) string {
 	return string(result)
 }
 
-// parseJSONPointer converts JSON pointer like "/foo/bar" to path slice
-// like []string{"foo", "bar"}, while also un-escaping reserved characters.
+// ParseJsonPointer converts JSON pointer like "/foo/bar" to path slice like []string{"foo", "bar"},
+// while also un-escaping reserved characters.
 //
 // TypeScript Original:
 //
@@ -122,23 +126,28 @@ func escapeComponent(component string) string {
 //	  if (!pointer) return [];
 //	  return pointer.slice(1).split('/').map(unescapeComponent);
 //	}
+//
+// Note: The Go implementation uses optimized string processing without split/map for better performance.
 func parseJSONPointer(pointer string) Path {
 	if pointer == "" {
 		return Path{}
 	}
 
+	// Pre-calculate number of path segments
 	segmentCount := 1
-	for i := range len(pointer) - 1 {
-		if pointer[i+1] == '/' {
+	for i := 1; i < len(pointer); i++ {
+		if pointer[i] == '/' {
 			segmentCount++
 		}
 	}
 
+	// Pre-allocate result slice
 	result := make(Path, 0, segmentCount)
-	start := 1
+	start := 1 // Skip the first '/'
 
 	for i := 1; i <= len(pointer); i++ {
 		if i == len(pointer) || pointer[i] == '/' {
+			// Include empty string segments (like empty segments in "/foo///")
 			segment := pointer[start:i]
 			result = append(result, unescapeComponent(segment))
 			start = i + 1
@@ -148,8 +157,9 @@ func parseJSONPointer(pointer string) Path {
 	return result
 }
 
-// formatJSONPointer escapes and formats a path slice like []string{"foo", "bar"}
+// FormatJsonPointer escapes and formats a path slice like []string{"foo", "bar"}
 // to JSON pointer like "/foo/bar".
+// Optimized with strings.Builder pre-allocation for zero intermediate allocations.
 //
 // TypeScript Original:
 //
@@ -162,9 +172,11 @@ func formatJSONPointer(path Path) string {
 		return ""
 	}
 
-	capacity := len(path)
+	// Pre-calculate capacity for single allocation
+	// Each component needs: '/' separator + component length + potential escaping (max 2 chars per original char)
+	capacity := len(path) // '/' separators
 	for _, comp := range path {
-		capacity += len(comp) + 2
+		capacity += len(comp) + 2 // component + max 2 chars for potential escaping
 	}
 
 	var b strings.Builder
@@ -175,6 +187,28 @@ func formatJSONPointer(path Path) string {
 		b.WriteString(escapeComponent(component))
 	}
 	return b.String()
+}
+
+// ToPath converts a pointer (string or Path) to Path.
+// If the input is a string, it parses it as JSON pointer.
+// If the input is already a Path, it returns it as-is.
+//
+// TypeScript Original:
+// export const toPath = (pointer: string | Path) => (typeof pointer === 'string' ? parseJsonPointer(pointer) : pointer);
+func ToPath(pointer any) Path {
+	switch p := pointer.(type) {
+	case string:
+		return parseJSONPointer(p)
+	case Path:
+		return p
+	case []string:
+		result := make(Path, len(p))
+		copy(result, p)
+		return result
+	default:
+		// For other types, return empty path
+		return Path{}
+	}
 }
 
 // IsChild returns true if parent contains child path, false otherwise.
@@ -190,10 +224,16 @@ func IsChild(parent, child Path) bool {
 	if len(parent) >= len(child) {
 		return false
 	}
-	return slices.Equal(parent, child[:len(parent)])
+	for i := 0; i < len(parent); i++ {
+		if parent[i] != child[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // IsPathEqual returns true if two paths are equal, false otherwise.
+// Optimized with slices.Equal (Go 1.21+) using SIMD instructions.
 //
 // TypeScript Original:
 //
@@ -214,8 +254,7 @@ func IsRoot(path Path) bool {
 	return len(path) == 0
 }
 
-// Parent returns parent path, e.g. for []string{"foo", "bar", "baz"}
-// returns []string{"foo", "bar"}.
+// Parent returns parent path, e.g. for []string{"foo", "bar", "baz"} returns []string{"foo", "bar"}.
 // Returns ErrNoParent if the path has no parent (empty or root path).
 //
 // TypeScript Original:
@@ -283,15 +322,18 @@ func IsInteger(str string) bool {
 }
 
 // validateArrayIndex validates and parses array index from string key.
-// Preserves RFC 6901 semantics for array end marker and bounds checking.
+// Returns the parsed index and error if validation fails.
+// Preserves RFC 6901 semantics: distinguishes between index == length (array end) and index > length (out of bounds).
 func validateArrayIndex(key string, length int) (int, error) {
 	if key == "-" {
-		return -1, ErrIndexOutOfBounds
+		return -1, ErrIndexOutOfBounds // "-" refers to nonexistent element
 	}
 	index := fastAtoi(key)
 	if index < 0 {
 		return -1, ErrInvalidIndex
 	}
+	// Note: Caller should handle the distinction between index == length and index > length
+	// to maintain RFC 6901 semantics
 	if index > length {
 		return -1, ErrIndexOutOfBounds
 	}
@@ -299,13 +341,16 @@ func validateArrayIndex(key string, length int) (int, error) {
 }
 
 // validateAndAccessArray validates array index and checks for array end marker.
-// Returns ErrIndexOutOfBounds if index equals array length per RFC 6901.
+// Returns ErrIndexOutOfBounds if index equals array length (array end marker per RFC 6901).
+// Returns the validated index ready for array access.
+// This helper eliminates repeated validation + end-check logic across get.go and find.go.
 func validateAndAccessArray(key string, length int) (int, error) {
 	index, err := validateArrayIndex(key, length)
 	if err != nil {
 		return -1, err
 	}
 	if index == length {
+		// Array end position is nonexistent element (JSON Pointer spec)
 		return -1, ErrIndexOutOfBounds
 	}
 	return index, nil

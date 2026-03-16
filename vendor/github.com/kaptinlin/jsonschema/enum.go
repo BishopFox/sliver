@@ -31,12 +31,16 @@ func valuesEqual(a, b any) bool {
 
 // isNumeric checks if a reflect.Value represents a numeric type
 func isNumeric(v reflect.Value) bool {
-	//nolint:exhaustive // Only checking for numeric types
 	switch v.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
 		reflect.Float32, reflect.Float64:
 		return true
+	case reflect.Invalid, reflect.Bool, reflect.Uintptr,
+		reflect.Complex64, reflect.Complex128, reflect.Array, reflect.Chan,
+		reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr,
+		reflect.Slice, reflect.String, reflect.Struct, reflect.UnsafePointer:
+		return false
 	default:
 		return false
 	}
@@ -87,19 +91,20 @@ func toFloat64(value any) (float64, bool) {
 // Reference: https://json-schema.org/draft/2020-12/json-schema-validation#name-enum
 func evaluateEnum(schema *Schema, instance any) *EvaluationError {
 	if len(schema.Enum) == 0 {
-		return nil
+		return nil // No enum values, so no validation needed
 	}
 
 	allowed := make([]string, 0, len(schema.Enum))
 
 	for _, enumValue := range schema.Enum {
 		if valuesEqual(instance, enumValue) {
-			return nil
+			return nil // Match found.
 		}
 
 		allowed = append(allowed, fmt.Sprintf("%v", enumValue))
 	}
 
+	// No match found.
 	return NewEvaluationError("enum", "value_not_in_enum", "Value {received} should be one of the allowed values: {expected}", map[string]any{
 		"expected": strings.Join(allowed, ", "),
 		"received": instance,

@@ -26,12 +26,12 @@ func parseFunctionCall(input string) (*FunctionCall, error) {
 	}
 
 	name := strings.TrimSpace(input[:parenIndex])
-	rawArgs := strings.TrimSpace(input[parenIndex+1 : len(input)-1])
+	argsStr := strings.TrimSpace(input[parenIndex+1 : len(input)-1])
 
 	// Parse arguments
 	var args []any
-	if rawArgs != "" {
-		args = parseArgs(rawArgs)
+	if argsStr != "" {
+		args = parseArgs(argsStr)
 	}
 
 	return &FunctionCall{
@@ -42,8 +42,8 @@ func parseFunctionCall(input string) (*FunctionCall, error) {
 
 // parseArgs parses function arguments from a string
 // Simple implementation that handles basic types
-func parseArgs(raw string) []any {
-	parts := strings.Split(raw, ",")
+func parseArgs(argsStr string) []any {
+	parts := strings.Split(argsStr, ",")
 	args := make([]any, 0, len(parts))
 
 	for _, part := range parts {

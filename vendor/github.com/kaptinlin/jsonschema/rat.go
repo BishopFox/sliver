@@ -49,7 +49,7 @@ func convertToBigRat(data any) (*big.Rat, error) {
 	case string:
 		str = v
 	default:
-		return nil, ErrUnsupportedRatType
+		return nil, ErrUnsupportedTypeForRat
 	}
 
 	numRat := new(big.Rat)
