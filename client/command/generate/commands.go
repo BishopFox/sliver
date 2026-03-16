@@ -340,6 +340,13 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 
 		f.Uint32P("key-exchange", "X", DefaultWGKeyExPort, "wg key-exchange port")
 		f.Uint32P("tcp-comms", "T", DefaultWGNPort, "wg c2 comms port")
+		f.Bool("include-mtls", false, "force include mtls transport")
+		f.Bool("include-http", false, "force include http transport")
+		f.Bool("include-wg", false, "force include wireguard transport")
+		f.Bool("include-dns", false, "force include dns transport")
+		f.Bool("include-named-pipe", false, "force include named-pipe transport")
+		f.Bool("include-tcp-pivot", false, "force include tcp-pivot transport")
+		f.Bool("all-protocols", false, "force include all transport protocols")
 
 		f.BoolP("run-at-load", "R", false, "run the implant entrypoint from DllMain/Constructor (shared library only)")
 		f.BoolP("netgo", "q", false, "force the use of netgo")
