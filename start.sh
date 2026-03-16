@@ -33,6 +33,13 @@ done
 CFG_DIR="$HOME/.sliver-client/configs"
 mkdir -p "$CFG_DIR"
 
+# ─── Helper: run a single command via sliver-client with timeout ───
+sliver_cmd() {
+    local CMD="$1"
+    local TIMEOUT="${2:-30}"
+    echo "$CMD" | timeout "$TIMEOUT" "$SCRIPT_DIR/sliver-client" 2>/dev/null
+}
+
 # ─── Helper: kill sliver-server and wait until it's actually dead ───
 kill_server() {
     if ! pgrep -f "sliver-server" >/dev/null 2>&1; then
@@ -40,20 +47,18 @@ kill_server() {
     fi
     echo "[*] Sending SIGTERM to sliver-server..."
     pkill -f "sliver-server" 2>/dev/null || true
-    # Wait up to 5s for graceful shutdown
     for i in $(seq 1 10); do
-        if ! pgrep -f "sliver-server" >/dev/null 2>&1; then
-            return 0
-        fi
+        pgrep -f "sliver-server" >/dev/null 2>&1 || return 0
         sleep 0.5
     done
-    # Still alive — SIGKILL
     echo "[*] Server still running, sending SIGKILL..."
     pkill -9 -f "sliver-server" 2>/dev/null || true
-    sleep 1
-    # Final check
+    sleep 2
+    # Also kill any child processes (garble, go, compile)
+    pkill -9 -f "garble" 2>/dev/null || true
+    pkill -9 -f "sliver-client" 2>/dev/null || true
     if pgrep -f "sliver-server" >/dev/null 2>&1; then
-        echo "[-] Failed to kill sliver-server. Kill manually: pkill -9 -f sliver-server"
+        echo "[-] Failed to kill sliver-server. Kill manually: kill -9 $(pgrep -f sliver-server)"
         exit 1
     fi
 }
@@ -77,14 +82,13 @@ if pgrep -f "sliver-server" >/dev/null 2>&1; then
 fi
 
 if [ "$SERVER_RUNNING" = "1" ] && [ "$FRESH" = "0" ]; then
-    # Verify the existing server actually works (not just PID exists)
     echo "[*] Sliver server running (PID $(pgrep -f 'sliver-server' | head -1)), checking health..."
-    if echo "jobs" | "$SCRIPT_DIR/sliver-client" &>/dev/null; then
+    if sliver_cmd "jobs" 10; then
         echo "[+] Server healthy — reusing existing daemon (beacons preserved)"
         echo "    Use --fresh to restart clean."
         SERVER_PID=$(pgrep -f "sliver-server" | head -1)
     else
-        echo "[!] Server PID exists but client can't connect. Restarting..."
+        echo "[!] Server unresponsive. Restarting..."
         FRESH=1
     fi
 fi
@@ -96,7 +100,6 @@ if [ "$FRESH" = "1" ] || [ "$SERVER_RUNNING" = "0" ]; then
         kill_server
     fi
 
-    # Free ALL relevant ports (gRPC + listeners)
     for PORT in $GRPC_PORT $MTLS_PORT $HTTPS_PORT; do
         free_port "$PORT"
     done
@@ -125,7 +128,7 @@ fi
 echo "[*] Verifying client connection..."
 READY=0
 for i in $(seq 1 20); do
-    if echo "version" | "$SCRIPT_DIR/sliver-client" &>/dev/null; then
+    if sliver_cmd "version" 10 >/dev/null; then
         READY=1; break
     fi
     sleep 2
@@ -142,69 +145,52 @@ MARKER="$HOME/.sliver/.profile_imported"
 PROFILE="$SCRIPT_DIR/opsec-profiles/microsoft365-c2.json"
 if [ ! -f "$MARKER" ] && [ -f "$PROFILE" ]; then
     echo "[*] Importing microsoft365 C2 profile..."
-    "$SCRIPT_DIR/sliver-client" << IMPORT
-c2profiles import -n microsoft365 -f $PROFILE
-IMPORT
-    mkdir -p "$HOME/.sliver" 2>/dev/null
-    touch "$MARKER"
-    echo "[+] Profile imported (persists across restarts)"
+    if sliver_cmd "c2profiles import -n microsoft365 -f $PROFILE" 30; then
+        mkdir -p "$HOME/.sliver" 2>/dev/null
+        touch "$MARKER"
+        echo "[+] Profile imported"
+    else
+        echo "[!] Profile import failed/timed out — do it manually in console"
+    fi
 fi
 
 # ─── Install armory extensions (first run only) ───
 ARMORY_MARKER="$HOME/.sliver/.armory_installed"
 if [ ! -f "$ARMORY_MARKER" ]; then
-    echo "[*] Installing armory extensions (first run — takes a few minutes)..."
-    "$SCRIPT_DIR/sliver-client" << ARMORY
-armory install windows-credentials
-armory install kerberos
-armory install situational-awareness
-armory install windows-pivot
-armory install windows-bypass
-armory install .net-pivot
-armory install .net-recon
-armory install .net-execute
-ARMORY
-    touch "$ARMORY_MARKER"
-    echo "[+] Armory extensions installed (persists per-client)"
+    echo "[*] Installing armory extensions (first run — this takes a few minutes)..."
+    ARMORY_PKGS="windows-credentials kerberos situational-awareness windows-pivot windows-bypass .net-pivot .net-recon .net-execute"
+    ARMORY_FAIL=0
+    for PKG in $ARMORY_PKGS; do
+        echo "    Installing $PKG..."
+        if ! sliver_cmd "armory install $PKG" 120; then
+            echo "    [!] $PKG timed out or failed"
+            ARMORY_FAIL=1
+        fi
+    done
+    if [ "$ARMORY_FAIL" = "0" ]; then
+        mkdir -p "$HOME/.sliver" 2>/dev/null
+        touch "$ARMORY_MARKER"
+        echo "[+] All armory extensions installed"
+    else
+        echo "[!] Some armory installs failed — finish manually in console:"
+        echo "    armory install <package>"
+    fi
 fi
 
 # ─── Start listeners ───
-# Check if mTLS listener is already running (persistent listeners auto-start from DB)
-NEED_LISTENER=1
-if "$SCRIPT_DIR/sliver-client" << CHECK 2>/dev/null | grep -q ":${MTLS_PORT}"
-jobs
-CHECK
-then
-    echo "[+] mTLS listener already active on port $MTLS_PORT"
-    NEED_LISTENER=0
+echo "[*] Starting mTLS listener on 0.0.0.0:$MTLS_PORT..."
+if sliver_cmd "mtls --lhost 0.0.0.0 --lport $MTLS_PORT" 15; then
+    echo "[+] mTLS listener started"
+else
+    echo "[!] mTLS auto-start failed — start manually: mtls --lhost 0.0.0.0 --lport $MTLS_PORT"
 fi
 
-if [ "$NEED_LISTENER" = "1" ]; then
-    echo "[*] Starting mTLS listener on 0.0.0.0:$MTLS_PORT..."
-    LISTENER_CMDS="mtls --lhost 0.0.0.0 --lport $MTLS_PORT"
-
-    if [ -n "$DOMAIN" ]; then
-        echo "[*] Starting HTTPS listener on 0.0.0.0:$HTTPS_PORT ($DOMAIN)..."
-        LISTENER_CMDS="$LISTENER_CMDS
-https --lhost 0.0.0.0 --lport $HTTPS_PORT -d $DOMAIN"
-    fi
-
-    LISTENER_OK=0
-    for attempt in 1 2 3; do
-        if "$SCRIPT_DIR/sliver-client" << LISTENERS 2>/dev/null
-$LISTENER_CMDS
-LISTENERS
-        then
-            LISTENER_OK=1
-            break
-        fi
-        echo "[*] Listener attempt $attempt/3 failed, retrying in 5s..."
-        sleep 5
-    done
-
-    if [ "$LISTENER_OK" = "0" ]; then
-        echo "[!] Auto-start failed. Start manually in console:"
-        echo "    mtls --lhost 0.0.0.0 --lport $MTLS_PORT"
+if [ -n "$DOMAIN" ]; then
+    echo "[*] Starting HTTPS listener on 0.0.0.0:$HTTPS_PORT ($DOMAIN)..."
+    if sliver_cmd "https --lhost 0.0.0.0 --lport $HTTPS_PORT -d $DOMAIN" 15; then
+        echo "[+] HTTPS listener started"
+    else
+        echo "[!] HTTPS auto-start failed — start manually in console"
     fi
 fi
 
