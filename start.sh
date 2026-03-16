@@ -121,7 +121,10 @@ if [ "$FRESH" = "1" ] || [ "$SERVER_RUNNING" = "0" ]; then
     sleep 8
 fi
 
-# ─── Create operator config if missing ───
+# ─── Create operator config (always recreate to ensure --permissions all) ───
+if [ -n "$(ls -A "$CFG_DIR" 2>/dev/null)" ]; then
+    rm -f "$CFG_DIR"/*.cfg 2>/dev/null
+fi
 if [ -z "$(ls -A "$CFG_DIR" 2>/dev/null)" ]; then
     echo "[*] Creating operator config..."
     "$SCRIPT_DIR/sliver-server" operator --name local --lhost localhost --permissions all --save "$CFG_DIR/local.cfg"
@@ -169,26 +172,12 @@ fi
 # ─── Install armory extensions (first run only) ───
 ARMORY_MARKER="$HOME/.sliver/.armory_installed"
 if [ ! -f "$ARMORY_MARKER" ]; then
-    echo "[*] Installing armory extensions (first run — takes a few minutes)..."
-    echo "    Each package is installed individually with timeout."
-    echo ""
-
-    ARMORY_PKGS="windows-credentials kerberos situational-awareness windows-pivot windows-bypass .net-pivot .net-recon .net-execute"
-    ARMORY_FAIL=0
-    for PKG in $ARMORY_PKGS; do
-        echo -n "    $PKG... "
-        RC_TMP=$(mktemp /tmp/sliver-armory-XXXXX.rc)
-        echo "armory install -f $PKG" > "$RC_TMP"
-        echo "exit" >> "$RC_TMP"
-        if run_rc "$RC_TMP" 180 | tail -1 | grep -qi "installed\|success\|already"; then
-            echo "OK"
-        else
-            # Check if it actually succeeded despite no matching output
-            echo "done"
-        fi
-        rm -f "$RC_TMP"
-    done
-
+    echo "[*] Installing ALL armory extensions (first run — takes several minutes)..."
+    RC_TMP=$(mktemp /tmp/sliver-armory-XXXXX.rc)
+    echo "armory install -f all" > "$RC_TMP"
+    echo "exit" >> "$RC_TMP"
+    run_rc "$RC_TMP" 600
+    rm -f "$RC_TMP"
     mkdir -p "$HOME/.sliver" 2>/dev/null
     touch "$ARMORY_MARKER"
     echo "[+] Armory extensions installed"
