@@ -404,7 +404,7 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 		if session != nil {
 			hostname = session.GetHostname()
 		} else if beacon != nil {
-			hostname = beacon.Hostname
+			hostname = beacon.GetHostname()
 		}
 		outFile := filepath.Base(fmt.Sprintf("%s_%s*.log", filepath.Base(cmd.Name()), filepath.Base(hostname)))
 		outFilePath, err = os.CreateTemp("", outFile)
