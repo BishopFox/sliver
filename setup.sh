@@ -270,17 +270,20 @@ if [ ! -f "$TOOLS_DIR/sharp-tools/lsa-whisperer.exe" ]; then
     info "Downloading LSA Whisperer (pre-built release)..."
     mkdir -p "$TOOLS_DIR/sharp-tools"
     LSA_ZIP="/tmp/lsa-whisperer.zip"
-    curl -sL -o "$LSA_ZIP" "https://github.com/EvanMcBroom/lsa-whisperer/releases/download/latest/lsa-whisperer-v2.4-52-gf25eca1.zip" 2>/dev/null
-    if [ -f "$LSA_ZIP" ]; then
-        unzip -o -j "$LSA_ZIP" "*.exe" -d "$TOOLS_DIR/sharp-tools/" 2>/dev/null || \
-        unzip -o "$LSA_ZIP" -d "/tmp/lsa-whisperer-extract" 2>/dev/null && \
-        find /tmp/lsa-whisperer-extract -name "*.exe" -exec cp {} "$TOOLS_DIR/sharp-tools/" \; 2>/dev/null
-        rm -rf "$LSA_ZIP" /tmp/lsa-whisperer-extract
-        [ -f "$TOOLS_DIR/sharp-tools/lsa-whisperer.exe" ] \
-            && ok "LSA Whisperer downloaded to $TOOLS_DIR/sharp-tools/lsa-whisperer.exe" \
-            || warn "LSA Whisperer extract failed — download manually from https://github.com/EvanMcBroom/lsa-whisperer/releases"
+    curl -sL -o "$LSA_ZIP" "https://github.com/EvanMcBroom/lsa-whisperer/releases/download/latest/lsa-whisperer-v2.4-52-gf25eca1.zip" 2>/dev/null || true
+    if [ -f "$LSA_ZIP" ] && file "$LSA_ZIP" | grep -q "Zip"; then
+        mkdir -p /tmp/lsa-extract
+        unzip -o "$LSA_ZIP" -d /tmp/lsa-extract 2>/dev/null || true
+        find /tmp/lsa-extract -name "lsa-whisperer.exe" -exec cp {} "$TOOLS_DIR/sharp-tools/" \; 2>/dev/null || true
+        rm -rf "$LSA_ZIP" /tmp/lsa-extract
+        if [ -f "$TOOLS_DIR/sharp-tools/lsa-whisperer.exe" ]; then
+            ok "LSA Whisperer: $TOOLS_DIR/sharp-tools/lsa-whisperer.exe"
+        else
+            warn "LSA Whisperer extract failed — download manually"
+        fi
     else
         warn "LSA Whisperer download failed"
+        rm -f "$LSA_ZIP"
     fi
 fi
 
