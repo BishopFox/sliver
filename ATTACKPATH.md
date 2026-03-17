@@ -78,6 +78,9 @@ SQL Server access, credential dump, DC takeover
 # Az CLI
 curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
 
+# Ruby + gem (required for evil-winrm)
+sudo apt install -y ruby ruby-dev build-essential
+
 # evil-winrm
 gem install evil-winrm
 
