@@ -57,6 +57,7 @@ if command -v apt-get &>/dev/null; then
     apt-get update -qq 2>/dev/null
     apt-get install -y -qq \
         build-essential \
+        cmake \
         mingw-w64 \
         osslsigncode \
         python3-pycryptodome \
@@ -294,7 +295,8 @@ for TOOL_URL in \
     FNAME=$(basename "$TOOL_URL")
     [ ! -f "$SHARP_DIR/$FNAME" ] && curl -sL -o "$SHARP_DIR/$FNAME" "$TOOL_URL" 2>/dev/null || true
 done
-ls "$SHARP_DIR"/*.exe 2>/dev/null | wc -l | xargs -I{} ok "{} .NET tools in $SHARP_DIR"
+TOOL_COUNT=$(ls "$SHARP_DIR"/*.exe 2>/dev/null | wc -l)
+ok "$TOOL_COUNT .NET tools in $SHARP_DIR"
 
 pip3 install pypykatz 2>/dev/null || pip3 install pypykatz --break-system-packages 2>/dev/null || true
 pip3 install impacket 2>/dev/null || pip3 install impacket --break-system-packages 2>/dev/null || true
