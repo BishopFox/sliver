@@ -324,16 +324,18 @@ fi
 STALE_PIDS=$(pgrep -f 'sliver-server|sliver-client' 2>/dev/null || true)
 if [ -n "$STALE_PIDS" ]; then
     warn "Stopping running Sliver before rebuild (PIDs: $STALE_PIDS)..."
-    echo "$STALE_PIDS" | xargs -r kill 2>/dev/null || true
+    echo "$STALE_PIDS" | xargs -r -I{} sh -c 'kill {} 2>/dev/null || true'
     sleep 2
     REMAINING=$(pgrep -f 'sliver-server|sliver-client' 2>/dev/null || true)
-    [ -n "$REMAINING" ] && echo "$REMAINING" | xargs -r kill -9 2>/dev/null || true
-    sleep 1
+    if [ -n "$REMAINING" ]; then
+        echo "$REMAINING" | xargs -r -I{} sh -c 'kill -9 {} 2>/dev/null || true'
+        sleep 1
+    fi
     ok "Stale processes stopped"
 fi
 
 info "Running make (takes several minutes on first build)..."
-make
+make || { err "Make failed. Check Go version (need >= 1.25) and network connectivity."; }
 
 if [ -f "$SLIVER_DIR/sliver-server" ] && [ -f "$SLIVER_DIR/sliver-client" ]; then
     ok "sliver-server built: $(ls -lh "$SLIVER_DIR/sliver-server" | awk '{print $5}')"
