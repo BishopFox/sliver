@@ -84,8 +84,8 @@ sudo apt install -y ruby ruby-dev build-essential
 # evil-winrm
 gem install evil-winrm
 
-# Az PowerShell
-Install-Module -Name Az -Repository PSGallery -Force -Scope CurrentUser
+# Az PowerShell module
+pwsh -c "Install-Module -Name Az -Repository PSGallery -Force -Scope CurrentUser"
 ```
 
 ---
