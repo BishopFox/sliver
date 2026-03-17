@@ -264,6 +264,38 @@ mkdir -p "$TOOLS_DIR"
 [ ! -d "$TOOLS_DIR/lsawhisper-bof" ] && git clone https://github.com/dazzyddos/lsawhisper-bof.git "$TOOLS_DIR/lsawhisper-bof" 2>/dev/null || true
 [ ! -d "$TOOLS_DIR/No-Consolation" ] && git clone https://github.com/fortra/No-Consolation.git "$TOOLS_DIR/No-Consolation" 2>/dev/null || true
 
+# LSA Whisperer — standalone exe for execute-assembly (works with Credential Guard)
+if [ ! -d "$TOOLS_DIR/lsa-whisperer" ]; then
+    info "Cloning LSA Whisperer (EvanMcBroom)..."
+    git clone https://github.com/EvanMcBroom/lsa-whisperer.git "$TOOLS_DIR/lsa-whisperer" 2>/dev/null || true
+    if [ -d "$TOOLS_DIR/lsa-whisperer" ] && command -v cmake &>/dev/null; then
+        info "Building LSA Whisperer..."
+        mkdir -p "$TOOLS_DIR/lsa-whisperer/build" && cd "$TOOLS_DIR/lsa-whisperer/build"
+        cmake .. -DCMAKE_BUILD_TYPE=Release 2>/dev/null && make 2>/dev/null \
+            && ok "LSA Whisperer built: $TOOLS_DIR/lsa-whisperer/build/" \
+            || warn "LSA Whisperer build failed (cmake/make) — use pre-built from releases"
+        cd "$SLIVER_DIR"
+    else
+        warn "cmake not installed — LSA Whisperer not built. Install: apt install cmake"
+    fi
+fi
+
+# Seatbelt, SharpUp, Rubeus, Certify — pre-compiled .NET tools for execute-assembly
+# These are also available via armory but having local copies is useful
+SHARP_DIR="$TOOLS_DIR/sharp-tools"
+mkdir -p "$SHARP_DIR"
+info "Downloading pre-compiled .NET tools..."
+for TOOL_URL in \
+    "https://github.com/r3motecontrol/Ghostpack-CompiledBinaries/raw/master/Rubeus.exe" \
+    "https://github.com/r3motecontrol/Ghostpack-CompiledBinaries/raw/master/Seatbelt.exe" \
+    "https://github.com/r3motecontrol/Ghostpack-CompiledBinaries/raw/master/SharpUp.exe" \
+    "https://github.com/r3motecontrol/Ghostpack-CompiledBinaries/raw/master/Certify.exe" \
+    "https://github.com/r3motecontrol/Ghostpack-CompiledBinaries/raw/master/SharpDPAPI.exe"; do
+    FNAME=$(basename "$TOOL_URL")
+    [ ! -f "$SHARP_DIR/$FNAME" ] && curl -sL -o "$SHARP_DIR/$FNAME" "$TOOL_URL" 2>/dev/null || true
+done
+ls "$SHARP_DIR"/*.exe 2>/dev/null | wc -l | xargs -I{} ok "{} .NET tools in $SHARP_DIR"
+
 pip3 install pypykatz 2>/dev/null || pip3 install pypykatz --break-system-packages 2>/dev/null || true
 pip3 install impacket 2>/dev/null || pip3 install impacket --break-system-packages 2>/dev/null || true
 pip3 install netexec 2>/dev/null || pip3 install netexec --break-system-packages 2>/dev/null || true

