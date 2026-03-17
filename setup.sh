@@ -291,16 +291,14 @@ fi
 # These are also available via armory but having local copies is useful
 SHARP_DIR="$TOOLS_DIR/sharp-tools"
 mkdir -p "$SHARP_DIR"
-info "Downloading pre-compiled .NET tools..."
-for TOOL_URL in \
-    "https://github.com/r3motecontrol/Ghostpack-CompiledBinaries/raw/master/Rubeus.exe" \
-    "https://github.com/r3motecontrol/Ghostpack-CompiledBinaries/raw/master/Seatbelt.exe" \
-    "https://github.com/r3motecontrol/Ghostpack-CompiledBinaries/raw/master/SharpUp.exe" \
-    "https://github.com/r3motecontrol/Ghostpack-CompiledBinaries/raw/master/Certify.exe" \
-    "https://github.com/r3motecontrol/Ghostpack-CompiledBinaries/raw/master/SharpDPAPI.exe"; do
-    FNAME=$(basename "$TOOL_URL")
-    [ ! -f "$SHARP_DIR/$FNAME" ] && curl -sL -o "$SHARP_DIR/$FNAME" "$TOOL_URL" 2>/dev/null || true
+info "Downloading pre-compiled .NET tools (.NET 3.5 — works on Server 2016+)..."
+# Use .NET 3.5 compiled versions for maximum compatibility (Server 2016 only has .NET 4.6)
+GHOST_BASE="https://github.com/r3motecontrol/Ghostpack-CompiledBinaries/raw/master/dotnet%20v3.5%20compiled%20binaries"
+for TOOL in Rubeus.exe Seatbelt.exe SharpUp.exe SharpDPAPI.exe SharpChrome.exe; do
+    [ ! -f "$SHARP_DIR/$TOOL" ] && curl -sL -o "$SHARP_DIR/$TOOL" "$GHOST_BASE/$TOOL" 2>/dev/null || true
 done
+# Certify not in v3.5 folder — use root (v4.0)
+[ ! -f "$SHARP_DIR/Certify.exe" ] && curl -sL -o "$SHARP_DIR/Certify.exe" "https://github.com/r3motecontrol/Ghostpack-CompiledBinaries/raw/master/Certify.exe" 2>/dev/null || true
 TOOL_COUNT=$(ls "$SHARP_DIR"/*.exe 2>/dev/null | wc -l)
 ok "$TOOL_COUNT .NET tools in $SHARP_DIR"
 
