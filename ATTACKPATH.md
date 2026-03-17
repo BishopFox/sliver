@@ -363,10 +363,6 @@ interactive
 ## Step 6: Domain Enumeration
 
 ```
-# AMSI + ETW bypass (run first every time)
-inject-amsi-bypass
-inject-etw-bypass
-
 # Situational awareness
 sa-whoami
 getprivs
