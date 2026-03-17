@@ -76,6 +76,7 @@ type DaemonConfig struct {
 	Host      string `json:"host" yaml:"host"`
 	Port      int    `json:"port" yaml:"port"`
 	Tailscale bool   `json:"tailscale" yaml:"tailscale"`
+	DisableWG bool   `json:"disable_wg" yaml:"disable_wg"`
 }
 
 // JobConfig - Restart Jobs on Load
@@ -92,6 +93,7 @@ type MultiplayerJobConfig struct {
 	Port      uint16 `json:"port" yaml:"port"`
 	JobID     string `json:"job_id" yaml:"job_id"`
 	Tailscale bool   `json:"tailscale" yaml:"tailscale"`
+	WireGuard bool   `json:"wire_guard" yaml:"wire_guard"`
 }
 
 // MTLSJobConfig - Per-type job configs
@@ -195,6 +197,7 @@ type ServerConfig struct {
 	DaemonConfig  *DaemonConfig        `json:"daemon" yaml:"daemon"`
 	Logs          *LogConfig           `json:"logs" yaml:"logs"`
 	GRPC          *GRPCConfig          `json:"grpc" yaml:"grpc"`
+	AI            *AIConfig            `json:"ai" yaml:"ai"`
 	Watchtower    *WatchTowerConfig    `json:"watch_tower" yaml:"watch_tower"`
 	GoProxy       string               `json:"go_proxy" yaml:"go_proxy"`
 	HTTPDefaults  *HttpDefaultConfig   `json:"http_default" yaml:"http_default"`
@@ -283,6 +286,7 @@ func GetServerConfig() *ServerConfig {
 		defaultPermit := true
 		config.GRPC.Keepalive.PermitWithoutStream = &defaultPermit
 	}
+	normalizeAIConfig(config)
 
 	err := config.Save() // This updates the config with any missing fields
 	if err != nil {
@@ -316,6 +320,7 @@ func getDefaultServerConfig() *ServerConfig {
 				PermitWithoutStream: &defaultPermitWithoutStream,
 			},
 		},
+		AI: defaultAIConfig(),
 		HTTPDefaults: &HttpDefaultConfig{
 			Headers: []HttpDefaultHeader{
 				{

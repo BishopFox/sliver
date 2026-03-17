@@ -48,7 +48,7 @@ import (
 
 var (
 	wgLog = log.NamedLogger("c2", "wg")
-	tunIP = "100.64.0.1" // Don't let user configure this for now
+	tunIP = certs.C2WireGuardServerIP // Don't let user configure this for now
 )
 
 const (
@@ -195,12 +195,7 @@ func handleKeyExchangeConnection(conn net.Conn) {
 	wgLog.Infof("Handling connection to key exchange listener")
 
 	defer conn.Close()
-	ip, err := generate.GenerateUniqueIP()
-	if err != nil {
-		wgLog.Errorf("Failed to generate unique IP: %s", err)
-	}
-
-	implantPrivKey, _, err := certs.ImplantGenerateWGKeys(ip.String())
+	ip, implantPrivKey, _, err := generate.GenerateUniqueWGPeerKeys()
 	if err != nil {
 		wgLog.Errorf("Failed to generate new wg keys: %s", err)
 	}
@@ -210,7 +205,7 @@ func handleKeyExchangeConnection(conn net.Conn) {
 		wgLog.Errorf("Failed to retrieve existing wg server keys: %s", err)
 	} else {
 		wgLog.Infof("Successfully generated new wg keys")
-		message := implantPrivKey + "|" + serverPubKey + "|" + string(ip)
+		message := implantPrivKey + "|" + serverPubKey + "|" + ip
 		wgLog.Debugf("Sending new wg keys and IP: %s", message)
 		conn.Write([]byte(message))
 	}

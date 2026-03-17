@@ -1,5 +1,18 @@
 # Changes
 
+## [1.21.0](https://github.com/googleapis/google-cloud-go/releases/tag/firestore%2Fv1.21.0) (2026-01-15)
+
+### Features
+
+* Add ExecutionTime to PipelineSnapshot  (#13620) ([633a3ae](https://github.com/googleapis/google-cloud-go/commit/633a3ae5f8c8f7cec4f5d80aa4e1d560d16c4663))
+* add experimental warning to pipeline API  (#13621) ([6b59162](https://github.com/googleapis/google-cloud-go/commit/6b59162ff2180ed904c8b4a32d45c9b8c1fe6bc2))
+* publish the pipelines API to the stable branch ([21c9dbf](https://github.com/googleapis/google-cloud-go/commit/21c9dbfbf9061b29b1c64e5ca24273ec97078f25))
+* Support pipeline queries (#12347) ([585cd82](https://github.com/googleapis/google-cloud-go/commit/585cd823a9557565b3f427107e6637d2c7a57ef9))
+
+### Documentation
+
+* minor api documentation changes ([21c9dbf](https://github.com/googleapis/google-cloud-go/commit/21c9dbfbf9061b29b1c64e5ca24273ec97078f25))
+
 ## [1.20.0](https://github.com/googleapis/google-cloud-go/compare/firestore/v1.19.0...firestore/v1.20.0) (2025-10-20)
 
 

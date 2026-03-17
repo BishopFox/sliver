@@ -86,6 +86,11 @@ type SliverClient struct {
 	stdoutPipeWriter *os.File
 	stdoutPipeDone   chan struct{}
 	stdoutPipeOnce   sync.Once
+	stdoutSyncMu     sync.Mutex
+	stdoutSyncSeq    uint64
+	stdoutSyncMarker []byte
+	stdoutSyncAcks   map[uint64]chan struct{}
+	stdoutSyncAcksMu sync.Mutex
 
 	connMu                 sync.Mutex
 	grpcConn               *grpc.ClientConn
@@ -317,6 +322,8 @@ func (con *SliverClient) applyConnectionHooksOnce() {
 	}
 	con.connectionHooksApplied = true
 
+	con.App.PreReadlineHooks = append(con.App.PreReadlineHooks, con.syncOutputHook)
+	con.App.PostCmdRunHooks = append(con.App.PostCmdRunHooks, con.syncOutputHook)
 	con.App.PreCmdRunLineHooks = append(con.App.PreCmdRunLineHooks, con.allowServerRootCommands)
 	if shell := con.App.Shell(); shell != nil && shell.Completer != nil {
 		baseCompleter := shell.Completer

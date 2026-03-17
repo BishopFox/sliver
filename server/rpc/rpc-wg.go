@@ -14,12 +14,7 @@ import (
 
 // GenerateWGClientConfig - Generate a client config for a WG interface
 func (rpc *Server) GenerateWGClientConfig(ctx context.Context, _ *commonpb.Empty) (*clientpb.WGClientConfig, error) {
-	clientIP, err := generate.GenerateUniqueIP()
-	if err != nil {
-		rpcLog.Errorf("Could not generate WG unique IP: %v", err)
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-	privkey, pubkey, err := certs.GenerateWGKeys(true, clientIP.String())
+	clientIP, privkey, pubkey, err := generate.GenerateUniqueWGPeerKeys()
 	if err != nil {
 		rpcLog.Errorf("Could not generate WG keys: %v", err)
 		return nil, status.Error(codes.Internal, err.Error())
@@ -31,7 +26,7 @@ func (rpc *Server) GenerateWGClientConfig(ctx context.Context, _ *commonpb.Empty
 	}
 	resp := &clientpb.WGClientConfig{
 		ClientPrivateKey: privkey,
-		ClientIP:         clientIP.String(),
+		ClientIP:         clientIP,
 		ClientPubKey:     pubkey,
 		ServerPubKey:     serverPubKey,
 	}

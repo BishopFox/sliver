@@ -22,16 +22,19 @@ import (
 	"fmt"
 
 	"github.com/bishopfox/sliver/client/assets"
+	"github.com/bishopfox/sliver/client/command/ai"
 	"github.com/bishopfox/sliver/client/command/aka"
 	"github.com/bishopfox/sliver/client/command/alias"
 	"github.com/bishopfox/sliver/client/command/backdoor"
 	"github.com/bishopfox/sliver/client/command/cursed"
 	"github.com/bishopfox/sliver/client/command/dllhijack"
+	docscmd "github.com/bishopfox/sliver/client/command/docs"
 	"github.com/bishopfox/sliver/client/command/edit"
 	"github.com/bishopfox/sliver/client/command/environment"
 	"github.com/bishopfox/sliver/client/command/exec"
 	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/command/filesystem"
+	"github.com/bishopfox/sliver/client/command/hexedit"
 	"github.com/bishopfox/sliver/client/command/info"
 	"github.com/bishopfox/sliver/client/command/kill"
 	"github.com/bishopfox/sliver/client/command/network"
@@ -49,7 +52,6 @@ import (
 	"github.com/bishopfox/sliver/client/command/tasks"
 	"github.com/bishopfox/sliver/client/command/wasm"
 	"github.com/bishopfox/sliver/client/command/wireguard"
-	"github.com/bishopfox/sliver/client/command/hexedit"
 	client "github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/reeflective/console"
@@ -78,6 +80,8 @@ func SliverCommands(con *client.SliverClient) console.Commands {
 
 		// [ Core ]
 		bind(consts.SliverCoreHelpGroup,
+			ai.Commands,
+			docscmd.Commands,
 			reconfig.Commands,
 			// sessions.Commands,
 			sessions.SliverCommands,

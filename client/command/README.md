@@ -12,6 +12,7 @@ Shared registration glue, scaffolding, and helpers for Sliver client console com
 
 ## Sub-packages
 
+- `ai/` – Implements the 'ai' Bubble Tea layout preview command for the Sliver client console.
 - `alias/` – Implements the 'alias' command group for the Sliver client console.
 - `armory/` – Implements the 'armory' command group for the Sliver client console.
 - `backdoor/` – Implements the 'backdoor' command group for the Sliver client console.

@@ -13,15 +13,15 @@ import (
 	"sync"
 	"time"
 
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/console"
 	clienttheme "github.com/bishopfox/sliver/client/theme"
 	"github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/connectivity"
 )
@@ -158,7 +158,7 @@ func serverSwitch(_ *cobra.Command, con *console.SliverClient) {
 		}
 
 		if err := con.SetConnection(rpc, conn, &console.ConnectionDetails{ConfigKey: inst.ConfigKey, Config: inst.Config}); err != nil {
-			_ = conn.Close()
+			_ = transport.CloseGRPCConnection(conn)
 			con.PrintErrorf("Switch failed: %s\n", err)
 			return
 		}
@@ -180,7 +180,7 @@ func serverSwitch(_ *cobra.Command, con *console.SliverClient) {
 		}
 
 		if err := con.SetConnection(rpc, conn, &console.ConnectionDetails{ConfigKey: result.ConfigKey, Config: cfg}); err != nil {
-			_ = conn.Close()
+			_ = transport.CloseGRPCConnection(conn)
 			con.PrintErrorf("Switch failed: %s\n", err)
 			return
 		}
@@ -347,7 +347,6 @@ type switchTUIModel struct {
 	result   switchResult
 	width    int
 	height   int
-	theme    *huh.Theme
 	styles   switchStyles
 	activeID string
 	counts   map[string]int
@@ -367,7 +366,7 @@ type switchStyles struct {
 
 func runSwitchTUI(instances []*consoleInstance, activeID string, configKeys []string, counts map[string]int) (switchResult, error) {
 	m := newSwitchTUIModel(instances, activeID, configKeys, counts)
-	prog := tea.NewProgram(m, tea.WithAltScreen())
+	prog := tea.NewProgram(m)
 	finalModel, err := prog.Run()
 	if err != nil {
 		return switchResult{}, err
@@ -465,7 +464,6 @@ func newSwitchTUIModel(instances []*consoleInstance, activeID string, configKeys
 		tab:      tabExisting,
 		existing: existingForm,
 		newConn:  newForm,
-		theme:    huhTheme,
 		styles:   styles,
 		activeID: activeID,
 		counts:   counts,
@@ -491,7 +489,7 @@ func (m switchTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.newConn = modelB.(*huh.Form)
 		return m, tea.Batch(cmdA, cmdB)
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "tab":
 			if m.tab == tabExisting {
@@ -548,7 +546,7 @@ func (m switchTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m switchTUIModel) View() string {
+func (m switchTUIModel) View() tea.View {
 	header := m.renderHeader()
 
 	body := ""
@@ -562,7 +560,9 @@ func (m switchTUIModel) View() string {
 	footer := m.renderFooter()
 
 	content := lipgloss.JoinVertical(lipgloss.Left, header, body, footer)
-	return m.styles.frame.Render(content)
+	view := tea.NewView(m.styles.frame.Render(content))
+	view.AltScreen = true
+	return view
 }
 
 func (m switchTUIModel) renderHeader() string {

@@ -19,7 +19,10 @@ package console
 */
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"log"
@@ -36,6 +39,11 @@ import (
 	"github.com/moloch--/asciicast"
 	"golang.org/x/exp/slog"
 	"golang.org/x/term"
+)
+
+const (
+	stdoutSyncMarkerSize = 16
+	stdoutSyncWait       = 2 * time.Second
 )
 
 // ConsoleClientLogger is an io.Writer that sends data to the server.
@@ -233,14 +241,158 @@ func (con *SliverClient) setupAsciicastRecord(logFile *os.File, server io.Writer
 	os.Stdout = w
 	os.Stderr = w
 
+	marker := make([]byte, stdoutSyncMarkerSize)
+	if _, err := rand.Read(marker); err != nil {
+		copy(marker, []byte(fmt.Sprintf("sliver-sync-%d", time.Now().UnixNano())))
+	}
+
 	done := make(chan struct{})
 	con.stdoutPipeWriter = w
 	con.stdoutPipeDone = done
+	con.stdoutSyncMarker = marker
+	con.stdoutSyncAcks = map[uint64]chan struct{}{}
 
-	go func() {
-		_, _ = io.Copy(mw, r)
-		close(done)
-	}()
+	go con.copyStdoutPipe(r, mw, done)
+}
+
+func buildStdoutSyncFrame(marker []byte, seq uint64) []byte {
+	frame := make([]byte, len(marker)*2+8)
+	copy(frame, marker)
+	binary.BigEndian.PutUint64(frame[len(marker):], seq)
+	copy(frame[len(marker)+8:], marker)
+	return frame
+}
+
+func pendingMarkerPrefixLen(pending []byte, marker []byte) int {
+	max := len(marker) - 1
+	if max > len(pending) {
+		max = len(pending)
+	}
+	for size := max; size > 0; size-- {
+		if bytes.Equal(pending[len(pending)-size:], marker[:size]) {
+			return size
+		}
+	}
+	return 0
+}
+
+func drainStdoutPipeBuffer(dst io.Writer, pending []byte, marker []byte, ack func(uint64)) []byte {
+	if len(pending) == 0 {
+		return pending
+	}
+	if len(marker) == 0 {
+		_, _ = dst.Write(pending)
+		return pending[:0]
+	}
+
+	frameLen := len(marker)*2 + 8
+	for {
+		idx := bytes.Index(pending, marker)
+		if idx == -1 {
+			keep := pendingMarkerPrefixLen(pending, marker)
+			flush := len(pending) - keep
+			if flush > 0 {
+				_, _ = dst.Write(pending[:flush])
+				pending = pending[flush:]
+			}
+			return pending
+		}
+
+		if idx > 0 {
+			_, _ = dst.Write(pending[:idx])
+			pending = pending[idx:]
+		}
+		if len(pending) < frameLen {
+			return pending
+		}
+		if bytes.Equal(pending[len(marker)+8:frameLen], marker) {
+			if ack != nil {
+				ack(binary.BigEndian.Uint64(pending[len(marker) : len(marker)+8]))
+			}
+			pending = pending[frameLen:]
+			continue
+		}
+
+		_, _ = dst.Write(pending[:1])
+		pending = pending[1:]
+	}
+}
+
+func (con *SliverClient) copyStdoutPipe(src *os.File, dst io.Writer, done chan struct{}) {
+	defer close(done)
+	defer src.Close()
+
+	readBuf := make([]byte, 4096)
+	pending := make([]byte, 0, 4096)
+	for {
+		n, err := src.Read(readBuf)
+		if n > 0 {
+			pending = append(pending, readBuf[:n]...)
+			pending = drainStdoutPipeBuffer(dst, pending, con.stdoutSyncMarker, con.ackStdoutSync)
+		}
+		if err != nil {
+			break
+		}
+	}
+	if len(pending) > 0 {
+		_, _ = dst.Write(pending)
+	}
+}
+
+func (con *SliverClient) ackStdoutSync(seq uint64) {
+	con.stdoutSyncAcksMu.Lock()
+	ack := con.stdoutSyncAcks[seq]
+	delete(con.stdoutSyncAcks, seq)
+	con.stdoutSyncAcksMu.Unlock()
+
+	if ack != nil {
+		close(ack)
+	}
+}
+
+func (con *SliverClient) clearStdoutSync(seq uint64) {
+	con.stdoutSyncAcksMu.Lock()
+	delete(con.stdoutSyncAcks, seq)
+	con.stdoutSyncAcksMu.Unlock()
+}
+
+func (con *SliverClient) syncOutputHook() error {
+	con.syncOutput()
+	return nil
+}
+
+func (con *SliverClient) syncOutput() {
+	if con.stdoutPipeWriter == nil {
+		_ = os.Stdout.Sync()
+		return
+	}
+	if len(con.stdoutSyncMarker) == 0 {
+		return
+	}
+
+	con.stdoutSyncMu.Lock()
+	con.stdoutSyncSeq++
+	seq := con.stdoutSyncSeq
+	ack := make(chan struct{})
+	con.stdoutSyncAcksMu.Lock()
+	if con.stdoutSyncAcks == nil {
+		con.stdoutSyncAcks = map[uint64]chan struct{}{}
+	}
+	con.stdoutSyncAcks[seq] = ack
+	con.stdoutSyncAcksMu.Unlock()
+	frame := buildStdoutSyncFrame(con.stdoutSyncMarker, seq)
+	_, err := con.stdoutPipeWriter.Write(frame)
+	con.stdoutSyncMu.Unlock()
+	if err != nil {
+		con.clearStdoutSync(seq)
+		return
+	}
+
+	select {
+	case <-ack:
+	case <-time.After(stdoutSyncWait):
+		con.clearStdoutSync(seq)
+	}
 }
 
 func getConsoleLogFile() *os.File {

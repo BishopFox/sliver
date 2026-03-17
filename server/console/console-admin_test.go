@@ -5,6 +5,7 @@ import (
 	"encoding/pem"
 	"testing"
 
+	clientassets "github.com/bishopfox/sliver/client/assets"
 	clienttransport "github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/server/certs"
 )
@@ -12,11 +13,11 @@ import (
 func TestRootOnlyVerifyCertificate(t *testing.T) {
 	certs.SetupCAs()
 
-	data, err := NewOperatorConfig("zerocool", "localhost", uint16(1337), []string{"all"})
+	data, err := NewOperatorConfig("zerocool", "localhost", uint16(1337), []string{"all"}, false)
 	if err != nil {
 		t.Fatalf("failed to generate test player profile %s", err)
 	}
-	config := &ClientConfig{}
+	config := &clientassets.ClientConfig{}
 	err = json.Unmarshal(data, config)
 	if err != nil {
 		t.Fatalf("failed to parse client config %s", err)

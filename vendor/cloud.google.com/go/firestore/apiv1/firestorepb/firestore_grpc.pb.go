@@ -22,6 +22,7 @@ package firestorepb
 
 import (
 	context "context"
+
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -43,6 +44,7 @@ const (
 	Firestore_Commit_FullMethodName              = "/google.firestore.v1.Firestore/Commit"
 	Firestore_Rollback_FullMethodName            = "/google.firestore.v1.Firestore/Rollback"
 	Firestore_RunQuery_FullMethodName            = "/google.firestore.v1.Firestore/RunQuery"
+	Firestore_ExecutePipeline_FullMethodName     = "/google.firestore.v1.Firestore/ExecutePipeline"
 	Firestore_RunAggregationQuery_FullMethodName = "/google.firestore.v1.Firestore/RunAggregationQuery"
 	Firestore_PartitionQuery_FullMethodName      = "/google.firestore.v1.Firestore/PartitionQuery"
 	Firestore_Write_FullMethodName               = "/google.firestore.v1.Firestore/Write"
@@ -77,6 +79,8 @@ type FirestoreClient interface {
 	Rollback(ctx context.Context, in *RollbackRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Runs a query.
 	RunQuery(ctx context.Context, in *RunQueryRequest, opts ...grpc.CallOption) (Firestore_RunQueryClient, error)
+	// Executes a pipeline query.
+	ExecutePipeline(ctx context.Context, in *ExecutePipelineRequest, opts ...grpc.CallOption) (Firestore_ExecutePipelineClient, error)
 	// Runs an aggregation query.
 	//
 	// Rather than producing [Document][google.firestore.v1.Document] results like
@@ -253,8 +257,40 @@ func (x *firestoreRunQueryClient) Recv() (*RunQueryResponse, error) {
 	return m, nil
 }
 
+func (c *firestoreClient) ExecutePipeline(ctx context.Context, in *ExecutePipelineRequest, opts ...grpc.CallOption) (Firestore_ExecutePipelineClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Firestore_ServiceDesc.Streams[2], Firestore_ExecutePipeline_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &firestoreExecutePipelineClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Firestore_ExecutePipelineClient interface {
+	Recv() (*ExecutePipelineResponse, error)
+	grpc.ClientStream
+}
+
+type firestoreExecutePipelineClient struct {
+	grpc.ClientStream
+}
+
+func (x *firestoreExecutePipelineClient) Recv() (*ExecutePipelineResponse, error) {
+	m := new(ExecutePipelineResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *firestoreClient) RunAggregationQuery(ctx context.Context, in *RunAggregationQueryRequest, opts ...grpc.CallOption) (Firestore_RunAggregationQueryClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Firestore_ServiceDesc.Streams[2], Firestore_RunAggregationQuery_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &Firestore_ServiceDesc.Streams[3], Firestore_RunAggregationQuery_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -295,7 +331,7 @@ func (c *firestoreClient) PartitionQuery(ctx context.Context, in *PartitionQuery
 }
 
 func (c *firestoreClient) Write(ctx context.Context, opts ...grpc.CallOption) (Firestore_WriteClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Firestore_ServiceDesc.Streams[3], Firestore_Write_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &Firestore_ServiceDesc.Streams[4], Firestore_Write_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -326,7 +362,7 @@ func (x *firestoreWriteClient) Recv() (*WriteResponse, error) {
 }
 
 func (c *firestoreClient) Listen(ctx context.Context, opts ...grpc.CallOption) (Firestore_ListenClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Firestore_ServiceDesc.Streams[4], Firestore_Listen_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &Firestore_ServiceDesc.Streams[5], Firestore_Listen_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -408,6 +444,8 @@ type FirestoreServer interface {
 	Rollback(context.Context, *RollbackRequest) (*emptypb.Empty, error)
 	// Runs a query.
 	RunQuery(*RunQueryRequest, Firestore_RunQueryServer) error
+	// Executes a pipeline query.
+	ExecutePipeline(*ExecutePipelineRequest, Firestore_ExecutePipelineServer) error
 	// Runs an aggregation query.
 	//
 	// Rather than producing [Document][google.firestore.v1.Document] results like
@@ -479,6 +517,9 @@ func (UnimplementedFirestoreServer) Rollback(context.Context, *RollbackRequest) 
 }
 func (UnimplementedFirestoreServer) RunQuery(*RunQueryRequest, Firestore_RunQueryServer) error {
 	return status.Errorf(codes.Unimplemented, "method RunQuery not implemented")
+}
+func (UnimplementedFirestoreServer) ExecutePipeline(*ExecutePipelineRequest, Firestore_ExecutePipelineServer) error {
+	return status.Errorf(codes.Unimplemented, "method ExecutePipeline not implemented")
 }
 func (UnimplementedFirestoreServer) RunAggregationQuery(*RunAggregationQueryRequest, Firestore_RunAggregationQueryServer) error {
 	return status.Errorf(codes.Unimplemented, "method RunAggregationQuery not implemented")
@@ -678,6 +719,27 @@ type firestoreRunQueryServer struct {
 }
 
 func (x *firestoreRunQueryServer) Send(m *RunQueryResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _Firestore_ExecutePipeline_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ExecutePipelineRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(FirestoreServer).ExecutePipeline(m, &firestoreExecutePipelineServer{stream})
+}
+
+type Firestore_ExecutePipelineServer interface {
+	Send(*ExecutePipelineResponse) error
+	grpc.ServerStream
+}
+
+type firestoreExecutePipelineServer struct {
+	grpc.ServerStream
+}
+
+func (x *firestoreExecutePipelineServer) Send(m *ExecutePipelineResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -887,6 +949,11 @@ var Firestore_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "RunQuery",
 			Handler:       _Firestore_RunQuery_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "ExecutePipeline",
+			Handler:       _Firestore_ExecutePipeline_Handler,
 			ServerStreams: true,
 		},
 		{
