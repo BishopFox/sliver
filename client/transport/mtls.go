@@ -22,6 +22,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -50,6 +51,13 @@ type TokenAuth struct {
 	token string
 }
 
+type multiplayerDialStrategy int
+
+const (
+	multiplayerDialDirect multiplayerDialStrategy = iota
+	multiplayerDialWireGuard
+)
+
 // Return value is mapped to request headers.
 func (t TokenAuth) GetRequestMetadata(ctx context.Context, in ...string) (map[string]string, error) {
 	return map[string]string{
@@ -63,9 +71,55 @@ func (TokenAuth) RequireTransportSecurity() bool {
 
 // MTLSConnect - Connect to the sliver server
 func MTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
-	tlsConfig, err := getTLSConfig(config.CACertificate, config.Certificate, config.PrivateKey)
+	strategy, err := selectMultiplayerDialStrategy(config)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	switch strategy {
+	case multiplayerDialWireGuard:
+		return wireGuardMTLSConnect(config)
+	default:
+		return directMTLSConnect(config)
+	}
+}
+
+func selectMultiplayerDialStrategy(config *assets.ClientConfig) (multiplayerDialStrategy, error) {
+	if config == nil {
+		return multiplayerDialDirect, errors.New("client config is required")
+	}
+
+	switch getMultiplayerConnectMode() {
+	case MultiplayerConnectDisableWG:
+		return multiplayerDialDirect, nil
+	case MultiplayerConnectRequireWG:
+		if err := validateWireGuardConfig(config); err != nil {
+			return multiplayerDialDirect, err
+		}
+		return multiplayerDialWireGuard, nil
+	default:
+		if config.WG == nil {
+			return multiplayerDialDirect, nil
+		}
+		if err := validateWireGuardConfig(config); err != nil {
+			return multiplayerDialDirect, err
+		}
+		return multiplayerDialWireGuard, nil
+	}
+}
+
+func directMTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
+	options, err := newMTLSDialOptions(config)
+	if err != nil {
+		return nil, nil, err
+	}
+	return dialRPCClient(fmt.Sprintf("%s:%d", config.LHost, config.LPort), options, nil)
+}
+
+func newMTLSDialOptions(config *assets.ClientConfig) ([]grpc.DialOption, error) {
+	tlsConfig, err := getTLSConfig(config.CACertificate, config.Certificate, config.PrivateKey)
+	if err != nil {
+		return nil, err
 	}
 	transportCreds := credentials.NewTLS(tlsConfig)
 	callCreds := credentials.PerRPCCredentials(TokenAuth{token: config.Token})
@@ -78,11 +132,18 @@ func MTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *grpc.Clie
 	if kp, ok := getKeepaliveParams(); ok {
 		options = append(options, grpc.WithKeepaliveParams(kp))
 	}
+	return options, nil
+}
 
-	connection, err := grpc.NewClient(fmt.Sprintf("%s:%d", config.LHost, config.LPort), options...)
+func dialRPCClient(target string, options []grpc.DialOption, closer connectionCloser) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
+	connection, err := grpc.NewClient(target, options...)
 	if err != nil {
+		if closer != nil {
+			_ = closer.Close()
+		}
 		return nil, nil, err
 	}
+	registerConnCloser(connection, closer)
 
 	// Preserve the legacy grpc.DialContext + grpc.WithBlock behavior: block
 	// until the channel becomes READY or the timeout expires.
@@ -97,7 +158,7 @@ func MTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *grpc.Clie
 			break
 		}
 		if !connection.WaitForStateChange(ctx, state) {
-			_ = connection.Close()
+			_ = CloseGRPCConnection(connection)
 			return nil, nil, ctx.Err()
 		}
 	}

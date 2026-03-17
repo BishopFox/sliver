@@ -44,6 +44,9 @@ func consoleCmd(con *console.SliverClient) *cobra.Command {
 
 func consoleRunnerCmd(con *console.SliverClient, run bool) (pre, post func(cmd *cobra.Command, args []string) error) {
 	pre = func(cmd *cobra.Command, _ []string) error {
+		if err := applyMultiplayerConnectMode(cmd); err != nil {
+			return err
+		}
 
 		configs := assets.GetConfigs()
 		if len(configs) == 0 {

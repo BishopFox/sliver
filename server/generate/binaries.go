@@ -1050,22 +1050,23 @@ func GenerateConfig(name string, implantConfig *clientpb.ImplantConfig) (*client
 	// Generate wg Keys as needed
 	if models.IsC2Enabled([]string{"wg"}, implantConfig.C2) {
 		if strings.TrimSpace(implantConfig.WGPeerTunIP) == "" {
-			uniqueIP, err := GenerateUniqueIP()
+			uniqueIP, implantPrivKey, _, err := GenerateUniqueWGPeerKeys()
 			if err != nil {
 				return nil, fmt.Errorf("failed to generate wireguard peer tunnel IP: %w", err)
 			}
-			implantConfig.WGPeerTunIP = uniqueIP.String()
-		}
-
-		implantPrivKey, _, err := certs.ImplantGenerateWGKeys(implantConfig.WGPeerTunIP)
-		if err != nil {
-			return nil, err
+			implantConfig.WGPeerTunIP = uniqueIP
+			build.WGImplantPrivKey = implantPrivKey
+		} else {
+			implantPrivKey, _, err := certs.ImplantGenerateWGKeys(implantConfig.WGPeerTunIP)
+			if err != nil {
+				return nil, err
+			}
+			build.WGImplantPrivKey = implantPrivKey
 		}
 		_, serverPubKey, err := certs.GetWGServerKeys()
 		if err != nil {
 			return nil, fmt.Errorf("failed to embed implant wg keys: %s", err)
 		}
-		build.WGImplantPrivKey = implantPrivKey
 		build.WGServerPubKey = serverPubKey
 	}
 

@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"strings"
 
+	"charm.land/huh/v2"
 	"github.com/bishopfox/sliver/client/theme"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/util"
-	"github.com/charmbracelet/huh"
 )
 
 // GenerateBeaconFormResult captures the inputs needed to drive the generate beacon command.
@@ -156,7 +156,7 @@ func GenerateBeaconForm(compiler *clientpb.Compiler) (*GenerateBeaconFormResult,
 	)
 
 	form = form.WithTheme(theme.HuhTheme())
-	if err := form.Run(); err != nil {
+	if err := runForm(form); err != nil {
 		return nil, err
 	}
 

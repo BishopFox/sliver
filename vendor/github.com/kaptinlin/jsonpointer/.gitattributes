@@ -1,0 +1,26 @@
+# Auto detect text files and perform LF normalization
+*                   text=auto
+
+# Collapse generated and vendored files on GitHub
+AUTHORS             linguist-generated merge=union
+*.gen.*             linguist-generated merge=ours
+*.pb.go             linguist-generated merge=ours
+*.pb.gw.go          linguist-generated merge=ours
+go.sum              linguist-generated merge=ours
+go.mod              linguist-generated
+gen.sum             linguist-generated merge=ours
+
+# doc
+docs/*              linguist-documentation
+docs/Makefile       linguist-documentation=false
+
+# Reduce conflicts on markdown files
+*.md                merge=union
+
+# A set of files you probably don't want in distribution
+/.github            export-ignore
+/.githooks          export-ignore
+.gitattributes      export-ignore
+.gitignore          export-ignore
+.gitmodules         export-ignore
+/tool/lint          export-ignore

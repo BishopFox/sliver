@@ -600,8 +600,9 @@ func UnmarshalRead(in io.Reader, out any, opts ...Options) (err error) {
 // Unlike [Unmarshal] and [UnmarshalRead], decode options are ignored because
 // they must have already been specified on the provided [jsontext.Decoder].
 //
-// The input may be a stream of one or more JSON values,
+// The input may be a stream of zero or more JSON values,
 // where this only unmarshals the next JSON value in the stream.
+// If there are no more top-level JSON values, it reports [io.EOF].
 // The output must be a non-nil pointer.
 // See [Unmarshal] for details about the conversion of JSON into a Go value.
 func UnmarshalDecode(in *jsontext.Decoder, out any, opts ...Options) (err error) {
@@ -789,8 +790,8 @@ type UnmarshalerFrom = json.UnmarshalerFrom
 // The name of an unknown JSON object member can be extracted as:
 //
 //	err := ...
-//	var serr json.SemanticError
-//	if errors.As(err, &serr) && serr.Err == json.ErrUnknownName {
+//	serr, ok := errors.AsType[*json.SemanticError](err)
+//	if ok && serr.Err == json.ErrUnknownName {
 //		ptr := serr.JSONPointer // JSON pointer to unknown name
 //		name := ptr.LastToken() // unknown name itself
 //		...
@@ -891,9 +892,8 @@ func GetOption[T any](opts Options, setter func(T) Options) (T, bool) {
 }
 
 // DefaultOptionsV2 is the full set of all options that define v2 semantics.
-// It is equivalent to all options under [Options], [encoding/json.Options],
-// and [encoding/json/jsontext.Options] being set to false or the zero value,
-// except for the options related to whitespace formatting.
+// It is equivalent to the set of options in [encoding/json.DefaultOptionsV1]
+// all being set to false. All other options are not present.
 func DefaultOptionsV2() Options {
 	return json.DefaultOptionsV2()
 }

@@ -1,7 +1,7 @@
 # JSON Serialization (v2)
 
 [![GoDev](https://img.shields.io/static/v1?label=godev&message=reference&color=00add8)](https://pkg.go.dev/github.com/go-json-experiment/json)
-[![Build Status](https://github.com/go-json-experiment/json/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/go-json-experiment/json/actions)
+[![Build Status](https://github.com/go-json-experiment/json/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/go-json-experiment/json/actions)
 
 This module hosts an experimental implementation of v2 `encoding/json`.
 The API is unstable and breaking changes will regularly be made.
@@ -13,6 +13,8 @@ It is your responsibility to inspect the list of commit changes
 when upgrading the module. Not all breaking changes will lead to build failures.
 
 A [proposal to include this module in Go as `encoding/json/v2` and `encoding/json/jsontext`](https://github.com/golang/go/issues/71497) has been started on the Go Github project on 2025-01-30. Please provide your feedback there.
+At present, this module is available within the Go standard library as a Go experiment.
+See ["A new experimental Go API for JSON"](https://go.dev/blog/jsonv2-exp) for more details.
 
 ## Goals and objectives
 

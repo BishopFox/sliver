@@ -52,6 +52,8 @@ func init() {
 
 	rootCmd.TraverseChildren = true
 	rootCmd.Flags().String(RCFlagName, "", "path to rc script file")
+	rootCmd.PersistentFlags().Bool(disableWGFlag, false, "connect to multiplayer directly even if the operator config includes a WireGuard wrapper")
+	rootCmd.PersistentFlags().Bool(requireWGFlag, false, "require the operator config's WireGuard wrapper for multiplayer connections")
 
 	// Create the console client, without any RPC or commands bound to it yet.
 	// This created before anything so that multiple commands can make use of

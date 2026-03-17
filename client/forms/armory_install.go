@@ -3,8 +3,8 @@ package forms
 import (
 	"errors"
 
+	"charm.land/huh/v2"
 	"github.com/bishopfox/sliver/client/theme"
-	"github.com/charmbracelet/huh"
 )
 
 // ArmoryInstallOption represents an armory install option.
@@ -46,7 +46,7 @@ func ArmoryInstallForm(options []ArmoryInstallOption) (*ArmoryInstallFormResult,
 		Value(&result.SelectedNames)
 
 	form := huh.NewForm(huh.NewGroup(field)).WithTheme(theme.HuhTheme())
-	if err := form.Run(); err != nil {
+	if err := runForm(form); err != nil {
 		return nil, err
 	}
 

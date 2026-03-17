@@ -1,11 +1,15 @@
 package generate
 
 import (
+	"errors"
+	"fmt"
 	"net"
 
+	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 var (
@@ -16,74 +20,32 @@ var (
 )
 
 // GenerateUniqueIP generates and returns an available IP which can then
-// be assigned to a Wireguard interface
+// be assigned to a WireGuard interface.
 func GenerateUniqueIP() (net.IP, error) {
-	dbWireguardIPs, err := db.WGPeerIPs()
+	tunIP, err := db.NextAvailableWGIP()
 	if err != nil {
-		wgipsLog.Errorf("Failed to retrieve list of WG Peers IPs with error: %s", err)
+		wgipsLog.Errorf("Failed to generate WG peer IP with error: %s", err)
 		return nil, err
 	}
-
-	// Use the 100.64.0.1/16 range for TUN ips.
-	// This range chosen due to Tailscale also using it (Cut down to /16 instead of /10)
-	// https://tailscale.com/kb/1015/100.x-addresses
-	addressPool, err := hosts("100.64.0.1/16")
-	if err != nil {
-		wgipsLog.Errorf("Failed to generate host address pool for WG Peers IPs %s", err)
-		return nil, err
-	}
-
-	for _, address := range addressPool {
-		for _, ip := range dbWireguardIPs {
-			if ip == address {
-				addressPool = remove(addressPool, []string{ip})
-				break
-			}
-		}
-	}
-
-	return net.ParseIP(addressPool[0]), nil
+	return net.ParseIP(tunIP), nil
 }
 
-// Reserve use of 100.64.0.{0|1} addresses
-var reservedAddresses = []string{"100.64.0.0", "100.64.0.1"}
-
-func hosts(cidr string) ([]string, error) {
-	ip, ipnet, err := net.ParseCIDR(cidr)
-	if err != nil {
-		return nil, err
-	}
-
-	var ips []string
-	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); incrementIP(ip) {
-		ips = append(ips, ip.String())
-	}
-
-	ips = remove(ips, reservedAddresses)
-	return ips, nil
-}
-
-func incrementIP(ip net.IP) {
-	for j := len(ip) - 1; j >= 0; j-- {
-		ip[j]++
-		if ip[j] > 0 {
-			break
+// GenerateUniqueWGPeerKeys allocates and persists a unique WireGuard peer.
+func GenerateUniqueWGPeerKeys() (string, string, string, error) {
+	for attempt := 0; attempt < 32; attempt++ {
+		clientIP, err := GenerateUniqueIP()
+		if err != nil {
+			return "", "", "", err
 		}
-	}
-}
 
-func remove(stringSlice []string, remove []string) []string {
-	var result []string
-	for _, v := range stringSlice {
-		shouldAppend := true
-		for _, value := range remove {
-			if v == value {
-				shouldAppend = false
-			}
+		privKey, pubKey, err := certs.GenerateWGKeys(true, clientIP.String())
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			continue
 		}
-		if shouldAppend {
-			result = append(result, v)
+		if err != nil {
+			return "", "", "", err
 		}
+		return clientIP.String(), privKey, pubKey, nil
 	}
-	return result
+	return "", "", "", fmt.Errorf("failed to allocate a unique wireguard peer after %d attempts", 32)
 }

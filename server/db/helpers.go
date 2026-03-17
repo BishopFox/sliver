@@ -861,7 +861,8 @@ func RemoveWebSite(id string) error {
 	return err
 }
 
-// WGPeerIPs - Fetch a list of ips for all wireguard peers
+// WGPeerIPs - Fetch a list of all persisted WireGuard tunnel IPs and
+// reservations across both the C2 and multiplayer features.
 func WGPeerIPs() ([]string, error) {
 	wgPeers := []*models.WGPeer{}
 	err := Session().Where(&models.WGPeer{}).Find(&wgPeers).Error
@@ -871,6 +872,22 @@ func WGPeerIPs() ([]string, error) {
 	ips := []string{}
 	for _, peer := range wgPeers {
 		ips = append(ips, peer.TunIP)
+	}
+	operators := []*models.Operator{}
+	err = Session().Where("wg_tun_ip <> ''").Find(&operators).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, operator := range operators {
+		ips = append(ips, operator.WGTunIP)
+	}
+	reservations := []*models.WGIPReservation{}
+	err = Session().Where(&models.WGIPReservation{}).Find(&reservations).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, reservation := range reservations {
+		ips = append(ips, reservation.TunIP)
 	}
 	return ips, nil
 }
@@ -1342,6 +1359,210 @@ func CheckKeyExReplay(ciphertext []byte) error {
 			Sha256: hex.EncodeToString(keyExSha256Hash[:]),
 		},
 	).Error
+}
+
+// AIConversationsByOperator - List AI conversations, optionally scoped to an operator.
+func AIConversationsByOperator(operatorName string) ([]*clientpb.AIConversation, error) {
+	conversations := []*models.AIConversation{}
+	query := Session().Model(&models.AIConversation{})
+	if operatorName != "" {
+		query = query.Where("operator_name = ?", operatorName)
+	}
+	err := query.Order("updated_at desc").Order("created_at desc").Find(&conversations).Error
+	if err != nil {
+		return nil, err
+	}
+
+	pbConversations := make([]*clientpb.AIConversation, 0, len(conversations))
+	for _, conversation := range conversations {
+		pbConversations = append(pbConversations, conversation.ToProtobuf())
+	}
+	return pbConversations, nil
+}
+
+// AIConversationByID - Fetch an AI conversation by ID, optionally scoped to an operator.
+func AIConversationByID(id string, operatorName string, includeMessages bool) (*clientpb.AIConversation, error) {
+	if len(id) < 1 {
+		return nil, ErrRecordNotFound
+	}
+
+	conversationID := uuid.FromStringOrNil(id)
+	if conversationID == uuid.Nil {
+		return nil, ErrRecordNotFound
+	}
+
+	conversation := &models.AIConversation{}
+	query := Session().Model(&models.AIConversation{})
+	if includeMessages {
+		query = query.Preload("Messages", func(db *gorm.DB) *gorm.DB {
+			return db.Order("sequence asc").Order("created_at asc")
+		})
+	}
+	query = query.Where("id = ?", conversationID)
+	if operatorName != "" {
+		query = query.Where("operator_name = ?", operatorName)
+	}
+
+	err := query.First(conversation).Error
+	if err != nil {
+		return nil, err
+	}
+	return conversation.ToProtobuf(), nil
+}
+
+// SaveAIConversation - Create or update an AI conversation thread.
+func SaveAIConversation(conversation *clientpb.AIConversation, operatorName string) (*clientpb.AIConversation, error) {
+	dbConversation := models.AIConversationFromProtobuf(conversation)
+	if dbConversation.OperatorName == "" && operatorName != "" {
+		dbConversation.OperatorName = operatorName
+	}
+
+	dbSession := Session()
+	if dbConversation.ID == uuid.Nil {
+		if err := dbSession.Create(dbConversation).Error; err != nil {
+			return nil, err
+		}
+		return AIConversationByID(dbConversation.ID.String(), "", true)
+	}
+
+	existing := &models.AIConversation{}
+	if err := dbSession.Where("id = ?", dbConversation.ID).First(existing).Error; err != nil {
+		return nil, err
+	}
+
+	if existing.OperatorName == "" && dbConversation.OperatorName != "" {
+		existing.OperatorName = dbConversation.OperatorName
+	}
+	existing.Provider = dbConversation.Provider
+	existing.Model = dbConversation.Model
+	existing.Title = dbConversation.Title
+	existing.Summary = dbConversation.Summary
+	existing.SystemPrompt = dbConversation.SystemPrompt
+
+	if err := dbSession.Save(existing).Error; err != nil {
+		return nil, err
+	}
+	return AIConversationByID(existing.ID.String(), "", true)
+}
+
+// DeleteAIConversation - Delete an AI conversation thread and all related messages.
+func DeleteAIConversation(id string, operatorName string) error {
+	conversation, err := AIConversationByID(id, "", false)
+	if err != nil {
+		return err
+	}
+
+	conversationID := uuid.FromStringOrNil(conversation.ID)
+	if conversationID == uuid.Nil {
+		return ErrRecordNotFound
+	}
+
+	err = Session().Where(&models.AIConversationMessage{
+		ConversationID: conversationID,
+	}).Delete(&models.AIConversationMessage{}).Error
+	if err != nil {
+		return err
+	}
+
+	return Session().Where(&models.AIConversation{
+		ID: conversationID,
+	}).Delete(&models.AIConversation{}).Error
+}
+
+// AIConversationMessagesByID - Fetch all messages for a conversation.
+func AIConversationMessagesByID(id string, operatorName string) (*clientpb.AIConversationMessages, error) {
+	conversation, err := AIConversationByID(id, operatorName, true)
+	if err != nil {
+		return nil, err
+	}
+
+	return &clientpb.AIConversationMessages{
+		ConversationID: conversation.ID,
+		Messages:       conversation.Messages,
+	}, nil
+}
+
+// SaveAIConversationMessage - Create or update a single AI conversation message.
+func SaveAIConversationMessage(message *clientpb.AIConversationMessage, operatorName string) (*clientpb.AIConversationMessage, error) {
+	dbMessage := models.AIConversationMessageFromProtobuf(message)
+	if dbMessage.ConversationID == uuid.Nil {
+		return nil, ErrRecordNotFound
+	}
+
+	conversation, err := AIConversationByID(dbMessage.ConversationID.String(), "", false)
+	if err != nil {
+		return nil, err
+	}
+
+	if operatorName != "" {
+		dbMessage.OperatorName = operatorName
+	} else if dbMessage.OperatorName == "" {
+		dbMessage.OperatorName = conversation.OperatorName
+	}
+	if dbMessage.Provider == "" {
+		dbMessage.Provider = conversation.Provider
+	}
+	if dbMessage.Model == "" {
+		dbMessage.Model = conversation.Model
+	}
+
+	dbSession := Session()
+	var savedMessage *models.AIConversationMessage
+	err = dbSession.Transaction(func(tx *gorm.DB) error {
+		if dbMessage.ID == uuid.Nil {
+			if dbMessage.Sequence == 0 {
+				lastMessage := &models.AIConversationMessage{}
+				err := tx.Where("conversation_id = ?", dbMessage.ConversationID).
+					Order("sequence desc").
+					Order("created_at desc").
+					First(lastMessage).Error
+				if err != nil {
+					if !errors.Is(err, ErrRecordNotFound) {
+						return err
+					}
+					dbMessage.Sequence = 1
+				} else {
+					dbMessage.Sequence = lastMessage.Sequence + 1
+				}
+			}
+
+			if err := tx.Create(dbMessage).Error; err != nil {
+				return err
+			}
+			savedMessage = dbMessage
+		} else {
+			existing := &models.AIConversationMessage{}
+			if err := tx.Where("id = ?", dbMessage.ID).Where("conversation_id = ?", dbMessage.ConversationID).First(existing).Error; err != nil {
+				return err
+			}
+
+			if dbMessage.OperatorName != "" {
+				existing.OperatorName = dbMessage.OperatorName
+			}
+			existing.Provider = dbMessage.Provider
+			existing.Model = dbMessage.Model
+			if dbMessage.Sequence != 0 {
+				existing.Sequence = dbMessage.Sequence
+			}
+			existing.Role = dbMessage.Role
+			existing.Content = dbMessage.Content
+			existing.ProviderMessageID = dbMessage.ProviderMessageID
+			existing.FinishReason = dbMessage.FinishReason
+
+			if err := tx.Save(existing).Error; err != nil {
+				return err
+			}
+			savedMessage = existing
+		}
+
+		return tx.Model(&models.AIConversation{}).
+			Where("id = ?", dbMessage.ConversationID).
+			Update("updated_at", time.Now()).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	return savedMessage.ToProtobuf(), nil
 }
 
 // watchtower - List configurations
