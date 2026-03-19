@@ -291,7 +291,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/lucasb-eyer/go-colorful v1.3.0
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
-	github.com/mark3labs/mcp-go v0.43.2
+	github.com/mark3labs/mcp-go v0.45.0
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.20 // indirect
