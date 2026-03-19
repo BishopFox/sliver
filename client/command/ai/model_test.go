@@ -648,6 +648,37 @@ func TestRenderComposerOmitsInlineControls(t *testing.T) {
 	}
 }
 
+func TestComposerPasteMsgInsertsAtCursor(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.focus = aiFocusComposer
+	model.input = []rune("hello")
+	model.cursor = len(model.input)
+
+	updated, cmd := model.Update(tea.PasteMsg{Content: " world"})
+	if cmd != nil {
+		t.Fatalf("expected paste to update in place without commands, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if got := string(updatedModel.input); got != "hello world" {
+		t.Fatalf("expected pasted composer input, got %q", got)
+	}
+	if updatedModel.cursor != len([]rune("hello world")) {
+		t.Fatalf("expected cursor at end of pasted input, got %d", updatedModel.cursor)
+	}
+}
+
+func TestTranscriptFocusDisablesMouseForNativeSelection(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 108
+	model.height = 28
+	model.focus = aiFocusTranscript
+	view := model.View()
+	if view.MouseMode != tea.MouseModeNone {
+		t.Fatalf("expected transcript focus to disable mouse reporting, got %v", view.MouseMode)
+	}
+}
+
 func TestLayoutHeightsKeepWideComposerCompact(t *testing.T) {
 	model := newAIModel(nil, aiContext{}, nil)
 	model.width = 120
