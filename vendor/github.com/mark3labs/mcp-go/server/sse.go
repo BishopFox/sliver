@@ -47,6 +47,11 @@ type SSEContextFunc func(ctx context.Context, r *http.Request) context.Context
 // function should return the base path (e.g., "/mcp/tenant123").
 type DynamicBasePathFunc func(r *http.Request, sessionID string) string
 
+// SessionIDGenFunc is a function that produces a session ID for a new SSE connection.
+// It receives the request context and the HTTP request, and should return a session
+// identifier (string) or an error.
+type SessionIDGenFunc func(ctx context.Context, r *http.Request) (string, error)
+
 func (s *sseSession) SessionID() string {
 	return s.sessionID
 }
@@ -189,6 +194,7 @@ type SSEServer struct {
 	srv                          *http.Server
 	contextFunc                  SSEContextFunc
 	dynamicBasePathFunc          DynamicBasePathFunc
+	sessionIDGenFunc             SessionIDGenFunc
 
 	keepAlive         bool
 	keepAliveInterval time.Duration
@@ -317,6 +323,15 @@ func WithSSEContextFunc(fn SSEContextFunc) SSEOption {
 	}
 }
 
+// WithSessionIDGenerator sets a custom session ID generator. If fn == nil the call is ignored.
+func WithSessionIDGenerator(fn SessionIDGenFunc) SSEOption {
+	return func(s *SSEServer) {
+		if fn != nil {
+			s.sessionIDGenFunc = fn
+		}
+	}
+}
+
 // NewSSEServer creates a new SSE server instance with the given MCP server and options.
 func NewSSEServer(server *MCPServer, opts ...SSEOption) *SSEServer {
 	s := &SSEServer{
@@ -326,6 +341,9 @@ func NewSSEServer(server *MCPServer, opts ...SSEOption) *SSEServer {
 		useFullURLForMessageEndpoint: true,
 		keepAlive:                    false,
 		keepAliveInterval:            10 * time.Second,
+		sessionIDGenFunc: func(ctx context.Context, r *http.Request) (string, error) {
+			return uuid.New().String(), nil
+		},
 	}
 
 	// Apply all options
@@ -407,7 +425,16 @@ func (s *SSEServer) handleSSE(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionID := uuid.New().String()
+	sessionID, err := s.sessionIDGenFunc(r.Context(), r)
+	if err != nil {
+		http.Error(w, "Failed to create session ID", http.StatusInternalServerError)
+		return
+	}
+	if sessionID == "" {
+		http.Error(w, "Failed to create session ID", http.StatusInternalServerError)
+		return
+	}
+
 	session := &sseSession{
 		done:                make(chan struct{}),
 		eventQueue:          make(chan string, 100), // Buffer for events

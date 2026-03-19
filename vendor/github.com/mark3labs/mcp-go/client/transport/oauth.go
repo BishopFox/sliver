@@ -21,6 +21,8 @@ var ErrNoToken = errors.New("no token available")
 type OAuthConfig struct {
 	// ClientID is the OAuth client ID
 	ClientID string
+	// ClientURI is the URI of the client
+	ClientURI string
 	// ClientSecret is the OAuth client secret (for confidential clients)
 	ClientSecret string
 	// RedirectURI is the redirect URI for the OAuth flow
@@ -242,8 +244,21 @@ func (h *OAuthHandler) refreshToken(ctx context.Context, refreshToken string) (*
 		return nil, extractOAuthError(body, resp.StatusCode, "refresh token request failed")
 	}
 
+	// Read the response body for parsing
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read token response body: %w", err)
+	}
+
+	// GitHub returns HTTP 200 even for errors, with error details in the JSON body
+	// Check if the response contains an error field before parsing as Token
+	var oauthErr OAuthError
+	if err := json.Unmarshal(body, &oauthErr); err == nil && oauthErr.ErrorCode != "" {
+		return nil, fmt.Errorf("refresh token request failed: %w", oauthErr)
+	}
+
 	var tokenResp Token
-	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+	if err := json.Unmarshal(body, &tokenResp); err != nil {
 		return nil, fmt.Errorf("failed to decode token response: %w", err)
 	}
 
@@ -414,14 +429,14 @@ func (h *OAuthHandler) getServerMetadata(ctx context.Context) (*AuthServerMetada
 		// Use the first authorization server
 		authServerURL := protectedResource.AuthorizationServers[0]
 
-		// Try OpenID Connect discovery first
-		h.fetchMetadataFromURL(ctx, authServerURL+"/.well-known/openid-configuration")
+		// Try OAuth Authorization Server Metadata first
+		h.fetchMetadataFromURL(ctx, authServerURL+"/.well-known/oauth-authorization-server")
 		if h.serverMetadata != nil {
 			return
 		}
 
-		// If OpenID Connect discovery fails, try OAuth Authorization Server Metadata
-		h.fetchMetadataFromURL(ctx, authServerURL+"/.well-known/oauth-authorization-server")
+		// If OAuth Authorization Server Metadata discovery fails, try OpenID Connect discovery
+		h.fetchMetadataFromURL(ctx, authServerURL+"/.well-known/openid-configuration")
 		if h.serverMetadata != nil {
 			return
 		}
@@ -548,6 +563,10 @@ func (h *OAuthHandler) RegisterClient(ctx context.Context, clientName string) er
 		"scope":                      strings.Join(h.config.Scopes, " "),
 	}
 
+	if h.config.ClientURI != "" {
+		regRequest["client_uri"] = h.config.ClientURI
+	}
+
 	// Add client_secret if this is a confidential client
 	if h.config.ClientSecret != "" {
 		regRequest["token_endpoint_auth_method"] = "client_secret_basic"
@@ -665,8 +684,21 @@ func (h *OAuthHandler) ProcessAuthorizationResponse(ctx context.Context, code, s
 		return extractOAuthError(body, resp.StatusCode, "token request failed")
 	}
 
+	// Read the response body for parsing
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read token response body: %w", err)
+	}
+
+	// GitHub returns HTTP 200 even for errors, with error details in the JSON body
+	// Check if the response contains an error field before parsing as Token
+	var oauthErr OAuthError
+	if err := json.Unmarshal(body, &oauthErr); err == nil && oauthErr.ErrorCode != "" {
+		return fmt.Errorf("token request failed: %w", oauthErr)
+	}
+
 	var tokenResp Token
-	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+	if err := json.Unmarshal(body, &tokenResp); err != nil {
 		return fmt.Errorf("failed to decode token response: %w", err)
 	}
 

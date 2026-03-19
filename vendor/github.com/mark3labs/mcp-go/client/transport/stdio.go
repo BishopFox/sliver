@@ -16,6 +16,10 @@ import (
 	"github.com/mark3labs/mcp-go/util"
 )
 
+// ErrTransportClosed is returned when attempting to send a request or notification
+// to a transport that has already been closed.
+var ErrTransportClosed = errors.New("transport closed")
+
 // Stdio implements the transport layer of the MCP protocol using stdio communication.
 // It launches a subprocess and communicates with it via standard input/output streams
 // using JSON-RPC messages. The client handles message routing between requests and
@@ -32,8 +36,10 @@ type Stdio struct {
 	stderr         io.ReadCloser
 	responses      map[string]chan *JSONRPCResponse
 	mu             sync.RWMutex
-	done           chan struct{}
-	onNotification func(mcp.JSONRPCNotification)
+	done             chan struct{}
+	closeOnce        sync.Once
+	closeCleanupOnce sync.Once
+	onNotification   func(mcp.JSONRPCNotification)
 	notifyMu       sync.RWMutex
 	onRequest      RequestHandler
 	requestMu      sync.RWMutex
@@ -203,33 +209,42 @@ func (c *Stdio) spawnCommand(ctx context.Context) error {
 	return nil
 }
 
+// closeDone safely closes the done channel exactly once, unblocking all
+// in-flight SendRequest calls. Safe to call from multiple goroutines.
+func (c *Stdio) closeDone() {
+	c.closeOnce.Do(func() { close(c.done) })
+}
+
 // Close shuts down the stdio client, closing the stdin pipe and waiting for the subprocess to exit.
 // Returns an error if there are issues closing stdin or waiting for the subprocess to terminate.
+// Safe to call multiple times and concurrently with readResponses calling closeDone().
 func (c *Stdio) Close() error {
-	select {
-	case <-c.done:
-		return nil
-	default:
-	}
-	// cancel all in-flight request
-	close(c.done)
+	// Signal all in-flight requests to unblock.
+	c.closeDone()
 
-	if c.stdin != nil {
-		if err := c.stdin.Close(); err != nil {
-			return fmt.Errorf("failed to close stdin: %w", err)
+	// Perform resource cleanup exactly once, even if readResponses already
+	// called closeDone() (e.g. server died). Without this, the old early-return
+	// guard would skip stdin/stderr cleanup and cmd.Wait(), causing FD leaks
+	// and zombie processes.
+	var closeErr error
+	c.closeCleanupOnce.Do(func() {
+		if c.stdin != nil {
+			if err := c.stdin.Close(); err != nil {
+				closeErr = fmt.Errorf("failed to close stdin: %w", err)
+			}
 		}
-	}
-	if c.stderr != nil {
-		if err := c.stderr.Close(); err != nil {
-			return fmt.Errorf("failed to close stderr: %w", err)
+		if c.stderr != nil {
+			if err := c.stderr.Close(); err != nil && closeErr == nil {
+				closeErr = fmt.Errorf("failed to close stderr: %w", err)
+			}
 		}
-	}
-
-	if c.cmd != nil {
-		return c.cmd.Wait()
-	}
-
-	return nil
+		if c.cmd != nil {
+			if err := c.cmd.Wait(); err != nil && closeErr == nil {
+				closeErr = err
+			}
+		}
+	})
+	return closeErr
 }
 
 // GetSessionId returns the session ID of the transport.
@@ -270,6 +285,9 @@ func (c *Stdio) readResponses() {
 				if err != io.EOF && !errors.Is(err, context.Canceled) {
 					c.logger.Errorf("Error reading from stdout: %v", err)
 				}
+				// Signal done so in-flight SendRequest calls unblock
+				// instead of hanging forever when the server dies.
+				c.closeDone()
 				return
 			}
 
@@ -338,8 +356,10 @@ func (c *Stdio) SendRequest(
 	ctx context.Context,
 	request JSONRPCRequest,
 ) (*JSONRPCResponse, error) {
-	// Check if context is already canceled before doing any work
+	// Check if transport is closed or context is already canceled before doing any work
 	select {
+	case <-c.done:
+		return nil, ErrTransportClosed
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	default:
@@ -377,6 +397,16 @@ func (c *Stdio) SendRequest(
 	}
 
 	select {
+	case <-c.done:
+		// Drain responseChan first: a valid response may have been delivered
+		// just before readResponses closed the done channel on EOF.
+		select {
+		case response := <-responseChan:
+			return response, nil
+		default:
+		}
+		deleteResponseChan()
+		return nil, ErrTransportClosed
 	case <-ctx.Done():
 		deleteResponseChan()
 		return nil, ctx.Err()
@@ -390,6 +420,14 @@ func (c *Stdio) SendNotification(
 	ctx context.Context,
 	notification mcp.JSONRPCNotification,
 ) error {
+	select {
+	case <-c.done:
+		return ErrTransportClosed
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
 	if c.stdin == nil {
 		return fmt.Errorf("stdio client not started")
 	}

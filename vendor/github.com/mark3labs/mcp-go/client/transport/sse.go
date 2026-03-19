@@ -34,6 +34,7 @@ type SSE struct {
 	endpointChan   chan struct{}
 	headers        map[string]string
 	headerFunc     HTTPHeaderFunc
+	host           string
 	logger         util.Logger
 
 	started          atomic.Bool
@@ -77,6 +78,15 @@ func WithHTTPClient(httpClient *http.Client) ClientOption {
 func WithOAuth(config OAuthConfig) ClientOption {
 	return func(sc *SSE) {
 		sc.oauthHandler = NewOAuthHandler(config)
+	}
+}
+
+// WithHTTPHost sets a custom Host header for the SSE client, enabling manual DNS resolution.
+// This allows connecting to an IP address while sending a specific Host header to the server.
+// For example, connecting to "http://192.168.1.100:8080/sse" but sending Host: "api.example.com"
+func WithHTTPHost(host string) ClientOption {
+	return func(sc *SSE) {
+		sc.host = host
 	}
 }
 
@@ -126,6 +136,11 @@ func (c *SSE) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
+	// Set custom Host header if provided
+	if c.host != "" {
+		req.Host = c.host
+	}
+
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("Cache-Control", "no-cache")
 	req.Header.Set("Connection", "keep-alive")
@@ -162,11 +177,14 @@ func (c *SSE) Start(ctx context.Context) error {
 
 	if resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
-		// Handle OAuth unauthorized error
-		if resp.StatusCode == http.StatusUnauthorized && c.oauthHandler != nil {
-			return &OAuthAuthorizationRequiredError{
-				Handler: c.oauthHandler,
+		// Handle unauthorized error
+		if resp.StatusCode == http.StatusUnauthorized {
+			if c.oauthHandler != nil {
+				return &OAuthAuthorizationRequiredError{
+					Handler: c.oauthHandler,
+				}
 			}
+			return ErrUnauthorized
 		}
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
@@ -174,16 +192,31 @@ func (c *SSE) Start(ctx context.Context) error {
 	go c.readSSE(resp.Body)
 
 	// Wait for the endpoint to be received
-	timeout := time.NewTimer(30 * time.Second)
-	defer timeout.Stop()
+	endpointTimeout := 30 * time.Second
+	if deadline, ok := ctx.Deadline(); ok {
+		remaining := time.Until(deadline)
+		// If context deadline has already passed, return immediately
+		if remaining <= 0 {
+			cancel()
+			return ctx.Err()
+		}
+		// Use the shorter of remaining time or default timeout
+		if remaining < endpointTimeout {
+			endpointTimeout = remaining
+		}
+	}
+
+	timer := time.NewTimer(endpointTimeout)
+	defer timer.Stop()
+
 	select {
 	case <-c.endpointChan:
 		// Endpoint received, proceed
 	case <-ctx.Done():
-		return fmt.Errorf("context cancelled while waiting for endpoint")
-	case <-timeout.C: // Add a timeout
+		return fmt.Errorf("context cancelled while waiting for endpoint: %w", ctx.Err())
+	case <-timer.C:
 		cancel()
-		return fmt.Errorf("timeout waiting for endpoint")
+		return fmt.Errorf("timeout waiting for endpoint after %v", endpointTimeout)
 	}
 
 	c.started.Store(true)
@@ -212,22 +245,14 @@ func (c *SSE) readSSE(reader io.ReadCloser) {
 					}
 					c.handleSSEEvent(event, data)
 				}
-				break
 			}
-			// Checking whether the connection was terminated due to NO_ERROR in HTTP2 based on RFC9113
-			// Only handle NO_ERROR specially if onConnectionLost handler is set to maintain backward compatibility
-			if strings.Contains(err.Error(), "NO_ERROR") {
-				c.connectionLostMu.RLock()
-				handler := c.onConnectionLost
-				c.connectionLostMu.RUnlock()
-
-				if handler != nil {
-					// This is not actually an error - HTTP2 idle timeout disconnection
-					handler(err)
-					return
-				}
-			}
-			if !c.closed.Load() {
+			c.connectionLostMu.RLock()
+			handler := c.onConnectionLost
+			c.connectionLostMu.RUnlock()
+			if handler != nil {
+				// Notify that the connection will be closed due to an error
+				handler(err)
+			} else if err == io.EOF && !c.closed.Load() {
 				c.logger.Errorf("SSE stream error: %v", err)
 			}
 			return
@@ -249,10 +274,10 @@ func (c *SSE) readSSE(reader io.ReadCloser) {
 			continue
 		}
 
-		if strings.HasPrefix(line, "event:") {
-			event = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
-		} else if strings.HasPrefix(line, "data:") {
-			data = strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+		if after, ok := strings.CutPrefix(line, "event:"); ok {
+			event = strings.TrimSpace(after)
+		} else if after, ok := strings.CutPrefix(line, "data:"); ok {
+			data = strings.TrimSpace(after)
 		}
 	}
 }
@@ -369,6 +394,11 @@ func (c *SSE) SendRequest(
 		}
 	}
 
+	// Set custom Host header if provided
+	if c.host != "" {
+		req.Host = c.host
+	}
+
 	// Add OAuth authorization if configured
 	if c.oauthHandler != nil {
 		authHeader, err := c.oauthHandler.GetAuthorizationHeader(ctx)
@@ -416,6 +446,7 @@ func (c *SSE) SendRequest(
 	resp.Body.Close()
 
 	if err != nil {
+		deleteResponseChan()
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
@@ -423,20 +454,45 @@ func (c *SSE) SendRequest(
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
 		deleteResponseChan()
 
-		// Handle OAuth unauthorized error
-		if resp.StatusCode == http.StatusUnauthorized && c.oauthHandler != nil {
-			return nil, &OAuthAuthorizationRequiredError{
-				Handler: c.oauthHandler,
+		// Handle unauthorized error
+		if resp.StatusCode == http.StatusUnauthorized {
+			if c.oauthHandler != nil {
+				return nil, &OAuthAuthorizationRequiredError{
+					Handler: c.oauthHandler,
+				}
 			}
+			return nil, ErrUnauthorized
 		}
 
 		return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, body)
 	}
 
+	// Calculate response timeout
+	responseTimeout := 60 * time.Second
+	if deadline, ok := ctx.Deadline(); ok {
+		remaining := time.Until(deadline)
+		// Check if context deadline has already passed
+		if remaining <= 0 {
+			deleteResponseChan()
+			return nil, ctx.Err()
+		}
+		// Use the shorter of remaining time or default timeout
+		if remaining < responseTimeout {
+			responseTimeout = remaining
+		}
+	}
+
+	timer := time.NewTimer(responseTimeout)
+	defer timer.Stop()
+
 	select {
 	case <-ctx.Done():
 		deleteResponseChan()
 		return nil, ctx.Err()
+	case <-timer.C:
+		// Timeout handling
+		deleteResponseChan()
+		return nil, fmt.Errorf("timeout waiting for SSE response after %v", responseTimeout)
 	case response, ok := <-responseChan:
 		if ok {
 			return response, nil
@@ -534,6 +590,11 @@ func (c *SSE) SendNotification(ctx context.Context, notification mcp.JSONRPCNoti
 		}
 	}
 
+	// Set custom Host header if provided
+	if c.host != "" {
+		req.Host = c.host
+	}
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send notification: %w", err)
@@ -541,11 +602,14 @@ func (c *SSE) SendNotification(ctx context.Context, notification mcp.JSONRPCNoti
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
-		// Handle OAuth unauthorized error
-		if resp.StatusCode == http.StatusUnauthorized && c.oauthHandler != nil {
-			return &OAuthAuthorizationRequiredError{
-				Handler: c.oauthHandler,
+		// Handle unauthorized error
+		if resp.StatusCode == http.StatusUnauthorized {
+			if c.oauthHandler != nil {
+				return &OAuthAuthorizationRequiredError{
+					Handler: c.oauthHandler,
+				}
 			}
+			return ErrUnauthorized
 		}
 
 		body, _ := io.ReadAll(resp.Body)
