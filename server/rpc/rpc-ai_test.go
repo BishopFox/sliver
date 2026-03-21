@@ -94,6 +94,9 @@ func TestSaveAIConversationMessageCompletesConversationAndPublishesEvents(t *tes
 	if current.GetMessages()[1].GetContent() != "Assistant reply from the provider" {
 		t.Fatalf("unexpected assistant reply: %q", current.GetMessages()[1].GetContent())
 	}
+	if current.GetMessages()[1].GetProviderMessageID() != "resp_success" {
+		t.Fatalf("unexpected provider message id: %q", current.GetMessages()[1].GetProviderMessageID())
+	}
 	if current.GetModel() != "gpt-5.2" {
 		t.Fatalf("unexpected conversation model: %q", current.GetModel())
 	}
