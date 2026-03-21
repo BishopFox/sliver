@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/url"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -381,9 +382,7 @@ func (s *MCPServer) AddSessionTools(sessionID string, tools ...ServerTool) error
 	newSessionTools := make(map[string]ServerTool, len(sessionTools)+len(tools))
 
 	// Copy existing tools
-	for k, v := range sessionTools {
-		newSessionTools[k] = v
-	}
+	maps.Copy(newSessionTools, sessionTools)
 
 	// Add new tools
 	for _, tool := range tools {
@@ -443,9 +442,7 @@ func (s *MCPServer) DeleteSessionTools(sessionID string, names ...string) error 
 	newSessionTools := make(map[string]ServerTool, len(sessionTools))
 
 	// Copy existing tools except those being deleted
-	for k, v := range sessionTools {
-		newSessionTools[k] = v
-	}
+	maps.Copy(newSessionTools, sessionTools)
 
 	// Remove specified tools
 	for _, name := range names {
@@ -513,9 +510,7 @@ func (s *MCPServer) AddSessionResources(sessionID string, resources ...ServerRes
 	newSessionResources := make(map[string]ServerResource, len(sessionResources)+len(resources))
 
 	// Copy existing resources
-	for k, v := range sessionResources {
-		newSessionResources[k] = v
-	}
+	maps.Copy(newSessionResources, sessionResources)
 
 	// Add new resources with validation
 	for _, resource := range resources {
@@ -585,9 +580,7 @@ func (s *MCPServer) DeleteSessionResources(sessionID string, uris ...string) err
 	newSessionResources := make(map[string]ServerResource, len(sessionResources))
 
 	// Copy existing resources except those being deleted
-	for k, v := range sessionResources {
-		newSessionResources[k] = v
-	}
+	maps.Copy(newSessionResources, sessionResources)
 
 	// Remove specified resources and track if anything was actually deleted
 	actuallyDeleted := false
@@ -669,9 +662,7 @@ func (s *MCPServer) AddSessionResourceTemplates(sessionID string, templates ...S
 	newTemplates := make(map[string]ServerResourceTemplate, len(sessionTemplates)+len(templates))
 
 	// Copy existing templates
-	for k, v := range sessionTemplates {
-		newTemplates[k] = v
-	}
+	maps.Copy(newTemplates, sessionTemplates)
 
 	// Validate and add new templates
 	for _, t := range templates {
@@ -731,9 +722,7 @@ func (s *MCPServer) DeleteSessionResourceTemplates(sessionID string, uriTemplate
 
 	// Create a new map without the deleted templates
 	newTemplates := make(map[string]ServerResourceTemplate, len(sessionTemplates))
-	for k, v := range sessionTemplates {
-		newTemplates[k] = v
-	}
+	maps.Copy(newTemplates, sessionTemplates)
 
 	// Delete specified templates
 	for _, uriTemplate := range uriTemplates {

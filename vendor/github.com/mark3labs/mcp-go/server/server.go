@@ -6,12 +6,15 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
 	"sort"
 	"sync"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
@@ -25,6 +28,19 @@ type resourceEntry struct {
 type resourceTemplateEntry struct {
 	template mcp.ResourceTemplate
 	handler  ResourceTemplateHandlerFunc
+}
+
+// taskEntry holds task state and associated data
+type taskEntry struct {
+	task       mcp.Task
+	sessionID  string
+	toolName   string             // Name of the tool that created this task
+	createdAt  time.Time          // When the task was created (for metrics)
+	result     any                // The actual result once completed
+	resultErr  error              // Error if task failed
+	cancelFunc context.CancelFunc // Function to cancel the task
+	done       chan struct{}      // Channel to signal task completion
+	completed  bool               // Whether the task has been completed (guards done channel closure)
 }
 
 // ServerOption is a function that configures an MCPServer.
@@ -42,6 +58,11 @@ type PromptHandlerFunc func(ctx context.Context, request mcp.GetPromptRequest) (
 // ToolHandlerFunc handles tool calls with given arguments.
 type ToolHandlerFunc func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error)
 
+// TaskToolHandlerFunc handles tool calls that execute asynchronously.
+// It returns immediately with task creation info; the actual result is
+// retrieved later via tasks/result.
+type TaskToolHandlerFunc func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CreateTaskResult, error)
+
 // ToolHandlerMiddleware is a middleware function that wraps a ToolHandlerFunc.
 type ToolHandlerMiddleware func(ToolHandlerFunc) ToolHandlerFunc
 
@@ -55,6 +76,12 @@ type ToolFilterFunc func(ctx context.Context, tools []mcp.Tool) []mcp.Tool
 type ServerTool struct {
 	Tool    mcp.Tool
 	Handler ToolHandlerFunc
+}
+
+// ServerTaskTool combines a Tool with its TaskToolHandlerFunc.
+type ServerTaskTool struct {
+	Tool    mcp.Tool
+	Handler TaskToolHandlerFunc
 }
 
 // ServerPrompt combines a Prompt with its handler function.
@@ -149,6 +176,7 @@ type MCPServer struct {
 	notificationHandlersMu sync.RWMutex
 	capabilitiesMu         sync.RWMutex
 	toolFiltersMu          sync.RWMutex
+	tasksMu                sync.RWMutex
 
 	name                       string
 	version                    string
@@ -158,14 +186,22 @@ type MCPServer struct {
 	prompts                    map[string]mcp.Prompt
 	promptHandlers             map[string]PromptHandlerFunc
 	tools                      map[string]ServerTool
+	taskTools                  map[string]ServerTaskTool
 	toolHandlerMiddlewares     []ToolHandlerMiddleware
 	resourceHandlerMiddlewares []ResourceHandlerMiddleware
 	toolFilters                []ToolFilterFunc
 	notificationHandlers       map[string]NotificationHandlerFunc
+	promptCompletionProvider   PromptCompletionProvider
+	resourceCompletionProvider ResourceCompletionProvider
 	capabilities               serverCapabilities
 	paginationLimit            *int
 	sessions                   sync.Map
 	hooks                      *Hooks
+	taskHooks                  *TaskHooks
+	tasks                      map[string]*taskEntry
+	expiredTasks               map[string]time.Time // Tracks recently expired task IDs with expiration timestamp
+	maxConcurrentTasks         *int                 // Optional limit on concurrent running tasks
+	activeTasks                int                  // Current count of running (non-terminal) tasks
 }
 
 // WithPaginationLimit sets the pagination limit for the server.
@@ -184,6 +220,8 @@ type serverCapabilities struct {
 	sampling    *bool
 	elicitation *bool
 	roots       *bool
+	tasks       *taskCapabilities
+	completions *bool
 }
 
 // resourceCapabilities defines the supported resource-related features
@@ -202,6 +240,13 @@ type toolCapabilities struct {
 	listChanged bool
 }
 
+// taskCapabilities defines the supported task-related features
+type taskCapabilities struct {
+	list          bool
+	cancel        bool
+	toolCallTasks bool
+}
+
 // WithResourceCapabilities configures resource-related server capabilities
 func WithResourceCapabilities(subscribe, listChanged bool) ServerOption {
 	return func(s *MCPServer) {
@@ -210,6 +255,20 @@ func WithResourceCapabilities(subscribe, listChanged bool) ServerOption {
 			subscribe:   subscribe,
 			listChanged: listChanged,
 		}
+	}
+}
+
+// WithPromptCompletionProvider sets a custom prompt completion provider
+func WithPromptCompletionProvider(provider PromptCompletionProvider) ServerOption {
+	return func(s *MCPServer) {
+		s.promptCompletionProvider = provider
+	}
+}
+
+// WithResourceCompletionProvider sets a custom resource completion provider
+func WithResourceCompletionProvider(provider ResourceCompletionProvider) ServerOption {
+	return func(s *MCPServer) {
+		s.resourceCompletionProvider = provider
 	}
 }
 
@@ -293,6 +352,31 @@ func WithHooks(hooks *Hooks) ServerOption {
 	}
 }
 
+// GetHooks returns the server's current Hooks instance, or nil if no hooks
+// have been configured. The returned pointer can be used to add additional
+// hooks via the Add* methods without replacing existing hook registrations.
+func (s *MCPServer) GetHooks() *Hooks {
+	return s.hooks
+}
+
+// WithTaskHooks allows adding hooks for task lifecycle events.
+// Use these hooks to monitor task execution, track metrics, and observe
+// task-augmented tool behavior.
+func WithTaskHooks(taskHooks *TaskHooks) ServerOption {
+	return func(s *MCPServer) {
+		s.taskHooks = taskHooks
+	}
+}
+
+// WithMaxConcurrentTasks sets a limit on the maximum number of concurrent running tasks.
+// When this limit is reached, attempts to create new tasks will fail with an error.
+// If not set (or set to 0), there is no limit on concurrent tasks.
+func WithMaxConcurrentTasks(limit int) ServerOption {
+	return func(s *MCPServer) {
+		s.maxConcurrentTasks = &limit
+	}
+}
+
 // WithPromptCapabilities configures prompt-related server capabilities
 func WithPromptCapabilities(listChanged bool) ServerOption {
 	return func(s *MCPServer) {
@@ -334,10 +418,29 @@ func WithRoots() ServerOption {
 	}
 }
 
+// WithTaskCapabilities configures task-related server capabilities
+func WithTaskCapabilities(list, cancel, toolCallTasks bool) ServerOption {
+	return func(s *MCPServer) {
+		// Always create a non-nil capability object
+		s.capabilities.tasks = &taskCapabilities{
+			list:          list,
+			cancel:        cancel,
+			toolCallTasks: toolCallTasks,
+		}
+	}
+}
+
 // WithInstructions sets the server instructions for the client returned in the initialize response
 func WithInstructions(instructions string) ServerOption {
 	return func(s *MCPServer) {
 		s.instructions = instructions
+	}
+}
+
+// WithCompletions enables the completion capability
+func WithCompletions() ServerOption {
+	return func(s *MCPServer) {
+		s.capabilities.completions = mcp.ToBoolPtr(true)
 	}
 }
 
@@ -352,16 +455,26 @@ func NewMCPServer(
 		prompts:                    make(map[string]mcp.Prompt),
 		promptHandlers:             make(map[string]PromptHandlerFunc),
 		tools:                      make(map[string]ServerTool),
+		taskTools:                  make(map[string]ServerTaskTool),
 		toolHandlerMiddlewares:     make([]ToolHandlerMiddleware, 0),
 		resourceHandlerMiddlewares: make([]ResourceHandlerMiddleware, 0),
 		name:                       name,
 		version:                    version,
 		notificationHandlers:       make(map[string]NotificationHandlerFunc),
+		tasks:                      make(map[string]*taskEntry),
+		expiredTasks:               make(map[string]time.Time),
+		promptCompletionProvider:   &DefaultPromptCompletionProvider{},
+		resourceCompletionProvider: &DefaultResourceCompletionProvider{},
 		capabilities: serverCapabilities{
-			tools:     nil,
-			resources: nil,
-			prompts:   nil,
-			logging:   nil,
+			tools:       nil,
+			resources:   nil,
+			prompts:     nil,
+			logging:     nil,
+			sampling:    nil,
+			elicitation: nil,
+			roots:       nil,
+			tasks:       nil,
+			completions: nil,
 		},
 	}
 
@@ -539,6 +652,11 @@ func (s *MCPServer) AddTool(tool mcp.Tool, handler ToolHandlerFunc) {
 	s.AddTools(ServerTool{Tool: tool, Handler: handler})
 }
 
+// AddTaskTool registers a new task tool and its handler
+func (s *MCPServer) AddTaskTool(tool mcp.Tool, handler TaskToolHandlerFunc) {
+	s.AddTaskTools(ServerTaskTool{Tool: tool, Handler: handler})
+}
+
 // Register tool capabilities due to a tool being added.  Default to
 // listChanged: true, but don't change the value if we've already explicitly
 // registered tools.listChanged false.
@@ -584,7 +702,36 @@ func (s *MCPServer) AddTools(tools ...ServerTool) {
 
 	s.toolsMu.Lock()
 	for _, entry := range tools {
-		s.tools[entry.Tool.Name] = entry
+		name := entry.Tool.Name
+		// Check for collision with task tools
+		if _, exists := s.taskTools[name]; exists {
+			s.toolsMu.Unlock()
+			panic(fmt.Sprintf("tool name '%s' already registered as task tool", name))
+		}
+		s.tools[name] = entry
+	}
+	s.toolsMu.Unlock()
+
+	// When the list of available tools changes, servers that declared the listChanged capability SHOULD send a notification.
+	if s.capabilities.tools.listChanged {
+		// Send notification to all initialized sessions
+		s.SendNotificationToAllClients(mcp.MethodNotificationToolsListChanged, nil)
+	}
+}
+
+// AddTaskTools registers multiple task tools at once
+func (s *MCPServer) AddTaskTools(taskTools ...ServerTaskTool) {
+	s.implicitlyRegisterToolCapabilities()
+
+	s.toolsMu.Lock()
+	for _, entry := range taskTools {
+		name := entry.Tool.Name
+		// Check for collision with regular tools
+		if _, exists := s.tools[name]; exists {
+			s.toolsMu.Unlock()
+			panic(fmt.Sprintf("task tool name '%s' already registered as regular tool", name))
+		}
+		s.taskTools[name] = entry
 	}
 	s.toolsMu.Unlock()
 
@@ -701,11 +848,40 @@ func (s *MCPServer) handleInitialize(
 	}
 
 	if s.capabilities.elicitation != nil && *s.capabilities.elicitation {
-		capabilities.Elicitation = &struct{}{}
+		capabilities.Elicitation = &mcp.ElicitationCapability{}
 	}
 
 	if s.capabilities.roots != nil && *s.capabilities.roots {
 		capabilities.Roots = &struct{}{}
+	}
+
+	// Only add task capabilities if they're configured
+	if s.capabilities.tasks != nil {
+		tasksCapability := &mcp.TasksCapability{}
+
+		if s.capabilities.tasks.list {
+			tasksCapability.List = &struct{}{}
+		}
+
+		if s.capabilities.tasks.cancel {
+			tasksCapability.Cancel = &struct{}{}
+		}
+
+		if s.capabilities.tasks.toolCallTasks {
+			tasksCapability.Requests = &mcp.TaskRequestsCapability{
+				Tools: &struct {
+					Call *struct{} `json:"call,omitempty"`
+				}{
+					Call: &struct{}{},
+				},
+			}
+		}
+
+		capabilities.Tasks = tasksCapability
+	}
+
+	if s.capabilities.completions != nil && *s.capabilities.completions {
+		capabilities.Completions = &struct{}{}
 	}
 
 	result := mcp.InitializeResult{
@@ -878,6 +1054,11 @@ func (s *MCPServer) handleListResources(
 			err:  err,
 		}
 	}
+
+	if resourcesToReturn == nil {
+		resourcesToReturn = []mcp.Resource{}
+	}
+
 	result := mcp.ListResourcesResult{
 		Resources: resourcesToReturn,
 		PaginatedResult: mcp.PaginatedResult{
@@ -1161,13 +1342,16 @@ func (s *MCPServer) handleListTools(
 	id any,
 	request mcp.ListToolsRequest,
 ) (*mcp.ListToolsResult, *requestError) {
-	// Get the base tools from the server
+	// Get the base tools from the server (both regular and task tools)
 	s.toolsMu.RLock()
-	tools := make([]mcp.Tool, 0, len(s.tools))
+	tools := make([]mcp.Tool, 0, len(s.tools)+len(s.taskTools))
 
 	// Get all tool names for consistent ordering
-	toolNames := make([]string, 0, len(s.tools))
+	toolNames := make([]string, 0, len(s.tools)+len(s.taskTools))
 	for name := range s.tools {
+		toolNames = append(toolNames, name)
+	}
+	for name := range s.taskTools {
 		toolNames = append(toolNames, name)
 	}
 
@@ -1176,7 +1360,11 @@ func (s *MCPServer) handleListTools(
 
 	// Add tools in sorted order
 	for _, name := range toolNames {
-		tools = append(tools, s.tools[name].Tool)
+		if tool, ok := s.tools[name]; ok {
+			tools = append(tools, tool.Tool)
+		} else if taskTool, ok := s.taskTools[name]; ok {
+			tools = append(tools, taskTool.Tool)
+		}
 	}
 	s.toolsMu.RUnlock()
 
@@ -1250,7 +1438,7 @@ func (s *MCPServer) handleToolCall(
 	ctx context.Context,
 	id any,
 	request mcp.CallToolRequest,
-) (*mcp.CallToolResult, *requestError) {
+) (any, *requestError) {
 	// First check session-specific tools
 	var tool ServerTool
 	var ok bool
@@ -1272,6 +1460,18 @@ func (s *MCPServer) handleToolCall(
 	if !ok {
 		s.toolsMu.RLock()
 		tool, ok = s.tools[request.Params.Name]
+		// If not in regular tools, check task tools
+		if !ok {
+			if taskTool, taskOk := s.taskTools[request.Params.Name]; taskOk {
+				// Convert ServerTaskTool to ServerTool for validation
+				// The tool metadata is the same, we just need it for checking task support
+				tool = ServerTool{
+					Tool:    taskTool.Tool,
+					Handler: nil, // Handler will be used from taskTool in handleTaskAugmentedToolCall
+				}
+				ok = true
+			}
+		}
 		s.toolsMu.RUnlock()
 	}
 
@@ -1281,6 +1481,29 @@ func (s *MCPServer) handleToolCall(
 			code: mcp.INVALID_PARAMS,
 			err:  fmt.Errorf("tool '%s' not found: %w", request.Params.Name, ErrToolNotFound),
 		}
+	}
+
+	// Validate task support requirements
+	if tool.Tool.Execution != nil && tool.Tool.Execution.TaskSupport == mcp.TaskSupportRequired {
+		if request.Params.Task == nil {
+			return nil, &requestError{
+				id:   id,
+				code: mcp.METHOD_NOT_FOUND,
+				err:  fmt.Errorf("tool '%s' requires task augmentation", request.Params.Name),
+			}
+		}
+	}
+
+	// Check if this should be executed as a task (hybrid mode support)
+	// Tools with TaskSupportOptional or TaskSupportRequired can be executed as tasks
+	shouldExecuteAsTask := request.Params.Task != nil &&
+		tool.Tool.Execution != nil &&
+		(tool.Tool.Execution.TaskSupport == mcp.TaskSupportOptional ||
+			tool.Tool.Execution.TaskSupport == mcp.TaskSupportRequired)
+
+	if shouldExecuteAsTask {
+		// Route to task-augmented execution handler
+		return s.handleTaskAugmentedToolCall(ctx, id, request)
 	}
 
 	finalHandler := tool.Handler
@@ -1304,6 +1527,248 @@ func (s *MCPServer) handleToolCall(
 	}
 
 	return result, nil
+}
+
+// handleTaskAugmentedToolCall handles tool calls that are executed as tasks.
+// It creates a task entry, starts async execution, and returns CreateTaskResult immediately.
+func (s *MCPServer) handleTaskAugmentedToolCall(
+	ctx context.Context,
+	id any,
+	request mcp.CallToolRequest,
+) (*mcp.CreateTaskResult, *requestError) {
+	// Look up the tool - check both taskTools and regular tools
+	s.toolsMu.RLock()
+	taskTool, isTaskTool := s.taskTools[request.Params.Name]
+	regularTool, isRegularTool := s.tools[request.Params.Name]
+	s.toolsMu.RUnlock()
+
+	// Determine which tool to use and validate task support
+	var toolToUse ServerTaskTool
+	var hasTaskHandler bool
+
+	if isTaskTool {
+		// Tool is registered as a task tool
+		toolToUse = taskTool
+		hasTaskHandler = true
+	} else if isRegularTool {
+		// Tool is a regular tool with task support
+		// Validate that it actually supports task augmentation
+		if regularTool.Tool.Execution == nil ||
+			(regularTool.Tool.Execution.TaskSupport != mcp.TaskSupportOptional &&
+				regularTool.Tool.Execution.TaskSupport != mcp.TaskSupportRequired) {
+			return nil, &requestError{
+				id:   id,
+				code: mcp.METHOD_NOT_FOUND,
+				err:  fmt.Errorf("tool '%s' does not support task augmentation", request.Params.Name),
+			}
+		}
+
+		hasTaskHandler = false
+	} else {
+		// Tool not found in either map
+		return nil, &requestError{
+			id:   id,
+			code: mcp.INVALID_PARAMS,
+			err:  fmt.Errorf("tool '%s' not found", request.Params.Name),
+		}
+	}
+
+	// Generate task ID (UUID v4)
+	taskID := uuid.New().String()
+
+	// Extract TTL from task params
+	var ttl *int64
+	if request.Params.Task != nil {
+		ttl = request.Params.Task.TTL
+	}
+
+	// Create task entry (pollInterval is nil - server doesn't set a default)
+	entry, err := s.createTask(ctx, taskID, request.Params.Name, ttl, nil)
+	if err != nil {
+		return nil, &requestError{
+			id:   id,
+			code: mcp.INTERNAL_ERROR,
+			err:  err,
+		}
+	}
+
+	// Execute tool asynchronously
+	// For regular tools being used as tasks, we need different execution logic
+	if hasTaskHandler {
+		go s.executeTaskTool(ctx, entry, toolToUse, request)
+	} else {
+		// Execute regular tool wrapped as a task
+		go s.executeRegularToolAsTask(ctx, entry, regularTool, request)
+	}
+
+	// Return CreateTaskResult immediately with task as top-level field
+	// Make a copy of the task to avoid data races with background goroutine
+	s.tasksMu.RLock()
+	taskCopy := entry.task
+	s.tasksMu.RUnlock()
+
+	return &mcp.CreateTaskResult{
+		Task: taskCopy,
+	}, nil
+}
+
+// executeTaskTool executes a task tool handler asynchronously.
+// It creates a cancellable context, stores the cancel function for potential cancellation,
+// and executes the handler in the background, storing the result when complete.
+func (s *MCPServer) executeTaskTool(
+	ctx context.Context,
+	entry *taskEntry,
+	taskTool ServerTaskTool,
+	request mcp.CallToolRequest,
+) {
+	// Create cancellable context for this task execution
+	taskCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// Store cancel func in entry so it can be cancelled via tasks/cancel
+	s.tasksMu.Lock()
+	entry.cancelFunc = cancel
+	s.tasksMu.Unlock()
+
+	// Execute the task tool handler
+	result, err := taskTool.Handler(taskCtx, request)
+
+	if err != nil {
+		// If the error is due to context cancellation, don't mark as failed.
+		// The cancelTask method will handle setting the proper status.
+		// However, if cancelTask hasn't been called yet, we should still mark it.
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			// Check if task was already cancelled via tasks/cancel
+			s.tasksMu.Lock()
+			alreadyCancelled := entry.task.Status == mcp.TaskStatusCancelled
+			s.tasksMu.Unlock()
+
+			if !alreadyCancelled {
+				// Handler detected cancellation before tasks/cancel was called
+				// Mark as cancelled with the context error message
+				cancelledAt := time.Now()
+				duration := cancelledAt.Sub(entry.createdAt)
+
+				s.tasksMu.Lock()
+				if !entry.completed {
+					entry.task.Status = mcp.TaskStatusCancelled
+					entry.task.StatusMessage = err.Error()
+					entry.task.LastUpdatedAt = cancelledAt.UTC().Format(time.RFC3339)
+					entry.completed = true
+					close(entry.done)
+
+					// Decrement active tasks counter
+					s.activeTasks--
+
+					s.sendTaskStatusNotification(entry.task)
+
+					// Fire task cancellation hook
+					if s.taskHooks != nil {
+						metrics := TaskMetrics{
+							TaskID:        entry.task.TaskId,
+							ToolName:      entry.toolName,
+							Status:        entry.task.Status,
+							StatusMessage: entry.task.StatusMessage,
+							CreatedAt:     entry.createdAt,
+							CompletedAt:   &cancelledAt,
+							Duration:      duration,
+							SessionID:     entry.sessionID,
+						}
+						s.taskHooks.taskCancelled(ctx, metrics)
+					}
+				}
+				s.tasksMu.Unlock()
+			}
+			return
+		}
+
+		// Task failed - complete with error
+		s.completeTask(entry, nil, err)
+		return
+	}
+
+	// Task succeeded - store the CreateTaskResult
+	// Note: The actual result will be retrieved later via tasks/result
+	s.completeTask(entry, result, nil)
+}
+
+// executeRegularToolAsTask executes a regular tool handler asynchronously as a task.
+// This is used for hybrid mode where a tool with TaskSupportOptional is called with task params.
+func (s *MCPServer) executeRegularToolAsTask(
+	ctx context.Context,
+	entry *taskEntry,
+	regularTool ServerTool,
+	request mcp.CallToolRequest,
+) {
+	// Create cancellable context for this task execution
+	taskCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// Store cancel func in entry so it can be cancelled via tasks/cancel
+	s.tasksMu.Lock()
+	entry.cancelFunc = cancel
+	s.tasksMu.Unlock()
+
+	// Execute the regular tool handler
+	result, err := regularTool.Handler(taskCtx, request)
+
+	if err != nil {
+		// If the error is due to context cancellation, don't mark as failed.
+		// The cancelTask method will handle setting the proper status.
+		// However, if cancelTask hasn't been called yet, we should still mark it.
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			// Check if task was already cancelled via tasks/cancel
+			s.tasksMu.Lock()
+			alreadyCancelled := entry.task.Status == mcp.TaskStatusCancelled
+			s.tasksMu.Unlock()
+
+			if !alreadyCancelled {
+				// Handler detected cancellation before tasks/cancel was called
+				// Mark as cancelled with the context error message
+				cancelledAt := time.Now()
+				duration := cancelledAt.Sub(entry.createdAt)
+
+				s.tasksMu.Lock()
+				if !entry.completed {
+					entry.task.Status = mcp.TaskStatusCancelled
+					entry.task.StatusMessage = err.Error()
+					entry.task.LastUpdatedAt = cancelledAt.UTC().Format(time.RFC3339)
+					entry.completed = true
+					close(entry.done)
+
+					// Decrement active tasks counter
+					s.activeTasks--
+
+					s.sendTaskStatusNotification(entry.task)
+
+					// Fire task cancellation hook
+					if s.taskHooks != nil {
+						metrics := TaskMetrics{
+							TaskID:        entry.task.TaskId,
+							ToolName:      entry.toolName,
+							Status:        entry.task.Status,
+							StatusMessage: entry.task.StatusMessage,
+							CreatedAt:     entry.createdAt,
+							CompletedAt:   &cancelledAt,
+							Duration:      duration,
+							SessionID:     entry.sessionID,
+						}
+						s.taskHooks.taskCancelled(ctx, metrics)
+					}
+				}
+				s.tasksMu.Unlock()
+			}
+			return
+		}
+
+		// Task failed - complete with error
+		s.completeTask(entry, nil, err)
+		return
+	}
+
+	// Task succeeded - store the CallToolResult directly
+	// When retrieved via tasks/result, this will be returned to the client
+	s.completeTask(entry, result, nil)
 }
 
 func (s *MCPServer) handleNotification(
@@ -1334,4 +1799,525 @@ func createErrorResponse(
 		ID:      mcp.NewRequestId(id),
 		Error:   mcp.NewJSONRPCErrorDetails(code, message, nil),
 	}
+}
+
+//
+// Task Request Handlers
+//
+
+// handleGetTask handles tasks/get requests to retrieve task status.
+func (s *MCPServer) handleGetTask(
+	ctx context.Context,
+	id any,
+	request mcp.GetTaskRequest,
+) (*mcp.GetTaskResult, *requestError) {
+	task, _, err := s.getTask(ctx, request.Params.TaskId)
+	if err != nil {
+		return nil, &requestError{
+			id:   id,
+			code: mcp.INVALID_PARAMS,
+			err:  err,
+		}
+	}
+
+	result := mcp.NewGetTaskResult(task)
+	return &result, nil
+}
+
+// handleListTasks handles tasks/list requests to list all tasks.
+func (s *MCPServer) handleListTasks(
+	ctx context.Context,
+	id any,
+	request mcp.ListTasksRequest,
+) (*mcp.ListTasksResult, *requestError) {
+	tasks := s.listTasks(ctx)
+
+	// Sort tasks by TaskId for consistent pagination
+	sort.Slice(tasks, func(i, j int) bool {
+		return tasks[i].TaskId < tasks[j].TaskId
+	})
+
+	// Apply pagination
+	tasksToReturn, nextCursor, err := listByPagination(
+		ctx,
+		s,
+		request.Params.Cursor,
+		tasks,
+	)
+	if err != nil {
+		return nil, &requestError{
+			id:   id,
+			code: mcp.INVALID_PARAMS,
+			err:  err,
+		}
+	}
+
+	result := mcp.ListTasksResult{
+		Tasks: tasksToReturn,
+		PaginatedResult: mcp.PaginatedResult{
+			NextCursor: nextCursor,
+		},
+	}
+	return &result, nil
+}
+
+// handleTaskResult handles tasks/result requests to get task results.
+func (s *MCPServer) handleTaskResult(
+	ctx context.Context,
+	id any,
+	request mcp.TaskResultRequest,
+) (*mcp.TaskResultResult, *requestError) {
+	task, done, err := s.getTask(ctx, request.Params.TaskId)
+	if err != nil {
+		return nil, &requestError{
+			id:   id,
+			code: mcp.INVALID_PARAMS,
+			err:  err,
+		}
+	}
+
+	// Wait for task completion if not terminal
+	if !task.Status.IsTerminal() {
+		select {
+		case <-done:
+			// Task completed
+		case <-ctx.Done():
+			return nil, &requestError{
+				id:   id,
+				code: mcp.REQUEST_INTERRUPTED,
+				err:  ctx.Err(),
+			}
+		}
+	}
+
+	// Re-fetch the task entry to get the final result/error under lock
+	entry, err := s.getTaskEntry(ctx, request.Params.TaskId)
+	if err != nil {
+		return nil, &requestError{
+			id:   id,
+			code: mcp.INVALID_PARAMS,
+			err:  err,
+		}
+	}
+
+	// Read result and error under lock
+	s.tasksMu.RLock()
+	storedResult := entry.result
+	resultErr := entry.resultErr
+	taskID := entry.task.TaskId
+	s.tasksMu.RUnlock()
+
+	// Return error if task failed
+	if resultErr != nil {
+		return nil, &requestError{
+			id:   id,
+			code: mcp.INTERNAL_ERROR,
+			err:  resultErr,
+		}
+	}
+
+	// Extract the CallToolResult and populate TaskResultResult
+	result := &mcp.TaskResultResult{
+		Result: mcp.Result{
+			Meta: mcp.WithRelatedTask(taskID),
+		},
+	}
+
+	// If the stored result is a CallToolResult, extract its fields
+	if callToolResult, ok := storedResult.(*mcp.CallToolResult); ok {
+		result.Content = callToolResult.Content
+		result.StructuredContent = callToolResult.StructuredContent
+		result.IsError = callToolResult.IsError
+
+		// Merge any meta from the original result with the related task meta
+		if callToolResult.Meta != nil {
+			if result.Meta.AdditionalFields == nil {
+				result.Meta.AdditionalFields = make(map[string]any)
+			}
+			// Copy over any additional fields from the original result
+			for k, v := range callToolResult.Meta.AdditionalFields {
+				// Don't overwrite the related task meta
+				if k != mcp.RelatedTaskMetaKey {
+					result.Meta.AdditionalFields[k] = v
+				}
+			}
+		}
+	}
+
+	return result, nil
+}
+
+// handleCancelTask handles tasks/cancel requests to cancel a task.
+func (s *MCPServer) handleCancelTask(
+	ctx context.Context,
+	id any,
+	request mcp.CancelTaskRequest,
+) (*mcp.CancelTaskResult, *requestError) {
+	err := s.cancelTask(ctx, request.Params.TaskId)
+	if err != nil {
+		return nil, &requestError{
+			id:   id,
+			code: mcp.INVALID_PARAMS,
+			err:  err,
+		}
+	}
+
+	// Get the updated task
+	task, _, err := s.getTask(ctx, request.Params.TaskId)
+	if err != nil {
+		return nil, &requestError{
+			id:   id,
+			code: mcp.INVALID_PARAMS,
+			err:  err,
+		}
+	}
+
+	result := mcp.NewCancelTaskResult(task)
+	return &result, nil
+}
+
+func (s *MCPServer) handleComplete(
+	ctx context.Context,
+	id any,
+	request mcp.CompleteRequest,
+) (*mcp.CompleteResult, *requestError) {
+	var completion *mcp.Completion
+	var err error
+	switch ref := request.Params.Ref.(type) {
+	case mcp.PromptReference:
+		completion, err = s.promptCompletionProvider.CompletePromptArgument(
+			ctx,
+			ref.Name,
+			request.Params.Argument,
+			request.Params.Context,
+		)
+	case mcp.ResourceReference:
+		completion, err = s.resourceCompletionProvider.CompleteResourceArgument(
+			ctx,
+			ref.URI,
+			request.Params.Argument,
+			request.Params.Context,
+		)
+	default:
+		return nil, &requestError{
+			id:   id,
+			code: mcp.INVALID_REQUEST,
+			err:  fmt.Errorf("unknown reference type: %v", ref),
+		}
+	}
+	if err != nil {
+		return nil, &requestError{
+			id:   id,
+			code: mcp.INTERNAL_ERROR,
+			err:  err,
+		}
+	}
+
+	// Defensive nil check: default providers always return non-nil completions,
+	// but custom providers might erroneously return nil. Treat as empty result.
+	if completion == nil {
+		return &mcp.CompleteResult{}, nil
+	}
+
+	return &mcp.CompleteResult{
+		Completion: *completion,
+	}, nil
+}
+
+//
+// Task Management Methods
+//
+
+// createTask creates a new task entry and returns it.
+// Returns an error if the max concurrent tasks limit is exceeded.
+func (s *MCPServer) createTask(ctx context.Context, taskID string, toolName string, ttl *int64, pollInterval *int64) (*taskEntry, error) {
+	// Build task entry first (no lock needed)
+	opts := []mcp.TaskOption{}
+	if ttl != nil {
+		opts = append(opts, mcp.WithTaskTTL(*ttl))
+	}
+	if pollInterval != nil {
+		opts = append(opts, mcp.WithTaskPollInterval(*pollInterval))
+	}
+	task := mcp.NewTask(taskID, opts...)
+	createdAt := time.Now()
+
+	entry := &taskEntry{
+		task:      task,
+		sessionID: getSessionID(ctx),
+		toolName:  toolName,
+		createdAt: createdAt,
+		done:      make(chan struct{}),
+	}
+
+	// Single critical section for check + increment + insert
+	s.tasksMu.Lock()
+	defer s.tasksMu.Unlock()
+
+	// Check concurrent task limit
+	if s.maxConcurrentTasks != nil && *s.maxConcurrentTasks > 0 {
+		if s.activeTasks >= *s.maxConcurrentTasks {
+			return nil, fmt.Errorf("max concurrent tasks limit reached (%d)", *s.maxConcurrentTasks)
+		}
+	}
+
+	// Increment active task counter and insert task atomically
+	s.activeTasks++
+	s.tasks[taskID] = entry
+
+	// Fire task created hook
+	if s.taskHooks != nil {
+		metrics := TaskMetrics{
+			TaskID:    taskID,
+			ToolName:  toolName,
+			Status:    task.Status,
+			CreatedAt: createdAt,
+			SessionID: getSessionID(ctx),
+		}
+		s.taskHooks.taskCreated(ctx, metrics)
+	}
+
+	// Start TTL cleanup if specified
+	if ttl != nil && *ttl > 0 {
+		go s.scheduleTaskCleanup(taskID, *ttl)
+	}
+
+	return entry, nil
+}
+
+// getTask retrieves a task by ID, checking session isolation if applicable.
+// Returns a copy of the task and the done channel for waiting on completion.
+func (s *MCPServer) getTask(ctx context.Context, taskID string) (mcp.Task, chan struct{}, error) {
+	s.tasksMu.RLock()
+	entry, exists := s.tasks[taskID]
+	if !exists {
+		// Check if this task was recently expired
+		if _, wasExpired := s.expiredTasks[taskID]; wasExpired {
+			s.tasksMu.RUnlock()
+			return mcp.Task{}, nil, fmt.Errorf("task has expired")
+		}
+		s.tasksMu.RUnlock()
+		return mcp.Task{}, nil, fmt.Errorf("task not found")
+	}
+
+	// Verify session isolation
+	sessionID := getSessionID(ctx)
+	if entry.sessionID != "" && sessionID != "" && entry.sessionID != sessionID {
+		s.tasksMu.RUnlock()
+		return mcp.Task{}, nil, fmt.Errorf("task not found")
+	}
+
+	// Return a copy of the task and the done channel
+	taskCopy := entry.task
+	done := entry.done
+	s.tasksMu.RUnlock()
+
+	return taskCopy, done, nil
+}
+
+// getTaskEntry retrieves the raw task entry for internal use (requires caller to handle synchronization).
+func (s *MCPServer) getTaskEntry(ctx context.Context, taskID string) (*taskEntry, error) {
+	s.tasksMu.RLock()
+	entry, exists := s.tasks[taskID]
+	if !exists {
+		// Check if this task was recently expired
+		if _, wasExpired := s.expiredTasks[taskID]; wasExpired {
+			s.tasksMu.RUnlock()
+			return nil, fmt.Errorf("task has expired")
+		}
+		s.tasksMu.RUnlock()
+		return nil, fmt.Errorf("task not found")
+	}
+	s.tasksMu.RUnlock()
+
+	// Verify session isolation
+	sessionID := getSessionID(ctx)
+	if entry.sessionID != "" && sessionID != "" && entry.sessionID != sessionID {
+		return nil, fmt.Errorf("task not found")
+	}
+
+	return entry, nil
+}
+
+// listTasks returns copies of all tasks for the current session.
+func (s *MCPServer) listTasks(ctx context.Context) []mcp.Task {
+	sessionID := getSessionID(ctx)
+
+	s.tasksMu.RLock()
+	defer s.tasksMu.RUnlock()
+
+	var tasks []mcp.Task
+	for _, entry := range s.tasks {
+		// Filter by session if applicable
+		if sessionID == "" || entry.sessionID == "" || entry.sessionID == sessionID {
+			tasks = append(tasks, entry.task)
+		}
+	}
+
+	return tasks
+}
+
+// completeTask marks a task as completed with the given result.
+func (s *MCPServer) completeTask(entry *taskEntry, result any, err error) {
+	s.tasksMu.Lock()
+	defer s.tasksMu.Unlock()
+
+	// Guard against double completion
+	if entry.completed {
+		return
+	}
+
+	completedAt := time.Now()
+	duration := completedAt.Sub(entry.createdAt)
+
+	if err != nil {
+		entry.task.Status = mcp.TaskStatusFailed
+		entry.task.StatusMessage = err.Error()
+		entry.resultErr = err
+	} else {
+		entry.task.Status = mcp.TaskStatusCompleted
+		entry.result = result
+	}
+
+	// Update the lastUpdatedAt timestamp
+	entry.task.LastUpdatedAt = completedAt.UTC().Format(time.RFC3339)
+
+	// Mark as completed and signal
+	entry.completed = true
+	close(entry.done)
+
+	// Decrement active tasks counter
+	s.activeTasks--
+
+	// Send task status notification
+	s.sendTaskStatusNotification(entry.task)
+
+	// Fire task hooks
+	if s.taskHooks != nil {
+		metrics := TaskMetrics{
+			TaskID:        entry.task.TaskId,
+			ToolName:      entry.toolName,
+			Status:        entry.task.Status,
+			StatusMessage: entry.task.StatusMessage,
+			CreatedAt:     entry.createdAt,
+			CompletedAt:   &completedAt,
+			Duration:      duration,
+			SessionID:     entry.sessionID,
+			Error:         err,
+		}
+
+		if err != nil {
+			s.taskHooks.taskFailed(context.Background(), metrics)
+		} else {
+			s.taskHooks.taskCompleted(context.Background(), metrics)
+		}
+	}
+}
+
+// cancelTask cancels a running task.
+func (s *MCPServer) cancelTask(ctx context.Context, taskID string) error {
+	entry, err := s.getTaskEntry(ctx, taskID)
+	if err != nil {
+		return err
+	}
+
+	s.tasksMu.Lock()
+	defer s.tasksMu.Unlock()
+
+	// Don't allow cancelling already completed tasks
+	if entry.completed {
+		return fmt.Errorf("cannot cancel task in terminal status: %s", entry.task.Status)
+	}
+
+	// Cancel the context if available
+	if entry.cancelFunc != nil {
+		entry.cancelFunc()
+	}
+
+	cancelledAt := time.Now()
+	duration := cancelledAt.Sub(entry.createdAt)
+
+	entry.task.Status = mcp.TaskStatusCancelled
+	entry.task.StatusMessage = "Task cancelled by request"
+	// Update the lastUpdatedAt timestamp
+	entry.task.LastUpdatedAt = cancelledAt.UTC().Format(time.RFC3339)
+
+	// Mark as completed and signal
+	entry.completed = true
+	close(entry.done)
+
+	// Decrement active tasks counter
+	s.activeTasks--
+
+	// Send task status notification
+	s.sendTaskStatusNotification(entry.task)
+
+	// Fire task cancellation hook
+	if s.taskHooks != nil {
+		metrics := TaskMetrics{
+			TaskID:        entry.task.TaskId,
+			ToolName:      entry.toolName,
+			Status:        entry.task.Status,
+			StatusMessage: entry.task.StatusMessage,
+			CreatedAt:     entry.createdAt,
+			CompletedAt:   &cancelledAt,
+			Duration:      duration,
+			SessionID:     entry.sessionID,
+		}
+		s.taskHooks.taskCancelled(ctx, metrics)
+	}
+
+	return nil
+}
+
+// scheduleTaskCleanup schedules a task for cleanup after its TTL expires.
+func (s *MCPServer) scheduleTaskCleanup(taskID string, ttlMs int64) {
+	time.Sleep(time.Duration(ttlMs) * time.Millisecond)
+
+	s.tasksMu.Lock()
+	delete(s.tasks, taskID)
+	// Record that this task expired for better error messages
+	// Keep the tombstone for 5 minutes to allow clients to distinguish
+	// between "not found" and "expired"
+	s.expiredTasks[taskID] = time.Now()
+	s.tasksMu.Unlock()
+
+	// Clean up the tombstone after 5 minutes
+	go func() {
+		time.Sleep(5 * time.Minute)
+		s.tasksMu.Lock()
+		delete(s.expiredTasks, taskID)
+		s.tasksMu.Unlock()
+	}()
+}
+
+// sendTaskStatusNotification sends a notification when a task's status changes.
+func (s *MCPServer) sendTaskStatusNotification(task mcp.Task) {
+	// Convert task to map[string]any for notification params
+	taskMap := map[string]any{
+		"taskId":        task.TaskId,
+		"status":        task.Status,
+		"createdAt":     task.CreatedAt,
+		"lastUpdatedAt": task.LastUpdatedAt,
+	}
+
+	if task.StatusMessage != "" {
+		taskMap["statusMessage"] = task.StatusMessage
+	}
+	if task.TTL != nil {
+		taskMap["ttl"] = *task.TTL
+	}
+	if task.PollInterval != nil {
+		taskMap["pollInterval"] = *task.PollInterval
+	}
+
+	s.SendNotificationToAllClients(mcp.MethodNotificationTasksStatus, taskMap)
+}
+
+// getSessionID extracts the session ID from the context.
+func getSessionID(ctx context.Context) string {
+	if session := ClientSessionFromContext(ctx); session != nil {
+		return session.SessionID()
+	}
+	return ""
 }

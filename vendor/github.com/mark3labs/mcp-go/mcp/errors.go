@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -29,6 +30,28 @@ var (
 	ErrResourceNotFound = errors.New("resource not found")
 )
 
+// URLElicitationRequiredError is returned when the server requires URL elicitation to proceed.
+type URLElicitationRequiredError struct {
+	Elicitations []ElicitationParams `json:"elicitations"`
+}
+
+func (e URLElicitationRequiredError) Error() string {
+	return fmt.Sprintf("URL elicitation required: %d elicitation(s) needed", len(e.Elicitations))
+}
+
+func (e URLElicitationRequiredError) JSONRPCError() JSONRPCError {
+	return JSONRPCError{
+		JSONRPC: JSONRPC_VERSION,
+		Error: JSONRPCErrorDetails{
+			Code:    URL_ELICITATION_REQUIRED,
+			Message: e.Error(),
+			Data: map[string]any{
+				"elicitations": e.Elicitations,
+			},
+		},
+	}
+}
+
 // UnsupportedProtocolVersionError is returned when the server responds with
 // a protocol version that the client doesn't support.
 type UnsupportedProtocolVersionError struct {
@@ -37,6 +60,12 @@ type UnsupportedProtocolVersionError struct {
 
 func (e UnsupportedProtocolVersionError) Error() string {
 	return fmt.Sprintf("unsupported protocol version: %q", e.Version)
+}
+
+// Is implements the errors.Is interface for better error handling
+func (e URLElicitationRequiredError) Is(target error) bool {
+	_, ok := target.(URLElicitationRequiredError)
+	return ok
 }
 
 // Is implements the errors.Is interface for better error handling
@@ -72,6 +101,24 @@ func (e *JSONRPCErrorDetails) AsError() error {
 		err = ErrRequestInterrupted
 	case RESOURCE_NOT_FOUND:
 		err = ErrResourceNotFound
+	case URL_ELICITATION_REQUIRED:
+		// Attempt to reconstruct URLElicitationRequiredError from Data
+		if e.Data != nil {
+			// Round-trip through JSON to parse into struct
+			// This handles both map[string]any (from unmarshal) and other forms
+			if dataBytes, marshalErr := json.Marshal(e.Data); marshalErr == nil {
+				var data struct {
+					Elicitations []ElicitationParams `json:"elicitations"`
+				}
+				if unmarshalErr := json.Unmarshal(dataBytes, &data); unmarshalErr == nil {
+					return URLElicitationRequiredError{
+						Elicitations: data.Elicitations,
+					}
+				}
+			}
+		}
+		// Fallback if data is missing or invalid
+		return URLElicitationRequiredError{}
 	default:
 		return errors.New(e.Message)
 	}

@@ -58,9 +58,10 @@ type CallToolRequest struct {
 }
 
 type CallToolParams struct {
-	Name      string `json:"name"`
-	Arguments any    `json:"arguments,omitempty"`
-	Meta      *Meta  `json:"_meta,omitempty"`
+	Name      string      `json:"name"`
+	Arguments any         `json:"arguments,omitempty"`
+	Meta      *Meta       `json:"_meta,omitempty"`
+	Task      *TaskParams `json:"task,omitempty"`
 }
 
 // GetArguments returns the Arguments as map[string]any for backward compatibility
@@ -553,6 +554,24 @@ type ToolListChangedNotification struct {
 	Notification
 }
 
+// TaskSupport indicates how a tool supports task augmentation.
+type TaskSupport string
+
+const (
+	// TaskSupportForbidden means the tool cannot be invoked as a task (default).
+	TaskSupportForbidden TaskSupport = "forbidden"
+	// TaskSupportOptional means the tool can be invoked as a task or normally.
+	TaskSupportOptional TaskSupport = "optional"
+	// TaskSupportRequired means the tool must be invoked as a task.
+	TaskSupportRequired TaskSupport = "required"
+)
+
+// ToolExecution describes execution behavior for a tool.
+type ToolExecution struct {
+	// TaskSupport indicates whether the tool supports task augmentation.
+	TaskSupport TaskSupport `json:"taskSupport,omitempty"`
+}
+
 // Tool represents the definition for a tool the client can call.
 type Tool struct {
 	// Meta is a metadata object that is reserved by MCP for storing additional information.
@@ -571,6 +590,12 @@ type Tool struct {
 	RawOutputSchema json.RawMessage `json:"-"` // Hide this from JSON marshaling
 	// Optional properties describing tool behavior
 	Annotations ToolAnnotation `json:"annotations"`
+	// Support for deferred loading
+	DeferLoading bool `json:"defer_loading,omitempty"`
+	// Icons provides visual identifiers for the tool
+	Icons []Icon `json:"icons,omitempty"`
+	// Execution describes execution behavior for the tool
+	Execution *ToolExecution `json:"execution,omitempty"`
 }
 
 // GetName returns the name of the tool.
@@ -613,9 +638,21 @@ func (t Tool) MarshalJSON() ([]byte, error) {
 
 	m["annotations"] = t.Annotations
 
+	if t.DeferLoading {
+		m["defer_loading"] = t.DeferLoading
+	}
+
 	// Marshal Meta if present
 	if t.Meta != nil {
 		m["_meta"] = t.Meta
+	}
+
+	if t.Icons != nil {
+		m["icons"] = t.Icons
+	}
+
+	if t.Execution != nil {
+		m["execution"] = t.Execution
 	}
 
 	return json.Marshal(m)
@@ -623,17 +660,48 @@ func (t Tool) MarshalJSON() ([]byte, error) {
 
 // ToolArgumentsSchema represents a JSON Schema for tool arguments.
 type ToolArgumentsSchema struct {
-	Defs       map[string]any `json:"$defs,omitempty"`
-	Type       string         `json:"type"`
-	Properties map[string]any `json:"properties,omitempty"`
-	Required   []string       `json:"required,omitempty"`
+	Defs                 map[string]any `json:"$defs,omitempty"`
+	Type                 string         `json:"type"`
+	Properties           map[string]any `json:"properties"`
+	Required             []string       `json:"required,omitempty"`
+	AdditionalProperties any            `json:"additionalProperties,omitempty"`
 }
 
 type ToolInputSchema ToolArgumentsSchema // For retro-compatibility
 type ToolOutputSchema ToolArgumentsSchema
 
 // MarshalJSON implements the json.Marshaler interface for ToolInputSchema.
+func (tis ToolInputSchema) MarshalJSON() ([]byte, error) {
+	return toolArgumentsSchemaMarshalJSON(ToolArgumentsSchema(tis))
+}
+
+// MarshalJSON implements the json.Marshaler interface for ToolOutputSchema.
+func (tis ToolOutputSchema) MarshalJSON() ([]byte, error) {
+	return toolArgumentsSchemaMarshalJSON(ToolArgumentsSchema(tis))
+}
+
+// MarshalJSON implements the json.Marshaler interface for ToolArgumentsSchema.
 func (tis ToolArgumentsSchema) MarshalJSON() ([]byte, error) {
+	return toolArgumentsSchemaMarshalJSON(tis)
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface for ToolInputSchema.
+func (tis *ToolInputSchema) UnmarshalJSON(data []byte) error {
+	return toolArgumentsSchemaUnmarshalJSON(data, (*ToolArgumentsSchema)(tis))
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface for ToolOutputSchema.
+func (tis *ToolOutputSchema) UnmarshalJSON(data []byte) error {
+	return toolArgumentsSchemaUnmarshalJSON(data, (*ToolArgumentsSchema)(tis))
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface for ToolArgumentsSchema.
+func (tis *ToolArgumentsSchema) UnmarshalJSON(data []byte) error {
+	return toolArgumentsSchemaUnmarshalJSON(data, tis)
+}
+
+// toolArgumentsSchemaMarshalJSON handles the fields stored in ToolArgumentsSchema when json.Marshaler is called
+func toolArgumentsSchemaMarshalJSON(tis ToolArgumentsSchema) ([]byte, error) {
 	m := make(map[string]any)
 	m["type"] = tis.Type
 
@@ -644,19 +712,27 @@ func (tis ToolArgumentsSchema) MarshalJSON() ([]byte, error) {
 	// Marshal Properties to '{}' rather than `nil` when its length equals zero
 	if tis.Properties != nil {
 		m["properties"] = tis.Properties
+	} else {
+		m["properties"] = map[string]any{}
 	}
 
+	// Marshal Required to '[]' rather than `nil` when its length equals zero
 	if len(tis.Required) > 0 {
 		m["required"] = tis.Required
+	} else {
+		m["required"] = []string{}
+	}
+
+	if tis.AdditionalProperties != nil {
+		m["additionalProperties"] = tis.AdditionalProperties
 	}
 
 	return json.Marshal(m)
 }
 
-// UnmarshalJSON implements the json.Unmarshaler interface for ToolArgumentsSchema.
 // It handles both "$defs" (JSON Schema 2019-09+) and "definitions" (JSON Schema draft-07)
 // by reading either field and storing it in the Defs field.
-func (tis *ToolArgumentsSchema) UnmarshalJSON(data []byte) error {
+func toolArgumentsSchemaUnmarshalJSON(data []byte, tis *ToolArgumentsSchema) error {
 	// Use a temporary type to avoid infinite recursion
 	type Alias ToolArgumentsSchema
 	aux := &struct {
@@ -755,6 +831,14 @@ func WithDescription(description string) ToolOption {
 	}
 }
 
+// WithDeferLoading sets the defer_loading flag for the tool.
+// This is used to implement dynamic tool loading/searching patterns.
+func WithDeferLoading(deferLoading bool) ToolOption {
+	return func(t *Tool) {
+		t.DeferLoading = deferLoading
+	}
+}
+
 // WithInputSchema creates a ToolOption that sets the input schema for a tool.
 // It accepts any Go type, usually a struct, and automatically generates a JSON schema from it.
 func WithInputSchema[T any]() ToolOption {
@@ -782,6 +866,26 @@ func WithInputSchema[T any]() ToolOption {
 
 		t.InputSchema.Type = ""
 		t.RawInputSchema = json.RawMessage(mcpSchema)
+	}
+}
+
+// WithToolIcons adds icons to the Tool.
+// Icons provide visual identifiers for the tool.
+func WithToolIcons(icons ...Icon) ToolOption {
+	return func(t *Tool) {
+		t.Icons = icons
+	}
+}
+
+// WithTaskSupport sets the task support mode for the tool.
+// It configures whether the tool can be invoked as a task (asynchronously).
+// Valid values are TaskSupportForbidden (default), TaskSupportOptional, or TaskSupportRequired.
+func WithTaskSupport(support TaskSupport) ToolOption {
+	return func(t *Tool) {
+		if t.Execution == nil {
+			t.Execution = &ToolExecution{}
+		}
+		t.Execution.TaskSupport = support
 	}
 }
 
@@ -888,6 +992,15 @@ func WithIdempotentHintAnnotation(value bool) ToolOption {
 func WithOpenWorldHintAnnotation(value bool) ToolOption {
 	return func(t *Tool) {
 		t.Annotations.OpenWorldHint = &value
+	}
+}
+
+// WithSchemaAdditionalProperties sets the additionalProperties field on the tool's input schema.
+// It accepts false (disallow extra properties), true (allow any), or a schema map
+// to validate additional properties against.
+func WithSchemaAdditionalProperties(schema any) ToolOption {
+	return func(t *Tool) {
+		t.InputSchema.AdditionalProperties = schema
 	}
 }
 

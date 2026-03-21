@@ -199,7 +199,7 @@ func (c *Client) Initialize(
 	}
 	// Add elicitation capability if handler is configured
 	if c.elicitationHandler != nil {
-		capabilities.Elicitation = &struct{}{}
+		capabilities.Elicitation = &mcp.ElicitationCapability{}
 	}
 
 	// Ensure we send a params object with all required fields
@@ -211,6 +211,11 @@ func (c *Client) Initialize(
 		ProtocolVersion: request.Params.ProtocolVersion,
 		ClientInfo:      request.Params.ClientInfo,
 		Capabilities:    capabilities,
+	}
+
+	// By default, use client supported latest protocol version if version not specified
+	if params.ProtocolVersion == "" {
+		params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
 	}
 
 	response, err := c.sendRequest(ctx, "initialize", params, request.Header)
@@ -267,7 +272,7 @@ func (c *Client) ListResourcesByPage(
 	ctx context.Context,
 	request mcp.ListResourcesRequest,
 ) (*mcp.ListResourcesResult, error) {
-	result, err := listByPage[mcp.ListResourcesResult](ctx, c, request.PaginatedRequest, "resources/list")
+	result, err := listByPage[mcp.ListResourcesResult](ctx, c, request.PaginatedRequest, request.Header, "resources/list")
 	if err != nil {
 		return nil, err
 	}
@@ -303,7 +308,7 @@ func (c *Client) ListResourceTemplatesByPage(
 	ctx context.Context,
 	request mcp.ListResourceTemplatesRequest,
 ) (*mcp.ListResourceTemplatesResult, error) {
-	result, err := listByPage[mcp.ListResourceTemplatesResult](ctx, c, request.PaginatedRequest, "resources/templates/list")
+	result, err := listByPage[mcp.ListResourceTemplatesResult](ctx, c, request.PaginatedRequest, request.Header, "resources/templates/list")
 	if err != nil {
 		return nil, err
 	}
@@ -367,7 +372,7 @@ func (c *Client) ListPromptsByPage(
 	ctx context.Context,
 	request mcp.ListPromptsRequest,
 ) (*mcp.ListPromptsResult, error) {
-	result, err := listByPage[mcp.ListPromptsResult](ctx, c, request.PaginatedRequest, "prompts/list")
+	result, err := listByPage[mcp.ListPromptsResult](ctx, c, request.PaginatedRequest, request.Header, "prompts/list")
 	if err != nil {
 		return nil, err
 	}
@@ -415,7 +420,7 @@ func (c *Client) ListToolsByPage(
 	ctx context.Context,
 	request mcp.ListToolsRequest,
 ) (*mcp.ListToolsResult, error) {
-	result, err := listByPage[mcp.ListToolsResult](ctx, c, request.PaginatedRequest, "tools/list")
+	result, err := listByPage[mcp.ListToolsResult](ctx, c, request.PaginatedRequest, request.Header, "tools/list")
 	if err != nil {
 		return nil, err
 	}
@@ -629,6 +634,10 @@ func (c *Client) handleElicitationRequestTransport(ctx context.Context, request 
 		}
 	}
 
+	if err := params.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid elicitation params: %w", err)
+	}
+
 	// Create the MCP request
 	mcpRequest := mcp.ElicitationRequest{
 		Request: mcp.Request{
@@ -664,9 +673,10 @@ func listByPage[T any](
 	ctx context.Context,
 	client *Client,
 	request mcp.PaginatedRequest,
+	header http.Header,
 	method string,
 ) (*T, error) {
-	response, err := client.sendRequest(ctx, method, request.Params, nil)
+	response, err := client.sendRequest(ctx, method, request.Params, header)
 	if err != nil {
 		return nil, err
 	}
