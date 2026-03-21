@@ -3386,14 +3386,20 @@ func renderTranscriptSectionBlockContent(width int, label, role string, meta []s
 
 func transcriptSpeakerStyle(label, role string) transcriptSpeakerStyles {
 	accent := transcriptSpeakerPalette()[transcriptSpeakerPaletteIndex(label, role)]
+	borderColor := accent
+	headerColor := accent
+	if role == "user" {
+		borderColor = clienttheme.Primary()
+		headerColor = clienttheme.Primary()
+	}
 	return transcriptSpeakerStyles{
-		border: lipgloss.NewStyle().Foreground(accent),
+		border: lipgloss.NewStyle().Foreground(borderColor),
 		label: lipgloss.NewStyle().
 			Bold(true).
 			Foreground(clienttheme.DefaultMod(900)).
-			Background(accent).
+			Background(headerColor).
 			Padding(0, 1),
-		meta: lipgloss.NewStyle().Foreground(accent),
+		meta: lipgloss.NewStyle().Foreground(headerColor),
 	}
 }
 

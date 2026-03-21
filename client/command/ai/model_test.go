@@ -13,6 +13,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/bishopfox/sliver/client/console"
 	aithinking "github.com/bishopfox/sliver/client/spin/thinking"
+	clienttheme "github.com/bishopfox/sliver/client/theme"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/charmbracelet/x/ansi"
 )
@@ -231,6 +232,35 @@ func TestTranscriptSpeakerPaletteVariesAcrossUsers(t *testing.T) {
 	}
 	if len(seen) < 2 {
 		t.Fatalf("expected distinct users to map to more than one transcript color, got %d palette entries", len(seen))
+	}
+}
+
+func TestTranscriptSpeakerStyleUsesPrimaryBorderForUserMessages(t *testing.T) {
+	userStyles := transcriptSpeakerStyle("alice", "user")
+	userBorder := transcriptSpeakerStyle("alice", "user").border.Render("│")
+	wantUserBorder := lipgloss.NewStyle().Foreground(clienttheme.Primary()).Render("│")
+	if userBorder != wantUserBorder {
+		t.Fatalf("expected user message border to use theme primary color")
+	}
+
+	wantUserLabel := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(clienttheme.DefaultMod(900)).
+		Background(clienttheme.Primary()).
+		Padding(0, 1).
+		Render("alice")
+	if got := userStyles.label.Render("alice"); got != wantUserLabel {
+		t.Fatalf("expected user message label to use theme primary color")
+	}
+
+	wantUserMeta := lipgloss.NewStyle().Foreground(clienttheme.Primary()).Render("openai | gpt-5.4")
+	if got := userStyles.meta.Render("openai | gpt-5.4"); got != wantUserMeta {
+		t.Fatalf("expected user message metadata to use theme primary color")
+	}
+
+	assistantBorder := transcriptSpeakerStyle("AI", "assistant").border.Render("│")
+	if assistantBorder == wantUserBorder {
+		t.Fatalf("expected assistant message border to keep its non-primary speaker color")
 	}
 }
 
