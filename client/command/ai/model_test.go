@@ -679,6 +679,26 @@ func TestTranscriptFocusDisablesMouseForNativeSelection(t *testing.T) {
 	}
 }
 
+func TestTranscriptClickPromptsNativeSelection(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 108
+	model.height = 28
+	model.focus = aiFocusSidebar
+	rect := model.currentPaneRects().transcript
+	updated, _ := model.Update(tea.MouseClickMsg{
+		X:      rect.x + rect.width/2,
+		Y:      rect.y + rect.height/2,
+		Button: tea.MouseLeft,
+	})
+	model = updated.(*aiModel)
+	if got := model.focus; got != aiFocusTranscript {
+		t.Fatalf("expected transcript click to focus transcript, got %s", got.String())
+	}
+	if !strings.Contains(model.status, "Drag again") {
+		t.Fatalf("expected transcript click to explain native selection flow, got %q", model.status)
+	}
+}
+
 func TestLayoutHeightsKeepWideComposerCompact(t *testing.T) {
 	model := newAIModel(nil, aiContext{}, nil)
 	model.width = 120

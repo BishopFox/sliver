@@ -650,10 +650,12 @@ func (m *aiModel) handleMouseClick(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 	}
 
 	m.focus = focus
-	m.clearTranscriptSelection()
 	if focus == aiFocusTranscript {
-		m.status = "Conversation focused. Drag in the terminal to select and copy text."
+		m.clearTranscriptSelection()
+		m.status = "Conversation focused. Drag again in your terminal to select and copy text."
+		return m, nil
 	}
+	m.clearTranscriptSelection()
 	return m, nil
 }
 
@@ -667,6 +669,11 @@ func (m *aiModel) handleMouseRelease(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 
 	m.updateTranscriptSelection(mouse.X, mouse.Y, true)
 	m.transcriptSelection.dragging = false
+
+	if m.isCollapsedTranscriptSelection() {
+		m.clearTranscriptSelection()
+		return m, nil
+	}
 
 	selected := m.selectedTranscriptText()
 	if selected == "" {
@@ -3670,6 +3677,14 @@ func (m *aiModel) selectedTranscriptText() string {
 		lines = append(lines, ansi.Cut(line.selectableText, lineStart, lineEnd))
 	}
 	return strings.Join(lines, "\n")
+}
+
+func (m *aiModel) isCollapsedTranscriptSelection() bool {
+	if m.transcriptSelection == nil {
+		return true
+	}
+	start, end := normalizeTranscriptSelection(m.transcriptSelection.anchor, m.transcriptSelection.active)
+	return start.line == end.line && start.col == end.col
 }
 
 func normalizeTranscriptSelection(a, b aiTranscriptSelectionPoint) (aiTranscriptSelectionPoint, aiTranscriptSelectionPoint) {
