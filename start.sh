@@ -80,7 +80,11 @@ if [ -z "$EXISTING_PID" ] || ! pgrep -f "sliver-server" >/dev/null 2>&1; then
     done
 
     echo "[*] Starting sliver-server daemon..."
-    "$SCRIPT_DIR/sliver-server" daemon > /tmp/sliver-daemon.log 2>&1 &
+    # --disable-wg: use plain mTLS TCP on port 31337 instead of the default
+    # WireGuard-wrapped mode.  WireGuard wraps the listener inside a userspace
+    # network stack, making port 31337 invisible to `ss` (breaking the readiness
+    # check) and unreachable by sliver-client ("context deadline exceeded").
+    "$SCRIPT_DIR/sliver-server" daemon --disable-wg > /tmp/sliver-daemon.log 2>&1 &
     DAEMON_PID=$!
     disown $DAEMON_PID 2>/dev/null || true
 
@@ -134,7 +138,7 @@ CFG_DIR="$HOME/.sliver-client/configs"
 mkdir -p "$CFG_DIR"
 if [ -z "$(ls -A "$CFG_DIR" 2>/dev/null)" ]; then
     echo "[*] Creating operator config..."
-    "$SCRIPT_DIR/sliver-server" operator --name local --lhost localhost --permissions all --save "$CFG_DIR/local.cfg" 2>/dev/null
+    "$SCRIPT_DIR/sliver-server" operator --name local --lhost localhost --disable-wg --permissions all --save "$CFG_DIR/local.cfg" 2>/dev/null
     if [ -f "$CFG_DIR/local.cfg" ]; then
         echo "[+] Config created"
     else
