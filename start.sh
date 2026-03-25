@@ -5,6 +5,7 @@
 #   ./start.sh                         # mTLS on 8888
 #   ./start.sh --domain cdn.example.com # + HTTPS on 443
 #   ./start.sh --fresh                  # restart clean
+#   ./start.sh --reinstall-armory        # force armory reinstall
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 export PATH="/usr/local/go/bin:$HOME/go/bin:$PATH"
@@ -12,13 +13,20 @@ export PATH="/usr/local/go/bin:$HOME/go/bin:$PATH"
 MTLS_PORT="${1:-8888}"
 DOMAIN=""
 FRESH=0
+REINSTALL_ARMORY=0
 
 for arg in "$@"; do
     case "$arg" in
         --fresh) FRESH=1 ;;
         --domain) shift; DOMAIN="$1" ;;
+        --reinstall-armory) REINSTALL_ARMORY=1 ;;
     esac
 done
+
+# Handle --reinstall-armory
+if [ "$REINSTALL_ARMORY" = "1" ]; then
+    rm -f "$HOME/.sliver/.armory_installed" 2>/dev/null || true
+fi
 
 echo ""
 echo "════════════════════════════════════════════════"
@@ -53,8 +61,12 @@ fi
 # ─── Start daemon if needed ───
 if [ -z "$EXISTING_PID" ] || ! pgrep -f "sliver-server" >/dev/null 2>&1; then
     # Free ports
-    for P in 31337 $MTLS_PORT; do
-        lsof -ti :"$P" 2>/dev/null | xargs -r kill -9 2>/dev/null || true
+    for P in 443 31337 $MTLS_PORT; do
+        PIDS=$(lsof -ti :"$P" 2>/dev/null || true)
+        if [ -n "$PIDS" ]; then
+            echo "[*] Freeing port $P..."
+            echo "$PIDS" | xargs -r kill -9 2>/dev/null || true
+        fi
     done
     
     echo "[*] Starting sliver-server daemon..."
@@ -107,11 +119,72 @@ fi
 # ─── Install armory (first run) ───
 ARMORY_MARKER="$HOME/.sliver/.armory_installed"
 if [ ! -f "$ARMORY_MARKER" ]; then
-    echo "[*] Installing armory extensions (first run — takes a few minutes)..."
-    echo -e "armory install all\nexit" | \
-        timeout 600 "$SCRIPT_DIR/sliver-client" 2>/dev/null || true
+    echo "[*] Installing armory extensions (first run — targeted packages only)..."
+
+    # Only what ATTACKPATH.md actually uses — skip the other 40+ packages
+    ARMORY_PKGS=(
+        # Core credential tools
+        rubeus mimikatz nanodump sharpsecdump
+        # AMSI/ETW bypass BOFs
+        inject-amsi-bypass inject-etw-bypass unhook-bof
+        # Situational awareness BOFs (sa-* family)
+        sa-whoami sa-ipconfig sa-arp sa-netstat
+        sa-ldapsearch sa-netgroup sa-netlocalgroup
+        sa-driversigs sa-enum-filter-driver
+        # Lateral movement
+        sharpwmi
+        # Credential access
+        sharpdpapi sharpchrome credman
+    )
+
+    # Prefetch armory index (all parallel jobs share the cached index)
+    echo "[*] Fetching armory index..."
+    echo -e "armory\nexit" | timeout 60 "$SCRIPT_DIR/sliver-client" >/dev/null 2>&1 || true
+
+    TOTAL=${#ARMORY_PKGS[@]}
+    MAX_PARALLEL=4
+    INSTALLED=0
+    FAILED=()
+    pids=()
+    pkg_names=()
+    BATCH=0
+
+    for pkg in "${ARMORY_PKGS[@]}"; do
+        echo -e "armory install $pkg\nexit" | \
+            timeout 90 "$SCRIPT_DIR/sliver-client" >/dev/null 2>&1 &
+        pids+=($!)
+        pkg_names+=("$pkg")
+
+        # Drain when we hit MAX_PARALLEL
+        if [ ${#pids[@]} -ge $MAX_PARALLEL ]; then
+            BATCH=$((BATCH + MAX_PARALLEL))
+            echo "[*] Installing batch... ($BATCH/$TOTAL)"
+            for i in "${!pids[@]}"; do
+                wait "${pids[$i]}" 2>/dev/null && \
+                    INSTALLED=$((INSTALLED + 1)) || \
+                    FAILED+=("${pkg_names[$i]}")
+            done
+            pids=()
+            pkg_names=()
+        fi
+    done
+    # Drain remaining
+    if [ ${#pids[@]} -gt 0 ]; then
+        echo "[*] Installing final batch... ($TOTAL/$TOTAL)"
+        for i in "${!pids[@]}"; do
+            wait "${pids[$i]}" 2>/dev/null && \
+                INSTALLED=$((INSTALLED + 1)) || \
+                FAILED+=("${pkg_names[$i]}")
+        done
+    fi
+
+    echo "[+] Armory: $INSTALLED/$TOTAL installed"
+    if [ ${#FAILED[@]} -gt 0 ]; then
+        echo "[!] Failed (install manually): ${FAILED[*]}"
+    fi
+
     mkdir -p "$HOME/.sliver" && touch "$ARMORY_MARKER"
-    echo "[+] Armory done"
+    echo "[+] Armory done (remove $ARMORY_MARKER to reinstall)"
 fi
 
 # ─── Start mTLS listener ───
