@@ -26,6 +26,20 @@ HARRIET_DIR="${HARRIET_DIR:-/opt/Home-Grown-Red-Team/Harriet}"
 GO_VERSION="1.26.1"
 GO_INSTALL_DIR="/usr/local"
 
+# ─── Ensure swap space exists (Harriet DirectSyscalls needs ~4GB during build) ───
+if [ "$(swapon --show --noheadings 2>/dev/null | wc -l)" -eq 0 ]; then
+    info "No swap detected — creating 4G swapfile (Harriet build needs it)..."
+    if fallocate -l 4G /swapfile 2>/dev/null && chmod 600 /swapfile && mkswap /swapfile >/dev/null 2>&1 && swapon /swapfile 2>/dev/null; then
+        ok "Swap enabled: $(swapon --show --noheadings 2>/dev/null | tail -1)"
+    else
+        rm -f /swapfile 2>/dev/null || true
+        warn "Could not create swap — Harriet build may fail on low-memory systems (need ~4GB free)"
+        warn "Manual fix: fallocate -l 4G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile"
+    fi
+else
+    ok "Swap already active ($(swapon --show --noheadings 2>/dev/null | tail -1))"
+fi
+
 # ─── Detect if we're in the sliver repo ───
 if [ ! -f "$SLIVER_DIR/go.mod" ] || ! grep -q "bishopfox/sliver" "$SLIVER_DIR/go.mod" 2>/dev/null; then
     if [ -d "$HOME/sliver" ] && [ -f "$HOME/sliver/go.mod" ]; then
