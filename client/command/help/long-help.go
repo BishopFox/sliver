@@ -56,6 +56,9 @@ var (
 		consts.LsStr:          lsHelp,
 		consts.CdStr:          cdHelp,
 		consts.PwdStr:         pwdHelp,
+		consts.AIStr:          aiHelp,
+		consts.AIConfigStr:    aiConfigHelp,
+		consts.DocsStr:        docsHelp,
 		consts.CatStr:         catHelp,
 		consts.EditStr:        editHelp,
 		consts.HexEditStr:     hexEditHelp,
@@ -170,6 +173,29 @@ _=/usr/bin/env
 
 	infoHelp = `[[.Bold]]Command:[[.Normal]] info <sliver name/session>
 [[.Bold]]About:[[.Normal]] Get information about a Sliver by name, or for the active Sliver.`
+
+	aiHelp = `[[.Bold]]Command:[[.Normal]] ai
+[[.Bold]]About:[[.Normal]] Launch the Sliver AI Bubble Tea TUI. The AI workspace now loads server-side conversation threads over gRPC, keeps them synced through the shared event stream, and renders conversation transcripts as markdown in the main pane.
+
+[[.Bold]]Example:[[.Normal]]
+	use my-session
+	ai
+`
+
+	aiConfigHelp = `[[.Bold]]Command:[[.Normal]] ai-config
+[[.Bold]]About:[[.Normal]] Open a server-side form to update the AI block in server.yaml. The form stores the default provider, model, thinking level, and provider-specific credentials such as the API key and optional base URL.
+
+[[.Bold]]Example:[[.Normal]]
+	ai-config
+`
+
+	docsHelp = `[[.Bold]]Command:[[.Normal]] docs
+[[.Bold]]About:[[.Normal]] Browse the embedded Sliver documentation in a Bubble Tea TUI. The left pane is a searchable docs browser, and the right pane renders markdown with Glow styling.
+[[.Bold]]Keys:[[.Normal]] Use / to filter docs, enter to focus the selected document, tab to switch panes, and q to quit.
+
+[[.Bold]]Example:[[.Normal]]
+	docs
+`
 
 	useHelp = `[[.Bold]]Command:[[.Normal]] use [sliver name/session]
 [[.Bold]]About:[[.Normal]] Switch the active Sliver, a valid name must be provided (see sessions).`

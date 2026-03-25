@@ -31,6 +31,17 @@ service SliverRPC {
   rpc MonitorListConfig(commonpb.Empty) returns (clientpb.MonitoringProviders);
   rpc MonitorAddConfig(clientpb.MonitoringProvider) returns (commonpb.Response);
   rpc MonitorDelConfig(clientpb.MonitoringProvider) returns (commonpb.Response);
+
+  // *** AI ***
+  rpc GetAIProviders(commonpb.Empty) returns (clientpb.AIProviderConfigs);
+  rpc GetAIConversations(commonpb.Empty) returns (clientpb.AIConversations);
+  rpc GetAIConversation(clientpb.AIConversationReq) returns (clientpb.AIConversation);
+  rpc SaveAIConversation(clientpb.AIConversation) returns (clientpb.AIConversation);
+  rpc DeleteAIConversation(clientpb.AIConversationReq) returns (commonpb.Empty);
+  rpc GetAIConversationMessages(clientpb.AIConversationReq)
+      returns (clientpb.AIConversationMessages);
+  rpc SaveAIConversationMessage(clientpb.AIConversationMessage)
+      returns (clientpb.AIConversationMessage);
     
   // *** Listeners ***
   rpc StartMTLSListener(clientpb.MTLSListenerReq) returns (clientpb.ListenerJob);

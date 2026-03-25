@@ -3,8 +3,8 @@ package forms
 import (
 	"sort"
 
+	"charm.land/huh/v2"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/charmbracelet/huh"
 )
 
 type formatOption struct {

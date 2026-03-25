@@ -47,6 +47,14 @@ var daemonCmd = &cobra.Command{
 			fmt.Printf("Failed to parse --%s flag %s\n", tailscaleFlagStr, err)
 			return
 		}
+		disableWG, err := cmd.Flags().GetBool(disableWGFlagStr)
+		if err != nil {
+			fmt.Printf("Failed to parse --%s flag %s\n", disableWGFlagStr, err)
+			return
+		}
+		if !cmd.Flags().Changed(disableWGFlagStr) {
+			disableWG = configs.GetServerConfig().DaemonConfig.DisableWG
+		}
 
 		appDir := assets.GetRootAppDir()
 		logFile := initConsoleLogging(appDir)
@@ -64,6 +72,7 @@ var daemonCmd = &cobra.Command{
 		c2.SetupDefaultC2Profiles()
 		certs.SetupCAs()
 		certs.SetupWGKeys()
+		certs.SetupMultiplayerWGKeys()
 		cryptography.AgeServerKeyPair()
 		cryptography.MinisignServerPrivateKey()
 		_, _ = configs.LoadCrackConfig()
@@ -78,7 +87,7 @@ var daemonCmd = &cobra.Command{
 			fmt.Printf("[!] %s\n", err)
 		}
 
-		daemon.Start(lhost, uint16(lport), tailscale)
+		daemon.Start(lhost, uint16(lport), tailscale, disableWG)
 	},
 }
 
@@ -212,7 +221,11 @@ func persistentJobStartupContext(jobType string, savedJobID uint32, listenerJob 
 		if listenerJob.MultiConf == nil {
 			return prefix
 		}
-		return fmt.Sprintf("%s [%s]", prefix, listenerBind(listenerJob.MultiConf.Host, listenerJob.MultiConf.Port))
+		mode := "direct"
+		if listenerJob.MultiConf.WireGuard {
+			mode = "wireguard"
+		}
+		return fmt.Sprintf("%s [%s mode=%s]", prefix, listenerBind(listenerJob.MultiConf.Host, listenerJob.MultiConf.Port), mode)
 	case constants.TCPListenerStr:
 		if listenerJob.TCPConf == nil {
 			return prefix

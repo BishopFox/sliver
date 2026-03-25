@@ -52,6 +52,8 @@ func newDBClient() *gorm.DB {
 
 	// We cannot pass all of these into AutoMigrate at once because if one fails, subsequent models will not be created
 	var allDBModels []interface{} = append(make([]interface{}, 0),
+		&models.AIConversation{},
+		&models.AIConversationMessage{},
 		&models.HttpC2Header{},
 		&models.HttpC2ServerConfig{},
 		&models.HttpC2ImplantConfig{},
@@ -73,7 +75,9 @@ func newDBClient() *gorm.DB {
 		&models.Host{},
 		&models.KeyValue{},
 		&models.WGKeys{},
+		&models.MultiplayerWGKeys{},
 		&models.WGPeer{},
+		&models.WGIPReservation{},
 		&models.ResourceID{},
 		&models.HttpC2Cookie{},
 		&models.IOC{},

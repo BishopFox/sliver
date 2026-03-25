@@ -47,7 +47,7 @@ const resourcePrefixHeader = "google-cloud-resource-prefix"
 // requestParamsHeader is routing header required to access named databases
 const reqParamsHeader = "x-goog-request-params"
 
-// reqParamsHeaderVal constructs header from dbPath
+// reqParamsHeaderVal constructs header from dbPath.
 // dbPath is of the form projects/{project_id}/databases/{database_id}
 func reqParamsHeaderVal(dbPath string) string {
 	splitPath := strings.Split(dbPath, "/")
@@ -179,6 +179,14 @@ func withRequestParamsHeader(ctx context.Context, requestParams string) context.
 	md = md.Copy()
 	md[reqParamsHeader] = []string{requestParams}
 	return metadata.NewOutgoingContext(ctx, md)
+}
+
+// Pipeline creates a PipelineSource to start building a Firestore pipeline.
+//
+// Experimental: Firestore Pipelines is currently in preview and is subject to potential breaking changes in future versions,
+// regardless of any other documented package stability guarantees.
+func (c *Client) Pipeline() *PipelineSource {
+	return &PipelineSource{client: c}
 }
 
 // Collection creates a reference to a collection with the given path.

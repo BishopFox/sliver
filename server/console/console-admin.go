@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -32,10 +33,13 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"gorm.io/gorm"
 
+	clientassets "github.com/bishopfox/sliver/client/assets"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/console/forms"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
@@ -72,30 +76,24 @@ const (
 
 var namePattern = regexp.MustCompile("^[a-zA-Z0-9_-]*$") // Only allow alphanumeric chars
 
-// ClientConfig - Client JSON config
-type ClientConfig struct {
-	Operator      string `json:"operator"`
-	Token         string `json:"token"`
-	LHost         string `json:"lhost"`
-	LPort         int    `json:"lport"`
-	CACertificate string `json:"ca_certificate"`
-	PrivateKey    string `json:"private_key"`
-	Certificate   string `json:"certificate"`
-}
-
 func newOperatorCmd(cmd *cobra.Command, _ []string) {
 	name, _ := cmd.Flags().GetString("name")
 	lhost, _ := cmd.Flags().GetString("lhost")
 	lport, _ := cmd.Flags().GetUint16("lport")
 	save, _ := cmd.Flags().GetString("save")
 	permissions, _ := cmd.Flags().GetStringSlice("permissions")
+	includeWG := DefaultOperatorWireGuardEnabled()
+	if cmd.Flags().Changed("disable-wg") {
+		disableWG, _ := cmd.Flags().GetBool("disable-wg")
+		includeWG = !disableWG
+	}
 
 	if save == "" {
 		save, _ = os.Getwd()
 	}
 
 	fmt.Printf(Info + "Generating new client certificate, please wait ... \n")
-	configJSON, err := NewOperatorConfig(name, lhost, lport, permissions)
+	configJSON, err := NewOperatorConfig(name, lhost, lport, permissions, includeWG)
 	if err != nil {
 		fmt.Printf(Warn+"%s\n", err)
 		return
@@ -119,8 +117,36 @@ func newOperatorCmd(cmd *cobra.Command, _ []string) {
 	fmt.Printf(Info+"Saved new client config to: %s \n", saveTo)
 }
 
+// DefaultOperatorWireGuardEnabled returns the default wireguard mode for new
+// operator configs based on the current server multiplayer exposure.
+func DefaultOperatorWireGuardEnabled() bool {
+	serverConfig := configs.GetServerConfig()
+	if serverConfig != nil && serverConfig.DaemonMode && serverConfig.DaemonConfig != nil {
+		if serverConfig.DaemonConfig.Tailscale {
+			return false
+		}
+		return !serverConfig.DaemonConfig.DisableWG
+	}
+
+	listenerJobs, err := db.ListenerJobs()
+	if err != nil {
+		return true
+	}
+	for _, listenerJob := range listenerJobs {
+		if listenerJob == nil || listenerJob.Type != consts.MultiplayerModeStr {
+			continue
+		}
+		config, err := db.ListenerByJobID(listenerJob.JobID)
+		if err != nil || config == nil || config.MultiConf == nil {
+			continue
+		}
+		return config.MultiConf.WireGuard
+	}
+	return true
+}
+
 // NewOperatorConfig - Generate a new player/client/operator configuration
-func NewOperatorConfig(operatorName string, lhost string, lport uint16, permissions []string) ([]byte, error) {
+func NewOperatorConfig(operatorName string, lhost string, lport uint16, permissions []string, includeWG bool) ([]byte, error) {
 	if !namePattern.MatchString(operatorName) {
 		return nil, errors.New("invalid operator name (alphanumerics only)")
 	}
@@ -153,9 +179,65 @@ func NewOperatorConfig(operatorName string, lhost string, lport uint16, permissi
 			return nil, fmt.Errorf("invalid permission: %s", permission)
 		}
 	}
-	err := db.Session().Save(dbOperator).Error
-	if err != nil {
-		return nil, err
+
+	var wgConfig *clientassets.ClientWGConfig
+	operatorSaved := false
+	if includeWG {
+		certs.SetupMultiplayerWGKeys()
+		clientPrivKey, clientPubKey, err := certs.GenerateWGKeyPair()
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate wireguard keys: %w", err)
+		}
+		_, serverPubKey, err := certs.GetMultiplayerWGServerKeys()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get server wireguard keys: %w", err)
+		}
+
+		for attempt := 0; attempt < 32; attempt++ {
+			clientIP, err := db.NextAvailableMultiplayerWGIP()
+			if err != nil {
+				return nil, fmt.Errorf("failed to allocate wireguard address: %w", err)
+			}
+
+			operatorRecord := *dbOperator
+			operatorRecord.WGPubKey = clientPubKey
+			operatorRecord.WGTunIP = clientIP
+			err = db.Session().Transaction(func(tx *gorm.DB) error {
+				if err := db.ReserveWGIPTx(tx, clientIP, models.WGIPOwnerTypeOperator, operatorName); err != nil {
+					return err
+				}
+				return tx.Create(&operatorRecord).Error
+			})
+			if errors.Is(err, gorm.ErrDuplicatedKey) {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+
+			dbOperator = &operatorRecord
+			wgConfig = &clientassets.ClientWGConfig{
+				ServerPubKey:     serverPubKey,
+				ClientPrivateKey: clientPrivKey,
+				ClientPubKey:     clientPubKey,
+				ClientIP:         clientIP,
+				ServerIP:         certs.MultiplayerWireGuardServerIP,
+			}
+			operatorSaved = true
+			break
+		}
+		if !operatorSaved {
+			return nil, fmt.Errorf("failed to allocate a unique wireguard address after %d attempts", 32)
+		}
+	} else {
+		err := db.Session().Create(dbOperator).Error
+		if err != nil {
+			return nil, err
+		}
+		operatorSaved = true
+	}
+	if !operatorSaved {
+		return nil, errors.New("failed to persist operator")
 	}
 
 	publicKey, privateKey, err := certs.OperatorClientGenerateCertificate(operatorName)
@@ -163,7 +245,7 @@ func NewOperatorConfig(operatorName string, lhost string, lport uint16, permissi
 		return nil, fmt.Errorf("failed to generate certificate %s", err)
 	}
 	caCertPEM, _, _ := certs.GetCertificateAuthorityPEM(certs.OperatorCA)
-	config := ClientConfig{
+	config := clientassets.ClientConfig{
 		Operator:      operatorName,
 		Token:         rawToken,
 		LHost:         lhost,
@@ -171,6 +253,10 @@ func NewOperatorConfig(operatorName string, lhost string, lport uint16, permissi
 		CACertificate: string(caCertPEM),
 		PrivateKey:    string(privateKey),
 		Certificate:   string(publicKey),
+		WG:            wgConfig,
+	}
+	if includeWG {
+		publishOperatorWGPeerAddition(dbOperator)
 	}
 	return json.Marshal(config)
 }
@@ -234,11 +320,23 @@ func shouldPromptKickOperator(cmd *cobra.Command, args []string) bool {
 }
 
 func removeOperator(operator string) error {
-	err := db.Session().Where(&models.Operator{
+	operators, err := operatorRecordsByName(operator)
+	if err != nil {
+		return err
+	}
+	err = db.Session().Where(&models.Operator{
 		Name: operator,
 	}).Delete(&models.Operator{}).Error
 	if err != nil {
 		return err
+	}
+	for _, dbOperator := range operators {
+		if dbOperator == nil {
+			continue
+		}
+		if err := db.ReleaseWGIP(dbOperator.WGTunIP); err != nil {
+			return err
+		}
 	}
 	transport.ClearTokenCache()
 	return nil
@@ -253,10 +351,18 @@ func closeOperatorStreams(operator string) {
 }
 
 func kickOperator(operator string) error {
+	dbOperators, err := operatorRecordsByName(operator)
+	if err != nil {
+		return err
+	}
+
 	if err := removeOperator(operator); err != nil {
 		return err
 	}
 	defer closeOperatorStreams(operator)
+	for _, dbOperator := range dbOperators {
+		publishOperatorWGPeerRemoval(dbOperator)
+	}
 	return revokeOperatorClientCertificate(operator)
 }
 
@@ -302,21 +408,57 @@ func operatorExists(name string) (bool, error) {
 	return false, err
 }
 
+func operatorRecordsByName(name string) ([]*models.Operator, error) {
+	operators := []*models.Operator{}
+	err := db.Session().Where(&models.Operator{Name: name}).Find(&operators).Error
+	return operators, err
+}
+
+func publishOperatorWGPeerRemoval(operator *models.Operator) {
+	if operator == nil || strings.TrimSpace(operator.WGPubKey) == "" {
+		return
+	}
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.MultiplayerWireGuardRemoved,
+		Data:      []byte(fmt.Sprintf("public_key=%s\nremove=true\n", operator.WGPubKey)),
+	})
+}
+
+func publishOperatorWGPeerAddition(operator *models.Operator) {
+	if operator == nil || strings.TrimSpace(operator.WGPubKey) == "" || strings.TrimSpace(operator.WGTunIP) == "" {
+		return
+	}
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.MultiplayerWireGuardNewPeer,
+		Data:      []byte(fmt.Sprintf("public_key=%s\nallowed_ip=%s/32\n", operator.WGPubKey, operator.WGTunIP)),
+	})
+}
+
 func startMultiplayerModeCmd(cmd *cobra.Command, _ []string) {
 	lhost, _ := cmd.Flags().GetString("lhost")
 	lport, _ := cmd.Flags().GetUint16("lport")
 	tailscale, _ := cmd.Flags().GetBool("tailscale")
+	disableWG, _ := cmd.Flags().GetBool("disable-wg")
+	useWireGuard := !disableWG && !tailscale
 
 	var err error
 	var jobID int
 	if tailscale {
 		_, err = jobStartTsNetClientListener(lhost, lport)
 	} else {
-		jobID, err = JobStartClientListener(&clientpb.MultiplayerListenerReq{Host: lhost, Port: uint32(lport)})
+		jobID, err = JobStartClientListener(&clientpb.MultiplayerListenerReq{
+			Host:      lhost,
+			Port:      uint32(lport),
+			WireGuard: useWireGuard,
+		})
 	}
 	if err == nil {
 		fmt.Printf(Info + "Multiplayer mode enabled!\n")
-		multiConfig := &clientpb.MultiplayerListenerReq{Host: lhost, Port: uint32(lport)}
+		multiConfig := &clientpb.MultiplayerListenerReq{
+			Host:      lhost,
+			Port:      uint32(lport),
+			WireGuard: useWireGuard,
+		}
 		listenerJob := &clientpb.ListenerJob{
 			JobID:     uint32(jobID),
 			Type:      "multiplayer",
@@ -333,16 +475,33 @@ func startMultiplayerModeCmd(cmd *cobra.Command, _ []string) {
 }
 
 func JobStartClientListener(multiplayerListener *clientpb.MultiplayerListenerReq) (int, error) {
-	_, ln, err := transport.StartMtlsClientListener(multiplayerListener.Host, uint16(multiplayerListener.Port))
+	var (
+		ln  net.Listener
+		err error
+	)
+	if multiplayerListener.GetWireGuard() {
+		_, ln, err = transport.StartWGWrappedMtlsClientListener(multiplayerListener.Host, uint16(multiplayerListener.Port))
+	} else {
+		_, ln, err = transport.StartMtlsClientListener(multiplayerListener.Host, uint16(multiplayerListener.Port))
+	}
 	if err != nil {
 		return -1, err // If we fail to bind don't setup the Job
 	}
 
+	name := "grpc/mtls"
+	description := "client listener"
+	protocol := "tcp"
+	if multiplayerListener.GetWireGuard() {
+		name = "grpc/mtls+wg"
+		description = "wireguard-wrapped client listener"
+		protocol = "udp"
+	}
+
 	job := &core.Job{
 		ID:          core.NextJobID(),
-		Name:        "grpc/mtls",
-		Description: "client listener",
-		Protocol:    "tcp",
+		Name:        name,
+		Description: description,
+		Protocol:    protocol,
 		Port:        uint16(multiplayerListener.Port),
 		JobCtrl:     make(chan bool),
 	}

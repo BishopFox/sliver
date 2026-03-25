@@ -353,3 +353,16 @@ func (t *Transaction) WithReadOptions(opts ...ReadOption) *Transaction {
 	}
 	return t
 }
+
+// Execute runs the given pipeline in the context of the transaction.
+func (t *Transaction) Execute(p *Pipeline) *PipelineSnapshot {
+	if len(t.writes) > 0 {
+		t.readAfterWrite = true
+		return &PipelineSnapshot{
+			iter: &PipelineResultIterator{err: errReadAfterWrite},
+		}
+	}
+	p2 := p.copy()
+	p2.tx = t
+	return p2.Execute(t.ctx)
+}

@@ -25,6 +25,32 @@ logs:
   grpc_unary_payloads: true
   grpc_stream_payloads: true
   tls_key_logger: true
+ai:
+  provider: "openai"
+  model: "gpt-test"
+  thinking_level: "high"
+  max_output_tokens: 2048
+  temperature: 0.25
+  anthropic:
+    api_key: "anthropic-key"
+    base_url: "https://api.anthropic.example"
+    use_bedrock: true
+  openai:
+    api_key: "openai-key"
+    base_url: "https://api.openai.example"
+    organization: "org-test"
+    project: "proj-test"
+    use_responses_api: true
+  google:
+    api_key: "google-key"
+    project: "vertex-project"
+    location: "us-central1"
+    skip_auth: true
+  openai_compat:
+    base_url: "http://127.0.0.1:8080/v1"
+  openrouter:
+    api_key: "openrouter-key"
+    user_agent: "sliver-test/1.0"
 watch_tower:
   vt_api_key: "vt"
   xforce_api_key: "xforce"
@@ -71,6 +97,57 @@ cxx:
 	}
 	if config.Logs == nil || !config.Logs.TLSKeyLogger {
 		t.Fatalf("expected tls_key_logger true")
+	}
+	if config.AI == nil || config.AI.Anthropic == nil || config.AI.Anthropic.APIKey != "anthropic-key" {
+		t.Fatalf("expected ai anthropic api key %q, got %#v", "anthropic-key", config.AI)
+	}
+	if config.AI == nil || config.AI.Anthropic == nil || config.AI.Anthropic.BaseURL != "https://api.anthropic.example" {
+		t.Fatalf("expected ai anthropic base url %q, got %#v", "https://api.anthropic.example", config.AI)
+	}
+	if config.AI == nil || config.AI.OpenAI == nil || config.AI.OpenAI.APIKey != "openai-key" {
+		t.Fatalf("expected ai openai api key %q, got %#v", "openai-key", config.AI)
+	}
+	if config.AI == nil || config.AI.OpenAI == nil || config.AI.OpenAI.BaseURL != "https://api.openai.example" {
+		t.Fatalf("expected ai openai base url %q, got %#v", "https://api.openai.example", config.AI)
+	}
+	if config.AI == nil || config.AI.Provider != "openai" {
+		t.Fatalf("expected ai provider %q, got %#v", "openai", config.AI)
+	}
+	if config.AI == nil || config.AI.Model != "gpt-test" {
+		t.Fatalf("expected ai model %q, got %#v", "gpt-test", config.AI)
+	}
+	if config.AI == nil || config.AI.ThinkingLevel != "high" {
+		t.Fatalf("expected ai thinking level %q, got %#v", "high", config.AI)
+	}
+	if config.AI == nil || config.AI.MaxOutputTokens != 2048 {
+		t.Fatalf("expected ai max_output_tokens %d, got %#v", 2048, config.AI)
+	}
+	if config.AI == nil || config.AI.Temperature == nil || *config.AI.Temperature != 0.25 {
+		t.Fatalf("expected ai temperature %v, got %#v", 0.25, config.AI)
+	}
+	if config.AI == nil || config.AI.Anthropic == nil || !config.AI.Anthropic.UseBedrock {
+		t.Fatalf("expected anthropic use_bedrock to load")
+	}
+	if config.AI == nil || config.AI.OpenAI == nil || config.AI.OpenAI.Organization != "org-test" {
+		t.Fatalf("expected openai organization %q, got %#v", "org-test", config.AI)
+	}
+	if config.AI == nil || config.AI.OpenAI == nil || config.AI.OpenAI.Project != "proj-test" {
+		t.Fatalf("expected openai project %q, got %#v", "proj-test", config.AI)
+	}
+	if config.AI == nil || config.AI.OpenAI == nil || config.AI.OpenAI.UseResponsesAPI == nil || !*config.AI.OpenAI.UseResponsesAPI {
+		t.Fatalf("expected openai use_responses_api to load")
+	}
+	if config.AI == nil || config.AI.Google == nil || config.AI.Google.APIKey != "google-key" {
+		t.Fatalf("expected google api key %q, got %#v", "google-key", config.AI)
+	}
+	if config.AI == nil || config.AI.Google == nil || config.AI.Google.Project != "vertex-project" || config.AI.Google.Location != "us-central1" || !config.AI.Google.SkipAuth {
+		t.Fatalf("expected google vertex config to load, got %#v", config.AI)
+	}
+	if config.AI == nil || config.AI.OpenAICompat == nil || config.AI.OpenAICompat.BaseURL != "http://127.0.0.1:8080/v1" {
+		t.Fatalf("expected openai_compat base url %q, got %#v", "http://127.0.0.1:8080/v1", config.AI)
+	}
+	if config.AI == nil || config.AI.OpenRouter == nil || config.AI.OpenRouter.APIKey != "openrouter-key" || config.AI.OpenRouter.UserAgent != "sliver-test/1.0" {
+		t.Fatalf("expected openrouter config to load, got %#v", config.AI)
 	}
 	if config.Watchtower == nil || config.Watchtower.VTApiKey != "vt" {
 		t.Fatalf("expected watch_tower vt_api_key %q, got %v", "vt", config.Watchtower)
@@ -122,6 +199,12 @@ func TestServerConfigWritesDefault(t *testing.T) {
 	if config.DaemonConfig == nil {
 		t.Fatalf("expected default daemon config")
 	}
+	if config.AI == nil || config.AI.Anthropic == nil || config.AI.Google == nil || config.AI.OpenAI == nil || config.AI.OpenAICompat == nil || config.AI.OpenRouter == nil {
+		t.Fatalf("expected default ai config")
+	}
+	if config.AI.Provider != "" || config.AI.Model != "" || config.AI.ThinkingLevel != "" {
+		t.Fatalf("expected empty default ai selections, got %#v", config.AI)
+	}
 	if _, err := os.Stat(GetServerConfigPath()); err != nil {
 		t.Fatalf("expected default config file to exist: %v", err)
 	}
@@ -152,6 +235,7 @@ func TestServerConfigMigratesLegacyJSON(t *testing.T) {
 		DaemonMode   bool                `json:"daemon_mode"`
 		DaemonConfig *DaemonConfig       `json:"daemon"`
 		Logs         *LogConfig          `json:"logs"`
+		AI           *AIConfig           `json:"ai"`
 		Watchtower   *WatchTowerConfig   `json:"watch_tower"`
 		GoProxy      string              `json:"go_proxy"`
 		HTTPDefaults *legacyHTTPDefaults `json:"http_default"`
@@ -170,6 +254,17 @@ func TestServerConfigMigratesLegacyJSON(t *testing.T) {
 			GRPCUnaryPayloads:  true,
 			GRPCStreamPayloads: true,
 			TLSKeyLogger:       true,
+		},
+		AI: &AIConfig{
+			Provider:        "anthropic",
+			Model:           "claude-test",
+			ThinkingLevel:   "medium",
+			MaxOutputTokens: 1024,
+			Anthropic:       &AIProviderConfig{APIKey: "anthropic-legacy", BaseURL: "https://legacy.anthropic.example", UseBedrock: true},
+			Google:          &AIProviderConfig{Project: "legacy-project", Location: "europe-west1"},
+			OpenAI:          &AIProviderConfig{APIKey: "openai-legacy", BaseURL: "https://legacy.openai.example", UseResponsesAPI: boolPtr(true)},
+			OpenAICompat:    &AIProviderConfig{BaseURL: "http://127.0.0.1:9000/v1"},
+			OpenRouter:      &AIProviderConfig{APIKey: "openrouter-legacy"},
 		},
 		Watchtower: &WatchTowerConfig{
 			VTApiKey:          "vt-legacy",
@@ -203,6 +298,36 @@ func TestServerConfigMigratesLegacyJSON(t *testing.T) {
 	if !config.DaemonMode || config.DaemonConfig == nil || config.DaemonConfig.Port != 31338 {
 		t.Fatalf("expected legacy daemon config to load")
 	}
+	if config.AI == nil || config.AI.Anthropic == nil || config.AI.Anthropic.APIKey != "anthropic-legacy" {
+		t.Fatalf("expected legacy ai anthropic config to load")
+	}
+	if config.AI == nil || config.AI.Anthropic == nil || config.AI.Anthropic.BaseURL != "https://legacy.anthropic.example" {
+		t.Fatalf("expected legacy ai anthropic base url to load")
+	}
+	if config.AI == nil || config.AI.Anthropic == nil || !config.AI.Anthropic.UseBedrock {
+		t.Fatalf("expected legacy ai anthropic bedrock flag to load")
+	}
+	if config.AI == nil || config.AI.OpenAI == nil || config.AI.OpenAI.APIKey != "openai-legacy" {
+		t.Fatalf("expected legacy ai openai config to load")
+	}
+	if config.AI == nil || config.AI.OpenAI == nil || config.AI.OpenAI.BaseURL != "https://legacy.openai.example" {
+		t.Fatalf("expected legacy ai openai base url to load")
+	}
+	if config.AI == nil || config.AI.OpenAI == nil || config.AI.OpenAI.UseResponsesAPI == nil || !*config.AI.OpenAI.UseResponsesAPI {
+		t.Fatalf("expected legacy ai openai responses flag to load")
+	}
+	if config.AI == nil || config.AI.Google == nil || config.AI.Google.Project != "legacy-project" || config.AI.Google.Location != "europe-west1" {
+		t.Fatalf("expected legacy ai google config to load")
+	}
+	if config.AI == nil || config.AI.OpenAICompat == nil || config.AI.OpenAICompat.BaseURL != "http://127.0.0.1:9000/v1" {
+		t.Fatalf("expected legacy ai openai_compat config to load")
+	}
+	if config.AI == nil || config.AI.OpenRouter == nil || config.AI.OpenRouter.APIKey != "openrouter-legacy" {
+		t.Fatalf("expected legacy ai openrouter config to load")
+	}
+	if config.AI == nil || config.AI.Provider != "anthropic" || config.AI.Model != "claude-test" || config.AI.ThinkingLevel != "medium" || config.AI.MaxOutputTokens != 1024 {
+		t.Fatalf("expected legacy ai selections to load, got %#v", config.AI)
+	}
 	if config.Watchtower == nil || config.Watchtower.VTApiKey != "vt-legacy" {
 		t.Fatalf("expected legacy watch_tower to load")
 	}
@@ -221,4 +346,8 @@ func TestServerConfigMigratesLegacyJSON(t *testing.T) {
 	if _, err := os.Stat(legacyBackupPath(legacyPath)); err != nil {
 		t.Fatalf("expected legacy backup file to exist: %v", err)
 	}
+}
+
+func boolPtr(value bool) *bool {
+	return &value
 }

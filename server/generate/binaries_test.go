@@ -34,6 +34,16 @@ var (
 	nonce = 0
 )
 
+func mustGenerateUniqueWGPeerIP(t *testing.T) string {
+	t.Helper()
+
+	ip, err := GenerateUniqueIP()
+	if err != nil {
+		t.Fatalf("failed to allocate unique wireguard peer IP: %v", err)
+	}
+	return ip.String()
+}
+
 func cleanupGeneratedArtifacts(t *testing.T, outputPath string) {
 	t.Helper()
 	if outputPath == "" {
@@ -470,6 +480,7 @@ func namedPipeExe(t *testing.T, goos string, goarch string, debug bool) {
 func wireguardExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) {
 	t.Logf("[wireguard] EXE %s/%s - debug: %v", goos, goarch, debug)
 	name := fmt.Sprintf("wireguard_test%d", nonce)
+	wgPeerTunIP := mustGenerateUniqueWGPeerIP(t)
 	config := &clientpb.ImplantConfig{
 		GOOS:   goos,
 		GOARCH: goarch,
@@ -482,7 +493,7 @@ func wireguardExe(t *testing.T, goos string, goarch string, beacon bool, debug b
 		},
 		Debug:             debug,
 		ObfuscateSymbols:  false,
-		WGPeerTunIP:       "100.64.0.2",
+		WGPeerTunIP:       wgPeerTunIP,
 		WGKeyExchangePort: 1234,
 		WGTcpCommsPort:    5678,
 		IsBeacon:          beacon,
@@ -502,6 +513,7 @@ func wireguardExe(t *testing.T, goos string, goarch string, beacon bool, debug b
 func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 	t.Logf("[multi] LIB %s/%s - debug: %v", goos, goarch, debug)
 	name := fmt.Sprintf("multilibrary_test%d", nonce)
+	wgPeerTunIP := mustGenerateUniqueWGPeerIP(t)
 	config := &clientpb.ImplantConfig{
 		GOOS:   goos,
 		GOARCH: goarch,
@@ -519,7 +531,7 @@ func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 		Format:            clientpb.OutputFormat_SHARED_LIB,
 		IsSharedLib:       true,
 		Exports:           []string{"StartW"},
-		WGPeerTunIP:       "100.64.0.2",
+		WGPeerTunIP:       wgPeerTunIP,
 		WGKeyExchangePort: 1234,
 		WGTcpCommsPort:    5678,
 		IncludeMTLS:       true,

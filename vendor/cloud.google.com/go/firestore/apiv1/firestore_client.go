@@ -1,4 +1,4 @@
-// Copyright 2025 Google LLC
+// Copyright 2026 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,6 +25,8 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"regexp"
+	"strings"
 	"time"
 
 	firestorepb "cloud.google.com/go/firestore/apiv1/firestorepb"
@@ -55,6 +57,7 @@ type CallOptions struct {
 	Commit              []gax.CallOption
 	Rollback            []gax.CallOption
 	RunQuery            []gax.CallOption
+	ExecutePipeline     []gax.CallOption
 	RunAggregationQuery []gax.CallOption
 	PartitionQuery      []gax.CallOption
 	Write               []gax.CallOption
@@ -77,6 +80,7 @@ func defaultGRPCClientOptions() []option.ClientOption {
 		internaloption.WithDefaultAudience("https://firestore.googleapis.com/"),
 		internaloption.WithDefaultScopes(DefaultAuthScopes()...),
 		internaloption.EnableJwtWithScope(),
+		internaloption.AllowHardBoundTokens("MTLS_S2A"),
 		internaloption.EnableNewAuthLibrary(),
 		option.WithGRPCDialOption(grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(math.MaxInt32))),
@@ -201,6 +205,20 @@ func defaultCallOptions() *CallOptions {
 			}),
 		},
 		RunQuery: []gax.CallOption{
+			gax.WithRetry(func() gax.Retryer {
+				return gax.OnCodes([]codes.Code{
+					codes.ResourceExhausted,
+					codes.Unavailable,
+					codes.Internal,
+					codes.DeadlineExceeded,
+				}, gax.Backoff{
+					Initial:    100 * time.Millisecond,
+					Max:        60000 * time.Millisecond,
+					Multiplier: 1.30,
+				})
+			}),
+		},
+		ExecutePipeline: []gax.CallOption{
 			gax.WithRetry(func() gax.Retryer {
 				return gax.OnCodes([]codes.Code{
 					codes.ResourceExhausted,
@@ -431,6 +449,20 @@ func defaultRESTCallOptions() *CallOptions {
 					http.StatusGatewayTimeout)
 			}),
 		},
+		ExecutePipeline: []gax.CallOption{
+			gax.WithTimeout(300000 * time.Millisecond),
+			gax.WithRetry(func() gax.Retryer {
+				return gax.OnHTTPCodes(gax.Backoff{
+					Initial:    100 * time.Millisecond,
+					Max:        60000 * time.Millisecond,
+					Multiplier: 1.30,
+				},
+					http.StatusTooManyRequests,
+					http.StatusServiceUnavailable,
+					http.StatusInternalServerError,
+					http.StatusGatewayTimeout)
+			}),
+		},
 		RunAggregationQuery: []gax.CallOption{
 			gax.WithTimeout(300000 * time.Millisecond),
 			gax.WithRetry(func() gax.Retryer {
@@ -536,6 +568,7 @@ type internalClient interface {
 	Commit(context.Context, *firestorepb.CommitRequest, ...gax.CallOption) (*firestorepb.CommitResponse, error)
 	Rollback(context.Context, *firestorepb.RollbackRequest, ...gax.CallOption) error
 	RunQuery(context.Context, *firestorepb.RunQueryRequest, ...gax.CallOption) (firestorepb.Firestore_RunQueryClient, error)
+	ExecutePipeline(context.Context, *firestorepb.ExecutePipelineRequest, ...gax.CallOption) (firestorepb.Firestore_ExecutePipelineClient, error)
 	RunAggregationQuery(context.Context, *firestorepb.RunAggregationQueryRequest, ...gax.CallOption) (firestorepb.Firestore_RunAggregationQueryClient, error)
 	PartitionQuery(context.Context, *firestorepb.PartitionQueryRequest, ...gax.CallOption) *CursorIterator
 	Write(context.Context, ...gax.CallOption) (firestorepb.Firestore_WriteClient, error)
@@ -637,6 +670,11 @@ func (c *Client) Rollback(ctx context.Context, req *firestorepb.RollbackRequest,
 // RunQuery runs a query.
 func (c *Client) RunQuery(ctx context.Context, req *firestorepb.RunQueryRequest, opts ...gax.CallOption) (firestorepb.Firestore_RunQueryClient, error) {
 	return c.internalClient.RunQuery(ctx, req, opts...)
+}
+
+// ExecutePipeline executes a pipeline query.
+func (c *Client) ExecutePipeline(ctx context.Context, req *firestorepb.ExecutePipelineRequest, opts ...gax.CallOption) (firestorepb.Firestore_ExecutePipelineClient, error) {
+	return c.internalClient.ExecutePipeline(ctx, req, opts...)
 }
 
 // RunAggregationQuery runs an aggregation query.
@@ -1066,6 +1104,43 @@ func (c *gRPCClient) RunQuery(ctx context.Context, req *firestorepb.RunQueryRequ
 		c.logger.DebugContext(ctx, "api streaming client request", "serviceName", serviceName, "rpcName", "RunQuery")
 		resp, err = c.client.RunQuery(ctx, req, settings.GRPC...)
 		c.logger.DebugContext(ctx, "api streaming client response", "serviceName", serviceName, "rpcName", "RunQuery")
+		return err
+	}, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (c *gRPCClient) ExecutePipeline(ctx context.Context, req *firestorepb.ExecutePipelineRequest, opts ...gax.CallOption) (firestorepb.Firestore_ExecutePipelineClient, error) {
+	routingHeaders := ""
+	routingHeadersMap := make(map[string]string)
+	if reg := regexp.MustCompile("projects/(?P<project_id>[^/]+)(?:/.*)?"); reg.MatchString(req.GetDatabase()) && len(url.QueryEscape(reg.FindStringSubmatch(req.GetDatabase())[1])) > 0 {
+		routingHeadersMap["project_id"] = url.QueryEscape(reg.FindStringSubmatch(req.GetDatabase())[1])
+	}
+	if reg := regexp.MustCompile("projects/[^/]+/databases/(?P<database_id>[^/]+)(?:/.*)?"); reg.MatchString(req.GetDatabase()) && len(url.QueryEscape(reg.FindStringSubmatch(req.GetDatabase())[1])) > 0 {
+		routingHeadersMap["database_id"] = url.QueryEscape(reg.FindStringSubmatch(req.GetDatabase())[1])
+	}
+	if headerValue, ok := routingHeadersMap["project_id"]; ok {
+		routingHeaders = fmt.Sprintf("%s%s=%s&", routingHeaders, "project_id", headerValue)
+		delete(routingHeadersMap, "project_id")
+	}
+	if headerValue, ok := routingHeadersMap["database_id"]; ok {
+		routingHeaders = fmt.Sprintf("%s%s=%s&", routingHeaders, "database_id", headerValue)
+		delete(routingHeadersMap, "database_id")
+	}
+	routingHeaders = strings.TrimSuffix(routingHeaders, "&")
+	hds := []string{"x-goog-request-params", routingHeaders}
+
+	hds = append(c.xGoogHeaders, hds...)
+	ctx = gax.InsertMetadataIntoOutgoingContext(ctx, hds...)
+	opts = append((*c.CallOptions).ExecutePipeline[0:len((*c.CallOptions).ExecutePipeline):len((*c.CallOptions).ExecutePipeline)], opts...)
+	var resp firestorepb.Firestore_ExecutePipelineClient
+	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
+		var err error
+		c.logger.DebugContext(ctx, "api streaming client request", "serviceName", serviceName, "rpcName", "ExecutePipeline")
+		resp, err = c.client.ExecutePipeline(ctx, req, settings.GRPC...)
+		c.logger.DebugContext(ctx, "api streaming client response", "serviceName", serviceName, "rpcName", "ExecutePipeline")
 		return err
 	}, opts...)
 	if err != nil {
@@ -1994,6 +2069,125 @@ func (c *runQueryRESTStreamClient) RecvMsg(m interface{}) error {
 	return errors.New("this method is not implemented, use Recv")
 }
 
+// ExecutePipeline executes a pipeline query.
+func (c *restClient) ExecutePipeline(ctx context.Context, req *firestorepb.ExecutePipelineRequest, opts ...gax.CallOption) (firestorepb.Firestore_ExecutePipelineClient, error) {
+	m := protojson.MarshalOptions{AllowPartial: true, UseEnumNumbers: true}
+	jsonReq, err := m.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+
+	baseUrl, err := url.Parse(c.endpoint)
+	if err != nil {
+		return nil, err
+	}
+	baseUrl.Path += fmt.Sprintf("/v1/%v/documents:executePipeline", req.GetDatabase())
+
+	params := url.Values{}
+	params.Add("$alt", "json;enum-encoding=int")
+
+	baseUrl.RawQuery = params.Encode()
+
+	// Build HTTP headers from client and context metadata.
+	routingHeaders := ""
+	routingHeadersMap := make(map[string]string)
+	if reg := regexp.MustCompile("projects/(?P<project_id>[^/]+)(?:/.*)?"); reg.MatchString(req.GetDatabase()) && len(url.QueryEscape(reg.FindStringSubmatch(req.GetDatabase())[1])) > 0 {
+		routingHeadersMap["project_id"] = url.QueryEscape(reg.FindStringSubmatch(req.GetDatabase())[1])
+	}
+	if reg := regexp.MustCompile("projects/[^/]+/databases/(?P<database_id>[^/]+)(?:/.*)?"); reg.MatchString(req.GetDatabase()) && len(url.QueryEscape(reg.FindStringSubmatch(req.GetDatabase())[1])) > 0 {
+		routingHeadersMap["database_id"] = url.QueryEscape(reg.FindStringSubmatch(req.GetDatabase())[1])
+	}
+	if headerValue, ok := routingHeadersMap["project_id"]; ok {
+		routingHeaders = fmt.Sprintf("%s%s=%s&", routingHeaders, "project_id", headerValue)
+		delete(routingHeadersMap, "project_id")
+	}
+	if headerValue, ok := routingHeadersMap["database_id"]; ok {
+		routingHeaders = fmt.Sprintf("%s%s=%s&", routingHeaders, "database_id", headerValue)
+		delete(routingHeadersMap, "database_id")
+	}
+	routingHeaders = strings.TrimSuffix(routingHeaders, "&")
+	hds := []string{"x-goog-request-params", routingHeaders}
+
+	hds = append(c.xGoogHeaders, hds...)
+	hds = append(hds, "Content-Type", "application/json")
+	headers := gax.BuildHeaders(ctx, hds...)
+	var streamClient *executePipelineRESTStreamClient
+	e := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
+		if settings.Path != "" {
+			baseUrl.Path = settings.Path
+		}
+		httpReq, err := http.NewRequest("POST", baseUrl.String(), bytes.NewReader(jsonReq))
+		if err != nil {
+			return err
+		}
+		httpReq = httpReq.WithContext(ctx)
+		httpReq.Header = headers
+
+		httpRsp, err := executeStreamingHTTPRequest(ctx, c.httpClient, httpReq, c.logger, jsonReq, "ExecutePipeline")
+		if err != nil {
+			return err
+		}
+
+		streamClient = &executePipelineRESTStreamClient{
+			ctx:    ctx,
+			md:     metadata.MD(httpRsp.Header),
+			stream: gax.NewProtoJSONStreamReader(httpRsp.Body, (&firestorepb.ExecutePipelineResponse{}).ProtoReflect().Type()),
+		}
+		return nil
+	}, opts...)
+
+	return streamClient, e
+}
+
+// executePipelineRESTStreamClient is the stream client used to consume the server stream created by
+// the REST implementation of ExecutePipeline.
+type executePipelineRESTStreamClient struct {
+	ctx    context.Context
+	md     metadata.MD
+	stream *gax.ProtoJSONStream
+}
+
+func (c *executePipelineRESTStreamClient) Recv() (*firestorepb.ExecutePipelineResponse, error) {
+	if err := c.ctx.Err(); err != nil {
+		defer c.stream.Close()
+		return nil, err
+	}
+	msg, err := c.stream.Recv()
+	if err != nil {
+		defer c.stream.Close()
+		return nil, err
+	}
+	res := msg.(*firestorepb.ExecutePipelineResponse)
+	return res, nil
+}
+
+func (c *executePipelineRESTStreamClient) Header() (metadata.MD, error) {
+	return c.md, nil
+}
+
+func (c *executePipelineRESTStreamClient) Trailer() metadata.MD {
+	return c.md
+}
+
+func (c *executePipelineRESTStreamClient) CloseSend() error {
+	// This is a no-op to fulfill the interface.
+	return errors.New("this method is not implemented for a server-stream")
+}
+
+func (c *executePipelineRESTStreamClient) Context() context.Context {
+	return c.ctx
+}
+
+func (c *executePipelineRESTStreamClient) SendMsg(m interface{}) error {
+	// This is a no-op to fulfill the interface.
+	return errors.New("this method is not implemented for a server-stream")
+}
+
+func (c *executePipelineRESTStreamClient) RecvMsg(m interface{}) error {
+	// This is a no-op to fulfill the interface.
+	return errors.New("this method is not implemented, use Recv")
+}
+
 // RunAggregationQuery runs an aggregation query.
 //
 // Rather than producing Document results like
@@ -2564,6 +2758,9 @@ func (c *restClient) ListOperations(ctx context.Context, req *longrunningpb.List
 		}
 		if req.GetPageToken() != "" {
 			params.Add("pageToken", fmt.Sprintf("%v", req.GetPageToken()))
+		}
+		if req.GetReturnPartialSuccess() {
+			params.Add("returnPartialSuccess", fmt.Sprintf("%v", req.GetReturnPartialSuccess()))
 		}
 
 		baseUrl.RawQuery = params.Encode()

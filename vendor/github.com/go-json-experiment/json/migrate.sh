@@ -33,9 +33,10 @@ done
 sed -i 's/v2[.]struct/json.struct/' $JSONROOT/errors_test.go
 sed -i 's|jsonv1 "github.com/go-json-experiment/json/v1"|jsonv1 "encoding/json"|' $JSONROOT/bench_test.go
 
-# TODO(go1.25): Remove test that relies on "synctest" that is not available yet.
-sed -i '/Issue #73733/,+17d' $JSONROOT/v1/encode_test.go
-goimports -w $JSONROOT/v1/encode_test.go
+# TODO(go1.26): Remove this rewrite once errors.AsType is in the standard library.
+sed -i 's/_, ok := errors\.AsType\[\*SyntacticError\](err)/ok := errors.As(err, new(*SyntacticError))/g' $JSONROOT/jsontext/*.go
+sed -i 's/serr, ok := errors\.AsType\[\*json.SemanticError\](err)/var serr *json.SemanticError; ok := errors.As(err, \&serr)/g' $JSONROOT/example_test.go
+gofmt -w $JSONROOT/example_test.go
 
 # Remove documentation that only makes sense within the stdlib.
 sed -i  '/This package .* is experimental/,+4d' $JSONROOT/doc.go

@@ -2,10 +2,8 @@
 # Makefile for Sliver
 #
 
-ifneq ($(OS),Windows_NT)
-
 GO ?= go
-ARTIFACT_SUFFIX ?= 
+ARTIFACT_SUFFIX ?=
 ENV =
 TAGS ?= -tags go_sqlite
 CGO_ENABLED = 0
@@ -14,8 +12,21 @@ ifneq (,$(findstring cgo_sqlite,$(TAGS)))
 	CGO_ENABLED = 1
 endif
 
+MIN_SUPPORTED_GO_MAJOR_VERSION = 1
+MIN_SUPPORTED_GO_MINOR_VERSION = 25
+GO_VERSION_VALIDATION_ERR_MSG = Golang version is not supported, please update to at least $(MIN_SUPPORTED_GO_MAJOR_VERSION).$(MIN_SUPPORTED_GO_MINOR_VERSION)
+
+SLIVER_PUBLIC_KEY ?= RWTZPg959v3b7tLG7VzKHRB1/QT+d3c71Uzetfa44qAoX5rH7mGoQTTR
+ARMORY_PUBLIC_KEY ?= RWSBpxpRWDrD7Fe+VvRE3c2VEDC2NK80rlNCj+BX0gz44Xw07r6KQD9L
+ARMORY_REPO_URL ?= https://api.github.com/repos/sliverarmory/armory/releases
+CLIENT_ASSETS_PKG = github.com/bishopfox/sliver/client/assets
+SLIVER_UPDATE_PKG = github.com/bishopfox/sliver/client/command/update
+PB_COMPILERS = protoc protoc-gen-go protoc-gen-go-grpc
+
+ifneq ($(OS),Windows_NT)
+
 #
-# Prerequisites 
+# Prerequisites
 #
 # https://stackoverflow.com/questions/5618615/check-if-a-program-exists-from-a-makefile
 EXECUTABLES = uname sed git date cut $(GO)
@@ -27,15 +38,6 @@ K := $(foreach exec,$(EXECUTABLES),\
 #
 GO_MAJOR_VERSION = $(shell $(GO) version | cut -c 14- | cut -d' ' -f1 | cut -d'.' -f1)
 GO_MINOR_VERSION = $(shell $(GO) version | cut -c 14- | cut -d' ' -f1 | cut -d'.' -f2)
-MIN_SUPPORTED_GO_MAJOR_VERSION = 1
-MIN_SUPPORTED_GO_MINOR_VERSION = 25
-GO_VERSION_VALIDATION_ERR_MSG = Golang version is not supported, please update to at least $(MIN_SUPPORTED_GO_MAJOR_VERSION).$(MIN_SUPPORTED_GO_MINOR_VERSION)
-
-SLIVER_PUBLIC_KEY ?= RWTZPg959v3b7tLG7VzKHRB1/QT+d3c71Uzetfa44qAoX5rH7mGoQTTR
-ARMORY_PUBLIC_KEY ?= RWSBpxpRWDrD7Fe+VvRE3c2VEDC2NK80rlNCj+BX0gz44Xw07r6KQD9L
-ARMORY_REPO_URL ?= https://api.github.com/repos/sliverarmory/armory/releases
-CLIENT_ASSETS_PKG = github.com/bishopfox/sliver/client/assets
-SLIVER_UPDATE_PKG = github.com/bishopfox/sliver/client/command/update
 
 LDFLAGS = -ldflags "-s -w \
 	-X $(SLIVER_UPDATE_PKG).SliverPublicKey=$(SLIVER_PUBLIC_KEY) \
@@ -53,7 +55,6 @@ UNAME_S := $(shell uname -s)
 UNAME_P := $(shell uname -p)
 
 # Programs required for generating protobuf/grpc files
-PB_COMPILERS = protoc protoc-gen-go protoc-gen-go-grpc
 ifeq ($(MAKECMDGOALS), pb)
 	K := $(foreach exec,$(PB_COMPILERS),\
 			$(if $(shell which $(exec)),some string,$(error "Missing protobuf util $(exec) in PATH")))
@@ -191,37 +192,17 @@ clean:
 #
 else
 
-GO ?= go
-ARTIFACT_SUFFIX ?=
-ENV =
-TAGS ?= -tags go_sqlite
-CGO_ENABLED = 0
-
-ifneq (,$(findstring cgo_sqlite,$(TAGS)))
-	CGO_ENABLED = 1
-endif
-
 SHELL := cmd.exe
 .SHELLFLAGS := /C
 
 GO_VERSION := $(patsubst go%,%,$(strip $(shell $(GO) env GOVERSION)))
 GO_MAJOR_VERSION := $(word 1,$(subst ., ,$(GO_VERSION)))
 GO_MINOR_VERSION := $(word 2,$(subst ., ,$(GO_VERSION)))
-MIN_SUPPORTED_GO_MAJOR_VERSION = 1
-MIN_SUPPORTED_GO_MINOR_VERSION = 25
-GO_VERSION_VALIDATION_ERR_MSG = Golang version is not supported, please update to at least $(MIN_SUPPORTED_GO_MAJOR_VERSION).$(MIN_SUPPORTED_GO_MINOR_VERSION)
-
-SLIVER_PUBLIC_KEY ?= RWTZPg959v3b7tLG7VzKHRB1/QT+d3c71Uzetfa44qAoX5rH7mGoQTTR
-ARMORY_PUBLIC_KEY ?= RWSBpxpRWDrD7Fe+VvRE3c2VEDC2NK80rlNCj+BX0gz44Xw07r6KQD9L
-ARMORY_REPO_URL ?= https://api.github.com/repos/sliverarmory/armory/releases
-CLIENT_ASSETS_PKG = github.com/bishopfox/sliver/client/assets
-SLIVER_UPDATE_PKG = github.com/bishopfox/sliver/client/command/update
 
 LDFLAGS = -ldflags "-s -w -X $(SLIVER_UPDATE_PKG).SliverPublicKey=$(SLIVER_PUBLIC_KEY) -X $(CLIENT_ASSETS_PKG).DefaultArmoryPublicKey=$(ARMORY_PUBLIC_KEY) -X $(CLIENT_ASSETS_PKG).DefaultArmoryRepoURL=$(ARMORY_REPO_URL)"
 
 LDFLAGS_DEBUG = -ldflags "-X $(CLIENT_ASSETS_PKG).DefaultArmoryPublicKey=$(ARMORY_PUBLIC_KEY) -X $(CLIENT_ASSETS_PKG).DefaultArmoryRepoURL=$(ARMORY_REPO_URL)"
 
-PB_COMPILERS = protoc protoc-gen-go protoc-gen-go-grpc
 COMMA := ,
 
 ifeq ($(MAKECMDGOALS), linux)

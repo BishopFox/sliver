@@ -113,7 +113,12 @@ const (
 	CrackStatusEvent = "crack-status"
 
 	// WireGuardNewPeer - New Wireguard peer added.
-	WireGuardNewPeer = "wireguard-newpeer"
+	WireGuardNewPeer            = "wireguard-newpeer"
+	MultiplayerWireGuardNewPeer = "multiplayer-wireguard-newpeer"
+	MultiplayerWireGuardRemoved = "multiplayer-wireguard-removed"
+
+	// AIConversationEvent - Fires whenever an AI conversation or message changes.
+	AIConversationEvent = "ai-conversation"
 )
 
 // Commands.
@@ -220,6 +225,9 @@ const (
 	MkdirStr    = "mkdir"
 	CdStr       = "cd"
 	PwdStr      = "pwd"
+	AIStr       = "ai"
+	AIConfigStr = "ai-config"
+	DocsStr     = "docs"
 	CatStr      = "cat"
 	EditStr     = "edit"
 	HexEditStr  = "hex-edit"

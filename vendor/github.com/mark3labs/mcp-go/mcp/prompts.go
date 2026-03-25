@@ -56,6 +56,8 @@ type Prompt struct {
 	// A list of arguments to use for templating the prompt.
 	// The presence of arguments indicates this is a template prompt.
 	Arguments []PromptArgument `json:"arguments,omitempty"`
+	// Icons provides visual identifiers for the prompt
+	Icons []Icon `json:"icons,omitempty"`
 }
 
 // GetName returns the name of the prompt.
@@ -133,6 +135,14 @@ func NewPrompt(name string, opts ...PromptOption) Prompt {
 func WithPromptDescription(description string) PromptOption {
 	return func(p *Prompt) {
 		p.Description = description
+	}
+}
+
+// WithPromptIcons adds icons to the Prompt.
+// Icons provide visual identifiers for the prompt.
+func WithPromptIcons(icons ...Icon) PromptOption {
+	return func(p *Prompt) {
+		p.Icons = icons
 	}
 }
 

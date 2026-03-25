@@ -3,6 +3,8 @@ package extensions
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/bishopfox/sliver/util"
 )
 
 /*
@@ -114,6 +116,8 @@ const (
 )
 
 func TestParseExtensionManifest(t *testing.T) {
+	expectedPath := util.ResolvePath("foo/test1.dll")
+
 	extManifest, err := ParseExtensionManifest([]byte(sample1))
 	if err != nil {
 		t.Fatalf("Error parsing extension manifest: %s", err)
@@ -150,8 +154,8 @@ func TestParseExtensionManifest(t *testing.T) {
 		if extCmd.Files[0].Arch != "amd64" {
 			t.Errorf("Expected Arch 'amd64', got '%s'", extCmd.Files[0].Arch)
 		}
-		if extCmd.Files[0].Path != "/foo/test1.dll" {
-			t.Errorf("Expected path '/foo/test1.dll', got '%s'", extCmd.Files[0].Path)
+		if extCmd.Files[0].Path != expectedPath {
+			t.Errorf("Expected path '%s', got '%s'", expectedPath, extCmd.Files[0].Path)
 		}
 	}
 
@@ -178,14 +182,16 @@ func TestParseExtensionManifest(t *testing.T) {
 		if extManifest2.Files[0].Arch != "amd64" {
 			t.Errorf("Expected Arch 'amd64', got '%s'", extManifest2.Files[0].Arch)
 		}
-		if extManifest2.Files[0].Path != "/foo/test1.dll" {
-			t.Errorf("Expected path '/foo/test1.dll', got '%s'", extManifest2.Files[0].Path)
+		if extManifest2.Files[0].Path != expectedPath {
+			t.Errorf("Expected path '%s', got '%s'", expectedPath, extManifest2.Files[0].Path)
 		}
 	}
 
 }
 
 func TestParseMultipleCmdManifest(t *testing.T) {
+	expectedPath := util.ResolvePath("ex.dll")
+
 	mextManifest, err := ParseExtensionManifest([]byte(multicmd))
 	if err != nil {
 		t.Errorf("error parsing manifest: %s", err)
@@ -206,11 +212,11 @@ func TestParseMultipleCmdManifest(t *testing.T) {
 	if mextManifest.ExtCommand[1].Entrypoint != "Test2" {
 		t.Errorf("expected entrypoint Test2, got %s", mextManifest.ExtCommand[1].Entrypoint)
 	}
-	if mextManifest.ExtCommand[0].Files[0].Path != "/ex.dll" { //path cleaning adds a root path here? I am not sure if this should be a bug or not... works fine in prod
-		t.Errorf("expected path ex.dll, got %s", mextManifest.ExtCommand[0].Files[0].Path)
+	if mextManifest.ExtCommand[0].Files[0].Path != expectedPath { // path normalization is platform-specific
+		t.Errorf("expected path %s, got %s", expectedPath, mextManifest.ExtCommand[0].Files[0].Path)
 	}
-	if mextManifest.ExtCommand[1].Files[0].Path != "/ex.dll" { //path cleaning adds a root path here? I am not sure if this should be a bug or not... works fine in prod
-		t.Errorf("expected path ex.dll, got %s", mextManifest.ExtCommand[0].Files[0].Path)
+	if mextManifest.ExtCommand[1].Files[0].Path != expectedPath { // path normalization is platform-specific
+		t.Errorf("expected path %s, got %s", expectedPath, mextManifest.ExtCommand[1].Files[0].Path)
 	}
 	//maybe some more? args?
 }

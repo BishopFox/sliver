@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/bishopfox/sliver/client/command/ai"
 	"github.com/bishopfox/sliver/client/command/aka"
 	"github.com/bishopfox/sliver/client/command/alias"
 	"github.com/bishopfox/sliver/client/command/armory"
@@ -32,6 +33,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/clean"
 	"github.com/bishopfox/sliver/client/command/crack"
 	"github.com/bishopfox/sliver/client/command/creds"
+	docscmd "github.com/bishopfox/sliver/client/command/docs"
 	"github.com/bishopfox/sliver/client/command/exit"
 	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/command/generate"
@@ -99,6 +101,8 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 		// Core
 		bind(consts.GenericHelpGroup,
 			exit.Command,
+			ai.ServerCommands,
+			docscmd.ServerCommands,
 			serverctx.Commands,
 			licenses.Commands,
 			settings.Commands,

@@ -15,14 +15,22 @@ type WGKeys struct {
 	PubKey    string
 }
 
+// MultiplayerWGKeys - Multiplayer WireGuard server keys database model.
+type MultiplayerWGKeys struct {
+	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	CreatedAt time.Time `gorm:"->;<-:create;"`
+	PrivKey   string
+	PubKey    string
+}
+
 // BeforeCreate - GORM hook to automatically set values
 func (c *WGKeys) BeforeCreate(tx *gorm.DB) (err error) {
-	c.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
-	c.CreatedAt = time.Now()
-	return nil
+	return initWGKeysModel(&c.ID, &c.CreatedAt)
+}
+
+// BeforeCreate - GORM hook to automatically set values
+func (c *MultiplayerWGKeys) BeforeCreate(tx *gorm.DB) (err error) {
+	return initWGKeysModel(&c.ID, &c.CreatedAt)
 }
 
 // WGPeer- WGPeer database model
@@ -37,10 +45,15 @@ type WGPeer struct {
 
 // BeforeCreate - GORM hook to automatically set values
 func (c *WGPeer) BeforeCreate(tx *gorm.DB) (err error) {
-	c.ID, err = uuid.NewV4()
+	return initWGKeysModel(&c.ID, &c.CreatedAt)
+}
+
+func initWGKeysModel(id *uuid.UUID, createdAt *time.Time) error {
+	newID, err := uuid.NewV4()
 	if err != nil {
 		return err
 	}
-	c.CreatedAt = time.Now()
+	*id = newID
+	*createdAt = time.Now()
 	return nil
 }

@@ -483,6 +483,23 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		c2Profile = consts.DefaultC2Profile
 	}
 
+	allProtocols, _ := cmd.Flags().GetBool("all-protocols")
+	includeMTLS, _ := cmd.Flags().GetBool("include-mtls")
+	includeHTTP, _ := cmd.Flags().GetBool("include-http")
+	includeWG, _ := cmd.Flags().GetBool("include-wg")
+	includeDNS, _ := cmd.Flags().GetBool("include-dns")
+	includeNamedPipe, _ := cmd.Flags().GetBool("include-named-pipe")
+	includeTCP, _ := cmd.Flags().GetBool("include-tcp-pivot")
+
+	if allProtocols {
+		includeMTLS = true
+		includeHTTP = true
+		includeWG = true
+		includeDNS = true
+		includeNamedPipe = true
+		includeTCP = true
+	}
+
 	// exports if its a shared library
 
 	config := &clientpb.ImplantConfig{
@@ -527,6 +544,13 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		DebugFile:        debugFile,
 		HTTPC2ConfigName: c2Profile,
 		ShellcodeConfig:  shellcodeConfig,
+
+		IncludeMTLS:     includeMTLS,
+		IncludeHTTP:     includeHTTP,
+		IncludeWG:       includeWG,
+		IncludeDNS:      includeDNS,
+		IncludeNamePipe: includeNamedPipe,
+		IncludeTCP:      includeTCP,
 	}
 
 	return name, config
