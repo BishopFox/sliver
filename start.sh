@@ -84,26 +84,44 @@ if [ -z "$EXISTING_PID" ] || ! pgrep -f "sliver-server" >/dev/null 2>&1; then
     DAEMON_PID=$!
     disown $DAEMON_PID 2>/dev/null || true
 
-    # First run unpacks assets + generates certs — allow up to 90 seconds.
-    echo "[*] Waiting for daemon to initialize (up to 90 s)..."
+    # First run unpacks Go/Zig toolchains + generates certs/keys — can take
+    # several minutes.  Detect first-run by checking for the asset-version file
+    # that the server writes after unpacking; extend the wait accordingly.
+    ASSET_VERSION_FILE="$HOME/.sliver/version"
+    if [ ! -f "$ASSET_VERSION_FILE" ]; then
+        WAIT_SECS=600
+        echo "[*] First run detected — unpacking assets + generating certs (up to ${WAIT_SECS} s)..."
+        echo "    This is a one-time step; subsequent starts will be much faster."
+    else
+        WAIT_SECS=90
+        echo "[*] Waiting for daemon to initialize (up to ${WAIT_SECS} s)..."
+    fi
+
     READY=0
-    for i in $(seq 1 90); do
+    for i in $(seq 1 "$WAIT_SECS"); do
         # Fail fast: if the process already exited, no point waiting further.
         if ! kill -0 "$DAEMON_PID" 2>/dev/null; then
+            echo ""
             echo "[-] Daemon process (PID $DAEMON_PID) exited before gRPC port 31337 opened."
             echo "    Last log output:"
             tail -30 /tmp/sliver-daemon.log 2>/dev/null
             exit 1
         fi
         if ss -tlnp 2>/dev/null | grep -q ":31337"; then
+            echo ""
             echo "[+] Daemon ready (PID $DAEMON_PID, gRPC on 31337)"
             READY=1
             break
         fi
+        # Print a progress dot every 10 seconds so the operator sees activity.
+        if [ $(( i % 10 )) -eq 0 ]; then
+            printf "."
+        fi
         sleep 1
     done
     if [ "$READY" = "0" ]; then
-        echo "[-] Daemon failed to start after 90 s. Check /tmp/sliver-daemon.log"
+        echo ""
+        echo "[-] Daemon failed to start after ${WAIT_SECS} s. Check /tmp/sliver-daemon.log"
         tail -30 /tmp/sliver-daemon.log 2>/dev/null
         exit 1
     fi
