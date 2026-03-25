@@ -2,24 +2,27 @@
 # Start Sliver server, create config, start listeners, drop into console.
 #
 # Usage:
-#   ./start.sh                         # mTLS on 8888
-#   ./start.sh --domain cdn.example.com # + HTTPS on 443
-#   ./start.sh --fresh                  # restart clean
-#   ./start.sh --reinstall-armory        # force armory reinstall
+#   ./start.sh                              # mTLS on 8888
+#   ./start.sh --mtls-port 9999            # mTLS on custom port
+#   ./start.sh --domain cdn.example.com    # + HTTPS on 443
+#   ./start.sh --fresh                     # restart clean
+#   ./start.sh --reinstall-armory          # force armory reinstall
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 export PATH="/usr/local/go/bin:$HOME/go/bin:$PATH"
 
-MTLS_PORT="${1:-8888}"
+MTLS_PORT="8888"
 DOMAIN=""
 FRESH=0
 REINSTALL_ARMORY=0
 
-for arg in "$@"; do
-    case "$arg" in
-        --fresh) FRESH=1 ;;
-        --domain) shift; DOMAIN="$1" ;;
-        --reinstall-armory) REINSTALL_ARMORY=1 ;;
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --fresh)             FRESH=1 ; shift ;;
+        --domain)            DOMAIN="$2" ; shift 2 ;;
+        --reinstall-armory)  REINSTALL_ARMORY=1 ; shift ;;
+        --mtls-port)         MTLS_PORT="$2" ; shift 2 ;;
+        *)                   echo "[!] Unknown argument: $1 (ignored)" ; shift ;;
     esac
 done
 
@@ -60,6 +63,13 @@ fi
 
 # ─── Start daemon if needed ───
 if [ -z "$EXISTING_PID" ] || ! pgrep -f "sliver-server" >/dev/null 2>&1; then
+    # Verify binary exists
+    if [ ! -x "$SCRIPT_DIR/sliver-server" ]; then
+        echo "[-] sliver-server binary not found at $SCRIPT_DIR/sliver-server"
+        echo "    Run setup.sh first to build it."
+        exit 1
+    fi
+
     # Free ports
     for P in 443 31337 $MTLS_PORT; do
         PIDS=$(lsof -ti :"$P" 2>/dev/null || true)
@@ -68,25 +78,35 @@ if [ -z "$EXISTING_PID" ] || ! pgrep -f "sliver-server" >/dev/null 2>&1; then
             echo "$PIDS" | xargs -r kill -9 2>/dev/null || true
         fi
     done
-    
+
     echo "[*] Starting sliver-server daemon..."
     "$SCRIPT_DIR/sliver-server" daemon > /tmp/sliver-daemon.log 2>&1 &
     DAEMON_PID=$!
     disown $DAEMON_PID 2>/dev/null || true
-    
-    echo "[*] Waiting for daemon to initialize..."
-    for i in $(seq 1 20); do
+
+    # First run unpacks assets + generates certs — allow up to 90 seconds.
+    echo "[*] Waiting for daemon to initialize (up to 90 s)..."
+    READY=0
+    for i in $(seq 1 90); do
+        # Fail fast: if the process already exited, no point waiting further.
+        if ! kill -0 "$DAEMON_PID" 2>/dev/null; then
+            echo "[-] Daemon process (PID $DAEMON_PID) exited before gRPC port 31337 opened."
+            echo "    Last log output:"
+            tail -30 /tmp/sliver-daemon.log 2>/dev/null
+            exit 1
+        fi
         if ss -tlnp 2>/dev/null | grep -q ":31337"; then
             echo "[+] Daemon ready (PID $DAEMON_PID, gRPC on 31337)"
+            READY=1
             break
         fi
         sleep 1
-        if [ "$i" = "20" ]; then
-            echo "[-] Daemon failed to start. Check /tmp/sliver-daemon.log"
-            tail -20 /tmp/sliver-daemon.log 2>/dev/null
-            exit 1
-        fi
     done
+    if [ "$READY" = "0" ]; then
+        echo "[-] Daemon failed to start after 90 s. Check /tmp/sliver-daemon.log"
+        tail -30 /tmp/sliver-daemon.log 2>/dev/null
+        exit 1
+    fi
 else
     DAEMON_PID=$EXISTING_PID
 fi
