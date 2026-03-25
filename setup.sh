@@ -276,29 +276,37 @@ info "Step 4/7: Downloading post-exploitation tools..."
 TOOLS_DIR="$SLIVER_DIR/tools"
 mkdir -p "$TOOLS_DIR"
 
-[ ! -d "$TOOLS_DIR/lsawhisper-bof" ] && git clone https://github.com/dazzyddos/lsawhisper-bof.git "$TOOLS_DIR/lsawhisper-bof" 2>/dev/null || true
 [ ! -d "$TOOLS_DIR/No-Consolation" ] && git clone https://github.com/fortra/No-Consolation.git "$TOOLS_DIR/No-Consolation" 2>/dev/null || true
 
-# LSA Whisperer — pre-built exe for execute-assembly (works with Credential Guard)
-if [ ! -f "$TOOLS_DIR/sharp-tools/lsa-whisperer.exe" ]; then
-    info "Downloading LSA Whisperer (pre-built release)..."
-    mkdir -p "$TOOLS_DIR/sharp-tools"
-    LSA_ZIP="/tmp/lsa-whisperer.zip"
-    curl -sL -o "$LSA_ZIP" "https://github.com/EvanMcBroom/lsa-whisperer/releases/download/latest/lsa-whisperer-v2.4-52-gf25eca1.zip" 2>/dev/null || true
-    if [ -f "$LSA_ZIP" ] && file "$LSA_ZIP" | grep -q "Zip"; then
-        mkdir -p /tmp/lsa-extract
-        unzip -o "$LSA_ZIP" -d /tmp/lsa-extract 2>/dev/null || true
-        find /tmp/lsa-extract -name "lsa-whisperer.exe" -exec cp {} "$TOOLS_DIR/sharp-tools/" \; 2>/dev/null || true
-        rm -rf "$LSA_ZIP" /tmp/lsa-extract
-        if [ -f "$TOOLS_DIR/sharp-tools/lsa-whisperer.exe" ]; then
-            ok "LSA Whisperer: $TOOLS_DIR/sharp-tools/lsa-whisperer.exe"
-        else
-            warn "LSA Whisperer extract failed — download manually"
-        fi
+# ─── lsa-whisperer BOF — Build from source (armory extension) ───
+# Uses legitimate LSA APIs (no direct LSASS memory access), works through Credential Guard
+info "Building lsa-whisperer BOF extension..."
+LSA_ARMORY="$SLIVER_DIR/armory/lsa-whisperer"
+LSA_BUILD="$LSA_ARMORY/build"
+LSA_EXT_DIR="$HOME/.sliver-client/extensions/lsa-whisperer"
+
+if [ -f "$LSA_BUILD/msv1_0_bof.x64.o" ] && [ -f "$LSA_BUILD/kerberos_bof.x64.o" ] && [ -f "$LSA_BUILD/cloudap_bof.x64.o" ]; then
+    ok "lsa-whisperer BOFs already built"
+else
+    if command -v x86_64-w64-mingw32-gcc &>/dev/null; then
+        cd "$LSA_ARMORY"
+        make all 2>/dev/null && ok "lsa-whisperer BOFs built (3 modules, x64+x86)" \
+            || warn "lsa-whisperer build failed — mingw-w64 is installed but compilation errored"
+        cd "$SLIVER_DIR"
     else
-        warn "LSA Whisperer download failed"
-        rm -f "$LSA_ZIP"
+        warn "mingw-w64 not found — lsa-whisperer BOFs not built"
+        warn "Install: apt install gcc-mingw-w64-x86-64 gcc-mingw-w64-i686"
     fi
+fi
+
+# Install lsa-whisperer extension into Sliver client
+if [ -f "$LSA_BUILD/msv1_0_bof.x64.o" ]; then
+    mkdir -p "$LSA_EXT_DIR"
+    cp "$LSA_ARMORY/extension.json" "$LSA_EXT_DIR/"
+    cp "$LSA_BUILD"/*.o "$LSA_EXT_DIR/" 2>/dev/null || true
+    chmod 700 "$LSA_EXT_DIR"
+    chmod 600 "$LSA_EXT_DIR"/* 2>/dev/null || true
+    ok "lsa-whisperer installed: $LSA_EXT_DIR (10 commands)"
 fi
 
 # Seatbelt, SharpUp, Rubeus, Certify — pre-compiled .NET tools for execute-assembly

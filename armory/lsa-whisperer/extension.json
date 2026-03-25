@@ -1,0 +1,304 @@
+{
+  "name": "lsa-whisperer",
+  "package_name": "lsa-whisperer",
+  "version": "1.0.0",
+  "extension_author": "mgstate",
+  "original_author": "dazzyddos",
+  "repo_url": "https://github.com/dazzyddos/lsawhisper-bof",
+  "commands": [
+    {
+      "command_name": "lsa-credkey",
+      "help": "Recover DPAPI credential keys from LSA (bypasses Credential Guard)",
+      "long_help": "Extracts DPAPI credential keys via LsaCallAuthenticationPackage. Works through Credential Guard. Specify LUID (hex e.g. 0x3e7, decimal, or 0 for current session). Requires SYSTEM for other sessions.",
+      "entrypoint": "go",
+      "depends_on": "coff-loader",
+      "files": [
+        {
+          "os": "windows",
+          "arch": "amd64",
+          "path": "msv1_0_bof.x64.o"
+        },
+        {
+          "os": "windows",
+          "arch": "386",
+          "path": "msv1_0_bof.x86.o"
+        }
+      ],
+      "arguments": [
+        {
+          "name": "luid",
+          "desc": "Target logon session LUID (hex 0x3e7, decimal, or 0 for current). Requires SYSTEM for other sessions.",
+          "type": "string",
+          "optional": true,
+          "default": ""
+        }
+      ]
+    },
+    {
+      "command_name": "lsa-strongcredkey",
+      "help": "Extract enhanced/strong credential keys from LSA (Windows 10+)",
+      "long_help": "Extracts enhanced DPAPI credential keys via MSV1_0 authentication package. Windows 10+ only. Specify LUID or omit for current session.",
+      "entrypoint": "go",
+      "depends_on": "coff-loader",
+      "files": [
+        {
+          "os": "windows",
+          "arch": "amd64",
+          "path": "msv1_0_bof.x64.o"
+        },
+        {
+          "os": "windows",
+          "arch": "386",
+          "path": "msv1_0_bof.x86.o"
+        }
+      ],
+      "arguments": [
+        {
+          "name": "luid",
+          "desc": "Target logon session LUID (hex 0x3e7, decimal, or 0 for current). Requires SYSTEM for other sessions.",
+          "type": "string",
+          "optional": true,
+          "default": ""
+        }
+      ]
+    },
+    {
+      "command_name": "lsa-ntlmv1",
+      "help": "Generate NTLMv1 challenge response for offline cracking (blocked by Credential Guard)",
+      "long_help": "Generates NTLMv1 challenge response via MSV1_0 package. Default challenge 1122334455667788 is compatible with crack.sh for free cracking. Blocked by Credential Guard.",
+      "entrypoint": "go",
+      "depends_on": "coff-loader",
+      "files": [
+        {
+          "os": "windows",
+          "arch": "amd64",
+          "path": "msv1_0_bof.x64.o"
+        },
+        {
+          "os": "windows",
+          "arch": "386",
+          "path": "msv1_0_bof.x86.o"
+        }
+      ],
+      "arguments": [
+        {
+          "name": "luid",
+          "desc": "Target logon session LUID (hex 0x3e7, decimal, or 0 for current). Requires SYSTEM for other sessions.",
+          "type": "string",
+          "optional": true,
+          "default": ""
+        },
+        {
+          "name": "challenge",
+          "desc": "NTLMv1 challenge hex string (default: 1122334455667788 for crack.sh)",
+          "type": "string",
+          "optional": true,
+          "default": "1122334455667788"
+        }
+      ]
+    },
+    {
+      "command_name": "lsa-klist",
+      "help": "List cached Kerberos tickets with details (server, realm, encryption, flags)",
+      "long_help": "Enumerates all cached Kerberos tickets for a logon session showing server names, realms, encryption types, ticket flags, and expiry times. No special privileges needed for current session.",
+      "entrypoint": "go",
+      "depends_on": "coff-loader",
+      "files": [
+        {
+          "os": "windows",
+          "arch": "amd64",
+          "path": "kerberos_bof.x64.o"
+        },
+        {
+          "os": "windows",
+          "arch": "386",
+          "path": "kerberos_bof.x86.o"
+        }
+      ],
+      "arguments": [
+        {
+          "name": "luid",
+          "desc": "Target logon session LUID (hex 0x3e7, decimal, or 0 for current). Requires SYSTEM for other sessions.",
+          "type": "string",
+          "optional": true,
+          "default": ""
+        }
+      ]
+    },
+    {
+      "command_name": "lsa-dump",
+      "help": "Export all Kerberos tickets as base64 .kirbi files with session keys",
+      "long_help": "Dumps all cached Kerberos tickets including session keys as base64-encoded .kirbi format. Use for pass-the-ticket attacks or offline analysis. Requires SYSTEM to dump other sessions.",
+      "entrypoint": "go",
+      "depends_on": "coff-loader",
+      "files": [
+        {
+          "os": "windows",
+          "arch": "amd64",
+          "path": "kerberos_bof.x64.o"
+        },
+        {
+          "os": "windows",
+          "arch": "386",
+          "path": "kerberos_bof.x86.o"
+        }
+      ],
+      "arguments": [
+        {
+          "name": "luid",
+          "desc": "Target logon session LUID (hex 0x3e7, decimal, or 0 for current). Requires SYSTEM for other sessions.",
+          "type": "string",
+          "optional": true,
+          "default": ""
+        }
+      ]
+    },
+    {
+      "command_name": "lsa-purge",
+      "help": "Purge cached Kerberos tickets (optionally filtered by server name)",
+      "long_help": "Removes cached Kerberos tickets from a logon session. Optionally filter by server name to remove specific tickets. Omit server to purge all tickets.",
+      "entrypoint": "go",
+      "depends_on": "coff-loader",
+      "files": [
+        {
+          "os": "windows",
+          "arch": "amd64",
+          "path": "kerberos_bof.x64.o"
+        },
+        {
+          "os": "windows",
+          "arch": "386",
+          "path": "kerberos_bof.x86.o"
+        }
+      ],
+      "arguments": [
+        {
+          "name": "luid",
+          "desc": "Target logon session LUID (hex 0x3e7, decimal, or 0 for current). Requires SYSTEM for other sessions.",
+          "type": "string",
+          "optional": true,
+          "default": ""
+        },
+        {
+          "name": "server",
+          "desc": "Filter: only purge tickets matching this server name",
+          "type": "string",
+          "optional": true,
+          "default": ""
+        }
+      ]
+    },
+    {
+      "command_name": "lsa-ssocookie",
+      "help": "Retrieve Entra ID (Azure AD) SSO authentication cookie/token",
+      "long_help": "Extracts Entra ID SSO authentication tokens via CloudAP LSA package. Can be used to authenticate to Azure/M365 services. No special privileges for current session.",
+      "entrypoint": "go",
+      "depends_on": "coff-loader",
+      "files": [
+        {
+          "os": "windows",
+          "arch": "amd64",
+          "path": "cloudap_bof.x64.o"
+        },
+        {
+          "os": "windows",
+          "arch": "386",
+          "path": "cloudap_bof.x86.o"
+        }
+      ],
+      "arguments": [
+        {
+          "name": "luid",
+          "desc": "Target logon session LUID (hex 0x3e7, decimal, or 0 for current). Requires SYSTEM for other sessions.",
+          "type": "string",
+          "optional": true,
+          "default": ""
+        }
+      ]
+    },
+    {
+      "command_name": "lsa-devicessocookie",
+      "help": "Extract device-level SSO credentials from CloudAP",
+      "long_help": "Extracts device-level SSO credentials via CloudAP package. Returns device authentication tokens for Azure AD joined machines.",
+      "entrypoint": "go",
+      "depends_on": "coff-loader",
+      "files": [
+        {
+          "os": "windows",
+          "arch": "amd64",
+          "path": "cloudap_bof.x64.o"
+        },
+        {
+          "os": "windows",
+          "arch": "386",
+          "path": "cloudap_bof.x86.o"
+        }
+      ],
+      "arguments": [
+        {
+          "name": "luid",
+          "desc": "Target logon session LUID (hex 0x3e7, decimal, or 0 for current). Requires SYSTEM for other sessions.",
+          "type": "string",
+          "optional": true,
+          "default": ""
+        }
+      ]
+    },
+    {
+      "command_name": "lsa-enterprisesso",
+      "help": "Obtain AD FS enterprise SSO tokens via CloudAP",
+      "long_help": "Extracts AD FS enterprise SSO tokens via CloudAP LSA package. Useful for accessing federated services in hybrid environments.",
+      "entrypoint": "go",
+      "depends_on": "coff-loader",
+      "files": [
+        {
+          "os": "windows",
+          "arch": "amd64",
+          "path": "cloudap_bof.x64.o"
+        },
+        {
+          "os": "windows",
+          "arch": "386",
+          "path": "cloudap_bof.x86.o"
+        }
+      ],
+      "arguments": [
+        {
+          "name": "luid",
+          "desc": "Target logon session LUID (hex 0x3e7, decimal, or 0 for current). Requires SYSTEM for other sessions.",
+          "type": "string",
+          "optional": true,
+          "default": ""
+        }
+      ]
+    },
+    {
+      "command_name": "lsa-cloudinfo",
+      "help": "Query cloud provider status, cloud TGT cache, and DPAPI state",
+      "long_help": "Queries CloudAP for cloud provider information including Azure AD join status, cloud TGT cache state, and DPAPI key decryption status. Useful for reconnaissance on hybrid-joined machines.",
+      "entrypoint": "go",
+      "depends_on": "coff-loader",
+      "files": [
+        {
+          "os": "windows",
+          "arch": "amd64",
+          "path": "cloudap_bof.x64.o"
+        },
+        {
+          "os": "windows",
+          "arch": "386",
+          "path": "cloudap_bof.x86.o"
+        }
+      ],
+      "arguments": [
+        {
+          "name": "luid",
+          "desc": "Target logon session LUID (hex 0x3e7, decimal, or 0 for current). Requires SYSTEM for other sessions.",
+          "type": "string",
+          "optional": true,
+          "default": ""
+        }
+      ]
+    }
+  ]
+}

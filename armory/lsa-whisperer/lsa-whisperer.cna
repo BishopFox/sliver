@@ -1,0 +1,29 @@
+# lsa-whisperer Aggressor/Sliver CNA compatibility script
+# This file documents the Cobalt Strike .cna argument format
+# for reference when adapting to Sliver's extension.json format.
+#
+# Sliver uses extension.json instead of .cna files.
+# This file is kept for documentation purposes only.
+#
+# === Command Mapping ===
+#
+# MSV1_0 BOF (msv1_0_bof.o):
+#   lsa-credkey [LUID]           -> go("credkey", LUID)
+#   lsa-strongcredkey [LUID]     -> go("strongcredkey", LUID)
+#   lsa-ntlmv1 [LUID] [challenge] -> go("ntlmv1", LUID, challenge)
+#
+# Kerberos BOF (kerberos_bof.o):
+#   lsa-klist [LUID]             -> go("klist", LUID)
+#   lsa-dump [LUID]              -> go("dump", LUID)
+#   lsa-purge [LUID] [server]    -> go("purge", LUID, server)
+#
+# CloudAP BOF (cloudap_bof.o):
+#   lsa-ssocookie [LUID]         -> go("ssocookie", LUID)
+#   lsa-devicessocookie [LUID]   -> go("devicessotoken", LUID)
+#   lsa-enterprisesso [LUID]     -> go("enterprisesso", LUID)
+#   lsa-cloudinfo [LUID]         -> go("info", LUID)
+#
+# === Argument Format ===
+# All arguments are passed as zero-terminated strings via BeaconDataExtract.
+# First arg is always the subcommand name.
+# LUID can be hex (0x3e7), decimal, or empty string for current session.
