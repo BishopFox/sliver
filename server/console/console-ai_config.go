@@ -42,7 +42,18 @@ func aiConfigCmd(_ *cobra.Command, args []string) {
 	}
 
 	result := currentAIConfigFormResult(serverConfig)
-	if err := forms.AIConfig(result); err != nil {
+	originalProvider := ai.NormalizeProviderName(result.Provider)
+	if err := forms.SelectAIProvider(result); err != nil {
+		if errors.Is(err, forms.ErrUserAborted) {
+			return
+		}
+		fmt.Printf(Warn+"AI configuration form failed: %v\n", err)
+		return
+	}
+	if ai.NormalizeProviderName(result.Provider) != originalProvider {
+		result = currentAIConfigFormResultForProvider(serverConfig, result.Provider)
+	}
+	if err := forms.EditAIConfig(result); err != nil {
 		if errors.Is(err, forms.ErrUserAborted) {
 			return
 		}
@@ -68,15 +79,30 @@ func aiConfigCmd(_ *cobra.Command, args []string) {
 }
 
 func currentAIConfigFormResult(serverConfig *configs.ServerConfig) *forms.AIConfigFormResult {
+	return currentAIConfigFormResultForProvider(serverConfig, selectedAIProvider(serverConfigAIConfig(serverConfig)))
+}
+
+func currentAIConfigFormResultForProvider(serverConfig *configs.ServerConfig, provider string) *forms.AIConfigFormResult {
 	if serverConfig == nil {
-		return &forms.AIConfigFormResult{Provider: ai.ProviderOpenAI, UseResponsesAPI: true}
+		provider = ai.NormalizeProviderName(provider)
+		if !ai.IsSupportedProvider(provider) {
+			provider = ai.ProviderOpenAI
+		}
+		return &forms.AIConfigFormResult{
+			Provider:        provider,
+			UseResponsesAPI: provider == ai.ProviderOpenAI,
+		}
 	}
 
-	provider := selectedAIProvider(serverConfig.AI)
+	provider = ai.NormalizeProviderName(provider)
+	if !ai.IsSupportedProvider(provider) {
+		provider = selectedAIProvider(serverConfig.AI)
+	}
 	providerConfig := aiProviderConfig(serverConfig.AI, provider)
 
 	result := &forms.AIConfigFormResult{
-		Provider: provider,
+		Provider:        provider,
+		UseResponsesAPI: provider == ai.ProviderOpenAI,
 	}
 	if serverConfig.AI != nil {
 		result.Model = strings.TrimSpace(serverConfig.AI.Model)
@@ -97,6 +123,13 @@ func currentAIConfigFormResult(serverConfig *configs.ServerConfig) *forms.AIConf
 		result.UseBedrock = providerConfig.UseBedrock
 	}
 	return result
+}
+
+func serverConfigAIConfig(serverConfig *configs.ServerConfig) *configs.AIConfig {
+	if serverConfig == nil {
+		return nil
+	}
+	return serverConfig.AI
 }
 
 func applyAIConfigFormResult(serverConfig *configs.ServerConfig, result *forms.AIConfigFormResult) {

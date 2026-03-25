@@ -165,6 +165,12 @@ func conversationHistory(conversation *clientpb.AIConversation) (string, []provi
 		if message == nil {
 			continue
 		}
+		if message.GetVisibility() == clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY {
+			continue
+		}
+		if message.GetKind() != clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT {
+			continue
+		}
 
 		role := strings.ToLower(strings.TrimSpace(message.GetRole()))
 		content := strings.TrimSpace(message.GetContent())

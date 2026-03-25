@@ -28,15 +28,19 @@ import (
 
 // AIConversation - A server-side AI conversation thread.
 type AIConversation struct {
-	ID           uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	CreatedAt    time.Time `gorm:"->;<-:create;"`
-	UpdatedAt    time.Time
-	OperatorName string `gorm:"index"`
-	Provider     string `gorm:"index"`
-	Model        string
-	Title        string
-	Summary      string
-	SystemPrompt string `gorm:"type:text;"`
+	ID              uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	CreatedAt       time.Time `gorm:"->;<-:create;"`
+	UpdatedAt       time.Time
+	OperatorName    string `gorm:"index"`
+	Provider        string `gorm:"index"`
+	Model           string
+	Title           string
+	Summary         string
+	SystemPrompt    string `gorm:"type:text;"`
+	ActiveTurnID    string `gorm:"index"`
+	TurnState       int32
+	TargetSessionID string `gorm:"index"`
+	TargetBeaconID  string `gorm:"index"`
 
 	Messages []AIConversationMessage `gorm:"foreignKey:ConversationID;constraint:OnDelete:CASCADE;"`
 }
@@ -61,16 +65,20 @@ func (a *AIConversation) ToProtobuf() *clientpb.AIConversation {
 	}
 
 	return &clientpb.AIConversation{
-		ID:           a.ID.String(),
-		CreatedAt:    a.CreatedAt.Unix(),
-		UpdatedAt:    a.UpdatedAt.Unix(),
-		OperatorName: a.OperatorName,
-		Provider:     a.Provider,
-		Model:        a.Model,
-		Title:        a.Title,
-		Summary:      a.Summary,
-		SystemPrompt: a.SystemPrompt,
-		Messages:     messages,
+		ID:              a.ID.String(),
+		CreatedAt:       a.CreatedAt.Unix(),
+		UpdatedAt:       a.UpdatedAt.Unix(),
+		OperatorName:    a.OperatorName,
+		Provider:        a.Provider,
+		Model:           a.Model,
+		Title:           a.Title,
+		Summary:         a.Summary,
+		SystemPrompt:    a.SystemPrompt,
+		Messages:        messages,
+		ActiveTurnID:    a.ActiveTurnID,
+		TurnState:       clientpb.AIConversationTurnState(a.TurnState),
+		TargetSessionID: a.TargetSessionID,
+		TargetBeaconID:  a.TargetBeaconID,
 	}
 }
 
@@ -83,13 +91,17 @@ func AIConversationFromProtobuf(pbConversation *clientpb.AIConversation) *AIConv
 	id, _ := uuid.FromString(pbConversation.ID)
 
 	return &AIConversation{
-		ID:           id,
-		OperatorName: pbConversation.OperatorName,
-		Provider:     pbConversation.Provider,
-		Model:        pbConversation.Model,
-		Title:        pbConversation.Title,
-		Summary:      pbConversation.Summary,
-		SystemPrompt: pbConversation.SystemPrompt,
+		ID:              id,
+		OperatorName:    pbConversation.OperatorName,
+		Provider:        pbConversation.Provider,
+		Model:           pbConversation.Model,
+		Title:           pbConversation.Title,
+		Summary:         pbConversation.Summary,
+		SystemPrompt:    pbConversation.SystemPrompt,
+		ActiveTurnID:    pbConversation.ActiveTurnID,
+		TurnState:       int32(pbConversation.TurnState),
+		TargetSessionID: pbConversation.TargetSessionID,
+		TargetBeaconID:  pbConversation.TargetBeaconID,
 	}
 }
 
@@ -107,6 +119,16 @@ type AIConversationMessage struct {
 	Content           string `gorm:"type:text;"`
 	ProviderMessageID string
 	FinishReason      string
+	Kind              int32
+	Visibility        int32
+	State             int32
+	TurnID            string `gorm:"index"`
+	ItemID            string `gorm:"index"`
+	ToolCallID        string `gorm:"index"`
+	ToolName          string
+	ToolArguments     string `gorm:"type:text;"`
+	ToolResult        string `gorm:"type:text;"`
+	ErrorText         string `gorm:"type:text;"`
 }
 
 // BeforeCreate - GORM hook.
@@ -136,6 +158,16 @@ func (a *AIConversationMessage) ToProtobuf() *clientpb.AIConversationMessage {
 		Content:           a.Content,
 		ProviderMessageID: a.ProviderMessageID,
 		FinishReason:      a.FinishReason,
+		Kind:              clientpb.AIConversationMessageKind(a.Kind),
+		Visibility:        clientpb.AIConversationMessageVisibility(a.Visibility),
+		State:             clientpb.AIConversationMessageState(a.State),
+		TurnID:            a.TurnID,
+		ItemID:            a.ItemID,
+		ToolCallID:        a.ToolCallID,
+		ToolName:          a.ToolName,
+		ToolArguments:     a.ToolArguments,
+		ToolResult:        a.ToolResult,
+		ErrorText:         a.ErrorText,
 	}
 }
 
@@ -159,5 +191,15 @@ func AIConversationMessageFromProtobuf(pbMessage *clientpb.AIConversationMessage
 		Content:           pbMessage.Content,
 		ProviderMessageID: pbMessage.ProviderMessageID,
 		FinishReason:      pbMessage.FinishReason,
+		Kind:              int32(pbMessage.Kind),
+		Visibility:        int32(pbMessage.Visibility),
+		State:             int32(pbMessage.State),
+		TurnID:            pbMessage.TurnID,
+		ItemID:            pbMessage.ItemID,
+		ToolCallID:        pbMessage.ToolCallID,
+		ToolName:          pbMessage.ToolName,
+		ToolArguments:     pbMessage.ToolArguments,
+		ToolResult:        pbMessage.ToolResult,
+		ErrorText:         pbMessage.ErrorText,
 	}
 }

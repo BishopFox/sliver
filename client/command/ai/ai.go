@@ -48,13 +48,15 @@ type aiContext struct {
 }
 
 type aiTargetSummary struct {
-	Label   string
-	Host    string
-	OS      string
-	Arch    string
-	C2      string
-	Mode    string
-	Details []string
+	SessionID string
+	BeaconID  string
+	Label     string
+	Host      string
+	OS        string
+	Arch      string
+	C2        string
+	Mode      string
+	Details   []string
 }
 
 type aiConnectionSummary struct {
@@ -97,12 +99,13 @@ func buildAIContext(con *console.SliverClient) aiContext {
 		switch {
 		case session != nil:
 			ctx.target = aiTargetSummary{
-				Label: fmt.Sprintf("Session %s", fallback(session.Name, session.ID)),
-				Host:  fallback(session.Hostname, "<unknown host>"),
-				OS:    fallback(session.OS, "unknown"),
-				Arch:  fallback(session.Arch, "unknown"),
-				C2:    fallback(session.ActiveC2, "unknown"),
-				Mode:  "interactive session",
+				SessionID: session.ID,
+				Label:     fmt.Sprintf("Session %s", fallback(session.Name, session.ID)),
+				Host:      fallback(session.Hostname, "<unknown host>"),
+				OS:        fallback(session.OS, "unknown"),
+				Arch:      fallback(session.Arch, "unknown"),
+				C2:        fallback(session.ActiveC2, "unknown"),
+				Mode:      "interactive session",
 				Details: []string{
 					fmt.Sprintf("User: %s", fallback(session.Username, "<unknown>")),
 					fmt.Sprintf("PID: %d", session.PID),
@@ -111,12 +114,13 @@ func buildAIContext(con *console.SliverClient) aiContext {
 			}
 		case beacon != nil:
 			ctx.target = aiTargetSummary{
-				Label: fmt.Sprintf("Beacon %s", fallback(beacon.Name, beacon.ID)),
-				Host:  fallback(beacon.Hostname, "<unknown host>"),
-				OS:    fallback(beacon.OS, "unknown"),
-				Arch:  fallback(beacon.Arch, "unknown"),
-				C2:    fallback(beacon.ActiveC2, "unknown"),
-				Mode:  "asynchronous beacon",
+				BeaconID: beacon.ID,
+				Label:    fmt.Sprintf("Beacon %s", fallback(beacon.Name, beacon.ID)),
+				Host:     fallback(beacon.Hostname, "<unknown host>"),
+				OS:       fallback(beacon.OS, "unknown"),
+				Arch:     fallback(beacon.Arch, "unknown"),
+				C2:       fallback(beacon.ActiveC2, "unknown"),
+				Mode:     "asynchronous beacon",
 				Details: []string{
 					fmt.Sprintf("User: %s", fallback(beacon.Username, "<unknown>")),
 					fmt.Sprintf("Interval: %s", time.Duration(beacon.Interval).String()),

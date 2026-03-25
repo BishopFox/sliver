@@ -49,7 +49,7 @@ func TestLoadAIStateCmdLoadsConversationOverRPC(t *testing.T) {
 	rpcClient, cleanup := newAITestRPCClient(t, server)
 	defer cleanup()
 
-	cmd := loadAIStateCmd(&console.SliverClient{Rpc: rpcClient}, "")
+	cmd := loadAIStateCmd(&console.SliverClient{Rpc: rpcClient}, aiTargetSummary{}, "")
 	msg := cmd()
 
 	loaded, ok := msg.(aiLoadedMsg)
@@ -112,7 +112,7 @@ func TestLoadAIStateCmdCreatesConversationWhenNoneExist(t *testing.T) {
 	rpcClient, cleanup := newAITestRPCClient(t, server)
 	defer cleanup()
 
-	msg := loadAIStateCmd(&console.SliverClient{Rpc: rpcClient}, "")()
+	msg := loadAIStateCmd(&console.SliverClient{Rpc: rpcClient}, aiTargetSummary{}, "")()
 
 	loaded, ok := msg.(aiLoadedMsg)
 	if !ok {
@@ -157,6 +157,7 @@ func TestSubmitPromptCmdCreatesConversationAndSavesUserMessage(t *testing.T) {
 
 	msg := submitPromptCmd(
 		&console.SliverClient{Rpc: rpcClient},
+		aiTargetSummary{SessionID: "session-1"},
 		nil,
 		"openai",
 		"gpt-test",
@@ -178,6 +179,9 @@ func TestSubmitPromptCmdCreatesConversationAndSavesUserMessage(t *testing.T) {
 	}
 	if server.saveConversationReqs[0].GetTitle() != "Explain the workflow." {
 		t.Fatalf("unexpected conversation title: %q", server.saveConversationReqs[0].GetTitle())
+	}
+	if server.saveConversationReqs[0].GetTargetSessionID() != "session-1" {
+		t.Fatalf("expected target session to be forwarded, got %+v", server.saveConversationReqs[0])
 	}
 	if len(server.saveMessageReqs) != 1 {
 		t.Fatalf("expected SaveAIConversationMessage to be called once, got %d", len(server.saveMessageReqs))
@@ -206,6 +210,7 @@ func TestSubmitPromptCmdUsesExistingConversationSettings(t *testing.T) {
 
 	msg := submitPromptCmd(
 		&console.SliverClient{Rpc: rpcClient},
+		aiTargetSummary{},
 		&clientpb.AIConversation{ID: "conv-1", Provider: "anthropic", Model: "claude-test", Title: "Thread"},
 		"openai",
 		"gpt-test",
@@ -262,10 +267,16 @@ func TestDeleteConversationCmdSendsDeleteRequest(t *testing.T) {
 }
 
 func TestWaitForAIConversationEventCmdFiltersForAIEvents(t *testing.T) {
-	conversation := &clientpb.AIConversation{ID: "conv-1", OperatorName: "alice"}
-	data, err := proto.Marshal(conversation)
+	eventPayload := &clientpb.AIConversationEvent{
+		EventType: clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_CONVERSATION_UPDATED,
+		Conversation: &clientpb.AIConversation{
+			ID:           "conv-1",
+			OperatorName: "alice",
+		},
+	}
+	data, err := proto.Marshal(eventPayload)
 	if err != nil {
-		t.Fatalf("marshal conversation: %v", err)
+		t.Fatalf("marshal conversation event: %v", err)
 	}
 
 	listener := make(chan *clientpb.Event, 2)
@@ -278,8 +289,8 @@ func TestWaitForAIConversationEventCmdFiltersForAIEvents(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected aiConversationEventMsg, got %T", msg)
 	}
-	if aiEvent.conversation == nil || aiEvent.conversation.GetID() != "conv-1" {
-		t.Fatalf("unexpected AI conversation event payload: %+v", aiEvent.conversation)
+	if aiEvent.event == nil || aiEvent.event.GetConversation() == nil || aiEvent.event.GetConversation().GetID() != "conv-1" {
+		t.Fatalf("unexpected AI conversation event payload: %+v", aiEvent.event)
 	}
 }
 
@@ -293,7 +304,7 @@ func TestWaitForAIConversationEventCmdReturnsClosedMessage(t *testing.T) {
 	}
 }
 
-func TestAIModelReloadsSharedConversationEvents(t *testing.T) {
+func TestAIModelAppliesSharedConversationEventsWithoutReload(t *testing.T) {
 	listener := make(chan *clientpb.Event)
 	close(listener)
 
@@ -301,25 +312,30 @@ func TestAIModelReloadsSharedConversationEvents(t *testing.T) {
 		connection: aiConnectionSummary{Operator: "alice"},
 	}, listener)
 	model.loading = false
+	model.conversations = []*clientpb.AIConversation{{ID: "conv-1", Title: "First"}}
 
-	updated, cmd := model.Update(aiConversationEventMsg{conversation: &clientpb.AIConversation{
-		ID:           "conv-2",
-		OperatorName: "bob",
+	updated, cmd := model.Update(aiConversationEventMsg{event: &clientpb.AIConversationEvent{
+		EventType: clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_CONVERSATION_UPDATED,
+		Conversation: &clientpb.AIConversation{
+			ID:           "conv-2",
+			OperatorName: "bob",
+			Title:        "Shared thread",
+		},
 	}})
 
 	nextModel := updated.(*aiModel)
-	if !nextModel.loading {
-		t.Fatal("expected shared conversation event to trigger a reload")
+	if nextModel.loading {
+		t.Fatal("did not expect shared conversation event to trigger a reload")
 	}
-	if nextModel.status != "Conversation updated on the server. Refreshing..." {
-		t.Fatalf("unexpected reload status: %q", nextModel.status)
+	if conversationIndexByID(nextModel.conversations, "conv-2") < 0 {
+		t.Fatalf("expected shared conversation to be merged locally, got %+v", nextModel.conversations)
 	}
 	if cmd == nil {
-		t.Fatal("expected shared conversation event to schedule a refresh")
+		t.Fatal("expected shared conversation event to continue listening for events")
 	}
 }
 
-func TestAIModelReloadsDeleteEventsWhileAwaitingResponse(t *testing.T) {
+func TestAIModelAppliesDeleteEventsWhileAwaitingResponse(t *testing.T) {
 	listener := make(chan *clientpb.Event)
 	close(listener)
 
@@ -332,22 +348,36 @@ func TestAIModelReloadsDeleteEventsWhileAwaitingResponse(t *testing.T) {
 		ID:           "conv-2",
 		OperatorName: "alice",
 		UpdatedAt:    100,
+		TurnState:    clientpb.AIConversationTurnState_AI_TURN_STATE_IN_PROGRESS,
 		Messages: []*clientpb.AIConversationMessage{
 			{Role: "user", Content: "still waiting"},
 		},
 	}
+	model.conversations = []*clientpb.AIConversation{
+		{ID: "conv-2", Title: "Current"},
+		{ID: "conv-1", Title: "Fallback"},
+	}
 
-	updated, cmd := model.Update(aiConversationEventMsg{conversation: &clientpb.AIConversation{
-		ID:           "conv-2",
-		OperatorName: "bob",
+	updated, cmd := model.Update(aiConversationEventMsg{event: &clientpb.AIConversationEvent{
+		EventType:      clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_CONVERSATION_DELETED,
+		ConversationID: "conv-2",
+		Conversation: &clientpb.AIConversation{
+			ID: "conv-2",
+		},
 	}})
 
 	nextModel := updated.(*aiModel)
-	if !nextModel.loading {
-		t.Fatal("expected delete tombstone to reload the conversation")
+	if nextModel.loading {
+		t.Fatal("did not expect delete tombstone to trigger a reload")
+	}
+	if nextModel.currentConversation != nil {
+		t.Fatalf("expected deleted conversation to be cleared, got %+v", nextModel.currentConversation)
+	}
+	if conversationIndexByID(nextModel.conversations, "conv-2") >= 0 {
+		t.Fatalf("expected deleted conversation to be removed, got %+v", nextModel.conversations)
 	}
 	if cmd == nil {
-		t.Fatal("expected delete tombstone to schedule a refresh")
+		t.Fatal("expected delete tombstone to continue listening for events")
 	}
 }
 

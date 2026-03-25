@@ -5,16 +5,14 @@ import (
 	"fmt"
 	"strings"
 
-	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	serverai "github.com/bishopfox/sliver/server/ai"
 	"github.com/bishopfox/sliver/server/configs"
-	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/gofrs/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 )
 
 func (rpc *Server) aiOperatorName(ctx context.Context, fallback string) string {
@@ -33,23 +31,6 @@ func validateAIProvider(provider string) error {
 		return status.Error(codes.InvalidArgument, fmt.Sprintf("unsupported AI provider %q", provider))
 	}
 	return nil
-}
-
-func publishAIConversationEvent(conversation *clientpb.AIConversation) {
-	if conversation == nil {
-		return
-	}
-
-	data, err := proto.Marshal(conversation)
-	if err != nil {
-		rpcLog.Warnf("Failed to marshal AI conversation event: %s", err)
-		return
-	}
-
-	core.EventBroker.Publish(core.Event{
-		EventType: consts.AIConversationEvent,
-		Data:      data,
-	})
 }
 
 func (rpc *Server) GetAIProviders(ctx context.Context, _ *commonpb.Empty) (*clientpb.AIProviderConfigs, error) {
@@ -92,7 +73,7 @@ func (rpc *Server) SaveAIConversation(ctx context.Context, req *clientpb.AIConve
 	if err != nil {
 		return nil, rpcError(err)
 	}
-	publishAIConversationEvent(conversation)
+	publishAIConversationSummaryEvent(clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_CONVERSATION_UPDATED, conversation, "", "")
 	return conversation, nil
 }
 
@@ -106,9 +87,13 @@ func (rpc *Server) DeleteAIConversation(ctx context.Context, req *clientpb.AICon
 	if err != nil {
 		return nil, rpcError(err)
 	}
-	publishAIConversationEvent(&clientpb.AIConversation{
-		ID:           req.ID,
-		OperatorName: operatorName,
+	publishAIConversationEvent(&clientpb.AIConversationEvent{
+		EventType:      clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_CONVERSATION_DELETED,
+		ConversationID: req.ID,
+		Conversation: &clientpb.AIConversation{
+			ID:           req.ID,
+			OperatorName: operatorName,
+		},
 	})
 	return &commonpb.Empty{}, nil
 }
@@ -147,13 +132,19 @@ func (rpc *Server) SaveAIConversationMessage(ctx context.Context, req *clientpb.
 		return nil, rpcError(err)
 	}
 
-	conversation, err := db.AIConversationByID(message.ConversationID, "", false)
+	conversation, err := loadAIConversationSummary(message.GetConversationID())
 	if err != nil {
 		return nil, rpcError(err)
 	}
-	publishAIConversationEvent(conversation)
+	publishAIConversationMessageEvent(
+		clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_MESSAGE_COMPLETED,
+		conversation,
+		message,
+		message.GetTurnID(),
+		message.GetErrorText(),
+	)
 	if shouldTriggerAICompletion(req, message) {
-		go runAIConversationCompletion(message.GetConversationID(), message.GetOperatorName())
+		go rpc.runAIConversationCompletion(message.GetConversationID(), message.GetOperatorName())
 	}
 
 	return message, nil
@@ -169,7 +160,7 @@ func shouldTriggerAICompletion(req *clientpb.AIConversationMessage, saved *clien
 	return strings.EqualFold(strings.TrimSpace(saved.GetRole()), "user")
 }
 
-func runAIConversationCompletion(conversationID string, operatorName string) {
+func (rpc *Server) runAIConversationCompletion(conversationID string, operatorName string) {
 	conversation, err := db.AIConversationByID(conversationID, "", true)
 	if err != nil {
 		rpcLog.Warnf("Failed to load AI conversation %q for completion: %s", conversationID, err)
@@ -184,18 +175,46 @@ func runAIConversationCompletion(conversationID string, operatorName string) {
 			conversation = updatedConversation
 		}
 	}
-	if resolveErr != nil {
-		persistAIConversationFailure(conversationID, operatorName, runtime, resolveErr)
-		return
-	}
-
-	completion, err := serverai.CompleteConversation(context.Background(), runtime, conversation)
+	turnID, err := newAITurnID()
 	if err != nil {
-		persistAIConversationFailure(conversationID, operatorName, runtime, err)
+		rpcLog.Warnf("Failed to create AI turn id for %q: %s", conversationID, err)
+		return
+	}
+	sink := newAIConversationEventSink(conversationID, operatorName, runtime, turnID)
+	if err := sink.TurnStarted(); err != nil {
+		rpcLog.Warnf("Failed to mark AI turn %q as started for %q: %s", turnID, conversationID, err)
 		return
 	}
 
-	if _, err := db.SaveAIConversationMessage(&clientpb.AIConversationMessage{
+	if resolveErr != nil {
+		persistAIConversationFailure(sink, resolveErr)
+		if err := sink.TurnFailed(resolveErr); err != nil {
+			rpcLog.Warnf("Failed to mark AI turn %q as failed for %q: %s", turnID, conversationID, err)
+		}
+		return
+	}
+
+	var completion *serverai.Completion
+	if serverai.SupportsAgenticConversation(runtime) {
+		completion, err = serverai.CompleteConversationAgentic(
+			context.Background(),
+			runtime,
+			conversation,
+			newAIToolExecutor(rpc, conversation),
+			sink,
+		)
+	} else {
+		completion, err = serverai.CompleteConversation(context.Background(), runtime, conversation)
+	}
+	if err != nil {
+		persistAIConversationFailure(sink, err)
+		if turnErr := sink.TurnFailed(err); turnErr != nil {
+			rpcLog.Warnf("Failed to mark AI turn %q as failed for %q: %s", turnID, conversationID, turnErr)
+		}
+		return
+	}
+
+	message, err := db.SaveAIConversationMessage(&clientpb.AIConversationMessage{
 		ConversationID:    conversationID,
 		OperatorName:      operatorName,
 		Provider:          completion.Provider,
@@ -204,12 +223,31 @@ func runAIConversationCompletion(conversationID string, operatorName string) {
 		Content:           completion.Content,
 		ProviderMessageID: completion.ProviderMessageID,
 		FinishReason:      completion.FinishReason,
-	}, operatorName); err != nil {
+		Kind:              clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT,
+		Visibility:        clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_CONTEXT,
+		State:             clientpb.AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED,
+		TurnID:            turnID,
+	}, operatorName)
+	if err != nil {
 		rpcLog.Warnf("Failed to save AI assistant reply for %q: %s", conversationID, err)
 		return
 	}
 
-	publishAIConversationByID(conversationID)
+	summary, err := loadAIConversationSummary(conversationID)
+	if err != nil {
+		rpcLog.Warnf("Failed to load AI conversation summary for %q: %s", conversationID, err)
+	} else {
+		publishAIConversationMessageEvent(
+			clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_MESSAGE_COMPLETED,
+			summary,
+			message,
+			turnID,
+			"",
+		)
+	}
+	if err := sink.TurnCompleted(); err != nil {
+		rpcLog.Warnf("Failed to mark AI turn %q as completed for %q: %s", turnID, conversationID, err)
+	}
 }
 
 func persistAIConversationRuntime(conversation *clientpb.AIConversation, operatorName string, runtime *serverai.RuntimeConfig) (*clientpb.AIConversation, error) {
@@ -227,49 +265,41 @@ func persistAIConversationRuntime(conversation *clientpb.AIConversation, operato
 	}
 
 	return db.SaveAIConversation(&clientpb.AIConversation{
-		ID:           conversation.GetID(),
-		OperatorName: conversation.GetOperatorName(),
-		Provider:     provider,
-		Model:        model,
-		Title:        conversation.GetTitle(),
-		Summary:      conversation.GetSummary(),
-		SystemPrompt: conversation.GetSystemPrompt(),
+		ID:              conversation.GetID(),
+		OperatorName:    conversation.GetOperatorName(),
+		Provider:        provider,
+		Model:           model,
+		Title:           conversation.GetTitle(),
+		Summary:         conversation.GetSummary(),
+		SystemPrompt:    conversation.GetSystemPrompt(),
+		ActiveTurnID:    conversation.GetActiveTurnID(),
+		TurnState:       conversation.GetTurnState(),
+		TargetSessionID: conversation.GetTargetSessionID(),
+		TargetBeaconID:  conversation.GetTargetBeaconID(),
 	}, operatorName)
 }
 
-func persistAIConversationFailure(conversationID string, operatorName string, runtime *serverai.RuntimeConfig, failure error) {
+func persistAIConversationFailure(sink *aiConversationEventSink, failure error) {
 	content := "AI request failed."
+	errText := ""
 	if failure != nil && strings.TrimSpace(failure.Error()) != "" {
-		content = "AI request failed: " + strings.TrimSpace(failure.Error())
+		errText = strings.TrimSpace(failure.Error())
+		content = "AI request failed: " + errText
 	}
-
-	message := &clientpb.AIConversationMessage{
-		ConversationID: conversationID,
-		OperatorName:   operatorName,
-		Role:           "system",
-		Content:        content,
-		FinishReason:   "error",
-	}
-	if runtime != nil {
-		message.Provider = runtime.Provider
-		message.Model = runtime.Model
-	}
-
-	if _, err := db.SaveAIConversationMessage(message, operatorName); err != nil {
-		rpcLog.Warnf("Failed to save AI failure message for %q: %s", conversationID, err)
+	if sink == nil {
 		return
 	}
-
-	publishAIConversationByID(conversationID)
+	if err := sink.SaveFailureMessage(content, errText); err != nil {
+		rpcLog.Warnf("Failed to save AI failure message for %q: %s", sink.conversationID, err)
+	}
 }
 
-func publishAIConversationByID(conversationID string) {
-	conversation, err := db.AIConversationByID(conversationID, "", false)
+func newAITurnID() (string, error) {
+	id, err := uuid.NewV4()
 	if err != nil {
-		rpcLog.Warnf("Failed to publish AI conversation update for %q: %s", conversationID, err)
-		return
+		return "", err
 	}
-	publishAIConversationEvent(conversation)
+	return id.String(), nil
 }
 
 func fallbackAIString(value string, fallback string) string {

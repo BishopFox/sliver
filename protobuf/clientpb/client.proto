@@ -1437,6 +1437,41 @@ message AIConversations {
   repeated AIConversation Conversations = 1;
 }
 
+enum AIConversationTurnState {
+  AI_TURN_STATE_IDLE = 0;
+  AI_TURN_STATE_IN_PROGRESS = 1;
+  AI_TURN_STATE_FAILED = 2;
+}
+
+enum AIConversationMessageKind {
+  AI_MESSAGE_KIND_CHAT = 0;
+  AI_MESSAGE_KIND_REASONING = 1;
+  AI_MESSAGE_KIND_TOOL_CALL = 2;
+}
+
+enum AIConversationMessageVisibility {
+  AI_MESSAGE_VISIBILITY_CONTEXT = 0;
+  AI_MESSAGE_VISIBILITY_UI_ONLY = 1;
+}
+
+enum AIConversationMessageState {
+  AI_MESSAGE_STATE_COMPLETED = 0;
+  AI_MESSAGE_STATE_IN_PROGRESS = 1;
+  AI_MESSAGE_STATE_FAILED = 2;
+}
+
+enum AIConversationEventType {
+  AI_CONVERSATION_EVENT_TYPE_UNKNOWN = 0;
+  AI_CONVERSATION_EVENT_TYPE_CONVERSATION_UPDATED = 1;
+  AI_CONVERSATION_EVENT_TYPE_CONVERSATION_DELETED = 2;
+  AI_CONVERSATION_EVENT_TYPE_TURN_STARTED = 3;
+  AI_CONVERSATION_EVENT_TYPE_TURN_COMPLETED = 4;
+  AI_CONVERSATION_EVENT_TYPE_TURN_FAILED = 5;
+  AI_CONVERSATION_EVENT_TYPE_MESSAGE_STARTED = 6;
+  AI_CONVERSATION_EVENT_TYPE_MESSAGE_UPDATED = 7;
+  AI_CONVERSATION_EVENT_TYPE_MESSAGE_COMPLETED = 8;
+}
+
 message AIConversation {
   string ID = 1;
   int64 CreatedAt = 2;
@@ -1448,6 +1483,10 @@ message AIConversation {
   string Summary = 8;
   string SystemPrompt = 9;
   repeated AIConversationMessage Messages = 10;
+  string ActiveTurnID = 11;
+  AIConversationTurnState TurnState = 12;
+  string TargetSessionID = 13;
+  string TargetBeaconID = 14;
 }
 
 message AIConversationMessages {
@@ -1468,6 +1507,25 @@ message AIConversationMessage {
   string Content = 10;
   string ProviderMessageID = 11;
   string FinishReason = 12;
+  AIConversationMessageKind Kind = 13;
+  AIConversationMessageVisibility Visibility = 14;
+  AIConversationMessageState State = 15;
+  string TurnID = 16;
+  string ItemID = 17;
+  string ToolCallID = 18;
+  string ToolName = 19;
+  string ToolArguments = 20;
+  string ToolResult = 21;
+  string ErrorText = 22;
+}
+
+message AIConversationEvent {
+  AIConversationEventType EventType = 1;
+  string ConversationID = 2;
+  string TurnID = 3;
+  string ErrorText = 4;
+  AIConversation Conversation = 5;
+  AIConversationMessage Message = 6;
 }
 
 // watchtower 

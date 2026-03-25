@@ -113,6 +113,97 @@ func TestCompleteConversationOpenAIUsesConfiguredCredentialsAndSettings(t *testi
 	}
 }
 
+func TestCompleteConversationOpenAIUsesDefaultBaseURLWhenUnset(t *testing.T) {
+	type capturedRequest struct {
+		Path          string
+		Authorization string
+		Body          string
+	}
+
+	requests := make(chan capturedRequest, 1)
+	restoreClient := SetHTTPClientForTests(&http.Client{
+		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			defer r.Body.Close()
+
+			payload, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatalf("read request body: %v", err)
+			}
+
+			requests <- capturedRequest{
+				Path:          r.URL.Path,
+				Authorization: r.Header.Get("Authorization"),
+				Body:          string(payload),
+			}
+
+			return jsonResponse(http.StatusOK, `{
+			"id": "resp_default_base",
+			"model": "gpt-5.4",
+			"status": "completed",
+			"output": [
+				{
+					"type": "message",
+					"role": "assistant",
+					"content": [
+						{"type": "output_text", "text": "OpenAI default-base reply"}
+					]
+				}
+			]
+		}`), nil
+		}),
+	})
+	defer restoreClient()
+
+	cfg := &configs.ServerConfig{
+		AI: &configs.AIConfig{
+			Provider: ProviderOpenAI,
+			Model:    "gpt-5.4",
+			OpenAI: &configs.AIProviderConfig{
+				APIKey:          "openai-key",
+				UseResponsesAPI: boolPtr(true),
+			},
+			Anthropic: &configs.AIProviderConfig{},
+		},
+	}
+	conversation := &clientpb.AIConversation{
+		Provider: ProviderOpenAI,
+		Model:    "gpt-5.4",
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "user", Content: "Say hi."},
+		},
+	}
+
+	runtime, err := ResolveRuntimeConfig(cfg, conversation)
+	if err != nil {
+		t.Fatalf("resolve runtime config: %v", err)
+	}
+	if runtime.BaseURL != "" {
+		t.Fatalf("expected openai runtime base url to remain unset, got %q", runtime.BaseURL)
+	}
+
+	completion, err := CompleteConversation(context.Background(), runtime, conversation)
+	if err != nil {
+		t.Fatalf("complete conversation: %v", err)
+	}
+
+	request := <-requests
+	if request.Path != "/v1/responses" {
+		t.Fatalf("unexpected openai default-base request path: got=%q want=%q", request.Path, "/v1/responses")
+	}
+	if request.Authorization != "Bearer openai-key" {
+		t.Fatalf("unexpected authorization header: %q", request.Authorization)
+	}
+	if !strings.Contains(request.Body, `"Say hi."`) {
+		t.Fatalf("expected openai request body to contain the user prompt, got %s", request.Body)
+	}
+	if completion.Content != "OpenAI default-base reply" {
+		t.Fatalf("unexpected completion content: %q", completion.Content)
+	}
+	if completion.ProviderMessageID != "resp_default_base" {
+		t.Fatalf("unexpected provider message id: %q", completion.ProviderMessageID)
+	}
+}
+
 func TestResolveRuntimeConfigAnthropicRequiresAnInstalledDriver(t *testing.T) {
 	cfg := &configs.ServerConfig{
 		AI: &configs.AIConfig{

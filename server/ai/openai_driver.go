@@ -74,6 +74,9 @@ func openAIRequestOptions(runtime *RuntimeConfig) []option.RequestOption {
 		option.WithMaxRetries(0),
 	}
 
+	if runtime != nil && NormalizeProviderName(runtime.Provider) == ProviderOpenAI {
+		opts = append(opts, option.WithEnvironmentProduction())
+	}
 	if baseURL := openAIBaseURL(runtime); baseURL != "" {
 		opts = append(opts, option.WithBaseURL(baseURL))
 	}

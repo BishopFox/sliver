@@ -31,6 +31,18 @@ func AIConfig(result *AIConfigFormResult) error {
 		return errors.New("AI config result is required")
 	}
 
+	if err := SelectAIProvider(result); err != nil {
+		return err
+	}
+	return EditAIConfig(result)
+}
+
+// SelectAIProvider prompts for the AI provider to edit.
+func SelectAIProvider(result *AIConfigFormResult) error {
+	if result == nil {
+		return errors.New("AI config result is required")
+	}
+
 	normalizeAIConfigResult(result)
 
 	providerOptions := []huh.Option[string]{
@@ -40,15 +52,8 @@ func AIConfig(result *AIConfigFormResult) error {
 		huh.NewOption("OpenAI-Compatible", ai.ProviderOpenAICompat),
 		huh.NewOption("OpenRouter", ai.ProviderOpenRouter),
 	}
-	thinkingOptions := []huh.Option[string]{
-		huh.NewOption("Provider default", ""),
-		huh.NewOption("Disabled", "disabled"),
-		huh.NewOption("Low", "low"),
-		huh.NewOption("Medium", "medium"),
-		huh.NewOption("High", "high"),
-	}
 
-	providerForm := huh.NewForm(
+	providerForm := newConsoleForm(
 		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("AI provider").
@@ -64,11 +69,31 @@ func AIConfig(result *AIConfigFormResult) error {
 				}),
 		),
 	)
-	if err := providerForm.Run(); err != nil {
+	if err := runConsoleForm(providerForm); err != nil {
 		return err
 	}
 
-	detailsForm := huh.NewForm(
+	normalizeAIConfigResult(result)
+	return nil
+}
+
+// EditAIConfig prompts for the provider-independent and provider-specific AI settings.
+func EditAIConfig(result *AIConfigFormResult) error {
+	if result == nil {
+		return errors.New("AI config result is required")
+	}
+
+	normalizeAIConfigResult(result)
+
+	thinkingOptions := []huh.Option[string]{
+		huh.NewOption("Provider default", ""),
+		huh.NewOption("Disabled", "disabled"),
+		huh.NewOption("Low", "low"),
+		huh.NewOption("Medium", "medium"),
+		huh.NewOption("High", "high"),
+	}
+
+	detailsForm := newConsoleForm(
 		huh.NewGroup(
 			huh.NewNote().
 				Title("Server AI configuration").
@@ -116,7 +141,7 @@ func AIConfig(result *AIConfigFormResult) error {
 				Value(&result.UserAgent),
 		),
 	)
-	if err := detailsForm.Run(); err != nil {
+	if err := runConsoleForm(detailsForm); err != nil {
 		return err
 	}
 
@@ -142,7 +167,7 @@ func providerSpecificAIConfig(result *AIConfigFormResult) error {
 }
 
 func openAIAIConfig(result *AIConfigFormResult) error {
-	form := huh.NewForm(
+	form := newConsoleForm(
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Organization").
@@ -160,11 +185,11 @@ func openAIAIConfig(result *AIConfigFormResult) error {
 				Value(&result.UseResponsesAPI),
 		),
 	)
-	return form.Run()
+	return runConsoleForm(form)
 }
 
 func anthropicAIConfig(result *AIConfigFormResult) error {
-	form := huh.NewForm(
+	form := newConsoleForm(
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Vertex project").
@@ -186,11 +211,11 @@ func anthropicAIConfig(result *AIConfigFormResult) error {
 				Value(&result.UseBedrock),
 		),
 	)
-	return form.Run()
+	return runConsoleForm(form)
 }
 
 func googleAIConfig(result *AIConfigFormResult) error {
-	form := huh.NewForm(
+	form := newConsoleForm(
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Vertex project").
@@ -208,7 +233,7 @@ func googleAIConfig(result *AIConfigFormResult) error {
 				Value(&result.SkipAuth),
 		),
 	)
-	return form.Run()
+	return runConsoleForm(form)
 }
 
 func normalizeAIConfigResult(result *AIConfigFormResult) {

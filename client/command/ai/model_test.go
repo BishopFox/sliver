@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"image/color"
 	"strings"
 	"sync"
 	"testing"
@@ -13,9 +14,19 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/bishopfox/sliver/client/console"
 	aithinking "github.com/bishopfox/sliver/client/spin/thinking"
+	clienttheme "github.com/bishopfox/sliver/client/theme"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/charmbracelet/x/ansi"
 )
+
+func assertColorEqual(t *testing.T, got color.Color, want color.Color) {
+	t.Helper()
+	gotR, gotG, gotB, gotA := got.RGBA()
+	wantR, wantG, wantB, wantA := want.RGBA()
+	if gotR != wantR || gotG != wantG || gotB != wantB || gotA != wantA {
+		t.Fatalf("unexpected color: got rgba(%d,%d,%d,%d), want rgba(%d,%d,%d,%d)", gotR, gotG, gotB, gotA, wantR, wantG, wantB, wantA)
+	}
+}
 
 func TestPromptConversationTitleUsesFirstNonEmptyLine(t *testing.T) {
 	title := promptConversationTitle("\n\n  First line title  \nsecond line")
@@ -63,6 +74,27 @@ func TestBuildConversationMarkdownFallsBackToUserLabel(t *testing.T) {
 	if !strings.Contains(markdown, "### User\n\nHello") {
 		t.Fatalf("expected markdown to contain user fallback label, got %q", markdown)
 	}
+}
+
+func TestMessageBlockLabelIgnoresUnknownOperatorPlaceholders(t *testing.T) {
+	conversation := &clientpb.AIConversation{OperatorName: "<unknown>"}
+	message := &clientpb.AIConversationMessage{
+		Role:         "user",
+		OperatorName: "<unknown>",
+		Content:      "Hello",
+	}
+
+	label := messageBlockLabel(conversation, message)
+	if label != "User" {
+		t.Fatalf("expected placeholder operator names to fall back to User, got %q", label)
+	}
+}
+
+func TestTranscriptSpeakerStyleUsesPrimaryThemeForUserMessages(t *testing.T) {
+	styles := transcriptSpeakerStyle("alice", "user")
+
+	assertColorEqual(t, styles.border.GetForeground(), clienttheme.Primary())
+	assertColorEqual(t, styles.label.GetBackground(), clienttheme.Primary())
 }
 
 func TestBuildConversationMarkdownWithoutConversationAvoidsKeyHints(t *testing.T) {
@@ -168,6 +200,37 @@ func TestRenderConversationTranscriptLinesOnlyBoxesMessages(t *testing.T) {
 	}
 	if strings.HasPrefix(summaryLine, "╭") || strings.HasPrefix(summaryLine, "│") || strings.HasPrefix(summaryLine, "╰") {
 		t.Fatalf("expected summary to remain unboxed, got %q", summaryLine)
+	}
+}
+
+func TestRenderConversationTranscriptLinesRendersReasoningAndToolBlocks(t *testing.T) {
+	conversation := &clientpb.AIConversation{
+		OperatorName: "alice",
+		Messages: []*clientpb.AIConversationMessage{
+			{
+				Kind:       clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_REASONING,
+				Visibility: clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
+				State:      clientpb.AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED,
+				Content:    "Summary:\nChecked the active target before choosing a tool.",
+			},
+			{
+				Kind:          clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_TOOL_CALL,
+				Visibility:    clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
+				State:         clientpb.AIConversationMessageState_AI_MESSAGE_STATE_FAILED,
+				ToolName:      "fs_ls",
+				ToolArguments: `{"path":"/tmp","session_id":"session-1"}`,
+				ToolResult:    `{"path":"/tmp","exists":true}`,
+				ErrorText:     "permission denied",
+			},
+		},
+	}
+
+	renderedRaw := strings.Join(renderConversationTranscriptLines(72, conversation), "\n")
+	rendered := ansi.Strip(renderedRaw)
+	for _, fragment := range []string{"Reasoning", "Checked the active target", "Tool: fs_ls", "ARGUMENTS", "\"path\": \"/tmp\"", "ERROR", "permission denied", "RESULT"} {
+		if !strings.Contains(rendered, fragment) {
+			t.Fatalf("expected transcript to contain %q, got %q", fragment, rendered)
+		}
 	}
 }
 
@@ -474,6 +537,29 @@ func TestConversationAwaitingResponseStopsWhenAssistantReplies(t *testing.T) {
 	}
 }
 
+func TestConversationAwaitingResponseUsesTurnState(t *testing.T) {
+	conversation := &clientpb.AIConversation{
+		TurnState: clientpb.AIConversationTurnState_AI_TURN_STATE_IN_PROGRESS,
+		Messages: []*clientpb.AIConversationMessage{
+			{
+				Role:       "assistant",
+				Content:    "Listing files",
+				Kind:       clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_TOOL_CALL,
+				Visibility: clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
+			},
+		},
+	}
+
+	if !conversationAwaitingResponse(conversation) {
+		t.Fatal("expected in-progress turn state to keep the conversation pending")
+	}
+
+	conversation.TurnState = clientpb.AIConversationTurnState_AI_TURN_STATE_FAILED
+	if conversationAwaitingResponse(conversation) {
+		t.Fatal("expected failed turn state to clear the pending marker")
+	}
+}
+
 func TestPendingLabelUsesThinkingWhenConfigured(t *testing.T) {
 	model := &aiModel{
 		config: &clientpb.AIConfigSummary{ThinkingLevel: "high"},
@@ -558,10 +644,10 @@ func TestTabCyclesVisiblePanesOnly(t *testing.T) {
 	}
 }
 
-func TestAIViewEnablesMouseCellMotion(t *testing.T) {
+func TestAIViewLeavesMouseSelectionToTerminal(t *testing.T) {
 	view := aiView("hello")
-	if view.MouseMode != tea.MouseModeCellMotion {
-		t.Fatalf("expected AI view mouse mode %v, got %v", tea.MouseModeCellMotion, view.MouseMode)
+	if view.MouseMode != tea.MouseModeNone {
+		t.Fatalf("expected AI view mouse mode %v, got %v", tea.MouseModeNone, view.MouseMode)
 	}
 }
 
@@ -1557,6 +1643,62 @@ func TestPromptSubmittedStartsAwaitingResponseImmediately(t *testing.T) {
 	}
 }
 
+func TestPromptSubmittedDoesNotDuplicateUserMessageWhenEventArrivesFirst(t *testing.T) {
+	model := newAIModel(nil, aiContext{
+		connection: aiConnectionSummary{Operator: "<unknown>"},
+	}, nil)
+	model.loading = false
+	model.submittingPrompt = true
+	model.pendingPrompt = "What changed?"
+	model.conversations = []*clientpb.AIConversation{
+		{ID: "conv-1", Title: "Thread", Provider: "openai", Model: "gpt-test"},
+	}
+	model.currentConversation = &clientpb.AIConversation{
+		ID:       "conv-1",
+		Title:    "Thread",
+		Provider: "openai",
+		Model:    "gpt-test",
+		Messages: []*clientpb.AIConversationMessage{
+			{ID: "assistant-1", Role: "assistant", Content: "Previous reply"},
+			{
+				ID:             "msg-1",
+				ConversationID: "conv-1",
+				Role:           "user",
+				Content:        "What changed?",
+			},
+		},
+	}
+
+	updated, _ := model.Update(aiPromptSubmittedMsg{
+		conversationID: "conv-1",
+		conversation: &clientpb.AIConversation{
+			ID:       "conv-1",
+			Title:    "Thread",
+			Provider: "openai",
+			Model:    "gpt-test",
+		},
+		message: &clientpb.AIConversationMessage{
+			ID:             "msg-1",
+			ConversationID: "conv-1",
+			Role:           "user",
+			Content:        "What changed?",
+		},
+		status: "Saved prompt to Thread. Waiting for AI response...",
+	})
+
+	updatedModel := updated.(*aiModel)
+	if got := len(updatedModel.currentConversation.GetMessages()); got != 2 {
+		t.Fatalf("expected submit replay to preserve 2 messages without duplication, got %d", got)
+	}
+	last := lastConversationMessage(updatedModel.currentConversation)
+	if last == nil || last.GetID() != "msg-1" {
+		t.Fatalf("expected the existing saved user message to remain the last message, got %#v", last)
+	}
+	if label := messageBlockLabel(updatedModel.currentConversation, last); label != "User" {
+		t.Fatalf("expected unknown operator placeholders to fall back to User, got %q", label)
+	}
+}
+
 func TestAsyncErrClearsAwaitingResponseWhenSubmitFails(t *testing.T) {
 	model := newAIModel(nil, aiContext{}, nil)
 	model.awaitingResponse = true
@@ -1963,10 +2105,14 @@ func TestAIProgramSkipsRedundantPendingConversationReload(t *testing.T) {
 		t.Fatal("expected animation to start before redundant event processing")
 	}
 
-	program.Send(aiConversationEventMsg{conversation: &clientpb.AIConversation{
-		ID:           "conv-1",
-		OperatorName: "alice",
-		UpdatedAt:    100,
+	program.Send(aiConversationEventMsg{event: &clientpb.AIConversationEvent{
+		EventType: clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_TURN_STARTED,
+		Conversation: &clientpb.AIConversation{
+			ID:           "conv-1",
+			OperatorName: "alice",
+			UpdatedAt:    100,
+			TurnState:    clientpb.AIConversationTurnState_AI_TURN_STATE_IN_PROGRESS,
+		},
 	}})
 
 	select {
