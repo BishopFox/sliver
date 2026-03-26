@@ -297,6 +297,35 @@ func TestTranscriptSpeakerPaletteVariesAcrossUsers(t *testing.T) {
 	}
 }
 
+func TestTranscriptSpeakerStyleUsesPrimaryBorderForUserMessages(t *testing.T) {
+	userStyles := transcriptSpeakerStyle("alice", "user")
+	userBorder := transcriptSpeakerStyle("alice", "user").border.Render("│")
+	wantUserBorder := lipgloss.NewStyle().Foreground(clienttheme.Primary()).Render("│")
+	if userBorder != wantUserBorder {
+		t.Fatalf("expected user message border to use theme primary color")
+	}
+
+	wantUserLabel := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(clienttheme.DefaultMod(900)).
+		Background(clienttheme.Primary()).
+		Padding(0, 1).
+		Render("alice")
+	if got := userStyles.label.Render("alice"); got != wantUserLabel {
+		t.Fatalf("expected user message label to use theme primary color")
+	}
+
+	wantUserMeta := lipgloss.NewStyle().Foreground(clienttheme.Primary()).Render("openai | gpt-5.4")
+	if got := userStyles.meta.Render("openai | gpt-5.4"); got != wantUserMeta {
+		t.Fatalf("expected user message metadata to use theme primary color")
+	}
+
+	assistantBorder := transcriptSpeakerStyle("AI", "assistant").border.Render("│")
+	if assistantBorder == wantUserBorder {
+		t.Fatalf("expected assistant message border to keep its non-primary speaker color")
+	}
+}
+
 func TestWindowResizeQueuesTranscriptRenderAsync(t *testing.T) {
 	model := newAIModel(nil, aiContext{}, nil)
 	model.width = 100
@@ -731,6 +760,57 @@ func TestRenderComposerOmitsInlineControls(t *testing.T) {
 	}
 	if strings.Contains(rendered, "Ready") {
 		t.Fatalf("expected composer pane to omit the inline status row, got %q", rendered)
+	}
+}
+
+func TestComposerPasteMsgInsertsAtCursor(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.focus = aiFocusComposer
+	model.input = []rune("hello")
+	model.cursor = len(model.input)
+
+	updated, cmd := model.Update(tea.PasteMsg{Content: " world"})
+	if cmd != nil {
+		t.Fatalf("expected paste to update in place without commands, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if got := string(updatedModel.input); got != "hello world" {
+		t.Fatalf("expected pasted composer input, got %q", got)
+	}
+	if updatedModel.cursor != len([]rune("hello world")) {
+		t.Fatalf("expected cursor at end of pasted input, got %d", updatedModel.cursor)
+	}
+}
+
+func TestTranscriptFocusDisablesMouseForNativeSelection(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 108
+	model.height = 28
+	model.focus = aiFocusTranscript
+	view := model.View()
+	if view.MouseMode != tea.MouseModeNone {
+		t.Fatalf("expected transcript focus to disable mouse reporting, got %v", view.MouseMode)
+	}
+}
+
+func TestTranscriptClickPromptsNativeSelection(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 108
+	model.height = 28
+	model.focus = aiFocusSidebar
+	rect := model.currentPaneRects().transcript
+	updated, _ := model.Update(tea.MouseClickMsg{
+		X:      rect.x + rect.width/2,
+		Y:      rect.y + rect.height/2,
+		Button: tea.MouseLeft,
+	})
+	model = updated.(*aiModel)
+	if got := model.focus; got != aiFocusTranscript {
+		t.Fatalf("expected transcript click to focus transcript, got %s", got.String())
+	}
+	if !strings.Contains(model.status, "Drag again") {
+		t.Fatalf("expected transcript click to explain native selection flow, got %q", model.status)
 	}
 }
 

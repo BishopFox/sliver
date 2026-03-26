@@ -14,6 +14,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/glamour/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/atotto/clipboard"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	aithinking "github.com/bishopfox/sliver/client/spin/thinking"
@@ -79,6 +80,7 @@ type aiStyles struct {
 	roleUser         lipgloss.Style
 	warning          lipgloss.Style
 	danger           lipgloss.Style
+	selection        lipgloss.Style
 }
 
 type aiLoadedMsg struct {
@@ -122,6 +124,7 @@ type aiTranscriptRenderedMsg struct {
 	key      string
 	rendered string
 	lines    []string
+	content  []aiTranscriptContentLine
 }
 
 type aiWindowPollMsg struct {
@@ -180,36 +183,63 @@ type aiPaneRects struct {
 	composer   aiPaneRect
 }
 
+type aiTranscriptContentLine struct {
+	styled          string
+	selectableStart int
+	selectableText  string
+}
+
+func (l aiTranscriptContentLine) selectableWidth() int {
+	return ansi.StringWidth(l.selectableText)
+}
+
+func (l aiTranscriptContentLine) hasSelectableText() bool {
+	return l.selectableWidth() > 0
+}
+
+type aiTranscriptSelectionPoint struct {
+	line int
+	col  int
+}
+
+type aiTranscriptSelection struct {
+	anchor   aiTranscriptSelectionPoint
+	active   aiTranscriptSelectionPoint
+	dragging bool
+}
+
 type aiModel struct {
-	width                int
-	height               int
-	focus                aiFocus
-	ctx                  aiContext
-	con                  *console.SliverClient
-	listener             <-chan *clientpb.Event
-	providers            []*clientpb.AIProviderConfig
-	config               *clientpb.AIConfigSummary
-	conversations        []*clientpb.AIConversation
-	currentConversation  *clientpb.AIConversation
-	selectedConversation int
-	input                []rune
-	cursor               int
-	status               string
-	loading              bool
-	awaitingResponse     bool
-	submittingPrompt     bool
-	pendingPrompt        string
-	modal                *aiModalState
-	thinkingAnim         *aithinking.Anim
-	submitResults        chan tea.Msg
-	styles               aiStyles
-	transcriptVersion    int
-	transcriptPendingKey string
-	transcriptCacheKey   string
-	transcriptCache      string
-	transcriptCacheLines []string
-	transcriptScroll     int
-	transcriptFollow     bool
+	width                  int
+	height                 int
+	focus                  aiFocus
+	ctx                    aiContext
+	con                    *console.SliverClient
+	listener               <-chan *clientpb.Event
+	providers              []*clientpb.AIProviderConfig
+	config                 *clientpb.AIConfigSummary
+	conversations          []*clientpb.AIConversation
+	currentConversation    *clientpb.AIConversation
+	selectedConversation   int
+	input                  []rune
+	cursor                 int
+	status                 string
+	loading                bool
+	awaitingResponse       bool
+	submittingPrompt       bool
+	pendingPrompt          string
+	modal                  *aiModalState
+	thinkingAnim           *aithinking.Anim
+	submitResults          chan tea.Msg
+	styles                 aiStyles
+	transcriptVersion      int
+	transcriptPendingKey   string
+	transcriptCacheKey     string
+	transcriptCache        string
+	transcriptCacheLines   []string
+	transcriptCacheContent []aiTranscriptContentLine
+	transcriptScroll       int
+	transcriptFollow       bool
+	transcriptSelection    *aiTranscriptSelection
 }
 
 func newAIModel(con *console.SliverClient, ctx aiContext, listener <-chan *clientpb.Event) *aiModel {
@@ -297,6 +327,8 @@ func newAIStyles() aiStyles {
 		danger: lipgloss.NewStyle().
 			Foreground(clienttheme.Danger()).
 			Bold(true),
+		selection: lipgloss.NewStyle().
+			Reverse(true),
 	}
 }
 
@@ -436,6 +468,7 @@ func (m *aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.awaitingResponse = false
 			m.pendingPrompt = ""
 		}
+		m.clearTranscriptSelection()
 		if msg.err != nil {
 			m.status = "AI sync failed: " + msg.err.Error()
 		}
@@ -453,7 +486,14 @@ func (m *aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.transcriptCacheKey = msg.key
 		m.transcriptCache = msg.rendered
 		m.transcriptCacheLines = append([]string(nil), msg.lines...)
+		m.transcriptCacheContent = append([]aiTranscriptContentLine(nil), msg.content...)
 		m.syncTranscriptViewport()
+		return m, nil
+
+	case tea.PasteMsg:
+		if m.focus == aiFocusComposer {
+			return m.handleComposerPaste(msg)
+		}
 		return m, nil
 
 	case aithinking.StepMsg:
@@ -474,6 +514,12 @@ func (m *aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.MouseClickMsg:
 		return m.handleMouseClick(tea.Mouse(msg))
+
+	case tea.MouseReleaseMsg:
+		return m.handleMouseRelease(tea.Mouse(msg))
+
+	case tea.MouseMotionMsg:
+		return m.handleMouseMotion(tea.Mouse(msg))
 
 	case tea.MouseWheelMsg:
 		return m.handleMouseWheel(tea.Mouse(msg))
@@ -600,6 +646,52 @@ func (m *aiModel) handleMouseClick(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 	}
 
 	m.focus = focus
+	if focus == aiFocusTranscript {
+		m.clearTranscriptSelection()
+		m.status = "Conversation focused. Drag again in your terminal to select and copy text."
+		return m, nil
+	}
+	m.clearTranscriptSelection()
+	return m, nil
+}
+
+func (m *aiModel) handleMouseRelease(mouse tea.Mouse) (tea.Model, tea.Cmd) {
+	if mouse.Button != tea.MouseLeft {
+		return m, nil
+	}
+	if m.transcriptSelection == nil || !m.transcriptSelection.dragging {
+		return m, nil
+	}
+
+	m.updateTranscriptSelection(mouse.X, mouse.Y, true)
+	m.transcriptSelection.dragging = false
+
+	if m.isCollapsedTranscriptSelection() {
+		m.clearTranscriptSelection()
+		return m, nil
+	}
+
+	selected := m.selectedTranscriptText()
+	if selected == "" {
+		m.clearTranscriptSelection()
+		return m, nil
+	}
+
+	copyTranscriptSelectionToClipboard(selected)
+	m.status = fmt.Sprintf("Copied %d characters from the selected transcript text.", utf8.RuneCountInString(selected))
+	return m, tea.SetClipboard(selected)
+}
+
+func (m *aiModel) handleMouseMotion(mouse tea.Mouse) (tea.Model, tea.Cmd) {
+	if m.transcriptSelection == nil || !m.transcriptSelection.dragging {
+		return m, nil
+	}
+	if mouse.Button != tea.MouseLeft {
+		return m, nil
+	}
+
+	m.focus = aiFocusTranscript
+	m.updateTranscriptSelection(mouse.X, mouse.Y, true)
 	return m, nil
 }
 
@@ -654,6 +746,7 @@ func (m *aiModel) handleComposerKey(key tea.Key) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+		m.clearTranscriptSelection()
 		m.submittingPrompt = true
 		m.pendingPrompt = prompt
 		m.pinTranscriptToLatest()
@@ -703,13 +796,30 @@ func (m *aiModel) handleComposerKey(key tea.Key) (tea.Model, tea.Cmd) {
 			if looksLikeTerminalResponseFragment(key.Text) {
 				return m, nil
 			}
-			insert := []rune(key.Text)
-			m.input = append(m.input[:m.cursor], append(insert, m.input[m.cursor:]...)...)
-			m.cursor += len(insert)
+			m.insertComposerRunes([]rune(key.Text))
 		}
 	}
 
 	return m, nil
+}
+
+func (m *aiModel) handleComposerPaste(msg tea.PasteMsg) (tea.Model, tea.Cmd) {
+	if looksLikeTerminalResponseFragment(msg.Content) {
+		return m, nil
+	}
+	if msg.Content == "" {
+		return m, nil
+	}
+	m.insertComposerRunes([]rune(msg.Content))
+	return m, nil
+}
+
+func (m *aiModel) insertComposerRunes(insert []rune) {
+	if len(insert) == 0 {
+		return
+	}
+	m.input = append(m.input[:m.cursor], append(insert, m.input[m.cursor:]...)...)
+	m.cursor += len(insert)
 }
 
 func (m *aiModel) handleComposerSlashCommand(input string) (tea.Cmd, bool) {
@@ -964,7 +1074,11 @@ func (m *aiModel) View() tea.View {
 		if m.modal != nil {
 			content = m.renderModalOverlay(content)
 		}
-		return aiView(content)
+		view := aiView(content)
+		if m.focus == aiFocusTranscript {
+			view.MouseMode = tea.MouseModeNone
+		}
+		return view
 	}
 
 	_, composerHeight, _, bodyHeight := m.layoutHeights()
@@ -980,7 +1094,11 @@ func (m *aiModel) View() tea.View {
 		frame = m.renderModalOverlay(frame)
 	}
 	frame = clampANSIBlock(frame, m.width, m.height)
-	return aiView(frame)
+	view := aiView(frame)
+	if m.focus == aiFocusTranscript {
+		view.MouseMode = tea.MouseModeNone
+	}
+	return view
 }
 
 func (m *aiModel) renderModal() string {
@@ -1361,11 +1479,12 @@ func (m *aiModel) renderTranscript(width, height int) string {
 	innerWidth := innerPaneWidth(width)
 	innerHeight := innerPaneHeight(height)
 	contentWidth := m.transcriptContentWidth(innerWidth)
-	contentLines := m.renderTranscriptDisplayContentLines(contentWidth)
+	content := m.renderTranscriptDisplayContent(contentWidth)
+	contentLines := transcriptContentStyledLines(content)
 	bodyHeight := maxInt(1, innerHeight-m.transcriptHeaderLineCount())
 	headerLines := m.renderTranscriptHeaderLines(innerWidth, bodyHeight, contentLines)
 	lines := append([]string(nil), headerLines...)
-	lines = append(lines, m.visibleTranscriptLines(contentLines, bodyHeight)...)
+	lines = append(lines, m.visibleTranscriptLines(content, bodyHeight)...)
 
 	pane := m.renderPane(width, height, aiFocusTranscript, lines)
 	scrollbar := m.renderTranscriptScrollbar(bodyHeight, len(contentLines))
@@ -1403,40 +1522,18 @@ func (m *aiModel) renderComposer(height int) string {
 }
 
 func (m *aiModel) renderTranscriptContentLines(width int) []string {
-	contentLines := renderConversationTranscriptLines(width, m.currentConversation)
-	pendingUserLines := m.renderPendingPromptLines(width)
-	pendingLines := m.renderAwaitingResponseLines(width)
-
-	for _, block := range [][]string{pendingUserLines, pendingLines} {
-		if len(block) == 0 {
-			continue
-		}
-		if len(contentLines) > 0 {
-			contentLines = append(contentLines, "")
-		}
-		contentLines = append(contentLines, block...)
-	}
-	return contentLines
+	return transcriptContentStyledLines(m.renderTranscriptContent(width))
 }
 
 func (m *aiModel) renderTranscriptDisplayContentLines(width int) []string {
-	contentLines := append([]string(nil), m.transcriptDisplayLines(width)...)
-	pendingUserLines := m.renderPendingPromptLines(width)
-	pendingLines := m.renderAwaitingResponseLines(width)
-
-	for _, block := range [][]string{pendingUserLines, pendingLines} {
-		if len(block) == 0 {
-			continue
-		}
-		if len(contentLines) > 0 {
-			contentLines = append(contentLines, "")
-		}
-		contentLines = append(contentLines, block...)
-	}
-	return contentLines
+	return transcriptContentStyledLines(m.renderTranscriptDisplayContent(width))
 }
 
 func (m *aiModel) renderPendingPromptLines(width int) []string {
+	return transcriptContentStyledLines(m.renderPendingPromptContent(width))
+}
+
+func (m *aiModel) renderPendingPromptContent(width int) []aiTranscriptContentLine {
 	prompt := strings.TrimSpace(m.pendingPrompt)
 	if prompt == "" {
 		return nil
@@ -1446,15 +1543,41 @@ func (m *aiModel) renderPendingPromptLines(width int) []string {
 		OperatorName: m.ctx.connection.Operator,
 		Role:         "user",
 	})
-	return renderTranscriptBoxBlock(width, label, "user", []string{"pending"}, wrapText(prompt, maxInt(1, width-4)))
+	return renderTranscriptBoxBlockContent(width, label, "user", []string{"pending"}, wrapText(prompt, maxInt(1, width-4)), true)
 }
 
 func (m *aiModel) renderAwaitingResponseLines(width int) []string {
+	return transcriptContentStyledLines(m.renderAwaitingResponseContent(width))
+}
+
+func (m *aiModel) renderAwaitingResponseContent(width int) []aiTranscriptContentLine {
 	if !m.awaitingResponse || m.thinkingAnim == nil {
 		return nil
 	}
 
-	return renderTranscriptBoxBlock(width, "AI", "assistant", []string{strings.ToLower(m.pendingLabel())}, []string{m.thinkingAnim.Render()})
+	return renderTranscriptBoxBlockContent(width, "AI", "assistant", []string{strings.ToLower(m.pendingLabel())}, []string{m.thinkingAnim.Render()}, false)
+}
+
+func (m *aiModel) renderTranscriptContent(width int) []aiTranscriptContentLine {
+	content := renderConversationTranscript(width, m.currentConversation)
+	for _, block := range [][]aiTranscriptContentLine{
+		m.renderPendingPromptContent(width),
+		m.renderAwaitingResponseContent(width),
+	} {
+		content = appendTranscriptContentBlock(content, block)
+	}
+	return content
+}
+
+func (m *aiModel) renderTranscriptDisplayContent(width int) []aiTranscriptContentLine {
+	content := append([]aiTranscriptContentLine(nil), m.transcriptDisplayContent(width)...)
+	for _, block := range [][]aiTranscriptContentLine{
+		m.renderPendingPromptContent(width),
+		m.renderAwaitingResponseContent(width),
+	} {
+		content = appendTranscriptContentBlock(content, block)
+	}
+	return content
 }
 
 func (m *aiModel) renderFooter() string {
@@ -1475,7 +1598,7 @@ func (m *aiModel) footerHints() []string {
 		hints = append(hints, "n: new", "r: refresh", "q/esc: quit")
 		return hints
 	case aiFocusTranscript:
-		hints := []string{"tab: next", "j/k: scroll", "pgup/pgdn: page", "g/G: ends"}
+		hints := []string{"tab: next", "j/k: scroll", "pgup/pgdn: page", "g/G: ends", "mouse: select text"}
 		if m.deleteTargetConversation() != nil {
 			hints = append(hints, "x: delete")
 		}
@@ -1807,19 +1930,17 @@ func (m *aiModel) transcriptScrollSummary(viewportHeight, totalLines int) string
 	return fmt.Sprintf("lines %d-%d/%d", start, end, totalLines)
 }
 
-func (m *aiModel) visibleTranscriptLines(contentLines []string, viewportHeight int) []string {
-	if viewportHeight <= 0 || len(contentLines) == 0 {
+func (m *aiModel) visibleTranscriptLines(content []aiTranscriptContentLine, viewportHeight int) []string {
+	if viewportHeight <= 0 || len(content) == 0 {
 		return nil
 	}
 
-	maxScroll := maxInt(0, len(contentLines)-viewportHeight)
-	scroll := clampInt(m.transcriptScroll, 0, maxScroll)
-	if m.transcriptFollow {
-		scroll = maxScroll
+	scroll, end := m.currentTranscriptScrollRange(len(content), viewportHeight)
+	visible := make([]string, 0, maxInt(0, end-scroll))
+	for idx := scroll; idx < end; idx++ {
+		visible = append(visible, m.renderVisibleTranscriptLine(content, idx))
 	}
-
-	end := minInt(len(contentLines), scroll+viewportHeight)
-	return contentLines[scroll:end]
+	return visible
 }
 
 func (m *aiModel) transcriptScrollbarCells(viewportHeight, totalLines int) []bool {
@@ -1862,6 +1983,19 @@ func (m *aiModel) renderTranscriptScrollbar(viewportHeight, totalLines int) stri
 		lines = append(lines, m.renderTranscriptScrollbarCell(thumb))
 	}
 	return strings.Join(lines, "\n")
+}
+
+func (m *aiModel) currentTranscriptScrollRange(totalLines, viewportHeight int) (int, int) {
+	if viewportHeight <= 0 || totalLines <= 0 {
+		return 0, 0
+	}
+
+	maxScroll := maxInt(0, totalLines-viewportHeight)
+	scroll := clampInt(m.transcriptScroll, 0, maxScroll)
+	if m.transcriptFollow {
+		scroll = maxScroll
+	}
+	return scroll, minInt(totalLines, scroll+viewportHeight)
 }
 
 func (m *aiModel) renderTranscriptRightEdge(height int) string {
@@ -2463,21 +2597,34 @@ func (m *aiModel) invalidateTranscriptCache() {
 	m.transcriptCacheKey = ""
 	m.transcriptCache = ""
 	m.transcriptCacheLines = nil
+	m.transcriptCacheContent = nil
+	m.clearTranscriptSelection()
 }
 
 func (m *aiModel) transcriptDisplayLines(width int) []string {
+	return transcriptContentStyledLines(m.transcriptDisplayContent(width))
+}
+
+func (m *aiModel) transcriptDisplayContent(width int) []aiTranscriptContentLine {
 	key := m.transcriptRenderKey(width)
+	if key == m.transcriptCacheKey && len(m.transcriptCacheContent) > 0 {
+		return m.transcriptCacheContent
+	}
 	if key == m.transcriptCacheKey && len(m.transcriptCacheLines) > 0 {
-		return m.transcriptCacheLines
+		content := make([]aiTranscriptContentLine, 0, len(m.transcriptCacheLines))
+		for _, line := range m.transcriptCacheLines {
+			content = append(content, aiTranscriptContentLine{styled: line})
+		}
+		return content
 	}
 
 	placeholder := "Rendering transcript..."
 	if m.currentConversation == nil {
 		placeholder = "Loading conversation..."
 	}
-	return []string{
-		m.styles.subtleText.Width(maxInt(1, width)).Render(truncateText(placeholder, maxInt(1, width))),
-	}
+	return []aiTranscriptContentLine{{
+		styled: m.styles.subtleText.Width(maxInt(1, width)).Render(truncateText(placeholder, maxInt(1, width))),
+	}}
 }
 
 func (m *aiModel) transcriptContentWidth(innerWidth int) int {
@@ -2517,7 +2664,8 @@ func (m *aiModel) scheduleTranscriptRender() tea.Cmd {
 	conversation := cloneConversation(m.currentConversation)
 
 	return func() tea.Msg {
-		lines := renderConversationTranscriptLines(width, conversation)
+		content := renderConversationTranscript(width, conversation)
+		lines := transcriptContentStyledLines(content)
 		rendered := strings.Join(lines, "\n")
 		rendered = strings.TrimSpace(rendered)
 		if rendered == "" {
@@ -2527,6 +2675,7 @@ func (m *aiModel) scheduleTranscriptRender() tea.Cmd {
 			key:      key,
 			rendered: rendered,
 			lines:    strings.Split(rendered, "\n"),
+			content:  content,
 		}
 	}
 }
@@ -3397,30 +3546,25 @@ type transcriptSpeakerStyles struct {
 }
 
 func renderConversationTranscriptLines(width int, conversation *clientpb.AIConversation) []string {
+	return transcriptContentStyledLines(renderConversationTranscript(width, conversation))
+}
+
+func renderConversationTranscript(width int, conversation *clientpb.AIConversation) []aiTranscriptContentLine {
 	if width <= 0 {
 		return nil
 	}
 
 	if conversation == nil {
-		return renderTranscriptSectionBlock(width, "Conversation", "system", nil, wrapText("Create a new conversation or submit a prompt to start one.", maxInt(1, width)))
+		return renderTranscriptSectionBlockContent(width, "Conversation", "system", nil, wrapText("Create a new conversation or submit a prompt to start one.", maxInt(1, width)))
 	}
 
-	lines := []string{}
-	appendBlock := func(block []string) {
-		if len(block) == 0 {
-			return
-		}
-		if len(lines) > 0 {
-			lines = append(lines, "")
-		}
-		lines = append(lines, block...)
-	}
+	lines := []aiTranscriptContentLine{}
 
 	if summary := strings.TrimSpace(conversation.GetSummary()); summary != "" {
-		appendBlock(renderTranscriptSectionBlock(width, "Summary", "system", nil, wrapText(summary, maxInt(1, width))))
+		lines = appendTranscriptContentBlock(lines, renderTranscriptSectionBlockContent(width, "Summary", "system", nil, wrapText(summary, maxInt(1, width))))
 	}
 	if systemPrompt := strings.TrimSpace(conversation.GetSystemPrompt()); systemPrompt != "" {
-		appendBlock(renderTranscriptSectionBlock(width, "System Prompt", "system", nil, wrapText(systemPrompt, maxInt(1, width))))
+		lines = appendTranscriptContentBlock(lines, renderTranscriptSectionBlockContent(width, "System Prompt", "system", nil, wrapText(systemPrompt, maxInt(1, width))))
 	}
 
 	messageCount := 0
@@ -3429,11 +3573,28 @@ func renderConversationTranscriptLines(width int, conversation *clientpb.AIConve
 			continue
 		}
 		messageCount++
-		appendBlock(renderConversationMessageBlockLines(width, conversation, message))
+		meta := []string{}
+		if ts := formatUnix(message.GetCreatedAt()); ts != "<unknown>" {
+			meta = append(meta, ts)
+		}
+		if provider := strings.TrimSpace(message.GetProvider()); provider != "" {
+			meta = append(meta, provider)
+		}
+		if model := strings.TrimSpace(message.GetModel()); model != "" {
+			meta = append(meta, model)
+		}
+		lines = appendTranscriptContentBlock(lines, renderTranscriptBoxBlockContent(
+			width,
+			messageBlockLabel(conversation, message),
+			strings.ToLower(strings.TrimSpace(message.GetRole())),
+			meta,
+			renderTranscriptMessageBodyLines(maxInt(1, width-4), message.GetContent()),
+			true,
+		))
 	}
 
 	if messageCount == 0 {
-		appendBlock(renderTranscriptSectionBlock(width, "Conversation", "system", nil, wrapText("No messages yet. Type a prompt below to start this thread.", maxInt(1, width))))
+		lines = appendTranscriptContentBlock(lines, renderTranscriptSectionBlockContent(width, "Conversation", "system", nil, wrapText("No messages yet. Type a prompt below to start this thread.", maxInt(1, width))))
 	}
 
 	return lines
@@ -3564,6 +3725,10 @@ func formatStructuredBlock(raw string) string {
 }
 
 func renderTranscriptBoxBlock(width int, label, role string, meta []string, contentLines []string) []string {
+	return transcriptContentStyledLines(renderTranscriptBoxBlockContent(width, label, role, meta, contentLines, true))
+}
+
+func renderTranscriptBoxBlockContent(width int, label, role string, meta []string, contentLines []string, selectable bool) []aiTranscriptContentLine {
 	if width <= 0 {
 		return nil
 	}
@@ -3580,15 +3745,26 @@ func renderTranscriptBoxBlock(width int, label, role string, meta []string, cont
 	}
 
 	header := fitStyledPieces(maxInt(1, width-3), pieces)
-	lines := []string{renderTranscriptBoxTopLine(width, styles.border, header)}
+	lines := []aiTranscriptContentLine{{styled: renderTranscriptBoxTopLine(width, styles.border, header)}}
 	for _, line := range contentLines {
-		lines = append(lines, renderTranscriptBoxContentLine(width, styles.border, line))
+		text := ansi.Strip(line)
+		text = strings.TrimRight(text, " ")
+		rendered := aiTranscriptContentLine{styled: renderTranscriptBoxContentLine(width, styles.border, line)}
+		if selectable && ansi.StringWidth(text) > 0 {
+			rendered.selectableStart = minInt(2, maxInt(0, width-1))
+			rendered.selectableText = text
+		}
+		lines = append(lines, rendered)
 	}
-	lines = append(lines, renderTranscriptBoxBottomLine(width, styles.border))
+	lines = append(lines, aiTranscriptContentLine{styled: renderTranscriptBoxBottomLine(width, styles.border)})
 	return lines
 }
 
 func renderTranscriptSectionBlock(width int, label, role string, meta []string, contentLines []string) []string {
+	return transcriptContentStyledLines(renderTranscriptSectionBlockContent(width, label, role, meta, contentLines))
+}
+
+func renderTranscriptSectionBlockContent(width int, label, role string, meta []string, contentLines []string) []aiTranscriptContentLine {
 	if width <= 0 {
 		return nil
 	}
@@ -3604,9 +3780,9 @@ func renderTranscriptSectionBlock(width int, label, role string, meta []string, 
 		pieces = append(pieces, styles.meta.Render(metaText))
 	}
 
-	lines := []string{padANSIRight(fitStyledPieces(width, pieces), width)}
+	lines := []aiTranscriptContentLine{{styled: padANSIRight(fitStyledPieces(width, pieces), width)}}
 	for _, line := range contentLines {
-		lines = append(lines, padANSIRight(line, width))
+		lines = append(lines, aiTranscriptContentLine{styled: padANSIRight(line, width)})
 	}
 	return lines
 }
@@ -3639,14 +3815,20 @@ func transcriptSpeakerStyle(label, role string) transcriptSpeakerStyles {
 	}
 
 	accent := transcriptSpeakerPalette()[transcriptSpeakerPaletteIndex(label, role)]
+	borderColor := accent
+	headerColor := accent
+	if role == "user" {
+		borderColor = clienttheme.Primary()
+		headerColor = clienttheme.Primary()
+	}
 	return transcriptSpeakerStyles{
-		border: lipgloss.NewStyle().Foreground(accent),
+		border: lipgloss.NewStyle().Foreground(borderColor),
 		label: lipgloss.NewStyle().
 			Bold(true).
 			Foreground(clienttheme.DefaultMod(900)).
-			Background(accent).
+			Background(headerColor).
 			Padding(0, 1),
-		meta: lipgloss.NewStyle().Foreground(accent),
+		meta: lipgloss.NewStyle().Foreground(headerColor),
 	}
 }
 
@@ -3754,6 +3936,220 @@ func inputWindow(input []rune, cursor, width int) ([]rune, int) {
 	}
 	end := minInt(len(input), start+width)
 	return input[start:end], cursor - start
+}
+
+func transcriptContentStyledLines(content []aiTranscriptContentLine) []string {
+	lines := make([]string, 0, len(content))
+	for _, line := range content {
+		lines = append(lines, line.styled)
+	}
+	return lines
+}
+
+func appendTranscriptContentBlock(content []aiTranscriptContentLine, block []aiTranscriptContentLine) []aiTranscriptContentLine {
+	if len(block) == 0 {
+		return content
+	}
+	if len(content) > 0 {
+		content = append(content, aiTranscriptContentLine{styled: ""})
+	}
+	return append(content, block...)
+}
+
+func (m *aiModel) clearTranscriptSelection() {
+	m.transcriptSelection = nil
+}
+
+func (m *aiModel) beginTranscriptSelection(x, y int) {
+	point, ok := m.transcriptSelectionPointAt(x, y, false)
+	if !ok {
+		m.clearTranscriptSelection()
+		return
+	}
+	m.transcriptSelection = &aiTranscriptSelection{
+		anchor:   point,
+		active:   point,
+		dragging: true,
+	}
+}
+
+func (m *aiModel) updateTranscriptSelection(x, y int, clamp bool) {
+	if m.transcriptSelection == nil {
+		return
+	}
+	point, ok := m.transcriptSelectionPointAt(x, y, clamp)
+	if !ok {
+		return
+	}
+	m.transcriptSelection.active = point
+}
+
+func (m *aiModel) transcriptSelectionPointAt(x, y int, clamp bool) (aiTranscriptSelectionPoint, bool) {
+	rect := m.currentPaneRects().transcript
+	if !rect.contains(x, y) {
+		return aiTranscriptSelectionPoint{}, false
+	}
+
+	contentWidth, viewportHeight := m.currentTranscriptViewportSize()
+	if contentWidth <= 0 || viewportHeight <= 0 {
+		return aiTranscriptSelectionPoint{}, false
+	}
+
+	innerX := x - rect.x - 2
+	innerY := y - rect.y - 1
+	if innerX < 0 || innerY < m.transcriptHeaderLineCount() {
+		return aiTranscriptSelectionPoint{}, false
+	}
+
+	bodyY := innerY - m.transcriptHeaderLineCount()
+	if bodyY < 0 || bodyY >= viewportHeight {
+		return aiTranscriptSelectionPoint{}, false
+	}
+
+	content := m.renderTranscriptDisplayContent(contentWidth)
+	scroll, end := m.currentTranscriptScrollRange(len(content), viewportHeight)
+	lineIndex := scroll + bodyY
+	if lineIndex < scroll || lineIndex >= end || lineIndex >= len(content) {
+		return aiTranscriptSelectionPoint{}, false
+	}
+
+	line := content[lineIndex]
+	if !line.hasSelectableText() {
+		return aiTranscriptSelectionPoint{}, false
+	}
+
+	col := innerX - line.selectableStart
+	if col < 0 {
+		if !clamp {
+			return aiTranscriptSelectionPoint{}, false
+		}
+		col = 0
+	}
+
+	width := line.selectableWidth()
+	if width <= 0 {
+		return aiTranscriptSelectionPoint{}, false
+	}
+	if col >= width {
+		if !clamp {
+			return aiTranscriptSelectionPoint{}, false
+		}
+		col = width - 1
+	}
+
+	return aiTranscriptSelectionPoint{line: lineIndex, col: col}, true
+}
+
+func (m *aiModel) renderVisibleTranscriptLine(content []aiTranscriptContentLine, idx int) string {
+	if idx < 0 || idx >= len(content) {
+		return ""
+	}
+
+	line := content[idx]
+	if m.transcriptSelection == nil || !line.hasSelectableText() {
+		return line.styled
+	}
+
+	start, end, ok := m.transcriptSelectionRangeForLine(idx, line.selectableWidth())
+	if !ok {
+		return line.styled
+	}
+	return highlightANSIRange(line.styled, line.selectableStart+start, line.selectableStart+end, m.styles.selection)
+}
+
+func (m *aiModel) transcriptSelectionRangeForLine(lineIdx, lineWidth int) (int, int, bool) {
+	if m.transcriptSelection == nil || lineWidth <= 0 {
+		return 0, 0, false
+	}
+
+	start, end := normalizeTranscriptSelection(m.transcriptSelection.anchor, m.transcriptSelection.active)
+	if lineIdx < start.line || lineIdx > end.line {
+		return 0, 0, false
+	}
+
+	lineStart := 0
+	if lineIdx == start.line {
+		lineStart = clampInt(start.col, 0, lineWidth-1)
+	}
+	lineEnd := lineWidth
+	if lineIdx == end.line {
+		lineEnd = clampInt(end.col+1, 1, lineWidth)
+	}
+	if lineStart >= lineEnd {
+		return 0, 0, false
+	}
+	return lineStart, lineEnd, true
+}
+
+func (m *aiModel) selectedTranscriptText() string {
+	if m.transcriptSelection == nil {
+		return ""
+	}
+
+	contentWidth, _ := m.currentTranscriptViewportSize()
+	if contentWidth <= 0 {
+		return ""
+	}
+	content := m.renderTranscriptDisplayContent(contentWidth)
+	if len(content) == 0 {
+		return ""
+	}
+
+	start, end := normalizeTranscriptSelection(m.transcriptSelection.anchor, m.transcriptSelection.active)
+	start.line = clampInt(start.line, 0, len(content)-1)
+	end.line = clampInt(end.line, 0, len(content)-1)
+
+	lines := make([]string, 0, end.line-start.line+1)
+	for idx := start.line; idx <= end.line; idx++ {
+		line := content[idx]
+		if !line.hasSelectableText() {
+			continue
+		}
+		lineStart, lineEnd, ok := m.transcriptSelectionRangeForLine(idx, line.selectableWidth())
+		if !ok {
+			continue
+		}
+		lines = append(lines, ansi.Cut(line.selectableText, lineStart, lineEnd))
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (m *aiModel) isCollapsedTranscriptSelection() bool {
+	if m.transcriptSelection == nil {
+		return true
+	}
+	start, end := normalizeTranscriptSelection(m.transcriptSelection.anchor, m.transcriptSelection.active)
+	return start.line == end.line && start.col == end.col
+}
+
+func normalizeTranscriptSelection(a, b aiTranscriptSelectionPoint) (aiTranscriptSelectionPoint, aiTranscriptSelectionPoint) {
+	if a.line > b.line || (a.line == b.line && a.col > b.col) {
+		return b, a
+	}
+	return a, b
+}
+
+func highlightANSIRange(line string, start, end int, style lipgloss.Style) string {
+	if start < 0 {
+		start = 0
+	}
+	if end <= start {
+		return line
+	}
+	prefix := ansi.Cut(line, 0, start)
+	selected := ansi.Cut(line, start, end)
+	if ansi.StringWidth(selected) == 0 {
+		return line
+	}
+	suffix := ansi.Cut(line, end, ansi.StringWidth(line))
+	return prefix + style.Render(selected) + suffix
+}
+
+func copyTranscriptSelectionToClipboard(text string) {
+	if strings.TrimSpace(text) == "" {
+		return
+	}
+	_ = clipboard.WriteAll(text)
 }
 
 func fitStyledPieces(width int, pieces []string) string {
