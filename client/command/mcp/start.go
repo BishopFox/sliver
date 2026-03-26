@@ -43,4 +43,11 @@ func McpStartCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if err == nil {
 		con.PrintInfof("Endpoint: %s\n", endpoint)
 	}
+	status := slivermcp.GetStatus()
+	if status.AuthHeader != "" {
+		con.PrintInfof("Auth Header: %s\n", status.AuthHeader)
+	}
+	if status.AuthToken != "" {
+		con.PrintInfof("Auth Token: %s\n", status.AuthToken)
+	}
 }

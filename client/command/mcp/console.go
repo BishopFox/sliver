@@ -6,12 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/bishopfox/sliver/client/console"
 	clientmcp "github.com/bishopfox/sliver/client/mcp"
 	"github.com/bishopfox/sliver/client/version"
 	mcpclient "github.com/mark3labs/mcp-go/client"
+	mcptransport "github.com/mark3labs/mcp-go/client/transport"
 	mcpapi "github.com/mark3labs/mcp-go/mcp"
 	"github.com/spf13/cobra"
 )
@@ -36,7 +38,23 @@ func McpConsoleCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 		}
 	}
 
-	client, err := newConsoleClient(transport, targetURL)
+	authToken, _ := cmd.Flags().GetString("auth-token")
+	if authToken == "" {
+		status := clientmcp.GetStatus()
+		if status.AuthToken != "" {
+			authToken = status.AuthToken
+		} else {
+			authInfo, loadErr := clientmcp.LoadAuthInfo()
+			if loadErr == nil {
+				authToken = authInfo.Token
+			} else if !errors.Is(loadErr, os.ErrNotExist) {
+				con.PrintErrorf("%s\n", loadErr)
+				return
+			}
+		}
+	}
+
+	client, err := newConsoleClient(transport, targetURL, authToken)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return
@@ -68,12 +86,19 @@ func McpConsoleCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 	runConsoleREPL(ctx, client, cmd.InOrStdin(), cmd.OutOrStdout())
 }
 
-func newConsoleClient(transport clientmcp.Transport, targetURL string) (*mcpclient.Client, error) {
+func newConsoleClient(transport clientmcp.Transport, targetURL string, authToken string) (*mcpclient.Client, error) {
+	if strings.TrimSpace(authToken) == "" {
+		return nil, fmt.Errorf("mcp auth token is required (use --auth-token or start the local MCP server first)")
+	}
+	headers := map[string]string{
+		clientmcp.AuthHeaderName(): authToken,
+	}
+
 	switch transport {
 	case clientmcp.TransportHTTP:
-		return mcpclient.NewStreamableHttpClient(targetURL)
+		return mcpclient.NewStreamableHttpClient(targetURL, mcptransport.WithHTTPHeaders(headers))
 	case clientmcp.TransportSSE:
-		return mcpclient.NewSSEMCPClient(targetURL)
+		return mcpclient.NewSSEMCPClient(targetURL, mcpclient.WithHeaders(headers))
 	default:
 		return nil, fmt.Errorf("unsupported transport %q", transport)
 	}

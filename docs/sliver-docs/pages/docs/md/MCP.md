@@ -47,6 +47,10 @@ sliver > mcp start --transport http
 
 [*] Starting MCP server (http) on 127.0.0.1:8080
 [*] Endpoint: http://127.0.0.1:8080/mcp
+[*] Auth Header: Authorization
+[*] Auth Token: 6f90c3b3c6058fa59f570e281f3f8d39
 ```
 
-You can use `mcp stop` to stop the server, see `mcp start --help` for additional options when starting the MCP server. Authentication is not yet supported for MCP over HTTP/SSE.
+You can use `mcp stop` to stop the server, see `mcp start --help` for additional options when starting the MCP server.
+
+On first HTTP/SSE use, Sliver generates a random 128-bit token and saves it to `~/.sliver-client/mcp.yaml`. Every MCP HTTP/SSE request must include that token exactly in the `Authorization` header. If `mcp.yaml` already exists, the listener will only start when the token is at least 8 characters long.
