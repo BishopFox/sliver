@@ -53,6 +53,14 @@ const (
 	aiModalKindDeleteConfirm
 	aiModalKindContext
 	aiModalKindNewConversation
+	aiModalKindExperimentalWarning
+)
+
+const (
+	aiExperimentalWarningTitle        = ">>> WARNING >>>"
+	aiExperimentalWarningBody         = "WARNING: This functionality is provided on an EXPERIMENTAL basis and may be UNSAFE or unstable. No guarantees are made regarding reliability or data integrity. Use at your own risk."
+	aiExperimentalWarningCancelLabel  = "I can't read"
+	aiExperimentalWarningConfirmLabel = "I won't be surprised if the model nukes a machine"
 )
 
 const (
@@ -343,13 +351,9 @@ func (m *aiModel) Init() tea.Cmd {
 		}
 	}
 
-	cmds := []tea.Cmd{loadAIStateCmd(m.con, m.ctx.target, "")}
-	if cmd := m.scheduleTranscriptRender(); cmd != nil {
-		cmds = append(cmds, cmd)
-	}
-	cmds = append(cmds, aiWindowPollCmd())
-	if m.listener != nil {
-		cmds = append(cmds, waitForAIConversationEventCmd(m.listener))
+	cmds := []tea.Cmd{aiWindowPollCmd()}
+	if m.modal == nil || m.modal.kind != aiModalKindExperimentalWarning {
+		cmds = append(cmds, m.startAIStartup())
 	}
 	return tea.Batch(cmds...)
 }
@@ -864,6 +868,8 @@ func (m *aiModel) handleModalMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleContextModalKey(msg.Key())
 		case aiModalKindNewConversation:
 			return m.handleNewConversationModalKey(msg.Key())
+		case aiModalKindExperimentalWarning:
+			return m.handleExperimentalWarningModalKey(msg.Key())
 		default:
 			return m.handleInfoModalKey()
 		}
@@ -930,6 +936,47 @@ func (m *aiModel) handleContextModalKey(key tea.Key) (tea.Model, tea.Cmd) {
 	case "q", "c":
 		m.modal = nil
 		return m, nil
+	}
+
+	return m, nil
+}
+
+func (m *aiModel) handleExperimentalWarningModalKey(key tea.Key) (tea.Model, tea.Cmd) {
+	switch key.Code {
+	case tea.KeyEsc:
+		return m, tea.Quit
+	case tea.KeyLeft:
+		m.modal.focus = aiModalFocusCancel
+		return m, nil
+	case tea.KeyRight:
+		m.modal.focus = aiModalFocusConfirm
+		return m, nil
+	case tea.KeyTab:
+		if m.modal.focus == aiModalFocusConfirm {
+			m.modal.focus = aiModalFocusCancel
+		} else {
+			m.modal.focus = aiModalFocusConfirm
+		}
+		return m, nil
+	case tea.KeyEnter:
+		if m.modal.focus == aiModalFocusConfirm {
+			return m.acceptExperimentalWarning()
+		}
+		return m, tea.Quit
+	}
+
+	switch key.Text {
+	case "h":
+		m.modal.focus = aiModalFocusCancel
+		return m, nil
+	case "l":
+		m.modal.focus = aiModalFocusConfirm
+		return m, nil
+	case "q", "n":
+		return m, tea.Quit
+	case "y":
+		m.modal.focus = aiModalFocusConfirm
+		return m.acceptExperimentalWarning()
 	}
 
 	return m, nil
@@ -1109,6 +1156,8 @@ func (m *aiModel) renderModal() string {
 		return m.renderContextModal()
 	case aiModalKindNewConversation:
 		return m.renderNewConversationModal()
+	case aiModalKindExperimentalWarning:
+		return m.renderExperimentalWarningModal()
 	default:
 		return m.renderInfoModal()
 	}
@@ -1224,6 +1273,37 @@ func (m *aiModel) renderNewConversationModal() string {
 	box := lipgloss.NewStyle().
 		Border(lipgloss.DoubleBorder()).
 		BorderForeground(clienttheme.Primary()).
+		Padding(1, 2).
+		Render(strings.Join(lines, "\n"))
+
+	return box
+}
+
+func (m *aiModel) renderExperimentalWarningModal() string {
+	boxWidth := minInt(maxInt(44, m.width-6), 100)
+	bodyWidth := maxInt(24, boxWidth-6)
+	bodyLines := wrapText(m.modal.body, bodyWidth)
+
+	lines := []string{
+		m.styles.danger.Width(bodyWidth).Render(m.modal.title),
+		"",
+	}
+	for _, line := range bodyLines {
+		lines = append(lines, lipgloss.NewStyle().
+			Foreground(clienttheme.Danger()).
+			Width(bodyWidth).
+			Render(line))
+	}
+	lines = append(lines,
+		"",
+		m.renderExperimentalWarningActions(bodyWidth),
+		"",
+		m.styles.subtleText.Width(bodyWidth).Render("tab/h/l: focus  enter: select  esc/q: cancel"),
+	)
+
+	box := lipgloss.NewStyle().
+		Border(lipgloss.DoubleBorder()).
+		BorderForeground(clienttheme.Danger()).
 		Padding(1, 2).
 		Render(strings.Join(lines, "\n"))
 
@@ -1723,6 +1803,37 @@ func (m *aiModel) renderNewConversationActions(width int) string {
 	return lipgloss.Place(width, 1, lipgloss.Center, lipgloss.Center, actions)
 }
 
+func (m *aiModel) renderExperimentalWarningActions(width int) string {
+	cancelStyle := lipgloss.NewStyle().
+		Foreground(clienttheme.DefaultMod(900)).
+		Background(clienttheme.DefaultMod(50)).
+		Padding(0, 1)
+	confirmStyle := lipgloss.NewStyle().
+		Foreground(clienttheme.Danger()).
+		Background(clienttheme.DangerMod(50)).
+		Padding(0, 1)
+
+	switch m.modal.focus {
+	case aiModalFocusConfirm:
+		confirmStyle = confirmStyle.
+			Bold(true).
+			Foreground(clienttheme.DefaultMod(900)).
+			Background(clienttheme.Danger())
+	default:
+		cancelStyle = cancelStyle.
+			Bold(true).
+			Background(clienttheme.DefaultMod(200))
+	}
+
+	actions := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		cancelStyle.Render(aiExperimentalWarningCancelLabel),
+		" ",
+		confirmStyle.Render(aiExperimentalWarningConfirmLabel),
+	)
+	return lipgloss.Place(width, 1, lipgloss.Center, lipgloss.Center, actions)
+}
+
 func (m *aiModel) renderPane(width, height int, focus aiFocus, lines []string) string {
 	innerWidth := innerPaneWidth(width)
 	innerHeight := innerPaneHeight(height)
@@ -1732,6 +1843,17 @@ func (m *aiModel) renderPane(width, height int, focus aiFocus, lines []string) s
 		style = m.styles.paneFocused
 	}
 	return style.Width(width).MaxWidth(width).Height(height).MaxHeight(height).Render(body)
+}
+
+func (m *aiModel) startAIStartup() tea.Cmd {
+	cmds := []tea.Cmd{loadAIStateCmd(m.con, m.ctx.target, "")}
+	if cmd := m.scheduleTranscriptRender(); cmd != nil {
+		cmds = append(cmds, cmd)
+	}
+	if m.listener != nil {
+		cmds = append(cmds, waitForAIConversationEventCmd(m.listener))
+	}
+	return tea.Batch(cmds...)
 }
 
 func (m *aiModel) renderInputLine(width int) string {
@@ -2129,6 +2251,22 @@ func (m *aiModel) showContextModal() (tea.Model, tea.Cmd) {
 	}
 	m.status = "Context opened."
 	return m, nil
+}
+
+func (m *aiModel) showExperimentalWarningModal() {
+	m.modal = &aiModalState{
+		kind:  aiModalKindExperimentalWarning,
+		title: aiExperimentalWarningTitle,
+		body:  aiExperimentalWarningBody,
+		focus: aiModalFocusCancel,
+	}
+}
+
+func (m *aiModel) acceptExperimentalWarning() (tea.Model, tea.Cmd) {
+	m.modal = nil
+	m.loading = true
+	m.status = fallback(m.ctx.status, "Loading AI conversations from the server...")
+	return m, m.startAIStartup()
 }
 
 func (m *aiModel) showNewConversationModal() (tea.Model, tea.Cmd) {
@@ -3586,9 +3724,9 @@ func renderConversationTranscript(width int, conversation *clientpb.AIConversati
 		lines = appendTranscriptContentBlock(lines, renderTranscriptBoxBlockContent(
 			width,
 			messageBlockLabel(conversation, message),
-			strings.ToLower(strings.TrimSpace(message.GetRole())),
+			messageBlockRole(message),
 			meta,
-			renderTranscriptMessageBodyLines(maxInt(1, width-4), message.GetContent()),
+			renderConversationMessageBodyLines(maxInt(1, width-4), message),
 			true,
 		))
 	}

@@ -1528,6 +1528,69 @@ func TestContextModalCancelsOnEscape(t *testing.T) {
 	}
 }
 
+func TestShowExperimentalWarningModalDefaultsToCancelFocus(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+
+	model.showExperimentalWarningModal()
+
+	if model.modal == nil || model.modal.kind != aiModalKindExperimentalWarning {
+		t.Fatalf("expected experimental warning modal, got %+v", model.modal)
+	}
+	if model.modal.title != aiExperimentalWarningTitle {
+		t.Fatalf("unexpected warning title: %q", model.modal.title)
+	}
+	if model.modal.body != aiExperimentalWarningBody {
+		t.Fatalf("unexpected warning body: %q", model.modal.body)
+	}
+	if model.modal.focus != aiModalFocusCancel {
+		t.Fatalf("expected cancel focus by default, got %v", model.modal.focus)
+	}
+}
+
+func TestExperimentalWarningModalCancelsOnEnterFromDefaultFocus(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.showExperimentalWarningModal()
+
+	updated, cmd := model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if updated == nil {
+		t.Fatal("expected model to be returned")
+	}
+	if cmd == nil {
+		t.Fatal("expected cancel action to quit")
+	}
+
+	msg := cmd()
+	if _, ok := msg.(tea.QuitMsg); !ok {
+		t.Fatalf("expected tea.QuitMsg, got %#v", msg)
+	}
+}
+
+func TestExperimentalWarningModalAcceptsAfterTabFocus(t *testing.T) {
+	model := newAIModel(nil, aiContext{status: "Loading AI conversations from the server..."}, nil)
+	model.showExperimentalWarningModal()
+
+	updated, cmd := model.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	if cmd != nil {
+		t.Fatalf("did not expect focus change to queue work, got %v", cmd)
+	}
+	model = updated.(*aiModel)
+	if model.modal == nil || model.modal.focus != aiModalFocusConfirm {
+		t.Fatalf("expected confirm focus, got %+v", model.modal)
+	}
+
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected accept to start AI startup")
+	}
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal != nil {
+		t.Fatalf("expected warning modal to close after accept, got %+v", updatedModel.modal)
+	}
+	if updatedModel.status != "Loading AI conversations from the server..." {
+		t.Fatalf("unexpected status after accept: %q", updatedModel.status)
+	}
+}
+
 func TestModalViewRetainsBackgroundContent(t *testing.T) {
 	model := newAIModel(nil, aiContext{}, nil)
 	model.width = 120
@@ -1615,6 +1678,31 @@ func TestNewConversationModalViewIncludesOverlayContent(t *testing.T) {
 	for _, fragment := range expected {
 		if !strings.Contains(view, fragment) {
 			t.Fatalf("expected new conversation modal view to contain %q, got %q", fragment, view)
+		}
+	}
+}
+
+func TestExperimentalWarningModalViewIncludesDangerContent(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 120
+	model.height = 30
+	model.loading = false
+	model.conversations = []*clientpb.AIConversation{{ID: "conv-1", Title: "Thread"}}
+	model.currentConversation = &clientpb.AIConversation{ID: "conv-1", Title: "Thread"}
+	model.showExperimentalWarningModal()
+
+	view := ansi.Strip(model.View().Content)
+	expected := []string{
+		"Conversations",
+		aiExperimentalWarningTitle,
+		"provided on an EXPERIMENTAL basis",
+		"reliability or data integrity",
+		aiExperimentalWarningCancelLabel,
+		aiExperimentalWarningConfirmLabel,
+	}
+	for _, fragment := range expected {
+		if !strings.Contains(view, fragment) {
+			t.Fatalf("expected warning modal view to contain %q, got %q", fragment, view)
 		}
 	}
 }

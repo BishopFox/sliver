@@ -25,6 +25,7 @@ func AICmd(_ *cobra.Command, con *console.SliverClient, _ []string) {
 	defer con.RemoveEventListener(listenerID)
 
 	model := newAIModel(con, buildAIContext(con), listener)
+	model.showExperimentalWarningModal()
 
 	width, height := 100, 30
 	if w, h, err := term.GetSize(0); err == nil && w > 0 && h > 0 {
