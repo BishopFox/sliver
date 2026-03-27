@@ -267,9 +267,11 @@ type aiToastState struct {
 }
 
 type aiTranscriptContentLine struct {
-	styled          string
-	selectableStart int
-	selectableText  string
+	styled              string
+	selectableStart     int
+	selectableText      string
+	selectablePrefix    string
+	selectableAreaWidth int
 }
 
 func (l aiTranscriptContentLine) selectableWidth() int {
@@ -277,7 +279,7 @@ func (l aiTranscriptContentLine) selectableWidth() int {
 }
 
 func (l aiTranscriptContentLine) hasSelectableText() bool {
-	return l.selectableWidth() > 0
+	return l.selectableAreaWidth > 0 && l.selectableWidth() > 0
 }
 
 type aiTranscriptSelectionPoint struct {
@@ -419,7 +421,10 @@ func newAIStyles() aiStyles {
 			Foreground(clienttheme.Danger()).
 			Bold(true),
 		selection: lipgloss.NewStyle().
-			Reverse(true),
+			Bold(true).
+			Underline(true).
+			Foreground(clienttheme.DefaultMod(900)).
+			Background(clienttheme.WarningMod(200)),
 	}
 }
 
@@ -808,17 +813,17 @@ func (m *aiModel) handleMouseClick(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 			m.transcriptScrollbarDrag = true
 			m.clearTranscriptSelection()
 			m.scrollTranscriptToScrollbarRow(row)
-			m.status = "Conversation focused. Drag the scrollbar, drag to select text, or use the wheel to scroll."
+			m.status = "Conversation focused. Drag the scrollbar, drag across message text to select it, or use the wheel to scroll."
 			return m, nil
 		}
 		m.transcriptScrollbarDrag = false
 		m.clearTranscriptSelection()
 		m.beginTranscriptSelection(mouse.X, mouse.Y)
 		if m.transcriptSelection != nil {
-			m.status = "Selecting transcript text. Release to copy the selection."
+			m.status = "Selecting message text. Release to copy the selection."
 			return m, nil
 		}
-		m.status = "Conversation focused. Drag to select and copy text, drag the scrollbar, or use the wheel to scroll."
+		m.status = "Conversation focused. Drag across message text to select and copy it, drag the scrollbar, or use the wheel to scroll."
 		return m, nil
 
 	default:
@@ -2285,7 +2290,7 @@ func (m *aiModel) footerHints() []string {
 		hints = append(hints, "n: new", "t: thinking", "r: refresh", "q/esc: quit")
 		return hints
 	case aiFocusTranscript:
-		hints := []string{"tab: next", "j/k: scroll", "pgup/pgdn: page", "g/G: ends", "mouse: wheel/select"}
+		hints := []string{"tab: next", "j/k: scroll", "pgup/pgdn: page", "g/G: ends", "mouse: wheel/select text"}
 		if m.deleteTargetConversation() != nil {
 			hints = append(hints, "x: delete")
 		}
@@ -5131,10 +5136,13 @@ func renderTranscriptBoxBlockContent(width int, label, role string, meta []strin
 	for _, line := range contentLines {
 		text := ansi.Strip(line)
 		text = strings.TrimRight(text, " ")
-		rendered := aiTranscriptContentLine{styled: renderTranscriptBoxContentLine(width, styles.border, line)}
+		prefix, paddedContent, contentWidth := renderTranscriptBoxContentParts(width, styles.border, line)
+		rendered := aiTranscriptContentLine{styled: prefix + paddedContent}
 		if selectable && ansi.StringWidth(text) > 0 {
-			rendered.selectableStart = minInt(2, maxInt(0, width-1))
+			rendered.selectableStart = ansi.StringWidth(prefix)
 			rendered.selectableText = text
+			rendered.selectablePrefix = prefix
+			rendered.selectableAreaWidth = contentWidth
 		}
 		lines = append(lines, rendered)
 	}
@@ -5256,15 +5264,20 @@ func renderTranscriptBoxBottomLine(width int, border lipgloss.Style) string {
 }
 
 func renderTranscriptBoxContentLine(width int, border lipgloss.Style, content string) string {
+	prefix, paddedContent, _ := renderTranscriptBoxContentParts(width, border, content)
+	return prefix + paddedContent
+}
+
+func renderTranscriptBoxContentParts(width int, border lipgloss.Style, content string) (string, string, int) {
 	if width <= 0 {
-		return ""
+		return "", "", 0
 	}
 	if width == 1 {
-		return border.Render("│")
+		return border.Render("│"), "", 0
 	}
 
 	contentWidth := width - 2
-	return border.Render("│ ") + padANSIRight(content, contentWidth)
+	return border.Render("│ "), padANSIRight(content, contentWidth), contentWidth
 }
 
 func transcriptSpeakerPalette() []color.Color {
@@ -5449,6 +5462,12 @@ func (m *aiModel) renderVisibleTranscriptLine(content []aiTranscriptContentLine,
 	if !ok {
 		return line.styled
 	}
+	if line.selectablePrefix != "" && line.selectableAreaWidth > 0 {
+		return line.selectablePrefix + padANSIRight(
+			renderSelectedTranscriptText(line.selectableText, start, end, m.styles.selection),
+			line.selectableAreaWidth,
+		)
+	}
 	return highlightANSIRange(line.styled, line.selectableStart+start, line.selectableStart+end, m.styles.selection)
 }
 
@@ -5537,6 +5556,36 @@ func highlightANSIRange(line string, start, end int, style lipgloss.Style) strin
 		return line
 	}
 	suffix := ansi.Cut(line, end, ansi.StringWidth(line))
+	return prefix + style.Render(selected) + suffix
+}
+
+func renderSelectedTranscriptText(text string, start, end int, style lipgloss.Style) string {
+	if start < 0 {
+		start = 0
+	}
+	if end <= start {
+		return text
+	}
+
+	width := ansi.StringWidth(text)
+	if width == 0 {
+		return text
+	}
+
+	if start >= width {
+		return text
+	}
+	end = minInt(end, width)
+	if end <= start {
+		return text
+	}
+
+	prefix := ansi.Cut(text, 0, start)
+	selected := ansi.Cut(text, start, end)
+	suffix := ansi.Cut(text, end, width)
+	if ansi.StringWidth(selected) == 0 {
+		return text
+	}
 	return prefix + style.Render(selected) + suffix
 }
 

@@ -123,6 +123,22 @@ func TestThinkingLevelOptionFocusedStyleUsesDarkerPrimaryShade(t *testing.T) {
 	assertColorEqual(t, model.styles.itemFocused.GetBackground(), clienttheme.PrimaryMod(800))
 }
 
+func TestTranscriptSelectionStyleUsesExplicitHighlightColors(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+
+	if !model.styles.selection.GetBold() {
+		t.Fatal("expected transcript selection style to be bold")
+	}
+	if !model.styles.selection.GetUnderline() {
+		t.Fatal("expected transcript selection style to be underlined")
+	}
+	if model.styles.selection.GetReverse() {
+		t.Fatal("expected transcript selection style to avoid reverse-video highlighting")
+	}
+	assertColorEqual(t, model.styles.selection.GetForeground(), clienttheme.DefaultMod(900))
+	assertColorEqual(t, model.styles.selection.GetBackground(), clienttheme.WarningMod(200))
+}
+
 func TestTranscriptConversationLabelUsesDarkerPrimaryShade(t *testing.T) {
 	styles := transcriptSpeakerStyle("Conversation", "system")
 
@@ -1076,6 +1092,80 @@ func TestTranscriptDragSelectsAndCopiesMessageText(t *testing.T) {
 	}
 	if !strings.Contains(model.status, "Copied") {
 		t.Fatalf("expected transcript selection release to update copy status, got %q", model.status)
+	}
+}
+
+func TestTranscriptSelectionStartsOnlyOnMessageText(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 108
+	model.height = 32
+	model.loading = false
+	model.currentConversation = &clientpb.AIConversation{
+		ID:       "conv-1",
+		Title:    "Thread",
+		Provider: "openai",
+		Model:    "gpt-test",
+		Summary:  "Operator context",
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "assistant", Content: "hello world"},
+		},
+	}
+
+	renderCmd := model.scheduleTranscriptRender()
+	if renderCmd == nil {
+		t.Fatal("expected transcript render command")
+	}
+	msg := renderCmd()
+	renderedMsg, ok := msg.(aiTranscriptRenderedMsg)
+	if !ok {
+		t.Fatalf("expected transcript render message, got %T", msg)
+	}
+
+	updated, _ := model.Update(renderedMsg)
+	model = updated.(*aiModel)
+
+	contentWidth, _ := model.currentTranscriptViewportSize()
+	content := model.renderTranscriptDisplayContent(contentWidth)
+
+	nonSelectableLine := -1
+	selectableLine := -1
+	for idx, line := range content {
+		if selectableLine < 0 && line.hasSelectableText() {
+			selectableLine = idx
+		}
+		if nonSelectableLine < 0 && !line.hasSelectableText() && strings.TrimSpace(ansi.Strip(line.styled)) != "" {
+			nonSelectableLine = idx
+		}
+	}
+	if nonSelectableLine < 0 {
+		t.Fatal("expected transcript to include non-selectable chrome or summary rows")
+	}
+	if selectableLine < 0 {
+		t.Fatal("expected transcript to include selectable message text rows")
+	}
+
+	rect := model.currentPaneRects().transcript
+	baseY := rect.y + 1 + model.transcriptHeaderLineCount()
+	clickX := rect.x + 4
+
+	updated, _ = model.Update(tea.MouseClickMsg{
+		X:      clickX,
+		Y:      baseY + nonSelectableLine,
+		Button: tea.MouseLeft,
+	})
+	model = updated.(*aiModel)
+	if model.transcriptSelection != nil {
+		t.Fatalf("expected non-message transcript rows to ignore selection, got %+v", model.transcriptSelection)
+	}
+
+	updated, _ = model.Update(tea.MouseClickMsg{
+		X:      clickX,
+		Y:      baseY + selectableLine,
+		Button: tea.MouseLeft,
+	})
+	model = updated.(*aiModel)
+	if model.transcriptSelection == nil || !model.transcriptSelection.dragging {
+		t.Fatalf("expected message text row to begin selection, got %+v", model.transcriptSelection)
 	}
 }
 
