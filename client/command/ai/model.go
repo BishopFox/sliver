@@ -292,40 +292,41 @@ type aiTranscriptSelection struct {
 }
 
 type aiModel struct {
-	width                  int
-	height                 int
-	focus                  aiFocus
-	ctx                    aiContext
-	con                    *console.SliverClient
-	listener               <-chan *clientpb.Event
-	providers              []*clientpb.AIProviderConfig
-	config                 *clientpb.AIConfigSummary
-	conversations          []*clientpb.AIConversation
-	currentConversation    *clientpb.AIConversation
-	selectedConversation   int
-	input                  []rune
-	cursor                 int
-	status                 string
-	loading                bool
-	awaitingResponse       bool
-	submittingPrompt       bool
-	pendingPrompt          string
-	modal                  *aiModalState
-	thinkingAnim           *aithinking.Anim
-	submitResults          chan tea.Msg
-	styles                 aiStyles
-	transcriptVersion      int
-	transcriptPendingKey   string
-	transcriptCacheKey     string
-	transcriptCache        string
-	transcriptCacheLines   []string
-	transcriptCacheContent []aiTranscriptContentLine
-	transcriptScroll       int
-	transcriptFollow       bool
-	transcriptSelection    *aiTranscriptSelection
-	targetSelectionOptions []aiTargetSelectionOption
-	toast                  *aiToastState
-	nextToastID            uint64
+	width                   int
+	height                  int
+	focus                   aiFocus
+	ctx                     aiContext
+	con                     *console.SliverClient
+	listener                <-chan *clientpb.Event
+	providers               []*clientpb.AIProviderConfig
+	config                  *clientpb.AIConfigSummary
+	conversations           []*clientpb.AIConversation
+	currentConversation     *clientpb.AIConversation
+	selectedConversation    int
+	input                   []rune
+	cursor                  int
+	status                  string
+	loading                 bool
+	awaitingResponse        bool
+	submittingPrompt        bool
+	pendingPrompt           string
+	modal                   *aiModalState
+	thinkingAnim            *aithinking.Anim
+	submitResults           chan tea.Msg
+	styles                  aiStyles
+	transcriptVersion       int
+	transcriptPendingKey    string
+	transcriptCacheKey      string
+	transcriptCache         string
+	transcriptCacheLines    []string
+	transcriptCacheContent  []aiTranscriptContentLine
+	transcriptScroll        int
+	transcriptFollow        bool
+	transcriptSelection     *aiTranscriptSelection
+	transcriptScrollbarDrag bool
+	targetSelectionOptions  []aiTargetSelectionOption
+	toast                   *aiToastState
+	nextToastID             uint64
 }
 
 func newAIModel(con *console.SliverClient, ctx aiContext, listener <-chan *clientpb.Event) *aiModel {
@@ -788,26 +789,51 @@ func (m *aiModel) handleMouseClick(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 
 	focus, ok := m.paneFocusAt(mouse.X, mouse.Y)
 	if !ok {
+		m.transcriptScrollbarDrag = false
 		return m, nil
 	}
 
 	m.focus = focus
-	if focus == aiFocusTranscript {
+	switch focus {
+	case aiFocusSidebar:
+		m.transcriptScrollbarDrag = false
+		m.clearTranscriptSelection()
+		if idx, ok := m.sidebarConversationIndexAt(mouse.X, mouse.Y); ok {
+			return m, m.selectConversation(idx)
+		}
+		return m, nil
+
+	case aiFocusTranscript:
+		if row, ok := m.transcriptScrollbarRowAt(mouse.X, mouse.Y, false); ok {
+			m.transcriptScrollbarDrag = true
+			m.clearTranscriptSelection()
+			m.scrollTranscriptToScrollbarRow(row)
+			m.status = "Conversation focused. Drag the scrollbar, drag to select text, or use the wheel to scroll."
+			return m, nil
+		}
+		m.transcriptScrollbarDrag = false
 		m.clearTranscriptSelection()
 		m.beginTranscriptSelection(mouse.X, mouse.Y)
 		if m.transcriptSelection != nil {
 			m.status = "Selecting transcript text. Release to copy the selection."
 			return m, nil
 		}
-		m.status = "Conversation focused. Drag to select and copy text, or use the wheel to scroll."
+		m.status = "Conversation focused. Drag to select and copy text, drag the scrollbar, or use the wheel to scroll."
+		return m, nil
+
+	default:
+		m.transcriptScrollbarDrag = false
+		m.clearTranscriptSelection()
 		return m, nil
 	}
-	m.clearTranscriptSelection()
-	return m, nil
 }
 
 func (m *aiModel) handleMouseRelease(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 	if mouse.Button != tea.MouseLeft {
+		return m, nil
+	}
+	if m.transcriptScrollbarDrag {
+		m.transcriptScrollbarDrag = false
 		return m, nil
 	}
 	if m.transcriptSelection == nil || !m.transcriptSelection.dragging {
@@ -834,6 +860,17 @@ func (m *aiModel) handleMouseRelease(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 }
 
 func (m *aiModel) handleMouseMotion(mouse tea.Mouse) (tea.Model, tea.Cmd) {
+	if m.transcriptScrollbarDrag {
+		if mouse.Button != tea.MouseLeft {
+			return m, nil
+		}
+
+		if row, ok := m.transcriptScrollbarRowAt(mouse.X, mouse.Y, true); ok {
+			m.focus = aiFocusTranscript
+			m.scrollTranscriptToScrollbarRow(row)
+		}
+		return m, nil
+	}
 	if m.transcriptSelection == nil || !m.transcriptSelection.dragging {
 		return m, nil
 	}
@@ -2249,7 +2286,7 @@ func (m *aiModel) footerHints() []string {
 		hints = append(hints, "n: new", "t: thinking", "r: refresh", "q/esc: quit")
 		return hints
 	case aiFocusTranscript:
-		hints := []string{"tab: next", "j/k: scroll", "pgup/pgdn: page", "g/G: ends", "mouse: select text"}
+		hints := []string{"tab: next", "j/k: scroll", "pgup/pgdn: page", "g/G: ends", "mouse: wheel/select"}
 		if m.deleteTargetConversation() != nil {
 			hints = append(hints, "x: delete")
 		}
@@ -2541,6 +2578,25 @@ func (m *aiModel) paneFocusAt(x, y int) (aiFocus, bool) {
 	}
 }
 
+func (m *aiModel) sidebarConversationIndexAt(x, y int) (int, bool) {
+	rect := m.currentPaneRects().sidebar
+	if !rect.contains(x, y) || len(m.conversations) == 0 {
+		return 0, false
+	}
+
+	innerY := y - rect.y - 1
+	if innerY <= 0 {
+		return 0, false
+	}
+
+	maxVisible := minInt(len(m.conversations), maxInt(1, innerPaneHeight(rect.height)-1))
+	idx := innerY - 1
+	if idx < 0 || idx >= maxVisible {
+		return 0, false
+	}
+	return idx, true
+}
+
 func (m *aiModel) currentTranscriptPaneSize() (int, int) {
 	_, _, _, bodyHeight := m.layoutHeights()
 
@@ -2692,6 +2748,59 @@ func (m *aiModel) currentTranscriptScrollRange(totalLines, viewportHeight int) (
 	return scroll, minInt(totalLines, scroll+viewportHeight)
 }
 
+func (m *aiModel) transcriptScrollbarRowAt(x, y int, clamp bool) (int, bool) {
+	rect := m.currentPaneRects().transcript
+	if rect.width <= 0 || rect.height <= 0 {
+		return 0, false
+	}
+
+	contentWidth, viewportHeight := m.currentTranscriptViewportSize()
+	if contentWidth <= 0 || viewportHeight <= 0 {
+		return 0, false
+	}
+
+	totalLines := len(m.renderTranscriptDisplayContent(contentWidth))
+	if totalLines <= viewportHeight {
+		return 0, false
+	}
+
+	bodyTopY := rect.y + 1 + m.transcriptHeaderLineCount()
+	bodyBottomY := bodyTopY + viewportHeight - 1
+	if !rect.contains(x, y) {
+		if !clamp || x < rect.x || x >= rect.x+rect.width {
+			return 0, false
+		}
+		y = clampInt(y, bodyTopY, bodyBottomY)
+	}
+
+	innerWidth := innerPaneWidth(rect.width)
+	innerX := x - rect.x - 2
+	if innerX < contentWidth || innerX >= innerWidth {
+		if !clamp {
+			return 0, false
+		}
+		innerX = clampInt(innerX, contentWidth, maxInt(contentWidth, innerWidth-1))
+	}
+
+	innerY := y - rect.y - 1
+	if innerY < m.transcriptHeaderLineCount() {
+		if !clamp {
+			return 0, false
+		}
+		innerY = m.transcriptHeaderLineCount()
+	}
+
+	bodyY := innerY - m.transcriptHeaderLineCount()
+	if bodyY < 0 || bodyY >= viewportHeight {
+		if !clamp {
+			return 0, false
+		}
+		bodyY = clampInt(bodyY, 0, viewportHeight-1)
+	}
+
+	return bodyY, true
+}
+
 func (m *aiModel) renderTranscriptRightEdge(height int) string {
 	if height <= 0 {
 		return ""
@@ -2774,6 +2883,35 @@ func (m *aiModel) scrollTranscript(delta int) {
 	m.transcriptFollow = m.transcriptScroll >= maxScroll
 }
 
+func (m *aiModel) scrollTranscriptToScrollbarRow(row int) {
+	width, viewportHeight := m.currentTranscriptViewportSize()
+	if width <= 0 || viewportHeight <= 0 {
+		return
+	}
+
+	totalLines := len(m.renderTranscriptDisplayContent(width))
+	maxScroll := maxInt(0, totalLines-viewportHeight)
+	if maxScroll == 0 {
+		m.transcriptScroll = 0
+		m.transcriptFollow = true
+		return
+	}
+
+	row = clampInt(row, 0, viewportHeight-1)
+	thumbHeight := maxInt(1, (viewportHeight*viewportHeight+totalLines/2)/totalLines)
+	thumbHeight = minInt(viewportHeight, thumbHeight)
+	trackSpan := maxInt(0, viewportHeight-thumbHeight)
+	if trackSpan == 0 {
+		m.transcriptScroll = maxScroll
+		m.transcriptFollow = true
+		return
+	}
+
+	thumbStart := clampInt(row-thumbHeight/2, 0, trackSpan)
+	m.transcriptScroll = (thumbStart*maxScroll + trackSpan/2) / trackSpan
+	m.transcriptFollow = m.transcriptScroll >= maxScroll
+}
+
 func (m *aiModel) scrollTranscriptPage(delta int) {
 	_, viewportHeight := m.currentTranscriptViewportSize()
 	m.scrollTranscript(delta * maxInt(1, viewportHeight-1))
@@ -2806,14 +2944,28 @@ func (m *aiModel) moveSelection(delta int) tea.Cmd {
 	}
 
 	next := clampInt(m.selectedConversation+delta, 0, len(m.conversations)-1)
-	if next == m.selectedConversation {
+	return m.selectConversation(next)
+}
+
+func (m *aiModel) selectConversation(index int) tea.Cmd {
+	if index < 0 || index >= len(m.conversations) {
 		return nil
 	}
 
-	m.selectedConversation = next
+	target := m.conversations[index]
+	if target == nil || strings.TrimSpace(target.GetID()) == "" {
+		return nil
+	}
+	if index == m.selectedConversation &&
+		m.currentConversation != nil &&
+		strings.TrimSpace(m.currentConversation.GetID()) == strings.TrimSpace(target.GetID()) {
+		return nil
+	}
+
+	m.selectedConversation = index
 	m.loading = true
 	m.status = "Loading conversation..."
-	return loadAIStateCmd(m.con, m.ctx.target, m.conversations[next].GetID())
+	return loadAIStateCmd(m.con, m.ctx.target, target.GetID())
 }
 
 func (m *aiModel) showContextModal() (tea.Model, tea.Cmd) {
@@ -3603,7 +3755,7 @@ func (m *aiModel) layoutName() string {
 func aiView(content string) tea.View {
 	view := tea.NewView(content)
 	view.AltScreen = true
-	view.MouseMode = tea.MouseModeCellMotion
+	view.MouseMode = tea.MouseModeAllMotion
 	return view
 }
 

@@ -20,16 +20,20 @@ package ai
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/termio"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/charmbracelet/colorprofile"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
+
+var openAIProgramTTY = tea.OpenTTY
 
 // AICmd launches the AI conversation TUI.
 func AICmd(_ *cobra.Command, con *console.SliverClient, _ []string) {
@@ -53,14 +57,59 @@ func AICmd(_ *cobra.Command, con *console.SliverClient, _ []string) {
 		width, height = w, h
 	}
 
-	program := tea.NewProgram(
-		model,
+	opts := []tea.ProgramOption{
 		tea.WithWindowSize(width, height),
 		tea.WithColorProfile(colorprofile.TrueColor),
-	)
+	}
+	ttyOpts, cleanup := configureAIProgramTTY()
+	if cleanup != nil {
+		defer cleanup()
+	}
+	opts = append(opts, ttyOpts...)
+
+	program := tea.NewProgram(model, opts...)
 	if _, err := program.Run(); err != nil {
 		con.PrintErrorf("AI TUI error: %s\n", err)
 	}
+}
+
+// Console logging can swap stdout/stderr to pipes so session output can be tee'd
+// to disk. Bubble Tea needs a real TTY output to enable terminal features like
+// mouse reporting, so bind the AI TUI back to the interactive terminal when
+// stdout is no longer the controlling TTY.
+func configureAIProgramTTY() ([]tea.ProgramOption, func()) {
+	stdinTTY := isAITTY(os.Stdin)
+	stdoutTTY := isAITTY(os.Stdout)
+
+	switch {
+	case !stdinTTY || stdoutTTY:
+		return nil, nil
+
+	case isAITTY(termio.InteractiveInput()) && isAITTY(termio.InteractiveOutput()):
+		return []tea.ProgramOption{
+			tea.WithInput(termio.InteractiveInput()),
+			tea.WithOutput(termio.InteractiveOutput()),
+		}, nil
+
+	default:
+		inTTY, outTTY, err := openAIProgramTTY()
+		if err != nil {
+			return nil, nil
+		}
+		return []tea.ProgramOption{
+				tea.WithInput(inTTY),
+				tea.WithOutput(outTTY),
+			}, func() {
+				_ = inTTY.Close()
+				if outTTY != inTTY {
+					_ = outTTY.Close()
+				}
+			}
+	}
+}
+
+func isAITTY(file *os.File) bool {
+	return file != nil && term.IsTerminal(int(file.Fd()))
 }
 
 type aiContext struct {

@@ -782,8 +782,8 @@ func TestTabCyclesVisiblePanesOnly(t *testing.T) {
 
 func TestAIViewEnablesCellMotionMouseReporting(t *testing.T) {
 	view := aiView("hello")
-	if view.MouseMode != tea.MouseModeCellMotion {
-		t.Fatalf("expected AI view mouse mode %v, got %v", tea.MouseModeCellMotion, view.MouseMode)
+	if view.MouseMode != tea.MouseModeAllMotion {
+		t.Fatalf("expected AI view mouse mode %v, got %v", tea.MouseModeAllMotion, view.MouseMode)
 	}
 }
 
@@ -856,6 +856,43 @@ func TestMouseClickSwitchesFocusAcrossPanesStacked(t *testing.T) {
 	}
 }
 
+func TestMouseClickLoadsConversationFromSidebar(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 108
+	model.height = 32
+	model.focus = aiFocusTranscript
+	model.loading = false
+	model.conversations = []*clientpb.AIConversation{
+		{ID: "conv-1", Title: "One"},
+		{ID: "conv-2", Title: "Two"},
+	}
+	model.currentConversation = &clientpb.AIConversation{ID: "conv-1", Title: "One"}
+
+	rect := model.currentPaneRects().sidebar
+	updated, cmd := model.Update(tea.MouseClickMsg{
+		X:      rect.x + rect.width/2,
+		Y:      rect.y + 3,
+		Button: tea.MouseLeft,
+	})
+	if cmd == nil {
+		t.Fatal("expected sidebar click to request conversation loading")
+	}
+
+	updatedModel := updated.(*aiModel)
+	if got := updatedModel.focus; got != aiFocusSidebar {
+		t.Fatalf("expected sidebar click to focus sidebar, got %s", got.String())
+	}
+	if updatedModel.selectedConversation != 1 {
+		t.Fatalf("expected sidebar click to select the second conversation, got %d", updatedModel.selectedConversation)
+	}
+	if !updatedModel.loading {
+		t.Fatal("expected sidebar click to enter loading state")
+	}
+	if updatedModel.status != "Loading conversation..." {
+		t.Fatalf("expected sidebar click to set loading status, got %q", updatedModel.status)
+	}
+}
+
 func TestRenderComposerOmitsInlineControls(t *testing.T) {
 	model := newAIModel(nil, aiContext{}, nil)
 	model.width = 120
@@ -896,7 +933,7 @@ func TestTranscriptFocusKeepsMouseReportingEnabled(t *testing.T) {
 	model.height = 28
 	model.focus = aiFocusTranscript
 	view := model.View()
-	if view.MouseMode != tea.MouseModeCellMotion {
+	if view.MouseMode != tea.MouseModeAllMotion {
 		t.Fatalf("expected transcript focus to keep mouse reporting enabled, got %v", view.MouseMode)
 	}
 }
@@ -1254,6 +1291,101 @@ func TestMouseWheelScrollsTranscriptAndFocusesConversation(t *testing.T) {
 	}
 	if model.transcriptScroll != initialScroll {
 		t.Fatalf("expected wheel-down to restore bottom scroll %d, got %d", initialScroll, model.transcriptScroll)
+	}
+}
+
+func TestTranscriptScrollbarDragScrollsConversation(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 108
+	model.height = 32
+	model.focus = aiFocusSidebar
+	model.loading = false
+
+	messages := make([]*clientpb.AIConversationMessage, 0, 24)
+	for i := 0; i < 24; i++ {
+		messages = append(messages, &clientpb.AIConversationMessage{
+			Role:    "assistant",
+			Content: fmt.Sprintf("Message %02d\n\n- detail", i),
+		})
+	}
+	model.currentConversation = &clientpb.AIConversation{
+		ID:       "conv-1",
+		Title:    "Thread",
+		Provider: "openai",
+		Model:    "gpt-test",
+		Messages: messages,
+	}
+
+	renderCmd := model.scheduleTranscriptRender()
+	if renderCmd == nil {
+		t.Fatal("expected transcript render command")
+	}
+
+	msg := renderCmd()
+	renderedMsg, ok := msg.(aiTranscriptRenderedMsg)
+	if !ok {
+		t.Fatalf("expected transcript render message, got %T", msg)
+	}
+
+	updated, _ := model.Update(renderedMsg)
+	model = updated.(*aiModel)
+	initialScroll := model.transcriptScroll
+	if initialScroll == 0 {
+		t.Fatalf("expected transcript to start pinned near the bottom, got scroll %d", initialScroll)
+	}
+
+	rect := model.currentPaneRects().transcript
+	_, viewportHeight := model.currentTranscriptViewportSize()
+	scrollbarX := rect.x + rect.width - 4
+	topY := rect.y + 1 + model.transcriptHeaderLineCount()
+	bottomY := topY + viewportHeight - 1
+
+	updated, _ = model.Update(tea.MouseClickMsg{
+		X:      scrollbarX,
+		Y:      topY,
+		Button: tea.MouseLeft,
+	})
+	model = updated.(*aiModel)
+	if got := model.focus; got != aiFocusTranscript {
+		t.Fatalf("expected scrollbar click to focus transcript, got %s", got.String())
+	}
+	if !model.transcriptScrollbarDrag {
+		t.Fatal("expected scrollbar click to begin dragging")
+	}
+	if model.transcriptSelection != nil {
+		t.Fatalf("expected scrollbar click to avoid text selection, got %+v", model.transcriptSelection)
+	}
+	if model.transcriptFollow {
+		t.Fatal("expected scrollbar click near the top to disable follow mode")
+	}
+	if model.transcriptScroll >= initialScroll {
+		t.Fatalf("expected scrollbar click near the top to move upward from %d, got %d", initialScroll, model.transcriptScroll)
+	}
+
+	updated, _ = model.Update(tea.MouseMotionMsg{
+		X:      scrollbarX,
+		Y:      bottomY,
+		Button: tea.MouseLeft,
+	})
+	model = updated.(*aiModel)
+	if !model.transcriptFollow {
+		t.Fatal("expected dragging scrollbar to the bottom to restore follow mode")
+	}
+	if model.transcriptScroll != initialScroll {
+		t.Fatalf("expected scrollbar drag to restore bottom scroll %d, got %d", initialScroll, model.transcriptScroll)
+	}
+
+	updated, cmd := model.Update(tea.MouseReleaseMsg{
+		X:      scrollbarX,
+		Y:      bottomY,
+		Button: tea.MouseLeft,
+	})
+	model = updated.(*aiModel)
+	if cmd != nil {
+		t.Fatalf("did not expect scrollbar release to issue clipboard work, got %v", cmd)
+	}
+	if model.transcriptScrollbarDrag {
+		t.Fatal("expected scrollbar drag to stop on release")
 	}
 }
 
