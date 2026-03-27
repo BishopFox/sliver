@@ -710,7 +710,7 @@ func (m *aiModel) handleMouseClick(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 	m.focus = focus
 	if focus == aiFocusTranscript {
 		m.clearTranscriptSelection()
-		m.status = "Conversation focused. Drag again in your terminal to select and copy text."
+		m.status = "Conversation focused. Drag to select and copy text, or use the wheel to scroll."
 		return m, nil
 	}
 	m.clearTranscriptSelection()
@@ -1264,9 +1264,6 @@ func (m *aiModel) View() tea.View {
 			content = m.renderModalOverlay(content)
 		}
 		view := aiView(content)
-		if m.focus == aiFocusTranscript {
-			view.MouseMode = tea.MouseModeNone
-		}
 		return view
 	}
 
@@ -1284,9 +1281,6 @@ func (m *aiModel) View() tea.View {
 	}
 	frame = clampANSIBlock(frame, m.width, m.height)
 	view := aiView(frame)
-	if m.focus == aiFocusTranscript {
-		view.MouseMode = tea.MouseModeNone
-	}
 	return view
 }
 
@@ -3132,6 +3126,7 @@ func (m *aiModel) layoutName() string {
 func aiView(content string) tea.View {
 	view := tea.NewView(content)
 	view.AltScreen = true
+	view.MouseMode = tea.MouseModeCellMotion
 	return view
 }
 
@@ -4315,6 +4310,7 @@ func renderTranscriptSectionBlockContent(width int, label, role string, meta []s
 }
 
 func transcriptSpeakerStyle(label, role string) transcriptSpeakerStyles {
+	label = strings.TrimSpace(label)
 	role = strings.ToLower(strings.TrimSpace(role))
 	if role == "user" {
 		accent := clienttheme.Primary()
@@ -4338,6 +4334,18 @@ func transcriptSpeakerStyle(label, role string) transcriptSpeakerStyles {
 				Background(clienttheme.DefaultMod(700)).
 				Padding(0, 1),
 			meta: lipgloss.NewStyle().Foreground(clienttheme.DefaultMod(500)),
+		}
+	}
+	if role == "system" && strings.EqualFold(label, "Conversation") {
+		accent := clienttheme.PrimaryMod(200)
+		return transcriptSpeakerStyles{
+			border: lipgloss.NewStyle().Foreground(accent),
+			label: lipgloss.NewStyle().
+				Bold(true).
+				Foreground(clienttheme.DefaultMod(900)).
+				Background(accent).
+				Padding(0, 1),
+			meta: lipgloss.NewStyle().Foreground(accent),
 		}
 	}
 

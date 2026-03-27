@@ -123,6 +123,13 @@ func TestThinkingLevelOptionFocusedStyleUsesDarkerPrimaryShade(t *testing.T) {
 	assertColorEqual(t, model.styles.itemFocused.GetBackground(), clienttheme.PrimaryMod(800))
 }
 
+func TestTranscriptConversationLabelUsesDarkerPrimaryShade(t *testing.T) {
+	styles := transcriptSpeakerStyle("Conversation", "system")
+
+	assertColorEqual(t, styles.label.GetBackground(), clienttheme.PrimaryMod(200))
+	assertColorEqual(t, styles.label.GetForeground(), clienttheme.DefaultMod(900))
+}
+
 func TestBuildConversationMarkdownWithoutConversationAvoidsKeyHints(t *testing.T) {
 	markdown := buildConversationMarkdown(nil)
 	if strings.Contains(markdown, "`n`") {
@@ -770,10 +777,10 @@ func TestTabCyclesVisiblePanesOnly(t *testing.T) {
 	}
 }
 
-func TestAIViewLeavesMouseSelectionToTerminal(t *testing.T) {
+func TestAIViewEnablesCellMotionMouseReporting(t *testing.T) {
 	view := aiView("hello")
-	if view.MouseMode != tea.MouseModeNone {
-		t.Fatalf("expected AI view mouse mode %v, got %v", tea.MouseModeNone, view.MouseMode)
+	if view.MouseMode != tea.MouseModeCellMotion {
+		t.Fatalf("expected AI view mouse mode %v, got %v", tea.MouseModeCellMotion, view.MouseMode)
 	}
 }
 
@@ -880,14 +887,14 @@ func TestComposerPasteMsgInsertsAtCursor(t *testing.T) {
 	}
 }
 
-func TestTranscriptFocusDisablesMouseForNativeSelection(t *testing.T) {
+func TestTranscriptFocusKeepsMouseReportingEnabled(t *testing.T) {
 	model := newAIModel(nil, aiContext{}, nil)
 	model.width = 108
 	model.height = 28
 	model.focus = aiFocusTranscript
 	view := model.View()
-	if view.MouseMode != tea.MouseModeNone {
-		t.Fatalf("expected transcript focus to disable mouse reporting, got %v", view.MouseMode)
+	if view.MouseMode != tea.MouseModeCellMotion {
+		t.Fatalf("expected transcript focus to keep mouse reporting enabled, got %v", view.MouseMode)
 	}
 }
 
@@ -906,8 +913,8 @@ func TestTranscriptClickPromptsNativeSelection(t *testing.T) {
 	if got := model.focus; got != aiFocusTranscript {
 		t.Fatalf("expected transcript click to focus transcript, got %s", got.String())
 	}
-	if !strings.Contains(model.status, "Drag again") {
-		t.Fatalf("expected transcript click to explain native selection flow, got %q", model.status)
+	if !strings.Contains(model.status, "wheel to scroll") {
+		t.Fatalf("expected transcript click to explain transcript mouse interactions, got %q", model.status)
 	}
 }
 
