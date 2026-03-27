@@ -3,8 +3,11 @@ package console
 import (
 	"bytes"
 	"os"
+	"sync"
 	"testing"
 	"time"
+
+	consts "github.com/bishopfox/sliver/client/constants"
 )
 
 func TestDrainStdoutPipeBufferStripsSyncFrames(t *testing.T) {
@@ -100,5 +103,35 @@ func TestSyncOutputWaitsForPipeDrain(t *testing.T) {
 
 	if got.String() != "hello world" {
 		t.Fatalf("unexpected final output %q", got.String())
+	}
+}
+
+func TestSuppressEventNotificationsRedirectsMessagesToListeners(t *testing.T) {
+	con := &SliverClient{
+		EventListeners: &sync.Map{},
+		printf:         func(string, ...any) (int, error) { return 0, nil },
+	}
+
+	listenerID, listener := con.CreateEventListener()
+	defer con.RemoveEventListener(listenerID)
+
+	restore := con.SuppressEventNotifications()
+	defer restore()
+
+	con.emitConsoleNotification("info", true, "Session %s connected", "alpha")
+
+	select {
+	case event := <-listener:
+		if event.GetEventType() != consts.ClientToastEvent {
+			t.Fatalf("expected toast event, got %q", event.GetEventType())
+		}
+		if got := string(event.GetData()); got != "Session alpha connected" {
+			t.Fatalf("unexpected toast payload %q", got)
+		}
+		if got := event.GetErr(); got != "info" {
+			t.Fatalf("unexpected toast level %q", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for redirected event notification")
 	}
 }

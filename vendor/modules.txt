@@ -10,6 +10,7 @@ charm.land/bubbles/v2/internal/memoization
 charm.land/bubbles/v2/internal/runeutil
 charm.land/bubbles/v2/key
 charm.land/bubbles/v2/paginator
+charm.land/bubbles/v2/progress
 charm.land/bubbles/v2/spinner
 charm.land/bubbles/v2/textarea
 charm.land/bubbles/v2/textinput

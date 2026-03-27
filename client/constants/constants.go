@@ -119,6 +119,9 @@ const (
 
 	// AIConversationEvent - Fires whenever an AI conversation or message changes.
 	AIConversationEvent = "ai-conversation"
+
+	// ClientToastEvent - Local-only event used to surface console notifications inside TUIs.
+	ClientToastEvent = "client-toast"
 )
 
 // Commands.

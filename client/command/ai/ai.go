@@ -25,6 +25,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/charmbracelet/colorprofile"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -41,6 +42,8 @@ func AICmd(_ *cobra.Command, con *console.SliverClient, _ []string) {
 
 	listenerID, listener := con.CreateEventListener()
 	defer con.RemoveEventListener(listenerID)
+	restoreEventNotifications := con.SuppressEventNotifications()
+	defer restoreEventNotifications()
 
 	model := newAIModel(con, buildAIContext(con), listener)
 	model.showExperimentalWarningModal()
@@ -85,16 +88,64 @@ type aiConnectionSummary struct {
 	State    string
 }
 
+func defaultAITargetSummary() aiTargetSummary {
+	return aiTargetSummary{
+		Label: "No active target",
+		Host:  "Select a session or beacon with `use` or ctrl+s",
+		Mode:  "offline preview",
+		C2:    "n/a",
+		OS:    "unknown",
+		Arch:  "unknown",
+	}
+}
+
+func aiSessionTargetSummary(session *clientpb.Session) aiTargetSummary {
+	if session == nil {
+		return defaultAITargetSummary()
+	}
+
+	return aiTargetSummary{
+		SessionID: session.ID,
+		Label:     fmt.Sprintf("Session %s", fallback(session.Name, session.ID)),
+		Host:      fallback(session.Hostname, "<unknown host>"),
+		OS:        fallback(session.OS, "unknown"),
+		Arch:      fallback(session.Arch, "unknown"),
+		C2:        fallback(session.ActiveC2, "unknown"),
+		Mode:      "interactive session",
+		Details: []string{
+			fmt.Sprintf("User: %s", fallback(session.Username, "<unknown>")),
+			fmt.Sprintf("PID: %d", session.PID),
+			fmt.Sprintf("Remote: %s", fallback(session.RemoteAddress, "<unknown>")),
+		},
+	}
+}
+
+func aiBeaconTargetSummary(beacon *clientpb.Beacon) aiTargetSummary {
+	if beacon == nil {
+		return defaultAITargetSummary()
+	}
+
+	return aiTargetSummary{
+		BeaconID: beacon.ID,
+		Label:    fmt.Sprintf("Beacon %s", fallback(beacon.Name, beacon.ID)),
+		Host:     fallback(beacon.Hostname, "<unknown host>"),
+		OS:       fallback(beacon.OS, "unknown"),
+		Arch:     fallback(beacon.Arch, "unknown"),
+		C2:       fallback(beacon.ActiveC2, "unknown"),
+		Mode:     "asynchronous beacon",
+		Details: []string{
+			fmt.Sprintf("User: %s", fallback(beacon.Username, "<unknown>")),
+			fmt.Sprintf("PID: %d", beacon.PID),
+			fmt.Sprintf("Remote: %s", fallback(beacon.RemoteAddress, "<unknown>")),
+			fmt.Sprintf("Interval: %s", time.Duration(beacon.Interval).String()),
+			fmt.Sprintf("Next checkin: %s", formatUnix(beacon.NextCheckin)),
+		},
+	}
+}
+
 func buildAIContext(con *console.SliverClient) aiContext {
 	ctx := aiContext{
-		target: aiTargetSummary{
-			Label: "No active target",
-			Host:  "Select a session or beacon with `use`",
-			Mode:  "offline preview",
-			C2:    "n/a",
-			OS:    "unknown",
-			Arch:  "unknown",
-		},
+		target: defaultAITargetSummary(),
 		connection: aiConnectionSummary{
 			Profile:  "<disconnected>",
 			Server:   "<unknown>",
@@ -117,35 +168,9 @@ func buildAIContext(con *console.SliverClient) aiContext {
 		session, beacon := con.ActiveTarget.Get()
 		switch {
 		case session != nil:
-			ctx.target = aiTargetSummary{
-				SessionID: session.ID,
-				Label:     fmt.Sprintf("Session %s", fallback(session.Name, session.ID)),
-				Host:      fallback(session.Hostname, "<unknown host>"),
-				OS:        fallback(session.OS, "unknown"),
-				Arch:      fallback(session.Arch, "unknown"),
-				C2:        fallback(session.ActiveC2, "unknown"),
-				Mode:      "interactive session",
-				Details: []string{
-					fmt.Sprintf("User: %s", fallback(session.Username, "<unknown>")),
-					fmt.Sprintf("PID: %d", session.PID),
-					fmt.Sprintf("Remote: %s", fallback(session.RemoteAddress, "<unknown>")),
-				},
-			}
+			ctx.target = aiSessionTargetSummary(session)
 		case beacon != nil:
-			ctx.target = aiTargetSummary{
-				BeaconID: beacon.ID,
-				Label:    fmt.Sprintf("Beacon %s", fallback(beacon.Name, beacon.ID)),
-				Host:     fallback(beacon.Hostname, "<unknown host>"),
-				OS:       fallback(beacon.OS, "unknown"),
-				Arch:     fallback(beacon.Arch, "unknown"),
-				C2:       fallback(beacon.ActiveC2, "unknown"),
-				Mode:     "asynchronous beacon",
-				Details: []string{
-					fmt.Sprintf("User: %s", fallback(beacon.Username, "<unknown>")),
-					fmt.Sprintf("Interval: %s", time.Duration(beacon.Interval).String()),
-					fmt.Sprintf("Next checkin: %s", formatUnix(beacon.NextCheckin)),
-				},
-			}
+			ctx.target = aiBeaconTargetSummary(beacon)
 		}
 	}
 

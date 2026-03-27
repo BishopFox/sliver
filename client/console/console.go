@@ -29,6 +29,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bishopfox/sliver/client/assets"
@@ -99,6 +100,7 @@ type SliverClient struct {
 	connWg                 *sync.WaitGroup
 	connectionHooksApplied bool
 	logCommandHookApplied  bool
+	suppressedEventNotifs  atomic.Int32
 
 	// These writers are always safe to use (never error); the underlying stream
 	// can be swapped on server switch to avoid breaking io.MultiWriter/io.Copy.
@@ -352,8 +354,20 @@ func (con *SliverClient) startEventLoop(ctx context.Context) {
 		switch event.EventType {
 
 		case consts.CanaryEvent:
-			con.PrintEventErrorf("%s %s has been burned (DNS Canary)", StyleBold.Render("WARNING:"), event.Session.Name)
 			sessions := con.GetSessionsByName(event.Session.Name)
+			if con.eventNotificationsSuppressed() {
+				affected := make([]string, 0, len(sessions))
+				for _, session := range sessions {
+					affected = append(affected, strings.Split(session.ID, "-")[0])
+				}
+				message := fmt.Sprintf("%s %s has been burned (DNS Canary)", StyleBold.Render("WARNING:"), event.Session.Name)
+				if len(affected) > 0 {
+					message += " Affected sessions: " + strings.Join(affected, ", ")
+				}
+				con.emitToastEvent("error", message)
+				break
+			}
+			con.PrintEventErrorf("%s %s has been burned (DNS Canary)", StyleBold.Render("WARNING:"), event.Session.Name)
 			for _, session := range sessions {
 				shortID := strings.Split(session.ID, "-")[0]
 				con.PrintErrorf("\t🔥 Session %s is affected", shortID)
@@ -361,8 +375,20 @@ func (con *SliverClient) startEventLoop(ctx context.Context) {
 
 		case consts.WatchtowerEvent:
 			msg := string(event.Data)
-			con.PrintEventErrorf("%s %s has been burned (seen on %s)", StyleBold.Render("WARNING:"), event.Session.Name, msg)
 			sessions := con.GetSessionsByName(event.Session.Name)
+			if con.eventNotificationsSuppressed() {
+				affected := make([]string, 0, len(sessions))
+				for _, session := range sessions {
+					affected = append(affected, strings.Split(session.ID, "-")[0])
+				}
+				message := fmt.Sprintf("%s %s has been burned (seen on %s)", StyleBold.Render("WARNING:"), event.Session.Name, msg)
+				if len(affected) > 0 {
+					message += " Affected sessions: " + strings.Join(affected, ", ")
+				}
+				con.emitToastEvent("error", message)
+				break
+			}
+			con.PrintEventErrorf("%s %s has been burned (seen on %s)", StyleBold.Render("WARNING:"), event.Session.Name, msg)
 			for _, session := range sessions {
 				shortID := strings.Split(session.ID, "-")[0]
 				con.PrintErrorf("\t🔥 Session %s is affected", shortID)
@@ -370,42 +396,42 @@ func (con *SliverClient) startEventLoop(ctx context.Context) {
 
 		case consts.JoinedEvent:
 			if con.Settings.UserConnect {
-				con.PrintInfof("%s has joined the game", event.Client.Operator.Name)
+				con.emitConsoleNotification("info", false, "%s has joined the game", event.Client.Operator.Name)
 			}
 		case consts.LeftEvent:
 			if con.Settings.UserConnect {
-				con.PrintInfof("%s left the game", event.Client.Operator.Name)
+				con.emitConsoleNotification("info", false, "%s left the game", event.Client.Operator.Name)
 			}
 
 		case consts.JobStoppedEvent:
 			job := event.Job
-			con.PrintErrorf("Job #%d stopped (%s/%s)", job.ID, job.Protocol, job.Name)
+			con.emitConsoleNotification("error", false, "Job #%d stopped (%s/%s)", job.ID, job.Protocol, job.Name)
 
 		case consts.SessionOpenedEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
 			shortID := strings.Split(session.ID, "-")[0]
-			con.PrintEventInfof("Session %s %s - %s (%s) - %s/%s - %v",
+			con.emitConsoleNotification("info", true, "Session %s %s - %s (%s) - %s/%s - %v",
 				shortID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 
 		case consts.SessionUpdateEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
 			shortID := strings.Split(session.ID, "-")[0]
-			con.PrintInfof("Session %s has been updated - %v", shortID, currentTime)
+			con.emitConsoleNotification("info", false, "Session %s has been updated - %v", shortID, currentTime)
 
 		case consts.SessionClosedEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
 			shortID := strings.Split(session.ID, "-")[0]
-			con.PrintEventErrorf("Lost session %s %s - %s (%s) - %s/%s - %v",
+			con.emitConsoleNotification("error", true, "Lost session %s %s - %s (%s) - %s/%s - %v",
 				shortID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 			activeSession := con.ActiveTarget.GetSession()
 			core.GetTunnels().CloseForSession(session.ID)
 			core.CloseCursedProcesses(session.ID)
 			if activeSession != nil && activeSession.ID == session.ID {
 				con.ActiveTarget.Set(nil, nil)
-				con.PrintErrorf("Active session disconnected")
+				con.emitConsoleNotification("error", false, "Active session disconnected")
 			}
 
 		case consts.BeaconRegisteredEvent:
@@ -413,7 +439,7 @@ func (con *SliverClient) startEventLoop(ctx context.Context) {
 			proto.Unmarshal(event.Data, beacon)
 			currentTime := time.Now().Format(time.RFC1123)
 			shortID := strings.Split(beacon.ID, "-")[0]
-			con.PrintEventInfof("Beacon %s %s - %s (%s) - %s/%s - %v",
+			con.emitConsoleNotification("info", true, "Beacon %s %s - %s (%s) - %s/%s - %v",
 				shortID, beacon.Name, beacon.RemoteAddress, beacon.Hostname, beacon.OS, beacon.Arch, currentTime)
 
 		case consts.BeaconTaskResultEvent:
@@ -431,6 +457,66 @@ func (con *SliverClient) CreateEventListener() (string, <-chan *clientpb.Event) 
 	listenerID, _ := uuid.NewV4()
 	con.EventListeners.Store(listenerID.String(), listener)
 	return listenerID.String(), listener
+}
+
+// SuppressEventNotifications redirects console event messages to local listeners instead of stdout.
+func (con *SliverClient) SuppressEventNotifications() func() {
+	if con == nil {
+		return func() {}
+	}
+	con.suppressedEventNotifs.Add(1)
+	return func() {
+		if con == nil {
+			return
+		}
+		if con.suppressedEventNotifs.Add(-1) < 0 {
+			con.suppressedEventNotifs.Store(0)
+		}
+	}
+}
+
+func (con *SliverClient) eventNotificationsSuppressed() bool {
+	return con != nil && con.suppressedEventNotifs.Load() > 0
+}
+
+func (con *SliverClient) emitToastEvent(level string, message string) {
+	if con == nil || con.EventListeners == nil || strings.TrimSpace(message) == "" {
+		return
+	}
+	con.triggerEventListeners(&clientpb.Event{
+		EventType: consts.ClientToastEvent,
+		Data:      []byte(message),
+		Err:       strings.TrimSpace(level),
+	})
+}
+
+func (con *SliverClient) emitConsoleNotification(level string, emphasized bool, format string, args ...any) {
+	message := fmt.Sprintf(format, args...)
+	if con.eventNotificationsSuppressed() {
+		con.emitToastEvent(level, message)
+		return
+	}
+
+	switch strings.ToLower(strings.TrimSpace(level)) {
+	case "error", "warn", "warning":
+		if emphasized {
+			con.PrintEventErrorf("%s", message)
+		} else {
+			con.PrintErrorf("%s", message)
+		}
+	case "success":
+		if emphasized {
+			con.PrintEventSuccessf("%s", message)
+		} else {
+			con.PrintSuccessf("%s", message)
+		}
+	default:
+		if emphasized {
+			con.PrintEventInfof("%s", message)
+		} else {
+			con.PrintInfof("%s", message)
+		}
+	}
 }
 
 // RemoveEventListener - removes an event listener given its id.
@@ -477,10 +563,10 @@ func (con *SliverClient) triggerReactions(event *clientpb.Event) {
 
 	for _, reaction := range reactions {
 		for _, line := range reaction.Commands {
-			con.PrintInfof("%s '%s'", StyleBold.Render("Execute reaction:"), line)
+			con.emitConsoleNotification("info", false, "%s '%s'", StyleBold.Render("Execute reaction:"), line)
 			err := con.App.ActiveMenu().RunCommandLine(context.Background(), line)
 			if err != nil {
-				con.PrintErrorf("Reaction command error: %s\n", err)
+				con.emitConsoleNotification("error", false, "Reaction command error: %s", err)
 			}
 		}
 	}

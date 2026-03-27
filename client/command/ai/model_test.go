@@ -747,11 +747,14 @@ func TestRenderFooterUsesPaneSpecificControls(t *testing.T) {
 
 	model.focus = aiFocusComposer
 	footer = ansi.Strip(model.renderFooter())
-	expected = []string{"focus: composer", "tab: sidebar", "enter: send", "/exit: quit", "ctrl+o: context", "ctrl+t: thinking", "ctrl+u: clear", "esc: blur", "ctrl+c: quit"}
+	expected = []string{"focus: composer", "tab: sidebar", "enter: send", "/exit: quit", "ctrl+o: context", "ctrl+s: target", "ctrl+t: thinking", "ctrl+u: clear", "ctrl+c: quit"}
 	for _, fragment := range expected {
 		if !strings.Contains(footer, fragment) {
 			t.Fatalf("expected composer footer to contain %q, got %q", fragment, footer)
 		}
+	}
+	if strings.Contains(footer, "esc: blur") {
+		t.Fatalf("expected composer footer to omit esc blur control, got %q", footer)
 	}
 	if strings.Contains(footer, "x: delete") {
 		t.Fatalf("expected composer footer to avoid sidebar controls, got %q", footer)
@@ -898,6 +901,53 @@ func TestTranscriptFocusKeepsMouseReportingEnabled(t *testing.T) {
 	}
 }
 
+func TestAIToastMessageShowsAndExpires(t *testing.T) {
+	listener := make(chan *clientpb.Event)
+	model := newAIModel(nil, aiContext{}, listener)
+	model.width = 108
+	model.height = 28
+
+	updated, cmd := model.Update(aiToastMsg{
+		level:   "info",
+		message: "Session alpha connected",
+	})
+	if cmd == nil {
+		t.Fatal("expected toast message to schedule follow-up work")
+	}
+
+	model = updated.(*aiModel)
+	if model.toast == nil {
+		t.Fatal("expected toast state to be set")
+	}
+	if model.toast.message != "Session alpha connected" {
+		t.Fatalf("unexpected toast message %+v", model.toast)
+	}
+	if model.toast.createdAt.IsZero() || model.toast.expiresAt.IsZero() {
+		t.Fatalf("expected toast timing metadata to be populated, got %+v", model.toast)
+	}
+	if got := model.toast.expiresAt.Sub(model.toast.createdAt); got != aiToastDuration {
+		t.Fatalf("expected toast duration %v, got %v", aiToastDuration, got)
+	}
+
+	view := ansi.Strip(model.View().Content)
+	if !strings.Contains(view, "Session alpha connected") {
+		t.Fatalf("expected toast message in rendered view, got %q", view)
+	}
+	if !strings.Contains(view, "left") {
+		t.Fatalf("expected toast to render time left text, got %q", view)
+	}
+	if !strings.Contains(view, "█") {
+		t.Fatalf("expected toast to render a progress bar, got %q", view)
+	}
+
+	toastID := model.toast.id
+	updated, _ = model.Update(aiToastExpiredMsg{id: toastID})
+	model = updated.(*aiModel)
+	if model.toast != nil {
+		t.Fatalf("expected toast to clear after expiry, got %+v", model.toast)
+	}
+}
+
 func TestTranscriptClickPromptsNativeSelection(t *testing.T) {
 	model := newAIModel(nil, aiContext{}, nil)
 	model.width = 108
@@ -915,6 +965,75 @@ func TestTranscriptClickPromptsNativeSelection(t *testing.T) {
 	}
 	if !strings.Contains(model.status, "wheel to scroll") {
 		t.Fatalf("expected transcript click to explain transcript mouse interactions, got %q", model.status)
+	}
+}
+
+func TestTranscriptDragSelectsAndCopiesMessageText(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 108
+	model.height = 32
+	model.loading = false
+	model.currentConversation = &clientpb.AIConversation{
+		ID:       "conv-1",
+		Title:    "Thread",
+		Provider: "openai",
+		Model:    "gpt-test",
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "assistant", Content: "hello world"},
+		},
+	}
+
+	renderCmd := model.scheduleTranscriptRender()
+	if renderCmd == nil {
+		t.Fatal("expected transcript render command")
+	}
+	msg := renderCmd()
+	renderedMsg, ok := msg.(aiTranscriptRenderedMsg)
+	if !ok {
+		t.Fatalf("expected transcript render message, got %T", msg)
+	}
+
+	updated, _ := model.Update(renderedMsg)
+	model = updated.(*aiModel)
+	rect := model.currentPaneRects().transcript
+	startX := rect.x + 4
+	endX := rect.x + 8
+	contentY := rect.y + 4
+
+	updated, _ = model.Update(tea.MouseClickMsg{
+		X:      startX,
+		Y:      contentY,
+		Button: tea.MouseLeft,
+	})
+	model = updated.(*aiModel)
+	if model.transcriptSelection == nil || !model.transcriptSelection.dragging {
+		t.Fatalf("expected transcript drag selection to start, got %+v", model.transcriptSelection)
+	}
+
+	updated, _ = model.Update(tea.MouseMotionMsg{
+		X:      endX,
+		Y:      contentY,
+		Button: tea.MouseLeft,
+	})
+	model = updated.(*aiModel)
+	if selected := strings.TrimSpace(model.selectedTranscriptText()); selected != "hel" {
+		t.Fatalf("expected transcript selection %q, got %q", "hel", selected)
+	}
+
+	updated, cmd := model.Update(tea.MouseReleaseMsg{
+		X:      endX,
+		Y:      contentY,
+		Button: tea.MouseLeft,
+	})
+	model = updated.(*aiModel)
+	if cmd == nil {
+		t.Fatal("expected transcript mouse release to issue a clipboard command")
+	}
+	if selected := strings.TrimSpace(model.selectedTranscriptText()); selected != "hel" {
+		t.Fatalf("expected transcript selection to remain available after release, got %q", selected)
+	}
+	if !strings.Contains(model.status, "Copied") {
+		t.Fatalf("expected transcript selection release to update copy status, got %q", model.status)
 	}
 }
 
@@ -1435,6 +1554,75 @@ func TestComposerCtrlTOpensThinkingModal(t *testing.T) {
 	}
 }
 
+func TestComposerEscDoesNotBlurConversation(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.focus = aiFocusComposer
+
+	updated, cmd := model.handleComposerKey(tea.Key{Code: tea.KeyEsc})
+	if cmd != nil {
+		t.Fatalf("did not expect esc to queue work, got %v", cmd)
+	}
+	if got := updated.(*aiModel).focus; got != aiFocusComposer {
+		t.Fatalf("expected esc to leave composer focus unchanged, got %s", got.String())
+	}
+}
+
+func TestComposerCtrlSOpensTargetSelectModal(t *testing.T) {
+	server := &aiRPCServer{
+		sessionsResp: &clientpb.Sessions{
+			Sessions: []*clientpb.Session{
+				{ID: "session-1", Name: "alpha", Hostname: "alpha-host", Username: "alice", OS: "linux", Arch: "amd64", ActiveC2: "mtls", RemoteAddress: "10.0.0.1:31337", PID: 1111},
+			},
+		},
+		beaconsResp: &clientpb.Beacons{
+			Beacons: []*clientpb.Beacon{
+				{ID: "beacon-1", Name: "bravo", Hostname: "bravo-host", Username: "bob", OS: "windows", Arch: "amd64", ActiveC2: "https", RemoteAddress: "10.0.0.2:443", PID: 2222, Interval: int64(time.Minute), NextCheckin: time.Now().Add(2 * time.Minute).Unix()},
+			},
+		},
+	}
+
+	rpcClient, cleanup := newAITestRPCClient(t, server)
+	defer cleanup()
+
+	model := newAIModel(&console.SliverClient{Rpc: rpcClient}, aiContext{
+		target: aiTargetSummary{SessionID: "session-1", Label: "Session alpha"},
+	}, nil)
+	model.focus = aiFocusComposer
+	model.loading = false
+	model.currentConversation = &clientpb.AIConversation{ID: "conv-1", Title: "Thread", TargetSessionID: "session-1"}
+
+	updated, cmd := model.handleComposerKey(tea.Key{Code: 's', Mod: tea.ModCtrl})
+	if cmd == nil {
+		t.Fatal("expected ctrl+s to load target options")
+	}
+
+	model = updated.(*aiModel)
+	if model.modal == nil || model.modal.kind != aiModalKindTargetSelect {
+		t.Fatalf("expected target selection modal, got %+v", model.modal)
+	}
+	if model.modal.title != "Active Target" {
+		t.Fatalf("expected target modal title, got %+v", model.modal)
+	}
+
+	msg := cmd()
+	updated, _ = model.Update(msg)
+	model = updated.(*aiModel)
+	if len(model.targetSelectionOptions) != 2 {
+		t.Fatalf("expected session and beacon options, got %d", len(model.targetSelectionOptions))
+	}
+	if model.modal.selectedOption != 0 {
+		t.Fatalf("expected active session to be preselected, got %d", model.modal.selectedOption)
+	}
+
+	rendered := ansi.Strip(model.renderTargetSelectModal())
+	if !strings.Contains(rendered, "Session alpha [active]") {
+		t.Fatalf("expected active target annotation in modal, got %q", rendered)
+	}
+	if !strings.Contains(rendered, "alpha-host") || !strings.Contains(rendered, "10.0.0.1:31337") {
+		t.Fatalf("expected session metadata in modal, got %q", rendered)
+	}
+}
+
 func TestShowDeleteConversationModalTargetsSelectedConversation(t *testing.T) {
 	model := newAIModel(nil, aiContext{}, nil)
 	model.loading = false
@@ -1484,6 +1672,110 @@ func TestShowThinkingLevelModalOnTKey(t *testing.T) {
 	}
 	if updatedModel.modal.selectedOption != aiThinkingLevelOptionIndex("high") {
 		t.Fatalf("expected high option to be preselected, got %+v", updatedModel.modal)
+	}
+}
+
+func TestTargetSelectionModalSavesConversationTarget(t *testing.T) {
+	server := &aiRPCServer{
+		sessionsResp: &clientpb.Sessions{
+			Sessions: []*clientpb.Session{
+				{ID: "session-1", Name: "alpha", Hostname: "alpha-host", Username: "alice", OS: "linux", Arch: "amd64", ActiveC2: "mtls", RemoteAddress: "10.0.0.1:31337", PID: 1111},
+			},
+		},
+		beaconsResp: &clientpb.Beacons{
+			Beacons: []*clientpb.Beacon{
+				{ID: "beacon-1", Name: "bravo", Hostname: "bravo-host", Username: "bob", OS: "windows", Arch: "amd64", ActiveC2: "https", RemoteAddress: "10.0.0.2:443", PID: 2222, Interval: int64(time.Minute), NextCheckin: time.Now().Add(2 * time.Minute).Unix()},
+			},
+		},
+		saveConversationResp: &clientpb.AIConversation{
+			ID:              "conv-1",
+			Provider:        "openai",
+			Model:           "gpt-test",
+			Title:           "Thread",
+			TargetBeaconID:  "beacon-1",
+			TargetSessionID: "",
+		},
+	}
+
+	rpcClient, cleanup := newAITestRPCClient(t, server)
+	defer cleanup()
+
+	model := newAIModel(&console.SliverClient{Rpc: rpcClient}, aiContext{
+		target: aiTargetSummary{
+			SessionID: "session-1",
+			Label:     "Session alpha",
+			Host:      "alpha-host",
+			OS:        "linux",
+			Arch:      "amd64",
+			C2:        "mtls",
+			Mode:      "interactive session",
+		},
+	}, nil)
+	model.focus = aiFocusComposer
+	model.loading = false
+	model.currentConversation = &clientpb.AIConversation{
+		ID:              "conv-1",
+		Title:           "Thread",
+		Provider:        "openai",
+		Model:           "gpt-test",
+		TargetSessionID: "session-1",
+	}
+
+	updated, cmd := model.handleComposerKey(tea.Key{Code: 's', Mod: tea.ModCtrl})
+	if cmd == nil {
+		t.Fatal("expected ctrl+s to load target options")
+	}
+	model = updated.(*aiModel)
+
+	msg := cmd()
+	updated, _ = model.Update(msg)
+	model = updated.(*aiModel)
+	if len(model.targetSelectionOptions) != 2 {
+		t.Fatalf("expected two target options, got %d", len(model.targetSelectionOptions))
+	}
+
+	model.modal.selectedOption = 1
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected enter to save the selected target")
+	}
+	model = updated.(*aiModel)
+	if !model.loading {
+		t.Fatal("expected target save to mark the model as loading")
+	}
+	if model.modal != nil {
+		t.Fatalf("expected target modal to close after confirm, got %+v", model.modal)
+	}
+	if model.ctx.target.BeaconID != "beacon-1" || model.ctx.target.SessionID != "" {
+		t.Fatalf("expected local target context to switch to beacon, got %+v", model.ctx.target)
+	}
+
+	msg = cmd()
+	updated, _ = model.Update(msg)
+	model = updated.(*aiModel)
+	if model.currentConversation.GetTargetBeaconID() != "beacon-1" || model.currentConversation.GetTargetSessionID() != "" {
+		t.Fatalf("expected conversation target to switch to beacon, got %+v", model.currentConversation)
+	}
+	if model.status != "Active target set to Beacon bravo." {
+		t.Fatalf("unexpected target update status: %q", model.status)
+	}
+
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	if server.getSessionsCalls != 1 {
+		t.Fatalf("expected GetSessions to be called once, got %d", server.getSessionsCalls)
+	}
+	if server.getBeaconsCalls != 1 {
+		t.Fatalf("expected GetBeacons to be called once, got %d", server.getBeaconsCalls)
+	}
+	if len(server.saveConversationReqs) != 1 {
+		t.Fatalf("expected SaveAIConversation to be called once, got %d", len(server.saveConversationReqs))
+	}
+	if got := server.saveConversationReqs[0].GetTargetBeaconID(); got != "beacon-1" {
+		t.Fatalf("expected target beacon %q, got %q", "beacon-1", got)
+	}
+	if got := server.saveConversationReqs[0].GetTargetSessionID(); got != "" {
+		t.Fatalf("expected target session to clear, got %q", got)
 	}
 }
 

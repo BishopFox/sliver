@@ -29,6 +29,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"charm.land/bubbles/v2/progress"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/glamour/v2"
 	"charm.land/lipgloss/v2"
@@ -55,6 +56,7 @@ const (
 	aiTranscriptMouseWheelStep = 3
 	aiModalDismissDelay        = 250 * time.Millisecond
 	aiWindowPollInterval       = 100 * time.Millisecond
+	aiToastDuration            = 10 * time.Second
 )
 
 type aiFocus int
@@ -73,6 +75,7 @@ const (
 	aiModalKindContext
 	aiModalKindNewConversation
 	aiModalKindThinkingLevel
+	aiModalKindTargetSelect
 	aiModalKindExperimentalWarning
 )
 
@@ -144,6 +147,12 @@ type aiConversationUpdatedMsg struct {
 	status       string
 }
 
+type aiConversationTargetUpdatedMsg struct {
+	conversation *clientpb.AIConversation
+	target       aiTargetSummary
+	status       string
+}
+
 type aiConversationEventMsg struct {
 	event *clientpb.AIConversationEvent
 }
@@ -152,6 +161,15 @@ type aiListenerClosedMsg struct{}
 
 type aiAsyncErrMsg struct {
 	err error
+}
+
+type aiToastMsg struct {
+	level   string
+	message string
+}
+
+type aiToastExpiredMsg struct {
+	id uint64
 }
 
 type aiTranscriptRenderedMsg struct {
@@ -168,6 +186,12 @@ type aiWindowPollMsg struct {
 
 type aiStartupConfigInvalidMsg struct {
 	err string
+}
+
+type aiTargetOptionsLoadedMsg struct {
+	options        []aiTargetSelectionOption
+	selectedOption int
+	status         string
 }
 
 type aiModalState struct {
@@ -189,6 +213,15 @@ type aiThinkingLevelOption struct {
 	label       string
 	value       string
 	description string
+}
+
+type aiTargetSelectionOption struct {
+	label    string
+	metadata []string
+	target   aiTargetSummary
+	session  *clientpb.Session
+	beacon   *clientpb.Beacon
+	active   bool
 }
 
 type aiContextField struct {
@@ -222,6 +255,15 @@ type aiPaneRects struct {
 	sidebar    aiPaneRect
 	transcript aiPaneRect
 	composer   aiPaneRect
+}
+
+type aiToastState struct {
+	id        uint64
+	level     string
+	message   string
+	createdAt time.Time
+	expiresAt time.Time
+	bar       progress.Model
 }
 
 type aiTranscriptContentLine struct {
@@ -281,6 +323,9 @@ type aiModel struct {
 	transcriptScroll       int
 	transcriptFollow       bool
 	transcriptSelection    *aiTranscriptSelection
+	targetSelectionOptions []aiTargetSelectionOption
+	toast                  *aiToastState
+	nextToastID            uint64
 }
 
 func newAIModel(con *console.SliverClient, ctx aiContext, listener <-chan *clientpb.Event) *aiModel {
@@ -478,6 +523,29 @@ func (m *aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.scheduleTranscriptRender(),
 		)
 
+	case aiConversationTargetUpdatedMsg:
+		m.loading = false
+		if msg.conversation != nil {
+			sessionID, beaconID := normalizedAITargetIDs(msg.target.SessionID, msg.target.BeaconID)
+			msg.conversation.TargetSessionID = sessionID
+			msg.conversation.TargetBeaconID = beaconID
+			m.applyConversationSnapshot(msg.conversation)
+			if m.currentConversation != nil && strings.TrimSpace(m.currentConversation.GetID()) == strings.TrimSpace(msg.conversation.GetID()) {
+				m.currentConversation.TargetSessionID = sessionID
+				m.currentConversation.TargetBeaconID = beaconID
+			}
+			if idx := conversationIndexByID(m.conversations, msg.conversation.GetID()); idx >= 0 && m.conversations[idx] != nil {
+				m.conversations[idx].TargetSessionID = sessionID
+				m.conversations[idx].TargetBeaconID = beaconID
+			}
+		}
+		if strings.TrimSpace(msg.status) != "" {
+			m.status = msg.status
+		} else {
+			m.status = "Active target updated."
+		}
+		return m, nil
+
 	case aiPromptSubmittedMsg:
 		m.loading = false
 		m.submittingPrompt = false
@@ -515,6 +583,18 @@ func (m *aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.syncAwaitingResponse(),
 			m.scheduleTranscriptRender(),
 		)
+
+	case aiToastMsg:
+		return m, tea.Batch(
+			waitForAIConversationEventCmd(m.listener),
+			m.showToast(msg.level, msg.message),
+		)
+
+	case aiToastExpiredMsg:
+		if m.toast != nil && m.toast.id == msg.id {
+			m.toast = nil
+		}
+		return m, nil
 
 	case aiListenerClosedMsg:
 		m.status = "AI event stream closed. Reopen the AI TUI to resume live updates."
@@ -588,6 +668,10 @@ func (m *aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *aiModel) handleGlobalKey(key tea.Key) (tea.Model, tea.Cmd) {
+	if key.Mod.Contains(tea.ModCtrl) && key.Code == 's' {
+		return m.showTargetSelectModal()
+	}
+
 	switch key.Code {
 	case tea.KeyTab:
 		m.focus = (m.focus + 1) % (aiFocusComposer + 1)
@@ -710,6 +794,11 @@ func (m *aiModel) handleMouseClick(mouse tea.Mouse) (tea.Model, tea.Cmd) {
 	m.focus = focus
 	if focus == aiFocusTranscript {
 		m.clearTranscriptSelection()
+		m.beginTranscriptSelection(mouse.X, mouse.Y)
+		if m.transcriptSelection != nil {
+			m.status = "Selecting transcript text. Release to copy the selection."
+			return m, nil
+		}
 		m.status = "Conversation focused. Drag to select and copy text, or use the wheel to scroll."
 		return m, nil
 	}
@@ -779,12 +868,11 @@ func (m *aiModel) handleComposerKey(key tea.Key) (tea.Model, tea.Cmd) {
 		m.focus = aiFocusSidebar
 		return m, nil
 	}
-	if key.Code == tea.KeyEsc {
-		m.focus = aiFocusTranscript
-		return m, nil
-	}
 	if key.Mod.Contains(tea.ModCtrl) && key.Code == 'o' {
 		return m.showContextModal()
+	}
+	if key.Mod.Contains(tea.ModCtrl) && key.Code == 's' {
+		return m.showTargetSelectModal()
 	}
 	if key.Mod.Contains(tea.ModCtrl) && key.Code == 't' {
 		return m.showThinkingLevelModal()
@@ -918,6 +1006,39 @@ func (m *aiModel) handleModalMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.applyWindowSize(msg.Width, msg.Height)
 	case aiWindowPollMsg:
 		return m, tea.Batch(m.windowSizeCmd(msg.width, msg.height), aiWindowPollCmd())
+	case aiConversationEventMsg:
+		m.applyConversationEvent(msg.event)
+		m.syncTranscriptViewport()
+		return m, tea.Batch(
+			waitForAIConversationEventCmd(m.listener),
+			m.syncAwaitingResponse(),
+			m.scheduleTranscriptRender(),
+		)
+	case aiToastMsg:
+		return m, tea.Batch(
+			waitForAIConversationEventCmd(m.listener),
+			m.showToast(msg.level, msg.message),
+		)
+	case aiToastExpiredMsg:
+		if m.toast != nil && m.toast.id == msg.id {
+			m.toast = nil
+		}
+		return m, nil
+	case aiListenerClosedMsg:
+		m.status = "AI event stream closed. Reopen the AI TUI to resume live updates."
+		return m, nil
+	case aiTargetOptionsLoadedMsg:
+		if m.modal == nil || m.modal.kind != aiModalKindTargetSelect {
+			return m, nil
+		}
+		m.targetSelectionOptions = append([]aiTargetSelectionOption(nil), msg.options...)
+		if len(m.targetSelectionOptions) > 0 {
+			m.modal.selectedOption = clampInt(msg.selectedOption, 0, len(m.targetSelectionOptions)-1)
+		} else {
+			m.modal.selectedOption = 0
+		}
+		m.modal.status = strings.TrimSpace(msg.status)
+		return m, nil
 	case tea.KeyPressMsg:
 		if msg.Key().Mod.Contains(tea.ModCtrl) && msg.Key().Code == 'c' {
 			return m, tea.Quit
@@ -931,6 +1052,8 @@ func (m *aiModel) handleModalMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleNewConversationModalKey(msg.Key())
 		case aiModalKindThinkingLevel:
 			return m.handleThinkingLevelModalKey(msg.Key())
+		case aiModalKindTargetSelect:
+			return m.handleTargetSelectModalKey(msg.Key())
 		case aiModalKindExperimentalWarning:
 			return m.handleExperimentalWarningModalKey(msg.Key())
 		default:
@@ -1039,6 +1162,48 @@ func (m *aiModel) handleThinkingLevelModalKey(key tea.Key) (tea.Model, tea.Cmd) 
 		return m, nil
 	case "k":
 		m.moveThinkingLevelSelection(-1)
+		return m, nil
+	}
+
+	return m, nil
+}
+
+func (m *aiModel) handleTargetSelectModalKey(key tea.Key) (tea.Model, tea.Cmd) {
+	switch key.Code {
+	case tea.KeyEsc:
+		m.modal = nil
+		m.targetSelectionOptions = nil
+		m.status = "Canceled active target update."
+		return m, nil
+	case tea.KeyUp:
+		m.moveTargetSelection(-1)
+		return m, nil
+	case tea.KeyDown:
+		m.moveTargetSelection(1)
+		return m, nil
+	case tea.KeyHome:
+		m.modal.selectedOption = 0
+		return m, nil
+	case tea.KeyEnd:
+		if len(m.targetSelectionOptions) > 0 {
+			m.modal.selectedOption = len(m.targetSelectionOptions) - 1
+		}
+		return m, nil
+	case tea.KeyEnter:
+		return m.confirmTargetSelectionUpdate()
+	}
+
+	switch key.Text {
+	case "q":
+		m.modal = nil
+		m.targetSelectionOptions = nil
+		m.status = "Canceled active target update."
+		return m, nil
+	case "j":
+		m.moveTargetSelection(1)
+		return m, nil
+	case "k":
+		m.moveTargetSelection(-1)
 		return m, nil
 	}
 
@@ -1190,6 +1355,17 @@ func (m *aiModel) moveThinkingLevelSelection(delta int) {
 	m.modal.selectedOption = clampInt(m.modal.selectedOption+delta, 0, len(options)-1)
 }
 
+func (m *aiModel) moveTargetSelection(delta int) {
+	if m.modal == nil {
+		return
+	}
+	if len(m.targetSelectionOptions) == 0 {
+		m.modal.selectedOption = 0
+		return
+	}
+	m.modal.selectedOption = clampInt(m.modal.selectedOption+delta, 0, len(m.targetSelectionOptions)-1)
+}
+
 func (m *aiModel) confirmThinkingLevelUpdate() (tea.Model, tea.Cmd) {
 	if m.modal == nil || m.currentConversation == nil {
 		return m, nil
@@ -1214,6 +1390,44 @@ func (m *aiModel) confirmThinkingLevelUpdate() (tea.Model, tea.Cmd) {
 	m.loading = true
 	m.status = "Saving thinking level..."
 	return m, updateConversationThinkingLevelCmd(m.con, m.currentConversation, thinkingLevel)
+}
+
+func (m *aiModel) confirmTargetSelectionUpdate() (tea.Model, tea.Cmd) {
+	if m.modal == nil {
+		return m, nil
+	}
+	if len(m.targetSelectionOptions) == 0 {
+		status := strings.TrimSpace(m.modal.status)
+		if status == "" {
+			status = "No sessions or beacons are currently available."
+		}
+		m.status = status
+		return m, nil
+	}
+
+	selectedOption := clampInt(m.modal.selectedOption, 0, len(m.targetSelectionOptions)-1)
+	option := m.targetSelectionOptions[selectedOption]
+	sameActiveTarget := sameAITargetSelectionSummary(m.ctx.target, option.target)
+	sameConversationTarget := conversationUsesTarget(m.currentConversation, option.target)
+
+	m.applyTargetSelectionOption(option)
+	m.modal = nil
+	m.targetSelectionOptions = nil
+
+	if sameActiveTarget && (m.currentConversation == nil || sameConversationTarget) {
+		m.status = "Active target unchanged."
+		return m, nil
+	}
+
+	targetLabel := fallback(option.target.Label, option.label)
+	if m.currentConversation == nil || strings.TrimSpace(m.currentConversation.GetID()) == "" || sameConversationTarget {
+		m.status = "Active target set to " + targetLabel + "."
+		return m, nil
+	}
+
+	m.loading = true
+	m.status = "Saving active target..."
+	return m, updateConversationTargetCmd(m.con, m.currentConversation, option.target)
 }
 
 func (m *aiModel) confirmCreateConversation() (tea.Model, tea.Cmd) {
@@ -1260,6 +1474,9 @@ func (m *aiModel) confirmDeleteConversation() (tea.Model, tea.Cmd) {
 func (m *aiModel) View() tea.View {
 	if m.width < aiMinWidth || m.height < aiMinHeight {
 		content := m.renderTooSmall()
+		if m.toast != nil {
+			content = m.renderToastOverlay(content)
+		}
 		if m.modal != nil {
 			content = m.renderModalOverlay(content)
 		}
@@ -1276,6 +1493,9 @@ func (m *aiModel) View() tea.View {
 
 	frame := lipgloss.JoinVertical(lipgloss.Left, header, body, composer, footer)
 	frame = lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, frame)
+	if m.toast != nil {
+		frame = m.renderToastOverlay(frame)
+	}
 	if m.modal != nil {
 		frame = m.renderModalOverlay(frame)
 	}
@@ -1294,6 +1514,8 @@ func (m *aiModel) renderModal() string {
 		return m.renderNewConversationModal()
 	case aiModalKindThinkingLevel:
 		return m.renderThinkingLevelModal()
+	case aiModalKindTargetSelect:
+		return m.renderTargetSelectModal()
 	case aiModalKindExperimentalWarning:
 		return m.renderExperimentalWarningModal()
 	default:
@@ -1450,6 +1672,52 @@ func (m *aiModel) renderThinkingLevelModal() string {
 	return box
 }
 
+func (m *aiModel) renderTargetSelectModal() string {
+	boxWidth := minInt(maxInt(60, m.width-6), 112)
+	bodyWidth := maxInt(32, boxWidth-6)
+
+	description := "Select the session or beacon to make active in this AI view."
+	if m.currentConversation != nil && strings.TrimSpace(m.currentConversation.GetID()) != "" {
+		description = "Select the session or beacon used as the active target and current thread target."
+	}
+
+	lines := []string{
+		lipgloss.NewStyle().
+			Bold(true).
+			Foreground(clienttheme.Primary()).
+			Width(bodyWidth).
+			Render(m.modal.title),
+		m.styles.subtleText.Width(bodyWidth).Render(description),
+		"",
+	}
+
+	if len(m.targetSelectionOptions) == 0 {
+		status := strings.TrimSpace(m.modal.status)
+		if status == "" {
+			status = "Loading sessions and beacons from the server..."
+		}
+		lines = append(lines, m.styles.subtleText.Width(bodyWidth).Render(status))
+	} else {
+		maxOptionLines := maxInt(6, m.height-16)
+		for _, optionLine := range m.renderTargetSelectModalOptions(bodyWidth, maxOptionLines) {
+			lines = append(lines, optionLine)
+		}
+	}
+
+	lines = append(lines,
+		"",
+		m.styles.chip.Width(bodyWidth).Render("j/k or up/down: select  enter: apply  esc/q: cancel"),
+	)
+
+	box := lipgloss.NewStyle().
+		Border(lipgloss.DoubleBorder()).
+		BorderForeground(clienttheme.Primary()).
+		Padding(1, 2).
+		Render(strings.Join(lines, "\n"))
+
+	return box
+}
+
 func (m *aiModel) renderExperimentalWarningModal() string {
 	boxWidth := minInt(maxInt(44, m.width-6), 100)
 	bodyWidth := maxInt(24, boxWidth-6)
@@ -1496,6 +1764,51 @@ func (m *aiModel) renderThinkingLevelModalOptions(width int) []string {
 			for _, line := range wrapText(option.description, maxInt(1, width-3)) {
 				lines = append(lines, m.styles.subtleText.Width(width).Render("   "+line))
 			}
+		}
+	}
+	return lines
+}
+
+func (m *aiModel) renderTargetSelectModalOptions(width int, maxLines int) []string {
+	if len(m.targetSelectionOptions) == 0 || maxLines <= 0 {
+		return nil
+	}
+
+	blocks := make([][]string, 0, len(m.targetSelectionOptions))
+	for idx, option := range m.targetSelectionOptions {
+		blocks = append(blocks, m.renderTargetSelectModalOption(width, idx, option))
+	}
+
+	start, end := targetSelectionVisibleRange(blocks, maxLines, m.modal.selectedOption)
+	lines := make([]string, 0, maxLines)
+	for idx := start; idx < end; idx++ {
+		lines = append(lines, blocks[idx]...)
+	}
+	return lines
+}
+
+func (m *aiModel) renderTargetSelectModalOption(width int, idx int, option aiTargetSelectionOption) []string {
+	prefix := "  "
+	style := m.styles.item
+	if m.modal != nil && idx == m.modal.selectedOption {
+		prefix = "> "
+		style = m.styles.optionFocused
+	}
+
+	label := option.label
+	if option.active {
+		label += " [active]"
+	}
+
+	lines := []string{
+		style.Width(width).Render(truncateText(prefix+label, width)),
+	}
+	for _, metadata := range option.metadata {
+		if strings.TrimSpace(metadata) == "" {
+			continue
+		}
+		for _, line := range wrapText(metadata, maxInt(1, width-3)) {
+			lines = append(lines, m.styles.subtleText.Width(width).Render("   "+line))
 		}
 	}
 	return lines
@@ -1660,6 +1973,70 @@ func (m *aiModel) renderModalOverlay(base string) string {
 	return overlayContent(base, box, left, top, m.width)
 }
 
+func (m *aiModel) renderToastOverlay(base string) string {
+	box := m.renderToast()
+	if box == "" {
+		return base
+	}
+	boxWidth := lipgloss.Width(box)
+	left := maxInt(0, m.width-boxWidth-2)
+	return overlayContent(base, box, left, 1, m.width)
+}
+
+func (m *aiModel) renderToast() string {
+	if m.toast == nil || strings.TrimSpace(m.toast.message) == "" {
+		return ""
+	}
+
+	boxWidth := minInt(maxInt(28, m.width/3), 72)
+	bodyWidth := maxInt(20, boxWidth-6)
+	backgroundColor := clienttheme.DefaultMod(25)
+
+	title := "Event"
+	accentColor := clienttheme.Primary()
+	switch strings.ToLower(strings.TrimSpace(m.toast.level)) {
+	case "error", "warn", "warning":
+		title = "Warning"
+		accentColor = clienttheme.Danger()
+	case "success":
+		title = "Notice"
+		accentColor = clienttheme.Success()
+	}
+
+	lineStyle := lipgloss.NewStyle().
+		Width(bodyWidth).
+		Background(backgroundColor).
+		Foreground(clienttheme.DefaultMod(900))
+	titleStyle := lineStyle.Copy().
+		Bold(true).
+		Foreground(accentColor)
+	timeStyle := lineStyle.Copy().
+		Foreground(clienttheme.DefaultMod(600)).
+		Align(lipgloss.Right)
+
+	now := time.Now()
+	remaining := m.toast.remaining(now)
+	percentLeft := m.toast.fractionRemaining(now)
+	m.toast.bar.SetWidth(bodyWidth)
+	barLine := lineStyle.Render(m.toast.bar.ViewAs(percentLeft))
+
+	lines := []string{titleStyle.Render(truncateText(title, bodyWidth))}
+	for _, line := range wrapText(strings.TrimSpace(m.toast.message), bodyWidth) {
+		lines = append(lines, lineStyle.Render(line))
+	}
+	lines = append(lines,
+		barLine,
+		timeStyle.Render(formatAIToastTimeLeft(remaining)),
+	)
+
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(accentColor).
+		Background(backgroundColor).
+		Padding(0, 1).
+		Render(strings.Join(lines, "\n"))
+}
+
 func (m *aiModel) renderTooSmall() string {
 	lines := []string{
 		m.styles.badge.Render("SLIVER AI"),
@@ -1786,6 +2163,7 @@ func (m *aiModel) renderComposer(height int) string {
 		lipgloss.NewStyle().Width(innerWidth).Render(fitStyledPieces(innerWidth, []string{
 			m.styles.paneTitle.Render("Composer"),
 			m.styles.chipMuted.Render("ctrl+o context"),
+			m.styles.chipMuted.Render("ctrl+s target"),
 			m.styles.chipMuted.Render("ctrl+t thinking"),
 		})),
 		m.renderInputLine(innerWidth),
@@ -1878,7 +2256,7 @@ func (m *aiModel) footerHints() []string {
 		hints = append(hints, "n: new", "t: thinking", "r: refresh", "q/esc: quit")
 		return hints
 	case aiFocusComposer:
-		return []string{"tab: sidebar", "enter: send", "/exit: quit", "ctrl+o: context", "ctrl+t: thinking", "ctrl+u: clear", "esc: blur", "ctrl+c: quit"}
+		return []string{"tab: sidebar", "enter: send", "/exit: quit", "ctrl+o: context", "ctrl+s: target", "ctrl+t: thinking", "ctrl+u: clear", "ctrl+c: quit"}
 	default:
 		return []string{"tab: next", "q/esc: quit"}
 	}
@@ -2505,6 +2883,33 @@ func (m *aiModel) showThinkingLevelModal() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m *aiModel) showTargetSelectModal() (tea.Model, tea.Cmd) {
+	if m.loading {
+		m.status = "Wait for the current conversation sync to finish before changing the active target."
+		return m, nil
+	}
+	if m.awaitingResponse || m.submittingPrompt {
+		m.status = "Wait for the current AI request to finish before changing the active target."
+		return m, nil
+	}
+
+	conversationTargetSessionID := ""
+	conversationTargetBeaconID := ""
+	if m.currentConversation != nil {
+		conversationTargetSessionID = m.currentConversation.GetTargetSessionID()
+		conversationTargetBeaconID = m.currentConversation.GetTargetBeaconID()
+	}
+
+	m.targetSelectionOptions = nil
+	m.modal = &aiModalState{
+		kind:   aiModalKindTargetSelect,
+		title:  "Active Target",
+		status: "Loading sessions and beacons from the server...",
+	}
+	m.status = "Selecting an active target."
+	return m, loadAITargetSelectionOptionsCmd(m.con, m.ctx.target, conversationTargetSessionID, conversationTargetBeaconID)
+}
+
 func (m *aiModel) showDeleteConversationModal() (tea.Model, tea.Cmd) {
 	if m.loading {
 		m.status = "Wait for the current conversation sync to finish before deleting."
@@ -2644,6 +3049,78 @@ func (m *aiModel) pendingLabel() string {
 
 func (m *aiModel) pendingStatus() string {
 	return "Waiting for AI response..."
+}
+
+func newAIToastProgress(level string) progress.Model {
+	bar := progress.New(
+		progress.WithWidth(1),
+		progress.WithoutPercentage(),
+		progress.WithColors(aiToastAccentColor(level)),
+		progress.WithFillCharacters(progress.DefaultFullCharFullBlock, ' '),
+	)
+	return bar
+}
+
+func aiToastAccentColor(level string) color.Color {
+	switch strings.ToLower(strings.TrimSpace(level)) {
+	case "error", "warn", "warning":
+		return clienttheme.Danger()
+	case "success":
+		return clienttheme.Success()
+	default:
+		return clienttheme.Primary()
+	}
+}
+
+func (t *aiToastState) remaining(now time.Time) time.Duration {
+	if t == nil {
+		return 0
+	}
+	if now.IsZero() {
+		now = time.Now()
+	}
+	remaining := t.expiresAt.Sub(now)
+	if remaining < 0 {
+		return 0
+	}
+	return remaining
+}
+
+func (t *aiToastState) fractionRemaining(now time.Time) float64 {
+	if t == nil {
+		return 0
+	}
+	total := t.expiresAt.Sub(t.createdAt)
+	if total <= 0 {
+		return 0
+	}
+	return clampFloat64(float64(t.remaining(now))/float64(total), 0, 1)
+}
+
+func formatAIToastTimeLeft(remaining time.Duration) string {
+	if remaining < 0 {
+		remaining = 0
+	}
+	return fmt.Sprintf("%.1fs left", remaining.Seconds())
+}
+
+func (m *aiModel) showToast(level string, message string) tea.Cmd {
+	message = strings.TrimSpace(message)
+	if message == "" {
+		return nil
+	}
+
+	now := time.Now()
+	m.nextToastID++
+	m.toast = &aiToastState{
+		id:        m.nextToastID,
+		level:     strings.ToLower(strings.TrimSpace(level)),
+		message:   message,
+		createdAt: now,
+		expiresAt: now.Add(aiToastDuration),
+		bar:       newAIToastProgress(level),
+	}
+	return aiToastExpiryCmd(m.toast.id)
 }
 
 func (m *aiModel) applyWindowSize(width, height int) tea.Cmd {
@@ -3140,6 +3617,15 @@ func aiWindowPollCmd() tea.Cmd {
 	})
 }
 
+func aiToastExpiryCmd(id uint64) tea.Cmd {
+	if id == 0 {
+		return nil
+	}
+	return tea.Tick(aiToastDuration, func(time.Time) tea.Msg {
+		return aiToastExpiredMsg{id: id}
+	})
+}
+
 func currentTerminalSize() (int, int, bool) {
 	for _, fd := range []int{1, 0, 2} {
 		width, height, err := term.GetSize(fd)
@@ -3235,6 +3721,39 @@ func loadAIStateWithStatusCmd(con *console.SliverClient, target aiTargetSummary,
 	}
 }
 
+func loadAITargetSelectionOptionsCmd(con *console.SliverClient, activeTarget aiTargetSummary, conversationTargetSessionID string, conversationTargetBeaconID string) tea.Cmd {
+	return func() tea.Msg {
+		if con == nil || con.Rpc == nil {
+			return aiTargetOptionsLoadedMsg{status: "AI RPC client is unavailable."}
+		}
+
+		grpcCtx, cancel := con.GrpcContext(nil)
+		defer cancel()
+
+		sessionsResp, err := con.Rpc.GetSessions(grpcCtx, &commonpb.Empty{})
+		if err != nil {
+			return aiTargetOptionsLoadedMsg{status: "Failed to load sessions: " + err.Error()}
+		}
+
+		beaconsResp, err := con.Rpc.GetBeacons(grpcCtx, &commonpb.Empty{})
+		if err != nil {
+			return aiTargetOptionsLoadedMsg{status: "Failed to load beacons: " + err.Error()}
+		}
+
+		options := buildAITargetSelectionOptions(sessionsResp.GetSessions(), beaconsResp.GetBeacons(), activeTarget)
+		status := "Select the session or beacon to make active."
+		if len(options) == 0 {
+			status = "No sessions or beacons are currently available."
+		}
+
+		return aiTargetOptionsLoadedMsg{
+			options:        options,
+			selectedOption: aiTargetSelectionOptionIndex(options, activeTarget, conversationTargetSessionID, conversationTargetBeaconID),
+			status:         status,
+		}
+	}
+}
+
 func createConversationCmd(con *console.SliverClient, target aiTargetSummary, provider string, model string, title string) tea.Cmd {
 	return func() tea.Msg {
 		if con == nil || con.Rpc == nil {
@@ -3311,6 +3830,36 @@ func updateConversationThinkingLevelCmd(con *console.SliverClient, conversation 
 		return aiConversationUpdatedMsg{
 			conversation: savedConversation,
 			status:       status,
+		}
+	}
+}
+
+func updateConversationTargetCmd(con *console.SliverClient, conversation *clientpb.AIConversation, target aiTargetSummary) tea.Cmd {
+	return func() tea.Msg {
+		if con == nil || con.Rpc == nil {
+			return aiAsyncErrMsg{err: fmt.Errorf("AI RPC client is unavailable")}
+		}
+		if conversation == nil || strings.TrimSpace(conversation.GetID()) == "" {
+			return aiAsyncErrMsg{err: fmt.Errorf("AI conversation is unavailable")}
+		}
+
+		grpcCtx, cancel := con.GrpcContext(nil)
+		defer cancel()
+
+		sessionID, beaconID := normalizedAITargetIDs(target.SessionID, target.BeaconID)
+		req := conversationSaveRequest(conversation)
+		req.TargetSessionID = sessionID
+		req.TargetBeaconID = beaconID
+
+		savedConversation, err := con.Rpc.SaveAIConversation(grpcCtx, req)
+		if err != nil {
+			return aiAsyncErrMsg{err: err}
+		}
+
+		return aiConversationTargetUpdatedMsg{
+			conversation: savedConversation,
+			target:       aiTargetSummary{SessionID: sessionID, BeaconID: beaconID, Label: target.Label},
+			status:       "Active target set to " + fallback(target.Label, "selected target") + ".",
 		}
 	}
 }
@@ -3397,18 +3946,24 @@ func waitForAIConversationEventCmd(listener <-chan *clientpb.Event) tea.Cmd {
 			if !ok {
 				return aiListenerClosedMsg{}
 			}
-			if event == nil || event.GetEventType() != consts.AIConversationEvent {
+			if event == nil {
 				continue
 			}
-
-			aiEvent := &clientpb.AIConversationEvent{}
-			if len(event.GetData()) > 0 {
-				if err := proto.Unmarshal(event.GetData(), aiEvent); err != nil {
-					continue
+			switch event.GetEventType() {
+			case consts.AIConversationEvent:
+				aiEvent := &clientpb.AIConversationEvent{}
+				if len(event.GetData()) > 0 {
+					if err := proto.Unmarshal(event.GetData(), aiEvent); err != nil {
+						continue
+					}
+				}
+				return aiConversationEventMsg{event: aiEvent}
+			case consts.ClientToastEvent:
+				return aiToastMsg{
+					level:   strings.TrimSpace(event.GetErr()),
+					message: strings.TrimSpace(string(event.GetData())),
 				}
 			}
-
-			return aiConversationEventMsg{event: aiEvent}
 		}
 	}
 }
@@ -3656,6 +4211,129 @@ func aiThinkingLevelOptions(defaultThinkingLevel string) []aiThinkingLevelOption
 	}
 }
 
+func buildAITargetSelectionOptions(sessions []*clientpb.Session, beacons []*clientpb.Beacon, activeTarget aiTargetSummary) []aiTargetSelectionOption {
+	sessionList := make([]*clientpb.Session, 0, len(sessions))
+	for _, session := range sessions {
+		if session != nil {
+			sessionList = append(sessionList, session)
+		}
+	}
+	beaconList := make([]*clientpb.Beacon, 0, len(beacons))
+	for _, beacon := range beacons {
+		if beacon != nil {
+			beaconList = append(beaconList, beacon)
+		}
+	}
+
+	sort.SliceStable(sessionList, func(i, j int) bool {
+		return aiTargetSelectionSortKey(sessionList[i].GetName(), sessionList[i].GetHostname(), sessionList[i].GetID()) <
+			aiTargetSelectionSortKey(sessionList[j].GetName(), sessionList[j].GetHostname(), sessionList[j].GetID())
+	})
+	sort.SliceStable(beaconList, func(i, j int) bool {
+		return aiTargetSelectionSortKey(beaconList[i].GetName(), beaconList[i].GetHostname(), beaconList[i].GetID()) <
+			aiTargetSelectionSortKey(beaconList[j].GetName(), beaconList[j].GetHostname(), beaconList[j].GetID())
+	})
+
+	options := make([]aiTargetSelectionOption, 0, len(sessionList)+len(beaconList))
+	for _, session := range sessionList {
+		target := aiSessionTargetSummary(session)
+		options = append(options, aiTargetSelectionOption{
+			label: sessionTargetSelectionLabel(target),
+			metadata: []string{
+				aiTargetSelectionMetadataLine("ID "+shortenID(session.GetID()), fallback(target.Host, "<unknown host>"), fallback(target.OS, "unknown")+"/"+fallback(target.Arch, "unknown"), fallback(target.Mode, "interactive session")),
+				aiTargetSelectionMetadataLine("C2 "+fallback(target.C2, "unknown"), "User: "+fallback(session.GetUsername(), "<unknown>"), fmt.Sprintf("PID: %d", session.GetPID()), "Remote: "+fallback(session.GetRemoteAddress(), "<unknown>")),
+			},
+			target:  target,
+			session: session,
+			active:  sameAITargetSelectionIDs(session.GetID(), "", activeTarget.SessionID, activeTarget.BeaconID),
+		})
+	}
+	for _, beacon := range beaconList {
+		target := aiBeaconTargetSummary(beacon)
+		options = append(options, aiTargetSelectionOption{
+			label: beaconTargetSelectionLabel(target),
+			metadata: []string{
+				aiTargetSelectionMetadataLine("ID "+shortenID(beacon.GetID()), fallback(target.Host, "<unknown host>"), fallback(target.OS, "unknown")+"/"+fallback(target.Arch, "unknown"), fallback(target.Mode, "asynchronous beacon")),
+				aiTargetSelectionMetadataLine("C2 "+fallback(target.C2, "unknown"), "User: "+fallback(beacon.GetUsername(), "<unknown>"), fmt.Sprintf("PID: %d", beacon.GetPID()), "Remote: "+fallback(beacon.GetRemoteAddress(), "<unknown>")),
+				aiTargetSelectionMetadataLine(fmt.Sprintf("Interval: %s", time.Duration(beacon.GetInterval()).String()), "Next checkin: "+formatUnix(beacon.GetNextCheckin())),
+			},
+			target: target,
+			beacon: beacon,
+			active: sameAITargetSelectionIDs("", beacon.GetID(), activeTarget.SessionID, activeTarget.BeaconID),
+		})
+	}
+	return options
+}
+
+func aiTargetSelectionSortKey(name, host, id string) string {
+	return strings.ToLower(strings.TrimSpace(name) + "\x00" + strings.TrimSpace(host) + "\x00" + strings.TrimSpace(id))
+}
+
+func sessionTargetSelectionLabel(target aiTargetSummary) string {
+	return fallback(target.Label, "Session "+fallback(target.SessionID, "<unknown>"))
+}
+
+func beaconTargetSelectionLabel(target aiTargetSummary) string {
+	return fallback(target.Label, "Beacon "+fallback(target.BeaconID, "<unknown>"))
+}
+
+func aiTargetSelectionMetadataLine(parts ...string) string {
+	filtered := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if text := strings.TrimSpace(part); text != "" {
+			filtered = append(filtered, text)
+		}
+	}
+	return strings.Join(filtered, " | ")
+}
+
+func aiTargetSelectionOptionIndex(options []aiTargetSelectionOption, activeTarget aiTargetSummary, conversationTargetSessionID string, conversationTargetBeaconID string) int {
+	activeSessionID, activeBeaconID := normalizedAITargetIDs(activeTarget.SessionID, activeTarget.BeaconID)
+	for idx, option := range options {
+		optionSessionID, optionBeaconID := normalizedAITargetIDs(option.target.SessionID, option.target.BeaconID)
+		if sameAITargetSelectionIDs(optionSessionID, optionBeaconID, activeSessionID, activeBeaconID) {
+			return idx
+		}
+	}
+
+	conversationTargetSessionID, conversationTargetBeaconID = normalizedAITargetIDs(conversationTargetSessionID, conversationTargetBeaconID)
+	for idx, option := range options {
+		optionSessionID, optionBeaconID := normalizedAITargetIDs(option.target.SessionID, option.target.BeaconID)
+		if sameAITargetSelectionIDs(optionSessionID, optionBeaconID, conversationTargetSessionID, conversationTargetBeaconID) {
+			return idx
+		}
+	}
+
+	return 0
+}
+
+func targetSelectionVisibleRange(blocks [][]string, maxLines int, selected int) (int, int) {
+	if len(blocks) == 0 || maxLines <= 0 {
+		return 0, 0
+	}
+
+	selected = clampInt(selected, 0, len(blocks)-1)
+	start, end := selected, selected+1
+	used := len(blocks[selected])
+	for {
+		extended := false
+		if start > 0 && used+len(blocks[start-1]) <= maxLines {
+			start--
+			used += len(blocks[start])
+			extended = true
+		}
+		if end < len(blocks) && used+len(blocks[end]) <= maxLines {
+			used += len(blocks[end])
+			end++
+			extended = true
+		}
+		if !extended {
+			break
+		}
+	}
+	return start, end
+}
+
 func conversationSubtitle(conversation *clientpb.AIConversation) string {
 	if conversation == nil {
 		return ""
@@ -3727,6 +4405,46 @@ func conversationSaveRequest(conversation *clientpb.AIConversation) *clientpb.AI
 		TurnState:       conversation.GetTurnState(),
 		TargetSessionID: strings.TrimSpace(conversation.GetTargetSessionID()),
 		TargetBeaconID:  strings.TrimSpace(conversation.GetTargetBeaconID()),
+	}
+}
+
+func normalizedAITargetIDs(sessionID, beaconID string) (string, string) {
+	sessionID = strings.TrimSpace(sessionID)
+	beaconID = strings.TrimSpace(beaconID)
+	switch {
+	case sessionID != "":
+		return sessionID, ""
+	case beaconID != "":
+		return "", beaconID
+	default:
+		return "", ""
+	}
+}
+
+func sameAITargetSelectionIDs(leftSessionID, leftBeaconID, rightSessionID, rightBeaconID string) bool {
+	leftSessionID, leftBeaconID = normalizedAITargetIDs(leftSessionID, leftBeaconID)
+	rightSessionID, rightBeaconID = normalizedAITargetIDs(rightSessionID, rightBeaconID)
+	return leftSessionID == rightSessionID && leftBeaconID == rightBeaconID
+}
+
+func sameAITargetSelectionSummary(left aiTargetSummary, right aiTargetSummary) bool {
+	return sameAITargetSelectionIDs(left.SessionID, left.BeaconID, right.SessionID, right.BeaconID)
+}
+
+func conversationUsesTarget(conversation *clientpb.AIConversation, target aiTargetSummary) bool {
+	if conversation == nil {
+		return false
+	}
+	return sameAITargetSelectionIDs(conversation.GetTargetSessionID(), conversation.GetTargetBeaconID(), target.SessionID, target.BeaconID)
+}
+
+func (m *aiModel) applyTargetSelectionOption(option aiTargetSelectionOption) {
+	sessionID, beaconID := normalizedAITargetIDs(option.target.SessionID, option.target.BeaconID)
+	m.ctx.target = option.target
+	m.ctx.target.SessionID = sessionID
+	m.ctx.target.BeaconID = beaconID
+	if m.con != nil && m.con.ActiveTarget != nil {
+		m.con.ActiveTarget.Set(option.session, option.beacon)
 	}
 }
 
@@ -4869,6 +5587,16 @@ func innerPaneHeight(height int) int {
 }
 
 func clampInt(value, low, high int) int {
+	if value < low {
+		return low
+	}
+	if value > high {
+		return high
+	}
+	return value
+}
+
+func clampFloat64(value, low, high float64) float64 {
 	if value < low {
 		return low
 	}

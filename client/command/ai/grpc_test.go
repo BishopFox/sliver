@@ -312,6 +312,25 @@ func TestWaitForAIConversationEventCmdFiltersForAIEvents(t *testing.T) {
 	}
 }
 
+func TestWaitForAIConversationEventCmdReturnsToastMessages(t *testing.T) {
+	listener := make(chan *clientpb.Event, 1)
+	listener <- &clientpb.Event{
+		EventType: consts.ClientToastEvent,
+		Data:      []byte("Session alpha connected"),
+		Err:       "info",
+	}
+
+	msg := waitForAIConversationEventCmd(listener)()
+
+	toast, ok := msg.(aiToastMsg)
+	if !ok {
+		t.Fatalf("expected aiToastMsg, got %T", msg)
+	}
+	if toast.level != "info" || toast.message != "Session alpha connected" {
+		t.Fatalf("unexpected toast payload: %+v", toast)
+	}
+}
+
 func TestWaitForAIConversationEventCmdReturnsClosedMessage(t *testing.T) {
 	listener := make(chan *clientpb.Event)
 	close(listener)
@@ -409,9 +428,13 @@ type aiRPCServer struct {
 	conversationByID     map[string]*clientpb.AIConversation
 	saveConversationResp *clientpb.AIConversation
 	saveMessageResp      *clientpb.AIConversationMessage
+	sessionsResp         *clientpb.Sessions
+	beaconsResp          *clientpb.Beacons
 
 	getProvidersCalls      int
 	getConversationsCalls  int
+	getSessionsCalls       int
+	getBeaconsCalls        int
 	getConversationReqs    []*clientpb.AIConversationReq
 	deleteConversationReqs []*clientpb.AIConversationReq
 	saveConversationReqs   []*clientpb.AIConversation
@@ -440,6 +463,26 @@ func (s *aiRPCServer) GetAIConversations(context.Context, *commonpb.Empty) (*cli
 		return &clientpb.AIConversations{}, nil
 	}
 	return proto.Clone(s.conversationsResp).(*clientpb.AIConversations), nil
+}
+
+func (s *aiRPCServer) GetSessions(context.Context, *commonpb.Empty) (*clientpb.Sessions, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.getSessionsCalls++
+	if s.sessionsResp == nil {
+		return &clientpb.Sessions{}, nil
+	}
+	return proto.Clone(s.sessionsResp).(*clientpb.Sessions), nil
+}
+
+func (s *aiRPCServer) GetBeacons(context.Context, *commonpb.Empty) (*clientpb.Beacons, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.getBeaconsCalls++
+	if s.beaconsResp == nil {
+		return &clientpb.Beacons{}, nil
+	}
+	return proto.Clone(s.beaconsResp).(*clientpb.Beacons), nil
 }
 
 func (s *aiRPCServer) GetAIConversation(_ context.Context, req *clientpb.AIConversationReq) (*clientpb.AIConversation, error) {
