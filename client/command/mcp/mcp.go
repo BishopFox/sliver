@@ -26,6 +26,12 @@ func McpCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	} else {
 		con.PrintErrorf("Endpoint: %s\n", err)
 	}
+	if status.AuthHeader != "" {
+		con.Printf("Auth Header: %s\n", status.AuthHeader)
+	}
+	if status.AuthToken != "" {
+		con.Printf("Auth Token: %s\n", status.AuthToken)
+	}
 
 	if status.Running && !status.StartedAt.IsZero() {
 		uptime := time.Since(status.StartedAt).Truncate(time.Second)

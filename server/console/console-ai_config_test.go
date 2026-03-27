@@ -31,6 +31,60 @@ func TestCurrentAIConfigFormResultUsesConfiguredProviderFallback(t *testing.T) {
 	}
 }
 
+func TestCurrentAIConfigFormResultForProviderLoadsRequestedProviderSettings(t *testing.T) {
+	serverConfig := &configs.ServerConfig{
+		AI: &configs.AIConfig{
+			Provider:      ai.ProviderAnthropic,
+			Model:         "shared-model",
+			ThinkingLevel: "medium",
+			Anthropic:     &configs.AIProviderConfig{APIKey: "anthropic-key"},
+			Google:        &configs.AIProviderConfig{},
+			OpenAI: &configs.AIProviderConfig{
+				APIKey:          "openai-key",
+				BaseURL:         "https://api.openai.test",
+				Organization:    "org-test",
+				Project:         "proj-test",
+				UseResponsesAPI: boolPtr(true),
+			},
+			OpenAICompat: &configs.AIProviderConfig{},
+			OpenRouter:   &configs.AIProviderConfig{},
+		},
+	}
+
+	result := currentAIConfigFormResultForProvider(serverConfig, ai.ProviderOpenAI)
+	if result.Provider != ai.ProviderOpenAI {
+		t.Fatalf("expected %q provider, got %q", ai.ProviderOpenAI, result.Provider)
+	}
+	if result.Model != "shared-model" {
+		t.Fatalf("expected shared model, got %q", result.Model)
+	}
+	if result.APIKey != "openai-key" {
+		t.Fatalf("expected openai API key, got %q", result.APIKey)
+	}
+	if result.BaseURL != "https://api.openai.test" {
+		t.Fatalf("expected openai base url, got %q", result.BaseURL)
+	}
+	if result.Organization != "org-test" {
+		t.Fatalf("expected openai organization, got %q", result.Organization)
+	}
+	if result.Project != "proj-test" {
+		t.Fatalf("expected openai project, got %q", result.Project)
+	}
+	if !result.UseResponsesAPI {
+		t.Fatal("expected openai responses api to remain enabled")
+	}
+}
+
+func TestCurrentAIConfigFormResultForProviderDefaultsResponsesAPIForOpenAI(t *testing.T) {
+	result := currentAIConfigFormResultForProvider(&configs.ServerConfig{}, ai.ProviderOpenAI)
+	if result.Provider != ai.ProviderOpenAI {
+		t.Fatalf("expected %q provider, got %q", ai.ProviderOpenAI, result.Provider)
+	}
+	if !result.UseResponsesAPI {
+		t.Fatal("expected openai to default to responses API")
+	}
+}
+
 func TestApplyAIConfigFormResultUpdatesOnlySelectedProvider(t *testing.T) {
 	serverConfig := &configs.ServerConfig{
 		AI: &configs.AIConfig{

@@ -20,10 +20,13 @@ var (
 
 // Status describes the running state of the MCP server.
 type Status struct {
-	Running   bool
-	StartedAt time.Time
-	Config    Config
-	LastError string
+	Running        bool
+	StartedAt      time.Time
+	Config         Config
+	LastError      string
+	AuthHeader     string
+	AuthToken      string
+	AuthConfigPath string
 }
 
 type serverTransport interface {
@@ -42,6 +45,7 @@ type mcpManager struct {
 	done      chan struct{}
 	logger    *log.Logger
 	logFile   *os.File
+	authInfo  AuthInfo
 }
 
 func newManager() *mcpManager {
@@ -93,16 +97,23 @@ func (m *mcpManager) status() Status {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return Status{
-		Running:   m.running,
-		StartedAt: m.startedAt,
-		Config:    m.cfg,
-		LastError: m.lastErr,
+		Running:        m.running,
+		StartedAt:      m.startedAt,
+		Config:         m.cfg,
+		LastError:      m.lastErr,
+		AuthHeader:     m.authInfo.Header,
+		AuthToken:      m.authInfo.Token,
+		AuthConfigPath: m.authInfo.ConfigPath,
 	}
 }
 
 func (m *mcpManager) start(cfg Config, rpc rpcpb.SliverRPCClient) error {
 	cfg = cfg.WithDefaults()
 	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	authInfo, _, err := ResolveAuthInfo()
+	if err != nil {
 		return err
 	}
 
@@ -120,9 +131,9 @@ func (m *mcpManager) start(cfg Config, rpc rpcpb.SliverRPCClient) error {
 	var transport serverTransport
 	switch cfg.Transport {
 	case TransportHTTP:
-		transport = mcpserver.NewStreamableHTTPServer(mcpServer.server)
+		transport = newAuthenticatedTransport(cfg, mcpserver.NewStreamableHTTPServer(mcpServer.server), authInfo.Token)
 	case TransportSSE:
-		transport = mcpserver.NewSSEServer(mcpServer.server)
+		transport = newAuthenticatedTransport(cfg, mcpserver.NewSSEServer(mcpServer.server), authInfo.Token)
 	default:
 		m.mu.Unlock()
 		logFile.Close()
@@ -138,11 +149,12 @@ func (m *mcpManager) start(cfg Config, rpc rpcpb.SliverRPCClient) error {
 	m.done = make(chan struct{})
 	m.logger = logger
 	m.logFile = logFile
+	m.authInfo = authInfo
 	addr := cfg.ListenAddress
 	done := m.done
 	m.mu.Unlock()
 
-	logger.Printf("starting mcp server transport=%s listen=%s", cfg.Transport, cfg.ListenAddress)
+	logger.Printf("starting mcp server transport=%s listen=%s auth_header=%s auth_config=%s", cfg.Transport, cfg.ListenAddress, authInfo.Header, authInfo.ConfigPath)
 	go m.run(addr, transport, done)
 	return nil
 }
@@ -161,6 +173,7 @@ func (m *mcpManager) run(addr string, transport serverTransport, done chan struc
 	m.running = false
 	m.transport = nil
 	m.server = nil
+	m.authInfo = AuthInfo{}
 	logFile := m.logFile
 	m.logFile = nil
 	m.logger = nil

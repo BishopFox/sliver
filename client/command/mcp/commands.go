@@ -66,6 +66,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind("", false, consoleCmd, func(f *pflag.FlagSet) {
 		f.String("transport", string(defaultConfig.Transport), "mcp transport (http or sse)")
 		f.String("url", "", "mcp server URL (defaults to local server settings)")
+		f.String("auth-token", "", "MCP auth token (defaults to the local mcp.yaml token)")
 	})
 	flags.BindFlagCompletions(consoleCmd, func(comp *carapace.ActionMap) {
 		(*comp)["transport"] = carapace.ActionValues("http", "sse")

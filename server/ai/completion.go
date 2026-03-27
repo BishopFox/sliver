@@ -8,12 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"charm.land/fantasy"
-	fantasyanthropic "charm.land/fantasy/providers/anthropic"
-	fantasygoogle "charm.land/fantasy/providers/google"
-	fantasyopenai "charm.land/fantasy/providers/openai"
-	fantasyopenaicompat "charm.land/fantasy/providers/openaicompat"
-	fantasyopenrouter "charm.land/fantasy/providers/openrouter"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/configs"
 )
@@ -24,8 +18,6 @@ const (
 	defaultGoogleModel       = "gemini-2.5-pro"
 	defaultOpenRouterModel   = "openai/gpt-5"
 	defaultCompletionTimeout = 2 * time.Minute
-
-	anthropicThinkingBudgetLow = 1024
 )
 
 var httpClient = &http.Client{Timeout: defaultCompletionTimeout}
@@ -130,6 +122,8 @@ func ResolveRuntimeConfig(cfg *configs.ServerConfig, conversation *clientpb.AICo
 		return runtime, errors.New(missingProviderConfigError(runtime.Provider))
 	case runtime.Model == "":
 		return runtime, fmt.Errorf("server AI provider %q is missing a model; update `ai.model` or choose a provider default", runtime.Provider)
+	case !completionDriverAvailable(runtime):
+		return runtime, missingDriverError(runtime)
 	default:
 		return runtime, nil
 	}
@@ -149,229 +143,15 @@ func CompleteConversation(ctx context.Context, runtime *RuntimeConfig, conversat
 		return nil, err
 	}
 
-	provider, err := newFantasyProvider(runtime)
+	driver, err := selectCompletionDriver(runtime)
 	if err != nil {
 		return nil, err
 	}
 
-	model, err := provider.LanguageModel(ctx, runtime.Model)
-	if err != nil {
-		return nil, formatFantasyError(runtime.Provider, err)
-	}
-
-	response, err := model.Generate(ctx, buildFantasyCall(runtime, systemPrompt, messages))
-	if err != nil {
-		return nil, formatFantasyError(runtime.Provider, err)
-	}
-
-	content := extractFantasyResponseText(response)
-	if content == "" {
-		return nil, fmt.Errorf("%s response did not include assistant text", runtime.Provider)
-	}
-
-	finishReason := strings.TrimSpace(string(response.FinishReason))
-	if finishReason == "" || finishReason == string(fantasy.FinishReasonUnknown) {
-		finishReason = "completed"
-	}
-
-	return &Completion{
-		Provider:          fallbackString(model.Provider(), runtime.Provider),
-		Model:             fallbackString(model.Model(), runtime.Model),
-		Content:           content,
-		ProviderMessageID: extractProviderMessageID(response),
-		FinishReason:      finishReason,
-	}, nil
-}
-
-func newFantasyProvider(runtime *RuntimeConfig) (fantasy.Provider, error) {
-	if runtime == nil {
-		return nil, fmt.Errorf("AI runtime config is required")
-	}
-
-	headers := providerHeaders(runtime)
-
-	switch runtime.Provider {
-	case ProviderAnthropic:
-		opts := []fantasyanthropic.Option{
-			fantasyanthropic.WithName(ProviderAnthropic),
-			fantasyanthropic.WithHTTPClient(httpClient),
-		}
-		if runtime.APIKey != "" {
-			opts = append(opts, fantasyanthropic.WithAPIKey(runtime.APIKey))
-		}
-		if runtime.BaseURL != "" {
-			opts = append(opts, fantasyanthropic.WithBaseURL(runtime.BaseURL))
-		}
-		if len(headers) > 0 {
-			opts = append(opts, fantasyanthropic.WithHeaders(headers))
-		}
-		if runtime.Project != "" && runtime.Location != "" {
-			opts = append(opts, fantasyanthropic.WithVertex(runtime.Project, runtime.Location))
-		}
-		if runtime.SkipAuth {
-			opts = append(opts, fantasyanthropic.WithSkipAuth(true))
-		}
-		if runtime.UseBedrock {
-			opts = append(opts, fantasyanthropic.WithBedrock())
-		}
-		return fantasyanthropic.New(opts...)
-	case ProviderGoogle:
-		opts := []fantasygoogle.Option{
-			fantasygoogle.WithName(ProviderGoogle),
-			fantasygoogle.WithHTTPClient(httpClient),
-		}
-		if runtime.BaseURL != "" {
-			opts = append(opts, fantasygoogle.WithBaseURL(runtime.BaseURL))
-		}
-		if len(headers) > 0 {
-			opts = append(opts, fantasygoogle.WithHeaders(headers))
-		}
-		if runtime.APIKey != "" {
-			opts = append(opts, fantasygoogle.WithGeminiAPIKey(runtime.APIKey))
-		} else if runtime.Project != "" && runtime.Location != "" {
-			opts = append(opts, fantasygoogle.WithVertex(runtime.Project, runtime.Location))
-		}
-		if runtime.SkipAuth {
-			opts = append(opts, fantasygoogle.WithSkipAuth(true))
-		}
-		return fantasygoogle.New(opts...)
-	case ProviderOpenAI:
-		opts := []fantasyopenai.Option{
-			fantasyopenai.WithName(ProviderOpenAI),
-			fantasyopenai.WithHTTPClient(httpClient),
-		}
-		if runtime.APIKey != "" {
-			opts = append(opts, fantasyopenai.WithAPIKey(runtime.APIKey))
-		}
-		if runtime.BaseURL != "" {
-			opts = append(opts, fantasyopenai.WithBaseURL(runtime.BaseURL))
-		}
-		if len(headers) > 0 {
-			opts = append(opts, fantasyopenai.WithHeaders(headers))
-		}
-		if runtime.Organization != "" {
-			opts = append(opts, fantasyopenai.WithOrganization(runtime.Organization))
-		}
-		if runtime.Project != "" {
-			opts = append(opts, fantasyopenai.WithProject(runtime.Project))
-		}
-		if runtime.UseResponsesAPI {
-			opts = append(opts, fantasyopenai.WithUseResponsesAPI())
-		}
-		return fantasyopenai.New(opts...)
-	case ProviderOpenAICompat:
-		opts := []fantasyopenaicompat.Option{
-			fantasyopenaicompat.WithName(ProviderOpenAICompat),
-			fantasyopenaicompat.WithHTTPClient(httpClient),
-		}
-		if runtime.APIKey != "" {
-			opts = append(opts, fantasyopenaicompat.WithAPIKey(runtime.APIKey))
-		}
-		if runtime.BaseURL != "" {
-			opts = append(opts, fantasyopenaicompat.WithBaseURL(runtime.BaseURL))
-		}
-		if len(headers) > 0 {
-			opts = append(opts, fantasyopenaicompat.WithHeaders(headers))
-		}
-		if runtime.UseResponsesAPI {
-			opts = append(opts, fantasyopenaicompat.WithUseResponsesAPI())
-		}
-		return fantasyopenaicompat.New(opts...)
-	case ProviderOpenRouter:
-		opts := []fantasyopenrouter.Option{
-			fantasyopenrouter.WithName(ProviderOpenRouter),
-			fantasyopenrouter.WithHTTPClient(httpClient),
-		}
-		if runtime.APIKey != "" {
-			opts = append(opts, fantasyopenrouter.WithAPIKey(runtime.APIKey))
-		}
-		if len(headers) > 0 {
-			opts = append(opts, fantasyopenrouter.WithHeaders(headers))
-		}
-		return fantasyopenrouter.New(opts...)
-	default:
-		return nil, fmt.Errorf("unsupported AI provider %q", runtime.Provider)
-	}
-}
-
-func buildFantasyCall(runtime *RuntimeConfig, systemPrompt string, messages []providerMessage) fantasy.Call {
-	prompt := make(fantasy.Prompt, 0, len(messages)+1)
-	if strings.TrimSpace(systemPrompt) != "" {
-		prompt = append(prompt, fantasy.Message{
-			Role: fantasy.MessageRoleSystem,
-			Content: []fantasy.MessagePart{
-				fantasy.TextPart{Text: strings.TrimSpace(systemPrompt)},
-			},
-		})
-	}
-	for _, message := range messages {
-		prompt = append(prompt, fantasy.Message{
-			Role: toFantasyMessageRole(message.Role),
-			Content: []fantasy.MessagePart{
-				fantasy.TextPart{Text: message.Content},
-			},
-		})
-	}
-
-	call := fantasy.Call{
-		Prompt:           prompt,
-		ProviderOptions:  fantasyProviderOptions(runtime),
-		MaxOutputTokens:  optionalRuntimeInt(runtime.MaxOutputTokens),
-		Temperature:      copyOptionalFloat(runtime.Temperature),
-		TopP:             copyOptionalFloat(runtime.TopP),
-		TopK:             copyOptionalInt(runtime.TopK),
-		PresencePenalty:  copyOptionalFloat(runtime.PresencePenalty),
-		FrequencyPenalty: copyOptionalFloat(runtime.FrequencyPenalty),
-	}
-	return call
-}
-
-func fantasyProviderOptions(runtime *RuntimeConfig) fantasy.ProviderOptions {
-	if runtime == nil {
-		return nil
-	}
-
-	switch runtime.Provider {
-	case ProviderAnthropic:
-		if budget := anthropicThinkingBudget(runtime.ThinkingLevel); budget > 0 {
-			return fantasyanthropic.NewProviderOptions(&fantasyanthropic.ProviderOptions{
-				Thinking: &fantasyanthropic.ThinkingProviderOption{BudgetTokens: budget},
-			})
-		}
-	case ProviderGoogle:
-		if thinkingConfig := googleThinkingConfig(runtime.ThinkingLevel); thinkingConfig != nil {
-			return fantasy.ProviderOptions{
-				fantasygoogle.Name: &fantasygoogle.ProviderOptions{
-					ThinkingConfig: thinkingConfig,
-				},
-			}
-		}
-	case ProviderOpenAI:
-		if effort := openAIReasoningEffort(runtime.ThinkingLevel); effort != nil {
-			if runtime.UseResponsesAPI && fantasyopenai.IsResponsesModel(runtime.Model) {
-				return fantasyopenai.NewResponsesProviderOptions(&fantasyopenai.ResponsesProviderOptions{
-					ReasoningEffort: effort,
-				})
-			}
-			return fantasyopenai.NewProviderOptions(&fantasyopenai.ProviderOptions{
-				ReasoningEffort: effort,
-			})
-		}
-	case ProviderOpenAICompat:
-		if effort := openAIReasoningEffort(runtime.ThinkingLevel); effort != nil {
-			return fantasyopenaicompat.NewProviderOptions(&fantasyopenaicompat.ProviderOptions{
-				ReasoningEffort: effort,
-			})
-		}
-	case ProviderOpenRouter:
-		if reasoning := openRouterReasoningOptions(runtime.ThinkingLevel); reasoning != nil {
-			return fantasyopenrouter.NewProviderOptions(&fantasyopenrouter.ProviderOptions{
-				Reasoning: reasoning,
-			})
-		}
-	}
-
-	return nil
+	return driver.CompleteConversation(ctx, runtime, &completionRequest{
+		SystemPrompt: systemPrompt,
+		Messages:     messages,
+	})
 }
 
 func conversationHistory(conversation *clientpb.AIConversation) (string, []providerMessage, error) {
@@ -383,6 +163,12 @@ func conversationHistory(conversation *clientpb.AIConversation) (string, []provi
 	messages := make([]providerMessage, 0, len(conversation.GetMessages()))
 	for _, message := range conversation.GetMessages() {
 		if message == nil {
+			continue
+		}
+		if message.GetVisibility() == clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY {
+			continue
+		}
+		if message.GetKind() != clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT {
 			continue
 		}
 
@@ -432,6 +218,22 @@ func defaultModelForProvider(provider string) string {
 	}
 }
 
+func completionDriverAvailable(runtime *RuntimeConfig) bool {
+	_, err := selectCompletionDriver(runtime)
+	return err == nil
+}
+
+func missingDriverError(runtime *RuntimeConfig) error {
+	if runtime == nil {
+		return fmt.Errorf("AI runtime config is required")
+	}
+	_, err := selectCompletionDriver(runtime)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func normalizeThinkingLevel(cfg *configs.ServerConfig) string {
 	if cfg == nil || cfg.AI == nil {
 		return ""
@@ -441,72 +243,6 @@ func normalizeThinkingLevel(cfg *configs.ServerConfig) string {
 		return strings.ToLower(strings.TrimSpace(cfg.AI.ThinkingLevel))
 	default:
 		return ""
-	}
-}
-
-func openAIReasoningEffort(thinkingLevel string) *fantasyopenai.ReasoningEffort {
-	switch strings.ToLower(strings.TrimSpace(thinkingLevel)) {
-	case "low":
-		return fantasyopenai.ReasoningEffortOption(fantasyopenai.ReasoningEffortLow)
-	case "medium":
-		return fantasyopenai.ReasoningEffortOption(fantasyopenai.ReasoningEffortMedium)
-	case "high":
-		return fantasyopenai.ReasoningEffortOption(fantasyopenai.ReasoningEffortHigh)
-	default:
-		return nil
-	}
-}
-
-func anthropicThinkingBudget(thinkingLevel string) int64 {
-	switch strings.ToLower(strings.TrimSpace(thinkingLevel)) {
-	case "low":
-		return anthropicThinkingBudgetLow
-	case "medium":
-		return anthropicThinkingBudgetLow * 2
-	case "high":
-		return anthropicThinkingBudgetLow * 4
-	default:
-		return 0
-	}
-}
-
-func googleThinkingConfig(thinkingLevel string) *fantasygoogle.ThinkingConfig {
-	var budget int64
-	switch strings.ToLower(strings.TrimSpace(thinkingLevel)) {
-	case "low":
-		budget = 1024
-	case "medium":
-		budget = 2048
-	case "high":
-		budget = 4096
-	default:
-		return nil
-	}
-
-	return &fantasygoogle.ThinkingConfig{
-		ThinkingBudget: fantasy.Opt(budget),
-	}
-}
-
-func openRouterReasoningOptions(thinkingLevel string) *fantasyopenrouter.ReasoningOptions {
-	switch strings.ToLower(strings.TrimSpace(thinkingLevel)) {
-	case "low":
-		return &fantasyopenrouter.ReasoningOptions{
-			Enabled: fantasy.Opt(true),
-			Effort:  fantasyopenrouter.ReasoningEffortOption(fantasyopenrouter.ReasoningEffortLow),
-		}
-	case "medium":
-		return &fantasyopenrouter.ReasoningOptions{
-			Enabled: fantasy.Opt(true),
-			Effort:  fantasyopenrouter.ReasoningEffortOption(fantasyopenrouter.ReasoningEffortMedium),
-		}
-	case "high":
-		return &fantasyopenrouter.ReasoningOptions{
-			Enabled: fantasy.Opt(true),
-			Effort:  fantasyopenrouter.ReasoningEffortOption(fantasyopenrouter.ReasoningEffortHigh),
-		}
-	default:
-		return nil
 	}
 }
 
@@ -581,71 +317,6 @@ func runtimeProviderConfigured(runtime *RuntimeConfig) bool {
 	default:
 		return false
 	}
-}
-
-func extractFantasyResponseText(response *fantasy.Response) string {
-	if response == nil {
-		return ""
-	}
-	blocks := make([]string, 0, len(response.Content))
-	for _, content := range response.Content {
-		if content == nil || content.GetType() != fantasy.ContentTypeText {
-			continue
-		}
-		textContent, ok := fantasy.AsContentType[fantasy.TextContent](content)
-		if !ok {
-			continue
-		}
-		if strings.TrimSpace(textContent.Text) == "" {
-			continue
-		}
-		blocks = append(blocks, textContent.Text)
-	}
-	return joinTextBlocks(blocks)
-}
-
-func extractProviderMessageID(_ *fantasy.Response) string {
-	// Fantasy's unified response model does not currently expose a stable top-level
-	// provider message ID for plain text generations.
-	return ""
-}
-
-func formatFantasyError(provider string, err error) error {
-	if err == nil {
-		return nil
-	}
-
-	var providerErr *fantasy.ProviderError
-	if errors.As(err, &providerErr) {
-		message := strings.TrimSpace(providerErr.Error())
-		if providerErr.StatusCode > 0 {
-			if message == "" {
-				message = http.StatusText(providerErr.StatusCode)
-			}
-			return fmt.Errorf("%s API request failed with HTTP %d: %s", provider, providerErr.StatusCode, truncateForError(message))
-		}
-		if message != "" {
-			return fmt.Errorf("%s API request failed: %s", provider, truncateForError(message))
-		}
-	}
-
-	return err
-}
-
-func toFantasyMessageRole(role string) fantasy.MessageRole {
-	switch strings.ToLower(strings.TrimSpace(role)) {
-	case "assistant":
-		return fantasy.MessageRoleAssistant
-	default:
-		return fantasy.MessageRoleUser
-	}
-}
-
-func optionalRuntimeInt(value int64) *int64 {
-	if value <= 0 {
-		return nil
-	}
-	return fantasy.Opt(value)
 }
 
 func copyOptionalFloat(value *float64) *float64 {

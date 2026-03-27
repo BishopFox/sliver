@@ -1438,6 +1438,10 @@ func SaveAIConversation(conversation *clientpb.AIConversation, operatorName stri
 	existing.Title = dbConversation.Title
 	existing.Summary = dbConversation.Summary
 	existing.SystemPrompt = dbConversation.SystemPrompt
+	existing.ActiveTurnID = dbConversation.ActiveTurnID
+	existing.TurnState = dbConversation.TurnState
+	existing.TargetSessionID = dbConversation.TargetSessionID
+	existing.TargetBeaconID = dbConversation.TargetBeaconID
 
 	if err := dbSession.Save(existing).Error; err != nil {
 		return nil, err
@@ -1509,6 +1513,20 @@ func SaveAIConversationMessage(message *clientpb.AIConversationMessage, operator
 	dbSession := Session()
 	var savedMessage *models.AIConversationMessage
 	err = dbSession.Transaction(func(tx *gorm.DB) error {
+		if dbMessage.ID == uuid.Nil && strings.TrimSpace(dbMessage.ItemID) != "" {
+			existingByItem := &models.AIConversationMessage{}
+			err := tx.Where("conversation_id = ?", dbMessage.ConversationID).
+				Where("item_id = ?", strings.TrimSpace(dbMessage.ItemID)).
+				First(existingByItem).Error
+			if err != nil {
+				if !errors.Is(err, ErrRecordNotFound) {
+					return err
+				}
+			} else {
+				dbMessage.ID = existingByItem.ID
+			}
+		}
+
 		if dbMessage.ID == uuid.Nil {
 			if dbMessage.Sequence == 0 {
 				lastMessage := &models.AIConversationMessage{}
@@ -1539,15 +1557,31 @@ func SaveAIConversationMessage(message *clientpb.AIConversationMessage, operator
 			if dbMessage.OperatorName != "" {
 				existing.OperatorName = dbMessage.OperatorName
 			}
-			existing.Provider = dbMessage.Provider
-			existing.Model = dbMessage.Model
+			if dbMessage.Provider != "" {
+				existing.Provider = dbMessage.Provider
+			}
+			if dbMessage.Model != "" {
+				existing.Model = dbMessage.Model
+			}
 			if dbMessage.Sequence != 0 {
 				existing.Sequence = dbMessage.Sequence
 			}
-			existing.Role = dbMessage.Role
+			if dbMessage.Role != "" {
+				existing.Role = dbMessage.Role
+			}
 			existing.Content = dbMessage.Content
 			existing.ProviderMessageID = dbMessage.ProviderMessageID
 			existing.FinishReason = dbMessage.FinishReason
+			existing.Kind = dbMessage.Kind
+			existing.Visibility = dbMessage.Visibility
+			existing.State = dbMessage.State
+			existing.TurnID = dbMessage.TurnID
+			existing.ItemID = dbMessage.ItemID
+			existing.ToolCallID = dbMessage.ToolCallID
+			existing.ToolName = dbMessage.ToolName
+			existing.ToolArguments = dbMessage.ToolArguments
+			existing.ToolResult = dbMessage.ToolResult
+			existing.ErrorText = dbMessage.ErrorText
 
 			if err := tx.Save(existing).Error; err != nil {
 				return err

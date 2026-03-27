@@ -108,17 +108,16 @@ func TestCompleteConversationOpenAIUsesConfiguredCredentialsAndSettings(t *testi
 	if completion.Content != "OpenAI assistant reply" {
 		t.Fatalf("unexpected completion content: %q", completion.Content)
 	}
-	if completion.ProviderMessageID != "" {
-		t.Fatalf("expected fantasy-backed completion to leave provider message id empty, got %q", completion.ProviderMessageID)
+	if completion.ProviderMessageID != "resp_123" {
+		t.Fatalf("unexpected provider message id: %q", completion.ProviderMessageID)
 	}
 }
 
-func TestCompleteConversationAnthropicUsesConfiguredCredentialsAndSettings(t *testing.T) {
+func TestCompleteConversationOpenAIUsesDefaultBaseURLWhenUnset(t *testing.T) {
 	type capturedRequest struct {
-		Path             string
-		APIKey           string
-		AnthropicVersion string
-		Body             string
+		Path          string
+		Authorization string
+		Body          string
 	}
 
 	requests := make(chan capturedRequest, 1)
@@ -132,25 +131,80 @@ func TestCompleteConversationAnthropicUsesConfiguredCredentialsAndSettings(t *te
 			}
 
 			requests <- capturedRequest{
-				Path:             r.URL.Path,
-				APIKey:           r.Header.Get("x-api-key"),
-				AnthropicVersion: r.Header.Get("anthropic-version"),
-				Body:             string(payload),
+				Path:          r.URL.Path,
+				Authorization: r.Header.Get("Authorization"),
+				Body:          string(payload),
 			}
 
 			return jsonResponse(http.StatusOK, `{
-			"id": "msg_123",
-			"model": "claude-sonnet-4-0",
-			"stop_reason": "end_turn",
-			"content": [
-				{"type": "thinking", "thinking": "internal reasoning"},
-				{"type": "text", "text": "Anthropic assistant reply"}
+			"id": "resp_default_base",
+			"model": "gpt-5.4",
+			"status": "completed",
+			"output": [
+				{
+					"type": "message",
+					"role": "assistant",
+					"content": [
+						{"type": "output_text", "text": "OpenAI default-base reply"}
+					]
+				}
 			]
 		}`), nil
 		}),
 	})
 	defer restoreClient()
 
+	cfg := &configs.ServerConfig{
+		AI: &configs.AIConfig{
+			Provider: ProviderOpenAI,
+			Model:    "gpt-5.4",
+			OpenAI: &configs.AIProviderConfig{
+				APIKey:          "openai-key",
+				UseResponsesAPI: boolPtr(true),
+			},
+			Anthropic: &configs.AIProviderConfig{},
+		},
+	}
+	conversation := &clientpb.AIConversation{
+		Provider: ProviderOpenAI,
+		Model:    "gpt-5.4",
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "user", Content: "Say hi."},
+		},
+	}
+
+	runtime, err := ResolveRuntimeConfig(cfg, conversation)
+	if err != nil {
+		t.Fatalf("resolve runtime config: %v", err)
+	}
+	if runtime.BaseURL != "" {
+		t.Fatalf("expected openai runtime base url to remain unset, got %q", runtime.BaseURL)
+	}
+
+	completion, err := CompleteConversation(context.Background(), runtime, conversation)
+	if err != nil {
+		t.Fatalf("complete conversation: %v", err)
+	}
+
+	request := <-requests
+	if request.Path != "/v1/responses" {
+		t.Fatalf("unexpected openai default-base request path: got=%q want=%q", request.Path, "/v1/responses")
+	}
+	if request.Authorization != "Bearer openai-key" {
+		t.Fatalf("unexpected authorization header: %q", request.Authorization)
+	}
+	if !strings.Contains(request.Body, `"Say hi."`) {
+		t.Fatalf("expected openai request body to contain the user prompt, got %s", request.Body)
+	}
+	if completion.Content != "OpenAI default-base reply" {
+		t.Fatalf("unexpected completion content: %q", completion.Content)
+	}
+	if completion.ProviderMessageID != "resp_default_base" {
+		t.Fatalf("unexpected provider message id: %q", completion.ProviderMessageID)
+	}
+}
+
+func TestResolveRuntimeConfigAnthropicRequiresAnInstalledDriver(t *testing.T) {
 	cfg := &configs.ServerConfig{
 		AI: &configs.AIConfig{
 			Provider:      ProviderAnthropic,
@@ -162,57 +216,16 @@ func TestCompleteConversationAnthropicUsesConfiguredCredentialsAndSettings(t *te
 			OpenAI: &configs.AIProviderConfig{},
 		},
 	}
-	conversation := &clientpb.AIConversation{
-		Provider:     ProviderAnthropic,
-		SystemPrompt: "Use short answers.",
-		Messages: []*clientpb.AIConversationMessage{
-			{Role: "user", Content: "Hello"},
-			{Role: "assistant", Content: "Hi there"},
-			{Role: "user", Content: "What changed?"},
-		},
-	}
 
-	runtime, err := ResolveRuntimeConfig(cfg, conversation)
-	if err != nil {
-		t.Fatalf("resolve runtime config: %v", err)
-	}
+	runtime, err := ResolveRuntimeConfig(cfg, &clientpb.AIConversation{Provider: ProviderAnthropic})
 	if runtime.Model != defaultAnthropicModel {
 		t.Fatalf("unexpected default anthropic model: got=%q want=%q", runtime.Model, defaultAnthropicModel)
 	}
-
-	completion, err := CompleteConversation(context.Background(), runtime, conversation)
-	if err != nil {
-		t.Fatalf("complete conversation: %v", err)
+	if err == nil {
+		t.Fatal("expected anthropic runtime resolution to require a dedicated driver")
 	}
-
-	request := <-requests
-	if request.Path != "/edge/v1/messages" {
-		t.Fatalf("unexpected anthropic request path: got=%q want=%q", request.Path, "/edge/v1/messages")
-	}
-	if request.APIKey != "anthropic-key" {
-		t.Fatalf("unexpected anthropic api key header: %q", request.APIKey)
-	}
-	if request.AnthropicVersion == "" {
-		t.Fatal("expected anthropic version header to be set")
-	}
-	for _, fragment := range []string{
-		`"model":"claude-sonnet-4-0"`,
-		`"Use short answers."`,
-		`"budget_tokens":2048`,
-		`"Hello"`,
-		`"Hi there"`,
-		`"What changed?"`,
-	} {
-		if !strings.Contains(request.Body, fragment) {
-			t.Fatalf("expected anthropic request body to contain %q, got %s", fragment, request.Body)
-		}
-	}
-
-	if completion.Content != "Anthropic assistant reply" {
-		t.Fatalf("unexpected completion content: %q", completion.Content)
-	}
-	if completion.FinishReason != "stop" {
-		t.Fatalf("unexpected finish reason: %q", completion.FinishReason)
+	if !strings.Contains(err.Error(), `provider "anthropic"`) || !strings.Contains(err.Error(), "SDK driver") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -329,6 +342,103 @@ func TestCompleteConversationOpenAICompatUsesBaseURLWithoutAuth(t *testing.T) {
 	}
 	if completion.Content != "OpenAI-compatible assistant reply" {
 		t.Fatalf("unexpected completion content: %q", completion.Content)
+	}
+	if completion.ProviderMessageID != "chatcmpl_123" {
+		t.Fatalf("unexpected provider message id: %q", completion.ProviderMessageID)
+	}
+}
+
+func TestCompleteConversationOpenRouterUsesDefaultBaseURL(t *testing.T) {
+	type capturedRequest struct {
+		Path          string
+		Authorization string
+		Body          string
+	}
+
+	requests := make(chan capturedRequest, 1)
+	restoreClient := SetHTTPClientForTests(&http.Client{
+		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			defer r.Body.Close()
+
+			payload, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatalf("read request body: %v", err)
+			}
+
+			requests <- capturedRequest{
+				Path:          r.URL.Path,
+				Authorization: r.Header.Get("Authorization"),
+				Body:          string(payload),
+			}
+
+			return jsonResponse(http.StatusOK, `{
+			"id": "chatcmpl_or_123",
+			"object": "chat.completion",
+			"model": "openai/gpt-5",
+			"choices": [
+				{
+					"index": 0,
+					"finish_reason": "stop",
+					"message": {
+						"role": "assistant",
+						"content": "OpenRouter assistant reply"
+					}
+				}
+			]
+		}`), nil
+		}),
+	})
+	defer restoreClient()
+
+	cfg := &configs.ServerConfig{
+		AI: &configs.AIConfig{
+			Provider:      ProviderOpenRouter,
+			ThinkingLevel: "medium",
+			OpenRouter: &configs.AIProviderConfig{
+				APIKey: "openrouter-key",
+			},
+		},
+	}
+	conversation := &clientpb.AIConversation{
+		Provider: ProviderOpenRouter,
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "user", Content: "Say hi."},
+		},
+	}
+
+	runtime, err := ResolveRuntimeConfig(cfg, conversation)
+	if err != nil {
+		t.Fatalf("resolve runtime config: %v", err)
+	}
+	if runtime.Model != defaultOpenRouterModel {
+		t.Fatalf("unexpected default openrouter model: got=%q want=%q", runtime.Model, defaultOpenRouterModel)
+	}
+
+	completion, err := CompleteConversation(context.Background(), runtime, conversation)
+	if err != nil {
+		t.Fatalf("complete conversation: %v", err)
+	}
+
+	request := <-requests
+	if request.Path != "/api/v1/chat/completions" {
+		t.Fatalf("unexpected openrouter request path: got=%q want=%q", request.Path, "/api/v1/chat/completions")
+	}
+	if request.Authorization != "Bearer openrouter-key" {
+		t.Fatalf("unexpected authorization header: %q", request.Authorization)
+	}
+	for _, fragment := range []string{
+		`"model":"openai/gpt-5"`,
+		`"Say hi."`,
+	} {
+		if !strings.Contains(request.Body, fragment) {
+			t.Fatalf("expected openrouter request body to contain %q, got %s", fragment, request.Body)
+		}
+	}
+	if completion.Content != "OpenRouter assistant reply" {
+		t.Fatalf("unexpected completion content: %q", completion.Content)
+	}
+	if completion.ProviderMessageID != "chatcmpl_or_123" {
+		t.Fatalf("unexpected provider message id: %q", completion.ProviderMessageID)
 	}
 }
 

@@ -1068,6 +1068,266 @@ func (CrackFileType) EnumDescriptor() ([]byte, []int) {
 	return file_clientpb_client_proto_rawDescGZIP(), []int{12}
 }
 
+type AIConversationTurnState int32
+
+const (
+	AIConversationTurnState_AI_TURN_STATE_IDLE        AIConversationTurnState = 0
+	AIConversationTurnState_AI_TURN_STATE_IN_PROGRESS AIConversationTurnState = 1
+	AIConversationTurnState_AI_TURN_STATE_FAILED      AIConversationTurnState = 2
+)
+
+// Enum value maps for AIConversationTurnState.
+var (
+	AIConversationTurnState_name = map[int32]string{
+		0: "AI_TURN_STATE_IDLE",
+		1: "AI_TURN_STATE_IN_PROGRESS",
+		2: "AI_TURN_STATE_FAILED",
+	}
+	AIConversationTurnState_value = map[string]int32{
+		"AI_TURN_STATE_IDLE":        0,
+		"AI_TURN_STATE_IN_PROGRESS": 1,
+		"AI_TURN_STATE_FAILED":      2,
+	}
+)
+
+func (x AIConversationTurnState) Enum() *AIConversationTurnState {
+	p := new(AIConversationTurnState)
+	*p = x
+	return p
+}
+
+func (x AIConversationTurnState) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (AIConversationTurnState) Descriptor() protoreflect.EnumDescriptor {
+	return file_clientpb_client_proto_enumTypes[13].Descriptor()
+}
+
+func (AIConversationTurnState) Type() protoreflect.EnumType {
+	return &file_clientpb_client_proto_enumTypes[13]
+}
+
+func (x AIConversationTurnState) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use AIConversationTurnState.Descriptor instead.
+func (AIConversationTurnState) EnumDescriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{13}
+}
+
+type AIConversationMessageKind int32
+
+const (
+	AIConversationMessageKind_AI_MESSAGE_KIND_CHAT      AIConversationMessageKind = 0
+	AIConversationMessageKind_AI_MESSAGE_KIND_REASONING AIConversationMessageKind = 1
+	AIConversationMessageKind_AI_MESSAGE_KIND_TOOL_CALL AIConversationMessageKind = 2
+)
+
+// Enum value maps for AIConversationMessageKind.
+var (
+	AIConversationMessageKind_name = map[int32]string{
+		0: "AI_MESSAGE_KIND_CHAT",
+		1: "AI_MESSAGE_KIND_REASONING",
+		2: "AI_MESSAGE_KIND_TOOL_CALL",
+	}
+	AIConversationMessageKind_value = map[string]int32{
+		"AI_MESSAGE_KIND_CHAT":      0,
+		"AI_MESSAGE_KIND_REASONING": 1,
+		"AI_MESSAGE_KIND_TOOL_CALL": 2,
+	}
+)
+
+func (x AIConversationMessageKind) Enum() *AIConversationMessageKind {
+	p := new(AIConversationMessageKind)
+	*p = x
+	return p
+}
+
+func (x AIConversationMessageKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (AIConversationMessageKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_clientpb_client_proto_enumTypes[14].Descriptor()
+}
+
+func (AIConversationMessageKind) Type() protoreflect.EnumType {
+	return &file_clientpb_client_proto_enumTypes[14]
+}
+
+func (x AIConversationMessageKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use AIConversationMessageKind.Descriptor instead.
+func (AIConversationMessageKind) EnumDescriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{14}
+}
+
+type AIConversationMessageVisibility int32
+
+const (
+	AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_CONTEXT AIConversationMessageVisibility = 0
+	AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY AIConversationMessageVisibility = 1
+)
+
+// Enum value maps for AIConversationMessageVisibility.
+var (
+	AIConversationMessageVisibility_name = map[int32]string{
+		0: "AI_MESSAGE_VISIBILITY_CONTEXT",
+		1: "AI_MESSAGE_VISIBILITY_UI_ONLY",
+	}
+	AIConversationMessageVisibility_value = map[string]int32{
+		"AI_MESSAGE_VISIBILITY_CONTEXT": 0,
+		"AI_MESSAGE_VISIBILITY_UI_ONLY": 1,
+	}
+)
+
+func (x AIConversationMessageVisibility) Enum() *AIConversationMessageVisibility {
+	p := new(AIConversationMessageVisibility)
+	*p = x
+	return p
+}
+
+func (x AIConversationMessageVisibility) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (AIConversationMessageVisibility) Descriptor() protoreflect.EnumDescriptor {
+	return file_clientpb_client_proto_enumTypes[15].Descriptor()
+}
+
+func (AIConversationMessageVisibility) Type() protoreflect.EnumType {
+	return &file_clientpb_client_proto_enumTypes[15]
+}
+
+func (x AIConversationMessageVisibility) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use AIConversationMessageVisibility.Descriptor instead.
+func (AIConversationMessageVisibility) EnumDescriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{15}
+}
+
+type AIConversationMessageState int32
+
+const (
+	AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED   AIConversationMessageState = 0
+	AIConversationMessageState_AI_MESSAGE_STATE_IN_PROGRESS AIConversationMessageState = 1
+	AIConversationMessageState_AI_MESSAGE_STATE_FAILED      AIConversationMessageState = 2
+)
+
+// Enum value maps for AIConversationMessageState.
+var (
+	AIConversationMessageState_name = map[int32]string{
+		0: "AI_MESSAGE_STATE_COMPLETED",
+		1: "AI_MESSAGE_STATE_IN_PROGRESS",
+		2: "AI_MESSAGE_STATE_FAILED",
+	}
+	AIConversationMessageState_value = map[string]int32{
+		"AI_MESSAGE_STATE_COMPLETED":   0,
+		"AI_MESSAGE_STATE_IN_PROGRESS": 1,
+		"AI_MESSAGE_STATE_FAILED":      2,
+	}
+)
+
+func (x AIConversationMessageState) Enum() *AIConversationMessageState {
+	p := new(AIConversationMessageState)
+	*p = x
+	return p
+}
+
+func (x AIConversationMessageState) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (AIConversationMessageState) Descriptor() protoreflect.EnumDescriptor {
+	return file_clientpb_client_proto_enumTypes[16].Descriptor()
+}
+
+func (AIConversationMessageState) Type() protoreflect.EnumType {
+	return &file_clientpb_client_proto_enumTypes[16]
+}
+
+func (x AIConversationMessageState) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use AIConversationMessageState.Descriptor instead.
+func (AIConversationMessageState) EnumDescriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{16}
+}
+
+type AIConversationEventType int32
+
+const (
+	AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_UNKNOWN              AIConversationEventType = 0
+	AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_CONVERSATION_UPDATED AIConversationEventType = 1
+	AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_CONVERSATION_DELETED AIConversationEventType = 2
+	AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_TURN_STARTED         AIConversationEventType = 3
+	AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_TURN_COMPLETED       AIConversationEventType = 4
+	AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_TURN_FAILED          AIConversationEventType = 5
+	AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_MESSAGE_STARTED      AIConversationEventType = 6
+	AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_MESSAGE_UPDATED      AIConversationEventType = 7
+	AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_MESSAGE_COMPLETED    AIConversationEventType = 8
+)
+
+// Enum value maps for AIConversationEventType.
+var (
+	AIConversationEventType_name = map[int32]string{
+		0: "AI_CONVERSATION_EVENT_TYPE_UNKNOWN",
+		1: "AI_CONVERSATION_EVENT_TYPE_CONVERSATION_UPDATED",
+		2: "AI_CONVERSATION_EVENT_TYPE_CONVERSATION_DELETED",
+		3: "AI_CONVERSATION_EVENT_TYPE_TURN_STARTED",
+		4: "AI_CONVERSATION_EVENT_TYPE_TURN_COMPLETED",
+		5: "AI_CONVERSATION_EVENT_TYPE_TURN_FAILED",
+		6: "AI_CONVERSATION_EVENT_TYPE_MESSAGE_STARTED",
+		7: "AI_CONVERSATION_EVENT_TYPE_MESSAGE_UPDATED",
+		8: "AI_CONVERSATION_EVENT_TYPE_MESSAGE_COMPLETED",
+	}
+	AIConversationEventType_value = map[string]int32{
+		"AI_CONVERSATION_EVENT_TYPE_UNKNOWN":              0,
+		"AI_CONVERSATION_EVENT_TYPE_CONVERSATION_UPDATED": 1,
+		"AI_CONVERSATION_EVENT_TYPE_CONVERSATION_DELETED": 2,
+		"AI_CONVERSATION_EVENT_TYPE_TURN_STARTED":         3,
+		"AI_CONVERSATION_EVENT_TYPE_TURN_COMPLETED":       4,
+		"AI_CONVERSATION_EVENT_TYPE_TURN_FAILED":          5,
+		"AI_CONVERSATION_EVENT_TYPE_MESSAGE_STARTED":      6,
+		"AI_CONVERSATION_EVENT_TYPE_MESSAGE_UPDATED":      7,
+		"AI_CONVERSATION_EVENT_TYPE_MESSAGE_COMPLETED":    8,
+	}
+)
+
+func (x AIConversationEventType) Enum() *AIConversationEventType {
+	p := new(AIConversationEventType)
+	*p = x
+	return p
+}
+
+func (x AIConversationEventType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (AIConversationEventType) Descriptor() protoreflect.EnumDescriptor {
+	return file_clientpb_client_proto_enumTypes[17].Descriptor()
+}
+
+func (AIConversationEventType) Type() protoreflect.EnumType {
+	return &file_clientpb_client_proto_enumTypes[17]
+}
+
+func (x AIConversationEventType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use AIConversationEventType.Descriptor instead.
+func (AIConversationEventType) EnumDescriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{17}
+}
+
 type Version struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Major         int32                  `protobuf:"varint,1,opt,name=Major,proto3" json:"Major,omitempty"`
@@ -11565,19 +11825,23 @@ func (x *AIConversations) GetConversations() []*AIConversation {
 }
 
 type AIConversation struct {
-	state         protoimpl.MessageState   `protogen:"open.v1"`
-	ID            string                   `protobuf:"bytes,1,opt,name=ID,proto3" json:"ID,omitempty"`
-	CreatedAt     int64                    `protobuf:"varint,2,opt,name=CreatedAt,proto3" json:"CreatedAt,omitempty"`
-	UpdatedAt     int64                    `protobuf:"varint,3,opt,name=UpdatedAt,proto3" json:"UpdatedAt,omitempty"`
-	OperatorName  string                   `protobuf:"bytes,4,opt,name=OperatorName,proto3" json:"OperatorName,omitempty"`
-	Provider      string                   `protobuf:"bytes,5,opt,name=Provider,proto3" json:"Provider,omitempty"`
-	Model         string                   `protobuf:"bytes,6,opt,name=Model,proto3" json:"Model,omitempty"`
-	Title         string                   `protobuf:"bytes,7,opt,name=Title,proto3" json:"Title,omitempty"`
-	Summary       string                   `protobuf:"bytes,8,opt,name=Summary,proto3" json:"Summary,omitempty"`
-	SystemPrompt  string                   `protobuf:"bytes,9,opt,name=SystemPrompt,proto3" json:"SystemPrompt,omitempty"`
-	Messages      []*AIConversationMessage `protobuf:"bytes,10,rep,name=Messages,proto3" json:"Messages,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState   `protogen:"open.v1"`
+	ID              string                   `protobuf:"bytes,1,opt,name=ID,proto3" json:"ID,omitempty"`
+	CreatedAt       int64                    `protobuf:"varint,2,opt,name=CreatedAt,proto3" json:"CreatedAt,omitempty"`
+	UpdatedAt       int64                    `protobuf:"varint,3,opt,name=UpdatedAt,proto3" json:"UpdatedAt,omitempty"`
+	OperatorName    string                   `protobuf:"bytes,4,opt,name=OperatorName,proto3" json:"OperatorName,omitempty"`
+	Provider        string                   `protobuf:"bytes,5,opt,name=Provider,proto3" json:"Provider,omitempty"`
+	Model           string                   `protobuf:"bytes,6,opt,name=Model,proto3" json:"Model,omitempty"`
+	Title           string                   `protobuf:"bytes,7,opt,name=Title,proto3" json:"Title,omitempty"`
+	Summary         string                   `protobuf:"bytes,8,opt,name=Summary,proto3" json:"Summary,omitempty"`
+	SystemPrompt    string                   `protobuf:"bytes,9,opt,name=SystemPrompt,proto3" json:"SystemPrompt,omitempty"`
+	Messages        []*AIConversationMessage `protobuf:"bytes,10,rep,name=Messages,proto3" json:"Messages,omitempty"`
+	ActiveTurnID    string                   `protobuf:"bytes,11,opt,name=ActiveTurnID,proto3" json:"ActiveTurnID,omitempty"`
+	TurnState       AIConversationTurnState  `protobuf:"varint,12,opt,name=TurnState,proto3,enum=clientpb.AIConversationTurnState" json:"TurnState,omitempty"`
+	TargetSessionID string                   `protobuf:"bytes,13,opt,name=TargetSessionID,proto3" json:"TargetSessionID,omitempty"`
+	TargetBeaconID  string                   `protobuf:"bytes,14,opt,name=TargetBeaconID,proto3" json:"TargetBeaconID,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *AIConversation) Reset() {
@@ -11680,6 +11944,34 @@ func (x *AIConversation) GetMessages() []*AIConversationMessage {
 	return nil
 }
 
+func (x *AIConversation) GetActiveTurnID() string {
+	if x != nil {
+		return x.ActiveTurnID
+	}
+	return ""
+}
+
+func (x *AIConversation) GetTurnState() AIConversationTurnState {
+	if x != nil {
+		return x.TurnState
+	}
+	return AIConversationTurnState_AI_TURN_STATE_IDLE
+}
+
+func (x *AIConversation) GetTargetSessionID() string {
+	if x != nil {
+		return x.TargetSessionID
+	}
+	return ""
+}
+
+func (x *AIConversation) GetTargetBeaconID() string {
+	if x != nil {
+		return x.TargetBeaconID
+	}
+	return ""
+}
+
 type AIConversationMessages struct {
 	state          protoimpl.MessageState   `protogen:"open.v1"`
 	ConversationID string                   `protobuf:"bytes,1,opt,name=ConversationID,proto3" json:"ConversationID,omitempty"`
@@ -11733,19 +12025,29 @@ func (x *AIConversationMessages) GetMessages() []*AIConversationMessage {
 }
 
 type AIConversationMessage struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	ID                string                 `protobuf:"bytes,1,opt,name=ID,proto3" json:"ID,omitempty"`
-	ConversationID    string                 `protobuf:"bytes,2,opt,name=ConversationID,proto3" json:"ConversationID,omitempty"`
-	CreatedAt         int64                  `protobuf:"varint,3,opt,name=CreatedAt,proto3" json:"CreatedAt,omitempty"`
-	UpdatedAt         int64                  `protobuf:"varint,4,opt,name=UpdatedAt,proto3" json:"UpdatedAt,omitempty"`
-	OperatorName      string                 `protobuf:"bytes,5,opt,name=OperatorName,proto3" json:"OperatorName,omitempty"`
-	Provider          string                 `protobuf:"bytes,6,opt,name=Provider,proto3" json:"Provider,omitempty"`
-	Model             string                 `protobuf:"bytes,7,opt,name=Model,proto3" json:"Model,omitempty"`
-	Sequence          uint32                 `protobuf:"varint,8,opt,name=Sequence,proto3" json:"Sequence,omitempty"`
-	Role              string                 `protobuf:"bytes,9,opt,name=Role,proto3" json:"Role,omitempty"`
-	Content           string                 `protobuf:"bytes,10,opt,name=Content,proto3" json:"Content,omitempty"`
-	ProviderMessageID string                 `protobuf:"bytes,11,opt,name=ProviderMessageID,proto3" json:"ProviderMessageID,omitempty"`
-	FinishReason      string                 `protobuf:"bytes,12,opt,name=FinishReason,proto3" json:"FinishReason,omitempty"`
+	state             protoimpl.MessageState          `protogen:"open.v1"`
+	ID                string                          `protobuf:"bytes,1,opt,name=ID,proto3" json:"ID,omitempty"`
+	ConversationID    string                          `protobuf:"bytes,2,opt,name=ConversationID,proto3" json:"ConversationID,omitempty"`
+	CreatedAt         int64                           `protobuf:"varint,3,opt,name=CreatedAt,proto3" json:"CreatedAt,omitempty"`
+	UpdatedAt         int64                           `protobuf:"varint,4,opt,name=UpdatedAt,proto3" json:"UpdatedAt,omitempty"`
+	OperatorName      string                          `protobuf:"bytes,5,opt,name=OperatorName,proto3" json:"OperatorName,omitempty"`
+	Provider          string                          `protobuf:"bytes,6,opt,name=Provider,proto3" json:"Provider,omitempty"`
+	Model             string                          `protobuf:"bytes,7,opt,name=Model,proto3" json:"Model,omitempty"`
+	Sequence          uint32                          `protobuf:"varint,8,opt,name=Sequence,proto3" json:"Sequence,omitempty"`
+	Role              string                          `protobuf:"bytes,9,opt,name=Role,proto3" json:"Role,omitempty"`
+	Content           string                          `protobuf:"bytes,10,opt,name=Content,proto3" json:"Content,omitempty"`
+	ProviderMessageID string                          `protobuf:"bytes,11,opt,name=ProviderMessageID,proto3" json:"ProviderMessageID,omitempty"`
+	FinishReason      string                          `protobuf:"bytes,12,opt,name=FinishReason,proto3" json:"FinishReason,omitempty"`
+	Kind              AIConversationMessageKind       `protobuf:"varint,13,opt,name=Kind,proto3,enum=clientpb.AIConversationMessageKind" json:"Kind,omitempty"`
+	Visibility        AIConversationMessageVisibility `protobuf:"varint,14,opt,name=Visibility,proto3,enum=clientpb.AIConversationMessageVisibility" json:"Visibility,omitempty"`
+	State             AIConversationMessageState      `protobuf:"varint,15,opt,name=State,proto3,enum=clientpb.AIConversationMessageState" json:"State,omitempty"`
+	TurnID            string                          `protobuf:"bytes,16,opt,name=TurnID,proto3" json:"TurnID,omitempty"`
+	ItemID            string                          `protobuf:"bytes,17,opt,name=ItemID,proto3" json:"ItemID,omitempty"`
+	ToolCallID        string                          `protobuf:"bytes,18,opt,name=ToolCallID,proto3" json:"ToolCallID,omitempty"`
+	ToolName          string                          `protobuf:"bytes,19,opt,name=ToolName,proto3" json:"ToolName,omitempty"`
+	ToolArguments     string                          `protobuf:"bytes,20,opt,name=ToolArguments,proto3" json:"ToolArguments,omitempty"`
+	ToolResult        string                          `protobuf:"bytes,21,opt,name=ToolResult,proto3" json:"ToolResult,omitempty"`
+	ErrorText         string                          `protobuf:"bytes,22,opt,name=ErrorText,proto3" json:"ErrorText,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -11864,6 +12166,160 @@ func (x *AIConversationMessage) GetFinishReason() string {
 	return ""
 }
 
+func (x *AIConversationMessage) GetKind() AIConversationMessageKind {
+	if x != nil {
+		return x.Kind
+	}
+	return AIConversationMessageKind_AI_MESSAGE_KIND_CHAT
+}
+
+func (x *AIConversationMessage) GetVisibility() AIConversationMessageVisibility {
+	if x != nil {
+		return x.Visibility
+	}
+	return AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_CONTEXT
+}
+
+func (x *AIConversationMessage) GetState() AIConversationMessageState {
+	if x != nil {
+		return x.State
+	}
+	return AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED
+}
+
+func (x *AIConversationMessage) GetTurnID() string {
+	if x != nil {
+		return x.TurnID
+	}
+	return ""
+}
+
+func (x *AIConversationMessage) GetItemID() string {
+	if x != nil {
+		return x.ItemID
+	}
+	return ""
+}
+
+func (x *AIConversationMessage) GetToolCallID() string {
+	if x != nil {
+		return x.ToolCallID
+	}
+	return ""
+}
+
+func (x *AIConversationMessage) GetToolName() string {
+	if x != nil {
+		return x.ToolName
+	}
+	return ""
+}
+
+func (x *AIConversationMessage) GetToolArguments() string {
+	if x != nil {
+		return x.ToolArguments
+	}
+	return ""
+}
+
+func (x *AIConversationMessage) GetToolResult() string {
+	if x != nil {
+		return x.ToolResult
+	}
+	return ""
+}
+
+func (x *AIConversationMessage) GetErrorText() string {
+	if x != nil {
+		return x.ErrorText
+	}
+	return ""
+}
+
+type AIConversationEvent struct {
+	state          protoimpl.MessageState  `protogen:"open.v1"`
+	EventType      AIConversationEventType `protobuf:"varint,1,opt,name=EventType,proto3,enum=clientpb.AIConversationEventType" json:"EventType,omitempty"`
+	ConversationID string                  `protobuf:"bytes,2,opt,name=ConversationID,proto3" json:"ConversationID,omitempty"`
+	TurnID         string                  `protobuf:"bytes,3,opt,name=TurnID,proto3" json:"TurnID,omitempty"`
+	ErrorText      string                  `protobuf:"bytes,4,opt,name=ErrorText,proto3" json:"ErrorText,omitempty"`
+	Conversation   *AIConversation         `protobuf:"bytes,5,opt,name=Conversation,proto3" json:"Conversation,omitempty"`
+	Message        *AIConversationMessage  `protobuf:"bytes,6,opt,name=Message,proto3" json:"Message,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *AIConversationEvent) Reset() {
+	*x = AIConversationEvent{}
+	mi := &file_clientpb_client_proto_msgTypes[134]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AIConversationEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AIConversationEvent) ProtoMessage() {}
+
+func (x *AIConversationEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[134]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AIConversationEvent.ProtoReflect.Descriptor instead.
+func (*AIConversationEvent) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{134}
+}
+
+func (x *AIConversationEvent) GetEventType() AIConversationEventType {
+	if x != nil {
+		return x.EventType
+	}
+	return AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_UNKNOWN
+}
+
+func (x *AIConversationEvent) GetConversationID() string {
+	if x != nil {
+		return x.ConversationID
+	}
+	return ""
+}
+
+func (x *AIConversationEvent) GetTurnID() string {
+	if x != nil {
+		return x.TurnID
+	}
+	return ""
+}
+
+func (x *AIConversationEvent) GetErrorText() string {
+	if x != nil {
+		return x.ErrorText
+	}
+	return ""
+}
+
+func (x *AIConversationEvent) GetConversation() *AIConversation {
+	if x != nil {
+		return x.Conversation
+	}
+	return nil
+}
+
+func (x *AIConversationEvent) GetMessage() *AIConversationMessage {
+	if x != nil {
+		return x.Message
+	}
+	return nil
+}
+
 // watchtower
 type MonitoringProviders struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -11874,7 +12330,7 @@ type MonitoringProviders struct {
 
 func (x *MonitoringProviders) Reset() {
 	*x = MonitoringProviders{}
-	mi := &file_clientpb_client_proto_msgTypes[134]
+	mi := &file_clientpb_client_proto_msgTypes[135]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11886,7 +12342,7 @@ func (x *MonitoringProviders) String() string {
 func (*MonitoringProviders) ProtoMessage() {}
 
 func (x *MonitoringProviders) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[134]
+	mi := &file_clientpb_client_proto_msgTypes[135]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11899,7 +12355,7 @@ func (x *MonitoringProviders) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MonitoringProviders.ProtoReflect.Descriptor instead.
 func (*MonitoringProviders) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{134}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{135}
 }
 
 func (x *MonitoringProviders) GetProviders() []*MonitoringProvider {
@@ -11921,7 +12377,7 @@ type MonitoringProvider struct {
 
 func (x *MonitoringProvider) Reset() {
 	*x = MonitoringProvider{}
-	mi := &file_clientpb_client_proto_msgTypes[135]
+	mi := &file_clientpb_client_proto_msgTypes[136]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11933,7 +12389,7 @@ func (x *MonitoringProvider) String() string {
 func (*MonitoringProvider) ProtoMessage() {}
 
 func (x *MonitoringProvider) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[135]
+	mi := &file_clientpb_client_proto_msgTypes[136]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11946,7 +12402,7 @@ func (x *MonitoringProvider) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MonitoringProvider.ProtoReflect.Descriptor instead.
 func (*MonitoringProvider) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{135}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{136}
 }
 
 func (x *MonitoringProvider) GetID() string {
@@ -11990,7 +12446,7 @@ type ResourceID struct {
 
 func (x *ResourceID) Reset() {
 	*x = ResourceID{}
-	mi := &file_clientpb_client_proto_msgTypes[136]
+	mi := &file_clientpb_client_proto_msgTypes[137]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12002,7 +12458,7 @@ func (x *ResourceID) String() string {
 func (*ResourceID) ProtoMessage() {}
 
 func (x *ResourceID) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[136]
+	mi := &file_clientpb_client_proto_msgTypes[137]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12015,7 +12471,7 @@ func (x *ResourceID) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceID.ProtoReflect.Descriptor instead.
 func (*ResourceID) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{136}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{137}
 }
 
 func (x *ResourceID) GetID() string {
@@ -12056,7 +12512,7 @@ type CertificatesReq struct {
 
 func (x *CertificatesReq) Reset() {
 	*x = CertificatesReq{}
-	mi := &file_clientpb_client_proto_msgTypes[137]
+	mi := &file_clientpb_client_proto_msgTypes[138]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12068,7 +12524,7 @@ func (x *CertificatesReq) String() string {
 func (*CertificatesReq) ProtoMessage() {}
 
 func (x *CertificatesReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[137]
+	mi := &file_clientpb_client_proto_msgTypes[138]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12081,7 +12537,7 @@ func (x *CertificatesReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificatesReq.ProtoReflect.Descriptor instead.
 func (*CertificatesReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{137}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{138}
 }
 
 func (x *CertificatesReq) GetCategoryFilters() uint32 {
@@ -12113,7 +12569,7 @@ type CertificateData struct {
 
 func (x *CertificateData) Reset() {
 	*x = CertificateData{}
-	mi := &file_clientpb_client_proto_msgTypes[138]
+	mi := &file_clientpb_client_proto_msgTypes[139]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12125,7 +12581,7 @@ func (x *CertificateData) String() string {
 func (*CertificateData) ProtoMessage() {}
 
 func (x *CertificateData) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[138]
+	mi := &file_clientpb_client_proto_msgTypes[139]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12138,7 +12594,7 @@ func (x *CertificateData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificateData.ProtoReflect.Descriptor instead.
 func (*CertificateData) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{138}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{139}
 }
 
 func (x *CertificateData) GetCN() string {
@@ -12199,7 +12655,7 @@ type CertificateInfo struct {
 
 func (x *CertificateInfo) Reset() {
 	*x = CertificateInfo{}
-	mi := &file_clientpb_client_proto_msgTypes[139]
+	mi := &file_clientpb_client_proto_msgTypes[140]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12211,7 +12667,7 @@ func (x *CertificateInfo) String() string {
 func (*CertificateInfo) ProtoMessage() {}
 
 func (x *CertificateInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[139]
+	mi := &file_clientpb_client_proto_msgTypes[140]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12224,7 +12680,7 @@ func (x *CertificateInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificateInfo.ProtoReflect.Descriptor instead.
 func (*CertificateInfo) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{139}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{140}
 }
 
 func (x *CertificateInfo) GetInfo() []*CertificateData {
@@ -12249,7 +12705,7 @@ type CertificateAuthorityData struct {
 
 func (x *CertificateAuthorityData) Reset() {
 	*x = CertificateAuthorityData{}
-	mi := &file_clientpb_client_proto_msgTypes[140]
+	mi := &file_clientpb_client_proto_msgTypes[141]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12261,7 +12717,7 @@ func (x *CertificateAuthorityData) String() string {
 func (*CertificateAuthorityData) ProtoMessage() {}
 
 func (x *CertificateAuthorityData) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[140]
+	mi := &file_clientpb_client_proto_msgTypes[141]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12274,7 +12730,7 @@ func (x *CertificateAuthorityData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificateAuthorityData.ProtoReflect.Descriptor instead.
 func (*CertificateAuthorityData) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{140}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{141}
 }
 
 func (x *CertificateAuthorityData) GetCN() string {
@@ -12335,7 +12791,7 @@ type CertificateAuthorityInfo struct {
 
 func (x *CertificateAuthorityInfo) Reset() {
 	*x = CertificateAuthorityInfo{}
-	mi := &file_clientpb_client_proto_msgTypes[141]
+	mi := &file_clientpb_client_proto_msgTypes[142]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12347,7 +12803,7 @@ func (x *CertificateAuthorityInfo) String() string {
 func (*CertificateAuthorityInfo) ProtoMessage() {}
 
 func (x *CertificateAuthorityInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[141]
+	mi := &file_clientpb_client_proto_msgTypes[142]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12360,7 +12816,7 @@ func (x *CertificateAuthorityInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificateAuthorityInfo.ProtoReflect.Descriptor instead.
 func (*CertificateAuthorityInfo) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{141}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{142}
 }
 
 func (x *CertificateAuthorityInfo) GetInfo() []*CertificateAuthorityData {
@@ -13356,7 +13812,7 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\x02ID\x18\x01 \x01(\tR\x02ID\x12(\n" +
 	"\x0fIncludeMessages\x18\x02 \x01(\bR\x0fIncludeMessages\"Q\n" +
 	"\x0fAIConversations\x12>\n" +
-	"\rConversations\x18\x01 \x03(\v2\x18.clientpb.AIConversationR\rConversations\"\xc3\x02\n" +
+	"\rConversations\x18\x01 \x03(\v2\x18.clientpb.AIConversationR\rConversations\"\xfa\x03\n" +
 	"\x0eAIConversation\x12\x0e\n" +
 	"\x02ID\x18\x01 \x01(\tR\x02ID\x12\x1c\n" +
 	"\tCreatedAt\x18\x02 \x01(\x03R\tCreatedAt\x12\x1c\n" +
@@ -13368,10 +13824,14 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\aSummary\x18\b \x01(\tR\aSummary\x12\"\n" +
 	"\fSystemPrompt\x18\t \x01(\tR\fSystemPrompt\x12;\n" +
 	"\bMessages\x18\n" +
-	" \x03(\v2\x1f.clientpb.AIConversationMessageR\bMessages\"}\n" +
+	" \x03(\v2\x1f.clientpb.AIConversationMessageR\bMessages\x12\"\n" +
+	"\fActiveTurnID\x18\v \x01(\tR\fActiveTurnID\x12?\n" +
+	"\tTurnState\x18\f \x01(\x0e2!.clientpb.AIConversationTurnStateR\tTurnState\x12(\n" +
+	"\x0fTargetSessionID\x18\r \x01(\tR\x0fTargetSessionID\x12&\n" +
+	"\x0eTargetBeaconID\x18\x0e \x01(\tR\x0eTargetBeaconID\"}\n" +
 	"\x16AIConversationMessages\x12&\n" +
 	"\x0eConversationID\x18\x01 \x01(\tR\x0eConversationID\x12;\n" +
-	"\bMessages\x18\x02 \x03(\v2\x1f.clientpb.AIConversationMessageR\bMessages\"\xfd\x02\n" +
+	"\bMessages\x18\x02 \x03(\v2\x1f.clientpb.AIConversationMessageR\bMessages\"\x8d\x06\n" +
 	"\x15AIConversationMessage\x12\x0e\n" +
 	"\x02ID\x18\x01 \x01(\tR\x02ID\x12&\n" +
 	"\x0eConversationID\x18\x02 \x01(\tR\x0eConversationID\x12\x1c\n" +
@@ -13385,7 +13845,30 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\aContent\x18\n" +
 	" \x01(\tR\aContent\x12,\n" +
 	"\x11ProviderMessageID\x18\v \x01(\tR\x11ProviderMessageID\x12\"\n" +
-	"\fFinishReason\x18\f \x01(\tR\fFinishReason\"Q\n" +
+	"\fFinishReason\x18\f \x01(\tR\fFinishReason\x127\n" +
+	"\x04Kind\x18\r \x01(\x0e2#.clientpb.AIConversationMessageKindR\x04Kind\x12I\n" +
+	"\n" +
+	"Visibility\x18\x0e \x01(\x0e2).clientpb.AIConversationMessageVisibilityR\n" +
+	"Visibility\x12:\n" +
+	"\x05State\x18\x0f \x01(\x0e2$.clientpb.AIConversationMessageStateR\x05State\x12\x16\n" +
+	"\x06TurnID\x18\x10 \x01(\tR\x06TurnID\x12\x16\n" +
+	"\x06ItemID\x18\x11 \x01(\tR\x06ItemID\x12\x1e\n" +
+	"\n" +
+	"ToolCallID\x18\x12 \x01(\tR\n" +
+	"ToolCallID\x12\x1a\n" +
+	"\bToolName\x18\x13 \x01(\tR\bToolName\x12$\n" +
+	"\rToolArguments\x18\x14 \x01(\tR\rToolArguments\x12\x1e\n" +
+	"\n" +
+	"ToolResult\x18\x15 \x01(\tR\n" +
+	"ToolResult\x12\x1c\n" +
+	"\tErrorText\x18\x16 \x01(\tR\tErrorText\"\xad\x02\n" +
+	"\x13AIConversationEvent\x12?\n" +
+	"\tEventType\x18\x01 \x01(\x0e2!.clientpb.AIConversationEventTypeR\tEventType\x12&\n" +
+	"\x0eConversationID\x18\x02 \x01(\tR\x0eConversationID\x12\x16\n" +
+	"\x06TurnID\x18\x03 \x01(\tR\x06TurnID\x12\x1c\n" +
+	"\tErrorText\x18\x04 \x01(\tR\tErrorText\x12<\n" +
+	"\fConversation\x18\x05 \x01(\v2\x18.clientpb.AIConversationR\fConversation\x129\n" +
+	"\aMessage\x18\x06 \x01(\v2\x1f.clientpb.AIConversationMessageR\aMessage\"Q\n" +
 	"\x13MonitoringProviders\x12:\n" +
 	"\tproviders\x18\x01 \x03(\v2\x1c.clientpb.MonitoringProviderR\tproviders\"r\n" +
 	"\x12MonitoringProvider\x12\x0e\n" +
@@ -13631,7 +14114,32 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\fINVALID_TYPE\x10\x00\x12\f\n" +
 	"\bWORDLIST\x10\x01\x12\t\n" +
 	"\x05RULES\x10\x02\x12\x12\n" +
-	"\x0eMARKOV_HCSTAT2\x10\x03B/Z-github.com/bishopfox/sliver/protobuf/clientpbb\x06proto3"
+	"\x0eMARKOV_HCSTAT2\x10\x03*j\n" +
+	"\x17AIConversationTurnState\x12\x16\n" +
+	"\x12AI_TURN_STATE_IDLE\x10\x00\x12\x1d\n" +
+	"\x19AI_TURN_STATE_IN_PROGRESS\x10\x01\x12\x18\n" +
+	"\x14AI_TURN_STATE_FAILED\x10\x02*s\n" +
+	"\x19AIConversationMessageKind\x12\x18\n" +
+	"\x14AI_MESSAGE_KIND_CHAT\x10\x00\x12\x1d\n" +
+	"\x19AI_MESSAGE_KIND_REASONING\x10\x01\x12\x1d\n" +
+	"\x19AI_MESSAGE_KIND_TOOL_CALL\x10\x02*g\n" +
+	"\x1fAIConversationMessageVisibility\x12!\n" +
+	"\x1dAI_MESSAGE_VISIBILITY_CONTEXT\x10\x00\x12!\n" +
+	"\x1dAI_MESSAGE_VISIBILITY_UI_ONLY\x10\x01*{\n" +
+	"\x1aAIConversationMessageState\x12\x1e\n" +
+	"\x1aAI_MESSAGE_STATE_COMPLETED\x10\x00\x12 \n" +
+	"\x1cAI_MESSAGE_STATE_IN_PROGRESS\x10\x01\x12\x1b\n" +
+	"\x17AI_MESSAGE_STATE_FAILED\x10\x02*\xc5\x03\n" +
+	"\x17AIConversationEventType\x12&\n" +
+	"\"AI_CONVERSATION_EVENT_TYPE_UNKNOWN\x10\x00\x123\n" +
+	"/AI_CONVERSATION_EVENT_TYPE_CONVERSATION_UPDATED\x10\x01\x123\n" +
+	"/AI_CONVERSATION_EVENT_TYPE_CONVERSATION_DELETED\x10\x02\x12+\n" +
+	"'AI_CONVERSATION_EVENT_TYPE_TURN_STARTED\x10\x03\x12-\n" +
+	")AI_CONVERSATION_EVENT_TYPE_TURN_COMPLETED\x10\x04\x12*\n" +
+	"&AI_CONVERSATION_EVENT_TYPE_TURN_FAILED\x10\x05\x12.\n" +
+	"*AI_CONVERSATION_EVENT_TYPE_MESSAGE_STARTED\x10\x06\x12.\n" +
+	"*AI_CONVERSATION_EVENT_TYPE_MESSAGE_UPDATED\x10\a\x120\n" +
+	",AI_CONVERSATION_EVENT_TYPE_MESSAGE_COMPLETED\x10\bB/Z-github.com/bishopfox/sliver/protobuf/clientpbb\x06proto3"
 
 var (
 	file_clientpb_client_proto_rawDescOnce sync.Once
@@ -13645,8 +14153,8 @@ func file_clientpb_client_proto_rawDescGZIP() []byte {
 	return file_clientpb_client_proto_rawDescData
 }
 
-var file_clientpb_client_proto_enumTypes = make([]protoimpl.EnumInfo, 13)
-var file_clientpb_client_proto_msgTypes = make([]protoimpl.MessageInfo, 156)
+var file_clientpb_client_proto_enumTypes = make([]protoimpl.EnumInfo, 18)
+var file_clientpb_client_proto_msgTypes = make([]protoimpl.MessageInfo, 157)
 var file_clientpb_client_proto_goTypes = []any{
 	(OutputFormat)(0),                      // 0: clientpb.OutputFormat
 	(StageProtocol)(0),                     // 1: clientpb.StageProtocol
@@ -13661,278 +14169,284 @@ var file_clientpb_client_proto_goTypes = []any{
 	(CrackOutfileFormat)(0),                // 10: clientpb.CrackOutfileFormat
 	(CrackWorkloadProfile)(0),              // 11: clientpb.CrackWorkloadProfile
 	(CrackFileType)(0),                     // 12: clientpb.CrackFileType
-	(*Version)(nil),                        // 13: clientpb.Version
-	(*ClientLogData)(nil),                  // 14: clientpb.ClientLogData
-	(*Session)(nil),                        // 15: clientpb.Session
-	(*Beacon)(nil),                         // 16: clientpb.Beacon
-	(*Beacons)(nil),                        // 17: clientpb.Beacons
-	(*BeaconTask)(nil),                     // 18: clientpb.BeaconTask
-	(*BeaconTasks)(nil),                    // 19: clientpb.BeaconTasks
-	(*BeaconIntegrity)(nil),                // 20: clientpb.BeaconIntegrity
-	(*ImplantC2)(nil),                      // 21: clientpb.ImplantC2
-	(*ShellcodeConfig)(nil),                // 22: clientpb.ShellcodeConfig
-	(*ImplantConfig)(nil),                  // 23: clientpb.ImplantConfig
-	(*SpoofMetadataFile)(nil),              // 24: clientpb.SpoofMetadataFile
-	(*IMAGE_RESOURCE_DIRECTORY)(nil),       // 25: clientpb.IMAGE_RESOURCE_DIRECTORY
-	(*IMAGE_RESOURCE_DIRECTORY_ENTRY)(nil), // 26: clientpb.IMAGE_RESOURCE_DIRECTORY_ENTRY
-	(*IMAGE_RESOURCE_DATA_ENTRY)(nil),      // 27: clientpb.IMAGE_RESOURCE_DATA_ENTRY
-	(*IMAGE_EXPORT_DIRECTORY)(nil),         // 28: clientpb.IMAGE_EXPORT_DIRECTORY
-	(*PESpoofMetadataConfig)(nil),          // 29: clientpb.PESpoofMetadataConfig
-	(*SpoofMetadataConfig)(nil),            // 30: clientpb.SpoofMetadataConfig
-	(*TrafficEncoder)(nil),                 // 31: clientpb.TrafficEncoder
-	(*TrafficEncoderMap)(nil),              // 32: clientpb.TrafficEncoderMap
-	(*TrafficEncoderTest)(nil),             // 33: clientpb.TrafficEncoderTest
-	(*TrafficEncoderTests)(nil),            // 34: clientpb.TrafficEncoderTests
-	(*ExternalImplantConfig)(nil),          // 35: clientpb.ExternalImplantConfig
-	(*ExternalImplantBinary)(nil),          // 36: clientpb.ExternalImplantBinary
-	(*ImplantBuilds)(nil),                  // 37: clientpb.ImplantBuilds
-	(*ImplantStageReq)(nil),                // 38: clientpb.ImplantStageReq
-	(*ImplantBuild)(nil),                   // 39: clientpb.ImplantBuild
-	(*CompilerTarget)(nil),                 // 40: clientpb.CompilerTarget
-	(*CrossCompiler)(nil),                  // 41: clientpb.CrossCompiler
-	(*Compiler)(nil),                       // 42: clientpb.Compiler
-	(*DeleteReq)(nil),                      // 43: clientpb.DeleteReq
-	(*DNSCanary)(nil),                      // 44: clientpb.DNSCanary
-	(*Canaries)(nil),                       // 45: clientpb.Canaries
-	(*UniqueWGIP)(nil),                     // 46: clientpb.UniqueWGIP
-	(*ImplantProfile)(nil),                 // 47: clientpb.ImplantProfile
-	(*ImplantProfiles)(nil),                // 48: clientpb.ImplantProfiles
-	(*RegenerateReq)(nil),                  // 49: clientpb.RegenerateReq
-	(*Job)(nil),                            // 50: clientpb.Job
-	(*Jobs)(nil),                           // 51: clientpb.Jobs
-	(*KillJobReq)(nil),                     // 52: clientpb.KillJobReq
-	(*RestartJobReq)(nil),                  // 53: clientpb.RestartJobReq
-	(*KillJob)(nil),                        // 54: clientpb.KillJob
-	(*ListenerJob)(nil),                    // 55: clientpb.ListenerJob
-	(*MultiplayerListenerReq)(nil),         // 56: clientpb.MultiplayerListenerReq
-	(*MTLSListenerReq)(nil),                // 57: clientpb.MTLSListenerReq
-	(*WGListenerReq)(nil),                  // 58: clientpb.WGListenerReq
-	(*DNSListenerReq)(nil),                 // 59: clientpb.DNSListenerReq
-	(*HTTPListenerReq)(nil),                // 60: clientpb.HTTPListenerReq
-	(*NamedPipesReq)(nil),                  // 61: clientpb.NamedPipesReq
-	(*NamedPipes)(nil),                     // 62: clientpb.NamedPipes
-	(*TCPPivotReq)(nil),                    // 63: clientpb.TCPPivotReq
-	(*TCPPivot)(nil),                       // 64: clientpb.TCPPivot
-	(*Sessions)(nil),                       // 65: clientpb.Sessions
-	(*RenameReq)(nil),                      // 66: clientpb.RenameReq
-	(*GenerateReq)(nil),                    // 67: clientpb.GenerateReq
-	(*GenerateStageReq)(nil),               // 68: clientpb.GenerateStageReq
-	(*Generate)(nil),                       // 69: clientpb.Generate
-	(*GenerateSpoofMetadataReq)(nil),       // 70: clientpb.GenerateSpoofMetadataReq
-	(*MSFReq)(nil),                         // 71: clientpb.MSFReq
-	(*MSFRemoteReq)(nil),                   // 72: clientpb.MSFRemoteReq
-	(*StagerListenerReq)(nil),              // 73: clientpb.StagerListenerReq
-	(*StagerListener)(nil),                 // 74: clientpb.StagerListener
-	(*ShellcodeRDIReq)(nil),                // 75: clientpb.ShellcodeRDIReq
-	(*ShellcodeRDI)(nil),                   // 76: clientpb.ShellcodeRDI
-	(*GetSystemReq)(nil),                   // 77: clientpb.GetSystemReq
-	(*MigrateReq)(nil),                     // 78: clientpb.MigrateReq
-	(*CreateTunnelReq)(nil),                // 79: clientpb.CreateTunnelReq
-	(*CreateTunnel)(nil),                   // 80: clientpb.CreateTunnel
-	(*CloseTunnelReq)(nil),                 // 81: clientpb.CloseTunnelReq
-	(*PivotGraphEntry)(nil),                // 82: clientpb.PivotGraphEntry
-	(*PivotGraph)(nil),                     // 83: clientpb.PivotGraph
-	(*Client)(nil),                         // 84: clientpb.Client
-	(*Event)(nil),                          // 85: clientpb.Event
-	(*Operators)(nil),                      // 86: clientpb.Operators
-	(*Operator)(nil),                       // 87: clientpb.Operator
-	(*WebContent)(nil),                     // 88: clientpb.WebContent
-	(*WebsiteAddContent)(nil),              // 89: clientpb.WebsiteAddContent
-	(*WebsiteRemoveContent)(nil),           // 90: clientpb.WebsiteRemoveContent
-	(*Website)(nil),                        // 91: clientpb.Website
-	(*Websites)(nil),                       // 92: clientpb.Websites
-	(*WGClientConfig)(nil),                 // 93: clientpb.WGClientConfig
-	(*Loot)(nil),                           // 94: clientpb.Loot
-	(*AllLoot)(nil),                        // 95: clientpb.AllLoot
-	(*IOC)(nil),                            // 96: clientpb.IOC
-	(*ExtensionData)(nil),                  // 97: clientpb.ExtensionData
-	(*Host)(nil),                           // 98: clientpb.Host
-	(*AllHosts)(nil),                       // 99: clientpb.AllHosts
-	(*DllHijackReq)(nil),                   // 100: clientpb.DllHijackReq
-	(*DllHijack)(nil),                      // 101: clientpb.DllHijack
-	(*BackdoorReq)(nil),                    // 102: clientpb.BackdoorReq
-	(*Backdoor)(nil),                       // 103: clientpb.Backdoor
-	(*ShellcodeEncodeReq)(nil),             // 104: clientpb.ShellcodeEncodeReq
-	(*ShellcodeEncode)(nil),                // 105: clientpb.ShellcodeEncode
-	(*ShellcodeEncoderArchMap)(nil),        // 106: clientpb.ShellcodeEncoderArchMap
-	(*ShellcodeEncoderMap)(nil),            // 107: clientpb.ShellcodeEncoderMap
-	(*ExternalGenerateReq)(nil),            // 108: clientpb.ExternalGenerateReq
-	(*Builders)(nil),                       // 109: clientpb.Builders
-	(*Builder)(nil),                        // 110: clientpb.Builder
-	(*HTTPC2Configs)(nil),                  // 111: clientpb.HTTPC2Configs
-	(*C2ProfileReq)(nil),                   // 112: clientpb.C2ProfileReq
-	(*HTTPC2ConfigReq)(nil),                // 113: clientpb.HTTPC2ConfigReq
-	(*HTTPC2Config)(nil),                   // 114: clientpb.HTTPC2Config
-	(*HTTPC2ServerConfig)(nil),             // 115: clientpb.HTTPC2ServerConfig
-	(*HTTPC2ImplantConfig)(nil),            // 116: clientpb.HTTPC2ImplantConfig
-	(*HTTPC2Cookie)(nil),                   // 117: clientpb.HTTPC2Cookie
-	(*HTTPC2Header)(nil),                   // 118: clientpb.HTTPC2Header
-	(*HTTPC2URLParameter)(nil),             // 119: clientpb.HTTPC2URLParameter
-	(*HTTPC2PathSegment)(nil),              // 120: clientpb.HTTPC2PathSegment
-	(*Credential)(nil),                     // 121: clientpb.Credential
-	(*Credentials)(nil),                    // 122: clientpb.Credentials
-	(*Crackstations)(nil),                  // 123: clientpb.Crackstations
-	(*CrackstationStatus)(nil),             // 124: clientpb.CrackstationStatus
-	(*CrackSyncStatus)(nil),                // 125: clientpb.CrackSyncStatus
-	(*CrackBenchmark)(nil),                 // 126: clientpb.CrackBenchmark
-	(*CrackTask)(nil),                      // 127: clientpb.CrackTask
-	(*Crackstation)(nil),                   // 128: clientpb.Crackstation
-	(*CUDABackendInfo)(nil),                // 129: clientpb.CUDABackendInfo
-	(*OpenCLBackendInfo)(nil),              // 130: clientpb.OpenCLBackendInfo
-	(*MetalBackendInfo)(nil),               // 131: clientpb.MetalBackendInfo
-	(*CrackCommand)(nil),                   // 132: clientpb.CrackCommand
-	(*CrackJob)(nil),                       // 133: clientpb.CrackJob
-	(*CrackResponse)(nil),                  // 134: clientpb.CrackResponse
-	(*CrackConfig)(nil),                    // 135: clientpb.CrackConfig
-	(*CrackFiles)(nil),                     // 136: clientpb.CrackFiles
-	(*CrackFile)(nil),                      // 137: clientpb.CrackFile
-	(*CrackFileChunk)(nil),                 // 138: clientpb.CrackFileChunk
-	(*AIProviderConfigs)(nil),              // 139: clientpb.AIProviderConfigs
-	(*AIProviderConfig)(nil),               // 140: clientpb.AIProviderConfig
-	(*AIConfigSummary)(nil),                // 141: clientpb.AIConfigSummary
-	(*AIConversationReq)(nil),              // 142: clientpb.AIConversationReq
-	(*AIConversations)(nil),                // 143: clientpb.AIConversations
-	(*AIConversation)(nil),                 // 144: clientpb.AIConversation
-	(*AIConversationMessages)(nil),         // 145: clientpb.AIConversationMessages
-	(*AIConversationMessage)(nil),          // 146: clientpb.AIConversationMessage
-	(*MonitoringProviders)(nil),            // 147: clientpb.MonitoringProviders
-	(*MonitoringProvider)(nil),             // 148: clientpb.MonitoringProvider
-	(*ResourceID)(nil),                     // 149: clientpb.ResourceID
-	(*CertificatesReq)(nil),                // 150: clientpb.CertificatesReq
-	(*CertificateData)(nil),                // 151: clientpb.CertificateData
-	(*CertificateInfo)(nil),                // 152: clientpb.CertificateInfo
-	(*CertificateAuthorityData)(nil),       // 153: clientpb.CertificateAuthorityData
-	(*CertificateAuthorityInfo)(nil),       // 154: clientpb.CertificateAuthorityInfo
-	nil,                                    // 155: clientpb.TrafficEncoderMap.EncodersEntry
-	nil,                                    // 156: clientpb.ExternalImplantConfig.EncodersEntry
-	nil,                                    // 157: clientpb.ImplantBuilds.ConfigsEntry
-	nil,                                    // 158: clientpb.ImplantBuilds.ResourceIDsEntry
-	nil,                                    // 159: clientpb.ImplantBuilds.StagedEntry
-	nil,                                    // 160: clientpb.WebsiteAddContent.ContentsEntry
-	nil,                                    // 161: clientpb.Website.ContentsEntry
-	nil,                                    // 162: clientpb.Host.ExtensionDataEntry
-	nil,                                    // 163: clientpb.ShellcodeEncoderArchMap.EncodersEntry
-	nil,                                    // 164: clientpb.ShellcodeEncoderArchMap.DescriptionsEntry
-	nil,                                    // 165: clientpb.ShellcodeEncoderMap.EncodersEntry
-	nil,                                    // 166: clientpb.CrackSyncStatus.ProgressEntry
-	nil,                                    // 167: clientpb.CrackBenchmark.BenchmarksEntry
-	nil,                                    // 168: clientpb.Crackstation.BenchmarksEntry
-	(*commonpb.File)(nil),                  // 169: commonpb.File
-	(*commonpb.Request)(nil),               // 170: commonpb.Request
-	(*commonpb.Response)(nil),              // 171: commonpb.Response
+	(AIConversationTurnState)(0),           // 13: clientpb.AIConversationTurnState
+	(AIConversationMessageKind)(0),         // 14: clientpb.AIConversationMessageKind
+	(AIConversationMessageVisibility)(0),   // 15: clientpb.AIConversationMessageVisibility
+	(AIConversationMessageState)(0),        // 16: clientpb.AIConversationMessageState
+	(AIConversationEventType)(0),           // 17: clientpb.AIConversationEventType
+	(*Version)(nil),                        // 18: clientpb.Version
+	(*ClientLogData)(nil),                  // 19: clientpb.ClientLogData
+	(*Session)(nil),                        // 20: clientpb.Session
+	(*Beacon)(nil),                         // 21: clientpb.Beacon
+	(*Beacons)(nil),                        // 22: clientpb.Beacons
+	(*BeaconTask)(nil),                     // 23: clientpb.BeaconTask
+	(*BeaconTasks)(nil),                    // 24: clientpb.BeaconTasks
+	(*BeaconIntegrity)(nil),                // 25: clientpb.BeaconIntegrity
+	(*ImplantC2)(nil),                      // 26: clientpb.ImplantC2
+	(*ShellcodeConfig)(nil),                // 27: clientpb.ShellcodeConfig
+	(*ImplantConfig)(nil),                  // 28: clientpb.ImplantConfig
+	(*SpoofMetadataFile)(nil),              // 29: clientpb.SpoofMetadataFile
+	(*IMAGE_RESOURCE_DIRECTORY)(nil),       // 30: clientpb.IMAGE_RESOURCE_DIRECTORY
+	(*IMAGE_RESOURCE_DIRECTORY_ENTRY)(nil), // 31: clientpb.IMAGE_RESOURCE_DIRECTORY_ENTRY
+	(*IMAGE_RESOURCE_DATA_ENTRY)(nil),      // 32: clientpb.IMAGE_RESOURCE_DATA_ENTRY
+	(*IMAGE_EXPORT_DIRECTORY)(nil),         // 33: clientpb.IMAGE_EXPORT_DIRECTORY
+	(*PESpoofMetadataConfig)(nil),          // 34: clientpb.PESpoofMetadataConfig
+	(*SpoofMetadataConfig)(nil),            // 35: clientpb.SpoofMetadataConfig
+	(*TrafficEncoder)(nil),                 // 36: clientpb.TrafficEncoder
+	(*TrafficEncoderMap)(nil),              // 37: clientpb.TrafficEncoderMap
+	(*TrafficEncoderTest)(nil),             // 38: clientpb.TrafficEncoderTest
+	(*TrafficEncoderTests)(nil),            // 39: clientpb.TrafficEncoderTests
+	(*ExternalImplantConfig)(nil),          // 40: clientpb.ExternalImplantConfig
+	(*ExternalImplantBinary)(nil),          // 41: clientpb.ExternalImplantBinary
+	(*ImplantBuilds)(nil),                  // 42: clientpb.ImplantBuilds
+	(*ImplantStageReq)(nil),                // 43: clientpb.ImplantStageReq
+	(*ImplantBuild)(nil),                   // 44: clientpb.ImplantBuild
+	(*CompilerTarget)(nil),                 // 45: clientpb.CompilerTarget
+	(*CrossCompiler)(nil),                  // 46: clientpb.CrossCompiler
+	(*Compiler)(nil),                       // 47: clientpb.Compiler
+	(*DeleteReq)(nil),                      // 48: clientpb.DeleteReq
+	(*DNSCanary)(nil),                      // 49: clientpb.DNSCanary
+	(*Canaries)(nil),                       // 50: clientpb.Canaries
+	(*UniqueWGIP)(nil),                     // 51: clientpb.UniqueWGIP
+	(*ImplantProfile)(nil),                 // 52: clientpb.ImplantProfile
+	(*ImplantProfiles)(nil),                // 53: clientpb.ImplantProfiles
+	(*RegenerateReq)(nil),                  // 54: clientpb.RegenerateReq
+	(*Job)(nil),                            // 55: clientpb.Job
+	(*Jobs)(nil),                           // 56: clientpb.Jobs
+	(*KillJobReq)(nil),                     // 57: clientpb.KillJobReq
+	(*RestartJobReq)(nil),                  // 58: clientpb.RestartJobReq
+	(*KillJob)(nil),                        // 59: clientpb.KillJob
+	(*ListenerJob)(nil),                    // 60: clientpb.ListenerJob
+	(*MultiplayerListenerReq)(nil),         // 61: clientpb.MultiplayerListenerReq
+	(*MTLSListenerReq)(nil),                // 62: clientpb.MTLSListenerReq
+	(*WGListenerReq)(nil),                  // 63: clientpb.WGListenerReq
+	(*DNSListenerReq)(nil),                 // 64: clientpb.DNSListenerReq
+	(*HTTPListenerReq)(nil),                // 65: clientpb.HTTPListenerReq
+	(*NamedPipesReq)(nil),                  // 66: clientpb.NamedPipesReq
+	(*NamedPipes)(nil),                     // 67: clientpb.NamedPipes
+	(*TCPPivotReq)(nil),                    // 68: clientpb.TCPPivotReq
+	(*TCPPivot)(nil),                       // 69: clientpb.TCPPivot
+	(*Sessions)(nil),                       // 70: clientpb.Sessions
+	(*RenameReq)(nil),                      // 71: clientpb.RenameReq
+	(*GenerateReq)(nil),                    // 72: clientpb.GenerateReq
+	(*GenerateStageReq)(nil),               // 73: clientpb.GenerateStageReq
+	(*Generate)(nil),                       // 74: clientpb.Generate
+	(*GenerateSpoofMetadataReq)(nil),       // 75: clientpb.GenerateSpoofMetadataReq
+	(*MSFReq)(nil),                         // 76: clientpb.MSFReq
+	(*MSFRemoteReq)(nil),                   // 77: clientpb.MSFRemoteReq
+	(*StagerListenerReq)(nil),              // 78: clientpb.StagerListenerReq
+	(*StagerListener)(nil),                 // 79: clientpb.StagerListener
+	(*ShellcodeRDIReq)(nil),                // 80: clientpb.ShellcodeRDIReq
+	(*ShellcodeRDI)(nil),                   // 81: clientpb.ShellcodeRDI
+	(*GetSystemReq)(nil),                   // 82: clientpb.GetSystemReq
+	(*MigrateReq)(nil),                     // 83: clientpb.MigrateReq
+	(*CreateTunnelReq)(nil),                // 84: clientpb.CreateTunnelReq
+	(*CreateTunnel)(nil),                   // 85: clientpb.CreateTunnel
+	(*CloseTunnelReq)(nil),                 // 86: clientpb.CloseTunnelReq
+	(*PivotGraphEntry)(nil),                // 87: clientpb.PivotGraphEntry
+	(*PivotGraph)(nil),                     // 88: clientpb.PivotGraph
+	(*Client)(nil),                         // 89: clientpb.Client
+	(*Event)(nil),                          // 90: clientpb.Event
+	(*Operators)(nil),                      // 91: clientpb.Operators
+	(*Operator)(nil),                       // 92: clientpb.Operator
+	(*WebContent)(nil),                     // 93: clientpb.WebContent
+	(*WebsiteAddContent)(nil),              // 94: clientpb.WebsiteAddContent
+	(*WebsiteRemoveContent)(nil),           // 95: clientpb.WebsiteRemoveContent
+	(*Website)(nil),                        // 96: clientpb.Website
+	(*Websites)(nil),                       // 97: clientpb.Websites
+	(*WGClientConfig)(nil),                 // 98: clientpb.WGClientConfig
+	(*Loot)(nil),                           // 99: clientpb.Loot
+	(*AllLoot)(nil),                        // 100: clientpb.AllLoot
+	(*IOC)(nil),                            // 101: clientpb.IOC
+	(*ExtensionData)(nil),                  // 102: clientpb.ExtensionData
+	(*Host)(nil),                           // 103: clientpb.Host
+	(*AllHosts)(nil),                       // 104: clientpb.AllHosts
+	(*DllHijackReq)(nil),                   // 105: clientpb.DllHijackReq
+	(*DllHijack)(nil),                      // 106: clientpb.DllHijack
+	(*BackdoorReq)(nil),                    // 107: clientpb.BackdoorReq
+	(*Backdoor)(nil),                       // 108: clientpb.Backdoor
+	(*ShellcodeEncodeReq)(nil),             // 109: clientpb.ShellcodeEncodeReq
+	(*ShellcodeEncode)(nil),                // 110: clientpb.ShellcodeEncode
+	(*ShellcodeEncoderArchMap)(nil),        // 111: clientpb.ShellcodeEncoderArchMap
+	(*ShellcodeEncoderMap)(nil),            // 112: clientpb.ShellcodeEncoderMap
+	(*ExternalGenerateReq)(nil),            // 113: clientpb.ExternalGenerateReq
+	(*Builders)(nil),                       // 114: clientpb.Builders
+	(*Builder)(nil),                        // 115: clientpb.Builder
+	(*HTTPC2Configs)(nil),                  // 116: clientpb.HTTPC2Configs
+	(*C2ProfileReq)(nil),                   // 117: clientpb.C2ProfileReq
+	(*HTTPC2ConfigReq)(nil),                // 118: clientpb.HTTPC2ConfigReq
+	(*HTTPC2Config)(nil),                   // 119: clientpb.HTTPC2Config
+	(*HTTPC2ServerConfig)(nil),             // 120: clientpb.HTTPC2ServerConfig
+	(*HTTPC2ImplantConfig)(nil),            // 121: clientpb.HTTPC2ImplantConfig
+	(*HTTPC2Cookie)(nil),                   // 122: clientpb.HTTPC2Cookie
+	(*HTTPC2Header)(nil),                   // 123: clientpb.HTTPC2Header
+	(*HTTPC2URLParameter)(nil),             // 124: clientpb.HTTPC2URLParameter
+	(*HTTPC2PathSegment)(nil),              // 125: clientpb.HTTPC2PathSegment
+	(*Credential)(nil),                     // 126: clientpb.Credential
+	(*Credentials)(nil),                    // 127: clientpb.Credentials
+	(*Crackstations)(nil),                  // 128: clientpb.Crackstations
+	(*CrackstationStatus)(nil),             // 129: clientpb.CrackstationStatus
+	(*CrackSyncStatus)(nil),                // 130: clientpb.CrackSyncStatus
+	(*CrackBenchmark)(nil),                 // 131: clientpb.CrackBenchmark
+	(*CrackTask)(nil),                      // 132: clientpb.CrackTask
+	(*Crackstation)(nil),                   // 133: clientpb.Crackstation
+	(*CUDABackendInfo)(nil),                // 134: clientpb.CUDABackendInfo
+	(*OpenCLBackendInfo)(nil),              // 135: clientpb.OpenCLBackendInfo
+	(*MetalBackendInfo)(nil),               // 136: clientpb.MetalBackendInfo
+	(*CrackCommand)(nil),                   // 137: clientpb.CrackCommand
+	(*CrackJob)(nil),                       // 138: clientpb.CrackJob
+	(*CrackResponse)(nil),                  // 139: clientpb.CrackResponse
+	(*CrackConfig)(nil),                    // 140: clientpb.CrackConfig
+	(*CrackFiles)(nil),                     // 141: clientpb.CrackFiles
+	(*CrackFile)(nil),                      // 142: clientpb.CrackFile
+	(*CrackFileChunk)(nil),                 // 143: clientpb.CrackFileChunk
+	(*AIProviderConfigs)(nil),              // 144: clientpb.AIProviderConfigs
+	(*AIProviderConfig)(nil),               // 145: clientpb.AIProviderConfig
+	(*AIConfigSummary)(nil),                // 146: clientpb.AIConfigSummary
+	(*AIConversationReq)(nil),              // 147: clientpb.AIConversationReq
+	(*AIConversations)(nil),                // 148: clientpb.AIConversations
+	(*AIConversation)(nil),                 // 149: clientpb.AIConversation
+	(*AIConversationMessages)(nil),         // 150: clientpb.AIConversationMessages
+	(*AIConversationMessage)(nil),          // 151: clientpb.AIConversationMessage
+	(*AIConversationEvent)(nil),            // 152: clientpb.AIConversationEvent
+	(*MonitoringProviders)(nil),            // 153: clientpb.MonitoringProviders
+	(*MonitoringProvider)(nil),             // 154: clientpb.MonitoringProvider
+	(*ResourceID)(nil),                     // 155: clientpb.ResourceID
+	(*CertificatesReq)(nil),                // 156: clientpb.CertificatesReq
+	(*CertificateData)(nil),                // 157: clientpb.CertificateData
+	(*CertificateInfo)(nil),                // 158: clientpb.CertificateInfo
+	(*CertificateAuthorityData)(nil),       // 159: clientpb.CertificateAuthorityData
+	(*CertificateAuthorityInfo)(nil),       // 160: clientpb.CertificateAuthorityInfo
+	nil,                                    // 161: clientpb.TrafficEncoderMap.EncodersEntry
+	nil,                                    // 162: clientpb.ExternalImplantConfig.EncodersEntry
+	nil,                                    // 163: clientpb.ImplantBuilds.ConfigsEntry
+	nil,                                    // 164: clientpb.ImplantBuilds.ResourceIDsEntry
+	nil,                                    // 165: clientpb.ImplantBuilds.StagedEntry
+	nil,                                    // 166: clientpb.WebsiteAddContent.ContentsEntry
+	nil,                                    // 167: clientpb.Website.ContentsEntry
+	nil,                                    // 168: clientpb.Host.ExtensionDataEntry
+	nil,                                    // 169: clientpb.ShellcodeEncoderArchMap.EncodersEntry
+	nil,                                    // 170: clientpb.ShellcodeEncoderArchMap.DescriptionsEntry
+	nil,                                    // 171: clientpb.ShellcodeEncoderMap.EncodersEntry
+	nil,                                    // 172: clientpb.CrackSyncStatus.ProgressEntry
+	nil,                                    // 173: clientpb.CrackBenchmark.BenchmarksEntry
+	nil,                                    // 174: clientpb.Crackstation.BenchmarksEntry
+	(*commonpb.File)(nil),                  // 175: commonpb.File
+	(*commonpb.Request)(nil),               // 176: commonpb.Request
+	(*commonpb.Response)(nil),              // 177: commonpb.Response
 }
 var file_clientpb_client_proto_depIdxs = []int32{
-	16,  // 0: clientpb.Beacons.Beacons:type_name -> clientpb.Beacon
-	18,  // 1: clientpb.BeaconTasks.Tasks:type_name -> clientpb.BeaconTask
-	39,  // 2: clientpb.ImplantConfig.ImplantBuilds:type_name -> clientpb.ImplantBuild
-	21,  // 3: clientpb.ImplantConfig.C2:type_name -> clientpb.ImplantC2
+	21,  // 0: clientpb.Beacons.Beacons:type_name -> clientpb.Beacon
+	23,  // 1: clientpb.BeaconTasks.Tasks:type_name -> clientpb.BeaconTask
+	44,  // 2: clientpb.ImplantConfig.ImplantBuilds:type_name -> clientpb.ImplantBuild
+	26,  // 3: clientpb.ImplantConfig.C2:type_name -> clientpb.ImplantC2
 	0,   // 4: clientpb.ImplantConfig.Format:type_name -> clientpb.OutputFormat
-	22,  // 5: clientpb.ImplantConfig.ShellcodeConfig:type_name -> clientpb.ShellcodeConfig
+	27,  // 5: clientpb.ImplantConfig.ShellcodeConfig:type_name -> clientpb.ShellcodeConfig
 	3,   // 6: clientpb.ImplantConfig.ShellcodeEncoder:type_name -> clientpb.ShellcodeEncoder
-	169, // 7: clientpb.ImplantConfig.Assets:type_name -> commonpb.File
-	24,  // 8: clientpb.PESpoofMetadataConfig.Source:type_name -> clientpb.SpoofMetadataFile
-	24,  // 9: clientpb.PESpoofMetadataConfig.Icon:type_name -> clientpb.SpoofMetadataFile
-	25,  // 10: clientpb.PESpoofMetadataConfig.ResourceDirectory:type_name -> clientpb.IMAGE_RESOURCE_DIRECTORY
-	26,  // 11: clientpb.PESpoofMetadataConfig.ResourceDirectoryEntries:type_name -> clientpb.IMAGE_RESOURCE_DIRECTORY_ENTRY
-	27,  // 12: clientpb.PESpoofMetadataConfig.ResourceDataEntries:type_name -> clientpb.IMAGE_RESOURCE_DATA_ENTRY
-	28,  // 13: clientpb.PESpoofMetadataConfig.ExportDirectory:type_name -> clientpb.IMAGE_EXPORT_DIRECTORY
-	29,  // 14: clientpb.SpoofMetadataConfig.PE:type_name -> clientpb.PESpoofMetadataConfig
-	169, // 15: clientpb.TrafficEncoder.Wasm:type_name -> commonpb.File
-	155, // 16: clientpb.TrafficEncoderMap.Encoders:type_name -> clientpb.TrafficEncoderMap.EncodersEntry
-	31,  // 17: clientpb.TrafficEncoderTests.Encoder:type_name -> clientpb.TrafficEncoder
-	33,  // 18: clientpb.TrafficEncoderTests.Tests:type_name -> clientpb.TrafficEncoderTest
-	23,  // 19: clientpb.ExternalImplantConfig.Config:type_name -> clientpb.ImplantConfig
-	39,  // 20: clientpb.ExternalImplantConfig.Build:type_name -> clientpb.ImplantBuild
-	114, // 21: clientpb.ExternalImplantConfig.HTTPC2:type_name -> clientpb.HTTPC2Config
-	156, // 22: clientpb.ExternalImplantConfig.encoders:type_name -> clientpb.ExternalImplantConfig.EncodersEntry
-	169, // 23: clientpb.ExternalImplantBinary.File:type_name -> commonpb.File
-	157, // 24: clientpb.ImplantBuilds.Configs:type_name -> clientpb.ImplantBuilds.ConfigsEntry
-	158, // 25: clientpb.ImplantBuilds.ResourceIDs:type_name -> clientpb.ImplantBuilds.ResourceIDsEntry
-	159, // 26: clientpb.ImplantBuilds.staged:type_name -> clientpb.ImplantBuilds.StagedEntry
+	175, // 7: clientpb.ImplantConfig.Assets:type_name -> commonpb.File
+	29,  // 8: clientpb.PESpoofMetadataConfig.Source:type_name -> clientpb.SpoofMetadataFile
+	29,  // 9: clientpb.PESpoofMetadataConfig.Icon:type_name -> clientpb.SpoofMetadataFile
+	30,  // 10: clientpb.PESpoofMetadataConfig.ResourceDirectory:type_name -> clientpb.IMAGE_RESOURCE_DIRECTORY
+	31,  // 11: clientpb.PESpoofMetadataConfig.ResourceDirectoryEntries:type_name -> clientpb.IMAGE_RESOURCE_DIRECTORY_ENTRY
+	32,  // 12: clientpb.PESpoofMetadataConfig.ResourceDataEntries:type_name -> clientpb.IMAGE_RESOURCE_DATA_ENTRY
+	33,  // 13: clientpb.PESpoofMetadataConfig.ExportDirectory:type_name -> clientpb.IMAGE_EXPORT_DIRECTORY
+	34,  // 14: clientpb.SpoofMetadataConfig.PE:type_name -> clientpb.PESpoofMetadataConfig
+	175, // 15: clientpb.TrafficEncoder.Wasm:type_name -> commonpb.File
+	161, // 16: clientpb.TrafficEncoderMap.Encoders:type_name -> clientpb.TrafficEncoderMap.EncodersEntry
+	36,  // 17: clientpb.TrafficEncoderTests.Encoder:type_name -> clientpb.TrafficEncoder
+	38,  // 18: clientpb.TrafficEncoderTests.Tests:type_name -> clientpb.TrafficEncoderTest
+	28,  // 19: clientpb.ExternalImplantConfig.Config:type_name -> clientpb.ImplantConfig
+	44,  // 20: clientpb.ExternalImplantConfig.Build:type_name -> clientpb.ImplantBuild
+	119, // 21: clientpb.ExternalImplantConfig.HTTPC2:type_name -> clientpb.HTTPC2Config
+	162, // 22: clientpb.ExternalImplantConfig.encoders:type_name -> clientpb.ExternalImplantConfig.EncodersEntry
+	175, // 23: clientpb.ExternalImplantBinary.File:type_name -> commonpb.File
+	163, // 24: clientpb.ImplantBuilds.Configs:type_name -> clientpb.ImplantBuilds.ConfigsEntry
+	164, // 25: clientpb.ImplantBuilds.ResourceIDs:type_name -> clientpb.ImplantBuilds.ResourceIDsEntry
+	165, // 26: clientpb.ImplantBuilds.staged:type_name -> clientpb.ImplantBuilds.StagedEntry
 	0,   // 27: clientpb.CompilerTarget.Format:type_name -> clientpb.OutputFormat
-	40,  // 28: clientpb.Compiler.Targets:type_name -> clientpb.CompilerTarget
-	41,  // 29: clientpb.Compiler.CrossCompilers:type_name -> clientpb.CrossCompiler
-	40,  // 30: clientpb.Compiler.UnsupportedTargets:type_name -> clientpb.CompilerTarget
-	44,  // 31: clientpb.Canaries.Canaries:type_name -> clientpb.DNSCanary
-	23,  // 32: clientpb.ImplantProfile.Config:type_name -> clientpb.ImplantConfig
-	47,  // 33: clientpb.ImplantProfiles.Profiles:type_name -> clientpb.ImplantProfile
-	50,  // 34: clientpb.Jobs.Active:type_name -> clientpb.Job
-	57,  // 35: clientpb.ListenerJob.MTLSConf:type_name -> clientpb.MTLSListenerReq
-	58,  // 36: clientpb.ListenerJob.WGConf:type_name -> clientpb.WGListenerReq
-	59,  // 37: clientpb.ListenerJob.DNSConf:type_name -> clientpb.DNSListenerReq
-	60,  // 38: clientpb.ListenerJob.HTTPConf:type_name -> clientpb.HTTPListenerReq
-	56,  // 39: clientpb.ListenerJob.MultiConf:type_name -> clientpb.MultiplayerListenerReq
-	73,  // 40: clientpb.ListenerJob.TCPConf:type_name -> clientpb.StagerListenerReq
-	170, // 41: clientpb.NamedPipesReq.Request:type_name -> commonpb.Request
-	171, // 42: clientpb.NamedPipes.Response:type_name -> commonpb.Response
-	170, // 43: clientpb.TCPPivotReq.Request:type_name -> commonpb.Request
-	171, // 44: clientpb.TCPPivot.Response:type_name -> commonpb.Response
-	15,  // 45: clientpb.Sessions.Sessions:type_name -> clientpb.Session
-	23,  // 46: clientpb.GenerateReq.Config:type_name -> clientpb.ImplantConfig
-	169, // 47: clientpb.Generate.File:type_name -> commonpb.File
-	30,  // 48: clientpb.GenerateSpoofMetadataReq.SpoofMetadata:type_name -> clientpb.SpoofMetadataConfig
-	170, // 49: clientpb.MSFReq.Request:type_name -> commonpb.Request
-	170, // 50: clientpb.MSFRemoteReq.Request:type_name -> commonpb.Request
+	45,  // 28: clientpb.Compiler.Targets:type_name -> clientpb.CompilerTarget
+	46,  // 29: clientpb.Compiler.CrossCompilers:type_name -> clientpb.CrossCompiler
+	45,  // 30: clientpb.Compiler.UnsupportedTargets:type_name -> clientpb.CompilerTarget
+	49,  // 31: clientpb.Canaries.Canaries:type_name -> clientpb.DNSCanary
+	28,  // 32: clientpb.ImplantProfile.Config:type_name -> clientpb.ImplantConfig
+	52,  // 33: clientpb.ImplantProfiles.Profiles:type_name -> clientpb.ImplantProfile
+	55,  // 34: clientpb.Jobs.Active:type_name -> clientpb.Job
+	62,  // 35: clientpb.ListenerJob.MTLSConf:type_name -> clientpb.MTLSListenerReq
+	63,  // 36: clientpb.ListenerJob.WGConf:type_name -> clientpb.WGListenerReq
+	64,  // 37: clientpb.ListenerJob.DNSConf:type_name -> clientpb.DNSListenerReq
+	65,  // 38: clientpb.ListenerJob.HTTPConf:type_name -> clientpb.HTTPListenerReq
+	61,  // 39: clientpb.ListenerJob.MultiConf:type_name -> clientpb.MultiplayerListenerReq
+	78,  // 40: clientpb.ListenerJob.TCPConf:type_name -> clientpb.StagerListenerReq
+	176, // 41: clientpb.NamedPipesReq.Request:type_name -> commonpb.Request
+	177, // 42: clientpb.NamedPipes.Response:type_name -> commonpb.Response
+	176, // 43: clientpb.TCPPivotReq.Request:type_name -> commonpb.Request
+	177, // 44: clientpb.TCPPivot.Response:type_name -> commonpb.Response
+	20,  // 45: clientpb.Sessions.Sessions:type_name -> clientpb.Session
+	28,  // 46: clientpb.GenerateReq.Config:type_name -> clientpb.ImplantConfig
+	175, // 47: clientpb.Generate.File:type_name -> commonpb.File
+	35,  // 48: clientpb.GenerateSpoofMetadataReq.SpoofMetadata:type_name -> clientpb.SpoofMetadataConfig
+	176, // 49: clientpb.MSFReq.Request:type_name -> commonpb.Request
+	176, // 50: clientpb.MSFRemoteReq.Request:type_name -> commonpb.Request
 	1,   // 51: clientpb.StagerListenerReq.Protocol:type_name -> clientpb.StageProtocol
-	23,  // 52: clientpb.GetSystemReq.Config:type_name -> clientpb.ImplantConfig
-	170, // 53: clientpb.GetSystemReq.Request:type_name -> commonpb.Request
-	23,  // 54: clientpb.MigrateReq.Config:type_name -> clientpb.ImplantConfig
+	28,  // 52: clientpb.GetSystemReq.Config:type_name -> clientpb.ImplantConfig
+	176, // 53: clientpb.GetSystemReq.Request:type_name -> commonpb.Request
+	28,  // 54: clientpb.MigrateReq.Config:type_name -> clientpb.ImplantConfig
 	3,   // 55: clientpb.MigrateReq.Encoder:type_name -> clientpb.ShellcodeEncoder
-	170, // 56: clientpb.MigrateReq.Request:type_name -> commonpb.Request
-	170, // 57: clientpb.CreateTunnelReq.Request:type_name -> commonpb.Request
-	170, // 58: clientpb.CloseTunnelReq.Request:type_name -> commonpb.Request
-	15,  // 59: clientpb.PivotGraphEntry.Session:type_name -> clientpb.Session
-	82,  // 60: clientpb.PivotGraphEntry.Children:type_name -> clientpb.PivotGraphEntry
-	82,  // 61: clientpb.PivotGraph.Children:type_name -> clientpb.PivotGraphEntry
-	87,  // 62: clientpb.Client.Operator:type_name -> clientpb.Operator
-	15,  // 63: clientpb.Event.Session:type_name -> clientpb.Session
-	50,  // 64: clientpb.Event.Job:type_name -> clientpb.Job
-	84,  // 65: clientpb.Event.Client:type_name -> clientpb.Client
-	87,  // 66: clientpb.Operators.Operators:type_name -> clientpb.Operator
-	160, // 67: clientpb.WebsiteAddContent.Contents:type_name -> clientpb.WebsiteAddContent.ContentsEntry
-	161, // 68: clientpb.Website.Contents:type_name -> clientpb.Website.ContentsEntry
-	91,  // 69: clientpb.Websites.Websites:type_name -> clientpb.Website
+	176, // 56: clientpb.MigrateReq.Request:type_name -> commonpb.Request
+	176, // 57: clientpb.CreateTunnelReq.Request:type_name -> commonpb.Request
+	176, // 58: clientpb.CloseTunnelReq.Request:type_name -> commonpb.Request
+	20,  // 59: clientpb.PivotGraphEntry.Session:type_name -> clientpb.Session
+	87,  // 60: clientpb.PivotGraphEntry.Children:type_name -> clientpb.PivotGraphEntry
+	87,  // 61: clientpb.PivotGraph.Children:type_name -> clientpb.PivotGraphEntry
+	92,  // 62: clientpb.Client.Operator:type_name -> clientpb.Operator
+	20,  // 63: clientpb.Event.Session:type_name -> clientpb.Session
+	55,  // 64: clientpb.Event.Job:type_name -> clientpb.Job
+	89,  // 65: clientpb.Event.Client:type_name -> clientpb.Client
+	92,  // 66: clientpb.Operators.Operators:type_name -> clientpb.Operator
+	166, // 67: clientpb.WebsiteAddContent.Contents:type_name -> clientpb.WebsiteAddContent.ContentsEntry
+	167, // 68: clientpb.Website.Contents:type_name -> clientpb.Website.ContentsEntry
+	96,  // 69: clientpb.Websites.Websites:type_name -> clientpb.Website
 	2,   // 70: clientpb.Loot.FileType:type_name -> clientpb.FileType
-	169, // 71: clientpb.Loot.File:type_name -> commonpb.File
-	94,  // 72: clientpb.AllLoot.Loot:type_name -> clientpb.Loot
-	96,  // 73: clientpb.Host.IOCs:type_name -> clientpb.IOC
-	162, // 74: clientpb.Host.ExtensionData:type_name -> clientpb.Host.ExtensionDataEntry
-	98,  // 75: clientpb.AllHosts.Hosts:type_name -> clientpb.Host
-	170, // 76: clientpb.DllHijackReq.Request:type_name -> commonpb.Request
-	171, // 77: clientpb.DllHijack.Response:type_name -> commonpb.Response
-	170, // 78: clientpb.BackdoorReq.Request:type_name -> commonpb.Request
-	171, // 79: clientpb.Backdoor.Response:type_name -> commonpb.Response
+	175, // 71: clientpb.Loot.File:type_name -> commonpb.File
+	99,  // 72: clientpb.AllLoot.Loot:type_name -> clientpb.Loot
+	101, // 73: clientpb.Host.IOCs:type_name -> clientpb.IOC
+	168, // 74: clientpb.Host.ExtensionData:type_name -> clientpb.Host.ExtensionDataEntry
+	103, // 75: clientpb.AllHosts.Hosts:type_name -> clientpb.Host
+	176, // 76: clientpb.DllHijackReq.Request:type_name -> commonpb.Request
+	177, // 77: clientpb.DllHijack.Response:type_name -> commonpb.Response
+	176, // 78: clientpb.BackdoorReq.Request:type_name -> commonpb.Request
+	177, // 79: clientpb.Backdoor.Response:type_name -> commonpb.Response
 	3,   // 80: clientpb.ShellcodeEncodeReq.Encoder:type_name -> clientpb.ShellcodeEncoder
-	170, // 81: clientpb.ShellcodeEncodeReq.Request:type_name -> commonpb.Request
-	171, // 82: clientpb.ShellcodeEncode.Response:type_name -> commonpb.Response
-	163, // 83: clientpb.ShellcodeEncoderArchMap.Encoders:type_name -> clientpb.ShellcodeEncoderArchMap.EncodersEntry
-	164, // 84: clientpb.ShellcodeEncoderArchMap.Descriptions:type_name -> clientpb.ShellcodeEncoderArchMap.DescriptionsEntry
-	165, // 85: clientpb.ShellcodeEncoderMap.Encoders:type_name -> clientpb.ShellcodeEncoderMap.EncodersEntry
-	23,  // 86: clientpb.ExternalGenerateReq.Config:type_name -> clientpb.ImplantConfig
-	110, // 87: clientpb.Builders.Builders:type_name -> clientpb.Builder
-	40,  // 88: clientpb.Builder.Targets:type_name -> clientpb.CompilerTarget
-	41,  // 89: clientpb.Builder.CrossCompilers:type_name -> clientpb.CrossCompiler
-	114, // 90: clientpb.HTTPC2Configs.configs:type_name -> clientpb.HTTPC2Config
-	114, // 91: clientpb.HTTPC2ConfigReq.C2Config:type_name -> clientpb.HTTPC2Config
-	115, // 92: clientpb.HTTPC2Config.ServerConfig:type_name -> clientpb.HTTPC2ServerConfig
-	116, // 93: clientpb.HTTPC2Config.ImplantConfig:type_name -> clientpb.HTTPC2ImplantConfig
-	118, // 94: clientpb.HTTPC2ServerConfig.Headers:type_name -> clientpb.HTTPC2Header
-	117, // 95: clientpb.HTTPC2ServerConfig.Cookies:type_name -> clientpb.HTTPC2Cookie
-	119, // 96: clientpb.HTTPC2ImplantConfig.ExtraURLParameters:type_name -> clientpb.HTTPC2URLParameter
-	118, // 97: clientpb.HTTPC2ImplantConfig.Headers:type_name -> clientpb.HTTPC2Header
-	120, // 98: clientpb.HTTPC2ImplantConfig.PathSegments:type_name -> clientpb.HTTPC2PathSegment
+	176, // 81: clientpb.ShellcodeEncodeReq.Request:type_name -> commonpb.Request
+	177, // 82: clientpb.ShellcodeEncode.Response:type_name -> commonpb.Response
+	169, // 83: clientpb.ShellcodeEncoderArchMap.Encoders:type_name -> clientpb.ShellcodeEncoderArchMap.EncodersEntry
+	170, // 84: clientpb.ShellcodeEncoderArchMap.Descriptions:type_name -> clientpb.ShellcodeEncoderArchMap.DescriptionsEntry
+	171, // 85: clientpb.ShellcodeEncoderMap.Encoders:type_name -> clientpb.ShellcodeEncoderMap.EncodersEntry
+	28,  // 86: clientpb.ExternalGenerateReq.Config:type_name -> clientpb.ImplantConfig
+	115, // 87: clientpb.Builders.Builders:type_name -> clientpb.Builder
+	45,  // 88: clientpb.Builder.Targets:type_name -> clientpb.CompilerTarget
+	46,  // 89: clientpb.Builder.CrossCompilers:type_name -> clientpb.CrossCompiler
+	119, // 90: clientpb.HTTPC2Configs.configs:type_name -> clientpb.HTTPC2Config
+	119, // 91: clientpb.HTTPC2ConfigReq.C2Config:type_name -> clientpb.HTTPC2Config
+	120, // 92: clientpb.HTTPC2Config.ServerConfig:type_name -> clientpb.HTTPC2ServerConfig
+	121, // 93: clientpb.HTTPC2Config.ImplantConfig:type_name -> clientpb.HTTPC2ImplantConfig
+	123, // 94: clientpb.HTTPC2ServerConfig.Headers:type_name -> clientpb.HTTPC2Header
+	122, // 95: clientpb.HTTPC2ServerConfig.Cookies:type_name -> clientpb.HTTPC2Cookie
+	124, // 96: clientpb.HTTPC2ImplantConfig.ExtraURLParameters:type_name -> clientpb.HTTPC2URLParameter
+	123, // 97: clientpb.HTTPC2ImplantConfig.Headers:type_name -> clientpb.HTTPC2Header
+	125, // 98: clientpb.HTTPC2ImplantConfig.PathSegments:type_name -> clientpb.HTTPC2PathSegment
 	5,   // 99: clientpb.Credential.HashType:type_name -> clientpb.HashType
-	121, // 100: clientpb.Credentials.Credentials:type_name -> clientpb.Credential
-	128, // 101: clientpb.Crackstations.Crackstations:type_name -> clientpb.Crackstation
+	126, // 100: clientpb.Credentials.Credentials:type_name -> clientpb.Credential
+	133, // 101: clientpb.Crackstations.Crackstations:type_name -> clientpb.Crackstation
 	6,   // 102: clientpb.CrackstationStatus.State:type_name -> clientpb.States
-	125, // 103: clientpb.CrackstationStatus.Syncing:type_name -> clientpb.CrackSyncStatus
-	166, // 104: clientpb.CrackSyncStatus.Progress:type_name -> clientpb.CrackSyncStatus.ProgressEntry
-	167, // 105: clientpb.CrackBenchmark.Benchmarks:type_name -> clientpb.CrackBenchmark.BenchmarksEntry
-	132, // 106: clientpb.CrackTask.Command:type_name -> clientpb.CrackCommand
-	168, // 107: clientpb.Crackstation.Benchmarks:type_name -> clientpb.Crackstation.BenchmarksEntry
-	129, // 108: clientpb.Crackstation.CUDA:type_name -> clientpb.CUDABackendInfo
-	131, // 109: clientpb.Crackstation.Metal:type_name -> clientpb.MetalBackendInfo
-	130, // 110: clientpb.Crackstation.OpenCL:type_name -> clientpb.OpenCLBackendInfo
+	130, // 103: clientpb.CrackstationStatus.Syncing:type_name -> clientpb.CrackSyncStatus
+	172, // 104: clientpb.CrackSyncStatus.Progress:type_name -> clientpb.CrackSyncStatus.ProgressEntry
+	173, // 105: clientpb.CrackBenchmark.Benchmarks:type_name -> clientpb.CrackBenchmark.BenchmarksEntry
+	137, // 106: clientpb.CrackTask.Command:type_name -> clientpb.CrackCommand
+	174, // 107: clientpb.Crackstation.Benchmarks:type_name -> clientpb.Crackstation.BenchmarksEntry
+	134, // 108: clientpb.Crackstation.CUDA:type_name -> clientpb.CUDABackendInfo
+	136, // 109: clientpb.Crackstation.Metal:type_name -> clientpb.MetalBackendInfo
+	135, // 110: clientpb.Crackstation.OpenCL:type_name -> clientpb.OpenCLBackendInfo
 	8,   // 111: clientpb.CrackCommand.AttackMode:type_name -> clientpb.CrackAttackMode
 	5,   // 112: clientpb.CrackCommand.HashType:type_name -> clientpb.HashType
 	10,  // 113: clientpb.CrackCommand.OutfileFormat:type_name -> clientpb.CrackOutfileFormat
@@ -13940,32 +14454,39 @@ var file_clientpb_client_proto_depIdxs = []int32{
 	9,   // 115: clientpb.CrackCommand.EncodingTo:type_name -> clientpb.CrackEncoding
 	11,  // 116: clientpb.CrackCommand.WorkloadProfile:type_name -> clientpb.CrackWorkloadProfile
 	7,   // 117: clientpb.CrackJob.Status:type_name -> clientpb.CrackJobStatus
-	132, // 118: clientpb.CrackJob.Command:type_name -> clientpb.CrackCommand
-	133, // 119: clientpb.CrackResponse.Job:type_name -> clientpb.CrackJob
-	137, // 120: clientpb.CrackFiles.Files:type_name -> clientpb.CrackFile
+	137, // 118: clientpb.CrackJob.Command:type_name -> clientpb.CrackCommand
+	138, // 119: clientpb.CrackResponse.Job:type_name -> clientpb.CrackJob
+	142, // 120: clientpb.CrackFiles.Files:type_name -> clientpb.CrackFile
 	12,  // 121: clientpb.CrackFile.Type:type_name -> clientpb.CrackFileType
-	138, // 122: clientpb.CrackFile.Chunks:type_name -> clientpb.CrackFileChunk
-	140, // 123: clientpb.AIProviderConfigs.Providers:type_name -> clientpb.AIProviderConfig
-	141, // 124: clientpb.AIProviderConfigs.Config:type_name -> clientpb.AIConfigSummary
-	144, // 125: clientpb.AIConversations.Conversations:type_name -> clientpb.AIConversation
-	146, // 126: clientpb.AIConversation.Messages:type_name -> clientpb.AIConversationMessage
-	146, // 127: clientpb.AIConversationMessages.Messages:type_name -> clientpb.AIConversationMessage
-	148, // 128: clientpb.MonitoringProviders.providers:type_name -> clientpb.MonitoringProvider
-	151, // 129: clientpb.CertificateInfo.info:type_name -> clientpb.CertificateData
-	153, // 130: clientpb.CertificateAuthorityInfo.info:type_name -> clientpb.CertificateAuthorityData
-	31,  // 131: clientpb.TrafficEncoderMap.EncodersEntry.value:type_name -> clientpb.TrafficEncoder
-	23,  // 132: clientpb.ImplantBuilds.ConfigsEntry.value:type_name -> clientpb.ImplantConfig
-	149, // 133: clientpb.ImplantBuilds.ResourceIDsEntry.value:type_name -> clientpb.ResourceID
-	88,  // 134: clientpb.WebsiteAddContent.ContentsEntry.value:type_name -> clientpb.WebContent
-	88,  // 135: clientpb.Website.ContentsEntry.value:type_name -> clientpb.WebContent
-	97,  // 136: clientpb.Host.ExtensionDataEntry.value:type_name -> clientpb.ExtensionData
-	3,   // 137: clientpb.ShellcodeEncoderArchMap.EncodersEntry.value:type_name -> clientpb.ShellcodeEncoder
-	106, // 138: clientpb.ShellcodeEncoderMap.EncodersEntry.value:type_name -> clientpb.ShellcodeEncoderArchMap
-	139, // [139:139] is the sub-list for method output_type
-	139, // [139:139] is the sub-list for method input_type
-	139, // [139:139] is the sub-list for extension type_name
-	139, // [139:139] is the sub-list for extension extendee
-	0,   // [0:139] is the sub-list for field type_name
+	143, // 122: clientpb.CrackFile.Chunks:type_name -> clientpb.CrackFileChunk
+	145, // 123: clientpb.AIProviderConfigs.Providers:type_name -> clientpb.AIProviderConfig
+	146, // 124: clientpb.AIProviderConfigs.Config:type_name -> clientpb.AIConfigSummary
+	149, // 125: clientpb.AIConversations.Conversations:type_name -> clientpb.AIConversation
+	151, // 126: clientpb.AIConversation.Messages:type_name -> clientpb.AIConversationMessage
+	13,  // 127: clientpb.AIConversation.TurnState:type_name -> clientpb.AIConversationTurnState
+	151, // 128: clientpb.AIConversationMessages.Messages:type_name -> clientpb.AIConversationMessage
+	14,  // 129: clientpb.AIConversationMessage.Kind:type_name -> clientpb.AIConversationMessageKind
+	15,  // 130: clientpb.AIConversationMessage.Visibility:type_name -> clientpb.AIConversationMessageVisibility
+	16,  // 131: clientpb.AIConversationMessage.State:type_name -> clientpb.AIConversationMessageState
+	17,  // 132: clientpb.AIConversationEvent.EventType:type_name -> clientpb.AIConversationEventType
+	149, // 133: clientpb.AIConversationEvent.Conversation:type_name -> clientpb.AIConversation
+	151, // 134: clientpb.AIConversationEvent.Message:type_name -> clientpb.AIConversationMessage
+	154, // 135: clientpb.MonitoringProviders.providers:type_name -> clientpb.MonitoringProvider
+	157, // 136: clientpb.CertificateInfo.info:type_name -> clientpb.CertificateData
+	159, // 137: clientpb.CertificateAuthorityInfo.info:type_name -> clientpb.CertificateAuthorityData
+	36,  // 138: clientpb.TrafficEncoderMap.EncodersEntry.value:type_name -> clientpb.TrafficEncoder
+	28,  // 139: clientpb.ImplantBuilds.ConfigsEntry.value:type_name -> clientpb.ImplantConfig
+	155, // 140: clientpb.ImplantBuilds.ResourceIDsEntry.value:type_name -> clientpb.ResourceID
+	93,  // 141: clientpb.WebsiteAddContent.ContentsEntry.value:type_name -> clientpb.WebContent
+	93,  // 142: clientpb.Website.ContentsEntry.value:type_name -> clientpb.WebContent
+	102, // 143: clientpb.Host.ExtensionDataEntry.value:type_name -> clientpb.ExtensionData
+	3,   // 144: clientpb.ShellcodeEncoderArchMap.EncodersEntry.value:type_name -> clientpb.ShellcodeEncoder
+	111, // 145: clientpb.ShellcodeEncoderMap.EncodersEntry.value:type_name -> clientpb.ShellcodeEncoderArchMap
+	146, // [146:146] is the sub-list for method output_type
+	146, // [146:146] is the sub-list for method input_type
+	146, // [146:146] is the sub-list for extension type_name
+	146, // [146:146] is the sub-list for extension extendee
+	0,   // [0:146] is the sub-list for field type_name
 }
 
 func init() { file_clientpb_client_proto_init() }
@@ -13978,8 +14499,8 @@ func file_clientpb_client_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_clientpb_client_proto_rawDesc), len(file_clientpb_client_proto_rawDesc)),
-			NumEnums:      13,
-			NumMessages:   156,
+			NumEnums:      18,
+			NumMessages:   157,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
