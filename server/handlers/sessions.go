@@ -169,10 +169,10 @@ func tunnelCloseHandler(implantConn *core.ImplantConnection, data []byte) *slive
 		}
 	} else {
 		rtunnel := rtunnels.GetRTunnel(tunnelData.TunnelID)
-		if rtunnel != nil && session.ID == tunnel.SessionID {
+		if rtunnel != nil && session.ID == rtunnel.SessionID {
 			rtunnel.Close()
 			rtunnels.RemoveRTunnel(rtunnel.ID)
-		} else if rtunnel != nil && session.ID != tunnel.SessionID {
+		} else if rtunnel != nil && session.ID != rtunnel.SessionID {
 			sessionHandlerLog.Warnf("Warning: Session %s attempted to send data on reverse tunnel it did not own", session.ID)
 		} else {
 			sessionHandlerLog.Warnf("Close sent on nil tunnel %d", tunnelData.TunnelID)
@@ -206,7 +206,7 @@ func socksDataHandler(implantConn *core.ImplantConnection, data []byte) *sliverp
 	//	core.SocksTunnels.Close(socksData.TunnelID)
 	//	return nil
 	//}
-	sessionHandlerLog.Debugf("socksDataHandler: len=%d data=%v", len(socksData.Data), socksData.Data)
+	sessionHandlerLog.Debugf("socksDataHandler: %d bytes: %v", len(socksData.Data), socksData.Data)
 	socksTunnel := core.SocksTunnels.Get(socksData.TunnelID)
 	if socksTunnel != nil {
 		if session.ID == socksTunnel.SessionID {
