@@ -2097,7 +2097,6 @@ func (m *aiModel) renderHeader() string {
 		m.styles.chip.Render(statusChip),
 		m.styles.chipMuted.Render(m.ctx.connection.Operator),
 		m.styles.chipMuted.Render(m.ctx.target.Label),
-		m.styles.chipMuted.Render(m.layoutName()),
 	}
 	return lipgloss.NewStyle().Width(m.width).Render(fitStyledPieces(m.width, pieces))
 }
@@ -3740,15 +3739,6 @@ func (m aiFocus) String() string {
 		return "composer"
 	default:
 		return "unknown"
-	}
-}
-
-func (m *aiModel) layoutName() string {
-	switch {
-	case m.width >= 78:
-		return "split"
-	default:
-		return "stacked"
 	}
 }
 

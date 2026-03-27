@@ -368,6 +368,11 @@ func TestRenderHeaderUsesSingleCompactRow(t *testing.T) {
 			t.Fatalf("expected compact header to contain %q, got %q", fragment, rendered)
 		}
 	}
+	for _, fragment := range []string{"split", "stacked"} {
+		if strings.Contains(rendered, fragment) {
+			t.Fatalf("expected compact header to omit layout label %q, got %q", fragment, rendered)
+		}
+	}
 }
 
 func TestTranscriptSpeakerPaletteVariesAcrossUsers(t *testing.T) {
