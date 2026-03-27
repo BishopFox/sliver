@@ -143,34 +143,57 @@ func pivotPeerFailureHandler(implantConn *core.ImplantConnection, data []byte) *
 	}
 	pivotLog.Errorf("pivot peer failure received: %v", peerFailure)
 
+	reportingSession := core.Sessions.FromImplantConnection(implantConn)
+	if reportingSession == nil {
+		pivotLog.Warn("ignoring pivot peer failure from unknown session")
+		return nil
+	}
+
+	targetSessionIDs := map[string]struct{}{}
+	targetPivotIDs := map[string]struct{}{}
 	core.PivotSessions.Range(func(key, value interface{}) bool {
 		pivot := value.(*core.Pivot)
-
-		found := pivot.OriginID == peerFailure.PeerID
-
-		if !found {
-			pivotLog.Warnf("Filed peer not found by OriginID, searching by Peers instead")
-
-			for _, peer := range pivot.Peers {
-				if peer.PeerID == peerFailure.PeerID {
-					pivotLog.Warnf("Found session with needed peer!")
-					found = true
-				}
-			}
+		reporterIdx := pivotPeerIndex(pivot.Peers, reportingSession.PeerID)
+		if reporterIdx <= 0 {
+			return true
+		}
+		if pivot.Peers[reporterIdx-1].PeerID != peerFailure.PeerID {
+			return true
 		}
 
-		if found {
-			session := core.Sessions.FromImplantConnection(pivot.ImplantConn)
+		targetPivotIDs[pivot.ID] = struct{}{}
+		if pivot.OriginID != peerFailure.PeerID {
+			return true
+		}
 
-			if session != nil {
-				core.Sessions.Remove(session.ID)
-			}
-			defer core.PivotSessions.Delete(pivot.ID)
-			return false
+		session := core.Sessions.FromImplantConnection(pivot.ImplantConn)
+		if session != nil {
+			targetSessionIDs[session.ID] = struct{}{}
 		}
 		return true
 	})
+
+	if len(targetSessionIDs) == 0 {
+		pivotLog.Warnf("ignoring unauthorized pivot peer failure from %d for %d", reportingSession.PeerID, peerFailure.PeerID)
+		return nil
+	}
+
+	for sessionID := range targetSessionIDs {
+		core.Sessions.Remove(sessionID)
+	}
+	for pivotID := range targetPivotIDs {
+		core.PivotSessions.Delete(pivotID)
+	}
 	return nil
+}
+
+func pivotPeerIndex(peers []*sliverpb.PivotPeer, peerID int64) int {
+	for idx, peer := range peers {
+		if peer.PeerID == peerID {
+			return idx
+		}
+	}
+	return -1
 }
 
 func pivotServerPingHandler(pivot *core.Pivot) {

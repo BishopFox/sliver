@@ -206,7 +206,7 @@ func socksDataHandler(implantConn *core.ImplantConnection, data []byte) *sliverp
 	//	core.SocksTunnels.Close(socksData.TunnelID)
 	//	return nil
 	//}
-	sessionHandlerLog.Debugf("socksDataHandler:", len(socksData.Data), socksData.Data)
+	sessionHandlerLog.Debugf("socksDataHandler: len=%d data=%v", len(socksData.Data), socksData.Data)
 	socksTunnel := core.SocksTunnels.Get(socksData.TunnelID)
 	if socksTunnel != nil {
 		if session.ID == socksTunnel.SessionID {
