@@ -9,6 +9,7 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/configs"
+	"github.com/openai/openai-go/v2/shared"
 )
 
 func TestCompleteConversationOpenAIUsesConfiguredCredentialsAndSettings(t *testing.T) {
@@ -96,6 +97,7 @@ func TestCompleteConversationOpenAIUsesConfiguredCredentialsAndSettings(t *testi
 	for _, fragment := range []string{
 		`"model":"gpt-5.2"`,
 		`"effort":"high"`,
+		`"summary":"concise"`,
 		`"Keep it brief."`,
 		`"Earlier answer."`,
 		`"Explain the workflow."`,
@@ -254,6 +256,58 @@ func TestResolveRuntimeConfigOpenAICompatAllowsBaseURLWithoutAPIKey(t *testing.T
 	}
 	if runtime.APIKey != "" {
 		t.Fatalf("expected openai-compat api key to remain empty, got %q", runtime.APIKey)
+	}
+}
+
+func TestResolveRuntimeConfigUsesConversationThinkingOverride(t *testing.T) {
+	cfg := &configs.ServerConfig{
+		AI: &configs.AIConfig{
+			Provider:      ProviderOpenAI,
+			Model:         "gpt-5.4",
+			ThinkingLevel: "high",
+			OpenAI: &configs.AIProviderConfig{
+				APIKey:          "openai-key",
+				UseResponsesAPI: boolPtr(true),
+			},
+			Anthropic: &configs.AIProviderConfig{},
+		},
+	}
+
+	runtime, err := ResolveRuntimeConfig(cfg, &clientpb.AIConversation{
+		Provider:      ProviderOpenAI,
+		ThinkingLevel: "disabled",
+	})
+	if err != nil {
+		t.Fatalf("resolve runtime config: %v", err)
+	}
+	if runtime.ThinkingLevel != "disabled" {
+		t.Fatalf("expected conversation thinking override %q, got %q", "disabled", runtime.ThinkingLevel)
+	}
+}
+
+func TestReasoningEffortForThinkingLevelSupportsXHigh(t *testing.T) {
+	effort, ok := reasoningEffortForThinkingLevel("xhigh")
+	if !ok {
+		t.Fatal("expected xhigh reasoning effort to be supported")
+	}
+	if string(effort) != "xhigh" {
+		t.Fatalf("expected reasoning effort %q, got %q", "xhigh", effort)
+	}
+}
+
+func TestResponseReasoningParamSkipsSummaryForOpenAICompat(t *testing.T) {
+	reasoning, ok := responseReasoningParam(&RuntimeConfig{
+		Provider:      ProviderOpenAICompat,
+		ThinkingLevel: "high",
+	})
+	if !ok {
+		t.Fatal("expected response reasoning params to be available")
+	}
+	if reasoning.Effort != shared.ReasoningEffortHigh {
+		t.Fatalf("expected reasoning effort %q, got %q", shared.ReasoningEffortHigh, reasoning.Effort)
+	}
+	if reasoning.Summary != "" {
+		t.Fatalf("expected openai-compatible runtime to skip reasoning summary, got %q", reasoning.Summary)
 	}
 }
 
@@ -439,6 +493,78 @@ func TestCompleteConversationOpenRouterUsesDefaultBaseURL(t *testing.T) {
 	}
 	if completion.ProviderMessageID != "chatcmpl_or_123" {
 		t.Fatalf("unexpected provider message id: %q", completion.ProviderMessageID)
+	}
+}
+
+func TestConversationHistoryUsesExplicitContextFlagIndependentlyOfVisibility(t *testing.T) {
+	systemPrompt, messages, err := conversationHistory(&clientpb.AIConversation{
+		SystemPrompt: "Stay concise.",
+		Messages: []*clientpb.AIConversationMessage{
+			{
+				Role:             "assistant",
+				Content:          "Visible in the transcript but excluded from context.",
+				Kind:             clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT,
+				Visibility:       clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_CONTEXT,
+				IncludeInContext: boolPtr(false),
+			},
+			{
+				Role:             "assistant",
+				Content:          "UI-only but still included in context.",
+				Kind:             clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT,
+				Visibility:       clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
+				IncludeInContext: boolPtr(true),
+			},
+			{
+				Role:             "user",
+				Content:          "What changed?",
+				Kind:             clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT,
+				Visibility:       clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_CONTEXT,
+				IncludeInContext: boolPtr(true),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("conversationHistory: %v", err)
+	}
+	if systemPrompt != "Stay concise." {
+		t.Fatalf("unexpected system prompt: %q", systemPrompt)
+	}
+	if len(messages) != 2 {
+		t.Fatalf("unexpected message count: got=%d want=%d", len(messages), 2)
+	}
+	if messages[0].Content != "UI-only but still included in context." {
+		t.Fatalf("unexpected retained assistant message: %+v", messages[0])
+	}
+	if messages[1].Role != "user" || messages[1].Content != "What changed?" {
+		t.Fatalf("unexpected trailing user message: %+v", messages[1])
+	}
+}
+
+func TestConversationHistoryFallsBackToVisibilityWhenContextFlagIsUnset(t *testing.T) {
+	_, messages, err := conversationHistory(&clientpb.AIConversation{
+		Messages: []*clientpb.AIConversationMessage{
+			{
+				Role:       "assistant",
+				Content:    "Legacy context-visible message.",
+				Kind:       clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT,
+				Visibility: clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_CONTEXT,
+			},
+			{
+				Role:       "user",
+				Content:    "Legacy prompt.",
+				Kind:       clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT,
+				Visibility: clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_CONTEXT,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("conversationHistory: %v", err)
+	}
+	if len(messages) != 2 {
+		t.Fatalf("unexpected legacy message count: got=%d want=%d", len(messages), 2)
+	}
+	if messages[0].Content != "Legacy context-visible message." {
+		t.Fatalf("unexpected legacy assistant message: %+v", messages[0])
 	}
 }
 

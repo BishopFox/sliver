@@ -13,7 +13,7 @@ import (
 	"github.com/openai/openai-go/v2/shared"
 )
 
-const maxAgenticLoopIterations = 16
+const maxAgenticLoopIterations = 100
 
 // AgenticToolDefinition describes a custom function tool exposed to the model.
 type AgenticToolDefinition struct {
@@ -30,9 +30,20 @@ type AgenticToolExecutor interface {
 
 // AgenticEventSink persists and publishes non-context-window UI items.
 type AgenticEventSink interface {
+	ChatMessage(context.Context, AgenticChatMessage) error
 	ReasoningItem(context.Context, AgenticReasoningItem) error
 	ToolCallStarted(context.Context, AgenticToolCall) error
 	ToolCallCompleted(context.Context, AgenticToolCallResult) error
+}
+
+// AgenticChatMessage is a provider-emitted assistant or system chat block.
+type AgenticChatMessage struct {
+	ItemID           string
+	Role             string
+	Content          string
+	Status           string
+	UIOnly           bool
+	IncludeInContext bool
 }
 
 // AgenticReasoningItem is a completed reasoning item emitted by the provider.
@@ -129,8 +140,8 @@ func CompleteConversationAgentic(
 		if runtime.TopP != nil {
 			params.TopP = openai.Float(*runtime.TopP)
 		}
-		if effort, ok := reasoningEffortForThinkingLevel(runtime.ThinkingLevel); ok {
-			params.Reasoning = shared.ReasoningParam{Effort: effort}
+		if reasoning, ok := responseReasoningParam(runtime); ok {
+			params.Reasoning = reasoning
 		}
 
 		response, err := client.responses.New(ctx, params)
@@ -141,6 +152,7 @@ func CompleteConversationAgentic(
 		previousResponseID = strings.TrimSpace(response.ID)
 		nextInput := make(openairesponses.ResponseInputParam, 0)
 		finalTexts := make([]string, 0, len(response.Output))
+		chatItems := make([]AgenticChatMessage, 0)
 
 		for _, item := range response.Output {
 			switch output := item.AsAny().(type) {
@@ -186,12 +198,28 @@ func CompleteConversationAgentic(
 
 			case openairesponses.ResponseOutputMessage:
 				if text := strings.TrimSpace(responseOutputMessageText(output)); text != "" {
+					chatItems = append(chatItems, AgenticChatMessage{
+						ItemID:           strings.TrimSpace(output.ID),
+						Role:             strings.TrimSpace(string(output.Role)),
+						Content:          text,
+						Status:           strings.TrimSpace(string(output.Status)),
+						IncludeInContext: true,
+					})
 					finalTexts = append(finalTexts, text)
 				}
 			}
 		}
 
 		if len(nextInput) > 0 {
+			if sink != nil {
+				for _, chatItem := range chatItems {
+					chatItem.UIOnly = true
+					chatItem.IncludeInContext = false
+					if err := sink.ChatMessage(ctx, chatItem); err != nil {
+						return nil, err
+					}
+				}
+			}
 			currentInput = nextInput
 			continue
 		}

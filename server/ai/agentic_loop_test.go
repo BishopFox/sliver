@@ -2,7 +2,12 @@ package ai
 
 import (
 	"context"
+	"io"
+	"net/http"
+	"strings"
 	"testing"
+
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 )
 
 type staticAgenticToolExecutor struct {
@@ -62,5 +67,66 @@ func TestBuildAgenticToolParamsNormalizesStrictOpenAISchemas(t *testing.T) {
 		if !stringSliceContains(typeValues, "string") || !stringSliceContains(typeValues, "null") {
 			t.Fatalf("expected property %q to allow string and null, got %#v", field, typeValues)
 		}
+	}
+}
+
+func TestCompleteConversationAgenticRequestsReasoningSummaryForOpenAI(t *testing.T) {
+	type capturedRequest struct {
+		Body string
+	}
+
+	requests := make(chan capturedRequest, 1)
+	restoreClient := SetHTTPClientForTests(&http.Client{
+		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			defer r.Body.Close()
+
+			payload, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatalf("read request body: %v", err)
+			}
+
+			requests <- capturedRequest{Body: string(payload)}
+			return jsonResponse(http.StatusOK, `{
+				"id": "resp_123",
+				"model": "gpt-5.4",
+				"status": "completed",
+				"output": [
+					{
+						"type": "message",
+						"id": "msg_123",
+						"role": "assistant",
+						"content": [
+							{"type": "output_text", "text": "Done."}
+						]
+					}
+				]
+			}`), nil
+		}),
+	})
+	defer restoreClient()
+
+	completion, err := CompleteConversationAgentic(context.Background(), &RuntimeConfig{
+		Provider:        ProviderOpenAI,
+		Model:           "gpt-5.4",
+		UseResponsesAPI: true,
+		ThinkingLevel:   "high",
+		APIKey:          "openai-key",
+	}, &clientpb.AIConversation{
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "user", Content: "Say hi."},
+		},
+	}, nil, nil)
+	if err != nil {
+		t.Fatalf("complete agentic conversation: %v", err)
+	}
+
+	request := <-requests
+	for _, fragment := range []string{`"effort":"high"`, `"summary":"concise"`} {
+		if !strings.Contains(request.Body, fragment) {
+			t.Fatalf("expected agentic request body to contain %q, got %s", fragment, request.Body)
+		}
+	}
+	if completion.Content != "Done." {
+		t.Fatalf("unexpected completion content: %q", completion.Content)
 	}
 }

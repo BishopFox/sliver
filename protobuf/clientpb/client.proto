@@ -1487,6 +1487,7 @@ message AIConversation {
   AIConversationTurnState TurnState = 12;
   string TargetSessionID = 13;
   string TargetBeaconID = 14;
+  string ThinkingLevel = 15;
 }
 
 message AIConversationMessages {
@@ -1517,6 +1518,7 @@ message AIConversationMessage {
   string ToolArguments = 20;
   string ToolResult = 21;
   string ErrorText = 22;
+  optional bool IncludeInContext = 23;
 }
 
 message AIConversationEvent {

@@ -34,6 +34,7 @@ type AIConversation struct {
 	OperatorName    string `gorm:"index"`
 	Provider        string `gorm:"index"`
 	Model           string
+	ThinkingLevel   string
 	Title           string
 	Summary         string
 	SystemPrompt    string `gorm:"type:text;"`
@@ -71,6 +72,7 @@ func (a *AIConversation) ToProtobuf() *clientpb.AIConversation {
 		OperatorName:    a.OperatorName,
 		Provider:        a.Provider,
 		Model:           a.Model,
+		ThinkingLevel:   a.ThinkingLevel,
 		Title:           a.Title,
 		Summary:         a.Summary,
 		SystemPrompt:    a.SystemPrompt,
@@ -95,6 +97,7 @@ func AIConversationFromProtobuf(pbConversation *clientpb.AIConversation) *AIConv
 		OperatorName:    pbConversation.OperatorName,
 		Provider:        pbConversation.Provider,
 		Model:           pbConversation.Model,
+		ThinkingLevel:   pbConversation.ThinkingLevel,
 		Title:           pbConversation.Title,
 		Summary:         pbConversation.Summary,
 		SystemPrompt:    pbConversation.SystemPrompt,
@@ -129,6 +132,7 @@ type AIConversationMessage struct {
 	ToolArguments     string `gorm:"type:text;"`
 	ToolResult        string `gorm:"type:text;"`
 	ErrorText         string `gorm:"type:text;"`
+	IncludeInContext  *bool
 }
 
 // BeforeCreate - GORM hook.
@@ -168,6 +172,7 @@ func (a *AIConversationMessage) ToProtobuf() *clientpb.AIConversationMessage {
 		ToolArguments:     a.ToolArguments,
 		ToolResult:        a.ToolResult,
 		ErrorText:         a.ErrorText,
+		IncludeInContext:  resolveAIConversationMessageIncludeInContext(a.IncludeInContext, a.Visibility),
 	}
 }
 
@@ -201,5 +206,22 @@ func AIConversationMessageFromProtobuf(pbMessage *clientpb.AIConversationMessage
 		ToolArguments:     pbMessage.ToolArguments,
 		ToolResult:        pbMessage.ToolResult,
 		ErrorText:         pbMessage.ErrorText,
+		IncludeInContext:  cloneOptionalBool(pbMessage.IncludeInContext),
 	}
+}
+
+func resolveAIConversationMessageIncludeInContext(value *bool, visibility int32) *bool {
+	if value != nil {
+		return cloneOptionalBool(value)
+	}
+	include := clientpb.AIConversationMessageVisibility(visibility) == clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_CONTEXT
+	return &include
+}
+
+func cloneOptionalBool(value *bool) *bool {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
 }

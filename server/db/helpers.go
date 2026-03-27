@@ -1435,6 +1435,7 @@ func SaveAIConversation(conversation *clientpb.AIConversation, operatorName stri
 	}
 	existing.Provider = dbConversation.Provider
 	existing.Model = dbConversation.Model
+	existing.ThinkingLevel = dbConversation.ThinkingLevel
 	existing.Title = dbConversation.Title
 	existing.Summary = dbConversation.Summary
 	existing.SystemPrompt = dbConversation.SystemPrompt
@@ -1582,6 +1583,9 @@ func SaveAIConversationMessage(message *clientpb.AIConversationMessage, operator
 			existing.ToolArguments = dbMessage.ToolArguments
 			existing.ToolResult = dbMessage.ToolResult
 			existing.ErrorText = dbMessage.ErrorText
+			if dbMessage.IncludeInContext != nil {
+				existing.IncludeInContext = dbMessage.IncludeInContext
+			}
 
 			if err := tx.Save(existing).Error; err != nil {
 				return err

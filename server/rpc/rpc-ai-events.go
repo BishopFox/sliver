@@ -141,6 +141,35 @@ func (s *aiConversationEventSink) TurnFailed(failure error) error {
 	return nil
 }
 
+func (s *aiConversationEventSink) ChatMessage(ctx context.Context, item serverai.AgenticChatMessage) error {
+	visibility := clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_CONTEXT
+	if item.UIOnly {
+		visibility = clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY
+	}
+	role := strings.ToLower(strings.TrimSpace(item.Role))
+	if role == "" {
+		role = "assistant"
+	}
+
+	message := &clientpb.AIConversationMessage{
+		ConversationID:   s.conversationID,
+		OperatorName:     s.operatorName,
+		Provider:         s.provider(),
+		Model:            s.model(),
+		Role:             role,
+		Content:          strings.TrimSpace(item.Content),
+		FinishReason:     strings.TrimSpace(item.Status),
+		Kind:             clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT,
+		Visibility:       visibility,
+		IncludeInContext: aiOptionalBool(item.IncludeInContext),
+		State:            normalizeAIMessageState(item.Status, clientpb.AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED),
+		TurnID:           s.turnID,
+		ItemID:           strings.TrimSpace(item.ItemID),
+	}
+	_, err := s.saveMessageAndPublish(message, clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_MESSAGE_COMPLETED, "")
+	return err
+}
+
 func (s *aiConversationEventSink) ReasoningItem(ctx context.Context, item serverai.AgenticReasoningItem) error {
 	content := strings.TrimSpace(item.Content)
 	summary := strings.TrimSpace(item.Summary)
@@ -151,18 +180,19 @@ func (s *aiConversationEventSink) ReasoningItem(ctx context.Context, item server
 	}
 
 	message := &clientpb.AIConversationMessage{
-		ConversationID: s.conversationID,
-		OperatorName:   s.operatorName,
-		Provider:       s.provider(),
-		Model:          s.model(),
-		Role:           "assistant",
-		Content:        content,
-		FinishReason:   strings.TrimSpace(item.Status),
-		Kind:           clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_REASONING,
-		Visibility:     clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
-		State:          normalizeAIMessageState(item.Status, clientpb.AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED),
-		TurnID:         s.turnID,
-		ItemID:         strings.TrimSpace(item.ItemID),
+		ConversationID:   s.conversationID,
+		OperatorName:     s.operatorName,
+		Provider:         s.provider(),
+		Model:            s.model(),
+		Role:             "assistant",
+		Content:          content,
+		FinishReason:     strings.TrimSpace(item.Status),
+		Kind:             clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_REASONING,
+		Visibility:       clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
+		IncludeInContext: aiOptionalBool(false),
+		State:            normalizeAIMessageState(item.Status, clientpb.AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED),
+		TurnID:           s.turnID,
+		ItemID:           strings.TrimSpace(item.ItemID),
 	}
 	_, err := s.saveMessageAndPublish(message, clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_MESSAGE_COMPLETED, "")
 	return err
@@ -170,20 +200,21 @@ func (s *aiConversationEventSink) ReasoningItem(ctx context.Context, item server
 
 func (s *aiConversationEventSink) ToolCallStarted(ctx context.Context, item serverai.AgenticToolCall) error {
 	message := &clientpb.AIConversationMessage{
-		ConversationID: s.conversationID,
-		OperatorName:   s.operatorName,
-		Provider:       s.provider(),
-		Model:          s.model(),
-		Role:           "assistant",
-		Kind:           clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_TOOL_CALL,
-		Visibility:     clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
-		State:          clientpb.AIConversationMessageState_AI_MESSAGE_STATE_IN_PROGRESS,
-		TurnID:         s.turnID,
-		ItemID:         strings.TrimSpace(item.ItemID),
-		ToolCallID:     strings.TrimSpace(item.CallID),
-		ToolName:       strings.TrimSpace(item.Name),
-		ToolArguments:  strings.TrimSpace(item.Arguments),
-		FinishReason:   strings.TrimSpace(item.Status),
+		ConversationID:   s.conversationID,
+		OperatorName:     s.operatorName,
+		Provider:         s.provider(),
+		Model:            s.model(),
+		Role:             "assistant",
+		Kind:             clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_TOOL_CALL,
+		Visibility:       clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
+		IncludeInContext: aiOptionalBool(false),
+		State:            clientpb.AIConversationMessageState_AI_MESSAGE_STATE_IN_PROGRESS,
+		TurnID:           s.turnID,
+		ItemID:           strings.TrimSpace(item.ItemID),
+		ToolCallID:       strings.TrimSpace(item.CallID),
+		ToolName:         strings.TrimSpace(item.Name),
+		ToolArguments:    strings.TrimSpace(item.Arguments),
+		FinishReason:     strings.TrimSpace(item.Status),
 	}
 	_, err := s.saveMessageAndPublish(message, clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_MESSAGE_STARTED, "")
 	return err
@@ -198,22 +229,23 @@ func (s *aiConversationEventSink) ToolCallCompleted(ctx context.Context, item se
 	}
 
 	message := &clientpb.AIConversationMessage{
-		ConversationID: s.conversationID,
-		OperatorName:   s.operatorName,
-		Provider:       s.provider(),
-		Model:          s.model(),
-		Role:           "assistant",
-		Kind:           clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_TOOL_CALL,
-		Visibility:     clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
-		State:          state,
-		TurnID:         s.turnID,
-		ItemID:         strings.TrimSpace(item.ItemID),
-		ToolCallID:     strings.TrimSpace(item.CallID),
-		ToolName:       strings.TrimSpace(item.Name),
-		ToolArguments:  strings.TrimSpace(item.Arguments),
-		ToolResult:     strings.TrimSpace(item.Output),
-		ErrorText:      errText,
-		FinishReason:   strings.TrimSpace(item.Status),
+		ConversationID:   s.conversationID,
+		OperatorName:     s.operatorName,
+		Provider:         s.provider(),
+		Model:            s.model(),
+		Role:             "assistant",
+		Kind:             clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_TOOL_CALL,
+		Visibility:       clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
+		IncludeInContext: aiOptionalBool(false),
+		State:            state,
+		TurnID:           s.turnID,
+		ItemID:           strings.TrimSpace(item.ItemID),
+		ToolCallID:       strings.TrimSpace(item.CallID),
+		ToolName:         strings.TrimSpace(item.Name),
+		ToolArguments:    strings.TrimSpace(item.Arguments),
+		ToolResult:       strings.TrimSpace(item.Output),
+		ErrorText:        errText,
+		FinishReason:     strings.TrimSpace(item.Status),
 	}
 	_, err := s.saveMessageAndPublish(message, clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_MESSAGE_COMPLETED, errText)
 	return err
@@ -221,18 +253,19 @@ func (s *aiConversationEventSink) ToolCallCompleted(ctx context.Context, item se
 
 func (s *aiConversationEventSink) SaveFailureMessage(content string, errText string) error {
 	message := &clientpb.AIConversationMessage{
-		ConversationID: s.conversationID,
-		OperatorName:   s.operatorName,
-		Provider:       s.provider(),
-		Model:          s.model(),
-		Role:           "system",
-		Content:        strings.TrimSpace(content),
-		FinishReason:   "error",
-		Kind:           clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT,
-		Visibility:     clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
-		State:          clientpb.AIConversationMessageState_AI_MESSAGE_STATE_FAILED,
-		TurnID:         s.turnID,
-		ErrorText:      strings.TrimSpace(errText),
+		ConversationID:   s.conversationID,
+		OperatorName:     s.operatorName,
+		Provider:         s.provider(),
+		Model:            s.model(),
+		Role:             "system",
+		Content:          strings.TrimSpace(content),
+		FinishReason:     "error",
+		Kind:             clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT,
+		Visibility:       clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
+		IncludeInContext: aiOptionalBool(false),
+		State:            clientpb.AIConversationMessageState_AI_MESSAGE_STATE_FAILED,
+		TurnID:           s.turnID,
+		ErrorText:        strings.TrimSpace(errText),
 	}
 	_, err := s.saveMessageAndPublish(message, clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_MESSAGE_COMPLETED, errText)
 	return err
@@ -299,4 +332,8 @@ func normalizeAIMessageState(status string, fallback clientpb.AIConversationMess
 	default:
 		return fallback
 	}
+}
+
+func aiOptionalBool(value bool) *bool {
+	return &value
 }

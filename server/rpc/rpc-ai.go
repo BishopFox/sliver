@@ -33,6 +33,17 @@ func validateAIProvider(provider string) error {
 	return nil
 }
 
+func validateAIThinkingLevel(thinkingLevel string) error {
+	thinkingLevel = strings.TrimSpace(thinkingLevel)
+	if thinkingLevel == "" {
+		return nil
+	}
+	if serverai.NormalizeThinkingLevelValue(thinkingLevel) == "" {
+		return status.Error(codes.InvalidArgument, fmt.Sprintf("unsupported AI thinking level %q", thinkingLevel))
+	}
+	return nil
+}
+
 func (rpc *Server) GetAIProviders(ctx context.Context, _ *commonpb.Empty) (*clientpb.AIProviderConfigs, error) {
 	return &clientpb.AIProviderConfigs{
 		Providers: serverai.ConfiguredProviders(),
@@ -65,6 +76,9 @@ func (rpc *Server) SaveAIConversation(ctx context.Context, req *clientpb.AIConve
 		return nil, status.Error(codes.InvalidArgument, "missing AI conversation")
 	}
 	if err := validateAIProvider(req.Provider); err != nil {
+		return nil, err
+	}
+	if err := validateAIThinkingLevel(req.ThinkingLevel); err != nil {
 		return nil, err
 	}
 
@@ -225,6 +239,7 @@ func (rpc *Server) runAIConversationCompletion(conversationID string, operatorNa
 		FinishReason:      completion.FinishReason,
 		Kind:              clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT,
 		Visibility:        clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_CONTEXT,
+		IncludeInContext:  aiOptionalBool(true),
 		State:             clientpb.AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED,
 		TurnID:            turnID,
 	}, operatorName)
@@ -269,6 +284,7 @@ func persistAIConversationRuntime(conversation *clientpb.AIConversation, operato
 		OperatorName:    conversation.GetOperatorName(),
 		Provider:        provider,
 		Model:           model,
+		ThinkingLevel:   conversation.GetThinkingLevel(),
 		Title:           conversation.GetTitle(),
 		Summary:         conversation.GetSummary(),
 		SystemPrompt:    conversation.GetSystemPrompt(),

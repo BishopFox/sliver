@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"path/filepath"
@@ -92,11 +93,12 @@ func TestSaveAIConversationMessageCompletesConversationAndPublishesEvents(t *tes
 	events := waitForAIConversationFlow(t, eventStream, conversation.GetID(), clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_TURN_COMPLETED)
 	assertAIConversationEventSequence(t, events, []aiConversationEventExpectation{
 		{
-			eventType:  clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_MESSAGE_COMPLETED,
-			role:       "user",
-			kind:       clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT,
-			visibility: clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_CONTEXT,
-			state:      clientpb.AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED,
+			eventType:        clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_MESSAGE_COMPLETED,
+			role:             "user",
+			kind:             clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT,
+			visibility:       clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_CONTEXT,
+			state:            clientpb.AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED,
+			includeInContext: boolPtr(true),
 		},
 		{
 			eventType: clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_TURN_STARTED,
@@ -402,6 +404,15 @@ func TestSaveAIConversationMessagePersistsReasoningAndToolBlocks(t *testing.T) {
 					"name": "list_sessions_and_beacons",
 					"arguments": "{}",
 					"status": "completed"
+				},
+				{
+					"id": "msg_step_1",
+					"type": "message",
+					"role": "assistant",
+					"status": "completed",
+					"content": [
+						{"type": "output_text", "text": "Checking the current targets before I summarize them."}
+					]
 				}
 			]
 		}`), nil
@@ -482,37 +493,50 @@ func TestSaveAIConversationMessagePersistsReasoningAndToolBlocks(t *testing.T) {
 			eventType: clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_TURN_STARTED,
 		},
 		{
-			eventType:  clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_MESSAGE_COMPLETED,
-			role:       "assistant",
-			kind:       clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_REASONING,
-			visibility: clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
-			state:      clientpb.AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED,
-			itemID:     "reasoning_1",
+			eventType:        clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_MESSAGE_COMPLETED,
+			role:             "assistant",
+			kind:             clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_REASONING,
+			visibility:       clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
+			state:            clientpb.AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED,
+			itemID:           "reasoning_1",
+			includeInContext: boolPtr(false),
 		},
 		{
-			eventType:  clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_MESSAGE_STARTED,
-			role:       "assistant",
-			kind:       clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_TOOL_CALL,
-			visibility: clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
-			state:      clientpb.AIConversationMessageState_AI_MESSAGE_STATE_IN_PROGRESS,
-			itemID:     "call_item_1",
-			toolName:   "list_sessions_and_beacons",
+			eventType:        clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_MESSAGE_STARTED,
+			role:             "assistant",
+			kind:             clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_TOOL_CALL,
+			visibility:       clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
+			state:            clientpb.AIConversationMessageState_AI_MESSAGE_STATE_IN_PROGRESS,
+			itemID:           "call_item_1",
+			toolName:         "list_sessions_and_beacons",
+			includeInContext: boolPtr(false),
 		},
 		{
-			eventType:  clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_MESSAGE_COMPLETED,
-			role:       "assistant",
-			kind:       clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_TOOL_CALL,
-			visibility: clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
-			state:      clientpb.AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED,
-			itemID:     "call_item_1",
-			toolName:   "list_sessions_and_beacons",
+			eventType:        clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_MESSAGE_COMPLETED,
+			role:             "assistant",
+			kind:             clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_TOOL_CALL,
+			visibility:       clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
+			state:            clientpb.AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED,
+			itemID:           "call_item_1",
+			toolName:         "list_sessions_and_beacons",
+			includeInContext: boolPtr(false),
 		},
 		{
-			eventType:  clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_MESSAGE_COMPLETED,
-			role:       "assistant",
-			kind:       clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT,
-			visibility: clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_CONTEXT,
-			state:      clientpb.AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED,
+			eventType:        clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_MESSAGE_COMPLETED,
+			role:             "assistant",
+			kind:             clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT,
+			visibility:       clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
+			state:            clientpb.AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED,
+			itemID:           "msg_step_1",
+			includeInContext: boolPtr(false),
+		},
+		{
+			eventType:        clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_MESSAGE_COMPLETED,
+			role:             "assistant",
+			kind:             clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT,
+			visibility:       clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_CONTEXT,
+			state:            clientpb.AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED,
+			includeInContext: boolPtr(true),
 		},
 		{
 			eventType: clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_TURN_COMPLETED,
@@ -529,8 +553,8 @@ func TestSaveAIConversationMessagePersistsReasoningAndToolBlocks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("refresh ai conversation: %v", err)
 	}
-	if len(current.GetMessages()) != 4 {
-		t.Fatalf("unexpected message count: got=%d want=%d", len(current.GetMessages()), 4)
+	if len(current.GetMessages()) != 5 {
+		t.Fatalf("unexpected message count: got=%d want=%d", len(current.GetMessages()), 5)
 	}
 
 	reasoning := current.GetMessages()[1]
@@ -539,6 +563,9 @@ func TestSaveAIConversationMessagePersistsReasoningAndToolBlocks(t *testing.T) {
 	}
 	if reasoning.GetVisibility() != clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY {
 		t.Fatalf("expected reasoning block to be UI-only, got %+v", reasoning)
+	}
+	if reasoning.GetIncludeInContext() {
+		t.Fatalf("expected reasoning block to stay out of context, got %+v", reasoning)
 	}
 
 	toolCall := current.GetMessages()[2]
@@ -554,13 +581,33 @@ func TestSaveAIConversationMessagePersistsReasoningAndToolBlocks(t *testing.T) {
 	if toolCall.GetVisibility() != clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY {
 		t.Fatalf("expected tool call to be UI-only, got %+v", toolCall)
 	}
+	if toolCall.GetIncludeInContext() {
+		t.Fatalf("expected tool call to stay out of context, got %+v", toolCall)
+	}
 
-	reply := current.GetMessages()[3]
+	stepMessage := current.GetMessages()[3]
+	if stepMessage.GetKind() != clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT {
+		t.Fatalf("expected intermediate chat block, got %+v", stepMessage)
+	}
+	if stepMessage.GetVisibility() != clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY {
+		t.Fatalf("expected intermediate chat block to be UI-only, got %+v", stepMessage)
+	}
+	if stepMessage.GetIncludeInContext() {
+		t.Fatalf("expected intermediate chat block to stay out of context, got %+v", stepMessage)
+	}
+	if stepMessage.GetContent() != "Checking the current targets before I summarize them." {
+		t.Fatalf("unexpected intermediate chat block content: %+v", stepMessage)
+	}
+
+	reply := current.GetMessages()[4]
 	if reply.GetContent() != "Assistant reply after a tool call" {
 		t.Fatalf("unexpected assistant reply: %q", reply.GetContent())
 	}
 	if reply.GetVisibility() != clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_CONTEXT {
 		t.Fatalf("expected assistant reply to remain in the context window, got %+v", reply)
+	}
+	if !reply.GetIncludeInContext() {
+		t.Fatalf("expected assistant reply to remain in context, got %+v", reply)
 	}
 }
 
@@ -643,6 +690,24 @@ func TestAIConversationsAreSharedAcrossOperators(t *testing.T) {
 	})
 	if status.Code(err) != codes.NotFound {
 		t.Fatalf("expected deleted shared conversation to be missing, got %v", err)
+	}
+}
+
+func TestSaveAIConversationRejectsUnsupportedThinkingLevel(t *testing.T) {
+	setupAIRPCTestEnv(t)
+
+	rpc := &Server{}
+
+	_, err := rpc.SaveAIConversation(contextWithCommonName("alice"), &clientpb.AIConversation{
+		Provider:      serverai.ProviderOpenAI,
+		ThinkingLevel: "maximum",
+		Title:         "Thread",
+	})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected invalid argument for unsupported thinking level, got %v", err)
+	}
+	if err == nil || !strings.Contains(err.Error(), `unsupported AI thinking level "maximum"`) {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -762,13 +827,14 @@ func waitForAIConversationRole(t *testing.T, client rpcpb.SliverRPCClient, event
 }
 
 type aiConversationEventExpectation struct {
-	eventType  clientpb.AIConversationEventType
-	role       string
-	kind       clientpb.AIConversationMessageKind
-	visibility clientpb.AIConversationMessageVisibility
-	state      clientpb.AIConversationMessageState
-	itemID     string
-	toolName   string
+	eventType        clientpb.AIConversationEventType
+	role             string
+	kind             clientpb.AIConversationMessageKind
+	visibility       clientpb.AIConversationMessageVisibility
+	state            clientpb.AIConversationMessageState
+	itemID           string
+	toolName         string
+	includeInContext *bool
 }
 
 func waitForAIConversationFlow(t *testing.T, eventStream rpcpb.SliverRPC_EventsClient, conversationID string, terminalType clientpb.AIConversationEventType) []*clientpb.AIConversationEvent {
@@ -835,6 +901,9 @@ func assertAIConversationEventSequence(t *testing.T, events []*clientpb.AIConver
 		if message.GetState() != expectation.state {
 			t.Fatalf("unexpected ai event[%d] state: got=%s want=%s\nflow:\n%s", idx, message.GetState(), expectation.state, formatAIConversationEventFlow(events))
 		}
+		if expectation.includeInContext != nil && message.GetIncludeInContext() != *expectation.includeInContext {
+			t.Fatalf("unexpected ai event[%d] include-in-context: got=%t want=%t\nflow:\n%s", idx, message.GetIncludeInContext(), *expectation.includeInContext, formatAIConversationEventFlow(events))
+		}
 		if expectation.itemID != "" && strings.TrimSpace(message.GetItemID()) != expectation.itemID {
 			t.Fatalf("unexpected ai event[%d] item id: got=%q want=%q\nflow:\n%s", idx, message.GetItemID(), expectation.itemID, formatAIConversationEventFlow(events))
 		}
@@ -857,6 +926,7 @@ func formatAIConversationEventFlow(events []*clientpb.AIConversationEvent) strin
 			part += " kind=" + message.GetKind().String()
 			part += " visibility=" + message.GetVisibility().String()
 			part += " state=" + message.GetState().String()
+			part += fmt.Sprintf(" context=%t", message.GetIncludeInContext())
 			if itemID := strings.TrimSpace(message.GetItemID()); itemID != "" {
 				part += " item=" + itemID
 			}

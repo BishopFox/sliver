@@ -115,6 +115,14 @@ func TestTranscriptSpeakerStyleUsesPrimaryThemeForUserMessages(t *testing.T) {
 	assertColorEqual(t, styles.label.GetBackground(), clienttheme.Primary())
 }
 
+func TestThinkingLevelOptionFocusedStyleUsesDarkerPrimaryShade(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+
+	assertColorEqual(t, model.styles.optionFocused.GetBackground(), clienttheme.PrimaryMod(200))
+	assertColorEqual(t, model.styles.optionFocused.GetForeground(), clienttheme.DefaultMod(900))
+	assertColorEqual(t, model.styles.itemFocused.GetBackground(), clienttheme.PrimaryMod(800))
+}
+
 func TestBuildConversationMarkdownWithoutConversationAvoidsKeyHints(t *testing.T) {
 	markdown := buildConversationMarkdown(nil)
 	if strings.Contains(markdown, "`n`") {
@@ -252,6 +260,52 @@ func TestRenderConversationTranscriptLinesRendersReasoningAndToolBlocks(t *testi
 	}
 }
 
+func TestRenderConversationTranscriptLinesExplainsMissingReasoningSummary(t *testing.T) {
+	conversation := &clientpb.AIConversation{
+		Messages: []*clientpb.AIConversationMessage{
+			{
+				Kind:       clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_REASONING,
+				Visibility: clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
+				State:      clientpb.AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED,
+			},
+		},
+	}
+
+	rendered := ansi.Strip(strings.Join(renderConversationTranscriptLines(72, conversation), "\n"))
+	if !strings.Contains(rendered, "Reasoning was used, but the provider did not return a visible summary.") {
+		t.Fatalf("expected reasoning fallback text, got %q", rendered)
+	}
+}
+
+func TestLastContextConversationMessageUsesIncludeInContextFlag(t *testing.T) {
+	conversation := &clientpb.AIConversation{
+		Messages: []*clientpb.AIConversationMessage{
+			{
+				Role:             "assistant",
+				Content:          "Shown but excluded.",
+				Kind:             clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT,
+				Visibility:       clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_CONTEXT,
+				IncludeInContext: boolPtr(false),
+			},
+			{
+				Role:             "assistant",
+				Content:          "UI-only but still contextual.",
+				Kind:             clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT,
+				Visibility:       clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
+				IncludeInContext: boolPtr(true),
+			},
+		},
+	}
+
+	message := lastContextConversationMessage(conversation)
+	if message == nil {
+		t.Fatal("expected a context-visible message")
+	}
+	if message.GetContent() != "UI-only but still contextual." {
+		t.Fatalf("unexpected context-visible message: %+v", message)
+	}
+}
+
 func TestRenderTranscriptHeaderLinesUsesCompactInlineMetadata(t *testing.T) {
 	model := newAIModel(nil, aiContext{}, nil)
 	model.currentConversation = &clientpb.AIConversation{
@@ -277,6 +331,10 @@ func TestRenderTranscriptHeaderLinesUsesCompactInlineMetadata(t *testing.T) {
 			t.Fatalf("expected transcript header to contain %q, got %q", fragment, rendered)
 		}
 	}
+}
+
+func boolPtr(value bool) *bool {
+	return &value
 }
 
 func TestRenderHeaderUsesSingleCompactRow(t *testing.T) {
@@ -609,7 +667,7 @@ func TestConversationAwaitingResponseUsesTurnState(t *testing.T) {
 
 func TestPendingLabelUsesThinkingWhenConfigured(t *testing.T) {
 	model := &aiModel{
-		config: &clientpb.AIConfigSummary{ThinkingLevel: "high"},
+		config: &clientpb.AIConfigSummary{ThinkingLevel: "xhigh"},
 	}
 
 	if got := model.pendingLabel(); got != "Thinking" {
@@ -625,6 +683,27 @@ func TestPendingLabelFallsBackToWorking(t *testing.T) {
 	}
 }
 
+func TestPendingLabelUsesConversationOverrideBeforeConfig(t *testing.T) {
+	model := &aiModel{
+		config:              &clientpb.AIConfigSummary{ThinkingLevel: "high"},
+		currentConversation: &clientpb.AIConversation{ThinkingLevel: "disabled"},
+	}
+
+	if got := model.pendingLabel(); got != "Working" {
+		t.Fatalf("expected disabled conversation override to use %q, got %q", "Working", got)
+	}
+}
+
+func TestThinkingLevelOptionsIncludeXHigh(t *testing.T) {
+	options := aiThinkingLevelOptions("high")
+	for _, option := range options {
+		if option.value == "xhigh" {
+			return
+		}
+	}
+	t.Fatal("expected xhigh thinking option to be available")
+}
+
 func TestRenderFooterUsesPaneSpecificControls(t *testing.T) {
 	model := newAIModel(nil, aiContext{}, nil)
 	model.width = 200
@@ -633,7 +712,7 @@ func TestRenderFooterUsesPaneSpecificControls(t *testing.T) {
 	model.currentConversation = &clientpb.AIConversation{ID: "conv-1", Title: "Thread"}
 
 	footer := ansi.Strip(model.renderFooter())
-	expected := []string{"focus: sidebar", "j/k: move", "enter: open", "x: delete", "q/esc: quit"}
+	expected := []string{"focus: sidebar", "j/k: move", "enter: open", "x: delete", "t: thinking", "q/esc: quit"}
 	for _, fragment := range expected {
 		if !strings.Contains(footer, fragment) {
 			t.Fatalf("expected sidebar footer to contain %q, got %q", fragment, footer)
@@ -645,7 +724,7 @@ func TestRenderFooterUsesPaneSpecificControls(t *testing.T) {
 
 	model.focus = aiFocusTranscript
 	footer = ansi.Strip(model.renderFooter())
-	expected = []string{"focus: conversation", "j/k: scroll", "pgup/pgdn: page", "g/G: ends", "x: delete", "q/esc: quit"}
+	expected = []string{"focus: conversation", "j/k: scroll", "pgup/pgdn: page", "g/G: ends", "x: delete", "t: thinking", "q/esc: quit"}
 	for _, fragment := range expected {
 		if !strings.Contains(footer, fragment) {
 			t.Fatalf("expected transcript footer to contain %q, got %q", fragment, footer)
@@ -661,7 +740,7 @@ func TestRenderFooterUsesPaneSpecificControls(t *testing.T) {
 
 	model.focus = aiFocusComposer
 	footer = ansi.Strip(model.renderFooter())
-	expected = []string{"focus: composer", "tab: sidebar", "enter: send", "/exit: quit", "ctrl+o: context", "ctrl+u: clear", "esc: blur", "ctrl+c: quit"}
+	expected = []string{"focus: composer", "tab: sidebar", "enter: send", "/exit: quit", "ctrl+o: context", "ctrl+t: thinking", "ctrl+u: clear", "esc: blur", "ctrl+c: quit"}
 	for _, fragment := range expected {
 		if !strings.Contains(footer, fragment) {
 			t.Fatalf("expected composer footer to contain %q, got %q", fragment, footer)
@@ -1321,6 +1400,34 @@ func TestComposerCtrlOOpensContextModal(t *testing.T) {
 	}
 }
 
+func TestComposerCtrlTOpensThinkingModal(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.focus = aiFocusComposer
+	model.loading = false
+	model.currentConversation = &clientpb.AIConversation{
+		ID:            "conv-1",
+		Title:         "Thread",
+		ThinkingLevel: "medium",
+	}
+	model.config = &clientpb.AIConfigSummary{ThinkingLevel: "high"}
+
+	updated, cmd := model.handleComposerKey(tea.Key{Code: 't', Mod: tea.ModCtrl})
+	if cmd != nil {
+		t.Fatalf("did not expect thinking modal to queue work, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal == nil || updatedModel.modal.kind != aiModalKindThinkingLevel {
+		t.Fatalf("expected thinking modal, got %+v", updatedModel.modal)
+	}
+	if updatedModel.modal.title != "Thinking Level" {
+		t.Fatalf("expected thinking modal title, got %+v", updatedModel.modal)
+	}
+	if updatedModel.modal.selectedOption != aiThinkingLevelOptionIndex("medium") {
+		t.Fatalf("expected current override to be selected, got %+v", updatedModel.modal)
+	}
+}
+
 func TestShowDeleteConversationModalTargetsSelectedConversation(t *testing.T) {
 	model := newAIModel(nil, aiContext{}, nil)
 	model.loading = false
@@ -1346,6 +1453,161 @@ func TestShowDeleteConversationModalTargetsSelectedConversation(t *testing.T) {
 	}
 	if updatedModel.modal.selectedID != "conv-1" {
 		t.Fatalf("expected delete modal to preselect the remaining conversation, got %+v", updatedModel.modal)
+	}
+}
+
+func TestShowThinkingLevelModalOnTKey(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.loading = false
+	model.currentConversation = &clientpb.AIConversation{
+		ID:            "conv-1",
+		Title:         "Thread",
+		ThinkingLevel: "high",
+	}
+	model.config = &clientpb.AIConfigSummary{ThinkingLevel: "medium"}
+
+	updated, cmd := model.handleGlobalKey(tea.Key{Text: "t", Code: 't'})
+	if cmd != nil {
+		t.Fatalf("did not expect thinking modal to start RPC work yet, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal == nil || updatedModel.modal.kind != aiModalKindThinkingLevel {
+		t.Fatalf("expected thinking modal, got %+v", updatedModel.modal)
+	}
+	if updatedModel.modal.selectedOption != aiThinkingLevelOptionIndex("high") {
+		t.Fatalf("expected high option to be preselected, got %+v", updatedModel.modal)
+	}
+}
+
+func TestThinkingLevelModalSavesConversationOverride(t *testing.T) {
+	server := &aiRPCServer{
+		saveConversationResp: &clientpb.AIConversation{
+			ID:            "conv-1",
+			Provider:      "openai",
+			Model:         "gpt-test",
+			Title:         "Thread",
+			ThinkingLevel: "high",
+		},
+	}
+
+	rpcClient, cleanup := newAITestRPCClient(t, server)
+	defer cleanup()
+
+	model := newAIModel(&console.SliverClient{Rpc: rpcClient}, aiContext{}, nil)
+	model.loading = false
+	model.conversations = []*clientpb.AIConversation{{ID: "conv-1", Title: "Thread", Provider: "openai", Model: "gpt-test"}}
+	model.currentConversation = &clientpb.AIConversation{ID: "conv-1", Title: "Thread", Provider: "openai", Model: "gpt-test"}
+	model.config = &clientpb.AIConfigSummary{ThinkingLevel: "medium"}
+
+	updated, cmd := model.handleGlobalKey(tea.Key{Text: "t", Code: 't'})
+	if cmd != nil {
+		t.Fatalf("did not expect modal open to queue work, got %v", cmd)
+	}
+	model = updated.(*aiModel)
+
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	if cmd != nil {
+		t.Fatalf("did not expect selection change to queue work, got %v", cmd)
+	}
+	model = updated.(*aiModel)
+
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	if cmd != nil {
+		t.Fatalf("did not expect selection change to queue work, got %v", cmd)
+	}
+	model = updated.(*aiModel)
+
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	if cmd != nil {
+		t.Fatalf("did not expect selection change to queue work, got %v", cmd)
+	}
+	model = updated.(*aiModel)
+
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected enter to save the thinking level")
+	}
+	model = updated.(*aiModel)
+	if !model.loading {
+		t.Fatal("expected save to mark the model as loading")
+	}
+	if model.modal != nil {
+		t.Fatalf("expected modal to close after save, got %+v", model.modal)
+	}
+
+	msg := cmd()
+	updated, _ = model.Update(msg)
+	model = updated.(*aiModel)
+
+	if model.currentConversation.GetThinkingLevel() != "high" {
+		t.Fatalf("expected current conversation thinking level to update, got %+v", model.currentConversation)
+	}
+	if model.status != "Thinking level set to high." {
+		t.Fatalf("unexpected status: %q", model.status)
+	}
+
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	if len(server.saveConversationReqs) != 1 {
+		t.Fatalf("expected SaveAIConversation to be called once, got %d", len(server.saveConversationReqs))
+	}
+	if got := server.saveConversationReqs[0].GetThinkingLevel(); got != "high" {
+		t.Fatalf("expected thinking level %q, got %q", "high", got)
+	}
+}
+
+func TestThinkingLevelModalResetsConversationToProviderDefault(t *testing.T) {
+	server := &aiRPCServer{
+		saveConversationResp: &clientpb.AIConversation{
+			ID:       "conv-1",
+			Provider: "openai",
+			Model:    "gpt-test",
+			Title:    "Thread",
+		},
+	}
+
+	rpcClient, cleanup := newAITestRPCClient(t, server)
+	defer cleanup()
+
+	model := newAIModel(&console.SliverClient{Rpc: rpcClient}, aiContext{}, nil)
+	model.loading = false
+	model.conversations = []*clientpb.AIConversation{{ID: "conv-1", Title: "Thread", Provider: "openai", Model: "gpt-test", ThinkingLevel: "high"}}
+	model.currentConversation = &clientpb.AIConversation{ID: "conv-1", Title: "Thread", Provider: "openai", Model: "gpt-test", ThinkingLevel: "high"}
+	model.config = &clientpb.AIConfigSummary{ThinkingLevel: "medium"}
+
+	updated, cmd := model.handleGlobalKey(tea.Key{Text: "t", Code: 't'})
+	if cmd != nil {
+		t.Fatalf("did not expect modal open to queue work, got %v", cmd)
+	}
+	model = updated.(*aiModel)
+
+	model.modal.selectedOption = 0
+
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected enter to save the reset thinking level")
+	}
+	model = updated.(*aiModel)
+
+	msg := cmd()
+	updated, _ = model.Update(msg)
+	model = updated.(*aiModel)
+
+	if model.currentConversation.GetThinkingLevel() != "" {
+		t.Fatalf("expected thinking level to reset, got %+v", model.currentConversation)
+	}
+	if model.status != "Thinking level reset to provider default." {
+		t.Fatalf("unexpected status: %q", model.status)
+	}
+
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	if len(server.saveConversationReqs) != 1 {
+		t.Fatalf("expected SaveAIConversation to be called once, got %d", len(server.saveConversationReqs))
+	}
+	if got := server.saveConversationReqs[0].GetThinkingLevel(); got != "" {
+		t.Fatalf("expected empty thinking level override, got %q", got)
 	}
 }
 

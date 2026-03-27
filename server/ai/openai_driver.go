@@ -131,8 +131,8 @@ func (d *openAIDriver) completeResponses(ctx context.Context, client *openAIClie
 	if runtime.TopP != nil {
 		params.TopP = openai.Float(*runtime.TopP)
 	}
-	if effort, ok := reasoningEffortForThinkingLevel(runtime.ThinkingLevel); ok {
-		params.Reasoning = shared.ReasoningParam{Effort: effort}
+	if reasoning, ok := responseReasoningParam(runtime); ok {
+		params.Reasoning = reasoning
 	}
 
 	response, err := client.responses.New(ctx, params)
@@ -281,9 +281,29 @@ func reasoningEffortForThinkingLevel(thinkingLevel string) (shared.ReasoningEffo
 		return shared.ReasoningEffortMedium, true
 	case "high":
 		return shared.ReasoningEffortHigh, true
+	case "xhigh":
+		return shared.ReasoningEffort("xhigh"), true
 	default:
 		return "", false
 	}
+}
+
+func responseReasoningParam(runtime *RuntimeConfig) (shared.ReasoningParam, bool) {
+	effort, ok := reasoningEffortForThinkingLevel(runtime.ThinkingLevel)
+	if !ok {
+		return shared.ReasoningParam{}, false
+	}
+
+	reasoning := shared.ReasoningParam{Effort: effort}
+	switch NormalizeProviderName(runtime.Provider) {
+	case ProviderOpenAI, ProviderOpenRouter:
+		// Native OpenAI-style Responses backends can return a compact reasoning
+		// summary for UI-only transcript blocks. Skip this on generic
+		// openai-compatible backends until they've proven they accept the field.
+		reasoning.Summary = shared.ReasoningSummaryConcise
+	}
+
+	return reasoning, true
 }
 
 func formatOpenAIError(provider string, err error) error {

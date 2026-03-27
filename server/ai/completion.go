@@ -10,6 +10,7 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/configs"
+	"github.com/bishopfox/sliver/util/clientpbutil"
 )
 
 const (
@@ -90,6 +91,9 @@ func ResolveRuntimeConfig(cfg *configs.ServerConfig, conversation *clientpb.AICo
 	if conversation != nil {
 		runtime.Provider = NormalizeProviderName(conversation.GetProvider())
 		runtime.Model = strings.TrimSpace(conversation.GetModel())
+		if thinkingLevel := NormalizeThinkingLevelValue(conversation.GetThinkingLevel()); thinkingLevel != "" {
+			runtime.ThinkingLevel = thinkingLevel
+		}
 	}
 
 	if runtime.Provider == "" {
@@ -165,7 +169,7 @@ func conversationHistory(conversation *clientpb.AIConversation) (string, []provi
 		if message == nil {
 			continue
 		}
-		if message.GetVisibility() == clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY {
+		if !clientpbutil.AIConversationMessageIncludesContext(message) {
 			continue
 		}
 		if message.GetKind() != clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT {
@@ -234,16 +238,20 @@ func missingDriverError(runtime *RuntimeConfig) error {
 	return nil
 }
 
+func NormalizeThinkingLevelValue(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "low", "medium", "high", "xhigh", "disabled":
+		return strings.ToLower(strings.TrimSpace(value))
+	default:
+		return ""
+	}
+}
+
 func normalizeThinkingLevel(cfg *configs.ServerConfig) string {
 	if cfg == nil || cfg.AI == nil {
 		return ""
 	}
-	switch strings.ToLower(strings.TrimSpace(cfg.AI.ThinkingLevel)) {
-	case "low", "medium", "high", "disabled":
-		return strings.ToLower(strings.TrimSpace(cfg.AI.ThinkingLevel))
-	default:
-		return ""
-	}
+	return NormalizeThinkingLevelValue(cfg.AI.ThinkingLevel)
 }
 
 func applyProviderRuntimeConfig(runtime *RuntimeConfig, providerConfig *configs.AIProviderConfig) {

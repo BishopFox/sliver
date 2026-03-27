@@ -39,6 +39,7 @@ import (
 	clienttheme "github.com/bishopfox/sliver/client/theme"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/util/clientpbutil"
 	"github.com/charmbracelet/x/ansi"
 	"golang.org/x/term"
 	"google.golang.org/protobuf/proto"
@@ -71,6 +72,7 @@ const (
 	aiModalKindDeleteConfirm
 	aiModalKindContext
 	aiModalKindNewConversation
+	aiModalKindThinkingLevel
 	aiModalKindExperimentalWarning
 )
 
@@ -99,6 +101,7 @@ type aiStyles struct {
 	item             lipgloss.Style
 	itemSelected     lipgloss.Style
 	itemFocused      lipgloss.Style
+	optionFocused    lipgloss.Style
 	heading          lipgloss.Style
 	cursor           lipgloss.Style
 	inputText        lipgloss.Style
@@ -136,6 +139,11 @@ type aiConversationDeletedMsg struct {
 	status         string
 }
 
+type aiConversationUpdatedMsg struct {
+	conversation *clientpb.AIConversation
+	status       string
+}
+
 type aiConversationEventMsg struct {
 	event *clientpb.AIConversationEvent
 }
@@ -171,9 +179,16 @@ type aiModalState struct {
 	input          []rune
 	cursor         int
 	confirmDelete  bool
+	selectedOption int
 	conversationID string
 	selectedID     string
 	status         string
+}
+
+type aiThinkingLevelOption struct {
+	label       string
+	value       string
+	description string
 }
 
 type aiContextField struct {
@@ -334,6 +349,10 @@ func newAIStyles() aiStyles {
 			Bold(true).
 			Foreground(clienttheme.DefaultMod(900)).
 			Background(clienttheme.PrimaryMod(800)),
+		optionFocused: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(clienttheme.DefaultMod(900)).
+			Background(clienttheme.PrimaryMod(200)),
 		heading: lipgloss.NewStyle().
 			Bold(true).
 			Foreground(clienttheme.DefaultMod(900)),
@@ -440,6 +459,24 @@ func (m *aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loading = true
 		m.status = msg.status
 		return m, loadAIStateCmd(m.con, m.ctx.target, msg.conversationID)
+
+	case aiConversationUpdatedMsg:
+		m.loading = false
+		if msg.conversation != nil {
+			m.applyConversationSnapshot(msg.conversation)
+		}
+		if strings.TrimSpace(msg.status) != "" {
+			m.status = msg.status
+		} else {
+			m.status = "Conversation updated."
+		}
+		m.invalidateTranscriptCache()
+		awaitingCmd := m.syncAwaitingResponse()
+		m.syncTranscriptViewport()
+		return m, tea.Batch(
+			awaitingCmd,
+			m.scheduleTranscriptRender(),
+		)
 
 	case aiPromptSubmittedMsg:
 		m.loading = false
@@ -652,6 +689,9 @@ func (m *aiModel) handleGlobalKey(key tea.Key) (tea.Model, tea.Cmd) {
 
 	case "x":
 		return m.showDeleteConversationModal()
+
+	case "t":
+		return m.showThinkingLevelModal()
 	}
 
 	return m, nil
@@ -745,6 +785,9 @@ func (m *aiModel) handleComposerKey(key tea.Key) (tea.Model, tea.Cmd) {
 	}
 	if key.Mod.Contains(tea.ModCtrl) && key.Code == 'o' {
 		return m.showContextModal()
+	}
+	if key.Mod.Contains(tea.ModCtrl) && key.Code == 't' {
+		return m.showThinkingLevelModal()
 	}
 	if key.Mod.Contains(tea.ModCtrl) && key.Code == 'u' {
 		m.input = nil
@@ -886,6 +929,8 @@ func (m *aiModel) handleModalMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleContextModalKey(msg.Key())
 		case aiModalKindNewConversation:
 			return m.handleNewConversationModalKey(msg.Key())
+		case aiModalKindThinkingLevel:
+			return m.handleThinkingLevelModalKey(msg.Key())
 		case aiModalKindExperimentalWarning:
 			return m.handleExperimentalWarningModalKey(msg.Key())
 		default:
@@ -953,6 +998,47 @@ func (m *aiModel) handleContextModalKey(key tea.Key) (tea.Model, tea.Cmd) {
 	switch key.Text {
 	case "q", "c":
 		m.modal = nil
+		return m, nil
+	}
+
+	return m, nil
+}
+
+func (m *aiModel) handleThinkingLevelModalKey(key tea.Key) (tea.Model, tea.Cmd) {
+	switch key.Code {
+	case tea.KeyEsc:
+		m.modal = nil
+		m.status = "Canceled thinking level update."
+		return m, nil
+	case tea.KeyUp:
+		m.moveThinkingLevelSelection(-1)
+		return m, nil
+	case tea.KeyDown:
+		m.moveThinkingLevelSelection(1)
+		return m, nil
+	case tea.KeyHome:
+		m.modal.selectedOption = 0
+		return m, nil
+	case tea.KeyEnd:
+		options := m.thinkingLevelModalOptions()
+		if len(options) > 0 {
+			m.modal.selectedOption = len(options) - 1
+		}
+		return m, nil
+	case tea.KeyEnter:
+		return m.confirmThinkingLevelUpdate()
+	}
+
+	switch key.Text {
+	case "q":
+		m.modal = nil
+		m.status = "Canceled thinking level update."
+		return m, nil
+	case "j":
+		m.moveThinkingLevelSelection(1)
+		return m, nil
+	case "k":
+		m.moveThinkingLevelSelection(-1)
 		return m, nil
 	}
 
@@ -1092,6 +1178,44 @@ func (m *aiModel) cancelNewConversationModal() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m *aiModel) moveThinkingLevelSelection(delta int) {
+	if m.modal == nil {
+		return
+	}
+	options := m.thinkingLevelModalOptions()
+	if len(options) == 0 {
+		m.modal.selectedOption = 0
+		return
+	}
+	m.modal.selectedOption = clampInt(m.modal.selectedOption+delta, 0, len(options)-1)
+}
+
+func (m *aiModel) confirmThinkingLevelUpdate() (tea.Model, tea.Cmd) {
+	if m.modal == nil || m.currentConversation == nil {
+		return m, nil
+	}
+
+	options := m.thinkingLevelModalOptions()
+	if len(options) == 0 {
+		m.modal = nil
+		m.status = "No thinking level options are available."
+		return m, nil
+	}
+
+	selectedOption := clampInt(m.modal.selectedOption, 0, len(options)-1)
+	thinkingLevel := options[selectedOption].value
+	if normalizeAIThinkingLevel(m.currentConversation.GetThinkingLevel()) == thinkingLevel {
+		m.modal = nil
+		m.status = "Thinking level unchanged."
+		return m, nil
+	}
+
+	m.modal = nil
+	m.loading = true
+	m.status = "Saving thinking level..."
+	return m, updateConversationThinkingLevelCmd(m.con, m.currentConversation, thinkingLevel)
+}
+
 func (m *aiModel) confirmCreateConversation() (tea.Model, tea.Cmd) {
 	if m.modal == nil {
 		return m, nil
@@ -1174,6 +1298,8 @@ func (m *aiModel) renderModal() string {
 		return m.renderContextModal()
 	case aiModalKindNewConversation:
 		return m.renderNewConversationModal()
+	case aiModalKindThinkingLevel:
+		return m.renderThinkingLevelModal()
 	case aiModalKindExperimentalWarning:
 		return m.renderExperimentalWarningModal()
 	default:
@@ -1297,6 +1423,39 @@ func (m *aiModel) renderNewConversationModal() string {
 	return box
 }
 
+func (m *aiModel) renderThinkingLevelModal() string {
+	boxWidth := minInt(maxInt(52, m.width-6), 96)
+	bodyWidth := maxInt(28, boxWidth-6)
+
+	lines := []string{
+		lipgloss.NewStyle().
+			Bold(true).
+			Foreground(clienttheme.Primary()).
+			Width(bodyWidth).
+			Render(m.modal.title),
+		m.styles.subtleText.Width(bodyWidth).Render("Choose the reasoning effort hint for future turns in this conversation."),
+		m.styles.subtleText.Width(bodyWidth).Render("Drivers may map or ignore this setting depending on backend support."),
+		"",
+	}
+
+	for _, optionLine := range m.renderThinkingLevelModalOptions(bodyWidth) {
+		lines = append(lines, optionLine)
+	}
+
+	lines = append(lines,
+		"",
+		m.styles.chip.Width(bodyWidth).Render("j/k or up/down: select  enter: apply  esc/q: cancel"),
+	)
+
+	box := lipgloss.NewStyle().
+		Border(lipgloss.DoubleBorder()).
+		BorderForeground(clienttheme.Primary()).
+		Padding(1, 2).
+		Render(strings.Join(lines, "\n"))
+
+	return box
+}
+
 func (m *aiModel) renderExperimentalWarningModal() string {
 	boxWidth := minInt(maxInt(44, m.width-6), 100)
 	bodyWidth := maxInt(24, boxWidth-6)
@@ -1326,6 +1485,26 @@ func (m *aiModel) renderExperimentalWarningModal() string {
 		Render(strings.Join(lines, "\n"))
 
 	return box
+}
+
+func (m *aiModel) renderThinkingLevelModalOptions(width int) []string {
+	options := m.thinkingLevelModalOptions()
+	lines := make([]string, 0, len(options)*2)
+	for idx, option := range options {
+		prefix := "  "
+		style := m.styles.item
+		if m.modal != nil && idx == m.modal.selectedOption {
+			prefix = "> "
+			style = m.styles.optionFocused
+		}
+		lines = append(lines, style.Width(width).Render(truncateText(prefix+option.label, width)))
+		if option.description != "" {
+			for _, line := range wrapText(option.description, maxInt(1, width-3)) {
+				lines = append(lines, m.styles.subtleText.Width(width).Render("   "+line))
+			}
+		}
+	}
+	return lines
 }
 
 func (m *aiModel) renderContextModalSections(width int) []string {
@@ -1394,7 +1573,7 @@ func (m *aiModel) contextModalSections() []aiContextSection {
 		defaultFields = append(defaultFields,
 			aiContextField{label: "Provider", value: fallback(m.config.GetProvider(), "<unset>")},
 			aiContextField{label: "Model", value: fallback(m.config.GetModel(), "provider default")},
-			aiContextField{label: "Thinking", value: fallback(m.config.GetThinkingLevel(), "provider default"), muted: true},
+			aiContextField{label: "Thinking", value: defaultThinkingLevelSummary(m.config), muted: true},
 		)
 	}
 
@@ -1411,6 +1590,7 @@ func (m *aiModel) contextModalSections() []aiContextSection {
 			aiContextField{label: "ID", value: shortenID(m.currentConversation.GetID()), muted: true},
 			aiContextField{label: "Provider", value: fallback(m.currentConversation.GetProvider(), "<unset>")},
 			aiContextField{label: "Model", value: fallback(m.currentConversation.GetModel(), "<default>"), muted: true},
+			aiContextField{label: "Thinking", value: conversationThinkingLevelSummary(m.currentConversation, m.config), muted: true},
 			aiContextField{label: "Messages", value: fmt.Sprintf("%d", len(m.currentConversation.GetMessages()))},
 			aiContextField{label: "Updated", value: formatUnix(m.currentConversation.GetUpdatedAt()), muted: true},
 		)
@@ -1559,7 +1739,7 @@ func (m *aiModel) renderSidebar(width, height int) string {
 			line = "> " + line
 			style := m.styles.itemSelected
 			if m.focus == aiFocusSidebar {
-				style = m.styles.itemFocused
+				style = m.styles.optionFocused
 			}
 			lines = append(lines, style.Width(innerWidth).Render(line))
 		} else {
@@ -1612,6 +1792,7 @@ func (m *aiModel) renderComposer(height int) string {
 		lipgloss.NewStyle().Width(innerWidth).Render(fitStyledPieces(innerWidth, []string{
 			m.styles.paneTitle.Render("Composer"),
 			m.styles.chipMuted.Render("ctrl+o context"),
+			m.styles.chipMuted.Render("ctrl+t thinking"),
 		})),
 		m.renderInputLine(innerWidth),
 	}
@@ -1693,17 +1874,17 @@ func (m *aiModel) footerHints() []string {
 		if m.deleteTargetConversation() != nil {
 			hints = append(hints, "x: delete")
 		}
-		hints = append(hints, "n: new", "r: refresh", "q/esc: quit")
+		hints = append(hints, "n: new", "t: thinking", "r: refresh", "q/esc: quit")
 		return hints
 	case aiFocusTranscript:
 		hints := []string{"tab: next", "j/k: scroll", "pgup/pgdn: page", "g/G: ends", "mouse: select text"}
 		if m.deleteTargetConversation() != nil {
 			hints = append(hints, "x: delete")
 		}
-		hints = append(hints, "n: new", "r: refresh", "q/esc: quit")
+		hints = append(hints, "n: new", "t: thinking", "r: refresh", "q/esc: quit")
 		return hints
 	case aiFocusComposer:
-		return []string{"tab: sidebar", "enter: send", "/exit: quit", "ctrl+o: context", "ctrl+u: clear", "esc: blur", "ctrl+c: quit"}
+		return []string{"tab: sidebar", "enter: send", "/exit: quit", "ctrl+o: context", "ctrl+t: thinking", "ctrl+u: clear", "esc: blur", "ctrl+c: quit"}
 	default:
 		return []string{"tab: next", "q/esc: quit"}
 	}
@@ -2034,6 +2215,7 @@ func (m *aiModel) renderTranscriptHeaderLines(width, viewportHeight int, content
 	pieces := []string{
 		m.styles.chip.Render("provider " + fallback(m.currentConversation.GetProvider(), "<unset>")),
 		m.styles.chipMuted.Render("model " + fallback(m.currentConversation.GetModel(), "<default>")),
+		m.styles.chipMuted.Render("thinking " + effectiveThinkingLevelChipLabel(m.currentConversation, m.config)),
 		m.styles.chipMuted.Render(fmt.Sprintf("%d msgs", len(m.currentConversation.GetMessages()))),
 	}
 	if scroll := m.transcriptScrollSummary(viewportHeight, len(contentLines)); scroll != "" {
@@ -2305,6 +2487,30 @@ func (m *aiModel) showNewConversationModal() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m *aiModel) showThinkingLevelModal() (tea.Model, tea.Cmd) {
+	if m.loading {
+		m.status = "Wait for the current conversation sync to finish before changing the thinking level."
+		return m, nil
+	}
+	if m.awaitingResponse || m.submittingPrompt {
+		m.status = "Wait for the current AI request to finish before changing the thinking level."
+		return m, nil
+	}
+	if m.currentConversation == nil || strings.TrimSpace(m.currentConversation.GetID()) == "" {
+		m.status = "No AI conversation selected."
+		return m, nil
+	}
+
+	m.modal = &aiModalState{
+		kind:           aiModalKindThinkingLevel,
+		title:          "Thinking Level",
+		selectedOption: aiThinkingLevelOptionIndex(m.currentConversation.GetThinkingLevel()),
+		conversationID: m.currentConversation.GetID(),
+	}
+	m.status = "Select a thinking level for future turns."
+	return m, nil
+}
+
 func (m *aiModel) showDeleteConversationModal() (tea.Model, tea.Cmd) {
 	if m.loading {
 		m.status = "Wait for the current conversation sync to finish before deleting."
@@ -2398,6 +2604,10 @@ func (m *aiModel) selectedConversationID() string {
 	return ""
 }
 
+func (m *aiModel) thinkingLevelModalOptions() []aiThinkingLevelOption {
+	return aiThinkingLevelOptions(m.defaultThinkingLevel())
+}
+
 func (m *aiModel) defaultProvider() string {
 	if m.config != nil && strings.TrimSpace(m.config.GetProvider()) != "" {
 		return strings.TrimSpace(m.config.GetProvider())
@@ -2422,11 +2632,20 @@ func (m *aiModel) defaultModel() string {
 	return strings.TrimSpace(m.config.GetModel())
 }
 
-func (m *aiModel) pendingLabel() string {
-	if m.config != nil && strings.TrimSpace(m.config.GetThinkingLevel()) != "" {
-		return "Thinking"
+func (m *aiModel) defaultThinkingLevel() string {
+	if m.config == nil {
+		return ""
 	}
-	return "Working"
+	return normalizeAIThinkingLevel(m.config.GetThinkingLevel())
+}
+
+func (m *aiModel) pendingLabel() string {
+	switch effectiveConversationThinkingLevel(m.currentConversation, m.config) {
+	case "low", "medium", "high", "xhigh":
+		return "Thinking"
+	default:
+		return "Working"
+	}
 }
 
 func (m *aiModel) pendingStatus() string {
@@ -2879,6 +3098,7 @@ func isAIConversationDeleteEvent(conversation *clientpb.AIConversation) bool {
 	}
 	if strings.TrimSpace(conversation.GetProvider()) != "" ||
 		strings.TrimSpace(conversation.GetModel()) != "" ||
+		strings.TrimSpace(conversation.GetThinkingLevel()) != "" ||
 		strings.TrimSpace(conversation.GetTitle()) != "" ||
 		strings.TrimSpace(conversation.GetSummary()) != "" ||
 		strings.TrimSpace(conversation.GetSystemPrompt()) != "" {
@@ -3065,6 +3285,37 @@ func deleteConversationCmd(con *console.SliverClient, conversationID string, sel
 			conversationID: conversationID,
 			selectedID:     selectedID,
 			status:         status,
+		}
+	}
+}
+
+func updateConversationThinkingLevelCmd(con *console.SliverClient, conversation *clientpb.AIConversation, thinkingLevel string) tea.Cmd {
+	return func() tea.Msg {
+		if con == nil || con.Rpc == nil {
+			return aiAsyncErrMsg{err: fmt.Errorf("AI RPC client is unavailable")}
+		}
+		if conversation == nil || strings.TrimSpace(conversation.GetID()) == "" {
+			return aiAsyncErrMsg{err: fmt.Errorf("AI conversation is unavailable")}
+		}
+
+		grpcCtx, cancel := con.GrpcContext(nil)
+		defer cancel()
+
+		req := conversationSaveRequest(conversation)
+		req.ThinkingLevel = normalizeAIThinkingLevel(thinkingLevel)
+
+		savedConversation, err := con.Rpc.SaveAIConversation(grpcCtx, req)
+		if err != nil {
+			return aiAsyncErrMsg{err: err}
+		}
+
+		status := "Thinking level reset to provider default."
+		if req.GetThinkingLevel() != "" {
+			status = "Thinking level set to " + req.GetThinkingLevel() + "."
+		}
+		return aiConversationUpdatedMsg{
+			conversation: savedConversation,
+			status:       status,
 		}
 	}
 }
@@ -3311,6 +3562,105 @@ func conversationTitle(conversation *clientpb.AIConversation) string {
 	return "Untitled conversation"
 }
 
+func normalizeAIThinkingLevel(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "low", "medium", "high", "xhigh", "disabled":
+		return strings.ToLower(strings.TrimSpace(value))
+	default:
+		return ""
+	}
+}
+
+func effectiveConversationThinkingLevel(conversation *clientpb.AIConversation, config *clientpb.AIConfigSummary) string {
+	if conversation != nil {
+		if thinkingLevel := normalizeAIThinkingLevel(conversation.GetThinkingLevel()); thinkingLevel != "" {
+			return thinkingLevel
+		}
+	}
+	if config != nil {
+		return normalizeAIThinkingLevel(config.GetThinkingLevel())
+	}
+	return ""
+}
+
+func defaultThinkingLevelSummary(config *clientpb.AIConfigSummary) string {
+	if config == nil {
+		return "provider default"
+	}
+	if thinkingLevel := normalizeAIThinkingLevel(config.GetThinkingLevel()); thinkingLevel != "" {
+		return thinkingLevel
+	}
+	return "provider default"
+}
+
+func conversationThinkingLevelSummary(conversation *clientpb.AIConversation, config *clientpb.AIConfigSummary) string {
+	if conversation != nil {
+		if thinkingLevel := normalizeAIThinkingLevel(conversation.GetThinkingLevel()); thinkingLevel != "" {
+			return thinkingLevel
+		}
+	}
+	if defaultLevel := normalizeAIThinkingLevel(config.GetThinkingLevel()); defaultLevel != "" {
+		return "provider default (" + defaultLevel + ")"
+	}
+	return "provider default"
+}
+
+func effectiveThinkingLevelChipLabel(conversation *clientpb.AIConversation, config *clientpb.AIConfigSummary) string {
+	if thinkingLevel := effectiveConversationThinkingLevel(conversation, config); thinkingLevel != "" {
+		return thinkingLevel
+	}
+	return "default"
+}
+
+func aiThinkingLevelOptionIndex(value string) int {
+	for idx, option := range aiThinkingLevelOptions("") {
+		if option.value == normalizeAIThinkingLevel(value) {
+			return idx
+		}
+	}
+	return 0
+}
+
+func aiThinkingLevelOptions(defaultThinkingLevel string) []aiThinkingLevelOption {
+	defaultDescription := "Use the server or provider default."
+	if defaultThinkingLevel = normalizeAIThinkingLevel(defaultThinkingLevel); defaultThinkingLevel != "" {
+		defaultDescription = "Use the server or provider default (" + defaultThinkingLevel + ")."
+	}
+
+	return []aiThinkingLevelOption{
+		{
+			label:       "Provider default",
+			value:       "",
+			description: defaultDescription,
+		},
+		{
+			label:       "Low",
+			value:       "low",
+			description: "Prefer faster responses with lighter reasoning effort.",
+		},
+		{
+			label:       "Medium",
+			value:       "medium",
+			description: "Balance speed and reasoning depth.",
+		},
+		{
+			label:       "High",
+			value:       "high",
+			description: "Prefer deeper reasoning for harder turns.",
+		},
+		{
+			label:       "X-High",
+			value:       "xhigh",
+			description: "Prefer the maximum supported reasoning effort.",
+		},
+		{
+			label:       "Disabled",
+			value:       "disabled",
+			description: "Do not request an explicit reasoning effort from the backend.",
+		},
+	}
+}
+
 func conversationSubtitle(conversation *clientpb.AIConversation) string {
 	if conversation == nil {
 		return ""
@@ -3363,6 +3713,26 @@ func cloneConversationMessage(message *clientpb.AIConversationMessage) *clientpb
 		return nil
 	}
 	return cloned
+}
+
+func conversationSaveRequest(conversation *clientpb.AIConversation) *clientpb.AIConversation {
+	if conversation == nil {
+		return &clientpb.AIConversation{}
+	}
+	return &clientpb.AIConversation{
+		ID:              strings.TrimSpace(conversation.GetID()),
+		OperatorName:    strings.TrimSpace(conversation.GetOperatorName()),
+		Provider:        strings.TrimSpace(conversation.GetProvider()),
+		Model:           strings.TrimSpace(conversation.GetModel()),
+		ThinkingLevel:   normalizeAIThinkingLevel(conversation.GetThinkingLevel()),
+		Title:           strings.TrimSpace(conversation.GetTitle()),
+		Summary:         strings.TrimSpace(conversation.GetSummary()),
+		SystemPrompt:    strings.TrimSpace(conversation.GetSystemPrompt()),
+		ActiveTurnID:    strings.TrimSpace(conversation.GetActiveTurnID()),
+		TurnState:       conversation.GetTurnState(),
+		TargetSessionID: strings.TrimSpace(conversation.GetTargetSessionID()),
+		TargetBeaconID:  strings.TrimSpace(conversation.GetTargetBeaconID()),
+	}
 }
 
 func normalizedConversationOperatorName(name string) string {
@@ -3431,6 +3801,7 @@ func mergeConversationMetadata(dst *clientpb.AIConversation, src *clientpb.AICon
 	if model := strings.TrimSpace(src.GetModel()); model != "" {
 		dst.Model = model
 	}
+	dst.ThinkingLevel = normalizeAIThinkingLevel(src.GetThinkingLevel())
 	if title := strings.TrimSpace(src.GetTitle()); title != "" {
 		dst.Title = title
 	}
@@ -3476,7 +3847,7 @@ func lastContextConversationMessage(conversation *clientpb.AIConversation) *clie
 		if messages[i] == nil {
 			continue
 		}
-		if messages[i].GetVisibility() != clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_CONTEXT {
+		if !clientpbutil.AIConversationMessageIncludesContext(messages[i]) {
 			continue
 		}
 		if messages[i].GetKind() != clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT {
@@ -3787,7 +4158,7 @@ func renderConversationMessageBodyLines(width int, message *clientpb.AIConversat
 
 	switch message.GetKind() {
 	case clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_REASONING:
-		return renderTranscriptPlainBodyLines(width, message.GetContent(), "Reasoning not available.")
+		return renderTranscriptPlainBodyLines(width, message.GetContent(), "Reasoning was used, but the provider did not return a visible summary.")
 	case clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_TOOL_CALL:
 		return renderToolCallBodyLines(width, message)
 	default:

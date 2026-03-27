@@ -74,6 +74,7 @@ The target fields bind a conversation to the active session or beacon so server-
 
 - `Kind`: chat, reasoning, or tool call
 - `Visibility`: context or UI-only
+- `IncludeInContext`: whether the block should be replayed into the provider context window
 - `State`: in progress, completed, or failed
 - `TurnID`
 - `ItemID`
@@ -83,7 +84,7 @@ This keeps one ordered transcript table while still distinguishing chat context 
 
 ### UI-Only Persistence
 
-Reasoning and tool-call items are stored as normal conversation messages, but with `Visibility = UI_ONLY`.
+Reasoning, tool-call, and intermediate assistant chat items can be stored as normal conversation messages with `Visibility = UI_ONLY`.
 
 That gives Sliver:
 
@@ -91,7 +92,7 @@ That gives Sliver:
 - transcript restoration after reconnect or TUI restart
 - ordered replay of an entire turn, including intermediate items
 
-At the same time, the model context builder filters out any non-context item, so the provider only receives actual user/assistant chat context.
+At the same time, the model context builder keys off `IncludeInContext`, so UI visibility and provider visibility are now independent.
 
 ### Event Model
 
@@ -127,9 +128,10 @@ For each new user message:
 4. If the runtime supports the Responses API loop, Sliver runs the agentic loop.
 5. Reasoning items are persisted as completed UI-only reasoning blocks.
 6. Tool calls are persisted as in-progress UI-only tool blocks, executed locally, then updated in place to completed or failed.
-7. Tool outputs are fed back into the Responses API with `previous_response_id`.
-8. When the model returns final assistant text, that assistant message is persisted as a normal context-visible chat item.
-9. The conversation turn state is cleared with `TURN_COMPLETED`.
+7. Intermediate assistant chat blocks on tool-use turns are persisted as UI-only chat items with `IncludeInContext = false`.
+8. Tool outputs are fed back into the Responses API with `previous_response_id`.
+9. When the model returns final assistant text, that assistant message is persisted as a normal context-visible chat item with `IncludeInContext = true`.
+10. The conversation turn state is cleared with `TURN_COMPLETED`.
 
 If anything fails:
 
@@ -157,10 +159,10 @@ Beacon-backed tools wait for task completion on the server before emitting the c
 
 ## Context Filtering
 
-Only messages with:
+Only chat messages with:
 
 - `Kind = CHAT`
-- `Visibility = CONTEXT`
+- `IncludeInContext = true`
 
 are included in future provider requests.
 
@@ -168,6 +170,7 @@ That means these items are excluded from the model context window:
 
 - reasoning blocks
 - tool call blocks
+- UI-only intermediate assistant chat blocks
 - failed system status blocks
 
 This is the main rule that preserves transcript richness without degrading prompt quality.
