@@ -12,11 +12,11 @@ import (
 func TestPivotPeerFailureHandlerRemovesAuthorizedImmediateChild(t *testing.T) {
 	resetPivotFailureTestState(t)
 
-	reporterConn, reporterSession := addTestSession(t, 300, "wg")
-	_, unrelatedSession := addTestSession(t, 900, "wg")
-	childSession, childPivot := addTestPivotSession(t, 200, 200, 300)
-	grandchildSession, grandchildPivot := addTestPivotSession(t, 100, 100, 200, 300)
-	unrelatedChildSession, unrelatedChildPivot := addTestPivotSession(t, 800, 800, 900)
+	reporterConn, reporterSession := addPivotFailureTestSession(t, 300, "wg")
+	_, unrelatedSession := addPivotFailureTestSession(t, 900, "wg")
+	childSession, childPivot := addPivotFailureTestPivotSession(t, 200, 200, 300)
+	grandchildSession, grandchildPivot := addPivotFailureTestPivotSession(t, 100, 100, 200, 300)
+	unrelatedChildSession, unrelatedChildPivot := addPivotFailureTestPivotSession(t, 800, 800, 900)
 
 	pivotPeerFailureHandler(reporterConn, mustMarshalPivotPeerFailure(t, 200))
 
@@ -49,9 +49,9 @@ func TestPivotPeerFailureHandlerRemovesAuthorizedImmediateChild(t *testing.T) {
 func TestPivotPeerFailureHandlerRejectsNonImmediateChild(t *testing.T) {
 	resetPivotFailureTestState(t)
 
-	reporterConn, _ := addTestSession(t, 300, "wg")
-	childSession, childPivot := addTestPivotSession(t, 200, 200, 300)
-	grandchildSession, grandchildPivot := addTestPivotSession(t, 100, 100, 200, 300)
+	reporterConn, _ := addPivotFailureTestSession(t, 300, "wg")
+	childSession, childPivot := addPivotFailureTestPivotSession(t, 200, 200, 300)
+	grandchildSession, grandchildPivot := addPivotFailureTestPivotSession(t, 100, 100, 200, 300)
 
 	pivotPeerFailureHandler(reporterConn, mustMarshalPivotPeerFailure(t, 100))
 
@@ -69,7 +69,7 @@ func TestPivotPeerFailureHandlerRejectsNonImmediateChild(t *testing.T) {
 	}
 }
 
-func addTestSession(t *testing.T, peerID int64, transport string) (*core.ImplantConnection, *core.Session) {
+func addPivotFailureTestSession(t *testing.T, peerID int64, transport string) (*core.ImplantConnection, *core.Session) {
 	t.Helper()
 
 	conn := core.NewImplantConnection(transport, fmt.Sprintf("peer-%d", peerID))
@@ -80,7 +80,7 @@ func addTestSession(t *testing.T, peerID int64, transport string) (*core.Implant
 	return conn, session
 }
 
-func addTestPivotSession(t *testing.T, originID int64, chain ...int64) (*core.Session, *core.Pivot) {
+func addPivotFailureTestPivotSession(t *testing.T, originID int64, chain ...int64) (*core.Session, *core.Pivot) {
 	t.Helper()
 
 	peers := make([]*sliverpb.PivotPeer, 0, len(chain))
