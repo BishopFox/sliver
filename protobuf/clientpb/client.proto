@@ -1472,6 +1472,14 @@ enum AIConversationEventType {
   AI_CONVERSATION_EVENT_TYPE_MESSAGE_COMPLETED = 8;
 }
 
+message AIContextWindowUsage {
+  int64 InputTokens = 1;
+  int64 OutputTokens = 2;
+  int64 TotalTokens = 3;
+  int64 ContextWindowTokens = 4;
+  bool ContextWindowTokensEstimated = 5;
+}
+
 message AIConversation {
   string ID = 1;
   int64 CreatedAt = 2;
@@ -1488,6 +1496,7 @@ message AIConversation {
   string TargetSessionID = 13;
   string TargetBeaconID = 14;
   string ThinkingLevel = 15;
+  AIContextWindowUsage ContextWindowUsage = 16;
 }
 
 message AIConversationMessages {

@@ -228,6 +228,11 @@ func (rpc *Server) runAIConversationCompletion(conversationID string, operatorNa
 		}
 		return
 	}
+	if updatedConversation, err := persistAIConversationUsage(conversation, operatorName, completion); err != nil {
+		rpcLog.Warnf("Failed to persist AI context window usage for %q: %s", conversationID, err)
+	} else if updatedConversation != nil {
+		conversation = updatedConversation
+	}
 
 	message, err := db.SaveAIConversationMessage(&clientpb.AIConversationMessage{
 		ConversationID:    conversationID,
@@ -281,10 +286,43 @@ func persistAIConversationRuntime(conversation *clientpb.AIConversation, operato
 	}
 
 	return db.SaveAIConversation(&clientpb.AIConversation{
+		ID:                 conversation.GetID(),
+		OperatorName:       conversation.GetOperatorName(),
+		Provider:           provider,
+		Model:              model,
+		ThinkingLevel:      conversation.GetThinkingLevel(),
+		Title:              conversation.GetTitle(),
+		Summary:            conversation.GetSummary(),
+		SystemPrompt:       conversation.GetSystemPrompt(),
+		ActiveTurnID:       conversation.GetActiveTurnID(),
+		TurnState:          conversation.GetTurnState(),
+		TargetSessionID:    conversation.GetTargetSessionID(),
+		TargetBeaconID:     conversation.GetTargetBeaconID(),
+		ContextWindowUsage: conversation.GetContextWindowUsage(),
+	}, operatorName)
+}
+
+func persistAIConversationUsage(conversation *clientpb.AIConversation, operatorName string, completion *serverai.Completion) (*clientpb.AIConversation, error) {
+	if conversation == nil || completion == nil || completion.ContextWindowUsage == nil {
+		return conversation, nil
+	}
+
+	usage := completion.ContextWindowUsage
+	current := conversation.GetContextWindowUsage()
+	if current != nil &&
+		current.GetInputTokens() == usage.InputTokens &&
+		current.GetOutputTokens() == usage.OutputTokens &&
+		current.GetTotalTokens() == usage.TotalTokens &&
+		current.GetContextWindowTokens() == usage.ContextWindowTokens &&
+		current.GetContextWindowTokensEstimated() == usage.ContextWindowTokensEstimated {
+		return conversation, nil
+	}
+
+	return db.SaveAIConversation(&clientpb.AIConversation{
 		ID:              conversation.GetID(),
 		OperatorName:    conversation.GetOperatorName(),
-		Provider:        provider,
-		Model:           model,
+		Provider:        fallbackAIString(conversation.GetProvider(), completion.Provider),
+		Model:           fallbackAIString(conversation.GetModel(), completion.Model),
 		ThinkingLevel:   conversation.GetThinkingLevel(),
 		Title:           conversation.GetTitle(),
 		Summary:         conversation.GetSummary(),
@@ -293,6 +331,13 @@ func persistAIConversationRuntime(conversation *clientpb.AIConversation, operato
 		TurnState:       conversation.GetTurnState(),
 		TargetSessionID: conversation.GetTargetSessionID(),
 		TargetBeaconID:  conversation.GetTargetBeaconID(),
+		ContextWindowUsage: &clientpb.AIContextWindowUsage{
+			InputTokens:                  usage.InputTokens,
+			OutputTokens:                 usage.OutputTokens,
+			TotalTokens:                  usage.TotalTokens,
+			ContextWindowTokens:          usage.ContextWindowTokens,
+			ContextWindowTokensEstimated: usage.ContextWindowTokensEstimated,
+		},
 	}, operatorName)
 }
 

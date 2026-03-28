@@ -39,6 +39,13 @@ func TestCompleteConversationOpenAIUsesConfiguredCredentialsAndSettings(t *testi
 			"id": "resp_123",
 			"model": "gpt-5.2",
 			"status": "completed",
+			"usage": {
+				"input_tokens": 12000,
+				"input_tokens_details": {},
+				"output_tokens": 6000,
+				"output_tokens_details": {},
+				"total_tokens": 18000
+			},
 			"output": [
 				{
 					"type": "message",
@@ -114,6 +121,15 @@ func TestCompleteConversationOpenAIUsesConfiguredCredentialsAndSettings(t *testi
 	}
 	if completion.ProviderMessageID != "resp_123" {
 		t.Fatalf("unexpected provider message id: %q", completion.ProviderMessageID)
+	}
+	if completion.ContextWindowUsage == nil {
+		t.Fatal("expected context window usage to be captured")
+	}
+	if completion.ContextWindowUsage.TotalTokens != 18000 {
+		t.Fatalf("unexpected total tokens: %d", completion.ContextWindowUsage.TotalTokens)
+	}
+	if completion.ContextWindowUsage.ContextWindowTokens != openAIFrontierContextWindowTokens {
+		t.Fatalf("unexpected context window tokens: %d", completion.ContextWindowUsage.ContextWindowTokens)
 	}
 }
 
@@ -235,6 +251,11 @@ func TestCompleteConversationOpenAIChatEnablesWebSearch(t *testing.T) {
 			"id": "chatcmpl_openai_123",
 			"object": "chat.completion",
 			"model": "gpt-5.4",
+			"usage": {
+				"prompt_tokens": 32000,
+				"completion_tokens": 4000,
+				"total_tokens": 36000
+			},
 			"choices": [
 				{
 					"index": 0,
@@ -303,6 +324,15 @@ func TestCompleteConversationOpenAIChatEnablesWebSearch(t *testing.T) {
 	}
 	if completion.ProviderMessageID != "chatcmpl_openai_123" {
 		t.Fatalf("unexpected provider message id: %q", completion.ProviderMessageID)
+	}
+	if completion.ContextWindowUsage == nil {
+		t.Fatal("expected openai chat usage to be captured")
+	}
+	if completion.ContextWindowUsage.TotalTokens != 36000 {
+		t.Fatalf("unexpected openai chat total tokens: %d", completion.ContextWindowUsage.TotalTokens)
+	}
+	if completion.ContextWindowUsage.ContextWindowTokens != openAI5_4ContextWindowTokens {
+		t.Fatalf("unexpected openai chat context window tokens: %d", completion.ContextWindowUsage.ContextWindowTokens)
 	}
 }
 
@@ -529,6 +559,11 @@ func TestCompleteConversationOpenRouterUsesDefaultBaseURL(t *testing.T) {
 			"id": "chatcmpl_or_123",
 			"object": "chat.completion",
 			"model": "openai/gpt-5",
+			"usage": {
+				"prompt_tokens": 14000,
+				"completion_tokens": 2000,
+				"total_tokens": 16000
+			},
 			"choices": [
 				{
 					"index": 0,
@@ -593,6 +628,15 @@ func TestCompleteConversationOpenRouterUsesDefaultBaseURL(t *testing.T) {
 	}
 	if completion.ProviderMessageID != "chatcmpl_or_123" {
 		t.Fatalf("unexpected provider message id: %q", completion.ProviderMessageID)
+	}
+	if completion.ContextWindowUsage == nil {
+		t.Fatal("expected openrouter usage to be captured")
+	}
+	if completion.ContextWindowUsage.TotalTokens != 16000 {
+		t.Fatalf("unexpected openrouter total tokens: %d", completion.ContextWindowUsage.TotalTokens)
+	}
+	if completion.ContextWindowUsage.ContextWindowTokens != openAIFrontierContextWindowTokens {
+		t.Fatalf("unexpected openrouter context window tokens: %d", completion.ContextWindowUsage.ContextWindowTokens)
 	}
 }
 

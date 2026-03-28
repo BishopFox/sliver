@@ -116,6 +116,7 @@ func CompleteConversationAgentic(
 	currentInput := buildResponseInput(systemPrompt, messages)
 	toolParams := appendOpenAIResponseTools(runtime, buildAgenticToolParams(tools))
 	previousResponseID := ""
+	var maxUsage *ContextWindowUsage
 
 	for step := 0; step < maxAgenticLoopIterations; step++ {
 		params := openairesponses.ResponseNewParams{
@@ -149,6 +150,14 @@ func CompleteConversationAgentic(
 			return nil, formatOpenAIError(runtime.Provider, err)
 		}
 
+		maxUsage = mergeContextWindowUsage(maxUsage, resolveContextWindowUsage(
+			ctx,
+			runtime,
+			fallbackString(response.Model, runtime.Model),
+			response.Usage.InputTokens,
+			response.Usage.OutputTokens,
+			response.Usage.TotalTokens,
+		))
 		previousResponseID = strings.TrimSpace(response.ID)
 		nextInput := make(openairesponses.ResponseInputParam, 0)
 		finalTexts := make([]string, 0, len(response.Output))
@@ -233,11 +242,12 @@ func CompleteConversationAgentic(
 		}
 
 		return &Completion{
-			Provider:          runtime.Provider,
-			Model:             fallbackString(response.Model, runtime.Model),
-			Content:           finalText,
-			ProviderMessageID: strings.TrimSpace(response.ID),
-			FinishReason:      responseFinishReason(response),
+			Provider:           runtime.Provider,
+			Model:              fallbackString(response.Model, runtime.Model),
+			Content:            finalText,
+			ProviderMessageID:  strings.TrimSpace(response.ID),
+			FinishReason:       responseFinishReason(response),
+			ContextWindowUsage: maxUsage,
 		}, nil
 	}
 

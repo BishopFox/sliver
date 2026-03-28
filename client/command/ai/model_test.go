@@ -454,6 +454,12 @@ func TestRenderTranscriptHeaderLinesUsesCompactInlineMetadata(t *testing.T) {
 		Provider:  "openai",
 		Model:     "gpt-5.4",
 		UpdatedAt: time.Now().Unix(),
+		ContextWindowUsage: &clientpb.AIContextWindowUsage{
+			InputTokens:         12000,
+			OutputTokens:        6000,
+			TotalTokens:         18000,
+			ContextWindowTokens: 128000,
+		},
 		Messages: []*clientpb.AIConversationMessage{
 			{Role: "assistant", Content: "hello"},
 		},
@@ -465,7 +471,7 @@ func TestRenderTranscriptHeaderLinesUsesCompactInlineMetadata(t *testing.T) {
 	}
 
 	rendered := ansi.Strip(strings.Join(lines, "\n"))
-	expected := []string{"Conversation", "Thread", "provider openai", "model gpt-5.4", "1 msgs"}
+	expected := []string{"Conversation", "Thread", "ctx 18k/128k", "provider openai", "model gpt-5.4", "1 msgs"}
 	for _, fragment := range expected {
 		if !strings.Contains(rendered, fragment) {
 			t.Fatalf("expected transcript header to contain %q, got %q", fragment, rendered)

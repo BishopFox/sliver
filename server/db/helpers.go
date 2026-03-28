@@ -1443,6 +1443,11 @@ func SaveAIConversation(conversation *clientpb.AIConversation, operatorName stri
 	existing.TurnState = dbConversation.TurnState
 	existing.TargetSessionID = dbConversation.TargetSessionID
 	existing.TargetBeaconID = dbConversation.TargetBeaconID
+	existing.ContextInputTokens = dbConversation.ContextInputTokens
+	existing.ContextOutputTokens = dbConversation.ContextOutputTokens
+	existing.ContextTotalTokens = dbConversation.ContextTotalTokens
+	existing.ContextWindowTokens = dbConversation.ContextWindowTokens
+	existing.ContextWindowTokensEstimated = dbConversation.ContextWindowTokensEstimated
 
 	if err := dbSession.Save(existing).Error; err != nil {
 		return nil, err

@@ -1954,6 +1954,7 @@ func (m *aiModel) contextModalSections() []aiContextSection {
 			aiContextField{label: "Model", value: fallback(m.currentConversation.GetModel(), "<default>"), muted: true},
 			aiContextField{label: "Thinking", value: conversationThinkingLevelSummary(m.currentConversation, m.config), muted: true},
 			aiContextField{label: "Messages", value: fmt.Sprintf("%d", len(m.currentConversation.GetMessages()))},
+			aiContextField{label: "Context", value: conversationContextWindowSummary(m.currentConversation), muted: true},
 			aiContextField{label: "Updated", value: formatUnix(m.currentConversation.GetUpdatedAt()), muted: true},
 		)
 	}
@@ -2664,10 +2665,14 @@ func (m *aiModel) renderTranscriptHeaderLines(width, viewportHeight int, content
 	if m.currentConversation != nil {
 		title = conversationTitle(m.currentConversation)
 	}
+	usageWidth := clampInt(width/3, 12, 34)
+	usage := m.renderContextWindowUsageHeader(usageWidth)
 	titleWidth := maxInt(1, width-lipgloss.Width(line1Label)-1)
-	line1 := lipgloss.NewStyle().Width(width).Render(
-		line1Label + " " + m.styles.heading.Render(truncateText(title, titleWidth)),
-	)
+	if usage != "" {
+		titleWidth = maxInt(1, width-lipgloss.Width(line1Label)-lipgloss.Width(usage)-2)
+	}
+	left := line1Label + " " + m.styles.heading.Render(truncateText(title, titleWidth))
+	line1 := joinStyledLeftRight(width, left, usage)
 
 	if m.currentConversation == nil {
 		subtitle := "Create a thread or choose one from the sidebar."
@@ -4368,6 +4373,140 @@ func effectiveThinkingLevelChipLabel(conversation *clientpb.AIConversation, conf
 	return "default"
 }
 
+func conversationContextWindowSummary(conversation *clientpb.AIConversation) string {
+	usage := conversationContextWindowUsage(conversation)
+	if usage == nil {
+		return "No usage data yet."
+	}
+	if usage.GetContextWindowTokens() > 0 {
+		prefix := ""
+		if usage.GetContextWindowTokensEstimated() {
+			prefix = "~"
+		}
+		return fmt.Sprintf(
+			"%s%s / %s (%s)",
+			prefix,
+			formatAICompactTokenCount(usage.GetTotalTokens()),
+			formatAICompactTokenCount(usage.GetContextWindowTokens()),
+			formatAIContextWindowPercent(usage),
+		)
+	}
+	if usage.GetTotalTokens() > 0 {
+		return formatAICompactTokenCount(usage.GetTotalTokens()) + " total tokens"
+	}
+	return "No usage data yet."
+}
+
+func conversationContextWindowUsage(conversation *clientpb.AIConversation) *clientpb.AIContextWindowUsage {
+	if conversation == nil {
+		return nil
+	}
+	usage := conversation.GetContextWindowUsage()
+	if usage == nil {
+		return nil
+	}
+	if usage.GetInputTokens() == 0 &&
+		usage.GetOutputTokens() == 0 &&
+		usage.GetTotalTokens() == 0 &&
+		usage.GetContextWindowTokens() == 0 &&
+		!usage.GetContextWindowTokensEstimated() {
+		return nil
+	}
+	return usage
+}
+
+func formatAICompactTokenCount(tokens int64) string {
+	switch {
+	case tokens >= 1000000:
+		return trimAITokenUnit(fmt.Sprintf("%.1fM", float64(tokens)/1000000))
+	case tokens >= 1000:
+		return trimAITokenUnit(fmt.Sprintf("%.1fk", float64(tokens)/1000))
+	default:
+		return fmt.Sprintf("%d", tokens)
+	}
+}
+
+func trimAITokenUnit(value string) string {
+	value = strings.Replace(value, ".0M", "M", 1)
+	value = strings.Replace(value, ".0k", "k", 1)
+	return value
+}
+
+func aiContextWindowFraction(usage *clientpb.AIContextWindowUsage) float64 {
+	if usage == nil || usage.GetContextWindowTokens() <= 0 || usage.GetTotalTokens() <= 0 {
+		return 0
+	}
+	return clampFloat64(float64(usage.GetTotalTokens())/float64(usage.GetContextWindowTokens()), 0, 1)
+}
+
+func formatAIContextWindowPercent(usage *clientpb.AIContextWindowUsage) string {
+	return fmt.Sprintf("%d%%", int(aiContextWindowFraction(usage)*100+0.5))
+}
+
+func aiContextWindowAccentColor(usage *clientpb.AIContextWindowUsage) color.Color {
+	fraction := aiContextWindowFraction(usage)
+	switch {
+	case fraction >= 0.9:
+		return clienttheme.Danger()
+	case fraction >= 0.75:
+		return clienttheme.Warning()
+	default:
+		return clienttheme.Primary()
+	}
+}
+
+func renderAIContextWindowBar(width int, usage *clientpb.AIContextWindowUsage) string {
+	if width <= 0 {
+		return ""
+	}
+	fraction := aiContextWindowFraction(usage)
+	filled := int(float64(width)*fraction + 0.5)
+	filled = clampInt(filled, 0, width)
+	empty := maxInt(0, width-filled)
+
+	fill := lipgloss.NewStyle().Foreground(aiContextWindowAccentColor(usage)).Render(strings.Repeat("█", filled))
+	background := lipgloss.NewStyle().Foreground(clienttheme.DefaultMod(300)).Render(strings.Repeat("░", empty))
+	return fill + background
+}
+
+func (m *aiModel) renderContextWindowUsageHeader(width int) string {
+	if width <= 0 {
+		return ""
+	}
+
+	usage := conversationContextWindowUsage(m.currentConversation)
+	if usage == nil {
+		return ansi.Cut(m.styles.subtleText.Render("ctx n/a"), 0, width)
+	}
+
+	if usage.GetContextWindowTokens() <= 0 {
+		label := "ctx " + formatAICompactTokenCount(usage.GetTotalTokens()) + " tok"
+		return ansi.Cut(m.styles.subtleText.Render(label), 0, width)
+	}
+
+	barWidth := clampInt(width/2, 6, 12)
+	prefix := "ctx "
+	if usage.GetContextWindowTokensEstimated() {
+		prefix = "ctx ~"
+	}
+	label := prefix + formatAICompactTokenCount(usage.GetTotalTokens()) + "/" + formatAICompactTokenCount(usage.GetContextWindowTokens())
+	piece := label + " " + renderAIContextWindowBar(barWidth, usage)
+	if lipgloss.Width(piece) <= width {
+		return piece
+	}
+
+	shortLabel := "ctx " + formatAIContextWindowPercent(usage)
+	if usage.GetContextWindowTokensEstimated() {
+		shortLabel = "ctx ~" + formatAIContextWindowPercent(usage)
+	}
+	piece = shortLabel + " " + renderAIContextWindowBar(barWidth, usage)
+	if lipgloss.Width(piece) <= width {
+		return piece
+	}
+
+	return ansi.Cut(shortLabel, 0, width)
+}
+
 func aiThinkingLevelOptionIndex(value string) int {
 	for idx, option := range aiThinkingLevelOptions("") {
 		if option.value == normalizeAIThinkingLevel(value) {
@@ -4594,23 +4733,35 @@ func cloneConversationMessage(message *clientpb.AIConversationMessage) *clientpb
 	return cloned
 }
 
+func cloneAIContextWindowUsage(usage *clientpb.AIContextWindowUsage) *clientpb.AIContextWindowUsage {
+	if usage == nil {
+		return nil
+	}
+	cloned, ok := proto.Clone(usage).(*clientpb.AIContextWindowUsage)
+	if !ok {
+		return nil
+	}
+	return cloned
+}
+
 func conversationSaveRequest(conversation *clientpb.AIConversation) *clientpb.AIConversation {
 	if conversation == nil {
 		return &clientpb.AIConversation{}
 	}
 	return &clientpb.AIConversation{
-		ID:              strings.TrimSpace(conversation.GetID()),
-		OperatorName:    strings.TrimSpace(conversation.GetOperatorName()),
-		Provider:        strings.TrimSpace(conversation.GetProvider()),
-		Model:           strings.TrimSpace(conversation.GetModel()),
-		ThinkingLevel:   normalizeAIThinkingLevel(conversation.GetThinkingLevel()),
-		Title:           strings.TrimSpace(conversation.GetTitle()),
-		Summary:         strings.TrimSpace(conversation.GetSummary()),
-		SystemPrompt:    strings.TrimSpace(conversation.GetSystemPrompt()),
-		ActiveTurnID:    strings.TrimSpace(conversation.GetActiveTurnID()),
-		TurnState:       conversation.GetTurnState(),
-		TargetSessionID: strings.TrimSpace(conversation.GetTargetSessionID()),
-		TargetBeaconID:  strings.TrimSpace(conversation.GetTargetBeaconID()),
+		ID:                 strings.TrimSpace(conversation.GetID()),
+		OperatorName:       strings.TrimSpace(conversation.GetOperatorName()),
+		Provider:           strings.TrimSpace(conversation.GetProvider()),
+		Model:              strings.TrimSpace(conversation.GetModel()),
+		ThinkingLevel:      normalizeAIThinkingLevel(conversation.GetThinkingLevel()),
+		Title:              strings.TrimSpace(conversation.GetTitle()),
+		Summary:            strings.TrimSpace(conversation.GetSummary()),
+		SystemPrompt:       strings.TrimSpace(conversation.GetSystemPrompt()),
+		ActiveTurnID:       strings.TrimSpace(conversation.GetActiveTurnID()),
+		TurnState:          conversation.GetTurnState(),
+		TargetSessionID:    strings.TrimSpace(conversation.GetTargetSessionID()),
+		TargetBeaconID:     strings.TrimSpace(conversation.GetTargetBeaconID()),
+		ContextWindowUsage: cloneAIContextWindowUsage(conversation.GetContextWindowUsage()),
 	}
 }
 
@@ -4737,6 +4888,9 @@ func mergeConversationMetadata(dst *clientpb.AIConversation, src *clientpb.AICon
 	}
 	if targetBeaconID := strings.TrimSpace(src.GetTargetBeaconID()); targetBeaconID != "" {
 		dst.TargetBeaconID = targetBeaconID
+	}
+	if src.GetContextWindowUsage() != nil {
+		dst.ContextWindowUsage = cloneAIContextWindowUsage(src.GetContextWindowUsage())
 	}
 }
 
@@ -5769,6 +5923,30 @@ func fitStyledPieces(width int, pieces []string) string {
 		kept = append(kept, piece)
 	}
 	return strings.Join(kept, " ")
+}
+
+func joinStyledLeftRight(width int, left string, right string) string {
+	if width <= 0 {
+		return ""
+	}
+	if strings.TrimSpace(right) == "" {
+		return padANSIRight(left, width)
+	}
+
+	rightWidth := ansi.StringWidth(right)
+	if rightWidth >= width {
+		return ansi.Cut(right, 0, width)
+	}
+
+	leftWidth := ansi.StringWidth(left)
+	availableLeft := maxInt(0, width-rightWidth-1)
+	if leftWidth > availableLeft {
+		left = ansi.Cut(left, 0, availableLeft)
+		leftWidth = ansi.StringWidth(left)
+	}
+
+	gap := maxInt(1, width-leftWidth-rightWidth)
+	return padANSIRight(left, leftWidth) + strings.Repeat(" ", gap) + right
 }
 
 func overlayContent(base string, overlay string, left, top, width int) string {

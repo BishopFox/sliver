@@ -43,6 +43,13 @@ func TestSaveAIConversationMessageCompletesConversationAndPublishesEvents(t *tes
 			"id": "resp_success",
 			"model": "gpt-5.2",
 			"status": "completed",
+			"usage": {
+				"input_tokens": 12000,
+				"input_tokens_details": {},
+				"output_tokens": 6000,
+				"output_tokens_details": {},
+				"total_tokens": 18000
+			},
 			"output": [
 				{
 					"type": "message",
@@ -136,6 +143,15 @@ func TestSaveAIConversationMessageCompletesConversationAndPublishesEvents(t *tes
 	}
 	if current.GetModel() != "gpt-5.2" {
 		t.Fatalf("unexpected conversation model: %q", current.GetModel())
+	}
+	if current.GetContextWindowUsage() == nil {
+		t.Fatal("expected conversation context window usage to be persisted")
+	}
+	if current.GetContextWindowUsage().GetTotalTokens() != 18000 {
+		t.Fatalf("unexpected persisted total tokens: %d", current.GetContextWindowUsage().GetTotalTokens())
+	}
+	if current.GetContextWindowUsage().GetContextWindowTokens() != 400000 {
+		t.Fatalf("unexpected persisted context window tokens: %d", current.GetContextWindowUsage().GetContextWindowTokens())
 	}
 
 	select {

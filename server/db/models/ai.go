@@ -28,20 +28,25 @@ import (
 
 // AIConversation - A server-side AI conversation thread.
 type AIConversation struct {
-	ID              uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	CreatedAt       time.Time `gorm:"->;<-:create;"`
-	UpdatedAt       time.Time
-	OperatorName    string `gorm:"index"`
-	Provider        string `gorm:"index"`
-	Model           string
-	ThinkingLevel   string
-	Title           string
-	Summary         string
-	SystemPrompt    string `gorm:"type:text;"`
-	ActiveTurnID    string `gorm:"index"`
-	TurnState       int32
-	TargetSessionID string `gorm:"index"`
-	TargetBeaconID  string `gorm:"index"`
+	ID                           uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	CreatedAt                    time.Time `gorm:"->;<-:create;"`
+	UpdatedAt                    time.Time
+	OperatorName                 string `gorm:"index"`
+	Provider                     string `gorm:"index"`
+	Model                        string
+	ThinkingLevel                string
+	Title                        string
+	Summary                      string
+	SystemPrompt                 string `gorm:"type:text;"`
+	ActiveTurnID                 string `gorm:"index"`
+	TurnState                    int32
+	TargetSessionID              string `gorm:"index"`
+	TargetBeaconID               string `gorm:"index"`
+	ContextInputTokens           int64
+	ContextOutputTokens          int64
+	ContextTotalTokens           int64
+	ContextWindowTokens          int64
+	ContextWindowTokensEstimated bool
 
 	Messages []AIConversationMessage `gorm:"foreignKey:ConversationID;constraint:OnDelete:CASCADE;"`
 }
@@ -81,6 +86,13 @@ func (a *AIConversation) ToProtobuf() *clientpb.AIConversation {
 		TurnState:       clientpb.AIConversationTurnState(a.TurnState),
 		TargetSessionID: a.TargetSessionID,
 		TargetBeaconID:  a.TargetBeaconID,
+		ContextWindowUsage: aiContextWindowUsageToProtobuf(
+			a.ContextInputTokens,
+			a.ContextOutputTokens,
+			a.ContextTotalTokens,
+			a.ContextWindowTokens,
+			a.ContextWindowTokensEstimated,
+		),
 	}
 }
 
@@ -93,18 +105,36 @@ func AIConversationFromProtobuf(pbConversation *clientpb.AIConversation) *AIConv
 	id, _ := uuid.FromString(pbConversation.ID)
 
 	return &AIConversation{
-		ID:              id,
-		OperatorName:    pbConversation.OperatorName,
-		Provider:        pbConversation.Provider,
-		Model:           pbConversation.Model,
-		ThinkingLevel:   pbConversation.ThinkingLevel,
-		Title:           pbConversation.Title,
-		Summary:         pbConversation.Summary,
-		SystemPrompt:    pbConversation.SystemPrompt,
-		ActiveTurnID:    pbConversation.ActiveTurnID,
-		TurnState:       int32(pbConversation.TurnState),
-		TargetSessionID: pbConversation.TargetSessionID,
-		TargetBeaconID:  pbConversation.TargetBeaconID,
+		ID:                           id,
+		OperatorName:                 pbConversation.OperatorName,
+		Provider:                     pbConversation.Provider,
+		Model:                        pbConversation.Model,
+		ThinkingLevel:                pbConversation.ThinkingLevel,
+		Title:                        pbConversation.Title,
+		Summary:                      pbConversation.Summary,
+		SystemPrompt:                 pbConversation.SystemPrompt,
+		ActiveTurnID:                 pbConversation.ActiveTurnID,
+		TurnState:                    int32(pbConversation.TurnState),
+		TargetSessionID:              pbConversation.TargetSessionID,
+		TargetBeaconID:               pbConversation.TargetBeaconID,
+		ContextInputTokens:           pbConversation.GetContextWindowUsage().GetInputTokens(),
+		ContextOutputTokens:          pbConversation.GetContextWindowUsage().GetOutputTokens(),
+		ContextTotalTokens:           pbConversation.GetContextWindowUsage().GetTotalTokens(),
+		ContextWindowTokens:          pbConversation.GetContextWindowUsage().GetContextWindowTokens(),
+		ContextWindowTokensEstimated: pbConversation.GetContextWindowUsage().GetContextWindowTokensEstimated(),
+	}
+}
+
+func aiContextWindowUsageToProtobuf(inputTokens, outputTokens, totalTokens, windowTokens int64, estimated bool) *clientpb.AIContextWindowUsage {
+	if inputTokens == 0 && outputTokens == 0 && totalTokens == 0 && windowTokens == 0 && !estimated {
+		return nil
+	}
+	return &clientpb.AIContextWindowUsage{
+		InputTokens:                  inputTokens,
+		OutputTokens:                 outputTokens,
+		TotalTokens:                  totalTokens,
+		ContextWindowTokens:          windowTokens,
+		ContextWindowTokensEstimated: estimated,
 	}
 }
 

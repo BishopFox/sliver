@@ -61,11 +61,12 @@ type RuntimeConfig struct {
 
 // Completion contains the persisted assistant response details.
 type Completion struct {
-	Provider          string
-	Model             string
-	Content           string
-	ProviderMessageID string
-	FinishReason      string
+	Provider           string
+	Model              string
+	Content            string
+	ProviderMessageID  string
+	FinishReason       string
+	ContextWindowUsage *ContextWindowUsage
 }
 
 type providerMessage struct {

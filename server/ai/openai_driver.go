@@ -182,12 +182,21 @@ func (d *openAIDriver) completeResponses(ctx context.Context, client *openAIClie
 		return nil, fmt.Errorf("%s response did not include assistant text", runtime.Provider)
 	}
 
+	model := fallbackString(response.Model, runtime.Model)
 	return &Completion{
 		Provider:          runtime.Provider,
-		Model:             fallbackString(response.Model, runtime.Model),
+		Model:             model,
 		Content:           content,
 		ProviderMessageID: strings.TrimSpace(response.ID),
 		FinishReason:      responseFinishReason(response),
+		ContextWindowUsage: resolveContextWindowUsage(
+			ctx,
+			runtime,
+			model,
+			response.Usage.InputTokens,
+			response.Usage.OutputTokens,
+			response.Usage.TotalTokens,
+		),
 	}, nil
 }
 
@@ -230,12 +239,21 @@ func (d *openAIDriver) completeChat(ctx context.Context, client *openAIClient, r
 		return nil, fmt.Errorf("%s response did not include assistant text", runtime.Provider)
 	}
 
+	model := fallbackString(response.Model, runtime.Model)
 	return &Completion{
 		Provider:          runtime.Provider,
-		Model:             fallbackString(response.Model, runtime.Model),
+		Model:             model,
 		Content:           content,
 		ProviderMessageID: strings.TrimSpace(response.ID),
 		FinishReason:      finishReason,
+		ContextWindowUsage: resolveContextWindowUsage(
+			ctx,
+			runtime,
+			model,
+			response.Usage.PromptTokens,
+			response.Usage.CompletionTokens,
+			response.Usage.TotalTokens,
+		),
 	}, nil
 }
 
