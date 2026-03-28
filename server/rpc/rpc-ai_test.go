@@ -161,6 +161,57 @@ func TestSaveAIConversationMessageCompletesConversationAndPublishesEvents(t *tes
 	}
 }
 
+func TestSaveAIConversationIncludesSystemPromptAsFirstMessage(t *testing.T) {
+	setupAIRPCTestEnv(t)
+
+	client, cleanup := newBufnetRPCClient(t)
+	defer cleanup()
+
+	conversation, err := client.SaveAIConversation(context.Background(), &clientpb.AIConversation{
+		OperatorName: "alice",
+		Provider:     serverai.ProviderOpenAI,
+		Title:        "Workflow test",
+		SystemPrompt: "Stay concise.",
+	})
+	if err != nil {
+		t.Fatalf("save conversation: %v", err)
+	}
+	if conversation.GetSystemPrompt() != "Stay concise." {
+		t.Fatalf("unexpected system prompt: %q", conversation.GetSystemPrompt())
+	}
+	if len(conversation.GetMessages()) != 1 {
+		t.Fatalf("unexpected message count on save: got=%d want=%d", len(conversation.GetMessages()), 1)
+	}
+	if conversation.GetMessages()[0].GetRole() != "system" || conversation.GetMessages()[0].GetContent() != "Stay concise." {
+		t.Fatalf("expected leading system prompt message, got %+v", conversation.GetMessages()[0])
+	}
+
+	current, err := client.GetAIConversation(context.Background(), &clientpb.AIConversationReq{
+		ID:              conversation.GetID(),
+		IncludeMessages: true,
+	})
+	if err != nil {
+		t.Fatalf("refresh ai conversation: %v", err)
+	}
+	if len(current.GetMessages()) != 1 {
+		t.Fatalf("unexpected fetched message count: got=%d want=%d", len(current.GetMessages()), 1)
+	}
+	if current.GetMessages()[0].GetRole() != "system" || current.GetMessages()[0].GetContent() != "Stay concise." {
+		t.Fatalf("expected fetched leading system prompt message, got %+v", current.GetMessages()[0])
+	}
+
+	conversations, err := client.GetAIConversations(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		t.Fatalf("list ai conversations: %v", err)
+	}
+	if len(conversations.GetConversations()) != 1 {
+		t.Fatalf("unexpected conversation count: got=%d want=%d", len(conversations.GetConversations()), 1)
+	}
+	if len(conversations.GetConversations()[0].GetMessages()) != 0 {
+		t.Fatalf("expected list response to omit messages, got %+v", conversations.GetConversations()[0].GetMessages())
+	}
+}
+
 func TestSaveAIConversationMessageCompletesOpenAIWithoutExplicitBaseURL(t *testing.T) {
 	setupAIRPCTestEnv(t)
 

@@ -132,6 +132,7 @@ func SafeConfigSummaryFromConfig(cfg *configs.ServerConfig) *clientpb.AIConfigSu
 	if cfg != nil && cfg.AI != nil {
 		summary.Model = strings.TrimSpace(cfg.AI.Model)
 		summary.ThinkingLevel = strings.TrimSpace(cfg.AI.ThinkingLevel)
+		summary.SystemPrompt = strings.TrimSpace(cfg.AI.SystemPrompt)
 	}
 
 	provider, providerConfig := selectedProviderConfig(cfg)

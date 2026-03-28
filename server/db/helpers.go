@@ -1407,7 +1407,59 @@ func AIConversationByID(id string, operatorName string, includeMessages bool) (*
 	if err != nil {
 		return nil, err
 	}
-	return conversation.ToProtobuf(), nil
+	pbConversation := conversation.ToProtobuf()
+	if includeMessages {
+		pbConversation = aiConversationWithSystemPromptMessage(pbConversation)
+	}
+	return pbConversation, nil
+}
+
+func aiConversationWithSystemPromptMessage(conversation *clientpb.AIConversation) *clientpb.AIConversation {
+	if conversation == nil {
+		return nil
+	}
+
+	systemPrompt := strings.TrimSpace(conversation.GetSystemPrompt())
+	if systemPrompt == "" {
+		return conversation
+	}
+	for _, message := range conversation.GetMessages() {
+		if message == nil {
+			continue
+		}
+		if message.GetKind() != clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(message.GetRole()), "system") &&
+			strings.TrimSpace(message.GetContent()) == systemPrompt {
+			return conversation
+		}
+	}
+
+	includeInContext := true
+	systemMessageID := "system-prompt"
+	if conversationID := strings.TrimSpace(conversation.GetID()); conversationID != "" {
+		systemMessageID = conversationID + "-system-prompt"
+	}
+	systemMessage := &clientpb.AIConversationMessage{
+		ID:               systemMessageID,
+		ConversationID:   strings.TrimSpace(conversation.GetID()),
+		CreatedAt:        conversation.GetCreatedAt(),
+		UpdatedAt:        conversation.GetUpdatedAt(),
+		OperatorName:     strings.TrimSpace(conversation.GetOperatorName()),
+		Provider:         strings.TrimSpace(conversation.GetProvider()),
+		Model:            strings.TrimSpace(conversation.GetModel()),
+		Sequence:         0,
+		Role:             "system",
+		Content:          systemPrompt,
+		Kind:             clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT,
+		Visibility:       clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_CONTEXT,
+		State:            clientpb.AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED,
+		IncludeInContext: &includeInContext,
+	}
+
+	conversation.Messages = append([]*clientpb.AIConversationMessage{systemMessage}, conversation.GetMessages()...)
+	return conversation
 }
 
 // SaveAIConversation - Create or update an AI conversation thread.

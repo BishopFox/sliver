@@ -12,6 +12,7 @@ func TestSafeConfigSummaryFromConfigUsesExplicitConfiguredProvider(t *testing.T)
 			Provider:      ProviderOpenAI,
 			Model:         "gpt-test",
 			ThinkingLevel: "high",
+			SystemPrompt:  "Stay concise.",
 			OpenAI:        &configs.AIProviderConfig{APIKey: "openai-key"},
 			Anthropic:     &configs.AIProviderConfig{APIKey: "anthropic-key"},
 		},
@@ -29,6 +30,9 @@ func TestSafeConfigSummaryFromConfigUsesExplicitConfiguredProvider(t *testing.T)
 	}
 	if summary.GetThinkingLevel() != "high" {
 		t.Fatalf("expected thinking level %q, got %q", "high", summary.GetThinkingLevel())
+	}
+	if summary.GetSystemPrompt() != "Stay concise." {
+		t.Fatalf("expected system prompt %q, got %q", "Stay concise.", summary.GetSystemPrompt())
 	}
 }
 

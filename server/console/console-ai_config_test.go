@@ -37,6 +37,7 @@ func TestCurrentAIConfigFormResultForProviderLoadsRequestedProviderSettings(t *t
 			Provider:      ai.ProviderAnthropic,
 			Model:         "shared-model",
 			ThinkingLevel: "medium",
+			SystemPrompt:  "Stay concise.",
 			Anthropic:     &configs.AIProviderConfig{APIKey: "anthropic-key"},
 			Google:        &configs.AIProviderConfig{},
 			OpenAI: &configs.AIProviderConfig{
@@ -57,6 +58,9 @@ func TestCurrentAIConfigFormResultForProviderLoadsRequestedProviderSettings(t *t
 	}
 	if result.Model != "shared-model" {
 		t.Fatalf("expected shared model, got %q", result.Model)
+	}
+	if result.SystemPrompt != "Stay concise." {
+		t.Fatalf("expected shared system prompt, got %q", result.SystemPrompt)
 	}
 	if result.APIKey != "openai-key" {
 		t.Fatalf("expected openai API key, got %q", result.APIKey)
@@ -91,6 +95,7 @@ func TestApplyAIConfigFormResultUpdatesOnlySelectedProvider(t *testing.T) {
 			Provider:      ai.ProviderAnthropic,
 			Model:         "old-model",
 			ThinkingLevel: "low",
+			SystemPrompt:  "Existing default",
 			Anthropic:     &configs.AIProviderConfig{APIKey: "anthropic-key"},
 			Google:        &configs.AIProviderConfig{},
 			OpenAI:        &configs.AIProviderConfig{APIKey: "openai-key", BaseURL: "https://api.openai.test"},
@@ -103,6 +108,7 @@ func TestApplyAIConfigFormResultUpdatesOnlySelectedProvider(t *testing.T) {
 		Provider:        ai.ProviderOpenAI,
 		Model:           "gpt-test",
 		ThinkingLevel:   "high",
+		SystemPrompt:    "Stay concise.",
 		APIKey:          "new-openai-key",
 		BaseURL:         "https://override.openai.test",
 		Organization:    "org-test",
@@ -118,6 +124,9 @@ func TestApplyAIConfigFormResultUpdatesOnlySelectedProvider(t *testing.T) {
 	}
 	if serverConfig.AI.ThinkingLevel != "high" {
 		t.Fatalf("expected thinking level %q, got %q", "high", serverConfig.AI.ThinkingLevel)
+	}
+	if serverConfig.AI.SystemPrompt != "Stay concise." {
+		t.Fatalf("expected system prompt %q, got %q", "Stay concise.", serverConfig.AI.SystemPrompt)
 	}
 	if serverConfig.AI.OpenAI.APIKey != "new-openai-key" {
 		t.Fatalf("expected updated openai api key, got %q", serverConfig.AI.OpenAI.APIKey)

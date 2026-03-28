@@ -14,6 +14,7 @@ type AIConfigFormResult struct {
 	Provider        string
 	Model           string
 	ThinkingLevel   string
+	SystemPrompt    string
 	APIKey          string
 	BaseURL         string
 	UserAgent       string
@@ -25,7 +26,7 @@ type AIConfigFormResult struct {
 	UseBedrock      bool
 }
 
-// AIConfig prompts for the server-side AI configuration stored in server.yaml.
+// AIConfig prompts for the server-side AI configuration stored in ai.yaml.
 func AIConfig(result *AIConfigFormResult) error {
 	if result == nil {
 		return errors.New("AI config result is required")
@@ -57,7 +58,7 @@ func SelectAIProvider(result *AIConfigFormResult) error {
 		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("AI provider").
-				Description("Choose the default AI provider stored in server.yaml.").
+				Description("Choose the default AI provider stored in ai.yaml.").
 				Options(providerOptions...).
 				Height(listHeight(len(providerOptions))).
 				Value(&result.Provider).
@@ -110,10 +111,15 @@ func EditAIConfig(result *AIConfigFormResult) error {
 				Value(&result.Model),
 			huh.NewSelect[string]().
 				Title("Thinking level").
-				Description("Optional reasoning/thinking level to store in the ai block.").
+				Description("Optional reasoning/thinking level to store in ai.yaml.").
 				Options(thinkingOptions...).
 				Height(listHeight(len(thinkingOptions))).
 				Value(&result.ThinkingLevel),
+			huh.NewInput().
+				Title("System prompt").
+				Description("Optional default system prompt for new AI conversations.").
+				Placeholder("leave blank for no default system prompt").
+				Value(&result.SystemPrompt),
 			huh.NewInput().
 				TitleFunc(func() string {
 					return fmt.Sprintf("%s API key", providerDisplayName(result.Provider))
@@ -246,6 +252,7 @@ func normalizeAIConfigResult(result *AIConfigFormResult) {
 	}
 	result.Model = strings.TrimSpace(result.Model)
 	result.ThinkingLevel = strings.ToLower(strings.TrimSpace(result.ThinkingLevel))
+	result.SystemPrompt = strings.TrimSpace(result.SystemPrompt)
 	switch result.ThinkingLevel {
 	case "", "disabled", "low", "medium", "high":
 	default:

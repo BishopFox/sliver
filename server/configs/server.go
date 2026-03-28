@@ -197,7 +197,7 @@ type ServerConfig struct {
 	DaemonConfig  *DaemonConfig        `json:"daemon" yaml:"daemon"`
 	Logs          *LogConfig           `json:"logs" yaml:"logs"`
 	GRPC          *GRPCConfig          `json:"grpc" yaml:"grpc"`
-	AI            *AIConfig            `json:"ai" yaml:"ai"`
+	AI            *AIConfig            `json:"-" yaml:"-"`
 	Watchtower    *WatchTowerConfig    `json:"watch_tower" yaml:"watch_tower"`
 	GoProxy       string               `json:"go_proxy" yaml:"go_proxy"`
 	HTTPDefaults  *HttpDefaultConfig   `json:"http_default" yaml:"http_default"`
@@ -210,6 +210,13 @@ type ServerConfig struct {
 
 // Save - Save config file to disk
 func (c *ServerConfig) Save() error {
+	if c != nil {
+		c.AI = normalizeAIConfig(c.AI)
+		if err := c.AI.Save(); err != nil {
+			return err
+		}
+	}
+
 	configPath := GetServerConfigPath()
 	configDir := filepath.Dir(configPath)
 	if _, err := os.Stat(configDir); os.IsNotExist(err) {
@@ -237,6 +244,7 @@ func GetServerConfig() *ServerConfig {
 	legacyPath := getServerLegacyConfigPath()
 	config := getDefaultServerConfig()
 	migratedLegacy := false
+	var migratedAIConfig *AIConfig
 	if _, err := os.Stat(configPath); !os.IsNotExist(err) {
 		data, err := os.ReadFile(configPath)
 		if err != nil {
@@ -248,6 +256,7 @@ func GetServerConfig() *ServerConfig {
 			serverConfigLog.Errorf("Failed to parse config file %s", err)
 			return config
 		}
+		migratedAIConfig = aiConfigFromYAML(data)
 	} else if _, err := os.Stat(legacyPath); !os.IsNotExist(err) {
 		data, err := os.ReadFile(legacyPath)
 		if err != nil {
@@ -259,6 +268,7 @@ func GetServerConfig() *ServerConfig {
 			serverConfigLog.Errorf("Failed to parse legacy config file %s", err)
 			return config
 		}
+		migratedAIConfig = aiConfigFromJSON(data)
 		migratedLegacy = true
 		serverConfigLog.Infof("Migrating legacy config %s to %s", legacyPath, configPath)
 	} else {
@@ -286,7 +296,7 @@ func GetServerConfig() *ServerConfig {
 		defaultPermit := true
 		config.GRPC.Keepalive.PermitWithoutStream = &defaultPermit
 	}
-	normalizeAIConfig(config)
+	config.AI = getAIConfig(migratedAIConfig)
 
 	err := config.Save() // This updates the config with any missing fields
 	if err != nil {

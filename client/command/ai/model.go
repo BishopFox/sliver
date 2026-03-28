@@ -90,6 +90,7 @@ const (
 
 const (
 	aiModalFocusInput aiModalFocusTarget = iota
+	aiModalFocusSystemPrompt
 	aiModalFocusCancel
 	aiModalFocusConfirm
 )
@@ -204,6 +205,8 @@ type aiModalState struct {
 	focus          aiModalFocusTarget
 	input          []rune
 	cursor         int
+	systemPrompt   []rune
+	systemCursor   int
 	confirmDelete  bool
 	selectedOption int
 	conversationID string
@@ -950,7 +953,7 @@ func (m *aiModel) handleComposerKey(key tea.Key) (tea.Model, tea.Cmd) {
 		m.cursor = 0
 		submitResults := m.submitResults
 		go func() {
-			submitResults <- submitPromptMsg(m.con, m.ctx.target, m.currentConversation, m.defaultProvider(), m.defaultModel(), prompt)
+			submitResults <- submitPromptMsg(m.con, m.ctx.target, m.currentConversation, m.defaultProvider(), m.defaultModel(), m.defaultSystemPrompt(), prompt)
 		}()
 		awaitingCmd := m.startAwaitingResponse()
 		m.syncTranscriptViewport()
@@ -1301,12 +1304,14 @@ func (m *aiModel) handleNewConversationModalKey(key tea.Key) (tea.Model, tea.Cmd
 		return m.cancelNewConversationModal()
 	case tea.KeyTab:
 		switch m.modal.focus {
+		case aiModalFocusSystemPrompt:
+			m.modal.focus = aiModalFocusInput
 		case aiModalFocusInput:
 			m.modal.focus = aiModalFocusCancel
 		case aiModalFocusCancel:
 			m.modal.focus = aiModalFocusConfirm
 		default:
-			m.modal.focus = aiModalFocusInput
+			m.modal.focus = aiModalFocusSystemPrompt
 		}
 		return m, nil
 	case tea.KeyEnter:
@@ -1314,81 +1319,132 @@ func (m *aiModel) handleNewConversationModalKey(key tea.Key) (tea.Model, tea.Cmd
 			return m.cancelNewConversationModal()
 		}
 		return m.confirmCreateConversation()
+	case tea.KeyUp:
+		switch m.modal.focus {
+		case aiModalFocusInput:
+			m.modal.focus = aiModalFocusSystemPrompt
+		case aiModalFocusCancel, aiModalFocusConfirm:
+			m.modal.focus = aiModalFocusInput
+		}
+		return m, nil
+	case tea.KeyDown:
+		switch m.modal.focus {
+		case aiModalFocusSystemPrompt:
+			m.modal.focus = aiModalFocusInput
+		case aiModalFocusInput:
+			m.modal.focus = aiModalFocusCancel
+		}
+		return m, nil
 	case tea.KeyLeft:
-		if m.modal.focus == aiModalFocusInput {
-			if m.modal.cursor > 0 {
-				m.modal.cursor--
+		if input, cursor, _ := m.activeNewConversationField(); input != nil {
+			if *cursor > 0 {
+				*cursor--
 			}
 			return m, nil
 		}
 		m.modal.focus = aiModalFocusCancel
 		return m, nil
 	case tea.KeyRight:
-		if m.modal.focus == aiModalFocusInput {
-			if m.modal.cursor < len(m.modal.input) {
-				m.modal.cursor++
+		if input, cursor, _ := m.activeNewConversationField(); input != nil {
+			if *cursor < len(*input) {
+				*cursor++
 			}
 			return m, nil
 		}
 		m.modal.focus = aiModalFocusConfirm
 		return m, nil
 	case tea.KeyHome:
-		if m.modal.focus == aiModalFocusInput {
-			m.modal.cursor = 0
+		if _, cursor, _ := m.activeNewConversationField(); cursor != nil {
+			*cursor = 0
 		}
 		return m, nil
 	case tea.KeyEnd:
-		if m.modal.focus == aiModalFocusInput {
-			m.modal.cursor = len(m.modal.input)
+		if input, cursor, _ := m.activeNewConversationField(); input != nil {
+			*cursor = len(*input)
 		}
 		return m, nil
 	case tea.KeyBackspace:
-		if m.modal.focus == aiModalFocusInput && m.modal.cursor > 0 {
-			m.modal.input = append(m.modal.input[:m.modal.cursor-1], m.modal.input[m.modal.cursor:]...)
-			m.modal.cursor--
+		if input, cursor, _ := m.activeNewConversationField(); input != nil && *cursor > 0 {
+			*input = append((*input)[:*cursor-1], (*input)[*cursor:]...)
+			*cursor--
 		}
 		return m, nil
 	case tea.KeyDelete:
-		if m.modal.focus == aiModalFocusInput && m.modal.cursor < len(m.modal.input) {
-			m.modal.input = append(m.modal.input[:m.modal.cursor], m.modal.input[m.modal.cursor+1:]...)
+		if input, cursor, _ := m.activeNewConversationField(); input != nil && *cursor < len(*input) {
+			*input = append((*input)[:*cursor], (*input)[*cursor+1:]...)
 		}
 		return m, nil
 	}
 
-	if m.modal.focus != aiModalFocusInput {
-		switch key.Text {
-		case "q":
-			return m.cancelNewConversationModal()
-		case "h":
-			m.modal.focus = aiModalFocusCancel
-			return m, nil
-		case "l":
-			m.modal.focus = aiModalFocusConfirm
-			return m, nil
+	if input, cursor, _ := m.activeNewConversationField(); input != nil {
+		if key.Text != "" {
+			if looksLikeTerminalResponseFragment(key.Text) {
+				return m, nil
+			}
+			insert := []rune(key.Text)
+			*input = append((*input)[:*cursor], append(insert, (*input)[*cursor:]...)...)
+			*cursor += len(insert)
 		}
 		return m, nil
 	}
 
-	if key.Text != "" {
-		if looksLikeTerminalResponseFragment(key.Text) {
-			return m, nil
-		}
-		insert := []rune(key.Text)
-		m.modal.input = append(m.modal.input[:m.modal.cursor], append(insert, m.modal.input[m.modal.cursor:]...)...)
-		m.modal.cursor += len(insert)
+	switch key.Text {
+	case "q":
+		return m.cancelNewConversationModal()
+	case "h":
+		m.modal.focus = aiModalFocusCancel
+		return m, nil
+	case "l":
+		m.modal.focus = aiModalFocusConfirm
+		return m, nil
 	}
 
 	return m, nil
+}
+
+func (m *aiModel) activeNewConversationField() (*[]rune, *int, string) {
+	if m.modal == nil {
+		return nil, nil, ""
+	}
+	switch m.modal.focus {
+	case aiModalFocusInput:
+		return &m.modal.input, &m.modal.cursor, "Conversation name"
+	case aiModalFocusSystemPrompt:
+		return &m.modal.systemPrompt, &m.modal.systemCursor, "System prompt"
+	default:
+		return nil, nil, ""
+	}
+}
+
+func (m *aiModel) newConversationFieldValue(focus aiModalFocusTarget) ([]rune, int, bool) {
+	if m.modal == nil {
+		return nil, 0, false
+	}
+	switch focus {
+	case aiModalFocusInput:
+		return m.modal.input, m.modal.cursor, true
+	case aiModalFocusSystemPrompt:
+		return m.modal.systemPrompt, m.modal.systemCursor, true
+	default:
+		return nil, 0, false
+	}
 }
 
 func (m *aiModel) clearNewConversationInput() (tea.Model, tea.Cmd) {
 	if m.modal == nil {
 		return m, nil
 	}
-	m.modal.input = nil
-	m.modal.cursor = 0
-	m.modal.focus = aiModalFocusInput
-	m.status = "Conversation name cleared."
+
+	input, cursor, label := m.activeNewConversationField()
+	if input == nil {
+		input = &m.modal.input
+		cursor = &m.modal.cursor
+		label = "Conversation name"
+		m.modal.focus = aiModalFocusInput
+	}
+	*input = nil
+	*cursor = 0
+	m.status = label + " cleared."
 	return m, nil
 }
 
@@ -1491,6 +1547,7 @@ func (m *aiModel) confirmCreateConversation() (tea.Model, tea.Cmd) {
 	}
 
 	title := strings.TrimSpace(string(m.modal.input))
+	systemPrompt := strings.TrimSpace(string(m.modal.systemPrompt))
 	if title == "" {
 		m.modal.focus = aiModalFocusInput
 		m.status = "Type a conversation name first."
@@ -1500,7 +1557,7 @@ func (m *aiModel) confirmCreateConversation() (tea.Model, tea.Cmd) {
 	m.modal = nil
 	m.loading = true
 	m.status = "Creating a new AI conversation..."
-	return m, createConversationCmd(m.con, m.ctx.target, m.defaultProvider(), m.defaultModel(), title)
+	return m, createConversationCmd(m.con, m.ctx.target, m.defaultProvider(), m.defaultModel(), title, systemPrompt)
 }
 
 func (m *aiModel) confirmDeleteConversation() (tea.Model, tea.Cmd) {
@@ -1676,13 +1733,15 @@ func (m *aiModel) renderNewConversationModal() string {
 			Foreground(clienttheme.Primary()).
 			Width(bodyWidth).
 			Render(m.modal.title),
-		m.styles.subtleText.Width(bodyWidth).Render("Name the new conversation before creating it."),
+		m.styles.subtleText.Width(bodyWidth).Render("Optionally configure the system prompt"),
+		"",
+		m.renderNewConversationSystemPromptInput(bodyWidth),
 		"",
 		m.renderNewConversationInput(bodyWidth),
 		"",
 		m.renderNewConversationActions(bodyWidth),
 		"",
-		m.styles.chip.Width(bodyWidth).Render("tab: focus  ctrl+u: clear  enter: create  esc: cancel"),
+		m.styles.chip.Width(bodyWidth).Render("tab: focus  up/down: fields  ctrl+u: clear  enter: create  esc: cancel"),
 	}
 
 	box := lipgloss.NewStyle().
@@ -1953,7 +2012,7 @@ func (m *aiModel) contextModalSections() []aiContextSection {
 			aiContextField{label: "Provider", value: fallback(m.currentConversation.GetProvider(), "<unset>")},
 			aiContextField{label: "Model", value: fallback(m.currentConversation.GetModel(), "<default>"), muted: true},
 			aiContextField{label: "Thinking", value: conversationThinkingLevelSummary(m.currentConversation, m.config), muted: true},
-			aiContextField{label: "Messages", value: fmt.Sprintf("%d", len(m.currentConversation.GetMessages()))},
+			aiContextField{label: "Messages", value: fmt.Sprintf("%d", conversationMessageCount(m.currentConversation))},
 			aiContextField{label: "Context", value: conversationContextWindowSummary(m.currentConversation), muted: true},
 			aiContextField{label: "Updated", value: formatUnix(m.currentConversation.GetUpdatedAt()), muted: true},
 		)
@@ -2368,20 +2427,28 @@ func (m *aiModel) renderDeleteConfirmActions(width int) string {
 }
 
 func (m *aiModel) renderNewConversationInput(width int) string {
+	return m.renderNewConversationField(width, "Conversation Name", "New conversation", aiModalFocusInput)
+}
+
+func (m *aiModel) renderNewConversationSystemPromptInput(width int) string {
+	return m.renderNewConversationField(width, "System Prompt", "Optional instructions for the model", aiModalFocusSystemPrompt)
+}
+
+func (m *aiModel) renderNewConversationField(width int, labelText string, placeholder string, focus aiModalFocusTarget) string {
 	contentWidth := maxInt(1, width-4)
 	label := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(clienttheme.Primary()).
-		Render("Name")
+		Render(labelText)
 	borderColor := clienttheme.PrimaryMod(400)
-	if m.modal.focus == aiModalFocusInput {
+	if m.modal.focus == focus {
 		borderColor = clienttheme.Primary()
 	}
 	field := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(borderColor).
 		Padding(0, 1).
-		Render(clampANSIBlock(m.renderNewConversationInputContent(contentWidth), contentWidth, 1))
+		Render(clampANSIBlock(m.renderNewConversationFieldContent(contentWidth, placeholder, focus), contentWidth, 1))
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
 		lipgloss.NewStyle().Width(width).Render(label),
@@ -2389,10 +2456,15 @@ func (m *aiModel) renderNewConversationInput(width int) string {
 	)
 }
 
-func (m *aiModel) renderNewConversationInputContent(width int) string {
-	if len(m.modal.input) == 0 {
-		placeholder := truncateText("New conversation", maxInt(1, width))
-		if m.modal.focus == aiModalFocusInput {
+func (m *aiModel) renderNewConversationFieldContent(width int, placeholder string, focus aiModalFocusTarget) string {
+	input, cursor, ok := m.newConversationFieldValue(focus)
+	if !ok {
+		return ""
+	}
+	focused := m.modal.focus == focus
+	if len(input) == 0 {
+		placeholder = truncateText(placeholder, maxInt(1, width))
+		if focused {
 			if width == 1 {
 				return m.styles.cursor.Render(" ")
 			}
@@ -2401,17 +2473,17 @@ func (m *aiModel) renderNewConversationInputContent(width int) string {
 		return m.styles.inputPlaceholder.Render(placeholder)
 	}
 
-	visible, cursor := inputWindow(m.modal.input, m.modal.cursor, width)
+	visible, cursor := inputWindow(input, cursor, width)
 	var b strings.Builder
 	for i, r := range visible {
 		ch := string(r)
-		if i == cursor && m.modal.focus == aiModalFocusInput {
+		if i == cursor && focused {
 			b.WriteString(m.styles.cursor.Render(ch))
 			continue
 		}
 		b.WriteString(m.styles.inputText.Render(ch))
 	}
-	if cursor == len(visible) && m.modal.focus == aiModalFocusInput && lipgloss.Width(b.String()) < width {
+	if cursor == len(visible) && focused && lipgloss.Width(b.String()) < width {
 		b.WriteString(m.styles.cursor.Render(" "))
 	}
 	return b.String()
@@ -2686,7 +2758,7 @@ func (m *aiModel) renderTranscriptHeaderLines(width, viewportHeight int, content
 		m.styles.chip.Render("provider " + fallback(m.currentConversation.GetProvider(), "<unset>")),
 		m.styles.chipMuted.Render("model " + fallback(m.currentConversation.GetModel(), "<default>")),
 		m.styles.chipMuted.Render("thinking " + effectiveThinkingLevelChipLabel(m.currentConversation, m.config)),
-		m.styles.chipMuted.Render(fmt.Sprintf("%d msgs", len(m.currentConversation.GetMessages()))),
+		m.styles.chipMuted.Render(fmt.Sprintf("%d msgs", conversationMessageCount(m.currentConversation))),
 	}
 	if scroll := m.transcriptScrollSummary(viewportHeight, len(contentLines)); scroll != "" {
 		pieces = append(pieces, m.styles.chipMuted.Render(scroll))
@@ -3042,12 +3114,15 @@ func (m *aiModel) showNewConversationModal() (tea.Model, tea.Cmd) {
 	}
 
 	input := []rune("New conversation")
+	systemPrompt := []rune(m.defaultSystemPrompt())
 	m.modal = &aiModalState{
-		kind:   aiModalKindNewConversation,
-		title:  "New Conversation",
-		focus:  aiModalFocusInput,
-		input:  input,
-		cursor: len(input),
+		kind:         aiModalKindNewConversation,
+		title:        "New Conversation",
+		focus:        aiModalFocusInput,
+		input:        input,
+		cursor:       len(input),
+		systemPrompt: systemPrompt,
+		systemCursor: len(systemPrompt),
 	}
 	m.status = "Name the new conversation."
 	return m, nil
@@ -3223,6 +3298,25 @@ func (m *aiModel) defaultModel() string {
 		return ""
 	}
 	return strings.TrimSpace(m.config.GetModel())
+}
+
+func (m *aiModel) defaultSystemPrompt() string {
+	if m.currentConversation != nil {
+		if systemPrompt := strings.TrimSpace(m.currentConversation.GetSystemPrompt()); systemPrompt != "" {
+			return systemPrompt
+		}
+	}
+	if m.selectedConversation >= 0 && m.selectedConversation < len(m.conversations) {
+		if conversation := m.conversations[m.selectedConversation]; conversation != nil {
+			if systemPrompt := strings.TrimSpace(conversation.GetSystemPrompt()); systemPrompt != "" {
+				return systemPrompt
+			}
+		}
+	}
+	if m.config != nil {
+		return strings.TrimSpace(m.config.GetSystemPrompt())
+	}
+	return ""
 }
 
 func (m *aiModel) defaultThinkingLevel() string {
@@ -3882,6 +3976,7 @@ func loadAIStateWithStatusCmd(con *console.SliverClient, target aiTargetSummary,
 				Provider:        config.GetProvider(),
 				Model:           config.GetModel(),
 				Title:           "New conversation",
+				SystemPrompt:    strings.TrimSpace(config.GetSystemPrompt()),
 				TargetSessionID: strings.TrimSpace(target.SessionID),
 				TargetBeaconID:  strings.TrimSpace(target.BeaconID),
 			})
@@ -3965,7 +4060,7 @@ func loadAITargetSelectionOptionsCmd(con *console.SliverClient, activeTarget aiT
 	}
 }
 
-func createConversationCmd(con *console.SliverClient, target aiTargetSummary, provider string, model string, title string) tea.Cmd {
+func createConversationCmd(con *console.SliverClient, target aiTargetSummary, provider string, model string, title string, systemPrompt string) tea.Cmd {
 	return func() tea.Msg {
 		if con == nil || con.Rpc == nil {
 			return aiAsyncErrMsg{err: fmt.Errorf("AI RPC client is unavailable")}
@@ -3978,6 +4073,7 @@ func createConversationCmd(con *console.SliverClient, target aiTargetSummary, pr
 			Provider:        provider,
 			Model:           strings.TrimSpace(model),
 			Title:           strings.TrimSpace(title),
+			SystemPrompt:    strings.TrimSpace(systemPrompt),
 			TargetSessionID: strings.TrimSpace(target.SessionID),
 			TargetBeaconID:  strings.TrimSpace(target.BeaconID),
 		})
@@ -4075,13 +4171,13 @@ func updateConversationTargetCmd(con *console.SliverClient, conversation *client
 	}
 }
 
-func submitPromptCmd(con *console.SliverClient, target aiTargetSummary, conversation *clientpb.AIConversation, provider string, model string, prompt string) tea.Cmd {
+func submitPromptCmd(con *console.SliverClient, target aiTargetSummary, conversation *clientpb.AIConversation, provider string, model string, systemPrompt string, prompt string) tea.Cmd {
 	return func() tea.Msg {
-		return submitPromptMsg(con, target, conversation, provider, model, prompt)
+		return submitPromptMsg(con, target, conversation, provider, model, systemPrompt, prompt)
 	}
 }
 
-func submitPromptMsg(con *console.SliverClient, target aiTargetSummary, conversation *clientpb.AIConversation, provider string, model string, prompt string) tea.Msg {
+func submitPromptMsg(con *console.SliverClient, target aiTargetSummary, conversation *clientpb.AIConversation, provider string, model string, systemPrompt string, prompt string) tea.Msg {
 	if con == nil || con.Rpc == nil {
 		return aiAsyncErrMsg{err: fmt.Errorf("AI RPC client is unavailable")}
 	}
@@ -4096,6 +4192,7 @@ func submitPromptMsg(con *console.SliverClient, target aiTargetSummary, conversa
 			Provider:        provider,
 			Model:           strings.TrimSpace(model),
 			Title:           promptConversationTitle(prompt),
+			SystemPrompt:    strings.TrimSpace(systemPrompt),
 			TargetSessionID: strings.TrimSpace(target.SessionID),
 			TargetBeaconID:  strings.TrimSpace(target.BeaconID),
 		})
@@ -4179,6 +4276,61 @@ func waitForAIConversationEventCmd(listener <-chan *clientpb.Event) tea.Cmd {
 	}
 }
 
+func conversationMessagesForDisplay(conversation *clientpb.AIConversation) []*clientpb.AIConversationMessage {
+	if conversation == nil {
+		return nil
+	}
+
+	messages := conversation.GetMessages()
+	systemPrompt := strings.TrimSpace(conversation.GetSystemPrompt())
+	if systemPrompt == "" {
+		return messages
+	}
+	for _, message := range messages {
+		if message == nil {
+			continue
+		}
+		if message.GetKind() != clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(message.GetRole()), "system") &&
+			strings.TrimSpace(message.GetContent()) == systemPrompt {
+			return messages
+		}
+	}
+
+	includeInContext := true
+	systemMessageID := "system-prompt"
+	if conversationID := strings.TrimSpace(conversation.GetID()); conversationID != "" {
+		systemMessageID = conversationID + "-system-prompt"
+	}
+	systemMessage := &clientpb.AIConversationMessage{
+		ID:               systemMessageID,
+		ConversationID:   strings.TrimSpace(conversation.GetID()),
+		CreatedAt:        conversation.GetCreatedAt(),
+		UpdatedAt:        conversation.GetUpdatedAt(),
+		OperatorName:     strings.TrimSpace(conversation.GetOperatorName()),
+		Provider:         strings.TrimSpace(conversation.GetProvider()),
+		Model:            strings.TrimSpace(conversation.GetModel()),
+		Sequence:         0,
+		Role:             "system",
+		Content:          systemPrompt,
+		Kind:             clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT,
+		Visibility:       clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_CONTEXT,
+		State:            clientpb.AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED,
+		IncludeInContext: &includeInContext,
+	}
+
+	displayMessages := make([]*clientpb.AIConversationMessage, 0, len(messages)+1)
+	displayMessages = append(displayMessages, systemMessage)
+	displayMessages = append(displayMessages, messages...)
+	return displayMessages
+}
+
+func conversationMessageCount(conversation *clientpb.AIConversation) int {
+	return len(conversationMessagesForDisplay(conversation))
+}
+
 func buildConversationMarkdown(conversation *clientpb.AIConversation) string {
 	if conversation == nil {
 		return "### No conversation selected\n\nCreate a new conversation or submit a prompt to start one."
@@ -4189,13 +4341,8 @@ func buildConversationMarkdown(conversation *clientpb.AIConversation) string {
 		markdown.WriteString(summary)
 		markdown.WriteString("\n\n---\n\n")
 	}
-	if systemPrompt := strings.TrimSpace(conversation.GetSystemPrompt()); systemPrompt != "" {
-		markdown.WriteString("## System Prompt\n\n```text\n")
-		markdown.WriteString(systemPrompt)
-		markdown.WriteString("\n```\n\n---\n\n")
-	}
 
-	messages := conversation.GetMessages()
+	messages := conversationMessagesForDisplay(conversation)
 	if len(messages) == 0 {
 		markdown.WriteString("_No messages yet. Type a prompt below to start this thread._")
 		return markdown.String()
@@ -4691,7 +4838,7 @@ func conversationSubtitle(conversation *clientpb.AIConversation) string {
 	if model := strings.TrimSpace(conversation.GetModel()); model != "" {
 		parts = append(parts, model)
 	}
-	if count := len(conversation.GetMessages()); count > 0 {
+	if count := conversationMessageCount(conversation); count > 0 {
 		parts = append(parts, fmt.Sprintf("%d messages", count))
 	}
 	if updated := formatUnix(conversation.GetUpdatedAt()); updated != "<unknown>" {
@@ -5163,12 +5310,9 @@ func renderConversationTranscript(width int, conversation *clientpb.AIConversati
 	if summary := strings.TrimSpace(conversation.GetSummary()); summary != "" {
 		lines = appendTranscriptContentBlock(lines, renderTranscriptSectionBlockContent(width, "Summary", "system", nil, wrapText(summary, maxInt(1, width))))
 	}
-	if systemPrompt := strings.TrimSpace(conversation.GetSystemPrompt()); systemPrompt != "" {
-		lines = appendTranscriptContentBlock(lines, renderTranscriptSectionBlockContent(width, "System Prompt", "system", nil, wrapText(systemPrompt, maxInt(1, width))))
-	}
 
 	messageCount := 0
-	for _, message := range conversation.GetMessages() {
+	for _, message := range conversationMessagesForDisplay(conversation) {
 		if message == nil {
 			continue
 		}

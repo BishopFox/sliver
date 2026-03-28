@@ -105,24 +105,27 @@ func TestLoadAIStateCmdCreatesConversationWhenNoneExist(t *testing.T) {
 		providersResp: &clientpb.AIProviderConfigs{
 			Providers: []*clientpb.AIProviderConfig{{Name: "openai", Configured: true}},
 			Config: &clientpb.AIConfigSummary{
-				Provider: "openai",
-				Model:    "gpt-test",
-				Valid:    true,
+				Provider:     "openai",
+				Model:        "gpt-test",
+				SystemPrompt: "Stay concise.",
+				Valid:        true,
 			},
 		},
 		conversationsResp: &clientpb.AIConversations{},
 		saveConversationResp: &clientpb.AIConversation{
-			ID:       "conv-created",
-			Provider: "openai",
-			Model:    "gpt-test",
-			Title:    "New conversation",
+			ID:           "conv-created",
+			Provider:     "openai",
+			Model:        "gpt-test",
+			Title:        "New conversation",
+			SystemPrompt: "Stay concise.",
 		},
 		conversationByID: map[string]*clientpb.AIConversation{
 			"conv-created": {
-				ID:       "conv-created",
-				Provider: "openai",
-				Model:    "gpt-test",
-				Title:    "New conversation",
+				ID:           "conv-created",
+				Provider:     "openai",
+				Model:        "gpt-test",
+				Title:        "New conversation",
+				SystemPrompt: "Stay concise.",
 			},
 		},
 	}
@@ -152,6 +155,9 @@ func TestLoadAIStateCmdCreatesConversationWhenNoneExist(t *testing.T) {
 	if request.GetProvider() != "openai" || request.GetModel() != "gpt-test" || request.GetTitle() != "New conversation" {
 		t.Fatalf("unexpected SaveAIConversation request: %+v", request)
 	}
+	if request.GetSystemPrompt() != "Stay concise." {
+		t.Fatalf("unexpected SaveAIConversation system prompt: %q", request.GetSystemPrompt())
+	}
 }
 
 func TestSubmitPromptCmdCreatesConversationAndSavesUserMessage(t *testing.T) {
@@ -179,6 +185,7 @@ func TestSubmitPromptCmdCreatesConversationAndSavesUserMessage(t *testing.T) {
 		nil,
 		"openai",
 		"gpt-test",
+		"Stay concise.",
 		"Explain the workflow.\n\nWith details.",
 	)()
 
@@ -200,6 +207,9 @@ func TestSubmitPromptCmdCreatesConversationAndSavesUserMessage(t *testing.T) {
 	}
 	if server.saveConversationReqs[0].GetTargetSessionID() != "session-1" {
 		t.Fatalf("expected target session to be forwarded, got %+v", server.saveConversationReqs[0])
+	}
+	if server.saveConversationReqs[0].GetSystemPrompt() != "Stay concise." {
+		t.Fatalf("unexpected conversation system prompt: %q", server.saveConversationReqs[0].GetSystemPrompt())
 	}
 	if len(server.saveMessageReqs) != 1 {
 		t.Fatalf("expected SaveAIConversationMessage to be called once, got %d", len(server.saveMessageReqs))
@@ -232,6 +242,7 @@ func TestSubmitPromptCmdUsesExistingConversationSettings(t *testing.T) {
 		&clientpb.AIConversation{ID: "conv-1", Provider: "anthropic", Model: "claude-test", Title: "Thread"},
 		"openai",
 		"gpt-test",
+		"Stay concise.",
 		"hello",
 	)()
 

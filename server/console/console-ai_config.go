@@ -67,7 +67,7 @@ func aiConfigCmd(_ *cobra.Command, args []string) {
 		return
 	}
 
-	fmt.Printf(Info+"Saved AI configuration to %s\n", configs.GetServerConfigPath())
+	fmt.Printf(Info+"Saved AI configuration to %s\n", configs.GetAIConfigPath())
 	fmt.Printf(
 		Info+"Provider=%s, model=%s, thinking=%s, api_key=%s\n",
 		formatAIValue(serverConfig.AI.Provider, ai.ProviderOpenAI),
@@ -107,6 +107,7 @@ func currentAIConfigFormResultForProvider(serverConfig *configs.ServerConfig, pr
 	if serverConfig.AI != nil {
 		result.Model = strings.TrimSpace(serverConfig.AI.Model)
 		result.ThinkingLevel = strings.TrimSpace(serverConfig.AI.ThinkingLevel)
+		result.SystemPrompt = strings.TrimSpace(serverConfig.AI.SystemPrompt)
 	}
 	if providerConfig != nil {
 		result.APIKey = strings.TrimSpace(providerConfig.APIKey)
@@ -144,6 +145,7 @@ func applyAIConfigFormResult(serverConfig *configs.ServerConfig, result *forms.A
 	serverConfig.AI.Provider = provider
 	serverConfig.AI.Model = strings.TrimSpace(result.Model)
 	serverConfig.AI.ThinkingLevel = strings.ToLower(strings.TrimSpace(result.ThinkingLevel))
+	serverConfig.AI.SystemPrompt = strings.TrimSpace(result.SystemPrompt)
 
 	providerConfig := aiProviderConfig(serverConfig.AI, provider)
 	if providerConfig == nil {

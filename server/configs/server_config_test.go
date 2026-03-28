@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -25,32 +26,6 @@ logs:
   grpc_unary_payloads: true
   grpc_stream_payloads: true
   tls_key_logger: true
-ai:
-  provider: "openai"
-  model: "gpt-test"
-  thinking_level: "high"
-  max_output_tokens: 2048
-  temperature: 0.25
-  anthropic:
-    api_key: "anthropic-key"
-    base_url: "https://api.anthropic.example"
-    use_bedrock: true
-  openai:
-    api_key: "openai-key"
-    base_url: "https://api.openai.example"
-    organization: "org-test"
-    project: "proj-test"
-    use_responses_api: true
-  google:
-    api_key: "google-key"
-    project: "vertex-project"
-    location: "us-central1"
-    skip_auth: true
-  openai_compat:
-    base_url: "http://127.0.0.1:8080/v1"
-  openrouter:
-    api_key: "openrouter-key"
-    user_agent: "sliver-test/1.0"
 watch_tower:
   vt_api_key: "vt"
   xforce_api_key: "xforce"
@@ -83,6 +58,36 @@ cxx:
 `)
 	if err := os.WriteFile(configPath, data, 0600); err != nil {
 		t.Fatalf("failed to write yaml config: %v", err)
+	}
+	aiPath := GetAIConfigPath()
+	aiData := []byte(`provider: "openai"
+model: "gpt-test"
+thinking_level: "high"
+max_output_tokens: 2048
+temperature: 0.25
+anthropic:
+  api_key: "anthropic-key"
+  base_url: "https://api.anthropic.example"
+  use_bedrock: true
+openai:
+  api_key: "openai-key"
+  base_url: "https://api.openai.example"
+  organization: "org-test"
+  project: "proj-test"
+  use_responses_api: true
+google:
+  api_key: "google-key"
+  project: "vertex-project"
+  location: "us-central1"
+  skip_auth: true
+openai_compat:
+  base_url: "http://127.0.0.1:8080/v1"
+openrouter:
+  api_key: "openrouter-key"
+  user_agent: "sliver-test/1.0"
+`)
+	if err := os.WriteFile(aiPath, aiData, 0600); err != nil {
+		t.Fatalf("failed to write ai yaml config: %v", err)
 	}
 
 	config := GetServerConfig()
@@ -205,8 +210,21 @@ func TestServerConfigWritesDefault(t *testing.T) {
 	if config.AI.Provider != "" || config.AI.Model != "" || config.AI.ThinkingLevel != "" {
 		t.Fatalf("expected empty default ai selections, got %#v", config.AI)
 	}
+	if config.AI.SystemPrompt != defaultAISystemPrompt {
+		t.Fatalf("expected default ai system prompt %q, got %q", defaultAISystemPrompt, config.AI.SystemPrompt)
+	}
 	if _, err := os.Stat(GetServerConfigPath()); err != nil {
 		t.Fatalf("expected default config file to exist: %v", err)
+	}
+	if _, err := os.Stat(GetAIConfigPath()); err != nil {
+		t.Fatalf("expected default ai config file to exist: %v", err)
+	}
+	data, err := os.ReadFile(GetServerConfigPath())
+	if err != nil {
+		t.Fatalf("failed to read default server config: %v", err)
+	}
+	if strings.Contains(string(data), "\nai:") || strings.HasPrefix(string(data), "ai:") {
+		t.Fatalf("expected default server config to exclude ai block, got %q", string(data))
 	}
 }
 
@@ -340,11 +358,21 @@ func TestServerConfigMigratesLegacyJSON(t *testing.T) {
 	if _, err := os.Stat(GetServerConfigPath()); err != nil {
 		t.Fatalf("expected migrated yaml config file to exist: %v", err)
 	}
+	if _, err := os.Stat(GetAIConfigPath()); err != nil {
+		t.Fatalf("expected migrated ai yaml config file to exist: %v", err)
+	}
 	if _, err := os.Stat(legacyPath); !os.IsNotExist(err) {
 		t.Fatalf("expected legacy config to be renamed: %v", err)
 	}
 	if _, err := os.Stat(legacyBackupPath(legacyPath)); err != nil {
 		t.Fatalf("expected legacy backup file to exist: %v", err)
+	}
+	serverData, err := os.ReadFile(GetServerConfigPath())
+	if err != nil {
+		t.Fatalf("failed to read migrated server config: %v", err)
+	}
+	if strings.Contains(string(serverData), "\nai:") || strings.HasPrefix(string(serverData), "ai:") {
+		t.Fatalf("expected migrated server config to exclude ai block, got %q", string(serverData))
 	}
 }
 

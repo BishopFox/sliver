@@ -684,6 +684,39 @@ func TestConversationHistoryUsesExplicitContextFlagIndependentlyOfVisibility(t *
 	}
 }
 
+func TestConversationHistoryTreatsLeadingSystemMessageAsSystemPrompt(t *testing.T) {
+	systemPrompt, messages, err := conversationHistory(&clientpb.AIConversation{
+		Messages: []*clientpb.AIConversationMessage{
+			{
+				Role:             "system",
+				Content:          "Stay concise.",
+				Kind:             clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT,
+				Visibility:       clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_CONTEXT,
+				IncludeInContext: boolPtr(true),
+			},
+			{
+				Role:             "user",
+				Content:          "What changed?",
+				Kind:             clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT,
+				Visibility:       clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_CONTEXT,
+				IncludeInContext: boolPtr(true),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("conversationHistory: %v", err)
+	}
+	if systemPrompt != "Stay concise." {
+		t.Fatalf("unexpected system prompt: %q", systemPrompt)
+	}
+	if len(messages) != 1 {
+		t.Fatalf("unexpected message count: got=%d want=%d", len(messages), 1)
+	}
+	if messages[0].Role != "user" || messages[0].Content != "What changed?" {
+		t.Fatalf("unexpected trailing user message: %+v", messages[0])
+	}
+}
+
 func TestConversationHistoryFallsBackToVisibilityWhenContextFlagIsUnset(t *testing.T) {
 	_, messages, err := conversationHistory(&clientpb.AIConversation{
 		Messages: []*clientpb.AIConversationMessage{

@@ -94,6 +94,28 @@ func TestBuildConversationMarkdownFallsBackToUserLabel(t *testing.T) {
 	}
 }
 
+func TestBuildConversationMarkdownIncludesSystemPromptAsFirstMessage(t *testing.T) {
+	conversation := &clientpb.AIConversation{
+		SystemPrompt: "Stay concise.",
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "assistant", Content: "Hello"},
+		},
+	}
+
+	markdown := buildConversationMarkdown(conversation)
+	systemIndex := strings.Index(markdown, "### System\n\nStay concise.")
+	assistantIndex := strings.Index(markdown, "### AI\n\nHello")
+	if systemIndex == -1 {
+		t.Fatalf("expected markdown to include the system prompt as a message, got %q", markdown)
+	}
+	if assistantIndex == -1 {
+		t.Fatalf("expected markdown to include the assistant message, got %q", markdown)
+	}
+	if systemIndex > assistantIndex {
+		t.Fatalf("expected system prompt to appear before assistant reply, got %q", markdown)
+	}
+}
+
 func TestBuildConversationMarkdownFormatsToolCallsAsCodeBlocks(t *testing.T) {
 	conversation := &clientpb.AIConversation{
 		Messages: []*clientpb.AIConversationMessage{
@@ -257,7 +279,7 @@ func TestRenderConversationTranscriptLinesOnlyBoxesMessages(t *testing.T) {
 	lines := renderConversationTranscriptLines(64, conversation)
 	rendered := ansi.Strip(strings.Join(lines, "\n"))
 
-	for _, fragment := range []string{"Summary", "Operator context", "System Prompt", "Stay concise.", "AI", "hello"} {
+	for _, fragment := range []string{"Summary", "Operator context", "System", "Stay concise.", "AI", "hello"} {
 		if !strings.Contains(rendered, fragment) {
 			t.Fatalf("expected transcript to contain %q, got %q", fragment, rendered)
 		}
@@ -2340,11 +2362,69 @@ func TestShowNewConversationModalOnNKey(t *testing.T) {
 	if got := string(updatedModel.modal.input); got != "New conversation" {
 		t.Fatalf("expected default modal input, got %q", got)
 	}
+	if got := string(updatedModel.modal.systemPrompt); got != "" {
+		t.Fatalf("expected empty default system prompt, got %q", got)
+	}
 	if updatedModel.modal.focus != aiModalFocusInput {
 		t.Fatalf("expected modal input focus, got %v", updatedModel.modal.focus)
 	}
 	if updatedModel.modal.cursor != len([]rune("New conversation")) {
 		t.Fatalf("expected cursor at end of default title, got %d", updatedModel.modal.cursor)
+	}
+	if updatedModel.modal.systemCursor != 0 {
+		t.Fatalf("expected system prompt cursor at start, got %d", updatedModel.modal.systemCursor)
+	}
+}
+
+func TestShowNewConversationModalPrefillsConfiguredSystemPrompt(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.loading = false
+	model.config = &clientpb.AIConfigSummary{SystemPrompt: "Stay concise."}
+
+	updated, cmd := model.handleGlobalKey(tea.Key{Text: "n", Code: 'n'})
+	if cmd != nil {
+		t.Fatalf("did not expect new conversation modal to start RPC work yet, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal == nil {
+		t.Fatal("expected new conversation modal")
+	}
+	if got := string(updatedModel.modal.systemPrompt); got != "Stay concise." {
+		t.Fatalf("expected configured default system prompt, got %q", got)
+	}
+	if updatedModel.modal.systemCursor != len([]rune("Stay concise.")) {
+		t.Fatalf("expected system prompt cursor at end of default prompt, got %d", updatedModel.modal.systemCursor)
+	}
+	if updatedModel.modal.focus != aiModalFocusInput {
+		t.Fatalf("expected modal input focus, got %v", updatedModel.modal.focus)
+	}
+}
+
+func TestShowNewConversationModalPrefillsCurrentConversationSystemPromptBeforeConfigDefault(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.loading = false
+	model.config = &clientpb.AIConfigSummary{SystemPrompt: "Global default"}
+	model.currentConversation = &clientpb.AIConversation{
+		ID:           "conv-1",
+		Title:        "Thread",
+		SystemPrompt: "Current conversation prompt",
+	}
+
+	updated, cmd := model.handleGlobalKey(tea.Key{Text: "n", Code: 'n'})
+	if cmd != nil {
+		t.Fatalf("did not expect new conversation modal to start RPC work yet, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal == nil {
+		t.Fatal("expected new conversation modal")
+	}
+	if got := string(updatedModel.modal.systemPrompt); got != "Current conversation prompt" {
+		t.Fatalf("expected current conversation system prompt, got %q", got)
+	}
+	if updatedModel.modal.systemCursor != len([]rune("Current conversation prompt")) {
+		t.Fatalf("expected system prompt cursor at end of current prompt, got %d", updatedModel.modal.systemCursor)
 	}
 }
 
@@ -2416,6 +2496,9 @@ func TestNewConversationModalCreatesConversationWithTypedTitle(t *testing.T) {
 	if got := server.saveConversationReqs[0].GetTitle(); got != "Operator notes" {
 		t.Fatalf("expected created title %q, got %q", "Operator notes", got)
 	}
+	if got := server.saveConversationReqs[0].GetSystemPrompt(); got != "" {
+		t.Fatalf("expected empty system prompt by default, got %q", got)
+	}
 }
 
 func TestNewConversationModalRequiresTitle(t *testing.T) {
@@ -2470,6 +2553,90 @@ func TestNewConversationModalCtrlUClearsInput(t *testing.T) {
 	}
 	if updatedModel.status != "Conversation name cleared." {
 		t.Fatalf("unexpected status: %q", updatedModel.status)
+	}
+}
+
+func TestNewConversationModalCreatesConversationWithSystemPrompt(t *testing.T) {
+	server := &aiRPCServer{
+		saveConversationResp: &clientpb.AIConversation{
+			ID:           "conv-created",
+			Provider:     "openai",
+			Model:        "gpt-test",
+			Title:        "Operator notes",
+			SystemPrompt: "Stay concise.",
+		},
+	}
+
+	rpcClient, cleanup := newAITestRPCClient(t, server)
+	defer cleanup()
+
+	model := newAIModel(&console.SliverClient{Rpc: rpcClient}, aiContext{}, nil)
+	model.loading = false
+
+	updated, cmd := model.handleGlobalKey(tea.Key{Text: "n", Code: 'n'})
+	if cmd != nil {
+		t.Fatalf("did not expect modal open to queue work, got %v", cmd)
+	}
+	model = updated.(*aiModel)
+
+	for range len([]rune("New conversation")) {
+		updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyBackspace})
+		if cmd != nil {
+			t.Fatalf("did not expect backspace to queue work, got %v", cmd)
+		}
+		model = updated.(*aiModel)
+	}
+	for _, r := range "Operator notes" {
+		updated, cmd = model.Update(tea.KeyPressMsg{Text: string(r), Code: r})
+		if cmd != nil {
+			t.Fatalf("did not expect typing to queue work, got %v", cmd)
+		}
+		model = updated.(*aiModel)
+	}
+
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	if cmd != nil {
+		t.Fatalf("did not expect focus change to queue work, got %v", cmd)
+	}
+	model = updated.(*aiModel)
+	if model.modal.focus != aiModalFocusSystemPrompt {
+		t.Fatalf("expected system prompt focus, got %v", model.modal.focus)
+	}
+
+	for _, r := range "Stay concise." {
+		updated, cmd = model.Update(tea.KeyPressMsg{Text: string(r), Code: r})
+		if cmd != nil {
+			t.Fatalf("did not expect typing to queue work, got %v", cmd)
+		}
+		model = updated.(*aiModel)
+	}
+
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	if cmd != nil {
+		t.Fatalf("did not expect focus change to queue work, got %v", cmd)
+	}
+	model = updated.(*aiModel)
+	if model.modal.focus != aiModalFocusInput {
+		t.Fatalf("expected conversation name focus, got %v", model.modal.focus)
+	}
+
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected enter to create the conversation")
+	}
+
+	msg := cmd()
+	if _, ok := msg.(aiConversationCreatedMsg); !ok {
+		t.Fatalf("expected aiConversationCreatedMsg, got %T", msg)
+	}
+
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	if len(server.saveConversationReqs) != 1 {
+		t.Fatalf("expected SaveAIConversation to be called once, got %d", len(server.saveConversationReqs))
+	}
+	if got := server.saveConversationReqs[0].GetSystemPrompt(); got != "Stay concise." {
+		t.Fatalf("expected system prompt %q, got %q", "Stay concise.", got)
 	}
 }
 
@@ -2697,11 +2864,14 @@ func TestNewConversationModalViewIncludesOverlayContent(t *testing.T) {
 	}
 
 	view := ansi.Strip(model.View().Content)
-	expected := []string{"Conversations", "New Conversation", "Name", "New conversation", "Cancel", "Create", "ctrl+u: clear"}
+	expected := []string{"Conversations", "New Conversation", "System Prompt", "Conversation Name", "New conversation", "Cancel", "Create", "ctrl+u: clear"}
 	for _, fragment := range expected {
 		if !strings.Contains(view, fragment) {
 			t.Fatalf("expected new conversation modal view to contain %q, got %q", fragment, view)
 		}
+	}
+	if strings.Index(view, "System Prompt") > strings.Index(view, "Conversation Name") {
+		t.Fatalf("expected system prompt field to render above conversation name, got %q", view)
 	}
 }
 

@@ -11659,6 +11659,7 @@ type AIConfigSummary struct {
 	ThinkingLevel string                 `protobuf:"bytes,3,opt,name=ThinkingLevel,proto3" json:"ThinkingLevel,omitempty"`
 	Valid         bool                   `protobuf:"varint,4,opt,name=Valid,proto3" json:"Valid,omitempty"`
 	Error         string                 `protobuf:"bytes,5,opt,name=Error,proto3" json:"Error,omitempty"`
+	SystemPrompt  string                 `protobuf:"bytes,6,opt,name=SystemPrompt,proto3" json:"SystemPrompt,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -11724,6 +11725,13 @@ func (x *AIConfigSummary) GetValid() bool {
 func (x *AIConfigSummary) GetError() string {
 	if x != nil {
 		return x.Error
+	}
+	return ""
+}
+
+func (x *AIConfigSummary) GetSystemPrompt() string {
+	if x != nil {
+		return x.SystemPrompt
 	}
 	return ""
 }
@@ -13901,13 +13909,14 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\x04Name\x18\x01 \x01(\tR\x04Name\x12\x1e\n" +
 	"\n" +
 	"Configured\x18\x02 \x01(\bR\n" +
-	"Configured\"\x95\x01\n" +
+	"Configured\"\xb9\x01\n" +
 	"\x0fAIConfigSummary\x12\x1a\n" +
 	"\bProvider\x18\x01 \x01(\tR\bProvider\x12\x14\n" +
 	"\x05Model\x18\x02 \x01(\tR\x05Model\x12$\n" +
 	"\rThinkingLevel\x18\x03 \x01(\tR\rThinkingLevel\x12\x14\n" +
 	"\x05Valid\x18\x04 \x01(\bR\x05Valid\x12\x14\n" +
-	"\x05Error\x18\x05 \x01(\tR\x05Error\"M\n" +
+	"\x05Error\x18\x05 \x01(\tR\x05Error\x12\"\n" +
+	"\fSystemPrompt\x18\x06 \x01(\tR\fSystemPrompt\"M\n" +
 	"\x11AIConversationReq\x12\x0e\n" +
 	"\x02ID\x18\x01 \x01(\tR\x02ID\x12(\n" +
 	"\x0fIncludeMessages\x18\x02 \x01(\bR\x0fIncludeMessages\"Q\n" +

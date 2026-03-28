@@ -1426,6 +1426,7 @@ message AIConfigSummary {
   string ThinkingLevel = 3;
   bool Valid = 4;
   string Error = 5;
+  string SystemPrompt = 6;
 }
 
 message AIConversationReq {

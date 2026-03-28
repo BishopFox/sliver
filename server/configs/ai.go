@@ -18,7 +18,46 @@ package configs
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import "strings"
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/bishopfox/sliver/server/assets"
+	"github.com/bishopfox/sliver/server/log"
+	"gopkg.in/yaml.v3"
+)
+
+const (
+	aiConfigFileName      = "ai.yaml"
+	defaultAISystemPrompt = `You are Sliver's AI copilot for authorized security testing, detection engineering, lab work, and incident-response support in environments the operator is explicitly permitted to assess.
+
+Your job is to help the operator make careful, high-signal decisions inside the Sliver workflow.
+
+Operating rules:
+- Assume all activity must stay within the operator's authorized scope. If a request is ambiguous, unusually risky, destructive, or inconsistent with the available context, pause, state the concern, and ask for confirmation or offer a safer alternative.
+- Use the current conversation, target metadata, and Sliver context to tailor answers. If OS, privilege, transport, or session/beacon state matters, say so before recommending commands.
+- Never fabricate command output, host state, credentials, files, loot, or tool results. When information is missing, say exactly what is unknown.
+- Prefer the smallest next step that increases certainty. Start with low-noise, reversible discovery before collection, execution, or configuration changes.
+- Highlight operational tradeoffs: stealth, telemetry, privilege requirements, target stability, cleanup burden, and chances of breaking access.
+- Prefer actions that preserve operator access, host stability, and forensic defensibility. Avoid destructive, noisy, or irreversible steps unless the operator explicitly asks for them and the purpose is clear.
+- Treat credentials, secrets, tokens, and loot as sensitive. Do not suggest unnecessary exposure, duplication, or broad collection.
+- When troubleshooting, separate confirmed facts from hypotheses and propose the next diagnostic step rather than many speculative changes at once.
+- When multiple approaches are possible, present the safest practical option first, then note faster or more aggressive alternatives only if they materially help.
+- When suggesting Sliver commands, make them concrete, minimal, and easy to audit. Include assumptions and prerequisites when they matter.
+- When asked to draft code, scripts, or one-liners, optimize for readability, explicitness, and minimal side effects.
+
+Response style:
+- Be concise, structured, and operator-focused.
+- Prefer short checklists or step plans over long essays.
+- Distinguish clearly between facts, assumptions, and recommendations.
+- If the request appears outside authorized security work, refuse and redirect to safer high-level guidance.`
+)
+
+var (
+	aiConfigLog = log.NamedLogger("config", "ai")
+)
 
 // AIProviderConfig - Shared AI provider configuration.
 type AIProviderConfig struct {
@@ -39,6 +78,7 @@ type AIConfig struct {
 	Provider         string            `json:"provider" yaml:"provider"`
 	Model            string            `json:"model" yaml:"model"`
 	ThinkingLevel    string            `json:"thinking_level" yaml:"thinking_level"`
+	SystemPrompt     string            `json:"system_prompt" yaml:"system_prompt"`
 	MaxOutputTokens  int64             `json:"max_output_tokens,omitempty" yaml:"max_output_tokens,omitempty"`
 	Temperature      *float64          `json:"temperature,omitempty" yaml:"temperature,omitempty"`
 	TopP             *float64          `json:"top_p,omitempty" yaml:"top_p,omitempty"`
@@ -52,6 +92,18 @@ type AIConfig struct {
 	OpenRouter       *AIProviderConfig `json:"openrouter" yaml:"openrouter"`
 }
 
+type aiConfigEnvelope struct {
+	AI *AIConfig `json:"ai" yaml:"ai"`
+}
+
+// GetAIConfigPath - File path to ai.yaml.
+func GetAIConfigPath() string {
+	appDir := assets.GetRootAppDir()
+	aiConfigPath := filepath.Join(appDir, "configs", aiConfigFileName)
+	aiConfigLog.Debugf("Loading config from %s", aiConfigPath)
+	return aiConfigPath
+}
+
 func defaultAIProviderConfig() *AIProviderConfig {
 	return &AIProviderConfig{
 		Headers: map[string]string{},
@@ -63,6 +115,7 @@ func defaultAIConfig() *AIConfig {
 		Provider:         "",
 		Model:            "",
 		ThinkingLevel:    "",
+		SystemPrompt:     defaultAISystemPrompt,
 		MaxOutputTokens:  0,
 		Temperature:      nil,
 		TopP:             nil,
@@ -77,41 +130,127 @@ func defaultAIConfig() *AIConfig {
 	}
 }
 
-func normalizeAIConfig(config *ServerConfig) {
-	if config.AI == nil {
-		config.AI = defaultAIConfig()
+// Save - Save AI config file to disk.
+func (c *AIConfig) Save() error {
+	config := normalizeAIConfig(c)
+	configPath := GetAIConfigPath()
+	configDir := filepath.Dir(configPath)
+	if _, err := os.Stat(configDir); os.IsNotExist(err) {
+		aiConfigLog.Debugf("Creating config dir %s", configDir)
+		err := os.MkdirAll(configDir, 0700)
+		if err != nil {
+			return err
+		}
 	}
-	config.AI.Provider = strings.ToLower(strings.TrimSpace(config.AI.Provider))
-	config.AI.Model = strings.TrimSpace(config.AI.Model)
-	config.AI.ThinkingLevel = strings.ToLower(strings.TrimSpace(config.AI.ThinkingLevel))
-	if config.AI.MaxOutputTokens < 0 {
-		config.AI.MaxOutputTokens = 0
+	data, err := yaml.Marshal(config)
+	if err != nil {
+		return err
 	}
-	config.AI.Temperature = normalizeOptionalFloat(config.AI.Temperature)
-	config.AI.TopP = normalizeOptionalFloat(config.AI.TopP)
-	config.AI.TopK = normalizeOptionalInt(config.AI.TopK)
-	config.AI.PresencePenalty = normalizeOptionalFloat(config.AI.PresencePenalty)
-	config.AI.FrequencyPenalty = normalizeOptionalFloat(config.AI.FrequencyPenalty)
-	if config.AI.Anthropic == nil {
-		config.AI.Anthropic = defaultAIProviderConfig()
+	aiConfigLog.Infof("Saving config to %s", configPath)
+	err = os.WriteFile(configPath, data, 0600)
+	if err != nil {
+		aiConfigLog.Errorf("Failed to write config %s", err)
 	}
-	normalizeAIProviderConfig(config.AI.Anthropic)
-	if config.AI.Google == nil {
-		config.AI.Google = defaultAIProviderConfig()
+	return err
+}
+
+// GetAIConfig - Get AI config value from ai.yaml.
+func GetAIConfig() *AIConfig {
+	return getAIConfig(nil)
+}
+
+func getAIConfig(migratedConfig *AIConfig) *AIConfig {
+	configPath := GetAIConfigPath()
+	config := defaultAIConfig()
+	if _, err := os.Stat(configPath); !os.IsNotExist(err) {
+		data, err := os.ReadFile(configPath)
+		if err != nil {
+			aiConfigLog.Errorf("Failed to read config file %s", err)
+			return config
+		}
+		err = yaml.Unmarshal(data, config)
+		if err != nil {
+			aiConfigLog.Errorf("Failed to parse config file %s", err)
+			return config
+		}
+	} else if migratedConfig != nil {
+		config = migratedConfig
+		aiConfigLog.Infof("Migrating embedded AI config to %s", configPath)
+	} else {
+		aiConfigLog.Warnf("Config file does not exist, using defaults")
 	}
-	normalizeAIProviderConfig(config.AI.Google)
-	if config.AI.OpenAI == nil {
-		config.AI.OpenAI = defaultAIProviderConfig()
+
+	config = normalizeAIConfig(config)
+
+	err := config.Save() // This updates the config with any missing fields
+	if err != nil {
+		aiConfigLog.Errorf("Failed to save default config %s", err)
+		return config
 	}
-	normalizeAIProviderConfig(config.AI.OpenAI)
-	if config.AI.OpenAICompat == nil {
-		config.AI.OpenAICompat = defaultAIProviderConfig()
+	return config
+}
+
+func aiConfigFromYAML(data []byte) *AIConfig {
+	envelope := &aiConfigEnvelope{}
+	if err := yaml.Unmarshal(data, envelope); err != nil {
+		aiConfigLog.Errorf("Failed to parse embedded AI config %s", err)
+		return nil
 	}
-	normalizeAIProviderConfig(config.AI.OpenAICompat)
-	if config.AI.OpenRouter == nil {
-		config.AI.OpenRouter = defaultAIProviderConfig()
+	if envelope.AI == nil {
+		return nil
 	}
-	normalizeAIProviderConfig(config.AI.OpenRouter)
+	return normalizeAIConfig(envelope.AI)
+}
+
+func aiConfigFromJSON(data []byte) *AIConfig {
+	envelope := &aiConfigEnvelope{}
+	if err := json.Unmarshal(data, envelope); err != nil {
+		aiConfigLog.Errorf("Failed to parse embedded AI config %s", err)
+		return nil
+	}
+	if envelope.AI == nil {
+		return nil
+	}
+	return normalizeAIConfig(envelope.AI)
+}
+
+func normalizeAIConfig(config *AIConfig) *AIConfig {
+	if config == nil {
+		config = defaultAIConfig()
+	}
+	config.Provider = strings.ToLower(strings.TrimSpace(config.Provider))
+	config.Model = strings.TrimSpace(config.Model)
+	config.ThinkingLevel = strings.ToLower(strings.TrimSpace(config.ThinkingLevel))
+	config.SystemPrompt = strings.TrimSpace(config.SystemPrompt)
+	if config.MaxOutputTokens < 0 {
+		config.MaxOutputTokens = 0
+	}
+	config.Temperature = normalizeOptionalFloat(config.Temperature)
+	config.TopP = normalizeOptionalFloat(config.TopP)
+	config.TopK = normalizeOptionalInt(config.TopK)
+	config.PresencePenalty = normalizeOptionalFloat(config.PresencePenalty)
+	config.FrequencyPenalty = normalizeOptionalFloat(config.FrequencyPenalty)
+	if config.Anthropic == nil {
+		config.Anthropic = defaultAIProviderConfig()
+	}
+	normalizeAIProviderConfig(config.Anthropic)
+	if config.Google == nil {
+		config.Google = defaultAIProviderConfig()
+	}
+	normalizeAIProviderConfig(config.Google)
+	if config.OpenAI == nil {
+		config.OpenAI = defaultAIProviderConfig()
+	}
+	normalizeAIProviderConfig(config.OpenAI)
+	if config.OpenAICompat == nil {
+		config.OpenAICompat = defaultAIProviderConfig()
+	}
+	normalizeAIProviderConfig(config.OpenAICompat)
+	if config.OpenRouter == nil {
+		config.OpenRouter = defaultAIProviderConfig()
+	}
+	normalizeAIProviderConfig(config.OpenRouter)
+	return config
 }
 
 func normalizeAIProviderConfig(provider *AIProviderConfig) {
