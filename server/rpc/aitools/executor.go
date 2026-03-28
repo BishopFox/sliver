@@ -44,6 +44,12 @@ type Backend interface {
 	Screenshot(context.Context, *sliverpb.ScreenshotReq) (*sliverpb.Screenshot, error)
 	Execute(context.Context, *sliverpb.ExecuteReq) (*sliverpb.Execute, error)
 	ExecuteWindows(context.Context, *sliverpb.ExecuteWindowsReq) (*sliverpb.Execute, error)
+	ExecuteAssembly(context.Context, *sliverpb.ExecuteAssemblyReq) (*sliverpb.ExecuteAssembly, error)
+	Sideload(context.Context, *sliverpb.SideloadReq) (*sliverpb.Sideload, error)
+	SpawnDll(context.Context, *sliverpb.InvokeSpawnDllReq) (*sliverpb.SpawnDll, error)
+	RegisterExtension(context.Context, *sliverpb.RegisterExtensionReq) (*sliverpb.RegisterExtension, error)
+	ListExtensions(context.Context, *sliverpb.ListExtensionsReq) (*sliverpb.ListExtensions, error)
+	CallExtension(context.Context, *sliverpb.CallExtensionReq) (*sliverpb.CallExtension, error)
 }
 
 type executor struct {
@@ -215,6 +221,7 @@ func (e *executor) ToolDefinitions() []serverai.AgenticToolDefinition {
 	}
 	definitions = append(definitions, filesystemToolDefinitions()...)
 	definitions = append(definitions, systemToolDefinitions()...)
+	definitions = append(definitions, packageToolDefinitions()...)
 	return definitions
 }
 
@@ -367,6 +374,9 @@ func (e *executor) CallTool(ctx context.Context, name string, arguments string) 
 		}
 		return e.callScreenshot(ctx, args)
 	default:
+		if result, handled, err := e.callPackageTool(ctx, name, arguments); handled {
+			return result, err
+		}
 		return "", fmt.Errorf("unsupported AI tool %q", name)
 	}
 }

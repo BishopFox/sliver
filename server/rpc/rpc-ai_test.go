@@ -397,6 +397,46 @@ func TestSaveAIConversationMessagePersistsReasoningAndToolBlocks(t *testing.T) {
 					"beacon_id":  []string{"string", "null"},
 					"session_id": []string{"string", "null"},
 				})
+				assertStrictResponseToolSchema(t, tools, "search_aliases", []string{"beacon_id", "max_results", "only_compatible", "query", "session_id"}, map[string][]string{
+					"beacon_id":       []string{"string", "null"},
+					"max_results":     []string{"integer", "null"},
+					"only_compatible": []string{"boolean", "null"},
+					"query":           []string{"string", "null"},
+					"session_id":      []string{"string", "null"},
+				})
+				assertStrictResponseToolSchema(t, tools, "search_extensions", []string{"beacon_id", "max_results", "only_compatible", "query", "session_id"}, map[string][]string{
+					"beacon_id":       []string{"string", "null"},
+					"max_results":     []string{"integer", "null"},
+					"only_compatible": []string{"boolean", "null"},
+					"query":           []string{"string", "null"},
+					"session_id":      []string{"string", "null"},
+				})
+				assertStrictResponseToolSchema(t, tools, "execute_alias", []string{"amsi_bypass", "app_domain", "arch", "args", "beacon_id", "class_name", "command_name", "etw_bypass", "in_process", "method", "ppid", "process", "process_args", "root_path", "runtime", "session_id"}, map[string][]string{
+					"amsi_bypass":  []string{"boolean", "null"},
+					"app_domain":   []string{"string", "null"},
+					"arch":         []string{"string", "null"},
+					"args":         []string{"array", "null"},
+					"beacon_id":    []string{"string", "null"},
+					"class_name":   []string{"string", "null"},
+					"command_name": []string{"string"},
+					"etw_bypass":   []string{"boolean", "null"},
+					"in_process":   []string{"boolean", "null"},
+					"method":       []string{"string", "null"},
+					"ppid":         []string{"integer", "null"},
+					"process":      []string{"string", "null"},
+					"process_args": []string{"array", "null"},
+					"root_path":    []string{"string", "null"},
+					"runtime":      []string{"string", "null"},
+					"session_id":   []string{"string", "null"},
+				})
+				assertStrictResponseToolSchema(t, tools, "execute_extension", []string{"args", "beacon_id", "command_name", "named_args", "root_path", "session_id"}, map[string][]string{
+					"args":         []string{"array", "null"},
+					"beacon_id":    []string{"string", "null"},
+					"command_name": []string{"string"},
+					"named_args":   []string{"object", "null"},
+					"root_path":    []string{"string", "null"},
+					"session_id":   []string{"string", "null"},
+				})
 				return jsonResponse(http.StatusOK, `{
 			"id": "resp_step1",
 			"model": "gpt-5.2",

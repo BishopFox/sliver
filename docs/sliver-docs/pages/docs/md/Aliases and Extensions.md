@@ -1,5 +1,18 @@
 Sliver allows an operator to extend the local client console and its features by adding new commands based on third party tools. The easiest way to install an alias or extension is using the [armory](/docs?name=Armory).
 
+## Server AI Access
+
+Aliases and extensions used from the client console still live under `~/.sliver-client/aliases` and `~/.sliver-client/extensions`.
+
+The server-side AI agent uses a separate store under `~/.sliver/ai/aliases` and `~/.sliver/ai/extensions`. To make a package available to the AI agent, copy the unpacked package directory into the matching server-side path so the manifest and payload artifacts are present together. For example:
+
+- `~/.sliver/ai/aliases/Rubeus/alias.json`
+- `~/.sliver/ai/aliases/Rubeus/Rubeus.exe`
+- `~/.sliver/ai/extensions/nanodump/extension.json`
+- `~/.sliver/ai/extensions/nanodump/nanodump.x64.o`
+
+There is currently no dedicated UI for this workflow. The AI agent can search and execute only the packages that have been copied into these server-side directories.
+
 #### Aliases Command Parsing
 
 **⚠️ IMPORTANT:** It's important to understand that all alias commands have certain Sliver shell flags (those that appear in `--help`). Your Sliver shell commands are lexically parsed by the Sliver shell first, and only unnamed positional arguments are passed to the alias code. This means you may need to escape certain arguments in order for them to be correctly parsed.
