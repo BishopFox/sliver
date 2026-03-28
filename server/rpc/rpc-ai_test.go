@@ -392,9 +392,6 @@ func TestSaveAIConversationMessagePersistsReasoningAndToolBlocks(t *testing.T) {
 					"summary": [
 						{"type": "summary_text", "text": "Need to inspect the available targets first."}
 					],
-					"content": [
-						{"type": "reasoning_text", "text": "Need to inspect the available targets first."}
-					],
 					"status": "completed"
 				},
 				{
@@ -566,6 +563,9 @@ func TestSaveAIConversationMessagePersistsReasoningAndToolBlocks(t *testing.T) {
 	}
 	if reasoning.GetIncludeInContext() {
 		t.Fatalf("expected reasoning block to stay out of context, got %+v", reasoning)
+	}
+	if !strings.Contains(reasoning.GetContent(), "Need to inspect the available targets first.") {
+		t.Fatalf("expected reasoning block to preserve the provider summary, got %+v", reasoning)
 	}
 
 	toolCall := current.GetMessages()[2]

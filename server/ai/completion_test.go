@@ -97,7 +97,7 @@ func TestCompleteConversationOpenAIUsesConfiguredCredentialsAndSettings(t *testi
 	for _, fragment := range []string{
 		`"model":"gpt-5.2"`,
 		`"effort":"high"`,
-		`"summary":"concise"`,
+		`"summary":"auto"`,
 		`"Keep it brief."`,
 		`"Earlier answer."`,
 		`"Explain the workflow."`,

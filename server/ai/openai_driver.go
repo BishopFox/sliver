@@ -297,10 +297,11 @@ func responseReasoningParam(runtime *RuntimeConfig) (shared.ReasoningParam, bool
 	reasoning := shared.ReasoningParam{Effort: effort}
 	switch NormalizeProviderName(runtime.Provider) {
 	case ProviderOpenAI, ProviderOpenRouter:
-		// Native OpenAI-style Responses backends can return a compact reasoning
-		// summary for UI-only transcript blocks. Skip this on generic
-		// openai-compatible backends until they've proven they accept the field.
-		reasoning.Summary = shared.ReasoningSummaryConcise
+		// Native OpenAI-style Responses backends can return a reasoning summary
+		// for UI-only transcript blocks. Use "auto" because summary modes are
+		// model-specific; hard-coding "concise" can suppress summaries on models
+		// that only expose a different summarizer.
+		reasoning.Summary = shared.ReasoningSummaryAuto
 	}
 
 	return reasoning, true
