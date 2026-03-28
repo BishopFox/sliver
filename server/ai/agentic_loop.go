@@ -114,7 +114,7 @@ func CompleteConversationAgentic(
 
 	client := newOpenAIClient(openAIRequestOptions(runtime)...)
 	currentInput := buildResponseInput(systemPrompt, messages)
-	toolParams := buildAgenticToolParams(tools)
+	toolParams := appendOpenAIResponseTools(runtime, buildAgenticToolParams(tools))
 	previousResponseID := ""
 
 	for step := 0; step < maxAgenticLoopIterations; step++ {

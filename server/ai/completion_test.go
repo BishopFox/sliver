@@ -96,6 +96,8 @@ func TestCompleteConversationOpenAIUsesConfiguredCredentialsAndSettings(t *testi
 	}
 	for _, fragment := range []string{
 		`"model":"gpt-5.2"`,
+		`"type":"web_search"`,
+		`"search_context_size":"medium"`,
 		`"effort":"high"`,
 		`"summary":"auto"`,
 		`"Keep it brief."`,
@@ -202,6 +204,104 @@ func TestCompleteConversationOpenAIUsesDefaultBaseURLWhenUnset(t *testing.T) {
 		t.Fatalf("unexpected completion content: %q", completion.Content)
 	}
 	if completion.ProviderMessageID != "resp_default_base" {
+		t.Fatalf("unexpected provider message id: %q", completion.ProviderMessageID)
+	}
+}
+
+func TestCompleteConversationOpenAIChatEnablesWebSearch(t *testing.T) {
+	type capturedRequest struct {
+		Path          string
+		Authorization string
+		Body          string
+	}
+
+	requests := make(chan capturedRequest, 1)
+	restoreClient := SetHTTPClientForTests(&http.Client{
+		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			defer r.Body.Close()
+
+			payload, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatalf("read request body: %v", err)
+			}
+
+			requests <- capturedRequest{
+				Path:          r.URL.Path,
+				Authorization: r.Header.Get("Authorization"),
+				Body:          string(payload),
+			}
+
+			return jsonResponse(http.StatusOK, `{
+			"id": "chatcmpl_openai_123",
+			"object": "chat.completion",
+			"model": "gpt-5.4",
+			"choices": [
+				{
+					"index": 0,
+					"finish_reason": "stop",
+					"message": {
+						"role": "assistant",
+						"content": "OpenAI chat reply"
+					}
+				}
+			]
+		}`), nil
+		}),
+	})
+	defer restoreClient()
+
+	cfg := &configs.ServerConfig{
+		AI: &configs.AIConfig{
+			Provider: ProviderOpenAI,
+			Model:    "gpt-5.4",
+			OpenAI: &configs.AIProviderConfig{
+				APIKey:          "openai-key",
+				UseResponsesAPI: boolPtr(false),
+			},
+			Anthropic: &configs.AIProviderConfig{},
+		},
+	}
+	conversation := &clientpb.AIConversation{
+		Provider: ProviderOpenAI,
+		Model:    "gpt-5.4",
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "user", Content: "Say hi."},
+		},
+	}
+
+	runtime, err := ResolveRuntimeConfig(cfg, conversation)
+	if err != nil {
+		t.Fatalf("resolve runtime config: %v", err)
+	}
+	if runtime.UseResponsesAPI {
+		t.Fatal("expected openai runtime to use chat completions for this test")
+	}
+
+	completion, err := CompleteConversation(context.Background(), runtime, conversation)
+	if err != nil {
+		t.Fatalf("complete conversation: %v", err)
+	}
+
+	request := <-requests
+	if request.Path != "/v1/chat/completions" {
+		t.Fatalf("unexpected openai chat request path: got=%q want=%q", request.Path, "/v1/chat/completions")
+	}
+	if request.Authorization != "Bearer openai-key" {
+		t.Fatalf("unexpected authorization header: %q", request.Authorization)
+	}
+	for _, fragment := range []string{
+		`"model":"gpt-5.4"`,
+		`"web_search_options":{"search_context_size":"medium"}`,
+		`"Say hi."`,
+	} {
+		if !strings.Contains(request.Body, fragment) {
+			t.Fatalf("expected openai chat request body to contain %q, got %s", fragment, request.Body)
+		}
+	}
+	if completion.Content != "OpenAI chat reply" {
+		t.Fatalf("unexpected completion content: %q", completion.Content)
+	}
+	if completion.ProviderMessageID != "chatcmpl_openai_123" {
 		t.Fatalf("unexpected provider message id: %q", completion.ProviderMessageID)
 	}
 }

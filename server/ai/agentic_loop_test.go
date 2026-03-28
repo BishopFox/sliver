@@ -121,7 +121,12 @@ func TestCompleteConversationAgenticRequestsReasoningSummaryForOpenAI(t *testing
 	}
 
 	request := <-requests
-	for _, fragment := range []string{`"effort":"high"`, `"summary":"auto"`} {
+	for _, fragment := range []string{
+		`"type":"web_search"`,
+		`"search_context_size":"medium"`,
+		`"effort":"high"`,
+		`"summary":"auto"`,
+	} {
 		if !strings.Contains(request.Body, fragment) {
 			t.Fatalf("expected agentic request body to contain %q, got %s", fragment, request.Body)
 		}

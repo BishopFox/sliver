@@ -2279,6 +2279,39 @@ func TestNewConversationModalRequiresTitle(t *testing.T) {
 	}
 }
 
+func TestNewConversationModalCtrlUClearsInput(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.modal = &aiModalState{
+		kind:   aiModalKindNewConversation,
+		title:  "New Conversation",
+		focus:  aiModalFocusConfirm,
+		input:  []rune("Operator notes"),
+		cursor: len([]rune("Operator notes")),
+	}
+
+	updated, cmd := model.Update(tea.KeyPressMsg{Code: 'u', Mod: tea.ModCtrl})
+	if cmd != nil {
+		t.Fatalf("did not expect ctrl+u to queue work, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal == nil {
+		t.Fatal("expected modal to remain open after clearing the title")
+	}
+	if got := string(updatedModel.modal.input); got != "" {
+		t.Fatalf("expected ctrl+u to clear the title, got %q", got)
+	}
+	if updatedModel.modal.cursor != 0 {
+		t.Fatalf("expected ctrl+u to reset the cursor, got %d", updatedModel.modal.cursor)
+	}
+	if updatedModel.modal.focus != aiModalFocusInput {
+		t.Fatalf("expected ctrl+u to return focus to the input, got %v", updatedModel.modal.focus)
+	}
+	if updatedModel.status != "Conversation name cleared." {
+		t.Fatalf("unexpected status: %q", updatedModel.status)
+	}
+}
+
 func TestNewConversationModalCancelActionClosesModal(t *testing.T) {
 	model := newAIModel(nil, aiContext{}, nil)
 	model.loading = false
@@ -2503,7 +2536,7 @@ func TestNewConversationModalViewIncludesOverlayContent(t *testing.T) {
 	}
 
 	view := ansi.Strip(model.View().Content)
-	expected := []string{"Conversations", "New Conversation", "Name", "New conversation", "Cancel", "Create"}
+	expected := []string{"Conversations", "New Conversation", "Name", "New conversation", "Cancel", "Create", "ctrl+u: clear"}
 	for _, fragment := range expected {
 		if !strings.Contains(view, fragment) {
 			t.Fatalf("expected new conversation modal view to contain %q, got %q", fragment, view)

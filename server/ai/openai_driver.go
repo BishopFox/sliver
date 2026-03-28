@@ -15,6 +15,7 @@ import (
 const (
 	openAIDriverName         = "openai-go"
 	defaultOpenRouterBaseURL = "https://openrouter.ai/api/v1"
+	openAIWebSearchContext   = "medium"
 )
 
 type openAIDriver struct{}
@@ -115,12 +116,48 @@ func openAIBaseURL(runtime *RuntimeConfig) string {
 	return ""
 }
 
+func openAIWebSearchEnabled(runtime *RuntimeConfig) bool {
+	return runtime != nil && NormalizeProviderName(runtime.Provider) == ProviderOpenAI
+}
+
+func appendOpenAIResponseTools(runtime *RuntimeConfig, tools []openairesponses.ToolUnionParam) []openairesponses.ToolUnionParam {
+	if !openAIWebSearchEnabled(runtime) {
+		return tools
+	}
+
+	for _, tool := range tools {
+		if tool.OfWebSearch != nil || tool.OfWebSearchPreview != nil {
+			return tools
+		}
+	}
+
+	webSearch := openairesponses.ToolParamOfWebSearch(openairesponses.WebSearchToolTypeWebSearch)
+	if webSearch.OfWebSearch != nil {
+		webSearch.OfWebSearch.SearchContextSize = openairesponses.WebSearchToolSearchContextSizeMedium
+	}
+
+	return append(append([]openairesponses.ToolUnionParam{}, tools...), webSearch)
+}
+
+func applyOpenAIChatWebSearch(runtime *RuntimeConfig, params *openai.ChatCompletionNewParams) {
+	if params == nil || !openAIWebSearchEnabled(runtime) {
+		return
+	}
+
+	params.WebSearchOptions = openai.ChatCompletionNewParamsWebSearchOptions{
+		SearchContextSize: openAIWebSearchContext,
+	}
+}
+
 func (d *openAIDriver) completeResponses(ctx context.Context, client *openAIClient, runtime *RuntimeConfig, request *completionRequest) (*Completion, error) {
 	params := openairesponses.ResponseNewParams{
 		Input: openairesponses.ResponseNewParamsInputUnion{
 			OfInputItemList: buildResponseInput(request.SystemPrompt, request.Messages),
 		},
 		Model: shared.ResponsesModel(runtime.Model),
+	}
+	if tools := appendOpenAIResponseTools(runtime, nil); len(tools) > 0 {
+		params.Tools = tools
 	}
 	if runtime.MaxOutputTokens > 0 {
 		params.MaxOutputTokens = openai.Int(runtime.MaxOutputTokens)
@@ -159,6 +196,7 @@ func (d *openAIDriver) completeChat(ctx context.Context, client *openAIClient, r
 		Messages: buildChatMessages(request.SystemPrompt, request.Messages),
 		Model:    shared.ChatModel(runtime.Model),
 	}
+	applyOpenAIChatWebSearch(runtime, &params)
 	if runtime.MaxOutputTokens > 0 {
 		if NormalizeProviderName(runtime.Provider) == ProviderOpenAI {
 			params.MaxCompletionTokens = openai.Int(runtime.MaxOutputTokens)

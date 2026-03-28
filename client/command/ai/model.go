@@ -1294,6 +1294,10 @@ func (m *aiModel) handleExperimentalWarningModalKey(key tea.Key) (tea.Model, tea
 }
 
 func (m *aiModel) handleNewConversationModalKey(key tea.Key) (tea.Model, tea.Cmd) {
+	if key.Mod.Contains(tea.ModCtrl) && key.Code == 'u' {
+		return m.clearNewConversationInput()
+	}
+
 	switch key.Code {
 	case tea.KeyEsc:
 		return m.cancelNewConversationModal()
@@ -1376,6 +1380,17 @@ func (m *aiModel) handleNewConversationModalKey(key tea.Key) (tea.Model, tea.Cmd
 		m.modal.cursor += len(insert)
 	}
 
+	return m, nil
+}
+
+func (m *aiModel) clearNewConversationInput() (tea.Model, tea.Cmd) {
+	if m.modal == nil {
+		return m, nil
+	}
+	m.modal.input = nil
+	m.modal.cursor = 0
+	m.modal.focus = aiModalFocusInput
+	m.status = "Conversation name cleared."
 	return m, nil
 }
 
@@ -1669,7 +1684,7 @@ func (m *aiModel) renderNewConversationModal() string {
 		"",
 		m.renderNewConversationActions(bodyWidth),
 		"",
-		m.styles.chip.Width(bodyWidth).Render("tab: focus  enter: create  esc: cancel"),
+		m.styles.chip.Width(bodyWidth).Render("tab: focus  ctrl+u: clear  enter: create  esc: cancel"),
 	}
 
 	box := lipgloss.NewStyle().
