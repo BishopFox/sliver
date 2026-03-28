@@ -52,11 +52,13 @@ const (
 
 	aiPaneHorizontalChrome     = 4
 	aiPaneVerticalChrome       = 2
+	aiToolCallSectionMaxLines  = 15
 	aiTranscriptScrollbarWidth = 1
 	aiTranscriptMouseWheelStep = 3
 	aiModalDismissDelay        = 250 * time.Millisecond
 	aiWindowPollInterval       = 100 * time.Millisecond
 	aiToastDuration            = 10 * time.Second
+	aiToastStackLimit          = 4
 )
 
 type aiFocus int
@@ -327,7 +329,7 @@ type aiModel struct {
 	transcriptSelection     *aiTranscriptSelection
 	transcriptScrollbarDrag bool
 	targetSelectionOptions  []aiTargetSelectionOption
-	toast                   *aiToastState
+	toasts                  []*aiToastState
 	nextToastID             uint64
 }
 
@@ -597,9 +599,7 @@ func (m *aiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		)
 
 	case aiToastExpiredMsg:
-		if m.toast != nil && m.toast.id == msg.id {
-			m.toast = nil
-		}
+		m.expireToast(msg.id)
 		return m, nil
 
 	case aiListenerClosedMsg:
@@ -1062,9 +1062,7 @@ func (m *aiModel) handleModalMsg(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.showToast(msg.level, msg.message),
 		)
 	case aiToastExpiredMsg:
-		if m.toast != nil && m.toast.id == msg.id {
-			m.toast = nil
-		}
+		m.expireToast(msg.id)
 		return m, nil
 	case aiListenerClosedMsg:
 		m.status = "AI event stream closed. Reopen the AI TUI to resume live updates."
@@ -1531,7 +1529,7 @@ func (m *aiModel) confirmDeleteConversation() (tea.Model, tea.Cmd) {
 func (m *aiModel) View() tea.View {
 	if m.width < aiMinWidth || m.height < aiMinHeight {
 		content := m.renderTooSmall()
-		if m.toast != nil {
+		if len(m.toasts) > 0 {
 			content = m.renderToastOverlay(content)
 		}
 		if m.modal != nil {
@@ -1550,7 +1548,7 @@ func (m *aiModel) View() tea.View {
 
 	frame := lipgloss.JoinVertical(lipgloss.Left, header, body, composer, footer)
 	frame = lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, frame)
-	if m.toast != nil {
+	if len(m.toasts) > 0 {
 		frame = m.renderToastOverlay(frame)
 	}
 	if m.modal != nil {
@@ -2031,7 +2029,7 @@ func (m *aiModel) renderModalOverlay(base string) string {
 }
 
 func (m *aiModel) renderToastOverlay(base string) string {
-	box := m.renderToast()
+	box := m.renderToastStack()
 	if box == "" {
 		return base
 	}
@@ -2040,8 +2038,28 @@ func (m *aiModel) renderToastOverlay(base string) string {
 	return overlayContent(base, box, left, 1, m.width)
 }
 
-func (m *aiModel) renderToast() string {
-	if m.toast == nil || strings.TrimSpace(m.toast.message) == "" {
+func (m *aiModel) renderToastStack() string {
+	if len(m.toasts) == 0 {
+		return ""
+	}
+
+	blocks := make([]string, 0, minInt(len(m.toasts), aiToastStackLimit))
+	for _, toast := range m.toasts {
+		if block := m.renderToast(toast); block != "" {
+			blocks = append(blocks, block)
+		}
+		if len(blocks) == aiToastStackLimit {
+			break
+		}
+	}
+	if len(blocks) == 0 {
+		return ""
+	}
+	return strings.Join(blocks, "\n")
+}
+
+func (m *aiModel) renderToast(toast *aiToastState) string {
+	if toast == nil || strings.TrimSpace(toast.message) == "" {
 		return ""
 	}
 
@@ -2051,7 +2069,7 @@ func (m *aiModel) renderToast() string {
 
 	title := "Event"
 	accentColor := clienttheme.Primary()
-	switch strings.ToLower(strings.TrimSpace(m.toast.level)) {
+	switch strings.ToLower(strings.TrimSpace(toast.level)) {
 	case "error", "warn", "warning":
 		title = "Warning"
 		accentColor = clienttheme.Danger()
@@ -2072,13 +2090,13 @@ func (m *aiModel) renderToast() string {
 		Align(lipgloss.Right)
 
 	now := time.Now()
-	remaining := m.toast.remaining(now)
-	percentLeft := m.toast.fractionRemaining(now)
-	m.toast.bar.SetWidth(bodyWidth)
-	barLine := lineStyle.Render(m.toast.bar.ViewAs(percentLeft))
+	remaining := toast.remaining(now)
+	percentLeft := toast.fractionRemaining(now)
+	toast.bar.SetWidth(bodyWidth)
+	barLine := lineStyle.Render(toast.bar.ViewAs(percentLeft))
 
 	lines := []string{titleStyle.Render(truncateText(title, bodyWidth))}
-	for _, line := range wrapText(strings.TrimSpace(m.toast.message), bodyWidth) {
+	for _, line := range wrapText(strings.TrimSpace(toast.message), bodyWidth) {
 		lines = append(lines, lineStyle.Render(line))
 	}
 	lines = append(lines,
@@ -3283,7 +3301,7 @@ func (m *aiModel) showToast(level string, message string) tea.Cmd {
 
 	now := time.Now()
 	m.nextToastID++
-	m.toast = &aiToastState{
+	toast := &aiToastState{
 		id:        m.nextToastID,
 		level:     strings.ToLower(strings.TrimSpace(level)),
 		message:   message,
@@ -3291,7 +3309,33 @@ func (m *aiModel) showToast(level string, message string) tea.Cmd {
 		expiresAt: now.Add(aiToastDuration),
 		bar:       newAIToastProgress(level),
 	}
-	return aiToastExpiryCmd(m.toast.id)
+	m.toasts = append([]*aiToastState{toast}, m.toasts...)
+	if len(m.toasts) > aiToastStackLimit {
+		m.toasts = m.toasts[:aiToastStackLimit]
+	}
+	return aiToastExpiryCmd(toast.id)
+}
+
+func (m *aiModel) expireToast(id uint64) {
+	if id == 0 || len(m.toasts) == 0 {
+		return
+	}
+
+	filtered := m.toasts[:0]
+	for _, toast := range m.toasts {
+		if toast == nil || toast.id == id {
+			continue
+		}
+		filtered = append(filtered, toast)
+	}
+	for idx := len(filtered); idx < len(m.toasts); idx++ {
+		m.toasts[idx] = nil
+	}
+	if len(filtered) == 0 {
+		m.toasts = nil
+		return
+	}
+	m.toasts = filtered
 }
 
 func (m *aiModel) applyWindowSize(width, height int) tea.Cmd {
@@ -4813,10 +4857,10 @@ func formatConversationMessageMarkdownContent(message *clientpb.AIConversationMe
 	switch message.GetKind() {
 	case clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_TOOL_CALL:
 		parts := []string{}
-		if args := strings.TrimSpace(formatStructuredBlock(message.GetToolArguments())); args != "" {
+		if args := renderToolCallStructuredMarkdown(message.GetToolArguments()); args != "" {
 			parts = append(parts, "Arguments:\n"+args)
 		}
-		if result := strings.TrimSpace(formatStructuredBlock(message.GetToolResult())); result != "" {
+		if result := renderToolCallStructuredMarkdown(message.GetToolResult()); result != "" {
 			parts = append(parts, "Result:\n"+result)
 		}
 		if errText := strings.TrimSpace(message.GetErrorText()); errText != "" {
@@ -5090,7 +5134,7 @@ func renderToolCallBodyLines(width int, message *clientpb.AIConversationMessage)
 	}
 
 	lines := []string{}
-	addSection := func(title string, body string, fallback string) {
+	addSection := func(title string, body string, fallback string, structured bool) {
 		body = strings.TrimSpace(body)
 		if body == "" && fallback == "" {
 			return
@@ -5099,22 +5143,85 @@ func renderToolCallBodyLines(width int, message *clientpb.AIConversationMessage)
 			lines = append(lines, "")
 		}
 		lines = append(lines, strings.ToUpper(title))
-		lines = append(lines, renderTranscriptPlainBodyLines(width, formatStructuredBlock(body), fallback)...)
+		lines = append(lines, renderToolCallSectionBodyLines(width, body, fallback, structured)...)
 	}
 
-	addSection("Arguments", message.GetToolArguments(), "No arguments.")
+	addSection("Arguments", message.GetToolArguments(), "No arguments.", true)
 	if errText := strings.TrimSpace(message.GetErrorText()); errText != "" {
-		addSection("Error", errText, "")
+		addSection("Error", errText, "", false)
 	}
 	if result := strings.TrimSpace(message.GetToolResult()); result != "" {
-		addSection("Result", result, "")
+		addSection("Result", result, "", true)
 	} else if message.GetState() == clientpb.AIConversationMessageState_AI_MESSAGE_STATE_IN_PROGRESS {
-		addSection("Result", "", "Waiting for tool output...")
+		addSection("Result", "", "Waiting for tool output...", true)
 	}
 	if len(lines) == 0 {
 		return []string{"Tool call details unavailable."}
 	}
 	return lines
+}
+
+func renderToolCallSectionBodyLines(width int, body string, fallback string, structured bool) []string {
+	if strings.TrimSpace(body) == "" {
+		return renderTranscriptPlainBodyLines(width, "", fallback)
+	}
+	if !structured {
+		return renderTranscriptPlainBodyLines(width, body, fallback)
+	}
+
+	return renderTranscriptMarkdownBodyLines(width, renderToolCallStructuredMarkdown(body), fallback)
+}
+
+type toolCallStructuredBody struct {
+	content     string
+	language    string
+	hiddenBytes int
+}
+
+func formatToolCallStructuredBody(raw string) toolCallStructuredBody {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return toolCallStructuredBody{}
+	}
+	body := toolCallStructuredBody{
+		content:  raw,
+		language: "text",
+	}
+	if pretty, ok := prettyJSONBlock(raw); ok {
+		body.content = pretty
+		body.language = "json"
+	}
+	body.content, body.hiddenBytes = truncateToolCallContentLines(body.content, aiToolCallSectionMaxLines)
+	return body
+}
+
+func renderToolCallStructuredMarkdown(raw string) string {
+	body := formatToolCallStructuredBody(raw)
+	if body.content == "" {
+		return ""
+	}
+
+	markdown := renderMarkdownCodeBlock(body.language, body.content)
+	if body.hiddenBytes > 0 {
+		markdown += "\n\n" + renderMarkdownItalicLine(toolCallHiddenBytesMarker(body.hiddenBytes))
+	}
+	return markdown
+}
+
+func renderMarkdownCodeBlock(language string, content string) string {
+	language = strings.TrimSpace(language)
+	if language == "" {
+		return "```\n" + content + "\n```"
+	}
+	return "```" + language + "\n" + content + "\n```"
+}
+
+func renderMarkdownItalicLine(content string) string {
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return ""
+	}
+	return "_" + escapeMarkdownText(content) + "_"
 }
 
 func formatStructuredBlock(raw string) string {
@@ -5123,11 +5230,44 @@ func formatStructuredBlock(raw string) string {
 		return ""
 	}
 
-	var pretty bytes.Buffer
-	if err := json.Indent(&pretty, []byte(raw), "", "  "); err == nil {
-		return pretty.String()
+	if pretty, ok := prettyJSONBlock(raw); ok {
+		return pretty
 	}
 	return raw
+}
+
+func prettyJSONBlock(raw string) (string, bool) {
+	var pretty bytes.Buffer
+	if err := json.Indent(&pretty, []byte(raw), "", "  "); err != nil {
+		return "", false
+	}
+	return pretty.String(), true
+}
+
+func truncateToolCallContentLines(content string, maxLines int) (string, int) {
+	content = strings.Trim(content, "\n")
+	if maxLines <= 0 || content == "" {
+		return content, 0
+	}
+
+	lines := strings.Split(content, "\n")
+	if len(lines) <= maxLines {
+		return content, 0
+	}
+
+	truncated := strings.Join(lines[:maxLines], "\n")
+	hiddenBytes := len(content) - len(truncated)
+	if hiddenBytes < 0 {
+		hiddenBytes = 0
+	}
+	return truncated, hiddenBytes
+}
+
+func toolCallHiddenBytesMarker(hiddenBytes int) string {
+	if hiddenBytes < 0 {
+		hiddenBytes = 0
+	}
+	return fmt.Sprintf("... (%d bytes) ...", hiddenBytes)
 }
 
 func renderTranscriptBoxBlock(width int, label, role string, meta []string, contentLines []string) []string {

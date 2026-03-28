@@ -94,6 +94,32 @@ func TestBuildConversationMarkdownFallsBackToUserLabel(t *testing.T) {
 	}
 }
 
+func TestBuildConversationMarkdownFormatsToolCallsAsCodeBlocks(t *testing.T) {
+	conversation := &clientpb.AIConversation{
+		Messages: []*clientpb.AIConversationMessage{
+			{
+				Kind:          clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_TOOL_CALL,
+				ToolName:      "fs_ls",
+				ToolArguments: `{"path":"/tmp","session_id":"session-1"}`,
+				ToolResult:    `{"path":"/tmp","exists":true}`,
+			},
+		},
+	}
+
+	markdown := buildConversationMarkdown(conversation)
+	for _, fragment := range []string{
+		"### Tool: fs\\_ls",
+		"Arguments:\n```json",
+		"\"path\": \"/tmp\"",
+		"Result:\n```json",
+		"\"exists\": true",
+	} {
+		if !strings.Contains(markdown, fragment) {
+			t.Fatalf("expected markdown to contain %q, got %q", fragment, markdown)
+		}
+	}
+}
+
 func TestMessageBlockLabelIgnoresUnknownOperatorPlaceholders(t *testing.T) {
 	conversation := &clientpb.AIConversation{OperatorName: "<unknown>"}
 	message := &clientpb.AIConversationMessage{
@@ -280,6 +306,74 @@ func TestRenderConversationTranscriptLinesRendersReasoningAndToolBlocks(t *testi
 		if !strings.Contains(rendered, fragment) {
 			t.Fatalf("expected transcript to contain %q, got %q", fragment, rendered)
 		}
+	}
+}
+
+func TestFormatToolCallStructuredBodyPrettyPrintsAndTruncates(t *testing.T) {
+	fields := make([]string, 0, aiToolCallSectionMaxLines+4)
+	for i := 0; i < aiToolCallSectionMaxLines+4; i++ {
+		fields = append(fields, fmt.Sprintf(`"key%02d":"value%02d"`, i, i))
+	}
+	raw := "{" + strings.Join(fields, ",") + "}"
+
+	formatted := formatToolCallStructuredBody(raw)
+	if formatted.language != "json" {
+		t.Fatalf("expected json language, got %q", formatted.language)
+	}
+	if !strings.Contains(formatted.content, "\"key00\": \"value00\"") {
+		t.Fatalf("expected formatted tool body to pretty-print JSON, got %q", formatted.content)
+	}
+	if strings.Count(formatted.content, "\n")+1 > aiToolCallSectionMaxLines {
+		t.Fatalf("expected formatted tool body to stay within %d lines, got %d", aiToolCallSectionMaxLines, strings.Count(formatted.content, "\n")+1)
+	}
+	if formatted.hiddenBytes <= 0 {
+		t.Fatalf("expected formatted tool body to record hidden bytes, got %+v", formatted)
+	}
+	if strings.Contains(formatted.content, "\"key18\": \"value18\"") {
+		t.Fatalf("expected formatted tool body to hide truncated tail content, got %q", formatted.content)
+	}
+}
+
+func TestRenderConversationTranscriptLinesTruncatesLongToolPayloads(t *testing.T) {
+	fields := make([]string, 0, aiToolCallSectionMaxLines+4)
+	for i := 0; i < aiToolCallSectionMaxLines+4; i++ {
+		fields = append(fields, fmt.Sprintf(`"key%02d":"value%02d"`, i, i))
+	}
+	conversation := &clientpb.AIConversation{
+		Messages: []*clientpb.AIConversationMessage{
+			{
+				Kind:       clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_TOOL_CALL,
+				Visibility: clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
+				State:      clientpb.AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED,
+				ToolName:   "fs_cat",
+				ToolResult: "{" + strings.Join(fields, ",") + "}",
+			},
+		},
+	}
+
+	rendered := ansi.Strip(strings.Join(renderConversationTranscriptLines(72, conversation), "\n"))
+	for _, fragment := range []string{"Tool: fs_cat", "RESULT", "\"key00\":", "... (", "bytes) ..."} {
+		if !strings.Contains(rendered, fragment) {
+			t.Fatalf("expected transcript to contain %q, got %q", fragment, rendered)
+		}
+	}
+	if strings.Contains(rendered, "\"key18\":") {
+		t.Fatalf("expected transcript to hide truncated tail content, got %q", rendered)
+	}
+}
+
+func TestRenderToolCallStructuredMarkdownAddsItalicTruncationMarkerOnOwnLine(t *testing.T) {
+	fields := make([]string, 0, aiToolCallSectionMaxLines+4)
+	for i := 0; i < aiToolCallSectionMaxLines+4; i++ {
+		fields = append(fields, fmt.Sprintf(`"key%02d":"value%02d"`, i, i))
+	}
+
+	markdown := renderToolCallStructuredMarkdown("{" + strings.Join(fields, ",") + "}")
+	if !strings.Contains(markdown, "```json\n") {
+		t.Fatalf("expected structured markdown to use a json code block, got %q", markdown)
+	}
+	if !strings.Contains(markdown, "\n```\n\n_... (") || !strings.Contains(markdown, "bytes) ..._") {
+		t.Fatalf("expected structured markdown to place the truncation marker on its own italic line, got %q", markdown)
 	}
 }
 
@@ -997,16 +1091,17 @@ func TestAIToastMessageShowsAndExpires(t *testing.T) {
 	}
 
 	model = updated.(*aiModel)
-	if model.toast == nil {
-		t.Fatal("expected toast state to be set")
+	if len(model.toasts) != 1 {
+		t.Fatalf("expected one toast state, got %d", len(model.toasts))
 	}
-	if model.toast.message != "Session alpha connected" {
-		t.Fatalf("unexpected toast message %+v", model.toast)
+	toast := model.toasts[0]
+	if toast.message != "Session alpha connected" {
+		t.Fatalf("unexpected toast message %+v", toast)
 	}
-	if model.toast.createdAt.IsZero() || model.toast.expiresAt.IsZero() {
-		t.Fatalf("expected toast timing metadata to be populated, got %+v", model.toast)
+	if toast.createdAt.IsZero() || toast.expiresAt.IsZero() {
+		t.Fatalf("expected toast timing metadata to be populated, got %+v", toast)
 	}
-	if got := model.toast.expiresAt.Sub(model.toast.createdAt); got != aiToastDuration {
+	if got := toast.expiresAt.Sub(toast.createdAt); got != aiToastDuration {
 		t.Fatalf("expected toast duration %v, got %v", aiToastDuration, got)
 	}
 
@@ -1021,11 +1116,71 @@ func TestAIToastMessageShowsAndExpires(t *testing.T) {
 		t.Fatalf("expected toast to render a progress bar, got %q", view)
 	}
 
-	toastID := model.toast.id
+	toastID := toast.id
 	updated, _ = model.Update(aiToastExpiredMsg{id: toastID})
 	model = updated.(*aiModel)
-	if model.toast != nil {
-		t.Fatalf("expected toast to clear after expiry, got %+v", model.toast)
+	if len(model.toasts) != 0 {
+		t.Fatalf("expected toast to clear after expiry, got %+v", model.toasts)
+	}
+}
+
+func TestAIToastMessagesStackNewestFirstAndKeepFourMostRecent(t *testing.T) {
+	listener := make(chan *clientpb.Event)
+	model := newAIModel(nil, aiContext{}, listener)
+	model.width = 108
+	model.height = 28
+
+	messages := []string{
+		"First event",
+		"Second event",
+		"Third event",
+		"Fourth event",
+		"Fifth event",
+	}
+
+	for _, message := range messages {
+		updated, cmd := model.Update(aiToastMsg{level: "info", message: message})
+		if cmd == nil {
+			t.Fatalf("expected toast %q to schedule follow-up work", message)
+		}
+		model = updated.(*aiModel)
+	}
+
+	if len(model.toasts) != aiToastStackLimit {
+		t.Fatalf("expected %d stacked toasts, got %d", aiToastStackLimit, len(model.toasts))
+	}
+
+	wantOrder := []string{"Fifth event", "Fourth event", "Third event", "Second event"}
+	for idx, want := range wantOrder {
+		if got := model.toasts[idx].message; got != want {
+			t.Fatalf("expected toast %d to be %q, got %q", idx, want, got)
+		}
+	}
+
+	view := ansi.Strip(model.View().Content)
+	for _, want := range wantOrder {
+		if !strings.Contains(view, want) {
+			t.Fatalf("expected stacked toast view to contain %q, got %q", want, view)
+		}
+	}
+	if strings.Contains(view, "First event") {
+		t.Fatalf("expected oldest toast to be dropped from the stack, got %q", view)
+	}
+
+	if strings.Index(view, "Fifth event") > strings.Index(view, "Fourth event") {
+		t.Fatalf("expected newest toast to render above older toasts, got %q", view)
+	}
+
+	expiredID := model.toasts[1].id
+	updated, _ := model.Update(aiToastExpiredMsg{id: expiredID})
+	model = updated.(*aiModel)
+	if len(model.toasts) != aiToastStackLimit-1 {
+		t.Fatalf("expected one toast to expire from the stack, got %d", len(model.toasts))
+	}
+	for _, toast := range model.toasts {
+		if toast.id == expiredID {
+			t.Fatalf("expected expired toast %d to be removed, got %+v", expiredID, model.toasts)
+		}
 	}
 }
 
