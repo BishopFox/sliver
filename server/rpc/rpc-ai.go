@@ -10,6 +10,7 @@ import (
 	serverai "github.com/bishopfox/sliver/server/ai"
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/rpc/aitools"
 	"github.com/gofrs/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -214,7 +215,7 @@ func (rpc *Server) runAIConversationCompletion(conversationID string, operatorNa
 			context.Background(),
 			runtime,
 			conversation,
-			newAIToolExecutor(rpc, conversation),
+			aitools.NewExecutor(rpc, conversation),
 			sink,
 		)
 	} else {
