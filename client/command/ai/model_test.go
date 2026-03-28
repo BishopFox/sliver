@@ -283,6 +283,29 @@ func TestRenderConversationTranscriptLinesRendersReasoningAndToolBlocks(t *testi
 	}
 }
 
+func TestRenderConversationTranscriptLinesRendersReasoningMarkdown(t *testing.T) {
+	conversation := &clientpb.AIConversation{
+		Messages: []*clientpb.AIConversationMessage{
+			{
+				Kind:       clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_REASONING,
+				Visibility: clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
+				State:      clientpb.AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED,
+				Content:    "Summary:\n\n- Checked the active target before choosing a tool.\n- Used `fs_ls` after that.",
+			},
+		},
+	}
+
+	rendered := ansi.Strip(strings.Join(renderConversationTranscriptLines(72, conversation), "\n"))
+	for _, fragment := range []string{"Reasoning", "Checked the active target before choosing a tool.", "fs_ls"} {
+		if !strings.Contains(rendered, fragment) {
+			t.Fatalf("expected transcript to contain %q, got %q", fragment, rendered)
+		}
+	}
+	if strings.Contains(rendered, "`fs_ls`") {
+		t.Fatalf("expected reasoning transcript to render markdown inline code, got %q", rendered)
+	}
+}
+
 func TestRenderConversationTranscriptLinesExplainsMissingReasoningSummary(t *testing.T) {
 	conversation := &clientpb.AIConversation{
 		Messages: []*clientpb.AIConversationMessage{

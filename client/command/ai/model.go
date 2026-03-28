@@ -5018,7 +5018,7 @@ func renderConversationMessageBodyLines(width int, message *clientpb.AIConversat
 
 	switch message.GetKind() {
 	case clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_REASONING:
-		return renderTranscriptPlainBodyLines(width, message.GetContent(), "Reasoning was used, but the provider did not return a visible summary.")
+		return renderTranscriptMarkdownBodyLines(width, message.GetContent(), "Reasoning was used, but the provider did not return a visible summary.")
 	case clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_TOOL_CALL:
 		return renderToolCallBodyLines(width, message)
 	default:
@@ -5027,9 +5027,13 @@ func renderConversationMessageBodyLines(width int, message *clientpb.AIConversat
 }
 
 func renderTranscriptMessageBodyLines(width int, content string) []string {
+	return renderTranscriptMarkdownBodyLines(width, content, "Empty message.")
+}
+
+func renderTranscriptMarkdownBodyLines(width int, content string, empty string) []string {
 	content = strings.Trim(content, "\n")
 	if strings.TrimSpace(content) == "" {
-		return []string{"Empty message."}
+		return []string{empty}
 	}
 
 	rendered, err := renderMarkdownWithGlow(maxInt(8, width), content)
@@ -5039,7 +5043,7 @@ func renderTranscriptMessageBodyLines(width int, content string) []string {
 
 	rendered = strings.Trim(rendered, "\n")
 	if strings.TrimSpace(rendered) == "" {
-		return []string{"Empty message."}
+		return wrapText(content, width)
 	}
 	return trimRenderedLines(strings.Split(rendered, "\n"))
 }
