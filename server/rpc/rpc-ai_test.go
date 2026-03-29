@@ -448,6 +448,71 @@ func TestSaveAIConversationMessagePersistsReasoningAndToolBlocks(t *testing.T) {
 					"beacon_id":  []string{"string", "null"},
 					"session_id": []string{"string", "null"},
 				})
+				assertStrictResponseToolSchema(t, tools, "base32_encode", []string{"data_base64", "text"}, map[string][]string{
+					"data_base64": []string{"string", "null"},
+					"text":        []string{"string", "null"},
+				})
+				assertStrictResponseToolSchema(t, tools, "base32_decode", []string{"max_bytes", "value"}, map[string][]string{
+					"max_bytes": []string{"integer", "null"},
+					"value":     []string{"string"},
+				})
+				assertStrictResponseToolSchema(t, tools, "base64_encode", []string{"data_base64", "text"}, map[string][]string{
+					"data_base64": []string{"string", "null"},
+					"text":        []string{"string", "null"},
+				})
+				assertStrictResponseToolSchema(t, tools, "base64_decode", []string{"max_bytes", "value"}, map[string][]string{
+					"max_bytes": []string{"integer", "null"},
+					"value":     []string{"string"},
+				})
+				assertStrictResponseToolSchema(t, tools, "hex_encode", []string{"data_base64", "text"}, map[string][]string{
+					"data_base64": []string{"string", "null"},
+					"text":        []string{"string", "null"},
+				})
+				assertStrictResponseToolSchema(t, tools, "hex_decode", []string{"max_bytes", "value"}, map[string][]string{
+					"max_bytes": []string{"integer", "null"},
+					"value":     []string{"string"},
+				})
+				assertStrictResponseToolSchema(t, tools, "gzip_encode", []string{"data_base64", "text"}, map[string][]string{
+					"data_base64": []string{"string", "null"},
+					"text":        []string{"string", "null"},
+				})
+				assertStrictResponseToolSchema(t, tools, "gzip_decode", []string{"data_base64", "max_bytes"}, map[string][]string{
+					"data_base64": []string{"string"},
+					"max_bytes":   []string{"integer", "null"},
+				})
+				assertStrictResponseToolSchema(t, tools, "loot_list", []string{}, map[string][]string{})
+				assertStrictResponseToolSchema(t, tools, "loot_read", []string{"loot_id", "max_bytes"}, map[string][]string{
+					"loot_id":   []string{"string"},
+					"max_bytes": []string{"integer", "null"},
+				})
+				assertStrictResponseToolSchema(t, tools, "loot_add", []string{"data_base64", "file_name", "file_type_name", "file_type_value", "name", "origin_host_uuid", "text"}, map[string][]string{
+					"data_base64":      []string{"string", "null"},
+					"file_name":        []string{"string", "null"},
+					"file_type_name":   []string{"string", "null"},
+					"file_type_value":  []string{"integer", "null"},
+					"name":             []string{"string"},
+					"origin_host_uuid": []string{"string", "null"},
+					"text":             []string{"string", "null"},
+				})
+				assertStrictResponseToolSchema(t, tools, "loot_delete", []string{"loot_id"}, map[string][]string{
+					"loot_id": []string{"string"},
+				})
+				assertStrictResponseToolSchema(t, tools, "credentials_list", []string{}, map[string][]string{})
+				assertStrictResponseToolSchema(t, tools, "credentials_read", []string{"credential_id"}, map[string][]string{
+					"credential_id": []string{"string"},
+				})
+				assertStrictResponseToolSchema(t, tools, "credentials_add", []string{"collection", "hash", "hash_type_name", "hash_type_value", "origin_host_uuid", "plaintext", "username"}, map[string][]string{
+					"collection":       []string{"string", "null"},
+					"hash":             []string{"string", "null"},
+					"hash_type_name":   []string{"string", "null"},
+					"hash_type_value":  []string{"integer", "null"},
+					"origin_host_uuid": []string{"string", "null"},
+					"plaintext":        []string{"string", "null"},
+					"username":         []string{"string", "null"},
+				})
+				assertStrictResponseToolSchema(t, tools, "credentials_delete", []string{"credential_id"}, map[string][]string{
+					"credential_id": []string{"string"},
+				})
 				assertStrictResponseToolSchema(t, tools, "search_aliases", []string{"beacon_id", "max_results", "only_compatible", "query", "session_id"}, map[string][]string{
 					"beacon_id":       []string{"string", "null"},
 					"max_results":     []string{"integer", "null"},

@@ -221,6 +221,8 @@ func (e *executor) ToolDefinitions() []serverai.AgenticToolDefinition {
 	}
 	definitions = append(definitions, filesystemToolDefinitions()...)
 	definitions = append(definitions, systemToolDefinitions()...)
+	definitions = append(definitions, encodingToolDefinitions()...)
+	definitions = append(definitions, storeToolDefinitions()...)
 	definitions = append(definitions, packageToolDefinitions()...)
 	return definitions
 }
@@ -374,6 +376,12 @@ func (e *executor) CallTool(ctx context.Context, name string, arguments string) 
 		}
 		return e.callScreenshot(ctx, args)
 	default:
+		if result, handled, err := e.callEncodingTool(ctx, name, arguments); handled {
+			return result, err
+		}
+		if result, handled, err := e.callStoreTool(ctx, name, arguments); handled {
+			return result, err
+		}
 		if result, handled, err := e.callPackageTool(ctx, name, arguments); handled {
 			return result, err
 		}
