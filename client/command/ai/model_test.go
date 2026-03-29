@@ -194,6 +194,14 @@ func TestTranscriptConversationLabelUsesDarkerPrimaryShade(t *testing.T) {
 	assertColorEqual(t, styles.label.GetForeground(), clienttheme.DefaultMod(900))
 }
 
+func TestTranscriptSystemPromptStyleUsesSecondaryTheme(t *testing.T) {
+	styles := transcriptSpeakerStyle("System", "system")
+
+	assertColorEqual(t, styles.border.GetForeground(), clienttheme.Secondary())
+	assertColorEqual(t, styles.label.GetBackground(), clienttheme.Secondary())
+	assertColorEqual(t, styles.meta.GetForeground(), clienttheme.Secondary())
+}
+
 func TestBuildConversationMarkdownWithoutConversationAvoidsKeyHints(t *testing.T) {
 	markdown := buildConversationMarkdown(nil)
 	if strings.Contains(markdown, "`n`") {
@@ -913,10 +921,15 @@ func TestRenderFooterUsesPaneSpecificControls(t *testing.T) {
 
 	model.focus = aiFocusComposer
 	footer = ansi.Strip(model.renderFooter())
-	expected = []string{"focus: composer", "tab: sidebar", "enter: send", "/exit: quit", "ctrl+o: context", "ctrl+s: target", "ctrl+t: thinking", "ctrl+u: clear", "ctrl+c: quit"}
+	expected = []string{"focus: composer", "tab: sidebar", "enter: send", "/exit: quit", "ctrl+u: clear", "ctrl+c: quit"}
 	for _, fragment := range expected {
 		if !strings.Contains(footer, fragment) {
 			t.Fatalf("expected composer footer to contain %q, got %q", fragment, footer)
+		}
+	}
+	for _, fragment := range []string{"ctrl+o: context", "ctrl+s: target", "ctrl+t: thinking"} {
+		if strings.Contains(footer, fragment) {
+			t.Fatalf("expected composer footer to omit duplicated composer shortcuts %q, got %q", fragment, footer)
 		}
 	}
 	if strings.Contains(footer, "esc: blur") {

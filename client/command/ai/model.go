@@ -83,7 +83,7 @@ const (
 
 const (
 	aiExperimentalWarningTitle        = ">>> WARNING >>>"
-	aiExperimentalWarningBody         = "WARNING: This functionality is provided on an EXPERIMENTAL basis and may be UNSAFE or unstable. No guarantees are made regarding reliability or data integrity. Use at your own risk."
+	aiExperimentalWarningBody         = "This functionality is provided on an EXPERIMENTAL basis and may be UNSAFE or unstable. No guarantees are made regarding reliability or data integrity. Use at your own risk."
 	aiExperimentalWarningCancelLabel  = "I can't read"
 	aiExperimentalWarningConfirmLabel = "I won't be surprised if the model nukes a machine"
 )
@@ -2390,7 +2390,7 @@ func (m *aiModel) footerHints() []string {
 		hints = append(hints, "n: new", "t: thinking", "r: refresh", "q/esc: quit")
 		return hints
 	case aiFocusComposer:
-		return []string{"tab: sidebar", "enter: send", "/exit: quit", "ctrl+o: context", "ctrl+s: target", "ctrl+t: thinking", "ctrl+u: clear", "ctrl+c: quit"}
+		return []string{"tab: sidebar", "enter: send", "/exit: quit", "ctrl+u: clear", "ctrl+c: quit"}
 	default:
 		return []string{"tab: next", "q/esc: quit"}
 	}
@@ -5663,6 +5663,18 @@ func transcriptSpeakerStyle(label, role string) transcriptSpeakerStyles {
 	}
 	if role == "system" && strings.EqualFold(label, "Conversation") {
 		accent := clienttheme.PrimaryMod(200)
+		return transcriptSpeakerStyles{
+			border: lipgloss.NewStyle().Foreground(accent),
+			label: lipgloss.NewStyle().
+				Bold(true).
+				Foreground(clienttheme.DefaultMod(900)).
+				Background(accent).
+				Padding(0, 1),
+			meta: lipgloss.NewStyle().Foreground(accent),
+		}
+	}
+	if role == "system" && strings.EqualFold(label, "System") {
+		accent := clienttheme.Secondary()
 		return transcriptSpeakerStyles{
 			border: lipgloss.NewStyle().Foreground(accent),
 			label: lipgloss.NewStyle().
