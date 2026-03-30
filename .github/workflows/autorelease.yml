@@ -2,8 +2,8 @@ name: Release
 
 on:
   push:
-    branches:
-      - master
+    tags:
+      - "v*.*.*"
 
 permissions:
   contents: write
@@ -21,11 +21,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Find Semver Tag
+      - name: Validate Release Tag
         id: tag
         run: |
-          git fetch --prune --tags -f
-          tag=$(git tag --points-at "$GITHUB_SHA" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
+          git fetch --prune --tags -f origin
+          tag="${GITHUB_REF_NAME}"
+
+          if ! printf '%s\n' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Tag $tag is not a release semver tag."
+            exit 0
+          fi
+
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" "origin/master"; then
+            echo "Tag $tag does not point to a commit on origin/master."
+            exit 0
+          fi
+
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
   release:
