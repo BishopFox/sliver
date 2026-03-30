@@ -16,7 +16,6 @@ func TestAIConfigParsesYAML(t *testing.T) {
 	}
 
 	data := []byte(`provider: "openai"
-model: "gpt-test"
 thinking_level: "high"
 system_prompt: "Stay concise."
 max_output_tokens: 2048
@@ -26,6 +25,9 @@ anthropic:
   base_url: "https://api.anthropic.example"
   use_bedrock: true
 openai:
+  models:
+    - "gpt-test"
+    - "gpt-mini-test"
   api_key: "openai-key"
   base_url: "https://api.openai.example"
   organization: "org-test"
@@ -50,8 +52,8 @@ openrouter:
 	if config.Provider != "openai" {
 		t.Fatalf("expected provider %q, got %q", "openai", config.Provider)
 	}
-	if config.Model != "gpt-test" {
-		t.Fatalf("expected model %q, got %q", "gpt-test", config.Model)
+	if config.Model != "" {
+		t.Fatalf("expected legacy model field to remain empty, got %q", config.Model)
 	}
 	if config.ThinkingLevel != "high" {
 		t.Fatalf("expected thinking level %q, got %q", "high", config.ThinkingLevel)
@@ -70,6 +72,9 @@ openrouter:
 	}
 	if config.OpenAI == nil || config.OpenAI.APIKey != "openai-key" || config.OpenAI.Organization != "org-test" || config.OpenAI.Project != "proj-test" {
 		t.Fatalf("expected openai config to load, got %#v", config.OpenAI)
+	}
+	if config.OpenAI == nil || len(config.OpenAI.Models) != 2 || config.OpenAI.Models[0] != "gpt-test" || config.OpenAI.Models[1] != "gpt-mini-test" {
+		t.Fatalf("expected openai models to load, got %#v", config.OpenAI)
 	}
 	if config.OpenAI == nil || config.OpenAI.UseResponsesAPI == nil || !*config.OpenAI.UseResponsesAPI {
 		t.Fatalf("expected openai responses api flag to load")
@@ -108,8 +113,48 @@ func TestAIConfigWritesDefault(t *testing.T) {
 	if !strings.Contains(string(data), "system_prompt:") {
 		t.Fatalf("expected default ai config to include system_prompt field, got %q", string(data))
 	}
+	if strings.Contains(string(data), "\nmodel:") || strings.HasPrefix(string(data), "model:") {
+		t.Fatalf("expected default ai config to omit legacy model field, got %q", string(data))
+	}
 	if !strings.Contains(string(data), "authorized security testing") {
 		t.Fatalf("expected default ai config to include the default system prompt, got %q", string(data))
+	}
+}
+
+func TestAIConfigMigratesLegacySharedModelToProviderModels(t *testing.T) {
+	t.Setenv("SLIVER_ROOT_DIR", t.TempDir())
+
+	configPath := GetAIConfigPath()
+	if err := os.MkdirAll(filepath.Dir(configPath), 0700); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
+	}
+
+	data := []byte(`provider: "openai"
+model: "gpt-test"
+openai:
+  api_key: "openai-key"
+`)
+	if err := os.WriteFile(configPath, data, 0600); err != nil {
+		t.Fatalf("failed to write legacy ai config: %v", err)
+	}
+
+	config := GetAIConfig()
+	if config.Model != "" {
+		t.Fatalf("expected legacy model field to be cleared, got %q", config.Model)
+	}
+	if config.OpenAI == nil || len(config.OpenAI.Models) != 1 || config.OpenAI.Models[0] != "gpt-test" {
+		t.Fatalf("expected legacy model to migrate into openai models, got %#v", config.OpenAI)
+	}
+
+	savedData, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("failed to read migrated ai config: %v", err)
+	}
+	if strings.Contains(string(savedData), "\nmodel:") || strings.HasPrefix(string(savedData), "model:") {
+		t.Fatalf("expected migrated ai config to omit legacy model field, got %q", string(savedData))
+	}
+	if !strings.Contains(string(savedData), "models:") {
+		t.Fatalf("expected migrated ai config to include provider models, got %q", string(savedData))
 	}
 }
 
@@ -140,8 +185,14 @@ ai:
 	if !config.DaemonMode || config.DaemonConfig == nil || config.DaemonConfig.Port != 4444 {
 		t.Fatalf("expected daemon settings to load, got %#v", config.DaemonConfig)
 	}
-	if config.AI == nil || config.AI.Provider != "openai" || config.AI.Model != "gpt-test" || config.AI.SystemPrompt != "Stay concise." {
+	if config.AI == nil || config.AI.Provider != "openai" || config.AI.SystemPrompt != "Stay concise." {
 		t.Fatalf("expected embedded AI config to migrate, got %#v", config.AI)
+	}
+	if config.AI == nil || config.AI.Model != "" {
+		t.Fatalf("expected embedded legacy ai model field to be cleared, got %#v", config.AI)
+	}
+	if config.AI == nil || config.AI.OpenAI == nil || len(config.AI.OpenAI.Models) != 1 || config.AI.OpenAI.Models[0] != "gpt-test" {
+		t.Fatalf("expected embedded ai model to migrate into openai models, got %#v", config.AI)
 	}
 	if config.AI.OpenAI == nil || config.AI.OpenAI.APIKey != "openai-key" {
 		t.Fatalf("expected embedded openai api key to migrate, got %#v", config.AI.OpenAI)

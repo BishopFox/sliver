@@ -1295,8 +1295,13 @@ func (m *aiModel) handleExperimentalWarningModalKey(key tea.Key) (tea.Model, tea
 }
 
 func (m *aiModel) handleNewConversationModalKey(key tea.Key) (tea.Model, tea.Cmd) {
-	if key.Mod.Contains(tea.ModCtrl) && key.Code == 'u' {
-		return m.clearNewConversationInput()
+	if key.Mod.Contains(tea.ModCtrl) {
+		switch key.Code {
+		case 'u':
+			return m.clearNewConversationInput()
+		case 'r':
+			return m.resetNewConversationSystemPrompt()
+		}
 	}
 
 	switch key.Code {
@@ -1445,6 +1450,19 @@ func (m *aiModel) clearNewConversationInput() (tea.Model, tea.Cmd) {
 	*input = nil
 	*cursor = 0
 	m.status = label + " cleared."
+	return m, nil
+}
+
+func (m *aiModel) resetNewConversationSystemPrompt() (tea.Model, tea.Cmd) {
+	if m.modal == nil {
+		return m, nil
+	}
+
+	systemPrompt := []rune(m.serverDefaultSystemPrompt())
+	m.modal.systemPrompt = systemPrompt
+	m.modal.systemCursor = len(systemPrompt)
+	m.modal.focus = aiModalFocusSystemPrompt
+	m.status = "System prompt reset to the server default."
 	return m, nil
 }
 
@@ -1741,7 +1759,7 @@ func (m *aiModel) renderNewConversationModal() string {
 		"",
 		m.renderNewConversationActions(bodyWidth),
 		"",
-		m.styles.chip.Width(bodyWidth).Render("tab: focus  up/down: fields  ctrl+u: clear  enter: create  esc: cancel"),
+		m.styles.chip.Width(bodyWidth).Render("tab: focus  up/down: fields  ctrl+u: clear  ctrl+r: server default  enter: create  esc: cancel"),
 	}
 
 	box := lipgloss.NewStyle().
@@ -3314,9 +3332,16 @@ func (m *aiModel) defaultSystemPrompt() string {
 		}
 	}
 	if m.config != nil {
-		return strings.TrimSpace(m.config.GetSystemPrompt())
+		return m.serverDefaultSystemPrompt()
 	}
 	return ""
+}
+
+func (m *aiModel) serverDefaultSystemPrompt() string {
+	if m.config == nil {
+		return ""
+	}
+	return strings.TrimSpace(m.config.GetSystemPrompt())
 }
 
 func (m *aiModel) defaultThinkingLevel() string {

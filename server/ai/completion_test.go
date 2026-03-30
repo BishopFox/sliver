@@ -177,8 +177,8 @@ func TestCompleteConversationOpenAIUsesDefaultBaseURLWhenUnset(t *testing.T) {
 	cfg := &configs.ServerConfig{
 		AI: &configs.AIConfig{
 			Provider: ProviderOpenAI,
-			Model:    "gpt-5.4",
 			OpenAI: &configs.AIProviderConfig{
+				Models:          []string{"gpt-5.4"},
 				APIKey:          "openai-key",
 				UseResponsesAPI: boolPtr(true),
 			},
@@ -274,8 +274,8 @@ func TestCompleteConversationOpenAIChatEnablesWebSearch(t *testing.T) {
 	cfg := &configs.ServerConfig{
 		AI: &configs.AIConfig{
 			Provider: ProviderOpenAI,
-			Model:    "gpt-5.4",
 			OpenAI: &configs.AIProviderConfig{
+				Models:          []string{"gpt-5.4"},
 				APIKey:          "openai-key",
 				UseResponsesAPI: boolPtr(false),
 			},
@@ -365,8 +365,8 @@ func TestResolveRuntimeConfigOpenAICompatAllowsBaseURLWithoutAPIKey(t *testing.T
 	cfg := &configs.ServerConfig{
 		AI: &configs.AIConfig{
 			Provider: ProviderOpenAICompat,
-			Model:    "gpt-oss-120b",
 			OpenAICompat: &configs.AIProviderConfig{
+				Models:  []string{"gpt-oss-120b"},
 				BaseURL: "http://127.0.0.1:8080/v1",
 			},
 		},
@@ -393,9 +393,9 @@ func TestResolveRuntimeConfigUsesConversationThinkingOverride(t *testing.T) {
 	cfg := &configs.ServerConfig{
 		AI: &configs.AIConfig{
 			Provider:      ProviderOpenAI,
-			Model:         "gpt-5.4",
 			ThinkingLevel: "high",
 			OpenAI: &configs.AIProviderConfig{
+				Models:          []string{"gpt-5.4"},
 				APIKey:          "openai-key",
 				UseResponsesAPI: boolPtr(true),
 			},
@@ -491,8 +491,8 @@ func TestCompleteConversationOpenAICompatUsesBaseURLWithoutAuth(t *testing.T) {
 	cfg := &configs.ServerConfig{
 		AI: &configs.AIConfig{
 			Provider: ProviderOpenAICompat,
-			Model:    "gpt-oss-120b",
 			OpenAICompat: &configs.AIProviderConfig{
+				Models:  []string{"gpt-oss-120b"},
 				BaseURL: "http://127.0.0.1:8080/v1",
 			},
 		},

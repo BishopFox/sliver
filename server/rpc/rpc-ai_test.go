@@ -919,9 +919,9 @@ func saveOpenAICompletionConfig(t *testing.T, model string, thinkingLevel string
 	cfg := configs.GetServerConfig()
 	cfg.AI = &configs.AIConfig{
 		Provider:      serverai.ProviderOpenAI,
-		Model:         model,
 		ThinkingLevel: thinkingLevel,
 		OpenAI: &configs.AIProviderConfig{
+			Models:          []string{model},
 			APIKey:          apiKey,
 			BaseURL:         baseURL,
 			UseResponsesAPI: boolPtr(true),

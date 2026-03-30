@@ -30,8 +30,13 @@ import (
 )
 
 const (
-	aiConfigFileName      = "ai.yaml"
-	defaultAISystemPrompt = `You are Sliver's AI copilot for authorized security testing, detection engineering, lab work, and incident-response support in environments the operator is explicitly permitted to assess.
+	aiConfigFileName       = "ai.yaml"
+	aiProviderAnthropic    = "anthropic"
+	aiProviderGoogle       = "google"
+	aiProviderOpenAI       = "openai"
+	aiProviderOpenAICompat = "openai-compat"
+	aiProviderOpenRouter   = "openrouter"
+	defaultAISystemPrompt  = `You are Sliver's AI copilot for authorized security testing, detection engineering, lab work, and incident-response support in environments the operator is explicitly permitted to assess.
 
 Your job is to help the operator make careful, high-signal decisions inside the Sliver workflow.
 
@@ -56,11 +61,19 @@ Response style:
 )
 
 var (
-	aiConfigLog = log.NamedLogger("config", "ai")
+	aiConfigLog          = log.NamedLogger("config", "ai")
+	supportedAIProviders = []string{
+		aiProviderAnthropic,
+		aiProviderGoogle,
+		aiProviderOpenAI,
+		aiProviderOpenAICompat,
+		aiProviderOpenRouter,
+	}
 )
 
 // AIProviderConfig - Shared AI provider configuration.
 type AIProviderConfig struct {
+	Models          []string          `json:"models,omitempty" yaml:"models,omitempty"`
 	APIKey          string            `json:"api_key" yaml:"api_key"`
 	BaseURL         string            `json:"base_url" yaml:"base_url"`
 	Headers         map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`
@@ -76,7 +89,7 @@ type AIProviderConfig struct {
 // AIConfig - Server-side AI provider configuration.
 type AIConfig struct {
 	Provider         string            `json:"provider" yaml:"provider"`
-	Model            string            `json:"model" yaml:"model"`
+	Model            string            `json:"model,omitempty" yaml:"model,omitempty"` // Deprecated legacy shared model field; migrated into provider-specific models on save.
 	ThinkingLevel    string            `json:"thinking_level" yaml:"thinking_level"`
 	SystemPrompt     string            `json:"system_prompt" yaml:"system_prompt"`
 	MaxOutputTokens  int64             `json:"max_output_tokens,omitempty" yaml:"max_output_tokens,omitempty"`
@@ -218,7 +231,7 @@ func normalizeAIConfig(config *AIConfig) *AIConfig {
 	if config == nil {
 		config = defaultAIConfig()
 	}
-	config.Provider = strings.ToLower(strings.TrimSpace(config.Provider))
+	config.Provider = normalizeAIProviderName(config.Provider)
 	config.Model = strings.TrimSpace(config.Model)
 	config.ThinkingLevel = strings.ToLower(strings.TrimSpace(config.ThinkingLevel))
 	config.SystemPrompt = strings.TrimSpace(config.SystemPrompt)
@@ -250,6 +263,7 @@ func normalizeAIConfig(config *AIConfig) *AIConfig {
 		config.OpenRouter = defaultAIProviderConfig()
 	}
 	normalizeAIProviderConfig(config.OpenRouter)
+	migrateLegacyAIModel(config)
 	return config
 }
 
@@ -257,6 +271,7 @@ func normalizeAIProviderConfig(provider *AIProviderConfig) {
 	if provider == nil {
 		return
 	}
+	provider.Models = normalizeStringSlice(provider.Models)
 	provider.APIKey = strings.TrimSpace(provider.APIKey)
 	provider.BaseURL = strings.TrimSpace(provider.BaseURL)
 	provider.UserAgent = strings.TrimSpace(provider.UserAgent)
@@ -310,6 +325,127 @@ func normalizeStringMap(values map[string]string) map[string]string {
 	}
 	if len(normalized) == 0 {
 		return map[string]string{}
+	}
+	return normalized
+}
+
+func migrateLegacyAIModel(config *AIConfig) {
+	if config == nil {
+		return
+	}
+	legacyModel := strings.TrimSpace(config.Model)
+	if legacyModel == "" {
+		return
+	}
+
+	provider := legacyAIModelProvider(config)
+	providerConfig := aiProviderConfigByName(config, provider)
+	if providerConfig != nil {
+		providerConfig.Models = normalizeStringSlice(append([]string{legacyModel}, providerConfig.Models...))
+	}
+	config.Model = ""
+}
+
+func legacyAIModelProvider(config *AIConfig) string {
+	if config == nil {
+		return aiProviderOpenAI
+	}
+	if provider := normalizeAIProviderName(config.Provider); isSupportedAIProvider(provider) {
+		return provider
+	}
+	for _, provider := range supportedAIProviders {
+		if aiProviderConfigured(provider, aiProviderConfigByName(config, provider)) {
+			return provider
+		}
+	}
+	return aiProviderOpenAI
+}
+
+func normalizeAIProviderName(name string) string {
+	normalized := strings.ToLower(strings.TrimSpace(name))
+	switch normalized {
+	case "gemini":
+		return aiProviderGoogle
+	case "openai_compat", "openaicompat", "openai-compatible":
+		return aiProviderOpenAICompat
+	default:
+		return normalized
+	}
+}
+
+func isSupportedAIProvider(provider string) bool {
+	switch normalizeAIProviderName(provider) {
+	case aiProviderAnthropic, aiProviderGoogle, aiProviderOpenAI, aiProviderOpenAICompat, aiProviderOpenRouter:
+		return true
+	default:
+		return false
+	}
+}
+
+func aiProviderConfigByName(config *AIConfig, provider string) *AIProviderConfig {
+	if config == nil {
+		return nil
+	}
+	switch normalizeAIProviderName(provider) {
+	case aiProviderAnthropic:
+		return config.Anthropic
+	case aiProviderGoogle:
+		return config.Google
+	case aiProviderOpenAI:
+		return config.OpenAI
+	case aiProviderOpenAICompat:
+		return config.OpenAICompat
+	case aiProviderOpenRouter:
+		return config.OpenRouter
+	default:
+		return nil
+	}
+}
+
+func aiProviderConfigured(provider string, providerConfig *AIProviderConfig) bool {
+	if providerConfig == nil {
+		return false
+	}
+
+	switch normalizeAIProviderName(provider) {
+	case aiProviderAnthropic:
+		return strings.TrimSpace(providerConfig.APIKey) != "" ||
+			providerConfig.UseBedrock ||
+			(strings.TrimSpace(providerConfig.Project) != "" && strings.TrimSpace(providerConfig.Location) != "")
+	case aiProviderGoogle:
+		return strings.TrimSpace(providerConfig.APIKey) != "" ||
+			(strings.TrimSpace(providerConfig.Project) != "" && strings.TrimSpace(providerConfig.Location) != "")
+	case aiProviderOpenAI:
+		return strings.TrimSpace(providerConfig.APIKey) != ""
+	case aiProviderOpenAICompat:
+		return strings.TrimSpace(providerConfig.BaseURL) != ""
+	case aiProviderOpenRouter:
+		return strings.TrimSpace(providerConfig.APIKey) != ""
+	default:
+		return false
+	}
+}
+
+func normalizeStringSlice(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+
+	normalized := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		normalized = append(normalized, value)
+	}
+	if len(normalized) == 0 {
+		return nil
 	}
 	return normalized
 }

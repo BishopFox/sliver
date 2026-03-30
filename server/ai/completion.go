@@ -110,11 +110,8 @@ func ResolveRuntimeConfig(cfg *configs.ServerConfig, conversation *clientpb.AICo
 		applyProviderRuntimeConfig(runtime, providerConfig)
 	}
 
-	if runtime.Model == "" && cfg != nil && cfg.AI != nil {
-		runtime.Model = strings.TrimSpace(cfg.AI.Model)
-	}
 	if runtime.Model == "" {
-		runtime.Model = defaultModelForProvider(runtime.Provider)
+		runtime.Model = configuredDefaultModel(runtime.Provider, selectedAIConfig(cfg), providerConfig)
 	}
 	runtime.UseResponsesAPI = useResponsesAPI(runtime.Provider, providerConfig)
 
@@ -126,7 +123,7 @@ func ResolveRuntimeConfig(cfg *configs.ServerConfig, conversation *clientpb.AICo
 	case !runtimeProviderConfigured(runtime):
 		return runtime, errors.New(missingProviderConfigError(runtime.Provider))
 	case runtime.Model == "":
-		return runtime, fmt.Errorf("server AI provider %q is missing a model; update `ai.model` or choose a provider default", runtime.Provider)
+		return runtime, fmt.Errorf("server AI provider %q is missing a model; update `ai.%s.models` or choose a provider default", runtime.Provider, providerConfigKey(runtime.Provider))
 	case !completionDriverAvailable(runtime):
 		return runtime, missingDriverError(runtime)
 	default:
@@ -221,6 +218,39 @@ func defaultModelForProvider(provider string) string {
 	default:
 		return ""
 	}
+}
+
+func configuredDefaultModel(provider string, aiConfig *configs.AIConfig, providerConfig *configs.AIProviderConfig) string {
+	if providerConfig != nil {
+		for _, model := range providerConfig.Models {
+			model = strings.TrimSpace(model)
+			if model != "" {
+				return model
+			}
+		}
+	}
+	if aiConfig != nil {
+		if legacyModel := strings.TrimSpace(aiConfig.Model); legacyModel != "" {
+			return legacyModel
+		}
+	}
+	return defaultModelForProvider(provider)
+}
+
+func providerConfigKey(provider string) string {
+	switch NormalizeProviderName(provider) {
+	case ProviderOpenAICompat:
+		return "openai_compat"
+	default:
+		return NormalizeProviderName(provider)
+	}
+}
+
+func selectedAIConfig(cfg *configs.ServerConfig) *configs.AIConfig {
+	if cfg == nil {
+		return nil
+	}
+	return cfg.AI
 }
 
 func completionDriverAvailable(runtime *RuntimeConfig) bool {

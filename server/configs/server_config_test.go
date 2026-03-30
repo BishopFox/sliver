@@ -61,7 +61,6 @@ cxx:
 	}
 	aiPath := GetAIConfigPath()
 	aiData := []byte(`provider: "openai"
-model: "gpt-test"
 thinking_level: "high"
 max_output_tokens: 2048
 temperature: 0.25
@@ -70,6 +69,9 @@ anthropic:
   base_url: "https://api.anthropic.example"
   use_bedrock: true
 openai:
+  models:
+    - "gpt-test"
+    - "gpt-mini-test"
   api_key: "openai-key"
   base_url: "https://api.openai.example"
   organization: "org-test"
@@ -118,8 +120,11 @@ openrouter:
 	if config.AI == nil || config.AI.Provider != "openai" {
 		t.Fatalf("expected ai provider %q, got %#v", "openai", config.AI)
 	}
-	if config.AI == nil || config.AI.Model != "gpt-test" {
-		t.Fatalf("expected ai model %q, got %#v", "gpt-test", config.AI)
+	if config.AI == nil || config.AI.Model != "" {
+		t.Fatalf("expected legacy ai model field to remain empty, got %#v", config.AI)
+	}
+	if config.AI == nil || config.AI.OpenAI == nil || len(config.AI.OpenAI.Models) != 2 || config.AI.OpenAI.Models[0] != "gpt-test" || config.AI.OpenAI.Models[1] != "gpt-mini-test" {
+		t.Fatalf("expected ai openai models to load, got %#v", config.AI)
 	}
 	if config.AI == nil || config.AI.ThinkingLevel != "high" {
 		t.Fatalf("expected ai thinking level %q, got %#v", "high", config.AI)
@@ -218,6 +223,13 @@ func TestServerConfigWritesDefault(t *testing.T) {
 	}
 	if _, err := os.Stat(GetAIConfigPath()); err != nil {
 		t.Fatalf("expected default ai config file to exist: %v", err)
+	}
+	aiData, err := os.ReadFile(GetAIConfigPath())
+	if err != nil {
+		t.Fatalf("failed to read default ai config: %v", err)
+	}
+	if strings.Contains(string(aiData), "\nmodel:") || strings.HasPrefix(string(aiData), "model:") {
+		t.Fatalf("expected default ai config to omit legacy model field, got %q", string(aiData))
 	}
 	data, err := os.ReadFile(GetServerConfigPath())
 	if err != nil {
@@ -343,8 +355,14 @@ func TestServerConfigMigratesLegacyJSON(t *testing.T) {
 	if config.AI == nil || config.AI.OpenRouter == nil || config.AI.OpenRouter.APIKey != "openrouter-legacy" {
 		t.Fatalf("expected legacy ai openrouter config to load")
 	}
-	if config.AI == nil || config.AI.Provider != "anthropic" || config.AI.Model != "claude-test" || config.AI.ThinkingLevel != "medium" || config.AI.MaxOutputTokens != 1024 {
+	if config.AI == nil || config.AI.Provider != "anthropic" || config.AI.ThinkingLevel != "medium" || config.AI.MaxOutputTokens != 1024 {
 		t.Fatalf("expected legacy ai selections to load, got %#v", config.AI)
+	}
+	if config.AI == nil || config.AI.Model != "" {
+		t.Fatalf("expected legacy ai model field to be cleared, got %#v", config.AI)
+	}
+	if config.AI == nil || config.AI.Anthropic == nil || len(config.AI.Anthropic.Models) != 1 || config.AI.Anthropic.Models[0] != "claude-test" {
+		t.Fatalf("expected legacy model to migrate into anthropic models, got %#v", config.AI)
 	}
 	if config.Watchtower == nil || config.Watchtower.VTApiKey != "vt-legacy" {
 		t.Fatalf("expected legacy watch_tower to load")

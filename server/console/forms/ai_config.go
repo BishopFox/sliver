@@ -12,7 +12,7 @@ import (
 // AIConfigFormResult captures the server-side AI configuration collected from the form.
 type AIConfigFormResult struct {
 	Provider        string
-	Model           string
+	Models          []string
 	ThinkingLevel   string
 	SystemPrompt    string
 	APIKey          string
@@ -93,6 +93,7 @@ func EditAIConfig(result *AIConfigFormResult) error {
 		huh.NewOption("Medium", "medium"),
 		huh.NewOption("High", "high"),
 	}
+	modelsValue := formatAIModelList(result.Models)
 
 	detailsForm := newConsoleForm(
 		huh.NewGroup(
@@ -105,10 +106,10 @@ func EditAIConfig(result *AIConfigFormResult) error {
 					)
 				}, &result.Provider),
 			huh.NewInput().
-				Title("Model").
-				Description("Optional default model identifier. Leave blank to let the provider choose.").
+				Title("Models").
+				Description("Optional ordered model identifiers. Separate entries with commas. The first entry is the default.").
 				Placeholder("provider default").
-				Value(&result.Model),
+				Value(&modelsValue),
 			huh.NewSelect[string]().
 				Title("Thinking level").
 				Description("Optional reasoning/thinking level to store in ai.yaml.").
@@ -150,6 +151,7 @@ func EditAIConfig(result *AIConfigFormResult) error {
 	if err := runConsoleForm(detailsForm); err != nil {
 		return err
 	}
+	result.Models = parseAIModelList(modelsValue)
 
 	if err := providerSpecificAIConfig(result); err != nil {
 		return err
@@ -250,7 +252,7 @@ func normalizeAIConfigResult(result *AIConfigFormResult) {
 	if !ai.IsSupportedProvider(result.Provider) {
 		result.Provider = ai.ProviderOpenAI
 	}
-	result.Model = strings.TrimSpace(result.Model)
+	result.Models = parseAIModelList(formatAIModelList(result.Models))
 	result.ThinkingLevel = strings.ToLower(strings.TrimSpace(result.ThinkingLevel))
 	result.SystemPrompt = strings.TrimSpace(result.SystemPrompt)
 	switch result.ThinkingLevel {
@@ -284,6 +286,37 @@ func normalizeAIConfigResult(result *AIConfigFormResult) {
 		result.SkipAuth = false
 		result.UseBedrock = false
 	}
+}
+
+func formatAIModelList(models []string) string {
+	return strings.Join(parseAIModelList(strings.Join(models, ",")), ", ")
+}
+
+func parseAIModelList(value string) []string {
+	fields := strings.FieldsFunc(value, func(r rune) bool {
+		return r == ',' || r == '\n' || r == '\r'
+	})
+	if len(fields) == 0 {
+		return nil
+	}
+
+	models := make([]string, 0, len(fields))
+	seen := make(map[string]struct{}, len(fields))
+	for _, field := range fields {
+		field = strings.TrimSpace(field)
+		if field == "" {
+			continue
+		}
+		if _, exists := seen[field]; exists {
+			continue
+		}
+		seen[field] = struct{}{}
+		models = append(models, field)
+	}
+	if len(models) == 0 {
+		return nil
+	}
+	return models
 }
 
 func providerDisplayName(provider string) string {

@@ -2569,6 +2569,41 @@ func TestNewConversationModalCtrlUClearsInput(t *testing.T) {
 	}
 }
 
+func TestNewConversationModalCtrlRResetsSystemPromptToConfiguredDefault(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.config = &clientpb.AIConfigSummary{SystemPrompt: "Global default"}
+	model.currentConversation = &clientpb.AIConversation{SystemPrompt: "Current conversation prompt"}
+	model.modal = &aiModalState{
+		kind:         aiModalKindNewConversation,
+		title:        "New Conversation",
+		focus:        aiModalFocusConfirm,
+		systemPrompt: []rune("Custom prompt"),
+		systemCursor: len([]rune("Custom prompt")),
+	}
+
+	updated, cmd := model.Update(tea.KeyPressMsg{Code: 'r', Mod: tea.ModCtrl})
+	if cmd != nil {
+		t.Fatalf("did not expect ctrl+r to queue work, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal == nil {
+		t.Fatal("expected modal to remain open after resetting the system prompt")
+	}
+	if got := string(updatedModel.modal.systemPrompt); got != "Global default" {
+		t.Fatalf("expected ctrl+r to reset the system prompt to the server default, got %q", got)
+	}
+	if updatedModel.modal.systemCursor != len([]rune("Global default")) {
+		t.Fatalf("expected ctrl+r to place the cursor at the end of the server default, got %d", updatedModel.modal.systemCursor)
+	}
+	if updatedModel.modal.focus != aiModalFocusSystemPrompt {
+		t.Fatalf("expected ctrl+r to focus the system prompt, got %v", updatedModel.modal.focus)
+	}
+	if updatedModel.status != "System prompt reset to the server default." {
+		t.Fatalf("unexpected status: %q", updatedModel.status)
+	}
+}
+
 func TestNewConversationModalCreatesConversationWithSystemPrompt(t *testing.T) {
 	server := &aiRPCServer{
 		saveConversationResp: &clientpb.AIConversation{
@@ -2877,7 +2912,7 @@ func TestNewConversationModalViewIncludesOverlayContent(t *testing.T) {
 	}
 
 	view := ansi.Strip(model.View().Content)
-	expected := []string{"Conversations", "New Conversation", "System Prompt", "Conversation Name", "New conversation", "Cancel", "Create", "ctrl+u: clear"}
+	expected := []string{"Conversations", "New Conversation", "System Prompt", "Conversation Name", "New conversation", "Cancel", "Create", "ctrl+u: clear", "ctrl+r: server default"}
 	for _, fragment := range expected {
 		if !strings.Contains(view, fragment) {
 			t.Fatalf("expected new conversation modal view to contain %q, got %q", fragment, view)

@@ -69,9 +69,9 @@ func aiConfigCmd(_ *cobra.Command, args []string) {
 
 	fmt.Printf(Info+"Saved AI configuration to %s\n", configs.GetAIConfigPath())
 	fmt.Printf(
-		Info+"Provider=%s, model=%s, thinking=%s, api_key=%s\n",
+		Info+"Provider=%s, default_model=%s, thinking=%s, api_key=%s\n",
 		formatAIValue(serverConfig.AI.Provider, ai.ProviderOpenAI),
-		formatAIValue(serverConfig.AI.Model, "provider default"),
+		formatAIValue(aiConfigDefaultModel(serverConfig.AI, serverConfig.AI.Provider), "provider default"),
 		formatAIValue(serverConfig.AI.ThinkingLevel, "provider default"),
 		apiKeyStatus(serverConfig.AI.Provider, aiProviderConfig(serverConfig.AI, serverConfig.AI.Provider)),
 	)
@@ -105,7 +105,7 @@ func currentAIConfigFormResultForProvider(serverConfig *configs.ServerConfig, pr
 		UseResponsesAPI: provider == ai.ProviderOpenAI,
 	}
 	if serverConfig.AI != nil {
-		result.Model = strings.TrimSpace(serverConfig.AI.Model)
+		result.Models = aiConfigFormModels(serverConfig.AI, provider)
 		result.ThinkingLevel = strings.TrimSpace(serverConfig.AI.ThinkingLevel)
 		result.SystemPrompt = strings.TrimSpace(serverConfig.AI.SystemPrompt)
 	}
@@ -143,7 +143,7 @@ func applyAIConfigFormResult(serverConfig *configs.ServerConfig, result *forms.A
 
 	provider := ai.NormalizeProviderName(result.Provider)
 	serverConfig.AI.Provider = provider
-	serverConfig.AI.Model = strings.TrimSpace(result.Model)
+	serverConfig.AI.Model = ""
 	serverConfig.AI.ThinkingLevel = strings.ToLower(strings.TrimSpace(result.ThinkingLevel))
 	serverConfig.AI.SystemPrompt = strings.TrimSpace(result.SystemPrompt)
 
@@ -151,6 +151,7 @@ func applyAIConfigFormResult(serverConfig *configs.ServerConfig, result *forms.A
 	if providerConfig == nil {
 		return
 	}
+	providerConfig.Models = append([]string(nil), result.Models...)
 	providerConfig.APIKey = strings.TrimSpace(result.APIKey)
 	providerConfig.BaseURL = strings.TrimSpace(result.BaseURL)
 	providerConfig.UserAgent = strings.TrimSpace(result.UserAgent)
@@ -160,6 +161,27 @@ func applyAIConfigFormResult(serverConfig *configs.ServerConfig, result *forms.A
 	providerConfig.UseResponsesAPI = boolPtr(result.UseResponsesAPI)
 	providerConfig.SkipAuth = result.SkipAuth
 	providerConfig.UseBedrock = result.UseBedrock
+}
+
+func aiConfigFormModels(aiConfig *configs.AIConfig, provider string) []string {
+	if aiConfig == nil {
+		return nil
+	}
+	if providerConfig := aiProviderConfig(aiConfig, provider); providerConfig != nil && len(providerConfig.Models) > 0 {
+		return append([]string(nil), providerConfig.Models...)
+	}
+	if legacyModel := strings.TrimSpace(aiConfig.Model); legacyModel != "" {
+		return []string{legacyModel}
+	}
+	return nil
+}
+
+func aiConfigDefaultModel(aiConfig *configs.AIConfig, provider string) string {
+	models := aiConfigFormModels(aiConfig, provider)
+	if len(models) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(models[0])
 }
 
 func boolPtr(value bool) *bool {

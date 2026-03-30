@@ -10,10 +10,9 @@ func TestSafeConfigSummaryFromConfigUsesExplicitConfiguredProvider(t *testing.T)
 	cfg := &configs.ServerConfig{
 		AI: &configs.AIConfig{
 			Provider:      ProviderOpenAI,
-			Model:         "gpt-test",
 			ThinkingLevel: "high",
 			SystemPrompt:  "Stay concise.",
-			OpenAI:        &configs.AIProviderConfig{APIKey: "openai-key"},
+			OpenAI:        &configs.AIProviderConfig{APIKey: "openai-key", Models: []string{"gpt-test", "gpt-test-mini"}},
 			Anthropic:     &configs.AIProviderConfig{APIKey: "anthropic-key"},
 		},
 	}
@@ -33,6 +32,21 @@ func TestSafeConfigSummaryFromConfigUsesExplicitConfiguredProvider(t *testing.T)
 	}
 	if summary.GetSystemPrompt() != "Stay concise." {
 		t.Fatalf("expected system prompt %q, got %q", "Stay concise.", summary.GetSystemPrompt())
+	}
+}
+
+func TestSafeConfigSummaryFromConfigFallsBackToLegacySharedModel(t *testing.T) {
+	cfg := &configs.ServerConfig{
+		AI: &configs.AIConfig{
+			Provider: ProviderOpenAI,
+			Model:    "legacy-model",
+			OpenAI:   &configs.AIProviderConfig{APIKey: "openai-key"},
+		},
+	}
+
+	summary := SafeConfigSummaryFromConfig(cfg)
+	if summary.GetModel() != "legacy-model" {
+		t.Fatalf("expected legacy model %q, got %q", "legacy-model", summary.GetModel())
 	}
 }
 

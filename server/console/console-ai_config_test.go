@@ -35,12 +35,12 @@ func TestCurrentAIConfigFormResultForProviderLoadsRequestedProviderSettings(t *t
 	serverConfig := &configs.ServerConfig{
 		AI: &configs.AIConfig{
 			Provider:      ai.ProviderAnthropic,
-			Model:         "shared-model",
 			ThinkingLevel: "medium",
 			SystemPrompt:  "Stay concise.",
 			Anthropic:     &configs.AIProviderConfig{APIKey: "anthropic-key"},
 			Google:        &configs.AIProviderConfig{},
 			OpenAI: &configs.AIProviderConfig{
+				Models:          []string{"gpt-test", "gpt-test-mini"},
 				APIKey:          "openai-key",
 				BaseURL:         "https://api.openai.test",
 				Organization:    "org-test",
@@ -56,8 +56,8 @@ func TestCurrentAIConfigFormResultForProviderLoadsRequestedProviderSettings(t *t
 	if result.Provider != ai.ProviderOpenAI {
 		t.Fatalf("expected %q provider, got %q", ai.ProviderOpenAI, result.Provider)
 	}
-	if result.Model != "shared-model" {
-		t.Fatalf("expected shared model, got %q", result.Model)
+	if len(result.Models) != 2 || result.Models[0] != "gpt-test" || result.Models[1] != "gpt-test-mini" {
+		t.Fatalf("expected provider models to load, got %#v", result.Models)
 	}
 	if result.SystemPrompt != "Stay concise." {
 		t.Fatalf("expected shared system prompt, got %q", result.SystemPrompt)
@@ -76,6 +76,23 @@ func TestCurrentAIConfigFormResultForProviderLoadsRequestedProviderSettings(t *t
 	}
 	if !result.UseResponsesAPI {
 		t.Fatal("expected openai responses api to remain enabled")
+	}
+}
+
+func TestCurrentAIConfigFormResultForProviderFallsBackToLegacySharedModel(t *testing.T) {
+	serverConfig := &configs.ServerConfig{
+		AI: &configs.AIConfig{
+			Provider:      ai.ProviderAnthropic,
+			Model:         "legacy-model",
+			ThinkingLevel: "medium",
+			Anthropic:     &configs.AIProviderConfig{APIKey: "anthropic-key"},
+			OpenAI:        &configs.AIProviderConfig{APIKey: "openai-key"},
+		},
+	}
+
+	result := currentAIConfigFormResultForProvider(serverConfig, ai.ProviderOpenAI)
+	if len(result.Models) != 1 || result.Models[0] != "legacy-model" {
+		t.Fatalf("expected legacy shared model fallback, got %#v", result.Models)
 	}
 }
 
@@ -106,7 +123,7 @@ func TestApplyAIConfigFormResultUpdatesOnlySelectedProvider(t *testing.T) {
 
 	applyAIConfigFormResult(serverConfig, &forms.AIConfigFormResult{
 		Provider:        ai.ProviderOpenAI,
-		Model:           "gpt-test",
+		Models:          []string{"gpt-test", "gpt-test-mini"},
 		ThinkingLevel:   "high",
 		SystemPrompt:    "Stay concise.",
 		APIKey:          "new-openai-key",
@@ -119,8 +136,11 @@ func TestApplyAIConfigFormResultUpdatesOnlySelectedProvider(t *testing.T) {
 	if serverConfig.AI.Provider != ai.ProviderOpenAI {
 		t.Fatalf("expected provider %q, got %q", ai.ProviderOpenAI, serverConfig.AI.Provider)
 	}
-	if serverConfig.AI.Model != "gpt-test" {
-		t.Fatalf("expected model %q, got %q", "gpt-test", serverConfig.AI.Model)
+	if serverConfig.AI.Model != "" {
+		t.Fatalf("expected legacy model field to be cleared, got %q", serverConfig.AI.Model)
+	}
+	if len(serverConfig.AI.OpenAI.Models) != 2 || serverConfig.AI.OpenAI.Models[0] != "gpt-test" || serverConfig.AI.OpenAI.Models[1] != "gpt-test-mini" {
+		t.Fatalf("expected models to update, got %#v", serverConfig.AI.OpenAI.Models)
 	}
 	if serverConfig.AI.ThinkingLevel != "high" {
 		t.Fatalf("expected thinking level %q, got %q", "high", serverConfig.AI.ThinkingLevel)
