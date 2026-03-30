@@ -1,8 +1,19 @@
 Although the `sliver-client` is the default way to interact with a `sliver-server` and with implant sessions, there might be a time where you would want to automate some tasks upon reception of certain events.
 
-To do so, one case use [sliver-script](https://github.com/moloch--/sliver-script), [sliver-py](https://github.com/moloch--/sliver-py) or write a custom client in another language. As all the communications between the client and the server are based on gRPC, any language with gRPC support should in theory be used to create a custom client.
+To do so, you can use [sliver-script](https://github.com/moloch--/sliver-script), [sliver-py](https://github.com/moloch--/sliver-py), or write a custom client in another language.
+
+Current Sliver releases generate multiplayer operator configs with a `wg` block by default. The official `sliver-client`, and Go clients that reuse Sliver's `client/assets` plus `client/transport` packages, will automatically bring up that WireGuard wrapper before dialing the in-tunnel gRPC/mTLS service.
+
+If you are writing a custom client in another language, you have two options:
+
+- Implement the multiplayer WireGuard wrapper described in [multiplayer mode](/docs?name=Multi-player+Mode), then connect to the in-tunnel gRPC/mTLS service.
+- Keep multiplayer in direct mode by starting the listener with `multiplayer --disable-wg` or `sliver-server daemon --disable-wg`, then generate operator profiles with `new-operator --disable-wg` or `sliver-server operator --disable-wg`.
+
+Once connected, the client/server API is still gRPC, so any language with gRPC support can in theory be used to create a custom client.
 
 ## Writing a Go client
+
+This example uses Sliver's Go client libraries, so it works with either a direct multiplayer profile or a WireGuard-enabled profile.
 
 In this example, we will focus on writing a custom Go client that executes a new system command on every new implant that connects to the sliver server.
 
