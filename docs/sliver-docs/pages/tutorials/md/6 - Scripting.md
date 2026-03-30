@@ -59,14 +59,16 @@ First, install the sliver-py extension using pip.
 pip3 install sliver-py
 ```
 
-Since our extension is essentially going to be another client connection to the sliver server, you’ll also need to enable multiplayer mode and generate a new profile
+Since our extension is essentially going to be another client connection to the sliver server, you’ll also need to enable multiplayer mode and generate a new profile.
+
+Current Sliver releases default to a WireGuard-protected multiplayer listener. Because this tutorial uses a third-party Python client, we’ll force direct multiplayer mode so the profile only contains the plain gRPC/mTLS settings:
 
 ```bash
-[server] sliver > multiplayer
+[server] sliver > multiplayer --disable-wg
 
 [*] Multiplayer mode enabled!
 
-[server] sliver > new-operator -n tester -l 127.0.0.1
+[server] sliver > new-operator -n tester -l 127.0.0.1 --permissions all --disable-wg
 
 [*] Generating new client certificate, please wait ...
 [*] Saved new client config to: /Users/tester/tools/tester_127.0.0.1.cfg
