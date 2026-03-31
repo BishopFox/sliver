@@ -38,6 +38,11 @@ type transportTun struct {
 
 type transportNet transportTun
 
+const (
+	transportTCPReceiveBufferMax = 8 << 20
+	transportTCPSendBufferMax    = 6 << 20
+)
+
 func createTransportNetTUN(localAddresses []netip.Addr, mtu int) (tun.Device, *transportNet, error) {
 	n, err := rand.Int(rand.Reader, big.NewInt(0xFFFFFFFF))
 	if err != nil {
@@ -60,9 +65,8 @@ func createTransportNetTUN(localAddresses []netip.Addr, mtu int) (tun.Device, *t
 		mtu:            mtu,
 	}
 
-	sackEnabledOpt := tcpip.TCPSACKEnabled(true)
-	if tcpipErr := dev.stack.SetTransportProtocolOption(tcp.ProtocolNumber, &sackEnabledOpt); tcpipErr != nil {
-		return nil, nil, fmt.Errorf("could not enable TCP SACK: %v", tcpipErr)
+	if err := configureTransportTCPStack(dev.stack); err != nil {
+		return nil, nil, err
 	}
 
 	dev.notifyHandle = dev.ep.AddNotify(dev)
@@ -100,6 +104,43 @@ func createTransportNetTUN(localAddresses []netip.Addr, mtu int) (tun.Device, *t
 
 	dev.events <- tun.EventUp
 	return dev, (*transportNet)(dev), nil
+}
+
+func configureTransportTCPStack(ipstack *stack.Stack) error {
+	sackEnabledOpt := tcpip.TCPSACKEnabled(true)
+	if tcpipErr := ipstack.SetTransportProtocolOption(tcp.ProtocolNumber, &sackEnabledOpt); tcpipErr != nil {
+		return fmt.Errorf("could not enable TCP SACK: %v", tcpipErr)
+	}
+
+	tcpRecoveryOpt := tcpip.TCPRecovery(0)
+	if tcpipErr := ipstack.SetTransportProtocolOption(tcp.ProtocolNumber, &tcpRecoveryOpt); tcpipErr != nil {
+		return fmt.Errorf("could not disable TCP RACK: %v", tcpipErr)
+	}
+
+	renoOpt := tcpip.CongestionControlOption("reno")
+	if tcpipErr := ipstack.SetTransportProtocolOption(tcp.ProtocolNumber, &renoOpt); tcpipErr != nil {
+		return fmt.Errorf("could not set TCP congestion control to reno: %v", tcpipErr)
+	}
+
+	tcpRXBufOpt := tcpip.TCPReceiveBufferSizeRangeOption{
+		Min:     tcp.MinBufferSize,
+		Default: tcp.DefaultSendBufferSize,
+		Max:     transportTCPReceiveBufferMax,
+	}
+	if tcpipErr := ipstack.SetTransportProtocolOption(tcp.ProtocolNumber, &tcpRXBufOpt); tcpipErr != nil {
+		return fmt.Errorf("could not set TCP RX buffer size: %v", tcpipErr)
+	}
+
+	tcpTXBufOpt := tcpip.TCPSendBufferSizeRangeOption{
+		Min:     tcp.MinBufferSize,
+		Default: tcp.DefaultReceiveBufferSize,
+		Max:     transportTCPSendBufferMax,
+	}
+	if tcpipErr := ipstack.SetTransportProtocolOption(tcp.ProtocolNumber, &tcpTXBufOpt); tcpipErr != nil {
+		return fmt.Errorf("could not set TCP TX buffer size: %v", tcpipErr)
+	}
+
+	return nil
 }
 
 func (tun *transportTun) Name() (string, error) {

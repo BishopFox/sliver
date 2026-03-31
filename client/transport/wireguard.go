@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
@@ -23,6 +24,8 @@ const (
 	multiplayerWireGuardDefaultServerIP = "100.65.0.1"
 	multiplayerWireGuardMTU             = 1420
 	multiplayerWireGuardKeepalive       = 25
+	multiplayerWireGuardDialTimeout     = 30 * time.Second
+	multiplayerWireGuardRetryDelay      = 250 * time.Millisecond
 )
 
 var (
@@ -71,7 +74,39 @@ func wireGuardMTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *
 		return tunnel.DialContext(ctx, addr)
 	}))
 
-	return dialRPCClient(target, options, tunnel)
+	rpcClient, conn, err := dialWireGuardRPCClient(target, options, tunnel)
+	if err != nil {
+		_ = tunnel.Close()
+		return nil, nil, err
+	}
+	return rpcClient, conn, nil
+}
+
+func dialWireGuardRPCClient(target string, options []grpc.DialOption, tunnel connectionCloser) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
+	deadline := time.Now().Add(multiplayerWireGuardDialTimeout)
+	var lastErr error
+	attempts := 0
+
+	for {
+		attempts++
+
+		rpcClient, conn, err := dialRPCClient(target, options, nil)
+		if err == nil {
+			registerConnCloser(conn, tunnel)
+			return rpcClient, conn, nil
+		}
+
+		lastErr = err
+		if !errors.Is(err, context.DeadlineExceeded) || !time.Now().Before(deadline) {
+			break
+		}
+		time.Sleep(multiplayerWireGuardRetryDelay)
+	}
+
+	if attempts > 1 {
+		return nil, nil, fmt.Errorf("wireguard multiplayer connect failed after %d attempts: %w", attempts, lastErr)
+	}
+	return nil, nil, lastErr
 }
 
 func newWireGuardTunnel(config *assets.ClientConfig) (*wireGuardTunnel, string, error) {

@@ -92,11 +92,6 @@ func selectMultiplayerDialStrategy(config *assets.ClientConfig) (multiplayerDial
 	switch getMultiplayerConnectMode() {
 	case MultiplayerConnectDisableWG:
 		return multiplayerDialDirect, nil
-	case MultiplayerConnectRequireWG:
-		if err := validateWireGuardConfig(config); err != nil {
-			return multiplayerDialDirect, err
-		}
-		return multiplayerDialWireGuard, nil
 	default:
 		if config.WG == nil {
 			return multiplayerDialDirect, nil

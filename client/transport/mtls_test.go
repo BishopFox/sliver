@@ -19,15 +19,6 @@ func TestSelectMultiplayerDialStrategyLegacyConfigUsesDirectMTLS(t *testing.T) {
 	}
 }
 
-func TestSelectMultiplayerDialStrategyRequireWGRejectsMissingWGConfig(t *testing.T) {
-	setTestMultiplayerConnectMode(t, MultiplayerConnectRequireWG)
-
-	_, err := selectMultiplayerDialStrategy(&assets.ClientConfig{})
-	if !errors.Is(err, ErrMissingWireGuardConfig) {
-		t.Fatalf("expected missing WG config error, got %v", err)
-	}
-}
-
 func TestSelectMultiplayerDialStrategyRejectsIncompleteWGConfig(t *testing.T) {
 	setTestMultiplayerConnectMode(t, MultiplayerConnectAuto)
 

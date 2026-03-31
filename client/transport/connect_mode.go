@@ -13,7 +13,6 @@ type MultiplayerConnectMode int
 const (
 	MultiplayerConnectAuto MultiplayerConnectMode = iota
 	MultiplayerConnectDisableWG
-	MultiplayerConnectRequireWG
 )
 
 type connectionCloser interface {
