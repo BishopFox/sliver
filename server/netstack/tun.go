@@ -59,11 +59,6 @@ var (
 
 type Net netTun
 
-const (
-	wireGuardTCPReceiveBufferMax = 8 << 20
-	wireGuardTCPSendBufferMax    = 6 << 20
-)
-
 func setupIPTables() *stack.IPTables {
 	// Use the standard clock and a random source for conntrack timeouts.
 	clock := tcpip.NewStdClock()
@@ -193,10 +188,11 @@ func CreateNetTUN(localAddresses, dnsServers []netip.Addr, mtu int) (tun.Device,
 		dnsServers:     dnsServers,
 		mtu:            mtu,
 	}
-	if err := configureTCPStack(dev.stack); err != nil {
-		return nil, nil, err
+	sackEnabledOpt := tcpip.TCPSACKEnabled(true) // TCP SACK is disabled by default
+	tcpipErr := dev.stack.SetTransportProtocolOption(tcp.ProtocolNumber, &sackEnabledOpt)
+	if tcpipErr != nil {
+		return nil, nil, fmt.Errorf("could not enable TCP SACK: %v", tcpipErr)
 	}
-	var tcpipErr tcpip.Error
 	dev.notifyHandle = dev.ep.AddNotify(dev)
 	tcpipErr = dev.stack.CreateNIC(1, dev.ep)
 	if tcpipErr != nil {
@@ -232,52 +228,6 @@ func CreateNetTUN(localAddresses, dnsServers []netip.Addr, mtu int) (tun.Device,
 
 	dev.events <- tun.EventUp
 	return dev, (*Net)(dev), nil
-}
-
-func configureTCPStack(ipstack *stack.Stack) error {
-	sackEnabledOpt := tcpip.TCPSACKEnabled(true) // TCP SACK is disabled by default
-	tcpipErr := ipstack.SetTransportProtocolOption(tcp.ProtocolNumber, &sackEnabledOpt)
-	if tcpipErr != nil {
-		return fmt.Errorf("could not enable TCP SACK: %v", tcpipErr)
-	}
-
-	// gVisor's RACK loss detection can stall ACK/response handling on
-	// multiplexed WireGuard traffic. Keep SACK enabled, but fall back to the
-	// more conservative recovery/congestion settings used by Tailscale's
-	// netstack-backed WireGuard paths.
-	tcpRecoveryOpt := tcpip.TCPRecovery(0)
-	tcpipErr = ipstack.SetTransportProtocolOption(tcp.ProtocolNumber, &tcpRecoveryOpt)
-	if tcpipErr != nil {
-		return fmt.Errorf("could not disable TCP RACK: %v", tcpipErr)
-	}
-
-	renoOpt := tcpip.CongestionControlOption("reno")
-	tcpipErr = ipstack.SetTransportProtocolOption(tcp.ProtocolNumber, &renoOpt)
-	if tcpipErr != nil {
-		return fmt.Errorf("could not set TCP congestion control to reno: %v", tcpipErr)
-	}
-
-	tcpRXBufOpt := tcpip.TCPReceiveBufferSizeRangeOption{
-		Min:     tcp.MinBufferSize,
-		Default: tcp.DefaultSendBufferSize,
-		Max:     wireGuardTCPReceiveBufferMax,
-	}
-	tcpipErr = ipstack.SetTransportProtocolOption(tcp.ProtocolNumber, &tcpRXBufOpt)
-	if tcpipErr != nil {
-		return fmt.Errorf("could not set TCP RX buffer size: %v", tcpipErr)
-	}
-
-	tcpTXBufOpt := tcpip.TCPSendBufferSizeRangeOption{
-		Min:     tcp.MinBufferSize,
-		Default: tcp.DefaultReceiveBufferSize,
-		Max:     wireGuardTCPSendBufferMax,
-	}
-	tcpipErr = ipstack.SetTransportProtocolOption(tcp.ProtocolNumber, &tcpTXBufOpt)
-	if tcpipErr != nil {
-		return fmt.Errorf("could not set TCP TX buffer size: %v", tcpipErr)
-	}
-
-	return nil
 }
 
 func (tun *netTun) Name() (string, error) {
