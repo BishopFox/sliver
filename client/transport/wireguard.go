@@ -59,7 +59,8 @@ func (t *wireGuardTunnel) DialContext(ctx context.Context, address string) (net.
 	return t.net.DialContext(ctx, "tcp", address)
 }
 
-func wireGuardMTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
+func wireGuardMTLSConnect(config *assets.ClientConfig, statusFn ConnectStatusFn) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
+	notifyConnectStatus(statusFn, connectStatusWireGuard)
 	tunnel, target, err := newWireGuardTunnel(config)
 	if err != nil {
 		return nil, nil, err
@@ -74,6 +75,7 @@ func wireGuardMTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *
 		return tunnel.DialContext(ctx, addr)
 	}))
 
+	notifyConnectStatus(statusFn, connectStatusGRPCMTLSOverWireGuard)
 	rpcClient, conn, err := dialWireGuardRPCClient(target, options, tunnel)
 	if err != nil {
 		_ = tunnel.Close()
