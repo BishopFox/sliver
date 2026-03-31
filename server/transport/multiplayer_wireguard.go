@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"strings"
 	"sync"
+	"time"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/server/certs"
@@ -19,19 +20,25 @@ import (
 )
 
 const (
-	multiplayerWireGuardMTU = 1420
+	multiplayerWireGuardMTU     = 1420
+	multiplayerPeerSyncInterval = time.Second
 )
 
 type wireGuardWrappedClientListener struct {
 	net.Listener
 	dev    *device.Device
 	events chan core.Event
+	closed chan struct{}
 	once   sync.Once
 }
 
 func (l *wireGuardWrappedClientListener) Close() error {
 	var err error
 	l.once.Do(func() {
+		if l.closed != nil {
+			close(l.closed)
+			l.closed = nil
+		}
 		if l.events != nil {
 			core.EventBroker.Unsubscribe(l.events)
 			l.events = nil
@@ -47,21 +54,47 @@ func (l *wireGuardWrappedClientListener) Close() error {
 }
 
 func (l *wireGuardWrappedClientListener) processPeerEvents() {
-	if l == nil || l.events == nil || l.dev == nil {
+	if l == nil || l.events == nil || l.dev == nil || l.closed == nil {
 		return
 	}
 
-	for event := range l.events {
-		switch event.EventType {
-		case consts.MultiplayerWireGuardNewPeer, consts.MultiplayerWireGuardRemoved:
-			if len(event.Data) == 0 {
-				continue
+	ticker := time.NewTicker(multiplayerPeerSyncInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-l.closed:
+			return
+		case <-ticker.C:
+			if err := l.syncPeersFromDB(); err != nil {
+				mtlsLog.Errorf("Failed to resync multiplayer wireguard peers from the database: %v", err)
 			}
-			if err := l.dev.IpcSetOperation(bufio.NewReader(bytes.NewReader(event.Data))); err != nil {
-				mtlsLog.Errorf("Failed to update multiplayer wireguard config: %v", err)
+		case event, ok := <-l.events:
+			if !ok {
+				return
+			}
+			switch event.EventType {
+			case consts.MultiplayerWireGuardNewPeer, consts.MultiplayerWireGuardRemoved:
+				if len(event.Data) == 0 {
+					continue
+				}
+				if err := l.dev.IpcSetOperation(bufio.NewReader(bytes.NewReader(event.Data))); err != nil {
+					mtlsLog.Errorf("Failed to update multiplayer wireguard config: %v", err)
+				}
 			}
 		}
 	}
+}
+
+func (l *wireGuardWrappedClientListener) syncPeersFromDB() error {
+	if l == nil || l.dev == nil {
+		return nil
+	}
+	peerConfig, err := operatorWGPeerConfig(true)
+	if err != nil {
+		return err
+	}
+	return l.dev.IpcSetOperation(bufio.NewReader(peerConfig))
 }
 
 // StartWGWrappedMtlsClientListener exposes the multiplayer mTLS listener only
@@ -95,10 +128,12 @@ func StartWGWrappedMtlsClientListener(host string, port uint16) (*grpc.Server, n
 	fmt.Fprintf(wgConf, "private_key=%s\n", privateKey)
 	fmt.Fprintf(wgConf, "listen_port=%d\n", port)
 
-	if err := appendOperatorWGPeers(wgConf); err != nil {
+	peerConfig, err := operatorWGPeerConfig(false)
+	if err != nil {
 		dev.Close()
 		return nil, nil, err
 	}
+	wgConf.Write(peerConfig.Bytes())
 	if err := dev.IpcSetOperation(bufio.NewReader(wgConf)); err != nil {
 		dev.Close()
 		return nil, nil, err
@@ -118,6 +153,7 @@ func StartWGWrappedMtlsClientListener(host string, port uint16) (*grpc.Server, n
 		Listener: innerListener,
 		dev:      dev,
 		events:   core.EventBroker.Subscribe(),
+		closed:   make(chan struct{}),
 	}
 	go wrappedListener.processPeerEvents()
 
@@ -127,6 +163,17 @@ func StartWGWrappedMtlsClientListener(host string, port uint16) (*grpc.Server, n
 		return nil, nil, err
 	}
 	return grpcServer, wrappedListener, nil
+}
+
+func operatorWGPeerConfig(replace bool) (*bytes.Buffer, error) {
+	dst := bytes.NewBuffer(nil)
+	if replace {
+		fmt.Fprint(dst, "replace_peers=true\n")
+	}
+	if err := appendOperatorWGPeers(dst); err != nil {
+		return nil, err
+	}
+	return dst, nil
 }
 
 func appendOperatorWGPeers(dst *bytes.Buffer) error {

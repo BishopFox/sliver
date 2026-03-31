@@ -5,6 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -108,6 +112,73 @@ func TestNewOperatorConfigWithWireGuardConnectsToWrappedMultiplayer(t *testing.T
 	rpcClient, conn, err := clienttransport.MTLSConnect(config)
 	if err != nil {
 		t.Fatalf("connect operator through wireguard wrapper: %v", err)
+	}
+	defer clienttransport.CloseGRPCConnection(conn)
+
+	if _, err := rpcClient.GetVersion(context.Background(), &commonpb.Empty{}); err != nil {
+		t.Fatalf("GetVersion over wrapped multiplayer failed: %v", err)
+	}
+}
+
+func TestOperatorCLIWireGuardConfigConnectsToWrappedMultiplayer(t *testing.T) {
+	certs.SetupCAs()
+	certs.SetupWGKeys()
+	certs.SetupMultiplayerWGKeys()
+	clienttransport.SetMultiplayerConnectMode(clienttransport.MultiplayerConnectAuto)
+
+	port := freeUDPPort(t)
+	grpcServer, ln, err := servertransport.StartWGWrappedMtlsClientListener("127.0.0.1", uint16(port))
+	if err != nil {
+		if strings.Contains(err.Error(), "operation not permitted") {
+			t.Skipf("wireguard listener bind not permitted in this environment: %v", err)
+		}
+		t.Fatalf("start wrapped multiplayer listener: %v", err)
+	}
+	defer grpcServer.Stop()
+	defer ln.Close()
+
+	operatorName := uniqueKickOperatorName(t)
+	t.Cleanup(func() {
+		_ = removeOperator(operatorName)
+		_ = revokeOperatorClientCertificate(operatorName)
+		closeOperatorStreams(operatorName)
+	})
+
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("get working directory: %v", err)
+	}
+	repoRoot := filepath.Clean(filepath.Join(wd, "..", ".."))
+	savePath := filepath.Join(t.TempDir(), operatorName+".cfg")
+
+	cmd := exec.Command(
+		"go", "run", "-tags=server,go_sqlite", "./server", "operator",
+		"--name", operatorName,
+		"--lhost", "127.0.0.1",
+		"--lport", strconv.Itoa(port),
+		"--permissions", "all",
+		"--save", savePath,
+	)
+	cmd.Dir = repoRoot
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("generate operator config through CLI: %v\n%s", err, output)
+	}
+
+	configJSON, err := os.ReadFile(savePath)
+	if err != nil {
+		t.Fatalf("read generated operator config: %v", err)
+	}
+	config := &clientassets.ClientConfig{}
+	if err := json.Unmarshal(configJSON, config); err != nil {
+		t.Fatalf("parse operator config: %v", err)
+	}
+	if config.WG == nil {
+		t.Fatal("expected wireguard config block to be present")
+	}
+
+	rpcClient, conn, err := clienttransport.MTLSConnect(config)
+	if err != nil {
+		t.Fatalf("connect operator through wireguard wrapper after CLI generation: %v", err)
 	}
 	defer clienttransport.CloseGRPCConnection(conn)
 

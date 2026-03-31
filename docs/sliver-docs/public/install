@@ -128,8 +128,6 @@ WantedBy=multi-user.target
 EOF
 chown root:root /etc/systemd/system/sliver.service
 chmod 600 /etc/systemd/system/sliver.service
-echo "Starting the Sliver service..."
-systemctl start sliver # Start the service now
 
 # Generate local configs
 echo "Generating local configs ..."
@@ -150,3 +148,7 @@ for USER_DIR in "${USER_DIRS[@]}"; do
         chown -R "$USER":"$(id -gn "$USER")" "$USER_DIR/.sliver-client/"
     fi
 done
+
+echo "Reloading systemd and starting the Sliver service..."
+systemctl daemon-reload
+systemctl start sliver
