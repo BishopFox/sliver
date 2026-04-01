@@ -47,6 +47,7 @@ func (t *wireGuardTunnel) Close() error {
 	t.closeOnce.Do(func() {
 		if t.dev != nil {
 			t.dev.Close()
+			<-t.dev.Wait()
 		}
 	})
 	return nil
