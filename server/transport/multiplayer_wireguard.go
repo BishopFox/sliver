@@ -48,6 +48,7 @@ func (l *wireGuardWrappedClientListener) Close() error {
 		}
 		if l.dev != nil {
 			l.dev.Close()
+			<-l.dev.Wait()
 		}
 	})
 	return err

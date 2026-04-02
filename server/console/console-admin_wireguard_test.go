@@ -177,6 +177,64 @@ func TestNewOperatorConfigWithWireGuardConnectsToWrappedMultiplayerRepeatedly(t 
 	}
 }
 
+func TestWrappedMultiplayerWireGuardListenerRestartsCleanly(t *testing.T) {
+	certs.SetupCAs()
+	certs.SetupWGKeys()
+	certs.SetupMultiplayerWGKeys()
+	clienttransport.SetMultiplayerConnectMode(clienttransport.MultiplayerConnectAuto)
+
+	operatorName := uniqueKickOperatorName(t)
+	t.Cleanup(func() {
+		_ = removeOperator(operatorName)
+		_ = revokeOperatorClientCertificate(operatorName)
+		closeOperatorStreams(operatorName)
+	})
+
+	port := freeUDPPort(t)
+	configJSON, err := NewOperatorConfig(operatorName, "127.0.0.1", uint16(port), []string{"all"}, true)
+	if err != nil {
+		t.Fatalf("generate wireguard operator config: %v", err)
+	}
+
+	config := &clientassets.ClientConfig{}
+	if err := json.Unmarshal(configJSON, config); err != nil {
+		t.Fatalf("parse operator config: %v", err)
+	}
+
+	for attempt := 1; attempt <= 3; attempt++ {
+		grpcServer, ln, err := servertransport.StartWGWrappedMtlsClientListener("127.0.0.1", uint16(port))
+		if err != nil {
+			if strings.Contains(err.Error(), "operation not permitted") {
+				t.Skipf("wireguard listener bind not permitted in this environment: %v", err)
+			}
+			t.Fatalf("attempt %d: start wrapped multiplayer listener: %v", attempt, err)
+		}
+
+		rpcClient, conn, err := clienttransport.MTLSConnect(config)
+		if err != nil {
+			grpcServer.Stop()
+			_ = ln.Close()
+			t.Fatalf("attempt %d: connect operator through restarted wireguard wrapper: %v", attempt, err)
+		}
+		if _, err := rpcClient.GetVersion(context.Background(), &commonpb.Empty{}); err != nil {
+			_ = clienttransport.CloseGRPCConnection(conn)
+			grpcServer.Stop()
+			_ = ln.Close()
+			t.Fatalf("attempt %d: GetVersion over restarted wrapped multiplayer failed: %v", attempt, err)
+		}
+		if err := clienttransport.CloseGRPCConnection(conn); err != nil {
+			grpcServer.Stop()
+			_ = ln.Close()
+			t.Fatalf("attempt %d: close wrapped multiplayer connection: %v", attempt, err)
+		}
+
+		grpcServer.Stop()
+		if err := ln.Close(); err != nil {
+			t.Fatalf("attempt %d: close wrapped multiplayer listener: %v", attempt, err)
+		}
+	}
+}
+
 func TestWrappedMultiplayerWireGuardSupportsUnaryRPCsWithDedicatedCommandConnection(t *testing.T) {
 	t.Run("events-only", func(t *testing.T) {
 		runWrappedMultiplayerWireGuardUnaryWithBackgroundStreams(t, true, false)
