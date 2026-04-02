@@ -61,31 +61,6 @@ func (t *wireGuardTunnel) DialContext(ctx context.Context, address string) (net.
 }
 
 func wireGuardMTLSConnect(config *assets.ClientConfig, statusFn ConnectStatusFn) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
-	notifyConnectStatus(statusFn, connectStatusWireGuard)
-	tunnel, target, err := newWireGuardTunnel(config)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	options, err := newMTLSDialOptions(config)
-	if err != nil {
-		_ = tunnel.Close()
-		return nil, nil, err
-	}
-	options = append(options, grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
-		return tunnel.DialContext(ctx, addr)
-	}))
-
-	notifyConnectStatus(statusFn, connectStatusGRPCMTLSOverWireGuard)
-	rpcClient, conn, err := dialWireGuardRPCClient(target, options, tunnel)
-	if err != nil {
-		_ = tunnel.Close()
-		return nil, nil, err
-	}
-	return rpcClient, conn, nil
-}
-
-func dialWireGuardRPCClient(target string, options []grpc.DialOption, tunnel connectionCloser) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
 	deadline := time.Now().Add(multiplayerWireGuardDialTimeout)
 	var lastErr error
 	attempts := 0
@@ -93,12 +68,29 @@ func dialWireGuardRPCClient(target string, options []grpc.DialOption, tunnel con
 	for {
 		attempts++
 
+		notifyConnectStatus(statusFn, connectStatusWireGuard)
+		tunnel, target, err := newWireGuardTunnel(config)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		options, err := newMTLSDialOptions(config)
+		if err != nil {
+			_ = tunnel.Close()
+			return nil, nil, err
+		}
+		options = append(options, grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+			return tunnel.DialContext(ctx, addr)
+		}))
+
+		notifyConnectStatus(statusFn, connectStatusGRPCMTLSOverWireGuard)
 		rpcClient, conn, err := dialRPCClient(target, options, nil)
 		if err == nil {
 			registerConnCloser(conn, tunnel)
 			return rpcClient, conn, nil
 		}
 
+		_ = tunnel.Close()
 		lastErr = err
 		if !errors.Is(err, context.DeadlineExceeded) || !time.Now().Before(deadline) {
 			break
