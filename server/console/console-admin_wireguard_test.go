@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -11,14 +12,17 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	clientassets "github.com/bishopfox/sliver/client/assets"
 	clienttransport "github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	servertransport "github.com/bishopfox/sliver/server/transport"
+	"google.golang.org/grpc"
 	"gorm.io/gorm"
 )
 
@@ -117,6 +121,160 @@ func TestNewOperatorConfigWithWireGuardConnectsToWrappedMultiplayer(t *testing.T
 
 	if _, err := rpcClient.GetVersion(context.Background(), &commonpb.Empty{}); err != nil {
 		t.Fatalf("GetVersion over wrapped multiplayer failed: %v", err)
+	}
+}
+
+func TestNewOperatorConfigWithWireGuardConnectsToWrappedMultiplayerRepeatedly(t *testing.T) {
+	certs.SetupCAs()
+	certs.SetupWGKeys()
+	certs.SetupMultiplayerWGKeys()
+	clienttransport.SetMultiplayerConnectMode(clienttransport.MultiplayerConnectAuto)
+
+	operatorName := uniqueKickOperatorName(t)
+	t.Cleanup(func() {
+		_ = removeOperator(operatorName)
+		_ = revokeOperatorClientCertificate(operatorName)
+		closeOperatorStreams(operatorName)
+	})
+
+	port := freeUDPPort(t)
+	configJSON, err := NewOperatorConfig(operatorName, "127.0.0.1", uint16(port), []string{"all"}, true)
+	if err != nil {
+		t.Fatalf("generate wireguard operator config: %v", err)
+	}
+
+	config := &clientassets.ClientConfig{}
+	if err := json.Unmarshal(configJSON, config); err != nil {
+		t.Fatalf("parse operator config: %v", err)
+	}
+
+	grpcServer, ln, err := servertransport.StartWGWrappedMtlsClientListener("127.0.0.1", uint16(port))
+	if err != nil {
+		if strings.Contains(err.Error(), "operation not permitted") {
+			t.Skipf("wireguard listener bind not permitted in this environment: %v", err)
+		}
+		t.Fatalf("start wrapped multiplayer listener: %v", err)
+	}
+	defer grpcServer.Stop()
+	defer ln.Close()
+
+	for attempt := 1; attempt <= 5; attempt++ {
+		rpcClient, conn, err := clienttransport.MTLSConnect(config)
+		if err != nil {
+			t.Fatalf("attempt %d: connect operator through wireguard wrapper: %v", attempt, err)
+		}
+		if _, err := rpcClient.GetVersion(context.Background(), &commonpb.Empty{}); err != nil {
+			_ = clienttransport.CloseGRPCConnection(conn)
+			t.Fatalf("attempt %d: GetVersion over wrapped multiplayer failed: %v", attempt, err)
+		}
+		if _, err := rpcClient.GetOperators(context.Background(), &commonpb.Empty{}); err != nil {
+			_ = clienttransport.CloseGRPCConnection(conn)
+			t.Fatalf("attempt %d: GetOperators over wrapped multiplayer failed: %v", attempt, err)
+		}
+		if err := clienttransport.CloseGRPCConnection(conn); err != nil {
+			t.Fatalf("attempt %d: close wrapped multiplayer connection: %v", attempt, err)
+		}
+	}
+}
+
+func TestWrappedMultiplayerWireGuardSupportsUnaryRPCsWithDedicatedCommandConnection(t *testing.T) {
+	t.Run("events-only", func(t *testing.T) {
+		runWrappedMultiplayerWireGuardUnaryWithBackgroundStreams(t, true, false)
+	})
+	t.Run("tunnel-only", func(t *testing.T) {
+		runWrappedMultiplayerWireGuardUnaryWithBackgroundStreams(t, false, true)
+	})
+	t.Run("events-and-tunnel", func(t *testing.T) {
+		runWrappedMultiplayerWireGuardUnaryWithBackgroundStreams(t, true, true)
+	})
+}
+
+func runWrappedMultiplayerWireGuardUnaryWithBackgroundStreams(t *testing.T, useEvents bool, useTunnel bool) {
+	certs.SetupCAs()
+	certs.SetupWGKeys()
+	certs.SetupMultiplayerWGKeys()
+	clienttransport.SetMultiplayerConnectMode(clienttransport.MultiplayerConnectAuto)
+
+	operatorName := uniqueKickOperatorName(t)
+	t.Cleanup(func() {
+		_ = removeOperator(operatorName)
+		_ = revokeOperatorClientCertificate(operatorName)
+		closeOperatorStreams(operatorName)
+	})
+
+	port := freeUDPPort(t)
+	configJSON, err := NewOperatorConfig(operatorName, "127.0.0.1", uint16(port), []string{"all"}, true)
+	if err != nil {
+		t.Fatalf("generate wireguard operator config: %v", err)
+	}
+
+	config := &clientassets.ClientConfig{}
+	if err := json.Unmarshal(configJSON, config); err != nil {
+		t.Fatalf("parse operator config: %v", err)
+	}
+
+	grpcServer, ln, err := servertransport.StartWGWrappedMtlsClientListener("127.0.0.1", uint16(port))
+	if err != nil {
+		if strings.Contains(err.Error(), "operation not permitted") {
+			t.Skipf("wireguard listener bind not permitted in this environment: %v", err)
+		}
+		t.Fatalf("start wrapped multiplayer listener: %v", err)
+	}
+	defer grpcServer.Stop()
+	defer ln.Close()
+
+	var streamClient rpcpb.SliverRPCClient
+	var streamConn *grpc.ClientConn
+	if useEvents || useTunnel {
+		streamClient, streamConn, err = clienttransport.MTLSConnect(config)
+		if err != nil {
+			t.Fatalf("connect dedicated background operator through wireguard wrapper: %v", err)
+		}
+		defer clienttransport.CloseGRPCConnection(streamConn)
+	}
+
+	streamCtx, streamCancel := context.WithCancel(context.Background())
+	defer streamCancel()
+
+	if useEvents {
+		events, err := streamClient.Events(streamCtx, &commonpb.Empty{})
+		if err != nil {
+			t.Fatalf("open events stream: %v", err)
+		}
+		go drainWGTestStream(t, "events", func() error {
+			_, err := events.Recv()
+			return err
+		})
+	}
+
+	if useTunnel {
+		tunnelData, err := streamClient.TunnelData(streamCtx)
+		if err != nil {
+			t.Fatalf("open tunnel data stream: %v", err)
+		}
+		go drainWGTestStream(t, "tunnel-data", func() error {
+			_, err := tunnelData.Recv()
+			return err
+		})
+	}
+
+	// Let the background streams settle before issuing the unary call. The
+	// interactive console opens these streams first and only later runs
+	// unary RPC-backed commands like "operators".
+	if useEvents || useTunnel {
+		time.Sleep(2 * time.Second)
+	}
+
+	rpcClient, conn, err := clienttransport.MTLSConnect(config)
+	if err != nil {
+		t.Fatalf("connect operator command channel through wireguard wrapper: %v", err)
+	}
+	defer clienttransport.CloseGRPCConnection(conn)
+
+	callCtx, callCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer callCancel()
+	if _, err := rpcClient.GetOperators(callCtx, &commonpb.Empty{}); err != nil {
+		t.Fatalf("GetOperators with dedicated command connection over wrapped multiplayer failed (events=%t tunnel=%t): %v", useEvents, useTunnel, err)
 	}
 }
 
@@ -237,4 +395,17 @@ func freeUDPPort(t *testing.T) int {
 	}
 	defer ln.Close()
 	return ln.LocalAddr().(*net.UDPAddr).Port
+}
+
+func drainWGTestStream(t *testing.T, name string, recv func() error) {
+	t.Helper()
+
+	err := recv()
+	if err == nil || errors.Is(err, io.EOF) || errors.Is(err, context.Canceled) {
+		return
+	}
+	if strings.Contains(err.Error(), "context canceled") {
+		return
+	}
+	t.Errorf("%s stream recv failed: %v", name, err)
 }

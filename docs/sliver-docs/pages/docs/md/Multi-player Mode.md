@@ -86,7 +86,6 @@ In direct mode:
 - Multiplayer is exposed directly over TCP on `--lport` (default `31337`).
 - Generated operator configs omit the `wg` block.
 - `sliver-client --disable-wg` forces a direct connection even if the config includes a `wg` block.
-- `sliver-client --require-wg` fails fast if the config does not contain a valid `wg` block.
 
 The listener mode and the operator config need to match. A WireGuard-enabled config cannot talk to a direct listener, and a direct-only client cannot talk to the default WireGuard-wrapped listener.
 

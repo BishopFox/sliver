@@ -107,7 +107,8 @@ func (con *SliverClient) refreshRemoteLogStreamsLocked() {
 	if con.jsonRemoteWriter == nil && con.asciicastRemoteWriter == nil {
 		return
 	}
-	if con.Rpc == nil {
+	rpc := con.backgroundRPCClientLocked()
+	if rpc == nil {
 		con.setRemoteLogStreamsLocked(nil, nil)
 		return
 	}
@@ -116,7 +117,7 @@ func (con *SliverClient) refreshRemoteLogStreamsLocked() {
 	var asciicastStream *ConsoleClientLogger
 
 	if con.jsonRemoteWriter != nil {
-		s, err := con.ClientLogStream("json")
+		s, err := con.clientLogStream(rpc, "json")
 		if err != nil {
 			log.Printf("Could not get client json log stream: %s", err)
 		} else {
@@ -124,7 +125,7 @@ func (con *SliverClient) refreshRemoteLogStreamsLocked() {
 		}
 	}
 	if con.asciicastRemoteWriter != nil {
-		s, err := con.ClientLogStream("asciicast")
+		s, err := con.clientLogStream(rpc, "asciicast")
 		if err != nil {
 			log.Printf("Could not get client asciicast log stream: %s", err)
 		} else {
@@ -166,7 +167,17 @@ func (con *SliverClient) setRemoteLogStreamsLocked(jsonStream, asciicastStream *
 // ClientLogStream requires a log stream name, used to save the logs
 // going through this stream in a specific log subdirectory/file.
 func (con *SliverClient) ClientLogStream(name string) (*ConsoleClientLogger, error) {
-	stream, err := con.Rpc.ClientLog(context.Background())
+	con.connMu.Lock()
+	rpc := con.backgroundRPCClientLocked()
+	con.connMu.Unlock()
+	if rpc == nil {
+		return nil, fmt.Errorf("no RPC connection available for client log stream %q", name)
+	}
+	return con.clientLogStream(rpc, name)
+}
+
+func (con *SliverClient) clientLogStream(rpc rpcpb.SliverRPCClient, name string) (*ConsoleClientLogger, error) {
+	stream, err := rpc.ClientLog(context.Background())
 	if err != nil {
 		return nil, err
 	}

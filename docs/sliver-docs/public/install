@@ -42,6 +42,34 @@ echo "Running from $(pwd)"
 
 echo "Using Minisign public key..."
 
+stop_existing_sliver_daemon() {
+    local existing_sliver_server=""
+
+    if test -x /root/sliver-server; then
+        existing_sliver_server="/root/sliver-server"
+    elif command -v sliver-server &> /dev/null; then
+        existing_sliver_server="$(command -v sliver-server)"
+    fi
+
+    if [[ -z "$existing_sliver_server" ]]; then
+        return 0
+    fi
+
+    echo "Existing Sliver server install detected at $existing_sliver_server"
+
+    if command -v systemctl &> /dev/null && test -f /etc/systemd/system/sliver.service; then
+        if systemctl is-active --quiet sliver; then
+            echo "Stopping the Sliver systemd service before upgrade..."
+            systemctl stop sliver
+        fi
+    fi
+
+    if pgrep -f "${existing_sliver_server} daemon" > /dev/null 2>&1; then
+        echo "Stopping the running Sliver daemon before upgrade..."
+        pkill -f "${existing_sliver_server} daemon"
+    fi
+}
+
 # Download and Unpack Sliver Server
 ARCH="$(uname -m)"
 case "$ARCH" in
@@ -78,6 +106,8 @@ done
 echo "Verifying signatures ..."
 minisign -Vm "/root/$SLIVER_SERVER" -x "/root/$SLIVER_SERVER.minisig" -P "$SLIVER_MINISIGN_PUB_KEY"
 minisign -Vm "/root/$SLIVER_CLIENT" -x "/root/$SLIVER_CLIENT.minisig" -P "$SLIVER_MINISIGN_PUB_KEY"
+
+stop_existing_sliver_daemon
 
 if test -f "/root/$SLIVER_SERVER"; then
     echo "Moving the Sliver server executable to /root/sliver-server..."
@@ -135,7 +165,7 @@ echo "Generating local configs ..."
 # Generate local configs
 echo "Generating operator configs ..."
 mkdir -p /root/.sliver-client/configs
-/root/sliver-server operator --name root --lhost localhost --permissions all --save /root/.sliver-client/configs
+/root/sliver-server operator --name root --lhost 127.0.0.1 --permissions all --save /root/.sliver-client/configs
 chown -R root:root /root/.sliver-client/
 
 USER_DIRS=(/home/*)
@@ -144,7 +174,7 @@ for USER_DIR in "${USER_DIRS[@]}"; do
     if id -u "$USER" >/dev/null 2>&1; then
         echo "Generating operator configs for user $USER..."
         mkdir -p "$USER_DIR/.sliver-client/configs"
-        /root/sliver-server operator --name "$USER" --lhost localhost --permissions all --save "$USER_DIR/.sliver-client/configs"
+        /root/sliver-server operator --name "$USER" --lhost 127.0.0.1 --permissions all --save "$USER_DIR/.sliver-client/configs"
         chown -R "$USER":"$(id -gn "$USER")" "$USER_DIR/.sliver-client/"
     fi
 done

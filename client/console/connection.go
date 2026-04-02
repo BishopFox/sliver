@@ -46,6 +46,9 @@ func (con *SliverClient) SetConnection(rpc rpcpb.SliverRPCClient, grpcConn *grpc
 	con.Rpc = rpc
 	con.grpcConn = grpcConn
 	con.connDetails = details
+	con.backgroundRPC = nil
+	con.backgroundConn = nil
+	con.backgroundDedicated = false
 
 	if con.Rpc == nil || con.grpcConn == nil {
 		return nil
@@ -58,31 +61,49 @@ func (con *SliverClient) SetConnection(rpc rpcpb.SliverRPCClient, grpcConn *grpc
 	con.BeaconTaskCallbacksMutex.Unlock()
 	con.ActiveTarget.Set(nil, nil)
 
+	if details != nil && details.Config != nil && details.Config.WG != nil {
+		con.backgroundDedicated = true
+		commandRPC, commandConn, err := transport.MTLSConnect(details.Config)
+		if err != nil {
+			log.Printf("Dedicated command WireGuard connection unavailable, async console streams disabled to preserve command reliability: %v", err)
+		} else {
+			con.backgroundRPC = con.Rpc
+			con.backgroundConn = con.grpcConn
+			con.Rpc = commandRPC
+			con.grpcConn = commandConn
+		}
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	con.connCancel = cancel
 
 	wg := &sync.WaitGroup{}
 	con.connWg = wg
 
-	wg.Add(1)
-	go func(wg *sync.WaitGroup) {
-		defer wg.Done()
-		con.startEventLoop(ctx)
-	}(wg)
+	backgroundRPC := con.backgroundRPCClientLocked()
+	if backgroundRPC != nil {
+		wg.Add(1)
+		go func(wg *sync.WaitGroup, rpc rpcpb.SliverRPCClient) {
+			defer wg.Done()
+			con.startEventLoop(ctx, rpc)
+		}(wg, backgroundRPC)
 
-	wg.Add(1)
-	go func(wg *sync.WaitGroup) {
-		defer wg.Done()
-		if err := core.TunnelLoop(ctx, con.Rpc); err != nil && !errors.Is(err, context.Canceled) {
-			log.Printf("TunnelLoop error: %v", err)
-		}
-	}(wg)
+		wg.Add(1)
+		go func(wg *sync.WaitGroup, rpc rpcpb.SliverRPCClient) {
+			defer wg.Done()
+			if err := core.TunnelLoop(ctx, rpc); err != nil && !errors.Is(err, context.Canceled) {
+				log.Printf("TunnelLoop error: %v", err)
+			}
+		}(wg, backgroundRPC)
+	}
 
-	wg.Add(1)
-	go func(wg *sync.WaitGroup, conn *grpc.ClientConn) {
-		defer wg.Done()
-		con.monitorConnectionLost(ctx, conn)
-	}(wg, con.grpcConn)
+	if !con.backgroundDedicated || con.backgroundConn == nil {
+		wg.Add(1)
+		go func(wg *sync.WaitGroup, conn *grpc.ClientConn) {
+			defer wg.Done()
+			con.monitorConnectionLost(ctx, conn)
+		}(wg, con.grpcConn)
+	}
 
 	con.refreshRemoteLogStreamsLocked()
 
@@ -127,11 +148,57 @@ func (con *SliverClient) detachConnectionLocked() {
 		_ = transport.CloseGRPCConnection(con.grpcConn)
 		con.grpcConn = nil
 	}
+	if con.backgroundConn != nil {
+		_ = transport.CloseGRPCConnection(con.backgroundConn)
+		con.backgroundConn = nil
+	}
 	con.Rpc = nil
+	con.backgroundRPC = nil
+	con.backgroundDedicated = false
 	con.connDetails = nil
 
 	// Tear down any singleton network tooling that was tied to the previous server.
 	core.ResetClientState()
+}
+
+func (con *SliverClient) backgroundRPCClientLocked() rpcpb.SliverRPCClient {
+	if con.backgroundRPC != nil {
+		return con.backgroundRPC
+	}
+	if con.backgroundDedicated {
+		return nil
+	}
+	return con.Rpc
+}
+
+func (con *SliverClient) refreshDedicatedCommandConnectionHook(args []string) ([]string, error) {
+	if err := con.refreshDedicatedCommandConnection(); err != nil {
+		return args, err
+	}
+	return args, nil
+}
+
+func (con *SliverClient) refreshDedicatedCommandConnection() error {
+	con.connMu.Lock()
+	defer con.connMu.Unlock()
+
+	if !con.backgroundDedicated || con.backgroundConn == nil || con.connDetails == nil || con.connDetails.Config == nil {
+		return nil
+	}
+
+	rpc, conn, err := transport.MTLSConnect(con.connDetails.Config)
+	if err != nil {
+		return fmt.Errorf("refresh command connection: %w", err)
+	}
+
+	oldConn := con.grpcConn
+	con.Rpc = rpc
+	con.grpcConn = conn
+
+	if oldConn != nil {
+		_ = transport.CloseGRPCConnection(oldConn)
+	}
+	return nil
 }
 
 func (con *SliverClient) monitorConnectionLost(ctx context.Context, conn *grpc.ClientConn) {
