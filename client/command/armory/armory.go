@@ -164,7 +164,7 @@ func ArmoryCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			cacheEntry, ok := value.(pkgCacheEntry)
 			if !ok {
 				// Something is wrong with this entry
-				pkgCache.Delete(value)
+				pkgCache.Delete(key)
 				return true
 			}
 			if cacheEntry.ArmoryConfig.PublicKey != index.ArmoryConfig.PublicKey {
