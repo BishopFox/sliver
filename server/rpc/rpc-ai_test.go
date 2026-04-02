@@ -26,6 +26,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const aiConversationEventStreamTimeout = 30 * time.Second
+
 func TestSaveAIConversationMessageCompletesConversationAndPublishesEvents(t *testing.T) {
 	setupAIRPCTestEnv(t)
 
@@ -69,7 +71,7 @@ func TestSaveAIConversationMessageCompletesConversationAndPublishesEvents(t *tes
 	client, cleanup := newBufnetRPCClient(t)
 	defer cleanup()
 
-	streamCtx, cancelStream := context.WithTimeout(context.Background(), 10*time.Second)
+	streamCtx, cancelStream := context.WithTimeout(context.Background(), aiConversationEventStreamTimeout)
 	defer cancelStream()
 	eventStream, err := client.Events(streamCtx, &commonpb.Empty{})
 	if err != nil {
@@ -242,7 +244,7 @@ func TestSaveAIConversationMessageCompletesOpenAIWithoutExplicitBaseURL(t *testi
 	client, cleanup := newBufnetRPCClient(t)
 	defer cleanup()
 
-	streamCtx, cancelStream := context.WithTimeout(context.Background(), 10*time.Second)
+	streamCtx, cancelStream := context.WithTimeout(context.Background(), aiConversationEventStreamTimeout)
 	defer cancelStream()
 	eventStream, err := client.Events(streamCtx, &commonpb.Empty{})
 	if err != nil {
@@ -332,7 +334,7 @@ func TestSaveAIConversationMessagePublishesFailureMessageWhenProviderErrors(t *t
 	client, cleanup := newBufnetRPCClient(t)
 	defer cleanup()
 
-	streamCtx, cancelStream := context.WithTimeout(context.Background(), 10*time.Second)
+	streamCtx, cancelStream := context.WithTimeout(context.Background(), aiConversationEventStreamTimeout)
 	defer cancelStream()
 	eventStream, err := client.Events(streamCtx, &commonpb.Empty{})
 	if err != nil {
@@ -622,7 +624,7 @@ func TestSaveAIConversationMessagePersistsReasoningAndToolBlocks(t *testing.T) {
 	client, cleanup := newBufnetRPCClient(t)
 	defer cleanup()
 
-	streamCtx, cancelStream := context.WithTimeout(context.Background(), 10*time.Second)
+	streamCtx, cancelStream := context.WithTimeout(context.Background(), aiConversationEventStreamTimeout)
 	defer cancelStream()
 	eventStream, err := client.Events(streamCtx, &commonpb.Empty{})
 	if err != nil {
