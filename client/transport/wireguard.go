@@ -31,6 +31,10 @@ const (
 var (
 	ErrMissingWireGuardConfig    = errors.New("operator config has no wg block")
 	ErrIncompleteWireGuardConfig = errors.New("operator config has incomplete wg block")
+
+	multiplayerWireGuardIdleTimeout = 5 * time.Second
+	wireGuardTunnelCacheMu          sync.Mutex
+	wireGuardTunnelCache            = map[string]*cachedWireGuardTunnel{}
 )
 
 type wireGuardTunnel struct {
@@ -40,6 +44,19 @@ type wireGuardTunnel struct {
 	closeOnce sync.Once
 }
 
+type cachedWireGuardTunnel struct {
+	tunnel *wireGuardTunnel
+	target string
+	timer  *time.Timer
+}
+
+type idleWireGuardTunnelCloser struct {
+	key string
+
+	tunnel *wireGuardTunnel
+	target string
+}
+
 func (t *wireGuardTunnel) Close() error {
 	if t == nil {
 		return nil
@@ -47,6 +64,7 @@ func (t *wireGuardTunnel) Close() error {
 	t.closeOnce.Do(func() {
 		if t.dev != nil {
 			t.dev.Close()
+			<-t.dev.Wait()
 		}
 	})
 	return nil
@@ -59,32 +77,15 @@ func (t *wireGuardTunnel) DialContext(ctx context.Context, address string) (net.
 	return t.net.DialContext(ctx, "tcp", address)
 }
 
-func wireGuardMTLSConnect(config *assets.ClientConfig, statusFn ConnectStatusFn) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
-	notifyConnectStatus(statusFn, connectStatusWireGuard)
-	tunnel, target, err := newWireGuardTunnel(config)
-	if err != nil {
-		return nil, nil, err
+func (c *idleWireGuardTunnelCloser) Close() error {
+	if c == nil || c.key == "" || c.tunnel == nil {
+		return nil
 	}
-
-	options, err := newMTLSDialOptions(config)
-	if err != nil {
-		_ = tunnel.Close()
-		return nil, nil, err
-	}
-	options = append(options, grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
-		return tunnel.DialContext(ctx, addr)
-	}))
-
-	notifyConnectStatus(statusFn, connectStatusGRPCMTLSOverWireGuard)
-	rpcClient, conn, err := dialWireGuardRPCClient(target, options, tunnel)
-	if err != nil {
-		_ = tunnel.Close()
-		return nil, nil, err
-	}
-	return rpcClient, conn, nil
+	cacheIdleWireGuardTunnel(c.key, c.tunnel, c.target)
+	return nil
 }
 
-func dialWireGuardRPCClient(target string, options []grpc.DialOption, tunnel connectionCloser) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
+func wireGuardMTLSConnect(config *assets.ClientConfig, statusFn ConnectStatusFn) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
 	deadline := time.Now().Add(multiplayerWireGuardDialTimeout)
 	var lastErr error
 	attempts := 0
@@ -92,12 +93,33 @@ func dialWireGuardRPCClient(target string, options []grpc.DialOption, tunnel con
 	for {
 		attempts++
 
+		notifyConnectStatus(statusFn, connectStatusWireGuard)
+		cacheKey, tunnel, target, err := acquireWireGuardTunnel(config)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		options, err := newMTLSDialOptions(config)
+		if err != nil {
+			_ = tunnel.Close()
+			return nil, nil, err
+		}
+		options = append(options, grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+			return tunnel.DialContext(ctx, addr)
+		}))
+
+		notifyConnectStatus(statusFn, connectStatusGRPCMTLSOverWireGuard)
 		rpcClient, conn, err := dialRPCClient(target, options, nil)
 		if err == nil {
-			registerConnCloser(conn, tunnel)
+			registerConnCloser(conn, &idleWireGuardTunnelCloser{
+				key:    cacheKey,
+				tunnel: tunnel,
+				target: target,
+			})
 			return rpcClient, conn, nil
 		}
 
+		_ = tunnel.Close()
 		lastErr = err
 		if !errors.Is(err, context.DeadlineExceeded) || !time.Now().Before(deadline) {
 			break
@@ -109,6 +131,82 @@ func dialWireGuardRPCClient(target string, options []grpc.DialOption, tunnel con
 		return nil, nil, fmt.Errorf("wireguard multiplayer connect failed after %d attempts: %w", attempts, lastErr)
 	}
 	return nil, nil, lastErr
+}
+
+func acquireWireGuardTunnel(config *assets.ClientConfig) (string, *wireGuardTunnel, string, error) {
+	key, err := wireGuardTunnelCacheKey(config)
+	if err != nil {
+		return "", nil, "", err
+	}
+
+	wireGuardTunnelCacheMu.Lock()
+	if cached := wireGuardTunnelCache[key]; cached != nil && cached.tunnel != nil {
+		delete(wireGuardTunnelCache, key)
+		if cached.timer != nil {
+			cached.timer.Stop()
+			cached.timer = nil
+		}
+		tunnel := cached.tunnel
+		target := cached.target
+		wireGuardTunnelCacheMu.Unlock()
+		return key, tunnel, target, nil
+	}
+	wireGuardTunnelCacheMu.Unlock()
+
+	tunnel, target, err := newWireGuardTunnel(config)
+	if err != nil {
+		return "", nil, "", err
+	}
+	return key, tunnel, target, nil
+}
+
+func cacheIdleWireGuardTunnel(key string, tunnel *wireGuardTunnel, target string) {
+	if key == "" || tunnel == nil {
+		return
+	}
+	wireGuardTunnelCacheMu.Lock()
+	previous := wireGuardTunnelCache[key]
+	cached := &cachedWireGuardTunnel{
+		tunnel: tunnel,
+		target: target,
+	}
+	wireGuardTunnelCache[key] = cached
+	if previous != nil && previous.timer != nil {
+		previous.timer.Stop()
+	}
+	cached.timer = time.AfterFunc(multiplayerWireGuardIdleTimeout, func() {
+		wireGuardTunnelCacheMu.Lock()
+		current := wireGuardTunnelCache[key]
+		if current != cached || current == nil {
+			wireGuardTunnelCacheMu.Unlock()
+			return
+		}
+		delete(wireGuardTunnelCache, key)
+		current.timer = nil
+		tunnel := current.tunnel
+		wireGuardTunnelCacheMu.Unlock()
+		if tunnel != nil {
+			_ = tunnel.Close()
+		}
+	})
+	wireGuardTunnelCacheMu.Unlock()
+	if previous != nil && previous.tunnel != nil {
+		_ = previous.tunnel.Close()
+	}
+}
+
+func wireGuardTunnelCacheKey(config *assets.ClientConfig) (string, error) {
+	if err := validateWireGuardConfig(config); err != nil {
+		return "", err
+	}
+	return strings.Join([]string{
+		strings.TrimSpace(config.LHost),
+		strconv.Itoa(config.LPort),
+		strings.TrimSpace(config.WG.ServerPubKey),
+		strings.TrimSpace(config.WG.ClientPrivateKey),
+		strings.TrimSpace(config.WG.ClientIP),
+		strings.TrimSpace(config.WG.ServerIP),
+	}, "\x00"), nil
 }
 
 func newWireGuardTunnel(config *assets.ClientConfig) (*wireGuardTunnel, string, error) {

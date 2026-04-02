@@ -5,6 +5,9 @@ import (
 	"testing"
 
 	"github.com/bishopfox/sliver/client/assets"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func TestSelectMultiplayerDialStrategyLegacyConfigUsesDirectMTLS(t *testing.T) {
@@ -77,4 +80,30 @@ func setTestMultiplayerConnectMode(t *testing.T, mode MultiplayerConnectMode) {
 	t.Cleanup(func() {
 		SetMultiplayerConnectMode(previous)
 	})
+}
+
+func TestCloseGRPCConnectionClosesConnBeforeTransportCloser(t *testing.T) {
+	conn, err := grpc.NewClient("passthrough:///sliver-test", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("create grpc client: %v", err)
+	}
+
+	var stateSeen connectivity.State
+	registerConnCloser(conn, testConnectionCloser(func() error {
+		stateSeen = conn.GetState()
+		return nil
+	}))
+
+	if err := CloseGRPCConnection(conn); err != nil {
+		t.Fatalf("close grpc connection: %v", err)
+	}
+	if stateSeen != connectivity.Shutdown {
+		t.Fatalf("expected transport closer to run after grpc shutdown, got state %v", stateSeen)
+	}
+}
+
+type testConnectionCloser func() error
+
+func (fn testConnectionCloser) Close() error {
+	return fn()
 }

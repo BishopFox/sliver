@@ -64,9 +64,9 @@ func CloseGRPCConnection(conn *grpc.ClientConn) error {
 	}
 
 	var errs []error
+	errs = append(errs, conn.Close())
 	if closer := unregisterConnCloser(conn); closer != nil {
 		errs = append(errs, closer.Close())
 	}
-	errs = append(errs, conn.Close())
 	return errors.Join(errs...)
 }

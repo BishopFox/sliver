@@ -25,12 +25,12 @@ type connectResult struct {
 }
 
 func connectWithSpinner(out io.Writer, target string, connect func(transport.ConnectStatusFn) (rpcpb.SliverRPCClient, *grpc.ClientConn, error)) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
-	statusCh := make(chan string, 1)
+	statusCh := make(chan string, 8)
 	resultCh := make(chan connectResult, 1)
 
 	go func() {
 		rpc, conn, err := connect(func(status string) {
-			pushLatestStatus(statusCh, status)
+			sendStatus(statusCh, status)
 		})
 		resultCh <- connectResult{rpc: rpc, conn: conn, err: err}
 	}()
@@ -132,21 +132,12 @@ func connectWithSpinner(out io.Writer, target string, connect func(transport.Con
 	}
 }
 
-func pushLatestStatus(statusCh chan string, status string) {
+func sendStatus(statusCh chan string, status string) {
 	status = strings.TrimSpace(status)
 	if status == "" {
 		return
 	}
-
-	select {
-	case statusCh <- status:
-	default:
-		select {
-		case <-statusCh:
-		default:
-		}
-		statusCh <- status
-	}
+	statusCh <- status
 }
 
 func formatConnectSpinnerMessage(target string, status string) string {
