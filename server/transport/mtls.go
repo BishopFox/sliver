@@ -21,6 +21,7 @@ package transport
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"net"
@@ -127,12 +128,7 @@ func getOperatorServerTLSConfig(host string) *tls.Config {
 	caCertPool := x509.NewCertPool()
 	caCertPool.AddCert(caCertPtr)
 
-	_, _, err = certs.OperatorServerGetCertificate(host)
-	if err == certs.ErrCertDoesNotExist {
-		certs.OperatorServerGenerateCertificate(host)
-	}
-
-	certPEM, keyPEM, err := certs.OperatorServerGetCertificate(host)
+	certPEM, keyPEM, err := ensureCurrentOperatorServerCertificate(host, caCertPtr)
 	if err != nil {
 		mtlsLog.Errorf("Failed to generate or fetch certificate %s", err)
 		return nil
@@ -154,4 +150,36 @@ func getOperatorServerTLSConfig(host string) *tls.Config {
 	}
 
 	return tlsConfig
+}
+
+func ensureCurrentOperatorServerCertificate(host string, caCert *x509.Certificate) ([]byte, []byte, error) {
+	certPEM, keyPEM, err := certs.OperatorServerGetCertificate(host)
+	if err != nil && !errors.Is(err, certs.ErrCertDoesNotExist) {
+		return nil, nil, err
+	}
+	if errors.Is(err, certs.ErrCertDoesNotExist) || !operatorServerCertMatchesCA(certPEM, caCert) {
+		if _, _, genErr := certs.OperatorServerGenerateCertificate(host); genErr != nil {
+			return nil, nil, genErr
+		}
+		return certs.OperatorServerGetCertificate(host)
+	}
+	return certPEM, keyPEM, nil
+}
+
+func operatorServerCertMatchesCA(certPEM []byte, caCert *x509.Certificate) bool {
+	if len(certPEM) == 0 || caCert == nil {
+		return false
+	}
+	block, _ := pem.Decode(certPEM)
+	if block == nil {
+		return false
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return false
+	}
+	roots := x509.NewCertPool()
+	roots.AddCert(caCert)
+	_, err = cert.Verify(x509.VerifyOptions{Roots: roots})
+	return err == nil
 }

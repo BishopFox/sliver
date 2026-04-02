@@ -64,18 +64,30 @@ func saveCertificate(caType string, keyType string, commonName string, cert []by
 
 	certsLog.Infof("Saving certificate for cn = '%s'", commonName)
 
-	certModel := &models.Certificate{
-		CommonName:     commonName,
-		CAType:         caType,
-		KeyType:        keyType,
-		CertificatePEM: string(cert),
-		PrivateKeyPEM:  string(key),
+	dbSession := db.Session()
+	certModel := &models.Certificate{}
+	result := dbSession.Where(&models.Certificate{
+		CommonName: commonName,
+		CAType:     caType,
+		KeyType:    keyType,
+	}).First(certModel)
+	if errors.Is(result.Error, db.ErrRecordNotFound) {
+		certModel = &models.Certificate{
+			CommonName:     commonName,
+			CAType:         caType,
+			KeyType:        keyType,
+			CertificatePEM: string(cert),
+			PrivateKeyPEM:  string(key),
+		}
+		return dbSession.Create(certModel).Error
+	}
+	if result.Error != nil {
+		return result.Error
 	}
 
-	dbSession := db.Session()
-	result := dbSession.Create(&certModel)
-
-	return result.Error
+	certModel.CertificatePEM = string(cert)
+	certModel.PrivateKeyPEM = string(key)
+	return dbSession.Save(certModel).Error
 }
 
 // GetECCCertificate - Get an ECC certificate

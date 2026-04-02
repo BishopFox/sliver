@@ -42,3 +42,28 @@ func TestOperatorGenerateCertificate(t *testing.T) {
 		return
 	}
 }
+
+func TestOperatorServerGenerateCertificateReplacesExistingCertificate(t *testing.T) {
+	GenerateCertificateAuthority(OperatorCA, "")
+
+	cert1, key1, err := OperatorServerGenerateCertificate("multiplayer")
+	if err != nil {
+		t.Fatalf("generate first operator server certificate: %v", err)
+	}
+
+	cert2, key2, err := OperatorServerGenerateCertificate("multiplayer")
+	if err != nil {
+		t.Fatalf("generate replacement operator server certificate: %v", err)
+	}
+
+	storedCert, storedKey, err := OperatorServerGetCertificate("multiplayer")
+	if err != nil {
+		t.Fatalf("get operator server certificate: %v", err)
+	}
+	if !bytes.Equal(storedCert, cert2) || !bytes.Equal(storedKey, key2) {
+		t.Fatalf("expected latest operator server certificate to be stored")
+	}
+	if bytes.Equal(cert1, cert2) && bytes.Equal(key1, key2) {
+		t.Fatalf("expected regenerated operator server certificate to differ from original")
+	}
+}
