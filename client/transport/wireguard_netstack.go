@@ -3,6 +3,7 @@ package transport
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"math/big"
 	insecurerand "math/rand"
@@ -32,6 +33,7 @@ type transportTun struct {
 	notifyHandle   *channel.NotificationHandle
 	incomingPacket chan *buffer.View
 	mtu            int
+	primaryAddr    netip.Addr
 	hasV4          bool
 	hasV6          bool
 }
@@ -41,6 +43,8 @@ type transportNet transportTun
 const (
 	transportTCPReceiveBufferMax = 8 << 20
 	transportTCPSendBufferMax    = 6 << 20
+	transportTCPBindPortMin      = 49152
+	transportTCPBindPortSpan     = 65535 - transportTCPBindPortMin + 1
 )
 
 func createTransportNetTUN(localAddresses []netip.Addr, mtu int) (tun.Device, *transportNet, error) {
@@ -87,6 +91,9 @@ func createTransportNetTUN(localAddresses []netip.Addr, mtu int) (tun.Device, *t
 		}
 		if tcpipErr := dev.stack.AddProtocolAddress(1, protoAddr, stack.AddressProperties{}); tcpipErr != nil {
 			return nil, nil, fmt.Errorf("AddProtocolAddress(%v): %v", ip, tcpipErr)
+		}
+		if !dev.primaryAddr.IsValid() {
+			dev.primaryAddr = ip
 		}
 		if ip.Is4() {
 			dev.hasV4 = true
@@ -240,8 +247,12 @@ func convertTransportFullAddr(endpoint netip.AddrPort) (tcpip.FullAddress, tcpip
 }
 
 func (netstack *transportNet) DialContextTCPAddrPort(ctx context.Context, addr netip.AddrPort) (*gonet.TCPConn, error) {
-	fa, pn := convertTransportFullAddr(addr)
-	return gonet.DialContextTCP(ctx, netstack.stack, fa, pn)
+	remoteAddr, pn := convertTransportFullAddr(addr)
+	localAddr, err := netstack.randomTCPBindAddr()
+	if err != nil {
+		return nil, err
+	}
+	return gonet.DialTCPWithBind(ctx, netstack.stack, localAddr, remoteAddr, pn)
 }
 
 func (netstack *transportNet) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
@@ -264,4 +275,29 @@ func (netstack *transportNet) DialContext(ctx context.Context, network, address 
 		return nil, err
 	}
 	return netstack.DialContextTCPAddrPort(ctx, netip.AddrPortFrom(addr, uint16(port)))
+}
+
+func (netstack *transportNet) randomTCPBindAddr() (tcpip.FullAddress, error) {
+	if netstack == nil || !netstack.primaryAddr.IsValid() {
+		return tcpip.FullAddress{}, errors.New("wireguard transport has no local address")
+	}
+
+	port, err := randomTransportTCPBindPort()
+	if err != nil {
+		return tcpip.FullAddress{}, err
+	}
+
+	return tcpip.FullAddress{
+		NIC:  1,
+		Addr: tcpip.AddrFromSlice(netstack.primaryAddr.AsSlice()),
+		Port: port,
+	}, nil
+}
+
+func randomTransportTCPBindPort() (uint16, error) {
+	n, err := rand.Int(rand.Reader, big.NewInt(transportTCPBindPortSpan))
+	if err != nil {
+		return 0, fmt.Errorf("failed to choose random wireguard TCP bind port: %w", err)
+	}
+	return uint16(transportTCPBindPortMin + n.Int64()), nil
 }
