@@ -5,6 +5,9 @@ import (
 	"testing"
 
 	"github.com/bishopfox/sliver/client/assets"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func TestSelectMultiplayerDialStrategyLegacyConfigUsesDirectMTLS(t *testing.T) {
@@ -16,15 +19,6 @@ func TestSelectMultiplayerDialStrategyLegacyConfigUsesDirectMTLS(t *testing.T) {
 	}
 	if strategy != multiplayerDialDirect {
 		t.Fatalf("expected direct mTLS strategy, got %v", strategy)
-	}
-}
-
-func TestSelectMultiplayerDialStrategyRequireWGRejectsMissingWGConfig(t *testing.T) {
-	setTestMultiplayerConnectMode(t, MultiplayerConnectRequireWG)
-
-	_, err := selectMultiplayerDialStrategy(&assets.ClientConfig{})
-	if !errors.Is(err, ErrMissingWireGuardConfig) {
-		t.Fatalf("expected missing WG config error, got %v", err)
 	}
 }
 
@@ -86,4 +80,30 @@ func setTestMultiplayerConnectMode(t *testing.T, mode MultiplayerConnectMode) {
 	t.Cleanup(func() {
 		SetMultiplayerConnectMode(previous)
 	})
+}
+
+func TestCloseGRPCConnectionClosesConnBeforeTransportCloser(t *testing.T) {
+	conn, err := grpc.NewClient("passthrough:///sliver-test", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("create grpc client: %v", err)
+	}
+
+	var stateSeen connectivity.State
+	registerConnCloser(conn, testConnectionCloser(func() error {
+		stateSeen = conn.GetState()
+		return nil
+	}))
+
+	if err := CloseGRPCConnection(conn); err != nil {
+		t.Fatalf("close grpc connection: %v", err)
+	}
+	if stateSeen != connectivity.Shutdown {
+		t.Fatalf("expected transport closer to run after grpc shutdown, got state %v", stateSeen)
+	}
+}
+
+type testConnectionCloser func() error
+
+func (fn testConnectionCloser) Close() error {
+	return fn()
 }

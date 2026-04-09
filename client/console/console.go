@@ -95,6 +95,9 @@ type SliverClient struct {
 
 	connMu                 sync.Mutex
 	grpcConn               *grpc.ClientConn
+	backgroundRPC          rpcpb.SliverRPCClient
+	backgroundConn         *grpc.ClientConn
+	backgroundDedicated    bool
 	connDetails            *ConnectionDetails
 	connCancel             context.CancelFunc
 	connWg                 *sync.WaitGroup
@@ -326,6 +329,7 @@ func (con *SliverClient) applyConnectionHooksOnce() {
 
 	con.App.PreReadlineHooks = append(con.App.PreReadlineHooks, con.syncOutputHook)
 	con.App.PostCmdRunHooks = append(con.App.PostCmdRunHooks, con.syncOutputHook)
+	con.App.PreCmdRunLineHooks = append(con.App.PreCmdRunLineHooks, con.refreshDedicatedCommandConnectionHook)
 	con.App.PreCmdRunLineHooks = append(con.App.PreCmdRunLineHooks, con.allowServerRootCommands)
 	if shell := con.App.Shell(); shell != nil && shell.Completer != nil {
 		baseCompleter := shell.Completer
@@ -336,8 +340,12 @@ func (con *SliverClient) applyConnectionHooksOnce() {
 	}
 }
 
-func (con *SliverClient) startEventLoop(ctx context.Context) {
-	eventStream, err := con.Rpc.Events(ctx, &commonpb.Empty{})
+func (con *SliverClient) startEventLoop(ctx context.Context, rpc rpcpb.SliverRPCClient) {
+	if rpc == nil {
+		return
+	}
+
+	eventStream, err := rpc.Events(ctx, &commonpb.Empty{})
 	if err != nil {
 		fmt.Printf("%s%s\n", Warn, err)
 		return

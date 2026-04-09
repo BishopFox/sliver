@@ -58,6 +58,15 @@ const (
 	multiplayerDialWireGuard
 )
 
+const (
+	connectStatusGRPCMTLS              = "grpc/mtls"
+	connectStatusWireGuard             = "wireguard"
+	connectStatusGRPCMTLSOverWireGuard = "grpc/mtls over wireguard"
+)
+
+// ConnectStatusFn receives human-readable connection phase updates.
+type ConnectStatusFn func(string)
+
 // Return value is mapped to request headers.
 func (t TokenAuth) GetRequestMetadata(ctx context.Context, in ...string) (map[string]string, error) {
 	return map[string]string{
@@ -71,6 +80,12 @@ func (TokenAuth) RequireTransportSecurity() bool {
 
 // MTLSConnect - Connect to the sliver server
 func MTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
+	return MTLSConnectWithStatus(config, nil)
+}
+
+// MTLSConnectWithStatus connects to the sliver server and optionally reports
+// transport phase updates, such as WireGuard setup and gRPC dialing.
+func MTLSConnectWithStatus(config *assets.ClientConfig, statusFn ConnectStatusFn) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
 	strategy, err := selectMultiplayerDialStrategy(config)
 	if err != nil {
 		return nil, nil, err
@@ -78,9 +93,9 @@ func MTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *grpc.Clie
 
 	switch strategy {
 	case multiplayerDialWireGuard:
-		return wireGuardMTLSConnect(config)
+		return wireGuardMTLSConnect(config, statusFn)
 	default:
-		return directMTLSConnect(config)
+		return directMTLSConnect(config, statusFn)
 	}
 }
 
@@ -92,11 +107,6 @@ func selectMultiplayerDialStrategy(config *assets.ClientConfig) (multiplayerDial
 	switch getMultiplayerConnectMode() {
 	case MultiplayerConnectDisableWG:
 		return multiplayerDialDirect, nil
-	case MultiplayerConnectRequireWG:
-		if err := validateWireGuardConfig(config); err != nil {
-			return multiplayerDialDirect, err
-		}
-		return multiplayerDialWireGuard, nil
 	default:
 		if config.WG == nil {
 			return multiplayerDialDirect, nil
@@ -108,12 +118,19 @@ func selectMultiplayerDialStrategy(config *assets.ClientConfig) (multiplayerDial
 	}
 }
 
-func directMTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
+func directMTLSConnect(config *assets.ClientConfig, statusFn ConnectStatusFn) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
+	notifyConnectStatus(statusFn, connectStatusGRPCMTLS)
 	options, err := newMTLSDialOptions(config)
 	if err != nil {
 		return nil, nil, err
 	}
 	return dialRPCClient(fmt.Sprintf("%s:%d", config.LHost, config.LPort), options, nil)
+}
+
+func notifyConnectStatus(statusFn ConnectStatusFn, status string) {
+	if statusFn != nil {
+		statusFn(status)
+	}
 }
 
 func newMTLSDialOptions(config *assets.ClientConfig) ([]grpc.DialOption, error) {

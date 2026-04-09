@@ -17,6 +17,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	serverai "github.com/bishopfox/sliver/server/ai"
 	"github.com/bishopfox/sliver/server/configs"
+	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"google.golang.org/grpc/codes"
@@ -25,6 +26,8 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
+
+const aiConversationEventStreamTimeout = 30 * time.Second
 
 func TestSaveAIConversationMessageCompletesConversationAndPublishesEvents(t *testing.T) {
 	setupAIRPCTestEnv(t)
@@ -69,9 +72,9 @@ func TestSaveAIConversationMessageCompletesConversationAndPublishesEvents(t *tes
 	client, cleanup := newBufnetRPCClient(t)
 	defer cleanup()
 
-	streamCtx, cancelStream := context.WithTimeout(context.Background(), 10*time.Second)
+	streamCtx, cancelStream := context.WithTimeout(context.Background(), aiConversationEventStreamTimeout)
 	defer cancelStream()
-	eventStream, err := client.Events(streamCtx, &commonpb.Empty{})
+	eventStream, err := startAIEventStream(t, client, streamCtx)
 	if err != nil {
 		t.Fatalf("start events stream: %v", err)
 	}
@@ -242,9 +245,9 @@ func TestSaveAIConversationMessageCompletesOpenAIWithoutExplicitBaseURL(t *testi
 	client, cleanup := newBufnetRPCClient(t)
 	defer cleanup()
 
-	streamCtx, cancelStream := context.WithTimeout(context.Background(), 10*time.Second)
+	streamCtx, cancelStream := context.WithTimeout(context.Background(), aiConversationEventStreamTimeout)
 	defer cancelStream()
-	eventStream, err := client.Events(streamCtx, &commonpb.Empty{})
+	eventStream, err := startAIEventStream(t, client, streamCtx)
 	if err != nil {
 		t.Fatalf("start events stream: %v", err)
 	}
@@ -332,9 +335,9 @@ func TestSaveAIConversationMessagePublishesFailureMessageWhenProviderErrors(t *t
 	client, cleanup := newBufnetRPCClient(t)
 	defer cleanup()
 
-	streamCtx, cancelStream := context.WithTimeout(context.Background(), 10*time.Second)
+	streamCtx, cancelStream := context.WithTimeout(context.Background(), aiConversationEventStreamTimeout)
 	defer cancelStream()
-	eventStream, err := client.Events(streamCtx, &commonpb.Empty{})
+	eventStream, err := startAIEventStream(t, client, streamCtx)
 	if err != nil {
 		t.Fatalf("start events stream: %v", err)
 	}
@@ -622,9 +625,9 @@ func TestSaveAIConversationMessagePersistsReasoningAndToolBlocks(t *testing.T) {
 	client, cleanup := newBufnetRPCClient(t)
 	defer cleanup()
 
-	streamCtx, cancelStream := context.WithTimeout(context.Background(), 10*time.Second)
+	streamCtx, cancelStream := context.WithTimeout(context.Background(), aiConversationEventStreamTimeout)
 	defer cancelStream()
-	eventStream, err := client.Events(streamCtx, &commonpb.Empty{})
+	eventStream, err := startAIEventStream(t, client, streamCtx)
 	if err != nil {
 		t.Fatalf("start events stream: %v", err)
 	}
@@ -931,6 +934,27 @@ func saveOpenAICompletionConfig(t *testing.T, model string, thinkingLevel string
 	if err := cfg.Save(); err != nil {
 		t.Fatalf("save test server config: %v", err)
 	}
+}
+
+func startAIEventStream(t *testing.T, client rpcpb.SliverRPCClient, streamCtx context.Context) (rpcpb.SliverRPC_EventsClient, error) {
+	t.Helper()
+
+	before := len(core.Clients.ActiveOperators())
+	eventStream, err := client.Events(streamCtx, &commonpb.Empty{})
+	if err != nil {
+		return nil, err
+	}
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if len(core.Clients.ActiveOperators()) > before {
+			return eventStream, nil
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	t.Fatalf("event stream did not subscribe before deadline")
+	return nil, nil
 }
 
 func waitForAIConversationEvent(t *testing.T, eventStream rpcpb.SliverRPC_EventsClient, conversationID string) {

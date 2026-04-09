@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"net"
 	"runtime/debug"
+	"strings"
 
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/certs"
@@ -89,19 +90,31 @@ func StartMtlsClientServer(ln net.Listener) (*grpc.Server, error) {
 	grpcServer := grpc.NewServer(options...)
 	rpcpb.RegisterSliverRPCServer(grpcServer, rpc.NewServer())
 	go func() {
-		panicked := true
 		defer func() {
-			if panicked {
-				mtlsLog.Errorf("stacktrace from panic: %s", string(debug.Stack()))
+			if r := recover(); r != nil {
+				mtlsLog.Errorf("gRPC server panic: %v\n%s", r, string(debug.Stack()))
 			}
 		}()
-		if err := grpcServer.Serve(ln); err != nil {
+		if err := grpcServer.Serve(ln); err != nil && !isExpectedGRPCServerExit(err) {
 			mtlsLog.Warnf("gRPC server exited with error: %v", err)
-		} else {
-			panicked = false
 		}
 	}()
 	return grpcServer, nil
+}
+
+func isExpectedGRPCServerExit(err error) bool {
+	if err == nil {
+		return true
+	}
+	if errors.Is(err, grpc.ErrServerStopped) || errors.Is(err, net.ErrClosed) {
+		return true
+	}
+
+	// The gVisor-backed listener used by the WireGuard multiplayer transport can
+	// surface this accept error during normal shutdown on Windows.
+	errString := err.Error()
+	return strings.Contains(errString, "use of closed network connection") ||
+		strings.Contains(errString, "endpoint is in invalid state")
 }
 
 // getOperatorServerTLSConfig - Generate the TLS configuration, we do now allow the end user

@@ -20,6 +20,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/bishopfox/sliver/client/assets"
 	"github.com/bishopfox/sliver/client/command"
@@ -64,17 +65,20 @@ func consoleRunnerCmd(con *console.SliverClient, run bool) (pre, post func(cmd *
 			return nil
 		}
 
-		// Don't clobber output when simply running an implant command from system shell.
-		if run {
-			fmt.Printf("Connecting to %s:%d ...\n", config.LHost, config.LPort)
-		}
-
+		target := fmt.Sprintf("%s:%d", config.LHost, config.LPort)
 		var rpc rpcpb.SliverRPCClient
 		var ln *grpc.ClientConn
 
-		rpc, ln, err = transport.MTLSConnect(config)
+		// Don't clobber output when simply running an implant command from system shell.
+		if run {
+			rpc, ln, err = connectWithSpinner(os.Stdout, target, func(statusFn transport.ConnectStatusFn) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
+				return transport.MTLSConnectWithStatus(config, statusFn)
+			})
+		} else {
+			rpc, ln, err = transport.MTLSConnect(config)
+		}
 		if err != nil {
-			fmt.Printf("Connection to server failed %s", err)
+			fmt.Printf("Connection to server failed %s\n", err)
 			return nil
 		}
 		return console.StartClient(con, rpc, ln, &console.ConnectionDetails{ConfigKey: configKey, Config: config}, command.ServerCommands(con, nil), command.SliverCommands(con), run, rcScript)
