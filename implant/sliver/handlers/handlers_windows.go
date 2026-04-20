@@ -840,20 +840,28 @@ func servicesListHandler(data []byte, resp RPCResponse) {
 	}
 
 	serviceInfo, err := service.ListServices(servicesReq.Hostname)
-	/*
-		Errors from listing the services are not fatal. The client can
-		display a message to the user about the issue
-		We still want other errors like timeouts to be handled in the
-		normal way.
-	*/
-	servicesResp := &sliverpb.Services{
-		Details:  serviceInfo,
-		Error:    err.Error(),
-		Response: &commonpb.Response{},
-	}
+	servicesResp := buildServicesResp(serviceInfo, err)
 
 	data, err = proto.Marshal(servicesResp)
 	resp(data, err)
+}
+
+// buildServicesResp packages the result of service.ListServices into a
+// sliverpb.Services response.  Errors from listing services are not fatal
+// (partial results may still be useful to the operator), so a non-nil error
+// is reported via the Error string field rather than failing the RPC.
+// The nil-check is load-bearing: callers previously called err.Error()
+// unconditionally, crashing the implant when ListServices succeeded cleanly.
+func buildServicesResp(details []*sliverpb.ServiceDetails, err error) *sliverpb.Services {
+	errStr := ""
+	if err != nil {
+		errStr = err.Error()
+	}
+	return &sliverpb.Services{
+		Details:  details,
+		Error:    errStr,
+		Response: &commonpb.Response{},
+	}
 }
 
 func serviceDetailHandler(data []byte, resp RPCResponse) {
