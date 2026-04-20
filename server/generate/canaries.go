@@ -53,7 +53,8 @@ func canarySubDomain() string {
 // UpdateCanary - Update an existing canary
 func UpdateCanary(canary *clientpb.DNSCanary) error {
 	dbSession := db.Session()
-	result := dbSession.Save(&canary)
+	dbCanary := models.DNSCanaryFromProtobuf(canary)
+	result := dbSession.Save(&dbCanary)
 	return result.Error
 }
 

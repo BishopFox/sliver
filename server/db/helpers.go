@@ -747,7 +747,10 @@ func CanaryByDomain(domain string) (*clientpb.DNSCanary, error) {
 	dbSession := Session()
 	canary := models.DNSCanary{}
 	err := dbSession.Where(&models.DNSCanary{Domain: domain}).First(&canary).Error
-	return canary.ToProtobuf(), err
+	if err != nil {
+		return nil, err
+	}
+	return canary.ToProtobuf(), nil
 }
 
 // WebsiteByName - Get website by name
