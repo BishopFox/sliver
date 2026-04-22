@@ -15,11 +15,11 @@ If `server.yaml` does not exist, Sliver generates it. If a legacy `server.json` 
   - `-l, --lhost` multiplayer listener host
   - `-p, --lport` multiplayer listener port
   - `-t, --tailscale` enable Tailscale listener
-  - `--disable-wg` expose multiplayer directly over mTLS instead of using the default WireGuard wrapper
+  - `--enable-wg` wrap multiplayer in WireGuard instead of exposing it directly over mTLS
   - `-f, --force` force unpack static assets
 - For `sliver-server daemon`, `--lhost` and `--lport` override config values. If omitted, Sliver uses `daemon.host` and `daemon.port` from `server.yaml`.
-- For normal startup (`sliver-server`) with `daemon_mode: true`, Sliver uses `daemon.tailscale` and `daemon.disable_wg` from `server.yaml`.
-- With `--disable-wg` or `daemon.disable_wg: true`, multiplayer falls back to direct TCP mTLS on the configured port.
+- For normal startup (`sliver-server`) with `daemon_mode: true`, Sliver uses `daemon.tailscale` and `daemon.enable_wg` from `server.yaml`.
+- With `--enable-wg` or `daemon.enable_wg: true`, multiplayer is wrapped in WireGuard. Otherwise it stays on direct TCP mTLS.
 
 ### Example Config
 
@@ -29,7 +29,7 @@ daemon:
     host: ""
     port: 31337
     tailscale: false
-    disable_wg: false
+    enable_wg: false
 logs:
     level: 4
     grpc_unary_payloads: false
@@ -49,7 +49,7 @@ Since daemon mode does not provide an interactive server console, generate opera
 ./sliver-server operator --name zer0cool --lhost 1.2.3.4 --permissions all --save zer0cool.cfg
 ```
 
-The `operator` CLI matches the daemon's multiplayer exposure by default. If the daemon is running in direct mode or over Tailscale, the generated config omits the multiplayer `wg` block automatically. You can also force a direct-only profile with `--disable-wg`.
+The `operator` CLI generates direct multiplayer profiles by default. Add `--enable-wg` when the daemon is running with the WireGuard wrapper.
 
 ### Shutdown Behavior
 

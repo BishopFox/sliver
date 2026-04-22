@@ -73,10 +73,32 @@ type GRPCConfig struct {
 
 // DaemonConfig - Configure daemon mode
 type DaemonConfig struct {
-	Host      string `json:"host" yaml:"host"`
-	Port      int    `json:"port" yaml:"port"`
-	Tailscale bool   `json:"tailscale" yaml:"tailscale"`
-	DisableWG bool   `json:"disable_wg" yaml:"disable_wg"`
+	Host            string `json:"host" yaml:"host"`
+	Port            int    `json:"port" yaml:"port"`
+	Tailscale       bool   `json:"tailscale" yaml:"tailscale"`
+	EnableWG        *bool  `json:"enable_wg,omitempty" yaml:"enable_wg,omitempty"`
+	LegacyDisableWG *bool  `json:"disable_wg,omitempty" yaml:"disable_wg,omitempty"`
+}
+
+func (c *DaemonConfig) WireGuardEnabled() bool {
+	if c == nil {
+		return false
+	}
+	if c.EnableWG != nil {
+		return *c.EnableWG
+	}
+	if c.LegacyDisableWG != nil {
+		return !*c.LegacyDisableWG
+	}
+	return false
+}
+
+func (c *DaemonConfig) SetWireGuardEnabled(enabled bool) {
+	if c == nil {
+		return
+	}
+	c.EnableWG = &enabled
+	c.LegacyDisableWG = nil
 }
 
 // JobConfig - Restart Jobs on Load
@@ -215,6 +237,7 @@ func (c *ServerConfig) Save() error {
 		if err := c.AI.Save(); err != nil {
 			return err
 		}
+		normalizeServerConfig(c)
 	}
 
 	configPath := GetServerConfigPath()
@@ -296,6 +319,7 @@ func GetServerConfig() *ServerConfig {
 		defaultPermit := true
 		config.GRPC.Keepalive.PermitWithoutStream = &defaultPermit
 	}
+	normalizeServerConfig(config)
 	config.AI = getAIConfig(migratedAIConfig)
 
 	err := config.Save() // This updates the config with any missing fields
@@ -345,4 +369,14 @@ func getDefaultServerConfig() *ServerConfig {
 		CC:            map[string]string{},
 		CXX:           map[string]string{},
 	}
+}
+
+func normalizeServerConfig(config *ServerConfig) {
+	if config == nil {
+		return
+	}
+	if config.DaemonConfig == nil {
+		config.DaemonConfig = &DaemonConfig{}
+	}
+	config.DaemonConfig.SetWireGuardEnabled(config.DaemonConfig.WireGuardEnabled())
 }

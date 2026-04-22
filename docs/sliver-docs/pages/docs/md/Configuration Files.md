@@ -12,7 +12,7 @@ daemon:
     host: ""
     port: 31337
     tailscale: false
-    disable_wg: false
+    enable_wg: false
 logs:
     level: 4
     grpc_unary_payloads: false
@@ -54,7 +54,7 @@ cxx: {}
   - `host` - Interface to bind the daemon listener to. Empty string means all interfaces.
   - `port` - Listen port for the multiplayer listener.
   - `tailscale` - Enable Tailscale for daemon listener setup. When enabled, Sliver does not wrap multiplayer in its own WireGuard layer.
-  - `disable_wg` - Expose multiplayer directly over mTLS instead of the default WireGuard-protected mode.
+  - `enable_wg` - Wrap multiplayer in WireGuard. If omitted or false, multiplayer is exposed directly over mTLS.
 - `logs` - Server logging options.
   - `level` - `logrus` level (`0`-`6`, clamped by Sliver). `4` is `INFO`, `5` is `DEBUG`, `6` is `TRACE`.
   - `grpc_unary_payloads` - Log gRPC unary payloads.
@@ -159,4 +159,4 @@ The `wg` block is optional:
 
 - When present, `sliver-client` automatically brings up the multiplayer WireGuard wrapper and then dials the in-tunnel gRPC/mTLS service.
 - When absent, the client connects directly to the multiplayer mTLS listener.
-- Generate a direct-only profile with `new-operator --disable-wg` or `sliver-server operator --disable-wg` when you need compatibility with external gRPC clients that do not implement the multiplayer WireGuard wrapper.
+- Generate a WireGuard-enabled profile with `new-operator --enable-wg` or `sliver-server operator --enable-wg` when you want the multiplayer WireGuard wrapper.

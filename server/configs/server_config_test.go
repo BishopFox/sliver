@@ -21,6 +21,7 @@ daemon:
   host: "127.0.0.1"
   port: 4444
   tailscale: true
+  enable_wg: true
 logs:
   level: 5
   grpc_unary_payloads: true
@@ -98,6 +99,9 @@ openrouter:
 	}
 	if config.DaemonConfig == nil || config.DaemonConfig.Port != 4444 {
 		t.Fatalf("expected daemon port %d, got %v", 4444, config.DaemonConfig)
+	}
+	if !config.DaemonConfig.WireGuardEnabled() {
+		t.Fatalf("expected daemon enable_wg true")
 	}
 	if config.Logs == nil || config.Logs.Level != 5 {
 		t.Fatalf("expected logs level %d, got %v", 5, config.Logs)
@@ -199,6 +203,47 @@ openrouter:
 	}
 	if config.CXX["linux/amd64"] != "/usr/bin/c++" {
 		t.Fatalf("expected cxx override %q, got %q", "/usr/bin/c++", config.CXX["linux/amd64"])
+	}
+}
+
+func TestServerConfigMigratesLegacyDisableWG(t *testing.T) {
+	t.Setenv("SLIVER_ROOT_DIR", t.TempDir())
+
+	configPath := GetServerConfigPath()
+	if err := os.MkdirAll(filepath.Dir(configPath), 0700); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
+	}
+
+	data := []byte(`daemon_mode: true
+daemon:
+  host: "127.0.0.1"
+  port: 4444
+  disable_wg: false
+`)
+	if err := os.WriteFile(configPath, data, 0600); err != nil {
+		t.Fatalf("failed to write yaml config: %v", err)
+	}
+
+	config := GetServerConfig()
+	if config.DaemonConfig == nil {
+		t.Fatalf("expected daemon config")
+	}
+	if !config.DaemonConfig.WireGuardEnabled() {
+		t.Fatalf("expected legacy disable_wg:false to migrate to enable_wg:true")
+	}
+	if config.DaemonConfig.LegacyDisableWG != nil {
+		t.Fatalf("expected legacy disable_wg field to be cleared after normalization")
+	}
+
+	saved, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("failed to read migrated config: %v", err)
+	}
+	if !strings.Contains(string(saved), "enable_wg: true") {
+		t.Fatalf("expected migrated config to contain enable_wg: true, got:\n%s", string(saved))
+	}
+	if strings.Contains(string(saved), "disable_wg") {
+		t.Fatalf("expected migrated config to drop legacy disable_wg field, got:\n%s", string(saved))
 	}
 }
 

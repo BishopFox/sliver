@@ -30,7 +30,7 @@ func TestNewOperatorConfigWithWireGuardConnectsToWrappedMultiplayer(t *testing.T
 	certs.SetupCAs()
 	certs.SetupWGKeys()
 	certs.SetupMultiplayerWGKeys()
-	clienttransport.SetMultiplayerConnectMode(clienttransport.MultiplayerConnectAuto)
+	clienttransport.SetMultiplayerConnectMode(clienttransport.MultiplayerConnectEnableWG)
 
 	operatorName := uniqueKickOperatorName(t)
 	t.Cleanup(func() {
@@ -128,7 +128,7 @@ func TestNewOperatorConfigWithWireGuardConnectsToWrappedMultiplayerRepeatedly(t 
 	certs.SetupCAs()
 	certs.SetupWGKeys()
 	certs.SetupMultiplayerWGKeys()
-	clienttransport.SetMultiplayerConnectMode(clienttransport.MultiplayerConnectAuto)
+	clienttransport.SetMultiplayerConnectMode(clienttransport.MultiplayerConnectEnableWG)
 
 	operatorName := uniqueKickOperatorName(t)
 	t.Cleanup(func() {
@@ -193,7 +193,7 @@ func runWrappedMultiplayerWireGuardUnaryWithBackgroundStreams(t *testing.T, useE
 	certs.SetupCAs()
 	certs.SetupWGKeys()
 	certs.SetupMultiplayerWGKeys()
-	clienttransport.SetMultiplayerConnectMode(clienttransport.MultiplayerConnectAuto)
+	clienttransport.SetMultiplayerConnectMode(clienttransport.MultiplayerConnectEnableWG)
 
 	operatorName := uniqueKickOperatorName(t)
 	t.Cleanup(func() {
@@ -282,7 +282,7 @@ func TestOperatorCLIWireGuardConfigConnectsToWrappedMultiplayer(t *testing.T) {
 	certs.SetupCAs()
 	certs.SetupWGKeys()
 	certs.SetupMultiplayerWGKeys()
-	clienttransport.SetMultiplayerConnectMode(clienttransport.MultiplayerConnectAuto)
+	clienttransport.SetMultiplayerConnectMode(clienttransport.MultiplayerConnectEnableWG)
 
 	port := freeUDPPort(t)
 	grpcServer, ln, err := servertransport.StartWGWrappedMtlsClientListener("127.0.0.1", uint16(port))
@@ -315,6 +315,7 @@ func TestOperatorCLIWireGuardConfigConnectsToWrappedMultiplayer(t *testing.T) {
 		"--lhost", "127.0.0.1",
 		"--lport", strconv.Itoa(port),
 		"--permissions", "all",
+		"--enable-wg",
 		"--save", savePath,
 	)
 	cmd.Dir = repoRoot

@@ -99,14 +99,10 @@ var operatorCmd = &cobra.Command{
 		}
 
 		certs.SetupCAs()
-		includeWG := console.DefaultOperatorWireGuardEnabled()
-		if cmd.Flags().Changed(disableWGFlagStr) {
-			disableWG, err := cmd.Flags().GetBool(disableWGFlagStr)
-			if err != nil {
-				fmt.Printf("Failed to parse --%s flag %s", disableWGFlagStr, err)
-				return
-			}
-			includeWG = !disableWG
+		includeWG, err := cmd.Flags().GetBool(enableWGFlagStr)
+		if err != nil {
+			fmt.Printf("Failed to parse --%s flag %s", enableWGFlagStr, err)
+			return
 		}
 
 		configJSON, err := console.NewOperatorConfig(name, lhost, lport, permissions, includeWG)

@@ -11,8 +11,8 @@ import (
 type MultiplayerConnectMode int
 
 const (
-	MultiplayerConnectAuto MultiplayerConnectMode = iota
-	MultiplayerConnectDisableWG
+	MultiplayerConnectDirect MultiplayerConnectMode = iota
+	MultiplayerConnectEnableWG
 )
 
 type connectionCloser interface {
@@ -21,7 +21,7 @@ type connectionCloser interface {
 
 var (
 	multiplayerConnectModeMu sync.RWMutex
-	multiplayerConnectMode   = MultiplayerConnectAuto
+	multiplayerConnectMode   = MultiplayerConnectDirect
 	connClosers              sync.Map // *grpc.ClientConn -> connectionCloser
 )
 
