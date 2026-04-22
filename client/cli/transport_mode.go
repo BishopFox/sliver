@@ -6,23 +6,23 @@ import (
 )
 
 const (
-	disableWGFlag = "disable-wg"
+	enableWGFlag = "enable-wg"
 )
 
 func applyMultiplayerConnectMode(cmd *cobra.Command) error {
 	if cmd == nil {
-		transport.SetMultiplayerConnectMode(transport.MultiplayerConnectAuto)
+		transport.SetMultiplayerConnectMode(transport.MultiplayerConnectDirect)
 		return nil
 	}
 
-	disableWG, err := cmd.Flags().GetBool(disableWGFlag)
+	enableWG, err := cmd.Flags().GetBool(enableWGFlag)
 	if err != nil {
 		return err
 	}
 
-	mode := transport.MultiplayerConnectAuto
-	if disableWG {
-		mode = transport.MultiplayerConnectDisableWG
+	mode := transport.MultiplayerConnectDirect
+	if enableWG {
+		mode = transport.MultiplayerConnectEnableWG
 	}
 	transport.SetMultiplayerConnectMode(mode)
 	return nil

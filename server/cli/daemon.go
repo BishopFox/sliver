@@ -47,13 +47,13 @@ var daemonCmd = &cobra.Command{
 			fmt.Printf("Failed to parse --%s flag %s\n", tailscaleFlagStr, err)
 			return
 		}
-		disableWG, err := cmd.Flags().GetBool(disableWGFlagStr)
+		enableWG, err := cmd.Flags().GetBool(enableWGFlagStr)
 		if err != nil {
-			fmt.Printf("Failed to parse --%s flag %s\n", disableWGFlagStr, err)
+			fmt.Printf("Failed to parse --%s flag %s\n", enableWGFlagStr, err)
 			return
 		}
-		if !cmd.Flags().Changed(disableWGFlagStr) {
-			disableWG = configs.GetServerConfig().DaemonConfig.DisableWG
+		if !cmd.Flags().Changed(enableWGFlagStr) {
+			enableWG = configs.GetServerConfig().DaemonConfig.WireGuardEnabled()
 		}
 
 		appDir := assets.GetRootAppDir()
@@ -87,7 +87,7 @@ var daemonCmd = &cobra.Command{
 			fmt.Printf("[!] %s\n", err)
 		}
 
-		daemon.Start(lhost, uint16(lport), tailscale, disableWG)
+		daemon.Start(lhost, uint16(lport), tailscale, enableWG)
 	},
 }
 

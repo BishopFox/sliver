@@ -7,7 +7,7 @@ Current Sliver releases generate multiplayer operator configs with a `wg` block 
 If you are writing a custom client in another language, you have two options:
 
 - Implement the multiplayer WireGuard wrapper described in [multiplayer mode](/docs?name=Multi-player+Mode), then connect to the in-tunnel gRPC/mTLS service.
-- Keep multiplayer in direct mode by starting the listener with `multiplayer --disable-wg` or `sliver-server daemon --disable-wg`, then generate operator profiles with `new-operator --disable-wg` or `sliver-server operator --disable-wg`.
+- Keep multiplayer in direct mode by default, or explicitly opt into the wrapper with `multiplayer --enable-wg` or `sliver-server daemon --enable-wg`. Generate matching operator profiles with `new-operator --enable-wg` or `sliver-server operator --enable-wg` when you want the client-side WireGuard wrapper.
 
 Once connected, the client/server API is still gRPC, so any language with gRPC support can in theory be used to create a custom client.
 

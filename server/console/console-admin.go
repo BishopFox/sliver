@@ -39,7 +39,6 @@ import (
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/certs"
-	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/console/forms"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
@@ -82,11 +81,7 @@ func newOperatorCmd(cmd *cobra.Command, _ []string) {
 	lport, _ := cmd.Flags().GetUint16("lport")
 	save, _ := cmd.Flags().GetString("save")
 	permissions, _ := cmd.Flags().GetStringSlice("permissions")
-	includeWG := DefaultOperatorWireGuardEnabled()
-	if cmd.Flags().Changed("disable-wg") {
-		disableWG, _ := cmd.Flags().GetBool("disable-wg")
-		includeWG = !disableWG
-	}
+	includeWG, _ := cmd.Flags().GetBool("enable-wg")
 
 	if save == "" {
 		save, _ = os.Getwd()
@@ -115,34 +110,6 @@ func newOperatorCmd(cmd *cobra.Command, _ []string) {
 		return
 	}
 	fmt.Printf(Info+"Saved new client config to: %s \n", saveTo)
-}
-
-// DefaultOperatorWireGuardEnabled returns the default wireguard mode for new
-// operator configs based on the current server multiplayer exposure.
-func DefaultOperatorWireGuardEnabled() bool {
-	serverConfig := configs.GetServerConfig()
-	if serverConfig != nil && serverConfig.DaemonMode && serverConfig.DaemonConfig != nil {
-		if serverConfig.DaemonConfig.Tailscale {
-			return false
-		}
-		return !serverConfig.DaemonConfig.DisableWG
-	}
-
-	listenerJobs, err := db.ListenerJobs()
-	if err != nil {
-		return true
-	}
-	for _, listenerJob := range listenerJobs {
-		if listenerJob == nil || listenerJob.Type != consts.MultiplayerModeStr {
-			continue
-		}
-		config, err := db.ListenerByJobID(listenerJob.JobID)
-		if err != nil || config == nil || config.MultiConf == nil {
-			continue
-		}
-		return config.MultiConf.WireGuard
-	}
-	return true
 }
 
 // NewOperatorConfig - Generate a new player/client/operator configuration
@@ -438,8 +405,8 @@ func startMultiplayerModeCmd(cmd *cobra.Command, _ []string) {
 	lhost, _ := cmd.Flags().GetString("lhost")
 	lport, _ := cmd.Flags().GetUint16("lport")
 	tailscale, _ := cmd.Flags().GetBool("tailscale")
-	disableWG, _ := cmd.Flags().GetBool("disable-wg")
-	useWireGuard := !disableWG && !tailscale
+	enableWG, _ := cmd.Flags().GetBool("enable-wg")
+	useWireGuard := enableWG && !tailscale
 
 	var err error
 	var jobID int

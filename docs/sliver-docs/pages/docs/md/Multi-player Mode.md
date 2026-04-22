@@ -1,6 +1,6 @@
 Multiplayer mode allows multiple operators to connect to the same Sliver server and collaborate on engagements. The easiest way to set up a server for multiplayer is to use the [Linux install script](/docs?name=Linux+Install+Script), which configures the server as a systemd service. However, any `sliver-server` binary supports multiplayer mode.
 
-By default, Sliver now protects the operator-facing multiplayer listener with a dedicated WireGuard wrapper. The gRPC/mTLS authentication stack is still used inside the tunnel, but the server no longer exposes the multiplayer gRPC listener directly unless you explicitly opt out with `--disable-wg`.
+Sliver exposes the operator-facing multiplayer listener directly over gRPC/mTLS by default. You can opt into a dedicated WireGuard wrapper with `--enable-wg`; the gRPC/mTLS authentication stack still runs inside that tunnel.
 
 ```
                     ┌──────────────────┐  C2
@@ -53,7 +53,7 @@ From the server, start the multiplayer listener and generate an operator config 
 [*] Saved new client config to: /Users/moloch/Desktop/moloch_example.com.cfg
 ```
 
-**IMPORTANT:** Before clients can connect to a server you must start a multiplayer listener with the `multiplayer` command. In the default WireGuard-protected mode the outer listener is UDP/31337. If you disable the wrapper, multiplayer is exposed directly on TCP/31337 instead.
+**IMPORTANT:** Before clients can connect to a server you must start a multiplayer listener with the `multiplayer` command. By default multiplayer is exposed directly on TCP/31337. If you enable the wrapper, the outer listener becomes UDP/31337 and the gRPC/mTLS service stays inside the tunnel.
 
 You can now give this configuration file `moloch_example.com.cfg` to the operator and they can connect to the server using the `sliver-client` binary. The Sliver client will look for configuration files in `~/.sliver-client/configs/` or you can import configs using the `import` CLI. The configs directory can contain multiple configs for different servers.
 
@@ -71,11 +71,11 @@ $ ./sliver-client
 If you want the old behavior, or you need compatibility with third-party gRPC clients that do not implement the multiplayer WireGuard wrapper, disable it on both the listener and the generated operator profile:
 
 ```
-[server] sliver > multiplayer --disable-wg
+[server] sliver > multiplayer
 
 [*] Multiplayer mode enabled!
 
-[server] sliver > new-operator --name tester --lhost 1.2.3.4 --permissions all --disable-wg
+[server] sliver > new-operator --name tester --lhost 1.2.3.4 --permissions all
 
 [*] Generating new client certificate, please wait ...
 [*] Saved new client config to: /Users/tester/Desktop/tester_example.com.cfg
@@ -85,13 +85,13 @@ In direct mode:
 
 - Multiplayer is exposed directly over TCP on `--lport` (default `31337`).
 - Generated operator configs omit the `wg` block.
-- `sliver-client --disable-wg` forces a direct connection even if the config includes a `wg` block.
+- `sliver-client --enable-wg` opts into the multiplayer WireGuard wrapper when the operator config includes a `wg` block.
 
-The listener mode and the operator config need to match. A WireGuard-enabled config cannot talk to a direct listener, and a direct-only client cannot talk to the default WireGuard-wrapped listener.
+The listener mode, operator config, and client flag need to match. A WireGuard-wrapped listener needs a `wg` block in the operator profile plus `sliver-client --enable-wg`. Direct multiplayer works without the `wg` block and without the flag.
 
 ### Server CLI / Daemon Mode Multiplayer
 
-If the server is running in daemon mode, the multiplayer listener is started for you without an interactive console. By default the daemon uses the same WireGuard-protected multiplayer mode described above. You can switch the daemon back to direct exposure with `sliver-server daemon --disable-wg` or `daemon.disable_wg: true` in `server.yaml`.
+If the server is running in daemon mode, the multiplayer listener is started for you without an interactive console. By default the daemon uses direct multiplayer mTLS. You can opt into the WireGuard wrapper with `sliver-server daemon --enable-wg` or `daemon.enable_wg: true` in `server.yaml`.
 
 Use the server CLI to generate operator configuration files:
 
@@ -99,7 +99,7 @@ Use the server CLI to generate operator configuration files:
 ./sliver-server operator --name zer0cool --lhost 1.2.3.4 --permissions all --save zer0cool.cfg
 ```
 
-When daemon mode is configured for direct multiplayer or Tailscale, the CLI automatically omits the `wg` block by default. You can also force a direct-only profile with `--disable-wg`.
+Operator profiles omit the multiplayer `wg` block by default. Add `--enable-wg` when the listener is wrapped in WireGuard.
 
 The installation script places the `sliver-server` binary in `/root` by default.
 
@@ -116,4 +116,4 @@ $ ./sliver-server
 sliver > multiplayer -T
 ```
 
-You should now see a new Tailscale host named `sliver-server-<machine>`. Use that hostname as `--lhost` when generating operator configs for other hosts on the same tailnet. If you generate the operator config before enabling Tailscale multiplayer, add `--disable-wg` explicitly so the profile does not include the multiplayer `wg` block.
+You should now see a new Tailscale host named `sliver-server-<machine>`. Use that hostname as `--lhost` when generating operator configs for other hosts on the same tailnet. Tailscale multiplayer does not use the multiplayer WireGuard wrapper, so operator profiles should be generated without `--enable-wg`.

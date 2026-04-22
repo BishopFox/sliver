@@ -52,7 +52,7 @@ const (
 	outputFlagStr      = "output"
 	permissionsFlagStr = "permissions"
 	tailscaleFlagStr   = "tailscale"
-	disableWGFlagStr   = "disable-wg"
+	enableWGFlagStr    = "enable-wg"
 
 	// Cert flags
 	caTypeFlagStr = "type"
@@ -87,7 +87,7 @@ func init() {
 	operatorCmd.Flags().StringP(saveFlagStr, "s", "", "save file to ...")
 	operatorCmd.Flags().StringP(outputFlagStr, "o", "file", "output format (file, stdout)")
 	operatorCmd.Flags().StringSliceP(permissionsFlagStr, "P", []string{}, "grant permissions to the operator profile (all, builder, crackstation)")
-	operatorCmd.Flags().Bool(disableWGFlagStr, false, "omit WireGuard tunnel settings from the generated operator config")
+	operatorCmd.Flags().Bool(enableWGFlagStr, false, "include WireGuard tunnel settings in the generated operator config")
 	rootCmd.AddCommand(operatorCmd)
 
 	// Certs
@@ -104,7 +104,7 @@ func init() {
 	daemonCmd.Flags().Uint16P(lportFlagStr, "p", daemon.BlankPort, "multiplayer listener port")
 	daemonCmd.Flags().BoolP(forceFlagStr, "f", false, "force unpack and overwrite static assets")
 	daemonCmd.Flags().BoolP(tailscaleFlagStr, "t", false, "enable tailscale")
-	daemonCmd.Flags().Bool(disableWGFlagStr, false, "expose multiplayer directly instead of wrapping it in WireGuard")
+	daemonCmd.Flags().Bool(enableWGFlagStr, false, "wrap the multiplayer listener in WireGuard")
 	rootCmd.AddCommand(daemonCmd)
 
 	// Builder
@@ -153,7 +153,7 @@ var rootCmd = &cobra.Command{
 			fmt.Printf("[!] %s\n", err)
 		}
 		if serverConfig.DaemonMode {
-			daemon.Start(daemon.BlankHost, daemon.BlankPort, serverConfig.DaemonConfig.Tailscale, serverConfig.DaemonConfig.DisableWG)
+			daemon.Start(daemon.BlankHost, daemon.BlankPort, serverConfig.DaemonConfig.Tailscale, serverConfig.DaemonConfig.WireGuardEnabled())
 		} else {
 			rcScript, err := clientcli.ReadRCScript(cmd)
 			if err != nil {
