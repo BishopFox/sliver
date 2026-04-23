@@ -56,8 +56,10 @@ func (rl *Shell) Readline() (string, error) {
 		return "", err
 	}
 	defer term.Restore(descriptor, state)
-	defer term.WriteString(term.BracketedPasteDisable)
-	term.WriteString(term.BracketedPasteEnable)
+	if rl.Config.GetBool("enable-bracketed-paste") {
+		term.WriteString(term.BracketedPasteEnable)
+		defer term.WriteString(term.BracketedPasteDisable)
+	}
 
 	// Prompts and cursor styles
 	rl.Display.PrintPrimaryPrompt()

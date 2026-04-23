@@ -99,10 +99,10 @@ func New(app string) *Console {
 	}
 
 	// Syntax highlighting, multiline callbacks, etc.
-	console.cmdHighlight = line.GreenFG 
-	console.flagHighlight = line.BrightWhiteFG 
+	console.cmdHighlight = line.GreenFG
+	console.flagHighlight = line.BrightWhiteFG
 	console.shell.AcceptMultiline = line.AcceptMultiline
-	console.shell.SyntaxHighlighter = console.highlightSyntax 
+	console.shell.SyntaxHighlighter = console.highlightSyntax
 
 	// Completion
 	console.shell.Completer = console.complete
@@ -120,7 +120,6 @@ func (c *Console) Shell() *readline.Shell {
 	return c.shell
 }
 
-
 //
 // Settings & Initialisation Functions ------------------------------------------------------------- //
 //
@@ -130,7 +129,7 @@ func (c *Console) SetPrintLogo(f func(c *Console)) {
 	c.printLogo = f
 }
 
-// SetDefaultCommandHighlight allows the user to change the highlight color for 
+// SetDefaultCommandHighlight allows the user to change the highlight color for
 // a command in the default syntax highlighter using an ansi code.
 // This action has no effect if a custom syntax highlighter for the shell is set.
 // By default, the highlight code is green ("\x1b[32m").
@@ -138,7 +137,7 @@ func (c *Console) SetDefaultCommandHighlight(seq string) {
 	c.cmdHighlight = seq
 }
 
-// SetDefaultFlagHighlight allows the user to change the highlight color for 
+// SetDefaultFlagHighlight allows the user to change the highlight color for
 // a flag in the default syntax highlighter using an ansi color code.
 // This action has no effect if a custom syntax highlighter for the shell is set.
 // By default, the highlight code is grey ("\x1b[38;05;244m").
@@ -302,6 +301,7 @@ func (c *Console) setupShell() {
 	cfg.Set("completion-ignore-case", true)
 	cfg.Set("skip-completed-text", true)
 	cfg.Set("menu-complete-display-prefix", true)
+	cfg.Set("enable-bracketed-paste", false)
 
 	// General UI
 	cfg.Set("usage-hint-always", true)
