@@ -28,7 +28,8 @@ const (
 )
 
 // Event - An event is fired when there's a state change involving a
-//         session, job, or client.
+//
+//	session, job, or client.
 type Event struct {
 	Session *Session
 	Job     *Job
@@ -62,7 +63,10 @@ func (broker *eventBroker) Start() {
 		case sub := <-broker.subscribe:
 			subscribers[sub] = struct{}{}
 		case sub := <-broker.unsubscribe:
-			delete(subscribers, sub)
+			if _, ok := subscribers[sub]; ok {
+				delete(subscribers, sub)
+				close(sub)
+			}
 		case event := <-broker.publish:
 			for sub := range subscribers {
 				sub <- event
@@ -86,7 +90,6 @@ func (broker *eventBroker) Subscribe() chan Event {
 // Unsubscribe - Remove a subscription channel
 func (broker *eventBroker) Unsubscribe(events chan Event) {
 	broker.unsubscribe <- events
-	close(events)
 }
 
 // Publish - Push a message to all subscribers
