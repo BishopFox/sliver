@@ -71,6 +71,13 @@ pre {
   backdrop-filter: blur(18px) saturate(1.18);
 }
 
+.sliver-armory-ghost {
+  --button-bg: transparent;
+  --button-bg-hover: rgb(109 40 217 / 0.16);
+  --button-bg-pressed: rgb(109 40 217 / 0.24);
+  --button-fg: #a78bfa;
+}
+
 .dark .sliver-scrollbar {
   scrollbar-color: rgba(79, 97, 125, 0.8) transparent;
 }

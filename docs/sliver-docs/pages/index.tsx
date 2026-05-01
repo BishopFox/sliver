@@ -74,8 +74,8 @@ export default function Home() {
                 Download Latest Release
               </Button>
               <Button
-                className="flex-1"
-                variant="secondary"
+                className="sliver-armory-ghost flex-1"
+                variant="ghost"
                 onPress={() => {
                   window.open(
                     "https://github.com/sliverarmory",
