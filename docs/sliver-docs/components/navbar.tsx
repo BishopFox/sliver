@@ -113,7 +113,7 @@ export default function TopNavbar() {
 
   return (
     <>
-      <nav className="sticky top-0 z-40 w-full border-b border-separator bg-surface/95 px-4 shadow-sm backdrop-blur md:px-6">
+      <nav className="sliver-navbar-glass sticky top-0 z-40 px-4 shadow-sm md:px-6">
         <div className="flex h-16 items-center gap-4">
           <button
             type="button"
@@ -230,7 +230,7 @@ export default function TopNavbar() {
       </nav>
 
       {isMobileMenuOpen ? (
-        <div className="border-b border-separator bg-surface px-4 pb-4 shadow-sm md:hidden">
+        <div className="sliver-navbar-glass px-4 pb-4 shadow-sm md:hidden">
           <div className="mt-3">{renderSearchInput("w-full")}</div>
           <div className="mt-4 flex flex-col gap-2">
             {renderMobileRoute("/", "Home")}

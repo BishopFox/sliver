@@ -26,7 +26,7 @@ export default function TutorialCard(props: TutorialCardCardProps) {
 
   return (
     <Card className="relative z-0 gap-0 overflow-hidden p-0">
-      <Card.Header className="absolute left-3 right-3 top-3 z-10 flex-col items-start p-0">
+      <Card.Header className="absolute left-3 right-3 top-3 z-10 flex-col items-end p-0 text-right">
         <p className="text-sm font-bold uppercase leading-none text-white/70">
           {props.name}
         </p>

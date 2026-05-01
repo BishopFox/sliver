@@ -8,12 +8,6 @@
     Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
-/* Keep layout width stable when page content toggles vertical scrolling. */
-html,
-body {
-  scrollbar-gutter: stable both-edges;
-}
-
 /*
   Keep html as the single scrolling element. Setting overflow on both html
   and body breaks sticky sidebar behavior on docs/tutorial pages.
@@ -67,6 +61,14 @@ pre {
   border-radius: 9999px;
   border: 2px solid transparent;
   background-clip: content-box;
+}
+
+.sliver-navbar-glass {
+  width: 100%;
+  border-bottom: 1px solid var(--separator);
+  background-color: color-mix(in oklab, var(--surface) 72%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(1.18);
+  backdrop-filter: blur(18px) saturate(1.18);
 }
 
 .dark .sliver-scrollbar {

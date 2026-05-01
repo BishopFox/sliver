@@ -105,7 +105,7 @@ export default function App({ Component, pageProps }: AppProps) {
             <Navbar />
             <Component {...pageProps} />
             <div className="mb-16 md:mb-20"></div>
-            <footer className="z-20 w-full border-t border-separator bg-surface px-3 py-4 text-center shadow dark:bg-black md:fixed md:bottom-0 md:left-0 md:flex md:items-center md:justify-between md:px-6 md:py-4">
+            <footer className="z-20 w-full border-t border-separator bg-surface/80 px-3 py-4 text-center shadow backdrop-blur-md dark:bg-black/75 md:fixed md:bottom-0 md:left-0 md:right-0 md:flex md:items-center md:justify-between md:px-6 md:py-4">
               <div className="flex flex-col items-center gap-2 text-xs leading-snug text-muted sm:text-sm md:flex-row md:items-center md:gap-3 md:text-left">
                 <span>
                   © {new Date().getFullYear()}&nbsp;
