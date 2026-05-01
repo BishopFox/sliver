@@ -8,7 +8,6 @@ import { fetchDocs as fetchDocsContent, fetchTutorials as fetchTutorialsContent 
 import { Themes } from "@/util/themes";
 import { faExternalLink } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { HeroUIProvider } from "@heroui/react";
 import {
   HydrationBoundary,
   QueryClient,
@@ -94,66 +93,64 @@ export default function App({ Component, pageProps }: AppProps) {
   });
 
   return (
-    <HeroUIProvider>
-      <NextThemesProvider
-        attribute="class"
-        defaultTheme={Themes.DARK}
-        enableSystem={false}
-        storageKey="theme"
-      >
-        <QueryClientProvider client={queryClient}>
-          <HydrationBoundary state={pageProps.dehydratedState}>
-            <SearchContext.Provider value={search}>
-              <Navbar />
-              <Component {...pageProps} />
-              <div className="mb-16 md:mb-20"></div>
-              <footer className="z-20 w-full border-t border-gray-200 bg-white px-3 py-4 text-center shadow dark:bg-black dark:border-gray-600 md:fixed md:bottom-0 md:left-0 md:flex md:items-center md:justify-between md:px-6 md:py-4">
-                <div className="flex flex-col items-center gap-2 text-xs leading-snug text-gray-500 sm:text-sm md:flex-row md:items-center md:gap-3 md:text-left dark:text-gray-400">
-                  <span>
-                    © {new Date().getFullYear()}&nbsp;
-                    <a
-                      href="https://bishopfox.com/"
-                      className="hover:underline"
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      Bishop Fox
-                    </a>
-                  </span>
-                  <span className="hidden md:inline" aria-hidden="true">
-                    ·
-                  </span>
-                  <span className="max-w-xs md:max-w-none">
-                    <a
-                      href="https://github.com/BishopFox/sliver/pulls"
-                      rel="noreferrer"
-                      className="hover:underline"
-                      target="_blank"
-                    >
-                      Help improve this documentation
-                      <span className="ml-1 inline-block">
-                        <FontAwesomeIcon icon={faExternalLink} />
-                      </span>
-                    </a>
-                  </span>
-                </div>
-                <ul className="mt-3 flex flex-wrap items-center justify-center gap-3 text-xs font-medium text-gray-500 md:mt-0 md:gap-6 md:text-sm dark:text-gray-400">
-                  <li>
-                    <a
-                      href="https://github.com/BishopFox/sliver/blob/master/LICENSE"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="hover:underline"
-                    >
-                      GPLv3 License
-                    </a>
-                  </li>
-                </ul>
-              </footer>
-            </SearchContext.Provider>
-          </HydrationBoundary>
-        </QueryClientProvider>
-      </NextThemesProvider>
-    </HeroUIProvider>
+    <NextThemesProvider
+      attribute="class"
+      defaultTheme={Themes.DARK}
+      enableSystem={false}
+      storageKey="theme"
+    >
+      <QueryClientProvider client={queryClient}>
+        <HydrationBoundary state={pageProps.dehydratedState}>
+          <SearchContext.Provider value={search}>
+            <Navbar />
+            <Component {...pageProps} />
+            <div className="mb-16 md:mb-20"></div>
+            <footer className="z-20 w-full border-t border-separator bg-surface px-3 py-4 text-center shadow dark:bg-black md:fixed md:bottom-0 md:left-0 md:flex md:items-center md:justify-between md:px-6 md:py-4">
+              <div className="flex flex-col items-center gap-2 text-xs leading-snug text-muted sm:text-sm md:flex-row md:items-center md:gap-3 md:text-left">
+                <span>
+                  © {new Date().getFullYear()}&nbsp;
+                  <a
+                    href="https://bishopfox.com/"
+                    className="hover:underline"
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    Bishop Fox
+                  </a>
+                </span>
+                <span className="hidden md:inline" aria-hidden="true">
+                  ·
+                </span>
+                <span className="max-w-xs md:max-w-none">
+                  <a
+                    href="https://github.com/BishopFox/sliver/pulls"
+                    rel="noreferrer"
+                    className="hover:underline"
+                    target="_blank"
+                  >
+                    Help improve this documentation
+                    <span className="ml-1 inline-block">
+                      <FontAwesomeIcon icon={faExternalLink} />
+                    </span>
+                  </a>
+                </span>
+              </div>
+              <ul className="mt-3 flex flex-wrap items-center justify-center gap-3 text-xs font-medium text-muted md:mt-0 md:gap-6 md:text-sm">
+                <li>
+                  <a
+                    href="https://github.com/BishopFox/sliver/blob/master/LICENSE"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="hover:underline"
+                  >
+                    GPLv3 License
+                  </a>
+                </li>
+              </ul>
+            </footer>
+          </SearchContext.Provider>
+        </HydrationBoundary>
+      </QueryClientProvider>
+    </NextThemesProvider>
   );
 }

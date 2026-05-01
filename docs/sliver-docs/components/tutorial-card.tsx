@@ -1,4 +1,4 @@
-import { Button, Card, CardFooter, CardHeader } from "@heroui/react";
+import { Button, Card } from "@heroui/react";
 import AsciinemaPlayer from "./asciinema";
 
 import { faChevronRight } from "@fortawesome/free-solid-svg-icons";
@@ -21,15 +21,18 @@ export type TutorialCardCardProps = {
 };
 
 export default function TutorialCard(props: TutorialCardCardProps) {
+  const actionButtonClassName =
+    "ml-auto h-auto min-h-0 shrink-0 px-0 py-0 text-sm font-semibold [--button-bg-hover:transparent] [--button-bg-pressed:transparent] [--button-bg:transparent] [--button-fg:var(--warning)]";
+
   return (
-    <Card isFooterBlurred className="relative z-0">
-      <CardHeader className="absolute z-10 top-1 flex-col items-end">
-        <p className="text-md  text-white/70 uppercase font-bold">
+    <Card className="relative z-0 gap-0 overflow-hidden p-0">
+      <Card.Header className="absolute left-3 right-3 top-3 z-10 flex-col items-start p-0">
+        <p className="text-sm font-bold uppercase leading-none text-white/70">
           {props.name}
         </p>
-      </CardHeader>
+      </Card.Header>
 
-      <div className={styles["hide-control-bar"]}>
+      <div className={`${styles["hide-control-bar"]} overflow-hidden`}>
         <AsciinemaPlayer
           src={props.asciiCast}
           rows={props.rows ? props.rows : "18"}
@@ -41,13 +44,13 @@ export default function TutorialCard(props: TutorialCardCardProps) {
         />
       </div>
 
-      <CardFooter className="absolute bottom-0 z-10 bg-black/40 border-t-1 border-default-600 dark:border-default-100">
-        <div className="flex flex-row w-full items-center">
+      <Card.Footer className="absolute bottom-0 left-0 right-0 z-10 border-t border-white/20 bg-black/40 p-3 backdrop-blur-md">
+        <div className="flex min-h-10 w-full flex-row items-center gap-4">
           <p
             className={
               props.italicDescription
-                ? "text-xs text-white/80 italic"
-                : "text-xs text-white/80"
+                ? "min-w-0 flex-1 text-sm leading-snug text-white/80 italic"
+                : "min-w-0 flex-1 text-sm leading-snug text-white/80"
             }
           >
             {props.description}
@@ -56,19 +59,18 @@ export default function TutorialCard(props: TutorialCardCardProps) {
           {props.showButton ? (
             <Button
               variant="ghost"
-              color="warning"
               size="sm"
               onPress={props.onPress}
-              className="ml-auto"
+              className={actionButtonClassName}
             >
-              {props.buttonText ? props.buttonText : "Read Tutorial"}{" "}
+              {props.buttonText ? props.buttonText : "Read Tutorial"}
               <FontAwesomeIcon icon={faChevronRight} />
             </Button>
           ) : (
             <></>
           )}
         </div>
-      </CardFooter>
+      </Card.Footer>
     </Card>
   );
 }

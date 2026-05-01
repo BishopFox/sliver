@@ -1,7 +1,7 @@
 import Youtube from "@/components/youtube";
 import { faChevronRight } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Accordion, AccordionItem, Button, Card, CardFooter } from "@heroui/react";
+import { Accordion, Button, Card } from "@heroui/react";
 import { NextPage } from "next";
 import Head from "next/head";
 import React from "react";
@@ -103,6 +103,8 @@ const TalksIndexPage: NextPage = () => {
   const [footerHidden, setFooterHidden] = React.useState<Record<string, boolean>>(
     {}
   );
+  const actionButtonClassName =
+    "ml-auto h-auto min-h-0 shrink-0 px-0 py-0 text-sm font-semibold [--button-bg-hover:transparent] [--button-bg-pressed:transparent] [--button-bg:transparent] [--button-fg:var(--warning)]";
 
   const hideFooterFor = React.useCallback((url: string) => {
     setFooterHidden((prev) => (prev[url] ? prev : { ...prev, [url]: true }));
@@ -115,22 +117,31 @@ const TalksIndexPage: NextPage = () => {
       </Head>
       <div className="mt-6 px-4 pb-8 sm:px-6 lg:px-12">
         <Accordion
-          selectionMode="multiple"
+          allowsMultipleExpanded
           defaultExpandedKeys={["workshops", "general-tradecraft"]}
-          showDivider={false}
+          hideSeparator
           className="px-0"
         >
           {talkSections.map((section) => (
-            <AccordionItem
+            <Accordion.Item
               key={section.key}
-              aria-label={section.title}
-              title={section.title}
-              subtitle={section.description}
+              id={section.key}
             >
+              <Accordion.Heading>
+                <Accordion.Trigger>
+                  <span className="flex flex-col items-start text-left">
+                    <span className="text-lg font-semibold">{section.title}</span>
+                    <span className="text-sm text-muted">{section.description}</span>
+                  </span>
+                  <Accordion.Indicator className="ml-auto" />
+                </Accordion.Trigger>
+              </Accordion.Heading>
+              <Accordion.Panel>
+                <Accordion.Body>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-9">
                 {section.talks.map((talk) => (
                   <div key={talk.url} className="sm:col-span-1 lg:col-span-3">
-                    <Card isFooterBlurred className="relative z-0 overflow-hidden">
+                    <Card className="relative z-0 gap-0 overflow-hidden p-0">
                       <Youtube
                         className="w-full"
                         url={talk.url}
@@ -139,14 +150,13 @@ const TalksIndexPage: NextPage = () => {
                       />
 
                       {footerHidden[talk.url] ? null : (
-                        <CardFooter className="absolute bottom-0 z-10 bg-black/40 border-t-1 border-default-600 dark:border-default-100">
-                          <div className="flex w-full items-center gap-2">
-                            <p className="text-xs text-white/80">{talk.description}</p>
+                        <Card.Footer className="absolute bottom-0 left-0 right-0 z-10 border-t border-white/20 bg-black/40 p-3 backdrop-blur-md">
+                          <div className="flex min-h-10 w-full items-center gap-4">
+                            <p className="min-w-0 flex-1 text-sm leading-snug text-white/80">{talk.description}</p>
                             <Button
                               variant="ghost"
-                              color="warning"
                               size="sm"
-                              className="ml-auto"
+                              className={actionButtonClassName}
                               onPress={() => {
                                 window.open(talk.url, "_blank", "noopener,noreferrer");
                               }}
@@ -154,13 +164,15 @@ const TalksIndexPage: NextPage = () => {
                               Watch <FontAwesomeIcon icon={faChevronRight} />
                             </Button>
                           </div>
-                        </CardFooter>
+                        </Card.Footer>
                       )}
                     </Card>
                   </div>
                 ))}
               </div>
-            </AccordionItem>
+                </Accordion.Body>
+              </Accordion.Panel>
+            </Accordion.Item>
           ))}
         </Accordion>
       </div>

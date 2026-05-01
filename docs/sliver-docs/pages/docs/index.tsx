@@ -3,30 +3,24 @@ import LoadingState from "@/components/loading-state";
 import { Docs } from "@/util/docs";
 import { PREBUILD_VERSION } from "@/util/__generated__/prebuild-version";
 import { fetchDocs as fetchDocsContent } from "@/util/content-fetchers";
-import { Themes } from "@/util/themes";
 import { faSearch } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   Card,
-  CardBody,
-  CardHeader,
-  Divider,
-  Input,
-  Listbox,
-  ListboxItem,
+  ListBox,
   ScrollShadow,
+  SearchField,
+  Separator,
 } from "@heroui/react";
 import { useQuery } from "@tanstack/react-query";
 import Fuse from "fuse.js";
 import { NextPage } from "next";
-import { useTheme } from "next-themes";
 import Head from "next/head";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/router";
 import React from "react";
 
 const DocsIndexPage: NextPage = () => {
-  const { theme } = useTheme();
   const router = useRouter();
 
   const { data: docs, isLoading } = useQuery({
@@ -75,13 +69,28 @@ const DocsIndexPage: NextPage = () => {
     return selectedDoc ? [selectedDoc, ...visibleDocs] : visibleDocs;
   }, [docs, name, visibleDocs]);
 
-  const listboxClasses = React.useMemo(() => {
-    if (theme === Themes.DARK) {
-      return "p-0 gap-0 divide-y divide-default-300/50 dark:divide-default-100/80 bg-content1 overflow-visible shadow-small rounded-large";
-    } else {
-      return "p-0 gap-0 divide-y divide-default-300/50 dark:divide-default-100/80 bg-content1 overflow-visible rounded-large";
-    }
-  }, [theme]);
+  const listboxClasses =
+    "p-0 gap-0 divide-y divide-separator bg-surface overflow-visible rounded-lg shadow-sm";
+
+  const renderFilterInput = (className?: string) => (
+    <SearchField
+      aria-label="Filter documents"
+      className={className}
+      fullWidth
+      value={filterValue}
+      onChange={setFilterValue}
+    >
+      <SearchField.Group>
+        <SearchField.SearchIcon>
+          <FontAwesomeIcon icon={faSearch} />
+        </SearchField.SearchIcon>
+        <SearchField.Input placeholder="Filter..." />
+        {filterValue.length > 0 ? (
+          <SearchField.ClearButton aria-label="Clear document filter" />
+        ) : null}
+      </SearchField.Group>
+    </SearchField>
+  );
 
   if (isLoading || !docs || (hasNameQueryInPath && !name)) {
     return <LoadingState />;
@@ -99,19 +108,10 @@ const DocsIndexPage: NextPage = () => {
         >
           Select a document
         </label>
-        <div className="mt-2">
-          <Input
-            placeholder="Filter..."
-            startContent={<FontAwesomeIcon icon={faSearch} />}
-            value={filterValue}
-            onChange={(e) => setFilterValue(e.target.value)}
-            isClearable={true}
-            onClear={() => setFilterValue("")}
-          />
-        </div>
+        <div className="mt-2">{renderFilterInput()}</div>
         <select
           id="docs-mobile-selector"
-          className="mt-3 w-full rounded-lg border border-default-200 bg-content1 p-2 text-sm dark:border-default-100/60"
+          className="mt-3 w-full rounded-lg border border-separator bg-surface p-2 text-sm"
           value={name}
           onChange={(event) => {
             const selectedName = event.target.value;
@@ -132,58 +132,50 @@ const DocsIndexPage: NextPage = () => {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
         <aside className="hidden lg:block lg:col-span-3">
           <div className="sticky top-16 ml-4 flex flex-col gap-3">
-            <Input
-            className="mt-2"
-              placeholder="Filter..."
-              startContent={<FontAwesomeIcon icon={faSearch} />}
-              value={filterValue}
-              onChange={(e) => setFilterValue(e.target.value)}
-              isClearable={true}
-              onClear={() => setFilterValue("")}
-            />
-            <ScrollShadow className="max-h-[calc(100vh-15rem)] sliver-scrollbar overflow-y-auto pr-1 rounded-large">
-              <Listbox
+            {renderFilterInput("mt-2")}
+            <ScrollShadow className="max-h-[calc(100vh-15rem)] sliver-scrollbar overflow-y-auto pr-1 rounded-lg">
+              <ListBox
                 aria-label="Toolbox Menu"
                 className={listboxClasses}
-                itemClasses={{
-                  base: "px-3 first:rounded-t-large last:rounded-b-large rounded-none gap-3 h-12 data-[hover=true]:bg-default-100/80",
+                onAction={(key) => {
+                  router.push({
+                    pathname: "/docs",
+                    query: { name: String(key) },
+                  });
                 }}
               >
                 {visibleDocs.map((doc) => (
-                  <ListboxItem
+                  <ListBox.Item
                     key={doc.name}
-                    onClick={() => {
-                      router.push({
-                        pathname: "/docs",
-                        query: { name: doc.name },
-                      });
-                    }}
+                    id={doc.name}
+                    textValue={doc.name}
+                    className="h-12 rounded-none px-3 first:rounded-t-lg last:rounded-b-lg"
                   >
                     {doc.name}
-                  </ListboxItem>
+                  </ListBox.Item>
                 ))}
-              </Listbox>
+              </ListBox>
             </ScrollShadow>
           </div>
         </aside>
         <div className="px-4 pb-8 lg:col-span-9 lg:px-8">
           {name !== "" ? (
             <Card className="mt-2">
-              <CardHeader>
+              <Card.Header>
                 <span className="text-3xl">{name}</span>
-              </CardHeader>
-              <Divider />
-              <CardBody>
+              </Card.Header>
+              <Separator />
+              <Card.Content>
                 <MarkdownViewer
                   key={name}
                   markdown={markdown || ""}
                 />
-              </CardBody>
+              </Card.Content>
             </Card>
           ) : (
             <div className="mt-8 text-center text-2xl text-foreground/90">
               Welcome to the Sliver Wiki!
-              <div className="mt-2 text-xl text-default-500">
+              <div className="mt-2 text-xl text-muted">
                 Please select a document
               </div>
             </div>

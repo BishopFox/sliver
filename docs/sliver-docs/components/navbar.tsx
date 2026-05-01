@@ -1,7 +1,6 @@
 "use client";
 
 import { SliversIcon } from "@/components/icons/slivers";
-import { useSearchContext } from "@/util/search-context";
 import { Themes } from "@/util/themes";
 import { faDiscord, faGithub } from "@fortawesome/free-brands-svg-icons";
 import {
@@ -13,281 +12,255 @@ import {
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  Button,
-  Input,
-  Link,
-  Navbar,
-  NavbarBrand,
-  NavbarContent,
-  NavbarItem,
-  Tooltip,
-} from "@heroui/react";
+import { Button, SearchField, Tooltip } from "@heroui/react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/router";
 import React from "react";
 
-export type TopNavbarProps = {};
+const routes = [
+  { href: "/tutorials", label: "Tutorials" },
+  { href: "/talks", label: "Talks" },
+  { href: "/docs", label: "Docs" },
+];
 
-export default function TopNavbar(props: TopNavbarProps) {
+export default function TopNavbar() {
   const router = useRouter();
-  const search = useSearchContext();
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = React.useState(false);
-
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const lightDarkModeIcon = React.useMemo(() => {
-    if (!mounted) {
-      return faMoon;
-    }
-    return theme === Themes.DARK ? faSun : faMoon;
-  }, [mounted, theme]);
-
   const [query, setQuery] = React.useState("");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
-  React.useEffect(() => {
-    setIsMobileMenuOpen(false);
-  }, [router.pathname]);
+  const activeTheme = theme || Themes.DARK;
+  const lightDarkModeIcon = React.useMemo(() => {
+    return activeTheme === Themes.DARK ? faSun : faMoon;
+  }, [activeTheme]);
 
-  const handleSearchSubmit = React.useCallback(() => {
-    if (query.trim().length === 0) {
-      return;
-    }
-    router.push({ pathname: "/search/", query: { search: query } });
-    setQuery("");
-  }, [query, router]);
+  const handleSearchSubmit = React.useCallback(
+    (value = query) => {
+      const searchQuery = value.trim();
+
+      if (searchQuery.length === 0) {
+        return;
+      }
+      router.push({ pathname: "/search/", query: { search: searchQuery } });
+      setQuery("");
+      setIsMobileMenuOpen(false);
+    },
+    [query, router],
+  );
+
+  const renderTooltip = React.useCallback(
+    (content: string, children: React.ReactNode) => (
+      <Tooltip delay={0}>
+        {children}
+        <Tooltip.Content>{content}</Tooltip.Content>
+      </Tooltip>
+    ),
+    [],
+  );
 
   const renderSearchInput = (wrapperClassName?: string) => (
-    <div className={wrapperClassName}>
-      <Tooltip content="Press enter to search" isOpen={query.length > 0}>
-        <Input
-          size="sm"
-          placeholder="Search..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onClear={() => setQuery("")}
-          startContent={<FontAwesomeIcon icon={faSearch} />}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              handleSearchSubmit();
-            }
-          }}
-        />
-      </Tooltip>
-    </div>
+    <SearchField
+      aria-label="Search documentation"
+      className={wrapperClassName}
+      fullWidth
+      value={query}
+      onChange={setQuery}
+      onSubmit={handleSearchSubmit}
+    >
+      <SearchField.Group>
+        <SearchField.SearchIcon>
+          <FontAwesomeIcon icon={faSearch} />
+        </SearchField.SearchIcon>
+        <SearchField.Input placeholder="Search..." />
+        {query.length > 0 ? <SearchField.ClearButton aria-label="Clear search" /> : null}
+      </SearchField.Group>
+    </SearchField>
   );
+
+  const renderDesktopRoute = (href: string, label: string) => {
+    const isActive = router.pathname.startsWith(href);
+
+    return (
+      <li key={href}>
+        <Button
+          variant={isActive ? "secondary" : "ghost"}
+          onPress={() => router.push(href)}
+        >
+          {label}
+        </Button>
+      </li>
+    );
+  };
+
+  const renderMobileRoute = (href: string, label: string) => {
+    const isActive = href === "/" ? router.pathname === "/" : router.pathname.startsWith(href);
+
+    return (
+      <Button
+        key={href}
+        fullWidth
+        variant={isActive ? "primary" : "ghost"}
+        onPress={() => {
+          router.push(href);
+          setIsMobileMenuOpen(false);
+        }}
+      >
+        {href === "/" ? <FontAwesomeIcon fixedWidth icon={faHome} /> : null}
+        {label}
+      </Button>
+    );
+  };
 
   return (
     <>
-      <Navbar
-        isBordered
-        maxWidth="full"
-        classNames={{
-          item: [
-            "flex",
-          "relative",
-          "h-full",
-          "items-center",
-          "data-[active=true]:after:content-['']",
-          "data-[active=true]:after:absolute",
-          "data-[active=true]:after:bottom-0",
-          "data-[active=true]:after:left-0",
-          "data-[active=true]:after:right-0",
-          "data-[active=true]:after:h-[2px]",
-          "data-[active=true]:after:rounded-[2px]",
-          "data-[active=true]:after:bg-primary",
-        ],
-      }}
-    >
-      <NavbarBrand>
-        <SliversIcon />
-        <span className="hidden sm:block font-bold text-inherit">
-          &nbsp; Sliver C2
-        </span>
-      </NavbarBrand>
-
-      <NavbarContent className="hidden md:flex">
-        <NavbarItem isActive={router.pathname === "/"}>
-          <Button
-            variant="light"
-            color={router.pathname === "/" ? "primary" : "default"}
-            as={Link}
-            onPress={() => router.push("/")}
-          >
-            <FontAwesomeIcon fixedWidth icon={faHome} />
-          </Button>
-        </NavbarItem>
-
-        <NavbarItem isActive={router.pathname.startsWith("/tutorials")}>
-          <Button
-            variant="light"
-            color={router.pathname === "/tutorials" ? "primary" : "default"}
-            as={Link}
-            onPress={() => router.push("/tutorials")}
-          >
-            Tutorials
-          </Button>
-        </NavbarItem>
-
-        <NavbarItem isActive={router.pathname.startsWith("/talks")}>
-          <Button
-            variant="light"
-            color={router.pathname === "/talks" ? "primary" : "default"}
-            as={Link}
-            onPress={() => router.push("/talks")}
-          >
-            Talks
-          </Button>
-        </NavbarItem>
-
-        <NavbarItem isActive={router.pathname.startsWith("/docs")}>
-          <Button
-            variant="light"
-            color={router.pathname === "/docs" ? "primary" : "default"}
-            as={Link}
-            onPress={() => router.push("/docs")}
-          >
-            Docs
-          </Button>
-        </NavbarItem>
-      </NavbarContent>
-
-      <NavbarContent as="div" justify="end" className="hidden md:flex">
-        {renderSearchInput("w-64")}
-        <Tooltip
-          content={theme === Themes.DARK ? "Switch to light mode" : "Switch to dark mode"}
-        >
-          <Button
-            variant="ghost"
-            onPress={() => {
-              setTheme(theme === Themes.DARK ? Themes.LIGHT : Themes.DARK);
+      <nav className="sticky top-0 z-40 w-full border-b border-separator bg-surface/95 px-4 shadow-sm backdrop-blur md:px-6">
+        <div className="flex h-16 items-center gap-4">
+          <button
+            type="button"
+            className="flex items-center gap-2 text-foreground"
+            onClick={() => {
+              router.push("/");
+              setIsMobileMenuOpen(false);
             }}
-            isDisabled={!mounted}
+            aria-label="Sliver C2 home"
           >
-            <FontAwesomeIcon icon={lightDarkModeIcon} />
-          </Button>
-        </Tooltip>
+            <SliversIcon />
+            <span className="hidden font-bold text-inherit sm:block">
+              Sliver C2
+            </span>
+          </button>
 
-        <Tooltip content="Join Discord">
-          <Button
-            variant="ghost"
-            onPress={() => {
-              window.open(
-                "https://discord.com/channels/791066041198968873/1339996286514106409",
-                "_blank",
-              );
-            }}
-          >
-            <FontAwesomeIcon icon={faDiscord} />
-          </Button>
-        </Tooltip>
+          <ul className="hidden items-center gap-2 md:flex">
+            <li>
+              {renderTooltip(
+                "Home",
+                <Button
+                  isIconOnly
+                  aria-label="Home"
+                  variant={router.pathname === "/" ? "secondary" : "ghost"}
+                  onPress={() => router.push("/")}
+                >
+                  <FontAwesomeIcon fixedWidth icon={faHome} />
+                </Button>,
+              )}
+            </li>
+            {routes.map((route) => renderDesktopRoute(route.href, route.label))}
+          </ul>
 
-        <Tooltip content="View on GitHub">
-          <Button
-            variant="ghost"
-            onPress={() => {
-              window.open("https://github.com/BishopFox/sliver", "_blank");
-            }}
-          >
-            <FontAwesomeIcon icon={faGithub} />
-          </Button>
-        </Tooltip>
-      </NavbarContent>
+          <div className="ml-auto hidden items-center gap-2 md:flex">
+            {renderSearchInput("w-64")}
+            {renderTooltip(
+              activeTheme === Themes.DARK ? "Switch to light mode" : "Switch to dark mode",
+              <Button
+                isIconOnly
+                aria-label={activeTheme === Themes.DARK ? "Switch to light mode" : "Switch to dark mode"}
+                variant="ghost"
+                onPress={() => {
+                  setTheme(activeTheme === Themes.DARK ? Themes.LIGHT : Themes.DARK);
+                }}
+              >
+                <FontAwesomeIcon icon={lightDarkModeIcon} />
+              </Button>,
+            )}
 
-      <div className="flex items-center gap-2 md:hidden">
-        <Tooltip
-          content={theme === Themes.DARK ? "Switch to light mode" : "Switch to dark mode"}
-        >
-          <Button
-            variant="ghost"
-            onPress={() => {
-              setTheme(theme === Themes.DARK ? Themes.LIGHT : Themes.DARK);
-            }}
-            isDisabled={!mounted}
-          >
-            <FontAwesomeIcon icon={lightDarkModeIcon} />
-          </Button>
-        </Tooltip>
-        <Tooltip content={isMobileMenuOpen ? "Close menu" : "Open menu"}>
-          <Button
-            variant="ghost"
-            aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
-            onPress={() => setIsMobileMenuOpen((current) => !current)}
-          >
-            <FontAwesomeIcon icon={isMobileMenuOpen ? faXmark : faBars} />
-          </Button>
-        </Tooltip>
-      </div>
-    </Navbar>
+            {renderTooltip(
+              "Join Discord",
+              <Button
+                isIconOnly
+                aria-label="Join Discord"
+                variant="ghost"
+                onPress={() => {
+                  window.open(
+                    "https://discord.com/channels/791066041198968873/1339996286514106409",
+                    "_blank",
+                    "noopener,noreferrer",
+                  );
+                }}
+              >
+                <FontAwesomeIcon icon={faDiscord} />
+              </Button>,
+            )}
+
+            {renderTooltip(
+              "View on GitHub",
+              <Button
+                isIconOnly
+                aria-label="View on GitHub"
+                variant="ghost"
+                onPress={() => {
+                  window.open(
+                    "https://github.com/BishopFox/sliver",
+                    "_blank",
+                    "noopener,noreferrer",
+                  );
+                }}
+              >
+                <FontAwesomeIcon icon={faGithub} />
+              </Button>,
+            )}
+          </div>
+
+          <div className="ml-auto flex items-center gap-2 md:hidden">
+            {renderTooltip(
+              activeTheme === Themes.DARK ? "Switch to light mode" : "Switch to dark mode",
+              <Button
+                isIconOnly
+                aria-label={activeTheme === Themes.DARK ? "Switch to light mode" : "Switch to dark mode"}
+                variant="ghost"
+                onPress={() => {
+                  setTheme(activeTheme === Themes.DARK ? Themes.LIGHT : Themes.DARK);
+                }}
+              >
+                <FontAwesomeIcon icon={lightDarkModeIcon} />
+              </Button>,
+            )}
+            {renderTooltip(
+              isMobileMenuOpen ? "Close menu" : "Open menu",
+              <Button
+                isIconOnly
+                variant="ghost"
+                aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+                onPress={() => setIsMobileMenuOpen((current) => !current)}
+              >
+                <FontAwesomeIcon icon={isMobileMenuOpen ? faXmark : faBars} />
+              </Button>,
+            )}
+          </div>
+        </div>
+      </nav>
 
       {isMobileMenuOpen ? (
-        <div className="md:hidden border-b border-default-200 dark:border-default-100/40 bg-content1 px-4 pb-4 shadow-sm">
+        <div className="border-b border-separator bg-surface px-4 pb-4 shadow-sm md:hidden">
           <div className="mt-3">{renderSearchInput("w-full")}</div>
           <div className="mt-4 flex flex-col gap-2">
+            {renderMobileRoute("/", "Home")}
+            {routes.map((route) => renderMobileRoute(route.href, route.label))}
             <Button
-              variant={router.pathname === "/" ? "solid" : "light"}
-              color={router.pathname === "/" ? "primary" : "default"}
-              onPress={() => {
-                router.push("/");
-                setIsMobileMenuOpen(false);
-              }}
-              startContent={<FontAwesomeIcon fixedWidth icon={faHome} />}
-            >
-              Home
-            </Button>
-            <Button
-              variant={router.pathname.startsWith("/tutorials") ? "solid" : "light"}
-              color={router.pathname.startsWith("/tutorials") ? "primary" : "default"}
-              onPress={() => {
-                router.push("/tutorials");
-                setIsMobileMenuOpen(false);
-              }}
-            >
-              Tutorials
-            </Button>
-            <Button
-              variant={router.pathname.startsWith("/talks") ? "solid" : "light"}
-              color={router.pathname.startsWith("/talks") ? "primary" : "default"}
-              onPress={() => {
-                router.push("/talks");
-                setIsMobileMenuOpen(false);
-              }}
-            >
-              Talks
-            </Button>
-            <Button
-              variant={router.pathname.startsWith("/docs") ? "solid" : "light"}
-              color={router.pathname.startsWith("/docs") ? "primary" : "default"}
-              onPress={() => {
-                router.push("/docs");
-                setIsMobileMenuOpen(false);
-              }}
-            >
-              Docs
-            </Button>
-            <Button
-              variant="light"
+              fullWidth
+              variant="ghost"
               onPress={() => {
                 window.open(
                   "https://discord.com/channels/791066041198968873/1339996286514106409",
                   "_blank",
+                  "noopener,noreferrer",
                 );
               }}
-              startContent={<FontAwesomeIcon icon={faDiscord} />}
             >
+              <FontAwesomeIcon icon={faDiscord} />
               Discord
             </Button>
             <Button
-              variant="light"
+              fullWidth
+              variant="ghost"
               onPress={() => {
-                window.open("https://github.com/BishopFox/sliver", "_blank");
+                window.open(
+                  "https://github.com/BishopFox/sliver",
+                  "_blank",
+                  "noopener,noreferrer",
+                );
               }}
-              startContent={<FontAwesomeIcon icon={faGithub} />}
             >
+              <FontAwesomeIcon icon={faGithub} />
               GitHub
             </Button>
           </div>
