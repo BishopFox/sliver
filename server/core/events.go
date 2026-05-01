@@ -19,12 +19,19 @@ package core
 */
 
 import (
+	"time"
+
 	"github.com/bishopfox/sliver/server/db/models"
+	"github.com/bishopfox/sliver/server/log"
+)
+
+var (
+	eventsLog = log.NamedLogger("core", "events")
 )
 
 const (
 	// Size is arbitrary, just want to avoid weird cases where we'd block on channel sends
-	eventBufSize = 5
+	eventBufSize = 64
 )
 
 // Event - An event is fired when there's a state change involving a
@@ -47,7 +54,6 @@ type eventBroker struct {
 	publish     chan Event
 	subscribe   chan chan Event
 	unsubscribe chan chan Event
-	send        chan Event
 }
 
 // Start - Start a broker channel
@@ -69,7 +75,11 @@ func (broker *eventBroker) Start() {
 			}
 		case event := <-broker.publish:
 			for sub := range subscribers {
-				sub <- event
+				select {
+				case sub <- event:
+				case <-time.After(time.Millisecond * 50):
+					eventsLog.Warnf("EventBroker: skipping slow subscriber for event %s", event.EventType)
+				}
 			}
 		}
 	}
@@ -94,7 +104,11 @@ func (broker *eventBroker) Unsubscribe(events chan Event) {
 
 // Publish - Push a message to all subscribers
 func (broker *eventBroker) Publish(event Event) {
-	broker.publish <- event
+	select {
+	case broker.publish <- event:
+	default:
+		eventsLog.Warnf("EventBroker: publish channel full, dropping event %s", event.EventType)
+	}
 }
 
 func newBroker() *eventBroker {
@@ -103,7 +117,6 @@ func newBroker() *eventBroker {
 		publish:     make(chan Event, eventBufSize),
 		subscribe:   make(chan chan Event, eventBufSize),
 		unsubscribe: make(chan chan Event, eventBufSize),
-		send:        make(chan Event, eventBufSize),
 	}
 	go broker.Start()
 	return broker
