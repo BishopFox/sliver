@@ -16,10 +16,10 @@ jobs:
 
     steps:
       # Setup go environment
-      - name: Go 1.25.8
+      - name: Go 1.26.2
         uses: actions/setup-go@v6
         with:
-          go-version: "1.25.8"
+          go-version: "1.26.2"
 
       - name: Checkout repository
         uses: actions/checkout@v6
