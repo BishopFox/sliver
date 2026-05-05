@@ -9,20 +9,31 @@ if [[ "$EUID" -ne 0 ]];then
     exit
 fi
 
+# Only include minisign in the package list when it isn't already on PATH.
+# The minisign apt package isn't in the default Ubuntu 22.04 repos, but
+# users often install it manually to /usr/local/bin first; without this
+# guard the apt-get call below fails the whole script (issue #2239).
+MINISIGN_PKG=(minisign)
+if command -v minisign &> /dev/null; then
+    MINISIGN_PKG=()
+fi
+
 # Determine OS type
 # Debian-based OS (Debian, Ubuntu, etc)
 if command -v apt-get &> /dev/null; then
     echo "Installing dependencies using apt..."
     DEBIAN_FRONTEND=noninteractive apt-get install -yqq \
-        minisign curl build-essential git
-    	INSTALLER=(apt-get install -yqq)
+        "${MINISIGN_PKG[@]}" curl build-essential git
+    INSTALLER=(apt-get install -yqq)
 elif command -v yum &> /dev/null; then # Redhat-based OS (Fedora, CentOS, RHEL)
     echo "Installing dependencies using yum..."
-    yum -y install minisign curl make git
-	INSTALLER=(yum -y)
+    yum -y install "${MINISIGN_PKG[@]}" curl make git
+    INSTALLER=(yum -y)
 elif command -v pacman &>/dev/null; then # Arch-based (Manjaro, Garuda, Blackarch)
-	echo "Installing dependencies using pacman..."
-	pacman --noconfirm -S minisign
+    echo "Installing dependencies using pacman..."
+    if [[ ${#MINISIGN_PKG[@]} -gt 0 ]]; then
+        pacman --noconfirm -S "${MINISIGN_PKG[@]}"
+    fi
     INSTALLER=(pacman --noconfirm -S)
 else
     echo "Unsupported OS, exiting"
@@ -31,9 +42,9 @@ fi
 
 # Verify if necessary tools are installed
 for cmd in curl awk minisign; do
-    if ! command -v "$cmd" &> /dev/null; then		
+    if ! command -v "$cmd" &> /dev/null; then
         echo "$cmd could not be found, installing..."
-		${INSTALLER[@]} "$cmd"
+        ${INSTALLER[@]} "$cmd"
     fi
 done
 
