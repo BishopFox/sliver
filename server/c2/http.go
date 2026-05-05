@@ -776,6 +776,8 @@ func (s *SliverHTTPC2) stagerHandler(resp http.ResponseWriter, req *http.Request
 	nonces, err := getNoncesFromURL(req.URL, 0)
 	if err != nil {
 		s.defaultHandler(resp, req)
+		// Added return statement to prevent duplicate HTML when serving websites
+		return
 	}
 
 	for _, nonce := range nonces {
