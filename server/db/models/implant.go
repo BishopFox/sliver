@@ -159,17 +159,20 @@ type ImplantConfig struct {
 	BeaconInterval int64
 	BeaconJitter   int64
 
-	Debug                     bool
-	DebugFile                 string
-	Evasion                   bool
-	ObfuscateSymbols          bool
-	ReconnectInterval         int64
-	PollTimeout               int64
-	MaxConnectionErrors       uint32
-	ConnectionStrategy        string
-	SGNEnabled                bool
+	Debug               bool
+	DebugFile           string
+	Evasion             bool
+	ObfuscateSymbols    bool
+	ReconnectInterval   int64
+	PollTimeout         int64
+	MaxConnectionErrors uint32
+	ConnectionStrategy  string
+	SGNEnabled          bool
+	// ShellcodeEncoder - client-side post-processing applied to shellcode output
+	ShellcodeEncoder          int32
 	Exports                   string
 	CollectVirtualizationInfo bool
+
 	// WireGuard
 	WGPeerTunIP       string
 	WGKeyExchangePort uint32
@@ -203,6 +206,15 @@ type ImplantConfig struct {
 	IsShellcode bool
 
 	RunAtLoad bool
+	// Shellcode options (Windows: Donut; macOS/Linux: Compress only)
+	DonutEntropy  uint32
+	DonutCompress uint32
+	DonutExitOpt  uint32
+	DonutBypass   uint32
+	DonutHeaders  uint32
+	DonutThread   bool
+	DonutUnicode  bool
+	DonutOEP      uint32
 
 	HttpC2ConfigName       string
 	NetGoEnabled           bool
@@ -255,11 +267,13 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		ObfuscateSymbols:          ic.ObfuscateSymbols,
 		TemplateName:              ic.TemplateName,
 		SGNEnabled:                ic.SGNEnabled,
+		ShellcodeEncoder:          clientpb.ShellcodeEncoder(ic.ShellcodeEncoder),
 		CollectVirtualizationInfo: ic.CollectVirtualizationInfo,
-		ReconnectInterval:         ic.ReconnectInterval,
-		MaxConnectionErrors:       ic.MaxConnectionErrors,
-		PollTimeout:               ic.PollTimeout,
-		ConnectionStrategy:        ic.ConnectionStrategy,
+
+		ReconnectInterval:   ic.ReconnectInterval,
+		MaxConnectionErrors: ic.MaxConnectionErrors,
+		PollTimeout:         ic.PollTimeout,
+		ConnectionStrategy:  ic.ConnectionStrategy,
 
 		LimitDatetime:     ic.LimitDatetime,
 		LimitDomainJoined: ic.LimitDomainJoined,
@@ -288,6 +302,16 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		IncludeTCP:      ic.IncludeTCP,
 		Extension:       ic.Extension,
 		Exports:         strings.Split(ic.Exports, ","),
+		ShellcodeConfig: &clientpb.ShellcodeConfig{
+			Entropy:  ic.DonutEntropy,
+			Compress: ic.DonutCompress,
+			ExitOpt:  ic.DonutExitOpt,
+			Bypass:   ic.DonutBypass,
+			Headers:  ic.DonutHeaders,
+			Thread:   ic.DonutThread,
+			Unicode:  ic.DonutUnicode,
+			OEP:      ic.DonutOEP,
+		},
 	}
 
 	if ic.ImplantProfileID != nil {
@@ -462,12 +486,14 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	}
 	cfg.SGNEnabled = pbConfig.SGNEnabled
 	cfg.CollectVirtualizationInfo = pbConfig.CollectVirtualizationInfo
-	cfg.IncludeMTLS = IsC2Enabled([]string{"mtls"}, pbConfig.C2)
-	cfg.IncludeWG = IsC2Enabled([]string{"wg"}, pbConfig.C2)
-	cfg.IncludeHTTP = IsC2Enabled([]string{"http", "https"}, pbConfig.C2)
-	cfg.IncludeDNS = IsC2Enabled([]string{"dns"}, pbConfig.C2)
-	cfg.IncludeNamePipe = IsC2Enabled([]string{"namedpipe"}, pbConfig.C2)
-	cfg.IncludeTCP = IsC2Enabled([]string{"tcppivot"}, pbConfig.C2)
+	cfg.ShellcodeEncoder = int32(pbConfig.ShellcodeEncoder)
+
+	cfg.IncludeMTLS = pbConfig.IncludeMTLS || IsC2Enabled([]string{"mtls"}, pbConfig.C2)
+	cfg.IncludeWG = pbConfig.IncludeWG || IsC2Enabled([]string{"wg"}, pbConfig.C2)
+	cfg.IncludeHTTP = pbConfig.IncludeHTTP || IsC2Enabled([]string{"http", "https"}, pbConfig.C2)
+	cfg.IncludeDNS = pbConfig.IncludeDNS || IsC2Enabled([]string{"dns"}, pbConfig.C2)
+	cfg.IncludeNamePipe = pbConfig.IncludeNamePipe || IsC2Enabled([]string{"namedpipe"}, pbConfig.C2)
+	cfg.IncludeTCP = pbConfig.IncludeTCP || IsC2Enabled([]string{"tcppivot"}, pbConfig.C2)
 
 	cfg.WGPeerTunIP = pbConfig.WGPeerTunIP
 	cfg.WGKeyExchangePort = pbConfig.WGKeyExchangePort
@@ -500,6 +526,16 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.RunAtLoad = pbConfig.RunAtLoad
 	cfg.DebugFile = pbConfig.DebugFile
 	cfg.Exports = strings.Join(pbConfig.Exports, ",")
+	if pbConfig.ShellcodeConfig != nil {
+		cfg.DonutEntropy = pbConfig.ShellcodeConfig.Entropy
+		cfg.DonutCompress = pbConfig.ShellcodeConfig.Compress
+		cfg.DonutExitOpt = pbConfig.ShellcodeConfig.ExitOpt
+		cfg.DonutBypass = pbConfig.ShellcodeConfig.Bypass
+		cfg.DonutHeaders = pbConfig.ShellcodeConfig.Headers
+		cfg.DonutThread = pbConfig.ShellcodeConfig.Thread
+		cfg.DonutUnicode = pbConfig.ShellcodeConfig.Unicode
+		cfg.DonutOEP = pbConfig.ShellcodeConfig.OEP
+	}
 
 	cfg.HttpC2ConfigName = pbConfig.HTTPC2ConfigName
 	cfg.NetGoEnabled = pbConfig.NetGoEnabled

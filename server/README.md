@@ -31,7 +31,7 @@ Server daemon responsible for managing operators, implants, and infrastructure. 
 - `msf/` – Metasploit integration utilities. Implements payload translation and RPC bridging with Metasploit.
 - `netstack/` – gVisor-based userland network stack for server transports. Provides packet buffers, endpoint management, and adapters.
 - `rpc/` – RPC server implementations and wiring. Boots gRPC servers, registers services, and manages middleware.
-- `sgn/` – SGN (Sliver Guard Node) coordination and helpers. Implements SGN enrollment, messaging, and policy logic.
+- `encoders/shellcode/sgn/` – SGN (Shikata Ga Nai) shellcode encoder helpers and configuration wiring.
 - `transport/` – Server-side transports and listener orchestration. Coordinates C2 listener lifecycles and connection routing.
 - `watchtower/` – Watchtower monitoring and background jobs. Runs scheduled tasks, telemetry collection, and alerting hooks.
 - `website/` – Static website assets and server-side handling. Serves operator web artifacts and supporting handlers.

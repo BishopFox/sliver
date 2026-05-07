@@ -12,11 +12,11 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall/js"
 
 	"github.com/coder/websocket/internal/bpool"
 	"github.com/coder/websocket/internal/wsjs"
-	"github.com/coder/websocket/internal/xsync"
 )
 
 // opcode represents a WebSocket opcode.
@@ -45,7 +45,7 @@ type Conn struct {
 	ws     wsjs.WebSocket
 
 	// read limit for a message in bytes.
-	msgReadLimit xsync.Int64
+	msgReadLimit atomic.Int64
 
 	closeReadMu  sync.Mutex
 	closeReadCtx context.Context
@@ -144,9 +144,9 @@ func (c *Conn) Read(ctx context.Context) (MessageType, []byte, error) {
 	}
 	readLimit := c.msgReadLimit.Load()
 	if readLimit >= 0 && int64(len(p)) > readLimit {
-		err := fmt.Errorf("read limited at %v bytes", c.msgReadLimit.Load())
-		c.Close(StatusMessageTooBig, err.Error())
-		return 0, nil, err
+		reason := fmt.Errorf("read limited at %d bytes", c.msgReadLimit.Load())
+		c.Close(StatusMessageTooBig, reason.Error())
+		return 0, nil, fmt.Errorf("%w: %v", ErrMessageTooBig, reason)
 	}
 	return typ, p, nil
 }
@@ -196,7 +196,7 @@ func (c *Conn) Ping(ctx context.Context) error {
 // Write writes a message of the given type to the connection.
 // Always non blocking.
 func (c *Conn) Write(ctx context.Context, typ MessageType, p []byte) error {
-	err := c.write(ctx, typ, p)
+	err := c.write(typ, p)
 	if err != nil {
 		// Have to ensure the WebSocket is closed after a write error
 		// to match the Go API. It can only error if the message type
@@ -210,7 +210,7 @@ func (c *Conn) Write(ctx context.Context, typ MessageType, p []byte) error {
 	return nil
 }
 
-func (c *Conn) write(ctx context.Context, typ MessageType, p []byte) error {
+func (c *Conn) write(typ MessageType, p []byte) error {
 	if c.isClosed() {
 		return net.ErrClosed
 	}

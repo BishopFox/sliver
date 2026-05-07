@@ -1,0 +1,10 @@
+{
+  "api_shortname": "firestore",
+  "client_documentation": "https://cloud.google.com/go/docs/reference/cloud.google.com/go/firestore/latest",
+  "client_library_type": "manual",
+  "description": "Cloud Firestore API",
+  "distribution_name": "cloud.google.com/go/firestore",
+  "language": "go",
+  "library_type": "GAPIC_MANUAL",
+  "release_level": "stable"
+}

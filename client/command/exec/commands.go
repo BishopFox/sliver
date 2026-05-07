@@ -1,9 +1,11 @@
 package exec
 
 import (
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/generate"
 	"github.com/bishopfox/sliver/client/command/help"
+	shellcodeencoders "github.com/bishopfox/sliver/client/command/shellcode-encoders"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/rsteube/carapace"
@@ -25,12 +27,15 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	}
 	flags.Bind("", false, executeCmd, func(f *pflag.FlagSet) {
 		f.BoolP("token", "T", false, "execute command with current token (Windows only)")
-		f.BoolP("output", "o", false, "capture command output")
+		f.BoolP("output", "o", true, "capture command output")
+		f.Bool("background", false, "start the process in the background and track it")
 		f.BoolP("save", "s", false, "save output to a file")
 		f.BoolP("loot", "X", false, "save output as loot")
 		f.BoolP("ignore-stderr", "S", false, "don't print STDERR output")
 		f.StringP("stdout", "O", "", "remote path to redirect STDOUT to")
 		f.StringP("stderr", "E", "", "remote path to redirect STDERR to")
+		f.Bool("env-inheritance", false, "inherit environment variables from the current process")
+		f.StringArray("env", nil, "set an environment variable for the child process (key=value)")
 		f.StringP("name", "n", "", "name to assign loot (optional)")
 		f.Uint32P("ppid", "P", 0, "parent process id (optional, Windows only)")
 		f.BoolP("hidden", "H", false, "hide the window of the spawned process (Windows only)")
@@ -41,6 +46,20 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 
 	carapace.Gen(executeCmd).PositionalCompletion(carapace.ActionValues().Usage("command to execute (required)"))
 	carapace.Gen(executeCmd).PositionalAnyCompletion(carapace.ActionValues().Usage("arguments to the command (optional)"))
+
+	executeChildrenCmd := &cobra.Command{
+		Use:   consts.ExecuteChildrenStr,
+		Short: "List tracked background execute child processes",
+		Long:  help.GetHelpFor([]string{consts.ExecuteStr, consts.ExecuteChildrenStr}),
+		Args:  cobra.NoArgs,
+		Run: func(cmd *cobra.Command, args []string) {
+			ExecuteChildrenCmd(cmd, con, args)
+		},
+	}
+	flags.Bind("", false, executeChildrenCmd, func(f *pflag.FlagSet) {
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+	executeCmd.AddCommand(executeChildrenCmd)
 
 	executeAssemblyCmd := &cobra.Command{
 		Use:   consts.ExecuteAssemblyStr,
@@ -75,6 +94,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 
 	carapace.Gen(executeAssemblyCmd).PositionalCompletion(carapace.ActionFiles().Usage("path to assembly file (required)"))
 	carapace.Gen(executeAssemblyCmd).PositionalAnyCompletion(carapace.ActionValues().Usage("arguments to pass to the assembly entrypoint (optional)"))
+	completers.RegisterLocalFilePathPositionalCompletion(executeAssemblyCmd, 0)
 
 	executeShellcodeCmd := &cobra.Command{
 		Use:   consts.ExecuteShellcodeStr,
@@ -94,6 +114,14 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.BoolP("shikata-ga-nai", "S", false, "encode shellcode using shikata ga nai prior to execution")
 		f.StringP("architecture", "A", "amd64", "architecture of the shellcode: 386, amd64 (used with --shikata-ga-nai flag)")
 		f.Uint32P("iterations", "I", 1, "number of encoding iterations (used with --shikata-ga-nai flag)")
+		f.Uint32("shellcode-entropy", 1, "Shellcode entropy (Donut: 1=none, 2=random names, 3=random+encrypt) (windows PE input only)")
+		f.Bool("shellcode-compress", false, "Enable shellcode compression (aPLib) (windows PE input only)")
+		f.Uint32("shellcode-exitopt", 1, "Shellcode exit option (Donut: 1=exit thread, 2=exit process, 3=block) (windows PE input only)")
+		f.Uint32("shellcode-bypass", 3, "Shellcode bypass mode (Donut: 1=none, 2=abort, 3=continue) (windows PE input only)")
+		f.Uint32("shellcode-headers", 1, "Shellcode headers handling (Donut: 1=overwrite, 2=keep) (windows PE input only)")
+		f.Bool("shellcode-thread", false, "Run unmanaged EXE entrypoint as a new thread (Donut) (windows PE input only)")
+		f.Bool("shellcode-unicode", false, "Use Unicode command line for unmanaged DLL entrypoints (Donut) (windows PE input only)")
+		f.Uint32("shellcode-oep", 0, "Override original entry point (OEP) (Donut) (windows PE input only)")
 
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
@@ -101,6 +129,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		(*comp)["shikata-ga-nai"] = carapace.ActionValues("386", "amd64").Tag("shikata-ga-nai architectures")
 	})
 	carapace.Gen(executeShellcodeCmd).PositionalCompletion(carapace.ActionFiles().Usage("path to shellcode file (required)"))
+	completers.RegisterLocalFilePathPositionalCompletion(executeShellcodeCmd, 0)
 
 	sideloadCmd := &cobra.Command{
 		Use:   consts.SideloadStr,
@@ -129,6 +158,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 
 	carapace.Gen(sideloadCmd).PositionalCompletion(carapace.ActionFiles().Usage("path to shared library file (required)"))
 	carapace.Gen(sideloadCmd).PositionalAnyCompletion(carapace.ActionValues().Usage("arguments to pass to the binary (optional)"))
+	completers.RegisterLocalFilePathPositionalCompletion(sideloadCmd, 0)
 
 	spawnDllCmd := &cobra.Command{
 		Use:   consts.SpawnDllStr,
@@ -157,6 +187,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 
 	carapace.Gen(spawnDllCmd).PositionalCompletion(carapace.ActionFiles().Usage("path to DLL file (required)"))
 	carapace.Gen(spawnDllCmd).PositionalAnyCompletion(carapace.ActionValues().Usage("arguments to pass to the DLL entrypoint (optional)"))
+	completers.RegisterLocalFilePathPositionalCompletion(spawnDllCmd, 0)
 
 	migrateCmd := &cobra.Command{
 		Use:   consts.MigrateStr,
@@ -169,10 +200,13 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		Annotations: flags.RestrictTargets(consts.WindowsCmdsFilter),
 	}
 	flags.Bind("", false, migrateCmd, func(f *pflag.FlagSet) {
-		f.BoolP("disable-sgn", "S", true, "disable shikata ga nai shellcode encoder")
+		f.String("shellcode-encoder", "", "shellcode encoder to apply (optional; see `shellcode-encoders`)")
 		f.Uint32P("pid", "p", 0, "process id to migrate into")
 		f.StringP("process-name", "n", "", "name of the process to migrate into")
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+	flags.BindFlagCompletions(migrateCmd, func(comp *carapace.ActionMap) {
+		(*comp)["shellcode-encoder"] = shellcodeencoders.ShellcodeEncoderNameCompleter(con)
 	})
 	carapace.Gen(migrateCmd).PositionalCompletion(carapace.ActionValues().Usage("PID of process to migrate into"))
 
@@ -239,6 +273,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		(*comp)["custom-exe"] = carapace.ActionFiles()
 		(*comp)["profile"] = generate.ProfileNameCompleter(con)
 	})
+	completers.RegisterLocalFilePathFlagCompletion(psExecCmd, "custom-exe")
 	carapace.Gen(psExecCmd).PositionalCompletion(carapace.ActionValues().Usage("hostname (required)"))
 
 	sshCmd := &cobra.Command{
@@ -269,6 +304,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		(*comp)["private-key"] = carapace.ActionFiles()
 		(*comp)["kerberos-keytab"] = carapace.ActionFiles()
 	})
+	completers.RegisterLocalFilePathFlagCompletions(sshCmd, "private-key", "kerberos-keytab")
 
 	carapace.Gen(sshCmd).PositionalCompletion(carapace.ActionValues().Usage("remote host to SSH to (required)"))
 	carapace.Gen(sshCmd).PositionalAnyCompletion(carapace.ActionValues().Usage("command line with arguments"))

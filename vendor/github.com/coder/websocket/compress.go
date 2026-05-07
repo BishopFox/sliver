@@ -1,5 +1,4 @@
 //go:build !js
-// +build !js
 
 package websocket
 
@@ -168,8 +167,10 @@ type slidingWindow struct {
 	buf []byte
 }
 
-var swPoolMu sync.RWMutex
-var swPool = map[int]*sync.Pool{}
+var (
+	swPoolMu sync.RWMutex
+	swPool   = map[int]*sync.Pool{}
+)
 
 func slidingWindowPool(n int) *sync.Pool {
 	swPoolMu.RLock()

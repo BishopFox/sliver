@@ -1,0 +1,3638 @@
+package ai
+
+/*
+	Sliver Implant Framework
+	Copyright (C) 2026  Bishop Fox
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"image/color"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"github.com/bishopfox/sliver/client/console"
+	aithinking "github.com/bishopfox/sliver/client/spin/thinking"
+	clienttheme "github.com/bishopfox/sliver/client/theme"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/charmbracelet/x/ansi"
+)
+
+func assertColorEqual(t *testing.T, got color.Color, want color.Color) {
+	t.Helper()
+	gotR, gotG, gotB, gotA := got.RGBA()
+	wantR, wantG, wantB, wantA := want.RGBA()
+	if gotR != wantR || gotG != wantG || gotB != wantB || gotA != wantA {
+		t.Fatalf("unexpected color: got rgba(%d,%d,%d,%d), want rgba(%d,%d,%d,%d)", gotR, gotG, gotB, gotA, wantR, wantG, wantB, wantA)
+	}
+}
+
+func TestPromptConversationTitleUsesFirstNonEmptyLine(t *testing.T) {
+	title := promptConversationTitle("\n\n  First line title  \nsecond line")
+	if title != "First line title" {
+		t.Fatalf("expected first non-empty line, got %q", title)
+	}
+}
+
+func TestBuildConversationMarkdownUsesMarkdownSectionsAndOperatorLabel(t *testing.T) {
+	conversation := &clientpb.AIConversation{
+		OperatorName: "alice",
+		Summary:      "Operator context",
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "user", Content: "Hello"},
+			{Role: "assistant", Content: "## Reply"},
+		},
+	}
+
+	markdown := buildConversationMarkdown(conversation)
+	expected := []string{
+		"Operator context",
+		"### alice",
+		"Hello",
+		"### AI",
+		"## Reply",
+	}
+	for _, fragment := range expected {
+		if !strings.Contains(markdown, fragment) {
+			t.Fatalf("expected markdown to contain %q, got %q", fragment, markdown)
+		}
+	}
+	if strings.Contains(markdown, "```text") {
+		t.Fatalf("expected markdown messages to avoid text fences, got %q", markdown)
+	}
+}
+
+func TestBuildConversationMarkdownFallsBackToUserLabel(t *testing.T) {
+	conversation := &clientpb.AIConversation{
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "user", Content: "Hello"},
+		},
+	}
+
+	markdown := buildConversationMarkdown(conversation)
+	if !strings.Contains(markdown, "### User\n\nHello") {
+		t.Fatalf("expected markdown to contain user fallback label, got %q", markdown)
+	}
+}
+
+func TestBuildConversationMarkdownIncludesSystemPromptAsFirstMessage(t *testing.T) {
+	conversation := &clientpb.AIConversation{
+		SystemPrompt: "Stay concise.",
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "assistant", Content: "Hello"},
+		},
+	}
+
+	markdown := buildConversationMarkdown(conversation)
+	systemIndex := strings.Index(markdown, "### System\n\nStay concise.")
+	assistantIndex := strings.Index(markdown, "### AI\n\nHello")
+	if systemIndex == -1 {
+		t.Fatalf("expected markdown to include the system prompt as a message, got %q", markdown)
+	}
+	if assistantIndex == -1 {
+		t.Fatalf("expected markdown to include the assistant message, got %q", markdown)
+	}
+	if systemIndex > assistantIndex {
+		t.Fatalf("expected system prompt to appear before assistant reply, got %q", markdown)
+	}
+}
+
+func TestBuildConversationMarkdownFormatsToolCallsAsCodeBlocks(t *testing.T) {
+	conversation := &clientpb.AIConversation{
+		Messages: []*clientpb.AIConversationMessage{
+			{
+				Kind:          clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_TOOL_CALL,
+				ToolName:      "fs_ls",
+				ToolArguments: `{"path":"/tmp","session_id":"session-1"}`,
+				ToolResult:    `{"path":"/tmp","exists":true}`,
+			},
+		},
+	}
+
+	markdown := buildConversationMarkdown(conversation)
+	for _, fragment := range []string{
+		"### Tool: fs\\_ls",
+		"Arguments:\n```json",
+		"\"path\": \"/tmp\"",
+		"Result:\n```json",
+		"\"exists\": true",
+	} {
+		if !strings.Contains(markdown, fragment) {
+			t.Fatalf("expected markdown to contain %q, got %q", fragment, markdown)
+		}
+	}
+}
+
+func TestMessageBlockLabelIgnoresUnknownOperatorPlaceholders(t *testing.T) {
+	conversation := &clientpb.AIConversation{OperatorName: "<unknown>"}
+	message := &clientpb.AIConversationMessage{
+		Role:         "user",
+		OperatorName: "<unknown>",
+		Content:      "Hello",
+	}
+
+	label := messageBlockLabel(conversation, message)
+	if label != "User" {
+		t.Fatalf("expected placeholder operator names to fall back to User, got %q", label)
+	}
+}
+
+func TestTranscriptSpeakerStyleUsesPrimaryThemeForUserMessages(t *testing.T) {
+	styles := transcriptSpeakerStyle("alice", "user")
+
+	assertColorEqual(t, styles.border.GetForeground(), clienttheme.Primary())
+	assertColorEqual(t, styles.label.GetBackground(), clienttheme.Primary())
+}
+
+func TestThinkingLevelOptionFocusedStyleUsesDarkerPrimaryShade(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+
+	assertColorEqual(t, model.styles.optionFocused.GetBackground(), clienttheme.PrimaryMod(200))
+	assertColorEqual(t, model.styles.optionFocused.GetForeground(), clienttheme.DefaultMod(900))
+	assertColorEqual(t, model.styles.itemFocused.GetBackground(), clienttheme.PrimaryMod(800))
+}
+
+func TestTranscriptSelectionStyleUsesExplicitHighlightColors(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+
+	if !model.styles.selection.GetBold() {
+		t.Fatal("expected transcript selection style to be bold")
+	}
+	if !model.styles.selection.GetUnderline() {
+		t.Fatal("expected transcript selection style to be underlined")
+	}
+	if model.styles.selection.GetReverse() {
+		t.Fatal("expected transcript selection style to avoid reverse-video highlighting")
+	}
+	assertColorEqual(t, model.styles.selection.GetForeground(), clienttheme.DefaultMod(900))
+	assertColorEqual(t, model.styles.selection.GetBackground(), clienttheme.WarningMod(200))
+}
+
+func TestTranscriptConversationLabelUsesDarkerPrimaryShade(t *testing.T) {
+	styles := transcriptSpeakerStyle("Conversation", "system")
+
+	assertColorEqual(t, styles.label.GetBackground(), clienttheme.PrimaryMod(200))
+	assertColorEqual(t, styles.label.GetForeground(), clienttheme.DefaultMod(900))
+}
+
+func TestTranscriptSystemPromptStyleUsesSecondaryTheme(t *testing.T) {
+	styles := transcriptSpeakerStyle("System", "system")
+
+	assertColorEqual(t, styles.border.GetForeground(), clienttheme.Secondary())
+	assertColorEqual(t, styles.label.GetBackground(), clienttheme.Secondary())
+	assertColorEqual(t, styles.meta.GetForeground(), clienttheme.Secondary())
+}
+
+func TestBuildConversationMarkdownWithoutConversationAvoidsKeyHints(t *testing.T) {
+	markdown := buildConversationMarkdown(nil)
+	if strings.Contains(markdown, "`n`") {
+		t.Fatalf("expected empty-state markdown to avoid inline key hints, got %q", markdown)
+	}
+	if !strings.Contains(markdown, "Create a new conversation") {
+		t.Fatalf("expected empty-state markdown to describe the action without keybindings, got %q", markdown)
+	}
+}
+
+func TestRenderTranscriptMarkdownLinesRendersAssistantMarkdown(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.currentConversation = &clientpb.AIConversation{
+		ID: "conv-1",
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "assistant", Content: "## Reply\n\n- first item"},
+		},
+	}
+
+	rendered := ansi.Strip(strings.Join(model.renderTranscriptMarkdownLines(48), "\n"))
+	if !strings.Contains(rendered, "Reply") {
+		t.Fatalf("expected rendered transcript to contain the assistant heading text, got %q", rendered)
+	}
+	if !strings.Contains(rendered, "• first item") {
+		t.Fatalf("expected assistant markdown list to be rendered with glow styling, got %q", rendered)
+	}
+}
+
+func TestRenderConversationTranscriptLinesWrapsMessagesInBoxes(t *testing.T) {
+	conversation := &clientpb.AIConversation{
+		OperatorName: "alice",
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "user", OperatorName: "alice", Content: "hello"},
+			{Role: "user", OperatorName: "bob", Content: "second voice"},
+			{Role: "assistant", Content: "## Reply"},
+		},
+	}
+
+	renderedRaw := strings.Join(renderConversationTranscriptLines(64, conversation), "\n")
+	rendered := ansi.Strip(renderedRaw)
+	expected := []string{"alice", "bob", "AI", "hello", "second voice", "Reply"}
+	for _, fragment := range expected {
+		if !strings.Contains(rendered, fragment) {
+			t.Fatalf("expected boxed transcript to contain %q, got %q", fragment, rendered)
+		}
+	}
+	for _, fragment := range []string{"╭", "╰"} {
+		if !strings.Contains(rendered, fragment) {
+			t.Fatalf("expected boxed transcript framing %q, got %q", fragment, rendered)
+		}
+	}
+	if strings.Contains(rendered, "╮") || strings.Contains(rendered, "╯") {
+		t.Fatalf("expected message framing to stay open on the right, got %q", rendered)
+	}
+	for _, needle := range []string{"hello", "second voice"} {
+		var found bool
+		for _, line := range strings.Split(rendered, "\n") {
+			if strings.Contains(line, needle) {
+				found = true
+				if !strings.HasPrefix(line, "│") {
+					t.Fatalf("expected %q line to stay inside the box, got %q", needle, line)
+				}
+			}
+		}
+		if !found {
+			t.Fatalf("expected to find content line for %q, got %q", needle, rendered)
+		}
+	}
+	if !strings.Contains(renderedRaw, "\x1b[") {
+		t.Fatalf("expected boxed transcript to include ANSI styling, got %q", renderedRaw)
+	}
+}
+
+func TestRenderConversationTranscriptLinesOnlyBoxesMessages(t *testing.T) {
+	conversation := &clientpb.AIConversation{
+		Summary:      "Operator context",
+		SystemPrompt: "Stay concise.",
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "assistant", Content: "hello"},
+		},
+	}
+
+	lines := renderConversationTranscriptLines(64, conversation)
+	rendered := ansi.Strip(strings.Join(lines, "\n"))
+
+	for _, fragment := range []string{"Summary", "Operator context", "System", "Stay concise.", "AI", "hello"} {
+		if !strings.Contains(rendered, fragment) {
+			t.Fatalf("expected transcript to contain %q, got %q", fragment, rendered)
+		}
+	}
+
+	var summaryLine string
+	for _, line := range strings.Split(rendered, "\n") {
+		if strings.Contains(line, "Summary") {
+			summaryLine = line
+			break
+		}
+	}
+	if summaryLine == "" {
+		t.Fatalf("expected summary header line, got %q", rendered)
+	}
+	if strings.HasPrefix(summaryLine, "╭") || strings.HasPrefix(summaryLine, "│") || strings.HasPrefix(summaryLine, "╰") {
+		t.Fatalf("expected summary to remain unboxed, got %q", summaryLine)
+	}
+}
+
+func TestRenderConversationTranscriptLinesRendersReasoningAndToolBlocks(t *testing.T) {
+	conversation := &clientpb.AIConversation{
+		OperatorName: "alice",
+		Messages: []*clientpb.AIConversationMessage{
+			{
+				Kind:       clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_REASONING,
+				Visibility: clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
+				State:      clientpb.AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED,
+				Content:    "Summary:\nChecked the active target before choosing a tool.",
+			},
+			{
+				Kind:          clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_TOOL_CALL,
+				Visibility:    clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
+				State:         clientpb.AIConversationMessageState_AI_MESSAGE_STATE_FAILED,
+				ToolName:      "fs_ls",
+				ToolArguments: `{"path":"/tmp","session_id":"session-1"}`,
+				ToolResult:    `{"path":"/tmp","exists":true}`,
+				ErrorText:     "permission denied",
+			},
+		},
+	}
+
+	renderedRaw := strings.Join(renderConversationTranscriptLines(72, conversation), "\n")
+	rendered := ansi.Strip(renderedRaw)
+	for _, fragment := range []string{"Reasoning", "Checked the active target", "Tool: fs_ls", "ARGUMENTS", "\"path\": \"/tmp\"", "ERROR", "permission denied", "RESULT"} {
+		if !strings.Contains(rendered, fragment) {
+			t.Fatalf("expected transcript to contain %q, got %q", fragment, rendered)
+		}
+	}
+}
+
+func TestFormatToolCallStructuredBodyPrettyPrintsAndTruncates(t *testing.T) {
+	fields := make([]string, 0, aiToolCallSectionMaxLines+4)
+	for i := 0; i < aiToolCallSectionMaxLines+4; i++ {
+		fields = append(fields, fmt.Sprintf(`"key%02d":"value%02d"`, i, i))
+	}
+	raw := "{" + strings.Join(fields, ",") + "}"
+
+	formatted := formatToolCallStructuredBody(raw)
+	if formatted.language != "json" {
+		t.Fatalf("expected json language, got %q", formatted.language)
+	}
+	if !strings.Contains(formatted.content, "\"key00\": \"value00\"") {
+		t.Fatalf("expected formatted tool body to pretty-print JSON, got %q", formatted.content)
+	}
+	if strings.Count(formatted.content, "\n")+1 > aiToolCallSectionMaxLines {
+		t.Fatalf("expected formatted tool body to stay within %d lines, got %d", aiToolCallSectionMaxLines, strings.Count(formatted.content, "\n")+1)
+	}
+	if formatted.hiddenBytes <= 0 {
+		t.Fatalf("expected formatted tool body to record hidden bytes, got %+v", formatted)
+	}
+	if strings.Contains(formatted.content, "\"key18\": \"value18\"") {
+		t.Fatalf("expected formatted tool body to hide truncated tail content, got %q", formatted.content)
+	}
+}
+
+func TestRenderConversationTranscriptLinesTruncatesLongToolPayloads(t *testing.T) {
+	fields := make([]string, 0, aiToolCallSectionMaxLines+4)
+	for i := 0; i < aiToolCallSectionMaxLines+4; i++ {
+		fields = append(fields, fmt.Sprintf(`"key%02d":"value%02d"`, i, i))
+	}
+	conversation := &clientpb.AIConversation{
+		Messages: []*clientpb.AIConversationMessage{
+			{
+				Kind:       clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_TOOL_CALL,
+				Visibility: clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
+				State:      clientpb.AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED,
+				ToolName:   "fs_cat",
+				ToolResult: "{" + strings.Join(fields, ",") + "}",
+			},
+		},
+	}
+
+	rendered := ansi.Strip(strings.Join(renderConversationTranscriptLines(72, conversation), "\n"))
+	for _, fragment := range []string{"Tool: fs_cat", "RESULT", "\"key00\":", "... (", "bytes) ..."} {
+		if !strings.Contains(rendered, fragment) {
+			t.Fatalf("expected transcript to contain %q, got %q", fragment, rendered)
+		}
+	}
+	if strings.Contains(rendered, "\"key18\":") {
+		t.Fatalf("expected transcript to hide truncated tail content, got %q", rendered)
+	}
+}
+
+func TestRenderToolCallStructuredMarkdownAddsItalicTruncationMarkerOnOwnLine(t *testing.T) {
+	fields := make([]string, 0, aiToolCallSectionMaxLines+4)
+	for i := 0; i < aiToolCallSectionMaxLines+4; i++ {
+		fields = append(fields, fmt.Sprintf(`"key%02d":"value%02d"`, i, i))
+	}
+
+	markdown := renderToolCallStructuredMarkdown("{" + strings.Join(fields, ",") + "}")
+	if !strings.Contains(markdown, "```json\n") {
+		t.Fatalf("expected structured markdown to use a json code block, got %q", markdown)
+	}
+	if !strings.Contains(markdown, "\n```\n\n_... (") || !strings.Contains(markdown, "bytes) ..._") {
+		t.Fatalf("expected structured markdown to place the truncation marker on its own italic line, got %q", markdown)
+	}
+}
+
+func TestRenderConversationTranscriptLinesRendersReasoningMarkdown(t *testing.T) {
+	conversation := &clientpb.AIConversation{
+		Messages: []*clientpb.AIConversationMessage{
+			{
+				Kind:       clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_REASONING,
+				Visibility: clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
+				State:      clientpb.AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED,
+				Content:    "Summary:\n\n- Checked the active target before choosing a tool.\n- Used `fs_ls` after that.",
+			},
+		},
+	}
+
+	rendered := ansi.Strip(strings.Join(renderConversationTranscriptLines(72, conversation), "\n"))
+	for _, fragment := range []string{"Reasoning", "Checked the active target before choosing a tool.", "fs_ls"} {
+		if !strings.Contains(rendered, fragment) {
+			t.Fatalf("expected transcript to contain %q, got %q", fragment, rendered)
+		}
+	}
+	if strings.Contains(rendered, "`fs_ls`") {
+		t.Fatalf("expected reasoning transcript to render markdown inline code, got %q", rendered)
+	}
+}
+
+func TestRenderConversationTranscriptLinesExplainsMissingReasoningSummary(t *testing.T) {
+	conversation := &clientpb.AIConversation{
+		Messages: []*clientpb.AIConversationMessage{
+			{
+				Kind:       clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_REASONING,
+				Visibility: clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
+				State:      clientpb.AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED,
+			},
+		},
+	}
+
+	rendered := ansi.Strip(strings.Join(renderConversationTranscriptLines(72, conversation), "\n"))
+	if !strings.Contains(rendered, "Reasoning was used, but the provider did not return a visible summary.") {
+		t.Fatalf("expected reasoning fallback text, got %q", rendered)
+	}
+}
+
+func TestLastContextConversationMessageUsesIncludeInContextFlag(t *testing.T) {
+	conversation := &clientpb.AIConversation{
+		Messages: []*clientpb.AIConversationMessage{
+			{
+				Role:             "assistant",
+				Content:          "Shown but excluded.",
+				Kind:             clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT,
+				Visibility:       clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_CONTEXT,
+				IncludeInContext: boolPtr(false),
+			},
+			{
+				Role:             "assistant",
+				Content:          "UI-only but still contextual.",
+				Kind:             clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT,
+				Visibility:       clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
+				IncludeInContext: boolPtr(true),
+			},
+		},
+	}
+
+	message := lastContextConversationMessage(conversation)
+	if message == nil {
+		t.Fatal("expected a context-visible message")
+	}
+	if message.GetContent() != "UI-only but still contextual." {
+		t.Fatalf("unexpected context-visible message: %+v", message)
+	}
+}
+
+func TestRenderTranscriptHeaderLinesUsesCompactInlineMetadata(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.currentConversation = &clientpb.AIConversation{
+		ID:        "conv-1",
+		Title:     "Thread",
+		Provider:  "openai",
+		Model:     "gpt-5.4",
+		UpdatedAt: time.Now().Unix(),
+		ContextWindowUsage: &clientpb.AIContextWindowUsage{
+			InputTokens:         12000,
+			OutputTokens:        6000,
+			TotalTokens:         18000,
+			ContextWindowTokens: 128000,
+		},
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "assistant", Content: "hello"},
+		},
+	}
+
+	lines := model.renderTranscriptHeaderLines(96, 12, renderConversationTranscriptLines(96, model.currentConversation))
+	if len(lines) != 2 {
+		t.Fatalf("expected compact transcript header to use 2 lines, got %d", len(lines))
+	}
+
+	rendered := ansi.Strip(strings.Join(lines, "\n"))
+	expected := []string{"Conversation", "Thread", "ctx 18k/128k", "provider openai", "model gpt-5.4", "1 msgs"}
+	for _, fragment := range expected {
+		if !strings.Contains(rendered, fragment) {
+			t.Fatalf("expected transcript header to contain %q, got %q", fragment, rendered)
+		}
+	}
+}
+
+func boolPtr(value bool) *bool {
+	return &value
+}
+
+func TestRenderHeaderUsesSingleCompactRow(t *testing.T) {
+	model := newAIModel(nil, aiContext{
+		target: aiTargetSummary{
+			Label: "Session demo",
+		},
+		connection: aiConnectionSummary{
+			Operator: "alice",
+		},
+	}, nil)
+	model.width = 120
+	model.loading = false
+
+	rendered := ansi.Strip(model.renderHeader())
+	if strings.Contains(rendered, "\n") {
+		t.Fatalf("expected compact header to stay on one line, got %q", rendered)
+	}
+	if strings.Contains(rendered, "Server-backed AI conversation threads") {
+		t.Fatalf("expected compact header to omit the old subtitle, got %q", rendered)
+	}
+	for _, fragment := range []string{"SLIVER AI", "synced", "alice", "Session demo"} {
+		if !strings.Contains(rendered, fragment) {
+			t.Fatalf("expected compact header to contain %q, got %q", fragment, rendered)
+		}
+	}
+	for _, fragment := range []string{"split", "stacked"} {
+		if strings.Contains(rendered, fragment) {
+			t.Fatalf("expected compact header to omit layout label %q, got %q", fragment, rendered)
+		}
+	}
+}
+
+func TestTranscriptSpeakerPaletteVariesAcrossUsers(t *testing.T) {
+	seen := map[int]struct{}{}
+	for _, label := range []string{"alice", "bob", "charlie", "dana", "erin", "frank"} {
+		seen[transcriptSpeakerPaletteIndex(label, "user")] = struct{}{}
+	}
+	if len(seen) < 2 {
+		t.Fatalf("expected distinct users to map to more than one transcript color, got %d palette entries", len(seen))
+	}
+}
+
+func TestTranscriptSpeakerStyleUsesPrimaryBorderForUserMessages(t *testing.T) {
+	userStyles := transcriptSpeakerStyle("alice", "user")
+	userBorder := transcriptSpeakerStyle("alice", "user").border.Render("│")
+	wantUserBorder := lipgloss.NewStyle().Foreground(clienttheme.Primary()).Render("│")
+	if userBorder != wantUserBorder {
+		t.Fatalf("expected user message border to use theme primary color")
+	}
+
+	wantUserLabel := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(clienttheme.DefaultMod(900)).
+		Background(clienttheme.Primary()).
+		Padding(0, 1).
+		Render("alice")
+	if got := userStyles.label.Render("alice"); got != wantUserLabel {
+		t.Fatalf("expected user message label to use theme primary color")
+	}
+
+	wantUserMeta := lipgloss.NewStyle().Foreground(clienttheme.Primary()).Render("openai | gpt-5.4")
+	if got := userStyles.meta.Render("openai | gpt-5.4"); got != wantUserMeta {
+		t.Fatalf("expected user message metadata to use theme primary color")
+	}
+
+	assistantBorder := transcriptSpeakerStyle("AI", "assistant").border.Render("│")
+	if assistantBorder == wantUserBorder {
+		t.Fatalf("expected assistant message border to keep its non-primary speaker color")
+	}
+}
+
+func TestWindowResizeQueuesTranscriptRenderAsync(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 100
+	model.height = 30
+	model.currentConversation = &clientpb.AIConversation{
+		ID: "conv-1",
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "assistant", Content: "## Reply\n\n- first item"},
+		},
+	}
+	model.invalidateTranscriptCache()
+
+	updated, cmd := model.Update(tea.WindowSizeMsg{Width: 120, Height: 36})
+	if cmd == nil {
+		t.Fatal("expected resize to queue transcript rendering")
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.transcriptPendingKey == "" {
+		t.Fatal("expected resize to mark a transcript render as pending")
+	}
+
+	placeholder := ansi.Strip(strings.Join(updatedModel.transcriptDisplayLines(updatedModel.currentTranscriptWidth()), "\n"))
+	if !strings.Contains(placeholder, "Rendering transcript") {
+		t.Fatalf("expected resize to show a placeholder while rendering, got %q", placeholder)
+	}
+
+	msg := cmd()
+	renderedMsg, ok := msg.(aiTranscriptRenderedMsg)
+	if !ok {
+		t.Fatalf("expected transcript render message, got %T", msg)
+	}
+	if !strings.Contains(ansi.Strip(strings.Join(renderedMsg.lines, "\n")), "• first item") {
+		t.Fatalf("expected rendered resize transcript to include markdown formatting, got %#v", renderedMsg.lines)
+	}
+
+	updated, _ = updatedModel.Update(renderedMsg)
+	updatedModel = updated.(*aiModel)
+	if updatedModel.transcriptPendingKey != "" {
+		t.Fatal("expected transcript render to clear the pending state")
+	}
+
+	rendered := ansi.Strip(strings.Join(updatedModel.transcriptDisplayLines(updatedModel.currentTranscriptWidth()), "\n"))
+	if !strings.Contains(rendered, "• first item") {
+		t.Fatalf("expected cached transcript render after resize, got %q", rendered)
+	}
+}
+
+func TestWindowPollSchedulesWindowSizeMsgAndKeepsPolling(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 100
+	model.height = 30
+
+	updated, cmd := model.Update(aiWindowPollMsg{width: 120, height: 36})
+	if cmd == nil {
+		t.Fatal("expected poll tick to emit a window size message and keep polling")
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.width != 100 || updatedModel.height != 30 {
+		t.Fatalf("expected poll tick to leave dimensions unchanged until a WindowSizeMsg arrives, got %dx%d", updatedModel.width, updatedModel.height)
+	}
+
+	msg := cmd()
+	batch, ok := msg.(tea.BatchMsg)
+	if !ok {
+		t.Fatalf("expected poll tick to return a tea.BatchMsg, got %T", msg)
+	}
+	if len(batch) != 2 {
+		t.Fatalf("expected poll tick batch to contain 2 commands, got %d", len(batch))
+	}
+
+	var sawWindowSizeMsg bool
+	var sawPollTick bool
+	for _, subcmd := range batch {
+		if subcmd == nil {
+			continue
+		}
+		submsg := subcmd()
+		switch msg := submsg.(type) {
+		case tea.WindowSizeMsg:
+			sawWindowSizeMsg = true
+			if msg.Width != 120 || msg.Height != 36 {
+				t.Fatalf("expected polled window size 120x36, got %dx%d", msg.Width, msg.Height)
+			}
+		case aiWindowPollMsg:
+			sawPollTick = true
+		}
+	}
+
+	if !sawWindowSizeMsg {
+		t.Fatal("expected poll tick to include a tea.WindowSizeMsg")
+	}
+	if !sawPollTick {
+		t.Fatal("expected poll tick to schedule the next polling tick")
+	}
+}
+
+func TestApplyWindowSizeSkipsUnchangedDimensions(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 100
+	model.height = 30
+
+	if cmd := model.applyWindowSize(100, 30); cmd != nil {
+		t.Fatal("expected unchanged dimensions to avoid scheduling a rerender")
+	}
+}
+
+func TestViewWidthTracksResize(t *testing.T) {
+	model := newAIModel(nil, aiContext{
+		target: aiTargetSummary{
+			Label: "No active target",
+			Host:  "Select a session or beacon with `use`",
+			OS:    "unknown",
+			Arch:  "unknown",
+			C2:    "n/a",
+		},
+		connection: aiConnectionSummary{
+			Profile:  "<disconnected>",
+			Server:   "<unknown>",
+			Operator: "<unknown>",
+			State:    "ready",
+		},
+	}, nil)
+	model.loading = false
+	model.width = 140
+	model.height = 36
+	model.conversations = []*clientpb.AIConversation{
+		{ID: "conv-1", Title: "New conversation", Provider: "openai", Model: "gpt-5.4"},
+	}
+	model.currentConversation = &clientpb.AIConversation{
+		ID:        "conv-1",
+		Title:     "New conversation",
+		Provider:  "openai",
+		Model:     "gpt-5.4",
+		UpdatedAt: time.Now().Unix(),
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "assistant", Content: "## Reply\n\n- first item"},
+		},
+	}
+
+	renderCmd := model.scheduleTranscriptRender()
+	if renderCmd == nil {
+		t.Fatal("expected initial transcript render command")
+	}
+	msg := renderCmd()
+	renderedMsg, ok := msg.(aiTranscriptRenderedMsg)
+	if !ok {
+		t.Fatalf("expected initial transcript render message, got %T", msg)
+	}
+	updated, _ := model.Update(renderedMsg)
+	model = updated.(*aiModel)
+
+	view := model.View()
+	if got := lipgloss.Width(view.Content); got > model.width {
+		t.Fatalf("expected initial view width <= %d, got %d", model.width, got)
+	}
+	if got := lipgloss.Height(view.Content); got > model.height {
+		t.Fatalf("expected initial view height <= %d, got %d", model.height, got)
+	}
+
+	updated, cmd := model.Update(tea.WindowSizeMsg{Width: 108, Height: 32})
+	if cmd == nil {
+		t.Fatal("expected resize to queue transcript rendering")
+	}
+	model = updated.(*aiModel)
+	msg = cmd()
+	renderedMsg, ok = msg.(aiTranscriptRenderedMsg)
+	if !ok {
+		t.Fatalf("expected resize transcript render message, got %T", msg)
+	}
+	updated, _ = model.Update(renderedMsg)
+	model = updated.(*aiModel)
+
+	view = model.View()
+	if got := lipgloss.Width(view.Content); got > model.width {
+		t.Fatalf("expected resized view width <= %d, got %d", model.width, got)
+	}
+	if got := lipgloss.Height(view.Content); got > model.height {
+		t.Fatalf("expected resized view height <= %d, got %d", model.height, got)
+	}
+
+	for _, line := range strings.Split(view.Content, "\n") {
+		if got := ansi.StringWidth(line); got > model.width {
+			t.Fatalf("expected resized view line width <= %d, got %d for %q", model.width, got, ansi.Strip(line))
+		}
+	}
+}
+
+func TestViewRendersAtHeightSeventeen(t *testing.T) {
+	model := newAIModel(nil, aiContext{
+		target: aiTargetSummary{
+			Label: "No active target",
+		},
+		connection: aiConnectionSummary{
+			Operator: "alice",
+		},
+	}, nil)
+	model.width = 96
+	model.height = 17
+	model.loading = false
+	model.status = "Ready"
+
+	rendered := ansi.Strip(model.View().Content)
+	if strings.Contains(rendered, "Terminal too small for the AI conversation view.") {
+		t.Fatalf("expected 96x17 to render the TUI, got %q", rendered)
+	}
+	for _, fragment := range []string{"Conversations", "Composer", "focus: sidebar"} {
+		if !strings.Contains(rendered, fragment) {
+			t.Fatalf("expected rendered minimum-height view to contain %q, got %q", fragment, rendered)
+		}
+	}
+}
+
+func TestConversationAwaitingResponseWhenLastMessageIsUser(t *testing.T) {
+	conversation := &clientpb.AIConversation{
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "assistant", Content: "Previous reply"},
+			{Role: "user", Content: "Still waiting"},
+		},
+	}
+
+	if !conversationAwaitingResponse(conversation) {
+		t.Fatal("expected conversation to be waiting on an assistant response")
+	}
+}
+
+func TestConversationAwaitingResponseStopsWhenAssistantReplies(t *testing.T) {
+	conversation := &clientpb.AIConversation{
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "user", Content: "Question"},
+			{Role: "assistant", Content: "Answer"},
+		},
+	}
+
+	if conversationAwaitingResponse(conversation) {
+		t.Fatal("expected conversation to be settled once the assistant replies")
+	}
+}
+
+func TestConversationAwaitingResponseUsesTurnState(t *testing.T) {
+	conversation := &clientpb.AIConversation{
+		TurnState: clientpb.AIConversationTurnState_AI_TURN_STATE_IN_PROGRESS,
+		Messages: []*clientpb.AIConversationMessage{
+			{
+				Role:       "assistant",
+				Content:    "Listing files",
+				Kind:       clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_TOOL_CALL,
+				Visibility: clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_UI_ONLY,
+			},
+		},
+	}
+
+	if !conversationAwaitingResponse(conversation) {
+		t.Fatal("expected in-progress turn state to keep the conversation pending")
+	}
+
+	conversation.TurnState = clientpb.AIConversationTurnState_AI_TURN_STATE_FAILED
+	if conversationAwaitingResponse(conversation) {
+		t.Fatal("expected failed turn state to clear the pending marker")
+	}
+}
+
+func TestPendingLabelUsesThinkingWhenConfigured(t *testing.T) {
+	model := &aiModel{
+		config: &clientpb.AIConfigSummary{ThinkingLevel: "xhigh"},
+	}
+
+	if got := model.pendingLabel(); got != "Thinking" {
+		t.Fatalf("expected pending label %q, got %q", "Thinking", got)
+	}
+}
+
+func TestPendingLabelFallsBackToWorking(t *testing.T) {
+	model := &aiModel{}
+
+	if got := model.pendingLabel(); got != "Working" {
+		t.Fatalf("expected pending label %q, got %q", "Working", got)
+	}
+}
+
+func TestPendingLabelUsesConversationOverrideBeforeConfig(t *testing.T) {
+	model := &aiModel{
+		config:              &clientpb.AIConfigSummary{ThinkingLevel: "high"},
+		currentConversation: &clientpb.AIConversation{ThinkingLevel: "disabled"},
+	}
+
+	if got := model.pendingLabel(); got != "Working" {
+		t.Fatalf("expected disabled conversation override to use %q, got %q", "Working", got)
+	}
+}
+
+func TestThinkingLevelOptionsIncludeXHigh(t *testing.T) {
+	options := aiThinkingLevelOptions("high")
+	for _, option := range options {
+		if option.value == "xhigh" {
+			return
+		}
+	}
+	t.Fatal("expected xhigh thinking option to be available")
+}
+
+func TestRenderFooterUsesPaneSpecificControls(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 200
+	model.focus = aiFocusSidebar
+	model.conversations = []*clientpb.AIConversation{{ID: "conv-1", Title: "Thread"}}
+	model.currentConversation = &clientpb.AIConversation{ID: "conv-1", Title: "Thread"}
+
+	footer := ansi.Strip(model.renderFooter())
+	expected := []string{"focus: sidebar", "j/k: move", "enter: open", "x: delete", "t: thinking", "q/esc: quit"}
+	for _, fragment := range expected {
+		if !strings.Contains(footer, fragment) {
+			t.Fatalf("expected sidebar footer to contain %q, got %q", fragment, footer)
+		}
+	}
+	if strings.Contains(footer, "enter: send") {
+		t.Fatalf("expected sidebar footer to avoid composer controls, got %q", footer)
+	}
+
+	model.focus = aiFocusTranscript
+	footer = ansi.Strip(model.renderFooter())
+	expected = []string{"focus: conversation", "j/k: scroll", "pgup/pgdn: page", "g/G: ends", "x: delete", "t: thinking", "q/esc: quit"}
+	for _, fragment := range expected {
+		if !strings.Contains(footer, fragment) {
+			t.Fatalf("expected transcript footer to contain %q, got %q", fragment, footer)
+		}
+	}
+	if strings.Contains(footer, "enter: open") || strings.Contains(footer, "enter: send") {
+		t.Fatalf("expected transcript footer to avoid sidebar/composer controls, got %q", footer)
+	}
+	renderedTranscript := ansi.Strip(model.renderTranscript(96, 12))
+	if strings.Contains(renderedTranscript, "scroll j/k pgup/pgdn g/G") {
+		t.Fatalf("expected transcript pane to omit inline focus controls, got %q", renderedTranscript)
+	}
+
+	model.focus = aiFocusComposer
+	footer = ansi.Strip(model.renderFooter())
+	expected = []string{"focus: composer", "tab: sidebar", "enter: send", "/exit: quit", "ctrl+u: clear", "ctrl+c: quit"}
+	for _, fragment := range expected {
+		if !strings.Contains(footer, fragment) {
+			t.Fatalf("expected composer footer to contain %q, got %q", fragment, footer)
+		}
+	}
+	for _, fragment := range []string{"ctrl+o: context", "ctrl+s: target", "ctrl+t: thinking"} {
+		if strings.Contains(footer, fragment) {
+			t.Fatalf("expected composer footer to omit duplicated composer shortcuts %q, got %q", fragment, footer)
+		}
+	}
+	if strings.Contains(footer, "esc: blur") {
+		t.Fatalf("expected composer footer to omit esc blur control, got %q", footer)
+	}
+	if strings.Contains(footer, "x: delete") {
+		t.Fatalf("expected composer footer to avoid sidebar controls, got %q", footer)
+	}
+}
+
+func TestTabCyclesVisiblePanesOnly(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+
+	updated, _ := model.handleGlobalKey(tea.Key{Code: tea.KeyTab})
+	if got := updated.(*aiModel).focus; got != aiFocusTranscript {
+		t.Fatalf("expected tab to move from sidebar to transcript, got %s", got.String())
+	}
+
+	updated, _ = updated.(*aiModel).handleGlobalKey(tea.Key{Code: tea.KeyTab})
+	if got := updated.(*aiModel).focus; got != aiFocusComposer {
+		t.Fatalf("expected tab to move from transcript to composer, got %s", got.String())
+	}
+
+	updated, _ = updated.(*aiModel).handleGlobalKey(tea.Key{Code: tea.KeyTab})
+	if got := updated.(*aiModel).focus; got != aiFocusSidebar {
+		t.Fatalf("expected tab to wrap back to sidebar, got %s", got.String())
+	}
+}
+
+func TestAIViewEnablesCellMotionMouseReporting(t *testing.T) {
+	view := aiView("hello")
+	if view.MouseMode != tea.MouseModeAllMotion {
+		t.Fatalf("expected AI view mouse mode %v, got %v", tea.MouseModeAllMotion, view.MouseMode)
+	}
+}
+
+func TestMouseClickSwitchesFocusAcrossPanesWide(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 108
+	model.height = 32
+	model.focus = aiFocusSidebar
+
+	rects := model.currentPaneRects()
+
+	updated, _ := model.Update(tea.MouseClickMsg{
+		X:      rects.transcript.x + rects.transcript.width/2,
+		Y:      rects.transcript.y + rects.transcript.height/2,
+		Button: tea.MouseLeft,
+	})
+	if got := updated.(*aiModel).focus; got != aiFocusTranscript {
+		t.Fatalf("expected transcript click to focus transcript, got %s", got.String())
+	}
+
+	rects = updated.(*aiModel).currentPaneRects()
+	updated, _ = updated.(*aiModel).Update(tea.MouseClickMsg{
+		X:      rects.composer.x + rects.composer.width/2,
+		Y:      rects.composer.y + rects.composer.height/2,
+		Button: tea.MouseLeft,
+	})
+	if got := updated.(*aiModel).focus; got != aiFocusComposer {
+		t.Fatalf("expected composer click to focus composer, got %s", got.String())
+	}
+
+	rects = updated.(*aiModel).currentPaneRects()
+	updated, _ = updated.(*aiModel).Update(tea.MouseClickMsg{
+		X:      rects.sidebar.x + rects.sidebar.width/2,
+		Y:      rects.sidebar.y + rects.sidebar.height/2,
+		Button: tea.MouseLeft,
+	})
+	if got := updated.(*aiModel).focus; got != aiFocusSidebar {
+		t.Fatalf("expected sidebar click to focus sidebar, got %s", got.String())
+	}
+}
+
+func TestMouseClickSwitchesFocusAcrossPanesStacked(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 76
+	model.height = 24
+	model.focus = aiFocusSidebar
+
+	rects := model.currentPaneRects()
+	if rects.transcript.y <= rects.sidebar.y {
+		t.Fatalf("expected stacked transcript pane below sidebar, got sidebar=%+v transcript=%+v", rects.sidebar, rects.transcript)
+	}
+
+	updated, _ := model.Update(tea.MouseClickMsg{
+		X:      rects.transcript.x + rects.transcript.width/2,
+		Y:      rects.transcript.y + rects.transcript.height/2,
+		Button: tea.MouseLeft,
+	})
+	if got := updated.(*aiModel).focus; got != aiFocusTranscript {
+		t.Fatalf("expected transcript click to focus transcript in stacked layout, got %s", got.String())
+	}
+
+	rects = updated.(*aiModel).currentPaneRects()
+	updated, _ = updated.(*aiModel).Update(tea.MouseClickMsg{
+		X:      rects.composer.x + rects.composer.width/2,
+		Y:      rects.composer.y + rects.composer.height/2,
+		Button: tea.MouseLeft,
+	})
+	if got := updated.(*aiModel).focus; got != aiFocusComposer {
+		t.Fatalf("expected composer click to focus composer in stacked layout, got %s", got.String())
+	}
+}
+
+func TestMouseClickLoadsConversationFromSidebar(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 108
+	model.height = 32
+	model.focus = aiFocusTranscript
+	model.loading = false
+	model.conversations = []*clientpb.AIConversation{
+		{ID: "conv-1", Title: "One"},
+		{ID: "conv-2", Title: "Two"},
+	}
+	model.currentConversation = &clientpb.AIConversation{ID: "conv-1", Title: "One"}
+
+	rect := model.currentPaneRects().sidebar
+	updated, cmd := model.Update(tea.MouseClickMsg{
+		X:      rect.x + rect.width/2,
+		Y:      rect.y + 3,
+		Button: tea.MouseLeft,
+	})
+	if cmd == nil {
+		t.Fatal("expected sidebar click to request conversation loading")
+	}
+
+	updatedModel := updated.(*aiModel)
+	if got := updatedModel.focus; got != aiFocusSidebar {
+		t.Fatalf("expected sidebar click to focus sidebar, got %s", got.String())
+	}
+	if updatedModel.selectedConversation != 1 {
+		t.Fatalf("expected sidebar click to select the second conversation, got %d", updatedModel.selectedConversation)
+	}
+	if !updatedModel.loading {
+		t.Fatal("expected sidebar click to enter loading state")
+	}
+	if updatedModel.status != "Loading conversation..." {
+		t.Fatalf("expected sidebar click to set loading status, got %q", updatedModel.status)
+	}
+}
+
+func TestRenderComposerOmitsInlineControls(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 120
+	model.status = "Ready"
+
+	rendered := ansi.Strip(model.renderComposer(4))
+	if strings.Contains(rendered, "ctrl+u clear") || strings.Contains(rendered, "q quit") {
+		t.Fatalf("expected composer pane to omit inline control hints, got %q", rendered)
+	}
+	if strings.Contains(rendered, "Ready") {
+		t.Fatalf("expected composer pane to omit the inline status row, got %q", rendered)
+	}
+}
+
+func TestComposerPasteMsgInsertsAtCursor(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.focus = aiFocusComposer
+	model.input = []rune("hello")
+	model.cursor = len(model.input)
+
+	updated, cmd := model.Update(tea.PasteMsg{Content: " world"})
+	if cmd != nil {
+		t.Fatalf("expected paste to update in place without commands, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if got := string(updatedModel.input); got != "hello world" {
+		t.Fatalf("expected pasted composer input, got %q", got)
+	}
+	if updatedModel.cursor != len([]rune("hello world")) {
+		t.Fatalf("expected cursor at end of pasted input, got %d", updatedModel.cursor)
+	}
+}
+
+func TestTranscriptFocusKeepsMouseReportingEnabled(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 108
+	model.height = 28
+	model.focus = aiFocusTranscript
+	view := model.View()
+	if view.MouseMode != tea.MouseModeAllMotion {
+		t.Fatalf("expected transcript focus to keep mouse reporting enabled, got %v", view.MouseMode)
+	}
+}
+
+func TestAIToastMessageShowsAndExpires(t *testing.T) {
+	listener := make(chan *clientpb.Event)
+	model := newAIModel(nil, aiContext{}, listener)
+	model.width = 108
+	model.height = 28
+
+	updated, cmd := model.Update(aiToastMsg{
+		level:   "info",
+		message: "Session alpha connected",
+	})
+	if cmd == nil {
+		t.Fatal("expected toast message to schedule follow-up work")
+	}
+
+	model = updated.(*aiModel)
+	if len(model.toasts) != 1 {
+		t.Fatalf("expected one toast state, got %d", len(model.toasts))
+	}
+	toast := model.toasts[0]
+	if toast.message != "Session alpha connected" {
+		t.Fatalf("unexpected toast message %+v", toast)
+	}
+	if toast.createdAt.IsZero() || toast.expiresAt.IsZero() {
+		t.Fatalf("expected toast timing metadata to be populated, got %+v", toast)
+	}
+	if got := toast.expiresAt.Sub(toast.createdAt); got != aiToastDuration {
+		t.Fatalf("expected toast duration %v, got %v", aiToastDuration, got)
+	}
+
+	view := ansi.Strip(model.View().Content)
+	if !strings.Contains(view, "Session alpha connected") {
+		t.Fatalf("expected toast message in rendered view, got %q", view)
+	}
+	if !strings.Contains(view, "left") {
+		t.Fatalf("expected toast to render time left text, got %q", view)
+	}
+	if !strings.Contains(view, "█") {
+		t.Fatalf("expected toast to render a progress bar, got %q", view)
+	}
+
+	toastID := toast.id
+	updated, _ = model.Update(aiToastExpiredMsg{id: toastID})
+	model = updated.(*aiModel)
+	if len(model.toasts) != 0 {
+		t.Fatalf("expected toast to clear after expiry, got %+v", model.toasts)
+	}
+}
+
+func TestAIToastMessagesStackNewestFirstAndKeepFourMostRecent(t *testing.T) {
+	listener := make(chan *clientpb.Event)
+	model := newAIModel(nil, aiContext{}, listener)
+	model.width = 108
+	model.height = 28
+
+	messages := []string{
+		"First event",
+		"Second event",
+		"Third event",
+		"Fourth event",
+		"Fifth event",
+	}
+
+	for _, message := range messages {
+		updated, cmd := model.Update(aiToastMsg{level: "info", message: message})
+		if cmd == nil {
+			t.Fatalf("expected toast %q to schedule follow-up work", message)
+		}
+		model = updated.(*aiModel)
+	}
+
+	if len(model.toasts) != aiToastStackLimit {
+		t.Fatalf("expected %d stacked toasts, got %d", aiToastStackLimit, len(model.toasts))
+	}
+
+	wantOrder := []string{"Fifth event", "Fourth event", "Third event", "Second event"}
+	for idx, want := range wantOrder {
+		if got := model.toasts[idx].message; got != want {
+			t.Fatalf("expected toast %d to be %q, got %q", idx, want, got)
+		}
+	}
+
+	view := ansi.Strip(model.View().Content)
+	for _, want := range wantOrder {
+		if !strings.Contains(view, want) {
+			t.Fatalf("expected stacked toast view to contain %q, got %q", want, view)
+		}
+	}
+	if strings.Contains(view, "First event") {
+		t.Fatalf("expected oldest toast to be dropped from the stack, got %q", view)
+	}
+
+	if strings.Index(view, "Fifth event") > strings.Index(view, "Fourth event") {
+		t.Fatalf("expected newest toast to render above older toasts, got %q", view)
+	}
+
+	expiredID := model.toasts[1].id
+	updated, _ := model.Update(aiToastExpiredMsg{id: expiredID})
+	model = updated.(*aiModel)
+	if len(model.toasts) != aiToastStackLimit-1 {
+		t.Fatalf("expected one toast to expire from the stack, got %d", len(model.toasts))
+	}
+	for _, toast := range model.toasts {
+		if toast.id == expiredID {
+			t.Fatalf("expected expired toast %d to be removed, got %+v", expiredID, model.toasts)
+		}
+	}
+}
+
+func TestTranscriptClickPromptsNativeSelection(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 108
+	model.height = 28
+	model.focus = aiFocusSidebar
+	rect := model.currentPaneRects().transcript
+	updated, _ := model.Update(tea.MouseClickMsg{
+		X:      rect.x + rect.width/2,
+		Y:      rect.y + rect.height/2,
+		Button: tea.MouseLeft,
+	})
+	model = updated.(*aiModel)
+	if got := model.focus; got != aiFocusTranscript {
+		t.Fatalf("expected transcript click to focus transcript, got %s", got.String())
+	}
+	if !strings.Contains(model.status, "wheel to scroll") {
+		t.Fatalf("expected transcript click to explain transcript mouse interactions, got %q", model.status)
+	}
+}
+
+func TestTranscriptDragSelectsAndCopiesMessageText(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 108
+	model.height = 32
+	model.loading = false
+	model.currentConversation = &clientpb.AIConversation{
+		ID:       "conv-1",
+		Title:    "Thread",
+		Provider: "openai",
+		Model:    "gpt-test",
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "assistant", Content: "hello world"},
+		},
+	}
+
+	renderCmd := model.scheduleTranscriptRender()
+	if renderCmd == nil {
+		t.Fatal("expected transcript render command")
+	}
+	msg := renderCmd()
+	renderedMsg, ok := msg.(aiTranscriptRenderedMsg)
+	if !ok {
+		t.Fatalf("expected transcript render message, got %T", msg)
+	}
+
+	updated, _ := model.Update(renderedMsg)
+	model = updated.(*aiModel)
+	rect := model.currentPaneRects().transcript
+	startX := rect.x + 4
+	endX := rect.x + 8
+	contentY := rect.y + 4
+
+	updated, _ = model.Update(tea.MouseClickMsg{
+		X:      startX,
+		Y:      contentY,
+		Button: tea.MouseLeft,
+	})
+	model = updated.(*aiModel)
+	if model.transcriptSelection == nil || !model.transcriptSelection.dragging {
+		t.Fatalf("expected transcript drag selection to start, got %+v", model.transcriptSelection)
+	}
+
+	updated, _ = model.Update(tea.MouseMotionMsg{
+		X:      endX,
+		Y:      contentY,
+		Button: tea.MouseLeft,
+	})
+	model = updated.(*aiModel)
+	if selected := strings.TrimSpace(model.selectedTranscriptText()); selected != "hel" {
+		t.Fatalf("expected transcript selection %q, got %q", "hel", selected)
+	}
+
+	updated, cmd := model.Update(tea.MouseReleaseMsg{
+		X:      endX,
+		Y:      contentY,
+		Button: tea.MouseLeft,
+	})
+	model = updated.(*aiModel)
+	if cmd == nil {
+		t.Fatal("expected transcript mouse release to issue a clipboard command")
+	}
+	if selected := strings.TrimSpace(model.selectedTranscriptText()); selected != "hel" {
+		t.Fatalf("expected transcript selection to remain available after release, got %q", selected)
+	}
+	if !strings.Contains(model.status, "Copied") {
+		t.Fatalf("expected transcript selection release to update copy status, got %q", model.status)
+	}
+}
+
+func TestTranscriptSelectionStartsOnlyOnMessageText(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 108
+	model.height = 32
+	model.loading = false
+	model.currentConversation = &clientpb.AIConversation{
+		ID:       "conv-1",
+		Title:    "Thread",
+		Provider: "openai",
+		Model:    "gpt-test",
+		Summary:  "Operator context",
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "assistant", Content: "hello world"},
+		},
+	}
+
+	renderCmd := model.scheduleTranscriptRender()
+	if renderCmd == nil {
+		t.Fatal("expected transcript render command")
+	}
+	msg := renderCmd()
+	renderedMsg, ok := msg.(aiTranscriptRenderedMsg)
+	if !ok {
+		t.Fatalf("expected transcript render message, got %T", msg)
+	}
+
+	updated, _ := model.Update(renderedMsg)
+	model = updated.(*aiModel)
+
+	contentWidth, _ := model.currentTranscriptViewportSize()
+	content := model.renderTranscriptDisplayContent(contentWidth)
+
+	nonSelectableLine := -1
+	selectableLine := -1
+	for idx, line := range content {
+		if selectableLine < 0 && line.hasSelectableText() {
+			selectableLine = idx
+		}
+		if nonSelectableLine < 0 && !line.hasSelectableText() && strings.TrimSpace(ansi.Strip(line.styled)) != "" {
+			nonSelectableLine = idx
+		}
+	}
+	if nonSelectableLine < 0 {
+		t.Fatal("expected transcript to include non-selectable chrome or summary rows")
+	}
+	if selectableLine < 0 {
+		t.Fatal("expected transcript to include selectable message text rows")
+	}
+
+	rect := model.currentPaneRects().transcript
+	baseY := rect.y + 1 + model.transcriptHeaderLineCount()
+	clickX := rect.x + 4
+
+	updated, _ = model.Update(tea.MouseClickMsg{
+		X:      clickX,
+		Y:      baseY + nonSelectableLine,
+		Button: tea.MouseLeft,
+	})
+	model = updated.(*aiModel)
+	if model.transcriptSelection != nil {
+		t.Fatalf("expected non-message transcript rows to ignore selection, got %+v", model.transcriptSelection)
+	}
+
+	updated, _ = model.Update(tea.MouseClickMsg{
+		X:      clickX,
+		Y:      baseY + selectableLine,
+		Button: tea.MouseLeft,
+	})
+	model = updated.(*aiModel)
+	if model.transcriptSelection == nil || !model.transcriptSelection.dragging {
+		t.Fatalf("expected message text row to begin selection, got %+v", model.transcriptSelection)
+	}
+}
+
+func TestLayoutHeightsKeepWideComposerCompact(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 120
+	model.height = 30
+
+	headerHeight, composerHeight, footerHeight, bodyHeight := model.layoutHeights()
+	if headerHeight != 1 {
+		t.Fatalf("expected header height 1, got %d", headerHeight)
+	}
+	if composerHeight != 4 {
+		t.Fatalf("expected wide composer height 4, got %d", composerHeight)
+	}
+	if footerHeight != 1 {
+		t.Fatalf("expected footer height 1, got %d", footerHeight)
+	}
+	if bodyHeight != 24 {
+		t.Fatalf("expected body height 24 after reclaiming the composer status row, got %d", bodyHeight)
+	}
+}
+
+func TestRenderPaneClampsEmbeddedContentToViewport(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.focus = aiFocusTranscript
+
+	rendered := model.renderPane(24, 6, aiFocusTranscript, []string{
+		"Conversation",
+		"line one\nline two\nline three\nline four",
+		strings.Repeat("x", 48),
+	})
+
+	if got := lipgloss.Width(rendered); got != 24 {
+		t.Fatalf("expected pane width 24, got %d", got)
+	}
+	if got := lipgloss.Height(rendered); got != 6 {
+		t.Fatalf("expected pane height 6, got %d", got)
+	}
+
+	for _, line := range strings.Split(rendered, "\n") {
+		if got := ansi.StringWidth(line); got > 24 {
+			t.Fatalf("expected pane line width <= 24, got %d for %q", got, ansi.Strip(line))
+		}
+	}
+}
+
+func TestViewKeepsComposerVisibleWhenTranscriptLinesEmbedNewlines(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.loading = false
+	model.width = 120
+	model.height = 24
+	model.status = "Ready"
+	model.conversations = []*clientpb.AIConversation{
+		{ID: "conv-1", Title: "Thread", Provider: "openai", Model: "gpt-5.4"},
+	}
+	model.currentConversation = &clientpb.AIConversation{
+		ID:        "conv-1",
+		Title:     "Thread",
+		Provider:  "openai",
+		Model:     "gpt-5.4",
+		UpdatedAt: time.Now().Unix(),
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "assistant", Content: "hello"},
+		},
+	}
+
+	width := model.currentTranscriptWidth()
+	model.transcriptCacheKey = model.transcriptRenderKey(width)
+	model.transcriptCacheLines = []string{
+		"╭─ box ─╮",
+		"│ alpha │\n│ beta  │\n│ gamma │\n│ delta │\n│ eps   │",
+		"╰───────╯",
+	}
+
+	view := model.View()
+	rendered := ansi.Strip(view.Content)
+
+	if !strings.Contains(rendered, "Composer") {
+		t.Fatalf("expected composer pane to remain visible, got %q", rendered)
+	}
+	if !strings.Contains(rendered, ">>>") {
+		t.Fatalf("expected composer input line to remain visible, got %q", rendered)
+	}
+	if !strings.Contains(rendered, "focus: sidebar") {
+		t.Fatalf("expected footer to remain visible, got %q", rendered)
+	}
+	if got := lipgloss.Height(view.Content); got > model.height {
+		t.Fatalf("expected view height <= %d, got %d", model.height, got)
+	}
+}
+
+func TestHandleGlobalKeyScrollsTranscript(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 108
+	model.height = 32
+	model.focus = aiFocusTranscript
+	model.loading = false
+
+	messages := make([]*clientpb.AIConversationMessage, 0, 16)
+	for i := 0; i < 16; i++ {
+		messages = append(messages, &clientpb.AIConversationMessage{
+			Role:    "assistant",
+			Content: fmt.Sprintf("Message %02d\n\n- detail", i),
+		})
+	}
+	model.currentConversation = &clientpb.AIConversation{
+		ID:       "conv-1",
+		Title:    "Thread",
+		Provider: "openai",
+		Model:    "gpt-test",
+		Messages: messages,
+	}
+
+	renderCmd := model.scheduleTranscriptRender()
+	if renderCmd == nil {
+		t.Fatal("expected transcript render command")
+	}
+
+	msg := renderCmd()
+	renderedMsg, ok := msg.(aiTranscriptRenderedMsg)
+	if !ok {
+		t.Fatalf("expected transcript render message, got %T", msg)
+	}
+
+	updated, _ := model.Update(renderedMsg)
+	model = updated.(*aiModel)
+	initialScroll := model.transcriptScroll
+	if initialScroll == 0 {
+		t.Fatalf("expected transcript to start pinned near the bottom, got scroll %d", initialScroll)
+	}
+
+	updated, _ = model.handleGlobalKey(tea.Key{Text: "k"})
+	model = updated.(*aiModel)
+	if model.transcriptFollow {
+		t.Fatal("expected transcript scroll-up to disable follow mode")
+	}
+	if model.transcriptScroll != initialScroll-1 {
+		t.Fatalf("expected transcript scroll to move up by one line, got %d want %d", model.transcriptScroll, initialScroll-1)
+	}
+
+	updated, _ = model.handleGlobalKey(tea.Key{Text: "G"})
+	model = updated.(*aiModel)
+	if !model.transcriptFollow {
+		t.Fatal("expected transcript end-jump to restore follow mode")
+	}
+	if model.transcriptScroll != initialScroll {
+		t.Fatalf("expected transcript end-jump to restore bottom scroll %d, got %d", initialScroll, model.transcriptScroll)
+	}
+}
+
+func TestMouseWheelScrollsTranscriptAndFocusesConversation(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 108
+	model.height = 32
+	model.focus = aiFocusSidebar
+	model.loading = false
+
+	messages := make([]*clientpb.AIConversationMessage, 0, 24)
+	for i := 0; i < 24; i++ {
+		messages = append(messages, &clientpb.AIConversationMessage{
+			Role:    "assistant",
+			Content: fmt.Sprintf("Message %02d\n\n- detail", i),
+		})
+	}
+	model.currentConversation = &clientpb.AIConversation{
+		ID:       "conv-1",
+		Title:    "Thread",
+		Provider: "openai",
+		Model:    "gpt-test",
+		Messages: messages,
+	}
+
+	renderCmd := model.scheduleTranscriptRender()
+	if renderCmd == nil {
+		t.Fatal("expected transcript render command")
+	}
+
+	msg := renderCmd()
+	renderedMsg, ok := msg.(aiTranscriptRenderedMsg)
+	if !ok {
+		t.Fatalf("expected transcript render message, got %T", msg)
+	}
+
+	updated, _ := model.Update(renderedMsg)
+	model = updated.(*aiModel)
+	initialScroll := model.transcriptScroll
+	if initialScroll < aiTranscriptMouseWheelStep {
+		t.Fatalf("expected transcript to have enough scrollback for wheel scrolling, got %d", initialScroll)
+	}
+
+	rect := model.currentPaneRects().transcript
+	updated, _ = model.Update(tea.MouseWheelMsg{
+		X:      rect.x + rect.width/2,
+		Y:      rect.y + rect.height/2,
+		Button: tea.MouseWheelUp,
+	})
+	model = updated.(*aiModel)
+
+	if got := model.focus; got != aiFocusTranscript {
+		t.Fatalf("expected transcript wheel to focus transcript, got %s", got.String())
+	}
+	if model.transcriptFollow {
+		t.Fatal("expected wheel-up scrolling to disable follow mode")
+	}
+	if want := initialScroll - aiTranscriptMouseWheelStep; model.transcriptScroll != want {
+		t.Fatalf("expected wheel-up scroll %d, got %d", want, model.transcriptScroll)
+	}
+
+	updated, _ = model.Update(tea.MouseWheelMsg{
+		X:      rect.x + rect.width/2,
+		Y:      rect.y + rect.height/2,
+		Button: tea.MouseWheelDown,
+	})
+	model = updated.(*aiModel)
+	if !model.transcriptFollow {
+		t.Fatal("expected wheel-down at the bottom to restore follow mode")
+	}
+	if model.transcriptScroll != initialScroll {
+		t.Fatalf("expected wheel-down to restore bottom scroll %d, got %d", initialScroll, model.transcriptScroll)
+	}
+}
+
+func TestTranscriptScrollbarDragScrollsConversation(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 108
+	model.height = 32
+	model.focus = aiFocusSidebar
+	model.loading = false
+
+	messages := make([]*clientpb.AIConversationMessage, 0, 24)
+	for i := 0; i < 24; i++ {
+		messages = append(messages, &clientpb.AIConversationMessage{
+			Role:    "assistant",
+			Content: fmt.Sprintf("Message %02d\n\n- detail", i),
+		})
+	}
+	model.currentConversation = &clientpb.AIConversation{
+		ID:       "conv-1",
+		Title:    "Thread",
+		Provider: "openai",
+		Model:    "gpt-test",
+		Messages: messages,
+	}
+
+	renderCmd := model.scheduleTranscriptRender()
+	if renderCmd == nil {
+		t.Fatal("expected transcript render command")
+	}
+
+	msg := renderCmd()
+	renderedMsg, ok := msg.(aiTranscriptRenderedMsg)
+	if !ok {
+		t.Fatalf("expected transcript render message, got %T", msg)
+	}
+
+	updated, _ := model.Update(renderedMsg)
+	model = updated.(*aiModel)
+	initialScroll := model.transcriptScroll
+	if initialScroll == 0 {
+		t.Fatalf("expected transcript to start pinned near the bottom, got scroll %d", initialScroll)
+	}
+
+	rect := model.currentPaneRects().transcript
+	_, viewportHeight := model.currentTranscriptViewportSize()
+	scrollbarX := rect.x + rect.width - 4
+	topY := rect.y + 1 + model.transcriptHeaderLineCount()
+	bottomY := topY + viewportHeight - 1
+
+	updated, _ = model.Update(tea.MouseClickMsg{
+		X:      scrollbarX,
+		Y:      topY,
+		Button: tea.MouseLeft,
+	})
+	model = updated.(*aiModel)
+	if got := model.focus; got != aiFocusTranscript {
+		t.Fatalf("expected scrollbar click to focus transcript, got %s", got.String())
+	}
+	if !model.transcriptScrollbarDrag {
+		t.Fatal("expected scrollbar click to begin dragging")
+	}
+	if model.transcriptSelection != nil {
+		t.Fatalf("expected scrollbar click to avoid text selection, got %+v", model.transcriptSelection)
+	}
+	if model.transcriptFollow {
+		t.Fatal("expected scrollbar click near the top to disable follow mode")
+	}
+	if model.transcriptScroll >= initialScroll {
+		t.Fatalf("expected scrollbar click near the top to move upward from %d, got %d", initialScroll, model.transcriptScroll)
+	}
+
+	updated, _ = model.Update(tea.MouseMotionMsg{
+		X:      scrollbarX,
+		Y:      bottomY,
+		Button: tea.MouseLeft,
+	})
+	model = updated.(*aiModel)
+	if !model.transcriptFollow {
+		t.Fatal("expected dragging scrollbar to the bottom to restore follow mode")
+	}
+	if model.transcriptScroll != initialScroll {
+		t.Fatalf("expected scrollbar drag to restore bottom scroll %d, got %d", initialScroll, model.transcriptScroll)
+	}
+
+	updated, cmd := model.Update(tea.MouseReleaseMsg{
+		X:      scrollbarX,
+		Y:      bottomY,
+		Button: tea.MouseLeft,
+	})
+	model = updated.(*aiModel)
+	if cmd != nil {
+		t.Fatalf("did not expect scrollbar release to issue clipboard work, got %v", cmd)
+	}
+	if model.transcriptScrollbarDrag {
+		t.Fatal("expected scrollbar drag to stop on release")
+	}
+}
+
+func TestRenderTranscriptShowsScrollbarAndTracksScrollPosition(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 108
+	model.height = 32
+	model.focus = aiFocusTranscript
+	model.loading = false
+
+	messages := make([]*clientpb.AIConversationMessage, 0, 18)
+	for i := 0; i < 18; i++ {
+		messages = append(messages, &clientpb.AIConversationMessage{
+			Role:    "assistant",
+			Content: fmt.Sprintf("Message %02d detail", i),
+		})
+	}
+	model.currentConversation = &clientpb.AIConversation{
+		ID:       "conv-1",
+		Title:    "Thread",
+		Provider: "openai",
+		Model:    "gpt-test",
+		Messages: messages,
+	}
+
+	renderCmd := model.scheduleTranscriptRender()
+	if renderCmd == nil {
+		t.Fatal("expected transcript render command")
+	}
+
+	msg := renderCmd()
+	renderedMsg, ok := msg.(aiTranscriptRenderedMsg)
+	if !ok {
+		t.Fatalf("expected transcript render message, got %T", msg)
+	}
+
+	updated, _ := model.Update(renderedMsg)
+	model = updated.(*aiModel)
+
+	viewportWidth, viewportHeight := model.currentTranscriptViewportSize()
+	contentLines := model.renderTranscriptDisplayContentLines(viewportWidth)
+	bottomCells := model.transcriptScrollbarCells(viewportHeight, len(contentLines))
+	if len(bottomCells) != viewportHeight {
+		t.Fatalf("expected scrollbar height %d, got %d", viewportHeight, len(bottomCells))
+	}
+	if !bottomCells[len(bottomCells)-1] {
+		t.Fatalf("expected bottom-pinned scrollbar thumb to reach the last row, got %#v", bottomCells)
+	}
+
+	paneWidth, paneHeight := model.currentTranscriptPaneSize()
+	rendered := ansi.Strip(model.renderTranscript(paneWidth, paneHeight))
+	if !strings.Contains(rendered, "#") || !strings.Contains(rendered, ":") {
+		t.Fatalf("expected rendered transcript to include scrollbar thumb and track, got %q", rendered)
+	}
+	for _, line := range strings.Split(rendered, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "#") || strings.HasPrefix(trimmed, ":") {
+			t.Fatalf("expected scrollbar to stay on the right edge without wrapping into content, got %q", rendered)
+		}
+	}
+	for i, line := range strings.Split(rendered, "\n") {
+		if i == 0 || i == paneHeight-1 {
+			continue
+		}
+		if !strings.HasSuffix(line, "│") {
+			t.Fatalf("expected transcript pane right border to stay visible on line %d, got %q in %q", i, line, rendered)
+		}
+	}
+
+	model.scrollTranscriptToTop()
+	topCells := model.transcriptScrollbarCells(viewportHeight, len(contentLines))
+	if !topCells[0] {
+		t.Fatalf("expected top-scrolled scrollbar thumb to reach the first row, got %#v", topCells)
+	}
+	if topCells[len(topCells)-1] {
+		t.Fatalf("expected top-scrolled scrollbar thumb to move away from the last row, got %#v", topCells)
+	}
+}
+
+func TestViewKeepsTranscriptRightBorderVisibleWhileScrolled(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 120
+	model.height = 32
+	model.focus = aiFocusTranscript
+	model.loading = false
+	model.conversations = []*clientpb.AIConversation{{ID: "conv-1", Title: "Thread"}}
+
+	messages := make([]*clientpb.AIConversationMessage, 0, 18)
+	for i := 0; i < 18; i++ {
+		messages = append(messages, &clientpb.AIConversationMessage{
+			Role:    "assistant",
+			Content: fmt.Sprintf("Message %02d detail", i),
+		})
+	}
+	model.currentConversation = &clientpb.AIConversation{
+		ID:       "conv-1",
+		Title:    "Thread",
+		Provider: "openai",
+		Model:    "gpt-test",
+		Messages: messages,
+	}
+
+	renderCmd := model.scheduleTranscriptRender()
+	if renderCmd == nil {
+		t.Fatal("expected transcript render command")
+	}
+
+	msg := renderCmd()
+	renderedMsg, ok := msg.(aiTranscriptRenderedMsg)
+	if !ok {
+		t.Fatalf("expected transcript render message, got %T", msg)
+	}
+
+	updated, _ := model.Update(renderedMsg)
+	model = updated.(*aiModel)
+	model.scrollTranscript(-6)
+
+	view := ansi.Strip(model.View().Content)
+	lines := strings.Split(view, "\n")
+	headerHeight, _, _, _ := model.layoutHeights()
+	sidebarWidth := clampInt(model.width/4, 24, 28)
+	transcriptWidth := maxInt(40, model.width-sidebarWidth)
+	rightEdge := sidebarWidth + transcriptWidth - 1
+	_, transcriptPaneHeight := model.currentTranscriptPaneSize()
+	topRow := headerHeight
+	bottomRow := headerHeight + transcriptPaneHeight - 1
+
+	if topRow >= len(lines) {
+		t.Fatalf("expected transcript top row %d within view height %d", topRow, len(lines))
+	}
+	if []rune(lines[topRow])[rightEdge] != '╮' {
+		t.Fatalf("expected transcript top-right corner at row %d col %d, got %q in %q", topRow, rightEdge, string([]rune(lines[topRow])[rightEdge]), lines[topRow])
+	}
+
+	for row := headerHeight + 1; row < headerHeight+transcriptPaneHeight-1 && row < len(lines); row++ {
+		line := []rune(lines[row])
+		if rightEdge >= len(line) {
+			t.Fatalf("expected transcript right edge index %d within line %d: %q", rightEdge, row, lines[row])
+		}
+		if line[rightEdge] != '│' {
+			t.Fatalf("expected transcript right border at row %d col %d, got %q in %q", row, rightEdge, string(line[rightEdge]), lines[row])
+		}
+	}
+	if bottomRow >= len(lines) {
+		t.Fatalf("expected transcript bottom row %d within view height %d", bottomRow, len(lines))
+	}
+	if []rune(lines[bottomRow])[rightEdge] != '╯' {
+		t.Fatalf("expected transcript bottom-right corner at row %d col %d, got %q in %q", bottomRow, rightEdge, string([]rune(lines[bottomRow])[rightEdge]), lines[bottomRow])
+	}
+}
+
+func TestComposerEnterStartsAwaitingResponseImmediately(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.focus = aiFocusComposer
+	model.loading = false
+	model.currentConversation = &clientpb.AIConversation{
+		ID:       "conv-1",
+		Title:    "Thread",
+		Provider: "openai",
+		Model:    "gpt-test",
+	}
+	model.input = []rune("hello")
+	model.cursor = len(model.input)
+
+	updated, cmd := model.handleComposerKey(tea.Key{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected enter to queue submit work")
+	}
+
+	updatedModel := updated.(*aiModel)
+	if !updatedModel.awaitingResponse {
+		t.Fatal("expected enter to start awaiting-response state immediately")
+	}
+	if !updatedModel.submittingPrompt {
+		t.Fatal("expected enter to mark prompt submission as in flight")
+	}
+	if updatedModel.pendingPrompt != "hello" {
+		t.Fatalf("expected enter to stage the pending prompt, got %q", updatedModel.pendingPrompt)
+	}
+	if len(updatedModel.input) != 0 || updatedModel.cursor != 0 {
+		t.Fatal("expected enter to clear the composer immediately")
+	}
+}
+
+func TestComposerSlashExitQuitsProgram(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.focus = aiFocusComposer
+	model.loading = true
+	model.input = []rune("/exit")
+	model.cursor = len(model.input)
+
+	updated, cmd := model.handleComposerKey(tea.Key{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected /exit to quit the TUI")
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.submittingPrompt {
+		t.Fatal("expected /exit to avoid prompt submission")
+	}
+	if updatedModel.pendingPrompt != "" {
+		t.Fatalf("expected /exit to avoid staging a prompt, got %q", updatedModel.pendingPrompt)
+	}
+	if len(updatedModel.input) != 0 || updatedModel.cursor != 0 {
+		t.Fatal("expected /exit to clear the composer before quitting")
+	}
+
+	msg := cmd()
+	if _, ok := msg.(tea.QuitMsg); !ok {
+		t.Fatalf("expected tea.QuitMsg, got %#v", msg)
+	}
+}
+
+func TestComposerUnknownSlashCommandStaysLocal(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.focus = aiFocusComposer
+	model.input = []rune("/wat")
+	model.cursor = len(model.input)
+
+	updated, cmd := model.handleComposerKey(tea.Key{Code: tea.KeyEnter})
+	if cmd != nil {
+		t.Fatalf("did not expect unknown slash command to queue work, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.submittingPrompt {
+		t.Fatal("expected unknown slash command to avoid prompt submission")
+	}
+	if updatedModel.awaitingResponse {
+		t.Fatal("expected unknown slash command to avoid awaiting-response state")
+	}
+	if updatedModel.status != `Unknown composer command "/wat". Available: /exit.` {
+		t.Fatalf("unexpected unknown command status: %q", updatedModel.status)
+	}
+	if string(updatedModel.input) != "/wat" {
+		t.Fatalf("expected unknown slash command to remain in the composer, got %q", string(updatedModel.input))
+	}
+}
+
+func TestComposerCtrlOOpensContextModal(t *testing.T) {
+	model := newAIModel(nil, aiContext{
+		target: aiTargetSummary{
+			Label: "Session demo",
+			Host:  "demo-host",
+			OS:    "linux",
+			Arch:  "amd64",
+			C2:    "mtls",
+			Mode:  "interactive session",
+		},
+		connection: aiConnectionSummary{
+			Profile:  "default",
+			Server:   "127.0.0.1:31337",
+			Operator: "alice",
+			State:    "ready",
+		},
+	}, nil)
+	model.focus = aiFocusComposer
+
+	updated, cmd := model.handleComposerKey(tea.Key{Code: 'o', Mod: tea.ModCtrl})
+	if cmd != nil {
+		t.Fatalf("did not expect context modal to queue work, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal == nil || updatedModel.modal.kind != aiModalKindContext {
+		t.Fatalf("expected context modal, got %+v", updatedModel.modal)
+	}
+	if updatedModel.modal.title != "Context" {
+		t.Fatalf("expected context modal title, got %+v", updatedModel.modal)
+	}
+}
+
+func TestComposerCtrlTOpensThinkingModal(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.focus = aiFocusComposer
+	model.loading = false
+	model.currentConversation = &clientpb.AIConversation{
+		ID:            "conv-1",
+		Title:         "Thread",
+		ThinkingLevel: "medium",
+	}
+	model.config = &clientpb.AIConfigSummary{ThinkingLevel: "high"}
+
+	updated, cmd := model.handleComposerKey(tea.Key{Code: 't', Mod: tea.ModCtrl})
+	if cmd != nil {
+		t.Fatalf("did not expect thinking modal to queue work, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal == nil || updatedModel.modal.kind != aiModalKindThinkingLevel {
+		t.Fatalf("expected thinking modal, got %+v", updatedModel.modal)
+	}
+	if updatedModel.modal.title != "Thinking Level" {
+		t.Fatalf("expected thinking modal title, got %+v", updatedModel.modal)
+	}
+	if updatedModel.modal.selectedOption != aiThinkingLevelOptionIndex("medium") {
+		t.Fatalf("expected current override to be selected, got %+v", updatedModel.modal)
+	}
+}
+
+func TestComposerEscDoesNotBlurConversation(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.focus = aiFocusComposer
+
+	updated, cmd := model.handleComposerKey(tea.Key{Code: tea.KeyEsc})
+	if cmd != nil {
+		t.Fatalf("did not expect esc to queue work, got %v", cmd)
+	}
+	if got := updated.(*aiModel).focus; got != aiFocusComposer {
+		t.Fatalf("expected esc to leave composer focus unchanged, got %s", got.String())
+	}
+}
+
+func TestComposerCtrlSOpensTargetSelectModal(t *testing.T) {
+	server := &aiRPCServer{
+		sessionsResp: &clientpb.Sessions{
+			Sessions: []*clientpb.Session{
+				{ID: "session-1", Name: "alpha", Hostname: "alpha-host", Username: "alice", OS: "linux", Arch: "amd64", ActiveC2: "mtls", RemoteAddress: "10.0.0.1:31337", PID: 1111},
+			},
+		},
+		beaconsResp: &clientpb.Beacons{
+			Beacons: []*clientpb.Beacon{
+				{ID: "beacon-1", Name: "bravo", Hostname: "bravo-host", Username: "bob", OS: "windows", Arch: "amd64", ActiveC2: "https", RemoteAddress: "10.0.0.2:443", PID: 2222, Interval: int64(time.Minute), NextCheckin: time.Now().Add(2 * time.Minute).Unix()},
+			},
+		},
+	}
+
+	rpcClient, cleanup := newAITestRPCClient(t, server)
+	defer cleanup()
+
+	model := newAIModel(&console.SliverClient{Rpc: rpcClient}, aiContext{
+		target: aiTargetSummary{SessionID: "session-1", Label: "Session alpha"},
+	}, nil)
+	model.focus = aiFocusComposer
+	model.loading = false
+	model.currentConversation = &clientpb.AIConversation{ID: "conv-1", Title: "Thread", TargetSessionID: "session-1"}
+
+	updated, cmd := model.handleComposerKey(tea.Key{Code: 's', Mod: tea.ModCtrl})
+	if cmd == nil {
+		t.Fatal("expected ctrl+s to load target options")
+	}
+
+	model = updated.(*aiModel)
+	if model.modal == nil || model.modal.kind != aiModalKindTargetSelect {
+		t.Fatalf("expected target selection modal, got %+v", model.modal)
+	}
+	if model.modal.title != "Active Target" {
+		t.Fatalf("expected target modal title, got %+v", model.modal)
+	}
+
+	msg := cmd()
+	updated, _ = model.Update(msg)
+	model = updated.(*aiModel)
+	if len(model.targetSelectionOptions) != 2 {
+		t.Fatalf("expected session and beacon options, got %d", len(model.targetSelectionOptions))
+	}
+	if model.modal.selectedOption != 0 {
+		t.Fatalf("expected active session to be preselected, got %d", model.modal.selectedOption)
+	}
+
+	rendered := ansi.Strip(model.renderTargetSelectModal())
+	if !strings.Contains(rendered, "Session alpha [active]") {
+		t.Fatalf("expected active target annotation in modal, got %q", rendered)
+	}
+	if !strings.Contains(rendered, "alpha-host") || !strings.Contains(rendered, "10.0.0.1:31337") {
+		t.Fatalf("expected session metadata in modal, got %q", rendered)
+	}
+}
+
+func TestShowDeleteConversationModalTargetsSelectedConversation(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.loading = false
+	model.focus = aiFocusSidebar
+	model.conversations = []*clientpb.AIConversation{
+		{ID: "conv-1", Title: "One"},
+		{ID: "conv-2", Title: "Two"},
+	}
+	model.currentConversation = &clientpb.AIConversation{ID: "conv-1", Title: "One"}
+	model.selectedConversation = 1
+
+	updated, cmd := model.handleGlobalKey(tea.Key{Text: "x"})
+	if cmd != nil {
+		t.Fatalf("did not expect delete modal to start RPC work yet, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal == nil || updatedModel.modal.kind != aiModalKindDeleteConfirm {
+		t.Fatalf("expected delete confirmation modal, got %+v", updatedModel.modal)
+	}
+	if updatedModel.modal.conversationID != "conv-2" {
+		t.Fatalf("expected selected conversation to be targeted, got %+v", updatedModel.modal)
+	}
+	if updatedModel.modal.selectedID != "conv-1" {
+		t.Fatalf("expected delete modal to preselect the remaining conversation, got %+v", updatedModel.modal)
+	}
+}
+
+func TestShowThinkingLevelModalOnTKey(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.loading = false
+	model.currentConversation = &clientpb.AIConversation{
+		ID:            "conv-1",
+		Title:         "Thread",
+		ThinkingLevel: "high",
+	}
+	model.config = &clientpb.AIConfigSummary{ThinkingLevel: "medium"}
+
+	updated, cmd := model.handleGlobalKey(tea.Key{Text: "t", Code: 't'})
+	if cmd != nil {
+		t.Fatalf("did not expect thinking modal to start RPC work yet, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal == nil || updatedModel.modal.kind != aiModalKindThinkingLevel {
+		t.Fatalf("expected thinking modal, got %+v", updatedModel.modal)
+	}
+	if updatedModel.modal.selectedOption != aiThinkingLevelOptionIndex("high") {
+		t.Fatalf("expected high option to be preselected, got %+v", updatedModel.modal)
+	}
+}
+
+func TestTargetSelectionModalSavesConversationTarget(t *testing.T) {
+	server := &aiRPCServer{
+		sessionsResp: &clientpb.Sessions{
+			Sessions: []*clientpb.Session{
+				{ID: "session-1", Name: "alpha", Hostname: "alpha-host", Username: "alice", OS: "linux", Arch: "amd64", ActiveC2: "mtls", RemoteAddress: "10.0.0.1:31337", PID: 1111},
+			},
+		},
+		beaconsResp: &clientpb.Beacons{
+			Beacons: []*clientpb.Beacon{
+				{ID: "beacon-1", Name: "bravo", Hostname: "bravo-host", Username: "bob", OS: "windows", Arch: "amd64", ActiveC2: "https", RemoteAddress: "10.0.0.2:443", PID: 2222, Interval: int64(time.Minute), NextCheckin: time.Now().Add(2 * time.Minute).Unix()},
+			},
+		},
+		saveConversationResp: &clientpb.AIConversation{
+			ID:              "conv-1",
+			Provider:        "openai",
+			Model:           "gpt-test",
+			Title:           "Thread",
+			TargetBeaconID:  "beacon-1",
+			TargetSessionID: "",
+		},
+	}
+
+	rpcClient, cleanup := newAITestRPCClient(t, server)
+	defer cleanup()
+
+	model := newAIModel(&console.SliverClient{Rpc: rpcClient}, aiContext{
+		target: aiTargetSummary{
+			SessionID: "session-1",
+			Label:     "Session alpha",
+			Host:      "alpha-host",
+			OS:        "linux",
+			Arch:      "amd64",
+			C2:        "mtls",
+			Mode:      "interactive session",
+		},
+	}, nil)
+	model.focus = aiFocusComposer
+	model.loading = false
+	model.currentConversation = &clientpb.AIConversation{
+		ID:              "conv-1",
+		Title:           "Thread",
+		Provider:        "openai",
+		Model:           "gpt-test",
+		TargetSessionID: "session-1",
+	}
+
+	updated, cmd := model.handleComposerKey(tea.Key{Code: 's', Mod: tea.ModCtrl})
+	if cmd == nil {
+		t.Fatal("expected ctrl+s to load target options")
+	}
+	model = updated.(*aiModel)
+
+	msg := cmd()
+	updated, _ = model.Update(msg)
+	model = updated.(*aiModel)
+	if len(model.targetSelectionOptions) != 2 {
+		t.Fatalf("expected two target options, got %d", len(model.targetSelectionOptions))
+	}
+
+	model.modal.selectedOption = 1
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected enter to save the selected target")
+	}
+	model = updated.(*aiModel)
+	if !model.loading {
+		t.Fatal("expected target save to mark the model as loading")
+	}
+	if model.modal != nil {
+		t.Fatalf("expected target modal to close after confirm, got %+v", model.modal)
+	}
+	if model.ctx.target.BeaconID != "beacon-1" || model.ctx.target.SessionID != "" {
+		t.Fatalf("expected local target context to switch to beacon, got %+v", model.ctx.target)
+	}
+
+	msg = cmd()
+	updated, _ = model.Update(msg)
+	model = updated.(*aiModel)
+	if model.currentConversation.GetTargetBeaconID() != "beacon-1" || model.currentConversation.GetTargetSessionID() != "" {
+		t.Fatalf("expected conversation target to switch to beacon, got %+v", model.currentConversation)
+	}
+	if model.status != "Active target set to Beacon bravo." {
+		t.Fatalf("unexpected target update status: %q", model.status)
+	}
+
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	if server.getSessionsCalls != 1 {
+		t.Fatalf("expected GetSessions to be called once, got %d", server.getSessionsCalls)
+	}
+	if server.getBeaconsCalls != 1 {
+		t.Fatalf("expected GetBeacons to be called once, got %d", server.getBeaconsCalls)
+	}
+	if len(server.saveConversationReqs) != 1 {
+		t.Fatalf("expected SaveAIConversation to be called once, got %d", len(server.saveConversationReqs))
+	}
+	if got := server.saveConversationReqs[0].GetTargetBeaconID(); got != "beacon-1" {
+		t.Fatalf("expected target beacon %q, got %q", "beacon-1", got)
+	}
+	if got := server.saveConversationReqs[0].GetTargetSessionID(); got != "" {
+		t.Fatalf("expected target session to clear, got %q", got)
+	}
+}
+
+func TestThinkingLevelModalSavesConversationOverride(t *testing.T) {
+	server := &aiRPCServer{
+		saveConversationResp: &clientpb.AIConversation{
+			ID:            "conv-1",
+			Provider:      "openai",
+			Model:         "gpt-test",
+			Title:         "Thread",
+			ThinkingLevel: "high",
+		},
+	}
+
+	rpcClient, cleanup := newAITestRPCClient(t, server)
+	defer cleanup()
+
+	model := newAIModel(&console.SliverClient{Rpc: rpcClient}, aiContext{}, nil)
+	model.loading = false
+	model.conversations = []*clientpb.AIConversation{{ID: "conv-1", Title: "Thread", Provider: "openai", Model: "gpt-test"}}
+	model.currentConversation = &clientpb.AIConversation{ID: "conv-1", Title: "Thread", Provider: "openai", Model: "gpt-test"}
+	model.config = &clientpb.AIConfigSummary{ThinkingLevel: "medium"}
+
+	updated, cmd := model.handleGlobalKey(tea.Key{Text: "t", Code: 't'})
+	if cmd != nil {
+		t.Fatalf("did not expect modal open to queue work, got %v", cmd)
+	}
+	model = updated.(*aiModel)
+
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	if cmd != nil {
+		t.Fatalf("did not expect selection change to queue work, got %v", cmd)
+	}
+	model = updated.(*aiModel)
+
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	if cmd != nil {
+		t.Fatalf("did not expect selection change to queue work, got %v", cmd)
+	}
+	model = updated.(*aiModel)
+
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	if cmd != nil {
+		t.Fatalf("did not expect selection change to queue work, got %v", cmd)
+	}
+	model = updated.(*aiModel)
+
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected enter to save the thinking level")
+	}
+	model = updated.(*aiModel)
+	if !model.loading {
+		t.Fatal("expected save to mark the model as loading")
+	}
+	if model.modal != nil {
+		t.Fatalf("expected modal to close after save, got %+v", model.modal)
+	}
+
+	msg := cmd()
+	updated, _ = model.Update(msg)
+	model = updated.(*aiModel)
+
+	if model.currentConversation.GetThinkingLevel() != "high" {
+		t.Fatalf("expected current conversation thinking level to update, got %+v", model.currentConversation)
+	}
+	if model.status != "Thinking level set to high." {
+		t.Fatalf("unexpected status: %q", model.status)
+	}
+
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	if len(server.saveConversationReqs) != 1 {
+		t.Fatalf("expected SaveAIConversation to be called once, got %d", len(server.saveConversationReqs))
+	}
+	if got := server.saveConversationReqs[0].GetThinkingLevel(); got != "high" {
+		t.Fatalf("expected thinking level %q, got %q", "high", got)
+	}
+}
+
+func TestThinkingLevelModalResetsConversationToProviderDefault(t *testing.T) {
+	server := &aiRPCServer{
+		saveConversationResp: &clientpb.AIConversation{
+			ID:       "conv-1",
+			Provider: "openai",
+			Model:    "gpt-test",
+			Title:    "Thread",
+		},
+	}
+
+	rpcClient, cleanup := newAITestRPCClient(t, server)
+	defer cleanup()
+
+	model := newAIModel(&console.SliverClient{Rpc: rpcClient}, aiContext{}, nil)
+	model.loading = false
+	model.conversations = []*clientpb.AIConversation{{ID: "conv-1", Title: "Thread", Provider: "openai", Model: "gpt-test", ThinkingLevel: "high"}}
+	model.currentConversation = &clientpb.AIConversation{ID: "conv-1", Title: "Thread", Provider: "openai", Model: "gpt-test", ThinkingLevel: "high"}
+	model.config = &clientpb.AIConfigSummary{ThinkingLevel: "medium"}
+
+	updated, cmd := model.handleGlobalKey(tea.Key{Text: "t", Code: 't'})
+	if cmd != nil {
+		t.Fatalf("did not expect modal open to queue work, got %v", cmd)
+	}
+	model = updated.(*aiModel)
+
+	model.modal.selectedOption = 0
+
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected enter to save the reset thinking level")
+	}
+	model = updated.(*aiModel)
+
+	msg := cmd()
+	updated, _ = model.Update(msg)
+	model = updated.(*aiModel)
+
+	if model.currentConversation.GetThinkingLevel() != "" {
+		t.Fatalf("expected thinking level to reset, got %+v", model.currentConversation)
+	}
+	if model.status != "Thinking level reset to provider default." {
+		t.Fatalf("unexpected status: %q", model.status)
+	}
+
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	if len(server.saveConversationReqs) != 1 {
+		t.Fatalf("expected SaveAIConversation to be called once, got %d", len(server.saveConversationReqs))
+	}
+	if got := server.saveConversationReqs[0].GetThinkingLevel(); got != "" {
+		t.Fatalf("expected empty thinking level override, got %q", got)
+	}
+}
+
+func TestShowNewConversationModalOnNKey(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.loading = false
+
+	updated, cmd := model.handleGlobalKey(tea.Key{Text: "n", Code: 'n'})
+	if cmd != nil {
+		t.Fatalf("did not expect new conversation modal to start RPC work yet, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal == nil || updatedModel.modal.kind != aiModalKindNewConversation {
+		t.Fatalf("expected new conversation modal, got %+v", updatedModel.modal)
+	}
+	if updatedModel.modal.title != "New Conversation" {
+		t.Fatalf("expected new conversation modal title, got %+v", updatedModel.modal)
+	}
+	if got := string(updatedModel.modal.input); got != "New conversation" {
+		t.Fatalf("expected default modal input, got %q", got)
+	}
+	if got := string(updatedModel.modal.systemPrompt); got != "" {
+		t.Fatalf("expected empty default system prompt, got %q", got)
+	}
+	if updatedModel.modal.focus != aiModalFocusInput {
+		t.Fatalf("expected modal input focus, got %v", updatedModel.modal.focus)
+	}
+	if updatedModel.modal.cursor != len([]rune("New conversation")) {
+		t.Fatalf("expected cursor at end of default title, got %d", updatedModel.modal.cursor)
+	}
+	if updatedModel.modal.systemCursor != 0 {
+		t.Fatalf("expected system prompt cursor at start, got %d", updatedModel.modal.systemCursor)
+	}
+}
+
+func TestShowNewConversationModalPrefillsConfiguredSystemPrompt(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.loading = false
+	model.config = &clientpb.AIConfigSummary{SystemPrompt: "Stay concise."}
+
+	updated, cmd := model.handleGlobalKey(tea.Key{Text: "n", Code: 'n'})
+	if cmd != nil {
+		t.Fatalf("did not expect new conversation modal to start RPC work yet, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal == nil {
+		t.Fatal("expected new conversation modal")
+	}
+	if got := string(updatedModel.modal.systemPrompt); got != "Stay concise." {
+		t.Fatalf("expected configured default system prompt, got %q", got)
+	}
+	if updatedModel.modal.systemCursor != len([]rune("Stay concise.")) {
+		t.Fatalf("expected system prompt cursor at end of default prompt, got %d", updatedModel.modal.systemCursor)
+	}
+	if updatedModel.modal.focus != aiModalFocusInput {
+		t.Fatalf("expected modal input focus, got %v", updatedModel.modal.focus)
+	}
+}
+
+func TestShowNewConversationModalPrefillsCurrentConversationSystemPromptBeforeConfigDefault(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.loading = false
+	model.config = &clientpb.AIConfigSummary{SystemPrompt: "Global default"}
+	model.currentConversation = &clientpb.AIConversation{
+		ID:           "conv-1",
+		Title:        "Thread",
+		SystemPrompt: "Current conversation prompt",
+	}
+
+	updated, cmd := model.handleGlobalKey(tea.Key{Text: "n", Code: 'n'})
+	if cmd != nil {
+		t.Fatalf("did not expect new conversation modal to start RPC work yet, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal == nil {
+		t.Fatal("expected new conversation modal")
+	}
+	if got := string(updatedModel.modal.systemPrompt); got != "Current conversation prompt" {
+		t.Fatalf("expected current conversation system prompt, got %q", got)
+	}
+	if updatedModel.modal.systemCursor != len([]rune("Current conversation prompt")) {
+		t.Fatalf("expected system prompt cursor at end of current prompt, got %d", updatedModel.modal.systemCursor)
+	}
+}
+
+func TestNewConversationModalCreatesConversationWithTypedTitle(t *testing.T) {
+	server := &aiRPCServer{
+		saveConversationResp: &clientpb.AIConversation{
+			ID:       "conv-created",
+			Provider: "openai",
+			Model:    "gpt-test",
+			Title:    "Operator notes",
+		},
+	}
+
+	rpcClient, cleanup := newAITestRPCClient(t, server)
+	defer cleanup()
+
+	model := newAIModel(&console.SliverClient{Rpc: rpcClient}, aiContext{}, nil)
+	model.loading = false
+
+	updated, cmd := model.handleGlobalKey(tea.Key{Text: "n", Code: 'n'})
+	if cmd != nil {
+		t.Fatalf("did not expect modal open to queue work, got %v", cmd)
+	}
+	model = updated.(*aiModel)
+
+	for range len([]rune("New conversation")) {
+		updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyBackspace})
+		if cmd != nil {
+			t.Fatalf("did not expect backspace to queue work, got %v", cmd)
+		}
+		model = updated.(*aiModel)
+	}
+
+	for _, r := range "Operator notes" {
+		updated, cmd = model.Update(tea.KeyPressMsg{Text: string(r), Code: r})
+		if cmd != nil {
+			t.Fatalf("did not expect typing to queue work, got %v", cmd)
+		}
+		model = updated.(*aiModel)
+	}
+
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected enter to create the conversation")
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal != nil {
+		t.Fatalf("expected modal to close after create, got %+v", updatedModel.modal)
+	}
+	if !updatedModel.loading {
+		t.Fatal("expected create to mark the model as loading")
+	}
+
+	msg := cmd()
+	created, ok := msg.(aiConversationCreatedMsg)
+	if !ok {
+		t.Fatalf("expected aiConversationCreatedMsg, got %T", msg)
+	}
+	if created.conversationID != "conv-created" {
+		t.Fatalf("unexpected created conversation id: %q", created.conversationID)
+	}
+
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	if len(server.saveConversationReqs) != 1 {
+		t.Fatalf("expected SaveAIConversation to be called once, got %d", len(server.saveConversationReqs))
+	}
+	if got := server.saveConversationReqs[0].GetTitle(); got != "Operator notes" {
+		t.Fatalf("expected created title %q, got %q", "Operator notes", got)
+	}
+	if got := server.saveConversationReqs[0].GetSystemPrompt(); got != "" {
+		t.Fatalf("expected empty system prompt by default, got %q", got)
+	}
+}
+
+func TestNewConversationModalRequiresTitle(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.modal = &aiModalState{
+		kind:  aiModalKindNewConversation,
+		title: "New Conversation",
+		focus: aiModalFocusInput,
+	}
+
+	updated, cmd := model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd != nil {
+		t.Fatalf("did not expect empty title submit to queue work, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal == nil {
+		t.Fatal("expected modal to stay open when the title is empty")
+	}
+	if updatedModel.status != "Type a conversation name first." {
+		t.Fatalf("unexpected status: %q", updatedModel.status)
+	}
+}
+
+func TestNewConversationModalCtrlUClearsInput(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.modal = &aiModalState{
+		kind:   aiModalKindNewConversation,
+		title:  "New Conversation",
+		focus:  aiModalFocusConfirm,
+		input:  []rune("Operator notes"),
+		cursor: len([]rune("Operator notes")),
+	}
+
+	updated, cmd := model.Update(tea.KeyPressMsg{Code: 'u', Mod: tea.ModCtrl})
+	if cmd != nil {
+		t.Fatalf("did not expect ctrl+u to queue work, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal == nil {
+		t.Fatal("expected modal to remain open after clearing the title")
+	}
+	if got := string(updatedModel.modal.input); got != "" {
+		t.Fatalf("expected ctrl+u to clear the title, got %q", got)
+	}
+	if updatedModel.modal.cursor != 0 {
+		t.Fatalf("expected ctrl+u to reset the cursor, got %d", updatedModel.modal.cursor)
+	}
+	if updatedModel.modal.focus != aiModalFocusInput {
+		t.Fatalf("expected ctrl+u to return focus to the input, got %v", updatedModel.modal.focus)
+	}
+	if updatedModel.status != "Conversation name cleared." {
+		t.Fatalf("unexpected status: %q", updatedModel.status)
+	}
+}
+
+func TestNewConversationModalCtrlRResetsSystemPromptToConfiguredDefault(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.config = &clientpb.AIConfigSummary{SystemPrompt: "Global default"}
+	model.currentConversation = &clientpb.AIConversation{SystemPrompt: "Current conversation prompt"}
+	model.modal = &aiModalState{
+		kind:         aiModalKindNewConversation,
+		title:        "New Conversation",
+		focus:        aiModalFocusConfirm,
+		systemPrompt: []rune("Custom prompt"),
+		systemCursor: len([]rune("Custom prompt")),
+	}
+
+	updated, cmd := model.Update(tea.KeyPressMsg{Code: 'r', Mod: tea.ModCtrl})
+	if cmd != nil {
+		t.Fatalf("did not expect ctrl+r to queue work, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal == nil {
+		t.Fatal("expected modal to remain open after resetting the system prompt")
+	}
+	if got := string(updatedModel.modal.systemPrompt); got != "Global default" {
+		t.Fatalf("expected ctrl+r to reset the system prompt to the server default, got %q", got)
+	}
+	if updatedModel.modal.systemCursor != len([]rune("Global default")) {
+		t.Fatalf("expected ctrl+r to place the cursor at the end of the server default, got %d", updatedModel.modal.systemCursor)
+	}
+	if updatedModel.modal.focus != aiModalFocusSystemPrompt {
+		t.Fatalf("expected ctrl+r to focus the system prompt, got %v", updatedModel.modal.focus)
+	}
+	if updatedModel.status != "System prompt reset to the server default." {
+		t.Fatalf("unexpected status: %q", updatedModel.status)
+	}
+}
+
+func TestNewConversationModalCreatesConversationWithSystemPrompt(t *testing.T) {
+	server := &aiRPCServer{
+		saveConversationResp: &clientpb.AIConversation{
+			ID:           "conv-created",
+			Provider:     "openai",
+			Model:        "gpt-test",
+			Title:        "Operator notes",
+			SystemPrompt: "Stay concise.",
+		},
+	}
+
+	rpcClient, cleanup := newAITestRPCClient(t, server)
+	defer cleanup()
+
+	model := newAIModel(&console.SliverClient{Rpc: rpcClient}, aiContext{}, nil)
+	model.loading = false
+
+	updated, cmd := model.handleGlobalKey(tea.Key{Text: "n", Code: 'n'})
+	if cmd != nil {
+		t.Fatalf("did not expect modal open to queue work, got %v", cmd)
+	}
+	model = updated.(*aiModel)
+
+	for range len([]rune("New conversation")) {
+		updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyBackspace})
+		if cmd != nil {
+			t.Fatalf("did not expect backspace to queue work, got %v", cmd)
+		}
+		model = updated.(*aiModel)
+	}
+	for _, r := range "Operator notes" {
+		updated, cmd = model.Update(tea.KeyPressMsg{Text: string(r), Code: r})
+		if cmd != nil {
+			t.Fatalf("did not expect typing to queue work, got %v", cmd)
+		}
+		model = updated.(*aiModel)
+	}
+
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	if cmd != nil {
+		t.Fatalf("did not expect focus change to queue work, got %v", cmd)
+	}
+	model = updated.(*aiModel)
+	if model.modal.focus != aiModalFocusSystemPrompt {
+		t.Fatalf("expected system prompt focus, got %v", model.modal.focus)
+	}
+
+	for _, r := range "Stay concise." {
+		updated, cmd = model.Update(tea.KeyPressMsg{Text: string(r), Code: r})
+		if cmd != nil {
+			t.Fatalf("did not expect typing to queue work, got %v", cmd)
+		}
+		model = updated.(*aiModel)
+	}
+
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	if cmd != nil {
+		t.Fatalf("did not expect focus change to queue work, got %v", cmd)
+	}
+	model = updated.(*aiModel)
+	if model.modal.focus != aiModalFocusInput {
+		t.Fatalf("expected conversation name focus, got %v", model.modal.focus)
+	}
+
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected enter to create the conversation")
+	}
+
+	msg := cmd()
+	if _, ok := msg.(aiConversationCreatedMsg); !ok {
+		t.Fatalf("expected aiConversationCreatedMsg, got %T", msg)
+	}
+
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	if len(server.saveConversationReqs) != 1 {
+		t.Fatalf("expected SaveAIConversation to be called once, got %d", len(server.saveConversationReqs))
+	}
+	if got := server.saveConversationReqs[0].GetSystemPrompt(); got != "Stay concise." {
+		t.Fatalf("expected system prompt %q, got %q", "Stay concise.", got)
+	}
+}
+
+func TestNewConversationModalCancelActionClosesModal(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.loading = false
+
+	updated, cmd := model.handleGlobalKey(tea.Key{Text: "n", Code: 'n'})
+	if cmd != nil {
+		t.Fatalf("did not expect modal open to queue work, got %v", cmd)
+	}
+	model = updated.(*aiModel)
+
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	if cmd != nil {
+		t.Fatalf("did not expect tab to queue work, got %v", cmd)
+	}
+	model = updated.(*aiModel)
+	if model.modal == nil || model.modal.focus != aiModalFocusCancel {
+		t.Fatalf("expected cancel action to be focused, got %+v", model.modal)
+	}
+
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd != nil {
+		t.Fatalf("did not expect cancel to queue work, got %v", cmd)
+	}
+	if updated.(*aiModel).modal != nil {
+		t.Fatal("expected cancel action to close the new conversation modal")
+	}
+}
+
+func TestNewConversationModalCancelsOnEscape(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.modal = &aiModalState{
+		kind:  aiModalKindNewConversation,
+		title: "New Conversation",
+		focus: aiModalFocusInput,
+		input: []rune("New conversation"),
+	}
+
+	updated, cmd := model.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+	if cmd != nil {
+		t.Fatalf("did not expect escape to queue work, got %v", cmd)
+	}
+	if updated.(*aiModel).modal != nil {
+		t.Fatal("expected escape to close the new conversation modal")
+	}
+}
+
+func TestDeleteConversationModalCancelsOnEscape(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.modal = &aiModalState{
+		kind:           aiModalKindDeleteConfirm,
+		conversationID: "conv-1",
+	}
+
+	updated, cmd := model.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+	if cmd != nil {
+		t.Fatalf("did not expect cancel to queue work, got %v", cmd)
+	}
+	if updated.(*aiModel).modal != nil {
+		t.Fatal("expected escape to close the delete confirmation modal")
+	}
+}
+
+func TestContextModalCancelsOnEscape(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.modal = &aiModalState{
+		kind:  aiModalKindContext,
+		title: "Context",
+	}
+
+	updated, cmd := model.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+	if cmd != nil {
+		t.Fatalf("did not expect context modal escape to queue work, got %v", cmd)
+	}
+	if updated.(*aiModel).modal != nil {
+		t.Fatal("expected escape to close the context modal")
+	}
+}
+
+func TestShowExperimentalWarningModalDefaultsToCancelFocus(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+
+	model.showExperimentalWarningModal()
+
+	if model.modal == nil || model.modal.kind != aiModalKindExperimentalWarning {
+		t.Fatalf("expected experimental warning modal, got %+v", model.modal)
+	}
+	if model.modal.title != aiExperimentalWarningTitle {
+		t.Fatalf("unexpected warning title: %q", model.modal.title)
+	}
+	if model.modal.body != aiExperimentalWarningBody {
+		t.Fatalf("unexpected warning body: %q", model.modal.body)
+	}
+	if model.modal.focus != aiModalFocusCancel {
+		t.Fatalf("expected cancel focus by default, got %v", model.modal.focus)
+	}
+}
+
+func TestExperimentalWarningModalCancelsOnEnterFromDefaultFocus(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.showExperimentalWarningModal()
+
+	updated, cmd := model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if updated == nil {
+		t.Fatal("expected model to be returned")
+	}
+	if cmd == nil {
+		t.Fatal("expected cancel action to quit")
+	}
+
+	msg := cmd()
+	if _, ok := msg.(tea.QuitMsg); !ok {
+		t.Fatalf("expected tea.QuitMsg, got %#v", msg)
+	}
+}
+
+func TestExperimentalWarningModalAcceptsAfterTabFocus(t *testing.T) {
+	model := newAIModel(nil, aiContext{status: "Loading AI conversations from the server..."}, nil)
+	model.showExperimentalWarningModal()
+
+	updated, cmd := model.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	if cmd != nil {
+		t.Fatalf("did not expect focus change to queue work, got %v", cmd)
+	}
+	model = updated.(*aiModel)
+	if model.modal == nil || model.modal.focus != aiModalFocusConfirm {
+		t.Fatalf("expected confirm focus, got %+v", model.modal)
+	}
+
+	updated, cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected accept to start AI startup")
+	}
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal != nil {
+		t.Fatalf("expected warning modal to close after accept, got %+v", updatedModel.modal)
+	}
+	if updatedModel.status != "Loading AI conversations from the server..." {
+		t.Fatalf("unexpected status after accept: %q", updatedModel.status)
+	}
+}
+
+func TestModalViewRetainsBackgroundContent(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 120
+	model.height = 30
+	model.loading = false
+	model.conversations = []*clientpb.AIConversation{{ID: "conv-1", Title: "Thread"}}
+	model.currentConversation = &clientpb.AIConversation{ID: "conv-1", Title: "Thread"}
+	model.modal = &aiModalState{
+		kind:           aiModalKindDeleteConfirm,
+		title:          "Delete Conversation?",
+		body:           `Delete "Thread" and all of its stored messages from the server? This cannot be undone.`,
+		conversationID: "conv-1",
+	}
+
+	view := ansi.Strip(model.View().Content)
+	if !strings.Contains(view, "Conversations") {
+		t.Fatalf("expected modal view to retain the background TUI, got %q", view)
+	}
+	if !strings.Contains(view, "Delete Conversation?") {
+		t.Fatalf("expected modal view to include the overlay content, got %q", view)
+	}
+}
+
+func TestContextModalViewIncludesStyledContextContent(t *testing.T) {
+	model := newAIModel(nil, aiContext{
+		target: aiTargetSummary{
+			Label:   "Session demo",
+			Host:    "demo-host",
+			OS:      "linux",
+			Arch:    "amd64",
+			C2:      "mtls",
+			Mode:    "interactive session",
+			Details: []string{"User: alice"},
+		},
+		connection: aiConnectionSummary{
+			Profile:  "default",
+			Server:   "127.0.0.1:31337",
+			Operator: "alice",
+			State:    "ready",
+		},
+	}, nil)
+	model.width = 120
+	model.height = 30
+	model.loading = false
+	model.conversations = []*clientpb.AIConversation{{ID: "conv-1", Title: "Thread"}}
+	model.currentConversation = &clientpb.AIConversation{
+		ID:       "conv-1",
+		Title:    "Thread",
+		Provider: "openai",
+		Model:    "gpt-test",
+	}
+	model.providers = []*clientpb.AIProviderConfig{{Name: "openai", Configured: true}}
+	model.config = &clientpb.AIConfigSummary{Provider: "openai", Model: "gpt-test", ThinkingLevel: "high"}
+	model.modal = &aiModalState{
+		kind:  aiModalKindContext,
+		title: "Context",
+	}
+
+	view := ansi.Strip(model.View().Content)
+	expected := []string{"Composer", "focus: sidebar", "Context", "Target", "Connection", "Thread", "Session demo", "127.0.0.1:31337"}
+	for _, fragment := range expected {
+		if !strings.Contains(view, fragment) {
+			t.Fatalf("expected context modal view to contain %q, got %q", fragment, view)
+		}
+	}
+}
+
+func TestNewConversationModalViewIncludesOverlayContent(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 120
+	model.height = 30
+	model.loading = false
+	model.conversations = []*clientpb.AIConversation{{ID: "conv-1", Title: "Thread"}}
+	model.currentConversation = &clientpb.AIConversation{ID: "conv-1", Title: "Thread"}
+	model.modal = &aiModalState{
+		kind:   aiModalKindNewConversation,
+		title:  "New Conversation",
+		focus:  aiModalFocusInput,
+		input:  []rune("New conversation"),
+		cursor: len([]rune("New conversation")),
+	}
+
+	view := ansi.Strip(model.View().Content)
+	expected := []string{"Conversations", "New Conversation", "System Prompt", "Conversation Name", "New conversation", "Cancel", "Create", "ctrl+u: clear", "ctrl+r: server default"}
+	for _, fragment := range expected {
+		if !strings.Contains(view, fragment) {
+			t.Fatalf("expected new conversation modal view to contain %q, got %q", fragment, view)
+		}
+	}
+	if strings.Index(view, "System Prompt") > strings.Index(view, "Conversation Name") {
+		t.Fatalf("expected system prompt field to render above conversation name, got %q", view)
+	}
+}
+
+func TestExperimentalWarningModalViewIncludesDangerContent(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.width = 120
+	model.height = 30
+	model.loading = false
+	model.conversations = []*clientpb.AIConversation{{ID: "conv-1", Title: "Thread"}}
+	model.currentConversation = &clientpb.AIConversation{ID: "conv-1", Title: "Thread"}
+	model.showExperimentalWarningModal()
+
+	view := ansi.Strip(model.View().Content)
+	expected := []string{
+		"Conversations",
+		aiExperimentalWarningTitle,
+		"provided on an EXPERIMENTAL basis",
+		"reliability or data integrity",
+		aiExperimentalWarningCancelLabel,
+		aiExperimentalWarningConfirmLabel,
+	}
+	for _, fragment := range expected {
+		if !strings.Contains(view, fragment) {
+			t.Fatalf("expected warning modal view to contain %q, got %q", fragment, view)
+		}
+	}
+}
+
+func TestDeletedConversationMsgRemovesConversationBeforeReload(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.loading = false
+	model.awaitingResponse = true
+	model.pendingPrompt = "waiting"
+	model.conversations = []*clientpb.AIConversation{
+		{ID: "conv-1", Title: "One"},
+		{ID: "conv-2", Title: "Two"},
+	}
+	model.currentConversation = &clientpb.AIConversation{
+		ID:    "conv-1",
+		Title: "One",
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "user", Content: "waiting"},
+		},
+	}
+
+	updated, cmd := model.Update(aiConversationDeletedMsg{
+		conversationID: "conv-1",
+		selectedID:     "conv-2",
+		status:         `Deleted "One".`,
+	})
+	if cmd == nil {
+		t.Fatal("expected delete completion to reload AI state")
+	}
+
+	updatedModel := updated.(*aiModel)
+	if len(updatedModel.conversations) != 1 || updatedModel.conversations[0].GetID() != "conv-2" {
+		t.Fatalf("expected deleted conversation to be removed locally, got %+v", updatedModel.conversations)
+	}
+	if updatedModel.currentConversation != nil {
+		t.Fatalf("expected deleted current conversation to be cleared, got %+v", updatedModel.currentConversation)
+	}
+	if updatedModel.awaitingResponse {
+		t.Fatal("expected delete to clear pending response state for the removed conversation")
+	}
+	if updatedModel.pendingPrompt != "" {
+		t.Fatalf("expected delete to clear pending prompt, got %q", updatedModel.pendingPrompt)
+	}
+	if updatedModel.status != `Deleted "One".` {
+		t.Fatalf("expected delete status to be preserved, got %q", updatedModel.status)
+	}
+}
+
+func TestPromptSubmittedStartsAwaitingResponseImmediately(t *testing.T) {
+	model := newAIModel(nil, aiContext{
+		connection: aiConnectionSummary{Operator: "alice"},
+	}, nil)
+	model.loading = false
+	model.submittingPrompt = true
+	model.pendingPrompt = "What changed?"
+	model.conversations = []*clientpb.AIConversation{
+		{ID: "conv-1", Title: "Thread", Provider: "openai", Model: "gpt-test"},
+	}
+	model.currentConversation = &clientpb.AIConversation{
+		ID:           "conv-1",
+		Title:        "Thread",
+		Provider:     "openai",
+		Model:        "gpt-test",
+		OperatorName: "alice",
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "assistant", Content: "Previous reply"},
+		},
+	}
+
+	updated, cmd := model.Update(aiPromptSubmittedMsg{
+		conversationID: "conv-1",
+		conversation: &clientpb.AIConversation{
+			ID:       "conv-1",
+			Title:    "Thread",
+			Provider: "openai",
+			Model:    "gpt-test",
+		},
+		message: &clientpb.AIConversationMessage{
+			ID:             "msg-1",
+			ConversationID: "conv-1",
+			Role:           "user",
+			Content:        "What changed?",
+		},
+		status: "Saved prompt to Thread. Waiting for AI response...",
+	})
+	if cmd == nil {
+		t.Fatal("expected prompt submit to keep the pending animation active")
+	}
+
+	updatedModel := updated.(*aiModel)
+	if !updatedModel.awaitingResponse {
+		t.Fatal("expected prompt submit to enter awaiting-response state immediately")
+	}
+	last := lastConversationMessage(updatedModel.currentConversation)
+	if last == nil || last.GetRole() != "user" || last.GetContent() != "What changed?" {
+		t.Fatalf("expected optimistic user message to be appended, got %#v", last)
+	}
+	if updatedModel.selectedConversation != 0 {
+		t.Fatalf("expected submitted conversation to remain selected, got %d", updatedModel.selectedConversation)
+	}
+	if updatedModel.pendingPrompt != "" {
+		t.Fatalf("expected prompt submit to clear the local pending prompt, got %q", updatedModel.pendingPrompt)
+	}
+	if updatedModel.submittingPrompt {
+		t.Fatal("expected prompt submit to clear the submitting state")
+	}
+}
+
+func TestPromptSubmittedDoesNotDuplicateUserMessageWhenEventArrivesFirst(t *testing.T) {
+	model := newAIModel(nil, aiContext{
+		connection: aiConnectionSummary{Operator: "<unknown>"},
+	}, nil)
+	model.loading = false
+	model.submittingPrompt = true
+	model.pendingPrompt = "What changed?"
+	model.conversations = []*clientpb.AIConversation{
+		{ID: "conv-1", Title: "Thread", Provider: "openai", Model: "gpt-test"},
+	}
+	model.currentConversation = &clientpb.AIConversation{
+		ID:       "conv-1",
+		Title:    "Thread",
+		Provider: "openai",
+		Model:    "gpt-test",
+		Messages: []*clientpb.AIConversationMessage{
+			{ID: "assistant-1", Role: "assistant", Content: "Previous reply"},
+			{
+				ID:             "msg-1",
+				ConversationID: "conv-1",
+				Role:           "user",
+				Content:        "What changed?",
+			},
+		},
+	}
+
+	updated, _ := model.Update(aiPromptSubmittedMsg{
+		conversationID: "conv-1",
+		conversation: &clientpb.AIConversation{
+			ID:       "conv-1",
+			Title:    "Thread",
+			Provider: "openai",
+			Model:    "gpt-test",
+		},
+		message: &clientpb.AIConversationMessage{
+			ID:             "msg-1",
+			ConversationID: "conv-1",
+			Role:           "user",
+			Content:        "What changed?",
+		},
+		status: "Saved prompt to Thread. Waiting for AI response...",
+	})
+
+	updatedModel := updated.(*aiModel)
+	if got := len(updatedModel.currentConversation.GetMessages()); got != 2 {
+		t.Fatalf("expected submit replay to preserve 2 messages without duplication, got %d", got)
+	}
+	last := lastConversationMessage(updatedModel.currentConversation)
+	if last == nil || last.GetID() != "msg-1" {
+		t.Fatalf("expected the existing saved user message to remain the last message, got %#v", last)
+	}
+	if label := messageBlockLabel(updatedModel.currentConversation, last); label != "User" {
+		t.Fatalf("expected unknown operator placeholders to fall back to User, got %q", label)
+	}
+}
+
+func TestAsyncErrClearsAwaitingResponseWhenSubmitFails(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.awaitingResponse = true
+	model.loading = true
+	model.submittingPrompt = true
+	model.pendingPrompt = "hello"
+
+	updated, _ := model.Update(aiAsyncErrMsg{err: assertErr("submit failed")})
+	updatedModel := updated.(*aiModel)
+	if updatedModel.awaitingResponse {
+		t.Fatal("expected submit failure to clear awaiting-response state")
+	}
+	if updatedModel.submittingPrompt {
+		t.Fatal("expected submit failure to clear submitting state")
+	}
+	if updatedModel.pendingPrompt != "" {
+		t.Fatalf("expected submit failure to clear pending prompt, got %q", updatedModel.pendingPrompt)
+	}
+}
+
+func TestStartAwaitingResponseShowsAnimatedFrameImmediately(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.loading = false
+
+	model.startAwaitingResponse()
+
+	rendered := ansi.Strip(strings.Join(model.renderAwaitingResponseLines(80), "\n"))
+	if !strings.Contains(rendered, "Working.") {
+		t.Fatalf("expected pending placeholder to start with an animated frame, got %q", rendered)
+	}
+}
+
+func TestStartAwaitingResponseCreatesFreshThinkingAnim(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	original := model.thinkingAnim
+
+	model.startAwaitingResponse()
+
+	if model.thinkingAnim == nil {
+		t.Fatal("expected pending state to allocate a thinking animation")
+	}
+	if model.thinkingAnim == original {
+		t.Fatal("expected pending state to create a fresh thinking animation instance")
+	}
+}
+
+func TestLoadedReplyClearsAwaitingResponse(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.awaitingResponse = true
+	model.currentConversation = &clientpb.AIConversation{
+		ID:       "conv-1",
+		Title:    "Thread",
+		Provider: "openai",
+		Model:    "gpt-test",
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "assistant", Content: "Older reply"},
+			{Role: "user", Content: "Pending question"},
+		},
+	}
+
+	updated, cmd := model.Update(aiLoadedMsg{
+		config: &clientpb.AIConfigSummary{Valid: true},
+		conversations: []*clientpb.AIConversation{
+			{ID: "conv-1", Title: "Thread", Provider: "openai", Model: "gpt-test"},
+		},
+		conversation: &clientpb.AIConversation{
+			ID:       "conv-1",
+			Title:    "Thread",
+			Provider: "openai",
+			Model:    "gpt-test",
+			Messages: []*clientpb.AIConversationMessage{
+				{Role: "user", Content: "Pending question"},
+				{Role: "assistant", Content: "Rendered answer"},
+			},
+		},
+		selectedID: "conv-1",
+	})
+	if cmd != nil {
+		t.Fatalf("expected settled conversation load to stop without queuing animation, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.awaitingResponse {
+		t.Fatal("expected awaiting-response state to clear once the assistant reply is loaded")
+	}
+	last := lastConversationMessage(updatedModel.currentConversation)
+	if last == nil || last.GetRole() != "assistant" || last.GetContent() != "Rendered answer" {
+		t.Fatalf("expected loaded assistant reply to be current, got %#v", last)
+	}
+}
+
+func TestRenderTranscriptContentLinesIncludesPendingAssistantBlock(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.awaitingResponse = true
+	model.currentConversation = &clientpb.AIConversation{
+		ID:           "conv-1",
+		OperatorName: "alice",
+		Provider:     "openai",
+		Model:        "gpt-test",
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "user", Content: "hello"},
+		},
+	}
+
+	lines := model.renderTranscriptContentLines(48)
+	rendered := ansi.Strip(strings.Join(lines, "\n"))
+	if !strings.Contains(rendered, "AI") {
+		t.Fatalf("expected pending assistant block label in transcript, got %q", rendered)
+	}
+	if !strings.Contains(rendered, "╭") || !strings.Contains(rendered, "│") || !strings.Contains(rendered, "╰") {
+		t.Fatalf("expected pending assistant block to use box framing, got %q", rendered)
+	}
+	if !strings.Contains(rendered, ".") {
+		t.Fatalf("expected pending assistant animation content in transcript, got %q", rendered)
+	}
+	if !strings.Contains(rendered, "hello") {
+		t.Fatalf("expected existing transcript content to remain, got %q", rendered)
+	}
+}
+
+func TestRenderTranscriptContentLinesIncludesPendingUserPrompt(t *testing.T) {
+	model := newAIModel(nil, aiContext{
+		connection: aiConnectionSummary{Operator: "alice"},
+	}, nil)
+	model.pendingPrompt = "still saving"
+	model.awaitingResponse = true
+
+	lines := model.renderTranscriptContentLines(48)
+	rendered := ansi.Strip(strings.Join(lines, "\n"))
+	if !strings.Contains(rendered, "alice") {
+		t.Fatalf("expected pending prompt to render the operator label, got %q", rendered)
+	}
+	if !strings.Contains(rendered, "╭") || !strings.Contains(rendered, "╰") {
+		t.Fatalf("expected pending prompt to use box framing, got %q", rendered)
+	}
+	if !strings.Contains(rendered, "still saving") {
+		t.Fatalf("expected pending prompt content in transcript, got %q", rendered)
+	}
+	var wrapped bool
+	for _, line := range strings.Split(rendered, "\n") {
+		if strings.Contains(line, "still saving") {
+			wrapped = true
+			if !strings.HasPrefix(line, "│") {
+				t.Fatalf("expected pending prompt content to stay inside the box, got %q", line)
+			}
+		}
+	}
+	if !wrapped {
+		t.Fatalf("expected pending prompt line in transcript, got %q", rendered)
+	}
+	if !strings.Contains(rendered, "AI") {
+		t.Fatalf("expected pending assistant placeholder to stay visible, got %q", rendered)
+	}
+}
+
+func TestLoadedConversationClearsPendingPromptWhenUserMessagePersists(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.pendingPrompt = "What changed?"
+
+	updated, _ := model.Update(aiLoadedMsg{
+		config: &clientpb.AIConfigSummary{Valid: true},
+		conversations: []*clientpb.AIConversation{
+			{ID: "conv-1", Title: "Thread", Provider: "openai", Model: "gpt-test"},
+		},
+		conversation: &clientpb.AIConversation{
+			ID:       "conv-1",
+			Title:    "Thread",
+			Provider: "openai",
+			Model:    "gpt-test",
+			Messages: []*clientpb.AIConversationMessage{
+				{Role: "user", Content: "What changed?"},
+			},
+		},
+		selectedID: "conv-1",
+	})
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.pendingPrompt != "" {
+		t.Fatalf("expected loaded conversation to clear the persisted pending prompt, got %q", updatedModel.pendingPrompt)
+	}
+}
+
+func TestLooksLikeTerminalResponseFragment(t *testing.T) {
+	tests := []struct {
+		text string
+		want bool
+	}{
+		{text: "]11;rgb:0000/0000/0000", want: true},
+		{text: "[39;17R", want: true},
+		{text: "[35;39R", want: true},
+		{text: "rgb:0000/0000/0000", want: true},
+		{text: "hello world", want: false},
+		{text: "[User]", want: false},
+	}
+
+	for _, tc := range tests {
+		if got := looksLikeTerminalResponseFragment(tc.text); got != tc.want {
+			t.Fatalf("looksLikeTerminalResponseFragment(%q) = %v, want %v", tc.text, got, tc.want)
+		}
+	}
+}
+
+func TestAIProgramAnimatesWhileSubmitPending(t *testing.T) {
+	releaseSubmit := make(chan struct{})
+	submitStarted := make(chan struct{}, 1)
+	server := &aiRPCServer{
+		saveMessageStarted: submitStarted,
+		saveMessageRelease: releaseSubmit,
+		saveMessageResp: &clientpb.AIConversationMessage{
+			ID:             "msg-1",
+			ConversationID: "conv-1",
+			Role:           "user",
+			Content:        "hello",
+		},
+	}
+
+	rpcClient, cleanup := newAITestRPCClient(t, server)
+	defer cleanup()
+
+	inner := newAIModel(&console.SliverClient{Rpc: rpcClient}, aiContext{
+		connection: aiConnectionSummary{Operator: "alice"},
+	}, nil)
+	inner.loading = false
+	inner.focus = aiFocusComposer
+	inner.width = 100
+	inner.height = 30
+	inner.config = &clientpb.AIConfigSummary{
+		Valid:    true,
+		Provider: "openai",
+		Model:    "gpt-test",
+	}
+	inner.currentConversation = &clientpb.AIConversation{
+		ID:           "conv-1",
+		Title:        "Thread",
+		Provider:     "openai",
+		Model:        "gpt-test",
+		OperatorName: "alice",
+	}
+	inner.input = []rune("hello")
+	inner.cursor = len(inner.input)
+
+	observed := &observingAIProgramModel{
+		inner:     inner,
+		started:   make(chan struct{}),
+		stepSeen:  make(chan struct{}, 4),
+		submitted: make(chan struct{}, 1),
+	}
+
+	var out bytes.Buffer
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+
+	program := tea.NewProgram(
+		observed,
+		tea.WithContext(ctx),
+		tea.WithInput(nil),
+		tea.WithOutput(&out),
+		tea.WithWindowSize(inner.width, inner.height),
+		tea.WithoutSignals(),
+		tea.WithoutSignalHandler(),
+	)
+
+	errCh := make(chan error, 1)
+	go func() {
+		_, err := program.Run()
+		errCh <- err
+	}()
+
+	select {
+	case <-observed.started:
+	case <-ctx.Done():
+		t.Fatal("program did not start")
+	}
+
+	program.Send(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	select {
+	case <-submitStarted:
+	case <-ctx.Done():
+		t.Fatal("submit RPC did not start")
+	}
+
+	select {
+	case <-observed.stepSeen:
+	case <-time.After(750 * time.Millisecond):
+		t.Fatal("expected thinking animation to advance while submit was still pending")
+	}
+
+	select {
+	case <-observed.submitted:
+		t.Fatal("submit finished before the blocked RPC was released")
+	default:
+	}
+
+	close(releaseSubmit)
+
+	select {
+	case <-observed.submitted:
+	case <-ctx.Done():
+		t.Fatal("submit result did not return after release")
+	}
+
+	program.Quit()
+	if err := <-errCh; err != nil {
+		t.Fatalf("program run failed: %v", err)
+	}
+}
+
+func TestAIProgramSkipsRedundantPendingConversationReload(t *testing.T) {
+	blockConversationLoad := make(chan struct{})
+	getConversationStarted := make(chan struct{}, 1)
+	server := &aiRPCServer{
+		getConversationStart: getConversationStarted,
+		getConversationWait:  blockConversationLoad,
+		providersResp: &clientpb.AIProviderConfigs{
+			Config: &clientpb.AIConfigSummary{
+				Valid:    true,
+				Provider: "openai",
+				Model:    "gpt-test",
+			},
+		},
+		conversationsResp: &clientpb.AIConversations{
+			Conversations: []*clientpb.AIConversation{
+				{ID: "conv-1", Title: "Thread", Provider: "openai", Model: "gpt-test", UpdatedAt: 100},
+			},
+		},
+		conversationByID: map[string]*clientpb.AIConversation{
+			"conv-1": {
+				ID:           "conv-1",
+				Title:        "Thread",
+				Provider:     "openai",
+				Model:        "gpt-test",
+				OperatorName: "alice",
+				UpdatedAt:    100,
+				Messages: []*clientpb.AIConversationMessage{
+					{Role: "user", Content: "hello", CreatedAt: 100, UpdatedAt: 100},
+				},
+			},
+		},
+	}
+
+	rpcClient, cleanup := newAITestRPCClient(t, server)
+	defer cleanup()
+
+	inner := newAIModel(&console.SliverClient{Rpc: rpcClient}, aiContext{
+		connection: aiConnectionSummary{Operator: "alice"},
+	}, nil)
+	inner.loading = false
+	inner.width = 100
+	inner.height = 30
+	inner.currentConversation = &clientpb.AIConversation{
+		ID:           "conv-1",
+		Title:        "Thread",
+		Provider:     "openai",
+		Model:        "gpt-test",
+		OperatorName: "alice",
+		UpdatedAt:    100,
+		Messages: []*clientpb.AIConversationMessage{
+			{Role: "user", Content: "hello", CreatedAt: 100, UpdatedAt: 100},
+		},
+	}
+	inner.conversations = []*clientpb.AIConversation{
+		{ID: "conv-1", Title: "Thread", Provider: "openai", Model: "gpt-test", UpdatedAt: 100},
+	}
+	initCmd := inner.startAwaitingResponse()
+
+	observed := &observingAIProgramModel{
+		inner:     inner,
+		initCmd:   initCmd,
+		started:   make(chan struct{}),
+		stepSeen:  make(chan struct{}, 8),
+		submitted: make(chan struct{}, 1),
+	}
+
+	var out bytes.Buffer
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+
+	program := tea.NewProgram(
+		observed,
+		tea.WithContext(ctx),
+		tea.WithInput(nil),
+		tea.WithOutput(&out),
+		tea.WithWindowSize(inner.width, inner.height),
+		tea.WithoutSignals(),
+		tea.WithoutSignalHandler(),
+	)
+
+	errCh := make(chan error, 1)
+	go func() {
+		_, err := program.Run()
+		errCh <- err
+	}()
+
+	select {
+	case <-observed.started:
+	case <-ctx.Done():
+		t.Fatal("program did not start")
+	}
+
+	select {
+	case <-observed.stepSeen:
+	case <-time.After(750 * time.Millisecond):
+		t.Fatal("expected animation to start before redundant event processing")
+	}
+
+	program.Send(aiConversationEventMsg{event: &clientpb.AIConversationEvent{
+		EventType: clientpb.AIConversationEventType_AI_CONVERSATION_EVENT_TYPE_TURN_STARTED,
+		Conversation: &clientpb.AIConversation{
+			ID:           "conv-1",
+			OperatorName: "alice",
+			UpdatedAt:    100,
+			TurnState:    clientpb.AIConversationTurnState_AI_TURN_STATE_IN_PROGRESS,
+		},
+	}})
+
+	select {
+	case <-getConversationStarted:
+		t.Fatal("expected redundant pending event to avoid reloading the conversation")
+	case <-time.After(250 * time.Millisecond):
+	}
+
+	select {
+	case <-observed.stepSeen:
+	case <-time.After(750 * time.Millisecond):
+		t.Fatal("expected animation to keep advancing after the redundant pending event")
+	}
+
+	program.Quit()
+	if err := <-errCh; err != nil {
+		t.Fatalf("program run failed: %v", err)
+	}
+	close(blockConversationLoad)
+}
+
+type testErr string
+
+func (e testErr) Error() string {
+	return string(e)
+}
+
+func assertErr(message string) error {
+	return testErr(message)
+}
+
+type observingAIProgramModel struct {
+	inner       *aiModel
+	initCmd     tea.Cmd
+	started     chan struct{}
+	stepSeen    chan struct{}
+	submitted   chan struct{}
+	startedOnce sync.Once
+}
+
+func (m *observingAIProgramModel) Init() tea.Cmd {
+	return m.initCmd
+}
+
+func (m *observingAIProgramModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg.(type) {
+	case aithinking.StepMsg:
+		select {
+		case m.stepSeen <- struct{}{}:
+		default:
+		}
+	case aiPromptSubmittedMsg:
+		select {
+		case m.submitted <- struct{}{}:
+		default:
+		}
+	}
+
+	_, cmd := m.inner.Update(msg)
+	return m, cmd
+}
+
+func (m *observingAIProgramModel) View() tea.View {
+	m.startedOnce.Do(func() {
+		close(m.started)
+	})
+	return m.inner.View()
+}
+
+func TestStartupConfigErrorModalIgnoresImmediateKeypress(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+
+	updated, cmd := model.Update(aiStartupConfigInvalidMsg{err: "server AI configuration is invalid"})
+	if cmd != nil {
+		t.Fatalf("did not expect command when showing modal, got %v", cmd)
+	}
+
+	updatedModel := updated.(*aiModel)
+	if updatedModel.modal == nil {
+		t.Fatal("expected modal to be visible")
+	}
+
+	updated, cmd = updatedModel.Update(tea.KeyPressMsg{})
+	if cmd != nil {
+		t.Fatalf("expected immediate keypress to be ignored, got %v", cmd)
+	}
+
+	stillOpen := updated.(*aiModel)
+	if stillOpen.modal == nil {
+		t.Fatal("expected modal to remain visible after immediate keypress")
+	}
+}
+
+func TestStartupConfigErrorModalQuitsAfterDismissDelay(t *testing.T) {
+	model := newAIModel(nil, aiContext{}, nil)
+	model.modal = &aiModalState{
+		title:          "AI Configuration Error",
+		body:           "server AI configuration is invalid",
+		dismissReadyAt: time.Now().Add(-time.Second),
+	}
+
+	updated, cmd := model.Update(tea.KeyPressMsg{})
+	if updated == nil {
+		t.Fatal("expected model to be returned")
+	}
+	if cmd == nil {
+		t.Fatal("expected keypress after dismiss delay to quit")
+	}
+
+	msg := cmd()
+	if _, ok := msg.(tea.QuitMsg); !ok {
+		t.Fatalf("expected tea.QuitMsg, got %#v", msg)
+	}
+}

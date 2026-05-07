@@ -216,6 +216,7 @@ func (p *ChannelProxy) dialImplant(ctx context.Context) (*TunnelIO, error) {
 		Port:     p.Port(),
 		Protocol: sliverpb.PortFwdProtoTCP,
 		TunnelID: tunnel.ID,
+		KeepAlive: int32(p.KeepAlivePeriod.Seconds()),
 	})
 	if err != nil {
 		return nil, err

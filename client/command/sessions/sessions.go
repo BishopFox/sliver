@@ -192,15 +192,15 @@ func PrintSessions(sessions map[string]*clientpb.Session, filter string, filterR
 	})
 
 	for _, session := range sessions {
-		color := console.Normal
+		style := console.StyleNormal
 		if con.ActiveTarget.GetSession() != nil && con.ActiveTarget.GetSession().ID == session.ID {
-			color = console.Green
+			style = console.StyleGreen
 		}
 		var SessionHealth string
 		if session.IsDead {
-			SessionHealth = console.Bold + console.Red + "[DEAD]" + console.Normal
+			SessionHealth = console.StyleBoldRed.Render("[DEAD]")
 		} else {
-			SessionHealth = console.Bold + console.Green + "[ALIVE]" + console.Normal
+			SessionHealth = console.StyleBoldGreen.Render("[ALIVE]")
 		}
 		burned := ""
 		if session.Burned {
@@ -211,33 +211,33 @@ func PrintSessions(sessions map[string]*clientpb.Session, filter string, filterR
 		var rowEntries []string
 		if wideTermWidth {
 			rowEntries = []string{
-				fmt.Sprintf(color+"%s"+console.Normal, ShortSessionID(session.ID)),
-				fmt.Sprintf(color+"%s"+console.Normal, session.Name),
-				fmt.Sprintf(color+"%s"+console.Normal, session.Transport),
-				fmt.Sprintf(color+"%s"+console.Normal, session.RemoteAddress),
-				fmt.Sprintf(color+"%s"+console.Normal, session.Hostname),
-				fmt.Sprintf(color+"%s"+console.Normal, username),
-				fmt.Sprintf(color+"%s (%d)"+console.Normal, session.Filename, session.PID),
+				style.Render(ShortSessionID(session.ID)),
+				style.Render(session.Name),
+				style.Render(session.Transport),
+				style.Render(session.RemoteAddress),
+				style.Render(session.Hostname),
+				style.Render(username),
+				style.Render(fmt.Sprintf("%s (%d)", session.Filename, session.PID)),
 			}
 
 			if windowsSessionInList {
-				rowEntries = append(rowEntries, fmt.Sprintf(color+"%s"+console.Normal, session.Integrity))
+				rowEntries = append(rowEntries, style.Render(session.Integrity))
 			}
 
 			rowEntries = append(rowEntries, []string{
-				fmt.Sprintf(color+"%s/%s"+console.Normal, session.OS, session.Arch),
-				fmt.Sprintf(color+"%s"+console.Normal, session.Locale),
+				style.Render(fmt.Sprintf("%s/%s", session.OS, session.Arch)),
+				style.Render(session.Locale),
 				con.FormatDateDelta(time.Unix(session.LastCheckin, 0), wideTermWidth, false),
 				burned + SessionHealth,
 			}...)
 		} else {
 			rowEntries = []string{
-				fmt.Sprintf(color+"%s"+console.Normal, ShortSessionID(session.ID)),
-				fmt.Sprintf(color+"%s"+console.Normal, session.Transport),
-				fmt.Sprintf(color+"%s"+console.Normal, session.RemoteAddress),
-				fmt.Sprintf(color+"%s"+console.Normal, session.Hostname),
-				fmt.Sprintf(color+"%s"+console.Normal, username),
-				fmt.Sprintf(color+"%s/%s"+console.Normal, session.OS, session.Arch),
+				style.Render(ShortSessionID(session.ID)),
+				style.Render(session.Transport),
+				style.Render(session.RemoteAddress),
+				style.Render(session.Hostname),
+				style.Render(username),
+				style.Render(fmt.Sprintf("%s/%s", session.OS, session.Arch)),
 				burned + SessionHealth,
 			}
 		}

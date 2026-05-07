@@ -19,6 +19,8 @@ package filesystem
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/bishopfox/sliver/client/console"
@@ -28,14 +30,77 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+const chtimesDefaultLayout = "2006-01-02 15:04:05"
+
+type chtimesTimeFormat struct {
+	name  string
+	parse func(string) (int64, error)
+}
+
+func chtimesParseUnixSeconds(value string) (int64, error) {
+	parsed, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return parsed, nil
+}
+
+func chtimesParseUnixMillis(value string) (int64, error) {
+	parsed, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return time.UnixMilli(parsed).Unix(), nil
+}
+
+func chtimesParseLayout(layout string) func(string) (int64, error) {
+	return func(value string) (int64, error) {
+		parsed, err := time.Parse(layout, value)
+		if err != nil {
+			return 0, err
+		}
+		return parsed.Unix(), nil
+	}
+}
+
+func chtimesFormatFromFlags(cmd *cobra.Command) (chtimesTimeFormat, error) {
+	formatFlags := []struct {
+		flag   string
+		format chtimesTimeFormat
+	}{
+		{flag: "unix", format: chtimesTimeFormat{name: "unix", parse: chtimesParseUnixSeconds}},
+		{flag: "unix-ms", format: chtimesTimeFormat{name: "unix-ms", parse: chtimesParseUnixMillis}},
+		{flag: "rfc3339", format: chtimesTimeFormat{name: "rfc3339", parse: chtimesParseLayout(time.RFC3339)}},
+		{flag: "rfc1123", format: chtimesTimeFormat{name: "rfc1123", parse: chtimesParseLayout(time.RFC1123)}},
+	}
+
+	var selected *chtimesTimeFormat
+	selectedFlag := ""
+	for _, candidate := range formatFlags {
+		enabled, _ := cmd.Flags().GetBool(candidate.flag)
+		if !enabled {
+			continue
+		}
+		if selected != nil {
+			return chtimesTimeFormat{}, fmt.Errorf("only one time format flag can be used (--%s and --%s are both set)", selectedFlag, candidate.flag)
+		}
+		selected = &candidate.format
+		selectedFlag = candidate.flag
+	}
+
+	if selected == nil {
+		return chtimesTimeFormat{name: "datetime", parse: chtimesParseLayout(chtimesDefaultLayout)}, nil
+	}
+
+	return *selected, nil
+}
+
 // ChtimesCmd - Change the access and modified time of a file on the remote file system.
 func ChtimesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	session, beacon := con.ActiveTarget.GetInteractive()
 	if session == nil && beacon == nil {
 		return
 	}
-	// DateTime layout (https://pkg.go.dev/time)
-	layout := "2006-01-02 15:04:05"
 	filePath := args[0]
 
 	if filePath == "" {
@@ -43,33 +108,35 @@ func ChtimesCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		return
 	}
 
-	atime := args[1]
+	format, err := chtimesFormatFromFlags(cmd)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
 
+	atime := args[1]
 	if atime == "" {
 		con.PrintErrorf("Missing parameter: Last accessed time id\n")
 		return
 	}
 
-	t_a, err := time.Parse(layout, atime)
+	unixAtime, err := format.parse(atime)
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("Invalid access time (%s): %s\n", format.name, err)
 		return
 	}
-	unixAtime := t_a.Unix()
 
 	mtime := args[2]
-
 	if mtime == "" {
 		con.PrintErrorf("Missing parameter: Last modified time id\n")
 		return
 	}
 
-	t_b, err := time.Parse(layout, mtime)
+	unixMtime, err := format.parse(mtime)
 	if err != nil {
-		con.PrintErrorf("%s\n", err)
+		con.PrintErrorf("Invalid modified time (%s): %s\n", format.name, err)
 		return
 	}
-	unixMtime := t_b.Unix()
 
 	chtimes, err := con.Rpc.Chtimes(context.Background(), &sliverpb.ChtimesReq{
 		Request: con.ActiveTarget.Request(cmd),

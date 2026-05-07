@@ -1,0 +1,82 @@
+# Copyright 2020 Enrico Hoffmann
+# Copyright 2021 Adam Chalkley
+#
+# https://github.com/atc0005/go-teams-notify
+#
+# Licensed under the MIT License. See LICENSE file in the project root for
+# full license information.
+
+linters:
+  enable:
+    - dogsled
+    - dupl
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - gofmt
+    - revive
+    - gosec
+    - nakedret
+    - prealloc
+    - exportloopref
+    - unconvert
+    - unparam
+    - whitespace
+
+linters-settings:
+  funlen:
+    lines: 60
+    statements: 40
+
+  gocognit:
+    # minimal code complexity to report, 30 by default (but we recommend 10-20)
+    min-complexity: 10
+
+  gocyclo:
+    # minimal code complexity to report, 30 by default (but we recommend 10-20)
+    min-complexity: 15
+
+  nakedret:
+    # make an issue if func has more lines of code than this setting and it has naked returns; default is 30
+    max-func-lines: 2
+
+  unparam:
+    # Inspect exported functions, default is false. Set to true if no external program/library imports your code.
+    # XXX: if you enable this setting, unparam will report a lot of false-positives in text editors:
+    # if it's called for subdir of a project it can't find external interfaces. All text editor integrations
+    # with golangci-lint call it on a directory with the changed file.
+    check-exported: true
+
+  unused:
+    # treat code as a program (not a library) and report unused exported identifiers; default is false.
+    # XXX: if you enable this setting, unused will report a lot of false-positives in text editors:
+    # if it's called for subdir of a project it can't find funcs usages. All text editor integrations
+    # with golangci-lint call it on a directory with the changed file.
+    check-exported: false
+
+  whitespace:
+    # Enforces newlines (or comments) after every multi-line if statement
+    multi-if: true
+    # Enforces newlines (or comments) after every multi-line function signature
+    multi-func: true
+
+issues:
+  # Not using default exclusions because we want to require comments on public
+  # functions and types.
+  exclude-use-default: false
+
+# options for analysis running
+run:
+  # include test files or not, default is true
+  tests: false
+
+  # by default isn't set. If set we pass it to "go list -mod={option}". From "go help modules":
+  # If invoked with -mod=readonly, the go command is disallowed from the implicit
+  # automatic updating of go.mod described above. Instead, it fails when any changes
+  # to go.mod are needed. This setting is most useful to check that go.mod does
+  # not need updates, such as in a continuous integration and testing system.
+  # If invoked with -mod=vendor, the go command assumes that the vendor
+  # directory holds the correct copies of dependencies and ignores
+  # the dependency descriptions in go.mod.
+  modules-download-mode: vendor

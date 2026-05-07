@@ -61,9 +61,9 @@ func printCollection(collection string, creds []*clientpb.Credential, con *conso
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	if collection != "" {
-		tw.SetTitle(console.Bold + collection + console.Normal)
+		tw.SetTitle(console.StyleBold.Render(collection))
 	} else {
-		tw.SetTitle(console.Bold + "Default Collection" + console.Normal)
+		tw.SetTitle(console.StyleBold.Render("Default Collection"))
 	}
 	tw.AppendHeader(table.Row{
 		"ID",

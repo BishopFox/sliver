@@ -21,6 +21,18 @@ type SortBy struct {
 
 	// IgnoreCase makes sorting case-insensitive
 	IgnoreCase bool
+
+	// CustomLess is a function that can be used to sort the column in a custom
+	// manner. Note that:
+	// * This overrides and ignores the Mode and IgnoreCase settings
+	// * This is called after the column contents are converted to string form
+	// * This function is expected to return:
+	//   * -1 => when iStr comes before jStr
+	//   *  0 => when iStr and jStr are considered equal
+	//   *  1 => when iStr comes after jStr
+	//
+	// Use this when the default sorting logic is not sufficient.
+	CustomLess func(iStr string, jStr string) int
 }
 
 // SortMode defines How to sort.
@@ -49,12 +61,6 @@ const (
 	DscNumericAlpha
 )
 
-type rowsSorter struct {
-	rows          []rowStr
-	sortBy        []SortBy
-	sortedIndices []int
-}
-
 // getSortedRowIndices sorts and returns the row indices in Sorted order as
 // directed by Table.sortBy which can be set using Table.SortBy(...)
 func (t *Table) getSortedRowIndices() []int {
@@ -63,11 +69,31 @@ func (t *Table) getSortedRowIndices() []int {
 		sortedIndices[idx] = idx
 	}
 
-	if t.sortBy != nil && len(t.sortBy) > 0 {
-		sort.Sort(rowsSorter{
-			rows:          t.rows,
-			sortBy:        t.parseSortBy(t.sortBy),
-			sortedIndices: sortedIndices,
+	if len(t.sortBy) > 0 {
+		parsedSortBy := t.parseSortBy(t.sortBy)
+		sort.Slice(sortedIndices, func(i, j int) bool {
+			isEqual, isLess := false, false
+			realI, realJ := sortedIndices[i], sortedIndices[j]
+			for _, sortBy := range parsedSortBy {
+				// extract the values/cells from the rows for comparison
+				rowI, rowJ, colIdx := t.rows[realI], t.rows[realJ], sortBy.Number-1
+				iVal, jVal := "", ""
+				if colIdx < len(rowI) {
+					iVal = rowI[colIdx]
+				}
+				if colIdx < len(rowJ) {
+					jVal = rowJ[colIdx]
+				}
+
+				// compare and choose whether to continue
+				isEqual, isLess = less(iVal, jVal, sortBy)
+				// if the values are not equal, return the result immediately
+				if !isEqual {
+					return isLess
+				}
+				// if the values are equal, continue to the next column
+			}
+			return isLess
 		})
 	}
 
@@ -94,48 +120,32 @@ func (t *Table) parseSortBy(sortBy []SortBy) []SortBy {
 				Number:     colNum,
 				Mode:       col.Mode,
 				IgnoreCase: col.IgnoreCase,
+				CustomLess: col.CustomLess,
 			})
 		}
 	}
 	return resSortBy
 }
 
-func (rs rowsSorter) Len() int {
-	return len(rs.rows)
-}
-
-func (rs rowsSorter) Swap(i, j int) {
-	rs.sortedIndices[i], rs.sortedIndices[j] = rs.sortedIndices[j], rs.sortedIndices[i]
-}
-
-func (rs rowsSorter) Less(i, j int) bool {
-	shouldContinue, returnValue := false, false
-	realI, realJ := rs.sortedIndices[i], rs.sortedIndices[j]
-	for _, sortBy := range rs.sortBy {
-		// extract the values/cells from the rows for comparison
-		rowI, rowJ, colIdx := rs.rows[realI], rs.rows[realJ], sortBy.Number-1
-		iVal, jVal := "", ""
-		if colIdx < len(rowI) {
-			iVal = rowI[colIdx]
-		}
-		if colIdx < len(rowJ) {
-			jVal = rowJ[colIdx]
-		}
-
-		// compare and choose whether to continue
-		shouldContinue, returnValue = less(iVal, jVal, sortBy)
-		if !shouldContinue {
-			break
+func less(iVal string, jVal string, sb SortBy) (bool, bool) {
+	if sb.CustomLess != nil {
+		// use the custom less function to compare the values
+		rc := sb.CustomLess(iVal, jVal)
+		if rc < 0 {
+			return false, true
+		} else if rc > 0 {
+			return false, false
+		} else { // rc == 0
+			return true, false
 		}
 	}
-	return returnValue
-}
 
-func less(iVal string, jVal string, sb SortBy) (bool, bool) {
+	// if the values are equal, return fast to continue to next column
 	if iVal == jVal {
 		return true, false
 	}
 
+	// otherwise, use the default sorting logic defined by Mode and IgnoreCase
 	switch sb.Mode {
 	case Asc, Dsc:
 		return lessAlphabetic(iVal, jVal, sb)
@@ -168,37 +178,27 @@ func lessAlphabetic(iVal string, jVal string, sb SortBy) (bool, bool) {
 	}
 }
 
-func lessAlphaNumericI(sb SortBy) (bool, bool) {
-	// i == "abc"; j == 5
-	switch sb.Mode {
-	case AscAlphaNumeric, DscAlphaNumeric:
-		return false, true
-	default: // AscNumericAlpha, DscNumericAlpha
-		return false, false
-	}
-}
-
-func lessAlphaNumericJ(sb SortBy) (bool, bool) {
-	// i == 5; j == "abc"
-	switch sb.Mode {
-	case AscAlphaNumeric, DscAlphaNumeric:
-		return false, false
-	default: // AscNumericAlpha, DscNumericAlpha:
-		return false, true
-	}
-}
-
 func lessMixedMode(iVal string, jVal string, sb SortBy) (bool, bool) {
 	iNumVal, iErr := strconv.ParseFloat(iVal, 64)
 	jNumVal, jErr := strconv.ParseFloat(jVal, 64)
 	if iErr != nil && jErr != nil { // both are alphanumeric
 		return lessAlphabetic(iVal, jVal, sb)
 	}
-	if iErr != nil { // iVal is alphabetic, jVal is numeric
-		return lessAlphaNumericI(sb)
+	if iErr != nil { // iVal == "abc"; jVal == 5
+		switch sb.Mode {
+		case AscAlphaNumeric, DscAlphaNumeric:
+			return false, true
+		default: // AscNumericAlpha, DscNumericAlpha
+			return false, false
+		}
 	}
-	if jErr != nil { // iVal is numeric, jVal is alphabetic
-		return lessAlphaNumericJ(sb)
+	if jErr != nil { // iVal == 5; jVal	== "abc"
+		switch sb.Mode {
+		case AscAlphaNumeric, DscAlphaNumeric:
+			return false, false
+		default: // AscNumericAlpha, DscNumericAlpha:
+			return false, true
+		}
 	}
 	// both values numeric
 	return lessNumericVal(iNumVal, jNumVal, sb)

@@ -1,4 +1,4 @@
-Copyright (c) 2023 Anmol Sethi <hi@nhooyr.io>
+Copyright (c) 2025 Coder
 
 Permission to use, copy, modify, and distribute this software for any
 purpose with or without fee is hereby granted, provided that the above

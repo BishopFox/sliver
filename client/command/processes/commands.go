@@ -1,6 +1,7 @@
 package processes
 
 import (
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -51,11 +52,12 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.BoolP("loot", "X", false, "save output as loot")
 		f.StringP("loot-name", "N", "", "name to assign when adding the memory dump to the loot store (optional)")
 
-		f.Int32P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
 	flags.BindFlagCompletions(procdumpCmd, func(comp *carapace.ActionMap) {
 		(*comp)["save"] = carapace.ActionFiles()
 	})
+	completers.RegisterLocalFilePathFlagCompletion(procdumpCmd, "save")
 
 	terminateCmd := &cobra.Command{
 		Use:   consts.TerminateStr,

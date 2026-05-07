@@ -2,7 +2,6 @@ package certificates
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/bishopfox/sliver/client/command/settings"
@@ -95,22 +94,22 @@ func CertificateInfoCmd(cmd *cobra.Command, con *console.SliverClient, args []st
 	printCertificateInfo(con, certificateInfo.Info)
 }
 
-func checkCertExpiry(expiryTime time.Time) string {
+func checkCertExpiry(expiryTime time.Time) console.TextStyle {
 	if expiryTime.Before(time.Now()) || expiryTime.Equal(time.Now()) {
-		return console.Bold + console.Red
+		return console.StyleBoldRed
 	}
 
 	// One week is 168 hours - this is bad
 	if expiryTime.Before(time.Now().Add(168 * time.Hour)) {
-		return console.Bold + console.Red
+		return console.StyleBoldRed
 	}
 
 	// One month is approximately 730 hours - this is a warning
 	if expiryTime.Before(time.Now().Add(730 * time.Hour)) {
-		return console.Bold + console.Orange
+		return console.StyleBoldOrange
 	}
 
-	return console.Normal
+	return console.StyleNormal
 }
 
 func printCertificateInfo(con *console.SliverClient, certData []*clientpb.CertificateData) {
@@ -148,28 +147,28 @@ func printCertificateInfo(con *console.SliverClient, certData []*clientpb.Certif
 	}
 
 	for _, cert := range certData {
-		rowColor := console.Normal
+		rowStyle := console.StyleNormal
 
 		expiry, err := time.Parse(timeFormat, cert.ValidityExpiry)
 		// This should not error out, but if it does, the row will not be colored
 		if err == nil {
-			rowColor = checkCertExpiry(expiry)
+			rowStyle = checkCertExpiry(expiry)
 		}
 		if wideTermWidth {
 			tw.AppendRow(table.Row{
-				fmt.Sprintf(rowColor+"%s"+console.Normal, cert.ID),
-				fmt.Sprintf(rowColor+"%s"+console.Normal, cert.CN),
-				fmt.Sprintf(rowColor+"%s"+console.Normal, cert.CreationTime),
-				fmt.Sprintf(rowColor+"%s"+console.Normal, cert.Type),
-				fmt.Sprintf(rowColor+"%s"+console.Normal, cert.KeyAlgorithm),
-				fmt.Sprintf(rowColor+"%s"+console.Normal, cert.ValidityStart),
-				fmt.Sprintf(rowColor+"%s"+console.Normal, cert.ValidityExpiry),
+				rowStyle.Render(cert.ID),
+				rowStyle.Render(cert.CN),
+				rowStyle.Render(cert.CreationTime),
+				rowStyle.Render(cert.Type),
+				rowStyle.Render(cert.KeyAlgorithm),
+				rowStyle.Render(cert.ValidityStart),
+				rowStyle.Render(cert.ValidityExpiry),
 			})
 		} else {
 			tw.AppendRow(table.Row{
-				fmt.Sprintf(rowColor+"%s"+console.Normal, cert.ID),
-				fmt.Sprintf(rowColor+"%s"+console.Normal, cert.CN),
-				fmt.Sprintf(rowColor+"%s"+console.Normal, cert.ValidityExpiry),
+				rowStyle.Render(cert.ID),
+				rowStyle.Render(cert.CN),
+				rowStyle.Render(cert.ValidityExpiry),
 			})
 		}
 

@@ -1,0 +1,19 @@
+language: go
+go:
+    - 1.13.x
+    - 1.14.x
+    - 1.15.x
+    - 1.16.x
+    - 1.17.x
+    - 1.18.x
+env:
+    - GO111MODULE=on
+install:
+    - go get github.com/bwmarrin/discordgo
+    - go get -v .
+    - go get -v golang.org/x/lint/golint
+script:
+    - diff <(gofmt -d .) <(echo -n)
+    - go vet -x ./...
+    - golint -set_exit_status ./...
+    - go test -v -race ./...

@@ -57,11 +57,11 @@ type Beacon struct {
 
 	ImplantBuildID uuid.UUID `gorm:"type:uuid;"`
 
-	Interval    int64
-	Jitter      int64
-	NextCheckin int64
+	Interval       int64
+	Jitter         int64
+	NextCheckin    int64
 	Virtualization string
-	Tasks []BeaconTask
+	Tasks          []BeaconTask
 }
 
 // BeforeCreate - GORM hook

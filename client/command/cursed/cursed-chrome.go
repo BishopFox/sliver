@@ -94,7 +94,7 @@ func CursedChromeCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	}
 	if chromeExt != nil {
 		con.Printf("success!\n")
-		con.PrintInfof("Found viable Chrome extension %s%s%s (%s)\n", console.Bold, chromeExt.Title, console.Normal, chromeExt.ID)
+		con.PrintInfof("Found viable Chrome extension %s (%s)\n", console.StyleBold.Render(chromeExt.Title), chromeExt.ID)
 		con.PrintInfof("Injecting payload ... ")
 		cmd, _, _ := overlord.GetChromeContext(chromeExt.WebSocketDebuggerURL, curse)
 		// extCtxTimeout, cancel := context.WithTimeout(cmd, 10*time.Second)
@@ -120,7 +120,7 @@ func avadaKedavraChrome(session *clientpb.Session, cmd *cobra.Command, con *cons
 	if chromeProcess != nil {
 		con.PrintWarnf("Found running Chrome process: %d (ppid: %d)\n", chromeProcess.GetPid(), chromeProcess.GetPpid())
 		con.PrintWarnf("Sliver will need to kill and restart the Chrome process in order to perform code injection.\n")
-		con.PrintWarnf("Sliver will attempt to restore the user's session, however %sDATA LOSS MAY OCCUR!%s\n", console.Bold, console.Normal)
+		con.PrintWarnf("Sliver will attempt to restore the user's session, however %s\n", console.StyleBold.Render("DATA LOSS MAY OCCUR!"))
 		con.Printf("\n")
 		confirm := false
 		err = forms.Confirm("Kill and restore existing Chrome process?", &confirm)

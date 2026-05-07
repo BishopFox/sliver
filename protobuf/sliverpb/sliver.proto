@@ -516,6 +516,10 @@ message ExecuteReq {
   bool Output = 3;
   string Stdout = 4;
   string Stderr = 5;
+  bool EnvInheritance = 6;
+  map<string, string> Env = 7;
+  bool Background = 8;
+
   uint32 PPid = 10;
 
   commonpb.Request Request = 9;
@@ -529,6 +533,7 @@ message ExecuteWindowsReq {
   string Stderr = 5;
   bool UseToken = 6;
   bool HideWindow = 7;
+  bool Background = 8;
   uint32 PPid = 10;
 
   commonpb.Request Request = 9;
@@ -539,6 +544,31 @@ message Execute {
   bytes Stdout = 2;
   bytes Stderr = 3;
   uint32 Pid = 4;
+
+  commonpb.Response Response = 9;
+}
+
+message ExecuteChildrenReq {
+  commonpb.Request Request = 9;
+}
+
+message ExecuteChild {
+  int32 Pid = 1;
+  string Path = 2;
+  repeated string Args = 3;
+
+  int64 StartTime = 4;
+  bool Exited = 5;
+  int32 ExitCode = 6;
+  int64 ExitTime = 7;
+
+  string Stdout = 8;
+  string Stderr = 11;
+  string Error = 12;
+}
+
+message ExecuteChildren {
+  repeated ExecuteChild Children = 1;
 
   commonpb.Response Response = 9;
 }
@@ -823,6 +853,8 @@ message ShellReq {
   string Path = 1;
   bool EnablePTY = 2;
   uint32 Pid = 3;
+  uint32 Rows = 4;
+  uint32 Cols = 5;
 
   uint64 TunnelID = 8 [jstype = JS_STRING]; // Bind to this tunnel
   commonpb.Request Request = 9;
@@ -838,12 +870,21 @@ message Shell {
   commonpb.Response Response = 9;
 }
 
+message ShellResizeReq {
+  uint32 Rows = 1;
+  uint32 Cols = 2;
+
+  uint64 TunnelID = 8 [jstype = JS_STRING];
+  commonpb.Request Request = 9;
+}
+
 
 message PortfwdReq {
   uint32 Port = 1;
   int32 Protocol = 2;
   string Host = 3;
 
+  int32 KeepAlive = 4; 
   uint64 TunnelID = 8 [jstype = JS_STRING]; // Bind to this tunnel
   commonpb.Request Request = 9;
 }
@@ -1030,6 +1071,7 @@ message ReconfigureReq {
   int64 ReconnectInterval = 1;
   int64 BeaconInterval = 2;
   int64 BeaconJitter = 3;
+  string C2URI = 4;
 
   commonpb.Request Request = 9;
 }
@@ -1145,6 +1187,7 @@ message RportFwdStartListenerReq {
   uint32 BindPort = 2;
   uint32 ForwardPort = 3;
   string ForwardAddress = 4;
+  int32 KeepAlive = 5; 
 
   commonpb.Request Request = 9;
 }

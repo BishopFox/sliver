@@ -248,10 +248,6 @@ func (m *Manager) TLSConfig() *tls.Config {
 // If GetCertificate is used directly, instead of via Manager.TLSConfig, package users will
 // also have to add acme.ALPNProto to NextProtos for tls-alpn-01, or use HTTPHandler for http-01.
 func (m *Manager) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-	if m.Prompt == nil {
-		return nil, errors.New("acme/autocert: Manager.Prompt not set")
-	}
-
 	name := hello.ServerName
 	if name == "" {
 		return nil, errors.New("acme/autocert: missing server name")

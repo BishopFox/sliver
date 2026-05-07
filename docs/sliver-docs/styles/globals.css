@@ -1,10 +1,36 @@
 @import "tailwindcss";
+@import "@heroui/styles";
 
 @config "../tailwind.config.js";
 
 :root {
   --font-mono: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco,
     Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/*
+  Keep html as the single scrolling element. Setting overflow on both html
+  and body breaks sticky sidebar behavior on docs/tutorial pages.
+*/
+html {
+  overflow-y: scroll;
+}
+
+/* Fallback for engines that do not support scrollbar-gutter. */
+@supports not (scrollbar-gutter: stable) {
+  html {
+    overflow-y: scroll;
+  }
+}
+
+/*
+  Desktop sidebar pages are sensitive to viewport-width changes when the page
+  scrollbar appears/disappears. Keep the page scrollbar track persistent.
+*/
+@media (min-width: 1024px) {
+  html {
+    overflow-y: scroll;
+  }
 }
 
 code,
@@ -19,6 +45,7 @@ pre {
 .sliver-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: rgba(148, 163, 184, 0.7) transparent;
+  scrollbar-gutter: stable;
 }
 
 .sliver-scrollbar::-webkit-scrollbar {
@@ -34,6 +61,21 @@ pre {
   border-radius: 9999px;
   border: 2px solid transparent;
   background-clip: content-box;
+}
+
+.sliver-navbar-glass {
+  width: 100%;
+  border-bottom: 1px solid var(--separator);
+  background-color: color-mix(in oklab, var(--surface) 72%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(1.18);
+  backdrop-filter: blur(18px) saturate(1.18);
+}
+
+.sliver-armory-ghost {
+  --button-bg: transparent;
+  --button-bg-hover: rgb(109 40 217 / 0.16);
+  --button-bg-pressed: rgb(109 40 217 / 0.24);
+  --button-fg: #a78bfa;
 }
 
 .dark .sliver-scrollbar {

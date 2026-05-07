@@ -22,6 +22,7 @@ import (
 	"net"
 
 	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
 )
 
 // ClientInterfacesCompleter completes interface addresses on the client host.
@@ -83,4 +84,61 @@ func LocalProxyCompleter() carapace.Action {
 			}
 		}).Invoke(c).Prefix(prefix).ToA()
 	})
+}
+
+// LocalFilePathCompleter completes local file and directory paths.
+func LocalFilePathCompleter() carapace.Action {
+	return carapace.ActionFiles().Tag("local file path")
+}
+
+// RegisterLocalFilePathFlagCompletion registers local file-path completion for a flag.
+func RegisterLocalFilePathFlagCompletion(cmd *cobra.Command, name string) {
+	if cmd == nil {
+		return
+	}
+	if _, ok := cmd.GetFlagCompletionFunc(name); ok {
+		return
+	}
+	if cmd.Flags().Lookup(name) == nil && cmd.PersistentFlags().Lookup(name) == nil {
+		return
+	}
+	_ = cmd.RegisterFlagCompletionFunc(name, func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return nil, cobra.ShellCompDirectiveDefault
+	})
+}
+
+// RegisterLocalFilePathFlagCompletions registers local file-path completion for a list of flags.
+func RegisterLocalFilePathFlagCompletions(cmd *cobra.Command, names ...string) {
+	for _, name := range names {
+		RegisterLocalFilePathFlagCompletion(cmd, name)
+	}
+}
+
+// RegisterLocalFilePathPositionalCompletion registers local file-path completion for a positional argument index.
+func RegisterLocalFilePathPositionalCompletion(cmd *cobra.Command, index int) {
+	if cmd == nil || index < 0 {
+		return
+	}
+	if cmd.ValidArgsFunction != nil {
+		return
+	}
+	cmd.ValidArgsFunction = func(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
+		if len(args) == index {
+			return nil, cobra.ShellCompDirectiveDefault
+		}
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+}
+
+// RegisterLocalFilePathPositionalAnyCompletion registers local file-path completion for all positional arguments.
+func RegisterLocalFilePathPositionalAnyCompletion(cmd *cobra.Command) {
+	if cmd == nil {
+		return
+	}
+	if cmd.ValidArgsFunction != nil {
+		return
+	}
+	cmd.ValidArgsFunction = func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return nil, cobra.ShellCompDirectiveDefault
+	}
 }

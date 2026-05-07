@@ -5,15 +5,16 @@ import (
 	"sync"
 )
 
-var bpool sync.Pool
+var bpool = sync.Pool{
+	New: func() any {
+		return &bytes.Buffer{}
+	},
+}
 
 // Get returns a buffer from the pool or creates a new one if
 // the pool is empty.
 func Get() *bytes.Buffer {
 	b := bpool.Get()
-	if b == nil {
-		return &bytes.Buffer{}
-	}
 	return b.(*bytes.Buffer)
 }
 

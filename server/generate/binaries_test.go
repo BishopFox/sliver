@@ -28,12 +28,21 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/configs"
-	"github.com/bishopfox/sliver/server/sgn"
 )
 
 var (
 	nonce = 0
 )
+
+func mustGenerateUniqueWGPeerIP(t *testing.T) string {
+	t.Helper()
+
+	ip, err := GenerateUniqueIP()
+	if err != nil {
+		t.Fatalf("failed to allocate unique wireguard peer IP: %v", err)
+	}
+	return ip.String()
+}
 
 func cleanupGeneratedArtifacts(t *testing.T, outputPath string) {
 	t.Helper()
@@ -471,6 +480,7 @@ func namedPipeExe(t *testing.T, goos string, goarch string, debug bool) {
 func wireguardExe(t *testing.T, goos string, goarch string, beacon bool, debug bool) {
 	t.Logf("[wireguard] EXE %s/%s - debug: %v", goos, goarch, debug)
 	name := fmt.Sprintf("wireguard_test%d", nonce)
+	wgPeerTunIP := mustGenerateUniqueWGPeerIP(t)
 	config := &clientpb.ImplantConfig{
 		GOOS:   goos,
 		GOARCH: goarch,
@@ -483,7 +493,7 @@ func wireguardExe(t *testing.T, goos string, goarch string, beacon bool, debug b
 		},
 		Debug:             debug,
 		ObfuscateSymbols:  false,
-		WGPeerTunIP:       "100.64.0.2",
+		WGPeerTunIP:       wgPeerTunIP,
 		WGKeyExchangePort: 1234,
 		WGTcpCommsPort:    5678,
 		IsBeacon:          beacon,
@@ -503,6 +513,7 @@ func wireguardExe(t *testing.T, goos string, goarch string, beacon bool, debug b
 func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 	t.Logf("[multi] LIB %s/%s - debug: %v", goos, goarch, debug)
 	name := fmt.Sprintf("multilibrary_test%d", nonce)
+	wgPeerTunIP := mustGenerateUniqueWGPeerIP(t)
 	config := &clientpb.ImplantConfig{
 		GOOS:   goos,
 		GOARCH: goarch,
@@ -520,7 +531,7 @@ func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 		Format:            clientpb.OutputFormat_SHARED_LIB,
 		IsSharedLib:       true,
 		Exports:           []string{"StartW"},
-		WGPeerTunIP:       "100.64.0.2",
+		WGPeerTunIP:       wgPeerTunIP,
 		WGKeyExchangePort: 1234,
 		WGTcpCommsPort:    5678,
 		IncludeMTLS:       true,
@@ -536,53 +547,6 @@ func multiLibrary(t *testing.T, goos string, goarch string, debug bool) {
 		t.Fatalf("%v", err)
 	}
 	cleanupGeneratedArtifacts(t, binPath)
-}
-
-func multiWindowsLibraryShellcode(t *testing.T, debug bool) {
-	t.Logf("[multi] SHELLCODE windows/amd64 - debug: %v", debug)
-	name := fmt.Sprintf("multilibrary_shellcode_test%d", nonce)
-	config := &clientpb.ImplantConfig{
-		GOOS:   "windows",
-		GOARCH: "amd64",
-
-		C2: []*clientpb.ImplantC2{
-			{URL: "mtls://1.example.com"},
-			{Priority: 2, URL: "mtls://2.example.com"},
-			{URL: "https://3.example.com"},
-			{URL: "dns://4.example.com", Options: "asdf"},
-		},
-		Debug:            debug,
-		ObfuscateSymbols: true,
-		Format:           clientpb.OutputFormat_SHELLCODE,
-		IsSharedLib:      true,
-		Exports:          []string{"FoobarW"},
-		IncludeMTLS:      true,
-		IncludeHTTP:      true,
-		IncludeDNS:       true,
-	}
-	httpC2Config := configs.GenerateDefaultHTTPC2Config()
-	nonce++
-	build, _ := GenerateConfig(name, config)
-	binPath, err := SliverShellcode(name, build, config, httpC2Config.ImplantConfig)
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
-	defer cleanupGeneratedArtifacts(t, binPath)
-
-	// encode bin with sgn
-	bin, err := os.ReadFile(binPath)
-	if err != nil {
-		t.Fatalf("reading generated shared lib shellcode failed: %v", err)
-	}
-	_, err = sgn.EncodeShellcodeWithConfig(bin, sgn.SGNConfig{
-		Iterations:     1,
-		PlainDecoder:   false,
-		Safe:           true,
-		MaxObfuscation: 100,
-	})
-	if err != nil {
-		t.Fatalf("sgn encode failed: %v", err)
-	}
 }
 
 func symbolObfuscation(t *testing.T, goos string, goarch string) {

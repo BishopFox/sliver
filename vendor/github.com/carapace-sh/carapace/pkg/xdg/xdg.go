@@ -45,7 +45,7 @@ func ConfigDirs() (dirs []string, err error) {
 
 	if v, ok := os.LookupEnv("XDG_CONFIG_DIRS"); ok {
 		xdgDirs := make([]string, 0)
-		for _, dir := range strings.Split(v, string(os.PathSeparator)) {
+		for dir := range strings.SplitSeq(v, string(os.PathSeparator)) {
 			if filepath.IsAbs(dir) {
 				xdgDirs = append(xdgDirs, dir)
 			}

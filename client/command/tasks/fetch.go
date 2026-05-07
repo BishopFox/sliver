@@ -126,7 +126,7 @@ func filterTasksByTaskType(taskType string, tasks []*clientpb.BeaconTask) []*cli
 func PrintTask(task *clientpb.BeaconTask, con *console.SliverClient) {
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableWithBordersStyle(con))
-	tw.AppendRow(table.Row{console.Bold + "Beacon Task" + console.Normal, task.ID})
+	tw.AppendRow(table.Row{console.StyleBold.Render("Beacon Task"), task.ID})
 	tw.AppendSeparator()
 	tw.AppendRow(table.Row{"State", emojiState(task.State) + " " + prettyState(strings.Title(task.State))})
 	tw.AppendRow(table.Row{"Description", task.Description})
@@ -285,17 +285,27 @@ func renderTaskResponse(task *clientpb.BeaconTask, con *console.SliverClient) {
 		}
 
 		f := pflag.NewFlagSet(constants.ExecuteStr, pflag.ContinueOnError)
-		f.BoolP("output", "o", true, "capture command output")
+		f.BoolP("output", "o", execReq.Output, "capture command output")
+		f.Bool("background", execReq.Background, "start the process in the background and track it")
 		f.BoolP("loot", "X", false, "save output as loot")
 		f.BoolP("ignore-stderr", "S", false, "don't print STDERR output")
-		f.StringP("stdout", "O", "", "remote path to redirect STDOUT to")
-		f.StringP("stderr", "E", "", "remote path to redirect STDERR to")
+		f.StringP("stdout", "O", execReq.Stdout, "remote path to redirect STDOUT to")
+		f.StringP("stderr", "E", execReq.Stderr, "remote path to redirect STDERR to")
 
 		execCmd := &cobra.Command{Use: constants.ExecuteStr}
 		execCmd.Flags().AddFlagSet(f)
 		execCmd.SetArgs(append([]string{execReq.Path}, execReq.Args...))
 
 		exec.PrintExecute(execResult, execCmd, con)
+
+	case sliverpb.MsgExecuteChildrenReq:
+		execChildren := &sliverpb.ExecuteChildren{}
+		err := proto.Unmarshal(task.Response, execChildren)
+		if err != nil {
+			con.PrintErrorf("Failed to decode task response: %s\n", err)
+			return
+		}
+		exec.PrintExecuteChildren(execChildren, con)
 
 	case sliverpb.MsgSideloadReq:
 		sideload := &sliverpb.Sideload{}

@@ -20,16 +20,16 @@ package virtualization
 
 import (
 	"golang.org/x/sys/windows/registry"
-	"strings"	
 	"net"
+	"strings"
 )
 
 func GetVirtualizationInfo() string {
-	
+
 	if isVirtualizedByMac() {
 		return "Vbox/VMware"
 	}
-	virt:= virtualizationbyreg()
+	virt := virtualizationbyreg()
 	if virt != "" {
 		return virt
 	}
@@ -38,7 +38,7 @@ func GetVirtualizationInfo() string {
 
 func virtualizationbyreg() string {
 	registryPath := `SYSTEM\CurrentControlSet\Services`
-	key, err := registry.OpenKey(registry.LOCAL_MACHINE, registryPath, registry.READ)	
+	key, err := registry.OpenKey(registry.LOCAL_MACHINE, registryPath, registry.READ)
 	if err != nil {
 		return ""
 	}
@@ -48,7 +48,7 @@ func virtualizationbyreg() string {
 	}
 	for _, subKey := range subKeys {
 		lowerSubKey := strings.ToLower(subKey)
-		if (strings.Contains(lowerSubKey, "vmware") || strings.Contains(lowerSubKey, "vmhgfs") || strings.Contains(lowerSubKey, "vm3dmp") || strings.Contains(lowerSubKey, "vmci") || strings.Contains(lowerSubKey, "vmsrvc") || strings.Contains(lowerSubKey, "vboxguest") || strings.Contains(lowerSubKey, "vboxmouse") || strings.Contains(lowerSubKey, "vboxservice") || strings.Contains(lowerSubKey, "vboxwddm") || strings.Contains(lowerSubKey, "vboxsf") || strings.Contains(lowerSubKey, "vmx86") || strings.Contains(lowerSubKey, "vmxnet") || strings.Contains(lowerSubKey, "vmkbd") || strings.Contains(lowerSubKey, "vmtools") || strings.Contains(lowerSubKey, "vmicheartbeat") || strings.Contains(lowerSubKey, "vmicvss") || strings.Contains(lowerSubKey, "vmicguestinterface") || strings.Contains(lowerSubKey, "vmickvpexchange") || strings.Contains(lowerSubKey, "vmicshutdown")) {
+		if strings.Contains(lowerSubKey, "vmware") || strings.Contains(lowerSubKey, "vmhgfs") || strings.Contains(lowerSubKey, "vm3dmp") || strings.Contains(lowerSubKey, "vmci") || strings.Contains(lowerSubKey, "vmsrvc") || strings.Contains(lowerSubKey, "vboxguest") || strings.Contains(lowerSubKey, "vboxmouse") || strings.Contains(lowerSubKey, "vboxservice") || strings.Contains(lowerSubKey, "vboxwddm") || strings.Contains(lowerSubKey, "vboxsf") || strings.Contains(lowerSubKey, "vmx86") || strings.Contains(lowerSubKey, "vmxnet") || strings.Contains(lowerSubKey, "vmkbd") || strings.Contains(lowerSubKey, "vmtools") || strings.Contains(lowerSubKey, "vmicheartbeat") || strings.Contains(lowerSubKey, "vmicvss") || strings.Contains(lowerSubKey, "vmicguestinterface") || strings.Contains(lowerSubKey, "vmickvpexchange") || strings.Contains(lowerSubKey, "vmicshutdown") {
 			return "Vbox/VMware"
 		}
 	}
@@ -57,7 +57,7 @@ func virtualizationbyreg() string {
 }
 
 var virtualizationMacs = []string{
-	"00:05:69", // VMware	
+	"00:05:69", // VMware
 	"00:0C:29", // VMware
 	"00:1C:14", // VMware
 	"00:50:56", // VMware
@@ -80,5 +80,3 @@ func isVirtualizedByMac() bool {
 	}
 	return false
 }
-
-

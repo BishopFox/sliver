@@ -1,7 +1,6 @@
 package core
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 	"unicode"
@@ -344,7 +343,7 @@ func DisplayLine(l *Line, indent int) {
 			line += term.NewlineReturn
 		}
 
-		fmt.Print(line)
+		term.WriteString(line)
 	}
 }
 

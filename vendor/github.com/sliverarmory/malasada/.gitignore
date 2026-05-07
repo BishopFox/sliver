@@ -1,0 +1,32 @@
+# OS / editor
+.DS_Store
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+.cache/
+
+# Go
+*.exe
+*.test
+*.out
+*.prof
+coverage.out
+cover.out
+go.work
+go.work.sum
+
+# Common local build outputs
+malasada
+malasada.exe
+
+# Zig
+zig-cache/
+zig-out/
+
+# Test harness artifacts
+testdata/**/*.so
+testdata/**/*.bin
+testdata/runner/runner
+testdata/runner/runner.exe

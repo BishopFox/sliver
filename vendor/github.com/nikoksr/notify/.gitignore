@@ -1,0 +1,13 @@
+# Folders
+bin/
+build/
+.idea/
+.vscode/
+tmp/
+
+# Files
+*.log
+.gh-docker-token
+.env
+coverage.out
+cover.html

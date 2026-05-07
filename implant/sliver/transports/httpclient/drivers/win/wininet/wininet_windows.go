@@ -213,6 +213,20 @@ func HTTPSendRequestW(
 	return nil
 }
 
+// InternetCloseHandle is from wininet.h
+func InternetCloseHandle(hndl uintptr) error {
+	var err error
+	var proc string = "InternetCloseHandle"
+	var success uintptr
+
+	success, _, err = wininet.NewProc(proc).Call(hndl)
+	if success == 0 {
+		return fmt.Errorf("%s: %w", proc, err)
+	}
+
+	return nil
+}
+
 // InternetConnectW is from wininet.h
 func InternetConnectW(
 	sessionHndl uintptr,
@@ -437,7 +451,7 @@ func InternetErrorDlg(
 	)
 	// we expect 12032 if user hits okay, otherwise we return the response code as an error
 	if uint32(success) != ERROR_INTERNET_FORCE_RETRY {
-		return success, fmt.Errorf("%s: %s", proc, success)
+		return success, fmt.Errorf("%s: %v", proc, success)
 	}
 
 	*lppvData = buf

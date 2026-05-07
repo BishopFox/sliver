@@ -2,22 +2,13 @@ Sliver supports "external builders," which allow a Sliver server to offload impl
 
 External builders can also be used to create custom modifications to the implant source code, or potentially replace the default Sliver implant entirely.
 
-```
-          MacOS .dylib Implant Builds
-      ┌─────────────────────────────────────┐
-      │                                     │
-      ▼                                     │
-┌───────────┐                         ┌─────┴─────┐
-│ MacOS     │ Multiplayer             │ Linux     │
-│ Builder   ├────────────────────────►│ Server    │
-│           │                         │           │
-└───────────┘                         └───────────┘
-                                          ▲
-┌───────────┐                             │
-│Windows    │ Multiplayer                 │
-│ Operator  ├─────────────────────────────┘
-│           │
-└───────────┘
+```mermaid:minh=340
+flowchart LR
+    subgraph "External MacOS Builder"
+        builder["MacOS Builder"] -- "Multiplayer" --> server["Linux Server"]
+        operator["Windows Operator"] -- "Multiplayer" --> server
+        server -- ".dylib build task" --> builder
+    end
 ```
 
 ## Builders
@@ -32,8 +23,6 @@ Any `sliver-server` binary can be started as a builder process using [operator c
 
 When started as a builder, the Sliver process will mirror log output to stdout by default, however this can be disabled (see `sliver-server builder --help`).
 
-**⚠️ IMPORTANT:** Make sure the builder and server have identical `http-c2.json` configuration files to avoid incompatibility problems.
-
 **⚠️ IMPORTANT:** Builders must have unique names, by default the builder's hostname will be used, but this can be changed using the `--name` cli flag.
 
 #### External Builds
@@ -47,6 +36,7 @@ sliver > builders
 =============================== ========== =========== ============== ==========================
  molochs-MacBook-Pro-111.local   moloch     sliver      darwin/arm64   EXECUTABLE:linux/386
                                                                        EXECUTABLE:linux/amd64
+                                                                       EXECUTABLE:linux/arm64
                                                                        EXECUTABLE:windows/386
                                                                        EXECUTABLE:windows/amd64
                                                                        EXECUTABLE:darwin/amd64
@@ -56,10 +46,14 @@ sliver > builders
                                                                        SHARED_LIB:darwin/amd64
                                                                        SHARED_LIB:darwin/arm64
                                                                        SHARED_LIB:linux/amd64
+                                                                       SHARED_LIB:linux/arm64
                                                                        SERVICE:windows/386
                                                                        SERVICE:windows/amd64
                                                                        SHELLCODE:windows/386
                                                                        SHELLCODE:windows/amd64
+                                                                       SHELLCODE:darwin/arm64
+                                                                       SHELLCODE:linux/amd64
+                                                                       SHELLCODE:linux/arm64
 ```
 
 Use the `--external-builder` flag to offload a `generate` or `generate beacon` command onto an external builder:

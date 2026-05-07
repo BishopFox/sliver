@@ -145,14 +145,14 @@ func StopListener(id uint32) {
 }
 
 // SendToPeer - Forward an envelope to a peer
-func SendToPeer(envelope *pb.Envelope) (bool, error) {
+func SendToPeer(envelope *pb.Envelope) (int64, bool, error) {
 	pivotPeerEnvelope := &pb.PivotPeerEnvelope{}
 	err := proto.Unmarshal(envelope.Data, pivotPeerEnvelope)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Failed to unmarshal peer envelope: %s", err)
 		// {{end}}
-		return false, err
+		return 0, false, err
 	}
 
 	// {{if .Config.Debug}}
@@ -164,7 +164,7 @@ func SendToPeer(envelope *pb.Envelope) (bool, error) {
 		// {{if .Config.Debug}}
 		log.Printf("Failed to find next peer id: %s", err)
 		// {{end}}
-		return false, err
+		return 0, false, err
 	}
 
 	sent := false // Controls iteration of outer loop
@@ -183,9 +183,9 @@ func SendToPeer(envelope *pb.Envelope) (bool, error) {
 		// {{if .Config.Debug}}
 		log.Printf("Failed to find peer with id %d", nextPeerID)
 		// {{end}}
-		return false, errors.New("peer not found")
+		return nextPeerID, false, errors.New("peer not found")
 	}
-	return sent, nil
+	return nextPeerID, sent, nil
 }
 
 func findNextPeerID(pivotPeerEnvelope *pb.PivotPeerEnvelope) (int64, error) {

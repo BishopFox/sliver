@@ -1,10 +1,15 @@
 package websites
 
 import (
+	"context"
+	"strings"
+
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -26,15 +31,64 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	})
 	carapace.Gen(websitesCmd).PositionalCompletion(WebsiteNameCompleter(con))
 
+	websitesListCmd := &cobra.Command{
+		Use:   consts.ListStr,
+		Short: "List configured websites",
+		Long:  help.GetHelpFor([]string{consts.WebsitesStr, consts.ListStr}),
+		Run: func(cmd *cobra.Command, args []string) {
+			ListWebsites(cmd, con, args)
+		},
+	}
+	websitesCmd.AddCommand(websitesListCmd)
+
+	websitesShowCmd := &cobra.Command{
+		Use:   "show [name]",
+		Short: "Show contents of a website",
+		Long:  help.GetHelpFor([]string{consts.WebsitesStr}),
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			ListWebsiteContent(args[0], con)
+		},
+	}
+	carapace.Gen(websitesShowCmd).PositionalCompletion(WebsiteNameCompleter(con))
+	websitesShowCmd.ValidArgsFunction = func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		ws, err := con.Rpc.Websites(context.Background(), &commonpb.Empty{})
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
+		out := []string{}
+		for _, w := range ws.Websites {
+			if strings.HasPrefix(w.Name, toComplete) {
+				out = append(out, w.Name)
+			}
+		}
+		return out, cobra.ShellCompDirectiveNoFileComp
+	}
+	websitesCmd.AddCommand(websitesShowCmd)
+
 	websitesRmCmd := &cobra.Command{
-		Use:   consts.RmStr,
+		Use:   consts.RmStr + " [name]",
 		Short: "Remove an entire website and all of its contents",
 		Long:  help.GetHelpFor([]string{consts.WebsitesStr, consts.RmStr}),
+		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			WebsiteRmCmd(cmd, con, args)
 		},
 	}
 	carapace.Gen(websitesRmCmd).PositionalCompletion(WebsiteNameCompleter(con))
+	websitesRmCmd.ValidArgsFunction = func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		ws, err := con.Rpc.Websites(context.Background(), &commonpb.Empty{})
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
+		out := []string{}
+		for _, w := range ws.Websites {
+			if strings.HasPrefix(w.Name, toComplete) {
+				out = append(out, w.Name)
+			}
+		}
+		return out, cobra.ShellCompDirectiveNoFileComp
+	}
 	websitesCmd.AddCommand(websitesRmCmd)
 
 	websitesRmWebContentCmd := &cobra.Command{
@@ -74,6 +128,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		(*comp)["content"] = carapace.ActionFiles().Tag("content directory/files")
 		(*comp)["website"] = WebsiteNameCompleter(con)
 	})
+	completers.RegisterLocalFilePathFlagCompletion(websitesContentCmd, "content")
 	websitesCmd.AddCommand(websitesContentCmd)
 
 	websitesContentTypeCmd := &cobra.Command{

@@ -25,13 +25,15 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind("update", false, updateCmd, func(f *pflag.FlagSet) {
 		f.BoolP("prereleases", "P", false, "include pre-released (unstable) versions")
 		f.StringP("proxy", "p", "", "specify a proxy url (e.g. http://localhost:8080)")
-		f.StringP("save", "s", "", "save downloaded files to specific directory (default user home dir)")
+		f.StringP("save", "s", "", "save downloaded files to specific directory (default downloads dir)")
 		f.BoolP("insecure", "I", false, "skip tls certificate validation")
-		f.IntP("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+		f.Bool("force", false, "skip version comparison and download the latest release")
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
 	flags.BindFlagCompletions(updateCmd, func(comp *carapace.ActionMap) {
 		(*comp)["proxy"] = completers.LocalProxyCompleter()
 	})
+	completers.RegisterLocalFilePathFlagCompletion(updateCmd, "save")
 
 	versionCmd := &cobra.Command{
 		Use:   consts.VersionStr,

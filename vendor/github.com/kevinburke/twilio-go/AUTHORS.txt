@@ -1,0 +1,26 @@
+Andrei Shneider <megaherz@bk.ru>
+Andrey Mak <andrey.mak@yahoo.com>
+Douglas Danger Manley <doug.manley@gmail.com>
+Duncan Crawford <duncan@noughtsandones.co.uk>
+Elijah Oyekunle <eloyekunle@gmail.com>
+Fabrizio Moscon <mosconfabrizio@gmail.com>
+Gagan Kalra <gagan.logic@gmail.com>
+Joey Lee <jq@yeoji.com>
+Jon Bretman <jon.bretman@gmail.com>
+Josh Hornby <hello@joshhornby.co.uk>
+Julie Laver <jlaver@MacBook-Pro-2.local>
+Kelmer Perez <kperez@wyzant.com>
+Kevin Burke <kevin@burke.dev>
+Kevin Golding <kevin@kgolding.co.uk>
+Leonel Quinteros <leonel.quinteros@gmail.com>
+Lim Yue Chuan <shasderias@gmail.com>
+Luis Pires <invillia.luis.pires@ext.gympass.com>
+MOZGIII <mike-n@narod.ru>
+Maksym Pavlenko <pavlenko.maksym@gmail.com>
+Manatsawin Hanmongkolchai <manatsawin+git@lmwn.com>
+Marcus Westin <marcus.westin@gmail.com>
+Minko Gechev <mgechev@gmail.com>
+Scott Gose <gose@facetedthought.com>
+Tomasz Tomalak <tomasztomalak@o2.pl>
+WilliamNHarvey <williamnharvey@gmail.com>
+vmikitich <vlad.mikitich@softeq.com>

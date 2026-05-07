@@ -1,142 +1,159 @@
 package generate
 
 import (
-	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/Binject/go-donut/donut"
-	"github.com/bishopfox/sliver/server/configs"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	wasmdonut "github.com/sliverarmory/wasm-donut"
+)
+
+const (
+	defaultDonutEntropy  = wasmdonut.DonutEntropyNone
+	defaultDonutCompress = wasmdonut.DonutCompressNone
+	defaultDonutExitOpt  = wasmdonut.DonutExitThread
+	defaultDonutBypass   = wasmdonut.DonutBypassContinue
+	defaultDonutHeaders  = wasmdonut.DonutHeadersOverwrite
 )
 
 // DonutShellcodeFromFile returns a Donut shellcode for the given PE file
-func DonutShellcodeFromFile(filePath string, arch string, dotnet bool, params string, className string, method string) (data []byte, err error) {
+func DonutShellcodeFromFile(filePath string, arch string, dotnet bool, params string, className string, method string, shellcodeConfig *clientpb.ShellcodeConfig) (data []byte, err error) {
 	pe, err := os.ReadFile(filePath)
 	if err != nil {
 		return
 	}
 	isDLL := (filepath.Ext(filePath) == ".dll")
-	return DonutShellcodeFromPE(pe, arch, dotnet, params, className, method, isDLL, false, true)
+	return DonutShellcodeFromPE(pe, arch, dotnet, params, className, method, isDLL, false, true, shellcodeConfig)
 }
 
 // DonutShellcodeFromPE returns a Donut shellcode for the given PE file
-func DonutShellcodeFromPE(pe []byte, arch string, dotnet bool, params string, className string, method string, isDLL bool, isUnicode bool, createNewThread bool) (data []byte, err error) {
+func DonutShellcodeFromPE(pe []byte, arch string, dotnet bool, params string, className string, method string, isDLL bool, isUnicode bool, createNewThread bool, shellcodeConfig *clientpb.ShellcodeConfig) (data []byte, err error) {
 	ext := ".exe"
 	if isDLL {
 		ext = ".dll"
 	}
-	var isUnicodeVar uint32
-	if isUnicode {
-		isUnicodeVar = 1
-	}
+	_ = dotnet
 
-	thread := uint32(0)
-	if createNewThread {
-		thread = 1
-	}
-
-	serverConf := configs.GetServerConfig()
-
+	donutOpts := normalizeDonutConfig(shellcodeConfig, createNewThread, isUnicode)
 	donutArch := getDonutArch(arch)
-	// We don't use DonutConfig.Thread = 1 because we create our own remote thread
-	// in the task runner, and we're doing some housekeeping on it.
-	// Having DonutConfig.Thread = 1 means another thread will be created
-	// inside the one we created, and that will fuck up our monitoring
-	// since we can't grab a handle to the thread created by the Donut loader,
-	// and thus the waitForCompletion call will most of the time never complete.
-	config := donut.DonutConfig{
-		Type:       getDonutType(ext, false),
-		InstType:   donut.DONUT_INSTANCE_PIC,
-		Parameters: params,
-		Class:      className,
-		Method:     method,
-		Bypass:     serverConf.DonutBypass, // 1=skip, 2=abort on fail, 3=continue on fail.
-		Format:     uint32(1),              // 1=raw, 2=base64, 3=c, 4=ruby, 5=python, 6=powershell, 7=C#, 8=hex
-		Arch:       donutArch,
-		Entropy:    0,         // 1=disable, 2=use random names, 3=random names + symmetric encryption (default)
-		Compress:   uint32(1), // 1=disable, 2=LZNT1, 3=Xpress, 4=Xpress Huffman
-		ExitOpt:    1,         // exit thread
-		Unicode:    isUnicodeVar,
-		Thread:     thread,
+
+	opts := wasmdonut.GenerateOptions{
+		Ext:      ext,
+		Args:     params,
+		Class:    className,
+		Method:   method,
+		Arch:     donutArch,
+		Bypass:   donutOpts.bypass,
+		Headers:  donutOpts.headers,
+		Entropy:  donutOpts.entropy,
+		Compress: donutOpts.compress,
+		ExitOpt:  donutOpts.exitOpt,
+		Thread:   donutOpts.thread,
+		Unicode:  donutOpts.unicode,
+		OEP:      donutOpts.oep,
 	}
-	return getDonut(pe, &config)
+
+	result, err := wasmdonut.Generate(context.Background(), pe, ext, opts)
+	if err != nil {
+		return nil, err
+	}
+	return addStackCheck(result.Loader), nil
+}
+
+type donutOptions struct {
+	entropy  int
+	compress int
+	exitOpt  int
+	bypass   int
+	headers  int
+	thread   bool
+	unicode  bool
+	oep      uint32
+}
+
+func normalizeDonutConfig(config *clientpb.ShellcodeConfig, fallbackThread bool, fallbackUnicode bool) donutOptions {
+	opts := donutOptions{
+		entropy:  defaultDonutEntropy,
+		compress: defaultDonutCompress,
+		exitOpt:  defaultDonutExitOpt,
+		bypass:   defaultDonutBypass,
+		headers:  defaultDonutHeaders,
+		thread:   fallbackThread,
+		unicode:  fallbackUnicode,
+	}
+	if config == nil {
+		return opts
+	}
+	if config.Entropy >= 1 && config.Entropy <= 3 {
+		opts.entropy = int(config.Entropy)
+	}
+	if config.Compress >= 1 && config.Compress <= 2 {
+		opts.compress = int(config.Compress)
+	}
+	if config.ExitOpt >= 1 && config.ExitOpt <= 3 {
+		opts.exitOpt = int(config.ExitOpt)
+	}
+	if config.Bypass >= 1 && config.Bypass <= 3 {
+		opts.bypass = int(config.Bypass)
+	}
+	if config.Headers >= 1 && config.Headers <= 2 {
+		opts.headers = int(config.Headers)
+	}
+	opts.thread = config.Thread
+	opts.unicode = config.Unicode
+	if config.OEP > 0 {
+		opts.oep = config.OEP
+	}
+	return opts
 }
 
 // DonutFromAssembly - Generate a donut shellcode from a .NET assembly
-func DonutFromAssembly(assembly []byte, isDLL bool, arch string, params string, method string, className string, appDomain string) ([]byte, error) {
+func DonutFromAssembly(assembly []byte, isDLL bool, arch string, params string, method string, className string, appDomain string, runtime string) ([]byte, error) {
 	ext := ".exe"
 	if isDLL {
 		ext = ".dll"
 	}
 	donutArch := getDonutArch(arch)
-	config := donut.DefaultConfig()
-	config.Bypass = 3
-	config.Runtime = "v4.0.30319" // we might want to make this configurable
-	config.Format = 1
-	config.Arch = donutArch
-	config.Class = className
-	config.Parameters = params
-	config.Domain = appDomain
-	config.Method = method
-	config.Entropy = 3
-	config.Unicode = 0
-	config.Type = getDonutType(ext, true)
-	return getDonut(assembly, config)
+
+	opts := wasmdonut.GenerateOptions{
+		Ext:      ext,
+		Args:     params,
+		Class:    className,
+		Method:   method,
+		Domain:   appDomain,
+		Runtime:  runtime,
+		Arch:     donutArch,
+		Entropy:  wasmdonut.DonutEntropyDefault,
+		Compress: defaultDonutCompress,
+		ExitOpt:  defaultDonutExitOpt,
+	}
+	result, err := wasmdonut.Generate(context.Background(), assembly, ext, opts)
+	if err != nil {
+		return nil, err
+	}
+	return addStackCheck(result.Loader), nil
 }
 
-func getDonut(data []byte, config *donut.DonutConfig) (shellcode []byte, err error) {
-	buf := bytes.NewBuffer(data)
-	res, err := donut.ShellcodeFromBytes(buf, config)
-	if err != nil {
-		return
+func getDonutArch(arch string) int {
+	donutArch := wasmdonut.DonutArchX84
+	switch strings.ToLower(arch) {
+	case "x32", "386":
+		donutArch = wasmdonut.DonutArchX86
+	case "x64", "amd64":
+		donutArch = wasmdonut.DonutArchX64
+	case "x84":
+		donutArch = wasmdonut.DonutArchX84
 	}
-	shellcode = res.Bytes()
+	return donutArch
+}
+
+func addStackCheck(shellcode []byte) []byte {
 	stackCheckPrologue := []byte{
 		// Check stack is 8 byte but not 16 byte aligned or else errors in LoadLibrary
 		0x48, 0x83, 0xE4, 0xF0, // and rsp,0xfffffffffffffff0
 		0x48, 0x83, 0xC4, 0x08, // add rsp,0x8
 	}
-	shellcode = append(stackCheckPrologue, shellcode...)
-	return
-}
-
-func getDonutArch(arch string) donut.DonutArch {
-	var donutArch donut.DonutArch
-	switch strings.ToLower(arch) {
-	case "x32", "386":
-		donutArch = donut.X32
-	case "x64", "amd64":
-		donutArch = donut.X64
-	case "x84":
-		donutArch = donut.X84
-	default:
-		donutArch = donut.X84
-	}
-	return donutArch
-}
-
-func getDonutType(ext string, dotnet bool) donut.ModuleType {
-	var donutType donut.ModuleType
-	switch strings.ToLower(filepath.Ext(ext)) {
-	case ".exe", ".bin":
-		if dotnet {
-			donutType = donut.DONUT_MODULE_NET_EXE
-		} else {
-			donutType = donut.DONUT_MODULE_EXE
-		}
-	case ".dll":
-		if dotnet {
-			donutType = donut.DONUT_MODULE_NET_DLL
-		} else {
-			donutType = donut.DONUT_MODULE_DLL
-		}
-	case ".xsl":
-		donutType = donut.DONUT_MODULE_XSL
-	case ".js":
-		donutType = donut.DONUT_MODULE_JS
-	case ".vbs":
-		donutType = donut.DONUT_MODULE_VBS
-	}
-	return donutType
+	return append(stackCheckPrologue, shellcode...)
 }

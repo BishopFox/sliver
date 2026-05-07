@@ -6,6 +6,8 @@ The server and client support MacOS, Windows, and Linux. Implants are supported 
 
 [![Release](https://github.com/BishopFox/sliver/actions/workflows/autorelease.yml/badge.svg)](https://github.com/BishopFox/sliver/actions/workflows/autorelease.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/BishopFox/sliver)](https://goreportcard.com/report/github.com/BishopFox/sliver) [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
+Visit [https://sliver.sh/](https://sliver.sh/) for tutorials and documentation.
+
 ### Features
 
 - Dynamic code generation
@@ -39,11 +41,6 @@ Please checkout the [wiki](https://sliver.sh/), or start a [GitHub discussion](h
 
 See the [wiki](https://sliver.sh/docs?name=Compile+from+Source).
 
-### Feedback
-
-Please take a moment and fill out [our survey](https://forms.gle/SwVsHFNh24ChG58C6).
-
 ### License - GPLv3
 
 Sliver is licensed under [GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html), some sub-components may have separate licenses. See their respective subdirectories in this project for details.
-

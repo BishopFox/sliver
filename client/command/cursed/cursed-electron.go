@@ -85,7 +85,7 @@ func avadaKedavraElectron(electronExe string, session *clientpb.Session, cmd *co
 	if electronProcess != nil {
 		con.PrintWarnf("Found running '%s' process: %d (ppid: %d)\n", path.Base(electronExe), electronProcess.GetPid(), electronProcess.GetPpid())
 		con.PrintWarnf("Sliver will need to kill and restart the process in order to perform code injection.\n")
-		con.PrintWarnf("%sDATA LOSS MAY OCCUR!%s\n", console.Bold, console.Normal)
+		con.PrintWarnf("%s\n", console.StyleBold.Render("DATA LOSS MAY OCCUR!"))
 		con.Printf("\n")
 		confirm := false
 		err = forms.Confirm("Kill and restart the process?", &confirm)

@@ -2,7 +2,9 @@ import AsciinemaPlayer from "@/components/asciinema";
 import { SliversIcon } from "@/components/icons/slivers";
 import TutorialCard from "@/components/tutorial-card";
 import { Themes } from "@/util/themes";
-import { Card, CardBody, CardHeader, Divider } from "@heroui/react";
+import { faDownload, faExternalLink } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { Button, Card, Separator } from "@heroui/react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/router";
 import React from "react";
@@ -10,23 +12,15 @@ import React from "react";
 export default function Home() {
   const router = useRouter();
   const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = React.useState(false);
-
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const isDarkTheme = React.useMemo(() => {
-    if (!mounted) {
-      return true;
-    }
     return (resolvedTheme || Themes.DARK) !== Themes.LIGHT;
-  }, [mounted, resolvedTheme]);
+  }, [resolvedTheme]);
 
   return (
     <div className="mt-6 flex flex-col gap-6 px-4 sm:px-6 lg:grid lg:grid-cols-12 lg:px-12">
       <div className="lg:col-span-6">
-        <div className="w-full overflow-hidden rounded-xl border border-default-200 bg-content1 shadow-sm dark:border-default-100/60">
+        <div className="w-full overflow-hidden rounded-xl border border-separator bg-surface shadow-sm">
           <div className="w-full overflow-x-auto lg:overflow-visible">
             <AsciinemaPlayer
               src="/asciinema/intro.cast"
@@ -42,14 +36,14 @@ export default function Home() {
       </div>
       <div className="lg:col-span-6 lg:ml-2">
         <Card className="mx-auto max-w-3xl lg:mx-0">
-          <CardHeader>
+          <Card.Header>
             <div className="flex items-center">
               <SliversIcon className="mr-2" height={28} />
               <span className="text-2xl">Sliver Command &amp; Control</span>
             </div>
-          </CardHeader>
-          <Divider />
-          <CardBody>
+          </Card.Header>
+          <Separator />
+          <Card.Content>
             <p className={isDarkTheme ? "prose dark:prose-invert" : "prose prose-slate"}>
               Sliver is a powerful command and control (C2) framework designed
               to provide advanced capabilities for covertly managing and
@@ -64,12 +58,42 @@ export default function Home() {
               making it an indispensable tool for conducting comprehensive
               offensive security operations.
             </p>
-          </CardBody>
+            <div className="mt-4 flex w-full gap-3">
+              <Button
+                className="flex-1"
+                variant="primary"
+                onPress={() => {
+                  window.open(
+                    "https://github.com/BishopFox/sliver/releases/latest",
+                    "_blank",
+                    "noopener,noreferrer",
+                  );
+                }}
+              >
+                <FontAwesomeIcon icon={faDownload} />
+                Download Latest Release
+              </Button>
+              <Button
+                className="sliver-armory-ghost flex-1"
+                variant="ghost"
+                onPress={() => {
+                  window.open(
+                    "https://github.com/sliverarmory",
+                    "_blank",
+                    "noopener,noreferrer",
+                  );
+                }}
+              >
+                Visit the Armory
+                <FontAwesomeIcon icon={faExternalLink} />
+              </Button>
+            </div>
+          </Card.Content>
         </Card>
       </div>
 
       <div className="col-span-12 mt-8">
-        <Divider />
+        <Separator />
       </div>
 
       <div className="col-span-12 mt-8">

@@ -21,20 +21,26 @@ package c2
 import (
 	"bufio"
 	"bytes"
+	"crypto/ed25519"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/netip"
+	"strings"
+	"sync"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/certs"
 	"github.com/bishopfox/sliver/server/core"
+	serverCrypto "github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/generate"
 	serverHandlers "github.com/bishopfox/sliver/server/handlers"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/netstack"
+	"github.com/bishopfox/sliver/util/minisign"
+	"github.com/hashicorp/yamux"
 	"golang.zx2c4.com/wireguard/conn"
 	"golang.zx2c4.com/wireguard/device"
 	"google.golang.org/protobuf/proto"
@@ -42,7 +48,15 @@ import (
 
 var (
 	wgLog = log.NamedLogger("c2", "wg")
-	tunIP = "100.64.0.1" // Don't let user configure this for now
+	tunIP = certs.C2WireGuardServerIP // Don't let user configure this for now
+)
+
+const (
+	wgYamuxPreface = mtlsYamuxPreface
+)
+
+var (
+	wgYamuxPrefaceBytes = []byte(wgYamuxPreface)
 )
 
 // StartWGListener - First creates an inet.af network stack.
@@ -105,14 +119,25 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 		return nil, nil, nil, err
 	}
 
+	validPeerCount := 0
 	for k, v := range peers {
+		tunPeerIP := strings.TrimSpace(v)
+		if tunPeerIP == "" {
+			wgLog.Warnf("Skipping wireguard peer %q with empty tunnel IP in the database", k)
+			continue
+		}
+		if _, err := netip.ParseAddr(tunPeerIP); err != nil {
+			wgLog.Warnf("Skipping wireguard peer %q with invalid tunnel IP %q: %v", k, tunPeerIP, err)
+			continue
+		}
+		validPeerCount++
 		fmt.Fprintf(wgConf, "public_key=%s\n", k)
-		fmt.Fprintf(wgConf, "allowed_ip=%s/32\n", v)
+		fmt.Fprintf(wgConf, "allowed_ip=%s/32\n", tunPeerIP)
 	}
 
 	// Set wg device config
 	if err := dev.IpcSetOperation(bufio.NewReader(wgConf)); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, fmt.Errorf("failed to apply wireguard interface config (%d valid peer entries): %w", validPeerCount, err)
 	}
 
 	err = dev.Up()
@@ -143,6 +168,8 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 
 // acceptKeyExchangeConnection - accept connections to key exchange socket
 func acceptKeyExchangeConnection(ln net.Listener) {
+	defer recoverAndLogPanic(wgLog.Errorf, "wireguard acceptKeyExchangeConnection")
+
 	wgLog.Printf("Polling for connections to key exchange listener")
 	for {
 		conn, err := ln.Accept()
@@ -163,15 +190,12 @@ func acceptKeyExchangeConnection(ln net.Listener) {
 // Generate new implant wg keys. Generate new unique IP for implant.
 // Write all retrieved data to socket connection.
 func handleKeyExchangeConnection(conn net.Conn) {
+	defer recoverAndLogPanic(wgLog.Errorf, "wireguard handleKeyExchangeConnection")
+
 	wgLog.Infof("Handling connection to key exchange listener")
 
 	defer conn.Close()
-	ip, err := generate.GenerateUniqueIP()
-	if err != nil {
-		wgLog.Errorf("Failed to generate unique IP: %s", err)
-	}
-
-	implantPrivKey, _, err := certs.ImplantGenerateWGKeys(ip.String())
+	ip, implantPrivKey, _, err := generate.GenerateUniqueWGPeerKeys()
 	if err != nil {
 		wgLog.Errorf("Failed to generate new wg keys: %s", err)
 	}
@@ -181,13 +205,15 @@ func handleKeyExchangeConnection(conn net.Conn) {
 		wgLog.Errorf("Failed to retrieve existing wg server keys: %s", err)
 	} else {
 		wgLog.Infof("Successfully generated new wg keys")
-		message := implantPrivKey + "|" + serverPubKey + "|" + string(ip)
+		message := implantPrivKey + "|" + serverPubKey + "|" + ip
 		wgLog.Debugf("Sending new wg keys and IP: %s", message)
 		conn.Write([]byte(message))
 	}
 }
 
 func acceptWGSliverConnections(ln net.Listener) {
+	defer recoverAndLogPanic(wgLog.Errorf, "wireguard acceptWGSliverConnections")
+
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -202,59 +228,163 @@ func acceptWGSliverConnections(ln net.Listener) {
 }
 
 func handleWGSliverConnection(conn net.Conn) {
+	defer recoverAndLogPanic(wgLog.Errorf, "wireguard handleWGSliverConnection")
+
 	wgLog.Infof("Accepted incoming connection: %s", conn.RemoteAddr())
 
 	implantConn := core.NewImplantConnection("wg", conn.RemoteAddr().String())
-	implantConn.UpdateLastMessage()
 	defer func() {
+		wgLog.Debugf("wireguard connection closing")
 		implantConn.Cleanup()
 		conn.Close()
 	}()
 
-	done := make(chan bool)
+	br := bufio.NewReader(conn)
+	bufferedConn := &wgBufferedConn{Conn: conn, r: br}
+
+	preface, err := br.Peek(len(wgYamuxPrefaceBytes))
+	if err == nil && bytes.Equal(preface, wgYamuxPrefaceBytes) {
+		if _, err := br.Discard(len(wgYamuxPrefaceBytes)); err != nil {
+			wgLog.Errorf("Failed to discard yamux preface: %v", err)
+			return
+		}
+		handleWGSliverConnectionYamux(bufferedConn, implantConn)
+		return
+	}
+
+	wgLog.Warnf("Rejecting legacy wireguard connection (missing yamux preface) from %s", conn.RemoteAddr())
+}
+
+type wgBufferedConn struct {
+	net.Conn
+	r *bufio.Reader
+}
+
+func (c *wgBufferedConn) Read(p []byte) (int, error) {
+	return c.r.Read(p)
+}
+
+func handleWGSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConnection) {
+	defer recoverAndLogPanic(wgLog.Errorf, "wireguard handleWGSliverConnectionYamux")
+
+	session, err := yamux.Server(conn, nil)
+	if err != nil {
+		wgLog.Errorf("Failed to initialize yamux session: %v", err)
+		return
+	}
+	defer session.Close()
+
+	done := make(chan struct{})
+	var doneOnce sync.Once
+	closeDone := func() {
+		doneOnce.Do(func() {
+			close(done)
+			session.Close()
+		})
+	}
+
+	streamSem := make(chan struct{}, mtlsYamuxMaxConcurrentStreams)
+	sendSem := make(chan struct{}, mtlsYamuxMaxConcurrentSends)
+	handlers := serverHandlers.GetHandlers()
+
 	go func() {
-		defer func() {
-			done <- true
-		}()
-		handlers := serverHandlers.GetHandlers()
+		defer closeDone()
+		defer recoverAndLogPanic(wgLog.Errorf, "wireguard yamux accept loop")
 		for {
-			envelope, err := socketWGReadEnvelope(conn)
+			stream, err := session.Accept()
 			if err != nil {
-				wgLog.Errorf("Socket read error %s", err)
+				if !errors.Is(err, io.EOF) {
+					wgLog.Errorf("yamux accept error: %v", err)
+				}
 				return
 			}
-			implantConn.UpdateLastMessage()
-			if envelope.ID != 0 {
-				implantConn.RespMutex.RLock()
-				if resp, ok := implantConn.Resp[envelope.ID]; ok {
-					resp <- envelope // Could deadlock, maybe want to investigate better solutions
-				}
-				implantConn.RespMutex.RUnlock()
-			} else if handler, ok := handlers[envelope.Type]; ok {
-				go func() {
-					respEnvelope := handler(implantConn, envelope.Data)
-					if respEnvelope != nil {
-						implantConn.Send <- respEnvelope
-					}
+
+			select {
+			case streamSem <- struct{}{}:
+			case <-done:
+				stream.Close()
+				return
+			}
+
+			go func(stream net.Conn) {
+				defer func() {
+					<-streamSem
 				}()
+				defer recoverAndLogPanic(wgLog.Errorf, "wireguard yamux stream")
+				defer stream.Close()
+
+				envelope, err := socketWGReadEnvelope(stream)
+				if err != nil {
+					wgLog.Errorf("Stream read error %v", err)
+					closeDone()
+					return
+				}
+				implantConn.UpdateLastMessage()
+
+				if envelope.ID != 0 {
+					implantConn.RespMutex.RLock()
+					resp, ok := implantConn.Resp[envelope.ID]
+					implantConn.RespMutex.RUnlock()
+					if ok {
+						resp <- envelope
+					}
+					return
+				}
+
+				if handler, ok := handlers[envelope.Type]; ok {
+					go func(envelope *sliverpb.Envelope) {
+						defer recoverAndLogPanic(wgLog.Errorf, "wireguard message handler")
+
+						respEnvelope := handler(implantConn, envelope.Data)
+						if respEnvelope != nil {
+							implantConn.Send <- respEnvelope
+						}
+					}(envelope)
+				}
+			}(stream)
+		}
+	}()
+
+	go func() {
+		defer closeDone()
+		defer recoverAndLogPanic(wgLog.Errorf, "wireguard yamux sender loop")
+		for {
+			select {
+			case envelope := <-implantConn.Send:
+				select {
+				case sendSem <- struct{}{}:
+				case <-done:
+					return
+				}
+
+				go func(envelope *sliverpb.Envelope) {
+					defer func() {
+						<-sendSem
+					}()
+					defer recoverAndLogPanic(wgLog.Errorf, "wireguard yamux sender stream")
+
+					stream, err := session.Open()
+					if err != nil {
+						wgLog.Errorf("yamux open stream error: %v", err)
+						closeDone()
+						return
+					}
+					defer stream.Close()
+
+					if err := socketWGWriteEnvelope(stream, envelope); err != nil {
+						wgLog.Errorf("Stream write failed %v", err)
+						closeDone()
+						return
+					}
+				}(envelope)
+
+			case <-done:
+				return
 			}
 		}
 	}()
 
-Loop:
-	for {
-		select {
-		case envelope := <-implantConn.Send:
-			err := socketWGWriteEnvelope(conn, envelope)
-			if err != nil {
-				wgLog.Errorf("Socket write failed %s", err)
-				break Loop
-			}
-		case <-done:
-			break Loop
-		}
-	}
-	wgLog.Debugf("Closing connection to implant %s", implantConn.ID)
+	<-done
 }
 
 // socketWGWriteEnvelope - Writes a message to the wireguard socket using length prefix framing
@@ -266,21 +396,43 @@ func socketWGWriteEnvelope(connection net.Conn, envelope *sliverpb.Envelope) err
 		wgLog.Errorf("Envelope marshaling error: %v", err)
 		return err
 	}
+
+	// Prepend a fixed-length raw minisign signature (binary) so the implant can
+	// verify messages independent of the WireGuard layer.
+	rawSig := minisign.SignRawBuf(*serverCrypto.MinisignServerPrivateKey(), data)
+	if _, err := connection.Write(rawSig[:]); err != nil {
+		return err
+	}
+
 	dataLengthBuf := new(bytes.Buffer)
-	binary.Write(dataLengthBuf, binary.LittleEndian, uint32(len(data)))
-	connection.Write(dataLengthBuf.Bytes())
-	connection.Write(data)
+	if err := binary.Write(dataLengthBuf, binary.LittleEndian, uint32(len(data))); err != nil {
+		wgLog.Errorf("Envelope marshaling error: %v", err)
+		return err
+	}
+	if _, err := connection.Write(dataLengthBuf.Bytes()); err != nil {
+		return err
+	}
+	if _, err := connection.Write(data); err != nil {
+		return err
+	}
 	return nil
 }
 
 // socketWGReadEnvelope - Reads a message from the wireguard connection using length prefix framing
 // returns messageType, message, and error
 func socketWGReadEnvelope(connection net.Conn) (*sliverpb.Envelope, error) {
+	rawSigBuf := make([]byte, minisign.RawSigSize)
 
 	// Read the first four bytes to determine data length
 	dataLengthBuf := make([]byte, 4) // Size of uint32
 
-	n, err := io.ReadFull(connection, dataLengthBuf)
+	n, err := io.ReadFull(connection, rawSigBuf)
+	if err != nil || n != len(rawSigBuf) {
+		wgLog.Errorf("Socket error (read raw signature): %v", err)
+		return nil, err
+	}
+
+	n, err = io.ReadFull(connection, dataLengthBuf)
 
 	if err != nil || n != 4 {
 		wgLog.Errorf("Socket error (read msg-length): %v", err)
@@ -288,21 +440,34 @@ func socketWGReadEnvelope(connection net.Conn) (*sliverpb.Envelope, error) {
 	}
 	dataLength := int(binary.LittleEndian.Uint32(dataLengthBuf))
 
-	if dataLength <= 0 {
+	if dataLength <= 0 || ServerMaxMessageSize < dataLength {
 		// {{if .Config.Debug}}
 		wgLog.Errorf("[wireguard] read error: %s\n", err)
 		// {{end}}
 		return nil, errors.New("[wireguard] zero data length")
 	}
 
-	dataBuf := make([]byte, dataLength)
-
-	n, err = io.ReadFull(connection, dataBuf)
-
-	if err != nil || n != dataLength {
+	dataBuf, err := readSocketEnvelopeData(connection, dataLength, socketEnvelopeDiskSpoolThreshold)
+	if err != nil {
 		wgLog.Errorf("Socket error (read data): %v", err)
 		return nil, err
 	}
+
+	algorithm := binary.LittleEndian.Uint16(rawSigBuf[:2])
+	if algorithm != minisign.EdDSA {
+		return nil, errors.New("[wireguard] unsupported signature algorithm")
+	}
+	keyID := binary.LittleEndian.Uint64(rawSigBuf[2:10])
+
+	pubKey, _, err := lookupImplantSigKey(keyID)
+	if err != nil {
+		return nil, err
+	}
+	signature := rawSigBuf[10:]
+	if !ed25519.Verify(pubKey, dataBuf, signature) {
+		return nil, errors.New("[wireguard] invalid signature")
+	}
+
 	// Unmarshal the protobuf envelope
 	envelope := &sliverpb.Envelope{}
 	err = proto.Unmarshal(dataBuf, envelope)

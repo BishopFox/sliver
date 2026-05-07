@@ -23,12 +23,13 @@ package help
 */
 
 import (
-	"bytes"
 	"fmt"
+	"image/color"
 	"strings"
-	"text/template"
 
+	"charm.land/lipgloss/v2"
 	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/client/theme"
 )
 
 const (
@@ -47,37 +48,48 @@ var (
 		consts.GenerateStr:      generateHelp,
 		consts.StageListenerStr: stageListenerHelp,
 
-		consts.MsfStr:              msfHelp,
-		consts.MsfInjectStr:        msfInjectHelp,
-		consts.PsStr:               psHelp,
-		consts.PingStr:             pingHelp,
-		consts.KillStr:             killHelp,
-		consts.LsStr:               lsHelp,
-		consts.CdStr:               cdHelp,
-		consts.PwdStr:              pwdHelp,
-		consts.CatStr:              catHelp,
-		consts.DownloadStr:         downloadHelp,
-		consts.GrepStr:             grepHelp,
-		consts.HeadStr:             headHelp,
-		consts.TailStr:             tailHelp,
-		consts.UploadStr:           uploadHelp,
-		consts.MkdirStr:            mkdirHelp,
-		consts.RmStr:               rmHelp,
-		consts.ProcdumpStr:         procdumpHelp,
-		consts.ElevateStr:          elevateHelp,
-		consts.RunAsStr:            runAsHelp,
-		consts.ImpersonateStr:      impersonateHelp,
-		consts.RevToSelfStr:        revToSelfHelp,
-		consts.ExecuteAssemblyStr:  executeAssemblyHelp,
-		consts.ExecuteShellcodeStr: executeShellcodeHelp,
-		consts.MigrateStr:          migrateHelp,
-		consts.SideloadStr:         sideloadHelp,
-		consts.TerminateStr:        terminateHelp,
-		consts.AliasesStr:          loadAliasHelp,
-		consts.PsExecStr:           psExecHelp,
-		consts.BackdoorStr:         backdoorHelp,
-		consts.SpawnDllStr:         spawnDllHelp,
-		consts.MountStr:            mountHelp,
+		consts.MsfStr:         msfHelp,
+		consts.MsfInjectStr:   msfInjectHelp,
+		consts.PsStr:          psHelp,
+		consts.PingStr:        pingHelp,
+		consts.KillStr:        killHelp,
+		consts.LsStr:          lsHelp,
+		consts.CdStr:          cdHelp,
+		consts.PwdStr:         pwdHelp,
+		consts.AIStr:          aiHelp,
+		consts.AIConfigStr:    aiConfigHelp,
+		consts.DocsStr:        docsHelp,
+		consts.CatStr:         catHelp,
+		consts.EditStr:        editHelp,
+		consts.HexEditStr:     hexEditHelp,
+		consts.DownloadStr:    downloadHelp,
+		consts.GrepStr:        grepHelp,
+		consts.HeadStr:        headHelp,
+		consts.TailStr:        tailHelp,
+		consts.UploadStr:      uploadHelp,
+		consts.MkdirStr:       mkdirHelp,
+		consts.RmStr:          rmHelp,
+		consts.ChtimesStr:     chtimesHelp,
+		consts.ProcdumpStr:    procdumpHelp,
+		consts.ElevateStr:     elevateHelp,
+		consts.RunAsStr:       runAsHelp,
+		consts.ImpersonateStr: impersonateHelp,
+		consts.RevToSelfStr:   revToSelfHelp,
+		consts.ExecuteStr:     executeHelp,
+		consts.ExecuteStr + sep + consts.ExecuteChildrenStr: executeChildrenHelp,
+		consts.ExecuteAssemblyStr:                           executeAssemblyHelp,
+		consts.ExecuteShellcodeStr:                          executeShellcodeHelp,
+		consts.MigrateStr:                                   migrateHelp,
+		consts.SideloadStr:                                  sideloadHelp,
+		consts.TerminateStr:                                 terminateHelp,
+		consts.AliasesStr:                                   loadAliasHelp,
+		consts.PsExecStr:                                    psExecHelp,
+		consts.BackdoorStr:                                  backdoorHelp,
+		consts.SpawnDllStr:                                  spawnDllHelp,
+		consts.MountStr:                                     mountHelp,
+		consts.ShikataGaNai:                                 shikataGaNaiHelp,
+		consts.ShellcodeEncodersStr:                         shellcodeEncodersHelp,
+		consts.ShellcodeEncodersStr + sep + "encode":        shellcodeEncodersEncodeHelp,
 
 		consts.WebsitesStr:                                  websitesHelp,
 		consts.ScreenshotStr:                                screenshotHelp,
@@ -124,6 +136,28 @@ var (
 		consts.C2ProfileStr + sep + consts.C2GenerateStr: c2GenerateHelp,
 	}
 
+	executeHelp = `[[.Bold]]Command:[[.Normal]] execute <path to executable> [options] -- [args...]
+
+[[.Bold]]About:[[.Normal]] Execute a program on the remote system with optional arguments, note the subprocess 
+arguments are be separated from the sliver 'execute' arguments with '--' 
+Use [[.Bold]]--background[[.Normal]] to start the process without waiting for output (use [[.Bold]]--stdout[[.Normal]]/[[.Bold]]--stderr[[.Normal]] to redirect).
+
+[[.Bold]]Example:[[.Normal]]
+execute /bin/bash --env FOO=1 -- -c env
+
+[*] Execute: /bin/bash [-c env]
+[*] Output:
+FOO=1
+PWD=/Users/moloch/git/sliver
+SHLVL=1
+_=/usr/bin/env
+`
+
+	executeChildrenHelp = `[[.Bold]]Command:[[.Normal]] execute children
+
+[[.Bold]]About:[[.Normal]] List tracked background child processes started with [[.Bold]]execute --background[[.Normal]].
+`
+
 	jobsHelp = `[[.Bold]]Command:[[.Normal]] jobs <options>
 	[[.Bold]]About:[[.Normal]] Manage jobs/listeners.`
 
@@ -135,6 +169,29 @@ var (
 
 	infoHelp = `[[.Bold]]Command:[[.Normal]] info <sliver name/session>
 [[.Bold]]About:[[.Normal]] Get information about a Sliver by name, or for the active Sliver.`
+
+	aiHelp = `[[.Bold]]Command:[[.Normal]] ai
+[[.Bold]]About:[[.Normal]] Launch the Sliver AI Bubble Tea TUI. The AI workspace now loads server-side conversation threads over gRPC, keeps them synced through the shared event stream, and renders conversation transcripts as markdown in the main pane.
+
+[[.Bold]]Example:[[.Normal]]
+	use my-session
+	ai
+`
+
+	aiConfigHelp = `[[.Bold]]Command:[[.Normal]] ai-config
+[[.Bold]]About:[[.Normal]] Open a server-side form to update the AI block in server.yaml. The form stores the default provider, model, thinking level, and provider-specific credentials such as the API key and optional base URL.
+
+[[.Bold]]Example:[[.Normal]]
+	ai-config
+`
+
+	docsHelp = `[[.Bold]]Command:[[.Normal]] docs
+[[.Bold]]About:[[.Normal]] Browse the embedded Sliver documentation in a Bubble Tea TUI. The left pane is a searchable docs browser, and the right pane renders markdown with Glow styling.
+[[.Bold]]Keys:[[.Normal]] Use / to filter docs, enter to focus the selected document, tab to switch panes, and q to quit.
+
+[[.Bold]]Example:[[.Normal]]
+	docs
+`
 
 	useHelp = `[[.Bold]]Command:[[.Normal]] use [sliver name/session]
 [[.Bold]]About:[[.Normal]] Switch the active Sliver, a valid name must be provided (see sessions).`
@@ -159,8 +216,8 @@ You can also stack the C2 configuration with multiple protocols:
 
 
 [[.Bold]][[.Underline]]++ Formats ++[[.Normal]]
-Supported output formats are Windows PE, Windows DLL, Windows Shellcode, Mach-O, and ELF. The output format is controlled
-with the --os and --format flags.
+Supported output formats include Windows PE, Windows DLL, Windows shellcode, macOS Mach-O, macOS shellcode (arm64),
+Linux ELF, and Linux shellcode (amd64/arm64). The output format is controlled with the --os and --format flags.
 
 To output a 64bit Windows PE file (defaults to WinPE/64bit), either of the following command would be used:
 	generate --mtls foo.example.com 
@@ -174,6 +231,21 @@ To output a MacOS Mach-O executable file, the following command would be used
 
 To output a Linux ELF executable file, the following command would be used:
 	generate --os linux --mtls foo.example.com 
+
+
+[[.Bold]][[.Underline]]++ Shellcode Options ++[[.Normal]]
+When generating shellcode (--format shellcode), you can tune the shellcode generator:
+	--shellcode-encoder <name|none> # Apply a shellcode encoder (see: shellcode-encoders)
+	--shellcode-compress        # Enable aPLib compression (windows, macOS, and Linux)
+	--shellcode-entropy 1|2|3   # (windows only) Entropy: 1=none (default), 2=random names, 3=random+encrypt
+	--shellcode-exitopt 1|2|3   # (windows only) Exit behavior: 1=exit thread (default), 2=exit process, 3=block
+	--shellcode-bypass 1|2|3    # (windows only) Bypass: 1=none, 2=abort on failure, 3=continue (default)
+	--shellcode-headers 1|2     # (windows only) PE headers: 1=overwrite (default), 2=keep
+	--shellcode-thread          # (windows only) Unmanaged EXE: run entrypoint as a new thread
+	--shellcode-unicode         # (windows only) Unmanaged DLL: pass Unicode command line
+	--shellcode-oep <uint32>    # (windows only) Override original entry point (0=default)
+
+Note: macOS and Linux shellcode currently only support --shellcode-compress; other options are Windows-only.
 
 
 [[.Bold]][[.Underline]]++ DNS Canaries ++[[.Normal]]
@@ -281,8 +353,38 @@ On Windows, escaping is disabled. Instead, '\\' is treated as path separator.
 	rmHelp = `[[.Bold]]Command:[[.Normal]] rm [remote path]
 [[.Bold]]About:[[.Normal]] Delete a remote file or directory.`
 
+	chtimesHelp = `[[.Bold]]Command:[[.Normal]] chtimes [--unix | --unix-ms | --rfc3339 | --rfc1123] <path> <atime> <mtime>
+[[.Bold]]About:[[.Normal]] Change access and modification times on a file (timestomp).
+
+[[.Bold]][[.Underline]]Time Formats[[.Normal]]
+Default (datetime): "2006-01-02 15:04:05"
+--unix: 1704067200
+--unix-ms: 1704067200000
+--rfc3339: 2024-01-01T00:00:00Z
+--rfc1123: Mon, 02 Jan 2006 15:04:05 MST
+
+[[.Bold]][[.Underline]]Examples[[.Normal]]
+chtimes /tmp/file "2024-01-01 12:34:56" "2024-01-01 12:35:56"
+chtimes --unix /tmp/file 1704112496 1704112556
+chtimes --unix-ms /tmp/file 1704112496000 1704112556000
+chtimes --rfc3339 /tmp/file 2024-01-01T12:34:56Z 2024-01-01T12:35:56Z
+chtimes --rfc1123 /tmp/file "Mon, 02 Jan 2006 15:04:05 MST" "Mon, 02 Jan 2006 16:04:05 MST"
+`
+
 	catHelp = `[[.Bold]]Command:[[.Normal]] cat <remote path> 
 [[.Bold]]About:[[.Normal]] Cat a remote file to stdout.`
+
+	editHelp = `[[.Bold]]Command:[[.Normal]] edit <remote path>
+[[.Bold]]About:[[.Normal]] Download a remote text file, edit it in a built-in TUI editor, and optionally upload changes.
+[[.Bold]]Keys:[[.Normal]] Normal mode uses vim-like navigation (h/j/k/l) and insert mode (i). Use :wq to save+quit or :q to quit.
+[[.Bold]]Syntax:[[.Normal]] Use --syntax <lexer> to force a lexer or --syntax-select to pick one interactively.
+[[.Bold]]Line Numbers:[[.Normal]] Use --line-numbers to start with line numbers on; toggle with :n.`
+
+	hexEditHelp = `[[.Bold]]Command:[[.Normal]] hex-edit [--max-size <size>] [--offset <byte offset>] <remote path>
+[[.Bold]]About:[[.Normal]] Download a remote file and edit it in a built-in hex editor, then optionally upload changes.
+[[.Bold]]Keys:[[.Normal]] Normal mode uses vim-like navigation (h/j/k/l). Use i for hex edit mode, a for ASCII edit mode, :wq to save+quit or :q to quit.
+[[.Bold]]Size Limit:[[.Normal]] Default max size is 8MB. Use --max-size to override (e.g., 512KB, 12MB).
+[[.Bold]]Offset:[[.Normal]] Use --offset to jump to a specific byte offset when opening the file.`
 
 	downloadHelp = `[[.Bold]]Command:[[.Normal]] download [remote src] <local dst>
 [[.Bold]]About:[[.Normal]] Download a file or directory from the remote system. Directories will be downloaded as a gzipped TAR file.
@@ -361,12 +463,49 @@ On Windows, escaping is disabled. Instead, '\\' is treated as path separator.`
 	mountHelp = `[[.Bold]]Command:[[.Normal]] mount
 [[.Bold]]About:[[.Normal]] Displays information about mounted drives on the system, including mount point, space metrics, and filesystem.`
 
-	executeShellcodeHelp = `[[.Bold]]Command:[[.Normal]] execute-shellcode [local path to raw shellcode]
-[[.Bold]]About:[[.Normal]] Executes the given shellcode in the implant's process.
+	executeShellcodeHelp = `[[.Bold]]Command:[[.Normal]] execute-shellcode [local path to raw shellcode or PE]
+[[.Bold]]About:[[.Normal]] Executes the given shellcode in the implant's process. On Windows targets, PE input can be
+converted with Donut before execution and tuned with [[.Bold]]--shellcode-*[[.Normal]] flags.
 
 [[.Bold]][[.Underline]]++ Shellcode ++[[.Normal]]
 Shellcode files should be binary encoded, you can generate Sliver shellcode files with the generate command:
 	generate --format shellcode
+`
+	shikataGaNaiHelp = `[[.Bold]]Command:[[.Normal]] shikata-ga-nai [local path to raw shellcode]
+[[.Bold]]About:[[.Normal]] Encodes shellcode with Shikata Ga Nai. This uses the same backend implementation as
+[[.Bold]]shellcode-encoders encode[[.Normal]] with the shikata_ga_nai encoder, but exposes SGN-specific options
+like architecture, iterations, and bad characters.
+
+[[.Bold]][[.Underline]]++ Examples ++[[.Normal]]
+Encode x64 shellcode with 3 iterations:
+	shikata-ga-nai -a amd64 -i 3 /tmp/payload.bin
+
+Avoid bad chars and write to a file:
+	shikata-ga-nai -b 000a0d -s /tmp/payload.sgn /tmp/payload.bin
+
+[[.Bold]]Related:[[.Normal]] shellcode-encoders encode --encoder shikata_ga_nai ...`
+
+	shellcodeEncodersHelp = `[[.Bold]]Command:[[.Normal]] shellcode-encoders
+[[.Bold]]About:[[.Normal]] Lists the shellcode encoders supported by the server along with architectures and descriptions.
+
+[[.Bold]][[.Underline]]++ Examples ++[[.Normal]]
+List encoders and supported architectures:
+	shellcode-encoders
+`
+
+	shellcodeEncodersEncodeHelp = `[[.Bold]]Command:[[.Normal]] shellcode-encoders encode [local path to raw shellcode]...
+[[.Bold]]About:[[.Normal]] Encodes one or more shellcode files using a server-side encoder. Encoder support depends on
+architecture; use [[.Bold]]shellcode-encoders[[.Normal]] to list valid combinations.
+
+[[.Bold]][[.Underline]]++ Examples ++[[.Normal]]
+Encode a single file with shikata_ga_nai:
+	shellcode-encoders encode --encoder shikata_ga_nai --arch amd64 /tmp/payload.bin
+
+Encode multiple files and write outputs to a directory:
+	shellcode-encoders encode --encoder xor --arch amd64 -o /tmp/out payload1.bin payload2.bin
+
+Avoid bad characters with SGN:
+	shellcode-encoders encode --encoder shikata_ga_nai --arch 386 -b 000a0d -o /tmp/encoded.bin /tmp/payload.bin
 `
 
 	migrateHelp = `[[.Bold]]Command:[[.Normal]] migrate <flags>
@@ -1307,24 +1446,6 @@ On Windows, escaping is disabled. Instead, '\\' is treated as path separator.`
 To get information about services, you need to be an authenticated user on the system or domain. To control services, you need administrator or higher privileges.`
 )
 
-const (
-	// ANSI Colors
-	normal    = "\033[0m"
-	black     = "\033[30m"
-	red       = "\033[31m"
-	green     = "\033[32m"
-	orange    = "\033[33m"
-	blue      = "\033[34m"
-	purple    = "\033[35m"
-	cyan      = "\033[36m"
-	gray      = "\033[37m"
-	bold      = "\033[1m"
-	clearln   = "\r\x1b[2K"
-	upN       = "\033[%dA"
-	downN     = "\033[%dB"
-	underline = "\033[4m"
-)
-
 // GetHelpFor - Get help string for a command
 func GetHelpFor(cmdName []string) string {
 	if 0 < len(cmdName) {
@@ -1335,34 +1456,100 @@ func GetHelpFor(cmdName []string) string {
 	return ""
 }
 
-// FormatHelpTmpl - Applies format template to help string
+type helpStyleState struct {
+	bold      bool
+	underline bool
+	fgSet     bool
+	fg        color.Color
+}
+
+func (s *helpStyleState) reset() {
+	s.bold = false
+	s.underline = false
+	s.fgSet = false
+	s.fg = nil
+}
+
+func (s *helpStyleState) apply(token string) bool {
+	switch token {
+	case "Normal":
+		s.reset()
+	case "Bold":
+		s.bold = true
+	case "Underline":
+		s.underline = true
+	case "Black":
+		s.fgSet, s.fg = true, theme.DefaultMod(50)
+	case "Red":
+		s.fgSet, s.fg = true, theme.Danger()
+	case "Green":
+		s.fgSet, s.fg = true, theme.Success()
+	case "Orange":
+		s.fgSet, s.fg = true, theme.Warning()
+	case "Blue":
+		s.fgSet, s.fg = true, theme.Primary()
+	case "Purple":
+		s.fgSet, s.fg = true, theme.Secondary()
+	case "Cyan":
+		s.fgSet, s.fg = true, theme.PrimaryMod(500)
+	case "Gray":
+		// ANSI "gray" (37) is typically light; map to the lightest neutral.
+		s.fgSet, s.fg = true, theme.DefaultMod(900)
+	default:
+		return false
+	}
+	return true
+}
+
+func (s helpStyleState) render(text string) string {
+	if text == "" {
+		return ""
+	}
+	st := lipgloss.NewStyle()
+	if s.bold {
+		st = st.Bold(true)
+	}
+	if s.underline {
+		st = st.Underline(true)
+	}
+	if s.fgSet {
+		st = st.Foreground(s.fg)
+	}
+	return st.Render(text)
+}
+
+// FormatHelpTmpl - Applies the help markup (e.g. [[.Bold]]...[[.Normal]]) using lipgloss.
 func FormatHelpTmpl(helpStr string) string {
-	outputBuf := bytes.NewBufferString("")
-	tmpl, _ := template.New("help").Delims("[[", "]]").Parse(helpStr)
-	tmpl.Execute(outputBuf, struct {
-		Normal    string
-		Bold      string
-		Underline string
-		Black     string
-		Red       string
-		Green     string
-		Orange    string
-		Blue      string
-		Purple    string
-		Cyan      string
-		Gray      string
-	}{
-		Normal:    normal,
-		Bold:      bold,
-		Underline: underline,
-		Black:     black,
-		Red:       red,
-		Green:     green,
-		Orange:    orange,
-		Blue:      blue,
-		Purple:    purple,
-		Cyan:      cyan,
-		Gray:      gray,
-	})
-	return outputBuf.String()
+	var (
+		out   strings.Builder
+		state helpStyleState
+	)
+	state.reset()
+
+	i := 0
+	for i < len(helpStr) {
+		j := strings.Index(helpStr[i:], "[[.")
+		if j < 0 {
+			out.WriteString(state.render(helpStr[i:]))
+			break
+		}
+		j += i
+		if j > i {
+			out.WriteString(state.render(helpStr[i:j]))
+		}
+
+		k := strings.Index(helpStr[j:], "]]")
+		if k < 0 {
+			out.WriteString(state.render(helpStr[j:]))
+			break
+		}
+		token := helpStr[j+3 : j+k]
+		if !state.apply(token) {
+			// Unknown token; preserve it as plain text.
+			out.WriteString(helpStr[j : j+k+2])
+		}
+		i = j + k + 2
+	}
+
+	return out.String()
 }

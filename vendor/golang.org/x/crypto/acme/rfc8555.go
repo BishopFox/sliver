@@ -53,6 +53,9 @@ func (c *Client) registerRFC(ctx context.Context, acct *Account, prompt func(tos
 		Contact: acct.Contact,
 	}
 	if c.dir.Terms != "" {
+		if prompt == nil {
+			return nil, errors.New("acme: missing Manager.Prompt to accept server's terms of service")
+		}
 		req.TermsAgreed = prompt(c.dir.Terms)
 	}
 

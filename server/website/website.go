@@ -19,6 +19,8 @@ package website
 */
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -87,14 +89,30 @@ func AddContent(name string, pbWebContent *clientpb.WebContent) error {
 		pbWebContent.WebsiteID = website.ID
 	}
 
+	if pbWebContent.Size == 0 && len(pbWebContent.Content) > 0 {
+		pbWebContent.Size = uint64(len(pbWebContent.Content))
+	}
+	if pbWebContent.OriginalFile == "" {
+		pbWebContent.OriginalFile = filepath.Base(pbWebContent.Path)
+	}
+
+	if len(pbWebContent.Content) > 0 {
+		sha := sha256.Sum256(pbWebContent.Content)
+		pbWebContent.Sha256 = hex.EncodeToString(sha[:])
+	}
+
 	webContent, err := db.AddContent(pbWebContent, webContentDir)
 	if err != nil {
 		return err
 	}
 
-	// Write content to disk
-	webContentPath := filepath.Join(webContentDir, webContent.ID)
-	return os.WriteFile(webContentPath, pbWebContent.Content, 0600)
+	// Write content to disk when provided (metadata-only updates skip disk writes)
+	if len(pbWebContent.Content) > 0 {
+		webContentPath := filepath.Join(webContentDir, webContent.ID)
+		return os.WriteFile(webContentPath, pbWebContent.Content, 0600)
+	}
+
+	return nil
 }
 
 // RemoveContent - Remove website content for a path

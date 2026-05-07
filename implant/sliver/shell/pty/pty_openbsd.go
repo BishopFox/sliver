@@ -2,6 +2,7 @@ package pty
 
 import (
 	"os"
+	"path/filepath"
 	"syscall"
 	"unsafe"
 )
@@ -26,8 +27,29 @@ func open() (pty, tty *os.File, err error) {
 		return nil, nil, err
 	}
 
-	pty = os.NewFile(uintptr(ptm.Cfd), "/dev/ptm")
-	tty = os.NewFile(uintptr(ptm.Sfd), "/dev/ptm")
+	cName := cString(ptm.Cn[:])
+	sName := cString(ptm.Sn[:])
+	ptyPath := "/dev/ptm"
+	ttyPath := "/dev/ptm"
+	if cName != "" {
+		ptyPath = filepath.Join("/dev", cName)
+	}
+	if sName != "" {
+		ttyPath = filepath.Join("/dev", sName)
+	}
+	pty = os.NewFile(uintptr(ptm.Cfd), ptyPath)
+	tty = os.NewFile(uintptr(ptm.Sfd), ttyPath)
 
 	return pty, tty, nil
+}
+
+func cString(in []int8) string {
+	out := make([]byte, 0, len(in))
+	for _, c := range in {
+		if c == 0 {
+			break
+		}
+		out = append(out, byte(c))
+	}
+	return string(out)
 }

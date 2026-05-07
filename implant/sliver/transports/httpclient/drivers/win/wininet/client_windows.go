@@ -58,6 +58,7 @@ func (c *Client) Do(request *http.Request) (*http.Response, error) {
 	var buf []byte
 	var err error
 	var reqHandle uintptr
+	var connHandle uintptr
 	var resp *Response
 
 	var rawBody []byte
@@ -81,9 +82,17 @@ func (c *Client) Do(request *http.Request) (*http.Response, error) {
 		Body:    rawBody,
 	}
 
-	if reqHandle, err = buildRequest(c.handle, req); err != nil {
+	if connHandle, reqHandle, err = buildRequest(c.handle, req); err != nil {
+		if reqHandle != 0 {
+			InternetCloseHandle(reqHandle)
+		}
+		if connHandle != 0 {
+			InternetCloseHandle(connHandle)
+		}
 		return nil, err
 	}
+	defer InternetCloseHandle(reqHandle)
+	defer InternetCloseHandle(connHandle)
 
 	if c.Timeout > 0 {
 		buf = make([]byte, 4)
@@ -231,4 +240,12 @@ func (jar *Jar) SetCookies(u *url.URL, cookies []*Cookie) {
 // restrictions such as in RFC 6265 (which we do not).
 func (jar *Jar) Cookies(u *url.URL) []*Cookie {
 	return jar.cookies
+}
+
+// Close will close the client handle
+func (c *Client) Close() {
+	if c.handle != 0 {
+		InternetCloseHandle(c.handle)
+		c.handle = 0
+	}
 }

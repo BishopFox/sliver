@@ -12,7 +12,7 @@ import (
 	"github.com/carapace-sh/carapace/pkg/xdg"
 )
 
-type configMap map[string]interface{}
+type configMap map[string]any
 
 func (c configMap) Keys() []string {
 	keys := make([]string, 0)
@@ -52,7 +52,7 @@ var config = struct {
 	Styles: make(configMap),
 }
 
-func RegisterStyle(name string, i interface{}) {
+func RegisterStyle(name string, i any) {
 	config.Styles[name] = i
 }
 

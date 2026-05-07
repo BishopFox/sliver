@@ -528,11 +528,49 @@ func SaveC2Listener(listenerConf *clientpb.ListenerJob) error {
 }
 
 func UpdateHTTPC2Listener(listenerConf *clientpb.ListenerJob) error {
-	dbListener := models.ListenerJobFromProtobuf(listenerConf)
-	dbSession := Session()
-	result := dbSession.Save(dbListener)
+	if listenerConf == nil {
+		return errors.New("listener config is nil")
+	}
+	if listenerConf.ID == "" {
+		return errors.New("listener config id is empty")
+	}
+
+	listenerID := uuid.FromStringOrNil(listenerConf.ID)
+	if listenerID == uuid.Nil {
+		return fmt.Errorf("invalid listener config id %q", listenerConf.ID)
+	}
+
+	result := Session().
+		Model(&models.ListenerJob{}).
+		Where(&models.ListenerJob{ID: listenerID}).
+		Updates(map[string]any{
+			"job_id": listenerConf.JobID,
+			"type":   listenerConf.Type,
+		})
 	if result.Error != nil {
 		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("listener record %s not found", listenerConf.ID)
+	}
+	return nil
+}
+
+// UpdateListenerJobID - Update a listener record's job id while preserving listener configuration rows.
+func UpdateListenerJobID(oldJobID uint32, newJobID uint32) error {
+	if oldJobID == newJobID {
+		return nil
+	}
+
+	result := Session().
+		Model(&models.ListenerJob{}).
+		Where("job_id = ?", oldJobID).
+		Update("job_id", newJobID)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("listener job id %d not found", oldJobID)
 	}
 	return nil
 }
@@ -789,8 +827,18 @@ func AddContent(pbWebContent *clientpb.WebContent, webContentDir string) (*clien
 			return nil, err
 		}
 	} else {
-		dbWebContent.ContentType = pbWebContent.ContentType
-		dbWebContent.Size = pbWebContent.Size
+		if pbWebContent.ContentType != "" {
+			dbWebContent.ContentType = pbWebContent.ContentType
+		}
+		if pbWebContent.Size != 0 {
+			dbWebContent.Size = pbWebContent.Size
+		}
+		if pbWebContent.OriginalFile != "" {
+			dbWebContent.OriginalFile = pbWebContent.OriginalFile
+		}
+		if pbWebContent.Sha256 != "" {
+			dbWebContent.Sha256 = pbWebContent.Sha256
+		}
 
 		dbModelWebContent := models.WebContentFromProtobuf(dbWebContent)
 		err = Session().Save(&dbModelWebContent).Error
@@ -813,7 +861,8 @@ func RemoveWebSite(id string) error {
 	return err
 }
 
-// WGPeerIPs - Fetch a list of ips for all wireguard peers
+// WGPeerIPs - Fetch a list of all persisted WireGuard tunnel IPs and
+// reservations across both the C2 and multiplayer features.
 func WGPeerIPs() ([]string, error) {
 	wgPeers := []*models.WGPeer{}
 	err := Session().Where(&models.WGPeer{}).Find(&wgPeers).Error
@@ -823,6 +872,22 @@ func WGPeerIPs() ([]string, error) {
 	ips := []string{}
 	for _, peer := range wgPeers {
 		ips = append(ips, peer.TunIP)
+	}
+	operators := []*models.Operator{}
+	err = Session().Where("wg_tun_ip <> ''").Find(&operators).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, operator := range operators {
+		ips = append(ips, operator.WGTunIP)
+	}
+	reservations := []*models.WGIPReservation{}
+	err = Session().Where(&models.WGIPReservation{}).Find(&reservations).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, reservation := range reservations {
+		ips = append(ips, reservation.TunIP)
 	}
 	return ips, nil
 }
@@ -1296,6 +1361,305 @@ func CheckKeyExReplay(ciphertext []byte) error {
 	).Error
 }
 
+// AIConversationsByOperator - List AI conversations, optionally scoped to an operator.
+func AIConversationsByOperator(operatorName string) ([]*clientpb.AIConversation, error) {
+	conversations := []*models.AIConversation{}
+	query := Session().Model(&models.AIConversation{})
+	if operatorName != "" {
+		query = query.Where("operator_name = ?", operatorName)
+	}
+	err := query.Order("updated_at desc").Order("created_at desc").Find(&conversations).Error
+	if err != nil {
+		return nil, err
+	}
+
+	pbConversations := make([]*clientpb.AIConversation, 0, len(conversations))
+	for _, conversation := range conversations {
+		pbConversations = append(pbConversations, conversation.ToProtobuf())
+	}
+	return pbConversations, nil
+}
+
+// AIConversationByID - Fetch an AI conversation by ID, optionally scoped to an operator.
+func AIConversationByID(id string, operatorName string, includeMessages bool) (*clientpb.AIConversation, error) {
+	if len(id) < 1 {
+		return nil, ErrRecordNotFound
+	}
+
+	conversationID := uuid.FromStringOrNil(id)
+	if conversationID == uuid.Nil {
+		return nil, ErrRecordNotFound
+	}
+
+	conversation := &models.AIConversation{}
+	query := Session().Model(&models.AIConversation{})
+	if includeMessages {
+		query = query.Preload("Messages", func(db *gorm.DB) *gorm.DB {
+			return db.Order("sequence asc").Order("created_at asc")
+		})
+	}
+	query = query.Where("id = ?", conversationID)
+	if operatorName != "" {
+		query = query.Where("operator_name = ?", operatorName)
+	}
+
+	err := query.First(conversation).Error
+	if err != nil {
+		return nil, err
+	}
+	pbConversation := conversation.ToProtobuf()
+	if includeMessages {
+		pbConversation = aiConversationWithSystemPromptMessage(pbConversation)
+	}
+	return pbConversation, nil
+}
+
+func aiConversationWithSystemPromptMessage(conversation *clientpb.AIConversation) *clientpb.AIConversation {
+	if conversation == nil {
+		return nil
+	}
+
+	systemPrompt := strings.TrimSpace(conversation.GetSystemPrompt())
+	if systemPrompt == "" {
+		return conversation
+	}
+	for _, message := range conversation.GetMessages() {
+		if message == nil {
+			continue
+		}
+		if message.GetKind() != clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(message.GetRole()), "system") &&
+			strings.TrimSpace(message.GetContent()) == systemPrompt {
+			return conversation
+		}
+	}
+
+	includeInContext := true
+	systemMessageID := "system-prompt"
+	if conversationID := strings.TrimSpace(conversation.GetID()); conversationID != "" {
+		systemMessageID = conversationID + "-system-prompt"
+	}
+	systemMessage := &clientpb.AIConversationMessage{
+		ID:               systemMessageID,
+		ConversationID:   strings.TrimSpace(conversation.GetID()),
+		CreatedAt:        conversation.GetCreatedAt(),
+		UpdatedAt:        conversation.GetUpdatedAt(),
+		OperatorName:     strings.TrimSpace(conversation.GetOperatorName()),
+		Provider:         strings.TrimSpace(conversation.GetProvider()),
+		Model:            strings.TrimSpace(conversation.GetModel()),
+		Sequence:         0,
+		Role:             "system",
+		Content:          systemPrompt,
+		Kind:             clientpb.AIConversationMessageKind_AI_MESSAGE_KIND_CHAT,
+		Visibility:       clientpb.AIConversationMessageVisibility_AI_MESSAGE_VISIBILITY_CONTEXT,
+		State:            clientpb.AIConversationMessageState_AI_MESSAGE_STATE_COMPLETED,
+		IncludeInContext: &includeInContext,
+	}
+
+	conversation.Messages = append([]*clientpb.AIConversationMessage{systemMessage}, conversation.GetMessages()...)
+	return conversation
+}
+
+// SaveAIConversation - Create or update an AI conversation thread.
+func SaveAIConversation(conversation *clientpb.AIConversation, operatorName string) (*clientpb.AIConversation, error) {
+	dbConversation := models.AIConversationFromProtobuf(conversation)
+	if dbConversation.OperatorName == "" && operatorName != "" {
+		dbConversation.OperatorName = operatorName
+	}
+
+	dbSession := Session()
+	if dbConversation.ID == uuid.Nil {
+		if err := dbSession.Create(dbConversation).Error; err != nil {
+			return nil, err
+		}
+		return AIConversationByID(dbConversation.ID.String(), "", true)
+	}
+
+	existing := &models.AIConversation{}
+	if err := dbSession.Where("id = ?", dbConversation.ID).First(existing).Error; err != nil {
+		return nil, err
+	}
+
+	if existing.OperatorName == "" && dbConversation.OperatorName != "" {
+		existing.OperatorName = dbConversation.OperatorName
+	}
+	existing.Provider = dbConversation.Provider
+	existing.Model = dbConversation.Model
+	existing.ThinkingLevel = dbConversation.ThinkingLevel
+	existing.Title = dbConversation.Title
+	existing.Summary = dbConversation.Summary
+	existing.SystemPrompt = dbConversation.SystemPrompt
+	existing.ActiveTurnID = dbConversation.ActiveTurnID
+	existing.TurnState = dbConversation.TurnState
+	existing.TargetSessionID = dbConversation.TargetSessionID
+	existing.TargetBeaconID = dbConversation.TargetBeaconID
+	existing.ContextInputTokens = dbConversation.ContextInputTokens
+	existing.ContextOutputTokens = dbConversation.ContextOutputTokens
+	existing.ContextTotalTokens = dbConversation.ContextTotalTokens
+	existing.ContextWindowTokens = dbConversation.ContextWindowTokens
+	existing.ContextWindowTokensEstimated = dbConversation.ContextWindowTokensEstimated
+
+	if err := dbSession.Save(existing).Error; err != nil {
+		return nil, err
+	}
+	return AIConversationByID(existing.ID.String(), "", true)
+}
+
+// DeleteAIConversation - Delete an AI conversation thread and all related messages.
+func DeleteAIConversation(id string, operatorName string) error {
+	conversation, err := AIConversationByID(id, "", false)
+	if err != nil {
+		return err
+	}
+
+	conversationID := uuid.FromStringOrNil(conversation.ID)
+	if conversationID == uuid.Nil {
+		return ErrRecordNotFound
+	}
+
+	err = Session().Where(&models.AIConversationMessage{
+		ConversationID: conversationID,
+	}).Delete(&models.AIConversationMessage{}).Error
+	if err != nil {
+		return err
+	}
+
+	return Session().Where(&models.AIConversation{
+		ID: conversationID,
+	}).Delete(&models.AIConversation{}).Error
+}
+
+// AIConversationMessagesByID - Fetch all messages for a conversation.
+func AIConversationMessagesByID(id string, operatorName string) (*clientpb.AIConversationMessages, error) {
+	conversation, err := AIConversationByID(id, operatorName, true)
+	if err != nil {
+		return nil, err
+	}
+
+	return &clientpb.AIConversationMessages{
+		ConversationID: conversation.ID,
+		Messages:       conversation.Messages,
+	}, nil
+}
+
+// SaveAIConversationMessage - Create or update a single AI conversation message.
+func SaveAIConversationMessage(message *clientpb.AIConversationMessage, operatorName string) (*clientpb.AIConversationMessage, error) {
+	dbMessage := models.AIConversationMessageFromProtobuf(message)
+	if dbMessage.ConversationID == uuid.Nil {
+		return nil, ErrRecordNotFound
+	}
+
+	conversation, err := AIConversationByID(dbMessage.ConversationID.String(), "", false)
+	if err != nil {
+		return nil, err
+	}
+
+	if operatorName != "" {
+		dbMessage.OperatorName = operatorName
+	} else if dbMessage.OperatorName == "" {
+		dbMessage.OperatorName = conversation.OperatorName
+	}
+	if dbMessage.Provider == "" {
+		dbMessage.Provider = conversation.Provider
+	}
+	if dbMessage.Model == "" {
+		dbMessage.Model = conversation.Model
+	}
+
+	dbSession := Session()
+	var savedMessage *models.AIConversationMessage
+	err = dbSession.Transaction(func(tx *gorm.DB) error {
+		if dbMessage.ID == uuid.Nil && strings.TrimSpace(dbMessage.ItemID) != "" {
+			existingByItem := &models.AIConversationMessage{}
+			err := tx.Where("conversation_id = ?", dbMessage.ConversationID).
+				Where("item_id = ?", strings.TrimSpace(dbMessage.ItemID)).
+				First(existingByItem).Error
+			if err != nil {
+				if !errors.Is(err, ErrRecordNotFound) {
+					return err
+				}
+			} else {
+				dbMessage.ID = existingByItem.ID
+			}
+		}
+
+		if dbMessage.ID == uuid.Nil {
+			if dbMessage.Sequence == 0 {
+				lastMessage := &models.AIConversationMessage{}
+				err := tx.Where("conversation_id = ?", dbMessage.ConversationID).
+					Order("sequence desc").
+					Order("created_at desc").
+					First(lastMessage).Error
+				if err != nil {
+					if !errors.Is(err, ErrRecordNotFound) {
+						return err
+					}
+					dbMessage.Sequence = 1
+				} else {
+					dbMessage.Sequence = lastMessage.Sequence + 1
+				}
+			}
+
+			if err := tx.Create(dbMessage).Error; err != nil {
+				return err
+			}
+			savedMessage = dbMessage
+		} else {
+			existing := &models.AIConversationMessage{}
+			if err := tx.Where("id = ?", dbMessage.ID).Where("conversation_id = ?", dbMessage.ConversationID).First(existing).Error; err != nil {
+				return err
+			}
+
+			if dbMessage.OperatorName != "" {
+				existing.OperatorName = dbMessage.OperatorName
+			}
+			if dbMessage.Provider != "" {
+				existing.Provider = dbMessage.Provider
+			}
+			if dbMessage.Model != "" {
+				existing.Model = dbMessage.Model
+			}
+			if dbMessage.Sequence != 0 {
+				existing.Sequence = dbMessage.Sequence
+			}
+			if dbMessage.Role != "" {
+				existing.Role = dbMessage.Role
+			}
+			existing.Content = dbMessage.Content
+			existing.ProviderMessageID = dbMessage.ProviderMessageID
+			existing.FinishReason = dbMessage.FinishReason
+			existing.Kind = dbMessage.Kind
+			existing.Visibility = dbMessage.Visibility
+			existing.State = dbMessage.State
+			existing.TurnID = dbMessage.TurnID
+			existing.ItemID = dbMessage.ItemID
+			existing.ToolCallID = dbMessage.ToolCallID
+			existing.ToolName = dbMessage.ToolName
+			existing.ToolArguments = dbMessage.ToolArguments
+			existing.ToolResult = dbMessage.ToolResult
+			existing.ErrorText = dbMessage.ErrorText
+			if dbMessage.IncludeInContext != nil {
+				existing.IncludeInContext = dbMessage.IncludeInContext
+			}
+
+			if err := tx.Save(existing).Error; err != nil {
+				return err
+			}
+			savedMessage = existing
+		}
+
+		return tx.Model(&models.AIConversation{}).
+			Where("id = ?", dbMessage.ConversationID).
+			Update("updated_at", time.Now()).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	return savedMessage.ToProtobuf(), nil
+}
+
 // watchtower - List configurations
 func WatchTowerConfigs() ([]*clientpb.MonitoringProvider, error) {
 	var monitoringProviders []*models.MonitoringProvider
@@ -1483,4 +1847,14 @@ func GetCertificateInfo(categoryOptions uint32, cn string) ([]*models.Certificat
 	}
 	// Processing of the data can occur at the caller. It does not need to happen here.
 	return certInfo, nil
+}
+
+// CertificateAuthorities - Return all certificate authorities
+func CertificateAuthorities() ([]*models.CertificateAuthority, error) {
+	authorities := []*models.CertificateAuthority{}
+	err := Session().Where(&models.CertificateAuthority{}).Find(&authorities).Error
+	if err != nil {
+		return nil, err
+	}
+	return authorities, nil
 }

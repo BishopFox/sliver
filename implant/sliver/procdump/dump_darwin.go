@@ -1,4 +1,4 @@
-// +darwin
+//go:build darwin
 
 package procdump
 

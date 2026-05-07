@@ -22,19 +22,23 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/bishopfox/sliver/server/assets"
+	"github.com/bishopfox/sliver/server/db"
+	"github.com/bishopfox/sliver/server/db/models"
 )
 
 // -----------------------
 //  CERTIFICATE AUTHORITY
 // -----------------------
 
-// SetupCAs - Creates directories for certs
+// SetupCAs - Ensure certificate authorities exist in storage
 func SetupCAs() {
+	importCertificateAuthoritiesFromDisk()
 	GenerateCertificateAuthority(MtlsImplantCA, "")
 	GenerateCertificateAuthority(MtlsServerCA, "")
 	GenerateCertificateAuthority(OperatorCA, "operators")
@@ -43,24 +47,17 @@ func SetupCAs() {
 
 func getCertDir() string {
 	rootDir := assets.GetRootAppDir()
-	certDir := filepath.Join(rootDir, "certs")
-	if _, err := os.Stat(certDir); os.IsNotExist(err) {
-		err := os.MkdirAll(certDir, 0700)
-		if err != nil {
-			certsLog.Fatalf("Failed to create cert dir %s", err)
-		}
-	}
-	return certDir
+	return filepath.Join(rootDir, "certs")
 }
 
 // GenerateCertificateAuthority - Creates a new CA cert for a given type
 func GenerateCertificateAuthority(caType string, commonName string) (*x509.Certificate, *ecdsa.PrivateKey) {
-	storageDir := getCertDir()
-	certFilePath := filepath.Join(storageDir, fmt.Sprintf("%s-ca-cert.pem", caType))
-	if _, err := os.Stat(certFilePath); os.IsNotExist(err) {
-		certsLog.Infof("Generating certificate authority for '%s'", caType)
-		cert, key := GenerateECCCertificate(caType, commonName, true, false, false)
-		SaveCertificateAuthority(caType, cert, key)
+	if !certificateAuthorityExists(caType) {
+		if !importCertificateAuthorityFromDisk(caType) {
+			certsLog.Infof("Generating certificate authority for '%s'", caType)
+			cert, key := GenerateECCCertificate(caType, commonName, true, false, false)
+			SaveCertificateAuthority(caType, cert, key)
+		}
 	}
 	cert, key, err := GetCertificateAuthority(caType)
 	if err != nil {
@@ -104,45 +101,142 @@ func GetCertificateAuthority(caType string) (*x509.Certificate, *ecdsa.PrivateKe
 // GetCertificateAuthorityPEM - Get PEM encoded CA cert/key
 func GetCertificateAuthorityPEM(caType string) ([]byte, []byte, error) {
 	caType = filepath.Base(caType)
-	caCertPath := filepath.Join(getCertDir(), fmt.Sprintf("%s-ca-cert.pem", caType))
-	caKeyPath := filepath.Join(getCertDir(), fmt.Sprintf("%s-ca-key.pem", caType))
+	caModel := &models.CertificateAuthority{}
+	dbSession := db.Session()
+	result := dbSession.Where(&models.CertificateAuthority{CAType: caType}).First(caModel)
+	if result.Error == nil {
+		return []byte(caModel.CertificatePEM), []byte(caModel.PrivateKeyPEM), nil
+	}
+	if !errors.Is(result.Error, db.ErrRecordNotFound) {
+		certsLog.Error(result.Error)
+		return nil, nil, result.Error
+	}
+
+	certPEM, keyPEM, err := loadCertificateAuthorityPEMFromDisk(caType)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			certsLog.Error(err)
+		}
+		return nil, nil, err
+	}
+
+	SaveCertificateAuthority(caType, certPEM, keyPEM)
+	return certPEM, keyPEM, nil
+}
+
+// SaveCertificateAuthority - Save the certificate and the key to the database
+// doesn't return an error because errors are fatal. If we can't generate CAs,
+// then we can't secure communication and we should die a horrible death.
+func SaveCertificateAuthority(caType string, cert []byte, key []byte) {
+	caType = filepath.Base(caType)
+	commonName := commonNameFromCertPEM(cert)
+	dbSession := db.Session()
+	caModel := &models.CertificateAuthority{}
+	result := dbSession.Where(&models.CertificateAuthority{CAType: caType}).First(caModel)
+	if errors.Is(result.Error, db.ErrRecordNotFound) {
+		caModel = &models.CertificateAuthority{
+			CommonName:     commonName,
+			CAType:         caType,
+			CertificatePEM: string(cert),
+			PrivateKeyPEM:  string(key),
+		}
+		if err := dbSession.Create(caModel).Error; err != nil {
+			certsLog.Fatalf("Failed to save certificate authority: %s", err)
+		}
+		return
+	}
+	if result.Error != nil {
+		certsLog.Fatalf("Failed to save certificate authority: %s", result.Error)
+	}
+
+	caModel.CommonName = commonName
+	caModel.CertificatePEM = string(cert)
+	caModel.PrivateKeyPEM = string(key)
+	if err := dbSession.Save(caModel).Error; err != nil {
+		certsLog.Fatalf("Failed to save certificate authority: %s", err)
+	}
+}
+
+func certificateAuthorityExists(caType string) bool {
+	caType = filepath.Base(caType)
+	dbSession := db.Session()
+	result := dbSession.Select("id").Where(&models.CertificateAuthority{CAType: caType}).First(&models.CertificateAuthority{})
+	if result.Error == nil {
+		return true
+	}
+	if !errors.Is(result.Error, db.ErrRecordNotFound) {
+		certsLog.Error(result.Error)
+		return true
+	}
+	return false
+}
+
+func importCertificateAuthoritiesFromDisk() {
+	certDir := getCertDir()
+	fi, err := os.Stat(certDir)
+	if err != nil || !fi.IsDir() {
+		return
+	}
+
+	importCertificateAuthorityFromDisk(MtlsImplantCA)
+	importCertificateAuthorityFromDisk(MtlsServerCA)
+	importCertificateAuthorityFromDisk(OperatorCA)
+	importCertificateAuthorityFromDisk(HTTPSCA)
+}
+
+func importCertificateAuthorityFromDisk(caType string) bool {
+	if certificateAuthorityExists(caType) {
+		return false
+	}
+	certPEM, keyPEM, err := loadCertificateAuthorityPEMFromDisk(caType)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			certsLog.Error(err)
+		}
+		return false
+	}
+	certsLog.Infof("Importing certificate authority for '%s' from disk", caType)
+	SaveCertificateAuthority(caType, certPEM, keyPEM)
+	return true
+}
+
+func loadCertificateAuthorityPEMFromDisk(caType string) ([]byte, []byte, error) {
+	caType = filepath.Base(caType)
+	certDir := getCertDir()
+	fi, err := os.Stat(certDir)
+	if err != nil || !fi.IsDir() {
+		return nil, nil, os.ErrNotExist
+	}
+
+	caCertPath := filepath.Join(certDir, fmt.Sprintf("%s-ca-cert.pem", caType))
+	caKeyPath := filepath.Join(certDir, fmt.Sprintf("%s-ca-key.pem", caType))
 
 	certPEM, err := os.ReadFile(caCertPath)
 	if err != nil {
-		certsLog.Error(err)
+		if os.IsNotExist(err) {
+			return nil, nil, os.ErrNotExist
+		}
 		return nil, nil, err
 	}
 
 	keyPEM, err := os.ReadFile(caKeyPath)
 	if err != nil {
-		certsLog.Error(err)
+		if os.IsNotExist(err) {
+			return nil, nil, os.ErrNotExist
+		}
 		return nil, nil, err
 	}
 	return certPEM, keyPEM, nil
 }
 
-// SaveCertificateAuthority - Save the certificate and the key to the filesystem
-// doesn't return an error because errors are fatal. If we can't generate CAs,
-// then we can't secure communication and we should die a horrible death.
-func SaveCertificateAuthority(caType string, cert []byte, key []byte) {
-
-	storageDir := getCertDir()
-	if _, err := os.Stat(storageDir); os.IsNotExist(err) {
-		os.MkdirAll(storageDir, 0700)
+func commonNameFromCertPEM(cert []byte) string {
+	block, _ := pem.Decode(cert)
+	if block == nil {
+		return ""
 	}
-
-	// CAs get written to the filesystem since we control the names and makes them
-	// easier to move around/backup
-	certFilePath := filepath.Join(storageDir, fmt.Sprintf("%s-ca-cert.pem", caType))
-	keyFilePath := filepath.Join(storageDir, fmt.Sprintf("%s-ca-key.pem", caType))
-
-	err := os.WriteFile(certFilePath, cert, 0600)
+	parsed, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		certsLog.Fatalf("Failed write certificate data to: %s", certFilePath)
+		return ""
 	}
-
-	err = os.WriteFile(keyFilePath, key, 0600)
-	if err != nil {
-		certsLog.Fatalf("Failed write certificate data to: %s", keyFilePath)
-	}
+	return parsed.Subject.CommonName
 }

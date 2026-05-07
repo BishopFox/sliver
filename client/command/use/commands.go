@@ -27,6 +27,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
 	carapace.Gen(useCmd).PositionalCompletion(BeaconAndSessionIDCompleter(con))
+	registerUseIDCompletion(useCmd, con, true, true)
 
 	useSessionCmd := &cobra.Command{
 		Use:   consts.SessionsStr,
@@ -37,6 +38,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		},
 	}
 	carapace.Gen(useSessionCmd).PositionalCompletion(SessionIDCompleter(con))
+	registerUseIDCompletion(useSessionCmd, con, true, false)
 	useCmd.AddCommand(useSessionCmd)
 
 	useBeaconCmd := &cobra.Command{
@@ -48,6 +50,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		},
 	}
 	carapace.Gen(useBeaconCmd).PositionalCompletion(beacons.BeaconIDCompleter(con))
+	registerUseIDCompletion(useBeaconCmd, con, false, true)
 	useCmd.AddCommand(useBeaconCmd)
 
 	return []*cobra.Command{useCmd}

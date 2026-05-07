@@ -104,11 +104,11 @@ func PrintNetstat(netstat *sliverpb.Netstat, implantPID int32, activeC2 string, 
 		}
 		if entry.Process != nil && entry.Process.Pid == implantPID {
 			tw.AppendRow(table.Row{
-				fmt.Sprintf(console.Green+"%s"+console.Normal, entry.Protocol),
-				fmt.Sprintf(console.Green+"%s"+console.Normal, srcAddr),
-				fmt.Sprintf(console.Green+"%s"+console.Normal, dstAddr),
-				fmt.Sprintf(console.Green+"%s"+console.Normal, entry.SkState),
-				fmt.Sprintf(console.Green+"%s"+console.Normal, pid),
+				console.StyleGreen.Render(entry.Protocol),
+				console.StyleGreen.Render(srcAddr),
+				console.StyleGreen.Render(dstAddr),
+				console.StyleGreen.Render(entry.SkState),
+				console.StyleGreen.Render(pid),
 			})
 		} else {
 			tw.AppendRow(table.Row{entry.Protocol, srcAddr, dstAddr, entry.SkState, pid})

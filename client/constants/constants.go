@@ -113,7 +113,15 @@ const (
 	CrackStatusEvent = "crack-status"
 
 	// WireGuardNewPeer - New Wireguard peer added.
-	WireGuardNewPeer = "wireguard-newpeer"
+	WireGuardNewPeer            = "wireguard-newpeer"
+	MultiplayerWireGuardNewPeer = "multiplayer-wireguard-newpeer"
+	MultiplayerWireGuardRemoved = "multiplayer-wireguard-removed"
+
+	// AIConversationEvent - Fires whenever an AI conversation or message changes.
+	AIConversationEvent = "ai-conversation"
+
+	// ClientToastEvent - Local-only event used to surface console notifications inside TUIs.
+	ClientToastEvent = "client-toast"
 )
 
 // Commands.
@@ -208,8 +216,9 @@ const (
 	GetGIDStr = "getgid"
 	WhoamiStr = "whoami"
 
-	ShellStr   = "shell"
-	ExecuteStr = "execute"
+	ShellStr           = "shell"
+	ExecuteStr         = "execute"
+	ExecuteChildrenStr = "children"
 
 	LsStr       = "ls"
 	MvStr       = "mv"
@@ -219,7 +228,12 @@ const (
 	MkdirStr    = "mkdir"
 	CdStr       = "cd"
 	PwdStr      = "pwd"
+	AIStr       = "ai"
+	AIConfigStr = "ai-config"
+	DocsStr     = "docs"
 	CatStr      = "cat"
+	EditStr     = "edit"
+	HexEditStr  = "hex-edit"
 	DownloadStr = "download"
 	HeadStr     = "head"
 	TailStr     = "tail"
@@ -276,6 +290,7 @@ const (
 	WgPortFwdStr          = "wg-portfwd"
 	MonitorStr            = "monitor"
 	MonitorConfigStr      = "config"
+	MCPStr                = "mcp"
 	SSHStr                = "ssh"
 	DLLHijackStr          = "dllhijack"
 	InteractiveStr        = "interactive"
@@ -296,7 +311,8 @@ const (
 	GetPrivsStr = "getprivs"
 	ConnectStr  = "connect"
 
-	ShikataGaNai = "shikata-ga-nai"
+	ShikataGaNai         = "shikata-ga-nai"
+	ShellcodeEncodersStr = "shellcode-encoders"
 
 	Cursed         = "cursed"
 	CursedChrome   = "chrome"

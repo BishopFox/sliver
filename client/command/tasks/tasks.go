@@ -93,13 +93,13 @@ func PrintBeaconTasks(tasks []*clientpb.BeaconTask, cmd *cobra.Command, con *con
 func prettyState(state string) string {
 	switch strings.ToLower(state) {
 	case "pending":
-		return console.Bold + state + console.Normal
+		return console.StyleBold.Render(state)
 	case "sent":
-		return console.Bold + console.Orange + state + console.Normal
+		return console.StyleBoldOrange.Render(state)
 	case "completed":
-		return console.Bold + console.Green + state + console.Normal
+		return console.StyleBoldGreen.Render(state)
 	case "canceled":
-		return console.Bold + console.Gray + state + console.Normal
+		return console.StyleBoldGray.Render(state)
 	default:
 		return state
 	}

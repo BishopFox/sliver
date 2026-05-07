@@ -106,6 +106,10 @@ func Trim(input string, maxPrintableLength int) string {
 		}
 	}
 
+	if maxPrintableLength > len(input) {
+		return input
+	}
+
 	// Determine the end index for limiting printable content
 	return input[:maxPrintableLength]
 }

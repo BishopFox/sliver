@@ -11,11 +11,13 @@ const (
 	ClearScreen      = "\x1b[2J" // Clears screen, preserving scroll buffer
 	ClearDisplay     = "\x1b[3J" // Clears screen fully, wipes the scroll buffer
 
-	CursorTopLeft    = "\x1b[H"
-	SaveCursorPos    = "\x1b7"
-	RestoreCursorPos = "\x1b8"
-	HideCursor       = "\x1b[?25l"
-	ShowCursor       = "\x1b[?25h"
+	CursorTopLeft         = "\x1b[H"
+	SaveCursorPos         = "\x1b7"
+	RestoreCursorPos      = "\x1b8"
+	HideCursor            = "\x1b[?25l"
+	ShowCursor            = "\x1b[?25h"
+	BracketedPasteEnable  = "\x1b[?2004h"
+	BracketedPasteDisable = "\x1b[?2004l"
 )
 
 // Some core keys needed by some stuff.

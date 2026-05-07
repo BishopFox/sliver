@@ -75,7 +75,7 @@ type Session struct {
 	Locale            string
 	FirstContact      int64
 	Integrity         string
-	Virtualization	string
+	Virtualization    string
 }
 
 // LastCheckin - Get the last time a session message was received

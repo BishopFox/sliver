@@ -3,7 +3,8 @@ package forms
 import (
 	"errors"
 
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
+	"github.com/bishopfox/sliver/client/theme"
 )
 
 // ArmoryUpdateOption represents an update option in the armory update form.
@@ -39,11 +40,12 @@ func ArmoryUpdateForm(options []ArmoryUpdateOption) (*ArmoryUpdateFormResult, er
 		Title("Select updates to apply").
 		Description("Use space to select and enter to apply.").
 		Options(selectOptions...).
-		Height(listHeight(len(selectOptions))).
+		// huh.MultiSelect Height includes title/description, so add 2 lines for them.
+		Height(listHeight(len(selectOptions)) + 2).
 		Value(&result.SelectedIDs)
 
-	form := huh.NewForm(huh.NewGroup(field))
-	if err := form.Run(); err != nil {
+	form := huh.NewForm(huh.NewGroup(field)).WithTheme(theme.HuhTheme())
+	if err := runForm(form); err != nil {
 		return nil, err
 	}
 

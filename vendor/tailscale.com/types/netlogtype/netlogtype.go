@@ -21,6 +21,9 @@ type Message struct {
 	Start time.Time `json:"start"` // inclusive
 	End   time.Time `json:"end"`   // inclusive
 
+	SrcNode  Node   `json:"srcNode,omitzero"`
+	DstNodes []Node `json:"dstNodes,omitempty"`
+
 	VirtualTraffic  []ConnectionCounts `json:"virtualTraffic,omitempty"`
 	SubnetTraffic   []ConnectionCounts `json:"subnetTraffic,omitempty"`
 	ExitTraffic     []ConnectionCounts `json:"exitTraffic,omitempty"`
@@ -28,14 +31,18 @@ type Message struct {
 }
 
 const (
-	messageJSON      = `{"nodeId":"n0123456789abcdefCNTRL",` + maxJSONTimeRange + `,` + minJSONTraffic + `}`
+	messageJSON      = `{"nodeId":` + maxJSONStableID + `,` + minJSONNodes + `,` + maxJSONTimeRange + `,` + minJSONTraffic + `}`
+	maxJSONStableID  = `"n0123456789abcdefCNTRL"`
+	minJSONNodes     = `"srcNode":{},"dstNodes":[]`
 	maxJSONTimeRange = `"start":` + maxJSONRFC3339 + `,"end":` + maxJSONRFC3339
 	maxJSONRFC3339   = `"0001-01-01T00:00:00.000000000Z"`
 	minJSONTraffic   = `"virtualTraffic":{},"subnetTraffic":{},"exitTraffic":{},"physicalTraffic":{}`
 
-	// MaxMessageJSONSize is the overhead size of Message when it is
-	// serialized as JSON assuming that each traffic map is populated.
-	MaxMessageJSONSize = len(messageJSON)
+	// MinMessageJSONSize is the overhead size of Message when it is
+	// serialized as JSON assuming that each field is minimally populated.
+	// Each [Node] occupies at least [MinNodeJSONSize].
+	// Each [ConnectionCounts] occupies at most [MaxConnectionCountsJSONSize].
+	MinMessageJSONSize = len(messageJSON)
 
 	maxJSONConnCounts = `{` + maxJSONConn + `,` + maxJSONCounts + `}`
 	maxJSONConn       = `"proto":` + maxJSONProto + `,"src":` + maxJSONAddrPort + `,"dst":` + maxJSONAddrPort
@@ -51,6 +58,29 @@ const (
 	// It assumes that netip.Addr never has IPv6 zones.
 	MaxConnectionCountsJSONSize = len(maxJSONConnCounts)
 )
+
+// Node is information about a node.
+type Node struct {
+	// NodeID is the stable ID of the node.
+	NodeID tailcfg.StableNodeID `json:"nodeId"`
+
+	// Name is the fully-qualified name of the node.
+	Name string `json:"name,omitzero"` // e.g., "carbonite.example.ts.net"
+
+	// Addresses are the Tailscale IP addresses of the node.
+	Addresses []netip.Addr `json:"addresses,omitempty"`
+
+	// OS is the operating system of the node.
+	OS string `json:"os,omitzero"` // e.g., "linux"
+
+	// User is the user that owns the node.
+	// It is not populated if the node is tagged.
+	User string `json:"user,omitzero"` // e.g., "johndoe@example.com"
+
+	// Tags are the tags of the node.
+	// It is not populated if the node is owned by a user.
+	Tags []string `json:"tags,omitempty"` // e.g., ["tag:prod","tag:logs"]
+}
 
 // ConnectionCounts is a flattened struct of both a connection and counts.
 type ConnectionCounts struct {

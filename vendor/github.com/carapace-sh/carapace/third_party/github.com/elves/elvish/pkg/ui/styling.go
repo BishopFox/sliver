@@ -144,7 +144,7 @@ func ParseStyling(s string) Styling {
 		return parseOneStyling(s)
 	}
 	var joint jointStyling
-	for _, subs := range strings.Split(s, " ") {
+	for subs := range strings.SplitSeq(s, " ") {
 		parsed := parseOneStyling(subs)
 		if parsed == nil {
 			return nil

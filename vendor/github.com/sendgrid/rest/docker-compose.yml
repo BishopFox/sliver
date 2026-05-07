@@ -1,0 +1,6 @@
+version: '3'
+services:
+  go:
+    build: ./docker/
+    volumes:
+     - ./:/app

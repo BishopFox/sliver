@@ -17,7 +17,7 @@ func convertFail(str string, err error) error {
 	)
 }
 
-func buildRequest(sessionHndl uintptr, r *Request) (uintptr, error) {
+func buildRequest(sessionHndl uintptr, r *Request) (uintptr, uintptr, error) {
 	var connHndl uintptr
 	var err error
 	var flags uintptr
@@ -29,7 +29,7 @@ func buildRequest(sessionHndl uintptr, r *Request) (uintptr, error) {
 
 	// Parse URL
 	if uri, err = url.Parse(r.URL); err != nil {
-		return 0, fmt.Errorf("failed to parse url %s: %w", r.URL, err)
+		return 0, 0, fmt.Errorf("failed to parse url %s: %w", r.URL, err)
 	}
 
 	passwd, _ = uri.User.Password()
@@ -37,7 +37,7 @@ func buildRequest(sessionHndl uintptr, r *Request) (uintptr, error) {
 	if uri.Port() != "" {
 		if port, err = strconv.ParseInt(uri.Port(), 10, 64); err != nil {
 			err = fmt.Errorf("port %s invalid: %w", uri.Port(), err)
-			return 0, err
+			return 0, 0, err
 		}
 	}
 
@@ -58,7 +58,7 @@ func buildRequest(sessionHndl uintptr, r *Request) (uintptr, error) {
 		0,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to create connection: %w", err)
+		return 0, 0, fmt.Errorf("failed to create connection: %w", err)
 	}
 
 	// Send query string too
@@ -82,10 +82,10 @@ func buildRequest(sessionHndl uintptr, r *Request) (uintptr, error) {
 		0,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to open request: %w", err)
+		return connHndl, 0, fmt.Errorf("failed to open request: %w", err)
 	}
 
-	return reqHndl, nil
+	return connHndl, reqHndl, nil
 }
 
 var cookies []*Cookie

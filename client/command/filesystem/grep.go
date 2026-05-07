@@ -29,7 +29,6 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/proto"
 )
@@ -239,19 +238,19 @@ func printGrep(grep *sliverpb.Grep, searchPattern string, searchPath string, cmd
 // grepLineResult - Add color or formatting for results for console output
 func grepLineResult(positions []*sliverpb.GrepLinePosition, line string, colorize bool, allowFormatting bool) string {
 	var result string = ""
-	var matchOutput func(a ...interface{}) string
 	var previousPositionEnd int32 = 0
 
+	matchStyle := console.StyleNormal
 	if colorize {
-		matchOutput = color.New(color.FgRed, color.Bold).SprintFunc()
+		matchStyle = console.StyleBoldRed
 	} else if allowFormatting {
-		matchOutput = color.New(color.Bold).SprintFunc()
+		matchStyle = console.StyleBold
 	}
 
 	for idx, position := range positions {
 		if colorize || allowFormatting {
 			result += line[previousPositionEnd:position.Start]
-			result += matchOutput(line[position.Start:position.End])
+			result += matchStyle.Render(line[position.Start:position.End])
 			if idx == len(positions)-1 {
 				result += line[position.End:]
 			} else {

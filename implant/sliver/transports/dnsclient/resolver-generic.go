@@ -22,6 +22,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
+	"net"
 	"strings"
 	"time"
 
@@ -44,7 +45,7 @@ func NewGenericResolver(address string, port string, retryWait time.Duration, re
 		retries = 1
 	}
 	return &GenericResolver{
-		address:   address + ":" + port,
+		address:   net.JoinHostPort(address, port),
 		retries:   retries,
 		retryWait: retryWait,
 		resolver: &dns.Client{

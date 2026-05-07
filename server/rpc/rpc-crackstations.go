@@ -40,6 +40,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"gorm.io/gorm"
 )
 
 var (
@@ -112,15 +113,36 @@ func (rpc *Server) CrackstationBenchmark(ctx context.Context, req *clientpb.Crac
 		crackRpcLog.Errorf("Failed to get crackstation by host UUID: %s", err)
 		return nil, status.Errorf(codes.NotFound, "Failed to find crackstation by host UUID")
 	}
-	crackstation.Benchmarks = []models.Benchmark{}
+	benchmarks := make([]models.Benchmark, 0, len(req.Benchmarks))
 	for hashType, speed := range req.Benchmarks {
-		crackstation.Benchmarks = append(crackstation.Benchmarks, models.Benchmark{HashType: hashType, PerSecondRate: speed})
+		benchmarks = append(benchmarks, models.Benchmark{
+			CrackstationID: crackstation.ID,
+			HashType:       hashType,
+			PerSecondRate:  speed,
+		})
 	}
+
 	dbSession := db.Session()
-	err = dbSession.Save(&crackstation).Error
+	err = dbSession.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("crackstation_id = ?", crackstation.ID).Delete(&models.Benchmark{}).Error; err != nil {
+			return err
+		}
+		if len(benchmarks) == 0 {
+			return nil
+		}
+		return tx.Create(&benchmarks).Error
+	})
 	if err != nil {
 		crackRpcLog.Errorf("Failed to save crackstation benchmarks: %s", err)
 		return nil, status.Errorf(codes.Internal, "Failed to save crackstation benchmarks")
+	}
+
+	crackStation := core.GetCrackstation(req.HostUUID)
+	if crackStation != nil {
+		crackStation.Station.Benchmarks = map[int32]uint64{}
+		for hashType, speed := range req.Benchmarks {
+			crackStation.Station.Benchmarks[hashType] = speed
+		}
 	}
 	return &commonpb.Empty{}, nil
 }
@@ -161,7 +183,12 @@ func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb
 
 	if len(dbCrackstation.Benchmarks) == 0 {
 		crackRpcLog.Infof("No benchmark information for '%s', requesting benchmark...", req.Name)
-		err = stream.Send(&clientpb.Event{EventType: consts.CrackBenchmark, Data: []byte{}})
+		taskID, err := uuid.NewV4()
+		if err != nil {
+			crackRpcLog.Errorf("Failed to generate benchmark task ID: %s", err)
+			return status.Error(codes.Internal, "failed to create benchmark task")
+		}
+		err = stream.Send(&clientpb.Event{EventType: consts.CrackBenchmark, Data: taskID.Bytes()})
 		if err != nil {
 			crackRpcLog.Errorf("Failed to send benchmark task to crackstation: %s", err)
 			return status.Error(codes.Internal, "failed to send benchmark task")

@@ -21,9 +21,11 @@ package transport
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"net"
 	"runtime/debug"
+	"strings"
 
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/server/certs"
@@ -50,37 +52,69 @@ var (
 // StartMtlsClientListener - Start a mutual TLS listener
 func StartMtlsClientListener(host string, port uint16) (*grpc.Server, net.Listener, error) {
 	mtlsLog.Infof("Starting gRPC/mtls  listener on %s:%d", host, port)
-
-	tlsConfig := getOperatorServerTLSConfig("multiplayer")
-
-	creds := credentials.NewTLS(tlsConfig)
 	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
 		mtlsLog.Error(err)
 		return nil, nil, err
 	}
+
+	grpcServer, err := StartMtlsClientServer(ln)
+	if err != nil {
+		ln.Close()
+		return nil, nil, err
+	}
+	return grpcServer, ln, nil
+}
+
+// StartMtlsClientServer serves the authenticated multiplayer gRPC server on an
+// existing listener. This is primarily useful for tests that need the full mTLS
+// + auth stack without opening a real TCP socket.
+func StartMtlsClientServer(ln net.Listener) (*grpc.Server, error) {
+	if ln == nil {
+		return nil, errors.New("listener is required")
+	}
+
+	tlsConfig := getOperatorServerTLSConfig("multiplayer")
+	if tlsConfig == nil {
+		return nil, errors.New("failed to create operator TLS config")
+	}
+
+	creds := credentials.NewTLS(tlsConfig)
 	options := []grpc.ServerOption{
 		grpc.Creds(creds),
 		grpc.MaxRecvMsgSize(ServerMaxMessageSize),
 		grpc.MaxSendMsgSize(ServerMaxMessageSize),
 	}
+	options = append(options, grpcKeepaliveOptions()...)
 	options = append(options, initMiddleware(true)...)
 	grpcServer := grpc.NewServer(options...)
 	rpcpb.RegisterSliverRPCServer(grpcServer, rpc.NewServer())
 	go func() {
-		panicked := true
 		defer func() {
-			if panicked {
-				mtlsLog.Errorf("stacktrace from panic: %s", string(debug.Stack()))
+			if r := recover(); r != nil {
+				mtlsLog.Errorf("gRPC server panic: %v\n%s", r, string(debug.Stack()))
 			}
 		}()
-		if err := grpcServer.Serve(ln); err != nil {
+		if err := grpcServer.Serve(ln); err != nil && !isExpectedGRPCServerExit(err) {
 			mtlsLog.Warnf("gRPC server exited with error: %v", err)
-		} else {
-			panicked = false
 		}
 	}()
-	return grpcServer, ln, nil
+	return grpcServer, nil
+}
+
+func isExpectedGRPCServerExit(err error) bool {
+	if err == nil {
+		return true
+	}
+	if errors.Is(err, grpc.ErrServerStopped) || errors.Is(err, net.ErrClosed) {
+		return true
+	}
+
+	// The gVisor-backed listener used by the WireGuard multiplayer transport can
+	// surface this accept error during normal shutdown on Windows.
+	errString := err.Error()
+	return strings.Contains(errString, "use of closed network connection") ||
+		strings.Contains(errString, "endpoint is in invalid state")
 }
 
 // getOperatorServerTLSConfig - Generate the TLS configuration, we do now allow the end user
@@ -114,6 +148,9 @@ func getOperatorServerTLSConfig(host string) *tls.Config {
 		ClientCAs:    caCertPool,
 		Certificates: []tls.Certificate{cert},
 		MinVersion:   tls.VersionTLS13,
+		VerifyConnection: func(state tls.ConnectionState) error {
+			return certs.ValidateOperatorClientCertificate(state.PeerCertificates)
+		},
 	}
 
 	return tlsConfig

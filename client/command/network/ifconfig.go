@@ -75,7 +75,7 @@ func PrintIfconfig(ifconfig *sliverpb.Ifconfig, all bool, con *console.SliverCli
 	for index, iface := range interfaces {
 		tw := table.NewWriter()
 		tw.SetStyle(settings.GetTableWithBordersStyle(con))
-		tw.SetTitle(fmt.Sprintf(console.Bold+"%s"+console.Normal, iface.Name))
+		tw.SetTitle(console.StyleBold.Render(iface.Name))
 		tw.SetColumnConfigs([]table.ColumnConfig{
 			{Name: "#", AutoMerge: true},
 			{Name: "IP Address", AutoMerge: true},
@@ -100,7 +100,7 @@ func PrintIfconfig(ifconfig *sliverpb.Ifconfig, all bool, con *console.SliverCli
 				}
 			}
 			if 0 < subnet && subnet <= 32 && !isLoopback(ip) {
-				ips = append(ips, fmt.Sprintf(console.Bold+console.Green+"%s"+console.Normal, ip))
+				ips = append(ips, console.StyleBoldGreen.Render(ip))
 			} else if all {
 				ips = append(ips, fmt.Sprintf("%s", ip))
 			}

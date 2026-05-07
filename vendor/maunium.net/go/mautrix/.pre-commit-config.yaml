@@ -1,0 +1,30 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude_types: [markdown]
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+
+  - repo: https://github.com/tekwizely/pre-commit-golang
+    rev: v1.0.0-rc.1
+    hooks:
+      - id: go-imports-repo
+        args:
+          - "-local"
+          - "maunium.net/go/mautrix"
+          - "-w"
+      - id: go-vet-repo-mod
+      - id: go-mod-tidy
+      # TODO enable this
+      #- id: go-staticcheck-repo-mod
+
+  - repo: https://github.com/beeper/pre-commit-go
+    rev: v0.4.2
+    hooks:
+      - id: prevent-literal-http-methods
+      - id: zerolog-ban-global-log
+      - id: zerolog-ban-msgf
+      - id: zerolog-use-stringer

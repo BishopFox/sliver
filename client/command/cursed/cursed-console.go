@@ -93,7 +93,7 @@ func startCursedConsole(curse *core.CursedProcess, helpers bool, target *overlor
 	tmpFile, _ := os.CreateTemp("", "cursed")
 	shell := readline.NewShell()
 	shell.History.AddFromFile("cursed history", tmpFile.Name())
-	shell.Prompt.Primary(func() string { return "\033[31mcursed »\033[0m " })
+	shell.Prompt.Primary(func() string { return console.StyleRed.Render("cursed »") + " " })
 	// 	EOFPrompt:         "exit",
 
 	if con.Settings.VimMode {
@@ -111,7 +111,7 @@ func startCursedConsole(curse *core.CursedProcess, helpers bool, target *overlor
 		}
 	}
 
-	con.Printf(console.Bold+">>> Cursed Console, use ':help' for options%s\n\n", console.Normal)
+	con.Printf("%s\n\n", console.StyleBold.Render(">>> Cursed Console, use ':help' for options"))
 
 	for {
 		line, err := shell.Readline()

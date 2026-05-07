@@ -21,11 +21,15 @@ package encoders
 import (
 	"bytes"
 	"compress/gzip"
+	"fmt"
+	"io"
 	"sync"
 )
 
 // Gzip - Gzip compression encoder
 type Gzip struct{}
+
+const DefaultMaxGzipDecodeLen = 2 * 1024 * 1024 * 1024 // 2GB
 
 var gzipWriterPools = &sync.Pool{}
 
@@ -80,14 +84,33 @@ func (g Gzip) Encode(data []byte) ([]byte, error) {
 
 // Decode - Uncompressed data with gzip
 func (g Gzip) Decode(data []byte) ([]byte, error) {
+	return g.DecodeWithMaxLen(data, DefaultMaxGzipDecodeLen)
+}
+
+// DecodeWithMaxLen - Uncompress data with gzip while enforcing a max output size.
+func (g Gzip) DecodeWithMaxLen(data []byte, maxLen int64) ([]byte, error) {
+	if maxLen < 0 {
+		return nil, fmt.Errorf("invalid max decode length: %d", maxLen)
+	}
+
 	reader, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
 	}
+	defer reader.Close()
+
+	limitedReader := &io.LimitedReader{
+		R: reader,
+		N: maxLen + 1,
+	}
+
 	var buf bytes.Buffer
-	_, err = buf.ReadFrom(reader)
+	_, err = buf.ReadFrom(limitedReader)
 	if err != nil {
 		return nil, err
+	}
+	if limitedReader.N == 0 {
+		return nil, fmt.Errorf("gzip decoded payload exceeds %d bytes", maxLen)
 	}
 	return buf.Bytes(), nil
 }

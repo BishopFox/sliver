@@ -43,6 +43,7 @@ func LocalListener() (*grpc.Server, *bufconn.Listener, error) {
 		grpc.MaxRecvMsgSize(ServerMaxMessageSize),
 		grpc.MaxSendMsgSize(ServerMaxMessageSize),
 	}
+	options = append(options, grpcKeepaliveOptions()...)
 	options = append(options, initMiddleware(false)...)
 	grpcServer := grpc.NewServer(options...)
 	rpcpb.RegisterSliverRPCServer(grpcServer, rpc.NewServer())

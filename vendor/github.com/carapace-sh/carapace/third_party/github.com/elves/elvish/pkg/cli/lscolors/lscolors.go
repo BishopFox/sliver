@@ -79,14 +79,14 @@ var featureForName = map[string]feature{
 // fields are silently ignored.
 func parseLsColor(s string) *colorist {
 	lc := &colorist{make(map[feature]string), make(map[string]string)}
-	for _, spec := range strings.Split(s, ":") {
+	for spec := range strings.SplitSeq(s, ":") {
 		words := strings.Split(spec, "=")
 		if len(words) != 2 {
 			continue
 		}
 		key, value := words[0], words[1]
 		filterValues := []string{}
-		for _, splitValue := range strings.Split(value, ";") {
+		for splitValue := range strings.SplitSeq(value, ";") {
 			if strings.Count(splitValue, "0") == len(splitValue) {
 				continue
 			}

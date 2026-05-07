@@ -27,10 +27,11 @@ func (va VAlign) Apply(lines []string, maxLines int) []string {
 		maxLines = len(lines)
 	}
 
-	insertIdx := 0
-	if va == VAlignMiddle {
+	var insertIdx int
+	switch va {
+	case VAlignMiddle:
 		insertIdx = int(maxLines-len(lines)) / 2
-	} else if va == VAlignBottom {
+	case VAlignBottom:
 		insertIdx = maxLines - len(lines)
 	}
 

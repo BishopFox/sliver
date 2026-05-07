@@ -92,6 +92,7 @@ type MultiplayerListener struct {
 	ListenerJobID uuid.UUID `gorm:"type:uuid;"`
 	Host          string
 	Port          uint32
+	WireGuard     bool
 }
 
 type DnsDomain struct {
@@ -207,8 +208,9 @@ func (j *MtlsListener) ToProtobuf() *clientpb.MTLSListenerReq {
 
 func (j *MultiplayerListener) ToProtobuf() *clientpb.MultiplayerListenerReq {
 	return &clientpb.MultiplayerListenerReq{
-		Host: j.Host,
-		Port: j.Port,
+		Host:      j.Host,
+		Port:      j.Port,
+		WireGuard: j.WireGuard,
 	}
 }
 
@@ -277,8 +279,9 @@ func ListenerJobFromProtobuf(pbListenerJob *clientpb.ListenerJob) *ListenerJob {
 		}
 	case constants.MultiplayerModeStr:
 		cfg.MultiplayerListener = MultiplayerListener{
-			Host: pbListenerJob.MultiConf.Host,
-			Port: pbListenerJob.MultiConf.Port,
+			Host:      pbListenerJob.MultiConf.Host,
+			Port:      pbListenerJob.MultiConf.Port,
+			WireGuard: pbListenerJob.MultiConf.WireGuard,
 		}
 	}
 

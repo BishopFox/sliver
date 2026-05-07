@@ -1,5 +1,3 @@
-# This course is intended for the 1.6 version of Sliver, which is not yet published
-
 `sliver-server` is the binary you want to use to run the Sliver C2 server, `sliver-client` is solely a client to connect to a Sliver C2 server. Sliver server also acts as a client on its own, so you don’t necessarily run sliver server and client separately.
 
 First time running Sliver will take a couple seconds as it's retrieving its dependencies. Consecutive executions will be much faster. Go ahead and launch the `sliver-server`.

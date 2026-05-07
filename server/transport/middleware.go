@@ -74,6 +74,7 @@ func initMiddleware(enableAuth bool) []grpc.ServerOption {
 			grpc.ChainStreamInterceptor(
 				grpc_auth.StreamServerInterceptor(tokenAuthFunc),
 				permissionsStreamServerInterceptor(),
+				trackOperatorStreamInterceptor(),
 				grpc_tags.StreamServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
 				grpc_logrus.StreamServerInterceptor(logrusEntry, logrusOpts...),
 				grpc_logrus.PayloadStreamServerInterceptor(logrusEntry, deciderStream),
@@ -90,6 +91,7 @@ func initMiddleware(enableAuth bool) []grpc.ServerOption {
 			),
 			grpc.ChainStreamInterceptor(
 				grpc_auth.StreamServerInterceptor(serverAuthFunc),
+				trackOperatorStreamInterceptor(),
 				grpc_tags.StreamServerInterceptor(grpc_tags.WithFieldExtractor(grpc_tags.CodeGenRequestFieldExtractor)),
 				grpc_logrus.StreamServerInterceptor(logrusEntry, logrusOpts...),
 				grpc_logrus.PayloadStreamServerInterceptor(logrusEntry, deciderStream),

@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 
 	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/console"
 	"github.com/spf13/cobra"
 )
@@ -64,6 +65,14 @@ var operatorCmd = &cobra.Command{
 			return
 		}
 
+		if !cmd.Flags().Changed(lportFlagStr) {
+			serverConfig := configs.GetServerConfig()
+
+			if serverConfig.DaemonMode {
+				lport = uint16(serverConfig.DaemonConfig.Port)
+			}
+		}
+
 		save, err := cmd.Flags().GetString(saveFlagStr)
 		if err != nil {
 			fmt.Printf("Failed to parse --%s flag %s", saveFlagStr, err)
@@ -90,7 +99,13 @@ var operatorCmd = &cobra.Command{
 		}
 
 		certs.SetupCAs()
-		configJSON, err := console.NewOperatorConfig(name, lhost, lport, permissions)
+		includeWG, err := cmd.Flags().GetBool(enableWGFlagStr)
+		if err != nil {
+			fmt.Printf("Failed to parse --%s flag %s", enableWGFlagStr, err)
+			return
+		}
+
+		configJSON, err := console.NewOperatorConfig(name, lhost, lport, permissions, includeWG)
 		if err != nil {
 			fmt.Printf("Failed: %s\n", err)
 			return

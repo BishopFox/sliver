@@ -20,7 +20,7 @@ func (m Mock) WorkDir() string {
 
 type t interface {
 	Name() string
-	Fatal(...interface{})
+	Fatal(...any)
 }
 
 func NewMock(t t) *Mock {

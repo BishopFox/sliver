@@ -4,8 +4,9 @@ import (
 	"errors"
 	"strings"
 
+	"charm.land/huh/v2"
+	"github.com/bishopfox/sliver/client/theme"
 	"github.com/bishopfox/sliver/util"
-	"github.com/charmbracelet/huh"
 )
 
 // GenerateProfilesNewBeaconFormResult captures the inputs needed to drive the profiles new beacon command.
@@ -65,6 +66,7 @@ func GenerateProfilesNewBeaconForm() (*GenerateProfilesNewBeaconFormResult, erro
 					case "linux":
 						return []huh.Option[string]{
 							huh.NewOption("amd64", "amd64"),
+							huh.NewOption("arm64", "arm64"),
 							huh.NewOption("386", "386"),
 						}
 					default:
@@ -88,6 +90,8 @@ func GenerateProfilesNewBeaconForm() (*GenerateProfilesNewBeaconFormResult, erro
 							huh.NewOption("Service", "service"),
 							huh.NewOption("Shellcode", "shellcode"),
 						)
+					} else if result.OS == "darwin" || result.OS == "linux" {
+						options = append(options, huh.NewOption("Shellcode", "shellcode"))
 					}
 					return options
 				}, &result.OS).
@@ -163,7 +167,8 @@ func GenerateProfilesNewBeaconForm() (*GenerateProfilesNewBeaconFormResult, erro
 		),
 	)
 
-	if err := form.Run(); err != nil {
+	form = form.WithTheme(theme.HuhTheme())
+	if err := runForm(form); err != nil {
 		return nil, err
 	}
 

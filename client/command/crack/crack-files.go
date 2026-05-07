@@ -106,17 +106,17 @@ func PrintCrackFiles(crackFiles *clientpb.CrackFiles, con *console.SliverClient)
 
 func PrintCrackFilesByType(crackFiles *clientpb.CrackFiles, con *console.SliverClient) {
 	wordlistTable := table.NewWriter()
-	wordlistTable.SetTitle(console.Bold + "Wordlists" + console.Normal)
+	wordlistTable.SetTitle(console.StyleBold.Render("Wordlists"))
 	wordlistTable.SetStyle(settings.GetTableStyle(con))
 	wordlistTable.AppendHeader(table.Row{"Name", "Size"})
 
 	rulesTable := table.NewWriter()
-	rulesTable.SetTitle(console.Bold + "Rules" + console.Normal)
+	rulesTable.SetTitle(console.StyleBold.Render("Rules"))
 	rulesTable.SetStyle(settings.GetTableStyle(con))
 	rulesTable.AppendHeader(table.Row{"Name", "Size"})
 
 	hcTable := table.NewWriter()
-	hcTable.SetTitle(console.Bold + "Markov Hcstat2" + console.Normal)
+	hcTable.SetTitle(console.StyleBold.Render("Markov Hcstat2"))
 	hcTable.SetStyle(settings.GetTableStyle(con))
 	hcTable.AppendHeader(table.Row{"Name", "Size"})
 

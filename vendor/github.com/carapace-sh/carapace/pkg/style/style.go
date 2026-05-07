@@ -68,7 +68,7 @@ func SGR(s string) string { return Parse(s).SGR() }
 
 func Parse(s string) ui.Style {
 	stylings := make([]ui.Styling, 0)
-	for _, word := range strings.Split(s, " ") {
+	for word := range strings.SplitSeq(s, " ") {
 		if styling := ui.ParseStyling(word); styling != nil {
 			stylings = append(stylings, styling)
 		}

@@ -20,7 +20,7 @@ import (
 //	│     │            │ TOTAL     │  10000 │                             │
 //	└─────┴────────────┴───────────┴────────┴─────────────────────────────┘
 func (t *Table) Render() string {
-	t.initForRender()
+	t.initForRender(renderModeDefault)
 
 	var out strings.Builder
 	if t.numColumns > 0 {
@@ -50,6 +50,7 @@ func (t *Table) Render() string {
 	return t.render(&out)
 }
 
+//gocyclo:ignore
 func (t *Table) renderColumn(out *strings.Builder, row rowStr, colIdx int, maxColumnLength int, hint renderHint) int {
 	numColumnsRendered := 1
 
@@ -93,11 +94,10 @@ func (t *Table) renderColumn(out *strings.Builder, row rowStr, colIdx int, maxCo
 			numColumnsRendered++
 		}
 	}
-	colStr = align.Apply(colStr, maxColumnLength)
 
 	// pad both sides of the column
 	if !hint.isSeparatorRow || (hint.isSeparatorRow && mergeVertically) {
-		colStr = t.style.Box.PaddingLeft + colStr + t.style.Box.PaddingRight
+		colStr = t.style.Box.PaddingLeft + align.Apply(colStr, maxColumnLength) + t.style.Box.PaddingRight
 	}
 
 	t.renderColumnColorized(out, colIdx, colStr, hint)
@@ -112,9 +112,9 @@ func (t *Table) renderColumnAutoIndex(out *strings.Builder, hint renderHint) {
 	if hint.isSeparatorRow {
 		numChars := t.autoIndexVIndexMaxLength + utf8.RuneCountInString(t.style.Box.PaddingLeft) +
 			utf8.RuneCountInString(t.style.Box.PaddingRight)
-		chars := t.style.Box.MiddleHorizontal
+		chars := t.style.Box.middleHorizontal(hint.separatorType)
 		if hint.isAutoIndexColumn && hint.isHeaderOrFooterSeparator() {
-			chars = text.RepeatAndTrim(" ", len(t.style.Box.MiddleHorizontal))
+			chars = text.RepeatAndTrim(" ", len(chars))
 		}
 		outAutoIndex.WriteString(text.RepeatAndTrim(chars, numChars))
 	} else {
@@ -239,7 +239,7 @@ func (t *Table) renderLineMergeOutputs(out *strings.Builder, outLine *strings.Bu
 }
 
 func (t *Table) renderMarginLeft(out *strings.Builder, hint renderHint) {
-	out.WriteString(t.style.Format.Direction.Modifier())
+	out.WriteString(t.directionModifier)
 	if t.style.Options.DrawBorder {
 		border := t.getBorderLeft(hint)
 		colors := t.getBorderColors(hint)
@@ -304,8 +304,10 @@ func (t *Table) renderRowSeparator(out *strings.Builder, hint renderHint) {
 	} else if hint.isFooterRow && !t.style.Options.SeparateFooter {
 		return
 	}
+
 	hint.isSeparatorRow = true
-	t.renderLine(out, t.rowSeparator, hint)
+	separator := t.rowSeparatorStrings[hint.separatorType]
+	t.renderLine(out, t.rowSeparators[separator], hint)
 }
 
 func (t *Table) renderRows(out *strings.Builder, rows []rowStr, hint renderHint) {
@@ -316,8 +318,17 @@ func (t *Table) renderRows(out *strings.Builder, rows []rowStr, hint renderHint)
 		t.renderRow(out, row, hint)
 
 		if t.shouldSeparateRows(rowIdx, len(rows)) {
-			hint.isFirstRow = false
-			t.renderRowSeparator(out, hint)
+			hintSep := hint
+			hintSep.isFirstRow = false
+			hintSep.isSeparatorRow = true
+			if hintSep.isHeaderRow {
+				hintSep.separatorType = separatorTypeHeaderMiddle
+			} else if hintSep.isFooterRow {
+				hintSep.separatorType = separatorTypeFooterMiddle
+			} else {
+				hintSep.separatorType = separatorTypeRowMiddle
+			}
+			t.renderRowSeparator(out, hintSep)
 		}
 	}
 }
@@ -328,46 +339,69 @@ func (t *Table) renderRowsBorderBottom(out *strings.Builder) {
 			isBorderBottom: true,
 			isFooterRow:    true,
 			rowNumber:      len(t.rowsFooter),
+			separatorType:  separatorTypeFooterBottom,
 		})
 	} else {
 		t.renderRowSeparator(out, renderHint{
 			isBorderBottom: true,
 			isFooterRow:    false,
 			rowNumber:      len(t.rows),
+			separatorType:  separatorTypeRowBottom,
 		})
 	}
 }
 
 func (t *Table) renderRowsBorderTop(out *strings.Builder) {
+	st := separatorTypeHeaderTop
+	if t.title != "" {
+		st = separatorTypeTitleBottom
+	} else if len(t.rowsHeader) == 0 && !t.autoIndex {
+		st = separatorTypeRowTop
+	}
+
 	if len(t.rowsHeader) > 0 || t.autoIndex {
 		t.renderRowSeparator(out, renderHint{
-			isBorderTop: true,
-			isHeaderRow: true,
-			rowNumber:   0,
+			isBorderTop:    true,
+			isHeaderRow:    true,
+			isSeparatorRow: true,
+			rowNumber:      0,
+			separatorType:  st,
 		})
 	} else {
 		t.renderRowSeparator(out, renderHint{
-			isBorderTop: true,
-			isHeaderRow: false,
-			rowNumber:   0,
+			isBorderTop:    true,
+			isHeaderRow:    false,
+			isSeparatorRow: true,
+			rowNumber:      0,
+			separatorType:  st,
 		})
 	}
 }
 
 func (t *Table) renderRowsFooter(out *strings.Builder) {
 	if len(t.rowsFooter) > 0 {
-		t.renderRowSeparator(out, renderHint{
-			isFooterRow:    true,
-			isFirstRow:     true,
-			isSeparatorRow: true,
-		})
+		// Only add separator before footer if there are data rows.
+		// Otherwise, renderRowsHeader already added one.
+		if len(t.rows) > 0 {
+			t.renderRowSeparator(out, renderHint{
+				isFooterRow:    true,
+				isFirstRow:     true,
+				isSeparatorRow: true,
+				separatorType:  separatorTypeFooterTop,
+			})
+		}
 		t.renderRows(out, t.rowsFooter, renderHint{isFooterRow: true})
 	}
 }
 
 func (t *Table) renderRowsHeader(out *strings.Builder) {
 	if len(t.rowsHeader) > 0 || t.autoIndex {
-		hintSeparator := renderHint{isHeaderRow: true, isLastRow: true, isSeparatorRow: true}
+		hintSeparator := renderHint{
+			isHeaderRow:    true,
+			isLastRow:      true,
+			isSeparatorRow: true,
+			separatorType:  separatorTypeHeaderMiddle,
+		}
 
 		if len(t.rowsHeader) > 0 {
 			t.renderRows(out, t.rowsHeader, renderHint{isHeaderRow: true})
@@ -376,7 +410,13 @@ func (t *Table) renderRowsHeader(out *strings.Builder) {
 			t.renderRow(out, t.getAutoIndexColumnIDs(), renderHint{isAutoIndexRow: true, isHeaderRow: true})
 			hintSeparator.rowNumber = 1
 		}
-		t.renderRowSeparator(out, hintSeparator)
+
+		// Only add separator after header if there are data rows or footer rows.
+		// Otherwise, the bottom border is rendered directly.
+		if len(t.rows) > 0 || len(t.rowsFooter) > 0 || !t.style.Options.DoNotRenderSeparatorWhenEmpty {
+			hintSeparator.separatorType = separatorTypeHeaderBottom
+			t.renderRowSeparator(out, hintSeparator)
+		}
 	}
 }
 
@@ -393,8 +433,9 @@ func (t *Table) renderTitle(out *strings.Builder) {
 		}
 		if t.style.Options.DrawBorder {
 			lenBorder := rowLength - text.StringWidthWithoutEscSequences(t.style.Box.TopLeft+t.style.Box.TopRight)
+			middleHorizontal := t.style.Box.middleHorizontal(separatorTypeTitleTop)
 			out.WriteString(colorsBorder.Sprint(t.style.Box.TopLeft))
-			out.WriteString(colorsBorder.Sprint(text.RepeatAndTrim(t.style.Box.MiddleHorizontal, lenBorder)))
+			out.WriteString(colorsBorder.Sprint(text.RepeatAndTrim(middleHorizontal, lenBorder)))
 			out.WriteString(colorsBorder.Sprint(t.style.Box.TopRight))
 		}
 

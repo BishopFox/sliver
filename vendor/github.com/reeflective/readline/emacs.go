@@ -1,11 +1,13 @@
 package readline
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"sort"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/rivo/uniseg"
 
@@ -448,8 +450,82 @@ func (rl *Shell) selfInsert() {
 }
 
 func (rl *Shell) bracketedPasteBegin() {
-	// keys, _ := rl.Keys.PeekAllBytes()
-	// fmt.Println(string(keys))
+	rl.History.SkipSave()
+	rl.completer.TrimSuffix()
+
+	const endSeq = "\x1b[201~"
+
+	data := rl.Keys.DrainBuffer()
+
+	for {
+		if idx := bytes.Index(data, []byte(endSeq)); idx >= 0 {
+			payload := data[:idx]
+			rest := data[idx+len(endSeq):]
+			if len(rest) > 0 {
+				rl.Keys.PrependBuffer(rest)
+			}
+
+			rl.insertPastedBytes(payload)
+			return
+		}
+
+		more, err := rl.Keys.ReadInput()
+		if err != nil {
+			rl.insertPastedBytes(data)
+			return
+		}
+
+		if len(more) == 0 {
+			continue
+		}
+
+		data = append(data, more...)
+	}
+}
+
+func (rl *Shell) insertPastedBytes(data []byte) {
+	if len(data) == 0 {
+		return
+	}
+
+	runes := normalizePasteBytes(data)
+	if len(runes) == 0 {
+		return
+	}
+
+	rl.cursor.InsertAt(runes...)
+	rl.Keys.SetMatched(runes...)
+}
+
+func normalizePasteBytes(data []byte) []rune {
+	if len(data) == 0 {
+		return nil
+	}
+
+	out := make([]rune, 0, len(data))
+
+	for len(data) > 0 {
+		if data[0] == '\r' {
+			if len(data) > 1 && data[1] == '\n' {
+				data = data[1:]
+			}
+			out = append(out, '\n')
+			data = data[1:]
+			continue
+		}
+
+		r, size := utf8.DecodeRune(data)
+		if r == utf8.RuneError && size == 1 {
+			out = append(out, rune(data[0]))
+			data = data[1:]
+			continue
+		}
+
+		out = append(out, r)
+		data = data[size:]
+	}
+
+	return out
 }
 
 // Drag the character before point forward over the character

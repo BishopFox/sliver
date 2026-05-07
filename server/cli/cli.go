@@ -28,6 +28,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	clientcli "github.com/bishopfox/sliver/client/cli"
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/certs"
@@ -51,6 +52,7 @@ const (
 	outputFlagStr      = "output"
 	permissionsFlagStr = "permissions"
 	tailscaleFlagStr   = "tailscale"
+	enableWGFlagStr    = "enable-wg"
 
 	// Cert flags
 	caTypeFlagStr = "type"
@@ -72,6 +74,8 @@ func initConsoleLogging(appDir string) *os.File {
 }
 
 func init() {
+	rootCmd.Flags().String(clientcli.RCFlagName, "", "path to rc script file")
+
 	// Unpack
 	unpackCmd.Flags().BoolP(forceFlagStr, "f", false, "Force unpack and overwrite")
 	rootCmd.AddCommand(unpackCmd)
@@ -83,6 +87,7 @@ func init() {
 	operatorCmd.Flags().StringP(saveFlagStr, "s", "", "save file to ...")
 	operatorCmd.Flags().StringP(outputFlagStr, "o", "file", "output format (file, stdout)")
 	operatorCmd.Flags().StringSliceP(permissionsFlagStr, "P", []string{}, "grant permissions to the operator profile (all, builder, crackstation)")
+	operatorCmd.Flags().Bool(enableWGFlagStr, false, "include WireGuard tunnel settings in the generated operator config")
 	rootCmd.AddCommand(operatorCmd)
 
 	// Certs
@@ -99,6 +104,7 @@ func init() {
 	daemonCmd.Flags().Uint16P(lportFlagStr, "p", daemon.BlankPort, "multiplayer listener port")
 	daemonCmd.Flags().BoolP(forceFlagStr, "f", false, "force unpack and overwrite static assets")
 	daemonCmd.Flags().BoolP(tailscaleFlagStr, "t", false, "enable tailscale")
+	daemonCmd.Flags().Bool(enableWGFlagStr, false, "wrap the multiplayer listener in WireGuard")
 	rootCmd.AddCommand(daemonCmd)
 
 	// Builder
@@ -130,25 +136,33 @@ var rootCmd = &cobra.Command{
 		assets.Setup(false, true)
 		certs.SetupCAs()
 		certs.SetupWGKeys()
+		certs.SetupMultiplayerWGKeys()
 		cryptography.AgeServerKeyPair()
 		cryptography.MinisignServerPrivateKey()
 		c2.SetupDefaultC2Profiles()
+		_, _ = configs.LoadCrackConfig()
 
 		serverConfig := configs.GetServerConfig()
 		listenerJobs, err := db.ListenerJobs()
 		if err != nil {
-			fmt.Println(err)
+			fmt.Printf("[!] Failed to load persistent listener jobs: %s\n", err)
 		}
 
 		err = StartPersistentJobs(listenerJobs)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Printf("[!] %s\n", err)
 		}
 		if serverConfig.DaemonMode {
-			daemon.Start(daemon.BlankHost, daemon.BlankPort, serverConfig.DaemonConfig.Tailscale)
+			daemon.Start(daemon.BlankHost, daemon.BlankPort, serverConfig.DaemonConfig.Tailscale, serverConfig.DaemonConfig.WireGuardEnabled())
 		} else {
+			rcScript, err := clientcli.ReadRCScript(cmd)
+			if err != nil {
+				fmt.Printf("Failed to read rc script: %s\n", err)
+				return
+			}
+
 			os.Args = os.Args[:1] // Hide cli from grumble console
-			console.Start()
+			console.Start(rcScript)
 		}
 	},
 }

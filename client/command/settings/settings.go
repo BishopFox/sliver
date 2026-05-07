@@ -20,6 +20,7 @@ package settings
 
 import (
 	"errors"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -58,12 +59,22 @@ func SettingsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			con.PrintErrorf("Failed to apply settings form values: %s\n", err)
 			return
 		}
+		if err := assets.SaveSettings(con.Settings); err != nil {
+			con.PrintErrorf("Failed to save settings: %s\n", err)
+			return
+		}
+		if assets.NormalizePromptStyle(result.PromptStyle) == assets.PromptStyleCustom {
+			settingsPath := filepath.Join(assets.GetRootAppDir(), "tui-settings.yaml")
+			con.PrintInfof("Prompt style is %q. Edit %s to set %q.\n", assets.PromptStyleCustom, settingsPath, "prompt_template")
+			con.Println("")
+		}
 	}
 
 	tw := table.NewWriter()
 	tw.SetStyle(GetTableStyle(con))
 	tw.AppendHeader(table.Row{"Name", "Value", "Description"})
 	tw.AppendRow(table.Row{"Tables", con.Settings.TableStyle, "Set the stylization of tables"})
+	tw.AppendRow(table.Row{"Prompt", con.Settings.PromptStyle, "Set the console prompt prefix style"})
 	tw.AppendRow(table.Row{"Auto Adult", con.Settings.AutoAdult, "Automatically accept OPSEC warnings"})
 	tw.AppendRow(table.Row{"Auto Beacon Results", con.Settings.BeaconAutoResults, "Automatically display beacon results when tasks complete"})
 	tw.AppendRow(table.Row{"Small Term Width", con.Settings.SmallTermWidth, "Omit some table columns when terminal width is less than this value"})
@@ -221,6 +232,7 @@ func applySettingsForm(settings *assets.ClientSettings, result *forms.SettingsFo
 	if width < 1 {
 		return errors.New("small terminal width must be 1 or greater")
 	}
+	promptStyle := assets.NormalizePromptStyle(result.PromptStyle)
 
 	settings.TableStyle = result.TableStyle
 	settings.AutoAdult = result.AutoAdult
@@ -230,5 +242,6 @@ func applySettingsForm(settings *assets.ClientSettings, result *forms.SettingsFo
 	settings.VimMode = result.VimMode
 	settings.UserConnect = result.UserConnect
 	settings.ConsoleLogs = result.ConsoleLogs
+	settings.PromptStyle = promptStyle
 	return nil
 }

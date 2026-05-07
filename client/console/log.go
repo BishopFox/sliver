@@ -19,13 +19,17 @@ package console
 */
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bishopfox/sliver/client/assets"
@@ -35,6 +39,11 @@ import (
 	"github.com/moloch--/asciicast"
 	"golang.org/x/exp/slog"
 	"golang.org/x/term"
+)
+
+const (
+	stdoutSyncMarkerSize = 16
+	stdoutSyncWait       = 2 * time.Second
 )
 
 // ConsoleClientLogger is an io.Writer that sends data to the server.
@@ -51,10 +60,124 @@ func (l *ConsoleClientLogger) Write(buf []byte) (int, error) {
 	return len(buf), err
 }
 
+// optionalRemoteWriter is an io.Writer that forwards to an optional remote writer.
+// It always returns len(buf), nil to avoid breaking io.MultiWriter/io.Copy when
+// a remote stream disconnects during a server switch.
+type optionalRemoteWriter struct {
+	mu sync.RWMutex
+	w  io.Writer
+}
+
+func (o *optionalRemoteWriter) Set(w io.Writer) {
+	o.mu.Lock()
+	o.w = w
+	o.mu.Unlock()
+}
+
+func (o *optionalRemoteWriter) Write(buf []byte) (int, error) {
+	o.mu.RLock()
+	w := o.w
+	o.mu.RUnlock()
+	if w != nil {
+		_, _ = w.Write(buf)
+	}
+	return len(buf), nil
+}
+
+func (con *SliverClient) ensureJSONRemoteWriter() {
+	con.connMu.Lock()
+	defer con.connMu.Unlock()
+
+	if con.jsonRemoteWriter == nil {
+		con.jsonRemoteWriter = &optionalRemoteWriter{}
+	}
+}
+
+func (con *SliverClient) ensureAsciicastRemoteWriter() {
+	con.connMu.Lock()
+	defer con.connMu.Unlock()
+
+	if con.asciicastRemoteWriter == nil {
+		con.asciicastRemoteWriter = &optionalRemoteWriter{}
+	}
+}
+
+func (con *SliverClient) refreshRemoteLogStreamsLocked() {
+	// Only refresh if the console logging stack has been initialized.
+	if con.jsonRemoteWriter == nil && con.asciicastRemoteWriter == nil {
+		return
+	}
+	rpc := con.backgroundRPCClientLocked()
+	if rpc == nil {
+		con.setRemoteLogStreamsLocked(nil, nil)
+		return
+	}
+
+	var jsonStream *ConsoleClientLogger
+	var asciicastStream *ConsoleClientLogger
+
+	if con.jsonRemoteWriter != nil {
+		s, err := con.clientLogStream(rpc, "json")
+		if err != nil {
+			log.Printf("Could not get client json log stream: %s", err)
+		} else {
+			jsonStream = s
+		}
+	}
+	if con.asciicastRemoteWriter != nil {
+		s, err := con.clientLogStream(rpc, "asciicast")
+		if err != nil {
+			log.Printf("Could not get client asciicast log stream: %s", err)
+		} else {
+			asciicastStream = s
+		}
+	}
+
+	con.setRemoteLogStreamsLocked(jsonStream, asciicastStream)
+}
+
+func (con *SliverClient) setRemoteLogStreamsLocked(jsonStream, asciicastStream *ConsoleClientLogger) {
+	// Detach writers first so background pipes can't hit a closing stream.
+	if con.jsonRemoteWriter != nil {
+		con.jsonRemoteWriter.Set(nil)
+	}
+	if con.asciicastRemoteWriter != nil {
+		con.asciicastRemoteWriter.Set(nil)
+	}
+
+	if con.jsonRemoteStream != nil {
+		_ = con.jsonRemoteStream.CloseSend()
+		con.jsonRemoteStream = nil
+	}
+	if con.asciicastRemoteStream != nil {
+		_ = con.asciicastRemoteStream.CloseSend()
+		con.asciicastRemoteStream = nil
+	}
+
+	if jsonStream != nil && con.jsonRemoteWriter != nil {
+		con.jsonRemoteWriter.Set(jsonStream)
+		con.jsonRemoteStream = jsonStream.Stream
+	}
+	if asciicastStream != nil && con.asciicastRemoteWriter != nil {
+		con.asciicastRemoteWriter.Set(asciicastStream)
+		con.asciicastRemoteStream = asciicastStream.Stream
+	}
+}
+
 // ClientLogStream requires a log stream name, used to save the logs
 // going through this stream in a specific log subdirectory/file.
 func (con *SliverClient) ClientLogStream(name string) (*ConsoleClientLogger, error) {
-	stream, err := con.Rpc.ClientLog(context.Background())
+	con.connMu.Lock()
+	rpc := con.backgroundRPCClientLocked()
+	con.connMu.Unlock()
+	if rpc == nil {
+		return nil, fmt.Errorf("no RPC connection available for client log stream %q", name)
+	}
+	return con.clientLogStream(rpc, name)
+}
+
+func (con *SliverClient) clientLogStream(rpc rpcpb.SliverRPCClient, name string) (*ConsoleClientLogger, error) {
+	stream, err := rpc.ClientLog(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +192,12 @@ func (con *SliverClient) setupLogger(writers ...io.Writer) {
 	con.jsonHandler = slog.NewJSONHandler(logWriter, jsonOptions)
 
 	// Log all commands before running them.
-	con.App.PreCmdRunLineHooks = append(con.App.PreCmdRunLineHooks, con.logCommand)
+	con.connMu.Lock()
+	defer con.connMu.Unlock()
+	if !con.logCommandHookApplied {
+		con.App.PreCmdRunLineHooks = append(con.App.PreCmdRunLineHooks, con.logCommand)
+		con.logCommandHookApplied = true
+	}
 }
 
 // logCommand logs non empty commands to the client log file.
@@ -124,7 +252,158 @@ func (con *SliverClient) setupAsciicastRecord(logFile *os.File, server io.Writer
 	os.Stdout = w
 	os.Stderr = w
 
-	go io.Copy(mw, r)
+	marker := make([]byte, stdoutSyncMarkerSize)
+	if _, err := rand.Read(marker); err != nil {
+		copy(marker, []byte(fmt.Sprintf("sliver-sync-%d", time.Now().UnixNano())))
+	}
+
+	done := make(chan struct{})
+	con.stdoutPipeWriter = w
+	con.stdoutPipeDone = done
+	con.stdoutSyncMarker = marker
+	con.stdoutSyncAcks = map[uint64]chan struct{}{}
+
+	go con.copyStdoutPipe(r, mw, done)
+}
+
+func buildStdoutSyncFrame(marker []byte, seq uint64) []byte {
+	frame := make([]byte, len(marker)*2+8)
+	copy(frame, marker)
+	binary.BigEndian.PutUint64(frame[len(marker):], seq)
+	copy(frame[len(marker)+8:], marker)
+	return frame
+}
+
+func pendingMarkerPrefixLen(pending []byte, marker []byte) int {
+	max := len(marker) - 1
+	if max > len(pending) {
+		max = len(pending)
+	}
+	for size := max; size > 0; size-- {
+		if bytes.Equal(pending[len(pending)-size:], marker[:size]) {
+			return size
+		}
+	}
+	return 0
+}
+
+func drainStdoutPipeBuffer(dst io.Writer, pending []byte, marker []byte, ack func(uint64)) []byte {
+	if len(pending) == 0 {
+		return pending
+	}
+	if len(marker) == 0 {
+		_, _ = dst.Write(pending)
+		return pending[:0]
+	}
+
+	frameLen := len(marker)*2 + 8
+	for {
+		idx := bytes.Index(pending, marker)
+		if idx == -1 {
+			keep := pendingMarkerPrefixLen(pending, marker)
+			flush := len(pending) - keep
+			if flush > 0 {
+				_, _ = dst.Write(pending[:flush])
+				pending = pending[flush:]
+			}
+			return pending
+		}
+
+		if idx > 0 {
+			_, _ = dst.Write(pending[:idx])
+			pending = pending[idx:]
+		}
+		if len(pending) < frameLen {
+			return pending
+		}
+		if bytes.Equal(pending[len(marker)+8:frameLen], marker) {
+			if ack != nil {
+				ack(binary.BigEndian.Uint64(pending[len(marker) : len(marker)+8]))
+			}
+			pending = pending[frameLen:]
+			continue
+		}
+
+		_, _ = dst.Write(pending[:1])
+		pending = pending[1:]
+	}
+}
+
+func (con *SliverClient) copyStdoutPipe(src *os.File, dst io.Writer, done chan struct{}) {
+	defer close(done)
+	defer src.Close()
+
+	readBuf := make([]byte, 4096)
+	pending := make([]byte, 0, 4096)
+	for {
+		n, err := src.Read(readBuf)
+		if n > 0 {
+			pending = append(pending, readBuf[:n]...)
+			pending = drainStdoutPipeBuffer(dst, pending, con.stdoutSyncMarker, con.ackStdoutSync)
+		}
+		if err != nil {
+			break
+		}
+	}
+	if len(pending) > 0 {
+		_, _ = dst.Write(pending)
+	}
+}
+
+func (con *SliverClient) ackStdoutSync(seq uint64) {
+	con.stdoutSyncAcksMu.Lock()
+	ack := con.stdoutSyncAcks[seq]
+	delete(con.stdoutSyncAcks, seq)
+	con.stdoutSyncAcksMu.Unlock()
+
+	if ack != nil {
+		close(ack)
+	}
+}
+
+func (con *SliverClient) clearStdoutSync(seq uint64) {
+	con.stdoutSyncAcksMu.Lock()
+	delete(con.stdoutSyncAcks, seq)
+	con.stdoutSyncAcksMu.Unlock()
+}
+
+func (con *SliverClient) syncOutputHook() error {
+	con.syncOutput()
+	return nil
+}
+
+func (con *SliverClient) syncOutput() {
+	if con.stdoutPipeWriter == nil {
+		_ = os.Stdout.Sync()
+		return
+	}
+	if len(con.stdoutSyncMarker) == 0 {
+		return
+	}
+
+	con.stdoutSyncMu.Lock()
+	con.stdoutSyncSeq++
+	seq := con.stdoutSyncSeq
+	ack := make(chan struct{})
+	con.stdoutSyncAcksMu.Lock()
+	if con.stdoutSyncAcks == nil {
+		con.stdoutSyncAcks = map[uint64]chan struct{}{}
+	}
+	con.stdoutSyncAcks[seq] = ack
+	con.stdoutSyncAcksMu.Unlock()
+	frame := buildStdoutSyncFrame(con.stdoutSyncMarker, seq)
+	_, err := con.stdoutPipeWriter.Write(frame)
+	con.stdoutSyncMu.Unlock()
+	if err != nil {
+		con.clearStdoutSync(seq)
+		return
+	}
+
+	select {
+	case <-ack:
+	case <-time.After(stdoutSyncWait):
+		con.clearStdoutSync(seq)
+	}
 }
 
 func getConsoleLogFile() *os.File {
@@ -147,6 +426,25 @@ func getConsoleAsciicastFile() *os.File {
 		log.Fatalf("Could not open log file: %s", err)
 	}
 	return logFile
+}
+
+// FlushOutput drains any piped stdout before exiting.
+func (con *SliverClient) FlushOutput() {
+	if con.stdoutPipeWriter == nil {
+		_ = os.Stdout.Sync()
+		return
+	}
+
+	con.stdoutPipeOnce.Do(func() {
+		_ = con.stdoutPipeWriter.Close()
+	})
+
+	if con.stdoutPipeDone != nil {
+		select {
+		case <-con.stdoutPipeDone:
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
 }
 
 //
@@ -201,13 +499,22 @@ func (con *SliverClient) PrintSuccessf(format string, args ...any) {
 	con.printf(Clearln+Success+format, args...)
 }
 
+// PrintSuccess prints a success message with a default or provided message.
+func (con *SliverClient) PrintSuccess(args ...any) {
+	if len(args) == 0 {
+		con.PrintSuccessf("Success")
+		return
+	}
+	con.PrintSuccessf("%s", fmt.Sprint(args...))
+}
+
 // PrintWarnf a warning message immediately below the last line of output.
 func (con *SliverClient) PrintWarnf(format string, args ...any) {
 	logger := slog.New(con.jsonHandler)
 
 	logger.Warn(fmt.Sprintf(format, args...))
 
-	con.printf(Clearln+"⚠️  "+Normal+format, args...)
+	con.printf(Clearln+"⚠️  "+format, args...)
 }
 
 // PrintErrorf prints an error message immediately below the last line of output.

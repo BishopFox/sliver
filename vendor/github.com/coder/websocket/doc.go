@@ -1,5 +1,4 @@
 //go:build !js
-// +build !js
 
 // Package websocket implements the RFC 6455 WebSocket protocol.
 //

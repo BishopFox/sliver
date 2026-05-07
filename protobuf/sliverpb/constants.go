@@ -352,6 +352,12 @@ const (
 
 	// MsgMountReq - Request filesystem mounts
 	MsgMountReq
+
+	// MsgShellResizeReq - Resize a shell PTY
+	MsgShellResizeReq
+
+	// MsgExecuteChildrenReq - List tracked background execute child processes
+	MsgExecuteChildrenReq
 )
 
 // Constants to replace enums
@@ -413,6 +419,8 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgShellReq
 	case *Shell:
 		return MsgShell
+	case *ShellResizeReq:
+		return MsgShellResizeReq
 	case *ProcessDumpReq:
 		return MsgProcessDumpReq
 	case *ProcessDump:
@@ -455,6 +463,8 @@ func MsgNumber(request proto.Message) uint32 {
 		return MsgIfconfig
 	case *ExecuteReq:
 		return MsgExecuteReq
+	case *ExecuteChildrenReq:
+		return MsgExecuteChildrenReq
 	case *TerminateReq:
 		return MsgTerminateReq
 	case *Terminate:

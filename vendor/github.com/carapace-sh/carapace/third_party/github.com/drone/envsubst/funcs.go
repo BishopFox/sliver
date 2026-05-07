@@ -76,13 +76,10 @@ func toSubstr(s string, args ...string) string {
 	if pos < 0 {
 		// if pos is negative (counts from the end) add it
 		// to length to get first character offset
-		pos = len(s) + pos
-
-		// if negative offset exceeds the length of the string
-		// start from 0
-		if pos < 0 {
-			pos = 0
-		}
+		pos = max(
+			// if negative offset exceeds the length of the string
+			// start from 0
+			len(s)+pos, 0)
 	}
 
 	if len(args) == 1 {
@@ -122,9 +119,9 @@ func replaceAll(s string, args ...string) string {
 	case 0:
 		return s
 	case 1:
-		return strings.Replace(s, args[0], "", -1)
+		return strings.ReplaceAll(s, args[0], "")
 	default:
-		return strings.Replace(s, args[0], args[1], -1)
+		return strings.ReplaceAll(s, args[0], args[1])
 	}
 }
 
@@ -159,8 +156,8 @@ func replaceSuffix(s string, args ...string) string {
 	if len(args) != 2 {
 		return s
 	}
-	if strings.HasSuffix(s, args[0]) {
-		s = strings.TrimSuffix(s, args[0])
+	if before, ok := strings.CutSuffix(s, args[0]); ok {
+		s = before
 		s = s + args[1]
 	}
 	return s

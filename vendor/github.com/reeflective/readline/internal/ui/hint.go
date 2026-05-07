@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/reeflective/readline/internal/color"
@@ -78,7 +77,7 @@ func DisplayHint(hint *Hint) {
 
 	if len(hint.text) == 0 && len(hint.persistent) == 0 {
 		if hint.cleanup {
-			fmt.Print(term.ClearLineAfter)
+			term.WriteString(term.ClearLineAfter)
 		}
 
 		hint.cleanup = false
@@ -95,7 +94,7 @@ func DisplayHint(hint *Hint) {
 	text += term.ClearLineAfter + color.Reset
 
 	if len(text) > 0 {
-		fmt.Print(text)
+		term.WriteString(text)
 	}
 }
 

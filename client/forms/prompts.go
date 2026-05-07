@@ -2,12 +2,24 @@ package forms
 
 import (
 	"errors"
+	"slices"
 	"strings"
 
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
+	"github.com/bishopfox/sliver/client/theme"
+	"golang.org/x/term"
 )
 
-const defaultSelectHeight = 10
+const defaultSelectHeight = 5
+
+func getTerminalWidth() int {
+	// Try to get actual terminal width
+	if width, _, err := term.GetSize(1); err == nil && width > 0 {
+		return width
+	}
+	// Fall back to a reasonable default
+	return 200
+}
 
 // Confirm prompts for a yes/no answer.
 func Confirm(title string, value *bool) error {
@@ -21,9 +33,9 @@ func Confirm(title string, value *bool) error {
 				Title(title).
 				Value(value),
 		),
-	)
+	).WithTheme(theme.HuhTheme())
 
-	return form.Run()
+	return runForm(form)
 }
 
 // Input prompts for a single-line string.
@@ -38,9 +50,9 @@ func Input(title string, value *string) error {
 				Title(title).
 				Value(value),
 		),
-	)
+	).WithTheme(theme.HuhTheme())
 
-	return form.Run()
+	return runForm(form)
 }
 
 // Text prompts for multi-line input.
@@ -56,9 +68,9 @@ func Text(title string, value *string) error {
 				ExternalEditor(false).
 				Value(value),
 		),
-	)
+	).WithTheme(theme.HuhTheme())
 
-	return form.Run()
+	return runForm(form)
 }
 
 // Select prompts for a single selection from options.
@@ -83,11 +95,14 @@ func MultiSelect(title string, options []string, value *[]string) error {
 	field := huh.NewMultiSelect[string]().
 		Title(title).
 		Options(makeStringOptions(options)...).
-		Height(listHeight(len(options))).
+		// huh.Select/MultiSelect Height includes title/description, so add 1 for the title line.
+		Height(listHeight(len(options)) + 1).
 		Value(value)
 
-	form := huh.NewForm(huh.NewGroup(field))
-	return form.Run()
+	form := huh.NewForm(huh.NewGroup(field)).
+		WithTheme(theme.HuhTheme()).
+		WithWidth(getTerminalWidth())
+	return runForm(form)
 }
 
 func selectPrompt(title string, options []string, value *string, required bool) error {
@@ -98,12 +113,15 @@ func selectPrompt(title string, options []string, value *string, required bool) 
 		return errors.New("select options are required")
 	}
 
+	// Save the original value in case the form is cancelled
+	originalValue := *value
 	ensureSelectedValue(options, value)
 
 	field := huh.NewSelect[string]().
 		Title(title).
 		Options(makeStringOptions(options)...).
-		Height(listHeight(len(options))).
+		// huh.Select Height includes title/description, so add 1 for the title line.
+		Height(listHeight(len(options)) + 1).
 		Value(value)
 
 	if required {
@@ -115,8 +133,18 @@ func selectPrompt(title string, options []string, value *string, required bool) 
 		})
 	}
 
-	form := huh.NewForm(huh.NewGroup(field))
-	return form.Run()
+	form := huh.NewForm(huh.NewGroup(field)).
+		WithTheme(theme.HuhTheme()).
+		WithWidth(getTerminalWidth())
+	err := runForm(form)
+
+	// On error restore the originalValue and return err
+	if err != nil {
+		*value = originalValue
+		return err
+	}
+
+	return err
 }
 
 func ensureSelectedValue(options []string, value *string) {
@@ -127,10 +155,8 @@ func ensureSelectedValue(options []string, value *string) {
 		*value = options[0]
 		return
 	}
-	for _, option := range options {
-		if option == *value {
-			return
-		}
+	if slices.Contains(options, *value) {
+		return
 	}
 	*value = options[0]
 }

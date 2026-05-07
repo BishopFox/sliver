@@ -1,0 +1,9 @@
+.DS_Store
+temp.go
+*.swp
+.env
+coverage.txt
+sendgrid.env
+.vscode
+prism*
+**/.idea/**/*

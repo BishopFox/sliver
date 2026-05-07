@@ -10,23 +10,19 @@ import (
 
 // Snippet creates the fish completion script.
 func Snippet(cmd *cobra.Command) string {
-	return fmt.Sprintf(`function _%v_quote_suffix
-  if not commandline -cp | xargs echo 2>/dev/null >/dev/null
-    if commandline -cp | sed 's/$/"/'| xargs echo 2>/dev/null >/dev/null
-      echo '"'
-    else if commandline -cp | sed "s/\$/'/"| xargs echo 2>/dev/null >/dev/null
-      echo "'"
+	return fmt.Sprintf(`function _%[1]v_completion
+  set --local data
+  IFS='' set data (echo (commandline -cp)'' | sed "s/ \$/ ''/" | xargs %[2]v _carapace fish 2>/dev/null)
+  if [ $status -eq 1 ]
+    IFS='' set data (echo (commandline -cp)"'" | sed "s/ \$/ ''/" | xargs %[2]v _carapace fish 2>/dev/null)
+    if [ $status -eq 1 ]
+      IFS='' set data (echo (commandline -cp)'"' | sed "s/ \$/ ''/" | xargs %[2]v _carapace fish 2>/dev/null)
     end
-  else 
-    echo ""
   end
+  echo $data
 end
 
-function _%v_callback
-  commandline -cp | sed "s/\$/"(_%v_quote_suffix)"/" | sed "s/ \$/ ''/" | xargs %v _carapace fish
-end
-
-complete -e '%v'
-complete -c '%v' -f -a '(_%v_callback)' -r
-`, cmd.Name(), cmd.Name(), cmd.Name(), uid.Executable(), cmd.Name(), cmd.Name(), cmd.Name())
+complete -e '%[1]v'
+complete -c '%[1]v' -f -a '(_%[1]v_completion)' -r
+`, cmd.Name(), uid.Executable())
 }

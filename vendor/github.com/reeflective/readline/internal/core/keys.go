@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	keyScanBufSize = 1024
+	keyScanBufSize = 8192
 )
 
 // Stdin is used by the Keys struct to read and write keys.
@@ -236,6 +236,89 @@ func FlushUsed(keys *Keys) {
 	keys.mutex.Lock()
 	keys.matched = nil
 	defer keys.mutex.Unlock()
+}
+
+// Pending returns the number of buffered keys waiting to be processed.
+func (k *Keys) Pending() int {
+	k.mutex.RLock()
+	defer k.mutex.RUnlock()
+
+	return len(k.buf) + len(k.macroKeys)
+}
+
+// BufferSize returns the number of raw input bytes buffered.
+func (k *Keys) BufferSize() int {
+	k.mutex.RLock()
+	defer k.mutex.RUnlock()
+
+	return len(k.buf)
+}
+
+// PeekBuffer returns up to max bytes from the raw input buffer.
+func (k *Keys) PeekBuffer(max int) []byte {
+	k.mutex.RLock()
+	defer k.mutex.RUnlock()
+
+	if max <= 0 || len(k.buf) <= max {
+		return append([]byte(nil), k.buf...)
+	}
+
+	return append([]byte(nil), k.buf[:max]...)
+}
+
+// DrainBuffer returns all buffered raw input bytes and clears the buffer.
+func (k *Keys) DrainBuffer() []byte {
+	k.mutex.Lock()
+	defer k.mutex.Unlock()
+
+	if len(k.buf) == 0 {
+		return nil
+	}
+
+	buf := append([]byte(nil), k.buf...)
+	k.buf = nil
+
+	return buf
+}
+
+// PrependBuffer pushes raw input bytes back to the front of the buffer.
+func (k *Keys) PrependBuffer(keys []byte) {
+	if len(keys) == 0 {
+		return
+	}
+
+	k.mutex.Lock()
+	k.buf = append(keys, k.buf...)
+	k.mutex.Unlock()
+}
+
+// AppendMatched appends keys to the matched buffer, so they can be recorded by macros.
+func (k *Keys) AppendMatched(keys ...rune) {
+	if len(keys) == 0 {
+		return
+	}
+
+	k.mutex.Lock()
+	k.matched = append(k.matched, keys...)
+	k.mutex.Unlock()
+}
+
+// SetMatched replaces the matched buffer with the provided keys.
+func (k *Keys) SetMatched(keys ...rune) {
+	k.mutex.Lock()
+	if len(keys) == 0 {
+		k.matched = nil
+		k.mutex.Unlock()
+		return
+	}
+
+	k.matched = append(k.matched[:0], keys...)
+	k.mutex.Unlock()
+}
+
+// ReadInput reads raw input bytes from stdin, passing through the input filter.
+func (k *Keys) ReadInput() ([]byte, error) {
+	return k.readInputFiltered()
 }
 
 // ReadKey reads keys from stdin like Read(), but immediately

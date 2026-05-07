@@ -1,3 +1,8 @@
+/crush
+
+/examples
+
+/.vscode
 /.vscode/*
 /.devcontainer
 /.idea
@@ -5,6 +10,7 @@
 /artifacts
 /artifacts/**
 
+*.rc
 
 /Dockerfile.*
 /*.sdk.tar.xz

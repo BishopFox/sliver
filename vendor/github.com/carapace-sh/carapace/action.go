@@ -437,6 +437,15 @@ func (a Action) Timeout(d time.Duration, alternative Action) Action {
 	})
 }
 
+// Unique ensures the Action only contains unique values.
+func (a Action) Unique() Action {
+	return ActionCallback(func(c Context) Action {
+		invoked := a.Invoke(c)
+		invoked.action.rawValues = invoked.action.rawValues.Unique()
+		return invoked.ToA()
+	})
+}
+
 // UniqueList wraps the Action in an ActionMultiParts with given divider.
 func (a Action) UniqueList(divider string) Action {
 	return ActionMultiParts(divider, func(c Context) Action {
@@ -513,9 +522,14 @@ func (a Action) UidF(f func(s string, uc uid.Context) (*url.URL, error)) Action 
 }
 
 // Usage sets the usage.
-func (a Action) Usage(usage string, args ...interface{}) Action {
+func (a Action) Usage(usage string, args ...any) Action {
 	return a.UsageF(func() string {
-		return fmt.Sprintf(usage, args...)
+		if len(args) == 0 {
+			return usage
+		}
+		return func(u string, a ...any) string { // avoids failed inferred printf check: non-constant format string
+			return fmt.Sprintf(u, a...)
+		}(usage, args...)
 	})
 }
 
@@ -548,6 +562,9 @@ func (a Action) Query(scheme, host, path string, opts ...string) Action {
 					values.Set(opts[i], opts[i+1])
 				}
 			}
+			if c.Value != "" {
+				values.Set("C_VALUE", c.Value)
+			}
 			query.RawQuery = values.Encode()
 		}
 		a.meta.Queries.Add(query.String())
@@ -558,10 +575,17 @@ func (a Action) Query(scheme, host, path string, opts ...string) Action {
 // QueryF TODO experimental
 func (a Action) QueryF(f func(s string, uc uid.Context) (*url.URL, error)) Action { // TODO remove the string
 	return ActionCallback(func(c Context) Action {
-		query, err := f(c.Value, c)
+		query, err := f("", c) // TODO string parameter from uid isn't really needed here
 		if err != nil {
 			return ActionMessage(err.Error())
 		}
+
+		if c.Value != "" {
+			values := query.Query()
+			values.Set("C_VALUE", c.Value)
+			query.RawQuery = values.Encode()
+		}
+
 		a.meta.Queries.Add(query.String())
 		return a
 	})

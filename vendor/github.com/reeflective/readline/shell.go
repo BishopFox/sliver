@@ -145,13 +145,13 @@ func (rl *Shell) Printf(msg string, args ...any) (n int, err error) {
 	// and clear everything below (hints and completions).
 	rl.Display.CursorBelowLine()
 	term.MoveCursorBackwards(term.GetWidth())
-	fmt.Print(term.ClearScreenBelow)
+	term.WriteString(term.ClearScreenBelow)
 
 	// Skip a line, and print the formatted message.
 	n, err = fmt.Printf(msg+"\n", args...)
 
 	// Redisplay the prompt, input line and active helpers.
-	rl.Prompt.PrimaryPrint()
+	rl.Display.PrintPrimaryPrompt()
 	rl.Display.Refresh()
 
 	return
@@ -165,13 +165,13 @@ func (rl *Shell) PrintTransientf(msg string, args ...any) (n int, err error) {
 	rl.Display.CursorToLineStart()
 	term.MoveCursorBackwards(term.GetWidth())
 	term.MoveCursorUp(rl.Prompt.PrimaryUsed())
-	fmt.Print(term.ClearScreenBelow)
+	term.WriteString(term.ClearScreenBelow)
 
 	// Print the logged message.
 	n, err = fmt.Printf(msg+"\n", args...)
 
 	// Redisplay the prompt, input line and active helpers.
-	rl.Prompt.PrimaryPrint()
+	rl.Display.PrintPrimaryPrompt()
 	rl.Display.Refresh()
 
 	return

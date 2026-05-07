@@ -1,0 +1,5 @@
+# IDE-specific metadata
+.idea/
+
+# Environment variables. Useful for examples.
+.env

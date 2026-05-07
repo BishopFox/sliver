@@ -22,12 +22,14 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 
 	"github.com/bishopfox/sliver/client/assets"
@@ -49,6 +51,22 @@ type TokenAuth struct {
 	token string
 }
 
+type multiplayerDialStrategy int
+
+const (
+	multiplayerDialDirect multiplayerDialStrategy = iota
+	multiplayerDialWireGuard
+)
+
+const (
+	connectStatusGRPCMTLS              = "grpc/mtls"
+	connectStatusWireGuard             = "wireguard"
+	connectStatusGRPCMTLSOverWireGuard = "grpc/mtls over wireguard"
+)
+
+// ConnectStatusFn receives human-readable connection phase updates.
+type ConnectStatusFn func(string)
+
 // Return value is mapped to request headers.
 func (t TokenAuth) GetRequestMetadata(ctx context.Context, in ...string) (map[string]string, error) {
 	return map[string]string{
@@ -62,24 +80,103 @@ func (TokenAuth) RequireTransportSecurity() bool {
 
 // MTLSConnect - Connect to the sliver server
 func MTLSConnect(config *assets.ClientConfig) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
-	tlsConfig, err := getTLSConfig(config.CACertificate, config.Certificate, config.PrivateKey)
+	return MTLSConnectWithStatus(config, nil)
+}
+
+// MTLSConnectWithStatus connects to the sliver server and optionally reports
+// transport phase updates, such as WireGuard setup and gRPC dialing.
+func MTLSConnectWithStatus(config *assets.ClientConfig, statusFn ConnectStatusFn) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
+	strategy, err := selectMultiplayerDialStrategy(config)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	switch strategy {
+	case multiplayerDialWireGuard:
+		return wireGuardMTLSConnect(config, statusFn)
+	default:
+		return directMTLSConnect(config, statusFn)
+	}
+}
+
+func selectMultiplayerDialStrategy(config *assets.ClientConfig) (multiplayerDialStrategy, error) {
+	if config == nil {
+		return multiplayerDialDirect, errors.New("client config is required")
+	}
+
+	switch getMultiplayerConnectMode() {
+	case MultiplayerConnectEnableWG:
+		if err := validateWireGuardConfig(config); err != nil {
+			return multiplayerDialDirect, err
+		}
+		return multiplayerDialWireGuard, nil
+	default:
+		return multiplayerDialDirect, nil
+	}
+}
+
+func directMTLSConnect(config *assets.ClientConfig, statusFn ConnectStatusFn) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
+	notifyConnectStatus(statusFn, connectStatusGRPCMTLS)
+	options, err := newMTLSDialOptions(config)
+	if err != nil {
+		return nil, nil, err
+	}
+	return dialRPCClient(fmt.Sprintf("%s:%d", config.LHost, config.LPort), options, nil)
+}
+
+func notifyConnectStatus(statusFn ConnectStatusFn, status string) {
+	if statusFn != nil {
+		statusFn(status)
+	}
+}
+
+func newMTLSDialOptions(config *assets.ClientConfig) ([]grpc.DialOption, error) {
+	tlsConfig, err := getTLSConfig(config.CACertificate, config.Certificate, config.PrivateKey)
+	if err != nil {
+		return nil, err
 	}
 	transportCreds := credentials.NewTLS(tlsConfig)
 	callCreds := credentials.PerRPCCredentials(TokenAuth{token: config.Token})
 	options := []grpc.DialOption{
 		grpc.WithTransportCredentials(transportCreds),
 		grpc.WithPerRPCCredentials(callCreds),
-		grpc.WithBlock(),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(ClientMaxReceiveMessageSize)),
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
-	defer cancel()
-	connection, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", config.LHost, config.LPort), options...)
+
+	if kp, ok := getKeepaliveParams(); ok {
+		options = append(options, grpc.WithKeepaliveParams(kp))
+	}
+	return options, nil
+}
+
+func dialRPCClient(target string, options []grpc.DialOption, closer connectionCloser) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
+	connection, err := grpc.NewClient(target, options...)
 	if err != nil {
+		if closer != nil {
+			_ = closer.Close()
+		}
 		return nil, nil, err
 	}
+	registerConnCloser(connection, closer)
+
+	// Preserve the legacy grpc.DialContext + grpc.WithBlock behavior: block
+	// until the channel becomes READY or the timeout expires.
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	for {
+		state := connection.GetState()
+		if state == connectivity.Idle {
+			connection.Connect()
+		}
+		if state == connectivity.Ready {
+			break
+		}
+		if !connection.WaitForStateChange(ctx, state) {
+			_ = CloseGRPCConnection(connection)
+			return nil, nil, ctx.Err()
+		}
+	}
+
 	return rpcpb.NewSliverRPCClient(connection), connection, nil
 }
 
@@ -120,7 +217,7 @@ func RootOnlyVerifyCertificate(caCertificate string, rawCerts [][]byte) error {
 
 	cert, err := x509.ParseCertificate(rawCerts[0]) // We should only get one cert
 	if err != nil {
-		log.Printf("Failed to parse certificate: " + err.Error())
+		log.Printf("Failed to parse certificate: %v", err)
 		return err
 	}
 
@@ -134,7 +231,7 @@ func RootOnlyVerifyCertificate(caCertificate string, rawCerts [][]byte) error {
 		panic("no root certificate")
 	}
 	if _, err := cert.Verify(options); err != nil {
-		log.Printf("Failed to verify certificate: " + err.Error())
+		log.Printf("Failed to verify certificate: %v", err)
 		return err
 	}
 

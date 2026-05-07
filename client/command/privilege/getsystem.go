@@ -26,6 +26,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bishopfox/sliver/client/console"
+	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
@@ -36,6 +37,10 @@ func GetSystemCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	if session == nil && beacon == nil {
 		return
 	}
+	if session == nil {
+		con.PrintErrorf("Command is only supported for sessions.\n")
+		return
+	}
 	targetOS := getOS(session, beacon)
 	if targetOS != "windows" {
 		con.PrintErrorf("Command only supported on Windows.\n")
@@ -44,6 +49,21 @@ func GetSystemCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 
 	process, _ := cmd.Flags().GetString("process")
 	config := con.GetActiveSessionConfig()
+	if config == nil {
+		con.PrintErrorf("Failed to derive active session config.\n")
+		return
+	}
+
+	/* If the HTTP C2 Config name is not defined, then put in the default value
+	   This will have no effect on implants that do not use HTTP C2
+	   Also this should be overridden when the build info is pulled from the
+	   database, but if there is no build info and we have to create the build
+	   from scratch, we need to have something in here.
+	*/
+	if config.HTTPC2ConfigName == "" {
+		config.HTTPC2ConfigName = consts.DefaultC2Profile
+	}
+
 	ctrl := make(chan bool)
 	con.SpinUntil("Attempting to create a new sliver session as 'NT AUTHORITY\\SYSTEM'...", ctrl)
 

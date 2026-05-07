@@ -36,7 +36,7 @@ func (nd *namedDirectories) Replace(s string) string {
 
 func init() {
 	if hashDirs := env.Hashdirs(); hashDirs != "" {
-		for _, line := range strings.Split(hashDirs, "\n") {
+		for line := range strings.SplitSeq(hashDirs, "\n") {
 			if splitted := strings.SplitN(line, "=", 2); len(splitted) == 2 {
 				NamedDirectories[splitted[0]] = splitted[1]
 			}

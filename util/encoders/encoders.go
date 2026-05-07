@@ -38,6 +38,11 @@ type Encoder interface {
 	Decode([]byte) ([]byte, error)
 }
 
+// LimitedDecoder - Decoders that can enforce a max output length while decoding.
+type LimitedDecoder interface {
+	DecodeWithMaxLen(data []byte, maxLen int64) ([]byte, error)
+}
+
 // EncoderFS - Generic interface to read wasm encoders from a filesystem
 type EncoderFS interface {
 	Open(name string) (fs.File, error)

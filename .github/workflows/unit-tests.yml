@@ -6,11 +6,13 @@ on:
     paths:
       - "go.mod"
       - "go.sum"
+      - ".github/workflows/unit-tests.yml"
       - "Makefile"
       - "**/*.go"
       - "**/*.c"
       - "**/*.h"
       - "**/*.sh"
+      - "**/*.ps1"
     types:
       - opened
       - reopened
@@ -18,15 +20,15 @@ on:
       - ready_for_review
 
 jobs:
-  linux-windows-build-test:
-    name: Linux & Windows Test
+  linux-build-test:
+    name: Linux Build & Test
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
-      - name: Go 1.25
+      - name: Go 1.26.2
         uses: actions/setup-go@v6
         with:
-          go-version: "^1.25"
+          go-version: "1.26.2"
 
       - name: OS Packages
         run: |
@@ -48,8 +50,64 @@ jobs:
       - name: Make Linux (amd64)
         run: make linux-amd64
 
+      - name: Determine go-tests flags
+        id: go-tests-flags
+        shell: bash
+        run: |
+          set -euo pipefail
+          base_sha="${{ github.event.pull_request.base.sha }}"
+          head_sha="${{ github.sha }}"
+          if git diff --name-only "$base_sha" "$head_sha" | grep -qE '^(implant/|server/gogo/|server/generate/)'; then
+            echo "args=" >> "$GITHUB_OUTPUT"
+          else
+            echo "args=--skip-generate" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Test Linux
-        run: make clean && make && ./sliver-server unpack --force && ./go-tests.sh
+        run: make clean && make && ./sliver-server unpack --force && ./go-tests.sh ${{ steps.go-tests-flags.outputs.args }}
+
+  windows-build-test:
+    name: Windows Build & Test
+    runs-on: windows-latest
+    timeout-minutes: 180
+    steps:
+      - name: Go 1.26.2
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.2"
+
+      - name: Install make
+        run: choco install make -y --no-progress
+
+      - name: Check Out Code
+        uses: actions/checkout@v6
+
+      - name: Git Fetch Tags
+        run: git fetch --prune --unshallow --tags -f
+
+      - name: Make Windows (amd64)
+        run: make windows-amd64
+
+      - name: Determine go-tests flags
+        id: go-tests-flags
+        shell: pwsh
+        run: |
+          $baseSha = "${{ github.event.pull_request.base.sha }}"
+          $headSha = "${{ github.sha }}"
+          $changedFiles = git diff --name-only $baseSha $headSha
+
+          if ($changedFiles | Select-String -Pattern '^(implant/|server/gogo/|server/generate/)') {
+            "args=" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          } else {
+            "args=--skip-generate" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          }
+
+      - name: Test Windows
+        shell: pwsh
+        run: |
+          make clean
+          make
+          ./go-tests.ps1 ${{ steps.go-tests-flags.outputs.args }}
 
 
   macos-build-test:
@@ -57,10 +115,10 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 180
     steps:
-      - name: Go 1.25
+      - name: Go 1.26.2
         uses: actions/setup-go@v6
         with:
-          go-version: "^1.25"
+          go-version: "1.26.2"
 
       - name: Check Out Code
         uses: actions/checkout@v6
@@ -74,18 +132,31 @@ jobs:
       - name: Make MacOS (arm64)
         run: make macos-arm64
 
+      - name: Determine go-tests flags
+        id: go-tests-flags
+        shell: bash
+        run: |
+          set -euo pipefail
+          base_sha="${{ github.event.pull_request.base.sha }}"
+          head_sha="${{ github.sha }}"
+          if git diff --name-only "$base_sha" "$head_sha" | grep -qE '^(implant/|server/gogo/|server/generate/)'; then
+            echo "args=" >> "$GITHUB_OUTPUT"
+          else
+            echo "args=--skip-generate" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Test MacOS
-        run: make clean && make && ./sliver-server unpack --force && ./go-tests.sh
+        run: make clean && make && ./sliver-server unpack --force && ./go-tests.sh ${{ steps.go-tests-flags.outputs.args }}
 
   clients-build:
     name: Clients Build
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - name: Go 1.25
+      - name: Go 1.26.2
         uses: actions/setup-go@v6
         with:
-          go-version: "^1.25"
+          go-version: "1.26.2"
 
       - name: Check Out Code
         uses: actions/checkout@v6

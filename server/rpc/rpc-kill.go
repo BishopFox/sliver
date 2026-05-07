@@ -37,6 +37,11 @@ func (rpc *Server) Kill(ctx context.Context, kill *sliverpb.KillReq) (*commonpb.
 		beacon *models.Beacon
 		err    error
 	)
+
+	if kill == nil || kill.Request == nil {
+		return &commonpb.Empty{}, ErrMissingRequestField
+	}
+
 	session := core.Sessions.Get(kill.Request.SessionID)
 	if session == nil {
 		beacon, err = db.BeaconByID(kill.Request.BeaconID)

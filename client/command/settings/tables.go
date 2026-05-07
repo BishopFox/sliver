@@ -218,12 +218,12 @@ func PaginateTable(tw table.Writer, skipPages int, overflow bool, interactive bo
 					}
 					con.Println()
 				} else {
-					con.Printf(console.Bold+"Page [%d/%d]\n", pageNumber+1, len(pages))
+					con.Printf("%s\n", console.StyleBold.Render(fmt.Sprintf("Page [%d/%d]", pageNumber+1, len(pages))))
 				}
 			}
 		} else {
 			if 1 < len(pages) {
-				con.Printf(console.Bold+"Page [%d/%d]\n", pageNumber+1, len(pages))
+				con.Printf("%s\n", console.StyleBold.Render(fmt.Sprintf("Page [%d/%d]", pageNumber+1, len(pages))))
 			}
 			break
 		}

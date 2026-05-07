@@ -1,6 +1,7 @@
 package sgn
 
 import (
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -34,7 +35,9 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		(*comp)["arch"] = carapace.ActionValues("386", "amd64").Tag("shikata-ga-nai architectures")
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save shellcode")
 	})
+	completers.RegisterLocalFilePathFlagCompletion(shikataGaNaiCmd, "save")
 	carapace.Gen(shikataGaNaiCmd).PositionalCompletion(carapace.ActionFiles().Tag("shellcode file"))
+	completers.RegisterLocalFilePathPositionalCompletion(shikataGaNaiCmd, 0)
 
 	return []*cobra.Command{shikataGaNaiCmd}
 }

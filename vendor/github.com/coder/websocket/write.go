@@ -1,10 +1,10 @@
 //go:build !js
-// +build !js
 
 package websocket
 
 import (
 	"bufio"
+	"compress/flate"
 	"context"
 	"crypto/rand"
 	"encoding/binary"
@@ -13,8 +13,6 @@ import (
 	"io"
 	"net"
 	"time"
-
-	"compress/flate"
 
 	"github.com/coder/websocket/internal/errd"
 	"github.com/coder/websocket/internal/util"
@@ -249,24 +247,34 @@ func (c *Conn) writeFrame(ctx context.Context, fin bool, flate bool, opcode opco
 	}
 	defer c.writeFrameMu.unlock()
 
-	select {
-	case <-c.closed:
-		return 0, net.ErrClosed
-	case c.writeTimeout <- ctx:
-	}
-
 	defer func() {
+		if c.isClosed() && opcode == opClose {
+			err = nil
+		}
 		if err != nil {
-			select {
-			case <-c.closed:
-				err = net.ErrClosed
-			case <-ctx.Done():
+			if ctx.Err() != nil {
 				err = ctx.Err()
-			default:
+			} else if c.isClosed() {
+				err = net.ErrClosed
 			}
 			err = fmt.Errorf("failed to write frame: %w", err)
 		}
 	}()
+
+	c.closeStateMu.Lock()
+	closeSentErr := c.closeSentErr
+	c.closeStateMu.Unlock()
+	if closeSentErr != nil {
+		return 0, net.ErrClosed
+	}
+
+	select {
+	case <-c.closed:
+		return 0, net.ErrClosed
+	default:
+	}
+	c.setupWriteTimeout(ctx)
+	defer c.clearWriteTimeout()
 
 	c.writeHeader.fin = fin
 	c.writeHeader.opcode = opcode
@@ -303,13 +311,16 @@ func (c *Conn) writeFrame(ctx context.Context, fin bool, flate bool, opcode opco
 		}
 	}
 
-	select {
-	case <-c.closed:
-		if opcode == opClose {
-			return n, nil
+	if opcode == opClose {
+		c.closeStateMu.Lock()
+		c.closeSentErr = fmt.Errorf("sent close frame: %w", net.ErrClosed)
+		closeReceived := c.closeReceivedErr != nil
+		c.closeStateMu.Unlock()
+
+		if closeReceived && !c.casClosing() {
+			c.writeFrameMu.unlock()
+			_ = c.close()
 		}
-		return n, net.ErrClosed
-	case c.writeTimeout <- context.Background():
 	}
 
 	return n, nil
@@ -335,10 +346,7 @@ func (c *Conn) writeFramePayload(p []byte) (n int, err error) {
 		// Start of next write in the buffer.
 		i := c.bw.Buffered()
 
-		j := len(p)
-		if j > c.bw.Available() {
-			j = c.bw.Available()
-		}
+		j := min(len(p), c.bw.Available())
 
 		_, err := c.bw.Write(p[:j])
 		if err != nil {

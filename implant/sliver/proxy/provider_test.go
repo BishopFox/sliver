@@ -278,9 +278,7 @@ func TestProvider_ParseEnvProxy(t *testing.T) {
 			if tt.expectError == nil {
 				a.Nil(err)
 			} else {
-				if a.NotNil(err) {
-					a.Equal(tt.expectError.Error(), err.Error())
-				}
+				assertErrEqualIgnoreQuotes(t, tt.expectError, err)
 			}
 		})
 	}
@@ -325,9 +323,7 @@ func TestProvider_ConfigProviderParseEnvURL(t *testing.T) {
 			if tt.expectError == nil {
 				a.Nil(err)
 			} else {
-				if a.NotNil(err) {
-					a.Equal(tt.expectError.Error(), err.Error())
-				}
+				assertErrEqualIgnoreQuotes(t, tt.expectError, err)
 			}
 		})
 	}

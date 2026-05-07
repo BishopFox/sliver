@@ -19,21 +19,64 @@ package gogo
 */
 
 import (
-	"fmt"
+	"runtime"
+	"strings"
 	"testing"
-
-	"github.com/bishopfox/sliver/server/assets"
 )
 
-func TestGoGoVersion(t *testing.T) {
-	appDir := assets.GetRootAppDir()
-	winConfig := GoConfig{
-		GOOS:   "windows",
-		GOARCH: "amd64",
-		GOROOT: GetGoRootDir(appDir),
+func TestGoToolExecutableName(t *testing.T) {
+	tests := []struct {
+		name     string
+		toolName string
+		hostGOOS string
+		want     string
+	}{
+		{
+			name:     "windows go binary",
+			toolName: "go",
+			hostGOOS: "windows",
+			want:     "go.exe",
+		},
+		{
+			name:     "windows garble binary",
+			toolName: "garble",
+			hostGOOS: "windows",
+			want:     "garble.exe",
+		},
+		{
+			name:     "unix go binary",
+			toolName: "go",
+			hostGOOS: "linux",
+			want:     "go",
+		},
 	}
-	_, err := GoVersion(winConfig)
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := goToolExecutableName(test.toolName, test.hostGOOS); got != test.want {
+				t.Fatalf("goToolExecutableName(%q, %q) = %q, want %q", test.toolName, test.hostGOOS, got, test.want)
+			}
+		})
+	}
+}
+
+func TestGoVersionUsesHostToolchain(t *testing.T) {
+	goRoot := runtime.GOROOT()
+	if goRoot == "" {
+		t.Fatal("runtime.GOROOT() is empty")
+	}
+
+	config := GoConfig{
+		GOOS:   runtime.GOOS,
+		GOARCH: runtime.GOARCH,
+		GOROOT: goRoot,
+	}
+
+	output, err := GoVersion(config)
 	if err != nil {
-		t.Errorf("%s", fmt.Sprintf("version cmd failed %v", err))
+		t.Fatalf("GoVersion failed: %v", err)
+	}
+	if !strings.Contains(string(output), "go version") {
+		t.Fatalf("unexpected go version output: %q", string(output))
 	}
 }

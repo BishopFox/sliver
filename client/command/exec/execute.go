@@ -44,28 +44,49 @@ func ExecuteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	token, _ := cmd.Flags().GetBool("token")
 	hidden, _ := cmd.Flags().GetBool("hidden")
 	output, _ := cmd.Flags().GetBool("output")
+	background, _ := cmd.Flags().GetBool("background")
 	stdout, _ := cmd.Flags().GetString("stdout")
 	stderr, _ := cmd.Flags().GetString("stderr")
 	saveLoot, _ := cmd.Flags().GetBool("loot")
 	saveOutput, _ := cmd.Flags().GetBool("save")
 	ppid, _ := cmd.Flags().GetUint32("ppid")
+	envInheritance, _ := cmd.Flags().GetBool("env-inheritance")
+	envPairs, _ := cmd.Flags().GetStringArray("env")
+	envVars, err := parseEnvPairs(envPairs)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
 	hostName := getHostname(session, beacon)
 
-	// If the user wants to loot or save the output, we have to capture it regardless of if they specified -o
-	captureOutput := output || saveLoot || saveOutput
+	if background && (saveLoot || saveOutput) {
+		con.PrintErrorf("The loot and save options are not supported with --background\n")
+		return
+	}
 
-	if output && beacon != nil {
+	// If the user wants to loot or save the output, we have to capture it regardless of if they specified -o
+	captureOutput := !background && (output || saveLoot || saveOutput)
+
+	if captureOutput && beacon != nil {
 		con.PrintWarnf("Using --output in beacon mode, if the command blocks the task will never complete\n\n")
 	}
 
 	var exec *sliverpb.Execute
-	var err error
 
 	ctrl := make(chan bool)
+	con.PrintInfof("Execute: %s [%s]\n", cmdPath, strings.Join(args, " "))
 	con.SpinUntil(fmt.Sprintf("Executing %s %s ...", cmdPath, strings.Join(args, " ")), ctrl)
 	if token || hidden || ppid != 0 {
 		if (session != nil && session.OS != "windows") || (beacon != nil && beacon.OS != "windows") {
 			con.PrintErrorf("The token, hide window, and ppid options are not valid on %s\n", session.OS)
+			ctrl <- true
+			<-ctrl
+			return
+		}
+		if envInheritance || len(envVars) > 0 {
+			con.PrintErrorf("The env and env-inheritance options are not supported with token, hidden, or ppid\n")
+			ctrl <- true
+			<-ctrl
 			return
 		}
 		exec, err = con.Rpc.ExecuteWindows(context.Background(), &sliverpb.ExecuteWindowsReq{
@@ -73,6 +94,7 @@ func ExecuteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			Path:       cmdPath,
 			Args:       args,
 			Output:     captureOutput,
+			Background: background,
 			Stderr:     stderr,
 			Stdout:     stdout,
 			UseToken:   token,
@@ -81,12 +103,15 @@ func ExecuteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		})
 	} else {
 		exec, err = con.Rpc.Execute(context.Background(), &sliverpb.ExecuteReq{
-			Request: con.ActiveTarget.Request(cmd),
-			Path:    cmdPath,
-			Args:    args,
-			Output:  captureOutput,
-			Stderr:  stderr,
-			Stdout:  stdout,
+			Request:        con.ActiveTarget.Request(cmd),
+			Path:           cmdPath,
+			Args:           args,
+			Output:         captureOutput,
+			Background:     background,
+			Stderr:         stderr,
+			Stdout:         stdout,
+			EnvInheritance: envInheritance,
+			Env:            envVars,
 		})
 	}
 	ctrl <- true
@@ -141,11 +166,23 @@ func PrintExecute(exec *sliverpb.Execute, cmd *cobra.Command, con *console.Slive
 	stderr, _ := cmd.Flags().GetString("stderr")
 
 	output, _ := cmd.Flags().GetBool("output")
+	background := false
+	if cmd.Flags().Lookup("background") != nil {
+		background, _ = cmd.Flags().GetBool("background")
+	}
+	if background {
+		// Background execution never returns inline output.
+		output = false
+	}
 	if !output {
-		if exec.Status == 0 {
-			con.PrintInfof("Command executed successfully\n")
+		if exec.Pid != 0 {
+			if background {
+				con.PrintInfof("Started background process (pid: %d)\n", exec.Pid)
+				return
+			}
+			con.PrintInfof("Started process (pid: %d)\n", exec.Pid)
 		} else {
-			con.PrintErrorf("Exit code %d\n", exec.Status)
+			con.PrintInfof("Process started\n")
 		}
 		return
 	}
@@ -177,6 +214,21 @@ func getHostname(session *clientpb.Session, beacon *clientpb.Beacon) string {
 		return beacon.Hostname
 	}
 	return ""
+}
+
+func parseEnvPairs(envPairs []string) (map[string]string, error) {
+	if len(envPairs) == 0 {
+		return nil, nil
+	}
+	envVars := make(map[string]string, len(envPairs))
+	for _, pair := range envPairs {
+		parts := strings.SplitN(pair, "=", 2)
+		if len(parts) != 2 || parts[0] == "" {
+			return nil, fmt.Errorf("invalid --env value %q, expected key=value", pair)
+		}
+		envVars[parts[0]] = parts[1]
+	}
+	return envVars, nil
 }
 
 func determineCommandName(command string) string {

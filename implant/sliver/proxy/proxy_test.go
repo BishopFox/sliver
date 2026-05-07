@@ -116,9 +116,7 @@ func TestNewProxy(t *testing.T) {
 			if tt.expectErr == nil {
 				a.Nil(err)
 			} else {
-				if a.NotNil(err) {
-					a.Equal(tt.expectErr.Error(), err.Error())
-				}
+				assertErrEqualIgnoreQuotes(t, tt.expectErr, err)
 			}
 		})
 	}

@@ -120,7 +120,7 @@ func (n *Filename) URIParameter(key string) string {
 	}
 
 	// Parse the format from:
-	// https://github.com/sqlite/sqlite/blob/b74eb0/src/pager.c#L4797-L4840
+	// https://github.com/sqlite/sqlite/blob/41fda52/src/pager.c#L4821-L4864
 	// This avoids having to alloc/free the key just to find a value.
 	for {
 		k := util.ReadString(n.mod, ptr, _MAX_NAME)
@@ -160,7 +160,7 @@ func (n *Filename) URIParameters() url.Values {
 	var params url.Values
 
 	// Parse the format from:
-	// https://github.com/sqlite/sqlite/blob/b74eb0/src/pager.c#L4797-L4840
+	// https://github.com/sqlite/sqlite/blob/41fda52/src/pager.c#L4821-L4864
 	// This is the only way to support multiple valued keys.
 	for {
 		k := util.ReadString(n.mod, ptr, _MAX_NAME)

@@ -34,15 +34,25 @@ const (
 	ConfigDirName = "configs"
 )
 
+// ClientWGConfig - Optional WireGuard wrapper configuration for multiplayer.
+type ClientWGConfig struct {
+	ServerPubKey     string `json:"server_pub_key"`
+	ClientPrivateKey string `json:"client_private_key"`
+	ClientPubKey     string `json:"client_pub_key"`
+	ClientIP         string `json:"client_ip"`
+	ServerIP         string `json:"server_ip"`
+}
+
 // ClientConfig - Client JSON config
 type ClientConfig struct {
-	Operator      string `json:"operator"` // This value is actually ignored for the most part (cert CN is used instead)
-	LHost         string `json:"lhost"`
-	LPort         int    `json:"lport"`
-	Token         string `json:"token"`
-	CACertificate string `json:"ca_certificate"`
-	PrivateKey    string `json:"private_key"`
-	Certificate   string `json:"certificate"`
+	Operator      string          `json:"operator"` // This value is actually ignored for the most part (cert CN is used instead)
+	LHost         string          `json:"lhost"`
+	LPort         int             `json:"lport"`
+	Token         string          `json:"token"`
+	CACertificate string          `json:"ca_certificate"`
+	PrivateKey    string          `json:"private_key"`
+	Certificate   string          `json:"certificate"`
+	WG            *ClientWGConfig `json:"wg,omitempty"`
 }
 
 // GetConfigDir - Returns the path to the config dir

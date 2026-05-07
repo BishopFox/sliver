@@ -52,6 +52,9 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 	resp := &clientpb.DllHijack{
 		Response: &commonpb.Response{},
 	}
+	if req == nil || req.Request == nil {
+		return resp, ErrMissingRequestField
+	}
 	session := core.Sessions.Get(req.Request.SessionID)
 	if session == nil {
 		return resp, ErrInvalidSessionID

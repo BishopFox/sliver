@@ -5,8 +5,6 @@ import (
 	"strings"
 )
 
-const sgrPrefix = "\033["
-
 var sgrStyling = map[int]Styling{
 	0: Reset,
 	1: Bold,
@@ -73,7 +71,7 @@ func StylingFromSGR(s string) Styling {
 
 func getSGRCodes(s string) []int {
 	var codes []int
-	for _, part := range strings.Split(s, ";") {
+	for part := range strings.SplitSeq(s, ";") {
 		if part == "" {
 			codes = append(codes, 0)
 		} else {

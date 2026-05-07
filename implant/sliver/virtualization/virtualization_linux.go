@@ -1,6 +1,7 @@
 //go:build linux
 
 package virtualization
+
 /*
 	Sliver Implant Framework
 	Copyright (C) 2019  Bishop Fox
@@ -20,8 +21,8 @@ package virtualization
 */
 
 import (
-	"os"
 	"net"
+	"os"
 	"strings"
 )
 
@@ -50,25 +51,25 @@ func virtualizationbydmi() string {
 	sysVendor := string(data)
 
 	switch {
-		case containsIgnoreCase(productName, "KVM"):
-			return "kvm"
-		case containsIgnoreCase(productName, "VirtualBox"):
-			return "virtualbox"
-		case containsIgnoreCase(productName, "VMware"):
-			return "vmware"
-		case containsIgnoreCase(sysVendor, "Microsoft Corporation") && containsIgnoreCase(productName, "Virtual Machine"):
-			return "hyper-v"
-		case containsIgnoreCase(sysVendor, "Xen"):
-			return "xen"
-		case containsIgnoreCase(sysVendor, "Amazon EC2"):
-			return "aws"
-		default:
-			return ""
+	case containsIgnoreCase(productName, "KVM"):
+		return "kvm"
+	case containsIgnoreCase(productName, "VirtualBox"):
+		return "virtualbox"
+	case containsIgnoreCase(productName, "VMware"):
+		return "vmware"
+	case containsIgnoreCase(sysVendor, "Microsoft Corporation") && containsIgnoreCase(productName, "Virtual Machine"):
+		return "hyper-v"
+	case containsIgnoreCase(sysVendor, "Xen"):
+		return "xen"
+	case containsIgnoreCase(sysVendor, "Amazon EC2"):
+		return "aws"
+	default:
+		return ""
 	}
 }
 
 var virtualizationMacs = []string{
-	"00:05:69", // VMware	
+	"00:05:69", // VMware
 	"00:0C:29", // VMware
 	"00:1C:14", // VMware
 	"00:50:56", // VMware
@@ -92,9 +93,6 @@ func isVirtualizedByMac() bool {
 	return false
 }
 
-
-
 func containsIgnoreCase(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || s[:len(substr)] == substr || containsIgnoreCase(s[1:], substr))
 }
-

@@ -1,7 +1,4 @@
 // Package platform includes runtime-specific code needed for the compiler or otherwise.
-//
-// Note: This is a dependency-free alternative to depending on parts of Go's x/sys.
-// See /RATIONALE.md for more context.
 package platform
 
 import (
@@ -18,7 +15,7 @@ func CompilerSupported() bool {
 
 func CompilerSupports(features api.CoreFeatures) bool {
 	switch runtime.GOOS {
-	case "linux", "darwin", "freebsd", "netbsd", "dragonfly", "windows":
+	case "linux", "darwin", "freebsd", "netbsd", "windows":
 		if runtime.GOARCH == "arm64" {
 			if features.IsEnabled(experimental.CoreFeaturesThreads) {
 				return CpuFeatures.Has(CpuFeatureArm64Atomic)
@@ -26,7 +23,7 @@ func CompilerSupports(features api.CoreFeatures) bool {
 			return true
 		}
 		fallthrough
-	case "solaris", "illumos":
+	case "dragonfly", "solaris", "illumos":
 		return runtime.GOARCH == "amd64" && CpuFeatures.Has(CpuFeatureAmd64SSE4_1)
 	default:
 		return false
@@ -40,11 +37,7 @@ func MmapCodeSegment(size int) ([]byte, error) {
 	if size == 0 {
 		panic("BUG: MmapCodeSegment with zero length")
 	}
-	if runtime.GOARCH == "amd64" {
-		return mmapCodeSegmentAMD64(size)
-	} else {
-		return mmapCodeSegmentARM64(size)
-	}
+	return mmapCodeSegment(size)
 }
 
 // MunmapCodeSegment unmaps the given memory region.

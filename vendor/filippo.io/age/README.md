@@ -12,7 +12,7 @@
 
 age is a simple, modern and secure file encryption tool, format, and Go library.
 
-It features small explicit keys, no config options, and UNIX-style composability.
+It features small explicit keys, post-quantum support, no config options, and UNIX-style composability.
 
 ```
 $ age-keygen -o key.txt
@@ -21,17 +21,17 @@ $ tar cvz ~/data | age -r age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9
 $ age --decrypt -i key.txt data.tar.gz.age > data.tar.gz
 ```
 
-📜 The format specification is at [age-encryption.org/v1](https://age-encryption.org/v1). age was designed by [@Benjojo12](https://twitter.com/Benjojo12) and [@FiloSottile](https://twitter.com/FiloSottile).
-
-📬 Follow the maintenance of this project by subscribing to [Maintainer Dispatches](https://filippo.io/newsletter)!
+📜 The format specification is at [age-encryption.org/v1](https://age-encryption.org/v1). age was designed by [@benjojo](https://github.com/benjojo) and [@FiloSottile](https://github.com/FiloSottile).
 
 🦀 An alternative interoperable Rust implementation is available at [github.com/str4d/rage](https://github.com/str4d/rage).
+
+🌍 [Typage](https://github.com/FiloSottile/typage) is a TypeScript implementation. It works in the browser, Node.js, Deno, and Bun.
 
 🔑 Hardware PIV tokens such as YubiKeys are supported through the [age-plugin-yubikey](https://github.com/str4d/age-plugin-yubikey) plugin.
 
 ✨ For more plugins, implementations, tools, and integrations, check out the [awesome age](https://github.com/FiloSottile/awesome-age) list.
 
-💬 The author pronounces it `[aɡe̞]` [with a hard *g*](https://translate.google.com/?sl=it&text=aghe), like GIF, and is always spelled lowercase.
+💬 The author pronounces it `[aɡe̞]` [with a hard *g*](https://translate.google.com/?sl=it&text=aghe), like GIF, and it's always spelled lowercase.
 
 ## Installation
 
@@ -46,6 +46,12 @@ $ age --decrypt -i key.txt data.tar.gz.age > data.tar.gz
         <td>MacPorts</td>
         <td>
             <code>port install age</code>
+        </td>
+    </tr>
+    <tr>
+        <td>Windows</td>
+        <td>
+            <code>winget install --id FiloSottile.age</code>
         </td>
     </tr>
     <tr>
@@ -83,6 +89,12 @@ $ age --decrypt -i key.txt data.tar.gz.age > data.tar.gz
         <td>Gentoo Linux</td>
         <td>
             <code>emerge app-crypt/age</code>
+        </td>
+    </tr>
+    <tr>
+        <td>Guix System</td>
+        <td>
+            <code>guix package -i age</code>
         </td>
     </tr>
     <tr>
@@ -133,21 +145,17 @@ $ age --decrypt -i key.txt data.tar.gz.age > data.tar.gz
             <code>scoop bucket add extras && scoop install age</code>
         </td>
     </tr>
-    <tr>
-        <td>pkgx</td>
-        <td>
-            <code>pkgx install age</code>
-        </td>
-    </tr>
 </table>
 
 On Windows, Linux, macOS, and FreeBSD you can use the pre-built binaries.
 
 ```
 https://dl.filippo.io/age/latest?for=linux/amd64
-https://dl.filippo.io/age/v1.1.1?for=darwin/arm64
+https://dl.filippo.io/age/v1.3.0?for=darwin/arm64
 ...
 ```
+
+If you download the pre-built binaries, you can check their [Sigsum proofs](./SIGSUM.md).
 
 If your system has [a supported version of Go](https://go.dev/dl/), you can build from source.
 
@@ -156,39 +164,6 @@ go install filippo.io/age/cmd/...@latest
 ```
 
 Help from new packagers is very welcome.
-
-### Verifying the release signatures
-
-If you download the pre-built binaries, you can check their
-[Sigsum](https://www.sigsum.org) proofs, which are like signatures with extra
-transparency: you can cryptographically verify that every proof is logged in a
-public append-only log, so you can hold the age project accountable for every
-binary release we ever produced. This is similar to what the [Go Checksum
-Database](https://go.dev/blog/module-mirror-launch) provides.
-
-```
-cat << EOF > age-sigsum-key.pub
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIM1WpnEswJLPzvXJDiswowy48U+G+G1kmgwUE2eaRHZG
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAz2WM5CyPLqiNjk7CLl4roDXwKhQ0QExXLebukZEZFS
-EOF
-cat << EOF > sigsum-trust-policy.txt
-log 154f49976b59ff09a123675f58cb3e346e0455753c3c3b15d465dcb4f6512b0b https://poc.sigsum.org/jellyfish
-witness poc.sigsum.org/nisse 1c25f8a44c635457e2e391d1efbca7d4c2951a0aef06225a881e46b98962ac6c
-witness rgdd.se/poc-witness  28c92a5a3a054d317c86fc2eeb6a7ab2054d6217100d0be67ded5b74323c5806
-group  demo-quorum-rule all poc.sigsum.org/nisse rgdd.se/poc-witness
-quorum demo-quorum-rule
-EOF
-
-curl -JLO "https://dl.filippo.io/age/v1.2.0?for=darwin/arm64"
-curl -JLO "https://dl.filippo.io/age/v1.2.0?for=darwin/arm64&proof"
-
-go install sigsum.org/sigsum-go/cmd/sigsum-verify@v0.8.0
-sigsum-verify -k age-sigsum-key.pub -p sigsum-trust-policy.txt \
-    age-v1.2.0-darwin-arm64.tar.gz.proof < age-v1.2.0-darwin-arm64.tar.gz
-```
-
-You can learn more about what's happening above in the [Sigsum
-docs](https://www.sigsum.org/getting-started/).
 
 ## Usage
 
@@ -254,6 +229,28 @@ $ age -R recipients.txt example.jpg > example.jpg.age
 
 If the argument to `-R` (or `-i`) is `-`, the file is read from standard input.
 
+### Post-quantum keys
+
+To generate hybrid post-quantum keys, which are secure against future quantum
+computer attacks, use the `-pq` flag with `age-keygen`. This may become the
+default in the future.
+
+Post-quantum identities start with `AGE-SECRET-KEY-PQ-1...` and recipients with
+`age1pq1...`. The recipients are unfortunately ~2000 characters long.
+
+```
+$ age-keygen -pq -o key.txt
+$ age-keygen -y key.txt > recipient.txt
+$ age -R recipient.txt example.jpg > example.jpg.age
+$ age -d -i key.txt example.jpg.age > example.jpg
+```
+
+Support for post-quantum keys is built into age v1.3.0 and later. Alternatively,
+the `age-plugin-pq` binary can be installed and placed in `$PATH` to add support
+to any version and implementation of age that supports plugins. Recipients will
+work out of the box, while identities will have to be converted to plugin
+identities with `age-plugin-pq -identity`.
+
 ### Passphrases
 
 Files can be encrypted with a passphrase by using `-p/--passphrase`. By default age will automatically generate a secure passphrase. Passphrase protected files are automatically detected at decrypt time.
@@ -302,3 +299,28 @@ $ curl https://github.com/benjojo.keys | age -R - example.jpg > example.jpg.age
 ```
 
 Keep in mind that people might not protect SSH keys long-term, since they are revokable when used only for authentication, and that SSH keys held on YubiKeys can't be used to decrypt files.
+
+### Inspecting encrypted files
+
+The `age-inspect` command can display metadata about an encrypted file without decrypting it, including the recipient types, whether it uses post-quantum encryption, and the payload size.
+
+```
+$ age-inspect secrets.age
+secrets.age is an age file, version "age-encryption.org/v1".
+
+This file is encrypted to the following recipient types:
+  - "mlkem768x25519"
+
+This file uses post-quantum encryption.
+
+Size breakdown (assuming it decrypts successfully):
+
+    Header                      1627 bytes
+    Encryption overhead           32 bytes
+    Payload                       42 bytes
+                        -------------------
+    Total                       1701 bytes
+
+```
+
+For scripting, use `--json` to get machine-readable output.

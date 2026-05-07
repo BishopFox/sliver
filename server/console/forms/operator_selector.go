@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 )
 
 const defaultSelectHeight = 10
@@ -35,8 +35,8 @@ func SelectOperator(title string, operators []string, value *string) error {
 			return nil
 		})
 
-	form := huh.NewForm(huh.NewGroup(field))
-	return form.Run()
+	form := newConsoleForm(huh.NewGroup(field))
+	return runConsoleForm(form)
 }
 
 func ensureSelectedValue(options []string, value *string) {

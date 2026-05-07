@@ -274,19 +274,22 @@ func getInstalledPackageNames() []string {
 }
 
 // This is a convenience function to get the names of the commands in the cache
-func getCommandsInCache() []string {
+func getCommandsInCache(armoryPK string) []string {
 	commandNames := []string{}
 
 	pkgCache.Range(func(key, value interface{}) bool {
 		cacheEntry := value.(pkgCacheEntry)
 		if cacheEntry.LastErr == nil {
+			if armoryPK != "" && cacheEntry.ArmoryConfig.PublicKey != armoryPK {
+				return true
+			}
 			if cacheEntry.Pkg.IsAlias {
-				if !slices.Contains(commandNames, cacheEntry.Alias.CommandName) {
+				if cacheEntry.Alias.CommandName != "" && !slices.Contains(commandNames, cacheEntry.Alias.CommandName) {
 					commandNames = append(commandNames, cacheEntry.Alias.CommandName)
 				}
 			} else {
 				for _, command := range cacheEntry.Extension.ExtCommand {
-					if !slices.Contains(commandNames, command.CommandName) {
+					if command.CommandName != "" && !slices.Contains(commandNames, command.CommandName) {
 						commandNames = append(commandNames, command.CommandName)
 					}
 				}
@@ -398,7 +401,7 @@ func buildInstallList(name, armoryPK string, forceInstallation bool, pendingPack
 	var requestedPackageList []string
 	if name == "all" {
 		requestedPackageList = []string{}
-		allCommands := getCommandsInCache()
+		allCommands := getCommandsInCache(armoryPK)
 		for _, cmdName := range allCommands {
 			if !slices.Contains(installedPackages, cmdName) || forceInstallation {
 				// Check to see if there is a package pending with that name
@@ -457,6 +460,15 @@ func installPackageByName(name, armoryPK string, forceInstallation, promptToOver
 	packageInstallList, err := buildInstallList(name, armoryPK, forceInstallation, pendingPackages)
 	if err != nil {
 		return err
+	}
+	if len(packageInstallList) == 0 && name == "all" {
+		availableCommands := getCommandsInCache(armoryPK)
+		if len(availableCommands) == 0 {
+			con.PrintInfof("No packages or bundles found\n")
+		} else {
+			con.PrintInfof("All available packages are already installed\n")
+		}
+		return nil
 	}
 	if len(packageInstallList) > 0 {
 		for _, packageID := range packageInstallList {
@@ -623,20 +635,15 @@ func installAliasPackage(entry *pkgCacheEntry, promptToOverwrite bool, clientCon
 		return errors.New("signature verification failed")
 	}
 
-	tmpFile, err := os.CreateTemp("", "sliver-armory-")
+	tmpFileName, err := writeArmoryTempFile(tarGz)
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tmpFile.Name())
-	_, err = tmpFile.Write(tarGz)
-	if err != nil {
-		return err
-	}
-	tmpFile.Close()
+	defer os.Remove(tmpFileName)
 
 	con.Printf(console.Clearln + "\r") // Clear the line
 
-	installPath := alias.InstallFromFile(tmpFile.Name(), entry.Alias.CommandName, promptToOverwrite, con)
+	installPath := alias.InstallFromFile(tmpFileName, entry.Alias.CommandName, promptToOverwrite, con)
 	if installPath == nil {
 		return errors.New("failed to install alias")
 	}
@@ -717,23 +724,45 @@ func installExtensionPackage(entry *pkgCacheEntry, promptToOverwrite bool, clien
 		return errors.New("signature verification failed")
 	}
 
-	tmpFile, err := os.CreateTemp("", "sliver-armory-")
+	tmpFileName, err := writeArmoryTempFile(tarGz)
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tmpFile.Name())
-	_, err = tmpFile.Write(tarGz)
-	if err != nil {
-		return err
-	}
-	err = tmpFile.Sync()
-	if err != nil {
-		return err
-	}
+	defer os.Remove(tmpFileName)
 
 	con.Printf(console.Clearln + "\r") // Clear download message
 
-	extensions.InstallFromDir(tmpFile.Name(), promptToOverwrite, con, true)
+	extensions.InstallFromDir(tmpFileName, promptToOverwrite, con, true)
 
 	return nil
+}
+
+func writeArmoryTempFile(data []byte) (string, error) {
+	if len(data) == 0 {
+		return "", errors.New("downloaded archive is empty")
+	}
+	tmpFile, err := os.CreateTemp("", "sliver-armory-")
+	if err != nil {
+		return "", err
+	}
+	tmpFileName := tmpFile.Name()
+	for len(data) > 0 {
+		n, err := tmpFile.Write(data)
+		if err != nil {
+			tmpFile.Close()
+			os.Remove(tmpFileName)
+			return "", err
+		}
+		data = data[n:]
+	}
+	if err := tmpFile.Sync(); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpFileName)
+		return "", err
+	}
+	if err := tmpFile.Close(); err != nil {
+		os.Remove(tmpFileName)
+		return "", err
+	}
+	return tmpFileName, nil
 }

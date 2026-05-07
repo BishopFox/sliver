@@ -45,6 +45,9 @@ github.com/google/btree
 # github.com/hashicorp/go-uuid v1.0.2
 ## explicit
 github.com/hashicorp/go-uuid
+# github.com/hashicorp/yamux v0.1.2
+## explicit; go 1.20
+github.com/hashicorp/yamux
 # github.com/jcmturner/gofork v1.0.0
 ## explicit
 github.com/jcmturner/gofork/encoding/asn1

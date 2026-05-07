@@ -6,7 +6,7 @@ BOF support is provided via the [COFF Loader](https://github.com/sliverarmory/CO
 
 The easiest way to install a BOF extension, for example [`nanodump`](https://github.com/sliverarmory/nanodump), is using the [armory](/docs?name=Armory) package manager:
 
-**IMPORTANT:** BOF Extensions are installed per-sliver client, they are not stored on the server. Thus extensions are not shared across operators, each operator must install the extension to use it.
+**IMPORTANT:** BOF extensions are still installed per-sliver client for normal operator use, so they are not shared across operators automatically. If you want the server-side AI agent to use a BOF, copy the unpacked BOF directory into `~/.sliver/ai/extensions` on the server as well, and copy any dependency such as `coff-loader` into that same server-side AI store.
 
 ```
 sliver > armory install nanodump
@@ -113,6 +113,8 @@ Looking at the script we can see the BOF requires a single integer argument. The
 ```
 
 Once the manifest is defined load it into your client using `extensions load`, locally loaded extensions do not need to be cryptographically signed. The paths in the manifest should be relative to the manifest file, parent directories are not allowed.
+
+If you want the server-side AI agent to discover and run the same BOF, copy that unpacked directory into `~/.sliver/ai/extensions/<name>/` so the `extension.json` file and `.o` artifact are available on the server.
 
 More details can be found on the [Aliases & Extensions](/docs?name=Aliases+and+Extensions) page.
 

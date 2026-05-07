@@ -140,9 +140,16 @@ func (p *ChannelProxy) HandleConn(src net.Conn) {
 		// {{if .Config.Debug}}
 		log.Printf("[portfwd] Configuring keep alive")
 		// {{end}}
-		conn.SetKeepAlive(true)
-		// TODO: Make KeepAlive configurable
-		conn.SetKeepAlivePeriod(30 * time.Second)
+		if p.KeepAlivePeriod < 0 {
+			conn.SetKeepAlive(false)
+		} else {
+			conn.SetKeepAlive(true)
+			if p.KeepAlivePeriod > 0 {
+				conn.SetKeepAlivePeriod(p.KeepAlivePeriod)
+			} else {
+				conn.SetKeepAlivePeriod(30 * time.Second)
+			}
+		}
 	}
 	// Add tunnel
 	// {{if .Config.Debug}}

@@ -134,6 +134,29 @@ enum OutputFormat {
   THIRD_PARTY = 4;
 }
 
+// ShellcodeConfig - options used when generating shellcode output.
+//
+// Note: Most fields map to Donut options for Windows shellcode generation.
+// On macOS (darwin/arm64), only `Compress` is currently used (beignet aPLib).
+message ShellcodeConfig {
+  // 1=none, 2=random names, 3=random names + symmetric encryption (Windows/Donut only)
+  uint32 Entropy = 2;
+  // 1=none, 2=aplib (Windows/Donut + macOS/beignet)
+  uint32 Compress = 3;
+  // 1=exit thread, 2=exit process, 3=block (Windows/Donut only)
+  uint32 ExitOpt = 4;
+  // 1=none, 2=abort on failure, 3=continue on failure (Windows/Donut only)
+  uint32 Bypass = 5;
+  // 1=overwrite headers, 2=keep headers (Windows/Donut only)
+  uint32 Headers = 6;
+  // Run unmanaged EXE entrypoint as a new thread (Windows/Donut only)
+  bool Thread = 7;
+  // Convert command line to Unicode for unmanaged DLL entrypoints (Windows/Donut only)
+  bool Unicode = 8;
+  // Override original entry point (0 = default) (Windows/Donut only)
+  uint32 OEP = 9;
+}
+
 message ImplantConfig {
   string ID = 1;
   repeated ImplantBuild ImplantBuilds = 2;
@@ -150,13 +173,15 @@ message ImplantConfig {
   bool ObfuscateSymbols = 12;
   string TemplateName = 13;
   bool SGNEnabled = 14;
-bool CollectVirtualizationInfo = 15;
+  string GoPackage = 15;
+
   bool IncludeMTLS = 53;
   bool IncludeHTTP = 16;
   bool IncludeWG = 17;
   bool IncludeDNS = 18;
   bool IncludeNamePipe = 19;
   bool IncludeTCP = 20;
+  bool CollectVirtualizationInfo = 21;
 
   string WGPeerTunIP = 32;
   uint32 WGKeyExchangePort = 33;
@@ -185,14 +210,81 @@ bool CollectVirtualizationInfo = 15;
   bool RunAtLoad = 105;
   string DebugFile = 106;
   repeated string exports = 107;
+  ShellcodeConfig ShellcodeConfig = 108;
+  ShellcodeEncoder ShellcodeEncoder = 109;
 
   string HTTPC2ConfigName = 150;
   bool NetGoEnabled = 151;
   bool TrafficEncodersEnabled = 152;
   repeated string TrafficEncoders = 153;
   string Extension = 154;
+  reserved 155;
+  reserved "SpoofData";
 
   repeated commonpb.File Assets = 200;
+}
+
+message SpoofMetadataFile {
+  string Name = 1;
+  bytes Data = 2;
+}
+
+message IMAGE_RESOURCE_DIRECTORY {
+  uint32 Characteristics = 1;
+  uint32 TimeDateStamp = 2;
+  // uint16 in PE headers; encoded as uint32 for protobuf transport.
+  uint32 MajorVersion = 3;
+  // uint16 in PE headers; encoded as uint32 for protobuf transport.
+  uint32 MinorVersion = 4;
+  // uint16 in PE headers; encoded as uint32 for protobuf transport.
+  uint32 NumberOfNamedEntries = 5;
+  // uint16 in PE headers; encoded as uint32 for protobuf transport.
+  uint32 NumberOfIdEntries = 6;
+}
+
+message IMAGE_RESOURCE_DIRECTORY_ENTRY {
+  uint32 Name = 1;
+  uint32 OffsetToData = 2;
+}
+
+message IMAGE_RESOURCE_DATA_ENTRY {
+  uint32 OffsetToData = 1;
+  uint32 Size = 2;
+  uint32 CodePage = 3;
+  uint32 Reserved = 4;
+}
+
+message IMAGE_EXPORT_DIRECTORY {
+  uint32 Characteristics = 1;
+  uint32 TimeDateStamp = 2;
+  // uint16 in PE headers; encoded as uint32 for protobuf transport.
+  uint32 MajorVersion = 3;
+  // uint16 in PE headers; encoded as uint32 for protobuf transport.
+  uint32 MinorVersion = 4;
+  uint32 Name = 5;
+  uint32 Base = 6;
+  uint32 NumberOfFunctions = 7;
+  uint32 NumberOfNames = 8;
+  uint32 AddressOfFunctions = 9;
+  uint32 AddressOfNames = 10;
+  uint32 AddressOfNameOrdinals = 11;
+}
+
+message PESpoofMetadataConfig {
+  // Reference PE used to clone metadata/resources/timestamps.
+  SpoofMetadataFile Source = 1;
+  // Reserved for future standalone icon mutation support.
+  SpoofMetadataFile Icon = 2;
+  IMAGE_RESOURCE_DIRECTORY ResourceDirectory = 10;
+  repeated IMAGE_RESOURCE_DIRECTORY_ENTRY ResourceDirectoryEntries = 11;
+  repeated IMAGE_RESOURCE_DATA_ENTRY ResourceDataEntries = 12;
+  IMAGE_EXPORT_DIRECTORY ExportDirectory = 13;
+}
+
+message SpoofMetadataConfig {
+  // Keep executable formats separated so additional formats can be added later
+  // without changing request semantics.
+  PESpoofMetadataConfig PE = 1;
 }
 
 message TrafficEncoder {
@@ -367,6 +459,7 @@ message ListenerJob {
 message MultiplayerListenerReq {
   string Host = 1;
   uint32 Port = 2;
+  bool WireGuard = 3;
 }
 
 message MTLSListenerReq {
@@ -460,7 +553,19 @@ message GenerateStageReq {
   string Compress = 8;
 }
 
-message Generate { commonpb.File File = 1; }
+message Generate {
+  commonpb.File File = 1;
+  string ImplantName = 2;
+  string ImplantBuildID = 3;
+}
+
+message GenerateSpoofMetadataReq {
+  string ImplantBuildID = 1;
+  string ImplantName = 2;
+  uint64 ResourceID = 3;
+
+  SpoofMetadataConfig SpoofMetadata = 10;
+}
 
 message MSFReq {
   string Payload = 1;
@@ -587,6 +692,9 @@ message WebContent {
   string ContentType = 4;
   uint64 Size = 5 [ jstype = JS_STRING ];
 
+  string OriginalFile = 6;
+  string Sha256 = 7;
+
   bytes Content = 9;
 }
 
@@ -688,6 +796,8 @@ message Backdoor { commonpb.Response Response = 9; }
 enum ShellcodeEncoder {
   NONE = 0;
   SHIKATA_GA_NAI = 1;
+  XOR = 2;
+  XOR_DYNAMIC = 3;
 }
 
 message ShellcodeEncodeReq {
@@ -695,6 +805,7 @@ message ShellcodeEncodeReq {
   string Architecture = 2;
   uint32 Iterations = 3;
   bytes BadChars = 4;
+  reserved 5;
 
   bytes Data = 8;
   commonpb.Request Request = 9;
@@ -706,7 +817,14 @@ message ShellcodeEncode {
   commonpb.Response Response = 9;
 }
 
-message ShellcodeEncoderMap { map<string, ShellcodeEncoder> Encoders = 1; }
+message ShellcodeEncoderArchMap {
+  map<string, ShellcodeEncoder> Encoders = 1;
+  map<string, string> Descriptions = 2;
+}
+
+message ShellcodeEncoderMap {
+  map<string, ShellcodeEncoderArchMap> Encoders = 1;
+}
 
 // [ Builder ] ----------------------------------------
 
@@ -1235,6 +1353,21 @@ message CrackCommand {
   string BrainSessionWhitelist = 113;
 }
 
+message CrackJob {
+  string ID = 1;
+  string CreatedAt = 2;
+  string CompletedAt = 3;
+  CrackJobStatus Status = 4;
+  string Err = 5;
+
+  CrackCommand Command = 7;
+  string ResultFileID = 8;
+}
+
+message CrackResponse {
+  CrackJob Job = 1;
+}
+
 message CrackConfig {
   bool AutoFire = 1;
   int64 MaxFileSize = 2;
@@ -1278,6 +1411,138 @@ message CrackFileChunk {
   bytes Data = 9;
 }
 
+// [ AI ] ----------------------------------------
+
+message AIProviderConfigs {
+  repeated AIProviderConfig Providers = 1;
+  AIConfigSummary Config = 2;
+}
+
+message AIProviderConfig {
+  string Name = 1;
+  bool Configured = 2;
+}
+
+message AIConfigSummary {
+  string Provider = 1;
+  string Model = 2;
+  string ThinkingLevel = 3;
+  bool Valid = 4;
+  string Error = 5;
+  string SystemPrompt = 6;
+}
+
+message AIConversationReq {
+  string ID = 1;
+  bool IncludeMessages = 2;
+}
+
+message AIConversations {
+  repeated AIConversation Conversations = 1;
+}
+
+enum AIConversationTurnState {
+  AI_TURN_STATE_IDLE = 0;
+  AI_TURN_STATE_IN_PROGRESS = 1;
+  AI_TURN_STATE_FAILED = 2;
+}
+
+enum AIConversationMessageKind {
+  AI_MESSAGE_KIND_CHAT = 0;
+  AI_MESSAGE_KIND_REASONING = 1;
+  AI_MESSAGE_KIND_TOOL_CALL = 2;
+}
+
+enum AIConversationMessageVisibility {
+  AI_MESSAGE_VISIBILITY_CONTEXT = 0;
+  AI_MESSAGE_VISIBILITY_UI_ONLY = 1;
+}
+
+enum AIConversationMessageState {
+  AI_MESSAGE_STATE_COMPLETED = 0;
+  AI_MESSAGE_STATE_IN_PROGRESS = 1;
+  AI_MESSAGE_STATE_FAILED = 2;
+}
+
+enum AIConversationEventType {
+  AI_CONVERSATION_EVENT_TYPE_UNKNOWN = 0;
+  AI_CONVERSATION_EVENT_TYPE_CONVERSATION_UPDATED = 1;
+  AI_CONVERSATION_EVENT_TYPE_CONVERSATION_DELETED = 2;
+  AI_CONVERSATION_EVENT_TYPE_TURN_STARTED = 3;
+  AI_CONVERSATION_EVENT_TYPE_TURN_COMPLETED = 4;
+  AI_CONVERSATION_EVENT_TYPE_TURN_FAILED = 5;
+  AI_CONVERSATION_EVENT_TYPE_MESSAGE_STARTED = 6;
+  AI_CONVERSATION_EVENT_TYPE_MESSAGE_UPDATED = 7;
+  AI_CONVERSATION_EVENT_TYPE_MESSAGE_COMPLETED = 8;
+}
+
+message AIContextWindowUsage {
+  int64 InputTokens = 1;
+  int64 OutputTokens = 2;
+  int64 TotalTokens = 3;
+  int64 ContextWindowTokens = 4;
+  bool ContextWindowTokensEstimated = 5;
+}
+
+message AIConversation {
+  string ID = 1;
+  int64 CreatedAt = 2;
+  int64 UpdatedAt = 3;
+  string OperatorName = 4;
+  string Provider = 5;
+  string Model = 6;
+  string Title = 7;
+  string Summary = 8;
+  string SystemPrompt = 9;
+  repeated AIConversationMessage Messages = 10;
+  string ActiveTurnID = 11;
+  AIConversationTurnState TurnState = 12;
+  string TargetSessionID = 13;
+  string TargetBeaconID = 14;
+  string ThinkingLevel = 15;
+  AIContextWindowUsage ContextWindowUsage = 16;
+}
+
+message AIConversationMessages {
+  string ConversationID = 1;
+  repeated AIConversationMessage Messages = 2;
+}
+
+message AIConversationMessage {
+  string ID = 1;
+  string ConversationID = 2;
+  int64 CreatedAt = 3;
+  int64 UpdatedAt = 4;
+  string OperatorName = 5;
+  string Provider = 6;
+  string Model = 7;
+  uint32 Sequence = 8;
+  string Role = 9;
+  string Content = 10;
+  string ProviderMessageID = 11;
+  string FinishReason = 12;
+  AIConversationMessageKind Kind = 13;
+  AIConversationMessageVisibility Visibility = 14;
+  AIConversationMessageState State = 15;
+  string TurnID = 16;
+  string ItemID = 17;
+  string ToolCallID = 18;
+  string ToolName = 19;
+  string ToolArguments = 20;
+  string ToolResult = 21;
+  string ErrorText = 22;
+  optional bool IncludeInContext = 23;
+}
+
+message AIConversationEvent {
+  AIConversationEventType EventType = 1;
+  string ConversationID = 2;
+  string TurnID = 3;
+  string ErrorText = 4;
+  AIConversation Conversation = 5;
+  AIConversationMessage Message = 6;
+}
+
 // watchtower 
 message MonitoringProviders {
   repeated MonitoringProvider providers = 1;
@@ -1317,4 +1582,18 @@ message CertificateData {
 
 message CertificateInfo {
   repeated CertificateData info = 1;  
+}
+
+message CertificateAuthorityData {
+  string CN = 1;
+  string CreationTime = 2;
+  string ValidityStart = 3;
+  string ValidityExpiry = 4;
+  string Type = 5;
+  string KeyAlgorithm = 6;
+  string ID = 7;
+}
+
+message CertificateAuthorityInfo {
+  repeated CertificateAuthorityData info = 1;
 }

@@ -1,3 +1,4 @@
-github.com/carapace-sh/carapace-shlex v1.0.0/go.mod h1:lJ4ZsdxytE0wHJ8Ta9S7Qq0XpjgjU0mdfCqiI2FHx7M=
+github.com/carapace-sh/carapace-pflag v1.1.0 h1:uB33wch8ADjP878NadQnbZ5vyROcj/Ac+wUQKMcIrQM=
+github.com/carapace-sh/carapace-pflag v1.1.0/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
 github.com/cpuguy83/go-md2man/v2 v2.0.3 h1:qMCsGGgs+MAzDFyp9LpAe1Lqy/fY/qCovCm0qnXZOBM=
 github.com/russross/blackfriday/v2 v2.1.0 h1:JIOH55/0cWyOuilr9/qlrm0BSXldqnqwMsf35Ld67mk=

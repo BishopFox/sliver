@@ -124,7 +124,7 @@ func PrintImplantBuilds(builds *clientpb.ImplantBuilds, filters ImplantBuildFilt
 			config.Format,
 			strings.Join(c2URLs, "\n"),
 			fmt.Sprintf("%v", config.Debug),
-			fmt.Sprintf(config.HTTPC2ConfigName),
+			fmt.Sprintf("%s", config.HTTPC2ConfigName),
 			fmt.Sprintf("%v", builds.ResourceIDs[sliverName].Value),
 			fmt.Sprintf("%v", builds.Staged[sliverName]),
 		})

@@ -29,22 +29,26 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bishopfox/sliver/client/assets"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/client/core"
 	"github.com/bishopfox/sliver/client/spin"
+	"github.com/bishopfox/sliver/client/theme"
 	"github.com/bishopfox/sliver/client/version"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/util"
 	"github.com/gofrs/uuid"
+	"github.com/kballard/go-shellquote"
 	"github.com/reeflective/console"
 	"github.com/reeflective/readline"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slog"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -53,32 +57,10 @@ const (
 )
 
 const (
-	// ANSI Colors.
-	Normal    = "\033[0m"
-	Black     = "\033[30m"
-	Red       = "\033[31m"
-	Green     = "\033[32m"
-	Orange    = "\033[33m"
-	Blue      = "\033[34m"
-	Purple    = "\033[35m"
-	Cyan      = "\033[36m"
-	Gray      = "\033[37m"
-	Bold      = "\033[1m"
-	Clearln   = "\r\x1b[2K"
-	UpN       = "\033[%dA"
-	DownN     = "\033[%dB"
-	Underline = "\033[4m"
-
-	// Info - Display colorful information.
-	Info = Bold + Cyan + "[*] " + Normal
-	// Warn - Warn a user.
-	Warn = Bold + Red + "[!] " + Normal
-	// Debug - Display debug information.
-	Debug = Bold + Purple + "[-] " + Normal
-	// Woot - Display success.
-	Woot = Bold + Green + "[$] " + Normal
-	// Success - Diplay success.
-	Success = Bold + Green + "[+] " + Normal
+	// Terminal control sequences (not "styling").
+	Clearln = "\r\x1b[2K"
+	UpN     = "\033[%dA"
+	DownN   = "\033[%dB"
 )
 
 // Observer - A function to call when the sessions changes.
@@ -97,9 +79,38 @@ type SliverClient struct {
 	Settings                 *assets.ClientSettings
 	IsServer                 bool
 	IsCLI                    bool
+	serverCmds               console.Commands
+	sliverCmds               console.Commands
 
-	jsonHandler slog.Handler
-	printf      func(format string, args ...any) (int, error)
+	jsonHandler      slog.Handler
+	printf           func(format string, args ...any) (int, error)
+	stdoutPipeWriter *os.File
+	stdoutPipeDone   chan struct{}
+	stdoutPipeOnce   sync.Once
+	stdoutSyncMu     sync.Mutex
+	stdoutSyncSeq    uint64
+	stdoutSyncMarker []byte
+	stdoutSyncAcks   map[uint64]chan struct{}
+	stdoutSyncAcksMu sync.Mutex
+
+	connMu                 sync.Mutex
+	grpcConn               *grpc.ClientConn
+	backgroundRPC          rpcpb.SliverRPCClient
+	backgroundConn         *grpc.ClientConn
+	backgroundDedicated    bool
+	connDetails            *ConnectionDetails
+	connCancel             context.CancelFunc
+	connWg                 *sync.WaitGroup
+	connectionHooksApplied bool
+	logCommandHookApplied  bool
+	suppressedEventNotifs  atomic.Int32
+
+	// These writers are always safe to use (never error); the underlying stream
+	// can be swapped on server switch to avoid breaking io.MultiWriter/io.Copy.
+	jsonRemoteWriter      *optionalRemoteWriter
+	asciicastRemoteWriter *optionalRemoteWriter
+	jsonRemoteStream      rpcpb.SliverRPC_ClientLogClient
+	asciicastRemoteStream rpcpb.SliverRPC_ClientLogClient
 }
 
 // NewConsole creates the sliver client (and console), creating menus and prompts.
@@ -107,6 +118,8 @@ type SliverClient struct {
 // thus has not started monitoring any server events, or started the application.
 func NewConsole(isServer bool) *SliverClient {
 	assets.Setup(false, false)
+	_ = theme.LoadAndSetCurrentTheme()
+	ApplyTheme(theme.Current())
 	settings, _ := assets.LoadSettings()
 
 	con := &SliverClient{
@@ -120,7 +133,10 @@ func NewConsole(isServer bool) *SliverClient {
 		BeaconTaskCallbacksMutex: &sync.Mutex{},
 		IsServer:                 isServer,
 		Settings:                 settings,
+		connWg:                   &sync.WaitGroup{},
 	}
+	// Ensure logging never panics even if console logs are disabled.
+	con.jsonHandler = slog.NewJSONHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelDebug})
 
 	// The active target needs access to the console
 	// to automatically switch between command menus.
@@ -159,9 +175,10 @@ func NewConsole(isServer bool) *SliverClient {
 // Init requires a working RPC connection to the sliver server, and 2 different sets of commands.
 // If run is true, the console application is started, making this call blocking. Otherwise, commands and
 // RPC connection are bound to the console (making the console ready to run), but the console does not start.
-func StartClient(con *SliverClient, rpc rpcpb.SliverRPCClient, serverCmds, sliverCmds console.Commands, run bool) error {
-	con.Rpc = rpc
+func StartClient(con *SliverClient, rpc rpcpb.SliverRPCClient, grpcConn *grpc.ClientConn, details *ConnectionDetails, serverCmds, sliverCmds console.Commands, run bool, rcScript string) error {
 	con.IsCLI = !run
+	con.serverCmds = serverCmds
+	con.sliverCmds = sliverCmds
 
 	// The console application needs to query the terminal for cursor positions
 	// when asynchronously printing logs (that is, when no command is running).
@@ -180,30 +197,36 @@ func StartClient(con *SliverClient, rpc rpcpb.SliverRPCClient, serverCmds, slive
 	sliver := con.App.Menu(consts.ImplantMenu)
 	sliver.SetCommands(sliverCmds)
 
-	// Events
-	go con.startEventLoop()
-	go core.TunnelLoop(rpc)
+	con.applyConnectionHooksOnce()
 
 	// console logger
 	if con.Settings.ConsoleLogs {
 		// Classic logs
 		consoleLog := getConsoleLogFile()
-		consoleLogStream, err := con.ClientLogStream("json")
-		if err != nil {
-			log.Printf("Could not get client json log stream: %s", err)
-		}
-		con.setupLogger(consoleLog, consoleLogStream)
+		con.ensureJSONRemoteWriter()
+		con.setupLogger(consoleLog, con.jsonRemoteWriter)
 		defer consoleLog.Close()
 
-		// Ascii cast sessions (complete terminal interface).
-		asciicastLog := getConsoleAsciicastFile()
-		defer asciicastLog.Close()
+		// Ascii cast sessions (complete terminal interface) are only useful
+		// for the interactive console. In CLI mode they would clobber stdout.
+		if !con.IsCLI {
+			asciicastLog := getConsoleAsciicastFile()
+			defer asciicastLog.Close()
 
-		asciicastStream, err := con.ClientLogStream("asciicast")
-		if err != nil {
-			log.Printf("Could not get client asciicast log stream: %s", err)
+			con.ensureAsciicastRemoteWriter()
+			con.setupAsciicastRecord(asciicastLog, con.asciicastRemoteWriter)
 		}
-		con.setupAsciicastRecord(asciicastLog, asciicastStream)
+	}
+
+	if err := con.SetConnection(rpc, grpcConn, details); err != nil {
+		return err
+	}
+
+	if rcScript != "" {
+		originalPrintf := con.printf
+		con.printf = fmt.Printf
+		con.runRCScript(serverCmds, sliverCmds, rcScript)
+		con.printf = originalPrintf
 	}
 
 	if !con.IsCLI {
@@ -213,10 +236,118 @@ func StartClient(con *SliverClient, rpc rpcpb.SliverRPCClient, serverCmds, slive
 	return nil
 }
 
-func (con *SliverClient) startEventLoop() {
-	eventStream, err := con.Rpc.Events(context.Background(), &commonpb.Empty{})
+func (con *SliverClient) runRCScript(serverCmds, sliverCmds console.Commands, rcScript string) {
+	scanner := bufio.NewScanner(strings.NewReader(rcScript))
+	lineNumber := 0
+
+	for scanner.Scan() {
+		lineNumber++
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		if err := con.runRCLine(serverCmds, sliverCmds, line); err != nil {
+			con.PrintErrorf("rc line %d error: %s", lineNumber, err)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		con.PrintErrorf("rc script error: %s", err)
+	}
+}
+
+func (con *SliverClient) runRCLine(serverCmds, sliverCmds console.Commands, line string) error {
+	args, err := shellquote.Split(line)
 	if err != nil {
-		fmt.Printf(Warn+"%s\n", err)
+		return fmt.Errorf("parse error: %w", err)
+	}
+
+	if con.serverCmds == nil {
+		con.serverCmds = serverCmds
+	}
+	if con.sliverCmds == nil {
+		con.sliverCmds = sliverCmds
+	}
+
+	menu := con.App.ActiveMenu()
+	if menu != nil {
+		// Reset per line to avoid stale roots when rc scripts switch menus.
+		menu.Command = nil
+	}
+
+	for _, hook := range con.App.PreCmdRunLineHooks {
+		args, err = hook(args)
+		if err != nil {
+			return fmt.Errorf("pre-run line error: %w", err)
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	menu = con.App.ActiveMenu()
+	if menu == nil {
+		return fmt.Errorf("no active menu")
+	}
+	if menu.Command == nil {
+		con.setMenuCommand(menu, args)
+	}
+	if menu.Command == nil {
+		return fmt.Errorf("no commands available")
+	}
+
+	target, _, _ := menu.Command.Find(args)
+	if err := menu.CheckIsAvailable(target); err != nil {
+		return err
+	}
+
+	for _, hook := range con.App.PreCmdRunHooks {
+		if err := hook(); err != nil {
+			return fmt.Errorf("pre-run error: %w", err)
+		}
+	}
+
+	menu.SetArgs(args)
+	menu.SetContext(context.Background())
+
+	if err := menu.Execute(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (con *SliverClient) applyConnectionHooksOnce() {
+	con.connMu.Lock()
+	defer con.connMu.Unlock()
+
+	if con.connectionHooksApplied {
+		return
+	}
+	con.connectionHooksApplied = true
+
+	con.App.PreReadlineHooks = append(con.App.PreReadlineHooks, con.syncOutputHook)
+	con.App.PostCmdRunHooks = append(con.App.PostCmdRunHooks, con.syncOutputHook)
+	con.App.PreCmdRunLineHooks = append(con.App.PreCmdRunLineHooks, con.refreshDedicatedCommandConnectionHook)
+	con.App.PreCmdRunLineHooks = append(con.App.PreCmdRunLineHooks, con.allowServerRootCommands)
+	if shell := con.App.Shell(); shell != nil && shell.Completer != nil {
+		baseCompleter := shell.Completer
+		shell.Completer = func(line []rune, cursor int) readline.Completions {
+			con.prepareCompletion(line, cursor)
+			return baseCompleter(line, cursor)
+		}
+	}
+}
+
+func (con *SliverClient) startEventLoop(ctx context.Context, rpc rpcpb.SliverRPCClient) {
+	if rpc == nil {
+		return
+	}
+
+	eventStream, err := rpc.Events(ctx, &commonpb.Empty{})
+	if err != nil {
+		fmt.Printf("%s%s\n", Warn, err)
 		return
 	}
 	for {
@@ -231,8 +362,20 @@ func (con *SliverClient) startEventLoop() {
 		switch event.EventType {
 
 		case consts.CanaryEvent:
-			con.PrintEventErrorf(Bold+"WARNING: %s%s has been burned (DNS Canary)", Normal, event.Session.Name)
 			sessions := con.GetSessionsByName(event.Session.Name)
+			if con.eventNotificationsSuppressed() {
+				affected := make([]string, 0, len(sessions))
+				for _, session := range sessions {
+					affected = append(affected, strings.Split(session.ID, "-")[0])
+				}
+				message := fmt.Sprintf("%s %s has been burned (DNS Canary)", StyleBold.Render("WARNING:"), event.Session.Name)
+				if len(affected) > 0 {
+					message += " Affected sessions: " + strings.Join(affected, ", ")
+				}
+				con.emitToastEvent("error", message)
+				break
+			}
+			con.PrintEventErrorf("%s %s has been burned (DNS Canary)", StyleBold.Render("WARNING:"), event.Session.Name)
 			for _, session := range sessions {
 				shortID := strings.Split(session.ID, "-")[0]
 				con.PrintErrorf("\t🔥 Session %s is affected", shortID)
@@ -240,8 +383,20 @@ func (con *SliverClient) startEventLoop() {
 
 		case consts.WatchtowerEvent:
 			msg := string(event.Data)
-			con.PrintEventErrorf(Bold+"WARNING: %s%s has been burned (seen on %s)", Normal, event.Session.Name, msg)
 			sessions := con.GetSessionsByName(event.Session.Name)
+			if con.eventNotificationsSuppressed() {
+				affected := make([]string, 0, len(sessions))
+				for _, session := range sessions {
+					affected = append(affected, strings.Split(session.ID, "-")[0])
+				}
+				message := fmt.Sprintf("%s %s has been burned (seen on %s)", StyleBold.Render("WARNING:"), event.Session.Name, msg)
+				if len(affected) > 0 {
+					message += " Affected sessions: " + strings.Join(affected, ", ")
+				}
+				con.emitToastEvent("error", message)
+				break
+			}
+			con.PrintEventErrorf("%s %s has been burned (seen on %s)", StyleBold.Render("WARNING:"), event.Session.Name, msg)
 			for _, session := range sessions {
 				shortID := strings.Split(session.ID, "-")[0]
 				con.PrintErrorf("\t🔥 Session %s is affected", shortID)
@@ -249,42 +404,42 @@ func (con *SliverClient) startEventLoop() {
 
 		case consts.JoinedEvent:
 			if con.Settings.UserConnect {
-				con.PrintInfof("%s has joined the game", event.Client.Operator.Name)
+				con.emitConsoleNotification("info", false, "%s has joined the game", event.Client.Operator.Name)
 			}
 		case consts.LeftEvent:
 			if con.Settings.UserConnect {
-				con.PrintInfof("%s left the game", event.Client.Operator.Name)
+				con.emitConsoleNotification("info", false, "%s left the game", event.Client.Operator.Name)
 			}
 
 		case consts.JobStoppedEvent:
 			job := event.Job
-			con.PrintErrorf("Job #%d stopped (%s/%s)", job.ID, job.Protocol, job.Name)
+			con.emitConsoleNotification("error", false, "Job #%d stopped (%s/%s)", job.ID, job.Protocol, job.Name)
 
 		case consts.SessionOpenedEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
 			shortID := strings.Split(session.ID, "-")[0]
-			con.PrintEventInfof("Session %s %s - %s (%s) - %s/%s - %v",
+			con.emitConsoleNotification("info", true, "Session %s %s - %s (%s) - %s/%s - %v",
 				shortID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 
 		case consts.SessionUpdateEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
 			shortID := strings.Split(session.ID, "-")[0]
-			con.PrintInfof("Session %s has been updated - %v", shortID, currentTime)
+			con.emitConsoleNotification("info", false, "Session %s has been updated - %v", shortID, currentTime)
 
 		case consts.SessionClosedEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
 			shortID := strings.Split(session.ID, "-")[0]
-			con.PrintEventErrorf("Lost session %s %s - %s (%s) - %s/%s - %v",
+			con.emitConsoleNotification("error", true, "Lost session %s %s - %s (%s) - %s/%s - %v",
 				shortID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 			activeSession := con.ActiveTarget.GetSession()
 			core.GetTunnels().CloseForSession(session.ID)
 			core.CloseCursedProcesses(session.ID)
 			if activeSession != nil && activeSession.ID == session.ID {
 				con.ActiveTarget.Set(nil, nil)
-				con.PrintErrorf("Active session disconnected")
+				con.emitConsoleNotification("error", false, "Active session disconnected")
 			}
 
 		case consts.BeaconRegisteredEvent:
@@ -292,7 +447,7 @@ func (con *SliverClient) startEventLoop() {
 			proto.Unmarshal(event.Data, beacon)
 			currentTime := time.Now().Format(time.RFC1123)
 			shortID := strings.Split(beacon.ID, "-")[0]
-			con.PrintEventInfof("Beacon %s %s - %s (%s) - %s/%s - %v",
+			con.emitConsoleNotification("info", true, "Beacon %s %s - %s (%s) - %s/%s - %v",
 				shortID, beacon.Name, beacon.RemoteAddress, beacon.Hostname, beacon.OS, beacon.Arch, currentTime)
 
 		case consts.BeaconTaskResultEvent:
@@ -310,6 +465,66 @@ func (con *SliverClient) CreateEventListener() (string, <-chan *clientpb.Event) 
 	listenerID, _ := uuid.NewV4()
 	con.EventListeners.Store(listenerID.String(), listener)
 	return listenerID.String(), listener
+}
+
+// SuppressEventNotifications redirects console event messages to local listeners instead of stdout.
+func (con *SliverClient) SuppressEventNotifications() func() {
+	if con == nil {
+		return func() {}
+	}
+	con.suppressedEventNotifs.Add(1)
+	return func() {
+		if con == nil {
+			return
+		}
+		if con.suppressedEventNotifs.Add(-1) < 0 {
+			con.suppressedEventNotifs.Store(0)
+		}
+	}
+}
+
+func (con *SliverClient) eventNotificationsSuppressed() bool {
+	return con != nil && con.suppressedEventNotifs.Load() > 0
+}
+
+func (con *SliverClient) emitToastEvent(level string, message string) {
+	if con == nil || con.EventListeners == nil || strings.TrimSpace(message) == "" {
+		return
+	}
+	con.triggerEventListeners(&clientpb.Event{
+		EventType: consts.ClientToastEvent,
+		Data:      []byte(message),
+		Err:       strings.TrimSpace(level),
+	})
+}
+
+func (con *SliverClient) emitConsoleNotification(level string, emphasized bool, format string, args ...any) {
+	message := fmt.Sprintf(format, args...)
+	if con.eventNotificationsSuppressed() {
+		con.emitToastEvent(level, message)
+		return
+	}
+
+	switch strings.ToLower(strings.TrimSpace(level)) {
+	case "error", "warn", "warning":
+		if emphasized {
+			con.PrintEventErrorf("%s", message)
+		} else {
+			con.PrintErrorf("%s", message)
+		}
+	case "success":
+		if emphasized {
+			con.PrintEventSuccessf("%s", message)
+		} else {
+			con.PrintSuccessf("%s", message)
+		}
+	default:
+		if emphasized {
+			con.PrintEventInfof("%s", message)
+		} else {
+			con.PrintInfof("%s", message)
+		}
+	}
 }
 
 // RemoveEventListener - removes an event listener given its id.
@@ -341,11 +556,12 @@ func (con *SliverClient) triggerReactions(event *clientpb.Event) {
 		con.ActiveTarget.Set(currentActiveSession, currentActiveBeacon)
 	}()
 
-	if event.EventType == consts.SessionOpenedEvent {
+	switch event.EventType {
+	case consts.SessionOpenedEvent:
 		con.ActiveTarget.Set(nil, nil)
 
 		con.ActiveTarget.Set(event.Session, nil)
-	} else if event.EventType == consts.BeaconRegisteredEvent {
+	case consts.BeaconRegisteredEvent:
 		con.ActiveTarget.Set(nil, nil)
 
 		beacon := &clientpb.Beacon{}
@@ -355,10 +571,10 @@ func (con *SliverClient) triggerReactions(event *clientpb.Event) {
 
 	for _, reaction := range reactions {
 		for _, line := range reaction.Commands {
-			con.PrintInfof(Bold+"Execute reaction: '%s'"+Normal, line)
+			con.emitConsoleNotification("info", false, "%s '%s'", StyleBold.Render("Execute reaction:"), line)
 			err := con.App.ActiveMenu().RunCommandLine(context.Background(), line)
 			if err != nil {
-				con.PrintErrorf("Reaction command error: %s\n", err)
+				con.emitConsoleNotification("error", false, "Reaction command error: %s", err)
 			}
 		}
 	}
@@ -407,41 +623,107 @@ func (con *SliverClient) AddBeaconCallback(taskID string, callback BeaconTaskCal
 }
 
 func (con *SliverClient) GetPrompt() string {
-	prompt := Underline + "sliver" + Normal
-	if con.IsServer {
-		prompt = Bold + "[server] " + Normal + Underline + "sliver" + Normal
+	promptStyle := assets.PromptStyleHost
+	if con.Settings != nil {
+		promptStyle = assets.NormalizePromptStyle(con.Settings.PromptStyle)
 	}
-	if con.ActiveTarget.GetSession() != nil {
-		prompt += fmt.Sprintf(Bold+Red+" (%s)%s", con.ActiveTarget.GetSession().Name, Normal)
-	} else if con.ActiveTarget.GetBeacon() != nil {
-		prompt += fmt.Sprintf(Bold+Blue+" (%s)%s", con.ActiveTarget.GetBeacon().Name, Normal)
+
+	if promptStyle == assets.PromptStyleCustom {
+		src := assets.DefaultPromptTemplate
+		if con.Settings != nil && strings.TrimSpace(con.Settings.PromptTemplate) != "" {
+			src = con.Settings.PromptTemplate
+		}
+		out, err := renderPromptTemplate(con, src)
+		if err != nil {
+			return Clearln + " > "
+		}
+		if strings.TrimSpace(out) == "" {
+			return Clearln + " > "
+		}
+		return Clearln + out
+	}
+
+	prompt := StyleUnderline.Render("sliver")
+	if con.IsServer {
+		if promptStyle != assets.PromptStyleBasic {
+			prompt = StyleBold.Render("[server]") + " " + prompt
+		}
+	} else if promptStyle != assets.PromptStyleBasic {
+		// sliver-client only: optionally include operator/host context.
+		if details, _, ok := con.CurrentConnection(); ok && details != nil && details.Config != nil {
+			operator := strings.TrimSpace(details.Config.Operator)
+			host := strings.TrimSpace(details.Config.LHost)
+
+			prefix := ""
+			switch promptStyle {
+			case assets.PromptStyleOperatorHost:
+				if operator != "" && host != "" {
+					prefix = operator + "@" + host
+				} else if operator != "" {
+					prefix = operator
+				} else if host != "" {
+					prefix = host
+				}
+			case assets.PromptStyleHost:
+				if host != "" {
+					prefix = host
+				}
+			}
+
+			if prefix != "" {
+				prompt = StyleBoldPrimary.Render("["+prefix+"]") + " " + prompt
+			}
+		}
+	}
+
+	if session := con.ActiveTarget.GetSession(); session != nil {
+		prompt += StyleBoldRed.Render(" (" + session.Name + ")")
+	} else if beacon := con.ActiveTarget.GetBeacon(); beacon != nil {
+		prompt += StyleBoldBlue.Render(" (" + beacon.Name + ")")
 	}
 	prompt += " > "
 	return Clearln + prompt
 }
 
 func (con *SliverClient) PrintLogo() {
-	serverVer, err := con.Rpc.GetVersion(context.Background(), &commonpb.Empty{})
+	// Always show a logo even if the server connection is transiently unavailable.
+	logo := asciiLogos[util.Intn(len(asciiLogos))]
+	fmt.Println(strings.ReplaceAll(logo.Render(), "\n", "\r\n"))
+	fmt.Println("All hackers gain " + abilities[util.Intn(len(abilities))] + "\r")
+
+	if con.Rpc == nil {
+		fmt.Println(Warn + "Not connected to a server\r")
+		fmt.Printf("%sClient %s\r\n", Info, version.FullVersion())
+		fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options\r")
+		fmt.Println("")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	serverVer, err := con.Rpc.GetVersion(ctx, &commonpb.Empty{})
 	if err != nil {
-		panic(err.Error())
+		fmt.Printf("%sCould not query server version: %s\r\n", Warn, err)
+		fmt.Printf("%sClient %s\r\n", Info, version.FullVersion())
+		fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options\r")
+		fmt.Println("")
+		con.CheckLastUpdate()
+		return
 	}
 	dirty := ""
 	if serverVer.Dirty {
-		dirty = fmt.Sprintf(" - %sDirty%s", Bold, Normal)
+		dirty = " - " + StyleBold.Render("Dirty")
 	}
 	serverSemVer := fmt.Sprintf("%d.%d.%d", serverVer.Major, serverVer.Minor, serverVer.Patch)
-
-	logo := asciiLogos[util.Intn(len(asciiLogos))]
-	fmt.Println(strings.ReplaceAll(logo, "\n", "\r\n"))
-	fmt.Println("All hackers gain " + abilities[util.Intn(len(abilities))] + "\r")
-	fmt.Printf(Info+"Server v%s - %s%s\r\n", serverSemVer, serverVer.Commit, dirty)
+	fmt.Printf("%sServer v%s - %s%s\r\n", Info, serverSemVer, serverVer.Commit, dirty)
 	if version.GitCommit != serverVer.Commit {
-		fmt.Printf(Info+"Client %s\r\n", version.FullVersion())
+		fmt.Printf("%sClient %s\r\n", Info, version.FullVersion())
 	}
 	fmt.Println(Info + "Welcome to the sliver shell, please type 'help' for options\r")
 	if serverVer.Major != int32(version.SemanticVersion()[0]) {
-		fmt.Printf(Warn + "Warning: Client and server may be running incompatible versions.\r\n")
+		fmt.Print(Warn + "Warning: Client and server may be running incompatible versions.\r\n")
 	}
+	fmt.Println("")
 	con.CheckLastUpdate()
 }
 
@@ -457,7 +739,7 @@ func (con *SliverClient) CheckLastUpdate() {
 	day := 24 * time.Hour
 	if compiledAt.Add(30 * day).Before(now) {
 		if lastUpdate == nil || lastUpdate.Add(30*day).Before(now) {
-			con.Printf(Info + "Check for updates with the 'update' command\n\n")
+			con.Printf("%sCheck for updates with the 'update' command\n\n", Info)
 		}
 	}
 }
@@ -497,7 +779,7 @@ func (con *SliverClient) GetSession(arg string) *clientpb.Session {
 func (con *SliverClient) GetSessionsByName(name string) []*clientpb.Session {
 	sessions, err := con.Rpc.GetSessions(context.Background(), &commonpb.Empty{})
 	if err != nil {
-		fmt.Printf(Warn+"%s\n", err)
+		fmt.Printf("%s%s\n", Warn, err)
 		return nil
 	}
 	matched := []*clientpb.Session{}
@@ -609,6 +891,7 @@ func (c *SliverClient) exitConsole(_ *console.Console) {
 	answer := strings.TrimSpace(text)
 
 	if (answer == "Y") || (answer == "y") {
+		c.FlushOutput()
 		os.Exit(0)
 	}
 }
@@ -637,7 +920,7 @@ func (con *SliverClient) FormatDateDelta(t time.Time, includeDate bool, color bo
 			interval = time.Since(t).Round(time.Second).String()
 		}
 		if color {
-			interval = fmt.Sprintf("%s%s%s", Bold+Red, interval, Normal)
+			interval = StyleBoldRed.Render(interval)
 		}
 	} else {
 		if includeDate {
@@ -646,7 +929,7 @@ func (con *SliverClient) FormatDateDelta(t time.Time, includeDate bool, color bo
 			interval = time.Until(t).Round(time.Second).String()
 		}
 		if color {
-			interval = fmt.Sprintf("%s%s%s", Bold+Green, interval, Normal)
+			interval = StyleBoldGreen.Render(interval)
 		}
 	}
 	return interval
@@ -681,7 +964,7 @@ type ActiveTarget struct {
 // GetSessionInteractive - Get the active target(s).
 func (s *ActiveTarget) GetInteractive() (*clientpb.Session, *clientpb.Beacon) {
 	if s.session == nil && s.beacon == nil {
-		fmt.Printf(Warn + "Please select a session or beacon via `use`\n")
+		fmt.Print(Warn + "Please select a session or beacon via `use`\n")
 		return nil, nil
 	}
 	return s.session, s.beacon
@@ -695,7 +978,7 @@ func (s *ActiveTarget) Get() (*clientpb.Session, *clientpb.Beacon) {
 // GetSessionInteractive - GetSessionInteractive the active session.
 func (s *ActiveTarget) GetSessionInteractive() *clientpb.Session {
 	if s.session == nil {
-		fmt.Printf(Warn + "Please select a session via `use`\n")
+		fmt.Print(Warn + "Please select a session via `use`\n")
 		return nil
 	}
 	return s.session
@@ -709,7 +992,7 @@ func (s *ActiveTarget) GetSession() *clientpb.Session {
 // GetBeaconInteractive - Get beacon interactive the active session.
 func (s *ActiveTarget) GetBeaconInteractive() *clientpb.Beacon {
 	if s.beacon == nil {
-		fmt.Printf(Warn + "Please select a beacon via `use`\n")
+		fmt.Print(Warn + "Please select a beacon via `use`\n")
 		return nil
 	}
 	return s.beacon
@@ -929,82 +1212,60 @@ var abilities = []string{
 	"jump-start",
 }
 
-var asciiLogos = []string{
-	Red + `
- 	  ██████  ██▓     ██▓ ██▒   █▓▓█████  ██▀███
-	▒██    ▒ ▓██▒    ▓██▒▓██░   █▒▓█   ▀ ▓██ ▒ ██▒
-	░ ▓██▄   ▒██░    ▒██▒ ▓██  █▒░▒███   ▓██ ░▄█ ▒
-	  ▒   ██▒▒██░    ░██░  ▒██ █░░▒▓█  ▄ ▒██▀▀█▄
-	▒██████▒▒░██████▒░██░   ▒▀█░  ░▒████▒░██▓ ▒██▒
-	▒ ▒▓▒ ▒ ░░ ▒░▓  ░░▓     ░ ▐░  ░░ ▒░ ░░ ▒▓ ░▒▓░
-	░ ░▒  ░ ░░ ░ ▒  ░ ▒ ░   ░ ░░   ░ ░  ░  ░▒ ░ ▒░
-	░  ░  ░    ░ ░    ▒ ░     ░░     ░     ░░   ░
-		  ░      ░  ░ ░        ░     ░  ░   ░
-` + Normal,
+type asciiLogoStyle int
 
-	Green + `
-    ███████╗██╗     ██╗██╗   ██╗███████╗██████╗
-    ██╔════╝██║     ██║██║   ██║██╔════╝██╔══██╗
-    ███████╗██║     ██║██║   ██║█████╗  ██████╔╝
-    ╚════██║██║     ██║╚██╗ ██╔╝██╔══╝  ██╔══██╗
-    ███████║███████╗██║ ╚████╔╝ ███████╗██║  ██║
-    ╚══════╝╚══════╝╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
-` + Normal,
+const (
+	logoStyleRed asciiLogoStyle = iota
+	logoStyleGreen
+	logoStyleBoldGray
+)
 
-	Bold + Gray + `
+type asciiLogo struct {
+	style asciiLogoStyle
+	art   string
+}
+
+func (l asciiLogo) Render() string {
+	switch l.style {
+	case logoStyleRed:
+		return StyleRed.Render(l.art)
+	case logoStyleGreen:
+		return StyleGreen.Render(l.art)
+	case logoStyleBoldGray:
+		return StyleBoldGray.Render(l.art)
+	default:
+		return l.art
+	}
+}
+
+var asciiLogos = []asciiLogo{
+	{style: logoStyleRed, art: `
+	 	 ██████  ██▓     ██▓ ██▒   █▓▓█████  ██▀███
+		▒██    ▒ ▓██▒    ▓██▒▓██░   █▒▓█   ▀ ▓██ ▒ ██▒
+		░ ▓██▄   ▒██░    ▒██▒ ▓██  █▒░▒███   ▓██ ░▄█ ▒
+		  ▒   ██▒▒██░    ░██░  ▒██ █░░▒▓█  ▄ ▒██▀▀█▄
+		▒██████▒▒░██████▒░██░   ▒▀█░  ░▒████▒░██▓ ▒██▒
+		▒ ▒▓▒ ▒ ░░ ▒░▓  ░░▓     ░ ▐░  ░░ ▒░ ░░ ▒▓ ░▒▓░
+		░ ░▒  ░ ░░ ░ ▒  ░ ▒ ░   ░ ░░   ░ ░  ░  ░▒ ░ ▒░
+		░  ░  ░    ░ ░    ▒ ░     ░░     ░     ░░   ░
+			  ░      ░  ░ ░        ░     ░  ░   ░
+	`},
+
+	{style: logoStyleGreen, art: `
+	    ███████╗██╗     ██╗██╗   ██╗███████╗██████╗
+	    ██╔════╝██║     ██║██║   ██║██╔════╝██╔══██╗
+	    ███████╗██║     ██║██║   ██║█████╗  ██████╔╝
+	    ╚════██║██║     ██║╚██╗ ██╔╝██╔══╝  ██╔══██╗
+	    ███████║███████╗██║ ╚████╔╝ ███████╗██║  ██║
+	    ╚══════╝╚══════╝╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
+	`},
+
+	{style: logoStyleBoldGray, art: `
 .------..------..------..------..------..------.
 |S.--. ||L.--. ||I.--. ||V.--. ||E.--. ||R.--. |
 | :/\: || :/\: || (\/) || :(): || (\/) || :(): |
 | :\/: || (__) || :\/: || ()() || :\/: || ()() |
 | '--'S|| '--'L|| '--'I|| '--'V|| '--'E|| '--'R|
 ` + "`------'`------'`------'`------'`------'`------'" + `
-` + Normal,
-
-	Purple + `
-     ****@@                                                                      @@****         
-    @@@@@@***@                                                                @***@@@@@@        
-    @%%@@@%%#***@                                                          @***#%%@@@%%@        
-    %%%%%##%%%%****@                                                    @****%%%%##%%%%%        
-    %%%%#####%%%%#*###@                                              @#####%%%%#####%%%%        
-    @%%%*@#####%%%%@####@                                          @####@%%%%#####@#%%%@        
-     %%%+@**#####%%%%#####@                                      @#####%%%%#####**@+%%%@        
-     #%%=+*+**###%#%%%######                                    ######%%%%%###**+*+=%%%         
-     %#%===++@*####%@@@@######                                ######@@@@%####*@++===%%%         
-     @#@--===+**%%%@@@@@@#####%%                            %%#####@@@@@@%%#**+===--@#@         
-      #@----%=+*%%%%@@@%%%####%%%@  @                  @  @%%%####%%%@@@%%%%*+=%----@#          
-      #%----=#++*%%%%@%%%%%@%%%%%%%%%@                @%%%%%%%%%@%%%%%@%%%%*++#=----%#          
-      %+----===+**@%%@#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%@%%@**+===----+%          
-      @=----==++***@%@#%%%%%%%@%%%%@%%%%%%%%%%%%%%%%%%%%@%%%%@%%%%%%%#@%@***++==-----@          
-       -----==+#%**##@@%%%@%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%@%%%@@##**%#+==-----           
-       %----==+**%%%%@@@#@%%%%%%%%%%@%%%%%%%%%%%%%%%%%%@%%%%%%%%%%@#@@@%%%%*++==----%           
-        =--#+=+**#@%%####%####%%%%@@@@@%%%%%%##%%%%%%@@@@@@%%%####%####%%@#**+=+#--=            
-         +-==+*%%%%########%#######%@@@@@@%%%%%#%%@@@@@@%#######%########%%%%*+==-=             
-     -----==++**#%######################%@@@%%%%@@@%######################%#**++==-----         
-      =--===+**######@##############%%%%%%%%%%%%%%%%%%%%##############@######**+===--=          
-       %-==+%@@@#######%%%%%%%%%@@%%%%%%%%%%%%%%%%%%%%%%%%@@%%%%%%%%%#######@@@%+==-%           
-        @=@@@@@@@@#%%%%%%%%%%%%%%@@%%%%%%%%%%%%%%%%%%%%%%@@@%%%%%%%%%%%%%#@@@@@@@@=@            
-        @@@@@@@@@@@@@%%%%%%%%%%%%@@@@%%%%%%%%**%%%%%%%%@@@@%%%%%%%%%%%%@@@@@@@@@@@@@            
-      @@@@@@@@@@@@@@@@@%%#%@@%%%%@@@@@%%%%%@#**#@%%%%%@@@@@%%%%@@%#%%@@@@@@@@@@@@@@@@@          
-     @@@@@@@@@@@@@@@@@@@@%#####%#%%%%%%%@%###**###%@%%%%%%%#######%@@@@@@@@@@@@@@@@@@@@         
-    @@@@@@@@@@@@@@@@@@@@@@@*##%%%%%%%%%%%%%##**##%%%%%%%%%%%%###*@@@@@@@@@@@@@@@@@@@@@@@        
-  @%%%%%@@@@@@@@@@@@@@@@@@@   %%%%%%%%%%%%%##**##%%%%%%%%%%%%%   @@@@@@@@@@@@@@@@@@@%%%%%@      
- @%%%%%%%%%%%%%%@@@@@@@@@@@@  . %%%%%@%%%%%##**##%%%%%@%%%%%    @@@@@@@@@@@@%%%%%%%%%%%%%%@     
-%%%%%%%@+.    % :@%%%%%%%%@@@@@@@@@%@%%@@@@##**##@@@@%%@%@@@@@@@@@%%%%%%%%@: %   ..+@%%%%%%%    
-%#.      .       :    .-@%%%%%@@@@@@@@@@@@@@##**##@@@@@@@@@@@@@@%%%%%@-.    :              .*%   
- @%%@*             #..:--=++*@%@@@@@@@@@@@@##**##@@@@@@@@@@@@@@*++==-:. #             *@%%@     
-%%%%%%@..*.:+%   ..::+-==++++@-=@@@@@@@@@@@%####%@@@@@@@@@@@=-@++++==-+::..   #+:.*..@%%%%%%    
-@###%.......::%-==++**#@++#*:  .:-+@@@@@@@@@@%####%@@@@@@@@@@+-:.  .*#++@#**++==-%::.......%###@  
-#%..........:::-==%+*******@* .  .:-+@@@@@@@@@@####@@@@@@@@@@+-:     #@*******+%=--:::..........%# 
-@@@+:...::::--=++**@***##*==+    :-+@@@.@@@@%%##%%@@@@.@@@+-:    ++=*##***@**++=--::::...:+@@@   
-  @%%%***###%@#****##@##++++++. .:=*@+ @@@@%%##%%@@@@ =@*=:. .+++++=##@##****#@%###***%%%@      
-@@=====+++++***#####%%%%@++++**#.:=*@  .@@%%####%%@@.  @*=:.#***+++@%%%%#####***+++++=====@@    
-        @@@#+++++***##%%%%%***##%%*#    @@*------*@@    #*%%##***%%%%%##***+++++#@@@            
-                      @@@@%%%@%%%%%.    **--------**    .%%%%%%%%%@@@@                          
-                               @%%%%   %@@@@@@@@@@@@@   %%%%@                                   
-                                  @@  @::@@@@@@@@@@::@  @@                                      
-                                     -::::::@@@@:::::::                                         
-                                    *-----========-----+                                        
-                                     @###%%%@@@@%%%###@                                         
-                                          @%%%%%%@                                              
-` + Normal,
+	`},
 }

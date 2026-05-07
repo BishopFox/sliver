@@ -1,7 +1,6 @@
 package processes
 
 import (
-	"fmt"
 	"sort"
 
 	"github.com/xlab/treeprint"
@@ -108,14 +107,14 @@ func (t *PsTree) AddProcess(proc *commonpb.Process) {
 }
 
 func (t *PsTree) filterProc(proc *commonpb.Process) string {
-	color := console.Normal
+	style := console.StyleNormal
 	if proc.Pid == t.implantPID {
-		color = console.Green
+		style = console.StyleGreen
 	}
-	if secTool, ok := knownSecurityTools[proc.Executable]; ok {
-		color = secTool[0]
+	if _, ok := knownSecurityTools[proc.Executable]; ok {
+		style = console.StyleRed
 	}
-	return fmt.Sprintf(color+"%s"+console.Normal, proc.Executable)
+	return style.Render(proc.Executable)
 }
 
 func (t *PsTree) String() string {

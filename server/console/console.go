@@ -38,7 +38,7 @@ import (
 )
 
 // Start - Starts the server console
-func Start() {
+func Start(rcScript string) {
 	_, ln, _ := transport.LocalListener()
 	ctxDialer := grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 		return ln.Dial()
@@ -56,10 +56,8 @@ func Start() {
 	}
 	defer conn.Close()
 	localRPC := rpcpb.NewSliverRPCClient(conn)
-	con := console.NewConsole(false)
-	console.StartClient(con, localRPC, command.ServerCommands(con, serverOnlyCmds), command.SliverCommands(con), true)
-
-	con.App.Start()
+	con := console.NewConsole(true)
+	_ = console.StartClient(con, localRPC, conn, nil, command.ServerCommands(con, serverOnlyCmds), command.SliverCommands(con), true, rcScript)
 }
 
 // serverOnlyCmds - Server only commands
@@ -77,6 +75,7 @@ func serverOnlyCmds() (commands []*cobra.Command) {
 		f.StringP("lhost", "L", "", "interface to bind server to")
 		f.Uint16P("lport", "l", 31337, "tcp listen port")
 		f.BoolP("tailscale", "T", false, "only expose multiplayer interface over Tailscale (requires TS_AUTHKEY)")
+		f.Bool("enable-wg", false, "wrap the multiplayer listener in WireGuard")
 	})
 
 	commands = append(commands, startMultiplayer)
@@ -94,6 +93,7 @@ func serverOnlyCmds() (commands []*cobra.Command) {
 		f.StringP("save", "s", "", "directory/file in which to save config")
 		f.StringP("name", "n", "", "operator name")
 		f.StringSliceP("permissions", "P", []string{}, "grant permissions to the operator profile (all, builder, crackstation)")
+		f.Bool("enable-wg", false, "include WireGuard tunnel settings in the generated operator config")
 	})
 	command.BindFlagCompletions(newOperator, func(comp *carapace.ActionMap) {
 		(*comp)["save"] = carapace.ActionDirectories()
@@ -113,6 +113,18 @@ func serverOnlyCmds() (commands []*cobra.Command) {
 	})
 	commands = append(commands, kickOperator)
 
+	aiConfig := &cobra.Command{
+		Use:   consts.AIConfigStr,
+		Short: "Configure the server-side AI settings",
+		Long:  help.GetHelpFor([]string{consts.AIConfigStr}),
+		Args:  cobra.NoArgs,
+		Run: func(cmd *cobra.Command, args []string) {
+			aiConfigCmd(cmd, args)
+		},
+		GroupID: consts.GenericHelpGroup,
+	}
+	commands = append(commands, aiConfig)
+
 	return
 }
 
@@ -120,6 +132,9 @@ const newOperatorLongHelp = `
 Create a new operator config file, operator configuration files allow
 remote machines to connect to the Sliver server. They are most commonly
 used for allowing remote operators to connect in "Multiplayer Mode."
+
+Operator configs use direct multiplayer mTLS by default. Add --enable-wg
+when the multiplayer listener is wrapped in WireGuard.
 
 To generate a profile for a remote operator, you need to specify the
 "all" permission to grant the profile access to all gRPC APIs:

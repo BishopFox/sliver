@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/bishopfox/sliver/client/command/ai"
+	"github.com/bishopfox/sliver/client/command/aka"
 	"github.com/bishopfox/sliver/client/command/alias"
 	"github.com/bishopfox/sliver/client/command/armory"
 	"github.com/bishopfox/sliver/client/command/beacons"
@@ -31,6 +33,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/clean"
 	"github.com/bishopfox/sliver/client/command/crack"
 	"github.com/bishopfox/sliver/client/command/creds"
+	docscmd "github.com/bishopfox/sliver/client/command/docs"
 	"github.com/bishopfox/sliver/client/command/exit"
 	"github.com/bishopfox/sliver/client/command/extensions"
 	"github.com/bishopfox/sliver/client/command/generate"
@@ -39,11 +42,14 @@ import (
 	"github.com/bishopfox/sliver/client/command/jobs"
 	"github.com/bishopfox/sliver/client/command/licenses"
 	"github.com/bishopfox/sliver/client/command/loot"
+	"github.com/bishopfox/sliver/client/command/mcp"
 	"github.com/bishopfox/sliver/client/command/monitor"
 	"github.com/bishopfox/sliver/client/command/operators"
 	"github.com/bishopfox/sliver/client/command/reaction"
+	"github.com/bishopfox/sliver/client/command/serverctx"
 	"github.com/bishopfox/sliver/client/command/sessions"
 	"github.com/bishopfox/sliver/client/command/settings"
+	shellcodeencoders "github.com/bishopfox/sliver/client/command/shellcode-encoders"
 	sgn "github.com/bishopfox/sliver/client/command/shikata-ga-nai"
 	"github.com/bishopfox/sliver/client/command/socks"
 	"github.com/bishopfox/sliver/client/command/taskmany"
@@ -66,6 +72,10 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 			CompletionOptions: cobra.CompletionOptions{
 				HiddenDefaultCmd: true,
 			},
+		}
+		if !con.IsCLI {
+			server.SilenceErrors = true
+			server.SilenceUsage = true
 		}
 
 		// Utility function to be used for binding new commands to
@@ -90,6 +100,9 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 		// Core
 		bind(consts.GenericHelpGroup,
 			exit.Command,
+			ai.ServerCommands,
+			docscmd.ServerCommands,
+			serverctx.Commands,
 			licenses.Commands,
 			settings.Commands,
 			alias.Commands,
@@ -101,11 +114,13 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 			crack.Commands,
 			certificates.Commands,
 			clean.Command,
+			aka.ServerCommands,
 		)
 
 		// C2 Network
 		bind(consts.NetworkHelpGroup,
 			jobs.Commands,
+			mcp.Commands,
 			websites.Commands,
 			wireguard.Commands,
 			c2profiles.Commands,
@@ -115,6 +130,7 @@ func ServerCommands(con *client.SliverClient, serverCmds func() []*cobra.Command
 		// Payloads
 		bind(consts.PayloadsHelpGroup,
 			sgn.Commands,
+			shellcodeencoders.Commands,
 			generate.Commands,
 			builders.Commands,
 		)

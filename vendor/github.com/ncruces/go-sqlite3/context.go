@@ -198,14 +198,14 @@ func (ctx Context) ResultError(err error) {
 		return
 	}
 
-	msg, code := errorCode(err, _OK)
+	msg, code := errorCode(err, ERROR)
 	if msg != "" {
 		defer ctx.c.arena.mark()()
 		ptr := ctx.c.arena.string(msg)
 		ctx.c.call("sqlite3_result_error",
 			stk_t(ctx.handle), stk_t(ptr), stk_t(len(msg)))
 	}
-	if code != _OK {
+	if code != res_t(ERROR) {
 		ctx.c.call("sqlite3_result_error_code",
 			stk_t(ctx.handle), stk_t(code))
 	}

@@ -1,0 +1,125 @@
+linters:
+  # Please, do not use `enable-all`: it's deprecated and will be removed soon.
+  # Inverted configuration with `enable-all` and `disable` is not scalable during updates of golangci-lint.
+  # Full list of linters - https://golangci-lint.run/usage/linters
+  disable-all: true
+  enable:
+    - bodyclose # https://github.com/timakin/bodyclose
+    - gomodguard
+    - errcheck # Mandatory. Do not disable.
+    - gocritic
+    - goimports
+    - gosec
+    - gosimple
+    - govet
+    - noctx
+    - nolintlint
+    - ineffassign # Mandatory. Do not disable.
+    - staticcheck # Mandatory. Do not disable.
+    - stylecheck
+    - typecheck
+    - unused
+
+# Other linters:
+#    - dogsled
+#    - dupl
+#    - exportloopref
+#    - exhaustive # e.g. missing cases in switch of type
+#    - funlen
+#    - gochecknoinits
+#    - gocognit
+#    - goconst
+#    - gocyclo
+#    - goerr113
+#    - gofmt
+#    - goprintffuncname
+#    - lll
+#    - misspell
+#    - nakedret
+#    - nlreturn
+#    - prealloc
+#    - revive
+#    - rowserrcheck
+#    - stylecheck
+#    - unconvert
+#    - unparam
+
+linters-settings:
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - dupImport # https://github.com/go-critic/go-critic/issues/845
+      - whyNoLint # checked by nolintlint linter
+      - hugeParam # TODO(vtopc): configure(80 bytes is probably not so much) and enable.
+      - rangeValCopy # TODO(vtopc): configure(disable for tests) and enable.
+      - appendAssign
+      - commentedOutCode
+
+  errcheck:
+    # List of functions to exclude from checking, where each entry is a single function to exclude.
+    # See https://github.com/kisielk/errcheck#excluding-functions for details.
+    exclude-functions:
+      - (io.Closer).Close
+      - (io.ReadCloser).Close
+
+  govet:
+    enable-all: true
+    disable:
+      - shadow
+      - fieldalignment
+
+  gomodguard:
+    blocked:
+      # List of blocked modules.
+      # Default: []
+      modules:
+        - github.com/golang/protobuf:
+            recommendations:
+              - google.golang.org/protobuf
+            reason: "see https://developers.google.com/protocol-buffers/docs/reference/go/faq#modules"
+        - github.com/pkg/errors:
+            recommendations:
+              - errors
+              - github.com/mailgun/errors
+            reason: "Deprecated"
+
+  stylecheck:
+    # https://staticcheck.io/docs/options#checks
+    checks: ["all"]
+
+issues:
+  # Maximum issues count per one linter. Set to 0 to disable. Default is 50.
+  max-issues-per-linter: 0
+
+  # Maximum count of issues with the same text. Set to 0 to disable. Default is 3.
+  max-same-issues: 50
+
+  exclude:
+    # Some packages have deprecated fields which continue to be useful
+    - SA1019
+
+  exclude-rules:
+    # Exclude some rules from tests.
+    - path: '_test\.go$'
+      linters:
+        - gosec
+        - noctx
+    - path: '_test\.go$'
+      text: "unnamedResult:"
+    - path: '.*mxresolv.*'
+      linters:
+        - gosec
+
+
+run:
+  # include test files or not, default is true
+  tests: true
+
+  # Timeout for analysis, e.g. 30s, 5m.
+  # Default: 1m
+  timeout: 5m

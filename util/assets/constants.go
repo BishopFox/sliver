@@ -1,9 +1,9 @@
 package assets
 
 const (
-	goVersion      = "1.25.5"
+	goVersion      = "1.26.2"
+	garbleVersion  = "1.26.2"
 	zigVersion     = "0.15.2"
-	garbleVersion  = "1.25.5"
 	zigSourceParam = "source=sliver"
 
 	zigMinisignPublicKey = "RWSGOq2NVecA2UPNdBUZykf1CCb147pkmdtYxgb3Ti+JO/wCYvhbAb/U"

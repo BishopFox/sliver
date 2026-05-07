@@ -32,7 +32,8 @@ var (
 	tunnelHandlers = map[uint32]TunnelHandler{
 
 		// Interactive shell tunnels
-		sliverpb.MsgShellReq: tunnel_handlers.ShellReqHandler,
+		sliverpb.MsgShellReq:       tunnel_handlers.ShellReqHandler,
+		sliverpb.MsgShellResizeReq: tunnel_handlers.ShellResizeReqHandler,
 
 		// Network tunnels
 		sliverpb.MsgPortfwdReq: tunnel_handlers.PortfwdReqHandler,

@@ -68,11 +68,12 @@ var (
 )
 
 const (
-	DefaultMaxBodyLength   = 2 * 1024 * 1024 * 1024 // 2Gb
-	DefaultHTTPTimeout     = time.Minute
-	DefaultLongPollTimeout = time.Second
-	DefaultLongPollJitter  = time.Second
-	minPollTimeout         = time.Second
+	DefaultMaxBodyLength       = 2 * 1024 * 1024 * 1024 // 2Gb
+	DefaultMaxUnauthBodyLength = 8 * 1024 * 1024        // 8Mb
+	DefaultHTTPTimeout         = time.Minute
+	DefaultLongPollTimeout     = time.Second
+	DefaultLongPollJitter      = time.Second
+	minPollTimeout             = time.Second
 )
 
 var (
@@ -564,13 +565,16 @@ func (s *SliverHTTPC2) anonymousHandler(resp http.ResponseWriter, req *http.Requ
 func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.Request, encoder sliverEncoders.Encoder) {
 	httpLog.Debug("Start http session request")
 
-	body, err := io.ReadAll(req.Body)
+	body, err := io.ReadAll(&io.LimitedReader{
+		R: req.Body,
+		N: int64(DefaultMaxUnauthBodyLength),
+	})
 	if err != nil {
 		httpLog.Errorf("Failed to read body %s", err)
 		s.defaultHandler(resp, req)
 		return
 	}
-	data, err := encoder.Decode(body)
+	data, err := decodeReqBodyWithMaxLen(encoder, body, int64(DefaultMaxUnauthBodyLength))
 	if err != nil {
 		httpLog.Errorf("Failed to decode body %s", err)
 		s.defaultHandler(resp, req)
@@ -716,7 +720,7 @@ func (s *SliverHTTPC2) readReqBody(httpSession *HTTPSession, resp http.ResponseW
 		return nil, err
 	}
 
-	data, err := encoder.Decode(body)
+	data, err := decodeReqBodyWithMaxLen(encoder, body, int64(DefaultMaxBodyLength))
 	if err != nil {
 		httpLog.Warnf("Failed to decode body %s", err)
 		s.defaultHandler(resp, req)
@@ -729,6 +733,13 @@ func (s *SliverHTTPC2) readReqBody(httpSession *HTTPSession, resp http.ResponseW
 		return nil, ErrDecryptFailed
 	}
 	return plaintext, err
+}
+
+func decodeReqBodyWithMaxLen(encoder sliverEncoders.Encoder, body []byte, maxDecodedLen int64) ([]byte, error) {
+	if limitedDecoder, ok := encoder.(sliverEncoders.LimitedDecoder); ok {
+		return limitedDecoder.DecodeWithMaxLen(body, maxDecodedLen)
+	}
+	return encoder.Decode(body)
 }
 
 func (s *SliverHTTPC2) getServerPollTimeout() time.Duration {
@@ -765,6 +776,8 @@ func (s *SliverHTTPC2) stagerHandler(resp http.ResponseWriter, req *http.Request
 	nonces, err := getNoncesFromURL(req.URL, 0)
 	if err != nil {
 		s.defaultHandler(resp, req)
+		// Added return statement to prevent duplicate HTML when serving websites
+		return
 	}
 
 	for _, nonce := range nonces {

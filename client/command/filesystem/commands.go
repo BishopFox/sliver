@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/command/loot"
@@ -174,6 +175,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		carapace.ActionValues().Usage("path to the file or directory to download"),
 		carapace.ActionFiles().Usage("local path where the downloaded file will be saved (optional)"),
 	)
+	completers.RegisterLocalFilePathPositionalCompletion(downloadCmd, 1)
 
 	uploadCmd := &cobra.Command{
 		Use:   consts.UploadStr,
@@ -194,6 +196,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		carapace.ActionFiles().Usage("local path to the file to upload"),
 		carapace.ActionValues().Usage("path to the file or directory to upload to (optional)"),
 	)
+	completers.RegisterLocalFilePathPositionalCompletion(uploadCmd, 0)
 
 	memfilesCmd := &cobra.Command{
 		Use:     consts.MemfilesStr,

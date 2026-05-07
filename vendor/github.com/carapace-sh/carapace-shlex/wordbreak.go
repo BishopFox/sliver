@@ -2,7 +2,7 @@ package shlex
 
 import "encoding/json"
 
-const BASH_WORDBREAKS = " \t\r\n" + `"'><=;|&(:`
+const BASH_WORDBREAKS = " \t\r\n" + `"'@><=;|&(:`
 
 type WordbreakType int
 

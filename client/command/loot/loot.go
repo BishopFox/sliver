@@ -82,7 +82,7 @@ func PrintLootFile(loot *clientpb.Loot, con *console.SliverClient) {
 		return
 	}
 	if loot.File.Name != "" {
-		con.PrintInfof("%sFile Name:%s %s\n\n", console.Bold, console.Normal, loot.File.Name)
+		con.PrintInfof("%s %s\n\n", console.StyleBold.Render("File Name:"), loot.File.Name)
 	}
 	if loot.File.Data != nil && 0 < len(loot.File.Data) {
 		if loot.FileType == clientpb.FileType_TEXT || isText(loot.File.Data) {

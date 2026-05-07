@@ -2,7 +2,7 @@ import MarkdownViewer from "@/components/markdown";
 import { useSearchContext } from "@/util/search-context";
 import { faChevronCircleRight } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Button, Card, CardBody, Divider } from "@heroui/react";
+import { Button, Card, Separator } from "@heroui/react";
 import { NextPage } from "next";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/router";
@@ -34,13 +34,13 @@ const SearchPage: NextPage = (props: SearchPageProps) => {
 
         {searchResults.map((doc) => (
           <Card key={doc.name}>
-            <CardBody className="flex flex-col gap-3">
+            <Card.Content className="flex flex-col gap-3">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <span className="text-xl">{doc.name}</span>
                 <div className="flex-1"></div>
                 <Button
                   size="sm"
-                  color="secondary"
+                  variant="secondary"
                   className="w-full sm:w-[150px]"
                   onPress={() => {
                     router.push(`/docs?name=${doc.name}`);
@@ -51,12 +51,12 @@ const SearchPage: NextPage = (props: SearchPageProps) => {
                 </Button>
               </div>
 
-              <Divider />
+              <Separator />
 
               <div className="max-h-[200px] overflow-hidden">
                 <MarkdownViewer markdown={doc.content} />
               </div>
-            </CardBody>
+            </Card.Content>
           </Card>
         ))}
       </div>

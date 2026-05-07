@@ -6,7 +6,7 @@ import (
 )
 
 func (t *Table) RenderTSV() string {
-	t.initForRender()
+	t.initForRender(renderModeTSV)
 
 	var out strings.Builder
 
@@ -40,7 +40,7 @@ func (t *Table) tsvRenderRow(out *strings.Builder, row rowStr, hint renderHint) 
 	for idx, col := range row {
 		if idx == 0 && t.autoIndex {
 			if hint.isRegularRow() {
-				out.WriteString(fmt.Sprint(hint.rowNumber))
+				fmt.Fprint(out, hint.rowNumber)
 			}
 			out.WriteRune('\t')
 		}
@@ -51,7 +51,7 @@ func (t *Table) tsvRenderRow(out *strings.Builder, row rowStr, hint renderHint) 
 
 		if strings.ContainsAny(col, "\t\n\"") || strings.Contains(col, "    ") {
 			col = strings.ReplaceAll(col, "\"", "\"\"") // fix double-quotes
-			out.WriteString(fmt.Sprintf("\"%s\"", col))
+			fmt.Fprintf(out, "\"%s\"", col)
 		} else {
 			out.WriteString(col)
 		}

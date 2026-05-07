@@ -50,7 +50,7 @@ func displayOperators(operators []*clientpb.Operator, con *console.SliverClient)
 	})
 	for _, operator := range operators {
 		tw.AppendRow(table.Row{
-			console.Bold + operator.Name + console.Normal,
+			console.StyleBold.Render(operator.Name),
 			status(operator.Online),
 		})
 	}
@@ -59,7 +59,7 @@ func displayOperators(operators []*clientpb.Operator, con *console.SliverClient)
 
 func status(isOnline bool) string {
 	if isOnline {
-		return console.Bold + console.Green + "Online" + console.Normal
+		return console.StyleBoldGreen.Render("Online")
 	}
-	return console.Bold + console.Red + "Offline" + console.Normal
+	return console.StyleBoldRed.Render("Offline")
 }

@@ -36,77 +36,77 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
-// Stylizes known processes in the `ps` command
-var knownSecurityTools = map[string][]string{
-	// Process Name -> [Color, Stylized Name]
-	"ccSvcHst.exe":                    {console.Red, "Symantec Endpoint Protection"}, // Symantec Endpoint Protection (SEP)
-	"cb.exe":                          {console.Red, "Carbon Black"},                 // Carbon Black
-	"RepMgr.exe":                      {console.Red, "Carbon Black Cloud Sensor"},    // Carbon Black Cloud Sensor
-	"RepUtils.exe":                    {console.Red, "Carbon Black Cloud Sensor"},    // Carbon Black Cloud Sensor
-	"RepUx.exe":                       {console.Red, "Carbon Black Cloud Sensor"},    // Carbon Black Cloud Sensor
-	"RepWSC.exe":                      {console.Red, "Carbon Black Cloud Sensor"},    // Carbon Black Cloud Sensor
-	"scanhost.exe":                    {console.Red, "Carbon Black Cloud Sensor"},    // Carbon Black Cloud Sensor
-	"elastic-agent.exe":               {console.Red, "Elastic Agent"},                // Elastic Agent
-	"elastic-endpoint.exe":            {console.Red, "Elastic Agent"},                // Elastic Agent
-	"filebeat.exe":                    {console.Red, "Elastic Agent"},                // Elastic Agent - log shipper
-	"metricbeat.exe":                  {console.Red, "Elastic Agent"},                // Elastic Agent - metric shipper
-	"smartscreen.exe":                 {console.Red, "Windows Smart Screen"},         // Windows Defender Smart Screen
-	"MpCmdRun.exe":                    {console.Red, "Windows Defender"},             // Windows Defender Command-line
-	"MonitoringHost.exe":              {console.Red, "Windows Defender"},             // Microsoft Monitoring Agent
-	"HealthService.exe":               {console.Red, "Windows Defender"},             // Microsoft Monitoring Agent
-	"MsMpEng.exe":                     {console.Red, "Windows Defender"},             // Windows Defender (Service Executable)
-	"NisSrv.exe":                      {console.Red, "Windows Defender"},             // Windows Defender (Network Realtime Inspection)
-	"SenseIR.exe":                     {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint (Live Response Session)
-	"SenseNdr.exe":                    {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint (Network Detection and Response)
-	"SenseSC.exe":                     {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint (Screenshot Capture Module)
-	"SenseCE.exe":                     {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint (Classification Engine Module)
-	"SenseCM.exe":                     {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint (Configuration Management Module)
-	"SenseSampleUploader.exe":         {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint (Sample Uploader Module)
-	"SenseCncProxy.exe":               {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint (Communication Module)
-	"MsSense.exe":                     {console.Red, "Windows Defender MDE"},         // Windows Defender Endpoint (Service Executable)
-	"CSFalconService.exe":             {console.Red, "CrowdStrike"},                  // Crowdstrike Falcon Service
-	"CSFalconContainer.exe":           {console.Red, "CrowdStrike"},                  // CrowdStrike Falcon Container Security
-	"bdservicehost.exe":               {console.Red, "Bitdefender"},                  // Bitdefender (Total Security)
-	"bdagent.exe":                     {console.Red, "Bitdefender"},                  // Bitdefender (Total Security)
-	"bdredline.exe":                   {console.Red, "Bitdefender"},                  // Bitdefender Redline Update Service (Source https://community.bitdefender.com/en/discussion/82135/bdredline-exe-bitdefender-total-security-2020)
-	"Deep Security Manager.exe":       {console.Red, "Trend Micro"},                  // TM Deep Security Manager
-	"coreServiceShell.exe":            {console.Red, "Trend Micro"},                  // TM Anti-malware scan process
-	"ds_monitor.exe":                  {console.Red, "Trend Micro"},                  // TM Deep Security Monitor
-	"Notifier.exe":                    {console.Red, "Trend Micro"},                  // TM Deep Security Notifier's process
-	"dsa.exe":                         {console.Red, "Trend Micro"},                  // TM Agent's main process
-	"ds_nuagent.exe":                  {console.Red, "Trend Micro"},                  // TM Advanced TLS traffic inspection
-	"coreFrameworkHost.exe":           {console.Red, "Trend Micro"},                  // TM Anti-malware scan process
-	"SentinelServiceHost.exe":         {console.Red, "SentinelOne"},                  // Sentinel One
-	"SentinelStaticEngine.exe":        {console.Red, "SentinelOne"},                  // Sentinel One
-	"SentinelStaticEngineScanner.exe": {console.Red, "SentinelOne"},                  // Sentinel One
-	"SentinelAgent.exe":               {console.Red, "SentinelOne"},                  // Sentinel One
-	"SentinelAgentWorker.exe":         {console.Red, "SentinelOne"},                  // Sentinel One
-	"SentinelHelperService.exe":       {console.Red, "SentinelOne"},                  // Sentinel One
-	"SentinelBrowserNativeHost.exe":   {console.Red, "SentinelOne"},                  // Sentinel One
-	"SentinelUI.exe":                  {console.Red, "SentinelOne"},                  // Sentinel One
-	"Sysmon.exe":                      {console.Red, "Sysmon"},                       // Sysmon
-	"Sysmon64.exe":                    {console.Red, "Sysmon64"},                     // Sysmon64
-	"CylanceSvc.exe":                  {console.Red, "Cylance"},                      // Cylance
-	"CylanceUI.exe":                   {console.Red, "Cylance"},                      // Cylance
-	"TaniumClient.exe":                {console.Red, "Tanium"},                       // Tanium
-	"TaniumCX.exe":                    {console.Red, "Tanium"},                       // Tanium
-	"TaniumDetectEngine.exe":          {console.Red, "Tanium"},                       // Tanium
-	"collector.exe":                   {console.Red, "Rapid 7 Collector"},            // Rapid 7 Insight Platform Collector
-	"ir_agent.exe":                    {console.Red, "Rapid 7 Insight Agent"},        // Rapid 7 Insight Agent
-	"eguiproxy.exe":                   {console.Red, "ESET Security"},                // ESET Internet Security
-	"ekrn.exe":                        {console.Red, "ESET Security"},                // ESET Internet Security
-	"efwd.exe":                        {console.Red, "ESET Security"},                // ESET Internet Security
-	"AmSvc.exe":                       {console.Red, "Cybereason ActiveProbe"},       // Cybereason ActiveProbe
-	"CrAmTray.exe":                    {console.Red, "Cybereason ActiveProbe"},       // Cybereason ActiveProbe
-	"CrsSvc.exe":                      {console.Red, "Cybereason ActiveProbe"},       // Cybereason ActiveProbe
-	"CybereasonAV.exe":                {console.Red, "Cybereason ActiveProbe"},       // Cybereason ActiveProbe
-	"cortex-xdr-payload.exe":          {console.Red, "Palo Alto Cortex"},             // Cortex XDR - offline triage
-	"cysandbox.exe":                   {console.Red, "Palo Alto Cortex"},             // Cortex XDR - sandbox
-	"cyuserservice.exe":               {console.Red, "Palo Alto Cortex"},             // Cortex XDR - user service
-	"cywscsvc.exe":                    {console.Red, "Palo Alto Cortex"},             // Cortex XDR - security center service
-	"tlaworker.exe":                   {console.Red, "Palo Alto Cortex"},             // Cortex XDR - local analysis worker
-	"AEEngine.exe":                    {console.Red, "Faronics Anti-Executable"},     // Faronics Anti-Executable - security service
-	"Antiexecutable.exe":              {console.Red, "Faronics Anti-Executable"},     // Faronics Anti-Executable - gui and tray icon
+// Known security tools shown by `ps`/`pstree`.
+// Process executable -> product name.
+var knownSecurityTools = map[string]string{
+	"ccSvcHst.exe":                    "Symantec Endpoint Protection", // Symantec Endpoint Protection (SEP)
+	"cb.exe":                          "Carbon Black",                 // Carbon Black
+	"RepMgr.exe":                      "Carbon Black Cloud Sensor",    // Carbon Black Cloud Sensor
+	"RepUtils.exe":                    "Carbon Black Cloud Sensor",    // Carbon Black Cloud Sensor
+	"RepUx.exe":                       "Carbon Black Cloud Sensor",    // Carbon Black Cloud Sensor
+	"RepWSC.exe":                      "Carbon Black Cloud Sensor",    // Carbon Black Cloud Sensor
+	"scanhost.exe":                    "Carbon Black Cloud Sensor",    // Carbon Black Cloud Sensor
+	"elastic-agent.exe":               "Elastic Agent",                // Elastic Agent
+	"elastic-endpoint.exe":            "Elastic Agent",                // Elastic Agent
+	"filebeat.exe":                    "Elastic Agent",                // Elastic Agent - log shipper
+	"metricbeat.exe":                  "Elastic Agent",                // Elastic Agent - metric shipper
+	"smartscreen.exe":                 "Windows Smart Screen",         // Windows Defender Smart Screen
+	"MpCmdRun.exe":                    "Windows Defender",             // Windows Defender Command-line
+	"MonitoringHost.exe":              "Windows Defender",             // Microsoft Monitoring Agent
+	"HealthService.exe":               "Windows Defender",             // Microsoft Monitoring Agent
+	"MsMpEng.exe":                     "Windows Defender",             // Windows Defender (Service Executable)
+	"NisSrv.exe":                      "Windows Defender",             // Windows Defender (Network Realtime Inspection)
+	"SenseIR.exe":                     "Windows Defender MDE",         // Windows Defender Endpoint (Live Response Session)
+	"SenseNdr.exe":                    "Windows Defender MDE",         // Windows Defender Endpoint (Network Detection and Response)
+	"SenseSC.exe":                     "Windows Defender MDE",         // Windows Defender Endpoint (Screenshot Capture Module)
+	"SenseCE.exe":                     "Windows Defender MDE",         // Windows Defender Endpoint (Classification Engine Module)
+	"SenseCM.exe":                     "Windows Defender MDE",         // Windows Defender Endpoint (Configuration Management Module)
+	"SenseSampleUploader.exe":         "Windows Defender MDE",         // Windows Defender Endpoint (Sample Uploader Module)
+	"SenseCncProxy.exe":               "Windows Defender MDE",         // Windows Defender Endpoint (Communication Module)
+	"MsSense.exe":                     "Windows Defender MDE",         // Windows Defender Endpoint (Service Executable)
+	"CSFalconService.exe":             "CrowdStrike",                  // Crowdstrike Falcon Service
+	"CSFalconContainer.exe":           "CrowdStrike",                  // CrowdStrike Falcon Container Security
+	"bdservicehost.exe":               "Bitdefender",                  // Bitdefender (Total Security)
+	"bdagent.exe":                     "Bitdefender",                  // Bitdefender (Total Security)
+	"bdredline.exe":                   "Bitdefender",                  // Bitdefender Redline Update Service (Source https://community.bitdefender.com/en/discussion/82135/bdredline-exe-bitdefender-total-security-2020)
+	"Deep Security Manager.exe":       "Trend Micro",                  // TM Deep Security Manager
+	"coreServiceShell.exe":            "Trend Micro",                  // TM Anti-malware scan process
+	"ds_monitor.exe":                  "Trend Micro",                  // TM Deep Security Monitor
+	"Notifier.exe":                    "Trend Micro",                  // TM Deep Security Notifier's process
+	"dsa.exe":                         "Trend Micro",                  // TM Agent's main process
+	"ds_nuagent.exe":                  "Trend Micro",                  // TM Advanced TLS traffic inspection
+	"coreFrameworkHost.exe":           "Trend Micro",                  // TM Anti-malware scan process
+	"SentinelServiceHost.exe":         "SentinelOne",                  // Sentinel One
+	"SentinelStaticEngine.exe":        "SentinelOne",                  // Sentinel One
+	"SentinelStaticEngineScanner.exe": "SentinelOne",                  // Sentinel One
+	"SentinelAgent.exe":               "SentinelOne",                  // Sentinel One
+	"SentinelAgentWorker.exe":         "SentinelOne",                  // Sentinel One
+	"SentinelHelperService.exe":       "SentinelOne",                  // Sentinel One
+	"SentinelBrowserNativeHost.exe":   "SentinelOne",                  // Sentinel One
+	"SentinelUI.exe":                  "SentinelOne",                  // Sentinel One
+	"Sysmon.exe":                      "Sysmon",                       // Sysmon
+	"Sysmon64.exe":                    "Sysmon64",                     // Sysmon64
+	"CylanceSvc.exe":                  "Cylance",                      // Cylance
+	"CylanceUI.exe":                   "Cylance",                      // Cylance
+	"TaniumClient.exe":                "Tanium",                       // Tanium
+	"TaniumCX.exe":                    "Tanium",                       // Tanium
+	"TaniumDetectEngine.exe":          "Tanium",                       // Tanium
+	"collector.exe":                   "Rapid 7 Collector",            // Rapid 7 Insight Platform Collector
+	"ir_agent.exe":                    "Rapid 7 Insight Agent",        // Rapid 7 Insight Agent
+	"eguiproxy.exe":                   "ESET Security",                // ESET Internet Security
+	"ekrn.exe":                        "ESET Security",                // ESET Internet Security
+	"efwd.exe":                        "ESET Security",                // ESET Internet Security
+	"AmSvc.exe":                       "Cybereason ActiveProbe",       // Cybereason ActiveProbe
+	"CrAmTray.exe":                    "Cybereason ActiveProbe",       // Cybereason ActiveProbe
+	"CrsSvc.exe":                      "Cybereason ActiveProbe",       // Cybereason ActiveProbe
+	"CybereasonAV.exe":                "Cybereason ActiveProbe",       // Cybereason ActiveProbe
+	"cortex-xdr-payload.exe":          "Palo Alto Cortex",             // Cortex XDR - offline triage
+	"cysandbox.exe":                   "Palo Alto Cortex",             // Cortex XDR - sandbox
+	"cyuserservice.exe":               "Palo Alto Cortex",             // Cortex XDR - user service
+	"cywscsvc.exe":                    "Palo Alto Cortex",             // Cortex XDR - security center service
+	"tlaworker.exe":                   "Palo Alto Cortex",             // Cortex XDR - local analysis worker
+	"AEEngine.exe":                    "Faronics Anti-Executable",     // Faronics Anti-Executable - security service
+	"Antiexecutable.exe":              "Faronics Anti-Executable",     // Faronics Anti-Executable - gui and tray icon
 }
 
 // PsCmd - List processes on the remote system
@@ -264,10 +264,10 @@ func PrintPS(os string, ps *sliverpb.Ps, interactive bool, fullInfo bool, flags 
 }
 
 func findKnownSecurityProducts(ps *sliverpb.Ps) []string {
-	uniqProducts := map[string]string{}
+	uniqProducts := map[string]struct{}{}
 	for _, proc := range ps.Processes {
-		if secTool, ok := knownSecurityTools[proc.Executable]; ok {
-			uniqProducts[secTool[1]] = secTool[0]
+		if product, ok := knownSecurityTools[proc.Executable]; ok {
+			uniqProducts[product] = struct{}{}
 		}
 	}
 	products := make([]string, 0, len(uniqProducts))
@@ -281,15 +281,15 @@ func findKnownSecurityProducts(ps *sliverpb.Ps) []string {
 func procRow(proc *commonpb.Process, cmdLine bool, fullInfo bool, con *console.SliverClient) table.Row {
 	session, beacon := con.ActiveTarget.GetInteractive()
 
-	color := console.Normal
-	if secTool, ok := knownSecurityTools[proc.Executable]; ok {
-		color = secTool[0]
+	style := console.StyleNormal
+	if _, ok := knownSecurityTools[proc.Executable]; ok {
+		style = console.StyleRed
 	}
 	if session != nil && proc.Pid == session.PID {
-		color = console.Green
+		style = console.StyleGreen
 	}
 	if beacon != nil && proc.Pid == beacon.PID {
-		color = console.Green
+		style = console.StyleGreen
 	}
 
 	var row table.Row
@@ -303,28 +303,28 @@ func procRow(proc *commonpb.Process, cmdLine bool, fullInfo bool, con *console.S
 				args = proc.Executable
 			}
 			row = table.Row{
-				fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
-				fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
-				fmt.Sprintf(color+"%s"+console.Normal, proc.Owner),
-				fmt.Sprintf(color+"%s"+console.Normal, proc.Architecture),
-				fmt.Sprintf(color+"%s"+console.Normal, args),
-				fmt.Sprintf(color+"%d"+console.Normal, proc.SessionID),
+				style.Render(fmt.Sprintf("%d", proc.Pid)),
+				style.Render(fmt.Sprintf("%d", proc.Ppid)),
+				style.Render(proc.Owner),
+				style.Render(proc.Architecture),
+				style.Render(args),
+				style.Render(fmt.Sprintf("%d", proc.SessionID)),
 			}
 		} else {
 			if fullInfo {
 				row = table.Row{
-					fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
-					fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
-					fmt.Sprintf(color+"%s"+console.Normal, proc.Owner),
-					fmt.Sprintf(color+"%s"+console.Normal, proc.Architecture),
-					fmt.Sprintf(color+"%s"+console.Normal, proc.Executable),
-					fmt.Sprintf(color+"%d"+console.Normal, proc.SessionID),
+					style.Render(fmt.Sprintf("%d", proc.Pid)),
+					style.Render(fmt.Sprintf("%d", proc.Ppid)),
+					style.Render(proc.Owner),
+					style.Render(proc.Architecture),
+					style.Render(proc.Executable),
+					style.Render(fmt.Sprintf("%d", proc.SessionID)),
 				}
 			} else {
 				row = table.Row{
-					fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
-					fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
-					fmt.Sprintf(color+"%s"+console.Normal, proc.Executable),
+					style.Render(fmt.Sprintf("%d", proc.Pid)),
+					style.Render(fmt.Sprintf("%d", proc.Ppid)),
+					style.Render(proc.Executable),
 				}
 			}
 		}
@@ -341,26 +341,26 @@ func procRow(proc *commonpb.Process, cmdLine bool, fullInfo bool, con *console.S
 				args = proc.Executable
 			}
 			row = table.Row{
-				fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
-				fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
-				fmt.Sprintf(color+"%s"+console.Normal, proc.Owner),
-				fmt.Sprintf(color+"%s"+console.Normal, proc.Architecture),
-				fmt.Sprintf(color+"%s"+console.Normal, args),
+				style.Render(fmt.Sprintf("%d", proc.Pid)),
+				style.Render(fmt.Sprintf("%d", proc.Ppid)),
+				style.Render(proc.Owner),
+				style.Render(proc.Architecture),
+				style.Render(args),
 			}
 		} else {
 			if fullInfo {
 				row = table.Row{
-					fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
-					fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
-					fmt.Sprintf(color+"%s"+console.Normal, proc.Owner),
-					fmt.Sprintf(color+"%s"+console.Normal, proc.Architecture),
-					fmt.Sprintf(color+"%s"+console.Normal, proc.Executable),
+					style.Render(fmt.Sprintf("%d", proc.Pid)),
+					style.Render(fmt.Sprintf("%d", proc.Ppid)),
+					style.Render(proc.Owner),
+					style.Render(proc.Architecture),
+					style.Render(proc.Executable),
 				}
 			} else {
 				row = table.Row{
-					fmt.Sprintf(color+"%d"+console.Normal, proc.Pid),
-					fmt.Sprintf(color+"%d"+console.Normal, proc.Ppid),
-					fmt.Sprintf(color+"%s"+console.Normal, proc.Executable),
+					style.Render(fmt.Sprintf("%d", proc.Pid)),
+					style.Render(fmt.Sprintf("%d", proc.Ppid)),
+					style.Render(proc.Executable),
 				}
 			}
 		}

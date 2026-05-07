@@ -265,7 +265,7 @@ func traceCallback(ctx context.Context, mod api.Module, evt TraceEvent, pDB, pAr
 			}
 		}
 		if arg1 != nil {
-			_, rc = errorCode(c.trace(evt, arg1, arg2), ERROR)
+			_ = c.trace(evt, arg1, arg2)
 		}
 	}
 	return rc

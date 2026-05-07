@@ -1,4 +1,4 @@
-//go:build amd64 || 386
+//go:build linux
 
 package version
 
@@ -21,29 +21,36 @@ package version
 */
 
 import (
-	"fmt"
+	"bytes"
+	//{{if .Config.Debug}}
 	"log"
-	"strings"
-	"syscall"
+	//{{end}}
+
+	"golang.org/x/sys/unix"
 )
 
-func getString(input [65]int8) string {
-	var buf [65]byte
-	for i, b := range input {
-		buf[i] = byte(b)
+func linuxNullTerminatedString(input []byte) string {
+	if index := bytes.IndexByte(input, 0); index >= 0 {
+		input = input[:index]
 	}
-	ver := string(buf[:])
-	if i := strings.Index(ver, "\x00"); i != -1 {
-		ver = ver[:i]
-	}
-	return ver
+	return string(input)
 }
 
 // GetVersion returns the os version information
 func GetVersion() string {
-	var uname syscall.Utsname
-	if err := syscall.Uname(&uname); err != nil {
-		log.Fatal(err)
+	osRelease := readLinuxOSRelease()
+	var uname unix.Utsname
+	if err := unix.Uname(&uname); err != nil {
+		//{{if .Config.Debug}}
+		log.Printf("error getting OS version: %v", err)
+		//{{end}}
+		return osRelease
 	}
-	return fmt.Sprintf("%s %s %s", getString(uname.Sysname), getString(uname.Nodename), getString(uname.Release))
+
+	return formatLinuxDetailedVersion(osRelease, linuxVersionInfo{
+		Sysname: linuxNullTerminatedString(uname.Sysname[:]),
+		Release: linuxNullTerminatedString(uname.Release[:]),
+		Version: linuxNullTerminatedString(uname.Version[:]),
+		Machine: linuxNullTerminatedString(uname.Machine[:]),
+	})
 }

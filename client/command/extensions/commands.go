@@ -1,6 +1,7 @@
 package extensions
 
 import (
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
 	"github.com/bishopfox/sliver/client/command/use"
@@ -33,6 +34,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	}
 	extensionCmd.AddCommand(extensionLoadCmd)
 	carapace.Gen(extensionLoadCmd).PositionalCompletion(carapace.ActionDirectories().Usage("path to the extension directory"))
+	completers.RegisterLocalFilePathPositionalCompletion(extensionLoadCmd, 0)
 
 	extensionInstallCmd := &cobra.Command{
 		Use:   consts.InstallStr,
@@ -45,6 +47,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	}
 	extensionCmd.AddCommand(extensionInstallCmd)
 	carapace.Gen(extensionInstallCmd).PositionalCompletion(carapace.ActionFiles().Usage("path to the extension .tar.gz or directory"))
+	completers.RegisterLocalFilePathPositionalCompletion(extensionInstallCmd, 0)
 
 	extensionRmCmd := &cobra.Command{
 		Use:   consts.RmStr,

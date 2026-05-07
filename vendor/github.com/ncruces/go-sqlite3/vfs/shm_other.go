@@ -1,4 +1,4 @@
-//go:build !(((linux || darwin || windows || freebsd || openbsd || netbsd || dragonfly || illumos) && (386 || arm || amd64 || arm64 || riscv64 || ppc64le)) || sqlite3_flock || sqlite3_dotlk)
+//go:build !(((linux || darwin || windows || freebsd || openbsd || netbsd || dragonfly || illumos) && (386 || arm || amd64 || arm64 || riscv64 || ppc64le || loong64)) || sqlite3_flock || sqlite3_dotlk)
 
 package vfs
 

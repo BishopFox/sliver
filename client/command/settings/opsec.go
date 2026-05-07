@@ -41,11 +41,16 @@ func SettingsAutoAdultCmd(cmd *cobra.Command, con *console.SliverClient, args []
 
 // IsUserAnAdult - This should be called for any dangerous (OPSEC-wise) functions.
 func IsUserAnAdult(con *console.SliverClient) bool {
+	return IsUserAnAdultWithPrompt(con, "This action is bad OPSEC, are you an adult?")
+}
+
+// IsUserAnAdultWithPrompt prompts with a custom message before continuing.
+func IsUserAnAdultWithPrompt(con *console.SliverClient, prompt string) bool {
 	if GetAutoAdult(con) {
 		return true
 	}
 	confirm := false
-	_ = forms.Confirm("This action is bad OPSEC, are you an adult?", &confirm)
+	_ = forms.Confirm(prompt, &confirm)
 	return confirm
 }
 

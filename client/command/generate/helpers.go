@@ -2,12 +2,15 @@ package generate
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
 )
 
 // GetSliverBinary - Get the binary of an implant based on it's profile.
@@ -28,19 +31,49 @@ func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverClient
 	}
 	data = generated.GetFile().GetData()
 
-	if profile.Config.Format == clientpb.OutputFormat_SHELLCODE && profile.Config.SGNEnabled {
-		encodeResp, err := con.Rpc.ShellcodeEncoder(context.Background(), &clientpb.ShellcodeEncodeReq{
-			Encoder:      clientpb.ShellcodeEncoder_SHIKATA_GA_NAI,
-			Architecture: profile.Config.GOARCH,
-			Iterations:   1,
-			BadChars:     []byte{},
-			Data:         data,
-		})
-		if err != nil {
-			con.PrintErrorf("Error encoding shellcode")
-			return nil, err
+	if profile.Config.Format == clientpb.OutputFormat_SHELLCODE {
+		encoder := profile.Config.ShellcodeEncoder
+		legacySGN := false
+		if encoder == clientpb.ShellcodeEncoder_NONE && profile.Config.SGNEnabled {
+			encoder = clientpb.ShellcodeEncoder_SHIKATA_GA_NAI
+			legacySGN = true
 		}
-		data = encodeResp.Data
+		if encoder != clientpb.ShellcodeEncoder_NONE {
+			encoderName := map[clientpb.ShellcodeEncoder]string{
+				clientpb.ShellcodeEncoder_SHIKATA_GA_NAI: "shikata_ga_nai",
+				clientpb.ShellcodeEncoder_XOR:            "xor",
+				clientpb.ShellcodeEncoder_XOR_DYNAMIC:    "xor_dynamic",
+			}[encoder]
+			if encoderName == "" {
+				return nil, fmt.Errorf("unknown shellcode encoder enum %d", int32(encoder))
+			}
+
+			encoderMap, err := fetchShellcodeEncoderMap(con)
+			if err != nil {
+				return nil, err
+			}
+			if _, ok := shellcodeEncoderEnumForArch(encoderMap, profile.Config.GOARCH, encoderName); !ok {
+				msg := fmt.Sprintf("shellcode encoder %q is not supported for arch %s", encoderName, normalizeShellcodeArch(profile.Config.GOARCH))
+				if legacySGN {
+					con.PrintWarnf("%s, skipping.\n", msg)
+				} else {
+					return nil, errors.New(msg)
+				}
+			} else {
+				encodeResp, err := con.Rpc.ShellcodeEncoder(context.Background(), &clientpb.ShellcodeEncodeReq{
+					Encoder:      encoder,
+					Architecture: profile.Config.GOARCH,
+					Iterations:   1,
+					BadChars:     []byte{},
+					Data:         data,
+				})
+				if err != nil {
+					con.PrintErrorf("Error encoding shellcode")
+					return nil, err
+				}
+				data = encodeResp.Data
+			}
+		}
 	}
 
 	_, err = con.Rpc.SaveImplantProfile(context.Background(), profile)
@@ -51,71 +84,112 @@ func GetSliverBinary(profile *clientpb.ImplantProfile, con *console.SliverClient
 	return data, err
 }
 
+func compilerTargets(con *console.SliverClient) (*clientpb.Compiler, error) {
+	if con == nil || con.Rpc == nil {
+		return nil, fmt.Errorf("no compiler info")
+	}
+	return con.Rpc.GetCompiler(context.Background(), &commonpb.Empty{})
+}
+
+func appendUnique(values []string, value string) []string {
+	for _, existing := range values {
+		if existing == value {
+			return values
+		}
+	}
+	return append(values, value)
+}
+
+func compilerArchValues(compiler *clientpb.Compiler) []string {
+	results := []string{}
+
+	for _, target := range compiler.Targets {
+		results = appendUnique(results, target.GOARCH)
+	}
+
+	for _, target := range compiler.UnsupportedTargets {
+		results = appendUnique(results, target.GOARCH)
+	}
+
+	return results
+}
+
+func compilerOSValues(compiler *clientpb.Compiler) []string {
+	results := []string{}
+
+	for _, target := range compiler.Targets {
+		results = appendUnique(results, target.GOOS)
+	}
+
+	for _, target := range compiler.UnsupportedTargets {
+		results = appendUnique(results, target.GOOS)
+	}
+
+	return results
+}
+
+func filterByPrefix(values []string, prefix string) []string {
+	if prefix == "" {
+		return values
+	}
+
+	filtered := make([]string, 0, len(values))
+	for _, value := range values {
+		if strings.HasPrefix(value, prefix) {
+			filtered = append(filtered, value)
+		}
+	}
+
+	return filtered
+}
+
+func registerTargetFlagCompletion(cmd *cobra.Command, name string, valuesFn func(*clientpb.Compiler) []string, con *console.SliverClient) {
+	if cmd == nil {
+		return
+	}
+	if _, ok := cmd.GetFlagCompletionFunc(name); ok {
+		return
+	}
+	if cmd.Flags().Lookup(name) == nil && cmd.PersistentFlags().Lookup(name) == nil {
+		return
+	}
+	_ = cmd.RegisterFlagCompletionFunc(name, func(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		compiler, err := compilerTargets(con)
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+
+		values := valuesFn(compiler)
+		return filterByPrefix(values, toComplete), cobra.ShellCompDirectiveNoFileComp
+	})
+}
+
+func registerImplantTargetFlagCompletions(cmd *cobra.Command, con *console.SliverClient) {
+	registerTargetFlagCompletion(cmd, "os", compilerOSValues, con)
+	registerTargetFlagCompletion(cmd, "arch", compilerArchValues, con)
+}
+
 // FormatCompleter completes builds' architectures.
 func ArchCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
-		compiler, err := con.Rpc.GetCompiler(context.Background(), &commonpb.Empty{})
+		compiler, err := compilerTargets(con)
 		if err != nil {
 			return carapace.ActionMessage("No compiler info: %s", err.Error())
 		}
 
-		var results []string
-
-	nextTarget:
-		for _, target := range compiler.Targets {
-			for _, res := range results {
-				if res == target.GOARCH {
-					continue nextTarget
-				}
-			}
-			results = append(results, target.GOARCH)
-		}
-
-	nextUnsupported:
-		for _, target := range compiler.UnsupportedTargets {
-			for _, res := range results {
-				if res == target.GOARCH {
-					continue nextUnsupported
-				}
-			}
-			results = append(results, target.GOARCH)
-		}
-
-		return carapace.ActionValues(results...).Tag("architectures")
+		return carapace.ActionValues(compilerArchValues(compiler)...).Tag("architectures")
 	})
 }
 
 // FormatCompleter completes build operating systems.
 func OSCompleter(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
-		compiler, err := con.Rpc.GetCompiler(context.Background(), &commonpb.Empty{})
+		compiler, err := compilerTargets(con)
 		if err != nil {
 			return carapace.ActionMessage("No compiler info: %s", err.Error())
 		}
 
-		var results []string
-
-	nextTarget:
-		for _, target := range compiler.Targets {
-			for _, res := range results {
-				if res == target.GOOS {
-					continue nextTarget
-				}
-			}
-			results = append(results, target.GOOS)
-		}
-
-	nextUnsupported:
-		for _, target := range compiler.UnsupportedTargets {
-			for _, res := range results {
-				if res == target.GOOS {
-					continue nextUnsupported
-				}
-			}
-			results = append(results, target.GOOS)
-		}
-
-		return carapace.ActionValues(results...).Tag("operating systems")
+		return carapace.ActionValues(compilerOSValues(compiler)...).Tag("operating systems")
 	})
 }
 

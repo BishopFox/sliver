@@ -53,10 +53,13 @@ func StartRportFwdListenerCmd(cmd *cobra.Command, con *console.SliverClient, arg
 	if portNumberOnlyRegexp.MatchString(forwardAddress) {
 		forwardAddress = fmt.Sprintf("127.0.0.1:%s", forwardAddress)
 	}
+	keepAlive, _ := cmd.Flags().GetInt32("keepalive")
+
 	rportfwdListener, err := con.Rpc.StartRportFwdListener(context.Background(), &sliverpb.RportFwdStartListenerReq{
 		Request:        con.ActiveTarget.Request(cmd),
 		BindAddress:    bindAddress,
 		ForwardAddress: forwardAddress,
+		KeepAlive:      keepAlive,
 	})
 	if err != nil {
 		con.PrintWarnf("%s\n", err)

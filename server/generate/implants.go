@@ -38,6 +38,7 @@ import (
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/watchtower"
 	"github.com/gofrs/uuid"
+	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm/clause"
 )
 
@@ -136,10 +137,51 @@ func ImplantBuildSave(build *clientpb.ImplantBuild, config *clientpb.ImplantConf
 	if err != nil {
 		return err
 	}
+	overwriteImplantBuild(build, implantBuild)
 
 	watchtower.AddImplantToWatchlist(implantBuild)
 	storageLog.Infof("%s -> %s", implantBuild.ID, implantBuild.Name)
 	return os.WriteFile(filepath.Join(buildsDir, implantBuild.ID), data, 0600)
+}
+
+// ImplantBuildUpdateFile updates an existing build's stored binary and checksums.
+func ImplantBuildUpdateFile(build *clientpb.ImplantBuild, data []byte) error {
+	if build == nil {
+		return errors.New("nil implant build")
+	}
+	if build.ID == "" {
+		return errors.New("missing implant build id")
+	}
+
+	md5Hash, sha1Hash, sha256Hash := computeHashes(data)
+	build.MD5 = md5Hash
+	build.SHA1 = sha1Hash
+	build.SHA256 = sha256Hash
+
+	updatedBuild, err := db.SaveImplantBuild(build)
+	if err != nil {
+		return err
+	}
+	overwriteImplantBuild(build, updatedBuild)
+
+	buildsDir, err := getBuildsDir()
+	if err != nil {
+		return err
+	}
+
+	watchtower.AddImplantToWatchlist(build)
+	storageLog.Infof("updated build %s (%s)", build.ID, build.Name)
+	return os.WriteFile(filepath.Join(buildsDir, build.ID), data, 0600)
+}
+
+// overwriteImplantBuild replaces dst message content without copying internal
+// proto runtime state that includes lock values.
+func overwriteImplantBuild(dst *clientpb.ImplantBuild, src *clientpb.ImplantBuild) {
+	if dst == nil || src == nil {
+		return
+	}
+	proto.Reset(dst)
+	proto.Merge(dst, src)
 }
 
 func SaveStage(build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, stage2 []byte, stageType string) error {

@@ -31,6 +31,7 @@ import (
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
+	"github.com/bishopfox/sliver/server/notifications"
 	"github.com/bishopfox/sliver/server/version"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -78,6 +79,7 @@ type GenericResponse interface {
 // NewServer - Create new server instance
 func NewServer() *Server {
 	core.StartEventAutomation()
+	notifications.Start()
 	return &Server{}
 }
 

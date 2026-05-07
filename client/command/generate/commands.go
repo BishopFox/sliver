@@ -1,14 +1,27 @@
 package generate
 
 import (
+	"strings"
+
+	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
+	shellcodeencoders "github.com/bishopfox/sliver/client/command/shellcode-encoders"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
+
+const spoofMetadataLongHelp = `
+
+Spoof Metadata:
+  --spoof-metadata
+    Use metadata settings from <client app dir>/spoof-metadata.yaml.
+  --spoof-metadata /path/to/donor.exe
+    Use metadata from the specified donor file. The donor must match the target format/goos/goarch.
+`
 
 // Commands returns the “ command and its subcommands.
 func Commands(con *console.SliverClient) []*cobra.Command {
@@ -23,7 +36,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		GroupID: consts.PayloadsHelpGroup,
 	}
 	flags.Bind("generate", true, generateCmd, func(f *pflag.FlagSet) {
-		f.IntP("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
 
 	// Session flags and completions.
@@ -82,6 +95,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.BoolP("skip-tests", "s", false, "skip testing the traffic encoder (not recommended)")
 	})
 	carapace.Gen(trafficEncodersAddCmd).PositionalCompletion(carapace.ActionFiles("wasm").Tag("wasm files").Usage("local file path (expects .wasm)"))
+	completers.RegisterLocalFilePathPositionalCompletion(trafficEncodersAddCmd, 0)
 	trafficEncodersCmd.AddCommand(trafficEncodersAddCmd)
 
 	trafficEncodersRmCmd := &cobra.Command{
@@ -114,6 +128,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.BindFlagCompletions(regenerateCmd, func(comp *carapace.ActionMap) {
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
 	})
+	completers.RegisterLocalFilePathFlagCompletion(regenerateCmd, "save")
 	carapace.Gen(regenerateCmd).PositionalCompletion(ImplantBuildNameCompleter(con))
 
 	// [ Profiles ] --------------------------------------------------------------
@@ -142,13 +157,15 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	}
 	flags.Bind("profiles", false, profilesGenerateCmd, func(f *pflag.FlagSet) {
 		f.StringP("save", "s", "", "directory/file to the binary to")
-		f.BoolP("disable-sgn", "G", false, "disable shikata ga nai shellcode encoder")
+		f.String("shellcode-encoder", "", "shellcode encoder to apply (optional; see `shellcode-encoders`)")
 		f.StringP("name", "n", "", "Implant name")
 
 	})
 	flags.BindFlagCompletions(profilesGenerateCmd, func(comp *carapace.ActionMap) {
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
+		(*comp)["shellcode-encoder"] = shellcodeencoders.ShellcodeEncoderNameCompleter(con)
 	})
+	completers.RegisterLocalFilePathFlagCompletion(profilesGenerateCmd, "save")
 	carapace.Gen(profilesGenerateCmd).PositionalCompletion(ProfileNameCompleter(con))
 	profilesCmd.AddCommand(profilesGenerateCmd)
 
@@ -180,6 +197,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.BoolP("prepend-size", "p", false, "Prepend stage size")
 		f.StringP("compress", "c", "", "Compress stage (zlib, gzip, deflate9 or deflate)")
 	})
+	completers.RegisterLocalFilePathFlagCompletion(profilesStageCmd, "save")
 
 	carapace.Gen(profilesStageCmd).PositionalCompletion(ProfileNameCompleter(con))
 	profilesCmd.AddCommand(profilesStageCmd)
@@ -308,7 +326,7 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 		f.StringP("debug-file", "O", "", "path to debug output")
 		f.BoolP("evasion", "e", false, "enable evasion features (e.g. overwrite user space hooks)")
 		f.BoolP("skip-symbols", "l", false, "skip symbol obfuscation")
-		f.BoolP("disable-sgn", "G", false, "disable shikata ga nai shellcode encoder")
+		f.String("shellcode-encoder", "", "shellcode encoder to apply (optional; see `shellcode-encoders`)")
 		f.StringP("exports", "v", "StartW,VoidFunc,DllInstall,DllRegisterServer,DllUnregisterServer", "comma separated list of exports to include in the binary")
 		f.StringP("canary", "c", "", "canary domain(s)")
 		f.BoolP("virt", "V", false, "Collect host virtualization Information eg; vbox/vmware")
@@ -322,6 +340,13 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 
 		f.Uint32P("key-exchange", "X", DefaultWGKeyExPort, "wg key-exchange port")
 		f.Uint32P("tcp-comms", "T", DefaultWGNPort, "wg c2 comms port")
+		f.Bool("include-mtls", false, "force include mtls transport")
+		f.Bool("include-http", false, "force include http transport")
+		f.Bool("include-wg", false, "force include wireguard transport")
+		f.Bool("include-dns", false, "force include dns transport")
+		f.Bool("include-named-pipe", false, "force include named-pipe transport")
+		f.Bool("include-tcp-pivot", false, "force include tcp-pivot transport")
+		f.Bool("all-protocols", false, "force include all transport protocols")
 
 		f.BoolP("run-at-load", "R", false, "run the implant entrypoint from DllMain/Constructor (shared library only)")
 		f.BoolP("netgo", "q", false, "force the use of netgo")
@@ -340,9 +365,75 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 		f.StringP("limit-hostname", "z", "", "limit execution to specified hostname")
 		f.StringP("limit-fileexists", "F", "", "limit execution to hosts with this file in the filesystem")
 		f.StringP("limit-locale", "L", "", "limit execution to hosts that match this locale")
+		bindSpoofMetadataFlag(f)
 
-		f.StringP("format", "f", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows only)")
+		f.StringP("format", "f", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows, darwin/arm64, linux/amd64, linux/arm64)")
+
+		// Shellcode generation options:
+		// - Windows: Donut
+		// - macOS: beignet
+		// - Linux: malasada
+		f.Uint32("shellcode-entropy", 1, "Shellcode entropy (Donut: 1=none, 2=random names, 3=random+encrypt) (windows shellcode only)")
+		f.Bool("shellcode-compress", false, "Enable shellcode compression (aPLib) (windows, macOS, and Linux shellcode)")
+		f.Uint32("shellcode-exitopt", 1, "Shellcode exit option (Donut: 1=exit thread, 2=exit process, 3=block) (windows shellcode only)")
+		f.Uint32("shellcode-bypass", 3, "Shellcode bypass mode (Donut: 1=none, 2=abort, 3=continue) (windows shellcode only)")
+		f.Uint32("shellcode-headers", 1, "Shellcode headers handling (Donut: 1=overwrite, 2=keep) (windows shellcode only)")
+		f.Bool("shellcode-thread", false, "Run unmanaged EXE entrypoint as a new thread (Donut) (windows shellcode only)")
+		f.Bool("shellcode-unicode", false, "Use Unicode command line for unmanaged DLL entrypoints (Donut) (windows shellcode only)")
+		f.Uint32("shellcode-oep", 0, "Override original entry point (OEP) (Donut) (windows shellcode only)")
+
+		// Backwards-compatible deprecated Donut flags (hidden).
+		f.Uint32("donut-entropy", 1, "Deprecated (use --shellcode-entropy)")
+		_ = f.MarkDeprecated("donut-entropy", "use --shellcode-entropy")
+		_ = f.MarkHidden("donut-entropy")
+		f.Bool("donut-compress", false, "Deprecated (use --shellcode-compress)")
+		_ = f.MarkDeprecated("donut-compress", "use --shellcode-compress")
+		_ = f.MarkHidden("donut-compress")
+		f.Uint32("donut-exitopt", 1, "Deprecated (use --shellcode-exitopt)")
+		_ = f.MarkDeprecated("donut-exitopt", "use --shellcode-exitopt")
+		_ = f.MarkHidden("donut-exitopt")
+		f.Uint32("donut-bypass", 3, "Deprecated (use --shellcode-bypass)")
+		_ = f.MarkDeprecated("donut-bypass", "use --shellcode-bypass")
+		_ = f.MarkHidden("donut-bypass")
+		f.Uint32("donut-headers", 1, "Deprecated (use --shellcode-headers)")
+		_ = f.MarkDeprecated("donut-headers", "use --shellcode-headers")
+		_ = f.MarkHidden("donut-headers")
+		f.Bool("donut-thread", false, "Deprecated (use --shellcode-thread)")
+		_ = f.MarkDeprecated("donut-thread", "use --shellcode-thread")
+		_ = f.MarkHidden("donut-thread")
+		f.Bool("donut-unicode", false, "Deprecated (use --shellcode-unicode)")
+		_ = f.MarkDeprecated("donut-unicode", "use --shellcode-unicode")
+		_ = f.MarkHidden("donut-unicode")
+		f.Uint32("donut-oep", 0, "Deprecated (use --shellcode-oep)")
+		_ = f.MarkDeprecated("donut-oep", "use --shellcode-oep")
+		_ = f.MarkHidden("donut-oep")
 	})
+	appendSpoofMetadataLongHelp(cmd)
+}
+
+func bindSpoofMetadataFlag(f *pflag.FlagSet) {
+	if f == nil {
+		return
+	}
+	spoofMetadataFlag := f.VarPF(newSpoofMetadataFlagValue(), spoofMetadataFlagName, "", "spoof executable metadata (optional donor path)")
+	if spoofMetadataFlag != nil {
+		spoofMetadataFlag.NoOptDefVal = "true"
+	}
+}
+
+func appendSpoofMetadataLongHelp(cmd *cobra.Command) {
+	if cmd == nil {
+		return
+	}
+	if strings.Contains(cmd.Long, "--spoof-metadata") {
+		return
+	}
+	trimmed := strings.TrimRight(cmd.Long, "\n")
+	if trimmed == "" {
+		cmd.Long = strings.TrimLeft(spoofMetadataLongHelp, "\n")
+		return
+	}
+	cmd.Long = trimmed + spoofMetadataLongHelp
 }
 
 // coreImplantFlagCompletions binds completions to flags registered in coreImplantFlags.
@@ -353,10 +444,14 @@ func coreImplantFlagCompletions(cmd *cobra.Command, con *console.SliverClient) {
 		(*comp)["arch"] = ArchCompleter(con)
 		(*comp)["strategy"] = carapace.ActionValuesDescribed([]string{"r", "random", "rd", "random domain", "s", "sequential"}...).Tag("C2 strategy")
 		(*comp)["format"] = FormatCompleter()
-		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")
+		(*comp)["save"] = completers.LocalFilePathCompleter().Tag("directory/file to save implant")
+		(*comp)[spoofMetadataFlagName] = carapace.ActionFiles().Tag("optional donor metadata file")
+		(*comp)["shellcode-encoder"] = shellcodeencoders.ShellcodeEncoderNameCompleter(con)
 		(*comp)["traffic-encoders"] = TrafficEncodersCompleter(con).UniqueList(",")
 		(*comp)["c2profile"] = HTTPC2Completer(con)
 	})
+	completers.RegisterLocalFilePathFlagCompletions(cmd, "save", "debug-file", spoofMetadataFlagName)
+	registerImplantTargetFlagCompletions(cmd, con)
 }
 
 // coreBeaconFlags binds all flags specific to beacon implants (profiles or compiled).

@@ -20,8 +20,10 @@ package websites
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/spf13/cobra"
 )
@@ -32,12 +34,43 @@ func WebsiteRmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	if len(args) > 0 {
 		name = args[0]
 	}
+	if name == "" {
+		con.PrintErrorf("No website name specified\n")
+		return
+	}
 
-	_, err := con.Rpc.WebsiteRemove(context.Background(), &clientpb.Website{
+	site, err := con.Rpc.Website(context.Background(), &clientpb.Website{
+		Name: name,
+	})
+	if err != nil {
+		con.PrintErrorf("Failed to fetch website %s", err)
+		return
+	}
+
+	confirm := false
+	_ = forms.Confirm(websiteRemoveConfirmationPrompt(name, len(site.Contents)), &confirm)
+	if !confirm {
+		return
+	}
+
+	_, err = con.Rpc.WebsiteRemove(context.Background(), &clientpb.Website{
 		Name: name,
 	})
 	if err != nil {
 		con.PrintErrorf("Failed to remove website %s", err)
 		return
 	}
+	con.PrintInfof("%s\n", websiteRemoveSuccessMessage(name, len(site.Contents)))
+}
+
+func websiteRemoveConfirmationPrompt(name string, contentCount int) string {
+	contentLabel := "content item"
+	if contentCount != 1 {
+		contentLabel = "content items"
+	}
+	return fmt.Sprintf("Delete website '%s' and %d %s?", name, contentCount, contentLabel)
+}
+
+func websiteRemoveSuccessMessage(name string, contentCount int) string {
+	return fmt.Sprintf("Removed %s and %d content items", name, contentCount)
 }

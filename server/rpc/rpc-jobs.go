@@ -80,8 +80,9 @@ func (rpc *Server) RestartJobs(ctx context.Context, restartJobReq *clientpb.Rest
 		if err != nil {
 			return &commonpb.Empty{}, rpcError(err)
 		}
-		listenerJob.JobID = uint32(job.ID)
-		db.UpdateHTTPC2Listener(listenerJob)
+		if err := db.UpdateListenerJobID(jobID, uint32(job.ID)); err != nil {
+			return &commonpb.Empty{}, rpcError(err)
+		}
 	}
 	return &commonpb.Empty{}, nil
 }
@@ -156,17 +157,11 @@ func (rpc *Server) StartWGListener(ctx context.Context, req *clientpb.WGListener
 		req.KeyPort = defaultWGKeyExPort
 	}
 
+	if req.NPort == req.KeyPort {
+		return nil, status.Error(codes.InvalidArgument, "wg nport and key-port must be different")
+	}
+
 	err := PortInUse(req.Port)
-	if err != nil {
-		return nil, rpcError(err)
-	}
-
-	err = PortInUse(req.NPort)
-	if err != nil {
-		return nil, rpcError(err)
-	}
-
-	err = PortInUse(req.KeyPort)
 	if err != nil {
 		return nil, rpcError(err)
 	}

@@ -28,6 +28,10 @@ import (
 
 // Portfwd - Open an in-band port forward
 func (s *Server) Portfwd(ctx context.Context, req *sliverpb.PortfwdReq) (*sliverpb.Portfwd, error) {
+	if req == nil || req.Request == nil {
+		return nil, ErrMissingRequestField
+	}
+
 	session := core.Sessions.Get(req.Request.SessionID)
 	if session == nil {
 		return nil, ErrInvalidSessionID

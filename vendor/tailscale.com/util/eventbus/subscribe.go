@@ -7,10 +7,12 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"sync"
+	"runtime"
 	"time"
 
+	"tailscale.com/syncs"
 	"tailscale.com/types/logger"
+	"tailscale.com/util/cibuild"
 )
 
 type DeliveredEvent struct {
@@ -49,7 +51,7 @@ type subscribeState struct {
 	snapshot   chan chan []DeliveredEvent
 	debug      hook[DeliveredEvent]
 
-	outputsMu sync.Mutex
+	outputsMu syncs.Mutex
 	outputs   map[reflect.Type]subscriber
 }
 
@@ -324,6 +326,18 @@ func (s *SubscriberFunc[T]) dispatch(ctx context.Context, vals *queue[DeliveredE
 		case val := <-acceptCh():
 			vals.Add(val)
 		case <-ctx.Done():
+			// Wait for the callback to be complete, but not forever.
+			s.slow.Reset(5 * slowSubscriberTimeout)
+			select {
+			case <-s.slow.C:
+				s.logf("giving up on subscriber for %T after %v at close", t, time.Since(start))
+				if cibuild.On() {
+					all := make([]byte, 2<<20)
+					n := runtime.Stack(all, true)
+					s.logf("goroutine stacks:\n%s", all[:n])
+				}
+			case <-callDone:
+			}
 			return false
 		case ch := <-snapshot:
 			ch <- vals.Snapshot()

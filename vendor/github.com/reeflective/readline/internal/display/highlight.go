@@ -19,29 +19,41 @@ func (e *Engine) highlightLine(line []rune, selection core.Selection) string {
 	sorted := sortHighlights(selection)
 	colors := e.getHighlights(line, sorted)
 
-	var highlighted string
+	var highlighted strings.Builder
 
 	// And apply highlighting before each rune.
 	for i, r := range line {
 		if highlight, found := colors[i]; found {
-			highlighted += string(highlight)
+			highlighted.WriteString(highlight)
 		}
 
-		highlighted += string(r)
+		highlighted.WriteRune(r)
 	}
 
-	// Finally, highlight comments using a regex.
+	result := highlighted.String()
+
+	// Finally, highlight comments using a cached regex.
 	comment := strings.Trim(e.opts.GetString("comment-begin"), "\"")
-	commentPattern := fmt.Sprintf(`(^|\s)%s.*`, comment)
+	if comment != e.commentBegin {
+		e.commentBegin = comment
+		e.commentRegexp = nil
 
-	if commentsMatch, err := regexp.Compile(commentPattern); err == nil {
-		commentColor := color.SGRStart + color.Fg + "244" + color.SGREnd
-		highlighted = commentsMatch.ReplaceAllString(highlighted, fmt.Sprintf("%s${0}%s", commentColor, color.Reset))
+		if comment != "" {
+			commentPattern := fmt.Sprintf(`(^|\s)%s.*`, comment)
+			if commentsMatch, err := regexp.Compile(commentPattern); err == nil {
+				e.commentRegexp = commentsMatch
+			}
+		}
 	}
 
-	highlighted += color.Reset
+	if e.commentRegexp != nil {
+		commentColor := color.SGRStart + color.Fg + "244" + color.SGREnd
+		result = e.commentRegexp.ReplaceAllString(result, fmt.Sprintf("%s${0}%s", commentColor, color.Reset))
+	}
 
-	return highlighted
+	result += color.Reset
+
+	return result
 }
 
 func sortHighlights(vhl core.Selection) []core.Selection {
@@ -95,15 +107,16 @@ func sortHighlights(vhl core.Selection) []core.Selection {
 	return sorted
 }
 
-func (e *Engine) getHighlights(line []rune, sorted []core.Selection) map[int][]rune {
-	highlights := make(map[int][]rune)
+var colorSeqRegexp = regexp.MustCompile(`\x1b\[[0-9;]+m`)
+
+func (e *Engine) getHighlights(line []rune, sorted []core.Selection) map[int]string {
+	highlights := make(map[int]string)
 
 	// Find any highlighting already applied on the line,
 	// and keep the indexes so that we can skip those.
 	var colors [][]int
 
-	colorMatch := regexp.MustCompile(`\x1b\[[0-9;]+m`)
-	colors = colorMatch.FindAllStringIndex(string(line), -1)
+	colors = colorSeqRegexp.FindAllStringIndex(string(line), -1)
 
 	// marks that started highlighting, but not done yet.
 	regions := make([]core.Selection, 0)
@@ -149,7 +162,7 @@ func (e *Engine) getHighlights(line []rune, sorted []core.Selection) map[int][]r
 		// Add to the line, with the raw index since
 		// we must take into account embedded colors.
 		if len(posHl) > 0 {
-			highlights[rawIndex] = posHl
+			highlights[rawIndex] = string(posHl)
 		}
 	}
 

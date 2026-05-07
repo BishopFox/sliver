@@ -36,6 +36,10 @@ var (
 
 // Shell - Open an interactive shell
 func (rpc *Server) Shell(ctx context.Context, req *sliverpb.ShellReq) (*sliverpb.Shell, error) {
+	if req == nil || req.Request == nil {
+		return nil, ErrMissingRequestField
+	}
+
 	session := core.Sessions.Get(req.Request.SessionID)
 	if session == nil {
 		return nil, ErrInvalidSessionID
@@ -58,6 +62,30 @@ func (rpc *Server) Shell(ctx context.Context, req *sliverpb.ShellReq) (*sliverpb
 		return nil, rpcError(err)
 	}
 	return shell, nil
+}
+
+// ShellResize - Resize a shell PTY (best effort)
+func (rpc *Server) ShellResize(ctx context.Context, req *sliverpb.ShellResizeReq) (*commonpb.Empty, error) {
+	if req == nil || req.Request == nil {
+		return nil, ErrMissingRequestField
+	}
+
+	session := core.Sessions.Get(req.Request.SessionID)
+	if session == nil {
+		return nil, ErrInvalidSessionID
+	}
+	if core.Tunnels.Get(req.TunnelID) == nil {
+		return &commonpb.Empty{}, nil
+	}
+	reqData, err := proto.Marshal(req)
+	if err != nil {
+		return nil, rpcError(err)
+	}
+	_, err = session.Request(sliverpb.MsgNumber(req), rpc.getTimeout(req), reqData)
+	if err != nil {
+		return nil, rpcError(err)
+	}
+	return &commonpb.Empty{}, nil
 }
 
 // RunSSHCommand runs a SSH command using the client built into the implant

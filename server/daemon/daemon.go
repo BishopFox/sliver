@@ -41,7 +41,7 @@ var (
 )
 
 // Start - Start as daemon process
-func Start(host string, port uint16, tailscale bool) {
+func Start(host string, port uint16, tailscale bool, enableWG bool) {
 	var (
 		ln  net.Listener
 		err error
@@ -59,6 +59,8 @@ func Start(host string, port uint16, tailscale bool) {
 	daemonLog.Infof("Starting Sliver daemon %s:%d ...", host, port)
 	if tailscale {
 		_, ln, err = transport.StartTsNetClientListener(host, port)
+	} else if enableWG {
+		_, ln, err = transport.StartWGWrappedMtlsClientListener(host, port)
 	} else {
 		_, ln, err = transport.StartMtlsClientListener(host, port)
 	}

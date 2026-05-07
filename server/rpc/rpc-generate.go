@@ -83,12 +83,12 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	} else {
 		// configure c2 channels to enable
 		config = req.Config
-		config.IncludeMTLS = models.IsC2Enabled([]string{"mtls"}, config.C2)
-		config.IncludeWG = models.IsC2Enabled([]string{"wg"}, config.C2)
-		config.IncludeHTTP = models.IsC2Enabled([]string{"http", "https"}, config.C2)
-		config.IncludeDNS = models.IsC2Enabled([]string{"dns"}, config.C2)
-		config.IncludeNamePipe = models.IsC2Enabled([]string{"namedpipe"}, config.C2)
-		config.IncludeTCP = models.IsC2Enabled([]string{"tcppivot"}, config.C2)
+		config.IncludeMTLS = config.IncludeMTLS || models.IsC2Enabled([]string{"mtls"}, config.C2)
+		config.IncludeWG = config.IncludeWG || models.IsC2Enabled([]string{"wg"}, config.C2)
+		config.IncludeHTTP = config.IncludeHTTP || models.IsC2Enabled([]string{"http", "https"}, config.C2)
+		config.IncludeDNS = config.IncludeDNS || models.IsC2Enabled([]string{"dns"}, config.C2)
+		config.IncludeNamePipe = config.IncludeNamePipe || models.IsC2Enabled([]string{"namedpipe"}, config.C2)
+		config.IncludeTCP = config.IncludeTCP || models.IsC2Enabled([]string{"tcppivot"}, config.C2)
 	}
 
 	if len(config.Exports) == 0 {
@@ -146,6 +146,8 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 			Name: fileName,
 			Data: fileData,
 		},
+		ImplantName:    build.Name,
+		ImplantBuildID: build.ID,
 	}, err
 }
 
@@ -173,7 +175,244 @@ func (rpc *Server) Regenerate(ctx context.Context, req *clientpb.RegenerateReq) 
 			Name: build.Name + config.Extension,
 			Data: fileData,
 		},
+		ImplantName:    build.Name,
+		ImplantBuildID: build.ID,
 	}, nil
+}
+
+// GenerateSpoofMetadata applies spoof metadata to an existing build artifact.
+func (rpc *Server) GenerateSpoofMetadata(_ context.Context, req *clientpb.GenerateSpoofMetadataReq) (*commonpb.Empty, error) {
+	build, err := spoofMetadataTargetBuild(req)
+	if err != nil {
+		return nil, err
+	}
+
+	spoofConfig, err := spoofMetadataConfigFromProto(req.GetSpoofMetadata())
+	if err != nil {
+		return nil, err
+	}
+
+	buildData, err := generate.ImplantFileFromBuild(build)
+	if err != nil {
+		return nil, rpcError(err)
+	}
+
+	tmpFile, err := os.CreateTemp(assets.GetRootAppDir(), "tmp-spoof-metadata-*")
+	if err != nil {
+		rpcLog.Errorf("Failed to create temporary file: %s", err)
+		return nil, status.Error(codes.Internal, "failed to create temporary file")
+	}
+	defer os.Remove(tmpFile.Name())
+
+	if _, err = tmpFile.Write(buildData); err != nil {
+		_ = tmpFile.Close()
+		rcpGenLog.Errorf("Failed to write temporary build file: %s", err)
+		return nil, status.Error(codes.Internal, "failed to write temporary build file")
+	}
+	if err = tmpFile.Close(); err != nil {
+		rcpGenLog.Errorf("Failed to close temporary build file: %s", err)
+		return nil, status.Error(codes.Internal, "failed to close temporary build file")
+	}
+
+	if err = generate.SpoofMetadata(tmpFile.Name(), spoofConfig); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	modifiedBuildData, err := os.ReadFile(tmpFile.Name())
+	if err != nil {
+		return nil, rpcError(err)
+	}
+
+	if err = generate.ImplantBuildUpdateFile(build, modifiedBuildData); err != nil {
+		rpcLog.Errorf("Failed to update build %s: %s", build.ID, err)
+		return nil, rpcError(err)
+	}
+
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.BuildCompletedEvent,
+		Data:      []byte(build.Name),
+	})
+
+	return &commonpb.Empty{}, nil
+}
+
+func spoofMetadataTargetBuild(req *clientpb.GenerateSpoofMetadataReq) (*clientpb.ImplantBuild, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing request")
+	}
+
+	var (
+		build *clientpb.ImplantBuild
+		err   error
+	)
+	selected := 0
+
+	if req.GetImplantBuildID() != "" {
+		selected++
+		build, err = db.ImplantBuildByID(req.GetImplantBuildID())
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid implant build id")
+		}
+	}
+	if req.GetImplantName() != "" {
+		selected++
+		build, err = db.ImplantBuildByName(req.GetImplantName())
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid implant name")
+		}
+	}
+	if req.GetResourceID() != 0 {
+		selected++
+		build, err = db.ImplantBuildByResourceID(req.GetResourceID())
+		if err != nil || build.GetID() == "" {
+			return nil, status.Error(codes.InvalidArgument, "invalid resource id")
+		}
+	}
+	if selected != 1 {
+		return nil, status.Error(codes.InvalidArgument, "exactly one build selector is required (implant_build_id, implant_name, or resource_id)")
+	}
+	return build, nil
+}
+
+func spoofMetadataConfigFromProto(req *clientpb.SpoofMetadataConfig) (*generate.SpoofMetadataConfig, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing spoof metadata configuration")
+	}
+
+	config := &generate.SpoofMetadataConfig{}
+	if req.GetPE() != nil {
+		resourceDirectory, err := imageResourceDirectoryFromProto(req.GetPE().GetResourceDirectory())
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		exportDirectory, err := imageExportDirectoryFromProto(req.GetPE().GetExportDirectory())
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		config.PE = &generate.PESpoofMetadataConfig{
+			Source:                   spoofMetadataFileFromProto(req.GetPE().GetSource()),
+			Icon:                     spoofMetadataFileFromProto(req.GetPE().GetIcon()),
+			ResourceDirectory:        resourceDirectory,
+			ResourceDirectoryEntries: imageResourceDirectoryEntriesFromProto(req.GetPE().GetResourceDirectoryEntries()),
+			ResourceDataEntries:      imageResourceDataEntriesFromProto(req.GetPE().GetResourceDataEntries()),
+			ExportDirectory:          exportDirectory,
+		}
+	}
+
+	if config.PE == nil {
+		return nil, status.Error(codes.InvalidArgument, "spoof metadata has no supported executable format")
+	}
+	return config, nil
+}
+
+func spoofMetadataFileFromProto(req *clientpb.SpoofMetadataFile) *generate.SpoofMetadataFile {
+	if req == nil {
+		return nil
+	}
+	return &generate.SpoofMetadataFile{
+		Name: req.GetName(),
+		Data: req.GetData(),
+	}
+}
+
+func imageResourceDirectoryFromProto(req *clientpb.IMAGE_RESOURCE_DIRECTORY) (*generate.IMAGE_RESOURCE_DIRECTORY, error) {
+	if req == nil {
+		return nil, nil
+	}
+	major, err := uint16Field("pe.resource_directory.major_version", req.GetMajorVersion())
+	if err != nil {
+		return nil, err
+	}
+	minor, err := uint16Field("pe.resource_directory.minor_version", req.GetMinorVersion())
+	if err != nil {
+		return nil, err
+	}
+	namedEntries, err := uint16Field("pe.resource_directory.number_of_named_entries", req.GetNumberOfNamedEntries())
+	if err != nil {
+		return nil, err
+	}
+	idEntries, err := uint16Field("pe.resource_directory.number_of_id_entries", req.GetNumberOfIdEntries())
+	if err != nil {
+		return nil, err
+	}
+	return &generate.IMAGE_RESOURCE_DIRECTORY{
+		Characteristics:      req.GetCharacteristics(),
+		TimeDateStamp:        req.GetTimeDateStamp(),
+		MajorVersion:         major,
+		MinorVersion:         minor,
+		NumberOfNamedEntries: namedEntries,
+		NumberOfIdEntries:    idEntries,
+	}, nil
+}
+
+func imageResourceDirectoryEntriesFromProto(req []*clientpb.IMAGE_RESOURCE_DIRECTORY_ENTRY) []*generate.IMAGE_RESOURCE_DIRECTORY_ENTRY {
+	if len(req) == 0 {
+		return nil
+	}
+	entries := make([]*generate.IMAGE_RESOURCE_DIRECTORY_ENTRY, 0, len(req))
+	for _, entry := range req {
+		if entry == nil {
+			continue
+		}
+		entries = append(entries, &generate.IMAGE_RESOURCE_DIRECTORY_ENTRY{
+			Name:         entry.GetName(),
+			OffsetToData: entry.GetOffsetToData(),
+		})
+	}
+	return entries
+}
+
+func imageResourceDataEntriesFromProto(req []*clientpb.IMAGE_RESOURCE_DATA_ENTRY) []*generate.IMAGE_RESOURCE_DATA_ENTRY {
+	if len(req) == 0 {
+		return nil
+	}
+	entries := make([]*generate.IMAGE_RESOURCE_DATA_ENTRY, 0, len(req))
+	for _, entry := range req {
+		if entry == nil {
+			continue
+		}
+		entries = append(entries, &generate.IMAGE_RESOURCE_DATA_ENTRY{
+			OffsetToData: entry.GetOffsetToData(),
+			Size:         entry.GetSize(),
+			CodePage:     entry.GetCodePage(),
+			Reserved:     entry.GetReserved(),
+		})
+	}
+	return entries
+}
+
+func imageExportDirectoryFromProto(req *clientpb.IMAGE_EXPORT_DIRECTORY) (*generate.IMAGE_EXPORT_DIRECTORY, error) {
+	if req == nil {
+		return nil, nil
+	}
+	major, err := uint16Field("pe.export_directory.major_version", req.GetMajorVersion())
+	if err != nil {
+		return nil, err
+	}
+	minor, err := uint16Field("pe.export_directory.minor_version", req.GetMinorVersion())
+	if err != nil {
+		return nil, err
+	}
+	return &generate.IMAGE_EXPORT_DIRECTORY{
+		Characteristics:       req.GetCharacteristics(),
+		TimeDateStamp:         req.GetTimeDateStamp(),
+		MajorVersion:          major,
+		MinorVersion:          minor,
+		Name:                  req.GetName(),
+		Base:                  req.GetBase(),
+		NumberOfFunctions:     req.GetNumberOfFunctions(),
+		NumberOfNames:         req.GetNumberOfNames(),
+		AddressOfFunctions:    req.GetAddressOfFunctions(),
+		AddressOfNames:        req.GetAddressOfNames(),
+		AddressOfNameOrdinals: req.GetAddressOfNameOrdinals(),
+	}, nil
+}
+
+func uint16Field(fieldName string, value uint32) (uint16, error) {
+	if value > 0xffff {
+		return 0, fmt.Errorf("%s value %d exceeds uint16", fieldName, value)
+	}
+	return uint16(value), nil
 }
 
 // ImplantBuilds - List existing implant builds
@@ -352,6 +591,14 @@ func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.ExternalG
 		err  error
 		name string
 	)
+	if req.BuilderName == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing builder name")
+	}
+	builder := core.GetBuilder(req.BuilderName)
+	if builder == nil {
+		return nil, status.Error(codes.NotFound, "unknown builder")
+	}
+
 	config := req.Config
 	if req.Name == "" {
 		name, err = codenames.GetCodename()
@@ -370,6 +617,7 @@ func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.ExternalG
 	if err != nil {
 		return nil, rpcError(err)
 	}
+	core.TrackExternalBuildAssignment(externalConfig.Build.ID, req.BuilderName, builder.OperatorName)
 
 	core.EventBroker.Publish(core.Event{
 		EventType: consts.ExternalBuildEvent,
@@ -381,6 +629,13 @@ func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.ExternalG
 
 // GenerateExternalSaveBuild - Allows an external builder to save the build to the server
 func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.ExternalImplantBinary) (*commonpb.Empty, error) {
+	if req.GetFile() == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing build file")
+	}
+	if err := rpc.authorizeBuilderForExternalBuild(ctx, req.Name, req.ImplantBuildID); err != nil {
+		return nil, err
+	}
+
 	implantBuild, err := db.ImplantBuildByID(req.ImplantBuildID)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid implant build id")
@@ -403,7 +658,7 @@ func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.
 		return nil, status.Error(codes.Internal, "Failed to write implant binary to temp file")
 	}
 
-	rpcLog.Infof("Saving external build '%s' from %s", req.Name, tmpFile.Name())
+	rpcLog.Infof("Saving external build %s from builder '%s' (%s)", req.ImplantBuildID, req.Name, tmpFile.Name())
 	err = generate.ImplantBuildSave(implantBuild, implantConfig, tmpFile.Name())
 	if err != nil {
 		rpcLog.Errorf("Failed to save external build: %s", err)
@@ -420,6 +675,10 @@ func (rpc *Server) GenerateExternalSaveBuild(ctx context.Context, req *clientpb.
 
 // GenerateExternalGetImplantConfig - Get an implant config for external builder
 func (rpc *Server) GenerateExternalGetBuildConfig(ctx context.Context, req *clientpb.ImplantBuild) (*clientpb.ExternalImplantConfig, error) {
+	if err := rpc.authorizeBuilderForExternalBuild(ctx, req.Name, req.ID); err != nil {
+		return nil, err
+	}
+
 	build, err := db.ImplantBuildByID(req.ID)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid implant build id")
@@ -488,6 +747,16 @@ func (rpc *Server) BuilderRegister(req *clientpb.Builder, stream rpcpb.SliverRPC
 			if !util.Contains(buildEvents, event.EventType) {
 				continue // Skip events not relevant to the builder
 			}
+			if event.EventType == consts.ExternalBuildEvent {
+				targetBuilderName, _, err := splitExternalBuildEventData(event.Data)
+				if err != nil {
+					rpcEventsLog.Warnf("Invalid external build event data: %s", err)
+					continue
+				}
+				if targetBuilderName != req.Name {
+					continue
+				}
+			}
 
 			pbEvent := &clientpb.Event{
 				EventType: event.EventType,
@@ -522,23 +791,132 @@ func (rpc *Server) Builders(ctx context.Context, _ *commonpb.Empty) (*clientpb.B
 
 // BuilderTrigger - Trigger a builder event
 func (rpc *Server) BuilderTrigger(ctx context.Context, req *clientpb.Event) (*commonpb.Empty, error) {
-
 	switch req.EventType {
 
 	// Only allow certain event types to be triggered
 	case consts.ExternalBuildFailedEvent:
-		fallthrough
-	case consts.AcknowledgeBuildEvent:
-		fallthrough
-	case consts.ExternalBuildCompletedEvent:
+		buildID, _, err := splitExternalBuildProgressData(req.Data)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		if err = rpc.authorizeBuilderOperatorForExternalBuild(ctx, buildID); err != nil {
+			return nil, err
+		}
+		core.RemoveExternalBuildAssignment(buildID)
 		core.EventBroker.Publish(core.Event{
 			EventType: req.EventType,
 			Data:      req.Data,
 		})
-
+	case consts.AcknowledgeBuildEvent:
+		buildID := strings.TrimSpace(string(req.Data))
+		if buildID == "" {
+			return nil, status.Error(codes.InvalidArgument, "missing implant build id")
+		}
+		err := rpc.authorizeBuilderOperatorForExternalBuild(ctx, buildID)
+		if err != nil {
+			return nil, err
+		}
+		core.EventBroker.Publish(core.Event{
+			EventType: req.EventType,
+			Data:      req.Data,
+		})
+	case consts.ExternalBuildCompletedEvent:
+		buildID, _, err := splitExternalBuildProgressData(req.Data)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		if err = rpc.authorizeBuilderOperatorForExternalBuild(ctx, buildID); err != nil {
+			return nil, err
+		}
+		core.RemoveExternalBuildAssignment(buildID)
+		core.EventBroker.Publish(core.Event{
+			EventType: req.EventType,
+			Data:      req.Data,
+		})
+	default:
+		return nil, status.Error(codes.InvalidArgument, "unsupported builder event type")
 	}
 
 	return &commonpb.Empty{}, nil
+}
+
+func (rpc *Server) authorizeBuilderForExternalBuild(ctx context.Context, builderName string, buildID string) error {
+	builderName = strings.TrimSpace(builderName)
+	buildID = strings.TrimSpace(buildID)
+	if builderName == "" {
+		return status.Error(codes.InvalidArgument, "missing builder name")
+	}
+	if buildID == "" {
+		return status.Error(codes.InvalidArgument, "missing implant build id")
+	}
+
+	callerName := rpc.getClientCommonName(ctx)
+	if callerName == "" {
+		return status.Error(codes.Unauthenticated, "Authentication failure")
+	}
+	builder := core.GetBuilder(builderName)
+	if builder == nil {
+		return status.Error(codes.PermissionDenied, "builder is not registered")
+	}
+	if builder.OperatorName != callerName {
+		return status.Error(codes.PermissionDenied, "builder identity mismatch")
+	}
+	assignment := core.GetExternalBuildAssignment(buildID)
+	if assignment == nil {
+		return status.Error(codes.PermissionDenied, "build is not assigned")
+	}
+	if assignment.BuilderName != builderName || assignment.OperatorName != callerName {
+		return status.Error(codes.PermissionDenied, "build is assigned to a different builder")
+	}
+	return nil
+}
+
+func (rpc *Server) authorizeBuilderOperatorForExternalBuild(ctx context.Context, buildID string) error {
+	buildID = strings.TrimSpace(buildID)
+	if buildID == "" {
+		return status.Error(codes.InvalidArgument, "missing implant build id")
+	}
+
+	callerName := rpc.getClientCommonName(ctx)
+	if callerName == "" {
+		return status.Error(codes.Unauthenticated, "Authentication failure")
+	}
+	assignment := core.GetExternalBuildAssignment(buildID)
+	if assignment == nil {
+		return status.Error(codes.PermissionDenied, "build is not assigned")
+	}
+	if assignment.OperatorName != callerName {
+		return status.Error(codes.PermissionDenied, "build is assigned to a different builder operator")
+	}
+	return nil
+}
+
+func splitExternalBuildEventData(data []byte) (builderName string, buildID string, err error) {
+	payload := strings.TrimSpace(string(data))
+	parts := strings.Split(payload, ":")
+	if len(parts) < 2 {
+		return "", "", fmt.Errorf("invalid build event data")
+	}
+	buildID = strings.TrimSpace(parts[len(parts)-1])
+	builderName = strings.TrimSpace(strings.Join(parts[:len(parts)-1], ":"))
+	if builderName == "" || buildID == "" {
+		return "", "", fmt.Errorf("invalid build event data")
+	}
+	return builderName, buildID, nil
+}
+
+func splitExternalBuildProgressData(data []byte) (buildID string, details string, err error) {
+	payload := strings.TrimSpace(string(data))
+	parts := strings.SplitN(payload, ":", 2)
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid external build status data")
+	}
+	buildID = strings.TrimSpace(parts[0])
+	details = strings.TrimSpace(parts[1])
+	if buildID == "" {
+		return "", "", fmt.Errorf("invalid external build status data")
+	}
+	return buildID, details, nil
 }
 
 // TrafficEncoderMap - Get a map of the server's traffic encoders

@@ -29,14 +29,14 @@ func (m *Menu) DelInterrupt(errs ...error) {
 }
 
 func (m *Menu) handleInterrupt(err error) {
-	m.console.mutex.RLock()
+	m.console.mutex.Lock()
 	m.console.isExecuting = true
-	m.console.mutex.RUnlock()
+	m.console.mutex.Unlock()
 
 	defer func() {
-		m.console.mutex.RLock()
+		m.console.mutex.Lock()
 		m.console.isExecuting = false
-		m.console.mutex.RUnlock()
+		m.console.mutex.Unlock()
 	}()
 
 	// TODO: this is not a very, very safe way of comparing

@@ -32,12 +32,13 @@ func WGListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 	nport, _ := cmd.Flags().GetUint32("nport")
 	keyExchangePort, _ := cmd.Flags().GetUint32("key-port")
 
-	con.PrintInfof("Starting Wireguard listener ...\n")
+	con.PrintInfof("Starting Wireguard listener (udp:%d, tcp-comms:%d, key-exchange:%d) ...\n", lport, nport, keyExchangePort)
 	wg, err := con.Rpc.StartWGListener(context.Background(), &clientpb.WGListenerReq{
 		Port:    lport,
 		NPort:   nport,
 		KeyPort: keyExchangePort,
 	})
+	con.Println()
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 	} else {

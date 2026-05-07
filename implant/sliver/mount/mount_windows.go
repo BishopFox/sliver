@@ -1,5 +1,6 @@
 //go:build windows
-// +build windows
+
+package mount
 
 /*
 	Sliver Implant Framework
@@ -18,8 +19,6 @@
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-
-package mount
 
 import (
 	"errors"

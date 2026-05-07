@@ -4,6 +4,8 @@ The armory downloads packages from `github.com` and `api.github.com` so you'll n
 
 Aliases and extensions are installed on the "sliver client"-side, and thus are not shared among operators in [multiplayer mode](/docs?name=Multi-player+Mode).
 
+The server-side AI agent uses a separate store under `~/.sliver/ai/aliases` and `~/.sliver/ai/extensions`. If you want the AI agent to discover and execute an alias or extension, copy the unpacked package directory (the manifest plus its artifacts) into the matching server-side path. There is currently no dedicated UI or install command for the AI store.
+
 You can also use `armory install all` to install _everything_ if you really want to.
 
 ## The Official Armory
@@ -43,6 +45,8 @@ sliver > armory update
 You remove packages installed from the `armory` using the `aliases rm` and `extensions rm` commands depending on if the package is an alias or an extension. You can list installed aliases and extensions by running `aliases` and `extensions` respectively.
 
 Installed alias and extension files are stored in `~/.sliver-client/` by default if you want to manually remove a package simply delete its corresponding directory and restart the client.
+
+If you also copied a package into the server-side AI store, remove that copy separately from `~/.sliver/ai/aliases` or `~/.sliver/ai/extensions`.
 
 ## Private Armories
 
