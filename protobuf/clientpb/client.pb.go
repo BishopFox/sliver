@@ -1506,12 +1506,13 @@ type Session struct {
 	Burned            bool                   `protobuf:"varint,22,opt,name=Burned,proto3" json:"Burned,omitempty"`
 	Extensions        []string               `protobuf:"bytes,23,rep,name=Extensions,proto3" json:"Extensions,omitempty"`
 	// string ConfigID = 24;
-	PeerID        int64  `protobuf:"varint,25,opt,name=PeerID,proto3" json:"PeerID,omitempty"`
-	Locale        string `protobuf:"bytes,26,opt,name=Locale,proto3" json:"Locale,omitempty"`
-	FirstContact  int64  `protobuf:"varint,27,opt,name=FirstContact,proto3" json:"FirstContact,omitempty"`
-	Integrity     string `protobuf:"bytes,28,opt,name=Integrity,proto3" json:"Integrity,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	PeerID         int64  `protobuf:"varint,25,opt,name=PeerID,proto3" json:"PeerID,omitempty"`
+	Locale         string `protobuf:"bytes,26,opt,name=Locale,proto3" json:"Locale,omitempty"`
+	FirstContact   int64  `protobuf:"varint,27,opt,name=FirstContact,proto3" json:"FirstContact,omitempty"`
+	Integrity      string `protobuf:"bytes,28,opt,name=Integrity,proto3" json:"Integrity,omitempty"`
+	Virtualization string `protobuf:"bytes,29,opt,name=Virtualization,proto3" json:"Virtualization,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Session) Reset() {
@@ -1726,6 +1727,13 @@ func (x *Session) GetIntegrity() string {
 	return ""
 }
 
+func (x *Session) GetVirtualization() string {
+	if x != nil {
+		return x.Virtualization
+	}
+	return ""
+}
+
 type Beacon struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	ID                  string                 `protobuf:"bytes,1,opt,name=ID,proto3" json:"ID,omitempty"`
@@ -1757,6 +1765,7 @@ type Beacon struct {
 	Locale              string                 `protobuf:"bytes,28,opt,name=Locale,proto3" json:"Locale,omitempty"`
 	FirstContact        int64                  `protobuf:"varint,29,opt,name=FirstContact,proto3" json:"FirstContact,omitempty"`
 	Integrity           string                 `protobuf:"bytes,30,opt,name=Integrity,proto3" json:"Integrity,omitempty"`
+	Virtualization      string                 `protobuf:"bytes,31,opt,name=Virtualization,proto3" json:"Virtualization,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -1990,6 +1999,13 @@ func (x *Beacon) GetFirstContact() int64 {
 func (x *Beacon) GetIntegrity() string {
 	if x != nil {
 		return x.Integrity
+	}
+	return ""
+}
+
+func (x *Beacon) GetVirtualization() string {
+	if x != nil {
+		return x.Virtualization
 	}
 	return ""
 }
@@ -2431,33 +2447,34 @@ func (x *ShellcodeConfig) GetOEP() uint32 {
 }
 
 type ImplantConfig struct {
-	state               protoimpl.MessageState `protogen:"open.v1"`
-	ID                  string                 `protobuf:"bytes,1,opt,name=ID,proto3" json:"ID,omitempty"`
-	ImplantBuilds       []*ImplantBuild        `protobuf:"bytes,2,rep,name=ImplantBuilds,proto3" json:"ImplantBuilds,omitempty"`
-	ImplantProfileID    string                 `protobuf:"bytes,3,opt,name=ImplantProfileID,proto3" json:"ImplantProfileID,omitempty"`
-	IsBeacon            bool                   `protobuf:"varint,4,opt,name=IsBeacon,proto3" json:"IsBeacon,omitempty"`
-	BeaconInterval      int64                  `protobuf:"varint,5,opt,name=BeaconInterval,proto3" json:"BeaconInterval,omitempty"`
-	BeaconJitter        int64                  `protobuf:"varint,6,opt,name=BeaconJitter,proto3" json:"BeaconJitter,omitempty"`
-	GOOS                string                 `protobuf:"bytes,7,opt,name=GOOS,proto3" json:"GOOS,omitempty"`
-	GOARCH              string                 `protobuf:"bytes,8,opt,name=GOARCH,proto3" json:"GOARCH,omitempty"`
-	Debug               bool                   `protobuf:"varint,10,opt,name=Debug,proto3" json:"Debug,omitempty"`
-	Evasion             bool                   `protobuf:"varint,11,opt,name=Evasion,proto3" json:"Evasion,omitempty"`
-	ObfuscateSymbols    bool                   `protobuf:"varint,12,opt,name=ObfuscateSymbols,proto3" json:"ObfuscateSymbols,omitempty"`
-	TemplateName        string                 `protobuf:"bytes,13,opt,name=TemplateName,proto3" json:"TemplateName,omitempty"`
-	SGNEnabled          bool                   `protobuf:"varint,14,opt,name=SGNEnabled,proto3" json:"SGNEnabled,omitempty"`
-	GoPackage           string                 `protobuf:"bytes,15,opt,name=GoPackage,proto3" json:"GoPackage,omitempty"`
-	IncludeMTLS         bool                   `protobuf:"varint,53,opt,name=IncludeMTLS,proto3" json:"IncludeMTLS,omitempty"`
-	IncludeHTTP         bool                   `protobuf:"varint,16,opt,name=IncludeHTTP,proto3" json:"IncludeHTTP,omitempty"`
-	IncludeWG           bool                   `protobuf:"varint,17,opt,name=IncludeWG,proto3" json:"IncludeWG,omitempty"`
-	IncludeDNS          bool                   `protobuf:"varint,18,opt,name=IncludeDNS,proto3" json:"IncludeDNS,omitempty"`
-	IncludeNamePipe     bool                   `protobuf:"varint,19,opt,name=IncludeNamePipe,proto3" json:"IncludeNamePipe,omitempty"`
-	IncludeTCP          bool                   `protobuf:"varint,20,opt,name=IncludeTCP,proto3" json:"IncludeTCP,omitempty"`
-	WGPeerTunIP         string                 `protobuf:"bytes,32,opt,name=WGPeerTunIP,proto3" json:"WGPeerTunIP,omitempty"`
-	WGKeyExchangePort   uint32                 `protobuf:"varint,33,opt,name=WGKeyExchangePort,proto3" json:"WGKeyExchangePort,omitempty"`
-	WGTcpCommsPort      uint32                 `protobuf:"varint,34,opt,name=WGTcpCommsPort,proto3" json:"WGTcpCommsPort,omitempty"`
-	ReconnectInterval   int64                  `protobuf:"varint,40,opt,name=ReconnectInterval,proto3" json:"ReconnectInterval,omitempty"`
-	MaxConnectionErrors uint32                 `protobuf:"varint,41,opt,name=MaxConnectionErrors,proto3" json:"MaxConnectionErrors,omitempty"`
-	PollTimeout         int64                  `protobuf:"varint,42,opt,name=PollTimeout,proto3" json:"PollTimeout,omitempty"`
+	state                     protoimpl.MessageState `protogen:"open.v1"`
+	ID                        string                 `protobuf:"bytes,1,opt,name=ID,proto3" json:"ID,omitempty"`
+	ImplantBuilds             []*ImplantBuild        `protobuf:"bytes,2,rep,name=ImplantBuilds,proto3" json:"ImplantBuilds,omitempty"`
+	ImplantProfileID          string                 `protobuf:"bytes,3,opt,name=ImplantProfileID,proto3" json:"ImplantProfileID,omitempty"`
+	IsBeacon                  bool                   `protobuf:"varint,4,opt,name=IsBeacon,proto3" json:"IsBeacon,omitempty"`
+	BeaconInterval            int64                  `protobuf:"varint,5,opt,name=BeaconInterval,proto3" json:"BeaconInterval,omitempty"`
+	BeaconJitter              int64                  `protobuf:"varint,6,opt,name=BeaconJitter,proto3" json:"BeaconJitter,omitempty"`
+	GOOS                      string                 `protobuf:"bytes,7,opt,name=GOOS,proto3" json:"GOOS,omitempty"`
+	GOARCH                    string                 `protobuf:"bytes,8,opt,name=GOARCH,proto3" json:"GOARCH,omitempty"`
+	Debug                     bool                   `protobuf:"varint,10,opt,name=Debug,proto3" json:"Debug,omitempty"`
+	Evasion                   bool                   `protobuf:"varint,11,opt,name=Evasion,proto3" json:"Evasion,omitempty"`
+	ObfuscateSymbols          bool                   `protobuf:"varint,12,opt,name=ObfuscateSymbols,proto3" json:"ObfuscateSymbols,omitempty"`
+	TemplateName              string                 `protobuf:"bytes,13,opt,name=TemplateName,proto3" json:"TemplateName,omitempty"`
+	SGNEnabled                bool                   `protobuf:"varint,14,opt,name=SGNEnabled,proto3" json:"SGNEnabled,omitempty"`
+	GoPackage                 string                 `protobuf:"bytes,15,opt,name=GoPackage,proto3" json:"GoPackage,omitempty"`
+	IncludeMTLS               bool                   `protobuf:"varint,53,opt,name=IncludeMTLS,proto3" json:"IncludeMTLS,omitempty"`
+	IncludeHTTP               bool                   `protobuf:"varint,16,opt,name=IncludeHTTP,proto3" json:"IncludeHTTP,omitempty"`
+	IncludeWG                 bool                   `protobuf:"varint,17,opt,name=IncludeWG,proto3" json:"IncludeWG,omitempty"`
+	IncludeDNS                bool                   `protobuf:"varint,18,opt,name=IncludeDNS,proto3" json:"IncludeDNS,omitempty"`
+	IncludeNamePipe           bool                   `protobuf:"varint,19,opt,name=IncludeNamePipe,proto3" json:"IncludeNamePipe,omitempty"`
+	IncludeTCP                bool                   `protobuf:"varint,20,opt,name=IncludeTCP,proto3" json:"IncludeTCP,omitempty"`
+	CollectVirtualizationInfo bool                   `protobuf:"varint,21,opt,name=CollectVirtualizationInfo,proto3" json:"CollectVirtualizationInfo,omitempty"`
+	WGPeerTunIP               string                 `protobuf:"bytes,32,opt,name=WGPeerTunIP,proto3" json:"WGPeerTunIP,omitempty"`
+	WGKeyExchangePort         uint32                 `protobuf:"varint,33,opt,name=WGKeyExchangePort,proto3" json:"WGKeyExchangePort,omitempty"`
+	WGTcpCommsPort            uint32                 `protobuf:"varint,34,opt,name=WGTcpCommsPort,proto3" json:"WGTcpCommsPort,omitempty"`
+	ReconnectInterval         int64                  `protobuf:"varint,40,opt,name=ReconnectInterval,proto3" json:"ReconnectInterval,omitempty"`
+	MaxConnectionErrors       uint32                 `protobuf:"varint,41,opt,name=MaxConnectionErrors,proto3" json:"MaxConnectionErrors,omitempty"`
+	PollTimeout               int64                  `protobuf:"varint,42,opt,name=PollTimeout,proto3" json:"PollTimeout,omitempty"`
 	// c2
 	C2                     []*ImplantC2     `protobuf:"bytes,50,rep,name=C2,proto3" json:"C2,omitempty"`
 	CanaryDomains          []string         `protobuf:"bytes,51,rep,name=CanaryDomains,proto3" json:"CanaryDomains,omitempty"`
@@ -2653,6 +2670,13 @@ func (x *ImplantConfig) GetIncludeNamePipe() bool {
 func (x *ImplantConfig) GetIncludeTCP() bool {
 	if x != nil {
 		return x.IncludeTCP
+	}
+	return false
+}
+
+func (x *ImplantConfig) GetCollectVirtualizationInfo() bool {
+	if x != nil {
+		return x.CollectVirtualizationInfo
 	}
 	return false
 }
@@ -12952,7 +12976,7 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\x04Arch\x18\b \x01(\tR\x04Arch\";\n" +
 	"\rClientLogData\x12\x16\n" +
 	"\x06Stream\x18\x01 \x01(\tR\x06Stream\x12\x12\n" +
-	"\x04Data\x18\x02 \x01(\fR\x04Data\"\xb1\x05\n" +
+	"\x04Data\x18\x02 \x01(\fR\x04Data\"\xd9\x05\n" +
 	"\aSession\x12\x0e\n" +
 	"\x02ID\x18\x01 \x01(\tR\x02ID\x12\x12\n" +
 	"\x04Name\x18\x02 \x01(\tR\x04Name\x12\x1a\n" +
@@ -12982,7 +13006,8 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\x06PeerID\x18\x19 \x01(\x03R\x06PeerID\x12\x16\n" +
 	"\x06Locale\x18\x1a \x01(\tR\x06Locale\x12\"\n" +
 	"\fFirstContact\x18\x1b \x01(\x03R\fFirstContact\x12\x1c\n" +
-	"\tIntegrity\x18\x1c \x01(\tR\tIntegrity\"\xa0\x06\n" +
+	"\tIntegrity\x18\x1c \x01(\tR\tIntegrity\x12&\n" +
+	"\x0eVirtualization\x18\x1d \x01(\tR\x0eVirtualization\"\xc8\x06\n" +
 	"\x06Beacon\x12\x0e\n" +
 	"\x02ID\x18\x01 \x01(\tR\x02ID\x12\x12\n" +
 	"\x04Name\x18\x02 \x01(\tR\x04Name\x12\x1a\n" +
@@ -13015,7 +13040,8 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\x13TasksCountCompleted\x18\x1b \x01(\x03R\x13TasksCountCompleted\x12\x16\n" +
 	"\x06Locale\x18\x1c \x01(\tR\x06Locale\x12\"\n" +
 	"\fFirstContact\x18\x1d \x01(\x03R\fFirstContact\x12\x1c\n" +
-	"\tIntegrity\x18\x1e \x01(\tR\tIntegrity\"5\n" +
+	"\tIntegrity\x18\x1e \x01(\tR\tIntegrity\x12&\n" +
+	"\x0eVirtualization\x18\x1f \x01(\tR\x0eVirtualization\"5\n" +
 	"\aBeacons\x12*\n" +
 	"\aBeacons\x18\x02 \x03(\v2\x10.clientpb.BeaconR\aBeacons\"\xfe\x01\n" +
 	"\n" +
@@ -13048,7 +13074,7 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\aHeaders\x18\x06 \x01(\rR\aHeaders\x12\x16\n" +
 	"\x06Thread\x18\a \x01(\bR\x06Thread\x12\x18\n" +
 	"\aUnicode\x18\b \x01(\bR\aUnicode\x12\x10\n" +
-	"\x03OEP\x18\t \x01(\rR\x03OEP\"\x8e\x0f\n" +
+	"\x03OEP\x18\t \x01(\rR\x03OEP\"\xcc\x0f\n" +
 	"\rImplantConfig\x12\x0e\n" +
 	"\x02ID\x18\x01 \x01(\tR\x02ID\x12<\n" +
 	"\rImplantBuilds\x18\x02 \x03(\v2\x16.clientpb.ImplantBuildR\rImplantBuilds\x12*\n" +
@@ -13076,7 +13102,8 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\x0fIncludeNamePipe\x18\x13 \x01(\bR\x0fIncludeNamePipe\x12\x1e\n" +
 	"\n" +
 	"IncludeTCP\x18\x14 \x01(\bR\n" +
-	"IncludeTCP\x12 \n" +
+	"IncludeTCP\x12<\n" +
+	"\x19CollectVirtualizationInfo\x18\x15 \x01(\bR\x19CollectVirtualizationInfo\x12 \n" +
 	"\vWGPeerTunIP\x18  \x01(\tR\vWGPeerTunIP\x12,\n" +
 	"\x11WGKeyExchangePort\x18! \x01(\rR\x11WGKeyExchangePort\x12&\n" +
 	"\x0eWGTcpCommsPort\x18\" \x01(\rR\x0eWGTcpCommsPort\x12,\n" +

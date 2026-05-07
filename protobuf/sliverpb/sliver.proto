@@ -56,6 +56,7 @@ message Register {
   string ConfigID = 16;
   int64 PeerID = 17;
   string Locale = 18;
+  string Virtualization = 19;
 }
 
 message BeaconRegister {

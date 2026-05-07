@@ -169,8 +169,9 @@ type ImplantConfig struct {
 	ConnectionStrategy  string
 	SGNEnabled          bool
 	// ShellcodeEncoder - client-side post-processing applied to shellcode output
-	ShellcodeEncoder int32
-	Exports          string
+	ShellcodeEncoder          int32
+	Exports                   string
+	CollectVirtualizationInfo bool
 
 	// WireGuard
 	WGPeerTunIP       string
@@ -260,13 +261,14 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		GOOS:   ic.GOOS,
 		GOARCH: ic.GOARCH,
 
-		Debug:            ic.Debug,
-		DebugFile:        ic.DebugFile,
-		Evasion:          ic.Evasion,
-		ObfuscateSymbols: ic.ObfuscateSymbols,
-		TemplateName:     ic.TemplateName,
-		SGNEnabled:       ic.SGNEnabled,
-		ShellcodeEncoder: clientpb.ShellcodeEncoder(ic.ShellcodeEncoder),
+		Debug:                     ic.Debug,
+		DebugFile:                 ic.DebugFile,
+		Evasion:                   ic.Evasion,
+		ObfuscateSymbols:          ic.ObfuscateSymbols,
+		TemplateName:              ic.TemplateName,
+		SGNEnabled:                ic.SGNEnabled,
+		ShellcodeEncoder:          clientpb.ShellcodeEncoder(ic.ShellcodeEncoder),
+		CollectVirtualizationInfo: ic.CollectVirtualizationInfo,
 
 		ReconnectInterval:   ic.ReconnectInterval,
 		MaxConnectionErrors: ic.MaxConnectionErrors,
@@ -478,10 +480,12 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.Evasion = pbConfig.Evasion
 	cfg.ObfuscateSymbols = pbConfig.ObfuscateSymbols
 	cfg.TemplateName = pbConfig.TemplateName
+
 	if cfg.TemplateName == "" {
 		cfg.TemplateName = defaultTemplateName
 	}
 	cfg.SGNEnabled = pbConfig.SGNEnabled
+	cfg.CollectVirtualizationInfo = pbConfig.CollectVirtualizationInfo
 	cfg.ShellcodeEncoder = int32(pbConfig.ShellcodeEncoder)
 
 	cfg.IncludeMTLS = pbConfig.IncludeMTLS || IsC2Enabled([]string{"mtls"}, pbConfig.C2)

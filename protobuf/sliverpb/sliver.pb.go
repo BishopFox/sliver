@@ -325,6 +325,7 @@ type Register struct {
 	ConfigID          string                 `protobuf:"bytes,16,opt,name=ConfigID,proto3" json:"ConfigID,omitempty"`
 	PeerID            int64                  `protobuf:"varint,17,opt,name=PeerID,proto3" json:"PeerID,omitempty"`
 	Locale            string                 `protobuf:"bytes,18,opt,name=Locale,proto3" json:"Locale,omitempty"`
+	Virtualization    string                 `protobuf:"bytes,19,opt,name=Virtualization,proto3" json:"Virtualization,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -474,6 +475,13 @@ func (x *Register) GetPeerID() int64 {
 func (x *Register) GetLocale() string {
 	if x != nil {
 		return x.Locale
+	}
+	return ""
+}
+
+func (x *Register) GetVirtualization() string {
+	if x != nil {
+		return x.Virtualization
 	}
 	return ""
 }
@@ -12037,7 +12045,7 @@ const file_sliverpb_sliver_proto_rawDesc = "" +
 	"\vBeaconTasks\x12\x0e\n" +
 	"\x02ID\x18\x01 \x01(\tR\x02ID\x12(\n" +
 	"\x05Tasks\x18\x02 \x03(\v2\x12.sliverpb.EnvelopeR\x05Tasks\x12 \n" +
-	"\vNextCheckin\x18\x03 \x01(\x03R\vNextCheckin\"\xac\x03\n" +
+	"\vNextCheckin\x18\x03 \x01(\x03R\vNextCheckin\"\xd4\x03\n" +
 	"\bRegister\x12\x12\n" +
 	"\x04Name\x18\x01 \x01(\tR\x04Name\x12\x1a\n" +
 	"\bHostname\x18\x02 \x01(\tR\bHostname\x12\x12\n" +
@@ -12056,7 +12064,8 @@ const file_sliverpb_sliver_proto_rawDesc = "" +
 	"\bProxyURL\x18\x0e \x01(\tR\bProxyURL\x12\x1a\n" +
 	"\bConfigID\x18\x10 \x01(\tR\bConfigID\x12\x16\n" +
 	"\x06PeerID\x18\x11 \x01(\x03R\x06PeerID\x12\x16\n" +
-	"\x06Locale\x18\x12 \x01(\tR\x06Locale\"\xa6\x01\n" +
+	"\x06Locale\x18\x12 \x01(\tR\x06Locale\x12&\n" +
+	"\x0eVirtualization\x18\x13 \x01(\tR\x0eVirtualization\"\xa6\x01\n" +
 	"\x0eBeaconRegister\x12\x0e\n" +
 	"\x02ID\x18\x01 \x01(\tR\x02ID\x12\x1a\n" +
 	"\bInterval\x18\x02 \x01(\x03R\bInterval\x12\x16\n" +
