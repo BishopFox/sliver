@@ -33,6 +33,7 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
 	serverCrypto "github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/generate"
@@ -49,6 +50,10 @@ import (
 var (
 	wgLog = log.NamedLogger("c2", "wg")
 	tunIP = certs.C2WireGuardServerIP // Don't let user configure this for now
+
+	// wgDevLogger routes WG device logs to Sliver's log file instead of stdout.
+	// Errors always logged. Verbose enabled when server log level >= 5 (debug).
+	wgDevLogger = newWGDeviceLogger()
 )
 
 const (
@@ -58,6 +63,17 @@ const (
 var (
 	wgYamuxPrefaceBytes = []byte(wgYamuxPreface)
 )
+
+func newWGDeviceLogger() *device.Logger {
+	logger := &device.Logger{
+		Errorf: func(format string, args ...any) { wgLog.Errorf("[wg-device] "+format, args...) },
+	}
+	if serverConfig := configs.GetServerConfig(); serverConfig.Logs != nil && serverConfig.Logs.Level >= 5 {
+		logger.Verbosef = func(format string, args ...any) { wgLog.Debugf("[wg-device] "+format, args...) }
+		wgLog.Infof("WG device verbose logging enabled (server log level=%d)", serverConfig.Logs.Level)
+	}
+	return logger
+}
 
 // StartWGListener - First creates an inet.af network stack.
 // then creates a Wireguard device/interface and applies configuration.
@@ -104,11 +120,7 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 		}
 	}
 
-	// This is currently set to silence all logs from the wg device
-	// Set this to device.LogLevelVerbose when debugging for verbose logs
-	// We should probably set this to LogLevelError and figure out how to
-	// redirect the logs from stdout
-	dev := device.NewDevice(tun, conn.NewDefaultBind(), device.NewLogger(device.LogLevelSilent, "[c2/wg] "))
+	dev := device.NewDevice(tun, conn.NewDefaultBind(), wgDevLogger)
 
 	wgConf := bytes.NewBuffer(nil)
 	fmt.Fprintf(wgConf, "private_key=%s\n", privateKey)
