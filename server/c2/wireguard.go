@@ -62,6 +62,7 @@ const (
 
 var (
 	wgYamuxPrefaceBytes = []byte(wgYamuxPreface)
+	wgVirtualNet        *netstack.Net // stored for custom TCP listeners
 )
 
 func newWGDeviceLogger() *device.Logger {
@@ -91,6 +92,8 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 		wgLog.Errorf("CreateNetTUN failed: %v", err)
 		return nil, nil, nil, err
 	}
+
+	wgVirtualNet = tNet // store for custom TCP listeners
 
 	tunIPAddr, err := netip.ParseAddr(tunIP)
 	if err != nil {
@@ -175,6 +178,12 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 	}
 	wgLog.Printf("Successfully setup up wg sliver listener")
 	go acceptWGSliverConnections(listener)
+
+	// Start sniffer collector forwarder: gVisor:9100 → localhost:9100
+	if _, err := StartWGTCPForwarder(9100, "127.0.0.1:9100"); err != nil {
+		wgLog.Warnf("Sniffer collector forwarder failed (non-fatal): %v", err)
+	}
+
 	return listener, dev, wgConf, nil
 }
 
@@ -488,4 +497,60 @@ func socketWGReadEnvelope(connection net.Conn) (*sliverpb.Envelope, error) {
 		return nil, err
 	}
 	return envelope, nil
+}
+
+// StartWGTCPForwarder - Listen on a port inside the WG virtual network
+// and forward all connections to a local address (e.g. localhost:9100).
+// Returns the listener so it can be closed to stop forwarding.
+func StartWGTCPForwarder(wgPort uint16, localAddr string) (net.Listener, error) {
+	if wgVirtualNet == nil {
+		return nil, errors.New("WG virtual network not initialized")
+	}
+
+	tunIPAddr, err := netip.ParseAddr(tunIP)
+	if err != nil {
+		return nil, fmt.Errorf("parse tunIP: %w", err)
+	}
+
+	if err := wgVirtualNet.AllowTCPPort(tunIPAddr, wgPort); err != nil {
+		return nil, fmt.Errorf("AllowTCPPort %d: %w", wgPort, err)
+	}
+
+	ln, err := wgVirtualNet.ListenTCP(&net.TCPAddr{
+		IP:   net.ParseIP(tunIP),
+		Port: int(wgPort),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("ListenTCP %d: %w", wgPort, err)
+	}
+
+	wgLog.Infof("TCP forwarder: %s:%d → %s", tunIP, wgPort, localAddr)
+
+	go func() {
+		for {
+			wgConn, err := ln.Accept()
+			if err != nil {
+				return // listener closed
+			}
+			go forwardTCP(wgConn, localAddr)
+		}
+	}()
+
+	return ln, nil
+}
+
+func forwardTCP(src net.Conn, dstAddr string) {
+	defer src.Close()
+
+	dst, err := net.Dial("tcp", dstAddr)
+	if err != nil {
+		wgLog.Warnf("TCP forward dial %s failed: %v", dstAddr, err)
+		return
+	}
+	defer dst.Close()
+
+	done := make(chan struct{})
+	go func() { io.Copy(dst, src); close(done) }()
+	io.Copy(src, dst)
+	<-done
 }
