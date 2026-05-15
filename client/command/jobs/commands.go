@@ -192,8 +192,8 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	// TCP Forwarder (gVisor virtual network)
 	tcpFwdCmd := &cobra.Command{
 		Use:   "tcp-fwd",
-		Short: "Start a TCP forwarder on the WG virtual network",
-		Long:  "Forward TCP connections from a gVisor virtual network port to a local address.\nRequires WG listener to be running.",
+		Short: "Start a TCP forwarder on the virtual tunnel network",
+		Long:  help.GetHelpFor([]string{consts.TcpFwdStr}),
 		Run: func(cmd *cobra.Command, args []string) {
 			TCPFwdListenerCmd(cmd, con, args)
 		},

@@ -47,6 +47,7 @@ var (
 		consts.UseStr:           useHelp,
 		consts.GenerateStr:      generateHelp,
 		consts.StageListenerStr: stageListenerHelp,
+		consts.TcpFwdStr:        tcpFwdHelp,
 
 		consts.MsfStr:         msfHelp,
 		consts.MsfInjectStr:   msfInjectHelp,
@@ -280,6 +281,25 @@ stage-listener --url tcp://1.2.3.4:8080 --profile my-sliver-profile
 To create a profile, use the [[.Bold]]profiles new[[.Normal]] command. A common scenario is to create a profile that generates a shellcode, which can act as a stage 2:
 
 profiles new --format shellcode --mtls 1.2.3.4 --skip-symbols windows-shellcode
+`
+
+	tcpFwdHelp = `[[.Bold]]Command:[[.Normal]] tcp-fwd <options>
+[[.Bold]]About:[[.Normal]] Start a TCP forwarder on the virtual tunnel network. Forwards connections from a tunnel port to a local address. Any implant connected via WG can reach the forwarded port through the tunnel IP (e.g. 100.64.0.1).
+
+Requires a WG listener to be running first (provides the virtual tunnel network).
+
+[[.Bold]]Examples:[[.Normal]]
+
+Start a forwarder for a packet collector:
+
+	tcp-fwd --port 9100 --local 127.0.0.1:9100
+
+Start multiple forwarders:
+
+	tcp-fwd --port 9100 --local 127.0.0.1:9100
+	tcp-fwd --port 8080 --local 127.0.0.1:8080
+
+The forwarder shows up in [[.Bold]]jobs[[.Normal]] and can be stopped with [[.Bold]]jobs -k <id>[[.Normal]].
 `
 
 	newProfileHelp = `[[.Bold]]Command:[[.Normal]] new <options> <profile name>
