@@ -616,6 +616,12 @@ func ListenerByJobID(JobID uint32) (*clientpb.ListenerJob, error) {
 			ListenerJobID: listenerJob.ID,
 		}).Find(&MultiplayerListener).Error
 		listenerJob.MultiplayerListener = MultiplayerListener
+	case constants.TcpFwdStr:
+		TcpFwdListener := models.TcpFwdListener{}
+		err = Session().Where(&models.TcpFwdListener{
+			ListenerJobID: listenerJob.ID,
+		}).Find(&TcpFwdListener).Error
+		listenerJob.TcpFwdListener = TcpFwdListener
 	}
 
 	if err != nil {
