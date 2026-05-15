@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// TCPFwdListenerCmd - Start a TCP forwarder on the gVisor virtual network
+// TCPFwdListenerCmd - Start a TCP forwarder on the WG virtual network
 func TCPFwdListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	port, _ := cmd.Flags().GetUint32("port")
 	localAddr, _ := cmd.Flags().GetString("local")

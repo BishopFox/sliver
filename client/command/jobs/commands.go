@@ -189,7 +189,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	})
 	completers.RegisterLocalFilePathFlagCompletions(stageCmd, "cert", "key")
 
-	// TCP Forwarder (gVisor virtual network)
+	// TCP Forwarder (WG virtual network)
 	tcpFwdCmd := &cobra.Command{
 		Use:   "tcp-fwd",
 		Short: "Start a TCP forwarder on the virtual tunnel network",

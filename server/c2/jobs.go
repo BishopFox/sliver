@@ -315,7 +315,7 @@ func (ln tcpKeepAliveListener) Accept() (c net.Conn, err error) {
 	return tc, nil
 }
 
-// StartTCPFwdListenerJob - Start a TCP forwarder on the gVisor virtual network
+// StartTCPFwdListenerJob - Start a TCP forwarder on the WG virtual network
 func StartTCPFwdListenerJob(req *clientpb.TCPFwdListenerReq) (*core.Job, error) {
 	ln, err := StartWGTCPForwarder(uint16(req.Port), req.LocalAddr)
 	if err != nil {

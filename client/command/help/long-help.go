@@ -284,9 +284,9 @@ profiles new --format shellcode --mtls 1.2.3.4 --skip-symbols windows-shellcode
 `
 
 	tcpFwdHelp = `[[.Bold]]Command:[[.Normal]] tcp-fwd <options>
-[[.Bold]]About:[[.Normal]] Start a TCP forwarder on the virtual tunnel network. Forwards connections from a tunnel port to a local address. Any implant connected via WG can reach the forwarded port through the tunnel IP (e.g. 100.64.0.1).
+[[.Bold]]About:[[.Normal]] Start a TCP forwarder on the WG virtual tunnel network. Forwards connections from a tunnel port to a local address. Implants connected via WG can reach the forwarded port through the tunnel IP (e.g. 100.64.0.1).
 
-Requires a WG listener to be running first (provides the virtual tunnel network).
+Requires the WG listener to be running first.
 
 [[.Bold]]Examples:[[.Normal]]
 
