@@ -10,12 +10,12 @@ import (
 
 // TCPFwdListenerCmd - Start a TCP forwarder on the gVisor virtual network
 func TCPFwdListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
-	wgPort, _ := cmd.Flags().GetUint32("wg-port")
+	port, _ := cmd.Flags().GetUint32("port")
 	localAddr, _ := cmd.Flags().GetString("local")
 
-	con.PrintInfof("Starting TCP forwarder (gVisor:%d → %s) ...\n", wgPort, localAddr)
+	con.PrintInfof("Starting TCP forwarder (tunnel:%d → %s) ...\n", port, localAddr)
 	job, err := con.Rpc.StartTCPFwdListener(context.Background(), &clientpb.TCPFwdListenerReq{
-		WGPort:    wgPort,
+		Port:      port,
 		LocalAddr: localAddr,
 	})
 	con.Println()

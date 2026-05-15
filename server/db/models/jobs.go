@@ -91,7 +91,7 @@ type MtlsListener struct {
 type TcpFwdListener struct {
 	ID            uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	ListenerJobID uuid.UUID `gorm:"type:uuid;"`
-	WGPort        uint32
+	Port          uint32
 	LocalAddr     string
 }
 
@@ -217,7 +217,7 @@ func (j *MtlsListener) ToProtobuf() *clientpb.MTLSListenerReq {
 
 func (j *TcpFwdListener) ToProtobuf() *clientpb.TCPFwdListenerReq {
 	return &clientpb.TCPFwdListenerReq{
-		WGPort:    j.WGPort,
+		Port:      j.Port,
 		LocalAddr: j.LocalAddr,
 	}
 }
@@ -302,7 +302,7 @@ func ListenerJobFromProtobuf(pbListenerJob *clientpb.ListenerJob) *ListenerJob {
 	case constants.TcpFwdStr:
 		if pbListenerJob.TCPFwdConf != nil {
 			cfg.TcpFwdListener = TcpFwdListener{
-				WGPort:    pbListenerJob.TCPFwdConf.WGPort,
+				Port:      pbListenerJob.TCPFwdConf.Port,
 				LocalAddr: pbListenerJob.TCPFwdConf.LocalAddr,
 			}
 		}

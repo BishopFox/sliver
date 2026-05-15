@@ -200,7 +200,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		GroupID: consts.NetworkHelpGroup,
 	}
 	flags.Bind("TCP forwarder", false, tcpFwdCmd, func(f *pflag.FlagSet) {
-		f.Uint32P("wg-port", "w", 9100, "port on gVisor virtual network")
+		f.Uint32P("port", "p", 9100, "port on virtual tunnel network")
 		f.StringP("local", "L", "127.0.0.1:9100", "local address to forward to")
 	})
 

@@ -5052,7 +5052,7 @@ func (x *ListenerJob) GetTCPFwdConf() *TCPFwdListenerReq {
 
 type TCPFwdListenerReq struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	WGPort        uint32                 `protobuf:"varint,1,opt,name=WGPort,proto3" json:"WGPort,omitempty"`      // port on gVisor virtual network
+	Port          uint32                 `protobuf:"varint,1,opt,name=Port,proto3" json:"Port,omitempty"`          // port on virtual tunnel network (gVisor)
 	LocalAddr     string                 `protobuf:"bytes,2,opt,name=LocalAddr,proto3" json:"LocalAddr,omitempty"` // forward destination (e.g. "127.0.0.1:9100")
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -5088,9 +5088,9 @@ func (*TCPFwdListenerReq) Descriptor() ([]byte, []int) {
 	return file_clientpb_client_proto_rawDescGZIP(), []int{43}
 }
 
-func (x *TCPFwdListenerReq) GetWGPort() uint32 {
+func (x *TCPFwdListenerReq) GetPort() uint32 {
 	if x != nil {
-		return x.WGPort
+		return x.Port
 	}
 	return 0
 }
@@ -13355,9 +13355,9 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\n" +
 	"TCPFwdConf\x18\n" +
 	" \x01(\v2\x1b.clientpb.TCPFwdListenerReqR\n" +
-	"TCPFwdConf\"I\n" +
-	"\x11TCPFwdListenerReq\x12\x16\n" +
-	"\x06WGPort\x18\x01 \x01(\rR\x06WGPort\x12\x1c\n" +
+	"TCPFwdConf\"E\n" +
+	"\x11TCPFwdListenerReq\x12\x12\n" +
+	"\x04Port\x18\x01 \x01(\rR\x04Port\x12\x1c\n" +
 	"\tLocalAddr\x18\x02 \x01(\tR\tLocalAddr\"^\n" +
 	"\x16MultiplayerListenerReq\x12\x12\n" +
 	"\x04Host\x18\x01 \x01(\tR\x04Host\x12\x12\n" +

@@ -308,7 +308,7 @@ func PortInUse(newPort uint32) error {
 
 // StartTCPFwdListener - Start a TCP forwarder on the gVisor virtual network
 func (rpc *Server) StartTCPFwdListener(ctx context.Context, req *clientpb.TCPFwdListenerReq) (*clientpb.ListenerJob, error) {
-	if req.WGPort == 0 || req.WGPort >= 65535 {
+	if req.Port == 0 || req.Port >= 65535 {
 		return nil, ErrInvalidPort
 	}
 	if req.LocalAddr == "" {

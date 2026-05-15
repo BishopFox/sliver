@@ -455,7 +455,7 @@ message ListenerJob {
 }
 
 message TCPFwdListenerReq {
-  uint32 WGPort = 1;       // port on gVisor virtual network
+  uint32 Port = 1;         // port on virtual tunnel network (gVisor)
   string LocalAddr = 2;    // forward destination (e.g. "127.0.0.1:9100")
 }
 

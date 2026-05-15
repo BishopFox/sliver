@@ -317,7 +317,7 @@ func (ln tcpKeepAliveListener) Accept() (c net.Conn, err error) {
 
 // StartTCPFwdListenerJob - Start a TCP forwarder on the gVisor virtual network
 func StartTCPFwdListenerJob(req *clientpb.TCPFwdListenerReq) (*core.Job, error) {
-	ln, err := StartWGTCPForwarder(uint16(req.WGPort), req.LocalAddr)
+	ln, err := StartWGTCPForwarder(uint16(req.Port), req.LocalAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -325,9 +325,9 @@ func StartTCPFwdListenerJob(req *clientpb.TCPFwdListenerReq) (*core.Job, error) 
 	job := &core.Job{
 		ID:          core.NextJobID(),
 		Name:        "tcp-fwd",
-		Description: fmt.Sprintf("tcp forwarder gVisor:%d → %s", req.WGPort, req.LocalAddr),
+		Description: fmt.Sprintf("tcp forwarder %s:%d → %s", tunIP, req.Port, req.LocalAddr),
 		Protocol:    constants.TCPListenerStr,
-		Port:        uint16(req.WGPort),
+		Port:        uint16(req.Port),
 		JobCtrl:     make(chan bool),
 	}
 
