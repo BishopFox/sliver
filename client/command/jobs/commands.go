@@ -189,5 +189,20 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	})
 	completers.RegisterLocalFilePathFlagCompletions(stageCmd, "cert", "key")
 
-	return []*cobra.Command{jobsCmd, mtlsCmd, wgCmd, dnsCmd, httpCmd, httpsCmd, stageCmd}
+	// TCP Forwarder (gVisor virtual network)
+	tcpFwdCmd := &cobra.Command{
+		Use:   "tcp-fwd",
+		Short: "Start a TCP forwarder on the WG virtual network",
+		Long:  "Forward TCP connections from a gVisor virtual network port to a local address.\nRequires WG listener to be running.",
+		Run: func(cmd *cobra.Command, args []string) {
+			TCPFwdListenerCmd(cmd, con, args)
+		},
+		GroupID: consts.NetworkHelpGroup,
+	}
+	flags.Bind("TCP forwarder", false, tcpFwdCmd, func(f *pflag.FlagSet) {
+		f.Uint32P("wg-port", "w", 9100, "port on gVisor virtual network")
+		f.StringP("local", "L", "127.0.0.1:9100", "local address to forward to")
+	})
+
+	return []*cobra.Command{jobsCmd, mtlsCmd, wgCmd, dnsCmd, httpCmd, httpsCmd, stageCmd, tcpFwdCmd}
 }

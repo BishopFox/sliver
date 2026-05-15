@@ -38,6 +38,7 @@ type ListenerJob struct {
 	DnsListener         DNSListener
 	WgListener          WGListener
 	MultiplayerListener MultiplayerListener
+	TcpFwdListener      TcpFwdListener
 }
 
 type HTTPListener struct {
@@ -85,6 +86,13 @@ type MtlsListener struct {
 	ListenerJobID uuid.UUID `gorm:"type:uuid;"`
 	Host          string
 	Port          uint32
+}
+
+type TcpFwdListener struct {
+	ID            uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ListenerJobID uuid.UUID `gorm:"type:uuid;"`
+	WGPort        uint32
+	LocalAddr     string
 }
 
 type MultiplayerListener struct {
@@ -146,14 +154,15 @@ func (j *MtlsListener) BeforeCreate(tx *gorm.DB) (err error) {
 // To Protobuf
 func (j *ListenerJob) ToProtobuf() *clientpb.ListenerJob {
 	return &clientpb.ListenerJob{
-		ID:        j.ID.String(),
-		Type:      j.Type,
-		JobID:     j.JobID,
-		HTTPConf:  j.HttpListener.ToProtobuf(),
-		MTLSConf:  j.MtlsListener.ToProtobuf(),
-		DNSConf:   j.DnsListener.ToProtobuf(),
-		WGConf:    j.WgListener.ToProtobuf(),
-		MultiConf: j.MultiplayerListener.ToProtobuf(),
+		ID:         j.ID.String(),
+		Type:       j.Type,
+		JobID:      j.JobID,
+		HTTPConf:   j.HttpListener.ToProtobuf(),
+		MTLSConf:   j.MtlsListener.ToProtobuf(),
+		DNSConf:    j.DnsListener.ToProtobuf(),
+		WGConf:     j.WgListener.ToProtobuf(),
+		MultiConf:  j.MultiplayerListener.ToProtobuf(),
+		TCPFwdConf: j.TcpFwdListener.ToProtobuf(),
 	}
 }
 
@@ -203,6 +212,13 @@ func (j *MtlsListener) ToProtobuf() *clientpb.MTLSListenerReq {
 	return &clientpb.MTLSListenerReq{
 		Host: j.Host,
 		Port: j.Port,
+	}
+}
+
+func (j *TcpFwdListener) ToProtobuf() *clientpb.TCPFwdListenerReq {
+	return &clientpb.TCPFwdListenerReq{
+		WGPort:    j.WGPort,
+		LocalAddr: j.LocalAddr,
 	}
 }
 
@@ -282,6 +298,13 @@ func ListenerJobFromProtobuf(pbListenerJob *clientpb.ListenerJob) *ListenerJob {
 			Host:      pbListenerJob.MultiConf.Host,
 			Port:      pbListenerJob.MultiConf.Port,
 			WireGuard: pbListenerJob.MultiConf.WireGuard,
+		}
+	case constants.TcpFwdStr:
+		if pbListenerJob.TCPFwdConf != nil {
+			cfg.TcpFwdListener = TcpFwdListener{
+				WGPort:    pbListenerJob.TCPFwdConf.WGPort,
+				LocalAddr: pbListenerJob.TCPFwdConf.LocalAddr,
+			}
 		}
 	}
 

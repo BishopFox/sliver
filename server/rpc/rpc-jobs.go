@@ -305,3 +305,30 @@ func PortInUse(newPort uint32) error {
 	}
 	return nil
 }
+
+// StartTCPFwdListener - Start a TCP forwarder on the gVisor virtual network
+func (rpc *Server) StartTCPFwdListener(ctx context.Context, req *clientpb.TCPFwdListenerReq) (*clientpb.ListenerJob, error) {
+	if req.WGPort == 0 || req.WGPort >= 65535 {
+		return nil, ErrInvalidPort
+	}
+	if req.LocalAddr == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing local address")
+	}
+
+	job, err := c2.StartTCPFwdListenerJob(req)
+	if err != nil {
+		return nil, rpcError(err)
+	}
+
+	listenerJob := &clientpb.ListenerJob{
+		JobID:      uint32(job.ID),
+		Type:       "tcp-fwd",
+		TCPFwdConf: req,
+	}
+	err = db.SaveC2Listener(listenerJob)
+	if err != nil {
+		return nil, rpcError(err)
+	}
+
+	return &clientpb.ListenerJob{JobID: uint32(job.ID)}, nil
+}

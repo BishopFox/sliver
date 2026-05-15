@@ -179,11 +179,6 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 	wgLog.Printf("Successfully setup up wg sliver listener")
 	go acceptWGSliverConnections(listener)
 
-	// Start sniffer collector forwarder: gVisor:9100 → localhost:9100
-	if _, err := StartWGTCPForwarder(9100, "127.0.0.1:9100"); err != nil {
-		wgLog.Warnf("Sniffer collector forwarder failed (non-fatal): %v", err)
-	}
-
 	return listener, dev, wgConf, nil
 }
 
@@ -507,10 +502,7 @@ func StartWGTCPForwarder(wgPort uint16, localAddr string) (net.Listener, error) 
 		return nil, errors.New("WG virtual network not initialized")
 	}
 
-	tunIPAddr, err := netip.ParseAddr(tunIP)
-	if err != nil {
-		return nil, fmt.Errorf("parse tunIP: %w", err)
-	}
+	tunIPAddr := netip.MustParseAddr(tunIP)
 
 	if err := wgVirtualNet.AllowTCPPort(tunIPAddr, wgPort); err != nil {
 		return nil, fmt.Errorf("AllowTCPPort %d: %w", wgPort, err)
@@ -526,13 +518,38 @@ func StartWGTCPForwarder(wgPort uint16, localAddr string) (net.Listener, error) 
 
 	wgLog.Infof("TCP forwarder: %s:%d → %s", tunIP, wgPort, localAddr)
 
+	// Semaphore to cap concurrent forwards (same pattern as yamux stream handling)
+	const maxConcurrentForwards = 32
+	fwdSem := make(chan struct{}, maxConcurrentForwards)
+
 	go func() {
+		defer recoverAndLogPanic(wgLog.Errorf, "tcp forwarder accept loop")
+
 		for {
 			wgConn, err := ln.Accept()
 			if err != nil {
-				return // listener closed
+				if errType, ok := err.(*net.OpError); ok && errType.Op == "accept" {
+					break // listener closed by job kill
+				}
+				wgLog.Errorf("TCP forwarder accept failed: %v", err)
+				continue
 			}
-			go forwardTCP(wgConn, localAddr)
+
+			select {
+			case fwdSem <- struct{}{}:
+			default:
+				wgLog.Warnf("TCP forwarder: max concurrent connections (%d), dropping", maxConcurrentForwards)
+				wgConn.Close()
+				continue
+			}
+
+			wgLog.Debugf("TCP forwarder: accepted connection from %s", wgConn.RemoteAddr())
+
+			go func(conn net.Conn) {
+				defer recoverAndLogPanic(wgLog.Errorf, "tcp forwarder connection")
+				defer func() { <-fwdSem }()
+				forwardTCP(conn, localAddr)
+			}(wgConn)
 		}
 	}()
 
@@ -548,6 +565,12 @@ func forwardTCP(src net.Conn, dstAddr string) {
 		return
 	}
 	defer dst.Close()
+
+	// TCP keepalive to clean up stale connections (project convention)
+	if tc, ok := dst.(*net.TCPConn); ok {
+		tc.SetKeepAlive(true)
+		tc.SetKeepAlivePeriod(3 * time.Minute)
+	}
 
 	done := make(chan struct{})
 	go func() { io.Copy(dst, src); close(done) }()

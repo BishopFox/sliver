@@ -451,6 +451,12 @@ message ListenerJob {
   HTTPListenerReq HTTPConf = 7;
   MultiplayerListenerReq MultiConf = 8;
   StagerListenerReq TCPConf = 9;
+  TCPFwdListenerReq TCPFwdConf = 10;
+}
+
+message TCPFwdListenerReq {
+  uint32 WGPort = 1;       // port on gVisor virtual network
+  string LocalAddr = 2;    // forward destination (e.g. "127.0.0.1:9100")
 }
 
 message MultiplayerListenerReq {

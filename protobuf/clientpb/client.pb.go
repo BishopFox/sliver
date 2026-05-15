@@ -4945,6 +4945,7 @@ type ListenerJob struct {
 	HTTPConf      *HTTPListenerReq        `protobuf:"bytes,7,opt,name=HTTPConf,proto3" json:"HTTPConf,omitempty"`
 	MultiConf     *MultiplayerListenerReq `protobuf:"bytes,8,opt,name=MultiConf,proto3" json:"MultiConf,omitempty"`
 	TCPConf       *StagerListenerReq      `protobuf:"bytes,9,opt,name=TCPConf,proto3" json:"TCPConf,omitempty"`
+	TCPFwdConf    *TCPFwdListenerReq      `protobuf:"bytes,10,opt,name=TCPFwdConf,proto3" json:"TCPFwdConf,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5042,6 +5043,65 @@ func (x *ListenerJob) GetTCPConf() *StagerListenerReq {
 	return nil
 }
 
+func (x *ListenerJob) GetTCPFwdConf() *TCPFwdListenerReq {
+	if x != nil {
+		return x.TCPFwdConf
+	}
+	return nil
+}
+
+type TCPFwdListenerReq struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	WGPort        uint32                 `protobuf:"varint,1,opt,name=WGPort,proto3" json:"WGPort,omitempty"`      // port on gVisor virtual network
+	LocalAddr     string                 `protobuf:"bytes,2,opt,name=LocalAddr,proto3" json:"LocalAddr,omitempty"` // forward destination (e.g. "127.0.0.1:9100")
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TCPFwdListenerReq) Reset() {
+	*x = TCPFwdListenerReq{}
+	mi := &file_clientpb_client_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TCPFwdListenerReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TCPFwdListenerReq) ProtoMessage() {}
+
+func (x *TCPFwdListenerReq) ProtoReflect() protoreflect.Message {
+	mi := &file_clientpb_client_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TCPFwdListenerReq.ProtoReflect.Descriptor instead.
+func (*TCPFwdListenerReq) Descriptor() ([]byte, []int) {
+	return file_clientpb_client_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *TCPFwdListenerReq) GetWGPort() uint32 {
+	if x != nil {
+		return x.WGPort
+	}
+	return 0
+}
+
+func (x *TCPFwdListenerReq) GetLocalAddr() string {
+	if x != nil {
+		return x.LocalAddr
+	}
+	return ""
+}
+
 type MultiplayerListenerReq struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Host          string                 `protobuf:"bytes,1,opt,name=Host,proto3" json:"Host,omitempty"`
@@ -5053,7 +5113,7 @@ type MultiplayerListenerReq struct {
 
 func (x *MultiplayerListenerReq) Reset() {
 	*x = MultiplayerListenerReq{}
-	mi := &file_clientpb_client_proto_msgTypes[43]
+	mi := &file_clientpb_client_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5065,7 +5125,7 @@ func (x *MultiplayerListenerReq) String() string {
 func (*MultiplayerListenerReq) ProtoMessage() {}
 
 func (x *MultiplayerListenerReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[43]
+	mi := &file_clientpb_client_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5078,7 +5138,7 @@ func (x *MultiplayerListenerReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MultiplayerListenerReq.ProtoReflect.Descriptor instead.
 func (*MultiplayerListenerReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{43}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *MultiplayerListenerReq) GetHost() string {
@@ -5112,7 +5172,7 @@ type MTLSListenerReq struct {
 
 func (x *MTLSListenerReq) Reset() {
 	*x = MTLSListenerReq{}
-	mi := &file_clientpb_client_proto_msgTypes[44]
+	mi := &file_clientpb_client_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5124,7 +5184,7 @@ func (x *MTLSListenerReq) String() string {
 func (*MTLSListenerReq) ProtoMessage() {}
 
 func (x *MTLSListenerReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[44]
+	mi := &file_clientpb_client_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5137,7 +5197,7 @@ func (x *MTLSListenerReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MTLSListenerReq.ProtoReflect.Descriptor instead.
 func (*MTLSListenerReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{44}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *MTLSListenerReq) GetHost() string {
@@ -5167,7 +5227,7 @@ type WGListenerReq struct {
 
 func (x *WGListenerReq) Reset() {
 	*x = WGListenerReq{}
-	mi := &file_clientpb_client_proto_msgTypes[45]
+	mi := &file_clientpb_client_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5179,7 +5239,7 @@ func (x *WGListenerReq) String() string {
 func (*WGListenerReq) ProtoMessage() {}
 
 func (x *WGListenerReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[45]
+	mi := &file_clientpb_client_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5192,7 +5252,7 @@ func (x *WGListenerReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WGListenerReq.ProtoReflect.Descriptor instead.
 func (*WGListenerReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{45}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *WGListenerReq) GetHost() string {
@@ -5243,7 +5303,7 @@ type DNSListenerReq struct {
 
 func (x *DNSListenerReq) Reset() {
 	*x = DNSListenerReq{}
-	mi := &file_clientpb_client_proto_msgTypes[46]
+	mi := &file_clientpb_client_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5255,7 +5315,7 @@ func (x *DNSListenerReq) String() string {
 func (*DNSListenerReq) ProtoMessage() {}
 
 func (x *DNSListenerReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[46]
+	mi := &file_clientpb_client_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5268,7 +5328,7 @@ func (x *DNSListenerReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DNSListenerReq.ProtoReflect.Descriptor instead.
 func (*DNSListenerReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{46}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *DNSListenerReq) GetDomains() []string {
@@ -5326,7 +5386,7 @@ type HTTPListenerReq struct {
 
 func (x *HTTPListenerReq) Reset() {
 	*x = HTTPListenerReq{}
-	mi := &file_clientpb_client_proto_msgTypes[47]
+	mi := &file_clientpb_client_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5338,7 +5398,7 @@ func (x *HTTPListenerReq) String() string {
 func (*HTTPListenerReq) ProtoMessage() {}
 
 func (x *HTTPListenerReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[47]
+	mi := &file_clientpb_client_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5351,7 +5411,7 @@ func (x *HTTPListenerReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPListenerReq.ProtoReflect.Descriptor instead.
 func (*HTTPListenerReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{47}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *HTTPListenerReq) GetDomain() string {
@@ -5449,7 +5509,7 @@ type NamedPipesReq struct {
 
 func (x *NamedPipesReq) Reset() {
 	*x = NamedPipesReq{}
-	mi := &file_clientpb_client_proto_msgTypes[48]
+	mi := &file_clientpb_client_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5461,7 +5521,7 @@ func (x *NamedPipesReq) String() string {
 func (*NamedPipesReq) ProtoMessage() {}
 
 func (x *NamedPipesReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[48]
+	mi := &file_clientpb_client_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5474,7 +5534,7 @@ func (x *NamedPipesReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NamedPipesReq.ProtoReflect.Descriptor instead.
 func (*NamedPipesReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{48}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *NamedPipesReq) GetPipeName() string {
@@ -5502,7 +5562,7 @@ type NamedPipes struct {
 
 func (x *NamedPipes) Reset() {
 	*x = NamedPipes{}
-	mi := &file_clientpb_client_proto_msgTypes[49]
+	mi := &file_clientpb_client_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5514,7 +5574,7 @@ func (x *NamedPipes) String() string {
 func (*NamedPipes) ProtoMessage() {}
 
 func (x *NamedPipes) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[49]
+	mi := &file_clientpb_client_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5527,7 +5587,7 @@ func (x *NamedPipes) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NamedPipes.ProtoReflect.Descriptor instead.
 func (*NamedPipes) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{49}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *NamedPipes) GetSuccess() bool {
@@ -5562,7 +5622,7 @@ type TCPPivotReq struct {
 
 func (x *TCPPivotReq) Reset() {
 	*x = TCPPivotReq{}
-	mi := &file_clientpb_client_proto_msgTypes[50]
+	mi := &file_clientpb_client_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5574,7 +5634,7 @@ func (x *TCPPivotReq) String() string {
 func (*TCPPivotReq) ProtoMessage() {}
 
 func (x *TCPPivotReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[50]
+	mi := &file_clientpb_client_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5587,7 +5647,7 @@ func (x *TCPPivotReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TCPPivotReq.ProtoReflect.Descriptor instead.
 func (*TCPPivotReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{50}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *TCPPivotReq) GetAddress() string {
@@ -5615,7 +5675,7 @@ type TCPPivot struct {
 
 func (x *TCPPivot) Reset() {
 	*x = TCPPivot{}
-	mi := &file_clientpb_client_proto_msgTypes[51]
+	mi := &file_clientpb_client_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5627,7 +5687,7 @@ func (x *TCPPivot) String() string {
 func (*TCPPivot) ProtoMessage() {}
 
 func (x *TCPPivot) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[51]
+	mi := &file_clientpb_client_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5640,7 +5700,7 @@ func (x *TCPPivot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TCPPivot.ProtoReflect.Descriptor instead.
 func (*TCPPivot) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{51}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *TCPPivot) GetSuccess() bool {
@@ -5674,7 +5734,7 @@ type Sessions struct {
 
 func (x *Sessions) Reset() {
 	*x = Sessions{}
-	mi := &file_clientpb_client_proto_msgTypes[52]
+	mi := &file_clientpb_client_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5686,7 +5746,7 @@ func (x *Sessions) String() string {
 func (*Sessions) ProtoMessage() {}
 
 func (x *Sessions) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[52]
+	mi := &file_clientpb_client_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5699,7 +5759,7 @@ func (x *Sessions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Sessions.ProtoReflect.Descriptor instead.
 func (*Sessions) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{52}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *Sessions) GetSessions() []*Session {
@@ -5720,7 +5780,7 @@ type RenameReq struct {
 
 func (x *RenameReq) Reset() {
 	*x = RenameReq{}
-	mi := &file_clientpb_client_proto_msgTypes[53]
+	mi := &file_clientpb_client_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5732,7 +5792,7 @@ func (x *RenameReq) String() string {
 func (*RenameReq) ProtoMessage() {}
 
 func (x *RenameReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[53]
+	mi := &file_clientpb_client_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5745,7 +5805,7 @@ func (x *RenameReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenameReq.ProtoReflect.Descriptor instead.
 func (*RenameReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{53}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *RenameReq) GetSessionID() string {
@@ -5779,7 +5839,7 @@ type GenerateReq struct {
 
 func (x *GenerateReq) Reset() {
 	*x = GenerateReq{}
-	mi := &file_clientpb_client_proto_msgTypes[54]
+	mi := &file_clientpb_client_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5791,7 +5851,7 @@ func (x *GenerateReq) String() string {
 func (*GenerateReq) ProtoMessage() {}
 
 func (x *GenerateReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[54]
+	mi := &file_clientpb_client_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5804,7 +5864,7 @@ func (x *GenerateReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateReq.ProtoReflect.Descriptor instead.
 func (*GenerateReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{54}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *GenerateReq) GetConfig() *ImplantConfig {
@@ -5837,7 +5897,7 @@ type GenerateStageReq struct {
 
 func (x *GenerateStageReq) Reset() {
 	*x = GenerateStageReq{}
-	mi := &file_clientpb_client_proto_msgTypes[55]
+	mi := &file_clientpb_client_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5849,7 +5909,7 @@ func (x *GenerateStageReq) String() string {
 func (*GenerateStageReq) ProtoMessage() {}
 
 func (x *GenerateStageReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[55]
+	mi := &file_clientpb_client_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5862,7 +5922,7 @@ func (x *GenerateStageReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateStageReq.ProtoReflect.Descriptor instead.
 func (*GenerateStageReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{55}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *GenerateStageReq) GetProfile() string {
@@ -5932,7 +5992,7 @@ type Generate struct {
 
 func (x *Generate) Reset() {
 	*x = Generate{}
-	mi := &file_clientpb_client_proto_msgTypes[56]
+	mi := &file_clientpb_client_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5944,7 +6004,7 @@ func (x *Generate) String() string {
 func (*Generate) ProtoMessage() {}
 
 func (x *Generate) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[56]
+	mi := &file_clientpb_client_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5957,7 +6017,7 @@ func (x *Generate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Generate.ProtoReflect.Descriptor instead.
 func (*Generate) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{56}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *Generate) GetFile() *commonpb.File {
@@ -5993,7 +6053,7 @@ type GenerateSpoofMetadataReq struct {
 
 func (x *GenerateSpoofMetadataReq) Reset() {
 	*x = GenerateSpoofMetadataReq{}
-	mi := &file_clientpb_client_proto_msgTypes[57]
+	mi := &file_clientpb_client_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6005,7 +6065,7 @@ func (x *GenerateSpoofMetadataReq) String() string {
 func (*GenerateSpoofMetadataReq) ProtoMessage() {}
 
 func (x *GenerateSpoofMetadataReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[57]
+	mi := &file_clientpb_client_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6018,7 +6078,7 @@ func (x *GenerateSpoofMetadataReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateSpoofMetadataReq.ProtoReflect.Descriptor instead.
 func (*GenerateSpoofMetadataReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{57}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *GenerateSpoofMetadataReq) GetImplantBuildID() string {
@@ -6063,7 +6123,7 @@ type MSFReq struct {
 
 func (x *MSFReq) Reset() {
 	*x = MSFReq{}
-	mi := &file_clientpb_client_proto_msgTypes[58]
+	mi := &file_clientpb_client_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6075,7 +6135,7 @@ func (x *MSFReq) String() string {
 func (*MSFReq) ProtoMessage() {}
 
 func (x *MSFReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[58]
+	mi := &file_clientpb_client_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6088,7 +6148,7 @@ func (x *MSFReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MSFReq.ProtoReflect.Descriptor instead.
 func (*MSFReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{58}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *MSFReq) GetPayload() string {
@@ -6148,7 +6208,7 @@ type MSFRemoteReq struct {
 
 func (x *MSFRemoteReq) Reset() {
 	*x = MSFRemoteReq{}
-	mi := &file_clientpb_client_proto_msgTypes[59]
+	mi := &file_clientpb_client_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6160,7 +6220,7 @@ func (x *MSFRemoteReq) String() string {
 func (*MSFRemoteReq) ProtoMessage() {}
 
 func (x *MSFRemoteReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[59]
+	mi := &file_clientpb_client_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6173,7 +6233,7 @@ func (x *MSFRemoteReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MSFRemoteReq.ProtoReflect.Descriptor instead.
 func (*MSFRemoteReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{59}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *MSFRemoteReq) GetPayload() string {
@@ -6238,7 +6298,7 @@ type StagerListenerReq struct {
 
 func (x *StagerListenerReq) Reset() {
 	*x = StagerListenerReq{}
-	mi := &file_clientpb_client_proto_msgTypes[60]
+	mi := &file_clientpb_client_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6250,7 +6310,7 @@ func (x *StagerListenerReq) String() string {
 func (*StagerListenerReq) ProtoMessage() {}
 
 func (x *StagerListenerReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[60]
+	mi := &file_clientpb_client_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6263,7 +6323,7 @@ func (x *StagerListenerReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StagerListenerReq.ProtoReflect.Descriptor instead.
 func (*StagerListenerReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{60}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *StagerListenerReq) GetProtocol() StageProtocol {
@@ -6310,7 +6370,7 @@ type StagerListener struct {
 
 func (x *StagerListener) Reset() {
 	*x = StagerListener{}
-	mi := &file_clientpb_client_proto_msgTypes[61]
+	mi := &file_clientpb_client_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6322,7 +6382,7 @@ func (x *StagerListener) String() string {
 func (*StagerListener) ProtoMessage() {}
 
 func (x *StagerListener) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[61]
+	mi := &file_clientpb_client_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6335,7 +6395,7 @@ func (x *StagerListener) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StagerListener.ProtoReflect.Descriptor instead.
 func (*StagerListener) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{61}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *StagerListener) GetJobID() uint32 {
@@ -6356,7 +6416,7 @@ type ShellcodeRDIReq struct {
 
 func (x *ShellcodeRDIReq) Reset() {
 	*x = ShellcodeRDIReq{}
-	mi := &file_clientpb_client_proto_msgTypes[62]
+	mi := &file_clientpb_client_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6368,7 +6428,7 @@ func (x *ShellcodeRDIReq) String() string {
 func (*ShellcodeRDIReq) ProtoMessage() {}
 
 func (x *ShellcodeRDIReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[62]
+	mi := &file_clientpb_client_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6381,7 +6441,7 @@ func (x *ShellcodeRDIReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShellcodeRDIReq.ProtoReflect.Descriptor instead.
 func (*ShellcodeRDIReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{62}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *ShellcodeRDIReq) GetData() []byte {
@@ -6414,7 +6474,7 @@ type ShellcodeRDI struct {
 
 func (x *ShellcodeRDI) Reset() {
 	*x = ShellcodeRDI{}
-	mi := &file_clientpb_client_proto_msgTypes[63]
+	mi := &file_clientpb_client_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6426,7 +6486,7 @@ func (x *ShellcodeRDI) String() string {
 func (*ShellcodeRDI) ProtoMessage() {}
 
 func (x *ShellcodeRDI) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[63]
+	mi := &file_clientpb_client_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6439,7 +6499,7 @@ func (x *ShellcodeRDI) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShellcodeRDI.ProtoReflect.Descriptor instead.
 func (*ShellcodeRDI) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{63}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *ShellcodeRDI) GetData() []byte {
@@ -6464,7 +6524,7 @@ type GetSystemReq struct {
 
 func (x *GetSystemReq) Reset() {
 	*x = GetSystemReq{}
-	mi := &file_clientpb_client_proto_msgTypes[64]
+	mi := &file_clientpb_client_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6476,7 +6536,7 @@ func (x *GetSystemReq) String() string {
 func (*GetSystemReq) ProtoMessage() {}
 
 func (x *GetSystemReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[64]
+	mi := &file_clientpb_client_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6489,7 +6549,7 @@ func (x *GetSystemReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSystemReq.ProtoReflect.Descriptor instead.
 func (*GetSystemReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{64}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *GetSystemReq) GetHostingProcess() string {
@@ -6537,7 +6597,7 @@ type MigrateReq struct {
 
 func (x *MigrateReq) Reset() {
 	*x = MigrateReq{}
-	mi := &file_clientpb_client_proto_msgTypes[65]
+	mi := &file_clientpb_client_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6549,7 +6609,7 @@ func (x *MigrateReq) String() string {
 func (*MigrateReq) ProtoMessage() {}
 
 func (x *MigrateReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[65]
+	mi := &file_clientpb_client_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6562,7 +6622,7 @@ func (x *MigrateReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MigrateReq.ProtoReflect.Descriptor instead.
 func (*MigrateReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{65}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *MigrateReq) GetPid() uint32 {
@@ -6617,7 +6677,7 @@ type CreateTunnelReq struct {
 
 func (x *CreateTunnelReq) Reset() {
 	*x = CreateTunnelReq{}
-	mi := &file_clientpb_client_proto_msgTypes[66]
+	mi := &file_clientpb_client_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6629,7 +6689,7 @@ func (x *CreateTunnelReq) String() string {
 func (*CreateTunnelReq) ProtoMessage() {}
 
 func (x *CreateTunnelReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[66]
+	mi := &file_clientpb_client_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6642,7 +6702,7 @@ func (x *CreateTunnelReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTunnelReq.ProtoReflect.Descriptor instead.
 func (*CreateTunnelReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{66}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *CreateTunnelReq) GetRequest() *commonpb.Request {
@@ -6662,7 +6722,7 @@ type CreateTunnel struct {
 
 func (x *CreateTunnel) Reset() {
 	*x = CreateTunnel{}
-	mi := &file_clientpb_client_proto_msgTypes[67]
+	mi := &file_clientpb_client_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6674,7 +6734,7 @@ func (x *CreateTunnel) String() string {
 func (*CreateTunnel) ProtoMessage() {}
 
 func (x *CreateTunnel) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[67]
+	mi := &file_clientpb_client_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6687,7 +6747,7 @@ func (x *CreateTunnel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTunnel.ProtoReflect.Descriptor instead.
 func (*CreateTunnel) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{67}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *CreateTunnel) GetSessionID() uint32 {
@@ -6714,7 +6774,7 @@ type CloseTunnelReq struct {
 
 func (x *CloseTunnelReq) Reset() {
 	*x = CloseTunnelReq{}
-	mi := &file_clientpb_client_proto_msgTypes[68]
+	mi := &file_clientpb_client_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6726,7 +6786,7 @@ func (x *CloseTunnelReq) String() string {
 func (*CloseTunnelReq) ProtoMessage() {}
 
 func (x *CloseTunnelReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[68]
+	mi := &file_clientpb_client_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6739,7 +6799,7 @@ func (x *CloseTunnelReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CloseTunnelReq.ProtoReflect.Descriptor instead.
 func (*CloseTunnelReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{68}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *CloseTunnelReq) GetTunnelID() uint64 {
@@ -6769,7 +6829,7 @@ type PivotGraphEntry struct {
 
 func (x *PivotGraphEntry) Reset() {
 	*x = PivotGraphEntry{}
-	mi := &file_clientpb_client_proto_msgTypes[69]
+	mi := &file_clientpb_client_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6781,7 +6841,7 @@ func (x *PivotGraphEntry) String() string {
 func (*PivotGraphEntry) ProtoMessage() {}
 
 func (x *PivotGraphEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[69]
+	mi := &file_clientpb_client_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6794,7 +6854,7 @@ func (x *PivotGraphEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PivotGraphEntry.ProtoReflect.Descriptor instead.
 func (*PivotGraphEntry) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{69}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *PivotGraphEntry) GetPeerID() int64 {
@@ -6834,7 +6894,7 @@ type PivotGraph struct {
 
 func (x *PivotGraph) Reset() {
 	*x = PivotGraph{}
-	mi := &file_clientpb_client_proto_msgTypes[70]
+	mi := &file_clientpb_client_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6846,7 +6906,7 @@ func (x *PivotGraph) String() string {
 func (*PivotGraph) ProtoMessage() {}
 
 func (x *PivotGraph) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[70]
+	mi := &file_clientpb_client_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6859,7 +6919,7 @@ func (x *PivotGraph) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PivotGraph.ProtoReflect.Descriptor instead.
 func (*PivotGraph) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{70}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *PivotGraph) GetChildren() []*PivotGraphEntry {
@@ -6881,7 +6941,7 @@ type Client struct {
 
 func (x *Client) Reset() {
 	*x = Client{}
-	mi := &file_clientpb_client_proto_msgTypes[71]
+	mi := &file_clientpb_client_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6893,7 +6953,7 @@ func (x *Client) String() string {
 func (*Client) ProtoMessage() {}
 
 func (x *Client) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[71]
+	mi := &file_clientpb_client_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6906,7 +6966,7 @@ func (x *Client) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Client.ProtoReflect.Descriptor instead.
 func (*Client) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{71}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *Client) GetID() uint32 {
@@ -6944,7 +7004,7 @@ type Event struct {
 
 func (x *Event) Reset() {
 	*x = Event{}
-	mi := &file_clientpb_client_proto_msgTypes[72]
+	mi := &file_clientpb_client_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6956,7 +7016,7 @@ func (x *Event) String() string {
 func (*Event) ProtoMessage() {}
 
 func (x *Event) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[72]
+	mi := &file_clientpb_client_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6969,7 +7029,7 @@ func (x *Event) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Event.ProtoReflect.Descriptor instead.
 func (*Event) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{72}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *Event) GetEventType() string {
@@ -7023,7 +7083,7 @@ type Operators struct {
 
 func (x *Operators) Reset() {
 	*x = Operators{}
-	mi := &file_clientpb_client_proto_msgTypes[73]
+	mi := &file_clientpb_client_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7035,7 +7095,7 @@ func (x *Operators) String() string {
 func (*Operators) ProtoMessage() {}
 
 func (x *Operators) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[73]
+	mi := &file_clientpb_client_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7048,7 +7108,7 @@ func (x *Operators) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Operators.ProtoReflect.Descriptor instead.
 func (*Operators) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{73}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *Operators) GetOperators() []*Operator {
@@ -7068,7 +7128,7 @@ type Operator struct {
 
 func (x *Operator) Reset() {
 	*x = Operator{}
-	mi := &file_clientpb_client_proto_msgTypes[74]
+	mi := &file_clientpb_client_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7080,7 +7140,7 @@ func (x *Operator) String() string {
 func (*Operator) ProtoMessage() {}
 
 func (x *Operator) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[74]
+	mi := &file_clientpb_client_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7093,7 +7153,7 @@ func (x *Operator) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Operator.ProtoReflect.Descriptor instead.
 func (*Operator) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{74}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *Operator) GetOnline() bool {
@@ -7127,7 +7187,7 @@ type WebContent struct {
 
 func (x *WebContent) Reset() {
 	*x = WebContent{}
-	mi := &file_clientpb_client_proto_msgTypes[75]
+	mi := &file_clientpb_client_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7139,7 +7199,7 @@ func (x *WebContent) String() string {
 func (*WebContent) ProtoMessage() {}
 
 func (x *WebContent) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[75]
+	mi := &file_clientpb_client_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7152,7 +7212,7 @@ func (x *WebContent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebContent.ProtoReflect.Descriptor instead.
 func (*WebContent) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{75}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *WebContent) GetID() string {
@@ -7221,7 +7281,7 @@ type WebsiteAddContent struct {
 
 func (x *WebsiteAddContent) Reset() {
 	*x = WebsiteAddContent{}
-	mi := &file_clientpb_client_proto_msgTypes[76]
+	mi := &file_clientpb_client_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7233,7 +7293,7 @@ func (x *WebsiteAddContent) String() string {
 func (*WebsiteAddContent) ProtoMessage() {}
 
 func (x *WebsiteAddContent) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[76]
+	mi := &file_clientpb_client_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7246,7 +7306,7 @@ func (x *WebsiteAddContent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebsiteAddContent.ProtoReflect.Descriptor instead.
 func (*WebsiteAddContent) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{76}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *WebsiteAddContent) GetName() string {
@@ -7273,7 +7333,7 @@ type WebsiteRemoveContent struct {
 
 func (x *WebsiteRemoveContent) Reset() {
 	*x = WebsiteRemoveContent{}
-	mi := &file_clientpb_client_proto_msgTypes[77]
+	mi := &file_clientpb_client_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7285,7 +7345,7 @@ func (x *WebsiteRemoveContent) String() string {
 func (*WebsiteRemoveContent) ProtoMessage() {}
 
 func (x *WebsiteRemoveContent) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[77]
+	mi := &file_clientpb_client_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7298,7 +7358,7 @@ func (x *WebsiteRemoveContent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebsiteRemoveContent.ProtoReflect.Descriptor instead.
 func (*WebsiteRemoveContent) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{77}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *WebsiteRemoveContent) GetName() string {
@@ -7326,7 +7386,7 @@ type Website struct {
 
 func (x *Website) Reset() {
 	*x = Website{}
-	mi := &file_clientpb_client_proto_msgTypes[78]
+	mi := &file_clientpb_client_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7338,7 +7398,7 @@ func (x *Website) String() string {
 func (*Website) ProtoMessage() {}
 
 func (x *Website) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[78]
+	mi := &file_clientpb_client_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7351,7 +7411,7 @@ func (x *Website) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Website.ProtoReflect.Descriptor instead.
 func (*Website) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{78}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *Website) GetID() string {
@@ -7384,7 +7444,7 @@ type Websites struct {
 
 func (x *Websites) Reset() {
 	*x = Websites{}
-	mi := &file_clientpb_client_proto_msgTypes[79]
+	mi := &file_clientpb_client_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7396,7 +7456,7 @@ func (x *Websites) String() string {
 func (*Websites) ProtoMessage() {}
 
 func (x *Websites) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[79]
+	mi := &file_clientpb_client_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7409,7 +7469,7 @@ func (x *Websites) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Websites.ProtoReflect.Descriptor instead.
 func (*Websites) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{79}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *Websites) GetWebsites() []*Website {
@@ -7431,7 +7491,7 @@ type WGClientConfig struct {
 
 func (x *WGClientConfig) Reset() {
 	*x = WGClientConfig{}
-	mi := &file_clientpb_client_proto_msgTypes[80]
+	mi := &file_clientpb_client_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7443,7 +7503,7 @@ func (x *WGClientConfig) String() string {
 func (*WGClientConfig) ProtoMessage() {}
 
 func (x *WGClientConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[80]
+	mi := &file_clientpb_client_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7456,7 +7516,7 @@ func (x *WGClientConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WGClientConfig.ProtoReflect.Descriptor instead.
 func (*WGClientConfig) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{80}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *WGClientConfig) GetServerPubKey() string {
@@ -7501,7 +7561,7 @@ type Loot struct {
 
 func (x *Loot) Reset() {
 	*x = Loot{}
-	mi := &file_clientpb_client_proto_msgTypes[81]
+	mi := &file_clientpb_client_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7513,7 +7573,7 @@ func (x *Loot) String() string {
 func (*Loot) ProtoMessage() {}
 
 func (x *Loot) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[81]
+	mi := &file_clientpb_client_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7526,7 +7586,7 @@ func (x *Loot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Loot.ProtoReflect.Descriptor instead.
 func (*Loot) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{81}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *Loot) GetID() string {
@@ -7580,7 +7640,7 @@ type AllLoot struct {
 
 func (x *AllLoot) Reset() {
 	*x = AllLoot{}
-	mi := &file_clientpb_client_proto_msgTypes[82]
+	mi := &file_clientpb_client_proto_msgTypes[83]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7592,7 +7652,7 @@ func (x *AllLoot) String() string {
 func (*AllLoot) ProtoMessage() {}
 
 func (x *AllLoot) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[82]
+	mi := &file_clientpb_client_proto_msgTypes[83]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7605,7 +7665,7 @@ func (x *AllLoot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AllLoot.ProtoReflect.Descriptor instead.
 func (*AllLoot) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{82}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{83}
 }
 
 func (x *AllLoot) GetLoot() []*Loot {
@@ -7627,7 +7687,7 @@ type IOC struct {
 
 func (x *IOC) Reset() {
 	*x = IOC{}
-	mi := &file_clientpb_client_proto_msgTypes[83]
+	mi := &file_clientpb_client_proto_msgTypes[84]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7639,7 +7699,7 @@ func (x *IOC) String() string {
 func (*IOC) ProtoMessage() {}
 
 func (x *IOC) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[83]
+	mi := &file_clientpb_client_proto_msgTypes[84]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7652,7 +7712,7 @@ func (x *IOC) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IOC.ProtoReflect.Descriptor instead.
 func (*IOC) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{83}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{84}
 }
 
 func (x *IOC) GetPath() string {
@@ -7685,7 +7745,7 @@ type ExtensionData struct {
 
 func (x *ExtensionData) Reset() {
 	*x = ExtensionData{}
-	mi := &file_clientpb_client_proto_msgTypes[84]
+	mi := &file_clientpb_client_proto_msgTypes[85]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7697,7 +7757,7 @@ func (x *ExtensionData) String() string {
 func (*ExtensionData) ProtoMessage() {}
 
 func (x *ExtensionData) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[84]
+	mi := &file_clientpb_client_proto_msgTypes[85]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7710,7 +7770,7 @@ func (x *ExtensionData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExtensionData.ProtoReflect.Descriptor instead.
 func (*ExtensionData) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{84}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{85}
 }
 
 func (x *ExtensionData) GetOutput() string {
@@ -7736,7 +7796,7 @@ type Host struct {
 
 func (x *Host) Reset() {
 	*x = Host{}
-	mi := &file_clientpb_client_proto_msgTypes[85]
+	mi := &file_clientpb_client_proto_msgTypes[86]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7748,7 +7808,7 @@ func (x *Host) String() string {
 func (*Host) ProtoMessage() {}
 
 func (x *Host) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[85]
+	mi := &file_clientpb_client_proto_msgTypes[86]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7761,7 +7821,7 @@ func (x *Host) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Host.ProtoReflect.Descriptor instead.
 func (*Host) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{85}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{86}
 }
 
 func (x *Host) GetID() string {
@@ -7829,7 +7889,7 @@ type AllHosts struct {
 
 func (x *AllHosts) Reset() {
 	*x = AllHosts{}
-	mi := &file_clientpb_client_proto_msgTypes[86]
+	mi := &file_clientpb_client_proto_msgTypes[87]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7841,7 +7901,7 @@ func (x *AllHosts) String() string {
 func (*AllHosts) ProtoMessage() {}
 
 func (x *AllHosts) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[86]
+	mi := &file_clientpb_client_proto_msgTypes[87]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7854,7 +7914,7 @@ func (x *AllHosts) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AllHosts.ProtoReflect.Descriptor instead.
 func (*AllHosts) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{86}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{87}
 }
 
 func (x *AllHosts) GetHosts() []*Host {
@@ -7880,7 +7940,7 @@ type DllHijackReq struct {
 
 func (x *DllHijackReq) Reset() {
 	*x = DllHijackReq{}
-	mi := &file_clientpb_client_proto_msgTypes[87]
+	mi := &file_clientpb_client_proto_msgTypes[88]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7892,7 +7952,7 @@ func (x *DllHijackReq) String() string {
 func (*DllHijackReq) ProtoMessage() {}
 
 func (x *DllHijackReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[87]
+	mi := &file_clientpb_client_proto_msgTypes[88]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7905,7 +7965,7 @@ func (x *DllHijackReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DllHijackReq.ProtoReflect.Descriptor instead.
 func (*DllHijackReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{87}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{88}
 }
 
 func (x *DllHijackReq) GetReferenceDLLPath() string {
@@ -7966,7 +8026,7 @@ type DllHijack struct {
 
 func (x *DllHijack) Reset() {
 	*x = DllHijack{}
-	mi := &file_clientpb_client_proto_msgTypes[88]
+	mi := &file_clientpb_client_proto_msgTypes[89]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7978,7 +8038,7 @@ func (x *DllHijack) String() string {
 func (*DllHijack) ProtoMessage() {}
 
 func (x *DllHijack) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[88]
+	mi := &file_clientpb_client_proto_msgTypes[89]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7991,7 +8051,7 @@ func (x *DllHijack) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DllHijack.ProtoReflect.Descriptor instead.
 func (*DllHijack) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{88}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{89}
 }
 
 func (x *DllHijack) GetResponse() *commonpb.Response {
@@ -8013,7 +8073,7 @@ type BackdoorReq struct {
 
 func (x *BackdoorReq) Reset() {
 	*x = BackdoorReq{}
-	mi := &file_clientpb_client_proto_msgTypes[89]
+	mi := &file_clientpb_client_proto_msgTypes[90]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8025,7 +8085,7 @@ func (x *BackdoorReq) String() string {
 func (*BackdoorReq) ProtoMessage() {}
 
 func (x *BackdoorReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[89]
+	mi := &file_clientpb_client_proto_msgTypes[90]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8038,7 +8098,7 @@ func (x *BackdoorReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackdoorReq.ProtoReflect.Descriptor instead.
 func (*BackdoorReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{89}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{90}
 }
 
 func (x *BackdoorReq) GetFilePath() string {
@@ -8078,7 +8138,7 @@ type Backdoor struct {
 
 func (x *Backdoor) Reset() {
 	*x = Backdoor{}
-	mi := &file_clientpb_client_proto_msgTypes[90]
+	mi := &file_clientpb_client_proto_msgTypes[91]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8090,7 +8150,7 @@ func (x *Backdoor) String() string {
 func (*Backdoor) ProtoMessage() {}
 
 func (x *Backdoor) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[90]
+	mi := &file_clientpb_client_proto_msgTypes[91]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8103,7 +8163,7 @@ func (x *Backdoor) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Backdoor.ProtoReflect.Descriptor instead.
 func (*Backdoor) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{90}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{91}
 }
 
 func (x *Backdoor) GetResponse() *commonpb.Response {
@@ -8127,7 +8187,7 @@ type ShellcodeEncodeReq struct {
 
 func (x *ShellcodeEncodeReq) Reset() {
 	*x = ShellcodeEncodeReq{}
-	mi := &file_clientpb_client_proto_msgTypes[91]
+	mi := &file_clientpb_client_proto_msgTypes[92]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8139,7 +8199,7 @@ func (x *ShellcodeEncodeReq) String() string {
 func (*ShellcodeEncodeReq) ProtoMessage() {}
 
 func (x *ShellcodeEncodeReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[91]
+	mi := &file_clientpb_client_proto_msgTypes[92]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8152,7 +8212,7 @@ func (x *ShellcodeEncodeReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShellcodeEncodeReq.ProtoReflect.Descriptor instead.
 func (*ShellcodeEncodeReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{91}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{92}
 }
 
 func (x *ShellcodeEncodeReq) GetEncoder() ShellcodeEncoder {
@@ -8207,7 +8267,7 @@ type ShellcodeEncode struct {
 
 func (x *ShellcodeEncode) Reset() {
 	*x = ShellcodeEncode{}
-	mi := &file_clientpb_client_proto_msgTypes[92]
+	mi := &file_clientpb_client_proto_msgTypes[93]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8219,7 +8279,7 @@ func (x *ShellcodeEncode) String() string {
 func (*ShellcodeEncode) ProtoMessage() {}
 
 func (x *ShellcodeEncode) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[92]
+	mi := &file_clientpb_client_proto_msgTypes[93]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8232,7 +8292,7 @@ func (x *ShellcodeEncode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShellcodeEncode.ProtoReflect.Descriptor instead.
 func (*ShellcodeEncode) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{92}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{93}
 }
 
 func (x *ShellcodeEncode) GetData() []byte {
@@ -8259,7 +8319,7 @@ type ShellcodeEncoderArchMap struct {
 
 func (x *ShellcodeEncoderArchMap) Reset() {
 	*x = ShellcodeEncoderArchMap{}
-	mi := &file_clientpb_client_proto_msgTypes[93]
+	mi := &file_clientpb_client_proto_msgTypes[94]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8271,7 +8331,7 @@ func (x *ShellcodeEncoderArchMap) String() string {
 func (*ShellcodeEncoderArchMap) ProtoMessage() {}
 
 func (x *ShellcodeEncoderArchMap) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[93]
+	mi := &file_clientpb_client_proto_msgTypes[94]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8284,7 +8344,7 @@ func (x *ShellcodeEncoderArchMap) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShellcodeEncoderArchMap.ProtoReflect.Descriptor instead.
 func (*ShellcodeEncoderArchMap) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{93}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{94}
 }
 
 func (x *ShellcodeEncoderArchMap) GetEncoders() map[string]ShellcodeEncoder {
@@ -8310,7 +8370,7 @@ type ShellcodeEncoderMap struct {
 
 func (x *ShellcodeEncoderMap) Reset() {
 	*x = ShellcodeEncoderMap{}
-	mi := &file_clientpb_client_proto_msgTypes[94]
+	mi := &file_clientpb_client_proto_msgTypes[95]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8322,7 +8382,7 @@ func (x *ShellcodeEncoderMap) String() string {
 func (*ShellcodeEncoderMap) ProtoMessage() {}
 
 func (x *ShellcodeEncoderMap) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[94]
+	mi := &file_clientpb_client_proto_msgTypes[95]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8335,7 +8395,7 @@ func (x *ShellcodeEncoderMap) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShellcodeEncoderMap.ProtoReflect.Descriptor instead.
 func (*ShellcodeEncoderMap) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{94}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{95}
 }
 
 func (x *ShellcodeEncoderMap) GetEncoders() map[string]*ShellcodeEncoderArchMap {
@@ -8356,7 +8416,7 @@ type ExternalGenerateReq struct {
 
 func (x *ExternalGenerateReq) Reset() {
 	*x = ExternalGenerateReq{}
-	mi := &file_clientpb_client_proto_msgTypes[95]
+	mi := &file_clientpb_client_proto_msgTypes[96]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8368,7 +8428,7 @@ func (x *ExternalGenerateReq) String() string {
 func (*ExternalGenerateReq) ProtoMessage() {}
 
 func (x *ExternalGenerateReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[95]
+	mi := &file_clientpb_client_proto_msgTypes[96]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8381,7 +8441,7 @@ func (x *ExternalGenerateReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExternalGenerateReq.ProtoReflect.Descriptor instead.
 func (*ExternalGenerateReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{95}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{96}
 }
 
 func (x *ExternalGenerateReq) GetConfig() *ImplantConfig {
@@ -8414,7 +8474,7 @@ type Builders struct {
 
 func (x *Builders) Reset() {
 	*x = Builders{}
-	mi := &file_clientpb_client_proto_msgTypes[96]
+	mi := &file_clientpb_client_proto_msgTypes[97]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8426,7 +8486,7 @@ func (x *Builders) String() string {
 func (*Builders) ProtoMessage() {}
 
 func (x *Builders) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[96]
+	mi := &file_clientpb_client_proto_msgTypes[97]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8439,7 +8499,7 @@ func (x *Builders) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Builders.ProtoReflect.Descriptor instead.
 func (*Builders) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{96}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{97}
 }
 
 func (x *Builders) GetBuilders() []*Builder {
@@ -8464,7 +8524,7 @@ type Builder struct {
 
 func (x *Builder) Reset() {
 	*x = Builder{}
-	mi := &file_clientpb_client_proto_msgTypes[97]
+	mi := &file_clientpb_client_proto_msgTypes[98]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8476,7 +8536,7 @@ func (x *Builder) String() string {
 func (*Builder) ProtoMessage() {}
 
 func (x *Builder) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[97]
+	mi := &file_clientpb_client_proto_msgTypes[98]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8489,7 +8549,7 @@ func (x *Builder) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Builder.ProtoReflect.Descriptor instead.
 func (*Builder) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{97}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{98}
 }
 
 func (x *Builder) GetName() string {
@@ -8551,7 +8611,7 @@ type HTTPC2Configs struct {
 
 func (x *HTTPC2Configs) Reset() {
 	*x = HTTPC2Configs{}
-	mi := &file_clientpb_client_proto_msgTypes[98]
+	mi := &file_clientpb_client_proto_msgTypes[99]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8563,7 +8623,7 @@ func (x *HTTPC2Configs) String() string {
 func (*HTTPC2Configs) ProtoMessage() {}
 
 func (x *HTTPC2Configs) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[98]
+	mi := &file_clientpb_client_proto_msgTypes[99]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8576,7 +8636,7 @@ func (x *HTTPC2Configs) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2Configs.ProtoReflect.Descriptor instead.
 func (*HTTPC2Configs) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{98}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{99}
 }
 
 func (x *HTTPC2Configs) GetConfigs() []*HTTPC2Config {
@@ -8595,7 +8655,7 @@ type C2ProfileReq struct {
 
 func (x *C2ProfileReq) Reset() {
 	*x = C2ProfileReq{}
-	mi := &file_clientpb_client_proto_msgTypes[99]
+	mi := &file_clientpb_client_proto_msgTypes[100]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8607,7 +8667,7 @@ func (x *C2ProfileReq) String() string {
 func (*C2ProfileReq) ProtoMessage() {}
 
 func (x *C2ProfileReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[99]
+	mi := &file_clientpb_client_proto_msgTypes[100]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8620,7 +8680,7 @@ func (x *C2ProfileReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use C2ProfileReq.ProtoReflect.Descriptor instead.
 func (*C2ProfileReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{99}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{100}
 }
 
 func (x *C2ProfileReq) GetName() string {
@@ -8640,7 +8700,7 @@ type HTTPC2ConfigReq struct {
 
 func (x *HTTPC2ConfigReq) Reset() {
 	*x = HTTPC2ConfigReq{}
-	mi := &file_clientpb_client_proto_msgTypes[100]
+	mi := &file_clientpb_client_proto_msgTypes[101]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8652,7 +8712,7 @@ func (x *HTTPC2ConfigReq) String() string {
 func (*HTTPC2ConfigReq) ProtoMessage() {}
 
 func (x *HTTPC2ConfigReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[100]
+	mi := &file_clientpb_client_proto_msgTypes[101]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8665,7 +8725,7 @@ func (x *HTTPC2ConfigReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2ConfigReq.ProtoReflect.Descriptor instead.
 func (*HTTPC2ConfigReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{100}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{101}
 }
 
 func (x *HTTPC2ConfigReq) GetOverwrite() bool {
@@ -8695,7 +8755,7 @@ type HTTPC2Config struct {
 
 func (x *HTTPC2Config) Reset() {
 	*x = HTTPC2Config{}
-	mi := &file_clientpb_client_proto_msgTypes[101]
+	mi := &file_clientpb_client_proto_msgTypes[102]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8707,7 +8767,7 @@ func (x *HTTPC2Config) String() string {
 func (*HTTPC2Config) ProtoMessage() {}
 
 func (x *HTTPC2Config) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[101]
+	mi := &file_clientpb_client_proto_msgTypes[102]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8720,7 +8780,7 @@ func (x *HTTPC2Config) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2Config.ProtoReflect.Descriptor instead.
 func (*HTTPC2Config) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{101}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{102}
 }
 
 func (x *HTTPC2Config) GetID() string {
@@ -8770,7 +8830,7 @@ type HTTPC2ServerConfig struct {
 
 func (x *HTTPC2ServerConfig) Reset() {
 	*x = HTTPC2ServerConfig{}
-	mi := &file_clientpb_client_proto_msgTypes[102]
+	mi := &file_clientpb_client_proto_msgTypes[103]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8782,7 +8842,7 @@ func (x *HTTPC2ServerConfig) String() string {
 func (*HTTPC2ServerConfig) ProtoMessage() {}
 
 func (x *HTTPC2ServerConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[102]
+	mi := &file_clientpb_client_proto_msgTypes[103]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8795,7 +8855,7 @@ func (x *HTTPC2ServerConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2ServerConfig.ProtoReflect.Descriptor instead.
 func (*HTTPC2ServerConfig) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{102}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{103}
 }
 
 func (x *HTTPC2ServerConfig) GetID() string {
@@ -8851,7 +8911,7 @@ type HTTPC2ImplantConfig struct {
 
 func (x *HTTPC2ImplantConfig) Reset() {
 	*x = HTTPC2ImplantConfig{}
-	mi := &file_clientpb_client_proto_msgTypes[103]
+	mi := &file_clientpb_client_proto_msgTypes[104]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8863,7 +8923,7 @@ func (x *HTTPC2ImplantConfig) String() string {
 func (*HTTPC2ImplantConfig) ProtoMessage() {}
 
 func (x *HTTPC2ImplantConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[103]
+	mi := &file_clientpb_client_proto_msgTypes[104]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8876,7 +8936,7 @@ func (x *HTTPC2ImplantConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2ImplantConfig.ProtoReflect.Descriptor instead.
 func (*HTTPC2ImplantConfig) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{103}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{104}
 }
 
 func (x *HTTPC2ImplantConfig) GetID() string {
@@ -9008,7 +9068,7 @@ type HTTPC2Cookie struct {
 
 func (x *HTTPC2Cookie) Reset() {
 	*x = HTTPC2Cookie{}
-	mi := &file_clientpb_client_proto_msgTypes[104]
+	mi := &file_clientpb_client_proto_msgTypes[105]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9020,7 +9080,7 @@ func (x *HTTPC2Cookie) String() string {
 func (*HTTPC2Cookie) ProtoMessage() {}
 
 func (x *HTTPC2Cookie) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[104]
+	mi := &file_clientpb_client_proto_msgTypes[105]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9033,7 +9093,7 @@ func (x *HTTPC2Cookie) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2Cookie.ProtoReflect.Descriptor instead.
 func (*HTTPC2Cookie) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{104}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{105}
 }
 
 func (x *HTTPC2Cookie) GetID() string {
@@ -9063,7 +9123,7 @@ type HTTPC2Header struct {
 
 func (x *HTTPC2Header) Reset() {
 	*x = HTTPC2Header{}
-	mi := &file_clientpb_client_proto_msgTypes[105]
+	mi := &file_clientpb_client_proto_msgTypes[106]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9075,7 +9135,7 @@ func (x *HTTPC2Header) String() string {
 func (*HTTPC2Header) ProtoMessage() {}
 
 func (x *HTTPC2Header) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[105]
+	mi := &file_clientpb_client_proto_msgTypes[106]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9088,7 +9148,7 @@ func (x *HTTPC2Header) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2Header.ProtoReflect.Descriptor instead.
 func (*HTTPC2Header) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{105}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{106}
 }
 
 func (x *HTTPC2Header) GetID() string {
@@ -9139,7 +9199,7 @@ type HTTPC2URLParameter struct {
 
 func (x *HTTPC2URLParameter) Reset() {
 	*x = HTTPC2URLParameter{}
-	mi := &file_clientpb_client_proto_msgTypes[106]
+	mi := &file_clientpb_client_proto_msgTypes[107]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9151,7 +9211,7 @@ func (x *HTTPC2URLParameter) String() string {
 func (*HTTPC2URLParameter) ProtoMessage() {}
 
 func (x *HTTPC2URLParameter) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[106]
+	mi := &file_clientpb_client_proto_msgTypes[107]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9164,7 +9224,7 @@ func (x *HTTPC2URLParameter) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2URLParameter.ProtoReflect.Descriptor instead.
 func (*HTTPC2URLParameter) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{106}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{107}
 }
 
 func (x *HTTPC2URLParameter) GetID() string {
@@ -9213,7 +9273,7 @@ type HTTPC2PathSegment struct {
 
 func (x *HTTPC2PathSegment) Reset() {
 	*x = HTTPC2PathSegment{}
-	mi := &file_clientpb_client_proto_msgTypes[107]
+	mi := &file_clientpb_client_proto_msgTypes[108]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9225,7 +9285,7 @@ func (x *HTTPC2PathSegment) String() string {
 func (*HTTPC2PathSegment) ProtoMessage() {}
 
 func (x *HTTPC2PathSegment) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[107]
+	mi := &file_clientpb_client_proto_msgTypes[108]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9238,7 +9298,7 @@ func (x *HTTPC2PathSegment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HTTPC2PathSegment.ProtoReflect.Descriptor instead.
 func (*HTTPC2PathSegment) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{107}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{108}
 }
 
 func (x *HTTPC2PathSegment) GetID() string {
@@ -9278,7 +9338,7 @@ type Credential struct {
 
 func (x *Credential) Reset() {
 	*x = Credential{}
-	mi := &file_clientpb_client_proto_msgTypes[108]
+	mi := &file_clientpb_client_proto_msgTypes[109]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9290,7 +9350,7 @@ func (x *Credential) String() string {
 func (*Credential) ProtoMessage() {}
 
 func (x *Credential) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[108]
+	mi := &file_clientpb_client_proto_msgTypes[109]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9303,7 +9363,7 @@ func (x *Credential) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Credential.ProtoReflect.Descriptor instead.
 func (*Credential) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{108}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{109}
 }
 
 func (x *Credential) GetID() string {
@@ -9371,7 +9431,7 @@ type Credentials struct {
 
 func (x *Credentials) Reset() {
 	*x = Credentials{}
-	mi := &file_clientpb_client_proto_msgTypes[109]
+	mi := &file_clientpb_client_proto_msgTypes[110]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9383,7 +9443,7 @@ func (x *Credentials) String() string {
 func (*Credentials) ProtoMessage() {}
 
 func (x *Credentials) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[109]
+	mi := &file_clientpb_client_proto_msgTypes[110]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9396,7 +9456,7 @@ func (x *Credentials) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Credentials.ProtoReflect.Descriptor instead.
 func (*Credentials) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{109}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{110}
 }
 
 func (x *Credentials) GetCredentials() []*Credential {
@@ -9416,7 +9476,7 @@ type Crackstations struct {
 
 func (x *Crackstations) Reset() {
 	*x = Crackstations{}
-	mi := &file_clientpb_client_proto_msgTypes[110]
+	mi := &file_clientpb_client_proto_msgTypes[111]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9428,7 +9488,7 @@ func (x *Crackstations) String() string {
 func (*Crackstations) ProtoMessage() {}
 
 func (x *Crackstations) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[110]
+	mi := &file_clientpb_client_proto_msgTypes[111]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9441,7 +9501,7 @@ func (x *Crackstations) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Crackstations.ProtoReflect.Descriptor instead.
 func (*Crackstations) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{110}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{111}
 }
 
 func (x *Crackstations) GetCrackstations() []*Crackstation {
@@ -9465,7 +9525,7 @@ type CrackstationStatus struct {
 
 func (x *CrackstationStatus) Reset() {
 	*x = CrackstationStatus{}
-	mi := &file_clientpb_client_proto_msgTypes[111]
+	mi := &file_clientpb_client_proto_msgTypes[112]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9477,7 +9537,7 @@ func (x *CrackstationStatus) String() string {
 func (*CrackstationStatus) ProtoMessage() {}
 
 func (x *CrackstationStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[111]
+	mi := &file_clientpb_client_proto_msgTypes[112]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9490,7 +9550,7 @@ func (x *CrackstationStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackstationStatus.ProtoReflect.Descriptor instead.
 func (*CrackstationStatus) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{111}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{112}
 }
 
 func (x *CrackstationStatus) GetName() string {
@@ -9545,7 +9605,7 @@ type CrackSyncStatus struct {
 
 func (x *CrackSyncStatus) Reset() {
 	*x = CrackSyncStatus{}
-	mi := &file_clientpb_client_proto_msgTypes[112]
+	mi := &file_clientpb_client_proto_msgTypes[113]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9557,7 +9617,7 @@ func (x *CrackSyncStatus) String() string {
 func (*CrackSyncStatus) ProtoMessage() {}
 
 func (x *CrackSyncStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[112]
+	mi := &file_clientpb_client_proto_msgTypes[113]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9570,7 +9630,7 @@ func (x *CrackSyncStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackSyncStatus.ProtoReflect.Descriptor instead.
 func (*CrackSyncStatus) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{112}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{113}
 }
 
 func (x *CrackSyncStatus) GetSpeed() float32 {
@@ -9598,7 +9658,7 @@ type CrackBenchmark struct {
 
 func (x *CrackBenchmark) Reset() {
 	*x = CrackBenchmark{}
-	mi := &file_clientpb_client_proto_msgTypes[113]
+	mi := &file_clientpb_client_proto_msgTypes[114]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9610,7 +9670,7 @@ func (x *CrackBenchmark) String() string {
 func (*CrackBenchmark) ProtoMessage() {}
 
 func (x *CrackBenchmark) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[113]
+	mi := &file_clientpb_client_proto_msgTypes[114]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9623,7 +9683,7 @@ func (x *CrackBenchmark) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackBenchmark.ProtoReflect.Descriptor instead.
 func (*CrackBenchmark) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{113}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{114}
 }
 
 func (x *CrackBenchmark) GetName() string {
@@ -9662,7 +9722,7 @@ type CrackTask struct {
 
 func (x *CrackTask) Reset() {
 	*x = CrackTask{}
-	mi := &file_clientpb_client_proto_msgTypes[114]
+	mi := &file_clientpb_client_proto_msgTypes[115]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9674,7 +9734,7 @@ func (x *CrackTask) String() string {
 func (*CrackTask) ProtoMessage() {}
 
 func (x *CrackTask) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[114]
+	mi := &file_clientpb_client_proto_msgTypes[115]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9687,7 +9747,7 @@ func (x *CrackTask) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackTask.ProtoReflect.Descriptor instead.
 func (*CrackTask) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{114}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{115}
 }
 
 func (x *CrackTask) GetID() string {
@@ -9759,7 +9819,7 @@ type Crackstation struct {
 
 func (x *Crackstation) Reset() {
 	*x = Crackstation{}
-	mi := &file_clientpb_client_proto_msgTypes[115]
+	mi := &file_clientpb_client_proto_msgTypes[116]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9771,7 +9831,7 @@ func (x *Crackstation) String() string {
 func (*Crackstation) ProtoMessage() {}
 
 func (x *Crackstation) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[115]
+	mi := &file_clientpb_client_proto_msgTypes[116]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9784,7 +9844,7 @@ func (x *Crackstation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Crackstation.ProtoReflect.Descriptor instead.
 func (*Crackstation) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{115}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{116}
 }
 
 func (x *Crackstation) GetID() string {
@@ -9889,7 +9949,7 @@ type CUDABackendInfo struct {
 
 func (x *CUDABackendInfo) Reset() {
 	*x = CUDABackendInfo{}
-	mi := &file_clientpb_client_proto_msgTypes[116]
+	mi := &file_clientpb_client_proto_msgTypes[117]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9901,7 +9961,7 @@ func (x *CUDABackendInfo) String() string {
 func (*CUDABackendInfo) ProtoMessage() {}
 
 func (x *CUDABackendInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[116]
+	mi := &file_clientpb_client_proto_msgTypes[117]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9914,7 +9974,7 @@ func (x *CUDABackendInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CUDABackendInfo.ProtoReflect.Descriptor instead.
 func (*CUDABackendInfo) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{116}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{117}
 }
 
 func (x *CUDABackendInfo) GetType() string {
@@ -10006,7 +10066,7 @@ type OpenCLBackendInfo struct {
 
 func (x *OpenCLBackendInfo) Reset() {
 	*x = OpenCLBackendInfo{}
-	mi := &file_clientpb_client_proto_msgTypes[117]
+	mi := &file_clientpb_client_proto_msgTypes[118]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10018,7 +10078,7 @@ func (x *OpenCLBackendInfo) String() string {
 func (*OpenCLBackendInfo) ProtoMessage() {}
 
 func (x *OpenCLBackendInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[117]
+	mi := &file_clientpb_client_proto_msgTypes[118]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10031,7 +10091,7 @@ func (x *OpenCLBackendInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OpenCLBackendInfo.ProtoReflect.Descriptor instead.
 func (*OpenCLBackendInfo) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{117}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{118}
 }
 
 func (x *OpenCLBackendInfo) GetType() string {
@@ -10129,7 +10189,7 @@ type MetalBackendInfo struct {
 
 func (x *MetalBackendInfo) Reset() {
 	*x = MetalBackendInfo{}
-	mi := &file_clientpb_client_proto_msgTypes[118]
+	mi := &file_clientpb_client_proto_msgTypes[119]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10141,7 +10201,7 @@ func (x *MetalBackendInfo) String() string {
 func (*MetalBackendInfo) ProtoMessage() {}
 
 func (x *MetalBackendInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[118]
+	mi := &file_clientpb_client_proto_msgTypes[119]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10154,7 +10214,7 @@ func (x *MetalBackendInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MetalBackendInfo.ProtoReflect.Descriptor instead.
 func (*MetalBackendInfo) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{118}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{119}
 }
 
 func (x *MetalBackendInfo) GetType() string {
@@ -10350,7 +10410,7 @@ type CrackCommand struct {
 
 func (x *CrackCommand) Reset() {
 	*x = CrackCommand{}
-	mi := &file_clientpb_client_proto_msgTypes[119]
+	mi := &file_clientpb_client_proto_msgTypes[120]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10362,7 +10422,7 @@ func (x *CrackCommand) String() string {
 func (*CrackCommand) ProtoMessage() {}
 
 func (x *CrackCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[119]
+	mi := &file_clientpb_client_proto_msgTypes[120]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10375,7 +10435,7 @@ func (x *CrackCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackCommand.ProtoReflect.Descriptor instead.
 func (*CrackCommand) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{119}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{120}
 }
 
 func (x *CrackCommand) GetAttackMode() CrackAttackMode {
@@ -11107,7 +11167,7 @@ type CrackJob struct {
 
 func (x *CrackJob) Reset() {
 	*x = CrackJob{}
-	mi := &file_clientpb_client_proto_msgTypes[120]
+	mi := &file_clientpb_client_proto_msgTypes[121]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11119,7 +11179,7 @@ func (x *CrackJob) String() string {
 func (*CrackJob) ProtoMessage() {}
 
 func (x *CrackJob) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[120]
+	mi := &file_clientpb_client_proto_msgTypes[121]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11132,7 +11192,7 @@ func (x *CrackJob) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackJob.ProtoReflect.Descriptor instead.
 func (*CrackJob) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{120}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{121}
 }
 
 func (x *CrackJob) GetID() string {
@@ -11193,7 +11253,7 @@ type CrackResponse struct {
 
 func (x *CrackResponse) Reset() {
 	*x = CrackResponse{}
-	mi := &file_clientpb_client_proto_msgTypes[121]
+	mi := &file_clientpb_client_proto_msgTypes[122]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11205,7 +11265,7 @@ func (x *CrackResponse) String() string {
 func (*CrackResponse) ProtoMessage() {}
 
 func (x *CrackResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[121]
+	mi := &file_clientpb_client_proto_msgTypes[122]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11218,7 +11278,7 @@ func (x *CrackResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackResponse.ProtoReflect.Descriptor instead.
 func (*CrackResponse) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{121}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{122}
 }
 
 func (x *CrackResponse) GetJob() *CrackJob {
@@ -11240,7 +11300,7 @@ type CrackConfig struct {
 
 func (x *CrackConfig) Reset() {
 	*x = CrackConfig{}
-	mi := &file_clientpb_client_proto_msgTypes[122]
+	mi := &file_clientpb_client_proto_msgTypes[123]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11252,7 +11312,7 @@ func (x *CrackConfig) String() string {
 func (*CrackConfig) ProtoMessage() {}
 
 func (x *CrackConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[122]
+	mi := &file_clientpb_client_proto_msgTypes[123]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11265,7 +11325,7 @@ func (x *CrackConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackConfig.ProtoReflect.Descriptor instead.
 func (*CrackConfig) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{122}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{123}
 }
 
 func (x *CrackConfig) GetAutoFire() bool {
@@ -11307,7 +11367,7 @@ type CrackFiles struct {
 
 func (x *CrackFiles) Reset() {
 	*x = CrackFiles{}
-	mi := &file_clientpb_client_proto_msgTypes[123]
+	mi := &file_clientpb_client_proto_msgTypes[124]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11319,7 +11379,7 @@ func (x *CrackFiles) String() string {
 func (*CrackFiles) ProtoMessage() {}
 
 func (x *CrackFiles) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[123]
+	mi := &file_clientpb_client_proto_msgTypes[124]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11332,7 +11392,7 @@ func (x *CrackFiles) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackFiles.ProtoReflect.Descriptor instead.
 func (*CrackFiles) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{123}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{124}
 }
 
 func (x *CrackFiles) GetFiles() []*CrackFile {
@@ -11375,7 +11435,7 @@ type CrackFile struct {
 
 func (x *CrackFile) Reset() {
 	*x = CrackFile{}
-	mi := &file_clientpb_client_proto_msgTypes[124]
+	mi := &file_clientpb_client_proto_msgTypes[125]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11387,7 +11447,7 @@ func (x *CrackFile) String() string {
 func (*CrackFile) ProtoMessage() {}
 
 func (x *CrackFile) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[124]
+	mi := &file_clientpb_client_proto_msgTypes[125]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11400,7 +11460,7 @@ func (x *CrackFile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackFile.ProtoReflect.Descriptor instead.
 func (*CrackFile) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{124}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{125}
 }
 
 func (x *CrackFile) GetID() string {
@@ -11492,7 +11552,7 @@ type CrackFileChunk struct {
 
 func (x *CrackFileChunk) Reset() {
 	*x = CrackFileChunk{}
-	mi := &file_clientpb_client_proto_msgTypes[125]
+	mi := &file_clientpb_client_proto_msgTypes[126]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11504,7 +11564,7 @@ func (x *CrackFileChunk) String() string {
 func (*CrackFileChunk) ProtoMessage() {}
 
 func (x *CrackFileChunk) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[125]
+	mi := &file_clientpb_client_proto_msgTypes[126]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11517,7 +11577,7 @@ func (x *CrackFileChunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CrackFileChunk.ProtoReflect.Descriptor instead.
 func (*CrackFileChunk) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{125}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{126}
 }
 
 func (x *CrackFileChunk) GetID() string {
@@ -11558,7 +11618,7 @@ type AIProviderConfigs struct {
 
 func (x *AIProviderConfigs) Reset() {
 	*x = AIProviderConfigs{}
-	mi := &file_clientpb_client_proto_msgTypes[126]
+	mi := &file_clientpb_client_proto_msgTypes[127]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11570,7 +11630,7 @@ func (x *AIProviderConfigs) String() string {
 func (*AIProviderConfigs) ProtoMessage() {}
 
 func (x *AIProviderConfigs) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[126]
+	mi := &file_clientpb_client_proto_msgTypes[127]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11583,7 +11643,7 @@ func (x *AIProviderConfigs) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIProviderConfigs.ProtoReflect.Descriptor instead.
 func (*AIProviderConfigs) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{126}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{127}
 }
 
 func (x *AIProviderConfigs) GetProviders() []*AIProviderConfig {
@@ -11610,7 +11670,7 @@ type AIProviderConfig struct {
 
 func (x *AIProviderConfig) Reset() {
 	*x = AIProviderConfig{}
-	mi := &file_clientpb_client_proto_msgTypes[127]
+	mi := &file_clientpb_client_proto_msgTypes[128]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11622,7 +11682,7 @@ func (x *AIProviderConfig) String() string {
 func (*AIProviderConfig) ProtoMessage() {}
 
 func (x *AIProviderConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[127]
+	mi := &file_clientpb_client_proto_msgTypes[128]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11635,7 +11695,7 @@ func (x *AIProviderConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIProviderConfig.ProtoReflect.Descriptor instead.
 func (*AIProviderConfig) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{127}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{128}
 }
 
 func (x *AIProviderConfig) GetName() string {
@@ -11666,7 +11726,7 @@ type AIConfigSummary struct {
 
 func (x *AIConfigSummary) Reset() {
 	*x = AIConfigSummary{}
-	mi := &file_clientpb_client_proto_msgTypes[128]
+	mi := &file_clientpb_client_proto_msgTypes[129]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11678,7 +11738,7 @@ func (x *AIConfigSummary) String() string {
 func (*AIConfigSummary) ProtoMessage() {}
 
 func (x *AIConfigSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[128]
+	mi := &file_clientpb_client_proto_msgTypes[129]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11691,7 +11751,7 @@ func (x *AIConfigSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIConfigSummary.ProtoReflect.Descriptor instead.
 func (*AIConfigSummary) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{128}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{129}
 }
 
 func (x *AIConfigSummary) GetProvider() string {
@@ -11746,7 +11806,7 @@ type AIConversationReq struct {
 
 func (x *AIConversationReq) Reset() {
 	*x = AIConversationReq{}
-	mi := &file_clientpb_client_proto_msgTypes[129]
+	mi := &file_clientpb_client_proto_msgTypes[130]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11758,7 +11818,7 @@ func (x *AIConversationReq) String() string {
 func (*AIConversationReq) ProtoMessage() {}
 
 func (x *AIConversationReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[129]
+	mi := &file_clientpb_client_proto_msgTypes[130]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11771,7 +11831,7 @@ func (x *AIConversationReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIConversationReq.ProtoReflect.Descriptor instead.
 func (*AIConversationReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{129}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{130}
 }
 
 func (x *AIConversationReq) GetID() string {
@@ -11797,7 +11857,7 @@ type AIConversations struct {
 
 func (x *AIConversations) Reset() {
 	*x = AIConversations{}
-	mi := &file_clientpb_client_proto_msgTypes[130]
+	mi := &file_clientpb_client_proto_msgTypes[131]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11809,7 +11869,7 @@ func (x *AIConversations) String() string {
 func (*AIConversations) ProtoMessage() {}
 
 func (x *AIConversations) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[130]
+	mi := &file_clientpb_client_proto_msgTypes[131]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11822,7 +11882,7 @@ func (x *AIConversations) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIConversations.ProtoReflect.Descriptor instead.
 func (*AIConversations) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{130}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{131}
 }
 
 func (x *AIConversations) GetConversations() []*AIConversation {
@@ -11845,7 +11905,7 @@ type AIContextWindowUsage struct {
 
 func (x *AIContextWindowUsage) Reset() {
 	*x = AIContextWindowUsage{}
-	mi := &file_clientpb_client_proto_msgTypes[131]
+	mi := &file_clientpb_client_proto_msgTypes[132]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11857,7 +11917,7 @@ func (x *AIContextWindowUsage) String() string {
 func (*AIContextWindowUsage) ProtoMessage() {}
 
 func (x *AIContextWindowUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[131]
+	mi := &file_clientpb_client_proto_msgTypes[132]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11870,7 +11930,7 @@ func (x *AIContextWindowUsage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIContextWindowUsage.ProtoReflect.Descriptor instead.
 func (*AIContextWindowUsage) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{131}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{132}
 }
 
 func (x *AIContextWindowUsage) GetInputTokens() int64 {
@@ -11932,7 +11992,7 @@ type AIConversation struct {
 
 func (x *AIConversation) Reset() {
 	*x = AIConversation{}
-	mi := &file_clientpb_client_proto_msgTypes[132]
+	mi := &file_clientpb_client_proto_msgTypes[133]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11944,7 +12004,7 @@ func (x *AIConversation) String() string {
 func (*AIConversation) ProtoMessage() {}
 
 func (x *AIConversation) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[132]
+	mi := &file_clientpb_client_proto_msgTypes[133]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11957,7 +12017,7 @@ func (x *AIConversation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIConversation.ProtoReflect.Descriptor instead.
 func (*AIConversation) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{132}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{133}
 }
 
 func (x *AIConversation) GetID() string {
@@ -12082,7 +12142,7 @@ type AIConversationMessages struct {
 
 func (x *AIConversationMessages) Reset() {
 	*x = AIConversationMessages{}
-	mi := &file_clientpb_client_proto_msgTypes[133]
+	mi := &file_clientpb_client_proto_msgTypes[134]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12094,7 +12154,7 @@ func (x *AIConversationMessages) String() string {
 func (*AIConversationMessages) ProtoMessage() {}
 
 func (x *AIConversationMessages) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[133]
+	mi := &file_clientpb_client_proto_msgTypes[134]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12107,7 +12167,7 @@ func (x *AIConversationMessages) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIConversationMessages.ProtoReflect.Descriptor instead.
 func (*AIConversationMessages) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{133}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{134}
 }
 
 func (x *AIConversationMessages) GetConversationID() string {
@@ -12155,7 +12215,7 @@ type AIConversationMessage struct {
 
 func (x *AIConversationMessage) Reset() {
 	*x = AIConversationMessage{}
-	mi := &file_clientpb_client_proto_msgTypes[134]
+	mi := &file_clientpb_client_proto_msgTypes[135]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12167,7 +12227,7 @@ func (x *AIConversationMessage) String() string {
 func (*AIConversationMessage) ProtoMessage() {}
 
 func (x *AIConversationMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[134]
+	mi := &file_clientpb_client_proto_msgTypes[135]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12180,7 +12240,7 @@ func (x *AIConversationMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIConversationMessage.ProtoReflect.Descriptor instead.
 func (*AIConversationMessage) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{134}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{135}
 }
 
 func (x *AIConversationMessage) GetID() string {
@@ -12358,7 +12418,7 @@ type AIConversationEvent struct {
 
 func (x *AIConversationEvent) Reset() {
 	*x = AIConversationEvent{}
-	mi := &file_clientpb_client_proto_msgTypes[135]
+	mi := &file_clientpb_client_proto_msgTypes[136]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12370,7 +12430,7 @@ func (x *AIConversationEvent) String() string {
 func (*AIConversationEvent) ProtoMessage() {}
 
 func (x *AIConversationEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[135]
+	mi := &file_clientpb_client_proto_msgTypes[136]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12383,7 +12443,7 @@ func (x *AIConversationEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AIConversationEvent.ProtoReflect.Descriptor instead.
 func (*AIConversationEvent) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{135}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{136}
 }
 
 func (x *AIConversationEvent) GetEventType() AIConversationEventType {
@@ -12438,7 +12498,7 @@ type MonitoringProviders struct {
 
 func (x *MonitoringProviders) Reset() {
 	*x = MonitoringProviders{}
-	mi := &file_clientpb_client_proto_msgTypes[136]
+	mi := &file_clientpb_client_proto_msgTypes[137]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12450,7 +12510,7 @@ func (x *MonitoringProviders) String() string {
 func (*MonitoringProviders) ProtoMessage() {}
 
 func (x *MonitoringProviders) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[136]
+	mi := &file_clientpb_client_proto_msgTypes[137]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12463,7 +12523,7 @@ func (x *MonitoringProviders) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MonitoringProviders.ProtoReflect.Descriptor instead.
 func (*MonitoringProviders) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{136}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{137}
 }
 
 func (x *MonitoringProviders) GetProviders() []*MonitoringProvider {
@@ -12485,7 +12545,7 @@ type MonitoringProvider struct {
 
 func (x *MonitoringProvider) Reset() {
 	*x = MonitoringProvider{}
-	mi := &file_clientpb_client_proto_msgTypes[137]
+	mi := &file_clientpb_client_proto_msgTypes[138]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12497,7 +12557,7 @@ func (x *MonitoringProvider) String() string {
 func (*MonitoringProvider) ProtoMessage() {}
 
 func (x *MonitoringProvider) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[137]
+	mi := &file_clientpb_client_proto_msgTypes[138]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12510,7 +12570,7 @@ func (x *MonitoringProvider) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MonitoringProvider.ProtoReflect.Descriptor instead.
 func (*MonitoringProvider) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{137}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{138}
 }
 
 func (x *MonitoringProvider) GetID() string {
@@ -12554,7 +12614,7 @@ type ResourceID struct {
 
 func (x *ResourceID) Reset() {
 	*x = ResourceID{}
-	mi := &file_clientpb_client_proto_msgTypes[138]
+	mi := &file_clientpb_client_proto_msgTypes[139]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12566,7 +12626,7 @@ func (x *ResourceID) String() string {
 func (*ResourceID) ProtoMessage() {}
 
 func (x *ResourceID) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[138]
+	mi := &file_clientpb_client_proto_msgTypes[139]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12579,7 +12639,7 @@ func (x *ResourceID) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceID.ProtoReflect.Descriptor instead.
 func (*ResourceID) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{138}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{139}
 }
 
 func (x *ResourceID) GetID() string {
@@ -12620,7 +12680,7 @@ type CertificatesReq struct {
 
 func (x *CertificatesReq) Reset() {
 	*x = CertificatesReq{}
-	mi := &file_clientpb_client_proto_msgTypes[139]
+	mi := &file_clientpb_client_proto_msgTypes[140]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12632,7 +12692,7 @@ func (x *CertificatesReq) String() string {
 func (*CertificatesReq) ProtoMessage() {}
 
 func (x *CertificatesReq) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[139]
+	mi := &file_clientpb_client_proto_msgTypes[140]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12645,7 +12705,7 @@ func (x *CertificatesReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificatesReq.ProtoReflect.Descriptor instead.
 func (*CertificatesReq) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{139}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{140}
 }
 
 func (x *CertificatesReq) GetCategoryFilters() uint32 {
@@ -12677,7 +12737,7 @@ type CertificateData struct {
 
 func (x *CertificateData) Reset() {
 	*x = CertificateData{}
-	mi := &file_clientpb_client_proto_msgTypes[140]
+	mi := &file_clientpb_client_proto_msgTypes[141]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12689,7 +12749,7 @@ func (x *CertificateData) String() string {
 func (*CertificateData) ProtoMessage() {}
 
 func (x *CertificateData) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[140]
+	mi := &file_clientpb_client_proto_msgTypes[141]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12702,7 +12762,7 @@ func (x *CertificateData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificateData.ProtoReflect.Descriptor instead.
 func (*CertificateData) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{140}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{141}
 }
 
 func (x *CertificateData) GetCN() string {
@@ -12763,7 +12823,7 @@ type CertificateInfo struct {
 
 func (x *CertificateInfo) Reset() {
 	*x = CertificateInfo{}
-	mi := &file_clientpb_client_proto_msgTypes[141]
+	mi := &file_clientpb_client_proto_msgTypes[142]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12775,7 +12835,7 @@ func (x *CertificateInfo) String() string {
 func (*CertificateInfo) ProtoMessage() {}
 
 func (x *CertificateInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[141]
+	mi := &file_clientpb_client_proto_msgTypes[142]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12788,7 +12848,7 @@ func (x *CertificateInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificateInfo.ProtoReflect.Descriptor instead.
 func (*CertificateInfo) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{141}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{142}
 }
 
 func (x *CertificateInfo) GetInfo() []*CertificateData {
@@ -12813,7 +12873,7 @@ type CertificateAuthorityData struct {
 
 func (x *CertificateAuthorityData) Reset() {
 	*x = CertificateAuthorityData{}
-	mi := &file_clientpb_client_proto_msgTypes[142]
+	mi := &file_clientpb_client_proto_msgTypes[143]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12825,7 +12885,7 @@ func (x *CertificateAuthorityData) String() string {
 func (*CertificateAuthorityData) ProtoMessage() {}
 
 func (x *CertificateAuthorityData) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[142]
+	mi := &file_clientpb_client_proto_msgTypes[143]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12838,7 +12898,7 @@ func (x *CertificateAuthorityData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificateAuthorityData.ProtoReflect.Descriptor instead.
 func (*CertificateAuthorityData) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{142}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{143}
 }
 
 func (x *CertificateAuthorityData) GetCN() string {
@@ -12899,7 +12959,7 @@ type CertificateAuthorityInfo struct {
 
 func (x *CertificateAuthorityInfo) Reset() {
 	*x = CertificateAuthorityInfo{}
-	mi := &file_clientpb_client_proto_msgTypes[143]
+	mi := &file_clientpb_client_proto_msgTypes[144]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12911,7 +12971,7 @@ func (x *CertificateAuthorityInfo) String() string {
 func (*CertificateAuthorityInfo) ProtoMessage() {}
 
 func (x *CertificateAuthorityInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_clientpb_client_proto_msgTypes[143]
+	mi := &file_clientpb_client_proto_msgTypes[144]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12924,7 +12984,7 @@ func (x *CertificateAuthorityInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificateAuthorityInfo.ProtoReflect.Descriptor instead.
 func (*CertificateAuthorityInfo) Descriptor() ([]byte, []int) {
-	return file_clientpb_client_proto_rawDescGZIP(), []int{143}
+	return file_clientpb_client_proto_rawDescGZIP(), []int{144}
 }
 
 func (x *CertificateAuthorityInfo) GetInfo() []*CertificateAuthorityData {
@@ -13281,7 +13341,7 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\x06JobIDs\x18\x01 \x03(\rR\x06JobIDs\"3\n" +
 	"\aKillJob\x12\x0e\n" +
 	"\x02ID\x18\x01 \x01(\rR\x02ID\x12\x18\n" +
-	"\aSuccess\x18\x02 \x01(\bR\aSuccess\"\x91\x03\n" +
+	"\aSuccess\x18\x02 \x01(\bR\aSuccess\"\xce\x03\n" +
 	"\vListenerJob\x12\x0e\n" +
 	"\x02ID\x18\x01 \x01(\tR\x02ID\x12\x12\n" +
 	"\x04Type\x18\x02 \x01(\tR\x04Type\x12\x14\n" +
@@ -13291,7 +13351,14 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\aDNSConf\x18\x06 \x01(\v2\x18.clientpb.DNSListenerReqR\aDNSConf\x125\n" +
 	"\bHTTPConf\x18\a \x01(\v2\x19.clientpb.HTTPListenerReqR\bHTTPConf\x12>\n" +
 	"\tMultiConf\x18\b \x01(\v2 .clientpb.MultiplayerListenerReqR\tMultiConf\x125\n" +
-	"\aTCPConf\x18\t \x01(\v2\x1b.clientpb.StagerListenerReqR\aTCPConf\"^\n" +
+	"\aTCPConf\x18\t \x01(\v2\x1b.clientpb.StagerListenerReqR\aTCPConf\x12;\n" +
+	"\n" +
+	"TCPFwdConf\x18\n" +
+	" \x01(\v2\x1b.clientpb.TCPFwdListenerReqR\n" +
+	"TCPFwdConf\"I\n" +
+	"\x11TCPFwdListenerReq\x12\x16\n" +
+	"\x06WGPort\x18\x01 \x01(\rR\x06WGPort\x12\x1c\n" +
+	"\tLocalAddr\x18\x02 \x01(\tR\tLocalAddr\"^\n" +
 	"\x16MultiplayerListenerReq\x12\x12\n" +
 	"\x04Host\x18\x01 \x01(\tR\x04Host\x12\x12\n" +
 	"\x04Port\x18\x02 \x01(\rR\x04Port\x12\x1c\n" +
@@ -14273,7 +14340,7 @@ func file_clientpb_client_proto_rawDescGZIP() []byte {
 }
 
 var file_clientpb_client_proto_enumTypes = make([]protoimpl.EnumInfo, 18)
-var file_clientpb_client_proto_msgTypes = make([]protoimpl.MessageInfo, 158)
+var file_clientpb_client_proto_msgTypes = make([]protoimpl.MessageInfo, 159)
 var file_clientpb_client_proto_goTypes = []any{
 	(OutputFormat)(0),                      // 0: clientpb.OutputFormat
 	(StageProtocol)(0),                     // 1: clientpb.StageProtocol
@@ -14336,124 +14403,125 @@ var file_clientpb_client_proto_goTypes = []any{
 	(*RestartJobReq)(nil),                  // 58: clientpb.RestartJobReq
 	(*KillJob)(nil),                        // 59: clientpb.KillJob
 	(*ListenerJob)(nil),                    // 60: clientpb.ListenerJob
-	(*MultiplayerListenerReq)(nil),         // 61: clientpb.MultiplayerListenerReq
-	(*MTLSListenerReq)(nil),                // 62: clientpb.MTLSListenerReq
-	(*WGListenerReq)(nil),                  // 63: clientpb.WGListenerReq
-	(*DNSListenerReq)(nil),                 // 64: clientpb.DNSListenerReq
-	(*HTTPListenerReq)(nil),                // 65: clientpb.HTTPListenerReq
-	(*NamedPipesReq)(nil),                  // 66: clientpb.NamedPipesReq
-	(*NamedPipes)(nil),                     // 67: clientpb.NamedPipes
-	(*TCPPivotReq)(nil),                    // 68: clientpb.TCPPivotReq
-	(*TCPPivot)(nil),                       // 69: clientpb.TCPPivot
-	(*Sessions)(nil),                       // 70: clientpb.Sessions
-	(*RenameReq)(nil),                      // 71: clientpb.RenameReq
-	(*GenerateReq)(nil),                    // 72: clientpb.GenerateReq
-	(*GenerateStageReq)(nil),               // 73: clientpb.GenerateStageReq
-	(*Generate)(nil),                       // 74: clientpb.Generate
-	(*GenerateSpoofMetadataReq)(nil),       // 75: clientpb.GenerateSpoofMetadataReq
-	(*MSFReq)(nil),                         // 76: clientpb.MSFReq
-	(*MSFRemoteReq)(nil),                   // 77: clientpb.MSFRemoteReq
-	(*StagerListenerReq)(nil),              // 78: clientpb.StagerListenerReq
-	(*StagerListener)(nil),                 // 79: clientpb.StagerListener
-	(*ShellcodeRDIReq)(nil),                // 80: clientpb.ShellcodeRDIReq
-	(*ShellcodeRDI)(nil),                   // 81: clientpb.ShellcodeRDI
-	(*GetSystemReq)(nil),                   // 82: clientpb.GetSystemReq
-	(*MigrateReq)(nil),                     // 83: clientpb.MigrateReq
-	(*CreateTunnelReq)(nil),                // 84: clientpb.CreateTunnelReq
-	(*CreateTunnel)(nil),                   // 85: clientpb.CreateTunnel
-	(*CloseTunnelReq)(nil),                 // 86: clientpb.CloseTunnelReq
-	(*PivotGraphEntry)(nil),                // 87: clientpb.PivotGraphEntry
-	(*PivotGraph)(nil),                     // 88: clientpb.PivotGraph
-	(*Client)(nil),                         // 89: clientpb.Client
-	(*Event)(nil),                          // 90: clientpb.Event
-	(*Operators)(nil),                      // 91: clientpb.Operators
-	(*Operator)(nil),                       // 92: clientpb.Operator
-	(*WebContent)(nil),                     // 93: clientpb.WebContent
-	(*WebsiteAddContent)(nil),              // 94: clientpb.WebsiteAddContent
-	(*WebsiteRemoveContent)(nil),           // 95: clientpb.WebsiteRemoveContent
-	(*Website)(nil),                        // 96: clientpb.Website
-	(*Websites)(nil),                       // 97: clientpb.Websites
-	(*WGClientConfig)(nil),                 // 98: clientpb.WGClientConfig
-	(*Loot)(nil),                           // 99: clientpb.Loot
-	(*AllLoot)(nil),                        // 100: clientpb.AllLoot
-	(*IOC)(nil),                            // 101: clientpb.IOC
-	(*ExtensionData)(nil),                  // 102: clientpb.ExtensionData
-	(*Host)(nil),                           // 103: clientpb.Host
-	(*AllHosts)(nil),                       // 104: clientpb.AllHosts
-	(*DllHijackReq)(nil),                   // 105: clientpb.DllHijackReq
-	(*DllHijack)(nil),                      // 106: clientpb.DllHijack
-	(*BackdoorReq)(nil),                    // 107: clientpb.BackdoorReq
-	(*Backdoor)(nil),                       // 108: clientpb.Backdoor
-	(*ShellcodeEncodeReq)(nil),             // 109: clientpb.ShellcodeEncodeReq
-	(*ShellcodeEncode)(nil),                // 110: clientpb.ShellcodeEncode
-	(*ShellcodeEncoderArchMap)(nil),        // 111: clientpb.ShellcodeEncoderArchMap
-	(*ShellcodeEncoderMap)(nil),            // 112: clientpb.ShellcodeEncoderMap
-	(*ExternalGenerateReq)(nil),            // 113: clientpb.ExternalGenerateReq
-	(*Builders)(nil),                       // 114: clientpb.Builders
-	(*Builder)(nil),                        // 115: clientpb.Builder
-	(*HTTPC2Configs)(nil),                  // 116: clientpb.HTTPC2Configs
-	(*C2ProfileReq)(nil),                   // 117: clientpb.C2ProfileReq
-	(*HTTPC2ConfigReq)(nil),                // 118: clientpb.HTTPC2ConfigReq
-	(*HTTPC2Config)(nil),                   // 119: clientpb.HTTPC2Config
-	(*HTTPC2ServerConfig)(nil),             // 120: clientpb.HTTPC2ServerConfig
-	(*HTTPC2ImplantConfig)(nil),            // 121: clientpb.HTTPC2ImplantConfig
-	(*HTTPC2Cookie)(nil),                   // 122: clientpb.HTTPC2Cookie
-	(*HTTPC2Header)(nil),                   // 123: clientpb.HTTPC2Header
-	(*HTTPC2URLParameter)(nil),             // 124: clientpb.HTTPC2URLParameter
-	(*HTTPC2PathSegment)(nil),              // 125: clientpb.HTTPC2PathSegment
-	(*Credential)(nil),                     // 126: clientpb.Credential
-	(*Credentials)(nil),                    // 127: clientpb.Credentials
-	(*Crackstations)(nil),                  // 128: clientpb.Crackstations
-	(*CrackstationStatus)(nil),             // 129: clientpb.CrackstationStatus
-	(*CrackSyncStatus)(nil),                // 130: clientpb.CrackSyncStatus
-	(*CrackBenchmark)(nil),                 // 131: clientpb.CrackBenchmark
-	(*CrackTask)(nil),                      // 132: clientpb.CrackTask
-	(*Crackstation)(nil),                   // 133: clientpb.Crackstation
-	(*CUDABackendInfo)(nil),                // 134: clientpb.CUDABackendInfo
-	(*OpenCLBackendInfo)(nil),              // 135: clientpb.OpenCLBackendInfo
-	(*MetalBackendInfo)(nil),               // 136: clientpb.MetalBackendInfo
-	(*CrackCommand)(nil),                   // 137: clientpb.CrackCommand
-	(*CrackJob)(nil),                       // 138: clientpb.CrackJob
-	(*CrackResponse)(nil),                  // 139: clientpb.CrackResponse
-	(*CrackConfig)(nil),                    // 140: clientpb.CrackConfig
-	(*CrackFiles)(nil),                     // 141: clientpb.CrackFiles
-	(*CrackFile)(nil),                      // 142: clientpb.CrackFile
-	(*CrackFileChunk)(nil),                 // 143: clientpb.CrackFileChunk
-	(*AIProviderConfigs)(nil),              // 144: clientpb.AIProviderConfigs
-	(*AIProviderConfig)(nil),               // 145: clientpb.AIProviderConfig
-	(*AIConfigSummary)(nil),                // 146: clientpb.AIConfigSummary
-	(*AIConversationReq)(nil),              // 147: clientpb.AIConversationReq
-	(*AIConversations)(nil),                // 148: clientpb.AIConversations
-	(*AIContextWindowUsage)(nil),           // 149: clientpb.AIContextWindowUsage
-	(*AIConversation)(nil),                 // 150: clientpb.AIConversation
-	(*AIConversationMessages)(nil),         // 151: clientpb.AIConversationMessages
-	(*AIConversationMessage)(nil),          // 152: clientpb.AIConversationMessage
-	(*AIConversationEvent)(nil),            // 153: clientpb.AIConversationEvent
-	(*MonitoringProviders)(nil),            // 154: clientpb.MonitoringProviders
-	(*MonitoringProvider)(nil),             // 155: clientpb.MonitoringProvider
-	(*ResourceID)(nil),                     // 156: clientpb.ResourceID
-	(*CertificatesReq)(nil),                // 157: clientpb.CertificatesReq
-	(*CertificateData)(nil),                // 158: clientpb.CertificateData
-	(*CertificateInfo)(nil),                // 159: clientpb.CertificateInfo
-	(*CertificateAuthorityData)(nil),       // 160: clientpb.CertificateAuthorityData
-	(*CertificateAuthorityInfo)(nil),       // 161: clientpb.CertificateAuthorityInfo
-	nil,                                    // 162: clientpb.TrafficEncoderMap.EncodersEntry
-	nil,                                    // 163: clientpb.ExternalImplantConfig.EncodersEntry
-	nil,                                    // 164: clientpb.ImplantBuilds.ConfigsEntry
-	nil,                                    // 165: clientpb.ImplantBuilds.ResourceIDsEntry
-	nil,                                    // 166: clientpb.ImplantBuilds.StagedEntry
-	nil,                                    // 167: clientpb.WebsiteAddContent.ContentsEntry
-	nil,                                    // 168: clientpb.Website.ContentsEntry
-	nil,                                    // 169: clientpb.Host.ExtensionDataEntry
-	nil,                                    // 170: clientpb.ShellcodeEncoderArchMap.EncodersEntry
-	nil,                                    // 171: clientpb.ShellcodeEncoderArchMap.DescriptionsEntry
-	nil,                                    // 172: clientpb.ShellcodeEncoderMap.EncodersEntry
-	nil,                                    // 173: clientpb.CrackSyncStatus.ProgressEntry
-	nil,                                    // 174: clientpb.CrackBenchmark.BenchmarksEntry
-	nil,                                    // 175: clientpb.Crackstation.BenchmarksEntry
-	(*commonpb.File)(nil),                  // 176: commonpb.File
-	(*commonpb.Request)(nil),               // 177: commonpb.Request
-	(*commonpb.Response)(nil),              // 178: commonpb.Response
+	(*TCPFwdListenerReq)(nil),              // 61: clientpb.TCPFwdListenerReq
+	(*MultiplayerListenerReq)(nil),         // 62: clientpb.MultiplayerListenerReq
+	(*MTLSListenerReq)(nil),                // 63: clientpb.MTLSListenerReq
+	(*WGListenerReq)(nil),                  // 64: clientpb.WGListenerReq
+	(*DNSListenerReq)(nil),                 // 65: clientpb.DNSListenerReq
+	(*HTTPListenerReq)(nil),                // 66: clientpb.HTTPListenerReq
+	(*NamedPipesReq)(nil),                  // 67: clientpb.NamedPipesReq
+	(*NamedPipes)(nil),                     // 68: clientpb.NamedPipes
+	(*TCPPivotReq)(nil),                    // 69: clientpb.TCPPivotReq
+	(*TCPPivot)(nil),                       // 70: clientpb.TCPPivot
+	(*Sessions)(nil),                       // 71: clientpb.Sessions
+	(*RenameReq)(nil),                      // 72: clientpb.RenameReq
+	(*GenerateReq)(nil),                    // 73: clientpb.GenerateReq
+	(*GenerateStageReq)(nil),               // 74: clientpb.GenerateStageReq
+	(*Generate)(nil),                       // 75: clientpb.Generate
+	(*GenerateSpoofMetadataReq)(nil),       // 76: clientpb.GenerateSpoofMetadataReq
+	(*MSFReq)(nil),                         // 77: clientpb.MSFReq
+	(*MSFRemoteReq)(nil),                   // 78: clientpb.MSFRemoteReq
+	(*StagerListenerReq)(nil),              // 79: clientpb.StagerListenerReq
+	(*StagerListener)(nil),                 // 80: clientpb.StagerListener
+	(*ShellcodeRDIReq)(nil),                // 81: clientpb.ShellcodeRDIReq
+	(*ShellcodeRDI)(nil),                   // 82: clientpb.ShellcodeRDI
+	(*GetSystemReq)(nil),                   // 83: clientpb.GetSystemReq
+	(*MigrateReq)(nil),                     // 84: clientpb.MigrateReq
+	(*CreateTunnelReq)(nil),                // 85: clientpb.CreateTunnelReq
+	(*CreateTunnel)(nil),                   // 86: clientpb.CreateTunnel
+	(*CloseTunnelReq)(nil),                 // 87: clientpb.CloseTunnelReq
+	(*PivotGraphEntry)(nil),                // 88: clientpb.PivotGraphEntry
+	(*PivotGraph)(nil),                     // 89: clientpb.PivotGraph
+	(*Client)(nil),                         // 90: clientpb.Client
+	(*Event)(nil),                          // 91: clientpb.Event
+	(*Operators)(nil),                      // 92: clientpb.Operators
+	(*Operator)(nil),                       // 93: clientpb.Operator
+	(*WebContent)(nil),                     // 94: clientpb.WebContent
+	(*WebsiteAddContent)(nil),              // 95: clientpb.WebsiteAddContent
+	(*WebsiteRemoveContent)(nil),           // 96: clientpb.WebsiteRemoveContent
+	(*Website)(nil),                        // 97: clientpb.Website
+	(*Websites)(nil),                       // 98: clientpb.Websites
+	(*WGClientConfig)(nil),                 // 99: clientpb.WGClientConfig
+	(*Loot)(nil),                           // 100: clientpb.Loot
+	(*AllLoot)(nil),                        // 101: clientpb.AllLoot
+	(*IOC)(nil),                            // 102: clientpb.IOC
+	(*ExtensionData)(nil),                  // 103: clientpb.ExtensionData
+	(*Host)(nil),                           // 104: clientpb.Host
+	(*AllHosts)(nil),                       // 105: clientpb.AllHosts
+	(*DllHijackReq)(nil),                   // 106: clientpb.DllHijackReq
+	(*DllHijack)(nil),                      // 107: clientpb.DllHijack
+	(*BackdoorReq)(nil),                    // 108: clientpb.BackdoorReq
+	(*Backdoor)(nil),                       // 109: clientpb.Backdoor
+	(*ShellcodeEncodeReq)(nil),             // 110: clientpb.ShellcodeEncodeReq
+	(*ShellcodeEncode)(nil),                // 111: clientpb.ShellcodeEncode
+	(*ShellcodeEncoderArchMap)(nil),        // 112: clientpb.ShellcodeEncoderArchMap
+	(*ShellcodeEncoderMap)(nil),            // 113: clientpb.ShellcodeEncoderMap
+	(*ExternalGenerateReq)(nil),            // 114: clientpb.ExternalGenerateReq
+	(*Builders)(nil),                       // 115: clientpb.Builders
+	(*Builder)(nil),                        // 116: clientpb.Builder
+	(*HTTPC2Configs)(nil),                  // 117: clientpb.HTTPC2Configs
+	(*C2ProfileReq)(nil),                   // 118: clientpb.C2ProfileReq
+	(*HTTPC2ConfigReq)(nil),                // 119: clientpb.HTTPC2ConfigReq
+	(*HTTPC2Config)(nil),                   // 120: clientpb.HTTPC2Config
+	(*HTTPC2ServerConfig)(nil),             // 121: clientpb.HTTPC2ServerConfig
+	(*HTTPC2ImplantConfig)(nil),            // 122: clientpb.HTTPC2ImplantConfig
+	(*HTTPC2Cookie)(nil),                   // 123: clientpb.HTTPC2Cookie
+	(*HTTPC2Header)(nil),                   // 124: clientpb.HTTPC2Header
+	(*HTTPC2URLParameter)(nil),             // 125: clientpb.HTTPC2URLParameter
+	(*HTTPC2PathSegment)(nil),              // 126: clientpb.HTTPC2PathSegment
+	(*Credential)(nil),                     // 127: clientpb.Credential
+	(*Credentials)(nil),                    // 128: clientpb.Credentials
+	(*Crackstations)(nil),                  // 129: clientpb.Crackstations
+	(*CrackstationStatus)(nil),             // 130: clientpb.CrackstationStatus
+	(*CrackSyncStatus)(nil),                // 131: clientpb.CrackSyncStatus
+	(*CrackBenchmark)(nil),                 // 132: clientpb.CrackBenchmark
+	(*CrackTask)(nil),                      // 133: clientpb.CrackTask
+	(*Crackstation)(nil),                   // 134: clientpb.Crackstation
+	(*CUDABackendInfo)(nil),                // 135: clientpb.CUDABackendInfo
+	(*OpenCLBackendInfo)(nil),              // 136: clientpb.OpenCLBackendInfo
+	(*MetalBackendInfo)(nil),               // 137: clientpb.MetalBackendInfo
+	(*CrackCommand)(nil),                   // 138: clientpb.CrackCommand
+	(*CrackJob)(nil),                       // 139: clientpb.CrackJob
+	(*CrackResponse)(nil),                  // 140: clientpb.CrackResponse
+	(*CrackConfig)(nil),                    // 141: clientpb.CrackConfig
+	(*CrackFiles)(nil),                     // 142: clientpb.CrackFiles
+	(*CrackFile)(nil),                      // 143: clientpb.CrackFile
+	(*CrackFileChunk)(nil),                 // 144: clientpb.CrackFileChunk
+	(*AIProviderConfigs)(nil),              // 145: clientpb.AIProviderConfigs
+	(*AIProviderConfig)(nil),               // 146: clientpb.AIProviderConfig
+	(*AIConfigSummary)(nil),                // 147: clientpb.AIConfigSummary
+	(*AIConversationReq)(nil),              // 148: clientpb.AIConversationReq
+	(*AIConversations)(nil),                // 149: clientpb.AIConversations
+	(*AIContextWindowUsage)(nil),           // 150: clientpb.AIContextWindowUsage
+	(*AIConversation)(nil),                 // 151: clientpb.AIConversation
+	(*AIConversationMessages)(nil),         // 152: clientpb.AIConversationMessages
+	(*AIConversationMessage)(nil),          // 153: clientpb.AIConversationMessage
+	(*AIConversationEvent)(nil),            // 154: clientpb.AIConversationEvent
+	(*MonitoringProviders)(nil),            // 155: clientpb.MonitoringProviders
+	(*MonitoringProvider)(nil),             // 156: clientpb.MonitoringProvider
+	(*ResourceID)(nil),                     // 157: clientpb.ResourceID
+	(*CertificatesReq)(nil),                // 158: clientpb.CertificatesReq
+	(*CertificateData)(nil),                // 159: clientpb.CertificateData
+	(*CertificateInfo)(nil),                // 160: clientpb.CertificateInfo
+	(*CertificateAuthorityData)(nil),       // 161: clientpb.CertificateAuthorityData
+	(*CertificateAuthorityInfo)(nil),       // 162: clientpb.CertificateAuthorityInfo
+	nil,                                    // 163: clientpb.TrafficEncoderMap.EncodersEntry
+	nil,                                    // 164: clientpb.ExternalImplantConfig.EncodersEntry
+	nil,                                    // 165: clientpb.ImplantBuilds.ConfigsEntry
+	nil,                                    // 166: clientpb.ImplantBuilds.ResourceIDsEntry
+	nil,                                    // 167: clientpb.ImplantBuilds.StagedEntry
+	nil,                                    // 168: clientpb.WebsiteAddContent.ContentsEntry
+	nil,                                    // 169: clientpb.Website.ContentsEntry
+	nil,                                    // 170: clientpb.Host.ExtensionDataEntry
+	nil,                                    // 171: clientpb.ShellcodeEncoderArchMap.EncodersEntry
+	nil,                                    // 172: clientpb.ShellcodeEncoderArchMap.DescriptionsEntry
+	nil,                                    // 173: clientpb.ShellcodeEncoderMap.EncodersEntry
+	nil,                                    // 174: clientpb.CrackSyncStatus.ProgressEntry
+	nil,                                    // 175: clientpb.CrackBenchmark.BenchmarksEntry
+	nil,                                    // 176: clientpb.Crackstation.BenchmarksEntry
+	(*commonpb.File)(nil),                  // 177: commonpb.File
+	(*commonpb.Request)(nil),               // 178: commonpb.Request
+	(*commonpb.Response)(nil),              // 179: commonpb.Response
 }
 var file_clientpb_client_proto_depIdxs = []int32{
 	21,  // 0: clientpb.Beacons.Beacons:type_name -> clientpb.Beacon
@@ -14463,7 +14531,7 @@ var file_clientpb_client_proto_depIdxs = []int32{
 	0,   // 4: clientpb.ImplantConfig.Format:type_name -> clientpb.OutputFormat
 	27,  // 5: clientpb.ImplantConfig.ShellcodeConfig:type_name -> clientpb.ShellcodeConfig
 	3,   // 6: clientpb.ImplantConfig.ShellcodeEncoder:type_name -> clientpb.ShellcodeEncoder
-	176, // 7: clientpb.ImplantConfig.Assets:type_name -> commonpb.File
+	177, // 7: clientpb.ImplantConfig.Assets:type_name -> commonpb.File
 	29,  // 8: clientpb.PESpoofMetadataConfig.Source:type_name -> clientpb.SpoofMetadataFile
 	29,  // 9: clientpb.PESpoofMetadataConfig.Icon:type_name -> clientpb.SpoofMetadataFile
 	30,  // 10: clientpb.PESpoofMetadataConfig.ResourceDirectory:type_name -> clientpb.IMAGE_RESOURCE_DIRECTORY
@@ -14471,18 +14539,18 @@ var file_clientpb_client_proto_depIdxs = []int32{
 	32,  // 12: clientpb.PESpoofMetadataConfig.ResourceDataEntries:type_name -> clientpb.IMAGE_RESOURCE_DATA_ENTRY
 	33,  // 13: clientpb.PESpoofMetadataConfig.ExportDirectory:type_name -> clientpb.IMAGE_EXPORT_DIRECTORY
 	34,  // 14: clientpb.SpoofMetadataConfig.PE:type_name -> clientpb.PESpoofMetadataConfig
-	176, // 15: clientpb.TrafficEncoder.Wasm:type_name -> commonpb.File
-	162, // 16: clientpb.TrafficEncoderMap.Encoders:type_name -> clientpb.TrafficEncoderMap.EncodersEntry
+	177, // 15: clientpb.TrafficEncoder.Wasm:type_name -> commonpb.File
+	163, // 16: clientpb.TrafficEncoderMap.Encoders:type_name -> clientpb.TrafficEncoderMap.EncodersEntry
 	36,  // 17: clientpb.TrafficEncoderTests.Encoder:type_name -> clientpb.TrafficEncoder
 	38,  // 18: clientpb.TrafficEncoderTests.Tests:type_name -> clientpb.TrafficEncoderTest
 	28,  // 19: clientpb.ExternalImplantConfig.Config:type_name -> clientpb.ImplantConfig
 	44,  // 20: clientpb.ExternalImplantConfig.Build:type_name -> clientpb.ImplantBuild
-	119, // 21: clientpb.ExternalImplantConfig.HTTPC2:type_name -> clientpb.HTTPC2Config
-	163, // 22: clientpb.ExternalImplantConfig.encoders:type_name -> clientpb.ExternalImplantConfig.EncodersEntry
-	176, // 23: clientpb.ExternalImplantBinary.File:type_name -> commonpb.File
-	164, // 24: clientpb.ImplantBuilds.Configs:type_name -> clientpb.ImplantBuilds.ConfigsEntry
-	165, // 25: clientpb.ImplantBuilds.ResourceIDs:type_name -> clientpb.ImplantBuilds.ResourceIDsEntry
-	166, // 26: clientpb.ImplantBuilds.staged:type_name -> clientpb.ImplantBuilds.StagedEntry
+	120, // 21: clientpb.ExternalImplantConfig.HTTPC2:type_name -> clientpb.HTTPC2Config
+	164, // 22: clientpb.ExternalImplantConfig.encoders:type_name -> clientpb.ExternalImplantConfig.EncodersEntry
+	177, // 23: clientpb.ExternalImplantBinary.File:type_name -> commonpb.File
+	165, // 24: clientpb.ImplantBuilds.Configs:type_name -> clientpb.ImplantBuilds.ConfigsEntry
+	166, // 25: clientpb.ImplantBuilds.ResourceIDs:type_name -> clientpb.ImplantBuilds.ResourceIDsEntry
+	167, // 26: clientpb.ImplantBuilds.staged:type_name -> clientpb.ImplantBuilds.StagedEntry
 	0,   // 27: clientpb.CompilerTarget.Format:type_name -> clientpb.OutputFormat
 	45,  // 28: clientpb.Compiler.Targets:type_name -> clientpb.CompilerTarget
 	46,  // 29: clientpb.Compiler.CrossCompilers:type_name -> clientpb.CrossCompiler
@@ -14491,123 +14559,124 @@ var file_clientpb_client_proto_depIdxs = []int32{
 	28,  // 32: clientpb.ImplantProfile.Config:type_name -> clientpb.ImplantConfig
 	52,  // 33: clientpb.ImplantProfiles.Profiles:type_name -> clientpb.ImplantProfile
 	55,  // 34: clientpb.Jobs.Active:type_name -> clientpb.Job
-	62,  // 35: clientpb.ListenerJob.MTLSConf:type_name -> clientpb.MTLSListenerReq
-	63,  // 36: clientpb.ListenerJob.WGConf:type_name -> clientpb.WGListenerReq
-	64,  // 37: clientpb.ListenerJob.DNSConf:type_name -> clientpb.DNSListenerReq
-	65,  // 38: clientpb.ListenerJob.HTTPConf:type_name -> clientpb.HTTPListenerReq
-	61,  // 39: clientpb.ListenerJob.MultiConf:type_name -> clientpb.MultiplayerListenerReq
-	78,  // 40: clientpb.ListenerJob.TCPConf:type_name -> clientpb.StagerListenerReq
-	177, // 41: clientpb.NamedPipesReq.Request:type_name -> commonpb.Request
-	178, // 42: clientpb.NamedPipes.Response:type_name -> commonpb.Response
-	177, // 43: clientpb.TCPPivotReq.Request:type_name -> commonpb.Request
-	178, // 44: clientpb.TCPPivot.Response:type_name -> commonpb.Response
-	20,  // 45: clientpb.Sessions.Sessions:type_name -> clientpb.Session
-	28,  // 46: clientpb.GenerateReq.Config:type_name -> clientpb.ImplantConfig
-	176, // 47: clientpb.Generate.File:type_name -> commonpb.File
-	35,  // 48: clientpb.GenerateSpoofMetadataReq.SpoofMetadata:type_name -> clientpb.SpoofMetadataConfig
-	177, // 49: clientpb.MSFReq.Request:type_name -> commonpb.Request
-	177, // 50: clientpb.MSFRemoteReq.Request:type_name -> commonpb.Request
-	1,   // 51: clientpb.StagerListenerReq.Protocol:type_name -> clientpb.StageProtocol
-	28,  // 52: clientpb.GetSystemReq.Config:type_name -> clientpb.ImplantConfig
-	177, // 53: clientpb.GetSystemReq.Request:type_name -> commonpb.Request
-	28,  // 54: clientpb.MigrateReq.Config:type_name -> clientpb.ImplantConfig
-	3,   // 55: clientpb.MigrateReq.Encoder:type_name -> clientpb.ShellcodeEncoder
-	177, // 56: clientpb.MigrateReq.Request:type_name -> commonpb.Request
-	177, // 57: clientpb.CreateTunnelReq.Request:type_name -> commonpb.Request
-	177, // 58: clientpb.CloseTunnelReq.Request:type_name -> commonpb.Request
-	20,  // 59: clientpb.PivotGraphEntry.Session:type_name -> clientpb.Session
-	87,  // 60: clientpb.PivotGraphEntry.Children:type_name -> clientpb.PivotGraphEntry
-	87,  // 61: clientpb.PivotGraph.Children:type_name -> clientpb.PivotGraphEntry
-	92,  // 62: clientpb.Client.Operator:type_name -> clientpb.Operator
-	20,  // 63: clientpb.Event.Session:type_name -> clientpb.Session
-	55,  // 64: clientpb.Event.Job:type_name -> clientpb.Job
-	89,  // 65: clientpb.Event.Client:type_name -> clientpb.Client
-	92,  // 66: clientpb.Operators.Operators:type_name -> clientpb.Operator
-	167, // 67: clientpb.WebsiteAddContent.Contents:type_name -> clientpb.WebsiteAddContent.ContentsEntry
-	168, // 68: clientpb.Website.Contents:type_name -> clientpb.Website.ContentsEntry
-	96,  // 69: clientpb.Websites.Websites:type_name -> clientpb.Website
-	2,   // 70: clientpb.Loot.FileType:type_name -> clientpb.FileType
-	176, // 71: clientpb.Loot.File:type_name -> commonpb.File
-	99,  // 72: clientpb.AllLoot.Loot:type_name -> clientpb.Loot
-	101, // 73: clientpb.Host.IOCs:type_name -> clientpb.IOC
-	169, // 74: clientpb.Host.ExtensionData:type_name -> clientpb.Host.ExtensionDataEntry
-	103, // 75: clientpb.AllHosts.Hosts:type_name -> clientpb.Host
-	177, // 76: clientpb.DllHijackReq.Request:type_name -> commonpb.Request
-	178, // 77: clientpb.DllHijack.Response:type_name -> commonpb.Response
-	177, // 78: clientpb.BackdoorReq.Request:type_name -> commonpb.Request
-	178, // 79: clientpb.Backdoor.Response:type_name -> commonpb.Response
-	3,   // 80: clientpb.ShellcodeEncodeReq.Encoder:type_name -> clientpb.ShellcodeEncoder
-	177, // 81: clientpb.ShellcodeEncodeReq.Request:type_name -> commonpb.Request
-	178, // 82: clientpb.ShellcodeEncode.Response:type_name -> commonpb.Response
-	170, // 83: clientpb.ShellcodeEncoderArchMap.Encoders:type_name -> clientpb.ShellcodeEncoderArchMap.EncodersEntry
-	171, // 84: clientpb.ShellcodeEncoderArchMap.Descriptions:type_name -> clientpb.ShellcodeEncoderArchMap.DescriptionsEntry
-	172, // 85: clientpb.ShellcodeEncoderMap.Encoders:type_name -> clientpb.ShellcodeEncoderMap.EncodersEntry
-	28,  // 86: clientpb.ExternalGenerateReq.Config:type_name -> clientpb.ImplantConfig
-	115, // 87: clientpb.Builders.Builders:type_name -> clientpb.Builder
-	45,  // 88: clientpb.Builder.Targets:type_name -> clientpb.CompilerTarget
-	46,  // 89: clientpb.Builder.CrossCompilers:type_name -> clientpb.CrossCompiler
-	119, // 90: clientpb.HTTPC2Configs.configs:type_name -> clientpb.HTTPC2Config
-	119, // 91: clientpb.HTTPC2ConfigReq.C2Config:type_name -> clientpb.HTTPC2Config
-	120, // 92: clientpb.HTTPC2Config.ServerConfig:type_name -> clientpb.HTTPC2ServerConfig
-	121, // 93: clientpb.HTTPC2Config.ImplantConfig:type_name -> clientpb.HTTPC2ImplantConfig
-	123, // 94: clientpb.HTTPC2ServerConfig.Headers:type_name -> clientpb.HTTPC2Header
-	122, // 95: clientpb.HTTPC2ServerConfig.Cookies:type_name -> clientpb.HTTPC2Cookie
-	124, // 96: clientpb.HTTPC2ImplantConfig.ExtraURLParameters:type_name -> clientpb.HTTPC2URLParameter
-	123, // 97: clientpb.HTTPC2ImplantConfig.Headers:type_name -> clientpb.HTTPC2Header
-	125, // 98: clientpb.HTTPC2ImplantConfig.PathSegments:type_name -> clientpb.HTTPC2PathSegment
-	5,   // 99: clientpb.Credential.HashType:type_name -> clientpb.HashType
-	126, // 100: clientpb.Credentials.Credentials:type_name -> clientpb.Credential
-	133, // 101: clientpb.Crackstations.Crackstations:type_name -> clientpb.Crackstation
-	6,   // 102: clientpb.CrackstationStatus.State:type_name -> clientpb.States
-	130, // 103: clientpb.CrackstationStatus.Syncing:type_name -> clientpb.CrackSyncStatus
-	173, // 104: clientpb.CrackSyncStatus.Progress:type_name -> clientpb.CrackSyncStatus.ProgressEntry
-	174, // 105: clientpb.CrackBenchmark.Benchmarks:type_name -> clientpb.CrackBenchmark.BenchmarksEntry
-	137, // 106: clientpb.CrackTask.Command:type_name -> clientpb.CrackCommand
-	175, // 107: clientpb.Crackstation.Benchmarks:type_name -> clientpb.Crackstation.BenchmarksEntry
-	134, // 108: clientpb.Crackstation.CUDA:type_name -> clientpb.CUDABackendInfo
-	136, // 109: clientpb.Crackstation.Metal:type_name -> clientpb.MetalBackendInfo
-	135, // 110: clientpb.Crackstation.OpenCL:type_name -> clientpb.OpenCLBackendInfo
-	8,   // 111: clientpb.CrackCommand.AttackMode:type_name -> clientpb.CrackAttackMode
-	5,   // 112: clientpb.CrackCommand.HashType:type_name -> clientpb.HashType
-	10,  // 113: clientpb.CrackCommand.OutfileFormat:type_name -> clientpb.CrackOutfileFormat
-	9,   // 114: clientpb.CrackCommand.EncodingFrom:type_name -> clientpb.CrackEncoding
-	9,   // 115: clientpb.CrackCommand.EncodingTo:type_name -> clientpb.CrackEncoding
-	11,  // 116: clientpb.CrackCommand.WorkloadProfile:type_name -> clientpb.CrackWorkloadProfile
-	7,   // 117: clientpb.CrackJob.Status:type_name -> clientpb.CrackJobStatus
-	137, // 118: clientpb.CrackJob.Command:type_name -> clientpb.CrackCommand
-	138, // 119: clientpb.CrackResponse.Job:type_name -> clientpb.CrackJob
-	142, // 120: clientpb.CrackFiles.Files:type_name -> clientpb.CrackFile
-	12,  // 121: clientpb.CrackFile.Type:type_name -> clientpb.CrackFileType
-	143, // 122: clientpb.CrackFile.Chunks:type_name -> clientpb.CrackFileChunk
-	145, // 123: clientpb.AIProviderConfigs.Providers:type_name -> clientpb.AIProviderConfig
-	146, // 124: clientpb.AIProviderConfigs.Config:type_name -> clientpb.AIConfigSummary
-	150, // 125: clientpb.AIConversations.Conversations:type_name -> clientpb.AIConversation
-	152, // 126: clientpb.AIConversation.Messages:type_name -> clientpb.AIConversationMessage
-	13,  // 127: clientpb.AIConversation.TurnState:type_name -> clientpb.AIConversationTurnState
-	149, // 128: clientpb.AIConversation.ContextWindowUsage:type_name -> clientpb.AIContextWindowUsage
-	152, // 129: clientpb.AIConversationMessages.Messages:type_name -> clientpb.AIConversationMessage
-	14,  // 130: clientpb.AIConversationMessage.Kind:type_name -> clientpb.AIConversationMessageKind
-	15,  // 131: clientpb.AIConversationMessage.Visibility:type_name -> clientpb.AIConversationMessageVisibility
-	16,  // 132: clientpb.AIConversationMessage.State:type_name -> clientpb.AIConversationMessageState
-	17,  // 133: clientpb.AIConversationEvent.EventType:type_name -> clientpb.AIConversationEventType
-	150, // 134: clientpb.AIConversationEvent.Conversation:type_name -> clientpb.AIConversation
-	152, // 135: clientpb.AIConversationEvent.Message:type_name -> clientpb.AIConversationMessage
-	155, // 136: clientpb.MonitoringProviders.providers:type_name -> clientpb.MonitoringProvider
-	158, // 137: clientpb.CertificateInfo.info:type_name -> clientpb.CertificateData
-	160, // 138: clientpb.CertificateAuthorityInfo.info:type_name -> clientpb.CertificateAuthorityData
-	36,  // 139: clientpb.TrafficEncoderMap.EncodersEntry.value:type_name -> clientpb.TrafficEncoder
-	28,  // 140: clientpb.ImplantBuilds.ConfigsEntry.value:type_name -> clientpb.ImplantConfig
-	156, // 141: clientpb.ImplantBuilds.ResourceIDsEntry.value:type_name -> clientpb.ResourceID
-	93,  // 142: clientpb.WebsiteAddContent.ContentsEntry.value:type_name -> clientpb.WebContent
-	93,  // 143: clientpb.Website.ContentsEntry.value:type_name -> clientpb.WebContent
-	102, // 144: clientpb.Host.ExtensionDataEntry.value:type_name -> clientpb.ExtensionData
-	3,   // 145: clientpb.ShellcodeEncoderArchMap.EncodersEntry.value:type_name -> clientpb.ShellcodeEncoder
-	111, // 146: clientpb.ShellcodeEncoderMap.EncodersEntry.value:type_name -> clientpb.ShellcodeEncoderArchMap
-	147, // [147:147] is the sub-list for method output_type
-	147, // [147:147] is the sub-list for method input_type
-	147, // [147:147] is the sub-list for extension type_name
-	147, // [147:147] is the sub-list for extension extendee
-	0,   // [0:147] is the sub-list for field type_name
+	63,  // 35: clientpb.ListenerJob.MTLSConf:type_name -> clientpb.MTLSListenerReq
+	64,  // 36: clientpb.ListenerJob.WGConf:type_name -> clientpb.WGListenerReq
+	65,  // 37: clientpb.ListenerJob.DNSConf:type_name -> clientpb.DNSListenerReq
+	66,  // 38: clientpb.ListenerJob.HTTPConf:type_name -> clientpb.HTTPListenerReq
+	62,  // 39: clientpb.ListenerJob.MultiConf:type_name -> clientpb.MultiplayerListenerReq
+	79,  // 40: clientpb.ListenerJob.TCPConf:type_name -> clientpb.StagerListenerReq
+	61,  // 41: clientpb.ListenerJob.TCPFwdConf:type_name -> clientpb.TCPFwdListenerReq
+	178, // 42: clientpb.NamedPipesReq.Request:type_name -> commonpb.Request
+	179, // 43: clientpb.NamedPipes.Response:type_name -> commonpb.Response
+	178, // 44: clientpb.TCPPivotReq.Request:type_name -> commonpb.Request
+	179, // 45: clientpb.TCPPivot.Response:type_name -> commonpb.Response
+	20,  // 46: clientpb.Sessions.Sessions:type_name -> clientpb.Session
+	28,  // 47: clientpb.GenerateReq.Config:type_name -> clientpb.ImplantConfig
+	177, // 48: clientpb.Generate.File:type_name -> commonpb.File
+	35,  // 49: clientpb.GenerateSpoofMetadataReq.SpoofMetadata:type_name -> clientpb.SpoofMetadataConfig
+	178, // 50: clientpb.MSFReq.Request:type_name -> commonpb.Request
+	178, // 51: clientpb.MSFRemoteReq.Request:type_name -> commonpb.Request
+	1,   // 52: clientpb.StagerListenerReq.Protocol:type_name -> clientpb.StageProtocol
+	28,  // 53: clientpb.GetSystemReq.Config:type_name -> clientpb.ImplantConfig
+	178, // 54: clientpb.GetSystemReq.Request:type_name -> commonpb.Request
+	28,  // 55: clientpb.MigrateReq.Config:type_name -> clientpb.ImplantConfig
+	3,   // 56: clientpb.MigrateReq.Encoder:type_name -> clientpb.ShellcodeEncoder
+	178, // 57: clientpb.MigrateReq.Request:type_name -> commonpb.Request
+	178, // 58: clientpb.CreateTunnelReq.Request:type_name -> commonpb.Request
+	178, // 59: clientpb.CloseTunnelReq.Request:type_name -> commonpb.Request
+	20,  // 60: clientpb.PivotGraphEntry.Session:type_name -> clientpb.Session
+	88,  // 61: clientpb.PivotGraphEntry.Children:type_name -> clientpb.PivotGraphEntry
+	88,  // 62: clientpb.PivotGraph.Children:type_name -> clientpb.PivotGraphEntry
+	93,  // 63: clientpb.Client.Operator:type_name -> clientpb.Operator
+	20,  // 64: clientpb.Event.Session:type_name -> clientpb.Session
+	55,  // 65: clientpb.Event.Job:type_name -> clientpb.Job
+	90,  // 66: clientpb.Event.Client:type_name -> clientpb.Client
+	93,  // 67: clientpb.Operators.Operators:type_name -> clientpb.Operator
+	168, // 68: clientpb.WebsiteAddContent.Contents:type_name -> clientpb.WebsiteAddContent.ContentsEntry
+	169, // 69: clientpb.Website.Contents:type_name -> clientpb.Website.ContentsEntry
+	97,  // 70: clientpb.Websites.Websites:type_name -> clientpb.Website
+	2,   // 71: clientpb.Loot.FileType:type_name -> clientpb.FileType
+	177, // 72: clientpb.Loot.File:type_name -> commonpb.File
+	100, // 73: clientpb.AllLoot.Loot:type_name -> clientpb.Loot
+	102, // 74: clientpb.Host.IOCs:type_name -> clientpb.IOC
+	170, // 75: clientpb.Host.ExtensionData:type_name -> clientpb.Host.ExtensionDataEntry
+	104, // 76: clientpb.AllHosts.Hosts:type_name -> clientpb.Host
+	178, // 77: clientpb.DllHijackReq.Request:type_name -> commonpb.Request
+	179, // 78: clientpb.DllHijack.Response:type_name -> commonpb.Response
+	178, // 79: clientpb.BackdoorReq.Request:type_name -> commonpb.Request
+	179, // 80: clientpb.Backdoor.Response:type_name -> commonpb.Response
+	3,   // 81: clientpb.ShellcodeEncodeReq.Encoder:type_name -> clientpb.ShellcodeEncoder
+	178, // 82: clientpb.ShellcodeEncodeReq.Request:type_name -> commonpb.Request
+	179, // 83: clientpb.ShellcodeEncode.Response:type_name -> commonpb.Response
+	171, // 84: clientpb.ShellcodeEncoderArchMap.Encoders:type_name -> clientpb.ShellcodeEncoderArchMap.EncodersEntry
+	172, // 85: clientpb.ShellcodeEncoderArchMap.Descriptions:type_name -> clientpb.ShellcodeEncoderArchMap.DescriptionsEntry
+	173, // 86: clientpb.ShellcodeEncoderMap.Encoders:type_name -> clientpb.ShellcodeEncoderMap.EncodersEntry
+	28,  // 87: clientpb.ExternalGenerateReq.Config:type_name -> clientpb.ImplantConfig
+	116, // 88: clientpb.Builders.Builders:type_name -> clientpb.Builder
+	45,  // 89: clientpb.Builder.Targets:type_name -> clientpb.CompilerTarget
+	46,  // 90: clientpb.Builder.CrossCompilers:type_name -> clientpb.CrossCompiler
+	120, // 91: clientpb.HTTPC2Configs.configs:type_name -> clientpb.HTTPC2Config
+	120, // 92: clientpb.HTTPC2ConfigReq.C2Config:type_name -> clientpb.HTTPC2Config
+	121, // 93: clientpb.HTTPC2Config.ServerConfig:type_name -> clientpb.HTTPC2ServerConfig
+	122, // 94: clientpb.HTTPC2Config.ImplantConfig:type_name -> clientpb.HTTPC2ImplantConfig
+	124, // 95: clientpb.HTTPC2ServerConfig.Headers:type_name -> clientpb.HTTPC2Header
+	123, // 96: clientpb.HTTPC2ServerConfig.Cookies:type_name -> clientpb.HTTPC2Cookie
+	125, // 97: clientpb.HTTPC2ImplantConfig.ExtraURLParameters:type_name -> clientpb.HTTPC2URLParameter
+	124, // 98: clientpb.HTTPC2ImplantConfig.Headers:type_name -> clientpb.HTTPC2Header
+	126, // 99: clientpb.HTTPC2ImplantConfig.PathSegments:type_name -> clientpb.HTTPC2PathSegment
+	5,   // 100: clientpb.Credential.HashType:type_name -> clientpb.HashType
+	127, // 101: clientpb.Credentials.Credentials:type_name -> clientpb.Credential
+	134, // 102: clientpb.Crackstations.Crackstations:type_name -> clientpb.Crackstation
+	6,   // 103: clientpb.CrackstationStatus.State:type_name -> clientpb.States
+	131, // 104: clientpb.CrackstationStatus.Syncing:type_name -> clientpb.CrackSyncStatus
+	174, // 105: clientpb.CrackSyncStatus.Progress:type_name -> clientpb.CrackSyncStatus.ProgressEntry
+	175, // 106: clientpb.CrackBenchmark.Benchmarks:type_name -> clientpb.CrackBenchmark.BenchmarksEntry
+	138, // 107: clientpb.CrackTask.Command:type_name -> clientpb.CrackCommand
+	176, // 108: clientpb.Crackstation.Benchmarks:type_name -> clientpb.Crackstation.BenchmarksEntry
+	135, // 109: clientpb.Crackstation.CUDA:type_name -> clientpb.CUDABackendInfo
+	137, // 110: clientpb.Crackstation.Metal:type_name -> clientpb.MetalBackendInfo
+	136, // 111: clientpb.Crackstation.OpenCL:type_name -> clientpb.OpenCLBackendInfo
+	8,   // 112: clientpb.CrackCommand.AttackMode:type_name -> clientpb.CrackAttackMode
+	5,   // 113: clientpb.CrackCommand.HashType:type_name -> clientpb.HashType
+	10,  // 114: clientpb.CrackCommand.OutfileFormat:type_name -> clientpb.CrackOutfileFormat
+	9,   // 115: clientpb.CrackCommand.EncodingFrom:type_name -> clientpb.CrackEncoding
+	9,   // 116: clientpb.CrackCommand.EncodingTo:type_name -> clientpb.CrackEncoding
+	11,  // 117: clientpb.CrackCommand.WorkloadProfile:type_name -> clientpb.CrackWorkloadProfile
+	7,   // 118: clientpb.CrackJob.Status:type_name -> clientpb.CrackJobStatus
+	138, // 119: clientpb.CrackJob.Command:type_name -> clientpb.CrackCommand
+	139, // 120: clientpb.CrackResponse.Job:type_name -> clientpb.CrackJob
+	143, // 121: clientpb.CrackFiles.Files:type_name -> clientpb.CrackFile
+	12,  // 122: clientpb.CrackFile.Type:type_name -> clientpb.CrackFileType
+	144, // 123: clientpb.CrackFile.Chunks:type_name -> clientpb.CrackFileChunk
+	146, // 124: clientpb.AIProviderConfigs.Providers:type_name -> clientpb.AIProviderConfig
+	147, // 125: clientpb.AIProviderConfigs.Config:type_name -> clientpb.AIConfigSummary
+	151, // 126: clientpb.AIConversations.Conversations:type_name -> clientpb.AIConversation
+	153, // 127: clientpb.AIConversation.Messages:type_name -> clientpb.AIConversationMessage
+	13,  // 128: clientpb.AIConversation.TurnState:type_name -> clientpb.AIConversationTurnState
+	150, // 129: clientpb.AIConversation.ContextWindowUsage:type_name -> clientpb.AIContextWindowUsage
+	153, // 130: clientpb.AIConversationMessages.Messages:type_name -> clientpb.AIConversationMessage
+	14,  // 131: clientpb.AIConversationMessage.Kind:type_name -> clientpb.AIConversationMessageKind
+	15,  // 132: clientpb.AIConversationMessage.Visibility:type_name -> clientpb.AIConversationMessageVisibility
+	16,  // 133: clientpb.AIConversationMessage.State:type_name -> clientpb.AIConversationMessageState
+	17,  // 134: clientpb.AIConversationEvent.EventType:type_name -> clientpb.AIConversationEventType
+	151, // 135: clientpb.AIConversationEvent.Conversation:type_name -> clientpb.AIConversation
+	153, // 136: clientpb.AIConversationEvent.Message:type_name -> clientpb.AIConversationMessage
+	156, // 137: clientpb.MonitoringProviders.providers:type_name -> clientpb.MonitoringProvider
+	159, // 138: clientpb.CertificateInfo.info:type_name -> clientpb.CertificateData
+	161, // 139: clientpb.CertificateAuthorityInfo.info:type_name -> clientpb.CertificateAuthorityData
+	36,  // 140: clientpb.TrafficEncoderMap.EncodersEntry.value:type_name -> clientpb.TrafficEncoder
+	28,  // 141: clientpb.ImplantBuilds.ConfigsEntry.value:type_name -> clientpb.ImplantConfig
+	157, // 142: clientpb.ImplantBuilds.ResourceIDsEntry.value:type_name -> clientpb.ResourceID
+	94,  // 143: clientpb.WebsiteAddContent.ContentsEntry.value:type_name -> clientpb.WebContent
+	94,  // 144: clientpb.Website.ContentsEntry.value:type_name -> clientpb.WebContent
+	103, // 145: clientpb.Host.ExtensionDataEntry.value:type_name -> clientpb.ExtensionData
+	3,   // 146: clientpb.ShellcodeEncoderArchMap.EncodersEntry.value:type_name -> clientpb.ShellcodeEncoder
+	112, // 147: clientpb.ShellcodeEncoderMap.EncodersEntry.value:type_name -> clientpb.ShellcodeEncoderArchMap
+	148, // [148:148] is the sub-list for method output_type
+	148, // [148:148] is the sub-list for method input_type
+	148, // [148:148] is the sub-list for extension type_name
+	148, // [148:148] is the sub-list for extension extendee
+	0,   // [0:148] is the sub-list for field type_name
 }
 
 func init() { file_clientpb_client_proto_init() }
@@ -14615,14 +14684,14 @@ func file_clientpb_client_proto_init() {
 	if File_clientpb_client_proto != nil {
 		return
 	}
-	file_clientpb_client_proto_msgTypes[134].OneofWrappers = []any{}
+	file_clientpb_client_proto_msgTypes[135].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_clientpb_client_proto_rawDesc), len(file_clientpb_client_proto_rawDesc)),
 			NumEnums:      18,
-			NumMessages:   158,
+			NumMessages:   159,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

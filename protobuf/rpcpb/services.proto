@@ -70,6 +70,10 @@ service SliverRPC {
   rpc StartTCPStagerListener(clientpb.StagerListenerReq)
       returns (clientpb.StagerListener);
 
+  // *** TCP Forwarder ***
+  rpc StartTCPFwdListener(clientpb.TCPFwdListenerReq)
+      returns (clientpb.ListenerJob);
+
   // *** Loot ***
   rpc LootAdd(clientpb.Loot) returns (clientpb.Loot);
   rpc LootRm(clientpb.Loot) returns (commonpb.Empty);
