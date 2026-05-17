@@ -1,62 +1,207 @@
-/crush
+.fsm/
+__pycache__/
+tools/__pycache__/
+# Environment / secrets
+.env
+.env.*
+!.env.example
+!.env.template
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+*.csr
+*.jks
+*.keystore
+secrets/
+credentials/
+private/
+*.age
+*.sops.yaml
+.git/
+*.obsidian/
+.github
 
-/examples
+# Local config
+config.local.*
+*.local
+*.local.*
+.local/
 
-/.vscode
-/.vscode/*
-/.devcontainer
-/.idea
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-/artifacts
-/artifacts/**
-
-*.rc
-
-/Dockerfile.*
-/*.sdk.tar.xz
-
-/release-*
-
-# Diffs
+# Runtime / temp
+tmp/
+temp/
+.tmp/
+.cache/
+.cache-*/
+*.tmp
+*.temp
+*.bak
+*.backup
 *.orig
 
-# Binaries
-/sliver-server
-/sliver-server_arm64
-/sliver.exe
-/sliver-server_*
+# Dependencies
+node_modules/
+vendor/
+bower_components/
 
-/sliver-client
-/sliver-client_arm64
-/sliver-client.exe
-/sliver-client_*
+# Build output
+dist/
+build/
+out/
+target/
+release/
+debug/
+bin/
+obj/
+coverage/
+public/build/
 
-sliver-server-linux.zip
-sliver-server-macos.zip
-sliver-server-windows.zip
+# Test / coverage artifacts
+.coverage
+coverage.xml
+htmlcov/
+.pytest_cache/
+.nyc_output/
+test-results/
+playwright-report/
+cypress/videos/
+cypress/screenshots/
 
+# Package manager caches
+.npm/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.pnpm-store/
 
-# Binaries for programs and plugins
-*.exe
-*.dll
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+ENV/
+pip-wheel-metadata/
+.eggs/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+
+# Java / JVM
+*.class
+*.jar
+*.war
+*.ear
+.gradle/
+.mvn/
+hs_err_pid*
+
+# Go
+*.test
+*.out
+go.work.sum
+
+# Rust
+target/
+Cargo.lock
+
+# Usually ignore Cargo.lock only for libraries.
+# For applications, commit Cargo.lock.
+
+# C / C++ / native
+*.o
+*.obj
 *.so
 *.dylib
+*.dll
+*.exe
+*.a
+*.lib
+*.pdb
+*.dSYM/
 
-# Test binary, build with `go test -c`
-/*.test
-/test.py
+# .NET
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+*.rsuser
 
-# Output of the go coverage tool, specifically when used with LiteIDE
-/*.out
+# Terraform / IaC
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraform.lock.hcl
 
-# Project-local glide cache, RE: https://github.com/Masterminds/glide/issues/736
-.glide/
+# Usually commit .terraform.lock.hcl for real infra repos.
 
-.DS_Store
+# Docker / containers
+.docker/
+docker-compose.override.yml
 
-dist/
-.gocache/
-.gomodcache/
+# Databases / dumps
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.sql.gz
+*.bak
 
-# Flag to show that go-assets.sh has been run
-.downloaded_assets
+# Archives / generated bundles
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# Reports / scans / local recon artifacts
+reports/
+findings/
+screenshots/
+loot/
+burp/
+zap/
+nuclei-output/
+nmap/
+masscan/
+*.pcap
+*.pcapng
+*.har
+
+# Generated docs
+site/
+docs/_build/
+
+# Misc
+*.pid
+*.seed
+*.pid.lock
+
+# AI
+CLAUDE.md
+.claude/
+system.md
+system-prompt.md
+AGENTS.md
