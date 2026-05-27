@@ -751,9 +751,8 @@ func registerSliver() *sliverpb.Register {
 	filename, err := os.Executable()
 	// Should not happen, but still...
 	if err != nil {
-		// TODO: build the absolute path to os.Args[0]
 		if 0 < len(os.Args) {
-			filename = os.Args[0]
+			filename, _ = filepath.Abs(os.Args[0])
 		} else {
 			filename = "<err>"
 		}

