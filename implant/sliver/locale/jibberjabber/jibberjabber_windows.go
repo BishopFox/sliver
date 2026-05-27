@@ -9,10 +9,12 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// TODO: read LOCALE_NAME_MAX_LENGTH from Windows, instead of hard-coding '85'
+// LOCALE_NAME_MAX_LENGTH is the maximum length of a locale name (including null terminator)
+// as defined in the Windows API.
 const LOCALE_NAME_MAX_LENGTH uint32 = 85
 
 func getWindowsLocaleFrom(sysCall string) (string, error) {
+	// Create a buffer for the locale name
 	buffer := make([]uint16, LOCALE_NAME_MAX_LENGTH)
 
 	dll, err := windows.LoadDLL("kernel32")
