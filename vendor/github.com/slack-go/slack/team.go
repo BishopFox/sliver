@@ -6,11 +6,6 @@ import (
 	"strconv"
 )
 
-const (
-	DEFAULT_LOGINS_COUNT = 100
-	DEFAULT_LOGINS_PAGE  = 1
-)
-
 type TeamResponse struct {
 	Team TeamInfo `json:"team"`
 	SlackResponse
@@ -46,8 +41,8 @@ type TeamProfileField struct {
 
 type LoginResponse struct {
 	Logins []Login `json:"logins"`
-	Paging `json:"paging"`
 	SlackResponse
+	ResponseMetadata `json:"response_metadata"`
 }
 
 type Login struct {
@@ -75,16 +70,14 @@ type BillingActive struct {
 // AccessLogParameters contains all the parameters necessary (including the optional ones) for a GetAccessLogs() request
 type AccessLogParameters struct {
 	TeamID string
-	Count  int
-	Page   int
+	Cursor string
+	Limit  int
+	Before int
 }
 
 // NewAccessLogParameters provides an instance of AccessLogParameters with all the sane default values set
 func NewAccessLogParameters() AccessLogParameters {
-	return AccessLogParameters{
-		Count: DEFAULT_LOGINS_COUNT,
-		Page:  DEFAULT_LOGINS_PAGE,
-	}
+	return AccessLogParameters{}
 }
 
 func (api *Client) teamRequest(ctx context.Context, path string, values url.Values) (*TeamResponse, error) {
@@ -193,31 +186,34 @@ func (api *Client) GetTeamProfileContext(ctx context.Context, teamID ...string) 
 
 // GetAccessLogs retrieves a page of logins according to the parameters given.
 // For more information see the GetAccessLogsContext documentation.
-func (api *Client) GetAccessLogs(params AccessLogParameters) ([]Login, *Paging, error) {
+func (api *Client) GetAccessLogs(params AccessLogParameters) ([]Login, string, error) {
 	return api.GetAccessLogsContext(context.Background(), params)
 }
 
 // GetAccessLogsContext retrieves a page of logins according to the parameters given with a custom context.
 // Slack API docs: https://api.slack.com/methods/team.accessLogs
-func (api *Client) GetAccessLogsContext(ctx context.Context, params AccessLogParameters) ([]Login, *Paging, error) {
+func (api *Client) GetAccessLogsContext(ctx context.Context, params AccessLogParameters) ([]Login, string, error) {
 	values := url.Values{
 		"token": {api.token},
 	}
 	if params.TeamID != "" {
 		values.Add("team_id", params.TeamID)
 	}
-	if params.Count != DEFAULT_LOGINS_COUNT {
-		values.Add("count", strconv.Itoa(params.Count))
+	if params.Cursor != "" {
+		values.Add("cursor", params.Cursor)
 	}
-	if params.Page != DEFAULT_LOGINS_PAGE {
-		values.Add("page", strconv.Itoa(params.Page))
+	if params.Limit != 0 {
+		values.Add("limit", strconv.Itoa(params.Limit))
+	}
+	if params.Before != 0 {
+		values.Add("before", strconv.Itoa(params.Before))
 	}
 
 	response, err := api.accessLogsRequest(ctx, "team.accessLogs", values)
 	if err != nil {
-		return nil, nil, err
+		return nil, "", err
 	}
-	return response.Logins, &response.Paging, nil
+	return response.Logins, response.ResponseMetadata.Cursor, nil
 }
 
 type GetBillableInfoParams struct {

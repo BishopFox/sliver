@@ -582,7 +582,10 @@ var EventMapping = map[string]interface{}{
 
 	"manual_presence_change": ManualPresenceChangeEvent{},
 
-	"user_change": UserChangeEvent{},
+	"user_change":          UserChangeEvent{},
+	"user_status_changed":  UserStatusChangedEvent{},
+	"user_huddle_changed":  UserHuddleChangedEvent{},
+	"user_profile_changed": UserProfileChangedEvent{},
 
 	"emoji_changed": EmojiChangedEvent{},
 
@@ -594,6 +597,10 @@ var EventMapping = map[string]interface{}{
 	"bot_changed": BotChangedEvent{},
 
 	"accounts_changed": AccountsChangedEvent{},
+
+	"apps_uninstalled":     AppsUninstalledEvent{},
+	"activity":             ActivityEvent{},
+	"badge_counts_updated": BadgeCountsUpdatedEvent{},
 
 	"reconnect_url": ReconnectUrlEvent{},
 
@@ -608,4 +615,10 @@ var EventMapping = map[string]interface{}{
 
 	"desktop_notification":       DesktopNotificationEvent{},
 	"mobile_in_app_notification": MobileInAppNotificationEvent{},
+
+	"channel_updated": ChannelUpdatedEvent{},
+
+	"sh_room_join":   SHRoomJoinEvent{},
+	"sh_room_leave":  SHRoomLeaveEvent{},
+	"sh_room_update": SHRoomUpdateEvent{},
 }
