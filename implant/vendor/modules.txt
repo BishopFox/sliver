@@ -4,6 +4,9 @@ filippo.io/age
 filippo.io/age/internal/bech32
 filippo.io/age/internal/format
 filippo.io/age/internal/stream
+# github.com/0x90pkt/trigger v0.1.0
+## explicit; go 1.22
+github.com/0x90pkt/trigger/pkg/protocol
 # github.com/Binject/debug v0.0.0-20210225042342-c9b8b45728d2
 ## explicit; go 1.15
 github.com/Binject/debug/elf

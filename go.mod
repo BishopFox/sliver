@@ -14,6 +14,7 @@ require (
 	charm.land/huh/v2 v2.0.3
 	charm.land/lipgloss/v2 v2.0.2
 	filippo.io/age v1.3.1
+	github.com/0x90pkt/trigger v0.1.0
 	github.com/Binject/binjection v0.0.0-20210701074423-605d46e35deb
 	github.com/Binject/debug v0.0.0-20230508195519-26db73212a7a
 	github.com/Binject/universal v0.0.0-20220519011857-bea739e758c0
