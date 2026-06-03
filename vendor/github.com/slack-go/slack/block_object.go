@@ -11,7 +11,6 @@ import (
 
 // BlockObject defines an interface that all block object types should
 // implement.
-// @TODO: Is this interface needed?
 
 // blockObject object types
 const (
