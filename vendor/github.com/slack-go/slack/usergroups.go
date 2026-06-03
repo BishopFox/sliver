@@ -568,3 +568,17 @@ func (api *Client) UpdateUserGroupMembersContext(ctx context.Context, userGroup 
 	}
 	return response.UserGroup, nil
 }
+
+// UpdateUserGroupMembersList updates the members of an existing user group,
+// accepting a slice of user IDs. This is a convenience wrapper around
+// UpdateUserGroupMembers for use with APIs that return []string (e.g.
+// GetUserGroupMembers).
+func (api *Client) UpdateUserGroupMembersList(userGroup string, members []string, options ...UpdateUserGroupMembersOption) (UserGroup, error) {
+	return api.UpdateUserGroupMembersContext(context.Background(), userGroup, strings.Join(members, ","), options...)
+}
+
+// UpdateUserGroupMembersListContext updates the members of an existing user
+// group with a custom context, accepting a slice of user IDs.
+func (api *Client) UpdateUserGroupMembersListContext(ctx context.Context, userGroup string, members []string, options ...UpdateUserGroupMembersOption) (UserGroup, error) {
+	return api.UpdateUserGroupMembersContext(ctx, userGroup, strings.Join(members, ","), options...)
+}

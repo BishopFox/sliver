@@ -7,7 +7,7 @@ help:
 	@echo ""
 	@echo "    make deps              : Fetch all dependencies"
 	@echo "    make fmt               : Run go fmt to fix any formatting issues"
-	@echo "    make lint              : Use go vet to check for linting issues"
+	@echo "    make lint              : Run golangci-lint for linting issues"
 	@echo "    make test              : Run all short tests"
 	@echo "    make test-race         : Run all tests with race condition checking"
 	@echo "    make test-integration  : Run all tests without limiting to short"
@@ -22,7 +22,7 @@ fmt:
 	@go fmt .
 
 lint:
-	@go vet .
+	@command -v golangci-lint >/dev/null 2>&1 && golangci-lint run ./... || go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.10.1 run ./...
 
 test:
 	@go test -v -count=1 -timeout 300s -short ./...

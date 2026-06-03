@@ -14,7 +14,7 @@ import (
 )
 
 // PostgreSQL internal numeric storage uses 16-bit "digits" with base of 10,000
-const nbase = 10000
+const nbase = 10_000
 
 const (
 	pgNumericNaN     = 0x00000000c0000000
@@ -28,7 +28,6 @@ const (
 )
 
 var (
-	big0    *big.Int = big.NewInt(0)
 	big1    *big.Int = big.NewInt(1)
 	big10   *big.Int = big.NewInt(10)
 	big100  *big.Int = big.NewInt(100)
@@ -129,7 +128,7 @@ func (n Numeric) Int64Value() (Int8, error) {
 }
 
 func (n *Numeric) ScanScientific(src string) error {
-	if !strings.ContainsAny("eE", src) {
+	if !strings.ContainsAny(src, "eE") {
 		return scanPlanTextAnyToNumericScanner{}.Scan([]byte(src), n)
 	}
 
@@ -166,7 +165,7 @@ func (n *Numeric) toBigInt() (*big.Int, error) {
 	div.Exp(big10, big.NewInt(int64(-n.Exp)), nil)
 	remainder := &big.Int{}
 	num.DivMod(num, div, remainder)
-	if remainder.Cmp(big0) != 0 {
+	if remainder.Sign() != 0 {
 		return nil, fmt.Errorf("cannot convert %v to integer", n)
 	}
 	return num, nil
@@ -194,14 +193,11 @@ func parseNumericString(str string) (n *big.Int, exp int32, err error) {
 }
 
 func nbaseDigitsToInt64(src []byte) (accum int64, bytesRead, digitsRead int) {
-	digits := len(src) / 2
-	if digits > 4 {
-		digits = 4
-	}
+	digits := min(len(src)/2, 4)
 
 	rp := 0
 
-	for i := 0; i < digits; i++ {
+	for i := range digits {
 		if i > 0 {
 			accum *= nbase
 		}
@@ -268,6 +264,10 @@ func (n *Numeric) UnmarshalJSON(src []byte) error {
 
 // numberString returns a string of the number. undefined if NaN, infinite, or NULL
 func (n Numeric) numberTextBytes() []byte {
+	if n.Int == nil {
+		return []byte("0")
+	}
+
 	intStr := n.Int.String()
 
 	buf := &bytes.Buffer{}
@@ -280,14 +280,14 @@ func (n Numeric) numberTextBytes() []byte {
 	exp := int(n.Exp)
 	if exp > 0 {
 		buf.WriteString(intStr)
-		for i := 0; i < exp; i++ {
+		for range exp {
 			buf.WriteByte('0')
 		}
 	} else if exp < 0 {
 		if len(intStr) <= -exp {
 			buf.WriteString("0.")
 			leadingZeros := -exp - len(intStr)
-			for i := 0; i < leadingZeros; i++ {
+			for range leadingZeros {
 				buf.WriteByte('0')
 			}
 			buf.WriteString(intStr)
@@ -409,7 +409,7 @@ func encodeNumericBinary(n Numeric, buf []byte) (newBuf []byte, err error) {
 	}
 
 	var sign int16
-	if n.Int.Cmp(big0) < 0 {
+	if n.Int != nil && n.Int.Sign() < 0 {
 		sign = 16384
 	}
 
@@ -417,7 +417,9 @@ func encodeNumericBinary(n Numeric, buf []byte) (newBuf []byte, err error) {
 	wholePart := &big.Int{}
 	fracPart := &big.Int{}
 	remainder := &big.Int{}
-	absInt.Abs(n.Int)
+	if n.Int != nil {
+		absInt.Abs(n.Int)
+	}
 
 	// Normalize absInt and exp to where exp is always a multiple of 4. This makes
 	// converting to 16-bit base 10,000 digits easier.
@@ -447,12 +449,12 @@ func encodeNumericBinary(n Numeric, buf []byte) (newBuf []byte, err error) {
 
 	var wholeDigits, fracDigits []int16
 
-	for wholePart.Cmp(big0) != 0 {
+	for wholePart.Sign() != 0 {
 		wholePart.DivMod(wholePart, bigNBase, remainder)
 		wholeDigits = append(wholeDigits, int16(remainder.Int64()))
 	}
 
-	if fracPart.Cmp(big0) != 0 {
+	if fracPart.Sign() != 0 {
 		for fracPart.Cmp(big1) != 0 {
 			fracPart.DivMod(fracPart, bigNBase, remainder)
 			fracDigits = append(fracDigits, int16(remainder.Int64()))
@@ -658,18 +660,19 @@ func (scanPlanBinaryNumericToNumericScanner) Scan(src []byte, dst any) error {
 	exp := (int32(weight) - int32(ndigits) + 1) * 4
 
 	if dscale > 0 {
-		fracNBaseDigits := int16(int32(ndigits) - int32(weight) - 1)
+		fracNBaseDigits := int(ndigits) - int(weight) - 1
 		fracDecimalDigits := fracNBaseDigits * 4
+		dscaleInt := int(dscale)
 
-		if dscale > fracDecimalDigits {
-			multCount := int(dscale - fracDecimalDigits)
-			for i := 0; i < multCount; i++ {
+		if dscaleInt > fracDecimalDigits {
+			multCount := dscaleInt - fracDecimalDigits
+			for range multCount {
 				accum.Mul(accum, big10)
 				exp--
 			}
-		} else if dscale < fracDecimalDigits {
-			divCount := int(fracDecimalDigits - dscale)
-			for i := 0; i < divCount; i++ {
+		} else if dscaleInt < fracDecimalDigits {
+			divCount := fracDecimalDigits - dscaleInt
+			for range divCount {
 				accum.Div(accum, big10)
 				exp++
 			}
@@ -681,7 +684,7 @@ func (scanPlanBinaryNumericToNumericScanner) Scan(src []byte, dst any) error {
 	if exp >= 0 {
 		for {
 			reduced.DivMod(accum, big10, remainder)
-			if remainder.Cmp(big0) != 0 {
+			if remainder.Sign() != 0 {
 				break
 			}
 			accum.Set(reduced)

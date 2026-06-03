@@ -3,20 +3,23 @@ package slack
 // https://api.slack.com/reference/messaging/block-elements
 
 const (
-	METCheckboxGroups MessageElementType = "checkboxes"
-	METImage          MessageElementType = "image"
-	METButton         MessageElementType = "button"
-	METOverflow       MessageElementType = "overflow"
-	METDatepicker     MessageElementType = "datepicker"
-	METTimepicker     MessageElementType = "timepicker"
-	METDatetimepicker MessageElementType = "datetimepicker"
-	METPlainTextInput MessageElementType = "plain_text_input"
-	METRadioButtons   MessageElementType = "radio_buttons"
-	METRichTextInput  MessageElementType = "rich_text_input"
-	METEmailTextInput MessageElementType = "email_text_input"
-	METURLTextInput   MessageElementType = "url_text_input"
-	METNumber         MessageElementType = "number_input"
-	METFileInput      MessageElementType = "file_input"
+	METCheckboxGroups  MessageElementType = "checkboxes"
+	METImage           MessageElementType = "image"
+	METButton          MessageElementType = "button"
+	METOverflow        MessageElementType = "overflow"
+	METDatepicker      MessageElementType = "datepicker"
+	METTimepicker      MessageElementType = "timepicker"
+	METDatetimepicker  MessageElementType = "datetimepicker"
+	METPlainTextInput  MessageElementType = "plain_text_input"
+	METRadioButtons    MessageElementType = "radio_buttons"
+	METRichTextInput   MessageElementType = "rich_text_input"
+	METEmailTextInput  MessageElementType = "email_text_input"
+	METURLTextInput    MessageElementType = "url_text_input"
+	METNumber          MessageElementType = "number_input"
+	METFileInput       MessageElementType = "file_input"
+	METFeedbackButtons MessageElementType = "feedback_buttons"
+	METIconButton      MessageElementType = "icon_button"
+	METWorkflowButton  MessageElementType = "workflow_button"
 
 	MixedElementImage MixedElementType = "mixed_image"
 	MixedElementText  MixedElementType = "mixed_text"
@@ -58,34 +61,37 @@ type Accessory struct {
 	SelectElement              *SelectBlockElement
 	MultiSelectElement         *MultiSelectBlockElement
 	CheckboxGroupsBlockElement *CheckboxGroupsBlockElement
+	WorkflowButtonElement      *WorkflowButtonBlockElement
 	UnknownElement             *UnknownBlockElement
 }
 
 // NewAccessory returns a new Accessory for a given block element
 func NewAccessory(element BlockElement) *Accessory {
-	switch element.(type) {
+	switch element := element.(type) {
 	case *ImageBlockElement:
-		return &Accessory{ImageElement: element.(*ImageBlockElement)}
+		return &Accessory{ImageElement: element}
 	case *ButtonBlockElement:
-		return &Accessory{ButtonElement: element.(*ButtonBlockElement)}
+		return &Accessory{ButtonElement: element}
 	case *OverflowBlockElement:
-		return &Accessory{OverflowElement: element.(*OverflowBlockElement)}
+		return &Accessory{OverflowElement: element}
 	case *DatePickerBlockElement:
-		return &Accessory{DatePickerElement: element.(*DatePickerBlockElement)}
+		return &Accessory{DatePickerElement: element}
 	case *TimePickerBlockElement:
-		return &Accessory{TimePickerElement: element.(*TimePickerBlockElement)}
+		return &Accessory{TimePickerElement: element}
 	case *PlainTextInputBlockElement:
-		return &Accessory{PlainTextInputElement: element.(*PlainTextInputBlockElement)}
+		return &Accessory{PlainTextInputElement: element}
 	case *RichTextInputBlockElement:
-		return &Accessory{RichTextInputElement: element.(*RichTextInputBlockElement)}
+		return &Accessory{RichTextInputElement: element}
 	case *RadioButtonsBlockElement:
-		return &Accessory{RadioButtonsElement: element.(*RadioButtonsBlockElement)}
+		return &Accessory{RadioButtonsElement: element}
 	case *SelectBlockElement:
-		return &Accessory{SelectElement: element.(*SelectBlockElement)}
+		return &Accessory{SelectElement: element}
 	case *MultiSelectBlockElement:
-		return &Accessory{MultiSelectElement: element.(*MultiSelectBlockElement)}
+		return &Accessory{MultiSelectElement: element}
 	case *CheckboxGroupsBlockElement:
-		return &Accessory{CheckboxGroupsBlockElement: element.(*CheckboxGroupsBlockElement)}
+		return &Accessory{CheckboxGroupsBlockElement: element}
+	case *WorkflowButtonBlockElement:
+		return &Accessory{WorkflowButtonElement: element}
 	default:
 		return &Accessory{UnknownElement: element.(*UnknownBlockElement)}
 	}
@@ -118,7 +124,7 @@ func (s UnknownBlockElement) ElementType() MessageElementType {
 // More Information: https://api.slack.com/reference/messaging/block-elements#image
 type ImageBlockElement struct {
 	Type      MessageElementType `json:"type"`
-	ImageURL  string             `json:"image_url"`
+	ImageURL  *string            `json:"image_url,omitempty"`
 	AltText   string             `json:"alt_text"`
 	SlackFile *SlackFileObject   `json:"slack_file,omitempty"`
 }
@@ -136,7 +142,7 @@ func (s ImageBlockElement) MixedElementType() MixedElementType {
 func NewImageBlockElement(imageURL, altText string) *ImageBlockElement {
 	return &ImageBlockElement{
 		Type:     METImage,
-		ImageURL: imageURL,
+		ImageURL: &imageURL,
 		AltText:  altText,
 	}
 }
@@ -242,6 +248,7 @@ type SelectBlockElement struct {
 	Filter                       *SelectBlockElementFilter `json:"filter,omitempty"`
 	MinQueryLength               *int                      `json:"min_query_length,omitempty"`
 	Confirm                      *ConfirmationBlockObject  `json:"confirm,omitempty"`
+	FocusOnLoad                  bool                      `json:"focus_on_load,omitempty"`
 }
 
 // SelectBlockElementFilter allows to filter select element conversation options by type.
@@ -333,6 +340,7 @@ type MultiSelectBlockElement struct {
 	MinQueryLength       *int                      `json:"min_query_length,omitempty"`
 	MaxSelectedItems     *int                      `json:"max_selected_items,omitempty"`
 	Confirm              *ConfirmationBlockObject  `json:"confirm,omitempty"`
+	FocusOnLoad          bool                      `json:"focus_on_load,omitempty"`
 }
 
 // ElementType returns the type of the Element
@@ -453,6 +461,7 @@ type DatePickerBlockElement struct {
 	Placeholder *TextBlockObject         `json:"placeholder,omitempty"`
 	InitialDate string                   `json:"initial_date,omitempty"`
 	Confirm     *ConfirmationBlockObject `json:"confirm,omitempty"`
+	FocusOnLoad bool                     `json:"focus_on_load,omitempty"`
 }
 
 // ElementType returns the type of the Element
@@ -480,6 +489,7 @@ type TimePickerBlockElement struct {
 	InitialTime string                   `json:"initial_time,omitempty"`
 	Confirm     *ConfirmationBlockObject `json:"confirm,omitempty"`
 	Timezone    string                   `json:"timezone,omitempty"`
+	FocusOnLoad bool                     `json:"focus_on_load,omitempty"`
 }
 
 // ElementType returns the type of the Element
@@ -591,6 +601,7 @@ type PlainTextInputBlockElement struct {
 	MinLength            int                   `json:"min_length,omitempty"`
 	MaxLength            int                   `json:"max_length,omitempty"`
 	DispatchActionConfig *DispatchActionConfig `json:"dispatch_action_config,omitempty"`
+	FocusOnLoad          bool                  `json:"focus_on_load,omitempty"`
 }
 
 type DispatchActionConfig struct {
@@ -678,6 +689,7 @@ type CheckboxGroupsBlockElement struct {
 	Options        []*OptionBlockObject     `json:"options"`
 	InitialOptions []*OptionBlockObject     `json:"initial_options,omitempty"`
 	Confirm        *ConfirmationBlockObject `json:"confirm,omitempty"`
+	FocusOnLoad    bool                     `json:"focus_on_load,omitempty"`
 }
 
 // ElementType returns the type of the Element
@@ -704,6 +716,7 @@ type RadioButtonsBlockElement struct {
 	Options       []*OptionBlockObject     `json:"options"`
 	InitialOption *OptionBlockObject       `json:"initial_option,omitempty"`
 	Confirm       *ConfirmationBlockObject `json:"confirm,omitempty"`
+	FocusOnLoad   bool                     `json:"focus_on_load,omitempty"`
 }
 
 // ElementType returns the type of the Element
@@ -734,6 +747,7 @@ type NumberInputBlockElement struct {
 	MinValue             string                `json:"min_value,omitempty"`
 	MaxValue             string                `json:"max_value,omitempty"`
 	DispatchActionConfig *DispatchActionConfig `json:"dispatch_action_config,omitempty"`
+	FocusOnLoad          bool                  `json:"focus_on_load,omitempty"`
 }
 
 // ElementType returns the type of the Element
@@ -809,5 +823,172 @@ func (s *FileInputBlockElement) WithFileTypes(fileTypes ...string) *FileInputBlo
 // WithMaxFiles sets the maximum number of files that can be uploaded
 func (s *FileInputBlockElement) WithMaxFiles(maxFiles int) *FileInputBlockElement {
 	s.MaxFiles = maxFiles
+	return s
+}
+
+// FeedbackButton defines a button within a feedback buttons element
+type FeedbackButton struct {
+	Text               *TextBlockObject `json:"text"`
+	Value              string           `json:"value"`
+	AccessibilityLabel string           `json:"accessibility_label,omitempty"`
+}
+
+// NewFeedbackButton returns a new instance of a feedback button
+func NewFeedbackButton(text *TextBlockObject, value string) *FeedbackButton {
+	return &FeedbackButton{
+		Text:  text,
+		Value: value,
+	}
+}
+
+// WithAccessibilityLabel sets the accessibility label for the feedback button
+func (fb *FeedbackButton) WithAccessibilityLabel(label string) *FeedbackButton {
+	fb.AccessibilityLabel = label
+	return fb
+}
+
+// FeedbackButtonsBlockElement defines an element that provides positive/negative feedback options
+//
+// More Information: https://docs.slack.dev/reference/block-kit/block-elements/feedback-buttons-element
+type FeedbackButtonsBlockElement struct {
+	Type           MessageElementType `json:"type"`
+	ActionID       string             `json:"action_id,omitempty"`
+	PositiveButton *FeedbackButton    `json:"positive_button"`
+	NegativeButton *FeedbackButton    `json:"negative_button"`
+}
+
+// ElementType returns the type of the element
+func (s FeedbackButtonsBlockElement) ElementType() MessageElementType {
+	return s.Type
+}
+
+// NewFeedbackButtonsBlockElement returns a new instance of a feedback buttons element
+func NewFeedbackButtonsBlockElement(actionID string, positiveButton, negativeButton *FeedbackButton) *FeedbackButtonsBlockElement {
+	return &FeedbackButtonsBlockElement{
+		Type:           METFeedbackButtons,
+		ActionID:       actionID,
+		PositiveButton: positiveButton,
+		NegativeButton: negativeButton,
+	}
+}
+
+// WithPositiveButton sets the positive button for the feedback buttons element
+func (s *FeedbackButtonsBlockElement) WithPositiveButton(button *FeedbackButton) *FeedbackButtonsBlockElement {
+	s.PositiveButton = button
+	return s
+}
+
+// WithNegativeButton sets the negative button for the feedback buttons element
+func (s *FeedbackButtonsBlockElement) WithNegativeButton(button *FeedbackButton) *FeedbackButtonsBlockElement {
+	s.NegativeButton = button
+	return s
+}
+
+// IconButtonBlockElement defines an element that displays icon-based interactive buttons
+//
+// More Information: https://docs.slack.dev/reference/block-kit/block-elements/icon-button-element
+type IconButtonBlockElement struct {
+	Type               MessageElementType       `json:"type"`
+	Icon               string                   `json:"icon"`
+	Text               *TextBlockObject         `json:"text"`
+	ActionID           string                   `json:"action_id,omitempty"`
+	Value              string                   `json:"value,omitempty"`
+	Confirm            *ConfirmationBlockObject `json:"confirm,omitempty"`
+	AccessibilityLabel string                   `json:"accessibility_label,omitempty"`
+	VisibleToUserIDs   []string                 `json:"visible_to_user_ids,omitempty"`
+}
+
+// ElementType returns the type of the element
+func (s IconButtonBlockElement) ElementType() MessageElementType {
+	return s.Type
+}
+
+// NewIconButtonBlockElement returns a new instance of an icon button element
+func NewIconButtonBlockElement(icon string, text *TextBlockObject, actionID string) *IconButtonBlockElement {
+	return &IconButtonBlockElement{
+		Type:     METIconButton,
+		Icon:     icon,
+		Text:     text,
+		ActionID: actionID,
+	}
+}
+
+// WithValue sets the value for the icon button element
+func (s *IconButtonBlockElement) WithValue(value string) *IconButtonBlockElement {
+	s.Value = value
+	return s
+}
+
+// WithConfirm sets the confirmation dialog for the icon button element
+func (s *IconButtonBlockElement) WithConfirm(confirm *ConfirmationBlockObject) *IconButtonBlockElement {
+	s.Confirm = confirm
+	return s
+}
+
+// WithAccessibilityLabel sets the accessibility label for the icon button element
+func (s *IconButtonBlockElement) WithAccessibilityLabel(label string) *IconButtonBlockElement {
+	s.AccessibilityLabel = label
+	return s
+}
+
+// WithVisibleToUserIDs sets the user IDs who can see the icon button element
+func (s *IconButtonBlockElement) WithVisibleToUserIDs(userIDs []string) *IconButtonBlockElement {
+	s.VisibleToUserIDs = userIDs
+	return s
+}
+
+// WorkflowTrigger defines the workflow to be executed when a workflow button is clicked
+type WorkflowTrigger struct {
+	URL                         string                       `json:"url"`
+	CustomizableInputParameters []CustomizableInputParameter `json:"customizable_input_parameters,omitempty"`
+}
+
+// CustomizableInputParameter defines a parameter that can be passed to a workflow
+type CustomizableInputParameter struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+// Workflow contains the trigger details for a workflow button
+type Workflow struct {
+	Trigger *WorkflowTrigger `json:"trigger"`
+}
+
+// WorkflowButtonBlockElement defines an element that triggers a workflow when clicked
+//
+// More Information: https://docs.slack.dev/reference/block-kit/block-elements/workflow-button-element
+type WorkflowButtonBlockElement struct {
+	Type               MessageElementType `json:"type"`
+	Text               *TextBlockObject   `json:"text"`
+	Workflow           *Workflow          `json:"workflow"`
+	ActionID           string             `json:"action_id"`
+	Style              Style              `json:"style,omitempty"`
+	AccessibilityLabel string             `json:"accessibility_label,omitempty"`
+}
+
+// ElementType returns the type of the element
+func (s WorkflowButtonBlockElement) ElementType() MessageElementType {
+	return s.Type
+}
+
+// NewWorkflowButtonBlockElement returns a new instance of a workflow button element
+func NewWorkflowButtonBlockElement(text *TextBlockObject, workflow *Workflow, actionID string) *WorkflowButtonBlockElement {
+	return &WorkflowButtonBlockElement{
+		Type:     METWorkflowButton,
+		Text:     text,
+		Workflow: workflow,
+		ActionID: actionID,
+	}
+}
+
+// WithStyle sets the style for the workflow button element
+func (s *WorkflowButtonBlockElement) WithStyle(style Style) *WorkflowButtonBlockElement {
+	s.Style = style
+	return s
+}
+
+// WithAccessibilityLabel sets the accessibility label for the workflow button element
+func (s *WorkflowButtonBlockElement) WithAccessibilityLabel(label string) *WorkflowButtonBlockElement {
+	s.AccessibilityLabel = label
 	return s
 }
