@@ -107,7 +107,8 @@ type AuditLogParameters struct {
 
 func (api *Client) auditLogsRequest(ctx context.Context, path string, values url.Values) (*AuditLogResponse, error) {
 	response := &AuditLogResponse{}
-	err := api.getMethod(ctx, path, api.token, values, response)
+	// The Audit Logs API uses a different base URL (api.slack.com instead of slack.com/api)
+	_, err := getResource(ctx, api.httpclient, api.auditEndpoint+path, api.token, values, response, api)
 	if err != nil {
 		return nil, err
 	}
