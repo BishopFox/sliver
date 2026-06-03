@@ -50,6 +50,13 @@ temp/
 *.backup
 *.orig
 
+# Local lab state (testing/ scripts artifacts: daemon pid, operator cfg, built implants)
+.lab/
+
+# Internal workflow + testing docs — fork-only, not for upstream PR
+workflow.md
+testing.md
+
 # Dependencies
 node_modules/
 vendor/
@@ -205,3 +212,15 @@ CLAUDE.md
 system.md
 system-prompt.md
 AGENTS.md
+
+# Flag to show that go-assets.sh has been run
+.downloaded_assets
+
+# Local dev workspace
+go.work
+go.work.sum
+
+# Editor swap files
+*.swp
+*.swo
+*~
