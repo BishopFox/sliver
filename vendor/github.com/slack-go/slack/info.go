@@ -431,7 +431,7 @@ type Team struct {
 	Icons  *Icons `json:"icon,omitempty"`
 }
 
-// Icons XXX: needs further investigation
+// Icons contains the image URLs for the team icons in various sizes
 type Icons struct {
 	Image36  string `json:"image_36,omitempty"`
 	Image48  string `json:"image_48,omitempty"`
@@ -451,29 +451,4 @@ type Info struct {
 type infoResponseFull struct {
 	Info
 	SlackResponse
-}
-
-// GetBotByID is deprecated and returns nil
-func (info Info) GetBotByID(botID string) *Bot {
-	return nil
-}
-
-// GetUserByID is deprecated and returns nil
-func (info Info) GetUserByID(userID string) *User {
-	return nil
-}
-
-// GetChannelByID is deprecated and returns nil
-func (info Info) GetChannelByID(channelID string) *Channel {
-	return nil
-}
-
-// GetGroupByID is deprecated and returns nil
-func (info Info) GetGroupByID(groupID string) *Group {
-	return nil
-}
-
-// GetIMByID is deprecated and returns nil
-func (info Info) GetIMByID(imID string) *IM {
-	return nil
 }

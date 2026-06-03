@@ -189,5 +189,124 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	})
 	completers.RegisterLocalFilePathFlagCompletions(stageCmd, "cert", "key")
 
-	return []*cobra.Command{jobsCmd, mtlsCmd, wgCmd, dnsCmd, httpCmd, httpsCmd, stageCmd}
+	// Trigger
+	triggerCmd := &cobra.Command{
+		Use:   consts.TriggerStr,
+		Short: "Start an authenticated UDP trigger listener (task dispatcher)",
+		Long:  help.GetHelpFor([]string{consts.TriggerStr}),
+		Run: func(cmd *cobra.Command, args []string) {
+			TriggerListenerCmd(cmd, con, args)
+		},
+		GroupID: consts.NetworkHelpGroup,
+	}
+	flags.Bind("Trigger listener", false, triggerCmd, func(f *pflag.FlagSet) {
+		f.StringP("lhost", "L", "0.0.0.0", "interface to bind server to")
+		f.Uint32P("lport", "l", 46290, "udp listen port")
+		f.StringP("secret-env", "S", "", "env var name holding the HMAC shared secret (preferred; no secret in argv)")
+		f.String("secret", "", "HMAC shared secret (direct value; visible in ps — prefer --secret-env). Omit both for stdin prompt")
+		f.String("server-id", "sliver-trigger", "audit identifier embedded in events")
+		f.StringArrayP("task", "i", nil, "task binding NAME:KIND:ARGS (repeatable; KIND in wake-beacon, stop-job, exec, reverse-shell)")
+		f.StringArray("allowed-source", nil, "allow only this IP or CIDR (repeatable; empty=any)")
+		f.StringArray("allowed-client", nil, "allow only this client_id (repeatable; empty=any)")
+	})
+
+	triggerTasksCmd := &cobra.Command{
+		Use:   "tasks <job-id>",
+		Short: "List task bindings for a running trigger listener",
+		Args:  cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			TriggerTasksCmd(cmd, con, args)
+		},
+	}
+	triggerCmd.AddCommand(triggerTasksCmd)
+
+	// Trigger dispatch: ad-hoc tasking by job ID (server-side task dispatch).
+	triggerDispatchCmd := &cobra.Command{
+		Use:   "dispatch <job-id> <task-name>",
+		Short: "Dispatch an ad-hoc task to a running trigger listener",
+		Long: `Dispatch an ad-hoc task to a running trigger listener by job ID.
+
+The task-name must match a task binding already registered on the listener.
+This enables interactive, on-the-fly tasking of active trigger jobs,
+analogous to beacon interaction.
+
+Examples:
+  trigger dispatch 7 wake-beacon-alpha
+  trigger dispatch 7 kill-mtls`,
+		Args: cobra.ExactArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			TriggerDispatchCmd(cmd, con, args)
+		},
+	}
+	triggerCmd.AddCommand(triggerDispatchCmd)
+
+	// Trigger send: send a signed UDP trigger packet to an implant.
+	triggerSendCmd := &cobra.Command{
+		Use:   "send <target-ip|trigger-index> <intent>",
+		Short: "Send a signed trigger packet to an implant's triggerwake port",
+		Long: `Construct a signed trigger packet (HMAC-SHA256, JSON-over-UDP)
+and send it to an implant's triggerwake listener. Everything is handled
+natively within sliver -- no external tools required.
+
+The first argument can be either:
+  - A target IP/hostname (backward compatible, e.g. 192.168.1.42)
+  - A trigger index from the "triggers" command (integer, e.g. 1)
+
+When a trigger index is used, the port, secret, and client-id are
+auto-populated from the implant's build config and stored target mapping.
+
+Intents:
+  "wake"           Wake a dormant implant (fire-and-forget)
+  "self-destruct"  Wipe the implant and exit (fire-and-forget, DESTRUCTIVE)
+  "exec"           Execute a command and return output (bidirectional)
+
+The secret must match the one baked into the implant at generation time.
+
+Examples:
+  trigger send 192.168.1.42 wake --secret-env TRIGGERWAKE_SECRET
+  trigger send 10.0.0.5 self-destruct --secret-env TRIGGERWAKE_SECRET --port 46290
+  trigger send 10.0.0.5 exec --payload "ls -la /tmp" --secret-env TRIGGERWAKE_SECRET
+  trigger send 10.0.0.5 wake --secret "my-shared-secret" --client-id red-team-01
+  trigger send 1 wake            (uses index from 'triggers' list)
+  trigger send 2 exec --payload "whoami"`,
+		Args: cobra.ExactArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			TriggerSendCmd(cmd, con, args)
+		},
+	}
+	flags.Bind("Trigger send", false, triggerSendCmd, func(f *pflag.FlagSet) {
+		f.Uint32P("port", "p", 46290, "UDP port the implant's triggerwake is bound to")
+		f.StringP("secret-env", "S", "", "env var name holding the HMAC shared secret (preferred; no secret in argv)")
+		f.String("secret", "", "HMAC shared secret (direct value; visible in ps — prefer --secret-env). Omit both for stdin prompt")
+		f.String("client-id", "sliver-operator", "sender identity included in the trigger packet")
+		f.String("payload", "", "command/data for bidirectional intents (e.g. 'ls -la /tmp' for intent=exec)")
+		f.StringP("output", "o", "", "write exec output to file (only for intent=exec)")
+		f.String("comms", "", "preferred C2 transport for wake intent (e.g. mtls, wg)")
+	})
+	triggerCmd.AddCommand(triggerSendCmd)
+
+	// Carapace completions:
+	//   - `trigger tasks <TAB>` -> active job IDs (so operators
+	//     don't have to type-then-cross-reference the jobs list).
+	//   - `trigger dispatch <TAB>` -> active job IDs.
+	//   - `trigger send <TAB>` -> no positional completion (free-form IP/index + intent).
+	//   - `trigger --task <TAB>` -> the four task KINDs as a
+	//     reminder; doesn't try to complete the NAME:KIND:ARGS triple
+	//     beyond suggesting kinds.
+	carapace.Gen(triggerTasksCmd).PositionalCompletion(JobsIDCompleter(con))
+	carapace.Gen(triggerDispatchCmd).PositionalCompletion(
+		JobsIDCompleter(con),
+		carapace.ActionValues().Tag("task name registered on the listener"),
+	)
+	carapace.Gen(triggerSendCmd).PositionalCompletion(
+		carapace.ActionValues().Tag("target IP/hostname or trigger index"),
+		carapace.ActionValues("wake", "self-destruct", "exec").Tag("trigger intent"),
+	)
+	flags.BindFlagCompletions(triggerCmd, func(comp *carapace.ActionMap) {
+		(*comp)["task"] = carapace.ActionValues(
+			"wake-beacon", "stop-job", "exec", "reverse-shell",
+		).Tag("trigger task kinds")
+	})
+
+	return []*cobra.Command{jobsCmd, mtlsCmd, wgCmd, dnsCmd, httpCmd, httpsCmd, stageCmd, triggerCmd}
 }

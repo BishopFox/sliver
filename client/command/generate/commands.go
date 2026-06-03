@@ -61,6 +61,22 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 
 	generateCmd.AddCommand(generateBeaconCmd)
 
+	generateTriggerCmd := &cobra.Command{
+		Use:   consts.TriggerStr,
+		Short: "Generate a trigger-wake implant binary",
+		Long:  help.GetHelpFor([]string{consts.GenerateStr, consts.TriggerStr}),
+		Run: func(cmd *cobra.Command, args []string) {
+			GenerateTriggerCmd(cmd, con, args)
+		},
+	}
+
+	// Trigger-wake implants get all the normal implant flags.
+	coreImplantFlags("trigger", generateTriggerCmd)
+	compileImplantFlags("trigger", generateTriggerCmd)
+	coreImplantFlagCompletions(generateTriggerCmd, con)
+
+	generateCmd.AddCommand(generateTriggerCmd)
+
 	generateInfoCmd := &cobra.Command{
 		Use:   consts.CompilerInfoStr,
 		Short: "Get information about the server's compiler",
@@ -347,6 +363,18 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 		f.Bool("include-named-pipe", false, "force include named-pipe transport")
 		f.Bool("include-tcp-pivot", false, "force include tcp-pivot transport")
 		f.Bool("all-protocols", false, "force include all transport protocols")
+
+		// TTL deadman switch + triggerwake passive UDP wake/self-destruct listener.
+		// All optional. Setting --trigger-wake-bind implies IncludeTriggerWake=true.
+		// Setting --ttl > 0 implies TTLEnabled=true. Burn paths apply to both the
+		// TTL-fired and operator-fired self-destruct paths.
+		f.String("ttl", "", "implant self-destruct deadline (Go duration: e.g. 720h for 30 days). Empty = disabled")
+		f.StringSlice("ttl-burn-extra-path", nil, "extra path to wipe on burn (repeatable)")
+		f.StringSlice("ttl-burn-persistence", nil, "persistence artifact to remove on burn (repeatable; systemd unit / launchd plist / registry key)")
+		f.String("trigger-wake-bind", "", "implant-side triggerwake UDP bind address host:port (enables triggerwake)")
+		f.String("trigger-wake-secret-env", "", "name of operator-host env var holding the HMAC secret for triggerwake (preferred; no secret in argv)")
+		f.String("trigger-wake-secret", "", "HMAC secret for triggerwake (direct value; visible in ps — prefer --trigger-wake-secret-env)")
+		f.StringSlice("trigger-wake-allowed-client", nil, "client_id allowed to fire triggerwake tasks (repeatable; empty = any signed client)")
 
 		f.BoolP("run-at-load", "R", false, "run the implant entrypoint from DllMain/Constructor (shared library only)")
 		f.BoolP("netgo", "q", false, "force the use of netgo")

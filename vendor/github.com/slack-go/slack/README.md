@@ -1,9 +1,7 @@
 Slack API in Go [![Go Reference](https://pkg.go.dev/badge/github.com/slack-go/slack.svg)](https://pkg.go.dev/github.com/slack-go/slack) [![CI](https://github.com/slack-go/slack/actions/workflows/test.yml/badge.svg)](https://github.com/slack-go/slack/actions/workflows/test.yml)
 ===============
 
-This is the original Slack library for Go created by Norberto Lopes, transferred to a GitHub organization.
-
-You can also chat with us on the #slack-go, #slack-go-ja Slack channel on the Gophers Slack.
+You can chat with us on the [#slack-go](https://gophers.slack.com/archives/C02JQ98JHNC), [#slack-go-ja](https://gophers.slack.com/archives/C02HNL8EN3H) Slack channel on the [Gophers Slack](https://gophers.slack.com).
 
 ![logo](logo.png "icon")
 
@@ -17,11 +15,18 @@ Therefore, minor version releases may include backward incompatible changes.
 
 See [Releases](https://github.com/slack-go/slack/releases) for more information about the changes.
 
+## Go Versions supported
+
+We support the same versions of Go as the officially supported Go versions (see [Go
+Release Policy](https://go.dev/doc/devel/release#policy)).
+
 ## Installing
 
 ### *go get*
 
-    $ go get -u github.com/slack-go/slack
+```bash
+go get -u github.com/slack-go/slack
+```
 
 ## Example
 
@@ -29,24 +34,24 @@ See [Releases](https://github.com/slack-go/slack/releases) for more information 
 
 ```golang
 import (
-	"fmt"
+    "fmt"
 
-	"github.com/slack-go/slack"
+    "github.com/slack-go/slack"
 )
 
 func main() {
-	api := slack.New("YOUR_TOKEN_HERE")
-	// If you set debugging, it will log all requests to the console
-	// Useful when encountering issues
-	// slack.New("YOUR_TOKEN_HERE", slack.OptionDebug(true))
-	groups, err := api.GetUserGroups(slack.GetUserGroupsOptionIncludeUsers(false))
-	if err != nil {
-		fmt.Printf("%s\n", err)
-		return
-	}
-	for _, group := range groups {
-		fmt.Printf("ID: %s, Name: %s\n", group.ID, group.Name)
-	}
+    api := slack.New("YOUR_TOKEN_HERE")
+    // If you set debugging, it will log all requests to the console
+    // Useful when encountering issues
+    // slack.New("YOUR_TOKEN_HERE", slack.OptionDebug(true))
+    groups, err := api.GetUserGroups(slack.GetUserGroupsOptionIncludeUsers(false))
+    if err != nil {
+        fmt.Printf("%s\n", err)
+        return
+    }
+    for _, group := range groups {
+        fmt.Printf("ID: %s, Name: %s\n", group.ID, group.Name)
+    }
 }
 ```
 
@@ -63,11 +68,19 @@ func main() {
     api := slack.New("YOUR_TOKEN_HERE")
     user, err := api.GetUserInfo("U023BECGF")
     if err != nil {
-	    fmt.Printf("%s\n", err)
-	    return
+        fmt.Printf("%s\n", err)
+        return
     }
     fmt.Printf("ID: %s, Fullname: %s, Email: %s\n", user.ID, user.Profile.RealName, user.Profile.Email)
 }
+```
+
+### HTTP retries
+
+Retries are off by default. Use **OptionRetry(n)** for 429-only retries, or **OptionRetryConfig(cfg)** for full control (connection, 429, opt-in 5xx). With a custom client, pass retry options after `OptionHTTPClient`. See package `slack` doc for handler details.
+
+```golang
+api := slack.New("YOUR_TOKEN_HERE", slack.OptionRetry(3))
 ```
 
 ## Minimal Socket Mode usage:

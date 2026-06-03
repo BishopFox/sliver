@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-// Apps Manifest Create Response Errors ("/apps.manifest.create")
+// AppsManifestCreateResponseError ("/apps.manifest.create")
 type AppsManifestCreateResponseError struct {
 	Code             string `json:"code,omitempty"`
 	Message          string `json:"message"`
@@ -27,7 +27,7 @@ type AppsManifestCreateResponseError struct {
 	RelatedComponent string `json:"related_component,omitempty"`
 }
 
-// Conversations Invite Response Errors ("/conversations.invite")
+// ConversationsInviteResponseError ("/conversations.invite")
 type ConversationsInviteResponseError struct {
 	Error string `json:"error"`
 	Ok    bool   `json:"ok"`
@@ -69,7 +69,7 @@ func (e *SlackResponseErrors) UnmarshalJSON(data []byte) error {
 	}
 
 	// Try to determine the error type by checking for unique fields
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := json.Unmarshal(data, &raw); err != nil {
 		// If we can't unmarshal as object, try as string (fallback case)
 		//
@@ -114,8 +114,125 @@ func (e *SlackResponseErrors) UnmarshalJSON(data []byte) error {
 type SlackResponse struct {
 	Ok               bool                  `json:"ok"`
 	Error            string                `json:"error"`
+	Warning          string                `json:"warning"`
 	Errors           []SlackResponseErrors `json:"errors,omitempty"`
 	ResponseMetadata ResponseMetadata      `json:"response_metadata"`
+}
+
+// Warn returns warning information from the API response, or nil if there
+// are no warnings.
+func (t SlackResponse) Warn() *Warning {
+	if t.Warning == "" && len(t.ResponseMetadata.Warnings) == 0 {
+		return nil
+	}
+	return &Warning{
+		Codes:    strings.Split(t.Warning, ","),
+		Warnings: t.ResponseMetadata.Warnings,
+	}
+}
+
+// warner is satisfied by any response type that can report warnings.
+type warner interface {
+	Warn() *Warning
+}
+
+// Warning provides warning information from the web API.
+// https://docs.slack.dev/apis/web-api/#responses
+type Warning struct {
+	Codes    []string
+	Warnings []string
+}
+
+// httpHeaderSetter is satisfied by response types that can store HTTP
+// response headers. The response parser checks for this interface and
+// injects headers before JSON decoding.
+type httpHeaderSetter interface {
+	setHTTPResponseHeaders(http.Header)
+}
+
+// responseHeaders is a mix-in for internal response types that need to
+// capture HTTP response headers. Embedded in types like authTestResponseFull
+// so the parser can store headers that are then propagated to the public
+// response type (e.g. AuthTestResponse.Header).
+type responseHeaders struct {
+	header http.Header
+}
+
+func (r *responseHeaders) setHTTPResponseHeaders(h http.Header) { r.header = h }
+
+// KickUserFromConversationSlackResponse is a variant of SlackResponse that can handle the case where
+// "errors" can be either an empty object {} or an array of errors.
+// This addresses issue #1446 where conversations.kick endpoint returns {"ok":true,"errors":{}}
+type KickUserFromConversationSlackResponse struct {
+	Ok               bool                  `json:"ok"`
+	Error            string                `json:"error"`
+	Warning          string                `json:"warning"`
+	Errors           []SlackResponseErrors `json:"-"`
+	ResponseMetadata ResponseMetadata      `json:"response_metadata"`
+}
+
+// UnmarshalJSON implements custom unmarshaling for KickUserFromConversationSlackResponse to handle
+// the case where "errors" can be either an empty object {} or an array of errors
+func (s *KickUserFromConversationSlackResponse) UnmarshalJSON(data []byte) error {
+	// First, unmarshal everything except errors
+	type Alias KickUserFromConversationSlackResponse
+	aux := &struct {
+		*Alias
+		ErrorsRaw json.RawMessage `json:"errors,omitempty"`
+	}{
+		Alias: (*Alias)(s),
+	}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	// Handle the errors field
+	if len(aux.ErrorsRaw) > 0 {
+		// Check if it's an empty object by looking for just "{}"
+		trimmed := bytes.TrimSpace(aux.ErrorsRaw)
+		if bytes.Equal(trimmed, []byte("{}")) {
+			// Empty object, leave errors as nil/empty slice
+			s.Errors = nil
+		} else {
+			// Try to unmarshal as array of errors
+			var errors []SlackResponseErrors
+			if err := json.Unmarshal(aux.ErrorsRaw, &errors); err != nil {
+				return err
+			}
+			s.Errors = errors
+		}
+	}
+
+	return nil
+}
+
+// Warn returns warning information from the API response, or nil if there
+// are no warnings.
+func (s KickUserFromConversationSlackResponse) Warn() *Warning {
+	if s.Warning == "" && len(s.ResponseMetadata.Warnings) == 0 {
+		return nil
+	}
+	return &Warning{
+		Codes:    strings.Split(s.Warning, ","),
+		Warnings: s.ResponseMetadata.Warnings,
+	}
+}
+
+// Err returns any API error present in the response.
+func (s KickUserFromConversationSlackResponse) Err() error {
+	if s.Ok {
+		return nil
+	}
+
+	// handle pure text based responses like chat.post
+	// which while they have a slack response in their data structure
+	// it doesn't actually get set during parsing.
+	if strings.TrimSpace(s.Error) == "" {
+		return nil
+	}
+
+	return SlackErrorResponse{Err: s.Error, Errors: s.Errors, ResponseMetadata: s.ResponseMetadata}
 }
 
 func (t SlackResponse) Err() error {
@@ -203,7 +320,7 @@ func formReq(ctx context.Context, endpoint string, values url.Values) (req *http
 	return req, nil
 }
 
-func jsonReq(ctx context.Context, endpoint string, body interface{}) (req *http.Request, err error) {
+func jsonReq(ctx context.Context, endpoint string, body any) (req *http.Request, err error) {
 	buffer := bytes.NewBuffer([]byte{})
 	if err = json.NewEncoder(buffer).Encode(body); err != nil {
 		return nil, err
@@ -217,7 +334,7 @@ func jsonReq(ctx context.Context, endpoint string, body interface{}) (req *http.
 	return req, nil
 }
 
-func postLocalWithMultipartResponse(ctx context.Context, client httpClient, method, fpath, fieldname, token string, values url.Values, intf interface{}, d Debug) error {
+func postLocalWithMultipartResponse(ctx context.Context, client httpClient, method, fpath, fieldname, token string, values url.Values, intf any, d Debug) error {
 	fullpath, err := filepath.Abs(fpath)
 	if err != nil {
 		return err
@@ -231,7 +348,7 @@ func postLocalWithMultipartResponse(ctx context.Context, client httpClient, meth
 	return postWithMultipartResponse(ctx, client, method, filepath.Base(fpath), fieldname, token, values, file, intf, d)
 }
 
-func postWithMultipartResponse(ctx context.Context, client httpClient, path, name, fieldname, token string, values url.Values, r io.Reader, intf interface{}, d Debug) error {
+func postWithMultipartResponse(ctx context.Context, client httpClient, path, name, fieldname, token string, values url.Values, r io.Reader, intf any, d Debug) error {
 	pipeReader, pipeWriter := io.Pipe()
 	wr := multipart.NewWriter(pipeWriter)
 
@@ -300,49 +417,54 @@ func createFormFields(mw *multipart.Writer, values url.Values) error {
 	return nil
 }
 
-func doPost(client httpClient, req *http.Request, parser responseParser, d Debug) error {
+func doPost(client httpClient, req *http.Request, parser responseParser, d Debug) (http.Header, error) {
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
-	err = checkStatusCode(resp, d)
-	if err != nil {
-		return err
+	if err = checkStatusCode(resp, d); err != nil {
+		return nil, err
 	}
 
-	return parser(resp)
+	return resp.Header, parser(resp)
 }
 
 // post JSON.
-func postJSON(ctx context.Context, client httpClient, endpoint, token string, json []byte, intf interface{}, d Debug) error {
-	reqBody := bytes.NewBuffer(json)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, reqBody)
+func postJSON(ctx context.Context, client httpClient, endpoint, token string, jsonBody []byte, intf any, d Debug) (http.Header, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(jsonBody))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-
+	// allow retry client to re-send the request body on 429/5xx.
+	req.GetBody = func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewReader(jsonBody)), nil
+	}
 	return doPost(client, req, newJSONParser(intf), d)
 }
 
 // post a url encoded form.
-func postForm(ctx context.Context, client httpClient, endpoint string, values url.Values, intf interface{}, d Debug) error {
-	reqBody := strings.NewReader(values.Encode())
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, reqBody)
+func postForm(ctx context.Context, client httpClient, endpoint string, values url.Values, intf any, d Debug) (http.Header, error) {
+	body := values.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(body))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	// allow retry client to re-send the request body on 429/5xx.
+	req.GetBody = func() (io.ReadCloser, error) {
+		return io.NopCloser(strings.NewReader(body)), nil
+	}
 	return doPost(client, req, newJSONParser(intf), d)
 }
 
-func getResource(ctx context.Context, client httpClient, endpoint, token string, values url.Values, intf interface{}, d Debug) error {
+func getResource(ctx context.Context, client httpClient, endpoint, token string, values url.Values, intf any, d Debug) (http.Header, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
@@ -352,9 +474,10 @@ func getResource(ctx context.Context, client httpClient, endpoint, token string,
 	return doPost(client, req, newJSONParser(intf), d)
 }
 
-func parseAdminResponse(ctx context.Context, client httpClient, method string, teamName string, values url.Values, intf interface{}, d Debug) error {
+func parseAdminResponse(ctx context.Context, client httpClient, method string, teamName string, values url.Values, intf any, d Debug) error {
 	endpoint := fmt.Sprintf(WEBAPIURLFormat, teamName, method, time.Now().Unix())
-	return postForm(ctx, client, endpoint, values, intf, d)
+	_, err := postForm(ctx, client, endpoint, values, intf, d)
+	return err
 }
 
 func logResponse(resp *http.Response, d Debug) error {
@@ -397,16 +520,19 @@ func checkStatusCode(resp *http.Response, d Debug) error {
 
 type responseParser func(*http.Response) error
 
-func newJSONParser(dst interface{}) responseParser {
+func newJSONParser(dst any) responseParser {
 	return func(resp *http.Response) error {
 		if dst == nil {
 			return nil
+		}
+		if hs, ok := dst.(httpHeaderSetter); ok {
+			hs.setHTTPResponseHeaders(resp.Header.Clone())
 		}
 		return json.NewDecoder(resp.Body).Decode(dst)
 	}
 }
 
-func newTextParser(dst interface{}) responseParser {
+func newTextParser(dst any) responseParser {
 	return func(resp *http.Response) error {
 		if dst == nil {
 			return nil
@@ -425,7 +551,7 @@ func newTextParser(dst interface{}) responseParser {
 	}
 }
 
-func newContentTypeParser(dst interface{}) responseParser {
+func newContentTypeParser(dst any) responseParser {
 	return func(req *http.Response) (err error) {
 		var (
 			ctype string
@@ -439,6 +565,10 @@ func newContentTypeParser(dst interface{}) responseParser {
 		case "application/json":
 			return newJSONParser(dst)(req)
 		default:
+			// newTextParser doesn't use dst, so capture headers here.
+			if hs, ok := dst.(httpHeaderSetter); ok {
+				hs.setHTTPResponseHeaders(req.Header.Clone())
+			}
 			return newTextParser(dst)(req)
 		}
 	}

@@ -1,1 +1,0 @@
-providertests/testdata/**/*.yaml -diff linguist-generated=true

@@ -18,17 +18,6 @@ charm.land/bubbles/v2/viewport
 # charm.land/bubbletea/v2 v2.0.2
 ## explicit; go 1.24.2
 charm.land/bubbletea/v2
-# charm.land/fantasy v0.8.1
-## explicit; go 1.25
-charm.land/fantasy
-charm.land/fantasy/jsonrepair
-charm.land/fantasy/object
-charm.land/fantasy/providers/anthropic
-charm.land/fantasy/providers/google
-charm.land/fantasy/providers/openai
-charm.land/fantasy/providers/openaicompat
-charm.land/fantasy/providers/openrouter
-charm.land/fantasy/schema
 # charm.land/glamour/v2 v2.0.0
 ## explicit; go 1.25.8
 charm.land/glamour/v2
@@ -48,7 +37,6 @@ charm.land/lipgloss/v2
 charm.land/lipgloss/v2/table
 # cloud.google.com/go v0.123.0
 ## explicit; go 1.24.0
-cloud.google.com/go/civil
 cloud.google.com/go/internal
 cloud.google.com/go/internal/btree
 cloud.google.com/go/internal/detect
@@ -136,6 +124,13 @@ firebase.google.com/go/v4/internal
 firebase.google.com/go/v4/messaging
 firebase.google.com/go/v4/remoteconfig
 firebase.google.com/go/v4/storage
+# github.com/0x90pkt/trigger v0.1.0
+## explicit; go 1.22
+github.com/0x90pkt/trigger/pkg/auth
+github.com/0x90pkt/trigger/pkg/intents
+github.com/0x90pkt/trigger/pkg/intents/handlers
+github.com/0x90pkt/trigger/pkg/listener
+github.com/0x90pkt/trigger/pkg/protocol
 # github.com/Binject/binjection v0.0.0-20210701074423-605d46e35deb
 ## explicit; go 1.16
 github.com/Binject/binjection/bj
@@ -280,10 +275,6 @@ github.com/aws/aws-sdk-go-v2/internal/shareddefaults
 github.com/aws/aws-sdk-go-v2/internal/strings
 github.com/aws/aws-sdk-go-v2/internal/sync/singleflight
 github.com/aws/aws-sdk-go-v2/internal/timeconv
-# github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.5
-## explicit; go 1.23
-github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream
-github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream/eventstreamapi
 # github.com/aws/aws-sdk-go-v2/config v1.32.11
 ## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/config
@@ -452,32 +443,12 @@ github.com/cenkalti/backoff/v4
 # github.com/cespare/xxhash/v2 v2.3.0
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
-# github.com/charmbracelet/anthropic-sdk-go v0.0.0-20260223140439-63879b0b8dab
-## explicit; go 1.23.0
-github.com/charmbracelet/anthropic-sdk-go
-github.com/charmbracelet/anthropic-sdk-go/bedrock
-github.com/charmbracelet/anthropic-sdk-go/internal
-github.com/charmbracelet/anthropic-sdk-go/internal/apierror
-github.com/charmbracelet/anthropic-sdk-go/internal/apiform
-github.com/charmbracelet/anthropic-sdk-go/internal/apijson
-github.com/charmbracelet/anthropic-sdk-go/internal/apiquery
-github.com/charmbracelet/anthropic-sdk-go/internal/encoding/json
-github.com/charmbracelet/anthropic-sdk-go/internal/encoding/json/sentinel
-github.com/charmbracelet/anthropic-sdk-go/internal/encoding/json/shims
-github.com/charmbracelet/anthropic-sdk-go/internal/paramutil
-github.com/charmbracelet/anthropic-sdk-go/internal/requestconfig
-github.com/charmbracelet/anthropic-sdk-go/option
-github.com/charmbracelet/anthropic-sdk-go/packages/jsonl
-github.com/charmbracelet/anthropic-sdk-go/packages/pagination
-github.com/charmbracelet/anthropic-sdk-go/packages/param
-github.com/charmbracelet/anthropic-sdk-go/packages/respjson
-github.com/charmbracelet/anthropic-sdk-go/packages/ssestream
-github.com/charmbracelet/anthropic-sdk-go/shared
-github.com/charmbracelet/anthropic-sdk-go/shared/constant
-github.com/charmbracelet/anthropic-sdk-go/vertex
 # github.com/charmbracelet/colorprofile v0.4.2
 ## explicit; go 1.24.2
 github.com/charmbracelet/colorprofile
+# github.com/charmbracelet/harmonica v0.2.0
+## explicit; go 1.16
+github.com/charmbracelet/harmonica
 # github.com/charmbracelet/ultraviolet v0.0.0-20260205113103-524a6607adb8
 ## explicit; go 1.24.2
 github.com/charmbracelet/ultraviolet
@@ -498,9 +469,6 @@ github.com/charmbracelet/x/exp/slice
 # github.com/charmbracelet/x/exp/strings v0.0.0-20240722160745-212f7b056ed0
 ## explicit; go 1.19
 github.com/charmbracelet/x/exp/strings
-# github.com/charmbracelet/x/json v0.2.0
-## explicit; go 1.23.0
-github.com/charmbracelet/x/json
 # github.com/charmbracelet/x/term v0.2.2
 ## explicit; go 1.24.0
 github.com/charmbracelet/x/term
@@ -763,10 +731,6 @@ github.com/go-sql-driver/mysql
 # github.com/go-telegram-bot-api/telegram-bot-api v4.6.4+incompatible
 ## explicit
 github.com/go-telegram-bot-api/telegram-bot-api
-# github.com/go-viper/mapstructure/v2 v2.5.0
-## explicit; go 1.18
-github.com/go-viper/mapstructure/v2
-github.com/go-viper/mapstructure/v2/internal/errors
 # github.com/gobwas/httphead v0.1.0
 ## explicit; go 1.15
 github.com/gobwas/httphead
@@ -780,17 +744,6 @@ github.com/gobwas/pool/pbytes
 ## explicit; go 1.16
 github.com/gobwas/ws
 github.com/gobwas/ws/wsutil
-# github.com/goccy/go-yaml v1.19.2
-## explicit; go 1.21.0
-github.com/goccy/go-yaml
-github.com/goccy/go-yaml/ast
-github.com/goccy/go-yaml/internal/errors
-github.com/goccy/go-yaml/internal/format
-github.com/goccy/go-yaml/lexer
-github.com/goccy/go-yaml/parser
-github.com/goccy/go-yaml/printer
-github.com/goccy/go-yaml/scanner
-github.com/goccy/go-yaml/token
 # github.com/godbus/dbus/v5 v5.1.1-0.20230522191255-76236955d466
 ## explicit; go 1.12
 github.com/godbus/dbus/v5
@@ -908,8 +861,8 @@ github.com/jackc/pgpassfile
 # github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761
 ## explicit; go 1.14
 github.com/jackc/pgservicefile
-# github.com/jackc/pgx/v5 v5.7.6
-## explicit; go 1.23.0
+# github.com/jackc/pgx/v5 v5.9.2
+## explicit; go 1.25.0
 github.com/jackc/pgx/v5
 github.com/jackc/pgx/v5/internal/iobufpool
 github.com/jackc/pgx/v5/internal/pgio
@@ -946,6 +899,8 @@ github.com/jinzhu/inflection
 # github.com/jinzhu/now v1.1.5
 ## explicit; go 1.12
 github.com/jinzhu/now
+# github.com/joho/godotenv v1.5.1
+## explicit; go 1.12
 # github.com/jordan-wright/email v4.0.1-0.20210109023952-943e75fe5223+incompatible
 ## explicit
 github.com/jordan-wright/email
@@ -956,19 +911,6 @@ github.com/jsimonetti/rtnetlink/internal/unix
 # github.com/json-iterator/go v1.1.12
 ## explicit; go 1.12
 github.com/json-iterator/go
-# github.com/kaptinlin/go-i18n v0.2.3
-## explicit; go 1.25
-github.com/kaptinlin/go-i18n
-# github.com/kaptinlin/jsonpointer v0.4.9
-## explicit; go 1.25
-github.com/kaptinlin/jsonpointer
-# github.com/kaptinlin/jsonschema v0.6.10
-## explicit; go 1.25
-github.com/kaptinlin/jsonschema
-github.com/kaptinlin/jsonschema/pkg/tagparser
-# github.com/kaptinlin/messageformat-go v0.4.9
-## explicit; go 1.25
-github.com/kaptinlin/messageformat-go/v1
 # github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 ## explicit
 github.com/kballard/go-shellquote
@@ -1379,8 +1321,8 @@ github.com/silenceper/wechat/v2/work/robot
 # github.com/sirupsen/logrus v1.9.4
 ## explicit; go 1.17
 github.com/sirupsen/logrus
-# github.com/slack-go/slack v0.17.3
-## explicit; go 1.22
+# github.com/slack-go/slack v0.24.0
+## explicit; go 1.25
 github.com/slack-go/slack
 github.com/slack-go/slack/internal/backoff
 github.com/slack-go/slack/internal/errorsx
@@ -1660,7 +1602,7 @@ go4.org/mem
 # go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
 ## explicit; go 1.18
 go4.org/netipx
-# golang.org/x/crypto v0.49.0
+# golang.org/x/crypto v0.50.0
 ## explicit; go 1.25.0
 golang.org/x/crypto/acme
 golang.org/x/crypto/acme/autocert
@@ -1697,13 +1639,13 @@ golang.org/x/exp/slices
 golang.org/x/exp/slog
 golang.org/x/exp/slog/internal
 golang.org/x/exp/slog/internal/buffer
-# golang.org/x/mod v0.33.0
-## explicit; go 1.24.0
+# golang.org/x/mod v0.35.0
+## explicit; go 1.25.0
 golang.org/x/mod/internal/lazyregexp
 golang.org/x/mod/modfile
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/net v0.52.0
+# golang.org/x/net v0.53.0
 ## explicit; go 1.25.0
 golang.org/x/net/bpf
 golang.org/x/net/context
@@ -1745,7 +1687,7 @@ golang.org/x/oauth2/jwt
 ## explicit; go 1.25.0
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.42.0
+# golang.org/x/sys v0.43.0
 ## explicit; go 1.25.0
 golang.org/x/sys/cpu
 golang.org/x/sys/plan9
@@ -1754,29 +1696,22 @@ golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
 golang.org/x/sys/windows/svc
 golang.org/x/sys/windows/svc/mgr
-# golang.org/x/term v0.41.0
+# golang.org/x/term v0.42.0
 ## explicit; go 1.25.0
 golang.org/x/term
-# golang.org/x/text v0.35.0
+# golang.org/x/text v0.37.0
 ## explicit; go 1.25.0
 golang.org/x/text/cases
 golang.org/x/text/encoding
 golang.org/x/text/encoding/internal
 golang.org/x/text/encoding/internal/identifier
 golang.org/x/text/encoding/unicode
-golang.org/x/text/feature/plural
 golang.org/x/text/internal
-golang.org/x/text/internal/catmsg
-golang.org/x/text/internal/format
 golang.org/x/text/internal/language
 golang.org/x/text/internal/language/compact
-golang.org/x/text/internal/number
-golang.org/x/text/internal/stringset
 golang.org/x/text/internal/tag
 golang.org/x/text/internal/utf8internal
 golang.org/x/text/language
-golang.org/x/text/message
-golang.org/x/text/message/catalog
 golang.org/x/text/runes
 golang.org/x/text/secure/bidirule
 golang.org/x/text/secure/precis
@@ -1787,8 +1722,8 @@ golang.org/x/text/width
 # golang.org/x/time v0.14.0
 ## explicit; go 1.24.0
 golang.org/x/time/rate
-# golang.org/x/tools v0.42.0
-## explicit; go 1.24.0
+# golang.org/x/tools v0.44.0
+## explicit; go 1.25.0
 golang.org/x/tools/go/ast/edge
 golang.org/x/tools/go/ast/inspector
 golang.org/x/tools/go/gcexportdata
@@ -1858,9 +1793,6 @@ google.golang.org/appengine/v2/internal/base
 google.golang.org/appengine/v2/internal/datastore
 google.golang.org/appengine/v2/internal/modules
 google.golang.org/appengine/v2/internal/remote_api
-# google.golang.org/genai v1.49.0
-## explicit; go 1.24
-google.golang.org/genai
 # google.golang.org/genproto v0.0.0-20260226221140-a57be14db171
 ## explicit; go 1.25.0
 google.golang.org/genproto/googleapis/type/calendarperiod
