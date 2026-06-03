@@ -81,6 +81,7 @@ func beaconRegisterHandler(implantConn *core.ImplantConnection, data []byte) *sl
 	beacon.ReconnectInterval = beaconReg.Register.ReconnectInterval
 	beacon.ActiveC2 = beaconReg.Register.ActiveC2
 	beacon.ProxyURL = beaconReg.Register.ProxyURL
+	beacon.Virtualization = beaconReg.Register.Virtualization
 	// beacon.ConfigID = uuid.FromStringOrNil(beaconReg.Register.ConfigID)
 	beacon.Locale = beaconReg.Register.Locale
 

