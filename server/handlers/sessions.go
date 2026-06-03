@@ -255,9 +255,17 @@ func createReverseTunnelHandler(implantConn *core.ImplantConnection, data []byte
 		// {{if .Config.Debug}}
 		//log.Printf("[portfwd] Configuring keep alive")
 		// {{end}}
-		conn.SetKeepAlive(true)
-		// TODO: Make KeepAlive configurable
-		conn.SetKeepAlivePeriod(1000 * time.Second)
+		keepAlive := rtunnels.GetKeepAlive(session.ID, remoteAddress)
+		if keepAlive < 0 {
+			conn.SetKeepAlive(false)
+		} else {
+			conn.SetKeepAlive(true)
+			if keepAlive == 0 {
+				conn.SetKeepAlivePeriod(30 * time.Second)
+			} else {
+				conn.SetKeepAlivePeriod(time.Duration(keepAlive) * time.Second)
+			}
+		}
 	}
 
 	tunnel := rtunnels.NewRTunnel(req.TunnelID, session.ID, dst, dst)
