@@ -52,7 +52,7 @@ func (rpc *Server) StartRportFwdListener(ctx context.Context, req *sliverpb.Rpor
 		if resp.ForwardAddress != "" {
 			addr = resp.ForwardAddress
 		}
-		rtunnels.TrackListener(req.Request.SessionID, resp.ID, addr)
+		rtunnels.TrackListener(req.Request.SessionID, resp.ID, addr, req.KeepAlive)
 	}
 	return resp, nil
 }
