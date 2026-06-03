@@ -1,8 +1,8 @@
 package rtunnels
 
 import (
-	"testing"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestKeepAliveState(t *testing.T) {
@@ -13,7 +13,7 @@ func TestKeepAliveState(t *testing.T) {
 
 	// Test TrackListener
 	TrackListener(sessionID, listenerID, connStr, keepAlive)
-	
+
 	assert.True(t, Check(sessionID, connStr))
 	assert.Equal(t, keepAlive, GetKeepAlive(sessionID, connStr))
 
