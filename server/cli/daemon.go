@@ -87,6 +87,11 @@ var daemonCmd = &cobra.Command{
 			fmt.Printf("[!] %s\n", err)
 		}
 
+		// Start the server-side TTL reaper as a defense-in-depth
+		// fallback for trigger implants whose client-side TTL watchdog
+		// may have failed. Runs for the lifetime of the server process.
+		c2.StartTTLReaper()
+
 		daemon.Start(lhost, uint16(lport), tailscale, enableWG)
 	},
 }
@@ -185,6 +190,15 @@ func startPersistentListenerJob(jobType string, listenerJob *clientpb.ListenerJo
 			return 0, err
 		}
 		return uint32(job.ID), nil
+	case constants.TriggerStr:
+		if listenerJob.TriggerConf == nil {
+			return 0, errors.New("missing Trigger listener configuration")
+		}
+		job, err := c2.StartTriggerListenerJob(listenerJob.TriggerConf)
+		if err != nil {
+			return 0, err
+		}
+		return uint32(job.ID), nil
 	default:
 		return 0, fmt.Errorf("unsupported listener type %q", jobType)
 	}
@@ -231,6 +245,11 @@ func persistentJobStartupContext(jobType string, savedJobID uint32, listenerJob 
 			return prefix
 		}
 		return fmt.Sprintf("%s [%s profile=%q]", prefix, listenerBind(listenerJob.TCPConf.Host, listenerJob.TCPConf.Port), listenerJob.TCPConf.ProfileName)
+	case constants.TriggerStr:
+		if listenerJob.TriggerConf == nil {
+			return prefix
+		}
+		return fmt.Sprintf("%s [%s tasks=%d]", prefix, listenerBind(listenerJob.TriggerConf.Host, listenerJob.TriggerConf.Port), len(listenerJob.TriggerConf.Intents))
 	default:
 		return prefix
 	}

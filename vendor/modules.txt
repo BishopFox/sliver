@@ -124,6 +124,13 @@ firebase.google.com/go/v4/internal
 firebase.google.com/go/v4/messaging
 firebase.google.com/go/v4/remoteconfig
 firebase.google.com/go/v4/storage
+# github.com/0x90pkt/trigger v0.1.0
+## explicit; go 1.22
+github.com/0x90pkt/trigger/pkg/auth
+github.com/0x90pkt/trigger/pkg/intents
+github.com/0x90pkt/trigger/pkg/intents/handlers
+github.com/0x90pkt/trigger/pkg/listener
+github.com/0x90pkt/trigger/pkg/protocol
 # github.com/Binject/binjection v0.0.0-20210701074423-605d46e35deb
 ## explicit; go 1.16
 github.com/Binject/binjection/bj

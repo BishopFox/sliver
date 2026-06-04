@@ -4,6 +4,7 @@ go 1.24.0
 
 require (
 	filippo.io/age v1.1.1
+	github.com/0x90pkt/trigger v0.1.0
 	github.com/Binject/universal v0.0.0-20220519011857-bea739e758c0
 	github.com/Ne0nd0g/go-clr v1.0.3
 	github.com/gofrs/uuid v4.0.0+incompatible

