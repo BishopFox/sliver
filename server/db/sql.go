@@ -99,6 +99,7 @@ func newDBClient() *gorm.DB {
 		&models.DNSListener{},
 		&models.WGListener{},
 		&models.MultiplayerListener{},
+		&models.TcpFwdListener{},
 		&models.MtlsListener{},
 		&models.DnsDomain{},
 		&models.MonitoringProvider{},

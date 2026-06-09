@@ -314,3 +314,34 @@ func (ln tcpKeepAliveListener) Accept() (c net.Conn, err error) {
 	tc.SetKeepAlivePeriod(3 * time.Minute)
 	return tc, nil
 }
+
+// StartTCPFwdListenerJob - Start a TCP forwarder on the WG virtual network
+func StartTCPFwdListenerJob(req *clientpb.TCPFwdListenerReq) (*core.Job, error) {
+	ln, err := StartWGTCPForwarder(uint16(req.Port), req.LocalAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	job := &core.Job{
+		ID:          core.NextJobID(),
+		Name:        "tcp-fwd",
+		Description: fmt.Sprintf("tcp forwarder %s:%d → %s", tunIP, req.Port, req.LocalAddr),
+		Protocol:    constants.TCPListenerStr,
+		Port:        uint16(req.Port),
+		JobCtrl:     make(chan bool),
+	}
+
+	go func() {
+		<-job.JobCtrl
+		jobLog.Infof("Stopping TCP forwarder (%d) ...", job.ID)
+		ln.Close()
+		core.Jobs.Remove(job)
+		core.EventBroker.Publish(core.Event{
+			EventType: consts.JobStoppedEvent,
+			Job:       job,
+		})
+	}()
+
+	core.Jobs.Add(job)
+	return job, nil
+}
