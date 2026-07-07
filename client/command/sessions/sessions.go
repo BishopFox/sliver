@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/client/command/kill"
+	"github.com/bishopfox/sliver/client/command/output"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -34,6 +35,31 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
+
+// SessionResult represents a single session in structured output.
+type SessionResult struct {
+	ID             string `json:"id" yaml:"id"`
+	Name           string `json:"name" yaml:"name"`
+	Transport      string `json:"transport" yaml:"transport"`
+	RemoteAddress  string `json:"remoteAddress" yaml:"remoteAddress"`
+	Hostname       string `json:"hostname" yaml:"hostname"`
+	Username       string `json:"username" yaml:"username"`
+	Process        string `json:"process" yaml:"process"`
+	PID            uint32 `json:"pid" yaml:"pid"`
+	OS             string `json:"os" yaml:"os"`
+	Arch           string `json:"arch" yaml:"arch"`
+	Locale         string `json:"locale" yaml:"locale"`
+	Integrity      string `json:"integrity,omitempty" yaml:"integrity,omitempty"`
+	LastCheckin    int64  `json:"lastCheckin" yaml:"lastCheckin"`
+	IsDead         bool   `json:"isDead" yaml:"isDead"`
+	Burned         bool   `json:"burned" yaml:"burned"`
+	Active         bool   `json:"active" yaml:"active"`
+}
+
+// SessionListResult represents the sessions list in structured output.
+type SessionListResult struct {
+	Sessions []SessionResult `json:"sessions" yaml:"sessions"`
+}
 
 // SessionsCmd - Display/interact with sessions.
 func SessionsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
@@ -118,7 +144,12 @@ func SessionsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			sessionsMap[session.ID] = session
 		}
 		if 0 < len(sessionsMap) {
-			PrintSessions(sessionsMap, filter, filterRegex, con)
+			format := output.GetOutputFormat(cmd)
+			if format != output.FormatText {
+				PrintSessionsStructured(sessionsMap, filter, filterRegex, con, format)
+			} else {
+				PrintSessions(sessionsMap, filter, filterRegex, con)
+			}
 		} else {
 			con.PrintInfof("No sessions 🙁\n")
 		}
@@ -273,4 +304,67 @@ func PrintSessions(sessions map[string]*clientpb.Session, filter string, filterR
 // ShortSessionID - Shorten the session ID.
 func ShortSessionID(id string) string {
 	return strings.Split(id, "-")[0]
+}
+
+// PrintSessionsStructured prints sessions in JSON or YAML format.
+func PrintSessionsStructured(sessions map[string]*clientpb.Session, filter string, filterRegex *regexp.Regexp, con *console.SliverClient, format output.OutputFormat) {
+	result := SessionListResult{
+		Sessions: make([]SessionResult, 0),
+	}
+
+	for _, session := range sessions {
+		username := strings.TrimPrefix(session.Username, session.Hostname+"\\")
+		sr := SessionResult{
+			ID:            session.ID,
+			Name:          session.Name,
+			Transport:     session.Transport,
+			RemoteAddress: session.RemoteAddress,
+			Hostname:      session.Hostname,
+			Username:      username,
+			Process:       session.Filename,
+			PID:           session.PID,
+			OS:            session.OS,
+			Arch:          session.Arch,
+			Locale:        session.Locale,
+			Integrity:     session.Integrity,
+			LastCheckin:   session.LastCheckin,
+			IsDead:        session.IsDead,
+			Burned:        session.Burned,
+			Active:        con.ActiveTarget.GetSession() != nil && con.ActiveTarget.GetSession().ID == session.ID,
+		}
+
+		// Apply filters
+		if filter != "" || filterRegex != nil {
+			match := false
+			fields := []string{
+				session.ID, session.Name, session.Transport, session.RemoteAddress,
+				session.Hostname, username, session.Filename, session.OS, session.Arch,
+			}
+			if filter != "" {
+				for _, field := range fields {
+					if strings.Contains(field, filter) {
+						match = true
+						break
+					}
+				}
+			}
+			if !match && filterRegex != nil {
+				for _, field := range fields {
+					if filterRegex.MatchString(field) {
+						match = true
+						break
+					}
+				}
+			}
+			if !match {
+				continue
+			}
+		}
+
+		result.Sessions = append(result.Sessions, sr)
+	}
+
+	if err := output.PrintStructured(result, format); err != nil {
+		con.PrintErrorf("Failed to format output: %s\n", err)
+	}
 }

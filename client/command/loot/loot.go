@@ -29,6 +29,7 @@ import (
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 
+	"github.com/bishopfox/sliver/client/command/output"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/forms"
@@ -37,6 +38,21 @@ import (
 	"github.com/bishopfox/sliver/util"
 )
 
+// LootItemResult represents a single loot item in structured output.
+type LootItemResult struct {
+	ID       string `json:"id" yaml:"id"`
+	Name     string `json:"name" yaml:"name"`
+	FileName string `json:"fileName" yaml:"fileName"`
+	FileType string `json:"fileType" yaml:"fileType"`
+	Size     int64  `json:"size" yaml:"size"`
+	SizeH    string `json:"sizeHuman" yaml:"sizeHuman"`
+}
+
+// LootListResult represents the loot list in structured output.
+type LootListResult struct {
+	Items []LootItemResult `json:"items" yaml:"items"`
+}
+
 // LootCmd - The loot root command
 func LootCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	allLoot, err := con.Rpc.LootAll(context.Background(), &commonpb.Empty{})
@@ -44,7 +60,13 @@ func LootCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		con.PrintErrorf("Failed to fetch loot %s\n", err)
 		return
 	}
-	PrintAllFileLootTable(allLoot, con)
+
+	format := output.GetOutputFormat(cmd)
+	if format != output.FormatText {
+		PrintLootStructured(allLoot, con, format)
+	} else {
+		PrintAllFileLootTable(allLoot, con)
+	}
 }
 
 // PrintAllFileLootTable - Displays a table of all file loot
@@ -211,4 +233,36 @@ func isText(sample []byte) bool {
 		}
 	}
 	return true
+}
+
+// PrintLootStructured prints loot in JSON or YAML format.
+func PrintLootStructured(allLoot *clientpb.AllLoot, con *console.SliverClient, format output.OutputFormat) {
+	result := LootListResult{
+		Items: make([]LootItemResult, 0),
+	}
+
+	if allLoot == nil || len(allLoot.Loot) == 0 {
+		if err := output.PrintStructured(result, format); err != nil {
+			con.PrintErrorf("Failed to format output: %s\n", err)
+		}
+		return
+	}
+
+	for _, loot := range allLoot.Loot {
+		if loot.File != nil {
+			item := LootItemResult{
+				ID:       loot.ID,
+				Name:     loot.Name,
+				FileName: loot.File.Name,
+				FileType: fileTypeToStr(loot.FileType),
+				Size:     loot.Size,
+				SizeH:    util.ByteCountBinary(loot.Size),
+			}
+			result.Items = append(result.Items, item)
+		}
+	}
+
+	if err := output.PrintStructured(result, format); err != nil {
+		con.PrintErrorf("Failed to format output: %s\n", err)
+	}
 }

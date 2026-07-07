@@ -29,11 +29,38 @@ import (
 	"golang.org/x/term"
 
 	"github.com/bishopfox/sliver/client/command/kill"
+	"github.com/bishopfox/sliver/client/command/output"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 )
+
+// BeaconResult represents a single beacon in structured output.
+type BeaconResult struct {
+	ID                    string `json:"id" yaml:"id"`
+	Name                  string `json:"name" yaml:"name"`
+	Transport             string `json:"transport" yaml:"transport"`
+	RemoteAddress         string `json:"remoteAddress" yaml:"remoteAddress"`
+	Hostname              string `json:"hostname" yaml:"hostname"`
+	Username              string `json:"username" yaml:"username"`
+	Process               string `json:"process" yaml:"process"`
+	PID                   uint32 `json:"pid" yaml:"pid"`
+	OS                    string `json:"os" yaml:"os"`
+	Arch                  string `json:"arch" yaml:"arch"`
+	Locale                string `json:"locale" yaml:"locale"`
+	Integrity             string `json:"integrity,omitempty" yaml:"integrity,omitempty"`
+	LastCheckin           int64  `json:"lastCheckin" yaml:"lastCheckin"`
+	NextCheckin           int64  `json:"nextCheckin" yaml:"nextCheckin"`
+	TasksCount            uint32 `json:"tasksCount" yaml:"tasksCount"`
+	TasksCountCompleted   uint32 `json:"tasksCountCompleted" yaml:"tasksCountCompleted"`
+	Active                bool   `json:"active" yaml:"active"`
+}
+
+// BeaconListResult represents the beacons list in structured output.
+type BeaconListResult struct {
+	Beacons []BeaconResult `json:"beacons" yaml:"beacons"`
+}
 
 // BeaconsCmd - Display/interact with beacons
 func BeaconsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
@@ -103,7 +130,13 @@ func BeaconsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		con.PrintErrorf("%s\n", err)
 		return
 	}
-	PrintBeacons(beacons.Beacons, filter, filterRegex, con)
+
+	format := output.GetOutputFormat(cmd)
+	if format != output.FormatText {
+		PrintBeaconsStructured(beacons.Beacons, filter, filterRegex, con, format)
+	} else {
+		PrintBeacons(beacons.Beacons, filter, filterRegex, con)
+	}
 }
 
 // PrintBeacons - Display a list of beacons
@@ -114,6 +147,71 @@ func PrintBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regexp
 	}
 	tw := renderBeacons(beacons, filter, filterRegex, con)
 	con.Printf("%s\n", tw.Render())
+}
+
+// PrintBeaconsStructured prints beacons in JSON or YAML format.
+func PrintBeaconsStructured(beacons []*clientpb.Beacon, filter string, filterRegex *regexp.Regexp, con *console.SliverClient, format output.OutputFormat) {
+	result := BeaconListResult{
+		Beacons: make([]BeaconResult, 0),
+	}
+
+	for _, beacon := range beacons {
+		username := strings.TrimPrefix(beacon.Username, beacon.Hostname+"\\")
+
+		// Apply filters
+		if filter != "" || filterRegex != nil {
+			match := false
+			fields := []string{
+				beacon.ID, beacon.Name, beacon.Transport, beacon.RemoteAddress,
+				beacon.Hostname, username, beacon.Filename, beacon.OS, beacon.Arch,
+			}
+			if filter != "" {
+				for _, field := range fields {
+					if strings.Contains(field, filter) {
+						match = true
+						break
+					}
+				}
+			}
+			if !match && filterRegex != nil {
+				for _, field := range fields {
+					if filterRegex.MatchString(field) {
+						match = true
+						break
+					}
+				}
+			}
+			if !match {
+				continue
+			}
+		}
+
+		br := BeaconResult{
+			ID:                  beacon.ID,
+			Name:                beacon.Name,
+			Transport:           beacon.Transport,
+			RemoteAddress:       beacon.RemoteAddress,
+			Hostname:            beacon.Hostname,
+			Username:            username,
+			Process:             beacon.Filename,
+			PID:                 beacon.PID,
+			OS:                  beacon.OS,
+			Arch:                beacon.Arch,
+			Locale:              beacon.Locale,
+			Integrity:           beacon.Integrity,
+			LastCheckin:         beacon.LastCheckin,
+			NextCheckin:         beacon.NextCheckin,
+			TasksCount:          beacon.TasksCount,
+			TasksCountCompleted: beacon.TasksCountCompleted,
+			Active:              con.ActiveTarget.GetBeacon() != nil && con.ActiveTarget.GetBeacon().ID == beacon.ID,
+		}
+
+		result.Beacons = append(result.Beacons, br)
+	}
+
+	if err := output.PrintStructured(result, format); err != nil {
+		con.PrintErrorf("Failed to format output: %s\n", err)
+	}
 }
 
 func renderBeacons(beacons []*clientpb.Beacon, filter string, filterRegex *regexp.Regexp, con *console.SliverClient) table.Writer {

@@ -152,6 +152,73 @@ func newServer(cfg Config, rpc rpcpb.SliverRPCClient, logger *log.Logger) *Slive
 		mcpapi.WithReadOnlyHintAnnotation(false),
 		mcpapi.WithDestructiveHintAnnotation(true),
 	)
+	executeCommandTool := mcpapi.NewTool(
+		executeCommandToolName,
+		mcpapi.WithDescription("Execute a command on the remote target system."),
+		mcpapi.WithInputSchema[executeCommandArgs](),
+		mcpapi.WithReadOnlyHintAnnotation(false),
+		mcpapi.WithDestructiveHintAnnotation(true),
+	)
+	uploadFileTool := mcpapi.NewTool(
+		uploadFileToolName,
+		mcpapi.WithDescription("Upload a file to the remote target system."),
+		mcpapi.WithInputSchema[uploadFileArgs](),
+		mcpapi.WithReadOnlyHintAnnotation(false),
+		mcpapi.WithDestructiveHintAnnotation(false),
+	)
+	getSystemInfoTool := mcpapi.NewTool(
+		getSystemInfoToolName,
+		mcpapi.WithDescription("Get detailed system information from the remote target."),
+		mcpapi.WithInputSchema[getSystemInfoArgs](),
+		mcpapi.WithReadOnlyHintAnnotation(true),
+		mcpapi.WithDestructiveHintAnnotation(false),
+		mcpapi.WithIdempotentHintAnnotation(true),
+	)
+	listPivotsTool := mcpapi.NewTool(
+		listPivotsToolName,
+		mcpapi.WithDescription("List all active pivot listeners and connections."),
+		mcpapi.WithReadOnlyHintAnnotation(true),
+		mcpapi.WithDestructiveHintAnnotation(false),
+		mcpapi.WithIdempotentHintAnnotation(true),
+	)
+	listProcessesTool := mcpapi.NewTool(
+		listProcessesToolName,
+		mcpapi.WithDescription("List processes running on the remote target system."),
+		mcpapi.WithInputSchema[listProcessesArgs](),
+		mcpapi.WithReadOnlyHintAnnotation(true),
+		mcpapi.WithDestructiveHintAnnotation(false),
+		mcpapi.WithIdempotentHintAnnotation(true),
+	)
+	killProcessTool := mcpapi.NewTool(
+		killProcessToolName,
+		mcpapi.WithDescription("Terminate a process on the remote target system by PID."),
+		mcpapi.WithInputSchema[killProcessArgs](),
+		mcpapi.WithReadOnlyHintAnnotation(false),
+		mcpapi.WithDestructiveHintAnnotation(true),
+	)
+	listCredentialsTool := mcpapi.NewTool(
+		listCredentialsToolName,
+		mcpapi.WithDescription("List credentials collected from target systems."),
+		mcpapi.WithReadOnlyHintAnnotation(true),
+		mcpapi.WithDestructiveHintAnnotation(false),
+		mcpapi.WithIdempotentHintAnnotation(true),
+	)
+	networkInterfacesTool := mcpapi.NewTool(
+		networkInterfacesToolName,
+		mcpapi.WithDescription("List network interfaces on the remote target system."),
+		mcpapi.WithInputSchema[networkInterfacesArgs](),
+		mcpapi.WithReadOnlyHintAnnotation(true),
+		mcpapi.WithDestructiveHintAnnotation(false),
+		mcpapi.WithIdempotentHintAnnotation(true),
+	)
+	netstatTool := mcpapi.NewTool(
+		netstatToolName,
+		mcpapi.WithDescription("List network connections on the remote target system (similar to netstat/ss)."),
+		mcpapi.WithInputSchema[netstatArgs](),
+		mcpapi.WithReadOnlyHintAnnotation(true),
+		mcpapi.WithDestructiveHintAnnotation(false),
+		mcpapi.WithIdempotentHintAnnotation(true),
+	)
 	srv := &SliverMCPServer{
 		Rpc:    rpc,
 		server: base,
@@ -168,6 +235,15 @@ func newServer(cfg Config, rpc rpcpb.SliverRPCClient, logger *log.Logger) *Slive
 	srv.server.AddTool(mkdirTool, srv.mkdirHandler)
 	srv.server.AddTool(chmodTool, srv.chmodHandler)
 	srv.server.AddTool(chownTool, srv.chownHandler)
+	srv.server.AddTool(executeCommandTool, srv.executeCommandHandler)
+	srv.server.AddTool(uploadFileTool, srv.uploadFileHandler)
+	srv.server.AddTool(getSystemInfoTool, srv.getSystemInfoHandler)
+	srv.server.AddTool(listPivotsTool, srv.listPivotsHandler)
+	srv.server.AddTool(listProcessesTool, srv.listProcessesHandler)
+	srv.server.AddTool(killProcessTool, srv.killProcessHandler)
+	srv.server.AddTool(listCredentialsTool, srv.listCredentialsHandler)
+	srv.server.AddTool(networkInterfacesTool, srv.networkInterfacesHandler)
+	srv.server.AddTool(netstatTool, srv.netstatHandler)
 	return srv
 }
 

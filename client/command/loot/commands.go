@@ -2,6 +2,7 @@ package loot
 
 import (
 	"github.com/bishopfox/sliver/client/command/completers"
+	"github.com/bishopfox/sliver/client/command/output"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -29,6 +30,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind("loot", false, lootCmd, func(f *pflag.FlagSet) {
 		f.StringP("filter", "f", "", "filter based on loot type")
 	})
+	output.BindOutputFlags(lootCmd)
 
 	lootAddCmd := &cobra.Command{
 		Use:   consts.LootLocalStr,

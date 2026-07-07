@@ -4,6 +4,7 @@ import (
 	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
+	"github.com/bishopfox/sliver/client/command/output"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/rsteube/carapace"
@@ -25,6 +26,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind("creds", true, credsCmd, func(f *pflag.FlagSet) {
 		f.IntP("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 	})
+	output.BindOutputFlags(credsCmd)
 
 	credsAddCmd := &cobra.Command{
 		Use:   consts.AddStr,

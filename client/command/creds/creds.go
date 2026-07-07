@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/bishopfox/sliver/client/command/output"
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -31,6 +32,23 @@ import (
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
 )
+
+// CredentialResult represents a single credential in structured output.
+type CredentialResult struct {
+	ID               string `json:"id" yaml:"id"`
+	Collection       string `json:"collection" yaml:"collection"`
+	Username         string `json:"username" yaml:"username"`
+	Plaintext        string `json:"plaintext,omitempty" yaml:"plaintext,omitempty"`
+	Hash             string `json:"hash,omitempty" yaml:"hash,omitempty"`
+	HashType         string `json:"hashType,omitempty" yaml:"hashType,omitempty"`
+	IsCracked        bool   `json:"isCracked" yaml:"isCracked"`
+	OriginHostUUID   string `json:"originHostUuid,omitempty" yaml:"originHostUuid,omitempty"`
+}
+
+// CredentialListResult represents the credentials list in structured output.
+type CredentialListResult struct {
+	Credentials []CredentialResult `json:"credentials" yaml:"credentials"`
+}
 
 // CredsCmd - Manage credentials.
 func CredsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
@@ -43,7 +61,13 @@ func CredsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		con.PrintInfof("No credentials 🙁\n")
 		return
 	}
-	PrintCreds(creds.Credentials, con)
+
+	format := output.GetOutputFormat(cmd)
+	if format != output.FormatText {
+		PrintCredsStructured(creds.Credentials, con, format)
+	} else {
+		PrintCreds(creds.Credentials, con)
+	}
 }
 
 func PrintCreds(creds []*clientpb.Credential, con *console.SliverClient) {
@@ -130,6 +154,31 @@ func CredsCollectionCompleter(con *console.SliverClient) carapace.Action {
 
 		return carapace.ActionValues(results...).Tag("creds collections")
 	})
+}
+
+// PrintCredsStructured prints credentials in JSON or YAML format.
+func PrintCredsStructured(creds []*clientpb.Credential, con *console.SliverClient, format output.OutputFormat) {
+	result := CredentialListResult{
+		Credentials: make([]CredentialResult, 0),
+	}
+
+	for _, cred := range creds {
+		cr := CredentialResult{
+			ID:             cred.ID,
+			Collection:     cred.Collection,
+			Username:       cred.Username,
+			Plaintext:      cred.Plaintext,
+			Hash:           cred.Hash,
+			HashType:       cred.HashType,
+			IsCracked:      cred.IsCracked,
+			OriginHostUUID: cred.OriginHostUUID,
+		}
+		result.Credentials = append(result.Credentials, cr)
+	}
+
+	if err := output.PrintStructured(result, format); err != nil {
+		con.PrintErrorf("Failed to format output: %s\n", err)
+	}
 }
 
 // CredsCredentialIDCompleter completes credential IDs.

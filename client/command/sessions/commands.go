@@ -7,6 +7,7 @@ import (
 
 	"github.com/bishopfox/sliver/client/command/flags"
 	"github.com/bishopfox/sliver/client/command/help"
+	"github.com/bishopfox/sliver/client/command/output"
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -39,6 +40,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("filter", "f", "", "filter sessions by substring")
 		f.StringP("filter-re", "e", "", "filter sessions by regular expression")
 	})
+	output.BindOutputFlags(sessionsCmd)
 	flags.BindFlagCompletions(sessionsCmd, func(comp *carapace.ActionMap) {
 		(*comp)["interact"] = SessionIDCompleter(con)
 		(*comp)["kill"] = SessionIDCompleter(con)
