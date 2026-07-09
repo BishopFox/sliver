@@ -462,6 +462,7 @@ func coreBeaconFlags(name string, cmd *cobra.Command) {
 		f.Int64P("minutes", "M", 0, "beacon interval minutes")
 		f.Int64P("seconds", "S", 60, "beacon interval seconds")
 		f.Int64P("jitter", "J", 30, "beacon interval jitter in seconds")
+		f.BoolP("sleep-obfuscation", "B", false, "apply in-memory sleep obfuscation (Windows only)")
 	})
 }
 

@@ -168,6 +168,7 @@ type ImplantConfig struct {
 	MaxConnectionErrors uint32
 	ConnectionStrategy  string
 	SGNEnabled          bool
+	SleepObfuscation    bool
 	// ShellcodeEncoder - client-side post-processing applied to shellcode output
 	ShellcodeEncoder int32
 	Exports          string
@@ -266,6 +267,7 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		ObfuscateSymbols: ic.ObfuscateSymbols,
 		TemplateName:     ic.TemplateName,
 		SGNEnabled:       ic.SGNEnabled,
+		SleepObfuscation: ic.SleepObfuscation,
 		ShellcodeEncoder: clientpb.ShellcodeEncoder(ic.ShellcodeEncoder),
 
 		ReconnectInterval:   ic.ReconnectInterval,
@@ -482,6 +484,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 		cfg.TemplateName = defaultTemplateName
 	}
 	cfg.SGNEnabled = pbConfig.SGNEnabled
+	cfg.SleepObfuscation = pbConfig.SleepObfuscation
 	cfg.ShellcodeEncoder = int32(pbConfig.ShellcodeEncoder)
 
 	cfg.IncludeMTLS = pbConfig.IncludeMTLS || IsC2Enabled([]string{"mtls"}, pbConfig.C2)

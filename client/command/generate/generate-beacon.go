@@ -90,6 +90,8 @@ func parseBeaconFlags(cmd *cobra.Command, config *clientpb.ImplantConfig) error 
 	beaconJitter, _ := cmd.Flags().GetInt64("jitter")
 	config.BeaconInterval = int64(interval)
 	config.BeaconJitter = int64(time.Duration(beaconJitter) * time.Second)
+
+	config.SleepObfuscation, _ = cmd.Flags().GetBool("sleep-obfuscation")
 	return nil
 }
 
