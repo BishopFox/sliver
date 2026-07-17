@@ -225,6 +225,26 @@ func ImplantBuildByID(id string) (*clientpb.ImplantBuild, error) {
 	return build.ToProtobuf(), nil
 }
 
+// ImplantBuildByConfigID - Fetch the first implant build associated with a config ID.
+// Returns (nil, nil) if no build references that config.
+func ImplantBuildByConfigID(configID string) (*clientpb.ImplantBuild, error) {
+	if len(configID) < 1 {
+		return nil, ErrRecordNotFound
+	}
+	cid := uuid.FromStringOrNil(configID)
+	if cid == uuid.Nil {
+		return nil, ErrRecordNotFound
+	}
+	build := models.ImplantBuild{}
+	err := Session().Where(&models.ImplantBuild{
+		ImplantConfigID: cid,
+	}).First(&build).Error
+	if err != nil {
+		return nil, err
+	}
+	return build.ToProtobuf(), nil
+}
+
 // ImplantProfiles - Fetch a map of name<->profiles current in the database
 func ImplantProfiles() ([]*clientpb.ImplantProfile, error) {
 	profiles := []*models.ImplantProfile{}
@@ -616,6 +636,12 @@ func ListenerByJobID(JobID uint32) (*clientpb.ListenerJob, error) {
 			ListenerJobID: listenerJob.ID,
 		}).Find(&MultiplayerListener).Error
 		listenerJob.MultiplayerListener = MultiplayerListener
+	case constants.TriggerStr:
+		TriggerListener := models.TriggerListener{}
+		err = Session().Where(&models.TriggerListener{
+			ListenerJobID: listenerJob.ID,
+		}).Find(&TriggerListener).Error
+		listenerJob.TriggerListener = TriggerListener
 	}
 
 	if err != nil {
@@ -660,6 +686,8 @@ func DeleteListener(JobID uint32) error {
 		deleteErr = Session().Where(&models.WGListener{ListenerJobID: listenerID}).Delete(&models.WGListener{}).Error
 	case constants.MultiplayerModeStr:
 		deleteErr = Session().Where(&models.MultiplayerListener{ListenerJobID: listenerID}).Delete(&models.MultiplayerListener{}).Error
+	case constants.TriggerStr:
+		deleteErr = Session().Where(&models.TriggerListener{ListenerJobID: listenerID}).Delete(&models.TriggerListener{}).Error
 	}
 
 	if deleteErr != nil {

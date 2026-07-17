@@ -147,6 +147,7 @@ const (
 	ProfilesStr        = "profiles"
 	BeaconStr          = "beacon"
 	BeaconsStr         = "beacons"
+	TriggersStr        = "triggers"
 	WatchStr           = "watch"
 	SettingsStr        = "settings"
 	SearchStr          = "search"
@@ -198,6 +199,7 @@ const (
 	NamedPipeStr   = "named-pipe"
 	TCPListenerStr = "tcp"
 	UDPListenerStr = "udp"
+	TriggerStr     = "trigger"
 
 	MsfStr       = "msf"
 	MsfInjectStr = "msf-inject"

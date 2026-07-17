@@ -1,5 +1,7 @@
 filippo.io/age v1.1.1 h1:pIpO7l151hCnQ4BdyBujnGP2YlUo0uj6sAVNHGBvXHg=
 filippo.io/age v1.1.1/go.mod h1:l03SrzDUrBkdBx8+IILdnn2KZysqQdbEBUQ4p3sqEQE=
+github.com/0x90pkt/trigger v0.1.0 h1:JOxWdVME1+ASQPMen5oXuBW1m2bmz8oFlp2/I5RMFnY=
+github.com/0x90pkt/trigger v0.1.0/go.mod h1:P6kTaE+2xHAOtQ0/FJL+diOQDClB6/p1RhUI5omEd3k=
 github.com/Binject/debug v0.0.0-20210225042342-c9b8b45728d2 h1:8kQNJC9AxAaNs0JkXnWUfbNeDnIO1QLYYWjYqC6JEE4=
 github.com/Binject/debug v0.0.0-20210225042342-c9b8b45728d2/go.mod h1:QzgxDLY/qdKlvnbnb65eqTedhvQPbaSP2NqIbcuKvsQ=
 github.com/Binject/universal v0.0.0-20220519011857-bea739e758c0 h1:1sdnMvqxxlMXsu8ku/Xrh6gi3V40ykksst5fd0lfWnc=

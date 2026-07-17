@@ -100,6 +100,8 @@ func newDBClient() *gorm.DB {
 		&models.WGListener{},
 		&models.MultiplayerListener{},
 		&models.MtlsListener{},
+		&models.TriggerListener{},
+		&models.TriggerActivity{},
 		&models.DnsDomain{},
 		&models.MonitoringProvider{},
 	)

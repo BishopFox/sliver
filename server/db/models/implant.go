@@ -220,6 +220,17 @@ type ImplantConfig struct {
 	TrafficEncodersEnabled bool
 	Assets                 []EncoderAsset
 	Extension              string
+
+	// Trigger wake / TTL lifecycle fields (Phase 2)
+	IncludeTriggerWake          bool
+	TriggerWakeBindAddr         string
+	TriggerWakeSecret           []byte
+	TriggerWakeAllowedClientIDs string // comma-separated; GORM doesn't natively handle string slices
+	TTLEnabled                  bool
+	TTLMinutes                  uint32
+	TTLExpiresAtUnix            int64
+	TTLBurnExtraPaths           string // comma-separated
+	TTLBurnPersistence          string // comma-separated
 }
 
 // BeforeCreate - GORM hook
@@ -300,6 +311,17 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		IncludeTCP:      ic.IncludeTCP,
 		Extension:       ic.Extension,
 		Exports:         strings.Split(ic.Exports, ","),
+
+		// Trigger wake / TTL lifecycle
+		IncludeTriggerWake:          ic.IncludeTriggerWake,
+		TriggerWakeBindAddr:         ic.TriggerWakeBindAddr,
+		TriggerWakeSecret:           ic.TriggerWakeSecret,
+		TriggerWakeAllowedClientIDs: splitNonEmpty(ic.TriggerWakeAllowedClientIDs),
+		TTLEnabled:                  ic.TTLEnabled,
+		TTLMinutes:                  ic.TTLMinutes,
+		TTLExpiresAtUnix:            ic.TTLExpiresAtUnix,
+		TTLBurnExtraPaths:           splitNonEmpty(ic.TTLBurnExtraPaths),
+		TTLBurnPersistence:          splitNonEmpty(ic.TTLBurnPersistence),
 		ShellcodeConfig: &clientpb.ShellcodeConfig{
 			Entropy:  ic.DonutEntropy,
 			Compress: ic.DonutCompress,
@@ -545,6 +567,17 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	}
 	cfg.Extension = pbConfig.Extension
 
+	// Trigger wake / TTL lifecycle
+	cfg.IncludeTriggerWake = pbConfig.IncludeTriggerWake
+	cfg.TriggerWakeBindAddr = pbConfig.TriggerWakeBindAddr
+	cfg.TriggerWakeSecret = pbConfig.TriggerWakeSecret
+	cfg.TriggerWakeAllowedClientIDs = strings.Join(pbConfig.TriggerWakeAllowedClientIDs, ",")
+	cfg.TTLEnabled = pbConfig.TTLEnabled
+	cfg.TTLMinutes = pbConfig.TTLMinutes
+	cfg.TTLExpiresAtUnix = pbConfig.TTLExpiresAtUnix
+	cfg.TTLBurnExtraPaths = strings.Join(pbConfig.TTLBurnExtraPaths, ",")
+	cfg.TTLBurnPersistence = strings.Join(pbConfig.TTLBurnPersistence, ",")
+
 	return &cfg
 }
 
@@ -566,6 +599,25 @@ func copyC2List(src []*clientpb.ImplantC2, id uuid.UUID) []ImplantC2 {
 		})
 	}
 	return c2s
+}
+
+// splitNonEmpty splits a comma-separated string into a string slice,
+// filtering out empty entries. Returns nil for empty input.
+func splitNonEmpty(s string) []string {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func IsC2Enabled(schemes []string, c2s []*clientpb.ImplantC2) bool {

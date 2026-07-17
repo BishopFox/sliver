@@ -500,6 +500,16 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		includeTCP = true
 	}
 
+	// TTL deadman switch + triggerwake passive UDP wake/self-destruct listener.
+	// parseTriggerLifecycleFlags returns zero-values on disabled features so the
+	// rendered template's {{if .Config.TTLEnabled}} / {{if .Config.IncludeTriggerWake}}
+	// gates compile down to nothing.
+	lifecycle, err := parseTriggerLifecycleFlags(cmd)
+	if err != nil {
+		con.PrintErrorf("%s\n", err.Error())
+		return "", nil
+	}
+
 	// exports if its a shared library
 
 	config := &clientpb.ImplantConfig{
@@ -551,6 +561,18 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		IncludeDNS:      includeDNS,
 		IncludeNamePipe: includeNamedPipe,
 		IncludeTCP:      includeTCP,
+
+		// Trigger / Wake / TTL — feature gates the implant template uses.
+		// TTLExpiresAtUnix is populated server-side from TTLMinutes at build time
+		// so the burned-in deadline is computed from "now" at every build.
+		IncludeTriggerWake:          lifecycle.includeTriggerWake,
+		TriggerWakeBindAddr:         lifecycle.triggerWakeBindAddr,
+		TriggerWakeSecret:           lifecycle.triggerWakeSecret,
+		TriggerWakeAllowedClientIDs: lifecycle.triggerWakeAllowedClientIDs,
+		TTLEnabled:                  lifecycle.ttlEnabled,
+		TTLMinutes:                  lifecycle.ttlMinutes,
+		TTLBurnExtraPaths:           lifecycle.burnExtraPaths,
+		TTLBurnPersistence:          lifecycle.burnPersistence,
 	}
 
 	return name, config

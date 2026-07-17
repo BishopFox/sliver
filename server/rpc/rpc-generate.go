@@ -91,6 +91,20 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		config.IncludeTCP = config.IncludeTCP || models.IsC2Enabled([]string{"tcppivot"}, config.C2)
 	}
 
+	// TTL deadman switch: compute the absolute expiration time from the
+	// operator-supplied duration at build time. Recomputed on every Generate
+	// call (including profile-based regens) so the deadline is always
+	// "now + TTLMinutes" rather than "whatever was burned in last time".
+	// Without this, the implant template's {{.Config.TTLExpiresAtUnix}}
+	// renders as 0 and burn fires immediately on startup.
+	if config.TTLEnabled && config.TTLMinutes > 0 {
+		config.TTLExpiresAtUnix = time.Now().Add(time.Duration(config.TTLMinutes) * time.Minute).Unix()
+	} else {
+		// Defensive: clear stale fields so the template gate sees a clean off-state.
+		config.TTLEnabled = false
+		config.TTLExpiresAtUnix = 0
+	}
+
 	if len(config.Exports) == 0 {
 		config.Exports = []string{"StartW"}
 	}
