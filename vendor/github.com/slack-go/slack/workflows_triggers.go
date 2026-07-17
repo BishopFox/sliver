@@ -84,7 +84,7 @@ func (api *Client) WorkflowsTriggersPermissionsAdd(ctx context.Context, input *W
 		return nil, fmt.Errorf("failed to marshal WorkflowsTriggersPermissionsAddInput: %w", err)
 	}
 
-	err = postJSON(ctx, api.httpclient, api.endpoint+"workflows.triggers.permissions.add", api.token, jsonPayload, &response, api)
+	err = api.postJSONMethod(ctx, "workflows.triggers.permissions.add", api.token, jsonPayload, &response)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func (api *Client) WorkflowsTriggersPermissionsList(ctx context.Context, input *
 		return nil, fmt.Errorf("failed to marshal WorkflowsTriggersPermissionsListInput: %w", err)
 	}
 
-	err = postJSON(ctx, api.httpclient, api.endpoint+"workflows.triggers.permissions.list", api.token, jsonPayload, &response, api)
+	err = api.postJSONMethod(ctx, "workflows.triggers.permissions.list", api.token, jsonPayload, &response)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +138,7 @@ func (api *Client) WorkflowsTriggersPermissionsRemove(ctx context.Context, input
 		return nil, fmt.Errorf("failed to marshal WorkflowsTriggersPermissionsRemoveInput: %w", err)
 	}
 
-	err = postJSON(ctx, api.httpclient, api.endpoint+"workflows.triggers.permissions.remove", api.token, jsonPayload, &response, api)
+	err = api.postJSONMethod(ctx, "workflows.triggers.permissions.remove", api.token, jsonPayload, &response)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +164,7 @@ func (api *Client) WorkflowsTriggersPermissionsSet(ctx context.Context, input *W
 		return nil, fmt.Errorf("failed to marshal WorkflowsTriggersPermissionsSetInput: %w", err)
 	}
 
-	err = postJSON(ctx, api.httpclient, api.endpoint+"workflows.triggers.permissions.set", api.token, jsonPayload, &response, api)
+	err = api.postJSONMethod(ctx, "workflows.triggers.permissions.set", api.token, jsonPayload, &response)
 	if err != nil {
 		return nil, err
 	}

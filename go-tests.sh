@@ -234,6 +234,10 @@ fi
 
 ## Server generate
 if [ "$SKIP_GENERATE" -eq 0 ]; then
+	# The package tests above no longer need their Go build cache. Reclaim it
+	# before the cross-platform generation matrix starts so long CI runs do not
+	# exhaust the runner's disk while retaining the implant compiler cache.
+	run_test_cmd "clean Go build cache" go clean -cache || exit 1
 	export GOPROXY=off
 	# Generate tests are memory intensive (garble/c-shared cross-builds). Keep
 	# parallelism conservative by default to avoid OOM kills on smaller systems.

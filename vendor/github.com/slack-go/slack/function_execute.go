@@ -43,14 +43,13 @@ func (api *Client) FunctionCompleteSuccessContext(ctx context.Context, functionE
 		option(r)
 	}
 
-	endpoint := api.endpoint + "functions.completeSuccess"
 	jsonData, err := json.Marshal(r)
 	if err != nil {
 		return err
 	}
 
 	response := &SlackResponse{}
-	if err := postJSON(ctx, api.httpclient, endpoint, api.token, jsonData, response, api); err != nil {
+	if err := api.postJSONMethod(ctx, "functions.completeSuccess", api.token, jsonData, response); err != nil {
 		return err
 	}
 
@@ -74,14 +73,13 @@ func (api *Client) FunctionCompleteErrorContext(ctx context.Context, functionExe
 	}
 	r.Error = errorMessage
 
-	endpoint := api.endpoint + "functions.completeError"
 	jsonData, err := json.Marshal(r)
 	if err != nil {
 		return err
 	}
 
 	response := &SlackResponse{}
-	if err := postJSON(ctx, api.httpclient, endpoint, api.token, jsonData, response, api); err != nil {
+	if err := api.postJSONMethod(ctx, "functions.completeError", api.token, jsonData, response); err != nil {
 		return err
 	}
 

@@ -88,6 +88,16 @@ type Msg struct {
 	Icons      *Icon       `json:"icons,omitempty"`
 	BotProfile *BotProfile `json:"bot_profile,omitempty"`
 
+	// These tend to be present in some of the messages, especially when triggered through
+	// a workflow. The API documentation is not clear about which ones are present in
+	// which messages, so we make them all optional.
+	//
+	// I'm adding them here for completeness but none of the Slack official libraries seem
+	// to support these fields. Be warned that they may be removed in future versions of
+	// the API, and that they may not be present in all messages.
+	TriggerID  string `json:"trigger_id,omitempty"`
+	WorkflowID string `json:"workflow_id,omitempty"`
+
 	// channel_join, group_join
 	Inviter string `json:"inviter,omitempty"`
 

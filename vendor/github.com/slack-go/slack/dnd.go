@@ -7,6 +7,14 @@ import (
 	"strings"
 )
 
+// DNDOptionTeamID sets the team_id parameter for DND methods. Required after
+// workspace migration when the API returns missing_argument: team_id.
+func DNDOptionTeamID(teamID string) ParamOption {
+	return func(v *url.Values) {
+		v.Set("team_id", teamID)
+	}
+}
+
 type SnoozeDebug struct {
 	SnoozeEndDate string `json:"snooze_end_date"`
 }
@@ -52,7 +60,7 @@ func (api *Client) EndDND() error {
 }
 
 // EndDNDContext ends the user's scheduled Do Not Disturb session with a custom context.
-// Slack API docs: https://api.slack.com/methods/dnd.endDnd
+// Slack API docs: https://docs.slack.dev/reference/methods/dnd.endDnd
 func (api *Client) EndDNDContext(ctx context.Context) error {
 	values := url.Values{
 		"token": {api.token},
@@ -74,7 +82,7 @@ func (api *Client) EndSnooze() (*DNDStatus, error) {
 }
 
 // EndSnoozeContext ends the current user's snooze mode with a custom context.
-// Slack API docs: https://api.slack.com/methods/dnd.endSnooze
+// Slack API docs: https://docs.slack.dev/reference/methods/dnd.endSnooze
 func (api *Client) EndSnoozeContext(ctx context.Context) (*DNDStatus, error) {
 	values := url.Values{
 		"token": {api.token},
@@ -89,18 +97,21 @@ func (api *Client) EndSnoozeContext(ctx context.Context) (*DNDStatus, error) {
 
 // GetDNDInfo provides information about a user's current Do Not Disturb settings.
 // For more information see the GetDNDInfoContext documentation.
-func (api *Client) GetDNDInfo(user *string) (*DNDStatus, error) {
-	return api.GetDNDInfoContext(context.Background(), user)
+func (api *Client) GetDNDInfo(user *string, options ...ParamOption) (*DNDStatus, error) {
+	return api.GetDNDInfoContext(context.Background(), user, options...)
 }
 
 // GetDNDInfoContext provides information about a user's current Do Not Disturb settings with a custom context.
-// Slack API docs: https://api.slack.com/methods/dnd.info
-func (api *Client) GetDNDInfoContext(ctx context.Context, user *string) (*DNDStatus, error) {
+// Slack API docs: https://docs.slack.dev/reference/methods/dnd.info/
+func (api *Client) GetDNDInfoContext(ctx context.Context, user *string, options ...ParamOption) (*DNDStatus, error) {
 	values := url.Values{
 		"token": {api.token},
 	}
 	if user != nil {
 		values.Set("user", *user)
+	}
+	for _, opt := range options {
+		opt(&values)
 	}
 
 	response, err := api.dndRequest(ctx, "dnd.info", values)
@@ -112,16 +123,19 @@ func (api *Client) GetDNDInfoContext(ctx context.Context, user *string) (*DNDSta
 
 // GetDNDTeamInfo provides information about a user's current Do Not Disturb settings.
 // For more information see the GetDNDTeamInfoContext documentation.
-func (api *Client) GetDNDTeamInfo(users []string) (map[string]DNDStatus, error) {
-	return api.GetDNDTeamInfoContext(context.Background(), users)
+func (api *Client) GetDNDTeamInfo(users []string, options ...ParamOption) (map[string]DNDStatus, error) {
+	return api.GetDNDTeamInfoContext(context.Background(), users, options...)
 }
 
 // GetDNDTeamInfoContext provides information about a user's current Do Not Disturb settings with a custom context.
-// Slack API docs: https://api.slack.com/methods/dnd.teamInfo
-func (api *Client) GetDNDTeamInfoContext(ctx context.Context, users []string) (map[string]DNDStatus, error) {
+// Slack API docs: https://docs.slack.dev/reference/methods/dnd.teamInfo
+func (api *Client) GetDNDTeamInfoContext(ctx context.Context, users []string, options ...ParamOption) (map[string]DNDStatus, error) {
 	values := url.Values{
 		"token": {api.token},
 		"users": {strings.Join(users, ",")},
+	}
+	for _, opt := range options {
+		opt(&values)
 	}
 	response := &dndTeamInfoResponse{}
 
@@ -145,7 +159,7 @@ func (api *Client) SetSnooze(minutes int) (*DNDStatus, error) {
 // SetSnoozeContext adjusts the snooze duration for a user's Do Not Disturb settings.
 // If a snooze session is not already active for the user, invoking this method will
 // begin one for the specified duration.
-// Slack API docs: https://api.slack.com/methods/dnd.setSnooze
+// Slack API docs: https://docs.slack.dev/reference/methods/dnd.setSnooze
 func (api *Client) SetSnoozeContext(ctx context.Context, minutes int) (*DNDStatus, error) {
 	values := url.Values{
 		"token":       {api.token},

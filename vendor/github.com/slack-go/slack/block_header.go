@@ -36,7 +36,9 @@ func NewHeaderBlock(textObj *TextBlockObject, options ...HeaderBlockOption) *Hea
 	}
 
 	for _, option := range options {
-		option(&block)
+		if option != nil {
+			option(&block)
+		}
 	}
 
 	return &block

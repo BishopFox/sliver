@@ -20,6 +20,8 @@ package encoders
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -36,10 +38,21 @@ const (
 
 	// we can shove three bytes into each pixel: R, G, and B.
 	bytesPerPixel = 3
+
+	// DefaultMaxPNGDecodeLen is the maximum amount of pixel data Decode will
+	// process. Callers handling untrusted data should use DecodeWithMaxLen with
+	// a limit appropriate for the request they are processing.
+	DefaultMaxPNGDecodeLen = 2 * 1024 * 1024 * 1024 // 2GB
 )
+
+// ErrPNGTooLarge is returned when a PNG's dimensions or decoded payload exceed
+// the decode limit.
+var ErrPNGTooLarge = errors.New("png decoded payload exceeds maximum size")
 
 // PNGEncoder - PNG image object
 type PNGEncoder struct{}
+
+var _ LimitedDecoder = PNGEncoder{}
 
 // Encode outputs a valid PNG file
 func (p PNGEncoder) Encode(data []byte) ([]byte, error) {
@@ -54,12 +67,50 @@ func (p PNGEncoder) Encode(data []byte) ([]byte, error) {
 
 // Decode reads a encoded PNG to get the original binary data
 func (p PNGEncoder) Decode(data []byte) ([]byte, error) {
-	buf := bytes.NewBuffer(data)
-	img, err := png.Decode(buf)
+	return p.DecodeWithMaxLen(data, DefaultMaxPNGDecodeLen)
+}
+
+// DecodeWithMaxLen reads an encoded PNG while limiting both the returned
+// payload and the three-byte-per-pixel representation used during decoding.
+// Since padding and escape sequences are removed after extracting the pixels,
+// this may conservatively reject an image whose final payload would fit.
+func (p PNGEncoder) DecodeWithMaxLen(data []byte, maxLen int64) ([]byte, error) {
+	if maxLen < 0 {
+		return nil, fmt.Errorf("invalid max decode length: %d", maxLen)
+	}
+
+	config, err := png.DecodeConfig(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
 	}
-	return bytesFromImage(img), nil
+	if err := validatePNGDimensions(config.Width, config.Height, maxLen); err != nil {
+		return nil, err
+	}
+
+	img, err := png.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	decoded := bytesFromImage(img)
+	if int64(len(decoded)) > maxLen {
+		return nil, fmt.Errorf("%w: decoded payload is %d bytes, limit is %d", ErrPNGTooLarge, len(decoded), maxLen)
+	}
+	return decoded, nil
+}
+
+func validatePNGDimensions(width int, height int, maxLen int64) error {
+	if width <= 0 || height <= 0 {
+		return fmt.Errorf("invalid PNG dimensions: %dx%d", width, height)
+	}
+
+	// bytesFromImage materializes three bytes for every pixel before removing
+	// padding and escape sequences. Bound that intermediate representation
+	// before png.Decode allocates storage based on attacker-controlled dimensions.
+	maxPixels := maxLen / int64(bytesPerPixel)
+	if int64(width) > maxPixels/int64(height) {
+		return fmt.Errorf("%w: %dx%d image exceeds %d bytes", ErrPNGTooLarge, width, height, maxLen)
+	}
+	return nil
 }
 
 // imageFromBytes returns a valid image with data encoded in each pixel

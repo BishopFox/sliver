@@ -20,6 +20,9 @@ package encoders
 
 import (
 	"bytes"
+	"encoding/binary"
+	"errors"
+	"hash/crc32"
 	"testing"
 )
 
@@ -60,5 +63,79 @@ func TestPNGRandomDataRandomSize(t *testing.T) {
 		if !bytes.Equal(sample, decodeOutput) {
 			t.Errorf("png Decode(img) => %q, expected %q", decodeOutput, sample)
 		}
+	}
+}
+
+func TestPNGDecodeWithMaxLen(t *testing.T) {
+	const maxLen = 4 * bytesPerPixel
+	payload := []byte{0x00, 0x01, 0x02, 0x03, 0x04}
+	pngEncoder := new(PNGEncoder)
+	encoded, err := pngEncoder.Encode(payload)
+	if err != nil {
+		t.Fatalf("png encode failed: %v", err)
+	}
+
+	decoded, err := pngEncoder.DecodeWithMaxLen(encoded, maxLen)
+	if err != nil {
+		t.Fatalf("png decode failed: %v", err)
+	}
+	if !bytes.Equal(payload, decoded) {
+		t.Fatalf("decoded payload does not match original: %q != %q", decoded, payload)
+	}
+}
+
+func TestPNGDecodeWithMaxLenRejectsOversizedPixelData(t *testing.T) {
+	payload := bytes.Repeat([]byte("A"), 8192)
+	pngEncoder := new(PNGEncoder)
+	encoded, err := pngEncoder.Encode(payload)
+	if err != nil {
+		t.Fatalf("png encode failed: %v", err)
+	}
+
+	_, err = pngEncoder.DecodeWithMaxLen(encoded, int64(len(payload)-1))
+	if !errors.Is(err, ErrPNGTooLarge) {
+		t.Fatalf("expected ErrPNGTooLarge, got %v", err)
+	}
+}
+
+func TestPNGDecodeWithMaxLenRejectsOversizedDimensionsBeforeDecode(t *testing.T) {
+	const maxLen = 8 * 1024 * 1024
+	pngEncoder := new(PNGEncoder)
+	encoded, err := pngEncoder.Encode([]byte("abc"))
+	if err != nil {
+		t.Fatalf("png encode failed: %v", err)
+	}
+
+	// A PNG starts with an eight-byte signature followed by its IHDR chunk.
+	// Rewrite only the CRC-valid header and omit IDAT so this test remains safe
+	// even if the preflight check regresses and png.Decode is called directly.
+	const ihdrEnd = 33
+	if len(encoded) < ihdrEnd || string(encoded[12:16]) != "IHDR" {
+		t.Fatal("encoded PNG does not contain the expected IHDR chunk")
+	}
+	encoded = encoded[:ihdrEnd]
+	binary.BigEndian.PutUint32(encoded[16:20], 4096)
+	binary.BigEndian.PutUint32(encoded[20:24], 4096)
+	binary.BigEndian.PutUint32(encoded[29:33], crc32.ChecksumIEEE(encoded[12:29]))
+
+	_, err = pngEncoder.DecodeWithMaxLen(encoded, maxLen)
+	if !errors.Is(err, ErrPNGTooLarge) {
+		t.Fatalf("expected ErrPNGTooLarge, got %v", err)
+	}
+}
+
+func TestValidatePNGDimensionsRejectsReportedBomb(t *testing.T) {
+	err := validatePNGDimensions(32767, 32767, 8*1024*1024)
+	if !errors.Is(err, ErrPNGTooLarge) {
+		t.Fatalf("expected ErrPNGTooLarge, got %v", err)
+	}
+}
+
+func TestValidatePNGDimensionsPixelDataBoundary(t *testing.T) {
+	if err := validatePNGDimensions(1, 1, bytesPerPixel); err != nil {
+		t.Fatalf("expected one pixel to fit: %v", err)
+	}
+	if err := validatePNGDimensions(1, 1, bytesPerPixel-1); !errors.Is(err, ErrPNGTooLarge) {
+		t.Fatalf("expected ErrPNGTooLarge, got %v", err)
 	}
 }

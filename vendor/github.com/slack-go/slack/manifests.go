@@ -187,11 +187,11 @@ type Display struct {
 
 // Settings is a group of settings corresponding to the Settings section of the app config pages.
 type Settings struct {
-	AllowedIPAddressRanges []string           `json:"allowed_ip_address_ranges,omitempty" yaml:"allowed_ip_address_ranges,omitempty"`
-	EventSubscriptions     EventSubscriptions `json:"event_subscriptions,omitempty" yaml:"event_subscriptions,omitempty"`
-	Interactivity          Interactivity      `json:"interactivity,omitempty" yaml:"interactivity,omitempty"`
-	OrgDeployEnabled       bool               `json:"org_deploy_enabled,omitempty" yaml:"org_deploy_enabled,omitempty"`
-	SocketModeEnabled      bool               `json:"socket_mode_enabled,omitempty" yaml:"socket_mode_enabled,omitempty"`
+	AllowedIPAddressRanges []string            `json:"allowed_ip_address_ranges,omitempty" yaml:"allowed_ip_address_ranges,omitempty"`
+	EventSubscriptions     *EventSubscriptions `json:"event_subscriptions,omitempty" yaml:"event_subscriptions,omitempty"`
+	Interactivity          *Interactivity      `json:"interactivity,omitempty" yaml:"interactivity,omitempty"`
+	OrgDeployEnabled       bool                `json:"org_deploy_enabled,omitempty" yaml:"org_deploy_enabled,omitempty"`
+	SocketModeEnabled      bool                `json:"socket_mode_enabled,omitempty" yaml:"socket_mode_enabled,omitempty"`
 }
 
 // EventSubscriptions is a group of settings that describe the Events API configuration
@@ -269,8 +269,10 @@ type OAuthConfig struct {
 
 // OAuthScopes is a group of settings that describe permission scopes configuration
 type OAuthScopes struct {
-	Bot  []string `json:"bot,omitempty" yaml:"bot,omitempty"`
-	User []string `json:"user,omitempty" yaml:"user,omitempty"`
+	Bot          []string `json:"bot,omitempty" yaml:"bot,omitempty"`
+	User         []string `json:"user,omitempty" yaml:"user,omitempty"`
+	BotOptional  []string `json:"bot_optional,omitempty" yaml:"bot_optional,omitempty"`
+	UserOptional []string `json:"user_optional,omitempty" yaml:"user_optional,omitempty"`
 }
 
 // ManifestResponse is the response returned by the API for apps.manifest.x endpoints

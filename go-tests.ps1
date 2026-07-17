@@ -367,6 +367,13 @@ try {
     }
 
     if (-not $SkipGenerate) {
+        # The package tests above no longer need their Go build cache. Reclaim it
+        # before the cross-platform generation matrix starts so long CI runs do
+        # not exhaust the runner's disk while retaining the implant compiler cache.
+        Invoke-TestStep -Name "clean Go build cache" -Action {
+            Invoke-ExternalCommand -FilePath "go" -Arguments @("clean", "-cache")
+        }
+
         $generateGoMaxProcs = if ($env:SLIVER_GENERATE_GOMAXPROCS) { $env:SLIVER_GENERATE_GOMAXPROCS } else { "2" }
         $generateGoP = if ($env:SLIVER_GENERATE_GO_P) { $env:SLIVER_GENERATE_GO_P } else { "1" }
         $generateTestParallel = if ($env:SLIVER_GENERATE_TEST_PARALLEL) { $env:SLIVER_GENERATE_TEST_PARALLEL } else { "1" }

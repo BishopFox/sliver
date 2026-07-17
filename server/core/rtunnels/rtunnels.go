@@ -8,10 +8,15 @@ import (
 var (
 	Rtunnels  map[uint64]*RTunnel = make(map[uint64]*RTunnel)
 	mutex     sync.RWMutex
-	pending   map[string]map[string]int
+	pending   map[string]map[string]*pendingInfo
 	listeners map[string]map[uint32]string
 	pendingMu sync.Mutex
 )
+
+type pendingInfo struct {
+	count     int
+	keepAlive int32
+}
 
 // RTunnel - Duplex byte read/write
 type RTunnel struct {
@@ -102,14 +107,18 @@ func AddPending(sessionID string, connStr string) {
 	pendingMu.Lock()
 	defer pendingMu.Unlock()
 	if pending == nil {
-		pending = make(map[string]map[string]int)
+		pending = make(map[string]map[string]*pendingInfo)
 	}
 	addrMap := pending[sessionID]
 	if addrMap == nil {
-		addrMap = make(map[string]int)
+		addrMap = make(map[string]*pendingInfo)
 		pending[sessionID] = addrMap
 	}
-	addrMap[connStr]++
+	if info, ok := addrMap[connStr]; ok {
+		info.count++
+	} else {
+		addrMap[connStr] = &pendingInfo{count: 1}
+	}
 }
 
 func DeletePending(sessionID string, connStr string) {
@@ -119,11 +128,11 @@ func DeletePending(sessionID string, connStr string) {
 		return
 	}
 	if addrMap, ok := pending[sessionID]; ok {
-		if count, ok := addrMap[connStr]; ok {
-			if count <= 1 {
+		if info, ok := addrMap[connStr]; ok {
+			if info.count <= 1 {
 				delete(addrMap, connStr)
 			} else {
-				addrMap[connStr] = count - 1
+				info.count--
 			}
 		}
 		if len(addrMap) == 0 {
@@ -139,19 +148,35 @@ func Check(sessionID string, connStr string) bool {
 		return false
 	}
 	if addrMap, ok := pending[sessionID]; ok {
-		return addrMap[connStr] > 0
+		if info, ok := addrMap[connStr]; ok {
+			return info.count > 0
+		}
 	}
 	return false
 }
 
-func TrackListener(sessionID string, listenerID uint32, connStr string) {
+func GetKeepAlive(sessionID string, connStr string) int32 {
+	pendingMu.Lock()
+	defer pendingMu.Unlock()
+	if pending == nil {
+		return 0
+	}
+	if addrMap, ok := pending[sessionID]; ok {
+		if info, ok := addrMap[connStr]; ok {
+			return info.keepAlive
+		}
+	}
+	return 0
+}
+
+func TrackListener(sessionID string, listenerID uint32, connStr string, keepAlive int32) {
 	pendingMu.Lock()
 	defer pendingMu.Unlock()
 	if listeners == nil {
 		listeners = make(map[string]map[uint32]string)
 	}
 	if pending == nil {
-		pending = make(map[string]map[string]int)
+		pending = make(map[string]map[string]*pendingInfo)
 	}
 	lm := listeners[sessionID]
 	if lm == nil {
@@ -161,10 +186,20 @@ func TrackListener(sessionID string, listenerID uint32, connStr string) {
 	lm[listenerID] = connStr
 	addrMap := pending[sessionID]
 	if addrMap == nil {
-		addrMap = make(map[string]int)
+		addrMap = make(map[string]*pendingInfo)
 		pending[sessionID] = addrMap
 	}
-	addrMap[connStr]++
+	if info, ok := addrMap[connStr]; ok {
+		info.count++
+		// If multiple listeners point to the same connStr, the last one's KeepAlive wins
+		// but they should be the same anyway.
+		info.keepAlive = keepAlive
+	} else {
+		addrMap[connStr] = &pendingInfo{
+			count:     1,
+			keepAlive: keepAlive,
+		}
+	}
 }
 
 func UntrackListener(sessionID string, listenerID uint32) bool {
@@ -186,11 +221,11 @@ func UntrackListener(sessionID string, listenerID uint32) bool {
 		delete(listeners, sessionID)
 	}
 	if addrMap, ok := pending[sessionID]; ok {
-		if count, ok := addrMap[connStr]; ok {
-			if count <= 1 {
+		if info, ok := addrMap[connStr]; ok {
+			if info.count <= 1 {
 				delete(addrMap, connStr)
 			} else {
-				addrMap[connStr] = count - 1
+				info.count--
 			}
 		}
 		if len(addrMap) == 0 {
@@ -199,21 +234,3 @@ func UntrackListener(sessionID string, listenerID uint32) bool {
 	}
 	return true
 }
-
-// func removeAndCloseAllRTunnels() {
-// 	mutex.Lock()
-// 	defer mutex.Unlock()
-
-// 	for id, tunnel := range Rtunnels {
-// 		tunnel.Close()
-
-// 		delete(Rtunnels, id)
-// 	}
-// }
-
-// func (c *Connection) RequestResendR(data []byte) {
-// 	c.Send <- &pb.Envelope{
-// 		Type: pb.MsgTunnelData,
-// 		Data: data,
-// 	}
-// }

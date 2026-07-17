@@ -7,9 +7,6 @@ type GroupCreatedEvent struct {
 	Channel ChannelCreatedInfo `json:"channel"`
 }
 
-// XXX: Should we really do this? event.Group is probably nicer than event.Channel
-// even though the api returns "channel"
-
 // GroupMarkedEvent represents the Group marked event
 type GroupMarkedEvent ChannelInfoEvent
 
