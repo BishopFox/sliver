@@ -58,6 +58,13 @@ type LogConfig struct {
 	GRPCUnaryPayloads  bool `json:"grpc_unary_payloads" yaml:"grpc_unary_payloads"`
 	GRPCStreamPayloads bool `json:"grpc_stream_payloads" yaml:"grpc_stream_payloads"`
 	TLSKeyLogger       bool `json:"tls_key_logger" yaml:"tls_key_logger"`
+
+	// Log rotation. Zero values fall back to the built-in defaults in server/log.
+	// Bounds disk usage so a runaway error loop can't fill the volume.
+	MaxSizeMB  int   `json:"max_size_mb" yaml:"max_size_mb"`
+	MaxBackups int   `json:"max_backups" yaml:"max_backups"`
+	MaxAgeDays int   `json:"max_age_days" yaml:"max_age_days"`
+	Compress   *bool `json:"compress" yaml:"compress"`
 }
 
 // GRPCKeepaliveConfig - gRPC keepalive enforcement settings
@@ -305,6 +312,7 @@ func GetServerConfig() *ServerConfig {
 		config.Logs.Level = 6
 	}
 	log.RootLogger.SetLevel(log.LevelFrom(config.Logs.Level))
+	log.SetRotationConfig(config.Logs.MaxSizeMB, config.Logs.MaxBackups, config.Logs.MaxAgeDays, config.Logs.Compress)
 
 	if config.GRPC == nil {
 		config.GRPC = &GRPCConfig{}
@@ -337,6 +345,7 @@ func GetServerConfig() *ServerConfig {
 
 func getDefaultServerConfig() *ServerConfig {
 	defaultPermitWithoutStream := true
+	defaultLogCompress := true
 	return &ServerConfig{
 		DaemonMode: false,
 		DaemonConfig: &DaemonConfig{
@@ -347,6 +356,10 @@ func getDefaultServerConfig() *ServerConfig {
 			Level:              int(logrus.InfoLevel),
 			GRPCUnaryPayloads:  false,
 			GRPCStreamPayloads: false,
+			MaxSizeMB:          log.DefaultLogMaxSizeMB,
+			MaxBackups:         log.DefaultLogMaxBackups,
+			MaxAgeDays:         log.DefaultLogMaxAgeDays,
+			Compress:           &defaultLogCompress,
 		},
 		GRPC: &GRPCConfig{
 			Keepalive: &GRPCKeepaliveConfig{
