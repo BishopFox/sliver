@@ -924,7 +924,7 @@ func splitExternalBuildProgressData(data []byte) (buildID string, details string
 // TrafficEncoderMap - Get a map of the server's traffic encoders
 func (rpc *Server) TrafficEncoderMap(ctx context.Context, _ *commonpb.Empty) (*clientpb.TrafficEncoderMap, error) {
 	trafficEncoderMap := make(map[string]*clientpb.TrafficEncoder)
-	for id, encoder := range encoders.TrafficEncoderMap {
+	for id, encoder := range encoders.TrafficEncoderMapSnapshot() {
 		trafficEncoderMap[encoder.FileName] = &clientpb.TrafficEncoder{
 			ID: id,
 			Wasm: &commonpb.File{
@@ -982,6 +982,7 @@ func testTrafficEncoder(ctx context.Context, req *clientpb.TrafficEncoder, progr
 		rpcLog.Errorf("Failed to create traffic encoder: %s", err.Error())
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+	defer encoder.Close()
 
 	// Test Suite for Traffic Encoders
 	testSuite := []string{

@@ -1,4 +1,4 @@
-//go:build (!((amd64 || arm64 || riscv64) && linux) && !((amd64 || arm64) && (darwin || freebsd)) && !((amd64 || arm64) && windows)) || js
+//go:build !(linux || darwin || freebsd || netbsd || openbsd || dragonfly || solaris || windows)
 
 package sysfs
 

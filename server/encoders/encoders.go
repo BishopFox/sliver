@@ -28,6 +28,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/assets"
@@ -52,6 +53,9 @@ var (
 	trafficEncoderLog = log.NamedLogger("encoders", "traffic-encoders")
 
 	TrafficEncoderFS = PassthroughEncoderFS{}
+
+	encoderMapMu           sync.RWMutex
+	trafficEncoderReloadMu sync.Mutex
 
 	Base64  = encutil.Base64{}
 	Base58  = encutil.Base58{}
@@ -204,12 +208,27 @@ func RemoveTrafficEncoder(name string) error {
 // loadTrafficEncodersFromFS - Loads the wasm traffic encoders from the filesystem, for the
 // server these will be loaded from: <app root>/traffic-encoders/*.wasm
 func loadTrafficEncodersFromFS(encodersFS encutil.EncoderFS, logger func(string)) error {
+	trafficEncoderReloadMu.Lock()
+	defer trafficEncoderReloadMu.Unlock()
 
-	// Reset references pointing to traffic encoders
-	for _, encoder := range TrafficEncoderMap {
-		delete(EncoderMap, encoder.ID)
+	encoderMapMu.RLock()
+	nextEncoderMap := make(map[uint64]encutil.Encoder, len(EncoderMap))
+	for encoderID, encoder := range EncoderMap {
+		if _, isTrafficEncoder := TrafficEncoderMap[encoderID]; !isTrafficEncoder {
+			nextEncoderMap[encoderID] = encoder
+		}
 	}
-	TrafficEncoderMap = map[uint64]*traffic.TrafficEncoder{}
+	encoderMapMu.RUnlock()
+	nextTrafficEncoderMap := map[uint64]*traffic.TrafficEncoder{}
+	loaded := false
+	defer func() {
+		if loaded {
+			return
+		}
+		for _, encoder := range nextTrafficEncoderMap {
+			_ = encoder.Close()
+		}
+	}()
 
 	// Load WASM encoders
 	encodersLog.Info("initializing traffic encoder map...")
@@ -239,16 +258,70 @@ func loadTrafficEncodersFromFS(encodersFS encutil.EncoderFS, logger func(string)
 			return err
 		}
 		trafficEncoder.FileName = wasmEncoderFile.Name()
-		if _, ok := EncoderMap[uint64(wasmEncoderID)]; ok {
+		if _, ok := nextEncoderMap[uint64(wasmEncoderID)]; ok {
+			_ = trafficEncoder.Close()
 			encodersLog.Errorf("%s", fmt.Sprintf("duplicate encoder id: %d", wasmEncoderID))
 			return fmt.Errorf("duplicate encoder id: %d", wasmEncoderID)
 		}
-		EncoderMap[uint64(wasmEncoderID)] = trafficEncoder
-		TrafficEncoderMap[uint64(wasmEncoderID)] = trafficEncoder
+		nextEncoderMap[uint64(wasmEncoderID)] = trafficEncoder
+		nextTrafficEncoderMap[uint64(wasmEncoderID)] = trafficEncoder
 		encodersLog.Info(fmt.Sprintf("loading %s (id: %d, bytes: %d)", wasmEncoderModuleName, wasmEncoderID, len(wasmEncoderData)))
 	}
-	encodersLog.Info(fmt.Sprintf("loaded %d traffic encoders", len(wasmEncoderFiles)))
+
+	encoderMapMu.Lock()
+	oldTrafficEncoderMap := TrafficEncoderMap
+	EncoderMap = nextEncoderMap
+	TrafficEncoderMap = nextTrafficEncoderMap
+	encoderMapMu.Unlock()
+	loaded = true
+	for _, encoder := range oldTrafficEncoderMap {
+		if err := encoder.Close(); err != nil {
+			encodersLog.Warnf("failed to close traffic encoder %s: %v", encoder.FileName, err)
+		}
+	}
+	encodersLog.Info(fmt.Sprintf("loaded %d traffic encoders", len(nextTrafficEncoderMap)))
 	return nil
+}
+
+type registeredEncoder struct {
+	id uint64
+}
+
+func (r registeredEncoder) Encode(data []byte) ([]byte, error) {
+	encoder, err := registeredEncoderByID(r.id)
+	if err != nil {
+		return nil, err
+	}
+	return encoder.Encode(data)
+}
+
+func (r registeredEncoder) Decode(data []byte) ([]byte, error) {
+	encoder, err := registeredEncoderByID(r.id)
+	if err != nil {
+		return nil, err
+	}
+	return encoder.Decode(data)
+}
+
+func (r registeredEncoder) DecodeWithMaxLen(data []byte, maxLen int64) ([]byte, error) {
+	encoder, err := registeredEncoderByID(r.id)
+	if err != nil {
+		return nil, err
+	}
+	if limitedDecoder, ok := encoder.(encutil.LimitedDecoder); ok {
+		return limitedDecoder.DecodeWithMaxLen(data, maxLen)
+	}
+	return encoder.Decode(data)
+}
+
+func registeredEncoderByID(encoderID uint64) (encutil.Encoder, error) {
+	encoderMapMu.RLock()
+	encoder, ok := EncoderMap[encoderID]
+	encoderMapMu.RUnlock()
+	if !ok {
+		return nil, fmt.Errorf("encoder %d is no longer registered", encoderID)
+	}
+	return encoder, nil
 }
 
 // EncoderFromNonce - Convert a nonce into an encoder
@@ -257,21 +330,36 @@ func EncoderFromNonce(nonce uint64) (uint64, encutil.Encoder, error) {
 	if encoderID == 0 {
 		return 0, new(encutil.NoEncoder), nil
 	}
-	if encoder, ok := EncoderMap[encoderID]; ok {
-		return encoderID, encoder, nil
+	encoderMapMu.RLock()
+	_, ok := EncoderMap[encoderID]
+	encoderMapMu.RUnlock()
+	if ok {
+		return encoderID, registeredEncoder{id: encoderID}, nil
 	}
 	return 0, nil, fmt.Errorf("invalid encoder id: %d", encoderID)
 }
 
 // RandomEncoder - Get a random nonce identifier and a matching encoder
 func RandomEncoder() (uint64, encutil.Encoder) {
+	encoderMapMu.RLock()
 	keys := make([]uint64, 0, len(EncoderMap))
 	for k := range EncoderMap {
 		keys = append(keys, k)
 	}
+	encoderMapMu.RUnlock()
 	encoderID := keys[util.Intn(len(keys))]
 	nonce := (randomUint64(MaxN) * EncoderModulus) + encoderID
-	return nonce, EncoderMap[encoderID]
+	return nonce, registeredEncoder{id: encoderID}
+}
+
+func TrafficEncoderMapSnapshot() map[uint64]*traffic.TrafficEncoder {
+	encoderMapMu.RLock()
+	defer encoderMapMu.RUnlock()
+	snapshot := make(map[uint64]*traffic.TrafficEncoder, len(TrafficEncoderMap))
+	for encoderID, encoder := range TrafficEncoderMap {
+		snapshot[encoderID] = encoder
+	}
+	return snapshot
 }
 
 func randomUint64(max uint64) uint64 {

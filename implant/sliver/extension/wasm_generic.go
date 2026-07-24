@@ -1,4 +1,4 @@
-//go:build !((windows && (amd64 || 386)) || (darwin && (arm64 || amd64)) || (linux && (amd64 || 386)))
+//go:build !((windows && (arm64 || amd64 || 386)) || (darwin && (arm64 || amd64)) || (linux && (arm64 || amd64 || 386)))
 
 package extension
 

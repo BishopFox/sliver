@@ -1,59 +1,22 @@
-//go:build amd64 && !tinygo
-
 package platform
 
-// CpuFeatures exposes the capabilities for this CPU, queried via the Has, HasExtra methods
-var CpuFeatures CpuFeatureFlags = loadCpuFeatureFlags()
+import "golang.org/x/sys/cpu"
 
-// cpuFeatureFlags implements CpuFeatureFlags interface
-type cpuFeatureFlags struct {
-	flags      uint64
-	extraFlags uint64
-}
+// CpuFeatures exposes the capabilities for this CPU, queried via the Has method.
+var CpuFeatures = loadCpuFeatureFlags()
 
-// cpuid exposes the CPUID instruction to the Go layer (https://www.amd.com/system/files/TechDocs/25481.pdf)
-// implemented in impl_amd64.s
-func cpuid(arg1, arg2 uint32) (eax, ebx, ecx, edx uint32)
-
-// cpuidAsBitmap combines the result of invoking cpuid to uint64 bitmap
-func cpuidAsBitmap(arg1, arg2 uint32) uint64 {
-	_ /* eax */, _ /* ebx */, ecx, edx := cpuid(arg1, arg2)
-	return (uint64(edx) << 32) | uint64(ecx)
-}
-
-// loadStandardRange load flags from the standard range, panics otherwise
-func loadStandardRange(id uint32) uint64 {
-	// ensure that the id is in the valid range, returned by cpuid(0,0)
-	maxRange, _, _, _ := cpuid(0, 0)
-	if id > maxRange {
-		panic("cannot query standard CPU flags")
+func loadCpuFeatureFlags() (flags CpuFeatureFlags) {
+	if cpu.X86.HasSSE41 {
+		flags |= CpuFeatureAmd64SSE4_1
 	}
-	return cpuidAsBitmap(id, 0)
-}
-
-// loadStandardRange load flags from the extended range, panics otherwise
-func loadExtendedRange(id uint32) uint64 {
-	// ensure that the id is in the valid range, returned by cpuid(0x80000000,0)
-	maxRange, _, _, _ := cpuid(0x80000000, 0)
-	if id > maxRange {
-		panic("cannot query extended CPU flags")
+	if cpu.X86.HasBMI1 {
+		flags |= CpuFeatureAmd64BMI1
 	}
-	return cpuidAsBitmap(id, 0)
-}
-
-func loadCpuFeatureFlags() CpuFeatureFlags {
-	return &cpuFeatureFlags{
-		flags:      loadStandardRange(1),
-		extraFlags: loadExtendedRange(0x80000001),
+	// x/sys/cpu does not track the ABM explicitly.
+	// LZCNT combined with BMI1 and BMI2 completes the expanded ABM instruction set.
+	// Intel includes LZCNT in BMI1, and all AMD CPUs with POPCNT also have LZCNT.
+	if cpu.X86.HasBMI1 && cpu.X86.HasBMI2 && cpu.X86.HasPOPCNT {
+		flags |= CpuFeatureAmd64ABM
 	}
-}
-
-// Has implements the same method on the CpuFeatureFlags interface
-func (f *cpuFeatureFlags) Has(cpuFeature CpuFeature) bool {
-	return (f.flags & uint64(cpuFeature)) != 0
-}
-
-// HasExtra implements the same method on the CpuFeatureFlags interface
-func (f *cpuFeatureFlags) HasExtra(cpuFeature CpuFeature) bool {
-	return (f.extraFlags & uint64(cpuFeature)) != 0
+	return
 }
