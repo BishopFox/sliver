@@ -43,7 +43,7 @@ var (
 )
 
 func randomData() []byte {
-	buf := make([]byte, insecureRand.Intn(256))
+	buf := make([]byte, insecureRand.Intn(255)+1)
 	rand.Read(buf)
 	return buf
 }
@@ -57,7 +57,7 @@ func TestAddContent(t *testing.T) {
 	}
 	err := AddContent(website1, &webContent)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	webContent2 := clientpb.WebContent{
 		Path:        "/data2",
@@ -67,7 +67,7 @@ func TestAddContent(t *testing.T) {
 	}
 	err = AddContent(website2, &webContent2)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 }
 
@@ -81,7 +81,7 @@ func TestGetContent(t *testing.T) {
 	}
 	err := AddContent(website1, &webContent)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	webContent2 := clientpb.WebContent{
 		Path:        "/data2",
@@ -91,13 +91,13 @@ func TestGetContent(t *testing.T) {
 	}
 	err = AddContent(website2, &webContent2)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	// Website 1
 	content, err := GetContent(website1, "/data1")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	if content.ContentType != contentType1 {
@@ -111,7 +111,7 @@ func TestGetContent(t *testing.T) {
 	// Website 2
 	content2, err := GetContent(website2, "/data2")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	if content2.ContentType != contentType2 {
