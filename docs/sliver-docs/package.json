@@ -53,6 +53,7 @@
   "overrides": {
     "dompurify": "^3.4.12",
     "postcss": "^8.5.13",
+    "sharp": "^0.35.3",
     "shell-quote": "^1.8.4",
     "uuid": "^14.0.0"
   }

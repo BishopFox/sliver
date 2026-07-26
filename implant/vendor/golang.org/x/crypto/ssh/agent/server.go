@@ -36,7 +36,7 @@ func (s *server) processRequestBytes(reqData []byte) []byte {
 		return []byte{agentFailure}
 	}
 
-	if err == nil && rep == nil {
+	if rep == nil {
 		return []byte{agentSuccess}
 	}
 
@@ -203,6 +203,9 @@ func parseConstraints(constraints []byte) (lifetimeSecs uint32, confirmBeforeUse
 	for len(constraints) != 0 {
 		switch constraints[0] {
 		case agentConstrainLifetime:
+			if len(constraints) < 5 {
+				return 0, false, nil, io.ErrUnexpectedEOF
+			}
 			lifetimeSecs = binary.BigEndian.Uint32(constraints[1:5])
 			constraints = constraints[5:]
 		case agentConstrainConfirm:
@@ -266,6 +269,9 @@ func parseEd25519Key(req []byte) (*AddedKey, error) {
 	var k ed25519KeyMsg
 	if err := ssh.Unmarshal(req, &k); err != nil {
 		return nil, err
+	}
+	if len(k.Priv) != ed25519.PrivateKeySize {
+		return nil, fmt.Errorf("agent: bad ED25519 key size: %d", len(k.Priv))
 	}
 	priv := ed25519.PrivateKey(k.Priv)
 
@@ -332,6 +338,9 @@ func parseEd25519Cert(req []byte) (*AddedKey, error) {
 	pubKey, err := ssh.ParsePublicKey(k.CertBytes)
 	if err != nil {
 		return nil, err
+	}
+	if len(k.Priv) != ed25519.PrivateKeySize {
+		return nil, fmt.Errorf("agent: bad ED25519 key size: %d", len(k.Priv))
 	}
 	priv := ed25519.PrivateKey(k.Priv)
 	cert, ok := pubKey.(*ssh.Certificate)
