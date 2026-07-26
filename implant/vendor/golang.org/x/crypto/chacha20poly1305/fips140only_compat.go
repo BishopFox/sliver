@@ -2,10 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build go1.25
+//go:build !go1.26
 
-package blake2b
+package chacha20poly1305
 
-import "hash"
-
-var _ hash.XOF = (*xof)(nil)
+func fips140Enforced() bool { return false }
