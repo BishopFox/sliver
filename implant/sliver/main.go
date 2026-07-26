@@ -1,3 +1,5 @@
+//go:build !sliver_lint
+
 package main
 
 /*
