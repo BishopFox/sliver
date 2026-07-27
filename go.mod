@@ -74,7 +74,7 @@ require (
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/driver/sqlite v1.6.0
-	gorm.io/gorm v1.31.0
+	gorm.io/gorm v1.31.2
 	gvisor.dev/gvisor v0.0.0-20250503011706-39ed1f5ac29c
 	maunium.net/go/mautrix v0.26.0
 	modernc.org/sqlite v1.39.0
