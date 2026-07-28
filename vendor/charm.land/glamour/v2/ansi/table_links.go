@@ -38,7 +38,7 @@ func (e *TableElement) printTableLinks(ctx RenderContext) {
 	}
 
 	w := ctx.blockStack.Current().Block
-	termWidth := int(ctx.blockStack.Width(ctx)) //nolint: gosec
+	termWidth := int(ctx.blockStack.Width(ctx))
 
 	renderLinkText := func(link tableLink, position, padding int) string {
 		token := strings.Repeat(" ", padding)

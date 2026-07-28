@@ -40,27 +40,27 @@ var TokyoNightStyleConfig = ansi.StyleConfig{
 	},
 	H2: ansi.StyleBlock{
 		StylePrimitive: ansi.StylePrimitive{
-			Prefix: "## ",
+			Prefix: defaultHeadingPrefixH2,
 		},
 	},
 	H3: ansi.StyleBlock{
 		StylePrimitive: ansi.StylePrimitive{
-			Prefix: "### ",
+			Prefix: defaultHeadingPrefixH3,
 		},
 	},
 	H4: ansi.StyleBlock{
 		StylePrimitive: ansi.StylePrimitive{
-			Prefix: "#### ",
+			Prefix: defaultHeadingPrefixH4,
 		},
 	},
 	H5: ansi.StyleBlock{
 		StylePrimitive: ansi.StylePrimitive{
-			Prefix: "##### ",
+			Prefix: defaultHeadingPrefixH5,
 		},
 	},
 	H6: ansi.StyleBlock{
 		StylePrimitive: ansi.StylePrimitive{
-			Prefix: "###### ",
+			Prefix: defaultHeadingPrefixH6,
 		},
 	},
 	Strikethrough: ansi.StylePrimitive{
@@ -74,7 +74,7 @@ var TokyoNightStyleConfig = ansi.StyleConfig{
 	},
 	HorizontalRule: ansi.StylePrimitive{
 		Color:  stringPtr("#565f89"),
-		Format: "\n--------\n",
+		Format: defaultHorizontalRule,
 	},
 	Item: ansi.StylePrimitive{
 		BlockPrefix: "• ",
@@ -85,8 +85,8 @@ var TokyoNightStyleConfig = ansi.StyleConfig{
 	},
 	Task: ansi.StyleTask{
 		StylePrimitive: ansi.StylePrimitive{},
-		Ticked:         "[✓] ",
-		Unticked:       "[ ] ",
+		Ticked:         defaultTaskTickedPrefix,
+		Unticked:       defaultTaskUntickedPrefix,
 	},
 	Link: ansi.StylePrimitive{
 		Color:     stringPtr("#7aa2f7"),
@@ -101,7 +101,7 @@ var TokyoNightStyleConfig = ansi.StyleConfig{
 	},
 	ImageText: ansi.StylePrimitive{
 		Color:  stringPtr("#2ac3de"),
-		Format: "Image: {{.text}} →",
+		Format: defaultImageFormat,
 	},
 	Code: ansi.StyleBlock{
 		StylePrimitive: ansi.StylePrimitive{
@@ -204,6 +204,6 @@ var TokyoNightStyleConfig = ansi.StyleConfig{
 		},
 	},
 	DefinitionDescription: ansi.StylePrimitive{
-		BlockPrefix: "\n🠶 ",
+		BlockPrefix: defaultArrowBlockPrefix,
 	},
 }

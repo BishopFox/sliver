@@ -48,7 +48,7 @@ func (e *TableElement) Render(w io.Writer, ctx RenderContext) error {
 		margin = *rules.Margin
 	}
 
-	iw := NewIndentWriter(w, int(indentation+margin), func(_ io.Writer) { //nolint:gosec
+	iw := NewIndentWriter(w, int(indentation+margin), func(_ io.Writer) {
 		_, _ = renderText(w, bs.Current().Style.StylePrimitive, " ")
 	})
 	defer iw.Close() //nolint:errcheck
@@ -57,7 +57,7 @@ func (e *TableElement) Render(w io.Writer, ctx RenderContext) error {
 
 	_, _ = renderText(iw, bs.Current().Style.StylePrimitive, rules.BlockPrefix)
 	_, _ = renderText(iw, style, rules.Prefix)
-	width := int(ctx.blockStack.Width(ctx)) //nolint: gosec
+	width := int(ctx.blockStack.Width(ctx))
 
 	wrap := true
 	if ctx.options.TableWrap != nil {
@@ -86,7 +86,7 @@ func (e *TableElement) setStyles(ctx RenderContext) {
 
 		// Override with custom styles
 		if m := ctx.options.Styles.Table.Margin; m != nil {
-			st = st.Padding(0, int(*m)) //nolint: gosec
+			st = st.Padding(0, int(*m))
 		}
 		switch e.table.Alignments[col] {
 		case astext.AlignLeft:

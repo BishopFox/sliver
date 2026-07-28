@@ -125,7 +125,7 @@ func (e *CodeBlockElement) Render(w io.Writer, ctx RenderContext) error {
 		mutex.Unlock()
 	}
 
-	iw := NewIndentWriter(w, int(indentation+margin), func(_ io.Writer) { //nolint:gosec
+	iw := NewIndentWriter(w, int(indentation+margin), func(_ io.Writer) {
 		_, _ = renderText(w, bs.Current().Style.StylePrimitive, " ")
 	})
 	defer iw.Close() //nolint:errcheck
