@@ -1,3 +1,4 @@
+// Package schema provides the Schema struct and related functions for parsing and managing database schemas in GORM.
 package schema
 
 import (
@@ -82,6 +83,16 @@ func (schema *Schema) LookUpField(name string) *Field {
 	if field, ok := schema.FieldsByName[name]; ok {
 		return field
 	}
+
+	// Lookup field using namer-driven ColumnName
+	if schema.namer == nil {
+		return nil
+	}
+	namerColumnName := schema.namer.ColumnName(schema.Table, name)
+	if field, ok := schema.FieldsByDBName[namerColumnName]; ok {
+		return field
+	}
+
 	return nil
 }
 
