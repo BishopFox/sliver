@@ -10,9 +10,9 @@ replace github.com/reeflective/console => github.com/moloch--/console v0.0.0-202
 
 require (
 	charm.land/bubbles/v2 v2.0.0
-	charm.land/glamour/v2 v2.0.0
+	charm.land/glamour/v2 v2.0.1
 	charm.land/huh/v2 v2.0.3
-	charm.land/lipgloss/v2 v2.0.2
+	charm.land/lipgloss/v2 v2.0.4
 	filippo.io/age v1.3.1
 	github.com/Binject/binjection v0.0.0-20210701074423-605d46e35deb
 	github.com/Binject/debug v0.0.0-20230508195519-26db73212a7a
@@ -239,8 +239,8 @@ require (
 	github.com/carapace-sh/carapace v1.11.0
 	github.com/carapace-sh/carapace-shlex v1.1.1 // indirect
 	github.com/catppuccin/go v0.3.0 // indirect
-	github.com/charmbracelet/colorprofile v0.4.2
-	github.com/charmbracelet/x/ansi v0.11.6
+	github.com/charmbracelet/colorprofile v0.4.3
+	github.com/charmbracelet/x/ansi v0.11.7
 	github.com/charmbracelet/x/exp/charmtone v0.0.0-20260109001716-2fbdffcb221f
 	github.com/charmbracelet/x/exp/strings v0.0.0-20240722160745-212f7b056ed0 // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect
@@ -280,12 +280,12 @@ require (
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/jsimonetti/rtnetlink v1.4.2 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
-	github.com/lucasb-eyer/go-colorful v1.3.0
+	github.com/lucasb-eyer/go-colorful v1.4.0
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/mark3labs/mcp-go v0.45.0
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/mattn/go-runewidth v0.0.20 // indirect
+	github.com/mattn/go-runewidth v0.0.23 // indirect
 	github.com/mdlayher/netlink v1.8.0 // indirect
 	github.com/mdlayher/socket v0.5.1 // indirect
 	github.com/mitchellh/go-ps v1.0.0 // indirect

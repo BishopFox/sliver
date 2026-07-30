@@ -17,7 +17,7 @@ func (e *ItemElement) Render(w io.Writer, ctx RenderContext) error {
 	if e.IsOrdered {
 		el = &BaseElement{
 			Style:  ctx.options.Styles.Enumeration,
-			Prefix: strconv.FormatInt(int64(e.Enumeration), 10), //nolint: gosec
+			Prefix: strconv.FormatInt(int64(e.Enumeration), 10), //nolint:gosec
 		}
 	} else {
 		el = &BaseElement{

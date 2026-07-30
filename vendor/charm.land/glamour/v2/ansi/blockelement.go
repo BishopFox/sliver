@@ -35,7 +35,7 @@ func (e *BlockElement) Finish(w io.Writer, ctx RenderContext) error {
 	if e.Margin { //nolint: nestif
 		s := lipgloss.Wrap(
 			bs.Current().Block.String(),
-			int(bs.Width(ctx)), //nolint: gosec
+			int(bs.Width(ctx)),
 			" ,.;-+|",
 		)
 
