@@ -20,7 +20,6 @@ package log
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"os/user"
 	"path"
@@ -28,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/sirupsen/logrus"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 const (
@@ -90,16 +90,70 @@ func GetLogDir() string {
 	return logDir
 }
 
+// Log rotation defaults — bound disk usage so a runaway error loop can't grow a
+// log file without limit (the sinks were previously plain os.OpenFile appends).
+const (
+	// DefaultLogMaxSizeMB - rotate a log file once it reaches this size (MB)
+	DefaultLogMaxSizeMB = 50
+	// DefaultLogMaxBackups - max number of rotated files to retain per log
+	DefaultLogMaxBackups = 20
+	// DefaultLogMaxAgeDays - delete rotated files older than this many days
+	DefaultLogMaxAgeDays = 90
+)
+
+// Rotating writers, held so their limits can be retuned from server config after
+// it loads (the log package cannot import server/configs — import cycle).
+var (
+	jsonRotator  *lumberjack.Logger
+	txtRotator   *lumberjack.Logger
+	auditRotator *lumberjack.Logger
+)
+
+// newRotatingWriter returns a size-rotating, self-pruning writer for a log file,
+// replacing a plain os.OpenFile(O_APPEND) handle that would grow without bound.
+func newRotatingWriter(filePath string) *lumberjack.Logger {
+	return newRotatingWriterWithLimits(filePath, DefaultLogMaxSizeMB, DefaultLogMaxBackups, DefaultLogMaxAgeDays, true)
+}
+
+func newRotatingWriterWithLimits(filePath string, maxSizeMB, maxBackups, maxAgeDays int, compress bool) *lumberjack.Logger {
+	return &lumberjack.Logger{
+		Filename:   filePath,
+		MaxSize:    maxSizeMB,
+		MaxBackups: maxBackups,
+		MaxAge:     maxAgeDays,
+		Compress:   compress,
+	}
+}
+
+// SetRotationConfig retunes the rotating log writers from server config. Values
+// <= 0 (or a nil compress) keep the current/built-in default. Intended to be
+// called once, after the server config has loaded.
+func SetRotationConfig(maxSizeMB, maxBackups, maxAgeDays int, compress *bool) {
+	for _, r := range []*lumberjack.Logger{jsonRotator, txtRotator, auditRotator} {
+		if r == nil {
+			continue
+		}
+		if maxSizeMB > 0 {
+			r.MaxSize = maxSizeMB
+		}
+		if maxBackups > 0 {
+			r.MaxBackups = maxBackups
+		}
+		if maxAgeDays > 0 {
+			r.MaxAge = maxAgeDays
+		}
+		if compress != nil {
+			r.Compress = *compress
+		}
+	}
+}
+
 // RootLogger - Returns the root logger
 func rootLogger() *logrus.Logger {
 	rootLogger := logrus.New()
 	rootLogger.Formatter = &logrus.JSONFormatter{}
-	jsonFilePath := filepath.Join(GetLogDir(), "sliver.json")
-	jsonFile, err := os.OpenFile(jsonFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to open log file %v", err))
-	}
-	rootLogger.Out = jsonFile
+	jsonRotator = newRotatingWriter(filepath.Join(GetLogDir(), "sliver.json"))
+	rootLogger.Out = jsonRotator
 	rootLogger.SetLevel(logrus.DebugLevel)
 	rootLogger.SetReportCaller(true)
 	rootLogger.AddHook(NewTxtHook("root"))
@@ -113,12 +167,8 @@ func txtLogger() *logrus.Logger {
 		ForceColors:   true,
 		FullTimestamp: true,
 	}
-	txtFilePath := filepath.Join(GetLogDir(), "sliver.log")
-	txtFile, err := os.OpenFile(txtFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to open log file %v", err))
-	}
-	txtLogger.Out = txtFile
+	txtRotator = newRotatingWriter(filepath.Join(GetLogDir(), "sliver.log"))
+	txtLogger.Out = txtRotator
 	txtLogger.SetLevel(logrus.DebugLevel)
 	return txtLogger
 }
