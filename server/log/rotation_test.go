@@ -78,7 +78,7 @@ func TestRotatingWriterRotates(t *testing.T) {
 	dir := t.TempDir()
 	// MaxSize is in MB (min 1). Compression off so backups are easy to count.
 	w := newRotatingWriterWithLimits(filepath.Join(dir, "rotate.log"), 1, 3, 0, false)
-	defer w.Close()
+	defer func() { _ = w.Close() }()
 
 	chunk := make([]byte, 256*1024)
 	for i := range chunk {
