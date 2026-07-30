@@ -20,7 +20,7 @@
 - https://dominicbreuker.com/post/learning_sliver_c2_01_installation/
 - https://vk9-sec.com/how-to-set-up-use-c2-sliver/
 - https://0x90-1.gitbook.io/sliver/
-- https://blog.ecapuano.com/p/so-you-want-to-be-a-soc-analyst-part-ea2
+- https://blog.ecapuano.com/p/so-you-want-to-be-a-soc-analyst-20
 - https://wsummerhill.github.io/redteam/2023/07/25/Sliver-C2-Usage-for-Red-Teams.html
 - https://rootsecdev.medium.com/hacking-active-directory-with-sliver-c2-19d7ceabbf13
 - https://dev.to/living_syn/sliver-and-cursed-chrome-for-post-exploitation-4gnk

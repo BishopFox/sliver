@@ -1,0 +1,27 @@
+version: "2"
+
+run:
+  timeout: 10m
+  modules-download-mode: vendor
+  build-tags:
+    - client
+    - server
+    - osusergo
+    - netgo
+    - go_sqlite
+    # Raw implant entry points are Go templates; lint their supporting packages.
+    - sliver_lint
+
+linters:
+  default: standard
+  enable:
+    - gocyclo
+    - misspell
+    - revive
+  settings:
+    gocyclo:
+      min-complexity: 15
+
+formatters:
+  enable:
+    - gofmt

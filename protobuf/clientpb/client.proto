@@ -130,6 +130,7 @@ enum OutputFormat {
   EXECUTABLE = 2;
   SERVICE = 3;
   THIRD_PARTY = 4;
+  GO_ARCHIVE = 5;
 }
 
 // ShellcodeConfig - options used when generating shellcode output.

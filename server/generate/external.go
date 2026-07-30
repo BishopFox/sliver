@@ -34,7 +34,9 @@ func SliverExternal(name string, config *clientpb.ImplantConfig) (*clientpb.Exte
 	config.IncludeTCP = config.IncludeTCP || models.IsC2Enabled([]string{"tcppivot"}, config.C2)
 
 	// set file extension for external builds
-	if config.IsSharedLib {
+	if config.Format == clientpb.OutputFormat_GO_ARCHIVE {
+		config.Extension = ".zip"
+	} else if config.IsSharedLib {
 		switch config.GOOS {
 		case WINDOWS:
 			config.Extension = ".dll"

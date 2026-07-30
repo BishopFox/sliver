@@ -79,6 +79,7 @@ func GenerateProfilesNewForm() (*GenerateProfilesNewFormResult, error) {
 					options := []huh.Option[string]{
 						huh.NewOption("Executable", "exe"),
 						huh.NewOption("Shared library", "shared"),
+						huh.NewOption("Go archive", "archive"),
 					}
 					if result.OS == "windows" {
 						options = append(options,

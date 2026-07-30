@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"slices"
 	"strings"
 
 	"golang.org/x/crypto/ssh/internal/bcrypt_pbkdf"
@@ -89,6 +90,11 @@ func parsePubKey(in []byte, algo string) (pubKey PublicKey, rest []byte, err err
 		}
 		return cert, nil, nil
 	}
+	if keyFormat := keyFormatForAlgorithm(algo); keyFormat != "" {
+		return nil, nil, fmt.Errorf("ssh: signature algorithm %q isn't a key format; key is malformed and should be re-encoded with type %q",
+			algo, keyFormat)
+	}
+
 	return nil, nil, fmt.Errorf("ssh: unknown key algorithm: %v", algo)
 }
 
@@ -191,9 +197,10 @@ func ParseKnownHosts(in []byte) (marker string, hosts []string, pubKey PublicKey
 	return "", nil, nil, "", nil, io.EOF
 }
 
-// ParseAuthorizedKey parses a public key from an authorized_keys
-// file used in OpenSSH according to the sshd(8) manual page.
+// ParseAuthorizedKey parses a public key from an authorized_keys file used in
+// OpenSSH according to the sshd(8) manual page. Invalid lines are ignored.
 func ParseAuthorizedKey(in []byte) (out PublicKey, comment string, options []string, rest []byte, err error) {
+	var lastErr error
 	for len(in) > 0 {
 		end := bytes.IndexByte(in, '\n')
 		if end != -1 {
@@ -222,6 +229,8 @@ func ParseAuthorizedKey(in []byte) (out PublicKey, comment string, options []str
 
 		if out, comment, err = parseAuthorizedKey(in[i:]); err == nil {
 			return out, comment, options, rest, nil
+		} else {
+			lastErr = err
 		}
 
 		// No key type recognised. Maybe there's an options field at
@@ -264,10 +273,16 @@ func ParseAuthorizedKey(in []byte) (out PublicKey, comment string, options []str
 		if out, comment, err = parseAuthorizedKey(in[i:]); err == nil {
 			options = candidateOptions
 			return out, comment, options, rest, nil
+		} else {
+			lastErr = err
 		}
 
 		in = rest
 		continue
+	}
+
+	if lastErr != nil {
+		return nil, "", nil, nil, fmt.Errorf("ssh: no key found; last parsing error for ignored line: %w", lastErr)
 	}
 
 	return nil, "", nil, nil, errors.New("ssh: no key found")
@@ -395,11 +410,11 @@ func NewSignerWithAlgorithms(signer AlgorithmSigner, algorithms []string) (Multi
 	}
 
 	for _, algo := range algorithms {
-		if !contains(supportedAlgos, algo) {
+		if !slices.Contains(supportedAlgos, algo) {
 			return nil, fmt.Errorf("ssh: algorithm %q is not supported for key type %q",
 				algo, signer.PublicKey().Type())
 		}
-		if !contains(signerAlgos, algo) {
+		if !slices.Contains(signerAlgos, algo) {
 			return nil, fmt.Errorf("ssh: algorithm %q is restricted for the provided signer", algo)
 		}
 	}
@@ -454,6 +469,12 @@ func parseRSA(in []byte) (out PublicKey, rest []byte, err error) {
 		return nil, nil, err
 	}
 
+	// 8192 bits is also the maximum RSA key size accepted by crypto/tls for
+	// signature verification:
+	// https://github.com/golang/go/blob/69801b25/src/crypto/tls/handshake_client.go#L1096
+	if w.N.BitLen() > 8192 {
+		return nil, nil, errors.New("ssh: rsa modulus too large")
+	}
 	if w.E.BitLen() > 24 {
 		return nil, nil, errors.New("ssh: exponent too large")
 	}
@@ -486,10 +507,13 @@ func (r *rsaPublicKey) Marshal() []byte {
 
 func (r *rsaPublicKey) Verify(data []byte, sig *Signature) error {
 	supportedAlgos := algorithmsForKeyFormat(r.Type())
-	if !contains(supportedAlgos, sig.Format) {
+	if !slices.Contains(supportedAlgos, sig.Format) {
 		return fmt.Errorf("ssh: signature type %s for key type %s", sig.Format, r.Type())
 	}
-	hash := hashFuncs[sig.Format]
+	hash, err := hashFunc(sig.Format)
+	if err != nil {
+		return err
+	}
 	h := hash.New()
 	h.Write(data)
 	digest := h.Sum(nil)
@@ -556,6 +580,24 @@ func checkDSAParams(param *dsa.Parameters) error {
 		return fmt.Errorf("ssh: unsupported DSA key size %d", l)
 	}
 
+	// FIPS 186-2 specifies that Q must be exactly 160 bits. We must enforce
+	// this to prevent DoS attacks where an attacker sends a huge Q which makes
+	// verification slow.
+	if l := param.Q.BitLen(); l != 160 {
+		return fmt.Errorf("ssh: unsupported DSA sub-prime size %d", l)
+	}
+
+	// The generator G is an element of the group, so it must be strictly less
+	// than the modulus P.
+	if param.G.Cmp(param.P) >= 0 {
+		return errors.New("ssh: DSA generator larger than modulus")
+	}
+
+	// G must be positive.
+	if param.G.Sign() <= 0 {
+		return errors.New("ssh: DSA generator must be positive")
+	}
+
 	return nil
 }
 
@@ -576,6 +618,14 @@ func parseDSA(in []byte) (out PublicKey, rest []byte, err error) {
 	}
 	if err := checkDSAParams(&param); err != nil {
 		return nil, nil, err
+	}
+
+	// The public value Y must be a non-zero element of the group, i.e.
+	// strictly between 0 and P. crypto/dsa.Verify does not range-check Y,
+	// so we reject out-of-range values here to prevent a maliciously
+	// oversized Y from slowing verification.
+	if w.Y.Sign() <= 0 || w.Y.Cmp(w.P) >= 0 {
+		return nil, nil, errors.New("ssh: DSA public value Y out of range")
 	}
 
 	key := &dsaPublicKey{
@@ -606,7 +656,11 @@ func (k *dsaPublicKey) Verify(data []byte, sig *Signature) error {
 	if sig.Format != k.Type() {
 		return fmt.Errorf("ssh: signature type %s for key type %s", sig.Format, k.Type())
 	}
-	h := hashFuncs[sig.Format].New()
+	hash, err := hashFunc(sig.Format)
+	if err != nil {
+		return err
+	}
+	h := hash.New()
 	h.Write(data)
 	digest := h.Sum(nil)
 
@@ -651,7 +705,11 @@ func (k *dsaPrivateKey) SignWithAlgorithm(rand io.Reader, data []byte, algorithm
 		return nil, fmt.Errorf("ssh: unsupported signature algorithm %s", algorithm)
 	}
 
-	h := hashFuncs[k.PublicKey().Type()].New()
+	hash, err := hashFunc(k.PublicKey().Type())
+	if err != nil {
+		return nil, err
+	}
+	h := hash.New()
 	h.Write(data)
 	digest := h.Sum(nil)
 	r, s, err := dsa.Sign(rand, k.PrivateKey, digest)
@@ -801,8 +859,11 @@ func (k *ecdsaPublicKey) Verify(data []byte, sig *Signature) error {
 	if sig.Format != k.Type() {
 		return fmt.Errorf("ssh: signature type %s for key type %s", sig.Format, k.Type())
 	}
-
-	h := hashFuncs[sig.Format].New()
+	hash, err := hashFunc(sig.Format)
+	if err != nil {
+		return err
+	}
+	h := hash.New()
 	h.Write(data)
 	digest := h.Sum(nil)
 
@@ -840,11 +901,25 @@ type skFields struct {
 	Counter uint32
 }
 
+// flagUserPresence is the "user present" bit (UP) in the SK signature
+// flags, matching the FIDO CTAP2 authenticatorData UP flag. See
+// openssh/PROTOCOL.u2f.
+const flagUserPresence = 0x01
+
+// errSKMissingUserPresence is returned by SK key Verify methods when
+// the signature does not assert user presence and the key was not
+// marked as no-touch-required.
+var errSKMissingUserPresence = errors.New("ssh: signature missing required user presence flag")
+
 type skECDSAPublicKey struct {
 	// application is a URL-like string, typically "ssh:" for SSH.
 	// see openssh/PROTOCOL.u2f for details.
 	application string
 	ecdsa.PublicKey
+	// noTouchRequired, when true, disables the default user-presence
+	// check in Verify. It is set by skKeyWithoutUP on a clone of the
+	// key, never on an instance shared across authentication attempts.
+	noTouchRequired bool
 }
 
 func (k *skECDSAPublicKey) Type() string {
@@ -905,8 +980,11 @@ func (k *skECDSAPublicKey) Verify(data []byte, sig *Signature) error {
 	if sig.Format != k.Type() {
 		return fmt.Errorf("ssh: signature type %s for key type %s", sig.Format, k.Type())
 	}
-
-	h := hashFuncs[sig.Format].New()
+	hash, err := hashFunc(sig.Format)
+	if err != nil {
+		return err
+	}
+	h := hash.New()
 	h.Write([]byte(k.application))
 	appDigest := h.Sum(nil)
 
@@ -925,6 +1003,10 @@ func (k *skECDSAPublicKey) Verify(data []byte, sig *Signature) error {
 	var skf skFields
 	if err := Unmarshal(sig.Rest, &skf); err != nil {
 		return err
+	}
+
+	if skf.Flags&flagUserPresence == 0 && !k.noTouchRequired {
+		return errSKMissingUserPresence
 	}
 
 	blob := struct {
@@ -960,6 +1042,10 @@ type skEd25519PublicKey struct {
 	// see openssh/PROTOCOL.u2f for details.
 	application string
 	ed25519.PublicKey
+	// noTouchRequired, when true, disables the default user-presence
+	// check in Verify. It is set by skKeyWithoutUP on a clone of the
+	// key, never on an instance shared across authentication attempts.
+	noTouchRequired bool
 }
 
 func (k *skEd25519PublicKey) Type() string {
@@ -1009,7 +1095,11 @@ func (k *skEd25519PublicKey) Verify(data []byte, sig *Signature) error {
 		return fmt.Errorf("invalid size %d for Ed25519 public key", l)
 	}
 
-	h := hashFuncs[sig.Format].New()
+	hash, err := hashFunc(sig.Format)
+	if err != nil {
+		return err
+	}
+	h := hash.New()
 	h.Write([]byte(k.application))
 	appDigest := h.Sum(nil)
 
@@ -1028,6 +1118,10 @@ func (k *skEd25519PublicKey) Verify(data []byte, sig *Signature) error {
 	var skf skFields
 	if err := Unmarshal(sig.Rest, &skf); err != nil {
 		return err
+	}
+
+	if skf.Flags&flagUserPresence == 0 && !k.noTouchRequired {
+		return errSKMissingUserPresence
 	}
 
 	blob := struct {
@@ -1112,11 +1206,14 @@ func (s *wrappedSigner) SignWithAlgorithm(rand io.Reader, data []byte, algorithm
 		algorithm = s.pubKey.Type()
 	}
 
-	if !contains(s.Algorithms(), algorithm) {
+	if !slices.Contains(s.Algorithms(), algorithm) {
 		return nil, fmt.Errorf("ssh: unsupported signature algorithm %q for key format %q", algorithm, s.pubKey.Type())
 	}
 
-	hashFunc := hashFuncs[algorithm]
+	hashFunc, err := hashFunc(algorithm)
+	if err != nil {
+		return nil, err
+	}
 	var digest []byte
 	if hashFunc != 0 {
 		h := hashFunc.New()
@@ -1451,6 +1548,7 @@ type openSSHEncryptedPrivateKey struct {
 	NumKeys      uint32
 	PubKey       []byte
 	PrivKeyBlock []byte
+	Rest         []byte `ssh:"rest"`
 }
 
 type openSSHPrivateKey struct {

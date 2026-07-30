@@ -197,7 +197,7 @@ func OSCompleter(con *console.SliverClient) carapace.Action {
 func FormatCompleter() carapace.Action {
 	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
 		return carapace.ActionValues([]string{
-			"exe", "shared", "service", "shellcode",
+			"exe", "shared", "archive", "service", "shellcode",
 		}...).Tag("implant format")
 	})
 }

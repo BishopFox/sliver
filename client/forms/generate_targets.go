@@ -22,6 +22,7 @@ type targetOptionBindings struct {
 var formatOptionOrder = []formatOption{
 	{format: clientpb.OutputFormat_EXECUTABLE, label: "Executable", value: "exe"},
 	{format: clientpb.OutputFormat_SHARED_LIB, label: "Shared library", value: "shared"},
+	{format: clientpb.OutputFormat_GO_ARCHIVE, label: "Go archive", value: "archive"},
 	{format: clientpb.OutputFormat_SERVICE, label: "Service", value: "service"},
 	{format: clientpb.OutputFormat_SHELLCODE, label: "Shellcode", value: "shellcode"},
 }
@@ -59,6 +60,7 @@ func commonFormatOptions(goos string) []huh.Option[string] {
 	options := []huh.Option[string]{
 		huh.NewOption("Executable", "exe"),
 		huh.NewOption("Shared library", "shared"),
+		huh.NewOption("Go archive", "archive"),
 	}
 	if goos == "windows" {
 		options = append(options,

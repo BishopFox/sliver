@@ -1,3 +1,4 @@
+// Package lru provides a thread-safe Least Recently Used (LRU) cache with expirable entries.
 package lru
 
 // golang -lru
@@ -18,7 +19,7 @@ type LRU[K comparable, V any] struct {
 	onEvict   EvictCallback[K, V]
 
 	// expirable options
-	mu   sync.Mutex
+	mu   sync.RWMutex
 	ttl  time.Duration
 	done chan struct{}
 
@@ -161,8 +162,8 @@ func (c *LRU[K, V]) Get(key K) (value V, ok bool) {
 // Contains checks if a key is in the cache, without updating the recent-ness
 // or deleting it for being stale.
 func (c *LRU[K, V]) Contains(key K) (ok bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	_, ok = c.items[key]
 	return ok
 }
@@ -170,8 +171,8 @@ func (c *LRU[K, V]) Contains(key K) (ok bool) {
 // Peek returns the key value (or undefined if not found) without updating
 // the "recently used"-ness of the key.
 func (c *LRU[K, V]) Peek(key K) (value V, ok bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	var ent *Entry[K, V]
 	if ent, ok = c.items[key]; ok {
 		// Expired item check
@@ -208,8 +209,8 @@ func (c *LRU[K, V]) RemoveOldest() (key K, value V, ok bool) {
 
 // GetOldest returns the oldest entry
 func (c *LRU[K, V]) GetOldest() (key K, value V, ok bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	if ent := c.evictList.Back(); ent != nil {
 		return ent.Key, ent.Value, true
 	}
@@ -217,8 +218,8 @@ func (c *LRU[K, V]) GetOldest() (key K, value V, ok bool) {
 }
 
 func (c *LRU[K, V]) KeyValues() map[K]V {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	maps := make(map[K]V)
 	now := time.Now()
 	for ent := c.evictList.Back(); ent != nil; ent = ent.PrevEntry() {
@@ -234,8 +235,8 @@ func (c *LRU[K, V]) KeyValues() map[K]V {
 // Keys returns a slice of the keys in the cache, from oldest to newest.
 // Expired entries are filtered out.
 func (c *LRU[K, V]) Keys() []K {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	keys := make([]K, 0, len(c.items))
 	now := time.Now()
 	for ent := c.evictList.Back(); ent != nil; ent = ent.PrevEntry() {
@@ -250,8 +251,8 @@ func (c *LRU[K, V]) Keys() []K {
 // Values returns a slice of the values in the cache, from oldest to newest.
 // Expired entries are filtered out.
 func (c *LRU[K, V]) Values() []V {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	values := make([]V, 0, len(c.items))
 	now := time.Now()
 	for ent := c.evictList.Back(); ent != nil; ent = ent.PrevEntry() {
@@ -265,8 +266,8 @@ func (c *LRU[K, V]) Values() []V {
 
 // Len returns the number of items in the cache.
 func (c *LRU[K, V]) Len() int {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.evictList.Length()
 }
 

@@ -17,9 +17,13 @@ import (
 type result struct {
 	Result       sql.Result
 	RowsAffected int64
+	Error        error
 }
 
 func (info *result) ModifyStatement(stmt *Statement) {
+	info.Result = nil
+	info.RowsAffected = 0
+	info.Error = nil
 	stmt.Result = info
 }
 
@@ -39,7 +43,7 @@ type Interface[T any] interface {
 
 type CreateInterface[T any] interface {
 	ExecInterface[T]
-	// chain methods available at start; return ChainInterface
+	// chain methods available at start; Select/Omit keep CreateInterface to allow Create chaining
 	Scopes(scopes ...func(db *Statement)) ChainInterface[T]
 	Where(query interface{}, args ...interface{}) ChainInterface[T]
 	Not(query interface{}, args ...interface{}) ChainInterface[T]
@@ -48,8 +52,8 @@ type CreateInterface[T any] interface {
 	Offset(offset int) ChainInterface[T]
 	Joins(query clause.JoinTarget, on func(db JoinBuilder, joinTable clause.Table, curTable clause.Table) error) ChainInterface[T]
 	Preload(association string, query func(db PreloadBuilder) error) ChainInterface[T]
-	Select(query string, args ...interface{}) ChainInterface[T]
-	Omit(columns ...string) ChainInterface[T]
+	Select(query string, args ...interface{}) CreateInterface[T]
+	Omit(columns ...string) CreateInterface[T]
 	MapColumns(m map[string]string) ChainInterface[T]
 	Distinct(args ...interface{}) ChainInterface[T]
 	Group(name string) ChainInterface[T]
@@ -200,6 +204,18 @@ type createG[T any] struct {
 func (c createG[T]) Table(name string, args ...interface{}) CreateInterface[T] {
 	return createG[T]{c.with(func(db *DB) *DB {
 		return db.Table(name, args...)
+	})}
+}
+
+func (c createG[T]) Select(query string, args ...interface{}) CreateInterface[T] {
+	return createG[T]{c.with(func(db *DB) *DB {
+		return db.Select(query, args...)
+	})}
+}
+
+func (c createG[T]) Omit(columns ...string) CreateInterface[T] {
+	return createG[T]{c.with(func(db *DB) *DB {
+		return db.Omit(columns...)
 	})}
 }
 
@@ -647,11 +663,13 @@ func (g execG[T]) FindInBatches(ctx context.Context, batchSize int, fc func(data
 }
 
 func (g execG[T]) Row(ctx context.Context) *sql.Row {
-	return g.g.apply(ctx).Row()
+	var r T
+	return g.g.apply(ctx).Model(r).Row()
 }
 
 func (g execG[T]) Rows(ctx context.Context) (*sql.Rows, error) {
-	return g.g.apply(ctx).Rows()
+	var r T
+	return g.g.apply(ctx).Model(r).Rows()
 }
 
 func (c chainG[T]) processSet(items ...clause.Assigner) setCreateOrUpdateG[T] {

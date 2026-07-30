@@ -296,6 +296,9 @@ func parseForceEnableTargets(cmd *cobra.Command, externalBuilder *clientpb.Build
 		case "shared-lib", "sharedlib", "dll", "so", "dylib":
 			target.Format = clientpb.OutputFormat_SHARED_LIB
 
+		case "archive", "go-archive", "c-archive":
+			target.Format = clientpb.OutputFormat_GO_ARCHIVE
+
 		case "service", "svc":
 			target.Format = clientpb.OutputFormat_SERVICE
 
@@ -339,6 +342,9 @@ func parseForceDisableTargets(cmd *cobra.Command, externalBuilder *clientpb.Buil
 
 		case "shared-lib", "sharedlib", "dll", "so", "dylib":
 			format = clientpb.OutputFormat_SHARED_LIB
+
+		case "archive", "go-archive", "c-archive":
+			format = clientpb.OutputFormat_GO_ARCHIVE
 
 		case "service", "svc":
 			format = clientpb.OutputFormat_SERVICE

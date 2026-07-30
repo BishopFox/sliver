@@ -115,6 +115,8 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		fPath, err = generate.SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
 	case clientpb.OutputFormat_SHARED_LIB:
 		fPath, err = generate.SliverSharedLibrary(name, build, config, httpC2Config.ImplantConfig)
+	case clientpb.OutputFormat_GO_ARCHIVE:
+		fPath, err = generate.SliverArchive(name, build, config, httpC2Config.ImplantConfig)
 	case clientpb.OutputFormat_SHELLCODE:
 		fPath, err = generate.SliverShellcode(name, build, config, httpC2Config.ImplantConfig)
 	default:
@@ -1114,6 +1116,8 @@ func (rpc *Server) GenerateStage(ctx context.Context, req *clientpb.GenerateStag
 		fPath, err = generate.SliverExecutable(name, build, profile.Config, httpC2Config.ImplantConfig)
 	case clientpb.OutputFormat_SHARED_LIB:
 		fPath, err = generate.SliverSharedLibrary(name, build, profile.Config, httpC2Config.ImplantConfig)
+	case clientpb.OutputFormat_GO_ARCHIVE:
+		fPath, err = generate.SliverArchive(name, build, profile.Config, httpC2Config.ImplantConfig)
 	case clientpb.OutputFormat_SHELLCODE:
 		fPath, err = generate.SliverShellcode(name, build, profile.Config, httpC2Config.ImplantConfig)
 	default:

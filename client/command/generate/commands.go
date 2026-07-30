@@ -367,7 +367,7 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 		f.StringP("limit-locale", "L", "", "limit execution to hosts that match this locale")
 		bindSpoofMetadataFlag(f)
 
-		f.StringP("format", "f", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'service' (see: `psexec` for more info) and 'shellcode' (windows, darwin/arm64, linux/amd64, linux/arm64)")
+		f.StringP("format", "f", "exe", "Specifies the output formats, valid values are: 'exe', 'shared' (for dynamic libraries), 'archive' (for Go c-archives), 'service' (see: `psexec` for more info) and 'shellcode' (windows, darwin/arm64, linux/amd64, linux/arm64)")
 
 		// Shellcode generation options:
 		// - Windows: Donut

@@ -254,6 +254,8 @@ func nameOfOutputFormat(value clientpb.OutputFormat) string {
 		return "Service"
 	case clientpb.OutputFormat_SHARED_LIB:
 		return "Shared Library"
+	case clientpb.OutputFormat_GO_ARCHIVE:
+		return "Go Archive"
 	case clientpb.OutputFormat_SHELLCODE:
 		return "Shellcode"
 	default:
@@ -389,6 +391,9 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		configFormat = clientpb.OutputFormat_SHARED_LIB
 		isSharedLib = true
 		runAtLoad, _ = cmd.Flags().GetBool("run-at-load")
+	case "archive":
+		configFormat = clientpb.OutputFormat_GO_ARCHIVE
+		isSharedLib = true
 	case "shellcode":
 		configFormat = clientpb.OutputFormat_SHELLCODE
 		isShellcode = true

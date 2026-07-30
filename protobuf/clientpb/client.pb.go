@@ -30,6 +30,7 @@ const (
 	OutputFormat_EXECUTABLE  OutputFormat = 2
 	OutputFormat_SERVICE     OutputFormat = 3
 	OutputFormat_THIRD_PARTY OutputFormat = 4
+	OutputFormat_GO_ARCHIVE  OutputFormat = 5
 )
 
 // Enum value maps for OutputFormat.
@@ -40,6 +41,7 @@ var (
 		2: "EXECUTABLE",
 		3: "SERVICE",
 		4: "THIRD_PARTY",
+		5: "GO_ARCHIVE",
 	}
 	OutputFormat_value = map[string]int32{
 		"SHARED_LIB":  0,
@@ -47,6 +49,7 @@ var (
 		"EXECUTABLE":  2,
 		"SERVICE":     3,
 		"THIRD_PARTY": 4,
+		"GO_ARCHIVE":  5,
 	}
 )
 
@@ -14023,7 +14026,7 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\fKeyAlgorithm\x18\x06 \x01(\tR\fKeyAlgorithm\x12\x0e\n" +
 	"\x02ID\x18\a \x01(\tR\x02ID\"R\n" +
 	"\x18CertificateAuthorityInfo\x126\n" +
-	"\x04info\x18\x01 \x03(\v2\".clientpb.CertificateAuthorityDataR\x04info*[\n" +
+	"\x04info\x18\x01 \x03(\v2\".clientpb.CertificateAuthorityDataR\x04info*k\n" +
 	"\fOutputFormat\x12\x0e\n" +
 	"\n" +
 	"SHARED_LIB\x10\x00\x12\r\n" +
@@ -14031,7 +14034,9 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\n" +
 	"EXECUTABLE\x10\x02\x12\v\n" +
 	"\aSERVICE\x10\x03\x12\x0f\n" +
-	"\vTHIRD_PARTY\x10\x04*-\n" +
+	"\vTHIRD_PARTY\x10\x04\x12\x0e\n" +
+	"\n" +
+	"GO_ARCHIVE\x10\x05*-\n" +
 	"\rStageProtocol\x12\a\n" +
 	"\x03TCP\x10\x00\x12\b\n" +
 	"\x04HTTP\x10\x01\x12\t\n" +

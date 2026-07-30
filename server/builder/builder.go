@@ -210,6 +210,10 @@ func (b *Builder) handleBuildEvent(event *clientpb.Event) {
 		b.mutex.Lock()
 		fPath, err = generate.SliverSharedLibrary(extConfig.Build.Name, extConfig.Build, extConfig.Config, httpC2Config.ImplantConfig)
 		b.mutex.Unlock()
+	case clientpb.OutputFormat_GO_ARCHIVE:
+		b.mutex.Lock()
+		fPath, err = generate.SliverArchive(extConfig.Build.Name, extConfig.Build, extConfig.Config, httpC2Config.ImplantConfig)
+		b.mutex.Unlock()
 	case clientpb.OutputFormat_SHELLCODE:
 		b.mutex.Lock()
 		fPath, err = generate.SliverShellcode(extConfig.Build.Name, extConfig.Build, extConfig.Config, httpC2Config.ImplantConfig)

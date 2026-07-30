@@ -367,7 +367,7 @@ func (t *Table) String() string {
 		Render(strings.TrimSuffix(sb.String(), "\n"))
 }
 
-// computeHeight computes the height of the table in it's current configuration.
+// computeHeight computes the height of the table in its current configuration.
 func (t *Table) computeHeight() int {
 	hasHeaders := len(t.headers) > 0
 	return sum(t.heights) - 1 + btoi(hasHeaders) +

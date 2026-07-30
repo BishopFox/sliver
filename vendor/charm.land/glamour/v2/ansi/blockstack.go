@@ -59,10 +59,10 @@ func (s BlockStack) Margin() uint {
 
 // Width returns the available rendering width.
 func (s BlockStack) Width(ctx RenderContext) uint {
-	if s.Indent()+s.Margin()*2 > uint(ctx.options.WordWrap) { //nolint: gosec
+	if s.Indent()+s.Margin()*2 > uint(ctx.options.WordWrap) {
 		return 0
 	}
-	return uint(ctx.options.WordWrap) - s.Indent() - s.Margin()*2 //nolint: gosec
+	return uint(ctx.options.WordWrap) - s.Indent() - s.Margin()*2
 }
 
 // Parent returns the current BlockElement's parent.

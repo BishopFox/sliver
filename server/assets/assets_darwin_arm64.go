@@ -1,4 +1,4 @@
-//go:build server
+//go:build server && !sliver_lint
 
 package assets
 

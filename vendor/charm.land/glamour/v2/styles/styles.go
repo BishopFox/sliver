@@ -11,6 +11,17 @@ const (
 	defaultListIndent      = 2
 	defaultListLevelIndent = 4
 	defaultMargin          = 2
+
+	defaultHeadingPrefixH2    = "## "
+	defaultHeadingPrefixH3    = "### "
+	defaultHeadingPrefixH4    = "#### "
+	defaultHeadingPrefixH5    = "##### "
+	defaultHeadingPrefixH6    = "###### "
+	defaultTaskTickedPrefix   = "[✓] "
+	defaultTaskUntickedPrefix = "[ ] "
+	defaultImageFormat        = "Image: {{.text}} →"
+	defaultHorizontalRule     = "\n--------\n"
+	defaultArrowBlockPrefix   = "\n🠶 "
 )
 
 // Default styles.
@@ -60,27 +71,27 @@ var (
 		},
 		H2: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
-				Prefix: "## ",
+				Prefix: defaultHeadingPrefixH2,
 			},
 		},
 		H3: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
-				Prefix: "### ",
+				Prefix: defaultHeadingPrefixH3,
 			},
 		},
 		H4: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
-				Prefix: "#### ",
+				Prefix: defaultHeadingPrefixH4,
 			},
 		},
 		H5: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
-				Prefix: "##### ",
+				Prefix: defaultHeadingPrefixH5,
 			},
 		},
 		H6: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
-				Prefix: "###### ",
+				Prefix: defaultHeadingPrefixH6,
 			},
 		},
 		Strikethrough: ansi.StylePrimitive{
@@ -96,7 +107,7 @@ var (
 			BlockSuffix: "**",
 		},
 		HorizontalRule: ansi.StylePrimitive{
-			Format: "\n--------\n",
+			Format: defaultHorizontalRule,
 		},
 		Item: ansi.StylePrimitive{
 			BlockPrefix: "• ",
@@ -106,10 +117,10 @@ var (
 		},
 		Task: ansi.StyleTask{
 			Ticked:   "[x] ",
-			Unticked: "[ ] ",
+			Unticked: defaultTaskUntickedPrefix,
 		},
 		ImageText: ansi.StylePrimitive{
-			Format: "Image: {{.text}} →",
+			Format: defaultImageFormat,
 		},
 		Code: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
@@ -168,27 +179,27 @@ var (
 		},
 		H2: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
-				Prefix: "## ",
+				Prefix: defaultHeadingPrefixH2,
 			},
 		},
 		H3: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
-				Prefix: "### ",
+				Prefix: defaultHeadingPrefixH3,
 			},
 		},
 		H4: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
-				Prefix: "#### ",
+				Prefix: defaultHeadingPrefixH4,
 			},
 		},
 		H5: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
-				Prefix: "##### ",
+				Prefix: defaultHeadingPrefixH5,
 			},
 		},
 		H6: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
-				Prefix: "###### ",
+				Prefix: defaultHeadingPrefixH6,
 				Color:  stringPtr("35"),
 				Bold:   boolPtr(false),
 			},
@@ -204,7 +215,7 @@ var (
 		},
 		HorizontalRule: ansi.StylePrimitive{
 			Color:  stringPtr("240"),
-			Format: "\n--------\n",
+			Format: defaultHorizontalRule,
 		},
 		Item: ansi.StylePrimitive{
 			BlockPrefix: "• ",
@@ -214,8 +225,8 @@ var (
 		},
 		Task: ansi.StyleTask{
 			StylePrimitive: ansi.StylePrimitive{},
-			Ticked:         "[✓] ",
-			Unticked:       "[ ] ",
+			Ticked:         defaultTaskTickedPrefix,
+			Unticked:       defaultTaskUntickedPrefix,
 		},
 		Link: ansi.StylePrimitive{
 			Color:     stringPtr("30"),
@@ -231,7 +242,7 @@ var (
 		},
 		ImageText: ansi.StylePrimitive{
 			Color:  stringPtr("243"),
-			Format: "Image: {{.text}} →",
+			Format: defaultImageFormat,
 		},
 		Code: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
@@ -338,7 +349,7 @@ var (
 			},
 		},
 		DefinitionDescription: ansi.StylePrimitive{
-			BlockPrefix: "\n🠶 ",
+			BlockPrefix: defaultArrowBlockPrefix,
 		},
 	}
 
@@ -378,27 +389,27 @@ var (
 		},
 		H2: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
-				Prefix: "## ",
+				Prefix: defaultHeadingPrefixH2,
 			},
 		},
 		H3: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
-				Prefix: "### ",
+				Prefix: defaultHeadingPrefixH3,
 			},
 		},
 		H4: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
-				Prefix: "#### ",
+				Prefix: defaultHeadingPrefixH4,
 			},
 		},
 		H5: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
-				Prefix: "##### ",
+				Prefix: defaultHeadingPrefixH5,
 			},
 		},
 		H6: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
-				Prefix: "###### ",
+				Prefix: defaultHeadingPrefixH6,
 				Bold:   boolPtr(false),
 			},
 		},
@@ -413,7 +424,7 @@ var (
 		},
 		HorizontalRule: ansi.StylePrimitive{
 			Color:  stringPtr("249"),
-			Format: "\n--------\n",
+			Format: defaultHorizontalRule,
 		},
 		Item: ansi.StylePrimitive{
 			BlockPrefix: "• ",
@@ -423,8 +434,8 @@ var (
 		},
 		Task: ansi.StyleTask{
 			StylePrimitive: ansi.StylePrimitive{},
-			Ticked:         "[✓] ",
-			Unticked:       "[ ] ",
+			Ticked:         defaultTaskTickedPrefix,
+			Unticked:       defaultTaskUntickedPrefix,
 		},
 		Link: ansi.StylePrimitive{
 			Color:     stringPtr("36"),
@@ -440,7 +451,7 @@ var (
 		},
 		ImageText: ansi.StylePrimitive{
 			Color:  stringPtr("243"),
-			Format: "Image: {{.text}} →",
+			Format: defaultImageFormat,
 		},
 		Code: ansi.StyleBlock{
 			StylePrimitive: ansi.StylePrimitive{
@@ -547,7 +558,7 @@ var (
 			},
 		},
 		DefinitionDescription: ansi.StylePrimitive{
-			BlockPrefix: "\n🠶 ",
+			BlockPrefix: defaultArrowBlockPrefix,
 		},
 	}
 
@@ -624,8 +635,8 @@ var (
 			BlockPrefix: ". ",
 		},
 		Task: ansi.StyleTask{
-			Ticked:   "[✓] ",
-			Unticked: "[ ] ",
+			Ticked:   defaultTaskTickedPrefix,
+			Unticked: defaultTaskUntickedPrefix,
 		},
 		Link: ansi.StylePrimitive{
 			Color:     stringPtr("99"),
@@ -652,7 +663,7 @@ var (
 		DefinitionList: ansi.StyleBlock{},
 		DefinitionTerm: ansi.StylePrimitive{},
 		DefinitionDescription: ansi.StylePrimitive{
-			BlockPrefix: "\n🠶 ",
+			BlockPrefix: defaultArrowBlockPrefix,
 		},
 		HTMLBlock: ansi.StyleBlock{},
 		HTMLSpan:  ansi.StyleBlock{},

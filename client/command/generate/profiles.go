@@ -263,6 +263,8 @@ func populateProfileProperties(config *clientpb.ImplantConfig) map[string]string
 		properties["format"] = "Executable"
 	case clientpb.OutputFormat_SHARED_LIB:
 		properties["format"] = "Shared Library"
+	case clientpb.OutputFormat_GO_ARCHIVE:
+		properties["format"] = "Go Archive"
 	case clientpb.OutputFormat_SERVICE:
 		properties["format"] = "Service"
 	case clientpb.OutputFormat_SHELLCODE:

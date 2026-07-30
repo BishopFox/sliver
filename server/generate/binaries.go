@@ -19,6 +19,7 @@ package generate
 */
 
 import (
+	"archive/zip"
 	"bytes"
 	"crypto/sha256"
 	"debug/elf"
@@ -648,6 +649,112 @@ func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clie
 	return dest, err
 }
 
+func zipFiles(dest string, files ...string) error {
+	outFile, err := os.Create(dest)
+	if err != nil {
+		return err
+	}
+	defer outFile.Close()
+
+	zipWriter := zip.NewWriter(outFile)
+	defer zipWriter.Close()
+
+	for _, filePath := range files {
+		inFile, err := os.Open(filePath)
+		if err != nil {
+			return err
+		}
+
+		fileWriter, err := zipWriter.Create(filepath.Base(filePath))
+		if err != nil {
+			inFile.Close()
+			return err
+		}
+		_, err = io.Copy(fileWriter, inFile)
+		inFile.Close()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// SliverArchive - Generates a sliver c-archive bundle (.a and .h)
+func SliverArchive(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
+	appDir := assets.GetRootAppDir()
+
+	var cc string
+	var cxx string
+	if runtime.GOOS != config.GOOS || runtime.GOARCH != config.GOARCH {
+		buildLog.Debugf("Cross-compiling from %s/%s to %s/%s", runtime.GOOS, runtime.GOARCH, config.GOOS, config.GOARCH)
+		cc, cxx = findCrossCompilers(config.GOOS, config.GOARCH)
+	}
+
+	buildLog.Infof(" CC: %s", cc)
+	buildLog.Infof("CXX: %s", cxx)
+
+	goConfig := &gogo.GoConfig{
+		CGO: "1",
+		CC:  cc,
+		CXX: cxx,
+
+		GOOS:       config.GOOS,
+		GOARCH:     config.GOARCH,
+		GOCACHE:    gogo.GetGoCache(appDir),
+		GOMODCACHE: gogo.GetGoModCache(appDir),
+		GOROOT:     gogo.GetGoRootDir(appDir),
+		GOPROXY:    getGoProxy(),
+		HTTPPROXY:  getGoHttpProxy(),
+		HTTPSPROXY: getGoHttpsProxy(),
+
+		Obfuscation: config.ObfuscateSymbols,
+		GOGARBLE:    goGarble(config),
+	}
+	sanitizeZigForBuild(goConfig, "c-archive")
+	buildLog.Infof(" CC: %s", goConfig.CC)
+	buildLog.Infof("CXX: %s", goConfig.CXX)
+
+	config.IsSharedLib = true
+	pkgPath, err := renderSliverGoCode(name, build, config, goConfig, pbC2Implant)
+	if err != nil {
+		return "", err
+	}
+
+	dest := filepath.Join(goConfig.ProjectDir, "bin", filepath.Base(name))
+	dest += ".a"
+	headerDest := strings.TrimSuffix(dest, filepath.Ext(dest)) + ".h"
+	zipDest := strings.TrimSuffix(dest, filepath.Ext(dest)) + ".zip"
+	mainHeaderDest := filepath.Join(pkgPath, "main.h")
+
+	tags := []string{}
+	if config.NetGoEnabled {
+		tags = append(tags, "netgo")
+	}
+	ldflags := []string{""} // Garble will automatically add "-s -w -buildid="
+
+	// Keep those for potential later use
+	gcFlags := ""
+	asmFlags := ""
+	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "c-archive", tags, ldflags, gcFlags, asmFlags)
+	if err != nil {
+		return "", err
+	}
+	if _, err := os.Stat(headerDest); err != nil {
+		return "", err
+	}
+	if _, err := os.Stat(mainHeaderDest); err != nil {
+		return "", err
+	}
+
+	err = zipFiles(zipDest, dest, headerDest, mainHeaderDest)
+	if err != nil {
+		return "", err
+	}
+
+	return zipDest, err
+}
+
 // SliverExecutable - Generates a sliver executable binary
 func SliverExecutable(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
 	appDir := assets.GetRootAppDir()
@@ -1206,7 +1313,7 @@ func GetCompilerTargets() []*clientpb.CompilerTarget {
 		})
 	}
 
-	// SHARED_LIB - Determine if we can probably build a dll/dylib/so
+	// SHARED_LIB/GO_ARCHIVE - Determine if we can probably build cgo artifacts
 	for longPlatform := range SupportedCompilerTargets {
 		platform := strings.SplitN(longPlatform, "/", 2)
 
@@ -1216,6 +1323,11 @@ func GetCompilerTargets() []*clientpb.CompilerTarget {
 				GOOS:   platform[0],
 				GOARCH: platform[1],
 				Format: clientpb.OutputFormat_SHARED_LIB,
+			})
+			targets = append(targets, &clientpb.CompilerTarget{
+				GOOS:   platform[0],
+				GOARCH: platform[1],
+				Format: clientpb.OutputFormat_GO_ARCHIVE,
 			})
 			continue
 		}
@@ -1231,6 +1343,11 @@ func GetCompilerTargets() []*clientpb.CompilerTarget {
 					GOOS:   platform[0],
 					GOARCH: platform[1],
 					Format: clientpb.OutputFormat_SHARED_LIB,
+				})
+				targets = append(targets, &clientpb.CompilerTarget{
+					GOOS:   platform[0],
+					GOARCH: platform[1],
+					Format: clientpb.OutputFormat_GO_ARCHIVE,
 				})
 			}
 		}
