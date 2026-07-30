@@ -59,8 +59,8 @@ func readWithTimeout(t *testing.T, read func() ([]byte, error)) ([]byte, error) 
 // than triggering a multi-GB allocation that crashes the implant.
 func TestNetConnPivotClientReadRejectsOversizedFrame(t *testing.T) {
 	client, server := net.Pipe()
-	defer client.Close()
-	defer server.Close()
+	defer func() { _ = client.Close() }()
+	defer func() { _ = server.Close() }()
 
 	p := &NetConnPivotClient{conn: server, readMutex: &sync.Mutex{}}
 
@@ -75,8 +75,8 @@ func TestNetConnPivotClientReadRejectsOversizedFrame(t *testing.T) {
 
 func TestNetConnPivotClientReadAcceptsValidFrame(t *testing.T) {
 	client, server := net.Pipe()
-	defer client.Close()
-	defer server.Close()
+	defer func() { _ = client.Close() }()
+	defer func() { _ = server.Close() }()
 
 	p := &NetConnPivotClient{conn: server, readMutex: &sync.Mutex{}}
 

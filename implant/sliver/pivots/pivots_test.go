@@ -61,8 +61,8 @@ func readWithTimeout(t *testing.T, read func() ([]byte, error)) ([]byte, error) 
 // crashes the implant (BishopFox/sliver#1452).
 func TestNetConnPivotReadRejectsOversizedFrame(t *testing.T) {
 	client, server := net.Pipe()
-	defer client.Close()
-	defer server.Close()
+	defer func() { _ = client.Close() }()
+	defer func() { _ = server.Close() }()
 
 	p := &NetConnPivot{conn: server, readMutex: &sync.Mutex{}}
 
@@ -79,8 +79,8 @@ func TestNetConnPivotReadRejectsOversizedFrame(t *testing.T) {
 // A well-formed frame within the bound must still round-trip unchanged.
 func TestNetConnPivotReadAcceptsValidFrame(t *testing.T) {
 	client, server := net.Pipe()
-	defer client.Close()
-	defer server.Close()
+	defer func() { _ = client.Close() }()
+	defer func() { _ = server.Close() }()
 
 	p := &NetConnPivot{conn: server, readMutex: &sync.Mutex{}}
 
