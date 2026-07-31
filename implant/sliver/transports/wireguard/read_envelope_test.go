@@ -1,5 +1,6 @@
 //go:build windows || darwin || linux
 
+// Package wireguard implements the WireGuard transport for Sliver implants.
 package wireguard
 
 import (
