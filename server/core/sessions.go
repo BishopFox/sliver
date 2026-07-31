@@ -117,6 +117,15 @@ func (s *Session) IsDead() bool {
 
 // ToProtobuf - Get the protobuf version of the object
 func (s *Session) ToProtobuf() *clientpb.Session {
+	var transport, remoteAddress string
+	var lastCheckin int64
+	var isDead bool
+	if s.Connection != nil {
+		transport = s.Connection.Transport
+		remoteAddress = s.Connection.RemoteAddress
+		lastCheckin = s.LastCheckin().Unix()
+		isDead = s.IsDead()
+	}
 	return &clientpb.Session{
 		ID:                s.ID,
 		Name:              s.Name,
@@ -128,13 +137,13 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 		OS:                s.OS,
 		Version:           s.Version,
 		Arch:              s.Arch,
-		Transport:         s.Connection.Transport,
-		RemoteAddress:     s.Connection.RemoteAddress,
+		Transport:         transport,
+		RemoteAddress:     remoteAddress,
 		PID:               int32(s.PID),
 		Filename:          s.Filename,
-		LastCheckin:       s.LastCheckin().Unix(),
+		LastCheckin:       lastCheckin,
 		ActiveC2:          s.ActiveC2,
-		IsDead:            s.IsDead(),
+		IsDead:            isDead,
 		ReconnectInterval: s.ReconnectInterval,
 		ProxyURL:          s.ProxyURL,
 		Burned:            s.Burned,
