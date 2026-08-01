@@ -35,6 +35,7 @@ import (
 	// {{end}}
 
 	"github.com/tetratelabs/wazero"
+	experimentalsysfs "github.com/tetratelabs/wazero/experimental/sysfs"
 	wasi "github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 	"github.com/tetratelabs/wazero/sys"
 )
@@ -57,6 +58,7 @@ type WasmExtension struct {
 	config  wazero.ModuleConfig
 	runtime wazero.Runtime
 	network *wasmnet.Host
+	memFS   *WasmMemoryFS
 
 	closeOnce sync.Once
 	closeErr  error
@@ -136,15 +138,32 @@ func (w *WasmExtension) Close() error {
 
 // NewWasmExtension - Create a new Wasm extension
 func NewWasmExtension(name string, wasm []byte, memFS map[string][]byte) (*WasmExtension, error) {
+	return NewWasmExtensionWithOptions(name, wasm, memFS)
+}
+
+// NewWasmExtensionWithOptions creates a Wasm extension with optional runtime
+// features while preserving the historical NewWasmExtension API.
+func NewWasmExtensionWithOptions(name string, wasm []byte, memFS map[string][]byte, options ...WasmExtensionOption) (*WasmExtension, error) {
+	extensionConfig := applyWasmExtensionOptions(options)
+	memoryFS, err := makeWasmMemFS(memFS, extensionConfig.memoryFSOptions...)
+	if err != nil {
+		return nil, err
+	}
+	fsConfig, ok := wazero.NewFSConfig().(experimentalsysfs.FSConfig)
+	if !ok {
+		return nil, errors.New("wazero writable filesystem mounting is unavailable")
+	}
+
 	stdinReader, stdinWriter := io.Pipe()
 	stdoutReader, stdoutWriter := io.Pipe()
 	stderrReader, stderrWriter := io.Pipe()
 	ctx, stop := context.WithCancel(context.Background())
 	wasmExt := &WasmExtension{
-		Name: name,
-		ctx:  ctx,
-		stop: stop,
-		lock: sync.Mutex{},
+		Name:  name,
+		ctx:   ctx,
+		stop:  stop,
+		lock:  sync.Mutex{},
+		memFS: memoryFS,
 
 		Stdin:  &wasmPipe{Reader: stdinReader, Writer: stdinWriter},
 		Stdout: &wasmPipe{Reader: stdoutReader, Writer: stdoutWriter},
@@ -163,7 +182,7 @@ func NewWasmExtension(name string, wasm []byte, memFS map[string][]byte) (*WasmE
 		WithSysNanosleep().
 		WithOsyield(runtime.Gosched).
 		WithRandSource(rand.Reader).
-		WithFS(makeWasmMemFS(memFS))
+		WithFSConfig(fsConfig.WithSysFSMount(memoryFS, "/"))
 
 	if _, err := wasi.Instantiate(wasmExt.ctx, wasmExt.runtime); err != nil {
 		_ = wasmExt.Close()
@@ -174,7 +193,6 @@ func NewWasmExtension(name string, wasm []byte, memFS map[string][]byte) (*WasmE
 		_ = wasmExt.Close()
 		return nil, err
 	}
-	var err error
 	wasmExt.mod, err = wasmExt.runtime.CompileModule(wasmExt.ctx, wasm)
 	if err != nil {
 		_ = wasmExt.Close()
