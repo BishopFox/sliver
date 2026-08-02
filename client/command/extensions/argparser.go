@@ -87,7 +87,11 @@ func bofSetupAndParseFlags(args []string, ext *ExtCommand) (*flag.FlagSet,
 	}
 
 	// Parse the arguments
-	if err := fs.Parse(args); err != nil {
+	normalizedArgs, err := normalizeBOFArguments(args, ext)
+	if err != nil {
+		return nil, nil, nil, nil, nil, nil, err
+	}
+	if err := fs.Parse(normalizedArgs); err != nil {
 		return nil, nil, nil, nil, nil, nil, err
 	}
 
