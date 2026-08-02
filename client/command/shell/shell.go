@@ -254,8 +254,6 @@ func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *conso
 		tunnel      *core.TunnelIO
 		managed     *managedShell
 		enablePTY   bool
-		oldState    *term.State
-		stateSaved  bool
 		stopPtySize = func() {}
 		err         error
 	)
@@ -342,26 +340,24 @@ func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *conso
 		con.PrintInfof("Attached shell [%d] (pid %d)\n\n", managed.ID, managed.Pid)
 	}
 
-	if enablePTY {
-		oldState, err = term.MakeRaw(0)
-		log.Printf("Saving terminal state: %v", oldState)
-		if err != nil {
-			con.PrintErrorf("Failed to save terminal state\n")
-			managed.SetOutput(io.Discard)
-			managed.setState(shellStateDetached)
-			return shellAttachFailed
+	restoreTerminal, err := configureShellTerminal(enablePTY)
+	if err != nil {
+		con.PrintErrorf("Failed to configure terminal state\n")
+		managed.SetOutput(io.Discard)
+		managed.setState(shellStateDetached)
+		return shellAttachFailed
+	}
+	defer func() {
+		log.Printf("Restoring terminal state ...")
+		if err := restoreTerminal(); err != nil {
+			log.Printf("Failed to restore terminal state: %v", err)
 		}
-		stateSaved = true
+	}()
+
+	if enablePTY {
 		stopPtySize = startPtyResizeWatcher(con, cmd, tunnel.ID)
 	}
 	defer stopPtySize()
-
-	if stateSaved {
-		defer func() {
-			log.Printf("Restoring terminal state ...")
-			term.Restore(0, oldState)
-		}()
-	}
 
 	detached, _ := runAttachedIO(tunnel, con)
 	if detached {

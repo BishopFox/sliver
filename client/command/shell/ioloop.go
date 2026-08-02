@@ -13,6 +13,8 @@ import (
 	"github.com/bishopfox/sliver/client/core"
 )
 
+const shellEscapeByte = byte(0x1d) // Ctrl-]
+
 // runAttachedIO forwards local stdin to a shell tunnel while attached to the shell.
 // It returns:
 // - detached=true when user hit escape (Ctrl-])
@@ -22,7 +24,6 @@ func runAttachedIO(tunnel *core.TunnelIO, con *console.SliverClient) (detached b
 	// (network hang, server gone, etc.) tunnel.Write can block forever and "lock" the
 	// client in shell mode. Instead, buffer stdin locally and look for a local escape key.
 	const (
-		shellEscapeByte = byte(0x1d) // Ctrl-]
 		stdinBufSize    = 32 * 1024
 		stdinQueueDepth = 128
 	)
