@@ -248,7 +248,7 @@ func parseKernelInetAddr(af int, b []byte) (int, Addr, error) {
 	//   doesn't mean 0.0.0.0/0 or ::/0
 	//
 	// - The kernel form appends leading bytes to the prefix field
-	//   to make the <length, prefix> tuple to be conformed with
+	//   to make the <length, prefix> tuple conform to
 	//   the routing message boundary
 	l := int(b[0])
 	if runtime.GOOS == "darwin" || runtime.GOOS == "ios" {
