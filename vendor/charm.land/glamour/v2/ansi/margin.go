@@ -32,7 +32,7 @@ func NewMarginWriter(ctx RenderContext, w io.Writer, rules StyleBlock) *MarginWr
 		margin = *rules.Margin
 	}
 
-	pw := NewPaddingWriter(w, int(bs.Width(ctx)), func(_ io.Writer) { //nolint:gosec
+	pw := NewPaddingWriter(w, int(bs.Width(ctx)), func(_ io.Writer) {
 		_, _ = renderText(w, rules.StylePrimitive, " ")
 	})
 
@@ -40,7 +40,7 @@ func NewMarginWriter(ctx RenderContext, w io.Writer, rules StyleBlock) *MarginWr
 	if rules.IndentToken != nil {
 		ic = *rules.IndentToken
 	}
-	iw := NewIndentWriter(pw, int(indentation+margin), func(_ io.Writer) { //nolint:gosec
+	iw := NewIndentWriter(pw, int(indentation+margin), func(_ io.Writer) {
 		_, _ = renderText(w, bs.Parent().Style.StylePrimitive, ic)
 	})
 
@@ -62,8 +62,8 @@ func (w *MarginWriter) Write(b []byte) (int, error) {
 // Close closes the [MarginWriter].
 func (w *MarginWriter) Close() error {
 	var werr error
-	if w, ok := w.w.(io.WriteCloser); ok {
-		werr = w.Close()
+	if c, ok := w.w.(io.WriteCloser); ok {
+		werr = c.Close()
 	}
 
 	return errors.Join(werr, w.iw.Close())
@@ -217,10 +217,15 @@ func (w *IndentWriter) Write(p []byte) (int, error) {
 
 // Close closes the [IndentWriter].
 func (w *IndentWriter) Close() error {
-	var werr error
-	if w, ok := w.w.(io.WriteCloser); ok {
-		werr = w.Close()
+	// Close the wrap writer (w.pw) before the downstream writer (w.w). w.pw
+	// wraps w.w, so its Close flushes a trailing style/link reset back through
+	// w.w. Closing w.w first would return its parser to the pool and nil it
+	// out, turning that flush into a write on a closed writer.
+	werr := w.pw.Close()
+
+	if c, ok := w.w.(io.WriteCloser); ok {
+		werr = errors.Join(werr, c.Close())
 	}
 
-	return errors.Join(werr, w.pw.Close())
+	return werr
 }

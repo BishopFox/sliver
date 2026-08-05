@@ -1,6 +1,7 @@
 //go:build !windows
 
-package http
+// Package wininet provides the Windows WinINet HTTP transport.
+package wininet
 
 import "errors"
 

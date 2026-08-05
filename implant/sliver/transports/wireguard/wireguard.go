@@ -76,6 +76,10 @@ var (
 
 const wgEnvelopeSigningSeedPrefix = "env-signing-v1:"
 
+const maxEnvelopeLength = 512 * 1024 * 1024
+
+var errEnvelopeTooLarge = errors.New("[wireguard] envelope exceeds maximum length")
+
 var (
 	envelopeSigningOnce  sync.Once
 	envelopeSigningErr   error
@@ -200,9 +204,16 @@ func ReadEnvelope(connection net.Conn) (*pb.Envelope, error) {
 
 	if dataLength <= 0 {
 		// {{if .Config.Debug}}
-		log.Printf("[pivot] read error: %s\n", err)
+		log.Printf("[wireguard] read error: %s\n", err)
 		// {{end}}
 		return nil, errors.New("[wireguard] zero data length")
+	}
+
+	if dataLength > maxEnvelopeLength {
+		// {{if .Config.Debug}}
+		log.Printf("[wireguard] read error: envelope length %d exceeds max %d\n", dataLength, maxEnvelopeLength)
+		// {{end}}
+		return nil, errEnvelopeTooLarge
 	}
 
 	dataBuf := make([]byte, dataLength)

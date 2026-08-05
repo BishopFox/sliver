@@ -247,6 +247,13 @@ func (p *NetConnPivotClient) read() ([]byte, error) {
 		return nil, errors.New("[pivot] zero data length")
 	}
 
+	if dataLength > pivots.MaxFrameLength {
+		// {{if .Config.Debug}}
+		log.Printf("[pivot] read error: frame length %d exceeds max %d\n", dataLength, pivots.MaxFrameLength)
+		// {{end}}
+		return nil, pivots.ErrFrameTooLarge
+	}
+
 	dataBuf := make([]byte, dataLength)
 
 	n, err = io.ReadFull(p.conn, dataBuf)

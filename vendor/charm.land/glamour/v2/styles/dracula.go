@@ -41,27 +41,27 @@ var DraculaStyleConfig = ansi.StyleConfig{
 	},
 	H2: ansi.StyleBlock{
 		StylePrimitive: ansi.StylePrimitive{
-			Prefix: "## ",
+			Prefix: defaultHeadingPrefixH2,
 		},
 	},
 	H3: ansi.StyleBlock{
 		StylePrimitive: ansi.StylePrimitive{
-			Prefix: "### ",
+			Prefix: defaultHeadingPrefixH3,
 		},
 	},
 	H4: ansi.StyleBlock{
 		StylePrimitive: ansi.StylePrimitive{
-			Prefix: "#### ",
+			Prefix: defaultHeadingPrefixH4,
 		},
 	},
 	H5: ansi.StyleBlock{
 		StylePrimitive: ansi.StylePrimitive{
-			Prefix: "##### ",
+			Prefix: defaultHeadingPrefixH5,
 		},
 	},
 	H6: ansi.StyleBlock{
 		StylePrimitive: ansi.StylePrimitive{
-			Prefix: "###### ",
+			Prefix: defaultHeadingPrefixH6,
 		},
 	},
 	Strikethrough: ansi.StylePrimitive{
@@ -77,7 +77,7 @@ var DraculaStyleConfig = ansi.StyleConfig{
 	},
 	HorizontalRule: ansi.StylePrimitive{
 		Color:  stringPtr("#6272A4"),
-		Format: "\n--------\n",
+		Format: defaultHorizontalRule,
 	},
 	Item: ansi.StylePrimitive{
 		BlockPrefix: "• ",
@@ -88,8 +88,8 @@ var DraculaStyleConfig = ansi.StyleConfig{
 	},
 	Task: ansi.StyleTask{
 		StylePrimitive: ansi.StylePrimitive{},
-		Ticked:         "[✓] ",
-		Unticked:       "[ ] ",
+		Ticked:         defaultTaskTickedPrefix,
+		Unticked:       defaultTaskUntickedPrefix,
 	},
 	Link: ansi.StylePrimitive{
 		Color:     stringPtr("#8be9fd"),
@@ -104,7 +104,7 @@ var DraculaStyleConfig = ansi.StyleConfig{
 	},
 	ImageText: ansi.StylePrimitive{
 		Color:  stringPtr("#ff79c6"),
-		Format: "Image: {{.text}} →",
+		Format: defaultImageFormat,
 	},
 	Code: ansi.StyleBlock{
 		StylePrimitive: ansi.StylePrimitive{
@@ -211,6 +211,6 @@ var DraculaStyleConfig = ansi.StyleConfig{
 		},
 	},
 	DefinitionDescription: ansi.StylePrimitive{
-		BlockPrefix: "\n🠶 ",
+		BlockPrefix: defaultArrowBlockPrefix,
 	},
 }

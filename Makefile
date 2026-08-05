@@ -2,11 +2,24 @@
 # Makefile for Sliver
 #
 
+.DEFAULT_GOAL := default
+
 GO ?= go
 ARTIFACT_SUFFIX ?=
 ENV =
 TAGS ?= -tags go_sqlite
 CGO_ENABLED = 0
+GOLANGCI_LINT ?= golangci-lint
+# The tree has legacy lint findings, so gate issues introduced by this change.
+GOLANGCI_LINT_BASE ?= master
+GOLANGCI_LINT_ARGS ?= --new-from-merge-base=$(GOLANGCI_LINT_BASE)
+GOLANGCI_LINT_PACKAGES = \
+	./client/... \
+	./server/... \
+	./util/... \
+	./protobuf/... \
+	./docs \
+	./implant/...
 
 ifneq (,$(findstring cgo_sqlite,$(TAGS)))
 	CGO_ENABLED = 1
@@ -23,6 +36,10 @@ CLIENT_ASSETS_PKG = github.com/bishopfox/sliver/client/assets
 SLIVER_UPDATE_PKG = github.com/bishopfox/sliver/client/command/update
 PB_COMPILERS = protoc protoc-gen-go protoc-gen-go-grpc
 ASSET_BUILD_SOURCES = $(filter-out %_test.go,$(wildcard util/assets/*.go util/cmd/assets/*.go util/cmd/sliver-wasm-go/*.go util/cmd/sliver-wasm-go/overlay/*.go))
+
+.PHONY: lint
+lint:
+	$(GOLANGCI_LINT) run $(GOLANGCI_LINT_ARGS) $(GOLANGCI_LINT_PACKAGES)
 
 ifneq ($(OS),Windows_NT)
 

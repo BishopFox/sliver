@@ -167,7 +167,11 @@ type OrderError struct {
 }
 
 func (oe *OrderError) Error() string {
-	return fmt.Sprintf("acme: order %s status: %s", oe.OrderURL, oe.Status)
+	str := fmt.Sprintf("acme: order %s status: %s", oe.OrderURL, oe.Status)
+	if oe.Problem != nil {
+		str += fmt.Sprintf("; problem: %s", oe.Problem)
+	}
+	return str
 }
 
 // RateLimit reports whether err represents a rate limit error and

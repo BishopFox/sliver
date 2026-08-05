@@ -38,11 +38,20 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// MaxFrameLength bounds the payload size a pivot will allocate from a peer's
+// 4-byte length prefix. A corrupted or desynced prefix can otherwise be read as
+// a value up to ~4GiB and trigger an allocation large enough to crash the
+// implant (see BishopFox/sliver#1452). 512MiB is far above any realistic
+// relayed message but well below a fatal allocation.
+const MaxFrameLength = 512 * 1024 * 1024
+
 var (
 	// ErrFailedWrite - Failed to write to a connection
 	ErrFailedWrite = errors.New("failed to write")
 	// ErrFailedKeyExchange - Failed to exchange session and/or peer keys
 	ErrFailedKeyExchange = errors.New("failed key exchange")
+	// ErrFrameTooLarge - A peer's declared frame length exceeds MaxFrameLength
+	ErrFrameTooLarge = errors.New("pivot frame exceeds maximum length")
 
 	pivotListeners        = &sync.Map{}
 	stoppedPivotListeners = &sync.Map{}
@@ -495,6 +504,12 @@ func (p *NetConnPivot) read() ([]byte, error) {
 		log.Printf("[pivot] read error: %s\n", err)
 		// {{end}}
 		return nil, errors.New("[pivot] zero data length")
+	}
+	if dataLength > MaxFrameLength {
+		// {{if .Config.Debug}}
+		log.Printf("[pivot] read error: frame length %d exceeds max %d\n", dataLength, MaxFrameLength)
+		// {{end}}
+		return nil, ErrFrameTooLarge
 	}
 	dataBuf := make([]byte, dataLength)
 

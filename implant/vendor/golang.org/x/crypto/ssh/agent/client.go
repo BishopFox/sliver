@@ -430,8 +430,9 @@ func (c *client) List() ([]*Key, error) {
 		return keys, nil
 	case *failureAgentMsg:
 		return nil, errors.New("agent: failed to list keys")
+	default:
+		return nil, fmt.Errorf("agent: failed to list keys, unexpected message type %T", msg)
 	}
-	panic("unreachable")
 }
 
 // Sign has the agent sign the data using a protocol 2 key as defined
@@ -462,8 +463,9 @@ func (c *client) SignWithFlags(key ssh.PublicKey, data []byte, flags SignatureFl
 		return &sig, nil
 	case *failureAgentMsg:
 		return nil, errors.New("agent: failed to sign challenge")
+	default:
+		return nil, fmt.Errorf("agent: failed to sign challenge, unexpected message type %T", msg)
 	}
-	panic("unreachable")
 }
 
 // unmarshal parses an agent message in packet, returning the parsed
@@ -659,6 +661,13 @@ func (c *client) Add(key AddedKey) error {
 
 	if key.ConfirmBeforeUse {
 		constraints = append(constraints, agentConstrainConfirm)
+	}
+
+	for _, ext := range key.ConstraintExtensions {
+		constraints = append(constraints, ssh.Marshal(constrainExtensionAgentMsg{
+			ExtensionName:    ext.ExtensionName,
+			ExtensionDetails: ext.ExtensionDetails,
+		})...)
 	}
 
 	cert := key.Certificate

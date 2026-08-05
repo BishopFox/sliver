@@ -45,7 +45,7 @@ func (e *ParagraphElement) Finish(w io.Writer, ctx RenderContext) error {
 		if !ctx.options.PreserveNewLines {
 			blk = strings.ReplaceAll(blk, "\n", " ")
 		}
-		flow := lipgloss.Wrap(blk, int(bs.Width(ctx)), "") //nolint: gosec
+		flow := lipgloss.Wrap(blk, int(bs.Width(ctx)), "")
 
 		_, err := io.WriteString(mw, flow)
 		if err != nil {
