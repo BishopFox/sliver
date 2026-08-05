@@ -156,6 +156,13 @@ func memFSTestRequireErrno(t *testing.T, want, got experimentalsys.Errno) {
 	}
 }
 
+func TestWasmMemoryFSLocalFilesystemRootIsAbsolute(t *testing.T) {
+	root := wasmLocalFilesystemRoot()
+	if !filepath.IsAbs(root) {
+		t.Fatalf("local filesystem root %q is not absolute", root)
+	}
+}
+
 func TestWasmMemoryFSExtendedInputIsCopied(t *testing.T) {
 	contents := []byte("original")
 	files := map[string][]byte{"seed.txt": contents}
@@ -625,12 +632,12 @@ func TestWasmMemoryFSExtendedLegacyOpenAndPassthroughSafety(t *testing.T) {
 		}
 	}
 
-	hostDir := t.TempDir()
+	hostDir := memFSTestHostDir(t)
 	hostPath := filepath.Join(hostDir, "host.txt")
 	if err := os.WriteFile(hostPath, []byte("host-sentinel"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	guestPath := memFSTestHostPath(hostPath)
+	guestPath := memFSTestHostPath(t, hostPath)
 	hostFile, err := memFS.Open(guestPath)
 	if err != nil {
 		t.Fatalf("passthrough Open(%q): %v", guestPath, err)
@@ -762,9 +769,33 @@ func equalStrings(a, b []string) bool {
 	return true
 }
 
-func memFSTestHostPath(name string) string {
-	if volume := filepath.VolumeName(name); volume != "" {
-		name = strings.TrimPrefix(name, volume)
+func memFSTestHostDir(t *testing.T) string {
+	t.Helper()
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("get working directory: %v", err)
 	}
-	return strings.TrimPrefix(filepath.ToSlash(name), "/")
+	directory, err := os.MkdirTemp(cwd, ".sliver-memfs-test-*")
+	if err != nil {
+		t.Fatalf("create host fixture directory: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.RemoveAll(directory); err != nil {
+			t.Errorf("remove host fixture directory: %v", err)
+		}
+	})
+	return directory
+}
+
+func memFSTestHostPath(t *testing.T, name string) string {
+	t.Helper()
+	relative, err := filepath.Rel(wasmLocalFilesystemRoot(), name)
+	if err != nil {
+		t.Fatalf("make host path %q relative to passthrough root: %v", name, err)
+	}
+	parentPrefix := ".." + string(filepath.Separator)
+	if relative == ".." || strings.HasPrefix(relative, parentPrefix) || filepath.IsAbs(relative) || filepath.VolumeName(relative) != "" {
+		t.Fatalf("host path %q escapes passthrough root", name)
+	}
+	return filepath.ToSlash(relative)
 }

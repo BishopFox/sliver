@@ -341,11 +341,11 @@ func TestWasmMemoryFSEdgeRawPassthroughIsReadOnlyAndIsolated(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewWasmMemoryFS: %v", err)
 	}
-	hostPath := filepath.Join(t.TempDir(), "host.txt")
+	hostPath := filepath.Join(memFSTestHostDir(t), "host.txt")
 	if err := os.WriteFile(hostPath, []byte("host-sentinel"), 0o600); err != nil {
 		t.Fatalf("write host fixture: %v", err)
 	}
-	hostGuestPath := memFSTestHostPath(hostPath)
+	hostGuestPath := memFSTestHostPath(t, hostPath)
 
 	hostFile, errno := raw.OpenFile(hostGuestPath, experimentalsys.O_RDONLY, 0)
 	memFSTestRequireErrno(t, 0, errno)
@@ -365,7 +365,7 @@ func TestWasmMemoryFSEdgeRawPassthroughIsReadOnlyAndIsolated(t *testing.T) {
 		_ = writable.Close()
 	}
 	createdPath := filepath.Join(filepath.Dir(hostPath), "created.txt")
-	createdGuestPath := memFSTestHostPath(createdPath)
+	createdGuestPath := memFSTestHostPath(t, createdPath)
 	if created, errno := raw.OpenFile(createdGuestPath, experimentalsys.O_CREAT|experimentalsys.O_RDWR, 0o600); errno == 0 {
 		_, _ = created.Write([]byte("created"))
 		_ = created.Close()

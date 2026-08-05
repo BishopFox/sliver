@@ -316,7 +316,7 @@ func wasmLocalFilesystemRoot() string {
 		return root
 	}
 	if volume := filepath.VolumeName(cwd); volume != "" {
-		root = volume
+		root = volume + string(filepath.Separator)
 	}
 	return root
 }
