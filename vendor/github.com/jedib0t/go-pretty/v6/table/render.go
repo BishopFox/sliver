@@ -107,7 +107,9 @@ func (t *Table) renderColumn(out *strings.Builder, row rowStr, colIdx int, maxCo
 
 func (t *Table) renderColumnAutoIndex(out *strings.Builder, hint renderHint) {
 	var outAutoIndex strings.Builder
-	outAutoIndex.Grow(t.maxColumnLengths[0])
+	if len(t.maxColumnLengths) > 0 {
+		outAutoIndex.Grow(t.maxColumnLengths[0])
+	}
 
 	if hint.isSeparatorRow {
 		numChars := t.autoIndexVIndexMaxLength + utf8.RuneCountInString(t.style.Box.PaddingLeft) +
@@ -268,7 +270,7 @@ func (t *Table) renderRow(out *strings.Builder, row rowStr, hint renderHint) {
 		// fit every column into the allowedColumnLength/maxColumnLength limit
 		// and in the process find the max. number of lines in any column in
 		// this row
-		colMaxLines, rowWrapped := t.wrapRow(row)
+		colMaxLines, rowWrapped := t.wrapRow(row, hint)
 
 		// if there is just 1 line in all columns, add the row as such; else
 		// split each column into individual lines and render them one-by-one
@@ -311,9 +313,22 @@ func (t *Table) renderRowSeparator(out *strings.Builder, hint renderHint) {
 }
 
 func (t *Table) renderRows(out *strings.Builder, rows []rowStr, hint renderHint) {
-	for rowIdx, row := range rows {
+	interleaveVerticalMerge := t.shouldInterleaveVerticalMerge(hint)
+	for rowIdx := 0; rowIdx < len(rows); rowIdx++ {
+		row := rows[rowIdx]
+
+		// stack rows that are being vertically merged into one shared block so
+		// the differing columns fill the merged cell's wrapped height instead
+		// of leaving blank lines below it (issue #261)
+		groupEnd := rowIdx + 1
+		if interleaveVerticalMerge {
+			if groupEnd = t.verticalMergeGroupEnd(rows, rowIdx); groupEnd > rowIdx+1 {
+				row = t.combineVerticalMergeGroup(rows, rowIdx, groupEnd)
+			}
+		}
+
 		hint.isFirstRow = rowIdx == 0
-		hint.isLastRow = rowIdx == len(rows)-1
+		hint.isLastRow = groupEnd == len(rows)
 		hint.rowNumber = rowIdx + 1
 		t.renderRow(out, row, hint)
 
@@ -330,6 +345,9 @@ func (t *Table) renderRows(out *strings.Builder, rows []rowStr, hint renderHint)
 			}
 			t.renderRowSeparator(out, hintSep)
 		}
+
+		// skip the rows that were stacked into the block rendered above
+		rowIdx = groupEnd - 1
 	}
 }
 

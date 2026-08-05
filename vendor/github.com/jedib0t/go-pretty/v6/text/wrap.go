@@ -89,7 +89,7 @@ func WrapText(str string, wrapLen int) string {
 func appendChar(char rune, wrapLen int, lineLen *int, inEscSeq bool, lastSeenEscSeq string, out *strings.Builder) {
 	// handle reaching the end of the line as dictated by wrapLen or by finding
 	// a newline character
-	if (*lineLen == wrapLen && !inEscSeq && char != '\n') || (char == '\n') {
+	if (*lineLen >= wrapLen && !inEscSeq && char != '\n') || (char == '\n') {
 		if lastSeenEscSeq != "" {
 			// terminate escape sequence and the line; and restart the escape
 			// sequence in the next line
@@ -122,7 +122,7 @@ func appendWord(word string, lineIdx *int, lastSeenEscSeq string, wrapLen int, o
 			inEscSeq = true
 			lastSeenEscSeq = ""
 		}
-		if inEscSeq {
+		if inEscSeq && len(lastSeenEscSeq) < escSeqMaxLength {
 			lastSeenEscSeq += string(char)
 		}
 
