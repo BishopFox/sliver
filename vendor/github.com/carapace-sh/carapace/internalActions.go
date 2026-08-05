@@ -88,6 +88,8 @@ func actionFlags(cmd *cobra.Command) Action {
 		cmd.InitDefaultVersionFlag()
 
 		flagSet := pflagfork.FlagSet{FlagSet: cmd.Flags()}
+		prefix := string(flagSet.Prefix())
+		doublePrefix := prefix + prefix
 		isShorthandSeries := flagSet.IsShorthandSeries(c.Value)
 
 		nospace := make([]rune, 0)
@@ -106,7 +108,7 @@ func actionFlags(cmd *cobra.Command) Action {
 
 			if isShorthandSeries {
 				if f.Shorthand != "" && f.ShorthandDeprecated == "" {
-					for _, shorthand := range c.Value[1:] {
+					for _, shorthand := range strings.TrimPrefix(c.Value, prefix) {
 						if shorthandFlag := cmd.Flags().ShorthandLookup(string(shorthand)); shorthandFlag != nil && shorthandFlag.Value.Type() != "bool" && shorthandFlag.Value.Type() != "count" && shorthandFlag.NoOptDefVal == "" {
 							return // abort shorthand flag series if a previous one is not bool or count and requires an argument (no default value)
 						}
@@ -118,17 +120,17 @@ func actionFlags(cmd *cobra.Command) Action {
 					}
 				}
 			} else {
-				switch f.Mode() {
+				switch f.GetMode() {
 				case pflagfork.NameAsShorthand:
-					batch = append(batch, ActionStyledValuesDescribed("-"+f.Name, f.Usage, f.Style()).Tag("longhand flags").
+					batch = append(batch, ActionStyledValuesDescribed(prefix+f.Name, f.Usage, f.Style()).Tag("longhand flags").
 						UidF(func(s string, uc uid.Context) (*url.URL, error) { return uid.Flag(cmd, f), nil }))
 				case pflagfork.Default:
-					batch = append(batch, ActionStyledValuesDescribed("--"+f.Name, f.Usage, f.Style()).Tag("longhand flags").
+					batch = append(batch, ActionStyledValuesDescribed(doublePrefix+f.Name, f.Usage, f.Style()).Tag("longhand flags").
 						UidF(func(s string, uc uid.Context) (*url.URL, error) { return uid.Flag(cmd, f), nil }))
 				}
 
 				if f.Shorthand != "" && f.ShorthandDeprecated == "" {
-					batch = append(batch, ActionStyledValuesDescribed("-"+f.Shorthand, f.Usage, f.Style()).Tag("shorthand flags").
+					batch = append(batch, ActionStyledValuesDescribed(prefix+f.Shorthand, f.Usage, f.Style()).Tag("shorthand flags").
 						UidF(func(s string, uc uid.Context) (*url.URL, error) { return uid.Flag(cmd, f), nil }))
 				}
 			}

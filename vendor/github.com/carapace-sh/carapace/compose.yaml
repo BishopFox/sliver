@@ -101,6 +101,14 @@ services:
         export PATH="/carapace/example/:$$PATH"
         source <(example _carapace)
 
+  docs:
+    image: ghcr.io/carapace-sh/mdbook:latest
+    command: mdbook serve --hostname 0.0.0.0 --dest-dir /tmp/book /docs
+    volumes:
+      - './docs:/docs:ro'
+    ports:
+      - 3000:3000
+
   vhs:
     image: ghcr.io/carapace-sh/vhs
     volumes:

@@ -25,6 +25,14 @@ type entry struct {
 	prerun        func(cmd *cobra.Command, args []string)
 	bridged       bool
 	initialized   bool
+
+	// multi-completer (zero-value = single completer)
+	subcommands     []*cobra.Command
+	subcommandNames []string // includes binary name
+	defaultName     string
+
+	// snippet enrichment
+	snippetFuncs map[string][]string // shell -> ordered code snippets
 }
 
 type _storage map[*cobra.Command]*entry
