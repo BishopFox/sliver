@@ -1598,7 +1598,7 @@ go4.org/mem
 # go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
 ## explicit; go 1.18
 go4.org/netipx
-# golang.org/x/crypto v0.53.0
+# golang.org/x/crypto v0.54.0
 ## explicit; go 1.25.0
 golang.org/x/crypto/acme
 golang.org/x/crypto/acme/autocert
@@ -1641,7 +1641,7 @@ golang.org/x/mod/internal/lazyregexp
 golang.org/x/mod/modfile
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/net v0.56.0
+# golang.org/x/net v0.57.0
 ## explicit; go 1.25.0
 golang.org/x/net/bpf
 golang.org/x/net/context
@@ -1683,7 +1683,7 @@ golang.org/x/oauth2/jwt
 ## explicit; go 1.25.0
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.46.0
+# golang.org/x/sys v0.47.0
 ## explicit; go 1.25.0
 golang.org/x/sys/cpu
 golang.org/x/sys/plan9
@@ -1692,7 +1692,7 @@ golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
 golang.org/x/sys/windows/svc
 golang.org/x/sys/windows/svc/mgr
-# golang.org/x/term v0.44.0
+# golang.org/x/term v0.45.0
 ## explicit; go 1.25.0
 golang.org/x/term
 # golang.org/x/text v0.40.0
