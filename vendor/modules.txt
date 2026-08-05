@@ -1449,7 +1449,7 @@ github.com/textmagic/textmagic-rest-go-v2/v3
 # github.com/thedevsaddam/gojsonq/v2 v2.5.2
 ## explicit; go 1.13
 github.com/thedevsaddam/gojsonq/v2
-# github.com/things-go/go-socks5 v0.1.0
+# github.com/things-go/go-socks5 v0.1.1
 ## explicit; go 1.18
 github.com/things-go/go-socks5
 github.com/things-go/go-socks5/bufferpool
