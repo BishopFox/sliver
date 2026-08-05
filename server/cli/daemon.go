@@ -176,6 +176,15 @@ func startPersistentListenerJob(jobType string, listenerJob *clientpb.ListenerJo
 			return 0, err
 		}
 		return uint32(id), nil
+	case constants.TcpFwdStr:
+		if listenerJob.TCPFwdConf == nil {
+			return 0, errors.New("missing TCP forwarder configuration")
+		}
+		job, err := c2.StartTCPFwdListenerJob(listenerJob.TCPFwdConf)
+		if err != nil {
+			return 0, err
+		}
+		return uint32(job.ID), nil
 	case constants.TCPListenerStr:
 		if listenerJob.TCPConf == nil {
 			return 0, errors.New("missing TCP stager listener configuration")
