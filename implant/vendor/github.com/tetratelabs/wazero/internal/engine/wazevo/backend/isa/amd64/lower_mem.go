@@ -130,9 +130,9 @@ func (m *machine) lowerAddendsToAmode(x, y addend, offBase uint32) *amode {
 	}
 }
 
-func (m *machine) lowerAddend(x *backend.SSAValueDefinition) addend {
-	if x.IsFromBlockParam() {
-		return addend{x.BlkParamVReg, 0, 0}
+func (m *machine) lowerAddend(x backend.SSAValueDefinition) addend {
+	if !x.IsFromInstr() {
+		return addend{m.c.VRegOf(x.V), 0, 0}
 	}
 	// Ensure the addend is not referenced in multiple places; we will discard nested Iadds.
 	op := m.c.MatchInstrOneOf(x, addendsMatchOpcodes[:])

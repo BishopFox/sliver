@@ -1,13 +1,12 @@
-//go:build !(linux || darwin || windows) || tinygo
+//go:build !(linux || darwin || windows)
 
 package sysfs
 
 import (
 	"github.com/tetratelabs/wazero/experimental/sys"
-	"github.com/tetratelabs/wazero/internal/fsapi"
 )
 
-// poll implements `Poll` as documented on fsapi.File via a file descriptor.
-func poll(uintptr, fsapi.Pflag, int32) (bool, sys.Errno) {
+// poll implements `Poll` as documented on sys.File via a file descriptor.
+func poll(uintptr, sys.Pflag, int32) (bool, sys.Errno) {
 	return false, sys.ENOSYS
 }

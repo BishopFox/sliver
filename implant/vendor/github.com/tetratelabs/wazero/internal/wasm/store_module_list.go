@@ -3,8 +3,6 @@ package wasm
 import (
 	"errors"
 	"fmt"
-
-	"github.com/tetratelabs/wazero/api"
 )
 
 // deleteModule makes the moduleName available for instantiation again.
@@ -88,7 +86,7 @@ func (s *Store) registerModule(m *ModuleInstance) error {
 }
 
 // Module implements wazero.Runtime Module
-func (s *Store) Module(moduleName string) api.Module {
+func (s *Store) Module(moduleName string) *ModuleInstance {
 	m, err := s.module(moduleName)
 	if err != nil {
 		return nil
