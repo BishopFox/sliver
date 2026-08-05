@@ -43,14 +43,14 @@ loop:
 			continue
 
 		// dash
-		case arg == "--":
+		case arg == string(fs.Prefix())+string(fs.Prefix()):
 			LOG.Printf("arg %#v is dash\n", arg)
 			inArgs = append(inArgs, context.Args[i:]...)
 			dash = true
 			break loop
 
 		// flag
-		case !cmd.DisableFlagParsing && strings.HasPrefix(arg, "-") && (fs.IsInterspersed() || len(inPositionals) == 0):
+		case !cmd.DisableFlagParsing && strings.HasPrefix(arg, string(fs.Prefix())) && (fs.IsInterspersed() || len(inPositionals) == 0):
 			LOG.Printf("arg %#v is a flag\n", arg)
 			inArgs = append(inArgs, arg)
 			inFlag = fs.LookupArg(arg)
@@ -96,11 +96,15 @@ loop:
 		LOG.Printf("arg %#v is a shorthand flag series", context.Value) // TODO not aways correct
 		localInFlag := fs.LookupArg(context.Value)
 
-		if localInFlag != nil && (len(localInFlag.Args) == 0 || localInFlag.Args[0] == "") && (!localInFlag.IsOptarg() || strings.HasSuffix(localInFlag.Prefix, string(localInFlag.OptargDelimiter()))) { // TODO && len(context.Value) > 2 {
+		if localInFlag != nil && (len(localInFlag.Args) == 0 || localInFlag.Args[0] == "") && (!localInFlag.IsOptarg() || strings.HasSuffix(localInFlag.ArgPrefix, string(localInFlag.OptargDelimiter()))) { // TODO && len(context.Value) > 2 {
 			// TODO check if empty prefix
-			suffix := localInFlag.Prefix[strings.LastIndex(localInFlag.Prefix, localInFlag.Shorthand):]
+			suffix := localInFlag.ArgPrefix[strings.LastIndex(localInFlag.ArgPrefix, localInFlag.Shorthand):]
 			LOG.Printf("removing suffix %#v since it is a flag missing its argument\n", suffix)
-			toParse = append(toParse, strings.TrimSuffix(localInFlag.Prefix, suffix))
+			toParse = append(toParse, strings.TrimSuffix(localInFlag.ArgPrefix, suffix))
+		} else if localInFlag == nil {
+			// shorthand lookup failed (e.g. due to ArgumentStyle restriction)
+			// context.Value is not a valid flag form; skip adding it to toParse
+			// so that flag completions are shown instead
 		} else {
 			LOG.Printf("adding shorthand flag %#v", context.Value)
 			toParse = append(toParse, context.Value)
@@ -129,27 +133,27 @@ loop:
 
 		return storage.getPositional(cmd, len(context.Args)), context
 
-	// flag argument
-	case inFlag != nil && inFlag.Consumes(context.Value):
+	// flag argument (only when the flag accepts the next-arg style)
+	case inFlag != nil && inFlag.Consumes(context.Value) && inFlag.AcceptsNext():
 		LOG.Printf("completing flag argument of %#v for arg %#v\n", inFlag.Name, context.Value)
 		context.Parts = inFlag.Args
 		return storage.getFlag(cmd, inFlag.Name), context
 
 	// flag
-	case !cmd.DisableFlagParsing && strings.HasPrefix(context.Value, "-") && (fs.IsInterspersed() || len(inPositionals) == 0):
+	case !cmd.DisableFlagParsing && strings.HasPrefix(context.Value, string(fs.Prefix())) && (fs.IsInterspersed() || len(inPositionals) == 0):
 		if f := fs.LookupArg(context.Value); f != nil && len(f.Args) > 0 {
-			LOG.Printf("completing optional flag argument for arg %#v with prefix %#v\n", context.Value, f.Prefix)
+			LOG.Printf("completing optional flag argument for arg %#v with prefix %#v\n", context.Value, f.ArgPrefix)
 
 			switch f.Value.Type() {
 			case "bool":
 				//nolint:govet
-				return ActionValues("true", "false").StyleF(style.ForKeyword).Usage(f.Usage).Prefix(f.Prefix), context
+				return ActionValues("true", "false").StyleF(style.ForKeyword).Usage(f.Usage).Prefix(f.ArgPrefix), context
 			default:
-				return storage.getFlag(cmd, f.Name).Prefix(f.Prefix), context
+				return storage.getFlag(cmd, f.Name).Prefix(f.ArgPrefix), context
 			}
-		} else if f != nil && fs.IsPosix() && !strings.HasPrefix(context.Value, "--") && !f.IsOptarg() && f.Prefix == context.Value {
-			LOG.Printf("completing attached flag argument for arg %#v with prefix %#v\n", context.Value, f.Prefix)
-			return storage.getFlag(cmd, f.Name).Prefix(f.Prefix), context
+		} else if f != nil && fs.IsPosix() && !strings.HasPrefix(context.Value, string(fs.Prefix())+string(fs.Prefix())) && !f.IsOptarg() && f.ArgPrefix == context.Value && f.AcceptsAttached() {
+			LOG.Printf("completing attached flag argument for arg %#v with prefix %#v\n", context.Value, f.ArgPrefix)
+			return storage.getFlag(cmd, f.Name).Prefix(f.ArgPrefix), context
 		}
 		LOG.Printf("completing flags for arg %#v\n", context.Value)
 		return actionFlags(cmd), context
