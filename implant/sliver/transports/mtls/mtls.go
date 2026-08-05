@@ -62,6 +62,10 @@ var (
 
 const mtlsEnvelopeSigningSeedPrefix = "env-signing-v1:"
 
+const maxEnvelopeLength = 512 * 1024 * 1024
+
+var errEnvelopeTooLarge = errors.New("[mtls] envelope exceeds maximum length")
+
 var (
 	envelopeSigningOnce  sync.Once
 	envelopeSigningErr   error
@@ -207,9 +211,16 @@ func ReadEnvelope(r io.Reader) (*pb.Envelope, error) {
 
 	if dataLength <= 0 {
 		// {{if .Config.Debug}}
-		log.Printf("[pivot] read error: %s\n", err)
+		log.Printf("[mtls] read error: %s\n", err)
 		// {{end}}
 		return nil, errors.New("[mtls] zero data length")
+	}
+
+	if dataLength > maxEnvelopeLength {
+		// {{if .Config.Debug}}
+		log.Printf("[mtls] read error: envelope length %d exceeds max %d\n", dataLength, maxEnvelopeLength)
+		// {{end}}
+		return nil, errEnvelopeTooLarge
 	}
 
 	dataBuf := make([]byte, dataLength)
