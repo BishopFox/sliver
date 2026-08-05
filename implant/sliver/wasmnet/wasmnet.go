@@ -1,3 +1,5 @@
+// Package wasmnet implements the Sliver networking host module for WASI
+// guests.
 package wasmnet
 
 // ModuleName is the versioned host module imported by Sliver networking-aware

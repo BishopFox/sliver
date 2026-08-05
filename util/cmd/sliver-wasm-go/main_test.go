@@ -128,7 +128,7 @@ func TestValidateToolchain(t *testing.T) {
 	content := []byte("original Go source\n")
 	source := overlaySource{
 		targetPath:   "src/net/net_fake.go",
-		embeddedPath: "overlay/net_fake.go",
+		embeddedPath: "overlay/net_fake.go.txt",
 		sha256:       sha256String(content),
 	}
 	writeTestFile(t, filepath.Join(root, filepath.FromSlash(source.targetPath)), content, 0o600)
@@ -162,11 +162,11 @@ func TestWriteOverlayUsesAbsolutePaths(t *testing.T) {
 
 	goRoot := t.TempDir()
 	sourceFS := fstest.MapFS{
-		"overlay/net_fake.go": &fstest.MapFile{Data: []byte("package net\n")},
+		"overlay/net_fake.go.txt": &fstest.MapFile{Data: []byte("package net\n")},
 	}
 	sources := []overlaySource{{
 		targetPath:   "src/net/net_fake.go",
-		embeddedPath: "overlay/net_fake.go",
+		embeddedPath: "overlay/net_fake.go.txt",
 	}}
 	configPath, cleanup, err := writeOverlay(goRoot, sourceFS, sources)
 	if err != nil {
@@ -252,9 +252,9 @@ func TestRunInjectsOverlayAndPreservesExitCode(t *testing.T) {
 		requiredOverlaySources = originalSources
 	})
 	requiredOverlaySources = []overlaySource{
-		testOverlaySource(t, root, "src/net/net_fake.go", "overlay/net_fake.go"),
-		testOverlaySource(t, root, "src/net/lookup_unix.go", "overlay/lookup_unix.go"),
-		testOverlaySource(t, root, "src/net/http/transport_default_wasm.go", "overlay/transport_default_wasm.go"),
+		testOverlaySource(t, root, "src/net/net_fake.go", "overlay/net_fake.go.txt"),
+		testOverlaySource(t, root, "src/net/lookup_unix.go", "overlay/lookup_unix.go.txt"),
+		testOverlaySource(t, root, "src/net/http/transport_default_wasm.go", "overlay/transport_default_wasm.go.txt"),
 	}
 
 	var captured invocation
@@ -343,7 +343,7 @@ func TestRunRejectsGoRun(t *testing.T) {
 func TestEmbeddedOverlayABI(t *testing.T) {
 	t.Parallel()
 
-	data, err := fs.ReadFile(embeddedOverlays, "overlay/net_fake.go")
+	data, err := fs.ReadFile(embeddedOverlays, "overlay/net_fake.go.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -371,8 +371,17 @@ func TestEmbeddedOverlayABI(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // The integration test validates toolchain discovery, overlay compilation, and Wasm imports together.
 func TestEmbeddedOverlayCompilesWithCompatibleGo(t *testing.T) {
-	goRoot := runtime.GOROOT()
+	goBinary, err := exec.LookPath("go")
+	if err != nil {
+		t.Skipf("host Go is unavailable: %v", err)
+	}
+	goRootOutput, err := exec.Command(goBinary, "env", "GOROOT").CombinedOutput()
+	if err != nil {
+		t.Skipf("locate host Go root: %v: %s", err, goRootOutput)
+	}
+	goRoot := strings.TrimSpace(string(goRootOutput))
 	if err := validateToolchain(goRoot, requiredOverlaySources); err != nil {
 		t.Skipf("host Go does not have the compatible %s standard library: %v", requiredGoVersion, err)
 	}
@@ -383,13 +392,9 @@ func TestEmbeddedOverlayCompilesWithCompatibleGo(t *testing.T) {
 	}
 	defer cleanup()
 
-	goName := "go"
-	if runtime.GOOS == "windows" {
-		goName += ".exe"
-	}
 	outputPath := filepath.Join(t.TempDir(), "http-compile.wasm")
 	cmd := exec.Command(
-		filepath.Join(goRoot, "bin", goName),
+		goBinary,
 		"build",
 		"-trimpath",
 		"-overlay="+configPath,
@@ -417,12 +422,20 @@ func TestEmbeddedOverlayCompilesWithCompatibleGo(t *testing.T) {
 
 	ctx := context.Background()
 	wasmRuntime := wazero.NewRuntime(ctx)
-	defer wasmRuntime.Close(ctx)
+	t.Cleanup(func() {
+		if err := wasmRuntime.Close(ctx); err != nil {
+			t.Errorf("close Wasm runtime: %v", err)
+		}
+	})
 	compiled, err := wasmRuntime.CompileModule(ctx, wasm)
 	if err != nil {
 		t.Fatalf("wazero rejected compiler output: %v", err)
 	}
-	defer compiled.Close(ctx)
+	t.Cleanup(func() {
+		if err := compiled.Close(ctx); err != nil {
+			t.Errorf("close compiled module: %v", err)
+		}
+	})
 
 	imports := map[string]bool{}
 	for _, definition := range compiled.ImportedFunctions() {

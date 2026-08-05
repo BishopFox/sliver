@@ -90,7 +90,7 @@ func (w *WasmExtension) Execute(args []string) (uint32, error) {
 	conf := w.config.WithArgs(args...)
 	module, err := w.runtime.InstantiateModule(w.ctx, w.mod, conf)
 	if module != nil {
-		defer module.Close(w.ctx)
+		defer func() { _ = module.Close(w.ctx) }()
 	}
 	if err != nil {
 		// Note: Most compilers do not exit the module after running "_start",

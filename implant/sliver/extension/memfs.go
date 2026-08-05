@@ -665,6 +665,7 @@ func (w *WasmMemoryFS) OpenFile(name string, flag experimentalsys.Oflag, perm fs
 	return state.openFile(subpath, flag, perm)
 }
 
+//nolint:gocyclo // Open flag validation and creation are one atomic filesystem state transition.
 func (state *wasmMemoryFSState) openFile(name string, flag experimentalsys.Oflag, perm fs.FileMode) (experimentalsys.File, experimentalsys.Errno) {
 	if flag & ^knownWasmMemoryOpenFlags() != 0 {
 		return nil, experimentalsys.EINVAL
@@ -870,6 +871,7 @@ func (w *WasmMemoryFS) Rename(from, to string) experimentalsys.Errno {
 	return state.rename(fromSubpath, toSubpath)
 }
 
+//nolint:gocyclo // Rename compatibility checks must execute under one filesystem lock.
 func (state *wasmMemoryFSState) rename(from, to string) experimentalsys.Errno {
 	fromSegments, errno := normalizeWasmMemoryPath(from)
 	if errno != 0 {
@@ -1298,6 +1300,8 @@ func readWasmMemoryAt(node *wasmMemoryNode, buffer []byte, offset int64) int {
 }
 
 // Seek implements experimental/sys.File.
+//
+//nolint:govet // The experimental/sys.File interface requires an Errno result.
 func (file *wasmMemoryFile) Seek(offset int64, whence int) (int64, experimentalsys.Errno) {
 	file.mu.Lock()
 	defer file.mu.Unlock()
@@ -1589,7 +1593,7 @@ func (w *WasmMemoryFS) ReadFile(name string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	data, err := io.ReadAll(file)
 	if err != nil {
 		return nil, err
@@ -1603,27 +1607,12 @@ func (w *WasmMemoryFS) ReadDir(name string) ([]fs.DirEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	directory, ok := file.(fs.ReadDirFile)
 	if !ok {
 		return nil, &fs.PathError{Op: "readdir", Path: name, Err: fs.ErrInvalid}
 	}
 	return directory.ReadDir(-1)
-}
-
-// memFSPath retains the historical helper behavior.
-func (w *WasmMemoryFS) memFSPath(name string) string {
-	pathName, ok := splitWasmMemoryPath(name)
-	if !ok {
-		return ""
-	}
-	return pathName
-}
-
-// isMemFSPath retains the historical helper behavior.
-func (w *WasmMemoryFS) isMemFSPath(name string) bool {
-	_, ok := splitWasmMemoryPath(name)
-	return ok
 }
 
 type wasmMemoryFSFile struct {

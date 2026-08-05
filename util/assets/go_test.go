@@ -122,6 +122,60 @@ func TestWasmGoWrapperName(t *testing.T) {
 	}
 }
 
+func TestWasmGoWrapperMode(t *testing.T) {
+	t.Parallel()
+
+	if got := wasmGoWrapperMode("windows"); got != 0o644 {
+		t.Errorf("Windows wrapper mode = %v, want 0644", got)
+	}
+	if got := wasmGoWrapperMode("linux"); got != 0o755 {
+		t.Errorf("Linux wrapper mode = %v, want 0755", got)
+	}
+}
+
+func TestWasmGoWrapperArchiveAppliesTargetMode(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	wrapperPath := filepath.Join(root, "go", "bin", wasmGoWrapperName("darwin"))
+	if err := os.MkdirAll(filepath.Dir(wrapperPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(wrapperPath, []byte{0xcf, 0xfa, 0xed, 0xfe}, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	archivePath := filepath.Join(t.TempDir(), "go.zip")
+	entryPath := "go/bin/" + wasmGoWrapperName("darwin")
+	if err := zipDirWithModeOverrides(root, "go", archivePath, map[string]os.FileMode{
+		entryPath: wasmGoWrapperMode("darwin"),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	archive, err := zip.OpenReader(archivePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := archive.Close(); err != nil {
+			t.Errorf("close wrapper archive: %v", err)
+		}
+	})
+	for _, file := range archive.File {
+		if file.Name == entryPath {
+			if got := file.Mode().Perm(); got != 0o755 {
+				t.Fatalf("wrapper mode = %v, want 0755", got)
+			}
+			if err := verifyWasmGoWrapperArchive(archivePath, goPlatform{os: "darwin"}); err != nil {
+				t.Fatal(err)
+			}
+			return
+		}
+	}
+	t.Fatalf("%s is missing from archive", entryPath)
+}
+
 func TestBuildWasmGoWrapper(t *testing.T) {
 	goRoot := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(goRoot, "bin"), 0o700); err != nil {

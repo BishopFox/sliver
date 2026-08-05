@@ -169,7 +169,7 @@ func runWasmTestModule(t *testing.T, wasm []byte, args []string) ([]byte, []byte
 	t.Helper()
 	extension, err := NewWasmExtension(t.Name(), wasm, nil)
 	mustNoError(t, err)
-	defer extension.Close()
+	defer func() { _ = extension.Close() }()
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer

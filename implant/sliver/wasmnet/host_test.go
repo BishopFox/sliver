@@ -41,7 +41,9 @@ func TestWasmNetworkTCP(t *testing.T) {
 		if acceptErr != nil {
 			return
 		}
-		defer conn.Close()
+		defer func() {
+			_ = conn.Close()
+		}()
 		buffer := make([]byte, 32)
 		n, readErr := conn.Read(buffer)
 		if readErr == nil {

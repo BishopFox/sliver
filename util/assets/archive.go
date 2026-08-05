@@ -132,6 +132,10 @@ func extractZip(archivePath, destDir string) error {
 }
 
 func zipDir(baseDir, relRoot, destZip string) error {
+	return zipDirWithModeOverrides(baseDir, relRoot, destZip, nil)
+}
+
+func zipDirWithModeOverrides(baseDir, relRoot, destZip string, modeOverrides map[string]fs.FileMode) error {
 	root := filepath.Join(baseDir, relRoot)
 
 	if err := ensureDir(filepath.Dir(destZip)); err != nil {
@@ -167,6 +171,9 @@ func zipDir(baseDir, relRoot, destZip string) error {
 		}
 
 		header.Name = filepath.ToSlash(rel)
+		if mode, ok := modeOverrides[header.Name]; ok {
+			header.SetMode(mode)
+		}
 		if info.IsDir() {
 			if !strings.HasSuffix(header.Name, "/") {
 				header.Name += "/"

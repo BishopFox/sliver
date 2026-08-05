@@ -117,7 +117,9 @@ func runNonInteractive(req *pb.ExecWasmExtensionReq, wasm *extension.WasmExtensi
 	log.Printf("Executing non-interactive wasm extension")
 	// {{end}}
 
-	defer wasm.Close()
+	defer func() {
+		_ = wasm.Close()
+	}()
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 	var readers sync.WaitGroup
@@ -207,7 +209,7 @@ func runInteractive(req *pb.ExecWasmExtensionReq, conn *transports.Connection, w
 		// {{end}}
 		wasm.Stdout.Writer.Write([]byte(fmt.Sprintf("\r\n*** exit code %d ***\r\n", exitCode)))
 		wasm.Stdout.Writer.Write([]byte("Wait 10 seconds and press <enter> to continue ...\r\n"))
-		wasm.Close()
+		_ = wasm.Close()
 		tunnel.Close()
 		return exitCode, err
 	}()

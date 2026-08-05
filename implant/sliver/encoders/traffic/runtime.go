@@ -16,6 +16,7 @@ import (
 
 const trafficEncoderMemoryLimitPages = 4096 // 256 MiB
 
+//nolint:gocyclo // Runtime setup is intentionally kept together so every partial initialization is cleaned up.
 func createTrafficEncoder(
 	name string,
 	wasm []byte,

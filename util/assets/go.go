@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 )
 
@@ -157,7 +156,11 @@ func (r *runner) buildGoAssets() error {
 			return err
 		}
 		destZip := filepath.Join(outputDir, "go.zip")
-		if err := zipDir(r.workDir, "go", destZip); err != nil {
+		wrapperPath := "go/bin/" + wasmGoWrapperName(platform.os)
+		modeOverrides := map[string]os.FileMode{
+			wrapperPath: wasmGoWrapperMode(platform.os),
+		}
+		if err := zipDirWithModeOverrides(r.workDir, "go", destZip, modeOverrides); err != nil {
 			return err
 		}
 		if err := verifyWasmGoWrapperArchive(destZip, platform); err != nil {
@@ -207,11 +210,10 @@ func buildWasmGoWrapper(goRoot string, platform goPlatform) error {
 		return err
 	}
 
-	hostGoName := "go"
-	if runtime.GOOS == "windows" {
-		hostGoName += ".exe"
+	hostGo, err := exec.LookPath("go")
+	if err != nil {
+		return fmt.Errorf("find host Go executable: %w", err)
 	}
-	hostGo := filepath.Join(runtime.GOROOT(), "bin", hostGoName)
 	outputPath := filepath.Join(goRoot, "bin", wasmGoWrapperName(platform.os))
 	cmd := exec.Command(
 		hostGo,
@@ -244,11 +246,7 @@ func buildWasmGoWrapper(goRoot string, platform goPlatform) error {
 			strings.TrimSpace(string(output)),
 		)
 	}
-	mode := os.FileMode(0o755)
-	if platform.os == "windows" {
-		mode = 0o644
-	}
-	if err := os.Chmod(outputPath, mode); err != nil {
+	if err := os.Chmod(outputPath, wasmGoWrapperMode(platform.os)); err != nil {
 		return fmt.Errorf("set sliver-wasm-go permissions: %w", err)
 	}
 	return nil
@@ -284,12 +282,21 @@ func wasmGoWrapperName(goos string) string {
 	return "sliver-wasm-go"
 }
 
+func wasmGoWrapperMode(goos string) os.FileMode {
+	if goos == "windows" {
+		return 0o644
+	}
+	return 0o755
+}
+
 func verifyWasmGoWrapperArchive(archivePath string, platform goPlatform) error {
 	reader, err := zip.OpenReader(archivePath)
 	if err != nil {
 		return fmt.Errorf("open generated Go archive: %w", err)
 	}
-	defer reader.Close()
+	defer func() {
+		_ = reader.Close()
+	}()
 
 	expectedPath := "go/bin/" + wasmGoWrapperName(platform.os)
 	for _, file := range reader.File {

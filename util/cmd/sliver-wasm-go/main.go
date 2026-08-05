@@ -32,22 +32,22 @@ type overlaySource struct {
 var requiredOverlaySources = []overlaySource{
 	{
 		targetPath:   "src/net/net_fake.go",
-		embeddedPath: "overlay/net_fake.go",
+		embeddedPath: "overlay/net_fake.go.txt",
 		sha256:       "784b369c57be52fa87ace5f10e07e3c24b45d549639e1487734b793024188df3",
 	},
 	{
 		targetPath:   "src/net/lookup_unix.go",
-		embeddedPath: "overlay/lookup_unix.go",
+		embeddedPath: "overlay/lookup_unix.go.txt",
 		sha256:       "7fc0ecb91aa268d3dbd6dad3b6b806d92223e11782d6fc1b4dcc4f5f9a4b788e",
 	},
 	{
 		targetPath:   "src/net/http/transport_default_wasm.go",
-		embeddedPath: "overlay/transport_default_wasm.go",
+		embeddedPath: "overlay/transport_default_wasm.go.txt",
 		sha256:       "45f994092ea1a8c432f97fc3d4673a251eabe87fd0310d2d20bbb0c3bd637993",
 	},
 }
 
-//go:embed overlay/*.go
+//go:embed overlay/*.go.txt
 var embeddedOverlays embed.FS
 
 type overlayJSON struct {

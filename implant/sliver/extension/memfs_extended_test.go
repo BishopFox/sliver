@@ -145,7 +145,7 @@ func memFSTestReadPath(t *testing.T, memFS *memFSTestFS, name string) []byte {
 	t.Helper()
 
 	file := memFSTestOpen(t, memFS, name, experimentalsys.O_RDONLY)
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	return memFSTestReadAll(t, file)
 }
 
@@ -241,10 +241,11 @@ func TestWasmMemoryFSExtendedOpenFlagsAndAccess(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // The test validates the complete positioned-I/O state sequence.
 func TestWasmMemoryFSExtendedPositionedIOSeekAndTruncate(t *testing.T) {
 	memFS := memFSTestNew(t, map[string][]byte{"position.txt": []byte("abcdef")})
 	file := memFSTestOpen(t, memFS, "position.txt", experimentalsys.O_RDWR)
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	if offset, errno := file.Seek(2, io.SeekStart); errno != 0 || offset != 2 {
 		t.Fatalf("SeekStart: offset=%d errno=%v", offset, errno)
@@ -335,6 +336,7 @@ func TestWasmMemoryFSExtendedAppend(t *testing.T) {
 	memFSTestRequireErrno(t, 0, file.Close())
 }
 
+//nolint:gocyclo // The test covers directory iteration and related metadata as one scenario.
 func TestWasmMemoryFSExtendedDirectoriesAndMetadata(t *testing.T) {
 	memFS := memFSTestNew(t, map[string][]byte{
 		"a/one.txt":       []byte("one"),
@@ -362,7 +364,7 @@ func TestWasmMemoryFSExtendedDirectoriesAndMetadata(t *testing.T) {
 	}
 
 	dir := memFSTestOpen(t, memFS, "a", experimentalsys.O_RDONLY|experimentalsys.O_DIRECTORY)
-	defer dir.Close()
+	defer func() { _ = dir.Close() }()
 	var names []string
 	for {
 		entries, errno := dir.Readdir(1)
@@ -481,6 +483,7 @@ func TestWasmMemoryFSExtendedRenameUnlinkAndRmdir(t *testing.T) {
 	memFSTestRequireErrno(t, 0, open.Close())
 }
 
+//nolint:gocyclo // Hard-link and symbolic-link compatibility are paired coverage.
 func TestWasmMemoryFSExtendedLinks(t *testing.T) {
 	t.Run("hard link", func(t *testing.T) {
 		memFS := memFSTestNew(t, map[string][]byte{"target.txt": []byte("target")})
@@ -607,6 +610,7 @@ func TestWasmMemoryFSExtendedReadOnly(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // The legacy API and traversal checks form one compatibility scenario.
 func TestWasmMemoryFSExtendedLegacyOpenAndPassthroughSafety(t *testing.T) {
 	memFS := memFSTestNew(t, map[string][]byte{"nested/seed.txt": []byte("memory")})
 	for _, name := range []string{"memfs/nested/seed.txt", "/memfs/nested/seed.txt"} {
@@ -671,6 +675,7 @@ func TestWasmMemoryFSExtendedLegacyOpenAndPassthroughSafety(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // The concurrency test validates append and positioned-write invariants together.
 func TestWasmMemoryFSExtendedConcurrentAccess(t *testing.T) {
 	memFS := memFSTestNew(t, map[string][]byte{"append.log": nil, "blocks.bin": nil})
 
@@ -690,7 +695,7 @@ func TestWasmMemoryFSExtendedConcurrentAccess(t *testing.T) {
 				errCh <- errno
 				return
 			}
-			defer file.Close()
+			defer func() { _ = file.Close() }()
 			for j := 0; j < writes; j++ {
 				if n, errno := file.Write(record); errno != 0 || n != len(record) {
 					errCh <- fmt.Errorf("append n=%d errno=%v", n, errno)
@@ -723,7 +728,7 @@ func TestWasmMemoryFSExtendedConcurrentAccess(t *testing.T) {
 				errCh <- errno
 				return
 			}
-			defer file.Close()
+			defer func() { _ = file.Close() }()
 			block := bytes.Repeat([]byte{byte(index + 1)}, blockSize)
 			if n, errno := file.Pwrite(block, int64(index*blockSize)); errno != 0 || n != len(block) {
 				errCh <- fmt.Errorf("pwrite n=%d errno=%v", n, errno)

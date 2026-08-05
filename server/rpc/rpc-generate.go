@@ -982,7 +982,9 @@ func testTrafficEncoder(ctx context.Context, req *clientpb.TrafficEncoder, progr
 		rpcLog.Errorf("Failed to create traffic encoder: %s", err.Error())
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	defer encoder.Close()
+	defer func() {
+		_ = encoder.Close()
+	}()
 
 	// Test Suite for Traffic Encoders
 	testSuite := []string{

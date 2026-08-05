@@ -26,6 +26,7 @@ import (
 	experimentalsys "github.com/tetratelabs/wazero/experimental/sys"
 )
 
+//nolint:gocyclo // The fuzz dispatcher verifies every mutating operation remains read-only.
 func FuzzWasmMemoryFSReadOnlyInvariant(f *testing.F) {
 	f.Add([]byte{})
 	f.Add([]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})

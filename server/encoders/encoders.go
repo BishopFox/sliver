@@ -352,6 +352,7 @@ func RandomEncoder() (uint64, encutil.Encoder) {
 	return nonce, registeredEncoder{id: encoderID}
 }
 
+// TrafficEncoderMapSnapshot returns a shallow copy of the registered traffic encoders.
 func TrafficEncoderMapSnapshot() map[uint64]*traffic.TrafficEncoder {
 	encoderMapMu.RLock()
 	defer encoderMapMu.RUnlock()

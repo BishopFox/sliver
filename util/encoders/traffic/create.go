@@ -1,3 +1,4 @@
+// Package traffic provides WASM-based traffic encoding and decoding.
 package traffic
 
 import "github.com/tetratelabs/wazero"

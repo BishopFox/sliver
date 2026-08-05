@@ -79,7 +79,7 @@ func TestWasmMemoryFSEdgeCreateDirectoryFlagIsAtomic(t *testing.T) {
 func TestWasmMemoryFSEdgePositionedWriteOnAppendHandle(t *testing.T) {
 	memFS := memFSTestNew(t, map[string][]byte{"append.txt": []byte("a")})
 	file := memFSTestOpen(t, memFS, "append.txt", experimentalsys.O_WRONLY|experimentalsys.O_APPEND)
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	if n, errno := file.Pwrite([]byte("x"), 0); errno != experimentalsys.EINVAL || n != 0 {
 		t.Fatalf("Pwrite on an append handle: n=%d errno=%v", n, errno)
@@ -115,7 +115,7 @@ func TestWasmMemoryFSEdgeUtimensBothOmittedIsNoOp(t *testing.T) {
 	}
 
 	file := memFSTestOpen(t, memFS, "time.txt", experimentalsys.O_RDONLY)
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	memFSTestRequireErrno(t, 0, file.Utimens(
 		experimentalsys.UTIME_OMIT,
 		experimentalsys.UTIME_OMIT,
@@ -127,6 +127,7 @@ func TestWasmMemoryFSEdgeUtimensBothOmittedIsNoOp(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // Subtests intentionally cover each independent resource quota.
 func TestWasmMemoryFSEdgeResourceQuotas(t *testing.T) {
 	t.Run("entries are bounded and reclaimed", func(t *testing.T) {
 		raw, err := NewWasmMemoryFS(nil, wasmMemoryFSEdgeLimits(32, 2, 8))
@@ -219,8 +220,8 @@ func TestWasmMemoryFSEdgeConcurrentChmodPreservesNodeTypes(t *testing.T) {
 	memFSTestRequireErrno(t, 0, memFS.Mkdir("dir", 0o700))
 	file := memFSTestOpen(t, memFS, "file", experimentalsys.O_RDONLY)
 	directory := memFSTestOpen(t, memFS, "dir", experimentalsys.O_RDONLY|experimentalsys.O_DIRECTORY)
-	defer file.Close()
-	defer directory.Close()
+	defer func() { _ = file.Close() }()
+	defer func() { _ = directory.Close() }()
 
 	const iterations = 1000
 	errCh := make(chan error, 4)
@@ -334,6 +335,7 @@ func TestWasmMemoryFSEdgeSymlinkTargetBounds(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // The test checks all passthrough escape and mutation boundaries together.
 func TestWasmMemoryFSEdgeRawPassthroughIsReadOnlyAndIsolated(t *testing.T) {
 	raw, err := NewWasmMemoryFS(map[string][]byte{"seed.txt": []byte("memory")})
 	if err != nil {
@@ -449,6 +451,7 @@ func TestWasmMemoryFSEdgeConcurrentLazyPointerInitialization(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // The concurrency test intentionally exercises both filesystem interfaces.
 func TestWasmMemoryFSEdgeConcurrentMixedInterfaces(t *testing.T) {
 	testCases := map[string]func(*testing.T) *WasmMemoryFS{
 		"constructor": func(t *testing.T) *WasmMemoryFS {

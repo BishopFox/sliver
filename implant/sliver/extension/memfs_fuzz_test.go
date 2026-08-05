@@ -85,6 +85,7 @@ func FuzzWasmMemoryFSPaths(f *testing.F) {
 	})
 }
 
+//nolint:gocyclo // The fuzz bytecode intentionally dispatches every filesystem operation.
 func FuzzWasmMemoryFSOperations(f *testing.F) {
 	f.Add([]byte{})
 	f.Add([]byte{0, 3, 'a', 'b', 2, 4, 0, 0, 4, 8, 0, 0})

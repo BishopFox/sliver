@@ -7,6 +7,7 @@ import (
 	"syscall"
 )
 
+//nolint:gocyclo // The host-to-WASI errno mapping is intentionally exhaustive.
 func wasmNetworkSystemErrno(err error) (uint32, bool) {
 	switch {
 	case errors.Is(err, syscall.EACCES):

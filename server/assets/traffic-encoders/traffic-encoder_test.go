@@ -100,6 +100,7 @@ func TestTrafficEncoderCompatibility_hex(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // This integration test intentionally exercises each network operation and shutdown path.
 func TestTrafficEncoderCompatibility_Network(t *testing.T) {
 	wasmPath := buildNetworkTrafficEncoder(t)
 	wasm, err := os.ReadFile(wasmPath)
@@ -320,7 +321,11 @@ func startTCPEcho(t *testing.T) string {
 				return
 			}
 			go func() {
-				defer connection.Close()
+				defer func() {
+					if closeErr := connection.Close(); closeErr != nil {
+						t.Errorf("close TCP echo connection: %v", closeErr)
+					}
+				}()
 				buffer := make([]byte, 1024)
 				count, readErr := connection.Read(buffer)
 				if readErr == nil {
@@ -349,7 +354,11 @@ func startTCPBlackhole(t *testing.T) (string, <-chan struct{}) {
 		if acceptErr != nil {
 			return
 		}
-		defer connection.Close()
+		defer func() {
+			if closeErr := connection.Close(); closeErr != nil {
+				t.Errorf("close TCP blackhole connection: %v", closeErr)
+			}
+		}()
 		close(accepted)
 		<-stop
 	}()

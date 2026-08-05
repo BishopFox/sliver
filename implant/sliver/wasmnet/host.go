@@ -47,37 +47,37 @@ const (
 // syscall numbers.
 const (
 	wasiErrnoSuccess              uint32 = 0
-	wasiErrnoAccess                      = 2
-	wasiErrnoAddrInUse                   = 3
-	wasiErrnoAddrNotAvailable            = 4
-	wasiErrnoAddressFamily               = 5
-	wasiErrnoAgain                       = 6
-	wasiErrnoBadFile                     = 8
-	wasiErrnoCanceled                    = 11
-	wasiErrnoConnAborted                 = 13
-	wasiErrnoConnRefused                 = 14
-	wasiErrnoConnReset                   = 15
-	wasiErrnoFault                       = 21
-	wasiErrnoHostUnreachable             = 23
-	wasiErrnoInterrupted                 = 27
-	wasiErrnoInvalid                     = 28
-	wasiErrnoIO                          = 29
-	wasiErrnoIsConnected                 = 30
-	wasiErrnoMessageSize                 = 35
-	wasiErrnoNetworkDown                 = 38
-	wasiErrnoNetworkReset                = 39
-	wasiErrnoNetworkUnreachable          = 40
-	wasiErrnoNoBuffer                    = 42
-	wasiErrnoNoEntry                     = 44
-	wasiErrnoNoProtocolOption            = 50
-	wasiErrnoNotImplemented              = 52
-	wasiErrnoNotConnected                = 53
-	wasiErrnoNotSocket                   = 57
-	wasiErrnoNotSupported                = 58
-	wasiErrnoPipe                        = 64
-	wasiErrnoProtocolNotSupported        = 66
-	wasiErrnoRange                       = 68
-	wasiErrnoTimedOut                    = 73
+	wasiErrnoAccess               uint32 = 2
+	wasiErrnoAddrInUse            uint32 = 3
+	wasiErrnoAddrNotAvailable     uint32 = 4
+	wasiErrnoAddressFamily        uint32 = 5
+	wasiErrnoAgain                uint32 = 6
+	wasiErrnoBadFile              uint32 = 8
+	wasiErrnoCanceled             uint32 = 11
+	wasiErrnoConnAborted          uint32 = 13
+	wasiErrnoConnRefused          uint32 = 14
+	wasiErrnoConnReset            uint32 = 15
+	wasiErrnoFault                uint32 = 21
+	wasiErrnoHostUnreachable      uint32 = 23
+	wasiErrnoInterrupted          uint32 = 27
+	wasiErrnoInvalid              uint32 = 28
+	wasiErrnoIO                   uint32 = 29
+	wasiErrnoIsConnected          uint32 = 30
+	wasiErrnoMessageSize          uint32 = 35
+	wasiErrnoNetworkDown          uint32 = 38
+	wasiErrnoNetworkReset         uint32 = 39
+	wasiErrnoNetworkUnreachable   uint32 = 40
+	wasiErrnoNoBuffer             uint32 = 42
+	wasiErrnoNoEntry              uint32 = 44
+	wasiErrnoNoProtocolOption     uint32 = 50
+	wasiErrnoNotImplemented       uint32 = 52
+	wasiErrnoNotConnected         uint32 = 53
+	wasiErrnoNotSocket            uint32 = 57
+	wasiErrnoNotSupported         uint32 = 58
+	wasiErrnoPipe                 uint32 = 64
+	wasiErrnoProtocolNotSupported uint32 = 66
+	wasiErrnoRange                uint32 = 68
+	wasiErrnoTimedOut             uint32 = 73
 )
 
 type wasmNetworkSocket struct {
@@ -131,6 +131,7 @@ type wasmNetworkOperation struct {
 	result      wasmNetworkResult
 }
 
+// Host implements the Sliver WASI networking host module.
 type Host struct {
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -157,10 +158,12 @@ func newWasmNetwork(parent context.Context) *Host {
 	}
 }
 
+// New returns a networking Host derived from parent.
 func New(parent context.Context) *Host {
 	return newWasmNetwork(parent)
 }
 
+// Instantiate registers and instantiates the networking host module in runtime.
 func (w *Host) Instantiate(ctx context.Context, runtime wazero.Runtime) (api.Module, error) {
 	builder := runtime.NewHostModuleBuilder(ModuleName)
 	builder.NewFunctionBuilder().WithFunc(w.hostDialStart).Export("dial_start")
@@ -180,6 +183,7 @@ func (w *Host) Instantiate(ctx context.Context, runtime wazero.Runtime) (api.Mod
 	return builder.Instantiate(ctx)
 }
 
+// Close cancels in-flight operations and closes every socket owned by the host.
 func (w *Host) Close() error {
 	w.cancel()
 
@@ -515,8 +519,8 @@ func (w *Host) accept(ctx context.Context, handle uint32, _ int64) wasmNetworkRe
 	return wasmNetworkResult{handle: acceptedHandle}
 }
 
-func (w *Host) read(ctx context.Context, handle, max uint32, _ int64) wasmNetworkResult {
-	if max > wasmNetworkMaxBuffer {
+func (w *Host) read(ctx context.Context, handle, maxLen uint32, _ int64) wasmNetworkResult {
+	if maxLen > wasmNetworkMaxBuffer {
 		return wasmNetworkResult{errno: wasiErrnoMessageSize}
 	}
 	socket, errno := w.socket(handle)
@@ -530,7 +534,7 @@ func (w *Host) read(ctx context.Context, handle, max uint32, _ int64) wasmNetwor
 		_ = socket.conn.SetReadDeadline(time.Now())
 	})
 	defer stopInterrupt()
-	data := make([]byte, max)
+	data := make([]byte, maxLen)
 	n, err := socket.conn.Read(data)
 	if ctx.Err() != nil && n == 0 {
 		err = ctx.Err()
@@ -560,8 +564,8 @@ func (w *Host) write(ctx context.Context, handle uint32, data []byte, _ int64) w
 	return wasmNetworkResult{n: uint32(n), errno: wasmNetworkErrno(err)}
 }
 
-func (w *Host) recvFrom(ctx context.Context, handle, max uint32, _ int64) wasmNetworkResult {
-	if max > wasmNetworkMaxBuffer {
+func (w *Host) recvFrom(ctx context.Context, handle, maxLen uint32, _ int64) wasmNetworkResult {
+	if maxLen > wasmNetworkMaxBuffer {
 		return wasmNetworkResult{errno: wasiErrnoMessageSize}
 	}
 	socket, errno := w.socket(handle)
@@ -575,7 +579,7 @@ func (w *Host) recvFrom(ctx context.Context, handle, max uint32, _ int64) wasmNe
 		_ = socket.packet.SetReadDeadline(time.Now())
 	})
 	defer stopInterrupt()
-	data := make([]byte, max)
+	data := make([]byte, maxLen)
 	n, addr, err := socket.packet.ReadFrom(data)
 	if ctx.Err() != nil && n == 0 {
 		err = ctx.Err()
@@ -729,18 +733,18 @@ func (w *Host) hostAcceptStart(
 func (w *Host) hostReadStart(
 	_ context.Context,
 	module api.Module,
-	handle, max uint32,
+	handle, maxLen uint32,
 	deadline int64,
 	opOut uint32,
 ) uint32 {
-	if max > wasmNetworkMaxBuffer {
+	if maxLen > wasmNetworkMaxBuffer {
 		return wasiErrnoMessageSize
 	}
 	if _, errno := w.socket(handle); errno != 0 {
 		return errno
 	}
-	op, errno := w.startOperation(uint64(max), func(ctx context.Context) wasmNetworkResult {
-		return w.read(ctx, handle, max, deadline)
+	op, errno := w.startOperation(uint64(maxLen), func(ctx context.Context) wasmNetworkResult {
+		return w.read(ctx, handle, maxLen, deadline)
 	})
 	if errno != 0 {
 		return errno
@@ -787,18 +791,18 @@ func (w *Host) hostWriteStart(
 func (w *Host) hostRecvFromStart(
 	_ context.Context,
 	module api.Module,
-	handle, max uint32,
+	handle, maxLen uint32,
 	deadline int64,
 	opOut uint32,
 ) uint32 {
-	if max > wasmNetworkMaxBuffer {
+	if maxLen > wasmNetworkMaxBuffer {
 		return wasiErrnoMessageSize
 	}
 	if _, errno := w.socket(handle); errno != 0 {
 		return errno
 	}
-	op, errno := w.startOperation(uint64(max), func(ctx context.Context) wasmNetworkResult {
-		return w.recvFrom(ctx, handle, max, deadline)
+	op, errno := w.startOperation(uint64(maxLen), func(ctx context.Context) wasmNetworkResult {
+		return w.recvFrom(ctx, handle, maxLen, deadline)
 	})
 	if errno != 0 {
 		return errno
@@ -874,6 +878,7 @@ func (w *Host) hostLookupStart(
 	return wasiErrnoSuccess
 }
 
+//nolint:gocyclo // Polling is a protocol state transition with defensive cleanup at each fault.
 func (w *Host) hostOperationPoll(
 	_ context.Context,
 	module api.Module,
