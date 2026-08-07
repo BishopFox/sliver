@@ -329,7 +329,7 @@ func coreImplantFlags(name string, cmd *cobra.Command) {
 		f.String("shellcode-encoder", "", "shellcode encoder to apply (optional; see `shellcode-encoders`)")
 		f.StringP("exports", "v", "StartW,VoidFunc,DllInstall,DllRegisterServer,DllUnregisterServer", "comma separated list of exports to include in the binary")
 		f.StringP("canary", "c", "", "canary domain(s)")
-
+		f.BoolP("virt", "V", false, "Collect host virtualization Information eg; vbox/vmware")
 		// C2 channels
 		f.StringP("mtls", "m", "", "mtls connection strings")
 		f.StringP("wg", "g", "", "wg connection strings")
