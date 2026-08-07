@@ -173,6 +173,7 @@ message ImplantConfig {
   string TemplateName = 13;
   bool SGNEnabled = 14;
   string GoPackage = 15;
+  bool SleepObfuscation = 21;
 
   bool IncludeMTLS = 53;
   bool IncludeHTTP = 16;

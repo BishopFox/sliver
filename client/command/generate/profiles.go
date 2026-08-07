@@ -165,21 +165,16 @@ func populateProfileProperties(config *clientpb.ImplantConfig) map[string]string
 		properties["obsymbols"] = "disabled"
 	}
 
-	properties["shellcodeencoder"] = "n/a"
-	if config.Format == clientpb.OutputFormat_SHELLCODE {
-		encoder := config.ShellcodeEncoder
-		if encoder == clientpb.ShellcodeEncoder_NONE && config.SGNEnabled {
-			encoder = clientpb.ShellcodeEncoder_SHIKATA_GA_NAI
-		}
-		properties["shellcodeencoder"] = map[clientpb.ShellcodeEncoder]string{
-			clientpb.ShellcodeEncoder_NONE:           "none",
-			clientpb.ShellcodeEncoder_SHIKATA_GA_NAI: "shikata_ga_nai",
-			clientpb.ShellcodeEncoder_XOR:            "xor",
-			clientpb.ShellcodeEncoder_XOR_DYNAMIC:    "xor_dynamic",
-		}[encoder]
-		if properties["shellcodeencoder"] == "" {
-			properties["shellcodeencoder"] = fmt.Sprintf("unknown (%d)", int32(encoder))
-		}
+	if config.SGNEnabled {
+		properties["sgn"] = "enabled"
+	} else {
+		properties["sgn"] = "disabled"
+	}
+
+	if config.SleepObfuscation {
+		properties["sleepobf"] = "enabled"
+	} else {
+		properties["sleepobf"] = "disabled"
 	}
 
 	reconnect := int(config.ReconnectInterval / int64(math.Pow10(9)))
@@ -324,8 +319,12 @@ func PrintProfileInfo(name string, con *console.SliverClient) {
 		properties["obsymbols"],
 	})
 	tw.AppendRow(table.Row{
-		"Shellcode encoder is",
-		properties["shellcodeencoder"],
+		"Shikata Ga Nai (SGN) is",
+		properties["sgn"],
+	})
+	tw.AppendRow(table.Row{
+		"Sleep obfuscation is",
+		properties["sleepobf"],
 	})
 
 	con.PrintInfof("Obfuscation\n")
