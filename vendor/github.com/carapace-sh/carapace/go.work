@@ -2,5 +2,6 @@ go 1.24
 
 use (
 	.
+	./example-multi
 	./example-nonposix
 )

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/carapace-sh/carapace/internal/common"
+	"github.com/carapace-sh/carapace/internal/env"
 	"github.com/carapace-sh/carapace/pkg/style"
 	"github.com/carapace-sh/carapace/third_party/github.com/elves/elvish/pkg/ui"
 )
@@ -45,7 +46,7 @@ func (z zstyles) Format() string {
 	)
 
 	formatted := make([]string, 0)
-	if len(z.rawValues) < 500 { // disable styling for large amount of values (bad performance)
+	if limit := env.ZshStyleLimit(); limit < 0 || len(z.rawValues) < limit { // disable styling for large amount of values (bad performance)
 		for _, val := range z.rawValues {
 			// match value with description
 			formatted = append(formatted, fmt.Sprintf("=(#b)(%v)([ ]## -- *)=0=%v=%v", replacer.Replace(val.Display), z.valueSGR(val), z.descriptionSGR()))

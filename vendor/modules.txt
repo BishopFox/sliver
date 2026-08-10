@@ -380,7 +380,7 @@ github.com/bwmarrin/discordgo
 # github.com/caarlos0/go-reddit/v3 v3.0.1
 ## explicit; go 1.17
 github.com/caarlos0/go-reddit/v3/reddit
-# github.com/carapace-sh/carapace v1.11.0
+# github.com/carapace-sh/carapace v1.15.0
 ## explicit; go 1.24
 github.com/carapace-sh/carapace
 github.com/carapace-sh/carapace/internal/cache
@@ -390,6 +390,7 @@ github.com/carapace-sh/carapace/internal/env
 github.com/carapace-sh/carapace/internal/export
 github.com/carapace-sh/carapace/internal/log
 github.com/carapace-sh/carapace/internal/man
+github.com/carapace-sh/carapace/internal/mock
 github.com/carapace-sh/carapace/internal/pflagfork
 github.com/carapace-sh/carapace/internal/shell
 github.com/carapace-sh/carapace/internal/shell/bash
@@ -399,6 +400,7 @@ github.com/carapace-sh/carapace/internal/shell/elvish
 github.com/carapace-sh/carapace/internal/shell/export
 github.com/carapace-sh/carapace/internal/shell/fish
 github.com/carapace-sh/carapace/internal/shell/ion
+github.com/carapace-sh/carapace/internal/shell/multi
 github.com/carapace-sh/carapace/internal/shell/nushell
 github.com/carapace-sh/carapace/internal/shell/oil
 github.com/carapace-sh/carapace/internal/shell/powershell

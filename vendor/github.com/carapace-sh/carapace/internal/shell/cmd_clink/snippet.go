@@ -2,10 +2,15 @@ package cmd_clink
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/carapace-sh/carapace/pkg/uid"
 	"github.com/spf13/cobra"
 )
+
+func sanitize(s string) string {
+	return strings.ReplaceAll(s, "-", "__")
+}
 
 func Snippet(cmd *cobra.Command) string {
 	result := fmt.Sprintf(`local function %[1]s_completion(word, word_index, line_state, match_builder)
@@ -13,7 +18,7 @@ func Snippet(cmd *cobra.Command) string {
     match_builder:setvolatile()
     os.setenv('CARAPACE_COMPLINE', line_state:getline():sub(1, line_state:getcursor()))
 
-    local file, pclose = io.popenyield('%[2]s _carapace cmd-clink %[1]s')
+    local file, pclose = io.popenyield('%[3]s _carapace cmd-clink %[2]s')
 
     if not file then
         return false
@@ -42,7 +47,7 @@ func Snippet(cmd *cobra.Command) string {
     return not match_builder:isempty()
 end
 
-clink.argmatcher(50, '%[1]s', '%[1]s.exe'):addarg({nowordbreakchars="'`+"`"+`=+;,", %[1]s_completion}):loop(1)
-`, cmd.Name(), uid.Executable())
+clink.argmatcher(50, '%[2]s', '%[2]s.exe'):addarg({nowordbreakchars="'`+"`"+`=+;,", %[1]s_completion}):loop(1)
+`, sanitize(cmd.Name()), cmd.Name(), uid.Executable())
 	return result
 }
