@@ -39,6 +39,9 @@ var (
 
 	// ErrInvalidTunnelID - Invalid tunnel ID value
 	ErrInvalidTunnelID = errors.New("invalid tunnel ID")
+
+	// ErrInvalidSessionID - Invalid session ID value
+	ErrInvalidSessionID = errors.New("invalid session ID")
 )
 
 const (
@@ -105,9 +108,12 @@ type tunnels struct {
 	mutex   *sync.Mutex
 }
 
-func (t *tunnels) Create(sessionID string) *Tunnel {
+func (t *tunnels) Create(sessionID string) (*Tunnel, error) {
 	tunnelID := NewTunnelID()
 	session := Sessions.Get(sessionID)
+	if session == nil {
+		return nil, ErrInvalidSessionID
+	}
 
 	tunnel := NewTunnel(
 		tunnelID,
@@ -118,7 +124,7 @@ func (t *tunnels) Create(sessionID string) *Tunnel {
 	defer t.mutex.Unlock()
 	t.tunnels[tunnel.ID] = tunnel
 
-	return tunnel
+	return tunnel, nil
 }
 
 // ScheduleClose - schedules a close for tunnel, must be called as routine.
