@@ -402,7 +402,10 @@ func (s *Server) CreateSocks(ctx context.Context, req *sliverpb.Socks) (*sliverp
 	if session == nil {
 		return nil, ErrInvalidSessionID
 	}
-	tunnel := core.SocksTunnels.Create(session.ID)
+	tunnel, err := core.SocksTunnels.Create(session.ID)
+	if err != nil {
+		return nil, rpcError(err)
+	}
 	if tunnel == nil {
 		return nil, ErrTunnelInitFailure
 	}
