@@ -75,6 +75,8 @@ func rpcError(err error) error {
 		return status.Error(codes.Unimplemented, err.Error())
 	case errors.Is(err, core.ErrInvalidTunnelID):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, core.ErrInvalidSessionID):
+		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, core.ErrDuplicateHosts):
 		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, core.ErrDuplicateExternalBuilderName):
