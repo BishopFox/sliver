@@ -57,11 +57,26 @@ var (
 
 // checkHTTPC2Config - Validate the HTTP C2 config, coerces common mistakes
 func checkHTTPC2Config(config *clientpb.HTTPC2Config) error {
+	coerceHeaderProbability(config.ServerConfig.Headers)
+	coerceHeaderProbability(config.ImplantConfig.Headers)
+
 	err := checkServerConfig(config.ServerConfig)
 	if err != nil {
 		return err
 	}
 	return checkImplantConfig(config.ImplantConfig)
+}
+
+// coerceHeaderProbability - Header probability defaults to the protobuf zero
+// value (0) when omitted from the config, which means the header is never sent
+// by the implant. Default to 100 so the header is always applied.
+func coerceHeaderProbability(headers []*clientpb.HTTPC2Header) {
+	for _, header := range headers {
+		if header.Probability == 0 {
+			httpC2ConfigLog.Warnf("Header %q is missing a probability, defaulting to 100", header.Name)
+			header.Probability = 100
+		}
+	}
 }
 
 func coerceFileExt(value string) string {
