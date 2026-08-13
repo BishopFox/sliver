@@ -49,9 +49,12 @@ type tcpTunnel struct {
 	mutex   *sync.Mutex
 }
 
-func (t *tcpTunnel) Create(sessionID string) *TcpTunnel {
+func (t *tcpTunnel) Create(sessionID string) (*TcpTunnel, error) {
 	tunnelID := NewTunnelID()
 	session := Sessions.Get(sessionID)
+	if session == nil {
+		return nil, ErrInvalidSessionID
+	}
 	tunnel := &TcpTunnel{
 		ID:        tunnelID,
 		SessionID: session.ID,
@@ -62,7 +65,7 @@ func (t *tcpTunnel) Create(sessionID string) *TcpTunnel {
 	defer t.mutex.Unlock()
 	t.tunnels[tunnel.ID] = tunnel
 
-	return tunnel
+	return tunnel, nil
 }
 
 func (t *tcpTunnel) Close(tunnelID uint64) error {
