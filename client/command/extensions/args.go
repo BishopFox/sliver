@@ -25,37 +25,25 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Extension commands are registered with cobra's DisableFlagParsing enabled (see
-// ExtensionRegisterCommand). Without it, pflag parses the command line first and,
-// because the extension's own flags (e.g. --type, --fqdn) are unknown to pflag,
-// ParseErrorsWhitelist.UnknownFlags causes pflag to silently drop each unknown
-// flag together with its value. The BOF argument parser therefore never sees them
-// and operators are forced to inject cobra's "--" separator (#2309).
-//
-// Running with flag parsing disabled means cobra hands us the raw, unstripped
-// argument slice, and we separate Sliver-owned flags from the extension's own
-// arguments ourselves. This keeps both forms working:
-//
-//	delegationbof --timeout 30 --type 6 --fqdn child.htb.local
-//	delegationbof -- --type 6 --fqdn child.htb.local   (existing workaround)
-//
-// while preserving quoted values, positional arguments and single/double-dash
-// flag forms for the extension parser to handle.
-var extensionOwnedBoolFlags = map[string]bool{
-	"save": true,
-}
-
-var extensionOwnedIntFlags = map[string]bool{
-	"timeout": true,
-}
-
 // splitExtensionArgs separates Sliver-owned flags (--save, --timeout, --help)
 // from the extension's own arguments in a raw argument slice.
 //
+// Extension commands run with cobra's DisableFlagParsing enabled (see
+// ExtensionRegisterCommand). Without it, pflag parses the command line first
+// and, because the extension's own flags (e.g. --type, --fqdn) are unknown to
+// pflag, ParseErrorsWhitelist.UnknownFlags causes pflag to silently drop each
+// unknown flag together with its value; the BOF argument parser never saw them
+// unless the operator injected cobra's "--" separator (#2309). Running with
+// flag parsing disabled hands us the raw, unstripped slice, so we separate the
+// Sliver-owned flags ourselves here.
+//
 // A literal "--" stops Sliver-flag scanning; every token after it is passed
 // through verbatim, preserving the long-standing workaround syntax. Unknown
-// tokens (including the extension's named flags, their values and positional
-// arguments) are never consumed or reordered.
+// tokens (the extension's named flags, their values and positional arguments)
+// are never consumed or reordered, so both forms work:
+//
+//	delegationbof --timeout 30 --type 6 --fqdn child.htb.local
+//	delegationbof -- --type 6 --fqdn child.htb.local
 func splitExtensionArgs(raw []string) (save bool, timeout int64, help bool, extArgs []string) {
 	timeout = defaultTimeout
 	extArgs = make([]string, 0, len(raw))
