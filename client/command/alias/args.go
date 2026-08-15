@@ -88,6 +88,13 @@ func aliasOwnedFlagSpecs(isAssembly bool) []ownedFlagSpec {
 	return append(specs, assemblyAliasOwnedFlags...)
 }
 
+// ownedFlagMatch is a raw token that spelled one of the Sliver-owned flags.
+type ownedFlagMatch struct {
+	spec   ownedFlagSpec
+	value  string // value from a "--flag=value" / "-f=value" spelling
+	inline bool   // whether the token carried its value inline
+}
+
 // splitAliasArgs separates the Sliver-owned flags from the alias payload's own
 // arguments in a raw (DisableFlagParsing) argument slice. It accepts the long
 // forms --flag, --flag=value, --flag value and the shorthand forms -f, -f=value,
@@ -103,15 +110,7 @@ func aliasOwnedFlagSpecs(isAssembly bool) []ownedFlagSpec {
 func splitAliasArgs(raw []string, specs []ownedFlagSpec) (map[string]string, bool, []string, error) {
 	values := make(map[string]string)
 	extArgs := make([]string, 0, len(raw))
-
-	byLong := make(map[string]ownedFlagSpec, len(specs))
-	byShort := make(map[string]ownedFlagSpec, len(specs))
-	for _, spec := range specs {
-		byLong[spec.long] = spec
-		if spec.short != "" {
-			byShort[spec.short] = spec
-		}
-	}
+	byLong, byShort := ownedFlagTables(specs)
 
 	passthrough := false
 	for i := 0; i < len(raw); i++ {
@@ -127,55 +126,93 @@ func splitAliasArgs(raw []string, specs []ownedFlagSpec) (map[string]string, boo
 			continue
 		}
 		if tok == "--help" || tok == "-h" {
-			help := true
-			return values, help, extArgs, nil
+			return values, true, extArgs, nil
 		}
 
-		var (
-			spec   ownedFlagSpec
-			value  string
-			inline bool
-			isFlag bool
-		)
-		switch {
-		case strings.HasPrefix(tok, "--"):
-			name, val, hasValue := strings.Cut(tok[2:], "=")
-			if spec, isFlag = byLong[name]; isFlag && hasValue {
-				value, inline = val, true
-			}
-		case strings.HasPrefix(tok, "-") && len(tok) > 1:
-			sh, val, hasValue := strings.Cut(tok[1:], "=")
-			if len(sh) == 1 {
-				if spec, isFlag = byShort[sh]; isFlag && hasValue {
-					value, inline = val, true
-				}
-			}
-		}
-
-		if !isFlag {
+		match, ok := matchOwnedFlag(tok, byLong, byShort)
+		if !ok {
 			// Not one of ours (including glued shorthands and the payload's
 			// own flags): the alias owns the token, pass it through untouched.
 			extArgs = append(extArgs, tok)
 			continue
 		}
-
-		switch {
-		case spec.kind == ownedBool:
-			if !inline {
-				value = "true"
-			}
-			values[spec.long] = value
-		case inline:
-			values[spec.long] = value
-		case i+1 < len(raw):
-			i++
-			values[spec.long] = raw[i]
-		default:
-			// Value flag as the very last token with no value: keep the
-			// flag's default and drop the dangling token.
-		}
+		i = takeOwnedValue(match, raw, i, values)
 	}
 
+	if err := validateOwnedValues(specs, values); err != nil {
+		return nil, false, nil, err
+	}
+	return values, false, extArgs, nil
+}
+
+// ownedFlagTables indexes the specs by long name and shorthand.
+func ownedFlagTables(specs []ownedFlagSpec) (byLong, byShort map[string]ownedFlagSpec) {
+	byLong = make(map[string]ownedFlagSpec, len(specs))
+	byShort = make(map[string]ownedFlagSpec, len(specs))
+	for _, spec := range specs {
+		byLong[spec.long] = spec
+		if spec.short != "" {
+			byShort[spec.short] = spec
+		}
+	}
+	return byLong, byShort
+}
+
+// matchOwnedFlag checks whether tok spells one of the Sliver-owned flags, in
+// the long form (--name, --name=value) or shorthand form (-f, -f=value). A
+// glued shorthand value (-pnotepad) deliberately does not match: pflag would
+// read "-pid" as -p with value "id", which is exactly the mangling that broke
+// #2264, so such tokens must fall through to the payload.
+func matchOwnedFlag(tok string, byLong, byShort map[string]ownedFlagSpec) (ownedFlagMatch, bool) {
+	var match ownedFlagMatch
+	var name, value string
+	var hasValue, isShort bool
+
+	switch {
+	case strings.HasPrefix(tok, "--"):
+		name, value, hasValue = strings.Cut(tok[2:], "=")
+	case strings.HasPrefix(tok, "-") && len(tok) > 1:
+		name, value, hasValue = strings.Cut(tok[1:], "=")
+		isShort = len(name) == 1
+	default:
+		return match, false
+	}
+
+	spec, ok := byLong[name]
+	if isShort {
+		spec, ok = byShort[name]
+	}
+	if !ok {
+		return match, false
+	}
+	match.spec, match.value, match.inline = spec, value, hasValue
+	return match, true
+}
+
+// takeOwnedValue records the flag's value in values and returns the index of
+// the last raw token it consumed. The "--flag value" / "-f value" spellings
+// consume the following token; a bool without an inline value defaults to
+// true; a value flag as the very last token is dropped and keeps its default,
+// mirroring the extension behaviour.
+func takeOwnedValue(match ownedFlagMatch, raw []string, i int, values map[string]string) int {
+	switch {
+	case match.spec.kind == ownedBool:
+		if !match.inline {
+			match.value = "true"
+		}
+		values[match.spec.long] = match.value
+	case match.inline:
+		values[match.spec.long] = match.value
+	case i+1 < len(raw):
+		values[match.spec.long] = raw[i+1]
+		return i + 1
+	}
+	return i
+}
+
+// validateOwnedValues rejects non-numeric values for the numeric flag kinds,
+// the way pflag's typed values would have.
+func validateOwnedValues(specs []ownedFlagSpec, values map[string]string) error {
 	for _, spec := range specs {
 		value, provided := values[spec.long]
 		if !provided {
@@ -189,11 +226,10 @@ func splitAliasArgs(raw []string, specs []ownedFlagSpec) (map[string]string, boo
 			_, err = strconv.ParseInt(value, 10, 64)
 		}
 		if err != nil {
-			return nil, false, nil, fmt.Errorf("invalid value %q for --%s", value, spec.long)
+			return fmt.Errorf("invalid value %q for --%s", value, spec.long)
 		}
 	}
-
-	return values, false, extArgs, nil
+	return nil
 }
 
 // applyOwnedAliasFlags republishes the manually parsed Sliver-owned flag values
