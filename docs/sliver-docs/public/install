@@ -18,6 +18,12 @@ if command -v minisign &> /dev/null; then
     MINISIGN_PKG=()
 fi
 
+# Detect Alpine Linux, which uses apk and OpenRC by default
+IS_ALPINE=""
+if command -v apk &> /dev/null || test -f /etc/alpine-release; then
+    IS_ALPINE="true"
+fi
+
 # Determine OS type
 # Debian-based OS (Debian, Ubuntu, etc)
 if command -v apt-get &> /dev/null; then
@@ -35,6 +41,10 @@ elif command -v pacman &>/dev/null; then # Arch-based (Manjaro, Garuda, Blackarc
         pacman --noconfirm -S "${MINISIGN_PKG[@]}"
     fi
     INSTALLER=(pacman --noconfirm -S)
+elif command -v apk &> /dev/null; then # Alpine-based
+    echo "Installing dependencies using apk..."
+    apk add --no-cache curl git make build-base "${MINISIGN_PKG[@]}"
+    INSTALLER=(apk add --no-cache)
 else
     echo "Unsupported OS, exiting"
     exit
@@ -67,6 +77,11 @@ stop_existing_sliver_daemon() {
     fi
 
     echo "Existing Sliver server install detected at $existing_sliver_server"
+
+    if [[ -n "$IS_ALPINE" ]] && command -v rc-service &> /dev/null && test -f /etc/init.d/sliver; then
+        echo "Stopping the Sliver OpenRC service before upgrade..."
+        rc-service sliver stop
+    fi
 
     if command -v systemctl &> /dev/null && test -f /etc/systemd/system/sliver.service; then
         if systemctl is-active --quiet sliver; then
@@ -149,9 +164,22 @@ else
     exit 3
 fi
 
-# systemd
-echo "Configuring systemd service ..."
-cat > /etc/systemd/system/sliver.service <<-EOF
+if [[ -n "$IS_ALPINE" ]]; then
+    # OpenRC
+    echo "Configuring OpenRC service ..."
+    cat > /etc/init.d/sliver <<-EOF
+#!/sbin/openrc-run
+name="sliver"
+command="/root/sliver-server"
+command_args="daemon"
+command_background=true
+pidfile="/run/sliver.pid"
+EOF
+    chmod +x /etc/init.d/sliver
+else
+    # systemd
+    echo "Configuring systemd service ..."
+    cat > /etc/systemd/system/sliver.service <<-EOF
 [Unit]
 Description=Sliver
 After=network.target
@@ -167,8 +195,9 @@ ExecStart=/root/sliver-server daemon
 [Install]
 WantedBy=multi-user.target
 EOF
-chown root:root /etc/systemd/system/sliver.service
-chmod 600 /etc/systemd/system/sliver.service
+    chown root:root /etc/systemd/system/sliver.service
+    chmod 600 /etc/systemd/system/sliver.service
+fi
 
 # Generate local configs
 echo "Generating local configs ..."
@@ -190,6 +219,12 @@ for USER_DIR in "${USER_DIRS[@]}"; do
     fi
 done
 
-echo "Reloading systemd and starting the Sliver service..."
-systemctl daemon-reload
-systemctl start sliver
+if [[ -n "$IS_ALPINE" ]]; then
+    echo "Enabling and starting the Sliver OpenRC service..."
+    rc-update add sliver default
+    rc-service sliver start
+else
+    echo "Reloading systemd and starting the Sliver service..."
+    systemctl daemon-reload
+    systemctl start sliver
+fi
