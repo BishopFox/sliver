@@ -4,7 +4,7 @@ set -e
 SLIVER_MINISIGN_PUB_KEY="RWTZPg959v3b7tLG7VzKHRB1/QT+d3c71Uzetfa44qAoX5rH7mGoQTTR"
 SLIVER_PLATFORM="linux"
 
-if [[ "$EUID" -ne 0 ]];then
+if [[ "$EUID" -ne 0 ]]; then
     echo "Please run as root"
     exit
 fi
@@ -35,7 +35,7 @@ elif command -v yum &> /dev/null; then # Redhat-based OS (Fedora, CentOS, RHEL)
     echo "Installing dependencies using yum..."
     yum -y install "${MINISIGN_PKG[@]}" curl make git
     INSTALLER=(yum -y)
-elif command -v pacman &>/dev/null; then # Arch-based (Manjaro, Garuda, Blackarch)
+elif command -v pacman &> /dev/null; then # Arch-based (Manjaro, Garuda, Blackarch)
     echo "Installing dependencies using pacman..."
     if [[ ${#MINISIGN_PKG[@]} -gt 0 ]]; then
         pacman --noconfirm -S "${MINISIGN_PKG[@]}"
