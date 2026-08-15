@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"gorm.io/gorm"
 
@@ -27,7 +28,7 @@ type ErrMessage struct {
 func (dialector Dialector) Translate(err error) error {
 	if pgErr, ok := err.(*pgconn.PgError); ok {
 		if translatedErr, found := errCodes[pgErr.Code]; found {
-			return translatedErr
+			return fmt.Errorf("%w: %w", translatedErr, pgErr)
 		}
 		return err
 	}
@@ -44,7 +45,7 @@ func (dialector Dialector) Translate(err error) error {
 	}
 
 	if translatedErr, found := errCodes[errMsg.Code]; found {
-		return translatedErr
+		return fmt.Errorf("%w: %s", translatedErr, errMsg.Message)
 	}
 	return err
 }

@@ -3,10 +3,10 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
-	"github.com/jackc/pgx/v5"
 	"regexp"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/migrator"
@@ -67,6 +67,11 @@ var typeAliasMap = map[string][]string{
 	"time without time zone":      {"time"},
 	"time with time zone":         {"timetz"},
 }
+
+var (
+	autoIncrementValuePattern = regexp.MustCompile(`^nextval\('"?[^']+seq"?'::regclass\)$`)
+	defaultValueValuePattern  = regexp.MustCompile(`^(.*?)(?:::.*)?$`)
+)
 
 type Migrator struct {
 	migrator.Migrator
@@ -167,9 +172,10 @@ func (m Migrator) CreateIndex(value interface{}, name string) error {
 
 func (m Migrator) RenameIndex(value interface{}, oldName, newName string) error {
 	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
+		currentSchema, _ := m.CurrentSchema(stmt, stmt.Table)
 		return m.DB.Exec(
-			"ALTER INDEX ? RENAME TO ?",
-			clause.Column{Name: oldName}, clause.Column{Name: newName},
+			"ALTER INDEX ?.? RENAME TO ?",
+			currentSchema, clause.Column{Name: oldName}, clause.Column{Name: newName},
 		).Error
 	})
 }
@@ -182,7 +188,8 @@ func (m Migrator) DropIndex(value interface{}, name string) error {
 			}
 		}
 
-		return m.DB.Exec("DROP INDEX ?", clause.Column{Name: name}).Error
+		currentSchema, _ := m.CurrentSchema(stmt, stmt.Table)
+		return m.DB.Exec("DROP INDEX ?.?", currentSchema, clause.Column{Name: name}).Error
 	})
 }
 
@@ -320,14 +327,18 @@ func (m Migrator) AlterColumn(value interface{}, field string) error {
 	err := m.RunWithValue(value, func(stmt *gorm.Statement) error {
 		if stmt.Schema != nil {
 			if field := stmt.Schema.LookUpField(field); field != nil {
-				var (
-					columnTypes, _  = m.DB.Migrator().ColumnTypes(value)
-					fieldColumnType *migrator.ColumnType
-				)
+				columnTypes, err := m.DB.Migrator().ColumnTypes(value)
+				if err != nil {
+					return err
+				}
+				var fieldColumnType *migrator.ColumnType
 				for _, columnType := range columnTypes {
 					if columnType.Name() == field.DBName {
 						fieldColumnType, _ = columnType.(*migrator.ColumnType)
 					}
+				}
+				if fieldColumnType == nil {
+					return fmt.Errorf("failed to find column type for field %s", field.DBName)
 				}
 
 				fileType := clause.Expr{SQL: m.DataTypeOf(field)}
@@ -501,7 +512,6 @@ func (m Migrator) ColumnTypes(value interface{}) (columnTypes []gorm.ColumnType,
 				column.LengthValue = typeLenValue
 			}
 
-			autoIncrementValuePattern := regexp.MustCompile(`^nextval\('"?[^']+seq"?'::regclass\)$`)
 			if autoIncrementValuePattern.MatchString(column.DefaultValueValue.String) || (identityIncrement.Valid && identityIncrement.String != "") {
 				column.AutoIncrementValue = sql.NullBool{Bool: true, Valid: true}
 				column.DefaultValueValue = sql.NullString{}
@@ -581,11 +591,7 @@ func (m Migrator) ColumnTypes(value interface{}) (columnTypes []gorm.ColumnType,
 
 		// check column type
 		{
-			dataTypeRows, err := m.queryRaw(`SELECT a.attname as column_name, format_type(a.atttypid, a.atttypmod) AS data_type
-		FROM pg_attribute a JOIN pg_class b ON a.attrelid = b.oid AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = ?)
-		WHERE a.attnum > 0 -- hide internal columns
-		AND NOT a.attisdropped -- hide deleted columns
-		AND b.relname = ?`, currentSchema, table).Rows()
+			dataTypeRows, err := m.queryRaw(`SELECT a.attname as column_name, format_type(a.atttypid, a.atttypmod) AS data_type	FROM pg_attribute a JOIN pg_class b ON a.attrelid = b.oid AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = ?)	WHERE a.attnum > 0	AND NOT a.attisdropped	AND b.relname = ?`, currentSchema, table).Rows()
 			if err != nil {
 				return err
 			}
@@ -739,7 +745,8 @@ func (m Migrator) GetIndexes(value interface{}) ([]gorm.Index, error) {
 
 	err := m.RunWithValue(value, func(stmt *gorm.Statement) error {
 		result := make([]*Index, 0)
-		scanErr := m.queryRaw(indexSql, stmt.Table).Scan(&result).Error
+		currentSchema, curTable := m.CurrentSchema(stmt, stmt.Table)
+		scanErr := m.queryRaw(indexSql+" AND ct.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = ?)", curTable, currentSchema).Scan(&result).Error
 		if scanErr != nil {
 			return scanErr
 		}
@@ -816,6 +823,6 @@ func (m Migrator) RenameColumn(dst interface{}, oldName, field string) error {
 }
 
 func parseDefaultValueValue(defaultValue string) string {
-	value := regexp.MustCompile(`^(.*?)(?:::.*)?$`).ReplaceAllString(defaultValue, "$1")
+	value := defaultValueValuePattern.ReplaceAllString(defaultValue, "$1")
 	return strings.Trim(value, "'")
 }

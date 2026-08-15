@@ -159,7 +159,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("save", "s", "", "directory/file to the binary to")
 		f.String("shellcode-encoder", "", "shellcode encoder to apply (optional; see `shellcode-encoders`)")
 		f.StringP("name", "n", "", "Implant name")
-
+		f.BoolP("external-builder", "E", false, "use an external builder")
 	})
 	flags.BindFlagCompletions(profilesGenerateCmd, func(comp *carapace.ActionMap) {
 		(*comp)["save"] = carapace.ActionFiles().Tag("directory/file to save implant")

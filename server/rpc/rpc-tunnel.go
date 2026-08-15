@@ -97,7 +97,10 @@ func (s *Server) CreateTunnel(ctx context.Context, req *sliverpb.Tunnel) (*slive
 	if session == nil {
 		return nil, ErrInvalidSessionID
 	}
-	tunnel := core.Tunnels.Create(session.ID)
+	tunnel, err := core.Tunnels.Create(session.ID)
+	if err != nil {
+		return nil, rpcError(err)
+	}
 	if tunnel == nil {
 		return nil, ErrTunnelInitFailure
 	}
@@ -179,6 +182,10 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 						if ok {
 							tunnelLog.Debugf("Tunnel %d: Resending cached msg: %d", tunnel.ID, tunnelData.Ack)
 							session := core.Sessions.Get(tunnel.SessionID)
+							if session == nil {
+								tunnelLog.Warnf("Tunnel %d: session not found, dropping resend", tunnel.ID)
+								continue
+							}
 							data, err := proto.Marshal(origtunnelData)
 							if err != nil {
 								// {{if .Config.Debug}}
@@ -207,6 +214,10 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 				session := core.Sessions.Get(tunnel.SessionID)
 				for data := range tunnel.ToImplant {
 					tunnelLog.Debugf("Tunnel %d: To implant %d byte(s), seq: %d", tunnel.ID, len(data), tunnel.ToImplantSequence)
+					if session == nil {
+						tunnelLog.Warnf("Tunnel %d: session not found, dropping data to implant", tunnel.ID)
+						continue
+					}
 					tunnelData := sliverpb.TunnelData{
 						Sequence:  tunnel.ToImplantSequence,
 						TunnelID:  tunnel.ID,
@@ -233,9 +244,11 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 					Data:      make([]byte, 0),
 					Closed:    true,
 				})
-				session.Connection.Send <- &sliverpb.Envelope{
-					Type: sliverpb.MsgTunnelData,
-					Data: data,
+				if session != nil {
+					session.Connection.Send <- &sliverpb.Envelope{
+						Type: sliverpb.MsgTunnelData,
+						Data: data,
+					}
 				}
 			}()
 
