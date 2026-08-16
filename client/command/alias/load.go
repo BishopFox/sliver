@@ -215,8 +215,6 @@ func LoadAlias(manifestPath string, cmd *cobra.Command, con *console.SliverClien
 			longHelp.WriteString(fmt.Sprintf("%s (%s):\t%s%s", strings.ToUpper(arg.Name), aType, optStr, arg.Desc))
 		}
 	}
-	longHelp.WriteString("\n\n⚠️  If you're having issues passing arguments to the alias please read:\n")
-	longHelp.WriteString("https://github.com/BishopFox/sliver/wiki/Aliases-&-Extensions#aliases-command-parsing")
 
 	// for each alias command, add a new app command
 	helpMsg := fmt.Sprintf("[%s] %s", aliasManifest.Name, aliasManifest.Help)
@@ -227,9 +225,14 @@ func LoadAlias(manifestPath string, cmd *cobra.Command, con *console.SliverClien
 		Run: func(cmd *cobra.Command, args []string) {
 			runAliasCommand(cmd, con, args)
 		},
-		Args:        cobra.ArbitraryArgs, // 	a.StringList("arguments", "arguments", grumble.Default([]string{}))
-		GroupID:     consts.AliasHelpGroup,
-		Annotations: makeAliasPlatformFilters(aliasManifest),
+		Args: cobra.ArbitraryArgs, // 	a.StringList("arguments", "arguments", grumble.Default([]string{}))
+		// DisableFlagParsing keeps the alias payload's own flags (which are
+		// unknown to pflag) from being rejected or swallowed; we split the
+		// Sliver-owned flags out of the raw slice ourselves in
+		// runAliasCommand (#2264, same treatment as extensions).
+		DisableFlagParsing: true,
+		GroupID:            consts.AliasHelpGroup,
+		Annotations:        makeAliasPlatformFilters(aliasManifest),
 	}
 
 	if aliasManifest.IsAssembly {
@@ -333,6 +336,27 @@ func runAliasCommand(cmd *cobra.Command, con *console.SliverClient, args []strin
 		return
 	}
 	aliasManifest := loadedAlias.Manifest
+
+	// The command runs with DisableFlagParsing, so args is the raw, unstripped
+	// slice. Separate the Sliver-owned flags from the payload's own arguments
+	// and re-publish them on the flag set (so the Get* readers below and
+	// Request()'s --timeout still work), then hand only the payload arguments
+	// to the execution paths (#2264, same treatment as extensions in #2323).
+	ownedValues, helpRequested, payloadArgs, err := splitAliasArgs(args, aliasOwnedFlagSpecs(aliasManifest.IsAssembly))
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	if helpRequested {
+		_ = cmd.Help()
+		return
+	}
+	if err := applyOwnedAliasFlags(cmd, ownedValues); err != nil {
+		con.PrintErrorf("%s\n", err)
+		return
+	}
+	args = payloadArgs
+
 	binPath, err := aliasManifest.getFileForTarget(cmd.Name(), goos, goarch)
 	if err != nil {
 		con.PrintErrorf("Fail to find alias file: %s\n", err)
