@@ -28,7 +28,7 @@ import (
 	"log"
 	// {{end}}
 
-	"github.com/moloch--/memmod"
+	reflektor "github.com/sliverarmory/reflektor/memmod"
 )
 
 const (
@@ -39,7 +39,7 @@ const (
 type WindowsExtension struct {
 	id     string
 	data   []byte
-	module *memmod.Module
+	module *reflektor.Module
 	arch   string
 	init   string
 	sync.Mutex
@@ -73,7 +73,7 @@ func (w *WindowsExtension) Load() error {
 	}
 	w.Lock()
 	defer w.Unlock()
-	w.module, err = memmod.LoadLibrary(w.data)
+	w.module, err = reflektor.LoadLibrary(w.data)
 	if err != nil {
 		return err
 	}
