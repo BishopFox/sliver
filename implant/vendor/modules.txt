@@ -66,12 +66,12 @@ github.com/lxn/win
 # github.com/miekg/dns v1.1.50
 ## explicit; go 1.14
 github.com/miekg/dns
-# github.com/moloch--/memmod v0.0.0-20230225130813-fd77d905589e
-## explicit; go 1.17
-github.com/moloch--/memmod
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
+# github.com/sliverarmory/reflektor v0.0.2
+## explicit; go 1.26.6
+github.com/sliverarmory/reflektor/memmod
 # github.com/stretchr/testify v1.8.4
 ## explicit; go 1.20
 github.com/stretchr/testify/assert

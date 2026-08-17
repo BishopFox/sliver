@@ -576,8 +576,6 @@ github.com/moloch--/console v0.0.0-20260129035459-883dcb25c701 h1:6caCgDZpovjvv+
 github.com/moloch--/console v0.0.0-20260129035459-883dcb25c701/go.mod h1:UdqyqqCSnPu3Zc8Q3kpDszrq1hcyBHsG17hlWlRJmWI=
 github.com/moloch--/go-keystone v0.0.2 h1:xThbYs45CSzoDUz5kBZxAyTPIpK3t5M7NB1x+NTTRL8=
 github.com/moloch--/go-keystone v0.0.2/go.mod h1:kpGRJpw9b7Eq3MluHrba+GPKZhSyDrvhLULSwH5nGGM=
-github.com/moloch--/memmod v0.0.0-20230225130813-fd77d905589e h1:IkFCPlAa0iTiLxck+NqAwBx8JDlnHYm4orOQBbs4BDQ=
-github.com/moloch--/memmod v0.0.0-20230225130813-fd77d905589e/go.mod h1:eYeI6cQ5YHhHt9i0BBW0zc1DaQnb4ZMXsSPuEV/V5Og=
 github.com/moloch--/readline v0.0.0-20260129035512-cb5b3e87d51a h1:Q69DxLWF+Z8oIjuNbeKC6Xygk8Z4heWzzO79Io1cEYA=
 github.com/moloch--/readline v0.0.0-20260129035512-cb5b3e87d51a/go.mod h1:CwNkh9BmFBBCSO6mdDaNWb34rOqQsI9eYbxyqvOEazY=
 github.com/moloch--/sgn v0.0.5 h1:92GFaRpe+353uhqzFiNKXKgmTiD4dBxnvb8gd4MaV/g=
@@ -680,6 +678,8 @@ github.com/sliverarmory/beignet v0.0.3 h1:ssR6AK9lirVulHZhQMyMmVAi0FcFwWxlh9LwKC
 github.com/sliverarmory/beignet v0.0.3/go.mod h1:xXfTKBJqFBY/pakRFwJ+5+oGiSlg2CiCVUg/76kW1H4=
 github.com/sliverarmory/malasada v0.0.3 h1:b2KG2NhQVfBIIrbP8rGJwmdh7o8LH6NKYKH1DF4No1U=
 github.com/sliverarmory/malasada v0.0.3/go.mod h1:F96IgTOoX72FU995F+Jip0ni8Z5sXiYOwfmlRGobJkQ=
+github.com/sliverarmory/reflektor v0.0.2 h1:nrEEFXrYiYFLCqyMpOJpe4RsY0Pu3tc1CvwChsNoAq4=
+github.com/sliverarmory/reflektor v0.0.2/go.mod h1:Rw7qTWQQlCM3YTxxeuklFt3Q+kh1Ytlmzg5UVw1Nhkg=
 github.com/sliverarmory/wasm-donut v0.0.3 h1:sldbfAsz1YziULlhDKpU3DY/+/dAfv5gl26qSqHIpzE=
 github.com/sliverarmory/wasm-donut v0.0.3/go.mod h1:D6OLBZBfFm2Tk857vqGqFS9uUi4CXqnqHxKqtONllVk=
 github.com/sony/sonyflake v1.0.0 h1:MpU6Ro7tfXwgn2l5eluf9xQvQJDROTBImNCfRXn/YeM=

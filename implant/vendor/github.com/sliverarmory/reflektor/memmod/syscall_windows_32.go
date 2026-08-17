@@ -1,5 +1,4 @@
-//go:build (windows && amd64) || (windows && arm64)
-// +build windows,amd64 windows,arm64
+//go:build (windows && 386) || (windows && arm)
 
 /* SPDX-License-Identifier: MIT
  *
@@ -18,6 +17,7 @@ type IMAGE_OPTIONAL_HEADER struct {
 	SizeOfUninitializedData     uint32
 	AddressOfEntryPoint         uint32
 	BaseOfCode                  uint32
+	BaseOfData                  uint32
 	ImageBase                   uintptr
 	SectionAlignment            uint32
 	FileAlignment               uint32
@@ -42,7 +42,7 @@ type IMAGE_OPTIONAL_HEADER struct {
 	DataDirectory               [IMAGE_NUMBEROF_DIRECTORY_ENTRIES]IMAGE_DATA_DIRECTORY
 }
 
-const IMAGE_ORDINAL_FLAG uintptr = 0x8000000000000000
+const IMAGE_ORDINAL_FLAG uintptr = 0x80000000
 
 type IMAGE_LOAD_CONFIG_DIRECTORY struct {
 	Size                                     uint32
@@ -52,45 +52,45 @@ type IMAGE_LOAD_CONFIG_DIRECTORY struct {
 	GlobalFlagsClear                         uint32
 	GlobalFlagsSet                           uint32
 	CriticalSectionDefaultTimeout            uint32
-	DeCommitFreeBlockThreshold               uint64
-	DeCommitTotalFreeThreshold               uint64
-	LockPrefixTable                          uint64
-	MaximumAllocationSize                    uint64
-	VirtualMemoryThreshold                   uint64
-	ProcessAffinityMask                      uint64
+	DeCommitFreeBlockThreshold               uint32
+	DeCommitTotalFreeThreshold               uint32
+	LockPrefixTable                          uint32
+	MaximumAllocationSize                    uint32
+	VirtualMemoryThreshold                   uint32
 	ProcessHeapFlags                         uint32
+	ProcessAffinityMask                      uint32
 	CSDVersion                               uint16
 	DependentLoadFlags                       uint16
-	EditList                                 uint64
-	SecurityCookie                           uint64
-	SEHandlerTable                           uint64
-	SEHandlerCount                           uint64
-	GuardCFCheckFunctionPointer              uint64
-	GuardCFDispatchFunctionPointer           uint64
-	GuardCFFunctionTable                     uint64
-	GuardCFFunctionCount                     uint64
+	EditList                                 uint32
+	SecurityCookie                           uint32
+	SEHandlerTable                           uint32
+	SEHandlerCount                           uint32
+	GuardCFCheckFunctionPointer              uint32
+	GuardCFDispatchFunctionPointer           uint32
+	GuardCFFunctionTable                     uint32
+	GuardCFFunctionCount                     uint32
 	GuardFlags                               uint32
 	CodeIntegrity                            IMAGE_LOAD_CONFIG_CODE_INTEGRITY
-	GuardAddressTakenIatEntryTable           uint64
-	GuardAddressTakenIatEntryCount           uint64
-	GuardLongJumpTargetTable                 uint64
-	GuardLongJumpTargetCount                 uint64
-	DynamicValueRelocTable                   uint64
-	CHPEMetadataPointer                      uint64
-	GuardRFFailureRoutine                    uint64
-	GuardRFFailureRoutineFunctionPointer     uint64
+	GuardAddressTakenIatEntryTable           uint32
+	GuardAddressTakenIatEntryCount           uint32
+	GuardLongJumpTargetTable                 uint32
+	GuardLongJumpTargetCount                 uint32
+	DynamicValueRelocTable                   uint32
+	CHPEMetadataPointer                      uint32
+	GuardRFFailureRoutine                    uint32
+	GuardRFFailureRoutineFunctionPointer     uint32
 	DynamicValueRelocTableOffset             uint32
 	DynamicValueRelocTableSection            uint16
 	Reserved2                                uint16
-	GuardRFVerifyStackPointerFunctionPointer uint64
+	GuardRFVerifyStackPointerFunctionPointer uint32
 	HotPatchTableOffset                      uint32
 	Reserved3                                uint32
-	EnclaveConfigurationPointer              uint64
-	VolatileMetadataPointer                  uint64
-	GuardEHContinuationTable                 uint64
-	GuardEHContinuationCount                 uint64
-	GuardXFGCheckFunctionPointer             uint64
-	GuardXFGDispatchFunctionPointer          uint64
-	GuardXFGTableDispatchFunctionPointer     uint64
-	CastGuardOsDeterminedFailureMode         uint64
+	EnclaveConfigurationPointer              uint32
+	VolatileMetadataPointer                  uint32
+	GuardEHContinuationTable                 uint32
+	GuardEHContinuationCount                 uint32
+	GuardXFGCheckFunctionPointer             uint32
+	GuardXFGDispatchFunctionPointer          uint32
+	GuardXFGTableDispatchFunctionPointer     uint32
+	CastGuardOsDeterminedFailureMode         uint32
 }

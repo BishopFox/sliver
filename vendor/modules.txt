@@ -1023,9 +1023,6 @@ github.com/moloch--/asciicast
 # github.com/moloch--/go-keystone v0.0.2
 ## explicit; go 1.23
 github.com/moloch--/go-keystone
-# github.com/moloch--/memmod v0.0.0-20230225130813-fd77d905589e
-## explicit; go 1.17
-github.com/moloch--/memmod
 # github.com/moloch--/sgn v0.0.5
 ## explicit; go 1.23
 github.com/moloch--/sgn/pkg
@@ -1331,6 +1328,9 @@ github.com/sliverarmory/beignet/internal/stager
 ## explicit; go 1.25.6
 github.com/sliverarmory/malasada
 github.com/sliverarmory/malasada/internal/aplib
+# github.com/sliverarmory/reflektor v0.0.2
+## explicit; go 1.26.6
+github.com/sliverarmory/reflektor/memmod
 # github.com/sliverarmory/wasm-donut v0.0.3
 ## explicit; go 1.25.6
 github.com/sliverarmory/wasm-donut
