@@ -845,11 +845,14 @@ func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clien
 		return "", nil
 	}
 
-	err = fs.WalkDir(implant.FS, ".", func(fsPath string, f fs.DirEntry, err error) error {
+	err = fs.WalkDir(implant.FS, ".", func(fsPath string, f fs.DirEntry, walkErr error) (retErr error) {
+		if walkErr != nil {
+			return walkErr
+		}
 		if f.IsDir() {
 			return nil
 		}
-		buildLog.Debugf("Walking: %s %s %v", fsPath, f.Name(), err)
+		buildLog.Debugf("Walking: %s %s", fsPath, f.Name())
 
 		sliverGoCodeRaw, err := implant.FS.ReadFile(fsPath)
 		if err != nil {
@@ -883,6 +886,11 @@ func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clien
 		if err != nil {
 			return err
 		}
+		defer func() {
+			if closeErr := fSliver.Close(); retErr == nil && closeErr != nil {
+				retErr = closeErr
+			}
+		}()
 		if !util.Contains([]string{".go", ".c", ".h"}, path.Ext(f.Name())) {
 			buildLog.Debugf("Skipping render for %s, does not appear to be source code file", f.Name())
 			_, err = fSliver.Write(sliverGoCodeRaw)

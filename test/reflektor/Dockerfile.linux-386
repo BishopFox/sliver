@@ -34,6 +34,10 @@ RUN apt-get update \
 	&& apt-get install -y --no-install-recommends build-essential ca-certificates git \
 	&& rm -rf /var/lib/apt/lists/*
 
+# Zig's LLD emits an invalid i386 TLS relocation for Go c-shared binaries.
+# Use the native Debian i386 compiler for this same-architecture build instead.
+ENV SLIVER_LINUX_CC_32=/usr/bin/i686-linux-gnu-gcc
+
 WORKDIR /workspace
 COPY go.mod go.sum ./
 COPY --from=server-build /out/sliver-server /workspace/sliver-server

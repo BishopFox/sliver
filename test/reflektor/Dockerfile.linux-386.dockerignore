@@ -1,3 +1,6 @@
+# Git metadata is not needed by the Reflektor integration image.
+/.git/
+
 # go-assets.sh downloads
 /server/assets/fs/**.zip
 /server/assets/fs/**/garble*

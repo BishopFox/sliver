@@ -26,7 +26,7 @@ const (
 	operatorName          = "testuser"
 	reflektorModule       = "github.com/sliverarmory/reflektor"
 	reflektorExport       = "StartW"
-	processLogTailBytes   = 32 * 1024
+	processLogTailBytes   = 1024 * 1024
 	eventBufferSize       = 128
 	eventSyncTimeout      = 30 * time.Second
 	listenerPollInterval  = 250 * time.Millisecond
@@ -303,7 +303,7 @@ func run(opts options) error {
 		opts.targetArch,
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w\nSliver server log:\n%s", err, readLogTail(serverLog))
 	}
 
 	fmt.Printf(
@@ -355,7 +355,7 @@ func validateOptions(opts *options) error {
 	}
 	target := opts.targetOS + "/" + opts.targetArch
 	if !supported[target] {
-		return fmt.Errorf("target %s is not in Reflektor v0.0.2's test matrix", target)
+		return fmt.Errorf("target %s is not in Reflektor's supported test matrix", target)
 	}
 	if opts.targetOS != runtime.GOOS || opts.targetArch != runtime.GOARCH {
 		return fmt.Errorf(
@@ -580,7 +580,11 @@ func waitForSession(
 	for {
 		select {
 		case <-ctx.Done():
-			return nil, fmt.Errorf("wait for Reflektor-loaded session: %w\n%s", ctx.Err(), readLogTail(reflektor.logPath))
+			return nil, fmt.Errorf(
+				"wait for Reflektor-loaded session: %w\nReflektor log:\n%s",
+				ctx.Err(),
+				readLogTail(reflektor.logPath),
+			)
 		case <-reflektor.done:
 			for {
 				select {
