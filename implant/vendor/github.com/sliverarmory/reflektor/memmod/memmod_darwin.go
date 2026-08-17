@@ -36,9 +36,10 @@ var (
 )
 
 type Module struct {
-	mu     sync.RWMutex
-	image  []byte
-	closed bool
+	mu        sync.RWMutex
+	image     []byte
+	goRuntime bool
+	closed    bool
 }
 
 // LoadLibrary loads a Mach-O image into the darwin in-memory loader context.
@@ -51,10 +52,23 @@ func LoadLibrary(data []byte) (*Module, error) {
 	if err != nil {
 		return nil, err
 	}
+	goRuntime, err := machOHasGoBuildInfo(image)
+	if err != nil {
+		return nil, err
+	}
 
 	cloned := make([]byte, len(image))
 	copy(cloned, image)
-	return &Module{image: cloned}, nil
+	return &Module{image: cloned, goRuntime: goRuntime}, nil
+}
+
+func machOHasGoBuildInfo(image []byte) (bool, error) {
+	f, err := macho.NewFile(bytes.NewReader(image))
+	if err != nil {
+		return false, fmt.Errorf("inspect Mach-O build info: %w", err)
+	}
+	defer f.Close()
+	return f.Section("__go_buildinfo") != nil, nil
 }
 
 // Free releases the in-memory Mach-O bytes.
@@ -94,7 +108,7 @@ func (module *Module) CallExport(name string) error {
 	image := module.image
 	module.mu.RUnlock()
 
-	rc := memmodLoader(image, symbol)
+	rc := memmodLoader(image, symbol, module.goRuntime)
 	runtime.KeepAlive(image)
 
 	if rc != 0 {
@@ -395,7 +409,7 @@ func isDarwinSystemInstallName(installName string) bool {
 		strings.HasPrefix(installName, "/System/Library/")
 }
 
-func memmodLoader(bufferRO []byte, entrySymbol string) int {
+func memmodLoader(bufferRO []byte, entrySymbol string, isolateGoRuntime bool) int {
 	if len(bufferRO) == 0 || entrySymbol == "" {
 		return 1
 	}
@@ -789,7 +803,14 @@ func memmodLoader(bufferRO []byte, entrySymbol string) int {
 
 	// Exported fixture entry points use the C void(void) ABI. Keep that call
 	// signature exact when cgo supplies the foreign-function bridge.
-	callVoid0(addrEntry)
+	if isolateGoRuntime {
+		if err := callVoid0OnThread(addrEntry); err != nil {
+			setDarwinLoaderDetail(err.Error())
+			return 14
+		}
+	} else {
+		callVoid0(addrEntry)
+	}
 	// Keep mapped and scratch memory reachable until after entry returns.
 	runtime.KeepAlive(mapped.mapping)
 	runtime.KeepAlive(scratch)
@@ -1535,6 +1556,11 @@ func loaderStatusError(code int) error {
 			return fmt.Errorf("failed to preload Mach-O dependencies: %s", detail)
 		}
 		return errors.New("failed to preload Mach-O dependencies")
+	case 14:
+		if detail := getDarwinLoaderDetail(); detail != "" {
+			return fmt.Errorf("failed to call Go export on isolated thread: %s", detail)
+		}
+		return errors.New("failed to call Go export on isolated thread")
 	default:
 		return fmt.Errorf("in-memory dyld loader failed with status %d", code)
 	}

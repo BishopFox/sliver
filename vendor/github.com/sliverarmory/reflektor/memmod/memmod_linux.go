@@ -45,17 +45,20 @@ const (
 )
 
 type Module struct {
-	mu       sync.RWMutex
-	mapping  []byte
-	loadBias uintptr
-	symbols  map[string]uintptr
-	closed   bool
+	mu        sync.RWMutex
+	mapping   []byte
+	loadBias  uintptr
+	symbols   map[string]uintptr
+	goRuntime bool
+	closed    bool
 }
 
 type mappedELF struct {
-	mapping  []byte
-	loadBias uintptr
-	progs    []*elf.Prog
+	mapping   []byte
+	loadBias  uintptr
+	progs     []*elf.Prog
+	tlsOffset int64
+	hasTLS    bool
 }
 
 type dynamicInitInfo struct {
@@ -80,6 +83,13 @@ type symbolResolver struct {
 	opened   map[string]uintptr
 }
 
+var linuxGoTLSSlots = struct {
+	sync.Mutex
+	used [linuxGoTLSSlotCount]bool
+}{}
+
+const linuxGoTLSSlotCount = 64
+
 func LoadLibrary(data []byte) (*Module, error) {
 	if len(data) == 0 {
 		return nil, errors.New("empty ELF image")
@@ -94,11 +104,27 @@ func LoadLibrary(data []byte) (*Module, error) {
 	if err := validateELFHeaders(f); err != nil {
 		return nil, err
 	}
+	initInfo, err := parseDynamicInitInfo(f)
+	if err != nil {
+		return nil, err
+	}
+	goRuntime, tlsSlot, tlsOffset, err := prepareLinuxGoRuntimeTLS(f)
+	if err != nil {
+		return nil, err
+	}
+	tlsSlotReserved := goRuntime
+	defer func() {
+		if tlsSlotReserved {
+			releaseLinuxGoTLSSlot(tlsSlot)
+		}
+	}()
 
 	mapped, err := mapELFImage(data, f)
 	if err != nil {
 		return nil, err
 	}
+	mapped.tlsOffset = tlsOffset
+	mapped.hasTLS = goRuntime
 	cleanup := true
 	defer func() {
 		if cleanup && len(mapped.mapping) != 0 {
@@ -114,17 +140,87 @@ func LoadLibrary(data []byte) (*Module, error) {
 	if err := applySegmentProtections(mapped); err != nil {
 		return nil, err
 	}
-	if err := runELFInitializers(mapped, f); err != nil {
+	initializers, err := collectELFInitializers(mapped, f.Class, initInfo)
+	if err != nil {
 		return nil, err
+	}
+	argc, argv, envp := linuxInitCallArgs(goRuntime)
+	if goRuntime && argv == 0 {
+		return nil, errors.New("failed to allocate Go runtime argv/environment vector")
+	}
+	// Once a Go constructor starts, its runtime may retain this TLS slot for
+	// process-lifetime threads even if a later initializer reports an error.
+	tlsSlotReserved = false
+	for _, initializer := range initializers {
+		cCallVoid3(initializer, argc, argv, envp)
 	}
 
 	module := &Module{
-		mapping:  mapped.mapping,
-		loadBias: mapped.loadBias,
-		symbols:  buildExportedSymbolTable(f, mapped.loadBias),
+		mapping:   mapped.mapping,
+		loadBias:  mapped.loadBias,
+		symbols:   buildExportedSymbolTable(f, mapped.loadBias),
+		goRuntime: goRuntime,
 	}
 	cleanup = false
 	return module, nil
+}
+
+func prepareLinuxGoRuntimeTLS(f *elf.File) (bool, uintptr, int64, error) {
+	if f == nil || f.Section(".go.buildinfo") == nil {
+		return false, 0, 0, nil
+	}
+
+	var tls *elf.Prog
+	for _, prog := range f.Progs {
+		if prog.Type != elf.PT_TLS {
+			continue
+		}
+		if tls != nil {
+			return false, 0, 0, errors.New("Go ELF image has multiple PT_TLS segments")
+		}
+		tls = prog
+	}
+	if tls == nil || tls.Memsz == 0 {
+		return false, 0, 0, errors.New("Go ELF image is missing its runtime PT_TLS segment")
+	}
+	if tls.Filesz != 0 {
+		return false, 0, 0, fmt.Errorf("Go ELF PT_TLS has unsupported initialized data size %#x", tls.Filesz)
+	}
+	wordSize := uint64(8)
+	if f.Class == elf.ELFCLASS32 {
+		wordSize = 4
+	}
+	if tls.Memsz > 2*wordSize {
+		return false, 0, 0, fmt.Errorf("Go ELF PT_TLS size %#x exceeds the reserved size %#x", tls.Memsz, 2*wordSize)
+	}
+
+	linuxGoTLSSlots.Lock()
+	defer linuxGoTLSSlots.Unlock()
+	slot := uintptr(linuxGoTLSSlotCount)
+	for i := range linuxGoTLSSlots.used {
+		if !linuxGoTLSSlots.used[i] {
+			slot = uintptr(i)
+			break
+		}
+	}
+	if slot == linuxGoTLSSlotCount {
+		return false, 0, 0, fmt.Errorf("Go ELF TLS slot limit reached (%d)", linuxGoTLSSlotCount)
+	}
+	offset, err := linuxGoTLSSlotOffset(slot)
+	if err != nil {
+		return false, 0, 0, err
+	}
+	linuxGoTLSSlots.used[slot] = true
+	return true, slot, offset, nil
+}
+
+func releaseLinuxGoTLSSlot(slot uintptr) {
+	if slot >= linuxGoTLSSlotCount {
+		return
+	}
+	linuxGoTLSSlots.Lock()
+	linuxGoTLSSlots.used[slot] = false
+	linuxGoTLSSlots.Unlock()
 }
 
 func (module *Module) Free() {
@@ -135,6 +231,15 @@ func (module *Module) Free() {
 		return
 	}
 	module.closed = true
+	if module.goRuntime {
+		// A Go c-shared runtime owns process-lifetime threads and cannot be
+		// unloaded safely. Close the Reflektor handle while leaving its mapping
+		// and reserved TLS slot pinned until process exit.
+		module.mapping = nil
+		module.symbols = nil
+		module.loadBias = 0
+		return
+	}
 
 	if len(module.mapping) != 0 {
 		_ = unix.Munmap(module.mapping)
@@ -171,7 +276,14 @@ func (module *Module) CallExport(name string) error {
 		return fmt.Errorf("resolve export %q: %w", name, err)
 	}
 
-	_ = cCall0(addr)
+	if module.goRuntime {
+		if err := cCallVoid0OnThread(addr); err != nil {
+			return fmt.Errorf("call Go export %q on isolated thread: %w", name, err)
+		}
+		return nil
+	}
+
+	cCallVoid0(addr)
 	return nil
 }
 
@@ -437,17 +549,17 @@ func applyOneRelocation(machine elf.Machine, class elf.Class, mapped mappedELF, 
 
 	switch machine {
 	case elf.EM_X86_64:
-		return applyX8664Reloc(relocType, place, mapped.loadBias, symValue, addend)
+		return applyX8664Reloc(relocType, place, mapped.loadBias, symValue, addend, mapped.tlsOffset, mapped.hasTLS)
 	case elf.EM_386:
-		return apply386Reloc(relocType, place, mapped.loadBias, symValue, addend)
+		return apply386Reloc(relocType, place, mapped.loadBias, symValue, addend, mapped.tlsOffset, mapped.hasTLS)
 	case elf.EM_AARCH64:
-		return applyAArch64Reloc(relocType, place, mapped.loadBias, symValue, addend)
+		return applyAArch64Reloc(relocType, place, mapped.loadBias, symValue, addend, mapped.tlsOffset, mapped.hasTLS)
 	default:
 		return fmt.Errorf("unsupported machine for relocation: %s", machine)
 	}
 }
 
-func applyX8664Reloc(relocType uint32, place uintptr, loadBias uintptr, symValue uintptr, addend int64) error {
+func applyX8664Reloc(relocType uint32, place uintptr, loadBias uintptr, symValue uintptr, addend int64, tlsOffset int64, hasTLS bool) error {
 	switch elf.R_X86_64(relocType) {
 	case elf.R_X86_64_NONE:
 		return nil
@@ -455,10 +567,10 @@ func applyX8664Reloc(relocType uint32, place uintptr, loadBias uintptr, symValue
 		writeU64(place, uint64(int64(loadBias)+addend))
 		return nil
 	case elf.R_X86_64_TPOFF64:
-		// Linux TLS local-exec relocation. The pure-Go loader does not provision
-		// module TLS blocks, so we apply S+A and rely on payload/runtime behavior
-		// that does not require a non-zero static TLS offset.
-		writeU64(place, uint64(int64(symValue)+addend))
+		if !hasTLS {
+			return errors.New("x86_64 static TLS relocation has no reserved host TLS slot")
+		}
+		writeU64(place, uint64(tlsOffset+addend))
 		return nil
 	case elf.R_X86_64_JMP_SLOT, elf.R_X86_64_GLOB_DAT, elf.R_X86_64_64:
 		writeU64(place, uint64(int64(symValue)+addend))
@@ -489,7 +601,7 @@ func applyX8664Reloc(relocType uint32, place uintptr, loadBias uintptr, symValue
 	}
 }
 
-func apply386Reloc(relocType uint32, place uintptr, loadBias uintptr, symValue uintptr, addend int64) error {
+func apply386Reloc(relocType uint32, place uintptr, loadBias uintptr, symValue uintptr, addend int64, tlsOffset int64, hasTLS bool) error {
 	switch elf.R_386(relocType) {
 	case elf.R_386_NONE:
 		return nil
@@ -497,8 +609,10 @@ func apply386Reloc(relocType uint32, place uintptr, loadBias uintptr, symValue u
 		writeU32(place, uint32(int64(loadBias)+addend))
 		return nil
 	case elf.R_386_TLS_TPOFF:
-		// Linux TLS local-exec relocation; see R_X86_64_TPOFF64 note above.
-		writeU32(place, uint32(int64(symValue)+addend))
+		if !hasTLS {
+			return errors.New("386 static TLS relocation has no reserved host TLS slot")
+		}
+		writeU32(place, uint32(tlsOffset+addend))
 		return nil
 	case elf.R_386_JMP_SLOT, elf.R_386_GLOB_DAT:
 		writeU32(place, uint32(symValue))
@@ -518,7 +632,7 @@ func apply386Reloc(relocType uint32, place uintptr, loadBias uintptr, symValue u
 	}
 }
 
-func applyAArch64Reloc(relocType uint32, place uintptr, loadBias uintptr, symValue uintptr, addend int64) error {
+func applyAArch64Reloc(relocType uint32, place uintptr, loadBias uintptr, symValue uintptr, addend int64, tlsOffset int64, hasTLS bool) error {
 	switch elf.R_AARCH64(relocType) {
 	case elf.R_AARCH64_NONE:
 		return nil
@@ -526,8 +640,10 @@ func applyAArch64Reloc(relocType uint32, place uintptr, loadBias uintptr, symVal
 		writeU64(place, uint64(int64(loadBias)+addend))
 		return nil
 	case elf.R_AARCH64_TLS_TPREL64:
-		// Linux TLS local-exec relocation; see R_X86_64_TPOFF64 note above.
-		writeU64(place, uint64(int64(symValue)+addend))
+		if !hasTLS {
+			return errors.New("arm64 static TLS relocation has no reserved host TLS slot")
+		}
+		writeU64(place, uint64(tlsOffset+addend))
 		return nil
 	case elf.R_AARCH64_JUMP_SLOT, elf.R_AARCH64_GLOB_DAT, elf.R_AARCH64_ABS64:
 		writeU64(place, uint64(int64(symValue)+addend))
@@ -611,24 +727,22 @@ func applySegmentProtections(mapped mappedELF) error {
 	return nil
 }
 
-func runELFInitializers(mapped mappedELF, f *elf.File) error {
-	info, err := parseDynamicInitInfo(f)
+func collectELFInitializers(mapped mappedELF, class elf.Class, info dynamicInitInfo) ([]uintptr, error) {
+	initializers := make([]uintptr, 0)
+	var err error
+	initializers, err = appendDynamicInitArray(initializers, mapped, class, info.preinitArr, info.preinitSz, "DT_PREINIT_ARRAY")
 	if err != nil {
-		return err
+		return nil, err
 	}
-	argc, argv, envp := linuxInitCallArgs()
-	skip := collectInitSkipAddrs(f, mapped.loadBias)
-
-	if err := callDynamicInitArray(mapped, f.Class, info.preinitArr, info.preinitSz, "DT_PREINIT_ARRAY", argc, argv, envp, skip); err != nil {
-		return err
+	initializers, err = appendDynamicInitFn(initializers, mapped, uintptr(info.init), "DT_INIT")
+	if err != nil {
+		return nil, err
 	}
-	if err := callDynamicInitFn(mapped, uintptr(info.init), "DT_INIT", argc, argv, envp, skip); err != nil {
-		return err
+	initializers, err = appendDynamicInitArray(initializers, mapped, class, info.initArray, info.initArraySz, "DT_INIT_ARRAY")
+	if err != nil {
+		return nil, err
 	}
-	if err := callDynamicInitArray(mapped, f.Class, info.initArray, info.initArraySz, "DT_INIT_ARRAY", argc, argv, envp, skip); err != nil {
-		return err
-	}
-	return nil
+	return initializers, nil
 }
 
 func parseDynamicInitInfo(f *elf.File) (dynamicInitInfo, error) {
@@ -703,24 +817,20 @@ func parseDynamicInitInfo(f *elf.File) (dynamicInitInfo, error) {
 	return info, nil
 }
 
-func callDynamicInitFn(mapped mappedELF, fn uintptr, source string, argc uintptr, argv uintptr, envp uintptr, skip map[uintptr]struct{}) error {
+func appendDynamicInitFn(initializers []uintptr, mapped mappedELF, fn uintptr, source string) ([]uintptr, error) {
 	if fn == 0 {
-		return nil
+		return initializers, nil
 	}
 	resolved, ok := normalizeInitFnAddress(mapped, fn)
 	if !ok {
-		return fmt.Errorf("%s points outside mapped image: %#x", source, fn)
+		return nil, fmt.Errorf("%s points outside mapped image: %#x", source, fn)
 	}
-	if _, blocked := skip[resolved]; blocked {
-		return nil
-	}
-	_ = cCall3(resolved, argc, argv, envp)
-	return nil
+	return append(initializers, resolved), nil
 }
 
-func callDynamicInitArray(mapped mappedELF, class elf.Class, arrayVAddr uint64, arraySz uint64, source string, argc uintptr, argv uintptr, envp uintptr, skip map[uintptr]struct{}) error {
+func appendDynamicInitArray(initializers []uintptr, mapped mappedELF, class elf.Class, arrayVAddr uint64, arraySz uint64, source string) ([]uintptr, error) {
 	if arrayVAddr == 0 || arraySz == 0 {
-		return nil
+		return initializers, nil
 	}
 
 	entrySize := 8
@@ -728,16 +838,16 @@ func callDynamicInitArray(mapped mappedELF, class elf.Class, arrayVAddr uint64, 
 		entrySize = 4
 	}
 	if arraySz%uint64(entrySize) != 0 {
-		return fmt.Errorf("%s has malformed size %#x for entry size %d", source, arraySz, entrySize)
+		return nil, fmt.Errorf("%s has malformed size %#x for entry size %d", source, arraySz, entrySize)
 	}
 	arrayLen, err := u64ToInt(arraySz)
 	if err != nil {
-		return fmt.Errorf("%s size does not fit in int: %w", source, err)
+		return nil, fmt.Errorf("%s size does not fit in int: %w", source, err)
 	}
 
 	arrayAddr := mapped.loadBias + uintptr(arrayVAddr)
 	if !mappedAddressInRange(mapped.mapping, arrayAddr, arrayLen) {
-		return fmt.Errorf("%s range %#x..%#x is outside mapped image", source, arrayVAddr, arrayVAddr+arraySz)
+		return nil, fmt.Errorf("%s range %#x..%#x is outside mapped image", source, arrayVAddr, arrayVAddr+arraySz)
 	}
 
 	count := int(arraySz / uint64(entrySize))
@@ -754,57 +864,11 @@ func callDynamicInitArray(mapped mappedELF, class elf.Class, arrayVAddr uint64, 
 		}
 		resolved, ok := normalizeInitFnAddress(mapped, fn)
 		if !ok {
-			return fmt.Errorf("%s[%d] points outside mapped image: %#x", source, i, fn)
+			return nil, fmt.Errorf("%s[%d] points outside mapped image: %#x", source, i, fn)
 		}
-		if _, blocked := skip[resolved]; blocked {
-			continue
-		}
-		_ = cCall3(resolved, argc, argv, envp)
+		initializers = append(initializers, resolved)
 	}
-	return nil
-}
-
-func collectInitSkipAddrs(f *elf.File, loadBias uintptr) map[uintptr]struct{} {
-	if f == nil || f.Section(".go.buildinfo") == nil {
-		return nil
-	}
-
-	targets := map[string]struct{}{
-		"_rt0_386_linux_lib":   {},
-		"_rt0_amd64_linux_lib": {},
-		"_rt0_arm64_linux_lib": {},
-		"_rt0_386_lib":         {},
-		"_rt0_amd64_lib":       {},
-		"_rt0_arm64_lib":       {},
-	}
-
-	out := make(map[uintptr]struct{})
-	add := func(symbols []elf.Symbol) {
-		for _, sym := range symbols {
-			if sym.Value == 0 || sym.Section == elf.SHN_UNDEF {
-				continue
-			}
-			name := sym.Name
-			if at := strings.IndexByte(name, '@'); at > 0 {
-				name = name[:at]
-			}
-			if _, ok := targets[name]; !ok {
-				continue
-			}
-			out[loadBias+uintptr(sym.Value)] = struct{}{}
-		}
-	}
-
-	if dynSyms, err := f.DynamicSymbols(); err == nil {
-		add(dynSyms)
-	}
-	if syms, err := f.Symbols(); err == nil {
-		add(syms)
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
+	return initializers, nil
 }
 
 func normalizeInitFnAddress(mapped mappedELF, fn uintptr) (uintptr, bool) {

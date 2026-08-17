@@ -2,6 +2,7 @@
 
 package memmod
 
-func linuxInitCallArgs() (uintptr, uintptr, uintptr) {
+func linuxInitCallArgs(includeEnvironment bool) (uintptr, uintptr, uintptr) {
+	_ = includeEnvironment
 	return 0, 0, 0
 }
