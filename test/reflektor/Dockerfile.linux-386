@@ -1,0 +1,42 @@
+# syntax=docker/dockerfile:1.7
+
+ARG GO_VERSION=1.26.6
+
+FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-bookworm AS server-build
+
+WORKDIR /workspace
+COPY . .
+
+RUN --mount=type=cache,id=sliver-reflektor-server-go-build,target=/root/.cache/go-build,sharing=locked \
+	set -eux; \
+	mkdir -p /out; \
+	go run -buildvcs=false -mod=vendor ./util/cmd/assets; \
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+		go build -buildvcs=false -mod=vendor -trimpath -tags go_sqlite,server \
+		-o /out/sliver-server ./server; \
+	rm -rf /workspace/server/assets/fs
+
+FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-bookworm AS driver-build
+
+WORKDIR /workspace
+COPY . .
+
+RUN --mount=type=cache,id=sliver-reflektor-driver-go-build,target=/root/.cache/go-build,sharing=locked \
+	set -eux; \
+	mkdir -p /out; \
+	CGO_ENABLED=0 GOOS=linux GOARCH=386 \
+		go build -buildvcs=false -mod=vendor -trimpath -tags client,go_sqlite \
+		-o /out/sliver-reflektor-e2e ./test/reflektor
+
+FROM --platform=$TARGETPLATFORM golang:${GO_VERSION}-bookworm AS runtime
+
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends build-essential ca-certificates git \
+	&& rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+COPY go.mod go.sum ./
+COPY --from=server-build /out/sliver-server /workspace/sliver-server
+COPY --from=driver-build /out/sliver-reflektor-e2e /usr/local/bin/sliver-reflektor-e2e
+
+CMD ["sliver-reflektor-e2e", "-repo", "/workspace", "-server", "/workspace/sliver-server", "-target-os", "linux", "-target-arch", "386"]

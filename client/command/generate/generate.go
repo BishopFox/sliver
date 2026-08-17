@@ -87,6 +87,7 @@ var (
 		"linux/arm64":   true,
 		"windows/386":   true,
 		"windows/amd64": true,
+		"windows/arm64": true,
 	}
 
 	ErrNoExternalBuilder = errors.New("no external builders are available")

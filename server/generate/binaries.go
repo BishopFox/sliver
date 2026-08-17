@@ -66,6 +66,7 @@ var (
 		"linux/arm64":   true,
 		"windows/386":   true,
 		"windows/amd64": true,
+		"windows/arm64": true,
 	}
 )
 
@@ -1376,6 +1377,9 @@ func GetCompilerTargets() []*clientpb.CompilerTarget {
 		platform := strings.SplitN(longPlatform, "/", 2)
 		switch platform[0] {
 		case WINDOWS:
+			if platform[1] != "amd64" && platform[1] != "386" {
+				continue
+			}
 			targets = append(targets, &clientpb.CompilerTarget{
 				GOOS:   platform[0],
 				GOARCH: platform[1],
