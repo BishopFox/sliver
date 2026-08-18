@@ -116,6 +116,16 @@ pre {
   border-radius: 0 !important;
 }
 
+.sliver-asciinema-fit-height .ap-wrapper {
+  justify-content: flex-start;
+}
+
+.sliver-asciinema-fit-height .ap-player {
+  flex-shrink: 0;
+  max-width: none !important;
+  width: max-content !important;
+}
+
 .sliver-terminal-frame .asciinema-player {
   background: #111315;
 }

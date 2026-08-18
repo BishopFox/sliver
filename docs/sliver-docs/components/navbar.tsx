@@ -166,8 +166,7 @@ export default function TopNavbar() {
               <SliversIcon height={18} />
             </span>
             <span className="hidden items-baseline gap-1.5 sm:flex">
-              <span>Sliver</span>
-              <span className="font-normal text-muted">Docs</span>
+              <span>Sliver C2</span>
             </span>
           </NextLink>
 

@@ -53,8 +53,9 @@ export default function Home() {
 
                 <div className="sliver-terminal-frame min-h-[20rem] flex-1 overflow-x-auto bg-[#111315] sm:min-h-[24rem]">
                   <AsciinemaPlayer
-                    className="min-w-[35rem]"
+                    className="sliver-asciinema-fit-height h-full min-w-[35rem]"
                     src="/asciinema/intro.cast"
+                    fit="height"
                     hideControls
                     rows="18"
                     cols="75"

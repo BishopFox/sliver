@@ -45,6 +45,7 @@ function AsciinemaPlayer({
     () => ({
       autoPlay: prefersReducedMotion ? false : autoPlay,
       cols,
+      controls: hideControls ? false : undefined,
       fit,
       fontSize,
       idleTimeLimit,
@@ -61,6 +62,7 @@ function AsciinemaPlayer({
       cols,
       fit,
       fontSize,
+      hideControls,
       idleTimeLimit,
       loop,
       poster,
