@@ -3,14 +3,18 @@ import LoadingState from "@/components/loading-state";
 import { Docs } from "@/util/docs";
 import { PREBUILD_VERSION } from "@/util/__generated__/prebuild-version";
 import { fetchDocs as fetchDocsContent } from "@/util/content-fetchers";
-import { faSearch } from "@fortawesome/free-solid-svg-icons";
+import {
+  faBookOpen,
+  faChevronRight,
+  faSearch,
+} from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
+  Button,
   Card,
   ListBox,
   ScrollShadow,
   SearchField,
-  Separator,
 } from "@heroui/react";
 import { useQuery } from "@tanstack/react-query";
 import Fuse from "fuse.js";
@@ -19,6 +23,15 @@ import Head from "next/head";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/router";
 import React from "react";
+
+const featuredDocNames = [
+  "Getting Started",
+  "Compile from Source",
+  "Architecture",
+  "Armory",
+  "Stagers",
+  "Troubleshooting",
+];
 
 const DocsIndexPage: NextPage = () => {
   const router = useRouter();
@@ -70,13 +83,20 @@ const DocsIndexPage: NextPage = () => {
   }, [docs, name, visibleDocs]);
 
   const listboxClasses =
-    "p-0 gap-0 divide-y divide-separator bg-surface overflow-visible rounded-lg shadow-sm";
+    "flex flex-col gap-1 overflow-visible bg-transparent p-0";
+
+  const featuredDocs = React.useMemo(() => {
+    return featuredDocNames
+      .map((featuredName) => docs?.docs.find((doc) => doc.name === featuredName))
+      .filter((doc) => doc !== undefined);
+  }, [docs]);
 
   const renderFilterInput = (className?: string) => (
     <SearchField
       aria-label="Filter documents"
       className={className}
       fullWidth
+      variant="secondary"
       value={filterValue}
       onChange={setFilterValue}
     >
@@ -99,87 +119,147 @@ const DocsIndexPage: NextPage = () => {
   return (
     <>
       <Head>
-        <title>Sliver Docs: {name}</title>
+        <title>{name ? `${name} · Sliver Docs` : "Sliver Documentation"}</title>
       </Head>
-      <div className="px-4 pt-4 lg:hidden">
-        <label
-          htmlFor="docs-mobile-selector"
-          className="block text-sm font-medium text-foreground"
-        >
-          Select a document
-        </label>
-        <div className="mt-2">{renderFilterInput()}</div>
-        <select
-          id="docs-mobile-selector"
-          className="mt-3 w-full rounded-lg border border-separator bg-surface p-2 text-sm"
-          value={name}
-          onChange={(event) => {
-            const selectedName = event.target.value;
-            router.push({
-              pathname: "/docs",
-              query: selectedName ? { name: selectedName } : undefined,
-            });
-          }}
-        >
-          <option value="">Browse documents…</option>
-          {mobileDocs.map((doc) => (
-            <option key={doc.name} value={doc.name}>
-              {doc.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
-        <aside className="hidden lg:block lg:col-span-3">
-          <div className="sticky top-16 ml-4 flex flex-col gap-3">
-            {renderFilterInput("mt-2")}
-            <ScrollShadow className="max-h-[calc(100vh-15rem)] sliver-scrollbar overflow-y-auto pr-1 rounded-lg">
-              <ListBox
-                aria-label="Toolbox Menu"
-                className={listboxClasses}
-                onAction={(key) => {
-                  router.push({
-                    pathname: "/docs",
-                    query: { name: String(key) },
-                  });
-                }}
-              >
-                {visibleDocs.map((doc) => (
-                  <ListBox.Item
-                    key={doc.name}
-                    id={doc.name}
-                    textValue={doc.name}
-                    className="h-12 rounded-none px-3 first:rounded-t-lg last:rounded-b-lg"
-                  >
-                    {doc.name}
-                  </ListBox.Item>
-                ))}
-              </ListBox>
-            </ScrollShadow>
+      <div className="mx-auto w-full max-w-[90rem] px-4 pb-16 pt-8 sm:px-6 lg:px-8 lg:pt-10">
+        <div className="mb-8 lg:hidden">
+          <div className="flex items-center gap-3">
+            <span className="flex size-9 items-center justify-center rounded-2xl bg-surface-secondary text-accent">
+              <FontAwesomeIcon icon={faBookOpen} />
+            </span>
+            <div>
+              <p className="text-sm font-medium text-foreground">Documentation</p>
+              <p className="text-xs text-muted">Browse the reference library</p>
+            </div>
           </div>
-        </aside>
-        <div className="px-4 pb-8 lg:col-span-9 lg:px-8">
-          {name !== "" ? (
-            <Card className="mt-2">
-              <Card.Header>
-                <span className="text-3xl">{name}</span>
-              </Card.Header>
-              <Separator />
-              <Card.Content>
+          <div className="mt-5">{renderFilterInput()}</div>
+          <label
+            htmlFor="docs-mobile-selector"
+            className="mt-4 block text-sm font-medium text-foreground"
+          >
+            Document
+          </label>
+          <select
+            id="docs-mobile-selector"
+            className="mt-2 w-full rounded-2xl border border-transparent bg-surface-secondary px-3 py-2.5 text-sm text-foreground outline-none focus:border-accent"
+            value={name}
+            onChange={(event) => {
+              const selectedName = event.target.value;
+              router.push({
+                pathname: "/docs",
+                query: selectedName ? { name: selectedName } : undefined,
+              });
+            }}
+          >
+            <option value="">Browse documents…</option>
+            {mobileDocs.map((doc) => (
+              <option key={doc.name} value={doc.name}>
+                {doc.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="grid min-w-0 grid-cols-1 gap-8 lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-10">
+          <aside className="hidden border-r border-separator/70 pr-6 lg:block">
+            <div className="sticky top-[calc(var(--sliver-navbar-height)+1.5rem)] flex flex-col gap-5">
+              <div className="flex items-center gap-3 px-1">
+                <span className="flex size-9 items-center justify-center rounded-2xl bg-surface-secondary text-accent">
+                  <FontAwesomeIcon icon={faBookOpen} />
+                </span>
+                <div>
+                  <p className="text-sm font-medium text-foreground">Documentation</p>
+                  <p className="text-xs text-muted">{docs.docs.length} articles</p>
+                </div>
+              </div>
+              {renderFilterInput()}
+              <ScrollShadow className="sliver-scrollbar max-h-[calc(100vh-13rem)] overflow-y-auto pr-2">
+                <ListBox
+                  aria-label="Documentation"
+                  className={listboxClasses}
+                  selectedKeys={name ? [name] : []}
+                  selectionMode="single"
+                  onAction={(key) => {
+                    router.push({
+                      pathname: "/docs",
+                      query: { name: String(key) },
+                    });
+                  }}
+                >
+                  {visibleDocs.map((doc) => (
+                    <ListBox.Item
+                      key={doc.name}
+                      id={doc.name}
+                      textValue={doc.name}
+                      className={`min-h-10 rounded-xl px-3 py-2 text-sm ${
+                        doc.name === name
+                          ? "bg-surface font-medium text-foreground shadow-surface"
+                          : "text-muted"
+                      }`}
+                    >
+                      {doc.name}
+                    </ListBox.Item>
+                  ))}
+                </ListBox>
+              </ScrollShadow>
+            </div>
+          </aside>
+
+          <div className="min-w-0">
+            {name !== "" ? (
+              <article className="mx-auto w-full max-w-4xl">
+                <header className="mb-8 border-b border-separator/70 pb-8">
+                  <p className="text-sm font-medium text-accent">Reference</p>
+                  <h1 className="mt-2 text-balance text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+                    {name}
+                  </h1>
+                </header>
                 <MarkdownViewer
                   key={name}
                   markdown={markdown || ""}
+                  demoteTopLevelHeading
                 />
-              </Card.Content>
-            </Card>
-          ) : (
-            <div className="mt-8 text-center text-2xl text-foreground/90">
-              Welcome to the Sliver Wiki!
-              <div className="mt-2 text-xl text-muted">
-                Please select a document
+              </article>
+            ) : (
+              <div className="mx-auto w-full max-w-5xl pt-4 lg:pt-8">
+                <p className="text-sm font-medium text-accent">Sliver reference</p>
+                <h1 className="mt-2 max-w-3xl text-balance text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+                  Find the answer, then get back to the operation.
+                </h1>
+                <p className="mt-4 max-w-2xl text-lg leading-8 text-muted">
+                  Browse configuration, transports, extensions, payloads, and
+                  troubleshooting guidance for the Sliver framework.
+                </p>
+
+                <div className="mt-10 grid gap-4 sm:grid-cols-2">
+                  {featuredDocs.map((doc) => (
+                    <Card key={doc.name} className="h-full">
+                      <Card.Header>
+                        <Card.Title>{doc.name}</Card.Title>
+                        <Card.Description>
+                          Open this topic in the Sliver reference.
+                        </Card.Description>
+                      </Card.Header>
+                      <Card.Footer className="mt-auto">
+                        <Button
+                          variant="ghost"
+                          onPress={() => {
+                            router.push({
+                              pathname: "/docs",
+                              query: { name: doc.name },
+                            });
+                          }}
+                        >
+                          Open article
+                          <FontAwesomeIcon icon={faChevronRight} />
+                        </Button>
+                      </Card.Footer>
+                    </Card>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </>

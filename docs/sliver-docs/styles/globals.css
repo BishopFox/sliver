@@ -6,6 +6,7 @@
 :root {
   --font-mono: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco,
     Consolas, "Liberation Mono", "Courier New", monospace;
+  --sliver-navbar-height: 4rem;
 }
 
 /*
@@ -14,6 +15,19 @@
 */
 html {
   overflow-y: scroll;
+  scroll-padding-top: calc(var(--sliver-navbar-height) + 1.5rem);
+}
+
+body {
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at 12% -10%, color-mix(in oklab, var(--accent) 12%, transparent), transparent 28rem),
+    radial-gradient(circle at 88% 4%, color-mix(in oklab, var(--surface-tertiary) 55%, transparent), transparent 26rem),
+    var(--background);
+}
+
+::selection {
+  background: color-mix(in oklab, var(--accent) 32%, transparent);
 }
 
 /* Fallback for engines that do not support scrollbar-gutter. */
@@ -44,7 +58,7 @@ pre {
 
 .sliver-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.7) transparent;
+  scrollbar-color: color-mix(in oklab, var(--muted) 58%, transparent) transparent;
   scrollbar-gutter: stable;
 }
 
@@ -57,33 +71,30 @@ pre {
 }
 
 .sliver-scrollbar::-webkit-scrollbar-thumb {
-  background-color: rgba(148, 163, 184, 0.7);
+  background-color: color-mix(in oklab, var(--muted) 58%, transparent);
   border-radius: 9999px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 
-.sliver-navbar-glass {
-  width: 100%;
-  border-bottom: 1px solid var(--separator);
-  background-color: color-mix(in oklab, var(--surface) 72%, transparent);
-  -webkit-backdrop-filter: blur(18px) saturate(1.18);
-  backdrop-filter: blur(18px) saturate(1.18);
+.sliver-grid-surface {
+  background-image:
+    linear-gradient(color-mix(in oklab, var(--separator) 35%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--separator) 35%, transparent) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(to bottom, black, transparent 92%);
 }
 
-.sliver-armory-ghost {
-  --button-bg: transparent;
-  --button-bg-hover: rgb(109 40 217 / 0.16);
-  --button-bg-pressed: rgb(109 40 217 / 0.24);
-  --button-fg: #a78bfa;
+.sliver-terminal-frame .ap-wrapper {
+  border-radius: 0 !important;
 }
 
-.dark .sliver-scrollbar {
-  scrollbar-color: rgba(79, 97, 125, 0.8) transparent;
+.sliver-terminal-frame .asciinema-player {
+  background: #111315;
 }
 
-.dark .sliver-scrollbar::-webkit-scrollbar-thumb {
-  background-color: rgba(79, 97, 125, 0.8);
+.sliver-asciinema-controls-hidden .ap-control-bar {
+  display: none !important;
 }
 
 .asciinema-player {
@@ -93,4 +104,20 @@ pre {
 
 .asciinema-player .asciinema-terminal {
   max-width: 100% !important;
+}
+
+.markdown-body {
+  color: var(--foreground);
+}
+
+.markdown-body :where(h2, h3, h4) {
+  scroll-margin-top: calc(var(--sliver-navbar-height) + 1.5rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
 }
