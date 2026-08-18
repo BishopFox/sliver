@@ -7,15 +7,16 @@
   --font-mono: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco,
     Consolas, "Liberation Mono", "Courier New", monospace;
   --sliver-navbar-height: 4rem;
+  --sliver-footer-height: 4.75rem;
 }
 
-/*
-  Keep html as the single scrolling element. Setting overflow on both html
-  and body breaks sticky sidebar behavior on docs/tutorial pages.
-*/
+/* Keep html as the single page scroller so content can pass beneath the shell. */
 html {
   overflow-y: scroll;
   scroll-padding-top: calc(var(--sliver-navbar-height) + 1.5rem);
+  scroll-padding-bottom: calc(
+    var(--sliver-footer-height) + env(safe-area-inset-bottom)
+  );
 }
 
 body {
@@ -24,6 +25,16 @@ body {
     radial-gradient(circle at 12% -10%, color-mix(in oklab, var(--accent) 12%, transparent), transparent 28rem),
     radial-gradient(circle at 88% 4%, color-mix(in oklab, var(--surface-tertiary) 55%, transparent), transparent 26rem),
     var(--background);
+}
+
+.sliver-page-content {
+  padding-bottom: calc(
+    var(--sliver-footer-height) + env(safe-area-inset-bottom)
+  );
+}
+
+.sliver-fixed-footer {
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 ::selection {
@@ -44,6 +55,22 @@ body {
 @media (min-width: 1024px) {
   html {
     overflow-y: scroll;
+  }
+
+  .sliver-sticky-sidebar {
+    position: sticky;
+    top: calc(var(--sliver-navbar-height) + 2.5rem);
+    align-self: start;
+    height: calc(
+      100dvh - var(--sliver-navbar-height) - var(--sliver-footer-height) -
+        env(safe-area-inset-bottom) - 3.5rem
+    );
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    --sliver-footer-height: 3.5rem;
   }
 }
 

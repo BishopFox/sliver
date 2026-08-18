@@ -8,6 +8,7 @@ import { fetchDocs as fetchDocsContent, fetchTutorials as fetchTutorialsContent 
 import { Themes } from "@/util/themes";
 import { faExternalLink } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { RouterProvider } from "@heroui/react";
 import {
   HydrationBoundary,
   QueryClient,
@@ -15,9 +16,19 @@ import {
 } from "@tanstack/react-query";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import type { AppProps } from "next/app";
+import { useRouter } from "next/router";
 import React from "react";
 
 export default function App({ Component, pageProps }: AppProps) {
+  const router = useRouter();
+
+  const navigate = React.useCallback(
+    (path: string) => {
+      void router.push(path);
+    },
+    [router],
+  );
+
   // Initialize search
   const [search] = React.useState(() => new SearchCtx());
 
@@ -101,48 +112,50 @@ export default function App({ Component, pageProps }: AppProps) {
     >
       <QueryClientProvider client={queryClient}>
         <HydrationBoundary state={pageProps.dehydratedState}>
-          <SearchContext.Provider value={search}>
-            <div className="flex min-h-dvh flex-col">
-              <Navbar />
-              <main className="flex-1">
-                <Component {...pageProps} />
-              </main>
-              <footer className="border-t border-separator/70 bg-background/80">
-                <div className="mx-auto flex w-full max-w-7xl flex-col items-center gap-3 px-4 py-6 text-center text-sm text-muted sm:px-6 md:flex-row md:justify-between md:text-left lg:px-8">
-                  <span>
-                    © {new Date().getFullYear()} {" "}
-                    <a
-                      href="https://bishopfox.com/"
-                      className="font-medium text-foreground no-underline hover:text-accent"
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      Bishop Fox
-                    </a>
-                  </span>
-                  <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
-                    <a
-                      href="https://github.com/BishopFox/sliver/pulls"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 no-underline hover:text-foreground"
-                      target="_blank"
-                    >
-                      Improve these docs
-                      <FontAwesomeIcon className="text-xs" icon={faExternalLink} />
-                    </a>
-                    <a
-                      href="https://github.com/BishopFox/sliver/blob/master/LICENSE"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="no-underline hover:text-foreground"
-                    >
-                      GPLv3
-                    </a>
+          <RouterProvider navigate={navigate}>
+            <SearchContext.Provider value={search}>
+              <div className="flex min-h-dvh flex-col">
+                <Navbar />
+                <main className="sliver-page-content flex-1">
+                  <Component {...pageProps} />
+                </main>
+                <footer className="sliver-fixed-footer fixed inset-x-0 bottom-0 z-30 border-t border-separator/70 bg-background/70 backdrop-blur-xl">
+                  <div className="mx-auto flex min-h-[var(--sliver-footer-height)] w-full max-w-7xl flex-col items-center justify-center gap-1.5 px-4 py-3 text-center text-sm text-muted sm:px-6 md:flex-row md:justify-between md:text-left lg:px-8">
+                    <span>
+                      © {new Date().getFullYear()} {" "}
+                      <a
+                        href="https://bishopfox.com/"
+                        className="font-medium text-foreground no-underline hover:text-accent"
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        Bishop Fox
+                      </a>
+                    </span>
+                    <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+                      <a
+                        href="https://github.com/BishopFox/sliver/pulls"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 no-underline hover:text-foreground"
+                        target="_blank"
+                      >
+                        Improve these docs
+                        <FontAwesomeIcon className="text-xs" icon={faExternalLink} />
+                      </a>
+                      <a
+                        href="https://github.com/BishopFox/sliver/blob/master/LICENSE"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="no-underline hover:text-foreground"
+                      >
+                        GPLv3
+                      </a>
+                    </div>
                   </div>
-                </div>
-              </footer>
-            </div>
-          </SearchContext.Provider>
+                </footer>
+              </div>
+            </SearchContext.Provider>
+          </RouterProvider>
         </HydrationBoundary>
       </QueryClientProvider>
     </NextThemesProvider>

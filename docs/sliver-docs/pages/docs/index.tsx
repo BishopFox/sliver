@@ -121,7 +121,7 @@ const DocsIndexPage: NextPage = () => {
       <Head>
         <title>{name ? `${name} · Sliver Docs` : "Sliver Documentation"}</title>
       </Head>
-      <div className="mx-auto w-full max-w-[90rem] px-4 pb-16 pt-8 sm:px-6 lg:px-8 lg:pt-10">
+      <div className="mx-auto w-full max-w-[90rem] px-4 pt-8 sm:px-6 lg:px-8 lg:pt-10">
         <div className="mb-8 lg:hidden">
           <div className="flex items-center gap-3">
             <span className="flex size-9 items-center justify-center rounded-2xl bg-surface-secondary text-accent">
@@ -161,8 +161,8 @@ const DocsIndexPage: NextPage = () => {
         </div>
 
         <div className="grid min-w-0 grid-cols-1 gap-8 lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-10">
-          <aside className="hidden border-r border-separator/70 pr-6 lg:block">
-            <div className="sticky top-[calc(var(--sliver-navbar-height)+1.5rem)] flex flex-col gap-5">
+          <aside className="sliver-sticky-sidebar hidden border-r border-separator/70 pr-6 lg:block">
+            <div className="flex h-full min-h-0 flex-col gap-5">
               <div className="flex items-center gap-3 px-1">
                 <span className="flex size-9 items-center justify-center rounded-2xl bg-surface-secondary text-accent">
                   <FontAwesomeIcon icon={faBookOpen} />
@@ -173,23 +173,18 @@ const DocsIndexPage: NextPage = () => {
                 </div>
               </div>
               {renderFilterInput()}
-              <ScrollShadow className="sliver-scrollbar max-h-[calc(100vh-13rem)] overflow-y-auto pr-2">
+              <ScrollShadow className="sliver-scrollbar min-h-0 flex-1 overscroll-contain overflow-y-auto pr-2">
                 <ListBox
                   aria-label="Documentation"
                   className={listboxClasses}
                   selectedKeys={name ? [name] : []}
                   selectionMode="single"
-                  onAction={(key) => {
-                    router.push({
-                      pathname: "/docs",
-                      query: { name: String(key) },
-                    });
-                  }}
                 >
                   {visibleDocs.map((doc) => (
                     <ListBox.Item
                       key={doc.name}
                       id={doc.name}
+                      href={`/docs/?name=${encodeURIComponent(doc.name)}`}
                       textValue={doc.name}
                       className={`min-h-10 rounded-xl px-3 py-2 text-sm ${
                         doc.name === name
@@ -205,7 +200,10 @@ const DocsIndexPage: NextPage = () => {
             </div>
           </aside>
 
-          <div className="min-w-0">
+          <div
+            key={name || "documentation-overview"}
+            className="min-w-0 pb-16 lg:pr-4"
+          >
             {name !== "" ? (
               <article className="mx-auto w-full max-w-4xl">
                 <header className="mb-8 border-b border-separator/70 pb-8">
