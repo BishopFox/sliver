@@ -122,6 +122,21 @@ const (
 	// conversations owned by your organization
 	ChatAdminSpacesReadonlyScope = "https://www.googleapis.com/auth/chat.admin.spaces.readonly"
 
+	// On their own behalf, apps in Google Chat can see all members in Google Chat
+	// spaces and conversations throughout your Workspace organization, even when
+	// the Chat app isn't a member
+	ChatAppAllMembershipsReadonlyScope = "https://www.googleapis.com/auth/chat.app.all.memberships.readonly"
+
+	// On their own behalf, apps in Google Chat can see all messages and reactions
+	// throughout your Workspace organization, even when the Chat app isn't a
+	// member of a space or conversation
+	ChatAppAllMessagesReadonlyScope = "https://www.googleapis.com/auth/chat.app.all.messages.readonly"
+
+	// On their own behalf, apps in Google Chat can see metadata about all spaces
+	// and conversations in Google Chat throughout your Workspace organization,
+	// even when the Chat app isn't a member
+	ChatAppAllSpacesReadonlyScope = "https://www.googleapis.com/auth/chat.app.all.spaces.readonly"
+
 	// On their own behalf, apps in Google Chat can delete conversations and spaces
 	// and remove access to associated files
 	ChatAppDeleteScope = "https://www.googleapis.com/auth/chat.app.delete"
@@ -129,6 +144,10 @@ const (
 	// On their own behalf, apps in Google Chat can see, add, update, and remove
 	// members from conversations and spaces
 	ChatAppMembershipsScope = "https://www.googleapis.com/auth/chat.app.memberships"
+
+	// On their own behalf, apps in Google Chat can see members of conversations
+	// and spaces
+	ChatAppMembershipsReadonlyScope = "https://www.googleapis.com/auth/chat.app.memberships.readonly"
 
 	// On their own behalf, apps in Google Chat can see all messages and their
 	// associated reactions and message content
@@ -141,6 +160,10 @@ const (
 
 	// On their own behalf, apps in Google Chat can create conversations and spaces
 	ChatAppSpacesCreateScope = "https://www.googleapis.com/auth/chat.app.spaces.create"
+
+	// On their own behalf, apps in Google Chat can see conversations and spaces
+	// and their metadata (including history settings and access settings)
+	ChatAppSpacesReadonlyScope = "https://www.googleapis.com/auth/chat.app.spaces.readonly"
 
 	// Private Service: https://www.googleapis.com/auth/chat.bot
 	ChatBotScope = "https://www.googleapis.com/auth/chat.bot"
@@ -198,11 +221,24 @@ const (
 	// View chat and spaces in Google Chat
 	ChatSpacesReadonlyScope = "https://www.googleapis.com/auth/chat.spaces.readonly"
 
+	// See and change your availability status in Google Chat.
+	ChatUsersAvailabilityScope = "https://www.googleapis.com/auth/chat.users.availability"
+
+	// See your availability status in Google Chat.
+	ChatUsersAvailabilityReadonlyScope = "https://www.googleapis.com/auth/chat.users.availability.readonly"
+
 	// View and modify last read time for Google Chat conversations
 	ChatUsersReadstateScope = "https://www.googleapis.com/auth/chat.users.readstate"
 
 	// View last read time for Google Chat conversations
 	ChatUsersReadstateReadonlyScope = "https://www.googleapis.com/auth/chat.users.readstate.readonly"
+
+	// View, create, update, and delete your sections in Google Chat; move and list
+	// your section items in Google Chat
+	ChatUsersSectionsScope = "https://www.googleapis.com/auth/chat.users.sections"
+
+	// View your sections and their section items in Google Chat
+	ChatUsersSectionsReadonlyScope = "https://www.googleapis.com/auth/chat.users.sections.readonly"
 
 	// Read and update your space settings
 	ChatUsersSpacesettingsScope = "https://www.googleapis.com/auth/chat.users.spacesettings"
@@ -216,11 +252,16 @@ func NewService(ctx context.Context, opts ...option.ClientOption) (*Service, err
 		"https://www.googleapis.com/auth/chat.admin.memberships.readonly",
 		"https://www.googleapis.com/auth/chat.admin.spaces",
 		"https://www.googleapis.com/auth/chat.admin.spaces.readonly",
+		"https://www.googleapis.com/auth/chat.app.all.memberships.readonly",
+		"https://www.googleapis.com/auth/chat.app.all.messages.readonly",
+		"https://www.googleapis.com/auth/chat.app.all.spaces.readonly",
 		"https://www.googleapis.com/auth/chat.app.delete",
 		"https://www.googleapis.com/auth/chat.app.memberships",
+		"https://www.googleapis.com/auth/chat.app.memberships.readonly",
 		"https://www.googleapis.com/auth/chat.app.messages.readonly",
 		"https://www.googleapis.com/auth/chat.app.spaces",
 		"https://www.googleapis.com/auth/chat.app.spaces.create",
+		"https://www.googleapis.com/auth/chat.app.spaces.readonly",
 		"https://www.googleapis.com/auth/chat.bot",
 		"https://www.googleapis.com/auth/chat.customemojis",
 		"https://www.googleapis.com/auth/chat.customemojis.readonly",
@@ -238,8 +279,12 @@ func NewService(ctx context.Context, opts ...option.ClientOption) (*Service, err
 		"https://www.googleapis.com/auth/chat.spaces",
 		"https://www.googleapis.com/auth/chat.spaces.create",
 		"https://www.googleapis.com/auth/chat.spaces.readonly",
+		"https://www.googleapis.com/auth/chat.users.availability",
+		"https://www.googleapis.com/auth/chat.users.availability.readonly",
 		"https://www.googleapis.com/auth/chat.users.readstate",
 		"https://www.googleapis.com/auth/chat.users.readstate.readonly",
+		"https://www.googleapis.com/auth/chat.users.sections",
+		"https://www.googleapis.com/auth/chat.users.sections.readonly",
 		"https://www.googleapis.com/auth/chat.users.spacesettings",
 	)
 	// NOTE: prepend, so we don't override user-specified scopes.
@@ -386,6 +431,8 @@ type SpacesSpaceEventsService struct {
 
 func NewUsersService(s *Service) *UsersService {
 	rs := &UsersService{s: s}
+	rs.Availability = NewUsersAvailabilityService(s)
+	rs.Sections = NewUsersSectionsService(s)
 	rs.Spaces = NewUsersSpacesService(s)
 	return rs
 }
@@ -393,7 +440,41 @@ func NewUsersService(s *Service) *UsersService {
 type UsersService struct {
 	s *Service
 
+	Availability *UsersAvailabilityService
+
+	Sections *UsersSectionsService
+
 	Spaces *UsersSpacesService
+}
+
+func NewUsersAvailabilityService(s *Service) *UsersAvailabilityService {
+	rs := &UsersAvailabilityService{s: s}
+	return rs
+}
+
+type UsersAvailabilityService struct {
+	s *Service
+}
+
+func NewUsersSectionsService(s *Service) *UsersSectionsService {
+	rs := &UsersSectionsService{s: s}
+	rs.Items = NewUsersSectionsItemsService(s)
+	return rs
+}
+
+type UsersSectionsService struct {
+	s *Service
+
+	Items *UsersSectionsItemsService
+}
+
+func NewUsersSectionsItemsService(s *Service) *UsersSectionsItemsService {
+	rs := &UsersSectionsItemsService{s: s}
+	return rs
+}
+
+type UsersSectionsItemsService struct {
+	s *Service
 }
 
 func NewUsersSpacesService(s *Service) *UsersSpacesService {
@@ -429,9 +510,61 @@ type UsersSpacesThreadsService struct {
 	s *Service
 }
 
+// AccessPermissionSetting: An access permission setting.
+type AccessPermissionSetting struct {
+	// Principals: Optional. Unordered list. Allowed principals for this
+	// permission.
+	Principals []*Principal `json:"principals,omitempty"`
+	// ForceSendFields is a list of field names (e.g. "Principals") to
+	// unconditionally include in API requests. By default, fields with empty or
+	// default values are omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
+	// details.
+	ForceSendFields []string `json:"-"`
+	// NullFields is a list of field names (e.g. "Principals") to include in API
+	// requests with the JSON null value. By default, fields with empty values are
+	// omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
+	NullFields []string `json:"-"`
+}
+
+func (s AccessPermissionSetting) MarshalJSON() ([]byte, error) {
+	type NoMethod AccessPermissionSetting
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
+}
+
+// AccessPermissionSettings: Access permission settings for a space.
+type AccessPermissionSettings struct {
+	// DiscoverSpaceSetting: Optional. Access permission setting for discovering
+	// the space.
+	DiscoverSpaceSetting *AccessPermissionSetting `json:"discoverSpaceSetting,omitempty"`
+	// JoinSpaceSetting: Optional. Access permission setting for joining the space.
+	JoinSpaceSetting *AccessPermissionSetting `json:"joinSpaceSetting,omitempty"`
+	// ForceSendFields is a list of field names (e.g. "DiscoverSpaceSetting") to
+	// unconditionally include in API requests. By default, fields with empty or
+	// default values are omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
+	// details.
+	ForceSendFields []string `json:"-"`
+	// NullFields is a list of field names (e.g. "DiscoverSpaceSetting") to include
+	// in API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
+	NullFields []string `json:"-"`
+}
+
+func (s AccessPermissionSettings) MarshalJSON() ([]byte, error) {
+	type NoMethod AccessPermissionSettings
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
+}
+
 // AccessSettings: Represents the access setting
 // (https://support.google.com/chat/answer/11971020) of the space.
 type AccessSettings struct {
+	// AccessPermissionSettings: Optional. Access permission settings for the
+	// space. To set the target audience when creating a space, specify the
+	// `accessSettings.audience` field in your request.
+	AccessPermissionSettings *AccessPermissionSettings `json:"accessPermissionSettings,omitempty"`
 	// AccessState: Output only. Indicates the access state of the space.
 	//
 	// Possible values:
@@ -469,15 +602,15 @@ type AccessSettings struct {
 	// Setting the target audience requires user authentication
 	// (https://developers.google.com/workspace/chat/authenticate-authorize-chat-user).
 	Audience string `json:"audience,omitempty"`
-	// ForceSendFields is a list of field names (e.g. "AccessState") to
-	// unconditionally include in API requests. By default, fields with empty or
+	// ForceSendFields is a list of field names (e.g. "AccessPermissionSettings")
+	// to unconditionally include in API requests. By default, fields with empty or
 	// default values are omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
 	// details.
 	ForceSendFields []string `json:"-"`
-	// NullFields is a list of field names (e.g. "AccessState") to include in API
-	// requests with the JSON null value. By default, fields with empty values are
-	// omitted from API requests. See
+	// NullFields is a list of field names (e.g. "AccessPermissionSettings") to
+	// include in API requests with the JSON null value. By default, fields with
+	// empty values are omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
 	NullFields []string `json:"-"`
 }
@@ -880,6 +1013,90 @@ func (s AttachmentDataRef) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
+// Audience: A target audience in Google Chat. A target audience represents a
+// group of users within a Google Workspace organization, defined by an
+// administrator. Target audiences are used to configure access and visibility
+// settings for resources, such as making a space discoverable to a specific
+// group of users. For more details, see Target audiences
+// (https://support.google.com/a/answer/9934697) and Make a space discoverable
+// to a target audience
+// (https://developers.google.com/workspace/chat/space-target-audience).
+type Audience struct {
+	// Name: The resource name of the target audience
+	// (https://support.google.com/a/answer/9934697) who can discover or join the
+	// space. For details, see Make a space discoverable to a target audience
+	// (https://developers.google.com/workspace/chat/space-target-audience).
+	// Format: `audiences/{audience}` To use the default target audience for the
+	// Google Workspace organization, set to `audiences/default`.
+	Name string `json:"name,omitempty"`
+	// ForceSendFields is a list of field names (e.g. "Name") to unconditionally
+	// include in API requests. By default, fields with empty or default values are
+	// omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
+	// details.
+	ForceSendFields []string `json:"-"`
+	// NullFields is a list of field names (e.g. "Name") to include in API requests
+	// with the JSON null value. By default, fields with empty values are omitted
+	// from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
+	NullFields []string `json:"-"`
+}
+
+func (s Audience) MarshalJSON() ([]byte, error) {
+	type NoMethod Audience
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
+}
+
+// Availability: Represents a user's current availability information in Google
+// Chat, including their state (for example, Active, Away, Do Not Disturb) and
+// any custom status.
+type Availability struct {
+	// CustomStatus: Optional. The user's custom status.
+	CustomStatus *CustomStatus `json:"customStatus,omitempty"`
+	// DoNotDisturbMetadata: Output only. Metadata if the user state is set to
+	// DO_NOT_DISTURB.
+	DoNotDisturbMetadata *DoNotDisturbMetadata `json:"doNotDisturbMetadata,omitempty"`
+	// Name: Identifier. Resource name of the user's availability. Format:
+	// `users/{user}/availability` `{user}` is the id for the Person in the People
+	// API or Admin SDK directory API. For example, `users/123456789`. The user's
+	// email address or `me` can also be used as an alias to refer to the caller.
+	// For example, `users/user@example.com` or `users/me`.
+	Name string `json:"name,omitempty"`
+	// State: Output only. The user's current availability state.
+	//
+	// Possible values:
+	//   "STATE_UNSPECIFIED" - Default value. The state is unspecified.
+	//   "ACTIVE" - The user is currently active, based on recent activity.
+	//   "IDLE" - The user is currently idle. This state indicates a period of
+	// inactivity after being ACTIVE, before potentially transitioning to AWAY.
+	//   "AWAY" - The user is currently away. This can be either automatically set
+	// after a period of inactivity in ACTIVE or IDLE state, or it can be manually
+	// set by the user. When manually set via `MarkAsAway`, this state persists
+	// regardless of user activity.
+	//   "DO_NOT_DISTURB" - The user is in Do Not Disturb state, which is manually
+	// set.
+	State string `json:"state,omitempty"`
+
+	// ServerResponse contains the HTTP response code and headers from the server.
+	googleapi.ServerResponse `json:"-"`
+	// ForceSendFields is a list of field names (e.g. "CustomStatus") to
+	// unconditionally include in API requests. By default, fields with empty or
+	// default values are omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
+	// details.
+	ForceSendFields []string `json:"-"`
+	// NullFields is a list of field names (e.g. "CustomStatus") to include in API
+	// requests with the JSON null value. By default, fields with empty values are
+	// omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
+	NullFields []string `json:"-"`
+}
+
+func (s Availability) MarshalJSON() ([]byte, error) {
+	type NoMethod Availability
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
+}
+
 // Button: A button. Can be a text button or an image button.
 type Button struct {
 	// ImageButton: A button with image and `onclick` action.
@@ -1025,10 +1242,16 @@ func (s CardHeader) MarshalJSON() ([]byte, error) {
 
 // CardWithId: A card
 // (https://developers.google.com/workspace/chat/api/reference/rest/v1/cards)
-// in a Google Chat message. Only Chat apps can create cards. If your Chat app
+// in a Google Chat message. Chat apps can create cards with app authentication
+// (https://developers.google.com/workspace/chat/authenticate-authorize-chat-app).
+// As part of the Developer Preview Program
+// (https://developers.google.com/workspace/preview), if your Chat app
 // authenticates as a user
 // (https://developers.google.com/workspace/chat/authenticate-authorize-chat-user),
-// the message can't contain cards. Card builder
+// it can create card messages. If your Chat app is not part of Developer
+// Preview Program, it can't create cards with user authentication. To learn
+// how to create a message that contains cards, see Send a message
+// (https://developers.google.com/workspace/chat/create-messages). Card builder
 // (https://addons.gsuite.google.com/uikit/builder)
 type CardWithId struct {
 	// Card: A card. Maximum size is 32 KB.
@@ -1507,6 +1730,39 @@ func (s CustomEmojiPayload) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
+// CustomStatus: Represents a user's custom status in Google Chat. This
+// includes a short text message with an optional emoji that a user sets to
+// give more context about their availability.
+type CustomStatus struct {
+	// Emoji: Required. The emoji of the custom status. Only Unicode emojis are
+	// supported; custom emojis are not supported.
+	Emoji *Emoji `json:"emoji,omitempty"`
+	// ExpireTime: The timestamp when the custom status expires.
+	ExpireTime string `json:"expireTime,omitempty"`
+	// Text: Required. The text of the custom status. This will be a string with
+	// maximum length of 64.
+	Text string `json:"text,omitempty"`
+	// Ttl: Input only. The time-to-live duration after which the custom status
+	// expires.
+	Ttl string `json:"ttl,omitempty"`
+	// ForceSendFields is a list of field names (e.g. "Emoji") to unconditionally
+	// include in API requests. By default, fields with empty or default values are
+	// omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
+	// details.
+	ForceSendFields []string `json:"-"`
+	// NullFields is a list of field names (e.g. "Emoji") to include in API
+	// requests with the JSON null value. By default, fields with empty values are
+	// omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
+	NullFields []string `json:"-"`
+}
+
+func (s CustomStatus) MarshalJSON() ([]byte, error) {
+	type NoMethod CustomStatus
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
+}
+
 // DateInput: Date input values.
 type DateInput struct {
 	// MsSinceEpoch: Time since epoch time, in milliseconds.
@@ -1798,6 +2054,30 @@ func (s DialogAction) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
+// DoNotDisturbMetadata: Metadata associated with the `DO_NOT_DISTURB`
+// availability state, specifying when the state is set to expire.
+type DoNotDisturbMetadata struct {
+	// ExpirationTime: Output only. Timestamp until which the user should be marked
+	// as DO_NOT_DISTURB. This can be maximum of 1 year in the future.
+	ExpirationTime string `json:"expirationTime,omitempty"`
+	// ForceSendFields is a list of field names (e.g. "ExpirationTime") to
+	// unconditionally include in API requests. By default, fields with empty or
+	// default values are omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
+	// details.
+	ForceSendFields []string `json:"-"`
+	// NullFields is a list of field names (e.g. "ExpirationTime") to include in
+	// API requests with the JSON null value. By default, fields with empty values
+	// are omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
+	NullFields []string `json:"-"`
+}
+
+func (s DoNotDisturbMetadata) MarshalJSON() ([]byte, error) {
+	type NoMethod DoNotDisturbMetadata
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
+}
+
 // DriveDataRef: A reference to the data of a drive attachment.
 type DriveDataRef struct {
 	// DriveFileId: The ID for the drive file. Use with the Drive API.
@@ -1903,6 +2183,35 @@ func (s EmojiReactionSummary) MarshalJSON() ([]byte, error) {
 type Empty struct {
 	// ServerResponse contains the HTTP response code and headers from the server.
 	googleapi.ServerResponse `json:"-"`
+}
+
+// FindGroupChatsResponse: A response containing group chat spaces with exactly
+// the calling user and the requested users.
+type FindGroupChatsResponse struct {
+	// NextPageToken: A token that you can send as `pageToken` to retrieve the next
+	// page of results. If empty, there are no subsequent pages.
+	NextPageToken string `json:"nextPageToken,omitempty"`
+	// Spaces: List of spaces in the requested (or first) page.
+	Spaces []*Space `json:"spaces,omitempty"`
+
+	// ServerResponse contains the HTTP response code and headers from the server.
+	googleapi.ServerResponse `json:"-"`
+	// ForceSendFields is a list of field names (e.g. "NextPageToken") to
+	// unconditionally include in API requests. By default, fields with empty or
+	// default values are omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
+	// details.
+	ForceSendFields []string `json:"-"`
+	// NullFields is a list of field names (e.g. "NextPageToken") to include in API
+	// requests with the JSON null value. By default, fields with empty values are
+	// omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
+	NullFields []string `json:"-"`
+}
+
+func (s FindGroupChatsResponse) MarshalJSON() ([]byte, error) {
+	type NoMethod FindGroupChatsResponse
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
 // FormAction: A form action describes the behavior when the form is submitted.
@@ -2231,7 +2540,8 @@ func (s GoogleAppsCardV1ButtonList) MarshalJSON() ([]byte, error) {
 // (https://developers.google.com/workspace/chat/design-components-card-dialog).
 // * For Google Workspace add-ons, see Card-based interfaces
 // (https://developers.google.com/apps-script/add-ons/concepts/cards). Note:
-// You can add up to 100 widgets per card. Any widgets beyond this limit are
+// You can add up to 100 widgets per card. If a section's widgets push the
+// total count above 100, that entire section and all following sections are
 // ignored. This limit applies to both card messages and dialogs in Google Chat
 // apps, and to cards in Google Workspace add-ons. **Example: Card message for
 // a Google Chat app** !Example contact card
@@ -4299,6 +4609,68 @@ func (s GoogleAppsCardV1Widgets) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
+// GoogleChatV1Section: Represents a section
+// (https://support.google.com/chat/answer/16059854) in Google Chat. Sections
+// help users organize their spaces. There are two types of sections: 1.
+// **System Sections:** These are predefined sections managed by Google Chat.
+// Their resource names are fixed, and they cannot be created, deleted, or have
+// their `display_name` modified. Examples include: *
+// `users/{user}/sections/default-direct-messages` *
+// `users/{user}/sections/default-spaces` *
+// `users/{user}/sections/default-apps` 2. **Custom Sections:** These are
+// sections created and managed by the user. Creating a custom section using
+// `CreateSection` **requires** a `display_name`. Custom sections can be
+// updated using `UpdateSection` and deleted using `DeleteSection`.
+type GoogleChatV1Section struct {
+	// DisplayName: Optional. The section's display name. Only populated for
+	// sections of type `CUSTOM_SECTION`. Supports up to 80 characters. Required
+	// when creating a `CUSTOM_SECTION`.
+	DisplayName string `json:"displayName,omitempty"`
+	// Name: Identifier. Resource name of the section. For system sections, the
+	// section ID is a constant string: - DEFAULT_DIRECT_MESSAGES:
+	// `users/{user}/sections/default-direct-messages` - DEFAULT_SPACES:
+	// `users/{user}/sections/default-spaces` - DEFAULT_APPS:
+	// `users/{user}/sections/default-apps` Format:
+	// `users/{user}/sections/{section}`
+	Name string `json:"name,omitempty"`
+	// SortOrder: Output only. The order of the section in relation to other
+	// sections. Sections with a lower `sort_order` value appear before sections
+	// with a higher value.
+	SortOrder int64 `json:"sortOrder,omitempty"`
+	// Type: Required. The type of the section.
+	//
+	// Possible values:
+	//   "SECTION_TYPE_UNSPECIFIED" - Unspecified section type.
+	//   "CUSTOM_SECTION" - Custom section.
+	//   "DEFAULT_DIRECT_MESSAGES" - Default section containing
+	// [DIRECT_MESSAGE](https://developers.google.com/workspace/chat/api/reference/r
+	// est/v1/spaces#spacetype) between two human users or
+	// [GROUP_CHAT](https://developers.google.com/workspace/chat/api/reference/rest/
+	// v1/spaces#spacetype) spaces that don't belong to any custom section.
+	//   "DEFAULT_SPACES" - Default spaces that don't belong to any custom section.
+	//   "DEFAULT_APPS" - Default section containing a user's installed apps.
+	Type string `json:"type,omitempty"`
+
+	// ServerResponse contains the HTTP response code and headers from the server.
+	googleapi.ServerResponse `json:"-"`
+	// ForceSendFields is a list of field names (e.g. "DisplayName") to
+	// unconditionally include in API requests. By default, fields with empty or
+	// default values are omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
+	// details.
+	ForceSendFields []string `json:"-"`
+	// NullFields is a list of field names (e.g. "DisplayName") to include in API
+	// requests with the JSON null value. By default, fields with empty values are
+	// omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
+	NullFields []string `json:"-"`
+}
+
+func (s GoogleChatV1Section) MarshalJSON() ([]byte, error) {
+	type NoMethod GoogleChatV1Section
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
+}
+
 // Group: A Google Group in Google Chat.
 type Group struct {
 	// Name: Resource name for a Google Group. Represents a group
@@ -4697,6 +5069,62 @@ func (s ListReactionsResponse) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
+// ListSectionItemsResponse: Response message for listing section items.
+type ListSectionItemsResponse struct {
+	// NextPageToken: A token, which can be sent as `page_token` to retrieve the
+	// next page. If this field is omitted, there are no subsequent pages.
+	NextPageToken string `json:"nextPageToken,omitempty"`
+	// SectionItems: The section items from the specified section.
+	SectionItems []*SectionItem `json:"sectionItems,omitempty"`
+
+	// ServerResponse contains the HTTP response code and headers from the server.
+	googleapi.ServerResponse `json:"-"`
+	// ForceSendFields is a list of field names (e.g. "NextPageToken") to
+	// unconditionally include in API requests. By default, fields with empty or
+	// default values are omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
+	// details.
+	ForceSendFields []string `json:"-"`
+	// NullFields is a list of field names (e.g. "NextPageToken") to include in API
+	// requests with the JSON null value. By default, fields with empty values are
+	// omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
+	NullFields []string `json:"-"`
+}
+
+func (s ListSectionItemsResponse) MarshalJSON() ([]byte, error) {
+	type NoMethod ListSectionItemsResponse
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
+}
+
+// ListSectionsResponse: Response message for listing sections.
+type ListSectionsResponse struct {
+	// NextPageToken: A token, which can be sent as `page_token` to retrieve the
+	// next page. If this field is omitted, there are no subsequent pages.
+	NextPageToken string `json:"nextPageToken,omitempty"`
+	// Sections: The sections from the specified user.
+	Sections []*GoogleChatV1Section `json:"sections,omitempty"`
+
+	// ServerResponse contains the HTTP response code and headers from the server.
+	googleapi.ServerResponse `json:"-"`
+	// ForceSendFields is a list of field names (e.g. "NextPageToken") to
+	// unconditionally include in API requests. By default, fields with empty or
+	// default values are omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
+	// details.
+	ForceSendFields []string `json:"-"`
+	// NullFields is a list of field names (e.g. "NextPageToken") to include in API
+	// requests with the JSON null value. By default, fields with empty values are
+	// omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
+	NullFields []string `json:"-"`
+}
+
+func (s ListSectionsResponse) MarshalJSON() ([]byte, error) {
+	type NoMethod ListSectionsResponse
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
+}
+
 // ListSpaceEventsResponse: Response message for listing space events.
 type ListSpaceEventsResponse struct {
 	// NextPageToken: Continuation token used to fetch more events. If this field
@@ -4754,6 +5182,61 @@ type ListSpacesResponse struct {
 
 func (s ListSpacesResponse) MarshalJSON() ([]byte, error) {
 	type NoMethod ListSpacesResponse
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
+}
+
+// MarkAsActiveRequest: Request message for the `MarkAsActive` method.
+type MarkAsActiveRequest struct {
+	// ExpireTime: The absolute timestamp when the ACTIVE state expires.
+	ExpireTime string `json:"expireTime,omitempty"`
+	// Ttl: The duration from the current time until the ACTIVE state expires.
+	// Using a short TTL can effectively reset the user's state to be based on
+	// activity after this brief duration.
+	Ttl string `json:"ttl,omitempty"`
+	// ForceSendFields is a list of field names (e.g. "ExpireTime") to
+	// unconditionally include in API requests. By default, fields with empty or
+	// default values are omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
+	// details.
+	ForceSendFields []string `json:"-"`
+	// NullFields is a list of field names (e.g. "ExpireTime") to include in API
+	// requests with the JSON null value. By default, fields with empty values are
+	// omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
+	NullFields []string `json:"-"`
+}
+
+func (s MarkAsActiveRequest) MarshalJSON() ([]byte, error) {
+	type NoMethod MarkAsActiveRequest
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
+}
+
+// MarkAsAwayRequest: Request message for the `MarkAsAway` method.
+type MarkAsAwayRequest struct {
+}
+
+// MarkAsDoNotDisturbRequest: Request message for the `MarkAsDoNotDisturb`
+// method.
+type MarkAsDoNotDisturbRequest struct {
+	// ExpireTime: The absolute timestamp when the DND state expires.
+	ExpireTime string `json:"expireTime,omitempty"`
+	// Ttl: The duration from the current time until the DND state expires.
+	Ttl string `json:"ttl,omitempty"`
+	// ForceSendFields is a list of field names (e.g. "ExpireTime") to
+	// unconditionally include in API requests. By default, fields with empty or
+	// default values are omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
+	// details.
+	ForceSendFields []string `json:"-"`
+	// NullFields is a list of field names (e.g. "ExpireTime") to include in API
+	// requests with the JSON null value. By default, fields with empty values are
+	// omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
+	NullFields []string `json:"-"`
+}
+
+func (s MarkAsDoNotDisturbRequest) MarshalJSON() ([]byte, error) {
+	type NoMethod MarkAsDoNotDisturbRequest
 	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
@@ -4849,6 +5332,22 @@ func (s MeetSpaceLinkData) MarshalJSON() ([]byte, error) {
 // Membership: Represents a membership relation in Google Chat, such as whether
 // a user or Chat app is invited to, part of, or absent from a space.
 type Membership struct {
+	// Affiliation: Output only. A user's relationship to the Workspace
+	// organization that owns the space. In spaces owned by consumer accounts, the
+	// affiliation of all members is `EXTERNAL`.
+	//
+	// Possible values:
+	//   "AFFILIATION_UNSPECIFIED" - Default value. This value is unused.
+	//   "INTERNAL" - An account managed by the same Google Workspace organization
+	// that owns the space.
+	//   "EXTERNAL" - An account external to the Google Workspace organization that
+	// owns the space (e.g., a consumer account, or an account managed by a
+	// different Workspace organization).
+	//   "MANAGED_EXTERNAL" - An account managed by the Workspace organization that
+	// owns the space, but provisioned for a user who is external to the
+	// organization (e.g., a Guest user). To learn more about guests, see
+	// https://support.google.com/chat/answer/16997417.
+	Affiliation string `json:"affiliation,omitempty"`
 	// CreateTime: Optional. Immutable. The creation time of the membership, such
 	// as when a member joined or was invited to join a space. This field is output
 	// only, except when used to import historical memberships in import mode
@@ -4921,13 +5420,13 @@ type Membership struct {
 
 	// ServerResponse contains the HTTP response code and headers from the server.
 	googleapi.ServerResponse `json:"-"`
-	// ForceSendFields is a list of field names (e.g. "CreateTime") to
+	// ForceSendFields is a list of field names (e.g. "Affiliation") to
 	// unconditionally include in API requests. By default, fields with empty or
 	// default values are omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
 	// details.
 	ForceSendFields []string `json:"-"`
-	// NullFields is a list of field names (e.g. "CreateTime") to include in API
+	// NullFields is a list of field names (e.g. "Affiliation") to include in API
 	// requests with the JSON null value. By default, fields with empty values are
 	// omitted from API requests. See
 	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
@@ -5139,10 +5638,15 @@ type Message struct {
 	Cards []*Card `json:"cards,omitempty"`
 	// CardsV2: Optional. An array of cards
 	// (https://developers.google.com/workspace/chat/api/reference/rest/v1/cards).
-	// Only Chat apps can create cards. If your Chat app authenticates as a user
+	// Chat apps can create cards with app authentication
+	// (https://developers.google.com/workspace/chat/authenticate-authorize-chat-app).
+	// As part of the Developer Preview Program
+	// (https://developers.google.com/workspace/preview), if your Chat app
+	// authenticates as a user
 	// (https://developers.google.com/workspace/chat/authenticate-authorize-chat-user),
-	// the messages can't contain cards. To learn how to create a message that
-	// contains cards, see Send a message
+	// it can create card messages. If your Chat app is not part of Developer
+	// Preview Program, it can't create cards with user authentication. To learn
+	// how to create a message that contains cards, see Send a message
 	// (https://developers.google.com/workspace/chat/create-messages). Card builder
 	// (https://addons.gsuite.google.com/uikit/builder)
 	CardsV2 []*CardWithId `json:"cardsV2,omitempty"`
@@ -5176,8 +5680,8 @@ type Message struct {
 	// to communicate formatting. This field might not capture all formatting
 	// visible in the UI, but includes the following: * Markup syntax
 	// (https://developers.google.com/workspace/chat/format-messages) for bold,
-	// italic, strikethrough, monospace, monospace block, and bulleted list. * User
-	// mentions
+	// italic, strikethrough, monospace, monospace block, bulleted list, and block
+	// quote. * User mentions
 	// (https://developers.google.com/workspace/chat/format-messages#messages-@mention)
 	// using the format ``. * Custom hyperlinks using the format
 	// `<{url}|{rendered_text}>` where the first string is the URL and the second
@@ -5191,8 +5695,22 @@ type Message struct {
 	// LastUpdateTime: Output only. The time at which the message was last edited
 	// by a user. If the message has never been edited, this field is empty.
 	LastUpdateTime string `json:"lastUpdateTime,omitempty"`
-	// MatchedUrl: Output only. A URL in `spaces.messages.text` that matches a link
-	// preview pattern. For more information, see Preview links
+	// MarkupSyntax: Optional. Specifies how the server interprets the message
+	// `text` field content.
+	//
+	// Possible values:
+	//   "MARKUP_SYNTAX_UNSPECIFIED" - Represents the unspecified value.
+	//   "MARKUP_SYNTAX_CHAT" - Uses Google Chat's markup syntax. See
+	// https://developers.google.com/workspace/chat/format-messages#format-texts
+	// for more information.
+	//   "MARKUP_SYNTAX_MARKDOWN" - Uses Markdown syntax. This syntax is based on
+	// the [CommonMark](https://commonmark.org/help/) specification, with
+	// additional extensions. See
+	// https://developers.google.com/workspace/chat/format-messages#format-texts
+	// for more information.
+	MarkupSyntax string `json:"markupSyntax,omitempty"`
+	// MatchedUrl: Output only. A URL in the Chat message `text` field that matches
+	// a link preview pattern. For more information, see Preview links
 	// (https://developers.google.com/workspace/chat/preview-links).
 	MatchedUrl *MatchedUrl `json:"matchedUrl,omitempty"`
 	// Name: Identifier. Resource name of the message. Format:
@@ -5232,6 +5750,9 @@ type Message struct {
 	// (https://developers.google.com/workspace/chat/api/reference/rest/v1/User)
 	// `name` and `type`.
 	Sender *User `json:"sender,omitempty"`
+	// Silent: Output only. Whether this is a silent message. Silent messages are
+	// messages where Chat suppresses push notifications for recipients.
+	Silent bool `json:"silent,omitempty"`
 	// SlashCommand: Output only. Slash command information, if applicable.
 	SlashCommand *SlashCommand `json:"slashCommand,omitempty"`
 	// Space: Output only. If your Chat app authenticates as a user
@@ -5418,6 +5939,55 @@ func (s MessageUpdatedEventData) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
+// MoveSectionItemRequest: Request message for moving a section item across
+// sections.
+type MoveSectionItemRequest struct {
+	// TargetSection: Required. The resource name of the section to move the
+	// section item to. Format: `users/{user}/sections/{section}`
+	TargetSection string `json:"targetSection,omitempty"`
+	// ForceSendFields is a list of field names (e.g. "TargetSection") to
+	// unconditionally include in API requests. By default, fields with empty or
+	// default values are omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
+	// details.
+	ForceSendFields []string `json:"-"`
+	// NullFields is a list of field names (e.g. "TargetSection") to include in API
+	// requests with the JSON null value. By default, fields with empty values are
+	// omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
+	NullFields []string `json:"-"`
+}
+
+func (s MoveSectionItemRequest) MarshalJSON() ([]byte, error) {
+	type NoMethod MoveSectionItemRequest
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
+}
+
+// MoveSectionItemResponse: Response message for moving a section item.
+type MoveSectionItemResponse struct {
+	// SectionItem: The updated section item.
+	SectionItem *SectionItem `json:"sectionItem,omitempty"`
+
+	// ServerResponse contains the HTTP response code and headers from the server.
+	googleapi.ServerResponse `json:"-"`
+	// ForceSendFields is a list of field names (e.g. "SectionItem") to
+	// unconditionally include in API requests. By default, fields with empty or
+	// default values are omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
+	// details.
+	ForceSendFields []string `json:"-"`
+	// NullFields is a list of field names (e.g. "SectionItem") to include in API
+	// requests with the JSON null value. By default, fields with empty values are
+	// omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
+	NullFields []string `json:"-"`
+}
+
+func (s MoveSectionItemResponse) MarshalJSON() ([]byte, error) {
+	type NoMethod MoveSectionItemResponse
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
+}
+
 // OnClick: An `onclick` action (for example, open a link).
 type OnClick struct {
 	// Action: A form action is triggered by this `onclick` action if specified.
@@ -5534,12 +6104,92 @@ func (s PermissionSettings) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
+// PositionSectionRequest: Request message for positioning a section.
+type PositionSectionRequest struct {
+	// RelativePosition: Optional. The relative position of the section in the list
+	// of sections.
+	//
+	// Possible values:
+	//   "POSITION_UNSPECIFIED" - Unspecified position.
+	//   "START" - Start of the list of sections.
+	//   "END" - End of the list of sections.
+	RelativePosition string `json:"relativePosition,omitempty"`
+	// SortOrder: Optional. The absolute position of the section in the list of
+	// sections. The position must be greater than 0. If the position is greater
+	// than the number of sections, the section will be appended to the end of the
+	// list. This operation inserts the section at the given position and shifts
+	// the original section at that position, and those below it, to the next
+	// position.
+	SortOrder int64 `json:"sortOrder,omitempty"`
+	// ForceSendFields is a list of field names (e.g. "RelativePosition") to
+	// unconditionally include in API requests. By default, fields with empty or
+	// default values are omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
+	// details.
+	ForceSendFields []string `json:"-"`
+	// NullFields is a list of field names (e.g. "RelativePosition") to include in
+	// API requests with the JSON null value. By default, fields with empty values
+	// are omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
+	NullFields []string `json:"-"`
+}
+
+func (s PositionSectionRequest) MarshalJSON() ([]byte, error) {
+	type NoMethod PositionSectionRequest
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
+}
+
+// PositionSectionResponse: Response message for positioning a section.
+type PositionSectionResponse struct {
+	// Section: The updated section.
+	Section *GoogleChatV1Section `json:"section,omitempty"`
+
+	// ServerResponse contains the HTTP response code and headers from the server.
+	googleapi.ServerResponse `json:"-"`
+	// ForceSendFields is a list of field names (e.g. "Section") to unconditionally
+	// include in API requests. By default, fields with empty or default values are
+	// omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
+	// details.
+	ForceSendFields []string `json:"-"`
+	// NullFields is a list of field names (e.g. "Section") to include in API
+	// requests with the JSON null value. By default, fields with empty values are
+	// omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
+	NullFields []string `json:"-"`
+}
+
+func (s PositionSectionResponse) MarshalJSON() ([]byte, error) {
+	type NoMethod PositionSectionResponse
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
+}
+
+// Principal: A principal representing an entity granted access.
+type Principal struct {
+	// Audience: An audience.
+	Audience *Audience `json:"audience,omitempty"`
+	// ForceSendFields is a list of field names (e.g. "Audience") to
+	// unconditionally include in API requests. By default, fields with empty or
+	// default values are omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
+	// details.
+	ForceSendFields []string `json:"-"`
+	// NullFields is a list of field names (e.g. "Audience") to include in API
+	// requests with the JSON null value. By default, fields with empty values are
+	// omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
+	NullFields []string `json:"-"`
+}
+
+func (s Principal) MarshalJSON() ([]byte, error) {
+	type NoMethod Principal
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
+}
+
 // QuotedMessageMetadata: Information about a message that another message
-// quotes. When you create a message, you can quote messages within the same
-// thread, or quote a root message to create a new root message. However, you
-// can't quote a message reply from a different thread. When you update a
-// message, you can't add or replace the `quotedMessageMetadata` field, but you
-// can remove it. For example usage, see Quote another message
+// quotes. When you update a message, you can't add or replace the
+// `quotedMessageMetadata` field, but you can remove it. For example usage, see
+// Quote another message
 // (https://developers.google.com/workspace/chat/create-messages#quote-a-message).
 type QuotedMessageMetadata struct {
 	// ForwardedMetadata: Output only. Metadata about the source space of the
@@ -5559,10 +6209,13 @@ type QuotedMessageMetadata struct {
 	//
 	// Possible values:
 	//   "QUOTE_TYPE_UNSPECIFIED" - Reserved. This value is unused.
-	//   "REPLY" - If quote_type is `REPLY`, you can do the following: * If you're
-	// replying in a thread, you can quote another message in that thread. * If
-	// you're creating a root message, you can quote another root message in that
-	// space. You can't quote a message reply from a different thread.
+	//   "REPLY" - When `quote_type` is `REPLY`, you can do the following: * If
+	// you're replying in a thread, you can quote another message in that thread. *
+	// If you're creating a root message, you can quote another root message in
+	// that space.
+	//   "FORWARD" - When `quote_type` is `FORWARD`, you can quote a: * Message
+	// from a different space. * Message reply from a different thread in the same
+	// space.
 	QuoteType string `json:"quoteType,omitempty"`
 	// QuotedMessageSnapshot: Output only. A snapshot of the quoted message's
 	// content.
@@ -5791,13 +6444,255 @@ func (s RichLinkMetadata) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
+// SearchMessageResult: A single result item from a message search.
+type SearchMessageResult struct {
+	// Message: The matched message.
+	Message *Message `json:"message,omitempty"`
+	// Read: Indicates if the matched message is read by the calling user. Only
+	// returned if the request view is `SEARCH_MESSAGES_VIEW_FULL` and the calling
+	// credentials include one of the following authorization scopes
+	// (https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes):
+	// - `https://www.googleapis.com/auth/chat.users.readstate.readonly` -
+	// `https://www.googleapis.com/auth/chat.users.readstate`
+	Read bool `json:"read,omitempty"`
+	// SpaceMuteSetting: The mute setting of the calling user for the space where
+	// the message is posted. The caller app can use this information to decide how
+	// to process the message depending on whether the space is muted for the user
+	// or not. Only returned if the request view is `SEARCH_MESSAGES_VIEW_FULL` and
+	// the calling credentials include the following authorization scope
+	// (https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes):
+	// - `https://www.googleapis.com/auth/chat.users.spacesettings`
+	//
+	// Possible values:
+	//   "MUTE_SETTING_UNSPECIFIED" - Reserved.
+	//   "UNMUTED" - The user will receive notifications for the space based on the
+	// notification setting.
+	//   "MUTED" - The user will not receive any notifications for the space,
+	// regardless of the notification setting.
+	SpaceMuteSetting string `json:"spaceMuteSetting,omitempty"`
+	// ForceSendFields is a list of field names (e.g. "Message") to unconditionally
+	// include in API requests. By default, fields with empty or default values are
+	// omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
+	// details.
+	ForceSendFields []string `json:"-"`
+	// NullFields is a list of field names (e.g. "Message") to include in API
+	// requests with the JSON null value. By default, fields with empty values are
+	// omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
+	NullFields []string `json:"-"`
+}
+
+func (s SearchMessageResult) MarshalJSON() ([]byte, error) {
+	type NoMethod SearchMessageResult
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
+}
+
+// SearchMessagesRequest: Request message for searching messages.
+type SearchMessagesRequest struct {
+	// Filter: Required. A search query. The query can specify one or more search
+	// keywords, which are used to filter the results, You can also filter the
+	// results using the following message fields: - `create_time`: Accepts a
+	// timestamp in RFC-3339 (https://www.rfc-editor.org/rfc/rfc3339) format and
+	// the supported comparison operators are: `<` and `>=`. - `sender.name`: The
+	// resource name of the sender (`users/{user}`). Only supports `=`. You can use
+	// the e-mail as an alias for `{user}`. For example, `users/example@gmail.com`,
+	// where `example@gmail.com` is the e-mail of the Google Chat user. -
+	// `space.name`: The resource name of the space where the message is posted.
+	// (`spaces/{space}`). Only supports `=`. If this filter is not set, the search
+	// is performed across all direct messages and spaces the user has access to as
+	// a space member. - `space.display_name`: Supports the operator `:` (has) and
+	// filters spaces based on a partial match of their display name. Results are
+	// limited to the top five space matches. For example,
+	// `space.display_name:Project` searches for messages in the top five spaces
+	// that contain the word "Project" in their display names. - `attachment`:
+	// Supports the operator `:*` (has any) to check for the presence of
+	// attachments. If `attachment:*` is specified, only messages that have at
+	// least one attachment are returned. - `annotations.user_mentions.user.name`:
+	// The resource name of the mentioned user (`users/{user}`). Only supports `:`
+	// (has). For example: `annotations.user_mentions.user.name:"users/1234567890"
+	// returns only messages that contain a mention to the specified user.
+	// Alternatively, the alias `me` can be used to filter for messages that
+	// mention the caller user, for example:
+	// `annotations.user_mentions.user.name:users/me`. You can also use the e-mail
+	// as an alias for `{user}`, for example, `users/example@gmail.com`. For
+	// advanced filtering, the following functions are also available: -
+	// `has_link()`: Returns only messages that have at least one hyperlink in the
+	// message text. - `is_unread()`: Filters out messages that have been read by
+	// the calling user. Using the `space.display_name` filter requires that the
+	// calling credentials include one of the following authorization scopes
+	// (https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes):
+	// - `https://www.googleapis.com/auth/chat.spaces.readonly` -
+	// `https://www.googleapis.com/auth/chat.spaces` Using the `is_unread()` filter
+	// requires that the calling credentials include one of the following
+	// authorization scopes
+	// (https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes):
+	// - `https://www.googleapis.com/auth/chat.users.readstate.readonly` -
+	// `https://www.googleapis.com/auth/chat.users.readstate` Across different
+	// fields, only `AND` operators are supported. A valid example is `sender.name
+	// = "users/1234567890" AND is_unread()`. The word `AND` is optional and is
+	// implied if omitted. For example, `sender.name = "users/1234567890"
+	// is_unread()` is valid and is equivalent to the previous example. An invalid
+	// example is `sender.name = "users/1234567890" OR is_unread()` because `OR` is
+	// not supported between different fields. Among the same field: -
+	// `create_time` supports only `AND`, and can only be used to represent an
+	// interval, such as `create_time >= "2022-01-01T00:00:00+00:00" AND
+	// create_time < "2023-01-01T00:00:00+00:00". - `sender.name` supports only
+	// the `OR` operator, for example: `sender.name = "users/1234567890" OR
+	// sender.name = "users/0987654321". - `space.name` supports only the `OR`
+	// operator, for example: `space.name = "spaces/ABCDEFGH" OR space.name =
+	// "spaces/QWERTYUI". - `space.display_name` supports the operators `AND` and
+	// `OR`, but not a mix of both. For example: `space.display_name:Project AND
+	// space.display_name:Tasks` returns messages that are in spaces with display
+	// names containing both `Project` and `Tasks`, whereas
+	// `space.display_name:Project OR space.display_name:Tasks` returns messages
+	// that are in spaces with display names containing either `Project` or `Tasks`
+	// or both. - `annotations.user_mentions.user.name` supports the operators
+	// `AND` and `OR`, but not a mix of both. For example:
+	// `annotations.user_mentions.user.name:"users/1234567890" AND
+	// annotations.user_mentions.user.name:"users/0987654321" returns only
+	// messages that mentions both users, whereas
+	// `annotations.user_mentions.user.name:"users/1234567890" OR
+	// annotations.user_mentions.user.name:"users/0987654321" returns messages
+	// that mention either user or both. Parentheses are required to disambiguate
+	// operator precedence when combining `AND` and `OR` operators in the same
+	// query. For example: `(sender.name="users/me" OR sender.name="users/123456")
+	// AND is_unread()`. Otherwise, parentheses are optional. The following example
+	// queries are valid: ``` "Pending reports" AND create_time >=
+	// "2023-01-01T00:00:00Z" sender.name = "users/example@gmail.com"
+	// annotations.user_mentions.user.name:"users/0987654321" attachment:* AND
+	// space.name = "spaces/ABCDEFGH" tasks AND is_unread() AND sender.name =
+	// "users/1234567890" "things to do" "urgent" (sender.name =
+	// "users/1234567890") AND (create_time < "2023-05-01T00:00:00Z") tasks AND
+	// space.name = "spaces/ABCDEFGH" AND has_link() "project one" is_unread()
+	// space.display_name:Project tasks ``` The maximum query length is 1,000
+	// characters. Invalid queries are rejected by the server with an
+	// `INVALID_ARGUMENT` error.
+	Filter string `json:"filter,omitempty"`
+	// MarkupSyntax: Optional. Specifies the desired output syntax for the Chat
+	// message `formatted_text` field.
+	//
+	// Possible values:
+	//   "MARKUP_SYNTAX_UNSPECIFIED" - Represents the unspecified value.
+	//   "MARKUP_SYNTAX_CHAT" - Uses Google Chat's markup syntax. See
+	// https://developers.google.com/workspace/chat/format-messages#format-texts
+	// for more information.
+	//   "MARKUP_SYNTAX_MARKDOWN" - Uses Markdown syntax. This syntax is based on
+	// the [CommonMark](https://commonmark.org/help/) specification, with
+	// additional extensions. See
+	// https://developers.google.com/workspace/chat/format-messages#format-texts
+	// for more information.
+	MarkupSyntax string `json:"markupSyntax,omitempty"`
+	// OrderBy: Optional. How the results list is ordered. Supported attributes to
+	// order by are: - `create_time`: Sorts the results by the time of the message
+	// creation. Default value. - `relevance`: Sorts the results by relevance.
+	// Developer Preview (https://developers.google.com/workspace/preview). The
+	// default ordering is `create_time desc`. Only a single order per query
+	// (`create_time` or `relevance`) is supported. Only descending order (`desc`)
+	// is supported, and it must be specified after the order attribute.
+	OrderBy string `json:"orderBy,omitempty"`
+	// PageSize: Optional. The maximum number of results to return. The service may
+	// return fewer than this value. If unspecified, at most 25 are returned. The
+	// maximum value is 100. If you use a value more than 100, it's automatically
+	// changed to 100.
+	PageSize int64 `json:"pageSize,omitempty"`
+	// PageToken: Optional. A token, received from the previous search messages
+	// call. Provide this parameter to retrieve the subsequent page. When
+	// paginating, all other parameters provided should match the call that
+	// provided the page token. Passing different values to the other parameters
+	// might lead to unexpected results.
+	PageToken string `json:"pageToken,omitempty"`
+	// View: Optional. Specifies what kind of search results view to return. The
+	// default is `SEARCH_MESSAGES_VIEW_BASIC`.
+	//
+	// Possible values:
+	//   "SEARCH_MESSAGES_VIEW_UNSPECIFIED" - The default / unset value. The API
+	// will default to the BASIC view.
+	//   "SEARCH_MESSAGES_VIEW_BASIC" - Includes only the matched messages in the
+	// results, but no additional metadata. This is the default value.
+	//   "SEARCH_MESSAGES_VIEW_FULL" - Includes everything in the results: the
+	// matched messages and additional metadata.
+	View string `json:"view,omitempty"`
+	// ForceSendFields is a list of field names (e.g. "Filter") to unconditionally
+	// include in API requests. By default, fields with empty or default values are
+	// omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
+	// details.
+	ForceSendFields []string `json:"-"`
+	// NullFields is a list of field names (e.g. "Filter") to include in API
+	// requests with the JSON null value. By default, fields with empty values are
+	// omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
+	NullFields []string `json:"-"`
+}
+
+func (s SearchMessagesRequest) MarshalJSON() ([]byte, error) {
+	type NoMethod SearchMessagesRequest
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
+}
+
+// SearchMessagesResponse: Response message for searching messages.
+type SearchMessagesResponse struct {
+	// NextPageToken: A token that can be used to retrieve the next page. If this
+	// field is empty, there are no subsequent pages.
+	NextPageToken string `json:"nextPageToken,omitempty"`
+	// Results: The list of search results that matched the query.
+	Results []*SearchMessageResult `json:"results,omitempty"`
+
+	// ServerResponse contains the HTTP response code and headers from the server.
+	googleapi.ServerResponse `json:"-"`
+	// ForceSendFields is a list of field names (e.g. "NextPageToken") to
+	// unconditionally include in API requests. By default, fields with empty or
+	// default values are omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
+	// details.
+	ForceSendFields []string `json:"-"`
+	// NullFields is a list of field names (e.g. "NextPageToken") to include in API
+	// requests with the JSON null value. By default, fields with empty values are
+	// omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
+	NullFields []string `json:"-"`
+}
+
+func (s SearchMessagesResponse) MarshalJSON() ([]byte, error) {
+	type NoMethod SearchMessagesResponse
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
+}
+
+// SearchSpaceResult: A single result item from a space search.
+type SearchSpaceResult struct {
+	// Space: Output only. The matched space.
+	Space *Space `json:"space,omitempty"`
+	// ForceSendFields is a list of field names (e.g. "Space") to unconditionally
+	// include in API requests. By default, fields with empty or default values are
+	// omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
+	// details.
+	ForceSendFields []string `json:"-"`
+	// NullFields is a list of field names (e.g. "Space") to include in API
+	// requests with the JSON null value. By default, fields with empty values are
+	// omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
+	NullFields []string `json:"-"`
+}
+
+func (s SearchSpaceResult) MarshalJSON() ([]byte, error) {
+	type NoMethod SearchSpaceResult
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
+}
+
 // SearchSpacesResponse: Response with a list of spaces corresponding to the
 // search spaces request.
 type SearchSpacesResponse struct {
 	// NextPageToken: A token that can be used to retrieve the next page. If this
 	// field is empty, there are no subsequent pages.
 	NextPageToken string `json:"nextPageToken,omitempty"`
-	// Spaces: A page of the requested spaces.
+	// Results: Output only. The list of search results that matched the query.
+	Results []*SearchSpaceResult `json:"results,omitempty"`
+	// Spaces: Deprecated: Please use the new `results` field instead. A page of
+	// the requested spaces. This field will be populated only when
+	// `useAdminAccess` is set to `true` and deprecated in favor of the new
+	// `results` field.
 	Spaces []*Space `json:"spaces,omitempty"`
 	// TotalSize: The total number of spaces that match the query, across all
 	// pages. If the result is over 10,000 spaces, this value is an estimate.
@@ -5851,6 +6746,32 @@ type Section struct {
 
 func (s Section) MarshalJSON() ([]byte, error) {
 	type NoMethod Section
+	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
+}
+
+// SectionItem: A user's defined section item. This is used to represent
+// section items, such as spaces, grouped under a section.
+type SectionItem struct {
+	// Name: Identifier. The resource name of the section item. Format:
+	// `users/{user}/sections/{section}/items/{item}`
+	Name string `json:"name,omitempty"`
+	// Space: Optional. The space resource name. Format: `spaces/{space}`
+	Space string `json:"space,omitempty"`
+	// ForceSendFields is a list of field names (e.g. "Name") to unconditionally
+	// include in API requests. By default, fields with empty or default values are
+	// omitted from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-ForceSendFields for more
+	// details.
+	ForceSendFields []string `json:"-"`
+	// NullFields is a list of field names (e.g. "Name") to include in API requests
+	// with the JSON null value. By default, fields with empty values are omitted
+	// from API requests. See
+	// https://pkg.go.dev/google.golang.org/api#hdr-NullFields for more details.
+	NullFields []string `json:"-"`
+}
+
+func (s SectionItem) MarshalJSON() ([]byte, error) {
+	type NoMethod SectionItem
 	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
@@ -8248,6 +9169,203 @@ func (c *SpacesFindDirectMessageCall) Do(opts ...googleapi.CallOption) (*Space, 
 	return ret, nil
 }
 
+type SpacesFindGroupChatsCall struct {
+	s            *Service
+	urlParams_   gensupport.URLParams
+	ifNoneMatch_ string
+	ctx_         context.Context
+	header_      http.Header
+}
+
+// FindGroupChats: Returns all spaces with `spaceType == GROUP_CHAT`, whose
+// human memberships contain exactly the calling user, and the users specified
+// in `FindGroupChatsRequest.users`. Only members that have joined the
+// conversation are supported. For an example, see Find group chats
+// (https://developers.google.com/workspace/chat/find-group-chats). If the
+// calling user blocks, or is blocked by, some users, and no spaces with the
+// entire specified set of users are found, this method returns spaces that
+// don't include the blocked or blocking users. The specified set of users must
+// contain only human (non-app) memberships. A request that contains non-human
+// users doesn't return any spaces. Requires user authentication
+// (https://developers.google.com/workspace/chat/authenticate-authorize-chat-user)
+// with one of the following authorization scopes
+// (https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes):
+// - `https://www.googleapis.com/auth/chat.memberships.readonly` -
+// `https://www.googleapis.com/auth/chat.memberships`
+func (r *SpacesService) FindGroupChats() *SpacesFindGroupChatsCall {
+	c := &SpacesFindGroupChatsCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	return c
+}
+
+// PageSize sets the optional parameter "pageSize": The maximum number of
+// spaces to return. The service might return fewer than this value. If
+// unspecified, at most 10 spaces are returned. The maximum value is 30. If you
+// use a value more than 30, it's automatically changed to 30. Negative values
+// return an `INVALID_ARGUMENT` error.
+func (c *SpacesFindGroupChatsCall) PageSize(pageSize int64) *SpacesFindGroupChatsCall {
+	c.urlParams_.Set("pageSize", fmt.Sprint(pageSize))
+	return c
+}
+
+// PageToken sets the optional parameter "pageToken": A page token, received
+// from a previous call to find group chats. Provide this parameter to retrieve
+// the subsequent page. When paginating, all other parameters provided should
+// match the call that provided the token. Passing different values may lead to
+// unexpected results.
+func (c *SpacesFindGroupChatsCall) PageToken(pageToken string) *SpacesFindGroupChatsCall {
+	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// SpaceView sets the optional parameter "spaceView": Requested space view
+// type. If unset, defaults to `SPACE_VIEW_RESOURCE_NAME_ONLY`. Requests that
+// specify `SPACE_VIEW_EXPANDED` must include scopes that allow reading space
+// data, for example, https://www.googleapis.com/auth/chat.spaces or
+// https://www.googleapis.com/auth/chat.spaces.readonly.
+//
+// Possible values:
+//
+//	"SPACE_VIEW_UNSPECIFIED" - The default / unset value.
+//	"SPACE_VIEW_RESOURCE_NAME_ONLY" - Populates only the Space resource name.
+//	"SPACE_VIEW_EXPANDED" - Populates Space resource fields. Note: the
+//
+// `permissionSettings` field will not be populated. Requests that specify
+// SPACE_VIEW_EXPANDED must include scopes that allow reading space data, for
+// example, https://www.googleapis.com/auth/chat.spaces or
+// https://www.googleapis.com/auth/chat.spaces.readonly.
+func (c *SpacesFindGroupChatsCall) SpaceView(spaceView string) *SpacesFindGroupChatsCall {
+	c.urlParams_.Set("spaceView", spaceView)
+	return c
+}
+
+// Users sets the optional parameter "users": Resource names of all human users
+// in group chat with the calling user. Chat apps can't be included in the
+// request. The maximum number of users that can be specified in a single
+// request is `49`. Format: `users/{user}`, where `{user}` is either the `id`
+// for the person (https://developers.google.com/people/api/rest/v1/people)
+// from the People API, or the `id` for the user
+// (https://developers.google.com/admin-sdk/directory/reference/rest/v1/users)
+// in the Directory API. For example, to find all group chats with the calling
+// user and two other users, with People API profile IDs `123456789` and
+// `987654321`, you can use `users/123456789` and `users/987654321`. You can
+// also use the email as an alias for `{user}`. For example,
+// `users/example@gmail.com` where `example@gmail.com` is the email of the
+// Google Chat user.
+func (c *SpacesFindGroupChatsCall) Users(users ...string) *SpacesFindGroupChatsCall {
+	c.urlParams_.SetMulti("users", append([]string{}, users...))
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse for more
+// details.
+func (c *SpacesFindGroupChatsCall) Fields(s ...googleapi.Field) *SpacesFindGroupChatsCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// IfNoneMatch sets an optional parameter which makes the operation fail if the
+// object's ETag matches the given value. This is useful for getting updates
+// only after the object has changed since the last request.
+func (c *SpacesFindGroupChatsCall) IfNoneMatch(entityTag string) *SpacesFindGroupChatsCall {
+	c.ifNoneMatch_ = entityTag
+	return c
+}
+
+// Context sets the context to be used in this call's Do method.
+func (c *SpacesFindGroupChatsCall) Context(ctx context.Context) *SpacesFindGroupChatsCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns a http.Header that can be modified by the caller to add
+// headers to the request.
+func (c *SpacesFindGroupChatsCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *SpacesFindGroupChatsCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := gensupport.SetHeaders(c.s.userAgent(), "", c.header_)
+	if c.ifNoneMatch_ != "" {
+		reqHeaders.Set("If-None-Match", c.ifNoneMatch_)
+	}
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/spaces:findGroupChats")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("GET", urls, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	c.s.logger.DebugContext(c.ctx_, "api request", "serviceName", apiName, "rpcName", "chat.spaces.findGroupChats", "request", internallog.HTTPRequest(req, nil))
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "chat.spaces.findGroupChats" call.
+// Any non-2xx status code is an error. Response headers are in either
+// *FindGroupChatsResponse.ServerResponse.Header or (if a response was returned
+// at all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified to
+// check whether the returned error was because http.StatusNotModified was
+// returned.
+func (c *SpacesFindGroupChatsCall) Do(opts ...googleapi.CallOption) (*FindGroupChatsResponse, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &FindGroupChatsResponse{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	b, err := gensupport.DecodeResponseBytes(target, res)
+	if err != nil {
+		return nil, err
+	}
+	c.s.logger.DebugContext(c.ctx_, "api response", "serviceName", apiName, "rpcName", "chat.spaces.findGroupChats", "response", internallog.HTTPResponse(res, b))
+	return ret, nil
+}
+
+// Pages invokes f for each page of results.
+// A non-nil error returned from f will halt the iteration.
+// The provided context supersedes any context provided to the Context method.
+func (c *SpacesFindGroupChatsCall) Pages(ctx context.Context, f func(*FindGroupChatsResponse) error) error {
+	c.ctx_ = ctx
+	defer c.PageToken(c.urlParams_.Get("pageToken"))
+	for {
+		x, err := c.Do()
+		if err != nil {
+			return err
+		}
+		if err := f(x); err != nil {
+			return err
+		}
+		if x.NextPageToken == "" {
+			return nil
+		}
+		c.PageToken(x.NextPageToken)
+	}
+}
+
 type SpacesGetCall struct {
 	s            *Service
 	name         string
@@ -8647,6 +9765,20 @@ func (r *SpacesService) Patch(name string, space *Space) *SpacesPatchCall {
 // learn more, see Make a space discoverable to specific users
 // (https://developers.google.com/workspace/chat/space-target-audience).
 // `access_settings.audience` is not supported with `useAdminAccess`.
+// `access_settings.access_permission_settings`: Updates the access permission
+// settings (https://support.google.com/chat/answer/11971020) of who can
+// discover and join the space where `spaceType` field is `SPACE`. Principals
+// allowed to join the space must also be allowed to discover it. To update
+// access permission settings for a space, the authenticating user must be a
+// space manager or assistant manager and omit all other field masks in the
+// request. You can't update this field if the space is in import mode
+// (https://developers.google.com/workspace/chat/import-data-overview). To
+// learn more, see Make a space discoverable to specific users
+// (https://developers.google.com/workspace/chat/space-target-audience).
+// `access_settings.access_permission_settings` is not supported with
+// `useAdminAccess`. The supported field masks include: -
+// `access_settings.access_permission_settings.discoverSpaceSetting` -
+// `access_settings.access_permission_settings.joinSpaceSetting`
 // `permission_settings`: Supports changing the permission settings
 // (https://support.google.com/chat/answer/13340792) of a space. When updating
 // permission settings, you can only specify `permissionSettings` field masks;
@@ -8767,11 +9899,20 @@ type SpacesSearchCall struct {
 	header_      http.Header
 }
 
-// Search: Returns a list of spaces in a Google Workspace organization based on
-// an administrator's search. In the request, set `use_admin_access` to `true`.
-// For an example, see Search for and manage spaces
-// (https://developers.google.com/workspace/chat/search-manage-admin). Requires
-// user authentication with administrator privileges
+// Search: Returns a list of spaces in a Google Workspace organization. For an
+// example, see Search for and manage spaces
+// (https://developers.google.com/workspace/chat/search-manage-admin). When
+// `use_admin_access` is set to `false`, the results are limited to spaces
+// where the calling user is a joined member. To search with administrator
+// privileges, set `use_admin_access` to `true`. Supports the following types
+// of authentication
+// (https://developers.google.com/workspace/chat/authenticate-authorize): -
+// User authentication
+// (https://developers.google.com/workspace/chat/authenticate-authorize-chat-user)
+// with one of the following authorization scopes: -
+// `https://www.googleapis.com/auth/chat.spaces.readonly` -
+// `https://www.googleapis.com/auth/chat.spaces` - User authentication with
+// administrator privileges
 // (https://developers.google.com/workspace/chat/authenticate-authorize-chat-user#admin-privileges)
 // and one of the following authorization scopes
 // (https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes):
@@ -8787,12 +9928,16 @@ func (r *SpacesService) Search() *SpacesSearchCall {
 // `membership_count.joined_direct_human_user_count` — Denotes the count of
 // human users that have directly joined a space. - `last_active_time` —
 // Denotes the time when last eligible item is added to any topic of this
-// space. - `create_time` — Denotes the time of the space creation. Valid
-// ordering operation values are: - `ASC` for ascending. Default value. -
-// `DESC` for descending. The supported syntax are: -
+// space. - `create_time` — Denotes the time of the space creation. When
+// `useAdminAccess` is `false`, only `create_time` and `relevance` are
+// supported for ordering. Only `DESC` is supported for these fields in
+// non-admin searches. Valid ordering operation values are: - `ASC` for
+// ascending. Default value. - `DESC` for descending. The supported syntax are
+// when `useAdminAccess` is set to `true`: -
 // `membership_count.joined_direct_human_user_count DESC` -
 // `membership_count.joined_direct_human_user_count ASC` - `last_active_time
-// DESC` - `last_active_time ASC` - `create_time DESC` - `create_time ASC`
+// DESC` - `last_active_time ASC` - `create_time DESC` - `create_time ASC` When
+// `useAdminAccess` is set to `false`: - `create_time DESC` - `relevance DESC`
 func (c *SpacesSearchCall) OrderBy(orderBy string) *SpacesSearchCall {
 	c.urlParams_.Set("orderBy", orderBy)
 	return c
@@ -8818,20 +9963,24 @@ func (c *SpacesSearchCall) PageToken(pageToken string) *SpacesSearchCall {
 }
 
 // Query sets the optional parameter "query": Required. A search query. You can
-// search by using the following parameters: - `create_time` - `customer` -
-// `display_name` - `external_user_allowed` - `last_active_time` -
-// `space_history_state` - `space_type` `create_time` and `last_active_time`
+// search by using the following parameters when `useAdminAccess` is set to
+// `true`: - `create_time` - `customer` - `display_name` -
+// `external_user_allowed` - `last_active_time` - `space_history_state` -
+// `space_type` When `useAdminAccess` is set to `false`: - `display_name` -
+// `external_user_allowed` - `space_type` `create_time` and `last_active_time`
 // accept a timestamp in RFC-3339 (https://www.rfc-editor.org/rfc/rfc3339)
 // format and the supported comparison operators are: `=`, `<`, `>`, `<=`,
-// `>=`. `customer` is required and is used to indicate which customer to fetch
-// spaces from. `customers/my_customer` is the only supported value.
-// `display_name` only accepts the `HAS` (`:`) operator. The text to match is
-// first tokenized into tokens and each token is prefix-matched
-// case-insensitively and independently as a substring anywhere in the space's
-// `display_name`. For example, `Fun Eve` matches `Fun event` or `The evening
-// was fun`, but not `notFun event` or `even`. `external_user_allowed` accepts
-// either `true` or `false`. `space_history_state` only accepts values from the
-// [`historyState`]
+// `>=`. `customer` is required when `useAdminAccess` is set to `true`, and is
+// used to indicate which customer to fetch spaces from.
+// `customers/my_customer` is the only supported value. `display_name` only
+// accepts the `HAS` (`:`) operator. The text to match is first tokenized into
+// tokens and each token is prefix-matched case-insensitively and independently
+// as a substring anywhere in the space's `display_name`. For example, `Fun
+// Eve` matches `Fun event` or `The evening was fun`, but not `notFun event` or
+// `even`. When `useAdminAccess` is set to `false`, `display_name` is required
+// to retrieve meaningful results. Otherwise, the default behavior is to return
+// an empty response. `external_user_allowed` accepts either `true` or `false`.
+// `space_history_state` only accepts values from the [`historyState`]
 // (https://developers.google.com/workspace/chat/api/reference/rest/v1/spaces#Space.HistoryState)
 // field of a `space` resource. `space_type` is required and the only valid
 // value is `SPACE`. Across different fields, only `AND` operators are
@@ -8843,19 +9992,25 @@ func (c *SpacesSearchCall) PageToken(pageToken string) *SpacesSearchCall {
 // `create_time` support both `AND` and `OR` operators. `AND` can only be used
 // to represent an interval, such as `last_active_time <
 // "2022-01-01T00:00:00+00:00" AND last_active_time >
-// "2023-01-01T00:00:00+00:00". The following example queries are valid: ```
-// customer = "customers/my_customer" AND space_type = "SPACE" customer =
-// "customers/my_customer" AND space_type = "SPACE" AND display_name:"Hello
-// World" customer = "customers/my_customer" AND space_type = "SPACE" AND
-// (last_active_time < "2020-01-01T00:00:00+00:00" OR last_active_time >
+// "2023-01-01T00:00:00+00:00". The following example queries are valid when
+// `useAdminAccess` is set to `true`: ``` customer = "customers/my_customer"
+// AND space_type = "SPACE" customer = "customers/my_customer" AND space_type =
+// "SPACE" AND display_name:"Hello World" customer = "customers/my_customer"
+// AND space_type = "SPACE" AND (last_active_time < "2020-01-01T00:00:00+00:00"
+// OR last_active_time > "2022-01-01T00:00:00+00:00") customer =
+// "customers/my_customer" AND space_type = "SPACE" AND (display_name:"Hello
+// World" OR display_name:"Fun event") AND (last_active_time >
+// "2020-01-01T00:00:00+00:00" AND last_active_time <
 // "2022-01-01T00:00:00+00:00") customer = "customers/my_customer" AND
-// space_type = "SPACE" AND (display_name:"Hello World" OR display_name:"Fun
-// event") AND (last_active_time > "2020-01-01T00:00:00+00:00" AND
-// last_active_time < "2022-01-01T00:00:00+00:00") customer =
-// "customers/my_customer" AND space_type = "SPACE" AND (create_time >
-// "2019-01-01T00:00:00+00:00" AND create_time < "2020-01-01T00:00:00+00:00")
-// AND (external_user_allowed = "true") AND (space_history_state = "HISTORY_ON"
-// OR space_history_state = "HISTORY_OFF") ```
+// space_type = "SPACE" AND (create_time > "2019-01-01T00:00:00+00:00" AND
+// create_time < "2020-01-01T00:00:00+00:00") AND (external_user_allowed =
+// "true") AND (space_history_state = "HISTORY_ON" OR space_history_state =
+// "HISTORY_OFF") ``` The following example queries are valid when
+// `useAdminAccess` is set to `false`: ``` display_name:"Hello World" AND
+// space_type = "SPACE" (display_name:"Hello" OR display_name:"Fun") AND
+// space_type = "SPACE" (external_user_allowed = "true" AND space_type =
+// "SPACE") // Returns an empty response. (external_user_allowed = "true" AND
+// display_name:"Hello" AND space_type = "SPACE") ```
 func (c *SpacesSearchCall) Query(query string) *SpacesSearchCall {
 	c.urlParams_.Set("query", query)
 	return c
@@ -8868,8 +10023,6 @@ func (c *SpacesSearchCall) Query(query string) *SpacesSearchCall {
 // (https://support.google.com/a/answer/13369245). Requires either the
 // `chat.admin.spaces.readonly` or `chat.admin.spaces` OAuth 2.0 scope
 // (https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes).
-// This method currently only supports admin access, thus only `true` is
-// accepted for this field.
 func (c *SpacesSearchCall) UseAdminAccess(useAdminAccess bool) *SpacesSearchCall {
 	c.urlParams_.Set("useAdminAccess", fmt.Sprint(useAdminAccess))
 	return c
@@ -9994,6 +11147,37 @@ func (r *SpacesMessagesService) Create(parent string, message *Message) *SpacesM
 	return c
 }
 
+// CreateMessageNotificationOptionsNotificationType sets the optional parameter
+// "createMessageNotificationOptions.notificationType": The notification type
+// for the message.
+//
+// Possible values:
+//
+//	"NOTIFICATION_TYPE_NONE" - Default behavior. Notification behavior is
+//
+// similar to when the human user sends the message using the Chat UI: no
+// notification is sent to the human sender.
+//
+//	"NOTIFICATION_TYPE_FORCE_NOTIFY" - Force notify recipients. This bypasses
+//
+// users' space notification settings and [Chat Do Not Disturb
+// settings](https://support.google.com/chat/answer/9093489). This option does
+// not bypass device-level Do Not Disturb settings. Requires [app
+// authentication]
+// (https://developers.google.com/workspace/chat/authenticate-authorize-chat-app).
+//
+//	"NOTIFICATION_TYPE_SILENT" - Do not notify recipients, and do not mark the
+//
+// message as unread. This behaves similarly to the user muting the
+// conversation or enabling [Chat Do Not
+// Disturb](https://support.google.com/chat/answer/9093489). Requires [app
+// authentication]
+// (https://developers.google.com/workspace/chat/authenticate-authorize-chat-app).
+func (c *SpacesMessagesCreateCall) CreateMessageNotificationOptionsNotificationType(createMessageNotificationOptionsNotificationType string) *SpacesMessagesCreateCall {
+	c.urlParams_.Set("createMessageNotificationOptions.notificationType", createMessageNotificationOptionsNotificationType)
+	return c
+}
+
 // MessageId sets the optional parameter "messageId": A custom ID for a
 // message. Lets Chat apps get, update, or delete a message without needing to
 // store the system-assigned ID in the message's resource name (represented in
@@ -10286,11 +11470,9 @@ type SpacesMessagesGetCall struct {
 // to, like direct messages and slash commands
 // (https://developers.google.com/workspace/chat/slash-commands) that invoke
 // the Chat app. - `https://www.googleapis.com/auth/chat.app.messages.readonly`
-// with administrator approval (https://support.google.com/a?p=chat-app-auth)
-// (available in Developer Preview
-// (https://developers.google.com/workspace/preview)). When using this
-// authentication scope, this method returns details about a public message in
-// a space. - User authentication
+// with administrator approval (https://support.google.com/a?p=chat-app-auth).
+// When using this authentication scope, this method returns details about a
+// public message in a space. - User authentication
 // (https://developers.google.com/workspace/chat/authenticate-authorize-chat-user)
 // with one of the following authorization scopes: -
 // `https://www.googleapis.com/auth/chat.messages.readonly` -
@@ -10305,6 +11487,28 @@ type SpacesMessagesGetCall struct {
 func (r *SpacesMessagesService) Get(name string) *SpacesMessagesGetCall {
 	c := &SpacesMessagesGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.name = name
+	return c
+}
+
+// MarkupSyntax sets the optional parameter "markupSyntax": Specifies the
+// desired output syntax for the Chat message `formatted_text` field.
+//
+// Possible values:
+//
+//	"MARKUP_SYNTAX_UNSPECIFIED" - Represents the unspecified value.
+//	"MARKUP_SYNTAX_CHAT" - Uses Google Chat's markup syntax. See
+//
+// https://developers.google.com/workspace/chat/format-messages#format-texts
+// for more information.
+//
+//	"MARKUP_SYNTAX_MARKDOWN" - Uses Markdown syntax. This syntax is based on
+//
+// the [CommonMark](https://commonmark.org/help/) specification, with
+// additional extensions. See
+// https://developers.google.com/workspace/chat/format-messages#format-texts
+// for more information.
+func (c *SpacesMessagesGetCall) MarkupSyntax(markupSyntax string) *SpacesMessagesGetCall {
+	c.urlParams_.Set("markupSyntax", markupSyntax)
 	return c
 }
 
@@ -10420,8 +11624,7 @@ type SpacesMessagesListCall struct {
 // authentication
 // (https://developers.google.com/workspace/chat/authenticate-authorize-chat-app)
 // with administrator approval (https://support.google.com/a?p=chat-app-auth)
-// in Developer Preview (https://developers.google.com/workspace/preview) with
-// the authorization scope: -
+// with the authorization scope: -
 // `https://www.googleapis.com/auth/chat.app.messages.readonly`. When using
 // this authentication scope, this method only returns public messages in a
 // space. It doesn't include private messages. - User authentication
@@ -10459,6 +11662,28 @@ func (r *SpacesMessagesService) List(parent string) *SpacesMessagesListCall {
 // rejected by the server with an `INVALID_ARGUMENT` error.
 func (c *SpacesMessagesListCall) Filter(filter string) *SpacesMessagesListCall {
 	c.urlParams_.Set("filter", filter)
+	return c
+}
+
+// MarkupSyntax sets the optional parameter "markupSyntax": Specifies the
+// desired output syntax for the Chat message `formatted_text` field.
+//
+// Possible values:
+//
+//	"MARKUP_SYNTAX_UNSPECIFIED" - Represents the unspecified value.
+//	"MARKUP_SYNTAX_CHAT" - Uses Google Chat's markup syntax. See
+//
+// https://developers.google.com/workspace/chat/format-messages#format-texts
+// for more information.
+//
+//	"MARKUP_SYNTAX_MARKDOWN" - Uses Markdown syntax. This syntax is based on
+//
+// the [CommonMark](https://commonmark.org/help/) specification, with
+// additional extensions. See
+// https://developers.google.com/workspace/chat/format-messages#format-texts
+// for more information.
+func (c *SpacesMessagesListCall) MarkupSyntax(markupSyntax string) *SpacesMessagesListCall {
+	c.urlParams_.Set("markupSyntax", markupSyntax)
 	return c
 }
 
@@ -10763,6 +11988,151 @@ func (c *SpacesMessagesPatchCall) Do(opts ...googleapi.CallOption) (*Message, er
 	}
 	c.s.logger.DebugContext(c.ctx_, "api response", "serviceName", apiName, "rpcName", "chat.spaces.messages.patch", "response", internallog.HTTPResponse(res, b))
 	return ret, nil
+}
+
+type SpacesMessagesSearchCall struct {
+	s                     *Service
+	parent                string
+	searchmessagesrequest *SearchMessagesRequest
+	urlParams_            gensupport.URLParams
+	ctx_                  context.Context
+	header_               http.Header
+}
+
+// Search: Searches for messages in Google Chat that the calling user has
+// access to. Returns a list of messages matching the search criteria. To
+// search across all spaces the user has access to, set `parent` to `spaces/-`.
+// Using any other value for `parent` results in an `INVALID_ARGUMENT` error.
+// The returned messages have their `name` field populated with the full
+// resource name, which includes the specific `space` in which the message
+// resides. This API doesn't return all message types. The types of messages
+// listed below aren't included in the response. Use ListMessages to list all
+// messages. - Private Messages that are visible to the authenticated user. -
+// Messages posted by Chat apps in spaces or group chats. - Messages in a Chat
+// app DM. - Messages from blocked users. - Messages in spaces that the caller
+// has muted. Requires user authentication
+// (https://developers.google.com/workspace/chat/authenticate-authorize-chat-user)
+// with one of the following authorization scopes
+// (https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes):
+// - `https://www.googleapis.com/auth/chat.messages.readonly` -
+// `https://www.googleapis.com/auth/chat.messages`
+//
+//   - parent: The resource name of the space to search within. To search across
+//     all spaces the user has access to, set this field to `spaces/-`. Using any
+//     other value for `parent` results in an `INVALID_ARGUMENT` error. To limit
+//     the search to one or more spaces, use `space.name` or `space.display_name`
+//     in the `filter`.
+func (r *SpacesMessagesService) Search(parent string, searchmessagesrequest *SearchMessagesRequest) *SpacesMessagesSearchCall {
+	c := &SpacesMessagesSearchCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.parent = parent
+	c.searchmessagesrequest = searchmessagesrequest
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse for more
+// details.
+func (c *SpacesMessagesSearchCall) Fields(s ...googleapi.Field) *SpacesMessagesSearchCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method.
+func (c *SpacesMessagesSearchCall) Context(ctx context.Context) *SpacesMessagesSearchCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns a http.Header that can be modified by the caller to add
+// headers to the request.
+func (c *SpacesMessagesSearchCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *SpacesMessagesSearchCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := gensupport.SetHeaders(c.s.userAgent(), "application/json", c.header_)
+	body, err := googleapi.WithoutDataWrapper.JSONBuffer(c.searchmessagesrequest)
+	if err != nil {
+		return nil, err
+	}
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+parent}/messages:search")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"parent": c.parent,
+	})
+	c.s.logger.DebugContext(c.ctx_, "api request", "serviceName", apiName, "rpcName", "chat.spaces.messages.search", "request", internallog.HTTPRequest(req, body.Bytes()))
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "chat.spaces.messages.search" call.
+// Any non-2xx status code is an error. Response headers are in either
+// *SearchMessagesResponse.ServerResponse.Header or (if a response was returned
+// at all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified to
+// check whether the returned error was because http.StatusNotModified was
+// returned.
+func (c *SpacesMessagesSearchCall) Do(opts ...googleapi.CallOption) (*SearchMessagesResponse, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &SearchMessagesResponse{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	b, err := gensupport.DecodeResponseBytes(target, res)
+	if err != nil {
+		return nil, err
+	}
+	c.s.logger.DebugContext(c.ctx_, "api response", "serviceName", apiName, "rpcName", "chat.spaces.messages.search", "response", internallog.HTTPResponse(res, b))
+	return ret, nil
+}
+
+// Pages invokes f for each page of results.
+// A non-nil error returned from f will halt the iteration.
+// The provided context supersedes any context provided to the Context method.
+func (c *SpacesMessagesSearchCall) Pages(ctx context.Context, f func(*SearchMessagesResponse) error) error {
+	c.ctx_ = ctx
+	defer func(pt string) { c.searchmessagesrequest.PageToken = pt }(c.searchmessagesrequest.PageToken)
+	for {
+		x, err := c.Do()
+		if err != nil {
+			return err
+		}
+		if err := f(x); err != nil {
+			return err
+		}
+		if x.NextPageToken == "" {
+			return nil
+		}
+		c.searchmessagesrequest.PageToken = x.NextPageToken
+	}
 }
 
 type SpacesMessagesUpdateCall struct {
@@ -11468,11 +12838,13 @@ type SpacesSpaceEventsGetCall struct {
 // appropriate for reading the requested data: - App authentication
 // (https://developers.google.com/workspace/chat/authenticate-authorize-chat-app)
 // with administrator approval (https://support.google.com/a?p=chat-app-auth)
-// in Developer Preview (https://developers.google.com/workspace/preview) with
-// one of the following authorization scopes: -
+// with one of the following authorization scopes: -
 // `https://www.googleapis.com/auth/chat.app.spaces` -
+// `https://www.googleapis.com/auth/chat.app.spaces.readonly` -
 // `https://www.googleapis.com/auth/chat.app.messages.readonly` -
-// `https://www.googleapis.com/auth/chat.app.memberships` - User authentication
+// `https://www.googleapis.com/auth/chat.app.memberships` -
+// `https://www.googleapis.com/auth/chat.app.memberships.readonly` - User
+// authentication
 // (https://developers.google.com/workspace/chat/authenticate-authorize-chat-user)
 // with one of the following authorization scopes: -
 // `https://www.googleapis.com/auth/chat.spaces.readonly` -
@@ -11608,11 +12980,13 @@ type SpacesSpaceEventsListCall struct {
 // appropriate for reading the requested data: - App authentication
 // (https://developers.google.com/workspace/chat/authenticate-authorize-chat-app)
 // with administrator approval (https://support.google.com/a?p=chat-app-auth)
-// in Developer Preview (https://developers.google.com/workspace/preview) with
-// one of the following authorization scopes: -
+// with one of the following authorization scopes: -
 // `https://www.googleapis.com/auth/chat.app.spaces` -
+// `https://www.googleapis.com/auth/chat.app.spaces.readonly` -
 // `https://www.googleapis.com/auth/chat.app.messages.readonly` -
-// `https://www.googleapis.com/auth/chat.app.memberships` - User authentication
+// `https://www.googleapis.com/auth/chat.app.memberships` -
+// `https://www.googleapis.com/auth/chat.app.memberships.readonly` - User
+// authentication
 // (https://developers.google.com/workspace/chat/authenticate-authorize-chat-user)
 // with one of the following authorization scopes: -
 // `https://www.googleapis.com/auth/chat.spaces.readonly` -
@@ -11799,6 +13173,1496 @@ func (c *SpacesSpaceEventsListCall) Pages(ctx context.Context, f func(*ListSpace
 		}
 		c.PageToken(x.NextPageToken)
 	}
+}
+
+type UsersAvailabilityGetCall struct {
+	s            *Service
+	name         string
+	urlParams_   gensupport.URLParams
+	ifNoneMatch_ string
+	ctx_         context.Context
+	header_      http.Header
+}
+
+// Get: Returns availability information for a human user in Google Chat. For
+// example, this can be used to check if a user is online or away, or to
+// retrieve their custom status message. This method only retrieves the
+// authenticated user's availability. Requires user authentication
+// (https://developers.google.com/workspace/chat/authenticate-authorize-chat-user)
+// with one of the following authorization scopes
+// (https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes):
+// - `https://www.googleapis.com/auth/chat.users.availability.readonly` -
+// `https://www.googleapis.com/auth/chat.users.availability`
+//
+//   - name: The resource name of the availability to retrieve. Format:
+//     users/{user}/availability `{user}` is the id for the Person in the People
+//     API or Admin SDK directory API. For example, `users/123456789`. The user's
+//     email address or `me` can also be used as an alias to refer to the caller.
+//     For example, `users/user@example.com` or `users/me`.
+func (r *UsersAvailabilityService) Get(name string) *UsersAvailabilityGetCall {
+	c := &UsersAvailabilityGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.name = name
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse for more
+// details.
+func (c *UsersAvailabilityGetCall) Fields(s ...googleapi.Field) *UsersAvailabilityGetCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// IfNoneMatch sets an optional parameter which makes the operation fail if the
+// object's ETag matches the given value. This is useful for getting updates
+// only after the object has changed since the last request.
+func (c *UsersAvailabilityGetCall) IfNoneMatch(entityTag string) *UsersAvailabilityGetCall {
+	c.ifNoneMatch_ = entityTag
+	return c
+}
+
+// Context sets the context to be used in this call's Do method.
+func (c *UsersAvailabilityGetCall) Context(ctx context.Context) *UsersAvailabilityGetCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns a http.Header that can be modified by the caller to add
+// headers to the request.
+func (c *UsersAvailabilityGetCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *UsersAvailabilityGetCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := gensupport.SetHeaders(c.s.userAgent(), "", c.header_)
+	if c.ifNoneMatch_ != "" {
+		reqHeaders.Set("If-None-Match", c.ifNoneMatch_)
+	}
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+name}")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("GET", urls, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"name": c.name,
+	})
+	c.s.logger.DebugContext(c.ctx_, "api request", "serviceName", apiName, "rpcName", "chat.users.availability.get", "request", internallog.HTTPRequest(req, nil))
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "chat.users.availability.get" call.
+// Any non-2xx status code is an error. Response headers are in either
+// *Availability.ServerResponse.Header or (if a response was returned at all)
+// in error.(*googleapi.Error).Header. Use googleapi.IsNotModified to check
+// whether the returned error was because http.StatusNotModified was returned.
+func (c *UsersAvailabilityGetCall) Do(opts ...googleapi.CallOption) (*Availability, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Availability{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	b, err := gensupport.DecodeResponseBytes(target, res)
+	if err != nil {
+		return nil, err
+	}
+	c.s.logger.DebugContext(c.ctx_, "api response", "serviceName", apiName, "rpcName", "chat.users.availability.get", "response", internallog.HTTPResponse(res, b))
+	return ret, nil
+}
+
+type UsersAvailabilityMarkAsActiveCall struct {
+	s                   *Service
+	name                string
+	markasactiverequest *MarkAsActiveRequest
+	urlParams_          gensupport.URLParams
+	ctx_                context.Context
+	header_             http.Header
+}
+
+// MarkAsActive: Marks user as `ACTIVE` in Google Chat. Sets the user's
+// availability state to `ACTIVE`. The `ACTIVE` state lasts until the specified
+// expiration, at which point the user's state becomes `AWAY`. Note that if the
+// user is actively using Chat, the `ACTIVE` state duration may extend beyond
+// the provided expiration. This method only updates the authenticated user's
+// availability. Requires user authentication
+// (https://developers.google.com/workspace/chat/authenticate-authorize-chat-user)
+// with authorization scope
+// (https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes):
+// - `https://www.googleapis.com/auth/chat.users.availability`
+//
+//   - name: The resource name of the availability to mark as active. Format:
+//     users/{user}/availability `{user}` is the id for the Person in the People
+//     API or Admin SDK directory API. For example, `users/123456789`. The user's
+//     email address or `me` can also be used as an alias to refer to the caller.
+//     For example, `users/user@example.com` or `users/me`.
+func (r *UsersAvailabilityService) MarkAsActive(name string, markasactiverequest *MarkAsActiveRequest) *UsersAvailabilityMarkAsActiveCall {
+	c := &UsersAvailabilityMarkAsActiveCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.name = name
+	c.markasactiverequest = markasactiverequest
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse for more
+// details.
+func (c *UsersAvailabilityMarkAsActiveCall) Fields(s ...googleapi.Field) *UsersAvailabilityMarkAsActiveCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method.
+func (c *UsersAvailabilityMarkAsActiveCall) Context(ctx context.Context) *UsersAvailabilityMarkAsActiveCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns a http.Header that can be modified by the caller to add
+// headers to the request.
+func (c *UsersAvailabilityMarkAsActiveCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *UsersAvailabilityMarkAsActiveCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := gensupport.SetHeaders(c.s.userAgent(), "application/json", c.header_)
+	body, err := googleapi.WithoutDataWrapper.JSONBuffer(c.markasactiverequest)
+	if err != nil {
+		return nil, err
+	}
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+name}:markAsActive")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"name": c.name,
+	})
+	c.s.logger.DebugContext(c.ctx_, "api request", "serviceName", apiName, "rpcName", "chat.users.availability.markAsActive", "request", internallog.HTTPRequest(req, body.Bytes()))
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "chat.users.availability.markAsActive" call.
+// Any non-2xx status code is an error. Response headers are in either
+// *Availability.ServerResponse.Header or (if a response was returned at all)
+// in error.(*googleapi.Error).Header. Use googleapi.IsNotModified to check
+// whether the returned error was because http.StatusNotModified was returned.
+func (c *UsersAvailabilityMarkAsActiveCall) Do(opts ...googleapi.CallOption) (*Availability, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Availability{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	b, err := gensupport.DecodeResponseBytes(target, res)
+	if err != nil {
+		return nil, err
+	}
+	c.s.logger.DebugContext(c.ctx_, "api response", "serviceName", apiName, "rpcName", "chat.users.availability.markAsActive", "response", internallog.HTTPResponse(res, b))
+	return ret, nil
+}
+
+type UsersAvailabilityMarkAsAwayCall struct {
+	s                 *Service
+	name              string
+	markasawayrequest *MarkAsAwayRequest
+	urlParams_        gensupport.URLParams
+	ctx_              context.Context
+	header_           http.Header
+}
+
+// MarkAsAway: Marks user as `AWAY` in Google Chat. Sets the user's state to
+// away and is not affected by the user's activity. This method only updates
+// the authenticated user's availability. Requires user authentication
+// (https://developers.google.com/workspace/chat/authenticate-authorize-chat-user)
+// with authorization scope
+// (https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes):
+// - `https://www.googleapis.com/auth/chat.users.availability`
+//
+//   - name: The resource name of the availability to mark as away. Format:
+//     users/{user}/availability `{user}` is the id for the Person in the People
+//     API or Admin SDK directory API. For example, `users/123456789`. The user's
+//     email address or `me` can also be used as an alias to refer to the caller.
+//     For example, `users/user@example.com` or `users/me`.
+func (r *UsersAvailabilityService) MarkAsAway(name string, markasawayrequest *MarkAsAwayRequest) *UsersAvailabilityMarkAsAwayCall {
+	c := &UsersAvailabilityMarkAsAwayCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.name = name
+	c.markasawayrequest = markasawayrequest
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse for more
+// details.
+func (c *UsersAvailabilityMarkAsAwayCall) Fields(s ...googleapi.Field) *UsersAvailabilityMarkAsAwayCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method.
+func (c *UsersAvailabilityMarkAsAwayCall) Context(ctx context.Context) *UsersAvailabilityMarkAsAwayCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns a http.Header that can be modified by the caller to add
+// headers to the request.
+func (c *UsersAvailabilityMarkAsAwayCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *UsersAvailabilityMarkAsAwayCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := gensupport.SetHeaders(c.s.userAgent(), "application/json", c.header_)
+	body, err := googleapi.WithoutDataWrapper.JSONBuffer(c.markasawayrequest)
+	if err != nil {
+		return nil, err
+	}
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+name}:markAsAway")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"name": c.name,
+	})
+	c.s.logger.DebugContext(c.ctx_, "api request", "serviceName", apiName, "rpcName", "chat.users.availability.markAsAway", "request", internallog.HTTPRequest(req, body.Bytes()))
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "chat.users.availability.markAsAway" call.
+// Any non-2xx status code is an error. Response headers are in either
+// *Availability.ServerResponse.Header or (if a response was returned at all)
+// in error.(*googleapi.Error).Header. Use googleapi.IsNotModified to check
+// whether the returned error was because http.StatusNotModified was returned.
+func (c *UsersAvailabilityMarkAsAwayCall) Do(opts ...googleapi.CallOption) (*Availability, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Availability{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	b, err := gensupport.DecodeResponseBytes(target, res)
+	if err != nil {
+		return nil, err
+	}
+	c.s.logger.DebugContext(c.ctx_, "api response", "serviceName", apiName, "rpcName", "chat.users.availability.markAsAway", "response", internallog.HTTPResponse(res, b))
+	return ret, nil
+}
+
+type UsersAvailabilityMarkAsDoNotDisturbCall struct {
+	s                         *Service
+	name                      string
+	markasdonotdisturbrequest *MarkAsDoNotDisturbRequest
+	urlParams_                gensupport.URLParams
+	ctx_                      context.Context
+	header_                   http.Header
+}
+
+// MarkAsDoNotDisturb: Marks user as `DO_NOT_DISTURB` in Google Chat. Sets a
+// user's availability state to `DO_NOT_DISTURB` until a specified expiration
+// time. When in `DO_NOT_DISTURB`, users typically won't receive notifications.
+// This method only updates the authenticated user's availability. Requires
+// user authentication
+// (https://developers.google.com/workspace/chat/authenticate-authorize-chat-user)
+// with authorization scope
+// (https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes):
+// - `https://www.googleapis.com/auth/chat.users.availability`
+//
+//   - name: The resource name of the availability to mark as Do Not Disturb.
+//     Format: users/{user}/availability `{user}` is the id for the Person in the
+//     People API or Admin SDK directory API. For example, `users/123456789`. The
+//     user's email address or `me` can also be used as an alias to refer to the
+//     caller. For example, `users/user@example.com` or `users/me`.
+func (r *UsersAvailabilityService) MarkAsDoNotDisturb(name string, markasdonotdisturbrequest *MarkAsDoNotDisturbRequest) *UsersAvailabilityMarkAsDoNotDisturbCall {
+	c := &UsersAvailabilityMarkAsDoNotDisturbCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.name = name
+	c.markasdonotdisturbrequest = markasdonotdisturbrequest
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse for more
+// details.
+func (c *UsersAvailabilityMarkAsDoNotDisturbCall) Fields(s ...googleapi.Field) *UsersAvailabilityMarkAsDoNotDisturbCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method.
+func (c *UsersAvailabilityMarkAsDoNotDisturbCall) Context(ctx context.Context) *UsersAvailabilityMarkAsDoNotDisturbCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns a http.Header that can be modified by the caller to add
+// headers to the request.
+func (c *UsersAvailabilityMarkAsDoNotDisturbCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *UsersAvailabilityMarkAsDoNotDisturbCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := gensupport.SetHeaders(c.s.userAgent(), "application/json", c.header_)
+	body, err := googleapi.WithoutDataWrapper.JSONBuffer(c.markasdonotdisturbrequest)
+	if err != nil {
+		return nil, err
+	}
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+name}:markAsDoNotDisturb")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"name": c.name,
+	})
+	c.s.logger.DebugContext(c.ctx_, "api request", "serviceName", apiName, "rpcName", "chat.users.availability.markAsDoNotDisturb", "request", internallog.HTTPRequest(req, body.Bytes()))
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "chat.users.availability.markAsDoNotDisturb" call.
+// Any non-2xx status code is an error. Response headers are in either
+// *Availability.ServerResponse.Header or (if a response was returned at all)
+// in error.(*googleapi.Error).Header. Use googleapi.IsNotModified to check
+// whether the returned error was because http.StatusNotModified was returned.
+func (c *UsersAvailabilityMarkAsDoNotDisturbCall) Do(opts ...googleapi.CallOption) (*Availability, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Availability{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	b, err := gensupport.DecodeResponseBytes(target, res)
+	if err != nil {
+		return nil, err
+	}
+	c.s.logger.DebugContext(c.ctx_, "api response", "serviceName", apiName, "rpcName", "chat.users.availability.markAsDoNotDisturb", "response", internallog.HTTPResponse(res, b))
+	return ret, nil
+}
+
+type UsersAvailabilityPatchCall struct {
+	s            *Service
+	name         string
+	availability *Availability
+	urlParams_   gensupport.URLParams
+	ctx_         context.Context
+	header_      http.Header
+}
+
+// Patch: Updates availability information for a human user. Only the
+// `custom_status` field can be updated through this method. This method only
+// updates the authenticated user's availability. Requires user authentication
+// (https://developers.google.com/workspace/chat/authenticate-authorize-chat-user)
+// with one of the following authorization scopes
+// (https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes):
+// - `https://www.googleapis.com/auth/chat.users.availability`
+//
+//   - name: Identifier. Resource name of the user's availability. Format:
+//     `users/{user}/availability` `{user}` is the id for the Person in the
+//     People API or Admin SDK directory API. For example, `users/123456789`. The
+//     user's email address or `me` can also be used as an alias to refer to the
+//     caller. For example, `users/user@example.com` or `users/me`.
+func (r *UsersAvailabilityService) Patch(name string, availability *Availability) *UsersAvailabilityPatchCall {
+	c := &UsersAvailabilityPatchCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.name = name
+	c.availability = availability
+	return c
+}
+
+// UpdateMask sets the optional parameter "updateMask": Required. The list of
+// fields to update. The only field that can be updated is `custom_status`.
+func (c *UsersAvailabilityPatchCall) UpdateMask(updateMask string) *UsersAvailabilityPatchCall {
+	c.urlParams_.Set("updateMask", updateMask)
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse for more
+// details.
+func (c *UsersAvailabilityPatchCall) Fields(s ...googleapi.Field) *UsersAvailabilityPatchCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method.
+func (c *UsersAvailabilityPatchCall) Context(ctx context.Context) *UsersAvailabilityPatchCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns a http.Header that can be modified by the caller to add
+// headers to the request.
+func (c *UsersAvailabilityPatchCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *UsersAvailabilityPatchCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := gensupport.SetHeaders(c.s.userAgent(), "application/json", c.header_)
+	body, err := googleapi.WithoutDataWrapper.JSONBuffer(c.availability)
+	if err != nil {
+		return nil, err
+	}
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+name}")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("PATCH", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"name": c.name,
+	})
+	c.s.logger.DebugContext(c.ctx_, "api request", "serviceName", apiName, "rpcName", "chat.users.availability.patch", "request", internallog.HTTPRequest(req, body.Bytes()))
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "chat.users.availability.patch" call.
+// Any non-2xx status code is an error. Response headers are in either
+// *Availability.ServerResponse.Header or (if a response was returned at all)
+// in error.(*googleapi.Error).Header. Use googleapi.IsNotModified to check
+// whether the returned error was because http.StatusNotModified was returned.
+func (c *UsersAvailabilityPatchCall) Do(opts ...googleapi.CallOption) (*Availability, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Availability{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	b, err := gensupport.DecodeResponseBytes(target, res)
+	if err != nil {
+		return nil, err
+	}
+	c.s.logger.DebugContext(c.ctx_, "api response", "serviceName", apiName, "rpcName", "chat.users.availability.patch", "response", internallog.HTTPResponse(res, b))
+	return ret, nil
+}
+
+type UsersSectionsCreateCall struct {
+	s                   *Service
+	parent              string
+	googlechatv1section *GoogleChatV1Section
+	urlParams_          gensupport.URLParams
+	ctx_                context.Context
+	header_             http.Header
+}
+
+// Create: Creates a section in Google Chat. Sections help users group
+// conversations and customize the list of spaces displayed in Chat navigation
+// panel. Only sections of type `CUSTOM_SECTION` can be created. For details,
+// see Create and organize sections in Google Chat
+// (https://support.google.com/chat/answer/16059854). Requires user
+// authentication
+// (https://developers.google.com/workspace/chat/authenticate-authorize-chat-user)
+// with the authorization scope
+// (https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes):
+// - `https://www.googleapis.com/auth/chat.users.sections`
+//
+//   - parent: The parent resource name where the section is created. Format:
+//     `users/{user}`.
+func (r *UsersSectionsService) Create(parent string, googlechatv1section *GoogleChatV1Section) *UsersSectionsCreateCall {
+	c := &UsersSectionsCreateCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.parent = parent
+	c.googlechatv1section = googlechatv1section
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse for more
+// details.
+func (c *UsersSectionsCreateCall) Fields(s ...googleapi.Field) *UsersSectionsCreateCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method.
+func (c *UsersSectionsCreateCall) Context(ctx context.Context) *UsersSectionsCreateCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns a http.Header that can be modified by the caller to add
+// headers to the request.
+func (c *UsersSectionsCreateCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *UsersSectionsCreateCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := gensupport.SetHeaders(c.s.userAgent(), "application/json", c.header_)
+	body, err := googleapi.WithoutDataWrapper.JSONBuffer(c.googlechatv1section)
+	if err != nil {
+		return nil, err
+	}
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+parent}/sections")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"parent": c.parent,
+	})
+	c.s.logger.DebugContext(c.ctx_, "api request", "serviceName", apiName, "rpcName", "chat.users.sections.create", "request", internallog.HTTPRequest(req, body.Bytes()))
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "chat.users.sections.create" call.
+// Any non-2xx status code is an error. Response headers are in either
+// *GoogleChatV1Section.ServerResponse.Header or (if a response was returned at
+// all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified to
+// check whether the returned error was because http.StatusNotModified was
+// returned.
+func (c *UsersSectionsCreateCall) Do(opts ...googleapi.CallOption) (*GoogleChatV1Section, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &GoogleChatV1Section{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	b, err := gensupport.DecodeResponseBytes(target, res)
+	if err != nil {
+		return nil, err
+	}
+	c.s.logger.DebugContext(c.ctx_, "api response", "serviceName", apiName, "rpcName", "chat.users.sections.create", "response", internallog.HTTPResponse(res, b))
+	return ret, nil
+}
+
+type UsersSectionsDeleteCall struct {
+	s          *Service
+	name       string
+	urlParams_ gensupport.URLParams
+	ctx_       context.Context
+	header_    http.Header
+}
+
+// Delete: Deletes a section of type `CUSTOM_SECTION`. If the section contains
+// items, such as spaces, the items are moved to Google Chat's default sections
+// and are not deleted. For details, see Create and organize sections in Google
+// Chat (https://support.google.com/chat/answer/16059854). Requires user
+// authentication
+// (https://developers.google.com/workspace/chat/authenticate-authorize-chat-user)
+// with the authorization scope
+// (https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes):
+// - `https://www.googleapis.com/auth/chat.users.sections`
+//
+//   - name: The name of the section to delete. Format:
+//     `users/{user}/sections/{section}`.
+func (r *UsersSectionsService) Delete(name string) *UsersSectionsDeleteCall {
+	c := &UsersSectionsDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.name = name
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse for more
+// details.
+func (c *UsersSectionsDeleteCall) Fields(s ...googleapi.Field) *UsersSectionsDeleteCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method.
+func (c *UsersSectionsDeleteCall) Context(ctx context.Context) *UsersSectionsDeleteCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns a http.Header that can be modified by the caller to add
+// headers to the request.
+func (c *UsersSectionsDeleteCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *UsersSectionsDeleteCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := gensupport.SetHeaders(c.s.userAgent(), "", c.header_)
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+name}")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("DELETE", urls, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"name": c.name,
+	})
+	c.s.logger.DebugContext(c.ctx_, "api request", "serviceName", apiName, "rpcName", "chat.users.sections.delete", "request", internallog.HTTPRequest(req, nil))
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "chat.users.sections.delete" call.
+// Any non-2xx status code is an error. Response headers are in either
+// *Empty.ServerResponse.Header or (if a response was returned at all) in
+// error.(*googleapi.Error).Header. Use googleapi.IsNotModified to check
+// whether the returned error was because http.StatusNotModified was returned.
+func (c *UsersSectionsDeleteCall) Do(opts ...googleapi.CallOption) (*Empty, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &Empty{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	b, err := gensupport.DecodeResponseBytes(target, res)
+	if err != nil {
+		return nil, err
+	}
+	c.s.logger.DebugContext(c.ctx_, "api response", "serviceName", apiName, "rpcName", "chat.users.sections.delete", "response", internallog.HTTPResponse(res, b))
+	return ret, nil
+}
+
+type UsersSectionsListCall struct {
+	s            *Service
+	parent       string
+	urlParams_   gensupport.URLParams
+	ifNoneMatch_ string
+	ctx_         context.Context
+	header_      http.Header
+}
+
+// List: Lists sections available to the Chat user. Sections help users group
+// their conversations and customize the list of spaces displayed in Chat
+// navigation panel. For details, see Create and organize sections in Google
+// Chat (https://support.google.com/chat/answer/16059854). Requires user
+// authentication
+// (https://developers.google.com/workspace/chat/authenticate-authorize-chat-user)
+// with the authorization scope
+// (https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes):
+// - `https://www.googleapis.com/auth/chat.users.sections` -
+// `https://www.googleapis.com/auth/chat.users.sections.readonly`
+//
+//   - parent: The parent, which is the user resource name that owns this
+//     collection of sections. Only supports listing sections for the calling
+//     user. To refer to the calling user, set one of the following: - The `me`
+//     alias. For example, `users/me`. - Their Workspace email address. For
+//     example, `users/user@example.com`. - Their user id. For example,
+//     `users/123456789`. Format: `users/{user}`.
+func (r *UsersSectionsService) List(parent string) *UsersSectionsListCall {
+	c := &UsersSectionsListCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.parent = parent
+	return c
+}
+
+// PageSize sets the optional parameter "pageSize": The maximum number of
+// sections to return. The service may return fewer than this value. If
+// unspecified, at most 10 sections will be returned. The maximum value is 100.
+// If you use a value more than 100, it's automatically changed to 100.
+// Negative values return an `INVALID_ARGUMENT` error.
+func (c *UsersSectionsListCall) PageSize(pageSize int64) *UsersSectionsListCall {
+	c.urlParams_.Set("pageSize", fmt.Sprint(pageSize))
+	return c
+}
+
+// PageToken sets the optional parameter "pageToken": A page token, received
+// from a previous list sections call. Provide this to retrieve the subsequent
+// page. When paginating, all other parameters provided should match the call
+// that provided the page token. Passing different values to the other
+// parameters might lead to unexpected results.
+func (c *UsersSectionsListCall) PageToken(pageToken string) *UsersSectionsListCall {
+	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse for more
+// details.
+func (c *UsersSectionsListCall) Fields(s ...googleapi.Field) *UsersSectionsListCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// IfNoneMatch sets an optional parameter which makes the operation fail if the
+// object's ETag matches the given value. This is useful for getting updates
+// only after the object has changed since the last request.
+func (c *UsersSectionsListCall) IfNoneMatch(entityTag string) *UsersSectionsListCall {
+	c.ifNoneMatch_ = entityTag
+	return c
+}
+
+// Context sets the context to be used in this call's Do method.
+func (c *UsersSectionsListCall) Context(ctx context.Context) *UsersSectionsListCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns a http.Header that can be modified by the caller to add
+// headers to the request.
+func (c *UsersSectionsListCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *UsersSectionsListCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := gensupport.SetHeaders(c.s.userAgent(), "", c.header_)
+	if c.ifNoneMatch_ != "" {
+		reqHeaders.Set("If-None-Match", c.ifNoneMatch_)
+	}
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+parent}/sections")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("GET", urls, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"parent": c.parent,
+	})
+	c.s.logger.DebugContext(c.ctx_, "api request", "serviceName", apiName, "rpcName", "chat.users.sections.list", "request", internallog.HTTPRequest(req, nil))
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "chat.users.sections.list" call.
+// Any non-2xx status code is an error. Response headers are in either
+// *ListSectionsResponse.ServerResponse.Header or (if a response was returned
+// at all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified to
+// check whether the returned error was because http.StatusNotModified was
+// returned.
+func (c *UsersSectionsListCall) Do(opts ...googleapi.CallOption) (*ListSectionsResponse, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &ListSectionsResponse{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	b, err := gensupport.DecodeResponseBytes(target, res)
+	if err != nil {
+		return nil, err
+	}
+	c.s.logger.DebugContext(c.ctx_, "api response", "serviceName", apiName, "rpcName", "chat.users.sections.list", "response", internallog.HTTPResponse(res, b))
+	return ret, nil
+}
+
+// Pages invokes f for each page of results.
+// A non-nil error returned from f will halt the iteration.
+// The provided context supersedes any context provided to the Context method.
+func (c *UsersSectionsListCall) Pages(ctx context.Context, f func(*ListSectionsResponse) error) error {
+	c.ctx_ = ctx
+	defer c.PageToken(c.urlParams_.Get("pageToken"))
+	for {
+		x, err := c.Do()
+		if err != nil {
+			return err
+		}
+		if err := f(x); err != nil {
+			return err
+		}
+		if x.NextPageToken == "" {
+			return nil
+		}
+		c.PageToken(x.NextPageToken)
+	}
+}
+
+type UsersSectionsPatchCall struct {
+	s                   *Service
+	name                string
+	googlechatv1section *GoogleChatV1Section
+	urlParams_          gensupport.URLParams
+	ctx_                context.Context
+	header_             http.Header
+}
+
+// Patch: Updates a section. Only sections of type `CUSTOM_SECTION` can be
+// updated. For details, see Create and organize sections in Google Chat
+// (https://support.google.com/chat/answer/16059854). Requires user
+// authentication
+// (https://developers.google.com/workspace/chat/authenticate-authorize-chat-user)
+// with the authorization scope
+// (https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes):
+// - `https://www.googleapis.com/auth/chat.users.sections`
+//
+//   - name: Identifier. Resource name of the section. For system sections, the
+//     section ID is a constant string: - DEFAULT_DIRECT_MESSAGES:
+//     `users/{user}/sections/default-direct-messages` - DEFAULT_SPACES:
+//     `users/{user}/sections/default-spaces` - DEFAULT_APPS:
+//     `users/{user}/sections/default-apps` Format:
+//     `users/{user}/sections/{section}`.
+func (r *UsersSectionsService) Patch(name string, googlechatv1section *GoogleChatV1Section) *UsersSectionsPatchCall {
+	c := &UsersSectionsPatchCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.name = name
+	c.googlechatv1section = googlechatv1section
+	return c
+}
+
+// UpdateMask sets the optional parameter "updateMask": Required. The mask to
+// specify which fields to update. Currently supported field paths: -
+// `display_name`
+func (c *UsersSectionsPatchCall) UpdateMask(updateMask string) *UsersSectionsPatchCall {
+	c.urlParams_.Set("updateMask", updateMask)
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse for more
+// details.
+func (c *UsersSectionsPatchCall) Fields(s ...googleapi.Field) *UsersSectionsPatchCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method.
+func (c *UsersSectionsPatchCall) Context(ctx context.Context) *UsersSectionsPatchCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns a http.Header that can be modified by the caller to add
+// headers to the request.
+func (c *UsersSectionsPatchCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *UsersSectionsPatchCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := gensupport.SetHeaders(c.s.userAgent(), "application/json", c.header_)
+	body, err := googleapi.WithoutDataWrapper.JSONBuffer(c.googlechatv1section)
+	if err != nil {
+		return nil, err
+	}
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+name}")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("PATCH", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"name": c.name,
+	})
+	c.s.logger.DebugContext(c.ctx_, "api request", "serviceName", apiName, "rpcName", "chat.users.sections.patch", "request", internallog.HTTPRequest(req, body.Bytes()))
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "chat.users.sections.patch" call.
+// Any non-2xx status code is an error. Response headers are in either
+// *GoogleChatV1Section.ServerResponse.Header or (if a response was returned at
+// all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified to
+// check whether the returned error was because http.StatusNotModified was
+// returned.
+func (c *UsersSectionsPatchCall) Do(opts ...googleapi.CallOption) (*GoogleChatV1Section, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &GoogleChatV1Section{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	b, err := gensupport.DecodeResponseBytes(target, res)
+	if err != nil {
+		return nil, err
+	}
+	c.s.logger.DebugContext(c.ctx_, "api response", "serviceName", apiName, "rpcName", "chat.users.sections.patch", "response", internallog.HTTPResponse(res, b))
+	return ret, nil
+}
+
+type UsersSectionsPositionCall struct {
+	s                      *Service
+	name                   string
+	positionsectionrequest *PositionSectionRequest
+	urlParams_             gensupport.URLParams
+	ctx_                   context.Context
+	header_                http.Header
+}
+
+// Position: Changes the sort order of a section. For details, see Create and
+// organize sections in Google Chat
+// (https://support.google.com/chat/answer/16059854). Requires user
+// authentication
+// (https://developers.google.com/workspace/chat/authenticate-authorize-chat-user)
+// with the authorization scope
+// (https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes):
+// - `https://www.googleapis.com/auth/chat.users.sections`
+//
+//   - name: The resource name of the section to position. Format:
+//     `users/{user}/sections/{section}`.
+func (r *UsersSectionsService) Position(name string, positionsectionrequest *PositionSectionRequest) *UsersSectionsPositionCall {
+	c := &UsersSectionsPositionCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.name = name
+	c.positionsectionrequest = positionsectionrequest
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse for more
+// details.
+func (c *UsersSectionsPositionCall) Fields(s ...googleapi.Field) *UsersSectionsPositionCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method.
+func (c *UsersSectionsPositionCall) Context(ctx context.Context) *UsersSectionsPositionCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns a http.Header that can be modified by the caller to add
+// headers to the request.
+func (c *UsersSectionsPositionCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *UsersSectionsPositionCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := gensupport.SetHeaders(c.s.userAgent(), "application/json", c.header_)
+	body, err := googleapi.WithoutDataWrapper.JSONBuffer(c.positionsectionrequest)
+	if err != nil {
+		return nil, err
+	}
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+name}:position")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"name": c.name,
+	})
+	c.s.logger.DebugContext(c.ctx_, "api request", "serviceName", apiName, "rpcName", "chat.users.sections.position", "request", internallog.HTTPRequest(req, body.Bytes()))
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "chat.users.sections.position" call.
+// Any non-2xx status code is an error. Response headers are in either
+// *PositionSectionResponse.ServerResponse.Header or (if a response was
+// returned at all) in error.(*googleapi.Error).Header. Use
+// googleapi.IsNotModified to check whether the returned error was because
+// http.StatusNotModified was returned.
+func (c *UsersSectionsPositionCall) Do(opts ...googleapi.CallOption) (*PositionSectionResponse, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &PositionSectionResponse{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	b, err := gensupport.DecodeResponseBytes(target, res)
+	if err != nil {
+		return nil, err
+	}
+	c.s.logger.DebugContext(c.ctx_, "api response", "serviceName", apiName, "rpcName", "chat.users.sections.position", "response", internallog.HTTPResponse(res, b))
+	return ret, nil
+}
+
+type UsersSectionsItemsListCall struct {
+	s            *Service
+	parent       string
+	urlParams_   gensupport.URLParams
+	ifNoneMatch_ string
+	ctx_         context.Context
+	header_      http.Header
+}
+
+// List: Lists items in a section. Only spaces can be section items. For
+// details, see Create and organize sections in Google Chat
+// (https://support.google.com/chat/answer/16059854). Requires user
+// authentication
+// (https://developers.google.com/workspace/chat/authenticate-authorize-chat-user)
+// with the authorization scope
+// (https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes):
+// - `https://www.googleapis.com/auth/chat.users.sections` -
+// `https://www.googleapis.com/auth/chat.users.sections.readonly`
+//
+//   - parent: The parent, which is the section resource name that owns this
+//     collection of section items. Only supports listing section items for the
+//     calling user. When you're filtering by space, use the wildcard `-` to
+//     search across all sections. For example, `users/{user}/sections/-`.
+//     Format: `users/{user}/sections/{section}`.
+func (r *UsersSectionsItemsService) List(parent string) *UsersSectionsItemsListCall {
+	c := &UsersSectionsItemsListCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.parent = parent
+	return c
+}
+
+// Filter sets the optional parameter "filter": A query filter. Currently only
+// supports filtering by space. For example, `space = spaces/{space}`. Invalid
+// queries are rejected with an `INVALID_ARGUMENT` error.
+func (c *UsersSectionsItemsListCall) Filter(filter string) *UsersSectionsItemsListCall {
+	c.urlParams_.Set("filter", filter)
+	return c
+}
+
+// PageSize sets the optional parameter "pageSize": The maximum number of
+// section items to return. The service may return fewer than this value. If
+// unspecified, at most 10 section items will be returned. The maximum value is
+// 100. If you use a value more than 100, it's automatically changed to 100.
+// Negative values return an `INVALID_ARGUMENT` error.
+func (c *UsersSectionsItemsListCall) PageSize(pageSize int64) *UsersSectionsItemsListCall {
+	c.urlParams_.Set("pageSize", fmt.Sprint(pageSize))
+	return c
+}
+
+// PageToken sets the optional parameter "pageToken": A page token, received
+// from a previous list section items call. Provide this to retrieve the
+// subsequent page. When paginating, all other parameters provided should match
+// the call that provided the page token. Passing different values to the other
+// parameters might lead to unexpected results.
+func (c *UsersSectionsItemsListCall) PageToken(pageToken string) *UsersSectionsItemsListCall {
+	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse for more
+// details.
+func (c *UsersSectionsItemsListCall) Fields(s ...googleapi.Field) *UsersSectionsItemsListCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// IfNoneMatch sets an optional parameter which makes the operation fail if the
+// object's ETag matches the given value. This is useful for getting updates
+// only after the object has changed since the last request.
+func (c *UsersSectionsItemsListCall) IfNoneMatch(entityTag string) *UsersSectionsItemsListCall {
+	c.ifNoneMatch_ = entityTag
+	return c
+}
+
+// Context sets the context to be used in this call's Do method.
+func (c *UsersSectionsItemsListCall) Context(ctx context.Context) *UsersSectionsItemsListCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns a http.Header that can be modified by the caller to add
+// headers to the request.
+func (c *UsersSectionsItemsListCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *UsersSectionsItemsListCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := gensupport.SetHeaders(c.s.userAgent(), "", c.header_)
+	if c.ifNoneMatch_ != "" {
+		reqHeaders.Set("If-None-Match", c.ifNoneMatch_)
+	}
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+parent}/items")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("GET", urls, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"parent": c.parent,
+	})
+	c.s.logger.DebugContext(c.ctx_, "api request", "serviceName", apiName, "rpcName", "chat.users.sections.items.list", "request", internallog.HTTPRequest(req, nil))
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "chat.users.sections.items.list" call.
+// Any non-2xx status code is an error. Response headers are in either
+// *ListSectionItemsResponse.ServerResponse.Header or (if a response was
+// returned at all) in error.(*googleapi.Error).Header. Use
+// googleapi.IsNotModified to check whether the returned error was because
+// http.StatusNotModified was returned.
+func (c *UsersSectionsItemsListCall) Do(opts ...googleapi.CallOption) (*ListSectionItemsResponse, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &ListSectionItemsResponse{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	b, err := gensupport.DecodeResponseBytes(target, res)
+	if err != nil {
+		return nil, err
+	}
+	c.s.logger.DebugContext(c.ctx_, "api response", "serviceName", apiName, "rpcName", "chat.users.sections.items.list", "response", internallog.HTTPResponse(res, b))
+	return ret, nil
+}
+
+// Pages invokes f for each page of results.
+// A non-nil error returned from f will halt the iteration.
+// The provided context supersedes any context provided to the Context method.
+func (c *UsersSectionsItemsListCall) Pages(ctx context.Context, f func(*ListSectionItemsResponse) error) error {
+	c.ctx_ = ctx
+	defer c.PageToken(c.urlParams_.Get("pageToken"))
+	for {
+		x, err := c.Do()
+		if err != nil {
+			return err
+		}
+		if err := f(x); err != nil {
+			return err
+		}
+		if x.NextPageToken == "" {
+			return nil
+		}
+		c.PageToken(x.NextPageToken)
+	}
+}
+
+type UsersSectionsItemsMoveCall struct {
+	s                      *Service
+	name                   string
+	movesectionitemrequest *MoveSectionItemRequest
+	urlParams_             gensupport.URLParams
+	ctx_                   context.Context
+	header_                http.Header
+}
+
+// Move: Moves an item from one section to another. For example, if a section
+// contains spaces, this method can be used to move a space to a different
+// section. For details, see Create and organize sections in Google Chat
+// (https://support.google.com/chat/answer/16059854). Requires user
+// authentication
+// (https://developers.google.com/workspace/chat/authenticate-authorize-chat-user)
+// with the authorization scope
+// (https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes):
+// - `https://www.googleapis.com/auth/chat.users.sections`
+//
+//   - name: The resource name of the section item to move. Format:
+//     `users/{user}/sections/{section}/items/{item}`.
+func (r *UsersSectionsItemsService) Move(name string, movesectionitemrequest *MoveSectionItemRequest) *UsersSectionsItemsMoveCall {
+	c := &UsersSectionsItemsMoveCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.name = name
+	c.movesectionitemrequest = movesectionitemrequest
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse for more
+// details.
+func (c *UsersSectionsItemsMoveCall) Fields(s ...googleapi.Field) *UsersSectionsItemsMoveCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method.
+func (c *UsersSectionsItemsMoveCall) Context(ctx context.Context) *UsersSectionsItemsMoveCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns a http.Header that can be modified by the caller to add
+// headers to the request.
+func (c *UsersSectionsItemsMoveCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *UsersSectionsItemsMoveCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := gensupport.SetHeaders(c.s.userAgent(), "application/json", c.header_)
+	body, err := googleapi.WithoutDataWrapper.JSONBuffer(c.movesectionitemrequest)
+	if err != nil {
+		return nil, err
+	}
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+name}:move")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"name": c.name,
+	})
+	c.s.logger.DebugContext(c.ctx_, "api request", "serviceName", apiName, "rpcName", "chat.users.sections.items.move", "request", internallog.HTTPRequest(req, body.Bytes()))
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "chat.users.sections.items.move" call.
+// Any non-2xx status code is an error. Response headers are in either
+// *MoveSectionItemResponse.ServerResponse.Header or (if a response was
+// returned at all) in error.(*googleapi.Error).Header. Use
+// googleapi.IsNotModified to check whether the returned error was because
+// http.StatusNotModified was returned.
+func (c *UsersSectionsItemsMoveCall) Do(opts ...googleapi.CallOption) (*MoveSectionItemResponse, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, gensupport.WrapError(&googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, gensupport.WrapError(err)
+	}
+	ret := &MoveSectionItemResponse{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	b, err := gensupport.DecodeResponseBytes(target, res)
+	if err != nil {
+		return nil, err
+	}
+	c.s.logger.DebugContext(c.ctx_, "api response", "serviceName", apiName, "rpcName", "chat.users.sections.items.move", "response", internallog.HTTPResponse(res, b))
+	return ret, nil
 }
 
 type UsersSpacesGetSpaceReadStateCall struct {
