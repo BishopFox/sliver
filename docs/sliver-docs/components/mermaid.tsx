@@ -115,7 +115,7 @@ const Mermaid = ({ diagram, minHeight }: MermaidProps) => {
 
   if (error) {
     return (
-      <div className="not-prose my-6 text-sm text-rose-700 dark:text-rose-300">
+      <div className="not-prose my-6 rounded-2xl bg-danger-soft p-4 text-sm text-danger-soft-foreground">
         Failed to render Mermaid diagram: {error}
       </div>
     );

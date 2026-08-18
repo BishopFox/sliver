@@ -3,14 +3,18 @@ import LoadingState from "@/components/loading-state";
 import { Tutorials } from "@/util/tutorials";
 import { PREBUILD_VERSION } from "@/util/__generated__/prebuild-version";
 import { fetchTutorials as fetchTutorialsContent } from "@/util/content-fetchers";
-import { faSearch } from "@fortawesome/free-solid-svg-icons";
+import {
+  faChevronRight,
+  faGraduationCap,
+  faSearch,
+} from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
+  Button,
   Card,
   ListBox,
   ScrollShadow,
   SearchField,
-  Separator,
 } from "@heroui/react";
 import { useQuery } from "@tanstack/react-query";
 import Fuse from "fuse.js";
@@ -70,13 +74,14 @@ const TutorialsIndexPage: NextPage = () => {
   }, [name, tutorials, visibleTutorials]);
 
   const listboxClasses =
-    "p-0 gap-0 divide-y divide-separator bg-surface overflow-visible rounded-lg shadow-sm";
+    "flex flex-col gap-1 overflow-visible bg-transparent p-0";
 
   const renderFilterInput = (className?: string) => (
     <SearchField
       aria-label="Filter tutorials"
       className={className}
       fullWidth
+      variant="secondary"
       value={filterValue}
       onChange={setFilterValue}
     >
@@ -99,87 +104,146 @@ const TutorialsIndexPage: NextPage = () => {
   return (
     <>
       <Head>
-        <title>Sliver Tutorial: {name}</title>
+        <title>{name ? `${name} · Sliver Tutorials` : "Sliver Tutorials"}</title>
       </Head>
-      <div className="px-4 pt-4 lg:hidden">
-        <label
-          htmlFor="tutorials-mobile-selector"
-          className="block text-sm font-medium text-foreground"
-        >
-          Select a tutorial
-        </label>
-        <div className="mt-2">{renderFilterInput()}</div>
-        <select
-          id="tutorials-mobile-selector"
-          className="mt-3 w-full rounded-lg border border-separator bg-surface p-2 text-sm"
-          value={name}
-          onChange={(event) => {
-            const selectedName = event.target.value;
-            router.push({
-              pathname: "/tutorials",
-              query: selectedName ? { name: selectedName } : undefined,
-            });
-          }}
-        >
-          <option value="">Browse tutorials…</option>
-          {mobileTutorials.map((tutorial) => (
-            <option key={tutorial.name} value={tutorial.name}>
-              {tutorial.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
-        <aside className="hidden lg:block lg:col-span-3">
-          <div className="sticky top-16 ml-4 flex flex-col gap-3">
-            {renderFilterInput("mt-2")}
-            <ScrollShadow className="max-h-[calc(100vh-6rem)] sliver-scrollbar overflow-y-auto pr-1 rounded-lg">
-              <ListBox
-                aria-label="Toolbox Menu"
-                className={listboxClasses}
-                onAction={(key) => {
-                  router.push({
-                    pathname: "/tutorials",
-                    query: { name: String(key) },
-                  });
-                }}
-              >
-                {visibleTutorials.map((tutorial) => (
-                  <ListBox.Item
-                    key={tutorial.name}
-                    id={tutorial.name}
-                    textValue={tutorial.name}
-                    className="h-12 rounded-none px-3 first:rounded-t-lg last:rounded-b-lg"
-                  >
-                    {tutorial.name}
-                  </ListBox.Item>
-                ))}
-              </ListBox>
-            </ScrollShadow>
+      <div className="mx-auto w-full max-w-[90rem] px-4 pt-8 sm:px-6 lg:px-8 lg:pt-10">
+        <div className="mb-8 lg:hidden">
+          <div className="flex items-center gap-3">
+            <span className="flex size-9 items-center justify-center rounded-2xl bg-surface-secondary text-accent">
+              <FontAwesomeIcon icon={faGraduationCap} />
+            </span>
+            <div>
+              <p className="text-sm font-medium text-foreground">Tutorials</p>
+              <p className="text-xs text-muted">Follow a guided workflow</p>
+            </div>
           </div>
-        </aside>
-        <div className="px-4 pb-8 lg:col-span-9 lg:px-8">
-          {name !== "" ? (
-            <Card className="mt-2">
-              <Card.Header>
-                <span className="text-3xl">{name}</span>
-              </Card.Header>
-              <Separator />
-              <Card.Content>
+          <div className="mt-5">{renderFilterInput()}</div>
+          <label
+            htmlFor="tutorials-mobile-selector"
+            className="mt-4 block text-sm font-medium text-foreground"
+          >
+            Tutorial
+          </label>
+          <select
+            id="tutorials-mobile-selector"
+            className="mt-2 w-full rounded-2xl border border-transparent bg-surface-secondary px-3 py-2.5 text-sm text-foreground outline-none focus:border-accent"
+            value={name}
+            onChange={(event) => {
+              const selectedName = event.target.value;
+              router.push({
+                pathname: "/tutorials",
+                query: selectedName ? { name: selectedName } : undefined,
+              });
+            }}
+          >
+            <option value="">Browse tutorials…</option>
+            {mobileTutorials.map((tutorial) => (
+              <option key={tutorial.name} value={tutorial.name}>
+                {tutorial.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="grid min-w-0 grid-cols-1 gap-8 lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-10">
+          <aside className="sliver-sticky-sidebar hidden border-r border-separator/70 pr-6 lg:block">
+            <div className="flex h-full min-h-0 flex-col gap-5">
+              <div className="flex items-center gap-3 px-1">
+                <span className="flex size-9 items-center justify-center rounded-2xl bg-surface-secondary text-accent">
+                  <FontAwesomeIcon icon={faGraduationCap} />
+                </span>
+                <div>
+                  <p className="text-sm font-medium text-foreground">Tutorials</p>
+                  <p className="text-xs text-muted">
+                    {tutorials.tutorials.length} chapters
+                  </p>
+                </div>
+              </div>
+              {renderFilterInput()}
+              <ScrollShadow className="sliver-scrollbar min-h-0 flex-1 overscroll-contain overflow-y-auto pr-2">
+                <ListBox
+                  aria-label="Tutorials"
+                  className={listboxClasses}
+                  selectedKeys={name ? [name] : []}
+                  selectionMode="single"
+                >
+                  {visibleTutorials.map((tutorial) => (
+                    <ListBox.Item
+                      key={tutorial.name}
+                      id={tutorial.name}
+                      href={`/tutorials/?name=${encodeURIComponent(tutorial.name)}`}
+                      textValue={tutorial.name}
+                      className={`min-h-10 rounded-xl px-3 py-2 text-sm ${
+                        tutorial.name === name
+                          ? "bg-surface font-medium text-foreground shadow-surface"
+                          : "text-muted"
+                      }`}
+                    >
+                      {tutorial.name}
+                    </ListBox.Item>
+                  ))}
+                </ListBox>
+              </ScrollShadow>
+            </div>
+          </aside>
+
+          <div
+            key={name || "tutorials-overview"}
+            className="min-w-0 pb-16 lg:pr-4"
+          >
+            {name !== "" ? (
+              <article className="mx-auto w-full max-w-4xl">
+                <header className="mb-8 border-b border-separator/70 pb-8">
+                  <p className="text-sm font-medium text-accent">Tutorial</p>
+                  <h1 className="mt-2 text-balance text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+                    {name}
+                  </h1>
+                </header>
                 <MarkdownViewer
                   key={name}
                   markdown={markdown || ""}
+                  demoteTopLevelHeading
                 />
-              </Card.Content>
-            </Card>
-          ) : (
-            <div className="mt-8 text-center text-2xl text-foreground/90">
-              Welcome to the Sliver Tutorials!
-              <div className="mt-2 text-xl text-muted">
-                Please select a chapter
+              </article>
+            ) : (
+              <div className="mx-auto w-full max-w-5xl pt-4 lg:pt-8">
+                <h1 className="text-sm font-medium text-accent">
+                  Guided learning
+                </h1>
+                <p className="mt-4 max-w-2xl text-lg leading-8 text-muted">
+                  Follow practical walkthroughs covering setup, sessions,
+                  staging, pivots, scripting, and post-exploitation workflows.
+                </p>
+
+                <div className="mt-10 grid gap-4 sm:grid-cols-2">
+                  {tutorials.tutorials.slice(0, 6).map((tutorial) => (
+                    <Card key={tutorial.name} className="h-full">
+                      <Card.Header>
+                        <Card.Title>{tutorial.name}</Card.Title>
+                        <Card.Description>
+                          Continue through this guided Sliver workflow.
+                        </Card.Description>
+                      </Card.Header>
+                      <Card.Footer className="mt-auto">
+                        <Button
+                          variant="ghost"
+                          onPress={() => {
+                            router.push({
+                              pathname: "/tutorials",
+                              query: { name: tutorial.name },
+                            });
+                          }}
+                        >
+                          Start tutorial
+                          <FontAwesomeIcon icon={faChevronRight} />
+                        </Button>
+                      </Card.Footer>
+                    </Card>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </>

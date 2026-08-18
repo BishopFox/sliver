@@ -60,11 +60,8 @@ const CodeViewer = (props: CodeViewerProps) => {
     props.script.source_code
   );
   const [fontSize, setFontSize] = React.useState(props.fontSize || 13);
-  const editorContainerClassName = React.useMemo(() => {
-    return theme === Themes.DARK
-      ? "col-span-12 mt-4 rounded-2xl overflow-hidden"
-      : "col-span-12 mt-4 rounded-2xl overflow-hidden border border-gray-300";
-  }, [theme]);
+  const editorContainerClassName =
+    "col-span-12 mt-4 overflow-hidden rounded-2xl border border-separator bg-surface-secondary";
 
   return (
     <div className={editorContainerClassName}>

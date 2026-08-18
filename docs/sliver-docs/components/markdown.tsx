@@ -27,6 +27,7 @@ import Youtube from "./youtube";
 
 export type MarkdownProps = {
   markdown: string;
+  demoteTopLevelHeading?: boolean;
 };
 
 type MarkdownAsciiCast = {
@@ -121,12 +122,12 @@ const slugify = (value: string) => {
 };
 
 const headingClassNames: Record<HeadingLevel, string> = {
-  1: "mt-12 text-3xl font-semibold tracking-tight text-slate-900 first:mt-0 dark:text-slate-100",
-  2: "mt-10 text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100",
-  3: "mt-8 text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100",
-  4: "mt-6 text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100",
-  5: "mt-6 text-base font-semibold tracking-tight text-slate-900 dark:text-slate-100",
-  6: "mt-6 text-base font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300",
+  1: "mt-12 text-3xl font-semibold tracking-tight text-foreground first:mt-0",
+  2: "mt-12 text-2xl font-semibold tracking-tight text-foreground",
+  3: "mt-9 text-xl font-semibold tracking-tight text-foreground",
+  4: "mt-8 text-lg font-semibold tracking-tight text-foreground",
+  5: "mt-7 text-base font-semibold tracking-tight text-foreground",
+  6: "mt-7 text-base font-semibold tracking-tight text-foreground",
 };
 
 const MarkdownViewer = (props: MarkdownProps) => {
@@ -218,7 +219,9 @@ const MarkdownViewer = (props: MarkdownProps) => {
         }
 
         const anchor = anchorRef.current;
-        const HeadingTag = `h${level}`;
+        const renderedLevel =
+          level === 1 && props.demoteTopLevelHeading ? 2 : level;
+        const HeadingTag = `h${renderedLevel}`;
 
         return createElement(
           HeadingTag,
@@ -226,7 +229,7 @@ const MarkdownViewer = (props: MarkdownProps) => {
             ...rest,
             id: anchor || undefined,
             className: mergeClassNames(
-              headingClassNames[level],
+              headingClassNames[renderedLevel],
               "scroll-mt-[70px]",
               className
             ),
@@ -236,8 +239,8 @@ const MarkdownViewer = (props: MarkdownProps) => {
             {anchor && (
               <a
                 href={`#${anchor}`}
-                aria-label="Copy link to section"
-                className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 hover:text-primary dark:text-slate-500"
+                aria-label={`Link to ${textContent}`}
+                className="-my-2 inline-flex size-10 items-center justify-center rounded-xl text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 hover:bg-surface-secondary hover:text-accent"
               >
                 <svg
                   aria-hidden="true"
@@ -283,12 +286,12 @@ const MarkdownViewer = (props: MarkdownProps) => {
       h5: createHeadingComponent(5),
       h6: createHeadingComponent(6),
     };
-  }, [getAnchor]);
+  }, [getAnchor, props.demoteTopLevelHeading]);
 
   const proseClassName = mergeClassNames(
     "markdown-body prose max-w-none leading-7",
     theme === Themes.DARK ? "dark:prose-invert prose-slate" : "prose-slate",
-    "prose-pre:bg-slate-950/90 prose-pre:text-slate-100 prose-code:font-mono prose-img:rounded-xl"
+    "prose-code:font-mono prose-img:rounded-2xl"
   );
 
   return (
@@ -307,7 +310,7 @@ const MarkdownViewer = (props: MarkdownProps) => {
                   {...rest}
                   href={href}
                   className={mergeClassNames(
-                    "font-medium text-primary transition-colors duration-150 hover:text-primary-dark",
+                    "font-medium text-accent underline-offset-4 hover:underline",
                     className
                   )}
                   onClick={(e) => {
@@ -342,7 +345,7 @@ const MarkdownViewer = (props: MarkdownProps) => {
             }
 
             const anchorClassName = mergeClassNames(
-              "font-medium text-primary transition-colors duration-150 underline-offset-4 hover:text-primary-dark",
+              "font-medium text-accent underline-offset-4 hover:underline",
               className
             );
 
@@ -376,7 +379,7 @@ const MarkdownViewer = (props: MarkdownProps) => {
               <p
                 {...rest}
                 className={mergeClassNames(
-                  "my-6 text-base leading-7 text-slate-700 dark:text-slate-300",
+                  "my-6 text-base leading-7 text-foreground/80",
                   className
                 )}
               >
@@ -391,7 +394,7 @@ const MarkdownViewer = (props: MarkdownProps) => {
               <ul
                 {...rest}
                 className={mergeClassNames(
-                  "my-6 list-disc space-y-2 pl-6 text-slate-700 marker:text-primary dark:text-slate-300",
+                  "my-6 list-disc space-y-2 pl-6 text-foreground/80 marker:text-accent",
                   className
                 )}
               >
@@ -406,7 +409,7 @@ const MarkdownViewer = (props: MarkdownProps) => {
               <ol
                 {...rest}
                 className={mergeClassNames(
-                  "my-6 list-decimal space-y-2 pl-6 text-slate-700 marker:text-primary dark:text-slate-300",
+                  "my-6 list-decimal space-y-2 pl-6 text-foreground/80 marker:text-accent",
                   className
                 )}
               >
@@ -421,7 +424,7 @@ const MarkdownViewer = (props: MarkdownProps) => {
               <li
                 {...rest}
                 className={mergeClassNames(
-                  "leading-6 text-slate-700 dark:text-slate-300",
+                  "leading-6 text-foreground/80",
                   className
                 )}
               >
@@ -436,7 +439,7 @@ const MarkdownViewer = (props: MarkdownProps) => {
               <blockquote
                 {...rest}
                 className={mergeClassNames(
-                  "my-8 border-l-4 border-slate-200 bg-slate-50 px-6 py-4 text-base italic text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300",
+                  "my-8 rounded-r-2xl border-l-4 border-accent/40 bg-surface-secondary px-6 py-4 text-base italic text-foreground/80",
                   className
                 )}
               >
@@ -451,7 +454,7 @@ const MarkdownViewer = (props: MarkdownProps) => {
               <hr
                 {...rest}
                 className={mergeClassNames(
-                  "my-12 border-t border-slate-200 dark:border-slate-800",
+                  "my-12 border-t border-separator",
                   className
                 )}
               />
@@ -461,11 +464,11 @@ const MarkdownViewer = (props: MarkdownProps) => {
           table(tableProps) {
             const { className, children, ...rest } = tableProps;
             return (
-              <div className="my-8 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950/40">
+              <div className="sliver-scrollbar my-8 overflow-x-auto rounded-2xl border border-separator bg-surface">
                 <table
                   {...rest}
                   className={mergeClassNames(
-                    "w-full min-w-max divide-y divide-slate-200 text-left text-sm dark:divide-slate-800",
+                    "w-full min-w-max divide-y divide-separator text-left text-sm",
                     className
                   )}
                 >
@@ -481,7 +484,7 @@ const MarkdownViewer = (props: MarkdownProps) => {
               <thead
                 {...rest}
                 className={mergeClassNames(
-                  "bg-slate-50 text-sm font-semibold uppercase tracking-wide text-slate-600 dark:bg-slate-900/60 dark:text-slate-300",
+                  "bg-surface-secondary text-sm font-semibold text-muted",
                   className
                 )}
               >
@@ -496,7 +499,7 @@ const MarkdownViewer = (props: MarkdownProps) => {
               <tbody
                 {...rest}
                 className={mergeClassNames(
-                  "divide-y divide-slate-200 dark:divide-slate-800",
+                  "divide-y divide-separator",
                   className
                 )}
               >
@@ -511,7 +514,7 @@ const MarkdownViewer = (props: MarkdownProps) => {
               <tr
                 {...rest}
                 className={mergeClassNames(
-                  "transition-colors hover:bg-slate-50 dark:hover:bg-slate-900/60",
+                  "bg-transparent",
                   className
                 )}
               >
@@ -526,7 +529,7 @@ const MarkdownViewer = (props: MarkdownProps) => {
               <th
                 {...rest}
                 className={mergeClassNames(
-                  "px-4 py-3 text-left text-sm font-semibold text-slate-600 dark:text-slate-200",
+                  "px-4 py-3 text-left text-sm font-semibold text-foreground",
                   className
                 )}
               >
@@ -541,7 +544,7 @@ const MarkdownViewer = (props: MarkdownProps) => {
               <td
                 {...rest}
                 className={mergeClassNames(
-                  "px-4 py-3 align-top text-sm text-slate-700 dark:text-slate-300",
+                  "px-4 py-3 align-top text-sm text-foreground/80",
                   className
                 )}
               >
@@ -556,7 +559,7 @@ const MarkdownViewer = (props: MarkdownProps) => {
               <strong
                 {...rest}
                 className={mergeClassNames(
-                  "font-semibold text-slate-900 dark:text-slate-100",
+                  "font-semibold text-foreground",
                   className
                 )}
               >
@@ -571,7 +574,7 @@ const MarkdownViewer = (props: MarkdownProps) => {
               <em
                 {...rest}
                 className={mergeClassNames(
-                  "text-slate-700 dark:text-slate-300",
+                  "text-foreground/80",
                   className
                 )}
               >
@@ -605,7 +608,7 @@ const MarkdownViewer = (props: MarkdownProps) => {
               <pre
                 {...rest}
                 className={mergeClassNames(
-                  "my-6 overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-4 text-[13px] leading-6 text-slate-900 shadow-inner dark:border-slate-800 dark:bg-slate-950/90 dark:text-slate-100",
+                  "sliver-scrollbar my-6 overflow-x-auto rounded-2xl border border-separator bg-surface-secondary p-4 text-[13px] leading-6 text-foreground",
                   className
                 )}
               >
@@ -625,7 +628,7 @@ const MarkdownViewer = (props: MarkdownProps) => {
                 width={1200}
                 height={720}
                 className={mergeClassNames(
-                  "my-8 w-full rounded-xl border border-slate-200 object-contain shadow-sm dark:border-slate-800",
+                  "my-8 w-full rounded-2xl border border-separator/70 object-contain",
                   className
                 )}
               />
@@ -655,7 +658,11 @@ const MarkdownViewer = (props: MarkdownProps) => {
 
             if (normalizedLang === "youtube") {
               const embedId = sourceCode || "";
-              return <Youtube embedId={embedId.trim()} />;
+              return (
+                <div className="not-prose my-8 overflow-hidden rounded-2xl">
+                  <Youtube embedId={embedId.trim()} />
+                </div>
+              );
             }
 
             if (normalizedLang === "asciinema") {
@@ -668,15 +675,18 @@ const MarkdownViewer = (props: MarkdownProps) => {
                 return <></>;
               }
               return (
-                <AsciinemaPlayer
-                  src={srcUrl.toString()}
-                  rows={asciiCast.rows || "18"}
-                  cols={asciiCast.cols || "75"}
-                  idleTimeLimit={asciiCast.idleTimeLimit || 2}
-                  preload={true}
-                  autoPlay={true}
-                  loop={true}
-                />
+                <div className="sliver-terminal-frame not-prose my-8 w-full max-w-full overflow-x-auto rounded-2xl bg-[#111315]">
+                  <AsciinemaPlayer
+                    className="min-w-[42rem]"
+                    src={srcUrl.toString()}
+                    rows={asciiCast.rows || "18"}
+                    cols={asciiCast.cols || "75"}
+                    idleTimeLimit={asciiCast.idleTimeLimit || 2}
+                    preload={true}
+                    autoPlay={true}
+                    loop={true}
+                  />
+                </div>
               );
             }
 
@@ -694,7 +704,7 @@ const MarkdownViewer = (props: MarkdownProps) => {
                 <code
                   {...rest}
                   className={mergeClassNames(
-                    "rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[13px] text-slate-700 dark:bg-slate-800/80 dark:text-slate-200",
+                    "rounded-md bg-surface-secondary px-1.5 py-0.5 font-mono text-[13px] text-foreground",
                     className
                   )}
                 >
@@ -752,7 +762,7 @@ const MarkdownViewer = (props: MarkdownProps) => {
             const formattedSourceCode = sourceCode.replace(/\n$/, "");
 
             const preWrapperClassName = mergeClassNames(
-              "not-prose mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-[13px] leading-6 text-slate-900 shadow-sm dark:border-slate-800 dark:bg-slate-950/90 dark:text-slate-100",
+              "sliver-scrollbar not-prose mt-4 overflow-x-auto rounded-2xl border border-separator bg-surface-secondary px-4 py-4 text-[13px] leading-6 text-foreground",
               className
             );
 
