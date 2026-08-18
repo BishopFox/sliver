@@ -207,9 +207,8 @@ const TutorialsIndexPage: NextPage = () => {
               </article>
             ) : (
               <div className="mx-auto w-full max-w-5xl pt-4 lg:pt-8">
-                <p className="text-sm font-medium text-accent">Guided learning</p>
-                <h1 className="mt-2 max-w-3xl text-balance text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
-                  Build confidence one operation at a time.
+                <h1 className="text-sm font-medium text-accent">
+                  Guided learning
                 </h1>
                 <p className="mt-4 max-w-2xl text-lg leading-8 text-muted">
                   Follow practical walkthroughs covering setup, sessions,

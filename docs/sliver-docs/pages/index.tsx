@@ -6,7 +6,7 @@ import {
   faDownload,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Button, Card } from "@heroui/react";
+import { Button, Card, buttonVariants } from "@heroui/react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -53,9 +53,9 @@ export default function Home() {
 
                 <div className="sliver-terminal-frame min-h-[20rem] flex-1 overflow-x-auto bg-[#111315] sm:min-h-[24rem]">
                   <AsciinemaPlayer
-                    className="sliver-asciinema-fit-height h-full min-w-[35rem]"
+                    className="sliver-asciinema-bottom-aligned h-full w-full sm:min-w-[35rem]"
                     src="/asciinema/intro.cast"
-                    fit="height"
+                    fit="width"
                     hideControls
                     rows="18"
                     cols="75"
@@ -93,47 +93,52 @@ export default function Home() {
                 </p>
               </Card.Content>
 
-              <Card.Footer className="mt-auto flex-col items-stretch gap-3 pt-5 sm:flex-row">
-                <Button
-                  className="sm:flex-1"
-                  variant="primary"
-                  onPress={() =>
-                    router.push({
-                      pathname: "/docs",
-                      query: { name: "Getting Started" },
-                    })
-                  }
+              <Card.Footer className="mt-auto flex-col items-stretch gap-3 pt-5">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Button
+                    fullWidth
+                    variant="primary"
+                    onPress={() =>
+                      router.push({
+                        pathname: "/docs",
+                        query: { name: "Getting Started" },
+                      })
+                    }
+                  >
+                    Get started
+                  </Button>
+                  <Button
+                    className="[--button-bg-hover:var(--color-purple-700)] [--button-bg-pressed:var(--color-purple-700)] [--button-bg:var(--color-purple-600)] [--button-fg:var(--color-white)]"
+                    fullWidth
+                    variant="tertiary"
+                    onPress={() => {
+                      window.open(
+                        "https://github.com/BishopFox/sliver/releases/latest",
+                        "_blank",
+                        "noopener,noreferrer",
+                      );
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faDownload} />
+                    Latest release
+                  </Button>
+                </div>
+                <a
+                  className={buttonVariants({
+                    fullWidth: true,
+                    variant: "secondary",
+                  })}
+                  href="https://github.com/sliverarmory"
+                  target="_blank"
+                  rel="noreferrer"
                 >
-                  Get started
-                </Button>
-                <Button
-                  className="sm:flex-1"
-                  variant="outline"
-                  onPress={() => {
-                    window.open(
-                      "https://github.com/BishopFox/sliver/releases/latest",
-                      "_blank",
-                      "noopener,noreferrer",
-                    );
-                  }}
-                >
-                  <FontAwesomeIcon icon={faDownload} />
-                  Latest release
-                </Button>
+                  Browse the Armory
+                  <FontAwesomeIcon
+                    className="text-xs"
+                    icon={faArrowUpRightFromSquare}
+                  />
+                </a>
               </Card.Footer>
-
-              <a
-                href="https://github.com/sliverarmory"
-                target="_blank"
-                rel="noreferrer"
-                className="mx-6 mb-6 mt-1 inline-flex w-fit items-center gap-1.5 rounded-lg text-sm font-medium text-accent no-underline outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent/40"
-              >
-                Browse the Armory
-                <FontAwesomeIcon
-                  className="text-xs"
-                  icon={faArrowUpRightFromSquare}
-                />
-              </a>
             </Card>
           </section>
 
@@ -143,13 +148,16 @@ export default function Home() {
           >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-sm font-medium text-accent">Quick guides</p>
                 <h2
                   id="quick-guides-heading"
-                  className="mt-1 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl"
+                  className="text-sm font-medium text-accent"
                 >
-                  Learn the workflow in the console.
+                  Quick guides
                 </h2>
+                <blockquote className="mt-1 max-w-3xl text-xl font-medium italic leading-snug tracking-tight text-foreground sm:text-2xl">
+                  Bred as living shields, these slivers have proven unruly—they
+                  know they cannot be caught.
+                </blockquote>
               </div>
               <Button
                 variant="ghost"
