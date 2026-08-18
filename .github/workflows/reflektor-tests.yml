@@ -4,7 +4,13 @@ on:
   push:
     branches:
       - master
+    paths:
+      - "implant/**"
+      - ".github/workflows/reflektor-tests.yml"
   pull_request:
+    paths:
+      - "implant/**"
+      - ".github/workflows/reflektor-tests.yml"
     types:
       - opened
       - reopened
