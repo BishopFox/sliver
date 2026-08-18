@@ -3,14 +3,16 @@ package table
 // Style declares how to render the Table and provides very fine-grained control
 // on how the Table gets rendered on the Console.
 type Style struct {
-	Name    string        // name of the Style
-	Box     BoxStyle      // characters to use for the boxes
-	Color   ColorOptions  // colors to use for the rows and columns
-	Format  FormatOptions // formatting options for the rows and columns
-	HTML    HTMLOptions   // rendering options for HTML mode
-	Options Options       // misc. options for the table
-	Size    SizeOptions   // size (width) options for the table
-	Title   TitleOptions  // formation options for the title text
+	Name     string          // name of the Style
+	Box      BoxStyle        // characters to use for the boxes
+	Color    ColorOptions    // colors to use for the rows and columns
+	CSV      CSVOptions      // rendering options for CSV mode
+	Format   FormatOptions   // formatting options for the rows and columns
+	HTML     HTMLOptions     // rendering options for HTML mode
+	Markdown MarkdownOptions // rendering options for Markdown mode
+	Options  Options         // misc. options for the table
+	Size     SizeOptions     // size (width) options for the table
+	Title    TitleOptions    // formation options for the title text
 }
 
 var (
