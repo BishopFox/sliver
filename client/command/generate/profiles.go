@@ -60,6 +60,7 @@ func PrintProfiles(profiles []*clientpb.ImplantProfile, con *console.SliverClien
 		"Debug",
 		"Format",
 		"Obfuscation",
+		"Control Flow",
 		"Limitations",
 		"C2 Profile",
 		// "Nonce",
@@ -91,6 +92,7 @@ func PrintProfiles(profiles []*clientpb.ImplantProfile, con *console.SliverClien
 			fmt.Sprintf("%v", config.Debug),
 			fmt.Sprintf("%v", config.Format),
 			obfuscation,
+			controlFlowPolicyName(config.ControlFlow),
 			getLimitsString(config),
 			config.HTTPC2ConfigName,
 			// profile.ImplantID,
@@ -164,6 +166,7 @@ func populateProfileProperties(config *clientpb.ImplantConfig) map[string]string
 	} else {
 		properties["obsymbols"] = "disabled"
 	}
+	properties["obcontrolflow"] = controlFlowPolicyName(config.ControlFlow)
 
 	properties["shellcodeencoder"] = "n/a"
 	if config.Format == clientpb.OutputFormat_SHELLCODE {
@@ -322,6 +325,10 @@ func PrintProfileInfo(name string, con *console.SliverClient) {
 	tw.AppendRow(table.Row{
 		"Obfuscation of symbols is",
 		properties["obsymbols"],
+	})
+	tw.AppendRow(table.Row{
+		"Control-flow obfuscation is",
+		properties["obcontrolflow"],
 	})
 	tw.AppendRow(table.Row{
 		"Shellcode encoder is",

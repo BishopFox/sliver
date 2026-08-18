@@ -40,6 +40,7 @@ import (
 	"github.com/bishopfox/sliver/server/generate"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/util"
+	"github.com/gofrs/uuid"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -88,10 +89,42 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 		}
 	}
 
+	var originatingConfig *clientpb.ImplantConfig
+	if session != nil && session.ConfigID != "" {
+		originatingConfig, err = db.ImplantConfigByID(session.ConfigID)
+		if err != nil {
+			return nil, status.Errorf(codes.FailedPrecondition, "cannot verify originating implant policy for session config %q: %v", session.ConfigID, err)
+		}
+	} else if dbBeacon != nil && dbBeacon.ImplantConfigID != uuid.Nil {
+		originatingConfig, err = db.ImplantConfigByID(dbBeacon.ImplantConfigID.String())
+		if err != nil {
+			return nil, status.Errorf(codes.FailedPrecondition, "cannot verify originating implant policy for beacon config %q: %v", dbBeacon.ImplantConfigID, err)
+		}
+	} else if req.Config != nil {
+		originatingConfig = req.Config
+	}
+
 	name := filepath.Base(req.Name)
-	sc, arch, err := getSliverShellcode(name)
+	sc, arch, cachedConfig, err := getSliverShellcode(name)
+	if err == nil && !migrateCachedPolicyCompatible(originatingConfig, cachedConfig) {
+		return nil, status.Errorf(
+			codes.FailedPrecondition,
+			"cached build %q control-flow policy %s does not match originating policy %s",
+			name,
+			cachedConfig.ControlFlow,
+			originatingConfig.ControlFlow,
+		)
+	}
 	if err != nil {
+		if req.Config == nil {
+			return nil, status.Error(codes.InvalidArgument, "missing implant config")
+		}
 		config := req.Config
+		if originatingConfig != nil {
+			config.Debug = originatingConfig.Debug
+			config.ObfuscateSymbols = originatingConfig.ObfuscateSymbols
+			config.ControlFlow = originatingConfig.ControlFlow
+		}
 		if req.Name == "" {
 			name, err = codenames.GetCodename()
 			if err != nil {
@@ -108,6 +141,16 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 		config.IsSharedLib = false
 		config.TemplateName = "sliver"
 		config.ObfuscateSymbols = true
+		configID, err := uuid.NewV4()
+		if err != nil {
+			return nil, rpcError(err)
+		}
+		config.ID = configID.String()
+		releaseControlFlowBuild, err := acquireControlFlowBuild(config)
+		if err != nil {
+			return nil, err
+		}
+		defer releaseControlFlowBuild()
 		build, err := generate.GenerateConfig(name, config)
 		if err != nil {
 			return nil, rpcError(err)
@@ -123,10 +166,13 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 		if err != nil {
 			return nil, rpcError(err)
 		}
-		sc, _ = os.ReadFile(shellcodePath)
+		sc, err = os.ReadFile(shellcodePath)
+		if err != nil {
+			return nil, rpcError(err)
+		}
+		releaseControlFlowBuild()
 		// Save the implant config in the database so that the server recognizes it when it tries to connect
-		config.ID = ""
-		savedConfig, err := db.SaveImplantConfig(config)
+		savedConfig, err := db.CreateImplantConfigWithID(config)
 		if err != nil {
 			return nil, rpcError(err)
 		}
@@ -383,17 +429,24 @@ func getOS(session *core.Session, beacon *clientpb.Beacon) string {
 	return ""
 }
 
+func migrateCachedPolicyCompatible(originatingConfig, cachedConfig *clientpb.ImplantConfig) bool {
+	if originatingConfig == nil {
+		return true
+	}
+	return cachedConfig != nil && cachedConfig.ControlFlow == originatingConfig.ControlFlow
+}
+
 // Utility functions
-func getSliverShellcode(name string) ([]byte, string, error) {
+func getSliverShellcode(name string) ([]byte, string, *clientpb.ImplantConfig, error) {
 	var data []byte
 	build, err := db.ImplantBuildByName(name)
 	if err != nil {
-		return nil, "", err
+		return nil, "", nil, err
 	}
 
 	config, err := db.ImplantConfigByID(build.ImplantConfigID)
 	if err != nil {
-		return nil, "", err
+		return nil, "", nil, err
 	}
 
 	switch config.Format {
@@ -401,7 +454,7 @@ func getSliverShellcode(name string) ([]byte, string, error) {
 	case clientpb.OutputFormat_SHELLCODE:
 		fileData, err := generate.ImplantFileFromBuild(build)
 		if err != nil {
-			return []byte{}, "", err
+			return []byte{}, "", config, err
 		}
 		data = fileData
 
@@ -410,23 +463,23 @@ func getSliverShellcode(name string) ([]byte, string, error) {
 		fileData, err := generate.ImplantFileFromBuild(build)
 		rpcLog.Debugf("Found implant. Len: %d\n", len(fileData))
 		if err != nil {
-			return []byte{}, "", err
+			return []byte{}, "", config, err
 		}
 		data, err = generate.DonutShellcodeFromPE(fileData, config.GOARCH, false, "", "", "", false, false, false, config.ShellcodeConfig)
 		if err != nil {
 			rpcLog.Errorf("DonutShellcodeFromPE error: %v\n", err)
-			return []byte{}, "", err
+			return []byte{}, "", config, err
 		}
 
 	case clientpb.OutputFormat_SHARED_LIB:
 		// retrieve DLL from db
 		fileData, err := generate.ImplantFileFromBuild(build)
 		if err != nil {
-			return []byte{}, "", err
+			return []byte{}, "", config, err
 		}
 		data, err = generate.ShellcodeRDIFromBytes(fileData, "StartW", "")
 		if err != nil {
-			return []byte{}, "", err
+			return []byte{}, "", config, err
 		}
 
 	case clientpb.OutputFormat_SERVICE:
@@ -435,7 +488,7 @@ func getSliverShellcode(name string) ([]byte, string, error) {
 		err = fmt.Errorf("no existing shellcode found")
 	}
 
-	return data, config.GOARCH, err
+	return data, config.GOARCH, config, err
 }
 
 // ExportDirectory - stores the Export data

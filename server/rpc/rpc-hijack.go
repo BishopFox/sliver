@@ -106,6 +106,9 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 			))
 		}
 
+		if p.Config == nil {
+			return nil, status.Error(codes.InvalidArgument, "profile is missing an implant config")
+		}
 		if p.Config.Format != clientpb.OutputFormat_SHARED_LIB {
 			return nil, status.Error(codes.InvalidArgument,
 				"please select a profile targeting a shared library format",
@@ -123,6 +126,11 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 		} else {
 			name = req.Name
 		}
+		releaseControlFlowBuild, err := acquireControlFlowBuild(config)
+		if err != nil {
+			return nil, err
+		}
+		defer releaseControlFlowBuild()
 		build, err := generate.GenerateConfig(name, config)
 		if err != nil {
 			return nil, rpcError(err)
@@ -143,6 +151,7 @@ func (rpc *Server) HijackDLL(ctx context.Context, req *clientpb.DllHijackReq) (*
 		if err != nil {
 			return nil, rpcError(err)
 		}
+		releaseControlFlowBuild()
 	} else {
 		if len(req.TargetDLL) == 0 {
 			return nil, status.Error(codes.InvalidArgument, "missing target DLL")

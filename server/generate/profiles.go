@@ -29,6 +29,13 @@ import (
 
 // SaveImplantProfile - Save a sliver profile to disk
 func SaveImplantProfile(pbProfile *clientpb.ImplantProfile) (*clientpb.ImplantProfile, error) {
+	if pbProfile == nil || pbProfile.Config == nil {
+		return nil, errors.New("implant profile config cannot be nil")
+	}
+	if err := ValidateControlFlowConfig(pbProfile.Config); err != nil {
+		return nil, err
+	}
+
 	dbProfile, err := db.ImplantProfileByName(pbProfile.Name)
 	if err != nil && !errors.Is(err, db.ErrRecordNotFound) {
 		return nil, err

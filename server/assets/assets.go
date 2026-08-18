@@ -24,10 +24,12 @@ import (
 	"os/user"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/bishopfox/sliver/server/log"
 	ver "github.com/bishopfox/sliver/server/version"
+	utilAssets "github.com/bishopfox/sliver/util/assets"
 )
 
 const (
@@ -105,19 +107,26 @@ func assetVersion() string {
 	return strings.TrimSpace(string(data))
 }
 
-func saveAssetVersion(appDir string) {
+func expectedAssetVersion() string {
+	garbleDigest, ok := utilAssets.ExpectedGarbleSHA256(runtime.GOOS, runtime.GOARCH)
+	if !ok {
+		return ver.GitCommit
+	}
+	return ver.GitCommit + ":garble-" + garbleDigest
+}
+
+func saveAssetVersion(appDir, version string) error {
 	versionFilePath := filepath.Join(appDir, versionFileName)
-	fVer, _ := os.Create(versionFilePath)
-	defer fVer.Close()
-	fVer.Write([]byte(ver.GitCommit))
+	return os.WriteFile(versionFilePath, []byte(version), 0600)
 }
 
 // Setup - Extract or create local assets
 func Setup(force bool, echo bool) {
 	appDir := GetRootAppDir()
 	localVer := assetVersion()
-	if force || localVer == "" || localVer != ver.GitCommit {
-		setupLog.Infof("Version mismatch %v != %v", localVer, ver.GitCommit)
+	expectedVer := expectedAssetVersion()
+	if force || localVer == "" || localVer != expectedVer {
+		setupLog.Infof("Version mismatch %v != %v", localVer, expectedVer)
 		if echo {
 			fmt.Printf(`
 Sliver  Copyright (C) 2026  Bishop Fox
@@ -126,13 +135,32 @@ This is free software, and you are welcome to redistribute it
 under certain conditions; type 'licenses' for details.`)
 			fmt.Printf("\n\nUnpacking assets ...\n")
 		}
-		setupGo(appDir)
+		setupSucceeded := true
+		if err := setupGo(appDir); err != nil {
+			setupLog.Errorf("Failed to setup Go: %s", err)
+			setupSucceeded = false
+		}
 		err := setupZig(appDir)
 		if err != nil {
 			setupLog.Errorf("Failed to setup Zig: %s", err)
 		}
 		setupCodenames(appDir)
-		saveAssetVersion(appDir)
+		if setupSucceeded {
+			garbleName := "garble"
+			if runtime.GOOS == "windows" {
+				garbleName += ".exe"
+			}
+			garblePath := filepath.Join(appDir, GoDirName, "bin", garbleName)
+			if err := utilAssets.VerifyGarbleBinary(garblePath, runtime.GOOS, runtime.GOARCH); err != nil {
+				setupLog.Errorf("Failed to verify extracted Garble: %s", err)
+				setupSucceeded = false
+			}
+		}
+		if setupSucceeded {
+			if err := saveAssetVersion(appDir, expectedVer); err != nil {
+				setupLog.Errorf("Failed to save asset version: %s", err)
+			}
+		}
 		unpackDefaultTrafficEncoders(force)
 	}
 	setupLog.Infof("Initialized english encoder with %d words", len(English()))

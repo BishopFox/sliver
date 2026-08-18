@@ -169,6 +169,23 @@ func (b *Builder) handleBuildEvent(event *clientpb.Event) {
 		})
 		return
 	}
+	if err := generate.ValidateControlFlowConfig(extConfig.Config); err != nil {
+		builderLog.Warnf("Reject event, invalid control-flow config: %s", err)
+		b.rpc.BuilderTrigger(context.Background(), &clientpb.Event{
+			EventType: consts.ExternalBuildFailedEvent,
+			Data:      []byte(fmt.Sprintf("%s:%s", implantBuildID, err.Error())),
+		})
+		return
+	}
+	if generate.ControlFlowEnabled(extConfig.Config) && !generate.HasControlFlowCapability(b.externalBuilder.Capabilities) {
+		err := fmt.Errorf("builder does not support %s", generate.ControlFlowCapability)
+		builderLog.Warnf("Reject event: %s", err)
+		b.rpc.BuilderTrigger(context.Background(), &clientpb.Event{
+			EventType: consts.ExternalBuildFailedEvent,
+			Data:      []byte(fmt.Sprintf("%s:%s", implantBuildID, err.Error())),
+		})
+		return
+	}
 
 	extModel := models.ImplantConfigFromProtobuf(extConfig.Config)
 
