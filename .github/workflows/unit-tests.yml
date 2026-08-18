@@ -13,6 +13,8 @@ on:
       - "**/*.h"
       - "**/*.sh"
       - "**/*.ps1"
+      - "docs/sliver-docs/public/install"
+      - "docs/sliver-docs/tests/**"
     types:
       - opened
       - reopened
@@ -37,6 +39,9 @@ jobs:
 
       - name: Check Out Code
         uses: actions/checkout@v6
+
+      - name: Test Linux install script
+        run: bash docs/sliver-docs/tests/install-script.sh
 
       - name: Git Fetch Tags
         run: git fetch --prune --unshallow --tags -f

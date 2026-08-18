@@ -1,100 +1,196 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 
 SLIVER_MINISIGN_PUB_KEY="RWTZPg959v3b7tLG7VzKHRB1/QT+d3c71Uzetfa44qAoX5rH7mGoQTTR"
 SLIVER_PLATFORM="linux"
 
-if [[ "$EUID" -ne 0 ]]; then
+if [ "$(id -u)" -ne 0 ]; then
     echo "Please run as root"
-    exit
+    exit 1
 fi
 
 # Only include minisign in the package list when it isn't already on PATH.
 # The minisign apt package isn't in the default Ubuntu 22.04 repos, but
 # users often install it manually to /usr/local/bin first; without this
 # guard the apt-get call below fails the whole script (issue #2239).
-MINISIGN_PKG=(minisign)
-if command -v minisign &> /dev/null; then
-    MINISIGN_PKG=()
+MINISIGN_PKG="minisign"
+if command -v minisign > /dev/null 2>&1; then
+    MINISIGN_PKG=""
 fi
 
-# Detect Alpine Linux, which uses apk and OpenRC by default
-IS_ALPINE=""
-if command -v apk &> /dev/null || test -f /etc/alpine-release; then
-    IS_ALPINE="true"
-fi
-
-# Determine OS type
-# Debian-based OS (Debian, Ubuntu, etc)
-if command -v apt-get &> /dev/null; then
-    echo "Installing dependencies using apt..."
-    DEBIAN_FRONTEND=noninteractive apt-get install -yqq \
-        "${MINISIGN_PKG[@]}" curl build-essential git
-    INSTALLER=(apt-get install -yqq)
-elif command -v yum &> /dev/null; then # Redhat-based OS (Fedora, CentOS, RHEL)
-    echo "Installing dependencies using yum..."
-    yum -y install "${MINISIGN_PKG[@]}" curl make git
-    INSTALLER=(yum -y)
-elif command -v pacman &> /dev/null; then # Arch-based (Manjaro, Garuda, Blackarch)
-    echo "Installing dependencies using pacman..."
-    if [[ ${#MINISIGN_PKG[@]} -gt 0 ]]; then
-        pacman --noconfirm -S "${MINISIGN_PKG[@]}"
+# Detect Alpine from OS identity, not merely from an apk executable that may
+# also be installed on another distribution.
+IS_ALPINE=false
+if test -r /etc/os-release; then
+    if grep -Eq '^ID="?alpine"?$' /etc/os-release; then
+        IS_ALPINE=true
     fi
-    INSTALLER=(pacman --noconfirm -S)
-elif command -v apk &> /dev/null; then # Alpine-based
-    echo "Installing dependencies using apk..."
-    apk add --no-cache curl git make build-base "${MINISIGN_PKG[@]}"
-    INSTALLER=(apk add --no-cache)
+elif test -f /etc/alpine-release; then
+    IS_ALPINE=true
+fi
+
+# Determine the package manager. Alpine identity takes precedence so a host
+# with multiple package-management tools cannot select mismatched init logic.
+if [ "$IS_ALPINE" = true ]; then
+    if ! command -v apk > /dev/null 2>&1; then
+        echo "Alpine Linux detected, but apk could not be found"
+        exit 1
+    fi
+    PACKAGE_MANAGER="apk"
+elif command -v apt-get > /dev/null 2>&1; then
+    PACKAGE_MANAGER="apt"
+elif command -v yum > /dev/null 2>&1; then
+    PACKAGE_MANAGER="yum"
+elif command -v pacman > /dev/null 2>&1; then
+    PACKAGE_MANAGER="pacman"
 else
     echo "Unsupported OS, exiting"
-    exit
+    exit 1
 fi
+
+install_packages() {
+    case "$PACKAGE_MANAGER" in
+        apt)
+            DEBIAN_FRONTEND=noninteractive apt-get install -yqq "$@"
+            ;;
+        yum)
+            yum -y install "$@"
+            ;;
+        pacman)
+            pacman --noconfirm -S "$@"
+            ;;
+        apk)
+            apk add --no-cache "$@"
+            ;;
+    esac
+}
+
+case "$PACKAGE_MANAGER" in
+    apt)
+        echo "Installing dependencies using apt..."
+        if [ -n "$MINISIGN_PKG" ]; then
+            install_packages "$MINISIGN_PKG" curl build-essential git
+        else
+            install_packages curl build-essential git
+        fi
+        ;;
+    yum)
+        echo "Installing dependencies using yum..."
+        if [ -n "$MINISIGN_PKG" ]; then
+            install_packages "$MINISIGN_PKG" curl make git
+        else
+            install_packages curl make git
+        fi
+        ;;
+    pacman)
+        echo "Installing dependencies using pacman..."
+        if [ -n "$MINISIGN_PKG" ]; then
+            install_packages "$MINISIGN_PKG"
+        fi
+        ;;
+    apk)
+        echo "Installing dependencies using apk..."
+        if [ -n "$MINISIGN_PKG" ]; then
+            install_packages "$MINISIGN_PKG" curl git make build-base
+        else
+            install_packages curl git make build-base
+        fi
+        ;;
+esac
 
 # Verify if necessary tools are installed
 for cmd in curl awk minisign; do
-    if ! command -v "$cmd" &> /dev/null; then
+    if ! command -v "$cmd" > /dev/null 2>&1; then
         echo "$cmd could not be found, installing..."
-        ${INSTALLER[@]} "$cmd"
+        install_packages "$cmd"
     fi
 done
+
+# Select the service manager independently from the distribution and package
+# manager. Containers commonly have neither init system running.
+SERVICE_MANAGER="none"
+if command -v systemctl > /dev/null 2>&1 && test -d /run/systemd/system; then
+    SERVICE_MANAGER="systemd"
+elif command -v rc-service > /dev/null 2>&1 && \
+    command -v rc-update > /dev/null 2>&1 && \
+    command -v openrc-run > /dev/null 2>&1 && \
+    command -v supervise-daemon > /dev/null 2>&1 && \
+    test -e /run/openrc/softlevel; then
+    SERVICE_MANAGER="openrc"
+fi
+
+if [ "$SERVICE_MANAGER" = "none" ]; then
+    echo "No running systemd or OpenRC instance detected."
+    echo "Sliver will be installed without a system service."
+fi
 
 cd /root || exit
 echo "Running from $(pwd)"
 
 echo "Using Minisign public key..."
 
-stop_existing_sliver_daemon() {
-    local existing_sliver_server=""
-
+find_existing_sliver_server() {
     if test -x /root/sliver-server; then
-        existing_sliver_server="/root/sliver-server"
-    elif command -v sliver-server &> /dev/null; then
-        existing_sliver_server="$(command -v sliver-server)"
+        echo /root/sliver-server
+    elif command -v sliver-server > /dev/null 2>&1; then
+        command -v sliver-server
+    fi
+}
+
+ensure_unmanaged_upgrade_is_safe() {
+    if [ "$SERVICE_MANAGER" != "none" ]; then
+        return 0
     fi
 
-    if [[ -z "$existing_sliver_server" ]]; then
+    existing_sliver_server="$(find_existing_sliver_server)"
+    if [ -n "$existing_sliver_server" ] && \
+        pgrep -f "${existing_sliver_server} daemon" > /dev/null 2>&1; then
+        echo "Sliver is running without an active systemd/OpenRC manager." >&2
+        echo "Stop it with the container or process supervisor, then rerun." >&2
+        return 1
+    fi
+}
+
+stop_existing_sliver_daemon() {
+    existing_sliver_server="$(find_existing_sliver_server)"
+
+    if [ -z "$existing_sliver_server" ]; then
         return 0
     fi
 
     echo "Existing Sliver server install detected at $existing_sliver_server"
 
-    if [[ -n "$IS_ALPINE" ]] && command -v rc-service &> /dev/null && test -f /etc/init.d/sliver; then
-        echo "Stopping the Sliver OpenRC service before upgrade..."
-        rc-service sliver stop
-    fi
+    case "$SERVICE_MANAGER" in
+        openrc)
+            if test -f /etc/init.d/sliver; then
+                echo "Stopping the Sliver OpenRC service before upgrade..."
+                rc-service sliver stop
+            fi
+            ;;
+        systemd)
+            if test -f /etc/systemd/system/sliver.service && \
+                systemctl is-active --quiet sliver; then
+                echo "Stopping the Sliver systemd service before upgrade..."
+                systemctl stop sliver
+            fi
+            ;;
+        none)
+            if pgrep -f "${existing_sliver_server} daemon" > /dev/null 2>&1; then
+                echo "Sliver is running without an active systemd/OpenRC manager." >&2
+                echo "Stop it with the container or process supervisor, then rerun." >&2
+                return 1
+            fi
+            ;;
+    esac
 
-    if command -v systemctl &> /dev/null && test -f /etc/systemd/system/sliver.service; then
-        if systemctl is-active --quiet sliver; then
-            echo "Stopping the Sliver systemd service before upgrade..."
-            systemctl stop sliver
-        fi
-    fi
-
-    if pgrep -f "${existing_sliver_server} daemon" > /dev/null 2>&1; then
-        echo "Stopping the running Sliver daemon before upgrade..."
+    if [ "$SERVICE_MANAGER" != "none" ] && \
+        pgrep -f "${existing_sliver_server} daemon" > /dev/null 2>&1; then
+        echo "Stopping the remaining Sliver daemon before upgrade..."
         pkill -f "${existing_sliver_server} daemon"
     fi
 }
+
+ensure_unmanaged_upgrade_is_safe
 
 # Download and Unpack Sliver Server
 ARCH="$(uname -m)"
@@ -116,16 +212,19 @@ ARTIFACTS=$(curl -s "https://api.github.com/repos/BishopFox/sliver/releases/late
 SLIVER_SERVER="sliver-server_${SLIVER_PLATFORM}"
 SLIVER_CLIENT="sliver-client_${SLIVER_PLATFORM}"
 
-for URL in $ARTIFACTS
-do
-    if [[ "$URL" == *"$SLIVER_SERVER"* ]]; then
-        echo "Downloading $URL"
-        curl --silent -L "$URL" --output "$(basename "$URL")"
-    fi
-    if [[ "$URL" == *"$SLIVER_CLIENT"* ]]; then
-        echo "Downloading $URL"
-        curl --silent -L "$URL" --output "$(basename "$URL")"
-    fi
+for URL in $ARTIFACTS; do
+    case "$URL" in
+        *"$SLIVER_SERVER"*)
+            echo "Downloading $URL"
+            curl --silent -L "$URL" --output "$(basename "$URL")"
+            ;;
+    esac
+    case "$URL" in
+        *"$SLIVER_CLIENT"*)
+            echo "Downloading $URL"
+            curl --silent -L "$URL" --output "$(basename "$URL")"
+            ;;
+    esac
 done
 
 # Signature verification
@@ -164,22 +263,28 @@ else
     exit 3
 fi
 
-if [[ -n "$IS_ALPINE" ]]; then
-    # OpenRC
-    echo "Configuring OpenRC service ..."
-    cat > /etc/init.d/sliver <<-EOF
+case "$SERVICE_MANAGER" in
+    openrc)
+        echo "Configuring OpenRC service ..."
+        install -o root -g root -m 0755 /dev/stdin /etc/init.d/sliver <<'EOF'
 #!/sbin/openrc-run
 name="sliver"
+description="Sliver server"
 command="/root/sliver-server"
 command_args="daemon"
-command_background=true
+supervisor=supervise-daemon
 pidfile="/run/sliver.pid"
+respawn_delay=3
+respawn_max=0
+
+depend() {
+    after net
+}
 EOF
-    chmod +x /etc/init.d/sliver
-else
-    # systemd
-    echo "Configuring systemd service ..."
-    cat > /etc/systemd/system/sliver.service <<-EOF
+        ;;
+    systemd)
+        echo "Configuring systemd service ..."
+        install -o root -g root -m 0600 /dev/stdin /etc/systemd/system/sliver.service <<'EOF'
 [Unit]
 Description=Sliver
 After=network.target
@@ -195,9 +300,8 @@ ExecStart=/root/sliver-server daemon
 [Install]
 WantedBy=multi-user.target
 EOF
-    chown root:root /etc/systemd/system/sliver.service
-    chmod 600 /etc/systemd/system/sliver.service
-fi
+        ;;
+esac
 
 # Generate local configs
 echo "Generating local configs ..."
@@ -208,8 +312,8 @@ mkdir -p /root/.sliver-client/configs
 /root/sliver-server operator --name root --lhost 127.0.0.1 --permissions all --save /root/.sliver-client/configs
 chown -R root:root /root/.sliver-client/
 
-USER_DIRS=(/home/*)
-for USER_DIR in "${USER_DIRS[@]}"; do
+for USER_DIR in /home/*; do
+    test -d "$USER_DIR" || continue
     USER=$(basename "$USER_DIR")
     if id -u "$USER" >/dev/null 2>&1; then
         echo "Generating operator configs for user $USER..."
@@ -219,12 +323,19 @@ for USER_DIR in "${USER_DIRS[@]}"; do
     fi
 done
 
-if [[ -n "$IS_ALPINE" ]]; then
-    echo "Enabling and starting the Sliver OpenRC service..."
-    rc-update add sliver default
-    rc-service sliver start
-else
-    echo "Reloading systemd and starting the Sliver service..."
-    systemctl daemon-reload
-    systemctl start sliver
-fi
+case "$SERVICE_MANAGER" in
+    openrc)
+        echo "Enabling and starting the Sliver OpenRC service..."
+        rc-update add sliver default
+        rc-service sliver start
+        ;;
+    systemd)
+        echo "Reloading systemd and starting the Sliver service..."
+        systemctl daemon-reload
+        systemctl start sliver
+        ;;
+    none)
+        echo "Installation complete. Start the server as the supervised foreground process:"
+        echo "  exec /root/sliver-server daemon"
+        ;;
+esac
