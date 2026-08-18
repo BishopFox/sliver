@@ -812,6 +812,13 @@ func (t *Table) isIndexColumn(colIdx int, hint renderHint) bool {
 	return t.indexColumn == colIdx+1 || hint.isAutoIndexColumn
 }
 
+// estimatedRenderLength approximates the rendered output size, to pre-size
+// the output builder and avoid repeated re-allocations while rendering.
+func (t *Table) estimatedRenderLength() int {
+	numRows := len(t.rows) + len(t.rowsHeader) + len(t.rowsFooter) + 1
+	return numRows * (t.maxRowLength + 1)
+}
+
 func (t *Table) render(out *strings.Builder) string {
 	outStr := out.String()
 	if t.suppressTrailingSpaces {
@@ -940,20 +947,187 @@ func (t *Table) shouldSeparateRows(rowIdx int, numRows int) bool {
 	return true
 }
 
-func (t *Table) wrapRow(row rowStr) (int, rowStr) {
+// wrapCell fits a single column's value into its width limit (WidthMax, or the
+// column's longest line when no limit is set) using the column's enforcer.
+func (t *Table) wrapCell(colIdx int, colStr string) string {
+	widthEnforcer := t.columnConfigMap[colIdx].getWidthMaxEnforcer()
+	maxWidth := t.getColumnWidthMax(colIdx)
+	if maxWidth == 0 {
+		maxWidth = t.maxColumnLengths[colIdx]
+	}
+	return widthEnforcer(colStr, maxWidth)
+}
+
+func (t *Table) wrapRow(row rowStr, hint renderHint) (int, rowStr) {
 	colMaxLines := 0
 	rowWrapped := make(rowStr, len(row))
 	for colIdx, colStr := range row {
-		widthEnforcer := t.columnConfigMap[colIdx].getWidthMaxEnforcer()
-		maxWidth := t.getColumnWidthMax(colIdx)
-		if maxWidth == 0 {
-			maxWidth = t.maxColumnLengths[colIdx]
+		rowWrapped[colIdx] = t.wrapCell(colIdx, colStr)
+		// a cell that is being merged into the one above renders empty in this
+		// row, so its (possibly wrapped) height must not stretch the row and
+		// leave blank lines trailing the merged content; see issue #261
+		if t.shouldMergeCellsVerticallyAbove(colIdx, hint) {
+			continue
 		}
-		rowWrapped[colIdx] = widthEnforcer(colStr, maxWidth)
 		colNumLines := strings.Count(rowWrapped[colIdx], "\n") + 1
 		if colNumLines > colMaxLines {
 			colMaxLines = colNumLines
 		}
 	}
+	if colMaxLines == 0 {
+		// every column merged into the row above; keep one (blank) line so the
+		// row still occupies its place
+		colMaxLines = 1
+	}
 	return colMaxLines, rowWrapped
+}
+
+// shouldInterleaveVerticalMerge reports whether consecutive body rows that are
+// being vertically merged (ColumnConfig.AutoMerge) may be rendered as a single
+// shared block. Doing so lets the differing columns stack into the merged
+// cell's wrapped height instead of leaving blank lines below it (issue #261).
+//
+// It is intentionally restricted to the plain, unambiguous case - no row
+// separators, auto-index, or per-row coloring - so it never alters any other
+// layout and falls back to the regular row-by-row rendering everywhere else.
+func (t *Table) shouldInterleaveVerticalMerge(hint renderHint) bool {
+	if hint.isHeaderRow || hint.isFooterRow {
+		return false
+	}
+	if t.style.Options.SeparateRows || len(t.separators) > 0 {
+		return false
+	}
+	if t.autoIndex || t.pager.size > 0 {
+		return false
+	}
+	if t.rowPainter != nil || t.rowPainterWithAttributes != nil || t.style.Color.RowAlternate != nil {
+		return false
+	}
+	for colIdx := 0; colIdx < t.numColumns; colIdx++ {
+		if t.columnConfigMap[colIdx].AutoMerge {
+			return true
+		}
+	}
+	return false
+}
+
+// verticalMergeGroupEnd returns the exclusive end index of the maximal run of
+// rows starting at "start" that can be stacked into a single block: rows that
+// carry the same config and each add just one line, so they slot into the
+// wrapped height of the merged cell(s) spanning them.
+func (t *Table) verticalMergeGroupEnd(rows []rowStr, start int) int {
+	if !t.rowVerticallyStackable(rows[start]) {
+		return start + 1
+	}
+	end := start + 1
+	for end < len(rows) {
+		if t.rowsConfigMap[start] != t.rowsConfigMap[end] {
+			break
+		}
+		if !t.rowStacksBelow(rows[end-1], rows[end]) {
+			break
+		}
+		end++
+	}
+	return end
+}
+
+// rowVerticallyStackable reports whether a row's non-merged cells each render on
+// a single line, so it occupies a single line when stacked (a merged cell may
+// still wrap - it provides the vertical space the stacked rows slot into).
+func (t *Table) rowVerticallyStackable(row rowStr) bool {
+	for colIdx := 0; colIdx < t.numColumns && colIdx < len(row); colIdx++ {
+		if t.columnConfigMap[colIdx].AutoMerge {
+			continue
+		}
+		if t.cellWraps(colIdx, row[colIdx]) {
+			return false
+		}
+	}
+	return true
+}
+
+// rowStacksBelow reports whether "cur" can be stacked right below "prev" within
+// a shared merge block, i.e. it adds exactly one line. A merged column that
+// keeps its value simply continues the cell above; any column that changes must
+// fit on a single line (and a merged column that changes must also have left
+// its previous value on a single line, else its wrapped height would not line
+// up with the stacked rows).
+func (t *Table) rowStacksBelow(prev, cur rowStr) bool {
+	for colIdx := 0; colIdx < t.numColumns; colIdx++ {
+		prevVal, curVal := "", ""
+		if colIdx < len(prev) {
+			prevVal = prev[colIdx]
+		}
+		if colIdx < len(cur) {
+			curVal = cur[colIdx]
+		}
+		merged := t.columnConfigMap[colIdx].AutoMerge
+		if merged && curVal == prevVal {
+			continue
+		}
+		if t.cellWraps(colIdx, curVal) {
+			return false
+		}
+		if merged && t.cellWraps(colIdx, prevVal) {
+			return false
+		}
+	}
+	return true
+}
+
+// cellWraps reports whether a column's value renders on more than one line.
+func (t *Table) cellWraps(colIdx int, colStr string) bool {
+	return strings.Contains(t.wrapCell(colIdx, colStr), "\n")
+}
+
+// combineVerticalMergeGroup collapses rows[start:end] into a single row. A
+// merged column that never changes keeps its single (spanning) value; every
+// other column stacks the rows' values one below the other, blanking a merged
+// value that repeats so it still reads as one vertically merged cell.
+func (t *Table) combineVerticalMergeGroup(rows []rowStr, start, end int) rowStr {
+	combined := make(rowStr, t.numColumns)
+	for colIdx := 0; colIdx < t.numColumns; colIdx++ {
+		if t.columnConfigMap[colIdx].AutoMerge && t.mergedColumnIsConstant(rows, start, end, colIdx) {
+			if colIdx < len(rows[start]) {
+				combined[colIdx] = rows[start][colIdx]
+			}
+			continue
+		}
+		lines := make([]string, 0, end-start)
+		prevCell := ""
+		for rowIdx := start; rowIdx < end; rowIdx++ {
+			cell := ""
+			if colIdx < len(rows[rowIdx]) {
+				cell = rows[rowIdx][colIdx]
+			}
+			line := cell
+			if t.columnConfigMap[colIdx].AutoMerge && rowIdx > start && cell == prevCell {
+				line = ""
+			}
+			prevCell = cell
+			lines = append(lines, line)
+		}
+		combined[colIdx] = strings.Join(lines, "\n")
+	}
+	return combined
+}
+
+// mergedColumnIsConstant reports whether a merged column holds the same value
+// across every row in rows[start:end].
+func (t *Table) mergedColumnIsConstant(rows []rowStr, start, end, colIdx int) bool {
+	first := ""
+	if colIdx < len(rows[start]) {
+		first = rows[start][colIdx]
+	}
+	for rowIdx := start + 1; rowIdx < end; rowIdx++ {
+		val := ""
+		if colIdx < len(rows[rowIdx]) {
+			val = rows[rowIdx][colIdx]
+		}
+		if val != first {
+			return false
+		}
+	}
+	return true
 }

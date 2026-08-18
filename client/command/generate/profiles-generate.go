@@ -19,6 +19,7 @@ package generate
 */
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -81,9 +82,27 @@ func ProfilesGenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []s
 				profile.Config.SGNEnabled = encoder == clientpb.ShellcodeEncoder_SHIKATA_GA_NAI
 			}
 		}
-		_, err := compile(implantName, profile.Config, nil, save, con)
-		if err != nil {
-			return
+		if external, _ := cmd.Flags().GetBool("external-builder"); !external {
+			_, err := compile(implantName, profile.Config, nil, save, con)
+			if err != nil {
+				return
+			}
+		} else {
+			_, err := externalBuild(implantName, profile.Config, nil, save, con)
+			if err != nil {
+				switch err {
+				case ErrNoExternalBuilder:
+					con.PrintErrorf("There are no external builders currently connected to the server\n")
+					con.PrintErrorf("See 'builders' command for more information\n")
+				case ErrNoValidBuilders:
+					con.PrintErrorf("There are external builders connected to the server, but none can build the target you specified\n")
+					con.PrintErrorf("Invalid target %s\n", fmt.Sprintf("%s:%s/%s", profile.Config.Format, profile.Config.GOOS, profile.Config.GOARCH))
+					con.PrintErrorf("See 'builders' command for more information\n")
+				default:
+					con.PrintErrorf("%s\n", err)
+				}
+				return
+			}
 		}
 	} else {
 		con.PrintErrorf("No profile with name '%s'", name)

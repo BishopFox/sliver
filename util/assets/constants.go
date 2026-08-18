@@ -1,8 +1,8 @@
 package assets
 
 const (
-	goVersion      = "1.26.2"
-	garbleVersion  = "1.26.2"
+	goVersion      = "1.26.6"
+	garbleVersion  = "1.26.6"
 	zigVersion     = "0.15.2"
 	zigSourceParam = "source=sliver"
 

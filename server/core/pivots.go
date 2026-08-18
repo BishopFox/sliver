@@ -106,9 +106,14 @@ func (e *PivotGraphEntry) ToProtobuf() *clientpb.PivotGraphEntry {
 	for _, child := range e.Children {
 		children = append(children, child.ToProtobuf())
 	}
+	session := Sessions.Get(e.SessionID)
+	var sessionPB *clientpb.Session
+	if session != nil {
+		sessionPB = session.ToProtobuf()
+	}
 	return &clientpb.PivotGraphEntry{
 		PeerID:   e.PeerID,
-		Session:  Sessions.Get(e.SessionID).ToProtobuf(),
+		Session:  sessionPB,
 		Name:     e.Name,
 		Children: children,
 	}

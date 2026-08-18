@@ -1,6 +1,6 @@
 module github.com/bishopfox/sliver
 
-go 1.25.0
+go 1.26.6
 
 require (
 	filippo.io/age v1.1.1
@@ -11,7 +11,7 @@ require (
 	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
 	github.com/lesnuages/go-winio v0.4.19
 	github.com/miekg/dns v1.1.50
-	github.com/moloch--/memmod v0.0.0-20230225130813-fd77d905589e
+	github.com/sliverarmory/reflektor v0.0.3
 	github.com/stretchr/testify v1.8.4
 	github.com/tetratelabs/wazero v1.12.0
 	github.com/things-go/go-socks5 v0.0.4

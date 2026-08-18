@@ -370,8 +370,12 @@ func ExtensionRegisterCommand(extCmd *ExtCommand, cmd *cobra.Command, con *conso
 		Run: func(cmd *cobra.Command, args []string) {
 			runExtensionCmd(cmd, con, args)
 		},
-		GroupID:     consts.ExtensionHelpGroup,
-		Annotations: makeCommandPlatformFilters(extCmd),
+		GroupID: consts.ExtensionHelpGroup,
+		// DisableFlagParsing keeps the extension's own flags (which are unknown to
+		// pflag) from being silently stripped together with their values. We split
+		// Sliver-owned flags out of the raw slice ourselves in runExtensionCmd (#2309).
+		DisableFlagParsing: true,
+		Annotations:        makeCommandPlatformFilters(extCmd),
 	}
 
 	// Flags
@@ -379,7 +383,6 @@ func ExtensionRegisterCommand(extCmd *ExtCommand, cmd *cobra.Command, con *conso
 	f.BoolP("save", "s", false, "Save output to disk")
 	f.Int64P("timeout", "t", defaultTimeout, "command timeout in seconds")
 	extensionCmd.Flags().AddFlagSet(f)
-	extensionCmd.Flags().ParseErrorsWhitelist.UnknownFlags = true
 
 	// Completions
 	comps := carapace.Gen(extensionCmd)
@@ -529,6 +532,18 @@ func loadDep(goos string, goarch string, depName string, cmd *cobra.Command, con
 }
 
 func runExtensionCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
+	// The command runs with DisableFlagParsing, so args is the raw, unstripped
+	// slice. Separate Sliver-owned flags from the extension's own arguments and
+	// re-publish them on the flag set (so Request()'s --timeout still works),
+	// then feed only the extension arguments to the BOF/DLL parsers (#2309).
+	save, timeout, helpRequested, extArgs := splitExtensionArgs(args)
+	if helpRequested {
+		_ = cmd.Help()
+		return
+	}
+	applyOwnedFlags(cmd, save, timeout)
+	args = extArgs
+
 	var (
 		err           error
 		extensionArgs []byte

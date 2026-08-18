@@ -1,10 +1,12 @@
 package text
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 // Constants
@@ -64,6 +66,18 @@ const (
 	// conceal OSI sequences
 	escapeStartConcealOSI = "\x1b]8;"
 	escapeStopConcealOSI  = "\x1b\\"
+
+	// escSeqMaxLength bounds the accumulated escape sequence; real terminals
+	// cap sequences in the low KBs, and anything longer here is most likely
+	// malformed input that would otherwise grow the buffer without limit
+	escSeqMaxLength = 2048
+)
+
+// []byte forms of the conceal OSI markers for prefix/suffix checks on the
+// escape sequence buffer without allocating per call
+var (
+	escapeStartConcealOSIBytes = []byte(escapeStartConcealOSI)
+	escapeStopConcealOSIBytes  = []byte(escapeStopConcealOSI)
 )
 
 // 256-color codes
@@ -117,8 +131,9 @@ type EscSeqParser struct {
 	inEscSeq bool
 	// escSeqKind identifies the type of escape sequence being parsed (CSI or OSI).
 	escSeqKind escSeqKind
-	// escapeSeq accumulates the current escape sequence being parsed.
-	escapeSeq string
+	// escapeSeq accumulates the current escape sequence being parsed; it is
+	// bounded by escSeqMaxLength and reused across sequences.
+	escapeSeq []byte
 }
 
 func (s *EscSeqParser) Codes() []int {
@@ -136,7 +151,7 @@ func (s *EscSeqParser) Consume(char rune) {
 	if !s.inEscSeq && char == EscapeStartRune {
 		s.inEscSeq = true
 		s.escSeqKind = escSeqKindUnknown
-		s.escapeSeq = ""
+		s.escapeSeq = s.escapeSeq[:0]
 	} else if s.inEscSeq && s.escSeqKind == escSeqKindUnknown {
 		switch char {
 		case EscapeStartRuneCSI:
@@ -147,20 +162,27 @@ func (s *EscSeqParser) Consume(char rune) {
 	}
 
 	if s.inEscSeq {
-		s.escapeSeq += string(char)
+		s.escapeSeq = utf8.AppendRune(s.escapeSeq, char)
+
+		// abort on absurdly long (most likely malformed/unterminated)
+		// sequences instead of accumulating them without limit
+		if len(s.escapeSeq) > escSeqMaxLength {
+			s.Reset()
+			return
+		}
 
 		// --- FIX for OSC 8 hyperlinks (e.g. \x1b]8;;url\x07label\x1b]8;;\x07)
 		if s.escSeqKind == escSeqKindOSI &&
-			strings.HasPrefix(s.escapeSeq, escapeStartConcealOSI) &&
+			bytes.HasPrefix(s.escapeSeq, escapeStartConcealOSIBytes) &&
 			char == escRuneBEL { // BEL
 
-			s.ParseSeq(s.escapeSeq, s.escSeqKind)
+			s.ParseSeq(string(s.escapeSeq), s.escSeqKind)
 			s.Reset()
 			return
 		}
 
 		if s.isEscapeStopRune(char) {
-			s.ParseSeq(s.escapeSeq, s.escSeqKind)
+			s.ParseSeq(string(s.escapeSeq), s.escSeqKind)
 			s.Reset()
 		}
 	}
@@ -186,7 +208,7 @@ func (s *EscSeqParser) ParseSeq(seq string, seqKind escSeqKind) {
 }
 
 func (s *EscSeqParser) ParseString(str string) string {
-	s.escapeSeq, s.inEscSeq, s.escSeqKind = "", false, escSeqKindUnknown
+	s.escapeSeq, s.inEscSeq, s.escSeqKind = s.escapeSeq[:0], false, escSeqKindUnknown
 	for _, char := range str {
 		s.Consume(char)
 	}
@@ -196,7 +218,7 @@ func (s *EscSeqParser) ParseString(str string) string {
 func (s *EscSeqParser) Reset() {
 	s.inEscSeq = false
 	s.escSeqKind = escSeqKindUnknown
-	s.escapeSeq = ""
+	s.escapeSeq = s.escapeSeq[:0]
 }
 
 func (s *EscSeqParser) Sequence() string {
@@ -275,8 +297,8 @@ func (s *EscSeqParser) clearColorRange(isForeground bool) {
 }
 
 func (s *EscSeqParser) isEscapeStopRune(char rune) bool {
-	if strings.HasPrefix(s.escapeSeq, escapeStartConcealOSI) {
-		if strings.HasSuffix(s.escapeSeq, escapeStopConcealOSI) {
+	if bytes.HasPrefix(s.escapeSeq, escapeStartConcealOSIBytes) {
+		if bytes.HasSuffix(s.escapeSeq, escapeStopConcealOSIBytes) {
 			return true
 		}
 	} else if (s.escSeqKind == escSeqKindCSI && char == EscapeStopRuneCSI) ||

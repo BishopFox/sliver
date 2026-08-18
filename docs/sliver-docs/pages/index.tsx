@@ -1,144 +1,212 @@
 import AsciinemaPlayer from "@/components/asciinema";
 import { SliversIcon } from "@/components/icons/slivers";
 import TutorialCard from "@/components/tutorial-card";
-import { Themes } from "@/util/themes";
-import { faDownload, faExternalLink } from "@fortawesome/free-solid-svg-icons";
+import {
+  faArrowUpRightFromSquare,
+  faDownload,
+} from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Button, Card, Separator } from "@heroui/react";
-import { useTheme } from "next-themes";
+import { Button, Card, buttonVariants } from "@heroui/react";
+import Head from "next/head";
+import Link from "next/link";
 import { useRouter } from "next/router";
-import React from "react";
 
 export default function Home() {
   const router = useRouter();
-  const { resolvedTheme } = useTheme();
-
-  const isDarkTheme = React.useMemo(() => {
-    return (resolvedTheme || Themes.DARK) !== Themes.LIGHT;
-  }, [resolvedTheme]);
 
   return (
-    <div className="mt-6 flex flex-col gap-6 px-4 sm:px-6 lg:grid lg:grid-cols-12 lg:px-12">
-      <div className="lg:col-span-6">
-        <div className="w-full overflow-hidden rounded-xl border border-separator bg-surface shadow-sm">
-          <div className="w-full overflow-x-auto lg:overflow-visible">
-            <AsciinemaPlayer
-              src="/asciinema/intro.cast"
-              rows="18"
-              cols="75"
-              idleTimeLimit={60}
-              preload={true}
-              autoPlay={true}
-              loop={true}
-            />
-          </div>
-        </div>
-      </div>
-      <div className="lg:col-span-6 lg:ml-2">
-        <Card className="mx-auto max-w-3xl lg:mx-0">
-          <Card.Header>
-            <div className="flex items-center">
-              <SliversIcon className="mr-2" height={28} />
-              <span className="text-2xl">Sliver Command &amp; Control</span>
+    <>
+      <Head>
+        <title>Sliver C2 Documentation</title>
+        <meta
+          name="description"
+          content="Documentation, tutorials, and community resources for the Sliver command and control framework."
+        />
+      </Head>
+
+      <div className="relative overflow-hidden">
+        <div className="sliver-grid-surface pointer-events-none absolute inset-x-0 top-0 h-[34rem] opacity-55" />
+
+        <div className="relative mx-auto w-full max-w-7xl px-4 pb-20 pt-8 sm:px-6 sm:pt-12 lg:px-8 lg:pt-16">
+          <section className="grid min-w-0 grid-cols-1 items-stretch gap-6 lg:grid-cols-12">
+            <div className="min-w-0 lg:col-span-7">
+              <Card className="relative h-full min-w-0 gap-0 overflow-hidden rounded-3xl bg-black p-0 shadow-surface">
+                <div className="absolute right-3 top-3 z-10 max-w-[calc(100%_-_1.5rem)]">
+                  <Link
+                    href="/tutorials"
+                    aria-label="Browse Sliver tutorials"
+                    className="inline-flex min-w-0 cursor-pointer items-center gap-2.5 rounded-xl border border-white/15 bg-black/55 px-3 py-2 text-white no-underline shadow-lg outline-none backdrop-blur-xl hover:bg-black/70 focus-visible:ring-2 focus-visible:ring-white/70"
+                  >
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white/90">
+                      <SliversIcon height={16} />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-semibold">
+                        Sliver operator console
+                      </p>
+                      <p className="truncate text-[11px] text-white/60">
+                        Interactive command tour
+                      </p>
+                    </div>
+                  </Link>
+                </div>
+
+                <div className="sliver-terminal-frame min-h-[20rem] flex-1 overflow-x-auto bg-[#111315] sm:min-h-[24rem]">
+                  <AsciinemaPlayer
+                    className="sliver-asciinema-bottom-aligned h-full w-full sm:min-w-[35rem]"
+                    src="/asciinema/intro.cast"
+                    fit="width"
+                    hideControls
+                    rows="18"
+                    cols="75"
+                    idleTimeLimit={60}
+                    preload={true}
+                    autoPlay={true}
+                    loop={true}
+                  />
+                </div>
+              </Card>
             </div>
-          </Card.Header>
-          <Separator />
-          <Card.Content>
-            <p className={isDarkTheme ? "prose dark:prose-invert" : "prose prose-slate"}>
-              Sliver is a powerful command and control (C2) framework designed
-              to provide advanced capabilities for covertly managing and
-              controlling remote systems. With Sliver, security professionals,
-              red teams, and penetration testers can easily establish a secure
-              and reliable communication channel over Mutual TLS, HTTP(S), DNS,
-              or Wireguard with target machines. Enabling them to execute
-              commands, gather information, and perform various
-              post-exploitation activities. The framework offers a user-friendly
-              console interface, extensive functionality, and support for
-              multiple operating systems as well as multiple CPU architectures,
-              making it an indispensable tool for conducting comprehensive
-              offensive security operations.
-            </p>
-            <div className="mt-4 flex w-full gap-3">
+
+            <Card className="h-full bg-surface/80 shadow-surface backdrop-blur-2xl lg:col-span-5">
+              <Card.Header className="pb-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-accent">
+                    Operator documentation
+                  </p>
+                  <h1 className="mt-1 text-balance text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+                    Sliver Command &amp; Control
+                  </h1>
+                </div>
+              </Card.Header>
+
+              <Card.Content className="pt-2">
+                <p className="text-pretty text-base leading-7 text-muted">
+                  Sliver is a cross-platform command and control framework for
+                  professional red teams. Operate over mTLS, WireGuard, HTTP(S),
+                  and DNS from one console, with broad operating-system and CPU
+                  architecture support.
+                </p>
+                <p className="mt-4 text-sm leading-6 text-muted">
+                  Start with the operator guide, download the latest release, or
+                  extend your workflow with community packages from the Armory.
+                </p>
+              </Card.Content>
+
+              <Card.Footer className="mt-auto flex-col items-stretch gap-3 pt-5">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Button
+                    fullWidth
+                    variant="primary"
+                    onPress={() =>
+                      router.push({
+                        pathname: "/docs",
+                        query: { name: "Getting Started" },
+                      })
+                    }
+                  >
+                    Get started
+                  </Button>
+                  <Button
+                    className="[--button-bg-hover:var(--color-purple-700)] [--button-bg-pressed:var(--color-purple-700)] [--button-bg:var(--color-purple-600)] [--button-fg:var(--color-white)]"
+                    fullWidth
+                    variant="tertiary"
+                    onPress={() => {
+                      window.open(
+                        "https://github.com/BishopFox/sliver/releases/latest",
+                        "_blank",
+                        "noopener,noreferrer",
+                      );
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faDownload} />
+                    Latest release
+                  </Button>
+                </div>
+                <a
+                  className={buttonVariants({
+                    fullWidth: true,
+                    variant: "secondary",
+                  })}
+                  href="https://github.com/sliverarmory"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Browse the Armory
+                  <FontAwesomeIcon
+                    className="text-xs"
+                    icon={faArrowUpRightFromSquare}
+                  />
+                </a>
+              </Card.Footer>
+            </Card>
+          </section>
+
+          <section
+            aria-labelledby="quick-guides-heading"
+            className="mt-12 border-t border-separator/70 pt-10"
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2
+                  id="quick-guides-heading"
+                  className="text-sm font-medium text-accent"
+                >
+                  Quick guides
+                </h2>
+                <blockquote className="mt-1 max-w-3xl text-xl font-medium italic leading-snug tracking-tight text-foreground sm:text-2xl">
+                  Bred as living shields, these slivers have proven unruly—they
+                  know they cannot be caught.
+                </blockquote>
+              </div>
               <Button
-                className="flex-1"
-                variant="primary"
-                onPress={() => {
-                  window.open(
-                    "https://github.com/BishopFox/sliver/releases/latest",
-                    "_blank",
-                    "noopener,noreferrer",
-                  );
-                }}
-              >
-                <FontAwesomeIcon icon={faDownload} />
-                Download Latest Release
-              </Button>
-              <Button
-                className="sliver-armory-ghost flex-1"
                 variant="ghost"
-                onPress={() => {
-                  window.open(
-                    "https://github.com/sliverarmory",
-                    "_blank",
-                    "noopener,noreferrer",
-                  );
-                }}
+                onPress={() => router.push("/tutorials")}
               >
-                Visit the Armory
-                <FontAwesomeIcon icon={faExternalLink} />
+                Browse all tutorials
               </Button>
             </div>
-          </Card.Content>
-        </Card>
-      </div>
 
-      <div className="col-span-12 mt-8">
-        <Separator />
-      </div>
+            <div className="mt-6 grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-2">
+              <TutorialCard
+                name="Getting Started"
+                description="Install Sliver and open your first operator workflow."
+                asciiCast="/asciinema/install-1.cast"
+                cols="133"
+                rows="32"
+                idleTimeLimit={1}
+                hideControls
+                showButton={true}
+                buttonText="Read guide"
+                onPress={() => {
+                  router.push({
+                    pathname: "/docs",
+                    query: { name: "Getting Started" },
+                  });
+                }}
+              />
 
-      <div className="col-span-12 mt-8">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-9">
-          <div className="sm:col-span-1 lg:col-span-3">
-            <TutorialCard
-              name="Getting Started"
-              description="A quick start guide to get you up and running"
-              asciiCast="/asciinema/install-1.cast"
-              cols="133"
-              rows="32"
-              idleTimeLimit={1}
-              showButton={true}
-              buttonText="Read Docs"
-              onPress={() => {
-                router.push({
-                  pathname: "/docs",
-                  query: { name: "Getting Started" },
-                });
-              }}
-            />
-          </div>
-
-          <div className="sm:col-span-1 lg:col-span-3">
-            <TutorialCard
-              name="Compile From Source"
-              description="How to compile Sliver from source"
-              asciiCast="/asciinema/compile-from-source.cast"
-              cols="133"
-              rows="32"
-              idleTimeLimit={1}
-              showButton={true}
-              buttonText="Read Docs"
-              onPress={() => {
-                router.push({
-                  pathname: "/docs",
-                  query: { name: "Compile from Source" },
-                });
-              }}
-            />
-          </div>
+              <TutorialCard
+                name="Compile from Source"
+                description="Build a development copy and understand the toolchain."
+                asciiCast="/asciinema/compile-from-source.cast"
+                cols="133"
+                rows="32"
+                idleTimeLimit={1}
+                hideControls
+                showButton={true}
+                buttonText="Read guide"
+                onPress={() => {
+                  router.push({
+                    pathname: "/docs",
+                    query: { name: "Compile from Source" },
+                  });
+                }}
+              />
+            </div>
+          </section>
         </div>
       </div>
-
-      <div className="col-span-12 mb-8"></div>
-    </div>
+    </>
   );
 }

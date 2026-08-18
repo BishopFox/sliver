@@ -18,6 +18,7 @@ func (t *Table) RenderMarkdown() string {
 
 	var out strings.Builder
 	if t.numColumns > 0 {
+		out.Grow(t.estimatedRenderLength())
 		t.markdownRenderTitle(&out)
 		t.markdownRenderRowsHeader(&out)
 		t.markdownRenderRows(&out, t.rows, renderHint{})
@@ -51,22 +52,49 @@ func (t *Table) markdownRenderRow(out *strings.Builder, row rowStr, hint renderH
 		if colIdx < len(row) {
 			colStr = row[colIdx]
 		}
-		out.WriteRune(' ')
 		colStr = strings.ReplaceAll(colStr, "|", "\\|")
 		colStr = strings.ReplaceAll(colStr, "\n", "<br/>")
-		out.WriteString(colStr)
-		out.WriteRune(' ')
+		if t.style.Markdown.PadContent {
+			out.WriteRune(' ')
+			align := t.getAlign(colIdx, hint)
+			out.WriteString(align.Apply(colStr, t.maxColumnLengths[colIdx]))
+			out.WriteRune(' ')
+		} else {
+			out.WriteRune(' ')
+			out.WriteString(colStr)
+			out.WriteRune(' ')
+		}
 		out.WriteRune('|')
 	}
 }
 
 func (t *Table) markdownRenderRowAutoIndex(out *strings.Builder, colIdx int, hint renderHint) {
 	if colIdx == 0 && t.autoIndex {
-		out.WriteRune(' ')
 		if hint.isSeparatorRow {
-			out.WriteString("---:")
+			if t.style.Markdown.PadContent {
+				out.WriteString(" " + strings.Repeat("-", t.autoIndexVIndexMaxLength) + ":")
+			} else {
+				out.WriteRune(' ')
+				out.WriteString("---:")
+			}
 		} else if hint.isRegularRow() {
-			fmt.Fprintf(out, "%d ", hint.rowNumber)
+			if t.style.Markdown.PadContent {
+				rowNumStr := fmt.Sprint(hint.rowNumber)
+				out.WriteRune(' ')
+				fmt.Fprintf(out, "%*s", t.autoIndexVIndexMaxLength, rowNumStr)
+				out.WriteRune(' ')
+			} else {
+				out.WriteRune(' ')
+				fmt.Fprintf(out, "%d ", hint.rowNumber)
+			}
+		} else {
+			if t.style.Markdown.PadContent {
+				out.WriteRune(' ')
+				out.WriteString(strings.Repeat(" ", t.autoIndexVIndexMaxLength))
+				out.WriteRune(' ')
+			} else {
+				out.WriteRune(' ')
+			}
 		}
 		out.WriteRune('|')
 	}
@@ -107,7 +135,12 @@ func (t *Table) markdownRenderSeparator(out *strings.Builder, hint renderHint) {
 	for colIdx := 0; colIdx < t.numColumns; colIdx++ {
 		t.markdownRenderRowAutoIndex(out, colIdx, hint)
 
-		out.WriteString(t.getAlign(colIdx, hint).MarkdownProperty())
+		align := t.getAlign(colIdx, hint)
+		if t.style.Markdown.PadContent {
+			out.WriteString(align.MarkdownProperty(t.maxColumnLengths[colIdx]))
+		} else {
+			out.WriteString(align.MarkdownProperty())
+		}
 		out.WriteRune('|')
 	}
 }

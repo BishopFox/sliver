@@ -1,10 +1,8 @@
 package text
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
-	"unicode/utf8"
 )
 
 // Align denotes how text is to be aligned horizontally.
@@ -39,24 +37,39 @@ func (a Align) Apply(text string, maxLength int) string {
 	}
 
 	text = aComputed.trimString(text)
-	sLen := utf8.RuneCountInString(text)
 	sLenWoE := StringWidthWithoutEscSequences(text)
-	numEscChars := sLen - sLenWoE
+	padding := maxLength - sLenWoE
 
-	// now, align the text
+	// now, align the text by padding the missing display-width with spaces
 	switch aComputed {
 	case AlignDefault, AlignLeft:
-		return fmt.Sprintf("%-"+strconv.Itoa(maxLength+numEscChars)+"s", text)
+		return padText(text, 0, padding)
 	case AlignCenter:
-		if sLenWoE < maxLength {
-			// left pad with half the number of spaces needed before using %text
-			return fmt.Sprintf("%"+strconv.Itoa(maxLength+numEscChars)+"s",
-				text+strings.Repeat(" ", (maxLength-sLenWoE)/2))
-		}
+		// extra space on the left when the padding is odd
+		return padText(text, padding-padding/2, padding/2)
 	case AlignJustify:
 		return justifyText(text, sLenWoE, maxLength)
 	}
-	return fmt.Sprintf("%"+strconv.Itoa(maxLength+numEscChars)+"s", text)
+	return padText(text, padding, 0)
+}
+
+// padText returns the text with the given number of spaces on either side;
+// non-positive counts add nothing.
+func padText(text string, left int, right int) string {
+	if left <= 0 && right <= 0 {
+		return text
+	}
+
+	var out strings.Builder
+	out.Grow(len(text) + left + right)
+	for idx := 0; idx < left; idx++ {
+		out.WriteByte(' ')
+	}
+	out.WriteString(text)
+	for idx := 0; idx < right; idx++ {
+		out.WriteByte(' ')
+	}
+	return out.String()
 }
 
 // HTMLProperty returns the equivalent HTML horizontal-align tag property.
@@ -76,16 +89,24 @@ func (a Align) HTMLProperty() string {
 }
 
 // MarkdownProperty returns the equivalent Markdown horizontal-align separator.
-func (a Align) MarkdownProperty() string {
+// An optional minLength can be provided to extend the dashes to match the
+// column content width; the result will be max(minLength, 3)+2 wide (including
+// leading/trailing space or colon). Without minLength (or 0), it defaults to 3.
+func (a Align) MarkdownProperty(minLength ...int) string {
+	length := 3
+	if len(minLength) > 0 && minLength[0] > length {
+		length = minLength[0]
+	}
+	dashes := strings.Repeat("-", length)
 	switch a {
 	case AlignLeft:
-		return ":--- "
+		return ":" + dashes + " "
 	case AlignCenter:
-		return ":---:"
+		return ":" + dashes + ":"
 	case AlignRight:
-		return " ---:"
+		return " " + dashes + ":"
 	default:
-		return " --- "
+		return " " + dashes + " "
 	}
 }
 
@@ -119,6 +140,13 @@ func justifyText(text string, textLength int, maxLength int) string {
 
 	// get the number of spaces to insert into the text
 	numSpacesNeeded := maxLength - textLength + strings.Count(text, " ")
+	if numSpacesNeeded < 0 {
+		// textLength (display-width) exceeds maxLength; this can happen
+		// when the cell contains wide Unicode characters (e.g. CJK) whose
+		// display width is greater than their rune count. Return the text
+		// as-is; truncation is the caller's responsibility.
+		return text
+	}
 	numSpacesNeededBetweenWords := 0
 	if len(words) > 1 {
 		numSpacesNeededBetweenWords = numSpacesNeeded / (len(words) - 1)
