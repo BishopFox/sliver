@@ -12,7 +12,7 @@ func (m *machine) PostRegAlloc() {
 }
 
 func (m *machine) setupPrologue() {
-	cur := m.ectx.RootInstr
+	cur := m.rootInstr
 	prevInitInst := cur.next
 
 	// At this point, we have the stack layout as follows:
@@ -130,14 +130,13 @@ func (m *machine) setupPrologue() {
 // 3. Inserts the dec/inc RSP instruction right before/after the call instruction.
 // 4. Lowering that is supposed to be done after regalloc.
 func (m *machine) postRegAlloc() {
-	ectx := m.ectx
-	for cur := ectx.RootInstr; cur != nil; cur = cur.next {
+	for cur := m.rootInstr; cur != nil; cur = cur.next {
 		switch k := cur.kind; k {
 		case ret:
 			m.setupEpilogueAfter(cur.prev)
 			continue
 		case fcvtToSintSequence, fcvtToUintSequence:
-			m.ectx.PendingInstructions = m.ectx.PendingInstructions[:0]
+			m.pendingInstructions = m.pendingInstructions[:0]
 			if k == fcvtToSintSequence {
 				m.lowerFcvtToSintSequenceAfterRegalloc(cur)
 			} else {
@@ -146,29 +145,29 @@ func (m *machine) postRegAlloc() {
 			prev := cur.prev
 			next := cur.next
 			cur := prev
-			for _, instr := range m.ectx.PendingInstructions {
+			for _, instr := range m.pendingInstructions {
 				cur = linkInstr(cur, instr)
 			}
 			linkInstr(cur, next)
 			continue
 		case xmmCMov:
-			m.ectx.PendingInstructions = m.ectx.PendingInstructions[:0]
+			m.pendingInstructions = m.pendingInstructions[:0]
 			m.lowerXmmCmovAfterRegAlloc(cur)
 			prev := cur.prev
 			next := cur.next
 			cur := prev
-			for _, instr := range m.ectx.PendingInstructions {
+			for _, instr := range m.pendingInstructions {
 				cur = linkInstr(cur, instr)
 			}
 			linkInstr(cur, next)
 			continue
 		case idivRemSequence:
-			m.ectx.PendingInstructions = m.ectx.PendingInstructions[:0]
+			m.pendingInstructions = m.pendingInstructions[:0]
 			m.lowerIDivRemSequenceAfterRegAlloc(cur)
 			prev := cur.prev
 			next := cur.next
 			cur := prev
-			for _, instr := range m.ectx.PendingInstructions {
+			for _, instr := range m.pendingInstructions {
 				cur = linkInstr(cur, instr)
 			}
 			linkInstr(cur, next)
@@ -188,6 +187,23 @@ func (m *machine) postRegAlloc() {
 				linkInstr(call, inc)
 				linkInstr(inc, next)
 			}
+			continue
+		case tailCall, tailCallIndirect:
+			// At this point, reg alloc is done, therefore we can safely insert dec RPS instruction
+			// right before the tail call (jump) instruction. If this is done before reg alloc, the stack slot
+			// can point to the wrong location and therefore results in a wrong value.
+			tailCall := cur
+			_, _, _, _, size := backend.ABIInfoFromUint64(tailCall.u2)
+			if size > 0 {
+				dec := m.allocateInstr().asAluRmiR(aluRmiROpcodeSub, newOperandImm32(size), rspVReg, true)
+				linkInstr(tailCall.prev, dec)
+				linkInstr(dec, tailCall)
+			}
+			// In a tail call, we insert the epilogue before the jump instruction.
+			m.setupEpilogueAfter(tailCall.prev)
+			// If this has been encoded as a proper tail call, we can remove the trailing instructions
+			// For details, see internal/engine/RATIONALE.md
+			m.removeUntilRet(cur.next)
 			continue
 		}
 
@@ -277,6 +293,20 @@ func (m *machine) setupEpilogueAfter(cur *instruction) {
 	cur = m.revertRBPRSP(cur)
 
 	linkInstr(cur, prevNext)
+}
+
+// removeUntilRet removes the instructions starting from `cur` until the first `ret` instruction.
+func (m *machine) removeUntilRet(cur *instruction) {
+	for ; cur != nil; cur = cur.next {
+		prev, next := cur.prev, cur.next
+		prev.next = next
+		if next != nil {
+			next.prev = prev
+		}
+		if cur.kind == ret {
+			return
+		}
+	}
 }
 
 func (m *machine) addRSP(offset int32, cur *instruction) *instruction {

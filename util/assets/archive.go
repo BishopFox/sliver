@@ -34,6 +34,9 @@ func extractTarGz(archivePath, destDir string) error {
 		if err != nil {
 			return fmt.Errorf("read tar entry: %w", err)
 		}
+		if strings.Contains(hdr.Name, "..") {
+			return fmt.Errorf("refusing path containing '..' in tar archive: %s", hdr.Name)
+		}
 
 		target, err := safeJoin(destDir, hdr.Name)
 		if err != nil {
@@ -62,15 +65,10 @@ func extractTarGz(archivePath, destDir string) error {
 				return fmt.Errorf("close file: %w", err)
 			}
 		case tar.TypeSymlink:
-			if filepath.IsAbs(hdr.Linkname) {
-				return fmt.Errorf("refusing absolute symlink: %s", hdr.Linkname)
-			}
-			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-				return fmt.Errorf("create parent dir: %w", err)
-			}
-			if err := os.Symlink(hdr.Linkname, target); err != nil {
-				return fmt.Errorf("create symlink: %w", err)
-			}
+			// A later archive entry can traverse an extracted symlink even when
+			// its own path is lexically inside destDir. The downloaded Go
+			// distributions do not require symlinks, so reject them outright.
+			return fmt.Errorf("refusing symlink in tar archive: %s -> %s", hdr.Name, hdr.Linkname)
 		default:
 			// Skip non-file entries like extended headers.
 			continue
@@ -88,6 +86,9 @@ func extractZip(archivePath, destDir string) error {
 	defer reader.Close()
 
 	for _, file := range reader.File {
+		if strings.Contains(file.Name, "..") {
+			return fmt.Errorf("refusing path containing '..' in zip archive: %s", file.Name)
+		}
 		target, err := safeJoin(destDir, file.Name)
 		if err != nil {
 			return err
@@ -132,6 +133,10 @@ func extractZip(archivePath, destDir string) error {
 }
 
 func zipDir(baseDir, relRoot, destZip string) error {
+	return zipDirWithModeOverrides(baseDir, relRoot, destZip, nil)
+}
+
+func zipDirWithModeOverrides(baseDir, relRoot, destZip string, modeOverrides map[string]fs.FileMode) error {
 	root := filepath.Join(baseDir, relRoot)
 
 	if err := ensureDir(filepath.Dir(destZip)); err != nil {
@@ -167,6 +172,9 @@ func zipDir(baseDir, relRoot, destZip string) error {
 		}
 
 		header.Name = filepath.ToSlash(rel)
+		if mode, ok := modeOverrides[header.Name]; ok {
+			header.SetMode(mode)
+		}
 		if info.IsDir() {
 			if !strings.HasSuffix(header.Name, "/") {
 				header.Name += "/"

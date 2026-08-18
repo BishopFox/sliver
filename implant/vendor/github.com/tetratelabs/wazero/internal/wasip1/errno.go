@@ -262,7 +262,7 @@ var errnoToString = [...]string{
 // ToErrno coerces the error to a WASI Errno.
 //
 // Note: Coercion isn't centralized in sys.FSContext because ABI use different
-// error codes. For example, wasi-filesystem and GOOS=js don't map to these
+// error codes. For example, wasi-filesystem doesn't map to these
 // Errno.
 func ToErrno(errno sys.Errno) Errno {
 	switch errno {

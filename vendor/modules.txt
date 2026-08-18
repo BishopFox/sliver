@@ -1404,12 +1404,13 @@ github.com/tailscale/wireguard-go/tun
 # github.com/technoweenie/multipartstreamer v1.0.1
 ## explicit
 github.com/technoweenie/multipartstreamer
-# github.com/tetratelabs/wazero v1.11.0
-## explicit; go 1.24.0
+# github.com/tetratelabs/wazero v1.12.0
+## explicit; go 1.25.0
 github.com/tetratelabs/wazero
 github.com/tetratelabs/wazero/api
 github.com/tetratelabs/wazero/experimental
 github.com/tetratelabs/wazero/experimental/sys
+github.com/tetratelabs/wazero/experimental/sysfs
 github.com/tetratelabs/wazero/imports/emscripten
 github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1
 github.com/tetratelabs/wazero/internal/descriptor
@@ -1425,7 +1426,6 @@ github.com/tetratelabs/wazero/internal/engine/wazevo/ssa
 github.com/tetratelabs/wazero/internal/engine/wazevo/wazevoapi
 github.com/tetratelabs/wazero/internal/expctxkeys
 github.com/tetratelabs/wazero/internal/filecache
-github.com/tetratelabs/wazero/internal/fsapi
 github.com/tetratelabs/wazero/internal/ieee754
 github.com/tetratelabs/wazero/internal/internalapi
 github.com/tetratelabs/wazero/internal/leb128

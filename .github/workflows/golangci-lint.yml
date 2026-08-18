@@ -41,6 +41,9 @@ jobs:
     steps:
       - name: Check Out Code
         uses: actions/checkout@v6
+        with:
+          # golangci-lint needs the base revision for local new-issue filtering.
+          fetch-depth: 0
 
       - name: Go 1.26.6
         uses: actions/setup-go@v6
@@ -51,6 +54,13 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.12.2
-          # Keep legacy findings visible without making them blockers.
-          only-new-issues: true
-          args: ./client/... ./server/... ./util/... ./protobuf/... ./docs ./implant/...
+          # GitHub's pull-request diff API is capped at 300 files. Compare with
+          # the checked-out Git history so large PRs still gate only new issues.
+          args: >-
+            --new-from-merge-base=${{ github.event.pull_request.base.sha || github.event.before }}
+            ./client/...
+            ./server/...
+            ./util/...
+            ./protobuf/...
+            ./docs
+            ./implant/...
