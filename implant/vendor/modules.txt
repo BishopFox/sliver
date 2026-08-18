@@ -69,7 +69,7 @@ github.com/miekg/dns
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
-# github.com/sliverarmory/reflektor v0.0.2
+# github.com/sliverarmory/reflektor v0.0.3
 ## explicit; go 1.26.6
 github.com/sliverarmory/reflektor/memmod
 # github.com/stretchr/testify v1.8.4

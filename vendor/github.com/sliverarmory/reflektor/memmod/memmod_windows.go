@@ -6,6 +6,8 @@
 package memmod
 
 import (
+	"bytes"
+	"debug/buildinfo"
 	"errors"
 	"fmt"
 	"strings"
@@ -28,15 +30,23 @@ func (head *addressList) free() {
 }
 
 type Module struct {
-	headers       *IMAGE_NT_HEADERS
-	codeBase      uintptr
-	modules       []windows.Handle
-	initialized   bool
-	isDLL         bool
-	isRelocated   bool
-	nameExports   map[string]uint16
-	entry         uintptr
-	blockedMemory *addressList
+	headers        *IMAGE_NT_HEADERS
+	codeBase       uintptr
+	modules        []windows.Handle
+	initialized    bool
+	isDLL          bool
+	isRelocated    bool
+	nameExports    map[string]uint16
+	entry          uintptr
+	blockedMemory  *addressList
+	exceptionTable uintptr
+	goRuntime      bool
+	runtimeStarted bool
+}
+
+func imageHasGoBuildInfo(data []byte) bool {
+	_, err := buildinfo.Read(bytes.NewReader(data))
+	return err == nil
 }
 
 func (module *Module) headerDirectory(idx int) *IMAGE_DATA_DIRECTORY {
@@ -161,14 +171,22 @@ func (module *Module) finalizeSection(sectionData *sectionFinalizeData) error {
 	return nil
 }
 
-var rtlAddFunctionTable = windows.NewLazySystemDLL("ntdll.dll").NewProc("RtlAddFunctionTable")
-
-func (module *Module) registerExceptionHandlers() {
+func (module *Module) registerExceptionHandlers() error {
 	directory := module.headerDirectory(IMAGE_DIRECTORY_ENTRY_EXCEPTION)
-	if directory.Size == 0 || directory.VirtualAddress == 0 {
-		return
+	entrySize := runtimeFunctionEntrySize()
+	if directory.Size == 0 || directory.VirtualAddress == 0 || entrySize == 0 {
+		return nil
 	}
-	rtlAddFunctionTable.Call(module.codeBase+uintptr(directory.VirtualAddress), uintptr(directory.Size)/unsafe.Sizeof(IMAGE_RUNTIME_FUNCTION_ENTRY{}), module.codeBase)
+	if uintptr(directory.Size)%entrySize != 0 {
+		return fmt.Errorf("malformed exception table size %#x for entry size %d", directory.Size, entrySize)
+	}
+	module.exceptionTable = module.codeBase + uintptr(directory.VirtualAddress)
+	count := uint32(uintptr(directory.Size) / entrySize)
+	if !windows.RtlAddFunctionTable((*windows.RUNTIME_FUNCTION)(unsafe.Pointer(module.exceptionTable)), count, module.codeBase) {
+		module.exceptionTable = 0
+		return errors.New("RtlAddFunctionTable returned false")
+	}
+	return nil
 }
 
 func (module *Module) finalizeSections() error {
@@ -498,7 +516,10 @@ func LoadLibrary(data []byte) (module *Module, err error) {
 		return nil, errors.New("Section is not page-aligned")
 	}
 
-	module = &Module{isDLL: (oldHeader.FileHeader.Characteristics & IMAGE_FILE_DLL) != 0}
+	module = &Module{
+		isDLL:     (oldHeader.FileHeader.Characteristics & IMAGE_FILE_DLL) != 0,
+		goRuntime: imageHasGoBuildInfo(data),
+	}
 	defer func() {
 		if err != nil {
 			module.Free()
@@ -583,7 +604,10 @@ func LoadLibrary(data []byte) (module *Module, err error) {
 	}
 
 	// Register exception tables, if they exist.
-	module.registerExceptionHandlers()
+	err = module.registerExceptionHandlers()
+	if err != nil {
+		return
+	}
 
 	// Register function PCs.
 	loadedAddressRangesMu.Lock()
@@ -598,6 +622,12 @@ func LoadLibrary(data []byte) (module *Module, err error) {
 	}
 
 	// TLS callbacks are executed BEFORE the main loading.
+	if module.goRuntime {
+		// Go DLL initialization starts process-lifetime runtime state. From this
+		// point onward, an error or Close must leave the image and its imports
+		// pinned rather than detach and unmap live runtime-managed threads.
+		module.runtimeStarted = true
+	}
 	module.executeTLS()
 
 	// Get entry point of loaded module.
@@ -619,8 +649,15 @@ func LoadLibrary(data []byte) (module *Module, err error) {
 	return
 }
 
-// Free releases module resources and unloads it.
+// Free releases module resources. Started Go runtime images remain pinned.
 func (module *Module) Free() {
+	if module.goRuntime && module.runtimeStarted {
+		if module.blockedMemory != nil {
+			module.blockedMemory.free()
+			module.blockedMemory = nil
+		}
+		return
+	}
 	if module.initialized {
 		// Notify library about detaching from process.
 		syscall.Syscall(module.entry, 3, module.codeBase, uintptr(DLL_PROCESS_DETACH), 0)
@@ -632,6 +669,10 @@ func (module *Module) Free() {
 			windows.FreeLibrary(handle)
 		}
 		module.modules = nil
+	}
+	if module.exceptionTable != 0 {
+		windows.RtlDeleteFunctionTable((*windows.RUNTIME_FUNCTION)(unsafe.Pointer(module.exceptionTable)))
+		module.exceptionTable = 0
 	}
 	if module.codeBase != 0 {
 		windows.VirtualFree(module.codeBase, 0, windows.MEM_RELEASE)

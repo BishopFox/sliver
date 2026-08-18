@@ -1,0 +1,31 @@
+# Git metadata is not needed by the Reflektor integration image.
+/.git/
+
+# go-assets.sh downloads
+/server/assets/fs/**.zip
+/server/assets/fs/**/garble*
+/server/assets/fs/**/zig.tar.xz
+/server/assets/fs/**/zig.zip
+/server/assets/fs/src.zip
+
+/*.sdk.tar.xz
+
+/sliver-server
+/sliver-server.exe
+
+/sliver-client
+/sliver-client.exe
+
+/.vscode/
+/.vscode/*
+
+/.github/
+/.github/*
+
+/build.py
+/LICENSE
+/SECURITY.md
+/README.md
+/CONTRIBUTING.md
+
+.downloaded_assets

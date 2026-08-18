@@ -2,7 +2,10 @@
 
 package memmod
 
-import _ "unsafe"
+import (
+	"errors"
+	_ "unsafe"
+)
 
 //go:noescape
 func cCall10(fn, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9 uintptr) uintptr
@@ -16,6 +19,11 @@ func call0(fn uintptr) uintptr {
 
 func callVoid0(fn uintptr) {
 	_ = call0(fn)
+}
+
+func callVoid0OnThread(fn uintptr) error {
+	_ = fn
+	return errors.New("calling a Go c-shared export requires cgo")
 }
 
 func callDlopen(fn, name uintptr, flags int) uintptr {

@@ -3,7 +3,9 @@
 package memmod
 
 /*
+#include <pthread.h>
 #include <stdint.h>
+#include <string.h>
 
 typedef uintptr_t (*reflektor_fn10_t)(
 	uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t,
@@ -33,11 +35,42 @@ static uintptr_t reflektor_call10(
 ) {
 	return ((reflektor_fn10_t)fn)(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9);
 }
+
+typedef struct {
+	uintptr_t fn;
+} reflektor_void_thread_call;
+
+static void *reflektor_void_thread_entry(void *opaque) {
+	reflektor_void_thread_call *call = (reflektor_void_thread_call *)opaque;
+	((reflektor_void_fn0_t)call->fn)();
+	return NULL;
+}
+
+static int reflektor_call_void0_thread(uintptr_t fn) {
+	pthread_t thread;
+	reflektor_void_thread_call call;
+	memset(&call, 0, sizeof(call));
+	call.fn = fn;
+	int err = pthread_create(&thread, NULL, reflektor_void_thread_entry, &call);
+	if (err != 0) {
+		return err;
+	}
+	return pthread_join(thread, NULL);
+}
 */
 import "C"
 
+import "fmt"
+
 func callVoid0(fn uintptr) {
 	C.reflektor_call_void0(C.uintptr_t(fn))
+}
+
+func callVoid0OnThread(fn uintptr) error {
+	if errno := int(C.reflektor_call_void0_thread(C.uintptr_t(fn))); errno != 0 {
+		return fmt.Errorf("pthread call failed with error %d", errno)
+	}
+	return nil
 }
 
 func callDlopen(fn, name uintptr, flags int) uintptr {

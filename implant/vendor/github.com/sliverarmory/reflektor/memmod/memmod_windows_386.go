@@ -6,3 +6,5 @@
 package memmod
 
 const imageFileProcess = IMAGE_FILE_MACHINE_I386
+
+func runtimeFunctionEntrySize() uintptr { return 0 }
