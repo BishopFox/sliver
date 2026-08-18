@@ -64,11 +64,12 @@ func (t *Table) RenderHTML() string {
 
 	var out strings.Builder
 	if t.numColumns > 0 {
+		out.Grow(t.estimatedRenderLength())
 		out.WriteString("<table class=\"")
 		if t.htmlCSSClass != "" {
-			out.WriteString(t.htmlCSSClass)
+			out.WriteString(html.EscapeString(t.htmlCSSClass))
 		} else {
-			out.WriteString(t.style.HTML.CSSClass)
+			out.WriteString(html.EscapeString(t.style.HTML.CSSClass))
 		}
 		out.WriteString("\">\n")
 		t.htmlRenderTitle(&out)
@@ -99,8 +100,12 @@ func (t *Table) htmlGetColStrAndTag(row rowStr, colIdx int, hint renderHint) (st
 
 func (t *Table) htmlRenderCaption(out *strings.Builder) {
 	if t.caption != "" {
+		caption := t.caption
+		if t.style.HTML.EscapeText {
+			caption = html.EscapeString(caption)
+		}
 		out.WriteString("  <caption class=\"caption\" style=\"caption-side: bottom;\">")
-		out.WriteString(t.caption)
+		out.WriteString(caption)
 		out.WriteString("</caption>\n")
 	}
 }
@@ -263,6 +268,9 @@ func (t *Table) htmlRenderTitle(out *strings.Builder) {
 		align := t.style.Title.Align.HTMLProperty()
 		colors := t.style.Title.Colors.HTMLProperty()
 		title := t.style.Title.Format.Apply(t.title)
+		if t.style.HTML.EscapeText {
+			title = html.EscapeString(title)
+		}
 
 		out.WriteString("  <caption class=\"title\"")
 		if align != "" {
