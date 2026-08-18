@@ -125,6 +125,8 @@ func TestValidateToolchain(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
+	const testGoVersion = "go1.99.0"
+	writeTestFile(t, filepath.Join(root, "VERSION"), []byte(testGoVersion+"\n"), 0o600)
 	content := []byte("original Go source\n")
 	source := overlaySource{
 		targetPath:   "src/net/net_fake.go",
@@ -142,7 +144,7 @@ func TestValidateToolchain(t *testing.T) {
 	if err == nil {
 		t.Fatal("validateToolchain() succeeded with modified source")
 	}
-	for _, fragment := range []string{requiredGoVersion, source.targetPath, "SHA-256", source.sha256} {
+	for _, fragment := range []string{testGoVersion, source.targetPath, "SHA-256", source.sha256} {
 		if !strings.Contains(err.Error(), fragment) {
 			t.Errorf("validation error %q does not contain %q", err, fragment)
 		}
@@ -383,7 +385,7 @@ func TestEmbeddedOverlayCompilesWithCompatibleGo(t *testing.T) {
 	}
 	goRoot := strings.TrimSpace(string(goRootOutput))
 	if err := validateToolchain(goRoot, requiredOverlaySources); err != nil {
-		t.Skipf("host Go does not have the compatible %s standard library: %v", requiredGoVersion, err)
+		t.Skipf("host %s standard library is incompatible: %v", toolchainVersion(goRoot), err)
 	}
 
 	configPath, cleanup, err := writeOverlay(goRoot, embeddedOverlays, requiredOverlaySources)

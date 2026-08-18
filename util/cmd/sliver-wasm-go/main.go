@@ -18,10 +18,7 @@ import (
 	"strings"
 )
 
-const (
-	requiredGoVersion = "go1.26.2"
-	overlayModuleName = "sliver_wasi_net_v1"
-)
+const overlayModuleName = "sliver_wasi_net_v1"
 
 type overlaySource struct {
 	targetPath   string
@@ -172,7 +169,7 @@ func validateToolchain(goRoot string, sources []overlaySource) error {
 		if actual != source.sha256 {
 			return fmt.Errorf(
 				"unsupported bundled %s source %s: SHA-256 %s (need %s)",
-				requiredGoVersion,
+				toolchainVersion(goRoot),
 				source.targetPath,
 				actual,
 				source.sha256,
@@ -180,6 +177,19 @@ func validateToolchain(goRoot string, sources []overlaySource) error {
 		}
 	}
 	return nil
+}
+
+func toolchainVersion(goRoot string) string {
+	data, err := os.ReadFile(filepath.Join(goRoot, "VERSION"))
+	if err != nil {
+		return "Go toolchain"
+	}
+	version, _, _ := strings.Cut(string(data), "\n")
+	version = strings.TrimSpace(version)
+	if version == "" {
+		return "Go toolchain"
+	}
+	return version
 }
 
 func writeOverlay(goRoot string, sourceFS fs.FS, sources []overlaySource) (string, func(), error) {
