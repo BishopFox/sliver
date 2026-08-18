@@ -310,26 +310,8 @@ func DeletePendingImplantBuild(buildID string) error {
 	}
 
 	return db.Session().Transaction(func(tx *gorm.DB) error {
-		build := &models.ImplantBuild{}
-		if err := tx.Where(&models.ImplantBuild{ID: id}).First(build).Error; err != nil {
-			return err
-		}
-		if build.ImplantID != 0 || build.MD5 != "" || build.SHA1 != "" || build.SHA256 != "" {
-			return ErrImplantBuildNotPending
-		}
-
-		var resourceCount int64
-		if err := tx.Model(&models.ResourceID{}).Where("name = ?", build.Name).Count(&resourceCount).Error; err != nil {
-			return err
-		}
-		if resourceCount != 0 {
-			return ErrImplantBuildNotPending
-		}
-
-		buildFilePath := filepath.Join(buildsDir, build.ID.String())
-		if _, err := os.Stat(buildFilePath); err == nil {
-			return ErrImplantBuildNotPending
-		} else if !os.IsNotExist(err) {
+		build, err := loadPendingImplantBuild(tx, id, buildsDir)
+		if err != nil {
 			return err
 		}
 
@@ -337,35 +319,64 @@ func DeletePendingImplantBuild(buildID string) error {
 		if err := tx.Delete(build).Error; err != nil {
 			return err
 		}
-
-		var remainingBuilds int64
-		if err := tx.Model(&models.ImplantBuild{}).Where("implant_config_id = ?", configID).Count(&remainingBuilds).Error; err != nil {
-			return err
-		}
-		if remainingBuilds != 0 || configID == uuid.Nil {
-			return nil
-		}
-
-		config := &models.ImplantConfig{}
-		if err := tx.Where(&models.ImplantConfig{ID: configID}).First(config).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil
-			}
-			return err
-		}
-		if config.ImplantProfileID != nil {
-			return nil
-		}
-
-		if err := tx.Where(&models.ImplantC2{ImplantConfigID: configID}).Delete(&models.ImplantC2{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Where(&models.EncoderAsset{ImplantConfigID: configID}).Delete(&models.EncoderAsset{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Where(&models.CanaryDomain{ImplantConfigID: configID}).Delete(&models.CanaryDomain{}).Error; err != nil {
-			return err
-		}
-		return tx.Delete(config).Error
+		return deleteUnreferencedImplantConfig(tx, configID)
 	})
+}
+
+func loadPendingImplantBuild(tx *gorm.DB, id uuid.UUID, buildsDir string) (*models.ImplantBuild, error) {
+	build := &models.ImplantBuild{}
+	if err := tx.Where(&models.ImplantBuild{ID: id}).First(build).Error; err != nil {
+		return nil, err
+	}
+	if build.ImplantID != 0 || build.MD5 != "" || build.SHA1 != "" || build.SHA256 != "" {
+		return nil, ErrImplantBuildNotPending
+	}
+
+	var resourceCount int64
+	if err := tx.Model(&models.ResourceID{}).Where("name = ?", build.Name).Count(&resourceCount).Error; err != nil {
+		return nil, err
+	}
+	if resourceCount != 0 {
+		return nil, ErrImplantBuildNotPending
+	}
+
+	buildFilePath := filepath.Join(buildsDir, build.ID.String())
+	if _, err := os.Stat(buildFilePath); err == nil {
+		return nil, ErrImplantBuildNotPending
+	} else if !os.IsNotExist(err) {
+		return nil, err
+	}
+	return build, nil
+}
+
+func deleteUnreferencedImplantConfig(tx *gorm.DB, configID uuid.UUID) error {
+	var remainingBuilds int64
+	if err := tx.Model(&models.ImplantBuild{}).Where("implant_config_id = ?", configID).Count(&remainingBuilds).Error; err != nil {
+		return err
+	}
+	if remainingBuilds != 0 || configID == uuid.Nil {
+		return nil
+	}
+
+	config := &models.ImplantConfig{}
+	if err := tx.Where(&models.ImplantConfig{ID: configID}).First(config).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		return err
+	}
+	if config.ImplantProfileID != nil {
+		return nil
+	}
+
+	if err := tx.Where(&models.ImplantC2{ImplantConfigID: configID}).Delete(&models.ImplantC2{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Where(&models.EncoderAsset{ImplantConfigID: configID}).Delete(&models.EncoderAsset{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Where(&models.CanaryDomain{ImplantConfigID: configID}).Delete(&models.CanaryDomain{}).Error; err != nil {
+		return err
+	}
+	return tx.Delete(config).Error
 }

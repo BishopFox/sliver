@@ -171,19 +171,13 @@ func (b *Builder) handleBuildEvent(event *clientpb.Event) {
 	}
 	if err := generate.ValidateControlFlowConfig(extConfig.Config); err != nil {
 		builderLog.Warnf("Reject event, invalid control-flow config: %s", err)
-		b.rpc.BuilderTrigger(context.Background(), &clientpb.Event{
-			EventType: consts.ExternalBuildFailedEvent,
-			Data:      []byte(fmt.Sprintf("%s:%s", implantBuildID, err.Error())),
-		})
+		b.reportBuildFailure(implantBuildID, err)
 		return
 	}
 	if generate.ControlFlowEnabled(extConfig.Config) && !generate.HasControlFlowCapability(b.externalBuilder.Capabilities) {
 		err := fmt.Errorf("builder does not support %s", generate.ControlFlowCapability)
 		builderLog.Warnf("Reject event: %s", err)
-		b.rpc.BuilderTrigger(context.Background(), &clientpb.Event{
-			EventType: consts.ExternalBuildFailedEvent,
-			Data:      []byte(fmt.Sprintf("%s:%s", implantBuildID, err.Error())),
-		})
+		b.reportBuildFailure(implantBuildID, err)
 		return
 	}
 
@@ -287,6 +281,16 @@ func (b *Builder) handleBuildEvent(event *clientpb.Event) {
 		Data:      []byte(fmt.Sprintf("%s:%s", implantBuildID, extConfig.Build.Name)),
 	})
 	builderLog.Infof("All done, built and saved %s", fileName)
+}
+
+func (b *Builder) reportBuildFailure(implantBuildID string, buildErr error) {
+	_, err := b.rpc.BuilderTrigger(context.Background(), &clientpb.Event{
+		EventType: consts.ExternalBuildFailedEvent,
+		Data:      []byte(fmt.Sprintf("%s:%s", implantBuildID, buildErr.Error())),
+	})
+	if err != nil {
+		builderLog.Errorf("Failed to report build failure for %s: %s", implantBuildID, err)
+	}
 }
 
 func isSupportedTarget(targets []*clientpb.CompilerTarget, config *clientpb.ImplantConfig) bool {

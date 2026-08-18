@@ -223,6 +223,13 @@ LDFLAGS_DEBUG = -ldflags "-X $(CLIENT_ASSETS_PKG).DefaultArmoryPublicKey=$(ARMOR
 
 COMMA := ,
 
+DEFAULT_EXECUTABLE_EXT := .exe
+ifneq ($(strip $(GOOS)),)
+ifneq ($(strip $(GOOS)),windows)
+DEFAULT_EXECUTABLE_EXT :=
+endif
+endif
+
 ifeq ($(MAKECMDGOALS), linux)
 	LDFLAGS = -ldflags "-s -w -extldflags '-static' -X $(CLIENT_ASSETS_PKG).DefaultArmoryPublicKey=$(ARMORY_PUBLIC_KEY) -X $(CLIENT_ASSETS_PKG).DefaultArmoryRepoURL=$(ARMORY_REPO_URL)"
 endif
@@ -238,8 +245,8 @@ endef
 .PHONY: default
 default: clean validate-go-version
 	$(call windows_exec,$(ENV) GOOS= GOARCH=,"$(MAKE)" GOOS= GOARCH= .downloaded_assets)
-	$(call windows_go_build,$(GOOS),$(GOARCH),$(CGO_ENABLED),-mod=vendor -trimpath,server,$(LDFLAGS),sliver-server$(ARTIFACT_SUFFIX))
-	$(call windows_go_build,$(GOOS),$(GOARCH),0,-mod=vendor -trimpath,client,$(LDFLAGS),sliver-client$(ARTIFACT_SUFFIX))
+	$(call windows_go_build,$(GOOS),$(GOARCH),$(CGO_ENABLED),-mod=vendor -trimpath,server,$(LDFLAGS),sliver-server$(ARTIFACT_SUFFIX)$(DEFAULT_EXECUTABLE_EXT))
+	$(call windows_go_build,$(GOOS),$(GOARCH),0,-mod=vendor -trimpath,client,$(LDFLAGS),sliver-client$(ARTIFACT_SUFFIX)$(DEFAULT_EXECUTABLE_EXT))
 
 .PHONY: client
 client: clean .downloaded_assets validate-go-version

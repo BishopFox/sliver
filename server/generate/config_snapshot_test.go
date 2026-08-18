@@ -27,6 +27,32 @@ func TestNewImplantConfigSnapshotDetachesAndPreservesPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewImplantConfigSnapshot() error = %v", err)
 	}
+	assertDetachedImplantConfigSnapshot(t, snapshot, sourceProfileID, profileID, configID)
+
+	source.ControlFlow = clientpb.ControlFlowPolicy_CONTROL_FLOW_DISABLED
+	source.C2[0].URL = "mtls://127.0.0.1:9999"
+	if snapshot.ControlFlow != clientpb.ControlFlowPolicy_CONTROL_FLOW_BALANCED_V1 {
+		t.Fatal("mutating the source profile changed the build snapshot policy")
+	}
+	if snapshot.C2[0].URL != "mtls://127.0.0.1:8888" {
+		t.Fatal("mutating the source profile changed the build snapshot C2")
+	}
+	if source.ID != configID || source.ImplantProfileID != profileID || source.C2[0].ID != c2ID {
+		t.Fatal("snapshot creation mutated the source profile config")
+	}
+
+	second, _, err := NewImplantConfigSnapshot(source)
+	if err != nil {
+		t.Fatalf("second NewImplantConfigSnapshot() error = %v", err)
+	}
+	if second.ID == snapshot.ID {
+		t.Fatalf("two build snapshots reused config ID %q", snapshot.ID)
+	}
+}
+
+func assertDetachedImplantConfigSnapshot(t *testing.T, snapshot *clientpb.ImplantConfig, sourceProfileID, profileID, configID string) {
+	t.Helper()
+
 	if sourceProfileID != profileID {
 		t.Fatalf("source profile ID = %q, want %q", sourceProfileID, profileID)
 	}
@@ -47,26 +73,6 @@ func TestNewImplantConfigSnapshotDetachesAndPreservesPolicy(t *testing.T) {
 	}
 	if snapshot.ControlFlow != clientpb.ControlFlowPolicy_CONTROL_FLOW_BALANCED_V1 {
 		t.Fatalf("snapshot control-flow policy = %v, want balanced-v1", snapshot.ControlFlow)
-	}
-
-	source.ControlFlow = clientpb.ControlFlowPolicy_CONTROL_FLOW_DISABLED
-	source.C2[0].URL = "mtls://127.0.0.1:9999"
-	if snapshot.ControlFlow != clientpb.ControlFlowPolicy_CONTROL_FLOW_BALANCED_V1 {
-		t.Fatal("mutating the source profile changed the build snapshot policy")
-	}
-	if snapshot.C2[0].URL != "mtls://127.0.0.1:8888" {
-		t.Fatal("mutating the source profile changed the build snapshot C2")
-	}
-	if source.ID != configID || source.ImplantProfileID != profileID || source.C2[0].ID != c2ID {
-		t.Fatal("snapshot creation mutated the source profile config")
-	}
-
-	second, _, err := NewImplantConfigSnapshot(source)
-	if err != nil {
-		t.Fatalf("second NewImplantConfigSnapshot() error = %v", err)
-	}
-	if second.ID == snapshot.ID {
-		t.Fatalf("two build snapshots reused config ID %q", snapshot.ID)
 	}
 }
 

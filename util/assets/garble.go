@@ -118,12 +118,16 @@ func VerifyGarbleBinary(path, goos, goarch string) error {
 	return nil
 }
 
-func verifyGarbleSHA256(path, expected string) error {
+func verifyGarbleSHA256(path, expected string) (resultErr error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("open artifact: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil && resultErr == nil {
+			resultErr = fmt.Errorf("close artifact: %w", err)
+		}
+	}()
 
 	hash := sha256.New()
 	if _, err := io.Copy(hash, file); err != nil {

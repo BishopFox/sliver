@@ -15,7 +15,19 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestProfileMutationDoesNotChangeStoredBuildSnapshotPolicy(t *testing.T) {
+type storedBuildSnapshotFixture struct {
+	profileName string
+	buildName   string
+	profile     *clientpb.ImplantProfile
+	snapshot    *clientpb.ImplantConfig
+	build       *clientpb.ImplantBuild
+	snapshotID  string
+	buildID     string
+}
+
+func newStoredBuildSnapshotFixture(t *testing.T) *storedBuildSnapshotFixture {
+	t.Helper()
+
 	suffix := time.Now().UnixNano()
 	profileName := fmt.Sprintf("snapshot-profile-%d", suffix)
 	buildName := fmt.Sprintf("snapshot-build-%d", suffix)
@@ -32,27 +44,19 @@ func TestProfileMutationDoesNotChangeStoredBuildSnapshotPolicy(t *testing.T) {
 		t.Fatalf("SaveImplantProfile() error = %v", err)
 	}
 
-	var snapshotID string
-	var buildID string
-	t.Cleanup(func() {
-		if buildID != "" {
-			db.Session().Where("id = ?", uuid.FromStringOrNil(buildID)).Delete(&models.ImplantBuild{})
-		}
-		if snapshotID != "" {
-			configID := uuid.FromStringOrNil(snapshotID)
-			db.Session().Where("implant_config_id = ?", configID).Delete(&models.ImplantC2{})
-			db.Session().Where("implant_config_id = ?", configID).Delete(&models.EncoderAsset{})
-			db.Session().Where("implant_config_id = ?", configID).Delete(&models.CanaryDomain{})
-			db.Session().Where("id = ?", configID).Delete(&models.ImplantConfig{})
-		}
-		_ = db.DeleteProfile(profileName)
-	})
+	fixture := &storedBuildSnapshotFixture{
+		profileName: profileName,
+		buildName:   buildName,
+		profile:     profile,
+	}
+	t.Cleanup(fixture.cleanup)
 
 	snapshot, sourceProfileID, err := NewImplantConfigSnapshot(profile.Config)
 	if err != nil {
 		t.Fatalf("NewImplantConfigSnapshot() error = %v", err)
 	}
-	snapshotID = snapshot.ID
+	fixture.snapshot = snapshot
+	fixture.snapshotID = snapshot.ID
 	if _, err := db.CreateImplantConfigWithID(snapshot); err != nil {
 		t.Fatalf("CreateImplantConfigWithID() error = %v", err)
 	}
@@ -64,15 +68,39 @@ func TestProfileMutationDoesNotChangeStoredBuildSnapshotPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SaveImplantBuildWithSourceProfile() error = %v", err)
 	}
-	buildID = build.ID
+	fixture.build = build
+	fixture.buildID = build.ID
+	return fixture
+}
 
-	updatedProfile := proto.Clone(profile).(*clientpb.ImplantProfile)
+func (fixture *storedBuildSnapshotFixture) cleanup() {
+	if fixture.buildID != "" {
+		db.Session().Where("id = ?", uuid.FromStringOrNil(fixture.buildID)).Delete(&models.ImplantBuild{})
+	}
+	if fixture.snapshotID != "" {
+		configID := uuid.FromStringOrNil(fixture.snapshotID)
+		db.Session().Where("implant_config_id = ?", configID).Delete(&models.ImplantC2{})
+		db.Session().Where("implant_config_id = ?", configID).Delete(&models.EncoderAsset{})
+		db.Session().Where("implant_config_id = ?", configID).Delete(&models.CanaryDomain{})
+		db.Session().Where("id = ?", configID).Delete(&models.ImplantConfig{})
+	}
+	_ = db.DeleteProfile(fixture.profileName)
+}
+
+func (fixture *storedBuildSnapshotFixture) mutateProfilePolicy(t *testing.T) {
+	t.Helper()
+
+	updatedProfile := proto.Clone(fixture.profile).(*clientpb.ImplantProfile)
 	updatedProfile.Config.ControlFlow = clientpb.ControlFlowPolicy_CONTROL_FLOW_DISABLED
 	if _, err := SaveImplantProfile(updatedProfile); err != nil {
 		t.Fatalf("update profile policy: %v", err)
 	}
+}
 
-	persistedBuild, err := db.ImplantBuildByName(buildName)
+func (fixture *storedBuildSnapshotFixture) assertPersistedSnapshot(t *testing.T) *clientpb.ImplantBuild {
+	t.Helper()
+
+	persistedBuild, err := db.ImplantBuildByName(fixture.buildName)
 	if err != nil {
 		t.Fatalf("ImplantBuildByName() error = %v", err)
 	}
@@ -80,8 +108,8 @@ func TestProfileMutationDoesNotChangeStoredBuildSnapshotPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ImplantConfigByID() error = %v", err)
 	}
-	if persistedConfig.ID != snapshot.ID {
-		t.Fatalf("build config ID = %q, want snapshot %q", persistedConfig.ID, snapshot.ID)
+	if persistedConfig.ID != fixture.snapshot.ID {
+		t.Fatalf("build config ID = %q, want snapshot %q", persistedConfig.ID, fixture.snapshot.ID)
 	}
 	if persistedConfig.ImplantProfileID != "" {
 		t.Fatalf("build snapshot profile ID = %q, want detached config", persistedConfig.ImplantProfileID)
@@ -89,40 +117,62 @@ func TestProfileMutationDoesNotChangeStoredBuildSnapshotPolicy(t *testing.T) {
 	if persistedConfig.ControlFlow != clientpb.ControlFlowPolicy_CONTROL_FLOW_BALANCED_V1 {
 		t.Fatalf("stored build policy = %v after profile mutation, want balanced-v1", persistedConfig.ControlFlow)
 	}
+	return persistedBuild
+}
+
+func (fixture *storedBuildSnapshotFixture) assertBuildUpdatePreservesSourceProfile(t *testing.T, persistedBuild *clientpb.ImplantBuild) {
+	t.Helper()
 
 	if _, err := db.SaveImplantBuild(persistedBuild); err != nil {
 		t.Fatalf("SaveImplantBuild() update error = %v", err)
 	}
 	storedBuild := &models.ImplantBuild{}
-	if err := db.Session().Where("id = ?", uuid.FromStringOrNil(build.ID)).First(storedBuild).Error; err != nil {
+	if err := db.Session().Where("id = ?", uuid.FromStringOrNil(fixture.build.ID)).First(storedBuild).Error; err != nil {
 		t.Fatalf("load build model: %v", err)
 	}
-	if storedBuild.SourceImplantProfileID == nil || storedBuild.SourceImplantProfileID.String() != profile.ID {
-		t.Fatalf("source profile ID after build update = %v, want %q", storedBuild.SourceImplantProfileID, profile.ID)
+	if storedBuild.SourceImplantProfileID == nil || storedBuild.SourceImplantProfileID.String() != fixture.profile.ID {
+		t.Fatalf("source profile ID after build update = %v, want %q", storedBuild.SourceImplantProfileID, fixture.profile.ID)
 	}
+}
 
-	listedProfile, err := db.ProfileByName(profileName)
+func (fixture *storedBuildSnapshotFixture) assertProfileListsBuild(t *testing.T) {
+	t.Helper()
+
+	listedProfile, err := db.ProfileByName(fixture.profileName)
 	if err != nil {
 		t.Fatalf("ProfileByName() error = %v", err)
 	}
-	if len(listedProfile.Config.ImplantBuilds) != 1 || listedProfile.Config.ImplantBuilds[0].Name != buildName {
-		t.Fatalf("profile builds = %v, want detached snapshot build %q", listedProfile.Config.ImplantBuilds, buildName)
+	if len(listedProfile.Config.ImplantBuilds) != 1 || listedProfile.Config.ImplantBuilds[0].Name != fixture.buildName {
+		t.Fatalf("profile builds = %v, want detached snapshot build %q", listedProfile.Config.ImplantBuilds, fixture.buildName)
 	}
+}
 
-	if err := db.Session().Where("id = ?", uuid.FromStringOrNil(build.ID)).Delete(&models.ImplantBuild{}).Error; err != nil {
+func (fixture *storedBuildSnapshotFixture) deleteBuildAndProfileRetainsAuditSnapshot(t *testing.T) {
+	t.Helper()
+
+	if err := db.Session().Where("id = ?", uuid.FromStringOrNil(fixture.build.ID)).Delete(&models.ImplantBuild{}).Error; err != nil {
 		t.Fatalf("delete build record: %v", err)
 	}
-	buildID = ""
-	if err := db.DeleteProfile(profileName); err != nil {
+	fixture.buildID = ""
+	if err := db.DeleteProfile(fixture.profileName); err != nil {
 		t.Fatalf("DeleteProfile() error = %v", err)
 	}
-	auditConfig, err := db.ImplantConfigByID(snapshot.ID)
+	auditConfig, err := db.ImplantConfigByID(fixture.snapshot.ID)
 	if err != nil {
 		t.Fatalf("load origin-policy audit config after build/profile deletion: %v", err)
 	}
 	if auditConfig.ControlFlow != clientpb.ControlFlowPolicy_CONTROL_FLOW_BALANCED_V1 {
 		t.Fatalf("retained audit policy = %v, want balanced-v1", auditConfig.ControlFlow)
 	}
+}
+
+func TestProfileMutationDoesNotChangeStoredBuildSnapshotPolicy(t *testing.T) {
+	fixture := newStoredBuildSnapshotFixture(t)
+	fixture.mutateProfilePolicy(t)
+	persistedBuild := fixture.assertPersistedSnapshot(t)
+	fixture.assertBuildUpdatePreservesSourceProfile(t, persistedBuild)
+	fixture.assertProfileListsBuild(t)
+	fixture.deleteBuildAndProfileRetainsAuditSnapshot(t)
 }
 
 func TestDeleteFailedImplantConfigSnapshotOnlyDeletesUnreferencedSnapshot(t *testing.T) {

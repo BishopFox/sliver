@@ -92,10 +92,14 @@ var (
 		"windows/arm64": true,
 	}
 
-	ErrNoExternalBuilder    = errors.New("no external builders are available")
-	ErrNoValidBuilders      = errors.New("no valid external builders for target")
+	// ErrNoExternalBuilder indicates that no external builders are registered.
+	ErrNoExternalBuilder = errors.New("no external builders are available")
+	// ErrNoValidBuilders indicates that no external builder supports the target.
+	ErrNoValidBuilders = errors.New("no valid external builders for target")
+	// ErrNoControlFlowBuilder indicates that no target-compatible builder supports control-flow obfuscation.
 	ErrNoControlFlowBuilder = errors.New("no target-compatible external builder supports control-flow obfuscation")
-	ErrNoSelection          = errors.New("no selection")
+	// ErrNoSelection indicates that the user did not select an external builder.
+	ErrNoSelection = errors.New("no selection")
 )
 
 const (
