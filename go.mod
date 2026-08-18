@@ -12,7 +12,7 @@ require (
 	charm.land/bubbles/v2 v2.0.0
 	charm.land/glamour/v2 v2.0.1
 	charm.land/huh/v2 v2.0.3
-	charm.land/lipgloss/v2 v2.0.4
+	charm.land/lipgloss/v2 v2.0.6
 	filippo.io/age v1.3.1
 	github.com/Binject/binjection v0.0.0-20210701074423-605d46e35deb
 	github.com/Binject/debug v0.0.0-20230508195519-26db73212a7a
@@ -63,7 +63,7 @@ require (
 	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa
 	golang.org/x/mod v0.37.0
 	golang.org/x/net v0.56.0
-	golang.org/x/sys v0.46.0
+	golang.org/x/sys v0.47.0
 	golang.org/x/term v0.44.0
 	golang.org/x/text v0.40.0
 	golang.zx2c4.com/wireguard v0.0.0-20250521234502-f333402bd9cb
@@ -126,7 +126,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/charmbracelet/harmonica v0.2.0 // indirect
-	github.com/charmbracelet/ultraviolet v0.0.0-20260205113103-524a6607adb8 // indirect
+	github.com/charmbracelet/ultraviolet v0.0.0-20260811164956-006e29f97886 // indirect
 	github.com/charmbracelet/x/exp/ordered v0.1.0 // indirect
 	github.com/charmbracelet/x/exp/slice v0.0.0-20250904123553-b4e2667e5ad5 // indirect
 	github.com/charmbracelet/x/termios v0.1.1 // indirect
@@ -241,7 +241,7 @@ require (
 	github.com/carapace-sh/carapace-shlex v1.1.1 // indirect
 	github.com/catppuccin/go v0.3.0 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3
-	github.com/charmbracelet/x/ansi v0.11.7
+	github.com/charmbracelet/x/ansi v0.11.8
 	github.com/charmbracelet/x/exp/charmtone v0.0.0-20260109001716-2fbdffcb221f
 	github.com/charmbracelet/x/exp/strings v0.0.0-20240722160745-212f7b056ed0 // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect
@@ -281,12 +281,12 @@ require (
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/jsimonetti/rtnetlink v1.4.2 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
-	github.com/lucasb-eyer/go-colorful v1.4.0
+	github.com/lucasb-eyer/go-colorful v1.4.1
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/mark3labs/mcp-go v0.45.0
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/mattn/go-runewidth v0.0.23 // indirect
+	github.com/mattn/go-runewidth v0.0.24 // indirect
 	github.com/mdlayher/netlink v1.8.0 // indirect
 	github.com/mdlayher/socket v0.5.1 // indirect
 	github.com/mitchellh/go-ps v1.0.0 // indirect
