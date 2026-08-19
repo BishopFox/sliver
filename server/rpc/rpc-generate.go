@@ -1086,7 +1086,7 @@ func (rpc *Server) GenerateStage(ctx context.Context, req *clientpb.GenerateStag
 		if err != nil {
 			return nil, rpcError(err)
 		}
-	} else if err := util.AllowedName(name); err != nil {
+	} else if err := util.AllowedName(req.Name); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	} else {
 		name = req.Name
