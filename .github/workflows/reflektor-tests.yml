@@ -6,10 +6,12 @@ on:
       - master
     paths:
       - "implant/**"
+      - "test/reflektor/**"
       - ".github/workflows/reflektor-tests.yml"
   pull_request:
     paths:
       - "implant/**"
+      - "test/reflektor/**"
       - ".github/workflows/reflektor-tests.yml"
     types:
       - opened

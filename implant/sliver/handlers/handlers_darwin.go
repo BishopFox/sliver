@@ -92,69 +92,8 @@ func GetSystemHandlers() map[uint32]RPCHandler {
 
 // Extensions
 
-func registerExtensionHandler(data []byte, resp RPCResponse) {
-	registerReq := &pb.RegisterExtensionReq{}
-
-	err := proto.Unmarshal(data, registerReq)
-	if err != nil {
-		return
-	}
-
-	ext := extension.NewDarwinExtension(registerReq.Data, registerReq.Name, registerReq.OS, registerReq.Init)
-	extension.Add(ext)
-	err = ext.Load()
-	registerResp := &pb.RegisterExtension{
-		Response: &commonpb.Response{},
-	}
-	if err != nil {
-		registerResp.Response.Err = err.Error()
-	}
-	data, err = proto.Marshal(registerResp)
-	resp(data, err)
-}
-
-func callExtensionHandler(data []byte, resp RPCResponse) {
-	callReq := &pb.CallExtensionReq{}
-
-	err := proto.Unmarshal(data, callReq)
-	if err != nil {
-		return
-	}
-
-	callResp := &pb.CallExtension{
-		Response: &commonpb.Response{},
-	}
-	gotOutput := false
-	err = extension.Run(callReq.Name, callReq.Export, callReq.Args, func(out []byte) {
-		gotOutput = true
-		callResp.Output = out
-		data, err = proto.Marshal(callResp)
-		resp(data, err)
-	})
-	// Only send back synchronously if there was an error
-	if err != nil || !gotOutput {
-		if err != nil {
-			callResp.Response.Err = err.Error()
-		}
-		data, err = proto.Marshal(callResp)
-		resp(data, err)
-	}
-}
-
-func listExtensionsHandler(data []byte, resp RPCResponse) {
-	lstReq := &pb.ListExtensionsReq{}
-	err := proto.Unmarshal(data, lstReq)
-	if err != nil {
-		return
-	}
-
-	exts := extension.List()
-	lstResp := &pb.ListExtensions{
-		Response: &commonpb.Response{},
-		Names:    exts,
-	}
-	data, err = proto.Marshal(lstResp)
-	resp(data, err)
+func newExtension(data []byte, id string, arch string, init string) extension.Extension {
+	return extension.NewDarwinExtension(data, id, arch, init)
 }
 
 func mountHandler(data []byte, resp RPCResponse) {

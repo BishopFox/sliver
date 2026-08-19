@@ -1,10 +1,21 @@
 package extensions
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"testing"
+	"time"
 
+	"github.com/bishopfox/sliver/client/console"
+	consts "github.com/bishopfox/sliver/client/constants"
+	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
+	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/util"
+	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
 )
 
 /*
@@ -115,6 +126,25 @@ const (
 	}`
 )
 
+type registerExtensionTestRPC struct {
+	rpcpb.SliverRPCClient
+	register func(context.Context, *sliverpb.RegisterExtensionReq, ...grpc.CallOption) (*sliverpb.RegisterExtension, error)
+}
+
+func (f *registerExtensionTestRPC) RegisterExtension(ctx context.Context, req *sliverpb.RegisterExtensionReq, opts ...grpc.CallOption) (*sliverpb.RegisterExtension, error) {
+	return f.register(ctx, req, opts...)
+}
+
+func newExtensionTestConsole(t *testing.T, rpc rpcpb.SliverRPCClient, session *clientpb.Session, beacon *clientpb.Beacon) *console.SliverClient {
+	t.Helper()
+
+	con := console.NewConsole(false)
+	con.IsCLI = true
+	con.Rpc = rpc
+	con.ActiveTarget.Set(session, beacon)
+	return con
+}
+
 func TestParseExtensionManifest(t *testing.T) {
 	expectedPath := util.ResolvePath("foo/test1.dll")
 
@@ -187,6 +217,218 @@ func TestParseExtensionManifest(t *testing.T) {
 		}
 	}
 
+}
+
+func TestConvertOldManifestPreservesInit(t *testing.T) {
+	const initExport = "InitializeExtension"
+
+	manifest, err := ParseExtensionManifest([]byte(`{
+		"name": "legacy-test",
+		"command_name": "legacy-test",
+		"help": "some help",
+		"init": "InitializeExtension",
+		"files": [
+			{
+				"os": "windows",
+				"arch": "amd64",
+				"path": "foo/test.dll"
+			}
+		]
+	}`))
+	if err != nil {
+		t.Fatalf("Error parsing legacy extension manifest: %s", err)
+	}
+	if len(manifest.ExtCommand) != 1 {
+		t.Fatalf("Expected 1 extension command, got %d", len(manifest.ExtCommand))
+	}
+	if manifest.ExtCommand[0].Init != initExport {
+		t.Errorf("Expected init export %q, got %q", initExport, manifest.ExtCommand[0].Init)
+	}
+}
+
+func TestRegisterExtensionPropagatesInit(t *testing.T) {
+	const initExport = "InitializeExtension"
+
+	tests := []struct {
+		name      string
+		session   *clientpb.Session
+		beacon    *clientpb.Beacon
+		wantAsync bool
+		wantID    string
+	}{
+		{
+			name:    "session",
+			session: &clientpb.Session{ID: "session-id"},
+			wantID:  "session-id",
+		},
+		{
+			name:      "beacon",
+			beacon:    &clientpb.Beacon{ID: "beacon-id"},
+			wantAsync: true,
+			wantID:    "beacon-id",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var gotReq *sliverpb.RegisterExtensionReq
+			rpc := &registerExtensionTestRPC{
+				register: func(_ context.Context, req *sliverpb.RegisterExtensionReq, _ ...grpc.CallOption) (*sliverpb.RegisterExtension, error) {
+					gotReq = req
+					return &sliverpb.RegisterExtension{Response: &commonpb.Response{}}, nil
+				},
+			}
+			con := newExtensionTestConsole(t, rpc, test.session, test.beacon)
+
+			err := registerExtension("linux", &ExtCommand{CommandName: "test", Init: initExport}, []byte("extension"), nil, con)
+			if err != nil {
+				t.Fatalf("RegisterExtension returned an error: %s", err)
+			}
+			if gotReq == nil {
+				t.Fatal("RegisterExtension RPC was not called")
+			}
+			if gotReq.Init != initExport {
+				t.Errorf("Expected init export %q, got %q", initExport, gotReq.Init)
+			}
+			if gotReq.Request.GetAsync() != test.wantAsync {
+				t.Errorf("Expected async=%t, got %t", test.wantAsync, gotReq.Request.GetAsync())
+			}
+			if test.wantAsync && gotReq.Request.GetBeaconID() != test.wantID {
+				t.Errorf("Expected beacon ID %q, got %q", test.wantID, gotReq.Request.GetBeaconID())
+			}
+			if !test.wantAsync && gotReq.Request.GetSessionID() != test.wantID {
+				t.Errorf("Expected session ID %q, got %q", test.wantID, gotReq.Request.GetSessionID())
+			}
+		})
+	}
+}
+
+func TestRegisterExtensionWaitsForBeaconRegistration(t *testing.T) {
+	started := make(chan struct{})
+	release := make(chan struct{})
+	rpc := &registerExtensionTestRPC{
+		register: func(_ context.Context, _ *sliverpb.RegisterExtensionReq, _ ...grpc.CallOption) (*sliverpb.RegisterExtension, error) {
+			close(started)
+			<-release
+			return &sliverpb.RegisterExtension{Response: &commonpb.Response{Async: true}}, nil
+		},
+	}
+	con := newExtensionTestConsole(t, rpc, nil, &clientpb.Beacon{ID: "beacon-id"})
+	done := make(chan error, 1)
+	go func() {
+		done <- registerExtension("linux", &ExtCommand{CommandName: "test"}, []byte("extension"), nil, con)
+	}()
+
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("Timed out waiting for RegisterExtension RPC")
+	}
+	select {
+	case err := <-done:
+		t.Fatalf("RegisterExtension returned before the beacon registration was enqueued: %v", err)
+	case <-time.After(100 * time.Millisecond):
+	}
+	close(release)
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("RegisterExtension returned an error: %s", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Timed out waiting for RegisterExtension to return")
+	}
+}
+
+func TestRegisterExtensionReturnsBeaconRPCError(t *testing.T) {
+	wantErr := errors.New("register failed")
+	rpc := &registerExtensionTestRPC{
+		register: func(_ context.Context, _ *sliverpb.RegisterExtensionReq, _ ...grpc.CallOption) (*sliverpb.RegisterExtension, error) {
+			return nil, wantErr
+		},
+	}
+	con := newExtensionTestConsole(t, rpc, nil, &clientpb.Beacon{ID: "beacon-id"})
+
+	err := registerExtension("linux", &ExtCommand{CommandName: "test"}, []byte("extension"), nil, con)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("Expected error %q, got %v", wantErr, err)
+	}
+}
+
+func TestRegisterExtensionRejectsNilResponse(t *testing.T) {
+	rpc := &registerExtensionTestRPC{
+		register: func(_ context.Context, _ *sliverpb.RegisterExtensionReq, _ ...grpc.CallOption) (*sliverpb.RegisterExtension, error) {
+			return nil, nil
+		},
+	}
+	con := newExtensionTestConsole(t, rpc, &clientpb.Session{ID: "session-id"}, nil)
+
+	if err := registerExtension("linux", &ExtCommand{CommandName: "test"}, []byte("extension"), nil, con); err == nil {
+		t.Fatal("RegisterExtension accepted a nil response")
+	}
+}
+
+func TestExtensionCommandVisibilityUsesExactTargetPairs(t *testing.T) {
+	extension := &ExtCommand{Files: []*extensionFile{
+		{OS: "windows", Arch: "amd64"},
+		{OS: "linux", Arch: "amd64"},
+		{OS: "darwin", Arch: "arm64"},
+	}}
+
+	tests := []struct {
+		name        string
+		session     *clientpb.Session
+		beacon      *clientpb.Beacon
+		wantVisible bool
+	}{
+		{
+			name:        "cross-platform Linux session",
+			session:     &clientpb.Session{OS: "linux", Arch: "amd64"},
+			wantVisible: true,
+		},
+		{
+			name:        "cross-platform macOS beacon",
+			beacon:      &clientpb.Beacon{OS: "darwin", Arch: "arm64"},
+			wantVisible: true,
+		},
+		{
+			name:        "cross-platform Windows session",
+			session:     &clientpb.Session{OS: "windows", Arch: "amd64"},
+			wantVisible: true,
+		},
+		{
+			name:        "Linux architecture mismatch",
+			session:     &clientpb.Session{OS: "linux", Arch: "arm64"},
+			wantVisible: false,
+		},
+		{
+			name:        "macOS architecture mismatch",
+			beacon:      &clientpb.Beacon{OS: "darwin", Arch: "amd64"},
+			wantVisible: false,
+		},
+		{
+			name:        "Windows architecture mismatch",
+			session:     &clientpb.Session{OS: "windows", Arch: "386"},
+			wantVisible: false,
+		},
+		{
+			name:        "unsupported native extension target",
+			beacon:      &clientpb.Beacon{OS: "linux", Arch: "riscv64"},
+			wantVisible: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			con := newExtensionTestConsole(t, nil, test.session, test.beacon)
+			command := &cobra.Command{Annotations: makeCommandPlatformFilters(extension)}
+			activeFilters := con.App.Menu(consts.ImplantMenu).ActiveFiltersFor(command)
+			visible := len(activeFilters) == 0
+			if visible != test.wantVisible {
+				t.Fatalf("command visibility = %t, want %t (active filters: %v)", visible, test.wantVisible, activeFilters)
+			}
+		})
+	}
 }
 
 func TestParseMultipleCmdManifest(t *testing.T) {
