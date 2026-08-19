@@ -322,6 +322,9 @@ func ExtensionRegisterCommand(extCmd *ExtCommand, cmd *cobra.Command, con *conso
 		if arg.Optional {
 			usage.WriteString("[")
 		}
+		usage.WriteString("--")
+		usage.WriteString(arg.Name)
+		usage.WriteString(" ")
 		usage.WriteString(strings.ToUpper(arg.Name))
 		if arg.Optional {
 			usage.WriteString("]")
@@ -362,13 +365,33 @@ func ExtensionRegisterCommand(extCmd *ExtCommand, cmd *cobra.Command, con *conso
 		longHelp.WriteString(fmt.Sprintf("%s (%s):\t%s%s", strings.ToUpper(arg.Name), aType, optStr, arg.Desc))
 	}
 
+	example := ""
+	if len(extCmd.Arguments) > 0 {
+		longHelp.WriteString("\n\n[[.Bold]]Syntax:[[.Normal]] Pass extension arguments directly. The legacy -- separator is also supported.\n")
+		argumentUsage := strings.TrimPrefix(usage.String(), extCmd.CommandName+" ")
+		example = fmt.Sprintf("  %s\n  %s -- %s", usage.String(), extCmd.CommandName, argumentUsage)
+	}
+
 	// Command
 	extensionCmd := &cobra.Command{
-		Use:   usage.String(),
-		Short: extCmd.Help,
-		Long:  help.FormatHelpTmpl(longHelp.String()),
+		Use:                usage.String(),
+		Short:              extCmd.Help,
+		Long:               help.FormatHelpTmpl(longHelp.String()),
+		Example:            example,
+		DisableFlagParsing: true,
 		Run: func(cmd *cobra.Command, args []string) {
-			runExtensionCmd(cmd, con, args)
+			extensionArgs, helpRequested, err := parseExtensionCommandArgs(cmd, args)
+			if err != nil {
+				con.PrintErrorf("Extension args error: %s\n", err)
+				return
+			}
+			if helpRequested {
+				if err := cmd.Help(); err != nil {
+					con.PrintErrorf("Extension help error: %s\n", err)
+				}
+				return
+			}
+			runExtensionCmd(cmd, con, extensionArgs)
 		},
 		GroupID: consts.ExtensionHelpGroup,
 		// DisableFlagParsing keeps the extension's own flags (which are unknown to
@@ -766,8 +789,8 @@ func checkExtensionArgs(extCmd *ExtCommand) error {
 
 // makeExtensionArgCompleter builds the positional and dash arguments completer for the extension.
 // It provides completion for:
-// 1. Positional arguments (before --)
-// 2. Flag-style arguments after -- (e.g., --process, --shellcode)
+// 1. Positional arguments
+// 2. Flag-style arguments with or without -- (e.g., --process, --shellcode)
 func makeExtensionArgCompleter(extCmd *ExtCommand, _ *cobra.Command, comps *carapace.Carapace) {
 	var actions []carapace.Action
 
@@ -797,7 +820,7 @@ func makeExtensionArgCompleter(extCmd *ExtCommand, _ *cobra.Command, comps *cara
 
 	comps.PositionalCompletion(actions...)
 
-	// Add dash completion for flag-style arguments after --
+	// Add dash completion for flag-style arguments
 	// The extension arguments are parsed as flags (--name value) by argparser.go
 	if len(extCmd.Arguments) > 0 {
 		// Pre-build the flag completions at registration time (not in a callback)
