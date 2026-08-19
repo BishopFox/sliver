@@ -20,6 +20,7 @@ package extension
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+// LinuxExtension is a Reflektor-backed native Linux extension.
 type LinuxExtension = UnixExtension
 
 // NewLinuxExtension creates a native Linux extension backed by Reflektor.

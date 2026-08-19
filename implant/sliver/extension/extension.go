@@ -28,7 +28,9 @@ import (
 )
 
 const (
+	// Success indicates that a native extension callback completed successfully.
 	Success = 0
+	// Failure indicates that a native extension callback failed.
 	Failure = 1
 )
 

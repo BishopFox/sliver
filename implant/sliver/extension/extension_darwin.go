@@ -18,6 +18,7 @@ package extension
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+// DarwinExtension is a Reflektor-backed native macOS extension.
 type DarwinExtension = UnixExtension
 
 // NewDarwinExtension creates a native macOS extension backed by Reflektor.

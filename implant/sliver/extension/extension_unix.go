@@ -32,13 +32,15 @@ import (
 	// {{end}}
 
 	"github.com/ebitengine/purego"
-	reflektor "github.com/sliverarmory/reflektor"
+	reflektor "github.com/sliverarmory/reflektor/native"
 )
 
 type extensionCall struct {
 	onFinish func([]byte)
 }
 
+// UnixExtension is a Reflektor-backed native extension for supported Unix
+// targets.
 type UnixExtension struct {
 	id       string
 	data     []byte
@@ -59,14 +61,17 @@ func newUnixExtension(data []byte, id string, arch string, init string) *UnixExt
 	}
 }
 
+// GetID returns the extension identifier.
 func (u *UnixExtension) GetID() string {
 	return u.id
 }
 
+// GetArch returns the extension architecture.
 func (u *UnixExtension) GetArch() string {
 	return u.arch
 }
 
+// Load maps the extension and invokes its optional initialization export.
 func (u *UnixExtension) Load() error {
 	if len(u.data) == 0 {
 		return errors.New("{{if .Config.Debug}} extension data is empty {{end}}")
@@ -102,6 +107,7 @@ func (u *UnixExtension) Load() error {
 	return nil
 }
 
+// Call invokes an extension export with the native extension callback ABI.
 func (u *UnixExtension) Call(export string, arguments []byte, onFinish func([]byte)) error {
 	u.Lock()
 	defer u.Unlock()
@@ -143,7 +149,7 @@ func newUnixExtensionCallback(extension *UnixExtension) (callback uintptr, err e
 	return purego.NewCallback(extension.extensionCallback), nil
 }
 
-func (u *UnixExtension) extensionCallback(data uintptr, dataLen int32) (result int32) {
+func (u *UnixExtension) extensionCallback(data unsafe.Pointer, dataLen int32) (result int32) {
 	result = Failure
 	defer func() {
 		if recover() != nil {
@@ -158,11 +164,11 @@ func (u *UnixExtension) extensionCallback(data uintptr, dataLen int32) (result i
 	if dataLen == 0 {
 		return Success
 	}
-	if data == 0 || dataLen < 0 {
+	if data == nil || dataLen < 0 {
 		return Failure
 	}
 
-	output := append([]byte(nil), unsafe.Slice((*byte)(unsafe.Pointer(data)), int(dataLen))...)
+	output := append([]byte(nil), unsafe.Slice((*byte)(data), int(dataLen))...)
 	call.onFinish(output)
 	return Success
 }

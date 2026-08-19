@@ -46,6 +46,7 @@ const (
 type options struct {
 	repoPath       string
 	serverPath     string
+	reflektorPath  string
 	targetOS       string
 	targetArch     string
 	timeout        time.Duration
@@ -69,6 +70,7 @@ func main() {
 	opts := options{}
 	flag.StringVar(&opts.repoPath, "repo", ".", "path to the Sliver repository")
 	flag.StringVar(&opts.serverPath, "server", "", "path to the Sliver server executable")
+	flag.StringVar(&opts.reflektorPath, "reflektor", "", "path to a prebuilt Reflektor CLI (defaults to the version in Sliver's go.mod)")
 	flag.StringVar(&opts.targetOS, "target-os", runtime.GOOS, "shared library target operating system")
 	flag.StringVar(&opts.targetArch, "target-arch", runtime.GOARCH, "shared library target architecture")
 	flag.DurationVar(&opts.timeout, "timeout", 60*time.Minute, "overall integration test timeout")
@@ -280,11 +282,17 @@ func run(opts options) error {
 	}
 	fmt.Printf("Generated %s/%s session shared library %s\n", opts.targetOS, opts.targetArch, filepath.Base(libraryPath))
 
-	reflektorPath, reflektorVersion, err := buildReflektorCLI(ctx, opts.repoPath, workDir, opts.targetOS, opts.targetArch)
-	if err != nil {
-		return err
+	reflektorPath := opts.reflektorPath
+	if reflektorPath == "" {
+		var reflektorVersion string
+		reflektorPath, reflektorVersion, err = buildReflektorCLI(ctx, opts.repoPath, workDir, opts.targetOS, opts.targetArch)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Built Reflektor CLI %s from Sliver go.mod\n", reflektorVersion)
+	} else {
+		fmt.Printf("Using prebuilt Reflektor CLI %s\n", reflektorPath)
 	}
-	fmt.Printf("Built Reflektor CLI %s from Sliver go.mod\n", reflektorVersion)
 
 	reflektorLog := filepath.Join(workDir, "reflektor.log")
 	reflektorProcess, err := startProcess(
@@ -575,12 +583,25 @@ func validateOptions(opts *options) error {
 	} else if stat.IsDir() {
 		return fmt.Errorf("server executable %q is a directory", serverPath)
 	}
+	reflektorPath := ""
+	if opts.reflektorPath != "" {
+		reflektorPath, err = filepath.Abs(opts.reflektorPath)
+		if err != nil {
+			return fmt.Errorf("resolve Reflektor CLI path: %w", err)
+		}
+		if stat, statErr := os.Stat(reflektorPath); statErr != nil {
+			return fmt.Errorf("stat Reflektor CLI: %w", statErr)
+		} else if stat.IsDir() {
+			return fmt.Errorf("Reflektor CLI %q is a directory", reflektorPath)
+		}
+	}
 	if _, err := os.Stat(filepath.Join(repoPath, "go.mod")); err != nil {
 		return fmt.Errorf("repository does not contain go.mod: %w", err)
 	}
 
 	opts.repoPath = repoPath
 	opts.serverPath = serverPath
+	opts.reflektorPath = reflektorPath
 	opts.targetOS = strings.ToLower(strings.TrimSpace(opts.targetOS))
 	opts.targetArch = strings.ToLower(strings.TrimSpace(opts.targetArch))
 

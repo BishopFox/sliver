@@ -1326,10 +1326,12 @@ github.com/sliverarmory/beignet/internal/stager
 ## explicit; go 1.25.6
 github.com/sliverarmory/malasada
 github.com/sliverarmory/malasada/internal/aplib
-# github.com/sliverarmory/reflektor v0.0.4
+# github.com/sliverarmory/reflektor v0.0.5-0.20260819155705-720435b5b58c
 ## explicit; go 1.26.6
-github.com/sliverarmory/reflektor
 github.com/sliverarmory/reflektor/memmod
+github.com/sliverarmory/reflektor/native
+github.com/sliverarmory/reflektor/native/internal/linuxmem
+github.com/sliverarmory/reflektor/native/internal/rejection
 # github.com/sliverarmory/wasm-donut v0.0.3
 ## explicit; go 1.25.6
 github.com/sliverarmory/wasm-donut
