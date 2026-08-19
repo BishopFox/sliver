@@ -189,5 +189,20 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	})
 	completers.RegisterLocalFilePathFlagCompletions(stageCmd, "cert", "key")
 
-	return []*cobra.Command{jobsCmd, mtlsCmd, wgCmd, dnsCmd, httpCmd, httpsCmd, stageCmd}
+	// TCP Forwarder (WG virtual network)
+	tcpFwdCmd := &cobra.Command{
+		Use:   "tcp-fwd",
+		Short: "Start a TCP forwarder on the virtual tunnel network",
+		Long:  help.GetHelpFor([]string{consts.TcpFwdStr}),
+		Run: func(cmd *cobra.Command, args []string) {
+			TCPFwdListenerCmd(cmd, con, args)
+		},
+		GroupID: consts.NetworkHelpGroup,
+	}
+	flags.Bind("TCP forwarder", false, tcpFwdCmd, func(f *pflag.FlagSet) {
+		f.Uint32P("port", "p", 9100, "port on virtual tunnel network")
+		f.StringP("local", "L", "127.0.0.1:9100", "local address to forward to")
+	})
+
+	return []*cobra.Command{jobsCmd, mtlsCmd, wgCmd, dnsCmd, httpCmd, httpsCmd, stageCmd, tcpFwdCmd}
 }
