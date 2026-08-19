@@ -230,12 +230,19 @@ func (r *resizer) expandTableWidth() (colWidths []int) {
 	return
 }
 
+// minWidth returns the minimum width floor for a column: horizontal padding
+// plus at least 1 to ensure the "…" truncation marker or one character is
+// always visible. A column must never shrink below this floor.
+func (r *resizer) minWidth(j int) int {
+	return r.xPaddingForCol(j) + max(r.columns[j].min, 1)
+}
+
 // shrinkTableWidth shrinks the table width.
 func (r *resizer) shrinkTableWidth() (colWidths []int) {
 	colWidths = r.maxColumnWidths()
 
 	// Cut width of columns that are way too big.
-	shrinkBiggestColumns := func(veryBigOnly bool) {
+	shrinkBiggestColumns := func(veryBigOnly, useFloor bool) {
 		for {
 			totalWidth := sum(colWidths) + r.totalHorizontalBorder()
 			if totalWidth <= r.tableWidth {
@@ -247,6 +254,9 @@ func (r *resizer) shrinkTableWidth() (colWidths []int) {
 
 			for j, width := range colWidths {
 				if width == r.columns[j].fixedWidth {
+					continue
+				}
+				if useFloor && width <= r.minWidth(j) {
 					continue
 				}
 				if veryBigOnly {
@@ -270,7 +280,7 @@ func (r *resizer) shrinkTableWidth() (colWidths []int) {
 	}
 
 	// Cut width of columns that differ the most from the median.
-	shrinkToMedian := func() {
+	shrinkToMedian := func(useFloor bool) {
 		for {
 			totalWidth := sum(colWidths) + r.totalHorizontalBorder()
 			if totalWidth <= r.tableWidth {
@@ -282,6 +292,9 @@ func (r *resizer) shrinkTableWidth() (colWidths []int) {
 
 			for j, width := range colWidths {
 				if width == r.columns[j].fixedWidth {
+					continue
+				}
+				if useFloor && width <= r.minWidth(j) {
 					continue
 				}
 				diffToMedian := width - r.columns[j].median
@@ -298,9 +311,19 @@ func (r *resizer) shrinkTableWidth() (colWidths []int) {
 		}
 	}
 
-	shrinkBiggestColumns(true)
-	shrinkToMedian()
-	shrinkBiggestColumns(false)
+	// First pass: shrink respecting column minimum widths so short columns
+	// don't collapse to zero.
+	shrinkBiggestColumns(true, true)
+	shrinkToMedian(true)
+	shrinkBiggestColumns(false, true)
+
+	// If the table is still too wide (e.g. impossible width budgets like
+	// Width(1)), fall back to unreserved shrinking without a floor.
+	if sum(colWidths)+r.totalHorizontalBorder() > r.tableWidth {
+		shrinkBiggestColumns(true, false)
+		shrinkToMedian(false)
+		shrinkBiggestColumns(false, false)
+	}
 
 	r.expandRowHeights(colWidths)
 

@@ -31,7 +31,7 @@ charm.land/huh/v2/internal/accessibility
 charm.land/huh/v2/internal/compat
 charm.land/huh/v2/internal/selector
 charm.land/huh/v2/spinner
-# charm.land/lipgloss/v2 v2.0.4
+# charm.land/lipgloss/v2 v2.0.6
 ## explicit; go 1.25.0
 charm.land/lipgloss/v2
 charm.land/lipgloss/v2/table
@@ -442,10 +442,10 @@ github.com/charmbracelet/colorprofile
 # github.com/charmbracelet/harmonica v0.2.0
 ## explicit; go 1.16
 github.com/charmbracelet/harmonica
-# github.com/charmbracelet/ultraviolet v0.0.0-20260205113103-524a6607adb8
-## explicit; go 1.24.2
+# github.com/charmbracelet/ultraviolet v0.0.0-20260811164956-006e29f97886
+## explicit; go 1.25.0
 github.com/charmbracelet/ultraviolet
-# github.com/charmbracelet/x/ansi v0.11.7
+# github.com/charmbracelet/x/ansi v0.11.8
 ## explicit; go 1.24.2
 github.com/charmbracelet/x/ansi
 github.com/charmbracelet/x/ansi/kitty
@@ -877,7 +877,7 @@ github.com/jackc/puddle/v2/internal/genstack
 ## explicit; go 1.7
 github.com/jcmturner/gofork/encoding/asn1
 github.com/jcmturner/gofork/x/crypto/pbkdf2
-# github.com/jedib0t/go-pretty/v6 v6.7.8
+# github.com/jedib0t/go-pretty/v6 v6.8.3
 ## explicit; go 1.18
 github.com/jedib0t/go-pretty/v6/table
 github.com/jedib0t/go-pretty/v6/text
@@ -949,7 +949,7 @@ github.com/lesnuages/snitch/pkg/snitch
 # github.com/line/line-bot-sdk-go v7.8.0+incompatible
 ## explicit
 github.com/line/line-bot-sdk-go/linebot
-# github.com/lucasb-eyer/go-colorful v1.4.0
+# github.com/lucasb-eyer/go-colorful v1.4.1
 ## explicit; go 1.12
 github.com/lucasb-eyer/go-colorful
 # github.com/lxn/win v0.0.0-20210218163916-a377121e959e
@@ -982,7 +982,7 @@ github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.20
 ## explicit; go 1.15
 github.com/mattn/go-isatty
-# github.com/mattn/go-runewidth v0.0.23
+# github.com/mattn/go-runewidth v0.0.24
 ## explicit; go 1.20
 github.com/mattn/go-runewidth
 # github.com/mattn/go-sqlite3 v1.14.32
@@ -1023,9 +1023,6 @@ github.com/moloch--/asciicast
 # github.com/moloch--/go-keystone v0.0.2
 ## explicit; go 1.23
 github.com/moloch--/go-keystone
-# github.com/moloch--/memmod v0.0.0-20230225130813-fd77d905589e
-## explicit; go 1.17
-github.com/moloch--/memmod
 # github.com/moloch--/sgn v0.0.5
 ## explicit; go 1.23
 github.com/moloch--/sgn/pkg
@@ -1331,6 +1328,9 @@ github.com/sliverarmory/beignet/internal/stager
 ## explicit; go 1.25.6
 github.com/sliverarmory/malasada
 github.com/sliverarmory/malasada/internal/aplib
+# github.com/sliverarmory/reflektor v0.0.3
+## explicit; go 1.26.6
+github.com/sliverarmory/reflektor/memmod
 # github.com/sliverarmory/wasm-donut v0.0.3
 ## explicit; go 1.25.6
 github.com/sliverarmory/wasm-donut
@@ -1683,7 +1683,7 @@ golang.org/x/oauth2/jwt
 ## explicit; go 1.25.0
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.46.0
+# golang.org/x/sys v0.47.0
 ## explicit; go 1.25.0
 golang.org/x/sys/cpu
 golang.org/x/sys/plan9

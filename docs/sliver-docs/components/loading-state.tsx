@@ -3,9 +3,9 @@ import React from "react";
 
 const LoadingState: React.FC = () => {
   return (
-    <div className="flex min-h-screen w-full items-center justify-center gap-3 text-foreground">
+    <div className="flex min-h-[55vh] w-full items-center justify-center gap-3 text-muted">
       <Spinner aria-label="Loading" />
-      <span>Loading...</span>
+      <span className="text-sm">Loading documentation…</span>
     </div>
   );
 };
