@@ -118,16 +118,19 @@ func ImplantBuilds() (*clientpb.ImplantBuilds, error) {
 		Staged:      map[string]bool{},
 	}
 	for _, dbBuild := range builds {
+		resource, err := ResourceIDByName(dbBuild.Name)
+		if errors.Is(err, ErrRecordNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+
 		config, err := ImplantConfigByID(dbBuild.ImplantConfigID.String())
 		if err != nil {
 			return nil, err
 		}
 		pbBuilds.Configs[dbBuild.Name] = config
-
-		resource, err := ResourceIDByName(dbBuild.Name)
-		if err != nil {
-			return nil, err
-		}
 		pbBuilds.ResourceIDs[dbBuild.Name] = resource
 
 		pbBuilds.Staged[dbBuild.Name] = dbBuild.Stage
@@ -138,20 +141,47 @@ func ImplantBuilds() (*clientpb.ImplantBuilds, error) {
 
 // SaveImplantBuild
 func SaveImplantBuild(ib *clientpb.ImplantBuild) (*clientpb.ImplantBuild, error) {
+	return saveImplantBuild(ib, nil)
+}
+
+// SaveImplantBuildWithSourceProfile saves an implant build while retaining the
+// profile it was derived from. The build's ImplantConfigID still references an
+// immutable per-build config snapshot.
+func SaveImplantBuildWithSourceProfile(ib *clientpb.ImplantBuild, sourceProfileID string) (*clientpb.ImplantBuild, error) {
+	profileID, err := uuid.FromString(sourceProfileID)
+	if err != nil || profileID == uuid.Nil {
+		return nil, fmt.Errorf("invalid source implant profile ID %q", sourceProfileID)
+	}
+	return saveImplantBuild(ib, &profileID)
+}
+
+func saveImplantBuild(ib *clientpb.ImplantBuild, sourceProfileID *uuid.UUID) (*clientpb.ImplantBuild, error) {
+	if ib == nil {
+		return nil, errors.New("implant build cannot be nil")
+	}
 	dbSession := Session()
 	var implantBuild *models.ImplantBuild
 	if ib.ID != "" {
-		_, err := ImplantBuildByID(ib.ID)
-		if err != nil {
+		existingBuild := &models.ImplantBuild{}
+		buildID := uuid.FromStringOrNil(ib.ID)
+		if buildID == uuid.Nil {
+			return nil, ErrRecordNotFound
+		}
+		if err := dbSession.Where(&models.ImplantBuild{ID: buildID}).First(existingBuild).Error; err != nil {
 			return nil, err
 		}
 		implantBuild = models.ImplantBuildFromProtobuf(ib)
-		err = dbSession.Save(implantBuild).Error
+		implantBuild.SourceImplantProfileID = existingBuild.SourceImplantProfileID
+		if sourceProfileID != nil {
+			implantBuild.SourceImplantProfileID = sourceProfileID
+		}
+		err := dbSession.Save(implantBuild).Error
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		implantBuild = models.ImplantBuildFromProtobuf(ib)
+		implantBuild.SourceImplantProfileID = sourceProfileID
 		err := dbSession.Create(&implantBuild).Error
 		if err != nil {
 			return nil, err
@@ -183,6 +213,70 @@ func SaveImplantConfig(ic *clientpb.ImplantConfig) (*clientpb.ImplantConfig, err
 		}
 	}
 	return implantConfig.ToProtobuf(), nil
+}
+
+// CreateImplantConfigWithID creates a new implant config using a caller-chosen
+// UUID. This allows generated source to embed the final persistent config ID
+// before compilation without leaving an orphan record when compilation fails.
+func CreateImplantConfigWithID(ic *clientpb.ImplantConfig) (*clientpb.ImplantConfig, error) {
+	if ic == nil {
+		return nil, errors.New("implant config cannot be nil")
+	}
+	configID, err := uuid.FromString(ic.ID)
+	if err != nil || configID == uuid.Nil {
+		return nil, fmt.Errorf("invalid implant config ID %q", ic.ID)
+	}
+
+	implantConfig := models.ImplantConfigFromProtobuf(ic)
+	implantConfig.ID = configID
+	if err := Session().Create(implantConfig).Error; err != nil {
+		return nil, err
+	}
+	return implantConfig.ToProtobuf(), nil
+}
+
+// DeleteFailedImplantConfigSnapshot rolls back a newly-created, detached
+// config only when the immediately subsequent build save failed before any
+// ImplantBuild row could reference it. It must not be used for normal build or
+// profile deletion because active implants retain the config ID as origin
+// policy metadata.
+func DeleteFailedImplantConfigSnapshot(id string) error {
+	configID := uuid.FromStringOrNil(id)
+	if configID == uuid.Nil {
+		return fmt.Errorf("invalid failed implant config snapshot ID %q", id)
+	}
+
+	return Session().Transaction(func(tx *gorm.DB) error {
+		config := &models.ImplantConfig{}
+		if err := tx.Where(&models.ImplantConfig{ID: configID}).First(config).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil
+			}
+			return err
+		}
+		if config.ImplantProfileID != nil {
+			return fmt.Errorf("refusing to delete profile implant config %q after build save failure", id)
+		}
+
+		var buildCount int64
+		if err := tx.Model(&models.ImplantBuild{}).Where("implant_config_id = ?", configID).Count(&buildCount).Error; err != nil {
+			return err
+		}
+		if buildCount != 0 {
+			return nil
+		}
+
+		for _, relation := range []interface{}{
+			&models.ImplantC2{},
+			&models.EncoderAsset{},
+			&models.CanaryDomain{},
+		} {
+			if err := tx.Where("implant_config_id = ?", configID).Delete(relation).Error; err != nil {
+				return err
+			}
+		}
+		return tx.Where("id = ? AND implant_profile_id IS NULL", configID).Delete(&models.ImplantConfig{}).Error
+	})
 }
 
 // ImplantBuildByName - Fetch implant build by name
@@ -693,10 +787,20 @@ func ProfileByName(name string) (*clientpb.ImplantProfile, error) {
 		return nil, ErrRecordNotFound
 	}
 	dbProfile := &models.ImplantProfile{}
-	err := Session().Preload("ImplantConfig").Where(&models.ImplantProfile{Name: name}).Find(dbProfile).Error
+	err := Session().Preload("ImplantConfig").Where(&models.ImplantProfile{Name: name}).First(dbProfile).Error
+	if err != nil {
+		return nil, err
+	}
 
 	dbBuilds := []*models.ImplantBuild{}
-	err = Session().Where(&models.ImplantBuild{ImplantConfigID: dbProfile.ImplantConfig.ID}).Find(&dbBuilds).Error
+	err = Session().Where(
+		"implant_config_id = ? OR source_implant_profile_id = ?",
+		dbProfile.ImplantConfig.ID,
+		dbProfile.ID,
+	).Find(&dbBuilds).Error
+	if err != nil {
+		return nil, err
+	}
 	builds := []*clientpb.ImplantBuild{}
 	for _, build := range dbBuilds {
 		builds = append(builds, build.ToProtobuf())

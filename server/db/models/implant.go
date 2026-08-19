@@ -53,7 +53,8 @@ type ImplantBuild struct {
 	// Resource ID referencing build
 	ImplantID uint64
 
-	ImplantConfigID uuid.UUID
+	ImplantConfigID        uuid.UUID
+	SourceImplantProfileID *uuid.UUID
 
 	// ECC
 	PeerPublicKey           string
@@ -163,6 +164,7 @@ type ImplantConfig struct {
 	DebugFile           string
 	Evasion             bool
 	ObfuscateSymbols    bool
+	ControlFlow         clientpb.ControlFlowPolicy
 	ReconnectInterval   int64
 	PollTimeout         int64
 	MaxConnectionErrors uint32
@@ -224,9 +226,11 @@ type ImplantConfig struct {
 
 // BeforeCreate - GORM hook
 func (ic *ImplantConfig) BeforeCreate(tx *gorm.DB) (err error) {
-	ic.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
+	if ic.ID == uuid.Nil {
+		ic.ID, err = uuid.NewV4()
+		if err != nil {
+			return err
+		}
 	}
 	ic.CreatedAt = time.Now()
 	return nil
@@ -264,6 +268,7 @@ func (ic *ImplantConfig) ToProtobuf() *clientpb.ImplantConfig {
 		DebugFile:        ic.DebugFile,
 		Evasion:          ic.Evasion,
 		ObfuscateSymbols: ic.ObfuscateSymbols,
+		ControlFlow:      ic.ControlFlow,
 		TemplateName:     ic.TemplateName,
 		SGNEnabled:       ic.SGNEnabled,
 		ShellcodeEncoder: clientpb.ShellcodeEncoder(ic.ShellcodeEncoder),
@@ -477,6 +482,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	cfg.Debug = pbConfig.Debug
 	cfg.Evasion = pbConfig.Evasion
 	cfg.ObfuscateSymbols = pbConfig.ObfuscateSymbols
+	cfg.ControlFlow = pbConfig.ControlFlow
 	cfg.TemplateName = pbConfig.TemplateName
 	if cfg.TemplateName == "" {
 		cfg.TemplateName = defaultTemplateName

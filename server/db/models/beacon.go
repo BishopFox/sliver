@@ -55,7 +55,8 @@ type Beacon struct {
 	Locale            string
 	Integrity         string
 
-	ImplantBuildID uuid.UUID `gorm:"type:uuid;"`
+	ImplantBuildID  uuid.UUID `gorm:"type:uuid;"`
+	ImplantConfigID uuid.UUID `gorm:"type:uuid;"`
 
 	Interval    int64
 	Jitter      int64

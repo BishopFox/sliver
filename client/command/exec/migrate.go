@@ -59,6 +59,19 @@ func MigrateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		config = con.GetActiveBeaconConfig()
 		implantName = beacon.Name
 	}
+	if config == nil {
+		con.PrintErrorf("Failed to derive active implant config.\n")
+		return
+	}
+
+	builds, err := con.Rpc.ImplantBuilds(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		con.PrintErrorf("Failed to retrieve originating implant build %q: %v\n", implantName, err)
+		return
+	}
+	if !applyMigrateObfuscationPolicy(config, implantName, builds) {
+		con.PrintWarnf("Originating implant build %q was not found; continuing with reconstructed legacy obfuscation settings.\n", implantName)
+	}
 
 	targetArch := config.GetGOARCH()
 	if session != nil && session.Arch != "" {
@@ -132,6 +145,21 @@ func MigrateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		}
 		con.PrintInfof("Successfully migrated to %d\n", migrate.Pid)
 	}
+}
+
+func applyMigrateObfuscationPolicy(config *clientpb.ImplantConfig, implantName string, builds *clientpb.ImplantBuilds) bool {
+	if config == nil || builds == nil {
+		return false
+	}
+	originatingConfig, ok := builds.GetConfigs()[implantName]
+	if !ok || originatingConfig == nil {
+		return false
+	}
+
+	config.Debug = originatingConfig.Debug
+	config.ObfuscateSymbols = originatingConfig.ObfuscateSymbols
+	config.ControlFlow = originatingConfig.ControlFlow
+	return true
 }
 
 func normalizeShellcodeEncoderName(name string) string {

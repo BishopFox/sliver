@@ -235,7 +235,15 @@ func createBuilder(cmd *cobra.Command, configPath string, mutex *sync.Mutex) (*b
 }
 
 func parseBuilderConfigFlags(cmd *cobra.Command) *clientpb.Builder {
-	externalBuilder := &clientpb.Builder{GOOS: runtime.GOOS, GOARCH: runtime.GOARCH}
+	externalBuilder := &clientpb.Builder{
+		GOOS:   runtime.GOOS,
+		GOARCH: runtime.GOARCH,
+	}
+	if err := generate.ControlFlowRuntimeError(); err != nil {
+		builderLog.Warnf("Not advertising %s: %s", generate.ControlFlowCapability, err)
+	} else {
+		externalBuilder.Capabilities = []string{generate.ControlFlowCapability}
+	}
 
 	externalBuilder.CrossCompilers = generate.GetCrossCompilers()
 	builderLog.Infof("Found %d cross-compilers", len(externalBuilder.CrossCompilers))

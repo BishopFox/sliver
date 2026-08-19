@@ -139,18 +139,38 @@ function Get-TestDirectories {
 }
 
 function Get-ServerBinaryPath {
-    $candidates = @(
-        (Join-Path $PWD.Path "sliver-server.exe"),
-        (Join-Path $PWD.Path "sliver-server")
-    )
+    $serverName = "sliver-server"
+    if ([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform(
+        [System.Runtime.InteropServices.OSPlatform]::Windows
+    )) {
+        $serverName = "sliver-server.exe"
+    }
 
-    foreach ($candidate in $candidates) {
-        if (Test-Path -LiteralPath $candidate) {
-            return $candidate
-        }
+    $candidate = Join-Path $PWD.Path $serverName
+    if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+        return $candidate
     }
 
     return $null
+}
+
+function Get-PinnedGarbleAssetPath {
+    $garbleName = "garble"
+    if ([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform(
+        [System.Runtime.InteropServices.OSPlatform]::Windows
+    )) {
+        $garbleName = "garble.exe"
+    }
+
+    $goBin = Join-Path (Join-Path $env:SLIVER_ROOT_DIR "go") "bin"
+    return (Join-Path $goBin $garbleName)
+}
+
+function Assert-PinnedGarbleAssetUnpacked {
+    $garblePath = Get-PinnedGarbleAssetPath
+    if (-not (Test-Path -LiteralPath $garblePath -PathType Leaf)) {
+        throw "Server asset unpack did not produce pinned Garble at $garblePath"
+    }
 }
 
 function Invoke-UnpackServerAssets {
@@ -158,13 +178,15 @@ function Invoke-UnpackServerAssets {
     if ($serverBinary) {
         try {
             Invoke-ExternalCommand -FilePath $serverBinary -Arguments @("unpack", "--force")
+            Assert-PinnedGarbleAssetUnpacked
             return
         } catch {
-            Write-Host "sliver-server unpack failed, falling back to go run ./server unpack --force"
+            Write-Host "sliver-server unpack failed ($($_.Exception.Message)), falling back to go run ./server unpack --force"
         }
     }
 
     Invoke-ExternalCommand -FilePath "go" -Arguments @("run", "-tags=server,go_sqlite", "./server", "unpack", "--force")
+    Assert-PinnedGarbleAssetUnpacked
 }
 
 function Stop-TestProcesses {

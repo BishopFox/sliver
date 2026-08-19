@@ -58,7 +58,7 @@ func ProfilesNewCmd(cmd *cobra.Command, con *console.SliverClient, args []string
 		Name:   name,
 		Config: config,
 	}
-	resp, err := con.Rpc.SaveImplantProfile(context.Background(), profile)
+	resp, err := saveImplantProfileWithControlFlowCheck(con, profile)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 	} else {
@@ -106,12 +106,31 @@ func ProfilesNewBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []
 		Name:   name,
 		Config: config,
 	}
-	resp, err := con.Rpc.SaveImplantProfile(context.Background(), profile)
+	resp, err := saveImplantProfileWithControlFlowCheck(con, profile)
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 	} else {
 		con.PrintInfof("Saved new implant profile (beacon) %s\n", resp.Name)
 	}
+}
+
+func saveImplantProfileWithControlFlowCheck(con *console.SliverClient, profile *clientpb.ImplantProfile) (*clientpb.ImplantProfile, error) {
+	if profile == nil || profile.Config == nil {
+		return nil, errors.New("implant profile config cannot be nil")
+	}
+	if err := ensureServerSupportsControlFlow(profile.Config, con); err != nil {
+		return nil, err
+	}
+
+	resp, err := con.Rpc.SaveImplantProfile(context.Background(), profile)
+	if err != nil {
+		return nil, err
+	}
+	if profile.Config.ControlFlow != clientpb.ControlFlowPolicy_CONTROL_FLOW_DISABLED &&
+		(resp == nil || resp.Config == nil || resp.Config.ControlFlow != profile.Config.ControlFlow) {
+		return nil, errors.New("server did not preserve the requested control-flow policy")
+	}
+	return resp, nil
 }
 
 func shouldRunGenerateProfilesNewForm(cmd *cobra.Command, con *console.SliverClient, args []string) bool {
@@ -132,6 +151,9 @@ func applyGenerateProfilesNewForm(cmd *cobra.Command, result *forms.GenerateProf
 		return "", err
 	}
 	if err := cmd.Flags().Set("format", result.Format); err != nil {
+		return "", err
+	}
+	if err := cmd.Flags().Set("control-flow", result.ControlFlow); err != nil {
 		return "", err
 	}
 
@@ -198,6 +220,9 @@ func applyGenerateProfilesNewBeaconForm(cmd *cobra.Command, result *forms.Genera
 		return "", err
 	}
 	if err := cmd.Flags().Set("format", result.Format); err != nil {
+		return "", err
+	}
+	if err := cmd.Flags().Set("control-flow", result.ControlFlow); err != nil {
 		return "", err
 	}
 

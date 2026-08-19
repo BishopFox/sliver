@@ -84,6 +84,7 @@ func pingHandler(data []byte, resp RPCResponse) {
 	resp(data, err)
 }
 
+//garble:controlflow block_splits=2 junk_jumps=2 flatten_passes=1 flatten_hardening=xor trash_blocks=0
 func determineDirPathFilter(targetPath string) (string, string) {
 	// The filter
 	filter := ""

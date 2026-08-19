@@ -42,6 +42,8 @@ Some commands such as `shell` and `portfwd` only work over interactive sessions.
 
 Generating implants is done using the `generate` command, you must specify at least one C2 endpoint using `--mtls`, `--wg`, `--http`, or `--dns`. Note that when an implant attempts to connect to an endpoint specified using `--http` it will try both HTTPS and then HTTP (if HTTPS fails). We recommend using mTLS (`--mtls`) or WireGuard (`--wg`) whenever possible. You can also specify an output directory with `--save`, by default the implant will be saved to the current working directory.
 
+Control-flow obfuscation is experimental and opt-in. Add `--control-flow=balanced-v1` to a session, beacon, or profile generation command to enable Sliver's versioned balanced policy. It requires symbol obfuscation and cannot be combined with `--debug` or `--skip-symbols`. The server admits one local control-flow build at a time because Garble's SSA transformation is memory intensive; external builds require a builder that advertises the matching capability. The default is `--control-flow=off`.
+
 #### Session Mode
 
 ```asciinema

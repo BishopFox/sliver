@@ -35,6 +35,7 @@ ARMORY_REPO_URL ?= https://api.github.com/repos/sliverarmory/armory/releases
 CLIENT_ASSETS_PKG = github.com/bishopfox/sliver/client/assets
 SLIVER_UPDATE_PKG = github.com/bishopfox/sliver/client/command/update
 PB_COMPILERS = protoc protoc-gen-go protoc-gen-go-grpc
+ASSET_SOURCES = $(filter-out %_test.go,$(wildcard util/assets/*.go util/cmd/assets/*.go))
 
 .PHONY: lint
 lint:
@@ -171,7 +172,7 @@ pb:
 	protoc -I protobuf/ protobuf/rpcpb/services.proto --go_out=paths=source_relative:protobuf/ --go-grpc_out=protobuf/ --go-grpc_opt=paths=source_relative 
 
 .PHONY: debug
-debug: clean
+debug: clean .downloaded_assets validate-go-version
 	$(ENV) CGO_ENABLED=$(CGO_ENABLED) $(GO) build -mod=vendor $(TAGS),server $(LDFLAGS_DEBUG) -o sliver-server$(ARTIFACT_SUFFIX) ./server
 	$(ENV) CGO_ENABLED=0 $(GO) build -mod=vendor $(TAGS),client $(LDFLAGS_DEBUG) -o sliver-client$(ARTIFACT_SUFFIX) ./client
 
@@ -199,7 +200,7 @@ clean-all: clean
 clean:
 	rm -f sliver-client sliver-client_* sliver-server sliver-server_* sliver-*.exe
 
-.downloaded_assets:
+.downloaded_assets: $(ASSET_SOURCES)
 	$(ENV) $(GO) run -mod=vendor ./util/cmd/assets
 	touch ./.downloaded_assets
 
@@ -222,6 +223,13 @@ LDFLAGS_DEBUG = -ldflags "-X $(CLIENT_ASSETS_PKG).DefaultArmoryPublicKey=$(ARMOR
 
 COMMA := ,
 
+DEFAULT_EXECUTABLE_EXT := .exe
+ifneq ($(strip $(GOOS)),)
+ifneq ($(strip $(GOOS)),windows)
+DEFAULT_EXECUTABLE_EXT :=
+endif
+endif
+
 ifeq ($(MAKECMDGOALS), linux)
 	LDFLAGS = -ldflags "-s -w -extldflags '-static' -X $(CLIENT_ASSETS_PKG).DefaultArmoryPublicKey=$(ARMORY_PUBLIC_KEY) -X $(CLIENT_ASSETS_PKG).DefaultArmoryRepoURL=$(ARMORY_REPO_URL)"
 endif
@@ -237,8 +245,8 @@ endef
 .PHONY: default
 default: clean validate-go-version
 	$(call windows_exec,$(ENV) GOOS= GOARCH=,"$(MAKE)" GOOS= GOARCH= .downloaded_assets)
-	$(call windows_go_build,$(GOOS),$(GOARCH),$(CGO_ENABLED),-mod=vendor -trimpath,server,$(LDFLAGS),sliver-server$(ARTIFACT_SUFFIX))
-	$(call windows_go_build,$(GOOS),$(GOARCH),0,-mod=vendor -trimpath,client,$(LDFLAGS),sliver-client$(ARTIFACT_SUFFIX))
+	$(call windows_go_build,$(GOOS),$(GOARCH),$(CGO_ENABLED),-mod=vendor -trimpath,server,$(LDFLAGS),sliver-server$(ARTIFACT_SUFFIX)$(DEFAULT_EXECUTABLE_EXT))
+	$(call windows_go_build,$(GOOS),$(GOARCH),0,-mod=vendor -trimpath,client,$(LDFLAGS),sliver-client$(ARTIFACT_SUFFIX)$(DEFAULT_EXECUTABLE_EXT))
 
 .PHONY: client
 client: clean .downloaded_assets validate-go-version
@@ -300,7 +308,7 @@ pb: validate-pb-compilers
 	protoc -I protobuf/ protobuf/rpcpb/services.proto --go_out=paths=source_relative:protobuf/ --go-grpc_out=protobuf/ --go-grpc_opt=paths=source_relative
 
 .PHONY: debug
-debug: clean
+debug: clean .downloaded_assets validate-go-version
 	$(call windows_go_build,$(GOOS),$(GOARCH),$(CGO_ENABLED),-mod=vendor,server,$(LDFLAGS_DEBUG),sliver-server$(ARTIFACT_SUFFIX))
 	$(call windows_go_build,$(GOOS),$(GOARCH),0,-mod=vendor,client,$(LDFLAGS_DEBUG),sliver-client$(ARTIFACT_SUFFIX))
 
@@ -324,7 +332,7 @@ clean-all: clean
 clean:
 	-del /Q /F sliver-client sliver-client_* sliver-server sliver-server_* sliver-*.exe 2>NUL
 
-.downloaded_assets:
+.downloaded_assets: $(ASSET_SOURCES)
 	$(call windows_exec,$(ENV),"$(GO)" run -mod=vendor ./util/cmd/assets)
 	@type NUL > .downloaded_assets
 

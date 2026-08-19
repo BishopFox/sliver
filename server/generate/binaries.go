@@ -362,8 +362,9 @@ func linuxShellcode(name string, build *clientpb.ImplantBuild, config *clientpb.
 		HTTPPROXY:  getGoHttpProxy(),
 		HTTPSPROXY: getGoHttpsProxy(),
 
-		Obfuscation: config.ObfuscateSymbols,
-		GOGARBLE:    goGarble(config),
+		Obfuscation:            config.ObfuscateSymbols,
+		ObfuscationControlFlow: controlFlowObfuscationEnabled(config),
+		GOGARBLE:               goGarble(config),
 	}
 	sanitizeZigForBuild(goConfig, "c-shared")
 	buildLog.Infof(" CC: %s", goConfig.CC)
@@ -451,8 +452,9 @@ func darwinShellcode(name string, build *clientpb.ImplantBuild, config *clientpb
 		HTTPPROXY:  getGoHttpProxy(),
 		HTTPSPROXY: getGoHttpsProxy(),
 
-		Obfuscation: config.ObfuscateSymbols,
-		GOGARBLE:    goGarble(config),
+		Obfuscation:            config.ObfuscateSymbols,
+		ObfuscationControlFlow: controlFlowObfuscationEnabled(config),
+		GOGARBLE:               goGarble(config),
 	}
 
 	config.IsSharedLib = true
@@ -528,8 +530,9 @@ func windowsShellcode(name string, build *clientpb.ImplantBuild, config *clientp
 		HTTPPROXY:  getGoHttpProxy(),
 		HTTPSPROXY: getGoHttpsProxy(),
 
-		Obfuscation: config.ObfuscateSymbols,
-		GOGARBLE:    goGarble(config),
+		Obfuscation:            config.ObfuscateSymbols,
+		ObfuscationControlFlow: controlFlowObfuscationEnabled(config),
+		GOGARBLE:               goGarble(config),
 	}
 	pkgPath, err := renderSliverGoCode(name, build, config, goConfig, pbC2Implant)
 	if err != nil {
@@ -601,8 +604,9 @@ func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clie
 		HTTPPROXY:  getGoHttpProxy(),
 		HTTPSPROXY: getGoHttpsProxy(),
 
-		Obfuscation: config.ObfuscateSymbols,
-		GOGARBLE:    goGarble(config),
+		Obfuscation:            config.ObfuscateSymbols,
+		ObfuscationControlFlow: controlFlowObfuscationEnabled(config),
+		GOGARBLE:               goGarble(config),
 	}
 	sanitizeZigForBuild(goConfig, "c-shared")
 	buildLog.Infof(" CC: %s", goConfig.CC)
@@ -709,8 +713,9 @@ func SliverArchive(name string, build *clientpb.ImplantBuild, config *clientpb.I
 		HTTPPROXY:  getGoHttpProxy(),
 		HTTPSPROXY: getGoHttpsProxy(),
 
-		Obfuscation: config.ObfuscateSymbols,
-		GOGARBLE:    goGarble(config),
+		Obfuscation:            config.ObfuscateSymbols,
+		ObfuscationControlFlow: controlFlowObfuscationEnabled(config),
+		GOGARBLE:               goGarble(config),
 	}
 	sanitizeZigForBuild(goConfig, "c-archive")
 	buildLog.Infof(" CC: %s", goConfig.CC)
@@ -771,8 +776,9 @@ func SliverExecutable(name string, build *clientpb.ImplantBuild, config *clientp
 		HTTPPROXY:  getGoHttpProxy(),
 		HTTPSPROXY: getGoHttpsProxy(),
 
-		Obfuscation: config.ObfuscateSymbols,
-		GOGARBLE:    goGarble(config),
+		Obfuscation:            config.ObfuscateSymbols,
+		ObfuscationControlFlow: controlFlowObfuscationEnabled(config),
+		GOGARBLE:               goGarble(config),
 	}
 
 	pkgPath, err := renderSliverGoCode(name, build, config, goConfig, pbC2Implant)
@@ -808,6 +814,12 @@ func SliverExecutable(name string, build *clientpb.ImplantBuild, config *clientp
 
 // This function is a little too long, we should probably refactor it as some point
 func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clientpb.ImplantConfig, goConfig *gogo.GoConfig, pbC2Implant *clientpb.HTTPC2ImplantConfig) (string, error) {
+	controlFlowPolicy, err := controlFlowPolicyForConfig(config)
+	if err != nil {
+		return "", err
+	}
+	controlFlowFunctionsRendered := map[string]struct{}{}
+
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
 	if _, ok := gogo.ValidCompilerTargets(*goConfig)[target]; !ok {
 		return "", fmt.Errorf("invalid compiler target: %s", target)
@@ -833,7 +845,7 @@ func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clien
 	// srcDir - ~/.sliver/slivers/<os>/<arch>/<name>/src
 	srcDir := filepath.Join(projectGoPathDir, "src")
 	assets.SetupGoPath(srcDir, config.IncludeDNS) // Extract GOPATH dependency files
-	err := util.ChmodR(srcDir, 0600, 0700)        // Ensures src code files are writable
+	err = util.ChmodR(srcDir, 0600, 0700)         // Ensures src code files are writable
 	if err != nil {
 		buildLog.Errorf("fs perms: %v", err)
 		return "", err
@@ -940,6 +952,18 @@ func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clien
 			buildLog.Errorf("Template execution error %s", err)
 			return err
 		}
+		if controlFlowPolicy != nil && path.Ext(f.Name()) == ".go" {
+			functionIDs, err := controlFlowFunctionsInSource(controlFlowPolicy, fsPath, buf.Bytes())
+			if err != nil {
+				return err
+			}
+			for _, functionID := range functionIDs {
+				if _, duplicate := controlFlowFunctionsRendered[functionID]; duplicate {
+					return fmt.Errorf("control-flow directive for %s rendered more than once", functionID)
+				}
+				controlFlowFunctionsRendered[functionID] = struct{}{}
+			}
+		}
 
 		// Render canaries
 		if len(config.CanaryDomains) > 0 {
@@ -965,6 +989,14 @@ func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clien
 	})
 	if err != nil {
 		return "", err
+	}
+	if controlFlowPolicy != nil && len(controlFlowFunctionsRendered) != len(controlFlowPolicy.functions) {
+		return "", fmt.Errorf(
+			"control-flow policy %s rendered %d allowlisted functions, expected %d",
+			config.ControlFlow,
+			len(controlFlowFunctionsRendered),
+			len(controlFlowPolicy.functions),
+		)
 	}
 
 	// Render encoder assets
@@ -1129,6 +1161,10 @@ func renderImplantEnglish() []string {
 
 // GenerateConfig - Generate the keys/etc for the implant
 func GenerateConfig(name string, implantConfig *clientpb.ImplantConfig) (*clientpb.ImplantBuild, error) {
+	if err := ValidateControlFlowConfig(implantConfig); err != nil {
+		return nil, err
+	}
+
 	var err error
 
 	// Cert PEM encoded certificates

@@ -58,10 +58,14 @@ var (
 // Generate - Generate a new implant
 func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*clientpb.Generate, error) {
 	var (
-		err    error
-		config *clientpb.ImplantConfig
-		name   string
+		err             error
+		config          *clientpb.ImplantConfig
+		name            string
+		sourceProfileID string
 	)
+	if req == nil || req.Config == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing implant config")
+	}
 
 	if req.Name == "" {
 		name, err = codenames.GetCodename()
@@ -75,14 +79,25 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	}
 
 	if req.Config.ID != "" {
-		// if this is a profile reuse existing configuration
+		// If this is a profile, load its configuration as the source for an
+		// immutable per-build snapshot. Do not attach the build to the mutable
+		// profile config row.
 		config, err = db.ImplantConfigByID(req.Config.ID)
 		if err != nil {
 			return nil, rpcError(err)
 		}
 	} else {
-		// configure c2 channels to enable
+		if strings.TrimSpace(req.Config.ImplantProfileID) != "" {
+			return nil, status.Error(codes.InvalidArgument, "implant profile ID requires a persisted implant config ID")
+		}
 		config = req.Config
+	}
+	config, sourceProfileID, err = generate.NewImplantConfigSnapshot(config)
+	if err != nil {
+		return nil, rpcError(err)
+	}
+	if req.Config.ID == "" {
+		// configure c2 channels to enable
 		config.IncludeMTLS = config.IncludeMTLS || models.IsC2Enabled([]string{"mtls"}, config.C2)
 		config.IncludeWG = config.IncludeWG || models.IsC2Enabled([]string{"wg"}, config.C2)
 		config.IncludeHTTP = config.IncludeHTTP || models.IsC2Enabled([]string{"http", "https"}, config.C2)
@@ -90,10 +105,14 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 		config.IncludeNamePipe = config.IncludeNamePipe || models.IsC2Enabled([]string{"namedpipe"}, config.C2)
 		config.IncludeTCP = config.IncludeTCP || models.IsC2Enabled([]string{"tcppivot"}, config.C2)
 	}
-
 	if len(config.Exports) == 0 {
 		config.Exports = []string{"StartW"}
 	}
+	releaseControlFlowBuild, err := acquireControlFlowBuild(config)
+	if err != nil {
+		return nil, err
+	}
+	defer releaseControlFlowBuild()
 
 	// generate config
 	build, err := generate.GenerateConfig(name, config)
@@ -102,13 +121,13 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	}
 
 	// retrieve http c2 implant config
-	httpC2Config, err := db.LoadHTTPC2ConfigByName(req.Config.HTTPC2ConfigName)
+	httpC2Config, err := db.LoadHTTPC2ConfigByName(config.HTTPC2ConfigName)
 	if err != nil {
 		return nil, rpcError(err)
 	}
 
 	var fPath string
-	switch req.Config.Format {
+	switch config.Format {
 	case clientpb.OutputFormat_SERVICE:
 		fallthrough
 	case clientpb.OutputFormat_EXECUTABLE:
@@ -120,7 +139,7 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	case clientpb.OutputFormat_SHELLCODE:
 		fPath, err = generate.SliverShellcode(name, build, config, httpC2Config.ImplantConfig)
 	default:
-		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid output format: %s", req.Config.Format))
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid output format: %s", config.Format))
 	}
 	if err != nil {
 		return nil, rpcError(err)
@@ -131,10 +150,21 @@ func (rpc *Server) Generate(ctx context.Context, req *clientpb.GenerateReq) (*cl
 	if err != nil {
 		return nil, rpcError(err)
 	}
+	config, err = db.CreateImplantConfigWithID(config)
+	if err != nil {
+		return nil, rpcError(err)
+	}
 
-	err = generate.ImplantBuildSave(build, config, fPath)
+	if sourceProfileID == "" {
+		err = generate.ImplantBuildSave(build, config, fPath)
+	} else {
+		err = generate.ImplantBuildSaveWithSourceProfile(build, config, fPath, sourceProfileID)
+	}
 	if err != nil {
 		rpcLog.Errorf("Failed to save external build: %s", err)
+		if cleanupErr := db.DeleteFailedImplantConfigSnapshot(config.ID); cleanupErr != nil {
+			rpcLog.Errorf("Failed to roll back config snapshot %s after build save failure: %s", config.ID, cleanupErr)
+		}
 		return nil, rpcError(err)
 	}
 
@@ -486,6 +516,12 @@ func (rpc *Server) ImplantProfiles(ctx context.Context, _ *commonpb.Empty) (*cli
 
 // SaveImplantProfile - Save a new profile
 func (rpc *Server) SaveImplantProfile(ctx context.Context, profile *clientpb.ImplantProfile) (*clientpb.ImplantProfile, error) {
+	if profile == nil || profile.Config == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing implant profile config")
+	}
+	if err := generate.ValidateControlFlowConfig(profile.Config); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
 	profile.Name = filepath.Base(profile.Name)
 	if 0 < len(profile.Name) && profile.Name != "." {
 		rpcLog.Infof("Saving new profile with name %#v", profile.Name)
@@ -532,12 +568,27 @@ func (rpc *Server) DeleteImplantBuild(ctx context.Context, req *clientpb.DeleteR
 
 // Remove Implant build given the build name
 func RemoveBuildByName(name string) error {
-	resourceID, err := db.ResourceIDByName(name)
+	build, err := db.ImplantBuildByName(name)
 	if err != nil {
 		return err
 	}
 
-	build, err := db.ImplantBuildByName(name)
+	resourceID, err := db.ResourceIDByName(name)
+	if errors.Is(err, db.ErrRecordNotFound) {
+		err = generate.DeletePendingImplantBuild(build.ID)
+		if errors.Is(err, generate.ErrImplantBuildNotPending) {
+			return fmt.Errorf("implant build %q has completion state but no resource ID", name)
+		}
+		if err != nil {
+			return err
+		}
+		core.RemoveExternalBuildAssignment(build.ID)
+		core.EventBroker.Publish(core.Event{
+			EventType: consts.BuildEvent,
+			Data:      []byte(build.Name),
+		})
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -580,6 +631,12 @@ func (rpc *Server) GetCompiler(ctx context.Context, _ *commonpb.Empty) (*clientp
 		Targets:            generate.GetCompilerTargets(),
 		UnsupportedTargets: generate.GetUnsupportedTargets(),
 		CrossCompilers:     generate.GetCrossCompilers(),
+		Capabilities:       []string{generate.ControlFlowCapability},
+	}
+	if err := generate.ControlFlowRuntimeError(); err != nil {
+		rcpGenLog.Warnf("Local builds using %s are unavailable: %s", generate.ControlFlowCapability, err)
+	} else {
+		compiler.Capabilities = append(compiler.Capabilities, generate.LocalControlFlowCapability)
 	}
 	rcpGenLog.Debugf("GetCompiler = %v", compiler)
 	return compiler, nil
@@ -615,6 +672,16 @@ func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.ExternalG
 	if config == nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid implant config")
 	}
+	config, err = resolveExternalBuildConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	if err := generate.ValidateControlFlowConfig(config); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	if generate.ControlFlowEnabled(config) && !generate.HasControlFlowCapability(builder.Capabilities) {
+		return nil, status.Errorf(codes.FailedPrecondition, "builder %q does not support %s", req.BuilderName, generate.ControlFlowCapability)
+	}
 	externalConfig, err := generate.SliverExternal(name, config)
 	if err != nil {
 		return nil, rpcError(err)
@@ -627,6 +694,24 @@ func (rpc *Server) GenerateExternal(ctx context.Context, req *clientpb.ExternalG
 	})
 
 	return externalConfig, err
+}
+
+func resolveExternalBuildConfig(config *clientpb.ImplantConfig) (*clientpb.ImplantConfig, error) {
+	if config == nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid implant config")
+	}
+	if config.ID == "" {
+		if strings.TrimSpace(config.ImplantProfileID) != "" {
+			return nil, status.Error(codes.InvalidArgument, "implant profile ID requires a persisted implant config ID")
+		}
+		return config, nil
+	}
+
+	persistedConfig, err := db.ImplantConfigByID(config.ID)
+	if err != nil {
+		return nil, rpcError(err)
+	}
+	return persistedConfig, nil
 }
 
 // GenerateExternalSaveBuild - Allows an external builder to save the build to the server
@@ -804,11 +889,16 @@ func (rpc *Server) BuilderTrigger(ctx context.Context, req *clientpb.Event) (*co
 		if err = rpc.authorizeBuilderOperatorForExternalBuild(ctx, buildID); err != nil {
 			return nil, err
 		}
+		cleanupErr := generate.DeletePendingImplantBuild(buildID)
 		core.RemoveExternalBuildAssignment(buildID)
 		core.EventBroker.Publish(core.Event{
 			EventType: req.EventType,
 			Data:      req.Data,
 		})
+		if cleanupErr != nil && !errors.Is(cleanupErr, generate.ErrImplantBuildNotPending) {
+			rpcLog.Errorf("Failed to clean up pending external build %s: %s", buildID, cleanupErr)
+			return nil, rpcError(cleanupErr)
+		}
 	case consts.AcknowledgeBuildEvent:
 		buildID := strings.TrimSpace(string(req.Data))
 		if buildID == "" {
@@ -1091,37 +1181,46 @@ func (rpc *Server) GenerateStage(ctx context.Context, req *clientpb.GenerateStag
 	} else {
 		name = req.Name
 	}
-
-	// retrieve http c2 implant config
-	httpC2Config, err := db.LoadHTTPC2ConfigByName(profile.Config.HTTPC2ConfigName)
+	config, sourceProfileID, err := generate.NewImplantConfigSnapshot(profile.Config)
 	if err != nil {
 		return nil, rpcError(err)
 	}
 
-	if len(profile.Config.Exports) == 0 {
-		profile.Config.Exports = []string{"StartW"}
+	// retrieve http c2 implant config
+	httpC2Config, err := db.LoadHTTPC2ConfigByName(config.HTTPC2ConfigName)
+	if err != nil {
+		return nil, rpcError(err)
 	}
 
+	if len(config.Exports) == 0 {
+		config.Exports = []string{"StartW"}
+	}
+	releaseControlFlowBuild, err := acquireControlFlowBuild(config)
+	if err != nil {
+		return nil, err
+	}
+	defer releaseControlFlowBuild()
+
 	// generate config
-	build, err := generate.GenerateConfig(name, profile.Config)
+	build, err := generate.GenerateConfig(name, config)
 	if err != nil {
 		return nil, rpcError(err)
 	}
 
 	var fPath string
-	switch profile.Config.Format {
+	switch config.Format {
 	case clientpb.OutputFormat_SERVICE:
 		fallthrough
 	case clientpb.OutputFormat_EXECUTABLE:
-		fPath, err = generate.SliverExecutable(name, build, profile.Config, httpC2Config.ImplantConfig)
+		fPath, err = generate.SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
 	case clientpb.OutputFormat_SHARED_LIB:
-		fPath, err = generate.SliverSharedLibrary(name, build, profile.Config, httpC2Config.ImplantConfig)
+		fPath, err = generate.SliverSharedLibrary(name, build, config, httpC2Config.ImplantConfig)
 	case clientpb.OutputFormat_GO_ARCHIVE:
-		fPath, err = generate.SliverArchive(name, build, profile.Config, httpC2Config.ImplantConfig)
+		fPath, err = generate.SliverArchive(name, build, config, httpC2Config.ImplantConfig)
 	case clientpb.OutputFormat_SHELLCODE:
-		fPath, err = generate.SliverShellcode(name, build, profile.Config, httpC2Config.ImplantConfig)
+		fPath, err = generate.SliverShellcode(name, build, config, httpC2Config.ImplantConfig)
 	default:
-		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid output format: %s", profile.Config.Format))
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid output format: %s", config.Format))
 	}
 	if err != nil {
 		return nil, rpcError(err)
@@ -1169,9 +1268,17 @@ func (rpc *Server) GenerateStage(ctx context.Context, req *clientpb.GenerateStag
 		}
 	}
 
-	err = generate.SaveStage(build, profile.Config, stage2, stageType)
+	config, err = db.CreateImplantConfigWithID(config)
+	if err != nil {
+		return nil, rpcError(err)
+	}
+
+	err = generate.SaveStageWithSourceProfile(build, config, stage2, stageType, sourceProfileID)
 	if err != nil {
 		rpcLog.Errorf("Failed to save external build: %s", err)
+		if cleanupErr := db.DeleteFailedImplantConfigSnapshot(config.ID); cleanupErr != nil {
+			rpcLog.Errorf("Failed to roll back config snapshot %s after stage save failure: %s", config.ID, cleanupErr)
+		}
 		return nil, rpcError(err)
 	}
 

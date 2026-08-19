@@ -74,7 +74,9 @@ const (
 )
 
 const (
-	crossCompilerInfoURL = "https://github.com/BishopFox/sliver/wiki/Cross-Compiling-Implants"
+	crossCompilerInfoURL       = "https://github.com/BishopFox/sliver/wiki/Cross-Compiling-Implants"
+	controlFlowCapability      = "garble.control-flow/balanced-v1"
+	localControlFlowCapability = "garble.control-flow.local/balanced-v1"
 )
 
 var (
@@ -90,15 +92,52 @@ var (
 		"windows/arm64": true,
 	}
 
+	// ErrNoExternalBuilder indicates that no external builders are registered.
 	ErrNoExternalBuilder = errors.New("no external builders are available")
-	ErrNoValidBuilders   = errors.New("no valid external builders for target")
-	ErrNoSelection       = errors.New("no selection")
+	// ErrNoValidBuilders indicates that no external builder supports the target.
+	ErrNoValidBuilders = errors.New("no valid external builders for target")
+	// ErrNoControlFlowBuilder indicates that no target-compatible builder supports control-flow obfuscation.
+	ErrNoControlFlowBuilder = errors.New("no target-compatible external builder supports control-flow obfuscation")
+	// ErrNoSelection indicates that the user did not select an external builder.
+	ErrNoSelection = errors.New("no selection")
 )
 
 const (
 	spoofMetadataFlagName      = "spoof-metadata"
 	imageFileDLLCharacteristic = 0x2000
 )
+
+func parseControlFlowPolicy(value string) (clientpb.ControlFlowPolicy, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "off":
+		return clientpb.ControlFlowPolicy_CONTROL_FLOW_DISABLED, nil
+	case "balanced-v1":
+		return clientpb.ControlFlowPolicy_CONTROL_FLOW_BALANCED_V1, nil
+	default:
+		return clientpb.ControlFlowPolicy_CONTROL_FLOW_DISABLED, fmt.Errorf("invalid control-flow policy %q (expected off or balanced-v1)", value)
+	}
+}
+
+func validateControlFlowFlags(policy clientpb.ControlFlowPolicy, debug, skipSymbols bool) error {
+	if policy == clientpb.ControlFlowPolicy_CONTROL_FLOW_DISABLED {
+		return nil
+	}
+	if debug || skipSymbols {
+		return errors.New("--control-flow=balanced-v1 requires symbol obfuscation and cannot be combined with --debug or --skip-symbols")
+	}
+	return nil
+}
+
+func controlFlowPolicyName(policy clientpb.ControlFlowPolicy) string {
+	switch policy {
+	case clientpb.ControlFlowPolicy_CONTROL_FLOW_DISABLED:
+		return "disabled"
+	case clientpb.ControlFlowPolicy_CONTROL_FLOW_BALANCED_V1:
+		return "balanced-v1"
+	default:
+		return fmt.Sprintf("unknown (%d)", policy)
+	}
+}
 
 // GenerateCmd - The main command used to generate implant binaries
 func GenerateCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
@@ -170,6 +209,9 @@ func applyGenerateForm(cmd *cobra.Command, result *forms.GenerateFormResult) err
 		return err
 	}
 	if err := cmd.Flags().Set("format", result.Format); err != nil {
+		return err
+	}
+	if err := cmd.Flags().Set("control-flow", result.ControlFlow); err != nil {
 		return err
 	}
 	name := strings.TrimSpace(result.Name)
@@ -329,12 +371,18 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 	}
 	c2s = append(c2s, tcpPivotC2...)
 
-	var symbolObfuscation bool
-	if debug, _ := cmd.Flags().GetBool("debug"); debug {
-		symbolObfuscation = false
-	} else {
-		symbolObfuscation, _ = cmd.Flags().GetBool("skip-symbols")
-		symbolObfuscation = !symbolObfuscation
+	debug, _ := cmd.Flags().GetBool("debug")
+	skipSymbols, _ := cmd.Flags().GetBool("skip-symbols")
+	symbolObfuscation := !debug && !skipSymbols
+	controlFlowValue, _ := cmd.Flags().GetString("control-flow")
+	controlFlow, err := parseControlFlowPolicy(controlFlowValue)
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
+		return "", nil
+	}
+	if err := validateControlFlowFlags(controlFlow, debug, skipSymbols); err != nil {
+		con.PrintErrorf("%s\n", err)
+		return "", nil
 	}
 
 	if len(mtlsC2) == 0 && len(wgC2) == 0 && len(httpC2) == 0 && len(dnsC2) == 0 && len(namedPipeC2) == 0 && len(tcpPivotC2) == 0 {
@@ -353,7 +401,6 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		}
 	}
 
-	debug, _ := cmd.Flags().GetBool("debug")
 	evasion, _ := cmd.Flags().GetBool("evasion")
 	templateName, _ := cmd.Flags().GetString("template")
 
@@ -516,6 +563,7 @@ func parseCompileFlags(cmd *cobra.Command, con *console.SliverClient) (string, *
 		SGNEnabled:       sgnEnabled,
 		ShellcodeEncoder: shellcodeEncoder,
 		ObfuscateSymbols: symbolObfuscation,
+		ControlFlow:      controlFlow,
 		C2:               c2s,
 		CanaryDomains:    canaryDomains,
 		TemplateName:     templateName,
@@ -1643,6 +1691,10 @@ func outputSavePath(save string, defaultName string, config *clientpb.ImplantCon
 }
 
 func externalBuild(name string, config *clientpb.ImplantConfig, spoofMetadata *clientpb.SpoofMetadataConfig, save string, con *console.SliverClient) (*commonpb.File, error) {
+	if err := ensureServerSupportsControlFlow(config, con); err != nil {
+		return nil, err
+	}
+
 	potentialBuilders, err := findExternalBuilders(config, con)
 	if err != nil {
 		return nil, err
@@ -1670,6 +1722,9 @@ func externalBuild(name string, config *clientpb.ImplantConfig, spoofMetadata *c
 	} else if !config.Debug {
 		con.PrintErrorf("Symbol obfuscation is %s\n", console.StyleBold.Render("disabled"))
 	}
+	if config.ControlFlow != clientpb.ControlFlowPolicy_CONTROL_FLOW_DISABLED {
+		con.PrintInfof("Control-flow obfuscation policy: %s\n", console.StyleBold.Render(controlFlowPolicyName(config.ControlFlow)))
+	}
 	start := time.Now()
 
 	listenerID, listener := con.CreateEventListener()
@@ -1689,6 +1744,14 @@ func externalBuild(name string, config *clientpb.ImplantConfig, spoofMetadata *c
 	if err != nil {
 		con.PrintErrorf("%s\n", err)
 		return nil, err
+	}
+	if config.ControlFlow != clientpb.ControlFlowPolicy_CONTROL_FLOW_DISABLED &&
+		(externalImplantConfig == nil || externalImplantConfig.Config == nil || externalImplantConfig.Config.ControlFlow != config.ControlFlow) {
+		return nil, fmt.Errorf(
+			"server returned control-flow policy %s for requested policy %s",
+			controlFlowPolicyName(externalImplantConfig.GetConfig().GetControlFlow()),
+			controlFlowPolicyName(config.ControlFlow),
+		)
 	}
 	con.Printf("done\n")
 
@@ -1818,6 +1881,11 @@ func externalBuild(name string, config *clientpb.ImplantConfig, spoofMetadata *c
 }
 
 func compile(name string, config *clientpb.ImplantConfig, spoofMetadata *clientpb.SpoofMetadataConfig, save string, con *console.SliverClient) (*commonpb.File, error) {
+	if err := ensureServerCanBuildControlFlow(config, con); err != nil {
+		con.PrintErrorf("%s\n", err)
+		return nil, err
+	}
+
 	if config.IsBeacon {
 		interval := time.Duration(config.BeaconInterval)
 		con.PrintInfof("Generating new %s/%s beacon implant binary (%v)\n", config.GOOS, config.GOARCH, interval)
@@ -1828,6 +1896,9 @@ func compile(name string, config *clientpb.ImplantConfig, spoofMetadata *clientp
 		con.PrintInfof("%s\n", console.StyleBold.Render("Symbol obfuscation is enabled"))
 	} else if !config.Debug {
 		con.PrintErrorf("Symbol obfuscation is %s\n", console.StyleBold.Render("disabled"))
+	}
+	if config.ControlFlow != clientpb.ControlFlowPolicy_CONTROL_FLOW_DISABLED {
+		con.PrintInfof("Control-flow obfuscation policy: %s\n", console.StyleBold.Render(controlFlowPolicyName(config.ControlFlow)))
 	}
 
 	start := time.Now()
@@ -2009,9 +2080,14 @@ func findExternalBuilders(config *clientpb.ImplantConfig, con *console.SliverCli
 	}
 
 	validBuilders := []*clientpb.Builder{}
+	targetCompatibleBuilder := false
 	for _, builder := range builders.Builders {
 		for _, target := range builder.Targets {
 			if target.GOOS == config.GOOS && target.GOARCH == config.GOARCH && config.Format == target.Format {
+				targetCompatibleBuilder = true
+				if config.ControlFlow != clientpb.ControlFlowPolicy_CONTROL_FLOW_DISABLED && !hasCapability(builder.Capabilities, controlFlowCapability) {
+					break
+				}
 				validBuilders = append(validBuilders, builder)
 				break
 			}
@@ -2019,10 +2095,53 @@ func findExternalBuilders(config *clientpb.ImplantConfig, con *console.SliverCli
 	}
 
 	if len(validBuilders) < 1 {
+		if targetCompatibleBuilder && config.ControlFlow != clientpb.ControlFlowPolicy_CONTROL_FLOW_DISABLED {
+			return []*clientpb.Builder{}, ErrNoControlFlowBuilder
+		}
 		return []*clientpb.Builder{}, ErrNoValidBuilders
 	}
 
 	return validBuilders, nil
+}
+
+func ensureServerSupportsControlFlow(config *clientpb.ImplantConfig, con *console.SliverClient) error {
+	if config == nil || config.ControlFlow == clientpb.ControlFlowPolicy_CONTROL_FLOW_DISABLED {
+		return nil
+	}
+	compiler, err := con.Rpc.GetCompiler(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return fmt.Errorf("failed to query server control-flow capability: %w", err)
+	}
+	if !hasCapability(compiler.Capabilities, controlFlowCapability) {
+		return fmt.Errorf("server does not support %s", controlFlowCapability)
+	}
+	return nil
+}
+
+func ensureServerCanBuildControlFlow(config *clientpb.ImplantConfig, con *console.SliverClient) error {
+	if config == nil || config.ControlFlow == clientpb.ControlFlowPolicy_CONTROL_FLOW_DISABLED {
+		return nil
+	}
+	compiler, err := con.Rpc.GetCompiler(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return fmt.Errorf("failed to query server control-flow capability: %w", err)
+	}
+	if !hasCapability(compiler.Capabilities, controlFlowCapability) {
+		return fmt.Errorf("server does not support %s", controlFlowCapability)
+	}
+	if !hasCapability(compiler.Capabilities, localControlFlowCapability) {
+		return fmt.Errorf("server local compiler does not provide %s", localControlFlowCapability)
+	}
+	return nil
+}
+
+func hasCapability(capabilities []string, required string) bool {
+	for _, capability := range capabilities {
+		if capability == required {
+			return true
+		}
+	}
+	return false
 }
 
 func selectExternalBuilder(builders []*clientpb.Builder, _ *console.SliverClient) (*clientpb.Builder, error) {

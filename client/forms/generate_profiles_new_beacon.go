@@ -18,6 +18,7 @@ type GenerateProfilesNewBeaconFormResult struct {
 	Name        string
 	C2Type      string
 	C2Value     string
+	ControlFlow string
 	Days        string
 	Hours       string
 	Minutes     string
@@ -28,10 +29,11 @@ type GenerateProfilesNewBeaconFormResult struct {
 // GenerateProfilesNewBeaconForm prompts for profiles new beacon flags and returns the collected values.
 func GenerateProfilesNewBeaconForm() (*GenerateProfilesNewBeaconFormResult, error) {
 	result := &GenerateProfilesNewBeaconFormResult{
-		OS:     "windows",
-		Arch:   "amd64",
-		Format: "exe",
-		C2Type: "mtls",
+		OS:          "windows",
+		Arch:        "amd64",
+		Format:      "exe",
+		C2Type:      "mtls",
+		ControlFlow: "off",
 	}
 
 	form := huh.NewForm(
@@ -98,6 +100,13 @@ func GenerateProfilesNewBeaconForm() (*GenerateProfilesNewBeaconFormResult, erro
 				}, &result.OS).
 				Height(3).
 				Value(&result.Format),
+			huh.NewSelect[string]().
+				Title("Control-flow obfuscation").
+				Options(
+					huh.NewOption("Off", "off"),
+					huh.NewOption("Balanced (experimental)", "balanced-v1"),
+				).
+				Value(&result.ControlFlow),
 		),
 		huh.NewGroup(
 			huh.NewInput().

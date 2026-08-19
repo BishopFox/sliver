@@ -18,15 +18,17 @@ type GenerateProfilesNewFormResult struct {
 	Name        string
 	C2Type      string
 	C2Value     string
+	ControlFlow string
 }
 
 // GenerateProfilesNewForm prompts for profiles new flags and returns the collected values.
 func GenerateProfilesNewForm() (*GenerateProfilesNewFormResult, error) {
 	result := &GenerateProfilesNewFormResult{
-		OS:     "windows",
-		Arch:   "amd64",
-		Format: "exe",
-		C2Type: "mtls",
+		OS:          "windows",
+		Arch:        "amd64",
+		Format:      "exe",
+		C2Type:      "mtls",
+		ControlFlow: "off",
 	}
 
 	form := huh.NewForm(
@@ -93,6 +95,13 @@ func GenerateProfilesNewForm() (*GenerateProfilesNewFormResult, error) {
 				}, &result.OS).
 				Height(3).
 				Value(&result.Format),
+			huh.NewSelect[string]().
+				Title("Control-flow obfuscation").
+				Options(
+					huh.NewOption("Off", "off"),
+					huh.NewOption("Balanced (experimental)", "balanced-v1"),
+				).
+				Value(&result.ControlFlow),
 		),
 		huh.NewGroup(
 			huh.NewInput().
