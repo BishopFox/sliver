@@ -570,6 +570,13 @@ func memmodLoader(bufferRO []byte, recursive *darwinRecursivePlan, loadedRoot *d
 			darwinLoaderTransaction.Unlock()
 		}
 	}()
+	// dyld's private RuntimeState writer uses os_unfair_lock. Its lock and
+	// unlock calls cross separate foreign-call boundaries below, so keep the
+	// complete transaction on one native thread to preserve lock ownership.
+	// Pin only after acquiring the transaction mutex so waiting callers do not
+	// retain otherwise-idle native threads.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 
 	sharedRegionStart, err := sharedRegionStartAddr()
 	if err != nil || sharedRegionStart == 0 {

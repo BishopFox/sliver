@@ -673,8 +673,8 @@ github.com/sliverarmory/beignet v0.0.3 h1:ssR6AK9lirVulHZhQMyMmVAi0FcFwWxlh9LwKC
 github.com/sliverarmory/beignet v0.0.3/go.mod h1:xXfTKBJqFBY/pakRFwJ+5+oGiSlg2CiCVUg/76kW1H4=
 github.com/sliverarmory/malasada v0.0.3 h1:b2KG2NhQVfBIIrbP8rGJwmdh7o8LH6NKYKH1DF4No1U=
 github.com/sliverarmory/malasada v0.0.3/go.mod h1:F96IgTOoX72FU995F+Jip0ni8Z5sXiYOwfmlRGobJkQ=
-github.com/sliverarmory/reflektor v0.0.5 h1:MHndPPu+TygS6TJXiq9sKbRUW24t5jvkap52ZZGiRcI=
-github.com/sliverarmory/reflektor v0.0.5/go.mod h1:+lCyQy0xHVqx6D5nYbcz5XIDVtAGbDMIMU0Yc6Brb1s=
+github.com/sliverarmory/reflektor v0.0.6 h1:iW492LhJ6yeG3u647mJgyhdTbjrZZNnw8bks4UxIL1s=
+github.com/sliverarmory/reflektor v0.0.6/go.mod h1:+lCyQy0xHVqx6D5nYbcz5XIDVtAGbDMIMU0Yc6Brb1s=
 github.com/sliverarmory/wasm-donut v0.0.3 h1:sldbfAsz1YziULlhDKpU3DY/+/dAfv5gl26qSqHIpzE=
 github.com/sliverarmory/wasm-donut v0.0.3/go.mod h1:D6OLBZBfFm2Tk857vqGqFS9uUi4CXqnqHxKqtONllVk=
 github.com/sony/sonyflake v1.0.0 h1:MpU6Ro7tfXwgn2l5eluf9xQvQJDROTBImNCfRXn/YeM=
