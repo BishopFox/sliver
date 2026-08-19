@@ -62,7 +62,7 @@ github.com/miekg/dns
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
-# github.com/sliverarmory/reflektor v0.0.5-0.20260819155705-720435b5b58c
+# github.com/sliverarmory/reflektor v0.0.5
 ## explicit; go 1.26.6
 github.com/sliverarmory/reflektor/memmod
 github.com/sliverarmory/reflektor/native

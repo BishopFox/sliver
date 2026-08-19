@@ -49,7 +49,7 @@ require (
 	github.com/sirupsen/logrus v1.9.4
 	github.com/sliverarmory/beignet v0.0.3
 	github.com/sliverarmory/malasada v0.0.3
-	github.com/sliverarmory/reflektor v0.0.5-0.20260819155705-720435b5b58c
+	github.com/sliverarmory/reflektor v0.0.5
 	github.com/sliverarmory/wasm-donut v0.0.3
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
