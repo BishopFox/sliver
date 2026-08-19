@@ -38,6 +38,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.String("listen", defaultConfig.ListenAddress, "listen address for the MCP server")
 		f.String("name", defaultConfig.ServerName, "server name for MCP initialize")
 		f.String("version", defaultConfig.ServerVersion, "server version for MCP initialize")
+		f.BoolP("yes", "y", false, "skip the prompt-injection confirmation (broken or non-interactive terminals)")
 	})
 	flags.BindFlagCompletions(startCmd, func(comp *carapace.ActionMap) {
 		(*comp)["transport"] = carapace.ActionValues("http", "sse")
