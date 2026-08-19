@@ -4,14 +4,14 @@ go 1.26.6
 
 require (
 	filippo.io/age v1.1.1
-	github.com/Binject/universal v0.0.0-20220519011857-bea739e758c0
 	github.com/Ne0nd0g/go-clr v1.0.3
+	github.com/ebitengine/purego v0.10.1
 	github.com/gofrs/uuid v4.0.0+incompatible
 	github.com/hashicorp/yamux v0.1.2
 	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
 	github.com/lesnuages/go-winio v0.4.19
 	github.com/miekg/dns v1.1.50
-	github.com/sliverarmory/reflektor v0.0.3
+	github.com/sliverarmory/reflektor v0.0.4
 	github.com/stretchr/testify v1.8.4
 	github.com/tetratelabs/wazero v1.7.1
 	github.com/things-go/go-socks5 v0.0.4
@@ -25,11 +25,8 @@ require (
 )
 
 require (
-	github.com/Binject/debug v0.0.0-20210225042342-c9b8b45728d2 // indirect
 	github.com/BurntSushi/xgb v0.0.0-20210121224620-deaf085860bc // indirect
 	github.com/Microsoft/go-winio v0.6.0 // indirect
-	github.com/awgh/cppgo v0.0.0-20210224085512-3d24bca8edc0 // indirect
-	github.com/awgh/rawreader v0.0.0-20200626064944-56820a9c6da4 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5 // indirect
 	github.com/google/btree v1.1.2 // indirect

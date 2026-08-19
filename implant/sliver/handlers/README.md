@@ -2,11 +2,12 @@
 
 ## Overview
 
-Runtime message handlers that react to server instructions. Dispatches inbound RPC messages to feature-specific executors. Runtime components handle extensions WASM, handlers wireguard, handlers darwin, and handlers generic for implant-side handlers features.
+Runtime message handlers that react to server instructions. Dispatches inbound RPC messages to feature-specific executors, including native and WASM extension lifecycle requests.
 
 ## Go Files
 
 - `extensions-wasm.go` – Routes extension-related RPC messages to the WASM runtime.
+- `handlers_extensions.go` – Shared Windows, macOS, and Linux native extension registration, invocation, and listing handlers.
 - `handlers-wireguard.go` – Handles WireGuard control messages and state updates.
 - `handlers.go` – Registers core handler functions and shared dispatch utilities.
 - `handlers_darwin.go` – macOS-specific handler bindings and feature toggles.

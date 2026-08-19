@@ -73,6 +73,21 @@ func callVoid0OnThread(fn uintptr) error {
 	return nil
 }
 
+func callExport(fn uintptr, args ...uintptr) uintptr {
+	switch len(args) {
+	case 0:
+		return call0(fn)
+	case 1:
+		return call1(fn, args[0])
+	case 2:
+		return call2(fn, args[0], args[1])
+	case 3:
+		return call10(fn, args[0], args[1], args[2], 0, 0, 0, 0, 0, 0, 0)
+	default:
+		panic("validated Darwin export argument count is out of range")
+	}
+}
+
 func callDlopen(fn, name uintptr, flags int) uintptr {
 	return uintptr(C.reflektor_call_dlopen(C.uintptr_t(fn), C.uintptr_t(name), C.int(flags)))
 }

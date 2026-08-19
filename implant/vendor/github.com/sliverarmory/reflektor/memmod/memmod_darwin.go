@@ -36,10 +36,14 @@ var (
 )
 
 type Module struct {
-	mu        sync.RWMutex
-	image     []byte
-	goRuntime bool
-	closed    bool
+	mu               sync.RWMutex
+	image            []byte
+	goRuntime        bool
+	recursive        *darwinRecursivePlan
+	recursiveCallMu  sync.Mutex
+	recursiveLoaded  darwinLoadedRoot
+	recursiveLoadErr error
+	closed           bool
 }
 
 // LoadLibrary loads a Mach-O image into the darwin in-memory loader context.
@@ -81,6 +85,18 @@ func (module *Module) Free() {
 	}
 
 	module.closed = true
+	if module.recursive != nil {
+		for dependencyIndex := range module.recursive.dependencies {
+			dependency := &module.recursive.dependencies[dependencyIndex]
+			for byteIndex := range dependency.image {
+				dependency.image[byteIndex] = 0
+			}
+			dependency.image = nil
+		}
+		module.recursive.dependencies = nil
+		module.recursive.systemImports = nil
+		module.recursive = nil
+	}
 	if module.image != nil {
 		for i := range module.image {
 			module.image[i] = 0
@@ -96,25 +112,92 @@ func (module *Module) CallExport(name string) error {
 		return err
 	}
 
+	_, err = module.callLoadedExport(name, symbol, nil, false)
+	return err
+}
+
+// CallExportWithArgs resolves an export in this module's retained in-memory
+// image, invokes it with up to MaxExportArguments uintptr arguments, and
+// returns the uintptr result. Native C/Rust exports are supported without cgo.
+// Go c-shared callers must use CallExport instead.
+//
+//go:uintptrescapes
+func (module *Module) CallExportWithArgs(name string, args ...uintptr) (uintptr, error) {
+	if err := validateExportArguments(args); err != nil {
+		return 0, fmt.Errorf("call export %q: %w", name, err)
+	}
+	symbol, err := normalizeMachOSymbol(name)
+	if err != nil {
+		return 0, err
+	}
+
+	return module.callLoadedExport(name, symbol, args, true)
+}
+
+func (module *Module) callLoadedExport(name string, symbol string, args []uintptr, returnResult bool) (uintptr, error) {
+	addr, goRuntime, err := module.resolveLoadedExport(name, symbol, returnResult)
+	if err != nil {
+		return 0, err
+	}
+
+	// The mapped image is intentionally process-resident. Do not retain either
+	// module lock while running arbitrary export code: an export or one of its
+	// callbacks may re-enter this module or call Free.
+	if goRuntime {
+		if err := invokeDarwinExport(addr, true); err != nil {
+			setDarwinLoaderDetail(err.Error())
+			return 0, fmt.Errorf("call export %q: %w", name, loaderStatusError(14))
+		}
+		return 0, nil
+	}
+	if returnResult {
+		return invokeDarwinExportWithArgs(addr, args), nil
+	}
+	if err := invokeDarwinExport(addr, false); err != nil {
+		return 0, fmt.Errorf("call export %q: %w", name, err)
+	}
+	return 0, nil
+}
+
+func (module *Module) resolveLoadedExport(name string, symbol string, returnResult bool) (uintptr, bool, error) {
+	module.recursiveCallMu.Lock()
+	defer module.recursiveCallMu.Unlock()
+
 	module.mu.RLock()
+	defer module.mu.RUnlock()
 	if module.closed {
-		module.mu.RUnlock()
-		return errDarwinLibraryClosed
+		return 0, false, errDarwinLibraryClosed
 	}
 	if len(module.image) == 0 {
-		module.mu.RUnlock()
-		return errors.New("library image is empty")
+		return 0, false, errors.New("library image is empty")
 	}
-	image := module.image
-	module.mu.RUnlock()
-
-	rc := memmodLoader(image, symbol, module.goRuntime)
-	runtime.KeepAlive(image)
-
-	if rc != 0 {
-		return fmt.Errorf("call export %q: %w", name, loaderStatusError(rc))
+	if returnResult && module.goRuntime {
+		return 0, false, fmt.Errorf("call export %q: %w", name, ErrGoExportArgumentsUnsupported)
 	}
-	return nil
+	if module.recursiveLoadErr != nil {
+		return 0, false, module.recursiveLoadErr
+	}
+	if module.recursiveLoaded.loadAddress == 0 {
+		var loaded darwinLoadedRoot
+		rc := memmodLoader(module.image, module.recursive, &loaded)
+		runtime.KeepAlive(module.image)
+		if loaded.loadAddress != 0 {
+			module.recursiveLoaded = loaded
+		}
+		if rc != 0 {
+			err := fmt.Errorf("call export %q: %w", name, loaderStatusError(rc))
+			if loaded.loadAddress == 0 {
+				module.recursiveLoadErr = err
+			}
+			return 0, false, err
+		}
+	}
+
+	addr := findSymbol(module.recursiveLoaded.loadAddress, symbol, module.recursiveLoaded.imageSlide)
+	if addr == 0 {
+		return 0, false, fmt.Errorf("call export %q: %w", name, loaderStatusError(12))
+	}
+	return addr, module.goRuntime, nil
 }
 
 // ProcAddressByName is not supported by the darwin loader path.
@@ -322,6 +405,16 @@ type mappedImage struct {
 	loadAddress uintptr
 }
 
+type namedMappedImage struct {
+	path   string
+	mapped mappedImage
+}
+
+type darwinLoadedRoot struct {
+	loadAddress uintptr
+	imageSlide  uint64
+}
+
 // preloadDarwinDependencies asks public dyld to load absolute system
 // dependencies before the private in-memory transaction starts. Public dyld
 // performs the complete registration, interposition, cache-patch, TLS, and
@@ -347,6 +440,53 @@ func preloadDarwinDependencies(buffer []byte, libdyld uintptr, slide uint64) err
 		// runpaths, and arbitrary absolute libraries may rely on root cycles.
 		// Leave all of those names to Loader::loadDependents.
 		if !isDarwinSystemInstallName(installName) {
+			continue
+		}
+		if _, ok := seen[installName]; ok {
+			continue
+		}
+		seen[installName] = struct{}{}
+		if _, pinned := darwinDependencyHandles.Load(installName); pinned {
+			continue
+		}
+		pending = append(pending, installName)
+	}
+	return preloadDarwinInstallNames(pending, libdyld, slide)
+}
+
+func preloadDarwinRecursiveDependencies(plan *darwinRecursivePlan, libdyld uintptr, slide uint64) error {
+	if plan == nil {
+		return nil
+	}
+	strong := make([]string, 0, len(plan.systemImports))
+	weak := make([]string, 0, len(plan.systemImports))
+	for _, dependency := range plan.systemImports {
+		if dependency.weak {
+			weak = append(weak, dependency.name)
+		} else {
+			strong = append(strong, dependency.name)
+		}
+	}
+	if err := preloadDarwinInstallNames(strong, libdyld, slide); err != nil {
+		return err
+	}
+	for _, dependency := range weak {
+		if err := preloadDarwinInstallNamesWithPolicy([]string{dependency}, libdyld, slide, true); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func preloadDarwinInstallNames(installNames []string, libdyld uintptr, slide uint64) error {
+	return preloadDarwinInstallNamesWithPolicy(installNames, libdyld, slide, false)
+}
+
+func preloadDarwinInstallNamesWithPolicy(installNames []string, libdyld uintptr, slide uint64, canBeMissing bool) error {
+	pending := make([]string, 0, len(installNames))
+	seen := make(map[string]struct{}, len(installNames))
+	for _, installName := range installNames {
+		if installName == "" {
 			continue
 		}
 		if _, ok := seen[installName]; ok {
@@ -388,6 +528,12 @@ func preloadDarwinDependencies(buffer []byte, libdyld uintptr, slide uint64) err
 		handle := callDlopen(dlopen, cStringPtr(name), rtldNow|rtldGlobal|rtldNoDelete)
 		runtime.KeepAlive(name)
 		if handle == 0 {
+			if canBeMissing {
+				if dlerror != 0 {
+					_ = callDlerror(dlerror)
+				}
+				continue
+			}
 			if dlerror != 0 {
 				if message := cStringAt(callDlerror(dlerror)); message != "" {
 					return fmt.Errorf("dlopen(%q): %s", installName, message)
@@ -409,8 +555,8 @@ func isDarwinSystemInstallName(installName string) bool {
 		strings.HasPrefix(installName, "/System/Library/")
 }
 
-func memmodLoader(bufferRO []byte, entrySymbol string, isolateGoRuntime bool) int {
-	if len(bufferRO) == 0 || entrySymbol == "" {
+func memmodLoader(bufferRO []byte, recursive *darwinRecursivePlan, loadedRoot *darwinLoadedRoot) int {
+	if len(bufferRO) == 0 {
 		return 1
 	}
 
@@ -459,8 +605,14 @@ func memmodLoader(bufferRO []byte, entrySymbol string, isolateGoRuntime bool) in
 		return 2
 	}
 	setDarwinLoaderDetail("")
-	if err := preloadDarwinDependencies(bufferRO, uintptr(libdyld), slide); err != nil {
-		setDarwinLoaderDetail(err.Error())
+	var preloadErr error
+	if recursive == nil {
+		preloadErr = preloadDarwinDependencies(bufferRO, uintptr(libdyld), slide)
+	} else {
+		preloadErr = preloadDarwinRecursiveDependencies(recursive, uintptr(libdyld), slide)
+	}
+	if preloadErr != nil {
+		setDarwinLoaderDetail(preloadErr.Error())
 		return 13
 	}
 
@@ -630,6 +782,34 @@ func memmodLoader(bufferRO []byte, entrySymbol string, isolateGoRuntime bool) in
 	if rc != 0 {
 		return rc
 	}
+	recursiveMappings := make([]namedMappedImage, 0)
+	if recursive != nil {
+		recursiveMappings = make([]namedMappedImage, 0, len(recursive.dependencies))
+		for _, dependency := range recursive.dependencies {
+			dependencyMapped, dependencyRC := mapMachOImage(dependency.image)
+			if dependencyRC != 0 {
+				for _, loadedDependency := range recursiveMappings {
+					_ = unix.Munmap(loadedDependency.mapped.mapping)
+				}
+				_ = unix.Munmap(mapped.mapping)
+				return dependencyRC
+			}
+			recursiveMappings = append(recursiveMappings, namedMappedImage{
+				path:   dependency.path,
+				mapped: dependencyMapped,
+			})
+		}
+	}
+	recursiveMappingsOwned := recursive != nil
+	defer func() {
+		if !recursiveMappingsOwned {
+			return
+		}
+		for _, dependency := range recursiveMappings {
+			_ = unix.Munmap(dependency.mapped.mapping)
+		}
+		_ = unix.Munmap(mapped.mapping)
+	}()
 
 	scratch, mapErr := unix.Mmap(-1, 0, dyldScratchSize, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_PRIVATE|unix.MAP_ANON)
 	if mapErr != nil || len(scratch) < dyldScratchSize {
@@ -665,7 +845,11 @@ func memmodLoader(bufferRO []byte, entrySymbol string, isolateGoRuntime bool) in
 	loaded := (*loadedVector)(unsafe.Pointer(apis + 32))
 	startLoaderCount := loaded.Size
 
-	entryName, err := cStringBytes(fmt.Sprintf("memmod-%x-%x", uintptr(unsafe.Pointer(&buffer[0])), len(buffer)))
+	loaderPath := fmt.Sprintf("memmod-%x-%x", uintptr(unsafe.Pointer(&buffer[0])), len(buffer))
+	if recursive != nil {
+		loaderPath = recursive.rootPath
+	}
+	entryName, err := cStringBytes(loaderPath)
 	if err != nil {
 		setDarwinLoaderDetail("failed to build temporary loader name")
 		return 8
@@ -691,6 +875,9 @@ func memmodLoader(bufferRO []byte, entrySymbol string, isolateGoRuntime bool) in
 		call1(diagnosticsClearError, uintptr(diag))
 	}
 	*rtopLoader = 0
+	// From the first JIT make onward, RuntimeState may retain pointers to every
+	// mapped image. They must remain process-resident even if a later step fails.
+	recursiveMappingsOwned = false
 
 	topLoader := call10(
 		justInTimeLoaderMake2,
@@ -722,6 +909,44 @@ func memmodLoader(bufferRO []byte, entrySymbol string, isolateGoRuntime bool) in
 	setDarwinLoaderDetail("")
 	*rtopLoader = topLoader
 
+	for _, dependency := range recursiveMappings {
+		dependencyName, dependencyErr := cStringBytes(dependency.path)
+		if dependencyErr != nil {
+			setDarwinLoaderDetail(fmt.Sprintf("failed to encode recursive dependency path %q", dependency.path))
+			return 8
+		}
+		if diagnosticsReady {
+			call1(diagnosticsClearError, uintptr(diag))
+		}
+		dependencyLoader := call10(
+			justInTimeLoaderMake2,
+			apis,
+			dependency.mapped.loadAddress,
+			cStringPtr(dependencyName),
+			uintptr(unsafe.Pointer(fileid)),
+			0,
+			0,
+			1,
+			0,
+			0,
+			0,
+		)
+		runtime.KeepAlive(dependencyName)
+		if diagnosticsReady && call1(diagnosticsHasError, uintptr(diag)) != 0 {
+			message := diagnosticsMessage(diag, diagnosticsErrorMessage)
+			if message != "" {
+				setDarwinLoaderDetail(fmt.Sprintf("JustInTimeLoader::make(%q) returned diagnostics error: %s", dependency.path, message))
+			} else {
+				setDarwinLoaderDetail(fmt.Sprintf("JustInTimeLoader::make(%q) returned diagnostics error", dependency.path))
+			}
+			return 8
+		}
+		if dependencyLoader == 0 {
+			setDarwinLoaderDetail(fmt.Sprintf("JustInTimeLoader::make(%q) returned null loader", dependency.path))
+			return 8
+		}
+	}
+
 	loadChainMain.Previous = 0
 	loadChainMain.Image = *(*uintptr)(unsafe.Pointer(apis + 24))
 
@@ -739,6 +964,7 @@ func memmodLoader(bufferRO []byte, entrySymbol string, isolateGoRuntime bool) in
 	depOptions.StaticLinkage = true
 	depOptions.RtldLocal = false
 	depOptions.RtldNoDelete = true
+	depOptions.RtldNoLoad = recursive != nil
 	depOptions.CanBeDylib = true
 	depOptions.RpathStack = uintptr(unsafe.Pointer(loadChainCur))
 	depOptions.RequestorNeedsFallbacks = false
@@ -785,36 +1011,44 @@ func memmodLoader(bufferRO []byte, entrySymbol string, isolateGoRuntime bool) in
 		return 11
 	}
 	imageSlide := mapped.loadAddress - uintptr(loadedText.VMAddr)
-	addrEntry := findSymbol(mapped.loadAddress, entrySymbol, uint64(imageSlide))
-	if addrEntry == 0 {
-		return 12
+	if loadedRoot != nil {
+		loadedRoot.loadAddress = mapped.loadAddress
+		loadedRoot.imageSlide = uint64(imageSlide)
 	}
 
-	// Restore dyld's normal write-protected state before calling arbitrary
-	// library code. The export may create threads or enter dyld itself.
+	// Restore dyld's normal write-protected state before returning to the caller.
+	// Export invocation happens after the loader transaction completes.
 	if enteredWritable {
 		exitWritableDyldStateLock(memoryManagerInstance, lockLock, writeProtect, lockUnlock)
 		enteredWritable = false
 	}
-	// The loader transaction is complete. Do not retain Reflektor's mutex while
-	// running arbitrary export code, which may re-enter Reflektor.
+	// The loader transaction is complete. Export code must not run while holding
+	// this global transaction mutex because it may enter dyld itself.
 	transactionLocked = false
 	darwinLoaderTransaction.Unlock()
 
-	// Exported fixture entry points use the C void(void) ABI. Keep that call
-	// signature exact when cgo supplies the foreign-function bridge.
-	if isolateGoRuntime {
-		if err := callVoid0OnThread(addrEntry); err != nil {
-			setDarwinLoaderDetail(err.Error())
-			return 14
-		}
-	} else {
-		callVoid0(addrEntry)
-	}
-	// Keep mapped and scratch memory reachable until after entry returns.
+	// The dyld RuntimeState owns process-lifetime references to the mapped image
+	// and scratch allocations. Keep their Go slice headers live through the end
+	// of this transaction; the address ranges themselves intentionally remain
+	// mapped so later calls can reuse the exact loaded root.
 	runtime.KeepAlive(mapped.mapping)
+	for _, dependency := range recursiveMappings {
+		runtime.KeepAlive(dependency.mapped.mapping)
+	}
 	runtime.KeepAlive(scratch)
 	return 0
+}
+
+func invokeDarwinExport(address uintptr, isolateGoRuntime bool) error {
+	if isolateGoRuntime {
+		return callVoid0OnThread(address)
+	}
+	callVoid0(address)
+	return nil
+}
+
+func invokeDarwinExportWithArgs(address uintptr, args []uintptr) uintptr {
+	return callExport(address, args...)
 }
 
 func sharedRegionStartAddr() (uintptr, error) {

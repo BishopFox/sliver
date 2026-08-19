@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
 	"flag"
 	"fmt"
@@ -19,6 +21,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"golang.org/x/mod/modfile"
 )
 
@@ -26,9 +29,14 @@ const (
 	operatorName          = "testuser"
 	reflektorModule       = "github.com/sliverarmory/reflektor"
 	reflektorExport       = "StartW"
+	nativeExtensionInit   = "Initialize"
+	nativeExtensionExport = "Echo"
+	nativeExtensionInput  = "sliver-extension-e2e"
+	nativeExtensionOutput = "initialized:sliver-extension-e2e"
 	processLogTailBytes   = 1024 * 1024
 	eventBufferSize       = 128
 	eventSyncTimeout      = 30 * time.Second
+	extensionRPCTimeout   = 2 * time.Minute
 	listenerPollInterval  = 250 * time.Millisecond
 	listenerDialTimeout   = 500 * time.Millisecond
 	cleanupGraceTimeout   = 2 * time.Second
@@ -313,7 +321,240 @@ func run(opts options) error {
 		sessionEvent.Session.OS,
 		sessionEvent.Session.Arch,
 	)
+
+	if err := exerciseNativeExtension(
+		ctx,
+		rpc,
+		opts.repoPath,
+		workDir,
+		serverRoot,
+		sessionEvent.Session.ID,
+		opts.targetOS,
+		opts.targetArch,
+	); err != nil {
+		return err
+	}
 	return nil
+}
+
+func exerciseNativeExtension(
+	ctx context.Context,
+	rpc rpcpb.SliverRPCClient,
+	repoPath string,
+	workDir string,
+	serverRoot string,
+	sessionID string,
+	targetOS string,
+	targetArch string,
+) error {
+	extensionPath, compiler, err := buildNativeExtension(
+		ctx,
+		repoPath,
+		workDir,
+		serverRoot,
+		targetOS,
+		targetArch,
+	)
+	if err != nil {
+		return err
+	}
+	fmt.Printf(
+		"Built %s/%s native extension %s with %s\n",
+		targetOS,
+		targetArch,
+		filepath.Base(extensionPath),
+		compiler,
+	)
+
+	extensionData, err := os.ReadFile(extensionPath)
+	if err != nil {
+		return fmt.Errorf("read native extension: %w", err)
+	}
+	if len(extensionData) == 0 {
+		return errors.New("native extension compiler returned an empty library")
+	}
+	extensionDigest := sha256.Sum256(extensionData)
+	extensionID := fmt.Sprintf("%x", extensionDigest)
+
+	registerCtx, registerCancel := context.WithTimeout(ctx, extensionRPCTimeout)
+	registerResponse, err := rpc.RegisterExtension(registerCtx, &sliverpb.RegisterExtensionReq{
+		Name: extensionID,
+		Data: extensionData,
+		OS:   targetOS,
+		Init: nativeExtensionInit,
+		Request: &commonpb.Request{
+			SessionID: sessionID,
+			Timeout:   int64(extensionRPCTimeout - time.Second),
+		},
+	})
+	registerCancel()
+	if err != nil {
+		return fmt.Errorf("register native extension: %w", err)
+	}
+	if err := implantResponseError("register native extension", registerResponse.GetResponse()); err != nil {
+		return err
+	}
+	fmt.Printf("Registered native extension %s with init export %s\n", extensionID, nativeExtensionInit)
+
+	listCtx, listCancel := context.WithTimeout(ctx, extensionRPCTimeout)
+	listResponse, err := rpc.ListExtensions(listCtx, &sliverpb.ListExtensionsReq{
+		Request: &commonpb.Request{
+			SessionID: sessionID,
+			Timeout:   int64(extensionRPCTimeout - time.Second),
+		},
+	})
+	listCancel()
+	if err != nil {
+		return fmt.Errorf("list native extensions: %w", err)
+	}
+	if err := implantResponseError("list native extensions", listResponse.GetResponse()); err != nil {
+		return err
+	}
+	if len(listResponse.Names) != 1 || listResponse.Names[0] != extensionID {
+		return fmt.Errorf("unexpected registered extensions: got %q, want [%q]", listResponse.Names, extensionID)
+	}
+	fmt.Printf("Listed registered native extension %s\n", extensionID)
+
+	callCtx, callCancel := context.WithTimeout(ctx, extensionRPCTimeout)
+	callResponse, err := rpc.CallExtension(callCtx, &sliverpb.CallExtensionReq{
+		Name:   extensionID,
+		Export: nativeExtensionExport,
+		Args:   []byte(nativeExtensionInput),
+		Request: &commonpb.Request{
+			SessionID: sessionID,
+			Timeout:   int64(extensionRPCTimeout - time.Second),
+		},
+	})
+	callCancel()
+	if err != nil {
+		return fmt.Errorf("call native extension: %w", err)
+	}
+	if err := implantResponseError("call native extension", callResponse.GetResponse()); err != nil {
+		return err
+	}
+	if !bytes.Equal(callResponse.Output, []byte(nativeExtensionOutput)) {
+		return fmt.Errorf("native extension output mismatch: got %q, want %q", callResponse.Output, nativeExtensionOutput)
+	}
+	fmt.Printf(
+		"Called native extension export %s and received exact init-dependent output %q\n",
+		nativeExtensionExport,
+		callResponse.Output,
+	)
+	return nil
+}
+
+func implantResponseError(action string, response *commonpb.Response) error {
+	if response == nil {
+		return fmt.Errorf("%s returned no response metadata", action)
+	}
+	if response.Err != "" {
+		return fmt.Errorf("%s: %s", action, response.Err)
+	}
+	if response.Async {
+		return fmt.Errorf("%s unexpectedly returned an asynchronous response", action)
+	}
+	return nil
+}
+
+func buildNativeExtension(
+	ctx context.Context,
+	repoPath string,
+	workDir string,
+	serverRoot string,
+	targetOS string,
+	targetArch string,
+) (string, string, error) {
+	sourcePath := filepath.Join(repoPath, "test", "reflektor", "fixtures", "native_extension.c")
+	if _, err := os.Stat(sourcePath); err != nil {
+		return "", "", fmt.Errorf("stat native extension source: %w", err)
+	}
+
+	extension := ".so"
+	if targetOS == "darwin" {
+		extension = ".dylib"
+	} else if targetOS == "windows" {
+		extension = ".dll"
+	}
+	outputPath := filepath.Join(workDir, "sliver-native-extension"+extension)
+
+	compilerPath := ""
+	compilerName := ""
+	compilerArgs := []string{}
+	switch targetOS {
+	case "darwin":
+		compilerPath, _ = exec.LookPath("cc")
+		compilerName = "the native C compiler"
+		compilerArgs = []string{
+			"-dynamiclib",
+			"-fPIC",
+			"-O2",
+			"-o", outputPath,
+			sourcePath,
+		}
+	case "linux":
+		compilerPath, _ = exec.LookPath("cc")
+		compilerName = "the native C compiler"
+		compilerArgs = []string{
+			"-shared",
+			"-fPIC",
+			"-nostdlib",
+			"-fno-builtin",
+			"-O2",
+			"-o", outputPath,
+			sourcePath,
+		}
+	case "windows":
+		compilerPath = filepath.Join(serverRoot, "zig", "zig.exe")
+		compilerName = "Sliver's Zig compiler"
+		zigTarget := map[string]string{
+			"386":   "x86-windows-gnu",
+			"amd64": "x86_64-windows-gnu",
+			"arm64": "aarch64-windows-gnu",
+		}[targetArch]
+		if zigTarget == "" {
+			return "", "", fmt.Errorf("no Zig target for windows/%s", targetArch)
+		}
+		compilerArgs = []string{
+			"cc",
+			"-target", zigTarget,
+			"-shared",
+			"-nostdlib",
+			"-fno-builtin",
+			"-O2",
+			"-o", outputPath,
+			sourcePath,
+		}
+	default:
+		return "", "", fmt.Errorf("cannot build a native extension for %s/%s", targetOS, targetArch)
+	}
+	if compilerPath == "" {
+		return "", "", fmt.Errorf("could not find a native C compiler for %s/%s", targetOS, targetArch)
+	}
+	if _, err := os.Stat(compilerPath); err != nil {
+		return "", "", fmt.Errorf("stat %s at %q: %w", compilerName, compilerPath, err)
+	}
+
+	buildCommand := exec.CommandContext(ctx, compilerPath, compilerArgs...)
+	buildCommand.Dir = repoPath
+	output, err := buildCommand.CombinedOutput()
+	if err != nil {
+		return "", "", fmt.Errorf(
+			"build native extension for %s/%s with %s: %w\n%s",
+			targetOS,
+			targetArch,
+			compilerName,
+			err,
+			strings.TrimSpace(string(output)),
+		)
+	}
+	stat, err := os.Stat(outputPath)
+	if err != nil {
+		return "", "", fmt.Errorf("stat compiled native extension: %w", err)
+	}
+	if stat.Size() == 0 {
+		return "", "", errors.New("native extension compiler returned an empty library")
+	}
+	return outputPath, compilerName, nil
 }
 
 func validateOptions(opts *options) error {
