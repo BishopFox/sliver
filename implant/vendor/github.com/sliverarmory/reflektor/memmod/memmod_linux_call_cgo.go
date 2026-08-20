@@ -130,6 +130,22 @@ func cCall3(fn, a0, a1, a2 uintptr) uintptr {
 	return uintptr(C.reflektor_call3(C.uintptr_t(fn), C.uintptr_t(a0), C.uintptr_t(a1), C.uintptr_t(a2)))
 }
 
+//go:uintptrescapes
+func callExportFunction(fn uintptr, args ...uintptr) uintptr {
+	switch len(args) {
+	case 0:
+		return cCall0(fn)
+	case 1:
+		return cCall1(fn, args[0])
+	case 2:
+		return cCall2(fn, args[0], args[1])
+	case 3:
+		return cCall3(fn, args[0], args[1], args[2])
+	default:
+		panic("validated Linux export argument count is out of range")
+	}
+}
+
 func cCallVoid0(fn uintptr) {
 	C.reflektor_call_void0(C.uintptr_t(fn))
 }

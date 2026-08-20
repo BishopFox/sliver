@@ -221,6 +221,7 @@ func convertOldManifest(old *ExtensionManifest_) *ExtensionManifest {
 				Help:        old.Help,
 				LongHelp:    old.LongHelp,
 				Entrypoint:  old.Entrypoint,
+				Init:        old.Init,
 				Files:       old.Files,
 				Arguments:   old.Arguments,
 				Schema:      nil,
@@ -471,43 +472,29 @@ func registerExtension(goos string, ext *ExtCommand, binData []byte, cmd *cobra.
 	//set extension name to a hash of the data to avoid loading more than one instance
 	bd := sha256.Sum256(binData)
 	name := hex.EncodeToString(bd[:])
-	sess, beac := con.ActiveTarget.GetInteractive()
+	sess, _ := con.ActiveTarget.GetInteractive()
 	ctrl := make(chan bool)
 	//first time run of an extension will require some waiting depending on the size
 	if sess != nil {
 		msg := fmt.Sprintf("Sending %s to implant ...", ext.CommandName)
 		con.SpinUntil(msg, ctrl)
 	}
-	//don't block if we are in beacon mode
-	if beac != nil && sess == nil {
-		go func() {
-			registerResp, err := con.Rpc.RegisterExtension(context.Background(), &sliverpb.RegisterExtensionReq{
-				Name:    name,
-				Data:    binData,
-				OS:      goos,
-				Init:    ext.Init,
-				Request: con.ActiveTarget.Request(cmd),
-			})
-			if err != nil {
-				con.PrintErrorf("Error registering extension: %s\n", err)
-			}
-			if registerResp.Response != nil && registerResp.Response.Err != "" {
-				con.PrintErrorf("Error registering extension: %s\n", errors.New(registerResp.Response.Err))
-			}
-		}()
-		return nil
-	}
-	//session mode (hopefully)
 	registerResp, err := con.Rpc.RegisterExtension(context.Background(), &sliverpb.RegisterExtensionReq{
 		Name:    name,
 		Data:    binData,
 		OS:      goos,
+		Init:    ext.Init,
 		Request: con.ActiveTarget.Request(cmd),
 	})
-	ctrl <- true
-	<-ctrl
+	if sess != nil {
+		ctrl <- true
+		<-ctrl
+	}
 	if err != nil {
 		return err
+	}
+	if registerResp == nil {
+		return errors.New("received empty register extension response")
 	}
 	if registerResp.Response != nil && registerResp.Response.Err != "" {
 		return errors.New(registerResp.Response.Err)
@@ -865,37 +852,22 @@ func makeExtensionFlagNameCompletion(extCmd *ExtCommand) carapace.Action {
 }
 
 func makeCommandPlatformFilters(extCmd *ExtCommand) map[string]string {
-	filtersOS := make(map[string]bool)
-	filtersArch := make(map[string]bool)
-
-	var all []string
-
-	// Only add filters for architectures when there OS matters.
+	supportedTargets := make(map[string]struct{}, len(extCmd.Files))
 	for _, file := range extCmd.Files {
-		filtersOS[file.OS] = true
-
-		if filtersOS[file.OS] {
-			filtersArch[file.Arch] = true
-		}
+		supportedTargets[file.OS+"/"+file.Arch] = struct{}{}
 	}
 
-	for os, enabled := range filtersOS {
-		if enabled {
-			all = append(all, os)
+	// Console command filters are hide-on-match, so annotate the command with
+	// every exact target pair it does not support. A separate fallback hides all
+	// native extensions on target pairs outside the supported loader matrix.
+	filters := []string{consts.NativeExtensionUnsupportedTargetFilter}
+	for _, target := range consts.NativeExtensionTargets() {
+		if _, supported := supportedTargets[target.GOOS+"/"+target.GOARCH]; !supported {
+			filters = append(filters, target.Filter)
 		}
-	}
-
-	for arch, enabled := range filtersArch {
-		if enabled {
-			all = append(all, arch)
-		}
-	}
-
-	if len(all) == 0 {
-		return map[string]string{}
 	}
 
 	return map[string]string{
-		appConsole.CommandFilterKey: strings.Join(all, ","),
+		appConsole.CommandFilterKey: strings.Join(filters, ","),
 	}
 }

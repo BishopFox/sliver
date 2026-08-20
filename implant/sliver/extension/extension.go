@@ -20,13 +20,31 @@ package extension
 
 import (
 	"errors"
+	"sync"
 
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
 )
 
-var extensions map[string]Extension
+const (
+	// Success indicates that a native extension callback completed successfully.
+	Success = 0
+	// Failure indicates that a native extension callback failed.
+	Failure = 1
+)
+
+var (
+	extensions     map[string]Extension
+	extensionLoads map[string]*extensionLoad
+	extensionsMu   sync.RWMutex
+)
+
+type extensionLoad struct {
+	done    chan struct{}
+	err     error
+	waiters int
+}
 
 type Extension interface {
 	Load() error
@@ -36,10 +54,47 @@ type Extension interface {
 }
 
 func Add(e Extension) {
+	extensionsMu.Lock()
+	defer extensionsMu.Unlock()
 	extensions[e.GetID()] = e
 }
 
+// Register loads an extension once per ID and publishes it only after loading
+// succeeds. Concurrent registrations for the same ID wait for the in-flight
+// load instead of mapping duplicate libraries and allocating duplicate callback
+// trampolines.
+func Register(e Extension) error {
+	id := e.GetID()
+	extensionsMu.Lock()
+	if _, found := extensions[id]; found {
+		extensionsMu.Unlock()
+		return nil
+	}
+	if loading, found := extensionLoads[id]; found {
+		loading.waiters++
+		extensionsMu.Unlock()
+		<-loading.done
+		return loading.err
+	}
+	loading := &extensionLoad{done: make(chan struct{})}
+	extensionLoads[id] = loading
+	extensionsMu.Unlock()
+
+	err := e.Load()
+	extensionsMu.Lock()
+	if err == nil {
+		extensions[id] = e
+	}
+	loading.err = err
+	close(loading.done)
+	delete(extensionLoads, id)
+	extensionsMu.Unlock()
+	return err
+}
+
 func List() []string {
+	extensionsMu.RLock()
+	defer extensionsMu.RUnlock()
 	var extList []string
 	for id := range extensions {
 		extList = append(extList, id)
@@ -48,10 +103,15 @@ func List() []string {
 }
 
 func Run(extID string, funcName string, arguments []byte, callback func([]byte)) error {
-	if ext, found := extensions[extID]; found {
+	extensionsMu.RLock()
+	ext, found := extensions[extID]
+	extensionsMu.RUnlock()
+	if found {
 		return ext.Call(funcName, arguments, callback)
 	}
 	// {{if .Config.Debug}}
+	extensionsMu.RLock()
+	defer extensionsMu.RUnlock()
 	for id, ext := range extensions {
 		log.Printf("Extension '%s' (%s)", id, ext.GetArch())
 	}
@@ -61,4 +121,5 @@ func Run(extID string, funcName string, arguments []byte, callback func([]byte))
 
 func init() {
 	extensions = make(map[string]Extension)
+	extensionLoads = make(map[string]*extensionLoad)
 }

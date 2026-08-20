@@ -168,6 +168,8 @@ As the alias support relies on Sliver side loading capabilities, please make sur
 
 ## Extensions
 
-⚠️ Extensions are currently only supported when using Windows implants, though we're actively working on MacOS/Linux support.
+Native extensions are supported by Windows implants (`386`, `amd64`, and `arm64`), Linux implants (`386`, `amd64`, and `arm64`), and macOS implants (`amd64` and `arm64`). Each manifest must include a platform-native shared library for every target it supports: `.dll` on Windows, `.so` on Linux, and `.dylib` on macOS.
 
 Extensions are similar in structure to an alias, but internally work differently. An extension is an artifact of native code that is reflectively loaded by the implant and passed certain callbacks. These callbacks allow the extension to return data to the C2 server. Extensions may also have dependencies (other extensions), which Sliver will load prior to the extension; circular dependencies are not allowed. For example, all BOF extensions (`.o` files) rely on the COFF Loader extension (a `.dll`).
+
+Native exports use the same Sliver extension ABI on every supported operating system. The export receives the argument buffer, its size, and a callback used to return output. The optional `init` export in the extension manifest is called once after the library is loaded and before any command export is invoked.

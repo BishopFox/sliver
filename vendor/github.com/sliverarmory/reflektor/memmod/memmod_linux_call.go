@@ -17,11 +17,11 @@ func cCall2(fn, a0, a1 uintptr) uintptr
 func cCall3(fn, a0, a1, a2 uintptr) uintptr
 
 func cCallVoid0(fn uintptr) {
-	_ = cCall0(fn)
+	_ = callExportFunction(fn)
 }
 
 func cCallVoid3(fn, a0, a1, a2 uintptr) {
-	_ = cCall3(fn, a0, a1, a2)
+	_ = callExportFunction(fn, a0, a1, a2)
 }
 
 func cCallVoid0OnThread(fn uintptr) error {

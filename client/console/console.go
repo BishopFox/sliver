@@ -1147,6 +1147,7 @@ func (con *SliverClient) ExposeCommands() {
 	case con.ActiveTarget.session != nil:
 		session := con.ActiveTarget.session
 		filters = append(filters, consts.BeaconCmdsFilter)
+		filters = append(filters, consts.NativeExtensionTargetFilter(session.OS, session.Arch))
 
 		// Operating system
 		if session.OS != "windows" {
@@ -1161,6 +1162,7 @@ func (con *SliverClient) ExposeCommands() {
 	case con.ActiveTarget.beacon != nil:
 		beacon := con.ActiveTarget.beacon
 		filters = append(filters, consts.SessionCmdsFilter)
+		filters = append(filters, consts.NativeExtensionTargetFilter(beacon.OS, beacon.Arch))
 
 		// Operating system
 		if beacon.OS != "windows" {
