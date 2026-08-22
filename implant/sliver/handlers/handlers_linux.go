@@ -24,12 +24,10 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
-	"unsafe"
 
 	"github.com/bishopfox/sliver/implant/sliver/extension"
 	"github.com/bishopfox/sliver/implant/sliver/mount"
@@ -37,6 +35,7 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/taskrunner"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/proto"
 
 	// {{if .Config.Debug}}
@@ -261,34 +260,24 @@ func memfilesListHandler(_ []byte, resp RPCResponse) {
 }
 
 func memfilesAddHandler(_ []byte, resp RPCResponse) {
-
-	var nrMemfdCreate int
-	memfilesAdd := &sliverpb.MemfilesAdd{}
-	memfilesAdd.Response = &commonpb.Response{}
+	memfilesAdd := &sliverpb.MemfilesAdd{Response: &commonpb.Response{}}
 
 	memfdName := taskrunner.RandomString(8)
-	memfd, err := syscall.BytePtrFromString(memfdName)
+	fd, err := unix.MemfdCreate(memfdName, unix.MFD_CLOEXEC)
 	if err != nil {
 		//{{if .Config.Debug}}
-		log.Printf("Error during conversion: %s\n", err)
+		log.Printf("Error creating memfd: %s\n", err)
 		//{{end}}
-		return
-	}
-	if runtime.GOARCH == "386" {
-		nrMemfdCreate = 356
+		memfilesAdd.Response.Err = err.Error()
 	} else {
-		nrMemfdCreate =
-			319
+		memfilesAdd.Fd = int64(fd)
 	}
-
-	fd, _, _ := syscall.Syscall(uintptr(nrMemfdCreate), uintptr(unsafe.Pointer(memfd)), 1, 0)
-	fd_str := fmt.Sprintf("%d", fd)
-	fd_int, _ := strconv.ParseInt(fd_str, 0, 64)
-	memfilesAdd.Fd = fd_int
 
 	data, err := proto.Marshal(memfilesAdd)
+	if err != nil && fd >= 0 {
+		unix.Close(fd)
+	}
 	resp(data, err)
-
 }
 
 func memfilesRmHandler(data []byte, resp RPCResponse) {
