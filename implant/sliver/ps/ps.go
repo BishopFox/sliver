@@ -56,3 +56,16 @@ func Kill(pid int) error {
 	}
 	return p.Kill()
 }
+
+func architectureFromELFMachine(machine uint16) string {
+	switch machine {
+	case 3:
+		return "x86"
+	case 62:
+		return "x86_64"
+	case 183:
+		return "aarch64"
+	default:
+		return ""
+	}
+}
