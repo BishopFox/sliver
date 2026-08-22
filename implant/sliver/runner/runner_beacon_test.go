@@ -54,6 +54,27 @@ func TestBeaconMainResultCheckinDoesNotWaitForTasks(t *testing.T) {
 	}
 }
 
+func TestBeaconMainEmptyCheckinWaitsForTasks(t *testing.T) {
+	queue := &beaconResultQueue{}
+	var recvCalled bool
+	beacon := &transports.Beacon{
+		Start: func() error { return nil },
+		Send:  func(*sliverpb.Envelope) error { return nil },
+		Recv: func() (*sliverpb.Envelope, error) {
+			recvCalled = true
+			return nil, nil
+		},
+		Close: func() error { return nil },
+	}
+
+	if err := beaconMain(beacon, time.Now(), queue); err != nil {
+		t.Fatal(err)
+	}
+	if !recvCalled {
+		t.Fatal("empty check-in did not wait for a server task response")
+	}
+}
+
 func TestBeaconMainRequeuesResultsAfterSendFailure(t *testing.T) {
 	wantErr := errors.New("send failed")
 	result := &sliverpb.Envelope{ID: 73, Data: []byte("result")}
