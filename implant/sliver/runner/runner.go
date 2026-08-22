@@ -282,7 +282,6 @@ func beaconMainLoop(beacon *transports.Beacon, pendingResults *beaconResultQueue
 	// {{if .Config.Debug}}
 	log.Printf("Registering beacon with server")
 	// {{end}}
-	nextCheckin := time.Now().Add(beacon.Duration())
 	register := registerSliver()
 	register.ActiveC2 = beacon.ActiveC2
 	register.ProxyURL = beacon.ProxyURL
@@ -296,38 +295,37 @@ func beaconMainLoop(beacon *transports.Beacon, pendingResults *beaconResultQueue
 	time.Sleep(time.Second)
 	beacon.Close()
 
-	errors := make(chan error)
-	shortCircuit := make(chan struct{})
+	return beaconCheckinLoop(beacon, pendingResults, beaconMain)
+}
 
+type beaconCheckinFunc func(*transports.Beacon, time.Time, *beaconResultQueue) error
+
+// beaconCheckinLoop schedules check-ins without overlapping them. Beacon
+// transport callbacks share per-check-in connection state, so the previous
+// check-in must finish closing its resources before the next one can start.
+func beaconCheckinLoop(beacon *transports.Beacon, pendingResults *beaconResultQueue, checkin beaconCheckinFunc) error {
 	for {
 		duration := beacon.Duration()
-		nextCheckin = time.Now().Add(duration)
-
-		go func() {
-			oldInterval := beacon.Interval()
-			err := beaconMain(beacon, nextCheckin, pendingResults)
-			if err != nil {
-				// {{if .Config.Debug}}
-				log.Printf("[beacon] main error: %v", nextCheckin)
-				// {{end}}
-				errors <- err
-			} else if oldInterval != beacon.Interval() {
-				// The beacon's interval was modified so we need to short circuit
-				// the current sleep and tell the server when the next checkin will
-				// be based on the new interval.
-				shortCircuit <- struct{}{}
-			}
-		}()
+		nextCheckin := time.Now().Add(duration)
+		oldInterval := beacon.Interval()
+		err := checkin(beacon, nextCheckin, pendingResults)
+		if err != nil {
+			// {{if .Config.Debug}}
+			log.Printf("[beacon] main error: %v", nextCheckin)
+			// {{end}}
+			return err
+		}
 
 		// {{if .Config.Debug}}
 		log.Printf("[beacon] sleep until %v", nextCheckin)
 		// {{end}}
-		select {
-		case mainErr := <-errors:
-			return mainErr
-		case <-time.After(duration):
-		case <-shortCircuit:
-			// Short circuit current duration with no error
+		if oldInterval == beacon.Interval() {
+			// Keep the original start-to-start cadence when the check-in
+			// finishes before its deadline. If it overruns, begin the next
+			// check-in immediately without overlapping shared transport state.
+			if remaining := time.Until(nextCheckin); 0 < remaining {
+				time.Sleep(remaining)
+			}
 		}
 
 		// check if reconfig used to set a new C2-URI
@@ -338,7 +336,6 @@ func beaconMainLoop(beacon *transports.Beacon, pendingResults *beaconResultQueue
 			return nil
 		}
 	}
-	return nil
 }
 
 func beaconMain(beacon *transports.Beacon, nextCheckin time.Time, pendingResults *beaconResultQueue) error {
