@@ -39,6 +39,7 @@ jobs:
   darwin:
     name: comprehensive-e2e-darwin-${{ matrix.goarch }}
     needs: authorize
+    if: ${{ false }} # Temporary focused Windows/ARM64 WireGuard diagnostic.
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 360
     strategy:
@@ -120,6 +121,7 @@ jobs:
   linux-native:
     name: comprehensive-e2e-linux-${{ matrix.goarch }}
     needs: authorize
+    if: ${{ false }} # Temporary focused Windows/ARM64 WireGuard diagnostic.
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 360
     strategy:
@@ -201,6 +203,7 @@ jobs:
   linux-386:
     name: comprehensive-e2e-linux-386
     needs: authorize
+    if: ${{ false }} # Temporary focused Windows/ARM64 WireGuard diagnostic.
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     env:
@@ -272,12 +275,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: windows-2022
-            goarch: 386
-            server_arch: amd64
-          - runner: windows-2022
-            goarch: amd64
-            server_arch: amd64
           - runner: windows-11-arm
             goarch: arm64
             server_arch: arm64
@@ -333,9 +330,11 @@ jobs:
           -target-os windows
           -target-arch ${{ matrix.goarch }}
           -results ./e2e-results
-          -transports mtls,wg,http
-          -implant-modes session,beacon
+          -transports wg
+          -implant-modes beacon
           -beacon-interval 10s
+          -command-timeout 30s
+          -implant-debug
 
       - name: Upload target coverage
         if: ${{ always() }}
@@ -417,4 +416,5 @@ jobs:
   reflektor:
     name: Existing Reflektor test matrix
     needs: authorize
+    if: ${{ false }} # Temporary focused Windows/ARM64 WireGuard diagnostic.
     uses: ./.github/workflows/reflektor-tests.yml
