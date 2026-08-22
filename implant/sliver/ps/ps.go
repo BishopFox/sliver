@@ -69,3 +69,23 @@ func architectureFromELFMachine(machine uint16) string {
 		return ""
 	}
 }
+
+func architectureFromWindowsMachine(machine uint16) string {
+	switch machine {
+	case 0x014c:
+		return "x86"
+	case 0x8664:
+		return "x86_64"
+	case 0xaa64:
+		return "arm64"
+	default:
+		return ""
+	}
+}
+
+func architectureFromWindowsMachines(processMachine, nativeMachine uint16) string {
+	if processMachine != 0 {
+		return architectureFromWindowsMachine(processMachine)
+	}
+	return architectureFromWindowsMachine(nativeMachine)
+}
