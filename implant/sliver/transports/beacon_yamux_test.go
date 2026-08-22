@@ -13,6 +13,22 @@ import (
 	"github.com/hashicorp/yamux"
 )
 
+type recordingWGBeaconDevice struct {
+	closeCalls int
+}
+
+func (d *recordingWGBeaconDevice) Close() {
+	d.closeCalls++
+}
+
+func TestCloseWGBeaconDeviceUsesPermanentClose(t *testing.T) {
+	dev := &recordingWGBeaconDevice{}
+	closeWGBeaconDevice(dev.Close)
+	if dev.closeCalls != 1 {
+		t.Fatalf("wireguard device Close called %d times, want 1", dev.closeCalls)
+	}
+}
+
 func TestSendWGBeaconStreamWaitsForRemoteClose(t *testing.T) {
 	client, server := newBeaconYamuxPair(t)
 	marker := []byte("beacon-result")

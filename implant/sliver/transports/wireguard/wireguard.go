@@ -252,12 +252,35 @@ func formatWGEndpoint(address string, port uint16) string {
 	return net.JoinHostPort(address, strconv.Itoa(int(port)))
 }
 
+type permanentDevice interface {
+	Close()
+}
+
+type sessionKeyDevice interface {
+	permanentDevice
+	Up() error
+}
+
+type netDialer interface {
+	Dial(network string, address string) (net.Conn, error)
+}
+
+type deviceConfigurator interface {
+	permanentDevice
+	IpcSetOperation(io.Reader) error
+}
+
 // getSessKeys - Connect to the wireguard server and retrieve session specific keys and IP
 func getSessKeys(address string, port uint16) error {
 	_, dev, tNet, err := bringUpWGInterface(address, port, wgImplantPrivKey, wgServerPubKey, wgPeerTunIP)
 	if err != nil {
 		return err
 	}
+	return getSessKeysWithDevice(dev, tNet)
+}
+
+func getSessKeysWithDevice(dev sessionKeyDevice, tNet netDialer) error {
+	defer dev.Close()
 
 	if err := dev.Up(); err != nil {
 		return err
@@ -272,29 +295,17 @@ func getSessKeys(address string, port uint16) error {
 		// {{if .Config.Debug}}
 		log.Printf("Unable to connect to wg key exchange listener: %v", err)
 		// {{end}}
-		_ = dev.Down()
 		return err
 	}
 
 	wgSessPrivKey, wgSessPubKey, tunAddress, err = doKeyExchange(keyExchangeConnection)
 	if err != nil {
-		_ = dev.Down()
 		return err
 	}
 
 	// {{if .Config.Debug}}
-	log.Printf("Signaling wg device to go down")
+	log.Printf("Closing temporary wg key exchange device")
 	// {{end}}
-
-	// Close initial wireguard connection
-	err = dev.Down()
-
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("Failed to close device.Device: %s", err)
-		// {{end}}
-		return err
-	}
 	return nil
 }
 
@@ -314,7 +325,7 @@ func WGConnect(address string, port uint16) (net.Conn, *device.Device, error) {
 		return nil, nil, err
 	}
 
-	connection, err := tNet.Dial("tcp", fmt.Sprintf("%s:%d", serverTunIP, wgTcpCommsPort))
+	connection, err := dialDevice(tNet, dev, "tcp", fmt.Sprintf("%s:%d", serverTunIP, wgTcpCommsPort))
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Unable to connect to sliver listener: %v", err)
@@ -329,6 +340,15 @@ func WGConnect(address string, port uint16) (net.Conn, *device.Device, error) {
 	failedConn = 0
 	tunnelNet = tNet
 	return connection, dev, nil
+}
+
+func dialDevice(dialer netDialer, dev permanentDevice, network string, address string) (net.Conn, error) {
+	connection, err := dialer.Dial(network, address)
+	if err != nil {
+		dev.Close()
+		return nil, err
+	}
+	return connection, nil
 }
 
 // bringUpWGInterface - First creates an inet.af network stack.
@@ -347,6 +367,7 @@ func bringUpWGInterface(address string, port uint16, implantPrivKey string, serv
 		// {{if .Config.Debug}}
 		log.Panic(err)
 		// {{end}}
+		return nil, nil, nil, err
 	}
 
 	wgLogLevel := device.LogLevelSilent
@@ -365,7 +386,7 @@ func bringUpWGInterface(address string, port uint16, implantPrivKey string, serv
 	log.Printf("Configuring wg device with: %s", wgConf.String())
 	// {{end}}
 
-	if err := dev.IpcSetOperation(bufio.NewReader(wgConf)); err != nil {
+	if err := configureDevice(dev, bufio.NewReader(wgConf)); err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("Failed to set wg device config: %s", err)
 		// {{end}}
@@ -376,6 +397,14 @@ func bringUpWGInterface(address string, port uint16, implantPrivKey string, serv
 	// {{end}}
 
 	return tun, dev, tNet, nil
+}
+
+func configureDevice(dev deviceConfigurator, config io.Reader) error {
+	if err := dev.IpcSetOperation(config); err != nil {
+		dev.Close()
+		return err
+	}
+	return nil
 }
 
 // doKeyExchange - Connect to key exchange listener and retrieve new dynamic wg keys

@@ -325,8 +325,9 @@ func wgBeacon(uri *url.URL) *Beacon {
 				return err
 			}
 			if _, err := conn.Write([]byte(wireguard.YamuxPreface)); err != nil {
-				_ = conn.Close()
-				_ = dev.Down()
+				closeWGBeaconResources(nil, conn, dev)
+				conn = nil
+				dev = nil
 				return err
 			}
 			cfg := yamux.DefaultConfig()
@@ -339,8 +340,9 @@ func wgBeacon(uri *url.URL) *Beacon {
 			// {{end}}
 			muxSession, err = yamux.Client(conn, cfg)
 			if err != nil {
-				_ = conn.Close()
-				_ = dev.Down()
+				closeWGBeaconResources(nil, conn, dev)
+				conn = nil
+				dev = nil
 				return err
 			}
 			return nil
@@ -357,18 +359,10 @@ func wgBeacon(uri *url.URL) *Beacon {
 			return sendWGBeaconEnvelope(muxSession, envelope)
 		},
 		Close: func() error {
-			if muxSession != nil {
-				_ = muxSession.Close()
-				muxSession = nil
-			}
-			if conn != nil {
-				_ = conn.Close()
-				conn = nil
-			}
-			if dev != nil {
-				_ = dev.Down()
-				dev = nil
-			}
+			closeWGBeaconResources(muxSession, conn, dev)
+			muxSession = nil
+			conn = nil
+			dev = nil
 			return nil
 		},
 		Cleanup: func() error {
@@ -376,6 +370,27 @@ func wgBeacon(uri *url.URL) *Beacon {
 		},
 	}
 	return beacon
+}
+
+// closeWGBeaconResources permanently closes each per-check-in resource. A
+// device.Down only stops the bind and peers; it leaves the netstack TUN and
+// WireGuard worker goroutines alive, so beacon reconnects must use Close.
+func closeWGBeaconResources(muxSession *yamux.Session, conn net.Conn, dev *device.Device) {
+	if muxSession != nil {
+		_ = muxSession.Close()
+	}
+	if conn != nil {
+		_ = conn.Close()
+	}
+	if dev != nil {
+		closeWGBeaconDevice(dev.Close)
+	}
+}
+
+func closeWGBeaconDevice(closeDevice func()) {
+	if closeDevice != nil {
+		closeDevice()
+	}
 }
 
 const wgBeaconStreamReceiptTimeout = 5 * time.Second
