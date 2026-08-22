@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"archive/tar"
+	"bytes"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -36,5 +39,39 @@ func TestCdHandlerReportsChdirFailure(t *testing.T) {
 	})
 	if !called {
 		t.Fatal("cdHandler did not invoke its response callback")
+	}
+}
+
+func TestExtractFilesTruncatesOverwrittenFile(t *testing.T) {
+	destination := t.TempDir()
+	archive := func(content string) []byte {
+		t.Helper()
+		buffer := bytes.NewBuffer(nil)
+		writer := tar.NewWriter(buffer)
+		header := &tar.Header{Name: "bundle/item.txt", Mode: 0o600, Size: int64(len(content)), Typeflag: tar.TypeReg}
+		if err := writer.WriteHeader(header); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := writer.Write([]byte(content)); err != nil {
+			t.Fatal(err)
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatal(err)
+		}
+		return buffer.Bytes()
+	}
+
+	if written, skipped, err := extractFiles(archive("a deliberately long first payload\n"), destination, false); err != nil || written != 1 || skipped != 0 {
+		t.Fatalf("initial extract: written=%d skipped=%d err=%v", written, skipped, err)
+	}
+	if written, skipped, err := extractFiles(archive("short\n"), destination, true); err != nil || written != 1 || skipped != 0 {
+		t.Fatalf("overwrite extract: written=%d skipped=%d err=%v", written, skipped, err)
+	}
+	content, err := os.ReadFile(filepath.Join(destination, "bundle", "item.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != "short\n" {
+		t.Fatalf("overwritten content = %q, want exact shorter payload", content)
 	}
 }
