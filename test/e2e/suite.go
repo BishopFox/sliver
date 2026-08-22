@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -26,12 +27,13 @@ import (
 )
 
 const (
-	operatorName          = "e2e-operator"
-	processLogTailBytes   = 1024 * 1024
-	listenerPollInterval  = 250 * time.Millisecond
-	listenerDialTimeout   = 500 * time.Millisecond
-	cleanupGraceTimeout   = 2 * time.Second
-	cleanupProcessTimeout = 10 * time.Second
+	operatorName               = "e2e-operator"
+	processLogTailBytes        = 1024 * 1024
+	commandFailureLogTailBytes = 64 * 1024
+	listenerPollInterval       = 250 * time.Millisecond
+	listenerDialTimeout        = 500 * time.Millisecond
+	cleanupGraceTimeout        = 2 * time.Second
+	cleanupProcessTimeout      = 10 * time.Second
 )
 
 var transportOrder = []string{"mtls", "wg", "http"}
@@ -597,7 +599,13 @@ func (s *suite) runImplant(listener *listener, beacon bool) error {
 	s.t.Logf("Verified %s %s connection %s over %s", mode, target.id(), s.opts.targetOS+"/"+s.opts.targetArch, listener.transport)
 
 	if err := s.exerciseCommands(target, remoteRoot, listener.transport); err != nil {
-		return fmt.Errorf("exercise %s over %s: %w", mode, listener.transport, err)
+		return fmt.Errorf(
+			"exercise %s over %s: %w\n%s",
+			mode,
+			listener.transport,
+			err,
+			commandFailureDiagnostics(process, implantLog, s.serverLog),
+		)
 	}
 	return nil
 }
@@ -838,13 +846,60 @@ func (process *managedProcess) failure(message string) error {
 	return fmt.Errorf("%s: %w\n%s", message, processErr, readLogTail(process.logPath))
 }
 
+func commandFailureDiagnostics(process *managedProcess, implantLog string, serverLog string) string {
+	return fmt.Sprintf(
+		"implant process status: %s\nimplant log tail (last %d bytes):\n%s\nserver log tail (last %d bytes):\n%s",
+		managedProcessStatus(process),
+		commandFailureLogTailBytes,
+		readLogTailBytes(implantLog, commandFailureLogTailBytes),
+		commandFailureLogTailBytes,
+		readLogTailBytes(serverLog, commandFailureLogTailBytes),
+	)
+}
+
+func managedProcessStatus(process *managedProcess) string {
+	if process == nil {
+		return "unavailable"
+	}
+	select {
+	case <-process.done:
+		if process.err != nil {
+			return fmt.Sprintf("exited with error: %v", process.err)
+		}
+		return "exited without error"
+	default:
+		return "remains running"
+	}
+}
+
 func readLogTail(path string) string {
-	data, err := os.ReadFile(path)
+	return readLogTailBytes(path, processLogTailBytes)
+}
+
+func readLogTailBytes(path string, limit int64) string {
+	if limit <= 0 {
+		return "(log tail disabled)"
+	}
+	logFile, err := os.Open(path)
 	if err != nil {
 		return fmt.Sprintf("(could not read %s: %v)", path, err)
 	}
-	if len(data) > processLogTailBytes {
-		data = data[len(data)-processLogTailBytes:]
+	defer logFile.Close()
+
+	end, err := logFile.Seek(0, io.SeekEnd)
+	if err != nil {
+		return fmt.Sprintf("(could not inspect %s: %v)", path, err)
+	}
+	start := end - limit
+	if start < 0 {
+		start = 0
+	}
+	if _, err := logFile.Seek(start, io.SeekStart); err != nil {
+		return fmt.Sprintf("(could not seek %s: %v)", path, err)
+	}
+	data, err := io.ReadAll(io.LimitReader(logFile, limit))
+	if err != nil {
+		return fmt.Sprintf("(could not read %s: %v)", path, err)
 	}
 	return strings.TrimSpace(string(data))
 }

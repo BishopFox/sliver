@@ -1,6 +1,9 @@
 package e2e
 
 import (
+	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -124,5 +127,59 @@ func TestValidateConnectedTransport(t *testing.T) {
 				t.Fatalf("error got %v, want substring %q", err, test.wantError)
 			}
 		})
+	}
+}
+
+func TestCommandFailureDiagnosticsReportsRunningProcessAndLogTails(t *testing.T) {
+	testDir := t.TempDir()
+	implantLog := filepath.Join(testDir, "implant.log")
+	serverLog := filepath.Join(testDir, "server.log")
+	if err := os.WriteFile(implantLog, []byte("implant-tail-marker\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(serverLog, []byte("server-tail-marker\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	process := &managedProcess{done: make(chan struct{})}
+	diagnostics := commandFailureDiagnostics(process, implantLog, serverLog)
+	for _, want := range []string{
+		"implant process status: remains running",
+		"implant-tail-marker",
+		"server-tail-marker",
+	} {
+		if !strings.Contains(diagnostics, want) {
+			t.Errorf("diagnostics missing %q", want)
+		}
+	}
+}
+
+func TestManagedProcessStatusReportsExactExitError(t *testing.T) {
+	done := make(chan struct{})
+	process := &managedProcess{done: done, err: errors.New("forced implant failure")}
+	close(done)
+
+	if got, want := managedProcessStatus(process), "exited with error: forced implant failure"; got != want {
+		t.Fatalf("process status got %q, want %q", got, want)
+	}
+}
+
+func TestReadLogTailBytesIsBoundedAndReturnsSuffix(t *testing.T) {
+	const limit = int64(64)
+	path := filepath.Join(t.TempDir(), "bounded.log")
+	content := "discarded-prefix-" + strings.Repeat("x", int(limit)) + "-tail-marker"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	tail := readLogTailBytes(path, limit)
+	if int64(len(tail)) > limit {
+		t.Fatalf("log tail length got %d, want <= %d", len(tail), limit)
+	}
+	if strings.Contains(tail, "discarded-prefix") {
+		t.Fatal("log tail included content before its byte limit")
+	}
+	if !strings.HasSuffix(tail, "-tail-marker") {
+		t.Fatalf("log tail got %q, want suffix marker", tail)
 	}
 }
