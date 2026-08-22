@@ -26,6 +26,7 @@ func init() {
 	flag.DurationVar(&testOptions.connectTimeout, "connect-timeout", 5*time.Minute, "implant connection timeout")
 	flag.DurationVar(&testOptions.commandTimeout, "command-timeout", 2*time.Minute, "individual implant command timeout")
 	flag.DurationVar(&testOptions.beaconInterval, "beacon-interval", 10*time.Second, "beacon callback interval")
+	flag.BoolVar(&testOptions.implantDebug, "implant-debug", false, "generate debug implants and capture their transport logs")
 }
 
 func TestMain(m *testing.M) {

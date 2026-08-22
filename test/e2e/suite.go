@@ -54,6 +54,7 @@ type options struct {
 	connectTimeout time.Duration
 	commandTimeout time.Duration
 	beaconInterval time.Duration
+	implantDebug   bool
 }
 
 type suite struct {
@@ -510,7 +511,7 @@ func (s *suite) runImplant(listener *listener, beacon bool) error {
 		GOOS:                s.opts.targetOS,
 		GOARCH:              s.opts.targetArch,
 		TemplateName:        "sliver",
-		Debug:               false,
+		Debug:               s.opts.implantDebug,
 		ObfuscateSymbols:    false,
 		IsBeacon:            beacon,
 		BeaconInterval:      int64(s.opts.beaconInterval),
