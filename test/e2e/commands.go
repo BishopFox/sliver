@@ -999,17 +999,12 @@ func (s *suite) exerciseWindowsCommands(target implantTarget, transport string) 
 		if err != nil {
 			return err
 		}
-		if response.Error != "" || len(response.Details) == 0 {
-			return fmt.Errorf("service inventory error=%q entries=%d", response.Error, len(response.Details))
+		selectedService, err = selectServiceByName(response, "EventLog")
+		if err != nil {
+			return err
 		}
-		for _, detail := range response.Details {
-			if detail != nil && strings.EqualFold(detail.Name, "EventLog") {
-				selectedService = proto.Clone(detail).(*sliverpb.ServiceDetails)
-				break
-			}
-		}
-		if selectedService == nil {
-			return errors.New("service inventory did not contain the stable EventLog service")
+		if response.Error != "" {
+			s.t.Logf("Services returned %d usable entries with a partial-inventory warning: %s", len(response.Details), response.Error)
 		}
 		return nil
 	}); err != nil {
@@ -1039,6 +1034,21 @@ func (s *suite) exerciseWindowsCommands(target implantTarget, transport string) 
 		return err
 	}
 	return s.exerciseWindowsRegistry(target, transport)
+}
+
+func selectServiceByName(response *sliverpb.Services, serviceName string) (*sliverpb.ServiceDetails, error) {
+	if response == nil {
+		return nil, errors.New("service inventory response was empty")
+	}
+	if len(response.Details) == 0 {
+		return nil, fmt.Errorf("service inventory contained no usable entries (warning=%q)", response.Error)
+	}
+	for _, detail := range response.Details {
+		if detail != nil && strings.EqualFold(detail.Name, serviceName) {
+			return proto.Clone(detail).(*sliverpb.ServiceDetails), nil
+		}
+	}
+	return nil, fmt.Errorf("service inventory did not contain the stable %s service (warning=%q)", serviceName, response.Error)
 }
 
 func (s *suite) download(target implantTarget, requestData *sliverpb.DownloadReq) ([]byte, error) {

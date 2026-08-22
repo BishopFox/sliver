@@ -9,6 +9,7 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"google.golang.org/protobuf/proto"
 )
 
 type testTarEntry struct {
@@ -219,6 +220,60 @@ func TestEnvHasKeyIsCaseInsensitiveAndDistinguishesEmptyValue(t *testing.T) {
 	}
 	if envHasKey(nil, "missing") {
 		t.Fatal("nil environment list reported a key present")
+	}
+}
+
+func TestSelectServiceByNameAcceptsPartialInventoryWarning(t *testing.T) {
+	eventLog := &sliverpb.ServiceDetails{
+		Name:        "EventLog",
+		DisplayName: "Windows Event Log",
+		Status:      4,
+	}
+	response := &sliverpb.Services{
+		Details: []*sliverpb.ServiceDetails{nil, eventLog},
+		Error:   "WaaSMedicSvc: The system cannot find the file specified.",
+	}
+
+	selected, err := selectServiceByName(response, "eventlog")
+	if err != nil {
+		t.Fatalf("select service from partial inventory: %v", err)
+	}
+	if !proto.Equal(selected, eventLog) {
+		t.Fatalf("selected service got %+v, want %+v", selected, eventLog)
+	}
+	if selected == eventLog {
+		t.Fatal("selected service was not cloned")
+	}
+}
+
+func TestSelectServiceByNameRejectsUnusableInventory(t *testing.T) {
+	tests := []struct {
+		name      string
+		response  *sliverpb.Services
+		wantError string
+	}{
+		{name: "empty response", wantError: "response was empty"},
+		{
+			name:      "no usable entries",
+			response:  &sliverpb.Services{Error: "WaaSMedicSvc: unavailable"},
+			wantError: "no usable entries",
+		},
+		{
+			name: "stable service missing",
+			response: &sliverpb.Services{
+				Details: []*sliverpb.ServiceDetails{{Name: "OtherService"}},
+				Error:   "WaaSMedicSvc: unavailable",
+			},
+			wantError: "did not contain the stable EventLog service",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := selectServiceByName(test.response, "EventLog")
+			if err == nil || !strings.Contains(err.Error(), test.wantError) {
+				t.Fatalf("error got %v, want substring %q", err, test.wantError)
+			}
+		})
 	}
 }
 
