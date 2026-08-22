@@ -1,6 +1,7 @@
 name: Reflektor Integration Test Matrix
 
 on:
+  workflow_call:
   push:
     branches:
       - master

@@ -1,0 +1,417 @@
+name: Comprehensive e2e Tests
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: comprehensive-e2e-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  authorize:
+    name: Require repository administrator
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check actor repository permission
+        uses: actions/github-script@v9
+        env:
+          REQUESTING_ACTOR: ${{ github.triggering_actor }}
+        with:
+          script: |
+            const actor = process.env.REQUESTING_ACTOR || context.actor;
+            const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              username: actor,
+            });
+            core.info(`${actor} has repository permission ${data.permission} (${data.role_name})`);
+            if (data.permission !== "admin") {
+              core.setFailed("Comprehensive e2e Tests may only be run by repository administrators");
+            }
+
+  darwin:
+    name: comprehensive-e2e-darwin-${{ matrix.goarch }}
+    needs: authorize
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15-intel
+            goarch: amd64
+            server_arch: amd64
+          - runner: macos-15
+            goarch: arm64
+            server_arch: arm64
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Prepare coverage artifact
+        run: |
+          mkdir -p e2e-results
+          printf 'darwin/%s\n' '${{ matrix.goarch }}' > e2e-results/target-darwin-${{ matrix.goarch }}.txt
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download Sliver build assets
+        run: go run -buildvcs=false -mod=vendor ./util/cmd/assets
+
+      - name: Build unmodified Sliver server
+        env:
+          CGO_ENABLED: "0"
+          GOARCH: ${{ matrix.server_arch }}
+          GOOS: darwin
+        run: >-
+          go build -buildvcs=false -mod=vendor -trimpath -tags go_sqlite,server
+          -o sliver-server ./server
+
+      - name: Compile comprehensive E2E driver
+        env:
+          CGO_ENABLED: "0"
+          GOARCH: ${{ matrix.goarch }}
+          GOOS: darwin
+        run: >-
+          go test -c -buildvcs=false -mod=vendor -trimpath -tags client,go_sqlite
+          -o sliver-comprehensive-e2e ./test/e2e
+
+      - name: Run comprehensive E2E suite
+        run: >-
+          ./sliver-comprehensive-e2e
+          -test.v
+          -test.timeout=0
+          -repo .
+          -server ./sliver-server
+          -server-arch ${{ matrix.server_arch }}
+          -target-os darwin
+          -target-arch ${{ matrix.goarch }}
+          -results ./e2e-results
+          -transports mtls,wg,http
+          -implant-modes session,beacon
+          -beacon-interval 10s
+
+      - name: Upload target coverage
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: comprehensive-e2e-target-darwin-${{ matrix.goarch }}
+          path: e2e-results
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 14
+
+  linux-native:
+    name: comprehensive-e2e-linux-${{ matrix.goarch }}
+    needs: authorize
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            goarch: amd64
+            server_arch: amd64
+          - runner: ubuntu-24.04-arm
+            goarch: arm64
+            server_arch: arm64
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Prepare coverage artifact
+        run: |
+          mkdir -p e2e-results
+          printf 'linux/%s\n' '${{ matrix.goarch }}' > e2e-results/target-linux-${{ matrix.goarch }}.txt
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download Sliver build assets
+        run: go run -buildvcs=false -mod=vendor ./util/cmd/assets
+
+      - name: Build unmodified Sliver server
+        env:
+          CGO_ENABLED: "0"
+          GOARCH: ${{ matrix.server_arch }}
+          GOOS: linux
+        run: >-
+          go build -buildvcs=false -mod=vendor -trimpath -tags go_sqlite,server
+          -o sliver-server ./server
+
+      - name: Compile comprehensive E2E driver
+        env:
+          CGO_ENABLED: "0"
+          GOARCH: ${{ matrix.goarch }}
+          GOOS: linux
+        run: >-
+          go test -c -buildvcs=false -mod=vendor -trimpath -tags client,go_sqlite
+          -o sliver-comprehensive-e2e ./test/e2e
+
+      - name: Run comprehensive E2E suite
+        run: >-
+          ./sliver-comprehensive-e2e
+          -test.v
+          -test.timeout=0
+          -repo .
+          -server ./sliver-server
+          -server-arch ${{ matrix.server_arch }}
+          -target-os linux
+          -target-arch ${{ matrix.goarch }}
+          -results ./e2e-results
+          -transports mtls,wg,http
+          -implant-modes session,beacon
+          -beacon-interval 10s
+
+      - name: Upload target coverage
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: comprehensive-e2e-target-linux-${{ matrix.goarch }}
+          path: e2e-results
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 14
+
+  linux-386:
+    name: comprehensive-e2e-linux-386
+    needs: authorize
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    env:
+      CONTAINER_NAME: sliver-comprehensive-e2e-linux-386-${{ github.run_id }}-${{ github.run_attempt }}
+      IMAGE_NAME: sliver-comprehensive-e2e-linux-386:${{ github.run_id }}-${{ github.run_attempt }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Prepare coverage artifact
+        run: |
+          mkdir -p e2e-results
+          printf 'linux/386\n' > e2e-results/target-linux-386.txt
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build linux/386 E2E image
+        run: |
+          set -euo pipefail
+          go_version="$(awk '$1 == "go" { print $2; exit }' go.mod)"
+          docker buildx build \
+            --load \
+            --platform linux/386 \
+            --build-arg "GO_VERSION=${go_version}" \
+            --file test/e2e/Dockerfile.linux-386 \
+            --tag "${IMAGE_NAME}" \
+            .
+
+      - name: Run comprehensive E2E suite
+        run: >-
+          docker run
+          --name "${CONTAINER_NAME}"
+          --platform linux/386
+          --volume "${PWD}/e2e-results:/results"
+          "${IMAGE_NAME}"
+
+      - name: Clean up linux/386 Docker resources
+        if: ${{ always() }}
+        run: |
+          docker rm --force "${CONTAINER_NAME}" 2>/dev/null || true
+          docker image rm --force "${IMAGE_NAME}" 2>/dev/null || true
+          docker buildx prune --all --force >/dev/null 2>&1 || true
+
+      - name: Upload target coverage
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: comprehensive-e2e-target-linux-386
+          path: e2e-results
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 14
+
+  windows:
+    name: comprehensive-e2e-windows-${{ matrix.goarch }}
+    needs: authorize
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2022
+            goarch: 386
+            server_arch: amd64
+          - runner: windows-2022
+            goarch: amd64
+            server_arch: amd64
+          - runner: windows-11-arm
+            goarch: arm64
+            server_arch: arm64
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Prepare coverage artifact
+        run: |
+          mkdir -p e2e-results
+          printf 'windows/%s\n' '${{ matrix.goarch }}' > e2e-results/target-windows-${{ matrix.goarch }}.txt
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download Sliver build assets
+        run: go run -buildvcs=false -mod=vendor ./util/cmd/assets
+
+      - name: Build unmodified Sliver server
+        env:
+          CGO_ENABLED: "0"
+          GOARCH: ${{ matrix.server_arch }}
+          GOOS: windows
+        run: >-
+          go build -buildvcs=false -mod=vendor -trimpath -tags go_sqlite,server
+          -o sliver-server.exe ./server
+
+      - name: Compile comprehensive E2E driver
+        env:
+          CGO_ENABLED: "0"
+          GOARCH: ${{ matrix.goarch }}
+          GOOS: windows
+        run: >-
+          go test -c -buildvcs=false -mod=vendor -trimpath -tags client,go_sqlite
+          -o sliver-comprehensive-e2e.exe ./test/e2e
+
+      - name: Run comprehensive E2E suite
+        run: >-
+          ./sliver-comprehensive-e2e.exe
+          -test.v
+          -test.timeout=0
+          -repo .
+          -server ./sliver-server.exe
+          -server-arch ${{ matrix.server_arch }}
+          -target-os windows
+          -target-arch ${{ matrix.goarch }}
+          -results ./e2e-results
+          -transports mtls,wg,http
+          -implant-modes session,beacon
+          -beacon-interval 10s
+
+      - name: Upload target coverage
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: comprehensive-e2e-target-windows-${{ matrix.goarch }}
+          path: e2e-results
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 14
+
+  aggregate-coverage:
+    name: Aggregate comprehensive E2E coverage
+    needs:
+      - authorize
+      - darwin
+      - linux-native
+      - linux-386
+      - windows
+    if: ${{ always() && needs.authorize.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download target coverage
+        uses: actions/download-artifact@v8
+        with:
+          pattern: comprehensive-e2e-target-*
+          path: coverage-input
+          merge-multiple: true
+
+      - name: Prepare aggregate artifact
+        run: |
+          mkdir -p coverage-input coverage-summary
+          printf 'Comprehensive E2E coverage aggregate\n' > coverage-summary/README.txt
+
+      - name: Aggregate coverage and enforce required cells
+        id: aggregate
+        continue-on-error: true
+        run: >-
+          go run -buildvcs=false -mod=vendor ./test/e2e/report
+          -input coverage-input
+          -output coverage-summary
+
+      - name: Add coverage table to workflow summary
+        if: ${{ always() }}
+        run: |
+          if [[ -f coverage-summary/coverage-summary.md ]]; then
+            cat coverage-summary/coverage-summary.md >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+      - name: Upload aggregate coverage
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: comprehensive-e2e-coverage-summary
+          path: coverage-summary
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 30
+
+      - name: Fail on failed or not-run coverage
+        if: ${{ steps.aggregate.outcome != 'success' }}
+        run: exit 1
+
+  reflektor:
+    name: Existing Reflektor test matrix
+    needs: authorize
+    uses: ./.github/workflows/reflektor-tests.yml
