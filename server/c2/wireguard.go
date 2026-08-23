@@ -41,7 +41,6 @@ import (
 	"github.com/bishopfox/sliver/server/netstack"
 	"github.com/bishopfox/sliver/util/minisign"
 	"github.com/hashicorp/yamux"
-	"golang.zx2c4.com/wireguard/conn"
 	"golang.zx2c4.com/wireguard/device"
 	"google.golang.org/protobuf/proto"
 )
@@ -108,7 +107,7 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 	// Set this to device.LogLevelVerbose when debugging for verbose logs
 	// We should probably set this to LogLevelError and figure out how to
 	// redirect the logs from stdout
-	dev := device.NewDevice(tun, conn.NewDefaultBind(), device.NewLogger(device.LogLevelSilent, "[c2/wg] "))
+	dev := device.NewDevice(tun, newWGUDPBind(), device.NewLogger(device.LogLevelSilent, "[c2/wg] "))
 
 	wgConf := bytes.NewBuffer(nil)
 	fmt.Fprintf(wgConf, "private_key=%s\n", privateKey)

