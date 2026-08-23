@@ -1,9 +1,6 @@
 name: Comprehensive e2e Tests
 
 on:
-  push:
-    branches:
-      - e2e/comprehensive
   workflow_dispatch:
 
 permissions:
