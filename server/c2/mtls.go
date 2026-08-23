@@ -105,7 +105,7 @@ func lookupImplantSigKey(keyID uint64) (ed25519.PublicKey, bool, error) {
 }
 
 // StartMutualTLSListener - Start a mutual TLS listener
-func StartMutualTLSListener(bindIface string, port uint16) (net.Listener, error) {
+func StartMutualTLSListener(bindIface string, port uint16, consoleLog bool) (net.Listener, error) {
 	mtlsLog.Infof("Starting raw TCP/mTLS listener on %s:%d", bindIface, port)
 	host := bindIface
 	if host == "" {
@@ -121,11 +121,11 @@ func StartMutualTLSListener(bindIface string, port uint16) (net.Listener, error)
 		mtlsLog.Error(err)
 		return nil, err
 	}
-	go acceptSliverConnections(ln)
+	go acceptSliverConnections(ln, consoleLog)
 	return ln, nil
 }
 
-func acceptSliverConnections(ln net.Listener) {
+func acceptSliverConnections(ln net.Listener, consoleLog bool) {
 	defer recoverAndLogPanic(mtlsLog.Errorf, "mtls acceptSliverConnections")
 
 	for {
@@ -137,15 +137,23 @@ func acceptSliverConnections(ln net.Listener) {
 			mtlsLog.Errorf("Accept failed: %v", err)
 			continue
 		}
-		go handleSliverConnection(conn)
+		go handleSliverConnection(conn, consoleLog)
 	}
 }
 
-func handleSliverConnection(conn net.Conn) {
+func handleSliverConnection(conn net.Conn, consoleLog bool) {
 	defer recoverAndLogPanic(mtlsLog.Errorf, "mtls handleSliverConnection")
 
 	mtlsLog.Infof("Accepted incoming connection: %s", conn.RemoteAddr())
 	implantConn := core.NewImplantConnection(consts.MtlsStr, conn.RemoteAddr().String())
+
+	if consoleLog {
+		core.EventBroker.Publish(core.Event{
+			EventType: consts.ConsoleGenericEvent,
+			Level:     "info",
+			Data:      []byte(fmt.Sprintf("Accepted incoming connection: %s", conn.RemoteAddr())),
+		})
+	}
 
 	defer func() {
 		mtlsLog.Debugf("mtls connection closing")

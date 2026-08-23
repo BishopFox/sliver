@@ -37,6 +37,7 @@ import (
 	"time"
 	"unicode"
 
+	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/certs"
@@ -350,7 +351,7 @@ func (s *SliverHTTPC2) router() *mux.Router {
 
 	router.HandleFunc("/{rpath:.*}", s.mainHandler).Methods(http.MethodGet, http.MethodPost)
 
-	router.Use(loggingMiddleware)
+	router.Use(s.loggingMiddleware)
 	router.Use(s.DefaultRespHeaders)
 
 	return router
@@ -427,9 +428,18 @@ func digitsOnly(value string) string {
 	return buf.String()
 }
 
-func loggingMiddleware(next http.Handler) http.Handler {
+func (s *SliverHTTPC2) loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
 		accessLog.Infof("%s - %s - %v", getRemoteAddr(req), req.RequestURI, req.Header.Get("User-Agent"))
+
+		if (s.ServerConf.EnforceConLog) {
+			core.EventBroker.Publish(core.Event{
+				EventType: consts.ConsoleGenericEvent,
+				Level:     "info",
+				Data:      []byte(fmt.Sprintf("%s - %s - %v", getRemoteAddr(req), req.RequestURI, req.Header.Get("User-Agent"))),
+			})
+		}
+
 		next.ServeHTTP(resp, req)
 	})
 }

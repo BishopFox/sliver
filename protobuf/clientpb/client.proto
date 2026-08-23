@@ -463,6 +463,7 @@ message MultiplayerListenerReq {
 message MTLSListenerReq {
   string Host = 1;
   uint32 Port = 2;
+  bool EnforceConLog = 3;
 }
 
 message WGListenerReq {
@@ -494,6 +495,7 @@ message HTTPListenerReq {
   int64 LongPollTimeout = 11;
   int64 LongPollJitter = 12;
   bool RandomizeJARM = 13; // Only valid with Secure = true
+  bool EnforceConLog = 14;
 }
 
 // Named Pipes Messages for pivoting
@@ -673,6 +675,7 @@ message Event {
   bytes Data = 5;
 
   string Err = 6; // Can't trigger normal gRPC error
+  string Level = 7;
 }
 
 message Operators { repeated Operator Operators = 1; }

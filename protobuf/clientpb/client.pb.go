@@ -5109,6 +5109,7 @@ type MTLSListenerReq struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Host          string                 `protobuf:"bytes,1,opt,name=Host,proto3" json:"Host,omitempty"`
 	Port          uint32                 `protobuf:"varint,2,opt,name=Port,proto3" json:"Port,omitempty"`
+	EnforceConLog bool                   `protobuf:"varint,3,opt,name=EnforceConLog,proto3" json:"EnforceConLog,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5155,6 +5156,13 @@ func (x *MTLSListenerReq) GetPort() uint32 {
 		return x.Port
 	}
 	return 0
+}
+
+func (x *MTLSListenerReq) GetEnforceConLog() bool {
+	if x != nil {
+		return x.EnforceConLog
+	}
+	return false
 }
 
 type WGListenerReq struct {
@@ -5323,6 +5331,7 @@ type HTTPListenerReq struct {
 	LongPollTimeout int64                  `protobuf:"varint,11,opt,name=LongPollTimeout,proto3" json:"LongPollTimeout,omitempty"`
 	LongPollJitter  int64                  `protobuf:"varint,12,opt,name=LongPollJitter,proto3" json:"LongPollJitter,omitempty"`
 	RandomizeJARM   bool                   `protobuf:"varint,13,opt,name=RandomizeJARM,proto3" json:"RandomizeJARM,omitempty"` // Only valid with Secure = true
+	EnforceConLog   bool                   `protobuf:"varint,14,opt,name=EnforceConLog,proto3" json:"EnforceConLog,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -5437,6 +5446,13 @@ func (x *HTTPListenerReq) GetLongPollJitter() int64 {
 func (x *HTTPListenerReq) GetRandomizeJARM() bool {
 	if x != nil {
 		return x.RandomizeJARM
+	}
+	return false
+}
+
+func (x *HTTPListenerReq) GetEnforceConLog() bool {
+	if x != nil {
+		return x.EnforceConLog
 	}
 	return false
 }
@@ -6941,6 +6957,7 @@ type Event struct {
 	Client        *Client                `protobuf:"bytes,4,opt,name=Client,proto3" json:"Client,omitempty"`
 	Data          []byte                 `protobuf:"bytes,5,opt,name=Data,proto3" json:"Data,omitempty"`
 	Err           string                 `protobuf:"bytes,6,opt,name=Err,proto3" json:"Err,omitempty"` // Can't trigger normal gRPC error
+	Level         string                 `protobuf:"bytes,7,opt,name=Level,proto3" json:"Level,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -7013,6 +7030,13 @@ func (x *Event) GetData() []byte {
 func (x *Event) GetErr() string {
 	if x != nil {
 		return x.Err
+	}
+	return ""
+}
+
+func (x *Event) GetLevel() string {
+	if x != nil {
+		return x.Level
 	}
 	return ""
 }
@@ -13298,10 +13322,11 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\x16MultiplayerListenerReq\x12\x12\n" +
 	"\x04Host\x18\x01 \x01(\tR\x04Host\x12\x12\n" +
 	"\x04Port\x18\x02 \x01(\rR\x04Port\x12\x1c\n" +
-	"\tWireGuard\x18\x03 \x01(\bR\tWireGuard\"9\n" +
+	"\tWireGuard\x18\x03 \x01(\bR\tWireGuard\"_\n" +
 	"\x0fMTLSListenerReq\x12\x12\n" +
 	"\x04Host\x18\x01 \x01(\tR\x04Host\x12\x12\n" +
-	"\x04Port\x18\x02 \x01(\rR\x04Port\"}\n" +
+	"\x04Port\x18\x02 \x01(\rR\x04Port\x12$\n" +
+	"\rEnforceConLog\x18\x03 \x01(\bR\rEnforceConLog\"}\n" +
 	"\rWGListenerReq\x12\x12\n" +
 	"\x04Host\x18\x06 \x01(\tR\x04Host\x12\x12\n" +
 	"\x04Port\x18\x01 \x01(\rR\x04Port\x12\x14\n" +
@@ -13315,7 +13340,7 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\x04Port\x18\x04 \x01(\rR\x04Port\x12\x1e\n" +
 	"\n" +
 	"EnforceOTP\x18\x06 \x01(\bR\n" +
-	"EnforceOTP\"\xd5\x02\n" +
+	"EnforceOTP\"\xfb\x02\n" +
 	"\x0fHTTPListenerReq\x12\x16\n" +
 	"\x06Domain\x18\x01 \x01(\tR\x06Domain\x12\x12\n" +
 	"\x04Host\x18\x02 \x01(\tR\x04Host\x12\x12\n" +
@@ -13331,7 +13356,8 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"EnforceOTP\x12(\n" +
 	"\x0fLongPollTimeout\x18\v \x01(\x03R\x0fLongPollTimeout\x12&\n" +
 	"\x0eLongPollJitter\x18\f \x01(\x03R\x0eLongPollJitter\x12$\n" +
-	"\rRandomizeJARM\x18\r \x01(\bR\rRandomizeJARM\"X\n" +
+	"\rRandomizeJARM\x18\r \x01(\bR\rRandomizeJARM\x12$\n" +
+	"\rEnforceConLog\x18\x0e \x01(\bR\rEnforceConLog\"X\n" +
 	"\rNamedPipesReq\x12\x1a\n" +
 	"\bPipeName\x18\x10 \x01(\tR\bPipeName\x12+\n" +
 	"\aRequest\x18\t \x01(\v2\x11.commonpb.RequestR\aRequest\"h\n" +
@@ -13442,14 +13468,15 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\x06Client\x12\x0e\n" +
 	"\x02ID\x18\x01 \x01(\rR\x02ID\x12\x12\n" +
 	"\x04Name\x18\x02 \x01(\tR\x04Name\x12.\n" +
-	"\bOperator\x18\x03 \x01(\v2\x12.clientpb.OperatorR\bOperator\"\xc3\x01\n" +
+	"\bOperator\x18\x03 \x01(\v2\x12.clientpb.OperatorR\bOperator\"\xd9\x01\n" +
 	"\x05Event\x12\x1c\n" +
 	"\tEventType\x18\x01 \x01(\tR\tEventType\x12+\n" +
 	"\aSession\x18\x02 \x01(\v2\x11.clientpb.SessionR\aSession\x12\x1f\n" +
 	"\x03Job\x18\x03 \x01(\v2\r.clientpb.JobR\x03Job\x12(\n" +
 	"\x06Client\x18\x04 \x01(\v2\x10.clientpb.ClientR\x06Client\x12\x12\n" +
 	"\x04Data\x18\x05 \x01(\fR\x04Data\x12\x10\n" +
-	"\x03Err\x18\x06 \x01(\tR\x03Err\"=\n" +
+	"\x03Err\x18\x06 \x01(\tR\x03Err\x12\x14\n" +
+	"\x05Level\x18\a \x01(\tR\x05Level\"=\n" +
 	"\tOperators\x120\n" +
 	"\tOperators\x18\x01 \x03(\v2\x12.clientpb.OperatorR\tOperators\"6\n" +
 	"\bOperator\x12\x16\n" +
