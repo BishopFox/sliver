@@ -13,6 +13,7 @@ Runtime message handlers that react to server instructions. Dispatches inbound R
 - `handlers_darwin.go` – macOS-specific handler bindings and feature toggles.
 - `handlers_generic.go` – Generic handler implementations used when no platform specialization is required.
 - `handlers_linux.go` – Linux-focused handler logic and build tags.
+- `handlers_unix.go` – Shared macOS and Linux permission-change handlers.
 - `handlers_windows.go` – Windows-specific handler implementations.
 - `kill-handlers.go` – Processes kill commands for sessions and tasks in a platform-agnostic way.
 - `kill-handlers_windows.go` – Windows-specific kill command handling.
