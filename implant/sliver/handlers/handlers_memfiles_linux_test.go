@@ -32,7 +32,7 @@ func TestMemfilesAddAndRemoveLifecycle(t *testing.T) {
 		t.Fatalf("memfilesAddHandler returned invalid fd %d", addResponse.Fd)
 	}
 	fd := int(addResponse.Fd)
-	defer unix.Close(fd)
+	defer func() { _ = unix.Close(fd) }()
 
 	fdPath := fmt.Sprintf("/proc/%d/fd/%d", os.Getpid(), fd)
 	link, err := os.Readlink(fdPath)

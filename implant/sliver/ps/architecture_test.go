@@ -1,3 +1,4 @@
+// Package ps provides process enumeration and architecture detection.
 package ps
 
 import "testing"

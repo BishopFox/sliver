@@ -45,7 +45,7 @@ func TestSendWGBeaconStreamWaitsForRemoteClose(t *testing.T) {
 			serverErr <- err
 			return
 		}
-		defer stream.Close()
+		defer func() { _ = stream.Close() }()
 		got := make([]byte, len(marker))
 		if _, err := io.ReadFull(stream, got); err != nil {
 			serverErr <- err
@@ -113,7 +113,7 @@ func TestSendWGBeaconStreamReceiptTimeout(t *testing.T) {
 			serverErr <- err
 			return
 		}
-		defer stream.Close()
+		defer func() { _ = stream.Close() }()
 		got := make([]byte, len(marker))
 		if _, err := io.ReadFull(stream, got); err != nil {
 			serverErr <- err
@@ -148,12 +148,12 @@ func newBeaconYamuxPair(t *testing.T) (*yamux.Session, *yamux.Session) {
 	}
 	client, err := yamux.Client(clientConn, config)
 	if err != nil {
-		server.Close()
+		_ = server.Close()
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		client.Close()
-		server.Close()
+		_ = client.Close()
+		_ = server.Close()
 	})
 	return client, server
 }

@@ -146,14 +146,14 @@ func TestGetSessKeysWithDeviceClosesTemporaryDeviceOnErrors(t *testing.T) {
 func TestDialDeviceTransfersOrReleasesOwnership(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		client, server := net.Pipe()
-		defer server.Close()
+		defer func() { _ = server.Close() }()
 		dev := &ownershipTestDevice{}
 		dialer := &ownershipTestDialer{dial: func(string, string) (net.Conn, error) { return client, nil }}
 		connection, err := dialDevice(dialer, dev, "tcp", "100.64.0.1:8888")
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer connection.Close()
+		defer func() { _ = connection.Close() }()
 		if dev.closeCalls != 0 {
 			t.Fatalf("successful dial closed returned device %d times", dev.closeCalls)
 		}

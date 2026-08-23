@@ -113,7 +113,7 @@ func Sideload(procName string, procArgs []string, _ uint32, data []byte, args []
 		//{{end}}
 		return "", fmt.Errorf("create memfd: %w", err)
 	}
-	defer unix.Close(fd)
+	defer func() { _ = unix.Close(fd) }()
 
 	pid := os.Getpid()
 	fdPath := fmt.Sprintf("/proc/%d/fd/%d", pid, fd)

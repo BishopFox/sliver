@@ -15,7 +15,7 @@ func exchangeResponse(t *testing.T, response string) (string, string, string, er
 		_, _ = server.Write([]byte(response))
 		_ = server.Close()
 	}()
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 	return doKeyExchange(client)
 }
 

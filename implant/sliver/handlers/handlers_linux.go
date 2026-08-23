@@ -275,7 +275,7 @@ func memfilesAddHandler(_ []byte, resp RPCResponse) {
 
 	data, err := proto.Marshal(memfilesAdd)
 	if err != nil && fd >= 0 {
-		unix.Close(fd)
+		_ = unix.Close(fd)
 	}
 	resp(data, err)
 }

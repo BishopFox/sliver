@@ -422,7 +422,7 @@ func sendWGBeaconStream(muxSession *yamux.Session, receiptTimeout time.Duration,
 	if isNilInterface(stream) {
 		return errors.New("[wg] open returned nil stream")
 	}
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	if err := write(stream); err != nil {
 		return err
