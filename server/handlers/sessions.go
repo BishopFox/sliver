@@ -80,6 +80,7 @@ func registerSessionHandler(implantConn *core.ImplantConnection, data []byte) *s
 	session.Locale = register.Locale
 	session.ConfigID = register.ConfigID
 	session.PeerID = register.PeerID
+	session.Virtualization = register.Virtualization
 	core.Sessions.Add(session)
 	implantConn.Cleanup = func() {
 		core.Sessions.Remove(session.ID)

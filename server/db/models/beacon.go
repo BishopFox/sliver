@@ -57,11 +57,11 @@ type Beacon struct {
 
 	ImplantBuildID uuid.UUID `gorm:"type:uuid;"`
 
-	Interval    int64
-	Jitter      int64
-	NextCheckin int64
-
-	Tasks []BeaconTask
+	Interval       int64
+	Jitter         int64
+	NextCheckin    int64
+	Virtualization string
+	Tasks          []BeaconTask
 }
 
 // BeforeCreate - GORM hook
@@ -97,6 +97,7 @@ func (b *Beacon) ToProtobuf() *clientpb.Beacon {
 		Locale:            b.Locale,
 		FirstContact:      b.CreatedAt.Unix(),
 		Integrity:         b.Integrity,
+		Virtualization:    b.Virtualization,
 	}
 }
 
