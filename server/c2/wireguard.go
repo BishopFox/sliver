@@ -153,7 +153,7 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 		return nil, nil, nil, err
 	}
 	wgLog.Printf("Successfully setup up wg key exchange listener")
-	go acceptKeyExchangeConnection(keyExchangeListener)
+	go acceptKeyExchangeConnection(keyExchangeListener, dev)
 
 	// Open up c2 commincation listener TCP socket
 	listener, err := tNet.ListenTCP(&net.TCPAddr{IP: net.ParseIP(tunIP), Port: int(netstackPort)})
@@ -167,7 +167,7 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 }
 
 // acceptKeyExchangeConnection - accept connections to key exchange socket
-func acceptKeyExchangeConnection(ln net.Listener) {
+func acceptKeyExchangeConnection(ln net.Listener, dev wgPeerConfigurator) {
 	defer recoverAndLogPanic(wgLog.Errorf, "wireguard acceptKeyExchangeConnection")
 
 	wgLog.Printf("Polling for connections to key exchange listener")
@@ -182,33 +182,60 @@ func acceptKeyExchangeConnection(ln net.Listener) {
 			continue
 		}
 		wgLog.Infof("Accepted connection to wg key exchange listener: %s", conn.RemoteAddr())
-		go handleKeyExchangeConnection(conn)
+		go handleKeyExchangeConnection(conn, dev)
 	}
 }
+
+type wgPeerConfigurator interface {
+	IpcSetOperation(io.Reader) error
+}
+
+type wgPeerKeyGenerator func() (string, string, string, error)
+type wgServerKeyGetter func() (string, string, error)
 
 // handleKeyExchangeConnection - Retrieve current wg server pub key.
 // Generate new implant wg keys. Generate new unique IP for implant.
 // Write all retrieved data to socket connection.
-func handleKeyExchangeConnection(conn net.Conn) {
+func handleKeyExchangeConnection(conn net.Conn, dev wgPeerConfigurator) {
 	defer recoverAndLogPanic(wgLog.Errorf, "wireguard handleKeyExchangeConnection")
 
 	wgLog.Infof("Handling connection to key exchange listener")
 
 	defer conn.Close()
-	ip, implantPrivKey, _, err := generate.GenerateUniqueWGPeerKeys()
+	if err := writeWGKeyExchangeResponse(conn, dev, generate.GenerateUniqueWGPeerKeys, certs.GetWGServerKeys); err != nil {
+		wgLog.Errorf("Failed to provision wg peer: %s", err)
+	}
+}
+
+func writeWGKeyExchangeResponse(writer io.Writer, dev wgPeerConfigurator, generatePeer wgPeerKeyGenerator, getServerKeys wgServerKeyGetter) error {
+	_, serverPubKey, err := getServerKeys()
 	if err != nil {
-		wgLog.Errorf("Failed to generate new wg keys: %s", err)
+		return fmt.Errorf("retrieve existing wg server keys: %w", err)
 	}
 
-	_, serverPubKey, err := certs.GetWGServerKeys()
+	ip, implantPrivKey, implantPubKey, err := generatePeer()
 	if err != nil {
-		wgLog.Errorf("Failed to retrieve existing wg server keys: %s", err)
-	} else {
-		wgLog.Infof("Successfully generated new wg keys")
-		message := implantPrivKey + "|" + serverPubKey + "|" + ip
-		wgLog.Debugf("Sending new wg keys and IP: %s", message)
-		conn.Write([]byte(message))
+		return fmt.Errorf("generate new wg peer keys: %w", err)
 	}
+
+	peerConfig := bytes.NewBuffer(nil)
+	fmt.Fprintf(peerConfig, "public_key=%s\n", implantPubKey)
+	fmt.Fprintf(peerConfig, "allowed_ip=%s/32\n", ip)
+	if err := dev.IpcSetOperation(bufio.NewReader(peerConfig)); err != nil {
+		return fmt.Errorf("apply new wg peer config: %w", err)
+	}
+
+	wgLog.Infof("Successfully generated and applied new wg peer")
+	message := implantPrivKey + "|" + serverPubKey + "|" + ip
+	wgLog.Debugf("Sending new wg keys and IP: %s", message)
+	written, err := io.WriteString(writer, message)
+	if err != nil {
+		return fmt.Errorf("write wg key exchange response: %w", err)
+	}
+	if written != len(message) {
+		return fmt.Errorf("write wg key exchange response: %w", io.ErrShortWrite)
+	}
+	return nil
 }
 
 func acceptWGSliverConnections(ln net.Listener) {
