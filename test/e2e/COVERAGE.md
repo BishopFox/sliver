@@ -7,10 +7,11 @@ The executable catalog contains 48 scenarios across 41 of the 67 finite implant-
 | Catalog group | Scenarios | Supported targets per scenario | Required recorded cells | Expected platform `SKIP` cells |
 |---|---:|---:|---:|---:|
 | Portable | 29 | 8 | 1,392 | 0 |
-| Linux-only | 5 | 3 | 90 | 150 |
+| Darwin and Linux | 2 | 5 | 60 | 36 |
+| Linux-only | 3 | 3 | 54 | 90 |
 | Windows-only | 10 | 3 | 180 | 300 |
 | Signed Armory | 4 | 2 | 48 | 144 |
-| **Total** | **48** | — | **1,710** | **594** |
+| **Total** | **48** | — | **1,734** | **570** |
 
 Status semantics are strict:
 
@@ -100,14 +101,21 @@ Each row below is required on all eight targets: `darwin/amd64`, `darwin/arm64`,
 | `Mount` | nonempty read-only mount inventory |
 | `ListWasmExtensions` | empty initial extension inventory |
 
+## Darwin and Linux scenarios
+
+These rows are required on `darwin/amd64`, `darwin/arm64`, `linux/386`, `linux/amd64`, and `linux/arm64` (30 required cells per scenario). All Windows cells are expected `SKIP` with the reason `supported only on Darwin and Linux`.
+
+| gRPC method | Scenario |
+|---|---|
+| `Chmod` | recursive mode change inside test root |
+| `Chown` | recursive no-op to current owner |
+
 ## Linux-only scenarios
 
 These rows are required on `linux/386`, `linux/amd64`, and `linux/arm64` (18 required cells per scenario). All Darwin and Windows cells are expected `SKIP` with the reason `supported only on Linux`.
 
 | gRPC method | Scenario |
 |---|---|
-| `Chmod` | recursive mode change inside test root |
-| `Chown` | recursive no-op to current owner |
 | `MemfilesAdd` | create anonymous memfd |
 | `MemfilesList` | list exact anonymous memfd |
 | `MemfilesRm` | close only created anonymous memfd |

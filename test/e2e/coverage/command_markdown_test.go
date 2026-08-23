@@ -144,9 +144,12 @@ func TestComprehensiveCommandMarkdownHasTwentyFourColumns(t *testing.T) {
 		}
 	}
 
-	wantChmod := append(repeatedStatus(commandStatusUnsupported, 15), repeatedStatus(commandStatusFail, 9)...)
-	if got := rows["Chmod"]; !reflect.DeepEqual(got, wantChmod) {
-		t.Fatalf("Chmod statuses = %#v, want %#v", got, wantChmod)
+	wantUnixFilesystem := append(repeatedStatus(commandStatusFail, 6), repeatedStatus(commandStatusUnsupported, 9)...)
+	wantUnixFilesystem = append(wantUnixFilesystem, repeatedStatus(commandStatusFail, 9)...)
+	for _, method := range []string{"Chmod", "Chown"} {
+		if got := rows[method]; !reflect.DeepEqual(got, wantUnixFilesystem) {
+			t.Fatalf("%s statuses = %#v, want %#v", method, got, wantUnixFilesystem)
+		}
 	}
 	wantCallExtension := append(repeatedStatus(commandStatusUnsupported, 6), repeatedStatus(commandStatusFail, 6)...)
 	wantCallExtension = append(wantCallExtension, repeatedStatus(commandStatusUnsupported, 12)...)

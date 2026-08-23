@@ -157,11 +157,11 @@ func TestAggregateEmptyDirectoryCreatesComprehensiveNotRunReport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AggregateDirectory() error = %v", err)
 	}
-	if report.Summary.Recorded != 0 || report.Summary.NotRun != 1710 || report.Summary.Skip != 594 || report.Summary.TotalCells != 2304 {
+	if report.Summary.Recorded != 0 || report.Summary.NotRun != 1734 || report.Summary.Skip != 570 || report.Summary.TotalCells != 2304 {
 		t.Fatalf("unexpected empty-input summary: %+v", report.Summary)
 	}
-	if got := len(report.NotRunIdentities()); got != 1710 {
-		t.Fatalf("NotRunIdentities() count = %d, want 1710", got)
+	if got := len(report.NotRunIdentities()); got != 1734 {
+		t.Fatalf("NotRunIdentities() count = %d, want 1734", got)
 	}
 	if _, err := AggregateDirectory(t.TempDir(), Dimensions{}); err == nil || !strings.Contains(err.Error(), "no per-target coverage JSON reports") {
 		t.Fatalf("AggregateDirectory() with inferred empty dimensions error = %v, want no-reports error", err)

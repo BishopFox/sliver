@@ -159,8 +159,11 @@ func (s *suite) exerciseCommands(target implantTarget, remoteRoot string, transp
 	commandErrors = appendIfError(commandErrors, s.exerciseProcesses(target, transport))
 	commandErrors = appendIfError(commandErrors, s.exerciseMount(target, transport))
 	commandErrors = appendIfError(commandErrors, s.exerciseWasmExtensions(target, transport))
+	if s.opts.targetOS == "darwin" || s.opts.targetOS == "linux" {
+		commandErrors = appendIfError(commandErrors, s.exerciseUnixCommands(target, remoteRoot, transport))
+	}
 	if s.opts.targetOS == "linux" {
-		commandErrors = appendIfError(commandErrors, s.exerciseLinuxCommands(target, remoteRoot, transport))
+		commandErrors = appendIfError(commandErrors, s.exerciseLinuxCommands(target, transport))
 	}
 	if s.opts.targetOS == "windows" {
 		commandErrors = appendIfError(commandErrors, s.exerciseWindowsCommands(target, transport))
@@ -867,7 +870,7 @@ func (s *suite) exerciseWasmExtensions(target implantTarget, transport string) e
 	})
 }
 
-func (s *suite) exerciseLinuxCommands(target implantTarget, root string, transport string) error {
+func (s *suite) exerciseUnixCommands(target implantTarget, root string, transport string) error {
 	chmodRoot := filepath.Join(root, "known", "nested")
 	if err := s.step(target, transport, "Chmod", "recursive mode change inside test root", func() error {
 		_, err := invokeRPC(s, target, "Chmod", func(ctx context.Context, request *commonpb.Request) (*sliverpb.Chmod, error) {
@@ -897,11 +900,33 @@ func (s *suite) exerciseLinuxCommands(target implantTarget, root string, transpo
 		_, err = invokeRPC(s, target, "Chown", func(ctx context.Context, request *commonpb.Request) (*sliverpb.Chown, error) {
 			return s.rpc.Chown(ctx, &sliverpb.ChownReq{Path: chmodRoot, Uid: current.Username, Gid: group.Name, Recursive: true, Request: request})
 		}, func(response *sliverpb.Chown) *commonpb.Response { return response.GetResponse() })
-		return err
+		if err != nil {
+			return err
+		}
+		return filepath.WalkDir(chmodRoot, func(path string, entry os.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			info, err := entry.Info()
+			if err != nil {
+				return err
+			}
+			uid, gid, err := fileOwnerIDs(info)
+			if err != nil {
+				return fmt.Errorf("stat ownership for %s: %w", path, err)
+			}
+			if uid != current.Uid || gid != group.Gid {
+				return fmt.Errorf("recursive chown ownership for %s=%s:%s, want %s:%s", path, uid, gid, current.Uid, group.Gid)
+			}
+			return nil
+		})
 	}); err != nil {
 		return err
 	}
+	return nil
+}
 
+func (s *suite) exerciseLinuxCommands(target implantTarget, transport string) error {
 	var fd int64
 	if err := s.step(target, transport, "MemfilesAdd", "create anonymous memfd", func() error {
 		response, err := invokeRPC(s, target, "MemfilesAdd", func(ctx context.Context, request *commonpb.Request) (*sliverpb.MemfilesAdd, error) {

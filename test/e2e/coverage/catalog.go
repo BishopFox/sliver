@@ -14,6 +14,13 @@ type CommandExpectation struct {
 // reports ensures a command omitted everywhere is still rendered as NOT RUN.
 func ComprehensiveCatalog() []CommandExpectation {
 	allTargets := comprehensiveTargets()
+	unixTargets := []Target{
+		{OS: "darwin", Arch: "amd64"},
+		{OS: "darwin", Arch: "arm64"},
+		{OS: "linux", Arch: "386"},
+		{OS: "linux", Arch: "amd64"},
+		{OS: "linux", Arch: "arm64"},
+	}
 	linuxTargets := []Target{
 		{OS: "linux", Arch: "386"},
 		{OS: "linux", Arch: "amd64"},
@@ -74,8 +81,8 @@ func ComprehensiveCatalog() []CommandExpectation {
 		portable("Mount", "nonempty read-only mount inventory"),
 		portable("ListWasmExtensions", "empty initial extension inventory"),
 
-		restricted("Chmod", "recursive mode change inside test root", "supported only on Linux", linuxTargets),
-		restricted("Chown", "recursive no-op to current owner", "supported only on Linux", linuxTargets),
+		restricted("Chmod", "recursive mode change inside test root", "supported only on Darwin and Linux", unixTargets),
+		restricted("Chown", "recursive no-op to current owner", "supported only on Darwin and Linux", unixTargets),
 		restricted("MemfilesAdd", "create anonymous memfd", "supported only on Linux", linuxTargets),
 		restricted("MemfilesList", "list exact anonymous memfd", "supported only on Linux", linuxTargets),
 		restricted("MemfilesRm", "close only created anonymous memfd", "supported only on Linux", linuxTargets),
