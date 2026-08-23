@@ -30,9 +30,11 @@ import (
 	"net/netip"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/certs"
+	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
 	serverCrypto "github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/generate"
@@ -49,6 +51,10 @@ import (
 var (
 	wgLog = log.NamedLogger("c2", "wg")
 	tunIP = certs.C2WireGuardServerIP // Don't let user configure this for now
+
+	// wgDevLogger routes WG device logs to Sliver's log file instead of stdout.
+	// Errors always logged. Verbose enabled when server log level >= 5 (debug).
+	wgDevLogger = newWGDeviceLogger()
 )
 
 const (
@@ -57,7 +63,19 @@ const (
 
 var (
 	wgYamuxPrefaceBytes = []byte(wgYamuxPreface)
+	wgVirtualNet        *netstack.Net // stored for custom TCP listeners
 )
+
+func newWGDeviceLogger() *device.Logger {
+	logger := &device.Logger{
+		Errorf: func(format string, args ...any) { wgLog.Errorf("[wg-device] "+format, args...) },
+	}
+	if serverConfig := configs.GetServerConfig(); serverConfig.Logs != nil && serverConfig.Logs.Level >= 5 {
+		logger.Verbosef = func(format string, args ...any) { wgLog.Debugf("[wg-device] "+format, args...) }
+		wgLog.Infof("WG device verbose logging enabled (server log level=%d)", serverConfig.Logs.Level)
+	}
+	return logger
+}
 
 // StartWGListener - First creates an inet.af network stack.
 // then creates a Wireguard device/interface and applies configuration.
@@ -75,6 +93,8 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 		wgLog.Errorf("CreateNetTUN failed: %v", err)
 		return nil, nil, nil, err
 	}
+
+	wgVirtualNet = tNet // store for custom TCP listeners
 
 	tunIPAddr, err := netip.ParseAddr(tunIP)
 	if err != nil {
@@ -104,11 +124,7 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 		}
 	}
 
-	// This is currently set to silence all logs from the wg device
-	// Set this to device.LogLevelVerbose when debugging for verbose logs
-	// We should probably set this to LogLevelError and figure out how to
-	// redirect the logs from stdout
-	dev := device.NewDevice(tun, conn.NewDefaultBind(), device.NewLogger(device.LogLevelSilent, "[c2/wg] "))
+	dev := device.NewDevice(tun, conn.NewDefaultBind(), wgDevLogger)
 
 	wgConf := bytes.NewBuffer(nil)
 	fmt.Fprintf(wgConf, "private_key=%s\n", privateKey)
@@ -163,6 +179,7 @@ func StartWGListener(port uint16, netstackPort uint16, keyExchangeListenPort uin
 	}
 	wgLog.Printf("Successfully setup up wg sliver listener")
 	go acceptWGSliverConnections(listener)
+
 	return listener, dev, wgConf, nil
 }
 
@@ -476,4 +493,88 @@ func socketWGReadEnvelope(connection net.Conn) (*sliverpb.Envelope, error) {
 		return nil, err
 	}
 	return envelope, nil
+}
+
+// StartWGTCPForwarder - Listen on a port inside the WG virtual network
+// and forward all connections to a local address (e.g. localhost:9100).
+// Returns the listener so it can be closed to stop forwarding.
+func StartWGTCPForwarder(wgPort uint16, localAddr string) (net.Listener, error) {
+	if wgVirtualNet == nil {
+		return nil, errors.New("WG virtual network not initialized")
+	}
+
+	tunIPAddr := netip.MustParseAddr(tunIP)
+
+	if err := wgVirtualNet.AllowTCPPort(tunIPAddr, wgPort); err != nil {
+		return nil, fmt.Errorf("AllowTCPPort %d: %w", wgPort, err)
+	}
+
+	ln, err := wgVirtualNet.ListenTCP(&net.TCPAddr{
+		IP:   net.ParseIP(tunIP),
+		Port: int(wgPort),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("ListenTCP %d: %w", wgPort, err)
+	}
+
+	wgLog.Infof("TCP forwarder: %s:%d → %s", tunIP, wgPort, localAddr)
+
+	// Semaphore to cap concurrent forwards (same pattern as yamux stream handling)
+	const maxConcurrentForwards = 32
+	fwdSem := make(chan struct{}, maxConcurrentForwards)
+
+	go func() {
+		defer recoverAndLogPanic(wgLog.Errorf, "tcp forwarder accept loop")
+
+		for {
+			wgConn, err := ln.Accept()
+			if err != nil {
+				if errType, ok := err.(*net.OpError); ok && errType.Op == "accept" {
+					break // listener closed by job kill
+				}
+				wgLog.Errorf("TCP forwarder accept failed: %v", err)
+				continue
+			}
+
+			select {
+			case fwdSem <- struct{}{}:
+			default:
+				wgLog.Warnf("TCP forwarder: max concurrent connections (%d), dropping", maxConcurrentForwards)
+				wgConn.Close()
+				continue
+			}
+
+			wgLog.Debugf("TCP forwarder: accepted connection from %s", wgConn.RemoteAddr())
+
+			go func(conn net.Conn) {
+				defer recoverAndLogPanic(wgLog.Errorf, "tcp forwarder connection")
+				defer func() { <-fwdSem }()
+				forwardTCP(conn, localAddr)
+			}(wgConn)
+		}
+	}()
+
+	return ln, nil
+}
+
+func forwardTCP(src net.Conn, dstAddr string) {
+	defer src.Close()
+
+	dst, err := net.Dial("tcp", dstAddr)
+	if err != nil {
+		wgLog.Warnf("TCP forward dial %s failed: %v", dstAddr, err)
+		return
+	}
+	defer dst.Close()
+
+	// TCP keepalive to clean up stale connections (project convention)
+	if tc, ok := dst.(*net.TCPConn); ok {
+		tc.SetKeepAlive(true)
+		tc.SetKeepAlivePeriod(3 * time.Minute)
+	}
+
+	done := make(chan struct{})
+	go func() { io.Copy(dst, src); close(done) }()
+	io.Copy(src, dst)
+	<-done
 }

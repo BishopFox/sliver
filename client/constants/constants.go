@@ -288,6 +288,7 @@ const (
 	WgConfigStr           = "wg-config"
 	WgSocksStr            = "wg-socks"
 	WgPortFwdStr          = "wg-portfwd"
+	TcpFwdStr             = "tcp-fwd"
 	MonitorStr            = "monitor"
 	MonitorConfigStr      = "config"
 	MCPStr                = "mcp"
