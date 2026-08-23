@@ -27,9 +27,11 @@ const (
 	// GlobalReportKind identifies an aggregated report.
 	GlobalReportKind = "sliver-e2e-global-coverage"
 
-	// GlobalJSONFilename and GlobalMarkdownFilename are the aggregator outputs.
-	GlobalJSONFilename     = "coverage-summary.json"
-	GlobalMarkdownFilename = "coverage-summary.md"
+	// GlobalJSONFilename, GlobalMarkdownFilename, and CommandMarkdownFilename
+	// are the aggregator outputs.
+	GlobalJSONFilename      = "coverage-summary.json"
+	GlobalMarkdownFilename  = "coverage-summary.md"
+	CommandMarkdownFilename = "command-coverage.md"
 )
 
 // Status is the result of one end-to-end scenario.
@@ -164,10 +166,12 @@ func (r Record) Validate() error {
 	return nil
 }
 
-// ReportPaths contains the JSON and Markdown files written by a report call.
+// ReportPaths contains the files written by a report call. CommandMarkdown is
+// populated only for global reports.
 type ReportPaths struct {
-	JSON     string
-	Markdown string
+	JSON            string
+	Markdown        string
+	CommandMarkdown string
 }
 
 // TargetReport is the deterministic on-disk representation for one target.

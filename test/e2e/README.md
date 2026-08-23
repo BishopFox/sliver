@@ -104,6 +104,8 @@ The manual workflow is named **Comprehensive e2e Tests**. Its `workflow_dispatch
 
 The aggregate Markdown and JSON also contain an exhaustive disposition registry for every generated `SliverRPC` method. Finite implant commands are marked `COVERED` or `DEFERRED` with a rationale, while server-only, lifecycle, and tunnel/interactive methods are tracked separately. Descriptor-backed tests fail when a new RPC is added without a disposition or when a method marked covered has no scenario in the executable matrix.
 
+The aggregate job writes the standalone command matrix to `command-coverage.md`, includes it in the `comprehensive-e2e-coverage-summary` artifact, and appends it to the workflow summary after the detailed aggregate and RPC disposition report. The same complete command table is available to downstream jobs through the aggregate job output `command_coverage_markdown`, sourced from the step output of the same name via `$GITHUB_OUTPUT`. Each cell combines every catalog scenario and both session and beacon modes for one gRPC command: `✅` means every required result passed, `❌` means at least one required result failed, was skipped at runtime, or was not run, and `N/A` means the command is unsupported on that OS/architecture.
+
 To combine downloaded per-target report directories, run:
 
 ```sh
@@ -112,4 +114,4 @@ go run -buildvcs=false -mod=vendor ./test/e2e/report \
   -output ./coverage-summary
 ```
 
-The input scan is recursive. It writes `coverage-summary.json` and `coverage-summary.md`; the command exits nonzero for any recorded failure, recorded skip on a supported cell, or required `NOT RUN` cell. Catalog-generated platform `SKIP` cells do not fail aggregation.
+The input scan is recursive. It writes `coverage-summary.json`, `coverage-summary.md`, and `command-coverage.md`; the command exits nonzero for any recorded failure, recorded skip on a supported cell, or required `NOT RUN` cell. Catalog-generated platform `SKIP` cells do not fail aggregation.

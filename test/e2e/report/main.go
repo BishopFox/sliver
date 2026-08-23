@@ -17,7 +17,7 @@ func run(arguments []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("sliver-e2e-report", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	input := flags.String("input", ".", "directory recursively containing per-target coverage JSON reports")
-	output := flags.String("output", ".", "directory for coverage-summary.json and coverage-summary.md")
+	output := flags.String("output", ".", "directory for coverage-summary.json, coverage-summary.md, and command-coverage.md")
 	if err := flags.Parse(arguments); err != nil {
 		return 2
 	}
@@ -36,7 +36,7 @@ func run(arguments []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "write coverage reports: %v\n", err)
 		return 1
 	}
-	fmt.Fprintf(stdout, "Wrote %s\nWrote %s\n", paths.JSON, paths.Markdown)
+	fmt.Fprintf(stdout, "Wrote %s\nWrote %s\nWrote %s\n", paths.JSON, paths.Markdown, paths.CommandMarkdown)
 
 	failed := report.FailedRecords()
 	skipped := report.RecordedSkipRecords()

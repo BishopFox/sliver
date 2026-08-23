@@ -189,7 +189,8 @@ func AggregateDirectory(root string, expected Dimensions) (GlobalReport, error) 
 	}, nil
 }
 
-// WriteGlobalReports writes coverage-summary.json and coverage-summary.md.
+// WriteGlobalReports writes the global JSON, detailed Markdown, and condensed
+// command coverage Markdown reports.
 func WriteGlobalReports(dir string, report GlobalReport) (ReportPaths, error) {
 	if err := report.validate(); err != nil {
 		return ReportPaths{}, err
@@ -198,14 +199,18 @@ func WriteGlobalReports(dir string, report GlobalReport) (ReportPaths, error) {
 		return ReportPaths{}, fmt.Errorf("create report directory: %w", err)
 	}
 	paths := ReportPaths{
-		JSON:     filepath.Join(dir, GlobalJSONFilename),
-		Markdown: filepath.Join(dir, GlobalMarkdownFilename),
+		JSON:            filepath.Join(dir, GlobalJSONFilename),
+		Markdown:        filepath.Join(dir, GlobalMarkdownFilename),
+		CommandMarkdown: filepath.Join(dir, CommandMarkdownFilename),
 	}
 	if err := writeJSON(paths.JSON, report); err != nil {
 		return ReportPaths{}, err
 	}
 	if err := os.WriteFile(paths.Markdown, renderGlobalMarkdown(report), 0o644); err != nil {
 		return ReportPaths{}, fmt.Errorf("write global Markdown report: %w", err)
+	}
+	if err := os.WriteFile(paths.CommandMarkdown, renderCommandMarkdown(report), 0o644); err != nil {
+		return ReportPaths{}, fmt.Errorf("write command Markdown report: %w", err)
 	}
 	return paths, nil
 }

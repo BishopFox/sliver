@@ -353,6 +353,8 @@ jobs:
       - linux-386
       - windows
     if: ${{ always() && needs.authorize.result == 'success' }}
+    outputs:
+      command_coverage_markdown: ${{ steps.publish_command_coverage.outputs.command_coverage_markdown }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     defaults:
@@ -390,12 +392,34 @@ jobs:
           -input coverage-input
           -output coverage-summary
 
-      - name: Add coverage table to workflow summary
+      - name: Publish command coverage table
+        id: publish_command_coverage
         if: ${{ always() }}
         run: |
-          if [[ -f coverage-summary/coverage-summary.md ]]; then
-            cat coverage-summary/coverage-summary.md >> "${GITHUB_STEP_SUMMARY}"
+          detailed_report="coverage-summary/coverage-summary.md"
+          report="coverage-summary/command-coverage.md"
+          if [[ ! -s "${report}" ]]; then
+            printf 'Command coverage report is missing or empty: %s\n' "${report}" >&2
+            exit 1
           fi
+
+          delimiter="COMPREHENSIVE_E2E_COMMAND_COVERAGE_EOF"
+          if grep -Fxq "${delimiter}" "${report}"; then
+            printf 'Command coverage report contains the reserved output delimiter: %s\n' "${delimiter}" >&2
+            exit 1
+          fi
+
+          {
+            printf 'command_coverage_markdown<<%s\n' "${delimiter}"
+            cat "${report}"
+            printf '%s\n' "${delimiter}"
+          } >> "${GITHUB_OUTPUT}"
+
+          if [[ -f "${detailed_report}" ]]; then
+            cat "${detailed_report}" >> "${GITHUB_STEP_SUMMARY}"
+          fi
+          printf '\n## Command coverage by OS/architecture/transport\n\n' >> "${GITHUB_STEP_SUMMARY}"
+          cat "${report}" >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Upload aggregate coverage
         if: ${{ always() }}

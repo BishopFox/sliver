@@ -44,10 +44,13 @@ func TestRunWritesReportsAndFailsForFailedRecords(t *testing.T) {
 	if !strings.Contains(stderr.String(), "NOT RUN required cell") {
 		t.Fatalf("stderr = %q, want NOT RUN diagnostic", stderr.String())
 	}
-	for _, name := range []string{e2ecoverage.GlobalJSONFilename, e2ecoverage.GlobalMarkdownFilename} {
+	for _, name := range []string{e2ecoverage.GlobalJSONFilename, e2ecoverage.GlobalMarkdownFilename, e2ecoverage.CommandMarkdownFilename} {
 		if _, err := os.Stat(filepath.Join(root, "output", name)); err != nil {
 			t.Fatalf("output %s was not written: %v", name, err)
 		}
+	}
+	if !strings.Contains(stdout.String(), filepath.Join(root, "output", e2ecoverage.CommandMarkdownFilename)) {
+		t.Fatalf("stdout = %q, want command Markdown path", stdout.String())
 	}
 }
 
@@ -70,7 +73,7 @@ func TestRunWritesAllNotRunReportsForEmptyInput(t *testing.T) {
 	if !strings.Contains(stderr.String(), "coverage contains 1710 NOT RUN required cell(s)") {
 		t.Fatalf("stderr = %q, want all-NOT-RUN diagnostic", stderr.String())
 	}
-	for _, name := range []string{e2ecoverage.GlobalJSONFilename, e2ecoverage.GlobalMarkdownFilename} {
+	for _, name := range []string{e2ecoverage.GlobalJSONFilename, e2ecoverage.GlobalMarkdownFilename, e2ecoverage.CommandMarkdownFilename} {
 		if _, err := os.Stat(filepath.Join(root, "output", name)); err != nil {
 			t.Fatalf("output %s was not written: %v", name, err)
 		}
@@ -104,6 +107,13 @@ func TestRunAllowsSyntheticPlatformSkips(t *testing.T) {
 	}
 	if !strings.Contains(string(markdown), "| 0 | 594 | 0 |") {
 		t.Fatalf("summary did not distinguish zero recorded skips from expected skips: %s", markdown)
+	}
+	commandMarkdown, err := os.ReadFile(filepath.Join(root, "output", e2ecoverage.CommandMarkdownFilename))
+	if err != nil {
+		t.Fatalf("ReadFile(command Markdown) error = %v", err)
+	}
+	if !strings.Contains(string(commandMarkdown), "| Ping | ✅ |") {
+		t.Fatalf("command Markdown omitted passing Ping coverage: %s", commandMarkdown)
 	}
 }
 
