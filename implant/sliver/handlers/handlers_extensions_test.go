@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"errors"
 	"slices"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -27,6 +28,7 @@ type callbackLifetimeExtension struct {
 	callActive       atomic.Bool
 	callbackReturned chan struct{}
 	allowCallReturn  chan struct{}
+	allowReturnOnce  sync.Once
 }
 
 func (f *failingExtension) Load() error {
@@ -69,6 +71,12 @@ func (e *callbackLifetimeExtension) GetID() string {
 
 func (e *callbackLifetimeExtension) GetArch() string {
 	return "test"
+}
+
+func (e *callbackLifetimeExtension) allowReturn() {
+	e.allowReturnOnce.Do(func() {
+		close(e.allowCallReturn)
+	})
 }
 
 func TestRegisterExtensionDoesNotAddFailedLoad(t *testing.T) {
@@ -120,13 +128,7 @@ func TestCallExtensionHandlerDefersResponseAndCopiesCallbackOutput(t *testing.T)
 		allowCallReturn:  make(chan struct{}),
 	}
 	extension.Add(ext)
-	defer func() {
-		select {
-		case <-ext.allowCallReturn:
-		default:
-			close(ext.allowCallReturn)
-		}
-	}()
+	defer ext.allowReturn()
 
 	request, err := proto.Marshal(&sliverpb.CallExtensionReq{Name: extensionID, Export: "Run"})
 	if err != nil {
@@ -162,7 +164,7 @@ func TestCallExtensionHandlerDefersResponseAndCopiesCallbackOutput(t *testing.T)
 	default:
 	}
 
-	close(ext.allowCallReturn)
+	ext.allowReturn()
 	var response handlerResponse
 	select {
 	case response = <-responses:
