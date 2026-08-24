@@ -38,6 +38,47 @@ Every row runs this six-cell transport/mode cross product:
 | `wg` | required | required |
 | `http` | required | required |
 
+## Shellcode generation and execution matrix
+
+The reusable workflow **Shellcode E2E Test Matrix** is a separate, native-only matrix for generated shellcode. It has a `workflow_call` trigger only; the administrator-gated **Comprehensive e2e Tests** workflow calls it after its authorization job succeeds.
+
+For every required combination, `TestShellcodeE2E` performs this lifecycle:
+
+1. Creates isolated server and client roots, starts the supplied, unmodified Sliver server binary as a localhost-only daemon, connects the custom Go test client to the multiplayer gRPC service, and subscribes to server events.
+2. Starts the selected `mtls`, `wg`, or `http` listener on localhost.
+3. Calls the `Generate` gRPC command for the exact target, session or beacon mode, and compression setting, and requires a nonempty `.bin` payload. It then keeps the unencoded `none` case or applies each architecture-supported encoder through the `ShellcodeEncoder` gRPC command; beacons use a ten-second callback interval.
+4. Creates and compiles a small native C runner, has it load the `.bin` into executable memory, and executes the shellcode locally.
+5. Requires the matching session or beacon event from the server before recording the combination result and cleaning up only the processes, jobs, and isolated roots created by the test.
+
+The five native target rows are fixed. Both Windows rows run a 64-bit server, while the test client, C runner, and shellcode match the target architecture.
+
+| Target | GitHub runner | Server architecture | Shellcode backend | Encoder settings | Required combinations |
+|---|---|---|---|---|---:|
+| `darwin/arm64` | `macos-15` | `arm64` | `beignet` | `none`, `xor`, `xor_dynamic` | 36 |
+| `linux/amd64` | `ubuntu-24.04` | `amd64` | `malasada` | `none`, `shikata_ga_nai`, `xor`, `xor_dynamic` | 48 |
+| `linux/arm64` | `ubuntu-24.04-arm` | `arm64` | `malasada` | `none`, `xor`, `xor_dynamic` | 36 |
+| `windows/386` | `windows-2022` | `amd64` | `wasm-donut` | `none`, `shikata_ga_nai` | 24 |
+| `windows/amd64` | `windows-2022` | `amd64` | `wasm-donut` | `none`, `shikata_ga_nai`, `xor`, `xor_dynamic` | 48 |
+
+Every encoder setting in a target row crosses these axes:
+
+| Axis | Values |
+|---|---|
+| Transport | `mtls`, `wg`, `http` |
+| Implant mode | `session`, `beacon` |
+| Compression | `none` (disabled), `aplib` (enabled) |
+
+Shellcode encoder support is architecture-based rather than OS-based: `amd64` supports `none`, `shikata_ga_nai`, `xor`, and `xor_dynamic`; `arm64` supports `none`, `xor`, and `xor_dynamic`; and `386` supports `none` and `shikata_ga_nai`. Thus the suite has `(3 + 4 + 3 + 2 + 4) × 3 transports × 2 modes × 2 compression settings = 192` required combinations.
+
+The aggregate table uses four statuses:
+
+- `PASS`: the supported combination generated, its C runner executed, and the expected server event arrived.
+- `FAIL`: a supported combination was attempted but generation, runner compilation or execution, or event verification failed.
+- `NOT RUN`: a supported combination has no recorded result, including when an earlier target failure prevented it from running. This fails aggregation just like `FAIL`.
+- `N/A`: the encoder is not supported by that target architecture. This is allowed, does not fail aggregation, and is not part of the 192 required combinations.
+
+Each target writes `shellcode-coverage-<os>-<arch>.json` and `shellcode-coverage-<os>-<arch>.md` under `shellcode-results`, then uploads that directory as `shellcode-e2e-target-<os>-<arch>` for 14 days. Aggregation writes `shellcode-summary/shellcode-coverage.json` and `shellcode-summary/shellcode-coverage.md`, uploads the directory as `shellcode-e2e-coverage-summary` for 30 days, appends the Markdown table to the workflow summary, and exposes the same Markdown through the reusable-workflow output `shellcode_coverage_markdown`.
+
 ## Safety boundaries
 
 The suite executes real implant commands on the runner, but all mutating fixtures are scoped to resources it creates:
@@ -70,6 +111,7 @@ CGO_ENABLED=0 go test -c -buildvcs=false -mod=vendor -trimpath \
 
 ./sliver-comprehensive-e2e \
   -test.v \
+  -test.run=^TestComprehensiveE2E$ \
   -test.timeout=0 \
   -repo . \
   -server ./sliver-server-e2e \
@@ -80,6 +122,8 @@ CGO_ENABLED=0 go test -c -buildvcs=false -mod=vendor -trimpath \
   -transports mtls,wg,http \
   -implant-modes session,beacon
 ```
+
+Run the shellcode group with the same server and test binary by changing the selector to `-test.run=^TestShellcodeE2E$` and writing results to a separate directory such as `./shellcode-results`. Shellcode aggregation expects the complete five-target workflow matrix; a single local target is useful as a runtime smoke test but intentionally reports the other required targets as `NOT RUN`.
 
 On Windows, give both output files an `.exe` suffix. The `linux/386` row is built and run with [Dockerfile.linux-386](Dockerfile.linux-386) because its 386 driver must execute under a 386 userspace. The selector flags can narrow transports or modes for diagnosis, but a narrowed result set is intentionally incomplete when aggregated against the comprehensive catalog.
 
@@ -100,7 +144,7 @@ The driver checks the pinned SHA-256 digest and Minisign signature for the index
 
 ## GitHub Actions and reports
 
-The manual workflow is named **Comprehensive e2e Tests**. Its `workflow_dispatch` entry is followed by an authorization job that checks the triggering actor's repository permission and permits only `admin`. GitHub does not provide an admin-only visibility setting for `workflow_dispatch`, so non-admin collaborators may still see or attempt the dispatch; the authorization job prevents the test jobs from starting. Repository branch/ruleset protection must also prevent non-admin changes to the workflow for this gate to be an enforceable trust boundary. The comprehensive target jobs and report aggregation are separate from the `reflektor` job, which calls the existing `Reflektor Integration Test Matrix` workflow unchanged apart from making it reusable.
+The manual workflow is named **Comprehensive e2e Tests**. Its `workflow_dispatch` entry is followed by an authorization job that checks the triggering actor's repository permission and permits only `admin`. GitHub does not provide an admin-only visibility setting for `workflow_dispatch`, so non-admin collaborators may still see or attempt the dispatch; the authorization job prevents the test jobs from starting. Repository branch/ruleset protection must also prevent non-admin changes to the workflow for this gate to be an enforceable trust boundary. The comprehensive target jobs and report aggregation are separate from the `reflektor` and `shellcode` jobs, which call the reusable `Reflektor Integration Test Matrix` and `Shellcode E2E Test Matrix` workflows after authorization.
 
 The aggregate Markdown and JSON also contain an exhaustive disposition registry for every generated `SliverRPC` method. Finite implant commands are marked `COVERED` or `DEFERRED` with a rationale, while server-only, lifecycle, and tunnel/interactive methods are tracked separately. Descriptor-backed tests fail when a new RPC is added without a disposition or when a method marked covered has no scenario in the executable matrix.
 

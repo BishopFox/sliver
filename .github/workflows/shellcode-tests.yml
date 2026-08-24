@@ -1,0 +1,207 @@
+name: Shellcode E2E Test Matrix
+
+on:
+  workflow_call:
+    outputs:
+      shellcode_coverage_markdown:
+        description: Shellcode E2E coverage table in Markdown
+        value: ${{ jobs.aggregate.outputs.shellcode_coverage_markdown }}
+
+permissions:
+  contents: read
+
+jobs:
+  target:
+    name: shellcode-e2e-${{ matrix.target_os }}-${{ matrix.target_arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target_os: darwin
+            target_arch: arm64
+            server_os: darwin
+            server_arch: arm64
+            server_executable: ./sliver-server
+            test_executable: ./sliver-shellcode-e2e
+          - runner: ubuntu-24.04
+            target_os: linux
+            target_arch: amd64
+            server_os: linux
+            server_arch: amd64
+            server_executable: ./sliver-server
+            test_executable: ./sliver-shellcode-e2e
+          - runner: ubuntu-24.04-arm
+            target_os: linux
+            target_arch: arm64
+            server_os: linux
+            server_arch: arm64
+            server_executable: ./sliver-server
+            test_executable: ./sliver-shellcode-e2e
+          - runner: windows-2022
+            target_os: windows
+            target_arch: "386"
+            server_os: windows
+            server_arch: amd64
+            server_executable: ./sliver-server.exe
+            test_executable: ./sliver-shellcode-e2e.exe
+          - runner: windows-2022
+            target_os: windows
+            target_arch: amd64
+            server_os: windows
+            server_arch: amd64
+            server_executable: ./sliver-server.exe
+            test_executable: ./sliver-shellcode-e2e.exe
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Prepare target artifact
+        run: |
+          mkdir -p shellcode-results
+          printf '%s/%s\n' \
+            '${{ matrix.target_os }}' \
+            '${{ matrix.target_arch }}' \
+            > 'shellcode-results/target-${{ matrix.target_os }}-${{ matrix.target_arch }}.txt'
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download Sliver build assets
+        run: go run -buildvcs=false -mod=vendor -trimpath ./util/cmd/assets
+
+      - name: Build unmodified Sliver server
+        env:
+          CGO_ENABLED: "0"
+          GOARCH: ${{ matrix.server_arch }}
+          GOOS: ${{ matrix.server_os }}
+        run: >-
+          go build -buildvcs=false -mod=vendor -trimpath -tags go_sqlite,server
+          -o ${{ matrix.server_executable }} ./server
+
+      - name: Compile shellcode E2E client
+        env:
+          CGO_ENABLED: "0"
+          GOARCH: ${{ matrix.target_arch }}
+          GOOS: ${{ matrix.target_os }}
+        run: >-
+          go test -c -buildvcs=false -mod=vendor -trimpath -tags client,go_sqlite
+          -o ${{ matrix.test_executable }} ./test/e2e
+
+      - name: Run shellcode generation and execution tests
+        run: >-
+          ${{ matrix.test_executable }}
+          -test.v
+          -test.run=^TestShellcodeE2E$
+          -test.timeout=0
+          -repo .
+          -server ${{ matrix.server_executable }}
+          -server-arch ${{ matrix.server_arch }}
+          -target-os ${{ matrix.target_os }}
+          -target-arch ${{ matrix.target_arch }}
+          -results ./shellcode-results
+          -transports mtls,wg,http
+          -implant-modes session,beacon
+          -beacon-interval 10s
+
+      - name: Upload target shellcode results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: shellcode-e2e-target-${{ matrix.target_os }}-${{ matrix.target_arch }}
+          path: shellcode-results
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 14
+
+  aggregate:
+    name: Aggregate shellcode E2E coverage
+    needs: target
+    if: ${{ always() }}
+    outputs:
+      shellcode_coverage_markdown: ${{ steps.publish_shellcode_coverage.outputs.shellcode_coverage_markdown }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Prepare aggregate artifact
+        run: |
+          mkdir -p shellcode-input shellcode-summary
+          printf 'Shellcode E2E coverage aggregate\n' > shellcode-summary/README.txt
+
+      - name: Download target shellcode results
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          pattern: shellcode-e2e-target-*
+          path: shellcode-input
+          merge-multiple: true
+
+      - name: Aggregate shellcode coverage
+        id: aggregate
+        continue-on-error: true
+        run: >-
+          go run -buildvcs=false -mod=vendor -trimpath ./test/e2e/shellcode-report
+          -input ./shellcode-input
+          -output ./shellcode-summary
+
+      - name: Publish shellcode coverage table
+        id: publish_shellcode_coverage
+        if: ${{ always() }}
+        run: |
+          report="shellcode-summary/shellcode-coverage.md"
+          if [[ ! -s "${report}" ]]; then
+            printf 'Shellcode coverage report is missing or empty: %s\n' "${report}" >&2
+            exit 1
+          fi
+
+          delimiter="SHELLCODE_E2E_COVERAGE_EOF"
+          if grep -Fxq "${delimiter}" "${report}"; then
+            printf 'Shellcode coverage report contains the reserved output delimiter: %s\n' "${delimiter}" >&2
+            exit 1
+          fi
+
+          {
+            printf 'shellcode_coverage_markdown<<%s\n' "${delimiter}"
+            cat "${report}"
+            printf '%s\n' "${delimiter}"
+          } >> "${GITHUB_OUTPUT}"
+
+          cat "${report}" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload aggregate shellcode coverage
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: shellcode-e2e-coverage-summary
+          path: shellcode-summary
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 30
+
+      - name: Fail on failed or not-run shellcode coverage
+        if: ${{ always() && steps.aggregate.outcome != 'success' }}
+        run: exit 1

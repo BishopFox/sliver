@@ -41,4 +41,4 @@ COPY go.mod go.sum ./
 COPY --from=server-build /out/sliver-server /workspace/sliver-server
 COPY --from=driver-build /out/sliver-comprehensive-e2e /usr/local/bin/sliver-comprehensive-e2e
 
-CMD ["sliver-comprehensive-e2e", "-test.v", "-test.timeout=0", "-repo", "/workspace", "-server", "/workspace/sliver-server", "-server-arch", "amd64", "-target-os", "linux", "-target-arch", "386", "-results", "/results", "-transports", "mtls,wg,http", "-implant-modes", "session,beacon", "-beacon-interval", "10s"]
+CMD ["sliver-comprehensive-e2e", "-test.v", "-test.run=^TestComprehensiveE2E$", "-test.timeout=0", "-repo", "/workspace", "-server", "/workspace/sliver-server", "-server-arch", "amd64", "-target-os", "linux", "-target-arch", "386", "-results", "/results", "-transports", "mtls,wg,http", "-implant-modes", "session,beacon", "-beacon-interval", "10s"]

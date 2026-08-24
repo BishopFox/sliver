@@ -48,7 +48,7 @@ func TestComprehensiveE2E(t *testing.T) {
 		t.Skip("comprehensive E2E requires -server")
 	}
 
-	suite, err := newSuite(t, testOptions)
+	suite, err := newSuite(t, testOptions, true)
 	if err != nil {
 		t.Fatal(err)
 	}

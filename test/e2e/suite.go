@@ -146,7 +146,7 @@ type managedProcess struct {
 	tree    processTree
 }
 
-func newSuite(t *testing.T, opts options) (*suite, error) {
+func newSuite(t *testing.T, opts options, recordCommandCoverage bool) (*suite, error) {
 	if err := validateOptions(&opts); err != nil {
 		return nil, err
 	}
@@ -166,10 +166,12 @@ func newSuite(t *testing.T, opts options) (*suite, error) {
 		workDir:   workDir,
 		listeners: map[string]*listener{},
 	}
-	s.coverage, err = e2ecoverage.NewRecorder(e2ecoverage.Target{OS: opts.targetOS, Arch: opts.targetArch})
-	if err != nil {
-		s.close()
-		return nil, fmt.Errorf("initialize E2E coverage recorder: %w", err)
+	if recordCommandCoverage {
+		s.coverage, err = e2ecoverage.NewRecorder(e2ecoverage.Target{OS: opts.targetOS, Arch: opts.targetArch})
+		if err != nil {
+			s.close()
+			return nil, fmt.Errorf("initialize E2E coverage recorder: %w", err)
+		}
 	}
 	if s.opts.resultsDir == "" {
 		s.opts.resultsDir, err = os.MkdirTemp("", "sliver-comprehensive-e2e-results-")

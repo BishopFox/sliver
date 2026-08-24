@@ -93,6 +93,7 @@ jobs:
         run: >-
           ./sliver-comprehensive-e2e
           -test.v
+          -test.run=^TestComprehensiveE2E$
           -test.timeout=0
           -repo .
           -server ./sliver-server
@@ -174,6 +175,7 @@ jobs:
         run: >-
           ./sliver-comprehensive-e2e
           -test.v
+          -test.run=^TestComprehensiveE2E$
           -test.timeout=0
           -repo .
           -server ./sliver-server
@@ -323,6 +325,7 @@ jobs:
         run: >-
           ./sliver-comprehensive-e2e.exe
           -test.v
+          -test.run=^TestComprehensiveE2E$
           -test.timeout=0
           -repo .
           -server ./sliver-server.exe
@@ -439,3 +442,8 @@ jobs:
     name: Existing Reflektor test matrix
     needs: authorize
     uses: ./.github/workflows/reflektor-tests.yml
+
+  shellcode:
+    name: Shellcode E2E test matrix
+    needs: authorize
+    uses: ./.github/workflows/shellcode-tests.yml
