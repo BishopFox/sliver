@@ -117,7 +117,11 @@ int main(int argc, char **argv) {
 #else
     void *executable = mmap(NULL, payload_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     int executable_protection = PROT_READ | PROT_EXEC | (writable_executable ? PROT_WRITE : 0);
+#ifdef __APPLE__
+    int (*entrypoint)(void);
+#else
     void (*entrypoint)(void);
+#endif
 
     if (executable == MAP_FAILED) {
         fprintf(stderr, "mmap failed: %s\n", strerror(errno));
@@ -132,8 +136,18 @@ int main(int argc, char **argv) {
         return 1;
     }
     __builtin___clear_cache((char *)executable, (char *)executable + payload_size);
+#ifdef __APPLE__
+    entrypoint = (int (*)(void))executable;
+    int loader_status = entrypoint();
+    if (loader_status != 0) {
+        fprintf(stderr, "shellcode loader returned status %d\n", loader_status);
+        (void)munmap(executable, payload_size);
+        return loader_status;
+    }
+#else
     entrypoint = (void (*)(void))executable;
     entrypoint();
+#endif
     fprintf(stderr, "shellcode returned; waiting for the harness to stop the runner\n");
     for (;;) {
         (void)pause();
