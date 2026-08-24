@@ -109,10 +109,11 @@ int main(int argc, char **argv) {
         VirtualFree(executable, 0, MEM_RELEASE);
         return 1;
     }
-    fprintf(stderr, "shellcode returned before the runner was stopped\n");
     CloseHandle(thread);
-    VirtualFree(executable, 0, MEM_RELEASE);
-    return 1;
+    fprintf(stderr, "shellcode returned; waiting for the harness to stop the runner\n");
+    for (;;) {
+        Sleep(INFINITE);
+    }
 #else
     void *executable = mmap(NULL, payload_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     int executable_protection = PROT_READ | PROT_EXEC | (writable_executable ? PROT_WRITE : 0);
@@ -133,8 +134,9 @@ int main(int argc, char **argv) {
     __builtin___clear_cache((char *)executable, (char *)executable + payload_size);
     entrypoint = (void (*)(void))executable;
     entrypoint();
-    fprintf(stderr, "shellcode returned before the runner was stopped\n");
-    (void)munmap(executable, payload_size);
-    return 1;
+    fprintf(stderr, "shellcode returned; waiting for the harness to stop the runner\n");
+    for (;;) {
+        (void)pause();
+    }
 #endif
 }
