@@ -3,9 +3,12 @@
 package handlers
 
 import (
+	"bytes"
 	"errors"
 	"slices"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/bishopfox/sliver/implant/sliver/extension"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -15,6 +18,15 @@ import (
 type failingExtension struct {
 	id      string
 	loadErr error
+}
+
+type callbackLifetimeExtension struct {
+	id               string
+	output           []byte
+	nativeOutput     []byte
+	callActive       atomic.Bool
+	callbackReturned chan struct{}
+	allowCallReturn  chan struct{}
 }
 
 func (f *failingExtension) Load() error {
@@ -30,6 +42,32 @@ func (f *failingExtension) GetID() string {
 }
 
 func (f *failingExtension) GetArch() string {
+	return "test"
+}
+
+func (e *callbackLifetimeExtension) Load() error {
+	return nil
+}
+
+func (e *callbackLifetimeExtension) Call(_ string, _ []byte, callback func([]byte)) error {
+	e.callActive.Store(true)
+	defer e.callActive.Store(false)
+
+	e.nativeOutput = append([]byte(nil), e.output...)
+	callback(e.nativeOutput)
+	for index := range e.nativeOutput {
+		e.nativeOutput[index] = 0xa5
+	}
+	close(e.callbackReturned)
+	<-e.allowCallReturn
+	return nil
+}
+
+func (e *callbackLifetimeExtension) GetID() string {
+	return e.id
+}
+
+func (e *callbackLifetimeExtension) GetArch() string {
 	return "test"
 }
 
@@ -69,6 +107,95 @@ func TestRegisterExtensionDoesNotAddFailedLoad(t *testing.T) {
 	}
 	if slices.Contains(extension.List(), extensionID) {
 		t.Fatalf("extension %q was registered after its load failed", extensionID)
+	}
+}
+
+func TestCallExtensionHandlerDefersResponseAndCopiesCallbackOutput(t *testing.T) {
+	const extensionID = "handler-test-callback-lifetime"
+	wantOutput := []byte("native extension output")
+	ext := &callbackLifetimeExtension{
+		id:               extensionID,
+		output:           wantOutput,
+		callbackReturned: make(chan struct{}),
+		allowCallReturn:  make(chan struct{}),
+	}
+	extension.Add(ext)
+	defer func() {
+		select {
+		case <-ext.allowCallReturn:
+		default:
+			close(ext.allowCallReturn)
+		}
+	}()
+
+	request, err := proto.Marshal(&sliverpb.CallExtensionReq{Name: extensionID, Export: "Run"})
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+
+	type handlerResponse struct {
+		data       []byte
+		err        error
+		callActive bool
+	}
+	responses := make(chan handlerResponse, 2)
+	handlerDone := make(chan struct{})
+	go func() {
+		defer close(handlerDone)
+		callExtensionHandler(request, func(data []byte, err error) {
+			responses <- handlerResponse{
+				data:       append([]byte(nil), data...),
+				err:        err,
+				callActive: ext.callActive.Load(),
+			}
+		})
+	}()
+
+	select {
+	case <-ext.callbackReturned:
+	case <-time.After(5 * time.Second):
+		t.Fatal("extension callback did not return")
+	}
+	select {
+	case <-responses:
+		t.Fatal("RPC response was delivered before Extension.Call returned")
+	default:
+	}
+
+	close(ext.allowCallReturn)
+	var response handlerResponse
+	select {
+	case response = <-responses:
+	case <-time.After(5 * time.Second):
+		t.Fatal("callExtensionHandler did not deliver a response")
+	}
+	if response.callActive {
+		t.Fatal("RPC response was delivered while Extension.Call was active")
+	}
+	if response.err != nil {
+		t.Fatalf("response callback returned error: %v", response.err)
+	}
+
+	callResponse := &sliverpb.CallExtension{}
+	if err := proto.Unmarshal(response.data, callResponse); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if !bytes.Equal(callResponse.Output, wantOutput) {
+		t.Fatalf("response output = %q, want %q", callResponse.Output, wantOutput)
+	}
+	if bytes.Equal(ext.nativeOutput, wantOutput) {
+		t.Fatal("fake native output was not poisoned after the callback")
+	}
+
+	select {
+	case <-handlerDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("callExtensionHandler did not return")
+	}
+	select {
+	case <-responses:
+		t.Fatal("callExtensionHandler delivered more than one response")
+	default:
 	}
 }
 
