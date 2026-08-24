@@ -181,6 +181,117 @@ func TestEncodeShellcodeEmpty(t *testing.T) {
 	}
 }
 
+func TestDecoderRegistersAreDistinct(t *testing.T) {
+	tests := []struct {
+		name     string
+		arch     int
+		assembly string
+		want     bool
+	}{
+		{
+			name:     "x86 distinct",
+			arch:     32,
+			assembly: "POP EDX\nMOV ECX,0x20\nMOV AL,0x42",
+			want:     true,
+		},
+		{
+			name:     "x86 key aliases base",
+			arch:     32,
+			assembly: "POP EAX\nMOV ECX,0x20\nMOV AL,0x42",
+			want:     false,
+		},
+		{
+			name:     "x86 key aliases counter",
+			arch:     32,
+			assembly: "POP EDX\nMOV ECX,0x20\nMOV CL,0x42",
+			want:     false,
+		},
+		{
+			name:     "x64 distinct",
+			arch:     64,
+			assembly: "MOV AL,0x42\nMOV RCX,0x20\nLEA RDX,[RIP+data-1]",
+			want:     true,
+		},
+		{
+			name:     "x64 key aliases base",
+			arch:     64,
+			assembly: "MOV R8B,0x42\nMOV RCX,0x20\nLEA R8,[RIP+data-1]",
+			want:     false,
+		},
+		{
+			name:     "x64 key aliases counter",
+			arch:     64,
+			assembly: "MOV CL,0x42\nMOV RCX,0x20\nLEA RDX,[RIP+data-1]",
+			want:     false,
+		},
+		{
+			name:     "unknown base register",
+			arch:     64,
+			assembly: "MOV AL,0x42\nMOV RCX,0x20\nLEA RSP,[RIP+data-1]",
+			want:     false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := decoderRegistersAreDistinct(test.arch, test.assembly); got != test.want {
+				t.Fatalf("decoderRegistersAreDistinct() = %t, expected %t", got, test.want)
+			}
+		})
+	}
+}
+
+func TestReliableADFLDecoderRetriesRegisterCollision(t *testing.T) {
+	encoder, err := sgnpkg.NewEncoder(64)
+	if err != nil {
+		t.Fatalf("NewEncoder(64): %v", err)
+	}
+	if _, ok := encoder.Assemble("NOP"); !ok {
+		t.Skip("keystone assembler not available")
+	}
+
+	unsafeDecoder := `
+		MOV CL,0x42
+		MOV RCX,0x2
+		LEA RDX,[RIP+data-1]
+	decode:
+		XOR BYTE PTR [RDX+RCX],CL
+		ADD CL,BYTE PTR [RDX+RCX]
+		LOOP decode
+	data:
+	`
+	safeDecoder := `
+		MOV AL,0x42
+		MOV RCX,0x2
+		LEA RDX,[RIP+data-1]
+	decode:
+		XOR BYTE PTR [RDX+RCX],AL
+		ADD AL,BYTE PTR [RDX+RCX]
+		LOOP decode
+	data:
+	`
+
+	attempts := 0
+	newDecoderAssembly := func(int) (string, error) {
+		attempts++
+		if attempts == 1 {
+			return unsafeDecoder, nil
+		}
+		return safeDecoder, nil
+	}
+	payload := []byte{0x90, 0x90}
+	encoded, err := addReliableADFLDecoderWithGenerator(encoder, payload, newDecoderAssembly)
+	if err != nil {
+		t.Fatalf("addReliableADFLDecoderWithGenerator: %v", err)
+	}
+	if attempts != 2 {
+		t.Fatalf("decoder generator called %d times, expected 2", attempts)
+	}
+	if len(encoded) <= len(payload) {
+		t.Fatalf("encoded output length = %d, expected more than %d", len(encoded), len(payload))
+	}
+}
+
 func TestEncodeMSFVenomFixtures(t *testing.T) {
 	t.Helper()
 	checkEncoder, err := newEncoderWithConfig(64, SGNConfig{})

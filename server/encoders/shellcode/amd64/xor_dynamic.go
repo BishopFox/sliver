@@ -51,12 +51,23 @@ var xorDynamicBadchars = map[byte]bool{
 // Note: For large/high-entropy payloads, a 2-byte payload terminator may not exist. In
 // that case, this implementation falls back to a 4-byte payload terminator.
 func XorDynamic(data []byte, key []byte) ([]byte, error) {
+	return xorDynamic(data, key, nil, true)
+}
+
+// XorDynamicWithBadChars encodes an amd64 payload while excluding badChars
+// from the complete output. Empty badChars use the xor_dynamic defaults.
+func XorDynamicWithBadChars(data []byte, key []byte, badChars []byte) ([]byte, error) {
+	return xorDynamic(data, key, badChars, false)
+}
+
+func xorDynamic(data []byte, key []byte, badChars []byte, allowExplicitTerms bool) ([]byte, error) {
 	if len(data) == 0 {
 		return nil, fmt.Errorf("xor_dynamic encoder: empty payload")
 	}
 	if len(key) == 0 {
 		return nil, fmt.Errorf("xor_dynamic encoder: empty key")
 	}
+	badcharSet := xorDynamicBadcharSet(badChars)
 
 	coreKey := key
 	var keyTerm byte
@@ -65,7 +76,7 @@ func XorDynamic(data []byte, key []byte) ([]byte, error) {
 	encoded := xorDynamicEncode(data, key)
 	explicit := false
 
-	if candidateKey, candidateKeyTerm, candidatePayloadTerm, ok := splitExplicitTerms(data, key); ok {
+	if candidateKey, candidateKeyTerm, candidatePayloadTerm, ok := splitExplicitTerms(data, key, badcharSet); allowExplicitTerms && ok {
 		coreKey = candidateKey
 		keyTerm = candidateKeyTerm
 		payloadTerm = candidatePayloadTerm
@@ -73,17 +84,17 @@ func XorDynamic(data []byte, key []byte) ([]byte, error) {
 		explicit = true
 	}
 
-	if containsBadchars(coreKey, xorDynamicBadchars) {
+	if containsBadchars(coreKey, badcharSet) {
 		return nil, fmt.Errorf("xor_dynamic encoder: key contains badchars")
 	}
 
 	if !explicit {
 		var err error
-		keyTerm, err = selectKeyTerm(coreKey)
+		keyTerm, err = selectKeyTerm(coreKey, badcharSet)
 		if err != nil {
 			return nil, err
 		}
-		payloadTerm, err = selectPayloadTerm(encoded)
+		payloadTerm, err = selectPayloadTerm(encoded, badcharSet)
 		if err != nil {
 			return nil, err
 		}
@@ -96,7 +107,7 @@ func XorDynamic(data []byte, key []byte) ([]byte, error) {
 		}
 	}
 
-	stub, err := buildXorDynamicStub(keyTerm, payloadTerm)
+	stub, err := buildXorDynamicStub(keyTerm, payloadTerm, badcharSet)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +119,7 @@ func XorDynamic(data []byte, key []byte) ([]byte, error) {
 	final = append(final, encoded...)
 	final = append(final, payloadTerm...)
 
-	if containsBadchars(final, xorDynamicBadchars) {
+	if containsBadchars(final, badcharSet) {
 		return nil, fmt.Errorf("xor_dynamic encoder: badchars present in output")
 	}
 
@@ -123,7 +134,7 @@ func xorDynamicEncode(data []byte, key []byte) []byte {
 	return encoded
 }
 
-func splitExplicitTerms(data []byte, key []byte) ([]byte, byte, []byte, bool) {
+func splitExplicitTerms(data []byte, key []byte, badchars map[byte]bool) ([]byte, byte, []byte, bool) {
 	if len(key) < 4 {
 		return nil, 0, nil, false
 	}
@@ -136,7 +147,7 @@ func splitExplicitTerms(data []byte, key []byte) ([]byte, byte, []byte, bool) {
 	keyTerm := key[len(key)-3]
 	payloadTerm := key[len(key)-2:]
 
-	if xorDynamicBadchars[keyTerm] || xorDynamicBadchars[payloadTerm[0]] || xorDynamicBadchars[payloadTerm[1]] {
+	if badchars[keyTerm] || badchars[payloadTerm[0]] || badchars[payloadTerm[1]] {
 		return nil, 0, nil, false
 	}
 
@@ -144,7 +155,7 @@ func splitExplicitTerms(data []byte, key []byte) ([]byte, byte, []byte, bool) {
 		return nil, 0, nil, false
 	}
 
-	if containsBadchars(candidateKey, xorDynamicBadchars) {
+	if containsBadchars(candidateKey, badchars) {
 		return nil, 0, nil, false
 	}
 
@@ -156,8 +167,8 @@ func splitExplicitTerms(data []byte, key []byte) ([]byte, byte, []byte, bool) {
 	return candidateKey, keyTerm, append([]byte{}, payloadTerm...), true
 }
 
-func selectKeyTerm(key []byte) (byte, error) {
-	for _, b := range allowedDynamicChars() {
+func selectKeyTerm(key []byte, badchars map[byte]bool) (byte, error) {
+	for _, b := range allowedDynamicCharsFor(badchars) {
 		if bytes.IndexByte(key, b) == -1 {
 			return b, nil
 		}
@@ -165,8 +176,8 @@ func selectKeyTerm(key []byte) (byte, error) {
 	return 0, fmt.Errorf("xor_dynamic encoder: key terminator not found")
 }
 
-func selectPayloadTerm(encoded []byte) ([]byte, error) {
-	allowed := allowedDynamicChars()
+func selectPayloadTerm(encoded []byte, badchars map[byte]bool) ([]byte, error) {
+	allowed := allowedDynamicCharsFor(badchars)
 
 	// Fast path: try to find a distinct 2-byte terminator not present in the
 	// encoded payload. This preserves compatibility with the Metasploit stub.
@@ -200,11 +211,11 @@ func selectPayloadTerm(encoded []byte) ([]byte, error) {
 	return nil, fmt.Errorf("xor_dynamic encoder: payload terminator not found")
 }
 
-func allowedDynamicChars() []byte {
+func allowedDynamicCharsFor(badchars map[byte]bool) []byte {
 	allowed := make([]byte, 0, 255)
 	for i := 1; i <= 255; i++ {
 		b := byte(i)
-		if xorDynamicBadchars[b] {
+		if badchars[b] {
 			continue
 		}
 		allowed = append(allowed, b)
@@ -237,7 +248,7 @@ func randomDistinctBytes(allowed []byte, n int) ([]byte, error) {
 	return term, nil
 }
 
-func buildXorDynamicStub(keyTerm byte, payloadTerm []byte) ([]byte, error) {
+func buildXorDynamicStub(keyTerm byte, payloadTerm []byte, badchars map[byte]bool) ([]byte, error) {
 	if len(payloadTerm) != 2 && len(payloadTerm) != 4 {
 		return nil, fmt.Errorf("xor_dynamic encoder: payload terminator must be 2 or 4 bytes")
 	}
@@ -328,11 +339,23 @@ func buildXorDynamicStub(keyTerm byte, payloadTerm []byte) ([]byte, error) {
 		return nil, fmt.Errorf("xor_dynamic encoder: payload placeholder not found")
 	}
 
-	if containsBadchars(inst, xorDynamicBadchars) {
+	if containsBadchars(inst, badchars) {
 		return nil, fmt.Errorf("xor_dynamic encoder: badchars present in stub")
 	}
 
 	return inst, nil
+}
+
+func xorDynamicBadcharSet(badChars []byte) map[byte]bool {
+	if len(badChars) == 0 {
+		return xorDynamicBadchars
+	}
+
+	badcharSet := make(map[byte]bool, len(badChars))
+	for _, badchar := range badChars {
+		badcharSet[badchar] = true
+	}
+	return badcharSet
 }
 
 func containsBadchars(data []byte, badchars map[byte]bool) bool {
