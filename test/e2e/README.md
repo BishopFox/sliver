@@ -54,7 +54,7 @@ The five native target rows are fixed. Both Windows rows run a 64-bit server, wh
 
 | Target | GitHub runner | Server architecture | Shellcode backend | Encoder settings | Required combinations |
 |---|---|---|---|---|---:|
-| `darwin/arm64` | `macos-15` | `arm64` | `beignet` | `none`, `xor`, `xor_dynamic` | 36 |
+| `darwin/arm64` | `macos-26` | `arm64` | `beignet` | `none`, `xor`, `xor_dynamic` | 36 |
 | `linux/amd64` | `ubuntu-24.04` | `amd64` | `malasada` | `none`, `shikata_ga_nai`, `xor`, `xor_dynamic` | 48 |
 | `linux/arm64` | `ubuntu-24.04-arm` | `arm64` | `malasada` | `none`, `xor`, `xor_dynamic` | 36 |
 | `windows/386` | `windows-2022` | `amd64` | `wasm-donut` | `none`, `shikata_ga_nai` | 24 |
