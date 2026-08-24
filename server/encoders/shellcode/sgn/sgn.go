@@ -95,7 +95,7 @@ func EncodeShellcodeWithConfig(shellcode []byte, cfg SGNConfig) ([]byte, error) 
 		}
 		encoder.Seed = seed
 
-		data, err := encoder.Encode(shellcode)
+		data, err := encodeWithReliableDecoder(encoder, shellcode)
 		if err != nil {
 			fallbackEncoder, fallbackErr := newEncoderWithConfig(arch, cfg)
 			if fallbackErr != nil {
@@ -213,7 +213,7 @@ func simpleEncode(encoder *sgnpkg.Encoder, payload []byte) ([]byte, error) {
 	}
 
 	ciphered := sgnpkg.CipherADFL(current, encoder.Seed)
-	encoded, err := encoder.AddADFLDecoder(ciphered)
+	encoded, err := addReliableADFLDecoder(encoder, ciphered)
 	if err != nil {
 		return nil, err
 	}
@@ -229,4 +229,150 @@ func simpleEncode(encoder *sgnpkg.Encoder, payload []byte) ([]byte, error) {
 	}
 
 	return encoded, nil
+}
+
+func encodeWithReliableDecoder(encoder *sgnpkg.Encoder, payload []byte) ([]byte, error) {
+	// This mirrors sgn.Encoder.Encode while replacing its ADFL decoder
+	// construction. The upstream register selector can choose the decoder's
+	// counter register or a low-byte alias of its base register, producing
+	// machine code that assembles successfully but cannot decode the payload.
+	current := append([]byte{}, payload...)
+	if encoder.SaveRegisters {
+		current = append(current, sgnpkg.SafeRegisterSuffix[encoder.GetArchitecture()]...)
+	}
+
+	garbage, err := encoder.GenerateGarbageInstructions()
+	if err != nil {
+		return nil, err
+	}
+	current = append(garbage, current...)
+
+	ciphered := sgnpkg.CipherADFL(current, encoder.Seed)
+	encoded, err := addReliableADFLDecoder(encoder, ciphered)
+	if err != nil {
+		return nil, err
+	}
+
+	final := encoded
+	if !encoder.PlainDecoder {
+		garbage, err = encoder.GenerateGarbageInstructions()
+		if err != nil {
+			return nil, err
+		}
+		encoded = append(garbage, encoded...)
+
+		schemaSize := ((len(encoded) - len(ciphered)) / (encoder.GetArchitecture() / 8)) + 1
+		schema := encoder.NewCipherSchema(schemaSize)
+		obfuscated := encoder.SchemaCipher(encoded, 0, schema)
+		final, err = encoder.AddSchemaDecoder(obfuscated, schema)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if encoder.EncodingCount > 1 {
+		encoder.EncodingCount--
+		encoder.Seed = sgnpkg.GetRandomByte()
+		final, err = encodeWithReliableDecoder(encoder, final)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if encoder.SaveRegisters {
+		final = append(sgnpkg.SafeRegisterPrefix[encoder.GetArchitecture()], final...)
+	}
+
+	return final, nil
+}
+
+func addReliableADFLDecoder(encoder *sgnpkg.Encoder, payload []byte) ([]byte, error) {
+	return addReliableADFLDecoderWithGenerator(encoder, payload, encoder.NewDecoderAssembly)
+}
+
+func addReliableADFLDecoderWithGenerator(
+	encoder *sgnpkg.Encoder,
+	payload []byte,
+	newDecoderAssembly func(int) (string, error),
+) ([]byte, error) {
+	const maxAttempts = 64
+
+	for range maxAttempts {
+		decoderAssembly, err := newDecoderAssembly(len(payload))
+		if err != nil {
+			return nil, err
+		}
+		if !decoderRegistersAreDistinct(encoder.GetArchitecture(), decoderAssembly) {
+			continue
+		}
+
+		decoder, ok := encoder.Assemble(decoderAssembly)
+		if !ok {
+			return nil, errors.New("decoder assembly failed")
+		}
+		return append(decoder, payload...), nil
+	}
+
+	return nil, errors.New("failed to select distinct decoder registers")
+}
+
+func decoderRegistersAreDistinct(arch int, assembly string) bool {
+	baseRegister := ""
+	keyRegister := ""
+	counterRegister := "ECX"
+	counterLowRegister := "CL"
+	if arch == 64 {
+		counterRegister = "RCX"
+	}
+
+	for _, rawLine := range strings.Split(assembly, "\n") {
+		line := strings.ToUpper(strings.TrimSpace(rawLine))
+		switch {
+		case arch == 32 && strings.HasPrefix(line, "POP "):
+			baseRegister = strings.TrimSpace(strings.TrimPrefix(line, "POP "))
+		case arch == 64 && strings.HasPrefix(line, "LEA "):
+			operands := strings.SplitN(strings.TrimPrefix(line, "LEA "), ",", 2)
+			if len(operands) == 2 {
+				baseRegister = strings.TrimSpace(operands[0])
+			}
+		case strings.HasPrefix(line, "MOV "):
+			operands := strings.SplitN(strings.TrimPrefix(line, "MOV "), ",", 2)
+			if len(operands) == 2 {
+				destination := strings.TrimSpace(operands[0])
+				if destination != counterRegister {
+					keyRegister = destination
+				}
+			}
+		}
+	}
+
+	if baseRegister == "" || keyRegister == "" || keyRegister == counterLowRegister {
+		return false
+	}
+
+	baseLowRegisters := map[string]string{
+		"EAX": "AL",
+		"EBX": "BL",
+		"ECX": "CL",
+		"EDX": "DL",
+		"ESI": "",
+		"EDI": "",
+		"RAX": "AL",
+		"RBX": "BL",
+		"RCX": "CL",
+		"RDX": "DL",
+		"RSI": "SIL",
+		"RDI": "DIL",
+		"R8":  "R8B",
+		"R9":  "R9B",
+		"R10": "R10B",
+		"R11": "R11B",
+		"R12": "R12B",
+		"R13": "R13B",
+		"R14": "R14B",
+		"R15": "R15B",
+	}
+
+	baseLowRegister, knownBaseRegister := baseLowRegisters[baseRegister]
+	return knownBaseRegister && baseLowRegister != keyRegister
 }

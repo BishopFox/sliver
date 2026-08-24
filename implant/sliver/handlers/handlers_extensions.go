@@ -57,20 +57,24 @@ func callExtensionHandler(data []byte, resp RPCResponse) {
 
 	callResp := &sliverpb.CallExtension{Response: &commonpb.Response{}}
 	gotOutput := false
+	var output []byte
 	err := extension.Run(callReq.Name, callReq.Export, callReq.Args, func(out []byte) {
-		gotOutput = true
-		callResp.Output = out
-		data, err := proto.Marshal(callResp)
-		resp(data, err)
-	})
-	// Only send back synchronously if there was an error or no callback output.
-	if err != nil || !gotOutput {
-		if err != nil {
-			callResp.Response.Err = err.Error()
+		// Native callbacks run on the extension's call stack. Keep the first
+		// result, copy it before the native buffer expires, and respond only
+		// after the extension call has returned.
+		if gotOutput {
+			return
 		}
-		data, err = proto.Marshal(callResp)
-		resp(data, err)
+		gotOutput = true
+		output = append([]byte(nil), out...)
+	})
+	if gotOutput {
+		callResp.Output = output
+	} else if err != nil {
+		callResp.Response.Err = err.Error()
 	}
+	data, err = proto.Marshal(callResp)
+	resp(data, err)
 }
 
 func listExtensionsHandler(data []byte, resp RPCResponse) {
