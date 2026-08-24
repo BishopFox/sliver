@@ -1332,7 +1332,7 @@ github.com/sliverarmory/reflektor/memmod
 github.com/sliverarmory/reflektor/native
 github.com/sliverarmory/reflektor/native/internal/linuxmem
 github.com/sliverarmory/reflektor/native/internal/rejection
-# github.com/sliverarmory/wasm-donut v0.0.3
+# github.com/sliverarmory/wasm-donut v0.0.6
 ## explicit; go 1.25.6
 github.com/sliverarmory/wasm-donut
 # github.com/spf13/cast v1.10.0
