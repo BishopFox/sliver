@@ -339,11 +339,18 @@ func buildXorDynamicStub(keyTerm byte, payloadTerm []byte, badchars map[byte]boo
 		return nil, fmt.Errorf("xor_dynamic encoder: payload placeholder not found")
 	}
 
-	if containsBadchars(inst, badchars) {
-		return nil, fmt.Errorf("xor_dynamic encoder: badchars present in stub")
+	if err := validateXorDynamicStub(inst, badchars); err != nil {
+		return nil, err
 	}
 
 	return inst, nil
+}
+
+func validateXorDynamicStub(stub []byte, badchars map[byte]bool) error {
+	if containsBadchars(stub, badchars) {
+		return fmt.Errorf("xor_dynamic encoder: badchars present in stub")
+	}
+	return nil
 }
 
 func xorDynamicBadcharSet(badChars []byte) map[byte]bool {
