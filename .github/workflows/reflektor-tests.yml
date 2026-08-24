@@ -2,24 +2,6 @@ name: Reflektor Integration Test Matrix
 
 on:
   workflow_call:
-  push:
-    branches:
-      - master
-    paths:
-      - "implant/**"
-      - "test/reflektor/**"
-      - ".github/workflows/reflektor-tests.yml"
-  pull_request:
-    paths:
-      - "implant/**"
-      - "test/reflektor/**"
-      - ".github/workflows/reflektor-tests.yml"
-    types:
-      - opened
-      - reopened
-      - synchronize
-      - ready_for_review
-  workflow_dispatch:
 
 permissions:
   contents: read
