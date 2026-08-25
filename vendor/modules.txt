@@ -1326,8 +1326,10 @@ github.com/sliverarmory/beignet/internal/stager
 ## explicit; go 1.25.6
 github.com/sliverarmory/malasada
 github.com/sliverarmory/malasada/internal/aplib
-# github.com/sliverarmory/reflektor v0.0.6
+# github.com/sliverarmory/reflektor v0.0.7
 ## explicit; go 1.26.6
+github.com/sliverarmory/reflektor/bof
+github.com/sliverarmory/reflektor/internal/bofloader
 github.com/sliverarmory/reflektor/memmod
 github.com/sliverarmory/reflektor/native
 github.com/sliverarmory/reflektor/native/internal/linuxmem

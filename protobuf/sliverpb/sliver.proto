@@ -4,6 +4,12 @@ option go_package = "github.com/bishopfox/sliver/protobuf/sliverpb";
 
 import "commonpb/common.proto";
 
+// ImplantCapability values are advertised by implants at registration time.
+enum ImplantCapability {
+  IMPLANT_CAPABILITY_NONE = 0;
+  IMPLANT_CAPABILITY_BOF_V1 = 1;
+}
+
 /*
   
   >>> Reserved Numbers <<<
@@ -56,6 +62,7 @@ message Register {
   string ConfigID = 16;
   int64 PeerID = 17;
   string Locale = 18;
+  uint64 Capabilities = 19;
 }
 
 message BeaconRegister {
@@ -1151,6 +1158,8 @@ message CallExtensionReq {
   bool ServerStore = 2;
   bytes Args = 3;
   string Export = 4;
+  bytes BOFData = 5;
+  bool IsBOF = 6;
 
   commonpb.Request Request = 9;
 }

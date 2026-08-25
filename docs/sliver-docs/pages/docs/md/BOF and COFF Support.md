@@ -2,11 +2,11 @@ Sliver supports the loading and execution of BOFs and COFFs, generally no code c
 
 ### BOF Extensions
 
-BOF support is provided via the [COFF Loader](https://github.com/sliverarmory/COFFLoader) extension, you'll need it installed to run pretty much any BOF. However, the COFF Loader will be installed automatically if you install a BOF extension from the [armory](/docs?name=Armory).
+New Sliver implants execute BOFs with the built-in [Reflektor](https://github.com/sliverarmory/reflektor) executor by default. Armory packages can retain a [COFF Loader](https://github.com/sliverarmory/COFFLoader) dependency as a compatibility fallback for older clients, servers, and implants; Armory installs that dependency automatically.
 
 The easiest way to install a BOF extension, for example [`nanodump`](https://github.com/sliverarmory/nanodump), is using the [armory](/docs?name=Armory) package manager:
 
-**IMPORTANT:** BOF extensions are still installed per-sliver client for normal operator use, so they are not shared across operators automatically. If you want the server-side AI agent to use a BOF, copy the unpacked BOF directory into `~/.sliver/ai/extensions` on the server as well, and copy any dependency such as `coff-loader` into that same server-side AI store.
+**IMPORTANT:** BOF extensions are still installed per-sliver client for normal operator use, so they are not shared across operators automatically. If you want the server-side AI agent to use a BOF, copy the unpacked BOF directory into `~/.sliver/ai/extensions` on the server as well. Copy its `depends_on` package too when the manifest retains a compatibility fallback or explicitly selects a COFF loader.
 
 ```
 sliver > armory install nanodump
@@ -75,7 +75,7 @@ beacon_command_register(
 | z    | zero-terminated+encoded string   | `string`                     |
 | Z    | zero-terminated wide-char string | `wstring`                    |
 
-Looking at the script we can see the BOF requires a single integer argument. The corresponding Sliver `extension.json` file is shown below. Note that BOFs will always rely on the `coff-loader` extension but other kinds of extensions may not. If the `coff-loader` extension is not already installed on your system, it can be installed using `armory install coff-loader`. You can list installed extensions by simply running the `extensions` command with no arguments.
+Looking at the script we can see the BOF requires a single integer argument. The corresponding Sliver `extension.json` file is shown below. This manifest prefers Reflektor while retaining `coff-loader` for old-component compatibility. If the loader is not already installed, Armory installs it with the BOF package.
 
 ```json
 {
@@ -87,6 +87,7 @@ Looking at the script we can see the BOF requires a single integer argument. The
   "repo_url": "https://github.com/sliverarmory/CredManBOF",
   "help": "Dump credentials using the CredsBackupCredentials API",
   "long_help": "",
+  "bof_executor": "reflektor",
   "depends_on": "coff-loader",
   "entrypoint": "go",
   "files": [
@@ -112,10 +113,17 @@ Looking at the script we can see the BOF requires a single integer argument. The
 }
 ```
 
+`bof_executor` accepts two values:
+
+- `reflektor` prefers built-in execution when both the server and implant advertise support. If `depends_on` is present, upgraded clients use it as the fallback for an older server or implant, while old clients ignore `bof_executor` and retain their existing loader behavior.
+- `coff-loader` always uses the existing loader path. `depends_on` is required and names the concrete loader, including custom loaders.
+
+When `bof_executor` is omitted, existing `.o` manifests with `depends_on` keep their legacy loader behavior. A dependency-free `.o` defaults to Reflektor and therefore requires a compatible client, server, and implant.
+
 Once the manifest is defined load it into your client using `extensions load`, locally loaded extensions do not need to be cryptographically signed. The paths in the manifest should be relative to the manifest file, parent directories are not allowed.
 
 If you want the server-side AI agent to discover and run the same BOF, copy that unpacked directory into `~/.sliver/ai/extensions/<name>/` so the `extension.json` file and `.o` artifact are available on the server.
 
 More details can be found on the [Aliases & Extensions](/docs?name=Aliases+and+Extensions) page.
 
-**IMPORTANT:** For BOF extensions to be properly detected by the Sliver client, the `path` must use the `.o` file extension.
+**IMPORTANT:** Legacy manifests should keep the `.o` file extension. An explicit `bof_executor` also identifies the command as a BOF, but older clients still rely on the `.o` suffix.

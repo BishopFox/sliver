@@ -807,5 +807,6 @@ func registerSliver() *sliverpb.Register {
 		ConfigID:          "{{ .Config.ID }}",
 		PeerID:            pivots.MyPeerID,
 		Locale:            locale.GetLocale(),
+		Capabilities:      implantCapabilities(),
 	}
 }
