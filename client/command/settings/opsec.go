@@ -50,7 +50,12 @@ func IsUserAnAdultWithPrompt(con *console.SliverClient, prompt string) bool {
 		return true
 	}
 	confirm := false
-	_ = forms.Confirm(prompt, &confirm)
+	if err := forms.Confirm(prompt, &confirm); err != nil {
+		// The interactive form is known to fail on some terminals (#2133);
+		// surface the error instead of silently treating it as a rejection.
+		con.PrintErrorf("Confirmation prompt failed: %s\n", err)
+		return false
+	}
 	return confirm
 }
 

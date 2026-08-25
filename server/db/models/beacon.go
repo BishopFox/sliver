@@ -54,6 +54,7 @@ type Beacon struct {
 	ProxyURL          string
 	Locale            string
 	Integrity         string
+	Capabilities      uint64
 
 	ImplantBuildID  uuid.UUID `gorm:"type:uuid;"`
 	ImplantConfigID uuid.UUID `gorm:"type:uuid;"`
@@ -98,6 +99,7 @@ func (b *Beacon) ToProtobuf() *clientpb.Beacon {
 		Locale:            b.Locale,
 		FirstContact:      b.CreatedAt.Unix(),
 		Integrity:         b.Integrity,
+		Capabilities:      b.Capabilities,
 	}
 }
 

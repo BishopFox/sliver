@@ -88,6 +88,9 @@ const (
 	tFullscreen
 	tMapNewline
 	tScrollOptim
+	// tGraphemeWidth indicates the terminal measures cell width using Unicode
+	// grapheme clustering (DEC mode 2027 / Unicode core).
+	tGraphemeWidth
 )
 
 // Set sets the given flags.
@@ -136,11 +139,12 @@ type TerminalRenderer struct {
 	oldnum           []int        // old indices from previous hash
 	cur, saved       cursor       // the current and saved cursors
 	flags            tFlag        // terminal writer flags.
+	method           ansi.Method  // the width method used to measure cell width
 	term             string       // the terminal type
-	scrollHeight     int          // keeps track of how many lines we've scrolled down (inline mode)
 	clear            bool         // whether to force clear the screen
 	caps             capabilities // terminal control sequence capabilities
 	atPhantom        bool         // whether the cursor is out of bounds and at a phantom cell
+	lineHadWide      bool         // whether the line currently being transformed contained a wide cell
 	logger           Logger       // The logger used for debugging.
 
 	// profile is the color profile to use when downsampling colors. This is
@@ -167,7 +171,6 @@ func NewTerminalRenderer(w io.Writer, env []string) (s *TerminalRenderer) {
 	s.caps = xtermCaps(s.term)
 	s.cur = cursor{Cell: EmptyCell, Position: Pos(-1, -1)} // start at -1 to force a move
 	s.saved = s.cur
-	s.scrollHeight = 0
 	s.oldhash, s.newhash = nil, nil
 	return
 }
@@ -201,6 +204,28 @@ func (s *TerminalRenderer) SetMapNewline(v bool) {
 		s.flags.Set(tMapNewline)
 	} else {
 		s.flags.Reset(tMapNewline)
+	}
+}
+
+// SetWidthMethod sets the width method the renderer uses to measure the
+// display width of strings. This should match the width method configured on
+// the screen so that the renderer doesn't disagree with the cell widths it is
+// asked to draw.
+func (s *TerminalRenderer) SetWidthMethod(method ansi.Method) {
+	s.method = method
+}
+
+// SetGraphemeWidth sets whether the terminal measures cell width using Unicode
+// grapheme clustering (DEC mode 2027 / Unicode core). When enabled, the
+// renderer measures string width using [ansi.GraphemeWidth]; otherwise it
+// falls back to [ansi.WcWidth].
+func (s *TerminalRenderer) SetGraphemeWidth(v bool) {
+	if v {
+		s.flags.Set(tGraphemeWidth)
+		s.method = ansi.GraphemeWidth
+	} else {
+		s.flags.Reset(tGraphemeWidth)
+		s.method = ansi.WcWidth
 	}
 }
 
@@ -333,7 +358,7 @@ func (s *TerminalRenderer) PrependString(newbuf *RenderBuffer, str string) {
 	lines := strings.Split(str, "\n")
 	offset := 0
 	for _, line := range lines {
-		lineWidth := ansi.StringWidth(line)
+		lineWidth := s.method.StringWidth(line)
 		if w > 0 && lineWidth > w {
 			offset += (lineWidth / w)
 		}
@@ -368,9 +393,7 @@ func (s *TerminalRenderer) moveCursor(newbuf *RenderBuffer, x, y int, overwrite 
 		_ = s.buf.WriteByte('\r')
 		s.cur.X, s.cur.Y = 0, 0
 	}
-	seq, scrollHeight := moveCursor(s, newbuf, x, y, overwrite)
-	// If we scrolled the screen, we need to update the scroll height.
-	s.scrollHeight = max(s.scrollHeight, scrollHeight)
+	seq := moveCursor(s, newbuf, x, y, overwrite)
 	_, _ = s.buf.WriteString(seq)
 	s.cur.X, s.cur.Y = x, y
 }
@@ -491,7 +514,7 @@ func (s *TerminalRenderer) wrapCursor() {
 }
 
 func (s *TerminalRenderer) putAttrCell(newbuf *RenderBuffer, cell *Cell) {
-	if cell != nil && cell.IsZero() {
+	if cell != nil && cell.Width == 0 {
 		// XXX: Zero width cells are special and should not be written to the
 		// screen no matter what other attributes they have.
 		// Zero width cells are used for wide characters that are split into
@@ -519,13 +542,17 @@ func (s *TerminalRenderer) putAttrCell(newbuf *RenderBuffer, cell *Cell) {
 	if s.cur.X >= newbuf.Width() {
 		s.atPhantom = true
 	}
+
+	if cellWidth > 1 {
+		s.lineHadWide = true
+	}
 }
 
 // putCellLR draws a cell at the lower right corner of the screen.
 func (s *TerminalRenderer) putCellLR(newbuf *RenderBuffer, cell *Cell) {
 	// Optimize for the lower right corner cell.
 	curX := s.cur.X
-	if cell == nil || !cell.IsZero() {
+	if !cell.isWidePlaceholder() {
 		_, _ = s.buf.WriteString(ansi.ResetModeAutoWrap)
 		s.putAttrCell(newbuf, cell)
 		// Writing to lower-right corner cell should not wrap.
@@ -682,7 +709,7 @@ func (s *TerminalRenderer) putRange(newbuf *RenderBuffer, oldLine, newLine Line,
 		var j, same int
 		for j, same = start, 0; j <= end; j++ {
 			oldCell, newCell := oldLine.At(j), newLine.At(j)
-			if same == 0 && oldCell != nil && oldCell.IsZero() {
+			if same == 0 && oldCell.isWidePlaceholder() && newCell.isWidePlaceholder() {
 				continue
 			}
 			if cellEqual(oldCell, newCell) {
@@ -781,6 +808,64 @@ func (s *TerminalRenderer) el0Cost() int {
 	return len(ansi.EraseLineRight)
 }
 
+// lineHasDrift reports whether the line contains a cell that a cell-level
+// diff cannot safely reposition across: a wide cell (width > 1), or a cell
+// whose width the terminal may measure differently than the model. Wide cells
+// occupy several columns, so a diff that lands on a continuation column splits
+// the character; and a width disagreement means the model cannot know which
+// column each glyph landed on.
+func lineHasDrift(m ansi.Method, line Line) bool {
+	for i := 0; i < len(line); i++ {
+		c := line.At(i)
+		if c == nil || c.Width == 0 || len(c.Content) == 0 {
+			continue
+		}
+		if c.Width > 1 || m.StringWidth(c.Content) != ansi.StringWidth(c.Content) {
+			return true
+		}
+	}
+	return false
+}
+
+// repaintLine repaints a line from scratch. Unlike
+// [TerminalRenderer.transformLine] it does not diff against the previous
+// frame: it erases the whole line from column 0 with [ansi.EraseLineRight]
+// and then writes the new frame's cells. Erasing from column 0 removes the
+// entire line including any wide cells the terminal painted at a different
+// width than the model measured, whose real extent the model cannot know.
+// The repaint then starts from a known-empty line and an absolute cursor
+// position, so the result does not depend on where the previous frame left
+// the cursor.
+func (s *TerminalRenderer) repaintLine(newbuf *RenderBuffer, y int) {
+	oldLine := s.curbuf.Line(y)
+	newLine := newbuf.Line(y)
+
+	s.move(newbuf, 0, y)
+	blank := s.clearBlank()
+	s.updatePen(blank)
+	_, _ = s.buf.WriteString(ansi.EraseLineRight)
+	s.cur.X = 0
+
+	// Write the content cells. The line was just erased, so trailing blanks
+	// need no write, and writing them would risk wrapping past the right
+	// margin if the terminal painted a wide cell wider than the model
+	// measured.
+	last := -1
+	for x := 0; x < newbuf.Width(); x++ {
+		if c := newLine.At(x); c != nil && !c.isWidePlaceholder() && !cellEqual(c, blank) {
+			last = x
+		}
+	}
+	for x := 0; x <= last; x++ {
+		s.putCell(newbuf, newLine.At(x))
+	}
+
+	// Adopt the new line as the model of what is on screen.
+	if len(oldLine) == len(newLine) {
+		copy(oldLine, newLine)
+	}
+}
+
 // transformLine transforms the given line in the current window to the
 // corresponding line in the new window. It uses [ansi.ICH] and [ansi.DCH] to
 // insert or delete characters.
@@ -788,6 +873,25 @@ func (s *TerminalRenderer) transformLine(newbuf *RenderBuffer, y int) {
 	var firstCell, oLastCell, nLastCell int // first, old last, new last index
 	oldLine := s.curbuf.Line(y)
 	newLine := newbuf.Line(y)
+
+	s.lineHadWide = false
+	defer s.reanchorWideLine(newbuf)
+
+	// If either frame's line holds a cell that a cell-level diff cannot
+	// safely reposition across, repaint the whole line instead. A wide cell
+	// (width > 1) occupies several columns, so a diff that lands on a
+	// continuation column splits the character, and per DEC semantics (also
+	// implemented by ghostty and x/vt) an erase that splits a multi-cell
+	// character erases the whole character, including a head cell that
+	// belongs to the new frame. A cell whose width the terminal measures
+	// differently than the model (an emoji cluster, a keycap) leaves the
+	// real cursor at a column the model cannot predict, so a later erase in
+	// the same transform fires at the wrong column. Repainting depends only
+	// on an absolute cursor position and a known-empty line.
+	if lineHasDrift(s.method, oldLine) || lineHasDrift(s.method, newLine) {
+		s.repaintLine(newbuf, y)
+		return
+	}
 
 	// Find the first changed cell in the line
 	blank := newLine.At(0)
@@ -930,7 +1034,7 @@ func (s *TerminalRenderer) transformLine(newbuf *RenderBuffer, y int) {
 			if n != 0 {
 				for n > 0 {
 					wide := newLine.At(n + 1)
-					if wide == nil || !wide.IsZero() {
+					if !wide.isWidePlaceholder() {
 						break
 					}
 					n--
@@ -938,9 +1042,10 @@ func (s *TerminalRenderer) transformLine(newbuf *RenderBuffer, y int) {
 				}
 			} else if n >= firstCell && newLine.At(n) != nil && newLine.At(n).Width > 1 {
 				next := newLine.At(n + 1)
-				for next != nil && next.IsZero() {
+				for next.isWidePlaceholder() {
 					n++
 					oLastCell++
+					next = newLine.At(n + 1)
 				}
 			}
 
@@ -976,6 +1081,22 @@ func (s *TerminalRenderer) transformLine(newbuf *RenderBuffer, y int) {
 	} else {
 		copy(oldLine, newLine)
 	}
+}
+
+// reanchorWideLine re-anchors the cursor with a single absolute horizontal
+// move after a line that contained a wide cell. This is a best-effort fallback
+// that bounds cursor desync to one line on terminals whose width model
+// disagrees with ours. When the terminal negotiated Unicode grapheme width
+// (mode 2027) the models agree, so no re-anchor is needed.
+func (s *TerminalRenderer) reanchorWideLine(newbuf *RenderBuffer) {
+	if !s.lineHadWide || s.flags.Contains(tGraphemeWidth) {
+		return
+	}
+	s.lineHadWide = false
+	if s.atPhantom || s.cur.X < 0 || s.cur.X >= newbuf.Width() {
+		return
+	}
+	_, _ = s.buf.WriteString(ansi.CursorHorizontalAbsolute(s.cur.X + 1))
 }
 
 // deleteCells deletes the count cells at the current cursor position and moves
@@ -1144,6 +1265,14 @@ func (s *TerminalRenderer) Render(newbuf *RenderBuffer) {
 
 	if curWidth != newWidth || curHeight != newHeight {
 		s.oldhash, s.newhash = nil, nil
+		// A shrink makes the terminal reflow in emulator-defined ways the
+		// incremental model cannot predict; force a full repaint. Only in
+		// fullscreen, where the renderer owns every cell it is about to
+		// clear. Inline mode shares the screen with whatever came before,
+		// so it uses the narrower partial clear below instead.
+		if s.flags.Contains(tFullscreen) && (newWidth < curWidth || newHeight < curHeight) {
+			s.clear = true
+		}
 	}
 
 	// TODO: Investigate whether this is necessary. Theoretically, terminals
@@ -1172,6 +1301,12 @@ func (s *TerminalRenderer) Render(newbuf *RenderBuffer) {
 		s.clearBelow(newbuf, nil, newHeight-1)
 	}
 
+	// Resize the model before diffing so the loop below walks every row
+	// of the new screen, including rows added by a grow.
+	if curWidth != newWidth || curHeight != newHeight {
+		s.curbuf.Resize(newWidth, newHeight)
+	}
+
 	if s.clear { //nolint:nestif
 		s.clearUpdate(newbuf)
 		s.clear = false
@@ -1190,14 +1325,10 @@ func (s *TerminalRenderer) Render(newbuf *RenderBuffer) {
 		var changedLines int
 		var i int
 
-		if s.flags.Contains(tFullscreen) {
-			nonEmpty = min(curHeight, newHeight)
-		} else {
-			nonEmpty = newHeight
-		}
+		nonEmpty = newHeight
 
 		nonEmpty = s.clearBottom(newbuf, nonEmpty)
-		for i = 0; i < nonEmpty && i < newHeight; i++ {
+		for i = 0; i < nonEmpty; i++ {
 			if newbuf.Touched == nil || i >= len(newbuf.Touched) || (newbuf.Touched[i] != nil &&
 				(newbuf.Touched[i].FirstCell != -1 || newbuf.Touched[i].LastCell != -1)) {
 				s.transformLine(newbuf, i)
@@ -1218,7 +1349,7 @@ func (s *TerminalRenderer) Render(newbuf *RenderBuffer) {
 		}
 	}
 
-	if !s.flags.Contains(tFullscreen) && s.scrollHeight < newHeight-1 {
+	if !s.flags.Contains(tFullscreen) && (curWidth != newWidth || curHeight != newHeight) {
 		s.move(newbuf, 0, newHeight-1)
 	}
 
@@ -1235,15 +1366,6 @@ func (s *TerminalRenderer) Render(newbuf *RenderBuffer) {
 		}
 	}
 
-	if curWidth != newWidth || curHeight != newHeight {
-		// Resize the old buffer to match the new buffer.
-		s.curbuf.Resize(newWidth, newHeight)
-		// Sync new lines to old lines
-		for i := curHeight - 1; i < newHeight; i++ {
-			copy(s.curbuf.Line(i), newbuf.Line(i))
-		}
-	}
-
 	s.updatePen(nil) // nil indicates a blank cell with no styles
 }
 
@@ -1254,11 +1376,22 @@ func (s *TerminalRenderer) Erase() {
 
 // Resize updates the terminal screen tab stops. This is used to calculate
 // terminal tab stops for hard tab optimizations.
+//
+// Resize also invalidates the cursor model when the renderer can recover
+// from it: a terminal may move the cursor on any resize, so the remembered
+// position no longer matches reality, and the next move will be absolute.
+//
+// In relative cursor mode there is no absolute move to fall back on, and
+// -1 there means "first move, assume the origin" rather than "unknown", so
+// invalidating would assert a position instead of forgetting one. Keep the
+// old model in that mode and let the next render diff against it.
 func (s *TerminalRenderer) Resize(width, _ int) {
 	if s.tabs != nil {
 		s.tabs.Resize(width)
 	}
-	s.scrollHeight = 0
+	if !s.flags.Contains(tRelativeCursor) {
+		s.cur.X, s.cur.Y = -1, -1
+	}
 }
 
 // Position returns the cursor position in the screen buffer after applying any
@@ -1314,9 +1447,8 @@ func notLocal(cols, fx, fy, tx, ty int) bool {
 //
 // It is safe to call this function with a nil [Buffer]. In that case, it won't
 // use any optimizations that require the new buffer such as overwrite.
-func relativeCursorMove(s *TerminalRenderer, newbuf *RenderBuffer, fx, fy, tx, ty int, overwrite, useTabs, useBackspace bool) (string, int) {
+func relativeCursorMove(s *TerminalRenderer, newbuf *RenderBuffer, fx, fy, tx, ty int, overwrite, useTabs, useBackspace bool) string {
 	var seq strings.Builder
-	var scrollHeight int
 	if newbuf == nil {
 		overwrite = false // We can't overwrite the current buffer.
 	}
@@ -1332,10 +1464,8 @@ func relativeCursorMove(s *TerminalRenderer, newbuf *RenderBuffer, fx, fy, tx, t
 			if cud := ansi.CursorDown(n); yseq == "" || len(cud) < len(yseq) {
 				yseq = cud
 			}
-			shouldScroll := !s.flags.Contains(tFullscreen) && ty > s.scrollHeight
-			if shouldScroll || n < len(yseq) { // n is the cost of using newline characters
+			if !s.flags.Contains(tFullscreen) || n < len(yseq) { // n is the cost of using newline characters
 				yseq = strings.Repeat("\n", n)
-				scrollHeight = ty
 				if s.flags.Contains(tMapNewline) {
 					fx = 0
 				}
@@ -1419,8 +1549,6 @@ func relativeCursorMove(s *TerminalRenderer, newbuf *RenderBuffer, fx, fy, tx, t
 					if cell != nil && cell.Width > 0 {
 						ovw += cell.String()
 						i += cell.Width - 1
-					} else {
-						ovw += " "
 					}
 				}
 			}
@@ -1462,7 +1590,7 @@ func relativeCursorMove(s *TerminalRenderer, newbuf *RenderBuffer, fx, fy, tx, t
 		seq.WriteString(xseq)
 	}
 
-	return seq.String(), scrollHeight
+	return seq.String()
 }
 
 // moveCursor moves and returns the cursor movement sequence to move the cursor
@@ -1472,7 +1600,7 @@ func relativeCursorMove(s *TerminalRenderer, newbuf *RenderBuffer, fx, fy, tx, t
 //
 // It is safe to call this function with a nil [Buffer]. In that case, it won't
 // use any optimizations that require the new buffer such as overwrite.
-func moveCursor(s *TerminalRenderer, newbuf *RenderBuffer, x, y int, overwrite bool) (seq string, scrollHeight int) {
+func moveCursor(s *TerminalRenderer, newbuf *RenderBuffer, x, y int, overwrite bool) (seq string) {
 	fx, fy := s.cur.X, s.cur.Y
 
 	if !s.flags.Contains(tRelativeCursor) {
@@ -1490,7 +1618,7 @@ func moveCursor(s *TerminalRenderer, newbuf *RenderBuffer, x, y int, overwrite b
 		// Method #0: Use [ansi.CUP] if the distance is long.
 		seq = ansi.CursorPosition(x+1, y+1)
 		if fx == -1 || fy == -1 || width == -1 || notLocal(width, fx, fy, x, y) {
-			return seq, 0
+			return seq
 		}
 	}
 
@@ -1514,32 +1642,29 @@ func moveCursor(s *TerminalRenderer, newbuf *RenderBuffer, x, y int, overwrite b
 		useBackspace := i&1 != 0
 
 		// Method #1: Use local movement sequences.
-		nseq1, nscrollHeight1 := relativeCursorMove(s, newbuf, fx, fy, x, y, overwrite, useHardTabs, useBackspace)
+		nseq1 := relativeCursorMove(s, newbuf, fx, fy, x, y, overwrite, useHardTabs, useBackspace)
 		if (i == 0 && len(seq) == 0) || len(nseq1) < len(seq) {
 			seq = nseq1
-			scrollHeight = max(scrollHeight, nscrollHeight1)
 		}
 
 		// Method #2: Use [ansi.CR] and local movement sequences.
-		nseq2, nscrollHeight2 := relativeCursorMove(s, newbuf, 0, fy, x, y, overwrite, useHardTabs, useBackspace)
+		nseq2 := relativeCursorMove(s, newbuf, 0, fy, x, y, overwrite, useHardTabs, useBackspace)
 		nseq2 = "\r" + nseq2
 		if len(nseq2) < len(seq) {
 			seq = nseq2
-			scrollHeight = max(scrollHeight, nscrollHeight2)
 		}
 
 		if !s.flags.Contains(tRelativeCursor) {
 			// Method #3: Use [ansi.CursorHomePosition] and local movement sequences.
-			nseq3, nscrollHeight3 := relativeCursorMove(s, newbuf, 0, 0, x, y, overwrite, useHardTabs, useBackspace)
+			nseq3 := relativeCursorMove(s, newbuf, 0, 0, x, y, overwrite, useHardTabs, useBackspace)
 			nseq3 = ansi.CursorHomePosition + nseq3
 			if len(nseq3) < len(seq) {
 				seq = nseq3
-				scrollHeight = max(scrollHeight, nscrollHeight3)
 			}
 		}
 	}
 
-	return seq, scrollHeight
+	return seq
 }
 
 // xtermCaps returns whether the terminal is xterm-like. This means that the

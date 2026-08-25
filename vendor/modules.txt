@@ -31,7 +31,7 @@ charm.land/huh/v2/internal/accessibility
 charm.land/huh/v2/internal/compat
 charm.land/huh/v2/internal/selector
 charm.land/huh/v2/spinner
-# charm.land/lipgloss/v2 v2.0.4
+# charm.land/lipgloss/v2 v2.0.6
 ## explicit; go 1.25.0
 charm.land/lipgloss/v2
 charm.land/lipgloss/v2/table
@@ -136,9 +136,6 @@ github.com/Binject/debug/pe
 ## explicit
 github.com/Binject/shellcode
 github.com/Binject/shellcode/api
-# github.com/Binject/universal v0.0.0-20220519011857-bea739e758c0
-## explicit; go 1.16
-github.com/Binject/universal
 # github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.32.0
 ## explicit; go 1.24.0
 github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp
@@ -236,12 +233,6 @@ github.com/atc0005/go-teams-notify/v2/internal/validator
 # github.com/atotto/clipboard v0.1.4
 ## explicit
 github.com/atotto/clipboard
-# github.com/awgh/cppgo v0.0.0-20210224085512-3d24bca8edc0
-## explicit; go 1.16
-github.com/awgh/cppgo/asmcall/cdecl
-# github.com/awgh/rawreader v0.0.0-20200626064944-56820a9c6da4
-## explicit
-github.com/awgh/rawreader
 # github.com/aws/aws-sdk-go-v2 v1.41.3
 ## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/aws
@@ -442,10 +433,10 @@ github.com/charmbracelet/colorprofile
 # github.com/charmbracelet/harmonica v0.2.0
 ## explicit; go 1.16
 github.com/charmbracelet/harmonica
-# github.com/charmbracelet/ultraviolet v0.0.0-20260205113103-524a6607adb8
-## explicit; go 1.24.2
+# github.com/charmbracelet/ultraviolet v0.0.0-20260811164956-006e29f97886
+## explicit; go 1.25.0
 github.com/charmbracelet/ultraviolet
-# github.com/charmbracelet/x/ansi v0.11.7
+# github.com/charmbracelet/x/ansi v0.11.8
 ## explicit; go 1.24.2
 github.com/charmbracelet/x/ansi
 github.com/charmbracelet/x/ansi/kitty
@@ -601,6 +592,13 @@ github.com/drswork/go-twitter/twitter
 # github.com/dustin/go-humanize v1.0.1
 ## explicit; go 1.16
 github.com/dustin/go-humanize
+# github.com/ebitengine/purego v0.10.1
+## explicit; go 1.18
+github.com/ebitengine/purego
+github.com/ebitengine/purego/internal/cgo
+github.com/ebitengine/purego/internal/fakecgo
+github.com/ebitengine/purego/internal/strings
+github.com/ebitengine/purego/internal/xreflect
 # github.com/envoyproxy/go-control-plane/envoy v1.37.0
 ## explicit; go 1.24.0
 github.com/envoyproxy/go-control-plane/envoy/admin/v3
@@ -949,7 +947,7 @@ github.com/lesnuages/snitch/pkg/snitch
 # github.com/line/line-bot-sdk-go v7.8.0+incompatible
 ## explicit
 github.com/line/line-bot-sdk-go/linebot
-# github.com/lucasb-eyer/go-colorful v1.4.0
+# github.com/lucasb-eyer/go-colorful v1.4.1
 ## explicit; go 1.12
 github.com/lucasb-eyer/go-colorful
 # github.com/lxn/win v0.0.0-20210218163916-a377121e959e
@@ -982,7 +980,7 @@ github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.20
 ## explicit; go 1.15
 github.com/mattn/go-isatty
-# github.com/mattn/go-runewidth v0.0.23
+# github.com/mattn/go-runewidth v0.0.24
 ## explicit; go 1.20
 github.com/mattn/go-runewidth
 # github.com/mattn/go-sqlite3 v1.14.32
@@ -1328,9 +1326,14 @@ github.com/sliverarmory/beignet/internal/stager
 ## explicit; go 1.25.6
 github.com/sliverarmory/malasada
 github.com/sliverarmory/malasada/internal/aplib
-# github.com/sliverarmory/reflektor v0.0.3
+# github.com/sliverarmory/reflektor v0.0.7
 ## explicit; go 1.26.6
+github.com/sliverarmory/reflektor/bof
+github.com/sliverarmory/reflektor/internal/bofloader
 github.com/sliverarmory/reflektor/memmod
+github.com/sliverarmory/reflektor/native
+github.com/sliverarmory/reflektor/native/internal/linuxmem
+github.com/sliverarmory/reflektor/native/internal/rejection
 # github.com/sliverarmory/wasm-donut v0.0.3
 ## explicit; go 1.25.6
 github.com/sliverarmory/wasm-donut
@@ -1683,7 +1686,7 @@ golang.org/x/oauth2/jwt
 ## explicit; go 1.25.0
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.46.0
+# golang.org/x/sys v0.47.0
 ## explicit; go 1.25.0
 golang.org/x/sys/cpu
 golang.org/x/sys/plan9

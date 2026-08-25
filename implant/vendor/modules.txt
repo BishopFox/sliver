@@ -4,14 +4,6 @@ filippo.io/age
 filippo.io/age/internal/bech32
 filippo.io/age/internal/format
 filippo.io/age/internal/stream
-# github.com/Binject/debug v0.0.0-20210225042342-c9b8b45728d2
-## explicit; go 1.15
-github.com/Binject/debug/elf
-github.com/Binject/debug/macho
-github.com/Binject/debug/pe
-# github.com/Binject/universal v0.0.0-20220519011857-bea739e758c0
-## explicit; go 1.16
-github.com/Binject/universal
 # github.com/BurntSushi/xgb v0.0.0-20210121224620-deaf085860bc
 ## explicit
 github.com/BurntSushi/xgb
@@ -24,15 +16,16 @@ github.com/Microsoft/go-winio/pkg/guid
 # github.com/Ne0nd0g/go-clr v1.0.3
 ## explicit; go 1.13
 github.com/Ne0nd0g/go-clr
-# github.com/awgh/cppgo v0.0.0-20210224085512-3d24bca8edc0
-## explicit; go 1.16
-github.com/awgh/cppgo/asmcall/cdecl
-# github.com/awgh/rawreader v0.0.0-20200626064944-56820a9c6da4
-## explicit
-github.com/awgh/rawreader
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
+# github.com/ebitengine/purego v0.10.1
+## explicit; go 1.18
+github.com/ebitengine/purego
+github.com/ebitengine/purego/internal/cgo
+github.com/ebitengine/purego/internal/fakecgo
+github.com/ebitengine/purego/internal/strings
+github.com/ebitengine/purego/internal/xreflect
 # github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5
 ## explicit
 github.com/gen2brain/shm
@@ -69,9 +62,14 @@ github.com/miekg/dns
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
-# github.com/sliverarmory/reflektor v0.0.3
+# github.com/sliverarmory/reflektor v0.0.7
 ## explicit; go 1.26.6
+github.com/sliverarmory/reflektor/bof
+github.com/sliverarmory/reflektor/internal/bofloader
 github.com/sliverarmory/reflektor/memmod
+github.com/sliverarmory/reflektor/native
+github.com/sliverarmory/reflektor/native/internal/linuxmem
+github.com/sliverarmory/reflektor/native/internal/rejection
 # github.com/stretchr/testify v1.8.4
 ## explicit; go 1.20
 github.com/stretchr/testify/assert

@@ -1,10 +1,12 @@
-//go:build darwin && (amd64 || arm64) && !cgo
+//go:build darwin && !ios && (amd64 || arm64) && !cgo
 
 package memmod
 
 import (
 	"errors"
 	_ "unsafe"
+
+	"github.com/ebitengine/purego"
 )
 
 //go:noescape
@@ -24,6 +26,11 @@ func callVoid0(fn uintptr) {
 func callVoid0OnThread(fn uintptr) error {
 	_ = fn
 	return errors.New("calling a Go c-shared export requires cgo")
+}
+
+func callExport(fn uintptr, args ...uintptr) uintptr {
+	result, _, _ := purego.SyscallN(fn, args...)
+	return result
 }
 
 func callDlopen(fn, name uintptr, flags int) uintptr {

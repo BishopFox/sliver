@@ -426,6 +426,17 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 	var conn net.Conn
 	var dev *device.Device
 	var muxSession *yamux.Session
+	closeTransport := func() {
+		if muxSession != nil {
+			_ = muxSession.Close()
+		}
+		if conn != nil {
+			_ = conn.Close()
+		}
+		if dev != nil {
+			dev.Close()
+		}
+	}
 	connection := &Connection{
 		Send:    send,
 		Recv:    recv,
@@ -440,15 +451,7 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 			log.Printf("[wg] lost connection, cleanup...")
 			// {{end}}
 			close(done)
-			if muxSession != nil {
-				muxSession.Close()
-			}
-			if conn != nil {
-				conn.Close()
-			}
-			if dev != nil {
-				dev.Down()
-			}
+			closeTransport()
 			close(recv)
 		},
 	}
@@ -488,8 +491,7 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 			return err
 		}
 		if _, err := conn.Write([]byte(wireguard.YamuxPreface)); err != nil {
-			conn.Close()
-			dev.Down()
+			closeTransport()
 			return err
 		}
 		cfg := yamux.DefaultConfig()
@@ -502,8 +504,7 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 		// {{end}}
 		muxSession, err = yamux.Client(conn, cfg)
 		if err != nil {
-			conn.Close()
-			dev.Down()
+			closeTransport()
 			return err
 		}
 		connection.IsOpen = true
