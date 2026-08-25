@@ -89,20 +89,27 @@ func TestSearchAliasesIncludesTargetCompatibility(t *testing.T) {
 	}
 }
 
+func writeAIExtensionFixture(t *testing.T, packageName string, artifactName string, artifactData []byte, manifest []byte) {
+	t.Helper()
+	extensionDir := filepath.Join(serverassets.GetAIExtensionsDir(), packageName)
+	if err := os.MkdirAll(extensionDir, 0o700); err != nil {
+		t.Fatalf("mkdir extension dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(extensionDir, artifactName), artifactData, 0o600); err != nil {
+		t.Fatalf("write extension artifact: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(extensionDir, aiExtensionManifestFileName), manifest, 0o600); err != nil {
+		t.Fatalf("write extension manifest: %v", err)
+	}
+}
+
 func TestSearchExtensionsUsesEffectiveBOFRouteForCompatibility(t *testing.T) {
 	rootDir := t.TempDir()
 	t.Setenv("SLIVER_ROOT_DIR", rootDir)
 
 	writeBOF := func(name string, dependsOn string) {
 		t.Helper()
-		extensionDir := filepath.Join(serverassets.GetAIExtensionsDir(), name)
-		if err := os.MkdirAll(extensionDir, 0o700); err != nil {
-			t.Fatalf("mkdir extension dir: %v", err)
-		}
 		artifactName := name + ".x64.o"
-		if err := os.WriteFile(filepath.Join(extensionDir, artifactName), []byte(name+"-bof"), 0o600); err != nil {
-			t.Fatalf("write extension artifact: %v", err)
-		}
 		manifest, err := json.Marshal(map[string]any{
 			"name":         name,
 			"package_name": name,
@@ -120,9 +127,7 @@ func TestSearchExtensionsUsesEffectiveBOFRouteForCompatibility(t *testing.T) {
 		if err != nil {
 			t.Fatalf("marshal extension manifest: %v", err)
 		}
-		if err := os.WriteFile(filepath.Join(extensionDir, aiExtensionManifestFileName), manifest, 0o600); err != nil {
-			t.Fatalf("write extension manifest: %v", err)
-		}
+		writeAIExtensionFixture(t, name, artifactName, []byte(name+"-bof"), manifest)
 	}
 
 	writeBOF("quokka7821", "missing-loader")
@@ -428,15 +433,8 @@ func TestExecuteExtensionUsesReflektorForCapableTarget(t *testing.T) {
 	rootDir := t.TempDir()
 	t.Setenv("SLIVER_ROOT_DIR", rootDir)
 
-	bofDir := filepath.Join(serverassets.GetAIExtensionsDir(), "whoami")
-	if err := os.MkdirAll(bofDir, 0o700); err != nil {
-		t.Fatalf("mkdir bof dir: %v", err)
-	}
 	bofData := []byte("whoami-bof")
-	if err := os.WriteFile(filepath.Join(bofDir, "whoami.x64.o"), bofData, 0o600); err != nil {
-		t.Fatalf("write bof artifact: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(bofDir, aiExtensionManifestFileName), []byte(`{
+	writeAIExtensionFixture(t, "whoami", "whoami.x64.o", bofData, []byte(`{
 		"name":"whoami",
 		"package_name":"whoami",
 		"version":"1.0.0",
@@ -451,9 +449,7 @@ func TestExecuteExtensionUsesReflektorForCapableTarget(t *testing.T) {
 			"depends_on":"coff-loader",
 			"files":[{"os":"windows","arch":"amd64","path":"whoami.x64.o"}]
 		}]
-	}`), 0o600); err != nil {
-		t.Fatalf("write bof manifest: %v", err)
-	}
+	}`))
 
 	backend := &fakePackageBackend{
 		sessions: &clientpb.Sessions{Sessions: []*clientpb.Session{{

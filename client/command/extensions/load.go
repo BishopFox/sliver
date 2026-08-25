@@ -55,7 +55,10 @@ const (
 	// ManifestFileName - Extension manifest file name.
 	ManifestFileName = "extension.json"
 
-	BOFExecutorReflektor  = "reflektor"
+	// BOFExecutorReflektor selects the built-in Reflektor BOF executor.
+	BOFExecutorReflektor = "reflektor"
+
+	// BOFExecutorCOFFLoader selects the manifest's depends_on COFF loader.
 	BOFExecutorCOFFLoader = "coff-loader"
 )
 
@@ -685,7 +688,8 @@ func runExtensionCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	// BOFs (Beacon Object Files) are a specific kind of extensions
 	// that either use the built-in Reflektor executor or another extension.
 	// BOFs also have strongly typed arguments that need to be parsed in the proper way.
-	if executionMode == extensionExecutionCOFFLoader {
+	switch executionMode {
+	case extensionExecutionCOFFLoader:
 		// Legacy COFF loaders expect the entrypoint, object, and typed argument
 		// buffer packed into the existing outer argument envelope.
 		extensionArgs, err = getBOFArgs(cmd, args, binPath, ext)
@@ -695,7 +699,7 @@ func runExtensionCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 		}
 		extName = ext.DependsOn
 		entryPoint = loadedExtensions[extName].Entrypoint // should exist at this point
-	} else if executionMode == extensionExecutionReflektor {
+	case extensionExecutionReflektor:
 		extensionArgs, err = ParseFlagArgumentsToBuffer(cmd, args, binPath, ext)
 		if err != nil {
 			con.PrintErrorf("BOF args error: %s\n", err)
@@ -703,7 +707,7 @@ func runExtensionCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 		}
 		extName = ext.CommandName
 		entryPoint = ext.Entrypoint
-	} else {
+	default:
 		// Regular DLL - Just join the arguments with spaces
 		if len(args) > 0 {
 			extensionArgs = []byte(strings.Join(args, " "))

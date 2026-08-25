@@ -1,3 +1,5 @@
+// Package sliverpb contains protobuf messages and protocol constants shared by
+// Sliver clients, servers, and implants.
 package sliverpb
 
 // CapabilityBOFV1 indicates that an implant can execute BOFs using the
