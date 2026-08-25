@@ -1,4 +1,4 @@
-//go:build linux && !cgo && 386
+//go:build linux && !android && !cgo && 386
 
 #include "textflag.h"
 #include "go_asm.h"

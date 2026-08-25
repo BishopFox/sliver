@@ -54,6 +54,17 @@ const (
 
 	// ManifestFileName - Extension manifest file name.
 	ManifestFileName = "extension.json"
+
+	BOFExecutorReflektor  = "reflektor"
+	BOFExecutorCOFFLoader = "coff-loader"
+)
+
+type extensionExecutionMode uint8
+
+const (
+	extensionExecutionNative extensionExecutionMode = iota
+	extensionExecutionCOFFLoader
+	extensionExecutionReflektor
 )
 
 var loadedExtensions = map[string]*ExtCommand{}
@@ -72,6 +83,7 @@ type ExtensionManifest_ struct {
 	Arguments       []*extensionArgument `json:"arguments"`
 	Entrypoint      string               `json:"entrypoint"`
 	DependsOn       string               `json:"depends_on"`
+	BOFExecutor     string               `json:"bof_executor"`
 	Init            string               `json:"init"`
 
 	RootPath string `json:"-"`
@@ -100,6 +112,7 @@ type ExtCommand struct {
 	Arguments   []*extensionArgument   `json:"arguments"`
 	Entrypoint  string                 `json:"entrypoint"`
 	DependsOn   string                 `json:"depends_on"`
+	BOFExecutor string                 `json:"bof_executor"`
 	Init        string                 `json:"init"`
 	Schema      *packages.OutputSchema `json:"schema"`
 
@@ -218,6 +231,7 @@ func convertOldManifest(old *ExtensionManifest_) *ExtensionManifest {
 			{
 				CommandName: old.CommandName,
 				DependsOn:   old.DependsOn,
+				BOFExecutor: old.BOFExecutor,
 				Help:        old.Help,
 				LongHelp:    old.LongHelp,
 				Entrypoint:  old.Entrypoint,
@@ -270,6 +284,15 @@ func validManifest(manifest *ExtensionManifest) error {
 	for _, extManifest := range manifest.ExtCommand {
 		if extManifest.CommandName == "" {
 			return errors.New("missing `command_name` field in extension manifest")
+		}
+		switch extManifest.BOFExecutor {
+		case "", BOFExecutorReflektor:
+		case BOFExecutorCOFFLoader:
+			if strings.TrimSpace(extManifest.DependsOn) == "" {
+				return fmt.Errorf("command %q uses bof_executor %q but has no `depends_on` fallback", extManifest.CommandName, BOFExecutorCOFFLoader)
+			}
+		default:
+			return fmt.Errorf("command %q has invalid `bof_executor` %q (must be %q or %q)", extManifest.CommandName, extManifest.BOFExecutor, BOFExecutorReflektor, BOFExecutorCOFFLoader)
 		}
 		if len(extManifest.Files) == 0 {
 			return errors.New("missing `files` field in extension manifest")
@@ -518,6 +541,89 @@ func loadDep(goos string, goarch string, depName string, cmd *cobra.Command, con
 	return fmt.Errorf("missing dependency %s", depName)
 }
 
+func planExtensionExecution(ext *ExtCommand, binPath string, capabilities uint64) (extensionExecutionMode, error) {
+	isBOF := ext.BOFExecutor != "" || strings.EqualFold(filepath.Ext(binPath), ".o")
+	if !isBOF {
+		return extensionExecutionNative, nil
+	}
+	dependsOn := strings.TrimSpace(ext.DependsOn)
+
+	switch ext.BOFExecutor {
+	case BOFExecutorCOFFLoader:
+		if dependsOn == "" {
+			return extensionExecutionNative, fmt.Errorf("BOF command %q selects %q but has no depends_on loader", ext.CommandName, BOFExecutorCOFFLoader)
+		}
+		return extensionExecutionCOFFLoader, nil
+	case "":
+		// Existing manifests infer the loader from depends_on. Keep that route
+		// even when the target supports the built-in executor.
+		if dependsOn != "" {
+			return extensionExecutionCOFFLoader, nil
+		}
+	case BOFExecutorReflektor:
+	default:
+		return extensionExecutionNative, fmt.Errorf("BOF command %q has invalid bof_executor %q", ext.CommandName, ext.BOFExecutor)
+	}
+
+	if capabilities&sliverpb.CapabilityBOFV1 != 0 {
+		return extensionExecutionReflektor, nil
+	}
+	if dependsOn != "" {
+		return extensionExecutionCOFFLoader, nil
+	}
+	return extensionExecutionNative, fmt.Errorf("target does not support built-in Reflektor BOF execution and command %q has no depends_on fallback", ext.CommandName)
+}
+
+func activeTargetCapabilities(session *clientpb.Session, beacon *clientpb.Beacon) uint64 {
+	if session != nil {
+		return session.Capabilities
+	}
+	if beacon != nil {
+		return beacon.Capabilities
+	}
+	return 0
+}
+
+func buildCallExtensionRequest(goos string, goarch string, mode extensionExecutionMode, ext *ExtCommand, binPath string, entryPoint string, extensionArgs []byte) (*sliverpb.CallExtensionReq, error) {
+	extData, err := os.ReadFile(binPath)
+	if err != nil {
+		return nil, err
+	}
+	bd := sha256.Sum256(extData)
+	name := hex.EncodeToString(bd[:])
+
+	if mode == extensionExecutionCOFFLoader {
+		loader, found := loadedExtensions[ext.DependsOn]
+		if !found {
+			return nil, fmt.Errorf("attempted to load non-existing extension: %s", ext.DependsOn)
+		}
+		loaderPath, err := loader.getFileForTarget(goos, goarch)
+		if err != nil {
+			return nil, fmt.Errorf("could not get file for extension %s: %w", ext.DependsOn, err)
+		}
+		loaderData, err := os.ReadFile(loaderPath)
+		if err != nil {
+			return nil, fmt.Errorf("dep read file error: %w", err)
+		}
+		if len(loaderData) == 0 {
+			return nil, fmt.Errorf("read empty file: %s", loaderPath)
+		}
+		bd = sha256.Sum256(loaderData)
+		name = hex.EncodeToString(bd[:])
+	}
+
+	req := &sliverpb.CallExtensionReq{
+		Name:   name,
+		Export: entryPoint,
+		Args:   extensionArgs,
+	}
+	if mode == extensionExecutionReflektor {
+		req.BOFData = extData
+		req.IsBOF = true
+	}
+	return req, nil
+}
+
 func runExtensionCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	// The command runs with DisableFlagParsing, so args is the raw, unstripped
 	// slice. Separate Sliver-owned flags from the extension's own arguments and
@@ -557,27 +663,31 @@ func runExtensionCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 		return
 	}
 
-	checkCache := session != nil
-	if err = loadExtension(goos, goarch, checkCache, ext, cmd, con); err != nil {
-		con.PrintErrorf("Could not load extension: %s\n", err)
-		return
-	}
-
 	binPath, err := ext.getFileForTarget(goos, goarch)
 	if err != nil {
 		con.PrintErrorf("Failed to read extension file: %s\n", err)
 		return
 	}
 
-	isBOF := filepath.Ext(binPath) == ".o"
+	executionMode, err := planExtensionExecution(ext, binPath, activeTargetCapabilities(session, beacon))
+	if err != nil {
+		con.PrintErrorf("Could not execute extension: %s\n", err)
+		return
+	}
+	if executionMode != extensionExecutionReflektor {
+		checkCache := session != nil
+		if err = loadExtension(goos, goarch, checkCache, ext, cmd, con); err != nil {
+			con.PrintErrorf("Could not load extension: %s\n", err)
+			return
+		}
+	}
 
 	// BOFs (Beacon Object Files) are a specific kind of extensions
-	// that require another extension (a COFF loader) to be present.
+	// that either use the built-in Reflektor executor or another extension.
 	// BOFs also have strongly typed arguments that need to be parsed in the proper way.
-	// This block will pack both the BOF data and its arguments into a single buffer that
-	// the loader will extract and load.
-	if isBOF {
-		// Beacon Object File -- requires a COFF loader
+	if executionMode == extensionExecutionCOFFLoader {
+		// Legacy COFF loaders expect the entrypoint, object, and typed argument
+		// buffer packed into the existing outer argument envelope.
 		extensionArgs, err = getBOFArgs(cmd, args, binPath, ext)
 		if err != nil {
 			con.PrintErrorf("BOF args error: %s\n", err)
@@ -585,6 +695,14 @@ func runExtensionCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 		}
 		extName = ext.DependsOn
 		entryPoint = loadedExtensions[extName].Entrypoint // should exist at this point
+	} else if executionMode == extensionExecutionReflektor {
+		extensionArgs, err = ParseFlagArgumentsToBuffer(cmd, args, binPath, ext)
+		if err != nil {
+			con.PrintErrorf("BOF args error: %s\n", err)
+			return
+		}
+		extName = ext.CommandName
+		entryPoint = ext.Entrypoint
 	} else {
 		// Regular DLL - Just join the arguments with spaces
 		if len(args) > 0 {
@@ -599,45 +717,15 @@ func runExtensionCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 	ctrl := make(chan bool)
 	msg := fmt.Sprintf("Executing %s ...", cmd.Name())
 	con.SpinUntil(msg, ctrl)
-	extdata, err := os.ReadFile(binPath)
+	callExtReq, err := buildCallExtensionRequest(goos, goarch, executionMode, ext, binPath, entryPoint, extensionArgs)
 	if err != nil {
-		con.PrintErrorf("ext read file error: %s\n", err)
+		ctrl <- true
+		<-ctrl
+		con.PrintErrorf("Could not prepare extension call: %s\n", err)
+		return
 	}
-	bd := sha256.Sum256(extdata)
-	name := hex.EncodeToString(bd[:])
-	if isBOF {
-		//if we are using a bof, we are actually calling the coffloader extension - so get the file from dep ref and use that shasum
-
-		if extension, found := loadedExtensions[ext.DependsOn]; found {
-			dep, err := extension.getFileForTarget(goos, goarch)
-			if err != nil {
-				con.PrintErrorf("could not get file for extension %s", ext.DependsOn)
-				return
-			}
-			depdata, err := os.ReadFile(dep)
-			if err != nil {
-				con.PrintErrorf("dep read file error: %s\n", err)
-				return
-			}
-			if len(depdata) == 0 {
-				con.PrintErrorf("read empty file: %s\n", dep)
-				return
-			}
-			bd = sha256.Sum256(depdata)
-			name = hex.EncodeToString(bd[:])
-		} else {
-			// handle error
-			con.PrintErrorf("attempted to load non-existing extension: %s", ext.DependsOn)
-			return
-		}
-
-	}
-	callExtResp, err := con.Rpc.CallExtension(context.Background(), &sliverpb.CallExtensionReq{
-		Name:    name,
-		Export:  entryPoint,
-		Args:    extensionArgs,
-		Request: con.ActiveTarget.Request(cmd),
-	})
+	callExtReq.Request = con.ActiveTarget.Request(cmd)
+	callExtResp, err := con.Rpc.CallExtension(context.Background(), callExtReq)
 	ctrl <- true
 	<-ctrl
 	if err != nil {

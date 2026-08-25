@@ -3,7 +3,7 @@ package core
 import "testing"
 
 func TestSessionToProtobufNilConnection(t *testing.T) {
-	s := &Session{Name: "test-canary"}
+	s := &Session{Name: "test-canary", Capabilities: 42}
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -17,5 +17,8 @@ func TestSessionToProtobufNilConnection(t *testing.T) {
 	}
 	if pb.Transport != "" {
 		t.Fatalf("expected empty Transport, got %q", pb.Transport)
+	}
+	if pb.Capabilities != s.Capabilities {
+		t.Fatalf("expected Capabilities=%d, got %d", s.Capabilities, pb.Capabilities)
 	}
 }

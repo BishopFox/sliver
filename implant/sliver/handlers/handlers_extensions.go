@@ -50,12 +50,27 @@ func registerExtension(data []byte, resp RPCResponse, factory extensionFactory) 
 }
 
 func callExtensionHandler(data []byte, resp RPCResponse) {
+	callExtension(data, resp, executeBOF)
+}
+
+func callExtension(data []byte, resp RPCResponse, execute bofExecuteFunc) {
 	callReq := &sliverpb.CallExtensionReq{}
 	if err := proto.Unmarshal(data, callReq); err != nil {
 		return
 	}
 
 	callResp := &sliverpb.CallExtension{Response: &commonpb.Response{}}
+	if callReq.IsBOF {
+		output, err := execute(callReq.BOFData, callReq.Export, callReq.Args)
+		callResp.Output = output
+		if err != nil {
+			callResp.Response.Err = err.Error()
+		}
+		data, err = proto.Marshal(callResp)
+		resp(data, err)
+		return
+	}
+
 	gotOutput := false
 	var output []byte
 	err := extension.Run(callReq.Name, callReq.Export, callReq.Args, func(out []byte) {

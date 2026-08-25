@@ -89,6 +89,113 @@ func TestSearchAliasesIncludesTargetCompatibility(t *testing.T) {
 	}
 }
 
+func TestSearchExtensionsUsesEffectiveBOFRouteForCompatibility(t *testing.T) {
+	rootDir := t.TempDir()
+	t.Setenv("SLIVER_ROOT_DIR", rootDir)
+
+	writeBOF := func(name string, dependsOn string) {
+		t.Helper()
+		extensionDir := filepath.Join(serverassets.GetAIExtensionsDir(), name)
+		if err := os.MkdirAll(extensionDir, 0o700); err != nil {
+			t.Fatalf("mkdir extension dir: %v", err)
+		}
+		artifactName := name + ".x64.o"
+		if err := os.WriteFile(filepath.Join(extensionDir, artifactName), []byte(name+"-bof"), 0o600); err != nil {
+			t.Fatalf("write extension artifact: %v", err)
+		}
+		manifest, err := json.Marshal(map[string]any{
+			"name":         name,
+			"package_name": name,
+			"commands": []map[string]any{{
+				"command_name": name,
+				"help":         "BOF route compatibility test",
+				"entrypoint":   "go",
+				"bof_executor": bofExecutorReflektor,
+				"depends_on":   dependsOn,
+				"files": []map[string]string{{
+					"os": "windows", "arch": "amd64", "path": artifactName,
+				}},
+			}},
+		})
+		if err != nil {
+			t.Fatalf("marshal extension manifest: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(extensionDir, aiExtensionManifestFileName), manifest, 0o600); err != nil {
+			t.Fatalf("write extension manifest: %v", err)
+		}
+	}
+
+	writeBOF("quokka7821", "missing-loader")
+	writeBOF("narwhal5934", "")
+
+	executor := &executor{backend: &fakePackageBackend{sessions: &clientpb.Sessions{Sessions: []*clientpb.Session{
+		{ID: "capable-session", OS: "windows", Arch: "amd64", Capabilities: sliverpb.CapabilityBOFV1},
+		{ID: "old-session", OS: "windows", Arch: "amd64"},
+	}}}}
+
+	tests := []struct {
+		name             string
+		query            string
+		sessionID        string
+		onlyCompatible   bool
+		wantCount        int
+		wantCompatible   bool
+		wantReasonSubstr string
+	}{
+		{
+			name:           "capable target ignores unavailable fallback",
+			query:          "quokka7821",
+			sessionID:      "capable-session",
+			onlyCompatible: true,
+			wantCount:      1,
+			wantCompatible: true,
+		},
+		{
+			name:             "old target reports built-in-only BOF incompatible",
+			query:            "narwhal5934",
+			sessionID:        "old-session",
+			wantCount:        1,
+			wantReasonSubstr: "does not advertise bof_v1",
+		},
+		{
+			name:           "only compatible filters built-in-only BOF for old target",
+			query:          "narwhal5934",
+			sessionID:      "old-session",
+			onlyCompatible: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			raw, err := executor.callSearchExtensions(context.Background(), searchPackagesArgs{
+				targetArgs:     targetArgs{SessionID: test.sessionID},
+				Query:          test.query,
+				OnlyCompatible: test.onlyCompatible,
+			})
+			if err != nil {
+				t.Fatalf("search extensions: %v", err)
+			}
+			var resp extensionSearchResponse
+			if err := json.Unmarshal([]byte(raw), &resp); err != nil {
+				t.Fatalf("unmarshal search result: %v", err)
+			}
+			if resp.ReturnedCount != test.wantCount || resp.TotalMatches != test.wantCount || len(resp.Results) != test.wantCount {
+				t.Fatalf("unexpected search counts: %+v", resp)
+			}
+			if test.wantCount == 0 {
+				return
+			}
+			result := resp.Results[0]
+			if result.Compatible != test.wantCompatible || !result.CompatibilityChecked {
+				t.Fatalf("unexpected compatibility result: %+v", result)
+			}
+			if test.wantReasonSubstr != "" && !strings.Contains(result.CompatibilityReason, test.wantReasonSubstr) {
+				t.Fatalf("compatibility reason %q does not contain %q", result.CompatibilityReason, test.wantReasonSubstr)
+			}
+		})
+	}
+}
+
 func TestExecuteAliasRunsExecuteAssembly(t *testing.T) {
 	rootDir := t.TempDir()
 	t.Setenv("SLIVER_ROOT_DIR", rootDir)
@@ -220,6 +327,7 @@ func TestExecuteExtensionRegistersDependencyForBOF(t *testing.T) {
 				"command_name":"nanodump",
 				"help":"Dump LSASS",
 				"entrypoint":"go",
+				"bof_executor":"reflektor",
 				"depends_on":"coff-loader",
 				"files":[{"os":"windows","arch":"amd64","path":"nanodump.x64.o"}],
 				"arguments":[
@@ -310,6 +418,98 @@ func TestExecuteExtensionRegistersDependencyForBOF(t *testing.T) {
 	}
 	if resp.DependencyRootPath == "" || resp.DependencyArtifactPath == "" {
 		t.Fatalf("expected dependency metadata in response, got %+v", resp)
+	}
+	if resp.BOFExecutor != bofExecutorReflektor || len(resp.Warnings) == 0 {
+		t.Fatalf("expected Reflektor preference with compatibility fallback warning, got %+v", resp)
+	}
+}
+
+func TestExecuteExtensionUsesReflektorForCapableTarget(t *testing.T) {
+	rootDir := t.TempDir()
+	t.Setenv("SLIVER_ROOT_DIR", rootDir)
+
+	bofDir := filepath.Join(serverassets.GetAIExtensionsDir(), "whoami")
+	if err := os.MkdirAll(bofDir, 0o700); err != nil {
+		t.Fatalf("mkdir bof dir: %v", err)
+	}
+	bofData := []byte("whoami-bof")
+	if err := os.WriteFile(filepath.Join(bofDir, "whoami.x64.o"), bofData, 0o600); err != nil {
+		t.Fatalf("write bof artifact: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(bofDir, aiExtensionManifestFileName), []byte(`{
+		"name":"whoami",
+		"package_name":"whoami",
+		"version":"1.0.0",
+		"extension_author":"sliver",
+		"original_author":"sliver",
+		"repo_url":"https://example.test/whoami",
+		"commands":[{
+			"command_name":"whoami",
+			"help":"Show identity",
+			"entrypoint":"go",
+			"bof_executor":"reflektor",
+			"depends_on":"coff-loader",
+			"files":[{"os":"windows","arch":"amd64","path":"whoami.x64.o"}]
+		}]
+	}`), 0o600); err != nil {
+		t.Fatalf("write bof manifest: %v", err)
+	}
+
+	backend := &fakePackageBackend{
+		sessions: &clientpb.Sessions{Sessions: []*clientpb.Session{{
+			ID:           "session-1",
+			OS:           "windows",
+			Arch:         "amd64",
+			Hostname:     "winhost",
+			Capabilities: sliverpb.CapabilityBOFV1,
+		}}},
+		callExtensionFn: func(_ context.Context, _ *sliverpb.CallExtensionReq) (*sliverpb.CallExtension, error) {
+			return &sliverpb.CallExtension{Output: []byte("reflektor-output"), Response: &commonpb.Response{}}, nil
+		},
+	}
+	executor := &executor{
+		backend: backend,
+		conversation: &clientpb.AIConversation{
+			TargetSessionID: "session-1",
+		},
+	}
+
+	raw, err := executor.callExecuteExtension(context.Background(), executeExtensionArgs{CommandName: "whoami"})
+	if err != nil {
+		t.Fatalf("execute extension: %v", err)
+	}
+	if len(backend.listExtensionsReqs) != 0 {
+		t.Fatalf("built-in BOF unexpectedly listed extensions: %d", len(backend.listExtensionsReqs))
+	}
+	if len(backend.registerExtensionReqs) != 0 {
+		t.Fatalf("built-in BOF unexpectedly registered a dependency: %d", len(backend.registerExtensionReqs))
+	}
+	if len(backend.callExtensionReqs) != 1 {
+		t.Fatalf("expected one call-extension request, got %d", len(backend.callExtensionReqs))
+	}
+	callReq := backend.callExtensionReqs[0]
+	if !callReq.GetIsBOF() {
+		t.Fatalf("expected built-in BOF request: %+v", callReq)
+	}
+	if string(callReq.GetBOFData()) != string(bofData) {
+		t.Fatalf("unexpected BOF data: %q", callReq.GetBOFData())
+	}
+	if callReq.GetName() != sha256Hex(bofData) {
+		t.Fatalf("unexpected BOF trace name: %q", callReq.GetName())
+	}
+	if callReq.GetExport() != "go" {
+		t.Fatalf("unexpected BOF entrypoint: %q", callReq.GetExport())
+	}
+	if len(callReq.GetArgs()) != 4 {
+		t.Fatalf("expected empty Beacon argument buffer, got %d bytes", len(callReq.GetArgs()))
+	}
+
+	var resp extensionExecutionResult
+	if err := json.Unmarshal([]byte(raw), &resp); err != nil {
+		t.Fatalf("unmarshal extension execution result: %v", err)
+	}
+	if resp.OutputText != "reflektor-output" || resp.BOFExecutor != bofExecutorReflektor {
+		t.Fatalf("unexpected built-in execution result: %+v", resp)
 	}
 }
 
