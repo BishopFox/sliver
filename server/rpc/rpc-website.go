@@ -20,6 +20,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"mime"
 	"path/filepath"
 
@@ -28,7 +29,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 
 	"github.com/bishopfox/sliver/server/core"
-	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/website"
 )
@@ -46,7 +46,8 @@ func (rpc *Server) Websites(ctx context.Context, _ *commonpb.Empty) (*clientpb.W
 	}
 	websites := &clientpb.Websites{Websites: []*clientpb.Website{}}
 	for _, name := range websiteNames {
-		siteContent, err := website.MapContent(name, false)
+		// Both kinds of content, the listing reports a count for each
+		siteContent, err := website.MapUploadedContent(name, false)
 		if err != nil {
 			rpcWebsiteLog.Warnf("Failed to list website content %s", err)
 			continue
@@ -62,6 +63,7 @@ func (rpc *Server) WebsiteRemove(ctx context.Context, req *clientpb.Website) (*c
 	if err != nil {
 		return nil, rpcError(err)
 	}
+
 	for path, content := range web.Contents {
 		contentPath := path
 		if content.GetPath() != "" {
@@ -75,13 +77,11 @@ func (rpc *Server) WebsiteRemove(ctx context.Context, req *clientpb.Website) (*c
 		}
 	}
 
-	dbWebsite, err := website.WebsiteByName(req.Name)
-	if err != nil {
-		return nil, rpcError(err)
-	}
-
-	err = db.RemoveWebSite(dbWebsite.ID)
-	if err != nil {
+	// Uploaded content is collected loot, it is never destroyed as a side effect of
+	// removing a website. When some is left the record stays behind to keep it reachable.
+	err = website.RemoveWebsiteIfEmpty(req.Name)
+	if err != nil && !errors.Is(err, website.ErrWebsiteNotEmpty) {
+		rpcWebsiteLog.Errorf("Failed to remove website %s", err)
 		return nil, rpcError(err)
 	}
 
@@ -100,6 +100,52 @@ func (rpc *Server) Website(ctx context.Context, req *clientpb.Website) (*clientp
 		return nil, rpcError(err)
 	}
 	return site, nil
+}
+
+// WebsiteUpdate - Update the settings of a website
+func (rpc *Server) WebsiteUpdate(ctx context.Context, req *clientpb.Website) (*clientpb.Website, error) {
+	site, err := website.SetUploadAllowed(req.Name, req.AllowsUpload)
+	if err != nil {
+		rpcWebsiteLog.Warnf("Failed to update website %s", err)
+		return nil, rpcError(err)
+	}
+	return site, nil
+}
+
+// WebsiteUploaded - List the content uploaded to a website through PUT/POST requests
+func (rpc *Server) WebsiteUploaded(ctx context.Context, req *clientpb.Website) (*clientpb.Website, error) {
+	site, err := website.MapUploadedContent(req.Name, false)
+	if err != nil {
+		return nil, rpcError(err)
+	}
+	return site, nil
+}
+
+// WebsiteRemoveUploaded - Remove content uploaded to a website, by content ID
+func (rpc *Server) WebsiteRemoveUploaded(ctx context.Context, req *clientpb.WebsiteRemoveUploaded) (*clientpb.Website, error) {
+	for _, id := range req.IDs {
+		err := website.RemoveUploadedContent(id)
+		if err != nil {
+			rpcWebsiteLog.Errorf("Failed to remove uploaded content %s", err)
+			return nil, rpcError(err)
+		}
+	}
+
+	core.EventBroker.Publish(core.Event{
+		EventType: consts.WebsiteEvent,
+		Data:      []byte(req.Name),
+	})
+
+	return website.MapUploadedContent(req.Name, false)
+}
+
+// WebsiteUploadedContent - Get a single piece of uploaded content, including its raw bytes
+func (rpc *Server) WebsiteUploadedContent(ctx context.Context, req *clientpb.WebUploadedContent) (*clientpb.WebUploadedContent, error) {
+	content, err := website.GetUploadedContent(req.ID)
+	if err != nil {
+		return nil, rpcError(err)
+	}
+	return content, nil
 }
 
 // WebsiteAddContent - Add content to a website, the website is created if `name` does not exist

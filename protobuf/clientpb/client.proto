@@ -706,10 +706,38 @@ message WebsiteRemoveContent {
   repeated string Paths = 2;
 }
 
+// WebsiteRemoveUploaded - Content uploaded to a website, addressed by its own IDs
+message WebsiteRemoveUploaded {
+  string Name = 1;
+  repeated string IDs = 2;
+}
+
+// WebUploadedContent - Content received by the website through a PUT/POST request
+message WebUploadedContent {
+  string ID = 1;
+  string WebsiteID = 2;
+
+  string Method = 3;
+  string Path = 4;
+  string UserAgent = 5;
+  string Headers = 6;
+  string URLParameters = 7;
+  string RemoteAddress = 8;
+  uint64 Size = 9 [ jstype = JS_STRING ];
+
+  string ContentType = 10;
+  int64 ReceivedAt = 11;
+  string Sha256 = 12;
+
+  bytes Content = 13;
+}
+
 message Website {
   string ID = 1;
   string Name = 2;
   map<string, WebContent> Contents = 3;
+  repeated WebUploadedContent Uploaded = 4;
+  bool AllowsUpload = 5;
 }
 
 message Websites { repeated Website Websites = 1; }

@@ -797,6 +797,81 @@ func WebContentByIDAndPath(id string, path string, webContentDir string, eager b
 	return content.ToProtobuf(&data), err
 }
 
+// UploadedWebContentByID - Uploaded web content by website ID and content ID
+func UploadedWebContentByID(webSiteId string, id string, webContentDir string, eager bool) (*clientpb.WebUploadedContent, error) {
+	wuuid, _ := uuid.FromString(webSiteId)
+	uuid, _ := uuid.FromString(id)
+	content := models.WebUploadedContent{}
+	err := Session().Where(&models.WebUploadedContent{
+		WebsiteID: wuuid,
+		ID:        uuid,
+	}).First(&content).Error
+
+	if err != nil {
+		return nil, err
+	}
+	var data []byte
+	if eager {
+		data, err = os.ReadFile(filepath.Join(webContentDir, content.ID.String()))
+	} else {
+		data = []byte{}
+	}
+	return content.ToProtobuf(&data), err
+}
+
+// UploadedWebContentByContentID - Uploaded web content by its own ID, the website is not known
+func UploadedWebContentByContentID(id string, webContentDir string, eager bool) (*clientpb.WebUploadedContent, error) {
+	uuid, err := uuid.FromString(id)
+	if err != nil {
+		return nil, ErrRecordNotFound
+	}
+	content := models.WebUploadedContent{}
+	err = Session().Where(&models.WebUploadedContent{
+		ID: uuid,
+	}).First(&content).Error
+
+	if err != nil {
+		return nil, err
+	}
+	var data []byte
+	if eager {
+		data, err = os.ReadFile(filepath.Join(webContentDir, content.ID.String()))
+	} else {
+		data = []byte{}
+	}
+	return content.ToProtobuf(&data), err
+}
+
+// UploadedWebContents - All content uploaded to a website, most recent first
+func UploadedWebContents(webSiteId string, webContentDir string, eager bool) ([]*clientpb.WebUploadedContent, error) {
+	wuuid, err := uuid.FromString(webSiteId)
+	if err != nil {
+		return nil, ErrRecordNotFound
+	}
+	contents := []models.WebUploadedContent{}
+	err = Session().Where(&models.WebUploadedContent{
+		WebsiteID: wuuid,
+	}).Order("received_at desc").Find(&contents).Error
+	if err != nil {
+		return nil, err
+	}
+
+	pbContents := []*clientpb.WebUploadedContent{}
+	for _, content := range contents {
+		var data []byte
+		if eager {
+			data, err = os.ReadFile(filepath.Join(webContentDir, content.ID.String()))
+			if err != nil {
+				continue
+			}
+		} else {
+			data = []byte{}
+		}
+		pbContents = append(pbContents, content.ToProtobuf(&data))
+	}
+	return pbContents, nil
+}
+
 // AddWebsite - Return website, create if it does not exist
 func AddWebSite(webSiteName string, webContentDir string) (*clientpb.Website, error) {
 	pbWebSite, err := WebsiteByName(webSiteName, webContentDir)
@@ -811,6 +886,24 @@ func AddWebSite(webSiteName string, webContentDir string) (*clientpb.Website, er
 		}
 	}
 	return pbWebSite, nil
+}
+
+// SetWebsiteUploadAllowed - Toggle whether a website accepts public PUT/POST uploads
+func SetWebsiteUploadAllowed(webSiteName string, allowed bool, webContentDir string) (*clientpb.Website, error) {
+	if len(webSiteName) < 1 {
+		return nil, ErrRecordNotFound
+	}
+	dbWebSite := models.Website{}
+	err := Session().Where(&models.Website{Name: webSiteName}).First(&dbWebSite).Error
+	if err != nil {
+		return nil, err
+	}
+	// Update by column name, a false value is a zero value and would be skipped by a struct update
+	err = Session().Model(&dbWebSite).Update("allows_upload", allowed).Error
+	if err != nil {
+		return nil, err
+	}
+	return WebsiteByName(webSiteName, webContentDir)
 }
 
 // AddContent - Add content to website
@@ -849,10 +942,52 @@ func AddContent(pbWebContent *clientpb.WebContent, webContentDir string) (*clien
 	return dbWebContent, nil
 }
 
+// AddUploadedContent - Add content to website
+func AddUploadedContent(pbUploadedWebContent *clientpb.WebUploadedContent, webContentDir string) (*clientpb.WebUploadedContent, error) {
+
+	dbModelWebContent := models.UploadedWebContentFromProtobuf(pbUploadedWebContent)
+	err := Session().Create(&dbModelWebContent).Error
+	if err != nil {
+		return nil, err
+	}
+	dbUploadedWebContent, err := UploadedWebContentByID(pbUploadedWebContent.WebsiteID, dbModelWebContent.ID.String(), webContentDir, false)
+	if err != nil {
+		return nil, err
+	}
+
+	return dbUploadedWebContent, nil
+}
+
 func RemoveContent(id string) error {
 	uuid, _ := uuid.FromString(id)
 	err := Session().Delete(&models.WebContent{}, uuid).Error
 	return err
+}
+
+func RemoveUploadedContent(id string) error {
+	uuid, _ := uuid.FromString(id)
+	err := Session().Delete(&models.WebUploadedContent{}, uuid).Error
+	return err
+}
+
+// WebsiteContentCounts - Number of static and uploaded content rows a website holds.
+// Counts rows rather than protobuf entries, a content row whose file went missing
+// on disk still counts as content.
+func WebsiteContentCounts(webSiteID string) (int64, int64, error) {
+	websiteUUID, err := uuid.FromString(webSiteID)
+	if err != nil {
+		return 0, 0, err
+	}
+	var contents, uploaded int64
+	err = Session().Model(&models.WebContent{}).Where(&models.WebContent{WebsiteID: websiteUUID}).Count(&contents).Error
+	if err != nil {
+		return 0, 0, err
+	}
+	err = Session().Model(&models.WebUploadedContent{}).Where(&models.WebUploadedContent{WebsiteID: websiteUUID}).Count(&uploaded).Error
+	if err != nil {
+		return 0, 0, err
+	}
+	return contents, uploaded, nil
 }
 
 func RemoveWebSite(id string) error {

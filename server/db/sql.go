@@ -94,6 +94,7 @@ func newDBClient() *gorm.DB {
 		&models.Operator{},
 		&models.Website{},
 		&models.WebContent{},
+		&models.WebUploadedContent{},
 		&models.ListenerJob{},
 		&models.HTTPListener{},
 		&models.DNSListener{},

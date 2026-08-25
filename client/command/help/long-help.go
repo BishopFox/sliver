@@ -534,6 +534,26 @@ Delete content from a website:
 	websites rm-content --website blog --web-path /index.html
 	websites rm-content --website blog --web-path /public --recursive
 
+Accept content uploaded to a website by PUT/POST requests (creates the website if needed):
+	websites upload enable blog
+	websites upload disable blog
+
+List the content uploaded to a website:
+	websites upload list blog
+
+Download uploaded content, writes the raw file and a .json with its metadata:
+	websites upload download 9f1c1b7e-0a2b-4a6f-9f3e-2b1d4c5e6f70
+	websites upload download 9f1c1b7e-0a2b-4a6f-9f3e-2b1d4c5e6f70 --save ./loot
+
+Delete every upload a website received (while a website holds uploads, 'websites rm' clears its
+static content but keeps the website itself):
+	websites upload rm blog
+
+Delete specific uploads, by path or by id:
+	websites upload rm-content --website blog --web-path /drop/report.bin
+	websites upload rm-content --website blog --web-path /drop --recursive
+	websites upload rm-content --website blog --id 9f1c1b7e-0a2b-4a6f-9f3e-2b1d4c5e6f70
+
 `
 	sideloadHelp = `[[.Bold]]Command:[[.Normal]] sideload <options> <filepath to DLL>
 [[.Bold]]About:[[.Normal]] Load and execute a shared library in memory in a remote process.

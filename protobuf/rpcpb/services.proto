@@ -166,11 +166,17 @@ service SliverRPC {
   // *** Websites ***
   rpc Websites(commonpb.Empty) returns (clientpb.Websites);
   rpc Website(clientpb.Website) returns (clientpb.Website);
+  rpc WebsiteUpdate(clientpb.Website) returns (clientpb.Website);
   rpc WebsiteRemove(clientpb.Website) returns (commonpb.Empty);
   rpc WebsiteAddContent(clientpb.WebsiteAddContent) returns (clientpb.Website);
   rpc WebsiteUpdateContent(clientpb.WebsiteAddContent)
       returns (clientpb.Website);
   rpc WebsiteRemoveContent(clientpb.WebsiteRemoveContent)
+      returns (clientpb.Website);
+  rpc WebsiteUploaded(clientpb.Website) returns (clientpb.Website);
+  rpc WebsiteUploadedContent(clientpb.WebUploadedContent)
+      returns (clientpb.WebUploadedContent);
+  rpc WebsiteRemoveUploaded(clientpb.WebsiteRemoveUploaded)
       returns (clientpb.Website);
 
   // *** Session Interactions ***
