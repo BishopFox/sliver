@@ -152,6 +152,15 @@ func TestUUIDGORMRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open database: %v", err)
 	}
+	sqlDatabase, err := database.DB()
+	if err != nil {
+		t.Fatalf("get database handle: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := sqlDatabase.Close(); err != nil {
+			t.Errorf("close database: %v", err)
+		}
+	})
 	if err := database.AutoMigrate(&uuidRecord{}); err != nil {
 		t.Fatalf("migrate database: %v", err)
 	}
