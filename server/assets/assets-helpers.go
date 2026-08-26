@@ -324,7 +324,7 @@ func untarSkipTopLevel(dst string, r io.Reader) error {
 	if err != nil {
 		return err
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 
 	for {
 		header, err := tr.Next()
@@ -366,7 +366,7 @@ func untarSkipTopLevel(dst string, r io.Reader) error {
 			}
 
 		// if it's a file create it
-		case tar.TypeReg, tar.TypeRegA:
+		case tar.TypeReg, tar.TypeRegA: //nolint:staticcheck // TypeRegA is valid in legacy tar archives.
 			if err := writeArchiveFile(root, entryPath, os.FileMode(header.Mode), 0o700, tr); err != nil {
 				return err
 			}
@@ -555,7 +555,7 @@ func unzip(src string, dest string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 	return extractZipReader(&reader.Reader, dest, false)
 }
 
@@ -663,7 +663,7 @@ func extractZipReader(reader *zip.Reader, dest string, skipTopLevel bool) ([]str
 	if err != nil {
 		return nil, err
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 
 	for _, file := range reader.File {
 		entryPath, err := archiveEntryPath(file.Name)

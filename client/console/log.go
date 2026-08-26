@@ -275,8 +275,8 @@ func buildStdoutSyncFrame(marker []byte, seq uint64) []byte {
 }
 
 func pendingMarkerPrefixLen(pending []byte, marker []byte) int {
-	max := min(len(marker)-1, len(pending))
-	for size := max; size > 0; size-- {
+	maxPrefix := min(len(marker)-1, len(pending))
+	for size := maxPrefix; size > 0; size-- {
 		if bytes.Equal(pending[len(pending)-size:], marker[:size]) {
 			return size
 		}

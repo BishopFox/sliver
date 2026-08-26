@@ -1004,7 +1004,7 @@ func BeaconTaskByID(id string) (*clientpb.BeaconTask, error) {
 		return nil, ErrRecordNotFound
 	}
 	taskID, err := models.ParseUUID(id)
-	if taskID == models.NilUUID() {
+	if err != nil || taskID == models.NilUUID() {
 		return nil, ErrRecordNotFound
 	}
 	task := &models.BeaconTask{}

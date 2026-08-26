@@ -30,7 +30,7 @@ func extractTarGz(archivePath, destDir string) error {
 	if err != nil {
 		return err
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 
 	tarReader := tar.NewReader(gz)
 	for {
@@ -81,13 +81,13 @@ func extractZip(archivePath, destDir string) error {
 	if err != nil {
 		return fmt.Errorf("open zip: %w", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	root, err := openArchiveRoot(destDir, 0o755)
 	if err != nil {
 		return err
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 
 	for _, file := range reader.File {
 		entryPath, err := archiveEntryPath(file.Name)

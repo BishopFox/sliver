@@ -51,6 +51,6 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.12.2
+          version: v2.13.1
           # Gate only findings introduced since the event base revision.
           args: --new-from-rev=${{ github.event.pull_request.base.sha || github.event.before }} ./client/... ./server/... ./util/... ./protobuf/... ./docs ./implant/...

@@ -65,7 +65,7 @@ func (h *HttpC2Config) ToProtobuf() *clientpb.HTTPC2Config {
 // HttpC2ServerConfig - HTTP C2 Server Configuration
 type HttpC2ServerConfig struct {
 	ID             UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	HttpC2ConfigID UUID `gorm:"type:uuid;"`
+	HttpC2ConfigID UUID `gorm:"type:uuid;"` //nolint:revive // Preserve the established GORM field and association name.
 
 	RandomVersionHeaders bool
 	Headers              []HttpC2Header
@@ -97,7 +97,7 @@ func (h *HttpC2ServerConfig) ToProtobuf() *clientpb.HTTPC2ServerConfig {
 // HttpC2ImplantConfig - HTTP C2 Implant Configuration
 type HttpC2ImplantConfig struct {
 	ID             UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	HttpC2ConfigID UUID `gorm:"type:uuid;"`
+	HttpC2ConfigID UUID `gorm:"type:uuid;"` //nolint:revive // Preserve the established GORM field and association name.
 
 	UserAgent          string
 	ChromeBaseVersion  int32
@@ -171,7 +171,7 @@ func (h *HttpC2ImplantConfig) ToProtobuf() *clientpb.HTTPC2ImplantConfig {
 // HttpC2Cookie - HTTP C2 Cookie (server only)
 type HttpC2Cookie struct {
 	ID                   UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	HttpC2ServerConfigID UUID `gorm:"type:uuid;"`
+	HttpC2ServerConfigID UUID `gorm:"type:uuid;"` //nolint:revive // Preserve the established GORM field and association name.
 
 	Name string
 }
@@ -191,8 +191,8 @@ func (h *HttpC2Cookie) ToProtobuf() *clientpb.HTTPC2Cookie {
 // HttpC2Header - HTTP C2 Header (server and implant)
 type HttpC2Header struct {
 	ID                    UUID  `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	HttpC2ServerConfigID  *UUID `gorm:"type:uuid;"`
-	HttpC2ImplantConfigID *UUID `gorm:"type:uuid;"`
+	HttpC2ServerConfigID  *UUID `gorm:"type:uuid;"` //nolint:revive // Preserve the established GORM field and association name.
+	HttpC2ImplantConfigID *UUID `gorm:"type:uuid;"` //nolint:revive // Preserve the established GORM field and association name.
 
 	Method      string
 	Name        string
@@ -218,7 +218,7 @@ func (h *HttpC2Header) ToProtobuf() *clientpb.HTTPC2Header {
 // HttpC2URLParameter - Extra URL parameters (implant only)
 type HttpC2URLParameter struct {
 	ID                    UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	HttpC2ImplantConfigID UUID `gorm:"type:uuid;"`
+	HttpC2ImplantConfigID UUID `gorm:"type:uuid;"` //nolint:revive // Preserve the established GORM field and association name.
 
 	Method      string // HTTP Method
 	Name        string // Name of URL parameter, must be 3+ characters
@@ -244,7 +244,7 @@ func (h *HttpC2URLParameter) ToProtobuf() *clientpb.HTTPC2URLParameter {
 // HttpC2PathSegment - Represents a list of file/path URL segments (implant only)
 type HttpC2PathSegment struct {
 	ID                    UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	HttpC2ImplantConfigID UUID `gorm:"type:uuid;"`
+	HttpC2ImplantConfigID UUID `gorm:"type:uuid;"` //nolint:revive // Preserve the established GORM field and association name.
 
 	IsFile      bool
 	SegmentType int32 // Poll, Session, Close
