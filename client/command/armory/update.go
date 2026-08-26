@@ -40,6 +40,7 @@ type VersionInformation struct {
 	OldVersion string
 	NewVersion string
 	ArmoryName string
+	PackageID  string
 }
 
 type PackageType uint
@@ -124,9 +125,9 @@ func ArmoryUpdateCmd(cmd *cobra.Command, con *console.SliverClient, args []strin
 			if !ok {
 				continue
 			}
-			updatedPackage, err := getPackageForCommand(update.Name, armoryPK, extVersionInfo.NewVersion)
-			if err != nil {
-				con.PrintErrorf("Could not get update package for extension %s: %s\n", update.Name, err)
+			updatedPackage := packageCacheLookupByID(extVersionInfo.PackageID)
+			if updatedPackage == nil {
+				con.PrintErrorf("Could not get update package for extension %s: %s\n", update.Name, ErrPackageNotFound)
 				continue
 			}
 			err = installExtensionPackage(updatedPackage, false, clientConfig, con)
@@ -173,8 +174,21 @@ func checkForAliasUpdates(armoryPK string) map[string]VersionInformation {
 	return results
 }
 
+func extensionManifestsMatch(localManifest, latestManifest *extensions.ExtensionManifest) bool {
+	if localManifest.PackageName != "" {
+		return latestManifest.PackageName != "" && localManifest.PackageName == latestManifest.PackageName
+	}
+	for _, localCommand := range localManifest.ExtCommand {
+		for _, latestCommand := range latestManifest.ExtCommand {
+			if localCommand.CommandName == latestCommand.CommandName {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func checkForExtensionUpdates(armoryPK string) map[string]VersionInformation {
-	_, cachedExtensions := packageManifestsInCache()
 	// Return a map of extension name to minimum version to install
 	results := make(map[string]VersionInformation)
 	for _, extManifestPath := range assets.GetInstalledExtensionManifests() {
@@ -186,7 +200,12 @@ func checkForExtensionUpdates(armoryPK string) map[string]VersionInformation {
 		if err != nil {
 			continue
 		}
-		for _, latestExt := range cachedExtensions {
+		pkgCache.Range(func(_, value interface{}) bool {
+			cacheEntry, ok := value.(pkgCacheEntry)
+			if !ok || cacheEntry.LastErr != nil || cacheEntry.Pkg.IsAlias || cacheEntry.Extension == nil {
+				return true
+			}
+			latestExt := cacheEntry.Extension
 			/*
 				We used to check if the version identifiers were different between the installed version and the
 				version in the armory. This worked when we had one armory, but with multiple potential armories,
@@ -194,16 +213,22 @@ func checkForExtensionUpdates(armoryPK string) map[string]VersionInformation {
 				so we will rely on the author of the package incrementing the version identifier somehow to determine
 				if a package is newer.
 			*/
-			if latestExt.Name == localManifest.Name && latestExt.Version > localManifest.Version {
+			if extensionManifestsMatch(localManifest, latestExt) && latestExt.Version > localManifest.Version {
 				if latestExt.ArmoryPK == armoryPK || armoryPK == "" {
-					results[localManifest.Name] = VersionInformation{
-						OldVersion: localManifest.Version,
-						NewVersion: latestExt.Version,
-						ArmoryName: latestExt.ArmoryName,
+					current, found := results[localManifest.Name]
+					if !found || latestExt.Version > current.NewVersion ||
+						(latestExt.Version == current.NewVersion && cacheEntry.ID < current.PackageID) {
+						results[localManifest.Name] = VersionInformation{
+							OldVersion: localManifest.Version,
+							NewVersion: latestExt.Version,
+							ArmoryName: latestExt.ArmoryName,
+							PackageID:  cacheEntry.ID,
+						}
 					}
 				}
 			}
-		}
+			return true
+		})
 	}
 
 	return results
