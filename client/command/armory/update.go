@@ -200,7 +200,7 @@ func checkForExtensionUpdates(armoryPK string) map[string]VersionInformation {
 		if err != nil {
 			continue
 		}
-		pkgCache.Range(func(key, value interface{}) bool {
+		pkgCache.Range(func(_, value interface{}) bool {
 			cacheEntry, ok := value.(pkgCacheEntry)
 			if !ok || cacheEntry.LastErr != nil || cacheEntry.Pkg.IsAlias || cacheEntry.Extension == nil {
 				return true

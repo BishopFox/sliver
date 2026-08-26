@@ -13,12 +13,12 @@ import (
 
 func resetPackageCache(t *testing.T) {
 	t.Helper()
-	pkgCache.Range(func(key, value any) bool {
+	pkgCache.Range(func(key, _ any) bool {
 		pkgCache.Delete(key)
 		return true
 	})
 	t.Cleanup(func() {
-		pkgCache.Range(func(key, value any) bool {
+		pkgCache.Range(func(key, _ any) bool {
 			pkgCache.Delete(key)
 			return true
 		})

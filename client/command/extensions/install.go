@@ -43,6 +43,20 @@ func ExtensionsInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []
 	_ = InstallFromDir(extLocalPath, true, con, strings.HasSuffix(extLocalPath, ".tar.gz"))
 }
 
+func readExtensionManifest(extLocalPath string, isGz bool) ([]byte, error) {
+	if isGz {
+		return util.ReadFileFromTarGz(extLocalPath, fmt.Sprintf("./%s", ManifestFileName))
+	}
+	return os.ReadFile(filepath.Join(extLocalPath, ManifestFileName))
+}
+
+func extensionPackageID(manifest *ExtensionManifest) string {
+	if manifest.PackageName != "" {
+		return manifest.PackageName
+	}
+	return manifest.Name
+}
+
 // InstallFromDir installs a Sliver extension from either a local directory or gzipped archive.
 // It reads the extension manifest, validates it, and copies all required files to the extensions
 // directory. If an extension with the same name already exists, it can optionally prompt for
@@ -61,14 +75,7 @@ func ExtensionsInstallCmd(cmd *cobra.Command, con *console.SliverClient, args []
 //
 // Declining an overwrite prompt cancels the installation without an error.
 func InstallFromDir(extLocalPath string, promptToOverwrite bool, con *console.SliverClient, isGz bool) error {
-	var manifestData []byte
-	var err error
-
-	if isGz {
-		manifestData, err = util.ReadFileFromTarGz(extLocalPath, fmt.Sprintf("./%s", ManifestFileName))
-	} else {
-		manifestData, err = os.ReadFile(filepath.Join(extLocalPath, ManifestFileName))
-	}
+	manifestData, err := readExtensionManifest(extLocalPath, isGz)
 	if err != nil {
 		con.PrintErrorf("Error reading %s: %s", ManifestFileName, err)
 		return fmt.Errorf("read %s: %w", ManifestFileName, err)
@@ -82,10 +89,7 @@ func InstallFromDir(extLocalPath string, promptToOverwrite bool, con *console.Sl
 
 	// Use package name if available, otherwise use extension name
 	// (Note, for v1 manifests this will actually be command_name)
-	packageID := manifestF.Name
-	if manifestF.PackageName != "" {
-		packageID = manifestF.PackageName
-	}
+	packageID := extensionPackageID(manifestF)
 
 	//create repo path
 	minstallPath := filepath.Join(assets.GetExtensionsDir(), filepath.Base(packageID))
