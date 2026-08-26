@@ -6,13 +6,13 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	uuid "uuid"
 
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
-	"github.com/gofrs/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gorm.io/driver/sqlite"
@@ -154,11 +154,8 @@ func TestCallExtensionRejectsUnsupportedBeaconBeforeTasking(t *testing.T) {
 		}
 	})
 
-	beaconID, err := uuid.NewV4()
-	if err != nil {
-		t.Fatalf("generate beacon ID: %v", err)
-	}
-	if err := testDB.Create(&models.Beacon{ID: beaconID}).Error; err != nil {
+	beaconID := uuid.NewV4()
+	if err := testDB.Create(&models.Beacon{ID: models.UUIDFrom(beaconID)}).Error; err != nil {
 		t.Fatalf("create beacon: %v", err)
 	}
 

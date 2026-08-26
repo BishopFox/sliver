@@ -31,6 +31,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"text/template"
 
@@ -891,7 +892,7 @@ func renderSliverGoCode(name string, build *clientpb.ImplantBuild, config *clien
 				retErr = closeErr
 			}
 		}()
-		if !util.Contains([]string{".go", ".c", ".h"}, path.Ext(f.Name())) {
+		if !slices.Contains([]string{".go", ".c", ".h"}, path.Ext(f.Name())) {
 			buildLog.Debugf("Skipping render for %s, does not appear to be source code file", f.Name())
 			_, err = fSliver.Write(sliverGoCodeRaw)
 			return err

@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/gofrs/uuid"
+	uuid "uuid"
 )
 
 // ImplantConnection - Abstract connection to an implant
@@ -70,7 +70,7 @@ func NewImplantConnection(transport string, remoteAddress string) *ImplantConnec
 }
 
 func generateImplantConnectionID() string {
-	id, _ := uuid.NewV4()
+	id := uuid.NewV4()
 	return id.String()
 }
 

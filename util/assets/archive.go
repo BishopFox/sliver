@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -25,6 +26,12 @@ func extractTarGz(archivePath, destDir string) error {
 	}
 	defer gz.Close()
 
+	root, err := openArchiveRoot(destDir, 0o755)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+
 	tarReader := tar.NewReader(gz)
 	for {
 		hdr, err := tarReader.Next()
@@ -35,7 +42,7 @@ func extractTarGz(archivePath, destDir string) error {
 			return fmt.Errorf("read tar entry: %w", err)
 		}
 
-		target, err := safeJoin(destDir, hdr.Name)
+		entryPath, err := archiveEntryPath(hdr.Name)
 		if err != nil {
 			return err
 		}
@@ -43,32 +50,21 @@ func extractTarGz(archivePath, destDir string) error {
 		mode := hdr.FileInfo().Mode()
 		switch hdr.Typeflag {
 		case tar.TypeDir:
-			if err := os.MkdirAll(target, mode.Perm()); err != nil {
+			if err := root.MkdirAll(entryPath, mode.Perm()); err != nil {
 				return fmt.Errorf("create dir: %w", err)
 			}
 		case tar.TypeReg, tar.TypeRegA:
-			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-				return fmt.Errorf("create parent dir: %w", err)
-			}
-			out, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode.Perm())
-			if err != nil {
-				return fmt.Errorf("create file: %w", err)
-			}
-			if _, err := io.Copy(out, tarReader); err != nil {
-				out.Close()
-				return fmt.Errorf("write file: %w", err)
-			}
-			if err := out.Close(); err != nil {
-				return fmt.Errorf("close file: %w", err)
+			if err := writeArchiveFile(root, entryPath, mode.Perm(), 0o755, tarReader); err != nil {
+				return err
 			}
 		case tar.TypeSymlink:
-			if filepath.IsAbs(hdr.Linkname) {
-				return fmt.Errorf("refusing absolute symlink: %s", hdr.Linkname)
+			if err := validateArchiveSymlink(hdr.Name, hdr.Linkname); err != nil {
+				return err
 			}
-			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			if err := root.MkdirAll(filepath.Dir(entryPath), 0o755); err != nil {
 				return fmt.Errorf("create parent dir: %w", err)
 			}
-			if err := os.Symlink(hdr.Linkname, target); err != nil {
+			if err := root.Symlink(filepath.FromSlash(hdr.Linkname), entryPath); err != nil {
 				return fmt.Errorf("create symlink: %w", err)
 			}
 		default:
@@ -87,44 +83,36 @@ func extractZip(archivePath, destDir string) error {
 	}
 	defer reader.Close()
 
+	root, err := openArchiveRoot(destDir, 0o755)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+
 	for _, file := range reader.File {
-		target, err := safeJoin(destDir, file.Name)
+		entryPath, err := archiveEntryPath(file.Name)
 		if err != nil {
 			return err
 		}
 		info := file.FileInfo()
 		if info.IsDir() {
-			if err := os.MkdirAll(target, info.Mode().Perm()); err != nil {
+			if err := root.MkdirAll(entryPath, info.Mode().Perm()); err != nil {
 				return fmt.Errorf("create dir: %w", err)
 			}
 			continue
-		}
-
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-			return fmt.Errorf("create parent dir: %w", err)
 		}
 
 		in, err := file.Open()
 		if err != nil {
 			return fmt.Errorf("open zip entry: %w", err)
 		}
-		out, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode().Perm())
-		if err != nil {
-			in.Close()
-			return fmt.Errorf("create file: %w", err)
+		writeErr := writeArchiveFile(root, entryPath, info.Mode().Perm(), 0o755, in)
+		closeErr := in.Close()
+		if writeErr != nil {
+			return writeErr
 		}
-
-		if _, err := io.Copy(out, in); err != nil {
-			in.Close()
-			out.Close()
-			return fmt.Errorf("write file: %w", err)
-		}
-		if err := in.Close(); err != nil {
-			out.Close()
-			return fmt.Errorf("close zip entry: %w", err)
-		}
-		if err := out.Close(); err != nil {
-			return fmt.Errorf("close file: %w", err)
+		if closeErr != nil {
+			return fmt.Errorf("close zip entry: %w", closeErr)
 		}
 	}
 
@@ -198,18 +186,58 @@ func zipDir(baseDir, relRoot, destZip string) error {
 	})
 }
 
-func safeJoin(root, name string) (string, error) {
-	cleaned := filepath.Clean(name)
-	if filepath.IsAbs(cleaned) {
-		return "", fmt.Errorf("absolute path in archive: %s", name)
+func openArchiveRoot(destDir string, mode fs.FileMode) (*os.Root, error) {
+	if err := os.MkdirAll(destDir, mode); err != nil {
+		return nil, fmt.Errorf("create archive destination: %w", err)
 	}
-	target := filepath.Join(root, cleaned)
-	rel, err := filepath.Rel(root, target)
+	root, err := os.OpenRoot(destDir)
 	if err != nil {
-		return "", fmt.Errorf("resolve archive path: %w", err)
+		return nil, fmt.Errorf("open archive destination: %w", err)
 	}
-	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
-		return "", fmt.Errorf("archive path escapes destination: %s", name)
+	return root, nil
+}
+
+func archiveEntryPath(name string) (string, error) {
+	archiveName := strings.TrimSuffix(name, "/")
+	if archiveName == "." || !fs.ValidPath(archiveName) {
+		return "", fmt.Errorf("invalid path in archive: %q", name)
 	}
-	return target, nil
+	entryPath, err := filepath.Localize(archiveName)
+	if err != nil {
+		return "", fmt.Errorf("invalid path in archive %q: %w", name, err)
+	}
+	return entryPath, nil
+}
+
+func writeArchiveFile(root *os.Root, name string, mode, parentMode fs.FileMode, src io.Reader) error {
+	if err := root.MkdirAll(filepath.Dir(name), parentMode); err != nil {
+		return fmt.Errorf("create archive parent directory: %w", err)
+	}
+	out, err := root.OpenFile(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode.Perm())
+	if err != nil {
+		return fmt.Errorf("create archive file: %w", err)
+	}
+	_, copyErr := io.Copy(out, src)
+	closeErr := out.Close()
+	if copyErr != nil {
+		return fmt.Errorf("write archive file: %w", copyErr)
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close archive file: %w", closeErr)
+	}
+	return nil
+}
+
+func validateArchiveSymlink(name, target string) error {
+	archiveName := strings.TrimSuffix(name, "/")
+	target = strings.ReplaceAll(target, `\`, "/")
+	nativeTarget := filepath.FromSlash(target)
+	if path.IsAbs(target) || filepath.IsAbs(nativeTarget) || filepath.VolumeName(nativeTarget) != "" {
+		return fmt.Errorf("absolute symlink target in archive: %q", target)
+	}
+	resolved := path.Clean(path.Join(path.Dir(archiveName), target))
+	if resolved == "." || !fs.ValidPath(resolved) {
+		return fmt.Errorf("symlink target escapes archive destination: %q", target)
+	}
+	return nil
 }

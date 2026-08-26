@@ -56,10 +56,7 @@ func HexEditCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 		return
 	}
 
-	fetchSize := maxSize + 1
-	if fetchSize < maxSize {
-		fetchSize = maxSize
-	}
+	fetchSize := max(maxSize+1, maxSize)
 
 	ctx, cancel := con.GrpcContext(cmd)
 	defer cancel()

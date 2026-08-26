@@ -119,6 +119,9 @@ func buildCommandEnv(config GoConfig, extra map[string]string) []string {
 	overrides := []string{
 		fmt.Sprintf("CC=%s", config.CC),
 		fmt.Sprintf("CGO_ENABLED=%s", config.CGO),
+		// GOROOT explicitly selects the compiler used for implant builds. Do not
+		// let a surrounding host module make that compiler switch toolchains.
+		"GOTOOLCHAIN=local",
 		fmt.Sprintf("GOOS=%s", config.GOOS),
 		fmt.Sprintf("GOARCH=%s", config.GOARCH),
 		fmt.Sprintf("GOROOT=%s", config.GOROOT),

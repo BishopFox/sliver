@@ -39,19 +39,32 @@ package handlers
 
 import (
 	"fmt"
+	uuid "uuid"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/cryptography"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
-	"github.com/gofrs/uuid"
 	"google.golang.org/protobuf/proto"
 )
 
 var (
 	pivotLog = log.NamedLogger("handlers", "pivot")
 )
+
+func uuidFromBytes(value []byte) (uuid.UUID, error) {
+	if len(value) != len(uuid.UUID{}) {
+		return uuid.Nil(), fmt.Errorf("UUID must be exactly 16 bytes long, got %d bytes", len(value))
+	}
+	var parsed uuid.UUID
+	copy(parsed[:], value)
+	return parsed, nil
+}
+
+func uuidBytes(value uuid.UUID) []byte {
+	return append([]byte(nil), value[:]...)
+}
 
 // ------------------------
 // Handler functions
@@ -81,11 +94,12 @@ func pivotPeerEnvelopeHandler(implantConn *core.ImplantConnection, data []byte) 
 }
 
 func sessionEnvelopeHandler(implantConn *core.ImplantConnection, peerEnvelope *sliverpb.PivotPeerEnvelope) *sliverpb.Envelope {
-	pivotSessionID := uuid.FromBytesOrNil(peerEnvelope.PivotSessionID).String()
-	if pivotSessionID == "" {
-		pivotLog.Errorf("failed to parse pivot session id from peer envelope")
+	pivotSessionUUID, err := uuidFromBytes(peerEnvelope.PivotSessionID)
+	if err != nil {
+		pivotLog.Errorf("failed to parse pivot session id from peer envelope: %v", err)
 		return nil
 	}
+	pivotSessionID := pivotSessionUUID.String()
 	pivotLog.Debugf("session envelope pivot session ID = %s", pivotSessionID)
 	pivotEntry, ok := core.PivotSessions.Load(pivotSessionID)
 	if !ok {
@@ -259,11 +273,16 @@ func serverKeyExchange(implantConn *core.ImplantConnection, peerEnvelope *sliver
 
 	pivotSession.ImplantConn = core.NewImplantConnection(core.PivotTransportName, pivotRemoteAddr)
 	pivotSession.ImmediateImplantConn = implantConn
+	pivotSessionUUID, err := uuid.Parse(pivotSession.ID)
+	if err != nil {
+		pivotLog.Warnf("Failed to parse pivot session ID: %v", err)
+		return nil
+	}
 	core.PivotSessions.Store(pivotSession.ID, pivotSession)
 	keyExRespEnvelope := MustMarshal(&sliverpb.Envelope{
 		Type: sliverpb.MsgPivotServerKeyExchange,
 		Data: MustMarshal(&sliverpb.PivotServerKeyExchange{
-			SessionKey: uuid.FromStringOrNil(pivotSession.ID).Bytes(), // Re-use the bytes field
+			SessionKey: uuidBytes(pivotSessionUUID), // Re-use the bytes field
 		}),
 	})
 	ciphertext, err := pivotSession.CipherCtx.Encrypt(keyExRespEnvelope)

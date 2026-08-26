@@ -65,6 +65,10 @@ func TestGoVersionUsesHostToolchain(t *testing.T) {
 	if goRoot == "" {
 		t.Fatal("runtime.GOROOT() is empty")
 	}
+	// The configured GOROOT must win over any inherited toolchain selection.
+	// A non-local selection here would fail before invoking the configured go
+	// binary, while GOTOOLCHAIN=local keeps host and embedded compilers pinned.
+	t.Setenv("GOTOOLCHAIN", "go1.999.0+path")
 
 	config := GoConfig{
 		GOOS:   runtime.GOOS,

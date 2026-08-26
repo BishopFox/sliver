@@ -893,10 +893,7 @@ func readLogTailBytes(path string, limit int64) string {
 	if err != nil {
 		return fmt.Sprintf("(could not inspect %s: %v)", path, err)
 	}
-	start := end - limit
-	if start < 0 {
-		start = 0
-	}
+	start := max(end-limit, 0)
 	if _, err := logFile.Seek(start, io.SeekStart); err != nil {
 		return fmt.Sprintf("(could not seek %s: %v)", path, err)
 	}

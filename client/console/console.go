@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -42,14 +43,13 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/util"
-	"github.com/gofrs/uuid"
 	"github.com/kballard/go-shellquote"
 	"github.com/reeflective/console"
 	"github.com/reeflective/readline"
 	"github.com/spf13/cobra"
-	"golang.org/x/exp/slog"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
+	uuid "uuid"
 )
 
 const (
@@ -377,7 +377,7 @@ func (con *SliverClient) startEventLoop(ctx context.Context, rpc rpcpb.SliverRPC
 			}
 			con.PrintEventErrorf("%s %s has been burned (DNS Canary)", StyleBold.Render("WARNING:"), event.Session.Name)
 			for _, session := range sessions {
-				shortID := strings.Split(session.ID, "-")[0]
+				shortID, _, _ := strings.Cut(session.ID, "-")
 				con.PrintErrorf("\t🔥 Session %s is affected", shortID)
 			}
 
@@ -398,7 +398,7 @@ func (con *SliverClient) startEventLoop(ctx context.Context, rpc rpcpb.SliverRPC
 			}
 			con.PrintEventErrorf("%s %s has been burned (seen on %s)", StyleBold.Render("WARNING:"), event.Session.Name, msg)
 			for _, session := range sessions {
-				shortID := strings.Split(session.ID, "-")[0]
+				shortID, _, _ := strings.Cut(session.ID, "-")
 				con.PrintErrorf("\t🔥 Session %s is affected", shortID)
 			}
 
@@ -418,20 +418,20 @@ func (con *SliverClient) startEventLoop(ctx context.Context, rpc rpcpb.SliverRPC
 		case consts.SessionOpenedEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
-			shortID := strings.Split(session.ID, "-")[0]
+			shortID, _, _ := strings.Cut(session.ID, "-")
 			con.emitConsoleNotification("info", true, "Session %s %s - %s (%s) - %s/%s - %v",
 				shortID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 
 		case consts.SessionUpdateEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
-			shortID := strings.Split(session.ID, "-")[0]
+			shortID, _, _ := strings.Cut(session.ID, "-")
 			con.emitConsoleNotification("info", false, "Session %s has been updated - %v", shortID, currentTime)
 
 		case consts.SessionClosedEvent:
 			session := event.Session
 			currentTime := time.Now().Format(time.RFC1123)
-			shortID := strings.Split(session.ID, "-")[0]
+			shortID, _, _ := strings.Cut(session.ID, "-")
 			con.emitConsoleNotification("error", true, "Lost session %s %s - %s (%s) - %s/%s - %v",
 				shortID, session.Name, session.RemoteAddress, session.Hostname, session.OS, session.Arch, currentTime)
 			activeSession := con.ActiveTarget.GetSession()
@@ -446,7 +446,7 @@ func (con *SliverClient) startEventLoop(ctx context.Context, rpc rpcpb.SliverRPC
 			beacon := &clientpb.Beacon{}
 			proto.Unmarshal(event.Data, beacon)
 			currentTime := time.Now().Format(time.RFC1123)
-			shortID := strings.Split(beacon.ID, "-")[0]
+			shortID, _, _ := strings.Cut(beacon.ID, "-")
 			con.emitConsoleNotification("info", true, "Beacon %s %s - %s (%s) - %s/%s - %v",
 				shortID, beacon.Name, beacon.RemoteAddress, beacon.Hostname, beacon.OS, beacon.Arch, currentTime)
 
@@ -462,7 +462,7 @@ func (con *SliverClient) startEventLoop(ctx context.Context, rpc rpcpb.SliverRPC
 // CreateEventListener - creates a new event listener and returns its ID.
 func (con *SliverClient) CreateEventListener() (string, <-chan *clientpb.Event) {
 	listener := make(chan *clientpb.Event, 100)
-	listenerID, _ := uuid.NewV4()
+	listenerID := uuid.NewV4()
 	con.EventListeners.Store(listenerID.String(), listener)
 	return listenerID.String(), listener
 }

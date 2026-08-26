@@ -1302,8 +1302,8 @@ func parseAddressIP(address string) net.IP {
 		return ip
 	}
 	address = strings.Trim(address, "[]")
-	if index := strings.LastIndex(address, "%"); index >= 0 {
-		address = address[:index]
+	if before, _, ok := strings.CutLast(address, "%"); ok {
+		address = before
 	}
 	return net.ParseIP(address)
 }

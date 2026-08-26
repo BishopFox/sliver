@@ -31,6 +31,7 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -300,7 +301,7 @@ func getHTTPSConfig(req *clientpb.HTTPListenerReq) *tls.Config {
 
 	found := false
 	for _, cipher := range tlsConfig.CipherSuites {
-		if util.Contains(modernCiphers, cipher) {
+		if slices.Contains(modernCiphers, cipher) {
 			found = true // Our random selection contains a modern cipher, do nothing
 			break
 		}

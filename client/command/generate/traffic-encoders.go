@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -33,12 +34,12 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/util"
-	"github.com/gofrs/uuid"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"google.golang.org/protobuf/proto"
+	uuid "uuid"
 )
 
 // TrafficEncodersCmd - Generate traffic encoders command implementation.
@@ -67,7 +68,7 @@ func DisplayTrafficEncoders(encoderMap *clientpb.TrafficEncoderMap, con *console
 	})
 	allIDs := []uint64{}
 	for _, encoder := range encoderMap.Encoders {
-		isDuplicate := util.Contains(allIDs, encoder.ID)
+		isDuplicate := slices.Contains(allIDs, encoder.ID)
 		allIDs = append(allIDs, encoder.ID)
 		name := encoder.Wasm.Name
 		if isDuplicate {
@@ -94,7 +95,7 @@ func TrafficEncodersAddCmd(cmd *cobra.Command, con *console.SliverClient, args [
 	}
 
 	skipTests, _ := cmd.Flags().GetBool("skip-tests")
-	testID := uuid.Must(uuid.NewV4()).String()
+	testID := uuid.NewV4().String()
 	trafficEncoder := &clientpb.TrafficEncoder{
 		Wasm: &commonpb.File{
 			Name: filepath.Base(args[0]),

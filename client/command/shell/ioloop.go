@@ -30,10 +30,8 @@ func runAttachedIO(tunnel *core.TunnelIO, con *console.SliverClient) (detached b
 	stdinQueue := make(chan []byte, stdinQueueDepth)
 	stopWriter := make(chan struct{})
 	var writerWG sync.WaitGroup
-	writerWG.Add(1)
 
-	go func() {
-		defer writerWG.Done()
+	writerWG.Go(func() {
 		defer func() {
 			// Tunnel teardown can race with writes (server-side close, disconnect, etc.).
 			// Don't let a send-on-closed-channel panic bring down the whole client.
@@ -60,7 +58,7 @@ func runAttachedIO(tunnel *core.TunnelIO, con *console.SliverClient) (detached b
 				}
 			}
 		}
-	}()
+	})
 
 	defer func() {
 		close(stopWriter)

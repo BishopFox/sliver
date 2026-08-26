@@ -24,8 +24,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/cryptography"
-	"github.com/gofrs/uuid"
 	"google.golang.org/protobuf/proto"
+	uuid "uuid"
 )
 
 const (
@@ -83,7 +83,7 @@ func (p *Pivot) Start() {
 
 // NewPivotSession - Creates a new pivot session
 func NewPivotSession(chain []*sliverpb.PivotPeer) *Pivot {
-	id, _ := uuid.NewV4()
+	id := uuid.NewV4()
 	return &Pivot{
 		ID:    id.String(),
 		Peers: chain,

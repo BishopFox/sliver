@@ -5,12 +5,16 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"runtime/pprof"
 	"strings"
 	"testing"
 	"time"
 )
 
-var testOptions options
+var (
+	testOptions          options
+	goroutineLeakProfile bool
+)
 
 func init() {
 	flag.StringVar(&testOptions.repoPath, "repo", ".", "path to the Sliver repository")
@@ -27,6 +31,7 @@ func init() {
 	flag.DurationVar(&testOptions.commandTimeout, "command-timeout", 2*time.Minute, "individual implant command timeout")
 	flag.DurationVar(&testOptions.beaconInterval, "beacon-interval", 10*time.Second, "beacon callback interval")
 	flag.BoolVar(&testOptions.implantDebug, "implant-debug", false, "generate debug implants and capture their transport logs")
+	flag.BoolVar(&goroutineLeakProfile, "goroutine-leak-profile", false, "write the goroutine leak profile at comprehensive E2E shutdown")
 }
 
 func TestMain(m *testing.M) {
@@ -40,7 +45,17 @@ func TestMain(m *testing.M) {
 		time.Sleep(30 * time.Minute)
 		os.Exit(0)
 	}
-	os.Exit(m.Run())
+	exitCode := m.Run()
+	if goroutineLeakProfile {
+		fmt.Fprintln(os.Stderr, "=== comprehensive E2E goroutine leak profile ===")
+		profile := pprof.Lookup("goroutineleak")
+		if profile == nil {
+			fmt.Fprintln(os.Stderr, "goroutineleak profile is unavailable")
+		} else if err := profile.WriteTo(os.Stderr, 1); err != nil {
+			fmt.Fprintf(os.Stderr, "write goroutineleak profile: %v\n", err)
+		}
+	}
+	os.Exit(exitCode)
 }
 
 func TestComprehensiveE2E(t *testing.T) {

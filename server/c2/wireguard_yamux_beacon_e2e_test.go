@@ -18,9 +18,9 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/transport"
-	"github.com/google/uuid"
 	"github.com/hashicorp/yamux"
 	"google.golang.org/protobuf/proto"
+	uuid "uuid"
 )
 
 func TestWGYamux_Beacon_EndToEndAsyncPingRPC(t *testing.T) {
@@ -43,7 +43,7 @@ func TestWGYamux_Beacon_EndToEndAsyncPingRPC(t *testing.T) {
 	})
 	go c2.HandleWGSliverConnectionForTest(serverConn)
 
-	beaconID := uuid.NewString()
+	beaconID := uuid.NewV4().String()
 	beacon := startTestWGBeacon(t, implantConn, beaconID)
 	t.Cleanup(beacon.Stop)
 
@@ -125,7 +125,7 @@ func TestWGYamux_Beacon_EndToEndAsyncMixedRPCs(t *testing.T) {
 	})
 	go c2.HandleWGSliverConnectionForTest(serverConn)
 
-	beaconID := uuid.NewString()
+	beaconID := uuid.NewV4().String()
 	beacon := startTestWGBeacon(t, implantConn, beaconID)
 	t.Cleanup(beacon.Stop)
 
@@ -336,7 +336,7 @@ func startTestWGBeacon(t *testing.T, conn net.Conn, beaconID string) *wgTestBeac
 	register := &sliverpb.Register{
 		Name:              "e2e-beacon",
 		Hostname:          "localhost",
-		Uuid:              uuid.NewString(),
+		Uuid:              uuid.NewV4().String(),
 		Username:          "unit-test",
 		Os:                runtime.GOOS,
 		Arch:              runtime.GOARCH,

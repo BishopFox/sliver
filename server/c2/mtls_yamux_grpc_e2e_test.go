@@ -22,12 +22,12 @@ import (
 	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/transport"
-	"github.com/google/uuid"
 	"github.com/hashicorp/yamux"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/proto"
+	uuid "uuid"
 )
 
 func TestMTLSYamux_EndToEndPingRPC(t *testing.T) {
@@ -364,7 +364,7 @@ func startTestImplant(t *testing.T, conn net.Conn) func() {
 	register := &sliverpb.Register{
 		Name:              "e2e",
 		Hostname:          "localhost",
-		Uuid:              uuid.NewString(),
+		Uuid:              uuid.NewV4().String(),
 		Username:          "unit-test",
 		Os:                runtime.GOOS,
 		Arch:              runtime.GOARCH,
