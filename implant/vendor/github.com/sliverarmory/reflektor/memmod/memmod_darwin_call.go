@@ -1,4 +1,4 @@
-//go:build darwin && (amd64 || arm64) && !cgo
+//go:build darwin && !ios && (amd64 || arm64) && !cgo
 
 package memmod
 

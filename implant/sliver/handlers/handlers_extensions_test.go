@@ -201,6 +201,62 @@ func TestCallExtensionHandlerDefersResponseAndCopiesCallbackOutput(t *testing.T)
 	}
 }
 
+func TestCallExtensionRoutesBOFDataToBuiltInExecutor(t *testing.T) {
+	wantData := []byte("bof object")
+	wantArgs := []byte{4, 0, 0, 0, 1, 2, 3, 4}
+	wantOutput := []byte("partial BOF output")
+	wantErr := errors.New("BOF execution failed")
+	request, err := proto.Marshal(&sliverpb.CallExtensionReq{
+		Name:    "must-not-use-native-registry",
+		Export:  "CustomExport",
+		Args:    wantArgs,
+		BOFData: wantData,
+		IsBOF:   true,
+	})
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+
+	var (
+		responseData []byte
+		responseErr  error
+		responses    int
+	)
+	callExtension(request, func(data []byte, err error) {
+		responses++
+		responseData = data
+		responseErr = err
+	}, func(data []byte, entryPoint string, args []byte) ([]byte, error) {
+		if !bytes.Equal(data, wantData) {
+			t.Fatalf("BOF data = %q, want %q", data, wantData)
+		}
+		if entryPoint != "CustomExport" {
+			t.Fatalf("entry point = %q, want CustomExport", entryPoint)
+		}
+		if !bytes.Equal(args, wantArgs) {
+			t.Fatalf("args = %v, want %v", args, wantArgs)
+		}
+		return wantOutput, wantErr
+	})
+
+	if responseErr != nil {
+		t.Fatalf("response callback returned error: %v", responseErr)
+	}
+	if responses != 1 {
+		t.Fatalf("got %d responses, want 1", responses)
+	}
+	response := &sliverpb.CallExtension{}
+	if err := proto.Unmarshal(responseData, response); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if !bytes.Equal(response.Output, wantOutput) {
+		t.Fatalf("output = %q, want %q", response.Output, wantOutput)
+	}
+	if response.GetResponse().GetErr() != wantErr.Error() {
+		t.Fatalf("response error = %q, want %q", response.GetResponse().GetErr(), wantErr)
+	}
+}
+
 func TestSystemHandlersIncludeExtensions(t *testing.T) {
 	handlers := GetSystemHandlers()
 	for _, messageType := range []uint32{

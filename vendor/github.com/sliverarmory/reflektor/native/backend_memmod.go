@@ -1,4 +1,4 @@
-//go:build (darwin && (amd64 || arm64)) || (windows && (386 || amd64 || arm64))
+//go:build (darwin && !ios && (amd64 || arm64)) || (windows && (386 || amd64 || arm64))
 
 package native
 

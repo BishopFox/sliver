@@ -1,9 +1,15 @@
 package extensions
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,6 +22,7 @@ import (
 	"github.com/bishopfox/sliver/util"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 )
 
 /*
@@ -143,6 +150,82 @@ func newExtensionTestConsole(t *testing.T, rpc rpcpb.SliverRPCClient, session *c
 	con.Rpc = rpc
 	con.ActiveTarget.Set(session, beacon)
 	return con
+}
+
+func TestRemoveExtensionByManifestNameOnlyDeletesManagedExtensions(t *testing.T) {
+	clientRoot := t.TempDir()
+	t.Setenv("SLIVER_CLIENT_ROOT_DIR", clientRoot)
+
+	originalManifests := loadedManifests
+	originalExtensions := loadedExtensions
+	t.Cleanup(func() {
+		loadedManifests = originalManifests
+		loadedExtensions = originalExtensions
+	})
+
+	tests := []struct {
+		name        string
+		extPath     string
+		wantDeleted bool
+	}{
+		{
+			name:        "installed extension",
+			extPath:     filepath.Join(clientRoot, "extensions", "installed"),
+			wantDeleted: true,
+		},
+		{
+			name:        "temporarily loaded extension",
+			extPath:     t.TempDir(),
+			wantDeleted: false,
+		},
+		{
+			name:        "extensions directory sibling",
+			extPath:     filepath.Join(clientRoot, "extensions-backup"),
+			wantDeleted: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := os.MkdirAll(test.extPath, 0o700); err != nil {
+				t.Fatalf("create extension directory: %v", err)
+			}
+			markerPath := filepath.Join(test.extPath, "source-code.txt")
+			if err := os.WriteFile(markerPath, []byte("keep me"), 0o600); err != nil {
+				t.Fatalf("create marker file: %v", err)
+			}
+
+			manifestName := "test-extension"
+			commandName := "test-command"
+			command := &ExtCommand{CommandName: commandName}
+			loadedManifests = map[string]*ExtensionManifest{
+				manifestName: {RootPath: test.extPath, ExtCommand: []*ExtCommand{command}},
+			}
+			loadedExtensions = map[string]*ExtCommand{commandName: command}
+
+			found, err := RemoveExtensionByManifestName(manifestName, nil)
+			if err != nil {
+				t.Fatalf("remove extension: %v", err)
+			}
+			if !found {
+				t.Fatal("expected extension manifest to be found")
+			}
+			if _, ok := loadedManifests[manifestName]; ok {
+				t.Error("manifest was not unloaded")
+			}
+			if _, ok := loadedExtensions[commandName]; ok {
+				t.Error("command was not unloaded")
+			}
+
+			_, err = os.Stat(markerPath)
+			if test.wantDeleted && !os.IsNotExist(err) {
+				t.Errorf("managed extension directory was not deleted: %v", err)
+			}
+			if !test.wantDeleted && err != nil {
+				t.Errorf("external extension directory was modified: %v", err)
+			}
+		})
+	}
 }
 
 func TestParseExtensionManifest(t *testing.T) {
@@ -563,5 +646,287 @@ func TestParseExtensionManifestErrors(t *testing.T) {
 		if err == nil {
 			t.Fatalf("Expected missing files.path error, got none")
 		}
+	}
+}
+
+func TestParseExtensionManifestBOFExecutor(t *testing.T) {
+	tests := []struct {
+		name string
+		data string
+		want string
+	}{
+		{
+			name: "multi-command manifest",
+			data: `{
+				"name":"modern-bof",
+				"commands":[{
+					"command_name":"modern-bof",
+					"help":"test",
+					"bof_executor":"reflektor",
+					"files":[{"os":"windows","arch":"amd64","path":"modern.o"}]
+				}]
+			}`,
+			want: BOFExecutorReflektor,
+		},
+		{
+			name: "legacy manifest",
+			data: `{
+				"name":"legacy-bof",
+				"command_name":"legacy-bof",
+				"help":"test",
+				"bof_executor":"coff-loader",
+				"depends_on":"custom-loader",
+				"files":[{"os":"windows","arch":"amd64","path":"legacy.o"}]
+			}`,
+			want: BOFExecutorCOFFLoader,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			manifest, err := ParseExtensionManifest([]byte(test.data))
+			if err != nil {
+				t.Fatalf("ParseExtensionManifest returned an error: %s", err)
+			}
+			if got := manifest.ExtCommand[0].BOFExecutor; got != test.want {
+				t.Fatalf("BOFExecutor = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestParseExtensionManifestRejectsInvalidBOFExecutor(t *testing.T) {
+	tests := []struct {
+		name        string
+		executor    string
+		dependsOn   string
+		wantErrPart string
+	}{
+		{
+			name:        "executor must be exact lowercase",
+			executor:    "Reflektor",
+			wantErrPart: "invalid `bof_executor`",
+		},
+		{
+			name:        "unknown executor",
+			executor:    "other-loader",
+			wantErrPart: "invalid `bof_executor`",
+		},
+		{
+			name:        "coff loader requires dependency",
+			executor:    BOFExecutorCOFFLoader,
+			wantErrPart: "no `depends_on` fallback",
+		},
+		{
+			name:        "coff loader rejects whitespace dependency",
+			executor:    BOFExecutorCOFFLoader,
+			dependsOn:   " \t",
+			wantErrPart: "no `depends_on` fallback",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			manifest := &ExtensionManifest{
+				Name: "test",
+				ExtCommand: []*ExtCommand{{
+					CommandName: "test",
+					Help:        "test",
+					BOFExecutor: test.executor,
+					DependsOn:   test.dependsOn,
+					Files: []*extensionFile{{
+						OS: "windows", Arch: "amd64", Path: "test.o",
+					}},
+				}},
+			}
+			err := validManifest(manifest)
+			if err == nil || !strings.Contains(err.Error(), test.wantErrPart) {
+				t.Fatalf("validManifest error = %v, want error containing %q", err, test.wantErrPart)
+			}
+		})
+	}
+}
+
+func TestPlanExtensionExecution(t *testing.T) {
+	tests := []struct {
+		name         string
+		ext          *ExtCommand
+		path         string
+		capabilities uint64
+		want         extensionExecutionMode
+		wantErr      bool
+	}{
+		{
+			name: "native artifact remains native",
+			ext:  &ExtCommand{CommandName: "native"},
+			path: "native.dll",
+			want: extensionExecutionNative,
+		},
+		{
+			name:         "legacy manifest keeps dependency route",
+			ext:          &ExtCommand{CommandName: "legacy", DependsOn: "coff-loader"},
+			path:         "legacy.o",
+			capabilities: sliverpb.CapabilityBOFV1,
+			want:         extensionExecutionCOFFLoader,
+		},
+		{
+			name:         "explicit coff loader is authoritative",
+			ext:          &ExtCommand{CommandName: "coff", BOFExecutor: BOFExecutorCOFFLoader, DependsOn: "custom-loader"},
+			path:         "coff.bin",
+			capabilities: sliverpb.CapabilityBOFV1,
+			want:         extensionExecutionCOFFLoader,
+		},
+		{
+			name:         "explicit Reflektor uses capable target",
+			ext:          &ExtCommand{CommandName: "builtin", BOFExecutor: BOFExecutorReflektor, DependsOn: "coff-loader"},
+			path:         "builtin.o",
+			capabilities: sliverpb.CapabilityBOFV1,
+			want:         extensionExecutionReflektor,
+		},
+		{
+			name: "explicit Reflektor falls back to dependency",
+			ext:  &ExtCommand{CommandName: "fallback", BOFExecutor: BOFExecutorReflektor, DependsOn: "coff-loader"},
+			path: "fallback.o",
+			want: extensionExecutionCOFFLoader,
+		},
+		{
+			name:         "dependency-free BOF defaults to Reflektor",
+			ext:          &ExtCommand{CommandName: "default"},
+			path:         "default.o",
+			capabilities: sliverpb.CapabilityBOFV1,
+			want:         extensionExecutionReflektor,
+		},
+		{
+			name:         "uppercase object extension is a BOF",
+			ext:          &ExtCommand{CommandName: "uppercase"},
+			path:         "uppercase.O",
+			capabilities: sliverpb.CapabilityBOFV1,
+			want:         extensionExecutionReflektor,
+		},
+		{
+			name:    "unsupported dependency-free BOF fails closed",
+			ext:     &ExtCommand{CommandName: "unsupported"},
+			path:    "unsupported.o",
+			wantErr: true,
+		},
+		{
+			name:    "coff loader without dependency fails closed",
+			ext:     &ExtCommand{CommandName: "missing", BOFExecutor: BOFExecutorCOFFLoader},
+			path:    "missing.o",
+			wantErr: true,
+		},
+		{
+			name:         "invalid executor fails closed",
+			ext:          &ExtCommand{CommandName: "invalid", BOFExecutor: "other"},
+			path:         "invalid.o",
+			capabilities: sliverpb.CapabilityBOFV1,
+			wantErr:      true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := planExtensionExecution(test.ext, test.path, test.capabilities)
+			if test.wantErr {
+				if err == nil {
+					t.Fatalf("planExtensionExecution returned mode %d, want error", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("planExtensionExecution returned an error: %s", err)
+			}
+			if got != test.want {
+				t.Fatalf("planExtensionExecution mode = %d, want %d", got, test.want)
+			}
+		})
+	}
+}
+
+func TestBuildCallExtensionRequestPreservesLegacyWireFields(t *testing.T) {
+	root := t.TempDir()
+	objectData := []byte("object-data")
+	loaderData := []byte("loader-data")
+	objectPath := filepath.Join(root, "object.o")
+	loaderPath := filepath.Join(root, "loader.dll")
+	if err := os.WriteFile(objectPath, objectData, 0o600); err != nil {
+		t.Fatalf("write object fixture: %s", err)
+	}
+	if err := os.WriteFile(loaderPath, loaderData, 0o600); err != nil {
+		t.Fatalf("write loader fixture: %s", err)
+	}
+
+	const loaderName = "custom-loader"
+	previousLoader, hadPreviousLoader := loadedExtensions[loaderName]
+	defer func() {
+		if hadPreviousLoader {
+			loadedExtensions[loaderName] = previousLoader
+		} else {
+			delete(loadedExtensions, loaderName)
+		}
+	}()
+	loaderManifest := &ExtensionManifest{Name: loaderName, RootPath: root}
+	loadedExtensions[loaderName] = &ExtCommand{
+		CommandName: loaderName,
+		Entrypoint:  "RunCOFF",
+		Files: []*extensionFile{{
+			OS: "windows", Arch: "amd64", Path: filepath.Base(loaderPath),
+		}},
+		Manifest: loaderManifest,
+	}
+
+	legacyArgs := []byte{0x01, 0x02, 0x03, 0x04}
+	ext := &ExtCommand{CommandName: "test-bof", DependsOn: loaderName}
+	got, err := buildCallExtensionRequest("windows", "amd64", extensionExecutionCOFFLoader, ext, objectPath, "RunCOFF", legacyArgs)
+	if err != nil {
+		t.Fatalf("buildCallExtensionRequest returned an error: %s", err)
+	}
+	loaderHash := sha256.Sum256(loaderData)
+	want := &sliverpb.CallExtensionReq{
+		Name:   hex.EncodeToString(loaderHash[:]),
+		Export: "RunCOFF",
+		Args:   legacyArgs,
+	}
+	gotWire, err := proto.Marshal(got)
+	if err != nil {
+		t.Fatalf("marshal actual request: %s", err)
+	}
+	wantWire, err := proto.Marshal(want)
+	if err != nil {
+		t.Fatalf("marshal expected request: %s", err)
+	}
+	if !bytes.Equal(gotWire, wantWire) {
+		t.Fatalf("legacy request wire bytes changed:\n got: %x\nwant: %x", gotWire, wantWire)
+	}
+}
+
+func TestBuildCallExtensionRequestForReflektor(t *testing.T) {
+	root := t.TempDir()
+	objectData := []byte("object-data")
+	objectPath := filepath.Join(root, "object.o")
+	if err := os.WriteFile(objectPath, objectData, 0o600); err != nil {
+		t.Fatalf("write object fixture: %s", err)
+	}
+
+	typedArgs := []byte{0x05, 0x06}
+	got, err := buildCallExtensionRequest("windows", "amd64", extensionExecutionReflektor, &ExtCommand{CommandName: "test-bof"}, objectPath, "go", typedArgs)
+	if err != nil {
+		t.Fatalf("buildCallExtensionRequest returned an error: %s", err)
+	}
+	objectHash := sha256.Sum256(objectData)
+	if got.Name != hex.EncodeToString(objectHash[:]) {
+		t.Errorf("Name = %q, want object hash %q", got.Name, hex.EncodeToString(objectHash[:]))
+	}
+	if got.Export != "go" {
+		t.Errorf("Export = %q, want %q", got.Export, "go")
+	}
+	if !bytes.Equal(got.Args, typedArgs) {
+		t.Errorf("Args = %x, want %x", got.Args, typedArgs)
+	}
+	if !bytes.Equal(got.BOFData, objectData) {
+		t.Errorf("BOFData = %q, want %q", got.BOFData, objectData)
+	}
+	if !got.IsBOF {
+		t.Error("IsBOF = false, want true")
 	}
 }

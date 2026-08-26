@@ -61,6 +61,28 @@ func assertNoPanic(t *testing.T, fn func()) {
 	fn()
 }
 
+func TestRegisterSessionHandlerPropagatesCapabilities(t *testing.T) {
+	conn := core.NewImplantConnection("test", "n/a")
+	registerData, err := proto.Marshal(&sliverpb.Register{
+		Uuid:         "4e3c1713-05fd-485a-bef7-fef5df4fa8c4",
+		Capabilities: sliverpb.CapabilityBOFV1,
+	})
+	if err != nil {
+		t.Fatalf("marshal register: %v", err)
+	}
+
+	registerSessionHandler(conn, registerData)
+	t.Cleanup(conn.Cleanup)
+
+	session := core.Sessions.FromImplantConnection(conn)
+	if session == nil {
+		t.Fatal("expected registered session")
+	}
+	if session.Capabilities != sliverpb.CapabilityBOFV1 {
+		t.Fatalf("expected Capabilities=%d, got %d", sliverpb.CapabilityBOFV1, session.Capabilities)
+	}
+}
+
 func TestTunnelCloseHandlerClosesOwnedReverseTunnel(t *testing.T) {
 	conn, session := addTestSession(t)
 	tunnelID := core.NewTunnelID()
