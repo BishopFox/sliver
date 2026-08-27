@@ -83,7 +83,9 @@ var X86_REG_SAVE_PREFIX = []byte{0x60, 0x9c} // PUSHAD, PUSHFD
 // X86_REG_SAVE_SUFFIX instructions for saving registers to stack
 var X86_REG_SAVE_SUFFIX = []byte{0x9d, 0x61} // POPFD, POPAD
 
-// X64_REG_SAVE_PREFIX instructions for saving registers to stack
+// X64_REG_SAVE_PREFIX saves general-purpose registers. The duplicate PUSH RAX
+// keeps the wrapper's stack delta 16-byte aligned without adding a fixed byte
+// that makes safe+ASCII constrained encoding impossible.
 var X64_REG_SAVE_PREFIX = []byte{
 	0x50, 0x53, 0x51, 0x52, // PUSH RAX,RBX,RCX,RDX
 	0x56, 0x57, 0x55, // PUSH RSI,RDI,RBP
@@ -91,10 +93,12 @@ var X64_REG_SAVE_PREFIX = []byte{
 	0x41, 0x52, 0x41, 0x53, // PUSH R10,R11
 	0x41, 0x54, 0x41, 0x55, // PUSH R12,R13
 	0x41, 0x56, 0x41, 0x57, // PUSH R14,R15
+	0x50, // duplicate PUSH RAX alignment slot
 }
 
-// X64_REG_SAVE_SUFFIX instructions for saving registers to stack
+// X64_REG_SAVE_SUFFIX discards the alignment slot and restores registers.
 var X64_REG_SAVE_SUFFIX = []byte{
+	0x58,                   // POP RAX alignment slot
 	0x41, 0x5f, 0x41, 0x5e, // POP R15,R14
 	0x41, 0x5d, 0x41, 0x5c, // POP R13,R12
 	0x41, 0x5b, 0x41, 0x5a, // POP R11,R10

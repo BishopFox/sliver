@@ -12,7 +12,9 @@ randomness for every production attempt.
 - `Iterations` controls the number of encoding layers.
 - `MaxObfuscation` is the decoder obfuscation-byte budget.
 - `PlainDecoder` leaves the decoder stub unencoded.
-- `Safe` preserves registers around the decoder.
+- `Safe` preserves general-purpose registers after the payload falls through
+  with its stack pointer balanced. It does not preserve RFLAGS, XMM, or x87
+  state; SGN v0.1.2 also preserves the caller's x64 stack alignment.
 - `BadChars` and `Asci` enable output constraints.
 
 Unconstrained encoding is attempted exactly once. Constraint searches may try
