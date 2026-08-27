@@ -39,7 +39,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/miekg/dns v1.1.70
 	github.com/moloch--/asciicast v0.1.1
-	github.com/moloch--/sgn v0.0.5
+	github.com/moloch--/sgn v0.1.1
 	github.com/ncruces/go-sqlite3 v0.30.4
 	github.com/nikoksr/notify v1.5.0
 	github.com/openai/openai-go/v2 v2.7.1

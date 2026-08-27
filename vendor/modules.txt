@@ -1021,7 +1021,7 @@ github.com/moloch--/asciicast
 # github.com/moloch--/go-keystone v0.0.2
 ## explicit; go 1.23
 github.com/moloch--/go-keystone
-# github.com/moloch--/sgn v0.0.5
+# github.com/moloch--/sgn v0.1.1
 ## explicit; go 1.23
 github.com/moloch--/sgn/pkg
 # github.com/muesli/cancelreader v0.2.2

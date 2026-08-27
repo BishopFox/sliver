@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -113,55 +115,73 @@ func (s *suite) runShellcodeBuild(
 			continue
 		}
 		caseStart := time.Now()
-		payload := generated.File.Data
+		requiredSamples := shellcodeEncoderSamples(encoder, s.opts.sgnSamples)
+		var encodeSample func([]byte) ([]byte, error)
 		if encoder != shellcodecoverage.EncoderNone {
-			payload, err = s.encodeShellcode(encoder, encoders[encoder], payload)
-			if err != nil {
-				duration := generateDuration + time.Since(caseStart)
-				detail := fmt.Sprintf("ShellcodeEncoder RPC failed: %v", err)
-				recordErr := recorder.Add(shellcodecoverage.Observation{
-					Transport:   listener.transport,
-					ImplantMode: mode,
-					Compression: compression,
-					Encoder:     encoder,
-					Status:      e2ecoverage.StatusFail,
-					Duration:    duration,
-					Detail:      shellcodeFailureDetail(detail),
-				})
-				runErrors = append(runErrors, errors.Join(fmt.Errorf("%s encoder %s: %w", buildName, encoder, err), recordErr))
-				continue
+			encodeSample = func(payload []byte) ([]byte, error) {
+				return s.encodeShellcode(encoder, encoders[encoder], payload)
 			}
 		}
+		sampleResult, caseErr := runShellcodeSamples(
+			generated.File.Data,
+			requiredSamples,
+			encodeSample,
+			func(payload []byte, sample int, phase shellcodeExecutionPhase) error {
+				return s.executeShellcodeCase(
+					runnerPath,
+					listener,
+					mode,
+					compression,
+					encoder,
+					generated.ImplantName,
+					payload,
+					sample,
+					phase,
+				)
+			},
+			func(sample int, payload []byte, payloadHash [sha256.Size]byte) {
+				s.t.Logf(
+					"Verified %s/%s %s %s shellcode over %s with compression=%s encoder=%s sample=%d/%d (%d bytes, sha256=%x)",
+					target.OS,
+					target.Arch,
+					mode,
+					generated.ImplantName,
+					listener.transport,
+					compression,
+					encoder,
+					sample,
+					requiredSamples,
+					len(payload),
+					payloadHash,
+				)
+			},
+		)
 
-		err = s.executeShellcodeCase(runnerPath, listener, mode, compression, encoder, generated.ImplantName, payload)
 		status := e2ecoverage.StatusPass
 		detail := ""
-		if err != nil {
+		if caseErr != nil {
 			status = e2ecoverage.StatusFail
-			detail = shellcodeFailureDetail(err.Error())
+			detail = shellcodeFailureDetail(caseErr.Error())
 		}
 		recordErr := recorder.Add(shellcodecoverage.Observation{
-			Transport:    listener.transport,
-			ImplantMode:  mode,
-			Compression:  compression,
-			Encoder:      encoder,
-			Status:       status,
-			Duration:     generateDuration + time.Since(caseStart),
-			Detail:       detail,
-			PayloadBytes: int64(len(payload)),
+			Transport:        listener.transport,
+			ImplantMode:      mode,
+			Compression:      compression,
+			Encoder:          encoder,
+			Status:           status,
+			Duration:         generateDuration + time.Since(caseStart),
+			Detail:           detail,
+			PayloadBytes:     sampleResult.payloadBytes,
+			RequiredSamples:  requiredSamples,
+			CompletedSamples: sampleResult.completedSamples,
 		})
-		if err != nil || recordErr != nil {
-			caseErr := recordErr
-			if err != nil {
-				caseErr = errors.Join(fmt.Errorf("%s encoder %s: %w", buildName, encoder, err), caseErr)
+		if caseErr != nil || recordErr != nil {
+			resultErr := recordErr
+			if caseErr != nil {
+				resultErr = errors.Join(fmt.Errorf("%s encoder %s: %w", buildName, encoder, caseErr), recordErr)
 			}
-			runErrors = append(runErrors, caseErr)
-			continue
+			runErrors = append(runErrors, resultErr)
 		}
-		s.t.Logf(
-			"Verified %s/%s %s %s shellcode over %s with compression=%s encoder=%s (%d bytes)",
-			target.OS, target.Arch, mode, generated.ImplantName, listener.transport, compression, encoder, len(payload),
-		)
 	}
 	return errors.Join(runErrors...)
 }
@@ -242,9 +262,17 @@ func (s *suite) executeShellcodeCase(
 	encoder string,
 	implantName string,
 	payload []byte,
+	sample int,
+	phase shellcodeExecutionPhase,
 ) error {
 	caseName := strings.Join([]string{listener.transport, mode, compression, encoder}, "-")
-	caseRoot := filepath.Join(s.workDir, "shellcode-cases", caseName)
+	caseRoot := filepath.Join(
+		s.workDir,
+		"shellcode-cases",
+		caseName,
+		fmt.Sprintf("sample-%02d", sample),
+		string(phase),
+	)
 	homeDir := filepath.Join(caseRoot, "home")
 	tempDir := filepath.Join(caseRoot, "tmp")
 	for _, dir := range []string{caseRoot, homeDir, tempDir} {
@@ -258,7 +286,8 @@ func (s *suite) executeShellcodeCase(
 	}
 
 	runnerLog := filepath.Join(caseRoot, "runner.log")
-	runnerEnv := sanitizedImplantEnv(os.Environ(), homeDir, tempDir, "shellcode-"+caseName)
+	runnerMarker := fmt.Sprintf("shellcode-%s-sample-%02d-%s", caseName, sample, phase)
+	runnerEnv := sanitizedImplantEnv(os.Environ(), homeDir, tempDir, runnerMarker)
 	cursor := s.hub.cursor()
 	protection := shellcodeExecutionProtection(s.opts.targetArch, encoder)
 	process, err := startProcess(runnerPath, []string{payloadPath, protection}, caseRoot, runnerEnv, runnerLog)
@@ -287,6 +316,89 @@ func (s *suite) executeShellcodeCase(
 		return fmt.Errorf("stop C shellcode runner: %w", stopErr)
 	}
 	return nil
+}
+
+func shellcodeEncoderSamples(encoder string, sgnSamples int) int {
+	if encoder == shellcodecoverage.EncoderShikataGaNai {
+		return sgnSamples
+	}
+	return 1
+}
+
+type shellcodeSampleResult struct {
+	completedSamples int
+	payloadBytes     int64
+}
+
+type shellcodeExecutionPhase string
+
+const (
+	shellcodeExecutionPrimary          shellcodeExecutionPhase = "primary"
+	shellcodeExecutionDiagnosticReplay shellcodeExecutionPhase = "diagnostic-replay"
+)
+
+func runShellcodeSamples(
+	basePayload []byte,
+	requiredSamples int,
+	encode func([]byte) ([]byte, error),
+	execute func([]byte, int, shellcodeExecutionPhase) error,
+	verified func(int, []byte, [sha256.Size]byte),
+) (shellcodeSampleResult, error) {
+	result := shellcodeSampleResult{}
+	seenPayloads := map[[sha256.Size]byte]int{}
+	for sample := 1; sample <= requiredSamples; sample++ {
+		payload := basePayload
+		result.payloadBytes = 0
+		if encode != nil {
+			var err error
+			payload, err = encode(payload)
+			if err != nil {
+				return result, fmt.Errorf("sample %d/%d ShellcodeEncoder RPC failed: %w", sample, requiredSamples, err)
+			}
+		}
+		result.payloadBytes = int64(len(payload))
+
+		payloadHash := sha256.Sum256(payload)
+		if previous, duplicate := seenPayloads[payloadHash]; duplicate {
+			return result, fmt.Errorf(
+				"sample %d/%d duplicated sample %d payload sha256=%x",
+				sample,
+				requiredSamples,
+				previous,
+				payloadHash,
+			)
+		}
+		seenPayloads[payloadHash] = sample
+		primaryErr := execute(payload, sample, shellcodeExecutionPrimary)
+		if primaryErr != nil {
+			primaryFailure := fmt.Errorf("primary execution failed: %w", primaryErr)
+			replayErr := execute(payload, sample, shellcodeExecutionDiagnosticReplay)
+			var executionFailure error
+			if replayErr == nil {
+				executionFailure = errors.Join(
+					errors.New("same-byte diagnostic replay succeeded; original failure remains authoritative"),
+					primaryFailure,
+				)
+			} else {
+				executionFailure = errors.Join(
+					fmt.Errorf("same-byte diagnostic replay failed: %w", replayErr),
+					primaryFailure,
+				)
+			}
+			return result, fmt.Errorf(
+				"sample %d/%d payload sha256=%x: %w",
+				sample,
+				requiredSamples,
+				payloadHash,
+				executionFailure,
+			)
+		}
+		result.completedSamples++
+		if verified != nil {
+			verified(sample, payload, payloadHash)
+		}
+	}
+	return result, nil
 }
 
 func (s *suite) discoverShellcodeEncoders(target e2ecoverage.Target) (map[string]clientpb.ShellcodeEncoder, error) {
@@ -397,12 +509,14 @@ func (s *suite) recordAllShellcodeFailures(recorder *shellcodecoverage.Recorder,
 						continue
 					}
 					if err := recorder.Add(shellcodecoverage.Observation{
-						Transport:   transport,
-						ImplantMode: mode,
-						Compression: compression,
-						Encoder:     encoder,
-						Status:      e2ecoverage.StatusFail,
-						Detail:      shellcodeFailureDetail(detail),
+						Transport:        transport,
+						ImplantMode:      mode,
+						Compression:      compression,
+						Encoder:          encoder,
+						Status:           e2ecoverage.StatusFail,
+						Detail:           shellcodeFailureDetail(detail),
+						RequiredSamples:  shellcodeEncoderSamples(encoder, s.opts.sgnSamples),
+						CompletedSamples: 0,
 					}); err != nil {
 						recordErrors = append(recordErrors, err)
 					}
@@ -428,13 +542,15 @@ func (s *suite) recordShellcodeBuildFailures(
 			continue
 		}
 		if err := recorder.Add(shellcodecoverage.Observation{
-			Transport:   transport,
-			ImplantMode: mode,
-			Compression: compression,
-			Encoder:     encoder,
-			Status:      e2ecoverage.StatusFail,
-			Duration:    duration,
-			Detail:      shellcodeFailureDetail(detail),
+			Transport:        transport,
+			ImplantMode:      mode,
+			Compression:      compression,
+			Encoder:          encoder,
+			Status:           e2ecoverage.StatusFail,
+			Duration:         duration,
+			Detail:           shellcodeFailureDetail(detail),
+			RequiredSamples:  shellcodeEncoderSamples(encoder, s.opts.sgnSamples),
+			CompletedSamples: 0,
 		}); err != nil {
 			recordErrors = append(recordErrors, err)
 		}
@@ -452,11 +568,15 @@ func shellcodeTargetSupported(target e2ecoverage.Target) bool {
 }
 
 func shellcodeFailureDetail(detail string) string {
-	detail = strings.TrimSpace(detail)
+	detail = strings.TrimSpace(strings.ToValidUTF8(detail, "\uFFFD"))
 	if len(detail) <= shellcodeFailureDetailBytes {
 		return detail
 	}
-	return detail[:shellcodeFailureDetailBytes] + "...(truncated)"
+	end := shellcodeFailureDetailBytes
+	for end > 0 && !utf8.ValidString(detail[:end]) {
+		end--
+	}
+	return detail[:end] + "...(truncated)"
 }
 
 func shellcodeExecutionProtection(arch string, encoder string) string {

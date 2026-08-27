@@ -1,46 +1,41 @@
-# server/encoders/shellcode/sgn
+# SGN shellcode encoder adapter
 
-## Overview
+This package adapts [`github.com/moloch--/sgn`](https://github.com/moloch--/sgn)
+for Sliver's shellcode-encoder interface. Sliver's public RPC and Go APIs are
+unchanged; the adapter translates `SGNConfig` into the upstream encoder and
+uses its deterministic seeded encoding entry point with fresh cryptographic
+randomness for every production attempt.
 
-SGN (Shikata Ga Nai) coordination and helpers. Implements SGN enrollment, messaging, and policy logic.
+## Configuration
 
-## Go Files
+- `Architecture` selects 386 or amd64 encoding.
+- `Iterations` controls the number of encoding layers.
+- `MaxObfuscation` is the decoder obfuscation-byte budget.
+- `PlainDecoder` leaves the decoder stub unencoded.
+- `Safe` preserves registers around the decoder.
+- `BadChars` and `Asci` enable output constraints.
 
-- `sgn.go` – Implements SGN coordination logic and message handling, including the Shikata Ga Nai encoder helpers.
-- `sgn_test.go` – Unit tests covering SGN configuration wiring and helper utilities.
+Unconstrained encoding is attempted exactly once. Constraint searches may try
+up to 64 independently seeded outputs, but an upstream encoder error or empty
+output fails immediately; retries never mask an encoder defect.
 
-## SGN Encoder Helpers
+## Tests and fixtures
 
-The server helper wraps the [`github.com/moloch--/sgn`](https://github.com/moloch--/sgn) encoder and exposes a simple `SGNConfig` with the following knobs:
+The tests cover configuration mapping, strict constraint handling, fixed-seed
+replay on 386 and amd64, concurrent seeded encoding, and multiple deterministic
+variants of three embedded `msfvenom` fixtures. The comprehensive shellcode E2E
+workflow adds native execution coverage: every SGN matrix cell must produce and
+execute four distinct randomized outputs, and any failed sample fails the cell.
 
-- `Architecture` – `386`/`amd64` (case-insensitive) selection passed to `sgn.NewEncoder`.
-- `Iterations` – number of encode passes mapped to `Encoder.EncodingCount`.
-- `MaxObfuscation` – byte budget forwarded to `Encoder.ObfuscationLimit`.
-- `PlainDecoder` – keep the decoder stub in clear text.
-- `Safe` – enable register preservation via `Encoder.SaveRegisters`.
-- `BadChars` / `Asci` – optional post-processing filters that brute force new seeds until constraints pass.
-
-These options mirror the upstream CLI flags so server-side tasks can reuse the same behavior.
-
-## Test Fixtures
-
-Shellcode fixtures used by the unit tests live under `testdata/` with a `.bin` extension. They are produced via `msfvenom` using a dedicated Go generator:
+Fixtures under `testdata/` can be regenerated when intentionally updating them:
 
 ```bash
 go generate ./server/encoders/shellcode/sgn
 ```
 
-The generator invokes `msfvenom` three times (reverse TCP/HTTP stagers and an exec payload) and writes raw shellcode into the `testdata` directory. Ensure the Metasploit framework is installed and `msfvenom` is on `$PATH` before running the generation step.
-
-## Testing
-
-The log subsystem expects a writable Sliver root directory. Point it to a temporary location when running tests:
+This requires Metasploit's `msfvenom` on `PATH`. Run repository unit tests only
+through the project wrapper:
 
 ```bash
-export SLIVER_ROOT_DIR=$(pwd)/.tmp-sliver
-export GOCACHE=$(pwd)/.tmp-gocache
-mkdir -p "$SLIVER_ROOT_DIR" "$GOCACHE"
-go test ./server/encoders/shellcode/sgn
+./go-tests.sh --unit-only
 ```
-
-The test suite focuses on option wiring and constraint helpers rather than the full stochastic encoding pipeline.

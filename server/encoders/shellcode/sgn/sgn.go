@@ -20,8 +20,10 @@ package sgn
 
 import (
 	"bytes"
+	cryptorand "crypto/rand"
 	"errors"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 
@@ -66,6 +68,10 @@ func EncodeShellcode(shellcode []byte, arch string, iterations int, badChars []b
 
 // EncodeShellcodeWithConfig encodes a shellcode payload using the supplied SGNConfig.
 func EncodeShellcodeWithConfig(shellcode []byte, cfg SGNConfig) ([]byte, error) {
+	return encodeShellcodeWithConfig(shellcode, cfg, cryptorand.Reader)
+}
+
+func encodeShellcodeWithConfig(shellcode []byte, cfg SGNConfig, randomness io.Reader) ([]byte, error) {
 	sgnLog.Infof("[sgn] EncodeShellcode: %d bytes", len(shellcode))
 
 	if len(shellcode) == 0 {
@@ -83,53 +89,41 @@ func EncodeShellcodeWithConfig(shellcode []byte, cfg SGNConfig) ([]byte, error) 
 	}
 
 	needsConstraints := cfg.Asci || len(cfg.BadChars) > 0
-	seed := sgnpkg.GetRandomByte()
-	const maxAttempts = 64
+	attempts := 1
+	if needsConstraints {
+		attempts = 64
+	}
 
-	var lastErr error
-	for attempt := range maxAttempts {
+	for attempt := 1; attempt <= attempts; attempt++ {
 		encoder, err := newEncoderWithConfig(arch, cfg)
 		if err != nil {
 			sgnLog.Errorf("[sgn] EncodeShellcode setup failed: %s", err)
 			return nil, fmt.Errorf("%w: %s", ErrFailedToEncode, err)
 		}
-		encoder.Seed = seed
 
-		data, err := encodeWithReliableDecoder(encoder, shellcode)
+		var entropy [1 + sgnpkg.RandomSeedSize]byte
+		if _, err := io.ReadFull(randomness, entropy[:]); err != nil {
+			return nil, fmt.Errorf("%w: read encoder randomness: %w", ErrFailedToEncode, err)
+		}
+		encoder.Seed = entropy[0]
+		var randomSeed sgnpkg.RandomSeed
+		copy(randomSeed[:], entropy[1:])
+
+		data, err := encoder.EncodeWithSeed(shellcode, randomSeed)
 		if err != nil {
-			fallbackEncoder, fallbackErr := newEncoderWithConfig(arch, cfg)
-			if fallbackErr != nil {
-				lastErr = fmt.Errorf("primary: %w, fallback setup: %w", err, fallbackErr)
-				sgnLog.Warnf("[sgn] EncodeShellcode attempt %d failed (fallback setup): %s / %s", attempt+1, err, fallbackErr)
-				seed = nextSeed(seed)
-				continue
-			}
-			fallbackEncoder.Seed = seed
-			data, fallbackErr = simpleEncode(fallbackEncoder, shellcode)
-			if fallbackErr != nil {
-				lastErr = fmt.Errorf("primary: %w, fallback encode: %w", err, fallbackErr)
-				sgnLog.Warnf("[sgn] EncodeShellcode attempt %d failed (fallback encode): %s / %s", attempt+1, err, fallbackErr)
-				seed = nextSeed(seed)
-				continue
-			}
+			sgnLog.Errorf("[sgn] EncodeShellcode attempt %d failed: %s", attempt, err)
+			return nil, fmt.Errorf("%w: %s", ErrFailedToEncode, err)
 		}
 
 		if len(data) == 0 {
-			lastErr = fmt.Errorf("attempt %d returned empty payload", attempt+1)
-			sgnLog.Warnf("[sgn] EncodeShellcode attempt %d returned empty payload", attempt+1)
-			seed = nextSeed(seed)
-			continue
+			return nil, fmt.Errorf("%w: attempt %d returned empty payload", ErrFailedToEncode, attempt)
 		}
 
 		if !needsConstraints || meetsConstraints(data, cfg) {
 			return data, nil
 		}
-		seed = nextSeed(seed)
 	}
 
-	if lastErr != nil {
-		return nil, fmt.Errorf("%w: %s", ErrFailedToEncode, lastErr)
-	}
 	return nil, fmt.Errorf("%w: unable to satisfy encoding constraints", ErrFailedToEncode)
 }
 
@@ -177,10 +171,6 @@ func isASCIIPrintable(data []byte) bool {
 	return true
 }
 
-func nextSeed(seed byte) byte {
-	return byte((int(seed) + 1) % 255)
-}
-
 func parseArchitecture(arch string) (int, error) {
 	if arch == "" {
 		return 64, nil
@@ -204,175 +194,4 @@ func parseArchitecture(arch string) (int, error) {
 	}
 
 	return 0, fmt.Errorf("unsupported architecture %q", arch)
-}
-
-func simpleEncode(encoder *sgnpkg.Encoder, payload []byte) ([]byte, error) {
-	current := append([]byte{}, payload...)
-	if encoder.SaveRegisters {
-		current = append(current, sgnpkg.SafeRegisterSuffix[encoder.GetArchitecture()]...)
-	}
-
-	ciphered := sgnpkg.CipherADFL(current, encoder.Seed)
-	encoded, err := addReliableADFLDecoder(encoder, ciphered)
-	if err != nil {
-		return nil, err
-	}
-
-	if encoder.EncodingCount > 1 {
-		encoder.EncodingCount--
-		encoder.Seed = sgnpkg.GetRandomByte()
-		return simpleEncode(encoder, encoded)
-	}
-
-	if encoder.SaveRegisters {
-		encoded = append(sgnpkg.SafeRegisterPrefix[encoder.GetArchitecture()], encoded...)
-	}
-
-	return encoded, nil
-}
-
-func encodeWithReliableDecoder(encoder *sgnpkg.Encoder, payload []byte) ([]byte, error) {
-	// This mirrors sgn.Encoder.Encode while replacing its ADFL decoder
-	// construction. The upstream register selector can choose the decoder's
-	// counter register or a low-byte alias of its base register, producing
-	// machine code that assembles successfully but cannot decode the payload.
-	current := append([]byte{}, payload...)
-	if encoder.SaveRegisters {
-		current = append(current, sgnpkg.SafeRegisterSuffix[encoder.GetArchitecture()]...)
-	}
-
-	garbage, err := encoder.GenerateGarbageInstructions()
-	if err != nil {
-		return nil, err
-	}
-	current = append(garbage, current...)
-
-	ciphered := sgnpkg.CipherADFL(current, encoder.Seed)
-	encoded, err := addReliableADFLDecoder(encoder, ciphered)
-	if err != nil {
-		return nil, err
-	}
-
-	final := encoded
-	if !encoder.PlainDecoder {
-		garbage, err = encoder.GenerateGarbageInstructions()
-		if err != nil {
-			return nil, err
-		}
-		encoded = append(garbage, encoded...)
-
-		schemaSize := ((len(encoded) - len(ciphered)) / (encoder.GetArchitecture() / 8)) + 1
-		schema := encoder.NewCipherSchema(schemaSize)
-		obfuscated := encoder.SchemaCipher(encoded, 0, schema)
-		final, err = encoder.AddSchemaDecoder(obfuscated, schema)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if encoder.EncodingCount > 1 {
-		encoder.EncodingCount--
-		encoder.Seed = sgnpkg.GetRandomByte()
-		final, err = encodeWithReliableDecoder(encoder, final)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if encoder.SaveRegisters {
-		final = append(sgnpkg.SafeRegisterPrefix[encoder.GetArchitecture()], final...)
-	}
-
-	return final, nil
-}
-
-func addReliableADFLDecoder(encoder *sgnpkg.Encoder, payload []byte) ([]byte, error) {
-	return addReliableADFLDecoderWithGenerator(encoder, payload, encoder.NewDecoderAssembly)
-}
-
-func addReliableADFLDecoderWithGenerator(
-	encoder *sgnpkg.Encoder,
-	payload []byte,
-	newDecoderAssembly func(int) (string, error),
-) ([]byte, error) {
-	const maxAttempts = 64
-
-	for range maxAttempts {
-		decoderAssembly, err := newDecoderAssembly(len(payload))
-		if err != nil {
-			return nil, err
-		}
-		if !decoderRegistersAreDistinct(encoder.GetArchitecture(), decoderAssembly) {
-			continue
-		}
-
-		decoder, ok := encoder.Assemble(decoderAssembly)
-		if !ok {
-			return nil, errors.New("decoder assembly failed")
-		}
-		return append(decoder, payload...), nil
-	}
-
-	return nil, errors.New("failed to select distinct decoder registers")
-}
-
-func decoderRegistersAreDistinct(arch int, assembly string) bool {
-	baseRegister := ""
-	keyRegister := ""
-	counterRegister := "ECX"
-	counterLowRegister := "CL"
-	if arch == 64 {
-		counterRegister = "RCX"
-	}
-
-	for _, rawLine := range strings.Split(assembly, "\n") {
-		line := strings.ToUpper(strings.TrimSpace(rawLine))
-		switch {
-		case arch == 32 && strings.HasPrefix(line, "POP "):
-			baseRegister = strings.TrimSpace(strings.TrimPrefix(line, "POP "))
-		case arch == 64 && strings.HasPrefix(line, "LEA "):
-			operands := strings.SplitN(strings.TrimPrefix(line, "LEA "), ",", 2)
-			if len(operands) == 2 {
-				baseRegister = strings.TrimSpace(operands[0])
-			}
-		case strings.HasPrefix(line, "MOV "):
-			operands := strings.SplitN(strings.TrimPrefix(line, "MOV "), ",", 2)
-			if len(operands) == 2 {
-				destination := strings.TrimSpace(operands[0])
-				if destination != counterRegister {
-					keyRegister = destination
-				}
-			}
-		}
-	}
-
-	if baseRegister == "" || keyRegister == "" || keyRegister == counterLowRegister {
-		return false
-	}
-
-	baseLowRegisters := map[string]string{
-		"EAX": "AL",
-		"EBX": "BL",
-		"ECX": "CL",
-		"EDX": "DL",
-		"ESI": "",
-		"EDI": "",
-		"RAX": "AL",
-		"RBX": "BL",
-		"RCX": "CL",
-		"RDX": "DL",
-		"RSI": "SIL",
-		"RDI": "DIL",
-		"R8":  "R8B",
-		"R9":  "R9B",
-		"R10": "R10B",
-		"R11": "R11B",
-		"R12": "R12B",
-		"R13": "R13B",
-		"R14": "R14B",
-		"R15": "R15B",
-	}
-
-	baseLowRegister, knownBaseRegister := baseLowRegisters[baseRegister]
-	return knownBaseRegister && baseLowRegister != keyRegister
 }

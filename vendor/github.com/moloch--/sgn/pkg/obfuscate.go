@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/rand"
 	"strings"
 )
 
@@ -34,6 +33,9 @@ func (encoder *Encoder) GenerateGarbageAssembly() string {
 // GenerateGarbageInstructions generates random garbage instruction(s)
 // with the specified architecture and returns the assembled bytes
 func (encoder *Encoder) GenerateGarbageInstructions() ([]byte, error) {
+	if encoder.ObfuscationLimit <= 0 {
+		return []byte{}, nil
+	}
 
 	randomGarbageAssembly := encoder.GenerateGarbageAssembly()
 	garbage, ok := encoder.Assemble(randomGarbageAssembly)
@@ -71,14 +73,14 @@ func GetRandomSafeAssembly() string {
 		newSafeGarbageInstructions = append(newSafeGarbageInstructions, jmp+" {L};{G};{L}:")
 		//newSafeGarbageInstructions = append(newSafeGarbageInstructions, jmp+" 2")
 	}
-	return newSafeGarbageInstructions[rand.Intn(len(SafeGarbageInstructions))]
+	return newSafeGarbageInstructions[secureIntn(len(newSafeGarbageInstructions))]
 }
 
 // GetRandomUnsafeAssembly return a safe garbage instruction assembly
 func (encoder *Encoder) GetRandomUnsafeAssembly(destReg string) string {
 
 	// Random register size between 8-16-32-64
-	randRegSize := int(math.Pow(2, float64(rand.Intn(3+(encoder.architecture/64))+3)))
+	randRegSize := int(math.Pow(2, float64(secureIntn(3+(encoder.architecture/64))+3)))
 	subReg := ""
 	for _, i := range REGS[encoder.architecture] {
 		if (encoder.architecture == 32 && i.Extended == destReg) || (encoder.architecture == 64 && i.Full == destReg) {
@@ -92,6 +94,11 @@ func (encoder *Encoder) GetRandomUnsafeAssembly(destReg string) string {
 			case 64:
 				subReg = i.Full
 			}
+			if subReg == "" {
+				subReg = destReg
+				randRegSize = encoder.architecture
+			}
+			break
 		}
 	}
 
@@ -120,7 +127,7 @@ func (encoder *Encoder) GetRandomUnsafeMnemonic(opRegSize int) *INSTRUCTION {
 		panic(err)
 	}
 
-	new := UnsafeInstructions[rand.Intn(len(UnsafeInstructions))]
+	new := UnsafeInstructions[secureIntn(len(UnsafeInstructions))]
 	if ((new.V32 && encoder.GetArchitecture() == 32) || (new.V64 && encoder.GetArchitecture() == 64)) && len(new.Operands) == 2 {
 		if include(new.Operands[0].Types, fmt.Sprintf("r/m%d", opRegSize)) || include(new.Operands[0].Types, fmt.Sprintf("r%d", opRegSize)) {
 			// for _, ope := range new.Operands[1].Types {
@@ -146,9 +153,9 @@ func (encoder *Encoder) GetRandomOperandValue(operandType string) string {
 	case "imm8":
 		return fmt.Sprintf("0x%x", GetRandomByte()%127)
 	case "imm16":
-		return fmt.Sprintf("0x%x", rand.Intn(32767))
+		return fmt.Sprintf("0x%x", secureIntn(32767))
 	case "imm32":
-		return fmt.Sprintf("0x%x", rand.Int31n((2147483647)))
+		return fmt.Sprintf("0x%x", secureIntn(2147483647))
 	case "imm64":
 		return fmt.Sprintf("0x%x", GetRandomBytes(8))
 	case "r8":
@@ -216,7 +223,7 @@ func (ins *INSTRUCTION) GetRandomMatchingOperandType(srcRegSize int) string {
 		}
 	}
 
-	return ins.Operands[1].Types[index[rand.Intn(len(index))]]
+	return ins.Operands[1].Types[index[secureIntn(len(index))]]
 }
 
 func include(arr []string, str string) bool {
@@ -299,7 +306,7 @@ func RandomLabel() string {
 	numbers := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 	b := make([]rune, 5)
 	for i := range b {
-		b[i] = numbers[rand.Intn(len(numbers))]
+		b[i] = numbers[secureIntn(len(numbers))]
 	}
 	return string(b)
 }
