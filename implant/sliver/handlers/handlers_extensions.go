@@ -50,27 +50,46 @@ func registerExtension(data []byte, resp RPCResponse, factory extensionFactory) 
 }
 
 func callExtensionHandler(data []byte, resp RPCResponse) {
+	callExtension(data, resp, executeBOF)
+}
+
+func callExtension(data []byte, resp RPCResponse, execute bofExecuteFunc) {
 	callReq := &sliverpb.CallExtensionReq{}
 	if err := proto.Unmarshal(data, callReq); err != nil {
 		return
 	}
 
 	callResp := &sliverpb.CallExtension{Response: &commonpb.Response{}}
-	gotOutput := false
-	err := extension.Run(callReq.Name, callReq.Export, callReq.Args, func(out []byte) {
-		gotOutput = true
-		callResp.Output = out
-		data, err := proto.Marshal(callResp)
-		resp(data, err)
-	})
-	// Only send back synchronously if there was an error or no callback output.
-	if err != nil || !gotOutput {
+	if callReq.IsBOF {
+		output, err := execute(callReq.BOFData, callReq.Export, callReq.Args)
+		callResp.Output = output
 		if err != nil {
 			callResp.Response.Err = err.Error()
 		}
 		data, err = proto.Marshal(callResp)
 		resp(data, err)
+		return
 	}
+
+	gotOutput := false
+	var output []byte
+	err := extension.Run(callReq.Name, callReq.Export, callReq.Args, func(out []byte) {
+		// Native callbacks run on the extension's call stack. Keep the first
+		// result, copy it before the native buffer expires, and respond only
+		// after the extension call has returned.
+		if gotOutput {
+			return
+		}
+		gotOutput = true
+		output = append([]byte(nil), out...)
+	})
+	if gotOutput {
+		callResp.Output = output
+	} else if err != nil {
+		callResp.Response.Err = err.Error()
+	}
+	data, err = proto.Marshal(callResp)
+	resp(data, err)
 }
 
 func listExtensionsHandler(data []byte, resp RPCResponse) {

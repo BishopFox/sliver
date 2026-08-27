@@ -53,6 +53,8 @@ var (
 		pb.MsgUnsetEnvReq:        unsetEnvHandler,
 		pb.MsgChtimesReq:         chtimesHandler,
 		pb.MsgGrepReq:            grepHandler,
+		pb.MsgChmodReq:           chmodHandler,
+		pb.MsgChownReq:           chownHandler,
 
 		pb.MsgScreenshotReq: screenshotHandler,
 		pb.MsgNetstatReq:    netstatHandler,

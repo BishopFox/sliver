@@ -1513,6 +1513,7 @@ type Session struct {
 	Locale        string `protobuf:"bytes,26,opt,name=Locale,proto3" json:"Locale,omitempty"`
 	FirstContact  int64  `protobuf:"varint,27,opt,name=FirstContact,proto3" json:"FirstContact,omitempty"`
 	Integrity     string `protobuf:"bytes,28,opt,name=Integrity,proto3" json:"Integrity,omitempty"`
+	Capabilities  uint64 `protobuf:"varint,29,opt,name=Capabilities,proto3" json:"Capabilities,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1729,6 +1730,13 @@ func (x *Session) GetIntegrity() string {
 	return ""
 }
 
+func (x *Session) GetCapabilities() uint64 {
+	if x != nil {
+		return x.Capabilities
+	}
+	return 0
+}
+
 type Beacon struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	ID                  string                 `protobuf:"bytes,1,opt,name=ID,proto3" json:"ID,omitempty"`
@@ -1760,6 +1768,7 @@ type Beacon struct {
 	Locale              string                 `protobuf:"bytes,28,opt,name=Locale,proto3" json:"Locale,omitempty"`
 	FirstContact        int64                  `protobuf:"varint,29,opt,name=FirstContact,proto3" json:"FirstContact,omitempty"`
 	Integrity           string                 `protobuf:"bytes,30,opt,name=Integrity,proto3" json:"Integrity,omitempty"`
+	Capabilities        uint64                 `protobuf:"varint,31,opt,name=Capabilities,proto3" json:"Capabilities,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -1995,6 +2004,13 @@ func (x *Beacon) GetIntegrity() string {
 		return x.Integrity
 	}
 	return ""
+}
+
+func (x *Beacon) GetCapabilities() uint64 {
+	if x != nil {
+		return x.Capabilities
+	}
+	return 0
 }
 
 type Beacons struct {
@@ -12955,7 +12971,7 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\x04Arch\x18\b \x01(\tR\x04Arch\";\n" +
 	"\rClientLogData\x12\x16\n" +
 	"\x06Stream\x18\x01 \x01(\tR\x06Stream\x12\x12\n" +
-	"\x04Data\x18\x02 \x01(\fR\x04Data\"\xb1\x05\n" +
+	"\x04Data\x18\x02 \x01(\fR\x04Data\"\xd5\x05\n" +
 	"\aSession\x12\x0e\n" +
 	"\x02ID\x18\x01 \x01(\tR\x02ID\x12\x12\n" +
 	"\x04Name\x18\x02 \x01(\tR\x04Name\x12\x1a\n" +
@@ -12985,7 +13001,8 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\x06PeerID\x18\x19 \x01(\x03R\x06PeerID\x12\x16\n" +
 	"\x06Locale\x18\x1a \x01(\tR\x06Locale\x12\"\n" +
 	"\fFirstContact\x18\x1b \x01(\x03R\fFirstContact\x12\x1c\n" +
-	"\tIntegrity\x18\x1c \x01(\tR\tIntegrity\"\xa0\x06\n" +
+	"\tIntegrity\x18\x1c \x01(\tR\tIntegrity\x12\"\n" +
+	"\fCapabilities\x18\x1d \x01(\x04R\fCapabilities\"\xc4\x06\n" +
 	"\x06Beacon\x12\x0e\n" +
 	"\x02ID\x18\x01 \x01(\tR\x02ID\x12\x12\n" +
 	"\x04Name\x18\x02 \x01(\tR\x04Name\x12\x1a\n" +
@@ -13018,7 +13035,8 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\x13TasksCountCompleted\x18\x1b \x01(\x03R\x13TasksCountCompleted\x12\x16\n" +
 	"\x06Locale\x18\x1c \x01(\tR\x06Locale\x12\"\n" +
 	"\fFirstContact\x18\x1d \x01(\x03R\fFirstContact\x12\x1c\n" +
-	"\tIntegrity\x18\x1e \x01(\tR\tIntegrity\"5\n" +
+	"\tIntegrity\x18\x1e \x01(\tR\tIntegrity\x12\"\n" +
+	"\fCapabilities\x18\x1f \x01(\x04R\fCapabilities\"5\n" +
 	"\aBeacons\x12*\n" +
 	"\aBeacons\x18\x02 \x03(\v2\x10.clientpb.BeaconR\aBeacons\"\xfe\x01\n" +
 	"\n" +

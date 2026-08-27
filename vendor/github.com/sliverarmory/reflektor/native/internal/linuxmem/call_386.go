@@ -1,4 +1,4 @@
-//go:build linux && 386
+//go:build linux && !android && 386
 
 // SPDX-License-Identifier: MIT
 // Adapted from Reflektor's memmod Linux call bridge; see
