@@ -26,7 +26,9 @@ func (r *runner) downloadFileTo(url, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tmpName)
+	defer func() {
+		_ = os.Remove(tmpName)
+	}()
 
 	if err := moveFile(tmpName, dest); err != nil {
 		return fmt.Errorf("move download into place: %w", err)
@@ -169,7 +171,7 @@ func isRetryableDownloadError(err error) bool {
 	}
 
 	var netErr net.Error
-	return errors.As(err, &netErr) && (netErr.Timeout() || netErr.Temporary())
+	return errors.As(err, &netErr) && netErr.Timeout()
 }
 
 func waitForDownloadRetry(ctx context.Context, delay time.Duration) error {
