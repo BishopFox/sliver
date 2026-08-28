@@ -136,22 +136,30 @@ func writeCLIReports(t *testing.T, root string, failFirst bool) {
 						if !shellcodecoverage.EncoderSupported(target, encoder) {
 							continue
 						}
+						requiredSamples := 1
+						if encoder == shellcodecoverage.EncoderShikataGaNai {
+							requiredSamples = 4
+						}
 						status := coverage.StatusPass
 						detail := ""
+						completedSamples := requiredSamples
 						if failFirst && !failed {
 							status = coverage.StatusFail
 							detail = "callback timeout"
+							completedSamples = 0
 							failed = true
 						}
 						if err := recorder.Add(shellcodecoverage.Observation{
-							Transport:    transport,
-							ImplantMode:  implantMode,
-							Compression:  compression,
-							Encoder:      encoder,
-							Status:       status,
-							Duration:     time.Second,
-							Detail:       detail,
-							PayloadBytes: 2048,
+							Transport:        transport,
+							ImplantMode:      implantMode,
+							Compression:      compression,
+							Encoder:          encoder,
+							Status:           status,
+							Duration:         time.Second,
+							Detail:           detail,
+							PayloadBytes:     2048,
+							RequiredSamples:  requiredSamples,
+							CompletedSamples: completedSamples,
 						}); err != nil {
 							t.Fatalf("Add(%s/%s) error = %v", target.OS, target.Arch, err)
 						}

@@ -102,18 +102,20 @@ func renderFailureDetails(output *strings.Builder, failed []Record, missing []Id
 
 	if len(failed) > 0 {
 		output.WriteString("### Explicit failures\n\n")
-		output.WriteString("| Target | Transport | Mode | Compression | Encoder | Payload bytes | Duration | Detail |\n")
-		output.WriteString("|---|---|---|---|---|---:|---:|---|\n")
+		output.WriteString("| Target | Transport | Mode | Compression | Encoder | Samples | Payload bytes | Duration | Detail |\n")
+		output.WriteString("|---|---|---|---|---|---:|---:|---:|---|\n")
 		for _, record := range failed {
 			fmt.Fprintf(
 				output,
-				"| %s/%s | %s | %s | %s | %s | %d | %s | %s |\n",
+				"| %s/%s | %s | %s | %s | %s | %d/%d | %d | %s | %s |\n",
 				markdown(record.Target.OS),
 				markdown(record.Target.Arch),
 				markdown(record.Transport),
 				markdown(record.ImplantMode),
 				markdown(record.Compression),
 				markdown(record.Encoder),
+				record.CompletedSamples,
+				record.RequiredSamples,
 				record.PayloadBytes,
 				formatDuration(record.Duration),
 				markdown(record.Detail),

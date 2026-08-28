@@ -23,6 +23,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	e2ecoverage "github.com/bishopfox/sliver/test/e2e/coverage"
+	"github.com/bishopfox/sliver/test/e2e/shellcodecoverage"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -54,6 +55,7 @@ type options struct {
 	connectTimeout time.Duration
 	commandTimeout time.Duration
 	beaconInterval time.Duration
+	sgnSamples     int
 	implantDebug   bool
 }
 
@@ -258,6 +260,9 @@ func validateOptions(opts *options) error {
 	}
 	if opts.timeout <= 0 || opts.startupTimeout <= 0 || opts.connectTimeout <= 0 || opts.commandTimeout <= 0 || opts.beaconInterval <= 0 {
 		return errors.New("all E2E timeouts and intervals must be positive")
+	}
+	if opts.sgnSamples < shellcodecoverage.MinimumSGNSamples {
+		return fmt.Errorf("shellcode SGN samples must be at least %d", shellcodecoverage.MinimumSGNSamples)
 	}
 	opts.transports, err = parseSelection(opts.transportCSV, transportOrder, "transport")
 	if err != nil {
