@@ -11,15 +11,23 @@ import (
 )
 
 type runner struct {
-	logger      *logger
-	httpClient  *http.Client
-	outputDir   string
-	workDir     string
-	goIndex     int
-	zigIndex    int
-	garbleIndex int
-	zigMirrors  []string
+	logger             *logger
+	httpClient         *http.Client
+	outputDir          string
+	workDir            string
+	downloadAttempts   int
+	downloadRetryDelay time.Duration
+	goIndex            int
+	zigIndex           int
+	garbleIndex        int
+	zigMirrors         []string
 }
+
+const (
+	downloadTimeout         = 15 * time.Minute
+	defaultDownloadAttempts = 3
+	defaultDownloadDelay    = 250 * time.Millisecond
+)
 
 type config struct {
 	verbose bool
@@ -54,10 +62,12 @@ func Run(args []string) error {
 
 	log := newLogger(cfg.verbose, cfg.quiet, cfg.noColor)
 	r := &runner{
-		logger:     log,
-		httpClient: &http.Client{Timeout: 15 * time.Minute},
-		outputDir:  outputDir,
-		workDir:    workDir,
+		logger:             log,
+		httpClient:         &http.Client{Timeout: downloadTimeout},
+		outputDir:          outputDir,
+		workDir:            workDir,
+		downloadAttempts:   defaultDownloadAttempts,
+		downloadRetryDelay: defaultDownloadDelay,
 	}
 
 	log.Header("Sliver Assets")

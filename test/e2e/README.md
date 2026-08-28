@@ -70,6 +70,8 @@ Every encoder setting in a target row crosses these axes:
 
 Shellcode encoder support is architecture-based rather than OS-based: `amd64` supports `none`, `shikata_ga_nai`, `xor`, and `xor_dynamic`; `arm64` supports `none`, `xor`, and `xor_dynamic`; and `386` supports `none` and `shikata_ga_nai`. Thus the suite has `(3 + 4 + 3 + 2 + 4) × 3 transports × 2 modes × 2 compression settings = 192` required combinations.
 
+The workflow passes `-shellcode-sgn-samples 4`. Each logical `shikata_ga_nai` cell therefore encodes and natively executes four independently randomized SGN outputs from the same generated base payload. Every sample is required: the first failed sample fails the cell, while successful later samples can never turn a failure green. When execution fails, the suite executes the exact same in-memory bytes once more in an isolated diagnostic directory; that replay can explain whether the same bytes fail consistently, but it never changes the failed status and neither payload is uploaded in the coverage artifact. Coverage remains 192 logical combinations rather than counting the nested stability samples as separate cells, while a fully passing workflow performs 300 native executions in total. Target and aggregate reports record `completed_samples` and `required_samples`, so a passing SGN cell is auditable as `4/4` from its artifact rather than only from the job log. Local runs also default to four SGN samples; `-shellcode-sgn-samples` may raise, but not lower, that stability floor.
+
 The aggregate table uses four statuses:
 
 - `PASS`: the supported combination generated, its C runner executed, and the expected server event arrived.
@@ -123,7 +125,7 @@ CGO_ENABLED=0 go test -c -buildvcs=false -mod=vendor -trimpath \
   -implant-modes session,beacon
 ```
 
-Run the shellcode group with the same server and test binary by changing the selector to `-test.run=^TestShellcodeE2E$` and writing results to a separate directory such as `./shellcode-results`. Shellcode aggregation expects the complete five-target workflow matrix; a single local target is useful as a runtime smoke test but intentionally reports the other required targets as `NOT RUN`.
+Run the shellcode group with the same server and test binary by changing the selector to `-test.run=^TestShellcodeE2E$` and writing results to a separate directory such as `./shellcode-results`. The default four SGN samples match the workflow; `-shellcode-sgn-samples` can request a higher stress depth. Shellcode aggregation expects the complete five-target workflow matrix; a single local target is useful as a runtime smoke test but intentionally reports the other required targets as `NOT RUN`.
 
 On Windows, give both output files an `.exe` suffix. The `linux/386` row is built and run with [Dockerfile.linux-386](Dockerfile.linux-386) because its 386 driver must execute under a 386 userspace. The selector flags can narrow transports or modes for diagnosis, but a narrowed result set is intentionally incomplete when aggregated against the comprehensive catalog.
 

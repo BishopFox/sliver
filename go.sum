@@ -575,6 +575,10 @@ github.com/moloch--/readline v0.0.0-20260129035512-cb5b3e87d51a h1:Q69DxLWF+Z8oI
 github.com/moloch--/readline v0.0.0-20260129035512-cb5b3e87d51a/go.mod h1:CwNkh9BmFBBCSO6mdDaNWb34rOqQsI9eYbxyqvOEazY=
 github.com/moloch--/sgn v0.0.5 h1:92GFaRpe+353uhqzFiNKXKgmTiD4dBxnvb8gd4MaV/g=
 github.com/moloch--/sgn v0.0.5/go.mod h1:FyWfCtdynywgLmVR71vTJztZ3WkGSkR91Y4EOijUutE=
+github.com/moloch--/sgn v0.1.1 h1:ok67KAIkEpiatl6pesQAjpjqXUZwqI2l7CIJfXH4N0Q=
+github.com/moloch--/sgn v0.1.1/go.mod h1:qrMzA8Tf9oiGZvWLaZvfKUetiUM61srSZdmq3gINies=
+github.com/moloch--/sgn v0.1.2 h1:tWmhDNpiZfWBg5+3uPnfJDRBmB219TnVto/RESOqoFo=
+github.com/moloch--/sgn v0.1.2/go.mod h1:qrMzA8Tf9oiGZvWLaZvfKUetiUM61srSZdmq3gINies=
 github.com/muesli/cancelreader v0.2.2 h1:3I4Kt4BQjOR54NavqnDogx/MIoWBFa0StPA8ELUXHmA=
 github.com/muesli/cancelreader v0.2.2/go.mod h1:3XuTXfFS2VjM+HTLZY9Ak0l6eUKfijIfMUZ4EgX0QYo=
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 h1:C3w9PqII01/Oq1c1nUAm88MOHcQC9l5mIlSMApZMrHA=

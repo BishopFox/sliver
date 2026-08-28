@@ -21,7 +21,7 @@ import (
 
 const (
 	// SchemaVersion is the on-disk report schema version.
-	SchemaVersion = 1
+	SchemaVersion = 2
 
 	// TargetReportKind and GlobalReportKind identify shellcode coverage JSON.
 	TargetReportKind = "sliver-e2e-shellcode-target-coverage"
@@ -33,6 +33,9 @@ const (
 
 	// RequiredSupportedCombinations is the fixed gate denominator.
 	RequiredSupportedCombinations = 192
+	// MinimumSGNSamples is the minimum randomized execution depth required for
+	// every supported Shikata Ga Nai matrix cell.
+	MinimumSGNSamples = 4
 
 	TransportMTLS = "mtls"
 	TransportWG   = "wg"
@@ -108,27 +111,31 @@ func EncoderSupported(target coverage.Target, encoder string) bool {
 
 // Observation is the target-independent result supplied to a Recorder.
 type Observation struct {
-	Transport    string
-	ImplantMode  string
-	Compression  string
-	Encoder      string
-	Status       coverage.Status
-	Duration     time.Duration
-	Detail       string
-	PayloadBytes int64
+	Transport        string
+	ImplantMode      string
+	Compression      string
+	Encoder          string
+	Status           coverage.Status
+	Duration         time.Duration
+	Detail           string
+	PayloadBytes     int64
+	RequiredSamples  int
+	CompletedSamples int
 }
 
 // Record is one complete, supported shellcode matrix result.
 type Record struct {
-	Target       coverage.Target `json:"target"`
-	Transport    string          `json:"transport"`
-	ImplantMode  string          `json:"implant_mode"`
-	Compression  string          `json:"compression"`
-	Encoder      string          `json:"encoder"`
-	Status       coverage.Status `json:"status"`
-	Duration     time.Duration   `json:"duration_ns"`
-	Detail       string          `json:"detail"`
-	PayloadBytes int64           `json:"payload_bytes"`
+	Target           coverage.Target `json:"target"`
+	Transport        string          `json:"transport"`
+	ImplantMode      string          `json:"implant_mode"`
+	Compression      string          `json:"compression"`
+	Encoder          string          `json:"encoder"`
+	Status           coverage.Status `json:"status"`
+	Duration         time.Duration   `json:"duration_ns"`
+	Detail           string          `json:"detail"`
+	PayloadBytes     int64           `json:"payload_bytes"`
+	RequiredSamples  int             `json:"required_samples"`
+	CompletedSamples int             `json:"completed_samples"`
 }
 
 // Identity is the unique key for one supported matrix observation.
@@ -194,6 +201,28 @@ func (record Record) Validate() error {
 	}
 	if record.PayloadBytes < 0 {
 		return fmt.Errorf("payload bytes must not be negative")
+	}
+	if record.RequiredSamples <= 0 {
+		return fmt.Errorf("required samples must be positive")
+	}
+	if record.Encoder == EncoderShikataGaNai {
+		if record.RequiredSamples < MinimumSGNSamples {
+			return fmt.Errorf("SGN required samples must be at least %d", MinimumSGNSamples)
+		}
+	} else if record.RequiredSamples != 1 {
+		return fmt.Errorf("encoder %q requires exactly one sample", record.Encoder)
+	}
+	if record.CompletedSamples < 0 {
+		return fmt.Errorf("completed samples must not be negative")
+	}
+	if record.CompletedSamples > record.RequiredSamples {
+		return fmt.Errorf("completed samples must not exceed required samples")
+	}
+	if record.Status == coverage.StatusPass && record.CompletedSamples != record.RequiredSamples {
+		return fmt.Errorf("passing record must complete all required samples")
+	}
+	if record.Status == coverage.StatusFail && record.CompletedSamples == record.RequiredSamples {
+		return fmt.Errorf("failed record must have an incomplete required sample set")
 	}
 	if !utf8.ValidString(record.Detail) {
 		return fmt.Errorf("detail must be valid UTF-8")
@@ -266,15 +295,17 @@ func NewRecorder(target coverage.Target) (*Recorder, error) {
 // rejected instead of overwriting an earlier result.
 func (recorder *Recorder) Add(observation Observation) error {
 	record := Record{
-		Target:       recorder.target,
-		Transport:    observation.Transport,
-		ImplantMode:  observation.ImplantMode,
-		Compression:  observation.Compression,
-		Encoder:      observation.Encoder,
-		Status:       observation.Status,
-		Duration:     observation.Duration,
-		Detail:       observation.Detail,
-		PayloadBytes: observation.PayloadBytes,
+		Target:           recorder.target,
+		Transport:        observation.Transport,
+		ImplantMode:      observation.ImplantMode,
+		Compression:      observation.Compression,
+		Encoder:          observation.Encoder,
+		Status:           observation.Status,
+		Duration:         observation.Duration,
+		Detail:           observation.Detail,
+		PayloadBytes:     observation.PayloadBytes,
+		RequiredSamples:  observation.RequiredSamples,
+		CompletedSamples: observation.CompletedSamples,
 	}
 	if err := record.Validate(); err != nil {
 		return err
@@ -551,7 +582,7 @@ func validateTargetReportJSONKeys(data []byte) error {
 			fmt.Sprintf("record %d", index),
 			record,
 			"target", "transport", "implant_mode", "compression", "encoder",
-			"status", "duration_ns", "detail", "payload_bytes",
+			"status", "duration_ns", "detail", "payload_bytes", "required_samples", "completed_samples",
 		); err != nil {
 			return err
 		}

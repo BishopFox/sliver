@@ -156,13 +156,15 @@ func TestRecorderRejectsMalformedAndOutOfMatrixObservations(t *testing.T) {
 
 	target := coverage.Target{OS: "darwin", Arch: "arm64"}
 	valid := shellcodecoverage.Observation{
-		Transport:    shellcodecoverage.TransportMTLS,
-		ImplantMode:  shellcodecoverage.ImplantModeSession,
-		Compression:  shellcodecoverage.CompressionNone,
-		Encoder:      shellcodecoverage.EncoderNone,
-		Status:       coverage.StatusPass,
-		Duration:     time.Second,
-		PayloadBytes: 1234,
+		Transport:        shellcodecoverage.TransportMTLS,
+		ImplantMode:      shellcodecoverage.ImplantModeSession,
+		Compression:      shellcodecoverage.CompressionNone,
+		Encoder:          shellcodecoverage.EncoderNone,
+		Status:           coverage.StatusPass,
+		Duration:         time.Second,
+		PayloadBytes:     1234,
+		RequiredSamples:  1,
+		CompletedSamples: 1,
 	}
 	tests := []struct {
 		name   string
@@ -180,6 +182,15 @@ func TestRecorderRejectsMalformedAndOutOfMatrixObservations(t *testing.T) {
 		}, want: "not supported"},
 		{name: "duration", mutate: func(observation *shellcodecoverage.Observation) { observation.Duration = -1 }, want: "duration"},
 		{name: "payload bytes", mutate: func(observation *shellcodecoverage.Observation) { observation.PayloadBytes = -1 }, want: "payload bytes"},
+		{name: "required samples", mutate: func(observation *shellcodecoverage.Observation) { observation.RequiredSamples = 0 }, want: "required samples"},
+		{name: "non-SGN multiple samples", mutate: func(observation *shellcodecoverage.Observation) {
+			observation.RequiredSamples = 2
+			observation.CompletedSamples = 2
+		}, want: "requires exactly one sample"},
+		{name: "negative completed samples", mutate: func(observation *shellcodecoverage.Observation) { observation.CompletedSamples = -1 }, want: "completed samples"},
+		{name: "too many completed samples", mutate: func(observation *shellcodecoverage.Observation) { observation.CompletedSamples = 2 }, want: "completed samples"},
+		{name: "incomplete pass", mutate: func(observation *shellcodecoverage.Observation) { observation.CompletedSamples = 0 }, want: "complete all required samples"},
+		{name: "complete failure", mutate: func(observation *shellcodecoverage.Observation) { observation.Status = coverage.StatusFail }, want: "incomplete required sample set"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -196,6 +207,18 @@ func TestRecorderRejectsMalformedAndOutOfMatrixObservations(t *testing.T) {
 	}
 	if _, err := shellcodecoverage.NewRecorder(coverage.Target{OS: "linux", Arch: "386"}); err == nil {
 		t.Fatal("NewRecorder() accepted a target outside the fixed matrix")
+	}
+
+	sgnRecorder, err := shellcodecoverage.NewRecorder(coverage.Target{OS: "linux", Arch: "amd64"})
+	if err != nil {
+		t.Fatalf("NewRecorder(linux/amd64) error = %v", err)
+	}
+	sgnObservation := valid
+	sgnObservation.Encoder = shellcodecoverage.EncoderShikataGaNai
+	sgnObservation.RequiredSamples = shellcodecoverage.MinimumSGNSamples - 1
+	sgnObservation.CompletedSamples = sgnObservation.RequiredSamples
+	if err := sgnRecorder.Add(sgnObservation); err == nil || !strings.Contains(err.Error(), "SGN required samples must be at least") {
+		t.Fatalf("Add(SGN below minimum) error = %v, want minimum-sample diagnostic", err)
 	}
 }
 
@@ -242,6 +265,7 @@ func TestAggregateFullPassAndNARendering(t *testing.T) {
 	}
 
 	naCount := 0
+	sgnCount := 0
 	for _, row := range report.Matrix {
 		for _, cell := range row.Cells {
 			if cell.Status == shellcodecoverage.MatrixStatusNotApplicable {
@@ -250,10 +274,19 @@ func TestAggregateFullPassAndNARendering(t *testing.T) {
 					t.Errorf("N/A cell was recorded: %+v %+v", row, cell)
 				}
 			}
+			if cell.Recorded && cell.Encoder == shellcodecoverage.EncoderShikataGaNai {
+				sgnCount++
+				if cell.RequiredSamples != 4 || cell.CompletedSamples != 4 {
+					t.Errorf("SGN matrix cell samples = %d/%d, want 4/4: %+v %+v", cell.CompletedSamples, cell.RequiredSamples, row, cell)
+				}
+			}
 		}
 	}
 	if naCount != 48 {
 		t.Fatalf("N/A cells = %d, want 48", naCount)
+	}
+	if sgnCount != 36 {
+		t.Fatalf("recorded SGN cells = %d, want 36", sgnCount)
 	}
 }
 
@@ -269,6 +302,7 @@ func TestAggregateExplicitFailureFailsGateAndRendersDetail(t *testing.T) {
 		changed = true
 		record.Status = coverage.StatusFail
 		record.Detail = "runner exited | no callback\nserver remained healthy"
+		record.CompletedSamples = 0
 		return true
 	})
 	report, err := shellcodecoverage.AggregateDirectory(filepath.Join(root, "input"))
@@ -289,7 +323,7 @@ func TestAggregateExplicitFailureFailsGateAndRendersDetail(t *testing.T) {
 		t.Fatalf("WriteGlobalReports() error = %v", err)
 	}
 	markdown := readFile(t, paths.Markdown)
-	for _, marker := range []string{"❌ FAIL", "### Explicit failures", "runner exited \\| no callback<br>server remained healthy"} {
+	for _, marker := range []string{"❌ FAIL", "### Explicit failures", "| Samples |", "| 0/1 |", "runner exited \\| no callback<br>server remained healthy"} {
 		if !strings.Contains(markdown, marker) {
 			t.Errorf("failure Markdown omitted %q", marker)
 		}
@@ -335,14 +369,16 @@ func TestAggregateRejectsDuplicateMalformedAndOutOfMatrixReports(t *testing.T) {
 	t.Parallel()
 
 	validRecord := shellcodecoverage.Record{
-		Target:       coverage.Target{OS: "linux", Arch: "amd64"},
-		Transport:    shellcodecoverage.TransportMTLS,
-		ImplantMode:  shellcodecoverage.ImplantModeSession,
-		Compression:  shellcodecoverage.CompressionNone,
-		Encoder:      shellcodecoverage.EncoderNone,
-		Status:       coverage.StatusPass,
-		Duration:     time.Second,
-		PayloadBytes: 4096,
+		Target:           coverage.Target{OS: "linux", Arch: "amd64"},
+		Transport:        shellcodecoverage.TransportMTLS,
+		ImplantMode:      shellcodecoverage.ImplantModeSession,
+		Compression:      shellcodecoverage.CompressionNone,
+		Encoder:          shellcodecoverage.EncoderNone,
+		Status:           coverage.StatusPass,
+		Duration:         time.Second,
+		PayloadBytes:     4096,
+		RequiredSamples:  1,
+		CompletedSamples: 1,
 	}
 	tests := []struct {
 		name  string
@@ -399,6 +435,41 @@ func TestAggregateRejectsDuplicateMalformedAndOutOfMatrixReports(t *testing.T) {
 				writeRawJSON(t, root, validRecord.Target, data)
 			},
 			want: "unknown field",
+		},
+		{
+			name: "missing sample JSON field",
+			setup: func(t *testing.T, root string) {
+				data := marshalTargetReport(t, shellcodecoverage.TargetReport{
+					SchemaVersion: shellcodecoverage.SchemaVersion,
+					Kind:          shellcodecoverage.TargetReportKind,
+					Target:        validRecord.Target,
+					Records:       []shellcodecoverage.Record{validRecord},
+				})
+				data = bytes.Replace(data, []byte(`,"required_samples":1`), nil, 1)
+				writeRawJSON(t, root, validRecord.Target, data)
+			},
+			want: "missing field \"required_samples\"",
+		},
+		{
+			name: "non-SGN report with multiple samples",
+			setup: func(t *testing.T, root string) {
+				record := validRecord
+				record.RequiredSamples = 2
+				record.CompletedSamples = 2
+				writeRawTargetReport(t, root, targetReport(record))
+			},
+			want: "requires exactly one sample",
+		},
+		{
+			name: "SGN report below sample minimum",
+			setup: func(t *testing.T, root string) {
+				record := validRecord
+				record.Encoder = shellcodecoverage.EncoderShikataGaNai
+				record.RequiredSamples = shellcodecoverage.MinimumSGNSamples - 1
+				record.CompletedSamples = record.RequiredSamples
+				writeRawTargetReport(t, root, targetReport(record))
+			},
+			want: "SGN required samples must be at least",
 		},
 		{
 			name: "recorded skip",
@@ -495,14 +566,20 @@ func completeTargetObservations(target coverage.Target) []shellcodecoverage.Obse
 					if !shellcodecoverage.EncoderSupported(target, encoder) {
 						continue
 					}
+					requiredSamples := 1
+					if encoder == shellcodecoverage.EncoderShikataGaNai {
+						requiredSamples = 4
+					}
 					observations = append(observations, shellcodecoverage.Observation{
-						Transport:    transport,
-						ImplantMode:  implantMode,
-						Compression:  compression,
-						Encoder:      encoder,
-						Status:       coverage.StatusPass,
-						Duration:     time.Duration(sequence) * time.Millisecond,
-						PayloadBytes: 1000 + sequence,
+						Transport:        transport,
+						ImplantMode:      implantMode,
+						Compression:      compression,
+						Encoder:          encoder,
+						Status:           coverage.StatusPass,
+						Duration:         time.Duration(sequence) * time.Millisecond,
+						PayloadBytes:     1000 + sequence,
+						RequiredSamples:  requiredSamples,
+						CompletedSamples: requiredSamples,
 					})
 					sequence++
 				}
@@ -553,15 +630,17 @@ func observationsToRecords(target coverage.Target, observations []shellcodecover
 	records := make([]shellcodecoverage.Record, 0, len(observations))
 	for _, observation := range observations {
 		records = append(records, shellcodecoverage.Record{
-			Target:       target,
-			Transport:    observation.Transport,
-			ImplantMode:  observation.ImplantMode,
-			Compression:  observation.Compression,
-			Encoder:      observation.Encoder,
-			Status:       observation.Status,
-			Duration:     observation.Duration,
-			Detail:       observation.Detail,
-			PayloadBytes: observation.PayloadBytes,
+			Target:           target,
+			Transport:        observation.Transport,
+			ImplantMode:      observation.ImplantMode,
+			Compression:      observation.Compression,
+			Encoder:          observation.Encoder,
+			Status:           observation.Status,
+			Duration:         observation.Duration,
+			Detail:           observation.Detail,
+			PayloadBytes:     observation.PayloadBytes,
+			RequiredSamples:  observation.RequiredSamples,
+			CompletedSamples: observation.CompletedSamples,
 		})
 	}
 	return records
