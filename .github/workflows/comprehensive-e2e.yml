@@ -2,6 +2,7 @@ name: Comprehensive e2e Tests
 
 on:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -12,7 +13,7 @@ concurrency:
 
 jobs:
   authorize:
-    name: Require repository administrator
+    name: Authorize invocation
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -22,6 +23,12 @@ jobs:
           REQUESTING_ACTOR: ${{ github.triggering_actor }}
         with:
           script: |
+            const isReleaseTag = context.eventName === "push" && context.ref.startsWith("refs/tags/v");
+            if (isReleaseTag) {
+              core.info(`Authorized release test invocation for ${context.ref}`);
+              return;
+            }
+
             const actor = process.env.REQUESTING_ACTOR || context.actor;
             const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
               owner: context.repo.owner,
