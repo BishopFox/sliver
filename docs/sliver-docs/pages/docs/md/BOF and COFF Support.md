@@ -126,4 +126,6 @@ If you want the server-side AI agent to discover and run the same BOF, copy that
 
 More details can be found on the [Aliases & Extensions](/docs?name=Aliases+and+Extensions) page.
 
+To execute BOF projects that ship CNA/Aggressor Script wrappers directly, see [OPFOR](/docs?name=OPFOR).
+
 **IMPORTANT:** Legacy manifests should keep the `.o` file extension. An explicit `bof_executor` also identifies the command as a BOF, but older clients still rely on the `.o` suffix.
