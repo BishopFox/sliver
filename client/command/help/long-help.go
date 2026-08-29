@@ -59,6 +59,7 @@ var (
 		consts.AIStr:          aiHelp,
 		consts.AIConfigStr:    aiConfigHelp,
 		consts.DocsStr:        docsHelp,
+		consts.OpforStr:       opforHelp,
 		consts.CatStr:         catHelp,
 		consts.EditStr:        editHelp,
 		consts.HexEditStr:     hexEditHelp,
@@ -113,8 +114,8 @@ var (
 		consts.LootStr: lootHelp,
 
 		// Creds
-		consts.CredsStr:                       credsHelp,
-		consts.CredsStr + sep + consts.AddStr: credsAddHelp,
+		consts.CredsStr:                                              credsHelp,
+		consts.CredsStr + sep + consts.AddStr:                        credsAddHelp,
 		consts.CredsStr + sep + consts.AddStr + sep + consts.FileStr: credsAddFileHelp,
 		// Profiles
 		consts.ProfilesStr + sep + consts.NewStr:      newProfileHelp,
@@ -176,6 +177,32 @@ _=/usr/bin/env
 [[.Bold]]Example:[[.Normal]]
 	use my-session
 	ai
+`
+
+	opforHelp = `[[.Bold]]Command:[[.Normal]] opfor [script.cna|subcommand]
+
+[[.Bold]]About:[[.Normal]] Check, run, or persistently load OPFOR-compatible CNA scripts in the Sliver client. Loaded Beacon aliases are exposed beneath the opfor namespace and use the active session or beacon. This integration intentionally focuses on BOF-oriented scripts and a small set of terminal UI and session APIs; it is not a complete Aggressor Script client implementation.
+
+[[.Bold]]Modes:[[.Normal]]
+	check compiles a CNA without executing any top-level code.
+	run executes top-level code once with trailing arguments in @ARGV, then discards aliases, hooks, and callbacks.
+	load executes top-level initialization and retains aliases, hooks, and callbacks for the lifetime of this client process. A bare CNA path is shorthand for load.
+	help displays beacon_command_register metadata for a loaded alias without invoking it.
+
+Most BOF CNAs, including FirefoxDump, define an alias at top level. Running such a file only creates and immediately retires that alias; load it, select a target, and invoke the alias to execute its BOF.
+
+The default operation timeout is 600 seconds. Put --timeout before the alias name so the host consumes it rather than passing it to the CNA command.
+
+[[.Bold]]Examples:[[.Normal]]
+	opfor check ./script.cna
+	opfor run ./script.cna argument
+	opfor load ./firefoxdump.cna
+	opfor help firefoxdump
+	use <session-or-beacon>
+	opfor firefoxdump /all
+	opfor --timeout 900 firefoxdump /all
+	opfor list
+	opfor unload firefoxdump.cna
 `
 
 	aiConfigHelp = `[[.Bold]]Command:[[.Normal]] ai-config
