@@ -231,6 +231,7 @@ const (
 	AIStr       = "ai"
 	AIConfigStr = "ai-config"
 	DocsStr     = "docs"
+	OpforStr    = "opfor"
 	CatStr      = "cat"
 	EditStr     = "edit"
 	HexEditStr  = "hex-edit"
