@@ -389,15 +389,16 @@ func checkedFormat(name string, formatAddress uintptr) (*beaconFormat, []byte, b
 func beaconOutput(typeValue, dataAddress, lengthValue uintptr) (result uintptr) {
 	defer callbackPanic("BeaconOutput")
 	length := int64(int32(lengthValue))
-	if length == 0 {
-		return 0
-	}
-	if dataAddress == 0 || length < 0 || length > maxCallbackData {
+	if length < 0 || length > maxCallbackData || (length > 0 && dataAddress == 0) {
 		callbackError("BeaconOutput", "invalid data %#x or length %d", dataAddress, length)
 		return 0
 	}
 	if context := activeExecution.Load(); context != nil {
-		context.appendOutput(int(int32(typeValue)), pointerBytes(dataAddress, int(length)))
+		var data []byte
+		if length > 0 {
+			data = pointerBytes(dataAddress, int(length))
+		}
+		context.appendOutput(int(int32(typeValue)), data)
 	}
 	return 0
 }

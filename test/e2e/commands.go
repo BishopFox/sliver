@@ -169,6 +169,7 @@ func (s *suite) exerciseCommands(target implantTarget, remoteRoot string, transp
 		commandErrors = appendIfError(commandErrors, s.exerciseWindowsCommands(target, transport))
 	}
 	commandErrors = appendIfError(commandErrors, s.exerciseArmory(target, remoteRoot, transport))
+	commandErrors = appendIfError(commandErrors, s.exerciseNativeBOFs(target, remoteRoot, transport))
 	return errors.Join(commandErrors...)
 }
 

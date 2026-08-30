@@ -157,11 +157,11 @@ func TestAggregateEmptyDirectoryCreatesComprehensiveNotRunReport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AggregateDirectory() error = %v", err)
 	}
-	if report.Summary.Recorded != 0 || report.Summary.NotRun != 1734 || report.Summary.Skip != 570 || report.Summary.TotalCells != 2304 {
+	if report.Summary.Recorded != 0 || report.Summary.NotRun != 1818 || report.Summary.Skip != 870 || report.Summary.TotalCells != 2688 {
 		t.Fatalf("unexpected empty-input summary: %+v", report.Summary)
 	}
-	if got := len(report.NotRunIdentities()); got != 1734 {
-		t.Fatalf("NotRunIdentities() count = %d, want 1734", got)
+	if got := len(report.NotRunIdentities()); got != 1818 {
+		t.Fatalf("NotRunIdentities() count = %d, want 1818", got)
 	}
 	if _, err := AggregateDirectory(t.TempDir(), Dimensions{}); err == nil || !strings.Contains(err.Error(), "no per-target coverage JSON reports") {
 		t.Fatalf("AggregateDirectory() with inferred empty dimensions error = %v, want no-reports error", err)
@@ -318,13 +318,64 @@ func TestComprehensiveDimensions(t *testing.T) {
 	if got := strings.Join(dimensions.ImplantModes, ","); got != "session,beacon" {
 		t.Fatalf("implant modes = %q", got)
 	}
-	if len(dimensions.Commands) != 48 {
-		t.Fatalf("commands = %d, want 48", len(dimensions.Commands))
+	if len(dimensions.Commands) != 56 {
+		t.Fatalf("commands = %d, want 56", len(dimensions.Commands))
 	}
 	for _, expectation := range dimensions.Commands {
 		if len(expectation.SupportedTargets) == 0 {
 			t.Fatalf("catalog entry has no explicit targets: %+v", expectation)
 		}
+	}
+}
+
+func TestComprehensiveCatalogOPFORSupport(t *testing.T) {
+	t.Parallel()
+
+	windows386 := Target{OS: "windows", Arch: "386"}
+	windowsAMD64 := Target{OS: "windows", Arch: "amd64"}
+	windowsARM64 := Target{OS: "windows", Arch: "arm64"}
+	x86Scenarios := map[string]bool{
+		"OPFOR Cat CNA reads isolated test file":                 true,
+		"OPFOR FirefoxDump CNA finds no host profiles":           true,
+		"OPFOR callback preserves ordered typed binary channels": true,
+		"typed BOF partial output retained on callback error":    true,
+		"malformed BOF returns bounded loader error":             true,
+		"finite BOF deadline returns and target recovers":        true,
+		"OPFOR FindDotnet CNA read-only process inventory":       false,
+		"OPFOR FindSysmon CNA read-only registry probe":          false,
+	}
+
+	found := map[string]bool{}
+	for _, expectation := range ComprehensiveCatalog() {
+		want386, isOPFOR := x86Scenarios[expectation.Scenario]
+		if !isOPFOR {
+			continue
+		}
+		found[expectation.Scenario] = true
+		if expectation.GRPCMethod != "CallExtension" {
+			t.Errorf("OPFOR scenario %q method = %q, want CallExtension", expectation.Scenario, expectation.GRPCMethod)
+		}
+		if !expectation.supports(windowsAMD64) {
+			t.Errorf("OPFOR scenario %q does not support windows/amd64", expectation.Scenario)
+		}
+		if got := expectation.supports(windows386); got != want386 {
+			t.Errorf("OPFOR scenario %q windows/386 support = %t, want %t", expectation.Scenario, got, want386)
+		}
+		if expectation.supports(windowsARM64) {
+			t.Errorf("OPFOR scenario %q unexpectedly supports windows/arm64", expectation.Scenario)
+		}
+		if !strings.Contains(expectation.UnsupportedReason, "Windows") && !strings.Contains(expectation.UnsupportedReason, "windows") {
+			t.Errorf("OPFOR scenario %q skip reason does not explain its Windows boundary: %q", expectation.Scenario, expectation.UnsupportedReason)
+		}
+		if !strings.Contains(expectation.UnsupportedReason, "arm64") {
+			t.Errorf("OPFOR scenario %q skip reason does not explain windows/arm64: %q", expectation.Scenario, expectation.UnsupportedReason)
+		}
+		if !want386 && !strings.Contains(expectation.UnsupportedReason, "windows/amd64-only") {
+			t.Errorf("OPFOR scenario %q skip reason does not explain windows/386: %q", expectation.Scenario, expectation.UnsupportedReason)
+		}
+	}
+	if len(found) != len(x86Scenarios) {
+		t.Fatalf("found %d OPFOR scenarios, want %d: %#v", len(found), len(x86Scenarios), found)
 	}
 }
 

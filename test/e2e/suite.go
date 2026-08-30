@@ -73,15 +73,18 @@ type suite struct {
 	server     *managedProcess
 	serverLog  string
 
-	rpc        rpcpb.SliverRPCClient
-	closeGRPC  func()
-	hub        *eventHub
-	coverage   *e2ecoverage.Recorder
-	listeners  map[string]*listener
-	armoryOnce sync.Once
-	armory     *armoryAssets
-	armoryErr  error
-	closeOnce  sync.Once
+	rpc           rpcpb.SliverRPCClient
+	closeGRPC     func()
+	hub           *eventHub
+	coverage      *e2ecoverage.Recorder
+	listeners     map[string]*listener
+	armoryOnce    sync.Once
+	armory        *armoryAssets
+	armoryErr     error
+	nativeBOFOnce sync.Once
+	nativeBOF     *nativeBOFAssets
+	nativeBOFErr  error
+	closeOnce     sync.Once
 }
 
 type listener struct {
