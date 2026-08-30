@@ -27,7 +27,6 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -66,6 +65,11 @@ type Tunnel struct {
 	Client rpcpb.SliverRPC_TunnelDataServer
 
 	mutex               *sync.RWMutex
+	clientMutex         sync.RWMutex
+	clientBound         chan struct{}
+	clientBoundOnce     sync.Once
+	closeOnce           sync.Once
+	done                chan struct{}
 	lastDataMessageTime time.Time
 }
 
@@ -77,8 +81,46 @@ func NewTunnel(id uint64, sessionID string) *Tunnel {
 		FromImplant: make(chan *sliverpb.TunnelData),
 
 		mutex:               &sync.RWMutex{},
+		clientBound:         make(chan struct{}),
+		done:                make(chan struct{}),
 		lastDataMessageTime: time.Now(), // need to be initialized
 	}
+}
+
+// BindClient reserves this tunnel for the first client stream.
+func (t *Tunnel) BindClient(client rpcpb.SliverRPC_TunnelDataServer) bool {
+	t.clientMutex.Lock()
+	defer t.clientMutex.Unlock()
+	if t.Client != nil {
+		return false
+	}
+
+	t.Client = client
+	return true
+}
+
+// MarkClientBound signals that the reserved stream accepted its bind frame.
+func (t *Tunnel) MarkClientBound(client rpcpb.SliverRPC_TunnelDataServer) bool {
+	t.clientMutex.Lock()
+	defer t.clientMutex.Unlock()
+	if t.Client != client {
+		return false
+	}
+
+	t.clientBoundOnce.Do(func() { close(t.clientBound) })
+	return true
+}
+
+// IsClient reports whether client owns this tunnel's stream binding.
+func (t *Tunnel) IsClient(client rpcpb.SliverRPC_TunnelDataServer) bool {
+	t.clientMutex.RLock()
+	defer t.clientMutex.RUnlock()
+	return t.Client == client
+}
+
+// ClientBound is closed after a client stream binds to the tunnel.
+func (t *Tunnel) ClientBound() <-chan struct{} {
+	return t.clientBound
 }
 
 func (t *Tunnel) setLastMessageTime() {
@@ -88,6 +130,11 @@ func (t *Tunnel) setLastMessageTime() {
 	t.lastDataMessageTime = time.Now()
 }
 
+// Touch records tunnel activity before scheduling an asynchronous close.
+func (t *Tunnel) Touch() {
+	t.setLastMessageTime()
+}
+
 func (t *Tunnel) GetLastMessageTime() time.Time {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
@@ -95,12 +142,42 @@ func (t *Tunnel) GetLastMessageTime() time.Time {
 	return t.lastDataMessageTime
 }
 
-func (t *Tunnel) SendDataFromImplant(tunnelData *sliverpb.TunnelData) {
+func (t *Tunnel) SendDataFromImplant(tunnelData *sliverpb.TunnelData) bool {
 	// Setting the date right before and right after message, since channel can be blocked for some amount of time
 	t.setLastMessageTime()
 	defer t.setLastMessageTime()
 
-	t.FromImplant <- tunnelData
+	select {
+	case t.FromImplant <- tunnelData:
+		return true
+	case <-t.done:
+		return false
+	}
+}
+
+// SendDataToImplant queues tunnel data unless the tunnel has already closed.
+func (t *Tunnel) SendDataToImplant(data []byte) bool {
+	t.setLastMessageTime()
+	defer t.setLastMessageTime()
+
+	select {
+	case t.ToImplant <- data:
+		return true
+	case <-t.done:
+		return false
+	}
+}
+
+// Done is closed when the tunnel is removed from the server registry.
+func (t *Tunnel) Done() <-chan struct{} {
+	return t.done
+}
+
+// Close marks the tunnel closed without waiting for a client or implant reader.
+func (t *Tunnel) Close() {
+	t.closeOnce.Do(func() {
+		close(t.done)
+	})
 }
 
 type tunnels struct {
@@ -132,11 +209,8 @@ func (t *tunnels) Create(sessionID string) (*Tunnel, error) {
 // This is _necessary_ since we processing messages asynchronously
 // and if tunnelCloseHandler routine will fire before tunnelDataHandler routine we will lose some data
 // (this is what happens for socks and portfwd)
-// There is no another way around it, if we want to stick to async processing as we do now.
-// All additional changes requires changes on implants(like sequencing for close messages),
-// and as there is a goal to keep compatibility we don't do that at the moment.
-// So there is trade off - more stability or more speed. Or rewriting implant logic.
-// At the moment, i see it affects only `shell` command and locking it for 10 seconds on exit. Not a big deal.
+// The quiet period protects asynchronously delivered tunnel data from being
+// discarded when a close message overtakes it.
 func (t *tunnels) ScheduleClose(tunnelID uint64) {
 	tunnel := t.Get(tunnelID)
 	if tunnel == nil {
@@ -162,32 +236,42 @@ func (t *tunnels) ScheduleClose(tunnelID uint64) {
 // It's preferred to use ScheduleClose function if you don't 100% sure there is no more data to receive
 func (t *tunnels) Close(tunnelID uint64) error {
 	t.mutex.Lock()
-	defer t.mutex.Unlock()
-
 	tunnel := t.tunnels[tunnelID]
 	if tunnel == nil {
+		t.mutex.Unlock()
 		return ErrInvalidTunnelID
 	}
-	tunnelClose, err := proto.Marshal(&sliverpb.TunnelData{
-		TunnelID:  tunnel.ID,
-		SessionID: tunnel.SessionID,
-		Closed:    true,
-	})
-	if err != nil {
-		return err
-	}
-	data, err := proto.Marshal(&sliverpb.Envelope{
-		Type: sliverpb.MsgTunnelClose,
-		Data: tunnelClose,
-	})
-	if err != nil {
-		return err
-	}
-	tunnel.ToImplant <- data // Send an in-band close to implant
 	delete(t.tunnels, tunnelID)
-	close(tunnel.ToImplant)
-	close(tunnel.FromImplant)
+	t.mutex.Unlock()
+
+	// Never wait on tunnel consumers while holding the global registry lock.
+	// A tunnel can be created and closed before the bidirectional stream binds,
+	// in which case neither channel has a receiver.
+	tunnel.Close()
 	return nil
+}
+
+// CloseForClient closes every tunnel owned by a terminated client stream.
+// Removal happens under the registry lock; tunnel shutdown happens afterward
+// so no slow consumer can block unrelated tunnel operations.
+func (t *tunnels) CloseForClient(client rpcpb.SliverRPC_TunnelDataServer) {
+	if client == nil {
+		return
+	}
+
+	closed := []*Tunnel{}
+	t.mutex.Lock()
+	for tunnelID, tunnel := range t.tunnels {
+		if tunnel.IsClient(client) {
+			delete(t.tunnels, tunnelID)
+			closed = append(closed, tunnel)
+		}
+	}
+	t.mutex.Unlock()
+
+	for _, tunnel := range closed {
+		tunnel.Close()
+	}
 }
 
 // Get - Get a tunnel

@@ -26,6 +26,10 @@ import (
 	"sync"
 )
 
+const tunnelRecvBufferSize = 16
+
+var errClosedTunnel = errors.New("closed tunnel")
+
 // TunnelIO - Duplex data tunnel, compatible with both io.ReadWriter
 type TunnelIO struct {
 	ID        uint64
@@ -34,8 +38,12 @@ type TunnelIO struct {
 	Send chan []byte
 	Recv chan []byte
 
-	isOpen bool
-	mutex  *sync.RWMutex
+	done      chan struct{}
+	closeOnce sync.Once
+	bound     chan struct{}
+	boundOnce sync.Once
+	isOpen    bool
+	mutex     *sync.RWMutex
 }
 
 // NewTunnelIO - Single entry point for creating instance of new TunnelIO
@@ -46,9 +54,13 @@ func NewTunnelIO(tunnelID uint64, sessionID string) *TunnelIO {
 		ID:        tunnelID,
 		SessionID: sessionID,
 		Send:      make(chan []byte),
-		Recv:      make(chan []byte),
-		isOpen:    false,
-		mutex:     &sync.RWMutex{},
+		// A tunnel can receive its first frames before the command-specific
+		// reader is running. Keep that short startup burst from blocking the
+		// single client TunnelLoop while retaining bounded backpressure.
+		Recv:  make(chan []byte, tunnelRecvBufferSize),
+		done:  make(chan struct{}),
+		bound: make(chan struct{}),
+		mutex: &sync.RWMutex{},
 	}
 }
 
@@ -66,33 +78,58 @@ func (tun *TunnelIO) Write(data []byte) (int, error) {
 	log.Printf("Write %d bytes", n)
 	log.Printf("This bytes is: %s", dataCopy)
 
-	tun.Send <- dataCopy
+	select {
+	case <-tun.done:
+		return 0, io.EOF
+	default:
+	}
 
-	return n, nil
+	select {
+	case tun.Send <- dataCopy:
+		return n, nil
+	case <-tun.done:
+		return 0, io.EOF
+	}
 }
 
 // Read - Reader method for interface
 func (tun *TunnelIO) Read(data []byte) (int, error) {
-	recvData, ok := <-tun.Recv
-	if !ok {
+	// Prefer already queued output over the close signal so callers can drain
+	// the final frames before observing EOF.
+	select {
+	case recvData := <-tun.Recv:
+		return tun.copyRecvData(data, recvData), nil
+	default:
+	}
+
+	select {
+	case recvData := <-tun.Recv:
+		return tun.copyRecvData(data, recvData), nil
+	case <-tun.done:
 		log.Printf("Warning: Read on closed tunnel %d", tun.ID)
 		return 0, io.EOF
 	}
+}
 
+func (tun *TunnelIO) copyRecvData(data []byte, recvData []byte) int {
 	var buff bytes.Buffer
 	log.Printf("Read %d bytes", len(recvData))
 	buff.Write(recvData)
 
-	n := copy(data, buff.Bytes())
-	return n, nil
+	return copy(data, buff.Bytes())
 }
 
 // Close - Close tunnel IO operations
 func (tun *TunnelIO) Close() error {
 	tun.mutex.Lock()
-	defer tun.mutex.Unlock()
+	wasOpen := tun.isOpen
+	tun.isOpen = false
+	tun.closeOnce.Do(func() {
+		close(tun.done)
+	})
+	tun.mutex.Unlock()
 
-	if !tun.isOpen {
+	if !wasOpen {
 		log.Printf("Warning: Close on closed tunnel %d", tun.ID)
 
 		// I guess we can ignore it and don't return any error
@@ -101,12 +138,24 @@ func (tun *TunnelIO) Close() error {
 
 	log.Printf("Close tunnel %d", tun.ID)
 
-	tun.isOpen = false
-
-	close(tun.Recv)
-	close(tun.Send)
-
 	return nil
+}
+
+// Done is closed when the tunnel is closed. The public data channels remain
+// open so concurrent producers cannot panic by racing a channel close.
+func (tun *TunnelIO) Done() <-chan struct{} {
+	return tun.done
+}
+
+// Bound is closed after the server acknowledges the tunnel's streaming bind.
+func (tun *TunnelIO) Bound() <-chan struct{} {
+	return tun.bound
+}
+
+func (tun *TunnelIO) markBound() {
+	tun.boundOnce.Do(func() {
+		close(tun.bound)
+	})
 }
 
 func (tun *TunnelIO) IsOpen() bool {
@@ -123,6 +172,11 @@ func (tun *TunnelIO) Open() error {
 	if tun.isOpen {
 		return errors.New("tunnel relady in open state")
 	}
+	select {
+	case <-tun.done:
+		return errClosedTunnel
+	default:
+	}
 
 	log.Printf("Open tunnel %d", tun.ID)
 
@@ -131,16 +185,23 @@ func (tun *TunnelIO) Open() error {
 	return nil
 }
 
-// RecvData - safe way to send data to internal Recv channel. Blocking.
+// RecvData - safely queues data on the bounded internal Recv channel.
+// It blocks only when that startup buffer is full.
 func (tun *TunnelIO) RecvData(data []byte) error {
-	tun.mutex.Lock()
-	defer tun.mutex.Unlock()
-
-	if !tun.isOpen {
-		return errors.New("closed tunnel")
+	if !tun.IsOpen() {
+		return errClosedTunnel
 	}
 
-	tun.Recv <- data
+	select {
+	case <-tun.done:
+		return errClosedTunnel
+	default:
+	}
 
-	return nil
+	select {
+	case tun.Recv <- data:
+		return nil
+	case <-tun.done:
+		return errClosedTunnel
+	}
 }

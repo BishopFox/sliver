@@ -112,7 +112,16 @@ func (s *Server) CreateTunnel(ctx context.Context, req *sliverpb.Tunnel) (*slive
 
 // CloseTunnel - Client requests we close a tunnel
 func (s *Server) CloseTunnel(ctx context.Context, req *sliverpb.Tunnel) (*commonpb.Empty, error) {
-	go core.Tunnels.ScheduleClose(req.TunnelID)
+	if tunnel := core.Tunnels.Get(req.TunnelID); tunnel != nil {
+		if tunnel.SessionID != req.SessionID {
+			return nil, rpcError(core.ErrInvalidTunnelID)
+		}
+		// Guarantee a close-request grace period even when the tunnel was idle.
+		// Client frames update the same activity timestamp if they arrive after
+		// this unary RPC overtakes the shared stream.
+		tunnel.Touch()
+		go core.Tunnels.ScheduleClose(req.TunnelID)
+	}
 	toImplantCache.DeleteTun(req.TunnelID)
 	fromImplantCache.DeleteTun(req.TunnelID)
 
@@ -121,6 +130,14 @@ func (s *Server) CloseTunnel(ctx context.Context, req *sliverpb.Tunnel) (*common
 
 // TunnelData - Streams tunnel data back and forth from the client<->server<->implant
 func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
+	defer core.Tunnels.CloseForClient(stream)
+	var sendMutex sync.Mutex
+	sendToClient := func(data *sliverpb.TunnelData) error {
+		sendMutex.Lock()
+		defer sendMutex.Unlock()
+		return stream.Send(data)
+	}
+
 	for {
 		fromClient, err := stream.Recv()
 		if err == io.EOF {
@@ -135,20 +152,42 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 
 		tunnel := core.Tunnels.Get(fromClient.TunnelID)
 		if tunnel == nil {
-			return rpcError(core.ErrInvalidTunnelID)
+			// A CloseTunnel unary RPC can overtake a final frame on this shared
+			// stream. A stale tunnel frame must not tear down every active tunnel.
+			tunnelLog.Warnf("Dropping data for unknown tunnel %d", fromClient.TunnelID)
+			continue
 		}
-		if tunnel.Client == nil {
-			tunnel.Client = stream // Bind client to tunnel
+		if tunnel.BindClient(stream) {
 			tunnelLog.Debugf("Binding client %v to tunnel id: %d", stream, tunnel.ID)
-			tunnel.Client.Send(&sliverpb.TunnelData{
+			if err := sendToClient(&sliverpb.TunnelData{
 				TunnelID:  tunnel.ID,
 				SessionID: tunnel.SessionID,
 				Closed:    false,
-			})
+			}); err != nil {
+				_ = core.Tunnels.Close(tunnel.ID)
+				return rpcError(err)
+			}
+			if !tunnel.MarkClientBound(stream) {
+				_ = core.Tunnels.Close(tunnel.ID)
+				return rpcError(core.ErrInvalidTunnelID)
+			}
 
 			go func() {
-
-				for tunnelData := range tunnel.FromImplant {
+				for {
+					var tunnelData *sliverpb.TunnelData
+					select {
+					case tunnelData = <-tunnel.FromImplant:
+					case <-tunnel.Done():
+						toImplantCache.DeleteTun(tunnel.ID)
+						fromImplantCache.DeleteTun(tunnel.ID)
+						tunnelLog.Debugf("Closing tunnel %d (To Client)", tunnel.ID)
+						_ = sendToClient(&sliverpb.TunnelData{
+							TunnelID:  tunnel.ID,
+							SessionID: tunnel.SessionID,
+							Closed:    true,
+						})
+						return
+					}
 
 					tunnelLog.Debugf("Tunnel %d: From implant %d byte(s), seq: %d ack: %d",
 						tunnel.ID, len(tunnelData.Data), tunnelData.Sequence, tunnelData.Ack)
@@ -166,12 +205,15 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 						fromImplantCache.Add(tunnel.ID, tunnelData.Sequence, tunnelData)
 
 						for recv, ok := fromImplantCache.Get(tunnel.ID, tunnel.FromImplantSequence); ok; recv, ok = fromImplantCache.Get(tunnel.ID, tunnel.FromImplantSequence) {
-							tunnel.Client.Send(&sliverpb.TunnelData{
+							if err := sendToClient(&sliverpb.TunnelData{
 								TunnelID:  tunnel.ID,
 								SessionID: tunnel.SessionID,
 								Data:      recv.Data,
 								Closed:    false,
-							})
+							}); err != nil {
+								_ = core.Tunnels.Close(tunnel.ID)
+								return
+							}
 							fromImplantCache.DeleteSeq(tunnel.ID, tunnel.FromImplantSequence)
 							tunnel.FromImplantSequence++
 						}
@@ -202,17 +244,31 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 
 					}
 				}
-				tunnelLog.Debugf("Closing tunnel %d (To Client)", tunnel.ID)
-				tunnel.Client.Send(&sliverpb.TunnelData{
-					TunnelID:  tunnel.ID,
-					SessionID: tunnel.SessionID,
-					Closed:    true,
-				})
 			}()
 
 			go func() {
 				session := core.Sessions.Get(tunnel.SessionID)
-				for data := range tunnel.ToImplant {
+				for {
+					var data []byte
+					select {
+					case data = <-tunnel.ToImplant:
+					case <-tunnel.Done():
+						toImplantCache.DeleteTun(tunnel.ID)
+						fromImplantCache.DeleteTun(tunnel.ID)
+						tunnelLog.Debugf("Closing tunnel %d (To Implant) ...", tunnel.ID)
+						if session != nil {
+							closeData, _ := proto.Marshal(&sliverpb.TunnelData{
+								TunnelID:  tunnel.ID,
+								SessionID: tunnel.SessionID,
+								Closed:    true,
+							})
+							session.Connection.Send <- &sliverpb.Envelope{
+								Type: sliverpb.MsgTunnelClose,
+								Data: closeData,
+							}
+						}
+						return
+					}
 					tunnelLog.Debugf("Tunnel %d: To implant %d byte(s), seq: %d", tunnel.ID, len(data), tunnel.ToImplantSequence)
 					if session == nil {
 						tunnelLog.Warnf("Tunnel %d: session not found, dropping data to implant", tunnel.ID)
@@ -228,34 +284,22 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) error {
 					// Add tunnel data to cache
 					toImplantCache.Add(tunnel.ID, tunnelData.Sequence, &tunnelData)
 
-					data, _ := proto.Marshal(&tunnelData)
+					encoded, _ := proto.Marshal(&tunnelData)
 					tunnel.ToImplantSequence++
 					session.Connection.Send <- &sliverpb.Envelope{
 						Type: sliverpb.MsgTunnelData,
-						Data: data,
+						Data: encoded,
 					}
 
-				}
-				tunnelLog.Debugf("Closing tunnel %d (To Implant) ...", tunnel.ID)
-				data, _ := proto.Marshal(&sliverpb.TunnelData{
-					Sequence:  tunnel.ToImplantSequence, // Shouldn't need to increment since this will close the tunnel
-					TunnelID:  tunnel.ID,
-					SessionID: tunnel.SessionID,
-					Data:      make([]byte, 0),
-					Closed:    true,
-				})
-				if session != nil {
-					session.Connection.Send <- &sliverpb.Envelope{
-						Type: sliverpb.MsgTunnelData,
-						Data: data,
-					}
 				}
 			}()
 
-		} else if tunnel.Client == stream {
+		} else if tunnel.IsClient(stream) {
 			tunnelLog.Debugf("Tunnel %d: From client %d byte(s) to implant...",
 				fromClient.TunnelID, len(fromClient.Data))
-			tunnel.ToImplant <- fromClient.GetData()
+			if !tunnel.SendDataToImplant(fromClient.GetData()) {
+				tunnelLog.Debugf("Tunnel %d closed before client data could be delivered", tunnel.ID)
+			}
 		}
 	}
 	return nil

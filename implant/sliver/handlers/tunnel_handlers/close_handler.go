@@ -24,6 +24,7 @@ import (
 	"log"
 	// {{end}}
 
+	"github.com/bishopfox/sliver/implant/sliver/shell"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"google.golang.org/protobuf/proto"
@@ -34,6 +35,9 @@ func TunnelCloseHandler(envelope *sliverpb.Envelope, connection *transports.Conn
 		Closed: true,
 	}
 	proto.Unmarshal(envelope.Data, tunnelClose)
+	// Closing the tunnel pipes alone does not guarantee that a Windows shell
+	// process exits. Stop the process that owns this tunnel first.
+	shell.StopSession(tunnelClose.TunnelID)
 	tunnel := connection.Tunnel(tunnelClose.TunnelID)
 	if tunnel != nil {
 		// {{if .Config.Debug}}

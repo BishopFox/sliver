@@ -41,8 +41,9 @@ func TunnelLoop(ctx context.Context, rpc rpcpb.SliverRPCClient) error {
 		return err
 	}
 
-	GetTunnels().SetStream(stream)
-	defer GetTunnels().SetStream(nil)
+	tunnels := GetTunnels()
+	streamGeneration := tunnels.SetStream(stream)
+	defer tunnels.CloseStream(streamGeneration)
 
 	for {
 		log.Printf("Waiting for TunnelData ...")
@@ -65,6 +66,14 @@ func TunnelLoop(ctx context.Context, rpc rpcpb.SliverRPCClient) error {
 		tunnel := GetTunnels().Get(incoming.TunnelID)
 
 		if tunnel != nil {
+			if !incoming.Closed && len(incoming.GetData()) == 0 {
+				// The server uses an empty frame to acknowledge that the client
+				// stream is bound to a newly created tunnel. It is control
+				// traffic, not data for the tunnel reader.
+				tunnel.markBound()
+				log.Printf("Received bind acknowledgement for tunnel %d", incoming.TunnelID)
+				continue
+			}
 			data := incoming.GetData()
 
 			log.Printf("This is data on tunnel %d: %s", tunnel.ID, data)

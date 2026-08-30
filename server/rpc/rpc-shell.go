@@ -48,6 +48,24 @@ func (rpc *Server) Shell(ctx context.Context, req *sliverpb.ShellReq) (*sliverpb
 	if tunnel == nil {
 		return nil, rpcError(core.ErrInvalidTunnelID)
 	}
+	if tunnel.SessionID != session.ID {
+		return nil, rpcError(core.ErrInvalidTunnelID)
+	}
+	// The client creates a tunnel and binds its streaming RPC before requesting
+	// a shell. Waiting here prevents an unbound tunnel from owning a live shell
+	// process if the client disconnects between those operations.
+	select {
+	case <-tunnel.ClientBound():
+	case <-tunnel.Done():
+		return nil, rpcError(core.ErrInvalidTunnelID)
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	select {
+	case <-tunnel.Done():
+		return nil, rpcError(core.ErrInvalidTunnelID)
+	default:
+	}
 	reqData, err := proto.Marshal(req)
 	if err != nil {
 		return nil, rpcError(err)

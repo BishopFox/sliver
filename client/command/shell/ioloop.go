@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
@@ -17,17 +18,22 @@ import (
 // It returns:
 // - detached=true when user hit escape (Ctrl-])
 // - closeRequested=true when user requested shell close (EOF/exit/logout)
-func runAttachedIO(tunnel *core.TunnelIO, con *console.SliverClient) (detached bool, closeRequested bool) {
+func runAttachedIO(tunnel *core.TunnelIO, con *console.SliverClient, remoteOS string) (detached bool, closeRequested bool) {
 	// We can't pipe stdin directly into the tunnel: if the gRPC tunnel send path blocks
 	// (network hang, server gone, etc.) tunnel.Write can block forever and "lock" the
 	// client in shell mode. Instead, buffer stdin locally and look for a local escape key.
 	const (
-		shellEscapeByte = byte(0x1d) // Ctrl-]
-		stdinBufSize    = 32 * 1024
-		stdinQueueDepth = 128
+		shellEscapeByte           = byte(0x1d) // Ctrl-]
+		stdinBufSize              = 32 * 1024
+		stdinQueueDepth           = 128
+		finalInputDeliveryTimeout = 2 * time.Second
 	)
 
-	stdinQueue := make(chan []byte, stdinQueueDepth)
+	type inputChunk struct {
+		data      []byte
+		delivered chan bool
+	}
+	stdinQueue := make(chan inputChunk, stdinQueueDepth)
 	stopWriter := make(chan struct{})
 	var writerWG sync.WaitGroup
 	writerWG.Add(1)
@@ -46,17 +52,30 @@ func runAttachedIO(tunnel *core.TunnelIO, con *console.SliverClient) (detached b
 			select {
 			case <-stopWriter:
 				return
-			case data, ok := <-stdinQueue:
+			case <-tunnel.Done():
+				return
+			case chunk, ok := <-stdinQueue:
 				if !ok {
 					return
 				}
-				if len(data) == 0 {
+				if len(chunk.data) == 0 {
+					if chunk.delivered != nil {
+						chunk.delivered <- true
+					}
 					continue
 				}
+				delivered := false
 				select {
 				case <-stopWriter:
+				case <-tunnel.Done():
+				case tunnel.Send <- chunk.data:
+					delivered = true
+				}
+				if chunk.delivered != nil {
+					chunk.delivered <- delivered
+				}
+				if !delivered {
 					return
-				case tunnel.Send <- data:
 				}
 			}
 		}
@@ -68,14 +87,28 @@ func runAttachedIO(tunnel *core.TunnelIO, con *console.SliverClient) (detached b
 		writerWG.Wait()
 	}()
 
-	stdin := newFilterReader(os.Stdin)
+	stdin, err := newCancellableShellInput(os.Stdin, newFilterReader(os.Stdin))
+	if err != nil {
+		con.PrintErrorf("Failed to prepare shell input: %s\n", err)
+		return false, true
+	}
+	defer func() {
+		if err := stdin.Close(); err != nil {
+			log.Printf("Failed to restore shell input state: %v", err)
+		}
+	}()
+
 	buf := make([]byte, stdinBufSize)
 	lineBuf := make([]byte, 0, 128)
 	inEscSeq := false
 	log.Printf("Reading from stdin (escape=Ctrl-]) ...")
 
 	for {
-		n, err := stdin.Read(buf)
+		n, err, tunnelClosed := stdin.Read(buf, tunnel.Done())
+		if tunnelClosed {
+			closeRequested = true
+			break
+		}
 		if n > 0 {
 			data := buf[:n]
 			if i := bytes.IndexByte(data, shellEscapeByte); i >= 0 {
@@ -83,7 +116,7 @@ func runAttachedIO(tunnel *core.TunnelIO, con *console.SliverClient) (detached b
 					// Best-effort: don't block stdin if the tunnel is wedged.
 					dataCopy := append([]byte(nil), data[:i]...)
 					select {
-					case stdinQueue <- dataCopy:
+					case stdinQueue <- inputChunk{data: dataCopy}:
 					default:
 					}
 				}
@@ -102,8 +135,7 @@ func runAttachedIO(tunnel *core.TunnelIO, con *console.SliverClient) (detached b
 
 				switch b {
 				case '\r', '\n':
-					line := strings.TrimSpace(string(lineBuf))
-					if line == "exit" || line == "logout" {
+					if isShellExitCommand(string(lineBuf), remoteOS == "windows") {
 						exitRequested = true
 					}
 					lineBuf = lineBuf[:0]
@@ -122,13 +154,39 @@ func runAttachedIO(tunnel *core.TunnelIO, con *console.SliverClient) (detached b
 			}
 
 			dataCopy := append([]byte(nil), data...)
-			select {
-			case stdinQueue <- dataCopy:
-			default:
-				// Drop input if the tunnel send path is blocked; still allow escape.
+			var delivered chan bool
+			if exitRequested {
+				delivered = make(chan bool, 1)
+			}
+			chunk := inputChunk{data: dataCopy, delivered: delivered}
+			queued := false
+			if exitRequested {
+				timer := time.NewTimer(finalInputDeliveryTimeout)
+				select {
+				case stdinQueue <- chunk:
+					queued = true
+				case <-tunnel.Done():
+				case <-timer.C:
+				}
+				timer.Stop()
+			} else {
+				select {
+				case stdinQueue <- chunk:
+				default:
+					// Drop input if the tunnel send path is blocked; still allow escape.
+				}
 			}
 
 			if exitRequested {
+				if queued {
+					timer := time.NewTimer(finalInputDeliveryTimeout)
+					select {
+					case <-delivered:
+					case <-tunnel.Done():
+					case <-timer.C:
+					}
+					timer.Stop()
+				}
 				closeRequested = true
 				break
 			}
@@ -145,4 +203,22 @@ func runAttachedIO(tunnel *core.TunnelIO, con *console.SliverClient) (detached b
 	log.Printf("Exit interactive")
 	bufio.NewWriter(os.Stdout).Flush()
 	return detached, closeRequested
+}
+
+func isShellExitCommand(line string, caseInsensitive bool) bool {
+	fields := strings.Fields(line)
+	if len(fields) == 0 {
+		return false
+	}
+
+	command := fields[0]
+	if caseInsensitive {
+		command = strings.ToLower(command)
+	}
+	switch command {
+	case "exit", "logout":
+		return true
+	default:
+		return false
+	}
 }
