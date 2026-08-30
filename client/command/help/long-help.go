@@ -114,8 +114,8 @@ var (
 		consts.LootStr: lootHelp,
 
 		// Creds
-		consts.CredsStr:                                              credsHelp,
-		consts.CredsStr + sep + consts.AddStr:                        credsAddHelp,
+		consts.CredsStr:                       credsHelp,
+		consts.CredsStr + sep + consts.AddStr: credsAddHelp,
 		consts.CredsStr + sep + consts.AddStr + sep + consts.FileStr: credsAddFileHelp,
 		// Profiles
 		consts.ProfilesStr + sep + consts.NewStr:      newProfileHelp,

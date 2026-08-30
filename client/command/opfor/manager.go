@@ -160,6 +160,7 @@ func (manager *Manager) Unregistered(_ context.Context, binding opforengine.Bind
 	return nil
 }
 
+// Load compiles and executes a CNA, retaining its registrations until unload.
 func (manager *Manager) Load(ctx context.Context, path string) (string, error) {
 	absolute, content, err := readCNAFile(path)
 	if err != nil {
@@ -238,6 +239,7 @@ func (manager *Manager) Run(ctx context.Context, path string, arguments []string
 	return absolute, nil
 }
 
+// Unload retires a loaded CNA and all registrations owned by that script.
 func (manager *Manager) Unload(ctx context.Context, path string) (string, error) {
 	manager.loadMu.Lock()
 	defer manager.loadMu.Unlock()
@@ -288,6 +290,7 @@ func (manager *Manager) findScript(path string) (string, *opforengine.Script, er
 	return matchedPath, matchedScript, nil
 }
 
+// Paths returns the sorted absolute paths of all loaded CNA scripts.
 func (manager *Manager) Paths() []string {
 	manager.mu.RLock()
 	paths := make([]string, 0, len(manager.scripts))

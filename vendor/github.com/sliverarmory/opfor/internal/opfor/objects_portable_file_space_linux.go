@@ -9,8 +9,11 @@ import (
 
 func portableJavaFileNameMax(path string) int {
 	var status syscall.Statfs_t
-	if err := syscall.Statfs(path, &status); err == nil && status.Namelen > 0 && status.Namelen <= int64(math.MaxInt32) {
-		return int(status.Namelen)
+	if err := syscall.Statfs(path, &status); err == nil {
+		nameLength := int64(status.Namelen)
+		if nameLength > 0 && nameLength <= int64(math.MaxInt32) {
+			return int(nameLength)
+		}
 	}
 	return 255
 }

@@ -22,26 +22,61 @@ func (manager *Manager) querySession(
 	switch query.Kind {
 	case opforengine.AggressorSessionQueryBeacons,
 		opforengine.AggressorSessionQueryBeaconIDs:
-		targets, err := manager.allTargets(ctx)
-		if err != nil {
-			return opforengine.Null(), err
-		}
-		values := make([]opforengine.Value, 0, len(targets))
-		for _, target := range targets {
-			if query.Kind == opforengine.AggressorSessionQueryBeaconIDs {
-				values = append(values, opforengine.String(target.id()))
-			} else {
-				values = append(values, opforengine.HashValue(targetMetadata(target)))
-			}
-		}
-		return opforengine.ArrayValue(opforengine.NewArray(values...)), nil
+		return manager.queryAllSessions(ctx, query.Kind)
+	default:
+		return manager.querySingleSession(ctx, query)
 	}
+}
 
+func (manager *Manager) queryAllSessions(
+	ctx context.Context,
+	kind opforengine.AggressorSessionQueryKind,
+) (opforengine.Value, error) {
+	targets, err := manager.allTargets(ctx)
+	if err != nil {
+		return opforengine.Null(), err
+	}
+	values := make([]opforengine.Value, 0, len(targets))
+	for _, target := range targets {
+		if kind == opforengine.AggressorSessionQueryBeaconIDs {
+			values = append(values, opforengine.String(target.id()))
+		} else {
+			values = append(values, opforengine.HashValue(targetMetadata(target)))
+		}
+	}
+	return opforengine.ArrayValue(opforengine.NewArray(values...)), nil
+}
+
+func (manager *Manager) querySingleSession(
+	ctx context.Context,
+	query opforengine.AggressorSessionQuery,
+) (opforengine.Value, error) {
 	target, err := manager.resolveTarget(ctx, query.SessionID.String())
 	if err != nil {
 		return opforengine.Null(), err
 	}
 	metadata := targetMetadata(target)
+	switch query.Kind {
+	case opforengine.AggressorSessionQueryBeaconArchitecture,
+		opforengine.AggressorSessionQueryBeaconData,
+		opforengine.AggressorSessionQueryBeaconInfo,
+		opforengine.AggressorSessionQueryIs64:
+		return querySessionMetadata(target, metadata, query)
+	case opforengine.AggressorSessionQueryIsActive,
+		opforengine.AggressorSessionQueryIsAdmin,
+		opforengine.AggressorSessionQueryIsBeacon,
+		opforengine.AggressorSessionQueryIsSSH:
+		return querySessionStatus(target, query)
+	default:
+		return opforengine.Null(), fmt.Errorf("opfor: unsupported session query %q", query.Name)
+	}
+}
+
+func querySessionMetadata(
+	target resolvedTarget,
+	metadata *opforengine.Hash,
+	query opforengine.AggressorSessionQuery,
+) (opforengine.Value, error) {
 	switch query.Kind {
 	case opforengine.AggressorSessionQueryBeaconArchitecture:
 		architecture, err := beaconArchitecture(target.arch())
@@ -63,27 +98,41 @@ func (manager *Manager) querySession(
 			return opforengine.Null(), err
 		}
 		return opforengine.Bool(architecture == "x64"), nil
+	default:
+		return opforengine.Null(), fmt.Errorf("opfor: unsupported session metadata query %q", query.Name)
+	}
+}
+
+func querySessionStatus(
+	target resolvedTarget,
+	query opforengine.AggressorSessionQuery,
+) (opforengine.Value, error) {
+	switch query.Kind {
 	case opforengine.AggressorSessionQueryIsActive:
 		if target.session != nil {
 			return opforengine.Bool(!target.session.IsDead), nil
 		}
 		return opforengine.Bool(target.beacon != nil && !target.beacon.IsDead), nil
 	case opforengine.AggressorSessionQueryIsAdmin:
-		integrity := ""
-		if target.session != nil {
-			integrity = target.session.Integrity
-		} else if target.beacon != nil {
-			integrity = target.beacon.Integrity
-		}
-		integrity = strings.ToLower(integrity)
+		integrity := strings.ToLower(targetIntegrity(target))
 		return opforengine.Bool(strings.Contains(integrity, "high") || strings.Contains(integrity, "system") || strings.Contains(integrity, "admin")), nil
 	case opforengine.AggressorSessionQueryIsBeacon:
 		return opforengine.Bool(target.beacon != nil), nil
 	case opforengine.AggressorSessionQueryIsSSH:
 		return opforengine.Bool(false), nil
 	default:
-		return opforengine.Null(), fmt.Errorf("opfor: unsupported session query %q", query.Name)
+		return opforengine.Null(), fmt.Errorf("opfor: unsupported session status query %q", query.Name)
 	}
+}
+
+func targetIntegrity(target resolvedTarget) string {
+	if target.session != nil {
+		return target.session.Integrity
+	}
+	if target.beacon != nil {
+		return target.beacon.Integrity
+	}
+	return ""
 }
 
 func (manager *Manager) allTargets(ctx context.Context) ([]resolvedTarget, error) {

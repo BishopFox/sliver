@@ -123,6 +123,13 @@ func TestRegisterExtensionDoesNotAddFailedLoad(t *testing.T) {
 }
 
 func TestCallExtensionBOFOutputsProtobufRoundTrip(t *testing.T) {
+	assertCallExtensionRequestRoundTrip(t)
+	assertCallExtensionResponseDescriptor(t)
+	assertCallExtensionResponseRoundTrip(t)
+}
+
+func assertCallExtensionRequestRoundTrip(t *testing.T) {
+	t.Helper()
 	requestDescriptor := (&sliverpb.CallExtensionReq{}).ProtoReflect().Descriptor()
 	wantOutputField := requestDescriptor.Fields().ByName("WantBOFOutputs")
 	if wantOutputField == nil || wantOutputField.Number() != 7 {
@@ -140,7 +147,10 @@ func TestCallExtensionBOFOutputsProtobufRoundTrip(t *testing.T) {
 	if !gotRequest.GetIsBOF() || !gotRequest.GetWantBOFOutputs() {
 		t.Fatalf("request round trip = {IsBOF:%t WantBOFOutputs:%t}, want both true", gotRequest.GetIsBOF(), gotRequest.GetWantBOFOutputs())
 	}
+}
 
+func assertCallExtensionResponseDescriptor(t *testing.T) {
+	t.Helper()
 	descriptor := (&sliverpb.CallExtension{}).ProtoReflect().Descriptor()
 	for _, field := range []struct {
 		name   protoreflect.Name
@@ -159,7 +169,10 @@ func TestCallExtensionBOFOutputsProtobufRoundTrip(t *testing.T) {
 	if got := descriptor.Fields().ByName("BOFOutputs").Cardinality(); got != protoreflect.Repeated {
 		t.Fatalf("BOFOutputs cardinality = %v, want repeated", got)
 	}
+}
 
+func assertCallExtensionResponseRoundTrip(t *testing.T) {
+	t.Helper()
 	wantResponse := &sliverpb.CallExtension{
 		Output: []byte{'a', 0x00, 0xff, 'b'},
 		BOFOutputs: []*sliverpb.BOFOutput{
@@ -293,15 +306,6 @@ func TestCallExtensionHandlerDefersResponseAndCopiesCallbackOutput(t *testing.T)
 }
 
 func TestCallExtensionPreservesPartialBOFOutputOnError(t *testing.T) {
-	wantData := []byte("bof object")
-	wantArgs := []byte{4, 0, 0, 0, 1, 2, 3, 4}
-	wantOutputs := []bof.Output{
-		{Type: bof.OutputDefault, Data: []byte("partial ")},
-		{Type: bof.OutputError, Data: []byte("BOF output")},
-		{Type: -2147483648, Data: []byte{0x00, 0xff}},
-	}
-	wantLegacyOutput := []byte{'p', 'a', 'r', 't', 'i', 'a', 'l', ' ', 'B', 'O', 'F', ' ', 'o', 'u', 't', 'p', 'u', 't', 0x00, 0xff}
-	wantErr := errors.New("BOF execution failed")
 	for _, test := range []struct {
 		name      string
 		wantTyped bool
@@ -309,76 +313,109 @@ func TestCallExtensionPreservesPartialBOFOutputOnError(t *testing.T) {
 		{name: "legacy", wantTyped: false},
 		{name: "typed", wantTyped: true},
 	} {
-		t.Run(test.name, func(t *testing.T) {
-			request, err := proto.Marshal(&sliverpb.CallExtensionReq{
-				Name:           "must-not-use-native-registry",
-				Export:         "CustomExport",
-				Args:           wantArgs,
-				BOFData:        wantData,
-				IsBOF:          true,
-				WantBOFOutputs: test.wantTyped,
-			})
-			if err != nil {
-				t.Fatalf("marshal request: %v", err)
-			}
+		t.Run(test.name, func(t *testing.T) { runPartialBOFOutputTest(t, test.wantTyped) })
+	}
+}
 
-			var (
-				responseData []byte
-				responseErr  error
-				responses    int
-			)
-			callExtension(request, func(data []byte, err error) {
-				responses++
-				responseData = data
-				responseErr = err
-			}, func(data []byte, entryPoint string, args []byte) ([]bof.Output, error) {
-				if !bytes.Equal(data, wantData) {
-					t.Fatalf("BOF data = %q, want %q", data, wantData)
-				}
-				if entryPoint != "CustomExport" {
-					t.Fatalf("entry point = %q, want CustomExport", entryPoint)
-				}
-				if !bytes.Equal(args, wantArgs) {
-					t.Fatalf("args = %v, want %v", args, wantArgs)
-				}
-				return wantOutputs, wantErr
-			})
+func runPartialBOFOutputTest(t *testing.T, wantTyped bool) {
+	t.Helper()
+	wantData := []byte("bof object")
+	wantArgs := []byte{4, 0, 0, 0, 1, 2, 3, 4}
+	wantOutputs := []bof.Output{
+		{Type: bof.OutputDefault, Data: []byte("partial ")},
+		{Type: bof.OutputError, Data: []byte("BOF output")},
+		{Type: -2147483648, Data: []byte{0x00, 0xff}},
+	}
+	wantErr := errors.New("BOF execution failed")
+	request, err := proto.Marshal(&sliverpb.CallExtensionReq{
+		Name:           "must-not-use-native-registry",
+		Export:         "CustomExport",
+		Args:           wantArgs,
+		BOFData:        wantData,
+		IsBOF:          true,
+		WantBOFOutputs: wantTyped,
+	})
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
 
-			if responseErr != nil {
-				t.Fatalf("response callback returned error: %v", responseErr)
-			}
-			if responses != 1 {
-				t.Fatalf("got %d responses, want 1", responses)
-			}
-			response := &sliverpb.CallExtension{}
-			if err := proto.Unmarshal(responseData, response); err != nil {
-				t.Fatalf("unmarshal response: %v", err)
-			}
-			if response.GetResponse().GetErr() != wantErr.Error() {
-				t.Fatalf("response error = %q, want %q", response.GetResponse().GetErr(), wantErr)
-			}
-			if !test.wantTyped {
-				if !bytes.Equal(response.GetOutput(), wantLegacyOutput) {
-					t.Fatalf("legacy output = %v, want %v", response.GetOutput(), wantLegacyOutput)
-				}
-				if len(response.GetBOFOutputs()) != 0 {
-					t.Fatalf("typed output records = %d, want none", len(response.GetBOFOutputs()))
-				}
-				return
-			}
-			if len(response.GetOutput()) != 0 {
-				t.Fatalf("legacy output = %v, want none", response.GetOutput())
-			}
-			if len(response.GetBOFOutputs()) != len(wantOutputs) {
-				t.Fatalf("typed output records = %d, want %d", len(response.GetBOFOutputs()), len(wantOutputs))
-			}
-			for index, want := range wantOutputs {
-				got := response.GetBOFOutputs()[index]
-				if got.GetType() != int32(want.Type) || !bytes.Equal(got.GetData(), want.Data) {
-					t.Fatalf("typed output[%d] = {Type:%d Data:%v}, want {Type:%d Data:%v}", index, got.GetType(), got.GetData(), want.Type, want.Data)
-				}
-			}
-		})
+	var (
+		responseData []byte
+		responseErr  error
+		responses    int
+	)
+	callExtension(request, func(data []byte, err error) {
+		responses++
+		responseData = data
+		responseErr = err
+	}, func(data []byte, entryPoint string, args []byte) ([]bof.Output, error) {
+		assertPartialBOFInvocation(t, data, entryPoint, args, wantData, wantArgs)
+		return wantOutputs, wantErr
+	})
+
+	response := decodePartialBOFResponse(t, responseData, responseErr, responses, wantErr)
+	if wantTyped {
+		assertTypedPartialBOFResponse(t, response, wantOutputs)
+		return
+	}
+	assertLegacyPartialBOFResponse(t, response)
+}
+
+func assertPartialBOFInvocation(t *testing.T, data []byte, entryPoint string, args, wantData, wantArgs []byte) {
+	t.Helper()
+	if !bytes.Equal(data, wantData) {
+		t.Fatalf("BOF data = %q, want %q", data, wantData)
+	}
+	if entryPoint != "CustomExport" {
+		t.Fatalf("entry point = %q, want CustomExport", entryPoint)
+	}
+	if !bytes.Equal(args, wantArgs) {
+		t.Fatalf("args = %v, want %v", args, wantArgs)
+	}
+}
+
+func decodePartialBOFResponse(t *testing.T, responseData []byte, responseErr error, responses int, wantErr error) *sliverpb.CallExtension {
+	t.Helper()
+	if responseErr != nil {
+		t.Fatalf("response callback returned error: %v", responseErr)
+	}
+	if responses != 1 {
+		t.Fatalf("got %d responses, want 1", responses)
+	}
+	response := &sliverpb.CallExtension{}
+	if err := proto.Unmarshal(responseData, response); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if response.GetResponse().GetErr() != wantErr.Error() {
+		t.Fatalf("response error = %q, want %q", response.GetResponse().GetErr(), wantErr)
+	}
+	return response
+}
+
+func assertLegacyPartialBOFResponse(t *testing.T, response *sliverpb.CallExtension) {
+	t.Helper()
+	wantOutput := []byte{'p', 'a', 'r', 't', 'i', 'a', 'l', ' ', 'B', 'O', 'F', ' ', 'o', 'u', 't', 'p', 'u', 't', 0x00, 0xff}
+	if !bytes.Equal(response.GetOutput(), wantOutput) {
+		t.Fatalf("legacy output = %v, want %v", response.GetOutput(), wantOutput)
+	}
+	if len(response.GetBOFOutputs()) != 0 {
+		t.Fatalf("typed output records = %d, want none", len(response.GetBOFOutputs()))
+	}
+}
+
+func assertTypedPartialBOFResponse(t *testing.T, response *sliverpb.CallExtension, wantOutputs []bof.Output) {
+	t.Helper()
+	if len(response.GetOutput()) != 0 {
+		t.Fatalf("legacy output = %v, want none", response.GetOutput())
+	}
+	if len(response.GetBOFOutputs()) != len(wantOutputs) {
+		t.Fatalf("typed output records = %d, want %d", len(response.GetBOFOutputs()), len(wantOutputs))
+	}
+	for index, want := range wantOutputs {
+		got := response.GetBOFOutputs()[index]
+		if got.GetType() != int32(want.Type) || !bytes.Equal(got.GetData(), want.Data) {
+			t.Fatalf("typed output[%d] = {Type:%d Data:%v}, want {Type:%d Data:%v}", index, got.GetType(), got.GetData(), want.Type, want.Data)
+		}
 	}
 }
 

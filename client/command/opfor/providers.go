@@ -117,47 +117,9 @@ func (manager *Manager) executeBeacon(
 	ctx context.Context,
 	request opforengine.AggressorBeaconExecutionRequest,
 ) (opforengine.Value, error) {
-	if request.Kind != opforengine.AggressorBeaconInlineExecute {
-		return opforengine.Null(), fmt.Errorf("opfor: unsupported Beacon execution function %q", request.Name)
-	}
-	if err := ctx.Err(); err != nil {
-		return opforengine.Null(), err
-	}
-	targetID := request.BeaconID.String()
-	target, err := manager.resolveTarget(ctx, targetID)
+	targetID, call, err := manager.prepareBeaconExecution(ctx, request)
 	if err != nil {
 		return opforengine.Null(), err
-	}
-	if _, err := beaconArchitecture(target.arch()); err != nil {
-		return opforengine.Null(), err
-	}
-	if target.capabilities()&sliverpb.CapabilityBOFV1 == 0 {
-		return opforengine.Null(), fmt.Errorf("opfor: target %q does not advertise the bof_v1 capability", targetID)
-	}
-
-	bofData, ok := request.Content.Bytes()
-	if !ok {
-		return opforengine.Null(), errors.New("opfor: beacon_inline_execute BOF content is not a byte string")
-	}
-	packed, ok := request.PackedArguments.Bytes()
-	if !ok {
-		packed = []byte(request.PackedArguments.String())
-	}
-	arguments, err := prefixBOFArguments(packed)
-	if err != nil {
-		return opforengine.Null(), err
-	}
-	digest := sha256.Sum256(bofData)
-	call := &sliverpb.CallExtensionReq{
-		Name:    hex.EncodeToString(digest[:]),
-		Args:    arguments,
-		Export:  request.EntryPoint.String(),
-		BOFData: bofData,
-		IsBOF:   true,
-		// Older implants ignore this additive request bit and return legacy
-		// flattened Output, which bofOutputRecords continues to accept.
-		WantBOFOutputs: true,
-		Request:        targetRequest(ctx, target),
 	}
 
 	rpc, err := manager.rpc()
@@ -178,6 +140,63 @@ func (manager *Manager) executeBeacon(
 		taskID = response.GetResponse().GetTaskID()
 	}
 
+	return manager.completeBeaconExecution(ctx, request, taskID, response)
+}
+
+func (manager *Manager) prepareBeaconExecution(
+	ctx context.Context,
+	request opforengine.AggressorBeaconExecutionRequest,
+) (string, *sliverpb.CallExtensionReq, error) {
+	if request.Kind != opforengine.AggressorBeaconInlineExecute {
+		return "", nil, fmt.Errorf("opfor: unsupported Beacon execution function %q", request.Name)
+	}
+	if err := ctx.Err(); err != nil {
+		return "", nil, err
+	}
+	targetID := request.BeaconID.String()
+	target, err := manager.resolveTarget(ctx, targetID)
+	if err != nil {
+		return "", nil, err
+	}
+	if _, err := beaconArchitecture(target.arch()); err != nil {
+		return "", nil, err
+	}
+	if target.capabilities()&sliverpb.CapabilityBOFV1 == 0 {
+		return "", nil, fmt.Errorf("opfor: target %q does not advertise the bof_v1 capability", targetID)
+	}
+
+	bofData, ok := request.Content.Bytes()
+	if !ok {
+		return "", nil, errors.New("opfor: beacon_inline_execute BOF content is not a byte string")
+	}
+	packed, ok := request.PackedArguments.Bytes()
+	if !ok {
+		packed = []byte(request.PackedArguments.String())
+	}
+	arguments, err := prefixBOFArguments(packed)
+	if err != nil {
+		return "", nil, err
+	}
+	digest := sha256.Sum256(bofData)
+	return targetID, &sliverpb.CallExtensionReq{
+		Name:    hex.EncodeToString(digest[:]),
+		Args:    arguments,
+		Export:  request.EntryPoint.String(),
+		BOFData: bofData,
+		IsBOF:   true,
+		// Older implants ignore this additive request bit and return legacy
+		// flattened Output, which bofOutputRecords continues to accept.
+		WantBOFOutputs: true,
+		Request:        targetRequest(ctx, target),
+	}, nil
+}
+
+func (manager *Manager) completeBeaconExecution(
+	ctx context.Context,
+	request opforengine.AggressorBeaconExecutionRequest,
+	taskID string,
+	response *sliverpb.CallExtension,
+) (opforengine.Value, error) {
 	records := bofOutputRecords(response)
 	var executionErr error
 	if response.GetResponse().GetErr() != "" {

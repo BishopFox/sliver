@@ -124,17 +124,19 @@ func expectedStringArguments(value string) []byte {
 	return arguments
 }
 
+type corpusDispatchTest struct {
+	name          string
+	fixture       string
+	scriptName    string
+	objectPath    string
+	alias         string
+	arguments     []string
+	packedString  *string
+	objectContent []byte
+}
+
 func TestSliverArmoryCNACorpusDispatchesBOFs(t *testing.T) {
-	tests := []struct {
-		name          string
-		fixture       string
-		scriptName    string
-		objectPath    string
-		alias         string
-		arguments     []string
-		packedString  *string
-		objectContent []byte
-	}{
+	tests := []corpusDispatchTest{
 		{
 			name:          "FirefoxDump all",
 			fixture:       "firefoxdump/firefoxdump.cna",
@@ -176,68 +178,80 @@ func TestSliverArmoryCNACorpusDispatchesBOFs(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			session := &clientpb.Session{
-				ID:           "session-corpus",
-				Name:         "corpus",
-				OS:           "windows",
-				Arch:         "amd64",
-				Capabilities: sliverpb.CapabilityBOFV1,
-			}
-			rpc := &corpusRPC{sessions: []*clientpb.Session{session}}
-			manager := newCorpusManager(t, rpc)
-			scriptPath := materializeCorpusScript(
-				t, test.fixture, test.scriptName, test.objectPath, test.objectContent,
-			)
+		t.Run(test.name, func(t *testing.T) { runCorpusDispatchTest(t, test) })
+	}
+}
 
-			loadedPath, err := manager.Load(context.Background(), scriptPath)
-			if err != nil {
-				t.Fatalf("load pinned %s fixture: %v", test.fixture, err)
-			}
-			if loadedPath != scriptPath {
-				t.Fatalf("loaded path = %q, want %q", loadedPath, scriptPath)
-			}
-			if names := manager.aliasNames(); len(names) != 1 || names[0] != test.alias {
-				t.Fatalf("registered aliases = %v, want [%s]", names, test.alias)
-			}
+func runCorpusDispatchTest(t *testing.T, test corpusDispatchTest) {
+	t.Helper()
+	session := &clientpb.Session{
+		ID:           "session-corpus",
+		Name:         "corpus",
+		OS:           "windows",
+		Arch:         "amd64",
+		Capabilities: sliverpb.CapabilityBOFV1,
+	}
+	rpc := &corpusRPC{sessions: []*clientpb.Session{session}}
+	manager := newCorpusManager(t, rpc)
+	scriptPath := materializeCorpusScript(
+		t, test.fixture, test.scriptName, test.objectPath, test.objectContent,
+	)
 
-			rawInput := strings.Join(append([]string{test.alias}, test.arguments...), " ")
-			if err := manager.invokeAlias(context.Background(), test.alias, rawInput, test.arguments, session.ID); err != nil {
-				t.Fatalf("invoke %s: %v", test.alias, err)
-			}
+	loadedPath, err := manager.Load(context.Background(), scriptPath)
+	if err != nil {
+		t.Fatalf("load pinned %s fixture: %v", test.fixture, err)
+	}
+	if loadedPath != scriptPath {
+		t.Fatalf("loaded path = %q, want %q", loadedPath, scriptPath)
+	}
+	assertCorpusAliases(t, manager.aliasNames(), test.alias)
 
-			calls := rpc.snapshotCalls()
-			if len(calls) != 1 {
-				t.Fatalf("CallExtension calls = %d, want 1", len(calls))
-			}
-			call := calls[0]
-			if !call.IsBOF || call.Export != "go" {
-				t.Fatalf("CallExtension BOF/export = %v/%q, want true/go", call.IsBOF, call.Export)
-			}
-			if !bytes.Equal(call.BOFData, test.objectContent) {
-				t.Fatalf("CallExtension BOF bytes = %q, want %q", call.BOFData, test.objectContent)
-			}
-			wantArguments := []byte{0, 0, 0, 0}
-			if test.packedString != nil {
-				wantArguments = expectedStringArguments(*test.packedString)
-			}
-			if !bytes.Equal(call.Args, wantArguments) {
-				t.Fatalf("CallExtension args = %x, want Reflektor framing %x", call.Args, wantArguments)
-			}
-			if call.GetRequest().GetSessionID() != session.ID || call.GetRequest().GetAsync() {
-				t.Fatalf("CallExtension request = %#v, want synchronous session %s", call.GetRequest(), session.ID)
-			}
-			if len(call.Name) != 64 {
-				t.Fatalf("CallExtension name digest length = %d, want 64", len(call.Name))
-			}
+	rawInput := strings.Join(append([]string{test.alias}, test.arguments...), " ")
+	if err := manager.invokeAlias(context.Background(), test.alias, rawInput, test.arguments, session.ID); err != nil {
+		t.Fatalf("invoke %s: %v", test.alias, err)
+	}
 
-			if _, err := manager.Unload(context.Background(), scriptPath); err != nil {
-				t.Fatalf("unload %s: %v", test.alias, err)
-			}
-			if names := manager.aliasNames(); len(names) != 0 {
-				t.Fatalf("aliases after unload = %v, want none", names)
-			}
-		})
+	calls := rpc.snapshotCalls()
+	if len(calls) != 1 {
+		t.Fatalf("CallExtension calls = %d, want 1", len(calls))
+	}
+	assertCorpusCall(t, calls[0], test, session.ID)
+
+	if _, err := manager.Unload(context.Background(), scriptPath); err != nil {
+		t.Fatalf("unload %s: %v", test.alias, err)
+	}
+	if names := manager.aliasNames(); len(names) != 0 {
+		t.Fatalf("aliases after unload = %v, want none", names)
+	}
+}
+
+func assertCorpusAliases(t *testing.T, names []string, want string) {
+	t.Helper()
+	if len(names) != 1 || names[0] != want {
+		t.Fatalf("registered aliases = %v, want [%s]", names, want)
+	}
+}
+
+func assertCorpusCall(t *testing.T, call *sliverpb.CallExtensionReq, test corpusDispatchTest, sessionID string) {
+	t.Helper()
+	if !call.IsBOF || call.Export != "go" {
+		t.Fatalf("CallExtension BOF/export = %v/%q, want true/go", call.IsBOF, call.Export)
+	}
+	if !bytes.Equal(call.BOFData, test.objectContent) {
+		t.Fatalf("CallExtension BOF bytes = %q, want %q", call.BOFData, test.objectContent)
+	}
+	wantArguments := []byte{0, 0, 0, 0}
+	if test.packedString != nil {
+		wantArguments = expectedStringArguments(*test.packedString)
+	}
+	if !bytes.Equal(call.Args, wantArguments) {
+		t.Fatalf("CallExtension args = %x, want Reflektor framing %x", call.Args, wantArguments)
+	}
+	if call.GetRequest().GetSessionID() != sessionID || call.GetRequest().GetAsync() {
+		t.Fatalf("CallExtension request = %#v, want synchronous session %s", call.GetRequest(), sessionID)
+	}
+	if len(call.Name) != 64 {
+		t.Fatalf("CallExtension name digest length = %d, want 64", len(call.Name))
 	}
 }
 

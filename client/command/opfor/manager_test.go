@@ -219,7 +219,28 @@ beacon_command_register("runbof", "Run the example BOF", "Runs exact BOF bytes")
 	if absolute != scriptPath || !reflect.DeepEqual(manager.Paths(), []string{scriptPath}) {
 		t.Fatalf("loaded paths = %q / %q, want %q", absolute, manager.Paths(), scriptPath)
 	}
-	command := directChild(namespace, "runbof")
+	assertSyncBOFAlias(t, directChild(namespace, "runbof"))
+
+	if err := manager.invokeAlias(context.Background(), "runbof", "runbof fox", []string{"fox"}, "session-1"); err != nil {
+		t.Fatalf("invokeAlias: %v", err)
+	}
+	calls, _ := rpc.snapshotCalls()
+	if len(calls) != 1 {
+		t.Fatalf("CallExtension calls = %d, want 1", len(calls))
+	}
+	assertSyncBOFCall(t, calls[0])
+	if got := output.stdout(); got != "sync output\n" {
+		t.Fatalf("stdout = %q, want %q", got, "sync output\\n")
+	}
+
+	if _, err := manager.Unload(context.Background(), filepath.Base(scriptPath)); err != nil {
+		t.Fatalf("Unload: %v", err)
+	}
+	assertSyncBOFUnloaded(t, manager, namespace)
+}
+
+func assertSyncBOFAlias(t *testing.T, command *cobra.Command) {
+	t.Helper()
 	if command == nil {
 		t.Fatal("CNA alias was not registered beneath the opfor namespace")
 	}
@@ -229,14 +250,10 @@ beacon_command_register("runbof", "Run the example BOF", "Runs exact BOF bytes")
 	if command.Short != "Run the example BOF" || !strings.Contains(command.Long, "Runs exact BOF bytes") {
 		t.Fatalf("alias help = short:%q long:%q", command.Short, command.Long)
 	}
+}
 
-	if err := manager.invokeAlias(context.Background(), "runbof", "runbof fox", []string{"fox"}, "session-1"); err != nil {
-		t.Fatalf("invokeAlias: %v", err)
-	}
-	calls, _ := rpc.snapshotCalls()
-	if len(calls) != 1 {
-		t.Fatalf("CallExtension calls = %d, want 1", len(calls))
-	}
+func assertSyncBOFCall(t *testing.T, call *sliverpb.CallExtensionReq) {
+	t.Helper()
 	digest := sha256.Sum256([]byte("OBJ"))
 	wantArguments := []byte{
 		12, 0, 0, 0,
@@ -255,16 +272,13 @@ beacon_command_register("runbof", "Run the example BOF", "Runs exact BOF bytes")
 			SessionID: "session-1",
 		},
 	}
-	if !proto.Equal(calls[0], want) {
-		t.Fatalf("CallExtension request mismatch\n got: %s\nwant: %s", calls[0], want)
+	if !proto.Equal(call, want) {
+		t.Fatalf("CallExtension request mismatch\n got: %s\nwant: %s", call, want)
 	}
-	if got := output.stdout(); got != "sync output\n" {
-		t.Fatalf("stdout = %q, want %q", got, "sync output\\n")
-	}
+}
 
-	if _, err := manager.Unload(context.Background(), filepath.Base(scriptPath)); err != nil {
-		t.Fatalf("Unload: %v", err)
-	}
+func assertSyncBOFUnloaded(t *testing.T, manager *Manager, namespace *cobra.Command) {
+	t.Helper()
 	if directChild(namespace, "runbof") != nil || len(manager.Paths()) != 0 {
 		t.Fatalf("alias/path survived unload: command=%p paths=%q", directChild(namespace, "runbof"), manager.Paths())
 	}
@@ -386,22 +400,25 @@ alias alpha { println("alpha"); }
 		t.Fatal(err)
 	}
 	command := managementCommand(manager.client, consts.SliverCoreHelpGroup)
+	assertCheckCommandEffects(t, command, output, scriptPath)
+	wantOutput := assertLoadCommandEffects(t, command, output, scriptPath)
+	assertAliasHelpEffects(t, command, output, wantOutput)
+}
 
-	check := directChild(command, "check")
-	if check == nil || check.RunE == nil {
-		t.Fatal("opfor check command does not expose RunE")
-	}
+func assertCheckCommandEffects(t *testing.T, command *cobra.Command, output *testOutput, scriptPath string) {
+	t.Helper()
+	check := requireManagementRunE(t, command, "check")
 	if err := check.RunE(check, []string{scriptPath}); err != nil {
 		t.Fatalf("opfor check: %v", err)
 	}
 	if got := output.stdout(); got != scriptPath+": ok\n" {
 		t.Fatalf("check result = %q, want %q", got, scriptPath+": ok\\n")
 	}
+}
 
-	load := directChild(command, "load")
-	if load == nil || load.RunE == nil {
-		t.Fatal("opfor load command does not expose RunE")
-	}
+func assertLoadCommandEffects(t *testing.T, command *cobra.Command, output *testOutput, scriptPath string) string {
+	t.Helper()
+	load := requireManagementRunE(t, command, "load")
 	if err := load.RunE(load, []string{scriptPath}); err != nil {
 		t.Fatalf("opfor load: %v", err)
 	}
@@ -422,11 +439,12 @@ alias alpha { println("alpha"); }
 	if strings.Contains(output.stdout(), "--help") {
 		t.Fatalf("load command suggested unsafe alias flag help: %q", output.stdout())
 	}
+	return wantOutput
+}
 
-	aliasHelp := directChild(command, "help")
-	if aliasHelp == nil || aliasHelp.RunE == nil {
-		t.Fatal("opfor help command does not expose RunE")
-	}
+func assertAliasHelpEffects(t *testing.T, command *cobra.Command, output *testOutput, wantOutput string) {
+	t.Helper()
+	aliasHelp := requireManagementRunE(t, command, "help")
 	if err := aliasHelp.RunE(aliasHelp, []string{"alpha"}); err != nil {
 		t.Fatalf("opfor help alpha: %v", err)
 	}
@@ -439,65 +457,74 @@ alias alpha { println("alpha"); }
 	}
 }
 
+func requireManagementRunE(t *testing.T, command *cobra.Command, name string) *cobra.Command {
+	t.Helper()
+	child := directChild(command, name)
+	if child == nil || child.RunE == nil {
+		t.Fatalf("opfor %s command does not expose RunE", name)
+	}
+	return child
+}
+
 func TestLoadCommandReportsOnlyNewInvokableAliases(t *testing.T) {
-	t.Run("does not repeat aliases from earlier scripts", func(t *testing.T) {
-		manager, output := newTestManager(t, &testRPC{})
-		installTestManager(t, manager)
-		preloadedPath := filepath.Join(t.TempDir(), "preloaded.cna")
-		if err := os.WriteFile(preloadedPath, []byte(`alias earlier { println("earlier"); }`), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := manager.Load(context.Background(), preloadedPath); err != nil {
-			t.Fatalf("preload: %v", err)
-		}
+	t.Run("does not repeat aliases from earlier scripts", testLoadCommandDoesNotRepeatEarlierAliases)
+	t.Run("does not advertise a management-command collision", testLoadCommandDoesNotAdvertiseCollision)
+}
 
-		scriptPath := filepath.Join(t.TempDir(), "no-alias.cna")
-		if err := os.WriteFile(scriptPath, []byte(`$value = 1;`), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		command := managementCommand(manager.client, consts.SliverCoreHelpGroup)
-		load := directChild(command, "load")
-		if err := load.RunE(load, []string{scriptPath}); err != nil {
-			t.Fatalf("load no-alias script: %v", err)
-		}
-		if got := output.infoOutput(); !strings.Contains(got, "no invokable Beacon aliases") {
-			t.Fatalf("load info output = %q", got)
-		}
-		if got := output.stdout(); strings.Contains(got, "opfor earlier") {
-			t.Fatalf("load repeated an earlier script's alias: %q", got)
-		}
-	})
+func testLoadCommandDoesNotRepeatEarlierAliases(t *testing.T) {
+	manager, output := newTestManager(t, &testRPC{})
+	installTestManager(t, manager)
+	preloadedPath := filepath.Join(t.TempDir(), "preloaded.cna")
+	if err := os.WriteFile(preloadedPath, []byte(`alias earlier { println("earlier"); }`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.Load(context.Background(), preloadedPath); err != nil {
+		t.Fatalf("preload: %v", err)
+	}
 
-	t.Run("does not advertise a management-command collision", func(t *testing.T) {
-		manager, output := newTestManager(t, &testRPC{})
-		installTestManager(t, manager)
-		scriptPath := filepath.Join(t.TempDir(), "collision.cna")
-		if err := os.WriteFile(scriptPath, []byte(`alias run { println("collision"); }`), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		command := managementCommand(manager.client, consts.SliverCoreHelpGroup)
-		staticRun := directChild(command, "run")
-		load := directChild(command, "load")
-		if err := load.RunE(load, []string{scriptPath}); err != nil {
-			t.Fatalf("load colliding alias: %v", err)
-		}
-		if directChild(command, "run") != staticRun {
-			t.Fatal("CNA alias displaced the static run command")
-		}
-		if got := output.infoOutput(); !strings.Contains(got, "no invokable Beacon aliases") {
-			t.Fatalf("collision load info output = %q", got)
-		}
-		if got := output.stdout(); strings.Contains(got, "opfor run") {
-			t.Fatalf("load advertised a colliding alias: %q", got)
-		}
-		aliasHelp := directChild(command, "help")
-		if aliasHelp == nil || aliasHelp.RunE == nil {
-			t.Fatal("opfor help command does not expose RunE")
-		}
-		if err := aliasHelp.RunE(aliasHelp, []string{"run"}); err == nil || !strings.Contains(err.Error(), `unknown CNA alias "run"`) {
-			t.Fatalf("colliding alias help error = %v", err)
-		}
-	})
+	scriptPath := filepath.Join(t.TempDir(), "no-alias.cna")
+	if err := os.WriteFile(scriptPath, []byte(`$value = 1;`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	command := managementCommand(manager.client, consts.SliverCoreHelpGroup)
+	load := requireManagementRunE(t, command, "load")
+	if err := load.RunE(load, []string{scriptPath}); err != nil {
+		t.Fatalf("load no-alias script: %v", err)
+	}
+	if got := output.infoOutput(); !strings.Contains(got, "no invokable Beacon aliases") {
+		t.Fatalf("load info output = %q", got)
+	}
+	if got := output.stdout(); strings.Contains(got, "opfor earlier") {
+		t.Fatalf("load repeated an earlier script's alias: %q", got)
+	}
+}
+
+func testLoadCommandDoesNotAdvertiseCollision(t *testing.T) {
+	manager, output := newTestManager(t, &testRPC{})
+	installTestManager(t, manager)
+	scriptPath := filepath.Join(t.TempDir(), "collision.cna")
+	if err := os.WriteFile(scriptPath, []byte(`alias run { println("collision"); }`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	command := managementCommand(manager.client, consts.SliverCoreHelpGroup)
+	staticRun := directChild(command, "run")
+	load := requireManagementRunE(t, command, "load")
+	if err := load.RunE(load, []string{scriptPath}); err != nil {
+		t.Fatalf("load colliding alias: %v", err)
+	}
+	if directChild(command, "run") != staticRun {
+		t.Fatal("CNA alias displaced the static run command")
+	}
+	if got := output.infoOutput(); !strings.Contains(got, "no invokable Beacon aliases") {
+		t.Fatalf("collision load info output = %q", got)
+	}
+	if got := output.stdout(); strings.Contains(got, "opfor run") {
+		t.Fatalf("load advertised a colliding alias: %q", got)
+	}
+	aliasHelp := requireManagementRunE(t, command, "help")
+	if err := aliasHelp.RunE(aliasHelp, []string{"run"}); err == nil || !strings.Contains(err.Error(), `unknown CNA alias "run"`) {
+		t.Fatalf("colliding alias help error = %v", err)
+	}
 }
 
 func TestInvokeAliasPreservesExactParsedArguments(t *testing.T) {
@@ -888,12 +915,18 @@ alias rejected {
 	}
 }
 
-func TestExecuteBeaconPollsAsyncTaskAndInvokesOrderedLegacyCallbacks(t *testing.T) {
-	completed, err := proto.Marshal(&sliverpb.CallExtension{Output: []byte{'A', 0, 'B'}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	rpc := &testRPC{
+type callbackRecorder struct {
+	calls [][]opforengine.Value
+}
+
+func (recorder *callbackRecorder) call(_ context.Context, values ...opforengine.Value) (opforengine.Value, error) {
+	recorder.calls = append(recorder.calls, append([]opforengine.Value(nil), values...))
+	return opforengine.Null(), nil
+}
+
+func newAsyncBeaconTestRPC(t *testing.T, completed []byte) *testRPC {
+	t.Helper()
+	return &testRPC{
 		sessions: &clientpb.Sessions{},
 		beacons: &clientpb.Beacons{Beacons: []*clientpb.Beacon{{
 			ID: "beacon-1", Arch: "amd64", Capabilities: sliverpb.CapabilityBOFV1,
@@ -910,14 +943,18 @@ func TestExecuteBeaconPollsAsyncTaskAndInvokesOrderedLegacyCallbacks(t *testing.
 			return &clientpb.BeaconTask{ID: request.ID, State: "completed", Response: completed}, nil
 		},
 	}
+}
+
+func TestExecuteBeaconPollsAsyncTaskAndInvokesOrderedLegacyCallbacks(t *testing.T) {
+	completed, err := proto.Marshal(&sliverpb.CallExtension{Output: []byte{'A', 0, 'B'}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rpc := newAsyncBeaconTestRPC(t, completed)
 	manager, output := newTestManager(t, rpc)
 	manager.client.Settings.BeaconAutoResults = false
 
-	var callbackCalls [][]opforengine.Value
-	callback := opforengine.CallableFunc(func(_ context.Context, values ...opforengine.Value) (opforengine.Value, error) {
-		callbackCalls = append(callbackCalls, append([]opforengine.Value(nil), values...))
-		return opforengine.Null(), nil
-	})
+	recorder := &callbackRecorder{}
 	_, err = manager.executeBeacon(context.Background(), opforengine.AggressorBeaconExecutionRequest{
 		Kind:            opforengine.AggressorBeaconInlineExecute,
 		Name:            "beacon_inline_execute",
@@ -925,12 +962,22 @@ func TestExecuteBeaconPollsAsyncTaskAndInvokesOrderedLegacyCallbacks(t *testing.
 		Content:         opforengine.BinaryString([]byte("OBJ")),
 		EntryPoint:      opforengine.String("go"),
 		PackedArguments: opforengine.BinaryString([]byte{1, 2}),
-		Callback:        callback,
+		Callback:        opforengine.CallableFunc(recorder.call),
 	})
 	if err != nil {
 		t.Fatalf("executeBeacon: %v", err)
 	}
 	calls, taskCalls := rpc.snapshotCalls()
+	assertAsyncBeaconRequest(t, calls, taskCalls, output)
+	if len(recorder.calls) != 2 {
+		t.Fatalf("callback calls = %d, want data plus terminal", len(recorder.calls))
+	}
+	assertLegacyDataCallback(t, recorder.calls[0])
+	assertLegacyTerminalCallback(t, recorder.calls[1])
+}
+
+func assertAsyncBeaconRequest(t *testing.T, calls []*sliverpb.CallExtensionReq, taskCalls int, output *testOutput) {
+	t.Helper()
 	if len(calls) != 1 || taskCalls != 1 {
 		t.Fatalf("CallExtension/task polls = %d/%d, want 1/1", len(calls), taskCalls)
 	}
@@ -943,10 +990,10 @@ func TestExecuteBeaconPollsAsyncTaskAndInvokesOrderedLegacyCallbacks(t *testing.
 	if got := output.stdout(); got != "" {
 		t.Fatalf("stdout = %q, want callback-owned output", got)
 	}
-	if len(callbackCalls) != 2 {
-		t.Fatalf("callback calls = %d, want data plus terminal", len(callbackCalls))
-	}
-	dataCall := callbackCalls[0]
+}
+
+func assertLegacyDataCallback(t *testing.T, dataCall []opforengine.Value) {
+	t.Helper()
 	if len(dataCall) != 3 || dataCall[0].String() != "beacon-1" {
 		t.Fatalf("data callback values = %#v", dataCall)
 	}
@@ -965,8 +1012,10 @@ func TestExecuteBeaconPollsAsyncTaskAndInvokesOrderedLegacyCallbacks(t *testing.
 	assertCallbackInteger(t, information, "type_id", 0)
 	assertCallbackInteger(t, information, "chunk_num", 1)
 	assertCallbackFinal(t, information, true)
+}
 
-	terminalCall := callbackCalls[1]
+func assertLegacyTerminalCallback(t *testing.T, terminalCall []opforengine.Value) {
+	t.Helper()
 	if len(terminalCall) != 3 || terminalCall[0].String() != "beacon-1" {
 		t.Fatalf("terminal callback values = %#v", terminalCall)
 	}
@@ -1037,11 +1086,7 @@ func TestExecuteBeaconInvokesTypedOutputBeforeLifecycleError(t *testing.T) {
 		},
 	}
 	manager, output := newTestManager(t, rpc)
-	var callbackCalls [][]opforengine.Value
-	callback := opforengine.CallableFunc(func(_ context.Context, values ...opforengine.Value) (opforengine.Value, error) {
-		callbackCalls = append(callbackCalls, append([]opforengine.Value(nil), values...))
-		return opforengine.Null(), nil
-	})
+	recorder := &callbackRecorder{}
 
 	_, err := manager.executeBeacon(context.Background(), opforengine.AggressorBeaconExecutionRequest{
 		Kind:            opforengine.AggressorBeaconInlineExecute,
@@ -1050,7 +1095,7 @@ func TestExecuteBeaconInvokesTypedOutputBeforeLifecycleError(t *testing.T) {
 		Content:         opforengine.BinaryString([]byte("OBJ")),
 		EntryPoint:      opforengine.String("go"),
 		PackedArguments: opforengine.BinaryString(nil),
-		Callback:        callback,
+		Callback:        opforengine.CallableFunc(recorder.call),
 	})
 	if err == nil || !strings.Contains(err.Error(), "entry point failed") {
 		t.Fatalf("executeBeacon error = %v, want entry point failure", err)
@@ -1058,33 +1103,48 @@ func TestExecuteBeaconInvokesTypedOutputBeforeLifecycleError(t *testing.T) {
 	if output.stdout() != "" || output.stderr() != "" {
 		t.Fatalf("callback-owned output was also rendered: stdout=%q stderr=%q", output.stdout(), output.stderr())
 	}
-	if len(callbackCalls) != len(records)+1 {
-		t.Fatalf("callback calls = %d, want %d records plus lifecycle error", len(callbackCalls), len(records)+1)
+	assertTypedCallbacks(t, recorder.calls, records)
+}
+
+func assertTypedCallbacks(t *testing.T, calls [][]opforengine.Value, records []*sliverpb.BOFOutput) {
+	t.Helper()
+	if len(calls) != len(records)+1 {
+		t.Fatalf("callback calls = %d, want %d records plus lifecycle error", len(calls), len(records)+1)
 	}
 	wantKinds := []string{"output", "error", "output", "output"}
 	for index, record := range records {
-		call := callbackCalls[index]
-		if len(call) != 3 || call[0].String() != "session-typed" {
-			t.Fatalf("callback %d values = %#v", index, call)
-		}
-		data, ok := call[1].Bytes()
-		if !ok || !call[1].IsBinaryString() || !bytes.Equal(data, record.Data) {
-			t.Fatalf("callback %d data = %x/binary:%v, want %x", index, data, call[1].IsBinaryString(), record.Data)
-		}
-		information, ok := call[2].Hash()
-		if !ok {
-			t.Fatalf("callback %d information = %s, want hash", index, call[2].Describe())
-		}
-		kind, found := information.Get("type")
-		if !found || kind.String() != wantKinds[index] {
-			t.Fatalf("callback %d type = %q/found:%v, want %q", index, kind.String(), found, wantKinds[index])
-		}
-		assertCallbackInteger(t, information, "type_id", record.Type)
-		assertCallbackInteger(t, information, "chunk_num", int32(index+1))
-		assertCallbackFinal(t, information, index == len(records)-1)
+		assertTypedOutputCallback(t, calls[index], record, wantKinds[index], index, len(records))
 	}
+	assertTypedLifecycleCallback(t, calls[len(records)])
+}
 
-	lifecycle := callbackCalls[len(records)]
+func assertTypedOutputCallback(t *testing.T, call []opforengine.Value, record *sliverpb.BOFOutput, wantKind string, index, recordCount int) {
+	t.Helper()
+	if len(call) != 3 || call[0].String() != "session-typed" {
+		t.Fatalf("callback %d values = %#v", index, call)
+	}
+	data, ok := call[1].Bytes()
+	if !ok || !call[1].IsBinaryString() || !bytes.Equal(data, record.Data) {
+		t.Fatalf("callback %d data = %x/binary:%v, want %x", index, data, call[1].IsBinaryString(), record.Data)
+	}
+	information, ok := call[2].Hash()
+	if !ok {
+		t.Fatalf("callback %d information = %s, want hash", index, call[2].Describe())
+	}
+	kind, found := information.Get("type")
+	if !found || kind.String() != wantKind {
+		t.Fatalf("callback %d type = %q/found:%v, want %q", index, kind.String(), found, wantKind)
+	}
+	assertCallbackInteger(t, information, "type_id", record.Type)
+	assertCallbackInteger(t, information, "chunk_num", int32(index+1))
+	assertCallbackFinal(t, information, index == recordCount-1)
+}
+
+func assertTypedLifecycleCallback(t *testing.T, lifecycle []opforengine.Value) {
+	t.Helper()
+	if len(lifecycle) != 3 || lifecycle[0].String() != "session-typed" {
+		t.Fatalf("lifecycle callback values = %#v", lifecycle)
+	}
 	result, ok := lifecycle[1].Bytes()
 	if !ok || !lifecycle[1].IsBinaryString() || !bytes.Contains(result, []byte("entry point failed")) {
 		t.Fatalf("lifecycle error result = %q/binary:%v", result, lifecycle[1].IsBinaryString())

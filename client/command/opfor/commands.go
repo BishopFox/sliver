@@ -1,5 +1,6 @@
 //go:build client
 
+// Package opfor integrates OPFOR-compatible CNA scripting with the Sliver client.
 package opfor
 
 import (
@@ -311,15 +312,6 @@ func (manager *Manager) syncAllRoots() {
 	for _, root := range roots {
 		manager.syncRootLocked(root)
 	}
-}
-
-func (manager *Manager) syncRoot(root *cobra.Command) {
-	if root == nil {
-		return
-	}
-	manager.commandMu.Lock()
-	defer manager.commandMu.Unlock()
-	manager.syncRootLocked(root)
 }
 
 func (manager *Manager) syncRootLocked(root *cobra.Command) {

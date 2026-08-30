@@ -675,6 +675,8 @@ github.com/sliverarmory/malasada v0.0.3 h1:b2KG2NhQVfBIIrbP8rGJwmdh7o8LH6NKYKH1D
 github.com/sliverarmory/malasada v0.0.3/go.mod h1:F96IgTOoX72FU995F+Jip0ni8Z5sXiYOwfmlRGobJkQ=
 github.com/sliverarmory/opfor v0.0.1 h1:V4RMIO3zG3nCdWGm0R8IkPtlqQVoZyYhQ8zNiQdq0AI=
 github.com/sliverarmory/opfor v0.0.1/go.mod h1:xrLTsijVqxIVtYxPsDVuXeFgPlHXVkcfXMuajseD9ng=
+github.com/sliverarmory/opfor v0.0.2 h1:rqckVkt2zJsJXSZGC6BnY3T/73CfX/Kv8kbBUF5Cb50=
+github.com/sliverarmory/opfor v0.0.2/go.mod h1:xrLTsijVqxIVtYxPsDVuXeFgPlHXVkcfXMuajseD9ng=
 github.com/sliverarmory/reflektor v0.0.8 h1:0FttcH5GZcKq571oRns3gKTyJNU2T+c3XP/sbFIAYRY=
 github.com/sliverarmory/reflektor v0.0.8/go.mod h1:+lCyQy0xHVqx6D5nYbcz5XIDVtAGbDMIMU0Yc6Brb1s=
 github.com/sliverarmory/wasm-donut v0.0.3 h1:sldbfAsz1YziULlhDKpU3DY/+/dAfv5gl26qSqHIpzE=
