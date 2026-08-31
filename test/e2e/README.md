@@ -11,7 +11,7 @@ For each target row, the driver:
 3. Starts localhost mTLS, WireGuard, and HTTP listener jobs.
 4. Generates an exact-OS/architecture executable for each transport and mode. Beacons use a ten-second callback interval by default.
 5. Runs each implant in its own known filesystem tree and requires the matching session or beacon event before issuing commands.
-6. Under the default `comprehensive` scope, exercises the catalog in [COVERAGE.md](COVERAGE.md) and writes deterministic per-target JSON and Markdown reports. Under the focused `rportfwd` scope, each selected session instead runs a real reverse-port-forward lifecycle against a loopback echo service: authoritative listener inventory, bidirectional relay, repeated and concurrent connections, and revocation after stop. The workflow preserves the focused driver log in the target artifact. Both scopes stop only processes and listener jobs created by the test and remove the isolated working root.
+6. Under the default `comprehensive` scope, exercises the catalog in [COVERAGE.md](COVERAGE.md) and, for every session, also runs a real reverse-port-forward lifecycle against a loopback echo service: authoritative listener inventory, bidirectional relay, repeated and concurrent connections, and revocation after stop. The comprehensive driver writes deterministic per-target JSON and Markdown reports. Under the focused `rportfwd` scope, each selected session runs only that lifecycle, and the workflow preserves its driver log in the target artifact. Both scopes stop only processes and listener jobs created by the test and remove the isolated working root.
 
 Reports are kept outside the disposable working root. Pass `-results` for a stable location; when it is omitted, the driver creates and logs a preserved temporary results directory.
 
@@ -38,7 +38,7 @@ Every row runs this six-cell transport/mode cross product:
 | `wg` | required | required |
 | `http` | required | required |
 
-Reverse port forwarding is session-only. The focused `rportfwd` suite scope runs its production-path lifecycle once for each of the three session transport cells on every target row and skips the finite command catalog, beacon generation, report aggregation, Reflektor, and shellcode matrices. It is intended for branch-readiness checks of this feature. The default `comprehensive` scope, including reusable release invocations, retains the existing command suites while the focused matrix is validated.
+Reverse port forwarding is session-only, so its production-path lifecycle runs once for each of the three session transport cells on every target row. The focused `rportfwd` suite scope runs exactly those cells and skips the finite command catalog, beacon generation, report aggregation, Reflektor, and shellcode matrices. It is intended for branch-readiness checks of this feature. The default `comprehensive` scope, including reusable release invocations, retains every existing suite and adds the same reverse-port-forward lifecycle.
 
 The eight native OPFOR CNA scenarios use the same six-cell cross product on every supported Windows target. They are not smoke tests tied to one listener or implant mode: `mtls`, `wg`, and `http` must each pass as both a session and a beacon. Windows amd64 runs all eight scenarios, Windows 386 runs six, and Windows arm64 records catalog-generated `SKIP` cells because the OPFOR BOF provider has no arm64 support. [COVERAGE.md](COVERAGE.md) records the scenario-level x86 exceptions.
 

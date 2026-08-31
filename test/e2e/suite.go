@@ -636,7 +636,7 @@ func (s *suite) runImplant(listener *listener, beacon bool) error {
 	s.t.Logf("Verified %s %s connection %s over %s", mode, target.id(), s.opts.targetOS+"/"+s.opts.targetArch, listener.transport)
 
 	var exerciseErrors []error
-	if target.session != nil && s.opts.suiteScope == suiteScopeRportFwd {
+	if target.session != nil {
 		exerciseErrors = appendIfError(exerciseErrors, s.exerciseReversePortForward(target, listener.transport))
 	}
 	if s.opts.suiteScope == suiteScopeComprehensive {
