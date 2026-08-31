@@ -164,6 +164,10 @@ func tunnelCloseHandler(implantConn *core.ImplantConnection, data []byte) *slive
 	if tunnel != nil {
 		if session.ID == tunnel.SessionID {
 			sessionHandlerLog.Infof("Closing tunnel %d", tunnel.ID)
+			// Tunnel close and final data envelopes are dispatched concurrently.
+			// Start a fresh quiet period so an overtaking close cannot discard the
+			// last frame from an otherwise idle shell.
+			tunnel.Touch()
 			go core.Tunnels.ScheduleClose(tunnel.ID)
 		} else {
 			sessionHandlerLog.Warnf("Warning: Session %s attempted to send data on tunnel it did not own", session.ID)

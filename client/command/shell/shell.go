@@ -37,8 +37,10 @@ import (
 )
 
 const (
-	darwin = "darwin"
-	linux  = "linux"
+	darwin            = "darwin"
+	linux             = "linux"
+	shellBindTimeout  = 5 * time.Second
+	shellCloseTimeout = 5 * time.Second
 )
 
 type shellResult int
@@ -262,12 +264,12 @@ func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *conso
 
 	if existing == nil {
 		// Create an RPC tunnel, then start it before binding the shell to the newly created tunnel.
-		ctxTunnel, cancelTunnel := context.WithCancel(context.Background())
-		defer cancelTunnel()
+		ctxTunnel, cancelTunnel := con.GrpcContext(cmd)
 
 		rpcTunnel, err := con.Rpc.CreateTunnel(ctxTunnel, &sliverpb.Tunnel{
 			SessionID: session.ID,
 		})
+		cancelTunnel()
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
 			return shellAttachFailed
@@ -276,6 +278,20 @@ func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *conso
 
 		// Start() takes an RPC tunnel and creates a local Reader/Writer tunnel object.
 		tunnel = core.GetTunnels().Start(rpcTunnel.TunnelID, rpcTunnel.SessionID)
+		bindTimer := time.NewTimer(shellBindTimeout)
+		select {
+		case <-tunnel.Bound():
+			bindTimer.Stop()
+		case <-tunnel.Done():
+			bindTimer.Stop()
+			con.PrintErrorf("Shell tunnel closed before it was bound\n")
+			go backgroundCloseShell(con, tunnel.ID, session.ID)
+			return shellAttachFailed
+		case <-bindTimer.C:
+			con.PrintErrorf("Timed out binding shell tunnel\n")
+			go backgroundCloseShell(con, tunnel.ID, session.ID)
+			return shellAttachFailed
+		}
 
 		var rows uint32
 		var cols uint32
@@ -290,7 +306,8 @@ func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *conso
 			}
 		}
 
-		shell, err := con.Rpc.Shell(context.Background(), &sliverpb.ShellReq{
+		ctxShell, cancelShell := con.GrpcContext(cmd)
+		shell, err := con.Rpc.Shell(ctxShell, &sliverpb.ShellReq{
 			Request:   con.ActiveTarget.Request(cmd),
 			Path:      shellPath,
 			EnablePTY: !noPty,
@@ -298,9 +315,10 @@ func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *conso
 			Cols:      cols,
 			TunnelID:  tunnel.ID,
 		})
+		cancelShell()
 		if err != nil {
 			con.PrintErrorf("%s\n", err)
-			core.GetTunnels().Close(tunnel.ID)
+			go backgroundCloseShell(con, tunnel.ID, session.ID)
 			return shellAttachFailed
 		}
 		if shell.Response != nil && shell.Response.Err != "" {
@@ -363,7 +381,7 @@ func runInteractive(cmd *cobra.Command, shellPath string, noPty bool, con *conso
 		}()
 	}
 
-	detached, _ := runAttachedIO(tunnel, con)
+	detached, _ := runAttachedIO(tunnel, con, session.OS)
 	if detached {
 		managed.SetOutput(io.Discard)
 		managed.setState(shellStateDetached)
@@ -393,7 +411,9 @@ func closeShellTunnel(con *console.SliverClient, tunnelID uint64, sessionID stri
 		return nil
 	}
 
-	_, err := con.Rpc.CloseTunnel(context.Background(), &sliverpb.Tunnel{
+	ctx, cancel := context.WithTimeout(context.Background(), shellCloseTimeout)
+	defer cancel()
+	_, err := con.Rpc.CloseTunnel(ctx, &sliverpb.Tunnel{
 		TunnelID:  tunnelID,
 		SessionID: sessionID,
 	})
@@ -413,6 +433,7 @@ func requestRemoteShellExit(tunnel *core.TunnelIO) {
 				}
 			}()
 			select {
+			case <-tunnel.Done():
 			case tunnel.Send <- append([]byte(nil), data...):
 			default:
 			}

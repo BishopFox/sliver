@@ -55,19 +55,35 @@ func GetTunnels() *tunnels {
 // Holds the tunnels locally so we can map incoming data
 // messages to the tunnel
 type tunnels struct {
-	tunnels     *map[uint64]*TunnelIO
-	mutex       *sync.RWMutex
-	streamMutex *sync.Mutex
-	stream      rpcpb.SliverRPC_TunnelDataClient
+	tunnels          *map[uint64]*TunnelIO
+	mutex            *sync.RWMutex
+	streamMutex      *sync.Mutex
+	stream           rpcpb.SliverRPC_TunnelDataClient
+	streamGeneration uint64
 }
 
-func (t *tunnels) SetStream(stream rpcpb.SliverRPC_TunnelDataClient) {
+func (t *tunnels) SetStream(stream rpcpb.SliverRPC_TunnelDataClient) uint64 {
 	t.streamMutex.Lock()
 	defer t.streamMutex.Unlock()
 
 	log.Printf("Set stream")
 
+	t.streamGeneration++
 	t.stream = stream
+	return t.streamGeneration
+}
+
+// CloseStream clears one specific stream generation and closes the tunnels it
+// owned. A stale loop cannot clear tunnels created by a replacement stream.
+func (t *tunnels) CloseStream(generation uint64) {
+	t.streamMutex.Lock()
+	defer t.streamMutex.Unlock()
+	if generation != t.streamGeneration {
+		return
+	}
+
+	t.stream = nil
+	t.closeAll()
 }
 
 // Get - Get a tunnel
@@ -105,27 +121,39 @@ func (t *tunnels) Start(tunnelID uint64, sessionID string) *TunnelIO {
 	(*t.tunnels)[tunnelID] = tunnel
 
 	go func(tunnel *TunnelIO) {
-		tunnel.Open()
+		if err := tunnel.Open(); err != nil {
+			log.Printf("Failed to open tunnel %d: %v", tunnelID, err)
+			return
+		}
 		log.Printf("Tunnel now is open, %d", tunnelID)
 
-		for data := range tunnel.Send {
-			log.Printf("Send %d bytes on tunnel %d", len(data), tunnel.ID)
+		for {
+			select {
+			case <-tunnel.Done():
+				log.Printf("Tunnel send loop stopped. %d", tunnelID)
+				return
+			case data := <-tunnel.Send:
+				log.Printf("Send %d bytes on tunnel %d", len(data), tunnel.ID)
 
-			err := t.send(&sliverpb.TunnelData{
-				TunnelID:  tunnel.ID,
-				SessionID: tunnel.SessionID,
-				Data:      data,
-			})
+				err := t.send(&sliverpb.TunnelData{
+					TunnelID:  tunnel.ID,
+					SessionID: tunnel.SessionID,
+					Data:      data,
+				})
 
-			if err != nil {
-				log.Printf("Error sending, %s", err)
+				if err != nil {
+					log.Printf("Error sending, %s", err)
+					t.Close(tunnel.ID)
+					return
+				}
 			}
 		}
-
-		log.Printf("Tunnel Send channel looks closed now. %d", tunnelID)
 	}(tunnel)
 
-	tunnel.Send <- make([]byte, 0) // Send "zero" message to bind client to tunnel
+	select {
+	case tunnel.Send <- make([]byte, 0): // Send "zero" message to bind client to tunnel
+	case <-tunnel.Done():
+	}
 	return tunnel
 }
 
@@ -164,8 +192,16 @@ func (t *tunnels) CloseForSession(sessionID string) {
 // Reset closes all open tunnels and clears the underlying storage/stream.
 // This is used when switching servers inside a single client process.
 func (t *tunnels) Reset() {
-	t.SetStream(nil)
+	t.streamMutex.Lock()
+	defer t.streamMutex.Unlock()
+	t.streamGeneration++
+	t.stream = nil
+	t.closeAll()
+}
 
+// closeAll runs with streamMutex held so a replacement stream cannot publish
+// new tunnels until the previous generation has been fully torn down.
+func (t *tunnels) closeAll() {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 

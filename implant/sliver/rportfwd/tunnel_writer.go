@@ -42,30 +42,33 @@ type tunnelWriter struct {
 
 func (tw tunnelWriter) Write(data []byte) (int, error) {
 	n := len(data)
-	createReverse := false
+	sequence := tw.tun.NextWriteSequence()
+	ack := tw.tun.ReadSequence()
+	createReverse := sequence == 0
 	rportfwdInfo := &sliverpb.RPortfwd{}
-	if tw.tun.WriteSequence() == 0 {
-		createReverse = true
+	if createReverse {
 		rportfwdInfo.Host = tw.host
 		rportfwdInfo.Port = tw.port
 		rportfwdInfo.Protocol = int32(tw.protocol)
 		rportfwdInfo.TunnelID = tw.tunnelID
 	}
 	data, err := proto.Marshal(&sliverpb.TunnelData{
-		Sequence:      tw.tun.WriteSequence(), // The tunnel write sequence
-		Ack:           tw.tun.ReadSequence(),
+		Sequence:      sequence,
+		Ack:           ack,
 		TunnelID:      tw.tun.ID,
 		Data:          data,
 		CreateReverse: createReverse,
 		Rportfwd:      rportfwdInfo,
 	})
 	// {{if .Config.Debug}}
-	log.Printf("[tunnelWriter] Write %d bytes (write seq: %d) ack: %d", n, tw.tun.WriteSequence(), tw.tun.ReadSequence())
+	log.Printf("[tunnelWriter] Write %d bytes (write seq: %d) ack: %d", n, sequence, ack)
 	// {{end}}
-	tw.tun.IncWriteSequence() // Increment write sequence
+	if err != nil {
+		return 0, err
+	}
 	tw.conn.Send <- &sliverpb.Envelope{
 		Type: sliverpb.MsgTunnelData,
 		Data: data,
 	}
-	return n, err
+	return n, nil
 }
