@@ -93,8 +93,8 @@ github.com/alecthomas/assert/v2 v2.11.0 h1:2Q9r3ki8+JYXvGsDyBXwH3LcJ+WK5D0gc5E8v
 github.com/alecthomas/assert/v2 v2.11.0/go.mod h1:Bze95FyfUr7x34QZrjL+XP+0qgp/zg8yS+TtBj1WA3k=
 github.com/alecthomas/chroma v0.10.0 h1:7XDcGkCQopCNKjZHfYrNLraA+M7e0fMiJ/Mfikbfjek=
 github.com/alecthomas/chroma v0.10.0/go.mod h1:jtJATyUxlIORhUOFNA9NZDWGAQ8wpxQQqNSB4rjA/1s=
-github.com/alecthomas/chroma/v2 v2.23.1 h1:nv2AVZdTyClGbVQkIzlDm/rnhk1E9bU9nXwmZ/Vk/iY=
-github.com/alecthomas/chroma/v2 v2.23.1/go.mod h1:NqVhfBR0lte5Ouh3DcthuUCTUpDC9cxBOfyMbMQPs3o=
+github.com/alecthomas/chroma/v2 v2.27.0 h1:FodwmyOBgJULFYmDqibcp9pvfDLWdtPRh9v/r5BXYZs=
+github.com/alecthomas/chroma/v2 v2.27.0/go.mod h1:NjJ3ciIgrqBNeIkWZ4e46nseoLDslxU1LmfCoL+wcY8=
 github.com/alecthomas/repr v0.5.2 h1:SU73FTI9D1P5UNtvseffFSGmdNci/O6RsqzeXJtP0Qs=
 github.com/alecthomas/repr v0.5.2/go.mod h1:Fr0507jx4eOXV7AlPV6AVZLYrLIuIeSOWtW57eE/O/4=
 github.com/alexbrainman/sspi v0.0.0-20250919150558-7d374ff0d59e h1:4dAU9FXIyQktpoUAgOJK3OTFc/xug0PCXYCqU0FgDKI=
@@ -263,6 +263,8 @@ github.com/djherbis/times v1.6.0/go.mod h1:gOHeRAz2h+VJNZ5Gmc/o7iD9k4wW7NMVqieYC
 github.com/dlclark/regexp2 v1.4.0/go.mod h1:2pZnwuY/m+8K6iRw6wQdMtk+rH5tNGR1i55kozfMjCc=
 github.com/dlclark/regexp2 v1.11.5 h1:Q/sSnsKerHeCkc/jSTNq1oCm7KiVgUMZRDUoRu0JQZQ=
 github.com/dlclark/regexp2 v1.11.5/go.mod h1:DHkYz0B9wPfa6wondMfaivmHpzrQ3v9q8cnmRbL6yW8=
+github.com/dlclark/regexp2/v2 v2.2.1 h1:mf4KkFUj0gJuarK8P+LgiS+Lit7m9N1yAwEfPbee7R0=
+github.com/dlclark/regexp2/v2 v2.2.1/go.mod h1:avUrQvPaLz2DrFNHJF0taWAFFX2C1GMSSoeiqFjcBmU=
 github.com/drswork/go-twitter v0.0.0-20221107160839-dea1b6ed53d7 h1:uh1GSejOhVPRQmoXZxY82TiewZB8QXiaP1skL7Nun3Y=
 github.com/drswork/go-twitter v0.0.0-20221107160839-dea1b6ed53d7/go.mod h1:ncTaGuXc5v7AuiVekeJ0Nwh8Bf4cudukoj0qM/15UZE=
 github.com/dustin/go-humanize v1.0.1 h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=
@@ -673,8 +675,6 @@ github.com/sliverarmory/beignet v0.0.3 h1:ssR6AK9lirVulHZhQMyMmVAi0FcFwWxlh9LwKC
 github.com/sliverarmory/beignet v0.0.3/go.mod h1:xXfTKBJqFBY/pakRFwJ+5+oGiSlg2CiCVUg/76kW1H4=
 github.com/sliverarmory/malasada v0.0.3 h1:b2KG2NhQVfBIIrbP8rGJwmdh7o8LH6NKYKH1DF4No1U=
 github.com/sliverarmory/malasada v0.0.3/go.mod h1:F96IgTOoX72FU995F+Jip0ni8Z5sXiYOwfmlRGobJkQ=
-github.com/sliverarmory/opfor v0.0.1 h1:V4RMIO3zG3nCdWGm0R8IkPtlqQVoZyYhQ8zNiQdq0AI=
-github.com/sliverarmory/opfor v0.0.1/go.mod h1:xrLTsijVqxIVtYxPsDVuXeFgPlHXVkcfXMuajseD9ng=
 github.com/sliverarmory/opfor v0.0.2 h1:rqckVkt2zJsJXSZGC6BnY3T/73CfX/Kv8kbBUF5Cb50=
 github.com/sliverarmory/opfor v0.0.2/go.mod h1:xrLTsijVqxIVtYxPsDVuXeFgPlHXVkcfXMuajseD9ng=
 github.com/sliverarmory/reflektor v0.0.8 h1:0FttcH5GZcKq571oRns3gKTyJNU2T+c3XP/sbFIAYRY=

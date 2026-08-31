@@ -19,7 +19,7 @@ require (
 	github.com/Ne0nd0g/go-clr v1.0.3
 	github.com/SherClockHolmes/webpush-go v1.4.0
 	github.com/alecthomas/chroma v0.10.0
-	github.com/alecthomas/chroma/v2 v2.23.1
+	github.com/alecthomas/chroma/v2 v2.27.0
 	github.com/cheggaaa/pb/v3 v3.1.7
 	github.com/chromedp/cdproto v0.0.0-20250803210736-d308e07a266d
 	github.com/chromedp/chromedp v0.14.1
@@ -139,6 +139,7 @@ require (
 	github.com/dghubble/oauth1 v0.7.3 // indirect
 	github.com/dghubble/sling v1.4.2 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
+	github.com/dlclark/regexp2/v2 v2.2.1 // indirect
 	github.com/drswork/go-twitter v0.0.0-20221107160839-dea1b6ed53d7 // indirect
 	github.com/envoyproxy/go-control-plane/envoy v1.37.0 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.3.3 // indirect
