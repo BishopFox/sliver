@@ -42,12 +42,12 @@ func newCancellableShellInput(file *os.File, reader io.Reader) (*cancellableShel
 	return input, nil
 }
 
-func (s *cancellableShellInput) Read(data []byte, done <-chan struct{}) (int, error, bool) {
+func (s *cancellableShellInput) Read(data []byte, done <-chan struct{}) (int, bool, error) {
 	pollFDs := []unix.PollFd{{Fd: int32(s.fd), Events: unix.POLLIN}}
 	for {
 		select {
 		case <-done:
-			return 0, nil, true
+			return 0, true, nil
 		default:
 		}
 
@@ -56,7 +56,7 @@ func (s *cancellableShellInput) Read(data []byte, done <-chan struct{}) (int, er
 			continue
 		}
 		if err != nil {
-			return 0, err, false
+			return 0, false, err
 		}
 		if ready == 0 {
 			continue
@@ -66,7 +66,7 @@ func (s *cancellableShellInput) Read(data []byte, done <-chan struct{}) (int, er
 		if errors.Is(err, unix.EAGAIN) || errors.Is(err, unix.EWOULDBLOCK) {
 			continue
 		}
-		return n, err, false
+		return n, false, err
 	}
 }
 

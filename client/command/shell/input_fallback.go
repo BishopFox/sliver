@@ -17,14 +17,14 @@ func newCancellableShellInput(_ *os.File, reader io.Reader) (*cancellableShellIn
 	return &cancellableShellInput{reader: reader}, nil
 }
 
-func (s *cancellableShellInput) Read(data []byte, done <-chan struct{}) (int, error, bool) {
+func (s *cancellableShellInput) Read(data []byte, done <-chan struct{}) (int, bool, error) {
 	select {
 	case <-done:
-		return 0, nil, true
+		return 0, true, nil
 	default:
 	}
 	n, err := s.reader.Read(data)
-	return n, err, false
+	return n, false, err
 }
 
 func (s *cancellableShellInput) Close() error {

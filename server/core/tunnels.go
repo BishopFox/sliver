@@ -142,6 +142,8 @@ func (t *Tunnel) GetLastMessageTime() time.Time {
 	return t.lastDataMessageTime
 }
 
+// SendDataFromImplant forwards tunnelData to the client stream and reports
+// whether the send was accepted rather than canceled by tunnel closure.
 func (t *Tunnel) SendDataFromImplant(tunnelData *sliverpb.TunnelData) bool {
 	// Setting the date right before and right after message, since channel can be blocked for some amount of time
 	t.setLastMessageTime()

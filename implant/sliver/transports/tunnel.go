@@ -55,11 +55,12 @@ func (c *Tunnel) NextWriteSequence() uint64 {
 	return sequence
 }
 
+// IncReadSequence advances the expected inbound sequence number.
 func (c *Tunnel) IncReadSequence() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	c.readSequence += 1
+	c.readSequence++
 }
 
 // Close - close tunnel reader and writer

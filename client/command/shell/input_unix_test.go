@@ -15,8 +15,8 @@ func TestCancellableShellInputRestoresFileFlags(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create input pipe: %v", err)
 	}
-	defer reader.Close()
-	defer writer.Close()
+	t.Cleanup(func() { closeShellInputTestFile(t, reader) })
+	t.Cleanup(func() { closeShellInputTestFile(t, writer) })
 
 	originalFlags, err := unix.FcntlInt(reader.Fd(), unix.F_GETFL, 0)
 	if err != nil {
@@ -34,7 +34,7 @@ func TestCancellableShellInputRestoresFileFlags(t *testing.T) {
 	done := make(chan struct{})
 	result := make(chan readResult, 1)
 	go func() {
-		_, err, closed := input.Read(make([]byte, 32), done)
+		_, closed, err := input.Read(make([]byte, 32), done)
 		result <- readResult{err: err, closed: closed}
 	}()
 

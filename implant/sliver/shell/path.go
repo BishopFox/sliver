@@ -1,3 +1,4 @@
+// Package shell starts and manages operating-system shell processes for Sliver tunnels.
 package shell
 
 import "strings"

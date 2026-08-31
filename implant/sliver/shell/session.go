@@ -13,6 +13,7 @@ type Session struct {
 	stopOnce sync.Once
 }
 
+// NewSession associates a system shell with its tunnel lifecycle state.
 func NewSession(systemShell *Shell) *Session {
 	return &Session{Shell: systemShell}
 }
@@ -62,6 +63,7 @@ func RegisterSession(tunnelID uint64, session *Session) bool {
 	return true
 }
 
+// UnregisterSession removes the session and startup tombstone for tunnelID.
 func UnregisterSession(tunnelID uint64) {
 	sessions.mutex.Lock()
 	delete(sessions.items, tunnelID)
