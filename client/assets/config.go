@@ -36,6 +36,7 @@ const (
 
 // ClientWGConfig - Optional WireGuard wrapper configuration for multiplayer.
 type ClientWGConfig struct {
+	Enabled          bool   `json:"enabled,omitempty"`
 	ServerPubKey     string `json:"server_pub_key"`
 	ClientPrivateKey string `json:"client_private_key"`
 	ClientPubKey     string `json:"client_pub_key"`

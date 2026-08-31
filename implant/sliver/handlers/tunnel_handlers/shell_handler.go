@@ -25,6 +25,7 @@ import (
 	// {{end}}
 
 	"io"
+	"sync"
 
 	"github.com/bishopfox/sliver/implant/sliver/shell"
 	"github.com/bishopfox/sliver/implant/sliver/transports"
@@ -60,36 +61,26 @@ func ShellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 		cols = 0xffff
 	}
 	systemShell, err := shell.StartInteractive(shellReq.TunnelID, shellPath, shellReq.EnablePTY, uint16(rows), uint16(cols))
-	if systemShell == nil {
+	if err != nil || systemShell == nil {
 		// {{if .Config.Debug}}
-		log.Printf("[shell] Failed to get system shell")
+		log.Printf("[shell] Failed to spawn system shell: %v", err)
 		// {{end}}
+		errMessage := "failed to start system shell"
+		if err != nil {
+			errMessage = err.Error()
+		}
 		shellResp, _ := proto.Marshal(&sliverpb.Shell{
 			Response: &commonpb.Response{
-				Err: err.Error(),
+				Err: errMessage,
 			},
 		})
 		reportError(envelope, connection, shellResp)
 		return
 	}
 
-	// At this point, command is already started by StartInteractive
-	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("[shell] Failed to spawn! err: %v", err)
-		// {{end}}
-		shellResp, _ := proto.Marshal(&sliverpb.Shell{
-			Response: &commonpb.Response{
-				Err: err.Error(),
-			},
-		})
-		reportError(envelope, connection, shellResp)
-		return
-	} else {
-		// {{if .Config.Debug}}
-		log.Printf("[shell] Process spawned!")
-		// {{end}}
-	}
+	// {{if .Config.Debug}}
+	log.Printf("[shell] Process spawned!")
+	// {{end}}
 
 	tunnel := transports.NewTunnel(
 		shellReq.TunnelID,
@@ -99,6 +90,24 @@ func ShellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 	)
 	connection.AddTunnel(tunnel)
 
+	session := shell.NewSession(systemShell)
+	if !shell.RegisterSession(tunnel.ID, session) {
+		// Tunnel handlers are dispatched concurrently. A close can overtake this
+		// request while the process is starting; in that case registration stops
+		// the process and declines to publish a shell that can no longer be closed.
+		connection.RemoveTunnel(tunnel.ID)
+		tunnel.Close()
+		tunnelDataCache.DeleteTun(tunnel.ID)
+		_ = systemShell.Wait()
+		shellResp, _ := proto.Marshal(&sliverpb.Shell{
+			Response: &commonpb.Response{Err: "shell tunnel closed during startup"},
+		})
+		reportError(envelope, connection, shellResp)
+		return
+	}
+
+	// Queue the start response before any output goroutine can enqueue tunnel
+	// data. Fast shells must not race their own start acknowledgement.
 	shellResp, _ := proto.Marshal(&sliverpb.Shell{
 		Pid:      uint32(systemShell.Command.Process.Pid),
 		Path:     shellReq.Path,
@@ -109,31 +118,37 @@ func ShellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 		Data: shellResp,
 	}
 
-	// Cleanup function with arguments
-	cleanup := func(reason string, err error) {
-		// {{if .Config.Debug}}
-		log.Printf("[shell] Closing tunnel request %d (%s). Err: %v", tunnel.ID, reason, err)
-		// {{end}}
+	var finalizeOnce sync.Once
+	finalize := func(reason string, err error) {
+		finalizeOnce.Do(func() {
+			// {{if .Config.Debug}}
+			log.Printf("[shell] Closing tunnel request %d (%s). Err: %v", tunnel.ID, reason, err)
+			// {{end}}
 
-		systemShell.Stop()
+			shell.UnregisterSession(tunnel.ID)
+			connection.RemoveTunnel(tunnel.ID)
+			tunnel.Close()
+			tunnelDataCache.DeleteTun(tunnel.ID)
 
-		tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{
-			Closed:   true,
-			TunnelID: tunnel.ID,
+			tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{
+				Closed:   true,
+				TunnelID: tunnel.ID,
+			})
+			connection.Send <- &sliverpb.Envelope{
+				Type: sliverpb.MsgTunnelClose,
+				Data: tunnelClose,
+			}
 		})
-		connection.Send <- &sliverpb.Envelope{
-			Type: sliverpb.MsgTunnelClose,
-			Data: tunnelClose,
-		}
-
-		systemShell.Wait()
 	}
 
+	var readers sync.WaitGroup
 	for _, rc := range tunnel.Readers {
 		if rc == nil {
 			continue
 		}
+		readers.Add(1)
 		go func(outErr io.ReadCloser) {
+			defer readers.Done()
 			tWriter := tunnelWriter{
 				conn: connection,
 				tun:  tunnel,
@@ -143,27 +158,24 @@ func ShellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 			// {{end}}
 			_, err := io.Copy(tWriter, outErr)
 
-			if err != nil {
-				cleanup("io error", err)
-				return
-			}
-			err = systemShell.Wait() // sync wait, since we already locked in io.Copy, and it will release once it's done
-			if err != nil {
-				cleanup("shell wait error", err)
-				return
-			}
-			if systemShell.Command.ProcessState != nil {
-				if systemShell.Command.ProcessState.Exited() {
-					cleanup("process terminated", nil)
-					return
-				}
-			}
-			if err == io.EOF {
-				cleanup("EOF", err)
-				return
+			if err != nil && err != io.EOF {
+				// An output-pipe failure would otherwise leave Wait blocked on a
+				// still-running process. One stop request terminates all readers.
+				session.Stop()
 			}
 		}(rc)
 	}
+
+	// Exactly one goroutine owns Cmd.Wait. It first drains every output pipe,
+	// which avoids both concurrent-Wait failures and pipe-buffer deadlocks. The
+	// shell response is queued first so a fast-exiting process cannot close the
+	// tunnel before its start acknowledgement reaches the server.
+	go func() {
+		readers.Wait()
+		waitErr := systemShell.Wait()
+		session.Stop()
+		finalize("process exit", waitErr)
+	}()
 
 	// {{if .Config.Debug}}
 	log.Printf("[shell] Started shell with tunnel ID %d", tunnel.ID)

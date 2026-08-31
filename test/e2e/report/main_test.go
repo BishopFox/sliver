@@ -70,7 +70,7 @@ func TestRunWritesAllNotRunReportsForEmptyInput(t *testing.T) {
 	if code != 1 {
 		t.Fatalf("run() code = %d, want 1; stdout=%s stderr=%s", code, stdout.String(), stderr.String())
 	}
-	if !strings.Contains(stderr.String(), "coverage contains 1734 NOT RUN required cell(s)") {
+	if !strings.Contains(stderr.String(), "coverage contains 1818 NOT RUN required cell(s)") {
 		t.Fatalf("stderr = %q, want all-NOT-RUN diagnostic", stderr.String())
 	}
 	for _, name := range []string{e2ecoverage.GlobalJSONFilename, e2ecoverage.GlobalMarkdownFilename, e2ecoverage.CommandMarkdownFilename} {
@@ -105,8 +105,8 @@ func TestRunAllowsSyntheticPlatformSkips(t *testing.T) {
 	if !strings.Contains(string(markdown), "Expected platform skips") {
 		t.Fatalf("summary omitted synthetic platform skips: %s", markdown)
 	}
-	if !strings.Contains(string(markdown), "| 0 | 570 | 0 |") {
-		t.Fatalf("summary did not distinguish zero recorded skips from expected skips: %s", markdown)
+	if !strings.Contains(string(markdown), "| 1818 | 1818 | 0 | 0 | 870 | 0 | 2688 |") {
+		t.Fatalf("summary did not preserve the complete required/skip/total counts: %s", markdown)
 	}
 	commandMarkdown, err := os.ReadFile(filepath.Join(root, "output", e2ecoverage.CommandMarkdownFilename))
 	if err != nil {

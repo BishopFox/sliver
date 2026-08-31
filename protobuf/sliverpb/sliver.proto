@@ -1160,13 +1160,19 @@ message CallExtensionReq {
   string Export = 4;
   bytes BOFData = 5;
   bool IsBOF = 6;
+  // WantBOFOutputs requests ordered typed records instead of legacy Output.
+  bool WantBOFOutputs = 7;
 
   commonpb.Request Request = 9;
 }
 
 message CallExtension {
+  // Output is the legacy ordered concatenation of BOF record data.
   bytes Output = 1;
   bool ServerStore = 2;
+  // BOFOutputs preserves record boundaries and raw Beacon output channels
+  // when requested by CallExtensionReq.WantBOFOutputs.
+  repeated BOFOutput BOFOutputs = 3;
 
   commonpb.Response Response = 9;
 }
@@ -1405,4 +1411,11 @@ message StartServiceByNameReq {
   ServiceInfoReq ServiceInfo = 1;
 
   commonpb.Request Request = 9;
+}
+
+// BOFOutput preserves one ordered record emitted through a Beacon output
+// callback. Type is the raw Cobalt-compatible output channel value.
+message BOFOutput {
+  int32 Type = 1;
+  bytes Data = 2;
 }

@@ -73,7 +73,7 @@ func serverOnlyCmds() (commands []*cobra.Command) {
 	}
 	command.Bind("multiplayer", false, startMultiplayer, func(f *pflag.FlagSet) {
 		f.StringP("lhost", "L", "", "interface to bind server to")
-		f.Uint16P("lport", "l", 31337, "tcp listen port")
+		f.Uint16P("lport", "l", 31337, "multiplayer listen port")
 		f.BoolP("tailscale", "T", false, "only expose multiplayer interface over Tailscale (requires TS_AUTHKEY)")
 		f.Bool("enable-wg", false, "wrap the multiplayer listener in WireGuard")
 	})

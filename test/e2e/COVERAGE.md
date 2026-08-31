@@ -2,7 +2,7 @@
 
 The static source of truth is `coverage.ComprehensiveCatalog()` in [coverage/catalog.go](coverage/catalog.go). Every scenario is expanded over three transports (`mtls`, `wg`, `http`) and two implant modes (`session`, `beacon`) for each supported target.
 
-The executable catalog contains 48 scenarios across 41 of the 67 finite implant-command RPC methods and expands to 2,304 matrix cells:
+The executable catalog contains 56 scenarios across 41 of the 67 finite implant-command RPC methods and expands to 2,688 matrix cells:
 
 | Catalog group | Scenarios | Supported targets per scenario | Required recorded cells | Expected platform `SKIP` cells |
 |---|---:|---:|---:|---:|
@@ -11,7 +11,8 @@ The executable catalog contains 48 scenarios across 41 of the 67 finite implant-
 | Linux-only | 3 | 3 | 54 | 90 |
 | Windows-only | 10 | 3 | 180 | 300 |
 | Signed Armory | 4 | 2 | 48 | 144 |
-| **Total** | **48** | — | **1,734** | **570** |
+| Native OPFOR CNA | 8 | 1–2 | 84 | 300 |
+| **Total** | **56** | — | **1,818** | **870** |
 
 Status semantics are strict:
 
@@ -147,6 +148,23 @@ These rows are required only on `windows/386` and `windows/amd64` (12 required c
 | `ListExtensions` | registered COFFLoader digest |
 | `CallExtension` | signed `sa-env` BOF through COFFLoader |
 | `CallExtension` | signed `sa-whoami` BOF through COFFLoader |
+
+## Native OPFOR CNA scenarios
+
+Every supported target below must run each row through the OPFOR scripting engine over all three transports (`mtls`, `wg`, and `http`) as both a session and a beacon. That is six required cells per supported target; a supported runtime `SKIP` is not accepted as coverage.
+
+| gRPC method | Scenario | `windows/amd64` | `windows/386` | `windows/arm64` |
+|---|---|---|---|---|
+| `CallExtension` | OPFOR Cat CNA reads isolated test file | Required: signed upstream x64 object | Required: exact-tag Cat source compiled for x86 | `SKIP`: OPFOR provider has no arm64 BOF support |
+| `CallExtension` | OPFOR FirefoxDump CNA finds no host profiles | Required: signed upstream x64 object after empty-profile safety gate | Required: signed upstream x86 object after empty-profile safety gate | `SKIP`: OPFOR provider has no arm64 BOF support |
+| `CallExtension` | OPFOR FindDotnet CNA read-only process inventory | Required: pinned upstream object | `SKIP`: OperatorsKit has no x86 object | `SKIP`: OperatorsKit has no arm64 object and OPFOR provider has no arm64 BOF support |
+| `CallExtension` | OPFOR FindSysmon CNA read-only registry probe | Required: pinned upstream object after absent-Sysmon safety gate; invoke only `reg` | `SKIP`: OperatorsKit has no x86 object | `SKIP`: OperatorsKit has no arm64 object and OPFOR provider has no arm64 BOF support |
+| `CallExtension` | OPFOR callback preserves ordered typed binary channels | Required: repository-owned synthetic fixture | Required: repository-owned synthetic fixture | `SKIP`: OPFOR provider has no arm64 BOF support |
+| `CallExtension` | typed BOF partial output retained on callback error | Required: repository-owned synthetic fixture | Required: repository-owned synthetic fixture | `SKIP`: OPFOR provider has no arm64 BOF support |
+| `CallExtension` | malformed BOF returns bounded loader error | Required: deterministic malformed fixture followed by recovery proof | Required: deterministic malformed fixture followed by recovery proof | `SKIP`: OPFOR provider has no arm64 BOF support |
+| `CallExtension` | finite BOF deadline returns and target recovers | Required: bounded fixture timeout followed by `Ping` | Required: bounded fixture timeout followed by `Ping` | `SKIP`: OPFOR provider has no arm64 BOF support |
+
+All Darwin and Linux cells are expected `SKIP` because these CNA scripts execute Windows COFF BOFs. The aggregate therefore adds 84 required native-OPFOR cells and 300 catalog-generated skips.
 
 ## Known request-field boundary
 

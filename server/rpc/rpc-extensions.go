@@ -41,6 +41,12 @@ func (rpc *Server) CallExtension(ctx context.Context, req *sliverpb.CallExtensio
 	resp := &sliverpb.CallExtension{Response: &commonpb.Response{}}
 	err := rpc.GenericHandler(req, resp)
 	if err != nil {
+		// A gRPC error discards the response message, including any BOF output
+		// records emitted before execution failed. Typed BOF callers explicitly
+		// negotiate response-level errors so they can consume partial output.
+		if req.GetIsBOF() && req.GetWantBOFOutputs() && resp.GetResponse().GetErr() != "" {
+			return resp, nil
+		}
 		return nil, err
 	}
 	return resp, nil
