@@ -27,6 +27,7 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/transports/wireguard"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/core/rtunnels"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/gofrs/uuid"
 
@@ -236,14 +237,17 @@ func (s *sessions) Remove(sessionID string) {
 	parentSession := val.(*Session)
 	children := findAllChildrenByPeerID(parentSession.PeerID)
 	s.sessions.Delete(parentSession.ID)
+	cleanupReversePortForwards(parentSession.ID)
 	coreLog.Debugf("Removing %d children of session %s (%v)", len(children), parentSession.ID, children)
 	for _, child := range children {
 		childSession, ok := s.sessions.LoadAndDelete(child.SessionID)
 		if ok {
-			PivotSessions.Delete(childSession.(*Session).Connection.ID)
+			removedChild := childSession.(*Session)
+			cleanupReversePortForwards(removedChild.ID)
+			PivotSessions.Delete(removedChild.Connection.ID)
 			EventBroker.Publish(Event{
 				EventType: consts.SessionClosedEvent,
-				Session:   childSession.(*Session),
+				Session:   removedChild,
 			})
 		}
 	}
@@ -253,6 +257,13 @@ func (s *sessions) Remove(sessionID string) {
 		EventType: consts.SessionClosedEvent,
 		Session:   parentSession,
 	})
+}
+
+func cleanupReversePortForwards(sessionID string) {
+	// Revoke first to cancel pending broker dials, then detach any registered
+	// relays. Both operations are idempotent because disconnect paths can race.
+	rtunnels.DefaultRegistry.RevokeSession(sessionID)
+	rtunnels.CloseSession(sessionID)
 }
 
 // NewSession - Create a new session

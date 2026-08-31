@@ -1201,7 +1201,8 @@ message RportFwdStartListenerReq {
   uint32 BindPort = 2;
   uint32 ForwardPort = 3;
   string ForwardAddress = 4;
-  int32 KeepAlive = 5; 
+  int32 KeepAlive = 5;
+  string AuthorizationID = 6;
 
   commonpb.Request Request = 9;
 }
@@ -1212,6 +1213,7 @@ message RportFwdListener {
   uint32 BindPort = 3;
   string ForwardAddress =4;
   uint32 ForwardPort = 5;
+  string AuthorizationID = 6;
 
   commonpb.Response Response = 9;
 }
@@ -1230,9 +1232,12 @@ message RportFwdListenersReq {
 
 
 message RPortfwd {
-  uint32 Port = 1;
+  // Legacy wire metadata only. The teamserver must resolve AuthorizationID to
+  // a server-owned destination and must never dial Host or Port directly.
+  uint32 Port = 1 [deprecated = true];
   int32 Protocol = 2;
-  string Host = 3;
+  string Host = 3 [deprecated = true];
+  string AuthorizationID = 4;
 
   uint64 TunnelID = 8 [jstype = JS_STRING]; // Bind to this tunnel
   commonpb.Response Response = 9;

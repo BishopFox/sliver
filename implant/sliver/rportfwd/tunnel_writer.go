@@ -32,12 +32,13 @@ import (
 // tunnelWriter - Sends data back to the server based on data read()
 // I know the reader/writer stuff is a little hard to keep track of
 type tunnelWriter struct {
-	tun      *transports.Tunnel
-	conn     *transports.Connection
-	host     string
-	port     uint32
-	protocol int
-	tunnelID uint64
+	tun             *transports.Tunnel
+	conn            *transports.Connection
+	host            string
+	port            uint32
+	protocol        int
+	tunnelID        uint64
+	authorizationID string
 }
 
 func (tw tunnelWriter) Write(data []byte) (int, error) {
@@ -51,6 +52,7 @@ func (tw tunnelWriter) Write(data []byte) (int, error) {
 		rportfwdInfo.Port = tw.port
 		rportfwdInfo.Protocol = int32(tw.protocol)
 		rportfwdInfo.TunnelID = tw.tunnelID
+		rportfwdInfo.AuthorizationID = tw.authorizationID
 	}
 	data, err := proto.Marshal(&sliverpb.TunnelData{
 		Sequence:      sequence,

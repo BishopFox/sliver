@@ -2,10 +2,28 @@ name: Comprehensive e2e Tests
 
 on:
   workflow_dispatch:
+    inputs:
+      test_scope:
+        description: Test scope to run across the complete platform matrix
+        required: true
+        default: comprehensive
+        type: choice
+        options:
+          - comprehensive
+          - rportfwd
   workflow_call:
+    inputs:
+      test_scope:
+        description: Test scope to run across the complete platform matrix
+        required: false
+        default: comprehensive
+        type: string
 
 permissions:
   contents: read
+
+env:
+  SLIVER_E2E_SCOPE: ${{ inputs.test_scope || 'comprehensive' }}
 
 concurrency:
   group: comprehensive-e2e-${{ github.ref }}
@@ -21,8 +39,16 @@ jobs:
         uses: actions/github-script@v9
         env:
           REQUESTING_ACTOR: ${{ github.triggering_actor }}
+          REQUESTED_SCOPE: ${{ inputs.test_scope || 'comprehensive' }}
         with:
           script: |
+            const testScope = process.env.REQUESTED_SCOPE || "comprehensive";
+            if (!new Set(["comprehensive", "rportfwd"]).has(testScope)) {
+              core.setFailed(`Unsupported E2E test scope: ${JSON.stringify(testScope)}`);
+              return;
+            }
+            core.info(`Validated E2E test scope ${testScope}`);
+
             const isReleaseTag = context.eventName === "push" && context.ref.startsWith("refs/tags/v");
             if (isReleaseTag) {
               core.info(`Authorized release test invocation for ${context.ref}`);
@@ -96,21 +122,22 @@ jobs:
           go test -c -buildvcs=false -mod=vendor -trimpath -tags client,go_sqlite
           -o sliver-comprehensive-e2e ./test/e2e
 
-      - name: Run comprehensive E2E suite
-        run: >-
-          ./sliver-comprehensive-e2e
-          -test.v
-          -test.run=^TestComprehensiveE2E$
-          -test.timeout=0
-          -repo .
-          -server ./sliver-server
-          -server-arch ${{ matrix.server_arch }}
-          -target-os darwin
-          -target-arch ${{ matrix.goarch }}
-          -results ./e2e-results
-          -transports mtls,wg,http
-          -implant-modes session,beacon
-          -beacon-interval 10s
+      - name: Run selected E2E scope
+        run: |
+          set -o pipefail
+          ./sliver-comprehensive-e2e \
+            -test.v \
+            -test.run=^TestComprehensiveE2E$ \
+            -test.timeout=0 \
+            -repo . \
+            -server ./sliver-server \
+            -server-arch ${{ matrix.server_arch }} \
+            -target-os darwin \
+            -target-arch ${{ matrix.goarch }} \
+            -results ./e2e-results \
+            -transports mtls,wg,http \
+            -implant-modes session,beacon \
+            -beacon-interval 10s 2>&1 | tee ./e2e-results/selected-e2e.log
 
       - name: Upload target coverage
         if: ${{ always() }}
@@ -178,21 +205,22 @@ jobs:
           go test -c -buildvcs=false -mod=vendor -trimpath -tags client,go_sqlite
           -o sliver-comprehensive-e2e ./test/e2e
 
-      - name: Run comprehensive E2E suite
-        run: >-
-          ./sliver-comprehensive-e2e
-          -test.v
-          -test.run=^TestComprehensiveE2E$
-          -test.timeout=0
-          -repo .
-          -server ./sliver-server
-          -server-arch ${{ matrix.server_arch }}
-          -target-os linux
-          -target-arch ${{ matrix.goarch }}
-          -results ./e2e-results
-          -transports mtls,wg,http
-          -implant-modes session,beacon
-          -beacon-interval 10s
+      - name: Run selected E2E scope
+        run: |
+          set -o pipefail
+          ./sliver-comprehensive-e2e \
+            -test.v \
+            -test.run=^TestComprehensiveE2E$ \
+            -test.timeout=0 \
+            -repo . \
+            -server ./sliver-server \
+            -server-arch ${{ matrix.server_arch }} \
+            -target-os linux \
+            -target-arch ${{ matrix.goarch }} \
+            -results ./e2e-results \
+            -transports mtls,wg,http \
+            -implant-modes session,beacon \
+            -beacon-interval 10s 2>&1 | tee ./e2e-results/selected-e2e.log
 
       - name: Upload target coverage
         if: ${{ always() }}
@@ -244,13 +272,15 @@ jobs:
             --tag "${IMAGE_NAME}" \
             .
 
-      - name: Run comprehensive E2E suite
-        run: >-
-          docker run
-          --name "${CONTAINER_NAME}"
-          --platform linux/386
-          --volume "${PWD}/e2e-results:/results"
-          "${IMAGE_NAME}"
+      - name: Run selected E2E scope
+        run: |
+          set -o pipefail
+          docker run \
+            --name "${CONTAINER_NAME}" \
+            --platform linux/386 \
+            --env "SLIVER_E2E_SCOPE=${SLIVER_E2E_SCOPE}" \
+            --volume "${PWD}/e2e-results:/results" \
+            "${IMAGE_NAME}" 2>&1 | tee ./e2e-results/selected-e2e.log
 
       - name: Clean up linux/386 Docker resources
         if: ${{ always() }}
@@ -328,21 +358,22 @@ jobs:
           go test -c -buildvcs=false -mod=vendor -trimpath -tags client,go_sqlite
           -o sliver-comprehensive-e2e.exe ./test/e2e
 
-      - name: Run comprehensive E2E suite
-        run: >-
-          ./sliver-comprehensive-e2e.exe
-          -test.v
-          -test.run=^TestComprehensiveE2E$
-          -test.timeout=0
-          -repo .
-          -server ./sliver-server.exe
-          -server-arch ${{ matrix.server_arch }}
-          -target-os windows
-          -target-arch ${{ matrix.goarch }}
-          -results ./e2e-results
-          -transports mtls,wg,http
-          -implant-modes session,beacon
-          -beacon-interval 10s
+      - name: Run selected E2E scope
+        run: |
+          set -o pipefail
+          ./sliver-comprehensive-e2e.exe \
+            -test.v \
+            -test.run=^TestComprehensiveE2E$ \
+            -test.timeout=0 \
+            -repo . \
+            -server ./sliver-server.exe \
+            -server-arch ${{ matrix.server_arch }} \
+            -target-os windows \
+            -target-arch ${{ matrix.goarch }} \
+            -results ./e2e-results \
+            -transports mtls,wg,http \
+            -implant-modes session,beacon \
+            -beacon-interval 10s 2>&1 | tee ./e2e-results/selected-e2e.log
 
       - name: Upload target coverage
         if: ${{ always() }}
@@ -362,7 +393,7 @@ jobs:
       - linux-native
       - linux-386
       - windows
-    if: ${{ always() && needs.authorize.result == 'success' }}
+    if: ${{ always() && needs.authorize.result == 'success' && inputs.test_scope != 'rportfwd' }}
     outputs:
       command_coverage_markdown: ${{ steps.publish_command_coverage.outputs.command_coverage_markdown }}
     runs-on: ubuntu-24.04
@@ -448,9 +479,11 @@ jobs:
   reflektor:
     name: Existing Reflektor test matrix
     needs: authorize
+    if: ${{ inputs.test_scope != 'rportfwd' }}
     uses: ./.github/workflows/reflektor-tests.yml
 
   shellcode:
     name: Shellcode E2E test matrix
     needs: authorize
+    if: ${{ inputs.test_scope != 'rportfwd' }}
     uses: ./.github/workflows/shellcode-tests.yml

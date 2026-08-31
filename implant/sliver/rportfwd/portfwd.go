@@ -49,10 +49,11 @@ var (
 
 // PortfwdMeta - Metadata about a portfwd listener
 type PortfwdMeta struct {
-	ID         int
-	SessionID  string
-	BindAddr   string
-	RemoteAddr string
+	ID              int
+	SessionID       string
+	BindAddr        string
+	RemoteAddr      string
+	AuthorizationID string
 }
 
 // Portfwd - Tracks portfwd<->tcpproxy
@@ -65,9 +66,10 @@ type Portfwd struct {
 // GetMetadata - Get metadata about the portfwd
 func (p *Portfwd) GetMetadata() *PortfwdMeta {
 	return &PortfwdMeta{
-		ID:         p.ID,
-		BindAddr:   p.ChannelProxy.BindAddr,
-		RemoteAddr: p.ChannelProxy.RemoteAddr,
+		ID:              p.ID,
+		BindAddr:        p.ChannelProxy.BindAddr,
+		RemoteAddr:      p.ChannelProxy.RemoteAddr,
+		AuthorizationID: p.ChannelProxy.AuthorizationID,
 	}
 }
 
@@ -122,6 +124,7 @@ type ChannelProxy struct {
 
 	BindAddr        string
 	RemoteAddr      string
+	AuthorizationID string
 	KeepAlivePeriod time.Duration
 	DialTimeout     time.Duration
 }
@@ -181,12 +184,13 @@ func (p *ChannelProxy) HandleConn(src net.Conn) {
 
 	go func() {
 		tWriter := tunnelWriter{
-			tun:      tunnel,
-			conn:     p.Conn,
-			host:     p.Host(),
-			port:     p.Port(),
-			protocol: sliverpb.PortFwdProtoTCP,
-			tunnelID: tId,
+			tun:             tunnel,
+			conn:            p.Conn,
+			host:            p.Host(),
+			port:            p.Port(),
+			protocol:        sliverpb.PortFwdProtoTCP,
+			tunnelID:        tId,
+			authorizationID: p.AuthorizationID,
 		}
 		// portfwd only uses one reader, hence the tunnel.Readers[0]
 		n, err := io.Copy(tWriter, tunnel.Readers[0])

@@ -33,7 +33,16 @@ type ServerHandler func(*core.ImplantConnection, []byte) *sliverpb.Envelope
 
 var (
 	tunnelHandlerMutex = &sync.Mutex{}
+	// reverseTunnelOpenings lets tunnel frames wait for their own bounded broker
+	// dial without holding the global tunnel handler mutex or blocking unrelated
+	// tunnels. Values are *reverseTunnelOpening keyed by tunnel ID.
+	reverseTunnelOpenings sync.Map
 )
+
+type reverseTunnelOpening struct {
+	sessionID string
+	ready     chan struct{}
+}
 
 // GetHandlers - Returns a map of server-side msg handlers
 func GetHandlers() map[uint32]ServerHandler {

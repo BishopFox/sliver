@@ -19,6 +19,8 @@ package handlers
 */
 
 import (
+	"errors"
+	"time"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -27,6 +29,13 @@ import (
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/core/rtunnels"
 	"google.golang.org/protobuf/proto"
+)
+
+const reverseTunnelSendTimeout = 10 * time.Second
+
+var (
+	errReverseTunnelClosed    = errors.New("reverse tunnel closed")
+	errReverseTunnelSendQueue = errors.New("reverse tunnel implant send queue timed out")
 )
 
 // tunnelWriter - Sends data back to the server based on data read()
@@ -38,19 +47,40 @@ type tunnelWriter struct {
 
 func (tw tunnelWriter) Write(data []byte) (int, error) {
 	n := len(data)
-	data, err := proto.Marshal(&sliverpb.TunnelData{
+	marshaled, err := proto.Marshal(&sliverpb.TunnelData{
 		Sequence: tw.tun.WriteSequence(), // The tunnel write sequence
 		Ack:      tw.tun.ReadSequence(),
 		TunnelID: tw.tun.ID,
 		Data:     data,
 	})
+	if err != nil {
+		return 0, err
+	}
 	// {{if .Config.Debug}}
 	log.Printf("[tunnelWriter] Write %d bytes (write seq: %d) ack: %d", n, tw.tun.WriteSequence(), tw.tun.ReadSequence())
 	// {{end}}
-	tw.tun.IncWriteSequence() // Increment write sequence
-	tw.conn.Send <- &sliverpb.Envelope{
+	if err := queueTunnelEnvelope(tw.conn, tw.tun, &sliverpb.Envelope{
 		Type: sliverpb.MsgTunnelData,
-		Data: data,
+		Data: marshaled,
+	}); err != nil {
+		return 0, err
 	}
-	return n, err
+	tw.tun.IncWriteSequence()
+	return n, nil
+}
+
+func queueTunnelEnvelope(connection *core.ImplantConnection, tunnel *rtunnels.RTunnel, envelope *sliverpb.Envelope) error {
+	if connection == nil || tunnel == nil || envelope == nil {
+		return errReverseTunnelClosed
+	}
+	timer := time.NewTimer(reverseTunnelSendTimeout)
+	defer timer.Stop()
+	select {
+	case connection.Send <- envelope:
+		return nil
+	case <-tunnel.Done():
+		return errReverseTunnelClosed
+	case <-timer.C:
+		return errReverseTunnelSendQueue
+	}
 }

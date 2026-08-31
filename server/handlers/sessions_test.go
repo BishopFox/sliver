@@ -88,9 +88,12 @@ func TestTunnelCloseHandlerClosesOwnedReverseTunnel(t *testing.T) {
 	tunnelID := core.NewTunnelID()
 	writer := &testWriteCloser{}
 
-	rtunnels.AddRTunnel(rtunnels.NewRTunnel(tunnelID, session.ID, writer))
+	tunnel := rtunnels.NewRTunnel(tunnelID, session.ID, writer)
+	if !rtunnels.TryAddRTunnel(tunnel) {
+		t.Fatalf("failed to register reverse tunnel %d", tunnelID)
+	}
 	t.Cleanup(func() {
-		rtunnels.RemoveRTunnel(tunnelID)
+		rtunnels.RemoveRTunnelIf(tunnelID, tunnel)
 	})
 
 	assertNoPanic(t, func() {
@@ -112,9 +115,12 @@ func TestTunnelCloseHandlerKeepsUnownedReverseTunnel(t *testing.T) {
 	tunnelID := core.NewTunnelID()
 	writer := &testWriteCloser{}
 
-	rtunnels.AddRTunnel(rtunnels.NewRTunnel(tunnelID, ownerSession.ID, writer))
+	tunnel := rtunnels.NewRTunnel(tunnelID, ownerSession.ID, writer)
+	if !rtunnels.TryAddRTunnel(tunnel) {
+		t.Fatalf("failed to register reverse tunnel %d", tunnelID)
+	}
 	t.Cleanup(func() {
-		rtunnels.RemoveRTunnel(tunnelID)
+		rtunnels.RemoveRTunnelIf(tunnelID, tunnel)
 	})
 
 	assertNoPanic(t, func() {

@@ -25,9 +25,10 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net"
+	"strconv"
+	"sync"
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -114,32 +115,61 @@ func tunnelDataHandler(implantConn *core.ImplantConnection, data []byte) *sliver
 		sessionHandlerLog.Warnf("Received tunnel data from unknown session: %v", implantConn)
 		return nil
 	}
-	tunnelHandlerMutex.Lock()
-	defer tunnelHandlerMutex.Unlock()
 	tunnelData := &sliverpb.TunnelData{}
-	proto.Unmarshal(data, tunnelData)
+	if err := proto.Unmarshal(data, tunnelData); err != nil {
+		sessionHandlerLog.Warnf("Failed to decode tunnel data from session %s: %v", session.ID, err)
+		return nil
+	}
 
 	sessionHandlerLog.Debugf("[DATA] Sequence on tunnel %d, %d, data: %s", tunnelData.TunnelID, tunnelData.Sequence, tunnelData.Data)
+	if tunnelData.CreateReverse {
+		opening := &reverseTunnelOpening{sessionID: session.ID, ready: make(chan struct{})}
+		actual, loaded := reverseTunnelOpenings.LoadOrStore(tunnelData.TunnelID, opening)
+		if loaded {
+			existing := actual.(*reverseTunnelOpening)
+			if existing.sessionID != session.ID {
+				sessionHandlerLog.Warnf("Session %s attempted to reuse reverse tunnel ID %d owned by another session", session.ID, tunnelData.TunnelID)
+				return nil
+			}
+			<-existing.ready
+			return nil
+		}
+		defer func() {
+			close(opening.ready)
+			reverseTunnelOpenings.Delete(tunnelData.TunnelID)
+		}()
+		return createReverseTunnelHandler(implantConn, tunnelData)
+	}
+
+	if value, ok := reverseTunnelOpenings.Load(tunnelData.TunnelID); ok {
+		opening := value.(*reverseTunnelOpening)
+		if opening.sessionID != session.ID {
+			sessionHandlerLog.Warnf("Session %s attempted to send data on opening reverse tunnel %d owned by another session", session.ID, tunnelData.TunnelID)
+			return nil
+		}
+		<-opening.ready
+	}
 
 	rtunnel := rtunnels.GetRTunnel(tunnelData.TunnelID)
 	if rtunnel != nil && session.ID == rtunnel.SessionID {
 		RTunnelDataHandler(tunnelData, rtunnel, implantConn)
+		return nil
 	} else if rtunnel != nil && session.ID != rtunnel.SessionID {
 		sessionHandlerLog.Warnf("Warning: Session %s attempted to send data on reverse tunnel it did not own", session.ID)
-	} else if rtunnel == nil && tunnelData.CreateReverse == true {
-		createReverseTunnelHandler(implantConn, data)
-		//RTunnelDataHandler(tunnelData, rtunnel, implantConn)
-	} else {
-		tunnel := core.Tunnels.Get(tunnelData.TunnelID)
-		if tunnel != nil {
-			if session.ID == tunnel.SessionID {
-				tunnel.SendDataFromImplant(tunnelData)
-			} else {
-				sessionHandlerLog.Warnf("Warning: Session %s attempted to send data on tunnel it did not own", session.ID)
-			}
+		return nil
+	}
+
+	tunnelHandlerMutex.Lock()
+	defer tunnelHandlerMutex.Unlock()
+	tunnel := core.Tunnels.Get(tunnelData.TunnelID)
+	if tunnel != nil {
+		if session.ID == tunnel.SessionID {
+			tunnel.SendDataFromImplant(tunnelData)
 		} else {
-			sessionHandlerLog.Warnf("Data sent on nil tunnel %d", tunnelData.TunnelID)
+			sessionHandlerLog.Warnf("Warning: Session %s attempted to send data on tunnel it did not own", session.ID)
 		}
+	} else {
+		sessionHandlerLog.Warnf("Data sent on nil tunnel %d", tunnelData.TunnelID)
 	}
 
 	return nil
@@ -151,15 +181,25 @@ func tunnelCloseHandler(implantConn *core.ImplantConnection, data []byte) *slive
 		sessionHandlerLog.Warnf("Received tunnel close from unknown session: %v", implantConn)
 		return nil
 	}
-	tunnelHandlerMutex.Lock()
-	defer tunnelHandlerMutex.Unlock()
-
 	tunnelData := &sliverpb.TunnelData{}
-	proto.Unmarshal(data, tunnelData)
+	if err := proto.Unmarshal(data, tunnelData); err != nil {
+		sessionHandlerLog.Warnf("Failed to decode tunnel close from session %s: %v", session.ID, err)
+		return nil
+	}
 	sessionHandlerLog.Debugf("[CLOSE] Sequence on tunnel %d, %d, data: %s", tunnelData.TunnelID, tunnelData.Sequence, tunnelData.Data)
 	if !tunnelData.Closed {
 		return nil
 	}
+	if value, ok := reverseTunnelOpenings.Load(tunnelData.TunnelID); ok {
+		opening := value.(*reverseTunnelOpening)
+		if opening.sessionID != session.ID {
+			sessionHandlerLog.Warnf("Session %s attempted to close opening reverse tunnel %d owned by another session", session.ID, tunnelData.TunnelID)
+			return nil
+		}
+		<-opening.ready
+	}
+
+	tunnelHandlerMutex.Lock()
 	tunnel := core.Tunnels.Get(tunnelData.TunnelID)
 	if tunnel != nil {
 		if session.ID == tunnel.SessionID {
@@ -172,16 +212,18 @@ func tunnelCloseHandler(implantConn *core.ImplantConnection, data []byte) *slive
 		} else {
 			sessionHandlerLog.Warnf("Warning: Session %s attempted to send data on tunnel it did not own", session.ID)
 		}
+		tunnelHandlerMutex.Unlock()
+		return nil
+	}
+	tunnelHandlerMutex.Unlock()
+
+	rtunnel := rtunnels.GetRTunnel(tunnelData.TunnelID)
+	if rtunnel != nil && session.ID == rtunnel.SessionID {
+		closeReverseTunnel(rtunnel)
+	} else if rtunnel != nil && session.ID != rtunnel.SessionID {
+		sessionHandlerLog.Warnf("Warning: Session %s attempted to send data on reverse tunnel it did not own", session.ID)
 	} else {
-		rtunnel := rtunnels.GetRTunnel(tunnelData.TunnelID)
-		if rtunnel != nil && session.ID == rtunnel.SessionID {
-			rtunnel.Close()
-			rtunnels.RemoveRTunnel(rtunnel.ID)
-		} else if rtunnel != nil && session.ID != rtunnel.SessionID {
-			sessionHandlerLog.Warnf("Warning: Session %s attempted to send data on reverse tunnel it did not own", session.ID)
-		} else {
-			sessionHandlerLog.Warnf("Close sent on nil tunnel %d", tunnelData.TunnelID)
-		}
+		sessionHandlerLog.Warnf("Close sent on nil tunnel %d", tunnelData.TunnelID)
 	}
 	return nil
 }
@@ -225,64 +267,56 @@ func socksDataHandler(implantConn *core.ImplantConnection, data []byte) *sliverp
 	return nil
 }
 
-func createReverseTunnelHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
+func createReverseTunnelHandler(implantConn *core.ImplantConnection, req *sliverpb.TunnelData) *sliverpb.Envelope {
+	return createReverseTunnelHandlerWithBroker(implantConn, req, rtunnels.DefaultBroker)
+}
+
+func createReverseTunnelHandlerWithBroker(implantConn *core.ImplantConnection, req *sliverpb.TunnelData, broker *rtunnels.Broker) *sliverpb.Envelope {
 	session := core.Sessions.FromImplantConnection(implantConn)
-
-	req := &sliverpb.TunnelData{}
-	proto.Unmarshal(data, req)
-
-	remoteAddress := fmt.Sprintf("%s:%d", req.Rportfwd.Host, req.Rportfwd.Port)
-	if !rtunnels.Check(session.ID, remoteAddress) {
-		sessionHandlerLog.Errorf("Session %s attempted to create reverse tunnel to %s without being initiated by a client", session.ID, remoteAddress)
+	if session == nil || req == nil || req.Rportfwd == nil || broker == nil {
+		sessionHandlerLog.Warnf("Rejected malformed reverse tunnel creation request")
 		return nil
 	}
 
-	var defaultDialer = new(net.Dialer)
-
-	ctx, cancelContext := context.WithCancel(context.Background())
-
-	dst, err := defaultDialer.DialContext(ctx, "tcp", remoteAddress)
-	//dst, err := net.Dial("tcp", remoteAddress)
+	legacyAddress := ""
+	if req.Rportfwd.AuthorizationID == "" {
+		legacyAddress = net.JoinHostPort(req.Rportfwd.Host, strconv.FormatUint(uint64(req.Rportfwd.Port), 10))
+	}
+	dst, resolvedAuthorizationID, err := broker.Open(
+		context.Background(),
+		session.ID,
+		rtunnels.AuthorizationID(req.Rportfwd.AuthorizationID),
+		legacyAddress,
+	)
 	if err != nil {
-		tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{
-			Closed:   true,
-			TunnelID: req.TunnelID,
-		})
-		implantConn.Send <- &sliverpb.Envelope{
-			Type: sliverpb.MsgTunnelClose,
-			Data: tunnelClose,
-		}
-		cancelContext()
+		rejectReverseTunnel(implantConn, req.TunnelID, err)
 		return nil
 	}
 
-	if conn, ok := dst.(*net.TCPConn); ok {
-		// {{if .Config.Debug}}
-		//log.Printf("[portfwd] Configuring keep alive")
-		// {{end}}
-		keepAlive := rtunnels.GetKeepAlive(session.ID, remoteAddress)
-		if keepAlive < 0 {
-			conn.SetKeepAlive(false)
-		} else {
-			conn.SetKeepAlive(true)
-			if keepAlive == 0 {
-				conn.SetKeepAlivePeriod(30 * time.Second)
-			} else {
-				conn.SetKeepAlivePeriod(time.Duration(keepAlive) * time.Second)
-			}
-		}
+	tunnel := rtunnels.NewAuthorizedRTunnel(req.TunnelID, session.ID, resolvedAuthorizationID, dst, dst)
+	tunnelHandlerMutex.Lock()
+	if core.Tunnels.Get(req.TunnelID) != nil {
+		tunnelHandlerMutex.Unlock()
+		tunnel.Close()
+		rejectReverseTunnel(implantConn, req.TunnelID, rtunnels.ErrDuplicateTunnelID)
+		return nil
 	}
+	if !rtunnels.TryAddRTunnel(tunnel) {
+		tunnelHandlerMutex.Unlock()
+		tunnel.Close()
+		rejectReverseTunnel(implantConn, req.TunnelID, rtunnels.ErrDuplicateTunnelID)
+		return nil
+	}
+	tunnelHandlerMutex.Unlock()
 
-	tunnel := rtunnels.NewRTunnel(req.TunnelID, session.ID, dst, dst)
-	rtunnels.AddRTunnel(tunnel)
+	var cleanupOnce sync.Once
 	cleanup := func(reason error) {
-		// {{if .Config.Debug}}
-		sessionHandlerLog.Infof("[portfwd] Closing tunnel %d (%s)", tunnel.ID, reason)
-		// {{end}}
-		tunnel := rtunnels.GetRTunnel(tunnel.ID)
-		rtunnels.RemoveRTunnel(tunnel.ID)
-		dst.Close()
-		cancelContext()
+		cleanupOnce.Do(func() {
+			// {{if .Config.Debug}}
+			sessionHandlerLog.Infof("[portfwd] Closing tunnel %d (%v)", tunnel.ID, reason)
+			// {{end}}
+			closeReverseTunnel(tunnel)
+		})
 	}
 
 	go func() {
@@ -299,92 +333,50 @@ func createReverseTunnelHandler(implantConn *core.ImplantConnection, data []byte
 
 		cleanup(err)
 	}()
-
-	tunnelDataCache.Add(tunnel.ID, req.Sequence, req)
-
-	// NOTE: The read/write semantics can be a little mind boggling, just remember we're reading
-	// from the server and writing to the tunnel's reader (e.g. stdout), so that's why ReadSequence
-	// is used here whereas WriteSequence is used for data written back to the server
-
-	// Go through cache and write all sequential data to the reader
-	for recv, ok := tunnelDataCache.Get(tunnel.ID, tunnel.ReadSequence()); ok; recv, ok = tunnelDataCache.Get(tunnel.ID, tunnel.ReadSequence()) {
-		// {{if .Config.Debug}}
-		//sessionHandlerLog.Infof("[tunnel] Write %d bytes to tunnel %d (read seq: %d)", len(recv.Data), recv.TunnelID, recv.Sequence)
-		// {{end}}
-		tunnel.Writer.Write(recv.Data)
-
-		// Delete the entry we just wrote from the cache
-		tunnelDataCache.DeleteSeq(tunnel.ID, tunnel.ReadSequence())
-		tunnel.IncReadSequence() // Increment sequence counter
-
-		// {{if .Config.Debug}}
-		//sessionHandlerLog.Infof("[message just received] %v", tunnelData)
-		// {{end}}
-	}
-
-	//If cache is building up it probably means a msg was lost and the server is currently hung waiting for it.
-	//Send a Resend packet to have the msg resent from the cache
-	if tunnelDataCache.Len(tunnel.ID) > 3 {
-		data, err := proto.Marshal(&sliverpb.TunnelData{
-			Sequence: tunnel.WriteSequence(), // The tunnel write sequence
-			Ack:      tunnel.ReadSequence(),
-			Resend:   true,
-			TunnelID: tunnel.ID,
-			Data:     []byte{},
-		})
-		if err != nil {
-			// {{if .Config.Debug}}
-			//sessionHandlerLog.Infof("[shell] Failed to marshal protobuf %s", err)
-			// {{end}}
-		} else {
-			// {{if .Config.Debug}}
-			//sessionHandlerLog.Infof("[tunnel] Requesting resend of tunnelData seq: %d", tunnel.ReadSequence())
-			// {{end}}
-			implantConn.RequestResend(data)
-		}
-	}
+	RTunnelDataHandler(req, tunnel, implantConn)
 	return nil
 }
 
+func rejectReverseTunnel(implantConn *core.ImplantConnection, tunnelID uint64, reason error) {
+	sessionHandlerLog.Warnf("Rejected reverse tunnel %d: %v", tunnelID, reason)
+	data, err := proto.Marshal(&sliverpb.TunnelData{Closed: true, TunnelID: tunnelID})
+	if err != nil || implantConn == nil {
+		return
+	}
+	select {
+	case implantConn.Send <- &sliverpb.Envelope{Type: sliverpb.MsgTunnelClose, Data: data}:
+	default:
+		sessionHandlerLog.Warnf("Could not queue close for rejected reverse tunnel %d", tunnelID)
+	}
+}
+
 func RTunnelDataHandler(tunnelData *sliverpb.TunnelData, tunnel *rtunnels.RTunnel, connection *core.ImplantConnection) {
-
-	// Since we have no guarantees that we will receive tunnel data in the correct order, we need
-	// to ensure we write the data back to the reader in the correct order. The server will ensure
-	// that TunnelData protobuf objects are numbered in the correct order using the Sequence property.
-	// Similarly we ensure that any data we write-back to the server is also numbered correctly. To
-	// reassemble the data, we just dump it into the cache and then advance the writer until we no longer
-	// have sequential data. So we can receive `n` number of incorrectly ordered Protobuf objects and
-	// correctly write them back to the reader.
-
-	// {{if .Config.Debug}}
-	//sessionHandlerLog.Infof("[tunnel] Cache tunnel %d (seq: %d)", tunnel.ID, tunnelData.Sequence)
-	// {{end}}
-
-	tunnelDataCache.Add(tunnel.ID, tunnelData.Sequence, tunnelData)
-
-	// NOTE: The read/write semantics can be a little mind boggling, just remember we're reading
-	// from the server and writing to the tunnel's reader (e.g. stdout), so that's why ReadSequence
-	// is used here whereas WriteSequence is used for data written back to the server
-
-	// Go through cache and write all sequential data to the reader
-	for recv, ok := tunnelDataCache.Get(tunnel.ID, tunnel.ReadSequence()); ok; recv, ok = tunnelDataCache.Get(tunnel.ID, tunnel.ReadSequence()) {
-		// {{if .Config.Debug}}
-		//sessionHandlerLog.Infof("[tunnel] Write %d bytes to tunnel %d (read seq: %d)", len(recv.Data), recv.TunnelID, recv.Sequence)
-		// {{end}}
-		tunnel.Writer.Write(recv.Data)
-
-		// Delete the entry we just wrote from the cache
-		tunnelDataCache.DeleteSeq(tunnel.ID, tunnel.ReadSequence())
-		tunnel.IncReadSequence() // Increment sequence counter
-
-		// {{if .Config.Debug}}
-		//sessionHandlerLog.Infof("[message just received] %v", tunnelData)
-		// {{end}}
+	if tunnelData == nil || tunnel == nil || connection == nil || tunnel.Writer == nil {
+		return
+	}
+	pending, err := tunnel.ProcessInbound(tunnelData.Sequence, tunnelData.Data, func(payload []byte) error {
+		if deadlineWriter, ok := tunnel.Writer.(interface{ SetWriteDeadline(time.Time) error }); ok {
+			_ = deadlineWriter.SetWriteDeadline(time.Now().Add(rtunnels.DefaultDialTimeout))
+			defer deadlineWriter.SetWriteDeadline(time.Time{})
+		}
+		written, writeErr := tunnel.Writer.Write(payload)
+		if writeErr != nil {
+			return writeErr
+		}
+		if written != len(payload) {
+			return io.ErrShortWrite
+		}
+		return nil
+	})
+	if err != nil {
+		sessionHandlerLog.Warnf("Closing reverse tunnel %d after bounded inbound relay failure: %v", tunnel.ID, err)
+		closeReverseTunnel(tunnel)
+		rejectReverseTunnel(connection, tunnel.ID, err)
+		return
 	}
 
-	//If cache is building up it probably means a msg was lost and the server is currently hung waiting for it.
-	//Send a Resend packet to have the msg resent from the cache
-	if tunnelDataCache.Len(tunnel.ID) > 3 {
+	// If the bounded per-tunnel cache is building up, request the missing frame.
+	if pending > 3 {
 		data, err := proto.Marshal(&sliverpb.TunnelData{
 			Sequence: tunnel.WriteSequence(), // The tunnel write sequence
 			Ack:      tunnel.ReadSequence(),
@@ -400,7 +392,18 @@ func RTunnelDataHandler(tunnelData *sliverpb.TunnelData, tunnel *rtunnels.RTunne
 			// {{if .Config.Debug}}
 			//sessionHandlerLog.Infof("[tunnel] Requesting resend of tunnelData seq: %d", tunnel.ReadSequence())
 			// {{end}}
-			connection.RequestResend(data)
+			if err := queueTunnelEnvelope(connection, tunnel, &sliverpb.Envelope{Type: sliverpb.MsgTunnelData, Data: data}); err != nil {
+				sessionHandlerLog.Warnf("Closing reverse tunnel %d after resend queue failure: %v", tunnel.ID, err)
+				closeReverseTunnel(tunnel)
+			}
 		}
 	}
+}
+
+func closeReverseTunnel(tunnel *rtunnels.RTunnel) {
+	if tunnel == nil {
+		return
+	}
+	rtunnels.RemoveRTunnelIf(tunnel.ID, tunnel)
+	tunnel.Close()
 }

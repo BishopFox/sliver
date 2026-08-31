@@ -29,6 +29,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
+	"github.com/bishopfox/sliver/server/core/rtunnels"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/notifications"
@@ -54,6 +55,15 @@ type Server struct {
 	// Magical methods to break backwards compatibility
 	// Here be dragons: https://github.com/grpc/grpc-go/issues/3794
 	rpcpb.UnimplementedSliverRPCServer
+
+	// genericHandler is a test seam for RPCs whose security invariants span the
+	// implant request/response boundary. Production servers leave it nil and use
+	// GenericHandler.
+	genericHandler func(GenericRequest, GenericResponse) error
+
+	// reversePortForwardRegistry is an instance seam for security-boundary tests.
+	// Production servers use rtunnels.DefaultRegistry.
+	reversePortForwardRegistry *rtunnels.Registry
 }
 
 // GenericRequest - Generic request interface to use with generic handlers
@@ -81,6 +91,20 @@ func NewServer() *Server {
 	core.StartEventAutomation()
 	notifications.Start()
 	return &Server{}
+}
+
+func (rpc *Server) invokeGenericHandler(req GenericRequest, resp GenericResponse) error {
+	if rpc.genericHandler != nil {
+		return rpc.genericHandler(req, resp)
+	}
+	return rpc.GenericHandler(req, resp)
+}
+
+func (rpc *Server) rportFwdRegistry() *rtunnels.Registry {
+	if rpc.reversePortForwardRegistry != nil {
+		return rpc.reversePortForwardRegistry
+	}
+	return rtunnels.DefaultRegistry
 }
 
 // GetVersion - Get the server version

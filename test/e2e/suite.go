@@ -29,6 +29,8 @@ import (
 
 const (
 	operatorName               = "e2e-operator"
+	suiteScopeComprehensive    = "comprehensive"
+	suiteScopeRportFwd         = "rportfwd"
 	processLogTailBytes        = 1024 * 1024
 	commandFailureLogTailBytes = 64 * 1024
 	listenerPollInterval       = 250 * time.Millisecond
@@ -48,6 +50,7 @@ type options struct {
 	resultsDir     string
 	transportCSV   string
 	modeCSV        string
+	suiteScope     string
 	transports     []string
 	modes          []string
 	timeout        time.Duration
@@ -241,6 +244,10 @@ func validateOptions(opts *options) error {
 	opts.targetOS = strings.ToLower(strings.TrimSpace(opts.targetOS))
 	opts.targetArch = strings.ToLower(strings.TrimSpace(opts.targetArch))
 	opts.serverArch = strings.ToLower(strings.TrimSpace(opts.serverArch))
+	opts.suiteScope, err = normalizeSuiteScope(opts.suiteScope)
+	if err != nil {
+		return err
+	}
 	supported := map[string]bool{
 		"darwin/amd64":  true,
 		"darwin/arm64":  true,
@@ -275,7 +282,26 @@ func validateOptions(opts *options) error {
 	if err != nil {
 		return err
 	}
+	opts.modes = modesForSuiteScope(opts.suiteScope, opts.modes)
 	return nil
+}
+
+func normalizeSuiteScope(value string) (string, error) {
+	scope := strings.TrimSpace(value)
+	if scope != suiteScopeComprehensive && scope != suiteScopeRportFwd {
+		return "", fmt.Errorf("unknown E2E suite scope %q (want %s or %s)", scope, suiteScopeComprehensive, suiteScopeRportFwd)
+	}
+	return scope, nil
+}
+
+func modesForSuiteScope(scope string, modes []string) []string {
+	if scope == suiteScopeRportFwd {
+		// Reverse port forwarding is an interactive session feature. A focused
+		// run intentionally avoids generating beacons even when callers retain
+		// the comprehensive suite's default selector.
+		return []string{"session"}
+	}
+	return modes
 }
 
 func parseSelection(value string, allowed []string, label string) ([]string, error) {
@@ -609,9 +635,17 @@ func (s *suite) runImplant(listener *listener, beacon bool) error {
 	}
 	s.t.Logf("Verified %s %s connection %s over %s", mode, target.id(), s.opts.targetOS+"/"+s.opts.targetArch, listener.transport)
 
-	if err := s.exerciseCommands(target, remoteRoot, listener.transport); err != nil {
+	var exerciseErrors []error
+	if target.session != nil && s.opts.suiteScope == suiteScopeRportFwd {
+		exerciseErrors = appendIfError(exerciseErrors, s.exerciseReversePortForward(target, listener.transport))
+	}
+	if s.opts.suiteScope == suiteScopeComprehensive {
+		exerciseErrors = appendIfError(exerciseErrors, s.exerciseCommands(target, remoteRoot, listener.transport))
+	}
+	if err := errors.Join(exerciseErrors...); err != nil {
 		return fmt.Errorf(
-			"exercise %s over %s: %w\n%s",
+			"exercise %s scope for %s over %s: %w\n%s",
+			s.opts.suiteScope,
 			mode,
 			listener.transport,
 			err,

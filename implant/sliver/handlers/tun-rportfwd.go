@@ -55,9 +55,10 @@ func rportFwdListenersHandler(envelope *pb.Envelope, connection *transports.Conn
 	for _, portfwd := range forwards {
 
 		portfwdListeners = append(portfwdListeners, &pb.RportFwdListener{
-			ID:             uint32(portfwd.ID),
-			BindAddress:    portfwd.BindAddr,
-			ForwardAddress: portfwd.RemoteAddr,
+			ID:              uint32(portfwd.ID),
+			BindAddress:     portfwd.BindAddr,
+			ForwardAddress:  portfwd.RemoteAddr,
+			AuthorizationID: portfwd.AuthorizationID,
 		})
 	}
 	data, _ := proto.Marshal(&pb.RportFwdListeners{
@@ -110,6 +111,7 @@ func rportFwdStartListenerHandler(envelope *pb.Envelope, connection *transports.
 		Conn:            connection,
 		RemoteAddr:      req.ForwardAddress,
 		BindAddr:        req.BindAddress,
+		AuthorizationID: req.AuthorizationID,
 		KeepAlivePeriod: keepAlivePeriod,
 		DialTimeout:     30 * time.Second,
 	}
@@ -128,6 +130,7 @@ func rportFwdStartListenerHandler(envelope *pb.Envelope, connection *transports.
 	resp.ForwardAddress = req.ForwardAddress
 	resp.BindPort = req.ForwardPort
 	resp.ForwardPort = req.ForwardPort
+	resp.AuthorizationID = req.AuthorizationID
 	resp.ID = uint32(rportfwd.ID)
 
 	data, _ := proto.Marshal(resp)
@@ -156,6 +159,7 @@ func rportFwdStopListenerHandler(envelope *pb.Envelope, connection *transports.C
 		resp.ID = uint32(rportfwd.ID)
 		resp.BindAddress = rportfwd.ChannelProxy.BindAddr
 		resp.ForwardAddress = rportfwd.ChannelProxy.RemoteAddr
+		resp.AuthorizationID = rportfwd.ChannelProxy.AuthorizationID
 	} else {
 		resp.Response.Err = "Invalid ID\n"
 	}

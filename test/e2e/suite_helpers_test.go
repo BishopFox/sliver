@@ -41,6 +41,43 @@ func TestParseSelectionRejectsEmptyInput(t *testing.T) {
 	}
 }
 
+func TestSuiteScopeRouting(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		modes     []string
+		wantScope string
+		wantModes []string
+		wantError bool
+	}{
+		{name: "comprehensive preserves modes", input: "comprehensive", modes: []string{"session", "beacon"}, wantScope: suiteScopeComprehensive, wantModes: []string{"session", "beacon"}},
+		{name: "focused forces sessions", input: "rportfwd", modes: []string{"session", "beacon"}, wantScope: suiteScopeRportFwd, wantModes: []string{"session"}},
+		{name: "surrounding whitespace", input: " rportfwd ", modes: []string{"beacon"}, wantScope: suiteScopeRportFwd, wantModes: []string{"session"}},
+		{name: "unsupported", input: "other", wantError: true},
+		{name: "noncanonical case", input: "RPORTFWD", wantError: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			scope, err := normalizeSuiteScope(test.input)
+			if test.wantError {
+				if err == nil {
+					t.Fatalf("normalizeSuiteScope(%q) succeeded", test.input)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("normalizeSuiteScope(%q): %v", test.input, err)
+			}
+			if scope != test.wantScope {
+				t.Fatalf("scope = %q, want %q", scope, test.wantScope)
+			}
+			if got := modesForSuiteScope(scope, test.modes); !reflect.DeepEqual(got, test.wantModes) {
+				t.Fatalf("modes = %v, want %v", got, test.wantModes)
+			}
+		})
+	}
+}
+
 func TestSanitizedImplantEnvUsesAllowlistAndIsolatedValues(t *testing.T) {
 	hostEnv := []string{
 		"Path=/first/bin",
