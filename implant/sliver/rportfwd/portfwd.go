@@ -61,6 +61,16 @@ type Portfwd struct {
 	ID           int
 	TCPProxy     *tcpproxy.Proxy
 	ChannelProxy *ChannelProxy
+	done         chan struct{}
+}
+
+// Done is closed after this exact listener generation has been removed from
+// the registry and its TCP proxy has been closed.
+func (p *Portfwd) Done() <-chan struct{} {
+	if p == nil {
+		return nil
+	}
+	return p.done
 }
 
 // GetMetadata - Get metadata about the portfwd
@@ -86,6 +96,7 @@ func (f *portfwds) Add(tcpProxy *tcpproxy.Proxy, channelProxy *ChannelProxy) *Po
 		ID:           nextPortfwdID(),
 		TCPProxy:     tcpProxy,
 		ChannelProxy: channelProxy,
+		done:         make(chan struct{}),
 	}
 	f.forwards[portfwd.ID] = portfwd
 	return portfwd
@@ -94,13 +105,35 @@ func (f *portfwds) Add(tcpProxy *tcpproxy.Proxy, channelProxy *ChannelProxy) *Po
 // Remove - Remove a TCP proxy instance
 func (f *portfwds) Remove(portfwdID int) *Portfwd {
 	f.mutex.Lock()
-	defer f.mutex.Unlock()
-	if portfwd, ok := f.forwards[portfwdID]; ok {
-		portfwd.TCPProxy.Close()
+	portfwd, ok := f.forwards[portfwdID]
+	if ok {
 		delete(f.forwards, portfwdID)
-		return portfwd
 	}
-	return nil
+	f.mutex.Unlock()
+	if !ok {
+		return nil
+	}
+	portfwd.close()
+	return portfwd
+}
+
+// RemoveIf removes portfwdID only when it still refers to expected. C2
+// teardown uses this compare-delete operation so cleanup for an old connection
+// can never detach a newer listener generation.
+func (f *portfwds) RemoveIf(portfwdID int, expected *Portfwd) *Portfwd {
+	if expected == nil {
+		return nil
+	}
+	f.mutex.Lock()
+	portfwd, ok := f.forwards[portfwdID]
+	if !ok || portfwd != expected {
+		f.mutex.Unlock()
+		return nil
+	}
+	delete(f.forwards, portfwdID)
+	f.mutex.Unlock()
+	portfwd.close()
+	return portfwd
 }
 
 // List - List all TCP proxy instances
@@ -114,12 +147,27 @@ func (f *portfwds) List() []*PortfwdMeta {
 	return portForwards
 }
 
+func (p *Portfwd) close() {
+	if p.TCPProxy != nil {
+		_ = p.TCPProxy.Close()
+	}
+	if p.done != nil {
+		close(p.done)
+	}
+}
+
 // ChannelProxy binds the Sliver Tunnel to a net.Conn object
 // one ChannelProxy per port bind.
 //
 // Implements the Target interface from tcpproxy pkg
+type tunnelConnection interface {
+	AddTunnel(*transports.Tunnel) bool
+	CloseTunnelLocal(*transports.Tunnel) bool
+	QueueTunnelData(*transports.Tunnel, transports.TunnelEnvelopeBuilder) error
+}
+
 type ChannelProxy struct {
-	Conn *transports.Connection
+	Conn tunnelConnection
 	//Session  *clientpb.Session
 
 	BindAddr        string
@@ -135,7 +183,7 @@ func (p *ChannelProxy) HandleConn(src net.Conn) {
 	log.Printf("[tcpproxy] Handling new connection")
 	// {{end}}
 	ctx := context.Background()
-	var cancelContext context.CancelFunc
+	cancelContext := func() {}
 	if p.DialTimeout >= 0 {
 		ctx, cancelContext = context.WithTimeout(ctx, p.dialTimeout())
 	}
@@ -164,21 +212,21 @@ func (p *ChannelProxy) HandleConn(src net.Conn) {
 	log.Printf("[tcpproxy] Created new tunnel with id %d", tId)
 	// {{end}}
 
-	tunnel := transports.NewTunnel(
+	tunnel := transports.NewReverseTunnel(
 		tId,
 		src,
 		src,
 	)
-	p.Conn.AddTunnel(tunnel)
+	if !p.Conn.AddTunnel(tunnel) {
+		tunnel.Close()
+		cancelContext()
+		return
+	}
 	cleanup := func(reason error) {
 		// {{if .Config.Debug}}
 		log.Printf("[portfwd] Closing tunnel %d (%s)", tunnel.ID, reason)
 		// {{end}}
-		tunnel := p.Conn.Tunnel(tunnel.ID)
-		if tunnel != nil {
-			p.Conn.RemoveTunnel(tunnel.ID)
-		}
-		src.Close()
+		p.Conn.CloseTunnelLocal(tunnel)
 		cancelContext()
 	}
 

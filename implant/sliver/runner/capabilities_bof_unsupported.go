@@ -2,6 +2,8 @@
 
 package runner
 
+import "github.com/bishopfox/sliver/protobuf/sliverpb"
+
 func implantCapabilities() uint64 {
-	return 0
+	return uint64(sliverpb.ImplantCapability_IMPLANT_CAPABILITY_TUNNEL_TERMINAL_V1)
 }

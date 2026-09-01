@@ -16,6 +16,10 @@ func TestTunnelWriterIncludesAuthorizationIDOnCreateReverse(t *testing.T) {
 
 	connection := &transports.Connection{Send: make(chan *sliverpb.Envelope, 2)}
 	tunnel := transports.NewTunnel(tunnelID, nil)
+	if !connection.AddTunnel(tunnel) {
+		t.Fatal("failed to publish test tunnel")
+	}
+	t.Cleanup(func() { connection.CloseTunnelRemote(tunnel) })
 	writer := tunnelWriter{
 		tun:             tunnel,
 		conn:            connection,

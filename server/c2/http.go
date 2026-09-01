@@ -116,6 +116,31 @@ func (s *HTTPSessions) Remove(sessionID string) {
 	delete(s.active, sessionID)
 }
 
+// RemoveIf removes sessionID only when it still names the expected transport
+// session. A delayed Done watcher must never delete a newer session that reused
+// the same identifier.
+func (s *HTTPSessions) RemoveIf(sessionID string, expected *HTTPSession) bool {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if s.active[sessionID] != expected {
+		return false
+	}
+	delete(s.active, sessionID)
+	return true
+}
+
+// addHTTPSession publishes a transport session and binds its lifetime to the
+// underlying implant connection. Core rejection paths close ImplantConn; the
+// transport entry must disappear at the same boundary so a stale cookie cannot
+// keep dispatching envelopes after authorization cleanup.
+func (s *SliverHTTPC2) addHTTPSession(session *HTTPSession) {
+	s.HTTPSessions.Add(session)
+	go func() {
+		<-session.ImplantConn.Done()
+		s.HTTPSessions.RemoveIf(session.ID, session)
+	}()
+}
+
 // HTTPHandler - Path mapped to a handler function
 type HTTPHandler func(resp http.ResponseWriter, req *http.Request)
 
@@ -534,6 +559,7 @@ func (s *SliverHTTPC2) authenticatedHandler(resp http.ResponseWriter, req *http.
 	encoder, err := getEncoder(req.URL, c2Config)
 	if err != nil {
 		s.closeHandler(resp, req, session)
+		return
 	}
 
 	if req.Method == http.MethodPost {
@@ -625,12 +651,13 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 	httpSession.CipherCtx = cryptography.NewCipherContext(sKey)
 	httpSession.ImplantConn = core.NewImplantConnection("http(s)", getRemoteAddr(req))
 	httpSession.C2Profile = implantConfig.HTTPC2ConfigName
-	s.HTTPSessions.Add(httpSession)
+	s.addHTTPSession(httpSession)
 	httpLog.Infof("Started new session with http session id: %s", httpSession.ID)
 
 	responseCiphertext, err := httpSession.CipherCtx.Encrypt([]byte(httpSession.ID))
 	if err != nil {
 		httpLog.Info("Failed to encrypt session identifier")
+		httpSession.ImplantConn.Close()
 		s.defaultHandler(resp, req)
 		return
 	}
@@ -648,6 +675,12 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 
 func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Request, httpSession *HTTPSession, c2profile *clientpb.HTTPC2Config, encoder sliverEncoders.Encoder) {
 	httpLog.Debug("Session request")
+	select {
+	case <-httpSession.ImplantConn.Done():
+		s.HTTPSessions.RemoveIf(httpSession.ID, httpSession)
+		return
+	default:
+	}
 	httpSession.ImplantConn.UpdateLastMessage()
 
 	plaintext, err := s.readReqBody(httpSession, resp, req, c2profile, encoder)
@@ -663,20 +696,24 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 		s.defaultHandler(resp, req)
 		return
 	}
+	select {
+	case <-httpSession.ImplantConn.Done():
+		s.HTTPSessions.RemoveIf(httpSession.ID, httpSession)
+		return
+	default:
+	}
 
 	resp.WriteHeader(http.StatusAccepted)
 	handlers := sliverHandlers.GetHandlers()
 	if envelope.ID != 0 {
-		httpSession.ImplantConn.RespMutex.RLock()
-		defer httpSession.ImplantConn.RespMutex.RUnlock()
-		if resp, ok := httpSession.ImplantConn.Resp[envelope.ID]; ok {
-			resp <- envelope
-		}
+		httpSession.ImplantConn.DeliverResponse(envelope)
 	} else if handler, ok := handlers[envelope.Type]; ok {
 		respEnvelope := handler(httpSession.ImplantConn, envelope.Data)
 		if respEnvelope != nil {
 			go func() {
-				httpSession.ImplantConn.Send <- respEnvelope
+				if err := httpSession.ImplantConn.SendEnvelope(respEnvelope, core.DefaultImplantSendTimeout); err != nil {
+					httpSession.ImplantConn.Close()
+				}
 			}()
 		}
 	}
@@ -687,7 +724,19 @@ func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request, 
 	httpSession.ImplantConn.UpdateLastMessage()
 
 	select {
+	case <-httpSession.ImplantConn.Done():
+		s.HTTPSessions.RemoveIf(httpSession.ID, httpSession)
+		return
 	case envelope := <-httpSession.ImplantConn.Send:
+		select {
+		case <-httpSession.ImplantConn.Done():
+			s.HTTPSessions.RemoveIf(httpSession.ID, httpSession)
+			return
+		default:
+		}
+		if envelope == nil {
+			return
+		}
 		resp.WriteHeader(http.StatusOK)
 		envelopeData, _ := proto.Marshal(envelope)
 		ciphertext, err := httpSession.CipherCtx.Encrypt(envelopeData)
@@ -761,7 +810,10 @@ func (s *SliverHTTPC2) closeHandler(resp http.ResponseWriter, req *http.Request,
 		cookie.MaxAge = -1
 		http.SetCookie(resp, cookie)
 	}
-	s.HTTPSessions.Remove(httpSession.ID)
+	s.HTTPSessions.RemoveIf(httpSession.ID, httpSession)
+	if httpSession.ImplantConn != nil {
+		httpSession.ImplantConn.Close()
+	}
 	resp.WriteHeader(http.StatusAccepted)
 }
 
@@ -808,6 +860,12 @@ func (s *SliverHTTPC2) getHTTPSession(req *http.Request) *HTTPSession {
 	for _, cookie := range req.Cookies() {
 		httpSession := s.HTTPSessions.Get(cookie.Value)
 		if httpSession != nil {
+			select {
+			case <-httpSession.ImplantConn.Done():
+				s.HTTPSessions.RemoveIf(httpSession.ID, httpSession)
+				return nil
+			default:
+			}
 			httpSession.ImplantConn.UpdateLastMessage()
 			return httpSession
 		}

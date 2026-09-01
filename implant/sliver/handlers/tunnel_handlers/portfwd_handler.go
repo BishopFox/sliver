@@ -102,7 +102,15 @@ func PortfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 		dst,
 		dst,
 	)
-	connection.AddTunnel(tunnel)
+	if !connection.AddTunnel(tunnel) {
+		tunnel.Close()
+		cancelContext()
+		portfwdResp, _ := proto.Marshal(&sliverpb.Portfwd{
+			Response: &commonpb.Response{Err: "port forward tunnel ID is already active"},
+		})
+		reportError(envelope, connection, portfwdResp)
+		return
+	}
 
 	// Send portfwd response
 	portfwdResp, _ := proto.Marshal(&sliverpb.Portfwd{
@@ -111,9 +119,13 @@ func PortfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 		Protocol: sliverpb.PortFwdProtoTCP,
 		TunnelID: portfwdReq.TunnelID,
 	})
-	connection.Send <- &sliverpb.Envelope{
+	if !connection.SendEnvelope(&sliverpb.Envelope{
 		ID:   envelope.ID,
 		Data: portfwdResp,
+	}) {
+		connection.CloseTunnelRemote(tunnel)
+		cancelContext()
+		return
 	}
 
 	once := sync.Once{}
@@ -122,23 +134,7 @@ func PortfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 			// {{if .Config.Debug}}
 			log.Printf("[portfwd] Closing tunnel %d (%s)", tunnel.ID, reason)
 			// {{end}}
-			cleanupTunnel := connection.Tunnel(tunnel.ID)
-			if cleanupTunnel == nil {
-				return
-			}
-
-			tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{
-				Closed:   true,
-				TunnelID: cleanupTunnel.ID,
-			})
-			connection.Send <- &sliverpb.Envelope{
-				Type: sliverpb.MsgTunnelClose,
-				Data: tunnelClose,
-			}
-			connection.RemoveTunnel(cleanupTunnel.ID)
-			if dst != nil {
-				dst.Close()
-			}
+			connection.CloseTunnelLocal(tunnel)
 			cancelContext()
 		})
 	}

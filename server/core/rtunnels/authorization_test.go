@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"net"
 	"strings"
 	"sync"
 	"testing"
@@ -190,24 +191,214 @@ func TestRegistryNegotiatedAuthorizationIDDisablesLegacyLookup(t *testing.T) {
 	assert.Equal(t, "example.com:443", plan.Address)
 }
 
-func TestRegistryBoundsPendingAndActiveConnectionsPerAuthorization(t *testing.T) {
-	t.Parallel()
+func TestRegistryAuthorizationConnectionLimitIncludesPendingAndActive(t *testing.T) {
+	assert.Equal(t, 64, maxConnectionsPerAuthorization)
+	assert.Equal(t, 256, maxConnectionsPerSession)
+	assert.Equal(t, 2048, maxConnectionsGlobal)
 
 	registry := NewRegistry()
 	id, err := registry.Begin("session", "127.0.0.1:8080", 0)
 	must.NoError(t, err)
+
+	reservations := make([]*connectionReservation, 0, maxConnectionsPerAuthorization)
 	for range maxConnectionsPerAuthorization {
-		_, _, err := registry.reserve("session", id, "")
-		must.NoError(t, err)
+		_, _, reservation, reserveErr := registry.reserve("session", id, "")
+		must.NoError(t, reserveErr)
+		reservations = append(reservations, reservation)
 	}
-	_, _, err = registry.reserve("session", id, "")
+
+	clients := make([]net.Conn, 0, maxConnectionsPerAuthorization/2)
+	peers := make([]net.Conn, 0, maxConnectionsPerAuthorization/2)
+	connectionIDs := make([]uint64, 0, maxConnectionsPerAuthorization/2)
+	for index := 0; index < maxConnectionsPerAuthorization/2; index++ {
+		client, peer := net.Pipe()
+		connectionID, registerErr := registry.registerConnection("session", id, reservations[index], client)
+		must.NoError(t, registerErr)
+		clients = append(clients, client)
+		peers = append(peers, peer)
+		connectionIDs = append(connectionIDs, connectionID)
+	}
+	t.Cleanup(func() {
+		for _, connection := range clients {
+			_ = connection.Close()
+		}
+		for _, connection := range peers {
+			_ = connection.Close()
+		}
+	})
+
+	assertRegistryConnectionCounts(t, registry, 64, map[string]uint64{"session": 64})
+	registry.mu.RLock()
+	record := registry.byID[id]
+	if record == nil {
+		registry.mu.RUnlock()
+		t.Fatal("authorization record disappeared before revocation")
+	}
+	assert.Equal(t, uint64(32), record.pendingConnections)
+	assert.Len(t, record.connections, 32)
+	registry.mu.RUnlock()
+
+	_, _, _, err = registry.reserve("session", id, "")
 	must.ErrorIs(t, err, ErrAuthorizationConnectionLimit)
-	for range maxConnectionsPerAuthorization {
-		registry.releaseReservation(id)
-	}
-	plan, _, err := registry.reserve("session", id, "")
+
+	registry.releaseReservation(reservations[32])
+	_, _, replacementPending, err := registry.reserve("session", id, "")
 	must.NoError(t, err)
-	registry.releaseReservation(plan.AuthorizationID)
+	registry.releaseReservation(replacementPending)
+	assertRegistryConnectionCounts(t, registry, 63, map[string]uint64{"session": 63})
+
+	registry.unregisterConnection(record, connectionIDs[0])
+	_ = clients[0].Close()
+	_, _, replacementActive, err := registry.reserve("session", id, "")
+	must.NoError(t, err)
+	registry.releaseReservation(replacementActive)
+	assertRegistryConnectionCounts(t, registry, 62, map[string]uint64{"session": 62})
+
+	must.True(t, registry.Revoke("session", id))
+	for _, reservation := range reservations {
+		registry.releaseReservation(reservation)
+	}
+	assertRegistryConnectionCounts(t, registry, 0, nil)
+}
+
+func TestRegistrySessionConnectionLimitIsScopedAndReclaimable(t *testing.T) {
+	registry := NewRegistry()
+	reservations := make([]*connectionReservation, 0, maxConnectionsPerSession)
+	for authIndex := 0; authIndex < 8; authIndex++ {
+		id, err := registry.Begin("full-session", "127.0.0.1:8080", 0)
+		must.NoError(t, err)
+		for range 32 {
+			_, _, reservation, reserveErr := registry.reserve("full-session", id, "")
+			must.NoError(t, reserveErr)
+			reservations = append(reservations, reservation)
+		}
+	}
+	assertRegistryConnectionCounts(t, registry, 256, map[string]uint64{"full-session": 256})
+
+	overflowID, err := registry.Begin("full-session", "127.0.0.1:8081", 0)
+	must.NoError(t, err)
+	_, _, _, err = registry.reserve("full-session", overflowID, "")
+	must.ErrorIs(t, err, ErrSessionConnectionLimit)
+
+	otherID, err := registry.Begin("other-session", "127.0.0.1:8082", 0)
+	must.NoError(t, err)
+	_, _, otherReservation, err := registry.reserve("other-session", otherID, "")
+	must.NoError(t, err)
+	assertRegistryConnectionCounts(t, registry, 257, map[string]uint64{"full-session": 256, "other-session": 1})
+	registry.releaseReservation(otherReservation)
+
+	registry.releaseReservation(reservations[0])
+	_, _, reclaimed, err := registry.reserve("full-session", overflowID, "")
+	must.NoError(t, err)
+	registry.releaseReservation(reclaimed)
+	assertRegistryConnectionCounts(t, registry, 255, map[string]uint64{"full-session": 255})
+
+	assert.Equal(t, 9, registry.RevokeSession("full-session"))
+	registry.RevokeSession("other-session")
+	assertRegistryConnectionCounts(t, registry, 0, nil)
+}
+
+func TestRegistryGlobalConnectionLimitIsReclaimable(t *testing.T) {
+	registry := NewRegistry()
+	filledSessions := make([]string, 0, 8)
+	var firstReservation *connectionReservation
+	for sessionIndex := 0; sessionIndex < 8; sessionIndex++ {
+		sessionID := "global-session-" + string(rune('a'+sessionIndex))
+		filledSessions = append(filledSessions, sessionID)
+		for authIndex := 0; authIndex < 4; authIndex++ {
+			id, err := registry.Begin(sessionID, "127.0.0.1:8080", 0)
+			must.NoError(t, err)
+			for range maxConnectionsPerAuthorization {
+				_, _, reservation, reserveErr := registry.reserve(sessionID, id, "")
+				must.NoError(t, reserveErr)
+				if firstReservation == nil {
+					firstReservation = reservation
+				}
+			}
+		}
+	}
+	wantSessions := map[string]uint64{}
+	for _, sessionID := range filledSessions {
+		wantSessions[sessionID] = maxConnectionsPerSession
+	}
+	assertRegistryConnectionCounts(t, registry, 2048, wantSessions)
+
+	overflowID, err := registry.Begin("overflow-session", "127.0.0.1:8081", 0)
+	must.NoError(t, err)
+	_, _, _, err = registry.reserve("overflow-session", overflowID, "")
+	must.ErrorIs(t, err, ErrGlobalConnectionLimit)
+
+	registry.releaseReservation(firstReservation)
+	_, _, reclaimed, err := registry.reserve("overflow-session", overflowID, "")
+	must.NoError(t, err)
+	registry.releaseReservation(reclaimed)
+	assertRegistryConnectionCounts(t, registry, maxConnectionsGlobal-1, map[string]uint64{
+		"global-session-a": maxConnectionsPerSession - 1,
+		"global-session-b": maxConnectionsPerSession,
+		"global-session-c": maxConnectionsPerSession,
+		"global-session-d": maxConnectionsPerSession,
+		"global-session-e": maxConnectionsPerSession,
+		"global-session-f": maxConnectionsPerSession,
+		"global-session-g": maxConnectionsPerSession,
+		"global-session-h": maxConnectionsPerSession,
+	})
+
+	for _, sessionID := range filledSessions {
+		registry.RevokeSession(sessionID)
+	}
+	registry.RevokeSession("overflow-session")
+	assertRegistryConnectionCounts(t, registry, 0, nil)
+}
+
+func TestRegistryRegisterAndRevokeRaceReclaimsConnectionQuota(t *testing.T) {
+	for iteration := 0; iteration < 100; iteration++ {
+		registry := NewRegistry()
+		id, err := registry.Begin("session", "127.0.0.1:8080", 0)
+		must.NoError(t, err)
+		_, _, reservation, err := registry.reserve("session", id, "")
+		must.NoError(t, err)
+
+		client, peer := net.Pipe()
+		start := make(chan struct{})
+		var wait sync.WaitGroup
+		wait.Add(2)
+		go func() {
+			defer wait.Done()
+			<-start
+			_, _ = registry.registerConnection("session", id, reservation, client)
+		}()
+		go func() {
+			defer wait.Done()
+			<-start
+			registry.Revoke("session", id)
+		}()
+		close(start)
+		wait.Wait()
+		registry.releaseReservation(reservation)
+		_ = client.Close()
+		_ = peer.Close()
+		assertRegistryConnectionCounts(t, registry, 0, nil)
+	}
+}
+
+func TestRegistryLateReservationReleaseCannotAffectReusedAuthorizationID(t *testing.T) {
+	random := bytes.NewReader(bytes.Repeat([]byte{0x42}, authorizationIDBytes*2))
+	registry := newRegistry(random)
+	oldID, err := registry.Begin("session", "127.0.0.1:8080", 0)
+	must.NoError(t, err)
+	_, _, oldReservation, err := registry.reserve("session", oldID, "")
+	must.NoError(t, err)
+	must.True(t, registry.Revoke("session", oldID))
+
+	newID, err := registry.Begin("session", "127.0.0.1:8081", 0)
+	must.NoError(t, err)
+	assert.Equal(t, oldID, newID)
+	_, _, newReservation, err := registry.reserve("session", newID, "")
+	must.NoError(t, err)
+	registry.releaseReservation(oldReservation)
+	assertRegistryConnectionCounts(t, registry, 1, map[string]uint64{"session": 1})
+	registry.releaseReservation(newReservation)
+	assertRegistryConnectionCounts(t, registry, 0, nil)
 }
 
 func TestRegistryRevokeAndActivateRaceFailsClosed(t *testing.T) {
@@ -301,17 +492,29 @@ func TestAuthorizationErrorsAreComparable(t *testing.T) {
 }
 
 func acquirePlanForTest(registry *Registry, sessionID string, id AuthorizationID) (dialPlan, error) {
-	plan, _, err := registry.reserve(sessionID, id, "")
+	plan, _, reservation, err := registry.reserve(sessionID, id, "")
 	if err == nil {
-		registry.releaseReservation(plan.AuthorizationID)
+		registry.releaseReservation(reservation)
 	}
 	return plan, err
 }
 
 func acquireLegacyPlanForTest(registry *Registry, sessionID string, address string) (dialPlan, error) {
-	plan, _, err := registry.reserve(sessionID, "", address)
+	plan, _, reservation, err := registry.reserve(sessionID, "", address)
 	if err == nil {
-		registry.releaseReservation(plan.AuthorizationID)
+		registry.releaseReservation(reservation)
 	}
 	return plan, err
+}
+
+func assertRegistryConnectionCounts(t *testing.T, registry *Registry, total uint64, sessions map[string]uint64) {
+	t.Helper()
+	registry.mu.RLock()
+	defer registry.mu.RUnlock()
+	assert.Equal(t, total, registry.totalConnectionCount)
+	if sessions == nil {
+		assert.Empty(t, registry.sessionConnectionCounts)
+		return
+	}
+	assert.Equal(t, sessions, registry.sessionConnectionCounts)
 }

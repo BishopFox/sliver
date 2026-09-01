@@ -48,16 +48,13 @@ func namedPipeConnect(uri *url.URL) (*Connection, error) {
 		ctrl:    ctrl,
 		tunnels: map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
-		once:    &sync.Once{},
 		IsOpen:  true,
 		cleanup: func() {
 			// {{if .Config.Debug}}
 			log.Printf("[namedpipe] lost connection, cleanup...")
 			// {{end}}
-			close(send)
 			ctrl <- struct{}{}
 			pingCtrl <- struct{}{}
-			close(recv)
 		},
 	}
 
@@ -87,9 +84,11 @@ func namedPipeConnect(uri *url.URL) (*Connection, error) {
 					data, _ := proto.Marshal(&pb.PivotPing{
 						Nonce: uint32(time.Now().UnixNano()),
 					})
-					connection.Send <- &pb.Envelope{
+					if !connection.SendEnvelope(&pb.Envelope{
 						Type: pb.MsgPivotPeerPing,
 						Data: data,
+					}) {
+						return
 					}
 					// {{if .Config.Debug}}
 					log.Printf("[namedpipe] server ping...")
@@ -97,9 +96,11 @@ func namedPipeConnect(uri *url.URL) (*Connection, error) {
 					data, _ = proto.Marshal(&pb.PivotPing{
 						Nonce: uint32(time.Now().UnixNano()),
 					})
-					connection.Send <- &pb.Envelope{
+					if !connection.SendEnvelope(&pb.Envelope{
 						Type: pb.MsgPivotServerPing,
 						Data: data,
+					}) {
+						return
 					}
 				}
 			}
@@ -109,11 +110,22 @@ func namedPipeConnect(uri *url.URL) (*Connection, error) {
 			defer func() {
 				connection.Cleanup()
 			}()
-			for envelope := range send {
-				// {{if .Config.Debug}}
-				log.Printf("[namedpipe] send loop envelope type %d\n", envelope.Type)
-				// {{end}}
-				pivot.WriteEnvelope(envelope)
+			for {
+				select {
+				case envelope := <-send:
+					if envelope == nil {
+						continue
+					}
+					// {{if .Config.Debug}}
+					log.Printf("[namedpipe] send loop envelope type %d\n", envelope.Type)
+					// {{end}}
+					if err := pivot.WriteEnvelope(envelope); err != nil {
+						connection.Cleanup()
+						return
+					}
+				case <-connection.Done():
+					return
+				}
 			}
 		}()
 
@@ -143,7 +155,11 @@ func namedPipeConnect(uri *url.URL) (*Connection, error) {
 					continue
 				}
 				if err == nil {
-					recv <- envelope
+					select {
+					case recv <- envelope:
+					case <-connection.Done():
+						return
+					}
 					// {{if .Config.Debug}}
 					log.Printf("[namedpipe] Receive loop envelope type %d\n", envelope.Type)
 					// {{end}}

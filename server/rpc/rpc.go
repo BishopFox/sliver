@@ -60,6 +60,10 @@ type Server struct {
 	// implant request/response boundary. Production servers leave it nil and use
 	// GenericHandler.
 	genericHandler func(GenericRequest, GenericResponse) error
+	// rportFwdInventoryQuery is a context-aware raw-response seam for the
+	// mixed-version listener inventory compatibility probe. Production servers
+	// issue the request through the exact core Session connection.
+	rportFwdInventoryQuery func(context.Context, *sliverpb.RportFwdListenersReq) ([]byte, error)
 
 	// reversePortForwardRegistry is an instance seam for security-boundary tests.
 	// Production servers use rtunnels.DefaultRegistry.

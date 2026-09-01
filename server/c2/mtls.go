@@ -150,7 +150,7 @@ func handleSliverConnection(conn net.Conn) {
 	defer func() {
 		mtlsLog.Debugf("mtls connection closing")
 		conn.Close()
-		implantConn.Cleanup()
+		implantConn.Close()
 	}()
 
 	br := bufio.NewReader(conn)
@@ -178,6 +178,10 @@ func (c *mtlsBufferedConn) Read(p []byte) (int, error) {
 }
 
 func handleSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConnection) {
+	handleSliverConnectionYamuxWithDispatch(conn, implantConn, serverHandlers.GetHandlers(), nil, nil)
+}
+
+func handleSliverConnectionYamuxWithDispatch(conn net.Conn, implantConn *core.ImplantConnection, handlers map[uint32]serverHandlers.ServerHandler, beforeDispatch func(), afterStream func()) {
 	defer recoverAndLogPanic(mtlsLog.Errorf, "mtls handleSliverConnectionYamux")
 
 	session, err := yamux.Server(conn, nil)
@@ -195,11 +199,16 @@ func handleSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConnect
 			session.Close()
 		})
 	}
+	go func() {
+		select {
+		case <-implantConn.Done():
+			closeDone()
+		case <-done:
+		}
+	}()
 
 	streamSem := make(chan struct{}, mtlsYamuxMaxConcurrentStreams)
 	sendSem := make(chan struct{}, mtlsYamuxMaxConcurrentSends)
-	handlers := serverHandlers.GetHandlers()
-
 	go func() {
 		defer closeDone()
 		defer recoverAndLogPanic(mtlsLog.Errorf, "mtls yamux accept loop")
@@ -223,6 +232,9 @@ func handleSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConnect
 				defer func() {
 					<-streamSem
 				}()
+				if afterStream != nil {
+					defer afterStream()
+				}
 				defer recoverAndLogPanic(mtlsLog.Errorf, "mtls yamux stream")
 				defer stream.Close()
 
@@ -232,15 +244,18 @@ func handleSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConnect
 					closeDone()
 					return
 				}
+				if beforeDispatch != nil {
+					beforeDispatch()
+				}
+				select {
+				case <-implantConn.Done():
+					return
+				default:
+				}
 				implantConn.UpdateLastMessage()
 
 				if envelope.ID != 0 {
-					implantConn.RespMutex.RLock()
-					resp, ok := implantConn.Resp[envelope.ID]
-					implantConn.RespMutex.RUnlock()
-					if ok {
-						resp <- envelope
-					}
+					implantConn.DeliverResponse(envelope)
 					return
 				}
 
@@ -248,10 +263,19 @@ func handleSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConnect
 					mtlsLog.Debugf("Received new mtls message type %d, data: %s", envelope.Type, envelope.Data)
 					go func(envelope *sliverpb.Envelope) {
 						defer recoverAndLogPanic(mtlsLog.Errorf, "mtls message handler")
+						select {
+						case <-implantConn.Done():
+							return
+						case <-done:
+							return
+						default:
+						}
 
 						respEnvelope := handler(implantConn, envelope.Data)
 						if respEnvelope != nil {
-							implantConn.Send <- respEnvelope
+							if err := implantConn.SendEnvelope(respEnvelope, core.DefaultImplantSendTimeout); err != nil {
+								implantConn.Close()
+							}
 						}
 					}(envelope)
 				}
@@ -264,7 +288,19 @@ func handleSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConnect
 		defer recoverAndLogPanic(mtlsLog.Errorf, "mtls yamux sender loop")
 		for {
 			select {
+			case <-implantConn.Done():
+				return
 			case envelope := <-implantConn.Send:
+				select {
+				case <-implantConn.Done():
+					return
+				case <-done:
+					return
+				default:
+				}
+				if envelope == nil {
+					continue
+				}
 				select {
 				case sendSem <- struct{}{}:
 				case <-done:

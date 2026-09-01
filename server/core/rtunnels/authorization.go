@@ -19,7 +19,9 @@ import (
 const (
 	authorizationIDBytes           = 32
 	maxAuthorizationIDAttempts     = 16
-	maxConnectionsPerAuthorization = 256
+	maxConnectionsPerAuthorization = 64
+	maxConnectionsPerSession       = 256
+	maxConnectionsGlobal           = 2048
 )
 
 var (
@@ -31,6 +33,9 @@ var (
 	ErrAuthorizationActive          = errors.New("reverse port forward authorization is already active")
 	ErrAuthorizationIDRequired      = errors.New("reverse port forward authorization ID is required")
 	ErrAuthorizationConnectionLimit = errors.New("reverse port forward authorization connection limit reached")
+	ErrSessionConnectionLimit       = errors.New("reverse port forward session connection limit reached")
+	ErrGlobalConnectionLimit        = errors.New("reverse port forward global connection limit reached")
+	ErrAuthorizationReservation     = errors.New("invalid reverse port forward connection reservation")
 	ErrDuplicateListenerID          = errors.New("reverse port forward listener ID is already registered")
 	ErrAuthorizationIDGeneration    = errors.New("failed to generate a unique reverse port forward authorization ID")
 )
@@ -99,6 +104,16 @@ type authorizationRecord struct {
 	nextConnID         uint64
 }
 
+// connectionReservation is a once-consumable claim on all connection quota
+// scopes. It keeps the owning record alive after revocation removes registry
+// indexes, so late dial completion can release safely without looking up a
+// newly-created authorization that happens to reuse the same opaque ID.
+// Every field is protected by Registry.mu.
+type connectionReservation struct {
+	record *authorizationRecord
+	active bool
+}
+
 // Registry owns all reverse port forward authorizations. Its indexes contain
 // only server-generated IDs and destinations derived from operator requests.
 type Registry struct {
@@ -110,7 +125,10 @@ type Registry struct {
 	bySession     map[string]map[AuthorizationID]*authorizationRecord
 	byDestination map[string]map[AuthorizationID]*authorizationRecord
 	byListener    map[string]map[uint32]*authorizationRecord
-	nextSequence  uint64
+
+	sessionConnectionCounts map[string]uint64
+	totalConnectionCount    uint64
+	nextSequence            uint64
 }
 
 // NewRegistry creates an empty reverse port forward authorization registry.
@@ -120,11 +138,12 @@ func NewRegistry() *Registry {
 
 func newRegistry(random io.Reader) *Registry {
 	return &Registry{
-		random:        random,
-		byID:          map[AuthorizationID]*authorizationRecord{},
-		bySession:     map[string]map[AuthorizationID]*authorizationRecord{},
-		byDestination: map[string]map[AuthorizationID]*authorizationRecord{},
-		byListener:    map[string]map[uint32]*authorizationRecord{},
+		random:                  random,
+		byID:                    map[AuthorizationID]*authorizationRecord{},
+		bySession:               map[string]map[AuthorizationID]*authorizationRecord{},
+		byDestination:           map[string]map[AuthorizationID]*authorizationRecord{},
+		byListener:              map[string]map[uint32]*authorizationRecord{},
+		sessionConnectionCounts: map[string]uint64{},
 	}
 }
 
@@ -420,6 +439,9 @@ func (registry *Registry) revokeLocked(record *authorizationRecord) []net.Conn {
 
 	sessionID := record.authorization.SessionID
 	authorizationID := record.authorization.AuthorizationID
+	connectionCount := record.pendingConnections + uint64(len(record.connections))
+	record.pendingConnections = 0
+	registry.releaseConnectionCountLocked(sessionID, connectionCount)
 	if record.authorization.HasListenerID {
 		if listeners := registry.byListener[sessionID]; listeners != nil {
 			if listeners[record.authorization.ImplantListenerID] == record {
@@ -488,9 +510,12 @@ func (registry *Registry) initializeLocked() {
 	if registry.byListener == nil {
 		registry.byListener = map[string]map[uint32]*authorizationRecord{}
 	}
+	if registry.sessionConnectionCounts == nil {
+		registry.sessionConnectionCounts = map[string]uint64{}
+	}
 }
 
-func (registry *Registry) reserve(sessionID string, id AuthorizationID, legacyAddress string) (dialPlan, context.Context, error) {
+func (registry *Registry) reserve(sessionID string, id AuthorizationID, legacyAddress string) (dialPlan, context.Context, *connectionReservation, error) {
 	registry.mu.Lock()
 	defer registry.mu.Unlock()
 	var record *authorizationRecord
@@ -500,7 +525,7 @@ func (registry *Registry) reserve(sessionID string, id AuthorizationID, legacyAd
 	} else {
 		canonicalAddress, canonicalErr := canonicalizeAddress(legacyAddress)
 		if canonicalErr != nil {
-			return dialPlan{}, nil, canonicalErr
+			return dialPlan{}, nil, nil, canonicalErr
 		}
 		record = registry.latestDestinationLocked(sessionID, canonicalAddress)
 		if record == nil {
@@ -510,49 +535,104 @@ func (registry *Registry) reserve(sessionID string, id AuthorizationID, legacyAd
 		}
 	}
 	if err != nil {
-		return dialPlan{}, nil, err
+		return dialPlan{}, nil, nil, err
 	}
 	if record.pendingConnections+uint64(len(record.connections)) >= maxConnectionsPerAuthorization {
-		return dialPlan{}, nil, ErrAuthorizationConnectionLimit
+		return dialPlan{}, nil, nil, ErrAuthorizationConnectionLimit
+	}
+	if registry.sessionConnectionCounts[sessionID] >= maxConnectionsPerSession {
+		return dialPlan{}, nil, nil, ErrSessionConnectionLimit
+	}
+	if registry.totalConnectionCount >= maxConnectionsGlobal {
+		return dialPlan{}, nil, nil, ErrGlobalConnectionLimit
 	}
 	plan, err := dialPlanForRecord(record)
 	if err != nil {
-		return dialPlan{}, nil, err
+		return dialPlan{}, nil, nil, err
 	}
 	record.pendingConnections++
-	return plan, record.revoked, nil
+	registry.sessionConnectionCounts[sessionID]++
+	registry.totalConnectionCount++
+	reservation := &connectionReservation{record: record, active: true}
+	return plan, record.revoked, reservation, nil
 }
 
-func (registry *Registry) registerConnection(sessionID string, id AuthorizationID, connection net.Conn) (uint64, error) {
+func (registry *Registry) registerConnection(sessionID string, id AuthorizationID, reservation *connectionReservation, connection net.Conn) (uint64, error) {
 	registry.mu.Lock()
 	defer registry.mu.Unlock()
+	if reservation == nil || !reservation.active || reservation.record == nil {
+		return 0, ErrAuthorizationReservation
+	}
 	record, err := registry.lookupLocked(sessionID, id)
 	if err != nil {
 		return 0, err
 	}
-	if record.pendingConnections > 0 {
-		record.pendingConnections--
+	if record != reservation.record || record.pendingConnections == 0 {
+		return 0, ErrAuthorizationReservation
 	}
 	if record.authorization.State == AuthorizationRevoked {
 		return 0, ErrAuthorizationRevoked
 	}
+	reservation.active = false
+	record.pendingConnections--
 	record.nextConnID++
 	record.connections[record.nextConnID] = connection
 	return record.nextConnID, nil
 }
 
-func (registry *Registry) releaseReservation(id AuthorizationID) {
+func (registry *Registry) releaseReservation(reservation *connectionReservation) {
 	registry.mu.Lock()
 	defer registry.mu.Unlock()
-	if record := registry.byID[id]; record != nil && record.pendingConnections > 0 {
-		record.pendingConnections--
+	if reservation == nil || !reservation.active || reservation.record == nil {
+		return
 	}
+	reservation.active = false
+	record := reservation.record
+	if record.authorization.State == AuthorizationRevoked {
+		return
+	}
+	if record.pendingConnections == 0 {
+		return
+	}
+	record.pendingConnections--
+	registry.releaseConnectionCountLocked(record.authorization.SessionID, 1)
 }
 
-func (registry *Registry) unregisterConnection(id AuthorizationID, connectionID uint64) {
+func (registry *Registry) unregisterConnection(record *authorizationRecord, connectionID uint64) {
 	registry.mu.Lock()
 	defer registry.mu.Unlock()
-	if record := registry.byID[id]; record != nil {
-		delete(record.connections, connectionID)
+	if record == nil {
+		return
+	}
+	if _, ok := record.connections[connectionID]; !ok {
+		return
+	}
+	delete(record.connections, connectionID)
+	registry.releaseConnectionCountLocked(record.authorization.SessionID, 1)
+}
+
+func (registry *Registry) releaseConnectionCountLocked(sessionID string, count uint64) {
+	if count == 0 {
+		return
+	}
+	sessionCount := registry.sessionConnectionCounts[sessionID]
+	if count > sessionCount {
+		count = sessionCount
+	}
+	if count == 0 {
+		return
+	}
+	if count >= sessionCount {
+		delete(registry.sessionConnectionCounts, sessionID)
+	} else {
+		registry.sessionConnectionCounts[sessionID] = sessionCount - count
+	}
+	if count > registry.totalConnectionCount {
+		count = registry.totalConnectionCount
+	}
+	if count >= registry.totalConnectionCount {
+		registry.totalConnectionCount = 0
+	} else {
+		registry.totalConnectionCount -= count
 	}
 }

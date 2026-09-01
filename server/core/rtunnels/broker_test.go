@@ -134,7 +134,7 @@ func TestBrokerRevokeCancelsPendingDial(t *testing.T) {
 
 	select {
 	case openErr := <-result:
-		must.ErrorIs(t, openErr, context.Canceled)
+		must.ErrorIs(t, openErr, ErrAuthorizationRevoked)
 	case <-time.After(time.Second):
 		t.Fatal("pending dial was not canceled by revocation")
 	}
@@ -242,7 +242,7 @@ func TestBrokerDialCompletingAfterRevokeIsClosedAndRejected(t *testing.T) {
 
 	select {
 	case openErr := <-result:
-		must.ErrorIs(t, openErr, ErrUnknownAuthorization)
+		must.ErrorIs(t, openErr, ErrAuthorizationRevoked)
 	case <-time.After(time.Second):
 		t.Fatal("dial completion did not fail closed after revocation")
 	}
@@ -298,6 +298,96 @@ func TestBrokerRejectsNilConnection(t *testing.T) {
 
 	_, _, err = broker.Open(context.Background(), "session", id, "")
 	must.ErrorIs(t, err, ErrNilDialConnection)
+}
+
+func TestBrokerOpenFailuresReleaseConnectionReservation(t *testing.T) {
+	tests := []struct {
+		name    string
+		dialErr error
+		wantErr error
+	}{
+		{name: "dial error", dialErr: errors.New("dial failed"), wantErr: errors.New("dial failed")},
+		{name: "nil connection", wantErr: ErrNilDialConnection},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			registry := NewRegistry()
+			id, err := registry.Begin("session", "127.0.0.1:8080", 0)
+			must.NoError(t, err)
+			broker := NewBroker(registry, DialContextFunc(func(_ context.Context, _ string, _ string) (net.Conn, error) {
+				return nil, test.dialErr
+			}), time.Second)
+
+			for range maxConnectionsPerAuthorization + 1 {
+				_, _, openErr := broker.Open(context.Background(), "session", id, "")
+				if test.dialErr != nil {
+					assert.EqualError(t, openErr, test.dialErr.Error())
+				} else {
+					must.ErrorIs(t, openErr, test.wantErr)
+				}
+				assertRegistryConnectionCounts(t, registry, 0, nil)
+			}
+		})
+	}
+}
+
+func TestBrokerRegisterErrorClosesConnectionAndReleasesReservation(t *testing.T) {
+	registry := NewRegistry()
+	id, err := registry.Begin("session", "127.0.0.1:8080", 0)
+	must.NoError(t, err)
+	registerErr := errors.New("register failed")
+	peers := make(chan net.Conn, maxConnectionsPerAuthorization+1)
+	broker := NewBroker(registry, DialContextFunc(func(_ context.Context, _ string, _ string) (net.Conn, error) {
+		client, peer := net.Pipe()
+		peers <- peer
+		return client, nil
+	}), time.Second)
+	broker.registerConnection = func(string, AuthorizationID, *connectionReservation, net.Conn) (uint64, error) {
+		return 0, registerErr
+	}
+
+	for range maxConnectionsPerAuthorization + 1 {
+		_, _, openErr := broker.Open(context.Background(), "session", id, "")
+		must.ErrorIs(t, openErr, registerErr)
+		peer := <-peers
+		assertConnectionClosed(t, peer)
+		_ = peer.Close()
+		assertRegistryConnectionCounts(t, registry, 0, nil)
+	}
+}
+
+func TestBrokerRejectsConnectionReturnedAfterDialContextCancellation(t *testing.T) {
+	registry := NewRegistry()
+	id, err := registry.Begin("session", "127.0.0.1:8080", 0)
+	must.NoError(t, err)
+	started := make(chan struct{})
+	peerReady := make(chan net.Conn, 1)
+	broker := NewBroker(registry, DialContextFunc(func(ctx context.Context, _ string, _ string) (net.Conn, error) {
+		close(started)
+		<-ctx.Done()
+		client, peer := net.Pipe()
+		peerReady <- peer
+		return client, nil
+	}), time.Minute)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	result := make(chan error, 1)
+	go func() {
+		_, _, openErr := broker.Open(ctx, "session", id, "")
+		result <- openErr
+	}()
+	<-started
+	cancel()
+	peer := <-peerReady
+	defer peer.Close()
+	select {
+	case openErr := <-result:
+		must.ErrorIs(t, openErr, context.Canceled)
+	case <-time.After(time.Second):
+		t.Fatal("Open did not reject a connection returned after cancellation")
+	}
+	assertConnectionClosed(t, peer)
+	assertRegistryConnectionCounts(t, registry, 0, nil)
 }
 
 func assertConnectionClosed(t *testing.T, connection net.Conn) {

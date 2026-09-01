@@ -11,8 +11,8 @@ import (
 
 func ShellResizeReqHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
 	resp, _ := proto.Marshal(&commonpb.Empty{})
-	connection.Send <- &sliverpb.Envelope{
+	connection.SendEnvelope(&sliverpb.Envelope{
 		ID:   envelope.ID,
 		Data: resp,
-	}
+	})
 }

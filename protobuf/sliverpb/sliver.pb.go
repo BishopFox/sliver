@@ -26,8 +26,9 @@ const (
 type ImplantCapability int32
 
 const (
-	ImplantCapability_IMPLANT_CAPABILITY_NONE   ImplantCapability = 0
-	ImplantCapability_IMPLANT_CAPABILITY_BOF_V1 ImplantCapability = 1
+	ImplantCapability_IMPLANT_CAPABILITY_NONE               ImplantCapability = 0
+	ImplantCapability_IMPLANT_CAPABILITY_BOF_V1             ImplantCapability = 1
+	ImplantCapability_IMPLANT_CAPABILITY_TUNNEL_TERMINAL_V1 ImplantCapability = 2
 )
 
 // Enum value maps for ImplantCapability.
@@ -35,10 +36,12 @@ var (
 	ImplantCapability_name = map[int32]string{
 		0: "IMPLANT_CAPABILITY_NONE",
 		1: "IMPLANT_CAPABILITY_BOF_V1",
+		2: "IMPLANT_CAPABILITY_TUNNEL_TERMINAL_V1",
 	}
 	ImplantCapability_value = map[string]int32{
-		"IMPLANT_CAPABILITY_NONE":   0,
-		"IMPLANT_CAPABILITY_BOF_V1": 1,
+		"IMPLANT_CAPABILITY_NONE":               0,
+		"IMPLANT_CAPABILITY_BOF_V1":             1,
+		"IMPLANT_CAPABILITY_TUNNEL_TERMINAL_V1": 2,
 	}
 )
 
@@ -13123,10 +13126,11 @@ const file_sliverpb_sliver_proto_rawDesc = "" +
 	"\aRequest\x18\t \x01(\v2\x11.commonpb.RequestR\aRequest\"3\n" +
 	"\tBOFOutput\x12\x12\n" +
 	"\x04Type\x18\x01 \x01(\x05R\x04Type\x12\x12\n" +
-	"\x04Data\x18\x02 \x01(\fR\x04Data*O\n" +
+	"\x04Data\x18\x02 \x01(\fR\x04Data*z\n" +
 	"\x11ImplantCapability\x12\x1b\n" +
 	"\x17IMPLANT_CAPABILITY_NONE\x10\x00\x12\x1d\n" +
-	"\x19IMPLANT_CAPABILITY_BOF_V1\x10\x01*I\n" +
+	"\x19IMPLANT_CAPABILITY_BOF_V1\x10\x01\x12)\n" +
+	"%IMPLANT_CAPABILITY_TUNNEL_TERMINAL_V1\x10\x02*I\n" +
 	"\fRegistryType\x12\v\n" +
 	"\aUnknown\x10\x00\x12\n" +
 	"\n" +

@@ -8,6 +8,7 @@ import "commonpb/common.proto";
 enum ImplantCapability {
   IMPLANT_CAPABILITY_NONE = 0;
   IMPLANT_CAPABILITY_BOF_V1 = 1;
+  IMPLANT_CAPABILITY_TUNNEL_TERMINAL_V1 = 2;
 }
 
 /*

@@ -23,6 +23,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	e2ecoverage "github.com/bishopfox/sliver/test/e2e/coverage"
+	"github.com/bishopfox/sliver/test/e2e/rportfwdcoverage"
 	"github.com/bishopfox/sliver/test/e2e/shellcodecoverage"
 	"google.golang.org/protobuf/proto"
 )
@@ -76,18 +77,19 @@ type suite struct {
 	server     *managedProcess
 	serverLog  string
 
-	rpc           rpcpb.SliverRPCClient
-	closeGRPC     func()
-	hub           *eventHub
-	coverage      *e2ecoverage.Recorder
-	listeners     map[string]*listener
-	armoryOnce    sync.Once
-	armory        *armoryAssets
-	armoryErr     error
-	nativeBOFOnce sync.Once
-	nativeBOF     *nativeBOFAssets
-	nativeBOFErr  error
-	closeOnce     sync.Once
+	rpc              rpcpb.SliverRPCClient
+	closeGRPC        func()
+	hub              *eventHub
+	coverage         *e2ecoverage.Recorder
+	rportfwdCoverage *rportfwdcoverage.Recorder
+	listeners        map[string]*listener
+	armoryOnce       sync.Once
+	armory           *armoryAssets
+	armoryErr        error
+	nativeBOFOnce    sync.Once
+	nativeBOF        *nativeBOFAssets
+	nativeBOFErr     error
+	closeOnce        sync.Once
 }
 
 type listener struct {
@@ -181,6 +183,11 @@ func newSuite(t *testing.T, opts options, recordCommandCoverage bool) (*suite, e
 			return nil, fmt.Errorf("initialize E2E coverage recorder: %w", err)
 		}
 	}
+	s.rportfwdCoverage, err = rportfwdcoverage.NewRecorder(e2ecoverage.Target{OS: opts.targetOS, Arch: opts.targetArch})
+	if err != nil {
+		s.close()
+		return nil, fmt.Errorf("initialize reverse-port-forward E2E coverage recorder: %w", err)
+	}
 	if s.opts.resultsDir == "" {
 		s.opts.resultsDir, err = os.MkdirTemp("", "sliver-comprehensive-e2e-results-")
 		if err != nil {
@@ -201,15 +208,27 @@ func newSuite(t *testing.T, opts options, recordCommandCoverage bool) (*suite, e
 }
 
 func (s *suite) writeCoverage() error {
-	if s.coverage == nil {
-		return nil
+	var writeErrors []error
+	if s.rportfwdCoverage != nil {
+		paths, err := s.rportfwdCoverage.Write(s.opts.resultsDir)
+		if err != nil {
+			writeErrors = append(writeErrors, fmt.Errorf("write reverse-port-forward E2E coverage: %w", err))
+		} else {
+			s.t.Logf("Wrote reverse-port-forward E2E coverage reports %s and %s", paths.JSON, paths.Markdown)
+			if err := s.rportfwdCoverage.ValidateComplete(s.opts.transports); err != nil {
+				writeErrors = append(writeErrors, err)
+			}
+		}
 	}
-	paths, err := s.coverage.Write(s.opts.resultsDir)
-	if err != nil {
-		return fmt.Errorf("write E2E coverage: %w", err)
+	if s.coverage != nil {
+		paths, err := s.coverage.Write(s.opts.resultsDir)
+		if err != nil {
+			writeErrors = append(writeErrors, fmt.Errorf("write E2E coverage: %w", err))
+		} else {
+			s.t.Logf("Wrote E2E coverage reports %s and %s", paths.JSON, paths.Markdown)
+		}
 	}
-	s.t.Logf("Wrote E2E coverage reports %s and %s", paths.JSON, paths.Markdown)
-	return nil
+	return errors.Join(writeErrors...)
 }
 
 func validateOptions(opts *options) error {
@@ -641,6 +660,9 @@ func (s *suite) runImplant(listener *listener, beacon bool) error {
 	}
 	if s.opts.suiteScope == suiteScopeComprehensive {
 		exerciseErrors = appendIfError(exerciseErrors, s.exerciseCommands(target, remoteRoot, listener.transport))
+	}
+	if target.session != nil {
+		exerciseErrors = appendIfError(exerciseErrors, s.exerciseReversePortForwardDisconnect(target, listener.transport, process))
 	}
 	if err := errors.Join(exerciseErrors...); err != nil {
 		return fmt.Errorf(

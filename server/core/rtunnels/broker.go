@@ -30,9 +30,10 @@ func (dial DialContextFunc) DialContext(ctx context.Context, network string, add
 // plans. A caller can provide an implant address only for legacy lookup; that
 // value is never passed to the dialer.
 type Broker struct {
-	registry    *Registry
-	dialer      ContextDialer
-	dialTimeout time.Duration
+	registry           *Registry
+	dialer             ContextDialer
+	dialTimeout        time.Duration
+	registerConnection func(string, AuthorizationID, *connectionReservation, net.Conn) (uint64, error)
 }
 
 // NewBroker creates an outbound reverse port forward broker. Nil dependencies
@@ -63,14 +64,14 @@ func (broker *Broker) Open(ctx context.Context, sessionID string, id Authorizati
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	plan, revoked, err := broker.registry.reserve(sessionID, id, legacyAddress)
+	plan, revoked, reservation, err := broker.registry.reserve(sessionID, id, legacyAddress)
 	if err != nil {
 		return nil, "", err
 	}
 	reservationActive := true
 	defer func() {
 		if reservationActive {
-			broker.registry.releaseReservation(plan.AuthorizationID)
+			broker.registry.releaseReservation(reservation)
 		}
 	}()
 
@@ -78,26 +79,47 @@ func (broker *Broker) Open(ctx context.Context, sessionID string, id Authorizati
 	stopRevocationCancel := context.AfterFunc(revoked, cancel)
 	connection, err := broker.dialer.DialContext(dialContext, "tcp", plan.Address)
 	stopRevocationCancel()
+	dialContextErr := dialContext.Err()
 	cancel()
 	if err != nil {
+		if connection != nil {
+			_ = connection.Close()
+		}
+		if revoked.Err() != nil {
+			return nil, "", ErrAuthorizationRevoked
+		}
 		return nil, "", err
 	}
 	if connection == nil {
 		return nil, "", ErrNilDialConnection
 	}
+	if dialContextErr != nil {
+		_ = connection.Close()
+		if revoked.Err() != nil {
+			return nil, "", ErrAuthorizationRevoked
+		}
+		return nil, "", dialContextErr
+	}
 
 	configureKeepAlive(connection, plan.KeepAlive)
-	connectionID, err := broker.registry.registerConnection(sessionID, plan.AuthorizationID, connection)
-	reservationActive = false
+	registerConnection := broker.registry.registerConnection
+	if broker.registerConnection != nil {
+		registerConnection = broker.registerConnection
+	}
+	connectionID, err := registerConnection(sessionID, plan.AuthorizationID, reservation, connection)
 	if err != nil {
 		_ = connection.Close()
+		if revoked.Err() != nil {
+			return nil, "", ErrAuthorizationRevoked
+		}
 		return nil, "", err
 	}
+	reservationActive = false
 	return &authorizedConn{
-		Conn:          connection,
-		registry:      broker.registry,
-		authorization: plan.AuthorizationID,
-		connectionID:  connectionID,
+		Conn:         connection,
+		registry:     broker.registry,
+		record:       reservation.record,
+		connectionID: connectionID,
 	}, plan.AuthorizationID, nil
 }
 
@@ -120,16 +142,16 @@ func configureKeepAlive(connection net.Conn, keepAlive int32) {
 
 type authorizedConn struct {
 	net.Conn
-	registry      *Registry
-	authorization AuthorizationID
-	connectionID  uint64
-	closeOnce     sync.Once
-	closeErr      error
+	registry     *Registry
+	record       *authorizationRecord
+	connectionID uint64
+	closeOnce    sync.Once
+	closeErr     error
 }
 
 func (connection *authorizedConn) Close() error {
 	connection.closeOnce.Do(func() {
-		connection.registry.unregisterConnection(connection.authorization, connection.connectionID)
+		connection.registry.unregisterConnection(connection.record, connection.connectionID)
 		connection.closeErr = connection.Conn.Close()
 	})
 	return connection.closeErr

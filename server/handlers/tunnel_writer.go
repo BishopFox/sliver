@@ -47,25 +47,30 @@ type tunnelWriter struct {
 
 func (tw tunnelWriter) Write(data []byte) (int, error) {
 	n := len(data)
-	marshaled, err := proto.Marshal(&sliverpb.TunnelData{
-		Sequence: tw.tun.WriteSequence(), // The tunnel write sequence
-		Ack:      tw.tun.ReadSequence(),
-		TunnelID: tw.tun.ID,
-		Data:     data,
+	err := tw.tun.QueueOutbound(func(sequence uint64) error {
+		marshaled, err := proto.Marshal(&sliverpb.TunnelData{
+			Sequence: sequence,
+			Ack:      tw.tun.ReadSequence(),
+			TunnelID: tw.tun.ID,
+			Data:     data,
+		})
+		if err != nil {
+			return err
+		}
+		// {{if .Config.Debug}}
+		log.Printf("[tunnelWriter] Write %d bytes (write seq: %d) ack: %d", n, sequence, tw.tun.ReadSequence())
+		// {{end}}
+		return queueTunnelEnvelope(tw.conn, tw.tun, &sliverpb.Envelope{
+			Type: sliverpb.MsgTunnelData,
+			Data: marshaled,
+		})
 	})
 	if err != nil {
+		if errors.Is(err, rtunnels.ErrReverseTunnelClosed) {
+			return 0, errReverseTunnelClosed
+		}
 		return 0, err
 	}
-	// {{if .Config.Debug}}
-	log.Printf("[tunnelWriter] Write %d bytes (write seq: %d) ack: %d", n, tw.tun.WriteSequence(), tw.tun.ReadSequence())
-	// {{end}}
-	if err := queueTunnelEnvelope(tw.conn, tw.tun, &sliverpb.Envelope{
-		Type: sliverpb.MsgTunnelData,
-		Data: marshaled,
-	}); err != nil {
-		return 0, err
-	}
-	tw.tun.IncWriteSequence()
 	return n, nil
 }
 
@@ -73,14 +78,12 @@ func queueTunnelEnvelope(connection *core.ImplantConnection, tunnel *rtunnels.RT
 	if connection == nil || tunnel == nil || envelope == nil {
 		return errReverseTunnelClosed
 	}
-	timer := time.NewTimer(reverseTunnelSendTimeout)
-	defer timer.Stop()
-	select {
-	case connection.Send <- envelope:
+	err := connection.SendEnvelopeUntil(envelope, tunnel.Done(), reverseTunnelSendTimeout)
+	if err == nil {
 		return nil
-	case <-tunnel.Done():
-		return errReverseTunnelClosed
-	case <-timer.C:
-		return errReverseTunnelSendQueue
 	}
+	if errors.Is(err, core.ErrImplantConnectionClosed) {
+		return errReverseTunnelClosed
+	}
+	return errReverseTunnelSendQueue
 }

