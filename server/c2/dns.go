@@ -889,7 +889,7 @@ func (s *SliverDNSServer) handleDNSSessionInit(domain string, msg *dnspb.DNSMess
 	return resp
 }
 
-func (s *SliverDNSServer) handlePoll(domain string, dnsSession *DNSSession, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
+func (s *SliverDNSServer) handlePoll(_ string, dnsSession *DNSSession, msg *dnspb.DNSMessage, _ uint32, req *dns.Msg) *dns.Msg {
 	dnsLog.Debugf("[poll] with dns session id %d", msg.ID&sessionIDBitMask)
 	select {
 	case <-dnsSession.ImplantConn.Done():
@@ -970,7 +970,7 @@ func (s *SliverDNSServer) handlePoll(domain string, dnsSession *DNSSession, msg 
 	return resp
 }
 
-func (s *SliverDNSServer) handleDataFromImplant(domain string, dnsSession *DNSSession, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
+func (s *SliverDNSServer) handleDataFromImplant(_ string, dnsSession *DNSSession, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
 	dnsLog.Debugf("[from implant] dns session id %d", msg.ID&sessionIDBitMask)
 	select {
 	case <-dnsSession.ImplantConn.Done():
@@ -1008,7 +1008,7 @@ func (s *SliverDNSServer) handleDataFromImplant(domain string, dnsSession *DNSSe
 	return resp
 }
 
-func (s *SliverDNSServer) handleDataToImplant(domain string, dnsSession *DNSSession, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
+func (s *SliverDNSServer) handleDataToImplant(_ string, dnsSession *DNSSession, msg *dnspb.DNSMessage, _ uint32, req *dns.Msg) *dns.Msg {
 	dnsLog.Debugf("[to implant] dns session id %d", msg.ID&sessionIDBitMask)
 	select {
 	case <-dnsSession.ImplantConn.Done():
@@ -1072,7 +1072,7 @@ func (s *SliverDNSServer) handleDataToImplant(domain string, dnsSession *DNSSess
 	return resp
 }
 
-func (s *SliverDNSServer) handleClear(domain string, dnsSession *DNSSession, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
+func (s *SliverDNSServer) handleClear(_ string, dnsSession *DNSSession, msg *dnspb.DNSMessage, checksum uint32, req *dns.Msg) *dns.Msg {
 	dnsLog.Debugf("[clear] dns session id %d", msg.ID&sessionIDBitMask)
 	select {
 	case <-dnsSession.ImplantConn.Done():

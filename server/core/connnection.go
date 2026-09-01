@@ -62,9 +62,13 @@ var (
 type ReverseTunnelIDClaimResult uint8
 
 const (
+	// ReverseTunnelIDClaimed indicates that the connection accepted a new ID.
 	ReverseTunnelIDClaimed ReverseTunnelIDClaimResult = iota
+	// ReverseTunnelIDDuplicate indicates that the connection already owns the ID.
 	ReverseTunnelIDDuplicate
+	// ReverseTunnelIDCapacityExhausted indicates that no more IDs may be claimed.
 	ReverseTunnelIDCapacityExhausted
+	// ReverseTunnelIDConnectionClosed indicates that the connection is closing.
 	ReverseTunnelIDConnectionClosed
 )
 

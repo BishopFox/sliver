@@ -149,7 +149,7 @@ func runInteractive(req *pb.ExecWasmExtensionReq, conn *transports.Connection, w
 		// wasm.Stderr.Reader,
 	)
 	if !conn.AddTunnel(tunnel) {
-		wasm.Close()
+		_ = wasm.Close()
 		return proto.Marshal(&pb.ExecWasmExtension{
 			Response: &commonpb.Response{Err: "Wasm tunnel ID is already active"},
 		})

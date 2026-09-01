@@ -46,8 +46,9 @@ func (tw tunnelWriter) Write(data []byte) (int, error) {
 		createReverse := sequence == 0
 		rportfwdInfo := &sliverpb.RPortfwd{}
 		if createReverse {
-			rportfwdInfo.Host = tw.host
-			rportfwdInfo.Port = tw.port
+			if tw.authorizationID == "" {
+				setLegacyRportfwdAddress(rportfwdInfo, tw.host, tw.port)
+			}
 			rportfwdInfo.Protocol = int32(tw.protocol)
 			rportfwdInfo.TunnelID = tw.tunnelID
 			rportfwdInfo.AuthorizationID = tw.authorizationID
@@ -75,4 +76,11 @@ func (tw tunnelWriter) Write(data []byte) (int, error) {
 		return 0, err
 	}
 	return n, nil
+}
+
+// setLegacyRportfwdAddress isolates deprecated fields to compatibility traffic
+// from a teamserver that did not issue an authorization capability.
+func setLegacyRportfwdAddress(info *sliverpb.RPortfwd, host string, port uint32) {
+	info.Host = host //nolint:staticcheck // Required for exact legacy wire compatibility.
+	info.Port = port //nolint:staticcheck // Required for exact legacy wire compatibility.
 }

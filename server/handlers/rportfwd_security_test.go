@@ -61,7 +61,7 @@ func TestReverseTunnelAuthorizationRejectsInvalidCapabilities(t *testing.T) {
 	}{
 		{
 			name: "unknown authorization",
-			prepareID: func(t *testing.T, registry *rtunnels.Registry, ownerSession string) rtunnels.AuthorizationID {
+			prepareID: func(_ *testing.T, _ *rtunnels.Registry, _ string) rtunnels.AuthorizationID {
 				return rtunnels.AuthorizationID("unknown-authorization")
 			},
 		},

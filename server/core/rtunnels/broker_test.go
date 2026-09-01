@@ -379,7 +379,7 @@ func TestBrokerRejectsConnectionReturnedAfterDialContextCancellation(t *testing.
 	<-started
 	cancel()
 	peer := <-peerReady
-	defer peer.Close()
+	defer func() { _ = peer.Close() }()
 	select {
 	case openErr := <-result:
 		must.ErrorIs(t, openErr, context.Canceled)

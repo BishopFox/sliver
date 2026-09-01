@@ -8,8 +8,10 @@ import (
 	"time"
 )
 
+// DefaultDialTimeout bounds an authorized reverse-port-forward connection attempt.
 const DefaultDialTimeout = 10 * time.Second
 
+// ErrNilDialConnection rejects dialers that return success without a connection.
 var ErrNilDialConnection = errors.New("reverse port forward dialer returned a nil connection")
 
 // ContextDialer is the only dependency allowed to create outbound reverse port
@@ -22,6 +24,7 @@ type ContextDialer interface {
 // DialContextFunc adapts a function into a ContextDialer for focused tests.
 type DialContextFunc func(ctx context.Context, network string, address string) (net.Conn, error)
 
+// DialContext invokes the adapted dial function.
 func (dial DialContextFunc) DialContext(ctx context.Context, network string, address string) (net.Conn, error) {
 	return dial(ctx, network, address)
 }

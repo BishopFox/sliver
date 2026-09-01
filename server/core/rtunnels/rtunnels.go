@@ -12,10 +12,11 @@ import (
 )
 
 var (
-	rtunnels map[uint64]*RTunnel = make(map[uint64]*RTunnel)
+	rtunnels = make(map[uint64]*RTunnel)
 	mutex    sync.RWMutex
 )
 
+// ErrDuplicateTunnelID rejects reuse of an active reverse tunnel ID.
 var ErrDuplicateTunnelID = errors.New("reverse tunnel ID is already registered")
 
 const (
@@ -30,6 +31,7 @@ const (
 	closeMatchingTunnelsTimeout           = 20 * time.Second
 )
 
+// ErrReverseTunnelFrameTooLarge and the related errors report rejected relay operations.
 var (
 	ErrReverseTunnelFrameTooLarge = errors.New("reverse tunnel frame exceeds the size limit")
 	ErrReverseTunnelWindow        = errors.New("reverse tunnel sequence exceeds the pending window")
@@ -299,6 +301,7 @@ func (c *RTunnel) MarkPeerClose(sequence uint64) (bool, error) {
 	return expected >= sequence, nil
 }
 
+// PeerClosePending reports whether the peer supplied a terminal sequence.
 func (c *RTunnel) PeerClosePending() bool {
 	return c.peerCloseSet.Load()
 }
@@ -310,12 +313,14 @@ func (c *RTunnel) PeerTeardownPending() bool {
 	return c.peerTeardown.Load() || c.peerCloseSet.Load()
 }
 
+// PeerCloseReady reports whether all frames preceding the peer terminal arrived.
 func (c *RTunnel) PeerCloseReady() bool {
 	c.inboundMutex.Lock()
 	defer c.inboundMutex.Unlock()
 	return c.peerCloseSet.Load() && c.ReadSequence() >= c.peerCloseSequence
 }
 
+// StartPeerCloseDeadline runs expired if the terminal sequence remains incomplete.
 func (c *RTunnel) StartPeerCloseDeadline(timeout time.Duration, expired func()) {
 	if expired == nil {
 		return
@@ -337,6 +342,8 @@ func (c *RTunnel) StartPeerCloseDeadline(timeout time.Duration, expired func()) 
 // buffering, and drains contiguous frames through write. Pending data is owned
 // by this tunnel instance, so stale cleanup for a reused numeric ID cannot
 // delete another generation's cache.
+//
+//nolint:gocyclo // Admission, ordering, budget, and terminal checks must remain one locked transaction.
 func (c *RTunnel) ProcessInbound(sequence uint64, data []byte, write func([]byte) error) (int, error) {
 	if write == nil {
 		return 0, errors.New("reverse tunnel write function is nil")

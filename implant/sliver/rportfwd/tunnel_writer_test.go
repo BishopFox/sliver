@@ -43,6 +43,9 @@ func TestTunnelWriterIncludesAuthorizationIDOnCreateReverse(t *testing.T) {
 	if got := first.Rportfwd.AuthorizationID; got != authorizationID {
 		t.Fatalf("AuthorizationID = %q, want %q", got, authorizationID)
 	}
+	if first.Rportfwd.Host != "" || first.Rportfwd.Port != 0 { //nolint:staticcheck // Verify deprecated fields are absent from authorized traffic.
+		t.Fatalf("authorized create frame included legacy destination %q:%d", first.Rportfwd.Host, first.Rportfwd.Port) //nolint:staticcheck // Test diagnostics for deprecated compatibility fields.
+	}
 
 	if _, err := writer.Write([]byte("second")); err != nil {
 		t.Fatalf("second Write() error = %v", err)
@@ -50,6 +53,38 @@ func TestTunnelWriterIncludesAuthorizationIDOnCreateReverse(t *testing.T) {
 	second := decodeTunnelData(t, <-connection.Send)
 	if second.CreateReverse {
 		t.Fatal("subsequent tunnel frame unexpectedly requested reverse tunnel creation")
+	}
+}
+
+func TestTunnelWriterIncludesLegacyAddressWithoutAuthorization(t *testing.T) {
+	const tunnelID = uint64(43)
+	connection := &transports.Connection{Send: make(chan *sliverpb.Envelope, 1)}
+	tunnel := transports.NewTunnel(tunnelID, nil)
+	if !connection.AddTunnel(tunnel) {
+		t.Fatal("failed to publish test tunnel")
+	}
+	t.Cleanup(func() { connection.CloseTunnelRemote(tunnel) })
+	writer := tunnelWriter{
+		tun:      tunnel,
+		conn:     connection,
+		host:     "legacy.example",
+		port:     9443,
+		protocol: sliverpb.PortFwdProtoTCP,
+		tunnelID: tunnelID,
+	}
+
+	if _, err := writer.Write([]byte("legacy")); err != nil {
+		t.Fatalf("Write() error = %v", err)
+	}
+	first := decodeTunnelData(t, <-connection.Send)
+	if first.Rportfwd == nil {
+		t.Fatal("first tunnel frame has no reverse port forward metadata")
+	}
+	if got := first.Rportfwd.AuthorizationID; got != "" {
+		t.Fatalf("AuthorizationID = %q, want empty", got)
+	}
+	if first.Rportfwd.Host != "legacy.example" || first.Rportfwd.Port != 9443 { //nolint:staticcheck // Verify deprecated compatibility fields remain available.
+		t.Fatalf("legacy destination = %q:%d, want legacy.example:9443", first.Rportfwd.Host, first.Rportfwd.Port) //nolint:staticcheck // Test diagnostics for deprecated compatibility fields.
 	}
 }
 

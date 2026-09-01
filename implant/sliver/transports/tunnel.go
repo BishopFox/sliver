@@ -11,6 +11,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
+// ErrTunnelClosed and the related errors report rejected tunnel operations.
 var (
 	ErrTunnelClosed           = errors.New("tunnel is closed")
 	ErrTunnelTerminalSequence = errors.New("tunnel terminal sequence is invalid")
@@ -64,6 +65,7 @@ func NewReverseTunnel(id uint64, writer io.WriteCloser, readers ...io.ReadCloser
 	return tunnel
 }
 
+// IsReverse reports whether this tunnel carries reverse-port-forward traffic.
 func (c *Tunnel) IsReverse() bool {
 	return c != nil && c.reverse
 }
@@ -209,6 +211,7 @@ func (c *Tunnel) MarkPeerClose(sequence uint64) (bool, error) {
 	return expected >= sequence, nil
 }
 
+// PeerClosePending reports whether the peer supplied a terminal sequence.
 func (c *Tunnel) PeerClosePending() bool {
 	return c.peerCloseSet.Load()
 }
@@ -221,6 +224,7 @@ func (c *Tunnel) PeerTeardownPending() bool {
 	return c.peerTeardown.Load() || c.peerCloseSet.Load()
 }
 
+// PeerCloseReady reports whether all frames preceding the peer terminal arrived.
 func (c *Tunnel) PeerCloseReady() bool {
 	c.inboundMutex.Lock()
 	defer c.inboundMutex.Unlock()

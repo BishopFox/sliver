@@ -198,6 +198,8 @@ func (rpc *Server) queryImplantRportFwdInventory(ctx context.Context, request *s
 // parseRportFwdInventoryIDs consumes only the listener ID and Response.Err wire
 // fields. In particular, it never allocates a RportFwdListener for repeated
 // empty or metadata-heavy entries supplied by an untrusted implant.
+//
+//nolint:gocyclo // The bounded wire parser handles each accepted protobuf field explicitly.
 func parseRportFwdInventoryIDs(raw []byte) ([]uint32, bool, error) {
 	seen := make(map[uint32]struct{})
 	listenerIDs := make([]uint32, 0)

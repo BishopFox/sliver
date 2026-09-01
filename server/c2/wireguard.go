@@ -294,6 +294,7 @@ func handleWGSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConne
 	handleWGSliverConnectionYamuxWithDispatch(conn, implantConn, serverHandlers.GetHandlers(), nil, nil)
 }
 
+//nolint:gocyclo // The transport loop keeps stream admission, shutdown, dispatch, and response handling together.
 func handleWGSliverConnectionYamuxWithDispatch(conn net.Conn, implantConn *core.ImplantConnection, handlers map[uint32]serverHandlers.ServerHandler, beforeDispatch func(), afterStream func()) {
 	defer recoverAndLogPanic(wgLog.Errorf, "wireguard handleWGSliverConnectionYamux")
 

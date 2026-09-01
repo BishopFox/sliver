@@ -196,7 +196,7 @@ func tunnelDataHandler(implantConn *core.ImplantConnection, data []byte) *sliver
 			// queue a rejection behind a connection that can no longer deliver it.
 			return nil
 		}
-		response := createReverseTunnelHandlerWithContext(implantConn, tunnelData, rtunnels.DefaultBroker, openingContext)
+		response := createReverseTunnelHandlerWithContext(openingContext, implantConn, tunnelData, rtunnels.DefaultBroker)
 		if opening.closing.Load() {
 			if tunnel := rtunnels.GetRTunnel(tunnelData.TunnelID); tunnel != nil && tunnel.SessionID == session.ID {
 				_ = closeReverseTunnelRemote(tunnel)
@@ -384,10 +384,11 @@ func createReverseTunnelHandler(implantConn *core.ImplantConnection, req *sliver
 }
 
 func createReverseTunnelHandlerWithBroker(implantConn *core.ImplantConnection, req *sliverpb.TunnelData, broker *rtunnels.Broker) *sliverpb.Envelope {
-	return createReverseTunnelHandlerWithContext(implantConn, req, broker, context.Background())
+	return createReverseTunnelHandlerWithContext(context.Background(), implantConn, req, broker)
 }
 
-func createReverseTunnelHandlerWithContext(implantConn *core.ImplantConnection, req *sliverpb.TunnelData, broker *rtunnels.Broker, openingContext context.Context) *sliverpb.Envelope {
+//nolint:gocyclo // Opening is a single transaction spanning validation, dialing, publication, and relay cleanup.
+func createReverseTunnelHandlerWithContext(openingContext context.Context, implantConn *core.ImplantConnection, req *sliverpb.TunnelData, broker *rtunnels.Broker) *sliverpb.Envelope {
 	if implantConn == nil {
 		sessionHandlerLog.Warnf("Rejected malformed reverse tunnel creation request")
 		return nil
@@ -400,7 +401,7 @@ func createReverseTunnelHandlerWithContext(implantConn *core.ImplantConnection, 
 
 	legacyAddress := ""
 	if req.Rportfwd.AuthorizationID == "" {
-		legacyAddress = net.JoinHostPort(req.Rportfwd.Host, strconv.FormatUint(uint64(req.Rportfwd.Port), 10))
+		legacyAddress = net.JoinHostPort(req.Rportfwd.Host, strconv.FormatUint(uint64(req.Rportfwd.Port), 10)) //nolint:staticcheck // Required for exact legacy wire compatibility.
 	}
 	if openingContext == nil {
 		openingContext = context.Background()
@@ -529,7 +530,9 @@ func RTunnelDataHandler(tunnelData *sliverpb.TunnelData, tunnel *rtunnels.RTunne
 	pending, err := tunnel.ProcessInbound(tunnelData.Sequence, tunnelData.Data, func(payload []byte) error {
 		if deadlineWriter, ok := tunnel.Writer.(interface{ SetWriteDeadline(time.Time) error }); ok {
 			_ = deadlineWriter.SetWriteDeadline(time.Now().Add(rtunnels.DefaultDialTimeout))
-			defer deadlineWriter.SetWriteDeadline(time.Time{})
+			defer func() {
+				_ = deadlineWriter.SetWriteDeadline(time.Time{})
+			}()
 		}
 		written, writeErr := tunnel.Writer.Write(payload)
 		if writeErr != nil {

@@ -42,6 +42,7 @@ const (
 // connection closed before it is returned.
 type TunnelAddResult uint8
 
+// TunnelAdded and the related results describe a tunnel publication attempt.
 const (
 	TunnelAdded TunnelAddResult = iota
 	TunnelAddDuplicate
@@ -71,6 +72,7 @@ type Connection struct {
 	Stop  Stop
 }
 
+// TunnelEnvelopeBuilder builds a sequenced tunnel envelope for transport.
 type TunnelEnvelopeBuilder func(sequence uint64, ack uint64) (*pb.Envelope, error)
 
 func (c *Connection) initializeLifecycle() {

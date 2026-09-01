@@ -1,3 +1,4 @@
+// Package rtunnels owns reverse-port-forward authorization and relay state.
 package rtunnels
 
 import (
@@ -24,6 +25,7 @@ const (
 	maxConnectionsGlobal           = 2048
 )
 
+// ErrInvalidSessionID and the related errors report rejected authorizations.
 var (
 	ErrInvalidSessionID             = errors.New("invalid reverse port forward session ID")
 	ErrInvalidForwardAddress        = errors.New("invalid reverse port forward address")
@@ -52,6 +54,7 @@ func (id AuthorizationID) String() string {
 // forward listener authorization.
 type AuthorizationState uint8
 
+// AuthorizationStarting and the related states describe authorization lifecycle.
 const (
 	AuthorizationStarting AuthorizationState = iota + 1
 	AuthorizationActive

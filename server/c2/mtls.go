@@ -181,6 +181,7 @@ func handleSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConnect
 	handleSliverConnectionYamuxWithDispatch(conn, implantConn, serverHandlers.GetHandlers(), nil, nil)
 }
 
+//nolint:gocyclo // The transport loop keeps stream admission, shutdown, dispatch, and response handling together.
 func handleSliverConnectionYamuxWithDispatch(conn net.Conn, implantConn *core.ImplantConnection, handlers map[uint32]serverHandlers.ServerHandler, beforeDispatch func(), afterStream func()) {
 	defer recoverAndLogPanic(mtlsLog.Errorf, "mtls handleSliverConnectionYamux")
 

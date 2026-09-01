@@ -264,8 +264,11 @@ func TestTunnelCloseHandlerKeepsUnownedReverseTunnel(t *testing.T) {
 
 func TestReverseTunnelOpeningAdmissionBoundsSessionAndGlobalAttempts(t *testing.T) {
 	admission := newReverseTunnelAdmission(2, 3)
-	if !admission.acquire("first") || !admission.acquire("first") {
-		t.Fatal("expected two per-session opening slots")
+	if !admission.acquire("first") {
+		t.Fatal("expected first per-session opening slot")
+	}
+	if !admission.acquire("first") {
+		t.Fatal("expected second per-session opening slot")
 	}
 	if admission.acquire("first") {
 		t.Fatal("acquired opening slot beyond per-session limit")
@@ -410,6 +413,7 @@ func TestReverseTunnelOpeningAcceptsLegitimateConcurrentFramesDuringDial(t *test
 	assertHandlerAdmissionEmpty(t, waiters)
 }
 
+//nolint:gocyclo // The test synchronizes a full data window, terminal ordering, and duplicate close handling.
 func TestReverseTunnelOpeningTerminalPreservesFullDataWindow(t *testing.T) {
 	const concurrentFrames = maxReverseTunnelOpeningWaiters
 

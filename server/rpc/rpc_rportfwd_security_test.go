@@ -92,7 +92,7 @@ func TestStartRportFwdListenerIgnoresImplantDestination(t *testing.T) {
 func TestStartRportFwdListenerNegotiatesLegacyCompatibility(t *testing.T) {
 	const sessionID = "legacy-session"
 	registry := newTestRportFwdRegistry(t)
-	server := &Server{reversePortForwardRegistry: registry, genericHandler: func(request GenericRequest, response GenericResponse) error {
+	server := &Server{reversePortForwardRegistry: registry, genericHandler: func(_ GenericRequest, response GenericResponse) error {
 		startResponse := response.(*sliverpb.RportFwdListener)
 		startResponse.ID = 17
 		startResponse.AuthorizationID = ""
@@ -120,6 +120,7 @@ func TestStartRportFwdListenerNegotiatesLegacyCompatibility(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // The test verifies registry authority, orphan sanitization, and bounded inventory behavior together.
 func TestGetRportFwdListenersKeepsRegistryMetadataAndSanitizesUnknownIDs(t *testing.T) {
 	const (
 		sessionID  = "operator-session"
@@ -747,7 +748,7 @@ func TestStopRportFwdListenerRevokesBeforeImplantResponse(t *testing.T) {
 			}
 
 			called := false
-			server := &Server{reversePortForwardRegistry: registry, genericHandler: func(request GenericRequest, response GenericResponse) error {
+			server := &Server{reversePortForwardRegistry: registry, genericHandler: func(_ GenericRequest, response GenericResponse) error {
 				called = true
 				assertAuthorizationRemoved(t, registry, sessionID, authorizationID)
 				stopResponse := response.(*sliverpb.RportFwdListener)
@@ -779,6 +780,7 @@ func TestStopRportFwdListenerRevokesBeforeImplantResponse(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // The test keeps inventory, stop, sanitization, and post-stop reconciliation in one lifecycle.
 func TestLegacyOrphanInventoryStopLifecycle(t *testing.T) {
 	const (
 		sessionID = "reconnected-session"
@@ -813,7 +815,7 @@ func TestLegacyOrphanInventoryStopLifecycle(t *testing.T) {
 				}
 				delete(implantListeners, typedRequest.ID)
 				stopResponse := response.(*sliverpb.RportFwdListener)
-				*stopResponse = *listener
+				proto.Merge(stopResponse, listener)
 				stopResponse.Response = &commonpb.Response{}
 				return nil
 			default:

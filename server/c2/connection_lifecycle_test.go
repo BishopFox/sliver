@@ -244,6 +244,7 @@ func TestYamuxTransportStopsDispatchAfterImplantConnectionClose(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // This table-driven lifecycle test keeps both transports on the same synchronized scenario.
 func TestYamuxInFlightStreamDoesNotDispatchAfterImplantConnectionClose(t *testing.T) {
 	const messageType = uint32(0x7ffffffe)
 	frame, keyID, publicKey := newImplantSignedEnvelopeFrame(t, "lifecycle-dispatch-peer", &sliverpb.Envelope{

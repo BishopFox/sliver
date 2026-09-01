@@ -36,7 +36,7 @@ var (
 )
 
 // CreateTCPPivotListener - Start a TCP listener
-func CreateTCPPivotListener(address string, upstream EnvelopeSender, opts ...bool) (*PivotListener, error) {
+func CreateTCPPivotListener(address string, upstream EnvelopeSender, _ ...bool) (*PivotListener, error) {
 	// {{if .Config.Debug}}
 	log.Printf("Starting TCP pivot listener on %s", address)
 	// {{end}}

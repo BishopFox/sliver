@@ -72,10 +72,11 @@ const (
 	// I assume 10 seconds may be an overkill for a good connection, but it looks good enough for less stable one.
 	delayBeforeClose = 10 * time.Second
 
+	// MaxTunnelFrameBytes limits one generic tunnel data frame.
+	MaxTunnelFrameBytes = sliverpb.MaxTunnelFrameBytes
 	// The C2 yamux transports admit at most 128 concurrent streams. Matching
 	// that window permits legitimate handler reordering while bounding both the
 	// pending receive actor and the useful outbound resend history.
-	MaxTunnelFrameBytes    = sliverpb.MaxTunnelFrameBytes
 	maxTunnelPendingFrames = 128
 	maxTunnelPendingBytes  = maxTunnelPendingFrames * MaxTunnelFrameBytes
 	maxTunnelResendFrames  = maxTunnelPendingFrames
@@ -140,6 +141,8 @@ func NewTunnel(id uint64, sessionID string) *Tunnel {
 // retained handler can never poison a newer generation that happens to reuse
 // the same numeric ID. Resend controls bypass data sequencing but share the
 // same bounded admission and delivery actor.
+//
+//nolint:gocyclo // Admission, sequencing, resend controls, and bounded delivery form one state transition.
 func (t *Tunnel) ProcessDataFromImplant(tunnelData *sliverpb.TunnelData) error {
 	if t == nil || tunnelData == nil {
 		return ErrTunnelClosed
@@ -496,10 +499,10 @@ func (t *Tunnel) clearProtocolState() {
 	t.toImplantMutex.Unlock()
 
 	t.toImplantQueue.Lock()
-	t.toImplantQueue.Unlock()
+	t.toImplantQueue.Unlock() //nolint:staticcheck // Intentional barrier joins any in-flight outbound producer.
 
 	t.clientMutex.Lock()
-	t.clientMutex.Unlock()
+	t.clientMutex.Unlock() //nolint:staticcheck // Intentional barrier joins any in-flight client binding.
 }
 
 type tunnels struct {

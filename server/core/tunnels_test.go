@@ -247,6 +247,7 @@ func TestTunnelProcessDataFromImplantRejectsOversizedAndOutOfWindowFrames(t *tes
 	}
 }
 
+//nolint:gocyclo // The test validates every state transition across a full bounded receive window.
 func TestTunnelProcessDataFromImplantReordersFullReceiveWindow(t *testing.T) {
 	tunnel := NewTunnel(16, "session")
 	for sequence := maxTunnelPendingFrames - 1; sequence > 0; sequence-- {
@@ -392,6 +393,7 @@ func TestTunnelProcessDataFromImplantBoundsCombinedReceiveBytes(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // The test exercises cache eviction, replay, mutation isolation, and acknowledgement bounds together.
 func TestTunnelOutboundResendCacheBoundsAndAcknowledgements(t *testing.T) {
 	tunnel := NewTunnel(18, "session")
 	for sequence := uint64(0); sequence <= maxTunnelResendFrames; sequence++ {
@@ -447,6 +449,7 @@ func TestTunnelOutboundResendCacheBoundsAndAcknowledgements(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // The test keeps old and replacement generations in one lifecycle assertion.
 func TestTunnelProtocolStateIsGenerationOwnedAndCleared(t *testing.T) {
 	const tunnelID = uint64(19)
 	old := NewTunnel(tunnelID, "old-session")
