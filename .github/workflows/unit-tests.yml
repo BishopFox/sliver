@@ -6,6 +6,8 @@ on:
     paths:
       - "go.mod"
       - "go.sum"
+      - ".gitattributes"
+      - "client/command/opfor/testdata/corpus/**"
       - ".github/workflows/unit-tests.yml"
       - "Makefile"
       - "**/*.go"
