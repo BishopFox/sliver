@@ -157,19 +157,21 @@ func (s *socks) Write(b []byte) (n int, err error) {
 		Data:     b,
 		Sequence: atomic.LoadUint64(&s.Sequence),
 	})
-	if !s.conn.IsOpen {
+	if err != nil {
 		return 0, err
 	}
 	// {{if .Config.Debug}}
 	log.Printf("[socks] (implant to Server) to Client to User Data Sequence %d, Data Size %d Data %v\n", atomic.LoadUint64(&s.Sequence), len(b), b)
 	// {{end}}
-	s.conn.Send <- &sliverpb.Envelope{
+	if !s.conn.SendEnvelope(&sliverpb.Envelope{
 		Type: sliverpb.MsgSocksData,
 		Data: data,
+	}) {
+		return 0, transports.ErrTunnelClosed
 	}
 
 	atomic.AddUint64(&s.Sequence, 1)
-	return len(b), err
+	return len(b), nil
 }
 
 func (s *socks) Close() error {
@@ -186,14 +188,16 @@ func (s *socks) Close() error {
 		TunnelID:  s.stream.TunnelID,
 		CloseConn: true,
 	})
-	if !s.conn.IsOpen {
+	if err != nil {
 		return err
 	}
-	s.conn.Send <- &sliverpb.Envelope{
+	if !s.conn.SendEnvelope(&sliverpb.Envelope{
 		Type: sliverpb.MsgSocksData,
 		Data: data,
+	}) {
+		return transports.ErrTunnelClosed
 	}
-	return err
+	return nil
 }
 
 func (c *socks) LocalAddr() net.Addr {

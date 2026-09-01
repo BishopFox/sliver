@@ -11,7 +11,7 @@ For each target row, the driver:
 3. Starts localhost mTLS, WireGuard, and HTTP listener jobs.
 4. Generates an exact-OS/architecture executable for each transport and mode. Beacons use a ten-second callback interval by default.
 5. Runs each implant in its own known filesystem tree and requires the matching session or beacon event before issuing commands.
-6. Exercises the catalog in [COVERAGE.md](COVERAGE.md), writes deterministic per-target JSON and Markdown reports, stops only processes and listener jobs created by the test, and removes the isolated working root.
+6. Under the default `comprehensive` scope, exercises the catalog in [COVERAGE.md](COVERAGE.md) and, for every session, also runs a real reverse-port-forward lifecycle against a loopback echo service: authoritative listener inventory, bidirectional relay, repeated and concurrent connections, and revocation after stop. The comprehensive driver writes deterministic per-target JSON and Markdown reports. Under the focused `rportfwd` scope, each selected session runs only that lifecycle, and the workflow preserves its driver log in the target artifact. Both scopes stop only processes and listener jobs created by the test and remove the isolated working root.
 
 Reports are kept outside the disposable working root. Pass `-results` for a stable location; when it is omitted, the driver creates and logs a preserved temporary results directory.
 
@@ -37,6 +37,8 @@ Every row runs this six-cell transport/mode cross product:
 | `mtls` | required | required |
 | `wg` | required | required |
 | `http` | required | required |
+
+Reverse port forwarding is session-only, so its production-path lifecycle runs once for each of the three session transport cells on every target row. The focused `rportfwd` suite scope runs exactly those cells and skips the finite command catalog, beacon generation, report aggregation, Reflektor, and shellcode matrices. It is intended for branch-readiness checks of this feature. The default `comprehensive` scope, including reusable release invocations, retains every existing suite and adds the same reverse-port-forward lifecycle.
 
 The eight native OPFOR CNA scenarios use the same six-cell cross product on every supported Windows target. They are not smoke tests tied to one listener or implant mode: `mtls`, `wg`, and `http` must each pass as both a session and a beacon. Windows amd64 runs all eight scenarios, Windows 386 runs six, and Windows arm64 records catalog-generated `SKIP` cells because the OPFOR BOF provider has no arm64 support. [COVERAGE.md](COVERAGE.md) records the scenario-level x86 exceptions.
 
@@ -131,6 +133,8 @@ CGO_ENABLED=0 go test -c -buildvcs=false -mod=vendor -trimpath \
   -implant-modes session,beacon
 ```
 
+For a local feature-only run, add `-suite-scope rportfwd`. This scope automatically selects sessions even if the default `session,beacon` mode list is retained. In GitHub Actions, choose `rportfwd` from the **Test scope to run across the complete platform matrix** input on the manually dispatched **Comprehensive e2e Tests** workflow.
+
 Run the shellcode group with the same server and test binary by changing the selector to `-test.run=^TestShellcodeE2E$` and writing results to a separate directory such as `./shellcode-results`. The default four SGN samples match the workflow; `-shellcode-sgn-samples` can request a higher stress depth. Shellcode aggregation expects the complete five-target workflow matrix; a single local target is useful as a runtime smoke test but intentionally reports the other required targets as `NOT RUN`.
 
 On Windows, give both output files an `.exe` suffix. The `linux/386` row is built and run with [Dockerfile.linux-386](Dockerfile.linux-386) because its 386 driver must execute under a 386 userspace. The selector flags can narrow transports or modes for diagnosis, but a narrowed result set is intentionally incomplete when aggregated against the comprehensive catalog.
@@ -167,7 +171,7 @@ FirefoxDump and Beune Cat are authenticated signed release packages: the driver 
 
 ## GitHub Actions and reports
 
-The manual workflow is named **Comprehensive e2e Tests**. Its `workflow_dispatch` entry is followed by an authorization job that checks the triggering actor's repository permission and permits only `admin`. GitHub does not provide an admin-only visibility setting for `workflow_dispatch`, so non-admin collaborators may still see or attempt the dispatch; the authorization job prevents the test jobs from starting. Repository branch/ruleset protection must also prevent non-admin changes to the workflow for this gate to be an enforceable trust boundary. The comprehensive target jobs and report aggregation are separate from the `reflektor` and `shellcode` jobs, which call the reusable `Reflektor Integration Test Matrix` and `Shellcode E2E Test Matrix` workflows after authorization.
+The manual workflow is named **Comprehensive e2e Tests**. Its `workflow_dispatch` entry accepts `comprehensive` (default) or `rportfwd` scope and is followed by an authorization job that checks the triggering actor's repository permission and permits only `admin`. GitHub does not provide an admin-only visibility setting for `workflow_dispatch`, so non-admin collaborators may still see or attempt the dispatch; the authorization job prevents the test jobs from starting. Repository branch/ruleset protection must also prevent non-admin changes to the workflow for this gate to be an enforceable trust boundary. The comprehensive target jobs and report aggregation are separate from the `reflektor` and `shellcode` jobs, which call the reusable `Reflektor Integration Test Matrix` and `Shellcode E2E Test Matrix` workflows after authorization. Reusable callers, including the release workflow, default to `comprehensive`; the focused `rportfwd` dispatch skips the unrelated aggregate and reusable matrices.
 
 The aggregate Markdown and JSON also contain an exhaustive disposition registry for every generated `SliverRPC` method. Finite implant commands are marked `COVERED` or `DEFERRED` with a rationale, while server-only, lifecycle, and tunnel/interactive methods are tracked separately. Descriptor-backed tests fail when a new RPC is added without a disposition or when a method marked covered has no scenario in the executable matrix.
 

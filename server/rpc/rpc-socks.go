@@ -327,7 +327,6 @@ func (s *Server) SocksProxy(stream rpcpb.SliverRPC_SocksProxyServer) error {
 					}
 				}()
 
-				pendingData := make(map[uint64]*sliverpb.SocksData)
 				ticker := time.NewTicker(ToImplantTickerInterval)
 				defer ticker.Stop()
 
@@ -343,10 +342,12 @@ func (s *Server) SocksProxy(stream rpcpb.SliverRPC_SocksProxyServer) error {
 						}
 						sequence := atomic.LoadUint64(&tunnel.ToImplantSequence)
 
+						sendFailed := false
 						func() {
 							defer func() {
 								if r := recover(); r != nil {
 									rpcLog.Errorf("Recovered from processing panic: %v", r)
+									sendFailed = true
 								}
 							}()
 
@@ -357,36 +358,42 @@ func (s *Server) SocksProxy(stream rpcpb.SliverRPC_SocksProxyServer) error {
 								}
 								if fromClient.Request == nil {
 									rpcLog.Error("Missing request metadata for SOCKS tunnel")
-									break
+									sendFailed = true
+									return
 								}
 
 								session := core.Sessions.Get(fromClient.Request.SessionID)
 								if session == nil {
 									rpcLog.Error("Session not found")
-									break
+									sendFailed = true
+									return
 								}
 
 								data, err := proto.Marshal(recv)
 								if err != nil {
 									rpcLog.Errorf("Failed to marshal data: %v", err)
-									continue
+									sendFailed = true
+									return
 								}
 
-								select {
-								case session.Connection.Send <- &sliverpb.Envelope{
+								err = session.Connection.SendEnvelope(&sliverpb.Envelope{
 									Type: sliverpb.MsgSocksData,
 									Data: data,
-								}:
-									toImplantCacheSocks.DeleteSeq(fromClient.TunnelID, sequence)
-									atomic.AddUint64(&tunnel.ToImplantSequence, 1)
-									sequence++
-								case <-time.After(writeTimeout):
-									rpcLog.Error("Write timeout to implant")
-									pendingData[sequence] = recv
-									break
+								}, writeTimeout)
+								if err != nil {
+									rpcLog.Errorf("Write to implant failed: %v", err)
+									sendFailed = true
+									return
 								}
+								toImplantCacheSocks.DeleteSeq(fromClient.TunnelID, sequence)
+								atomic.AddUint64(&tunnel.ToImplantSequence, 1)
+								sequence++
 							}
 						}()
+						if sendFailed {
+							cancel()
+							return
+						}
 					}
 				}
 			}()
@@ -432,10 +439,10 @@ func (s *Server) CloseSocks(ctx context.Context, req *sliverpb.Socks) (*commonpb
 				TunnelID:  req.TunnelID,
 				CloseConn: true,
 			})
-			session.Connection.Send <- &sliverpb.Envelope{
+			_ = session.Connection.SendEnvelope(&sliverpb.Envelope{
 				Type: sliverpb.MsgSocksData,
 				Data: data,
-			}
+			}, writeTimeout)
 		}
 		time.Sleep(100 * time.Millisecond) // Delay to allow close message to be sent
 		tunnel.Client = nil                // Cleanup the tunnel

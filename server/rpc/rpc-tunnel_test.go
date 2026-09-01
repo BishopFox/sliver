@@ -1,7 +1,9 @@
 package rpc
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"sync/atomic"
 	"testing"
@@ -143,6 +145,122 @@ func TestTunnelDataSendFailureClosesTunnel(t *testing.T) {
 	}
 }
 
+func TestForEachTunnelPayloadFrame(t *testing.T) {
+	testCases := []int{
+		0,
+		core.MaxTunnelFrameBytes,
+		core.MaxTunnelFrameBytes + 1,
+		96 * 1024,
+		2*core.MaxTunnelFrameBytes + 1,
+	}
+	for _, size := range testCases {
+		t.Run(fmt.Sprintf("bytes-%d", size), func(t *testing.T) {
+			payload := make([]byte, size)
+			for index := range payload {
+				payload[index] = byte(index)
+			}
+
+			frames := [][]byte{}
+			if err := forEachTunnelPayloadFrame(payload, func(frame []byte) error {
+				frames = append(frames, append([]byte(nil), frame...))
+				return nil
+			}); err != nil {
+				t.Fatalf("segment payload: %v", err)
+			}
+			wantFrames := 1
+			if size > 0 {
+				wantFrames = 1 + (size-1)/core.MaxTunnelFrameBytes
+			}
+			if len(frames) != wantFrames {
+				t.Fatalf("frame count = %d, want %d", len(frames), wantFrames)
+			}
+			for index, frame := range frames {
+				if len(frame) > core.MaxTunnelFrameBytes {
+					t.Fatalf("frame %d length = %d, limit %d", index, len(frame), core.MaxTunnelFrameBytes)
+				}
+			}
+			if got := bytes.Join(frames, nil); !bytes.Equal(got, payload) {
+				t.Fatal("segmented payload did not reassemble byte-for-byte")
+			}
+		})
+	}
+
+	stopErr := errors.New("stop iteration")
+	frames := 0
+	err := forEachTunnelPayloadFrame(make([]byte, 2*core.MaxTunnelFrameBytes+1), func([]byte) error {
+		frames++
+		return stopErr
+	})
+	if !errors.Is(err, stopErr) || frames != 1 {
+		t.Fatalf("callback stop = (%v, %d frames), want (%v, 1 frame)", err, frames, stopErr)
+	}
+}
+
+func TestTunnelDataSegmentsOversizedClientPayload(t *testing.T) {
+	session, tunnels := newTunnelStreamTestSession(t, 1)
+	session.Connection.Send = make(chan *sliverpb.Envelope, 4)
+	tunnel := tunnels[0]
+	stream := &testTunnelStream{
+		recv: make(chan tunnelStreamRecv, 3),
+		sent: make(chan *sliverpb.TunnelData, 2),
+	}
+
+	stream.recv <- tunnelStreamRecv{data: &sliverpb.TunnelData{
+		TunnelID:  tunnel.ID,
+		SessionID: session.ID,
+	}}
+	handlerDone := make(chan error, 1)
+	go func() { handlerDone <- (&Server{}).TunnelData(stream) }()
+	waitForTunnelStreamSend(t, stream.sent)
+
+	payload := make([]byte, 96*1024)
+	for index := range payload {
+		payload[index] = byte(index)
+	}
+	stream.recv <- tunnelStreamRecv{data: &sliverpb.TunnelData{
+		TunnelID:  tunnel.ID,
+		SessionID: session.ID,
+		Data:      payload,
+	}}
+
+	reassembled := make([]byte, 0, len(payload))
+	for wantSequence := uint64(0); wantSequence < 2; wantSequence++ {
+		var envelope *sliverpb.Envelope
+		select {
+		case envelope = <-session.Connection.Send:
+		case <-time.After(time.Second):
+			t.Fatalf("timed out waiting for implant frame %d", wantSequence)
+		}
+		if envelope.Type != sliverpb.MsgTunnelData {
+			t.Fatalf("envelope type = %d, want MsgTunnelData", envelope.Type)
+		}
+		frame := &sliverpb.TunnelData{}
+		if err := proto.Unmarshal(envelope.Data, frame); err != nil {
+			t.Fatalf("unmarshal frame %d: %v", wantSequence, err)
+		}
+		if frame.Sequence != wantSequence {
+			t.Fatalf("frame sequence = %d, want %d", frame.Sequence, wantSequence)
+		}
+		if len(frame.Data) > core.MaxTunnelFrameBytes {
+			t.Fatalf("frame %d length = %d, limit %d", wantSequence, len(frame.Data), core.MaxTunnelFrameBytes)
+		}
+		reassembled = append(reassembled, frame.Data...)
+	}
+	if !bytes.Equal(reassembled, payload) {
+		t.Fatal("implant frames did not reassemble to the client payload")
+	}
+
+	stream.recv <- tunnelStreamRecv{err: io.EOF}
+	select {
+	case err := <-handlerDone:
+		if err != nil {
+			t.Fatalf("TunnelData EOF result = %v, want nil", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("TunnelData did not return after EOF")
+	}
+}
+
 func newTunnelStreamTestSession(t *testing.T, count int) (*core.Session, []*core.Tunnel) {
 	t.Helper()
 	session := core.NewSession(core.NewImplantConnection("mtls", "test"))
@@ -155,7 +273,7 @@ func newTunnelStreamTestSession(t *testing.T, count int) (*core.Session, []*core
 			t.Fatalf("create tunnel: %v", err)
 		}
 		tunnels = append(tunnels, tunnel)
-		t.Cleanup(func() { _ = core.Tunnels.Close(tunnel.ID) })
+		t.Cleanup(func() { core.Tunnels.CloseIf(tunnel) })
 	}
 	return session, tunnels
 }

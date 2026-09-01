@@ -5,6 +5,7 @@ package opfor
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -122,6 +123,44 @@ func expectedStringArguments(value string) []byte {
 	arguments[3] = byte(len(payload) >> 24)
 	copy(arguments[4:], payload)
 	return arguments
+}
+
+func TestSliverArmoryCNACorpusPinnedHashes(t *testing.T) {
+	fixtures := []struct {
+		path   string
+		sha256 string
+	}{
+		{
+			path:   "bof_collection/cat.cna",
+			sha256: "94c7bcaae209a6355dcc8c126019f6e19a681173680955166b8c30cf97fc66f7",
+		},
+		{
+			path:   "firefoxdump/firefoxdump.cna",
+			sha256: "c8c9ef28675d16dd1c8786f055c08ce2096eb0fedb16fad68b78f22c81b1bbde",
+		},
+		{
+			path:   "operatorskit/finddotnet.cna",
+			sha256: "897dbee453ed504be7e9ace1229e7070f131a9351fb09a723629dd8e0337aa03",
+		},
+		{
+			path:   "operatorskit/findsysmon.cna",
+			sha256: "1579dcca9e1c0ab7b20a646ff2db7705e05468c067a8ed6b3c35b553f10458d7",
+		},
+	}
+
+	for _, fixture := range fixtures {
+		fixture := fixture
+		t.Run(fixture.path, func(t *testing.T) {
+			content, err := os.ReadFile(filepath.Join("testdata", "corpus", filepath.FromSlash(fixture.path)))
+			if err != nil {
+				t.Fatalf("read pinned corpus fixture: %v", err)
+			}
+			digest := fmt.Sprintf("%x", sha256.Sum256(content))
+			if digest != fixture.sha256 {
+				t.Fatalf("SHA-256 = %s, want %s", digest, fixture.sha256)
+			}
+		})
+	}
 }
 
 type corpusDispatchTest struct {

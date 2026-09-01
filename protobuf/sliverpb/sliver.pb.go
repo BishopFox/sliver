@@ -26,8 +26,9 @@ const (
 type ImplantCapability int32
 
 const (
-	ImplantCapability_IMPLANT_CAPABILITY_NONE   ImplantCapability = 0
-	ImplantCapability_IMPLANT_CAPABILITY_BOF_V1 ImplantCapability = 1
+	ImplantCapability_IMPLANT_CAPABILITY_NONE               ImplantCapability = 0
+	ImplantCapability_IMPLANT_CAPABILITY_BOF_V1             ImplantCapability = 1
+	ImplantCapability_IMPLANT_CAPABILITY_TUNNEL_TERMINAL_V1 ImplantCapability = 2
 )
 
 // Enum value maps for ImplantCapability.
@@ -35,10 +36,12 @@ var (
 	ImplantCapability_name = map[int32]string{
 		0: "IMPLANT_CAPABILITY_NONE",
 		1: "IMPLANT_CAPABILITY_BOF_V1",
+		2: "IMPLANT_CAPABILITY_TUNNEL_TERMINAL_V1",
 	}
 	ImplantCapability_value = map[string]int32{
-		"IMPLANT_CAPABILITY_NONE":   0,
-		"IMPLANT_CAPABILITY_BOF_V1": 1,
+		"IMPLANT_CAPABILITY_NONE":               0,
+		"IMPLANT_CAPABILITY_BOF_V1":             1,
+		"IMPLANT_CAPABILITY_TUNNEL_TERMINAL_V1": 2,
 	}
 )
 
@@ -10264,15 +10267,16 @@ func (x *RportFwdStopListenerReq) GetRequest() *commonpb.Request {
 }
 
 type RportFwdStartListenerReq struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	BindAddress    string                 `protobuf:"bytes,1,opt,name=BindAddress,proto3" json:"BindAddress,omitempty"`
-	BindPort       uint32                 `protobuf:"varint,2,opt,name=BindPort,proto3" json:"BindPort,omitempty"`
-	ForwardPort    uint32                 `protobuf:"varint,3,opt,name=ForwardPort,proto3" json:"ForwardPort,omitempty"`
-	ForwardAddress string                 `protobuf:"bytes,4,opt,name=ForwardAddress,proto3" json:"ForwardAddress,omitempty"`
-	KeepAlive      int32                  `protobuf:"varint,5,opt,name=KeepAlive,proto3" json:"KeepAlive,omitempty"`
-	Request        *commonpb.Request      `protobuf:"bytes,9,opt,name=Request,proto3" json:"Request,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	BindAddress     string                 `protobuf:"bytes,1,opt,name=BindAddress,proto3" json:"BindAddress,omitempty"`
+	BindPort        uint32                 `protobuf:"varint,2,opt,name=BindPort,proto3" json:"BindPort,omitempty"`
+	ForwardPort     uint32                 `protobuf:"varint,3,opt,name=ForwardPort,proto3" json:"ForwardPort,omitempty"`
+	ForwardAddress  string                 `protobuf:"bytes,4,opt,name=ForwardAddress,proto3" json:"ForwardAddress,omitempty"`
+	KeepAlive       int32                  `protobuf:"varint,5,opt,name=KeepAlive,proto3" json:"KeepAlive,omitempty"`
+	AuthorizationID string                 `protobuf:"bytes,6,opt,name=AuthorizationID,proto3" json:"AuthorizationID,omitempty"`
+	Request         *commonpb.Request      `protobuf:"bytes,9,opt,name=Request,proto3" json:"Request,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *RportFwdStartListenerReq) Reset() {
@@ -10340,6 +10344,13 @@ func (x *RportFwdStartListenerReq) GetKeepAlive() int32 {
 	return 0
 }
 
+func (x *RportFwdStartListenerReq) GetAuthorizationID() string {
+	if x != nil {
+		return x.AuthorizationID
+	}
+	return ""
+}
+
 func (x *RportFwdStartListenerReq) GetRequest() *commonpb.Request {
 	if x != nil {
 		return x.Request
@@ -10348,15 +10359,16 @@ func (x *RportFwdStartListenerReq) GetRequest() *commonpb.Request {
 }
 
 type RportFwdListener struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	ID             uint32                 `protobuf:"varint,1,opt,name=ID,proto3" json:"ID,omitempty"`
-	BindAddress    string                 `protobuf:"bytes,2,opt,name=BindAddress,proto3" json:"BindAddress,omitempty"`
-	BindPort       uint32                 `protobuf:"varint,3,opt,name=BindPort,proto3" json:"BindPort,omitempty"`
-	ForwardAddress string                 `protobuf:"bytes,4,opt,name=ForwardAddress,proto3" json:"ForwardAddress,omitempty"`
-	ForwardPort    uint32                 `protobuf:"varint,5,opt,name=ForwardPort,proto3" json:"ForwardPort,omitempty"`
-	Response       *commonpb.Response     `protobuf:"bytes,9,opt,name=Response,proto3" json:"Response,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	ID              uint32                 `protobuf:"varint,1,opt,name=ID,proto3" json:"ID,omitempty"`
+	BindAddress     string                 `protobuf:"bytes,2,opt,name=BindAddress,proto3" json:"BindAddress,omitempty"`
+	BindPort        uint32                 `protobuf:"varint,3,opt,name=BindPort,proto3" json:"BindPort,omitempty"`
+	ForwardAddress  string                 `protobuf:"bytes,4,opt,name=ForwardAddress,proto3" json:"ForwardAddress,omitempty"`
+	ForwardPort     uint32                 `protobuf:"varint,5,opt,name=ForwardPort,proto3" json:"ForwardPort,omitempty"`
+	AuthorizationID string                 `protobuf:"bytes,6,opt,name=AuthorizationID,proto3" json:"AuthorizationID,omitempty"`
+	Response        *commonpb.Response     `protobuf:"bytes,9,opt,name=Response,proto3" json:"Response,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *RportFwdListener) Reset() {
@@ -10422,6 +10434,13 @@ func (x *RportFwdListener) GetForwardPort() uint32 {
 		return x.ForwardPort
 	}
 	return 0
+}
+
+func (x *RportFwdListener) GetAuthorizationID() string {
+	if x != nil {
+		return x.AuthorizationID
+	}
+	return ""
 }
 
 func (x *RportFwdListener) GetResponse() *commonpb.Response {
@@ -10528,14 +10547,20 @@ func (x *RportFwdListenersReq) GetRequest() *commonpb.Request {
 }
 
 type RPortfwd struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Port          uint32                 `protobuf:"varint,1,opt,name=Port,proto3" json:"Port,omitempty"`
-	Protocol      int32                  `protobuf:"varint,2,opt,name=Protocol,proto3" json:"Protocol,omitempty"`
-	Host          string                 `protobuf:"bytes,3,opt,name=Host,proto3" json:"Host,omitempty"`
-	TunnelID      uint64                 `protobuf:"varint,8,opt,name=TunnelID,proto3" json:"TunnelID,omitempty"` // Bind to this tunnel
-	Response      *commonpb.Response     `protobuf:"bytes,9,opt,name=Response,proto3" json:"Response,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Legacy wire metadata only. The teamserver must resolve AuthorizationID to
+	// a server-owned destination and must never dial Host or Port directly.
+	//
+	// Deprecated: Marked as deprecated in sliverpb/sliver.proto.
+	Port     uint32 `protobuf:"varint,1,opt,name=Port,proto3" json:"Port,omitempty"`
+	Protocol int32  `protobuf:"varint,2,opt,name=Protocol,proto3" json:"Protocol,omitempty"`
+	// Deprecated: Marked as deprecated in sliverpb/sliver.proto.
+	Host            string             `protobuf:"bytes,3,opt,name=Host,proto3" json:"Host,omitempty"`
+	AuthorizationID string             `protobuf:"bytes,4,opt,name=AuthorizationID,proto3" json:"AuthorizationID,omitempty"`
+	TunnelID        uint64             `protobuf:"varint,8,opt,name=TunnelID,proto3" json:"TunnelID,omitempty"` // Bind to this tunnel
+	Response        *commonpb.Response `protobuf:"bytes,9,opt,name=Response,proto3" json:"Response,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *RPortfwd) Reset() {
@@ -10568,6 +10593,7 @@ func (*RPortfwd) Descriptor() ([]byte, []int) {
 	return file_sliverpb_sliver_proto_rawDescGZIP(), []int{159}
 }
 
+// Deprecated: Marked as deprecated in sliverpb/sliver.proto.
 func (x *RPortfwd) GetPort() uint32 {
 	if x != nil {
 		return x.Port
@@ -10582,9 +10608,17 @@ func (x *RPortfwd) GetProtocol() int32 {
 	return 0
 }
 
+// Deprecated: Marked as deprecated in sliverpb/sliver.proto.
 func (x *RPortfwd) GetHost() string {
 	if x != nil {
 		return x.Host
+	}
+	return ""
+}
+
+func (x *RPortfwd) GetAuthorizationID() string {
+	if x != nil {
+		return x.AuthorizationID
 	}
 	return ""
 }
@@ -12960,30 +12994,33 @@ const file_sliverpb_sliver_proto_rawDesc = "" +
 	"\bResponse\x18\t \x01(\v2\x12.commonpb.ResponseR\bResponse\"V\n" +
 	"\x17RportFwdStopListenerReq\x12\x0e\n" +
 	"\x02ID\x18\x01 \x01(\rR\x02ID\x12+\n" +
-	"\aRequest\x18\t \x01(\v2\x11.commonpb.RequestR\aRequest\"\xed\x01\n" +
+	"\aRequest\x18\t \x01(\v2\x11.commonpb.RequestR\aRequest\"\x97\x02\n" +
 	"\x18RportFwdStartListenerReq\x12 \n" +
 	"\vBindAddress\x18\x01 \x01(\tR\vBindAddress\x12\x1a\n" +
 	"\bBindPort\x18\x02 \x01(\rR\bBindPort\x12 \n" +
 	"\vForwardPort\x18\x03 \x01(\rR\vForwardPort\x12&\n" +
 	"\x0eForwardAddress\x18\x04 \x01(\tR\x0eForwardAddress\x12\x1c\n" +
-	"\tKeepAlive\x18\x05 \x01(\x05R\tKeepAlive\x12+\n" +
-	"\aRequest\x18\t \x01(\v2\x11.commonpb.RequestR\aRequest\"\xda\x01\n" +
+	"\tKeepAlive\x18\x05 \x01(\x05R\tKeepAlive\x12(\n" +
+	"\x0fAuthorizationID\x18\x06 \x01(\tR\x0fAuthorizationID\x12+\n" +
+	"\aRequest\x18\t \x01(\v2\x11.commonpb.RequestR\aRequest\"\x84\x02\n" +
 	"\x10RportFwdListener\x12\x0e\n" +
 	"\x02ID\x18\x01 \x01(\rR\x02ID\x12 \n" +
 	"\vBindAddress\x18\x02 \x01(\tR\vBindAddress\x12\x1a\n" +
 	"\bBindPort\x18\x03 \x01(\rR\bBindPort\x12&\n" +
 	"\x0eForwardAddress\x18\x04 \x01(\tR\x0eForwardAddress\x12 \n" +
-	"\vForwardPort\x18\x05 \x01(\rR\vForwardPort\x12.\n" +
+	"\vForwardPort\x18\x05 \x01(\rR\vForwardPort\x12(\n" +
+	"\x0fAuthorizationID\x18\x06 \x01(\tR\x0fAuthorizationID\x12.\n" +
 	"\bResponse\x18\t \x01(\v2\x12.commonpb.ResponseR\bResponse\"}\n" +
 	"\x11RportFwdListeners\x128\n" +
 	"\tListeners\x18\x01 \x03(\v2\x1a.sliverpb.RportFwdListenerR\tListeners\x12.\n" +
 	"\bResponse\x18\t \x01(\v2\x12.commonpb.ResponseR\bResponse\"C\n" +
 	"\x14RportFwdListenersReq\x12+\n" +
-	"\aRequest\x18\t \x01(\v2\x11.commonpb.RequestR\aRequest\"\x9e\x01\n" +
-	"\bRPortfwd\x12\x12\n" +
-	"\x04Port\x18\x01 \x01(\rR\x04Port\x12\x1a\n" +
-	"\bProtocol\x18\x02 \x01(\x05R\bProtocol\x12\x12\n" +
-	"\x04Host\x18\x03 \x01(\tR\x04Host\x12\x1e\n" +
+	"\aRequest\x18\t \x01(\v2\x11.commonpb.RequestR\aRequest\"\xd0\x01\n" +
+	"\bRPortfwd\x12\x16\n" +
+	"\x04Port\x18\x01 \x01(\rB\x02\x18\x01R\x04Port\x12\x1a\n" +
+	"\bProtocol\x18\x02 \x01(\x05R\bProtocol\x12\x16\n" +
+	"\x04Host\x18\x03 \x01(\tB\x02\x18\x01R\x04Host\x12(\n" +
+	"\x0fAuthorizationID\x18\x04 \x01(\tR\x0fAuthorizationID\x12\x1e\n" +
 	"\bTunnelID\x18\b \x01(\x04B\x020\x01R\bTunnelID\x12.\n" +
 	"\bResponse\x18\t \x01(\v2\x12.commonpb.ResponseR\bResponse\"\x9e\x01\n" +
 	"\vRPortfwdReq\x12\x12\n" +
@@ -13089,10 +13126,11 @@ const file_sliverpb_sliver_proto_rawDesc = "" +
 	"\aRequest\x18\t \x01(\v2\x11.commonpb.RequestR\aRequest\"3\n" +
 	"\tBOFOutput\x12\x12\n" +
 	"\x04Type\x18\x01 \x01(\x05R\x04Type\x12\x12\n" +
-	"\x04Data\x18\x02 \x01(\fR\x04Data*O\n" +
+	"\x04Data\x18\x02 \x01(\fR\x04Data*z\n" +
 	"\x11ImplantCapability\x12\x1b\n" +
 	"\x17IMPLANT_CAPABILITY_NONE\x10\x00\x12\x1d\n" +
-	"\x19IMPLANT_CAPABILITY_BOF_V1\x10\x01*I\n" +
+	"\x19IMPLANT_CAPABILITY_BOF_V1\x10\x01\x12)\n" +
+	"%IMPLANT_CAPABILITY_TUNNEL_TERMINAL_V1\x10\x02*I\n" +
 	"\fRegistryType\x12\v\n" +
 	"\aUnknown\x10\x00\x12\n" +
 	"\n" +

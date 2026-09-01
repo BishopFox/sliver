@@ -19,7 +19,6 @@ package rportfwd
 */
 
 import (
-
 	// {{if .Config.Debug}}
 	"log"
 	// {{end}}
@@ -32,43 +31,56 @@ import (
 // tunnelWriter - Sends data back to the server based on data read()
 // I know the reader/writer stuff is a little hard to keep track of
 type tunnelWriter struct {
-	tun      *transports.Tunnel
-	conn     *transports.Connection
-	host     string
-	port     uint32
-	protocol int
-	tunnelID uint64
+	tun             *transports.Tunnel
+	conn            tunnelConnection
+	host            string
+	port            uint32
+	protocol        int
+	tunnelID        uint64
+	authorizationID string
 }
 
 func (tw tunnelWriter) Write(data []byte) (int, error) {
 	n := len(data)
-	sequence := tw.tun.NextWriteSequence()
-	ack := tw.tun.ReadSequence()
-	createReverse := sequence == 0
-	rportfwdInfo := &sliverpb.RPortfwd{}
-	if createReverse {
-		rportfwdInfo.Host = tw.host
-		rportfwdInfo.Port = tw.port
-		rportfwdInfo.Protocol = int32(tw.protocol)
-		rportfwdInfo.TunnelID = tw.tunnelID
-	}
-	data, err := proto.Marshal(&sliverpb.TunnelData{
-		Sequence:      sequence,
-		Ack:           ack,
-		TunnelID:      tw.tun.ID,
-		Data:          data,
-		CreateReverse: createReverse,
-		Rportfwd:      rportfwdInfo,
+	err := tw.conn.QueueTunnelData(tw.tun, func(sequence uint64, ack uint64) (*sliverpb.Envelope, error) {
+		createReverse := sequence == 0
+		rportfwdInfo := &sliverpb.RPortfwd{}
+		if createReverse {
+			if tw.authorizationID == "" {
+				setLegacyRportfwdAddress(rportfwdInfo, tw.host, tw.port)
+			}
+			rportfwdInfo.Protocol = int32(tw.protocol)
+			rportfwdInfo.TunnelID = tw.tunnelID
+			rportfwdInfo.AuthorizationID = tw.authorizationID
+		}
+		marshaled, marshalErr := proto.Marshal(&sliverpb.TunnelData{
+			Sequence:      sequence,
+			Ack:           ack,
+			TunnelID:      tw.tun.ID,
+			Data:          data,
+			CreateReverse: createReverse,
+			Rportfwd:      rportfwdInfo,
+		})
+		// {{if .Config.Debug}}
+		log.Printf("[tunnelWriter] Write %d bytes (write seq: %d) ack: %d", n, sequence, ack)
+		// {{end}}
+		if marshalErr != nil {
+			return nil, marshalErr
+		}
+		return &sliverpb.Envelope{
+			Type: sliverpb.MsgTunnelData,
+			Data: marshaled,
+		}, nil
 	})
-	// {{if .Config.Debug}}
-	log.Printf("[tunnelWriter] Write %d bytes (write seq: %d) ack: %d", n, sequence, ack)
-	// {{end}}
 	if err != nil {
 		return 0, err
 	}
-	tw.conn.Send <- &sliverpb.Envelope{
-		Type: sliverpb.MsgTunnelData,
-		Data: data,
-	}
 	return n, nil
+}
+
+// setLegacyRportfwdAddress isolates deprecated fields to compatibility traffic
+// from a teamserver that did not issue an authorization capability.
+func setLegacyRportfwdAddress(info *sliverpb.RPortfwd, host string, port uint32) {
+	info.Host = host //nolint:staticcheck // Required for exact legacy wire compatibility.
+	info.Port = port //nolint:staticcheck // Required for exact legacy wire compatibility.
 }

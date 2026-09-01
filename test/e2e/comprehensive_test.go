@@ -14,6 +14,14 @@ import (
 
 var testOptions options
 
+func defaultSuiteScope() string {
+	scope := strings.TrimSpace(os.Getenv("SLIVER_E2E_SCOPE"))
+	if scope == "" {
+		return suiteScopeComprehensive
+	}
+	return scope
+}
+
 func init() {
 	flag.StringVar(&testOptions.repoPath, "repo", ".", "path to the Sliver repository")
 	flag.StringVar(&testOptions.serverPath, "server", "", "path to the unmodified Sliver server executable")
@@ -23,6 +31,7 @@ func init() {
 	flag.StringVar(&testOptions.resultsDir, "results", "", "directory for JSON and Markdown coverage reports")
 	flag.StringVar(&testOptions.transportCSV, "transports", strings.Join(transportOrder, ","), "comma-separated transports to run (mtls,wg,http)")
 	flag.StringVar(&testOptions.modeCSV, "implant-modes", "session,beacon", "comma-separated implant modes to run (session,beacon)")
+	flag.StringVar(&testOptions.suiteScope, "suite-scope", defaultSuiteScope(), "E2E suite scope (comprehensive or rportfwd)")
 	flag.DurationVar(&testOptions.timeout, "e2e-timeout", 4*time.Hour, "overall comprehensive E2E timeout")
 	flag.DurationVar(&testOptions.startupTimeout, "startup-timeout", 10*time.Minute, "Sliver daemon startup timeout")
 	flag.DurationVar(&testOptions.connectTimeout, "connect-timeout", 5*time.Minute, "implant connection timeout")
@@ -51,7 +60,8 @@ func TestComprehensiveE2E(t *testing.T) {
 		t.Skip("comprehensive E2E requires -server")
 	}
 
-	suite, err := newSuite(t, testOptions, true)
+	recordCommandCoverage := strings.TrimSpace(testOptions.suiteScope) == suiteScopeComprehensive
+	suite, err := newSuite(t, testOptions, recordCommandCoverage)
 	if err != nil {
 		t.Fatal(err)
 	}

