@@ -71,8 +71,6 @@ jobs:
     needs: authorize
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    env:
-      SLIVER_ROOT_DIR: ${{ runner.temp }}/sliver-rportfwd-security
     steps:
       - name: Check out code
         uses: actions/checkout@v6
@@ -86,9 +84,13 @@ jobs:
           cache: true
 
       - name: Download Sliver build assets
+        env:
+          SLIVER_ROOT_DIR: ${{ runner.temp }}/sliver-rportfwd-security
         run: go run -buildvcs=false -mod=vendor ./util/cmd/assets
 
       - name: Test malicious destination poisoning and cross-session isolation
+        env:
+          SLIVER_ROOT_DIR: ${{ runner.temp }}/sliver-rportfwd-security
         run: >-
           go test -buildvcs=false -mod=vendor
           -tags=server,osusergo,netgo,go_sqlite,sliver_e2e
