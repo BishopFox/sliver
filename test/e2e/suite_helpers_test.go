@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestParseSelectionPreservesAllowedOrderAndDeduplicates(t *testing.T) {
@@ -198,6 +199,36 @@ func TestManagedProcessStatusReportsExactExitError(t *testing.T) {
 
 	if got, want := managedProcessStatus(process), "exited with error: forced implant failure"; got != want {
 		t.Fatalf("process status got %q, want %q", got, want)
+	}
+}
+
+func TestManagedProcessStopIsIdempotent(t *testing.T) {
+	const helperEnvironment = "SLIVER_E2E_MANAGED_PROCESS_HELPER"
+	if os.Getenv(helperEnvironment) == "1" {
+		time.Sleep(time.Hour)
+		return
+	}
+
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatalf("resolve test executable: %v", err)
+	}
+	testDir := t.TempDir()
+	process, err := startProcess(
+		executable,
+		[]string{"-test.run=^TestManagedProcessStopIsIdempotent$"},
+		testDir,
+		append(os.Environ(), helperEnvironment+"=1"),
+		filepath.Join(testDir, "managed-process.log"),
+	)
+	if err != nil {
+		t.Fatalf("start managed helper process: %v", err)
+	}
+	if err := process.stop(); err != nil {
+		t.Fatalf("first stop: %v", err)
+	}
+	if err := process.stop(); err != nil {
+		t.Fatalf("second stop: %v", err)
 	}
 }
 

@@ -149,11 +149,13 @@ func (target implantTarget) request(timeout time.Duration) *commonpb.Request {
 }
 
 type managedProcess struct {
-	cmd     *exec.Cmd
-	done    chan struct{}
-	err     error
-	logPath string
-	tree    processTree
+	cmd      *exec.Cmd
+	done     chan struct{}
+	err      error
+	logPath  string
+	tree     processTree
+	stopOnce sync.Once
+	stopErr  error
 }
 
 func newSuite(t *testing.T, opts options, recordCommandCoverage bool) (*suite, error) {
@@ -869,7 +871,14 @@ func startProcess(path string, args []string, dir string, env []string, logPath 
 	return process, nil
 }
 
-func (process *managedProcess) stop() (stopErr error) {
+func (process *managedProcess) stop() error {
+	process.stopOnce.Do(func() {
+		process.stopErr = process.stopProcess()
+	})
+	return process.stopErr
+}
+
+func (process *managedProcess) stopProcess() (stopErr error) {
 	defer func() {
 		if err := closeProcessTree(process.tree); err != nil {
 			stopErr = errors.Join(stopErr, fmt.Errorf("close process tree %d (%s): %w", process.cmd.Process.Pid, process.cmd.Path, err))
