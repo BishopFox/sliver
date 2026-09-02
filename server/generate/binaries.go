@@ -198,6 +198,17 @@ func appendToLDFlags(ldflags []string, extra string) []string {
 	return []string{joined}
 }
 
+const linuxShellcodeBuildIDLDFlag = "-extldflags=-Wl,--build-id"
+
+func applyLinuxShellcodeBuildID(ldflags []string) []string {
+	// Garble removes Go's build ID. With Go 1.27, a native GNU c-shared link
+	// then has neither PT_NOTE nor PT_PHDR, leaving Malasada one program header
+	// short when it adds its entry stub, interpreter, and PT_PHDR. Ask the
+	// external linker for its own build-id note so Malasada has a PT_NOTE to
+	// repurpose without changing implant source or Malasada's conversion logic.
+	return appendToLDFlags(ldflags, linuxShellcodeBuildIDLDFlag)
+}
+
 func applyZigStaticLinking(goConfig *gogo.GoConfig, buildmode string, ldflags []string) (updated []string, enabled bool) {
 	if goConfig == nil {
 		return ldflags, false
@@ -389,6 +400,7 @@ func linuxShellcode(name string, build *clientpb.ImplantBuild, config *clientpb.
 		tags = append(tags, "netgo")
 	}
 	ldflags := []string{""} // Garble will automatically add "-s -w -buildid="
+	ldflags = applyLinuxShellcodeBuildID(ldflags)
 	ldflags, wantStaticSO := applyZigStaticLinking(goConfig, "c-shared", ldflags)
 	gcFlags := ""
 	asmFlags := ""
