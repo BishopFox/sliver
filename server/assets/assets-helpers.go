@@ -276,6 +276,11 @@ func SetupGoPath(goPathSrc string, includeDNS bool) error {
 		setupLog.Info("Static asset not found: constants.go")
 		return err
 	}
+	sliverpbCapabilitiesSrc, err := protobufs.FS.ReadFile("sliverpb/capabilities.go")
+	if err != nil {
+		setupLog.Info("Static asset not found: capabilities.go")
+		return err
+	}
 	sliverpbGoSrc = xorPBRawBytes(sliverpbGoSrc)
 	sliverpbGoSrc = stripSliverpb(sliverpbGoSrc)
 	sliverpbDir := filepath.Join(goPathSrc, "protobuf", "sliverpb")
@@ -283,6 +288,11 @@ func SetupGoPath(goPathSrc string, includeDNS bool) error {
 	os.MkdirAll(sliverpbDir, 0700)
 	os.WriteFile(filepath.Join(sliverpbDir, "sliver.pb.go"), sliverpbGoSrc, 0600)
 	os.WriteFile(filepath.Join(sliverpbDir, "constants.go"), sliverpbConstSrc, 0600)
+	err = os.WriteFile(filepath.Join(sliverpbDir, "capabilities.go"), sliverpbCapabilitiesSrc, 0600)
+	if err != nil {
+		setupLog.Errorf("Failed to write capabilities.go: %s", err)
+		return err
+	}
 
 	// Common PB
 	commonpbSrc, err := protobufs.FS.ReadFile("commonpb/common.pb.go")

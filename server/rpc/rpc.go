@@ -64,6 +64,23 @@ type Server struct {
 	// mixed-version listener inventory compatibility probe. Production servers
 	// issue the request through the exact core Session connection.
 	rportFwdInventoryQuery func(context.Context, *sliverpb.RportFwdListenersReq) ([]byte, error)
+	// tunnelDataBeforeImplantControl is a scheduling seam for a tunnel close
+	// racing a ready acknowledgement or resend control. Production servers leave
+	// it nil.
+	tunnelDataBeforeImplantControl func(*core.Tunnel, *sliverpb.TunnelData)
+	// The bind seams make the two close-vs-bind lifecycle windows deterministic
+	// in tests. Production servers leave both nil.
+	tunnelDataBeforeBindClient        func(*core.Tunnel, *sliverpb.TunnelData)
+	tunnelDataAfterBindAcknowledgment func(*core.Tunnel, *sliverpb.TunnelData)
+	// tunnelDataBeforeNextToImplant makes the ready-data-vs-close race
+	// deterministic in tests. Production servers leave it nil.
+	tunnelDataBeforeNextToImplant func(*core.Tunnel, []byte)
+	// tunnelDataSendToImplant injects the bounded data-envelope send in tests.
+	// Production servers call the exact ImplantConnection directly.
+	tunnelDataSendToImplant func(*core.ImplantConnection, *sliverpb.Envelope, <-chan struct{}, time.Duration) error
+	// tunnelDataAfterImplantSend pauses tests after successful transport
+	// admission but before the tunnel publishes its forwarded prefix.
+	tunnelDataAfterImplantSend func(*core.Tunnel, *sliverpb.TunnelData)
 
 	// reversePortForwardRegistry is an instance seam for security-boundary tests.
 	// Production servers use rtunnels.DefaultRegistry.

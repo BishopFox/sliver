@@ -19,6 +19,7 @@ package transports
 */
 
 import (
+	"context"
 	"net/url"
 	"sync"
 	"time"
@@ -30,16 +31,17 @@ import (
 const (
 	tunnelSendTimeout = 10 * time.Second
 
-	// maxClaimedTunnelIDsPerConnection bounds the permanent replay-defense
-	// history for one C2 connection. Tunnel IDs cannot be reused safely because
-	// the wire protocol has no generation number. Exhaustion therefore closes
-	// the connection and creates a fresh ID domain on reconnect.
-	maxClaimedTunnelIDsPerConnection = 4096
+	// Bound live tunnel state independently from the replay tombstone window.
+	// Retired IDs are remembered in FIFO order; once the window rotates, exact
+	// pointer checks still prevent stale local work from deleting a replacement,
+	// while random 64-bit wire IDs make an accidental post-window reuse remote.
+	maxLiveTunnelIDsPerConnection    = 4096
+	maxRetiredTunnelIDsPerConnection = 4096
 )
 
 // TunnelAddResult distinguishes a replayed ID from exhaustion of the bounded
-// per-connection ID domain. Capacity exhaustion has already failed the C2
-// connection closed before it is returned.
+// live-tunnel domain. Capacity exhaustion rejects only the new tunnel and
+// leaves the C2 connection available for existing and later work.
 type TunnelAddResult uint8
 
 // TunnelAdded and the related results describe a tunnel publication attempt.
@@ -49,7 +51,41 @@ const (
 	TunnelAddCapacityExhausted
 	TunnelAddConnectionClosed
 	TunnelAddInvalid
+	TunnelAddSetupCanceled
 )
+
+// PendingTunnel owns a not-yet-published tunnel setup for one C2 connection.
+// Its wire ID is reserved before any external resource is opened, so an
+// overtaking close can cancel the exact setup and place the ID in the bounded
+// replay window before a later setup can reuse it.
+type PendingTunnel struct {
+	connection *Connection
+	tunnelID   uint64
+	ctx        context.Context
+	cancel     context.CancelFunc
+}
+
+// Context is canceled when the setup is retired, its deadline expires, or its
+// owning C2 connection closes.
+func (p *PendingTunnel) Context() context.Context {
+	if p == nil || p.ctx == nil {
+		return context.Background()
+	}
+	return p.ctx
+}
+
+// Cancel retires this exact setup without affecting another tunnel ID.
+func (p *PendingTunnel) Cancel() {
+	if p == nil {
+		return
+	}
+	if p.cancel != nil {
+		p.cancel()
+	}
+	if p.connection != nil {
+		p.connection.cancelPendingTunnelIf(p)
+	}
+}
 
 type Connection struct {
 	Send           chan *pb.Envelope
@@ -62,7 +98,10 @@ type Connection struct {
 	stateOnce      sync.Once
 	done           chan struct{}
 	tunnels        map[uint64]*Tunnel
-	claimedTunnels map[uint64]struct{}
+	pendingTunnels map[uint64]*PendingTunnel
+	retiredTunnels map[uint64]struct{}
+	retiredOrder   []uint64
+	retiredCursor  int
 	mutex          *sync.RWMutex
 
 	uri      *url.URL
@@ -89,8 +128,11 @@ func (c *Connection) initializeTunnelState() {
 		if c.tunnels == nil {
 			c.tunnels = map[uint64]*Tunnel{}
 		}
-		if c.claimedTunnels == nil {
-			c.claimedTunnels = map[uint64]struct{}{}
+		if c.pendingTunnels == nil {
+			c.pendingTunnels = map[uint64]*PendingTunnel{}
+		}
+		if c.retiredTunnels == nil {
+			c.retiredTunnels = map[uint64]struct{}{}
 		}
 	})
 }
@@ -180,10 +222,9 @@ func (c *Connection) Tunnel(ID uint64) *Tunnel {
 	return c.tunnels[ID]
 }
 
-// TryAddTunnel adds a tunnel generation to the connection. Retired wire IDs
-// remain claimed for the lifetime of the C2 connection. Once the bounded ID
-// domain is exhausted, Cleanup is invoked after releasing mutex so tunnel
-// cleanup cannot deadlock while re-entering the tunnel map.
+// TryAddTunnel adds a tunnel generation to the connection. Recently retired
+// wire IDs remain unavailable within a bounded replay window. Live-capacity
+// exhaustion rejects this generation without failing unrelated C2 work.
 func (c *Connection) TryAddTunnel(tun *Tunnel) TunnelAddResult {
 	if c == nil || tun == nil {
 		return TunnelAddInvalid
@@ -197,19 +238,204 @@ func (c *Connection) TryAddTunnel(tun *Tunnel) TunnelAddResult {
 		return TunnelAddConnectionClosed
 	default:
 	}
-	if c.tunnels[tun.ID] != nil {
+	if c.tunnels[tun.ID] != nil || c.pendingTunnels[tun.ID] != nil {
 		c.mutex.Unlock()
 		return TunnelAddDuplicate
 	}
-	if _, claimed := c.claimedTunnels[tun.ID]; claimed {
+	if _, retired := c.retiredTunnels[tun.ID]; retired {
 		c.mutex.Unlock()
 		return TunnelAddDuplicate
 	}
-	if len(c.claimedTunnels) >= maxClaimedTunnelIDsPerConnection {
+	if len(c.tunnels)+len(c.pendingTunnels) >= maxLiveTunnelIDsPerConnection {
 		c.mutex.Unlock()
-		c.Cleanup()
 		return TunnelAddCapacityExhausted
 	}
+	c.publishTunnelLocked(tun)
+	c.mutex.Unlock()
+	return TunnelAdded
+}
+
+// BeginTunnel reserves one tunnel generation before a handler opens an
+// external resource. An overtaking peer close retires the wire ID into the
+// bounded replay window and cancels the returned context. Timeout must be finite
+// for network setup callers; non-positive values create an owner-cancelable
+// reservation for callers that already impose a stricter deadline.
+func (c *Connection) BeginTunnel(tunnelID uint64, timeout time.Duration) (*PendingTunnel, TunnelAddResult) {
+	if c == nil {
+		return nil, TunnelAddInvalid
+	}
+	c.initializeLifecycle()
+	c.initializeTunnelState()
+
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	if timeout > 0 {
+		ctx, cancel = context.WithTimeout(context.Background(), timeout)
+	} else {
+		ctx, cancel = context.WithCancel(context.Background())
+	}
+	pending := &PendingTunnel{
+		connection: c,
+		tunnelID:   tunnelID,
+		ctx:        ctx,
+		cancel:     cancel,
+	}
+
+	c.mutex.Lock()
+	select {
+	case <-c.done:
+		c.mutex.Unlock()
+		cancel()
+		return nil, TunnelAddConnectionClosed
+	default:
+	}
+	if c.tunnels[tunnelID] != nil || c.pendingTunnels[tunnelID] != nil {
+		c.mutex.Unlock()
+		cancel()
+		return nil, TunnelAddDuplicate
+	}
+	if _, retired := c.retiredTunnels[tunnelID]; retired {
+		c.mutex.Unlock()
+		cancel()
+		return nil, TunnelAddDuplicate
+	}
+	if len(c.tunnels)+len(c.pendingTunnels) >= maxLiveTunnelIDsPerConnection {
+		c.mutex.Unlock()
+		cancel()
+		return nil, TunnelAddCapacityExhausted
+	}
+	c.pendingTunnels[tunnelID] = pending
+	c.mutex.Unlock()
+
+	// Context cancellation must detach a non-cooperative setup even when the
+	// handler has not returned from its dial call yet.
+	go func() {
+		select {
+		case <-c.Done():
+			pending.Cancel()
+		case <-ctx.Done():
+			pending.Cancel()
+		}
+	}()
+	return pending, TunnelAdded
+}
+
+// PublishTunnel atomically replaces an exact pending setup with its active
+// tunnel. A canceled, timed-out, disconnected, or superseded setup can never
+// publish a late socket.
+func (c *Connection) PublishTunnel(pending *PendingTunnel, tun *Tunnel) TunnelAddResult {
+	if c == nil || pending == nil || tun == nil || pending.connection != c || pending.tunnelID != tun.ID {
+		return TunnelAddInvalid
+	}
+	c.initializeLifecycle()
+	c.initializeTunnelState()
+	c.mutex.Lock()
+	select {
+	case <-c.done:
+		c.mutex.Unlock()
+		pending.Cancel()
+		return TunnelAddConnectionClosed
+	default:
+	}
+	if c.pendingTunnels[tun.ID] != pending {
+		c.mutex.Unlock()
+		pending.Cancel()
+		return TunnelAddSetupCanceled
+	}
+	if pending.ctx.Err() != nil {
+		delete(c.pendingTunnels, tun.ID)
+		c.retireTunnelIDLocked(tun.ID)
+		c.mutex.Unlock()
+		pending.Cancel()
+		return TunnelAddSetupCanceled
+	}
+	if c.tunnels[tun.ID] != nil {
+		delete(c.pendingTunnels, tun.ID)
+		c.mutex.Unlock()
+		pending.Cancel()
+		return TunnelAddDuplicate
+	}
+	delete(c.pendingTunnels, tun.ID)
+	c.publishTunnelLocked(tun)
+	c.mutex.Unlock()
+	// Stop the setup deadline only after the active map owns the tunnel.
+	pending.cancel()
+	return TunnelAdded
+}
+
+// CancelPendingTunnel retires an unowned or pending wire ID and cancels the
+// exact pending setup. If publication won the race, the active tunnel remains
+// available for the caller to close normally.
+func (c *Connection) CancelPendingTunnel(tunnelID uint64) bool {
+	if c == nil {
+		return false
+	}
+	c.initializeLifecycle()
+	c.initializeTunnelState()
+	var pending *PendingTunnel
+	c.mutex.Lock()
+	select {
+	case <-c.done:
+		c.mutex.Unlock()
+		return false
+	default:
+	}
+	if c.tunnels[tunnelID] != nil {
+		c.mutex.Unlock()
+		return false
+	}
+	pending = c.pendingTunnels[tunnelID]
+	if pending != nil {
+		delete(c.pendingTunnels, tunnelID)
+		c.retireTunnelIDLocked(tunnelID)
+	} else if _, retired := c.retiredTunnels[tunnelID]; !retired {
+		c.retireTunnelIDLocked(tunnelID)
+	}
+	c.mutex.Unlock()
+	if pending != nil {
+		pending.cancel()
+		return true
+	}
+	return false
+}
+
+func (c *Connection) cancelPendingTunnelIf(pending *PendingTunnel) bool {
+	if c == nil || pending == nil {
+		return false
+	}
+	c.initializeTunnelState()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	if c.pendingTunnels[pending.tunnelID] != pending {
+		return false
+	}
+	delete(c.pendingTunnels, pending.tunnelID)
+	c.retireTunnelIDLocked(pending.tunnelID)
+	return true
+}
+
+// retireTunnelIDLocked records one completed or canceled wire generation in a
+// fixed-size FIFO replay window. The caller must hold c.mutex.
+func (c *Connection) retireTunnelIDLocked(tunnelID uint64) {
+	if _, retired := c.retiredTunnels[tunnelID]; retired {
+		return
+	}
+	if len(c.retiredOrder) < maxRetiredTunnelIDsPerConnection {
+		c.retiredOrder = append(c.retiredOrder, tunnelID)
+		c.retiredTunnels[tunnelID] = struct{}{}
+		return
+	}
+
+	evicted := c.retiredOrder[c.retiredCursor]
+	delete(c.retiredTunnels, evicted)
+	c.retiredOrder[c.retiredCursor] = tunnelID
+	c.retiredCursor = (c.retiredCursor + 1) % maxRetiredTunnelIDsPerConnection
+	c.retiredTunnels[tunnelID] = struct{}{}
+}
+
+func (c *Connection) publishTunnelLocked(tun *Tunnel) {
 	tun.setPeerCloseNotifier(func(sequence uint64) error {
 		data, err := proto.Marshal(&pb.TunnelData{
 			Closed:   true,
@@ -225,13 +451,10 @@ func (c *Connection) TryAddTunnel(tun *Tunnel) TunnelAddResult {
 		return nil
 	})
 	c.tunnels[tun.ID] = tun
-	c.claimedTunnels[tun.ID] = struct{}{}
-	c.mutex.Unlock()
-	return TunnelAdded
 }
 
 // AddTunnel is the compatibility boolean wrapper for callers that do not need
-// to distinguish duplicate IDs from a closed ID domain.
+// to distinguish duplicate IDs, live-capacity rejection, or connection close.
 func (c *Connection) AddTunnel(tun *Tunnel) bool {
 	return c.TryAddTunnel(tun) == TunnelAdded
 }
@@ -297,7 +520,10 @@ func (c *Connection) RemoveTunnel(ID uint64) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	delete(c.tunnels, ID)
+	if c.tunnels[ID] != nil {
+		delete(c.tunnels, ID)
+		c.retireTunnelIDLocked(ID)
+	}
 }
 
 // RemoveTunnelIf detaches ID only when it still refers to the expected tunnel.
@@ -313,6 +539,7 @@ func (c *Connection) RemoveTunnelIf(ID uint64, expected *Tunnel) bool {
 		return false
 	}
 	delete(c.tunnels, ID)
+	c.retireTunnelIDLocked(ID)
 	return true
 }
 
@@ -350,10 +577,17 @@ func (c *Connection) removeAndCloseAllTunnels() {
 	c.initializeTunnelState()
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
+	for id, pending := range c.pendingTunnels {
+		pending.cancel()
+		delete(c.pendingTunnels, id)
+	}
 
 	for id, tunnel := range c.tunnels {
 		tunnel.Close()
 
 		delete(c.tunnels, id)
 	}
+	clear(c.retiredTunnels)
+	c.retiredOrder = nil
+	c.retiredCursor = 0
 }

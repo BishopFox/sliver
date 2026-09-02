@@ -20,6 +20,7 @@ package cursed
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"path"
@@ -190,6 +191,14 @@ func startCursedElectronProcess(electronExe string, session *clientpb.Session, c
 		DialTimeout:     30 * time.Second,
 	}
 	tcpProxy.AddRoute(bindAddr, channelProxy)
+	if err := tcpProxy.Start(); err != nil {
+		channelProxy.Stop()
+		_ = tcpProxy.Close()
+		return nil, errors.Join(
+			fmt.Errorf("start port forward listener %s: %w", bindAddr, err),
+			terminateStartedCursedProcess(con, session.ID, electronExec.GetPid()),
+		)
+	}
 	portFwd := core.Portfwds.Add(tcpProxy, channelProxy)
 
 	curse := &core.CursedProcess{
@@ -202,7 +211,7 @@ func startCursedElectronProcess(electronExe string, session *clientpb.Session, c
 	}
 	core.CursedProcesses.Store(bindPort, curse)
 	go func() {
-		err := tcpProxy.Run()
+		err := tcpProxy.Wait()
 		if err != nil {
 			log.Printf("Proxy error %s", err)
 		}

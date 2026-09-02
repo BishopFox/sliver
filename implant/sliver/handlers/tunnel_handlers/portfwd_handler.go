@@ -20,9 +20,10 @@ package tunnel_handlers
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"io"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -37,7 +38,18 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+const portfwdDialTimeout = 30 * time.Second
+
+type portfwdContextDialer interface {
+	DialContext(context.Context, string, string) (net.Conn, error)
+}
+
+// PortfwdReqHandler opens and registers one server-requested forward tunnel.
 func PortfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
+	handlePortfwdReq(envelope, connection, new(net.Dialer), portfwdDialTimeout)
+}
+
+func handlePortfwdReq(envelope *sliverpb.Envelope, connection *transports.Connection, dialer portfwdContextDialer, dialTimeout time.Duration) {
 	portfwdReq := &sliverpb.PortfwdReq{}
 	err := proto.Unmarshal(envelope.Data, portfwdReq)
 	if err != nil {
@@ -53,43 +65,44 @@ func PortfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 		return
 	}
 
-	var defaultDialer = new(net.Dialer)
+	pending, addResult := connection.BeginTunnel(portfwdReq.TunnelID, dialTimeout)
+	if addResult != transports.TunnelAdded {
+		reportPortfwdError(envelope, connection, errors.New("port forward tunnel setup is no longer active"))
+		return
+	}
+	defer pending.Cancel()
 
-	// TODO: Configurable context
-	remoteAddress := fmt.Sprintf("%s:%d", portfwdReq.Host, portfwdReq.Port)
+	remoteAddress := portfwdRemoteAddress(portfwdReq.Host, portfwdReq.Port)
 	// {{if .Config.Debug}}
 	log.Printf("[portfwd] Dialing -> %s", remoteAddress)
 	// {{end}}
 
-	ctx, cancelContext := context.WithCancel(context.Background())
-
-	dst, err := defaultDialer.DialContext(ctx, "tcp", remoteAddress)
+	dst, err := dialer.DialContext(pending.Context(), "tcp", remoteAddress)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[portfwd] Failed to dial remote address %s", err)
 		// {{end}}
-		cancelContext()
-		portfwdResp, _ := proto.Marshal(&sliverpb.Portfwd{
-			Response: &commonpb.Response{
-				Err: err.Error(),
-			},
-		})
-		reportError(envelope, connection, portfwdResp)
+		reportPortfwdError(envelope, connection, err)
 		return
 	}
 	if conn, ok := dst.(*net.TCPConn); ok {
 		// {{if .Config.Debug}}
 		log.Printf("[portfwd] Configuring keep alive")
 		// {{end}}
+		var keepAliveErr error
 		if portfwdReq.KeepAlive < 0 {
-			conn.SetKeepAlive(false)
-		} else {
-			conn.SetKeepAlive(true)
+			keepAliveErr = conn.SetKeepAlive(false)
+		} else if keepAliveErr = conn.SetKeepAlive(true); keepAliveErr == nil {
+			keepAlivePeriod := 30 * time.Second
 			if portfwdReq.KeepAlive > 0 {
-				conn.SetKeepAlivePeriod(time.Duration(portfwdReq.KeepAlive) * time.Second)
-			} else {
-				conn.SetKeepAlivePeriod(30 * time.Second)
+				keepAlivePeriod = time.Duration(portfwdReq.KeepAlive) * time.Second
 			}
+			keepAliveErr = conn.SetKeepAlivePeriod(keepAlivePeriod)
+		}
+		if keepAliveErr != nil {
+			_ = dst.Close()
+			reportPortfwdError(envelope, connection, keepAliveErr)
+			return
 		}
 	}
 
@@ -102,13 +115,14 @@ func PortfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 		dst,
 		dst,
 	)
-	if !connection.AddTunnel(tunnel) {
+	if connection.PublishTunnel(pending, tunnel) != transports.TunnelAdded {
 		tunnel.Close()
-		cancelContext()
-		portfwdResp, _ := proto.Marshal(&sliverpb.Portfwd{
-			Response: &commonpb.Response{Err: "port forward tunnel ID is already active"},
-		})
-		reportError(envelope, connection, portfwdResp)
+		reportPortfwdError(envelope, connection, errors.New("port forward tunnel setup was canceled"))
+		return
+	}
+	if connection.Tunnel(tunnel.ID) != tunnel {
+		tunnel.Close()
+		reportPortfwdError(envelope, connection, errors.New("port forward tunnel closed during setup"))
 		return
 	}
 
@@ -124,7 +138,6 @@ func PortfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 		Data: portfwdResp,
 	}) {
 		connection.CloseTunnelRemote(tunnel)
-		cancelContext()
 		return
 	}
 
@@ -135,7 +148,6 @@ func PortfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 			log.Printf("[portfwd] Closing tunnel %d (%s)", tunnel.ID, reason)
 			// {{end}}
 			connection.CloseTunnelLocal(tunnel)
-			cancelContext()
 		})
 	}
 
@@ -153,4 +165,15 @@ func PortfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Conne
 
 		cleanup(err)
 	}()
+}
+
+func reportPortfwdError(envelope *sliverpb.Envelope, connection *transports.Connection, err error) {
+	portfwdResp, _ := proto.Marshal(&sliverpb.Portfwd{
+		Response: &commonpb.Response{Err: err.Error()},
+	})
+	reportError(envelope, connection, portfwdResp)
+}
+
+func portfwdRemoteAddress(host string, port uint32) string {
+	return net.JoinHostPort(host, strconv.FormatUint(uint64(port), 10))
 }

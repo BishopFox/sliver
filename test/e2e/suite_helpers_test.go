@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -54,8 +55,11 @@ func TestSuiteScopeRouting(t *testing.T) {
 		{name: "comprehensive preserves modes", input: "comprehensive", modes: []string{"session", "beacon"}, wantScope: suiteScopeComprehensive, wantModes: []string{"session", "beacon"}},
 		{name: "focused forces sessions", input: "rportfwd", modes: []string{"session", "beacon"}, wantScope: suiteScopeRportFwd, wantModes: []string{"session"}},
 		{name: "surrounding whitespace", input: " rportfwd ", modes: []string{"beacon"}, wantScope: suiteScopeRportFwd, wantModes: []string{"session"}},
+		{name: "forward and socks forces sessions", input: "portfwd-socks5", modes: []string{"session", "beacon"}, wantScope: suiteScopePortfwdSocks5, wantModes: []string{"session"}},
+		{name: "forward and socks whitespace", input: " portfwd-socks5 ", modes: []string{"beacon"}, wantScope: suiteScopePortfwdSocks5, wantModes: []string{"session"}},
 		{name: "unsupported", input: "other", wantError: true},
 		{name: "noncanonical case", input: "RPORTFWD", wantError: true},
+		{name: "noncanonical forward case", input: "PORTFWD-SOCKS5", wantError: true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -76,6 +80,89 @@ func TestSuiteScopeRouting(t *testing.T) {
 				t.Fatalf("modes = %v, want %v", got, test.wantModes)
 			}
 		})
+	}
+}
+
+func TestSuiteScopeReversePortForwardRouting(t *testing.T) {
+	for _, scope := range []string{suiteScopeComprehensive, suiteScopeRportFwd} {
+		if !suiteRunsReversePortForward(scope) {
+			t.Errorf("scope %q should run reverse port forwarding", scope)
+		}
+	}
+	if suiteRunsReversePortForward(suiteScopePortfwdSocks5) {
+		t.Fatal("portfwd-socks5 scope must not run or initialize reverse-port-forward coverage")
+	}
+}
+
+func TestTunnelAcceptanceProfileValidation(t *testing.T) {
+	for input, want := range map[string]string{
+		"":          tunnelAcceptanceProfileBase,
+		" base ":    tunnelAcceptanceProfileBase,
+		" proxmox ": tunnelAcceptanceProfileProxmox,
+	} {
+		got, err := normalizeTunnelAcceptanceProfile(input)
+		if err != nil {
+			t.Fatalf("normalize profile %q: %v", input, err)
+		}
+		if got != want {
+			t.Fatalf("normalize profile %q = %q, want %q", input, got, want)
+		}
+	}
+	if _, err := normalizeTunnelAcceptanceProfile("PROXMOX"); err == nil {
+		t.Fatal("noncanonical acceptance profile unexpectedly passed")
+	}
+
+	valid := options{
+		tunnelAcceptanceProfile: tunnelAcceptanceProfileProxmox,
+		transports:              append([]string(nil), transportOrder...),
+		tunnelHTTPURL:           "https://range.example.test/resource",
+		tunnelHTTPURLFD:         -1,
+		tunnelRDPAddr:           "windows.example.test:3389",
+		rdpCredentialsFD:        3,
+	}
+	if err := validateTunnelAcceptanceProfile(&valid); err != nil {
+		t.Fatalf("valid proxmox acceptance profile: %v", err)
+	}
+	for name, mutate := range map[string]func(*options){
+		"narrow transports": func(opts *options) { opts.transports = []string{"mtls", "wg"} },
+		"no HTTP":           func(opts *options) { opts.tunnelHTTPURL = "" },
+		"no RDP target":     func(opts *options) { opts.tunnelRDPAddr = "" },
+		"no RDP credentials": func(opts *options) {
+			opts.rdpCredentialsFD = -1
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			candidate := valid
+			mutate(&candidate)
+			if err := validateTunnelAcceptanceProfile(&candidate); err == nil {
+				t.Fatal("incomplete proxmox acceptance profile unexpectedly passed")
+			}
+		})
+	}
+	narrowBase := valid
+	narrowBase.tunnelAcceptanceProfile = tunnelAcceptanceProfileBase
+	narrowBase.transports = []string{"mtls"}
+	narrowBase.tunnelHTTPURL = ""
+	narrowBase.tunnelRDPAddr = ""
+	narrowBase.rdpCredentialsFD = -1
+	if err := validateTunnelAcceptanceProfile(&narrowBase); err != nil {
+		t.Fatalf("base diagnostic profile rejected a narrow run: %v", err)
+	}
+}
+
+func TestStopTunnelLoopCancelsAndJoins(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		<-ctx.Done()
+		done <- ctx.Err()
+	}()
+	if err := stopTunnelLoop(cancel, done, time.Second); err != nil {
+		t.Fatalf("stop cancellable tunnel loop: %v", err)
+	}
+
+	if err := stopTunnelLoop(func() {}, make(chan error), time.Millisecond); err == nil || !strings.Contains(err.Error(), "did not stop") {
+		t.Fatalf("stuck tunnel loop error = %v, want bounded join failure", err)
 	}
 }
 

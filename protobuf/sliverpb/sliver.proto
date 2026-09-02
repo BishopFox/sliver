@@ -9,6 +9,7 @@ enum ImplantCapability {
   IMPLANT_CAPABILITY_NONE = 0;
   IMPLANT_CAPABILITY_BOF_V1 = 1;
   IMPLANT_CAPABILITY_TUNNEL_TERMINAL_V1 = 2;
+  IMPLANT_CAPABILITY_SOCKS_FLOW_CONTROL_V1 = 4;
 }
 
 /*
@@ -911,6 +912,7 @@ message Socks {
 
   uint64 TunnelID = 8 [jstype = JS_STRING];
   string SessionID = 9;
+  uint64 Capabilities = 10;
 }
 
 message SocksData {
@@ -919,6 +921,11 @@ message SocksData {
   string Username = 3;
   string Password = 4;
   uint64 Sequence = 5;
+  // Ack is the next sequence after the last frame fully consumed by the
+  // receiving SOCKS endpoint. It is meaningful only when flow control was
+  // negotiated for this tunnel.
+  uint64 Ack = 6;
+  uint64 Capabilities = 7;
 
   uint64 TunnelID = 8 [jstype = JS_STRING];
   commonpb.Request Request = 9;

