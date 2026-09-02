@@ -9,12 +9,22 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/bishopfox/sliver/test/e2e/shellcodecoverage"
 )
 
 var (
 	testOptions          options
 	goroutineLeakProfile bool
 )
+
+func defaultSuiteScope() string {
+	scope := strings.TrimSpace(os.Getenv("SLIVER_E2E_SCOPE"))
+	if scope == "" {
+		return suiteScopeComprehensive
+	}
+	return scope
+}
 
 func init() {
 	flag.StringVar(&testOptions.repoPath, "repo", ".", "path to the Sliver repository")
@@ -25,11 +35,13 @@ func init() {
 	flag.StringVar(&testOptions.resultsDir, "results", "", "directory for JSON and Markdown coverage reports")
 	flag.StringVar(&testOptions.transportCSV, "transports", strings.Join(transportOrder, ","), "comma-separated transports to run (mtls,wg,http)")
 	flag.StringVar(&testOptions.modeCSV, "implant-modes", "session,beacon", "comma-separated implant modes to run (session,beacon)")
+	flag.StringVar(&testOptions.suiteScope, "suite-scope", defaultSuiteScope(), "E2E suite scope (comprehensive or rportfwd)")
 	flag.DurationVar(&testOptions.timeout, "e2e-timeout", 4*time.Hour, "overall comprehensive E2E timeout")
 	flag.DurationVar(&testOptions.startupTimeout, "startup-timeout", 10*time.Minute, "Sliver daemon startup timeout")
 	flag.DurationVar(&testOptions.connectTimeout, "connect-timeout", 5*time.Minute, "implant connection timeout")
 	flag.DurationVar(&testOptions.commandTimeout, "command-timeout", 2*time.Minute, "individual implant command timeout")
 	flag.DurationVar(&testOptions.beaconInterval, "beacon-interval", 10*time.Second, "beacon callback interval")
+	flag.IntVar(&testOptions.sgnSamples, "shellcode-sgn-samples", shellcodecoverage.MinimumSGNSamples, "required SGN execution samples per shellcode matrix cell")
 	flag.BoolVar(&testOptions.implantDebug, "implant-debug", false, "generate debug implants and capture their transport logs")
 	flag.BoolVar(&goroutineLeakProfile, "goroutine-leak-profile", false, "write the goroutine leak profile at comprehensive E2E shutdown")
 }
@@ -63,7 +75,8 @@ func TestComprehensiveE2E(t *testing.T) {
 		t.Skip("comprehensive E2E requires -server")
 	}
 
-	suite, err := newSuite(t, testOptions, true)
+	recordCommandCoverage := strings.TrimSpace(testOptions.suiteScope) == suiteScopeComprehensive
+	suite, err := newSuite(t, testOptions, recordCommandCoverage)
 	if err != nil {
 		t.Fatal(err)
 	}

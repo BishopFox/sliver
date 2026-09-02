@@ -23,11 +23,15 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	e2ecoverage "github.com/bishopfox/sliver/test/e2e/coverage"
+	"github.com/bishopfox/sliver/test/e2e/rportfwdcoverage"
+	"github.com/bishopfox/sliver/test/e2e/shellcodecoverage"
 	"google.golang.org/protobuf/proto"
 )
 
 const (
 	operatorName               = "e2e-operator"
+	suiteScopeComprehensive    = "comprehensive"
+	suiteScopeRportFwd         = "rportfwd"
 	processLogTailBytes        = 1024 * 1024
 	commandFailureLogTailBytes = 64 * 1024
 	listenerPollInterval       = 250 * time.Millisecond
@@ -47,6 +51,7 @@ type options struct {
 	resultsDir     string
 	transportCSV   string
 	modeCSV        string
+	suiteScope     string
 	transports     []string
 	modes          []string
 	timeout        time.Duration
@@ -54,6 +59,7 @@ type options struct {
 	connectTimeout time.Duration
 	commandTimeout time.Duration
 	beaconInterval time.Duration
+	sgnSamples     int
 	implantDebug   bool
 }
 
@@ -71,15 +77,19 @@ type suite struct {
 	server     *managedProcess
 	serverLog  string
 
-	rpc        rpcpb.SliverRPCClient
-	closeGRPC  func()
-	hub        *eventHub
-	coverage   *e2ecoverage.Recorder
-	listeners  map[string]*listener
-	armoryOnce sync.Once
-	armory     *armoryAssets
-	armoryErr  error
-	closeOnce  sync.Once
+	rpc              rpcpb.SliverRPCClient
+	closeGRPC        func()
+	hub              *eventHub
+	coverage         *e2ecoverage.Recorder
+	rportfwdCoverage *rportfwdcoverage.Recorder
+	listeners        map[string]*listener
+	armoryOnce       sync.Once
+	armory           *armoryAssets
+	armoryErr        error
+	nativeBOFOnce    sync.Once
+	nativeBOF        *nativeBOFAssets
+	nativeBOFErr     error
+	closeOnce        sync.Once
 }
 
 type listener struct {
@@ -139,11 +149,13 @@ func (target implantTarget) request(timeout time.Duration) *commonpb.Request {
 }
 
 type managedProcess struct {
-	cmd     *exec.Cmd
-	done    chan struct{}
-	err     error
-	logPath string
-	tree    processTree
+	cmd      *exec.Cmd
+	done     chan struct{}
+	err      error
+	logPath  string
+	tree     processTree
+	stopOnce sync.Once
+	stopErr  error
 }
 
 func newSuite(t *testing.T, opts options, recordCommandCoverage bool) (*suite, error) {
@@ -173,6 +185,11 @@ func newSuite(t *testing.T, opts options, recordCommandCoverage bool) (*suite, e
 			return nil, fmt.Errorf("initialize E2E coverage recorder: %w", err)
 		}
 	}
+	s.rportfwdCoverage, err = rportfwdcoverage.NewRecorder(e2ecoverage.Target{OS: opts.targetOS, Arch: opts.targetArch})
+	if err != nil {
+		s.close()
+		return nil, fmt.Errorf("initialize reverse-port-forward E2E coverage recorder: %w", err)
+	}
 	if s.opts.resultsDir == "" {
 		s.opts.resultsDir, err = os.MkdirTemp("", "sliver-comprehensive-e2e-results-")
 		if err != nil {
@@ -193,15 +210,27 @@ func newSuite(t *testing.T, opts options, recordCommandCoverage bool) (*suite, e
 }
 
 func (s *suite) writeCoverage() error {
-	if s.coverage == nil {
-		return nil
+	var writeErrors []error
+	if s.rportfwdCoverage != nil {
+		paths, err := s.rportfwdCoverage.Write(s.opts.resultsDir)
+		if err != nil {
+			writeErrors = append(writeErrors, fmt.Errorf("write reverse-port-forward E2E coverage: %w", err))
+		} else {
+			s.t.Logf("Wrote reverse-port-forward E2E coverage reports %s and %s", paths.JSON, paths.Markdown)
+			if err := s.rportfwdCoverage.ValidateComplete(s.opts.transports); err != nil {
+				writeErrors = append(writeErrors, err)
+			}
+		}
 	}
-	paths, err := s.coverage.Write(s.opts.resultsDir)
-	if err != nil {
-		return fmt.Errorf("write E2E coverage: %w", err)
+	if s.coverage != nil {
+		paths, err := s.coverage.Write(s.opts.resultsDir)
+		if err != nil {
+			writeErrors = append(writeErrors, fmt.Errorf("write E2E coverage: %w", err))
+		} else {
+			s.t.Logf("Wrote E2E coverage reports %s and %s", paths.JSON, paths.Markdown)
+		}
 	}
-	s.t.Logf("Wrote E2E coverage reports %s and %s", paths.JSON, paths.Markdown)
-	return nil
+	return errors.Join(writeErrors...)
 }
 
 func validateOptions(opts *options) error {
@@ -236,6 +265,10 @@ func validateOptions(opts *options) error {
 	opts.targetOS = strings.ToLower(strings.TrimSpace(opts.targetOS))
 	opts.targetArch = strings.ToLower(strings.TrimSpace(opts.targetArch))
 	opts.serverArch = strings.ToLower(strings.TrimSpace(opts.serverArch))
+	opts.suiteScope, err = normalizeSuiteScope(opts.suiteScope)
+	if err != nil {
+		return err
+	}
 	supported := map[string]bool{
 		"darwin/amd64":  true,
 		"darwin/arm64":  true,
@@ -259,6 +292,9 @@ func validateOptions(opts *options) error {
 	if opts.timeout <= 0 || opts.startupTimeout <= 0 || opts.connectTimeout <= 0 || opts.commandTimeout <= 0 || opts.beaconInterval <= 0 {
 		return errors.New("all E2E timeouts and intervals must be positive")
 	}
+	if opts.sgnSamples < shellcodecoverage.MinimumSGNSamples {
+		return fmt.Errorf("shellcode SGN samples must be at least %d", shellcodecoverage.MinimumSGNSamples)
+	}
 	opts.transports, err = parseSelection(opts.transportCSV, transportOrder, "transport")
 	if err != nil {
 		return err
@@ -267,7 +303,26 @@ func validateOptions(opts *options) error {
 	if err != nil {
 		return err
 	}
+	opts.modes = modesForSuiteScope(opts.suiteScope, opts.modes)
 	return nil
+}
+
+func normalizeSuiteScope(value string) (string, error) {
+	scope := strings.TrimSpace(value)
+	if scope != suiteScopeComprehensive && scope != suiteScopeRportFwd {
+		return "", fmt.Errorf("unknown E2E suite scope %q (want %s or %s)", scope, suiteScopeComprehensive, suiteScopeRportFwd)
+	}
+	return scope, nil
+}
+
+func modesForSuiteScope(scope string, modes []string) []string {
+	if scope == suiteScopeRportFwd {
+		// Reverse port forwarding is an interactive session feature. A focused
+		// run intentionally avoids generating beacons even when callers retain
+		// the comprehensive suite's default selector.
+		return []string{"session"}
+	}
+	return modes
 }
 
 func parseSelection(value string, allowed []string, label string) ([]string, error) {
@@ -601,9 +656,20 @@ func (s *suite) runImplant(listener *listener, beacon bool) error {
 	}
 	s.t.Logf("Verified %s %s connection %s over %s", mode, target.id(), s.opts.targetOS+"/"+s.opts.targetArch, listener.transport)
 
-	if err := s.exerciseCommands(target, remoteRoot, listener.transport); err != nil {
+	var exerciseErrors []error
+	if target.session != nil {
+		exerciseErrors = appendIfError(exerciseErrors, s.exerciseReversePortForward(target, listener.transport))
+	}
+	if s.opts.suiteScope == suiteScopeComprehensive {
+		exerciseErrors = appendIfError(exerciseErrors, s.exerciseCommands(target, remoteRoot, listener.transport))
+	}
+	if target.session != nil {
+		exerciseErrors = appendIfError(exerciseErrors, s.exerciseReversePortForwardDisconnect(target, listener.transport, process))
+	}
+	if err := errors.Join(exerciseErrors...); err != nil {
 		return fmt.Errorf(
-			"exercise %s over %s: %w\n%s",
+			"exercise %s scope for %s over %s: %w\n%s",
+			s.opts.suiteScope,
 			mode,
 			listener.transport,
 			err,
@@ -805,7 +871,14 @@ func startProcess(path string, args []string, dir string, env []string, logPath 
 	return process, nil
 }
 
-func (process *managedProcess) stop() (stopErr error) {
+func (process *managedProcess) stop() error {
+	process.stopOnce.Do(func() {
+		process.stopErr = process.stopProcess()
+	})
+	return process.stopErr
+}
+
+func (process *managedProcess) stopProcess() (stopErr error) {
 	defer func() {
 		if err := closeProcessTree(process.tree); err != nil {
 			stopErr = errors.Join(stopErr, fmt.Errorf("close process tree %d (%s): %w", process.cmd.Process.Pid, process.cmd.Path, err))

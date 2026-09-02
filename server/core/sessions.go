@@ -19,6 +19,7 @@ package core
 */
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"time"
@@ -27,6 +28,7 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/transports/wireguard"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"github.com/bishopfox/sliver/server/core/rtunnels"
 	"github.com/bishopfox/sliver/server/log"
 	uuid "uuid"
 
@@ -158,40 +160,74 @@ func (s *Session) ToProtobuf() *clientpb.Session {
 
 // Request - Sends a protobuf request to the active sliver and returns the response
 func (s *Session) Request(msgType uint32, timeout time.Duration, data []byte) ([]byte, error) {
-	resp := make(chan *sliverpb.Envelope)
-	reqID := EnvelopeID()
-	s.Connection.RespMutex.Lock()
-	s.Connection.Resp[reqID] = resp
-	s.Connection.RespMutex.Unlock()
-	defer func() {
-		s.Connection.RespMutex.Lock()
-		defer s.Connection.RespMutex.Unlock()
-		// close(resp)
-		delete(s.Connection.Resp, reqID)
-	}()
 	if timeout == 0 {
 		timeout = 60 * time.Second
 	}
-	select {
-	case s.Connection.Send <- &sliverpb.Envelope{
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	response, err := s.RequestContext(ctx, msgType, data)
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, ErrImplantSendTimeout) {
+		return nil, ErrImplantTimeout
+	}
+	return response, err
+}
+
+// RequestContext sends a request and uses one context budget across both
+// outbound queueing and the response wait. A canceled context is checked before
+// a response waiter is installed, and every return path removes that waiter.
+func (s *Session) RequestContext(ctx context.Context, msgType uint32, data []byte) ([]byte, error) {
+	if s == nil || s.Connection == nil {
+		return nil, ErrImplantConnectionClosed
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	connection := s.Connection
+	resp := make(chan *sliverpb.Envelope, 1)
+	reqID := EnvelopeID()
+	connection.RespMutex.Lock()
+	connection.Resp[reqID] = resp
+	connection.RespMutex.Unlock()
+	defer func() {
+		connection.RespMutex.Lock()
+		defer connection.RespMutex.Unlock()
+		// close(resp)
+		delete(connection.Resp, reqID)
+	}()
+
+	sendTimeout := 60 * time.Second
+	if deadline, ok := ctx.Deadline(); ok {
+		sendTimeout = time.Until(deadline)
+		if sendTimeout <= 0 {
+			return nil, context.DeadlineExceeded
+		}
+	}
+	err := connection.SendEnvelopeUntil(&sliverpb.Envelope{
 		ID:   reqID,
 		Type: msgType,
 		Data: data,
-	}:
-	case <-time.After(timeout):
-		return nil, ErrImplantTimeout
+	}, ctx.Done(), sendTimeout)
+	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
+		return nil, err
 	}
 
-	var respEnvelope *sliverpb.Envelope
 	select {
-	case respEnvelope = <-resp:
-	case <-time.After(timeout):
-		return nil, ErrImplantTimeout
+	case respEnvelope := <-resp:
+		if respEnvelope.UnknownMessageType {
+			return nil, ErrUnknownMessageType
+		}
+		return respEnvelope.Data, nil
+	case <-connection.Done():
+		return nil, ErrImplantConnectionClosed
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
-	if respEnvelope.UnknownMessageType {
-		return nil, ErrUnknownMessageType
-	}
-	return respEnvelope.Data, nil
 }
 
 // sessions - Manages the slivers, provides atomic access
@@ -235,17 +271,29 @@ func (s *sessions) Remove(sessionID string) {
 	}
 	parentSession := val.(*Session)
 	children := findAllChildrenByPeerID(parentSession.PeerID)
-	s.sessions.Delete(parentSession.ID)
+	if !s.sessions.CompareAndDelete(sessionID, val) {
+		return
+	}
+	cleanupReversePortForwards(parentSession.ID)
 	coreLog.Debugf("Removing %d children of session %s (%v)", len(children), parentSession.ID, children)
 	for _, child := range children {
 		childSession, ok := s.sessions.LoadAndDelete(child.SessionID)
 		if ok {
-			PivotSessions.Delete(childSession.(*Session).Connection.ID)
+			removedChild := childSession.(*Session)
+			cleanupReversePortForwards(removedChild.ID)
+			if removedChild.Connection != nil {
+				closePivotForConnection(removedChild.Connection)
+				removedChild.Connection.Close()
+			}
 			EventBroker.Publish(Event{
 				EventType: consts.SessionClosedEvent,
-				Session:   childSession.(*Session),
+				Session:   removedChild,
 			})
 		}
+	}
+	if parentSession.Connection != nil && parentSession.Connection.Transport == PivotTransportName {
+		closePivotForConnection(parentSession.Connection)
+		parentSession.Connection.Close()
 	}
 
 	// Remove the parent session
@@ -253,6 +301,13 @@ func (s *sessions) Remove(sessionID string) {
 		EventType: consts.SessionClosedEvent,
 		Session:   parentSession,
 	})
+}
+
+func cleanupReversePortForwards(sessionID string) {
+	// Revoke first to cancel pending broker dials, then detach any registered
+	// relays. Both operations are idempotent because disconnect paths can race.
+	rtunnels.DefaultRegistry.RevokeSession(sessionID)
+	rtunnels.CloseSession(sessionID)
 }
 
 // NewSession - Create a new session

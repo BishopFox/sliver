@@ -1,0 +1,26 @@
+bof_collection
+Copyright 2026 Pim Beune
+
+This product includes a modified copy of beacon.h derived from the
+Cobalt-Strike/bof_template project, which is licensed under the Apache License,
+Version 2.0. The local copy has been updated from the upstream template and is
+distributed under the same license.
+
+Armory packaging and integration changes were made by Sliver Armory
+contributors.
+
+Research and reference acknowledgements retained from the source project:
+
+- Outflank: Remote Registry Protocol information-disclosure techniques
+  (https://www.youtube.com/watch?v=MxDq552Di3Y) and remote named-pipe
+  enumeration research
+  (https://outflank.nl/blog/2023/10/19/listing-remote-named-pipes/).
+- Julian Peña: CVE-2019-16098 exploitation write-up referenced by the driver
+  proof of concept
+  (https://julian-pena.com/2025-09-29-exploiting-drivers-1/).
+- Eric Esquivel: ntoskrnl function-offset technique acknowledged in the
+  CVE-2019-16098 source.
+
+These research acknowledgements identify referenced techniques and materials;
+they do not assert that the named researchers authored this collection's code
+or that they endorse this package.

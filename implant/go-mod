@@ -11,7 +11,7 @@ require (
 	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
 	github.com/lesnuages/go-winio v0.4.19
 	github.com/miekg/dns v1.1.50
-	github.com/sliverarmory/reflektor v0.0.7
+	github.com/sliverarmory/reflektor v0.0.8
 	github.com/stretchr/testify v1.8.4
 	github.com/tetratelabs/wazero v1.7.1
 	github.com/things-go/go-socks5 v0.0.4

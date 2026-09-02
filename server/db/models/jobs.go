@@ -92,6 +92,9 @@ type MultiplayerListener struct {
 	Host          string
 	Port          uint32
 	WireGuard     bool
+	// WireGuardOptIn distinguishes explicit opt-ins from rows created while
+	// multiplayer WireGuard was briefly the default.
+	WireGuardOptIn bool `gorm:"not null;default:false"`
 }
 
 type DnsDomain struct {
@@ -194,7 +197,7 @@ func (j *MultiplayerListener) ToProtobuf() *clientpb.MultiplayerListenerReq {
 	return &clientpb.MultiplayerListenerReq{
 		Host:      j.Host,
 		Port:      j.Port,
-		WireGuard: j.WireGuard,
+		WireGuard: j.WireGuard && j.WireGuardOptIn,
 	}
 }
 
@@ -263,9 +266,10 @@ func ListenerJobFromProtobuf(pbListenerJob *clientpb.ListenerJob) *ListenerJob {
 		}
 	case constants.MultiplayerModeStr:
 		cfg.MultiplayerListener = MultiplayerListener{
-			Host:      pbListenerJob.MultiConf.Host,
-			Port:      pbListenerJob.MultiConf.Port,
-			WireGuard: pbListenerJob.MultiConf.WireGuard,
+			Host:           pbListenerJob.MultiConf.Host,
+			Port:           pbListenerJob.MultiConf.Port,
+			WireGuard:      pbListenerJob.MultiConf.WireGuard,
+			WireGuardOptIn: pbListenerJob.MultiConf.WireGuard,
 		}
 	}
 

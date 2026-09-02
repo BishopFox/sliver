@@ -42,7 +42,8 @@ var (
 
 // GetSystemShellPath - Find powershell or cmd
 func GetSystemShellPath(path string) []string {
-	if exists(path) {
+	path = normalizeWindowsShellPath(path)
+	if path != "" && exists(path) {
 		return []string{path}
 	}
 	if exists(powerShell[0]) {
@@ -94,24 +95,23 @@ func pipedShell(tunnelID uint64, command []string) (*Shell, error) {
 		cancel()
 		return nil, err
 	}
+	// Windows does not use a PTY here, and tunnel output has no stderr channel.
+	// Use one pipe so concurrent readers cannot reorder output or race Cmd.Wait.
+	cmd.Stderr = cmd.Stdout
 
-	stderr, err := cmd.StderrPipe()
+	err = cmd.Start()
 	if err != nil {
-		// {{if .Config.Debug}}
-		log.Printf("[shell] stderr pipe failed\n")
-		// {{end}}
+		_ = stdin.Close()
+		_ = stdout.Close()
 		cancel()
 		return nil, err
 	}
-
-	err = cmd.Start()
 
 	return &Shell{
 		ID:      tunnelID,
 		Command: cmd,
 		Stdout:  stdout,
 		Stdin:   stdin,
-		Stderr:  stderr,
 		Cancel:  cancel,
-	}, err
+	}, nil
 }

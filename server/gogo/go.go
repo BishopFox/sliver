@@ -246,9 +246,9 @@ func withDarwinNoCGOLinknameCompatibility(config GoConfig, ldflags []string) []s
 		return ldflags
 	}
 
-	// Reflektor v0.0.7 pulls the private runtime.systemstack symbol, which the
-	// Go 1.27 linker rejects for Darwin no-CGO builds. Disable that linker check
-	// until Reflektor stops relying on the private runtime symbol.
+	// Reflektor's Darwin no-CGO bridge pulls the private runtime.systemstack
+	// symbol, which the Go 1.27 linker rejects. Disable that linker check until
+	// Reflektor stops relying on the private runtime symbol.
 	joined := strings.TrimSpace(strings.Join(ldflags, " "))
 	for _, flag := range strings.Fields(joined) {
 		if flag == darwinNoCGOCheckLinknameLDFlag {

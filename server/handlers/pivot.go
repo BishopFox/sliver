@@ -74,6 +74,14 @@ func uuidBytes(value uuid.UUID) []byte {
 // NOTE: the data passed as an argument to this handler is already extracted from the most recent
 // envelope so we can just start parsing PivotPeerEnvelope's
 func pivotPeerEnvelopeHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
+	if implantConn == nil {
+		return nil
+	}
+	select {
+	case <-implantConn.Done():
+		return nil
+	default:
+	}
 	pivotLog.Debugf("received pivot peer envelope ...")
 	peerEnvelope := &sliverpb.PivotPeerEnvelope{}
 	err := proto.Unmarshal(data, peerEnvelope)
@@ -94,6 +102,9 @@ func pivotPeerEnvelopeHandler(implantConn *core.ImplantConnection, data []byte) 
 }
 
 func sessionEnvelopeHandler(implantConn *core.ImplantConnection, peerEnvelope *sliverpb.PivotPeerEnvelope) *sliverpb.Envelope {
+	if implantConn == nil || peerEnvelope == nil {
+		return nil
+	}
 	pivotSessionUUID, err := uuidFromBytes(peerEnvelope.PivotSessionID)
 	if err != nil {
 		pivotLog.Errorf("failed to parse pivot session id from peer envelope: %v", err)
@@ -107,6 +118,23 @@ func sessionEnvelopeHandler(implantConn *core.ImplantConnection, peerEnvelope *s
 		return nil
 	}
 	pivot := pivotEntry.(*core.Pivot)
+	if pivot == nil || pivot.ImplantConn == nil || pivot.ImmediateImplantConn == nil || pivot.ImmediateImplantConn != implantConn {
+		pivotLog.Warnf("rejected pivot session envelope from non-owning connection")
+		return nil
+	}
+	select {
+	case <-pivot.ImplantConn.Done():
+		core.ClosePivotSession(pivotSessionID)
+		return nil
+	case <-pivot.ImmediateImplantConn.Done():
+		core.ClosePivotSession(pivotSessionID)
+		return nil
+	default:
+	}
+	if pivot.CipherCtx == nil {
+		pivotLog.Warnf("rejected pivot session envelope without a cipher context")
+		return nil
+	}
 	plaintext, err := pivot.CipherCtx.Decrypt(peerEnvelope.Data)
 	if err != nil {
 		pivotLog.Errorf("failed to decrypt pivot session data: %v", err)
@@ -118,6 +146,13 @@ func sessionEnvelopeHandler(implantConn *core.ImplantConnection, peerEnvelope *s
 		pivotLog.Errorf("failed to unmarshal pivot session data: %v", err)
 		return nil
 	}
+	select {
+	case <-pivot.ImplantConn.Done():
+		return nil
+	case <-pivot.ImmediateImplantConn.Done():
+		return nil
+	default:
+	}
 
 	go handlePivotEnvelope(pivot, envelope)
 
@@ -125,20 +160,28 @@ func sessionEnvelopeHandler(implantConn *core.ImplantConnection, peerEnvelope *s
 }
 
 func handlePivotEnvelope(pivot *core.Pivot, envelope *sliverpb.Envelope) {
+	if pivot == nil || envelope == nil || pivot.ImplantConn == nil || pivot.ImmediateImplantConn == nil {
+		return
+	}
 	pivotLog.Debugf("pivot session %s received envelope: %v", pivot.ID, envelope.Type)
 	handlers := GetNonPivotHandlers()
+	select {
+	case <-pivot.ImplantConn.Done():
+		return
+	case <-pivot.ImmediateImplantConn.Done():
+		return
+	default:
+	}
 	pivot.ImplantConn.UpdateLastMessage()
 	if envelope.ID != 0 {
-		pivot.ImplantConn.RespMutex.RLock()
-		defer pivot.ImplantConn.RespMutex.RUnlock()
-		if resp, ok := pivot.ImplantConn.Resp[envelope.ID]; ok {
-			resp <- envelope
-		}
+		pivot.ImplantConn.DeliverResponse(envelope)
 	} else if handler, ok := handlers[envelope.Type]; ok {
 		respEnvelope := handler(pivot.ImplantConn, envelope.Data)
 		if respEnvelope != nil {
 			go func() {
-				pivot.ImplantConn.Send <- respEnvelope
+				if err := pivot.ImplantConn.SendEnvelopeUntil(respEnvelope, pivot.ImmediateImplantConn.Done(), core.DefaultImplantSendTimeout); err != nil {
+					pivot.ImplantConn.Close()
+				}
 			}()
 		}
 	} else if envelope.Type == sliverpb.MsgPivotServerPing {
@@ -167,6 +210,9 @@ func pivotPeerFailureHandler(implantConn *core.ImplantConnection, data []byte) *
 	targetPivotIDs := map[string]struct{}{}
 	core.PivotSessions.Range(func(key, value interface{}) bool {
 		pivot := value.(*core.Pivot)
+		if pivot.ImmediateImplantConn != implantConn {
+			return true
+		}
 		reporterIdx := pivotPeerIndex(pivot.Peers, reportingSession.PeerID)
 		if reporterIdx <= 0 {
 			return true
@@ -187,7 +233,7 @@ func pivotPeerFailureHandler(implantConn *core.ImplantConnection, data []byte) *
 		return true
 	})
 
-	if len(targetSessionIDs) == 0 {
+	if len(targetPivotIDs) == 0 {
 		pivotLog.Warnf("ignoring unauthorized pivot peer failure from %d for %d", reportingSession.PeerID, peerFailure.PeerID)
 		return nil
 	}
@@ -196,7 +242,7 @@ func pivotPeerFailureHandler(implantConn *core.ImplantConnection, data []byte) *
 		core.Sessions.Remove(sessionID)
 	}
 	for pivotID := range targetPivotIDs {
-		core.PivotSessions.Delete(pivotID)
+		core.ClosePivotSession(pivotID)
 	}
 	return nil
 }
@@ -211,6 +257,16 @@ func pivotPeerIndex(peers []*sliverpb.PivotPeer, peerID int64) int {
 }
 
 func pivotServerPingHandler(pivot *core.Pivot) {
+	if pivot == nil || pivot.ImplantConn == nil || pivot.ImmediateImplantConn == nil {
+		return
+	}
+	select {
+	case <-pivot.ImplantConn.Done():
+		return
+	case <-pivot.ImmediateImplantConn.Done():
+		return
+	default:
+	}
 	pivot.ImplantConn.UpdateLastMessage()
 	pivot.ImmediateImplantConn.UpdateLastMessage()
 }
@@ -278,7 +334,6 @@ func serverKeyExchange(implantConn *core.ImplantConnection, peerEnvelope *sliver
 		pivotLog.Warnf("Failed to parse pivot session ID: %v", err)
 		return nil
 	}
-	core.PivotSessions.Store(pivotSession.ID, pivotSession)
 	keyExRespEnvelope := MustMarshal(&sliverpb.Envelope{
 		Type: sliverpb.MsgPivotServerKeyExchange,
 		Data: MustMarshal(&sliverpb.PivotServerKeyExchange{
@@ -290,7 +345,7 @@ func serverKeyExchange(implantConn *core.ImplantConnection, peerEnvelope *sliver
 		pivotLog.Warn("Failed to encrypt pivot server key exchange response")
 		return nil
 	}
-	peerEnvelopeData, _ := proto.Marshal(&sliverpb.PivotPeerEnvelope{
+	peerEnvelopeData, err := proto.Marshal(&sliverpb.PivotPeerEnvelope{
 		Peers: pivotSession.Peers,
 		Data:  ciphertext,
 	})
@@ -299,6 +354,7 @@ func serverKeyExchange(implantConn *core.ImplantConnection, peerEnvelope *sliver
 		return nil
 	}
 
+	core.PivotSessions.Store(pivotSession.ID, pivotSession)
 	pivotSession.Start()
 	return &sliverpb.Envelope{
 		Type: sliverpb.MsgPivotPeerEnvelope,

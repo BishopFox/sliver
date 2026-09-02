@@ -38,7 +38,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/miekg/dns v1.1.70
 	github.com/moloch--/asciicast v0.1.1
-	github.com/moloch--/sgn v0.0.5
+	github.com/moloch--/sgn v0.1.2
 	github.com/ncruces/go-sqlite3 v0.30.4
 	github.com/nikoksr/notify v1.5.0
 	github.com/openai/openai-go/v2 v2.7.1
@@ -48,7 +48,8 @@ require (
 	github.com/sirupsen/logrus v1.9.4
 	github.com/sliverarmory/beignet v0.0.3
 	github.com/sliverarmory/malasada v0.0.3
-	github.com/sliverarmory/reflektor v0.0.7
+	github.com/sliverarmory/opfor v0.0.2
+	github.com/sliverarmory/reflektor v0.0.8
 	github.com/sliverarmory/wasm-donut v0.0.3
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10

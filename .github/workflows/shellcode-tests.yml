@@ -113,6 +113,7 @@ jobs:
           -transports mtls,wg,http
           -implant-modes session,beacon
           -beacon-interval 10s
+          -shellcode-sgn-samples 4
 
       - name: Upload target shellcode results
         if: ${{ always() }}

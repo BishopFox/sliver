@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestParseSelectionPreservesAllowedOrderAndDeduplicates(t *testing.T) {
@@ -38,6 +39,43 @@ func TestParseSelectionRejectsEmptyInput(t *testing.T) {
 	}
 	if got, want := err.Error(), "at least one implant mode is required"; got != want {
 		t.Fatalf("error got %q, want %q", got, want)
+	}
+}
+
+func TestSuiteScopeRouting(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		modes     []string
+		wantScope string
+		wantModes []string
+		wantError bool
+	}{
+		{name: "comprehensive preserves modes", input: "comprehensive", modes: []string{"session", "beacon"}, wantScope: suiteScopeComprehensive, wantModes: []string{"session", "beacon"}},
+		{name: "focused forces sessions", input: "rportfwd", modes: []string{"session", "beacon"}, wantScope: suiteScopeRportFwd, wantModes: []string{"session"}},
+		{name: "surrounding whitespace", input: " rportfwd ", modes: []string{"beacon"}, wantScope: suiteScopeRportFwd, wantModes: []string{"session"}},
+		{name: "unsupported", input: "other", wantError: true},
+		{name: "noncanonical case", input: "RPORTFWD", wantError: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			scope, err := normalizeSuiteScope(test.input)
+			if test.wantError {
+				if err == nil {
+					t.Fatalf("normalizeSuiteScope(%q) succeeded", test.input)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("normalizeSuiteScope(%q): %v", test.input, err)
+			}
+			if scope != test.wantScope {
+				t.Fatalf("scope = %q, want %q", scope, test.wantScope)
+			}
+			if got := modesForSuiteScope(scope, test.modes); !reflect.DeepEqual(got, test.wantModes) {
+				t.Fatalf("modes = %v, want %v", got, test.wantModes)
+			}
+		})
 	}
 }
 
@@ -161,6 +199,36 @@ func TestManagedProcessStatusReportsExactExitError(t *testing.T) {
 
 	if got, want := managedProcessStatus(process), "exited with error: forced implant failure"; got != want {
 		t.Fatalf("process status got %q, want %q", got, want)
+	}
+}
+
+func TestManagedProcessStopIsIdempotent(t *testing.T) {
+	const helperEnvironment = "SLIVER_E2E_MANAGED_PROCESS_HELPER"
+	if os.Getenv(helperEnvironment) == "1" {
+		time.Sleep(time.Hour)
+		return
+	}
+
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatalf("resolve test executable: %v", err)
+	}
+	testDir := t.TempDir()
+	process, err := startProcess(
+		executable,
+		[]string{"-test.run=^TestManagedProcessStopIsIdempotent$"},
+		testDir,
+		append(os.Environ(), helperEnvironment+"=1"),
+		filepath.Join(testDir, "managed-process.log"),
+	)
+	if err != nil {
+		t.Fatalf("start managed helper process: %v", err)
+	}
+	if err := process.stop(); err != nil {
+		t.Fatalf("first stop: %v", err)
+	}
+	if err := process.stop(); err != nil {
+		t.Fatalf("second stop: %v", err)
 	}
 }
 

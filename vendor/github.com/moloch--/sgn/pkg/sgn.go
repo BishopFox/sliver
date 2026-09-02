@@ -3,7 +3,6 @@ package sgn
 import (
 	"errors"
 	"fmt"
-	"math/rand"
 	"strings"
 
 	keystone "github.com/moloch--/go-keystone"
@@ -40,15 +39,15 @@ func init() {
 	REGS[32] = append(REGS[32], REG{Extended: "ECX", High: "CX", Low: "CL", Arch: 32})
 	REGS[32] = append(REGS[32], REG{Extended: "EDX", High: "DX", Low: "DL", Arch: 32})
 	// since there is no way to access 1 byte use above instead
-	REGS[32] = append(REGS[32], REG{Extended: "ESI", High: "SI", Low: "AL", Arch: 32})
-	REGS[32] = append(REGS[32], REG{Extended: "EDI", High: "DI", Low: "BL", Arch: 32})
+	REGS[32] = append(REGS[32], REG{Extended: "ESI", High: "SI", Low: "", Arch: 32})
+	REGS[32] = append(REGS[32], REG{Extended: "EDI", High: "DI", Low: "", Arch: 32})
 	// Setup x64 GP the register values
 	REGS[64] = append(REGS[64], REG{Full: "RAX", Extended: "EAX", High: "AX", Low: "AL", Arch: 64})
 	REGS[64] = append(REGS[64], REG{Full: "RBX", Extended: "EBX", High: "BX", Low: "BL", Arch: 64})
 	REGS[64] = append(REGS[64], REG{Full: "RCX", Extended: "ECX", High: "CX", Low: "CL", Arch: 64})
 	REGS[64] = append(REGS[64], REG{Full: "RDX", Extended: "EDX", High: "DX", Low: "DL", Arch: 64})
 	REGS[64] = append(REGS[64], REG{Full: "RSI", Extended: "ESI", High: "SI", Low: "SIL", Arch: 64})
-	REGS[64] = append(REGS[64], REG{Full: "RDI", Extended: "EDI", High: "DX", Low: "DIL", Arch: 64})
+	REGS[64] = append(REGS[64], REG{Full: "RDI", Extended: "EDI", High: "DI", Low: "DIL", Arch: 64})
 	REGS[64] = append(REGS[64], REG{Full: "R8", Extended: "R8D", High: "R8W", Low: "R8B", Arch: 64})
 	REGS[64] = append(REGS[64], REG{Full: "R9", Extended: "R9D", High: "R9W", Low: "R9B", Arch: 64})
 	REGS[64] = append(REGS[64], REG{Full: "R10", Extended: "R10D", High: "R10W", Low: "R10B", Arch: 64})
@@ -84,23 +83,27 @@ var X86_REG_SAVE_PREFIX = []byte{0x60, 0x9c} // PUSHAD, PUSHFD
 // X86_REG_SAVE_SUFFIX instructions for saving registers to stack
 var X86_REG_SAVE_SUFFIX = []byte{0x9d, 0x61} // POPFD, POPAD
 
-// X64_REG_SAVE_PREFIX instructions for saving registers to stack
+// X64_REG_SAVE_PREFIX saves general-purpose registers. The duplicate PUSH RAX
+// keeps the wrapper's stack delta 16-byte aligned without adding a fixed byte
+// that makes safe+ASCII constrained encoding impossible.
 var X64_REG_SAVE_PREFIX = []byte{
 	0x50, 0x53, 0x51, 0x52, // PUSH RAX,RBX,RCX,RDX
-	0x56, 0x57, 0x55, 0x54, // PUSH RSI,RDI,RBP,RSP
+	0x56, 0x57, 0x55, // PUSH RSI,RDI,RBP
 	0x41, 0x50, 0x41, 0x51, // PUSH R8,R9
 	0x41, 0x52, 0x41, 0x53, // PUSH R10,R11
 	0x41, 0x54, 0x41, 0x55, // PUSH R12,R13
 	0x41, 0x56, 0x41, 0x57, // PUSH R14,R15
+	0x50, // duplicate PUSH RAX alignment slot
 }
 
-// X64_REG_SAVE_SUFFIX instructions for saving registers to stack
+// X64_REG_SAVE_SUFFIX discards the alignment slot and restores registers.
 var X64_REG_SAVE_SUFFIX = []byte{
+	0x58,                   // POP RAX alignment slot
 	0x41, 0x5f, 0x41, 0x5e, // POP R15,R14
 	0x41, 0x5d, 0x41, 0x5c, // POP R13,R12
 	0x41, 0x5b, 0x41, 0x5a, // POP R11,R10
 	0x41, 0x59, 0x41, 0x58, // POP R9,R8
-	0x5c, 0x5d, 0x5f, 0x5e, // POP RSP,RBP,RDI,RSI
+	0x5d, 0x5f, 0x5e, // POP RBP,RDI,RSI
 	0x5a, 0x59, 0x5b, 0x58, // POP RDX,RCX,RBX,RAX
 }
 
@@ -109,19 +112,28 @@ var REGS map[int][]REG
 
 // GetRandomRegister returns a random register name based on given size and architecture
 func (encoder Encoder) GetRandomRegister(size int) string {
-	switch size {
-	case 8:
-		return REGS[encoder.architecture][rand.Intn(len(REGS[encoder.architecture]))].Low
-	case 16:
-		return REGS[encoder.architecture][rand.Intn(len(REGS[encoder.architecture]))].High
-	case 32:
-		return REGS[encoder.architecture][rand.Intn(len(REGS[encoder.architecture]))].Extended
-	case 64:
-		return REGS[encoder.architecture][rand.Intn(len(REGS[encoder.architecture]))].Full
-	default:
-		panic("invalid register size")
+	regs := make([]string, 0, len(REGS[encoder.architecture]))
+	for _, register := range REGS[encoder.architecture] {
+		var name string
+		switch size {
+		case 8:
+			name = register.Low
+		case 16:
+			name = register.High
+		case 32:
+			name = register.Extended
+		case 64:
+			name = register.Full
+		}
+		if name != "" {
+			regs = append(regs, name)
+		}
 	}
 
+	if len(regs) == 0 {
+		panic("invalid register size or no registers available")
+	}
+	return regs[secureIntn(len(regs))]
 }
 
 // GetRandomStackAddress returns a stack address assembly referance based on the encoder architecture
@@ -161,28 +173,41 @@ func (encoder Encoder) GetBasePointer() string {
 
 // GetSafeRandomRegister returns a random register among all (registers-excluded parameters) based on given size
 func (encoder Encoder) GetSafeRandomRegister(size int, excludes ...string) (string, error) {
-	regs := []REG{}
-	for _, r := range REGS[encoder.architecture] {
-		for _, x := range excludes {
-			if r.Extended != x && r.Full != x && r.High != x && r.Low != x {
-				regs = append(regs, r)
+	regs := make([]string, 0, len(REGS[encoder.architecture]))
+	for _, register := range REGS[encoder.architecture] {
+		var name string
+		switch size {
+		case 8:
+			name = register.Low
+		case 16:
+			name = register.High
+		case 32:
+			name = register.Extended
+		case 64:
+			name = register.Full
+		default:
+			return "", errors.New("invalid register size")
+		}
+		if name == "" {
+			continue
+		}
+
+		safe := true
+		for _, excluded := range excludes {
+			if register.Extended == excluded || register.Full == excluded || register.High == excluded || register.Low == excluded {
+				safe = false
+				break
 			}
+		}
+		if safe {
+			regs = append(regs, name)
 		}
 	}
 
-	r := regs[rand.Intn(len(regs))]
-	switch size {
-	case 8:
-		return r.Low, nil
-	case 16:
-		return r.High, nil
-	case 32:
-		return r.Extended, nil
-	case 64:
-		return r.Full, nil
-	default:
-		return "", errors.New("invalid register size")
+	if len(regs) == 0 {
+		return "", errors.New("no safe registers available")
 	}
+	return regs[secureIntn(len(regs))], nil
 }
 
 // Assemble assembes the given instructions
@@ -349,7 +374,7 @@ func (encoder Encoder) AddCondJmpOver(payload []byte) ([]byte, error) {
 	// JZ 2 -> Jumps to next instruction
 	// Perform a short call over the payload
 
-	randomConditional := ConditionalJumpMnemonics[rand.Intn(len(ConditionalJumpMnemonics))]
+	randomConditional := ConditionalJumpMnemonics[secureIntn(len(ConditionalJumpMnemonics))]
 
 	jmp := fmt.Sprintf("%s 0x%x", randomConditional, len(payload)+2)
 	jmpBin, ok := encoder.Assemble(jmp)

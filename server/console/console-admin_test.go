@@ -3,6 +3,7 @@ package console
 import (
 	"encoding/json"
 	"encoding/pem"
+	"strings"
 	"testing"
 
 	clientassets "github.com/bishopfox/sliver/client/assets"
@@ -21,6 +22,12 @@ func TestRootOnlyVerifyCertificate(t *testing.T) {
 	err = json.Unmarshal(data, config)
 	if err != nil {
 		t.Fatalf("failed to parse client config %s", err)
+	}
+	if config.WG != nil {
+		t.Fatal("expected default operator config to omit WireGuard settings")
+	}
+	if strings.Contains(string(data), `"wg"`) {
+		t.Fatalf("expected serialized default operator config to omit wg block: %s", data)
 	}
 
 	_, _, err = certs.OperatorServerGetCertificate("localhost")
