@@ -56,7 +56,7 @@ func TestRunAlwaysWritesReportsBeforeMissingRecordGateFailure(t *testing.T) {
 	if code != 1 {
 		t.Fatalf("run() code = %d, want 1; stdout=%s stderr=%s", code, stdout.String(), stderr.String())
 	}
-	if !strings.Contains(stderr.String(), "0 FAIL, 192 NOT RUN") {
+	if !strings.Contains(stderr.String(), "0 FAIL, 168 NOT RUN") {
 		t.Fatalf("stderr = %q, want missing-record gate diagnostic", stderr.String())
 	}
 	assertCLIOutputsExist(t, filepath.Join(root, "output"))

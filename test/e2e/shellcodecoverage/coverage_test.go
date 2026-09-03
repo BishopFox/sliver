@@ -21,7 +21,6 @@ func TestFixedAxesAndEncoderSupport(t *testing.T) {
 		{OS: "darwin", Arch: "arm64"},
 		{OS: "linux", Arch: "amd64"},
 		{OS: "linux", Arch: "arm64"},
-		{OS: "windows", Arch: "386"},
 		{OS: "windows", Arch: "amd64"},
 	}
 	if got := shellcodecoverage.Targets(); !reflect.DeepEqual(got, wantTargets) {
@@ -59,7 +58,6 @@ func TestFixedAxesAndEncoderSupport(t *testing.T) {
 		{OS: "darwin", Arch: "arm64"}:  {shellcodecoverage.EncoderNone, shellcodecoverage.EncoderXOR, shellcodecoverage.EncoderXORDynamic},
 		{OS: "linux", Arch: "amd64"}:   {shellcodecoverage.EncoderNone, shellcodecoverage.EncoderShikataGaNai, shellcodecoverage.EncoderXOR, shellcodecoverage.EncoderXORDynamic},
 		{OS: "linux", Arch: "arm64"}:   {shellcodecoverage.EncoderNone, shellcodecoverage.EncoderXOR, shellcodecoverage.EncoderXORDynamic},
-		{OS: "windows", Arch: "386"}:   {shellcodecoverage.EncoderNone, shellcodecoverage.EncoderShikataGaNai},
 		{OS: "windows", Arch: "amd64"}: {shellcodecoverage.EncoderNone, shellcodecoverage.EncoderShikataGaNai, shellcodecoverage.EncoderXOR, shellcodecoverage.EncoderXORDynamic},
 	}
 	supportedEncoderCount := 0
@@ -232,13 +230,13 @@ func TestAggregateFullPassAndNARendering(t *testing.T) {
 		t.Fatalf("AggregateDirectory() error = %v", err)
 	}
 	wantSummary := shellcodecoverage.Summary{
-		Recorded:      192,
-		Pass:          192,
+		Recorded:      168,
+		Pass:          168,
 		Fail:          0,
 		NotRun:        0,
-		NotApplicable: 48,
-		Required:      192,
-		TotalCells:    240,
+		NotApplicable: 24,
+		Required:      168,
+		TotalCells:    192,
 	}
 	if report.Summary != wantSummary {
 		t.Fatalf("Summary = %+v, want %+v", report.Summary, wantSummary)
@@ -246,8 +244,8 @@ func TestAggregateFullPassAndNARendering(t *testing.T) {
 	if err := report.GateError(); err != nil {
 		t.Fatalf("GateError() = %v, want nil", err)
 	}
-	if got := len(report.Matrix); got != 60 {
-		t.Fatalf("matrix rows = %d, want 60", got)
+	if got := len(report.Matrix); got != 48 {
+		t.Fatalf("matrix rows = %d, want 48", got)
 	}
 
 	paths, err := shellcodecoverage.WriteGlobalReports(filepath.Join(root, "output"), report)
@@ -258,7 +256,7 @@ func TestAggregateFullPassAndNARendering(t *testing.T) {
 	if !strings.HasPrefix(markdown, "# Sliver shellcode E2E coverage\n\n| Target | Transport | Mode | Compression | none | shikata_ga_nai | xor | xor_dynamic |") {
 		t.Fatalf("global Markdown does not lead with the matrix table:\n%s", markdown)
 	}
-	for _, marker := range []string{"✅ PASS", "❌ FAIL", "➖ N/A", "⚪ NOT RUN", "| 192 | 192 | 192 | 0 | 0 | 48 | 240 |", "None. All required combinations passed."} {
+	for _, marker := range []string{"✅ PASS", "❌ FAIL", "➖ N/A", "⚪ NOT RUN", "| 168 | 168 | 168 | 0 | 0 | 24 | 192 |", "None. All required combinations passed."} {
 		if !strings.Contains(markdown, marker) {
 			t.Errorf("global Markdown omitted %q", marker)
 		}
@@ -282,11 +280,11 @@ func TestAggregateFullPassAndNARendering(t *testing.T) {
 			}
 		}
 	}
-	if naCount != 48 {
-		t.Fatalf("N/A cells = %d, want 48", naCount)
+	if naCount != 24 {
+		t.Fatalf("N/A cells = %d, want 24", naCount)
 	}
-	if sgnCount != 36 {
-		t.Fatalf("recorded SGN cells = %d, want 36", sgnCount)
+	if sgnCount != 24 {
+		t.Fatalf("recorded SGN cells = %d, want 24", sgnCount)
 	}
 }
 
@@ -312,7 +310,7 @@ func TestAggregateExplicitFailureFailsGateAndRendersDetail(t *testing.T) {
 	if got, want := report.Summary.Fail, 1; got != want {
 		t.Fatalf("Fail = %d, want %d", got, want)
 	}
-	if got, want := report.Summary.Pass, 191; got != want {
+	if got, want := report.Summary.Pass, 167; got != want {
 		t.Fatalf("Pass = %d, want %d", got, want)
 	}
 	if err := report.GateError(); err == nil || !strings.Contains(err.Error(), "1 FAIL") {

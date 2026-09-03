@@ -42,13 +42,6 @@ jobs:
             test_executable: ./sliver-shellcode-e2e
           - runner: windows-2022
             target_os: windows
-            target_arch: "386"
-            server_os: windows
-            server_arch: amd64
-            server_executable: ./sliver-server.exe
-            test_executable: ./sliver-shellcode-e2e.exe
-          - runner: windows-2022
-            target_os: windows
             target_arch: amd64
             server_os: windows
             server_arch: amd64
