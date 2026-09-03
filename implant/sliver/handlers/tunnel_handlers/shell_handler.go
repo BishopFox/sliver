@@ -148,9 +148,8 @@ func ShellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 		if rc == nil {
 			continue
 		}
-		readers.Add(1)
-		go func(outErr io.ReadCloser) {
-			defer readers.Done()
+		outErr := rc
+		readers.Go(func() {
 			tWriter := tunnelWriter{
 				conn: connection,
 				tun:  tunnel,
@@ -165,7 +164,7 @@ func ShellReqHandler(envelope *sliverpb.Envelope, connection *transports.Connect
 				// still-running process. One stop request terminates all readers.
 				session.Stop()
 			}
-		}(rc)
+		})
 	}
 
 	// Exactly one goroutine owns Cmd.Wait. It first drains every output pipe,

@@ -24,6 +24,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
+	uuid "uuid"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
@@ -35,8 +37,6 @@ import (
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
-	"github.com/bishopfox/sliver/util"
-	"github.com/gofrs/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -104,8 +104,8 @@ func (rpc *Server) CrackTaskUpdate(ctx context.Context, req *clientpb.CrackTask)
 }
 
 func (rpc *Server) CrackstationBenchmark(ctx context.Context, req *clientpb.CrackBenchmark) (*commonpb.Empty, error) {
-	hostUUID := uuid.FromStringOrNil(req.HostUUID)
-	if hostUUID == uuid.Nil {
+	hostUUID := models.ParseUUIDOrNil(req.HostUUID)
+	if hostUUID == models.NilUUID() {
 		return nil, status.Error(codes.InvalidArgument, "invalid host uuid")
 	}
 	crackstation, err := db.CrackstationByHostUUID(req.HostUUID)
@@ -148,8 +148,8 @@ func (rpc *Server) CrackstationBenchmark(ctx context.Context, req *clientpb.Crac
 }
 
 func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb.SliverRPC_CrackstationRegisterServer) error {
-	hostUUID := uuid.FromStringOrNil(req.HostUUID)
-	if hostUUID == uuid.Nil {
+	hostUUID := models.ParseUUIDOrNil(req.HostUUID)
+	if hostUUID == models.NilUUID() {
 		return status.Error(codes.InvalidArgument, "invalid host uuid")
 	}
 	crackStation := core.NewCrackstation(req)
@@ -183,12 +183,9 @@ func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb
 
 	if len(dbCrackstation.Benchmarks) == 0 {
 		crackRpcLog.Infof("No benchmark information for '%s', requesting benchmark...", req.Name)
-		taskID, err := uuid.NewV4()
-		if err != nil {
-			crackRpcLog.Errorf("Failed to generate benchmark task ID: %s", err)
-			return status.Error(codes.Internal, "failed to create benchmark task")
-		}
-		err = stream.Send(&clientpb.Event{EventType: consts.CrackBenchmark, Data: taskID.Bytes()})
+		taskID := uuid.NewV4()
+		taskIDBytes := append([]byte(nil), taskID[:]...)
+		err = stream.Send(&clientpb.Event{EventType: consts.CrackBenchmark, Data: taskIDBytes})
 		if err != nil {
 			crackRpcLog.Errorf("Failed to send benchmark task to crackstation: %s", err)
 			return status.Error(codes.Internal, "failed to send benchmark task")
@@ -210,7 +207,7 @@ func (rpc *Server) CrackstationRegister(req *clientpb.Crackstation, stream rpcpb
 				return rpcError(err)
 			}
 		case event := <-events: // All server-side events
-			if !util.Contains(crackingEvents, event.EventType) {
+			if !slices.Contains(crackingEvents, event.EventType) {
 				continue
 			}
 
@@ -328,7 +325,7 @@ func (rpc *Server) CrackFileChunkUpload(ctx context.Context, req *clientpb.Crack
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid chunk number (%d of %d)", req.N, crackFile.MaxN(crackCfg.ChunkSize)))
 	}
 	fileChunk := &models.CrackFileChunk{
-		CrackFileID: uuid.FromStringOrNil(req.CrackFileID),
+		CrackFileID: models.ParseUUIDOrNil(req.CrackFileID),
 		N:           req.N,
 	}
 	err = db.Session().Create(fileChunk).Error
@@ -341,7 +338,7 @@ func (rpc *Server) CrackFileChunkUpload(ctx context.Context, req *clientpb.Crack
 		rpcLog.Errorf("Failed to get chunk data directory")
 		return nil, status.Error(codes.Internal, "failed to create crack file chunk (fs)")
 	}
-	if fileChunk.ID == uuid.Nil {
+	if fileChunk.ID == models.NilUUID() {
 		return nil, status.Error(codes.Internal, "nil file chunk id")
 	}
 	chunkDataPath := filepath.Join(chunkDataDir, fileChunk.ID.String())
@@ -354,8 +351,8 @@ func (rpc *Server) CrackFileChunkUpload(ctx context.Context, req *clientpb.Crack
 }
 
 func (rpc *Server) CrackFileComplete(ctx context.Context, req *clientpb.CrackFile) (*commonpb.Empty, error) {
-	crackFileID := uuid.FromStringOrNil(req.ID)
-	if crackFileID == uuid.Nil {
+	crackFileID := models.ParseUUIDOrNil(req.ID)
+	if crackFileID == models.NilUUID() {
 		return nil, status.Error(codes.InvalidArgument, "invalid crack file id")
 	}
 	if matched, err := regexp.MatchString(`^[a-fA-F0-9]{64}$`, req.Sha2_256); !matched || err != nil {
@@ -383,8 +380,8 @@ func (rpc *Server) CrackFileChunkDownload(ctx context.Context, req *clientpb.Cra
 	if !crackFile.IsComplete {
 		return nil, status.Error(codes.FailedPrecondition, "crack file upload is not complete")
 	}
-	chunkID := uuid.FromStringOrNil(req.ID)
-	if chunkID == uuid.Nil {
+	chunkID := models.ParseUUIDOrNil(req.ID)
+	if chunkID == models.NilUUID() {
 		return nil, status.Error(codes.InvalidArgument, "invalid chunk id")
 	}
 
@@ -418,8 +415,8 @@ func (rpc *Server) CrackFileChunkDownload(ctx context.Context, req *clientpb.Cra
 }
 
 func (rpc *Server) CrackFileDelete(ctx context.Context, req *clientpb.CrackFile) (*commonpb.Empty, error) {
-	crackFileID := uuid.FromStringOrNil(req.ID)
-	if crackFileID == uuid.Nil {
+	crackFileID := models.ParseUUIDOrNil(req.ID)
+	if crackFileID == models.NilUUID() {
 		return nil, status.Error(codes.InvalidArgument, "invalid crack file id")
 	}
 	crackFile, err := db.GetByCrackFileByID(req.ID)

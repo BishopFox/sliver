@@ -27,10 +27,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
-      - name: Go 1.26.6
+      - name: Go 1.27.1
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.6"
+          go-version: "1.27.1"
 
       - name: OS Packages
         run: |
@@ -73,10 +73,10 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 180
     steps:
-      - name: Go 1.26.6
+      - name: Go 1.27.1
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.6"
+          go-version: "1.27.1"
 
       - name: Install make
         run: choco install make -y --no-progress
@@ -117,10 +117,10 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 180
     steps:
-      - name: Go 1.26.6
+      - name: Go 1.27.1
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.6"
+          go-version: "1.27.1"
 
       - name: Check Out Code
         uses: actions/checkout@v6
@@ -155,10 +155,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - name: Go 1.26.6
+      - name: Go 1.27.1
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.6"
+          go-version: "1.27.1"
 
       - name: Check Out Code
         uses: actions/checkout@v6

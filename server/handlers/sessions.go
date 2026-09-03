@@ -40,7 +40,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"github.com/google/uuid"
+	uuid "uuid"
 )
 
 var (
@@ -68,7 +68,7 @@ func registerSessionHandler(implantConn *core.ImplantConnection, data []byte) *s
 	// Parse Register UUID
 	sessionUUID, err := uuid.Parse(register.Uuid)
 	if err != nil {
-		sessionUUID = uuid.New() // Generate Random UUID
+		sessionUUID = uuid.NewV4() // Generate Random UUID
 	}
 	session.Name = register.Name
 	session.Hostname = register.Hostname

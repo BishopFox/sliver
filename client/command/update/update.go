@@ -545,12 +545,10 @@ func isRetryableDownloadError(err error) bool {
 	if errors.Is(err, io.ErrUnexpectedEOF) {
 		return true
 	}
-	var netErr net.Error
-	if errors.As(err, &netErr) {
+	if netErr, ok := errors.AsType[net.Error](err); ok {
 		return netErr.Timeout() || netErr.Temporary()
 	}
-	var statusErr httpStatusError
-	if errors.As(err, &statusErr) {
+	if statusErr, ok := errors.AsType[httpStatusError](err); ok {
 		switch statusErr.status {
 		case http.StatusTooManyRequests, http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
 			return true

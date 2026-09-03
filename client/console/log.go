@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,7 +38,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
 	"github.com/moloch--/asciicast"
-	"golang.org/x/exp/slog"
 	"golang.org/x/term"
 )
 
@@ -275,11 +275,8 @@ func buildStdoutSyncFrame(marker []byte, seq uint64) []byte {
 }
 
 func pendingMarkerPrefixLen(pending []byte, marker []byte) int {
-	max := len(marker) - 1
-	if max > len(pending) {
-		max = len(pending)
-	}
-	for size := max; size > 0; size-- {
+	maxPrefix := min(len(marker)-1, len(pending))
+	for size := maxPrefix; size > 0; size-- {
 		if bytes.Equal(pending[len(pending)-size:], marker[:size]) {
 			return size
 		}

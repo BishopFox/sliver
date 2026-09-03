@@ -221,7 +221,7 @@ func loadEnglishDictionaryFromAssets() error {
 	if err != nil {
 		return err
 	}
-	for _, word := range strings.Split(string(englishData), "\n") {
+	for word := range strings.SplitSeq(string(englishData), "\n") {
 		rawEnglishDictionary = append(rawEnglishDictionary, strings.TrimSpace(word))
 	}
 	return nil

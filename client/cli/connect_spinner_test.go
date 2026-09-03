@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/bishopfox/sliver/client/transport"
@@ -52,6 +53,10 @@ func TestFormatConnectSpinnerMessage(t *testing.T) {
 }
 
 func TestConnectWithSpinnerOutput(t *testing.T) {
+	synctest.Test(t, testConnectWithSpinnerOutput)
+}
+
+func testConnectWithSpinnerOutput(t *testing.T) {
 	var out bytes.Buffer
 	spinnerDelay := 2 * (100 * time.Millisecond)
 
@@ -85,6 +90,10 @@ func TestConnectWithSpinnerOutput(t *testing.T) {
 }
 
 func TestConnectWithSpinnerFastSuccessStillShowsMultipleFrames(t *testing.T) {
+	synctest.Test(t, testConnectWithSpinnerFastSuccessStillShowsMultipleFrames)
+}
+
+func testConnectWithSpinnerFastSuccessStillShowsMultipleFrames(t *testing.T) {
 	var out bytes.Buffer
 
 	_, _, err := connectWithSpinner(&out, "127.0.0.1:31337", func(statusFn transport.ConnectStatusFn) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {
@@ -108,6 +117,10 @@ func TestConnectWithSpinnerFastSuccessStillShowsMultipleFrames(t *testing.T) {
 }
 
 func TestConnectWithSpinnerFastSuccessShowsEachStatus(t *testing.T) {
+	synctest.Test(t, testConnectWithSpinnerFastSuccessShowsEachStatus)
+}
+
+func testConnectWithSpinnerFastSuccessShowsEachStatus(t *testing.T) {
 	var out bytes.Buffer
 
 	_, _, err := connectWithSpinner(&out, "127.0.0.1:31337", func(statusFn transport.ConnectStatusFn) (rpcpb.SliverRPCClient, *grpc.ClientConn, error) {

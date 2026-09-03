@@ -73,13 +73,11 @@ func (s *managedShell) SetOutput(w io.Writer) {
 }
 
 func (s *managedShell) startReader(remove func()) {
-	s.readerWG.Add(1)
-	go func() {
-		defer s.readerWG.Done()
+	s.readerWG.Go(func() {
 		_, err := io.Copy(s.output, s.tunnel)
 		log.Printf("Shell tunnel reader (id=%d tunnel=%d) exited: %v", s.ID, s.TunnelID, err)
 		remove()
-	}()
+	})
 }
 
 // swapWriter is an io.Writer whose underlying destination can be swapped at runtime.

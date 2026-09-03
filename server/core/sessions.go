@@ -30,7 +30,7 @@ import (
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core/rtunnels"
 	"github.com/bishopfox/sliver/server/log"
-	"github.com/gofrs/uuid"
+	uuid "uuid"
 
 	consts "github.com/bishopfox/sliver/client/constants"
 )
@@ -352,7 +352,7 @@ func (s *sessions) FromImplantConnection(conn *ImplantConnection) *Session {
 
 // nextSessionID - Returns an incremental nonce as an id
 func nextSessionID() string {
-	id, _ := uuid.NewV4()
+	id := uuid.NewV4()
 	return id.String()
 }
 

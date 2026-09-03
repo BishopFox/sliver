@@ -6,6 +6,7 @@ import (
 	"io"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
@@ -45,23 +46,33 @@ func TestNextSendEnvelopeSkipsNilAndStopsWithConnection(t *testing.T) {
 	})
 
 	t.Run("stops on connection cleanup", func(t *testing.T) {
-		connection := &Connection{}
-		send := make(chan *sliverpb.Envelope)
-		result := make(chan bool, 1)
-		go func() {
-			_, ok := nextSendEnvelope(connection, send)
-			result <- ok
-		}()
+		synctest.Test(t, func(t *testing.T) {
+			connection := &Connection{}
+			send := make(chan *sliverpb.Envelope)
+			result := make(chan bool, 1)
+			go func() {
+				_, ok := nextSendEnvelope(connection, send)
+				result <- ok
+			}()
 
-		connection.Cleanup()
-		select {
-		case ok := <-result:
-			if ok {
-				t.Fatal("nextSendEnvelope accepted an envelope after cleanup")
+			synctest.Wait()
+			select {
+			case ok := <-result:
+				t.Fatalf("nextSendEnvelope returned before cleanup: %t", ok)
+			default:
 			}
-		case <-time.After(time.Second):
-			t.Fatal("nextSendEnvelope remained blocked after cleanup")
-		}
+
+			connection.Cleanup()
+			synctest.Wait()
+			select {
+			case ok := <-result:
+				if ok {
+					t.Fatal("nextSendEnvelope accepted an envelope after cleanup")
+				}
+			default:
+				t.Fatal("nextSendEnvelope remained blocked after cleanup")
+			}
+		})
 	})
 }
 
@@ -131,32 +142,37 @@ func TestConnectionPendingTunnelOwnerDisconnectAndDeadlineCancel(t *testing.T) {
 	}
 	for index, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			connection := &Connection{Send: make(chan *sliverpb.Envelope, 1)}
-			tunnelID := uint64(0x7720 + index)
-			pending, result := connection.BeginTunnel(tunnelID, test.timeout)
-			if result != TunnelAdded {
-				t.Fatalf("begin pending tunnel result = %v, want %v", result, TunnelAdded)
-			}
-			if test.close {
-				connection.Cleanup()
-			}
-			select {
-			case <-pending.Context().Done():
-				if !errors.Is(pending.Context().Err(), test.wantErr) {
-					t.Fatalf("pending context error = %v, want %v", pending.Context().Err(), test.wantErr)
+			synctest.Test(t, func(t *testing.T) {
+				connection := &Connection{Send: make(chan *sliverpb.Envelope, 1)}
+				tunnelID := uint64(0x7720 + index)
+				pending, result := connection.BeginTunnel(tunnelID, test.timeout)
+				if result != TunnelAdded {
+					t.Fatalf("begin pending tunnel result = %v, want %v", result, TunnelAdded)
 				}
-			case <-time.After(time.Second):
-				t.Fatal("pending setup context was not canceled")
-			}
+				if test.close {
+					connection.Cleanup()
+				} else {
+					synctest.Sleep(test.timeout)
+				}
+				synctest.Wait()
+				select {
+				case <-pending.Context().Done():
+					if !errors.Is(pending.Context().Err(), test.wantErr) {
+						t.Fatalf("pending context error = %v, want %v", pending.Context().Err(), test.wantErr)
+					}
+				default:
+					t.Fatal("pending setup context was not canceled")
+				}
 
-			late := NewTunnel(tunnelID, nopWriteCloser{Writer: io.Discard})
-			if result := connection.PublishTunnel(pending, late); result != test.wantAdd {
-				t.Fatalf("late publication result = %v, want %v", result, test.wantAdd)
-			}
-			late.Close()
-			if active := connection.Tunnel(tunnelID); active != nil {
-				t.Fatalf("late tunnel remained published: %p", active)
-			}
+				late := NewTunnel(tunnelID, nopWriteCloser{Writer: io.Discard})
+				if result := connection.PublishTunnel(pending, late); result != test.wantAdd {
+					t.Fatalf("late publication result = %v, want %v", result, test.wantAdd)
+				}
+				late.Close()
+				if active := connection.Tunnel(tunnelID); active != nil {
+					t.Fatalf("late tunnel remained published: %p", active)
+				}
+			})
 		})
 	}
 }
@@ -283,34 +299,38 @@ func TestConnectionLiveTunnelCapacityRejectsOnlyNewGeneration(t *testing.T) {
 }
 
 func TestConnectionTunnelCloseUnblocksSaturatedDataSend(t *testing.T) {
-	connection := &Connection{Send: make(chan *sliverpb.Envelope)}
-	tunnel := NewTunnel(78, nopWriteCloser{Writer: io.Discard})
-	if !connection.AddTunnel(tunnel) {
-		t.Fatal("failed to add tunnel")
-	}
-	result := make(chan error, 1)
-	go func() {
-		result <- connection.QueueTunnelData(tunnel, func(uint64, uint64) (*sliverpb.Envelope, error) {
-			return &sliverpb.Envelope{Type: sliverpb.MsgTunnelData}, nil
-		})
-	}()
-
-	select {
-	case err := <-result:
-		t.Fatalf("saturated send returned before close: %v", err)
-	case <-time.After(25 * time.Millisecond):
-	}
-	if !connection.CloseTunnelRemote(tunnel) {
-		t.Fatal("failed to close saturated tunnel")
-	}
-	select {
-	case err := <-result:
-		if !errors.Is(err, ErrTunnelClosed) {
-			t.Fatalf("QueueTunnelData() error = %v, want %v", err, ErrTunnelClosed)
+	synctest.Test(t, func(t *testing.T) {
+		connection := &Connection{Send: make(chan *sliverpb.Envelope)}
+		tunnel := NewTunnel(78, nopWriteCloser{Writer: io.Discard})
+		if !connection.AddTunnel(tunnel) {
+			t.Fatal("failed to add tunnel")
 		}
-	case <-time.After(time.Second):
-		t.Fatal("tunnel close did not unblock saturated send")
-	}
+		result := make(chan error, 1)
+		go func() {
+			result <- connection.QueueTunnelData(tunnel, func(uint64, uint64) (*sliverpb.Envelope, error) {
+				return &sliverpb.Envelope{Type: sliverpb.MsgTunnelData}, nil
+			})
+		}()
+
+		synctest.Wait()
+		select {
+		case err := <-result:
+			t.Fatalf("saturated send returned before close: %v", err)
+		default:
+		}
+		if !connection.CloseTunnelRemote(tunnel) {
+			t.Fatal("failed to close saturated tunnel")
+		}
+		synctest.Wait()
+		select {
+		case err := <-result:
+			if !errors.Is(err, ErrTunnelClosed) {
+				t.Fatalf("QueueTunnelData() error = %v, want %v", err, ErrTunnelClosed)
+			}
+		default:
+			t.Fatal("tunnel close did not unblock saturated send")
+		}
+	})
 }
 
 func TestConnectionSimultaneousPeerCloseDoesNotFailC2(t *testing.T) {

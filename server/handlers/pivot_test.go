@@ -3,10 +3,10 @@ package handlers
 import (
 	"fmt"
 	"testing"
+	uuid "uuid"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
-	"github.com/gofrs/uuid"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -24,7 +24,7 @@ func TestPivotSessionEnvelopeRequiresOwningImmediateConnection(t *testing.T) {
 		core.PivotSessions.CompareAndDelete(pivot.ID, pivot)
 	})
 	peerEnvelope := &sliverpb.PivotPeerEnvelope{
-		PivotSessionID: uuid.FromStringOrNil(pivot.ID).Bytes(),
+		PivotSessionID: uuidBytes(uuid.MustParse(pivot.ID)),
 		Data:           []byte("not encrypted"),
 	}
 

@@ -2,7 +2,7 @@ You'll want to compile Sliver from a MacOS or Linux machine. Compiling from nati
 
 To compile from source you'll need:
 
-- Go v1.26.6 or later
+- Go v1.27.1 or later
 - `make` (on MacOS you may need to install XCode and accompanying cli tools)
 
 ```asciinema

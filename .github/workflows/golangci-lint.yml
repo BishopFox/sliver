@@ -43,14 +43,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Go 1.26.6
+      - name: Go 1.27.1
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.6"
+          go-version: "1.27.1"
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.12.2
+          version: v2.13.1
           # Gate only findings introduced since the event base revision.
           args: --new-from-rev=${{ github.event.pull_request.base.sha || github.event.before }} ./client/... ./server/... ./util/... ./protobuf/... ./docs ./implant/...

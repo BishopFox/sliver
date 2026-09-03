@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+	uuid "uuid"
 
 	implantMTLS "github.com/bishopfox/sliver/implant/sliver/transports/mtls"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -24,7 +25,6 @@ import (
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/core/rtunnels"
 	"github.com/bishopfox/sliver/server/transport"
-	"github.com/google/uuid"
 	"github.com/hashicorp/yamux"
 	"google.golang.org/protobuf/proto"
 )
@@ -242,7 +242,7 @@ func startRportProtocolPeer(t *testing.T, name string, poisonAddress string, lis
 	peer := &rportProtocolPeer{
 		rawConnection:    implantConnection,
 		mux:              muxSession,
-		registrationUUID: uuid.NewString(),
+		registrationUUID: uuid.NewV4().String(),
 		poisonAddress:    poisonAddress,
 		listenerID:       listenerID,
 		startRequests:    make(chan *sliverpb.RportFwdStartListenerReq, 1),

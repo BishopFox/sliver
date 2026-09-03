@@ -102,12 +102,12 @@ func initMiddleware(enableAuth bool) []grpc.ServerOption {
 }
 
 var (
-	tokenCache = sync.Map{}
+	tokenCache sync.Map
 )
 
 // ClearTokenCache - Clear the auth token cache
 func ClearTokenCache() {
-	tokenCache = sync.Map{}
+	tokenCache.Clear()
 }
 
 func serverAuthFunc(ctx context.Context) (context.Context, error) {

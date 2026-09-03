@@ -20,13 +20,12 @@ package models
 
 import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
 
 type MonitoringProvider struct {
-	ID          uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	Type        string    // currently vt or xforce
+	ID          UUID   `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	Type        string // currently vt or xforce
 	APIKey      string
 	APIPassword string
 }
@@ -34,10 +33,7 @@ type MonitoringProvider struct {
 // creation hooks
 
 func (m *MonitoringProvider) BeforeCreate(tx *gorm.DB) (err error) {
-	m.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	m.ID = NewUUID()
 	return nil
 }
 
@@ -53,9 +49,9 @@ func (m *MonitoringProvider) ToProtobuf() *clientpb.MonitoringProvider {
 
 // convert from protobuf
 func MonitorFromProtobuf(m *clientpb.MonitoringProvider) MonitoringProvider {
-	uuid, _ := uuid.FromString(m.ID)
+	id, _ := ParseUUID(m.ID)
 	return MonitoringProvider{
-		ID:          uuid,
+		ID:          id,
 		Type:        m.Type,
 		APIKey:      m.APIKey,
 		APIPassword: m.APIPassword,

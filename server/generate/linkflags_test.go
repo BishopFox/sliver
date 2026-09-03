@@ -44,6 +44,17 @@ func TestApplyZigStaticLinking(t *testing.T) {
 	}
 }
 
+func TestApplyLinuxShellcodeBuildID(t *testing.T) {
+	ldflags := applyLinuxShellcodeBuildID([]string{"-s -w"})
+	if len(ldflags) != 1 {
+		t.Fatalf("expected a single -ldflags string, got %d (%v)", len(ldflags), ldflags)
+	}
+	want := "-s -w " + linuxShellcodeBuildIDLDFlag
+	if ldflags[0] != want {
+		t.Fatalf("applyLinuxShellcodeBuildID() = %q, want %q", ldflags[0], want)
+	}
+}
+
 func TestApplyZigStaticLinking_Executable(t *testing.T) {
 	cfg := &gogo.GoConfig{
 		GOOS: "linux",

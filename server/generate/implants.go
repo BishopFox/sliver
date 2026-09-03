@@ -37,7 +37,6 @@ import (
 	"github.com/bishopfox/sliver/server/encoders"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/watchtower"
-	"github.com/gofrs/uuid"
 	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm/clause"
 )
@@ -77,8 +76,8 @@ func ImplantConfigSave(config *clientpb.ImplantConfig) (*clientpb.ImplantConfig,
 		}).Create(modelConfig).Error
 
 	} else {
-		id, _ := uuid.FromString(dbConfig.ImplantProfileID)
-		if id == uuid.Nil {
+		id, _ := models.ParseUUID(dbConfig.ImplantProfileID)
+		if id == models.NilUUID() {
 			modelConfig.ImplantProfileID = nil
 		} else {
 			modelConfig.ImplantProfileID = &id

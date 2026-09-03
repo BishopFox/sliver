@@ -23,12 +23,11 @@ import (
 
 	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
 
 type ListenerJob struct {
-	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ID        UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
 	JobID               uint32 `gorm:"unique;"`
@@ -41,8 +40,8 @@ type ListenerJob struct {
 }
 
 type HTTPListener struct {
-	ID            uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	ListenerJobID uuid.UUID `gorm:"type:uuid;"`
+	ID            UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ListenerJobID UUID `gorm:"type:uuid;"`
 
 	Domain          string
 	Host            string
@@ -60,8 +59,8 @@ type HTTPListener struct {
 }
 
 type DNSListener struct {
-	ID            uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	ListenerJobID uuid.UUID `gorm:"type:uuid;"`
+	ID            UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ListenerJobID UUID `gorm:"type:uuid;"`
 
 	Domains    []DnsDomain
 	Canaries   bool
@@ -71,8 +70,8 @@ type DNSListener struct {
 }
 
 type WGListener struct {
-	ID            uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	ListenerJobID uuid.UUID `gorm:"type:uuid;"`
+	ID            UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ListenerJobID UUID `gorm:"type:uuid;"`
 	Host          string
 	Port          uint32
 	NPort         uint32
@@ -81,15 +80,15 @@ type WGListener struct {
 }
 
 type MtlsListener struct {
-	ID            uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	ListenerJobID uuid.UUID `gorm:"type:uuid;"`
+	ID            UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ListenerJobID UUID `gorm:"type:uuid;"`
 	Host          string
 	Port          uint32
 }
 
 type MultiplayerListener struct {
-	ID            uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	ListenerJobID uuid.UUID `gorm:"type:uuid;"`
+	ID            UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ListenerJobID UUID `gorm:"type:uuid;"`
 	Host          string
 	Port          uint32
 	WireGuard     bool
@@ -99,50 +98,35 @@ type MultiplayerListener struct {
 }
 
 type DnsDomain struct {
-	ID            uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	DNSListenerID uuid.UUID `gorm:"type:uuid;"`
+	ID            UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	DNSListenerID UUID `gorm:"type:uuid;"`
 	Domain        string
 }
 
 // orm hooks
 func (j *ListenerJob) BeforeCreate(tx *gorm.DB) (err error) {
-	j.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	j.ID = NewUUID()
 	j.CreatedAt = time.Now()
 	return nil
 }
 
 func (j *HTTPListener) BeforeCreate(tx *gorm.DB) (err error) {
-	j.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	j.ID = NewUUID()
 	return nil
 }
 
 func (j *DNSListener) BeforeCreate(tx *gorm.DB) (err error) {
-	j.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	j.ID = NewUUID()
 	return nil
 }
 
 func (j *WGListener) BeforeCreate(tx *gorm.DB) (err error) {
-	j.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	j.ID = NewUUID()
 	return nil
 }
 
 func (j *MtlsListener) BeforeCreate(tx *gorm.DB) (err error) {
-	j.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	j.ID = NewUUID()
 	return nil
 }
 

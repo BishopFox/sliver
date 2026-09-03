@@ -127,8 +127,8 @@ func TestMultiplayerListenerWireGuardOptInMigration(t *testing.T) {
 			WireGuard: true,
 		},
 	}).MultiplayerListener
-	explicit.ID = uuid.Must(uuid.NewV4())
-	explicit.ListenerJobID = uuid.Must(uuid.NewV4())
+	explicit.ID = NewUUID()
+	explicit.ListenerJobID = NewUUID()
 	if err := database.Create(&explicit).Error; err != nil {
 		t.Fatalf("insert explicit WireGuard multiplayer listener: %v", err)
 	}

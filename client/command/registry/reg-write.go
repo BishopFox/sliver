@@ -76,17 +76,11 @@ func RegWriteCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if strings.Contains(regPath, "/") {
 		regPath = strings.ReplaceAll(regPath, "/", "\\")
 	}
-	pathBaseIdx := strings.LastIndex(regPath, `\`)
-	if pathBaseIdx < 0 {
+	finalPath, key, ok := strings.CutLast(regPath, `\`)
+	if !ok {
 		con.PrintErrorf("invalid path: %s", regPath)
 		return
 	}
-	if len(regPath) < pathBaseIdx+1 {
-		con.PrintErrorf("invalid path: %s", regPath)
-		return
-	}
-	finalPath := regPath[:pathBaseIdx]
-	key := regPath[pathBaseIdx+1:]
 	switch valType {
 	case sliverpb.RegistryTypeBinary:
 		var (

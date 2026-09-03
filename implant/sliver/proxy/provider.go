@@ -333,7 +333,7 @@ Returns:
 */
 func (p *provider) isProxyBypass(targetUrl *url.URL, proxyBypass string, sep string) bool {
 	targetHost, _, _ := SplitHostPort(targetUrl)
-	for _, s := range strings.Split(proxyBypass, sep) {
+	for s := range strings.SplitSeq(proxyBypass, sep) {
 		s = strings.TrimSpace(s)
 		if s == "" {
 			// No value

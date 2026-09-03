@@ -21,6 +21,7 @@ package extensions
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -129,9 +130,7 @@ func getInstalledManifests() map[string]*ExtensionManifest {
 // Name field.
 func getTemporarilyLoadedManifests() map[string]*ExtensionManifest {
 	tempManifests := map[string]*ExtensionManifest{}
-	for name, manifest := range loadedManifests {
-		tempManifests[name] = manifest
-	}
+	maps.Copy(tempManifests, loadedManifests)
 	return tempManifests
 }
 

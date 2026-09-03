@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/gofrs/uuid"
+	uuid "uuid"
 )
 
 // maxClaimedReverseTunnelIDsPerConnection bounds the permanent replay-defense
@@ -305,7 +305,7 @@ func NewImplantConnection(transport string, remoteAddress string) *ImplantConnec
 }
 
 func generateImplantConnectionID() string {
-	id, _ := uuid.NewV4()
+	id := uuid.NewV4()
 	return id.String()
 }
 

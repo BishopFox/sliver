@@ -26,6 +26,7 @@ import (
 	"net"
 	"sync"
 	"time"
+	"uuid"
 
 	// {{if .Config.Debug}}
 	"log"
@@ -35,9 +36,10 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/cryptography"
 	"github.com/bishopfox/sliver/implant/sliver/pivots"
 	pb "github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/gofrs/uuid"
 	"google.golang.org/protobuf/proto"
 )
+
+var errInvalidPivotSessionID = errors.New("invalid pivot session ID")
 
 // NetConnPivotClient - A generic net.Conn pivot client
 type NetConnPivotClient struct {
@@ -178,16 +180,26 @@ func (p *NetConnPivotClient) serverKeyExchange() error {
 		return err
 	}
 
-	// Just make sure we can parse the bytes
-	p.pivotSessionID = uuid.FromBytesOrNil(serverKeyExResp.SessionKey).Bytes()
+	pivotSessionID, err := parsePivotSessionID(serverKeyExResp.SessionKey)
+	if err != nil {
+		return err
+	}
+	p.pivotSessionID = pivotSessionID[:]
 
 	// {{if .Config.Debug}}
-	log.Printf("[pivot] Pivot session ID: %s",
-		uuid.FromBytesOrNil(p.pivotSessionID).String(),
-	)
+	log.Printf("[pivot] Pivot session ID: %s", pivotSessionID.String())
 	// {{end}}
 
 	return nil
+}
+
+func parsePivotSessionID(data []byte) (uuid.UUID, error) {
+	var id uuid.UUID
+	if len(data) != len(id) {
+		return id, errInvalidPivotSessionID
+	}
+	copy(id[:], data)
+	return id, nil
 }
 
 // write - Write a message to the TCP pivot with a length prefix

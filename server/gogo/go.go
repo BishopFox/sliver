@@ -32,7 +32,8 @@ import (
 )
 
 const (
-	goDirName = "go"
+	goDirName                      = "go"
+	darwinNoCGOCheckLinknameLDFlag = "-checklinkname=0"
 )
 
 var (
@@ -119,6 +120,9 @@ func buildCommandEnv(config GoConfig, extra map[string]string) []string {
 	overrides := []string{
 		fmt.Sprintf("CC=%s", config.CC),
 		fmt.Sprintf("CGO_ENABLED=%s", config.CGO),
+		// GOROOT explicitly selects the compiler used for implant builds. Do not
+		// let a surrounding host module make that compiler switch toolchains.
+		"GOTOOLCHAIN=local",
 		fmt.Sprintf("GOOS=%s", config.GOOS),
 		fmt.Sprintf("GOARCH=%s", config.GOARCH),
 		fmt.Sprintf("GOROOT=%s", config.GOROOT),
@@ -216,6 +220,7 @@ func GoBuild(config GoConfig, src string, dest string, buildmode string, tags []
 		goCommand = append(goCommand, "-tags")
 		goCommand = append(goCommand, tags...)
 	}
+	ldflags = withDarwinNoCGOLinknameCompatibility(config, ldflags)
 	if 0 < len(ldflags) {
 		goCommand = append(goCommand, "-ldflags")
 		goCommand = append(goCommand, ldflags...)
@@ -234,6 +239,26 @@ func GoBuild(config GoConfig, src string, dest string, buildmode string, tags []
 		return GarbleCmd(config, src, goCommand)
 	}
 	return GoCmd(config, src, goCommand)
+}
+
+func withDarwinNoCGOLinknameCompatibility(config GoConfig, ldflags []string) []string {
+	if config.GOOS != "darwin" || config.CGO != "0" || (config.GOARCH != "amd64" && config.GOARCH != "arm64") {
+		return ldflags
+	}
+
+	// Reflektor's Darwin no-CGO bridge pulls the private runtime.systemstack
+	// symbol, which the Go 1.27 linker rejects. Disable that linker check until
+	// Reflektor stops relying on the private runtime symbol.
+	joined := strings.TrimSpace(strings.Join(ldflags, " "))
+	for _, flag := range strings.Fields(joined) {
+		if flag == darwinNoCGOCheckLinknameLDFlag {
+			return []string{joined}
+		}
+	}
+	if joined == "" {
+		return []string{darwinNoCGOCheckLinknameLDFlag}
+	}
+	return []string{joined + " " + darwinNoCGOCheckLinknameLDFlag}
 }
 
 // GoMod - Execute go module commands in src dir

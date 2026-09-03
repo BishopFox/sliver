@@ -24,6 +24,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/client/core"
@@ -98,7 +99,7 @@ func WasmCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 func isRegistered(name string, cmd *cobra.Command, con *console.SliverClient) bool {
 	// Check if we have already registered this wasm module
 	if wasmRegistrationCache[idOf(con)] != nil {
-		if util.Contains(wasmRegistrationCache[idOf(con)], name) {
+		if slices.Contains(wasmRegistrationCache[idOf(con)], name) {
 			return true
 		}
 	}
@@ -274,7 +275,7 @@ func WasmLsCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	} else {
 		for _, extName := range loaded.Names {
 			cacheLine := ""
-			if util.Contains(wasmRegistrationCache[idOf(con)], extName) {
+			if slices.Contains(wasmRegistrationCache[idOf(con)], extName) {
 				cacheLine = " (cached)"
 			} else {
 				wasmRegistrationCache[idOf(con)] = append(wasmRegistrationCache[idOf(con)], extName)

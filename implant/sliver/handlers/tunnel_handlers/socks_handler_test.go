@@ -11,6 +11,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/bishopfox/sliver/implant/sliver/transports"
@@ -611,33 +612,38 @@ func TestSocksTunnelLegacyTerminalMayArriveBeforeEarlierDataHandler(t *testing.T
 }
 
 func TestSocksTunnelLegacyTerminalQuietWindowResetsOnProgress(t *testing.T) {
-	const closeWindow = 400 * time.Millisecond
-	tunnel := newOwnedSocksTunnelStateWithWindow(nil, nil, closeWindow)
-	defer tunnel.close()
-	if !tunnel.submit(socksTunnelFrame{sequence: 0, close: true}) {
-		t.Fatal("submit legacy terminal before delayed data")
-	}
+	synctest.Test(t, func(t *testing.T) {
+		const closeWindow = 400 * time.Millisecond
+		tunnel := newOwnedSocksTunnelStateWithWindow(nil, nil, closeWindow)
+		defer tunnel.close()
+		if !tunnel.submit(socksTunnelFrame{sequence: 0, close: true}) {
+			t.Fatal("submit legacy terminal before delayed data")
+		}
 
-	started := time.Now()
-	for sequence := uint64(0); sequence < 3; sequence++ {
-		// The complete arrival span exceeds closeWindow, but each contiguous
-		// advance arrives well inside the renewed quiet period.
-		time.Sleep(150 * time.Millisecond)
-		payload := []byte{byte(sequence)}
-		if !tunnel.submit(socksTunnelFrame{sequence: sequence, data: payload}) {
-			t.Fatalf("legacy quiet window expired before sequence %d", sequence)
+		started := time.Now()
+		for sequence := uint64(0); sequence < 3; sequence++ {
+			// The complete arrival span exceeds closeWindow, but each contiguous
+			// advance arrives well inside the renewed quiet period.
+			synctest.Sleep(150 * time.Millisecond)
+			payload := []byte{byte(sequence)}
+			if !tunnel.submit(socksTunnelFrame{sequence: sequence, data: payload}) {
+				t.Fatalf("legacy quiet window expired before sequence %d", sequence)
+			}
+			if data, err := tunnel.read(); err != nil || !bytes.Equal(data, payload) {
+				t.Fatalf("legacy progress read %d = %x, %v", sequence, data, err)
+			}
 		}
-		if data, err := tunnel.read(); err != nil || !bytes.Equal(data, payload) {
-			t.Fatalf("legacy progress read %d = %x, %v", sequence, data, err)
+		if elapsed := time.Since(started); elapsed <= closeWindow {
+			t.Fatalf("legacy progress span = %s, want longer than %s", elapsed, closeWindow)
 		}
-	}
-	if elapsed := time.Since(started); elapsed <= closeWindow {
-		t.Fatalf("legacy progress span = %s, want longer than %s", elapsed, closeWindow)
-	}
-	waitForSocksTunnelLifecycle(t, tunnel, socksTunnelGraceful)
-	if _, err := tunnel.read(); !errors.Is(err, io.EOF) {
-		t.Fatalf("read after reset legacy terminal error = %v, want io.EOF", err)
-	}
+		synctest.Sleep(closeWindow)
+		if lifecycle := tunnel.lifecycle.Load(); lifecycle != socksTunnelGraceful {
+			t.Fatalf("SOCKS tunnel lifecycle = %d, want %d", lifecycle, socksTunnelGraceful)
+		}
+		if _, err := tunnel.read(); !errors.Is(err, io.EOF) {
+			t.Fatalf("read after reset legacy terminal error = %v, want io.EOF", err)
+		}
+	})
 }
 
 func TestSocksTunnelGracefulCloseDrainsWholeFrameBeforeEOF(t *testing.T) {
@@ -700,75 +706,88 @@ func TestSocksTunnelAbortDropsQueuedInput(t *testing.T) {
 }
 
 func TestSocksTunnelGracefulDrainWatchdogIsBounded(t *testing.T) {
-	tunnel := newSocksTunnelState()
-	tunnel.drainWindow = 25 * time.Millisecond
-	if !tunnel.submit(socksTunnelFrame{sequence: 0, data: []byte("unread")}) {
-		t.Fatal("submit unread SOCKS input")
-	}
-	if !tunnel.submit(socksTunnelFrame{sequence: 1, close: true}) {
-		t.Fatal("submit terminal after unread SOCKS input")
-	}
-	waitForSocksTunnelLifecycle(t, tunnel, socksTunnelGraceful)
-	select {
-	case <-tunnel.done:
-	case <-time.After(time.Second):
-		t.Fatal("graceful drain watchdog did not force-close unread SOCKS input")
-	}
+	synctest.Test(t, func(t *testing.T) {
+		tunnel := newSocksTunnelState()
+		tunnel.drainWindow = 25 * time.Millisecond
+		if !tunnel.submit(socksTunnelFrame{sequence: 0, data: []byte("unread")}) {
+			t.Fatal("submit unread SOCKS input")
+		}
+		if !tunnel.submit(socksTunnelFrame{sequence: 1, close: true}) {
+			t.Fatal("submit terminal after unread SOCKS input")
+		}
+		synctest.Wait()
+		if lifecycle := tunnel.lifecycle.Load(); lifecycle != socksTunnelGraceful {
+			t.Fatalf("SOCKS tunnel lifecycle = %d, want %d", lifecycle, socksTunnelGraceful)
+		}
+		synctest.Sleep(tunnel.drainWindow)
+		select {
+		case <-tunnel.done:
+		default:
+			t.Fatal("graceful drain watchdog did not force-close unread SOCKS input")
+		}
+	})
 }
 
 func TestSocksTunnelHandshakeLeaseLastsUntilTargetDial(t *testing.T) {
 	t.Run("incomplete handshake expires", func(t *testing.T) {
-		tunnel := newSocksTunnelState()
-		tunnel.handshakeTimeout = 25 * time.Millisecond
-		tunnel.startHandshakeLease()
-		select {
-		case <-tunnel.done:
-		case <-time.After(time.Second):
-			t.Fatal("incomplete SOCKS handshake did not expire")
-		}
+		synctest.Test(t, func(t *testing.T) {
+			tunnel := newSocksTunnelState()
+			tunnel.handshakeTimeout = 25 * time.Millisecond
+			tunnel.startHandshakeLease()
+			synctest.Sleep(tunnel.handshakeTimeout)
+			select {
+			case <-tunnel.done:
+			default:
+				t.Fatal("incomplete SOCKS handshake did not expire")
+			}
+		})
 	})
 
 	t.Run("successful target dial releases lease", func(t *testing.T) {
-		tunnel := newSocksTunnelState()
-		defer tunnel.close()
-		tunnel.handshakeTimeout = 25 * time.Millisecond
-		tunnel.startHandshakeLease()
-		tunnel.markEstablished()
-		time.Sleep(75 * time.Millisecond)
-		if tunnel.isClosed() {
-			t.Fatal("handshake lease closed an established SOCKS tunnel")
-		}
+		synctest.Test(t, func(t *testing.T) {
+			tunnel := newSocksTunnelState()
+			defer tunnel.close()
+			tunnel.handshakeTimeout = 25 * time.Millisecond
+			tunnel.startHandshakeLease()
+			tunnel.markEstablished()
+			synctest.Sleep(3 * tunnel.handshakeTimeout)
+			if tunnel.isClosed() {
+				t.Fatal("handshake lease closed an established SOCKS tunnel")
+			}
+		})
 	})
 }
 
 func TestSocksTunnelStateTerminalTimerResetsOnSequenceProgress(t *testing.T) {
-	const reorderWindow = 250 * time.Millisecond
-	tunnel := newOwnedSocksTunnelStateWithWindow(nil, nil, reorderWindow)
-	defer tunnel.close()
+	synctest.Test(t, func(t *testing.T) {
+		const reorderWindow = 250 * time.Millisecond
+		tunnel := newOwnedSocksTunnelStateWithWindow(nil, nil, reorderWindow)
+		defer tunnel.close()
 
-	if !tunnel.submit(socksTunnelFrame{sequence: 4, close: true}) {
-		t.Fatal("submit terminal sequence 4 failed")
-	}
+		if !tunnel.submit(socksTunnelFrame{sequence: 4, close: true}) {
+			t.Fatal("submit terminal sequence 4 failed")
+		}
 
-	started := time.Now()
-	for sequence := byte(0); sequence < 4; sequence++ {
-		// Total drain time exceeds one reorder window, but each contiguous
-		// frame arrives within the renewed window.
-		time.Sleep(100 * time.Millisecond)
-		if !tunnel.submit(socksTunnelFrame{sequence: uint64(sequence), data: []byte{sequence}}) {
-			t.Fatalf("submit slow sequence %d failed", sequence)
+		started := time.Now()
+		for sequence := byte(0); sequence < 4; sequence++ {
+			// Total drain time exceeds one reorder window, but each contiguous
+			// frame arrives within the renewed window.
+			synctest.Sleep(100 * time.Millisecond)
+			if !tunnel.submit(socksTunnelFrame{sequence: uint64(sequence), data: []byte{sequence}}) {
+				t.Fatalf("submit slow sequence %d failed", sequence)
+			}
+			data, err := tunnel.read()
+			if err != nil || len(data) != 1 || data[0] != sequence {
+				t.Fatalf("slow ordered read %d = %x, %v", sequence, data, err)
+			}
 		}
-		data, err := tunnel.read()
-		if err != nil || len(data) != 1 || data[0] != sequence {
-			t.Fatalf("slow ordered read %d = %x, %v", sequence, data, err)
+		if elapsed := time.Since(started); elapsed <= reorderWindow {
+			t.Fatalf("test drained in %s, want longer than reorder window %s", elapsed, reorderWindow)
 		}
-	}
-	if elapsed := time.Since(started); elapsed <= reorderWindow {
-		t.Fatalf("test drained in %s, want longer than reorder window %s", elapsed, reorderWindow)
-	}
-	if _, err := tunnel.read(); !errors.Is(err, io.EOF) {
-		t.Fatalf("read after slow ordered terminal error = %v, want io.EOF", err)
-	}
+		if _, err := tunnel.read(); !errors.Is(err, io.EOF) {
+			t.Fatalf("read after slow ordered terminal error = %v, want io.EOF", err)
+		}
+	})
 }
 
 func TestSocksTunnelStateAdmissionBoundsBlockedReader(t *testing.T) {
@@ -985,15 +1004,19 @@ func TestSocksTunnelPoolBoundsRetainedTombstonesAndTimers(t *testing.T) {
 }
 
 func TestSocksTunnelStateTimesOutAnyPersistentSequenceGap(t *testing.T) {
-	tunnel := newOwnedSocksTunnelStateWithWindow(nil, nil, 25*time.Millisecond)
-	if !tunnel.submit(socksTunnelFrame{sequence: 1, data: []byte("future without terminal")}) {
-		t.Fatal("submit future SOCKS frame")
-	}
-	select {
-	case <-tunnel.done:
-	case <-time.After(time.Second):
-		t.Fatal("nonterminal sequence gap did not expire")
-	}
+	synctest.Test(t, func(t *testing.T) {
+		const reorderWindow = 25 * time.Millisecond
+		tunnel := newOwnedSocksTunnelStateWithWindow(nil, nil, reorderWindow)
+		if !tunnel.submit(socksTunnelFrame{sequence: 1, data: []byte("future without terminal")}) {
+			t.Fatal("submit future SOCKS frame")
+		}
+		synctest.Sleep(reorderWindow)
+		select {
+		case <-tunnel.done:
+		default:
+			t.Fatal("nonterminal sequence gap did not expire")
+		}
+	})
 }
 
 func TestSocksTunnelStateRejectsOversizeAndAmbiguousTerminalFrames(t *testing.T) {
@@ -1280,22 +1303,25 @@ func TestSocksTunnelPoolPublishesBeforeClosedOwnerCanRetire(t *testing.T) {
 }
 
 func TestSocksTunnelOwnerCleanupWhileOrderedDeliveryIsUnread(t *testing.T) {
-	connection := &transports.Connection{Send: make(chan *sliverpb.Envelope)}
-	tunnel := newOwnedSocksTunnelState(connection.Done(), nil)
-	if !tunnel.submit(socksTunnelFrame{sequence: 0, data: []byte("unread")}) {
-		t.Fatal("submit unread ordered frame failed")
-	}
-	// Let the actor enqueue the frame with no Reader present.
-	time.Sleep(20 * time.Millisecond)
-	connection.Cleanup()
-	select {
-	case <-tunnel.done:
-	case <-time.After(2 * time.Second):
-		t.Fatal("owner cleanup did not close actor blocked on unread data")
-	}
-	if tunnel.submit(socksTunnelFrame{sequence: 1, data: []byte("late")}) {
-		t.Fatal("actor accepted data after blocked owner cleanup")
-	}
+	synctest.Test(t, func(t *testing.T) {
+		connection := &transports.Connection{Send: make(chan *sliverpb.Envelope)}
+		tunnel := newOwnedSocksTunnelState(connection.Done(), nil)
+		if !tunnel.submit(socksTunnelFrame{sequence: 0, data: []byte("unread")}) {
+			t.Fatal("submit unread ordered frame failed")
+		}
+		// Wait until the actor has enqueued the frame with no Reader present.
+		synctest.Wait()
+		connection.Cleanup()
+		synctest.Wait()
+		select {
+		case <-tunnel.done:
+		default:
+			t.Fatal("owner cleanup did not close actor blocked on unread data")
+		}
+		if tunnel.submit(socksTunnelFrame{sequence: 1, data: []byte("late")}) {
+			t.Fatal("actor accepted data after blocked owner cleanup")
+		}
+	})
 }
 
 // This adapter contract test covers zero-length I/O, partial reads, terminal

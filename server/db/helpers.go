@@ -32,11 +32,11 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	uuid "uuid"
 
 	"github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/db/models"
-	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -51,8 +51,8 @@ func ImplantConfigByID(id string) (*clientpb.ImplantConfig, error) {
 	if len(id) < 1 {
 		return nil, ErrRecordNotFound
 	}
-	configID := uuid.FromStringOrNil(id)
-	if configID == uuid.Nil {
+	configID := models.ParseUUIDOrNil(id)
+	if configID == models.NilUUID() {
 		return nil, ErrRecordNotFound
 	}
 	config := models.ImplantConfig{}
@@ -70,8 +70,8 @@ func ImplantConfigWithC2sByID(id string) (*clientpb.ImplantConfig, error) {
 	if len(id) < 1 {
 		return nil, ErrRecordNotFound
 	}
-	configID := uuid.FromStringOrNil(id)
-	if configID == uuid.Nil {
+	configID := models.ParseUUIDOrNil(id)
+	if configID == models.NilUUID() {
 		return nil, ErrRecordNotFound
 	}
 	config := models.ImplantConfig{}
@@ -215,7 +215,7 @@ func ImplantBuildByResourceID(resourceID uint64) (*clientpb.ImplantBuild, error)
 // ImplantBuildByID - Fetch implant build from ID
 func ImplantBuildByID(id string) (*clientpb.ImplantBuild, error) {
 	build := models.ImplantBuild{}
-	uuid, _ := uuid.FromString(id)
+	uuid, _ := models.ParseUUID(id)
 	err := Session().Where(&models.ImplantBuild{
 		ID: uuid,
 	}).Find(&build).Error
@@ -276,7 +276,7 @@ func ImplantProfileByName(name string) (*clientpb.ImplantProfile, error) {
 
 // load c2 for a given implant config
 func loadC2s(config *clientpb.ImplantConfig) error {
-	id, _ := uuid.FromString(config.ID)
+	id, _ := models.ParseUUID(config.ID)
 	c2s := []models.ImplantC2{}
 	err := Session().Where(&models.ImplantC2{
 		ImplantConfigID: id,
@@ -408,7 +408,7 @@ func SaveHTTPC2Config(httpC2Config *clientpb.HTTPC2Config) error {
 }
 
 func HTTPC2ConfigUpdate(newConf *clientpb.HTTPC2Config, oldConf *clientpb.HTTPC2Config) error {
-	clientID, _ := uuid.FromString(oldConf.ImplantConfig.ID)
+	clientID, _ := models.ParseUUID(oldConf.ImplantConfig.ID)
 	c2Config := models.HTTPC2ConfigFromProtobuf(newConf)
 
 	err := Session().Where(&models.HttpC2PathSegment{
@@ -469,7 +469,7 @@ func HTTPC2ConfigUpdate(newConf *clientpb.HTTPC2Config, oldConf *clientpb.HTTPC2
 		}
 	}
 
-	serverID, _ := uuid.FromString(oldConf.ServerConfig.ID)
+	serverID, _ := models.ParseUUID(oldConf.ServerConfig.ID)
 
 	err = Session().Where(&models.HttpC2Cookie{
 		HttpC2ServerConfigID: serverID,
@@ -535,8 +535,8 @@ func UpdateHTTPC2Listener(listenerConf *clientpb.ListenerJob) error {
 		return errors.New("listener config id is empty")
 	}
 
-	listenerID := uuid.FromStringOrNil(listenerConf.ID)
-	if listenerID == uuid.Nil {
+	listenerID := models.ParseUUIDOrNil(listenerConf.ID)
+	if listenerID == models.NilUUID() {
 		return fmt.Errorf("invalid listener config id %q", listenerConf.ID)
 	}
 
@@ -670,7 +670,7 @@ func DeleteListener(JobID uint32) error {
 }
 
 func DeleteC2(c2ID uuid.UUID) error {
-	return Session().Where(&models.ImplantC2{ID: c2ID}).Delete(&models.ImplantC2{}).Error
+	return Session().Where(&models.ImplantC2{ID: models.UUIDFrom(c2ID)}).Delete(&models.ImplantC2{}).Error
 }
 
 // ImplantProfileNames - Fetch a list of all build names
@@ -714,7 +714,7 @@ func DeleteProfile(name string) error {
 		return err
 	}
 
-	uuid, _ := uuid.FromString(profile.Config.ID)
+	uuid, _ := models.ParseUUID(profile.Config.ID)
 
 	// delete linked ImplantC2
 	err = Session().Where(&models.ImplantC2{ImplantConfigID: uuid}).Delete(&models.ImplantC2{}).Error
@@ -778,7 +778,7 @@ func Websites(webContentDir string) ([]*clientpb.Website, error) {
 
 // WebContent by ID and path
 func WebContentByIDAndPath(id string, path string, webContentDir string, eager bool) (*clientpb.WebContent, error) {
-	uuid, _ := uuid.FromString(id)
+	uuid, _ := models.ParseUUID(id)
 	content := models.WebContent{}
 	err := Session().Where(&models.WebContent{
 		WebsiteID: uuid,
@@ -850,13 +850,13 @@ func AddContent(pbWebContent *clientpb.WebContent, webContentDir string) (*clien
 }
 
 func RemoveContent(id string) error {
-	uuid, _ := uuid.FromString(id)
+	uuid, _ := models.ParseUUID(id)
 	err := Session().Delete(&models.WebContent{}, uuid).Error
 	return err
 }
 
 func RemoveWebSite(id string) error {
-	uuid, _ := uuid.FromString(id)
+	uuid, _ := models.ParseUUID(id)
 	err := Session().Delete(&models.Website{}, uuid).Error
 	return err
 }
@@ -910,7 +910,7 @@ func ListHosts() ([]*clientpb.Host, error) {
 // HostByHostID - Get host by the session's reported HostUUID
 func HostByHostID(id uuid.UUID) (*clientpb.Host, error) {
 	host := models.Host{}
-	err := Session().Where(&models.Host{ID: id}).First(&host).Error
+	err := Session().Where(&models.Host{ID: models.UUIDFrom(id)}).First(&host).Error
 	if err != nil {
 		return nil, err
 	}
@@ -922,8 +922,8 @@ func HostByHostUUID(id string) (*models.Host, error) {
 	if len(id) < 1 {
 		return nil, ErrRecordNotFound
 	}
-	hostID := uuid.FromStringOrNil(id)
-	if hostID == uuid.Nil {
+	hostID := models.ParseUUIDOrNil(id)
+	if hostID == models.NilUUID() {
 		return nil, ErrRecordNotFound
 	}
 	host := models.Host{}
@@ -942,8 +942,8 @@ func IOCByID(id string) (*clientpb.IOC, error) {
 		return nil, ErrRecordNotFound
 	}
 	ioc := &models.IOC{}
-	iocID := uuid.FromStringOrNil(id)
-	if iocID == uuid.Nil {
+	iocID := models.ParseUUIDOrNil(id)
+	if iocID == models.NilUUID() {
 		return nil, ErrRecordNotFound
 	}
 	err := Session().Where(
@@ -957,8 +957,8 @@ func BeaconByID(id string) (*models.Beacon, error) {
 	if len(id) < 1 {
 		return nil, ErrRecordNotFound
 	}
-	beaconID := uuid.FromStringOrNil(id)
-	if beaconID == uuid.Nil {
+	beaconID := models.ParseUUIDOrNil(id)
+	if beaconID == models.NilUUID() {
 		return nil, ErrRecordNotFound
 	}
 
@@ -976,8 +976,8 @@ func BeaconTasksByBeaconID(beaconID string) ([]*clientpb.BeaconTask, error) {
 	if len(beaconID) < 1 {
 		return nil, ErrRecordNotFound
 	}
-	id := uuid.FromStringOrNil(beaconID)
-	if id == uuid.Nil {
+	id := models.ParseUUIDOrNil(beaconID)
+	if id == models.NilUUID() {
 		return nil, ErrRecordNotFound
 	}
 	beaconTasks := []*models.BeaconTask{}
@@ -1003,8 +1003,8 @@ func BeaconTaskByID(id string) (*clientpb.BeaconTask, error) {
 	if len(id) < 1 {
 		return nil, ErrRecordNotFound
 	}
-	taskID, err := uuid.FromString(id)
-	if taskID == uuid.Nil {
+	taskID, err := models.ParseUUID(id)
+	if err != nil || taskID == models.NilUUID() {
 		return nil, ErrRecordNotFound
 	}
 	task := &models.BeaconTask{}
@@ -1034,8 +1034,8 @@ func RenameBeacon(id string, name string) error {
 	if len(id) < 1 {
 		return ErrRecordNotFound
 	}
-	beaconID := uuid.FromStringOrNil(id)
-	if beaconID == uuid.Nil {
+	beaconID := models.ParseUUIDOrNil(id)
+	if beaconID == models.NilUUID() {
 		return ErrRecordNotFound
 	}
 	err := Session().Where(&models.Beacon{
@@ -1052,8 +1052,8 @@ func PendingBeaconTasksByBeaconID(id string) ([]*models.BeaconTask, error) {
 	if len(id) < 1 {
 		return nil, ErrRecordNotFound
 	}
-	beaconID := uuid.FromStringOrNil(id)
-	if beaconID == uuid.Nil {
+	beaconID := models.ParseUUIDOrNil(id)
+	if beaconID == models.NilUUID() {
 		return nil, ErrRecordNotFound
 	}
 	tasks := []*models.BeaconTask{}
@@ -1072,8 +1072,8 @@ func UpdateBeaconCheckinByID(id string, next int64) error {
 	if len(id) < 1 {
 		return ErrRecordNotFound
 	}
-	beaconID := uuid.FromStringOrNil(id)
-	if beaconID == uuid.Nil {
+	beaconID := models.ParseUUIDOrNil(id)
+	if beaconID == models.NilUUID() {
 		return ErrRecordNotFound
 	}
 	err := Session().Where(&models.Beacon{
@@ -1090,8 +1090,8 @@ func BeaconTaskByEnvelopeID(beaconID string, envelopeID int64) (*clientpb.Beacon
 	if len(beaconID) < 1 {
 		return nil, ErrRecordNotFound
 	}
-	beaconUUID := uuid.FromStringOrNil(beaconID)
-	if beaconUUID == uuid.Nil {
+	beaconUUID := models.ParseUUIDOrNil(beaconID)
+	if beaconUUID == models.NilUUID() {
 		return nil, ErrRecordNotFound
 	}
 	task := &models.BeaconTask{}
@@ -1107,8 +1107,8 @@ func BeaconTaskByEnvelopeID(beaconID string, envelopeID int64) (*clientpb.Beacon
 
 // CountTasksByBeaconID - Select a (sent) BeaconTask by its envelope ID
 func CountTasksByBeaconID(beaconID string) (int64, int64, error) {
-	beaconUUID, _ := uuid.FromString(beaconID)
-	if beaconUUID == uuid.Nil {
+	beaconUUID, _ := models.ParseUUID(beaconID)
+	if beaconUUID == models.NilUUID() {
 		return 0, 0, ErrRecordNotFound
 	}
 	allTasks := int64(0)
@@ -1189,8 +1189,8 @@ func DeleteKeyValue(key string, value string) error {
 
 // CrackstationByHostUUID - Get crackstation by the session's reported HostUUID
 func CrackstationByHostUUID(hostUUID string) (*models.Crackstation, error) {
-	id := uuid.FromStringOrNil(hostUUID)
-	if id == uuid.Nil {
+	id := models.ParseUUIDOrNil(hostUUID)
+	if id == models.NilUUID() {
 		return nil, ErrRecordNotFound
 	}
 	crackstation := models.Crackstation{}
@@ -1249,8 +1249,8 @@ func PlaintextCredentialsByHashType(hashType clientpb.HashType) ([]*clientpb.Cre
 // CredentialsByID
 func CredentialByID(id string) (*clientpb.Credential, error) {
 	credential := &models.Credential{}
-	credID := uuid.FromStringOrNil(id)
-	if credID != uuid.Nil {
+	credID := models.ParseUUIDOrNil(id)
+	if credID != models.NilUUID() {
 		err := Session().Where(&models.Credential{ID: credID}).First(&credential).Error
 		return credential.ToProtobuf(), err
 	}
@@ -1269,8 +1269,8 @@ func CredentialByID(id string) (*clientpb.Credential, error) {
 
 // GetCrackTaskByID - Get a crack task by its ID
 func GetCrackTaskByID(id string) (*models.CrackTask, error) {
-	taskID := uuid.FromStringOrNil(id)
-	if taskID == uuid.Nil {
+	taskID := models.ParseUUIDOrNil(id)
+	if taskID == models.NilUUID() {
 		return nil, ErrRecordNotFound
 	}
 	task := &models.CrackTask{}
@@ -1283,8 +1283,8 @@ func GetCrackTaskByID(id string) (*models.CrackTask, error) {
 
 // GetByCrackFileByID - Get a crack task by its ID
 func GetByCrackFileByID(id string) (*models.CrackFile, error) {
-	crackFileID := uuid.FromStringOrNil(id)
-	if crackFileID == uuid.Nil {
+	crackFileID := models.ParseUUIDOrNil(id)
+	if crackFileID == models.NilUUID() {
 		return nil, ErrRecordNotFound
 	}
 	crackFile := &models.CrackFile{}
@@ -1386,8 +1386,8 @@ func AIConversationByID(id string, operatorName string, includeMessages bool) (*
 		return nil, ErrRecordNotFound
 	}
 
-	conversationID := uuid.FromStringOrNil(id)
-	if conversationID == uuid.Nil {
+	conversationID := models.ParseUUIDOrNil(id)
+	if conversationID == models.NilUUID() {
 		return nil, ErrRecordNotFound
 	}
 
@@ -1470,7 +1470,7 @@ func SaveAIConversation(conversation *clientpb.AIConversation, operatorName stri
 	}
 
 	dbSession := Session()
-	if dbConversation.ID == uuid.Nil {
+	if dbConversation.ID == models.NilUUID() {
 		if err := dbSession.Create(dbConversation).Error; err != nil {
 			return nil, err
 		}
@@ -1514,8 +1514,8 @@ func DeleteAIConversation(id string, operatorName string) error {
 		return err
 	}
 
-	conversationID := uuid.FromStringOrNil(conversation.ID)
-	if conversationID == uuid.Nil {
+	conversationID := models.ParseUUIDOrNil(conversation.ID)
+	if conversationID == models.NilUUID() {
 		return ErrRecordNotFound
 	}
 
@@ -1547,7 +1547,7 @@ func AIConversationMessagesByID(id string, operatorName string) (*clientpb.AICon
 // SaveAIConversationMessage - Create or update a single AI conversation message.
 func SaveAIConversationMessage(message *clientpb.AIConversationMessage, operatorName string) (*clientpb.AIConversationMessage, error) {
 	dbMessage := models.AIConversationMessageFromProtobuf(message)
-	if dbMessage.ConversationID == uuid.Nil {
+	if dbMessage.ConversationID == models.NilUUID() {
 		return nil, ErrRecordNotFound
 	}
 
@@ -1571,7 +1571,7 @@ func SaveAIConversationMessage(message *clientpb.AIConversationMessage, operator
 	dbSession := Session()
 	var savedMessage *models.AIConversationMessage
 	err = dbSession.Transaction(func(tx *gorm.DB) error {
-		if dbMessage.ID == uuid.Nil && strings.TrimSpace(dbMessage.ItemID) != "" {
+		if dbMessage.ID == models.NilUUID() && strings.TrimSpace(dbMessage.ItemID) != "" {
 			existingByItem := &models.AIConversationMessage{}
 			err := tx.Where("conversation_id = ?", dbMessage.ConversationID).
 				Where("item_id = ?", strings.TrimSpace(dbMessage.ItemID)).
@@ -1585,7 +1585,7 @@ func SaveAIConversationMessage(message *clientpb.AIConversationMessage, operator
 			}
 		}
 
-		if dbMessage.ID == uuid.Nil {
+		if dbMessage.ID == models.NilUUID() {
 			if dbMessage.Sequence == 0 {
 				lastMessage := &models.AIConversationMessage{}
 				err := tx.Where("conversation_id = ?", dbMessage.ConversationID).
@@ -1686,7 +1686,7 @@ func SaveWatchTowerConfig(m *clientpb.MonitoringProvider) error {
 }
 
 func WatchTowerConfigDel(m *clientpb.MonitoringProvider) error {
-	id, _ := uuid.FromString(m.ID)
+	id, _ := models.ParseUUID(m.ID)
 	return Session().Where(&models.MonitoringProvider{ID: id}).Delete(&models.MonitoringProvider{}).Error
 }
 
