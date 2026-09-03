@@ -50,6 +50,38 @@ const (
 	minTimeout = time.Duration(30 * time.Second)
 )
 
+type streamReceiver[T any] interface {
+	Recv() (T, error)
+}
+
+type streamReceiveResult[T any] struct {
+	data T
+	err  error
+}
+
+// receiveStreamFrames keeps Recv in exactly one goroutine while allowing a
+// relay-worker failure to cancel a handler whose peer is otherwise idle. The
+// gRPC runtime cancels a blocked Recv after the handler returns, so callers do
+// not join this pump with their relay-worker barrier.
+func receiveStreamFrames[T any](ctx context.Context, receiver streamReceiver[T]) <-chan streamReceiveResult[T] {
+	results := make(chan streamReceiveResult[T], 1)
+	go func() {
+		defer close(results)
+		for {
+			data, err := receiver.Recv()
+			select {
+			case results <- streamReceiveResult[T]{data: data, err: err}:
+			case <-ctx.Done():
+				return
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
+	return results
+}
+
 // Server - gRPC server
 type Server struct {
 	// Magical methods to break backwards compatibility
@@ -64,6 +96,23 @@ type Server struct {
 	// mixed-version listener inventory compatibility probe. Production servers
 	// issue the request through the exact core Session connection.
 	rportFwdInventoryQuery func(context.Context, *sliverpb.RportFwdListenersReq) ([]byte, error)
+	// tunnelDataBeforeImplantControl is a scheduling seam for a tunnel close
+	// racing a ready acknowledgement or resend control. Production servers leave
+	// it nil.
+	tunnelDataBeforeImplantControl func(*core.Tunnel, *sliverpb.TunnelData)
+	// The bind seams make the two close-vs-bind lifecycle windows deterministic
+	// in tests. Production servers leave both nil.
+	tunnelDataBeforeBindClient        func(*core.Tunnel, *sliverpb.TunnelData)
+	tunnelDataAfterBindAcknowledgment func(*core.Tunnel, *sliverpb.TunnelData)
+	// tunnelDataBeforeNextToImplant makes the ready-data-vs-close race
+	// deterministic in tests. Production servers leave it nil.
+	tunnelDataBeforeNextToImplant func(*core.Tunnel, []byte)
+	// tunnelDataSendToImplant injects the bounded data-envelope send in tests.
+	// Production servers call the exact ImplantConnection directly.
+	tunnelDataSendToImplant func(*core.ImplantConnection, *sliverpb.Envelope, <-chan struct{}, time.Duration) error
+	// tunnelDataAfterImplantSend pauses tests after successful transport
+	// admission but before the tunnel publishes its forwarded prefix.
+	tunnelDataAfterImplantSend func(*core.Tunnel, *sliverpb.TunnelData)
 
 	// reversePortForwardRegistry is an instance seam for security-boundary tests.
 	// Production servers use rtunnels.DefaultRegistry.

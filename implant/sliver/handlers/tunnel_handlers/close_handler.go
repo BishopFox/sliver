@@ -50,6 +50,7 @@ func closeTunnelRemote(connection *transports.Connection, tunnel *transports.Tun
 	return connection.CloseTunnelRemote(tunnel)
 }
 
+// TunnelCloseHandler applies a peer terminal frame to its exact tunnel generation.
 func TunnelCloseHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
 	tunnelClose := &sliverpb.TunnelData{
 		Closed: true,
@@ -65,6 +66,13 @@ func handleTunnelClose(tunnelClose *sliverpb.TunnelData, connection *transports.
 		return
 	}
 	tunnel := connection.Tunnel(tunnelClose.TunnelID)
+	if tunnel == nil {
+		// A close can overtake destination dialing and active-tunnel
+		// publication. Retire the exact connection-owned setup first, then
+		// re-read the active map in case publication won that race.
+		connection.CancelPendingTunnel(tunnelClose.TunnelID)
+		tunnel = connection.Tunnel(tunnelClose.TunnelID)
+	}
 	if tunnel != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[tunnel] Closing tunnel with id %d", tunnel.ID)
@@ -100,8 +108,8 @@ func handleTunnelClose(tunnelClose *sliverpb.TunnelData, connection *transports.
 			return
 		}
 	} else {
-		// Preserve the startup tombstone used when a close overtakes shell
-		// publication; StopSession is a no-op for non-shell tunnel IDs.
+		// Preserve the shell startup tombstone as well; StopSession is a no-op
+		// for non-shell tunnel IDs.
 		shell.StopSession(tunnelClose.TunnelID)
 		// {{if .Config.Debug}}
 		log.Printf("[tunnel][tunnelCloseHandler] Received close message for unknown tunnel id %d", tunnelClose.TunnelID)

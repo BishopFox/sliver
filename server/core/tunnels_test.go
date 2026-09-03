@@ -44,6 +44,70 @@ func TestTunnelsCreateKnownSession(t *testing.T) {
 	if tunnel.SessionID != session.ID {
 		t.Fatalf("expected SessionID %q, got %q", session.ID, tunnel.SessionID)
 	}
+	if tunnel.ImplantConnection() != session.Connection {
+		t.Fatalf("expected creating implant connection %p, got %p", session.Connection, tunnel.ImplantConnection())
+	}
+}
+
+func TestTunnelsCreateCapturesExactTerminalCapability(t *testing.T) {
+	session := newTestSession()
+	session.Capabilities = sliverpb.CapabilityTunnelTerminalV1
+	Sessions.Add(session)
+	t.Cleanup(func() {
+		Sessions.RemoveIf(session)
+		session.Connection.Close()
+	})
+
+	tunnel, err := Tunnels.Create(session.ID)
+	if err != nil {
+		t.Fatalf("create capable tunnel: %v", err)
+	}
+	t.Cleanup(func() { Tunnels.CloseIf(tunnel) })
+	if !tunnel.TunnelTerminalEnabled() {
+		t.Fatal("created tunnel did not retain the exact implant terminal capability")
+	}
+
+	// Capability belongs to the creating transport generation, not a mutable
+	// session snapshot consulted during later teardown.
+	session.Capabilities = 0
+	if !tunnel.TunnelTerminalEnabled() {
+		t.Fatal("tunnel terminal capability changed with the session snapshot")
+	}
+}
+
+func TestTunnelImplantConnectionSurvivesSessionReplacement(t *testing.T) {
+	creatingSession := newTestSession()
+	Sessions.Add(creatingSession)
+	t.Cleanup(func() {
+		if Sessions.Get(creatingSession.ID) == creatingSession {
+			Sessions.RemoveIf(creatingSession)
+		}
+		creatingSession.Connection.Close()
+	})
+
+	tunnel, err := Tunnels.Create(creatingSession.ID)
+	if err != nil {
+		t.Fatalf("create tunnel: %v", err)
+	}
+	t.Cleanup(func() { Tunnels.CloseIf(tunnel) })
+
+	replacement := newTestSession()
+	replacement.ID = creatingSession.ID
+	Sessions.Add(replacement)
+	t.Cleanup(func() {
+		Sessions.Remove(replacement.ID)
+		replacement.Connection.Close()
+	})
+
+	if tunnel.ImplantConnection() != creatingSession.Connection {
+		t.Fatalf("tunnel implant connection after session replacement = %p, want creating connection %p", tunnel.ImplantConnection(), creatingSession.Connection)
+	}
+	if tunnel.ImplantConnection() == replacement.Connection {
+		t.Fatal("tunnel implant connection changed to the replacement generation")
+	}
+	if got := Sessions.Get(creatingSession.ID); got != replacement {
+		t.Fatalf("registered session after replacement = %p, want %p", got, replacement)
+	}
 }
 
 func TestTunnelsCloseUnboundTunnelDoesNotBlock(t *testing.T) {
@@ -86,6 +150,44 @@ func TestTunnelsCloseUnboundTunnelDoesNotBlock(t *testing.T) {
 	}
 }
 
+func TestTunnelsCloseForSessionIsScopedAndIdempotent(t *testing.T) {
+	first := NewTunnel(101, "disconnecting-session")
+	second := NewTunnel(102, "disconnecting-session")
+	other := NewTunnel(103, "other-session")
+	registry := &tunnels{
+		tunnels: map[uint64]*Tunnel{first.ID: first, second.ID: second, other.ID: other},
+		mutex:   &sync.Mutex{},
+	}
+
+	if closed := registry.CloseForSession("disconnecting-session"); closed != 2 {
+		t.Fatalf("closed tunnel count = %d, want 2", closed)
+	}
+	for _, tunnel := range []*Tunnel{first, second} {
+		select {
+		case <-tunnel.Done():
+		default:
+			t.Fatalf("tunnel %d did not close with its session", tunnel.ID)
+		}
+		if got := registry.Get(tunnel.ID); got != nil {
+			t.Fatalf("closed tunnel %d remains registered", tunnel.ID)
+		}
+	}
+	if got := registry.Get(other.ID); got != other {
+		t.Fatalf("unrelated tunnel = %p, want %p", got, other)
+	}
+	select {
+	case <-other.Done():
+		t.Fatal("unrelated session tunnel was closed")
+	default:
+	}
+	if closed := registry.CloseForSession("disconnecting-session"); closed != 0 {
+		t.Fatalf("idempotent close count = %d, want 0", closed)
+	}
+	if closed := registry.CloseForSession(""); closed != 0 {
+		t.Fatalf("empty-session close count = %d, want 0", closed)
+	}
+}
+
 func TestTunnelSignalsClientBoundAfterAcknowledgement(t *testing.T) {
 	tunnel := NewTunnel(1, "test-session")
 	client := &testTunnelDataServer{}
@@ -115,6 +217,116 @@ func TestTunnelSignalsClientBoundAfterAcknowledgement(t *testing.T) {
 	}
 }
 
+func TestTunnelClientBindLeaseStateTransitions(t *testing.T) {
+	t.Run("expiry-before-reservation", func(t *testing.T) {
+		tunnel := NewTunnel(201, "test-session")
+		registry := &tunnels{
+			tunnels: map[uint64]*Tunnel{tunnel.ID: tunnel},
+			mutex:   &sync.Mutex{},
+		}
+		expiry := make(chan time.Time, 1)
+		expiry <- time.Time{}
+		registry.waitForClientBindLease(tunnel, expiry)
+
+		if got := registry.Get(tunnel.ID); got != nil {
+			t.Fatalf("expired tunnel remains registered: %p", got)
+		}
+		select {
+		case <-tunnel.Done():
+		default:
+			t.Fatal("expired tunnel did not close")
+		}
+		if tunnel.BindClient(&testTunnelDataServer{}) {
+			t.Fatal("client reserved a tunnel after its bind lease expired")
+		}
+		if !tunnel.ClientBindLeaseExpired() {
+			t.Fatal("closed tunnel did not retain its bind-expired state")
+		}
+	})
+
+	t.Run("expiry-after-reservation", func(t *testing.T) {
+		tunnel := NewTunnel(202, "test-session")
+		client := &testTunnelDataServer{}
+		if !tunnel.BindClient(client) {
+			t.Fatal("client failed to reserve tunnel")
+		}
+		registry := &tunnels{
+			tunnels: map[uint64]*Tunnel{tunnel.ID: tunnel},
+			mutex:   &sync.Mutex{},
+		}
+		expiry := make(chan time.Time, 1)
+		expiry <- time.Time{}
+		registry.waitForClientBindLease(tunnel, expiry)
+
+		if tunnel.MarkClientBound(client) {
+			t.Fatal("reserved client completed a bind after its lease expired")
+		}
+		if !tunnel.ClientBindLeaseExpired() {
+			t.Fatal("reserved tunnel did not report bind expiry")
+		}
+		if got := registry.Get(tunnel.ID); got != nil {
+			t.Fatalf("expired reserved tunnel remains registered: %p", got)
+		}
+		select {
+		case <-tunnel.Done():
+		default:
+			t.Fatal("expired reserved tunnel did not close")
+		}
+	})
+
+	t.Run("completed-bind-wins", func(t *testing.T) {
+		tunnel := NewTunnel(203, "test-session")
+		client := &testTunnelDataServer{}
+		if !tunnel.BindClient(client) || !tunnel.MarkClientBound(client) {
+			t.Fatal("client failed to complete tunnel bind")
+		}
+		registry := &tunnels{
+			tunnels: map[uint64]*Tunnel{tunnel.ID: tunnel},
+			mutex:   &sync.Mutex{},
+		}
+		expiry := make(chan time.Time, 1)
+		expiry <- time.Time{}
+		registry.waitForClientBindLease(tunnel, expiry)
+
+		if got := registry.Get(tunnel.ID); got != tunnel {
+			t.Fatalf("completed tunnel after lease signal = %p, want %p", got, tunnel)
+		}
+		select {
+		case <-tunnel.Done():
+			t.Fatal("lease signal closed a completed client bind")
+		default:
+		}
+		if tunnel.ClientBindLeaseExpired() {
+			t.Fatal("completed client bind was marked expired")
+		}
+		tunnel.Close()
+	})
+}
+
+func TestTunnelsClientBindLeaseCloseIsGenerationScoped(t *testing.T) {
+	const tunnelID = uint64(204)
+	old := NewTunnel(tunnelID, "old-session")
+	current := NewTunnel(tunnelID, "current-session")
+	registry := &tunnels{
+		tunnels: map[uint64]*Tunnel{tunnelID: current},
+		mutex:   &sync.Mutex{},
+	}
+	expiry := make(chan time.Time, 1)
+	expiry <- time.Time{}
+	registry.waitForClientBindLease(old, expiry)
+
+	if got := registry.Get(tunnelID); got != current {
+		t.Fatalf("stale lease changed current generation: got=%p want=%p", got, current)
+	}
+	select {
+	case <-current.Done():
+		t.Fatal("stale lease closed the current tunnel generation")
+	default:
+	}
+	old.Close()
+	current.Close()
+}
+
 func TestTunnelCloseUnblocksSenders(t *testing.T) {
 	tunnel := NewTunnel(1, "test-session")
 
@@ -131,7 +343,9 @@ func TestTunnelCloseUnblocksSenders(t *testing.T) {
 	deadline := time.Now().Add(time.Second)
 	blocked := false
 	for time.Now().Before(deadline) {
-		fromBlocked := len(tunnel.fromImplantAdmission) == 1
+		tunnel.fromImplantBudget.Lock()
+		fromBlocked := tunnel.fromImplantFrames == 1
+		tunnel.fromImplantBudget.Unlock()
 		toBlocked := !tunnel.toImplantQueue.TryLock()
 		if !toBlocked {
 			tunnel.toImplantQueue.Unlock()
@@ -195,9 +409,10 @@ func TestTunnelsCloseForClientOnlyClosesOwnedTunnels(t *testing.T) {
 	}
 }
 
-func TestTunnelClientDataRefreshesCloseActivity(t *testing.T) {
+func TestTunnelClientDataRefreshesOnlyToImplantCloseActivity(t *testing.T) {
 	tunnel := NewTunnel(13, "session")
-	before := tunnel.GetLastMessageTime()
+	beforeToImplant := tunnel.LastToImplantTime()
+	beforeFromImplant := tunnel.LastFromImplantTime()
 	time.Sleep(time.Millisecond)
 	received := make(chan []byte, 1)
 	go func() { received <- <-tunnel.ToImplant }()
@@ -208,20 +423,404 @@ func TestTunnelClientDataRefreshesCloseActivity(t *testing.T) {
 	if got := <-received; string(got) != string(payload) {
 		t.Fatalf("queued data = %q, want %q", got, payload)
 	}
-	if after := tunnel.GetLastMessageTime(); !after.After(before) {
-		t.Fatalf("client data did not refresh close activity: before=%v after=%v", before, after)
+	if after := tunnel.LastToImplantTime(); !after.After(beforeToImplant) {
+		t.Fatalf("client data did not refresh to-implant close activity: before=%v after=%v", beforeToImplant, after)
+	}
+	if after := tunnel.LastFromImplantTime(); !after.Equal(beforeFromImplant) {
+		t.Fatalf("client data changed from-implant close activity: before=%v after=%v", beforeFromImplant, after)
 	}
 }
 
-func TestTunnelTouchRefreshesCloseActivity(t *testing.T) {
+func TestTunnelImplantDataRefreshesOnlyFromImplantCloseActivity(t *testing.T) {
 	tunnel := NewTunnel(14, "session")
+	beforeToImplant := tunnel.LastToImplantTime()
+	beforeFromImplant := tunnel.LastFromImplantTime()
+	time.Sleep(time.Millisecond)
+	received := make(chan *sliverpb.TunnelData, 1)
+	go func() { received <- <-tunnel.FromImplant }()
+	frame := &sliverpb.TunnelData{TunnelID: tunnel.ID, Sequence: 0, Data: []byte("keepalive")}
+	if err := tunnel.ProcessDataFromImplant(frame); err != nil {
+		t.Fatalf("process implant data: %v", err)
+	}
+	if got := <-received; string(got.Data) != string(frame.Data) {
+		t.Fatalf("delivered data = %q, want %q", got.Data, frame.Data)
+	}
+	if after := tunnel.LastFromImplantTime(); !after.After(beforeFromImplant) {
+		t.Fatalf("implant data did not refresh from-implant close activity: before=%v after=%v", beforeFromImplant, after)
+	}
+	if after := tunnel.LastToImplantTime(); !after.Equal(beforeToImplant) {
+		t.Fatalf("implant data changed to-implant close activity: before=%v after=%v", beforeToImplant, after)
+	}
+}
+
+func TestTunnelDirectionalCloseTouchesAreIndependent(t *testing.T) {
+	tunnel := NewTunnel(141, "session")
+	stale := time.Now().Add(-2 * delayBeforeClose)
 	tunnel.mutex.Lock()
-	tunnel.lastDataMessageTime = time.Now().Add(-2 * delayBeforeClose)
+	tunnel.lastToImplantTime = stale
+	tunnel.lastFromImplantTime = stale
 	tunnel.mutex.Unlock()
 
-	tunnel.Touch()
-	if age := time.Since(tunnel.GetLastMessageTime()); age < 0 || age >= delayBeforeClose {
-		t.Fatalf("Touch did not establish a fresh close grace period: age=%v", age)
+	tunnel.touchToImplant()
+	toImplant := tunnel.LastToImplantTime()
+	if age := time.Since(toImplant); age < 0 || age >= delayBeforeClose {
+		t.Fatalf("TouchToImplant did not establish a fresh close grace period: age=%v", age)
+	}
+	if fromImplant := tunnel.LastFromImplantTime(); !fromImplant.Equal(stale) {
+		t.Fatalf("TouchToImplant changed from-implant activity: got=%v want=%v", fromImplant, stale)
+	}
+
+	tunnel.touchFromImplant()
+	if age := time.Since(tunnel.LastFromImplantTime()); age < 0 || age >= delayBeforeClose {
+		t.Fatalf("TouchFromImplant did not establish a fresh close grace period: age=%v", age)
+	}
+	if got := tunnel.LastToImplantTime(); !got.Equal(toImplant) {
+		t.Fatalf("TouchFromImplant changed to-implant activity: got=%v want=%v", got, toImplant)
+	}
+}
+
+func TestTunnelClaimFromImplantCloseIsIdempotent(t *testing.T) {
+	tunnel := NewTunnel(144, "session")
+	before := tunnel.LastFromImplantTime()
+	time.Sleep(time.Millisecond)
+	if !tunnel.ClaimFromImplantClose() {
+		t.Fatal("first implant terminal did not claim close ownership")
+	}
+	claimedAt := tunnel.LastFromImplantTime()
+	if !claimedAt.After(before) {
+		t.Fatalf("first terminal did not establish close grace: before=%v after=%v", before, claimedAt)
+	}
+
+	time.Sleep(time.Millisecond)
+	results := make(chan bool, 100)
+	for range 100 {
+		go func() { results <- tunnel.ClaimFromImplantClose() }()
+	}
+	for range 100 {
+		if <-results {
+			t.Fatal("duplicate implant terminal claimed another close scheduler")
+		}
+	}
+	if got := tunnel.LastFromImplantTime(); !got.Equal(claimedAt) {
+		t.Fatalf("duplicate terminal refreshed close grace: got=%v want=%v", got, claimedAt)
+	}
+}
+
+//nolint:gocyclo // The assertions cover every stage of one ordered terminal lifecycle.
+func TestTunnelSequencedTerminalWaitsForPrecedingFrames(t *testing.T) {
+	tunnel := NewTunnel(145, "session")
+	ready, err := tunnel.MarkFromImplantTerminal(&sliverpb.TunnelData{
+		TunnelID: tunnel.ID,
+		Sequence: 2,
+		Closed:   true,
+	})
+	if err != nil {
+		t.Fatalf("mark sequenced terminal: %v", err)
+	}
+	if ready {
+		t.Fatal("terminal was ready before preceding frames arrived")
+	}
+	if err := tunnel.ProcessDataFromImplant(&sliverpb.TunnelData{
+		TunnelID: tunnel.ID,
+		Sequence: 1,
+		Data:     []byte("second"),
+	}); err != nil {
+		t.Fatalf("queue second frame: %v", err)
+	}
+
+	received := make(chan []*sliverpb.TunnelData, 1)
+	go func() {
+		frames := make([]*sliverpb.TunnelData, 0, 2)
+		for range 2 {
+			frames = append(frames, <-tunnel.FromImplant)
+		}
+		received <- frames
+	}()
+	if err := tunnel.ProcessDataFromImplant(&sliverpb.TunnelData{
+		TunnelID: tunnel.ID,
+		Sequence: 0,
+		Data:     []byte("first"),
+	}); err != nil {
+		t.Fatalf("process first frame: %v", err)
+	}
+	var frames []*sliverpb.TunnelData
+	select {
+	case frames = <-received:
+		if len(frames) != 2 || frames[0].Sequence != 0 || string(frames[0].Data) != "first" ||
+			frames[1].Sequence != 1 || string(frames[1].Data) != "second" {
+			t.Fatalf("sequenced terminal frames = %+v", frames)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("preceding frames did not drain in order")
+	}
+	select {
+	case <-tunnel.FromImplantTerminalReady():
+		t.Fatal("terminal became ready before preceding frames were forwarded")
+	default:
+	}
+	for _, frame := range frames {
+		if err := tunnel.CompleteDataFromImplantForward(frame.Sequence); err != nil {
+			t.Fatalf("complete forwarded frame %d: %v", frame.Sequence, err)
+		}
+	}
+	select {
+	case <-tunnel.FromImplantTerminalReady():
+	case <-time.After(time.Second):
+		t.Fatal("terminal did not become ready after preceding frames were forwarded")
+	}
+	if err := tunnel.ProcessDataFromImplant(&sliverpb.TunnelData{
+		TunnelID: tunnel.ID,
+		Sequence: 2,
+		Data:     []byte("after terminal"),
+	}); !errors.Is(err, ErrTunnelTerminal) {
+		t.Fatalf("data at terminal error = %v, want ErrTunnelTerminal", err)
+	}
+}
+
+func TestTunnelConnectionWatcherClosesOnlyOldGeneration(t *testing.T) {
+	originalConnection := NewImplantConnection("test", "original")
+	replacementConnection := NewImplantConnection("test", "replacement")
+	t.Cleanup(originalConnection.Close)
+	t.Cleanup(replacementConnection.Close)
+	original := newTunnel(146, "same-session", originalConnection)
+	replacement := newTunnel(original.ID, original.SessionID, replacementConnection)
+	registry := &tunnels{
+		tunnels: map[uint64]*Tunnel{original.ID: original},
+		mutex:   &sync.Mutex{},
+	}
+	go registry.waitForImplantConnection(original)
+
+	registry.mutex.Lock()
+	registry.tunnels[original.ID] = replacement
+	registry.mutex.Unlock()
+	originalConnection.Close()
+	select {
+	case <-original.Done():
+	case <-time.After(time.Second):
+		t.Fatal("old implant connection teardown did not close its detached tunnel")
+	}
+	if got := registry.Get(original.ID); got != replacement {
+		t.Fatalf("old connection watcher changed replacement registry entry: got=%p want=%p", got, replacement)
+	}
+	select {
+	case <-replacement.Done():
+		t.Fatal("old connection watcher closed replacement tunnel")
+	default:
+	}
+	select {
+	case <-replacementConnection.Done():
+		t.Fatal("old connection watcher closed replacement transport")
+	default:
+	}
+	replacement.Close()
+}
+
+func TestTunnelsClientCloseIgnoresFromImplantActivity(t *testing.T) {
+	tunnel := NewTunnel(142, "session")
+	registry := &tunnels{
+		tunnels: map[uint64]*Tunnel{tunnel.ID: tunnel},
+		mutex:   &sync.Mutex{},
+	}
+	stale := time.Now().Add(-2 * delayBeforeClose)
+	tunnel.mutex.Lock()
+	tunnel.lastToImplantTime = stale
+	tunnel.lastFromImplantTime = stale
+	tunnel.mutex.Unlock()
+	received := make(chan *sliverpb.TunnelData, 1)
+	go func() { received <- <-tunnel.FromImplant }()
+	frame := &sliverpb.TunnelData{TunnelID: tunnel.ID, Sequence: 0, Data: []byte("target-keepalive")}
+	if err := tunnel.ProcessDataFromImplant(frame); err != nil {
+		t.Fatalf("process target keepalive: %v", err)
+	}
+	if got := <-received; string(got.Data) != string(frame.Data) {
+		t.Fatalf("delivered target keepalive = %q, want %q", got.Data, frame.Data)
+	}
+	if got := tunnel.LastToImplantTime(); !got.Equal(stale) {
+		t.Fatalf("target keepalive changed client-close activity: got=%v want=%v", got, stale)
+	}
+	if got := tunnel.LastFromImplantTime(); !got.After(stale) {
+		t.Fatalf("target keepalive did not refresh implant-close activity: got=%v stale=%v", got, stale)
+	}
+
+	registry.ScheduleCloseTunnelToImplant(tunnel)
+	if got := registry.Get(tunnel.ID); got != nil {
+		t.Fatalf("client-requested close was extended by from-implant activity: %+v", got)
+	}
+	select {
+	case <-tunnel.Done():
+	default:
+		t.Fatal("client-requested close did not close tunnel")
+	}
+}
+
+func TestTunnelQuiesceDataToImplantJoinsAcceptedForward(t *testing.T) {
+	tunnel := NewTunnel(149, "session")
+	received := make(chan struct{})
+	release := make(chan struct{})
+	go func() {
+		<-tunnel.ToImplant
+		close(received)
+		<-release
+		tunnel.CompleteDataToImplant()
+	}()
+
+	accepted := make(chan bool, 1)
+	go func() { accepted <- tunnel.SendDataToImplant([]byte("final")) }()
+	select {
+	case <-received:
+	case <-time.After(time.Second):
+		t.Fatal("forwarding worker did not receive accepted final payload")
+	}
+	if !<-accepted {
+		t.Fatal("final payload was not accepted")
+	}
+
+	quiesced := make(chan struct{})
+	go func() {
+		tunnel.QuiesceDataToImplant()
+		close(quiesced)
+	}()
+	select {
+	case <-quiesced:
+		t.Fatal("graceful close did not wait for the accepted final payload")
+	case <-time.After(25 * time.Millisecond):
+	}
+	close(release)
+	select {
+	case <-quiesced:
+	case <-time.After(time.Second):
+		t.Fatal("graceful close did not resume after final payload completion")
+	}
+
+	rejected := make(chan bool, 1)
+	go func() { rejected <- tunnel.SendDataToImplant([]byte("late")) }()
+	select {
+	case acceptedLate := <-rejected:
+		if acceptedLate {
+			t.Fatal("quiesced tunnel accepted a later payload")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("late payload blocked after tunnel quiescence")
+	}
+}
+
+func TestTunnelTerminalSequenceTracksOnlySuccessfullyForwardedPrefix(t *testing.T) {
+	tunnel := newTunnelWithCapabilities(150, "session", nil, sliverpb.CapabilityTunnelTerminalV1)
+	first, err := tunnel.NextDataToImplant([]byte("first"))
+	if err != nil {
+		t.Fatalf("assign first frame: %v", err)
+	}
+	if got := tunnel.ToImplantTerminalSequence(); got != 0 {
+		t.Fatalf("terminal included assigned but unforwarded frame: got %d, want 0", got)
+	}
+	if err := tunnel.CompleteDataToImplantForward(first.Sequence); err != nil {
+		t.Fatalf("complete first frame: %v", err)
+	}
+	if got := tunnel.ToImplantTerminalSequence(); got != 1 {
+		t.Fatalf("terminal after first forwarded frame = %d, want 1", got)
+	}
+	second, err := tunnel.NextDataToImplant([]byte("second"))
+	if err != nil {
+		t.Fatalf("assign second frame: %v", err)
+	}
+	if got := tunnel.ToImplantTerminalSequence(); got != 1 {
+		t.Fatalf("terminal included second unforwarded frame: got %d, want 1", got)
+	}
+	if err := tunnel.CompleteDataToImplantForward(second.Sequence); err != nil {
+		t.Fatalf("complete second frame: %v", err)
+	}
+	if got := tunnel.ToImplantTerminalSequence(); got != 2 {
+		t.Fatalf("terminal after forwarded prefix = %d, want 2", got)
+	}
+}
+
+//nolint:gocyclo // The test drives the terminal deadline through a blocked ordered delivery.
+func TestTunnelTerminalDeadlineBreaksBlockedAdmissionBeforeMarkReturns(t *testing.T) {
+	connection := NewImplantConnection("mtls", "blocked-terminal-mark")
+	t.Cleanup(connection.Close)
+	tunnel := newTunnelWithCapabilities(151, "session", connection, sliverpb.CapabilityTunnelTerminalV1)
+	registry := &tunnels{
+		tunnels: map[uint64]*Tunnel{tunnel.ID: tunnel},
+		mutex:   &sync.Mutex{},
+	}
+
+	dataDone := make(chan error, 1)
+	go func() {
+		dataDone <- tunnel.ProcessDataFromImplant(&sliverpb.TunnelData{
+			TunnelID: tunnel.ID,
+			Sequence: 0,
+			Data:     []byte("blocked operator delivery"),
+		})
+	}()
+	deadline := time.Now().Add(time.Second)
+	for tunnel.fromImplantMutex.TryLock() {
+		tunnel.fromImplantMutex.Unlock()
+		if time.Now().After(deadline) {
+			t.Fatal("data admission did not block while holding the ordering mutex")
+		}
+		time.Sleep(time.Millisecond)
+	}
+
+	expiry := make(chan time.Time, 1)
+	registry.armFromImplantTerminalClose(tunnel, expiry)
+	markDone := make(chan error, 1)
+	go func() {
+		_, err := tunnel.MarkFromImplantTerminal(&sliverpb.TunnelData{
+			TunnelID: tunnel.ID,
+			Sequence: 1,
+			Closed:   true,
+		})
+		markDone <- err
+	}()
+	expiry <- time.Now()
+
+	select {
+	case <-tunnel.Done():
+	case <-time.After(time.Second):
+		t.Fatal("terminal deadline did not close the blocked tunnel")
+	}
+	select {
+	case err := <-dataDone:
+		if !errors.Is(err, ErrTunnelClosed) {
+			t.Fatalf("blocked data result = %v, want ErrTunnelClosed", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("blocked data admission did not wake on terminal deadline")
+	}
+	select {
+	case err := <-markDone:
+		if !errors.Is(err, ErrTunnelClosed) {
+			t.Fatalf("blocked terminal mark result = %v, want ErrTunnelClosed", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("terminal mark did not return after deadline closure")
+	}
+	select {
+	case <-connection.Done():
+	case <-time.After(time.Second):
+		t.Fatal("incomplete terminal deadline did not fail the exact connection closed")
+	}
+}
+
+func TestTunnelsImplantCloseIgnoresToImplantActivity(t *testing.T) {
+	tunnel := NewTunnel(143, "session")
+	registry := &tunnels{
+		tunnels: map[uint64]*Tunnel{tunnel.ID: tunnel},
+		mutex:   &sync.Mutex{},
+	}
+	tunnel.mutex.Lock()
+	tunnel.lastToImplantTime = time.Now()
+	tunnel.lastFromImplantTime = time.Now().Add(-2 * delayBeforeClose)
+	tunnel.mutex.Unlock()
+
+	registry.ScheduleCloseTunnelFromImplant(tunnel)
+	if got := registry.Get(tunnel.ID); got != nil {
+		t.Fatalf("implant-requested close was extended by to-implant activity: %+v", got)
+	}
+	select {
+	case <-tunnel.Done():
+	default:
+		t.Fatal("implant-requested close did not close tunnel")
 	}
 }
 
@@ -242,8 +841,8 @@ func TestTunnelProcessDataFromImplantRejectsOversizedAndOutOfWindowFrames(t *tes
 	if !errors.Is(err, ErrTunnelSequenceWindow) {
 		t.Fatalf("out-of-window frame error = %v, want ErrTunnelSequenceWindow", err)
 	}
-	if len(tunnel.pendingFromImplant) != 0 || tunnel.pendingFromBytes != 0 {
-		t.Fatalf("rejected frames changed pending state: frames=%d bytes=%d", len(tunnel.pendingFromImplant), tunnel.pendingFromBytes)
+	if len(tunnel.pendingFromImplant) != 0 {
+		t.Fatalf("rejected frames changed pending state: frames=%d", len(tunnel.pendingFromImplant))
 	}
 }
 
@@ -293,8 +892,8 @@ func TestTunnelProcessDataFromImplantReordersFullReceiveWindow(t *testing.T) {
 	if tunnel.FromImplantSequence != maxTunnelPendingFrames {
 		t.Fatalf("next receive sequence = %d, want %d", tunnel.FromImplantSequence, maxTunnelPendingFrames)
 	}
-	if len(tunnel.pendingFromImplant) != 0 || tunnel.pendingFromBytes != 0 {
-		t.Fatalf("drained receive state retained frames=%d bytes=%d", len(tunnel.pendingFromImplant), tunnel.pendingFromBytes)
+	if len(tunnel.pendingFromImplant) != 0 {
+		t.Fatalf("drained receive state retained %d frames", len(tunnel.pendingFromImplant))
 	}
 	if tunnel.fromImplantFrames != 0 || tunnel.fromImplantBytes != 0 {
 		t.Fatalf("drained receive budget retained frames=%d bytes=%d", tunnel.fromImplantFrames, tunnel.fromImplantBytes)
@@ -311,12 +910,19 @@ func TestTunnelProcessDataFromImplantBoundsBlockedHandlers(t *testing.T) {
 	}
 
 	deadline := time.Now().Add(time.Second)
-	for len(tunnel.fromImplantAdmission) != maxTunnelPendingFrames && time.Now().Before(deadline) {
+	admitted := 0
+	for time.Now().Before(deadline) {
+		tunnel.fromImplantBudget.Lock()
+		admitted = tunnel.fromImplantFrames
+		tunnel.fromImplantBudget.Unlock()
+		if admitted == maxTunnelPendingFrames {
+			break
+		}
 		time.Sleep(time.Millisecond)
 	}
-	if got := len(tunnel.fromImplantAdmission); got != maxTunnelPendingFrames {
+	if admitted != maxTunnelPendingFrames {
 		tunnel.Close()
-		t.Fatalf("admitted blocked handlers = %d, want %d", got, maxTunnelPendingFrames)
+		t.Fatalf("admitted blocked handlers = %d, want %d", admitted, maxTunnelPendingFrames)
 	}
 	if err := tunnel.ProcessDataFromImplant(&sliverpb.TunnelData{Sequence: 0}); !errors.Is(err, ErrTunnelIngressLimit) {
 		tunnel.Close()
@@ -466,8 +1072,8 @@ func TestTunnelProtocolStateIsGenerationOwnedAndCleared(t *testing.T) {
 	if !registry.CloseIf(old) {
 		t.Fatal("failed to close old generation")
 	}
-	if len(old.pendingFromImplant) != 0 || old.pendingFromBytes != 0 || old.fromImplantFrames != 0 || old.fromImplantBytes != 0 || len(old.toImplantCache) != 0 {
-		t.Fatalf("closed generation retained inbound=%d bytes=%d reserved-frames=%d reserved-bytes=%d outbound=%d", len(old.pendingFromImplant), old.pendingFromBytes, old.fromImplantFrames, old.fromImplantBytes, len(old.toImplantCache))
+	if len(old.pendingFromImplant) != 0 || old.fromImplantFrames != 0 || old.fromImplantBytes != 0 || len(old.toImplantCache) != 0 {
+		t.Fatalf("closed generation retained inbound=%d reserved-frames=%d reserved-bytes=%d outbound=%d", len(old.pendingFromImplant), old.fromImplantFrames, old.fromImplantBytes, len(old.toImplantCache))
 	}
 
 	current := NewTunnel(tunnelID, "current-session")
@@ -519,6 +1125,9 @@ func TestSocksTunnelsCreateKnownSession(t *testing.T) {
 	}
 	if tunnel.SessionID != session.ID {
 		t.Fatalf("expected SessionID %q, got %q", session.ID, tunnel.SessionID)
+	}
+	if tunnel.ImplantConnection() != session.Connection {
+		t.Fatal("SOCKS tunnel did not retain its creating session connection")
 	}
 }
 

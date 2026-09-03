@@ -34,6 +34,8 @@ var (
 	tunnelsSingletonLock = &sync.Mutex{}
 )
 
+var errSupersededTunnel = errors.New("superseded tunnel")
+
 // GetTunnels - singleton function that returns or initializes all tunnels
 func GetTunnels() *tunnels {
 	tunnelsSingletonLock.Lock()
@@ -98,9 +100,19 @@ func (t *tunnels) Get(tunnelID uint64) *TunnelIO {
 
 // send - safe way to send a message to the stream
 // protobuf stream allow only one writer at a time, so just in case there is a mutex for it
-func (t *tunnels) send(tunnelData *sliverpb.TunnelData) error {
+func (t *tunnels) send(expected *TunnelIO, tunnelData *sliverpb.TunnelData) error {
 	t.streamMutex.Lock()
 	defer t.streamMutex.Unlock()
+
+	// Start publishes replacement tunnel generations while holding streamMutex.
+	// Checking the exact pointer under the same lock ensures an old generation
+	// cannot send another frame after its replacement becomes visible.
+	t.mutex.RLock()
+	current := (*t.tunnels)[expected.ID]
+	t.mutex.RUnlock()
+	if current != expected {
+		return errSupersededTunnel
+	}
 
 	if t.stream == nil {
 		return errors.New("uninitizlied stream")
@@ -113,39 +125,59 @@ func (t *tunnels) send(tunnelData *sliverpb.TunnelData) error {
 
 // Start - Add a tunnel to the core mapper
 func (t *tunnels) Start(tunnelID uint64, sessionID string) *TunnelIO {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-
 	tunnel := NewTunnelIO(tunnelID, sessionID)
+	if err := tunnel.Open(); err != nil {
+		log.Printf("Failed to open tunnel %d: %v", tunnelID, err)
+		return tunnel
+	}
 
+	// Publish the new generation atomically with respect to tunnel sends. If an
+	// ID is reused, the previous generation is made terminal before the new
+	// pointer becomes visible in the map.
+	t.streamMutex.Lock()
+	t.mutex.Lock()
+	previous := (*t.tunnels)[tunnelID]
+	if previous != nil {
+		_ = previous.Close()
+	}
 	(*t.tunnels)[tunnelID] = tunnel
+	t.mutex.Unlock()
+	t.streamMutex.Unlock()
 
 	go func(tunnel *TunnelIO) {
-		if err := tunnel.Open(); err != nil {
-			log.Printf("Failed to open tunnel %d: %v", tunnelID, err)
-			return
-		}
 		log.Printf("Tunnel now is open, %d", tunnelID)
 
 		for {
+			var (
+				data   []byte
+				result chan error
+			)
 			select {
 			case <-tunnel.Done():
 				log.Printf("Tunnel send loop stopped. %d", tunnelID)
 				return
-			case data := <-tunnel.Send:
-				log.Printf("Send %d bytes on tunnel %d", len(data), tunnel.ID)
+			case request := <-tunnel.writeRequests:
+				data = request.data
+				result = request.result
+			case data = <-tunnel.Send:
+			}
 
-				err := t.send(&sliverpb.TunnelData{
-					TunnelID:  tunnel.ID,
-					SessionID: tunnel.SessionID,
-					Data:      data,
-				})
-
-				if err != nil {
-					log.Printf("Error sending, %s", err)
-					t.Close(tunnel.ID)
-					return
-				}
+			log.Printf("Send %d bytes on tunnel %d", len(data), tunnel.ID)
+			err := t.send(tunnel, &sliverpb.TunnelData{
+				TunnelID:  tunnel.ID,
+				SessionID: tunnel.SessionID,
+				Data:      data,
+			})
+			if result != nil {
+				// The result channel is buffered so a concurrent Close can wake the
+				// writer without stranding this exact-generation send loop. Publish
+				// the result before closing the tunnel on failure.
+				result <- err
+			}
+			if err != nil {
+				log.Printf("Error sending, %s", err)
+				t.CloseIf(tunnel)
+				return
 			}
 		}
 	}(tunnel)
@@ -167,25 +199,47 @@ func (t *tunnels) Close(tunnelID uint64) {
 	tunnel := (*t.tunnels)[tunnelID]
 
 	if tunnel != nil {
-		tunnel.Close()
-
+		_ = tunnel.Close()
 		delete((*t.tunnels), tunnelID)
 	}
+}
+
+// CloseIf closes and removes expected only when it is still the current
+// generation registered for its numeric tunnel ID.
+func (t *tunnels) CloseIf(expected *TunnelIO) bool {
+	if expected == nil {
+		return false
+	}
+
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	current := (*t.tunnels)[expected.ID]
+	if current != expected {
+		return false
+	}
+
+	log.Printf("Closing tunnel %d", expected.ID)
+	_ = expected.Close()
+	delete(*t.tunnels, expected.ID)
+	return true
 }
 
 // CloseForSession - closing all tunnels for specified session id
 func (t *tunnels) CloseForSession(sessionID string) {
 	t.mutex.RLock()
-	defer t.mutex.RUnlock()
 	log.Printf("Closing all tunnels for session %s", sessionID)
 
-	for tunnelID, tunnel := range *t.tunnels {
+	tunnels := []*TunnelIO{}
+	for _, tunnel := range *t.tunnels {
 		if tunnel.SessionID == sessionID {
-			// Weird way to avoid deadlocks but let it be
-			go func(tunnelID uint64) {
-				GetTunnels().Close(tunnelID)
-			}(tunnelID)
+			tunnels = append(tunnels, tunnel)
 		}
+	}
+	t.mutex.RUnlock()
+
+	for _, tunnel := range tunnels {
+		go t.CloseIf(tunnel)
 	}
 }
 

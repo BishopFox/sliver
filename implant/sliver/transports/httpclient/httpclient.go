@@ -532,10 +532,19 @@ func (s *SliverHTTPClient) WriteEnvelope(envelope *pb.Envelope) error {
 	log.Printf("[http] POST request completed")
 	// {{end}}
 	if err != nil {
+		if resp != nil {
+			err = errors.Join(err, drainAndCloseHTTPResponse(resp))
+		}
 		// {{if .Config.Debug}}
 		log.Printf("[http] request failed %v", err)
 		// {{end}}
 		return err
+	}
+	if resp == nil {
+		return errors.New("empty HTTP POST response")
+	}
+	if err := drainAndCloseHTTPResponse(resp); err != nil {
+		return fmt.Errorf("consume HTTP POST response: %w", err)
 	}
 	if resp.StatusCode != http.StatusAccepted {
 		// {{if .Config.Debug}}
@@ -544,6 +553,15 @@ func (s *SliverHTTPClient) WriteEnvelope(envelope *pb.Envelope) error {
 		return ErrStatusCodeUnexpected
 	}
 	return nil
+}
+
+func drainAndCloseHTTPResponse(resp *http.Response) error {
+	if resp == nil || resp.Body == nil {
+		return nil
+	}
+	_, readErr := io.Copy(io.Discard, resp.Body)
+	closeErr := resp.Body.Close()
+	return errors.Join(readErr, closeErr)
 }
 
 func (s *SliverHTTPClient) CloseSession() error {

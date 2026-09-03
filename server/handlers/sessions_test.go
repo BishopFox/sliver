@@ -21,6 +21,10 @@ type testWriteCloser struct {
 	closed bool
 }
 
+type discardSocksSender struct{}
+
+func (discardSocksSender) Send(*sliverpb.SocksData) error { return nil }
+
 func (t *testWriteCloser) Write(data []byte) (int, error) {
 	return len(data), nil
 }
@@ -55,6 +59,15 @@ func marshalTunnelCloseData(t *testing.T, tunnelID uint64) []byte {
 		t.Fatalf("marshal tunnel close data: %v", err)
 	}
 
+	return data
+}
+
+func marshalSessionSocksData(t *testing.T, frame *sliverpb.SocksData) []byte {
+	t.Helper()
+	data, err := proto.Marshal(frame)
+	if err != nil {
+		t.Fatalf("marshal SOCKS data: %v", err)
+	}
 	return data
 }
 
@@ -112,6 +125,39 @@ func TestRegisterSessionHandlerRejectsDuplicateConnectionRegistration(t *testing
 	if got := core.Sessions.FromImplantConnection(connection); got != nil {
 		core.Sessions.Remove(got.ID)
 		t.Fatal("registered session survived connection close")
+	}
+}
+
+func TestRegisteredConnectionCleanupPreservesSameIDReplacement(t *testing.T) {
+	originalConnection := core.NewImplantConnection("test", "original")
+	registerData, err := proto.Marshal(&sliverpb.Register{Uuid: "4e3c1713-05fd-485a-bef7-fef5df4fa8c4"})
+	if err != nil {
+		t.Fatalf("marshal register: %v", err)
+	}
+	registerSessionHandler(originalConnection, registerData)
+	original := core.Sessions.FromImplantConnection(originalConnection)
+	if original == nil {
+		t.Fatal("original connection did not register a session")
+	}
+
+	replacementConnection := core.NewImplantConnection("test", "replacement")
+	replacement := core.NewSession(replacementConnection)
+	replacement.ID = original.ID
+	core.Sessions.Add(replacement)
+	t.Cleanup(func() {
+		core.Sessions.RemoveIf(replacement)
+		originalConnection.Close()
+		replacementConnection.Close()
+	})
+
+	originalConnection.Close()
+	if got := core.Sessions.Get(original.ID); got != replacement {
+		t.Fatalf("session after old connection cleanup = %p, want replacement %p", got, replacement)
+	}
+	select {
+	case <-replacementConnection.Done():
+		t.Fatal("old connection cleanup closed replacement connection")
+	default:
 	}
 }
 
@@ -597,6 +643,557 @@ func TestTunnelDataHandlerRejectsOversizedGenericTunnelFrame(t *testing.T) {
 	}
 	if got := core.Tunnels.Get(tunnel.ID); got != nil {
 		t.Fatalf("oversized generic tunnel frame left generation registered: %p", got)
+	}
+}
+
+func TestTunnelResourcePressureClassification(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "ingress frame limit", err: core.ErrTunnelIngressLimit, want: true},
+		{name: "wrapped byte limit", err: fmt.Errorf("wrapped: %w", core.ErrTunnelPendingBytes), want: true},
+		{name: "sequence violation", err: core.ErrTunnelSequenceWindow, want: false},
+		{name: "closed tunnel", err: core.ErrTunnelClosed, want: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := isTunnelResourcePressure(test.err); got != test.want {
+				t.Fatalf("isTunnelResourcePressure(%v) = %v, want %v", test.err, got, test.want)
+			}
+		})
+	}
+}
+
+func TestSocksDataHandlerRelaysCanonicalImplantAcknowledgementOutOfBand(t *testing.T) {
+	connection, session := addTestSession(t)
+	session.Capabilities = sliverpb.CapabilitySocksFlowControlV1
+	tunnel, err := core.SocksTunnels.CreateForSession(session, sliverpb.CapabilitySocksFlowControlV1)
+	if err != nil {
+		t.Fatalf("create flow-controlled SOCKS tunnel: %v", err)
+	}
+	t.Cleanup(func() { core.SocksTunnels.CloseIf(tunnel) })
+	client := core.NewSocksClient(discardSocksSender{})
+	if owned, newlyBound, bindErr := tunnel.BindClientWithNegotiatedCapabilities(client, "", "", true, sliverpb.CapabilitySocksFlowControlV1); bindErr != nil || !owned || !newlyBound {
+		t.Fatalf("bind flow-controlled SOCKS tunnel = owned:%v new:%v err:%v", owned, newlyBound, bindErr)
+	}
+	atomic.StoreUint64(&tunnel.ToImplantSequence, 3)
+
+	for _, ack := range []uint64{1, 3, 2} {
+		socksDataHandler(connection, marshalSessionSocksData(t, &sliverpb.SocksData{TunnelID: tunnel.ID, Ack: ack}))
+	}
+	select {
+	case ack := <-tunnel.AcknowledgementsToClient():
+		if ack != 3 {
+			t.Fatalf("coalesced implant acknowledgement = %d, want 3", ack)
+		}
+	default:
+		t.Fatal("implant acknowledgement was not relayed to client mailbox")
+	}
+	select {
+	case frame := <-tunnel.FromImplant():
+		tunnel.CompleteFromImplant(frame)
+		t.Fatalf("implant acknowledgement entered SOCKS payload queue: %+v", frame)
+	default:
+	}
+	if got := core.SocksTunnels.Get(tunnel.ID); got != tunnel {
+		t.Fatalf("valid acknowledgement closed SOCKS tunnel: got=%p want=%p", got, tunnel)
+	}
+	select {
+	case <-connection.Done():
+		t.Fatal("valid acknowledgement closed implant connection")
+	default:
+	}
+}
+
+func TestSocksDataHandlerRejectsInvalidAcknowledgementOnExactTunnelOnly(t *testing.T) {
+	tests := []struct {
+		name  string
+		frame *sliverpb.SocksData
+	}{
+		{name: "future acknowledgement", frame: &sliverpb.SocksData{Ack: 2}},
+		{name: "mixed acknowledgement payload", frame: &sliverpb.SocksData{Ack: 1, Data: []byte("mixed")}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			connection, session := addTestSession(t)
+			session.Capabilities = sliverpb.CapabilitySocksFlowControlV1
+			tunnel, err := core.SocksTunnels.CreateForSession(session, sliverpb.CapabilitySocksFlowControlV1)
+			if err != nil {
+				t.Fatalf("create flow-controlled SOCKS tunnel: %v", err)
+			}
+			t.Cleanup(func() { core.SocksTunnels.CloseIf(tunnel) })
+			client := core.NewSocksClient(discardSocksSender{})
+			if owned, newlyBound, bindErr := tunnel.BindClientWithNegotiatedCapabilities(client, "", "", true, sliverpb.CapabilitySocksFlowControlV1); bindErr != nil || !owned || !newlyBound {
+				t.Fatalf("bind flow-controlled SOCKS tunnel = owned:%v new:%v err:%v", owned, newlyBound, bindErr)
+			}
+			atomic.StoreUint64(&tunnel.ToImplantSequence, 1)
+			frame := proto.Clone(test.frame).(*sliverpb.SocksData)
+			frame.TunnelID = tunnel.ID
+
+			socksDataHandler(connection, marshalSessionSocksData(t, frame))
+			select {
+			case <-tunnel.Done():
+			case <-time.After(time.Second):
+				t.Fatal("invalid acknowledgement did not close exact SOCKS tunnel")
+			}
+			if got := core.SocksTunnels.Get(tunnel.ID); got != nil {
+				t.Fatalf("invalid acknowledgement retained SOCKS tunnel: %p", got)
+			}
+			select {
+			case <-connection.Done():
+				t.Fatal("tunnel-scoped acknowledgement violation closed implant connection")
+			default:
+			}
+		})
+	}
+}
+
+//nolint:gocyclo // The assertions prove failure isolation across exact tunnel generations.
+func TestTunnelDataHandlerScopesIngressPressureToExactTunnel(t *testing.T) {
+	const receiveWindow = 128
+
+	connection, session := addTestSession(t)
+	tunnel, err := core.Tunnels.Create(session.ID)
+	if err != nil {
+		t.Fatalf("create saturated generic tunnel: %v", err)
+	}
+	sibling, err := core.Tunnels.Create(session.ID)
+	if err != nil {
+		core.Tunnels.CloseIf(tunnel)
+		t.Fatalf("create sibling generic tunnel: %v", err)
+	}
+	t.Cleanup(func() {
+		core.Tunnels.CloseIf(tunnel)
+		core.Tunnels.CloseIf(sibling)
+	})
+
+	// Retain all but one receive-window reservation behind a missing sequence
+	// zero. Once zero is admitted, its delivery actor blocks on sequence one
+	// and holds the serialization lock while a resend consumes the last slot.
+	for sequence := 1; sequence < receiveWindow; sequence++ {
+		if err := tunnel.ProcessDataFromImplant(&sliverpb.TunnelData{
+			TunnelID: tunnel.ID,
+			Sequence: uint64(sequence),
+			Data:     []byte("queued"),
+		}); err != nil {
+			t.Fatalf("queue sequence %d: %v", sequence, err)
+		}
+	}
+	zeroResult := make(chan error, 1)
+	go func() {
+		zeroResult <- tunnel.ProcessDataFromImplant(&sliverpb.TunnelData{
+			TunnelID: tunnel.ID,
+			Sequence: 0,
+			Data:     []byte("zero"),
+		})
+	}()
+	select {
+	case frame := <-tunnel.FromImplant:
+		if frame.Sequence != 0 {
+			t.Fatalf("first delivered sequence = %d, want 0", frame.Sequence)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("sequence zero was not delivered")
+	}
+
+	probeResults := make(chan error, 2)
+	for range 2 {
+		go func() {
+			probeResults <- tunnel.ProcessDataFromImplant(&sliverpb.TunnelData{
+				TunnelID: tunnel.ID,
+				Resend:   true,
+				Data:     []byte("probe"),
+			})
+		}()
+	}
+	select {
+	case err := <-probeResults:
+		if !errors.Is(err, core.ErrTunnelIngressLimit) {
+			t.Fatalf("saturation probe error = %v, want ErrTunnelIngressLimit", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("generic tunnel did not reach its receive admission limit")
+	}
+
+	tunnelDataHandler(connection, marshalTunnelData(t, &sliverpb.TunnelData{
+		TunnelID: tunnel.ID,
+		Resend:   true,
+		Data:     []byte("overflow"),
+	}))
+	select {
+	case <-tunnel.Done():
+	case <-time.After(time.Second):
+		t.Fatal("resource-pressure frame did not close its exact generic tunnel")
+	}
+	if got := core.Tunnels.Get(tunnel.ID); got != nil {
+		t.Fatalf("resource-pressure frame retained generic tunnel: %p", got)
+	}
+	select {
+	case <-connection.Done():
+		t.Fatal("generic tunnel resource pressure closed the implant connection")
+	default:
+	}
+	if got := core.Tunnels.Get(sibling.ID); got != sibling {
+		t.Fatalf("generic tunnel resource pressure replaced sibling: got=%p want=%p", got, sibling)
+	}
+	select {
+	case <-sibling.Done():
+		t.Fatal("generic tunnel resource pressure closed sibling tunnel")
+	default:
+	}
+
+	select {
+	case <-zeroResult:
+	case <-time.After(time.Second):
+		t.Fatal("sequence-zero worker did not exit after exact tunnel close")
+	}
+	select {
+	case <-probeResults:
+	case <-time.After(time.Second):
+		t.Fatal("admitted saturation probe did not exit after exact tunnel close")
+	}
+}
+
+func TestGenericTunnelIngressRequiresExactConnectionGeneration(t *testing.T) {
+	ownerConnection, ownerSession := addTestSession(t)
+	tunnel, err := core.Tunnels.Create(ownerSession.ID)
+	if err != nil {
+		t.Fatalf("create generic tunnel: %v", err)
+	}
+	t.Cleanup(func() { core.Tunnels.CloseIf(tunnel) })
+
+	replacementConnection := core.NewImplantConnection("test", "replacement")
+	replacement := core.NewSession(replacementConnection)
+	replacement.ID = ownerSession.ID
+	core.Sessions.Add(replacement)
+	t.Cleanup(func() {
+		core.Sessions.RemoveIf(replacement)
+		replacementConnection.Close()
+	})
+
+	oversized := marshalTunnelData(t, &sliverpb.TunnelData{
+		TunnelID: tunnel.ID,
+		Sequence: 0,
+		Data:     make([]byte, core.MaxTunnelFrameBytes+1),
+	})
+	if len(oversized) > maxTunnelDataMessageBytes {
+		t.Fatalf("test frame encoded to %d bytes, raw limit is %d", len(oversized), maxTunnelDataMessageBytes)
+	}
+	tunnelDataHandler(replacementConnection, oversized)
+	if got := core.Tunnels.Get(tunnel.ID); got != tunnel {
+		t.Fatalf("replacement connection mutated generic tunnel: got=%p want=%p", got, tunnel)
+	}
+	select {
+	case <-tunnel.Done():
+		t.Fatal("replacement connection closed old-generation generic tunnel")
+	default:
+	}
+	select {
+	case <-replacementConnection.Done():
+		t.Fatal("wrong-generation generic data closed replacement connection")
+	default:
+	}
+
+	beforeClose := tunnel.LastFromImplantTime()
+	time.Sleep(time.Millisecond)
+	tunnelCloseHandler(replacementConnection, marshalTunnelData(t, &sliverpb.TunnelData{
+		TunnelID: tunnel.ID,
+		Closed:   true,
+	}))
+	if got := tunnel.LastFromImplantTime(); !got.Equal(beforeClose) {
+		t.Fatalf("wrong-generation terminal refreshed old tunnel: got=%v want=%v", got, beforeClose)
+	}
+	if !tunnel.ClaimFromImplantClose() {
+		t.Fatal("wrong-generation terminal claimed old tunnel close ownership")
+	}
+
+	// Retire the scheduler claim synchronously during cleanup rather than
+	// leaving a timer alive for the remainder of the handler package tests.
+	core.Tunnels.CloseIf(tunnel)
+	select {
+	case <-ownerConnection.Done():
+		t.Fatal("wrong-generation ingress closed owner connection")
+	default:
+	}
+}
+
+func TestTunnelCloseHandlerClaimsOneSchedulerPerGeneration(t *testing.T) {
+	connection, session := addTestSession(t)
+	tunnel, err := core.Tunnels.Create(session.ID)
+	if err != nil {
+		t.Fatalf("create generic tunnel: %v", err)
+	}
+	t.Cleanup(func() { core.Tunnels.CloseIf(tunnel) })
+	terminal := marshalTunnelData(t, &sliverpb.TunnelData{TunnelID: tunnel.ID, Closed: true})
+
+	tunnelCloseHandler(connection, terminal)
+	claimedAt := tunnel.LastFromImplantTime()
+	time.Sleep(time.Millisecond)
+	for range 100 {
+		tunnelCloseHandler(connection, terminal)
+	}
+	if got := tunnel.LastFromImplantTime(); !got.Equal(claimedAt) {
+		t.Fatalf("duplicate terminal refreshed generic close grace: got=%v want=%v", got, claimedAt)
+	}
+	if tunnel.ClaimFromImplantClose() {
+		t.Fatal("handler left implant close ownership unclaimed")
+	}
+}
+
+//nolint:gocyclo // The assertions cover the full sequenced-terminal lifecycle.
+func TestCapableTunnelCloseWaitsForTerminalSequenceThenClosesPromptly(t *testing.T) {
+	connection, session := addTestSession(t)
+	session.Capabilities = sliverpb.CapabilityTunnelTerminalV1
+	tunnel, err := core.Tunnels.Create(session.ID)
+	if err != nil {
+		t.Fatalf("create capable generic tunnel: %v", err)
+	}
+	t.Cleanup(func() { core.Tunnels.CloseIf(tunnel) })
+
+	tunnelCloseHandler(connection, marshalTunnelData(t, &sliverpb.TunnelData{
+		TunnelID: tunnel.ID,
+		Sequence: 2,
+		Closed:   true,
+	}))
+	if got := core.Tunnels.Get(tunnel.ID); got != tunnel {
+		t.Fatalf("sequenced terminal closed before preceding data: got=%p want=%p", got, tunnel)
+	}
+	tunnelDataHandler(connection, marshalTunnelData(t, &sliverpb.TunnelData{
+		TunnelID: tunnel.ID,
+		Sequence: 1,
+		Data:     []byte("second"),
+	}))
+
+	received := make(chan []*sliverpb.TunnelData, 1)
+	go func() {
+		frames := make([]*sliverpb.TunnelData, 0, 2)
+		for range 2 {
+			frames = append(frames, <-tunnel.FromImplant)
+		}
+		received <- frames
+	}()
+	tunnelDataHandler(connection, marshalTunnelData(t, &sliverpb.TunnelData{
+		TunnelID: tunnel.ID,
+		Sequence: 0,
+		Data:     []byte("first"),
+	}))
+	var frames []*sliverpb.TunnelData
+	select {
+	case frames = <-received:
+		if len(frames) != 2 || frames[0].Sequence != 0 || string(frames[0].Data) != "first" ||
+			frames[1].Sequence != 1 || string(frames[1].Data) != "second" {
+			t.Fatalf("terminal-ordered frames = %+v", frames)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("terminal-ordered frames did not drain")
+	}
+	select {
+	case <-tunnel.Done():
+		t.Fatal("capable tunnel closed before preceding frames were forwarded")
+	default:
+	}
+	for _, frame := range frames {
+		if err := tunnel.CompleteDataFromImplantForward(frame.Sequence); err != nil {
+			t.Fatalf("complete forwarded frame %d: %v", frame.Sequence, err)
+		}
+	}
+	select {
+	case <-tunnel.Done():
+	case <-time.After(time.Second):
+		t.Fatal("capable tunnel did not close promptly after terminal sequence drained")
+	}
+	if got := core.Tunnels.Get(tunnel.ID); got != nil {
+		t.Fatalf("capable terminal retained drained tunnel: %p", got)
+	}
+	select {
+	case <-connection.Done():
+		t.Fatal("valid capable terminal closed implant connection")
+	default:
+	}
+}
+
+func TestCapableTunnelCloseArmsDeadlineBeforeTerminalMark(t *testing.T) {
+	connection, session := addTestSession(t)
+	session.Capabilities = sliverpb.CapabilityTunnelTerminalV1
+	tunnel, err := core.Tunnels.Create(session.ID)
+	if err != nil {
+		t.Fatalf("create capable generic tunnel: %v", err)
+	}
+	t.Cleanup(func() { core.Tunnels.CloseIf(tunnel) })
+
+	armEntered := make(chan struct{}, 1)
+	releaseArm := make(chan struct{})
+	var releaseOnce sync.Once
+	release := func() { releaseOnce.Do(func() { close(releaseArm) }) }
+	t.Cleanup(release)
+	terminal := marshalTunnelData(t, &sliverpb.TunnelData{TunnelID: tunnel.ID, Sequence: 1, Closed: true})
+	handlerDone := make(chan struct{})
+	go func() {
+		tunnelCloseHandlerWithTerminalArm(
+			connection,
+			terminal,
+			func(*core.Tunnel) {
+				armEntered <- struct{}{}
+				<-releaseArm
+			},
+		)
+		close(handlerDone)
+	}()
+	select {
+	case <-armEntered:
+	case <-time.After(time.Second):
+		t.Fatal("terminal deadline arm was not entered")
+	}
+
+	// While the arm callback is paused, an at-boundary frame is retained. If
+	// terminal marking had run first, this frame would already be a protocol
+	// violation and would close the connection before the arm is released.
+	tunnelDataHandler(connection, marshalTunnelData(t, &sliverpb.TunnelData{
+		TunnelID: tunnel.ID,
+		Sequence: 1,
+		Data:     []byte("at terminal boundary"),
+	}))
+	select {
+	case <-connection.Done():
+		t.Fatal("terminal was marked before its deadline actor was armed")
+	default:
+	}
+
+	release()
+	select {
+	case <-handlerDone:
+	case <-time.After(time.Second):
+		t.Fatal("terminal handler did not return after deadline arm was released")
+	}
+	select {
+	case <-connection.Done():
+	case <-time.After(time.Second):
+		t.Fatal("retained at-boundary frame did not fail terminal validation closed")
+	}
+}
+
+func TestCapableTunnelCloseRejectsContradictoryTerminalState(t *testing.T) {
+	tests := []struct {
+		name string
+		run  func(*testing.T, *core.ImplantConnection, *core.Tunnel)
+	}{
+		{
+			name: "conflicting terminal",
+			run: func(t *testing.T, connection *core.ImplantConnection, tunnel *core.Tunnel) {
+				tunnelCloseHandler(connection, marshalTunnelData(t, &sliverpb.TunnelData{TunnelID: tunnel.ID, Sequence: 2, Closed: true}))
+				tunnelCloseHandler(connection, marshalTunnelData(t, &sliverpb.TunnelData{TunnelID: tunnel.ID, Sequence: 3, Closed: true}))
+			},
+		},
+		{
+			name: "terminal outside receive window",
+			run: func(t *testing.T, connection *core.ImplantConnection, tunnel *core.Tunnel) {
+				tunnelCloseHandler(connection, marshalTunnelData(t, &sliverpb.TunnelData{TunnelID: tunnel.ID, Sequence: 129, Closed: true}))
+			},
+		},
+		{
+			name: "retained data at terminal",
+			run: func(t *testing.T, connection *core.ImplantConnection, tunnel *core.Tunnel) {
+				tunnelDataHandler(connection, marshalTunnelData(t, &sliverpb.TunnelData{TunnelID: tunnel.ID, Sequence: 2, Data: []byte("at-terminal")}))
+				tunnelCloseHandler(connection, marshalTunnelData(t, &sliverpb.TunnelData{TunnelID: tunnel.ID, Sequence: 2, Closed: true}))
+			},
+		},
+		{
+			name: "data after accepted terminal",
+			run: func(t *testing.T, connection *core.ImplantConnection, tunnel *core.Tunnel) {
+				tunnelCloseHandler(connection, marshalTunnelData(t, &sliverpb.TunnelData{TunnelID: tunnel.ID, Sequence: 2, Closed: true}))
+				tunnelDataHandler(connection, marshalTunnelData(t, &sliverpb.TunnelData{TunnelID: tunnel.ID, Sequence: 2, Data: []byte("after-terminal")}))
+			},
+		},
+		{
+			name: "terminal carries payload",
+			run: func(t *testing.T, connection *core.ImplantConnection, tunnel *core.Tunnel) {
+				tunnelCloseHandler(connection, marshalTunnelData(t, &sliverpb.TunnelData{TunnelID: tunnel.ID, Sequence: 1, Closed: true, Data: []byte("payload")}))
+			},
+		},
+		{
+			name: "conflicting pending data",
+			run: func(t *testing.T, connection *core.ImplantConnection, tunnel *core.Tunnel) {
+				tunnelDataHandler(connection, marshalTunnelData(t, &sliverpb.TunnelData{TunnelID: tunnel.ID, Sequence: 1, Data: []byte("first")}))
+				tunnelDataHandler(connection, marshalTunnelData(t, &sliverpb.TunnelData{TunnelID: tunnel.ID, Sequence: 1, Data: []byte("conflict")}))
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			connection, session := addTestSession(t)
+			session.Capabilities = sliverpb.CapabilityTunnelTerminalV1
+			tunnel, err := core.Tunnels.Create(session.ID)
+			if err != nil {
+				t.Fatalf("create capable generic tunnel: %v", err)
+			}
+			t.Cleanup(func() { core.Tunnels.CloseIf(tunnel) })
+
+			test.run(t, connection, tunnel)
+			select {
+			case <-connection.Done():
+			case <-time.After(time.Second):
+				t.Fatal("contradictory terminal state did not close implant connection")
+			}
+			select {
+			case <-tunnel.Done():
+			case <-time.After(time.Second):
+				t.Fatal("contradictory terminal state did not close exact tunnel")
+			}
+			if got := core.Tunnels.Get(tunnel.ID); got != nil {
+				t.Fatalf("contradictory terminal state retained tunnel: %p", got)
+			}
+		})
+	}
+}
+
+func TestTunnelCloseHandlerPreservesReorderedGenericData(t *testing.T) {
+	connection, session := addTestSession(t)
+	tunnel, err := core.Tunnels.Create(session.ID)
+	if err != nil {
+		t.Fatalf("create generic tunnel: %v", err)
+	}
+	t.Cleanup(func() { core.Tunnels.CloseIf(tunnel) })
+
+	// Model independently-dispatched mTLS envelopes where the terminal close
+	// overtakes the final two implant-to-client frames.
+	tunnelCloseHandler(connection, marshalTunnelData(t, &sliverpb.TunnelData{
+		TunnelID: tunnel.ID,
+		Sequence: 2,
+		Closed:   true,
+	}))
+	tunnelDataHandler(connection, marshalTunnelData(t, &sliverpb.TunnelData{
+		TunnelID: tunnel.ID,
+		Sequence: 1,
+		Data:     []byte("second"),
+	}))
+
+	received := make(chan []*sliverpb.TunnelData, 1)
+	go func() {
+		frames := make([]*sliverpb.TunnelData, 0, 2)
+		for range 2 {
+			frames = append(frames, <-tunnel.FromImplant)
+		}
+		received <- frames
+	}()
+	tunnelDataHandler(connection, marshalTunnelData(t, &sliverpb.TunnelData{
+		TunnelID: tunnel.ID,
+		Sequence: 0,
+		Data:     []byte("first"),
+	}))
+
+	select {
+	case frames := <-received:
+		if len(frames) != 2 || frames[0].Sequence != 0 || string(frames[0].Data) != "first" ||
+			frames[1].Sequence != 1 || string(frames[1].Data) != "second" {
+			t.Fatalf("reordered frames = %+v, want sequences 0 then 1", frames)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("implant close grace did not preserve reordered generic data")
+	}
+	if got := core.Tunnels.Get(tunnel.ID); got != tunnel {
+		t.Fatalf("implant close grace detached tunnel before final data drained: got=%p want=%p", got, tunnel)
 	}
 }
 
