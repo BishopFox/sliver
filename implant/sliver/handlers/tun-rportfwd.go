@@ -55,19 +55,20 @@ func rportFwdListenersHandler(envelope *pb.Envelope, connection *transports.Conn
 	for _, portfwd := range forwards {
 
 		portfwdListeners = append(portfwdListeners, &pb.RportFwdListener{
-			ID:             uint32(portfwd.ID),
-			BindAddress:    portfwd.BindAddr,
-			ForwardAddress: portfwd.RemoteAddr,
+			ID:              uint32(portfwd.ID),
+			BindAddress:     portfwd.BindAddr,
+			ForwardAddress:  portfwd.RemoteAddr,
+			AuthorizationID: portfwd.AuthorizationID,
 		})
 	}
 	data, _ := proto.Marshal(&pb.RportFwdListeners{
 		Listeners: portfwdListeners,
 		Response:  &commonpb.Response{},
 	})
-	connection.Send <- &pb.Envelope{
+	connection.SendEnvelope(&pb.Envelope{
 		ID:   envelope.ID,
 		Data: data,
-	}
+	})
 
 }
 func rportFwdStartListenerHandler(envelope *pb.Envelope, connection *transports.Connection) {
@@ -77,10 +78,10 @@ func rportFwdStartListenerHandler(envelope *pb.Envelope, connection *transports.
 	if err != nil {
 		resp.Response.Err = err.Error()
 		data, _ := proto.Marshal(resp)
-		connection.Send <- &pb.Envelope{
+		connection.SendEnvelope(&pb.Envelope{
 			ID:   envelope.ID,
 			Data: data,
-		}
+		})
 		return
 	}
 	rportfwds := rportfwd.Portfwds.List()
@@ -89,10 +90,10 @@ func rportFwdStartListenerHandler(envelope *pb.Envelope, connection *transports.
 		if r.BindAddr == req.BindAddress {
 			resp.Response.Err = "Already listening on " + r.BindAddr + "\n"
 			data, _ := proto.Marshal(resp)
-			connection.Send <- &pb.Envelope{
+			connection.SendEnvelope(&pb.Envelope{
 				ID:   envelope.ID,
 				Data: data,
-			}
+			})
 			return
 		}
 	}
@@ -110,14 +111,28 @@ func rportFwdStartListenerHandler(envelope *pb.Envelope, connection *transports.
 		Conn:            connection,
 		RemoteAddr:      req.ForwardAddress,
 		BindAddr:        req.BindAddress,
+		AuthorizationID: req.AuthorizationID,
 		KeepAlivePeriod: keepAlivePeriod,
 		DialTimeout:     30 * time.Second,
 	}
 	tcpProxy.AddRoute(req.BindAddress, channelProxy)
-	rportfwd := rportfwd.Portfwds.Add(tcpProxy, channelProxy)
+	if err := tcpProxy.Start(); err != nil {
+		resp.Response.Err = err.Error()
+		data, _ := proto.Marshal(resp)
+		connection.SendEnvelope(&pb.Envelope{ID: envelope.ID, Data: data})
+		return
+	}
+	forward := rportfwd.Portfwds.Add(tcpProxy, channelProxy)
+	go func() {
+		select {
+		case <-connection.Done():
+			rportfwd.Portfwds.RemoveIf(forward.ID, forward)
+		case <-forward.Done():
+		}
+	}()
 
 	go func() {
-		err := tcpProxy.Run()
+		err := tcpProxy.Wait()
 		if err != nil {
 			// {{if .Config.Debug}}
 			log.Printf("Proxy error %s", err)
@@ -128,12 +143,15 @@ func rportFwdStartListenerHandler(envelope *pb.Envelope, connection *transports.
 	resp.ForwardAddress = req.ForwardAddress
 	resp.BindPort = req.ForwardPort
 	resp.ForwardPort = req.ForwardPort
-	resp.ID = uint32(rportfwd.ID)
+	resp.AuthorizationID = req.AuthorizationID
+	resp.ID = uint32(forward.ID)
 
 	data, _ := proto.Marshal(resp)
-	connection.Send <- &pb.Envelope{
+	if !connection.SendEnvelope(&pb.Envelope{
 		ID:   envelope.ID,
 		Data: data,
+	}) {
+		rportfwd.Portfwds.Remove(forward.ID)
 	}
 }
 
@@ -144,10 +162,10 @@ func rportFwdStopListenerHandler(envelope *pb.Envelope, connection *transports.C
 	if err != nil {
 		resp.Response.Err = err.Error()
 		data, _ := proto.Marshal(resp)
-		connection.Send <- &pb.Envelope{
+		connection.SendEnvelope(&pb.Envelope{
 			ID:   envelope.ID,
 			Data: data,
-		}
+		})
 		return
 	}
 
@@ -156,13 +174,14 @@ func rportFwdStopListenerHandler(envelope *pb.Envelope, connection *transports.C
 		resp.ID = uint32(rportfwd.ID)
 		resp.BindAddress = rportfwd.ChannelProxy.BindAddr
 		resp.ForwardAddress = rportfwd.ChannelProxy.RemoteAddr
+		resp.AuthorizationID = rportfwd.ChannelProxy.AuthorizationID
 	} else {
 		resp.Response.Err = "Invalid ID\n"
 	}
 
 	data, _ := proto.Marshal(resp)
-	connection.Send <- &pb.Envelope{
+	connection.SendEnvelope(&pb.Envelope{
 		ID:   envelope.ID,
 		Data: data,
-	}
+	})
 }

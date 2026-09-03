@@ -24,8 +24,8 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/cryptography"
-	"github.com/gofrs/uuid"
 	"google.golang.org/protobuf/proto"
+	uuid "uuid"
 )
 
 const (
@@ -35,6 +35,41 @@ const (
 var (
 	PivotSessions = &sync.Map{} // ID -> Pivot
 )
+
+// ClosePivotSession atomically removes and closes a synthetic pivot
+// connection. It also handles key exchanges that created a pivot before the
+// downstream implant registered a core Session.
+func ClosePivotSession(pivotID string) bool {
+	value, ok := PivotSessions.Load(pivotID)
+	if !ok {
+		return false
+	}
+	pivot, ok := value.(*Pivot)
+	if !ok || pivot == nil || !PivotSessions.CompareAndDelete(pivotID, value) {
+		return false
+	}
+	if pivot.ImplantConn != nil {
+		pivot.ImplantConn.Close()
+	}
+	return true
+}
+
+func closePivotForConnection(connection *ImplantConnection) {
+	if connection == nil {
+		return
+	}
+	PivotSessions.Range(func(key, value any) bool {
+		pivot, ok := value.(*Pivot)
+		if !ok || pivot == nil || pivot.ImplantConn != connection {
+			return true
+		}
+		pivotID, ok := key.(string)
+		if ok {
+			ClosePivotSession(pivotID)
+		}
+		return false
+	})
+}
 
 // Pivot - Wraps an ImplantConnection
 type Pivot struct {
@@ -51,9 +86,27 @@ type Pivot struct {
 func (p *Pivot) Start() {
 	go func() {
 		defer func() {
+			PivotSessions.CompareAndDelete(p.ID, p)
+			if p.ImplantConn != nil {
+				p.ImplantConn.Close()
+			}
 			coreLog.Debugf("pivot session %s send loop closing (origin id: %d)", p.ID, p.OriginID)
 		}()
-		for envelope := range p.ImplantConn.Send {
+		if p.ImplantConn == nil || p.ImmediateImplantConn == nil || p.CipherCtx == nil {
+			return
+		}
+		for {
+			var envelope *sliverpb.Envelope
+			select {
+			case <-p.ImplantConn.Done():
+				return
+			case <-p.ImmediateImplantConn.Done():
+				return
+			case envelope = <-p.ImplantConn.Send:
+			}
+			if envelope == nil {
+				continue
+			}
 			envelopeData, err := proto.Marshal(envelope)
 			if err != nil {
 				coreLog.Errorf("failed to marshal envelope: %v", err)
@@ -64,7 +117,7 @@ func (p *Pivot) Start() {
 				coreLog.Errorf("failed to encrypt envelope: %v", err)
 				continue
 			}
-			peerEnvelopeData, _ := proto.Marshal(&sliverpb.PivotPeerEnvelope{
+			peerEnvelopeData, err := proto.Marshal(&sliverpb.PivotPeerEnvelope{
 				Type:  envelope.Type,
 				Peers: p.Peers,
 				Data:  ciphertext,
@@ -73,9 +126,11 @@ func (p *Pivot) Start() {
 				coreLog.Errorf("failed to wrap pivot peer envelope: %v", err)
 				continue
 			}
-			p.ImmediateImplantConn.Send <- &sliverpb.Envelope{
+			if err := p.ImmediateImplantConn.SendEnvelopeUntil(&sliverpb.Envelope{
 				Type: sliverpb.MsgPivotPeerEnvelope,
 				Data: peerEnvelopeData,
+			}, p.ImplantConn.Done(), DefaultImplantSendTimeout); err != nil {
+				return
 			}
 		}
 	}()
@@ -83,7 +138,7 @@ func (p *Pivot) Start() {
 
 // NewPivotSession - Creates a new pivot session
 func NewPivotSession(chain []*sliverpb.PivotPeer) *Pivot {
-	id, _ := uuid.NewV4()
+	id := uuid.NewV4()
 	return &Pivot{
 		ID:    id.String(),
 		Peers: chain,

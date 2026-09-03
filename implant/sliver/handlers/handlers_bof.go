@@ -16,7 +16,7 @@ type bofObject interface {
 
 type bofLoadFunc func([]byte, bof.LoadOptions) (bofObject, error)
 
-type bofExecuteFunc func([]byte, string, []byte) ([]byte, error)
+type bofExecuteFunc func([]byte, string, []byte) ([]bof.Output, error)
 
 func loadReflektorBOF(data []byte, options bof.LoadOptions) (bofObject, error) {
 	if options.EntryPoint == "" {
@@ -25,11 +25,11 @@ func loadReflektorBOF(data []byte, options bof.LoadOptions) (bofObject, error) {
 	return bof.LoadWithOptions(data, options)
 }
 
-func executeBOF(data []byte, entryPoint string, args []byte) ([]byte, error) {
+func executeBOF(data []byte, entryPoint string, args []byte) ([]bof.Output, error) {
 	return executeBOFWithLoader(data, entryPoint, args, loadReflektorBOF)
 }
 
-func executeBOFWithLoader(data []byte, entryPoint string, args []byte, load bofLoadFunc) (output []byte, err error) {
+func executeBOFWithLoader(data []byte, entryPoint string, args []byte, load bofLoadFunc) (outputs []bof.Output, err error) {
 	options := bof.LoadOptions{}
 	if !isDefaultBOFEntryPoint(entryPoint) {
 		options.EntryPoint = entryPoint
@@ -46,13 +46,10 @@ func executeBOFWithLoader(data []byte, entryPoint string, args []byte, load bofL
 	}()
 
 	outputs, executeErr := object.Execute(args)
-	for _, record := range outputs {
-		output = append(output, record.Data...)
-	}
 	if executeErr != nil {
 		err = fmt.Errorf("execute BOF: %w", executeErr)
 	}
-	return output, err
+	return outputs, err
 }
 
 func isDefaultBOFEntryPoint(entryPoint string) bool {

@@ -23,14 +23,13 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
 
 // Crackstation - History of crackstation jobs
 type Crackstation struct {
 	// ID = crackstation name
-	ID         uuid.UUID `gorm:"primaryKey;type:uuid;"`
+	ID         UUID      `gorm:"primaryKey;type:uuid;"`
 	CreatedAt  time.Time `gorm:"->;<-:create;"`
 	Tasks      []CrackTask
 	Benchmarks []Benchmark
@@ -44,26 +43,23 @@ func (c *Crackstation) BeforeCreate(tx *gorm.DB) (err error) {
 
 // Benchmark - Performance information about the crackstation
 type Benchmark struct {
-	ID             uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ID             UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt      time.Time `gorm:"->;<-:create;"`
-	CrackstationID uuid.UUID `gorm:"type:uuid;"`
+	CrackstationID UUID      `gorm:"type:uuid;"`
 	HashType       int32
 	PerSecondRate  uint64
 }
 
 // BeforeCreate - GORM hook
 func (b *Benchmark) BeforeCreate(tx *gorm.DB) (err error) {
-	b.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	b.ID = NewUUID()
 	b.CreatedAt = time.Now()
 	return nil
 }
 
 // CrackFile - Performance information about the crackstation
 type CrackFile struct {
-	ID               uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ID               UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt        time.Time `gorm:"->;<-:create;"`
 	LastModified     time.Time
 	Name             string
@@ -78,10 +74,7 @@ type CrackFile struct {
 
 // BeforeCreate - GORM hook
 func (c *CrackFile) BeforeCreate(tx *gorm.DB) (err error) {
-	c.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	c.ID = NewUUID()
 	c.CreatedAt = time.Now()
 	return nil
 }
@@ -113,17 +106,14 @@ func (c *CrackFile) ToProtobuf() *clientpb.CrackFile {
 
 // CrackFileChunk - Performance information about the crackstation
 type CrackFileChunk struct {
-	ID          uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	CrackFileID uuid.UUID `gorm:"type:uuid;"`
+	ID          UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	CrackFileID UUID `gorm:"type:uuid;"`
 	N           uint32
 }
 
 // BeforeCreate - GORM hook
 func (c *CrackFileChunk) BeforeCreate(tx *gorm.DB) (err error) {
-	c.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	c.ID = NewUUID()
 	return nil
 }
 
@@ -138,7 +128,7 @@ func (c *CrackFileChunk) ToProtobuf() *clientpb.CrackFileChunk {
 // crack job contains the parent command, whose keyspace may get broken
 // up into multiple crack tasks and distributed to multiple crackstations
 type CrackJob struct {
-	ID           uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ID           UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt    time.Time `gorm:"->;<-:create;"`
 	CompletedAt  time.Time
 	Err          string
@@ -165,11 +155,8 @@ func (c *CrackJob) Status() clientpb.CrackJobStatus {
 
 // BeforeCreate - GORM hook
 func (c *CrackJob) BeforeCreate(tx *gorm.DB) (err error) {
-	if c.ID == uuid.Nil {
-		c.ID, err = uuid.NewV4()
-		if err != nil {
-			return err
-		}
+	if c.ID == NilUUID() {
+		c.ID = NewUUID()
 	}
 	if c.CreatedAt.IsZero() {
 		c.CreatedAt = time.Now()
@@ -197,8 +184,8 @@ func (CrackJob) FromProtobuf(c *clientpb.CrackJob) *CrackJob {
 	if c == nil {
 		return job
 	}
-	jobID := uuid.FromStringOrNil(c.ID)
-	if jobID != uuid.Nil {
+	jobID := ParseUUIDOrNil(c.ID)
+	if jobID != NilUUID() {
 		job.ID = jobID
 	}
 	if c.CreatedAt != "" {
@@ -222,9 +209,9 @@ func (CrackJob) FromProtobuf(c *clientpb.CrackJob) *CrackJob {
 
 // CrackTask - An individual chunk of a job sent to a specific crackstation
 type CrackTask struct {
-	ID             uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	CrackJobID     uuid.UUID `gorm:"type:uuid;"`
-	CrackstationID uuid.UUID `gorm:"type:uuid;"`
+	ID             UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	CrackJobID     UUID      `gorm:"type:uuid;"`
+	CrackstationID UUID      `gorm:"type:uuid;"`
 	CreatedAt      time.Time `gorm:"->;<-:create;"`
 	StartedAt      time.Time
 	CompletedAt    time.Time
@@ -252,19 +239,16 @@ func (CrackTask) FromProtobuf(c *clientpb.CrackTask) *CrackTask {
 
 // BeforeCreate - GORM hook
 func (c *CrackTask) BeforeCreate(tx *gorm.DB) (err error) {
-	c.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	c.ID = NewUUID()
 	c.CreatedAt = time.Now()
 	return nil
 }
 
 type CrackCommand struct {
-	ID          uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ID          UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt   time.Time `gorm:"->;<-:create;"`
-	CrackTaskID uuid.UUID `gorm:"type:uuid;"`
-	CrackJobID  uuid.UUID `gorm:"type:uuid;"`
+	CrackTaskID UUID      `gorm:"type:uuid;"`
+	CrackJobID  UUID      `gorm:"type:uuid;"`
 
 	// FLAGS
 	AttackMode             int32
@@ -384,10 +368,7 @@ type CrackCommand struct {
 
 // BeforeCreate - GORM hook
 func (c *CrackCommand) BeforeCreate(tx *gorm.DB) (err error) {
-	c.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	c.ID = NewUUID()
 	c.CreatedAt = time.Now()
 	return nil
 }

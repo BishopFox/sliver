@@ -28,8 +28,8 @@ import (
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/transport"
-	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
+	uuid "uuid"
 )
 
 const dnsE2EEchoMsgType = uint32(0x7fffffff)
@@ -229,7 +229,7 @@ func startTestDNSImplant(t *testing.T, dnsParent string, dnsPort uint32) func() 
 	register := &sliverpb.Register{
 		Name:              "e2e-dns",
 		Hostname:          "localhost",
-		Uuid:              uuid.NewString(),
+		Uuid:              uuid.NewV4().String(),
 		Username:          "unit-test",
 		Os:                runtime.GOOS,
 		Arch:              runtime.GOARCH,

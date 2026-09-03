@@ -1071,11 +1071,7 @@ func partialDeadline(now, deadline time.Time, addrsRemaining int) (time.Time, er
 	timeout := timeRemaining / time.Duration(addrsRemaining)
 	const saneMinimum = 2 * time.Second
 	if timeout < saneMinimum {
-		if timeRemaining < saneMinimum {
-			timeout = timeRemaining
-		} else {
-			timeout = saneMinimum
-		}
+		timeout = min(timeRemaining, saneMinimum)
 	}
 	return now.Add(timeout), nil
 }

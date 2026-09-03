@@ -21,7 +21,6 @@ package portfwd
 import (
 	"fmt"
 	"log"
-	"net"
 	"regexp"
 	"time"
 
@@ -50,13 +49,9 @@ func PortfwdAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 		con.PrintErrorf("Must specify a remote target host:port\n")
 		return
 	}
-	remoteHost, remotePort, err := net.SplitHostPort(remoteAddr)
-	if err != nil {
-		con.PrintErrorf("Failed to parse remote target %s\n", err)
+	if err := validatePortfwdRemoteAddress(remoteAddr); err != nil {
+		con.PrintErrorf("Failed to parse remote target: %s\n", err)
 		return
-	}
-	if remotePort == "3389" {
-		con.PrintWarnf("RDP is generally broken over tunneled portfwds, we recommend using WireGuard portfwds\n")
 	}
 	bindAddr, _ := cmd.Flags().GetString("bind")
 	if bindAddr == "" {
@@ -88,14 +83,25 @@ func PortfwdAddCmd(cmd *cobra.Command, con *console.SliverClient, args []string)
 		DialTimeout:     30 * time.Second,
 	}
 	tcpProxy.AddRoute(bindAddr, channelProxy)
+	if err := tcpProxy.Start(); err != nil {
+		channelProxy.Stop()
+		_ = tcpProxy.Close()
+		con.PrintErrorf("Failed to start port forward listener: %s\n", err)
+		return
+	}
 	core.Portfwds.Add(tcpProxy, channelProxy)
 
 	go func() {
-		err := tcpProxy.Run()
+		err := tcpProxy.Wait()
 		if err != nil {
 			log.Printf("Proxy error %s", err)
 		}
 	}()
 
-	con.PrintInfof("Port forwarding %s -> %s:%s\n", bindAddr, remoteHost, remotePort)
+	con.PrintInfof("Port forwarding %s -> %s\n", bindAddr, remoteAddr)
+}
+
+func validatePortfwdRemoteAddress(remoteAddr string) error {
+	_, _, err := (&core.ChannelProxy{RemoteAddr: remoteAddr}).ValidatedHostPort()
+	return err
 }

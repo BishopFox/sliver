@@ -2,6 +2,7 @@ package transport
 
 import (
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/bishopfox/sliver/client/assets"
@@ -36,6 +37,10 @@ func TestWireGuardTunnelCacheKeyIncludesConfigMaterial(t *testing.T) {
 }
 
 func TestCacheIdleWireGuardTunnelRemovesIdleTunnel(t *testing.T) {
+	synctest.Test(t, testCacheIdleWireGuardTunnelRemovesIdleTunnel)
+}
+
+func testCacheIdleWireGuardTunnelRemovesIdleTunnel(t *testing.T) {
 	resetWireGuardTunnelCacheForTest(t)
 
 	previousIdleTimeout := multiplayerWireGuardIdleTimeout
@@ -47,18 +52,14 @@ func TestCacheIdleWireGuardTunnelRemovesIdleTunnel(t *testing.T) {
 	const cacheKey = "test-cache-key"
 	cacheIdleWireGuardTunnel(cacheKey, &wireGuardTunnel{}, "100.65.0.1:31337")
 
-	deadline := time.Now().Add(250 * time.Millisecond)
-	for time.Now().Before(deadline) {
-		wireGuardTunnelCacheMu.Lock()
-		_, exists := wireGuardTunnelCache[cacheKey]
-		wireGuardTunnelCacheMu.Unlock()
-		if !exists {
-			return
-		}
-		time.Sleep(5 * time.Millisecond)
+	time.Sleep(multiplayerWireGuardIdleTimeout)
+	synctest.Wait()
+	wireGuardTunnelCacheMu.Lock()
+	_, exists := wireGuardTunnelCache[cacheKey]
+	wireGuardTunnelCacheMu.Unlock()
+	if exists {
+		t.Fatal("expected idle tunnel cache entry to be removed")
 	}
-
-	t.Fatal("expected idle tunnel cache entry to be removed")
 }
 
 func resetWireGuardTunnelCacheForTest(t *testing.T) {

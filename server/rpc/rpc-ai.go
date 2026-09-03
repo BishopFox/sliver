@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	uuid "uuid"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -11,7 +12,6 @@ import (
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/rpc/aitools"
-	"github.com/gofrs/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -357,11 +357,7 @@ func persistAIConversationFailure(sink *aiConversationEventSink, failure error) 
 }
 
 func newAITurnID() (string, error) {
-	id, err := uuid.NewV4()
-	if err != nil {
-		return "", err
-	}
-	return id.String(), nil
+	return uuid.NewV4().String(), nil
 }
 
 func fallbackAIString(value string, fallback string) string {

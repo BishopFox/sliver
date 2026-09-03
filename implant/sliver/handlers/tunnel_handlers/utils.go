@@ -24,8 +24,8 @@ import (
 )
 
 func reportError(envelope *sliverpb.Envelope, connection *transports.Connection, data []byte) {
-	connection.Send <- &sliverpb.Envelope{
+	connection.SendEnvelope(&sliverpb.Envelope{
 		Data: data,
 		ID:   envelope.ID,
-	}
+	})
 }

@@ -95,7 +95,7 @@ func (rpc *Server) Migrate(ctx context.Context, req *clientpb.MigrateReq) (*sliv
 		if err != nil {
 			return nil, status.Errorf(codes.FailedPrecondition, "cannot verify originating implant policy for session config %q: %v", session.ConfigID, err)
 		}
-	} else if dbBeacon != nil && dbBeacon.ImplantConfigID != uuid.Nil {
+	} else if dbBeacon != nil && dbBeacon.ImplantConfigID != models.NilUUID() {
 		originatingConfig, err = db.ImplantConfigByID(dbBeacon.ImplantConfigID.String())
 		if err != nil {
 			return nil, status.Errorf(codes.FailedPrecondition, "cannot verify originating implant policy for beacon config %q: %v", dbBeacon.ImplantConfigID, err)

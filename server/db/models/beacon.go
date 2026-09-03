@@ -25,7 +25,6 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
-	"github.com/gofrs/uuid"
 	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 )
@@ -34,10 +33,10 @@ import (
 type Beacon struct {
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
-	ID                uuid.UUID `gorm:"type:uuid;"`
+	ID                UUID `gorm:"type:uuid;"`
 	Name              string
 	Hostname          string
-	UUID              uuid.UUID `gorm:"type:uuid;"` // Host UUID
+	UUID              UUID `gorm:"type:uuid;"` // Host UUID
 	Username          string
 	UID               string
 	GID               string
@@ -56,8 +55,8 @@ type Beacon struct {
 	Integrity         string
 	Capabilities      uint64
 
-	ImplantBuildID  uuid.UUID `gorm:"type:uuid;"`
-	ImplantConfigID uuid.UUID `gorm:"type:uuid;"`
+	ImplantBuildID  UUID `gorm:"type:uuid;"`
+	ImplantConfigID UUID `gorm:"type:uuid;"`
 
 	Interval    int64
 	Jitter      int64
@@ -125,9 +124,9 @@ const (
 )
 
 type BeaconTask struct {
-	ID          uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ID          UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	EnvelopeID  int64     `gorm:"uniqueIndex"`
-	BeaconID    uuid.UUID `gorm:"type:uuid;"`
+	BeaconID    UUID      `gorm:"type:uuid;"`
 	CreatedAt   time.Time `gorm:"->;<-:create;"`
 	State       string
 	SentAt      int64
@@ -139,10 +138,7 @@ type BeaconTask struct {
 
 // BeforeCreate - GORM hook
 func (b *BeaconTask) BeforeCreate(tx *gorm.DB) (err error) {
-	b.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	b.ID = NewUUID()
 	b.CreatedAt = time.Now()
 	b.State = PENDING
 	buf := make([]byte, 8)

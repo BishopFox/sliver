@@ -52,7 +52,9 @@ func init() {
 
 	rootCmd.TraverseChildren = true
 	rootCmd.Flags().String(RCFlagName, "", "path to rc script file")
-	rootCmd.PersistentFlags().Bool(enableWGFlag, false, "connect to multiplayer through the operator config's WireGuard wrapper")
+	rootCmd.PersistentFlags().Bool(enableWGFlag, false, "force multiplayer connections through the operator config's WireGuard wrapper")
+	rootCmd.PersistentFlags().Bool(disableWGFlag, false, "force multiplayer connections to use direct mTLS")
+	rootCmd.MarkFlagsMutuallyExclusive(enableWGFlag, disableWGFlag)
 
 	// Create the console client, without any RPC or commands bound to it yet.
 	// This created before anything so that multiple commands can make use of

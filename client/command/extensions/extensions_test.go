@@ -152,6 +152,82 @@ func newExtensionTestConsole(t *testing.T, rpc rpcpb.SliverRPCClient, session *c
 	return con
 }
 
+func TestRemoveExtensionByManifestNameOnlyDeletesManagedExtensions(t *testing.T) {
+	clientRoot := t.TempDir()
+	t.Setenv("SLIVER_CLIENT_ROOT_DIR", clientRoot)
+
+	originalManifests := loadedManifests
+	originalExtensions := loadedExtensions
+	t.Cleanup(func() {
+		loadedManifests = originalManifests
+		loadedExtensions = originalExtensions
+	})
+
+	tests := []struct {
+		name        string
+		extPath     string
+		wantDeleted bool
+	}{
+		{
+			name:        "installed extension",
+			extPath:     filepath.Join(clientRoot, "extensions", "installed"),
+			wantDeleted: true,
+		},
+		{
+			name:        "temporarily loaded extension",
+			extPath:     t.TempDir(),
+			wantDeleted: false,
+		},
+		{
+			name:        "extensions directory sibling",
+			extPath:     filepath.Join(clientRoot, "extensions-backup"),
+			wantDeleted: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := os.MkdirAll(test.extPath, 0o700); err != nil {
+				t.Fatalf("create extension directory: %v", err)
+			}
+			markerPath := filepath.Join(test.extPath, "source-code.txt")
+			if err := os.WriteFile(markerPath, []byte("keep me"), 0o600); err != nil {
+				t.Fatalf("create marker file: %v", err)
+			}
+
+			manifestName := "test-extension"
+			commandName := "test-command"
+			command := &ExtCommand{CommandName: commandName}
+			loadedManifests = map[string]*ExtensionManifest{
+				manifestName: {RootPath: test.extPath, ExtCommand: []*ExtCommand{command}},
+			}
+			loadedExtensions = map[string]*ExtCommand{commandName: command}
+
+			found, err := RemoveExtensionByManifestName(manifestName, nil)
+			if err != nil {
+				t.Fatalf("remove extension: %v", err)
+			}
+			if !found {
+				t.Fatal("expected extension manifest to be found")
+			}
+			if _, ok := loadedManifests[manifestName]; ok {
+				t.Error("manifest was not unloaded")
+			}
+			if _, ok := loadedExtensions[commandName]; ok {
+				t.Error("command was not unloaded")
+			}
+
+			_, err = os.Stat(markerPath)
+			if test.wantDeleted && !os.IsNotExist(err) {
+				t.Errorf("managed extension directory was not deleted: %v", err)
+			}
+			if !test.wantDeleted && err != nil {
+				t.Errorf("external extension directory was modified: %v", err)
+			}
+		})
+	}
+}
+
 func TestParseExtensionManifest(t *testing.T) {
 	expectedPath := util.ResolvePath("foo/test1.dll")
 

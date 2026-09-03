@@ -26,7 +26,6 @@ import (
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/server/log"
-	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
 
@@ -36,7 +35,7 @@ var (
 
 // ImplantBuild - Represents an implant
 type ImplantBuild struct {
-	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ID        UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
 	Name string `gorm:"unique;"`
@@ -53,8 +52,8 @@ type ImplantBuild struct {
 	// Resource ID referencing build
 	ImplantID uint64
 
-	ImplantConfigID        uuid.UUID
-	SourceImplantProfileID *uuid.UUID
+	ImplantConfigID        UUID
+	SourceImplantProfileID *UUID
 
 	// ECC
 	PeerPublicKey           string
@@ -78,10 +77,7 @@ type ImplantBuild struct {
 
 // BeforeCreate - GORM hook
 func (ib *ImplantBuild) BeforeCreate(tx *gorm.DB) (err error) {
-	ib.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	ib.ID = NewUUID()
 	ib.CreatedAt = time.Now()
 	return nil
 }
@@ -114,8 +110,8 @@ func (ib *ImplantBuild) ToProtobuf() *clientpb.ImplantBuild {
 }
 
 func ImplantBuildFromProtobuf(ib *clientpb.ImplantBuild) *ImplantBuild {
-	id, _ := uuid.FromString(ib.ID)
-	ImplantConfidID, _ := uuid.FromString(ib.ImplantConfigID)
+	id, _ := ParseUUID(ib.ID)
+	ImplantConfidID, _ := ParseUUID(ib.ImplantConfigID)
 	build := ImplantBuild{
 		ID:              id,
 		Name:            ib.Name,
@@ -144,8 +140,8 @@ func ImplantBuildFromProtobuf(ib *clientpb.ImplantBuild) *ImplantBuild {
 
 // ImplantConfig - An implant build configuration
 type ImplantConfig struct {
-	ID               uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	ImplantProfileID *uuid.UUID
+	ID               UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ImplantProfileID *UUID
 
 	ImplantBuilds []ImplantBuild
 	CreatedAt     time.Time `gorm:"->;<-:create;"`
@@ -226,11 +222,8 @@ type ImplantConfig struct {
 
 // BeforeCreate - GORM hook
 func (ic *ImplantConfig) BeforeCreate(tx *gorm.DB) (err error) {
-	if ic.ID == uuid.Nil {
-		ic.ID, err = uuid.NewV4()
-		if err != nil {
-			return err
-		}
+	if ic.ID == NilUUID() {
+		ic.ID = NewUUID()
 	}
 	ic.CreatedAt = time.Now()
 	return nil
@@ -352,8 +345,8 @@ func (ic *ImplantConfig) CanaryDomainsList() []string {
 
 // CanaryDomain - Canary domain, belongs to ImplantConfig
 type CanaryDomain struct {
-	ID              uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	ImplantConfigID uuid.UUID
+	ID              UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ImplantConfigID UUID
 	CreatedAt       time.Time `gorm:"->;<-:create;"`
 
 	Domain string
@@ -361,10 +354,7 @@ type CanaryDomain struct {
 
 // BeforeCreate - GORM hook
 func (c *CanaryDomain) BeforeCreate(tx *gorm.DB) (err error) {
-	c.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	c.ID = NewUUID()
 	c.CreatedAt = time.Now()
 	return nil
 }
@@ -373,8 +363,8 @@ func (c *CanaryDomain) BeforeCreate(tx *gorm.DB) (err error) {
 type ImplantC2 struct {
 	// gorm.Model
 
-	ID              uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	ImplantConfigID uuid.UUID
+	ID              UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ImplantConfigID UUID
 	CreatedAt       time.Time `gorm:"->;<-:create;"`
 
 	Priority uint32
@@ -384,11 +374,8 @@ type ImplantC2 struct {
 
 // BeforeCreate - GORM hook
 func (c2 *ImplantC2) BeforeCreate(tx *gorm.DB) (err error) {
-	if c2.ID == uuid.Nil {
-		c2.ID, err = uuid.NewV4()
-		if err != nil {
-			return err
-		}
+	if c2.ID == NilUUID() {
+		c2.ID = NewUUID()
 	}
 	c2.CreatedAt = time.Now()
 	return nil
@@ -412,7 +399,7 @@ func (c2 *ImplantC2) String() string {
 type ImplantProfile struct {
 	// gorm.Model
 
-	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ID        UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
 	Name          string `gorm:"unique;"`
@@ -421,10 +408,7 @@ type ImplantProfile struct {
 
 // BeforeCreate - GORM hook
 func (ip *ImplantProfile) BeforeCreate(tx *gorm.DB) (err error) {
-	ip.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	ip.ID = NewUUID()
 	ip.CreatedAt = time.Now()
 	return nil
 }
@@ -432,8 +416,8 @@ func (ip *ImplantProfile) BeforeCreate(tx *gorm.DB) (err error) {
 // EncoderAsset - Tracks which assets were embedded into the implant
 // but we currently don't keep a copy of the actual data
 type EncoderAsset struct {
-	ID              uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	ImplantConfigID uuid.UUID
+	ID              UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ImplantConfigID UUID
 
 	Name string
 }
@@ -447,7 +431,7 @@ const defaultTemplateName = "sliver"
 // ImplantProfileFromProtobuf - Create a native profile struct from Protobuf
 func ImplantProfileFromProtobuf(pbProfile *clientpb.ImplantProfile) *ImplantProfile {
 	cfg := ImplantProfile{}
-	id, _ := uuid.FromString(pbProfile.ID)
+	id, _ := ParseUUID(pbProfile.ID)
 	cfg.ID = id
 	cfg.Name = pbProfile.Name
 	config := ImplantConfigFromProtobuf(pbProfile.Config)
@@ -463,11 +447,11 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 		implantBuilds = append(implantBuilds, *ImplantBuildFromProtobuf(implantBuild))
 	}
 	cfg := ImplantConfig{}
-	id, _ := uuid.FromString(pbConfig.ID)
+	id, _ := ParseUUID(pbConfig.ID)
 	cfg.ID = id
 	cfg.ImplantBuilds = implantBuilds
-	profileID, _ := uuid.FromString(pbConfig.ImplantProfileID)
-	if profileID == uuid.Nil {
+	profileID, _ := ParseUUID(pbConfig.ImplantProfileID)
+	if profileID == NilUUID() {
 		cfg.ImplantProfileID = nil
 	} else {
 		cfg.ImplantProfileID = &profileID
@@ -554,7 +538,7 @@ func ImplantConfigFromProtobuf(pbConfig *clientpb.ImplantConfig) *ImplantConfig 
 	return &cfg
 }
 
-func copyC2List(src []*clientpb.ImplantC2, id uuid.UUID) []ImplantC2 {
+func copyC2List(src []*clientpb.ImplantC2, id UUID) []ImplantC2 {
 	c2s := []ImplantC2{}
 	for _, srcC2 := range src {
 		c2URL, err := url.Parse(srcC2.URL)
@@ -562,9 +546,9 @@ func copyC2List(src []*clientpb.ImplantC2, id uuid.UUID) []ImplantC2 {
 			modelLog.Warnf("Failed to parse c2 url %v", err)
 			continue
 		}
-		uuid, _ := uuid.FromString(srcC2.ID)
+		c2ID, _ := ParseUUID(srcC2.ID)
 		c2s = append(c2s, ImplantC2{
-			ID:              uuid,
+			ID:              c2ID,
 			ImplantConfigID: id,
 			Priority:        srcC2.Priority,
 			URL:             c2URL.String(),

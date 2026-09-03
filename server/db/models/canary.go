@@ -22,13 +22,12 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
 
 // DNSCanary - Colletions of content to serve from HTTP(S)
 type DNSCanary struct {
-	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ID        UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
 	ImplantName   string
@@ -41,10 +40,7 @@ type DNSCanary struct {
 
 // BeforeCreate - GORM hook
 func (c *DNSCanary) BeforeCreate(tx *gorm.DB) (err error) {
-	c.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	c.ID = NewUUID()
 	c.CreatedAt = time.Now()
 	return nil
 }
@@ -63,11 +59,11 @@ func (c *DNSCanary) ToProtobuf() *clientpb.DNSCanary {
 
 // convert from protobuf
 func DNSCanaryFromProtobuf(m *clientpb.DNSCanary) DNSCanary {
-	uuid, _ := uuid.FromString(m.ID)
+	id, _ := ParseUUID(m.ID)
 	firstTrigger, _ := time.Parse(time.RFC1123, m.FirstTriggered)
 	latestTrigger, _ := time.Parse(time.RFC1123, m.LatestTrigger)
 	return DNSCanary{
-		ID:            uuid,
+		ID:            id,
 		ImplantName:   m.ImplantName,
 		Domain:        m.Domain,
 		Triggered:     m.Triggered,

@@ -237,7 +237,7 @@ func (r *GenericResolver) txt(domain string) ([]byte, time.Duration, error) {
 		return nil, rtt, ErrInvalidRcode
 	}
 
-	records := ""
+	var records strings.Builder
 	data := []byte{}
 	if len(resp.Answer) > 0 {
 		for _, answer := range resp.Answer {
@@ -246,11 +246,14 @@ func (r *GenericResolver) txt(domain string) ([]byte, time.Duration, error) {
 				// {{if .Config.Debug}}
 				log.Printf("[dns] answer (txt): %v", answer.Txt)
 				// {{end}}
-				records += strings.Join(answer.Txt, "")
+				for _, record := range answer.Txt {
+					records.WriteString(record)
+				}
 			}
 		}
-		if 0 < len(records) {
-			data, err = r.base64.Decode([]byte(records))
+		recordData := records.String()
+		if 0 < len(recordData) {
+			data, err = r.base64.Decode([]byte(recordData))
 			if err != nil {
 				// {{if .Config.Debug}}
 				log.Printf("[dns] error base64-decoding TXT record response: %v", err)

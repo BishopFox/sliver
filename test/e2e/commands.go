@@ -169,6 +169,7 @@ func (s *suite) exerciseCommands(target implantTarget, remoteRoot string, transp
 		commandErrors = appendIfError(commandErrors, s.exerciseWindowsCommands(target, transport))
 	}
 	commandErrors = appendIfError(commandErrors, s.exerciseArmory(target, remoteRoot, transport))
+	commandErrors = appendIfError(commandErrors, s.exerciseNativeBOFs(target, remoteRoot, transport))
 	return errors.Join(commandErrors...)
 }
 
@@ -1302,8 +1303,8 @@ func parseAddressIP(address string) net.IP {
 		return ip
 	}
 	address = strings.Trim(address, "[]")
-	if index := strings.LastIndex(address, "%"); index >= 0 {
-		address = address[:index]
+	if before, _, ok := strings.CutLast(address, "%"); ok {
+		address = before
 	}
 	return net.ParseIP(address)
 }

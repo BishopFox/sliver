@@ -25,7 +25,6 @@ import (
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
 	"github.com/bishopfox/sliver/server/log"
-	"github.com/gofrs/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
@@ -49,11 +48,7 @@ func (rpc *Server) Crack(ctx context.Context, req *clientpb.CrackCommand) (*clie
 		req.Status,
 	)
 
-	jobID, err := uuid.NewV4()
-	if err != nil {
-		crackCommandRpcLog.Errorf("Failed to generate crack job ID: %s", err)
-		return nil, status.Error(codes.Internal, "failed to generate crack job id")
-	}
+	jobID := models.NewUUID()
 
 	job := &models.CrackJob{
 		ID: jobID,

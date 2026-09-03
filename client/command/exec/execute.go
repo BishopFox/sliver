@@ -234,10 +234,12 @@ func parseEnvPairs(envPairs []string) (map[string]string, error) {
 func determineCommandName(command string) string {
 	commandName := strings.ReplaceAll(command, "\\", "/")
 
-	commandName = commandName[strings.LastIndex(commandName, "/")+1:]
+	if _, after, ok := strings.CutLast(commandName, "/"); ok {
+		commandName = after
+	}
 
-	if strings.Contains(commandName, ".") {
-		commandName = commandName[:strings.LastIndex(commandName, ".")]
+	if before, _, ok := strings.CutLast(commandName, "."); ok {
+		commandName = before
 	}
 
 	return commandName

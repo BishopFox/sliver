@@ -29,9 +29,6 @@ github.com/ebitengine/purego/internal/xreflect
 # github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5
 ## explicit
 github.com/gen2brain/shm
-# github.com/gofrs/uuid v4.0.0+incompatible
-## explicit
-github.com/gofrs/uuid
 # github.com/google/btree v1.1.2
 ## explicit; go 1.18
 github.com/google/btree
@@ -62,7 +59,7 @@ github.com/miekg/dns
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
-# github.com/sliverarmory/reflektor v0.0.7
+# github.com/sliverarmory/reflektor v0.0.8
 ## explicit; go 1.26.6
 github.com/sliverarmory/reflektor/bof
 github.com/sliverarmory/reflektor/internal/bofloader

@@ -17,22 +17,21 @@ func ComprehensiveCatalog() []CommandExpectation {
 	unixTargets := []Target{
 		{OS: "darwin", Arch: "amd64"},
 		{OS: "darwin", Arch: "arm64"},
-		{OS: "linux", Arch: "386"},
 		{OS: "linux", Arch: "amd64"},
 		{OS: "linux", Arch: "arm64"},
 	}
 	linuxTargets := []Target{
-		{OS: "linux", Arch: "386"},
 		{OS: "linux", Arch: "amd64"},
 		{OS: "linux", Arch: "arm64"},
 	}
 	windowsTargets := []Target{
-		{OS: "windows", Arch: "386"},
 		{OS: "windows", Arch: "amd64"},
 		{OS: "windows", Arch: "arm64"},
 	}
 	armoryTargets := []Target{
-		{OS: "windows", Arch: "386"},
+		{OS: "windows", Arch: "amd64"},
+	}
+	opforAMD64Targets := []Target{
 		{OS: "windows", Arch: "amd64"},
 	}
 
@@ -102,6 +101,15 @@ func ComprehensiveCatalog() []CommandExpectation {
 		restricted("ListExtensions", "registered COFFLoader digest", "signed Armory packages have no exact target for this OS/architecture", armoryTargets),
 		restricted("CallExtension", "signed sa-env BOF through COFFLoader", "signed Armory packages have no exact target for this OS/architecture", armoryTargets),
 		restricted("CallExtension", "signed sa-whoami BOF through COFFLoader", "signed Armory packages have no exact target for this OS/architecture", armoryTargets),
+
+		restricted("CallExtension", "OPFOR Cat CNA reads isolated test file", "OPFOR CNA BOFs are Windows-only and the OPFOR provider does not support windows/arm64", armoryTargets),
+		restricted("CallExtension", "OPFOR FirefoxDump CNA finds no host profiles", "OPFOR CNA BOFs are Windows-only and the OPFOR provider does not support windows/arm64", armoryTargets),
+		restricted("CallExtension", "OPFOR FindDotnet CNA read-only process inventory", "the pinned OperatorsKit BOF is windows/amd64-only; OPFOR CNA BOFs are Windows-only and the provider does not support windows/arm64", opforAMD64Targets),
+		restricted("CallExtension", "OPFOR FindSysmon CNA read-only registry probe", "the pinned OperatorsKit BOF is windows/amd64-only; OPFOR CNA BOFs are Windows-only and the provider does not support windows/arm64", opforAMD64Targets),
+		restricted("CallExtension", "OPFOR callback preserves ordered typed binary channels", "the OPFOR synthetic BOF fixtures are Windows-only and the provider does not support windows/arm64", armoryTargets),
+		restricted("CallExtension", "typed BOF partial output retained on callback error", "the OPFOR synthetic BOF fixtures are Windows-only and the provider does not support windows/arm64", armoryTargets),
+		restricted("CallExtension", "malformed BOF returns bounded loader error", "the OPFOR synthetic BOF fixtures are Windows-only and the provider does not support windows/arm64", armoryTargets),
+		restricted("CallExtension", "finite BOF deadline returns and target recovers", "the OPFOR synthetic BOF fixtures are Windows-only and the provider does not support windows/arm64", armoryTargets),
 	}
 	return catalog
 }
@@ -119,10 +127,8 @@ func comprehensiveTargets() []Target {
 	return []Target{
 		{OS: "darwin", Arch: "amd64"},
 		{OS: "darwin", Arch: "arm64"},
-		{OS: "windows", Arch: "386"},
 		{OS: "windows", Arch: "amd64"},
 		{OS: "windows", Arch: "arm64"},
-		{OS: "linux", Arch: "386"},
 		{OS: "linux", Arch: "amd64"},
 		{OS: "linux", Arch: "arm64"},
 	}

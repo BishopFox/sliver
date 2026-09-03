@@ -21,13 +21,12 @@ package models
 import (
 	"time"
 
-	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
 
 // Certificate - Certificate database model
 type Certificate struct {
-	ID             uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ID             UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt      time.Time `gorm:"->;<-:create;"`
 	CommonName     string
 	CAType         string
@@ -38,10 +37,7 @@ type Certificate struct {
 
 // BeforeCreate - GORM hook to automatically set values
 func (c *Certificate) BeforeCreate(tx *gorm.DB) (err error) {
-	c.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	c.ID = NewUUID()
 	c.CreatedAt = time.Now()
 	return nil
 }

@@ -28,6 +28,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 
@@ -831,7 +832,7 @@ func (rpc *Server) BuilderRegister(req *clientpb.Builder, stream rpcpb.SliverRPC
 		case <-stream.Context().Done():
 			return nil
 		case event := <-events:
-			if !util.Contains(buildEvents, event.EventType) {
+			if !slices.Contains(buildEvents, event.EventType) {
 				continue // Skip events not relevant to the builder
 			}
 			if event.EventType == consts.ExternalBuildEvent {

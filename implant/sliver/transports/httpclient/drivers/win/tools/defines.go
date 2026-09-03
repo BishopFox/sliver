@@ -142,7 +142,7 @@ func processFile(
 		return fmt.Errorf("failed to read %s: %w", file, err)
 	}
 
-	for _, line := range strings.Split(string(b), "\n") {
+	for line := range strings.SplitSeq(string(b), "\n") {
 		line = strings.TrimSpace(line)
 
 		if strings.HasSuffix(line, "\\") {

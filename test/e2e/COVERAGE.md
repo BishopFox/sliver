@@ -2,16 +2,17 @@
 
 The static source of truth is `coverage.ComprehensiveCatalog()` in [coverage/catalog.go](coverage/catalog.go). Every scenario is expanded over three transports (`mtls`, `wg`, `http`) and two implant modes (`session`, `beacon`) for each supported target.
 
-The executable catalog contains 48 scenarios across 41 of the 67 finite implant-command RPC methods and expands to 2,304 matrix cells:
+The executable catalog contains 56 scenarios across 41 of the 67 finite implant-command RPC methods and expands to 2,016 matrix cells:
 
 | Catalog group | Scenarios | Supported targets per scenario | Required recorded cells | Expected platform `SKIP` cells |
 |---|---:|---:|---:|---:|
-| Portable | 29 | 8 | 1,392 | 0 |
-| Darwin and Linux | 2 | 5 | 60 | 36 |
-| Linux-only | 3 | 3 | 54 | 90 |
-| Windows-only | 10 | 3 | 180 | 300 |
-| Signed Armory | 4 | 2 | 48 | 144 |
-| **Total** | **48** | — | **1,734** | **570** |
+| Portable | 29 | 6 | 1,044 | 0 |
+| Darwin and Linux | 2 | 4 | 48 | 24 |
+| Linux-only | 3 | 2 | 36 | 72 |
+| Windows-only | 10 | 2 | 120 | 240 |
+| Signed Armory | 4 | 1 | 24 | 120 |
+| Native OPFOR CNA | 8 | 1 | 48 | 240 |
+| **Total** | **56** | — | **1,320** | **696** |
 
 Status semantics are strict:
 
@@ -67,7 +68,7 @@ The finite implant-command coverage denominator is therefore **41 covered / 67 t
 
 ## Portable scenarios
 
-Each row below is required on all eight targets: `darwin/amd64`, `darwin/arm64`, `linux/386`, `linux/amd64`, `linux/arm64`, `windows/386`, `windows/amd64`, and `windows/arm64`. That is 48 required cells per scenario.
+Each row below is required on all six targets: `darwin/amd64`, `darwin/arm64`, `linux/amd64`, `linux/arm64`, `windows/amd64`, and `windows/arm64`. That is 36 required cells per scenario.
 
 | gRPC method | Scenario |
 |---|---|
@@ -103,7 +104,7 @@ Each row below is required on all eight targets: `darwin/amd64`, `darwin/arm64`,
 
 ## Darwin and Linux scenarios
 
-These rows are required on `darwin/amd64`, `darwin/arm64`, `linux/386`, `linux/amd64`, and `linux/arm64` (30 required cells per scenario). All Windows cells are expected `SKIP` with the reason `supported only on Darwin and Linux`.
+These rows are required on `darwin/amd64`, `darwin/arm64`, `linux/amd64`, and `linux/arm64` (24 required cells per scenario). All Windows cells are expected `SKIP` with the reason `supported only on Darwin and Linux`.
 
 | gRPC method | Scenario |
 |---|---|
@@ -112,7 +113,7 @@ These rows are required on `darwin/amd64`, `darwin/arm64`, `linux/386`, `linux/a
 
 ## Linux-only scenarios
 
-These rows are required on `linux/386`, `linux/amd64`, and `linux/arm64` (18 required cells per scenario). All Darwin and Windows cells are expected `SKIP` with the reason `supported only on Linux`.
+These rows are required on `linux/amd64` and `linux/arm64` (12 required cells per scenario). All Darwin and Windows cells are expected `SKIP` with the reason `supported only on Linux`.
 
 | gRPC method | Scenario |
 |---|---|
@@ -122,7 +123,7 @@ These rows are required on `linux/386`, `linux/amd64`, and `linux/arm64` (18 req
 
 ## Windows-only scenarios
 
-These rows are required on `windows/386`, `windows/amd64`, and `windows/arm64` (18 required cells per scenario). All Darwin and Linux cells are expected `SKIP` with the reason `supported only on Windows`.
+These rows are required on `windows/amd64` and `windows/arm64` (12 required cells per scenario). All Darwin and Linux cells are expected `SKIP` with the reason `supported only on Windows`.
 
 | gRPC method | Scenario |
 |---|---|
@@ -139,7 +140,7 @@ These rows are required on `windows/386`, `windows/amd64`, and `windows/arm64` (
 
 ## Signed Armory scenarios
 
-These rows are required only on `windows/386` and `windows/amd64` (12 required cells per scenario). Every other target is expected `SKIP` because the pinned signed packages have no exact artifact for that OS/architecture.
+These rows are required only on `windows/amd64` (six required cells per scenario). Every other target is expected `SKIP` because the pinned signed packages have no exact artifact for that OS/architecture.
 
 | gRPC method | Scenario |
 |---|---|
@@ -147,6 +148,23 @@ These rows are required only on `windows/386` and `windows/amd64` (12 required c
 | `ListExtensions` | registered COFFLoader digest |
 | `CallExtension` | signed `sa-env` BOF through COFFLoader |
 | `CallExtension` | signed `sa-whoami` BOF through COFFLoader |
+
+## Native OPFOR CNA scenarios
+
+Every supported target below must run each row through the OPFOR scripting engine over all three transports (`mtls`, `wg`, and `http`) as both a session and a beacon. That is six required cells per supported target; a supported runtime `SKIP` is not accepted as coverage.
+
+| gRPC method | Scenario | `windows/amd64` | `windows/arm64` |
+|---|---|---|---|
+| `CallExtension` | OPFOR Cat CNA reads isolated test file | Required: signed upstream x64 object | `SKIP`: OPFOR provider has no arm64 BOF support |
+| `CallExtension` | OPFOR FirefoxDump CNA finds no host profiles | Required: signed upstream x64 object after empty-profile safety gate | `SKIP`: OPFOR provider has no arm64 BOF support |
+| `CallExtension` | OPFOR FindDotnet CNA read-only process inventory | Required: pinned upstream object | `SKIP`: OperatorsKit has no arm64 object and OPFOR provider has no arm64 BOF support |
+| `CallExtension` | OPFOR FindSysmon CNA read-only registry probe | Required: pinned upstream object after absent-Sysmon safety gate; invoke only `reg` | `SKIP`: OperatorsKit has no arm64 object and OPFOR provider has no arm64 BOF support |
+| `CallExtension` | OPFOR callback preserves ordered typed binary channels | Required: repository-owned synthetic fixture | `SKIP`: OPFOR provider has no arm64 BOF support |
+| `CallExtension` | typed BOF partial output retained on callback error | Required: repository-owned synthetic fixture | `SKIP`: OPFOR provider has no arm64 BOF support |
+| `CallExtension` | malformed BOF returns bounded loader error | Required: deterministic malformed fixture followed by recovery proof | `SKIP`: OPFOR provider has no arm64 BOF support |
+| `CallExtension` | finite BOF deadline returns and target recovers | Required: bounded fixture timeout followed by `Ping` | `SKIP`: OPFOR provider has no arm64 BOF support |
+
+All Darwin and Linux cells are expected `SKIP` because these CNA scripts execute Windows COFF BOFs. The aggregate therefore adds 48 required native-OPFOR cells and 240 catalog-generated skips.
 
 ## Known request-field boundary
 

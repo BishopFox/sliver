@@ -3,18 +3,21 @@ package rpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+	uuid "uuid"
 
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
-	"github.com/gofrs/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -154,11 +157,8 @@ func TestCallExtensionRejectsUnsupportedBeaconBeforeTasking(t *testing.T) {
 		}
 	})
 
-	beaconID, err := uuid.NewV4()
-	if err != nil {
-		t.Fatalf("generate beacon ID: %v", err)
-	}
-	if err := testDB.Create(&models.Beacon{ID: beaconID}).Error; err != nil {
+	beaconID := uuid.NewV4()
+	if err := testDB.Create(&models.Beacon{ID: models.UUIDFrom(beaconID)}).Error; err != nil {
 		t.Fatalf("create beacon: %v", err)
 	}
 
@@ -180,6 +180,118 @@ func TestCallExtensionRejectsUnsupportedBeaconBeforeTasking(t *testing.T) {
 	if taskCount != 0 {
 		t.Fatalf("expected no beacon tasks, got %d", taskCount)
 	}
+}
+
+func TestCallExtensionPreservesTypedBOFPartialResponse(t *testing.T) {
+	connection := core.NewImplantConnection("test", "n/a")
+	session := core.NewSession(connection)
+	session.Capabilities = sliverpb.CapabilityBOFV1
+	core.Sessions.Add(session)
+	t.Cleanup(func() {
+		core.Sessions.Remove(session.ID)
+	})
+
+	want := &sliverpb.CallExtension{
+		Output: []byte("partial legacy output"),
+		BOFOutputs: []*sliverpb.BOFOutput{
+			{Type: 0, Data: []byte("before failure")},
+			{Type: 1, Data: []byte{0x00, 0xff, 0x01}},
+		},
+		Response: &commonpb.Response{Err: "BOF failed after producing output"},
+	}
+	responseDone := respondToCallExtension(t, connection, want)
+
+	got, err := (&Server{}).CallExtension(context.Background(), &sliverpb.CallExtensionReq{
+		IsBOF:          true,
+		WantBOFOutputs: true,
+		Request: &commonpb.Request{
+			SessionID: session.ID,
+			Timeout:   int64(2 * time.Second),
+		},
+	})
+	if responseErr := <-responseDone; responseErr != nil {
+		t.Fatal(responseErr)
+	}
+	if err != nil {
+		t.Fatalf("unexpected gRPC error: %v", err)
+	}
+	if !proto.Equal(got, want) {
+		t.Fatalf("typed BOF response mismatch:\n got: %v\nwant: %v", got, want)
+	}
+}
+
+func TestCallExtensionPreservesLegacyErrorSemantics(t *testing.T) {
+	tests := []struct {
+		name           string
+		isBOF          bool
+		wantBOFOutputs bool
+	}{
+		{
+			name:  "legacy BOF response",
+			isBOF: true,
+		},
+		{
+			name:           "non-BOF response",
+			wantBOFOutputs: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			connection := core.NewImplantConnection("test", "n/a")
+			session := core.NewSession(connection)
+			session.Capabilities = sliverpb.CapabilityBOFV1
+			core.Sessions.Add(session)
+			t.Cleanup(func() {
+				core.Sessions.Remove(session.ID)
+			})
+
+			responseDone := respondToCallExtension(t, connection, &sliverpb.CallExtension{
+				Output:   []byte("partial output"),
+				Response: &commonpb.Response{Err: "extension failed"},
+			})
+			got, err := (&Server{}).CallExtension(context.Background(), &sliverpb.CallExtensionReq{
+				IsBOF:          tt.isBOF,
+				WantBOFOutputs: tt.wantBOFOutputs,
+				Request: &commonpb.Request{
+					SessionID: session.ID,
+					Timeout:   int64(2 * time.Second),
+				},
+			})
+			if responseErr := <-responseDone; responseErr != nil {
+				t.Fatal(responseErr)
+			}
+			if got != nil {
+				t.Fatalf("expected response to be discarded, got %v", got)
+			}
+			if status.Code(err) != codes.FailedPrecondition {
+				t.Fatalf("expected FailedPrecondition, got %v", err)
+			}
+		})
+	}
+}
+
+func respondToCallExtension(t *testing.T, connection *core.ImplantConnection, response *sliverpb.CallExtension) <-chan error {
+	t.Helper()
+
+	responseData, err := proto.Marshal(response)
+	if err != nil {
+		t.Fatalf("marshal call extension response: %v", err)
+	}
+	done := make(chan error, 1)
+	go func() {
+		request := <-connection.Send
+		connection.RespMutex.RLock()
+		responseChannel, ok := connection.Resp[request.ID]
+		connection.RespMutex.RUnlock()
+		if !ok {
+			done <- fmt.Errorf("missing response channel for request %d", request.ID)
+			return
+		}
+		responseChannel <- &sliverpb.Envelope{ID: request.ID, Data: responseData}
+		done <- nil
+	}()
+	return done
 }
 
 func capabilityMap(capabilities map[string]uint64) capabilityLookup {

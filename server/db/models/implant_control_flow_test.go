@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/gofrs/uuid"
 )
 
 func TestImplantConfigControlFlowRoundTrip(t *testing.T) {
@@ -29,7 +28,7 @@ func TestImplantConfigControlFlowRoundTrip(t *testing.T) {
 }
 
 func TestImplantConfigBeforeCreatePreservesAssignedID(t *testing.T) {
-	assignedID := uuid.Must(uuid.NewV4())
+	assignedID := NewUUID()
 	config := &ImplantConfig{ID: assignedID}
 	if err := config.BeforeCreate(nil); err != nil {
 		t.Fatalf("BeforeCreate() error = %v", err)

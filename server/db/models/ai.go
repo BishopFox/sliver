@@ -22,13 +22,12 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
-	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
 )
 
 // AIConversation - A server-side AI conversation thread.
 type AIConversation struct {
-	ID                           uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ID                           UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt                    time.Time `gorm:"->;<-:create;"`
 	UpdatedAt                    time.Time
 	OperatorName                 string `gorm:"index"`
@@ -53,10 +52,7 @@ type AIConversation struct {
 
 // BeforeCreate - GORM hook.
 func (a *AIConversation) BeforeCreate(tx *gorm.DB) (err error) {
-	a.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	a.ID = NewUUID()
 	now := time.Now()
 	a.CreatedAt = now
 	a.UpdatedAt = now
@@ -102,7 +98,7 @@ func AIConversationFromProtobuf(pbConversation *clientpb.AIConversation) *AIConv
 		return &AIConversation{}
 	}
 
-	id, _ := uuid.FromString(pbConversation.ID)
+	id, _ := ParseUUID(pbConversation.ID)
 
 	return &AIConversation{
 		ID:                           id,
@@ -140,8 +136,8 @@ func aiContextWindowUsageToProtobuf(inputTokens, outputTokens, totalTokens, wind
 
 // AIConversationMessage - A single message stored within a conversation.
 type AIConversationMessage struct {
-	ID                uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
-	ConversationID    uuid.UUID `gorm:"type:uuid;index"`
+	ID                UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	ConversationID    UUID      `gorm:"type:uuid;index"`
 	CreatedAt         time.Time `gorm:"->;<-:create;"`
 	UpdatedAt         time.Time
 	OperatorName      string `gorm:"index"`
@@ -167,10 +163,7 @@ type AIConversationMessage struct {
 
 // BeforeCreate - GORM hook.
 func (a *AIConversationMessage) BeforeCreate(tx *gorm.DB) (err error) {
-	a.ID, err = uuid.NewV4()
-	if err != nil {
-		return err
-	}
+	a.ID = NewUUID()
 	now := time.Now()
 	a.CreatedAt = now
 	a.UpdatedAt = now
@@ -212,8 +205,8 @@ func AIConversationMessageFromProtobuf(pbMessage *clientpb.AIConversationMessage
 		return &AIConversationMessage{}
 	}
 
-	id, _ := uuid.FromString(pbMessage.ID)
-	conversationID, _ := uuid.FromString(pbMessage.ConversationID)
+	id, _ := ParseUUID(pbMessage.ID)
+	conversationID, _ := ParseUUID(pbMessage.ConversationID)
 
 	return &AIConversationMessage{
 		ID:                id,

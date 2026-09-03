@@ -37,7 +37,6 @@ import (
 	"github.com/bishopfox/sliver/server/encoders"
 	"github.com/bishopfox/sliver/server/log"
 	"github.com/bishopfox/sliver/server/watchtower"
-	"github.com/gofrs/uuid"
 	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -81,8 +80,8 @@ func ImplantConfigSave(config *clientpb.ImplantConfig) (*clientpb.ImplantConfig,
 		}).Create(modelConfig).Error
 
 	} else {
-		id, _ := uuid.FromString(dbConfig.ImplantProfileID)
-		if id == uuid.Nil {
+		id, _ := models.ParseUUID(dbConfig.ImplantProfileID)
+		if id == models.NilUUID() {
 			modelConfig.ImplantProfileID = nil
 		} else {
 			modelConfig.ImplantProfileID = &id
@@ -299,8 +298,8 @@ func ImplantFileDelete(build *clientpb.ImplantBuild) error {
 // removed, its immutable config snapshot and associations are removed only if
 // the snapshot is detached from a profile and no other build references it.
 func DeletePendingImplantBuild(buildID string) error {
-	id := uuid.FromStringOrNil(buildID)
-	if id == uuid.Nil {
+	id := models.ParseUUIDOrNil(buildID)
+	if id == models.NilUUID() {
 		return db.ErrRecordNotFound
 	}
 
@@ -323,7 +322,7 @@ func DeletePendingImplantBuild(buildID string) error {
 	})
 }
 
-func loadPendingImplantBuild(tx *gorm.DB, id uuid.UUID, buildsDir string) (*models.ImplantBuild, error) {
+func loadPendingImplantBuild(tx *gorm.DB, id models.UUID, buildsDir string) (*models.ImplantBuild, error) {
 	build := &models.ImplantBuild{}
 	if err := tx.Where(&models.ImplantBuild{ID: id}).First(build).Error; err != nil {
 		return nil, err
@@ -349,12 +348,12 @@ func loadPendingImplantBuild(tx *gorm.DB, id uuid.UUID, buildsDir string) (*mode
 	return build, nil
 }
 
-func deleteUnreferencedImplantConfig(tx *gorm.DB, configID uuid.UUID) error {
+func deleteUnreferencedImplantConfig(tx *gorm.DB, configID models.UUID) error {
 	var remainingBuilds int64
 	if err := tx.Model(&models.ImplantBuild{}).Where("implant_config_id = ?", configID).Count(&remainingBuilds).Error; err != nil {
 		return err
 	}
-	if remainingBuilds != 0 || configID == uuid.Nil {
+	if remainingBuilds != 0 || configID == models.NilUUID() {
 		return nil
 	}
 

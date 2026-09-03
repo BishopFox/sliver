@@ -22,9 +22,9 @@ import (
 	"github.com/bishopfox/sliver/server/c2"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/transport"
-	"github.com/google/uuid"
 	"github.com/hashicorp/yamux"
 	"google.golang.org/protobuf/proto"
+	uuid "uuid"
 )
 
 func TestWGYamux_EndToEndPingRPC(t *testing.T) {
@@ -339,7 +339,7 @@ func startTestWGImplant(t *testing.T, conn net.Conn) func() {
 	register := &sliverpb.Register{
 		Name:              "e2e",
 		Hostname:          "localhost",
-		Uuid:              uuid.NewString(),
+		Uuid:              uuid.NewV4().String(),
 		Username:          "unit-test",
 		Os:                runtime.GOOS,
 		Arch:              runtime.GOARCH,

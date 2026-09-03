@@ -261,7 +261,7 @@ func handleWGSliverConnection(conn net.Conn) {
 	implantConn := core.NewImplantConnection("wg", conn.RemoteAddr().String())
 	defer func() {
 		wgLog.Debugf("wireguard connection closing")
-		implantConn.Cleanup()
+		implantConn.Close()
 		conn.Close()
 	}()
 
@@ -291,6 +291,11 @@ func (c *wgBufferedConn) Read(p []byte) (int, error) {
 }
 
 func handleWGSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConnection) {
+	handleWGSliverConnectionYamuxWithDispatch(conn, implantConn, serverHandlers.GetHandlers(), nil, nil)
+}
+
+//nolint:gocyclo // The transport loop keeps stream admission, shutdown, dispatch, and response handling together.
+func handleWGSliverConnectionYamuxWithDispatch(conn net.Conn, implantConn *core.ImplantConnection, handlers map[uint32]serverHandlers.ServerHandler, beforeDispatch func(), afterStream func()) {
 	defer recoverAndLogPanic(wgLog.Errorf, "wireguard handleWGSliverConnectionYamux")
 
 	session, err := yamux.Server(conn, nil)
@@ -308,11 +313,16 @@ func handleWGSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConne
 			session.Close()
 		})
 	}
+	go func() {
+		select {
+		case <-implantConn.Done():
+			closeDone()
+		case <-done:
+		}
+	}()
 
 	streamSem := make(chan struct{}, mtlsYamuxMaxConcurrentStreams)
 	sendSem := make(chan struct{}, mtlsYamuxMaxConcurrentSends)
-	handlers := serverHandlers.GetHandlers()
-
 	go func() {
 		defer closeDone()
 		defer recoverAndLogPanic(wgLog.Errorf, "wireguard yamux accept loop")
@@ -336,6 +346,9 @@ func handleWGSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConne
 				defer func() {
 					<-streamSem
 				}()
+				if afterStream != nil {
+					defer afterStream()
+				}
 				defer recoverAndLogPanic(wgLog.Errorf, "wireguard yamux stream")
 				defer stream.Close()
 
@@ -345,25 +358,37 @@ func handleWGSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConne
 					closeDone()
 					return
 				}
+				if beforeDispatch != nil {
+					beforeDispatch()
+				}
+				select {
+				case <-implantConn.Done():
+					return
+				default:
+				}
 				implantConn.UpdateLastMessage()
 
 				if envelope.ID != 0 {
-					implantConn.RespMutex.RLock()
-					resp, ok := implantConn.Resp[envelope.ID]
-					implantConn.RespMutex.RUnlock()
-					if ok {
-						resp <- envelope
-					}
+					implantConn.DeliverResponse(envelope)
 					return
 				}
 
 				if handler, ok := handlers[envelope.Type]; ok {
 					go func(envelope *sliverpb.Envelope) {
 						defer recoverAndLogPanic(wgLog.Errorf, "wireguard message handler")
+						select {
+						case <-implantConn.Done():
+							return
+						case <-done:
+							return
+						default:
+						}
 
 						respEnvelope := handler(implantConn, envelope.Data)
 						if respEnvelope != nil {
-							implantConn.Send <- respEnvelope
+							if err := implantConn.SendEnvelope(respEnvelope, core.DefaultImplantSendTimeout); err != nil {
+								implantConn.Close()
+							}
 						}
 					}(envelope)
 				}
@@ -376,7 +401,19 @@ func handleWGSliverConnectionYamux(conn net.Conn, implantConn *core.ImplantConne
 		defer recoverAndLogPanic(wgLog.Errorf, "wireguard yamux sender loop")
 		for {
 			select {
+			case <-implantConn.Done():
+				return
 			case envelope := <-implantConn.Send:
+				select {
+				case <-implantConn.Done():
+					return
+				case <-done:
+					return
+				default:
+				}
+				if envelope == nil {
+					continue
+				}
 				select {
 				case sendSem <- struct{}{}:
 				case <-done:

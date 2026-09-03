@@ -1,17 +1,16 @@
 module github.com/bishopfox/sliver
 
-go 1.26.6
+go 1.27.1
 
 require (
 	filippo.io/age v1.1.1
 	github.com/Ne0nd0g/go-clr v1.0.3
 	github.com/ebitengine/purego v0.10.1
-	github.com/gofrs/uuid v4.0.0+incompatible
 	github.com/hashicorp/yamux v0.1.2
 	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
 	github.com/lesnuages/go-winio v0.4.19
 	github.com/miekg/dns v1.1.50
-	github.com/sliverarmory/reflektor v0.0.7
+	github.com/sliverarmory/reflektor v0.0.8
 	github.com/stretchr/testify v1.8.4
 	github.com/tetratelabs/wazero v1.7.1
 	github.com/things-go/go-socks5 v0.0.4

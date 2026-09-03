@@ -53,12 +53,13 @@ func TestExecuteBOFUsesDefaultEntryPointLookup(t *testing.T) {
 	}
 }
 
-func TestExecuteBOFUsesExactCustomEntryPointAndConcatenatesOutput(t *testing.T) {
+func TestExecuteBOFUsesExactCustomEntryPointAndPreservesTypedOutput(t *testing.T) {
 	wantArgs := []byte{4, 0, 0, 0, 1, 2, 3, 4}
-	object := &fakeBOFObject{outputs: []bof.Output{
+	wantOutputs := []bof.Output{
 		{Type: bof.OutputDefault, Data: []byte("first")},
 		{Type: bof.OutputError, Data: []byte("second")},
-	}}
+	}
+	object := &fakeBOFObject{outputs: wantOutputs}
 	var gotOptions bof.LoadOptions
 	output, err := executeBOFWithLoader([]byte("object"), " CustomExport ", wantArgs, func(_ []byte, options bof.LoadOptions) (bofObject, error) {
 		gotOptions = options
@@ -73,8 +74,13 @@ func TestExecuteBOFUsesExactCustomEntryPointAndConcatenatesOutput(t *testing.T) 
 	if !bytes.Equal(object.executeArgs, wantArgs) {
 		t.Fatalf("Execute() args = %v, want %v", object.executeArgs, wantArgs)
 	}
-	if !bytes.Equal(output, []byte("firstsecond")) {
-		t.Fatalf("output = %q, want ordered concatenation", output)
+	if len(output) != len(wantOutputs) {
+		t.Fatalf("output records = %d, want %d", len(output), len(wantOutputs))
+	}
+	for index := range wantOutputs {
+		if output[index].Type != wantOutputs[index].Type || !bytes.Equal(output[index].Data, wantOutputs[index].Data) {
+			t.Fatalf("output[%d] = %#v, want %#v", index, output[index], wantOutputs[index])
+		}
 	}
 	if object.executeCalls != 1 || object.closeCalls != 1 {
 		t.Fatalf("Execute() calls = %d, Close() calls = %d, want 1 each", object.executeCalls, object.closeCalls)
@@ -92,8 +98,8 @@ func TestExecuteBOFReportsExecuteAndCloseErrors(t *testing.T) {
 	output, err := executeBOFWithLoader([]byte("object"), "go", nil, func([]byte, bof.LoadOptions) (bofObject, error) {
 		return object, nil
 	})
-	if !bytes.Equal(output, []byte("partial")) {
-		t.Fatalf("output = %q, want partial output", output)
+	if len(output) != 1 || !bytes.Equal(output[0].Data, []byte("partial")) {
+		t.Fatalf("output = %#v, want partial output record", output)
 	}
 	if err == nil || !strings.Contains(err.Error(), "execute failed") || !strings.Contains(err.Error(), "close failed") {
 		t.Fatalf("error = %v, want execute and close failures", err)

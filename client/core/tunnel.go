@@ -25,6 +25,8 @@ import (
 	"log"
 
 	"github.com/bishopfox/sliver/protobuf/rpcpb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // TunnelLoop - Parses incoming tunnel messages and distributes them
@@ -32,6 +34,18 @@ import (
 //	             to session/tunnel objects
 //					Expected to be called only once during initialization
 func TunnelLoop(ctx context.Context, rpc rpcpb.SliverRPCClient) error {
+	return tunnelLoop(ctx, rpc, nil)
+}
+
+// TunnelLoopWithReady runs TunnelLoop and closes ready after the tunnel data
+// stream has been installed. Callers can use that signal to avoid accepting
+// local proxy connections before tunnel bind frames can be sent.
+func TunnelLoopWithReady(ctx context.Context, rpc rpcpb.SliverRPCClient, ready chan<- struct{}) error {
+	return tunnelLoop(ctx, rpc, ready)
+}
+
+//nolint:gocyclo // The shared stream loop keeps receive, ownership, close, and cancellation decisions together.
+func tunnelLoop(ctx context.Context, rpc rpcpb.SliverRPCClient, ready chan<- struct{}) error {
 	log.Println("Starting tunnel data loop ...")
 	defer log.Printf("Warning: TunnelLoop exited")
 
@@ -41,44 +55,69 @@ func TunnelLoop(ctx context.Context, rpc rpcpb.SliverRPCClient) error {
 		return err
 	}
 
-	GetTunnels().SetStream(stream)
-	defer GetTunnels().SetStream(nil)
+	tunnels := GetTunnels()
+	streamGeneration := tunnels.SetStream(stream)
+	defer tunnels.CloseStream(streamGeneration)
+	if ready != nil {
+		close(ready)
+	}
 
 	for {
 		log.Printf("Waiting for TunnelData ...")
 		incoming, err := stream.Recv()
-		log.Printf("Recv stream msg: %v", incoming)
-		log.Printf("Recv stream err: %s", err)
+		if incoming != nil {
+			log.Printf(
+				"Recv stream msg: tunnel=%d session=%s bytes=%d closed=%t",
+				incoming.TunnelID,
+				incoming.SessionID,
+				len(incoming.Data),
+				incoming.Closed,
+			)
+		}
+		if err != nil {
+			log.Printf("Recv stream err: %s", err)
+		}
 
 		if err == io.EOF {
 			log.Printf("EOF Error: Tunnel data stream closed")
 			return nil
 		}
 		if err != nil {
-			if errors.Is(err, context.Canceled) {
+			// A canceled status is only a clean shutdown when this caller
+			// canceled the stream. A remote/server cancellation while ctx is
+			// still live is a real tunnel-loop failure and must be surfaced.
+			if ctx.Err() != nil && (errors.Is(err, context.Canceled) || status.Code(err) == codes.Canceled) {
 				return nil
 			}
 			log.Printf("Tunnel data read error: %s", err)
 			return err
 		}
 		log.Printf("Received TunnelData for tunnel %d", incoming.TunnelID)
-		tunnel := GetTunnels().Get(incoming.TunnelID)
+		tunnel := tunnels.Get(incoming.TunnelID)
 
 		if tunnel != nil {
+			if !incoming.Closed && len(incoming.GetData()) == 0 {
+				// The server uses an empty frame to acknowledge that the client
+				// stream is bound to a newly created tunnel. It is control
+				// traffic, not data for the tunnel reader.
+				tunnel.markBound()
+				log.Printf("Received bind acknowledgement for tunnel %d", incoming.TunnelID)
+				continue
+			}
 			data := incoming.GetData()
 
-			log.Printf("This is data on tunnel %d: %s", tunnel.ID, data)
-
 			if !incoming.Closed {
-				log.Printf("Received data on tunnel %d", tunnel.ID)
+				log.Printf("Received %d byte(s) on tunnel %d", len(data), tunnel.ID)
 				err = tunnel.RecvData(data)
 
 				if err != nil {
-					log.Printf("Warning! Error sending data to tunnel %d, %v", tunnel.ID, err)
+					log.Printf("Warning! Closing tunnel %d after receive admission failed: %v", tunnel.ID, err)
+					tunnel.failReceive()
+					tunnels.CloseIf(tunnel)
 				}
 			} else {
 				log.Printf("Closing tunnel %d", tunnel.ID)
-				GetTunnels().Close(tunnel.ID)
+				tunnels.CloseIf(tunnel)
 			}
 		} else {
 			log.Printf("Received tunnel data for non-existent tunnel id %d", incoming.TunnelID)

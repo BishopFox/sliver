@@ -22,12 +22,14 @@ const (
 
 // MatrixCell is one encoder result in a target/transport/mode/compression row.
 type MatrixCell struct {
-	Encoder      string        `json:"encoder"`
-	Status       string        `json:"status"`
-	Recorded     bool          `json:"recorded"`
-	Duration     time.Duration `json:"duration_ns"`
-	Detail       string        `json:"detail"`
-	PayloadBytes int64         `json:"payload_bytes"`
+	Encoder          string        `json:"encoder"`
+	Status           string        `json:"status"`
+	Recorded         bool          `json:"recorded"`
+	Duration         time.Duration `json:"duration_ns"`
+	Detail           string        `json:"detail"`
+	PayloadBytes     int64         `json:"payload_bytes"`
+	RequiredSamples  int           `json:"required_samples"`
+	CompletedSamples int           `json:"completed_samples"`
 }
 
 // MatrixRow contains all encoder columns for one row identity.
@@ -202,7 +204,7 @@ func (report GlobalReport) NotRunIdentities() []Identity {
 	return missing
 }
 
-// GateError returns nil only when all 192 required combinations explicitly
+// GateError returns nil only when all 168 required combinations explicitly
 // pass. N/A cells never affect the gate.
 func (report GlobalReport) GateError() error {
 	if err := report.Validate(); err != nil {
@@ -292,6 +294,8 @@ func buildMatrix(targets []coverage.Target, records []Record) []MatrixRow {
 							cell.Duration = record.Duration
 							cell.Detail = record.Detail
 							cell.PayloadBytes = record.PayloadBytes
+							cell.RequiredSamples = record.RequiredSamples
+							cell.CompletedSamples = record.CompletedSamples
 						} else {
 							cell.Status = MatrixStatusNotRun
 						}

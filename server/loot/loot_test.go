@@ -8,7 +8,7 @@ import (
 
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
-	"github.com/gofrs/uuid"
+	uuid "uuid"
 )
 
 var (
@@ -176,7 +176,7 @@ func TestLootErrors(t *testing.T) {
 		t.Fatal("Expected invalid loot id error")
 	}
 
-	randomID, _ := uuid.NewV4()
+	randomID := uuid.NewV4()
 	_, err = lootStore.GetContent(randomID.String(), true)
 	if err == nil {
 		t.Fatal("Expected loot not found error")

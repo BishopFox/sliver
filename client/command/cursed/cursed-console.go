@@ -80,7 +80,7 @@ func selectDebugTarget(targets []overlord.ChromeDebugTarget, con *console.Sliver
 	if selected == "" {
 		return nil
 	}
-	selectedID := strings.Split(selected, " ")[0]
+	selectedID, _, _ := strings.Cut(selected, " ")
 	selectedTarget := id2target[selectedID]
 	return &selectedTarget
 }

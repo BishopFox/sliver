@@ -25,8 +25,10 @@ const (
 var ErrClosed = errors.New("reflektor: BOF is closed")
 
 // Output is one typed record emitted through BeaconOutput or BeaconPrintf.
-// Type is the Beacon output channel supplied by the object and Data is an
-// owned copy of that record's bytes.
+// Type is the signed Beacon output channel supplied by the object; unknown
+// values are preserved without remapping. Data is an owned copy of the raw
+// record bytes and may have zero length. The bytes remain valid after later
+// Execute calls and after Close.
 type Output struct {
 	Type int
 	Data []byte
@@ -213,7 +215,11 @@ func LoadFileWithOptions(path string, options LoadOptions) (*Object, error) {
 }
 
 // Execute invokes the object's go (or coffee) entry point with an encoded
-// Beacon argument buffer and returns the records emitted by Beacon callbacks.
+// Beacon argument buffer. It returns one record for every valid BeaconOutput
+// or BeaconPrintf call, including zero-length records, in callback-capture
+// order. Records captured during an execution that returns a terminal error
+// are returned together with that error; callers must process the records even
+// when err is non-nil.
 func (object *Object) Execute(args []byte) ([]Output, error) {
 	if object == nil {
 		return nil, ErrClosed

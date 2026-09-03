@@ -61,8 +61,17 @@ func callExtension(data []byte, resp RPCResponse, execute bofExecuteFunc) {
 
 	callResp := &sliverpb.CallExtension{Response: &commonpb.Response{}}
 	if callReq.IsBOF {
-		output, err := execute(callReq.BOFData, callReq.Export, callReq.Args)
-		callResp.Output = output
+		outputs, err := execute(callReq.BOFData, callReq.Export, callReq.Args)
+		for _, output := range outputs {
+			if callReq.WantBOFOutputs {
+				callResp.BOFOutputs = append(callResp.BOFOutputs, &sliverpb.BOFOutput{
+					Type: int32(output.Type),
+					Data: append([]byte(nil), output.Data...),
+				})
+			} else {
+				callResp.Output = append(callResp.Output, output.Data...)
+			}
+		}
 		if err != nil {
 			callResp.Response.Err = err.Error()
 		}
