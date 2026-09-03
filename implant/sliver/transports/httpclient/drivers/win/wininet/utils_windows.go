@@ -202,7 +202,7 @@ func getHeaders(
 		return "", 0, 0, nil, err
 	}
 
-	for _, hdr := range strings.Split(string(b), "\r\n") {
+	for hdr := range strings.SplitSeq(string(b), "\r\n") {
 		tmp = strings.SplitN(hdr, ": ", 2)
 
 		if len(tmp) == 2 {

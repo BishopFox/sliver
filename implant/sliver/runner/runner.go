@@ -22,12 +22,11 @@ package runner
 
 import (
 	"errors"
-
-	insecureRand "math/rand"
 	"os"
 	"os/user"
 	"runtime"
 	"time"
+	"uuid"
 
 	// {{if .Config.IsBeacon}}
 	"sync"
@@ -47,7 +46,6 @@ import (
 	"github.com/bishopfox/sliver/implant/sliver/version"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 
-	"github.com/gofrs/uuid"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
@@ -63,13 +61,7 @@ var (
 )
 
 func init() {
-	id, err := uuid.NewV4()
-	if err != nil {
-		buf := make([]byte, 16) // NewV4 fails if secure rand fails
-		insecureRand.Read(buf)
-		id = uuid.FromBytesOrNil(buf)
-	}
-	InstanceID = id.String()
+	InstanceID = uuid.NewV4().String()
 }
 
 // {{if .Config.IsService}}
@@ -509,12 +501,10 @@ func beaconHandleTasklist(tasks []*sliverpb.Envelope) []*sliverpb.Envelope {
 		log.Printf("[beacon] execute task %d", task.Type)
 		// {{end}}
 		if handler, ok := sysHandlers[task.Type]; ok {
-			wg.Add(1)
 			data := task.Data
 			taskID := task.ID
 			// {{if eq .Config.GOOS "windows" }}
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				handlers.WrapperHandler(handler, data, func(data []byte, err error) {
 					resultsMutex.Lock()
 					defer resultsMutex.Unlock()
@@ -529,10 +519,9 @@ func beaconHandleTasklist(tasks []*sliverpb.Envelope) []*sliverpb.Envelope {
 						Data: data,
 					})
 				})
-			}()
+			})
 			//  {{else}}
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				handler(data, func(data []byte, err error) {
 					resultsMutex.Lock()
 					defer resultsMutex.Unlock()
@@ -547,7 +536,7 @@ func beaconHandleTasklist(tasks []*sliverpb.Envelope) []*sliverpb.Envelope {
 						Data: data,
 					})
 				})
-			}()
+			})
 			// {{end}}
 		} else if task.Type == sliverpb.MsgOpenSession {
 			go openSessionHandler(task.Data)
