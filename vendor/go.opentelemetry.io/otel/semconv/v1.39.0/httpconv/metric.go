@@ -26,11 +26,9 @@ var (
 // with.
 type ErrorTypeAttr string
 
-var (
-	// ErrorTypeOther is a fallback error value to be used when the instrumentation
-	// doesn't define a custom value.
-	ErrorTypeOther ErrorTypeAttr = "_OTHER"
-)
+// ErrorTypeOther is a fallback error value to be used when the instrumentation
+// doesn't define a custom value.
+var ErrorTypeOther ErrorTypeAttr = "_OTHER"
 
 // ConnectionStateAttr is an attribute conforming to the http.connection.state
 // semantic conventions. It represents the state of the HTTP connection in the
@@ -1264,13 +1262,12 @@ func (ServerRequestBodySize) Description() string {
 //
 // All additional attrs passed are included in the recorded value.
 //
-// [URI scheme]: https://www.rfc-editor.org/rfc/rfc3986#section-3.1
-//
 // The size of the request payload body in bytes. This is the number of bytes
 // transferred excluding headers and is often, but not always, present as the
 // [Content-Length] header. For requests using transport encoding, this should be
 // the compressed size.
 //
+// [URI scheme]: https://www.rfc-editor.org/rfc/rfc3986#section-3.1
 // [Content-Length]: https://www.rfc-editor.org/rfc/rfc9110.html#field.content-length
 func (m ServerRequestBodySize) Record(
 	ctx context.Context,
@@ -1638,13 +1635,12 @@ func (ServerResponseBodySize) Description() string {
 //
 // All additional attrs passed are included in the recorded value.
 //
-// [URI scheme]: https://www.rfc-editor.org/rfc/rfc3986#section-3.1
-//
 // The size of the response payload body in bytes. This is the number of bytes
 // transferred excluding headers and is often, but not always, present as the
 // [Content-Length] header. For requests using transport encoding, this should be
 // the compressed size.
 //
+// [URI scheme]: https://www.rfc-editor.org/rfc/rfc3986#section-3.1
 // [Content-Length]: https://www.rfc-editor.org/rfc/rfc9110.html#field.content-length
 func (m ServerResponseBodySize) Record(
 	ctx context.Context,
