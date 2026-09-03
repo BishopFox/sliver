@@ -2,6 +2,9 @@ package e2e
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -18,6 +21,7 @@ import (
 
 	clientassets "github.com/bishopfox/sliver/client/assets"
 	consts "github.com/bishopfox/sliver/client/constants"
+	clientcore "github.com/bishopfox/sliver/client/core"
 	clienttransport "github.com/bishopfox/sliver/client/transport"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
@@ -29,38 +33,49 @@ import (
 )
 
 const (
-	operatorName               = "e2e-operator"
-	suiteScopeComprehensive    = "comprehensive"
-	suiteScopeRportFwd         = "rportfwd"
-	processLogTailBytes        = 1024 * 1024
-	commandFailureLogTailBytes = 64 * 1024
-	listenerPollInterval       = 250 * time.Millisecond
-	listenerDialTimeout        = 500 * time.Millisecond
-	cleanupGraceTimeout        = 2 * time.Second
-	cleanupProcessTimeout      = 10 * time.Second
+	operatorName                   = "e2e-operator"
+	suiteScopeComprehensive        = "comprehensive"
+	suiteScopeRportFwd             = "rportfwd"
+	suiteScopePortfwdSocks5        = "portfwd-socks5"
+	tunnelAcceptanceProfileBase    = "base"
+	tunnelAcceptanceProfileProxmox = "proxmox"
+	processLogTailBytes            = 1024 * 1024
+	commandFailureLogTailBytes     = 64 * 1024
+	listenerPollInterval           = 250 * time.Millisecond
+	listenerDialTimeout            = 500 * time.Millisecond
+	cleanupGraceTimeout            = 2 * time.Second
+	cleanupProcessTimeout          = 10 * time.Second
 )
 
 var transportOrder = []string{"mtls", "wg", "http"}
 
 type options struct {
-	repoPath       string
-	serverPath     string
-	serverArch     string
-	targetOS       string
-	targetArch     string
-	resultsDir     string
-	transportCSV   string
-	modeCSV        string
-	suiteScope     string
-	transports     []string
-	modes          []string
-	timeout        time.Duration
-	startupTimeout time.Duration
-	connectTimeout time.Duration
-	commandTimeout time.Duration
-	beaconInterval time.Duration
-	sgnSamples     int
-	implantDebug   bool
+	repoPath                string
+	serverPath              string
+	serverArch              string
+	targetOS                string
+	targetArch              string
+	resultsDir              string
+	transportCSV            string
+	modeCSV                 string
+	suiteScope              string
+	transports              []string
+	modes                   []string
+	timeout                 time.Duration
+	startupTimeout          time.Duration
+	connectTimeout          time.Duration
+	commandTimeout          time.Duration
+	beaconInterval          time.Duration
+	sgnSamples              int
+	socksFuzzSeed           int64
+	socksFuzzCases          int
+	socksFuzzCase           int
+	tunnelHTTPURL           string
+	tunnelHTTPURLFD         int
+	tunnelRDPAddr           string
+	rdpCredentialsFD        int
+	tunnelAcceptanceProfile string
+	implantDebug            bool
 }
 
 type suite struct {
@@ -77,19 +92,26 @@ type suite struct {
 	server     *managedProcess
 	serverLog  string
 
-	rpc              rpcpb.SliverRPCClient
-	closeGRPC        func()
-	hub              *eventHub
-	coverage         *e2ecoverage.Recorder
-	rportfwdCoverage *rportfwdcoverage.Recorder
-	listeners        map[string]*listener
-	armoryOnce       sync.Once
-	armory           *armoryAssets
-	armoryErr        error
-	nativeBOFOnce    sync.Once
-	nativeBOF        *nativeBOFAssets
-	nativeBOFErr     error
-	closeOnce        sync.Once
+	rpc                    rpcpb.SliverRPCClient
+	closeGRPC              func()
+	tunnelLoopCancel       context.CancelFunc
+	tunnelLoopDone         <-chan error
+	rdpCredentials         *rdpCredentials
+	hub                    *eventHub
+	coverage               *e2ecoverage.Recorder
+	rportfwdCoverage       *rportfwdcoverage.Recorder
+	tunnelReport           *tunnelReportRecorder
+	tunnelHTTPBaselineOnce sync.Once
+	tunnelHTTPBaseline     []byte
+	tunnelHTTPBaselineErr  error
+	listeners              map[string]*listener
+	armoryOnce             sync.Once
+	armory                 *armoryAssets
+	armoryErr              error
+	nativeBOFOnce          sync.Once
+	nativeBOF              *nativeBOFAssets
+	nativeBOFErr           error
+	closeOnce              sync.Once
 }
 
 type listener struct {
@@ -162,8 +184,33 @@ func newSuite(t *testing.T, opts options, recordCommandCoverage bool) (*suite, e
 	if err := validateOptions(&opts); err != nil {
 		return nil, err
 	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), opts.timeout)
+	httpURLCtx, httpURLCancel := context.WithTimeout(ctx, tunnelHTTPURLReadTimeout)
+	resolvedHTTPURL, err := readTunnelHTTPURLFD(httpURLCtx, opts.tunnelHTTPURLFD)
+	httpURLCancel()
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+	if resolvedHTTPURL != "" {
+		opts.tunnelHTTPURL = resolvedHTTPURL
+	}
+	credentialCtx, credentialCancel := context.WithTimeout(ctx, rdpCredentialReadTimeout)
+	rdpCredentials, err := readRDPCredentialsFD(credentialCtx, opts.rdpCredentialsFD)
+	credentialCancel()
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+	var tunnelProvenance tunnelReportProvenance
+	if opts.suiteScope == suiteScopePortfwdSocks5 {
+		tunnelProvenance, err = collectTunnelExecutableProvenance(opts.serverPath)
+		if err != nil {
+			cancel()
+			return nil, err
+		}
+	}
+
 	workDir, err := os.MkdirTemp("", "sliver-comprehensive-e2e-")
 	if err != nil {
 		cancel()
@@ -171,12 +218,13 @@ func newSuite(t *testing.T, opts options, recordCommandCoverage bool) (*suite, e
 	}
 
 	s := &suite{
-		t:         t,
-		opts:      opts,
-		ctx:       ctx,
-		cancel:    cancel,
-		workDir:   workDir,
-		listeners: map[string]*listener{},
+		t:              t,
+		opts:           opts,
+		ctx:            ctx,
+		cancel:         cancel,
+		workDir:        workDir,
+		rdpCredentials: rdpCredentials,
+		listeners:      map[string]*listener{},
 	}
 	if recordCommandCoverage {
 		s.coverage, err = e2ecoverage.NewRecorder(e2ecoverage.Target{OS: opts.targetOS, Arch: opts.targetArch})
@@ -185,10 +233,12 @@ func newSuite(t *testing.T, opts options, recordCommandCoverage bool) (*suite, e
 			return nil, fmt.Errorf("initialize E2E coverage recorder: %w", err)
 		}
 	}
-	s.rportfwdCoverage, err = rportfwdcoverage.NewRecorder(e2ecoverage.Target{OS: opts.targetOS, Arch: opts.targetArch})
-	if err != nil {
-		s.close()
-		return nil, fmt.Errorf("initialize reverse-port-forward E2E coverage recorder: %w", err)
+	if suiteRunsReversePortForward(opts.suiteScope) {
+		s.rportfwdCoverage, err = rportfwdcoverage.NewRecorder(e2ecoverage.Target{OS: opts.targetOS, Arch: opts.targetArch})
+		if err != nil {
+			s.close()
+			return nil, fmt.Errorf("initialize reverse-port-forward E2E coverage recorder: %w", err)
+		}
 	}
 	if s.opts.resultsDir == "" {
 		s.opts.resultsDir, err = os.MkdirTemp("", "sliver-comprehensive-e2e-results-")
@@ -202,6 +252,10 @@ func newSuite(t *testing.T, opts options, recordCommandCoverage bool) (*suite, e
 		s.close()
 		return nil, fmt.Errorf("create E2E results directory: %w", err)
 	}
+	if s.opts.suiteScope == suiteScopePortfwdSocks5 {
+		s.tunnelReport = newTunnelReportRecorder(s.opts, s.rdpCredentials != nil)
+		s.tunnelReport.setExecutableProvenance(tunnelProvenance)
+	}
 	if err := s.startServer(); err != nil {
 		s.close()
 		return nil, err
@@ -209,8 +263,48 @@ func newSuite(t *testing.T, opts options, recordCommandCoverage bool) (*suite, e
 	return s, nil
 }
 
+func collectTunnelExecutableProvenance(serverPath string) (tunnelReportProvenance, error) {
+	serverSHA256, err := executableSHA256(serverPath)
+	if err != nil {
+		return tunnelReportProvenance{}, fmt.Errorf("hash Sliver server executable: %w", err)
+	}
+	driverPath, err := os.Executable()
+	if err != nil {
+		return tunnelReportProvenance{}, fmt.Errorf("resolve E2E driver executable: %w", err)
+	}
+	driverSHA256, err := executableSHA256(driverPath)
+	if err != nil {
+		return tunnelReportProvenance{}, fmt.Errorf("hash E2E driver executable: %w", err)
+	}
+	return tunnelReportProvenance{
+		ServerSHA256: serverSHA256,
+		DriverSHA256: driverSHA256,
+	}, nil
+}
+
+func executableSHA256(path string) (string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = file.Close() }()
+	digest := sha256.New()
+	if _, err := io.Copy(digest, file); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(digest.Sum(nil)), nil
+}
+
 func (s *suite) writeCoverage() error {
 	var writeErrors []error
+	if s.tunnelReport != nil {
+		paths, err := s.tunnelReport.write(s.opts.resultsDir, !s.t.Failed())
+		if err != nil {
+			writeErrors = append(writeErrors, fmt.Errorf("write portfwd/SOCKS5 E2E report: %w", err))
+		} else {
+			s.t.Logf("Wrote portfwd/SOCKS5 E2E reports %s and %s", paths.JSON, paths.Markdown)
+		}
+	}
 	if s.rportfwdCoverage != nil {
 		paths, err := s.rportfwdCoverage.Write(s.opts.resultsDir)
 		if err != nil {
@@ -231,6 +325,26 @@ func (s *suite) writeCoverage() error {
 		}
 	}
 	return errors.Join(writeErrors...)
+}
+
+func (s *suite) recordTunnelScenario(transport string, feature string, scenario string, duration time.Duration, err error) {
+	if s.tunnelReport == nil {
+		return
+	}
+	status := "pass"
+	detail := ""
+	if err != nil {
+		status = "fail"
+		detail = redactFreeRDPOutput(err.Error(), s.rdpCredentials)
+	}
+	s.tunnelReport.recordScenario(tunnelReportObservation{
+		Transport:  transport,
+		Feature:    feature,
+		Scenario:   scenario,
+		Status:     status,
+		DurationMS: duration.Round(time.Millisecond).Milliseconds(),
+		Detail:     detail,
+	})
 }
 
 func validateOptions(opts *options) error {
@@ -269,13 +383,18 @@ func validateOptions(opts *options) error {
 	if err != nil {
 		return err
 	}
+	opts.tunnelAcceptanceProfile, err = normalizeTunnelAcceptanceProfile(opts.tunnelAcceptanceProfile)
+	if err != nil {
+		return err
+	}
+	if opts.tunnelAcceptanceProfile != tunnelAcceptanceProfileBase && opts.suiteScope != suiteScopePortfwdSocks5 {
+		return errors.New("-tunnel-acceptance-profile proxmox requires -suite-scope portfwd-socks5")
+	}
 	supported := map[string]bool{
 		"darwin/amd64":  true,
 		"darwin/arm64":  true,
-		"linux/386":     true,
 		"linux/amd64":   true,
 		"linux/arm64":   true,
-		"windows/386":   true,
 		"windows/amd64": true,
 		"windows/arm64": true,
 	}
@@ -295,8 +414,55 @@ func validateOptions(opts *options) error {
 	if opts.sgnSamples < shellcodecoverage.MinimumSGNSamples {
 		return fmt.Errorf("shellcode SGN samples must be at least %d", shellcodecoverage.MinimumSGNSamples)
 	}
+	if err := validateSocksFuzzOptions(opts.socksFuzzCases, opts.socksFuzzCase); err != nil {
+		return err
+	}
+	if opts.tunnelHTTPURL != "" {
+		if opts.suiteScope != suiteScopePortfwdSocks5 {
+			return errors.New("-tunnel-target-http-url requires -suite-scope portfwd-socks5")
+		}
+		if _, _, err := tunnelHTTPDestination(opts.tunnelHTTPURL); err != nil {
+			return err
+		}
+	}
+	if opts.tunnelHTTPURLFD < -1 {
+		return errors.New("-tunnel-target-http-url-fd must be -1 or a non-negative file descriptor")
+	}
+	if opts.tunnelHTTPURLFD >= 0 {
+		if opts.suiteScope != suiteScopePortfwdSocks5 {
+			return errors.New("-tunnel-target-http-url-fd requires -suite-scope portfwd-socks5")
+		}
+		if opts.tunnelHTTPURL != "" {
+			return errors.New("-tunnel-target-http-url and -tunnel-target-http-url-fd are mutually exclusive")
+		}
+		if opts.tunnelHTTPURLFD == opts.rdpCredentialsFD {
+			return errors.New("tunnel HTTP URL and RDP credentials require distinct file descriptors")
+		}
+	}
+	if opts.tunnelRDPAddr != "" {
+		if opts.suiteScope != suiteScopePortfwdSocks5 {
+			return errors.New("-tunnel-target-rdp-address requires -suite-scope portfwd-socks5")
+		}
+		canonicalRDPAddress, err := canonicalTunnelTCPAddress(opts.tunnelRDPAddr)
+		if err != nil {
+			return fmt.Errorf("validate tunnel target RDP address: %w", err)
+		}
+		opts.tunnelRDPAddr = canonicalRDPAddress
+	}
+	if opts.rdpCredentialsFD < -1 {
+		return errors.New("-tunnel-rdp-credentials-fd must be -1 or a non-negative file descriptor")
+	}
+	if opts.rdpCredentialsFD >= 0 && opts.tunnelRDPAddr == "" {
+		return errors.New("-tunnel-rdp-credentials-fd requires -tunnel-target-rdp-address")
+	}
+	if err := validateRDPCommandTimeout(opts.rdpCredentialsFD, opts.commandTimeout); err != nil {
+		return err
+	}
 	opts.transports, err = parseSelection(opts.transportCSV, transportOrder, "transport")
 	if err != nil {
+		return err
+	}
+	if err := validateTunnelAcceptanceProfile(opts); err != nil {
 		return err
 	}
 	opts.modes, err = parseSelection(opts.modeCSV, []string{"session", "beacon"}, "implant mode")
@@ -307,22 +473,79 @@ func validateOptions(opts *options) error {
 	return nil
 }
 
+func normalizeTunnelAcceptanceProfile(value string) (string, error) {
+	profile := strings.TrimSpace(value)
+	if profile == "" {
+		profile = tunnelAcceptanceProfileBase
+	}
+	if profile != tunnelAcceptanceProfileBase && profile != tunnelAcceptanceProfileProxmox {
+		return "", fmt.Errorf(
+			"unknown tunnel acceptance profile %q (want %s or %s)",
+			profile,
+			tunnelAcceptanceProfileBase,
+			tunnelAcceptanceProfileProxmox,
+		)
+	}
+	return profile, nil
+}
+
+func validateTunnelAcceptanceProfile(opts *options) error {
+	if opts == nil {
+		return errors.New("validate nil tunnel acceptance options")
+	}
+	if opts.tunnelAcceptanceProfile != tunnelAcceptanceProfileProxmox {
+		return nil
+	}
+	if len(opts.transports) != len(transportOrder) {
+		return fmt.Errorf("proxmox tunnel acceptance requires exactly transports %s", strings.Join(transportOrder, ","))
+	}
+	for index, transport := range transportOrder {
+		if opts.transports[index] != transport {
+			return fmt.Errorf("proxmox tunnel acceptance requires exactly transports %s", strings.Join(transportOrder, ","))
+		}
+	}
+	if opts.tunnelHTTPURL == "" && opts.tunnelHTTPURLFD < 0 {
+		return errors.New("proxmox tunnel acceptance requires -tunnel-target-http-url or -tunnel-target-http-url-fd")
+	}
+	if opts.tunnelRDPAddr == "" {
+		return errors.New("proxmox tunnel acceptance requires -tunnel-target-rdp-address")
+	}
+	if opts.rdpCredentialsFD < 0 {
+		return errors.New("proxmox tunnel acceptance requires -tunnel-rdp-credentials-fd for authenticated certificate-pinned RDP")
+	}
+	return nil
+}
+
+func validateSocksFuzzOptions(caseCount int, replayCase int) error {
+	if caseCount <= 0 || caseCount > socksE2EMaxFuzzCases {
+		return fmt.Errorf("SOCKS5 fuzz case count must be between 1 and %d", socksE2EMaxFuzzCases)
+	}
+	if replayCase < -1 || replayCase >= socksE2EMaxFuzzCases {
+		return fmt.Errorf("SOCKS5 fuzz replay case must be -1 or between 0 and %d", socksE2EMaxFuzzCases-1)
+	}
+	return nil
+}
+
 func normalizeSuiteScope(value string) (string, error) {
 	scope := strings.TrimSpace(value)
-	if scope != suiteScopeComprehensive && scope != suiteScopeRportFwd {
-		return "", fmt.Errorf("unknown E2E suite scope %q (want %s or %s)", scope, suiteScopeComprehensive, suiteScopeRportFwd)
+	if scope != suiteScopeComprehensive && scope != suiteScopeRportFwd && scope != suiteScopePortfwdSocks5 {
+		return "", fmt.Errorf("unknown E2E suite scope %q (want %s, %s, or %s)", scope, suiteScopeComprehensive, suiteScopeRportFwd, suiteScopePortfwdSocks5)
 	}
 	return scope, nil
 }
 
 func modesForSuiteScope(scope string, modes []string) []string {
-	if scope == suiteScopeRportFwd {
-		// Reverse port forwarding is an interactive session feature. A focused
-		// run intentionally avoids generating beacons even when callers retain
-		// the comprehensive suite's default selector.
+	if scope == suiteScopeRportFwd || scope == suiteScopePortfwdSocks5 {
+		// The tunnel feature scopes exercise interactive session features. A
+		// focused run intentionally avoids generating beacons even when callers
+		// retain the comprehensive suite's default selector.
 		return []string{"session"}
 	}
 	return modes
+}
+
+func suiteRunsReversePortForward(scope string) bool {
+	return scope == suiteScopeComprehensive || scope == suiteScopeRportFwd
 }
 
 func parseSelection(value string, allowed []string, label string) ([]string, error) {
@@ -359,7 +582,8 @@ func (s *suite) startServer() error {
 	s.serverRoot = filepath.Join(s.workDir, "server")
 	s.clientRoot = filepath.Join(s.workDir, "client")
 	s.homeDir = filepath.Join(s.workDir, "home")
-	for _, dir := range []string{s.serverRoot, s.clientRoot, s.homeDir} {
+	tempDir := filepath.Join(s.workDir, "tmp")
+	for _, dir := range []string{s.serverRoot, s.clientRoot, s.homeDir, tempDir} {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return fmt.Errorf("create isolated directory %q: %w", dir, err)
 		}
@@ -374,6 +598,9 @@ func (s *suite) startServer() error {
 		"HOME":                   s.homeDir,
 		"SLIVER_CLIENT_ROOT_DIR": s.clientRoot,
 		"SLIVER_ROOT_DIR":        s.serverRoot,
+		"TEMP":                   tempDir,
+		"TMP":                    tempDir,
+		"TMPDIR":                 tempDir,
 		"USERPROFILE":            s.homeDir,
 	} {
 		s.serverEnv = envWith(s.serverEnv, name, value)
@@ -431,7 +658,7 @@ func (s *suite) startServer() error {
 		return fmt.Errorf("connect to multiplayer gRPC: %w", err)
 	}
 	s.rpc = rpc
-	s.closeGRPC = func() { clienttransport.CloseGRPCConnection(conn) }
+	s.closeGRPC = func() { _ = clienttransport.CloseGRPCConnection(conn) }
 
 	version, err := s.rpc.GetVersion(s.ctx, &commonpb.Empty{})
 	if err != nil {
@@ -440,7 +667,15 @@ func (s *suite) startServer() error {
 	if version.OS != s.opts.targetOS || version.Arch != s.opts.serverArch {
 		return fmt.Errorf("server host mismatch: got %s/%s, want %s/%s", version.OS, version.Arch, s.opts.targetOS, s.opts.serverArch)
 	}
+	if s.tunnelReport != nil {
+		s.tunnelReport.setServerVersion(version.Commit, version.Dirty)
+	}
 	s.t.Logf("Connected custom E2E client to Sliver server %s/%s over multiplayer gRPC", version.OS, version.Arch)
+	if s.opts.suiteScope == suiteScopePortfwdSocks5 {
+		if err := s.startTunnelLoop(); err != nil {
+			return err
+		}
+	}
 
 	events, err := s.rpc.Events(s.ctx, &commonpb.Empty{})
 	if err != nil {
@@ -448,6 +683,63 @@ func (s *suite) startServer() error {
 	}
 	s.hub = newEventHub(events)
 	return nil
+}
+
+func (s *suite) startTunnelLoop() error {
+	loopCtx, loopCancel := context.WithCancel(s.ctx)
+	ready := make(chan struct{})
+	done := make(chan error, 1)
+	// Install cleanup state before starting the goroutine. A readiness timeout or
+	// early loop failure must still have a bounded cancellation/join path.
+	s.tunnelLoopCancel = loopCancel
+	s.tunnelLoopDone = done
+	go func() {
+		done <- clientcore.TunnelLoopWithReady(loopCtx, s.rpc, ready)
+	}()
+
+	startupCtx, startupCancel := context.WithTimeout(s.ctx, s.opts.startupTimeout)
+	defer startupCancel()
+	select {
+	case <-ready:
+		s.t.Log("Started production client tunnel data loop")
+		return nil
+	case err := <-done:
+		loopCancel()
+		s.tunnelLoopCancel = nil
+		s.tunnelLoopDone = nil
+		if err == nil {
+			return errors.New("client tunnel data loop exited before readiness")
+		}
+		return fmt.Errorf("start client tunnel data loop: %w", err)
+	case <-startupCtx.Done():
+		joinErr := stopTunnelLoop(loopCancel, done, cleanupProcessTimeout)
+		s.tunnelLoopCancel = nil
+		s.tunnelLoopDone = nil
+		return errors.Join(
+			fmt.Errorf("wait for client tunnel data loop readiness: %w", startupCtx.Err()),
+			joinErr,
+		)
+	}
+}
+
+func stopTunnelLoop(cancel context.CancelFunc, done <-chan error, timeout time.Duration) error {
+	if cancel != nil {
+		cancel()
+	}
+	if done == nil {
+		return nil
+	}
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case err := <-done:
+		if err == nil || errors.Is(err, context.Canceled) {
+			return nil
+		}
+		return err
+	case <-timer.C:
+		return fmt.Errorf("client tunnel data loop did not stop within %s", timeout)
+	}
 }
 
 func (s *suite) run() error {
@@ -603,7 +895,12 @@ func (s *suite) runImplant(listener *listener, beacon bool) error {
 	s.t.Logf("Generating %s/%s %s %s implant over %s", s.opts.targetOS, s.opts.targetArch, mode, implantName, listener.transport)
 	generated, err := s.rpc.Generate(s.ctx, &clientpb.GenerateReq{Name: implantName, Config: config})
 	if err != nil {
-		return fmt.Errorf("generate %s: %w", implantName, err)
+		return fmt.Errorf(
+			"generate %s: %w\ncompiler stderr:\n%s",
+			implantName,
+			err,
+			readCompilerStderr(filepath.Join(s.serverRoot, "logs", "sliver.json")),
+		)
 	}
 	if generated.File == nil || generated.File.Name == "" || len(generated.File.Data) == 0 {
 		return fmt.Errorf("generate %s returned an empty executable", implantName)
@@ -657,13 +954,18 @@ func (s *suite) runImplant(listener *listener, beacon bool) error {
 	s.t.Logf("Verified %s %s connection %s over %s", mode, target.id(), s.opts.targetOS+"/"+s.opts.targetArch, listener.transport)
 
 	var exerciseErrors []error
-	if target.session != nil {
+	if target.session != nil && suiteRunsReversePortForward(s.opts.suiteScope) {
 		exerciseErrors = appendIfError(exerciseErrors, s.exerciseReversePortForward(target, listener.transport))
 	}
 	if s.opts.suiteScope == suiteScopeComprehensive {
 		exerciseErrors = appendIfError(exerciseErrors, s.exerciseCommands(target, remoteRoot, listener.transport))
 	}
-	if target.session != nil {
+	if target.session != nil && s.opts.suiteScope == suiteScopePortfwdSocks5 {
+		exerciseErrors = appendIfError(exerciseErrors, s.exercisePortForward(target, listener.transport))
+		exerciseErrors = appendIfError(exerciseErrors, s.exerciseSocks5(target, listener.transport))
+		exerciseErrors = appendIfError(exerciseErrors, s.exercisePortfwdSocks5Disconnect(target, listener.transport, process))
+	}
+	if target.session != nil && suiteRunsReversePortForward(s.opts.suiteScope) {
 		exerciseErrors = appendIfError(exerciseErrors, s.exerciseReversePortForwardDisconnect(target, listener.transport, process))
 	}
 	if err := errors.Join(exerciseErrors...); err != nil {
@@ -784,6 +1086,30 @@ func (s *suite) close() {
 				}
 			}
 		}
+		if s.tunnelLoopCancel != nil {
+			if err := stopTunnelLoop(s.tunnelLoopCancel, s.tunnelLoopDone, cleanupProcessTimeout); err != nil {
+				s.t.Errorf("stop client tunnel data loop: %v", err)
+			}
+			s.tunnelLoopCancel = nil
+			s.tunnelLoopDone = nil
+		}
+		if s.opts.suiteScope == suiteScopePortfwdSocks5 {
+			// Reset tears down the singleton tunnel stream as well as the proxy
+			// registries. Stop and join TunnelLoop first so it cannot race a
+			// replacement/reset stream during final cleanup. Run the join behind a
+			// hard harness bound so a lifecycle regression still produces a FAIL
+			// report and lets the process-tree cleanup continue.
+			resetDone := make(chan struct{})
+			go func() {
+				clientcore.ResetClientState()
+				close(resetDone)
+			}()
+			select {
+			case <-resetDone:
+			case <-time.After(cleanupProcessTimeout):
+				s.t.Errorf("client tunnel state did not reset within %s", cleanupProcessTimeout)
+			}
+		}
 		if s.cancel != nil {
 			s.cancel()
 		}
@@ -817,7 +1143,7 @@ func unusedUDPPort() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	return conn.LocalAddr().(*net.UDPAddr).Port, nil
 }
 
@@ -857,7 +1183,7 @@ func startProcess(path string, args []string, dir string, env []string, logPath 
 	}
 	tree, err := attachProcessTree(cmd)
 	if err != nil {
-		_ = cmd.Process.Kill()
+		_ = killPreparedProcessTree(cmd)
 		_ = cmd.Wait()
 		_ = logFile.Close()
 		return nil, fmt.Errorf("attach process %d to managed tree: %w", cmd.Process.Pid, err)
@@ -960,7 +1286,7 @@ func readLogTailBytes(path string, limit int64) string {
 	if err != nil {
 		return fmt.Sprintf("(could not read %s: %v)", path, err)
 	}
-	defer logFile.Close()
+	defer func() { _ = logFile.Close() }()
 
 	end, err := logFile.Seek(0, io.SeekEnd)
 	if err != nil {
@@ -975,6 +1301,31 @@ func readLogTailBytes(path string, limit int64) string {
 		return fmt.Sprintf("(could not read %s: %v)", path, err)
 	}
 	return strings.TrimSpace(string(data))
+}
+
+func readCompilerStderr(path string) string {
+	type compilerLogEntry struct {
+		Message string `json:"msg"`
+		Package string `json:"pkg"`
+		Stream  string `json:"stream"`
+	}
+
+	const marker = "--- stderr ---"
+	diagnostics := ""
+	for _, line := range strings.Split(readLogTail(path), "\n") {
+		var entry compilerLogEntry
+		if json.Unmarshal([]byte(line), &entry) != nil || entry.Package != "gogo" || entry.Stream != "compiler" {
+			continue
+		}
+		message, found := strings.CutPrefix(entry.Message, marker)
+		if found && strings.TrimSpace(message) != "" {
+			diagnostics = strings.TrimSpace(message)
+		}
+	}
+	if diagnostics == "" {
+		return "(compiler stderr unavailable)"
+	}
+	return diagnostics
 }
 
 func runCommand(ctx context.Context, dir string, env []string, path string, args ...string) (string, error) {

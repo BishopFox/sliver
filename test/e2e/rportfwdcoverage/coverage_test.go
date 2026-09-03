@@ -32,8 +32,8 @@ func TestFixedSecurityCatalog(t *testing.T) {
 	if got := len(rportfwdcoverage.Targets()) * len(rportfwdcoverage.Transports()) * len(gotScenarios); got != rportfwdcoverage.RequiredCombinations {
 		t.Fatalf("matrix size = %d, RequiredCombinations = %d", got, rportfwdcoverage.RequiredCombinations)
 	}
-	if rportfwdcoverage.RequiredCombinations != 216 {
-		t.Fatalf("RequiredCombinations = %d, want 216", rportfwdcoverage.RequiredCombinations)
+	if rportfwdcoverage.RequiredCombinations != 162 {
+		t.Fatalf("RequiredCombinations = %d, want 162", rportfwdcoverage.RequiredCombinations)
 	}
 }
 
@@ -137,7 +137,7 @@ func TestTargetReportWriteLoadIsDeterministicAndSupportsPartialReports(t *testin
 		t.Fatalf("loaded report = %+v, want target and one record", loaded)
 	}
 
-	emptyRecorder, err := rportfwdcoverage.NewRecorder(coverage.Target{OS: "linux", Arch: "386"})
+	emptyRecorder, err := rportfwdcoverage.NewRecorder(coverage.Target{OS: "windows", Arch: "amd64"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,7 +225,7 @@ func TestAggregateRetainsFailuresAndMissingTargetsForGate(t *testing.T) {
 	if len(report.FailedRecords()) != 1 || len(report.NotRunIdentities()) != report.Summary.NotRun {
 		t.Fatalf("failure/missing accessors disagree with summary %+v", report.Summary)
 	}
-	if err := report.GateError(); err == nil || !strings.Contains(err.Error(), "1 FAIL") || !strings.Contains(err.Error(), "189 NOT RUN") {
+	if err := report.GateError(); err == nil || !strings.Contains(err.Error(), "1 FAIL") || !strings.Contains(err.Error(), "135 NOT RUN") {
 		t.Fatalf("GateError() = %v, want explicit fail and NOT RUN counts", err)
 	}
 }

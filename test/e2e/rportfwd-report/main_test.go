@@ -14,7 +14,7 @@ import (
 
 func TestRunTargetVerification(t *testing.T) {
 	root := t.TempDir()
-	target := coverage.Target{OS: "linux", Arch: "386"}
+	target := coverage.Target{OS: "linux", Arch: "amd64"}
 	if _, err := rportfwdcoverage.WriteTargetReports(root, target, targetRecords(target, []string{"mtls", "http"})); err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestRunAggregateWritesDiagnosticsBeforeGate(t *testing.T) {
 		output := filepath.Join(root, "output")
 		var stdout, stderr bytes.Buffer
 		status := run([]string{"-input", root, "-output", output}, &stdout, &stderr)
-		if status != 1 || !strings.Contains(stderr.String(), "216 NOT RUN") {
+		if status != 1 || !strings.Contains(stderr.String(), "162 NOT RUN") {
 			t.Fatalf("run() status = %d, stderr = %q, want complete NOT RUN gate", status, stderr.String())
 		}
 		if _, err := os.Stat(filepath.Join(output, rportfwdcoverage.GlobalJSONFilename)); err != nil {

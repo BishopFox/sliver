@@ -269,18 +269,28 @@ func (s *sessions) Remove(sessionID string) {
 	if !ok {
 		return
 	}
-	parentSession := val.(*Session)
-	children := findAllChildrenByPeerID(parentSession.PeerID)
-	if !s.sessions.CompareAndDelete(sessionID, val) {
-		return
+	s.RemoveIf(val.(*Session))
+}
+
+// RemoveIf removes a session only when the registry still contains the exact
+// expected generation. Connection cleanup can run after a same-ID session has
+// been replaced and must never evict that replacement.
+func (s *sessions) RemoveIf(expected *Session) bool {
+	if expected == nil || expected.ID == "" {
+		return false
 	}
-	cleanupReversePortForwards(parentSession.ID)
+	parentSession := expected
+	children := findAllChildrenByPeerID(parentSession.PeerID)
+	if !s.sessions.CompareAndDelete(parentSession.ID, parentSession) {
+		return false
+	}
+	cleanupSessionTunnels(parentSession.ID)
 	coreLog.Debugf("Removing %d children of session %s (%v)", len(children), parentSession.ID, children)
 	for _, child := range children {
 		childSession, ok := s.sessions.LoadAndDelete(child.SessionID)
 		if ok {
 			removedChild := childSession.(*Session)
-			cleanupReversePortForwards(removedChild.ID)
+			cleanupSessionTunnels(removedChild.ID)
 			if removedChild.Connection != nil {
 				closePivotForConnection(removedChild.Connection)
 				removedChild.Connection.Close()
@@ -301,11 +311,17 @@ func (s *sessions) Remove(sessionID string) {
 		EventType: consts.SessionClosedEvent,
 		Session:   parentSession,
 	})
+	return true
 }
 
-func cleanupReversePortForwards(sessionID string) {
-	// Revoke first to cancel pending broker dials, then detach any registered
-	// relays. Both operations are idempotent because disconnect paths can race.
+func cleanupSessionTunnels(sessionID string) {
+	// Close generic forward tunnels before publishing SessionClosed so clients
+	// receive terminal tunnel frames while handling the disconnect event.
+	Tunnels.CloseForSession(sessionID)
+	SocksTunnels.CloseForSession(sessionID)
+	// Revoke reverse-forward authorization first to cancel pending broker dials,
+	// then detach registered relays. These operations are idempotent because
+	// disconnect paths can race.
 	rtunnels.DefaultRegistry.RevokeSession(sessionID)
 	rtunnels.CloseSession(sessionID)
 }

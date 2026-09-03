@@ -675,6 +675,10 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 }
 
 func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Request, httpSession *HTTPSession, c2profile *clientpb.HTTPC2Config, encoder sliverEncoders.Encoder) {
+	s.sessionHandlerWithHandlers(resp, req, httpSession, c2profile, encoder, sliverHandlers.GetHandlers())
+}
+
+func (s *SliverHTTPC2) sessionHandlerWithHandlers(resp http.ResponseWriter, req *http.Request, httpSession *HTTPSession, c2profile *clientpb.HTTPC2Config, encoder sliverEncoders.Encoder, handlers map[uint32]sliverHandlers.ServerHandler) {
 	httpLog.Debug("Session request")
 	select {
 	case <-httpSession.ImplantConn.Done():
@@ -704,8 +708,6 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 	default:
 	}
 
-	resp.WriteHeader(http.StatusAccepted)
-	handlers := sliverHandlers.GetHandlers()
 	if envelope.ID != 0 {
 		httpSession.ImplantConn.DeliverResponse(envelope)
 	} else if handler, ok := handlers[envelope.Type]; ok {
@@ -718,6 +720,10 @@ func (s *SliverHTTPC2) sessionHandler(resp http.ResponseWriter, req *http.Reques
 			}()
 		}
 	}
+	// A successful POST is also the implant's transport-level retirement
+	// acknowledgement. Emit it only after synchronous dispatch has admitted the
+	// envelope so the implant can bound how far later concurrent POSTs overtake it.
+	resp.WriteHeader(http.StatusAccepted)
 }
 
 func (s *SliverHTTPC2) pollHandler(resp http.ResponseWriter, req *http.Request, httpSession *HTTPSession, encoder sliverEncoders.Encoder) {

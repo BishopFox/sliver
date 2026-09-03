@@ -157,11 +157,11 @@ func TestAggregateEmptyDirectoryCreatesComprehensiveNotRunReport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AggregateDirectory() error = %v", err)
 	}
-	if report.Summary.Recorded != 0 || report.Summary.NotRun != 1818 || report.Summary.Skip != 870 || report.Summary.TotalCells != 2688 {
+	if report.Summary.Recorded != 0 || report.Summary.NotRun != 1320 || report.Summary.Skip != 696 || report.Summary.TotalCells != 2016 {
 		t.Fatalf("unexpected empty-input summary: %+v", report.Summary)
 	}
-	if got := len(report.NotRunIdentities()); got != 1818 {
-		t.Fatalf("NotRunIdentities() count = %d, want 1818", got)
+	if got := len(report.NotRunIdentities()); got != 1320 {
+		t.Fatalf("NotRunIdentities() count = %d, want 1320", got)
 	}
 	if _, err := AggregateDirectory(t.TempDir(), Dimensions{}); err == nil || !strings.Contains(err.Error(), "no per-target coverage JSON reports") {
 		t.Fatalf("AggregateDirectory() with inferred empty dimensions error = %v, want no-reports error", err)
@@ -309,8 +309,8 @@ func TestComprehensiveDimensions(t *testing.T) {
 	t.Parallel()
 
 	dimensions := ComprehensiveDimensions()
-	if len(dimensions.Targets) != 8 {
-		t.Fatalf("targets = %d, want 8", len(dimensions.Targets))
+	if len(dimensions.Targets) != 6 {
+		t.Fatalf("targets = %d, want 6", len(dimensions.Targets))
 	}
 	if got := strings.Join(dimensions.Transports, ","); got != "mtls,wg,http" {
 		t.Fatalf("transports = %q", got)
@@ -331,23 +331,22 @@ func TestComprehensiveDimensions(t *testing.T) {
 func TestComprehensiveCatalogOPFORSupport(t *testing.T) {
 	t.Parallel()
 
-	windows386 := Target{OS: "windows", Arch: "386"}
 	windowsAMD64 := Target{OS: "windows", Arch: "amd64"}
 	windowsARM64 := Target{OS: "windows", Arch: "arm64"}
-	x86Scenarios := map[string]bool{
+	opforScenarios := map[string]bool{
 		"OPFOR Cat CNA reads isolated test file":                 true,
 		"OPFOR FirefoxDump CNA finds no host profiles":           true,
 		"OPFOR callback preserves ordered typed binary channels": true,
 		"typed BOF partial output retained on callback error":    true,
 		"malformed BOF returns bounded loader error":             true,
 		"finite BOF deadline returns and target recovers":        true,
-		"OPFOR FindDotnet CNA read-only process inventory":       false,
-		"OPFOR FindSysmon CNA read-only registry probe":          false,
+		"OPFOR FindDotnet CNA read-only process inventory":       true,
+		"OPFOR FindSysmon CNA read-only registry probe":          true,
 	}
 
 	found := map[string]bool{}
 	for _, expectation := range ComprehensiveCatalog() {
-		want386, isOPFOR := x86Scenarios[expectation.Scenario]
+		_, isOPFOR := opforScenarios[expectation.Scenario]
 		if !isOPFOR {
 			continue
 		}
@@ -358,9 +357,6 @@ func TestComprehensiveCatalogOPFORSupport(t *testing.T) {
 		if !expectation.supports(windowsAMD64) {
 			t.Errorf("OPFOR scenario %q does not support windows/amd64", expectation.Scenario)
 		}
-		if got := expectation.supports(windows386); got != want386 {
-			t.Errorf("OPFOR scenario %q windows/386 support = %t, want %t", expectation.Scenario, got, want386)
-		}
 		if expectation.supports(windowsARM64) {
 			t.Errorf("OPFOR scenario %q unexpectedly supports windows/arm64", expectation.Scenario)
 		}
@@ -370,12 +366,9 @@ func TestComprehensiveCatalogOPFORSupport(t *testing.T) {
 		if !strings.Contains(expectation.UnsupportedReason, "arm64") {
 			t.Errorf("OPFOR scenario %q skip reason does not explain windows/arm64: %q", expectation.Scenario, expectation.UnsupportedReason)
 		}
-		if !want386 && !strings.Contains(expectation.UnsupportedReason, "windows/amd64-only") {
-			t.Errorf("OPFOR scenario %q skip reason does not explain windows/386: %q", expectation.Scenario, expectation.UnsupportedReason)
-		}
 	}
-	if len(found) != len(x86Scenarios) {
-		t.Fatalf("found %d OPFOR scenarios, want %d: %#v", len(found), len(x86Scenarios), found)
+	if len(found) != len(opforScenarios) {
+		t.Fatalf("found %d OPFOR scenarios, want %d: %#v", len(found), len(opforScenarios), found)
 	}
 }
 

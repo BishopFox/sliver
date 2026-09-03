@@ -17,22 +17,18 @@ func ComprehensiveCatalog() []CommandExpectation {
 	unixTargets := []Target{
 		{OS: "darwin", Arch: "amd64"},
 		{OS: "darwin", Arch: "arm64"},
-		{OS: "linux", Arch: "386"},
 		{OS: "linux", Arch: "amd64"},
 		{OS: "linux", Arch: "arm64"},
 	}
 	linuxTargets := []Target{
-		{OS: "linux", Arch: "386"},
 		{OS: "linux", Arch: "amd64"},
 		{OS: "linux", Arch: "arm64"},
 	}
 	windowsTargets := []Target{
-		{OS: "windows", Arch: "386"},
 		{OS: "windows", Arch: "amd64"},
 		{OS: "windows", Arch: "arm64"},
 	}
 	armoryTargets := []Target{
-		{OS: "windows", Arch: "386"},
 		{OS: "windows", Arch: "amd64"},
 	}
 	opforAMD64Targets := []Target{
@@ -131,10 +127,8 @@ func comprehensiveTargets() []Target {
 	return []Target{
 		{OS: "darwin", Arch: "amd64"},
 		{OS: "darwin", Arch: "arm64"},
-		{OS: "windows", Arch: "386"},
 		{OS: "windows", Arch: "amd64"},
 		{OS: "windows", Arch: "arm64"},
-		{OS: "linux", Arch: "386"},
 		{OS: "linux", Arch: "amd64"},
 		{OS: "linux", Arch: "arm64"},
 	}

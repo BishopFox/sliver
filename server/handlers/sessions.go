@@ -91,7 +91,7 @@ func registerSessionHandler(implantConn *core.ImplantConnection, data []byte) *s
 	registrationReady := make(chan struct{})
 	if !implantConn.SetCleanup(func() {
 		<-registrationReady
-		core.Sessions.Remove(session.ID)
+		core.Sessions.RemoveIf(session)
 	}) {
 		sessionHandlerLog.Warnf("Rejected duplicate or closed session registration on connection %s", implantConn.ID)
 		return nil
@@ -117,6 +117,10 @@ func auditLogSession(session *core.Session, register *sliverpb.Register) {
 	} else {
 		log.AuditLogger.Warn(string(msg))
 	}
+}
+
+func isTunnelResourcePressure(err error) bool {
+	return errors.Is(err, core.ErrTunnelIngressLimit) || errors.Is(err, core.ErrTunnelPendingBytes)
 }
 
 // The handler mutex prevents a send on a closed channel, without it
@@ -229,9 +233,14 @@ func tunnelDataHandler(implantConn *core.ImplantConnection, data []byte) *sliver
 
 	tunnel := core.Tunnels.Get(tunnelData.TunnelID)
 	if tunnel != nil {
-		if session.ID == tunnel.SessionID {
+		if session.ID == tunnel.SessionID && tunnel.ImplantConnection() == implantConn {
 			if err := tunnel.ProcessDataFromImplant(tunnelData); err != nil {
 				if errors.Is(err, core.ErrTunnelClosed) {
+					return nil
+				}
+				if isTunnelResourcePressure(err) {
+					sessionHandlerLog.Warnf("Closing generic tunnel %d after ingress resource pressure: %v", tunnel.ID, err)
+					core.Tunnels.CloseIf(tunnel)
 					return nil
 				}
 				sessionHandlerLog.Warnf("Closing session %s after invalid generic tunnel frame on %d: %v", session.ID, tunnel.ID, err)
@@ -249,6 +258,11 @@ func tunnelDataHandler(implantConn *core.ImplantConnection, data []byte) *sliver
 }
 
 func tunnelCloseHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
+	return tunnelCloseHandlerWithTerminalArm(implantConn, data, core.Tunnels.ArmFromImplantTerminalClose)
+}
+
+//nolint:gocyclo // Terminal ordering spans generic, opening reverse, and active reverse tunnel lifecycles.
+func tunnelCloseHandlerWithTerminalArm(implantConn *core.ImplantConnection, data []byte, armTerminalClose func(*core.Tunnel)) *sliverpb.Envelope {
 	if implantConn == nil {
 		return nil
 	}
@@ -295,13 +309,32 @@ func tunnelCloseHandler(implantConn *core.ImplantConnection, data []byte) *slive
 	tunnelHandlerMutex.Lock()
 	tunnel := core.Tunnels.Get(tunnelData.TunnelID)
 	if tunnel != nil {
-		if session.ID == tunnel.SessionID {
+		if session.ID == tunnel.SessionID && tunnel.ImplantConnection() == implantConn {
 			sessionHandlerLog.Infof("Closing tunnel %d", tunnel.ID)
-			// Tunnel close and final data envelopes are dispatched concurrently.
-			// Start a fresh quiet period so an overtaking close cannot discard the
-			// last frame from an otherwise idle shell.
-			tunnel.Touch()
-			go core.Tunnels.ScheduleCloseTunnel(tunnel)
+			if session.Capabilities&sliverpb.CapabilityTunnelTerminalV1 != 0 {
+				// Arm the exact-generation deadline before terminal validation can
+				// wait behind ordered data admission. A blocked operator stream must
+				// not leave this handler, or the shared tunnel dispatcher, stuck
+				// indefinitely before any timeout exists.
+				if armTerminalClose != nil {
+					armTerminalClose(tunnel)
+				}
+				ready, err := tunnel.MarkFromImplantTerminal(tunnelData)
+				if err != nil {
+					if !errors.Is(err, core.ErrTunnelClosed) {
+						sessionHandlerLog.Warnf("Closing session %s after invalid terminal sequence on generic tunnel %d: %v", session.ID, tunnel.ID, err)
+						core.Tunnels.CloseIf(tunnel)
+						implantConn.Close()
+					}
+				} else if ready {
+					core.Tunnels.CloseIf(tunnel)
+				}
+			} else if tunnel.ClaimFromImplantClose() {
+				// Legacy close and data envelopes are dispatched independently and
+				// have no ordering contract. Retain their bounded quiet-period
+				// fallback, while duplicate closes neither refresh nor reschedule it.
+				go core.Tunnels.ScheduleCloseTunnelFromImplant(tunnel)
+			}
 		} else {
 			sessionHandlerLog.Warnf("Warning: Session %s attempted to send data on tunnel it did not own", session.ID)
 		}
@@ -350,26 +383,70 @@ func pingHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Env
 	return nil
 }
 
+func isCanonicalImplantSocksAcknowledgement(frame *sliverpb.SocksData) bool {
+	return frame != nil && frame.Ack != 0 && len(frame.Data) == 0 && !frame.CloseConn &&
+		frame.Sequence == 0 && frame.Capabilities == 0 && frame.Username == "" &&
+		frame.Password == "" && frame.Request == nil
+}
+
 func socksDataHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
+	if implantConn == nil {
+		return nil
+	}
+	if len(data) > maxTunnelDataMessageBytes {
+		sessionHandlerLog.Warnf("Closing implant connection after oversized SOCKS data message (%d bytes)", len(data))
+		implantConn.Close()
+		return nil
+	}
 	session := core.Sessions.FromImplantConnection(implantConn)
 	if session == nil {
 		sessionHandlerLog.Warnf("Received socks data from unknown session: %v", implantConn)
 		return nil
 	}
-	tunnelHandlerMutex.Lock()
-	defer tunnelHandlerMutex.Unlock()
 	socksData := &sliverpb.SocksData{}
 
-	proto.Unmarshal(data, socksData)
-	//if socksData.CloseConn{
-	//	core.SocksTunnels.Close(socksData.TunnelID)
-	//	return nil
-	//}
-	sessionHandlerLog.Debugf("socksDataHandler: %d bytes: %v", len(socksData.Data), socksData.Data)
+	if err := proto.Unmarshal(data, socksData); err != nil {
+		sessionHandlerLog.Warnf("Failed to decode SOCKS data from session %s: %v", session.ID, err)
+		return nil
+	}
+	sessionHandlerLog.Debugf(
+		"socksDataHandler: tunnel=%d sequence=%d bytes=%d close=%t",
+		socksData.TunnelID,
+		socksData.Sequence,
+		len(socksData.Data),
+		socksData.CloseConn,
+	)
 	socksTunnel := core.SocksTunnels.Get(socksData.TunnelID)
 	if socksTunnel != nil {
-		if session.ID == socksTunnel.SessionID {
-			socksTunnel.FromImplant <- socksData
+		if session.ID == socksTunnel.SessionID && socksTunnel.ImplantConnection() == implantConn {
+			if socksData.Ack != 0 {
+				if !isCanonicalImplantSocksAcknowledgement(socksData) {
+					sessionHandlerLog.Warnf("Closing SOCKS tunnel %d after malformed implant acknowledgement", socksTunnel.ID)
+					core.SocksTunnels.CloseIfAndFinalize(socksTunnel)
+					return nil
+				}
+				if err := socksTunnel.RelayImplantAcknowledgement(implantConn, socksData.Ack); err != nil {
+					if errors.Is(err, core.ErrTunnelClosed) {
+						return nil
+					}
+					sessionHandlerLog.Warnf("Closing SOCKS tunnel %d after invalid implant acknowledgement: %v", socksTunnel.ID, err)
+					core.SocksTunnels.CloseIfAndFinalize(socksTunnel)
+				}
+				return nil
+			}
+			if err := socksTunnel.ProcessDataFromImplant(socksData); err != nil {
+				if errors.Is(err, core.ErrTunnelClosed) {
+					return nil
+				}
+				if isTunnelResourcePressure(err) {
+					sessionHandlerLog.Warnf("Closing SOCKS tunnel %d after ingress resource pressure: %v", socksTunnel.ID, err)
+					core.SocksTunnels.CloseIfAndFinalize(socksTunnel)
+					return nil
+				}
+				sessionHandlerLog.Warnf("Closing session %s after invalid SOCKS tunnel frame on %d: %v", session.ID, socksTunnel.ID, err)
+				core.SocksTunnels.CloseIfAndFinalize(socksTunnel)
+				implantConn.Close()
+			}
 		} else {
 			sessionHandlerLog.Warnf("Warning: Session %s attempted to send data on tunnel it did not own", session.ID)
 		}

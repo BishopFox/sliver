@@ -26,9 +26,10 @@ const (
 type ImplantCapability int32
 
 const (
-	ImplantCapability_IMPLANT_CAPABILITY_NONE               ImplantCapability = 0
-	ImplantCapability_IMPLANT_CAPABILITY_BOF_V1             ImplantCapability = 1
-	ImplantCapability_IMPLANT_CAPABILITY_TUNNEL_TERMINAL_V1 ImplantCapability = 2
+	ImplantCapability_IMPLANT_CAPABILITY_NONE                  ImplantCapability = 0
+	ImplantCapability_IMPLANT_CAPABILITY_BOF_V1                ImplantCapability = 1
+	ImplantCapability_IMPLANT_CAPABILITY_TUNNEL_TERMINAL_V1    ImplantCapability = 2
+	ImplantCapability_IMPLANT_CAPABILITY_SOCKS_FLOW_CONTROL_V1 ImplantCapability = 4
 )
 
 // Enum value maps for ImplantCapability.
@@ -37,11 +38,13 @@ var (
 		0: "IMPLANT_CAPABILITY_NONE",
 		1: "IMPLANT_CAPABILITY_BOF_V1",
 		2: "IMPLANT_CAPABILITY_TUNNEL_TERMINAL_V1",
+		4: "IMPLANT_CAPABILITY_SOCKS_FLOW_CONTROL_V1",
 	}
 	ImplantCapability_value = map[string]int32{
-		"IMPLANT_CAPABILITY_NONE":               0,
-		"IMPLANT_CAPABILITY_BOF_V1":             1,
-		"IMPLANT_CAPABILITY_TUNNEL_TERMINAL_V1": 2,
+		"IMPLANT_CAPABILITY_NONE":                  0,
+		"IMPLANT_CAPABILITY_BOF_V1":                1,
+		"IMPLANT_CAPABILITY_TUNNEL_TERMINAL_V1":    2,
+		"IMPLANT_CAPABILITY_SOCKS_FLOW_CONTROL_V1": 4,
 	}
 )
 
@@ -7776,6 +7779,7 @@ type Socks struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TunnelID      uint64                 `protobuf:"varint,8,opt,name=TunnelID,proto3" json:"TunnelID,omitempty"`
 	SessionID     string                 `protobuf:"bytes,9,opt,name=SessionID,proto3" json:"SessionID,omitempty"`
+	Capabilities  uint64                 `protobuf:"varint,10,opt,name=Capabilities,proto3" json:"Capabilities,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -7824,15 +7828,27 @@ func (x *Socks) GetSessionID() string {
 	return ""
 }
 
+func (x *Socks) GetCapabilities() uint64 {
+	if x != nil {
+		return x.Capabilities
+	}
+	return 0
+}
+
 type SocksData struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Data          []byte                 `protobuf:"bytes,1,opt,name=Data,proto3" json:"Data,omitempty"`
-	CloseConn     bool                   `protobuf:"varint,2,opt,name=CloseConn,proto3" json:"CloseConn,omitempty"`
-	Username      string                 `protobuf:"bytes,3,opt,name=Username,proto3" json:"Username,omitempty"`
-	Password      string                 `protobuf:"bytes,4,opt,name=Password,proto3" json:"Password,omitempty"`
-	Sequence      uint64                 `protobuf:"varint,5,opt,name=Sequence,proto3" json:"Sequence,omitempty"`
-	TunnelID      uint64                 `protobuf:"varint,8,opt,name=TunnelID,proto3" json:"TunnelID,omitempty"`
-	Request       *commonpb.Request      `protobuf:"bytes,9,opt,name=Request,proto3" json:"Request,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Data      []byte                 `protobuf:"bytes,1,opt,name=Data,proto3" json:"Data,omitempty"`
+	CloseConn bool                   `protobuf:"varint,2,opt,name=CloseConn,proto3" json:"CloseConn,omitempty"`
+	Username  string                 `protobuf:"bytes,3,opt,name=Username,proto3" json:"Username,omitempty"`
+	Password  string                 `protobuf:"bytes,4,opt,name=Password,proto3" json:"Password,omitempty"`
+	Sequence  uint64                 `protobuf:"varint,5,opt,name=Sequence,proto3" json:"Sequence,omitempty"`
+	// Ack is the next sequence after the last frame fully consumed by the
+	// receiving SOCKS endpoint. It is meaningful only when flow control was
+	// negotiated for this tunnel.
+	Ack           uint64            `protobuf:"varint,6,opt,name=Ack,proto3" json:"Ack,omitempty"`
+	Capabilities  uint64            `protobuf:"varint,7,opt,name=Capabilities,proto3" json:"Capabilities,omitempty"`
+	TunnelID      uint64            `protobuf:"varint,8,opt,name=TunnelID,proto3" json:"TunnelID,omitempty"`
+	Request       *commonpb.Request `protobuf:"bytes,9,opt,name=Request,proto3" json:"Request,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -7898,6 +7914,20 @@ func (x *SocksData) GetPassword() string {
 func (x *SocksData) GetSequence() uint64 {
 	if x != nil {
 		return x.Sequence
+	}
+	return 0
+}
+
+func (x *SocksData) GetAck() uint64 {
+	if x != nil {
+		return x.Ack
+	}
+	return 0
+}
+
+func (x *SocksData) GetCapabilities() uint64 {
+	if x != nil {
+		return x.Capabilities
 	}
 	return 0
 }
@@ -12817,16 +12847,20 @@ const file_sliverpb_sliver_proto_rawDesc = "" +
 	"\bProtocol\x18\x02 \x01(\x05R\bProtocol\x12\x12\n" +
 	"\x04Host\x18\x03 \x01(\tR\x04Host\x12\x1e\n" +
 	"\bTunnelID\x18\b \x01(\x04B\x020\x01R\bTunnelID\x12.\n" +
-	"\bResponse\x18\t \x01(\v2\x12.commonpb.ResponseR\bResponse\"E\n" +
+	"\bResponse\x18\t \x01(\v2\x12.commonpb.ResponseR\bResponse\"i\n" +
 	"\x05Socks\x12\x1e\n" +
 	"\bTunnelID\x18\b \x01(\x04B\x020\x01R\bTunnelID\x12\x1c\n" +
-	"\tSessionID\x18\t \x01(\tR\tSessionID\"\xde\x01\n" +
+	"\tSessionID\x18\t \x01(\tR\tSessionID\x12\"\n" +
+	"\fCapabilities\x18\n" +
+	" \x01(\x04R\fCapabilities\"\x94\x02\n" +
 	"\tSocksData\x12\x12\n" +
 	"\x04Data\x18\x01 \x01(\fR\x04Data\x12\x1c\n" +
 	"\tCloseConn\x18\x02 \x01(\bR\tCloseConn\x12\x1a\n" +
 	"\bUsername\x18\x03 \x01(\tR\bUsername\x12\x1a\n" +
 	"\bPassword\x18\x04 \x01(\tR\bPassword\x12\x1a\n" +
-	"\bSequence\x18\x05 \x01(\x04R\bSequence\x12\x1e\n" +
+	"\bSequence\x18\x05 \x01(\x04R\bSequence\x12\x10\n" +
+	"\x03Ack\x18\x06 \x01(\x04R\x03Ack\x12\"\n" +
+	"\fCapabilities\x18\a \x01(\x04R\fCapabilities\x12\x1e\n" +
 	"\bTunnelID\x18\b \x01(\x04B\x020\x01R\bTunnelID\x12+\n" +
 	"\aRequest\x18\t \x01(\v2\x11.commonpb.RequestR\aRequest\"\xa9\x01\n" +
 	"\x15PivotStartListenerReq\x12'\n" +
@@ -13126,11 +13160,12 @@ const file_sliverpb_sliver_proto_rawDesc = "" +
 	"\aRequest\x18\t \x01(\v2\x11.commonpb.RequestR\aRequest\"3\n" +
 	"\tBOFOutput\x12\x12\n" +
 	"\x04Type\x18\x01 \x01(\x05R\x04Type\x12\x12\n" +
-	"\x04Data\x18\x02 \x01(\fR\x04Data*z\n" +
+	"\x04Data\x18\x02 \x01(\fR\x04Data*\xa8\x01\n" +
 	"\x11ImplantCapability\x12\x1b\n" +
 	"\x17IMPLANT_CAPABILITY_NONE\x10\x00\x12\x1d\n" +
 	"\x19IMPLANT_CAPABILITY_BOF_V1\x10\x01\x12)\n" +
-	"%IMPLANT_CAPABILITY_TUNNEL_TERMINAL_V1\x10\x02*I\n" +
+	"%IMPLANT_CAPABILITY_TUNNEL_TERMINAL_V1\x10\x02\x12,\n" +
+	"(IMPLANT_CAPABILITY_SOCKS_FLOW_CONTROL_V1\x10\x04*I\n" +
 	"\fRegistryType\x12\v\n" +
 	"\aUnknown\x10\x00\x12\n" +
 	"\n" +

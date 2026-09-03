@@ -44,38 +44,32 @@ func TestRportFwdListenerClosesWithOwningConnectionAndAllowsFreshBind(t *testing
 	waitForRportFwdBindRelease(t, bindAddress)
 }
 
-func TestRportFwdListenerCapacityExhaustionLeavesNoZombie(t *testing.T) {
+func TestRportFwdListenerSurvivesRetiredTunnelWindowRotation(t *testing.T) {
 	isolateRportFwdListeners(t)
 	bindAddress := reserveRportFwdBindAddress(t)
 	connection := newRportFwdTestConnection()
-	startRportFwdTestListener(t, connection, bindAddress, "exhausted-authorization", 3)
+	startRportFwdTestListener(t, connection, bindAddress, "rotated-authorization", 3)
 
-	exhausted := false
-claimLoop:
-	for tunnelID := uint64(1); tunnelID < 100_000; tunnelID++ {
+	for tunnelID := uint64(1); tunnelID <= 5_000; tunnelID++ {
 		tunnel := transports.NewTunnel(tunnelID, rportfwdDiscardWriteCloser{})
-		switch result := connection.TryAddTunnel(tunnel); result {
-		case transports.TunnelAdded:
-			if !connection.CloseTunnelRemote(tunnel) {
-				t.Fatalf("failed to retire tunnel %d", tunnelID)
-			}
-		case transports.TunnelAddCapacityExhausted:
+		if result := connection.TryAddTunnel(tunnel); result != transports.TunnelAdded {
 			tunnel.Close()
-			exhausted = true
-			break claimLoop
-		default:
-			tunnel.Close()
-			t.Fatalf("claim tunnel %d result = %v", tunnelID, result)
+			t.Fatalf("claim tunnel %d result = %v, want %v", tunnelID, result, transports.TunnelAdded)
 		}
-	}
-	if !exhausted {
-		t.Fatal("tunnel claim history did not reach its bounded capacity")
+		if !connection.CloseTunnelRemote(tunnel) {
+			t.Fatalf("failed to retire tunnel %d", tunnelID)
+		}
 	}
 	select {
 	case <-connection.Done():
-	case <-time.After(time.Second):
-		t.Fatal("capacity exhaustion did not close the owning connection")
+		t.Fatal("retired tunnel window rotation closed the owning connection")
+	default:
 	}
+	if got := len(rportfwd.Portfwds.List()); got != 1 {
+		t.Fatalf("listener count after replay-window rotation = %d, want 1", got)
+	}
+
+	connection.Cleanup()
 	waitForRportFwdListenerCount(t, 0)
 	waitForRportFwdBindRelease(t, bindAddress)
 
