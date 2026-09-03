@@ -53,15 +53,23 @@ func TestPortfwdsRemoveIfOnlyRemovesExactGeneration(t *testing.T) {
 
 type testTunnelConnection struct {
 	*transports.Connection
-	send chan *sliverpb.Envelope
+	send        chan *sliverpb.Envelope
+	closeResult chan bool
 }
 
 func newTestTunnelConnection() *testTunnelConnection {
 	send := make(chan *sliverpb.Envelope, 4)
 	return &testTunnelConnection{
-		Connection: &transports.Connection{Send: send},
-		send:       send,
+		Connection:  &transports.Connection{Send: send},
+		send:        send,
+		closeResult: make(chan bool, 1),
 	}
+}
+
+func (c *testTunnelConnection) CloseTunnelLocal(tunnel *transports.Tunnel) bool {
+	closed := c.Connection.CloseTunnelLocal(tunnel)
+	c.closeResult <- closed
+	return closed
 }
 
 func TestChannelProxySourceEOFSendsSequencedCloseAndDetaches(t *testing.T) {
@@ -97,6 +105,14 @@ func TestChannelProxySourceEOFSendsSequencedCloseAndDetaches(t *testing.T) {
 	closeTransportEnvelope, closeEnvelope := receiveTunnelEnvelope(t, connection.send)
 	if closeTransportEnvelope.Type != sliverpb.MsgTunnelClose || !closeEnvelope.Closed || closeEnvelope.Sequence != 1 || closeEnvelope.TunnelID != dataEnvelope.TunnelID {
 		t.Fatalf("unexpected terminal close: %+v", closeEnvelope)
+	}
+	select {
+	case closed := <-connection.closeResult:
+		if !closed {
+			t.Fatal("source EOF did not close the local tunnel generation")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for local tunnel cleanup")
 	}
 	if connection.Tunnel(dataEnvelope.TunnelID) != nil {
 		t.Fatal("source EOF retained the local tunnel generation")
