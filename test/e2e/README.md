@@ -19,16 +19,14 @@ The focused `portfwd-socks5` scope writes `portfwd-socks5-e2e.json` and `portfwd
 
 ## Target matrix
 
-`darwin` is Go's name for macOS. The E2E driver must execute on the same OS and architecture as the implant target. A 64-bit server is used on the two 32-bit target runners.
+`darwin` is Go's name for macOS. The E2E driver must execute on the same OS and architecture as the implant target.
 
 | Target | GitHub runner path | Server architecture |
 |---|---|---|
 | `darwin/amd64` | `macos-15-intel` | `amd64` |
 | `darwin/arm64` | `macos-15` | `arm64` |
-| `linux/386` | `linux/386` container under QEMU | `amd64` |
 | `linux/amd64` | `ubuntu-24.04` | `amd64` |
 | `linux/arm64` | `ubuntu-24.04-arm` | `arm64` |
-| `windows/386` | `windows-2022` | `amd64` |
 | `windows/amd64` | `windows-2022` | `amd64` |
 | `windows/arm64` | `windows-11-arm` | `arm64` |
 
@@ -75,7 +73,7 @@ On a Linux range driver with FreeRDP 3, Xvfb, and GNU `stdbuf` installed, `-tunn
 
 Focused tunnel runs default to `-tunnel-acceptance-profile base`. A base report is explicitly marked as non-acceptance even when all selected diagnostics pass, so narrowing transports or omitting external targets cannot be mistaken for range acceptance. Use `-tunnel-acceptance-profile proxmox` only for the range gate. That profile fails preflight unless the exact `mtls,wg,http` transport matrix, an external HTTP target, an RDP target, and the authenticated certificate-pinned RDP credential descriptor are all configured; report completeness independently enforces the same contract and every resulting evidence row. Reports also record SHA-256 digests of the exact server and E2E driver executables plus the server commit and dirty state returned by RPC. Those fields make the executed artifacts identifiable but do not yet attest that an uncommitted manual build came from the current source tree.
 
-The eight native OPFOR CNA scenarios use the same six-cell cross product on every supported Windows target. They are not smoke tests tied to one listener or implant mode: `mtls`, `wg`, and `http` must each pass as both a session and a beacon. Windows amd64 runs all eight scenarios, Windows 386 runs six, and Windows arm64 records catalog-generated `SKIP` cells because the OPFOR BOF provider has no arm64 support. [COVERAGE.md](COVERAGE.md) records the scenario-level x86 exceptions.
+The eight native OPFOR CNA scenarios use the same six-cell cross product on every supported Windows target. They are not smoke tests tied to one listener or implant mode: `mtls`, `wg`, and `http` must each pass as both a session and a beacon. Windows amd64 runs all eight scenarios, while Windows arm64 records catalog-generated `SKIP` cells because the OPFOR BOF provider has no arm64 support. [COVERAGE.md](COVERAGE.md) records the platform boundary.
 
 ## Shellcode generation and execution matrix
 
@@ -89,14 +87,13 @@ For every required combination, `TestShellcodeE2E` performs this lifecycle:
 4. Creates and compiles a small native C runner, has it load the `.bin` into executable memory, and executes the shellcode locally.
 5. Requires the matching session or beacon event from the server before recording the combination result and cleaning up only the processes, jobs, and isolated roots created by the test.
 
-The five native target rows are fixed. Both Windows rows run a 64-bit server, while the test client, C runner, and shellcode match the target architecture.
+The four native target rows are fixed. The server, test client, C runner, and shellcode match the target architecture.
 
 | Target | GitHub runner | Server architecture | Shellcode backend | Encoder settings | Required combinations |
 |---|---|---|---|---|---:|
 | `darwin/arm64` | `macos-26` | `arm64` | `beignet` | `none`, `xor`, `xor_dynamic` | 36 |
 | `linux/amd64` | `ubuntu-24.04` | `amd64` | `malasada` | `none`, `shikata_ga_nai`, `xor`, `xor_dynamic` | 48 |
 | `linux/arm64` | `ubuntu-24.04-arm` | `arm64` | `malasada` | `none`, `xor`, `xor_dynamic` | 36 |
-| `windows/386` | `windows-2022` | `amd64` | `wasm-donut` | `none`, `shikata_ga_nai` | 24 |
 | `windows/amd64` | `windows-2022` | `amd64` | `wasm-donut` | `none`, `shikata_ga_nai`, `xor`, `xor_dynamic` | 48 |
 
 Every encoder setting in a target row crosses these axes:
@@ -107,16 +104,16 @@ Every encoder setting in a target row crosses these axes:
 | Implant mode | `session`, `beacon` |
 | Compression | `none` (disabled), `aplib` (enabled) |
 
-Shellcode encoder support is architecture-based rather than OS-based: `amd64` supports `none`, `shikata_ga_nai`, `xor`, and `xor_dynamic`; `arm64` supports `none`, `xor`, and `xor_dynamic`; and `386` supports `none` and `shikata_ga_nai`. Thus the suite has `(3 + 4 + 3 + 2 + 4) × 3 transports × 2 modes × 2 compression settings = 192` required combinations.
+Shellcode encoder support is architecture-based rather than OS-based: `amd64` supports `none`, `shikata_ga_nai`, `xor`, and `xor_dynamic`, while `arm64` supports `none`, `xor`, and `xor_dynamic`. Thus the suite has `(3 + 4 + 3 + 4) × 3 transports × 2 modes × 2 compression settings = 168` required combinations.
 
-The workflow passes `-shellcode-sgn-samples 4`. Each logical `shikata_ga_nai` cell therefore encodes and natively executes four independently randomized SGN outputs from the same generated base payload. Every sample is required: the first failed sample fails the cell, while successful later samples can never turn a failure green. When execution fails, the suite executes the exact same in-memory bytes once more in an isolated diagnostic directory; that replay can explain whether the same bytes fail consistently, but it never changes the failed status and neither payload is uploaded in the coverage artifact. Coverage remains 192 logical combinations rather than counting the nested stability samples as separate cells, while a fully passing workflow performs 300 native executions in total. Target and aggregate reports record `completed_samples` and `required_samples`, so a passing SGN cell is auditable as `4/4` from its artifact rather than only from the job log. Local runs also default to four SGN samples; `-shellcode-sgn-samples` may raise, but not lower, that stability floor.
+The workflow passes `-shellcode-sgn-samples 4`. Each logical `shikata_ga_nai` cell therefore encodes and natively executes four independently randomized SGN outputs from the same generated base payload. Every sample is required: the first failed sample fails the cell, while successful later samples can never turn a failure green. When execution fails, the suite executes the exact same in-memory bytes once more in an isolated diagnostic directory; that replay can explain whether the same bytes fail consistently, but it never changes the failed status and neither payload is uploaded in the coverage artifact. Coverage remains 168 logical combinations rather than counting the nested stability samples as separate cells, while a fully passing workflow performs 240 native executions in total. Target and aggregate reports record `completed_samples` and `required_samples`, so a passing SGN cell is auditable as `4/4` from its artifact rather than only from the job log. Local runs also default to four SGN samples; `-shellcode-sgn-samples` may raise, but not lower, that stability floor.
 
 The aggregate table uses four statuses:
 
 - `PASS`: the supported combination generated, its C runner executed, and the expected server event arrived.
 - `FAIL`: a supported combination was attempted but generation, runner compilation or execution, or event verification failed.
 - `NOT RUN`: a supported combination has no recorded result, including when an earlier target failure prevented it from running. This fails aggregation just like `FAIL`.
-- `N/A`: the encoder is not supported by that target architecture. This is allowed, does not fail aggregation, and is not part of the 192 required combinations.
+- `N/A`: the encoder is not supported by that target architecture. This is allowed, does not fail aggregation, and is not part of the 168 required combinations.
 
 Each target writes `shellcode-coverage-<os>-<arch>.json` and `shellcode-coverage-<os>-<arch>.md` under `shellcode-results`, then uploads that directory as `shellcode-e2e-target-<os>-<arch>` for 14 days. Aggregation writes `shellcode-summary/shellcode-coverage.json` and `shellcode-summary/shellcode-coverage.md`, uploads the directory as `shellcode-e2e-coverage-summary` for 30 days, appends the Markdown table to the workflow summary, and exposes the same Markdown through the reusable-workflow output `shellcode_coverage_markdown`.
 
@@ -170,9 +167,9 @@ CGO_ENABLED=0 go test -c -mod=vendor -trimpath \
 
 For a local feature-only run, add either `-suite-scope rportfwd` or `-suite-scope portfwd-socks5`. Both scopes automatically select sessions even if the default `session,beacon` mode list is retained. The latter is intentionally local/Proxmox-only for now: the existing GitHub Actions dispatch input has not been changed to accept it. Its default `base` profile is diagnostic only; add `-tunnel-acceptance-profile proxmox` together with all required range target flags for an acceptance run. In GitHub Actions, `rportfwd` remains the only focused choice on the manually dispatched **Comprehensive e2e Tests** workflow.
 
-Run the shellcode group with the same server and test binary by changing the selector to `-test.run=^TestShellcodeE2E$` and writing results to a separate directory such as `./shellcode-results`. The default four SGN samples match the workflow; `-shellcode-sgn-samples` can request a higher stress depth. Shellcode aggregation expects the complete five-target workflow matrix; a single local target is useful as a runtime smoke test but intentionally reports the other required targets as `NOT RUN`.
+Run the shellcode group with the same server and test binary by changing the selector to `-test.run=^TestShellcodeE2E$` and writing results to a separate directory such as `./shellcode-results`. The default four SGN samples match the workflow; `-shellcode-sgn-samples` can request a higher stress depth. Shellcode aggregation expects the complete four-target workflow matrix; a single local target is useful as a runtime smoke test but intentionally reports the other required targets as `NOT RUN`.
 
-On Windows, give both output files an `.exe` suffix. The `linux/386` row is built and run with [Dockerfile.linux-386](Dockerfile.linux-386) because its 386 driver must execute under a 386 userspace. The selector flags can narrow transports or modes for diagnosis, but a narrowed result set is intentionally incomplete when aggregated against the comprehensive catalog.
+On Windows, give both output files an `.exe` suffix. The selector flags can narrow transports or modes for diagnosis, but a narrowed result set is intentionally incomplete when aggregated against the comprehensive catalog.
 
 Comprehensive per-target output is named `coverage-<os>-<arch>.json` and `coverage-<os>-<arch>.md`; the focused tunnel scope uses the report names above.
 
@@ -189,7 +186,7 @@ The supported Armory scenario downloads immutable release assets directly and ve
 | CS-Situational-Awareness `sa-env` | `v0.0.28` | Runs the signed BOF and validates its environment output |
 | CS-Situational-Awareness `sa-whoami` | `v0.0.28` | Runs a second signed, read-only BOF and validates stable identity fields |
 
-The driver checks the pinned SHA-256 digest and Minisign signature for the index and package archives, validates repository and public-key identities, requires the signed trusted-comment manifest to match the archived manifest byte-for-byte, and selects only an exact OS/architecture artifact. These signed manifests support `windows/386` and `windows/amd64`; every other target, including `windows/arm64`, is an explicit expected `SKIP` in the aggregate report.
+The driver checks the pinned SHA-256 digest and Minisign signature for the index and package archives, validates repository and public-key identities, requires the signed trusted-comment manifest to match the archived manifest byte-for-byte, and selects only an exact OS/architecture artifact. The current E2E catalog requires the signed `windows/amd64` artifacts; every other target, including `windows/arm64`, is an explicit expected `SKIP` in the aggregate report.
 
 ## Native OPFOR asset provenance
 
@@ -197,12 +194,11 @@ The native OPFOR scenarios never download a mutable branch or an unverified rele
 
 | Asset | Immutable source | Verification and target use |
 |---|---|---|
-| FirefoxDump | [`sliverarmory/firefoxdump` `v0.0.2` / `19bec6fb2def510b299430955fb2be79c1f51820`](https://github.com/sliverarmory/firefoxdump/tree/19bec6fb2def510b299430955fb2be79c1f51820) | Signed [`firefoxdump.tar.gz`](https://github.com/sliverarmory/firefoxdump/releases/download/v0.0.2/firefoxdump.tar.gz), SHA-256 `76260d331ebb57454d06caf9badb512bc21827146e85f425d6337096facfde7f`; detached [`firefoxdump.minisig`](https://github.com/sliverarmory/firefoxdump/releases/download/v0.0.2/firefoxdump.minisig), SHA-256 `22d2d5adfd40612fad82be927101ec2f0e38795b44e34d0a7b539d72f2ed74dd`; Minisign key `RWQT71u8OryWX4sIY2mwJq/41tKfI6SdZivwRlWLP9pBDn6ijresXI/H`. Exact object SHA-256 is `86df6e65c759ce092d18274dfe17cde17c16d8194d609455c918d2dc0a9e78e5` for x64 and `b1a11e41c9f4d99bc9df94878853d29f30a24250169eaedcf71150f96a498dd0` for x86. |
+| FirefoxDump | [`sliverarmory/firefoxdump` `v0.0.2` / `19bec6fb2def510b299430955fb2be79c1f51820`](https://github.com/sliverarmory/firefoxdump/tree/19bec6fb2def510b299430955fb2be79c1f51820) | Signed [`firefoxdump.tar.gz`](https://github.com/sliverarmory/firefoxdump/releases/download/v0.0.2/firefoxdump.tar.gz), SHA-256 `76260d331ebb57454d06caf9badb512bc21827146e85f425d6337096facfde7f`; detached [`firefoxdump.minisig`](https://github.com/sliverarmory/firefoxdump/releases/download/v0.0.2/firefoxdump.minisig), SHA-256 `22d2d5adfd40612fad82be927101ec2f0e38795b44e34d0a7b539d72f2ed74dd`; Minisign key `RWQT71u8OryWX4sIY2mwJq/41tKfI6SdZivwRlWLP9pBDn6ijresXI/H`. The selected x64 object SHA-256 is `86df6e65c759ce092d18274dfe17cde17c16d8194d609455c918d2dc0a9e78e5`. |
 | Beune Cat x64 | [`sliverarmory/bof_collection` `v0.0.1` / `2cb3fb1b39a96484c4c40b8710c1ca9f83e846ee`](https://github.com/sliverarmory/bof_collection/tree/2cb3fb1b39a96484c4c40b8710c1ca9f83e846ee) | Signed [`beune-bof-collection.tar.gz`](https://github.com/sliverarmory/bof_collection/releases/download/v0.0.1/beune-bof-collection.tar.gz), SHA-256 `d69747b567c69c7ed03ef4ae5b6c1f76e76ae88f40f68987f56c0276db1389d7`; detached [`beune-bof-collection.minisig`](https://github.com/sliverarmory/bof_collection/releases/download/v0.0.1/beune-bof-collection.minisig), SHA-256 `56ef773025fb7cd4b397cedd2d68b73f99bd1c0bd5cbbcc8c73d376ebb765cfd`; Minisign key `RWTFh8KpxR0fDBsOK+FYYSo/SxW9hFEQwqqCa0hv1YLyjVXrbXR/hMdf`. The selected x64 object SHA-256 is `c96c07c85fc3809240f87ab37b1aba40c80dcf1c81caa669bde8f8bddd0815e2`. |
-| Beune Cat x86 source build | [`sliverarmory/bof_collection` `v0.0.1` / `2cb3fb1b39a96484c4c40b8710c1ca9f83e846ee`](https://github.com/sliverarmory/bof_collection/tree/2cb3fb1b39a96484c4c40b8710c1ca9f83e846ee/cat) | The signed package has no x86 object. The harness uses the unchanged tagged `cat/cat.cna` (SHA-256 `94c7bcaae209a6355dcc8c126019f6e19a681173680955166b8c30cf97fc66f7`) and compiles the tagged `cat/entry.c` (SHA-256 `a728f11fc10670a2435adebf78374878bbb3aaf16c445697d75819f6f9a3a578`) with the tagged root `beacon.h` (SHA-256 `ff0d64312744d7934e633c604201391b35aef1f40051769d277b2205eb8aa6c2`). Sliver's bundled Zig distribution omits the MinGW SDK headers, so the isolated build also supplies the repository-owned, narrowly scoped [`opfor_cat_windows.h`](fixtures/opfor_cat_windows.h) ABI declarations as `windows.h`; the pinned upstream files remain byte-for-byte unchanged. The harness uses target `x86-windows-gnu` and upstream `-nostdlib -Os -c -DBOF -fno-builtin -D__USE_MINGW_ANSI_STDIO=0` flags, then validates an i386 COFF object and stages it under the CNA's original `dist/cat.x86.o` resource path. |
 | OperatorsKit FindDotnet | [`sliverarmory/OperatorsKit` `66368f4738528d26cc1ccc6d9a3c93d44d63edc1`](https://github.com/sliverarmory/OperatorsKit/tree/66368f4738528d26cc1ccc6d9a3c93d44d63edc1/KIT/FindDotnet) | The commit-addressed [`finddotnet.o`](https://raw.githubusercontent.com/sliverarmory/OperatorsKit/66368f4738528d26cc1ccc6d9a3c93d44d63edc1/KIT/FindDotnet/finddotnet.o) must match SHA-256 `1dcda8bf8db5851e9fc64b40690d3c03f1f86e59ae4b340520603774acff5508`; amd64 only. |
 | OperatorsKit FindSysmon | [`sliverarmory/OperatorsKit` `66368f4738528d26cc1ccc6d9a3c93d44d63edc1`](https://github.com/sliverarmory/OperatorsKit/tree/66368f4738528d26cc1ccc6d9a3c93d44d63edc1/KIT/FindSysmon) | The commit-addressed [`findsysmon.o`](https://raw.githubusercontent.com/sliverarmory/OperatorsKit/66368f4738528d26cc1ccc6d9a3c93d44d63edc1/KIT/FindSysmon/findsysmon.o) must match SHA-256 `c2924e690b4ba407fddcfefdba2632e649008084afb7a9dcf9e11f5853cf3050`; amd64 only. |
-| Typed/error/timeout fixtures | Current Sliver source revision | The C fixture is compiled for the exact Windows 386 or amd64 target; the malformed fixture is a deterministic three-byte non-COFF input. These local fixtures exercise OPFOR callback semantics and recovery rather than third-party behavior. |
+| Typed/error/timeout fixtures | Current Sliver source revision | The C fixture is compiled for the exact Windows amd64 target; the malformed fixture is a deterministic three-byte non-COFF input. These local fixtures exercise OPFOR callback semantics and recovery rather than third-party behavior. |
 
 FirefoxDump and Beune Cat are authenticated signed release packages: the driver verifies both the pinned archive/signature digests and the detached Minisign signature before extraction, then checks the selected object digest. OperatorsKit publishes commit-addressed raw objects rather than signed packages, so those two rows require both the full immutable commit URL and exact object SHA-256. Any pin, signature, object architecture, safety preflight, or exact-source compilation mismatch fails before BOF execution.
 
