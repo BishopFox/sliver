@@ -93,7 +93,7 @@ func tunnelLoop(ctx context.Context, rpc rpcpb.SliverRPCClient, ready chan<- str
 			return err
 		}
 		log.Printf("Received TunnelData for tunnel %d", incoming.TunnelID)
-		tunnel := GetTunnels().Get(incoming.TunnelID)
+		tunnel := tunnels.Get(incoming.TunnelID)
 
 		if tunnel != nil {
 			if !incoming.Closed && len(incoming.GetData()) == 0 {
@@ -113,11 +113,11 @@ func tunnelLoop(ctx context.Context, rpc rpcpb.SliverRPCClient, ready chan<- str
 				if err != nil {
 					log.Printf("Warning! Closing tunnel %d after receive admission failed: %v", tunnel.ID, err)
 					tunnel.failReceive()
-					GetTunnels().CloseIf(tunnel)
+					tunnels.CloseIf(tunnel)
 				}
 			} else {
 				log.Printf("Closing tunnel %d", tunnel.ID)
-				GetTunnels().CloseIf(tunnel)
+				tunnels.CloseIf(tunnel)
 			}
 		} else {
 			log.Printf("Received tunnel data for non-existent tunnel id %d", incoming.TunnelID)

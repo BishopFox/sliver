@@ -111,25 +111,27 @@ func (mailbox *socksAckMailbox) channel() <-chan uint64 {
 // belongs to an exact TcpTunnel pointer rather than a process-global tunnel-ID
 // cache, so delayed work cannot poison a later generation reusing an ID.
 type socksFrameQueue struct {
-	mu             sync.Mutex
-	nextSequence   uint64
-	pending        map[uint64]*sliverpb.SocksData
-	ready          chan *sliverpb.SocksData
-	accepted       map[uint64]*sliverpb.SocksData
-	reservations   map[uint64]int
-	reservedFrames int
-	reservedBytes  int
-	maxFrames      int
-	maxBytes       int
-	spaceChanged   chan struct{}
+	mu            sync.Mutex
+	nextSequence  uint64
+	pending       map[uint64]*sliverpb.SocksData
+	ready         chan *sliverpb.SocksData
+	accepted      map[uint64]socksFrameReservation
+	reservedBytes int
+	maxFrames     int
+	maxBytes      int
+	spaceChanged  chan struct{}
+}
+
+type socksFrameReservation struct {
+	frame *sliverpb.SocksData
+	size  int
 }
 
 func newSocksFrameQueue(maxFrames int, maxBytes int) *socksFrameQueue {
 	return &socksFrameQueue{
 		pending:      map[uint64]*sliverpb.SocksData{},
 		ready:        make(chan *sliverpb.SocksData, maxFrames),
-		accepted:     map[uint64]*sliverpb.SocksData{},
-		reservations: map[uint64]int{},
+		accepted:     map[uint64]socksFrameReservation{},
 		maxFrames:    maxFrames,
 		maxBytes:     maxBytes,
 		spaceChanged: make(chan struct{}),
@@ -184,8 +186,8 @@ func (q *socksFrameQueue) admitWithSequence(tunnelID uint64, data *sliverpb.Sock
 	if useNextSequence {
 		sequence = q.nextSequence
 	}
-	if existing := q.accepted[sequence]; existing != nil {
-		if equalSocksProtocolFrame(existing, data) {
+	if existing, ok := q.accepted[sequence]; ok {
+		if equalSocksProtocolFrame(existing.frame, data) {
 			return nil
 		}
 		return fmt.Errorf("%w: sequence %d", ErrSocksSequenceConflict, sequence)
@@ -199,7 +201,7 @@ func (q *socksFrameQueue) admitWithSequence(tunnelID uint64, data *sliverpb.Sock
 	if sequence-q.nextSequence >= uint64(q.maxFrames) {
 		return fmt.Errorf("%w: got %d, expected %d", ErrTunnelSequenceWindow, sequence, q.nextSequence)
 	}
-	if q.reservedFrames >= q.maxFrames {
+	if len(q.accepted) >= q.maxFrames {
 		return ErrTunnelIngressLimit
 	}
 	if q.reservedBytes+len(data.Data) > q.maxBytes {
@@ -209,9 +211,10 @@ func (q *socksFrameQueue) admitWithSequence(tunnelID uint64, data *sliverpb.Sock
 	payload := copySocksProtocolFrame(tunnelID, data)
 	payload.Sequence = sequence
 	q.pending[payload.Sequence] = payload
-	q.accepted[payload.Sequence] = payload
-	q.reservations[payload.Sequence] = len(payload.Data)
-	q.reservedFrames++
+	q.accepted[payload.Sequence] = socksFrameReservation{
+		frame: payload,
+		size:  len(payload.Data),
+	}
 	q.reservedBytes += len(payload.Data)
 	for {
 		ordered := q.pending[q.nextSequence]
@@ -232,12 +235,9 @@ func (q *socksFrameQueue) complete(data *sliverpb.SocksData) {
 		return
 	}
 	q.mu.Lock()
-	size, ok := q.reservations[data.Sequence]
-	if ok && q.accepted[data.Sequence] == data {
-		delete(q.reservations, data.Sequence)
+	if reservation, ok := q.accepted[data.Sequence]; ok && reservation.frame == data {
 		delete(q.accepted, data.Sequence)
-		q.reservedFrames--
-		q.reservedBytes -= size
+		q.reservedBytes -= reservation.size
 		q.signalSpaceChangeLocked()
 	}
 	q.mu.Unlock()
@@ -251,8 +251,6 @@ func (q *socksFrameQueue) clear() {
 		case <-q.ready:
 		default:
 			clear(q.accepted)
-			clear(q.reservations)
-			q.reservedFrames = 0
 			q.reservedBytes = 0
 			q.signalSpaceChangeLocked()
 			q.mu.Unlock()
@@ -264,7 +262,7 @@ func (q *socksFrameQueue) clear() {
 func (q *socksFrameQueue) snapshot() (next uint64, frames int, size int) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	return q.nextSequence, q.reservedFrames, q.reservedBytes
+	return q.nextSequence, len(q.accepted), q.reservedBytes
 }
 
 func copySocksProtocolFrame(tunnelID uint64, data *sliverpb.SocksData) *sliverpb.SocksData {
@@ -411,16 +409,6 @@ func (t *tcpTunnel) Create(sessionID string, onSessionClose ...func(*TcpTunnel))
 		return nil, ErrInvalidSessionID
 	}
 	return t.CreateForSession(session, 0, onSessionClose...)
-}
-
-// CreateWithCapabilities creates a tunnel with the immutable capability set
-// negotiated between its operator and exact implant session generation.
-func (t *tcpTunnel) CreateWithCapabilities(sessionID string, capabilities uint64, onSessionClose ...func(*TcpTunnel)) (*TcpTunnel, error) {
-	session := Sessions.Get(sessionID)
-	if session == nil {
-		return nil, ErrInvalidSessionID
-	}
-	return t.CreateForSession(session, capabilities, onSessionClose...)
 }
 
 // CreateForSession binds creation to an exact session pointer and transport

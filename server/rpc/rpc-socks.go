@@ -70,38 +70,6 @@ func isSocksTunnelResourcePressure(err error) bool {
 	return errors.Is(err, core.ErrTunnelIngressLimit) || errors.Is(err, core.ErrTunnelPendingBytes)
 }
 
-type socksProxyReceiver interface {
-	Recv() (*sliverpb.SocksData, error)
-}
-
-type socksProxyReceiveResult struct {
-	data *sliverpb.SocksData
-	err  error
-}
-
-// receiveSocksProxyFrames keeps stream.Recv in exactly one goroutine while
-// allowing worker failure to cancel the handler even when the operator is
-// idle. Returning from SocksProxy cancels the gRPC stream context and wakes a
-// Recv that is still blocked in this pump.
-func receiveSocksProxyFrames(ctx context.Context, receiver socksProxyReceiver) <-chan socksProxyReceiveResult {
-	results := make(chan socksProxyReceiveResult, 1)
-	go func() {
-		defer close(results)
-		for {
-			data, err := receiver.Recv()
-			select {
-			case results <- socksProxyReceiveResult{data: data, err: err}:
-			case <-ctx.Done():
-				return
-			}
-			if err != nil {
-				return
-			}
-		}
-	}()
-	return results
-}
-
 // SocksProxy relays SOCKS5 frames between one operator stream and implant tunnels.
 func (s *Server) SocksProxy(stream rpcpb.SliverRPC_SocksProxyServer) error {
 	return s.socksProxy(stream, core.SocksTunnels.Get, socksLegacyTerminalReorderGrace, nil, nil)
@@ -153,7 +121,7 @@ func (s *Server) socksProxy(
 		}
 	}()
 
-	receiveResults := receiveSocksProxyFrames(ctx, stream)
+	receiveResults := receiveStreamFrames[*sliverpb.SocksData](ctx, stream)
 	for {
 		var fromClient *sliverpb.SocksData
 		select {

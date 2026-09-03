@@ -14,12 +14,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type portfwdDialFunc func(context.Context, string, string) (net.Conn, error)
-
-func (dial portfwdDialFunc) DialContext(ctx context.Context, network string, address string) (net.Conn, error) {
-	return dial(ctx, network, address)
-}
-
 func TestPortfwdRemoteAddress(t *testing.T) {
 	tests := []struct {
 		name string
@@ -139,7 +133,7 @@ func TestPortfwdDestinationDialHasFiniteDeadline(t *testing.T) {
 	}
 }
 
-func runPortfwdHandler(t *testing.T, connection *transports.Connection, tunnelID uint64, dialer portfwdContextDialer, timeout time.Duration) <-chan struct{} {
+func runPortfwdHandler(t *testing.T, connection *transports.Connection, tunnelID uint64, dialer portfwdDialFunc, timeout time.Duration) <-chan struct{} {
 	t.Helper()
 	data, err := proto.Marshal(&sliverpb.PortfwdReq{
 		Request:  &commonpb.Request{SessionID: "portfwd-handler-test"},

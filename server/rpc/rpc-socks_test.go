@@ -1660,7 +1660,7 @@ func newRPCSocksTunnelWithCapabilities(t *testing.T, capabilities uint64) (*core
 	session := core.NewSession(connection)
 	session.Capabilities = capabilities
 	core.Sessions.Add(session)
-	tunnel, err := core.SocksTunnels.CreateWithCapabilities(session.ID, capabilities)
+	tunnel, err := core.SocksTunnels.CreateForSession(session, capabilities)
 	if err != nil {
 		t.Fatalf("create SOCKS tunnel: %v", err)
 	}

@@ -343,7 +343,9 @@ func TestTunnelCloseUnblocksSenders(t *testing.T) {
 	deadline := time.Now().Add(time.Second)
 	blocked := false
 	for time.Now().Before(deadline) {
-		fromBlocked := len(tunnel.fromImplantAdmission) == 1
+		tunnel.fromImplantBudget.Lock()
+		fromBlocked := tunnel.fromImplantFrames == 1
+		tunnel.fromImplantBudget.Unlock()
 		toBlocked := !tunnel.toImplantQueue.TryLock()
 		if !toBlocked {
 			tunnel.toImplantQueue.Unlock()
@@ -459,7 +461,7 @@ func TestTunnelDirectionalCloseTouchesAreIndependent(t *testing.T) {
 	tunnel.lastFromImplantTime = stale
 	tunnel.mutex.Unlock()
 
-	tunnel.TouchToImplant()
+	tunnel.touchToImplant()
 	toImplant := tunnel.LastToImplantTime()
 	if age := time.Since(toImplant); age < 0 || age >= delayBeforeClose {
 		t.Fatalf("TouchToImplant did not establish a fresh close grace period: age=%v", age)
@@ -468,7 +470,7 @@ func TestTunnelDirectionalCloseTouchesAreIndependent(t *testing.T) {
 		t.Fatalf("TouchToImplant changed from-implant activity: got=%v want=%v", fromImplant, stale)
 	}
 
-	tunnel.TouchFromImplant()
+	tunnel.touchFromImplant()
 	if age := time.Since(tunnel.LastFromImplantTime()); age < 0 || age >= delayBeforeClose {
 		t.Fatalf("TouchFromImplant did not establish a fresh close grace period: age=%v", age)
 	}
@@ -839,8 +841,8 @@ func TestTunnelProcessDataFromImplantRejectsOversizedAndOutOfWindowFrames(t *tes
 	if !errors.Is(err, ErrTunnelSequenceWindow) {
 		t.Fatalf("out-of-window frame error = %v, want ErrTunnelSequenceWindow", err)
 	}
-	if len(tunnel.pendingFromImplant) != 0 || tunnel.pendingFromBytes != 0 {
-		t.Fatalf("rejected frames changed pending state: frames=%d bytes=%d", len(tunnel.pendingFromImplant), tunnel.pendingFromBytes)
+	if len(tunnel.pendingFromImplant) != 0 {
+		t.Fatalf("rejected frames changed pending state: frames=%d", len(tunnel.pendingFromImplant))
 	}
 }
 
@@ -890,8 +892,8 @@ func TestTunnelProcessDataFromImplantReordersFullReceiveWindow(t *testing.T) {
 	if tunnel.FromImplantSequence != maxTunnelPendingFrames {
 		t.Fatalf("next receive sequence = %d, want %d", tunnel.FromImplantSequence, maxTunnelPendingFrames)
 	}
-	if len(tunnel.pendingFromImplant) != 0 || tunnel.pendingFromBytes != 0 {
-		t.Fatalf("drained receive state retained frames=%d bytes=%d", len(tunnel.pendingFromImplant), tunnel.pendingFromBytes)
+	if len(tunnel.pendingFromImplant) != 0 {
+		t.Fatalf("drained receive state retained %d frames", len(tunnel.pendingFromImplant))
 	}
 	if tunnel.fromImplantFrames != 0 || tunnel.fromImplantBytes != 0 {
 		t.Fatalf("drained receive budget retained frames=%d bytes=%d", tunnel.fromImplantFrames, tunnel.fromImplantBytes)
@@ -908,12 +910,19 @@ func TestTunnelProcessDataFromImplantBoundsBlockedHandlers(t *testing.T) {
 	}
 
 	deadline := time.Now().Add(time.Second)
-	for len(tunnel.fromImplantAdmission) != maxTunnelPendingFrames && time.Now().Before(deadline) {
+	admitted := 0
+	for time.Now().Before(deadline) {
+		tunnel.fromImplantBudget.Lock()
+		admitted = tunnel.fromImplantFrames
+		tunnel.fromImplantBudget.Unlock()
+		if admitted == maxTunnelPendingFrames {
+			break
+		}
 		time.Sleep(time.Millisecond)
 	}
-	if got := len(tunnel.fromImplantAdmission); got != maxTunnelPendingFrames {
+	if admitted != maxTunnelPendingFrames {
 		tunnel.Close()
-		t.Fatalf("admitted blocked handlers = %d, want %d", got, maxTunnelPendingFrames)
+		t.Fatalf("admitted blocked handlers = %d, want %d", admitted, maxTunnelPendingFrames)
 	}
 	if err := tunnel.ProcessDataFromImplant(&sliverpb.TunnelData{Sequence: 0}); !errors.Is(err, ErrTunnelIngressLimit) {
 		tunnel.Close()
@@ -1063,8 +1072,8 @@ func TestTunnelProtocolStateIsGenerationOwnedAndCleared(t *testing.T) {
 	if !registry.CloseIf(old) {
 		t.Fatal("failed to close old generation")
 	}
-	if len(old.pendingFromImplant) != 0 || old.pendingFromBytes != 0 || old.fromImplantFrames != 0 || old.fromImplantBytes != 0 || len(old.toImplantCache) != 0 {
-		t.Fatalf("closed generation retained inbound=%d bytes=%d reserved-frames=%d reserved-bytes=%d outbound=%d", len(old.pendingFromImplant), old.pendingFromBytes, old.fromImplantFrames, old.fromImplantBytes, len(old.toImplantCache))
+	if len(old.pendingFromImplant) != 0 || old.fromImplantFrames != 0 || old.fromImplantBytes != 0 || len(old.toImplantCache) != 0 {
+		t.Fatalf("closed generation retained inbound=%d reserved-frames=%d reserved-bytes=%d outbound=%d", len(old.pendingFromImplant), old.fromImplantFrames, old.fromImplantBytes, len(old.toImplantCache))
 	}
 
 	current := NewTunnel(tunnelID, "current-session")

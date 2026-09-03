@@ -232,26 +232,33 @@ func (c *Connection) TryAddTunnel(tun *Tunnel) TunnelAddResult {
 	c.initializeLifecycle()
 	c.initializeTunnelState()
 	c.mutex.Lock()
-	select {
-	case <-c.done:
+	if result := c.tunnelAdmissionResultLocked(tun.ID); result != TunnelAdded {
 		c.mutex.Unlock()
-		return TunnelAddConnectionClosed
-	default:
-	}
-	if c.tunnels[tun.ID] != nil || c.pendingTunnels[tun.ID] != nil {
-		c.mutex.Unlock()
-		return TunnelAddDuplicate
-	}
-	if _, retired := c.retiredTunnels[tun.ID]; retired {
-		c.mutex.Unlock()
-		return TunnelAddDuplicate
-	}
-	if len(c.tunnels)+len(c.pendingTunnels) >= maxLiveTunnelIDsPerConnection {
-		c.mutex.Unlock()
-		return TunnelAddCapacityExhausted
+		return result
 	}
 	c.publishTunnelLocked(tun)
 	c.mutex.Unlock()
+	return TunnelAdded
+}
+
+// tunnelAdmissionResultLocked validates one new wire generation. The caller
+// must hold c.mutex so live, pending, retired, and capacity checks observe one
+// consistent connection state.
+func (c *Connection) tunnelAdmissionResultLocked(tunnelID uint64) TunnelAddResult {
+	select {
+	case <-c.done:
+		return TunnelAddConnectionClosed
+	default:
+	}
+	if c.tunnels[tunnelID] != nil || c.pendingTunnels[tunnelID] != nil {
+		return TunnelAddDuplicate
+	}
+	if _, retired := c.retiredTunnels[tunnelID]; retired {
+		return TunnelAddDuplicate
+	}
+	if len(c.tunnels)+len(c.pendingTunnels) >= maxLiveTunnelIDsPerConnection {
+		return TunnelAddCapacityExhausted
+	}
 	return TunnelAdded
 }
 
@@ -284,27 +291,10 @@ func (c *Connection) BeginTunnel(tunnelID uint64, timeout time.Duration) (*Pendi
 	}
 
 	c.mutex.Lock()
-	select {
-	case <-c.done:
+	if result := c.tunnelAdmissionResultLocked(tunnelID); result != TunnelAdded {
 		c.mutex.Unlock()
 		cancel()
-		return nil, TunnelAddConnectionClosed
-	default:
-	}
-	if c.tunnels[tunnelID] != nil || c.pendingTunnels[tunnelID] != nil {
-		c.mutex.Unlock()
-		cancel()
-		return nil, TunnelAddDuplicate
-	}
-	if _, retired := c.retiredTunnels[tunnelID]; retired {
-		c.mutex.Unlock()
-		cancel()
-		return nil, TunnelAddDuplicate
-	}
-	if len(c.tunnels)+len(c.pendingTunnels) >= maxLiveTunnelIDsPerConnection {
-		c.mutex.Unlock()
-		cancel()
-		return nil, TunnelAddCapacityExhausted
+		return nil, result
 	}
 	c.pendingTunnels[tunnelID] = pending
 	c.mutex.Unlock()

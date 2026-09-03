@@ -120,12 +120,10 @@ type Tunnel struct {
 	FromImplantSequence          uint64
 	fromImplantLifecycle         sync.RWMutex
 	fromImplantMutex             sync.Mutex
-	fromImplantAdmission         chan struct{}
 	fromImplantBudget            sync.Mutex
 	fromImplantFrames            int
 	fromImplantBytes             int
 	pendingFromImplant           map[uint64]*sliverpb.TunnelData
-	pendingFromBytes             int
 	fromImplantTerminalSet       bool
 	fromImplantTerminalSequence  uint64
 	fromImplantTerminalMutex     sync.Mutex
@@ -173,7 +171,6 @@ func newTunnelWithCapabilities(id uint64, sessionID string, implantConnection *I
 		capabilities:             capabilities & sliverpb.CapabilityTunnelTerminalV1,
 		ToImplant:                make(chan []byte),
 		FromImplant:              make(chan *sliverpb.TunnelData),
-		fromImplantAdmission:     make(chan struct{}, maxTunnelPendingFrames),
 		pendingFromImplant:       map[uint64]*sliverpb.TunnelData{},
 		fromImplantTerminalReady: make(chan struct{}),
 		toImplantCache:           map[uint64]*sliverpb.TunnelData{},
@@ -292,12 +289,6 @@ func (t *Tunnel) ProcessDataFromImplant(tunnelData *sliverpb.TunnelData) error {
 			t.releaseFromImplant(1, len(tunnelData.Data))
 		}
 	}()
-	select {
-	case t.fromImplantAdmission <- struct{}{}:
-		defer func() { <-t.fromImplantAdmission }()
-	default:
-		return ErrTunnelIngressLimit
-	}
 
 	t.touchFromImplant()
 	defer t.touchFromImplant()
@@ -334,12 +325,8 @@ func (t *Tunnel) ProcessDataFromImplant(tunnelData *sliverpb.TunnelData) error {
 			return fmt.Errorf("%w: sequence %d", ErrTunnelSequenceConflict, tunnelData.Sequence)
 		}
 	} else {
-		if t.pendingFromBytes+len(tunnelData.Data) > maxTunnelPendingBytes {
-			return ErrTunnelPendingBytes
-		}
 		payload := t.copyDataFromImplant(tunnelData)
 		t.pendingFromImplant[tunnelData.Sequence] = payload
-		t.pendingFromBytes += len(payload.Data)
 		reservationTransferred = true
 	}
 
@@ -352,7 +339,6 @@ func (t *Tunnel) ProcessDataFromImplant(tunnelData *sliverpb.TunnelData) error {
 			return err
 		}
 		delete(t.pendingFromImplant, expected)
-		t.pendingFromBytes -= len(payload.Data)
 		t.releaseFromImplant(1, len(payload.Data))
 		t.FromImplantSequence++
 		expected++
@@ -694,13 +680,6 @@ func (t *Tunnel) touchFromImplant() {
 	t.lastFromImplantTime = time.Now()
 }
 
-// TouchToImplant starts a fresh grace period for a client-requested close. Only
-// later client-to-implant data may extend that grace period; target keepalives
-// traveling in the opposite direction must not keep the target socket alive.
-func (t *Tunnel) TouchToImplant() {
-	t.touchToImplant()
-}
-
 // ClaimToImplantClose records the first client close request for this exact
 // tunnel generation. Duplicate unary requests must not refresh the quiet
 // period or create additional close schedulers.
@@ -714,13 +693,6 @@ func (t *Tunnel) ClaimToImplantClose() bool {
 		claimed = true
 	})
 	return claimed
-}
-
-// TouchFromImplant starts a fresh grace period for an implant terminal close.
-// Later implant-to-client data may extend it while concurrently-dispatched
-// terminal and data envelopes are reordered.
-func (t *Tunnel) TouchFromImplant() {
-	t.touchFromImplant()
 }
 
 // ClaimFromImplantClose records the first terminal frame for this exact tunnel
@@ -741,9 +713,9 @@ func (t *Tunnel) ClaimFromImplantClose() bool {
 // Touch records implant-to-client activity for the legacy implant-originated
 // close path.
 //
-// Deprecated: use TouchToImplant or TouchFromImplant explicitly.
+// Deprecated: direction-aware relay paths update their activity internally.
 func (t *Tunnel) Touch() {
-	t.TouchFromImplant()
+	t.touchFromImplant()
 }
 
 // LastToImplantTime returns the last client-to-implant activity used to delay a
@@ -856,9 +828,11 @@ func (t *Tunnel) clearProtocolState() {
 	t.fromImplantLifecycle.Lock()
 	t.fromImplantMutex.Lock()
 	pendingFrames := len(t.pendingFromImplant)
-	pendingBytes := t.pendingFromBytes
+	pendingBytes := 0
+	for _, payload := range t.pendingFromImplant {
+		pendingBytes += len(payload.Data)
+	}
 	clear(t.pendingFromImplant)
-	t.pendingFromBytes = 0
 	t.fromImplantMutex.Unlock()
 	t.releaseFromImplant(pendingFrames, pendingBytes)
 	t.fromImplantLifecycle.Unlock()

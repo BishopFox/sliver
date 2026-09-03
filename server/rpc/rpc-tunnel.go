@@ -37,34 +37,6 @@ var (
 	tunnelLog = log.NamedLogger("rpc", "tunnel")
 )
 
-type tunnelDataReceiveResult struct {
-	data *sliverpb.TunnelData
-	err  error
-}
-
-// receiveTunnelDataFrames keeps the handler responsive to relay-worker
-// failures while the transport receive is blocked. The gRPC runtime cancels a
-// blocked Recv after TunnelData returns, so this pump must not be joined by the
-// handler's relay-worker barrier.
-func receiveTunnelDataFrames(ctx context.Context, receiver rpcpb.SliverRPC_TunnelDataServer) <-chan tunnelDataReceiveResult {
-	results := make(chan tunnelDataReceiveResult, 1)
-	go func() {
-		defer close(results)
-		for {
-			data, err := receiver.Recv()
-			select {
-			case results <- tunnelDataReceiveResult{data: data, err: err}:
-			case <-ctx.Done():
-				return
-			}
-			if err != nil {
-				return
-			}
-		}
-	}()
-	return results
-}
-
 // CreateTunnel - Create a new tunnel on the server, however based on only this request there's
 //
 //	no way to associate the tunnel with the correct client, so the client must send
@@ -149,7 +121,7 @@ func (s *Server) TunnelData(stream rpcpb.SliverRPC_TunnelDataServer) (resultErr 
 		return sendErr
 	}
 
-	receiveResults := receiveTunnelDataFrames(ctx, stream)
+	receiveResults := receiveStreamFrames[*sliverpb.TunnelData](ctx, stream)
 	for {
 		var fromClient *sliverpb.TunnelData
 		select {

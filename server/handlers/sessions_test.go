@@ -669,7 +669,7 @@ func TestTunnelResourcePressureClassification(t *testing.T) {
 func TestSocksDataHandlerRelaysCanonicalImplantAcknowledgementOutOfBand(t *testing.T) {
 	connection, session := addTestSession(t)
 	session.Capabilities = sliverpb.CapabilitySocksFlowControlV1
-	tunnel, err := core.SocksTunnels.CreateWithCapabilities(session.ID, sliverpb.CapabilitySocksFlowControlV1)
+	tunnel, err := core.SocksTunnels.CreateForSession(session, sliverpb.CapabilitySocksFlowControlV1)
 	if err != nil {
 		t.Fatalf("create flow-controlled SOCKS tunnel: %v", err)
 	}
@@ -719,7 +719,7 @@ func TestSocksDataHandlerRejectsInvalidAcknowledgementOnExactTunnelOnly(t *testi
 		t.Run(test.name, func(t *testing.T) {
 			connection, session := addTestSession(t)
 			session.Capabilities = sliverpb.CapabilitySocksFlowControlV1
-			tunnel, err := core.SocksTunnels.CreateWithCapabilities(session.ID, sliverpb.CapabilitySocksFlowControlV1)
+			tunnel, err := core.SocksTunnels.CreateForSession(session, sliverpb.CapabilitySocksFlowControlV1)
 			if err != nil {
 				t.Fatalf("create flow-controlled SOCKS tunnel: %v", err)
 			}

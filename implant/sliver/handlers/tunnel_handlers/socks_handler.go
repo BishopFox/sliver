@@ -157,24 +157,6 @@ type socksTunnelState struct {
 	terminalErr      error
 }
 
-func newSocksTunnelState(onClose ...func()) *socksTunnelState {
-	var callback func()
-	if len(onClose) > 0 {
-		callback = onClose[0]
-	}
-	return newOwnedSocksTunnelState(nil, callback)
-}
-
-func newOwnedSocksTunnelState(ownerDone <-chan struct{}, onClose func()) *socksTunnelState {
-	return newOwnedSocksTunnelStateWithWindow(ownerDone, onClose, socksTunnelCloseReorderWindow)
-}
-
-func newOwnedSocksTunnelStateWithWindow(ownerDone <-chan struct{}, onClose func(), closeWindow time.Duration) *socksTunnelState {
-	tunnel := newUnstartedSocksTunnelState(ownerDone, onClose, closeWindow)
-	tunnel.start()
-	return tunnel
-}
-
 // newUnstartedSocksTunnelState returns a fully allocated actor without
 // publishing any goroutine. Pool-owned states use this split constructor so
 // identity, accounting, and lifecycle callbacks are installed before an
@@ -339,17 +321,9 @@ func handleSocksReq(envelope *sliverpb.Envelope, connection *transports.Connecti
 	}
 }
 
-func newSocksServer(username string, password string, owner ...<-chan struct{}) *socks5.Server {
-	var ownerDone <-chan struct{}
-	if len(owner) > 0 {
-		ownerDone = owner[0]
-	}
-	return newSocksServerWithLifecycle(username, password, ownerDone, nil)
-}
-
 func newSocksServerForTunnel(username string, password string, tunnel *socksTunnelState) *socks5.Server {
 	if tunnel == nil {
-		return newSocksServer(username, password)
+		return newSocksServerWithLifecycle(username, password, nil, nil)
 	}
 	return newSocksServerWithLifecycle(username, password, tunnel.done, tunnel.markEstablished)
 }
@@ -593,24 +567,17 @@ func (s *socksTunnelState) write(connection *transports.Connection, tunnelID uin
 			s.outboundMutex.Unlock()
 			return 0, transports.ErrTunnelClosed
 		}
-		data, err := proto.Marshal(&sliverpb.SocksData{
+		message := &sliverpb.SocksData{
 			TunnelID: tunnelID,
 			Data:     payload,
 			Sequence: sequence,
-		})
-		if err != nil {
-			s.outboundMutex.Unlock()
-			return 0, err
 		}
 		// {{if .Config.Debug}}
 		log.Printf("[socks] (implant to Server) to Client to User Data Sequence %d, Data Size %d\n", sequence, len(payload))
 		// {{end}}
-		if connection == nil || !connection.SendEnvelope(&sliverpb.Envelope{
-			Type: sliverpb.MsgSocksData,
-			Data: data,
-		}) {
+		if err := sendSocksEnvelope(connection, message); err != nil {
 			s.outboundMutex.Unlock()
-			return 0, transports.ErrTunnelClosed
+			return 0, err
 		}
 
 		s.outboundSequence++
@@ -626,15 +593,6 @@ func (s *socksTunnelState) enableFlowControl(capabilities uint64) {
 	s.flowMutex.Lock()
 	s.flowEnabled = true
 	s.flowMutex.Unlock()
-}
-
-func (s *socksTunnelState) isFlowControlEnabled() bool {
-	if s == nil {
-		return false
-	}
-	s.flowMutex.Lock()
-	defer s.flowMutex.Unlock()
-	return s.flowEnabled
 }
 
 func (s *socksTunnelState) isOwnedBy(connection *transports.Connection) bool {
@@ -709,15 +667,11 @@ func (s *socksTunnelState) flushInboundAck(connection *transports.Connection, tu
 }
 
 func sendSocksAck(connection *transports.Connection, tunnelID uint64, ack uint64) error {
-	data, err := proto.Marshal(&sliverpb.SocksData{TunnelID: tunnelID, Ack: ack})
-	if err != nil {
-		return err
-	}
-	if connection == nil || !connection.SendEnvelope(&sliverpb.Envelope{Type: sliverpb.MsgSocksData, Data: data}) {
+	err := sendSocksEnvelope(connection, &sliverpb.SocksData{TunnelID: tunnelID, Ack: ack})
+	if errors.Is(err, transports.ErrTunnelClosed) {
 		failSocksConnectionClosed(connection)
-		return transports.ErrTunnelClosed
 	}
-	return nil
+	return err
 }
 
 // sendTerminal serializes the terminal with every accepted outbound payload.
@@ -737,11 +691,15 @@ func (s *socksTunnelState) sendTerminal(connection *transports.Connection, tunne
 }
 
 func sendSocksTerminal(connection *transports.Connection, tunnelID uint64, sequence uint64) error {
-	data, err := proto.Marshal(&sliverpb.SocksData{
+	return sendSocksEnvelope(connection, &sliverpb.SocksData{
 		TunnelID:  tunnelID,
 		CloseConn: true,
 		Sequence:  sequence,
 	})
+}
+
+func sendSocksEnvelope(connection *transports.Connection, message *sliverpb.SocksData) error {
+	data, err := proto.Marshal(message)
 	if err != nil {
 		return err
 	}
@@ -876,14 +834,6 @@ func (s *socks) SetWriteDeadline(_ time.Time) error {
 	return nil
 }
 
-func (s *socksTunnelPool) loadOrCreate(tunnelID uint64, owner ...<-chan struct{}) (*socksTunnelState, bool) {
-	var ownerDone <-chan struct{}
-	if len(owner) > 0 {
-		ownerDone = owner[0]
-	}
-	return s.loadOrCreateOwned(tunnelID, ownerDone, nil)
-}
-
 func (s *socksTunnelPool) loadOrCreateForConnection(tunnelID uint64, connection *transports.Connection) (*socksTunnelState, bool) {
 	var ownerDone <-chan struct{}
 	if connection != nil {
@@ -936,16 +886,6 @@ func (s *socksTunnelPool) loadOrCreateOwned(tunnelID uint64, ownerDone <-chan st
 	s.active++
 	tunnel.start()
 	return tunnel, true
-}
-
-func (s *socksTunnelPool) close(tunnelID uint64) bool {
-	s.mutex.Lock()
-	tunnel, ok := s.tunnels[tunnelID]
-	s.mutex.Unlock()
-	if !ok {
-		return false
-	}
-	return tunnel.close()
 }
 
 func (s *socksTunnelPool) release(_ uint64, tunnel *socksTunnelState) {
@@ -1039,11 +979,6 @@ func (s *socksTunnelPool) sendRejectedTerminal(connection *transports.Connection
 	default:
 		return false
 	}
-}
-
-func (s *socksTunnelState) submit(frame socksTunnelFrame) bool {
-	accepted, _ := s.submitForServer(frame)
-	return accepted
 }
 
 //nolint:gocyclo // Validation and actor publication are one atomic admission contract.
@@ -1400,15 +1335,6 @@ func (s *socksTunnelState) isClosed() bool {
 
 func (s *socksTunnelState) isGraceful() bool {
 	return s != nil && s.lifecycle.Load() == socksTunnelGraceful
-}
-
-func (s *socksTunnelState) read() ([]byte, error) {
-	frame, err := s.readFrame()
-	if err != nil {
-		return nil, err
-	}
-	s.release(frame)
-	return frame.data, nil
 }
 
 func (s *socksTunnelState) readFrame() (socksTunnelFrame, error) {

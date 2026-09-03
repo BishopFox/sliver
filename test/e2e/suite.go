@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -896,7 +897,12 @@ func (s *suite) runImplant(listener *listener, beacon bool) error {
 	s.t.Logf("Generating %s/%s %s %s implant over %s", s.opts.targetOS, s.opts.targetArch, mode, implantName, listener.transport)
 	generated, err := s.rpc.Generate(s.ctx, &clientpb.GenerateReq{Name: implantName, Config: config})
 	if err != nil {
-		return fmt.Errorf("generate %s: %w", implantName, err)
+		return fmt.Errorf(
+			"generate %s: %w\ncompiler stderr:\n%s",
+			implantName,
+			err,
+			readCompilerStderr(filepath.Join(s.serverRoot, "logs", "sliver.json")),
+		)
 	}
 	if generated.File == nil || generated.File.Name == "" || len(generated.File.Data) == 0 {
 		return fmt.Errorf("generate %s returned an empty executable", implantName)
@@ -1300,6 +1306,31 @@ func readLogTailBytes(path string, limit int64) string {
 		return fmt.Sprintf("(could not read %s: %v)", path, err)
 	}
 	return strings.TrimSpace(string(data))
+}
+
+func readCompilerStderr(path string) string {
+	type compilerLogEntry struct {
+		Message string `json:"msg"`
+		Package string `json:"pkg"`
+		Stream  string `json:"stream"`
+	}
+
+	const marker = "--- stderr ---"
+	diagnostics := ""
+	for _, line := range strings.Split(readLogTail(path), "\n") {
+		var entry compilerLogEntry
+		if json.Unmarshal([]byte(line), &entry) != nil || entry.Package != "gogo" || entry.Stream != "compiler" {
+			continue
+		}
+		message, found := strings.CutPrefix(entry.Message, marker)
+		if found && strings.TrimSpace(message) != "" {
+			diagnostics = strings.TrimSpace(message)
+		}
+	}
+	if diagnostics == "" {
+		return "(compiler stderr unavailable)"
+	}
+	return diagnostics
 }
 
 func runCommand(ctx context.Context, dir string, env []string, path string, args ...string) (string, error) {

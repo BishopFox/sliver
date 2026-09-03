@@ -50,6 +50,38 @@ const (
 	minTimeout = time.Duration(30 * time.Second)
 )
 
+type streamReceiver[T any] interface {
+	Recv() (T, error)
+}
+
+type streamReceiveResult[T any] struct {
+	data T
+	err  error
+}
+
+// receiveStreamFrames keeps Recv in exactly one goroutine while allowing a
+// relay-worker failure to cancel a handler whose peer is otherwise idle. The
+// gRPC runtime cancels a blocked Recv after the handler returns, so callers do
+// not join this pump with their relay-worker barrier.
+func receiveStreamFrames[T any](ctx context.Context, receiver streamReceiver[T]) <-chan streamReceiveResult[T] {
+	results := make(chan streamReceiveResult[T], 1)
+	go func() {
+		defer close(results)
+		for {
+			data, err := receiver.Recv()
+			select {
+			case results <- streamReceiveResult[T]{data: data, err: err}:
+			case <-ctx.Done():
+				return
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
+	return results
+}
+
 // Server - gRPC server
 type Server struct {
 	// Magical methods to break backwards compatibility

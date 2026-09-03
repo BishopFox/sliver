@@ -20,6 +20,73 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+func newSocksTunnelState(onClose ...func()) *socksTunnelState {
+	var callback func()
+	if len(onClose) > 0 {
+		callback = onClose[0]
+	}
+	return newOwnedSocksTunnelState(nil, callback)
+}
+
+func newOwnedSocksTunnelState(ownerDone <-chan struct{}, onClose func()) *socksTunnelState {
+	return newOwnedSocksTunnelStateWithWindow(ownerDone, onClose, socksTunnelCloseReorderWindow)
+}
+
+func newOwnedSocksTunnelStateWithWindow(ownerDone <-chan struct{}, onClose func(), closeWindow time.Duration) *socksTunnelState {
+	tunnel := newUnstartedSocksTunnelState(ownerDone, onClose, closeWindow)
+	tunnel.start()
+	return tunnel
+}
+
+func newSocksServer(username string, password string, owner ...<-chan struct{}) *socks5.Server {
+	var ownerDone <-chan struct{}
+	if len(owner) > 0 {
+		ownerDone = owner[0]
+	}
+	return newSocksServerWithLifecycle(username, password, ownerDone, nil)
+}
+
+func (s *socksTunnelState) isFlowControlEnabled() bool {
+	if s == nil {
+		return false
+	}
+	s.flowMutex.Lock()
+	defer s.flowMutex.Unlock()
+	return s.flowEnabled
+}
+
+func (s *socksTunnelPool) loadOrCreate(tunnelID uint64, owner ...<-chan struct{}) (*socksTunnelState, bool) {
+	var ownerDone <-chan struct{}
+	if len(owner) > 0 {
+		ownerDone = owner[0]
+	}
+	return s.loadOrCreateOwned(tunnelID, ownerDone, nil)
+}
+
+func (s *socksTunnelPool) close(tunnelID uint64) bool {
+	s.mutex.Lock()
+	tunnel, ok := s.tunnels[tunnelID]
+	s.mutex.Unlock()
+	if !ok {
+		return false
+	}
+	return tunnel.close()
+}
+
+func (s *socksTunnelState) submit(frame socksTunnelFrame) bool {
+	accepted, _ := s.submitForServer(frame)
+	return accepted
+}
+
+func (s *socksTunnelState) read() ([]byte, error) {
+	frame, err := s.readFrame()
+	if err != nil {
+		return nil, err
+	}
+	s.release(frame)
+	return frame.data, nil
+}
+
 func FuzzSocks5ParseRequest(f *testing.F) {
 	f.Add([]byte{0x05, statute.CommandConnect, 0x00, statute.ATYPIPv4, 127, 0, 0, 1, 0, 80})
 	f.Add([]byte{0x05, statute.CommandConnect, 0x00, statute.ATYPDomain, 9, 'l', 'o', 'c', 'a', 'l', 'h', 'o', 's', 't', 0, 80})
@@ -1975,7 +2042,7 @@ func TestSocksServerAuthenticationPolicySequentialIsolation(t *testing.T) {
 	}
 	for index, policy := range policies {
 		server := newSocksServer(policy.username, policy.password)
-		if err := probeSocksAuthenticationPolicy(server, policy); err != nil {
+		if err := probeSocksAuthenticationPolicy(server.ServeConn, policy); err != nil {
 			t.Fatalf("sequential policy %d: %v", index, err)
 		}
 	}
@@ -2001,7 +2068,7 @@ func TestSocksServerAuthenticationPolicyConcurrentIsolation(t *testing.T) {
 				}
 			}
 			server := newSocksServer(policy.username, policy.password)
-			if err := probeSocksAuthenticationPolicy(server, policy); err != nil {
+			if err := probeSocksAuthenticationPolicy(server.ServeConn, policy); err != nil {
 				errs <- fmt.Errorf("concurrent policy %d: %w", index, err)
 			}
 		}()
@@ -2069,9 +2136,7 @@ type socksAuthenticationPolicy struct {
 	wantMethod byte
 }
 
-func probeSocksAuthenticationPolicy(server interface {
-	ServeConn(net.Conn) error
-}, policy socksAuthenticationPolicy) (resultErr error) {
+func probeSocksAuthenticationPolicy(serveConn func(net.Conn) error, policy socksAuthenticationPolicy) (resultErr error) {
 	serverConnection, clientConnection := net.Pipe()
 	deadline := time.Now().Add(2 * time.Second)
 	if err := serverConnection.SetDeadline(deadline); err != nil {
@@ -2082,7 +2147,7 @@ func probeSocksAuthenticationPolicy(server interface {
 	}
 	serverDone := make(chan error, 1)
 	go func() {
-		serverDone <- server.ServeConn(serverConnection)
+		serverDone <- serveConn(serverConnection)
 	}()
 	defer func() {
 		_ = clientConnection.Close()

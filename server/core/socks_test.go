@@ -467,6 +467,19 @@ func TestSocksFrameQueueIgnoresStaleReplayAndDropsRequestMetadata(t *testing.T) 
 	}
 }
 
+func TestSocksFrameQueueCompletionUsesAdmissionSize(t *testing.T) {
+	queue := newSocksFrameQueue(1, 4)
+	if err := queue.admit(22, &sliverpb.SocksData{Data: []byte("four")}); err != nil {
+		t.Fatalf("admit frame: %v", err)
+	}
+	frame := <-queue.ready
+	frame.Data = frame.Data[:1]
+	queue.complete(frame)
+	if _, frames, size := queue.snapshot(); frames != 0 || size != 0 {
+		t.Fatalf("mutated completed frame retained reservation: frames=%d bytes=%d", frames, size)
+	}
+}
+
 func TestSocksFrameQueueBoundsFrameCountAndBytes(t *testing.T) {
 	if MaxSocksFrameBytes != 64*1024 || maxSocksPendingFrames != 128 || maxSocksPendingBytes != 8*1024*1024 {
 		t.Fatalf("SOCKS framing limits = payload:%d frames:%d bytes:%d", MaxSocksFrameBytes, maxSocksPendingFrames, maxSocksPendingBytes)

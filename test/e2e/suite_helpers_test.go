@@ -338,3 +338,24 @@ func TestReadLogTailBytesIsBoundedAndReturnsSuffix(t *testing.T) {
 		t.Fatalf("log tail got %q, want suffix marker", tail)
 	}
 }
+
+func TestReadCompilerStderrReturnsLatestCompilerMessageOnly(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "sliver.json")
+	content := strings.Join([]string{
+		`{"msg":"TOKEN=do-not-return","pkg":"gogo","stream":"compiler"}`,
+		`{"msg":"--- stderr ---\nfirst.go:1: first failure\n","pkg":"gogo","stream":"compiler"}`,
+		`{"msg":"unrelated","pkg":"generate","stream":"build"}`,
+		`{"msg":"--- stderr ---\nsecond.go:2: second failure\n","pkg":"gogo","stream":"compiler"}`,
+	}, "\n")
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	diagnostics := readCompilerStderr(path)
+	if got, want := diagnostics, "second.go:2: second failure"; got != want {
+		t.Fatalf("compiler stderr got %q, want %q", got, want)
+	}
+	if strings.Contains(diagnostics, "TOKEN") || strings.Contains(diagnostics, "first failure") {
+		t.Fatalf("compiler stderr included unrelated log content: %q", diagnostics)
+	}
+}

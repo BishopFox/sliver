@@ -54,6 +54,13 @@ type SocksProxyMeta struct {
 	Username  string
 	Password  string
 }
+
+type socksConnectionState struct {
+	conn     net.Conn
+	receiver *socksReceiveQueue
+	flow     *socksSendFlow
+}
+
 type TcpProxy struct {
 	Rpc     rpcpb.SliverRPCClient
 	Session *clientpb.Session
@@ -66,9 +73,7 @@ type TcpProxy struct {
 	DialTimeout     time.Duration
 
 	connectionsMu  sync.Mutex
-	connections    map[uint64]net.Conn
-	receivers      map[uint64]*socksReceiveQueue
-	sendFlows      map[uint64]*socksSendFlow
+	connections    map[uint64]socksConnectionState
 	lifecycleCtx   context.Context
 	lifecycleStop  context.CancelFunc
 	started        bool
@@ -121,13 +126,9 @@ func (tcp *TcpProxy) beginStop() {
 		tcp.stopped = true
 		lifecycleStop := tcp.lifecycleStop
 		connections := tcp.connections
-		receivers := tcp.receivers
-		sendFlows := tcp.sendFlows
 		tcp.connections = nil
-		tcp.receivers = nil
-		tcp.sendFlows = nil
-		for tunnelID, connection := range connections {
-			SocksConnPool.CompareAndDelete(tunnelID, connection)
+		for tunnelID, state := range connections {
+			SocksConnPool.CompareAndDelete(tunnelID, state.conn)
 		}
 		tcp.connectionsMu.Unlock()
 
@@ -137,14 +138,14 @@ func (tcp *TcpProxy) beginStop() {
 		if tcp.Listener != nil {
 			tcp.stopErr = tcp.Listener.Close()
 		}
-		for _, receiver := range receivers {
-			receiver.stop()
+		for _, state := range connections {
+			state.receiver.stop()
 		}
-		for _, flow := range sendFlows {
-			flow.close()
+		for _, state := range connections {
+			state.flow.close()
 		}
-		for _, connection := range connections {
-			_ = connection.Close()
+		for _, state := range connections {
+			_ = state.conn.Close()
 		}
 	})
 }
@@ -171,99 +172,93 @@ func (tcp *TcpProxy) addConnection(tunnelID uint64, connection net.Conn) bool {
 		return false
 	}
 	if tcp.connections == nil {
-		tcp.connections = map[uint64]net.Conn{}
+		tcp.connections = map[uint64]socksConnectionState{}
 	}
 	if _, exists := tcp.connections[tunnelID]; exists {
 		tcp.connectionsMu.Unlock()
 		_ = connection.Close()
 		return false
 	}
-	if tcp.receivers == nil {
-		tcp.receivers = map[uint64]*socksReceiveQueue{}
+	state := socksConnectionState{
+		conn:     connection,
+		receiver: newSocksReceiveQueue(connection, socksReceiveFrameLimit, socksReceiveByteLimit),
+		flow:     newSocksSendFlow(),
 	}
-	if tcp.sendFlows == nil {
-		tcp.sendFlows = map[uint64]*socksSendFlow{}
-	}
-	receiver := newSocksReceiveQueue(connection, socksReceiveFrameLimit, socksReceiveByteLimit)
-	flow := newSocksSendFlow()
-	tcp.connections[tunnelID] = connection
-	tcp.receivers[tunnelID] = receiver
-	tcp.sendFlows[tunnelID] = flow
+	tcp.connections[tunnelID] = state
 	tcp.deliveryWG.Add(1)
 	// Retain the process-wide map for compatibility with ResetClientState. All
 	// proxy routing and stop behavior is scoped through tcp.connections.
 	SocksConnPool.Store(tunnelID, connection)
 	tcp.connectionsMu.Unlock()
 
-	go tcp.runReceiveQueue(tunnelID, connection, receiver, flow)
+	go tcp.runReceiveQueue(tunnelID, state)
 	return true
 }
 
 func (tcp *TcpProxy) getConnection(tunnelID uint64) (net.Conn, bool) {
-	tcp.connectionsMu.Lock()
-	defer tcp.connectionsMu.Unlock()
-	connection, ok := tcp.connections[tunnelID]
-	return connection, ok
-}
-
-func (tcp *TcpProxy) removeConnection(tunnelID uint64, expected net.Conn) (net.Conn, bool) {
-	tcp.connectionsMu.Lock()
-	connection, ok := tcp.connections[tunnelID]
-	if !ok || (expected != nil && connection != expected) {
-		tcp.connectionsMu.Unlock()
+	state, ok := tcp.getConnectionState(tunnelID, nil)
+	if !ok {
 		return nil, false
 	}
+	return state.conn, true
+}
+
+func (tcp *TcpProxy) getConnectionState(tunnelID uint64, expected net.Conn) (socksConnectionState, bool) {
+	tcp.connectionsMu.Lock()
+	defer tcp.connectionsMu.Unlock()
+	state, ok := tcp.connections[tunnelID]
+	if !ok || (expected != nil && state.conn != expected) {
+		return socksConnectionState{}, false
+	}
+	return state, true
+}
+
+func (tcp *TcpProxy) removeConnection(tunnelID uint64, expected net.Conn) bool {
+	tcp.connectionsMu.Lock()
+	state, ok := tcp.connections[tunnelID]
+	if !ok || (expected != nil && state.conn != expected) {
+		tcp.connectionsMu.Unlock()
+		return false
+	}
 	delete(tcp.connections, tunnelID)
-	receiver := tcp.receivers[tunnelID]
-	delete(tcp.receivers, tunnelID)
-	flow := tcp.sendFlows[tunnelID]
-	delete(tcp.sendFlows, tunnelID)
-	SocksConnPool.CompareAndDelete(tunnelID, connection)
+	SocksConnPool.CompareAndDelete(tunnelID, state.conn)
 	tcp.connectionsMu.Unlock()
 
-	if receiver != nil {
-		receiver.stop()
-	}
-	if flow != nil {
-		flow.close()
-	}
-	_ = connection.Close()
-	if receiver != nil {
-		receiver.wait()
-	}
-	return connection, true
+	state.receiver.stop()
+	state.flow.close()
+	_ = state.conn.Close()
+	state.receiver.wait()
+	return true
 }
 
 func (tcp *TcpProxy) getReceiveQueue(tunnelID uint64) (net.Conn, *socksReceiveQueue, bool) {
-	tcp.connectionsMu.Lock()
-	defer tcp.connectionsMu.Unlock()
-	connection, ok := tcp.connections[tunnelID]
+	state, ok := tcp.getConnectionState(tunnelID, nil)
 	if !ok {
 		return nil, nil, false
 	}
-	receiver := tcp.receivers[tunnelID]
-	return connection, receiver, receiver != nil
+	return state.conn, state.receiver, true
 }
 
 func (tcp *TcpProxy) getSendFlow(tunnelID uint64) (*socksSendFlow, bool) {
-	tcp.connectionsMu.Lock()
-	defer tcp.connectionsMu.Unlock()
-	flow, ok := tcp.sendFlows[tunnelID]
-	return flow, ok && flow != nil
+	state, ok := tcp.getConnectionState(tunnelID, nil)
+	if !ok {
+		return nil, false
+	}
+	return state.flow, true
 }
 
-func (tcp *TcpProxy) runReceiveQueue(tunnelID uint64, connection net.Conn, receiver *socksReceiveQueue, flow *socksSendFlow) {
+func (tcp *TcpProxy) runReceiveQueue(tunnelID uint64, state socksConnectionState) {
 	defer tcp.deliveryWG.Done()
-	defer receiver.finish()
+	defer state.receiver.finish()
 	// An inbound terminal, local write failure, or acknowledgement-send failure
 	// ends both halves of this exact tunnel. Wake an outbound sender that may be
 	// blocked at the negotiated credit limit before closing its local socket.
-	err := receiver.run()
-	flow.close()
+	err := state.receiver.run()
+	state.flow.close()
 	if err != nil && !errors.Is(err, net.ErrClosed) {
 		log.Printf("[socks] failed to deliver tunnel %d data: %s", tunnelID, err)
 	}
-	_ = connection.Close()
+	_ = state.conn.Close()
 }
 
 func (tcp *TcpProxy) startReceiveLoop(stream socksDataReceiver) bool {
@@ -450,7 +445,6 @@ type socksReceiveQueue struct {
 	done       chan struct{}
 	finished   chan struct{}
 	stopOnce   sync.Once
-	finishOnce sync.Once
 
 	mu            sync.Mutex
 	stopped       bool
@@ -614,9 +608,8 @@ func (receiver *socksReceiveQueue) stop() {
 }
 
 func (receiver *socksReceiveQueue) finish() {
-	receiver.finishOnce.Do(func() {
-		close(receiver.finished)
-	})
+	// The one goroutine that calls run owns this completion signal.
+	close(receiver.finished)
 }
 
 func (receiver *socksReceiveQueue) wait() {
@@ -815,34 +808,30 @@ func isCanonicalSocksAcknowledgement(data *sliverpb.SocksData) bool {
 		data.Request == nil
 }
 
-func (tcp *TcpProxy) receiveSocksAcknowledgement(data *sliverpb.SocksData, connection net.Conn) {
+func (tcp *TcpProxy) receiveSocksAcknowledgement(data *sliverpb.SocksData, state socksConnectionState) {
 	if !isCanonicalSocksAcknowledgement(data) {
 		log.Printf("[socks] closing tunnel %d after malformed acknowledgement", data.TunnelID)
-		tcp.removeConnection(data.TunnelID, connection)
+		tcp.removeConnection(data.TunnelID, state.conn)
 		return
 	}
-	flow, exists := tcp.getSendFlow(data.TunnelID)
-	if !exists {
-		return
-	}
-	if err := flow.acknowledge(data.Ack); err != nil {
+	if err := state.flow.acknowledge(data.Ack); err != nil {
 		log.Printf("[socks] closing tunnel %d after invalid acknowledgement: %s", data.TunnelID, err)
-		tcp.removeConnection(data.TunnelID, connection)
+		tcp.removeConnection(data.TunnelID, state.conn)
 	}
 }
 
 func (tcp *TcpProxy) receiveSocksFrame(data *sliverpb.SocksData) {
-	connection, receiver, ok := tcp.getReceiveQueue(data.TunnelID)
+	state, ok := tcp.getConnectionState(data.TunnelID, nil)
 	if !ok {
 		return
 	}
 	if data.Ack != 0 {
-		tcp.receiveSocksAcknowledgement(data, connection)
+		tcp.receiveSocksAcknowledgement(data, state)
 		return
 	}
 	if data.Capabilities != 0 {
 		log.Printf("[socks] closing tunnel %d after unexpected capability metadata", data.TunnelID)
-		tcp.removeConnection(data.TunnelID, connection)
+		tcp.removeConnection(data.TunnelID, state.conn)
 		return
 	}
 	log.Printf(
@@ -852,11 +841,9 @@ func (tcp *TcpProxy) receiveSocksFrame(data *sliverpb.SocksData) {
 		len(data.Data),
 		data.CloseConn,
 	)
-	if err := receiver.admit(data); err != nil {
+	if err := state.receiver.admit(data); err != nil {
 		log.Printf("[socks] closing tunnel %d after receive admission failed: %s", data.TunnelID, err)
-		if owned, removed := tcp.removeConnection(data.TunnelID, connection); removed {
-			_ = owned.Close()
-		}
+		tcp.removeConnection(data.TunnelID, state.conn)
 	}
 }
 
@@ -973,9 +960,7 @@ func socksFrameSessionID(frame *sliverpb.SocksData) string {
 }
 
 func closeSocksConnection(tcpProxy *TcpProxy, tunnelID uint64, connection net.Conn) {
-	if owned, ok := tcpProxy.removeConnection(tunnelID, connection); ok {
-		_ = owned.Close()
-	} else {
+	if !tcpProxy.removeConnection(tunnelID, connection) {
 		_ = connection.Close()
 	}
 	log.Printf("[socks] connection closed")
@@ -1114,12 +1099,11 @@ func connect(tcpProxy *TcpProxy, conn net.Conn, stream *serializedSocksStream, f
 	}
 	// Close and remove this proxy's connection once the tunnel is done.
 	defer closeSocksConnection(tcpProxy, frame.TunnelID, conn)
-	flow, hasFlow := tcpProxy.getSendFlow(frame.TunnelID)
-	_, receiver, hasReceiver := tcpProxy.getReceiveQueue(frame.TunnelID)
-	if !hasFlow || !hasReceiver {
+	state, ok := tcpProxy.getConnectionState(frame.TunnelID, conn)
+	if !ok {
 		return
 	}
-	if err := enableSocksFlowControl(flow, receiver, stream, frame, sessionID); err != nil {
+	if err := enableSocksFlowControl(state.flow, state.receiver, stream, frame, sessionID); err != nil {
 		log.Printf("[socks] failed to enable flow control for tunnel %d: %s", frame.TunnelID, err)
 		return
 	}
@@ -1134,6 +1118,6 @@ func connect(tcpProxy *TcpProxy, conn net.Conn, stream *serializedSocksStream, f
 	}
 
 	log.Printf("tcp conn %q<--><-->%q \n", conn.LocalAddr(), conn.RemoteAddr())
-	toImplantSequence := relaySocksConnection(conn, stream, frame, flow, sessionID)
+	toImplantSequence := relaySocksConnection(conn, stream, frame, state.flow, sessionID)
 	terminalSent = sendSocksTerminal(stream, frame, sessionID, toImplantSequence)
 }

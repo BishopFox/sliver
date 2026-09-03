@@ -171,19 +171,6 @@ func (p *ChannelProxy) HandleConn(conn net.Conn) {
 	if err != nil {
 		return
 	}
-	relayDone := make(chan struct{})
-	defer close(relayDone)
-	go func() {
-		select {
-		case <-tunnel.receiveFailed():
-			// A receive-overflow close normally allows queued final frames to
-			// drain. That is unsafe for a port forward whose local peer stopped
-			// reading: close the accepted socket so both copy loops wake and the
-			// bounded remote cleanup below can run.
-			_ = conn.Close()
-		case <-relayDone:
-		}
-	}()
 
 	errs := make(chan error, 2)
 	copyWG := sync.WaitGroup{}
@@ -197,9 +184,19 @@ func (p *ChannelProxy) HandleConn(conn net.Conn) {
 		errs <- fromImplantLoop(conn, tunnel)
 	}()
 
-	// The first completed direction owns shutdown. Closing both endpoints wakes
-	// the peer direction; join it before allowing this handler to finish.
-	err = <-errs
+	// The first completed direction or a receive-admission failure owns shutdown.
+	// Closing both endpoints wakes the peer direction; join it before allowing
+	// this handler to finish.
+	select {
+	case err = <-errs:
+	case <-tunnel.receiveFailed():
+		// A receive-overflow close normally allows queued final frames to
+		// drain. That is unsafe for a port forward whose local peer stopped
+		// reading: close the accepted socket so both copy loops wake and the
+		// bounded remote cleanup below can run.
+		_ = conn.Close()
+		err = <-errs
+	}
 	if err != nil {
 		log.Printf("[tcpproxy] Closing tunnel %d with error %s", tunnel.ID, err)
 	}

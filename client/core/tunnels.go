@@ -148,40 +148,36 @@ func (t *tunnels) Start(tunnelID uint64, sessionID string) *TunnelIO {
 		log.Printf("Tunnel now is open, %d", tunnelID)
 
 		for {
+			var (
+				data   []byte
+				result chan error
+			)
 			select {
 			case <-tunnel.Done():
 				log.Printf("Tunnel send loop stopped. %d", tunnelID)
 				return
 			case request := <-tunnel.writeRequests:
-				log.Printf("Send %d bytes on tunnel %d", len(request.data), tunnel.ID)
+				data = request.data
+				result = request.result
+			case data = <-tunnel.Send:
+			}
 
-				err := t.send(tunnel, &sliverpb.TunnelData{
-					TunnelID:  tunnel.ID,
-					SessionID: tunnel.SessionID,
-					Data:      request.data,
-				})
+			log.Printf("Send %d bytes on tunnel %d", len(data), tunnel.ID)
+			err := t.send(tunnel, &sliverpb.TunnelData{
+				TunnelID:  tunnel.ID,
+				SessionID: tunnel.SessionID,
+				Data:      data,
+			})
+			if result != nil {
 				// The result channel is buffered so a concurrent Close can wake the
-				// writer without stranding this exact-generation send loop.
-				request.result <- err
-				if err != nil {
-					log.Printf("Error sending, %s", err)
-					t.CloseIf(tunnel)
-					return
-				}
-			case data := <-tunnel.Send:
-				log.Printf("Send %d bytes on tunnel %d", len(data), tunnel.ID)
-
-				err := t.send(tunnel, &sliverpb.TunnelData{
-					TunnelID:  tunnel.ID,
-					SessionID: tunnel.SessionID,
-					Data:      data,
-				})
-
-				if err != nil {
-					log.Printf("Error sending, %s", err)
-					t.CloseIf(tunnel)
-					return
-				}
+				// writer without stranding this exact-generation send loop. Publish
+				// the result before closing the tunnel on failure.
+				result <- err
+			}
+			if err != nil {
+				log.Printf("Error sending, %s", err)
+				t.CloseIf(tunnel)
+				return
 			}
 		}
 	}(tunnel)

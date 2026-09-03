@@ -2029,7 +2029,11 @@ func TestSocksReceiveTerminalWakesFullOutboundFlowWindow(t *testing.T) {
 
 	proxy := &TcpProxy{}
 	proxy.deliveryWG.Add(1)
-	go proxy.runReceiveQueue(0x51ee, connection, receiver, flow)
+	go proxy.runReceiveQueue(0x51ee, socksConnectionState{
+		conn:     connection,
+		receiver: receiver,
+		flow:     flow,
+	})
 	if err := receiver.admit(&sliverpb.SocksData{CloseConn: true}); err != nil {
 		t.Fatalf("admit inbound terminal: %v", err)
 	}
