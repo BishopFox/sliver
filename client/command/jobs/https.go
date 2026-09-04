@@ -41,6 +41,7 @@ func HTTPSListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 	website, _ := cmd.Flags().GetString("website")
 	letsEncrypt, _ := cmd.Flags().GetBool("lets-encrypt")
 	disableRandomize, _ := cmd.Flags().GetBool("disable-randomized-jarm")
+	disableConsoleLog, _ := cmd.Flags().GetBool("disable-console-log")
 
 	longPollTimeout, err := time.ParseDuration(pollTimeout)
 	if err != nil {
@@ -74,6 +75,7 @@ func HTTPSListenerCmd(cmd *cobra.Command, con *console.SliverClient, args []stri
 		LongPollTimeout: int64(longPollTimeout),
 		LongPollJitter:  int64(longPollJitter),
 		RandomizeJARM:   !disableRandomize,
+		EnforceConLog:   !disableConsoleLog,
 	})
 	con.Println()
 	if err != nil {

@@ -67,6 +67,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	flags.Bind("mTLS listener", false, mtlsCmd, func(f *pflag.FlagSet) {
 		f.StringP("lhost", "L", "", "interface to bind server to")
 		f.Uint32P("lport", "l", generate.DefaultMTLSLPort, "tcp listen port")
+		f.BoolP("disable-console-log", "C", false, "disable console log of incoming connections")
 	})
 
 	// Wireguard
@@ -121,6 +122,7 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.BoolP("disable-otp", "D", false, "disable otp authentication")
 		f.StringP("long-poll-timeout", "T", "1s", "server-side long poll timeout")
 		f.StringP("long-poll-jitter", "J", "2s", "server-side long poll jitter")
+		f.BoolP("disable-console-log", "C", false, "disable console log of http requests")
 	})
 	flags.BindFlagCompletions(httpCmd, func(comp *carapace.ActionMap) {
 		(*comp)["website"] = WebsiteNameCompleter(con)
@@ -150,6 +152,8 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.StringP("key", "k", "", "PEM encoded private key file")
 		f.BoolP("lets-encrypt", "e", false, "attempt to provision a let's encrypt certificate")
 		f.BoolP("disable-randomized-jarm", "E", false, "disable randomized jarm fingerprints")
+
+		f.BoolP("disable-console-log", "C", false, "disable console log of https requests")
 	})
 	flags.BindFlagCompletions(httpsCmd, func(comp *carapace.ActionMap) {
 		(*comp)["website"] = WebsiteNameCompleter(con)
