@@ -198,14 +198,29 @@ func appendToLDFlags(ldflags []string, extra string) []string {
 	return []string{joined}
 }
 
+const nonDebugImplantLDFlags = "-s -w -buildid="
+
+func implantLDFlags(config *clientpb.ImplantConfig) []string {
+	if config.Debug {
+		return nil
+	}
+
+	ldflags := []string{nonDebugImplantLDFlags}
+	if config.GOOS == WINDOWS {
+		ldflags = appendToLDFlags(ldflags, "-H=windowsgui")
+	}
+	return ldflags
+}
+
 const linuxShellcodeBuildIDLDFlag = "-extldflags=-Wl,--build-id"
 
 func applyLinuxShellcodeBuildID(ldflags []string) []string {
-	// Garble removes Go's build ID. With Go 1.27, a native GNU c-shared link
-	// then has neither PT_NOTE nor PT_PHDR, leaving Malasada one program header
-	// short when it adds its entry stub, interpreter, and PT_PHDR. Ask the
-	// external linker for its own build-id note so Malasada has a PT_NOTE to
-	// repurpose without changing implant source or Malasada's conversion logic.
+	// Release builds remove Go's build ID, and Garble does the same. With Go
+	// 1.27, a native GNU c-shared link then has neither PT_NOTE nor PT_PHDR,
+	// leaving Malasada one program header short when it adds its entry stub,
+	// interpreter, and PT_PHDR. Ask the external linker for its own build-id note
+	// so Malasada has a PT_NOTE to repurpose without changing implant source or
+	// Malasada's conversion logic.
 	return appendToLDFlags(ldflags, linuxShellcodeBuildIDLDFlag)
 }
 
@@ -400,7 +415,7 @@ func linuxShellcode(name string, build *clientpb.ImplantBuild, config *clientpb.
 	if config.NetGoEnabled {
 		tags = append(tags, "netgo")
 	}
-	ldflags := []string{""} // Garble will automatically add "-s -w -buildid="
+	ldflags := implantLDFlags(config)
 	ldflags = applyLinuxShellcodeBuildID(ldflags)
 	ldflags, wantStaticSO := applyZigStaticLinking(goConfig, "c-shared", ldflags)
 	gcFlags := ""
@@ -488,7 +503,7 @@ func darwinShellcode(name string, build *clientpb.ImplantBuild, config *clientpb
 	if config.NetGoEnabled {
 		tags = append(tags, "netgo")
 	}
-	ldflags := []string{""} // Garble will automatically add "-s -w -buildid="
+	ldflags := implantLDFlags(config)
 	// Keep those for potential later use
 	gcFlags := ""
 	asmFlags := ""
@@ -564,10 +579,7 @@ func windowsShellcode(name string, build *clientpb.ImplantBuild, config *clientp
 	if config.NetGoEnabled {
 		tags = append(tags, "netgo")
 	}
-	ldflags := []string{""} // Garble will automatically add "-s -w -buildid="
-	if !config.Debug && goConfig.GOOS == WINDOWS {
-		ldflags[0] += " -H=windowsgui"
-	}
+	ldflags := implantLDFlags(config)
 	// Keep those for potential later use
 	gcFlags := ""
 	asmFlags := ""
@@ -645,11 +657,8 @@ func SliverSharedLibrary(name string, build *clientpb.ImplantBuild, config *clie
 	if config.NetGoEnabled {
 		tags = append(tags, "netgo")
 	}
-	ldflags := []string{""} // Garble will automatically add "-s -w -buildid="
+	ldflags := implantLDFlags(config)
 	ldflags, wantStaticSO := applyZigStaticLinking(goConfig, "c-shared", ldflags)
-	if !config.Debug && goConfig.GOOS == WINDOWS {
-		ldflags[0] += " -H=windowsgui"
-	}
 
 	// Keep those for potential later use
 	gcFlags := ""
@@ -750,7 +759,7 @@ func SliverArchive(name string, build *clientpb.ImplantBuild, config *clientpb.I
 	if config.NetGoEnabled {
 		tags = append(tags, "netgo")
 	}
-	ldflags := []string{""} // Garble will automatically add "-s -w -buildid="
+	ldflags := implantLDFlags(config)
 
 	// Keep those for potential later use
 	gcFlags := ""
@@ -807,15 +816,11 @@ func SliverExecutable(name string, build *clientpb.ImplantBuild, config *clientp
 	if config.NetGoEnabled {
 		tags = append(tags, "netgo")
 	}
-	ldflags := []string{""} // Garble will automatically add "-s -w -buildid="
-	if !config.Debug && goConfig.GOOS == WINDOWS {
-		ldflags[0] += " -H=windowsgui"
-	}
+	ldflags := implantLDFlags(config)
 	gcFlags := ""
 	asmFlags := ""
 	if config.Debug {
 		gcFlags = "all=-N -l"
-		ldflags = []string{}
 	}
 	_, err = gogo.GoBuild(*goConfig, pkgPath, dest, "", tags, ldflags, gcFlags, asmFlags)
 	if err != nil {

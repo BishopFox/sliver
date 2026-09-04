@@ -87,8 +87,8 @@ func TestWithDarwinNoCGOLinknameCompatibility(t *testing.T) {
 		{
 			name:    "darwin arm64 preserves existing flags",
 			config:  GoConfig{GOOS: "darwin", GOARCH: "arm64", CGO: "0"},
-			ldflags: []string{"-s -w"},
-			want:    []string{"-s -w " + darwinNoCGOCheckLinknameLDFlag},
+			ldflags: []string{"-s -w -buildid="},
+			want:    []string{"-s -w -buildid= " + darwinNoCGOCheckLinknameLDFlag},
 		},
 		{
 			name:    "coalesces multiple linker flag arguments",
