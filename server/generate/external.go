@@ -19,6 +19,8 @@ package generate
 */
 
 import (
+	"fmt"
+
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
@@ -26,6 +28,11 @@ import (
 
 // SliverExternal - Generates the cryptographic keys for the implant but compiles no code
 func SliverExternal(name string, config *clientpb.ImplantConfig) (*clientpb.ExternalImplantConfig, error) {
+	config, sourceProfileID, err := NewImplantConfigSnapshot(config)
+	if err != nil {
+		return nil, err
+	}
+
 	config.IncludeMTLS = config.IncludeMTLS || models.IsC2Enabled([]string{"mtls"}, config.C2)
 	config.IncludeWG = config.IncludeWG || models.IsC2Enabled([]string{"wg"}, config.C2)
 	config.IncludeHTTP = config.IncludeHTTP || models.IsC2Enabled([]string{"http", "https"}, config.C2)
@@ -55,14 +62,22 @@ func SliverExternal(name string, config *clientpb.ImplantConfig) (*clientpb.Exte
 	if err != nil {
 		return nil, err
 	}
-	config, err = db.SaveImplantConfig(config)
+	config, err = db.CreateImplantConfigWithID(config)
 	if err != nil {
 		return nil, err
 	}
 
 	build.ImplantConfigID = config.ID
-	implantBuild, err := db.SaveImplantBuild(build)
+	var implantBuild *clientpb.ImplantBuild
+	if sourceProfileID == "" {
+		implantBuild, err = db.SaveImplantBuild(build)
+	} else {
+		implantBuild, err = db.SaveImplantBuildWithSourceProfile(build, sourceProfileID)
+	}
 	if err != nil {
+		if cleanupErr := db.DeleteFailedImplantConfigSnapshot(config.ID); cleanupErr != nil {
+			return nil, fmt.Errorf("save external implant build: %w (failed to roll back config snapshot: %v)", err, cleanupErr)
+		}
 		return nil, err
 	}
 

@@ -220,6 +220,7 @@ message ImplantConfig {
   string Extension = 154;
   reserved 155;
   reserved "SpoofData";
+  ControlFlowPolicy ControlFlow = 156;
 
   repeated commonpb.File Assets = 200;
 }
@@ -387,6 +388,7 @@ message Compiler {
   repeated CompilerTarget Targets = 3;
   repeated CrossCompiler CrossCompilers = 4;
   repeated CompilerTarget UnsupportedTargets = 5;
+  repeated string Capabilities = 6;
 }
 
 message DeleteReq { string Name = 1; }
@@ -844,6 +846,7 @@ message Builder {
   repeated string Templates = 5;
   repeated CompilerTarget Targets = 6;
   repeated CrossCompiler CrossCompilers = 7;
+  repeated string Capabilities = 8;
 
 }
 
@@ -1474,6 +1477,13 @@ enum AIConversationEventType {
   AI_CONVERSATION_EVENT_TYPE_MESSAGE_STARTED = 6;
   AI_CONVERSATION_EVENT_TYPE_MESSAGE_UPDATED = 7;
   AI_CONVERSATION_EVENT_TYPE_MESSAGE_COMPLETED = 8;
+}
+
+// ControlFlowPolicy selects a server-defined Garble control-flow obfuscation
+// policy. Policy parameters are versioned so existing profiles remain stable.
+enum ControlFlowPolicy {
+  CONTROL_FLOW_DISABLED = 0;
+  CONTROL_FLOW_BALANCED_V1 = 1;
 }
 
 message AIContextWindowUsage {

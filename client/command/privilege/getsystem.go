@@ -28,6 +28,7 @@ import (
 	"github.com/bishopfox/sliver/client/console"
 	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
 )
 
@@ -52,6 +53,14 @@ func GetSystemCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	if config == nil {
 		con.PrintErrorf("Failed to derive active session config.\n")
 		return
+	}
+	builds, err := con.Rpc.ImplantBuilds(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		con.PrintErrorf("Failed to retrieve originating implant build %q: %v\n", session.Name, err)
+		return
+	}
+	if !applyGetSystemObfuscationPolicy(config, session.Name, builds) {
+		con.PrintWarnf("Originating implant build %q was not found; continuing with reconstructed legacy obfuscation settings.\n", session.Name)
 	}
 
 	/* If the HTTP C2 Config name is not defined, then put in the default value
@@ -92,6 +101,21 @@ func GetSystemCmd(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	} else {
 		PrintGetSystem(getSystem, con)
 	}
+}
+
+func applyGetSystemObfuscationPolicy(config *clientpb.ImplantConfig, implantName string, builds *clientpb.ImplantBuilds) bool {
+	if config == nil || builds == nil {
+		return false
+	}
+	originatingConfig, ok := builds.GetConfigs()[implantName]
+	if !ok || originatingConfig == nil {
+		return false
+	}
+
+	config.Debug = originatingConfig.Debug
+	config.ObfuscateSymbols = originatingConfig.ObfuscateSymbols
+	config.ControlFlow = originatingConfig.ControlFlow
+	return true
 }
 
 // PrintGetSystem - Print the results of get system

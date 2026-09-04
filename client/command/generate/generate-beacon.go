@@ -57,9 +57,11 @@ func GenerateBeaconCmd(cmd *cobra.Command, con *console.SliverClient, args []str
 		save, _ = os.Getwd()
 	}
 	if external, _ := cmd.Flags().GetBool("external-builder"); !external {
-		compile(name, config, spoofMetadata, save, con)
+		_, _ = compile(name, config, spoofMetadata, save, con)
 	} else {
-		externalBuild(name, config, spoofMetadata, save, con)
+		if _, err := externalBuild(name, config, spoofMetadata, save, con); err != nil {
+			con.PrintErrorf("%s\n", err)
+		}
 	}
 }
 
@@ -111,6 +113,9 @@ func applyGenerateBeaconForm(cmd *cobra.Command, result *forms.GenerateBeaconFor
 		return err
 	}
 	if err := cmd.Flags().Set("format", result.Format); err != nil {
+		return err
+	}
+	if err := cmd.Flags().Set("control-flow", result.ControlFlow); err != nil {
 		return err
 	}
 	name := strings.TrimSpace(result.Name)

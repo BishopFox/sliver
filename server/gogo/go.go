@@ -20,24 +20,34 @@ package gogo
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 
 	"github.com/bishopfox/sliver/server/assets"
 	"github.com/bishopfox/sliver/server/log"
+	utilAssets "github.com/bishopfox/sliver/util/assets"
 )
 
 const (
-	goDirName                      = "go"
-	darwinNoCGOCheckLinknameLDFlag = "-checklinkname=0"
+	goDirName                        = "go"
+	garbleExperimentalControlFlowEnv = "GARBLE_EXPERIMENTAL_CONTROLFLOW"
+	garbleDebugDirEnv                = "SLIVER_GARBLE_DEBUG_DIR"
+	garbleRandomSeedPrefix           = "-seed chosen at random: "
+	commandErrorOutputLimit          = 8 * 1024
+	darwinNoCGOCheckLinknameLDFlag   = "-checklinkname=0"
 )
 
 var (
-	gogoLog = log.NamedLogger("gogo", "compiler")
+	// ErrGarbleAssetVerification indicates that a control-flow build did not
+	// use the exact host Garble artifact pinned by Sliver.
+	ErrGarbleAssetVerification = errors.New("garble asset verification failed")
+	gogoLog                    = log.NamedLogger("gogo", "compiler")
 )
 
 // GoConfig - Env variables for Go compiler
@@ -56,8 +66,9 @@ type GoConfig struct {
 	HTTPPROXY  string
 	HTTPSPROXY string
 
-	Obfuscation bool
-	GOGARBLE    string
+	Obfuscation            bool
+	ObfuscationControlFlow bool
+	GOGARBLE               string
 }
 
 // GetGoRootDir - Get the path to GOROOT
@@ -110,6 +121,42 @@ func goToolPath(goRoot string, toolName string) string {
 	return filepath.Join(goRoot, "bin", goToolExecutableName(toolName, runtime.GOOS))
 }
 
+func envKeyEqual(first, second string) bool {
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(first, second)
+	}
+	return first == second
+}
+
+func setCommandEnv(env []string, name, value string) []string {
+	updated := make([]string, 0, len(env)+1)
+	for _, envVar := range env {
+		key, _, _ := strings.Cut(envVar, "=")
+		if envKeyEqual(key, name) {
+			continue
+		}
+		updated = append(updated, envVar)
+	}
+	return append(updated, fmt.Sprintf("%s=%s", name, value))
+}
+
+func setGoDebugSetting(settings, name, value string) string {
+	updated := make([]string, 0, strings.Count(settings, ",")+1)
+	for _, setting := range strings.Split(settings, ",") {
+		setting = strings.TrimSpace(setting)
+		if setting == "" {
+			continue
+		}
+		key, _, _ := strings.Cut(setting, "=")
+		if key == name {
+			continue
+		}
+		updated = append(updated, setting)
+	}
+	updated = append(updated, name+"="+value)
+	return strings.Join(updated, ",")
+}
+
 func buildCommandEnv(config GoConfig, extra map[string]string) []string {
 	goBinDir := ""
 	if strings.TrimSpace(config.GOROOT) != "" {
@@ -117,45 +164,125 @@ func buildCommandEnv(config GoConfig, extra map[string]string) []string {
 	}
 
 	env := append([]string{}, os.Environ()...)
-	overrides := []string{
-		fmt.Sprintf("CC=%s", config.CC),
-		fmt.Sprintf("CGO_ENABLED=%s", config.CGO),
+	overrides := []struct {
+		name  string
+		value string
+	}{
+		{name: "CC", value: config.CC},
+		{name: "CGO_ENABLED", value: config.CGO},
 		// GOROOT explicitly selects the compiler used for implant builds. Do not
 		// let a surrounding host module make that compiler switch toolchains.
-		"GOTOOLCHAIN=local",
-		fmt.Sprintf("GOOS=%s", config.GOOS),
-		fmt.Sprintf("GOARCH=%s", config.GOARCH),
-		fmt.Sprintf("GOROOT=%s", config.GOROOT),
-		fmt.Sprintf("GOPATH=%s", config.ProjectDir),
-		fmt.Sprintf("GOCACHE=%s", config.GOCACHE),
-		fmt.Sprintf("GOMODCACHE=%s", config.GOMODCACHE),
-		fmt.Sprintf("GOPROXY=%s", config.GOPROXY),
-		fmt.Sprintf("HTTP_PROXY=%s", config.HTTPPROXY),
-		fmt.Sprintf("HTTPS_PROXY=%s", config.HTTPSPROXY),
-		fmt.Sprintf("PATH=%s", joinPathList(goBinDir, assets.GetZigDir(), os.Getenv("PATH"))),
-		fmt.Sprintf("HOME=%s", getHomeDir()),
-	}
-	for name, value := range extra {
-		overrides = append(overrides, fmt.Sprintf("%s=%s", name, value))
+		{name: "GOTOOLCHAIN", value: "local"},
+		{name: "GOOS", value: config.GOOS},
+		{name: "GOARCH", value: config.GOARCH},
+		{name: "GOROOT", value: config.GOROOT},
+		{name: "GOPATH", value: config.ProjectDir},
+		{name: "GOCACHE", value: config.GOCACHE},
+		{name: "GOMODCACHE", value: config.GOMODCACHE},
+		{name: "GOPROXY", value: config.GOPROXY},
+		{name: "HTTP_PROXY", value: config.HTTPPROXY},
+		{name: "HTTPS_PROXY", value: config.HTTPSPROXY},
+		{name: "PATH", value: joinPathList(goBinDir, assets.GetZigDir(), os.Getenv("PATH"))},
+		{name: "HOME", value: getHomeDir()},
 	}
 
-	return append(env, overrides...)
+	extraNames := make([]string, 0, len(extra))
+	for name := range extra {
+		extraNames = append(extraNames, name)
+	}
+	sort.Strings(extraNames)
+	for _, name := range extraNames {
+		overrides = append(overrides, struct {
+			name  string
+			value string
+		}{name: name, value: extra[name]})
+	}
+
+	for _, override := range overrides {
+		env = setCommandEnv(env, override.name, override.value)
+	}
+	return env
+}
+
+func garbleCommandEnv(config GoConfig) []string {
+	controlFlow := "0"
+	if config.ObfuscationControlFlow {
+		controlFlow = "1"
+	}
+	return buildCommandEnv(config, map[string]string{
+		garbleExperimentalControlFlowEnv: controlFlow,
+		"GOGARBLE":                       config.GOGARBLE,
+		"GODEBUG":                        setGoDebugSetting(os.Getenv("GODEBUG"), "randautoseed", "0"),
+	})
+}
+
+func validateObfuscationConfig(config GoConfig) error {
+	if config.ObfuscationControlFlow && !config.Obfuscation {
+		return fmt.Errorf("control-flow obfuscation requires symbol obfuscation")
+	}
+	return nil
+}
+
+func garbleRandomSeed(stderr string) string {
+	for _, line := range strings.Split(stderr, "\n") {
+		if seed, ok := strings.CutPrefix(strings.TrimSpace(line), garbleRandomSeedPrefix); ok {
+			return strings.TrimSpace(seed)
+		}
+	}
+	return ""
+}
+
+func sanitizeCommandErrorOutput(output string) string {
+	output = strings.Map(func(character rune) rune {
+		switch character {
+		case '\n', '\r', '\t':
+			return character
+		default:
+			if character < 0x20 || character == 0x7f {
+				return -1
+			}
+			return character
+		}
+	}, strings.TrimSpace(output))
+	if len(output) <= commandErrorOutputLimit {
+		return output
+	}
+	headLength := commandErrorOutputLimit / 4
+	tailLength := commandErrorOutputLimit - headLength
+	return output[:headLength] + "\n... output truncated ...\n" + output[len(output)-tailLength:]
+}
+
+func garbleCommandError(err error, stderr string) error {
+	details := sanitizeCommandErrorOutput(stderr)
+	if details == "" {
+		return fmt.Errorf("garble command failed: %w", err)
+	}
+	return fmt.Errorf("garble command failed: %w: %s", err, details)
 }
 
 // GarbleCmd - Execute a go command
 func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
+	if err := validateObfuscationConfig(config); err != nil {
+		return nil, err
+	}
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
 	if _, ok := ValidCompilerTargets(config)[target]; !ok {
 		return nil, fmt.Errorf("%s", fmt.Sprintf("Invalid compiler target: %s", target))
 	}
 	garbleBinPath := goToolPath(config.GOROOT, "garble")
+	if config.ObfuscationControlFlow {
+		if err := utilAssets.VerifyGarbleBinary(garbleBinPath, runtime.GOOS, runtime.GOARCH); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrGarbleAssetVerification, err)
+		}
+	}
 	garbleFlags := []string{"-seed=random", "-literals", "-tiny"}
+	if debugDir := strings.TrimSpace(os.Getenv(garbleDebugDirEnv)); debugDir != "" {
+		garbleFlags = append(garbleFlags, "-debugdir="+debugDir)
+	}
 	command = append(garbleFlags, command...)
 	cmd := exec.Command(garbleBinPath, command...)
 	cmd.Dir = cwd
-	cmd.Env = buildCommandEnv(config, map[string]string{
-		"GOGARBLE": config.GOGARBLE,
-	})
+	cmd.Env = garbleCommandEnv(config)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -166,6 +293,9 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 	}
 	gogoLog.Infof("garble cmd: '%v'", cmd)
 	err := cmd.Run()
+	if seed := garbleRandomSeed(stderr.String()); seed != "" {
+		gogoLog.Infof("garble random seed: %s", seed)
+	}
 	if err != nil {
 		gogoLog.Debugf("--- env ---\n")
 		for _, envVar := range cmd.Env {
@@ -174,9 +304,10 @@ func GarbleCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 		gogoLog.Errorf("--- stdout ---\n%s\n", stdout.String())
 		gogoLog.Errorf("--- stderr ---\n%s\n", stderr.String())
 		gogoLog.Error(err)
+		return stdout.Bytes(), garbleCommandError(err, stderr.String())
 	}
 
-	return stdout.Bytes(), err
+	return stdout.Bytes(), nil
 }
 
 // GoCmd - Execute a go command
@@ -207,6 +338,9 @@ func GoCmd(config GoConfig, cwd string, command []string) ([]byte, error) {
 
 // GoBuild - Execute a go build command, returns stdout/error
 func GoBuild(config GoConfig, src string, dest string, buildmode string, tags []string, ldflags []string, gcflags, asmflags string) ([]byte, error) {
+	if err := validateObfuscationConfig(config); err != nil {
+		return nil, err
+	}
 	target := fmt.Sprintf("%s/%s", config.GOOS, config.GOARCH)
 	if _, ok := ValidCompilerTargets(config)[target]; !ok {
 		return nil, fmt.Errorf("%s", fmt.Sprintf("Invalid compiler target: %s", target))

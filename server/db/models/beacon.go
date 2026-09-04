@@ -55,7 +55,8 @@ type Beacon struct {
 	Integrity         string
 	Capabilities      uint64
 
-	ImplantBuildID UUID `gorm:"type:uuid;"`
+	ImplantBuildID  UUID `gorm:"type:uuid;"`
+	ImplantConfigID UUID `gorm:"type:uuid;"`
 
 	Interval    int64
 	Jitter      int64

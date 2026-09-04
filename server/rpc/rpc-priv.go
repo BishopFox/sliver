@@ -86,10 +86,24 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 	if req == nil || req.Request == nil {
 		return nil, ErrMissingRequestField
 	}
+	if req.Config == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing implant config")
+	}
 
 	session := core.Sessions.Get(req.Request.SessionID)
 	if session == nil {
 		return nil, ErrInvalidSessionID
+	}
+	if session.ConfigID != "" {
+		originatingConfig, err := db.ImplantConfigByID(session.ConfigID)
+		if err != nil {
+			return nil, status.Errorf(codes.FailedPrecondition, "cannot verify originating implant policy for session config %q: %v", session.ConfigID, err)
+		} else if originatingConfig.ControlFlow != clientpb.ControlFlowPolicy_CONTROL_FLOW_DISABLED {
+			return nil, status.Error(codes.FailedPrecondition, "getsystem does not support control-flow-obfuscated helper builds")
+		}
+	}
+	if req.Config.ControlFlow != clientpb.ControlFlowPolicy_CONTROL_FLOW_DISABLED {
+		return nil, status.Error(codes.FailedPrecondition, "getsystem does not support control-flow-obfuscated helper builds")
 	}
 
 	// retrieve http c2 implant config
@@ -109,15 +123,10 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 		name = req.Name
 	}
 
-	shellcode, _, err = getSliverShellcode(name)
+	shellcode, _, _, err = getSliverShellcode(name)
 	if err != nil {
-		req.Config.Format = clientpb.OutputFormat_SHELLCODE
-		req.Config.ObfuscateSymbols = false
-		req.Config.IsShellcode = true
-		req.Config.IsSharedLib = false
-		req.Config.TemplateName = "sliver"
-		if len(req.Config.Exports) == 0 {
-			req.Config.Exports = []string{"StartW"}
+		if err := prepareGetSystemFallbackConfig(req.Config); err != nil {
+			return nil, err
 		}
 		build, err := generate.GenerateConfig(name, req.Config)
 		if err != nil {
@@ -149,6 +158,25 @@ func (rpc *Server) GetSystem(ctx context.Context, req *clientpb.GetSystemReq) (*
 		return nil, rpcError(err)
 	}
 	return getSystem, nil
+}
+
+func prepareGetSystemFallbackConfig(config *clientpb.ImplantConfig) error {
+	if config == nil {
+		return status.Error(codes.InvalidArgument, "missing implant config")
+	}
+	if config.ControlFlow != clientpb.ControlFlowPolicy_CONTROL_FLOW_DISABLED {
+		return status.Error(codes.FailedPrecondition, "getsystem does not support control-flow-obfuscated helper builds")
+	}
+
+	config.Format = clientpb.OutputFormat_SHELLCODE
+	config.ObfuscateSymbols = false
+	config.IsShellcode = true
+	config.IsSharedLib = false
+	config.TemplateName = "sliver"
+	if len(config.Exports) == 0 {
+		config.Exports = []string{"StartW"}
+	}
+	return nil
 }
 
 // MakeToken - Creates a new logon session to impersonate a user based on its credentials.

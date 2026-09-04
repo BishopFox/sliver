@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -223,6 +224,44 @@ func TestSymbolObfuscation(t *testing.T) {
 
 	// Test an "unsupported" platform
 	symbolObfuscation(t, "freebsd", "amd64")
+}
+
+func TestControlFlowObfuscation(t *testing.T) {
+	target := runtime.GOOS + "/" + runtime.GOARCH
+	if _, supported := SupportedCompilerTargets[target]; !supported {
+		t.Skipf("control-flow generator regression is unsupported on %s", target)
+	}
+
+	name := fmt.Sprintf("control_flow_test%d", nonce)
+	nonce++
+	config := &clientpb.ImplantConfig{
+		GOOS:               runtime.GOOS,
+		GOARCH:             runtime.GOARCH,
+		TemplateName:       SliverTemplateName,
+		ObfuscateSymbols:   true,
+		ControlFlow:        clientpb.ControlFlowPolicy_CONTROL_FLOW_BALANCED_V1,
+		Format:             clientpb.OutputFormat_EXECUTABLE,
+		IncludeMTLS:        true,
+		ConnectionStrategy: "s",
+		C2: []*clientpb.ImplantC2{
+			{URL: "mtls://127.0.0.1:31337"},
+		},
+	}
+	build, err := GenerateConfig(name, config)
+	if err != nil {
+		t.Fatalf("GenerateConfig() error = %v", err)
+	}
+	httpC2Config := configs.GenerateDefaultHTTPC2Config()
+	binPath, err := SliverExecutable(name, build, config, httpC2Config.ImplantConfig)
+	if err != nil {
+		t.Fatalf("build control-flow Sliver for %s: %v", target, err)
+	}
+	defer cleanupGeneratedArtifacts(t, binPath)
+	if stat, err := os.Stat(binPath); err != nil {
+		t.Fatalf("stat generated control-flow Sliver: %v", err)
+	} else if stat.Size() == 0 {
+		t.Fatal("generated control-flow Sliver is empty")
+	}
 }
 
 func TestTrafficEncoders(t *testing.T) {

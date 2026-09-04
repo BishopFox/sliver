@@ -757,6 +757,8 @@ func wrapEnvelope(msgType uint32, message protoreflect.ProtoMessage) *sliverpb.E
 }
 
 // registerSliver - Creates a registration protobuf message
+//
+//garble:controlflow block_splits=2 junk_jumps=2 flatten_passes=1 flatten_hardening=xor trash_blocks=0
 func registerSliver() *sliverpb.Register {
 	hostname, err := os.Hostname()
 	if err != nil {

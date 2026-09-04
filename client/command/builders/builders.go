@@ -49,7 +49,7 @@ func PrintBuilders(externalBuilders []*clientpb.Builder, con *console.SliverClie
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
 	tw.AppendHeader(table.Row{
-		"Name", "Operator", "Templates", "Platform", "Compiler Targets",
+		"Name", "Operator", "Templates", "Platform", "Capabilities", "Compiler Targets",
 	})
 	for _, builder := range externalBuilders {
 
@@ -63,6 +63,7 @@ func PrintBuilders(externalBuilders []*clientpb.Builder, con *console.SliverClie
 			builder.OperatorName,
 			strings.Join(builder.Templates, ", "),
 			fmt.Sprintf("%s/%s", builder.GOOS, builder.GOARCH),
+			strings.Join(builder.Capabilities, ", "),
 			strings.Join(targets, "\n"),
 		}
 		tw.AppendRow(table.Row(row))

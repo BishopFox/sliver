@@ -1,11 +1,59 @@
 package generate
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/gogo"
 )
+
+func TestImplantLDFlags(t *testing.T) {
+	tests := []struct {
+		name   string
+		config *clientpb.ImplantConfig
+		want   []string
+	}{
+		{
+			name:   "non-debug linux",
+			config: &clientpb.ImplantConfig{GOOS: LINUX},
+			want:   []string{"-s -w -buildid="},
+		},
+		{
+			name:   "non-debug windows",
+			config: &clientpb.ImplantConfig{GOOS: WINDOWS},
+			want:   []string{"-s -w -buildid= -H=windowsgui"},
+		},
+		{
+			name:   "debug linux",
+			config: &clientpb.ImplantConfig{GOOS: LINUX, Debug: true},
+		},
+		{
+			name:   "debug windows",
+			config: &clientpb.ImplantConfig{GOOS: WINDOWS, Debug: true},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := implantLDFlags(test.config); !reflect.DeepEqual(got, test.want) {
+				t.Fatalf("implantLDFlags() = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestImplantLDFlagsReturnsIndependentSlices(t *testing.T) {
+	config := &clientpb.ImplantConfig{GOOS: LINUX}
+	first := implantLDFlags(config)
+	first[0] = "modified"
+
+	want := []string{nonDebugImplantLDFlags}
+	if second := implantLDFlags(config); !reflect.DeepEqual(second, want) {
+		t.Fatalf("implantLDFlags() reused mutable state: got %q, want %q", second, want)
+	}
+}
 
 func TestIsZigCC(t *testing.T) {
 	tests := []struct {
@@ -32,24 +80,24 @@ func TestApplyZigStaticLinking(t *testing.T) {
 		CGO:  "1",
 		CC:   "/tmp/zig cc -target x86_64-linux-musl",
 	}
-	ldflags, enabled := applyZigStaticLinking(cfg, "c-shared", []string{""})
+	ldflags, enabled := applyZigStaticLinking(cfg, "c-shared", []string{nonDebugImplantLDFlags})
 	if enabled {
 		t.Fatalf("did not expect -static flags for c-shared (zig emits an ar archive instead of a .so)")
 	}
 	if len(ldflags) != 1 {
 		t.Fatalf("expected a single -ldflags string, got %d (%v)", len(ldflags), ldflags)
 	}
-	if ldflags[0] != "" {
+	if ldflags[0] != nonDebugImplantLDFlags {
 		t.Fatalf("expected ldflags unchanged, got %q", ldflags[0])
 	}
 }
 
 func TestApplyLinuxShellcodeBuildID(t *testing.T) {
-	ldflags := applyLinuxShellcodeBuildID([]string{"-s -w"})
+	ldflags := applyLinuxShellcodeBuildID([]string{nonDebugImplantLDFlags})
 	if len(ldflags) != 1 {
 		t.Fatalf("expected a single -ldflags string, got %d (%v)", len(ldflags), ldflags)
 	}
-	want := "-s -w " + linuxShellcodeBuildIDLDFlag
+	want := nonDebugImplantLDFlags + " " + linuxShellcodeBuildIDLDFlag
 	if ldflags[0] != want {
 		t.Fatalf("applyLinuxShellcodeBuildID() = %q, want %q", ldflags[0], want)
 	}
@@ -61,7 +109,7 @@ func TestApplyZigStaticLinking_Executable(t *testing.T) {
 		CGO:  "1",
 		CC:   "/tmp/zig cc -target x86_64-linux-musl",
 	}
-	ldflags, enabled := applyZigStaticLinking(cfg, "", []string{""})
+	ldflags, enabled := applyZigStaticLinking(cfg, "", []string{nonDebugImplantLDFlags})
 	if !enabled {
 		t.Fatalf("expected static linking to be enabled for linux zig cc executable build")
 	}
@@ -74,6 +122,9 @@ func TestApplyZigStaticLinking_Executable(t *testing.T) {
 	if !strings.Contains(ldflags[0], "-extldflags=-static") {
 		t.Fatalf("expected -extldflags=-static in ldflags, got %q", ldflags[0])
 	}
+	if !strings.Contains(ldflags[0], nonDebugImplantLDFlags) {
+		t.Fatalf("expected production linker flags in ldflags, got %q", ldflags[0])
+	}
 }
 
 func TestApplyZigStaticLinking_NotLinux(t *testing.T) {
@@ -82,11 +133,11 @@ func TestApplyZigStaticLinking_NotLinux(t *testing.T) {
 		CGO:  "1",
 		CC:   "zig cc -target x86_64-windows-gnu",
 	}
-	ldflags, enabled := applyZigStaticLinking(cfg, "c-shared", []string{""})
+	ldflags, enabled := applyZigStaticLinking(cfg, "c-shared", []string{nonDebugImplantLDFlags})
 	if enabled {
 		t.Fatalf("did not expect static linking to be enabled on %s", cfg.GOOS)
 	}
-	if len(ldflags) != 1 || ldflags[0] != "" {
+	if len(ldflags) != 1 || ldflags[0] != nonDebugImplantLDFlags {
 		t.Fatalf("expected ldflags unchanged, got %v", ldflags)
 	}
 }

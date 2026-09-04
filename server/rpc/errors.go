@@ -24,9 +24,12 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/core"
 	"github.com/bishopfox/sliver/server/db"
 	"github.com/bishopfox/sliver/server/db/models"
+	"github.com/bishopfox/sliver/server/generate"
+	"github.com/bishopfox/sliver/server/gogo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -81,6 +84,12 @@ func rpcError(err error) error {
 		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, core.ErrDuplicateExternalBuilderName):
 		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, generate.ErrControlFlowBuildBusy):
+		return status.Error(codes.ResourceExhausted, err.Error())
+	case errors.Is(err, generate.ErrControlFlowUnavailable):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, gogo.ErrGarbleAssetVerification):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, db.ErrRecordNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case os.IsNotExist(err):
@@ -90,4 +99,15 @@ func rpcError(err error) error {
 	default:
 		return status.Error(codes.Internal, err.Error())
 	}
+}
+
+func acquireControlFlowBuild(config *clientpb.ImplantConfig) (func(), error) {
+	if err := generate.ValidateControlFlowConfig(config); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	release, err := generate.AcquireControlFlowBuildSlot(config)
+	if err != nil {
+		return nil, rpcError(err)
+	}
+	return release, nil
 }

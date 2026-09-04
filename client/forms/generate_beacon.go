@@ -13,27 +13,29 @@ import (
 
 // GenerateBeaconFormResult captures the inputs needed to drive the generate beacon command.
 type GenerateBeaconFormResult struct {
-	OS      string
-	Arch    string
-	Format  string
-	Name    string
-	C2Type  string
-	C2Value string
-	Save    string
-	Days    string
-	Hours   string
-	Minutes string
-	Seconds string
-	Jitter  string
+	OS          string
+	Arch        string
+	Format      string
+	Name        string
+	C2Type      string
+	C2Value     string
+	ControlFlow string
+	Save        string
+	Days        string
+	Hours       string
+	Minutes     string
+	Seconds     string
+	Jitter      string
 }
 
 // GenerateBeaconForm prompts for generate beacon flags and returns the collected values.
 func GenerateBeaconForm(compiler *clientpb.Compiler) (*GenerateBeaconFormResult, error) {
 	result := &GenerateBeaconFormResult{
-		OS:     "windows",
-		Arch:   "amd64",
-		Format: "exe",
-		C2Type: "mtls",
+		OS:          "windows",
+		Arch:        "amd64",
+		Format:      "exe",
+		C2Type:      "mtls",
+		ControlFlow: "off",
 	}
 	commonPlatformsOnly := true
 	lastCommonPlatformsOnly := commonPlatformsOnly
@@ -81,6 +83,14 @@ func GenerateBeaconForm(compiler *clientpb.Compiler) (*GenerateBeaconFormResult,
 				}, targetBindings).
 				Height(3).
 				Value(&result.Format),
+			huh.NewSelect[string]().
+				Title("Control-flow obfuscation").
+				Description("Experimental; balanced-v1 requires symbol obfuscation").
+				Options(
+					huh.NewOption("Off", "off"),
+					huh.NewOption("Balanced (experimental)", "balanced-v1"),
+				).
+				Value(&result.ControlFlow),
 		),
 		huh.NewGroup(
 			huh.NewInput().

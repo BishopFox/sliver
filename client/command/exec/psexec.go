@@ -90,7 +90,11 @@ func PsExecCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			con.PrintErrorf("No profile found for name %s\n", profile)
 			return
 		}
-		serviceBinary, _ = generate.GetSliverBinary(implantProfile, con)
+		serviceBinary, err = generate.GetSliverBinary(implantProfile, con)
+		if err != nil {
+			con.PrintErrorf("Failed to generate service binary: %s\n", err)
+			return
+		}
 	} else {
 		// use a custom exe instead of generating a new Sliver
 		fileBytes, err := os.ReadFile(customExe)

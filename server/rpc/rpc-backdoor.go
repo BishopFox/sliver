@@ -98,10 +98,18 @@ func (rpc *Server) Backdoor(ctx context.Context, req *clientpb.BackdoorReq) (*cl
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("no profile found for name %s", req.ProfileName))
 	}
 
+	if p.Config == nil {
+		return nil, status.Error(codes.InvalidArgument, "profile is missing an implant config")
+	}
 	if p.Config.Format != clientpb.OutputFormat_SHELLCODE {
 		return nil, status.Error(codes.InvalidArgument, "please select a profile targeting a shellcode format")
 	}
 
+	releaseControlFlowBuild, err := acquireControlFlowBuild(p.Config)
+	if err != nil {
+		return nil, err
+	}
+	defer releaseControlFlowBuild()
 	build, err := generate.GenerateConfig(name, p.Config)
 	if err != nil {
 		return nil, rpcError(err)
@@ -117,6 +125,7 @@ func (rpc *Server) Backdoor(ctx context.Context, req *clientpb.BackdoorReq) (*cl
 	if err != nil {
 		return nil, rpcError(err)
 	}
+	releaseControlFlowBuild()
 	shellcode, err := os.ReadFile(fPath)
 	if err != nil {
 		return nil, rpcError(err)
