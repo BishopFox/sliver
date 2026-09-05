@@ -21,6 +21,7 @@ package websites
 import (
 	"context"
 	"sort"
+	"strings"
 
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
@@ -59,9 +60,9 @@ func ListWebsites(cmd *cobra.Command, con *console.SliverClient, args []string) 
 	}
 	tw := table.NewWriter()
 	tw.SetStyle(settings.GetTableStyle(con))
-	tw.AppendHeader(table.Row{"Name", "Objects"})
+	tw.AppendHeader(table.Row{"Name", "Allows Upload", "Static contents", "Uploaded objects"})
 	for _, site := range websites.Websites {
-		tw.AppendRow(table.Row{site.Name, len(site.Contents)})
+		tw.AppendRow(table.Row{site.Name, site.AllowsUpload, len(site.Contents), len(site.Uploaded)})
 	}
 
 	con.Println(tw.Render())
@@ -113,6 +114,24 @@ func PrintWebsite(web *clientpb.Website, con *console.SliverClient) {
 		})
 	}
 	con.Println(tw.Render())
+}
+
+// websiteNameValidArgs completes a positional website name for shells that use
+// cobra's own completion instead of carapace.
+func websiteNameValidArgs(con *console.SliverClient) func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
+	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		ws, err := con.Rpc.Websites(context.Background(), &commonpb.Empty{})
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
+		out := []string{}
+		for _, w := range ws.Websites {
+			if strings.HasPrefix(w.Name, toComplete) {
+				out = append(out, w.Name)
+			}
+		}
+		return out, cobra.ShellCompDirectiveNoFileComp
+	}
 }
 
 // WebsiteNameCompleter completes the names of available websites.

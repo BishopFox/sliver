@@ -32,7 +32,8 @@ type Website struct {
 	ID        UUID      `gorm:"primaryKey;->;<-:create;type:uuid;"`
 	CreatedAt time.Time `gorm:"->;<-:create;"`
 
-	Name string `gorm:"unique;"` // Website Name
+	Name         string `gorm:"unique;"` // Website Name
+	AllowsUpload bool
 
 	WebContents []WebContent
 }
@@ -55,9 +56,10 @@ func (w *Website) ToProtobuf(webContentDir string) *clientpb.Website {
 		WebContents[webcontent.Path] = webcontent.ToProtobuf(&contents)
 	}
 	return &clientpb.Website{
-		ID:       w.ID.String(),
-		Name:     w.Name,
-		Contents: WebContents,
+		ID:           w.ID.String(),
+		Name:         w.Name,
+		AllowsUpload: w.AllowsUpload,
+		Contents:     WebContents,
 	}
 }
 
@@ -105,5 +107,71 @@ func WebContentFromProtobuf(pbWebContent *clientpb.WebContent) WebContent {
 		ContentType:  pbWebContent.ContentType,
 		OriginalFile: pbWebContent.OriginalFile,
 		Sha256:       pbWebContent.Sha256,
+	}
+}
+
+// WebUploadedContent - One piece of content received by PUT/POST requests
+type WebUploadedContent struct {
+	ID        uuid.UUID `gorm:"primaryKey;->;<-:create;type:uuid;"`
+	WebsiteID uuid.UUID `gorm:"type:uuid;"`
+
+	Method        string
+	Path          string
+	UserAgent     string
+	Headers       string
+	URLParameters string
+	RemoteAddress string
+	Size          uint64
+	ContentType   string
+	ReceivedAt    time.Time
+	Sha256        string
+}
+
+// BeforeCreate - GORM hook to automatically set values
+func (wc *WebUploadedContent) BeforeCreate(tx *gorm.DB) (err error) {
+	wc.ID, err = uuid.NewV4()
+	if err != nil {
+		return err
+	}
+	wc.ReceivedAt = time.Now()
+	return nil
+}
+
+// ToProtobuf - Converts to protobuf object
+func (wc *WebUploadedContent) ToProtobuf(content *[]byte) *clientpb.WebUploadedContent {
+	return &clientpb.WebUploadedContent{
+		ID:            wc.ID.String(),
+		WebsiteID:     wc.WebsiteID.String(),
+		Method:        wc.Method,
+		Path:          wc.Path,
+		UserAgent:     wc.UserAgent,
+		Headers:       wc.Headers,
+		URLParameters: wc.URLParameters,
+		RemoteAddress: wc.RemoteAddress,
+		Size:          uint64(wc.Size),
+		ContentType:   wc.ContentType,
+		ReceivedAt:    wc.ReceivedAt.Unix(),
+		Sha256:        wc.Sha256,
+		Content:       *content,
+	}
+}
+
+func UploadedWebContentFromProtobuf(pbWebContent *clientpb.WebUploadedContent) WebUploadedContent {
+	siteUUID, _ := uuid.FromString(pbWebContent.ID)
+	websiteUUID, _ := uuid.FromString(pbWebContent.WebsiteID)
+
+	return WebUploadedContent{
+		ID:            siteUUID,
+		WebsiteID:     websiteUUID,
+		Method:        pbWebContent.Method,
+		Path:          pbWebContent.Path,
+		UserAgent:     pbWebContent.UserAgent,
+		Headers:       pbWebContent.Headers,
+		URLParameters: pbWebContent.URLParameters,
+		RemoteAddress: pbWebContent.RemoteAddress,
+		Size:          pbWebContent.Size,
+		ContentType:   pbWebContent.ContentType,
+		ReceivedAt:    time.Unix(pbWebContent.ReceivedAt, 0),
+		Sha256:        pbWebContent.Sha256,
 	}
 }

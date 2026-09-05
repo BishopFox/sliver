@@ -24,6 +24,7 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -374,7 +375,7 @@ func (s *SliverHTTPC2) router() *mux.Router {
 		s.ServerConf.LongPollJitter = int64(DefaultLongPollJitter)
 	}
 
-	router.HandleFunc("/{rpath:.*}", s.mainHandler).Methods(http.MethodGet, http.MethodPost)
+	router.HandleFunc("/{rpath:.*}", s.mainHandler).Methods(http.MethodGet, http.MethodPost, http.MethodPut)
 
 	router.Use(loggingMiddleware)
 	router.Use(s.DefaultRespHeaders)
@@ -455,7 +456,7 @@ func digitsOnly(value string) string {
 
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		accessLog.Infof("%s - %s - %v", getRemoteAddr(req), req.RequestURI, req.Header.Get("User-Agent"))
+		accessLog.Infof("%s - %s %s - %v", getRemoteAddr(req), req.Method, req.RequestURI, req.Header.Get("User-Agent"))
 		next.ServeHTTP(resp, req)
 	})
 }
@@ -510,6 +511,11 @@ func (s *SliverHTTPC2) DefaultRespHeaders(next http.Handler) http.Handler {
 }
 
 func (s *SliverHTTPC2) websiteContentHandler(resp http.ResponseWriter, req *http.Request) error {
+	// PUT/POST requests carry content to be stored instead of served
+	if req.Method == http.MethodPut || req.Method == http.MethodPost {
+		return s.websiteUploadHandler(resp, req)
+	}
+
 	httpLog.Infof("Request for site %v -> %s", s.ServerConf.Website, req.RequestURI)
 	content, err := website.GetContent(s.ServerConf.Website, req.RequestURI)
 	if err != nil {
@@ -519,6 +525,64 @@ func (s *SliverHTTPC2) websiteContentHandler(resp http.ResponseWriter, req *http
 	resp.Header().Set("Content-type", content.ContentType)
 	s.noCacheHeader(resp)
 	resp.Write(content.Content)
+	return nil
+}
+
+// websiteUploadHandler - Store the content of a PUT/POST request for the website
+func (s *SliverHTTPC2) websiteUploadHandler(resp http.ResponseWriter, req *http.Request) error {
+	httpLog.Infof("Upload to site %v -> %s %s", s.ServerConf.Website, req.Method, req.RequestURI)
+
+	uploadAllowed, err := website.IsUploadAllowed(s.ServerConf.Website)
+	if err != nil {
+		httpLog.Infof("No website found for %v -> %s", s.ServerConf.Website, req.RequestURI)
+		return err
+	}
+
+	if !uploadAllowed {
+		httpLog.Infof("Upload not allowed for %v", s.ServerConf.Website)
+		resp.WriteHeader(http.StatusMethodNotAllowed)
+		return nil
+	}
+
+	body, err := io.ReadAll(&io.LimitedReader{
+		R: req.Body,
+		N: int64(DefaultMaxUnauthBodyLength),
+	})
+	if err != nil {
+		httpLog.Errorf("Failed to read uploaded body %s", err)
+		return err
+	}
+
+	headers, err := json.Marshal(req.Header)
+	if err != nil {
+		httpLog.Warnf("Failed to serialize request headers %s", err)
+		headers = []byte("{}")
+	}
+
+	contentType := req.Header.Get("Content-type")
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+
+	err = website.UploadContent(s.ServerConf.Website, &clientpb.WebUploadedContent{
+		Method:        req.Method,
+		Path:          req.URL.Path,
+		UserAgent:     req.Header.Get("User-Agent"),
+		Headers:       string(headers),
+		URLParameters: req.URL.RawQuery,
+		RemoteAddress: getRemoteAddr(req),
+		ReceivedAt:    time.Now().Unix(),
+		ContentType:   contentType,
+		Size:          uint64(len(body)),
+		Content:       body,
+	})
+	if err != nil {
+		httpLog.Errorf("Failed to store uploaded content for %s: %s", req.RequestURI, err)
+		return err
+	}
+
+	s.noCacheHeader(resp)
+	resp.WriteHeader(http.StatusOK)
 	return nil
 }
 
@@ -596,6 +660,8 @@ func (s *SliverHTTPC2) startSessionHandler(resp http.ResponseWriter, req *http.R
 		R: req.Body,
 		N: int64(DefaultMaxUnauthBodyLength),
 	})
+	// Make the body readable again, the request may still be handled as a website upload
+	req.Body = io.NopCloser(bytes.NewReader(body))
 	if err != nil {
 		httpLog.Errorf("Failed to read body %s", err)
 		s.defaultHandler(resp, req)
@@ -771,6 +837,8 @@ func (s *SliverHTTPC2) readReqBody(httpSession *HTTPSession, resp http.ResponseW
 		R: req.Body,
 		N: int64(DefaultMaxBodyLength),
 	})
+	// Make the body readable again, the request may still be handled as a website upload
+	req.Body = io.NopCloser(bytes.NewReader(body))
 	if err != nil {
 		httpLog.Warnf("Failed to read request body %s", err)
 		return nil, err
