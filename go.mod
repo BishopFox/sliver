@@ -29,7 +29,7 @@ require (
 	github.com/cheggaaa/pb/v3 v3.1.7
 	github.com/chromedp/cdproto v0.0.0-20250803210736-d308e07a266d
 	github.com/chromedp/chromedp v0.14.1
-	github.com/ebitengine/purego v0.10.1
+	github.com/ebitengine/purego v0.11.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/golang/protobuf v1.5.4
