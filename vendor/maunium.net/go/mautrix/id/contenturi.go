@@ -17,8 +17,14 @@ import (
 )
 
 var (
-	InvalidContentURI  = errors.New("invalid Matrix content URI")
-	InputNotJSONString = errors.New("input doesn't look like a JSON string")
+	ErrInvalidContentURI  = errors.New("invalid Matrix content URI")
+	ErrInputNotJSONString = errors.New("input doesn't look like a JSON string")
+)
+
+// Deprecated: use variables prefixed with Err
+var (
+	InvalidContentURI  = ErrInvalidContentURI
+	InputNotJSONString = ErrInputNotJSONString
 )
 
 // ContentURIString is a string that's expected to be a Matrix content URI.
@@ -55,9 +61,9 @@ func ParseContentURI(uri string) (parsed ContentURI, err error) {
 	if len(uri) == 0 {
 		return
 	} else if !strings.HasPrefix(uri, "mxc://") {
-		err = InvalidContentURI
+		err = ErrInvalidContentURI
 	} else if index := strings.IndexRune(uri[6:], '/'); index == -1 || index == len(uri)-7 {
-		err = InvalidContentURI
+		err = ErrInvalidContentURI
 	} else {
 		parsed.Homeserver = uri[6 : 6+index]
 		parsed.FileID = uri[6+index+1:]
@@ -71,9 +77,9 @@ func ParseContentURIBytes(uri []byte) (parsed ContentURI, err error) {
 	if len(uri) == 0 {
 		return
 	} else if !bytes.HasPrefix(uri, mxcBytes) {
-		err = InvalidContentURI
+		err = ErrInvalidContentURI
 	} else if index := bytes.IndexRune(uri[6:], '/'); index == -1 || index == len(uri)-7 {
-		err = InvalidContentURI
+		err = ErrInvalidContentURI
 	} else {
 		parsed.Homeserver = string(uri[6 : 6+index])
 		parsed.FileID = string(uri[6+index+1:])
@@ -86,7 +92,7 @@ func (uri *ContentURI) UnmarshalJSON(raw []byte) (err error) {
 		*uri = ContentURI{}
 		return nil
 	} else if len(raw) < 2 || raw[0] != '"' || raw[len(raw)-1] != '"' {
-		return InputNotJSONString
+		return fmt.Errorf("ContentURI: %w", ErrInputNotJSONString)
 	}
 	parsed, err := ParseContentURIBytes(raw[1 : len(raw)-1])
 	if err != nil {

@@ -754,6 +754,10 @@ func (it *CollectionIterator) PageInfo() *iterator.PageInfo { return it.pageInfo
 // Next returns the next result. Its second return value is iterator.Done if there
 // are no more results. Once Next returns Done, all subsequent calls will return
 // Done.
+//
+// In addition, if Next returns an error other than iterator.Done, all
+// subsequent calls will return the same error. To continue iteration, a new
+// CollectionIterator must be created.
 func (it *CollectionIterator) Next() (*CollectionRef, error) {
 	if err := it.nextFunc(); err != nil {
 		return nil, err
@@ -842,6 +846,10 @@ type DocumentSnapshotIterator struct {
 //
 // Next is not expected to return iterator.Done unless it is called after Stop.
 // Rarely, networking issues may also cause iterator.Done to be returned.
+//
+// In addition, if Next returns an error other than iterator.Done, all
+// subsequent calls will return the same error. To continue iteration, a new
+// DocumentSnapshotIterator must be created.
 func (it *DocumentSnapshotIterator) Next() (*DocumentSnapshot, error) {
 	btree, _, rt, err := it.ws.nextSnapshot()
 	if err != nil {

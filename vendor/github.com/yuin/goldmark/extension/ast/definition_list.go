@@ -17,6 +17,14 @@ func (n *DefinitionList) Dump(source []byte, level int) {
 	gast.DumpHelper(n, source, level, nil, nil)
 }
 
+// Pos implements Node.Pos.
+func (n *DefinitionList) Pos() int {
+	if n.FirstChild() != nil {
+		return n.FirstChild().Pos()
+	}
+	return -1
+}
+
 // KindDefinitionList is a NodeKind of the DefinitionList node.
 var KindDefinitionList = gast.NewNodeKind("DefinitionList")
 
@@ -42,6 +50,14 @@ type DefinitionTerm struct {
 // Dump implements Node.Dump.
 func (n *DefinitionTerm) Dump(source []byte, level int) {
 	gast.DumpHelper(n, source, level, nil, nil)
+}
+
+// Pos implements Node.Pos.
+func (n *DefinitionTerm) Pos() int {
+	if n.Lines().Len() == 0 {
+		return -1
+	}
+	return n.Lines().At(0).Start
 }
 
 // KindDefinitionTerm is a NodeKind of the DefinitionTerm node.

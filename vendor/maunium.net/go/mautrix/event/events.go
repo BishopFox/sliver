@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"time"
 
+	"go.mau.fi/util/jsontime"
+
 	"maunium.net/go/mautrix/id"
 )
 
@@ -24,6 +26,8 @@ type Event struct {
 	Content   Content    `json:"content"`                    // The JSON content of the event.
 	Redacts   id.EventID `json:"redacts,omitempty"`          // The event ID that was redacted if a m.room.redaction event
 	Unsigned  Unsigned   `json:"unsigned,omitempty"`         // Unsigned content set by own homeserver.
+
+	Sticky *Sticky `json:"msc4354_sticky,omitempty"`
 
 	Mautrix MautrixInfo `json:"-"`
 
@@ -41,6 +45,8 @@ type eventForMarshaling struct {
 	Content   Content    `json:"content"`
 	Redacts   id.EventID `json:"redacts,omitempty"`
 	Unsigned  *Unsigned  `json:"unsigned,omitempty"`
+
+	Sticky *Sticky `json:"msc4354_sticky,omitempty"`
 
 	PrevContent   *Content    `json:"prev_content,omitempty"`
 	ReplacesState *id.EventID `json:"replaces_state,omitempty"`
@@ -64,6 +70,7 @@ func (evt *Event) UnmarshalJSON(data []byte) error {
 	evt.RoomID = efm.RoomID
 	evt.Content = efm.Content
 	evt.Redacts = efm.Redacts
+	evt.Sticky = efm.Sticky
 	if efm.Unsigned != nil {
 		evt.Unsigned = *efm.Unsigned
 	}
@@ -99,9 +106,30 @@ func (evt *Event) MarshalJSON() ([]byte, error) {
 		Content:    evt.Content,
 		Redacts:    evt.Redacts,
 		Unsigned:   unsigned,
+		Sticky:     evt.Sticky,
 		ToUserID:   evt.ToUserID,
 		ToDeviceID: evt.ToDeviceID,
 	})
+}
+
+type Sticky struct {
+	Duration jsontime.Milliseconds `json:"duration_ms"`
+}
+
+const MaxStickyDuration = 1 * time.Hour
+
+func (sticky *Sticky) GetDuration() time.Duration {
+	if sticky != nil {
+		return max(0, min(sticky.Duration.Duration, MaxStickyDuration))
+	}
+	return 0
+}
+
+func (evt *Event) GetStickyUntil() time.Time {
+	if evt == nil || evt.Sticky.GetDuration() == 0 {
+		return time.Time{}
+	}
+	return time.UnixMilli(evt.Timestamp).Add(evt.Sticky.GetDuration())
 }
 
 type MautrixInfo struct {
@@ -141,6 +169,8 @@ type Unsigned struct {
 	RedactedBecause *Event     `json:"redacted_because,omitempty"`
 	InviteRoomState []*Event   `json:"invite_room_state,omitempty"`
 
+	StickyDurationTTL jsontime.Milliseconds `json:"msc4354_sticky_duration_ttl_ms,omitzero"`
+
 	BeeperHSOrder       int64               `json:"com.beeper.hs.order,omitempty"`
 	BeeperHSSuborder    int16               `json:"com.beeper.hs.suborder,omitempty"`
 	BeeperHSOrderString *BeeperEncodedOrder `json:"com.beeper.hs.order_string,omitempty"`
@@ -154,5 +184,5 @@ func (us *Unsigned) IsEmpty() bool {
 	return us.PrevContent == nil && us.PrevSender == "" && us.ReplacesState == "" && us.Age == 0 && us.Membership == "" &&
 		us.TransactionID == "" && us.RedactedBecause == nil && us.InviteRoomState == nil && us.Relations == nil &&
 		us.BeeperHSOrder == 0 && us.BeeperHSSuborder == 0 && us.BeeperHSOrderString.IsZero() &&
-		!us.ElementSoftFailed
+		!us.ElementSoftFailed && us.StickyDurationTTL.Duration == 0
 }

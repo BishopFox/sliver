@@ -2,3 +2,5 @@
 .vscode/
 *.db*
 *.log
+.cursor/plans/
+.claude/settings.local.json

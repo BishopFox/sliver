@@ -19,9 +19,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
+	"net"
 	"net/url"
 	"os"
 	"strings"
+	"syscall"
 	"time"
 
 	vkit "cloud.google.com/go/firestore/apiv1"
@@ -70,11 +73,22 @@ const DefaultDatabaseID = "(default)"
 
 // A Client provides access to the Firestore service.
 type Client struct {
-	c            *vkit.Client
-	projectID    string
-	databaseID   string        // A client is tied to a single database.
-	readSettings *readSettings // readSettings allows setting a snapshot time to read the database
-	UsesEmulator bool          // a boolean that indicates if the client is using the emulator
+	c                        *vkit.Client
+	projectID                string
+	databaseID               string        // A client is tied to a single database.
+	readSettings             *readSettings // readSettings allows setting a snapshot time to read the database
+	UsesEmulator             bool          // a boolean that indicates if the client is using the emulator
+	alwaysUseImplicitOrderBy bool          // configuration flag to always append implicit OrderBy clauses
+}
+
+func normalizeEmulatorAddress(addr string) string {
+	// Strip legacy schemes and force passthrough for performance.
+	if strings.HasPrefix(addr, "http://") || strings.HasPrefix(addr, "https://") || !strings.Contains(addr, "://") {
+		addr = strings.TrimPrefix(addr, "http://")
+		addr = strings.TrimPrefix(addr, "https://")
+		addr = "passthrough:///" + addr
+	}
+	return addr
 }
 
 // newClient creates a new Firestore client, using the given createClient function to create the underlying client.
@@ -90,7 +104,16 @@ func newClient(ctx context.Context, projectID string, createClient func(ctx cont
 			return nil, fmt.Errorf("firestore: emulator is not supported for this client type")
 		}
 
-		conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithPerRPCCredentials(emulatorCreds{}))
+		addr = normalizeEmulatorAddress(addr)
+		conn, err := grpc.Dial(addr,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithPerRPCCredentials(emulatorCreds{}),
+			grpc.WithDefaultCallOptions(
+				grpc.MaxCallRecvMsgSize(math.MaxInt32),
+				grpc.MaxCallSendMsgSize(math.MaxInt32),
+			),
+		)
+
 		if err != nil {
 			return nil, fmt.Errorf("firestore: dialing address from env var FIRESTORE_EMULATOR_HOST: %s", err)
 		}
@@ -99,6 +122,13 @@ func newClient(ctx context.Context, projectID string, createClient func(ctx cont
 		projectID, _ = detect.ProjectID(ctx, projectID, "", opts...)
 		if projectID == "" {
 			projectID = "dummy-emulator-firestore-project"
+		}
+	} else {
+		o = []option.ClientOption{
+			option.WithGRPCDialOption(grpc.WithDefaultCallOptions(
+				grpc.MaxCallRecvMsgSize(math.MaxInt32),
+				grpc.MaxCallSendMsgSize(math.MaxInt32),
+			)),
 		}
 	}
 	o = append(o, opts...)
@@ -182,9 +212,6 @@ func withRequestParamsHeader(ctx context.Context, requestParams string) context.
 }
 
 // Pipeline creates a PipelineSource to start building a Firestore pipeline.
-//
-// Experimental: Firestore Pipelines is currently in preview and is subject to potential breaking changes in future versions,
-// regardless of any other documented package stability guarantees.
 func (c *Client) Pipeline() *PipelineSource {
 	return &PipelineSource{client: c}
 }
@@ -299,80 +326,175 @@ func (c *Client) getAll(ctx context.Context, docRefs []*DocumentRef, tid []byte,
 	ctx = trace.StartSpan(ctx, "cloud.google.com/go/firestore.Client.BatchGetDocuments")
 	defer func() { trace.EndSpan(ctx, err) }()
 
-	var docNames []string
 	docIndices := map[string][]int{} // doc name to positions in docRefs
 	for i, dr := range docRefs {
 		if err := dr.isValid(); err != nil {
 			return nil, err
 		}
-		docNames = append(docNames, dr.Path)
 		docIndices[dr.Path] = append(docIndices[dr.Path], i)
 	}
-	req := &pb.BatchGetDocumentsRequest{
-		Database:  c.path(),
-		Documents: docNames,
+
+	// Track outstanding documents.
+	outstanding := make(map[string]bool)
+	for _, dr := range docRefs {
+		outstanding[dr.Path] = true
 	}
 
-	// Note that transaction ID and other consistency selectors are mutually exclusive.
-	// We respect the transaction first, any read options passed by the caller second,
-	// and any read options stored in the client third.
-	if rt, hasOpts := parseReadTime(c, rs); hasOpts {
-		req.ConsistencySelector = &pb.BatchGetDocumentsRequest_ReadTime{ReadTime: rt}
+	docs := make([]*DocumentSnapshot, len(docRefs))
+
+	maxAttempts := 5
+	backoff := gax.Backoff{
+		Initial:    100 * time.Millisecond,
+		Max:        5 * time.Second,
+		Multiplier: 2.0,
 	}
 
-	if tid != nil {
-		req.ConsistencySelector = &pb.BatchGetDocumentsRequest_Transaction{Transaction: tid}
-	}
-
-	batchGetDocsCtx := withResourceHeader(ctx, req.Database)
-	batchGetDocsCtx = withRequestParamsHeader(batchGetDocsCtx, reqParamsHeaderVal(c.path()))
-	streamClient, err := c.c.BatchGetDocuments(batchGetDocsCtx, req)
-	if err != nil {
-		return nil, err
-	}
-
-	// Read and remember all results from the stream.
-	var resps []*pb.BatchGetDocumentsResponse
-	for {
-		resp, err := streamClient.Recv()
-		if err == io.EOF {
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if len(outstanding) == 0 {
 			break
 		}
+
+		var activeDocNames []string
+		for _, dr := range docRefs {
+			if outstanding[dr.Path] {
+				activeDocNames = append(activeDocNames, dr.Path)
+			}
+		}
+
+		req := &pb.BatchGetDocumentsRequest{
+			Database:  c.path(),
+			Documents: activeDocNames,
+		}
+
+		// Note that transaction ID and other consistency selectors are mutually exclusive.
+		// We respect the transaction first, any read options passed by the caller second,
+		// and any read options stored in the client third.
+		if rt, hasOpts := parseReadTime(c, rs); hasOpts {
+			req.ConsistencySelector = &pb.BatchGetDocumentsRequest_ReadTime{ReadTime: rt}
+		}
+		if tid != nil {
+			req.ConsistencySelector = &pb.BatchGetDocumentsRequest_Transaction{Transaction: tid}
+		}
+
+		batchGetDocsCtx := withResourceHeader(ctx, req.Database)
+		batchGetDocsCtx = withRequestParamsHeader(batchGetDocsCtx, reqParamsHeaderVal(c.path()))
+		streamClient, err := c.c.BatchGetDocuments(batchGetDocsCtx, req)
 		if err != nil {
+			if tid == nil && isRetryableStreamError(err) && attempt < maxAttempts-1 {
+				dur := backoff.Pause()
+				select {
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				case <-time.After(dur):
+				}
+				continue
+			}
 			return nil, err
 		}
-		resps = append(resps, resp)
+		if streamClient == nil {
+			return nil, errors.New("firestore: received nil stream client")
+		}
+
+		var streamErr error
+		for {
+			resp, recvErr := streamClient.Recv()
+			if recvErr == io.EOF {
+				break
+			}
+			if recvErr != nil {
+				streamErr = recvErr
+				break
+			}
+			if resp == nil {
+				streamErr = errors.New("firestore: received nil response from stream")
+				break
+			}
+
+			var (
+				indices []int
+				doc     *pb.Document
+			)
+			switch r := resp.Result.(type) {
+			case *pb.BatchGetDocumentsResponse_Found:
+				if r.Found == nil {
+					return nil, errors.New("firestore: received nil Document in BatchGetDocumentsResponse_Found")
+				}
+				indices = docIndices[r.Found.Name]
+				doc = r.Found
+				delete(outstanding, r.Found.Name)
+			case *pb.BatchGetDocumentsResponse_Missing:
+				indices = docIndices[r.Missing]
+				doc = nil
+				delete(outstanding, r.Missing)
+			default:
+				return nil, errors.New("firestore: unknown BatchGetDocumentsResponse result type")
+			}
+			// Results may arrive out of order. Put each at the right indices.
+			for _, index := range indices {
+				if docs[index] != nil {
+					return nil, fmt.Errorf("firestore: %q seen twice", docRefs[index].Path)
+				}
+				docs[index], err = newDocumentSnapshot(docRefs[index], doc, c, resp.ReadTime)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+
+		if streamErr == nil {
+			if len(outstanding) > 0 {
+				return nil, fmt.Errorf("firestore: stream completed but some documents were not received: %v", outstanding)
+			}
+			break
+		}
+
+		// If we are in a transaction, do not retry here. Transaction retries
+		// are handled by the transaction runner (outer loop).
+		if tid != nil {
+			return nil, streamErr
+		}
+
+		if !isRetryableStreamError(streamErr) {
+			return nil, streamErr
+		}
+
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
+
+		if attempt == maxAttempts-1 {
+			return nil, streamErr
+		}
+
+		dur := backoff.Pause()
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(dur):
+		}
 	}
 
-	// Results may arrive out of order. Put each at the right indices.
-	docs := make([]*DocumentSnapshot, len(docNames))
-	for _, resp := range resps {
-		var (
-			indices []int
-			doc     *pb.Document
-			err     error
-		)
-		switch r := resp.Result.(type) {
-		case *pb.BatchGetDocumentsResponse_Found:
-			indices = docIndices[r.Found.Name]
-			doc = r.Found
-		case *pb.BatchGetDocumentsResponse_Missing:
-			indices = docIndices[r.Missing]
-			doc = nil
-		default:
-			return nil, errors.New("firestore: unknown BatchGetDocumentsResponse result type")
-		}
-		for _, index := range indices {
-			if docs[index] != nil {
-				return nil, fmt.Errorf("firestore: %q seen twice", docRefs[index].Path)
-			}
-			docs[index], err = newDocumentSnapshot(docRefs[index], doc, c, resp.ReadTime)
-			if err != nil {
-				return nil, err
-			}
+	return docs, nil
+}
+
+func isRetryableStreamError(err error) bool {
+	if err == nil {
+		return false
+	}
+	s, ok := status.FromError(err)
+	if ok {
+		switch s.Code() {
+		case codes.Unavailable, codes.Internal, codes.DeadlineExceeded:
+			return true
 		}
 	}
-	return docs, nil
+	if errors.Is(err, syscall.ECONNRESET) ||
+		errors.Is(err, syscall.ECONNREFUSED) ||
+		errors.Is(err, net.ErrClosed) ||
+		errors.Is(err, io.ErrUnexpectedEOF) {
+		return true
+	}
+	return false
 }
 
 // Collections returns an iterator over the top-level collections.
@@ -416,6 +538,18 @@ func (c *Client) WithReadOptions(opts ...ReadOption) *Client {
 	for _, ro := range opts {
 		ro.apply(c.readSettings)
 	}
+	return c
+}
+
+// WithAlwaysUseImplicitOrderBy configures the default behavior for queries.
+// If enabled, queries will automatically inject an OrderBy clause for the
+// Document ID (`__name__`) if one is not explicitly provided. In addition,
+// it will automatically inject OrderBy clauses for any inequality filters
+// (e.g. >, <, !=) present in the query if they are missing from the explicit
+// orders. This ensures strictly deterministic query results and is especially
+// useful when executing backwards pagination (e.g. limitToLast) without cursors.
+func (c *Client) WithAlwaysUseImplicitOrderBy(b bool) *Client {
+	c.alwaysUseImplicitOrderBy = b
 	return c
 }
 
@@ -517,12 +651,14 @@ type readSettings struct {
 }
 
 // parseReadTime ensures that fallback order of read options is respected.
+// As firestore only accepts usec precision, more precise (e.g. nano) values
+// are clamped accordingly.
 func parseReadTime(c *Client, rs *readSettings) (*timestamppb.Timestamp, bool) {
 	if rs != nil && !rs.readTime.IsZero() {
-		return &timestamppb.Timestamp{Seconds: int64(rs.readTime.Unix())}, true
+		return timestamppb.New(rs.readTime.Truncate(time.Microsecond)), true
 	}
 	if c.readSettings != nil && !c.readSettings.readTime.IsZero() {
-		return &timestamppb.Timestamp{Seconds: int64(c.readSettings.readTime.Unix())}, true
+		return timestamppb.New(c.readSettings.readTime.Truncate(time.Microsecond)), true
 	}
 	return nil, false
 }

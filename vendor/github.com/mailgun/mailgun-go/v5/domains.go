@@ -10,9 +10,25 @@ import (
 
 type ListDomainsOptions struct {
 	Limit int
+
+	// Get only domains with a specific state.
+	State *mtypes.DomainState
+
+	// If sorting is not specified domains are returned in reverse creation date order.
+	Sort *string
+
+	// Get only domains with a specific authority.
+	Authority *string
+
+	// Search domains by the given partial or complete name. Does not support wildcards.
+	Search *string
+
+	// Search on every domain that belongs to any subaccounts under this account.
+	IncludeSubaccounts *bool
 }
 
 // ListDomains retrieves a set of domains from Mailgun.
+// https://documentation.mailgun.com/docs/mailgun/api-reference/send/mailgun/domains/get-v4-domains
 func (mg *Client) ListDomains(opts *ListDomainsOptions) *DomainsIterator {
 	var limit int
 	if opts != nil {
@@ -27,6 +43,7 @@ func (mg *Client) ListDomains(opts *ListDomainsOptions) *DomainsIterator {
 		url:                 generateApiUrl(mg, 4, domainsEndpoint),
 		ListDomainsResponse: mtypes.ListDomainsResponse{TotalCount: -1},
 		limit:               limit,
+		opts:                opts,
 	}
 }
 
@@ -34,6 +51,7 @@ type DomainsIterator struct {
 	mtypes.ListDomainsResponse
 
 	limit  int
+	opts   *ListDomainsOptions
 	mg     Mailgun
 	offset int
 	url    string
@@ -156,20 +174,58 @@ func (ri *DomainsIterator) fetch(ctx context.Context, skip, limit int) error {
 	if skip != 0 {
 		r.addParameter("skip", strconv.Itoa(skip))
 	}
+
+	// TODO(vtopc): switch to opts.Limit:
 	if limit != 0 {
 		r.addParameter("limit", strconv.Itoa(limit))
+	}
+
+	if ri.opts != nil {
+		if ri.opts.State != nil {
+			r.addParameter("state", string(*ri.opts.State))
+		}
+		if ri.opts.Sort != nil {
+			r.addParameter("sort", *ri.opts.Sort)
+		}
+		if ri.opts.Authority != nil {
+			r.addParameter("authority", *ri.opts.Authority)
+		}
+		if ri.opts.Search != nil {
+			r.addParameter("search", *ri.opts.Search)
+		}
+		if ri.opts.IncludeSubaccounts != nil {
+			r.addParameter("include_subaccounts", strconv.FormatBool(*ri.opts.IncludeSubaccounts))
+		}
 	}
 
 	return getResponseFromJSON(ctx, r, &ri.ListDomainsResponse)
 }
 
-type GetDomainOptions struct{}
+type GetDomainOptions struct {
+	// If set to true, domain payload will include dkim_host, mailfrom_host and pod
+	Extended *bool
+
+	// Domain payload will include sending and receiving dns records payload
+	WithDNS *bool
+}
 
 // GetDomain retrieves detailed information about the named domain.
-func (mg *Client) GetDomain(ctx context.Context, domain string, _ *GetDomainOptions) (mtypes.GetDomainResponse, error) {
+// https://documentation.mailgun.com/docs/mailgun/api-reference/send/mailgun/domains/get-v4-domains--name-
+func (mg *Client) GetDomain(ctx context.Context, domain string, opts *GetDomainOptions) (mtypes.GetDomainResponse, error) {
 	r := newHTTPRequest(generateApiUrl(mg, 4, domainsEndpoint) + "/" + domain)
 	r.setClient(mg.HTTPClient())
 	r.setBasicAuth(basicAuthUser, mg.APIKey())
+
+	if opts != nil {
+		if opts.Extended != nil {
+			r.addParameter("h:extended", strconv.FormatBool(*opts.Extended))
+		}
+
+		if opts.WithDNS != nil {
+			r.addParameter("h:with_dns", strconv.FormatBool(*opts.WithDNS))
+		}
+	}
+
 	var resp mtypes.GetDomainResponse
 	err := getResponseFromJSON(ctx, r, &resp)
 	return resp, err
@@ -182,6 +238,7 @@ func (mg *Client) VerifyDomain(ctx context.Context, domain string) (mtypes.GetDo
 	r.setClient(mg.HTTPClient())
 	r.setBasicAuth(basicAuthUser, mg.APIKey())
 
+	// TODO(vtopc): why newUrlEncodedPayload()?
 	payload := newUrlEncodedPayload()
 	var resp mtypes.GetDomainResponse
 	err := putResponseFromJSON(ctx, r, payload, &resp)
@@ -190,7 +247,9 @@ func (mg *Client) VerifyDomain(ctx context.Context, domain string) (mtypes.GetDo
 
 // VerifyAndReturnDomain verifies the domains DNS records (includes A, CNAME, SPF,
 // DKIM and MX records) to ensure the domain is ready and able to send.
+//
 // Deprecated: use VerifyDomain instead.
+//
 // TODO(v6): remove this method
 func (mg *Client) VerifyAndReturnDomain(ctx context.Context, domain string) (mtypes.GetDomainResponse, error) {
 	return mg.VerifyDomain(ctx, domain)
@@ -198,30 +257,38 @@ func (mg *Client) VerifyAndReturnDomain(ctx context.Context, domain string) (mty
 
 // CreateDomainOptions - optional parameters when creating a domain
 // https://documentation.mailgun.com/docs/mailgun/api-reference/openapi-final/tag/Domains/#tag/Domains/operation/POST-v4-domains
-// TODO(DE-1599): support all fields
 type CreateDomainOptions struct {
-	Password                   string
-	SpamAction                 mtypes.SpamAction
+	Password   string
+	SpamAction mtypes.SpamAction
+	// Wildcard parameter instructs Mailgun to treat all subdomains of this domain uniformly if true,
+	// and as different domains if false.
 	Wildcard                   bool
 	ForceDKIMAuthority         bool
 	DKIMKeySize                int
 	IPs                        []string
 	WebScheme                  string
 	UseAutomaticSenderSecurity bool
+	ArchiveTo                  string
+	DKIMHostName               string
+	DKIMSelector               string
+	ForceRootDKIMHost          bool
+	EncryptIncomingMessage     bool
+	PoolID                     string
+	RequireTLS                 bool
+	SkipVerification           bool
+	WebPrefix                  string
+	MessageTTL                 int
 }
 
 // CreateDomain instructs Mailgun to create a new domain for your account.
-// The name parameter identifies the domain.
-// The smtpPassword parameter provides an access credential for the domain.
-// The spamAction domain must be one of Delete, Tag, or Disabled.
-// The wildcard parameter instructs Mailgun to treat all subdomains of this domain uniformly if true,
-// and as different domains if false.
+// The domain parameter identifies the domain.
+// https://documentation.mailgun.com/docs/mailgun/api-reference/send/mailgun/domains/post-v4-domains
 func (mg *Client) CreateDomain(ctx context.Context, domain string, opts *CreateDomainOptions) (mtypes.GetDomainResponse, error) {
 	r := newHTTPRequest(generateApiUrl(mg, 4, domainsEndpoint))
 	r.setClient(mg.HTTPClient())
 	r.setBasicAuth(basicAuthUser, mg.APIKey())
 
-	payload := newUrlEncodedPayload()
+	payload := NewFormDataPayload()
 	payload.addValue("name", domain)
 
 	if opts != nil {
@@ -249,6 +316,36 @@ func (mg *Client) CreateDomain(ctx context.Context, domain string, opts *CreateD
 		if opts.UseAutomaticSenderSecurity {
 			payload.addValue("use_automatic_sender_security", boolToString(opts.UseAutomaticSenderSecurity))
 		}
+		if opts.ArchiveTo != "" {
+			payload.addValue("archive_to", opts.ArchiveTo)
+		}
+		if opts.DKIMHostName != "" {
+			payload.addValue("dkim_host_name", opts.DKIMHostName)
+		}
+		if opts.DKIMSelector != "" {
+			payload.addValue("dkim_selector", opts.DKIMSelector)
+		}
+		if opts.ForceRootDKIMHost {
+			payload.addValue("force_root_dkim_host", boolToString(opts.ForceRootDKIMHost))
+		}
+		if opts.EncryptIncomingMessage {
+			payload.addValue("encrypt_incoming_message", boolToString(opts.EncryptIncomingMessage))
+		}
+		if opts.PoolID != "" {
+			payload.addValue("pool_id", opts.PoolID)
+		}
+		if opts.RequireTLS {
+			payload.addValue("require_tls", boolToString(opts.RequireTLS))
+		}
+		if opts.SkipVerification {
+			payload.addValue("skip_verification", boolToString(opts.SkipVerification))
+		}
+		if opts.WebPrefix != "" {
+			payload.addValue("web_prefix", opts.WebPrefix)
+		}
+		if opts.MessageTTL != 0 {
+			payload.addValue("message_ttl", strconv.Itoa(opts.MessageTTL))
+		}
 	}
 	var resp mtypes.GetDomainResponse
 	err := postResponseFromJSON(ctx, r, payload, &resp)
@@ -266,11 +363,17 @@ func (mg *Client) DeleteDomain(ctx context.Context, domain string) error {
 
 // UpdateDomainOptions options for updating a domain
 type UpdateDomainOptions struct {
+	Password                   string
+	SpamAction                 mtypes.SpamAction
+	Wildcard                   *bool
 	WebScheme                  string
 	WebPrefix                  string
 	RequireTLS                 *bool
 	SkipVerification           *bool
 	UseAutomaticSenderSecurity *bool
+	ArchiveTo                  string
+	MailFromHost               string
+	MessageTTL                 *int
 }
 
 // UpdateDomain updates a domain's attributes.
@@ -279,9 +382,18 @@ func (mg *Client) UpdateDomain(ctx context.Context, domain string, opts *UpdateD
 	r.setClient(mg.HTTPClient())
 	r.setBasicAuth(basicAuthUser, mg.APIKey())
 
-	payload := newUrlEncodedPayload()
+	payload := NewFormDataPayload()
 
 	if opts != nil {
+		if opts.Password != "" {
+			payload.addValue("smtp_password", opts.Password)
+		}
+		if opts.SpamAction != "" {
+			payload.addValue("spam_action", string(opts.SpamAction))
+		}
+		if opts.Wildcard != nil {
+			payload.addValue("wildcard", boolToString(*opts.Wildcard))
+		}
 		if opts.WebScheme != "" {
 			payload.addValue("web_scheme", opts.WebScheme)
 		}
@@ -296,6 +408,15 @@ func (mg *Client) UpdateDomain(ctx context.Context, domain string, opts *UpdateD
 		}
 		if opts.UseAutomaticSenderSecurity != nil {
 			payload.addValue("use_automatic_sender_security", boolToString(*opts.UseAutomaticSenderSecurity))
+		}
+		if opts.ArchiveTo != "" {
+			payload.addValue("archive_to", opts.ArchiveTo)
+		}
+		if opts.MailFromHost != "" {
+			payload.addValue("mailfrom_host", opts.MailFromHost)
+		}
+		if opts.MessageTTL != nil {
+			payload.addValue("message_ttl", strconv.Itoa(*opts.MessageTTL))
 		}
 	}
 

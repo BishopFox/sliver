@@ -28,7 +28,7 @@ go get -u github.com/textmagic/textmagic-rest-go-v2/v3@latest
 
 Add to your `go.mod`:
 ```go
-require github.com/textmagic/textmagic-rest-go-v2/v3 v3.0.43885
+require github.com/textmagic/textmagic-rest-go-v2/v3 v3.0.50044
 ```
 
 Then run:
@@ -66,7 +66,7 @@ func main() {
     client := tm.NewAPIClient(cfg)
 
     // Set up authentication
-    // Get your credentials from https://my.textmagic.com/online/api/rest-api/keys
+    // Get your credentials from https://app.textmagic.com/settings/api
     auth := context.WithValue(context.Background(), tm.ContextBasicAuth, tm.BasicAuth{
         UserName: "YOUR_USERNAME",
         Password: "YOUR_API_KEY",
@@ -132,7 +132,7 @@ import (
     "context"
     "fmt"
     "log"
-    
+
     tm "github.com/textmagic/textmagic-rest-go-v2/v3"
 )
 
@@ -144,7 +144,7 @@ func main() {
             Description: "TextMagic REST API",
         },
     }
-    
+
     client := tm.NewAPIClient(cfg)
     auth := context.WithValue(context.Background(), tm.ContextBasicAuth, tm.BasicAuth{
         UserName: "YOUR_USERNAME",
@@ -155,11 +155,11 @@ func main() {
         Text:   "Test message",
         Phones: "+1234567890",
     }
-    
+
     response, httpResp, err := client.TextMagicAPI.SendMessage(auth).
         SendMessageInputObject(sendMessageInput).
         Execute()
-        
+
     if err != nil {
         // Handle different types of errors
         if httpResp != nil {
@@ -179,7 +179,7 @@ func main() {
             log.Fatalf("Network error: %v", err)
         }
     }
-    
+
     fmt.Printf("Message sent successfully! ID: %s\n", response.Id)
 }
 ```
@@ -346,7 +346,7 @@ auth := context.WithValue(context.Background(), tm.ContextBasicAuth, tm.BasicAut
    ```bash
    # Download and install Go 1.23
    # https://go.dev/dl/
-   
+
    # Verify
    go version
    ```
@@ -355,7 +355,7 @@ auth := context.WithValue(context.Background(), tm.ContextBasicAuth, tm.BasicAut
    ```bash
    # Update go.mod
    go get -u github.com/textmagic/textmagic-rest-go-v2/v3@latest
-   
+
    # Remove old version
    go mod tidy
    ```
@@ -368,7 +368,7 @@ auth := context.WithValue(context.Background(), tm.ContextBasicAuth, tm.BasicAut
        "github.com/antihax/optional"
        tm "github.com/textmagic/textmagic-rest-go-v2"
    )
-   
+
    opts := &tm.GetAllOutboundMessagesOpts{
        Page:  optional.NewInt32(1),
        Limit: optional.NewInt32(10),
@@ -379,7 +379,7 @@ auth := context.WithValue(context.Background(), tm.ContextBasicAuth, tm.BasicAut
    **After (v2.x):**
    ```go
    import tm "github.com/textmagic/textmagic-rest-go-v2/v3"
-   
+
    result, _, err := client.TextMagicAPI.GetAllOutboundMessages(ctx).
        Page(1).
        Limit(10).
@@ -397,7 +397,7 @@ auth := context.WithValue(context.Background(), tm.ContextBasicAuth, tm.BasicAut
    ```bash
    # Run your tests
    go test ./...
-   
+
    # Build your application
    go build
    ```

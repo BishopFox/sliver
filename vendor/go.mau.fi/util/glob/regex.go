@@ -62,7 +62,7 @@ func ToRegexPattern(pattern string, buf swWriter) error {
 // If you want the raw regex string, use [ToRegexPattern] instead
 func CompileRegex(pattern string) (*RegexGlob, error) {
 	var buf strings.Builder
-	buf.WriteRune('^')
+	buf.WriteString("(?i)^")
 	err := ToRegexPattern(pattern, &buf)
 	if err != nil {
 		// This will never actually happen

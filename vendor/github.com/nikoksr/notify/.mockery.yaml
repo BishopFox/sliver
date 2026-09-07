@@ -1,13 +1,14 @@
-with-expecter: true
-mockname: "mock{{.InterfaceName}}"
+structname: "mock{{.InterfaceName}}"
 filename: "mock_{{.InterfaceName | snakecase}}.go"
+template: testify
+template-data:
+  unroll-variadic: true
 packages:
   github.com/nikoksr/notify:
     config:
       dir: "{{.InterfaceDir}}"
-      inpackage: true
       include-auto-generated: false
       recursive: true
       all: true
-      exclude:
+      exclude-subpkg-regex:
         - "service/http"

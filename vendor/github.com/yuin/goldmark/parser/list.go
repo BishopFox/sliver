@@ -18,7 +18,7 @@ const (
 
 var skipListParserKey = NewContextKey()
 var emptyListItemWithBlankLines = NewContextKey()
-var listItemFlagValue interface{} = true
+var listItemFlagValue any = true
 
 // Same as
 // `^(([ ]*)([\-\*\+]))(\s+.*)?\n?$`.FindSubmatchIndex or
@@ -80,14 +80,6 @@ func parseListItem(line []byte) ([6]int, listItemType) {
 	return ret, typ
 }
 
-func matchesListItem(source []byte, strict bool) ([6]int, listItemType) {
-	m, typ := parseListItem(source)
-	if typ != notList && (!strict || strict && m[1] < 4) {
-		return m, typ
-	}
-	return m, notList
-}
-
 func calcListOffset(source []byte, match [6]int) int {
 	var offset int
 	if match[4] < 0 || util.IsBlank(source[match[4]:]) { // list item starts with a blank line
@@ -132,7 +124,7 @@ func (b *listParser) Open(parent ast.Node, reader text.Reader, pc Context) (ast.
 		return nil, NoChildren
 	}
 	line, _ := reader.PeekLine()
-	match, typ := matchesListItem(line, true)
+	match, typ := parseListItem(line)
 	if typ == notList {
 		return nil, NoChildren
 	}
@@ -198,7 +190,7 @@ func (b *listParser) Continue(node ast.Node, reader text.Reader, pc Context) Sta
 
 	if indent < offset || lastIsEmpty {
 		if indent < 4 {
-			match, typ := matchesListItem(line, false) // may have a leading spaces more than 3
+			match, typ := parseListItem(line)
 			if typ != notList && match[1]-offset < 4 {
 				marker := line[match[3]-1]
 				if !list.CanContinue(marker, typ == orderedList) {

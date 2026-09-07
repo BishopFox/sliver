@@ -29,11 +29,12 @@ const (
 )
 
 type chatResponseFull struct {
-	Channel            string `json:"channel"`
-	Timestamp          string `json:"ts"`                             // Regular message timestamp
-	MessageTimeStamp   string `json:"message_ts"`                     // Ephemeral message timestamp
-	ScheduledMessageID string `json:"scheduled_message_id,omitempty"` // Scheduled message id
-	Text               string `json:"text"`
+	Channel            string  `json:"channel"`
+	Timestamp          string  `json:"ts"`                             // Regular message timestamp
+	MessageTimeStamp   string  `json:"message_ts"`                     // Ephemeral message timestamp
+	ScheduledMessageID string  `json:"scheduled_message_id,omitempty"` // Scheduled message id
+	Text               string  `json:"text"`
+	Message            Message `json:"message"` // Full message object, as returned by chat.postMessage and chat.update
 	SlackResponse
 }
 
@@ -148,6 +149,33 @@ func (api *Client) PostMessageContext(ctx context.Context, channelID string, opt
 	return respChannel, respTimestamp, err
 }
 
+// PostMessageWithResponse sends a message to a channel and returns the full
+// message object from the Slack API response.
+// For more details, see PostMessageWithResponseContext documentation.
+func (api *Client) PostMessageWithResponse(channelID string, options ...MsgOption) (string, string, Message, error) {
+	return api.PostMessageWithResponseContext(context.Background(), channelID, options...)
+}
+
+// PostMessageWithResponseContext sends a message to a channel with a custom
+// context and returns the full message object from the Slack API response.
+// Unlike PostMessageContext, it exposes fields that are only available in the
+// response's message object, such as Message.ThreadTimestamp, which can be
+// used to detect that a threaded reply was posted un-threaded because its
+// parent message was deleted.
+// Slack API docs: https://api.slack.com/methods/chat.postMessage
+func (api *Client) PostMessageWithResponseContext(ctx context.Context, channelID string, options ...MsgOption) (string, string, Message, error) {
+	response, err := api.sendResponseFull(
+		ctx,
+		channelID,
+		MsgOptionPost(),
+		MsgOptionCompose(options...),
+	)
+	if response == nil {
+		return "", "", Message{}, err
+	}
+	return response.Channel, response.getMessageTimestamp(), response.Message, err
+}
+
 // PostEphemeral sends an ephemeral message to a user in a channel.
 // Message is escaped by default according to https://api.slack.com/docs/formatting
 // Use http://davestevens.github.io/slack-message-builder/ to help crafting your message.
@@ -245,45 +273,53 @@ func (api *Client) SendMessage(channel string, options ...MsgOption) (string, st
 // SendMessageContext more flexible method for configuring messages with a custom context.
 // Slack API docs: https://api.slack.com/methods/chat.postMessage
 func (api *Client) SendMessageContext(ctx context.Context, channelID string, options ...MsgOption) (_channel string, _timestampOrScheduledMessageID string, _text string, err error) {
+	response, err := api.sendResponseFull(ctx, channelID, options...)
+	if response == nil {
+		return "", "", "", err
+	}
+
+	if response.ScheduledMessageID != "" {
+		return response.Channel, response.ScheduledMessageID, response.Text, err
+	} else {
+		return response.Channel, response.getMessageTimestamp(), response.Text, err
+	}
+}
+
+// sendResponseFull sends a message and returns the full response.
+// It returns a nil response if the request could not be built or sent;
+// otherwise the returned error is the response's error, if any.
+func (api *Client) sendResponseFull(ctx context.Context, channelID string, options ...MsgOption) (*chatResponseFull, error) {
 	var (
 		req      *http.Request
 		parser   func(*chatResponseFull) responseParser
 		response chatResponseFull
+		err      error
 	)
 
 	if req, parser, err = buildSender(api.endpoint, options...).BuildRequestContext(ctx, api.token, channelID); err != nil {
-		return "", "", "", err
+		return nil, err
 	}
 
 	if api.Debug() {
 		reqBody, err := io.ReadAll(req.Body)
 		if err != nil {
-			return "", "", "", err
+			return nil, err
 		}
 		req.Body = io.NopCloser(bytes.NewBuffer(reqBody))
 		api.Debugf("Sending request: %s", redactToken(reqBody))
 	}
 
 	if _, err = doPost(api.httpclient, req, parser(&response), api); err != nil {
-		return "", "", "", err
+		return nil, err
 	}
 
-	if response.ScheduledMessageID != "" {
-		return response.Channel, response.ScheduledMessageID, response.Text, response.Err()
-	} else {
-		return response.Channel, response.getMessageTimestamp(), response.Text, response.Err()
-	}
+	return &response, response.Err()
 }
 
 func redactToken(b []byte) []byte {
 	// See https://api.slack.com/authentication/token-types
 	// and https://api.slack.com/authentication/rotation
-	re, err := regexp.Compile(`(token=x[a-z.]+)-[0-9A-Za-z-]+`)
-	if err != nil {
-		// The regular expression above should never result in errors,
-		// but just in case, do no harm.
-		return b
-	}
+	re := regexp.MustCompile(`(token=x[a-z.]+)-[0-9A-Za-z-]+`)
 	// Keep "token=" and the first element of the token, which identifies its type
 	// (this could be useful for debugging, e.g. when using a wrong token).
 	return re.ReplaceAll(b, []byte("$1-REDACTED"))

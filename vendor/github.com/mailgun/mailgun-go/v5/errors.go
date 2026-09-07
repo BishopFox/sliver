@@ -24,8 +24,10 @@ type UnexpectedResponseError struct {
 
 // String() converts the error into a human-readable, logfmt-compliant string.
 // See http://godoc.org/github.com/kr/logfmt for details on logfmt formatting.
+//
 // TODO(v6): this method is redundant: move into Error().
 // TODO(v6): this returns `ExpectedOneOf=[]int{200, 201}` but should return `ExpectedOneOf=[200 201]`.
+//
 // Deprecated: use Error() instead.
 func (e *UnexpectedResponseError) String() string {
 	return fmt.Sprintf("UnexpectedResponseError Method=%s URL=%s ExpectedOneOf=%#v Got=%d Error: %s",

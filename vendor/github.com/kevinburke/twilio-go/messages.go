@@ -3,6 +3,7 @@ package twilio
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/url"
 	"time"
 
@@ -176,9 +177,7 @@ func (c *MessageService) GetMessagesInRange(start time.Time, end time.Time, data
 		panic("start date is after end date")
 	}
 	d := url.Values{}
-	for k, v := range data {
-		d[k] = v
-	}
+	maps.Copy(d, data)
 	d.Del("DateSent")
 	d.Del("Page") // just in case
 	// Omit these parameters if they are the sentinel values, since I think
@@ -302,7 +301,6 @@ func (m *MessageService) GetMediaURLs(ctx context.Context, sid string, data url.
 	urls := make([]*url.URL, len(page.MediaList))
 	g, errctx := errgroup.WithContext(ctx)
 	for i, media := range page.MediaList {
-		i := i
 		mediaSid := media.Sid
 		g.Go(func() error {
 			url, err := m.client.Media.GetURL(errctx, sid, mediaSid)

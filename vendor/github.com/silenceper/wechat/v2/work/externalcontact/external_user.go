@@ -187,16 +187,16 @@ type ExternalUserForBatch struct {
 
 // ExternalContact 批量获取外部联系人用户信息
 type ExternalContact struct {
-	ExternalUserID  string `json:"external_userid"`
-	Name            string `json:"name"`
-	Position        string `json:"position"`
-	Avatar          string `json:"avatar"`
-	CorpName        string `json:"corp_name"`
-	CorpFullName    string `json:"corp_full_name"`
-	Type            int64  `json:"type"`
-	Gender          int64  `json:"gender"`
-	UnionID         string `json:"unionid"`
-	ExternalProfile string `json:"external_profile"`
+	ExternalUserID  string           `json:"external_userid"`
+	Name            string           `json:"name"`
+	Position        string           `json:"position"`
+	Avatar          string           `json:"avatar"`
+	CorpName        string           `json:"corp_name"`
+	CorpFullName    string           `json:"corp_full_name"`
+	Type            int64            `json:"type"`
+	Gender          int64            `json:"gender"`
+	UnionID         string           `json:"unionid"`
+	ExternalProfile *ExternalProfile `json:"external_profile"`
 }
 
 // FollowInfo 批量获取外部联系人跟进人信息

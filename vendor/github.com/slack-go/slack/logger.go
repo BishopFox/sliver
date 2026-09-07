@@ -13,18 +13,18 @@ type logger interface {
 // ilogger represents the internal logging api we use.
 type ilogger interface {
 	logger
-	Print(...interface{})
-	Printf(string, ...interface{})
-	Println(...interface{})
+	Print(...any)
+	Printf(string, ...any)
+	Println(...any)
 }
 
 type Debug interface {
 	Debug() bool
 
 	// Debugf print a formatted debug line.
-	Debugf(format string, v ...interface{})
+	Debugf(format string, v ...any)
 	// Debugln print a debug line.
-	Debugln(v ...interface{})
+	Debugln(v ...any)
 }
 
 // internalLog implements the additional methods used by our internal logging.
@@ -33,17 +33,17 @@ type internalLog struct {
 }
 
 // Println replicates the behaviour of the standard logger.
-func (t internalLog) Println(v ...interface{}) {
+func (t internalLog) Println(v ...any) {
 	t.Output(2, fmt.Sprintln(v...))
 }
 
 // Printf replicates the behaviour of the standard logger.
-func (t internalLog) Printf(format string, v ...interface{}) {
+func (t internalLog) Printf(format string, v ...any) {
 	t.Output(2, fmt.Sprintf(format, v...))
 }
 
 // Print replicates the behaviour of the standard logger.
-func (t internalLog) Print(v ...interface{}) {
+func (t internalLog) Print(v ...any) {
 	t.Output(2, fmt.Sprint(v...))
 }
 
@@ -54,7 +54,7 @@ func (t discard) Debug() bool {
 }
 
 // Debugf print a formatted debug line.
-func (t discard) Debugf(format string, v ...interface{}) {}
+func (t discard) Debugf(format string, v ...any) {}
 
 // Debugln print a debug line.
-func (t discard) Debugln(v ...interface{}) {}
+func (t discard) Debugln(v ...any) {}

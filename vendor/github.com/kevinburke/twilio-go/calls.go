@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/url"
 	"time"
 
@@ -160,9 +161,7 @@ func (c *CallService) GetCallsInRange(start time.Time, end time.Time, data url.V
 		panic("start date is after end date")
 	}
 	d := url.Values{}
-	for k, v := range data {
-		d[k] = v
-	}
+	maps.Copy(d, data)
 	d.Del("StartTime")
 	d.Del("Page") // just in case
 	if start != Epoch {

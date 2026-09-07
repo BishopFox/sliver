@@ -24,6 +24,7 @@ const (
 	AuthTypeToken      AuthType = "m.login.token"
 	AuthTypeDummy      AuthType = "m.login.dummy"
 	AuthTypeAppservice AuthType = "m.login.application_service"
+	AuthTypeOAuth      AuthType = "m.oauth"
 
 	AuthTypeSynapseJWT AuthType = "org.matrix.login.jwt"
 
@@ -66,14 +67,14 @@ const (
 )
 
 // ReqRegister is the JSON request for https://spec.matrix.org/v1.2/client-server-api/#post_matrixclientv3register
-type ReqRegister struct {
+type ReqRegister[UIAType any] struct {
 	Username                 string      `json:"username,omitempty"`
 	Password                 string      `json:"password,omitempty"`
 	DeviceID                 id.DeviceID `json:"device_id,omitempty"`
 	InitialDeviceDisplayName string      `json:"initial_device_display_name,omitempty"`
 	InhibitLogin             bool        `json:"inhibit_login,omitempty"`
 	RefreshToken             bool        `json:"refresh_token,omitempty"`
-	Auth                     interface{} `json:"auth,omitempty"`
+	Auth                     UIAType     `json:"auth,omitempty"`
 
 	// Type for registration, only used for appservice user registrations
 	// https://spec.matrix.org/v1.2/application-service-api/#server-admin-style-permissions
@@ -298,12 +299,45 @@ type ReqKeysSignatures struct {
 type ReqUploadSignatures map[id.UserID]map[string]ReqKeysSignatures
 
 type DeviceKeys struct {
-	UserID     id.UserID              `json:"user_id"`
-	DeviceID   id.DeviceID            `json:"device_id"`
-	Algorithms []id.Algorithm         `json:"algorithms"`
-	Keys       KeyMap                 `json:"keys"`
-	Signatures signatures.Signatures  `json:"signatures"`
-	Unsigned   map[string]interface{} `json:"unsigned,omitempty"`
+	UserID     id.UserID             `json:"user_id"`
+	DeviceID   id.DeviceID           `json:"device_id"`
+	Algorithms []id.Algorithm        `json:"algorithms"`
+	Keys       KeyMap                `json:"keys"`
+	Signatures signatures.Signatures `json:"signatures"`
+	Dehydrated bool                  `json:"dehydrated,omitempty"`
+	Unsigned   map[string]any        `json:"unsigned,omitempty"`
+	Extra      map[string]any        `json:"-"`
+}
+
+type serializableDeviceKeys DeviceKeys
+
+func (dk *DeviceKeys) deleteStandardExtraFields() {
+	if len(dk.Extra) == 0 {
+		return
+	}
+	delete(dk.Extra, "user_id")
+	delete(dk.Extra, "device_id")
+	delete(dk.Extra, "algorithms")
+	delete(dk.Extra, "keys")
+	delete(dk.Extra, "signatures")
+	delete(dk.Extra, "dehydrated")
+	delete(dk.Extra, "unsigned")
+}
+
+func (dk *DeviceKeys) MarshalJSON() ([]byte, error) {
+	dk.deleteStandardExtraFields()
+	return event.MarshalMerge((*serializableDeviceKeys)(dk), dk.Extra)
+}
+
+func (dk *DeviceKeys) UnmarshalJSON(data []byte) error {
+	if err := json.Unmarshal(data, (*serializableDeviceKeys)(dk)); err != nil {
+		return err
+	}
+	if err := json.Unmarshal(data, &dk.Extra); err != nil {
+		return err
+	}
+	dk.deleteStandardExtraFields()
+	return nil
 }
 
 type CrossSigningKeys struct {
@@ -320,11 +354,11 @@ func (csk *CrossSigningKeys) FirstKey() id.Ed25519 {
 	return ""
 }
 
-type UploadCrossSigningKeysReq struct {
+type UploadCrossSigningKeysReq[UIAType any] struct {
 	Master      CrossSigningKeys `json:"master_key"`
 	SelfSigning CrossSigningKeys `json:"self_signing_key"`
 	UserSigning CrossSigningKeys `json:"user_signing_key"`
-	Auth        interface{}      `json:"auth,omitempty"`
+	Auth        UIAType          `json:"auth,omitempty"`
 }
 
 type KeyMap map[id.DeviceKeyID]string
@@ -367,13 +401,12 @@ type ReqSendToDevice struct {
 }
 
 type ReqSendEvent struct {
-	Timestamp     int64
-	TransactionID string
-	UnstableDelay time.Duration
-
-	DontEncrypt bool
-
-	MeowEventID id.EventID
+	Timestamp              int64
+	TransactionID          string
+	UnstableDelay          time.Duration
+	UnstableStickyDuration time.Duration
+	DontEncrypt            bool
+	MeowEventID            id.EventID
 }
 
 type ReqDelayedEvents struct {
@@ -393,23 +426,23 @@ type ReqDeviceInfo struct {
 }
 
 // ReqDeleteDevice is the JSON request for https://spec.matrix.org/v1.2/client-server-api/#delete_matrixclientv3devicesdeviceid
-type ReqDeleteDevice struct {
-	Auth interface{} `json:"auth,omitempty"`
+type ReqDeleteDevice[UIAType any] struct {
+	Auth UIAType `json:"auth,omitempty"`
 }
 
 // ReqDeleteDevices is the JSON request for https://spec.matrix.org/v1.2/client-server-api/#post_matrixclientv3delete_devices
-type ReqDeleteDevices struct {
+type ReqDeleteDevices[UIAType any] struct {
 	Devices []id.DeviceID `json:"devices"`
-	Auth    interface{}   `json:"auth,omitempty"`
+	Auth    UIAType       `json:"auth,omitempty"`
 }
 
 type ReqPutPushRule struct {
 	Before string `json:"-"`
 	After  string `json:"-"`
 
-	Actions    []pushrules.PushActionType `json:"actions"`
-	Conditions []pushrules.PushCondition  `json:"conditions"`
-	Pattern    string                     `json:"pattern"`
+	Actions    []*pushrules.PushAction    `json:"actions"`
+	Conditions []*pushrules.PushCondition `json:"conditions,omitempty"`
+	Pattern    string                     `json:"pattern,omitempty"`
 }
 
 type ReqBeeperBatchSend struct {
@@ -426,6 +459,8 @@ type ReqSetReadMarkers struct {
 	Read        id.EventID `json:"m.read,omitempty"`
 	ReadPrivate id.EventID `json:"m.read.private,omitempty"`
 	FullyRead   id.EventID `json:"m.fully_read,omitempty"`
+	// Allow moving m.fully_read backwards via MSC4446.
+	AllowBackward bool `json:"com.beeper.allow_backward,omitempty"`
 
 	BeeperReadExtra        interface{} `json:"com.beeper.read.extra,omitempty"`
 	BeeperReadPrivateExtra interface{} `json:"com.beeper.read.private.extra,omitempty"`
@@ -445,6 +480,8 @@ type ReqSetBeeperInboxState struct {
 
 type ReqSendReceipt struct {
 	ThreadID string `json:"thread_id,omitempty"`
+	// Allow moving m.fully_read backwards via MSC4446.
+	AllowBackward bool `json:"com.beeper.allow_backward,omitempty"`
 }
 
 type ReqPublicRooms struct {
@@ -452,6 +489,7 @@ type ReqPublicRooms struct {
 	Limit                int
 	Since                string
 	ThirdPartyInstanceID string
+	Server               string
 }
 
 func (req *ReqPublicRooms) Query() map[string]string {
@@ -470,6 +508,9 @@ func (req *ReqPublicRooms) Query() map[string]string {
 	}
 	if req.ThirdPartyInstanceID != "" {
 		query["third_party_instance_id"] = req.ThirdPartyInstanceID
+	}
+	if req.Server != "" {
+		query["server"] = req.Server
 	}
 	return query
 }
@@ -616,4 +657,56 @@ type ReqSuspend struct {
 // ReqLocked is the request body for https://github.com/matrix-org/matrix-spec-proposals/pull/4323
 type ReqLocked struct {
 	Locked bool `json:"locked"`
+}
+
+type ReqSearchWrapper struct {
+	SearchCategories ReqSearchCategoryWrapper `json:"search_categories"`
+}
+
+type ReqSearchCategoryWrapper struct {
+	RoomEvents *ReqSearch `json:"room_events"`
+}
+
+type ReqSearch struct {
+	// This is a query param
+	NextBatch string `json:"-"`
+
+	SearchTerm   string      `json:"search_term"`
+	Filter       *FilterPart `json:"filter,omitempty"`
+	Keys         []string    `json:"keys,omitempty"`
+	IncludeState bool        `json:"include_state,omitempty"`
+	OrderBy      string      `json:"order_by,omitempty"`
+
+	EventContext SearchEventContext `json:"event_context,omitzero"`
+	Groupings    SearchGroupings    `json:"groupings,omitzero"`
+}
+
+func (rs *ReqSearch) Query() map[string]string {
+	query := map[string]string{}
+	if rs.NextBatch != "" {
+		query["next_batch"] = rs.NextBatch
+	}
+	return query
+}
+
+type SearchEventContext struct {
+	BeforeLimit    int  `json:"before_limit,omitempty"`
+	AfterLimit     int  `json:"after_limit,omitempty"`
+	IncludeProfile bool `json:"include_profile,omitempty"`
+}
+
+func (sec SearchEventContext) IsZero() bool {
+	return sec.BeforeLimit == 0 && sec.AfterLimit == 0 && !sec.IncludeProfile
+}
+
+type SearchGroupings struct {
+	GroupBy []SearchGroup `json:"group_by,omitempty"`
+}
+
+func (sg SearchGroupings) IsZero() bool {
+	return len(sg.GroupBy) == 0
+}
+
+type SearchGroup struct {
+	Key string `json:"key"`
 }

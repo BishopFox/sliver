@@ -207,6 +207,7 @@ func ProcessDelimiters(bottom ast.Node, pc Context) {
 		closer.ConsumeCharacters(consume)
 
 		node := opener.Processor.OnMatch(consume)
+		node.(interface{ SetPos(int) }).SetPos(opener.Segment.Start)
 
 		parent := opener.Parent()
 		child := opener.NextSibling()

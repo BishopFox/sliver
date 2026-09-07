@@ -15,14 +15,14 @@ var attrNameClass = []byte("class")
 // An Attribute is an attribute of the markdown elements.
 type Attribute struct {
 	Name  []byte
-	Value interface{}
+	Value any
 }
 
 // An Attributes is a collection of attributes.
 type Attributes []Attribute
 
 // Find returns a (value, true) if an attribute correspond with given name is found, otherwise (nil, false).
-func (as Attributes) Find(name []byte) (interface{}, bool) {
+func (as Attributes) Find(name []byte) (any, bool) {
 	for _, a := range as {
 		if bytes.Equal(a.Name, name) {
 			return a.Value, true
@@ -31,7 +31,7 @@ func (as Attributes) Find(name []byte) (interface{}, bool) {
 	return nil, false
 }
 
-func (as Attributes) findUpdate(name []byte, cb func(v interface{}) interface{}) bool {
+func (as Attributes) findUpdate(name []byte, cb func(v any) any) bool {
 	for i, a := range as {
 		if bytes.Equal(a.Name, name) {
 			as[i].Value = cb(a.Value)
@@ -64,7 +64,7 @@ func ParseAttributes(reader text.Reader) (Attributes, bool) {
 			return nil, false
 		}
 		if bytes.Equal(attr.Name, attrNameClass) {
-			if !attrs.findUpdate(attrNameClass, func(v interface{}) interface{} {
+			if !attrs.findUpdate(attrNameClass, func(v any) any {
 				ret := make([]byte, 0, len(v.([]byte))+1+len(attr.Value.([]byte)))
 				ret = append(ret, v.([]byte)...)
 				return append(append(ret, ' '), attr.Value.([]byte)...)
@@ -142,10 +142,10 @@ func parseAttribute(reader text.Reader) (Attribute, bool) {
 	return Attribute{Name: name, Value: value}, true
 }
 
-func parseAttributeValue(reader text.Reader) (interface{}, bool) {
+func parseAttributeValue(reader text.Reader) (any, bool) {
 	reader.SkipSpaces()
 	c := reader.Peek()
-	var value interface{}
+	var value any
 	var ok bool
 	switch c {
 	case text.EOF:
@@ -169,9 +169,9 @@ func parseAttributeValue(reader text.Reader) (interface{}, bool) {
 	return value, true
 }
 
-func parseAttributeArray(reader text.Reader) ([]interface{}, bool) {
+func parseAttributeArray(reader text.Reader) ([]any, bool) {
 	reader.Advance(1) // skip [
-	ret := []interface{}{}
+	ret := []any{}
 	for i := 0; ; i++ {
 		c := reader.Peek()
 		comma := false
@@ -298,7 +298,7 @@ var bytesTrue = []byte("true")
 var bytesFalse = []byte("false")
 var bytesNull = []byte("null")
 
-func parseAttributeOthers(reader text.Reader) (interface{}, bool) {
+func parseAttributeOthers(reader text.Reader) (any, bool) {
 	line, _ := reader.PeekLine()
 	c := line[0]
 	if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||

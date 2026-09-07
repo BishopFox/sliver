@@ -2,40 +2,42 @@ package glob
 
 import (
 	"strings"
+
+	"go.mau.fi/util/exstrings"
 )
 
 // ExactGlob is the result of [Compile] when the pattern contains no glob characters.
-// It uses a simple string comparison to match.
+// It uses [strings.EqualFold] to match.
 type ExactGlob string
 
 func (eg ExactGlob) Match(s string) bool {
-	return string(eg) == s
+	return strings.EqualFold(s, string(eg))
 }
 
 // SuffixGlob is the result of [Compile] when the pattern only has one `*` at the beginning.
-// It uses [strings.HasSuffix] to match.
+// It uses [exstrings.HasSuffixFold] to match, which is a case-insensitive version of [strings.HasSuffix].
 type SuffixGlob string
 
 func (sg SuffixGlob) Match(s string) bool {
-	return strings.HasSuffix(s, string(sg))
+	return exstrings.HasSuffixFold(s, string(sg))
 }
 
 // PrefixGlob is the result of [Compile] when the pattern only has one `*` at the end.
-// It uses [strings.HasPrefix] to match.
+// It uses [exstrings.HasPrefixFold] to match, which is a case-insensitive version of [strings.HasPrefix].
 type PrefixGlob string
 
 func (pg PrefixGlob) Match(s string) bool {
-	return strings.HasPrefix(s, string(pg))
+	return exstrings.HasPrefixFold(s, string(pg))
 }
 
 // ContainsGlob is the result of [Compile] when the pattern has two `*`s, one at the beginning and one at the end.
-// It uses [strings.Contains] to match.
+// It uses [exstrings.ContainsFold] to match, which is a case-insensitive version of [strings.Contains].
 //
 // When there are exactly two `*`s, but they're not surrounding the string, the pattern is compiled as a [PrefixSuffixAndContainsGlob] instead.
 type ContainsGlob string
 
 func (cg ContainsGlob) Match(s string) bool {
-	return strings.Contains(s, string(cg))
+	return exstrings.ContainsFold(s, string(cg))
 }
 
 // PrefixAndSuffixGlob is the result of [Compile] when the pattern only has one `*` in the middle.
@@ -45,7 +47,9 @@ type PrefixAndSuffixGlob struct {
 }
 
 func (psg PrefixAndSuffixGlob) Match(s string) bool {
-	return strings.HasPrefix(s, psg.Prefix) && strings.HasSuffix(s[len(psg.Prefix):], psg.Suffix)
+	return len(s) >= len(psg.Prefix)+len(psg.Suffix) &&
+		exstrings.HasPrefixFold(s, psg.Prefix) &&
+		exstrings.HasSuffixFold(s, psg.Suffix)
 }
 
 // PrefixSuffixAndContainsGlob is the result of [Compile] when the pattern has two `*`s which are not surrounding the rest of the pattern.
@@ -56,7 +60,10 @@ type PrefixSuffixAndContainsGlob struct {
 }
 
 func (psacg PrefixSuffixAndContainsGlob) Match(s string) bool {
-	return strings.HasPrefix(s, psacg.Prefix) &&
-		strings.HasSuffix(s[len(psacg.Prefix):], psacg.Suffix) &&
-		strings.Contains(s[len(psacg.Prefix):len(s)-len(psacg.Suffix)], psacg.Contains)
+	if len(s) < len(psacg.Prefix)+len(psacg.Contains)+len(psacg.Suffix) {
+		return false
+	}
+	return exstrings.HasPrefixFold(s, psacg.Prefix) &&
+		exstrings.HasSuffixFold(s, psacg.Suffix) &&
+		exstrings.ContainsFold(s[len(psacg.Prefix):len(s)-len(psacg.Suffix)], psacg.Contains)
 }

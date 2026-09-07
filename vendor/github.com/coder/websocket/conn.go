@@ -168,24 +168,34 @@ func (c *Conn) close() error {
 	return err
 }
 
-func (c *Conn) setupWriteTimeout(ctx context.Context) {
+func (c *Conn) setupWriteTimeout(ctx context.Context) bool {
+	if ctx.Done() == nil {
+		return false
+	}
+
 	stop := context.AfterFunc(ctx, func() {
 		c.clearWriteTimeout()
 		c.close()
 	})
 	swapTimeoutStop(&c.writeTimeoutStop, &stop)
+	return true
 }
 
 func (c *Conn) clearWriteTimeout() {
 	swapTimeoutStop(&c.writeTimeoutStop, nil)
 }
 
-func (c *Conn) setupReadTimeout(ctx context.Context) {
+func (c *Conn) setupReadTimeout(ctx context.Context) bool {
+	if ctx.Done() == nil {
+		return false
+	}
+
 	stop := context.AfterFunc(ctx, func() {
 		c.clearReadTimeout()
 		c.close()
 	})
 	swapTimeoutStop(&c.readTimeoutStop, &stop)
+	return true
 }
 
 func (c *Conn) clearReadTimeout() {

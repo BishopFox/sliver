@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 )
 
@@ -51,12 +52,7 @@ func SlashCommandParse(r *http.Request) (s SlashCommand, err error) {
 
 // ValidateToken validates verificationTokens
 func (s SlashCommand) ValidateToken(verificationTokens ...string) bool {
-	for _, token := range verificationTokens {
-		if s.Token == token {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(verificationTokens, s.Token)
 }
 
 // UnmarshalJSON handles is_enterprise_install being either a boolean or a
@@ -65,7 +61,7 @@ func (s *SlashCommand) UnmarshalJSON(data []byte) error {
 	type SlashCommandCopy SlashCommand
 	scopy := &struct {
 		*SlashCommandCopy
-		IsEnterpriseInstall interface{} `json:"is_enterprise_install"`
+		IsEnterpriseInstall any `json:"is_enterprise_install"`
 	}{
 		SlashCommandCopy: (*SlashCommandCopy)(s),
 	}

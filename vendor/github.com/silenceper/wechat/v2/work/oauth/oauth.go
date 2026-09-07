@@ -27,6 +27,10 @@ var (
 	getUserInfoURL = "https://qyapi.weixin.qq.com/cgi-bin/auth/getuserinfo?access_token=%s&code=%s"
 	// getUserDetailURL 获取访问用户敏感信息
 	getUserDetailURL = "https://qyapi.weixin.qq.com/cgi-bin/auth/getuserdetail?access_token=%s"
+	// getTfaInfoURL 获取用户二次验证信息
+	getTfaInfoURL = "https://qyapi.weixin.qq.com/cgi-bin/auth/get_tfa_info?access_token=%s"
+	// tfaSuccURL 使用二次验证
+	tfaSuccURL = "https://qyapi.weixin.qq.com/cgi-bin/user/tfa_succ?access_token=%s"
 )
 
 // NewOauth new init oauth
@@ -162,4 +166,58 @@ func (ctr *Oauth) GetUserDetail(req *GetUserDetailRequest) (*GetUserDetailRespon
 	result := &GetUserDetailResponse{}
 	err = util.DecodeWithError(response, result, "GetUserDetail")
 	return result, err
+}
+
+// GetTfaInfoRequest 获取用户二次验证信息请求
+type GetTfaInfoRequest struct {
+	Code string `json:"code"`
+}
+
+// GetTfaInfoResponse 获取用户二次验证信息响应
+type GetTfaInfoResponse struct {
+	util.CommonError
+	UserID  string `json:"userid"`
+	TfaCode string `json:"tfa_code"`
+}
+
+// GetTfaInfo 获取用户二次验证信息
+// @see https://developer.work.weixin.qq.com/document/path/99499
+func (ctr *Oauth) GetTfaInfo(req *GetTfaInfoRequest) (*GetTfaInfoResponse, error) {
+	var (
+		accessToken string
+		err         error
+	)
+	if accessToken, err = ctr.GetAccessToken(); err != nil {
+		return nil, err
+	}
+	var response []byte
+	if response, err = util.PostJSON(fmt.Sprintf(getTfaInfoURL, accessToken), req); err != nil {
+		return nil, err
+	}
+	result := &GetTfaInfoResponse{}
+	err = util.DecodeWithError(response, result, "GetTfaInfo")
+	return result, err
+}
+
+// TfaSuccRequest 使用二次验证请求
+type TfaSuccRequest struct {
+	UserID  string `json:"userid"`
+	TfaCode string `json:"tfa_code"`
+}
+
+// TfaSucc 使用二次验证
+// @see https://developer.work.weixin.qq.com/document/path/99500
+func (ctr *Oauth) TfaSucc(req *TfaSuccRequest) error {
+	var (
+		accessToken string
+		err         error
+	)
+	if accessToken, err = ctr.GetAccessToken(); err != nil {
+		return err
+	}
+	var response []byte
+	if response, err = util.PostJSON(fmt.Sprintf(tfaSuccURL, accessToken), req); err != nil {
+		return err
+	}
+	return util.DecodeWithCommonError(response, "TfaSucc")
 }

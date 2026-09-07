@@ -76,6 +76,7 @@ type GetStateResponse struct {
 	LiveChatRated int32 `json:"liveChatRated"`
 	WebWidgetUpdated int32 `json:"webWidgetUpdated"`
 	WebWidgetDeleted int32 `json:"webWidgetDeleted"`
+	WebWidgetCreated int32 `json:"webWidgetCreated"`
 	ContactAdded int32 `json:"contactAdded"`
 	ContactDeleted int32 `json:"contactDeleted"`
 	ContactBulkUpdated int32 `json:"contactBulkUpdated"`
@@ -211,6 +212,18 @@ type GetStateResponse struct {
 	EmailCampaignFailedAttemptCreated int32 `json:"emailCampaignFailedAttemptCreated"`
 	EmailCampaignFailedAttemptDeleted int32 `json:"emailCampaignFailedAttemptDeleted"`
 	EmailCampaignFailedAttemptStateUpdated int32 `json:"emailCampaignFailedAttemptStateUpdated"`
+	TollFreePreFillCompleted int32 `json:"tollFreePreFillCompleted"`
+	TollFreePreFillFailed int32 `json:"tollFreePreFillFailed"`
+	TollFreeComplianceCheckCompleted int32 `json:"tollFreeComplianceCheckCompleted"`
+	TollFreeComplianceCheckFailed int32 `json:"tollFreeComplianceCheckFailed"`
+	TenDlcPreFillCompleted int32 `json:"tenDlcPreFillCompleted"`
+	TenDlcPreFillFailed int32 `json:"tenDlcPreFillFailed"`
+	TenDlcComplianceCheckCompleted int32 `json:"tenDlcComplianceCheckCompleted"`
+	TenDlcComplianceCheckFailed int32 `json:"tenDlcComplianceCheckFailed"`
+	MarketingDataModalChanged int32 `json:"marketingDataModalChanged"`
+	IntegrationStatusChanged int32 `json:"integrationStatusChanged"`
+	IntegrationCustomerSyncProgressState int32 `json:"integrationCustomerSyncProgressState"`
+	IntegrationCustomerSyncEnd int32 `json:"integrationCustomerSyncEnd"`
 }
 
 type _GetStateResponse GetStateResponse
@@ -219,7 +232,7 @@ type _GetStateResponse GetStateResponse
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewGetStateResponse(systemCacheClear int32, systemExit int32, systemAlert int32, systemAccountStateChanged int32, systemAccountAcceptTermsUpdate int32, systemAccountClosed int32, systemAccountAdditionalFields int32, systemAccountNumbersListChange int32, systemAccountPermissionsChanged int32, userProfileChanged int32, userBalanceChanged int32, userPresenceStatusChanged int32, userImpersonationEnd int32, messageDeleted int32, messageIncoming int32, messageIncomingDeleted int32, messageStateChanged int32, messageBulkEnd int32, messageWipeEnd int32, messageSent int32, messageLog int32, messageNote int32, messageInitial int32, lastMessageSet int32, messageSessionDeleted int32, messageCacheClear int32, messageIncomingCacheClear int32, messageScheduleAdded int32, messageScheduleStateChanged int32, messageScheduleDeleted int32, messageScheduleNotSentStateChanged int32, messageScheduleCacheClear int32, messageTemplateCacheClear int32, callFinished int32, chatCreated int32, chatMarkedAsRead int32, chatMuted int32, chatUnmuted int32, chatPinned int32, chatUnpinned int32, chatDeleted int32, chatClosed int32, chatReopened int32, chatActivated int32, chatCacheClear int32, chatRead int32, chatUnread int32, chatAssigneeChanged int32, chatTagsChanged int32, chatConversationEnded int32, chatUpdated int32, liveChatAgentChanged int32, liveChatRated int32, webWidgetUpdated int32, webWidgetDeleted int32, contactAdded int32, contactDeleted int32, contactBulkUpdated int32, contactStateChanged int32, contactUnsubscribed int32, contactResubscribed int32, contactNoteAdded int32, contactNoteDeleted int32, contactNoteStateChanged int32, listAdded int32, listDeleted int32, listStateChanged int32, listCountMembersUpdated int32, contactWipeEnd int32, contactImportEnd int32, contactCacheClear int32, listCacheClear int32, customFieldsCacheClear int32, progressCarrierBulkLookup int32, progressSubAccountBulkImport int32, emailLookupProgressState int32, importProgressState int32, forceRefreshWebApp int32, chatSenderSettingsChanged int32, countrySenderSettingsChanged int32, chatSummaryChunk int32, chatWaysToReplyChunk int32, chatSuggestedReplyChunk int32, taskCreated int32, taskUpdated int32, taskReordered int32, taskDeleted int32, taskMovedAll int32, taskStageCreated int32, taskStageUpdated int32, taskStageDeleted int32, taskBoardCreated int32, taskBoardUpdated int32, taskBoardReordered int32, taskBoardDeleted int32, taskBoardArchived int32, taskChecklistCreated int32, taskChecklistUpdated int32, taskChecklistDeleted int32, taskChecklistBulkMarked int32, taskChecklistItemCreated int32, taskChecklistItemUpdated int32, taskChecklistItemDeleted int32, taskCommentCreated int32, taskCommentDeleted int32, pinnedContactAdded int32, pinnedContactRemoved int32, pinnedContactReordered int32, pinnedContactStateChanged int32, whatsappAccountAdded int32, whatsappAccountRemoved int32, whatsappAccountChanged int32, facebookPageAdded int32, facebookPageRemoved int32, facebookPageChanged int32, instagramAccountAdded int32, instagramAccountRemoved int32, instagramAccountChanged int32, unreadTicketsCountUpdated int32, ticketDeleted int32, ticketUpdated int32, ticketCreated int32, ticketBulkUpdated int32, ticketBulkDeleted int32, ticketMessageCreated int32, ticketMessageUpdated int32, ticketMessageDeleted int32, subAccountsClosed int32, userInvited int32, filteredViewCreated int32, filteredViewCountUpdated int32, filteredViewDeleted int32, forwardingInboxWasVerified int32, forwardingInboxCheckWasFailed int32, forwardingInboxVerificationLinkWasParsed int32, tendlcLinkNumberStatusUpdated int32, channelPresence int32, dealCreated int32, dealUpdated int32, dealDeleted int32, dealMoved int32, dealStageCreated int32, dealStageUpdated int32, dealStageDeleted int32, dealPipelineCreated int32, dealPipelineUpdated int32, dealPipelineDeleted int32, dealPipelineArchived int32, dealPipelineReordered int32, dealActivityUpdated int32, dealActivityItemCreated int32, dealActivityItemUpdated int32, dealActivityItemDeleted int32, dealActivityItemBulkMarked int32, dealTimelineItemDeleted int32, dealTimelineItemCreated int32, aIAssistantCreated int32, aIAssistantState int32, aIAssistantDeleted int32, aIAssistantLinkDeleted int32, aIAssistantLinkState int32, aIAssistantLinkCreated int32, aIAssistantSubLinkState int32, aIAssistantSubLinkCreated int32, emailCampaignEmailSenderCreated int32, emailCampaignEmailSenderUpdated int32, emailCampaignEmailSenderDeleted int32, emailCampaignDomainCreated int32, emailCampaignDomainDeleted int32, emailCampaignDomainVerified int32, emailCampaignDomainStatusChanged int32, emailCampaignDomainDkimVerified int32, emailCampaignDomainReturnPathVerified int32, emailCampaignDomainDmarcVerified int32, emailCampaignDomainEntryVerificationChanged int32, emailCampaignProgressState int32, emailCampaignUpdated int32, emailTemplateImproved int32, emailTemplateImprovingFailed int32, emailBonusUpdated int32, smsCampaignInvalidated int32, scheduledEmailCampaignCreated int32, scheduledEmailCampaignUpdated int32, scheduledEmailCampaignStatusUpdated int32, scheduledEmailCampaignDeleted int32, emailCampaignFailedAttemptCreated int32, emailCampaignFailedAttemptDeleted int32, emailCampaignFailedAttemptStateUpdated int32) *GetStateResponse {
+func NewGetStateResponse(systemCacheClear int32, systemExit int32, systemAlert int32, systemAccountStateChanged int32, systemAccountAcceptTermsUpdate int32, systemAccountClosed int32, systemAccountAdditionalFields int32, systemAccountNumbersListChange int32, systemAccountPermissionsChanged int32, userProfileChanged int32, userBalanceChanged int32, userPresenceStatusChanged int32, userImpersonationEnd int32, messageDeleted int32, messageIncoming int32, messageIncomingDeleted int32, messageStateChanged int32, messageBulkEnd int32, messageWipeEnd int32, messageSent int32, messageLog int32, messageNote int32, messageInitial int32, lastMessageSet int32, messageSessionDeleted int32, messageCacheClear int32, messageIncomingCacheClear int32, messageScheduleAdded int32, messageScheduleStateChanged int32, messageScheduleDeleted int32, messageScheduleNotSentStateChanged int32, messageScheduleCacheClear int32, messageTemplateCacheClear int32, callFinished int32, chatCreated int32, chatMarkedAsRead int32, chatMuted int32, chatUnmuted int32, chatPinned int32, chatUnpinned int32, chatDeleted int32, chatClosed int32, chatReopened int32, chatActivated int32, chatCacheClear int32, chatRead int32, chatUnread int32, chatAssigneeChanged int32, chatTagsChanged int32, chatConversationEnded int32, chatUpdated int32, liveChatAgentChanged int32, liveChatRated int32, webWidgetUpdated int32, webWidgetDeleted int32, webWidgetCreated int32, contactAdded int32, contactDeleted int32, contactBulkUpdated int32, contactStateChanged int32, contactUnsubscribed int32, contactResubscribed int32, contactNoteAdded int32, contactNoteDeleted int32, contactNoteStateChanged int32, listAdded int32, listDeleted int32, listStateChanged int32, listCountMembersUpdated int32, contactWipeEnd int32, contactImportEnd int32, contactCacheClear int32, listCacheClear int32, customFieldsCacheClear int32, progressCarrierBulkLookup int32, progressSubAccountBulkImport int32, emailLookupProgressState int32, importProgressState int32, forceRefreshWebApp int32, chatSenderSettingsChanged int32, countrySenderSettingsChanged int32, chatSummaryChunk int32, chatWaysToReplyChunk int32, chatSuggestedReplyChunk int32, taskCreated int32, taskUpdated int32, taskReordered int32, taskDeleted int32, taskMovedAll int32, taskStageCreated int32, taskStageUpdated int32, taskStageDeleted int32, taskBoardCreated int32, taskBoardUpdated int32, taskBoardReordered int32, taskBoardDeleted int32, taskBoardArchived int32, taskChecklistCreated int32, taskChecklistUpdated int32, taskChecklistDeleted int32, taskChecklistBulkMarked int32, taskChecklistItemCreated int32, taskChecklistItemUpdated int32, taskChecklistItemDeleted int32, taskCommentCreated int32, taskCommentDeleted int32, pinnedContactAdded int32, pinnedContactRemoved int32, pinnedContactReordered int32, pinnedContactStateChanged int32, whatsappAccountAdded int32, whatsappAccountRemoved int32, whatsappAccountChanged int32, facebookPageAdded int32, facebookPageRemoved int32, facebookPageChanged int32, instagramAccountAdded int32, instagramAccountRemoved int32, instagramAccountChanged int32, unreadTicketsCountUpdated int32, ticketDeleted int32, ticketUpdated int32, ticketCreated int32, ticketBulkUpdated int32, ticketBulkDeleted int32, ticketMessageCreated int32, ticketMessageUpdated int32, ticketMessageDeleted int32, subAccountsClosed int32, userInvited int32, filteredViewCreated int32, filteredViewCountUpdated int32, filteredViewDeleted int32, forwardingInboxWasVerified int32, forwardingInboxCheckWasFailed int32, forwardingInboxVerificationLinkWasParsed int32, tendlcLinkNumberStatusUpdated int32, channelPresence int32, dealCreated int32, dealUpdated int32, dealDeleted int32, dealMoved int32, dealStageCreated int32, dealStageUpdated int32, dealStageDeleted int32, dealPipelineCreated int32, dealPipelineUpdated int32, dealPipelineDeleted int32, dealPipelineArchived int32, dealPipelineReordered int32, dealActivityUpdated int32, dealActivityItemCreated int32, dealActivityItemUpdated int32, dealActivityItemDeleted int32, dealActivityItemBulkMarked int32, dealTimelineItemDeleted int32, dealTimelineItemCreated int32, aIAssistantCreated int32, aIAssistantState int32, aIAssistantDeleted int32, aIAssistantLinkDeleted int32, aIAssistantLinkState int32, aIAssistantLinkCreated int32, aIAssistantSubLinkState int32, aIAssistantSubLinkCreated int32, emailCampaignEmailSenderCreated int32, emailCampaignEmailSenderUpdated int32, emailCampaignEmailSenderDeleted int32, emailCampaignDomainCreated int32, emailCampaignDomainDeleted int32, emailCampaignDomainVerified int32, emailCampaignDomainStatusChanged int32, emailCampaignDomainDkimVerified int32, emailCampaignDomainReturnPathVerified int32, emailCampaignDomainDmarcVerified int32, emailCampaignDomainEntryVerificationChanged int32, emailCampaignProgressState int32, emailCampaignUpdated int32, emailTemplateImproved int32, emailTemplateImprovingFailed int32, emailBonusUpdated int32, smsCampaignInvalidated int32, scheduledEmailCampaignCreated int32, scheduledEmailCampaignUpdated int32, scheduledEmailCampaignStatusUpdated int32, scheduledEmailCampaignDeleted int32, emailCampaignFailedAttemptCreated int32, emailCampaignFailedAttemptDeleted int32, emailCampaignFailedAttemptStateUpdated int32, tollFreePreFillCompleted int32, tollFreePreFillFailed int32, tollFreeComplianceCheckCompleted int32, tollFreeComplianceCheckFailed int32, tenDlcPreFillCompleted int32, tenDlcPreFillFailed int32, tenDlcComplianceCheckCompleted int32, tenDlcComplianceCheckFailed int32, marketingDataModalChanged int32, integrationStatusChanged int32, integrationCustomerSyncProgressState int32, integrationCustomerSyncEnd int32) *GetStateResponse {
 	this := GetStateResponse{}
 	this.SystemCacheClear = systemCacheClear
 	this.SystemExit = systemExit
@@ -276,6 +289,7 @@ func NewGetStateResponse(systemCacheClear int32, systemExit int32, systemAlert i
 	this.LiveChatRated = liveChatRated
 	this.WebWidgetUpdated = webWidgetUpdated
 	this.WebWidgetDeleted = webWidgetDeleted
+	this.WebWidgetCreated = webWidgetCreated
 	this.ContactAdded = contactAdded
 	this.ContactDeleted = contactDeleted
 	this.ContactBulkUpdated = contactBulkUpdated
@@ -409,6 +423,18 @@ func NewGetStateResponse(systemCacheClear int32, systemExit int32, systemAlert i
 	this.EmailCampaignFailedAttemptCreated = emailCampaignFailedAttemptCreated
 	this.EmailCampaignFailedAttemptDeleted = emailCampaignFailedAttemptDeleted
 	this.EmailCampaignFailedAttemptStateUpdated = emailCampaignFailedAttemptStateUpdated
+	this.TollFreePreFillCompleted = tollFreePreFillCompleted
+	this.TollFreePreFillFailed = tollFreePreFillFailed
+	this.TollFreeComplianceCheckCompleted = tollFreeComplianceCheckCompleted
+	this.TollFreeComplianceCheckFailed = tollFreeComplianceCheckFailed
+	this.TenDlcPreFillCompleted = tenDlcPreFillCompleted
+	this.TenDlcPreFillFailed = tenDlcPreFillFailed
+	this.TenDlcComplianceCheckCompleted = tenDlcComplianceCheckCompleted
+	this.TenDlcComplianceCheckFailed = tenDlcComplianceCheckFailed
+	this.MarketingDataModalChanged = marketingDataModalChanged
+	this.IntegrationStatusChanged = integrationStatusChanged
+	this.IntegrationCustomerSyncProgressState = integrationCustomerSyncProgressState
+	this.IntegrationCustomerSyncEnd = integrationCustomerSyncEnd
 	return &this
 }
 
@@ -1738,6 +1764,30 @@ func (o *GetStateResponse) GetWebWidgetDeletedOk() (*int32, bool) {
 // SetWebWidgetDeleted sets field value
 func (o *GetStateResponse) SetWebWidgetDeleted(v int32) {
 	o.WebWidgetDeleted = v
+}
+
+// GetWebWidgetCreated returns the WebWidgetCreated field value
+func (o *GetStateResponse) GetWebWidgetCreated() int32 {
+	if o == nil {
+		var ret int32
+		return ret
+	}
+
+	return o.WebWidgetCreated
+}
+
+// GetWebWidgetCreatedOk returns a tuple with the WebWidgetCreated field value
+// and a boolean to check if the value has been set.
+func (o *GetStateResponse) GetWebWidgetCreatedOk() (*int32, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return &o.WebWidgetCreated, true
+}
+
+// SetWebWidgetCreated sets field value
+func (o *GetStateResponse) SetWebWidgetCreated(v int32) {
+	o.WebWidgetCreated = v
 }
 
 // GetContactAdded returns the ContactAdded field value
@@ -4996,6 +5046,294 @@ func (o *GetStateResponse) SetEmailCampaignFailedAttemptStateUpdated(v int32) {
 	o.EmailCampaignFailedAttemptStateUpdated = v
 }
 
+// GetTollFreePreFillCompleted returns the TollFreePreFillCompleted field value
+func (o *GetStateResponse) GetTollFreePreFillCompleted() int32 {
+	if o == nil {
+		var ret int32
+		return ret
+	}
+
+	return o.TollFreePreFillCompleted
+}
+
+// GetTollFreePreFillCompletedOk returns a tuple with the TollFreePreFillCompleted field value
+// and a boolean to check if the value has been set.
+func (o *GetStateResponse) GetTollFreePreFillCompletedOk() (*int32, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return &o.TollFreePreFillCompleted, true
+}
+
+// SetTollFreePreFillCompleted sets field value
+func (o *GetStateResponse) SetTollFreePreFillCompleted(v int32) {
+	o.TollFreePreFillCompleted = v
+}
+
+// GetTollFreePreFillFailed returns the TollFreePreFillFailed field value
+func (o *GetStateResponse) GetTollFreePreFillFailed() int32 {
+	if o == nil {
+		var ret int32
+		return ret
+	}
+
+	return o.TollFreePreFillFailed
+}
+
+// GetTollFreePreFillFailedOk returns a tuple with the TollFreePreFillFailed field value
+// and a boolean to check if the value has been set.
+func (o *GetStateResponse) GetTollFreePreFillFailedOk() (*int32, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return &o.TollFreePreFillFailed, true
+}
+
+// SetTollFreePreFillFailed sets field value
+func (o *GetStateResponse) SetTollFreePreFillFailed(v int32) {
+	o.TollFreePreFillFailed = v
+}
+
+// GetTollFreeComplianceCheckCompleted returns the TollFreeComplianceCheckCompleted field value
+func (o *GetStateResponse) GetTollFreeComplianceCheckCompleted() int32 {
+	if o == nil {
+		var ret int32
+		return ret
+	}
+
+	return o.TollFreeComplianceCheckCompleted
+}
+
+// GetTollFreeComplianceCheckCompletedOk returns a tuple with the TollFreeComplianceCheckCompleted field value
+// and a boolean to check if the value has been set.
+func (o *GetStateResponse) GetTollFreeComplianceCheckCompletedOk() (*int32, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return &o.TollFreeComplianceCheckCompleted, true
+}
+
+// SetTollFreeComplianceCheckCompleted sets field value
+func (o *GetStateResponse) SetTollFreeComplianceCheckCompleted(v int32) {
+	o.TollFreeComplianceCheckCompleted = v
+}
+
+// GetTollFreeComplianceCheckFailed returns the TollFreeComplianceCheckFailed field value
+func (o *GetStateResponse) GetTollFreeComplianceCheckFailed() int32 {
+	if o == nil {
+		var ret int32
+		return ret
+	}
+
+	return o.TollFreeComplianceCheckFailed
+}
+
+// GetTollFreeComplianceCheckFailedOk returns a tuple with the TollFreeComplianceCheckFailed field value
+// and a boolean to check if the value has been set.
+func (o *GetStateResponse) GetTollFreeComplianceCheckFailedOk() (*int32, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return &o.TollFreeComplianceCheckFailed, true
+}
+
+// SetTollFreeComplianceCheckFailed sets field value
+func (o *GetStateResponse) SetTollFreeComplianceCheckFailed(v int32) {
+	o.TollFreeComplianceCheckFailed = v
+}
+
+// GetTenDlcPreFillCompleted returns the TenDlcPreFillCompleted field value
+func (o *GetStateResponse) GetTenDlcPreFillCompleted() int32 {
+	if o == nil {
+		var ret int32
+		return ret
+	}
+
+	return o.TenDlcPreFillCompleted
+}
+
+// GetTenDlcPreFillCompletedOk returns a tuple with the TenDlcPreFillCompleted field value
+// and a boolean to check if the value has been set.
+func (o *GetStateResponse) GetTenDlcPreFillCompletedOk() (*int32, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return &o.TenDlcPreFillCompleted, true
+}
+
+// SetTenDlcPreFillCompleted sets field value
+func (o *GetStateResponse) SetTenDlcPreFillCompleted(v int32) {
+	o.TenDlcPreFillCompleted = v
+}
+
+// GetTenDlcPreFillFailed returns the TenDlcPreFillFailed field value
+func (o *GetStateResponse) GetTenDlcPreFillFailed() int32 {
+	if o == nil {
+		var ret int32
+		return ret
+	}
+
+	return o.TenDlcPreFillFailed
+}
+
+// GetTenDlcPreFillFailedOk returns a tuple with the TenDlcPreFillFailed field value
+// and a boolean to check if the value has been set.
+func (o *GetStateResponse) GetTenDlcPreFillFailedOk() (*int32, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return &o.TenDlcPreFillFailed, true
+}
+
+// SetTenDlcPreFillFailed sets field value
+func (o *GetStateResponse) SetTenDlcPreFillFailed(v int32) {
+	o.TenDlcPreFillFailed = v
+}
+
+// GetTenDlcComplianceCheckCompleted returns the TenDlcComplianceCheckCompleted field value
+func (o *GetStateResponse) GetTenDlcComplianceCheckCompleted() int32 {
+	if o == nil {
+		var ret int32
+		return ret
+	}
+
+	return o.TenDlcComplianceCheckCompleted
+}
+
+// GetTenDlcComplianceCheckCompletedOk returns a tuple with the TenDlcComplianceCheckCompleted field value
+// and a boolean to check if the value has been set.
+func (o *GetStateResponse) GetTenDlcComplianceCheckCompletedOk() (*int32, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return &o.TenDlcComplianceCheckCompleted, true
+}
+
+// SetTenDlcComplianceCheckCompleted sets field value
+func (o *GetStateResponse) SetTenDlcComplianceCheckCompleted(v int32) {
+	o.TenDlcComplianceCheckCompleted = v
+}
+
+// GetTenDlcComplianceCheckFailed returns the TenDlcComplianceCheckFailed field value
+func (o *GetStateResponse) GetTenDlcComplianceCheckFailed() int32 {
+	if o == nil {
+		var ret int32
+		return ret
+	}
+
+	return o.TenDlcComplianceCheckFailed
+}
+
+// GetTenDlcComplianceCheckFailedOk returns a tuple with the TenDlcComplianceCheckFailed field value
+// and a boolean to check if the value has been set.
+func (o *GetStateResponse) GetTenDlcComplianceCheckFailedOk() (*int32, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return &o.TenDlcComplianceCheckFailed, true
+}
+
+// SetTenDlcComplianceCheckFailed sets field value
+func (o *GetStateResponse) SetTenDlcComplianceCheckFailed(v int32) {
+	o.TenDlcComplianceCheckFailed = v
+}
+
+// GetMarketingDataModalChanged returns the MarketingDataModalChanged field value
+func (o *GetStateResponse) GetMarketingDataModalChanged() int32 {
+	if o == nil {
+		var ret int32
+		return ret
+	}
+
+	return o.MarketingDataModalChanged
+}
+
+// GetMarketingDataModalChangedOk returns a tuple with the MarketingDataModalChanged field value
+// and a boolean to check if the value has been set.
+func (o *GetStateResponse) GetMarketingDataModalChangedOk() (*int32, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return &o.MarketingDataModalChanged, true
+}
+
+// SetMarketingDataModalChanged sets field value
+func (o *GetStateResponse) SetMarketingDataModalChanged(v int32) {
+	o.MarketingDataModalChanged = v
+}
+
+// GetIntegrationStatusChanged returns the IntegrationStatusChanged field value
+func (o *GetStateResponse) GetIntegrationStatusChanged() int32 {
+	if o == nil {
+		var ret int32
+		return ret
+	}
+
+	return o.IntegrationStatusChanged
+}
+
+// GetIntegrationStatusChangedOk returns a tuple with the IntegrationStatusChanged field value
+// and a boolean to check if the value has been set.
+func (o *GetStateResponse) GetIntegrationStatusChangedOk() (*int32, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return &o.IntegrationStatusChanged, true
+}
+
+// SetIntegrationStatusChanged sets field value
+func (o *GetStateResponse) SetIntegrationStatusChanged(v int32) {
+	o.IntegrationStatusChanged = v
+}
+
+// GetIntegrationCustomerSyncProgressState returns the IntegrationCustomerSyncProgressState field value
+func (o *GetStateResponse) GetIntegrationCustomerSyncProgressState() int32 {
+	if o == nil {
+		var ret int32
+		return ret
+	}
+
+	return o.IntegrationCustomerSyncProgressState
+}
+
+// GetIntegrationCustomerSyncProgressStateOk returns a tuple with the IntegrationCustomerSyncProgressState field value
+// and a boolean to check if the value has been set.
+func (o *GetStateResponse) GetIntegrationCustomerSyncProgressStateOk() (*int32, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return &o.IntegrationCustomerSyncProgressState, true
+}
+
+// SetIntegrationCustomerSyncProgressState sets field value
+func (o *GetStateResponse) SetIntegrationCustomerSyncProgressState(v int32) {
+	o.IntegrationCustomerSyncProgressState = v
+}
+
+// GetIntegrationCustomerSyncEnd returns the IntegrationCustomerSyncEnd field value
+func (o *GetStateResponse) GetIntegrationCustomerSyncEnd() int32 {
+	if o == nil {
+		var ret int32
+		return ret
+	}
+
+	return o.IntegrationCustomerSyncEnd
+}
+
+// GetIntegrationCustomerSyncEndOk returns a tuple with the IntegrationCustomerSyncEnd field value
+// and a boolean to check if the value has been set.
+func (o *GetStateResponse) GetIntegrationCustomerSyncEndOk() (*int32, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return &o.IntegrationCustomerSyncEnd, true
+}
+
+// SetIntegrationCustomerSyncEnd sets field value
+func (o *GetStateResponse) SetIntegrationCustomerSyncEnd(v int32) {
+	o.IntegrationCustomerSyncEnd = v
+}
+
 func (o GetStateResponse) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
@@ -5061,6 +5399,7 @@ func (o GetStateResponse) ToMap() (map[string]interface{}, error) {
 	toSerialize["liveChatRated"] = o.LiveChatRated
 	toSerialize["webWidgetUpdated"] = o.WebWidgetUpdated
 	toSerialize["webWidgetDeleted"] = o.WebWidgetDeleted
+	toSerialize["webWidgetCreated"] = o.WebWidgetCreated
 	toSerialize["contactAdded"] = o.ContactAdded
 	toSerialize["contactDeleted"] = o.ContactDeleted
 	toSerialize["contactBulkUpdated"] = o.ContactBulkUpdated
@@ -5200,6 +5539,18 @@ func (o GetStateResponse) ToMap() (map[string]interface{}, error) {
 	toSerialize["emailCampaignFailedAttemptCreated"] = o.EmailCampaignFailedAttemptCreated
 	toSerialize["emailCampaignFailedAttemptDeleted"] = o.EmailCampaignFailedAttemptDeleted
 	toSerialize["emailCampaignFailedAttemptStateUpdated"] = o.EmailCampaignFailedAttemptStateUpdated
+	toSerialize["tollFreePreFillCompleted"] = o.TollFreePreFillCompleted
+	toSerialize["tollFreePreFillFailed"] = o.TollFreePreFillFailed
+	toSerialize["tollFreeComplianceCheckCompleted"] = o.TollFreeComplianceCheckCompleted
+	toSerialize["tollFreeComplianceCheckFailed"] = o.TollFreeComplianceCheckFailed
+	toSerialize["tenDlcPreFillCompleted"] = o.TenDlcPreFillCompleted
+	toSerialize["tenDlcPreFillFailed"] = o.TenDlcPreFillFailed
+	toSerialize["tenDlcComplianceCheckCompleted"] = o.TenDlcComplianceCheckCompleted
+	toSerialize["tenDlcComplianceCheckFailed"] = o.TenDlcComplianceCheckFailed
+	toSerialize["marketingDataModalChanged"] = o.MarketingDataModalChanged
+	toSerialize["integrationStatusChanged"] = o.IntegrationStatusChanged
+	toSerialize["integrationCustomerSyncProgressState"] = o.IntegrationCustomerSyncProgressState
+	toSerialize["integrationCustomerSyncEnd"] = o.IntegrationCustomerSyncEnd
 	return toSerialize, nil
 }
 
@@ -5263,6 +5614,7 @@ func (o *GetStateResponse) UnmarshalJSON(data []byte) (err error) {
 		"liveChatRated",
 		"webWidgetUpdated",
 		"webWidgetDeleted",
+		"webWidgetCreated",
 		"contactAdded",
 		"contactDeleted",
 		"contactBulkUpdated",
@@ -5396,6 +5748,18 @@ func (o *GetStateResponse) UnmarshalJSON(data []byte) (err error) {
 		"emailCampaignFailedAttemptCreated",
 		"emailCampaignFailedAttemptDeleted",
 		"emailCampaignFailedAttemptStateUpdated",
+		"tollFreePreFillCompleted",
+		"tollFreePreFillFailed",
+		"tollFreeComplianceCheckCompleted",
+		"tollFreeComplianceCheckFailed",
+		"tenDlcPreFillCompleted",
+		"tenDlcPreFillFailed",
+		"tenDlcComplianceCheckCompleted",
+		"tenDlcComplianceCheckFailed",
+		"marketingDataModalChanged",
+		"integrationStatusChanged",
+		"integrationCustomerSyncProgressState",
+		"integrationCustomerSyncEnd",
 	}
 
 	allProperties := make(map[string]interface{})

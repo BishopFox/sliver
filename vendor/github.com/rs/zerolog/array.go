@@ -1,6 +1,7 @@
 package zerolog
 
 import (
+	"context"
 	"net"
 	"sync"
 	"time"
@@ -17,10 +18,19 @@ var arrayPool = &sync.Pool{
 // Array is used to prepopulate an array of items
 // which can be re-used to add to log messages.
 type Array struct {
-	buf []byte
+	buf   []byte
+	stack bool            // enable error stack trace
+	ctx   context.Context // Optional Go context
+	ch    []Hook          // hooks
 }
 
 func putArray(a *Array) {
+	// prevent any subsequent use of the Array contextual state and truncate the buffer
+	a.stack = false
+	a.ctx = nil
+	a.ch = nil
+	a.buf = a.buf[:0]
+
 	// Proper usage of a sync.Pool requires each entry to have approximately
 	// the same memory cost. To obtain this property when the stored type
 	// contains a variably-sized buffer, we add a hard limit on the maximum buffer
@@ -28,22 +38,28 @@ func putArray(a *Array) {
 	//
 	// See https://golang.org/issue/23199
 	const maxSize = 1 << 16 // 64KiB
-	if cap(a.buf) > maxSize {
-		return
+	if cap(a.buf) <= maxSize {
+		arrayPool.Put(a)
 	}
-	arrayPool.Put(a)
 }
 
 // Arr creates an array to be added to an Event or Context.
+// WARNING: This function is deprecated because it does not preserve
+// the stack, hooks, and context from the parent event.
+// Deprecated: Use Event.CreateArray or Context.CreateArray instead.
 func Arr() *Array {
 	a := arrayPool.Get().(*Array)
 	a.buf = a.buf[:0]
+	a.stack = false
+	a.ctx = nil
+	a.ch = nil
 	return a
 }
 
 // MarshalZerologArray method here is no-op - since data is
 // already in the needed format.
 func (*Array) MarshalZerologArray(*Array) {
+	// untestable: there's no code to be covered
 }
 
 func (a *Array) write(dst []byte) []byte {
@@ -59,11 +75,7 @@ func (a *Array) write(dst []byte) []byte {
 // Object marshals an object that implement the LogObjectMarshaler
 // interface and appends it to the array.
 func (a *Array) Object(obj LogObjectMarshaler) *Array {
-	e := Dict()
-	obj.MarshalZerologObject(e)
-	e.buf = enc.AppendEndMarker(e.buf)
-	a.buf = append(enc.AppendArrayDelim(a.buf), e.buf...)
-	putEvent(e)
+	a.buf = appendObject(enc.AppendArrayDelim(a.buf), obj, a.stack, a.ctx, a.ch)
 	return a
 }
 
@@ -94,16 +106,12 @@ func (a *Array) RawJSON(val []byte) *Array {
 // Err serializes and appends the err to the array.
 func (a *Array) Err(err error) *Array {
 	switch m := ErrorMarshalFunc(err).(type) {
+	case nil:
+		a.buf = enc.AppendNil(enc.AppendArrayDelim(a.buf))
 	case LogObjectMarshaler:
-		e := newEvent(nil, 0)
-		e.buf = e.buf[:0]
-		e.appendObject(m)
-		a.buf = append(enc.AppendArrayDelim(a.buf), e.buf...)
-		putEvent(e)
+		a = a.Object(m)
 	case error:
-		if m == nil || isNilValue(m) {
-			a.buf = enc.AppendNil(enc.AppendArrayDelim(a.buf))
-		} else {
+		if !isNilValue(m) {
 			a.buf = enc.AppendString(enc.AppendArrayDelim(a.buf), m.Error())
 		}
 	case string:
@@ -112,6 +120,27 @@ func (a *Array) Err(err error) *Array {
 		a.buf = enc.AppendInterface(enc.AppendArrayDelim(a.buf), m)
 	}
 
+	return a
+}
+
+// Errs serializes and appends errors to the array.
+func (a *Array) Errs(errs []error) *Array {
+	for _, err := range errs {
+		switch m := ErrorMarshalFunc(err).(type) {
+		case nil:
+			a = a.Interface(nil)
+		case LogObjectMarshaler:
+			a = a.Object(m)
+		case error:
+			if !isNilValue(m) {
+				a = a.Str(m.Error())
+			}
+		case string:
+			a = a.Str(m)
+		default:
+			a = a.Interface(m)
+		}
+	}
 	return a
 }
 
@@ -201,7 +230,7 @@ func (a *Array) Time(t time.Time) *Array {
 
 // Dur appends d to the array.
 func (a *Array) Dur(d time.Duration) *Array {
-	a.buf = enc.AppendDuration(enc.AppendArrayDelim(a.buf), d, DurationFieldUnit, DurationFieldInteger, FloatingPointPrecision)
+	a.buf = enc.AppendDuration(enc.AppendArrayDelim(a.buf), d, DurationFieldUnit, DurationFieldFormat, DurationFieldInteger, FloatingPointPrecision)
 	return a
 }
 
@@ -214,19 +243,19 @@ func (a *Array) Interface(i interface{}) *Array {
 	return a
 }
 
-// IPAddr adds IPv4 or IPv6 address to the array
+// IPAddr adds a net.IP IPv4 or IPv6 address to the array
 func (a *Array) IPAddr(ip net.IP) *Array {
 	a.buf = enc.AppendIPAddr(enc.AppendArrayDelim(a.buf), ip)
 	return a
 }
 
-// IPPrefix adds IPv4 or IPv6 Prefix (IP + mask) to the array
+// IPPrefix adds a net.IPNet IPv4 or IPv6 Prefix (IP + mask) to the array
 func (a *Array) IPPrefix(pfx net.IPNet) *Array {
 	a.buf = enc.AppendIPPrefix(enc.AppendArrayDelim(a.buf), pfx)
 	return a
 }
 
-// MACAddr adds a MAC (Ethernet) address to the array
+// MACAddr adds a net.HardwareAddr MAC (Ethernet) address to the array
 func (a *Array) MACAddr(ha net.HardwareAddr) *Array {
 	a.buf = enc.AppendMACAddr(enc.AppendArrayDelim(a.buf), ha)
 	return a
@@ -236,5 +265,12 @@ func (a *Array) MACAddr(ha net.HardwareAddr) *Array {
 func (a *Array) Dict(dict *Event) *Array {
 	dict.buf = enc.AppendEndMarker(dict.buf)
 	a.buf = append(enc.AppendArrayDelim(a.buf), dict.buf...)
+	putEvent(dict)
+	return a
+}
+
+// Type adds the val's type using reflection to the array.
+func (a *Array) Type(val interface{}) *Array {
+	a.buf = enc.AppendType(enc.AppendArrayDelim(a.buf), val)
 	return a
 }

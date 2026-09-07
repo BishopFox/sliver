@@ -23,6 +23,7 @@ type Generic struct {
 	EventName
 	Timestamp float64 `json:"timestamp"`
 	ID        string  `json:"id"`
+	LogLevel  string  `json:"log-level"`
 }
 
 func (g *Generic) GetTimestamp() time.Time {
@@ -56,6 +57,7 @@ type Accepted struct {
 	RecipientDomain string     `json:"recipient-domain"`
 	Method          string     `json:"method"`
 	OriginatingIP   string     `json:"originating-ip"`
+	APIKeyID        string     `json:"api-key-id"`
 	Tags            []string   `json:"tags"`
 	Campaigns       []Campaign `json:"campaigns"`
 	UserVariables   any        `json:"user-variables"`
@@ -86,12 +88,14 @@ type Delivered struct {
 	Message  Message  `json:"message"`
 	Flags    Flags    `json:"flags"`
 
-	Recipient       string     `json:"recipient"`
-	RecipientDomain string     `json:"recipient-domain"`
-	Method          string     `json:"method"`
-	Tags            []string   `json:"tags"`
-	Campaigns       []Campaign `json:"campaigns"`
-	Storage         Storage    `json:"storage"`
+	Recipient         string     `json:"recipient"`
+	RecipientDomain   string     `json:"recipient-domain"`
+	RecipientProvider string     `json:"recipient-provider"`
+	Method            string     `json:"method"`
+	Tags              []string   `json:"tags"`
+	Campaigns         []Campaign `json:"campaigns"`
+	Storage           Storage    `json:"storage"`
+	PrimaryDkim       string     `json:"primary-dkim"`
 
 	DeliveryStatus DeliveryStatus `json:"delivery-status"`
 	UserVariables  any            `json:"user-variables"`
@@ -106,12 +110,14 @@ type Failed struct {
 	Message  Message  `json:"message"`
 	Flags    Flags    `json:"flags"`
 
-	Recipient       string     `json:"recipient"`
-	RecipientDomain string     `json:"recipient-domain"`
-	Method          string     `json:"method"`
-	Tags            []string   `json:"tags"`
-	Campaigns       []Campaign `json:"campaigns"`
-	Storage         Storage    `json:"storage"`
+	Recipient         string     `json:"recipient"`
+	RecipientDomain   string     `json:"recipient-domain"`
+	RecipientProvider string     `json:"recipient-provider"`
+	Method            string     `json:"method"`
+	Tags              []string   `json:"tags"`
+	Campaigns         []Campaign `json:"campaigns"`
+	Storage           Storage    `json:"storage"`
+	PrimaryDkim       string     `json:"primary-dkim"`
 
 	DeliveryStatus DeliveryStatus `json:"delivery-status"`
 

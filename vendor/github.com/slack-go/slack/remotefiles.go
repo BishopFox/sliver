@@ -126,15 +126,16 @@ func (api *Client) AddRemoteFileContext(ctx context.Context, params RemoteFilePa
 	if params.IndexableFileContents != "" {
 		values.Add("indexable_file_contents", params.IndexableFileContents)
 	}
-	if params.PreviewImage != "" {
+	switch {
+	case params.PreviewImage != "":
 		err = postLocalWithMultipartResponse(ctx, api.httpclient, api.endpoint+"files.remote.add", params.PreviewImage, "preview_image", api.token, values, response, api)
-	} else if params.PreviewImageReader != nil {
+	case params.PreviewImageReader != nil:
 		name := params.PreviewImageName
 		if name == "" {
 			name = "preview.png"
 		}
 		err = postWithMultipartResponse(ctx, api.httpclient, api.endpoint+"files.remote.add", name, "preview_image", api.token, values, params.PreviewImageReader, response, api)
-	} else {
+	default:
 		response, err = api.remoteFileRequest(ctx, "files.remote.add", values)
 	}
 
@@ -275,15 +276,16 @@ func (api *Client) UpdateRemoteFileContext(ctx context.Context, fileID string, p
 	if params.IndexableFileContents != "" {
 		values.Add("indexable_file_contents", params.IndexableFileContents)
 	}
-	if params.PreviewImage != "" {
+	switch {
+	case params.PreviewImage != "":
 		err = postLocalWithMultipartResponse(ctx, api.httpclient, api.endpoint+"files.remote.update", params.PreviewImage, "preview_image", api.token, values, response, api)
-	} else if params.PreviewImageReader != nil {
+	case params.PreviewImageReader != nil:
 		name := params.PreviewImageName
 		if name == "" {
 			name = "preview.png"
 		}
 		err = postWithMultipartResponse(ctx, api.httpclient, api.endpoint+"files.remote.update", name, "preview_image", api.token, values, params.PreviewImageReader, response, api)
-	} else {
+	default:
 		values.Add("token", api.token)
 		response, err = api.remoteFileRequest(ctx, "files.remote.update", values)
 	}

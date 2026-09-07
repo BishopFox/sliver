@@ -1,5 +1,7 @@
 package mtypes
 
+type SpamAction string
+
 // Use these to specify a spam action when creating a new domain.
 const (
 	// SpamActionTag tags the received message with headers providing a measure of its spamness.
@@ -10,7 +12,13 @@ const (
 	SpamActionDelete = SpamAction("delete")
 )
 
-type SpamAction string
+type DomainState string
+
+const (
+	DomainStateActive     = DomainState("active")
+	DomainStateUnverified = DomainState("unverified")
+	DomainStateInactive   = DomainState("inactive")
+)
 
 type ListDomainsResponse struct {
 	// is -1 if Next() or First() have not been called
@@ -20,9 +28,14 @@ type ListDomainsResponse struct {
 
 // A Domain structure holds information about a domain used when sending mail.
 type Domain struct {
+	ArchiveTo                  string      `json:"archive_to"`
 	CreatedAt                  RFC2822Time `json:"created_at"`
+	DKIMHost                   string      `json:"dkim_host"`
+	EncryptIncomingMessage     bool        `json:"encrypt_incoming_message"`
 	ID                         string      `json:"id"`
 	IsDisabled                 bool        `json:"is_disabled"`
+	MailFromHost               string      `json:"mailfrom_host"`
+	MessageTTL                 int         `json:"message_ttl"`
 	Name                       string      `json:"name"`
 	RequireTLS                 bool        `json:"require_tls"`
 	SkipVerification           bool        `json:"skip_verification"`
@@ -30,8 +43,9 @@ type Domain struct {
 	SMTPPassword               string      `json:"smtp_password,omitempty"`
 	SpamAction                 SpamAction  `json:"spam_action"`
 	State                      string      `json:"state"`
+	SubaccountID               string      `json:"subaccount_id"`
 	Type                       string      `json:"type"`
-	TrackingHost               string      `json:"tracking_host,omitempty"`
+	TrackingHost               string      `json:"tracking_host"`
 	UseAutomaticSenderSecurity bool        `json:"use_automatic_sender_security"`
 	WebPrefix                  string      `json:"web_prefix"`
 	WebScheme                  string      `json:"web_scheme"`

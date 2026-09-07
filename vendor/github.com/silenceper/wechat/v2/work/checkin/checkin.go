@@ -158,24 +158,32 @@ type OptionGroupRuleCheckinDate struct {
 	MaxAllowArriveEarly int64                        `json:"max_allow_arrive_early"`
 	MaxAllowArriveLate  int64                        `json:"max_allow_arrive_late"`
 	LateRule            OptionGroupLateRule          `json:"late_rule"`
+	Biweekly            OptionGroupBiweekly          `json:"biweekly,omitempty"`
 }
 
 // OptionGroupRuleCheckinTime 工作日上下班打卡时间信息
 type OptionGroupRuleCheckinTime struct {
-	TimeID             int64 `json:"time_id"`
-	WorkSec            int64 `json:"work_sec"`
-	OffWorkSec         int64 `json:"off_work_sec"`
-	RemindWorkSec      int64 `json:"remind_work_sec"`
-	RemindOffWorkSec   int64 `json:"remind_off_work_sec"`
-	AllowRest          bool  `json:"allow_rest"`
-	RestBeginTime      int64 `json:"rest_begin_time"`
-	RestEndTime        int64 `json:"rest_end_time"`
-	EarliestWorkSec    int64 `json:"earliest_work_sec"`
-	LatestWorkSec      int64 `json:"latest_work_sec"`
-	EarliestOffWorkSec int64 `json:"earliest_off_work_sec"`
-	LatestOffWorkSec   int64 `json:"latest_off_work_sec"`
-	NoNeedCheckOn      bool  `json:"no_need_checkon"`
-	NoNeedCheckOff     bool  `json:"no_need_checkoff"`
+	TimeID             int64                      `json:"time_id"`
+	WorkSec            int64                      `json:"work_sec"`
+	OffWorkSec         int64                      `json:"off_work_sec"`
+	RemindWorkSec      int64                      `json:"remind_work_sec"`
+	RemindOffWorkSec   int64                      `json:"remind_off_work_sec"`
+	AllowRest          bool                       `json:"allow_rest"`
+	RestBeginTime      int64                      `json:"rest_begin_time"`
+	RestEndTime        int64                      `json:"rest_end_time"`
+	EarliestWorkSec    int64                      `json:"earliest_work_sec"`
+	LatestWorkSec      int64                      `json:"latest_work_sec"`
+	EarliestOffWorkSec int64                      `json:"earliest_off_work_sec"`
+	LatestOffWorkSec   int64                      `json:"latest_off_work_sec"`
+	NoNeedCheckOn      bool                       `json:"no_need_checkon"`
+	NoNeedCheckOff     bool                       `json:"no_need_checkoff"`
+	RestTimes          []OptionGroupRuleRestTimes `json:"rest_times,omitempty"`
+}
+
+// OptionGroupRuleRestTimes 多组休息时间
+type OptionGroupRuleRestTimes struct {
+	RestBeginTime int64 `json:"rest_begin_time,omitempty"`
+	RestEndTime   int64 `json:"rest_end_time,omitempty"`
 }
 
 // OptionGroupLateRule 晚走晚到时间规则信息
@@ -190,6 +198,13 @@ type OptionGroupLateRule struct {
 type OptionGroupTimeRule struct {
 	OffWorkAfterTime int64 `json:"offwork_after_time"`
 	OnWorkFlexTime   int64 `json:"onwork_flex_time"`
+}
+
+// OptionGroupBiweekly 大小周规则
+type OptionGroupBiweekly struct {
+	EnableWeekdayRecurrence bool    `json:"enable_weekday_recurrence"`
+	OddWorkdays             []int64 `json:"odd_workdays"`
+	EvenWorkdays            []int64 `json:"even_workdays"`
 }
 
 // OptionGroupSpeWorkdays 特殊工作日

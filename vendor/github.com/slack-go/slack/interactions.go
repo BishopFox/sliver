@@ -171,7 +171,7 @@ func (a ActionCallbacks) MarshalJSON() ([]byte, error) {
 	length := len(a.AttachmentActions) + len(a.BlockActions)
 	buffer := bytes.NewBufferString("[")
 
-	f := func(obj interface{}) error {
+	f := func(obj any) error {
 		js, err := json.Marshal(obj)
 		if err != nil {
 			return err
@@ -215,7 +215,7 @@ func (a *ActionCallbacks) UnmarshalJSON(data []byte) error {
 	}
 
 	for _, r := range raw {
-		var obj map[string]interface{}
+		var obj map[string]any
 		err := json.Unmarshal(r, &obj)
 		if err != nil {
 			return err

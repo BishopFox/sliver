@@ -7,6 +7,7 @@
 package signatures
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -67,10 +68,13 @@ func VerifySignatureJSON(obj any, userID id.UserID, keyName string, key id.Ed255
 	var err error
 	objJSON, ok := obj.(json.RawMessage)
 	if !ok {
-		objJSON, err = json.Marshal(obj)
+		objJSON, err = canonicaljson.Marshal(obj)
 		if err != nil {
 			return false, err
 		}
+	} else {
+		// Canonicalize later may mutate the data, so clone the input
+		objJSON = bytes.Clone(objJSON)
 	}
 
 	sig := gjson.GetBytes(objJSON, exgjson.Path("signatures", string(userID), fmt.Sprintf("ed25519:%s", keyName)))
@@ -85,10 +89,13 @@ func VerifySignatureJSON(obj any, userID id.UserID, keyName string, key id.Ed255
 	if err != nil {
 		return false, err
 	}
-	objJSONString := canonicaljson.CanonicalJSONAssumeValid(objJSON)
+	err = canonicaljson.Canonicalize(&objJSON)
+	if err != nil {
+		return false, fmt.Errorf("failed to canonicalize JSON after deleting unsigned and signatures: %w", err)
+	}
 	sigBytes, err := base64.RawStdEncoding.DecodeString(sig.Str)
 	if err != nil {
 		return false, err
 	}
-	return VerifySignature(objJSONString, key, sigBytes)
+	return VerifySignature(objJSON, key, sigBytes)
 }

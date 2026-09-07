@@ -7,7 +7,9 @@ import (
 )
 
 // GetDomainConnection returns delivery connection settings for the defined domain
+//
 // Deprecated: use GetDomain instead
+//
 // TODO(v6): remove
 func (mg *Client) GetDomainConnection(ctx context.Context, domain string) (mtypes.DomainConnection, error) {
 	r := newHTTPRequest(generateApiUrl(mg, 3, domainsEndpoint) + "/" + domain + "/connection")
@@ -19,7 +21,9 @@ func (mg *Client) GetDomainConnection(ctx context.Context, domain string) (mtype
 }
 
 // UpdateDomainConnection updates the specified delivery connection settings for the defined domain
+//
 // Deprecated: use UpdateDomain instead
+//
 // TODO(v6): remove
 func (mg *Client) UpdateDomainConnection(ctx context.Context, domain string, settings mtypes.DomainConnection) error {
 	r := newHTTPRequest(generateApiUrl(mg, 3, domainsEndpoint) + "/" + domain + "/connection")

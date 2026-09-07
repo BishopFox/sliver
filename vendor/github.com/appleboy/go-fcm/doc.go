@@ -12,20 +12,17 @@
 //			log.Fatal(err)
 //		}
 //
-//	// Send to a single device
-//	token := "test"
-//	resp, err := client.Send(
-//
-//	ctx,
-//	&messaging.Message{
-//		Token: token,
-//		Data: map[string]string{
-//			"foo": "bar",
-//		},
-//	},
-//
-// )
-//
+//		// Send to a single device
+//		token := "test"
+//		resp, err := client.Send(
+//			ctx,
+//			&messaging.Message{
+//				Token: token,
+//				Data: map[string]string{
+//					"foo": "bar",
+//				},
+//			},
+//		)
 //		if err != nil {
 //			log.Fatal(err)
 //		}

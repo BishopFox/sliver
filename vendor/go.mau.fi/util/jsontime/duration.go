@@ -50,6 +50,10 @@ func (s Seconds) Value() (driver.Value, error) {
 	return int64(s.Seconds()), nil
 }
 
+func (s Seconds) IsZero() bool {
+	return s.Duration == 0
+}
+
 func (s *Seconds) UnmarshalJSON(data []byte) error {
 	return unmarshalDuration(&s.Duration, data, time.Second)
 }
@@ -85,6 +89,10 @@ func (s Milliseconds) Value() (driver.Value, error) {
 	return s.Milliseconds(), nil
 }
 
+func (s Milliseconds) IsZero() bool {
+	return s.Duration == 0
+}
+
 func (s *Milliseconds) UnmarshalJSON(data []byte) error {
 	return unmarshalDuration(&s.Duration, data, time.Millisecond)
 }
@@ -112,6 +120,10 @@ func (s Microseconds) Value() (driver.Value, error) {
 	return s.Microseconds(), nil
 }
 
+func (s Microseconds) IsZero() bool {
+	return s.Duration == 0
+}
+
 func (s *Microseconds) UnmarshalJSON(data []byte) error {
 	return unmarshalDuration(&s.Duration, data, time.Microsecond)
 }
@@ -137,6 +149,10 @@ func (s Nanoseconds) MarshalJSON() ([]byte, error) {
 
 func (s Nanoseconds) Value() (driver.Value, error) {
 	return s.Nanoseconds(), nil
+}
+
+func (s Nanoseconds) IsZero() bool {
+	return s.Duration == 0
 }
 
 func (s *Nanoseconds) UnmarshalJSON(data []byte) error {

@@ -24,6 +24,18 @@ const (
 	convertToOpenIDURL = "https://qyapi.weixin.qq.com/cgi-bin/user/convert_to_openid"
 	// convertToUserIDURL openID转userID
 	convertToUserIDURL = "https://qyapi.weixin.qq.com/cgi-bin/user/convert_to_userid"
+	// userBatchDeleteURL 批量删除成员
+	userBatchDeleteURL = "https://qyapi.weixin.qq.com/cgi-bin/user/batchdelete?access_token=%s"
+	// userAuthSuccURL 登录二次验证
+	userAuthSuccURL = "https://qyapi.weixin.qq.com/cgi-bin/user/authsucc?access_token=%s&userid=%s"
+	// batchInviteURL 邀请成员
+	batchInviteURL = "https://qyapi.weixin.qq.com/cgi-bin/batch/invite?access_token=%s"
+	// getJoinQrcodeURL 获取加入企业二维码
+	getJoinQrcodeURL = "https://qyapi.weixin.qq.com/cgi-bin/corp/get_join_qrcode"
+	// getUseridURL 手机号获取userid
+	getUseridURL = "https://qyapi.weixin.qq.com/cgi-bin/user/getuserid?access_token=%s"
+	// getUseridByEmailURL 邮箱获取userid
+	getUseridByEmailURL = "https://qyapi.weixin.qq.com/cgi-bin/user/get_userid_by_email?access_token=%s"
 )
 
 type (
@@ -446,4 +458,168 @@ func (r *Client) ConvertToUserID(openID string) (string, error) {
 	result := &convertToUserIDResponse{}
 	err = util.DecodeWithError(response, result, "ConvertToUserID")
 	return result.UserID, err
+}
+
+// UserBatchDeleteRequest 批量删除成员请求
+type UserBatchDeleteRequest struct {
+	UseridList []string `json:"useridlist"`
+}
+
+// UserBatchDelete 批量删除成员
+// see https://developer.work.weixin.qq.com/document/path/90199
+func (r *Client) UserBatchDelete(req *UserBatchDeleteRequest) error {
+	var (
+		accessToken string
+		err         error
+	)
+	if accessToken, err = r.GetAccessToken(); err != nil {
+		return err
+	}
+	var response []byte
+	if response, err = util.PostJSON(fmt.Sprintf(userBatchDeleteURL, accessToken), req); err != nil {
+		return err
+	}
+	return util.DecodeWithCommonError(response, "UserBatchDelete")
+}
+
+// UserAuthSucc 登录二次验证
+// @see https://developer.work.weixin.qq.com/document/path/90203
+func (r *Client) UserAuthSucc(userID string) error {
+	var (
+		accessToken string
+		err         error
+	)
+	if accessToken, err = r.GetAccessToken(); err != nil {
+		return err
+	}
+	var response []byte
+	if response, err = util.HTTPGet(fmt.Sprintf(userAuthSuccURL, accessToken, userID)); err != nil {
+		return err
+	}
+	return util.DecodeWithCommonError(response, "UserAuthSucc")
+}
+
+// BatchInviteRequest 邀请成员请求
+type BatchInviteRequest struct {
+	User  []string `json:"user"`
+	Party []int    `json:"party"`
+	Tag   []int    `json:"tag"`
+}
+
+// BatchInviteResponse 邀请成员响应
+type BatchInviteResponse struct {
+	util.CommonError
+	InvalidUser  []string `json:"invaliduser"`
+	InvalidParty []int    `json:"invalidparty"`
+	InvalidTag   []int    `json:"invalidtag"`
+}
+
+// BatchInvite 邀请成员
+// see https://developer.work.weixin.qq.com/document/path/90975
+func (r *Client) BatchInvite(req *BatchInviteRequest) (*BatchInviteResponse, error) {
+	var (
+		accessToken string
+		err         error
+	)
+	if accessToken, err = r.GetAccessToken(); err != nil {
+		return nil, err
+	}
+	var response []byte
+	if response, err = util.PostJSON(fmt.Sprintf(batchInviteURL, accessToken), req); err != nil {
+		return nil, err
+	}
+	result := &BatchInviteResponse{}
+	err = util.DecodeWithError(response, result, "BatchInvite")
+	return result, err
+}
+
+// GetJoinQrcodeRequest 获取加入企业二维码请求
+type GetJoinQrcodeRequest struct {
+	SizeType int `json:"size_type"`
+}
+
+// GetJoinQrcodeResponse 获取加入企业二维码响应
+type GetJoinQrcodeResponse struct {
+	util.CommonError
+	JoinQrcode string `json:"join_qrcode"`
+}
+
+// GetJoinQrcode 获取加入企业二维码
+// see https://developer.work.weixin.qq.com/document/path/91714
+func (r *Client) GetJoinQrcode(req *GetJoinQrcodeRequest) (*GetJoinQrcodeResponse, error) {
+	var (
+		accessToken string
+		err         error
+		apiURL      string
+	)
+	if accessToken, err = r.GetAccessToken(); err != nil {
+		return nil, err
+	}
+	if req.SizeType > 0 {
+		apiURL = fmt.Sprintf("%s?access_token=%s&size_type=%d", getJoinQrcodeURL, accessToken, req.SizeType)
+	} else {
+		apiURL = fmt.Sprintf("%s?access_token=%s", getJoinQrcodeURL, accessToken)
+	}
+	var response []byte
+	if response, err = util.HTTPGet(apiURL); err != nil {
+		return nil, err
+	}
+	result := &GetJoinQrcodeResponse{}
+	err = util.DecodeWithError(response, result, "GetJoinQrcode")
+	return result, err
+}
+
+// GetUseridRequest 手机号获取userid请求
+type GetUseridRequest struct {
+	Mobile string `json:"mobile"`
+}
+
+// GetUseridResponse 获取userid响应
+type GetUseridResponse struct {
+	util.CommonError
+	Userid string `json:"userid"`
+}
+
+// GetUserid 手机号获取userid
+// see https://developer.work.weixin.qq.com/document/path/95402
+func (r *Client) GetUserid(req *GetUseridRequest) (*GetUseridResponse, error) {
+	var (
+		accessToken string
+		err         error
+	)
+	if accessToken, err = r.GetAccessToken(); err != nil {
+		return nil, err
+	}
+	var response []byte
+	if response, err = util.PostJSON(fmt.Sprintf(getUseridURL, accessToken), req); err != nil {
+		return nil, err
+	}
+	result := &GetUseridResponse{}
+	err = util.DecodeWithError(response, result, "GetUserid")
+	return result, err
+}
+
+// GetUseridByEmailRequest 邮箱获取userid请求
+type GetUseridByEmailRequest struct {
+	Email     string `json:"email"`
+	EmailType int    `json:"email_type,omitempty"`
+}
+
+// GetUseridByEmail 邮箱获取userid
+// see https://developer.work.weixin.qq.com/document/path/95895
+func (r *Client) GetUseridByEmail(req *GetUseridByEmailRequest) (*GetUseridResponse, error) {
+	var (
+		accessToken string
+		err         error
+	)
+	if accessToken, err = r.GetAccessToken(); err != nil {
+		return nil, err
+	}
+	var response []byte
+	if response, err = util.PostJSON(fmt.Sprintf(getUseridByEmailURL, accessToken), req); err != nil {
+		return nil, err
+	}
+	result := &GetUseridResponse{}
+	err = util.DecodeWithError(response, result, "GetUseridByEmail")
+	return result, err
 }

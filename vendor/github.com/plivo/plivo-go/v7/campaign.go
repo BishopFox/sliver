@@ -25,31 +25,41 @@ type CampaignCreationParams struct {
 	SubscriberOptout   bool      `json:"subscriber_optout" url:"subscriber_optout"`
 	SubscriberHelp     bool      `json:"subscriber_help" url:"subscriber_help"`
 	AffiliateMarketing bool      `json:"affiliate_marketing" url:"subscriber_help"`
-	Sample1            *string   `json:"sample1" url:"sample1"`
-	Sample2            *string   `json:"sample2,omitempty" url:"sample2,omitempty"`
-	URL                string    `json:"url,omitempty" url:"url,omitempty"`
-	Method             string    `json:"method,omitempty" url:"method,omitempty"`
-	MessageFlow        string    `json:"message_flow,omitempty" url:"message_flow"`
-	HelpMessage        string    `json:"help_message,omitempty" url:"help_message"`
-	OptinKeywords      string    `json:"optin_keywords,omitempty" url:"optin_keywords"`
-	OptinMessage       string    `json:"optin_message,omitempty" url:"optin_message"`
-	OptoutKeywords     string    `json:"optout_keywords,omitempty" url:"optout_keywords"`
-	OptoutMessage      string    `json:"optout_message,omitempty" url:"optout_message"`
-	HelpKeywords       string    `json:"help_keywords,omitempty" url:"help_keywords"`
+	Sample1                 *string   `json:"sample1" url:"sample1"`
+	Sample2                 *string   `json:"sample2,omitempty" url:"sample2,omitempty"`
+	Sample3                 *string   `json:"sample3,omitempty" url:"sample3,omitempty"`
+	Sample4                 *string   `json:"sample4,omitempty" url:"sample4,omitempty"`
+	Sample5                 *string   `json:"sample5,omitempty" url:"sample5,omitempty"`
+	URL                     string    `json:"url,omitempty" url:"url,omitempty"`
+	Method                  string    `json:"method,omitempty" url:"method,omitempty"`
+	MessageFlow             string    `json:"message_flow,omitempty" url:"message_flow"`
+	HelpMessage             string    `json:"help_message,omitempty" url:"help_message"`
+	OptinKeywords           string    `json:"optin_keywords,omitempty" url:"optin_keywords"`
+	OptinMessage            string    `json:"optin_message,omitempty" url:"optin_message"`
+	OptoutKeywords          string    `json:"optout_keywords,omitempty" url:"optout_keywords"`
+	OptoutMessage           string    `json:"optout_message,omitempty" url:"optout_message"`
+	HelpKeywords            string    `json:"help_keywords,omitempty" url:"help_keywords"`
+	TermsAndConditionsLink  string    `json:"terms_and_conditions_link,omitempty" url:"terms_and_conditions_link,omitempty"`
+	PrivacyPolicyLink       string    `json:"privacy_policy_link,omitempty" url:"privacy_policy_link,omitempty"`
 }
 
 type CampaignUpdateParams struct {
-	ResellerID     string `json:" reseller_id,omitempty" url:" reseller_id,omitempty"`
-	Description    string `json:"description,omitempty" url:"description,omitempty"`
-	Sample1        string `json:"sample1" url:"sample1"`
-	Sample2        string `json:"sample2,omitempty" url:"sample2,omitempty"`
-	MessageFlow    string `json:"message_flow,omitempty" url:"message_flow"`
-	HelpMessage    string `json:"help_message,omitempty" url:"help_message"`
-	OptinKeywords  string `json:"optin_keywords,omitempty" url:"optin_keywords"`
-	OptinMessage   string `json:"optin_message,omitempty" url:"optin_message"`
-	OptoutKeywords string `json:"optout_keywords,omitempty" url:"optout_keywords"`
-	OptoutMessage  string `json:"optout_message,omitempty" url:"optout_message"`
-	HelpKeywords   string `json:"help_keywords,omitempty" url:"help_keywords"`
+	ResellerID              string `json:" reseller_id,omitempty" url:" reseller_id,omitempty"`
+	Description             string `json:"description,omitempty" url:"description,omitempty"`
+	Sample1                 string `json:"sample1" url:"sample1"`
+	Sample2                 string `json:"sample2,omitempty" url:"sample2,omitempty"`
+	Sample3                 string `json:"sample3,omitempty" url:"sample3,omitempty"`
+	Sample4                 string `json:"sample4,omitempty" url:"sample4,omitempty"`
+	Sample5                 string `json:"sample5,omitempty" url:"sample5,omitempty"`
+	MessageFlow             string `json:"message_flow,omitempty" url:"message_flow"`
+	HelpMessage             string `json:"help_message,omitempty" url:"help_message"`
+	OptinKeywords           string `json:"optin_keywords,omitempty" url:"optin_keywords"`
+	OptinMessage            string `json:"optin_message,omitempty" url:"optin_message"`
+	OptoutKeywords          string `json:"optout_keywords,omitempty" url:"optout_keywords"`
+	OptoutMessage           string `json:"optout_message,omitempty" url:"optout_message"`
+	HelpKeywords            string `json:"help_keywords,omitempty" url:"help_keywords"`
+	TermsAndConditionsLink  string `json:"terms_and_conditions_link,omitempty" url:"terms_and_conditions_link,omitempty"`
+	PrivacyPolicyLink       string `json:"privacy_policy_link,omitempty" url:"privacy_policy_link,omitempty"`
 }
 
 type CampaignListResponse struct {
@@ -96,17 +106,22 @@ type Campaign struct {
 	OptoutKeywords      string             `json:"optout_keywords,omitempty"`
 	OptoutMessage       string             `json:"optout_message,omitempty"`
 	HelpKeywords        string             `json:"help_keywords,omitempty"`
-	SampleMessage1      string             `json:"sample1,omitempty"`
-	SampleMessage2      string             `json:"sample2,omitempty"`
-	CampaignDescription string             `json:"description,omitempty"`
-	CampaignAttributes  CampaignAttributes `json:"campaign_attributes,omitempty"`
-	CreatedAt           string             `json:"created_at,omitempty"`
-	CampaignSource      string             `json:"campaign_source,omitempty"`
-	ErrorCode           string             `json:"error_code,omitempty"`
-	ErrorReason         string             `json:"error_reason,omitempty"`
-	Vertical            string             `json:"vertical,omitempty"`
-	CampaignAlias       string             `json:"campaign_alias,omitempty"`
-	ErrorDescription    string             `json:"error_description,omitempty"`
+	SampleMessage1          string             `json:"sample1,omitempty"`
+	SampleMessage2          string             `json:"sample2,omitempty"`
+	SampleMessage3          string             `json:"sample3,omitempty"`
+	SampleMessage4          string             `json:"sample4,omitempty"`
+	SampleMessage5          string             `json:"sample5,omitempty"`
+	TermsAndConditionsLink  string             `json:"terms_and_conditions_link,omitempty"`
+	PrivacyPolicyLink       string             `json:"privacy_policy_link,omitempty"`
+	CampaignDescription     string             `json:"description,omitempty"`
+	CampaignAttributes      CampaignAttributes `json:"campaign_attributes,omitempty"`
+	CreatedAt               string             `json:"created_at,omitempty"`
+	CampaignSource          string             `json:"campaign_source,omitempty"`
+	ErrorCode               string             `json:"error_code,omitempty"`
+	ErrorReason             string             `json:"error_reason,omitempty"`
+	Vertical                string             `json:"vertical,omitempty"`
+	CampaignAlias           string             `json:"campaign_alias,omitempty"`
+	ErrorDescription        string             `json:"error_description,omitempty"`
 }
 
 type CampaignAttributes struct {

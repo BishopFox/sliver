@@ -17,6 +17,8 @@ const (
 	listContactWayURL = "https://qyapi.weixin.qq.com/cgi-bin/externalcontact/list_contact_way?access_token=%s"
 	// delContactWayURL 删除企业已配置的「联系我」方式
 	delContactWayURL = "https://qyapi.weixin.qq.com/cgi-bin/externalcontact/del_contact_way?access_token=%s"
+	// closeTempChatURL 结束临时会话
+	closeTempChatURL = "https://qyapi.weixin.qq.com/cgi-bin/externalcontact/close_temp_chat?access_token=%s"
 )
 
 type (
@@ -77,6 +79,8 @@ type (
 		ExpiresIn     int                `json:"expires_in"`
 		ChatExpiresIn int                `json:"chat_expires_in"`
 		UnionID       string             `json:"unionid"`
+		IsExclusive   bool               `json:"is_exclusive"`
+		MarkSource    bool               `json:"mark_source"`
 		Conclusions   ConclusionsRequest `json:"conclusions"`
 	}
 	// AddContactWayResponse 配置客户联系「联系我」方式响应
@@ -132,6 +136,7 @@ type (
 		ExpiresIn     int                 `json:"expires_in"`
 		ChatExpiresIn int                 `json:"chat_expires_in"`
 		UnionID       string              `json:"unionid"`
+		MarkSource    bool                `json:"mark_source"`
 		Conclusions   ConclusionsResponse `json:"conclusions"`
 	}
 )
@@ -168,6 +173,7 @@ type (
 		ExpiresIn     int                `json:"expires_in"`
 		ChatExpiresIn int                `json:"chat_expires_in"`
 		UnionID       string             `json:"unionid"`
+		MarkSource    bool               `json:"mark_source"`
 		Conclusions   ConclusionsRequest `json:"conclusions"`
 	}
 	// UpdateContactWayResponse 更新企业已配置的「联系我」方式响应
@@ -262,4 +268,27 @@ func (r *Client) DelContactWay(req *DelContactWayRequest) (*DelContactWayRespons
 	result := &DelContactWayResponse{}
 	err = util.DecodeWithError(response, result, "DelContactWay")
 	return result, err
+}
+
+// CloseTempChatRequest 结束临时会话请求
+type CloseTempChatRequest struct {
+	UserID         string `json:"userid"`
+	ExternalUserID string `json:"external_userid"`
+}
+
+// CloseTempChat 结束临时会话
+// @see https://developer.work.weixin.qq.com/document/path/92228
+func (r *Client) CloseTempChat(req *CloseTempChatRequest) error {
+	var (
+		accessToken string
+		err         error
+	)
+	if accessToken, err = r.GetAccessToken(); err != nil {
+		return err
+	}
+	var response []byte
+	if response, err = util.PostJSON(fmt.Sprintf(closeTempChatURL, accessToken), req); err != nil {
+		return err
+	}
+	return util.DecodeWithCommonError(response, "CloseTempChat")
 }

@@ -62,6 +62,13 @@ type ExtensibleTextContainer struct {
 	Text []ExtensibleText `json:"m.text"`
 }
 
+func (c *ExtensibleTextContainer) Equals(description *ExtensibleTextContainer) bool {
+	if c == nil || description == nil {
+		return c == description
+	}
+	return slices.Equal(c.Text, description.Text)
+}
+
 func MakeExtensibleText(text string) *ExtensibleTextContainer {
 	return &ExtensibleTextContainer{
 		Text: []ExtensibleText{{
@@ -197,6 +204,14 @@ type PinnedEventsEventContent struct {
 // https://spec.matrix.org/v1.2/client-server-api/#mroomhistory_visibility
 type HistoryVisibility string
 
+func (hv HistoryVisibility) SharedHistory() bool {
+	return hv != HistoryVisibilityJoined && hv != HistoryVisibilityInvited
+}
+
+func (hv HistoryVisibility) String() string {
+	return string(hv)
+}
+
 const (
 	HistoryVisibilityInvited       HistoryVisibility = "invited"
 	HistoryVisibilityJoined        HistoryVisibility = "joined"
@@ -208,6 +223,10 @@ const (
 // https://spec.matrix.org/v1.2/client-server-api/#mroomhistory_visibility
 type HistoryVisibilityEventContent struct {
 	HistoryVisibility HistoryVisibility `json:"history_visibility"`
+}
+
+func (hvec *HistoryVisibilityEventContent) SharedHistory() bool {
+	return hvec == nil || hvec.HistoryVisibility.SharedHistory()
 }
 
 // GuestAccess specifies whether or not guest accounts can join.
@@ -231,7 +250,8 @@ type BridgeInfoSection struct {
 	AvatarURL   id.ContentURIString `json:"avatar_url,omitempty"`
 	ExternalURL string              `json:"external_url,omitempty"`
 
-	Receiver string `json:"fi.mau.receiver,omitempty"`
+	Receiver       string `json:"fi.mau.receiver,omitempty"`
+	MessageRequest bool   `json:"com.beeper.message_request,omitempty"`
 }
 
 // BridgeEventContent represents the content of a m.bridge state event.
@@ -334,4 +354,16 @@ func (efmc *ElementFunctionalMembersContent) Add(mxid id.UserID) bool {
 	}
 	efmc.ServiceMembers = append(efmc.ServiceMembers, mxid)
 	return true
+}
+
+type PolicyServerPublicKeys struct {
+	Ed25519 id.Ed25519 `json:"ed25519,omitempty"`
+}
+
+type RoomPolicyEventContent struct {
+	Via        string                  `json:"via,omitempty"`
+	PublicKeys *PolicyServerPublicKeys `json:"public_keys,omitempty"`
+
+	// Deprecated, only for legacy use
+	PublicKey id.Ed25519 `json:"public_key,omitempty"`
 }
