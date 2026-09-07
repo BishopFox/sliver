@@ -667,7 +667,7 @@ func findClosureReader(r Reader, opener, closer byte, opts FindClosureOptions) (
 						if ret == nil {
 							ret = NewSegments()
 						}
-						ret.Append(seg.WithStop(seg.Start + i))
+						ret.Append(seg.WithStop(seg.Start + i - seg.Padding))
 						r.Advance(i + 1)
 						closed = true
 						goto end

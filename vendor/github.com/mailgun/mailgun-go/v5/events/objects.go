@@ -40,8 +40,10 @@ type Envelope struct {
 }
 
 type Storage struct {
-	Key string `json:"key"`
-	URL string `json:"url"`
+	Key    string `json:"key"`
+	URL    string `json:"url"`
+	Region string `json:"region"`
+	Env    string `json:"env"`
 }
 
 type Flags struct {
@@ -71,15 +73,19 @@ type Campaign struct {
 }
 
 type DeliveryStatus struct {
-	Code                int     `json:"code"`
-	AttemptNo           int     `json:"attempt-no"`
-	Description         string  `json:"description,omitempty"`
-	Message             string  `json:"message"`
-	SessionSeconds      float64 `json:"session-seconds"`
-	EnhancedCode        string  `json:"enhanced-code,omitempty"`
-	MxHost              string  `json:"mx-host,omitempty"`
-	RetrySeconds        int     `json:"retry-seconds,omitempty"`
-	CertificateVerified *bool   `json:"certificate-verified,omitempty"`
-	TLS                 *bool   `json:"tls,omitempty"`
-	Utf8                *bool   `json:"utf8,omitempty"`
+	Code                        int     `json:"code"`
+	AttemptNo                   int     `json:"attempt-no"`
+	Description                 string  `json:"description,omitempty"`
+	Message                     string  `json:"message"`
+	SessionSeconds              float64 `json:"session-seconds"`
+	EnhancedCode                string  `json:"enhanced-code,omitempty"`
+	MxHost                      string  `json:"mx-host,omitempty"`
+	RetrySeconds                int     `json:"retry-seconds,omitempty"`
+	CertificateVerified         *bool   `json:"certificate-verified,omitempty"`
+	TLS                         *bool   `json:"tls,omitempty"`
+	Utf8                        *bool   `json:"utf8,omitempty"`
+	LastCode                    int     `json:"last-code,omitempty"`
+	LastMessage                 string  `json:"last-message,omitempty"`
+	BounceType                  string  `json:"bounce-type,omitempty"`
+	FirstDeliveryAttemptSeconds float64 `json:"first-delivery-attempt-seconds,omitempty"`
 }

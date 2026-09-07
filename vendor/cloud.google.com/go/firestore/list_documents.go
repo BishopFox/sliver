@@ -70,6 +70,10 @@ func (it *DocumentRefIterator) PageInfo() *iterator.PageInfo { return it.pageInf
 // Next returns the next result. Its second return value is iterator.Done if there
 // are no more results. Once Next returns Done, all subsequent calls will return
 // Done.
+//
+// In addition, if Next returns an error other than iterator.Done, all
+// subsequent calls will return the same error. To continue iteration, a new
+// DocumentRefIterator must be created.
 func (it *DocumentRefIterator) Next() (*DocumentRef, error) {
 	if err := it.nextFunc(); err != nil {
 		return nil, err

@@ -35,7 +35,7 @@ type MessageEvent Message
 // RTMEvent is the main wrapper. You will find all the other messages attached
 type RTMEvent struct {
 	Type string
-	Data interface{}
+	Data any
 }
 
 // HelloEvent represents the hello event

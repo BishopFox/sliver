@@ -1,4 +1,4 @@
-// Copyright 2018 Google Inc. All Rights Reserved.
+// Copyright 2018 Google LLC All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,9 +33,9 @@ func validateMessage(message *Message) error {
 		return fmt.Errorf("message must not be nil")
 	}
 
-	targets := countNonEmpty(message.Token, message.Condition, message.Topic)
+	targets := countNonEmpty(message.Token, message.Condition, message.Topic, message.Fid)
 	if targets != 1 {
-		return fmt.Errorf("exactly one of token, topic or condition must be specified")
+		return fmt.Errorf("exactly one of fid, token, topic or condition must be specified")
 	}
 
 	// validate topic

@@ -21,13 +21,24 @@ import (
 )
 
 var (
-	HashMismatch         = errors.New("mismatching SHA-256 digest")
-	UnsupportedVersion   = errors.New("unsupported Matrix file encryption version")
-	UnsupportedAlgorithm = errors.New("unsupported JWK encryption algorithm")
-	InvalidKey           = errors.New("failed to decode key")
-	InvalidInitVector    = errors.New("failed to decode initialization vector")
-	InvalidHash          = errors.New("failed to decode SHA-256 hash")
-	ReaderClosed         = errors.New("encrypting reader was already closed")
+	ErrHashMismatch         = errors.New("mismatching SHA-256 digest")
+	ErrUnsupportedVersion   = errors.New("unsupported Matrix file encryption version")
+	ErrUnsupportedAlgorithm = errors.New("unsupported JWK encryption algorithm")
+	ErrInvalidKey           = errors.New("failed to decode key")
+	ErrInvalidInitVector    = errors.New("failed to decode initialization vector")
+	ErrInvalidHash          = errors.New("failed to decode SHA-256 hash")
+	ErrReaderClosed         = errors.New("encrypting reader was already closed")
+)
+
+// Deprecated: use variables prefixed with Err
+var (
+	HashMismatch         = ErrHashMismatch
+	UnsupportedVersion   = ErrUnsupportedVersion
+	UnsupportedAlgorithm = ErrUnsupportedAlgorithm
+	InvalidKey           = ErrInvalidKey
+	InvalidInitVector    = ErrInvalidInitVector
+	InvalidHash          = ErrInvalidHash
+	ReaderClosed         = ErrReaderClosed
 )
 
 var (
@@ -85,25 +96,25 @@ func (ef *EncryptedFile) decodeKeys(includeHash bool) error {
 	if ef.decoded != nil {
 		return nil
 	} else if len(ef.Key.Key) != keyBase64Length {
-		return InvalidKey
+		return ErrInvalidKey
 	} else if len(ef.InitVector) != ivBase64Length {
-		return InvalidInitVector
+		return ErrInvalidInitVector
 	} else if includeHash && len(ef.Hashes.SHA256) != hashBase64Length {
-		return InvalidHash
+		return ErrInvalidHash
 	}
 	ef.decoded = &decodedKeys{}
 	_, err := base64.RawURLEncoding.Decode(ef.decoded.key[:], []byte(ef.Key.Key))
 	if err != nil {
-		return InvalidKey
+		return ErrInvalidKey
 	}
 	_, err = base64.RawStdEncoding.Decode(ef.decoded.iv[:], []byte(ef.InitVector))
 	if err != nil {
-		return InvalidInitVector
+		return ErrInvalidInitVector
 	}
 	if includeHash {
 		_, err = base64.RawStdEncoding.Decode(ef.decoded.sha256[:], []byte(ef.Hashes.SHA256))
 		if err != nil {
-			return InvalidHash
+			return ErrInvalidHash
 		}
 	}
 	return nil
@@ -179,7 +190,7 @@ var _ io.ReadSeekCloser = (*encryptingReader)(nil)
 
 func (r *encryptingReader) Seek(offset int64, whence int) (int64, error) {
 	if r.closed {
-		return 0, ReaderClosed
+		return 0, ErrReaderClosed
 	}
 	if offset != 0 || whence != io.SeekStart {
 		return 0, fmt.Errorf("attachments.EncryptStream: only seeking to the beginning is supported")
@@ -200,7 +211,7 @@ func (r *encryptingReader) Seek(offset int64, whence int) (int64, error) {
 
 func (r *encryptingReader) Read(dst []byte) (n int, err error) {
 	if r.closed {
-		return 0, ReaderClosed
+		return 0, ErrReaderClosed
 	} else if r.isDecrypting && r.file.decoded == nil {
 		if err = r.file.PrepareForDecryption(); err != nil {
 			return
@@ -224,7 +235,7 @@ func (r *encryptingReader) Close() (err error) {
 	}
 	if r.isDecrypting {
 		if !hmac.Equal(r.hash.Sum(nil), r.file.decoded.sha256[:]) {
-			return HashMismatch
+			return ErrHashMismatch
 		}
 	} else {
 		r.file.Hashes.SHA256 = base64.RawStdEncoding.EncodeToString(r.hash.Sum(nil))
@@ -265,9 +276,9 @@ func (ef *EncryptedFile) Decrypt(ciphertext []byte) ([]byte, error) {
 // DecryptInPlace will always call this automatically, so calling this manually is not necessary when using that function.
 func (ef *EncryptedFile) PrepareForDecryption() error {
 	if ef.Version != "v2" {
-		return UnsupportedVersion
+		return ErrUnsupportedVersion
 	} else if ef.Key.Algorithm != "A256CTR" {
-		return UnsupportedAlgorithm
+		return ErrUnsupportedAlgorithm
 	} else if err := ef.decodeKeys(true); err != nil {
 		return err
 	}
@@ -281,7 +292,7 @@ func (ef *EncryptedFile) DecryptInPlace(data []byte) error {
 	}
 	dataHash := sha256.Sum256(data)
 	if !hmac.Equal(ef.decoded.sha256[:], dataHash[:]) {
-		return HashMismatch
+		return ErrHashMismatch
 	}
 	utils.XorA256CTR(data, ef.decoded.key, ef.decoded.iv)
 	return nil

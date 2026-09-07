@@ -14,6 +14,9 @@ const pickleMACLength = 8
 var kdfPickle = []byte("Pickle") //used to derive the keys for encryption
 
 // Pickle encrypts the input with the key and the cipher AESSHA256. The result is then encoded in base64.
+//
+// The encryption used here is not particularly secure: both the AES key and IV are deterministic based on the pickle key.
+// However, pickles are only used locally and the key is usually hardcoded or stored next to the database anyway.
 func Pickle(key, plaintext []byte) ([]byte, error) {
 	if c, err := aessha2.NewAESSHA2(key, kdfPickle); err != nil {
 		return nil, err
@@ -32,17 +35,19 @@ func Unpickle(key, input []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(ciphertext) < pickleMACLength {
+		return nil, fmt.Errorf("decrypt pickle: input too short")
+	}
 	ciphertext, mac := ciphertext[:len(ciphertext)-pickleMACLength], ciphertext[len(ciphertext)-pickleMACLength:]
-	if c, err := aessha2.NewAESSHA2(key, kdfPickle); err != nil {
+	if len(ciphertext)%aes.BlockSize != 0 {
+		return nil, fmt.Errorf("decrypt pickle: ciphertext length %d not a multiple of block size", len(ciphertext))
+	} else if c, err := aessha2.NewAESSHA2(key, kdfPickle); err != nil {
 		return nil, err
-	} else if verified, err := c.VerifyMAC(ciphertext, mac); err != nil {
+	} else if verified, err := c.VerifyMAC(ciphertext, mac, pickleMACLength); err != nil {
 		return nil, err
 	} else if !verified {
 		return nil, fmt.Errorf("decrypt pickle: %w", olm.ErrBadMAC)
 	} else {
-		// Set to next block size
-		targetCipherText := make([]byte, int(len(ciphertext)/aes.BlockSize)*aes.BlockSize)
-		copy(targetCipherText, ciphertext)
-		return c.Decrypt(targetCipherText)
+		return c.Decrypt(ciphertext)
 	}
 }

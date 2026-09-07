@@ -3,7 +3,6 @@ package fcm
 import (
 	"context"
 	"net/http"
-	"time"
 
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/messaging"
@@ -17,31 +16,33 @@ var scopes = []string{
 }
 
 // Client abstracts the interaction between the application server and the
-// FCM server via HTTP protocol. The developer must obtain an API key from the
-// Google APIs Console page and pass it to the `Client` so that it can
-// perform authorized requests on the application server's behalf.
-// To send a message to one or more devices use the Client's Send.
+// FCM server via the Firebase Cloud Messaging HTTP v1 API. Authenticate it with
+// service-account credentials (WithCredentialsFile / WithCredentialsJSON), an
+// OAuth2 token source (WithTokenSource), or Google Application Default
+// Credentials so that it can perform authorized requests on the application
+// server's behalf. To send a message to one or more devices use the Client's
+// Send method.
 //
-// If the `HTTP` field is nil, a zeroed http.Client will be allocated and used
-// to send messages.
+// By default requests use a standard http.Client; supply your own with
+// WithHTTPClient or route through a proxy with WithHTTPProxy.
 //
 // Authorization Scopes
 // Requires one of the following OAuth scopes:
 // - https://www.googleapis.com/auth/firebase.messaging
 type Client struct {
 	client          *messaging.Client
-	serviceAcount   string
+	serviceAccount  string
 	projectID       string
 	options         []option.ClientOption
 	httpClient      *http.Client
+	tokenSource     oauth2.TokenSource
 	credentialsJSON []byte // credentialsJSON is the JSON representation of the service account credentials.
 	debug           bool
 }
 
-// NewClient creates new Firebase Cloud Messaging Client based on API key and
-// with default endpoint and http client.
+// NewClient creates a new Firebase Cloud Messaging Client, applying the given
+// options and using the default endpoint and http client unless overridden.
 func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
-	var err error
 	c := &Client{}
 	for _, o := range opts {
 		if err := o(c); err != nil {
@@ -50,45 +51,63 @@ func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 	}
 
 	var conf *firebase.Config
-	if c.serviceAcount != "" || c.projectID != "" {
+	if c.serviceAccount != "" || c.projectID != "" {
 		conf = &firebase.Config{
-			ServiceAccountID: c.serviceAcount,
+			ServiceAccountID: c.serviceAccount,
 			ProjectID:        c.projectID,
 		}
 	}
 
-	if c.debug {
-		if c.httpClient == nil {
-			c.httpClient = &http.Client{
-				Transport: debugTransport{
-					t: http.DefaultTransport,
-				},
+	// Route Firebase API calls through a custom transport when the caller
+	// supplied an http.Client, a proxy, or enabled debug logging. Because
+	// option.WithHTTPClient bypasses the SDK's own auth wiring, re-apply the
+	// selected credentials (service-account JSON or an explicit token source)
+	// on top of that transport so debug/proxy stays compatible with every auth
+	// method, not just inline JSON.
+	if c.httpClient != nil || c.debug {
+		base := http.DefaultTransport
+		if c.httpClient != nil && c.httpClient.Transport != nil {
+			base = c.httpClient.Transport
+		}
+		if c.debug {
+			base = debugTransport{t: base}
+		}
+
+		// newHTTPClient wraps the given transport while preserving the caller's
+		// other client settings (timeout, cookie jar, redirect policy) instead
+		// of discarding them. It is reused for both the credential token fetch
+		// and the final FCM client so neither silently drops those settings.
+		newHTTPClient := func(rt http.RoundTripper) *http.Client {
+			hc := &http.Client{Transport: rt}
+			if c.httpClient != nil {
+				hc.Timeout = c.httpClient.Timeout
+				hc.CheckRedirect = c.httpClient.CheckRedirect
+				hc.Jar = c.httpClient.Jar
 			}
-		} else {
-			c.httpClient.Transport = debugTransport{
-				t: c.httpClient.Transport,
+			return hc
+		}
+
+		var src oauth2.TokenSource
+		switch {
+		case len(c.credentialsJSON) > 0:
+			ctxWithClient := context.WithValue(ctx, oauth2.HTTPClient, newHTTPClient(base))
+			creds, err := google.CredentialsFromJSONWithType(
+				ctxWithClient, c.credentialsJSON, google.ServiceAccount, scopes...,
+			)
+			if err != nil {
+				return nil, err
 			}
-		}
-	}
-
-	if c.httpClient != nil {
-		ctxWithClient := context.WithValue(ctx, oauth2.HTTPClient, c.httpClient)
-		creds, err := google.CredentialsFromJSON(ctxWithClient, c.credentialsJSON, scopes...)
-		if err != nil {
-			return nil, err
+			src = creds.TokenSource
+		case c.tokenSource != nil:
+			src = c.tokenSource
 		}
 
-		// And this is how we insert proxy for the Firebase calls. Initialize base transport with our proxy.
-		tr := &oauth2.Transport{
-			Source: creds.TokenSource,
-			Base:   c.httpClient.Transport,
+		transport := base
+		if src != nil {
+			transport = &oauth2.Transport{Source: src, Base: base}
 		}
 
-		hCl := &http.Client{
-			Transport: tr,
-			Timeout:   10 * time.Second,
-		}
-		c.options = append(c.options, option.WithHTTPClient(hCl))
+		c.options = append(c.options, option.WithHTTPClient(newHTTPClient(transport)))
 	}
 
 	app, err := firebase.NewApp(ctx, conf, c.options...)
@@ -104,71 +123,63 @@ func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 	return c, nil
 }
 
-// SendWithContext sends a message to the FCM server without retrying in case of service
-// unavailability. A non-nil error is returned if a non-recoverable error
-// occurs (i.e. if the response status is not "200 OK").
-// Behaves just like regular send, but uses external context.
-func (c *Client) Send(ctx context.Context, message ...*messaging.Message) (*messaging.BatchResponse, error) {
-	resp, err := c.client.SendEach(ctx, message)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
+// Send delivers one or more messages to the FCM server, sending each message in
+// its own request via SendEach. The returned BatchResponse reports the outcome
+// of every message in resp.Responses together with SuccessCount/FailureCount; a
+// non-nil error is returned only when the batch as a whole cannot be sent, not
+// when individual messages fail, so callers must inspect the response to detect
+// per-message errors.
+func (c *Client) Send(
+	ctx context.Context,
+	message ...*messaging.Message,
+) (*messaging.BatchResponse, error) {
+	return c.client.SendEach(ctx, message)
 }
 
 // SendDryRun sends the messages in the given array via Firebase Cloud Messaging in the
 // dry run (validation only) mode.
-func (c *Client) SendDryRun(ctx context.Context, message ...*messaging.Message) (*messaging.BatchResponse, error) {
-	resp, err := c.client.SendEachDryRun(ctx, message)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
+func (c *Client) SendDryRun(
+	ctx context.Context,
+	message ...*messaging.Message,
+) (*messaging.BatchResponse, error) {
+	return c.client.SendEachDryRun(ctx, message)
 }
 
-// SendEachForMulticast sends the given multicast message to all the FCM registration tokens specified.
-func (c *Client) SendMulticast(ctx context.Context, message *messaging.MulticastMessage) (*messaging.BatchResponse, error) {
-	resp, err := c.client.SendEachForMulticast(ctx, message)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
+// SendMulticast sends the given multicast message to all the FCM registration tokens specified.
+func (c *Client) SendMulticast(
+	ctx context.Context,
+	message *messaging.MulticastMessage,
+) (*messaging.BatchResponse, error) {
+	return c.client.SendEachForMulticast(ctx, message)
 }
 
-// SendEachForMulticastDryRun sends the given multicast message to all the specified FCM registration
+// SendMulticastDryRun sends the given multicast message to all the specified FCM registration
 // tokens in the dry run (validation only) mode.
-func (c *Client) SendMulticastDryRun(ctx context.Context, message *messaging.MulticastMessage) (*messaging.BatchResponse, error) {
-	resp, err := c.client.SendEachForMulticastDryRun(ctx, message)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
+func (c *Client) SendMulticastDryRun(
+	ctx context.Context,
+	message *messaging.MulticastMessage,
+) (*messaging.BatchResponse, error) {
+	return c.client.SendEachForMulticastDryRun(ctx, message)
 }
 
-// SubscribeToTopic subscribes a list of registration tokens to a topic.
+// SubscribeTopic subscribes a list of registration tokens to a topic.
 //
 // The tokens list must not be empty, and have at most 1000 tokens.
-func (c *Client) SubscribeTopic(ctx context.Context, tokens []string, topic string) (*messaging.TopicManagementResponse, error) {
-	resp, err := c.client.SubscribeToTopic(ctx, tokens, topic)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
+func (c *Client) SubscribeTopic(
+	ctx context.Context,
+	tokens []string,
+	topic string,
+) (*messaging.TopicManagementResponse, error) {
+	return c.client.SubscribeToTopic(ctx, tokens, topic)
 }
 
-// UnsubscribeFromTopic unsubscribes a list of registration tokens from a topic.
+// UnsubscribeTopic unsubscribes a list of registration tokens from a topic.
 //
 // The tokens list must not be empty, and have at most 1000 tokens.
-func (c *Client) UnsubscribeTopic(ctx context.Context, tokens []string, topic string) (*messaging.TopicManagementResponse, error) {
-	resp, err := c.client.UnsubscribeFromTopic(ctx, tokens, topic)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
+func (c *Client) UnsubscribeTopic(
+	ctx context.Context,
+	tokens []string,
+	topic string,
+) (*messaging.TopicManagementResponse, error) {
+	return c.client.UnsubscribeFromTopic(ctx, tokens, topic)
 }

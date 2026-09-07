@@ -25,6 +25,8 @@ type Number struct {
 	VoiceRate                          string `json:"voice_rate,omitempty" url:"voice_rate,omitempty"`
 	SMSRate                            string `json:"sms_rate,omitempty" url:"sms_rate,omitempty"`
 	MMSRate                            string `json:"mms_rate,omitempty" url:"mms_rate,omitempty"`
+	SubAccount                         string `json:"sub_account,omitempty" url:"sub_account,omitempty"`
+	SubAccountName                     string `json:"sub_account_name,omitempty" url:"sub_account_name,omitempty"`
 	TendlcCampaignID                   string `json:"tendlc_campaign_id,omitempty" url:"tendlc_campaign_id,omitempty"`
 	TendlcRegistrationStatus           string `json:"tendlc_registration_status,omitempty" url:"tendlc_registration_status,omitempty"`
 	TollFreeSMSVerification            string `json:"toll_free_sms_verification,omitempty" url:"toll_free_sms_verification,omitempty"`
@@ -146,6 +148,8 @@ type PhoneNumber struct {
 	MmsRate           string `json:"mms_rate" url:"mms_rate"`
 	VoiceEnabled      bool   `json:"voice_enabled" url:"voice_enabled"`
 	VoiceRate         string `json:"voice_rate" url:"voice_rate"`
+	FallbackNumber    string `json:"fallback_number,omitempty" url:"fallback_number,omitempty"`
+	HAEnabled         bool   `json:"ha_enabled,omitempty" url:"ha_enabled,omitempty"`
 }
 
 type PhoneNumberListParams struct {
@@ -162,8 +166,10 @@ type PhoneNumberListParams struct {
 }
 
 type PhoneNumberCreateParams struct {
-	AppID      string `json:"app_id,omitempty" url:"app_id,omitempty"`
-	CNAMLookup string `json:"cnam_lookup,omitempty" url:"cnam_lookup,omitempty"`
+	AppID                   string `json:"app_id,omitempty" url:"app_id,omitempty"`
+	CNAMLookup              string `json:"cnam_lookup,omitempty" url:"cnam_lookup,omitempty"`
+	HAEnable                *bool  `json:"ha_enable,omitempty" url:"ha_enable,omitempty"`
+	ComplianceApplicationID string `json:"compliance_application_id,omitempty" url:"compliance_application_id,omitempty"`
 }
 
 type PhoneNumberService struct {
@@ -174,8 +180,9 @@ type PhoneNumberCreateResponse struct {
 	APIID   string `json:"api_id" url:"api_id"`
 	Message string `json:"message" url:"message"`
 	Numbers []struct {
-		Number string `json:"number" url:"number"`
-		Status string `json:"status" url:"status"`
+		Number         string `json:"number" url:"number"`
+		Status         string `json:"status" url:"status"`
+		FallbackNumber string `json:"fallback_number,omitempty" url:"fallback_number,omitempty"`
 	} `json:"numbers" url:"numbers"`
 	Status string `json:"status" url:"status"`
 }

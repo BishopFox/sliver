@@ -1,5 +1,7 @@
 package mailgun
 
+// https://documentation.mailgun.com/docs/mailgun/api-reference/send/mailgun/keys
+
 import (
 	"context"
 	"strconv"
@@ -50,7 +52,7 @@ func (mg *Client) CreateAPIKey(ctx context.Context, role string, opts *CreateAPI
 	r.setClient(mg.HTTPClient())
 	r.setBasicAuth(basicAuthUser, mg.APIKey())
 
-	payload := newUrlEncodedPayload()
+	payload := NewFormDataPayload()
 	payload.addValue("role", role)
 
 	if opts != nil {

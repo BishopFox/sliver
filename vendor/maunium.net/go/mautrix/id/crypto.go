@@ -27,8 +27,9 @@ const (
 type Algorithm string
 
 const (
-	AlgorithmOlmV1    Algorithm = "m.olm.v1.curve25519-aes-sha2"
-	AlgorithmMegolmV1 Algorithm = "m.megolm.v1.aes-sha2"
+	AlgorithmOlmV1          Algorithm = "m.olm.v1.curve25519-aes-sha2"
+	AlgorithmMegolmV1       Algorithm = "m.megolm.v1.aes-sha2"
+	AlgorithmBeeperStreamV1 Algorithm = "com.beeper.stream.v1.aes-gcm"
 )
 
 type KeyAlgorithm string
@@ -51,6 +52,34 @@ type KeyBackupAlgorithm string
 
 const (
 	KeyBackupAlgorithmMegolmBackupV1 KeyBackupAlgorithm = "m.megolm_backup.v1.curve25519-aes-sha2"
+)
+
+type KeySource string
+
+func (source KeySource) String() string {
+	return string(source)
+}
+
+func (source KeySource) Int() int {
+	switch source {
+	case KeySourceDirect:
+		return 100
+	case KeySourceBackup:
+		return 90
+	case KeySourceImport:
+		return 80
+	case KeySourceForward:
+		return 50
+	default:
+		return 0
+	}
+}
+
+const (
+	KeySourceDirect  KeySource = "direct"
+	KeySourceBackup  KeySource = "backup"
+	KeySourceImport  KeySource = "import"
+	KeySourceForward KeySource = "forward"
 )
 
 // BackupVersion is an arbitrary string that identifies a server side key backup.

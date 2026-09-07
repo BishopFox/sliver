@@ -321,7 +321,7 @@ func NewFootnoteConfig() FootnoteConfig {
 }
 
 // SetOption implements renderer.SetOptioner.
-func (c *FootnoteConfig) SetOption(name renderer.OptionName, value interface{}) {
+func (c *FootnoteConfig) SetOption(name renderer.OptionName, value any) {
 	switch name {
 	case optFootnoteIDPrefixFunction:
 		c.IDPrefixFunction = value.(func(gast.Node) []byte)

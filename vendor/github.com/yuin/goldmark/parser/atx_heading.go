@@ -13,7 +13,7 @@ type HeadingConfig struct {
 }
 
 // SetOption implements SetOptioner.
-func (b *HeadingConfig) SetOption(name OptionName, _ interface{}) {
+func (b *HeadingConfig) SetOption(name OptionName, _ any) {
 	switch name {
 	case optAutoHeadingID:
 		b.AutoHeadingID = true
@@ -98,69 +98,47 @@ func (b *atxHeadingParser) Open(parent ast.Node, reader text.Reader, pc Context)
 	if l == 0 {
 		return nil, NoChildren
 	}
-	start := i + l
-	if start >= len(line) {
-		start = len(line) - 1
-	}
-	origstart := start
-	stop := len(line) - util.TrimRightSpaceLength(line)
 
+	start := min(i+l, len(line)-1)
 	node := ast.NewHeading(level)
-	parsed := false
-	if b.Attribute { // handles special case like ### heading ### {#id}
-		start--
-		closureClose := -1
-		closureOpen := -1
-		for j := start; j < stop; {
-			c := line[j]
-			if util.IsEscapedPunctuation(line, j) {
-				j += 2
-			} else if util.IsSpace(c) && j < stop-1 && line[j+1] == '#' {
-				closureOpen = j + 1
-				k := j + 1
-				for ; k < stop && line[k] == '#'; k++ {
-				}
-				closureClose = k
-				break
-			} else {
-				j++
-			}
-		}
-		if closureClose > 0 {
-			reader.Advance(closureClose)
-			attrs, ok := ParseAttributes(reader)
-			rest, _ := reader.PeekLine()
-			parsed = ok && util.IsBlank(rest)
-			if parsed {
-				for _, attr := range attrs {
-					node.SetAttribute(attr.Name, attr.Value)
-				}
-				node.Lines().Append(text.NewSegment(
-					segment.Start+start+1-segment.Padding,
-					segment.Start+closureOpen-segment.Padding))
-			}
-		}
+	hl := text.NewSegment(
+		segment.Start+start-segment.Padding,
+		segment.Start+len(line)-segment.Padding)
+	hl = hl.TrimRightSpace(reader.Source())
+	if hl.Len() == 0 {
+		reader.AdvanceToEOL()
+		return node, NoChildren
 	}
-	if !parsed {
-		start = origstart
-		stop := len(line) - util.TrimRightSpaceLength(line)
-		if stop <= start { // empty headings like '##[space]'
-			stop = start
-		} else {
-			i = stop - 1
-			for ; line[i] == '#' && i >= start; i-- {
-			}
-			if i != stop-1 && !util.IsSpace(line[i]) {
-				i = stop - 1
-			}
-			i++
-			stop = i
-		}
 
-		if len(util.TrimRight(line[start:stop], []byte{'#'})) != 0 { // empty heading like '### ###'
-			node.Lines().Append(text.NewSegment(segment.Start+start-segment.Padding, segment.Start+stop-segment.Padding))
+	if b.Attribute {
+		node.Lines().Append(hl)
+		parseLastLineAttributes(node, reader, pc)
+		hl = node.Lines().At(0)
+		node.Lines().Clear()
+	}
+
+	// handle closing sequence of '#' characters
+	line = hl.Value(reader.Source())
+	stop := len(line)
+	if stop == 0 { // empty headings like '##[space]'
+		stop = 0
+	} else {
+		i = stop - 1
+		for ; line[i] == '#' && i > 0; i-- {
+		}
+		if i == 0 && line[0] == '#' { // empty headings like '### ###'
+			reader.AdvanceToEOL()
+			return node, NoChildren
+		}
+		if i != stop-1 && util.IsSpace(line[i]) {
+			stop = i
+			stop -= util.TrimRightSpaceLength(line[0:stop])
 		}
 	}
+	hl.Stop = hl.Start + stop
+	node.Lines().Append(hl)
+	reader.AdvanceToEOL()
+
 	return node, NoChildren
 }
 
@@ -169,13 +147,6 @@ func (b *atxHeadingParser) Continue(node ast.Node, reader text.Reader, pc Contex
 }
 
 func (b *atxHeadingParser) Close(node ast.Node, reader text.Reader, pc Context) {
-	if b.Attribute {
-		_, ok := node.AttributeString("id")
-		if !ok {
-			parseLastLineAttributes(node, reader, pc)
-		}
-	}
-
 	if b.AutoHeadingID {
 		id, ok := node.AttributeString("id")
 		if !ok {
@@ -205,7 +176,7 @@ func generateAutoHeadingID(node *ast.Heading, reader text.Reader, pc Context) {
 	node.SetAttribute(attrNameID, headingID)
 }
 
-func parseLastLineAttributes(node ast.Node, reader text.Reader, pc Context) {
+func parseLastLineAttributes(node ast.Node, reader text.Reader, _ Context) {
 	lastIndex := node.Lines().Len() - 1
 	if lastIndex < 0 { // empty headings
 		return
@@ -213,36 +184,36 @@ func parseLastLineAttributes(node ast.Node, reader text.Reader, pc Context) {
 	lastLine := node.Lines().At(lastIndex)
 	line := lastLine.Value(reader.Source())
 	lr := text.NewReader(line)
-	var attrs Attributes
-	var ok bool
 	var start text.Segment
 	var sl int
-	var end text.Segment
 	for {
 		c := lr.Peek()
-		if c == text.EOF {
+		if c == text.EOF || c == '\n' {
 			break
 		}
 		if c == '\\' {
 			lr.Advance(1)
-			if lr.Peek() == '{' {
+			if util.IsPunct(lr.Peek()) {
 				lr.Advance(1)
 			}
 			continue
 		}
 		if c == '{' {
 			sl, start = lr.Position()
-			attrs, ok = ParseAttributes(lr)
-			_, end = lr.Position()
+			attrs, ok := ParseAttributes(lr)
+			if ok {
+				if nl, _ := lr.PeekLine(); nl == nil || util.IsBlank(nl) {
+					for _, attr := range attrs {
+						node.SetAttribute(attr.Name, attr.Value)
+					}
+					lastLine.Stop = lastLine.Start + start.Start
+					lastLine = lastLine.TrimRightSpace(reader.Source())
+					node.Lines().Set(lastIndex, lastLine)
+					return
+				}
+			}
 			lr.SetPosition(sl, start)
 		}
 		lr.Advance(1)
-	}
-	if ok && util.IsBlank(line[end.Start:]) {
-		for _, attr := range attrs {
-			node.SetAttribute(attr.Name, attr.Value)
-		}
-		lastLine.Stop = lastLine.Start + start.Start
-		node.Lines().Set(lastIndex, lastLine)
 	}
 }

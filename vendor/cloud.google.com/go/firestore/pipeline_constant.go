@@ -30,9 +30,8 @@ type constant struct {
 }
 
 // ConstantOf creates a new constant [Expression] from a Go value.
-//
-// Experimental: Firestore Pipelines is currently in preview and is subject to potential breaking changes in future versions,
-// regardless of any other documented package stability guarantees.
+// It accepts primitive types (strings, numbers, booleans), slices, arrays, maps, structs, and specific
+// Firestore types such as time.Time, *timestamppb.Timestamp, []byte, Vector32, Vector64, *latlng.LatLng, and *DocumentRef.
 func ConstantOf(value any) Expression {
 	if value == nil {
 		return ConstantOfNull()
@@ -56,32 +55,37 @@ func ConstantOf(value any) Expression {
 			return &constant{baseExpression: &baseExpression{err: err}}
 		}
 		return &constant{baseExpression: &baseExpression{pbVal: pbVal}}
+	}
+
+	// Safely fall back to arrays/slices
+	v := reflect.ValueOf(value)
+	if !v.IsValid() {
+		return &constant{baseExpression: &baseExpression{err: fmt.Errorf("firestore: unknown constant type: %T", value)}}
+	}
+	switch v.Kind() {
+	case reflect.Slice, reflect.Array, reflect.Map, reflect.Struct, reflect.Interface, reflect.Ptr:
+		pbVal, _, err := toProtoValue(v)
+		if err != nil {
+			return &constant{baseExpression: &baseExpression{err: err}}
+		}
+		return &constant{baseExpression: &baseExpression{pbVal: pbVal}}
 	default:
 		return &constant{baseExpression: &baseExpression{err: fmt.Errorf("firestore: unknown constant type: %T", value)}}
 	}
 }
 
 // ConstantOfNull creates a new constant [Expression] representing a null value.
-//
-// Experimental: Firestore Pipelines is currently in preview and is subject to potential breaking changes in future versions,
-// regardless of any other documented package stability guarantees.
 func ConstantOfNull() Expression {
 	pbVal, _, err := toProtoValue(reflect.ValueOf(nil))
 	return &constant{baseExpression: &baseExpression{pbVal: pbVal, err: err}}
 }
 
 // ConstantOfVector32 creates a new [Vector32] constant [Expression] from a slice of float32s.
-//
-// Experimental: Firestore Pipelines is currently in preview and is subject to potential breaking changes in future versions,
-// regardless of any other documented package stability guarantees.
 func ConstantOfVector32(value []float32) Expression {
 	return ConstantOf(Vector32(value))
 }
 
 // ConstantOfVector64 creates a new [Vector64] constant [Expression] from a slice of float64s.
-//
-// Experimental: Firestore Pipelines is currently in preview and is subject to potential breaking changes in future versions,
-// regardless of any other documented package stability guarantees.
 func ConstantOfVector64(value []float64) Expression {
 	return ConstantOf(Vector64(value))
 }

@@ -2,8 +2,9 @@ package mailgun
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
-	"github.com/mailgun/errors"
 	"github.com/mailgun/mailgun-go/v5/mtypes"
 )
 
@@ -80,7 +81,7 @@ func (iter *MetricsIterator) fetch(ctx context.Context, resp *mtypes.MetricsResp
 
 	err = httpResp.parseFromJSON(resp)
 	if err != nil {
-		return errors.Wrap(err, "decoding response")
+		return fmt.Errorf("decoding response: %w", err)
 	}
 
 	return nil

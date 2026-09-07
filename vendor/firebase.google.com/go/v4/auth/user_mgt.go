@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc. All Rights Reserved.
+// Copyright 2017 Google LLC All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1048,6 +1048,178 @@ func (c *baseClient) GetUsers(
 	return &GetUsersResult{userRecords, notFound}, nil
 }
 
+// QueryUserInfoResponse is the response from the QueryUsers function.
+type QueryUserInfoResponse struct {
+	Users []*UserRecord
+	Count int64
+}
+
+type queryUsersResponse struct {
+	Users []*userQueryResponse `json:"userInfo"`
+	Count int64                `json:"recordsCount,string,omitempty"`
+}
+
+// Expression represents a query condition used to filter results.
+//
+// Specify only one of Email, PhoneNumber, or UID. If you specify more than one,
+// only the first (in order of Email, PhoneNumber, then UID) is applied.
+type Expression struct {
+	// Email is a case-insensitive string that the account's email must match.
+	Email string `json:"email,omitempty"`
+	// PhoneNumber is a string that the account's phone number must match.
+	PhoneNumber string `json:"phoneNumber,omitempty"`
+	// UID is a string that the account's local ID must match.
+	UID string `json:"userId,omitempty"`
+}
+
+// QueryUsersRequest is the request structure for the QueryUsers function.
+type QueryUsersRequest struct {
+	// ReturnUserInfo specifies whether to return user accounts that match the query.
+	// If set to false, only the count of matching accounts is returned.
+	// Defaults to true.
+	ReturnUserInfo *bool `json:"returnUserInfo,omitempty"`
+	// Limit is the maximum number of accounts to return with an upper limit of 500.
+	// Defaults to 500. This field is valid only when ReturnUserInfo is true.
+	Limit int64 `json:"limit,string,omitempty"`
+	// Offset is the number of accounts to skip from the beginning of matching records.
+	// This field is valid only when ReturnUserInfo is true.
+	Offset int64 `json:"offset,string,omitempty"`
+	// SortBy is the field to use for sorting user accounts.
+	SortBy SortBy `json:"-"`
+	// Order is the sort order for the query results.
+	Order Order `json:"-"`
+	// TenantID is the ID of the tenant to which the results are scoped.
+	TenantID string `json:"tenantId,omitempty"`
+	// Expression is a list of query conditions used to filter the results.
+	Expression []*Expression `json:"expression,omitempty"`
+}
+
+// build builds the query request (for internal use only).
+func (q *QueryUsersRequest) build() interface{} {
+	var sortBy string
+	if q.SortBy != sortByUnspecified {
+		sortBys := map[SortBy]string{
+			UID:         "USER_ID",
+			Name:        "NAME",
+			CreatedAt:   "CREATED_AT",
+			LastLoginAt: "LAST_LOGIN_AT",
+			UserEmail:   "USER_EMAIL",
+		}
+		sortBy = sortBys[q.SortBy]
+	}
+
+	var order string
+	if q.Order != orderUnspecified {
+		orders := map[Order]string{
+			Asc:  "ASC",
+			Desc: "DESC",
+		}
+		order = orders[q.Order]
+	}
+
+	type queryUsersRequestInternal QueryUsersRequest
+	internal := (*queryUsersRequestInternal)(q)
+	if internal.ReturnUserInfo == nil {
+		t := true
+		internal.ReturnUserInfo = &t
+	}
+
+	return &struct {
+		SortBy string `json:"sortBy,omitempty"`
+		Order  string `json:"order,omitempty"`
+		*queryUsersRequestInternal
+	}{
+		SortBy:                    sortBy,
+		Order:                     order,
+		queryUsersRequestInternal: internal,
+	}
+}
+
+func (q *QueryUsersRequest) validate() error {
+	if q.Limit != 0 && (q.Limit < 1 || q.Limit > 500) {
+		return fmt.Errorf("limit must be between 1 and 500")
+	}
+	if q.Offset < 0 {
+		return fmt.Errorf("offset must be non-negative")
+	}
+	for _, exp := range q.Expression {
+		if exp.Email != "" {
+			if err := validateEmail(exp.Email); err != nil {
+				return err
+			}
+		}
+		if exp.PhoneNumber != "" {
+			if err := validatePhone(exp.PhoneNumber); err != nil {
+				return err
+			}
+		}
+		if exp.UID != "" {
+			if err := validateUID(exp.UID); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// SortBy defines the fields available for sorting user accounts.
+type SortBy int
+
+const (
+	sortByUnspecified SortBy = iota
+	// UID sorts results by user ID.
+	UID
+	// Name sorts results by name.
+	Name
+	// CreatedAt sorts results by creation time.
+	CreatedAt
+	// LastLoginAt sorts results by the last login time.
+	LastLoginAt
+	// UserEmail sorts results by user email.
+	UserEmail
+)
+
+// Order defines the sort order for query results.
+type Order int
+
+const (
+	orderUnspecified Order = iota
+	// Asc sorts results in ascending order.
+	Asc
+	// Desc sorts results in descending order.
+	Desc
+)
+
+// QueryUsers queries for user accounts based on the provided query configuration.
+func (c *baseClient) QueryUsers(ctx context.Context, query *QueryUsersRequest) (*QueryUserInfoResponse, error) {
+	if query == nil {
+		return nil, fmt.Errorf("query request must not be nil")
+	}
+	if err := query.validate(); err != nil {
+		return nil, err
+	}
+
+	var parsed queryUsersResponse
+	_, err := c.post(ctx, "/accounts:query", query.build(), &parsed)
+	if err != nil {
+		return nil, err
+	}
+
+	var userRecords []*UserRecord
+	for _, user := range parsed.Users {
+		userRecord, err := user.makeUserRecord()
+		if err != nil {
+			return nil, fmt.Errorf("error while parsing response: %w", err)
+		}
+		userRecords = append(userRecords, userRecord)
+	}
+
+	return &QueryUserInfoResponse{
+		Users: userRecords,
+		Count: parsed.Count,
+	}, nil
+}
+
 type userQueryResponse struct {
 	UID                string                     `json:"localId,omitempty"`
 	DisplayName        string                     `json:"displayName,omitempty"`
@@ -1510,7 +1682,7 @@ func parseErrorResponse(resp *internal.Response) (string, string) {
 	idx := strings.Index(code, ":")
 	if idx != -1 {
 		detail = strings.TrimSpace(code[idx+1:])
-		code = code[:idx]
+		code = strings.TrimSpace(code[:idx])
 	}
 
 	return code, detail

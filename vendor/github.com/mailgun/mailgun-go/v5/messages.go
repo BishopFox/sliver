@@ -22,12 +22,13 @@ const MaxNumberOfRecipients = 1000
 const MaxNumberOfTags = 10
 
 // CommonMessage contains both the message text and the envelope for an e-mail message.
-// TODO(vtopc): create AddOption(key string, value string) for `o:` options?
 type CommonMessage struct {
 	domain                   string
 	to                       []string
 	tags                     []string
 	dkim                     *bool
+	secondaryDKIM            string
+	secondaryDKIMPublic      string
 	deliveryTime             time.Time
 	stoPeriod                string
 	attachments              []string
@@ -43,6 +44,7 @@ type CommonMessage struct {
 	trackingPixelLocationTop *string
 	headers                  map[string]string
 	variables                map[string]string
+	options                  map[string]string
 	templateVariables        map[string]any
 	recipientVariables       map[string]map[string]any
 	templateVersionTag       string
@@ -126,6 +128,9 @@ type TrackingOptions struct {
 }
 
 // The Specific abstracts the common characteristics between plain text and MIME messages.
+//
+// TODO(v6): remove setters, as they are not used by Send(),
+// and merge into Message interface.
 type Specific interface {
 	// AddCC appends a receiver to the carbon-copy header of a message.
 	AddCC(string)
@@ -143,6 +148,8 @@ type Specific interface {
 
 	// AddValues invoked by Send() to add message-type-specific MIME headers for the API call
 	// to Mailgun.
+	//
+	// TODO(v6): Make a `Params() map[string][]string` getter instead:
 	AddValues(*FormDataPayload)
 
 	// IsValid yields true if and only if the message is valid enough for sending
@@ -235,6 +242,14 @@ func (m *CommonMessage) Tags() []string {
 
 func (m *CommonMessage) DKIM() *bool {
 	return m.dkim
+}
+
+func (m *CommonMessage) SecondaryDKIM() string {
+	return m.secondaryDKIM
+}
+
+func (m *CommonMessage) SecondaryDKIMPublic() string {
+	return m.secondaryDKIMPublic
 }
 
 func (m *CommonMessage) DeliveryTime() time.Time {
@@ -455,6 +470,19 @@ func (m *CommonMessage) SetDKIM(dkim bool) {
 	m.dkim = &dkim
 }
 
+// SetSecondaryDKIM specifies a second domain key to sign the email with.
+// The value is formatted as signing_domain/selector, e.g. example.com/s1.
+func (m *CommonMessage) SetSecondaryDKIM(s string) {
+	m.secondaryDKIM = s
+}
+
+// SetSecondaryDKIMPublic specifies an alias of the domain key specified in o:secondary-dkim.
+// Also formatted as public_signing_domain/selector.
+// o:secondary-dkim option must also be provided.
+func (m *CommonMessage) SetSecondaryDKIMPublic(s string) {
+	m.secondaryDKIMPublic = s
+}
+
 // EnableNativeSend allows the return path to match the address in the CommonMessage.Headers.From:
 // field when sending from Mailgun rather than the usual bounce+ address in the return path.
 func (m *CommonMessage) EnableNativeSend() {
@@ -594,42 +622,63 @@ func (m *CommonMessage) AddDomain(domain string) {
 	m.domain = domain
 }
 
-// Headers retrieve the http headers associated with this message
+// Headers retrieve the HTTP headers associated with this message.
 func (m *CommonMessage) Headers() map[string]string {
 	return m.headers
+}
+
+// AddOption add additional "o:" option.
+// The key parameter should NOT include the "o:" prefix.
+func (m *CommonMessage) AddOption(key, value string) {
+	if m.options == nil {
+		m.options = make(map[string]string)
+	}
+
+	m.options[key] = value
+}
+
+// Options retrieve additional options("o:") associated with this message.
+func (m *CommonMessage) Options() map[string]string {
+	return m.options
 }
 
 // ErrInvalidMessage is returned by `Send()` when the `mailgun.CommonMessage` struct is incomplete
 var ErrInvalidMessage = errors.New("message not valid")
 
 type Message interface {
+	Specific
+
 	Domain() string
 	To() []string
-	Tags() []string
-	DKIM() *bool
-	DeliveryTime() time.Time
-	STOPeriod() string
 	Attachments() []string
 	ReaderAttachments() []ReaderAttachment
 	Inlines() []string
 	ReaderInlines() []ReaderAttachment
 	BufferAttachments() []BufferAttachment
+	Headers() map[string]string
+	Options() map[string]string
+	Variables() map[string]string
+	TemplateVariables() map[string]any
+	RecipientVariables() map[string]map[string]any
+	TemplateVersionTag() string
+	TemplateRenderText() bool
+
+	// TODO(v6): remove next methods and use Options() getter to get these values
+
+	Tags() []string
+	DKIM() *bool
+	SecondaryDKIM() string
+	SecondaryDKIMPublic() string
+	DeliveryTime() time.Time
+	STOPeriod() string
 	NativeSend() bool
 	TestMode() bool
 	Tracking() *bool
 	TrackingClicks() *string
 	TrackingOpens() *bool
 	TrackingPixelLocationTop() *string
-	Headers() map[string]string
-	Variables() map[string]string
-	TemplateVariables() map[string]any
-	RecipientVariables() map[string]map[string]any
-	TemplateVersionTag() string
-	TemplateRenderText() bool
 	RequireTLS() bool
 	SkipVerification() bool
-
-	Specific
 }
 
 // Send attempts to queue a message (see PlainMessage, MimeMessage and its methods) for delivery.
@@ -722,6 +771,12 @@ func addMessageOptions(dst *FormDataPayload, src Message) {
 	if src.DKIM() != nil {
 		dst.addValue("o:dkim", yesNo(*src.DKIM()))
 	}
+	if src.SecondaryDKIM() != "" {
+		dst.addValue("o:secondary-dkim", src.SecondaryDKIM())
+	}
+	if src.SecondaryDKIMPublic() != "" {
+		dst.addValue("o:secondary-dkim-public", src.SecondaryDKIMPublic())
+	}
 	if !src.DeliveryTime().IsZero() {
 		dst.addValue("o:deliverytime", formatMailgunTime(src.DeliveryTime()))
 	}
@@ -751,6 +806,11 @@ func addMessageOptions(dst *FormDataPayload, src Message) {
 	}
 	if src.SkipVerification() {
 		dst.addValue("o:skip-verification", trueFalse(src.SkipVerification()))
+	}
+
+	// Add any additional options
+	for key, value := range src.Options() {
+		dst.addValue("o:"+key, value)
 	}
 
 	if src.TemplateVersionTag() != "" {

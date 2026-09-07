@@ -5,53 +5,64 @@ import (
 	"time"
 )
 
-// Memory struct contains *memcache.Client
+// Memory is an concurrent-safe in-process cache backed by a plain map.
 type Memory struct {
-	sync.Mutex
-
+	mu   sync.RWMutex
 	data map[string]*data
 }
 
+// data holds a single cached value together with its expiry time.
 type data struct {
 	Data    interface{}
 	Expired time.Time
 }
 
-// NewMemory create new memcache
+// NewMemory returns a ready-to-use in-memory cache.
 func NewMemory() *Memory {
 	return &Memory{
 		data: map[string]*data{},
 	}
 }
 
-// Get return cached value
+// Get returns the cached value for key.
+// Returns nil if the key does not exist or has expired.
 func (mem *Memory) Get(key string) interface{} {
-	if ret, ok := mem.data[key]; ok {
-		if ret.Expired.Before(time.Now()) {
-			mem.deleteKey(key)
-			return nil
-		}
-		return ret.Data
+	mem.mu.RLock()
+	ret, ok := mem.data[key]
+	expired := ok && ret.Expired.Before(time.Now())
+	mem.mu.RUnlock()
+
+	if !ok {
+		return nil
 	}
-	return nil
+	if expired {
+		mem.deleteExpiredKey(key)
+		return nil
+	}
+	return ret.Data
 }
 
 // IsExist check value exists in memcache.
 func (mem *Memory) IsExist(key string) bool {
-	if ret, ok := mem.data[key]; ok {
-		if ret.Expired.Before(time.Now()) {
-			mem.deleteKey(key)
-			return false
-		}
-		return true
+	mem.mu.RLock()
+	ret, ok := mem.data[key]
+	expired := ok && ret.Expired.Before(time.Now())
+	mem.mu.RUnlock()
+
+	if !ok {
+		return false
 	}
-	return false
+	if expired {
+		mem.deleteExpiredKey(key)
+		return false
+	}
+	return true
 }
 
 // Set cached value with key and expire time.
 func (mem *Memory) Set(key string, val interface{}, timeout time.Duration) (err error) {
-	mem.Lock()
-	defer mem.Unlock()
+	mem.mu.Lock()
+	defer mem.mu.Unlock()
 
 	mem.data[key] = &data{
 		Data:    val,
@@ -62,13 +73,18 @@ func (mem *Memory) Set(key string, val interface{}, timeout time.Duration) (err 
 
 // Delete delete value in memcache.
 func (mem *Memory) Delete(key string) error {
-	mem.deleteKey(key)
+	mem.mu.Lock()
+	defer mem.mu.Unlock()
+	delete(mem.data, key)
 	return nil
 }
 
-// deleteKey
-func (mem *Memory) deleteKey(key string) {
-	mem.Lock()
-	defer mem.Unlock()
-	delete(mem.data, key)
+// deleteExpiredKey deletes a key only if it has expired.
+// Caller must NOT hold any lock.
+func (mem *Memory) deleteExpiredKey(key string) {
+	mem.mu.Lock()
+	defer mem.mu.Unlock()
+	if d, ok := mem.data[key]; ok && d.Expired.Before(time.Now()) {
+		delete(mem.data, key)
+	}
 }

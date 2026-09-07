@@ -3,7 +3,6 @@ package zerolog
 import (
 	"context"
 	"fmt"
-	"io"
 	"math"
 	"net"
 	"time"
@@ -23,7 +22,7 @@ func (c Context) Logger() Logger {
 // Only map[string]interface{} and []interface{} are accepted. []interface{} must
 // alternate string keys and arbitrary values, and extraneous ones are ignored.
 func (c Context) Fields(fields interface{}) Context {
-	c.l.context = appendFields(c.l.context, fields, c.l.stack)
+	c.l.context = appendFields(c.l.context, fields, c.l.stack, c.l.ctx, c.l.hooks)
 	return c
 }
 
@@ -35,8 +34,28 @@ func (c Context) Dict(key string, dict *Event) Context {
 	return c
 }
 
+// CreateDict creates an Event to be used with the Context.Dict method.
+// It preserves the stack, hooks, and context from the logger.
+// Call usual field methods like Str, Int etc to add fields to this
+// event and give it as argument the Context.Dict method.
+func (c Context) CreateDict() *Event {
+	return newEvent(nil, DebugLevel, c.l.stack, c.l.ctx, c.l.hooks)
+}
+
+// CreateArray creates an Array to be used with the Context.Array method.
+// It preserves the stack, hooks, and context from the logger.
+// Call usual field methods like Str, Int etc to add elements to this
+// array and give it as argument the Context.Array method.
+func (c Context) CreateArray() *Array {
+	a := Arr()
+	a.stack = c.l.stack
+	a.ctx = c.l.ctx
+	a.ch = c.l.hooks
+	return a
+}
+
 // Array adds the field key with an array to the event context.
-// Use zerolog.Arr() to create the array or pass a type that
+// Use c.CreateArray() to create the array or pass a type that
 // implement the LogArrayMarshaler interface.
 func (c Context) Array(key string, arr LogArrayMarshaler) Context {
 	c.l.context = enc.AppendKey(c.l.context, key)
@@ -44,29 +63,44 @@ func (c Context) Array(key string, arr LogArrayMarshaler) Context {
 		c.l.context = arr.write(c.l.context)
 		return c
 	}
-	var a *Array
-	if aa, ok := arr.(*Array); ok {
-		a = aa
-	} else {
-		a = Arr()
-		arr.MarshalZerologArray(a)
-	}
+	a := c.CreateArray()
+	arr.MarshalZerologArray(a)
 	c.l.context = a.write(c.l.context)
 	return c
 }
 
 // Object marshals an object that implement the LogObjectMarshaler interface.
 func (c Context) Object(key string, obj LogObjectMarshaler) Context {
-	e := newEvent(LevelWriterAdapter{io.Discard}, 0)
+	e := c.l.scratchEvent()
 	e.Object(key, obj)
 	c.l.context = enc.AppendObjectData(c.l.context, e.buf)
 	putEvent(e)
 	return c
 }
 
+// Objects adds the field key with objs to the logger context as an array of
+// objects that implement the LogObjectMarshaler interface.
+//
+// This is the array version that accepts a slice of LogObjectMarshaler objects.
+func (c Context) Objects(key string, objs []LogObjectMarshaler) Context {
+	e := c.l.scratchEvent()
+	e.Objects(key, objs)
+	c.l.context = enc.AppendObjectData(c.l.context, e.buf)
+	putEvent(e)
+	return c
+}
+
+// ObjectsV adds the field key with objs to the logger context as an array of
+// objects that implement the LogObjectMarshaler interface.
+//
+// This is a variadic version that accepts a list of individual LogObjectMarshaler objects.
+func (c Context) ObjectsV(key string, objs ...LogObjectMarshaler) Context {
+	return c.Objects(key, objs)
+}
+
 // EmbedObject marshals and Embeds an object that implement the LogObjectMarshaler interface.
 func (c Context) EmbedObject(obj LogObjectMarshaler) Context {
-	e := newEvent(LevelWriterAdapter{io.Discard}, 0)
+	e := c.l.scratchEvent()
 	e.EmbedObject(obj)
 	c.l.context = enc.AppendObjectData(c.l.context, e.buf)
 	putEvent(e)
@@ -80,9 +114,18 @@ func (c Context) Str(key, val string) Context {
 }
 
 // Strs adds the field key with val as a string to the logger context.
+//
+// This is the array version that accepts a slice of string values.
 func (c Context) Strs(key string, vals []string) Context {
 	c.l.context = enc.AppendStrings(enc.AppendKey(c.l.context, key), vals)
 	return c
+}
+
+// StrsV adds the field key with vals as a []string to the logger context.
+//
+// This is a variadic version that accepts a list of individual strings.
+func (c Context) StrsV(key string, vals ...string) Context {
+	return c.Strs(key, vals)
 }
 
 // Stringer adds the field key with val.String() (or null if val is nil) to the logger context.
@@ -94,6 +137,24 @@ func (c Context) Stringer(key string, val fmt.Stringer) Context {
 
 	c.l.context = enc.AppendInterface(enc.AppendKey(c.l.context, key), nil)
 	return c
+}
+
+// Stringers adds the field key with vals to the logger context where each
+// individual val is added by calling val.String().
+//
+// This is the array version that accepts a slice of fmt.Stringer values.
+func (c Context) Stringers(key string, vals []fmt.Stringer) Context {
+	c.l.context = enc.AppendStringers(enc.AppendKey(c.l.context, key), vals)
+	return c
+}
+
+// StringersV adds the field key with vals  to the logger context where each
+// individual val is added by calling val.String().
+//
+// This is a variadic version that accepts a list of individual
+// fmt.Stringer values.
+func (c Context) StringersV(key string, vals ...fmt.Stringer) Context {
+	return c.Stringers(key, vals)
 }
 
 // Bytes adds the field key with val as a []byte to the logger context.
@@ -118,6 +179,7 @@ func (c Context) RawJSON(key string, b []byte) Context {
 }
 
 // AnErr adds the field key with serialized err to the logger context.
+// If err is nil, no field is added.
 func (c Context) AnErr(key string, err error) Context {
 	switch m := ErrorMarshalFunc(err).(type) {
 	case nil:
@@ -125,11 +187,10 @@ func (c Context) AnErr(key string, err error) Context {
 	case LogObjectMarshaler:
 		return c.Object(key, m)
 	case error:
-		if m == nil || isNilValue(m) {
+		if isNilValue(m) {
 			return c
-		} else {
-			return c.Str(key, m.Error())
 		}
+		return c.Str(key, m.Error())
 	case string:
 		return c.Str(key, m)
 	default:
@@ -140,24 +201,7 @@ func (c Context) AnErr(key string, err error) Context {
 // Errs adds the field key with errs as an array of serialized errors to the
 // logger context.
 func (c Context) Errs(key string, errs []error) Context {
-	arr := Arr()
-	for _, err := range errs {
-		switch m := ErrorMarshalFunc(err).(type) {
-		case LogObjectMarshaler:
-			arr = arr.Object(m)
-		case error:
-			if m == nil || isNilValue(m) {
-				arr = arr.Interface(nil)
-			} else {
-				arr = arr.Str(m.Error())
-			}
-		case string:
-			arr = arr.Str(m)
-		default:
-			arr = arr.Interface(m)
-		}
-	}
-
+	arr := c.CreateArray().Errs(errs)
 	return c.Array(key, arr)
 }
 
@@ -166,12 +210,11 @@ func (c Context) Err(err error) Context {
 	if c.l.stack && ErrorStackMarshaler != nil {
 		switch m := ErrorStackMarshaler(err).(type) {
 		case nil:
+			return c // do nothing with nil errors
 		case LogObjectMarshaler:
 			c = c.Object(ErrorStackFieldName, m)
 		case error:
-			if m != nil && !isNilValue(m) {
-				c = c.Str(ErrorStackFieldName, m.Error())
-			}
+			c = c.Str(ErrorStackFieldName, m.Error())
 		case string:
 			c = c.Str(ErrorStackFieldName, m)
 		default:
@@ -377,15 +420,15 @@ func (c Context) Times(key string, t []time.Time) Context {
 	return c
 }
 
-// Dur adds the fields key with d divided by unit and stored as a float.
+// Dur adds the field key with d divided by unit and stored as a float.
 func (c Context) Dur(key string, d time.Duration) Context {
-	c.l.context = enc.AppendDuration(enc.AppendKey(c.l.context, key), d, DurationFieldUnit, DurationFieldInteger, FloatingPointPrecision)
+	c.l.context = enc.AppendDuration(enc.AppendKey(c.l.context, key), d, DurationFieldUnit, DurationFieldFormat, DurationFieldInteger, FloatingPointPrecision)
 	return c
 }
 
-// Durs adds the fields key with d divided by unit and stored as a float.
+// Durs adds the field key with d divided by unit and stored as a float.
 func (c Context) Durs(key string, d []time.Duration) Context {
-	c.l.context = enc.AppendDurations(enc.AppendKey(c.l.context, key), d, DurationFieldUnit, DurationFieldInteger, FloatingPointPrecision)
+	c.l.context = enc.AppendDurations(enc.AppendKey(c.l.context, key), d, DurationFieldUnit, DurationFieldFormat, DurationFieldInteger, FloatingPointPrecision)
 	return c
 }
 
@@ -461,19 +504,31 @@ func (c Context) Stack() Context {
 	return c
 }
 
-// IPAddr adds IPv4 or IPv6 Address to the context
+// IPAddr adds adds the field key with ip as a net.IP IPv4 or IPv6 Address to the context
 func (c Context) IPAddr(key string, ip net.IP) Context {
 	c.l.context = enc.AppendIPAddr(enc.AppendKey(c.l.context, key), ip)
 	return c
 }
 
-// IPPrefix adds IPv4 or IPv6 Prefix (address and mask) to the context
+// IPAddrs adds the field key with ip as a []net.IP array of IPv4 or IPv6 Address to the context
+func (c Context) IPAddrs(key string, ip []net.IP) Context {
+	c.l.context = enc.AppendIPAddrs(enc.AppendKey(c.l.context, key), ip)
+	return c
+}
+
+// IPPrefix adds adds the field key with pfx as a []net.IPNet IPv4 or IPv6 Prefix (address and mask) to the context
 func (c Context) IPPrefix(key string, pfx net.IPNet) Context {
 	c.l.context = enc.AppendIPPrefix(enc.AppendKey(c.l.context, key), pfx)
 	return c
 }
 
-// MACAddr adds MAC address to the context
+// IPPrefix adds adds the field key with pfx as a []net.IPNet array of IPv4 or IPv6 Prefix (address and mask) to the context
+func (c Context) IPPrefixes(key string, pfx []net.IPNet) Context {
+	c.l.context = enc.AppendIPPrefixes(enc.AppendKey(c.l.context, key), pfx)
+	return c
+}
+
+// MACAddr adds adds the field key with ha as a net.HardwareAddr MAC address to the context
 func (c Context) MACAddr(key string, ha net.HardwareAddr) Context {
 	c.l.context = enc.AppendMACAddr(enc.AppendKey(c.l.context, key), ha)
 	return c

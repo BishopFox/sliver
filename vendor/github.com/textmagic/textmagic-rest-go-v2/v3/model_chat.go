@@ -58,6 +58,12 @@ type Chat struct {
 	SmsPrice float32 `json:"smsPrice"`
 	MmsPrice float32 `json:"mmsPrice"`
 	Tags []Tag `json:"tags,omitempty"`
+	AssigneeId NullableInt32 `json:"assigneeId"`
+	UpdatedBy NullableNullableUserPersonalInfo `json:"updatedBy,omitempty"`
+	// Chat creation date and time.
+	CreatedAt time.Time `json:"createdAt"`
+	// Chat last message date and time.
+	MessageTime time.Time `json:"messageTime"`
 }
 
 type _Chat Chat
@@ -66,7 +72,7 @@ type _Chat Chat
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewChat(id int32, originalId NullableInt32, phone string, contact NullableContact, unsubscribedContactId NullableInt32, unread int32, updatedAt time.Time, status string, mute int32, lastMessage NullableString, direction NullableString, replyOptionsType NullableString, from NullableString, mutedUntil NullableTime, timeLeftMute int32, country NullableCountry, pinned NullableBool, type_ string, smsPrice float32, mmsPrice float32) *Chat {
+func NewChat(id int32, originalId NullableInt32, phone string, contact NullableContact, unsubscribedContactId NullableInt32, unread int32, updatedAt time.Time, status string, mute int32, lastMessage NullableString, direction NullableString, replyOptionsType NullableString, from NullableString, mutedUntil NullableTime, timeLeftMute int32, country NullableCountry, pinned NullableBool, type_ string, smsPrice float32, mmsPrice float32, assigneeId NullableInt32, createdAt time.Time, messageTime time.Time) *Chat {
 	this := Chat{}
 	this.Id = id
 	this.OriginalId = originalId
@@ -88,6 +94,9 @@ func NewChat(id int32, originalId NullableInt32, phone string, contact NullableC
 	this.Type = type_
 	this.SmsPrice = smsPrice
 	this.MmsPrice = mmsPrice
+	this.AssigneeId = assigneeId
+	this.CreatedAt = createdAt
+	this.MessageTime = messageTime
 	return &this
 }
 
@@ -631,6 +640,122 @@ func (o *Chat) SetTags(v []Tag) {
 	o.Tags = v
 }
 
+// GetAssigneeId returns the AssigneeId field value
+// If the value is explicit nil, the zero value for int32 will be returned
+func (o *Chat) GetAssigneeId() int32 {
+	if o == nil || o.AssigneeId.Get() == nil {
+		var ret int32
+		return ret
+	}
+
+	return *o.AssigneeId.Get()
+}
+
+// GetAssigneeIdOk returns a tuple with the AssigneeId field value
+// and a boolean to check if the value has been set.
+// NOTE: If the value is an explicit nil, `nil, true` will be returned
+func (o *Chat) GetAssigneeIdOk() (*int32, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return o.AssigneeId.Get(), o.AssigneeId.IsSet()
+}
+
+// SetAssigneeId sets field value
+func (o *Chat) SetAssigneeId(v int32) {
+	o.AssigneeId.Set(&v)
+}
+
+// GetUpdatedBy returns the UpdatedBy field value if set, zero value otherwise (both if not set or set to explicit null).
+func (o *Chat) GetUpdatedBy() NullableUserPersonalInfo {
+	if o == nil || IsNil(o.UpdatedBy.Get()) {
+		var ret NullableUserPersonalInfo
+		return ret
+	}
+	return *o.UpdatedBy.Get()
+}
+
+// GetUpdatedByOk returns a tuple with the UpdatedBy field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+// NOTE: If the value is an explicit nil, `nil, true` will be returned
+func (o *Chat) GetUpdatedByOk() (*NullableUserPersonalInfo, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return o.UpdatedBy.Get(), o.UpdatedBy.IsSet()
+}
+
+// HasUpdatedBy returns a boolean if a field has been set.
+func (o *Chat) HasUpdatedBy() bool {
+	if o != nil && o.UpdatedBy.IsSet() {
+		return true
+	}
+
+	return false
+}
+
+// SetUpdatedBy gets a reference to the given NullableNullableUserPersonalInfo and assigns it to the UpdatedBy field.
+func (o *Chat) SetUpdatedBy(v NullableUserPersonalInfo) {
+	o.UpdatedBy.Set(&v)
+}
+// SetUpdatedByNil sets the value for UpdatedBy to be an explicit nil
+func (o *Chat) SetUpdatedByNil() {
+	o.UpdatedBy.Set(nil)
+}
+
+// UnsetUpdatedBy ensures that no value is present for UpdatedBy, not even an explicit nil
+func (o *Chat) UnsetUpdatedBy() {
+	o.UpdatedBy.Unset()
+}
+
+// GetCreatedAt returns the CreatedAt field value
+func (o *Chat) GetCreatedAt() time.Time {
+	if o == nil {
+		var ret time.Time
+		return ret
+	}
+
+	return o.CreatedAt
+}
+
+// GetCreatedAtOk returns a tuple with the CreatedAt field value
+// and a boolean to check if the value has been set.
+func (o *Chat) GetCreatedAtOk() (*time.Time, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return &o.CreatedAt, true
+}
+
+// SetCreatedAt sets field value
+func (o *Chat) SetCreatedAt(v time.Time) {
+	o.CreatedAt = v
+}
+
+// GetMessageTime returns the MessageTime field value
+func (o *Chat) GetMessageTime() time.Time {
+	if o == nil {
+		var ret time.Time
+		return ret
+	}
+
+	return o.MessageTime
+}
+
+// GetMessageTimeOk returns a tuple with the MessageTime field value
+// and a boolean to check if the value has been set.
+func (o *Chat) GetMessageTimeOk() (*time.Time, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return &o.MessageTime, true
+}
+
+// SetMessageTime sets field value
+func (o *Chat) SetMessageTime(v time.Time) {
+	o.MessageTime = v
+}
+
 func (o Chat) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
@@ -664,6 +789,12 @@ func (o Chat) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.Tags) {
 		toSerialize["tags"] = o.Tags
 	}
+	toSerialize["assigneeId"] = o.AssigneeId.Get()
+	if o.UpdatedBy.IsSet() {
+		toSerialize["updatedBy"] = o.UpdatedBy.Get()
+	}
+	toSerialize["createdAt"] = o.CreatedAt
+	toSerialize["messageTime"] = o.MessageTime
 	return toSerialize, nil
 }
 
@@ -692,6 +823,9 @@ func (o *Chat) UnmarshalJSON(data []byte) (err error) {
 		"type",
 		"smsPrice",
 		"mmsPrice",
+		"assigneeId",
+		"createdAt",
+		"messageTime",
 	}
 
 	allProperties := make(map[string]interface{})

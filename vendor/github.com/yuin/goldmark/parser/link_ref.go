@@ -18,8 +18,17 @@ func (p *linkReferenceParagraphTransformer) Transform(node *ast.Paragraph, reade
 	block := text.NewBlockReader(reader.Source(), lines)
 	removes := [][2]int{}
 	for {
-		start, end := parseLinkReferenceDefinition(block, pc)
+		ref, start, end := parseLinkReferenceDefinition(block, pc)
 		if start > -1 {
+			if start == 0 {
+				ref.SetBlankPreviousLines(node.HasBlankPreviousLines())
+			}
+			node.Parent().InsertBefore(node.Parent(), node, ref)
+			for i := start + 1; i < end; i++ {
+				ref.Lines().Append(lines.At(i))
+			}
+			seg := ref.Lines().At(ref.Lines().Len() - 1)
+			ref.Lines().Set(ref.Lines().Len()-1, seg.TrimRightSpace(reader.Source()))
 			if start == end {
 				end++
 			}
@@ -41,57 +50,56 @@ func (p *linkReferenceParagraphTransformer) Transform(node *ast.Paragraph, reade
 	}
 
 	if lines.Len() == 0 {
-		t := ast.NewTextBlock()
-		t.SetBlankPreviousLines(node.HasBlankPreviousLines())
-		node.Parent().ReplaceChild(node.Parent(), node, t)
+		node.Parent().RemoveChild(node.Parent(), node)
 		return
 	}
 
 	node.SetLines(lines)
 }
 
-func parseLinkReferenceDefinition(block text.Reader, pc Context) (int, int) {
+func parseLinkReferenceDefinition(block text.Reader, pc Context) (ast.Node, int, int) {
 	block.SkipSpaces()
 	line, _ := block.PeekLine()
 	if line == nil {
-		return -1, -1
+		return nil, -1, -1
 	}
 	startLine, _ := block.Position()
 	width, pos := util.IndentWidth(line, 0)
 	if width > 3 {
-		return -1, -1
+		return nil, -1, -1
 	}
 	if width != 0 {
 		pos++
 	}
 	if line[pos] != '[' {
-		return -1, -1
+		return nil, -1, -1
 	}
+	_, startPos := block.Position()
 	block.Advance(pos + 1)
 	segments, found := block.FindClosure('[', ']', linkFindClosureOptions)
 	if !found {
-		return -1, -1
+		return nil, -1, -1
 	}
 	var label []byte
 	if segments.Len() == 1 {
 		label = block.Value(segments.At(0))
 	} else {
-		for i := 0; i < segments.Len(); i++ {
+		for i := range segments.Len() {
 			s := segments.At(i)
 			label = append(label, block.Value(s)...)
 		}
 	}
 	if util.IsBlank(label) {
-		return -1, -1
+		return nil, -1, -1
 	}
 	if block.Peek() != ':' {
-		return -1, -1
+		return nil, -1, -1
 	}
 	block.Advance(1)
 	block.SkipSpaces()
 	destination, ok := parseLinkDestination(block)
 	if !ok {
-		return -1, -1
+		return nil, -1, -1
 	}
 	line, _ = block.PeekLine()
 	isNewLine := line == nil || util.IsBlank(line)
@@ -101,14 +109,15 @@ func parseLinkReferenceDefinition(block text.Reader, pc Context) (int, int) {
 	opener := block.Peek()
 	if opener != '"' && opener != '\'' && opener != '(' {
 		if !isNewLine {
-			return -1, -1
+			return nil, -1, -1
 		}
-		ref := NewReference(label, destination, nil)
-		pc.AddReference(ref)
-		return startLine, endLine + 1
+		ref := ast.NewLinkReferenceDefinition(label, destination, nil)
+		ref.Lines().Append(startPos)
+		pc.AddReference(newASTReference(ref))
+		return ref, startLine, endLine + 1
 	}
 	if spaces == 0 {
-		return -1, -1
+		return nil, -1, -1
 	}
 	block.Advance(1)
 	closer := opener
@@ -118,18 +127,19 @@ func parseLinkReferenceDefinition(block text.Reader, pc Context) (int, int) {
 	segments, found = block.FindClosure(opener, closer, linkFindClosureOptions)
 	if !found {
 		if !isNewLine {
-			return -1, -1
+			return nil, -1, -1
 		}
-		ref := NewReference(label, destination, nil)
-		pc.AddReference(ref)
+		ref := ast.NewLinkReferenceDefinition(label, destination, nil)
+		ref.Lines().Append(startPos)
+		pc.AddReference(newASTReference(ref))
 		block.AdvanceLine()
-		return startLine, endLine + 1
+		return ref, startLine, endLine + 1
 	}
 	var title []byte
 	if segments.Len() == 1 {
 		title = block.Value(segments.At(0))
 	} else {
-		for i := 0; i < segments.Len(); i++ {
+		for i := range segments.Len() {
 			s := segments.At(i)
 			title = append(title, block.Value(s)...)
 		}
@@ -138,15 +148,17 @@ func parseLinkReferenceDefinition(block text.Reader, pc Context) (int, int) {
 	line, _ = block.PeekLine()
 	if line != nil && !util.IsBlank(line) {
 		if !isNewLine {
-			return -1, -1
+			return nil, -1, -1
 		}
-		ref := NewReference(label, destination, title)
-		pc.AddReference(ref)
-		return startLine, endLine
+		ref := ast.NewLinkReferenceDefinition(label, destination, title)
+		ref.Lines().Append(startPos)
+		pc.AddReference(newASTReference(ref))
+		return ref, startLine, endLine
 	}
 
 	endLine, _ = block.Position()
-	ref := NewReference(label, destination, title)
-	pc.AddReference(ref)
-	return startLine, endLine + 1
+	ref := ast.NewLinkReferenceDefinition(label, destination, title)
+	ref.Lines().Append(startPos)
+	pc.AddReference(newASTReference(ref))
+	return ref, startLine, endLine + 1
 }

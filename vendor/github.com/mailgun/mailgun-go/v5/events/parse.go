@@ -1,11 +1,10 @@
 package events
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"time"
-
-	jsoniter "github.com/json-iterator/go"
 )
 
 // Event - all events returned by the EventIterator conform to this interface
@@ -45,7 +44,7 @@ func new_(e any) func() Event {
 
 func parseResponse(raw []byte) ([]Event, error) {
 	var resp Response
-	if err := jsoniter.Unmarshal(raw, &resp); err != nil {
+	if err := json.Unmarshal(raw, &resp); err != nil {
 		return nil, fmt.Errorf("failed to un-marshall event.Response: %s", err)
 	}
 
@@ -77,7 +76,7 @@ func ParseEvents(raw []RawJSON) ([]Event, error) {
 func ParseEvent(raw []byte) (Event, error) {
 	// Try to recognize the event first.
 	var e EventName
-	if err := jsoniter.Unmarshal(raw, &e); err != nil {
+	if err := json.Unmarshal(raw, &e); err != nil {
 		return nil, fmt.Errorf("failed to recognize event: %v", err)
 	}
 
@@ -89,7 +88,7 @@ func ParseEvent(raw []byte) (Event, error) {
 	event := newEvent()
 
 	// Parse the known event.
-	if err := jsoniter.Unmarshal(raw, event); err != nil {
+	if err := json.Unmarshal(raw, event); err != nil {
 		return nil, fmt.Errorf("failed to parse event '%s': %v", e.GetName(), err)
 	}
 

@@ -46,7 +46,7 @@ func (b *BlockObjects) UnmarshalJSON(data []byte) error {
 	}
 
 	for _, r := range raw {
-		var obj map[string]interface{}
+		var obj map[string]any
 		err := json.Unmarshal(r, &obj)
 		if err != nil {
 			return err
@@ -89,7 +89,7 @@ func (b *BlockObjects) UnmarshalJSON(data []byte) error {
 // Ideally would have a better way to identify the block objects for
 // type casting at time of unmarshalling, should be adapted if possible
 // to accomplish in a more reliable manner.
-func getBlockObjectType(obj map[string]interface{}) string {
+func getBlockObjectType(obj map[string]any) string {
 	if t, ok := obj["type"].(string); ok {
 		return t
 	}
@@ -269,5 +269,29 @@ func NewOptionGroupBlockElement(label *TextBlockObject, options ...*OptionBlockO
 	return &OptionGroupBlockObject{
 		Label:   label,
 		Options: options,
+	}
+}
+
+// SlackIconObject defines a built-in Slack icon for use in a card block's
+// slack_icon field. It is mutually exclusive with the card block's icon field,
+// as both render in the same location.
+//
+// More Information: https://docs.slack.dev/reference/block-kit/composition-objects/slack-icon-object/
+type SlackIconObject struct {
+	Type string `json:"type"`
+	Name string `json:"name"`
+}
+
+// validateType enforces block objects for element and block parameters
+func (s SlackIconObject) validateType() MessageObjectType {
+	return MessageObjectType(s.Type)
+}
+
+// NewSlackIconObject returns an instance of a new Slack icon object. The name
+// must be one of the icon names supported by Slack.
+func NewSlackIconObject(name string) *SlackIconObject {
+	return &SlackIconObject{
+		Type: "icon",
+		Name: name,
 	}
 }

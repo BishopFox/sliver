@@ -1,3 +1,5 @@
+//go:build !goexperiment.jsonv2
+
 /* Copyright 2016-2017 Vector Creations Ltd
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,6 +19,7 @@ package canonicaljson
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"unicode/utf8"
@@ -24,9 +27,24 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+func Canonicalize(input *json.RawMessage) error {
+	*input = CanonicalJSONAssumeValid(*input)
+	return nil
+}
+
+func Marshal(v any) (json.RawMessage, error) {
+	marshaled, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	return CanonicalJSONAssumeValid(marshaled), nil
+}
+
 // CanonicalJSON re-encodes the JSON in a canonical encoding. The encoding is
 // the shortest possible encoding using integer values with sorted object keys.
 // https://matrix.org/docs/spec/appendices#canonical-json
+//
+// Deprecated: Use the new Canonicalize or Marshal functions which will transparently migrate to jsonv2
 func CanonicalJSON(input []byte) ([]byte, error) {
 	if !gjson.Valid(string(input)) {
 		return nil, fmt.Errorf("invalid json")
@@ -37,6 +55,8 @@ func CanonicalJSON(input []byte) ([]byte, error) {
 
 // CanonicalJSONAssumeValid is the same as CanonicalJSON, but assumes the
 // input is valid JSON
+//
+// Deprecated: Use the new Canonicalize or Marshal functions which will transparently migrate to jsonv2
 func CanonicalJSONAssumeValid(input []byte) []byte {
 	input = CompactJSON(input, make([]byte, 0, len(input)))
 	return SortJSON(input, make([]byte, 0, len(input)))
@@ -44,6 +64,8 @@ func CanonicalJSONAssumeValid(input []byte) []byte {
 
 // SortJSON reencodes the JSON with the object keys sorted by lexicographically
 // by codepoint. The input must be valid JSON.
+//
+// Deprecated: Use the new Canonicalize or Marshal functions which will transparently migrate to jsonv2
 func SortJSON(input, output []byte) []byte {
 	result := gjson.ParseBytes(input)
 
@@ -141,6 +163,8 @@ func sortJSONObject(input gjson.Result, inputJSON, output []byte) []byte {
 
 // CompactJSON makes the encoded JSON as small as possible by removing
 // whitespace and unneeded unicode escapes
+//
+// Deprecated: Use the new Canonicalize or Marshal functions which will transparently migrate to jsonv2
 func CompactJSON(input, output []byte) []byte {
 	var i int
 	for i < len(input) {

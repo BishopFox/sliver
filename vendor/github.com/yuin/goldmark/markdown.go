@@ -45,7 +45,7 @@ type Markdown interface {
 	// SetParser sets a Parser to this object.
 	SetParser(parser.Parser)
 
-	// Parser returns a Renderer that will be used for conversion.
+	// Renderer returns a Renderer that will be used for conversion.
 	Renderer() renderer.Renderer
 
 	// SetRenderer sets a Renderer to this object.

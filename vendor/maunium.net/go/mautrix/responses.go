@@ -3,7 +3,6 @@ package mautrix
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"maps"
 	"reflect"
 	"slices"
@@ -11,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 	"go.mau.fi/util/jsontime"
 	"go.mau.fi/util/ptr"
 
@@ -258,15 +256,13 @@ func (r *UserDirectoryEntry) MarshalJSON() ([]byte, error) {
 type RespMutualRooms struct {
 	Joined    []id.RoomID `json:"joined"`
 	NextBatch string      `json:"next_batch,omitempty"`
+	Count     int         `json:"count,omitempty"`
 }
 
 type RespRoomSummary struct {
 	PublicRoomInfo
 
-	Membership     event.Membership `json:"membership,omitempty"`
-	RoomVersion    id.RoomVersion   `json:"room_version,omitempty"`
-	Encryption     id.Algorithm     `json:"encryption,omitempty"`
-	AllowedRoomIDs []id.RoomID      `json:"allowed_room_ids,omitempty"`
+	Membership event.Membership `json:"membership,omitempty"`
 
 	UnstableRoomVersion    id.RoomVersion `json:"im.nheko.summary.room_version,omitempty"`
 	UnstableRoomVersionOld id.RoomVersion `json:"im.nheko.summary.version,omitempty"`
@@ -344,6 +340,17 @@ type LazyLoadSummary struct {
 	InvitedMemberCount *int        `json:"m.invited_member_count,omitempty"`
 }
 
+func (lls *LazyLoadSummary) IsZero() bool {
+	return lls == nil || (len(lls.Heroes) == 0 && ptr.Val(lls.JoinedMemberCount) == 0 && ptr.Val(lls.InvitedMemberCount) == 0)
+}
+
+func (lls *LazyLoadSummary) MemberCount() int {
+	if lls == nil {
+		return 0
+	}
+	return ptr.Val(lls.JoinedMemberCount) + ptr.Val(lls.InvitedMemberCount)
+}
+
 func (lls *LazyLoadSummary) Equal(other *LazyLoadSummary) bool {
 	if lls == other {
 		return true
@@ -359,25 +366,33 @@ type SyncEventsList struct {
 	Events []*event.Event `json:"events,omitempty"`
 }
 
+func (sel SyncEventsList) IsZero() bool {
+	return len(sel.Events) == 0
+}
+
 type SyncTimeline struct {
 	SyncEventsList
 	Limited   bool   `json:"limited,omitempty"`
 	PrevBatch string `json:"prev_batch,omitempty"`
 }
 
+func (st SyncTimeline) IsZero() bool {
+	return len(st.Events) == 0 && !st.Limited && st.PrevBatch == ""
+}
+
 // RespSync is the JSON response for https://spec.matrix.org/v1.2/client-server-api/#get_matrixclientv3sync
 type RespSync struct {
 	NextBatch string `json:"next_batch"`
 
-	AccountData SyncEventsList `json:"account_data"`
-	Presence    SyncEventsList `json:"presence"`
-	ToDevice    SyncEventsList `json:"to_device"`
+	AccountData SyncEventsList `json:"account_data,omitzero"`
+	Presence    SyncEventsList `json:"presence,omitzero"`
+	ToDevice    SyncEventsList `json:"to_device,omitzero"`
 
-	DeviceLists    DeviceLists       `json:"device_lists"`
-	DeviceOTKCount OTKCount          `json:"device_one_time_keys_count"`
+	DeviceLists    DeviceLists       `json:"device_lists,omitzero"`
+	DeviceOTKCount OTKCount          `json:"device_one_time_keys_count,omitzero"`
 	FallbackKeys   []id.KeyAlgorithm `json:"device_unused_fallback_key_types"`
 
-	Rooms RespSyncRooms `json:"rooms"`
+	Rooms RespSyncRooms `json:"rooms,omitzero"`
 }
 
 type RespSyncRooms struct {
@@ -387,35 +402,17 @@ type RespSyncRooms struct {
 	Knock  map[id.RoomID]*SyncKnockedRoom `json:"knock,omitempty"`
 }
 
-type marshalableRespSync RespSync
-
-var syncPathsToDelete = []string{"account_data", "presence", "to_device", "device_lists", "device_one_time_keys_count", "rooms"}
-
-// marshalAndDeleteEmpty marshals a JSON object, then uses gjson to delete empty objects at the given gjson paths.
-func marshalAndDeleteEmpty(marshalable interface{}, paths []string) ([]byte, error) {
-	data, err := json.Marshal(marshalable)
-	if err != nil {
-		return nil, err
-	}
-	for _, path := range paths {
-		res := gjson.GetBytes(data, path)
-		if res.IsObject() && len(res.Raw) == 2 {
-			data, err = sjson.DeleteBytes(data, path)
-			if err != nil {
-				return nil, fmt.Errorf("failed to delete empty %s: %w", path, err)
-			}
-		}
-	}
-	return data, nil
-}
-
-func (rs *RespSync) MarshalJSON() ([]byte, error) {
-	return marshalAndDeleteEmpty((*marshalableRespSync)(rs), syncPathsToDelete)
+func (rsr RespSyncRooms) IsZero() bool {
+	return len(rsr.Leave) == 0 && len(rsr.Join) == 0 && len(rsr.Invite) == 0 && len(rsr.Knock) == 0
 }
 
 type DeviceLists struct {
 	Changed []id.UserID `json:"changed,omitempty"`
 	Left    []id.UserID `json:"left,omitempty"`
+}
+
+func (dl DeviceLists) IsZero() bool {
+	return len(dl.Changed) == 0 && len(dl.Left) == 0
 }
 
 type OTKCount struct {
@@ -427,18 +424,15 @@ type OTKCount struct {
 	DeviceID id.DeviceID `json:"-"`
 }
 
-type SyncLeftRoom struct {
-	Summary  LazyLoadSummary `json:"summary"`
-	State    SyncEventsList  `json:"state"`
-	Timeline SyncTimeline    `json:"timeline"`
+func (oc OTKCount) IsZero() bool {
+	return oc.Curve25519 == 0 && oc.SignedCurve25519 == 0
 }
 
-type marshalableSyncLeftRoom SyncLeftRoom
-
-var syncLeftRoomPathsToDelete = []string{"summary", "state", "timeline"}
-
-func (slr SyncLeftRoom) MarshalJSON() ([]byte, error) {
-	return marshalAndDeleteEmpty((marshalableSyncLeftRoom)(slr), syncLeftRoomPathsToDelete)
+type SyncLeftRoom struct {
+	Summary    LazyLoadSummary `json:"summary,omitzero"`
+	State      SyncEventsList  `json:"state,omitzero"`
+	StateAfter *SyncEventsList `json:"state_after,omitempty"`
+	Timeline   SyncTimeline    `json:"timeline,omitzero"`
 }
 
 type BeeperInboxPreviewEvent struct {
@@ -448,12 +442,13 @@ type BeeperInboxPreviewEvent struct {
 }
 
 type SyncJoinedRoom struct {
-	Summary     LazyLoadSummary `json:"summary"`
-	State       SyncEventsList  `json:"state"`
+	Summary     LazyLoadSummary `json:"summary,omitzero"`
+	State       SyncEventsList  `json:"state,omitzero"`
 	StateAfter  *SyncEventsList `json:"state_after,omitempty"`
-	Timeline    SyncTimeline    `json:"timeline"`
-	Ephemeral   SyncEventsList  `json:"ephemeral"`
-	AccountData SyncEventsList  `json:"account_data"`
+	Timeline    SyncTimeline    `json:"timeline,omitzero"`
+	Ephemeral   SyncEventsList  `json:"ephemeral,omitzero"`
+	AccountData SyncEventsList  `json:"account_data,omitzero"`
+	Sticky      SyncEventsList  `json:"msc4354_sticky,omitzero"`
 
 	UnreadNotifications *UnreadNotificationCounts `json:"unread_notifications,omitempty"`
 	// https://github.com/matrix-org/matrix-spec-proposals/pull/2654
@@ -465,14 +460,6 @@ type SyncJoinedRoom struct {
 type UnreadNotificationCounts struct {
 	HighlightCount    int `json:"highlight_count"`
 	NotificationCount int `json:"notification_count"`
-}
-
-type marshalableSyncJoinedRoom SyncJoinedRoom
-
-var syncJoinedRoomPathsToDelete = []string{"summary", "state", "timeline", "ephemeral", "account_data"}
-
-func (sjr SyncJoinedRoom) MarshalJSON() ([]byte, error) {
-	return marshalAndDeleteEmpty((marshalableSyncJoinedRoom)(sjr), syncJoinedRoomPathsToDelete)
 }
 
 type SyncInvitedRoom struct {
@@ -488,6 +475,22 @@ type RespTurnServer struct {
 	Password string   `json:"password"`
 	TTL      int      `json:"ttl"`
 	URIs     []string `json:"uris"`
+}
+
+type RespRTCTransports struct {
+	RTCTransports []*RTCTransport `json:"rtc_transports"`
+}
+
+type RTCTransportType string
+
+const (
+	RTCTransportTypeLivekit RTCTransportType = "livekit"
+)
+
+type RTCTransport struct {
+	Type RTCTransportType `json:"type"`
+
+	LivekitServiceURL string `json:"livekit_service_url,omitempty"`
 }
 
 type RespAliasCreate struct{}
@@ -685,6 +688,10 @@ type PublicRoomInfo struct {
 	RoomType         event.RoomType      `json:"room_type"`
 	Topic            string              `json:"topic,omitempty"`
 	WorldReadable    bool                `json:"world_readable"`
+
+	RoomVersion    id.RoomVersion `json:"room_version,omitempty"`
+	Encryption     id.Algorithm   `json:"encryption,omitempty"`
+	AllowedRoomIDs []id.RoomID    `json:"allowed_room_ids,omitempty"`
 }
 
 // RespHierarchy is the JSON response for https://spec.matrix.org/v1.4/client-server-api/#get_matrixclientv1roomsroomidhierarchy
@@ -787,4 +794,33 @@ type DeviceInfo struct {
 type RespWhoIs struct {
 	UserID  id.UserID                  `json:"user_id,omitempty"`
 	Devices map[id.DeviceID]DeviceInfo `json:"devices,omitempty"`
+}
+
+type RespSearchWrapper struct {
+	SearchCategories RespSearchCategoryWrapper `json:"search_categories"`
+}
+
+type RespSearchCategoryWrapper struct {
+	RoomEvents *RespSearch `json:"room_events"`
+}
+
+type RespSearch struct {
+	Count      int                                     `json:"count"`
+	Highlights []string                                `json:"highlights,omitempty"`
+	NextBatch  string                                  `json:"next_batch,omitempty"`
+	Groups     map[string]map[string]SearchResultGroup `json:"groups,omitempty"`
+	Results    []*SearchResult                         `json:"results,omitempty"`
+	State      map[id.RoomID][]*event.Event            `json:"state,omitempty"`
+}
+
+type SearchResultGroup struct {
+	NextBatch string   `json:"next_batch,omitempty"`
+	Order     int      `json:"order"`
+	Results   []string `json:"results"`
+}
+
+type SearchResult struct {
+	Rank    float64      `json:"rank"`
+	Event   *event.Event `json:"result"`
+	Context *RespContext `json:"context,omitempty"`
 }

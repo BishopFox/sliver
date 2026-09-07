@@ -5,7 +5,7 @@ import (
 	"unicode/utf8"
 )
 
-const hex = "0123456789abcdef"
+const hexCharacters = "0123456789abcdef"
 
 var noEscapeTable = [256]bool{}
 
@@ -66,7 +66,7 @@ func (Encoder) AppendString(dst []byte, s string) []byte {
 // AppendStringers encodes the provided Stringer list to json and
 // appends the encoded Stringer list to the input byte slice.
 func (e Encoder) AppendStringers(dst []byte, vals []fmt.Stringer) []byte {
-	if len(vals) == 0 {
+	if vals == nil || len(vals) == 0 {
 		return append(dst, '[', ']')
 	}
 	dst = append(dst, '[')
@@ -88,7 +88,7 @@ func (e Encoder) AppendStringer(dst []byte, val fmt.Stringer) []byte {
 	return e.AppendString(dst, val.String())
 }
 
-//// appendStringComplex is used by appendString to take over an in
+// appendStringComplex is used by appendString to take over an in
 // progress JSON string encoding that encountered a character that needs
 // to be encoded.
 func appendStringComplex(dst []byte, s string, i int) []byte {
@@ -137,7 +137,7 @@ func appendStringComplex(dst []byte, s string, i int) []byte {
 		case '\t':
 			dst = append(dst, '\\', 't')
 		default:
-			dst = append(dst, '\\', 'u', '0', '0', hex[b>>4], hex[b&0xF])
+			dst = append(dst, '\\', 'u', '0', '0', hexCharacters[b>>4], hexCharacters[b&0xF])
 		}
 		i++
 		start = i

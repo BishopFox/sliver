@@ -29,9 +29,6 @@ type field struct {
 }
 
 // FieldOf creates a new field [Expression] from a dot separated field path string or [FieldPath].
-//
-// Experimental: Firestore Pipelines is currently in preview and is subject to potential breaking changes in future versions,
-// regardless of any other documented package stability guarantees.
 func FieldOf[T string | FieldPath](path T) Expression {
 	var fieldPath FieldPath
 	switch p := any(path).(type) {

@@ -1,5 +1,12 @@
 # Changes
 
+## 2.10.0 (2026-05-22)
+
+Fix a data race in `token.AccessToken.JWT`. Although the 2.8 release removed
+the `jwt-go` dependency, the `token` package still builds Access Token JWTs by
+hand; concurrent calls could share and mutate the package-level encoded header
+buffer while constructing the signing input.
+
 ## 2.8
 
 JWT functionality has been removed. We did not want to continue to support

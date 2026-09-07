@@ -1,4 +1,47 @@
 # Change Log
+## [7.60.3](https://github.com/plivo/plivo-go/tree/v7.60.3) (2026-07-28)
+**Feature - Toll-free verification terms, privacy, opt-in and help fields**
+- Added optional `TermsAndConditionsLink`, `PrivacyPolicyLink`, `OptinMessage` and `HelpMessage` parameters to the toll-free verification create and update methods
+
+## [7.60.2](https://github.com/plivo/plivo-go/tree/v7.60.2) (2026-06-11)
+**Feature - Compliance Application support on PhoneNumber rent API**
+- Added `compliance_application_id` parameter to PhoneNumber `Create` (rent/buy) method to support regulated numbers that require a regulatory compliance application linked at purchase time
+
+## [7.60.1](https://github.com/plivo/plivo-go/tree/v7.60.1) (2026-05-26)
+**Feature - Profile API DBA field support**
+- Added Doing Business As (DBA) field support to Profile API
+
+**Feature - Expose sub_account and sub_account_name on Number resource**
+- Added `SubAccount` and `SubAccountName` fields to the `Number` response struct, surfacing the subaccount's auth_id and name on rented number listing and get APIs
+
+## [7.60.0](https://github.com/plivo/plivo-go/tree/v7.60.0) (2026-04-08)
+**Feature - PhoneNumber Compliance API support**
+- Added `PhoneNumberComplianceRequirementService` for discovering compliance requirements by country, number type, and user type
+- Added `PhoneNumberComplianceService` with full CRUD support (Create, Get, List, Update, Delete) for compliance applications
+- Added `PhoneNumberComplianceLinkService` for bulk linking phone numbers to accepted compliance applications
+- Added PATCH HTTP method support for compliance application updates
+- Create and update operations support multipart file uploads for compliance documents via new `newComplianceMultipartRequest` helper
+
+## [7.59.7](https://github.com/plivo/plivo-go/tree/v7.59.7) (2026-03-18)
+**Feature - Profile Update API additional fields support**
+- Added `ein`, `ein_issuing_country`, `alt_business_id`, `alt_business_id_type` parameters to Profile `Update` method
+
+## [7.59.6](https://github.com/plivo/plivo-go/tree/v7.59.6) (2026-02-18)
+**Feature - Campaign API optional fields support**
+- Added `Sample3`, `Sample4`, `Sample5` optional sample message fields to Campaign `Create` and `Update` methods
+- Added `TermsAndConditionsLink` and `PrivacyPolicyLink` optional fields to Campaign `Create` and `Update` methods
+
+## [7.59.5](https://github.com/plivo/plivo-go/tree/v7.59.4) (2026-01-21)
+**Feature - HA Number support**
+- Added `ha_enable` parameter to PhoneNumber rent API
+## [7.59.4](https://github.com/plivo/plivo-go/tree/v7.59.4) (2026-01-20)
+**Feature - HA Number support**
+- Added `fallback_number` field to PhoneNumber rent API response
+
+## [7.59.3](https://github.com/plivo/plivo-go/tree/v7.59.3) (2026-01-14)
+**Feature - Profile API business_contact_email support for PUBLIC entity types**
+- Added `business_contact_email` parameter support to Profile `create` and `update` methods
+
 ## [7.59.2](https://github.com/plivo/plivo-go/tree/v7.59.2) (2025-10-17)
 **Feature - Compliance Application rejection_reason field.**
 

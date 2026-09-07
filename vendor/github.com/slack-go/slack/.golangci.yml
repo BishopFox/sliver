@@ -8,8 +8,15 @@ linters:
     - gocritic
     - govet
     - misspell
+    - modernize
     - unconvert
     - unused
+  settings:
+    modernize:
+      # omitempty on nested struct fields has no effect, but switching to
+      # omitzero would change JSON output for a public API. Keep the tags as-is.
+      disable:
+        - omitzero
   exclusions:
     generated: lax
     presets:
@@ -21,8 +28,6 @@ linters:
       - third_party$
       - builtin$
       - examples$
-issues:
-  new: true
 formatters:
   enable:
     - goimports

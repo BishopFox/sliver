@@ -10,7 +10,7 @@ tools:
 	@go install mvdan.cc/gofumpt@latest
 	@go install github.com/daixiang0/gci@latest
 	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-	@go install github.com/vektra/mockery/v2@v2.44.1
+	@go install github.com/vektra/mockery/v3@v3.6.1
 	@go install github.com/segmentio/golines@latest
 .PHONY: tools
 
@@ -37,7 +37,7 @@ coverage-html: gen-coverage
 
 mock:
 	@mockery
-	@rm mock_notifier.go mock_option.go
+	@rm -f mock_notifier.go mock_option.go
 .PHONY: mock
 
 ###############################################################################

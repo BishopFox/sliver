@@ -13,7 +13,7 @@ import (
 	"github.com/google/go-querystring/query"
 )
 
-const sdkVersion = "7.59.2"
+const sdkVersion = "7.60.3"
 
 const lookupBaseUrl = "lookup.plivo.com"
 

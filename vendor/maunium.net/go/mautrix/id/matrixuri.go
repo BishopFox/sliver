@@ -54,7 +54,7 @@ var SigilToPathSegment = map[rune]string{
 
 func (uri *MatrixURI) getQuery() url.Values {
 	q := make(url.Values)
-	if uri.Via != nil && len(uri.Via) > 0 {
+	if len(uri.Via) > 0 {
 		q["via"] = uri.Via
 	}
 	if len(uri.Action) > 0 {

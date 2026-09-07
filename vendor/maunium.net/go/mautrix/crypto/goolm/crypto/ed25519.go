@@ -1,7 +1,10 @@
 package crypto
 
 import (
+	"bytes"
 	"encoding/base64"
+
+	"filippo.io/edwards25519"
 
 	"maunium.net/go/mautrix/crypto/ed25519"
 	"maunium.net/go/mautrix/crypto/goolm/libolmpickle"
@@ -73,7 +76,7 @@ func (c Ed25519KeyPair) PickleLibOlm(encoder *libolmpickle.Encoder) {
 func (c *Ed25519KeyPair) UnpickleLibOlm(decoder *libolmpickle.Decoder) error {
 	if err := c.PublicKey.UnpickleLibOlm(decoder); err != nil {
 		return err
-	} else if privKey, err := decoder.ReadBytes(ed25519.PrivateKeySize); err != nil {
+	} else if privKey, err := decoder.ReadBytesOrNil(ed25519.PrivateKeySize); err != nil {
 		return err
 	} else {
 		c.PrivateKey = privKey
@@ -113,9 +116,34 @@ func (c Ed25519PublicKey) B64Encoded() id.Curve25519 {
 	return id.Curve25519(base64.RawStdEncoding.EncodeToString(c))
 }
 
-// Verify checks the signature of the message against the givenSignature
+// Verify checks the signature of the message against the givenSignature using strict verification.
+// In addition to the standard library ed25519 verification which checks signature malleability,
+// this also rejects non-canonical and small-order public keys.
 func (c Ed25519PublicKey) Verify(message, givenSignature []byte) bool {
+	if len(givenSignature) != Ed25519SignatureSize || !c.IsValidKey() {
+		return false
+	}
+
 	return ed25519.Verify(ed25519.PublicKey(c), message, givenSignature)
+}
+
+func (c Ed25519PublicKey) IsValidKey() bool {
+	if len(c) != ed25519.PublicKeySize {
+		return false
+	}
+	pubPoint, err := (&edwards25519.Point{}).SetBytes(c)
+	if err != nil {
+		return false
+	}
+	// Reject non-canonical public keys
+	if !bytes.Equal(pubPoint.Bytes(), c) {
+		return false
+	}
+	// Reject small-order public keys
+	if new(edwards25519.Point).MultByCofactor(pubPoint).Equal(edwards25519.NewIdentityPoint()) == 1 {
+		return false
+	}
+	return true
 }
 
 // PickleLibOlm pickles the public key into the encoder.
@@ -130,7 +158,7 @@ func (c Ed25519PublicKey) PickleLibOlm(encoder *libolmpickle.Encoder) {
 // UnpickleLibOlm unpickles the unencryted value and populates the public key
 // accordingly.
 func (c *Ed25519PublicKey) UnpickleLibOlm(decoder *libolmpickle.Decoder) error {
-	key, err := decoder.ReadBytes(ed25519.PublicKeySize)
+	key, err := decoder.ReadBytesOrNil(ed25519.PublicKeySize)
 	*c = key
 	return err
 }

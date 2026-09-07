@@ -1,5 +1,7 @@
 package mailgun
 
+// https://documentation.mailgun.com/docs/inboxready/api-reference/optimize/mailgun/bounces
+
 import (
 	"context"
 	"net/url"
@@ -155,6 +157,8 @@ func (mg *Client) AddBounce(ctx context.Context, domain, address, code, bounceEr
 	r.setClient(mg.HTTPClient())
 	r.setBasicAuth(basicAuthUser, mg.APIKey())
 
+	// TODO(vtopc): should be "application/json" or form-data instead of "application/x-www-form-urlencoded" based on docs:
+	// https://documentation.mailgun.com/docs/inboxready/api-reference/optimize/mailgun/bounces/post-v3--domainid--bounces
 	payload := newUrlEncodedPayload()
 	payload.addValue("address", address)
 	if code != "" {
