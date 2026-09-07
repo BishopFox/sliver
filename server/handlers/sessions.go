@@ -135,7 +135,7 @@ func tunnelDataHandler(implantConn *core.ImplantConnection, data []byte) *sliver
 		return nil
 	}
 	session := core.Sessions.FromImplantConnection(implantConn)
-	if session == nil {
+	if session == nil || session.Connection != implantConn {
 		sessionHandlerLog.Warnf("Received tunnel data from unknown session: %v", implantConn)
 		return nil
 	}
@@ -145,22 +145,35 @@ func tunnelDataHandler(implantConn *core.ImplantConnection, data []byte) *sliver
 		return nil
 	}
 
-	sessionHandlerLog.Debugf("[DATA] Sequence on tunnel %d, %d, data: %s", tunnelData.TunnelID, tunnelData.Sequence, tunnelData.Data)
+	sessionHandlerLog.Debugf("[DATA] Sequence on tunnel %d, %d, bytes: %d", tunnelData.TunnelID, tunnelData.Sequence, len(tunnelData.Data))
 	if tunnelData.CreateReverse {
+		if !canonicalReverseTunnelCreate(tunnelData) {
+			result, err := reverseTunnelPreCreates.rejectMalformedCreate(implantConn, session.ID, tunnelData)
+			if result == reverseTunnelPreCreateRejected {
+				rejectReverseTunnel(implantConn, tunnelData.TunnelID, err)
+			}
+			return nil
+		}
 		if actual, ok := reverseTunnelOpenings.Load(tunnelData.TunnelID); ok {
 			existing := actual.(*reverseTunnelOpening)
-			if existing.sessionID != session.ID {
+			if !existing.ownedBy(implantConn, session.ID) {
 				sessionHandlerLog.Warnf("Session %s attempted to reuse reverse tunnel ID %d owned by another session", session.ID, tunnelData.TunnelID)
-				rejectReverseTunnel(implantConn, tunnelData.TunnelID, rtunnels.ErrDuplicateTunnelID)
+				result, err := reverseTunnelPreCreates.rejectForeignCreate(implantConn, session.ID, tunnelData)
+				if result == reverseTunnelPreCreateRejected {
+					rejectReverseTunnel(implantConn, tunnelData.TunnelID, err)
+				}
 			}
 			// A retransmitted create is idempotent and must never add another
 			// goroutine waiting behind the same outbound dial.
 			return nil
 		}
 		if existing := rtunnels.GetRTunnel(tunnelData.TunnelID); existing != nil {
-			if existing.SessionID != session.ID {
+			if !existing.OwnedBy(session.ID, implantConn.ID) {
 				sessionHandlerLog.Warnf("Session %s attempted to reuse active reverse tunnel ID %d owned by another session", session.ID, tunnelData.TunnelID)
-				rejectReverseTunnel(implantConn, tunnelData.TunnelID, rtunnels.ErrDuplicateTunnelID)
+				result, err := reverseTunnelPreCreates.rejectForeignCreate(implantConn, session.ID, tunnelData)
+				if result == reverseTunnelPreCreateRejected {
+					rejectReverseTunnel(implantConn, tunnelData.TunnelID, err)
+				}
 			}
 			// The first create frame can be retransmitted. An already-published
 			// relay owned by this session makes that retransmission idempotent.
@@ -168,66 +181,198 @@ func tunnelDataHandler(implantConn *core.ImplantConnection, data []byte) *sliver
 		}
 		openingAdmission := reverseTunnelOpeningAttempts
 		if !openingAdmission.acquire(session.ID) {
-			rejectReverseTunnel(implantConn, tunnelData.TunnelID, errReverseTunnelOpeningLimit)
+			result, err := reverseTunnelPreCreates.rejectBeforePromotion(implantConn, session.ID, tunnelData, errReverseTunnelOpeningLimit)
+			if result == reverseTunnelPreCreateRejected {
+				rejectReverseTunnel(implantConn, tunnelData.TunnelID, err)
+			}
 			return nil
 		}
 		defer openingAdmission.release(session.ID)
 
-		openingContext, cancelOpening := context.WithCancel(context.Background())
-		opening := newReverseTunnelOpening(session.ID, cancelOpening)
-		actual, loaded := reverseTunnelOpenings.LoadOrStore(tunnelData.TunnelID, opening)
-		if loaded {
+		openingContext, cancelOpening := context.WithTimeout(context.Background(), reverseTunnelPromotionTimeout)
+		opening := newReverseTunnelOpening(session.ID, implantConn, cancelOpening)
+		openingDone := make(chan struct{})
+		go func() {
+			select {
+			case <-implantConn.Done():
+				opening.requestClose()
+			case <-openingDone:
+			}
+		}()
+		precursors, existing, loaded, promotionErr := reverseTunnelPreCreates.promote(implantConn, session.ID, tunnelData.TunnelID, opening)
+		if promotionErr != nil {
+			close(openingDone)
 			cancelOpening()
-			existing := actual.(*reverseTunnelOpening)
-			if existing.sessionID != session.ID {
+			if precursors == nil {
+				if !errors.Is(promotionErr, errReverseTunnelPreCreateAlreadyClaimed) {
+					rejectReverseTunnel(implantConn, tunnelData.TunnelID, promotionErr)
+				}
+				return nil
+			}
+			<-precursors.claimReady
+			result, err := reverseTunnelPreCreates.stageOutcome(precursors)
+			reverseTunnelPreCreates.release(precursors)
+			if result == reverseTunnelPreCreateRejected {
+				rejectReverseTunnel(implantConn, tunnelData.TunnelID, err)
+			}
+			return nil
+		}
+		if loaded {
+			close(openingDone)
+			cancelOpening()
+			if !existing.ownedBy(implantConn, session.ID) {
 				sessionHandlerLog.Warnf("Session %s attempted to reuse reverse tunnel ID %d owned by another session", session.ID, tunnelData.TunnelID)
 				rejectReverseTunnel(implantConn, tunnelData.TunnelID, rtunnels.ErrDuplicateTunnelID)
 			}
 			return nil
 		}
+		stopPromotionDeadline := context.AfterFunc(openingContext, func() {
+			if errors.Is(openingContext.Err(), context.DeadlineExceeded) {
+				opening.fail(tunnelData.TunnelID, openingContext.Err())
+			} else {
+				opening.requestClose()
+			}
+		})
 		defer func() {
-			cancelOpening()
+			stopPromotionDeadline()
+			// If this goroutine observed the deadline first, stopping AfterFunc can
+			// suppress its callback. Report that failure synchronously; the opening's
+			// atomic failure gate deduplicates a callback which already started.
+			if errors.Is(openingContext.Err(), context.DeadlineExceeded) {
+				opening.fail(tunnelData.TunnelID, openingContext.Err())
+			}
+			close(openingDone)
+			if precursors != nil {
+				reverseTunnelPreCreates.release(precursors)
+			}
 			close(opening.ready)
 			reverseTunnelOpenings.CompareAndDelete(tunnelData.TunnelID, opening)
+			cancelOpening()
 		}()
-		switch implantConn.TryClaimReverseTunnelID(tunnelData.TunnelID) {
-		case core.ReverseTunnelIDClaimed:
-		case core.ReverseTunnelIDDuplicate:
-			rejectReverseTunnel(implantConn, tunnelData.TunnelID, rtunnels.ErrDuplicateTunnelID)
-			return nil
-		case core.ReverseTunnelIDCapacityExhausted, core.ReverseTunnelIDConnectionClosed:
-			// Capacity exhaustion already fails the C2 connection closed. Do not
-			// queue a rejection behind a connection that can no longer deliver it.
-			return nil
-		}
-		response := createReverseTunnelHandlerWithContext(openingContext, implantConn, tunnelData, rtunnels.DefaultBroker)
-		if opening.closing.Load() {
-			if tunnel := rtunnels.GetRTunnel(tunnelData.TunnelID); tunnel != nil && tunnel.SessionID == session.ID {
-				_ = closeReverseTunnelRemote(tunnel)
+		if precursors != nil {
+			select {
+			case <-precursors.claimReady:
+			case <-openingContext.Done():
+				return nil
+			}
+			claimResult, claimErr := reverseTunnelPreCreates.stageOutcome(precursors)
+			if claimResult == reverseTunnelPreCreateRejected {
+				opening.fail(tunnelData.TunnelID, claimErr)
+				return nil
+			}
+			if claimResult != reverseTunnelPreCreateStaged {
+				return nil
+			}
+			// An unsequenced terminal is an overtaking legacy close. It cancels
+			// this exact generation without ever opening an outbound socket.
+			if precursors.terminal != nil && (precursors.terminal.Sequence == 0 || session.Capabilities&sliverpb.CapabilityTunnelTerminalV1 == 0) {
+				opening.fail(tunnelData.TunnelID, errReverseTunnelClosed)
+				return nil
+			}
+		} else {
+			switch implantConn.TryClaimReverseTunnelID(tunnelData.TunnelID) {
+			case core.ReverseTunnelIDClaimed:
+			case core.ReverseTunnelIDDuplicate:
+				opening.fail(tunnelData.TunnelID, rtunnels.ErrDuplicateTunnelID)
+				return nil
+			case core.ReverseTunnelIDCapacityExhausted, core.ReverseTunnelIDConnectionClosed:
+				// Capacity exhaustion already fails the C2 connection closed. Do not
+				// queue a rejection behind a connection that can no longer deliver it.
+				return nil
 			}
 		}
+		if reverseTunnelPreCreates.genericTunnel(tunnelData.TunnelID) != nil {
+			opening.fail(tunnelData.TunnelID, errReverseTunnelPreCreateCollision)
+			return nil
+		}
+		response := createReverseTunnelHandlerWithContextAndPublish(
+			openingContext,
+			implantConn,
+			tunnelData,
+			rtunnels.DefaultBroker,
+			opening.attachTunnel,
+			func(reason error) {
+				if errors.Is(reason, context.Canceled) && opening.closing.Load() && !opening.failure.Load() {
+					return
+				}
+				opening.fail(tunnelData.TunnelID, reason)
+			},
+		)
+		if opening.closing.Load() || openingContext.Err() != nil {
+			if tunnel := rtunnels.GetRTunnel(tunnelData.TunnelID); tunnel != nil && tunnel.OwnedBy(session.ID, implantConn.ID) {
+				_ = closeReverseTunnelRemote(tunnel)
+			}
+			return response
+		}
+		if precursors != nil {
+			tunnel := rtunnels.GetRTunnel(tunnelData.TunnelID)
+			if tunnel != nil && tunnel.OwnedBy(session.ID, implantConn.ID) {
+				for _, frame := range precursors.orderedData() {
+					if openingContext.Err() != nil || opening.closing.Load() {
+						opening.requestClose()
+						break
+					}
+					RTunnelDataHandlerWithContext(openingContext, frame, tunnel, implantConn)
+					if openingContext.Err() != nil || opening.closing.Load() || rtunnels.GetRTunnel(tunnelData.TunnelID) != tunnel {
+						break
+					}
+				}
+				if precursors.terminal != nil && rtunnels.GetRTunnel(tunnelData.TunnelID) == tunnel {
+					handleActiveReverseTunnelTerminal(implantConn, session.ID, precursors.terminal, tunnel)
+				}
+			}
+		}
+		if openingContext.Err() != nil || opening.closing.Load() {
+			opening.requestClose()
+		}
 		return response
+	}
+	reverseOnly := false
+	if tunnelData.Rportfwd != nil {
+		result, err := reverseTunnelPreCreates.stageData(implantConn, session.ID, tunnelData)
+		if result == reverseTunnelPreCreateStaged {
+			return nil
+		}
+		if result == reverseTunnelPreCreateRejected {
+			rejectReverseTunnel(implantConn, tunnelData.TunnelID, err)
+			return nil
+		}
+		if result == reverseTunnelPreCreateTombstoned {
+			return nil
+		}
+		reverseOnly = result == reverseTunnelPreCreateKnown
 	}
 
 	if value, ok := reverseTunnelOpenings.Load(tunnelData.TunnelID); ok {
 		opening := value.(*reverseTunnelOpening)
-		if opening.sessionID != session.ID {
+		if !opening.ownedBy(implantConn, session.ID) {
 			sessionHandlerLog.Warnf("Session %s attempted to send data on opening reverse tunnel %d owned by another session", session.ID, tunnelData.TunnelID)
 			return nil
 		}
 		if err := opening.wait(reverseTunnelOpeningWaitTimeout); err != nil {
-			opening.requestClose()
-			rejectReverseTunnel(implantConn, tunnelData.TunnelID, err)
+			opening.fail(tunnelData.TunnelID, err)
 			return nil
 		}
+		// The marker bound this frame to the exact reverse opening. Never route it
+		// into a generic same-ID tunnel when that opening failed to publish.
+		rtunnel := rtunnels.GetRTunnel(tunnelData.TunnelID)
+		if rtunnel != nil && rtunnel.OwnedBy(session.ID, implantConn.ID) {
+			RTunnelDataHandler(tunnelData, rtunnel, implantConn)
+		} else if rtunnel != nil {
+			sessionHandlerLog.Warnf("Warning: Session %s attempted to send data on reverse tunnel it did not own", session.ID)
+		}
+		return nil
 	}
 
 	rtunnel := rtunnels.GetRTunnel(tunnelData.TunnelID)
-	if rtunnel != nil && session.ID == rtunnel.SessionID {
+	if rtunnel != nil && rtunnel.OwnedBy(session.ID, implantConn.ID) {
 		RTunnelDataHandler(tunnelData, rtunnel, implantConn)
 		return nil
-	} else if rtunnel != nil && session.ID != rtunnel.SessionID {
+	} else if rtunnel != nil {
 		sessionHandlerLog.Warnf("Warning: Session %s attempted to send data on reverse tunnel it did not own", session.ID)
+		return nil
+	}
+	if reverseOnly {
 		return nil
 	}
 
@@ -272,7 +417,7 @@ func tunnelCloseHandlerWithTerminalArm(implantConn *core.ImplantConnection, data
 		return nil
 	}
 	session := core.Sessions.FromImplantConnection(implantConn)
-	if session == nil {
+	if session == nil || session.Connection != implantConn {
 		sessionHandlerLog.Warnf("Received tunnel close from unknown session: %v", implantConn)
 		return nil
 	}
@@ -285,9 +430,21 @@ func tunnelCloseHandlerWithTerminalArm(implantConn *core.ImplantConnection, data
 	if !tunnelData.Closed {
 		return nil
 	}
+	stageResult, stageErr := reverseTunnelPreCreates.stageTerminal(implantConn, session.ID, tunnelData)
+	if stageResult == reverseTunnelPreCreateStaged {
+		return nil
+	}
+	if stageResult == reverseTunnelPreCreateRejected {
+		rejectReverseTunnel(implantConn, tunnelData.TunnelID, stageErr)
+		return nil
+	}
+	if stageResult == reverseTunnelPreCreateTombstoned {
+		return nil
+	}
+	reverseOnly := stageResult == reverseTunnelPreCreateKnown
 	if value, ok := reverseTunnelOpenings.Load(tunnelData.TunnelID); ok {
 		opening := value.(*reverseTunnelOpening)
-		if opening.sessionID != session.ID {
+		if !opening.ownedBy(implantConn, session.ID) {
 			sessionHandlerLog.Warnf("Session %s attempted to close opening reverse tunnel %d owned by another session", session.ID, tunnelData.TunnelID)
 			return nil
 		}
@@ -301,9 +458,32 @@ func tunnelCloseHandlerWithTerminalArm(implantConn *core.ImplantConnection, data
 			opening.requestClose()
 		}
 		if err := opening.waitReady(reverseTunnelOpeningWaitTimeout); err != nil {
+			opening.fail(tunnelData.TunnelID, err)
 			sessionHandlerLog.Warnf("Could not wait for closing reverse tunnel %d: %v", tunnelData.TunnelID, err)
 			return nil
 		}
+		// Once this terminal is claimed by an exact reverse opening it may never
+		// fall through to a generic tunnel with the same numeric ID, even when
+		// the reverse dial or promotion failed.
+		rtunnel := rtunnels.GetRTunnel(tunnelData.TunnelID)
+		if rtunnel != nil && rtunnel.OwnedBy(session.ID, implantConn.ID) {
+			handleActiveReverseTunnelTerminal(implantConn, session.ID, tunnelData, rtunnel)
+		} else if rtunnel != nil {
+			sessionHandlerLog.Warnf("Warning: Session %s attempted to send data on reverse tunnel it did not own", session.ID)
+		}
+		return nil
+	}
+
+	rtunnel := rtunnels.GetRTunnel(tunnelData.TunnelID)
+	if rtunnel != nil && rtunnel.OwnedBy(session.ID, implantConn.ID) {
+		handleActiveReverseTunnelTerminal(implantConn, session.ID, tunnelData, rtunnel)
+		return nil
+	} else if rtunnel != nil {
+		sessionHandlerLog.Warnf("Warning: Session %s attempted to send data on reverse tunnel it did not own", session.ID)
+		return nil
+	}
+	if reverseOnly {
+		return nil
 	}
 
 	tunnelHandlerMutex.Lock()
@@ -343,34 +523,31 @@ func tunnelCloseHandlerWithTerminalArm(implantConn *core.ImplantConnection, data
 	}
 	tunnelHandlerMutex.Unlock()
 
-	rtunnel := rtunnels.GetRTunnel(tunnelData.TunnelID)
-	if rtunnel != nil && session.ID == rtunnel.SessionID {
-		ready, err := rtunnel.MarkPeerClose(tunnelData.Sequence)
-		if err != nil {
-			if !errors.Is(err, rtunnels.ErrReverseTunnelClosed) {
-				sessionHandlerLog.Warnf("Closing session %s after invalid terminal sequence on reverse tunnel %d: %v", session.ID, rtunnel.ID, err)
-				if closeReverseTunnelRemote(rtunnel) {
-					implantConn.Close()
-				}
-			}
-			return nil
-		}
-		if ready {
-			_ = closeReverseTunnelRemote(rtunnel)
-			return nil
-		}
-		rtunnel.StartPeerCloseDeadline(reverseTunnelSendTimeout, func() {
+	sessionHandlerLog.Warnf("Close sent on nil tunnel %d", tunnelData.TunnelID)
+	return nil
+}
+
+func handleActiveReverseTunnelTerminal(implantConn *core.ImplantConnection, sessionID string, tunnelData *sliverpb.TunnelData, rtunnel *rtunnels.RTunnel) {
+	ready, err := rtunnel.MarkPeerClose(tunnelData.Sequence)
+	if err != nil {
+		if !errors.Is(err, rtunnels.ErrReverseTunnelClosed) {
+			sessionHandlerLog.Warnf("Closing session %s after invalid terminal sequence on reverse tunnel %d: %v", sessionID, rtunnel.ID, err)
 			if closeReverseTunnelRemote(rtunnel) {
-				sessionHandlerLog.Warnf("Closing session %s after incomplete terminal sequence on reverse tunnel %d", session.ID, rtunnel.ID)
 				implantConn.Close()
 			}
-		})
-	} else if rtunnel != nil && session.ID != rtunnel.SessionID {
-		sessionHandlerLog.Warnf("Warning: Session %s attempted to send data on reverse tunnel it did not own", session.ID)
-	} else {
-		sessionHandlerLog.Warnf("Close sent on nil tunnel %d", tunnelData.TunnelID)
+		}
+		return
 	}
-	return nil
+	if ready {
+		_ = closeReverseTunnelRemote(rtunnel)
+		return
+	}
+	rtunnel.StartPeerCloseDeadline(reverseTunnelSendTimeout, func() {
+		if closeReverseTunnelRemote(rtunnel) {
+			sessionHandlerLog.Warnf("Closing session %s after incomplete terminal sequence on reverse tunnel %d", sessionID, rtunnel.ID)
+			implantConn.Close()
+		}
+	})
 }
 
 func pingHandler(implantConn *core.ImplantConnection, data []byte) *sliverpb.Envelope {
@@ -464,15 +641,29 @@ func createReverseTunnelHandlerWithBroker(implantConn *core.ImplantConnection, r
 	return createReverseTunnelHandlerWithContext(context.Background(), implantConn, req, broker)
 }
 
-//nolint:gocyclo // Opening is a single transaction spanning validation, dialing, publication, and relay cleanup.
 func createReverseTunnelHandlerWithContext(openingContext context.Context, implantConn *core.ImplantConnection, req *sliverpb.TunnelData, broker *rtunnels.Broker) *sliverpb.Envelope {
+	return createReverseTunnelHandlerWithContextAndPublish(openingContext, implantConn, req, broker, nil, nil)
+}
+
+//nolint:gocyclo // Opening is a single transaction spanning validation, dialing, publication, and relay cleanup.
+func createReverseTunnelHandlerWithContextAndPublish(openingContext context.Context, implantConn *core.ImplantConnection, req *sliverpb.TunnelData, broker *rtunnels.Broker, onPublished func(*rtunnels.RTunnel), onFailure func(error)) *sliverpb.Envelope {
 	if implantConn == nil {
 		sessionHandlerLog.Warnf("Rejected malformed reverse tunnel creation request")
 		return nil
 	}
+	rejectCreation := func(reason error) {
+		if onFailure != nil {
+			onFailure(reason)
+			return
+		}
+		rejectReverseTunnel(implantConn, req.TunnelID, reason)
+	}
 	session := core.Sessions.FromImplantConnection(implantConn)
-	if session == nil || req == nil || req.Rportfwd == nil || broker == nil {
+	if session == nil || session.Connection != implantConn || !canonicalReverseTunnelCreate(req) || broker == nil {
 		sessionHandlerLog.Warnf("Rejected malformed reverse tunnel creation request")
+		if req != nil {
+			rejectCreation(errReverseTunnelPreCreateInvalid)
+		}
 		return nil
 	}
 
@@ -490,16 +681,27 @@ func createReverseTunnelHandlerWithContext(openingContext context.Context, impla
 		legacyAddress,
 	)
 	if err != nil {
-		rejectReverseTunnel(implantConn, req.TunnelID, err)
+		rejectCreation(err)
 		return nil
 	}
 	if err := openingContext.Err(); err != nil {
 		_ = dst.Close()
-		rejectReverseTunnel(implantConn, req.TunnelID, err)
+		rejectCreation(err)
+		return nil
+	}
+	select {
+	case <-implantConn.Done():
+		_ = dst.Close()
+		return nil
+	default:
+	}
+	if current := core.Sessions.FromImplantConnection(implantConn); current != session || current.Connection != implantConn {
+		_ = dst.Close()
+		rejectCreation(core.ErrImplantConnectionClosed)
 		return nil
 	}
 
-	tunnel := rtunnels.NewAuthorizedRTunnel(req.TunnelID, session.ID, resolvedAuthorizationID, dst, dst)
+	tunnel := rtunnels.NewOwnedAuthorizedRTunnel(req.TunnelID, session.ID, implantConn.ID, resolvedAuthorizationID, dst, dst)
 	// Legacy implants dispatch tunnel envelopes from independent transport
 	// streams and ignore terminal sequences. A separate close envelope can
 	// therefore overtake the final data envelope. Keep their fallback entirely
@@ -526,16 +728,39 @@ func createReverseTunnelHandlerWithContext(openingContext context.Context, impla
 	if core.Tunnels.Get(req.TunnelID) != nil {
 		tunnelHandlerMutex.Unlock()
 		tunnel.Close()
-		rejectReverseTunnel(implantConn, req.TunnelID, rtunnels.ErrDuplicateTunnelID)
+		rejectCreation(rtunnels.ErrDuplicateTunnelID)
 		return nil
 	}
 	if !rtunnels.TryAddRTunnel(tunnel) {
 		tunnelHandlerMutex.Unlock()
 		tunnel.Close()
-		rejectReverseTunnel(implantConn, req.TunnelID, rtunnels.ErrDuplicateTunnelID)
+		rejectCreation(rtunnels.ErrDuplicateTunnelID)
 		return nil
 	}
 	tunnelHandlerMutex.Unlock()
+	if onPublished != nil {
+		// Attach the exact published generation before any destination write can
+		// block. A concurrent opening cancellation can then close the socket and
+		// wake that write without looking the tunnel up by its reusable wire ID.
+		onPublished(tunnel)
+	}
+	if openingContext.Err() != nil {
+		_ = closeReverseTunnelRemote(tunnel)
+		rejectCreation(openingContext.Err())
+		return nil
+	}
+	if current := core.Sessions.FromImplantConnection(implantConn); current != session || current.Connection != implantConn {
+		_ = closeReverseTunnelRemote(tunnel)
+		rejectCreation(core.ErrImplantConnectionClosed)
+		return nil
+	}
+	go func() {
+		select {
+		case <-implantConn.Done():
+			_ = closeReverseTunnelRemote(tunnel)
+		case <-tunnel.Done():
+		}
+	}()
 
 	var cleanupOnce sync.Once
 	cleanup := func(reason error) {
@@ -561,7 +786,7 @@ func createReverseTunnelHandlerWithContext(openingContext context.Context, impla
 
 		cleanup(err)
 	}()
-	RTunnelDataHandler(req, tunnel, implantConn)
+	_ = RTunnelDataHandlerWithContext(openingContext, req, tunnel, implantConn)
 	return nil
 }
 
@@ -596,17 +821,37 @@ func rejectReverseTunnel(implantConn *core.ImplantConnection, tunnelID uint64, r
 }
 
 func RTunnelDataHandler(tunnelData *sliverpb.TunnelData, tunnel *rtunnels.RTunnel, connection *core.ImplantConnection) {
+	_ = RTunnelDataHandlerWithContext(context.Background(), tunnelData, tunnel, connection)
+}
+
+// RTunnelDataHandlerWithContext relays one sequenced frame while honoring the
+// opening transaction's single absolute dial-and-drain deadline.
+func RTunnelDataHandlerWithContext(relayContext context.Context, tunnelData *sliverpb.TunnelData, tunnel *rtunnels.RTunnel, connection *core.ImplantConnection) error {
 	if tunnelData == nil || tunnel == nil || connection == nil || tunnel.Writer == nil {
-		return
+		return nil
+	}
+	if relayContext == nil {
+		relayContext = context.Background()
+	}
+	if err := relayContext.Err(); err != nil {
+		_ = closeReverseTunnelRemote(tunnel)
+		return err
 	}
 	if tunnelData.Resend {
 		sessionHandlerLog.Warnf("Closing reverse tunnel %d after unsupported resend control frame", tunnel.ID)
 		_, _ = closeReverseTunnelLocal(tunnel)
-		return
+		return errReverseTunnelPreCreateInvalid
 	}
 	pending, err := tunnel.ProcessInbound(tunnelData.Sequence, tunnelData.Data, func(payload []byte) error {
+		if err := relayContext.Err(); err != nil {
+			return err
+		}
 		if deadlineWriter, ok := tunnel.Writer.(interface{ SetWriteDeadline(time.Time) error }); ok {
-			_ = deadlineWriter.SetWriteDeadline(time.Now().Add(rtunnels.DefaultDialTimeout))
+			deadline := time.Now().Add(rtunnels.DefaultDialTimeout)
+			if contextDeadline, ok := relayContext.Deadline(); ok && contextDeadline.Before(deadline) {
+				deadline = contextDeadline
+			}
+			_ = deadlineWriter.SetWriteDeadline(deadline)
 			defer func() {
 				_ = deadlineWriter.SetWriteDeadline(time.Time{})
 			}()
@@ -618,15 +863,22 @@ func RTunnelDataHandler(tunnelData *sliverpb.TunnelData, tunnel *rtunnels.RTunne
 		if written != len(payload) {
 			return io.ErrShortWrite
 		}
+		if err := relayContext.Err(); err != nil {
+			return err
+		}
 		return nil
 	})
 	if err != nil {
 		if errors.Is(err, rtunnels.ErrReverseTunnelClosed) {
-			return
+			return err
+		}
+		if relayErr := relayContext.Err(); relayErr != nil {
+			_ = closeReverseTunnelRemote(tunnel)
+			return relayErr
 		}
 		closed, closeErr := closeReverseTunnelLocal(tunnel)
 		if !closed {
-			return
+			return err
 		}
 		sessionHandlerLog.Warnf("Closing reverse tunnel %d after bounded inbound relay failure: %v", tunnel.ID, err)
 		if closeErr != nil {
@@ -635,13 +887,18 @@ func RTunnelDataHandler(tunnelData *sliverpb.TunnelData, tunnel *rtunnels.RTunne
 		if errors.Is(err, rtunnels.ErrReverseTunnelTerminal) {
 			connection.Close()
 		}
-		return
+		return err
 	}
 
 	_ = pending // reliable reverse transports retain bounded delayed frames
+	if err := relayContext.Err(); err != nil {
+		_ = closeReverseTunnelRemote(tunnel)
+		return err
+	}
 	if tunnel.PeerCloseReady() {
 		_ = closeReverseTunnelRemote(tunnel)
 	}
+	return nil
 }
 
 func closeReverseTunnelLocal(tunnel *rtunnels.RTunnel) (bool, error) {

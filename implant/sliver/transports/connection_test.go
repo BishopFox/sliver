@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/protobuf/sliverpb"
+	"google.golang.org/protobuf/proto"
 )
 
 type closeSignalWriteCloser struct {
@@ -384,5 +385,47 @@ func TestConnectionSimultaneousPeerCloseDoesNotFailC2(t *testing.T) {
 	case <-connection.Done():
 		t.Fatal("normal simultaneous peer close failed the C2 connection")
 	default:
+	}
+}
+
+func TestConnectionTerminalMarksOnlyReverseTunnels(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		newTunnel  func(uint64, io.WriteCloser, ...io.ReadCloser) *Tunnel
+		wantMarker bool
+	}{
+		{name: "reverse", newTunnel: NewReverseTunnel, wantMarker: true},
+		{name: "generic", newTunnel: NewTunnel, wantMarker: false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			connection := &Connection{Send: make(chan *sliverpb.Envelope, 1)}
+			tunnel := test.newTunnel(0x7730, nopWriteCloser{Writer: io.Discard})
+			if result := connection.TryAddTunnel(tunnel); result != TunnelAdded {
+				t.Fatalf("add tunnel result = %v, want %v", result, TunnelAdded)
+			}
+			if !connection.CloseTunnelLocal(tunnel) {
+				t.Fatal("failed to close tunnel locally")
+			}
+			select {
+			case envelope := <-connection.Send:
+				if envelope.Type != sliverpb.MsgTunnelClose {
+					t.Fatalf("terminal envelope type = %d, want %d", envelope.Type, sliverpb.MsgTunnelClose)
+				}
+				terminal := &sliverpb.TunnelData{}
+				if err := proto.Unmarshal(envelope.Data, terminal); err != nil {
+					t.Fatalf("unmarshal terminal: %v", err)
+				}
+				if got := terminal.Rportfwd != nil; got != test.wantMarker {
+					t.Fatalf("reverse marker present = %t, want %t", got, test.wantMarker)
+				}
+				if terminal.Rportfwd != nil && (terminal.Rportfwd.Host != "" || terminal.Rportfwd.Port != 0 ||
+					terminal.Rportfwd.Protocol != 0 || terminal.Rportfwd.AuthorizationID != "" ||
+					terminal.Rportfwd.TunnelID != 0 || terminal.Rportfwd.Response != nil) {
+					t.Fatalf("reverse terminal marker carried metadata: %+v", terminal.Rportfwd)
+				}
+			default:
+				t.Fatal("local close did not publish terminal envelope")
+			}
+		})
 	}
 }
