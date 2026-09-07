@@ -59,13 +59,17 @@ func (d *SQLitePreUpdateData) row(dest []any, new bool) error {
 	for i := 0; i < d.Count() && i < len(dest); i++ {
 		var val *C.sqlite3_value
 		var src any
+		var rc C.int
 
 		// Initially I tried making this just a function pointer argument, but
 		// it's absurdly complicated to pass C function pointers.
 		if new {
-			C.sqlite3_preupdate_new(d.Conn.db, C.int(i), &val)
+			rc = C.sqlite3_preupdate_new(d.Conn.db, C.int(i), &val)
 		} else {
-			C.sqlite3_preupdate_old(d.Conn.db, C.int(i), &val)
+			rc = C.sqlite3_preupdate_old(d.Conn.db, C.int(i), &val)
+		}
+		if rc != C.SQLITE_OK {
+			return Error{Code: ErrNo(rc)}
 		}
 
 		switch C.sqlite3_value_type(val) {
