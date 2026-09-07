@@ -44,7 +44,7 @@ require (
 	github.com/lesnuages/snitch v0.6.0
 	github.com/lucasb-eyer/go-colorful v1.4.1
 	github.com/mark3labs/mcp-go v0.45.0
-	github.com/mattn/go-sqlite3 v1.14.32
+	github.com/mattn/go-sqlite3 v1.14.50
 	github.com/miekg/dns v1.1.70
 	github.com/moloch--/asciicast v0.1.1
 	github.com/moloch--/go-keystone v0.0.2
