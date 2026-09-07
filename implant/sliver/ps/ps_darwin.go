@@ -70,15 +70,7 @@ func processes(fullInfo bool) ([]Process, error) {
 		return nil, err
 	}
 
-	procs := make([]*KinfoProc, 0, 50)
-	k := 0
-	for i := _KINFO_STRUCT_SIZE; i < buf.Len(); i += _KINFO_STRUCT_SIZE {
-		// Super unsafe but faster than doing manual parsing
-		proc := (*KinfoProc)(unsafe.Pointer((&buf.Bytes()[k:i][0])))
-
-		k = i
-		procs = append(procs, proc)
-	}
+	procs := parseKinfoProcs(buf.Bytes())
 
 	darwinProcs := make([]Process, len(procs))
 	for i, p := range procs {
@@ -128,6 +120,15 @@ func processes(fullInfo bool) ([]Process, error) {
 	}
 
 	return darwinProcs, nil
+}
+
+func parseKinfoProcs(raw []byte) []*KinfoProc {
+	procs := make([]*KinfoProc, 0, len(raw)/_KINFO_STRUCT_SIZE)
+	for offset := 0; offset+_KINFO_STRUCT_SIZE <= len(raw); offset += _KINFO_STRUCT_SIZE {
+		// Super unsafe but faster than doing manual parsing.
+		procs = append(procs, (*KinfoProc)(unsafe.Pointer(&raw[offset])))
+	}
+	return procs
 }
 
 func procInfoSyscall() (*bytes.Buffer, uint64, error) {
