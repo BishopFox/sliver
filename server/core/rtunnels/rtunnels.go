@@ -128,8 +128,9 @@ var defaultPendingRelayBudget = newPendingRelayBudget()
 
 // RTunnel - Duplex byte read/write
 type RTunnel struct {
-	ID        uint64
-	SessionID string
+	ID                uint64
+	SessionID         string
+	ownerConnectionID string
 	// Reader       io.ReadCloser
 	Readers      []io.ReadCloser
 	readSequence uint64
@@ -150,22 +151,31 @@ type RTunnel struct {
 	authorizationID    AuthorizationID
 	peerCloseSet       atomic.Bool
 	peerTeardown       atomic.Bool
+	protocolFailure    atomic.Bool
 	peerCloseSequence  uint64
 	peerCloseTimerOnce sync.Once
 	peerCloseNotifier  func(uint64) error
 }
 
 func NewRTunnel(id uint64, sID string, writer io.WriteCloser, readers ...io.ReadCloser) *RTunnel {
+	return NewOwnedRTunnel(id, sID, "", writer, readers...)
+}
+
+// NewOwnedRTunnel binds a relay to the immutable implant connection generation
+// which created it. An empty owner is retained only for compatibility callers
+// which never route untrusted implant frames through the server handler.
+func NewOwnedRTunnel(id uint64, sessionID string, ownerConnectionID string, writer io.WriteCloser, readers ...io.ReadCloser) *RTunnel {
 	return &RTunnel{
-		ID:               id,
-		SessionID:        sID,
-		Readers:          readers,
-		Writer:           writer,
-		mutex:            &sync.RWMutex{},
-		inboundAdmission: make(chan struct{}, maxReverseTunnelIngress),
-		pendingInbound:   map[uint64][]byte{},
-		pendingBudget:    defaultPendingRelayBudget,
-		done:             make(chan struct{}),
+		ID:                id,
+		SessionID:         sessionID,
+		ownerConnectionID: ownerConnectionID,
+		Readers:           readers,
+		Writer:            writer,
+		mutex:             &sync.RWMutex{},
+		inboundAdmission:  make(chan struct{}, maxReverseTunnelIngress),
+		pendingInbound:    map[uint64][]byte{},
+		pendingBudget:     defaultPendingRelayBudget,
+		done:              make(chan struct{}),
 	}
 }
 
@@ -173,9 +183,34 @@ func NewRTunnel(id uint64, sID string, writer io.WriteCloser, readers ...io.Read
 // created its outbound connection. NewRTunnel remains available for callers
 // that do not use reverse port forward authorization.
 func NewAuthorizedRTunnel(id uint64, sessionID string, authorizationID AuthorizationID, writer io.WriteCloser, readers ...io.ReadCloser) *RTunnel {
-	tunnel := NewRTunnel(id, sessionID, writer, readers...)
+	return NewOwnedAuthorizedRTunnel(id, sessionID, "", authorizationID, writer, readers...)
+}
+
+// NewOwnedAuthorizedRTunnel creates an authorization-bound relay owned by one
+// exact C2 connection generation.
+func NewOwnedAuthorizedRTunnel(id uint64, sessionID string, ownerConnectionID string, authorizationID AuthorizationID, writer io.WriteCloser, readers ...io.ReadCloser) *RTunnel {
+	tunnel := NewOwnedRTunnel(id, sessionID, ownerConnectionID, writer, readers...)
 	tunnel.authorizationID = authorizationID
 	return tunnel
+}
+
+// OwnedBy validates both the logical session and its immutable C2 generation.
+func (c *RTunnel) OwnedBy(sessionID string, ownerConnectionID string) bool {
+	return c != nil && c.SessionID == sessionID && c.ownerConnectionID != "" && c.ownerConnectionID == ownerConnectionID
+}
+
+// ClaimProtocolFailure lets an exact relay generation emit at most one
+// rejection when concurrent malformed frames race its teardown.
+func (c *RTunnel) ClaimProtocolFailure() bool {
+	return c != nil && c.protocolFailure.CompareAndSwap(false, true)
+}
+
+// OwnerConnectionID returns the immutable C2 generation identifier.
+func (c *RTunnel) OwnerConnectionID() string {
+	if c == nil {
+		return ""
+	}
+	return c.ownerConnectionID
 }
 
 // AuthorizationID returns the server-owned authorization associated with the

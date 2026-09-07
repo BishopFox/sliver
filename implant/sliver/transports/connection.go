@@ -427,11 +427,18 @@ func (c *Connection) retireTunnelIDLocked(tunnelID uint64) {
 
 func (c *Connection) publishTunnelLocked(tun *Tunnel) {
 	tun.setPeerCloseNotifier(func(sequence uint64) error {
-		data, err := proto.Marshal(&pb.TunnelData{
+		terminal := &pb.TunnelData{
 			Closed:   true,
 			TunnelID: tun.ID,
 			Sequence: sequence,
-		})
+		}
+		if tun.IsReverse() {
+			// Presence of an intentionally empty marker disambiguates a reverse
+			// terminal which overtakes CreateReverse from an ordinary generic close.
+			// Older servers ignore this previously-unused nested field.
+			terminal.Rportfwd = &pb.RPortfwd{}
+		}
+		data, err := proto.Marshal(terminal)
 		if err != nil {
 			return err
 		}

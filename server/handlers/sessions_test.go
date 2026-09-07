@@ -254,7 +254,7 @@ func TestTunnelCloseHandlerClosesOwnedReverseTunnel(t *testing.T) {
 	tunnelID := core.NewTunnelID()
 	writer := &testWriteCloser{}
 
-	tunnel := rtunnels.NewRTunnel(tunnelID, session.ID, writer)
+	tunnel := rtunnels.NewOwnedRTunnel(tunnelID, session.ID, conn.ID, writer)
 	if !rtunnels.TryAddRTunnel(tunnel) {
 		t.Fatalf("failed to register reverse tunnel %d", tunnelID)
 	}
@@ -281,7 +281,7 @@ func TestTunnelCloseHandlerKeepsUnownedReverseTunnel(t *testing.T) {
 	tunnelID := core.NewTunnelID()
 	writer := &testWriteCloser{}
 
-	tunnel := rtunnels.NewRTunnel(tunnelID, ownerSession.ID, writer)
+	tunnel := rtunnels.NewOwnedRTunnel(tunnelID, ownerSession.ID, ownerConn.ID, writer)
 	if !rtunnels.TryAddRTunnel(tunnel) {
 		t.Fatalf("failed to register reverse tunnel %d", tunnelID)
 	}
@@ -340,7 +340,7 @@ func TestReverseTunnelOpeningAdmissionBoundsSessionAndGlobalAttempts(t *testing.
 
 func TestReverseTunnelOpeningBoundsSameIDWaiters(t *testing.T) {
 	workers := installHandlerAdmissions(t, newReverseTunnelAdmission(1, 1), newReverseTunnelAdmission(maxReverseTunnelOpeningWaiters+1, maxReverseTunnelOpeningWaiters+1))
-	opening := newReverseTunnelOpening("session", func() {})
+	opening := newReverseTunnelOpening("session", nil, func() {})
 	var readyOnce sync.Once
 	closeReady := func() { readyOnce.Do(func() { close(opening.ready) }) }
 	t.Cleanup(closeReady)
@@ -1577,7 +1577,7 @@ func TestTunnelCloseCancelsOpeningAndRejectsLateDialConnection(t *testing.T) {
 	}
 	waitHandler(t, createDone, "create handler")
 	waitHandler(t, closeDone, "close handler")
-	receiveTunnelRejection(t, connection, tunnelID)
+	assertNoReverseTunnelEnvelope(t, connection)
 	if tunnel := rtunnels.GetRTunnel(tunnelID); tunnel != nil {
 		closeTestReverseTunnel(tunnelID)
 		t.Fatal("canceled opening registered a reverse tunnel")
@@ -1624,7 +1624,7 @@ func TestDuplicateReverseTunnelCreateReturnsWithoutSecondDial(t *testing.T) {
 	})
 	waitHandler(t, firstDone, "first create handler")
 	waitHandler(t, closeDone, "close handler")
-	receiveTunnelRejection(t, connection, tunnelID)
+	assertNoReverseTunnelEnvelope(t, connection)
 	assertReverseTunnelOpeningsEmpty(t)
 	assertHandlerAdmissionEmpty(t, attempts)
 	assertHandlerAdmissionEmpty(t, waiters)
@@ -1689,7 +1689,7 @@ func TestReverseTunnelOpeningAttemptLimitsProductionHandler(t *testing.T) {
 		})
 		waitHandler(t, opening.done, "admitted create handler")
 		waitHandler(t, closeDone, "admitted close handler")
-		receiveTunnelRejection(t, opening.connection, opening.tunnelID)
+		assertNoReverseTunnelEnvelope(t, opening.connection)
 	}
 	assertReverseTunnelOpeningsEmpty(t)
 	assertHandlerAdmissionEmpty(t, attempts)
@@ -1718,12 +1718,12 @@ func TestReverseTunnelOpeningWaitTimeoutReclaimsQuota(t *testing.T) {
 	tunnelDataHandler(connection, marshalTunnelData(t, &sliverpb.TunnelData{TunnelID: tunnelID, Sequence: 1, Data: []byte("wait")}))
 	waitHandler(t, createDone, "timed-out create handler")
 	receiveTunnelRejection(t, connection, tunnelID)
-	receiveTunnelRejection(t, connection, tunnelID)
+	assertNoReverseTunnelEnvelope(t, connection)
 	assertReverseTunnelOpeningsEmpty(t)
 	assertHandlerAdmissionEmpty(t, attempts)
 	assertHandlerAdmissionEmpty(t, waiters)
 
-	opening := newReverseTunnelOpening(session.ID, func() {})
+	opening := newReverseTunnelOpening(session.ID, connection, func() {})
 	close(opening.ready)
 	if err := opening.wait(time.Second); err != nil {
 		t.Fatalf("reclaimed waiter slot was not reusable: %v", err)

@@ -67,6 +67,7 @@ const (
 )
 
 var (
+	reverseTunnelPromotionTimeout   = rtunnels.DefaultDialTimeout
 	reverseTunnelOpeningWaitTimeout = rtunnels.DefaultDialTimeout + time.Second
 	reverseTunnelRejectionTimeout   = rtunnels.DefaultDialTimeout
 )
@@ -78,25 +79,34 @@ var (
 )
 
 type reverseTunnelOpening struct {
-	sessionID string
-	ready     chan struct{}
-	waiters   chan struct{}
-	cancel    func()
-	closing   atomic.Bool
-	terminal  atomic.Bool
+	sessionID  string
+	connection *core.ImplantConnection
+	ready      chan struct{}
+	waiters    chan struct{}
+	cancel     func()
+	closing    atomic.Bool
+	terminal   atomic.Bool
+	failure    atomic.Bool
+	tunnelMu   sync.Mutex
+	tunnel     *rtunnels.RTunnel
 }
 
 func (opening *reverseTunnelOpening) claimTerminal() bool {
 	return opening != nil && opening.terminal.CompareAndSwap(false, true)
 }
 
-func newReverseTunnelOpening(sessionID string, cancel func()) *reverseTunnelOpening {
+func newReverseTunnelOpening(sessionID string, connection *core.ImplantConnection, cancel func()) *reverseTunnelOpening {
 	return &reverseTunnelOpening{
-		sessionID: sessionID,
-		ready:     make(chan struct{}),
-		waiters:   make(chan struct{}, maxReverseTunnelOpeningWaiters),
-		cancel:    cancel,
+		sessionID:  sessionID,
+		connection: connection,
+		ready:      make(chan struct{}),
+		waiters:    make(chan struct{}, maxReverseTunnelOpeningWaiters),
+		cancel:     cancel,
 	}
+}
+
+func (opening *reverseTunnelOpening) ownedBy(connection *core.ImplantConnection, sessionID string) bool {
+	return opening != nil && opening.connection == connection && opening.sessionID == sessionID
 }
 
 func (opening *reverseTunnelOpening) requestClose() {
@@ -106,6 +116,41 @@ func (opening *reverseTunnelOpening) requestClose() {
 	opening.closing.Store(true)
 	if opening.cancel != nil {
 		opening.cancel()
+	}
+	opening.tunnelMu.Lock()
+	tunnel := opening.tunnel
+	opening.tunnelMu.Unlock()
+	if tunnel != nil {
+		_ = closeReverseTunnelRemote(tunnel)
+	}
+}
+
+func (opening *reverseTunnelOpening) fail(tunnelID uint64, reason error) {
+	if opening == nil {
+		return
+	}
+	opening.requestClose()
+	if !opening.failure.CompareAndSwap(false, true) || opening.connection == nil {
+		return
+	}
+	select {
+	case <-opening.connection.Done():
+		return
+	default:
+	}
+	rejectReverseTunnel(opening.connection, tunnelID, reason)
+}
+
+func (opening *reverseTunnelOpening) attachTunnel(tunnel *rtunnels.RTunnel) {
+	if opening == nil || tunnel == nil {
+		return
+	}
+	opening.tunnelMu.Lock()
+	opening.tunnel = tunnel
+	closing := opening.closing.Load()
+	opening.tunnelMu.Unlock()
+	if closing {
+		_ = closeReverseTunnelRemote(tunnel)
 	}
 }
 
