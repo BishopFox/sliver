@@ -42,44 +42,69 @@ func ActionRawValues(currentWord string, meta common.Meta, values common.RawValu
 		descriptionStyle = s
 	}
 
+	nocolor := env.ColorDisabled()
 	tooltipEnabled := env.Tooltip()
 
 	vals := make([]completionResult, 0, len(values))
 	for _, val := range values {
-		if val.Value != "" { // must not be empty - any empty `''` parameter in CompletionResult causes an error
-			val.Value = sanitizer.Replace(val.Value)
-			nospace := meta.Nospace.Matches(val.Value)
+		if val.Value == "" {
+			continue // must not be empty - any empty `''` parameter in CompletionResult causes an error
+		}
 
-			if strings.ContainsAny(val.Value, ` {}()[]*$?\"|<>&(),;#`+"`") {
-				val.Value = fmt.Sprintf("'%v'", val.Value)
+		val.Value = sanitizer.Replace(val.Value)
+		nospace := meta.Nospace.Matches(val.Value)
+
+		if strings.ContainsAny(val.Value, ` {}()[]*$?\"|<>&(),;#`+"`") {
+			val.Value = fmt.Sprintf("'%v'", val.Value)
+		}
+
+		if !nospace {
+			val.Value = val.Value + " "
+		}
+
+		if val.Style == "" || ui.ParseStyling(val.Style) == nil {
+			val.Style = valueStyle
+		}
+
+		tooltip := " "
+		if tooltipEnabled && val.Description != "" {
+			switch nocolor {
+			case true:
+				tooltip = sanitizer.Replace(val.TrimmedDescription())
+			default:
+				tooltip = fmt.Sprintf("`e[%vm`e[%vm%v`e[21;22;23;24;25;29;39;49m",
+					sgr(descriptionStyle+" bg-default"),
+					sgr(descriptionStyle),
+					sanitizer.Replace(val.TrimmedDescription()))
 			}
+			val.Description = ""
+		}
 
-			if !nospace {
-				val.Value = val.Value + " "
-			}
-
-			if val.Style == "" || ui.ParseStyling(val.Style) == nil {
-				val.Style = valueStyle
-			}
-
-			tooltip := " "
-			if tooltipEnabled && val.Description != "" {
-				tooltip = fmt.Sprintf("`e[%vm`e[%vm%v`e[21;22;23;24;25;29;39;49m", sgr(descriptionStyle+" bg-default"), sgr(descriptionStyle), sanitizer.Replace(val.TrimmedDescription()))
-				val.Description = ""
-			}
-
-			listItemText := fmt.Sprintf("`e[21;22;23;24;25;29m`e[%vm%v`e[21;22;23;24;25;29;39;49m", sgr(val.Style), sanitizer.Replace(val.Display))
+		var listItemText string
+		switch nocolor {
+		case true:
+			listItemText = sanitizer.Replace(val.Display)
 			if val.Description != "" {
-				listItemText = listItemText + fmt.Sprintf("`e[%vm `e[%vm(%v)`e[21;22;23;24;25;29;39;49m", sgr(descriptionStyle+" bg-default"), sgr(descriptionStyle), sanitizer.Replace(val.TrimmedDescription()))
+				listItemText = fmt.Sprintf("%v (%v)", listItemText, sanitizer.Replace(val.TrimmedDescription()))
+			}
+		default:
+			listItemText = fmt.Sprintf("`e[21;22;23;24;25;29m`e[%vm%v`e[21;22;23;24;25;29;39;49m",
+				sgr(val.Style),
+				sanitizer.Replace(val.Display))
+			if val.Description != "" {
+				listItemText = listItemText + fmt.Sprintf("`e[%vm `e[%vm(%v)`e[21;22;23;24;25;29;39;49m",
+					sgr(descriptionStyle+" bg-default"),
+					sgr(descriptionStyle),
+					sanitizer.Replace(val.TrimmedDescription()))
 			}
 			listItemText = listItemText + "`e[0m"
-
-			vals = append(vals, completionResult{
-				CompletionText: val.Value,
-				ListItemText:   ensureNotEmpty(listItemText),
-				ToolTip:        ensureNotEmpty(tooltip),
-			})
 		}
+
+		vals = append(vals, completionResult{
+			CompletionText: val.Value,
+			ListItemText:   ensureNotEmpty(listItemText),
+			ToolTip:        ensureNotEmpty(tooltip),
+		})
 	}
 	m, _ := json.Marshal(vals)
 	return string(m)

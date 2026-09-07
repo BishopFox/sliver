@@ -1,6 +1,8 @@
 package execlog
 
 import (
+	"context"
+
 	shlex "github.com/carapace-sh/carapace-shlex"
 	"github.com/carapace-sh/carapace/internal/log"
 	"github.com/carapace-sh/carapace/third_party/golang.org/x/sys/execabs"
@@ -14,6 +16,14 @@ type Cmd struct {
 func Command(name string, arg ...string) *Cmd {
 	cmd := &Cmd{
 		execabs.Command(name, arg...),
+	}
+	return cmd
+}
+
+// CommandContext is like Command but includes a context.
+func CommandContext(ctx context.Context, name string, arg ...string) *Cmd {
+	cmd := &Cmd{
+		execabs.CommandContext(ctx, name, arg...),
 	}
 	return cmd
 }

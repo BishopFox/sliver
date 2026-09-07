@@ -18,6 +18,11 @@ var keywords = map[string]*string{
 	"on":  &Carapace.KeywordPositive,
 	"off": &Carapace.KeywordNegative,
 
+	"enable":   &Carapace.KeywordPositive,
+	"enabled":  &Carapace.KeywordPositive,
+	"disable":  &Carapace.KeywordNegative,
+	"disabled": &Carapace.KeywordNegative,
+
 	"all":  &Carapace.KeywordPositive,
 	"some": &Carapace.KeywordAmbiguous,
 	"none": &Carapace.KeywordNegative,
@@ -92,6 +97,59 @@ var keywords = map[string]*string{
 	"block":    &Carapace.KeywordNegative,
 
 	"ondemand": &Carapace.KeywordAmbiguous,
+
+	"active":   &Carapace.KeywordPositive,
+	"inactive": &Carapace.KeywordNegative,
+
+	"healthy":   &Carapace.KeywordPositive,
+	"unhealthy": &Carapace.KeywordNegative,
+
+	"pending": &Carapace.KeywordAmbiguous,
+
+	"idle": &Carapace.KeywordAmbiguous,
+
+	"keep": &Carapace.KeywordPositive,
+
+	"ask": &Carapace.KeywordAmbiguous,
+
+	"hidden":  &Carapace.KeywordNegative,
+	"visible": &Carapace.KeywordPositive,
+
+	"default": &Carapace.KeywordAmbiguous,
+
+	"quiet": &Carapace.KeywordAmbiguous,
+
+	"missing": &Carapace.KeywordNegative,
+
+	"merged": &Carapace.KeywordPositive,
+
+	"manual": &Carapace.KeywordAmbiguous,
+
+	"canceled":  &Carapace.KeywordNegative,
+	"cancelled": &Carapace.KeywordNegative,
+
+	"scheduled": &Carapace.KeywordAmbiguous,
+
+	"resolved":   &Carapace.KeywordPositive,
+	"unresolved": &Carapace.KeywordNegative,
+
+	"connected":    &Carapace.KeywordPositive,
+	"disconnected": &Carapace.KeywordNegative,
+
+	"present": &Carapace.KeywordPositive,
+	"absent":  &Carapace.KeywordNegative,
+
+	"exists":    &Carapace.KeywordPositive,
+	"notexists": &Carapace.KeywordNegative,
+
+	"only": &Carapace.KeywordAmbiguous,
+
+	"silent": &Carapace.KeywordAmbiguous,
+
+	"completed": &Carapace.KeywordPositive,
+	"skipped":   &Carapace.KeywordAmbiguous,
+
+	"failure": &Carapace.KeywordNegative,
 }
 
 var keywordReplacer = strings.NewReplacer(

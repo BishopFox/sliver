@@ -34,13 +34,15 @@ func command(cmd *cobra.Command) Command {
 		}
 
 		f := pflagfork.Flag{Flag: flag}
-		c.Flags[f.Definition()] = f.Usage
+		prefix := pflagfork.FlagSet{FlagSet: cmd.Flags()}.Prefix()
+		c.Flags[f.Definition(prefix)] = f.Usage
 
 	})
 
 	cmd.PersistentFlags().VisitAll(func(flag *pflag.Flag) {
 		f := pflagfork.Flag{Flag: flag}
-		c.PersistentFlags[f.Definition()] = f.Usage
+		prefix := pflagfork.FlagSet{FlagSet: cmd.Flags()}.Prefix()
+		c.PersistentFlags[f.Definition(prefix)] = f.Usage
 
 	})
 
