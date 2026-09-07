@@ -63,7 +63,7 @@ require (
 	github.com/sliverarmory/wasm-donut v0.0.3
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
-	github.com/stretchr/testify v1.11.1
+	github.com/stretchr/testify v1.12.1
 	github.com/tetratelabs/wazero v1.12.0
 	github.com/things-go/go-socks5 v0.1.0
 	github.com/ulikunitz/xz v0.5.15
@@ -165,7 +165,6 @@ require (
 	github.com/coreos/go-iptables v0.8.0 // indirect
 	github.com/creachadair/msync v0.7.1 // indirect
 	github.com/cschomburg/go-pushbullet v0.0.0-20171206132031-67759df45fbb // indirect
-	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dblohm7/wingoes v0.0.0-20250822163801-6d8e6105c62d // indirect
 	github.com/demisto/goxforce v0.0.0-20160322194047-db8357535b1d // indirect
 	github.com/dghubble/oauth1 v0.7.3 // indirect
@@ -259,7 +258,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/plivo/plivo-go/v7 v7.59.2 // indirect
-	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus-community/pro-bing v0.4.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
@@ -306,6 +304,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.44.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.44.0 // indirect
 	go.opentelemetry.io/otel/trace v1.44.0 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	go4.org/mem v0.0.0-20240501181205-ae6ca9944745 // indirect
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
 	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa // indirect
