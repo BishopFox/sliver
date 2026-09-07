@@ -29,7 +29,7 @@ type flag struct {
 
 func convertFlag(f *pflag.Flag) flag {
 	longhand := ""
-	if (pflagfork.Flag{Flag: f}).Mode() != pflagfork.ShorthandOnly {
+	if (pflagfork.Flag{Flag: f}).GetMode() != pflagfork.ShorthandOnly {
 		longhand = f.Name
 	}
 

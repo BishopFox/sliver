@@ -2,6 +2,7 @@ package carapace
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/carapace-sh/carapace/internal/common"
 	"github.com/carapace-sh/carapace/pkg/style"
@@ -50,6 +51,7 @@ func Diff(original, new Action) Action {
 func DiffPatch(original, new Action, c Context) []string {
 	diff := Diff(original, new).Invoke(c)
 	patch := make([]string, 0)
+	sort.Sort(common.ByValue(diff.action.rawValues))
 	for _, v := range diff.action.rawValues {
 		s := v.Value
 		if v.Description != "" {

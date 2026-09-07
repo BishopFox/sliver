@@ -27,6 +27,8 @@ func ActionRawValues(currentWord string, meta common.Meta, values common.RawValu
 	for index, val := range values {
 		val.Value = sanitizer.Replace(val.Value)
 
+		appendSpace := !meta.Nospace.Matches(val.Value)
+
 		if strings.ContainsAny(val.Value, ` ()[]{}*$?\"|<>&;#`+"`") {
 			if strings.Contains(val.Value, `\`) {
 				val.Value = fmt.Sprintf("r'%v'", val.Value) // backslash needs raw string
@@ -35,7 +37,7 @@ func ActionRawValues(currentWord string, meta common.Meta, values common.RawValu
 			}
 		}
 
-		if !meta.Nospace.Matches(val.Value) {
+		if appendSpace {
 			val.Value = val.Value + " "
 		}
 

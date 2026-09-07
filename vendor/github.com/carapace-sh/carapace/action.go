@@ -208,7 +208,16 @@ func (a Action) MultiPartsP(delimiter string, pattern string, f func(placeholder
 						return invoked.ToA()
 					}))
 				} else {
-					actions = append(actions, ActionStyledValuesDescribed(key, value.Description, value.Style)) // TODO tag,..
+					actions = append(actions, ActionCallback(func(c Context) Action {
+						return Action{rawValues: []common.RawValue{{
+							Value:       key,
+							Display:     key,
+							Description: value.Description,
+							Style:       value.Style,
+							Tag:         value.Tag,
+							Uid:         value.Uid,
+						}}}
+					}))
 				}
 			}
 
@@ -226,6 +235,17 @@ func (a Action) NoSpace(suffixes ...rune) Action {
 			a.meta.Nospace.Add('*')
 		}
 		a.meta.Nospace.Add(suffixes...)
+		return a
+	})
+}
+
+// NoPrefix prevents common prefix insertion for given prefixes (or all if none are given).
+func (a Action) NoPrefix(prefixes ...rune) Action {
+	return ActionCallback(func(c Context) Action {
+		if len(prefixes) == 0 {
+			a.meta.NoPrefix.Add('*')
+		}
+		a.meta.NoPrefix.Add(prefixes...)
 		return a
 	})
 }
@@ -485,31 +505,7 @@ func (a Action) UnlessF(condition func(c Context) bool) Action {
 
 // Uid TODO experimental
 func (a Action) Uid(scheme, host string, opts ...string) Action {
-	return ActionCallback(func(c Context) Action {
-		if length := len(opts); length%2 != 0 {
-			return ActionMessage("invalid amount of arguments [Uid]: %v", length)
-		}
-
-		invoked := a.Invoke(c)
-		for index, v := range invoked.action.rawValues {
-			uid := url.URL{
-				Scheme: scheme,
-				Host:   url.PathEscape(host),
-				Path:   uid.PathEscape(v.Value),
-			}
-			if len(opts) > 0 {
-				values := uid.Query()
-				for i := 0; i < len(opts); i += 2 {
-					if opts[i+1] != "" { // implicitly skip empty values
-						values.Set(opts[i], opts[i+1])
-					}
-				}
-				uid.RawQuery = values.Encode()
-			}
-			invoked.action.rawValues[index].Uid = uid.String()
-		}
-		return invoked.ToA()
-	})
+	return a.UidF(uid.UidF(scheme, host, opts...))
 }
 
 // UidF TODO experimental

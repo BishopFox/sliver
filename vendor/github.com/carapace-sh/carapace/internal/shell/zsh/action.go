@@ -109,6 +109,7 @@ func ActionRawValues(currentWord string, meta common.Meta, values common.RawValu
 		}
 	}
 
+	noprefix := false
 	tagGroup := make([]string, 0)
 	values.EachTag(func(tag string, values common.RawValues) {
 		vals := make([]string, len(values))
@@ -149,6 +150,7 @@ func ActionRawValues(currentWord string, meta common.Meta, values common.RawValu
 			description := sanitizer.Replace(val.Description)
 
 			vals[index] = value
+			noprefix = noprefix || meta.NoPrefix.Matches(strings.TrimPrefix(value, currentWord)) // TODO likely not correct at all times (e.g. when value gets quoted)
 
 			if strings.TrimSpace(description) == "" {
 				displays[index] = display
@@ -158,5 +160,5 @@ func ActionRawValues(currentWord string, meta common.Meta, values common.RawValu
 		}
 		tagGroup = append(tagGroup, strings.Join([]string{tag, strings.Join(displays, "\n"), strings.Join(vals, "\n")}, "\003"))
 	})
-	return fmt.Sprintf("%v\001%v\001%v\001", zstyles{values}.Format(), message{meta}.Format(), strings.Join(tagGroup, "\002")+"\002")
+	return fmt.Sprintf("%v\001%v\001%v\001%v\001", zstyles{values}.Format(), message{meta}.Format(), noprefix, strings.Join(tagGroup, "\002")+"\002")
 }

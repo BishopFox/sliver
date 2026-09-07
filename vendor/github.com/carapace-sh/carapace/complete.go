@@ -20,7 +20,7 @@ func complete(cmd *cobra.Command, args []string) (string, error) {
 	default:
 		initHelpCompletion(cmd)
 
-		switch ps.DetermineShell() {
+		switch args[0] {
 		case "nushell":
 			args = nushell.Patch(args) // handle open quotes
 			LOG.Printf("patching args to %#v", args)
