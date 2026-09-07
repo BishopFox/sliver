@@ -562,9 +562,6 @@ github.com/creachadair/msync/trigger
 # github.com/cschomburg/go-pushbullet v0.0.0-20171206132031-67759df45fbb
 ## explicit
 github.com/cschomburg/go-pushbullet
-# github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
-## explicit
-github.com/davecgh/go-spew/spew
 # github.com/dblohm7/wingoes v0.0.0-20250822163801-6d8e6105c62d
 ## explicit; go 1.22
 github.com/dblohm7/wingoes
@@ -1134,9 +1131,6 @@ github.com/planetscale/vtprotobuf/types/known/wrapperspb
 # github.com/plivo/plivo-go/v7 v7.59.2
 ## explicit; go 1.13
 github.com/plivo/plivo-go/v7
-# github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
-## explicit
-github.com/pmezard/go-difflib/difflib
 # github.com/prometheus-community/pro-bing v0.4.0
 ## explicit; go 1.19
 github.com/prometheus-community/pro-bing
@@ -1383,10 +1377,12 @@ github.com/spiffe/go-spiffe/v2/spiffeid
 # github.com/stretchr/objx v0.5.3
 ## explicit; go 1.20
 github.com/stretchr/objx
-# github.com/stretchr/testify v1.11.1
+# github.com/stretchr/testify v1.12.1
 ## explicit; go 1.17
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/assert/yaml
+github.com/stretchr/testify/internal/difflib
+github.com/stretchr/testify/internal/spew
 github.com/stretchr/testify/mock
 # github.com/tailscale/certstore v0.1.1-0.20231202035212-d3fa0460f47e
 ## explicit; go 1.20
@@ -1618,6 +1614,9 @@ go.opentelemetry.io/otel/trace
 go.opentelemetry.io/otel/trace/embedded
 go.opentelemetry.io/otel/trace/internal/telemetry
 go.opentelemetry.io/otel/trace/noop
+# go.yaml.in/yaml/v3 v3.0.5
+## explicit; go 1.16
+go.yaml.in/yaml/v3
 # go4.org/mem v0.0.0-20240501181205-ae6ca9944745
 ## explicit; go 1.14
 go4.org/mem
