@@ -49,6 +49,12 @@ func CrackCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 			ctx, cancel = context.WithTimeout(ctx, time.Duration(timeoutSeconds)*time.Second)
 			defer cancel()
 		}
+		if err := resolveManagedCrackFileReferences(ctx, crackCmd, func(ctx context.Context, request *clientpb.CrackFile) (*clientpb.CrackFiles, error) {
+			return con.Rpc.CrackFilesList(ctx, request)
+		}); err != nil {
+			con.PrintErrorf("%s\n", err)
+			return
+		}
 
 		resp, err := con.Rpc.Crack(ctx, crackCmd)
 		if err != nil {
@@ -139,16 +145,25 @@ func printCracker(cracker *clientpb.Crackstation, index int, con *console.Sliver
 	if 0 < len(cracker.CUDA) {
 		for _, cuda := range cracker.CUDA {
 			tw.AppendSeparator()
-			tw.AppendRow(table.Row{console.StyleBold.Render("CUDA Device"), console.StyleBoldGreen.Render(fmt.Sprintf("%s (%s)", cuda.Name, cuda.Version))})
+			tw.AppendRow(table.Row{console.StyleBold.Render("CUDA Device"), console.StyleBoldGreen.Render(formatCUDADevice(cuda))})
 			tw.AppendRow(table.Row{console.StyleBold.Render("Memory"), fmt.Sprintf("%s free of %s", cuda.MemoryFree, cuda.MemoryTotal)})
 			tw.AppendRow(table.Row{console.StyleBold.Render("Clock"), fmt.Sprintf("%d", cuda.Clock)})
 			tw.AppendRow(table.Row{console.StyleBold.Render("Processors"), fmt.Sprintf("%d", cuda.Processors)})
 		}
 	}
+	if 0 < len(cracker.HIP) {
+		for _, hip := range cracker.HIP {
+			tw.AppendSeparator()
+			tw.AppendRow(table.Row{console.StyleBold.Render("HIP Device"), console.StyleBoldGreen.Render(formatHIPDevice(hip))})
+			tw.AppendRow(table.Row{console.StyleBold.Render("Memory"), fmt.Sprintf("%s free of %s", hip.MemoryFree, hip.MemoryTotal)})
+			tw.AppendRow(table.Row{console.StyleBold.Render("Clock"), fmt.Sprintf("%d", hip.Clock)})
+			tw.AppendRow(table.Row{console.StyleBold.Render("Processors"), fmt.Sprintf("%d", hip.Processors)})
+		}
+	}
 	if 0 < len(cracker.Metal) {
 		for _, metal := range cracker.Metal {
 			tw.AppendSeparator()
-			tw.AppendRow(table.Row{console.StyleBold.Render("Metal Device"), console.StyleBoldGreen.Render(fmt.Sprintf("%s (%s)", metal.Name, metal.Version))})
+			tw.AppendRow(table.Row{console.StyleBold.Render("Metal Device"), console.StyleBoldGreen.Render(formatMetalDevice(metal))})
 			tw.AppendRow(table.Row{console.StyleBold.Render("Memory"), fmt.Sprintf("%s free of %s", metal.MemoryFree, metal.MemoryTotal)})
 			tw.AppendRow(table.Row{console.StyleBold.Render("Clock"), fmt.Sprintf("%d", metal.Clock)})
 			tw.AppendRow(table.Row{console.StyleBold.Render("Processors"), fmt.Sprintf("%d", metal.Processors)})
@@ -168,6 +183,27 @@ func printCracker(cracker *clientpb.Crackstation, index int, con *console.Sliver
 		con.Println()
 		printBenchmarks(cracker, con)
 	}
+}
+
+func formatCUDADevice(device *clientpb.CUDABackendInfo) string {
+	return formatBackendDevice(device.GetName(), device.GetCUDAVersion(), device.GetVersion())
+}
+
+func formatHIPDevice(device *clientpb.HIPBackendInfo) string {
+	return formatBackendDevice(device.GetName(), device.GetHIPVersion(), device.GetVersion())
+}
+
+func formatMetalDevice(device *clientpb.MetalBackendInfo) string {
+	return formatBackendDevice(device.GetName(), device.GetMetalVersion(), device.GetVersion())
+}
+
+func formatBackendDevice(name string, versions ...string) string {
+	for _, version := range versions {
+		if version != "" {
+			return fmt.Sprintf("%s (%s)", name, version)
+		}
+	}
+	return name
 }
 
 func printBenchmarks(cracker *clientpb.Crackstation, con *console.SliverClient) {

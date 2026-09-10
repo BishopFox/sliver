@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"sync"
 
+	consts "github.com/bishopfox/sliver/client/constants"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/server/configs"
 	"github.com/bishopfox/sliver/server/core"
@@ -40,6 +41,8 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 var (
@@ -167,11 +170,7 @@ var (
 		"/rpcpb.SliverRPC/CrackTaskByID":          true,
 		"/rpcpb.SliverRPC/CrackTaskUpdate":        true,
 		"/rpcpb.SliverRPC/CrackFilesList":         true,
-		"/rpcpb.SliverRPC/CrackFileCreate":        true,
-		"/rpcpb.SliverRPC/CrackFileChunkUpload":   true,
 		"/rpcpb.SliverRPC/CrackFileChunkDownload": true,
-		"/rpcpb.SliverRPC/CrackFileComplete":      true,
-		"/rpcpb.SliverRPC/CrackFileDelete":        true,
 	}
 )
 
@@ -223,11 +222,24 @@ func permissionsStreamServerInterceptor() grpc.StreamServerInterceptor {
 	}
 }
 
-func deciderUnary(_ context.Context, _ string, _ interface{}) bool {
+func deciderUnary(_ context.Context, fullMethod string, _ interface{}) bool {
+	switch fullMethod {
+	case "/rpcpb.SliverRPC/Crack",
+		"/rpcpb.SliverRPC/CrackJobByID",
+		"/rpcpb.SliverRPC/CrackTaskByID",
+		"/rpcpb.SliverRPC/CrackTaskUpdate",
+		"/rpcpb.SliverRPC/CrackstationTrigger",
+		"/rpcpb.SliverRPC/CrackFileChunkUpload",
+		"/rpcpb.SliverRPC/CrackFileChunkDownload":
+		return false
+	}
 	return serverConfig.Logs.GRPCUnaryPayloads
 }
 
-func deciderStream(_ context.Context, _ string, _ interface{}) bool {
+func deciderStream(_ context.Context, fullMethod string, _ interface{}) bool {
+	if fullMethod == "/rpcpb.SliverRPC/CrackstationRegister" {
+		return false
+	}
 	return serverConfig.Logs.GRPCStreamPayloads
 }
 
@@ -282,9 +294,60 @@ type auditUnaryLogMsg struct {
 	User     string `json:"user"`
 }
 
+func sanitizeAuditRequest(fullMethod string, req interface{}) interface{} {
+	switch fullMethod {
+	case "/rpcpb.SliverRPC/Crack":
+		command, ok := req.(*clientpb.CrackCommand)
+		if !ok || command == nil {
+			return req
+		}
+		sanitized := proto.Clone(command).(*clientpb.CrackCommand)
+		message := sanitized.ProtoReflect()
+		message.Range(func(field protoreflect.FieldDescriptor, _ protoreflect.Value) bool {
+			switch field.Kind() {
+			case protoreflect.StringKind, protoreflect.BytesKind:
+				message.Clear(field)
+			}
+			return true
+		})
+		return sanitized
+	case "/rpcpb.SliverRPC/CrackTaskByID", "/rpcpb.SliverRPC/CrackTaskUpdate":
+		task, ok := req.(*clientpb.CrackTask)
+		if !ok || task == nil {
+			return req
+		}
+		sanitized := proto.Clone(task).(*clientpb.CrackTask)
+		sanitized.LeaseToken = ""
+		sanitized.Command = nil
+		sanitized.Stdout = nil
+		sanitized.Stderr = nil
+		sanitized.LatestStatusJSON = nil
+		sanitized.RecoveredJSON = nil
+		return sanitized
+	case "/rpcpb.SliverRPC/CrackstationTrigger":
+		event, ok := req.(*clientpb.Event)
+		if !ok || event == nil || event.EventType != consts.CrackTaskStatus {
+			return req
+		}
+		sanitized := proto.Clone(event).(*clientpb.Event)
+		sanitized.Data = nil
+		return sanitized
+	case "/rpcpb.SliverRPC/CrackFileChunkUpload":
+		chunk, ok := req.(*clientpb.CrackFileChunk)
+		if !ok || chunk == nil {
+			return req
+		}
+		sanitized := proto.Clone(chunk).(*clientpb.CrackFileChunk)
+		sanitized.Data = nil
+		return sanitized
+	default:
+		return req
+	}
+}
+
 func auditLogUnaryServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (_ interface{}, err error) {
-		rawRequest, err := json.Marshal(req)
+		rawRequest, err := json.Marshal(sanitizeAuditRequest(info.FullMethod, req))
 		if err != nil {
 			middlewareLog.Errorf("Failed to serialize %s", err)
 			return

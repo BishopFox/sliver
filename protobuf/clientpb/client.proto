@@ -1117,6 +1117,23 @@ enum CrackJobStatus {
   IN_PROGRESS = 0;
   COMPLETED = 1;
   FAILED = 2;
+  CANCELLED = 3;
+}
+
+enum CrackTaskKind {
+  CRACK_TASK_UNSPECIFIED = 0;
+  CRACK_TASK_CRACK = 1;
+  CRACK_TASK_KEYSPACE = 2;
+  CRACK_TASK_BENCHMARK = 3;
+}
+
+enum CrackTaskState {
+  CRACK_TASK_QUEUED = 0;
+  CRACK_TASK_LEASED = 1;
+  CRACK_TASK_RUNNING = 2;
+  CRACK_TASK_COMPLETED = 3;
+  CRACK_TASK_FAILED = 4;
+  CRACK_TASK_CANCELLED = 5;
 }
 
 message CrackSyncStatus {
@@ -1128,6 +1145,8 @@ message CrackBenchmark {
   string Name = 1;
   string HostUUID = 2;
   map<int32, uint64> Benchmarks = 3;
+  uint32 SchemaVersion = 4;
+  string HashcatVersion = 5;
 }
 
 message CrackTask {
@@ -1138,8 +1157,28 @@ message CrackTask {
   int64 CompletedAt = 5;
 
   string Err = 7;
+  bytes Stdout = 8;
 
   CrackCommand Command = 9;
+  bytes Stderr = 10;
+  int32 ExitCode = 11;
+  bool StdoutTruncated = 12;
+  bool StderrTruncated = 13;
+  uint64 StdoutTotalBytes = 14;
+  uint64 StderrTotalBytes = 15;
+  string CrackJobID = 16;
+  CrackTaskKind Kind = 17;
+  CrackTaskState State = 18;
+  uint32 Attempt = 19;
+  string LeaseToken = 20;
+  int64 LeaseExpiresAt = 21;
+  int64 UpdatedAt = 22;
+  int64 LastHeartbeatAt = 23;
+  string Keyspace = 24;
+  bytes LatestStatusJSON = 25;
+  bytes RecoveredJSON = 26;
+  uint64 ShardSkip = 27;
+  uint64 ShardLimit = 28;
 }
 
 message Crackstation {
@@ -1152,10 +1191,12 @@ message Crackstation {
   string HostUUID = 7;
   string Version = 8;
   map<int32, uint64> Benchmarks = 9;
+  CrackstationStatus Status = 10;
 
   repeated CUDABackendInfo CUDA = 100;
   repeated MetalBackendInfo Metal = 101;
   repeated OpenCLBackendInfo OpenCL = 102;
+  repeated HIPBackendInfo HIP = 103;
 }
 
 message CUDABackendInfo {
@@ -1170,6 +1211,13 @@ message CUDABackendInfo {
   string MemoryFree = 9;
 
   string CUDAVersion = 10;
+  uint32 BackendDeviceID = 11;
+  optional uint32 BackendDeviceAlias = 12;
+  optional uint32 PreferredThreadSize = 13;
+  optional bool MemoryUnified = 14;
+  string LocalMemory = 15;
+  string CacheSize = 16;
+  string PCIAddress = 17;
 }
 
 message OpenCLBackendInfo {
@@ -1185,6 +1233,17 @@ message OpenCLBackendInfo {
 
   string OpenCLVersion = 10;
   string OpenCLDriverVersion = 11;
+  uint32 BackendDeviceID = 12;
+  optional uint32 BackendDeviceAlias = 13;
+  optional uint32 PreferredThreadSize = 14;
+  optional bool MemoryUnified = 15;
+  string LocalMemory = 16;
+  string MemoryAllocPerBlock = 17;
+  string PCIAddress = 18;
+  uint32 PlatformID = 19;
+  string PlatformVendor = 20;
+  string PlatformName = 21;
+  string PlatformVersion = 22;
 }
 
 message MetalBackendInfo {
@@ -1199,16 +1258,53 @@ message MetalBackendInfo {
   string MemoryFree = 9;
 
   string MetalVersion = 10;
+  uint32 BackendDeviceID = 11;
+  optional uint32 BackendDeviceAlias = 12;
+  optional uint32 PreferredThreadSize = 13;
+  optional bool MemoryUnified = 14;
+  string LocalMemory = 15;
+  string CacheSize = 16;
+  string MemoryAllocPerBlock = 17;
+  string PhysicalLocation = 18;
+  optional uint32 RegistryID = 19;
+  string MaxTXRate = 20;
+  optional bool GPUHeadless = 21;
+  optional bool GPULowPower = 22;
+  optional bool GPURemovable = 23;
+}
+
+message HIPBackendInfo {
+  string Type = 1;
+  int32 VendorID = 2;
+  string Vendor = 3;
+  string Name = 4;
+  string Version = 5;
+  int32 Processors = 6;
+  int32 Clock = 7;
+  string MemoryTotal = 8;
+  string MemoryFree = 9;
+
+  string HIPVersion = 10;
+  uint32 BackendDeviceID = 11;
+  optional uint32 BackendDeviceAlias = 12;
+  optional uint32 PreferredThreadSize = 13;
+  optional bool MemoryUnified = 14;
+  string LocalMemory = 15;
+  string CacheSize = 16;
+  string PCIAddress = 17;
 }
 
 enum CrackAttackMode {
   STRAIGHT = 0;
   COMBINATION = 1;
   BRUTEFORCE = 3;
+  PCFG = 4;
   HYBRID_WORDLIST_MASK = 6;
   HYBRID_MASK_WORDLIST = 7;
+  GENERIC = 8;
   ASSOCIATION = 9;
   NO_ATTACK = 10;
+  HYBRID = 12;
 }
 
 enum CrackEncoding {
@@ -1235,6 +1331,9 @@ enum CrackWorkloadProfile {
   NIGHTMARE = 4;
 }
 
+// Path-valued CrackCommand fields are interpreted on the trusted
+// crackstation host, not on the client or server. Absolute paths can access
+// files outside Hashcat's workspace and therefore require trusted operators.
 message CrackCommand {
   CrackAttackMode AttackMode = 1;
   HashType HashType = 2;
@@ -1262,10 +1361,12 @@ message CrackCommand {
   uint32 MarkovThreshold = 22;
   uint32 Runtime = 23;
   string Session = 24; // [a-zA-Z0-9_-]
-  bool Restore = 25;
+  // Deprecated: historical resume behavior. RestorePosition is the canonical
+  // v7 resume field; RestoreShowCommand is the v7 display-and-stop operation.
+  bool Restore = 25 [deprecated = true];
   bool RestoreDisable = 26;
   bytes RestoreFile = 27; // --restore-file-path FILE
-  // --outfile FILE (28)
+  string Outfile = 28;
   repeated CrackOutfileFormat OutfileFormat = 29;
   bool OutfileAutohexDisable = 30;
   uint32 OutfileCheckTimer = 31;
@@ -1282,22 +1383,22 @@ message CrackCommand {
   CrackEncoding EncodingFrom = 42;
   CrackEncoding EncodingTo = 43;
   uint32 DebugMode = 44;
-  // --debug-file FILE (45)
-  // --induction-dir DIR (46)
-  // --outfile-check-dir DIR (47)
+  string DebugFile = 45;
+  string InductionDir = 46;
+  string OutfileCheckDir = 47;
   bool LogfileDisable = 48;
   uint32 HccapxMessagePair = 49;
   uint32 NonceErrorCorrections = 50;
   bytes KeyboardLayoutMapping = 51; // --keyboard-layout-mapping FILE
-  // --truecrypt-keyfiles FILE (52)
-  // --veracrypt-keyfiles FILE (53)
-  // --veracrypt-pim-start PIM (54)
-  // --veracrypt-pim-stop PIM (55)
+  string TruecryptKeyfiles = 52;
+  string VeracryptKeyfiles = 53;
+  optional uint32 VeracryptPimStart = 54;
+  optional uint32 VeracryptPimStop = 55;
   bool Benchmark = 56;
   bool BenchmarkAll = 57;
   bool SpeedOnly = 58;
   bool ProgressOnly = 59;
-  uint32 SegmentSize = 60;
+  uint32 SegmentSize = 60 [deprecated = true];
   uint32 BitmapMin = 61;
   uint32 BitmapMax = 62;
   repeated uint32 CPUAffinity = 63;
@@ -1313,7 +1414,7 @@ message CrackCommand {
   repeated uint32 OpenCLDeviceTypes = 73;
   bool OptimizedKernelEnable = 74;
   bool MultiplyAccelDisabled = 75;
-  CrackWorkloadProfile WorkloadProfile = 76;
+  CrackWorkloadProfile WorkloadProfile = 76 [deprecated = true];
   uint32 KernelAccel = 77;
   uint32 KernelLoops = 78;
   uint32 KernelThreads = 79;
@@ -1325,8 +1426,8 @@ message CrackCommand {
   uint64 Skip = 85;
   uint64 Limit = 86;
   bool Keyspace = 87;
-  // --rule-left (88)
-  // --rule-right (89)
+  string RuleLeft = 88;
+  string RuleRight = 89;
   bytes RulesFile = 90; // --rules-file FILE
   uint32 GenerateRules = 91;
   uint32 GenerateRulesFunMin = 92;
@@ -1337,6 +1438,8 @@ message CrackCommand {
   string CustomCharset2 = 97;
   string CustomCharset3 = 98;
   string CustomCharset4 = 99;
+  // Deprecated: Identify is a legacy positional operand, not Hashcat's
+  // --identify switch. Use IdentifyMode or PositionalArguments.
   string Identify = 100;
   bool Increment = 101;
   uint32 IncrementMin = 102;
@@ -1351,6 +1454,65 @@ message CrackCommand {
   string BrainPassword = 111;
   string BrainSession = 112;
   string BrainSessionWhitelist = 113;
+  bool PipelineStats = 114;
+  bool TaskTimeBreakdown = 115;
+  uint32 MetalCompilerRuntime = 116;
+  bool RestorePosition = 117; // Resume from the stored restore position.
+  bool OutfileJSON = 118;
+  bool DynamicX = 119;
+  string SeekDBPath = 120;
+  uint32 BenchmarkMin = 121;
+  optional uint32 BenchmarkMax = 122;
+  string BridgeParameter1 = 123;
+  string BridgeParameter2 = 124;
+  string BridgeParameter3 = 125;
+  string BridgeParameter4 = 126;
+  uint32 BackendDevicesVirtMulti = 127;
+  uint32 BackendDevicesVirtHost = 128;
+  bool TotalCandidates = 129;
+  string Lookup = 130;
+  string CustomCharset5 = 131;
+  string CustomCharset6 = 132;
+  string CustomCharset7 = 133;
+  string CustomCharset8 = 134;
+  bool IncrementInverse = 135;
+  optional uint32 BypassDelay = 136;
+  optional uint32 BypassThreshold = 137;
+  bool BrainFeed = 138;
+  bool ColorCracked = 139;
+  bool HashCopy = 140;
+  string EncryptWithPubkey = 141;
+  bool IdentifyMode = 142;
+  repeated string PositionalArguments = 143;
+  string EncodingFromName = 144;
+  string EncodingToName = 145;
+  uint32 HashInfoLevel = 146;
+  uint32 BackendInfoLevel = 147;
+  optional uint32 HccapxMessagePairV7 = 148;
+  optional uint32 NonceErrorCorrectionsV7 = 149;
+  optional uint32 ScryptTMTOV7 = 150;
+  optional uint32 GenerateRulesSeedV7 = 151;
+  uint32 BrainClientFeaturesV7 = 152;
+  optional uint32 BrainSessionV7 = 153;
+  repeated uint32 BrainSessionWhitelistV7 = 154;
+  bytes Stdin = 155;
+  bool AdviceDisable = 156;
+  optional uint32 HashMode = 157; // Canonical Hashcat mode; takes precedence over HashType.
+  bool RestoreShowCommand = 158; // Display the stored command and stop.
+  optional uint32 BrainServerTimerV7 = 159; // Explicit zero disables intermediate dumps.
+  optional uint32 StatusTimerV7 = 160; // Presence preserves Hashcat's meaningful zero value.
+  optional uint32 StdinTimeoutAbortV7 = 161; // Explicit zero disables the stdin timeout.
+  optional uint32 OutfileCheckTimerV7 = 162; // Explicit zero disables outfile checking.
+  optional uint32 BitmapMinV7 = 163;
+  optional uint32 BitmapMaxV7 = 164;
+  optional uint32 HwmonTempAbortV7 = 165; // Explicit zero disables temperature abort.
+  repeated bytes RulesFilesV7 = 166; // Hashcat accepts more than one --rules-file.
+  optional string BrainPasswordV7 = 167; // Presence preserves an explicitly empty password.
+  optional uint32 GenerateRulesFuncMinV7 = 168;
+  optional uint32 GenerateRulesFuncMaxV7 = 169;
+  repeated string CredentialIDs = 170;
+  string CredentialCollection = 171;
+  bool IncludeCrackedCredentials = 172;
 }
 
 message CrackJob {
@@ -1362,6 +1524,23 @@ message CrackJob {
 
   CrackCommand Command = 7;
   string ResultFileID = 8;
+  repeated CrackTask Tasks = 9;
+  string Keyspace = 10;
+  repeated CrackResult Results = 11;
+  int64 UpdatedAt = 12;
+  uint64 ResultCount = 13;
+}
+
+message CrackJobs { repeated CrackJob Jobs = 1; }
+
+message CrackResult {
+  string ID = 1;
+  string CrackJobID = 2;
+  string CrackTaskID = 3;
+  string CredentialID = 4;
+  string Hash = 5;
+  bytes Plaintext = 6;
+  int64 CreatedAt = 7;
 }
 
 message CrackResponse {
@@ -1399,6 +1578,7 @@ message CrackFile {
   bool IsCompressed = 8;
   int64 MaxFileSize = 9;
   int64 ChunkSize = 10;
+  int64 CompressedSize = 11;
 
   repeated CrackFileChunk Chunks = 100;
 }

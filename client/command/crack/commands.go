@@ -1,6 +1,8 @@
 package crack
 
 import (
+	"time"
+
 	"github.com/bishopfox/sliver/client/command/completers"
 	"github.com/rsteube/carapace"
 	"github.com/spf13/cobra"
@@ -27,6 +29,11 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
 		bindCrackFlags(f)
 	})
+	flags.BindFlagCompletions(crackCmd, func(comp *carapace.ActionMap) {
+		(*comp)["input"] = CrackWordlistCompleter(con)
+		(*comp)["rules-file"] = CrackRulesCompleter(con)
+		(*comp)["markov-hcstat2"] = CrackHcstat2Completer(con)
+	})
 
 	crackStationsCmd := &cobra.Command{
 		Use:   consts.StationsStr,
@@ -40,6 +47,34 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.Bool("show-benchmarks", false, "show benchmark rates for crackstations")
 	})
 	crackCmd.AddCommand(crackStationsCmd)
+
+	crackJobsCmd := &cobra.Command{
+		Use:   "jobs",
+		Short: "List hash cracking jobs",
+		Args:  cobra.NoArgs,
+		Run: func(cmd *cobra.Command, args []string) {
+			CrackJobsCmd(cmd, con, args)
+		},
+	}
+	flags.Bind("", true, crackJobsCmd, func(f *pflag.FlagSet) {
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+	})
+	crackCmd.AddCommand(crackJobsCmd)
+
+	crackJobCmd := &cobra.Command{
+		Use:   "job <id>",
+		Short: "Show a hash cracking job",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			CrackJobCmd(cmd, con, args)
+		},
+	}
+	flags.Bind("", true, crackJobCmd, func(f *pflag.FlagSet) {
+		f.Int64P("timeout", "t", flags.DefaultTimeout, "grpc timeout in seconds")
+		f.BoolP("watch", "w", false, "watch until the job reaches a terminal state")
+		f.Duration("poll-interval", time.Second, "job status polling interval")
+	})
+	crackCmd.AddCommand(crackJobCmd)
 
 	wordlistsCmd := &cobra.Command{
 		Use:   consts.WordlistsStr,
