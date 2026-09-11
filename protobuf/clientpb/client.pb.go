@@ -287,126 +287,134 @@ const (
 	HashType_MD5 HashType = 0   // MD5 - zero must come first in an enum
 	HashType_MD4 HashType = 900 // MD4
 	// MD5
-	HashType_SHA1                         HashType = 100   // SHA1
-	HashType_SHA2_224                     HashType = 1300  // SHA2-224
-	HashType_SHA2_256                     HashType = 1400  // SHA2-256
-	HashType_SHA2_384                     HashType = 10800 // SHA2-384
-	HashType_SHA2_512                     HashType = 1700  // SHA2-512
-	HashType_SHA3_224                     HashType = 17300 // SHA3-224
-	HashType_SHA3_256                     HashType = 17400 // SHA3-256
-	HashType_SHA3_384                     HashType = 17500 // SHA3-384
-	HashType_SHA3_512                     HashType = 17600 // SHA3-512
-	HashType_RIPEMD_160                   HashType = 6000  // RIPEMD-160
-	HashType_BLAKE2B_256                  HashType = 600   // BLAKE2b-512
-	HashType_GOST_R_32_11_2012_256        HashType = 11700 // GOST R 34.11-2012 (Streebog) 256-bit, big-endian
-	HashType_GOST_R_32_11_2012_512        HashType = 11800 // GOST R 34.11-2012 (Streebog) 512-bit, big-endian
-	HashType_GOST_R_34_11_94              HashType = 6900  // GOST R 34.11-94
-	HashType_GPG                          HashType = 17010 // GPG (AES-128/AES-256 (SHA-1($pass)))
-	HashType_HALF_MD5                     HashType = 5100  // Half MD5
-	HashType_KECCAK_224                   HashType = 17700 // Keccak-224
-	HashType_KECCAK_256                   HashType = 17800 // Keccak-256
-	HashType_KECCAK_384                   HashType = 17900 // Keccak-384
-	HashType_KECCAK_512                   HashType = 18000 // Keccak-512
-	HashType_WHIRLPOOL                    HashType = 6100  // Whirlpool
-	HashType_SIPHASH                      HashType = 10100 // SipHash
-	HashType_MD5_UTF16LE                  HashType = 70    // md5(utf16le($pass))
-	HashType_SHA1_UTF16LE                 HashType = 170   // sha1(utf16le($pass))
-	HashType_SHA256_UTF16LE               HashType = 1470  // sha256(utf16le($pass))
-	HashType_SHA384_UTF16LE               HashType = 10870 // sha384(utf16le($pass))
-	HashType_SHA512_UTF16LE               HashType = 1770  // sha512(utf16le($pass))
-	HashType_BLAKE2B_512_PW_SALT          HashType = 610   // BLAKE2b-512($pass.$salt)
-	HashType_BLAKE2B_512_SALT_PW          HashType = 620   // BLAKE2b-512($salt.$pass)
-	HashType_MD5_PW_SALT                  HashType = 10    // md5($pass.$salt)
-	HashType_MD5_SALT_PW                  HashType = 20    // md5($salt.$pass)
-	HashType_MD5_SALT_PW_SALT             HashType = 3800  // md5($salt.$pass.$salt)
-	HashType_MD5_SALT_MD5_PW              HashType = 3710  // md5($salt.md5($pass))
-	HashType_CRC32                        HashType = 11500 // CRC32
-	HashType_CRC32C                       HashType = 27900 // CRC32B
-	HashType_CRC64Jones                   HashType = 28000 // CRC64-Jones
-	HashType_JAVA_OBJECT                  HashType = 18700
-	HashType_MURMUR                       HashType = 25700 // MurmurHash
-	HashType_MURMUR3                      HashType = 27800 // MurmurHash3
-	HashType_THREE_DES                    HashType = 14100 // 3DES (PT = $salt, key = $pass)
-	HashType_DES                          HashType = 14000 // DES (PT = $salt, key = $pass)
-	HashType_AES_128_ECB                  HashType = 26401 // AES-128-ECB NOKDF (PT = $salt, key = $pass)
-	HashType_AES_192_ECB                  HashType = 26402 //  AES-192-ECB NOKDF (PT = $salt, key = $pass)
-	HashType_AES_256_ECB                  HashType = 26403 // AES-256-ECB NOKDF (PT = $salt, key = $pass)
-	HashType_CHA_CHA_20                   HashType = 15400 // ChaCha20
-	HashType_LINUX_KERNEL_CRYPTO_API_24   HashType = 14500 // Linux Kernel Crypto API (2.4)
-	HashType_SKIP_32                      HashType = 14900 // Skip32 (PT = $salt, key = $pass)
-	HashType_PBKDF2_HMAC_MD5              HashType = 11900 // PBKDF2-HMAC-MD5
-	HashType_PBKDF2_HMAC_SHA1             HashType = 12000 // PBKDF2-HMAC-SHA1
-	HashType_PBKDF2_HMAC_SHA256           HashType = 10900 // PBKDF2-HMAC-SHA256
-	HashType_PBKDF2_HMAC_SHA512           HashType = 12100 // PBKDF2-HMAC-SHA512
-	HashType_SCRYPT                       HashType = 8900  // scrypt
-	HashType_PHPASS                       HashType = 400   // phpass
-	HashType_TACACS_PLUS                  HashType = 16100 // TACACS+
-	HashType_SIP_DIGEST                   HashType = 11400 // SIP digest authentication (MD5)
-	HashType_IKE_MD5                      HashType = 5300  // IKE-PSK MD5
-	HashType_IKE_SHA1                     HashType = 5400  // IKE-PSK SHA1
-	HashType_SNMP_V3_HMAC_MD5_96          HashType = 25100 // SNMPv3 HMAC-MD5-96
-	HashType_SNMP_V3_HMAC_MD5_96__SHA1_96 HashType = 25000 // SNMPv3 HMAC-MD5-96 / HMAC-SHA1-96
-	HashType_SNMP_V3_HMAC_SHA1_96         HashType = 25200 // SNMPv3 HMAC-SHA1-96
-	HashType_SNMP_V3_HMAC_SHA224_128      HashType = 26700 // SNMPv3 HMAC-SHA224-128
-	HashType_SNMP_V3_HMAC_SHA256_192      HashType = 26800 // SNMPv3 HMAC-SHA256-192
-	HashType_SNMP_V3_HMAC_SHA384_256      HashType = 26900 // SNMPv3 HMAC-SHA384-256
-	HashType_SNMP_V3_HMAC_SHA512_384      HashType = 27300 // SNMPv3 HMAC-SHA512-384
-	HashType_WPA_EAPOL_PBKDF2             HashType = 2500  // WPA-EAPOL-PBKDF2
-	HashType_WPA_EAPOL_PMK                HashType = 2501  // WPA-EAPOL-PMK
-	HashType_WPA_PBKDF2_PMKID_EAPOL       HashType = 22000 // WPA-PBKDF2-PMKID+EAPOL
-	HashType_WPA_PMK_PMKID_EAPOL          HashType = 22001 // WPA-PMK-PMKID+EAPOL
-	HashType_WPA_PMKID_PBKDF2             HashType = 16800 // WPA-PMKID-PBKDF2
-	HashType_WPA_PMKID_PMK                HashType = 16801 // WPA-PMKID-PMK
-	HashType_IPMI2_PAKP_HMAC_SHA1         HashType = 7300  // IPMI2 RAKP HMAC-SHA1
-	HashType_CRAM_MD5                     HashType = 10200 // CRAM-MD5
-	HashType_JWT                          HashType = 16500 // JWT (JSON Web Token)
-	HashType_RADMIN_3                     HashType = 29200 // Radmin3
-	HashType_KERBEROS_17_TGS_REP          HashType = 19600 // Kerberos 5, etype 17, TGS-REP
-	HashType_KERBEROS_17_PREAUTH          HashType = 19800 // Kerberos 5, etype 17, Pre-Auth
-	HashType_KERBEROS_17_DB               HashType = 28800 // Kerberos 5, etype 17, DB
-	HashType_KERBEROS_18_TGS_REP          HashType = 19700 // Kerberos 5, etype 18, TGS-REP
-	HashType_KERBEROS_18_PREAUTH          HashType = 19900 // Kerberos 5, etype 18, Pre-Auth
-	HashType_KERBEROS_18_DB               HashType = 28900 // Kerberos 5, etype 18, DB
-	HashType_KERBEROS_23_SA_REQ_PREAUTH   HashType = 7500  // Kerberos 5, etype 23, AS-REQ Pre-Auth
-	HashType_KERBEROS_23_TGS_REP          HashType = 13100 // Kerberos 5, etype 23, TGS-REP
-	HashType_KERBEROS_23_AS_REP           HashType = 18200 // Kerberos 5, etype 23, AS-REP
-	HashType_NET_NTLM_V1                  HashType = 5500  // NetNTLMv1 / NetNTLMv1+ESS
-	HashType_NET_NTLM_V1_NT               HashType = 27000 // NetNTLMv1 / NetNTLMv1+ESS (NT)
-	HashType_NET_NTLM_V2                  HashType = 5600  // NetNTLMv2
-	HashType_NET_NTLM_V2_NT               HashType = 27100 // NetNTLMv2 (NT)
-	HashType_FLASK                        HashType = 29100 // Flask Session Cookie ($salt.$salt.$pass)
-	HashType_ISCSI_CHAP                   HashType = 4800  // iSCSI CHAP authentication, MD5(CHAP)
-	HashType_RACF                         HashType = 8500
-	HashType_AIX_SMD5                     HashType = 6300
-	HashType_AIX_SSHA1                    HashType = 6700
-	HashType_AIX_SSHA256                  HashType = 6400
-	HashType_AIX_SSHA512                  HashType = 6500
-	HashType_LM                           HashType = 3000  // LM
-	HashType_QNX_MD5                      HashType = 19000 // QNX /etc/shadow (MD5)
-	HashType_QNX_SHA256                   HashType = 19100 // QNX /etc/shadow (SHA256)
-	HashType_QNX_SHA512                   HashType = 19200 // QNX /etc/shadow (SHA512)
-	HashType_DPAPI_V1_CTX_1_AND_2         HashType = 15300 // DPAPI masterkey file v1 (context 1 and 2)
-	HashType_DPAPI_V1_CTX_3               HashType = 15310 // DPAPI masterkey file v1 (context 3)
-	HashType_DPAPI_V2_CTX_1_AND_2         HashType = 15900 // DPAPI masterkey file v2 (context 1)
-	HashType_DPAPI_V2_CTX_3               HashType = 15910 // DPAPI masterkey file v2 (context 3)
-	HashType_GRUB_2                       HashType = 7200  // GRUB 2
-	HashType_MS_AZURE_SYNC                HashType = 12800 // MS-AzureSync PBKDF2-HMAC-SHA256
-	HashType_BSDI_CRYPT                   HashType = 12400 // BSDi Crypt, Extended DES
-	HashType_NTLM                         HashType = 1000  // NTLM
-	HashType_RADMIN2                      HashType = 9900  // Radmin2
-	HashType_SAMSUNG_ANDROID              HashType = 5800  // Samsung Android Password/PIN
-	HashType_WINDOWS_HELLO_PIN            HashType = 28100 // Windows Hello PIN/Password
-	HashType_WINDOWS_PHONE                HashType = 13800 // Windows Phone 8+ PIN/Password
-	HashType_CISCO_ASA_MD5                HashType = 2410  // Cisco-ASA MD5
-	HashType_CISCO_IOS_PBKDF2_SHA256      HashType = 9200  // Cisco-IOS $8$ (PBKDF2-SHA256)
-	HashType_CISCO_IOS_SCRYPT             HashType = 9300  // Cisco-IOS $9$ (scrypt)
-	HashType_CISCO_PIX_MD5                HashType = 2400  // Cisco-Pix MD5
-	HashType_CITRIX_NETSCALER_SHA1        HashType = 8100  // Citrix NetScaler (SHA1)
-	HashType_CITRIX_NETSCALER_SHA512      HashType = 22200 // Citrix NetScaler (SHA512)
-	HashType_DCC                          HashType = 1100  // Domain Cached Credentials (DCC), MS Cache
-	HashType_DCC2                         HashType = 2100  // Domain Cached Credentials 2 (DCC2), MS Cache 2
-	HashType_MACOS_10_8                   HashType = 7100  // macOS v10.8+ (PBKDF2-SHA512)
-	HashType_INVALID                      HashType = 9999  // Invalid hash type
+	HashType_SHA1                                                 HashType = 100   // SHA1
+	HashType_SHA2_224                                             HashType = 1300  // SHA2-224
+	HashType_SHA2_256                                             HashType = 1400  // SHA2-256
+	HashType_SHA2_384                                             HashType = 10800 // SHA2-384
+	HashType_SHA2_512                                             HashType = 1700  // SHA2-512
+	HashType_SHA3_224                                             HashType = 17300 // SHA3-224
+	HashType_SHA3_256                                             HashType = 17400 // SHA3-256
+	HashType_SHA3_384                                             HashType = 17500 // SHA3-384
+	HashType_SHA3_512                                             HashType = 17600 // SHA3-512
+	HashType_RIPEMD_160                                           HashType = 6000  // RIPEMD-160
+	HashType_BLAKE2B_256                                          HashType = 600   // BLAKE2b-512
+	HashType_GOST_R_32_11_2012_256                                HashType = 11700 // GOST R 34.11-2012 (Streebog) 256-bit, big-endian
+	HashType_GOST_R_32_11_2012_512                                HashType = 11800 // GOST R 34.11-2012 (Streebog) 512-bit, big-endian
+	HashType_GOST_R_34_11_94                                      HashType = 6900  // GOST R 34.11-94
+	HashType_GPG                                                  HashType = 17010 // GPG (AES-128/AES-256 (SHA-1($pass)))
+	HashType_HALF_MD5                                             HashType = 5100  // Half MD5
+	HashType_KECCAK_224                                           HashType = 17700 // Keccak-224
+	HashType_KECCAK_256                                           HashType = 17800 // Keccak-256
+	HashType_KECCAK_384                                           HashType = 17900 // Keccak-384
+	HashType_KECCAK_512                                           HashType = 18000 // Keccak-512
+	HashType_WHIRLPOOL                                            HashType = 6100  // Whirlpool
+	HashType_SIPHASH                                              HashType = 10100 // SipHash
+	HashType_MD5_UTF16LE                                          HashType = 70    // md5(utf16le($pass))
+	HashType_SHA1_UTF16LE                                         HashType = 170   // sha1(utf16le($pass))
+	HashType_SHA256_UTF16LE                                       HashType = 1470  // sha256(utf16le($pass))
+	HashType_SHA384_UTF16LE                                       HashType = 10870 // sha384(utf16le($pass))
+	HashType_SHA512_UTF16LE                                       HashType = 1770  // sha512(utf16le($pass))
+	HashType_BLAKE2B_512_PW_SALT                                  HashType = 610   // BLAKE2b-512($pass.$salt)
+	HashType_BLAKE2B_512_SALT_PW                                  HashType = 620   // BLAKE2b-512($salt.$pass)
+	HashType_MD5_PW_SALT                                          HashType = 10    // md5($pass.$salt)
+	HashType_MD5_SALT_PW                                          HashType = 20    // md5($salt.$pass)
+	HashType_MD5_SALT_PW_SALT                                     HashType = 3800  // md5($salt.$pass.$salt)
+	HashType_MD5_SALT_MD5_PW                                      HashType = 3710  // md5($salt.md5($pass))
+	HashType_CRC32                                                HashType = 11500 // CRC32
+	HashType_CRC32C                                               HashType = 27900 // CRC32B
+	HashType_CRC64Jones                                           HashType = 28000 // CRC64-Jones
+	HashType_JAVA_OBJECT                                          HashType = 18700
+	HashType_MURMUR                                               HashType = 25700 // MurmurHash
+	HashType_MURMUR3                                              HashType = 27800 // MurmurHash3
+	HashType_THREE_DES                                            HashType = 14100 // 3DES (PT = $salt, key = $pass)
+	HashType_DES                                                  HashType = 14000 // DES (PT = $salt, key = $pass)
+	HashType_AES_128_ECB                                          HashType = 26401 // AES-128-ECB NOKDF (PT = $salt, key = $pass)
+	HashType_AES_192_ECB                                          HashType = 26402 //  AES-192-ECB NOKDF (PT = $salt, key = $pass)
+	HashType_AES_256_ECB                                          HashType = 26403 // AES-256-ECB NOKDF (PT = $salt, key = $pass)
+	HashType_CHA_CHA_20                                           HashType = 15400 // ChaCha20
+	HashType_LINUX_KERNEL_CRYPTO_API_24                           HashType = 14500 // Linux Kernel Crypto API (2.4)
+	HashType_SKIP_32                                              HashType = 14900 // Skip32 (PT = $salt, key = $pass)
+	HashType_PBKDF2_HMAC_MD5                                      HashType = 11900 // PBKDF2-HMAC-MD5
+	HashType_PBKDF2_HMAC_SHA1                                     HashType = 12000 // PBKDF2-HMAC-SHA1
+	HashType_PBKDF2_HMAC_SHA256                                   HashType = 10900 // PBKDF2-HMAC-SHA256
+	HashType_PBKDF2_HMAC_SHA512                                   HashType = 12100 // PBKDF2-HMAC-SHA512
+	HashType_SCRYPT                                               HashType = 8900  // scrypt
+	HashType_PHPASS                                               HashType = 400   // phpass
+	HashType_TACACS_PLUS                                          HashType = 16100 // TACACS+
+	HashType_SIP_DIGEST                                           HashType = 11400 // SIP digest authentication (MD5)
+	HashType_IKE_MD5                                              HashType = 5300  // IKE-PSK MD5
+	HashType_IKE_SHA1                                             HashType = 5400  // IKE-PSK SHA1
+	HashType_SNMP_V3_HMAC_MD5_96                                  HashType = 25100 // SNMPv3 HMAC-MD5-96
+	HashType_SNMP_V3_HMAC_MD5_96__SHA1_96                         HashType = 25000 // SNMPv3 HMAC-MD5-96 / HMAC-SHA1-96
+	HashType_SNMP_V3_HMAC_SHA1_96                                 HashType = 25200 // SNMPv3 HMAC-SHA1-96
+	HashType_SNMP_V3_HMAC_SHA224_128                              HashType = 26700 // SNMPv3 HMAC-SHA224-128
+	HashType_SNMP_V3_HMAC_SHA256_192                              HashType = 26800 // SNMPv3 HMAC-SHA256-192
+	HashType_SNMP_V3_HMAC_SHA384_256                              HashType = 26900 // SNMPv3 HMAC-SHA384-256
+	HashType_SNMP_V3_HMAC_SHA512_384                              HashType = 27300 // SNMPv3 HMAC-SHA512-384
+	HashType_WPA_EAPOL_PBKDF2                                     HashType = 2500  // WPA-EAPOL-PBKDF2
+	HashType_WPA_EAPOL_PMK                                        HashType = 2501  // WPA-EAPOL-PMK
+	HashType_WPA_PBKDF2_PMKID_EAPOL                               HashType = 22000 // WPA-PBKDF2-PMKID+EAPOL
+	HashType_WPA_PMK_PMKID_EAPOL                                  HashType = 22001 // WPA-PMK-PMKID+EAPOL
+	HashType_WPA_PMKID_PBKDF2                                     HashType = 16800 // WPA-PMKID-PBKDF2
+	HashType_WPA_PMKID_PMK                                        HashType = 16801 // WPA-PMKID-PMK
+	HashType_IPMI2_PAKP_HMAC_SHA1                                 HashType = 7300  // IPMI2 RAKP HMAC-SHA1
+	HashType_CRAM_MD5                                             HashType = 10200 // CRAM-MD5
+	HashType_JWT                                                  HashType = 16500 // JWT (JSON Web Token)
+	HashType_RADMIN_3                                             HashType = 29200 // Radmin3
+	HashType_KERBEROS_17_TGS_REP                                  HashType = 19600 // Kerberos 5, etype 17, TGS-REP
+	HashType_KERBEROS_17_PREAUTH                                  HashType = 19800 // Kerberos 5, etype 17, Pre-Auth
+	HashType_KERBEROS_17_DB                                       HashType = 28800 // Kerberos 5, etype 17, DB
+	HashType_KERBEROS_18_TGS_REP                                  HashType = 19700 // Kerberos 5, etype 18, TGS-REP
+	HashType_KERBEROS_18_PREAUTH                                  HashType = 19900 // Kerberos 5, etype 18, Pre-Auth
+	HashType_KERBEROS_18_DB                                       HashType = 28900 // Kerberos 5, etype 18, DB
+	HashType_KERBEROS_23_SA_REQ_PREAUTH                           HashType = 7500  // Kerberos 5, etype 23, AS-REQ Pre-Auth
+	HashType_KERBEROS_23_TGS_REP                                  HashType = 13100 // Kerberos 5, etype 23, TGS-REP
+	HashType_KERBEROS_23_AS_REP                                   HashType = 18200 // Kerberos 5, etype 23, AS-REP
+	HashType_NET_NTLM_V1                                          HashType = 5500  // NetNTLMv1 / NetNTLMv1+ESS
+	HashType_NET_NTLM_V1_NT                                       HashType = 27000 // NetNTLMv1 / NetNTLMv1+ESS (NT)
+	HashType_NET_NTLM_V2                                          HashType = 5600  // NetNTLMv2
+	HashType_NET_NTLM_V2_NT                                       HashType = 27100 // NetNTLMv2 (NT)
+	HashType_FLASK                                                HashType = 29100 // Flask Session Cookie ($salt.$salt.$pass)
+	HashType_ISCSI_CHAP                                           HashType = 4800  // iSCSI CHAP authentication, MD5(CHAP)
+	HashType_RACF                                                 HashType = 8500
+	HashType_AIX_SMD5                                             HashType = 6300
+	HashType_AIX_SSHA1                                            HashType = 6700
+	HashType_AIX_SSHA256                                          HashType = 6400
+	HashType_AIX_SSHA512                                          HashType = 6500
+	HashType_LM                                                   HashType = 3000  // LM
+	HashType_QNX_MD5                                              HashType = 19000 // QNX /etc/shadow (MD5)
+	HashType_QNX_SHA256                                           HashType = 19100 // QNX /etc/shadow (SHA256)
+	HashType_QNX_SHA512                                           HashType = 19200 // QNX /etc/shadow (SHA512)
+	HashType_DPAPI_V1_CTX_1_AND_2                                 HashType = 15300 // DPAPI masterkey file v1 (context 1 and 2)
+	HashType_DPAPI_V1_CTX_3                                       HashType = 15310 // DPAPI masterkey file v1 (context 3)
+	HashType_DPAPI_V2_CTX_1_AND_2                                 HashType = 15900 // DPAPI masterkey file v2 (context 1)
+	HashType_DPAPI_V2_CTX_3                                       HashType = 15910 // DPAPI masterkey file v2 (context 3)
+	HashType_GRUB_2                                               HashType = 7200  // GRUB 2
+	HashType_MS_AZURE_SYNC                                        HashType = 12800 // MS-AzureSync PBKDF2-HMAC-SHA256
+	HashType_BSDI_CRYPT                                           HashType = 12400 // BSDi Crypt, Extended DES
+	HashType_NTLM                                                 HashType = 1000  // NTLM
+	HashType_RADMIN2                                              HashType = 9900  // Radmin2
+	HashType_SAMSUNG_ANDROID                                      HashType = 5800  // Samsung Android Password/PIN
+	HashType_WINDOWS_HELLO_PIN                                    HashType = 28100 // Windows Hello PIN/Password
+	HashType_WINDOWS_PHONE                                        HashType = 13800 // Windows Phone 8+ PIN/Password
+	HashType_VERACRYPT_SHA256_XTS_1536_BIT_BOOT_MODE_LEGACY       HashType = 13763 // VeraCrypt SHA256 + XTS 1536 bit + boot-mode (legacy)
+	HashType_VERACRYPT_STREEBOG_512_XTS_512_BIT_LEGACY            HashType = 13771 // VeraCrypt Streebog-512 + XTS 512 bit (legacy)
+	HashType_VERACRYPT_STREEBOG_512_XTS_1024_BIT_LEGACY           HashType = 13772 // VeraCrypt Streebog-512 + XTS 1024 bit (legacy)
+	HashType_VERACRYPT_STREEBOG_512_XTS_1536_BIT_LEGACY           HashType = 13773 // VeraCrypt Streebog-512 + XTS 1536 bit (legacy)
+	HashType_VERACRYPT_STREEBOG_512_XTS_512_BIT_BOOT_MODE_LEGACY  HashType = 13781 // VeraCrypt Streebog-512 + XTS 512 bit + boot-mode (legacy)
+	HashType_VERACRYPT_STREEBOG_512_XTS_1024_BIT_BOOT_MODE_LEGACY HashType = 13782 // VeraCrypt Streebog-512 + XTS 1024 bit + boot-mode (legacy)
+	HashType_VERACRYPT_STREEBOG_512_XTS_1536_BIT_BOOT_MODE_LEGACY HashType = 13783 // VeraCrypt Streebog-512 + XTS 1536 bit + boot-mode (legacy)
+	HashType_OPENCART                                             HashType = 13900 // OpenCart
+	HashType_CISCO_ASA_MD5                                        HashType = 2410  // Cisco-ASA MD5
+	HashType_CISCO_IOS_PBKDF2_SHA256                              HashType = 9200  // Cisco-IOS $8$ (PBKDF2-SHA256)
+	HashType_CISCO_IOS_SCRYPT                                     HashType = 9300  // Cisco-IOS $9$ (scrypt)
+	HashType_CISCO_PIX_MD5                                        HashType = 2400  // Cisco-Pix MD5
+	HashType_CITRIX_NETSCALER_SHA1                                HashType = 8100  // Citrix NetScaler (SHA1)
+	HashType_CITRIX_NETSCALER_SHA512                              HashType = 22200 // Citrix NetScaler (SHA512)
+	HashType_DCC                                                  HashType = 1100  // Domain Cached Credentials (DCC), MS Cache
+	HashType_DCC2                                                 HashType = 2100  // Domain Cached Credentials 2 (DCC2), MS Cache 2
+	HashType_MACOS_10_8                                           HashType = 7100  // macOS v10.8+ (PBKDF2-SHA512)
+	HashType_INVALID                                              HashType = 9999  // Invalid hash type
 	// Out of order
 	HashType_BCRYPT_UNIX       HashType = 3200 // bcrypt
 	HashType_SHA512_CRYPT_UNIX HashType = 1800 // sha512crypt $6$, SHA512 (Unix)
@@ -527,6 +535,14 @@ var (
 		5800:  "SAMSUNG_ANDROID",
 		28100: "WINDOWS_HELLO_PIN",
 		13800: "WINDOWS_PHONE",
+		13763: "VERACRYPT_SHA256_XTS_1536_BIT_BOOT_MODE_LEGACY",
+		13771: "VERACRYPT_STREEBOG_512_XTS_512_BIT_LEGACY",
+		13772: "VERACRYPT_STREEBOG_512_XTS_1024_BIT_LEGACY",
+		13773: "VERACRYPT_STREEBOG_512_XTS_1536_BIT_LEGACY",
+		13781: "VERACRYPT_STREEBOG_512_XTS_512_BIT_BOOT_MODE_LEGACY",
+		13782: "VERACRYPT_STREEBOG_512_XTS_1024_BIT_BOOT_MODE_LEGACY",
+		13783: "VERACRYPT_STREEBOG_512_XTS_1536_BIT_BOOT_MODE_LEGACY",
+		13900: "OPENCART",
 		2410:  "CISCO_ASA_MD5",
 		9200:  "CISCO_IOS_PBKDF2_SHA256",
 		9300:  "CISCO_IOS_SCRYPT",
@@ -653,18 +669,26 @@ var (
 		"SAMSUNG_ANDROID":              5800,
 		"WINDOWS_HELLO_PIN":            28100,
 		"WINDOWS_PHONE":                13800,
-		"CISCO_ASA_MD5":                2410,
-		"CISCO_IOS_PBKDF2_SHA256":      9200,
-		"CISCO_IOS_SCRYPT":             9300,
-		"CISCO_PIX_MD5":                2400,
-		"CITRIX_NETSCALER_SHA1":        8100,
-		"CITRIX_NETSCALER_SHA512":      22200,
-		"DCC":                          1100,
-		"DCC2":                         2100,
-		"MACOS_10_8":                   7100,
-		"INVALID":                      9999,
-		"BCRYPT_UNIX":                  3200,
-		"SHA512_CRYPT_UNIX":            1800,
+		"VERACRYPT_SHA256_XTS_1536_BIT_BOOT_MODE_LEGACY":       13763,
+		"VERACRYPT_STREEBOG_512_XTS_512_BIT_LEGACY":            13771,
+		"VERACRYPT_STREEBOG_512_XTS_1024_BIT_LEGACY":           13772,
+		"VERACRYPT_STREEBOG_512_XTS_1536_BIT_LEGACY":           13773,
+		"VERACRYPT_STREEBOG_512_XTS_512_BIT_BOOT_MODE_LEGACY":  13781,
+		"VERACRYPT_STREEBOG_512_XTS_1024_BIT_BOOT_MODE_LEGACY": 13782,
+		"VERACRYPT_STREEBOG_512_XTS_1536_BIT_BOOT_MODE_LEGACY": 13783,
+		"OPENCART":                13900,
+		"CISCO_ASA_MD5":           2410,
+		"CISCO_IOS_PBKDF2_SHA256": 9200,
+		"CISCO_IOS_SCRYPT":        9300,
+		"CISCO_PIX_MD5":           2400,
+		"CITRIX_NETSCALER_SHA1":   8100,
+		"CITRIX_NETSCALER_SHA512": 22200,
+		"DCC":                     1100,
+		"DCC2":                    2100,
+		"MACOS_10_8":              7100,
+		"INVALID":                 9999,
+		"BCRYPT_UNIX":             3200,
+		"SHA512_CRYPT_UNIX":       1800,
 	}
 )
 
@@ -15961,7 +15985,7 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\x11HTTPC2SegmentType\x12\b\n" +
 	"\x04POLL\x10\x00\x12\v\n" +
 	"\aSESSION\x10\x01\x12\t\n" +
-	"\x05CLOSE\x10\x02*\x98\x13\n" +
+	"\x05CLOSE\x10\x02*\x9e\x16\n" +
 	"\bHashType\x12\a\n" +
 	"\x03MD5\x10\x00\x12\b\n" +
 	"\x03MD4\x10\x84\a\x12\b\n" +
@@ -16090,7 +16114,15 @@ const file_clientpb_client_proto_rawDesc = "" +
 	"\aRADMIN2\x10\xacM\x12\x14\n" +
 	"\x0fSAMSUNG_ANDROID\x10\xa8-\x12\x17\n" +
 	"\x11WINDOWS_HELLO_PIN\x10\xc4\xdb\x01\x12\x12\n" +
-	"\rWINDOWS_PHONE\x10\xe8k\x12\x12\n" +
+	"\rWINDOWS_PHONE\x10\xe8k\x123\n" +
+	".VERACRYPT_SHA256_XTS_1536_BIT_BOOT_MODE_LEGACY\x10\xc3k\x12.\n" +
+	")VERACRYPT_STREEBOG_512_XTS_512_BIT_LEGACY\x10\xcbk\x12/\n" +
+	"*VERACRYPT_STREEBOG_512_XTS_1024_BIT_LEGACY\x10\xcck\x12/\n" +
+	"*VERACRYPT_STREEBOG_512_XTS_1536_BIT_LEGACY\x10\xcdk\x128\n" +
+	"3VERACRYPT_STREEBOG_512_XTS_512_BIT_BOOT_MODE_LEGACY\x10\xd5k\x129\n" +
+	"4VERACRYPT_STREEBOG_512_XTS_1024_BIT_BOOT_MODE_LEGACY\x10\xd6k\x129\n" +
+	"4VERACRYPT_STREEBOG_512_XTS_1536_BIT_BOOT_MODE_LEGACY\x10\xd7k\x12\r\n" +
+	"\bOPENCART\x10\xccl\x12\x12\n" +
 	"\rCISCO_ASA_MD5\x10\xea\x12\x12\x1c\n" +
 	"\x17CISCO_IOS_PBKDF2_SHA256\x10\xf0G\x12\x15\n" +
 	"\x10CISCO_IOS_SCRYPT\x10\xd4H\x12\x12\n" +

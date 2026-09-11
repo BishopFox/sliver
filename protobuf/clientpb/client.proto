@@ -1073,6 +1073,21 @@ enum HashType {
   SAMSUNG_ANDROID = 5800;          // Samsung Android Password/PIN
   WINDOWS_HELLO_PIN = 28100;       // Windows Hello PIN/Password
   WINDOWS_PHONE = 13800;           // Windows Phone 8+ PIN/Password
+  VERACRYPT_SHA256_XTS_1536_BIT_BOOT_MODE_LEGACY =
+      13763; // VeraCrypt SHA256 + XTS 1536 bit + boot-mode (legacy)
+  VERACRYPT_STREEBOG_512_XTS_512_BIT_LEGACY =
+      13771; // VeraCrypt Streebog-512 + XTS 512 bit (legacy)
+  VERACRYPT_STREEBOG_512_XTS_1024_BIT_LEGACY =
+      13772; // VeraCrypt Streebog-512 + XTS 1024 bit (legacy)
+  VERACRYPT_STREEBOG_512_XTS_1536_BIT_LEGACY =
+      13773; // VeraCrypt Streebog-512 + XTS 1536 bit (legacy)
+  VERACRYPT_STREEBOG_512_XTS_512_BIT_BOOT_MODE_LEGACY =
+      13781; // VeraCrypt Streebog-512 + XTS 512 bit + boot-mode (legacy)
+  VERACRYPT_STREEBOG_512_XTS_1024_BIT_BOOT_MODE_LEGACY =
+      13782; // VeraCrypt Streebog-512 + XTS 1024 bit + boot-mode (legacy)
+  VERACRYPT_STREEBOG_512_XTS_1536_BIT_BOOT_MODE_LEGACY =
+      13783; // VeraCrypt Streebog-512 + XTS 1536 bit + boot-mode (legacy)
+  OPENCART = 13900;                 // OpenCart
   CISCO_ASA_MD5 = 2410;            // Cisco-ASA MD5
   CISCO_IOS_PBKDF2_SHA256 = 9200;  // Cisco-IOS $8$ (PBKDF2-SHA256)
   CISCO_IOS_SCRYPT = 9300;         // Cisco-IOS $9$ (scrypt)
