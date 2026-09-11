@@ -3,12 +3,92 @@ package crack
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bishopfox/sliver/client/console"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/rsteube/carapace"
+	"github.com/spf13/cobra"
 )
+
+type crackJobCompletionEntry struct {
+	id          string
+	description string
+}
+
+// CrackJobIDCompleter completes durable crack job IDs.
+func CrackJobIDCompleter(con *console.SliverClient) carapace.Action {
+	return carapace.ActionCallback(func(_ carapace.Context) carapace.Action {
+		entries, err := crackJobCompletionEntries(con)
+		if err != nil {
+			return carapace.ActionMessage("failed to fetch crack jobs: %s", err.Error())
+		}
+
+		values := make([]string, 0, len(entries)*2)
+		for _, entry := range entries {
+			values = append(values, entry.id, entry.description)
+		}
+		return carapace.ActionValuesDescribed(values...).Tag("crack jobs")
+	})
+}
+
+func registerCrackJobIDCompletion(cmd *cobra.Command, con *console.SliverClient) {
+	if cmd == nil || cmd.ValidArgsFunction != nil {
+		return
+	}
+
+	cmd.ValidArgsFunction = func(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(args) > 0 {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+
+		entries, err := crackJobCompletionEntries(con)
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+		values := make([]string, 0, len(entries))
+		for _, entry := range entries {
+			if strings.HasPrefix(entry.id, toComplete) {
+				values = append(values, fmt.Sprintf("%s\t%s", entry.id, entry.description))
+			}
+		}
+		return values, cobra.ShellCompDirectiveNoFileComp
+	}
+}
+
+func crackJobCompletionEntries(con *console.SliverClient) ([]crackJobCompletionEntry, error) {
+	if con == nil || con.Rpc == nil {
+		return nil, nil
+	}
+	jobs, err := con.Rpc.CrackJobs(context.Background(), &commonpb.Empty{})
+	if err != nil {
+		return nil, err
+	}
+	if jobs == nil {
+		return nil, nil
+	}
+
+	entries := make([]crackJobCompletionEntry, 0, len(jobs.GetJobs()))
+	for _, job := range jobs.GetJobs() {
+		if job == nil || strings.TrimSpace(job.GetID()) == "" {
+			continue
+		}
+		entries = append(entries, crackJobCompletionEntry{
+			id: job.GetID(),
+			description: fmt.Sprintf(
+				"%s, created %s, keyspace %s, %d task(s), %d result(s)",
+				safeCrackCell(job.GetStatus().String()),
+				formatCrackTime(job.GetCreatedAt()),
+				valueOrDash(job.GetKeyspace()),
+				len(job.GetTasks()),
+				job.GetResultCount(),
+			),
+		})
+	}
+	return entries, nil
+}
 
 func CrackHcstat2Completer(con *console.SliverClient) carapace.Action {
 	return carapace.ActionCallback(func(c carapace.Context) carapace.Action {

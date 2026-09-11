@@ -36,6 +36,7 @@ import (
 
 	"github.com/bishopfox/sliver/client/command/settings"
 	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
 	"github.com/bishopfox/sliver/protobuf/commonpb"
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -45,6 +46,8 @@ import (
 )
 
 type crackJobFetcher func(context.Context, string) (*clientpb.CrackJob, error)
+
+var errNoCrackJobs = errors.New("no crack jobs")
 
 // CrackJobsCmd lists all durable cracking jobs known to the server.
 func CrackJobsCmd(cmd *cobra.Command, con *console.SliverClient, _ []string) {
@@ -65,14 +68,25 @@ func CrackJobsCmd(cmd *cobra.Command, con *console.SliverClient, _ []string) {
 
 // CrackJobCmd displays one cracking job, optionally polling until completion.
 func CrackJobCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
-	jobID := strings.TrimSpace(args[0])
-	if jobID == "" {
-		con.PrintErrorf("job ID cannot be empty\n")
-		return
-	}
 	pollInterval, _ := cmd.Flags().GetDuration("poll-interval")
 	if pollInterval <= 0 {
 		con.PrintErrorf("--poll-interval must be greater than zero\n")
+		return
+	}
+	jobID, err := resolveCrackJobID(args, func() (*clientpb.CrackJobs, error) {
+		ctx, cancel := crackCommandContext(cmd.Context(), cmd)
+		defer cancel()
+		return con.Rpc.CrackJobs(ctx, &commonpb.Empty{})
+	}, forms.CrackJobSelectForm)
+	if errors.Is(err, errNoCrackJobs) {
+		con.PrintInfof("No crack jobs\n")
+		return
+	}
+	if errors.Is(err, forms.ErrUserAborted) {
+		return
+	}
+	if err != nil {
+		con.PrintErrorf("%s\n", err)
 		return
 	}
 	timeoutSeconds, _ := cmd.Flags().GetInt64("timeout")
@@ -98,7 +112,7 @@ func CrackJobCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	}
 
 	first := true
-	err := watchCrackJob(cmd.Context(), jobID, pollInterval, fetch, func(job *clientpb.CrackJob) {
+	err = watchCrackJob(cmd.Context(), jobID, pollInterval, fetch, func(job *clientpb.CrackJob) {
 		if !first {
 			con.Println()
 		}
@@ -108,6 +122,55 @@ func CrackJobCmd(cmd *cobra.Command, con *console.SliverClient, args []string) {
 	if err != nil && !errors.Is(err, context.Canceled) {
 		con.PrintErrorf("%s\n", err)
 	}
+}
+
+func resolveCrackJobID(
+	args []string,
+	listJobs func() (*clientpb.CrackJobs, error),
+	selectJob func([]*clientpb.CrackJob) (string, error),
+) (string, error) {
+	if len(args) > 1 {
+		return "", errors.New("only one crack job ID may be specified")
+	}
+	if len(args) == 1 {
+		jobID := strings.TrimSpace(args[0])
+		if jobID == "" {
+			return "", errors.New("job ID cannot be empty")
+		}
+		return jobID, nil
+	}
+	if listJobs == nil {
+		return "", errors.New("crack job lister is nil")
+	}
+
+	jobs, err := listJobs()
+	if err != nil {
+		return "", err
+	}
+	if jobs == nil || !hasSelectableCrackJob(jobs.GetJobs()) {
+		return "", errNoCrackJobs
+	}
+	if selectJob == nil {
+		return "", errors.New("crack job selector is nil")
+	}
+	jobID, err := selectJob(jobs.GetJobs())
+	if err != nil {
+		return "", err
+	}
+	jobID = strings.TrimSpace(jobID)
+	if jobID == "" {
+		return "", errors.New("no crack job selected")
+	}
+	return jobID, nil
+}
+
+func hasSelectableCrackJob(jobs []*clientpb.CrackJob) bool {
+	for _, job := range jobs {
+		if job != nil && strings.TrimSpace(job.GetID()) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func crackCommandContext(parent context.Context, cmd *cobra.Command) (context.Context, context.CancelFunc) {
@@ -172,6 +235,33 @@ func crackJobTerminal(job *clientpb.CrackJob) bool {
 	return strings.HasSuffix(status, "COMPLETED") || strings.HasSuffix(status, "FAILED") || strings.HasSuffix(status, "CANCELLED")
 }
 
+func crackJobStatusStyle(status string) console.TextStyle {
+	status = strings.ToUpper(strings.TrimSpace(status))
+	switch {
+	case strings.HasSuffix(status, "COMPLETED"):
+		return console.StyleBoldSuccess
+	case strings.HasSuffix(status, "FAILED"):
+		return console.StyleBoldDanger
+	case strings.HasSuffix(status, "CANCELLED"), strings.HasSuffix(status, "CANCELED"):
+		return console.StyleBoldGray
+	case status == "IN_PROGRESS", strings.HasSuffix(status, "RUNNING"), strings.HasSuffix(status, "LEASED"):
+		return console.StyleBoldWarning
+	case strings.HasSuffix(status, "QUEUED"), strings.HasSuffix(status, "PENDING"):
+		return console.StyleBold
+	default:
+		return console.StyleBold
+	}
+}
+
+func renderCrackJobStatus(status string) string {
+	status = safeCrackCell(status)
+	return crackJobStatusStyle(status).Render(status)
+}
+
+func renderCrackJobTitle(title string) string {
+	return console.StyleBoldPrimary.Render(title)
+}
+
 func renderCrackJobs(jobs []*clientpb.CrackJob, style table.Style) string {
 	ordered := append([]*clientpb.CrackJob(nil), jobs...)
 	sort.SliceStable(ordered, func(i, j int) bool {
@@ -186,8 +276,8 @@ func renderCrackJobs(jobs []*clientpb.CrackJob, style table.Style) string {
 			continue
 		}
 		tw.AppendRow(table.Row{
-			safeCrackCell(job.ID),
-			safeCrackCell(job.Status.String()),
+			console.StyleBoldPrimary.Render(safeCrackCell(job.ID)),
+			renderCrackJobStatus(job.Status.String()),
 			formatCrackTime(job.CreatedAt),
 			formatCrackTime(protoFieldText(job.ProtoReflect(), "UpdatedAt")),
 			valueOrDash(protoFieldText(job.ProtoReflect(), "Keyspace")),
@@ -206,14 +296,14 @@ func renderCrackJob(job *clientpb.CrackJob, style table.Style) string {
 	sections := make([]string, 0, 4)
 	summary := table.NewWriter()
 	summary.SetStyle(style)
-	summary.SetTitle("Crack Job")
-	summary.AppendRow(table.Row{"ID", safeCrackCell(job.ID)})
-	summary.AppendRow(table.Row{"Status", safeCrackCell(job.Status.String())})
-	summary.AppendRow(table.Row{"Created", formatCrackTime(job.CreatedAt)})
-	summary.AppendRow(table.Row{"Updated", formatCrackTime(protoFieldText(job.ProtoReflect(), "UpdatedAt"))})
-	summary.AppendRow(table.Row{"Keyspace", valueOrDash(protoFieldText(job.ProtoReflect(), "Keyspace"))})
+	summary.SetTitle(renderCrackJobTitle("Crack Job"))
+	summary.AppendRow(table.Row{console.StyleBold.Render("ID"), console.StyleBoldPrimary.Render(safeCrackCell(job.ID))})
+	summary.AppendRow(table.Row{console.StyleBold.Render("Status"), renderCrackJobStatus(job.Status.String())})
+	summary.AppendRow(table.Row{console.StyleBold.Render("Created"), formatCrackTime(job.CreatedAt)})
+	summary.AppendRow(table.Row{console.StyleBold.Render("Updated"), formatCrackTime(protoFieldText(job.ProtoReflect(), "UpdatedAt"))})
+	summary.AppendRow(table.Row{console.StyleBold.Render("Keyspace"), valueOrDash(protoFieldText(job.ProtoReflect(), "Keyspace"))})
 	if job.Err != "" {
-		summary.AppendRow(table.Row{"Error", safeCrackCell(job.Err)})
+		summary.AppendRow(table.Row{console.StyleBoldDanger.Render("Error"), console.StyleDanger.Render(safeCrackCell(job.Err))})
 	}
 	sections = append(sections, summary.Render())
 
@@ -221,14 +311,14 @@ func renderCrackJob(job *clientpb.CrackJob, style table.Style) string {
 	if len(tasks) > 0 {
 		taskTable := table.NewWriter()
 		taskTable.SetStyle(style)
-		taskTable.SetTitle("Tasks")
+		taskTable.SetTitle(renderCrackJobTitle("Tasks"))
 		taskTable.AppendHeader(table.Row{"ID", "Kind", "State", "Station", "Range", "Progress", "Speed", "Temp", "Updated"})
 		devices := make([]crackDeviceView, 0)
 		for _, task := range tasks {
 			status, statusErr := crackTaskStatus(task)
 			progress, speed, temperature := "-", "-", "-"
 			if statusErr != nil {
-				progress = "invalid status JSON"
+				progress = console.StyleDanger.Render("invalid status JSON")
 			} else if status != nil {
 				progress = status.progressText()
 				speed = status.speedText()
@@ -241,7 +331,7 @@ func renderCrackJob(job *clientpb.CrackJob, style table.Style) string {
 			taskTable.AppendRow(table.Row{
 				safeCrackCell(task.ID),
 				valueOrDash(protoFieldText(task.ProtoReflect(), "Kind")),
-				crackTaskState(task),
+				renderCrackJobStatus(crackTaskState(task)),
 				valueOrDash(task.HostUUID),
 				crackTaskRange(task),
 				progress,
@@ -254,7 +344,7 @@ func renderCrackJob(job *clientpb.CrackJob, style table.Style) string {
 
 		statisticsTable := table.NewWriter()
 		statisticsTable.SetStyle(style)
-		statisticsTable.SetTitle("Hashcat Statistics")
+		statisticsTable.SetTitle(renderCrackJobTitle("Hashcat Statistics"))
 		statisticsTable.AppendHeader(table.Row{
 			"Task", "Session", "Status", "Target", "Guess", "Progress", "Rejected", "Restore",
 			"Recovered Hashes", "Recovered Salts", "Started", "Estimated Stop",
@@ -288,7 +378,7 @@ func renderCrackJob(job *clientpb.CrackJob, style table.Style) string {
 		if len(devices) > 0 {
 			deviceTable := table.NewWriter()
 			deviceTable.SetStyle(style)
-			deviceTable.SetTitle("Devices")
+			deviceTable.SetTitle(renderCrackJobTitle("Devices"))
 			deviceTable.AppendHeader(table.Row{"Task", "ID", "Name", "Type", "Speed", "Temp", "Util", "Fan", "Core", "Memory", "Bus", "Power"})
 			for _, device := range devices {
 				deviceTable.AppendRow(table.Row{
@@ -314,7 +404,7 @@ func renderCrackJob(job *clientpb.CrackJob, style table.Style) string {
 	if len(results) > 0 {
 		resultTable := table.NewWriter()
 		resultTable.SetStyle(style)
-		resultTable.SetTitle("Recovered Credentials")
+		resultTable.SetTitle(console.StyleBoldSuccess.Render("Recovered Credentials"))
 		resultTable.AppendHeader(table.Row{"Credential", "Hash", "Plaintext"})
 		for _, result := range results {
 			resultTable.AppendRow(table.Row{

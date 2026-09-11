@@ -8,7 +8,10 @@ import (
 	"time"
 
 	"github.com/bishopfox/sliver/client/command/settings"
+	"github.com/bishopfox/sliver/client/console"
+	"github.com/bishopfox/sliver/client/forms"
 	"github.com/bishopfox/sliver/protobuf/clientpb"
+	"github.com/charmbracelet/x/ansi"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
@@ -25,11 +28,109 @@ func TestCrackJobCommandsAreRegistered(t *testing.T) {
 	if job.Flags().Lookup("watch") == nil || job.Flags().Lookup("poll-interval") == nil {
 		t.Fatal("crack job is missing watch flags")
 	}
-	if err := job.Args(job, nil); err == nil {
-		t.Fatal("crack job accepted a missing job ID")
+	if job.Use != "job [id]" {
+		t.Fatalf("crack job use = %q, want %q", job.Use, "job [id]")
+	}
+	if job.ValidArgsFunction == nil {
+		t.Fatal("crack job is missing ID completion")
+	}
+	if err := job.Args(job, nil); err != nil {
+		t.Fatalf("crack job rejected interactive selection: %v", err)
 	}
 	if err := job.Args(job, []string{"job-id"}); err != nil {
 		t.Fatalf("crack job rejected one job ID: %v", err)
+	}
+	if err := job.Args(job, []string{"first", "second"}); err == nil {
+		t.Fatal("crack job accepted more than one job ID")
+	}
+}
+
+func TestResolveCrackJobIDUsesExplicitIDWithoutListing(t *testing.T) {
+	listed := false
+	selected := false
+	jobID, err := resolveCrackJobID([]string{"  full-job-id  "}, func() (*clientpb.CrackJobs, error) {
+		listed = true
+		return nil, nil
+	}, func([]*clientpb.CrackJob) (string, error) {
+		selected = true
+		return "", nil
+	})
+	if err != nil {
+		t.Fatalf("resolveCrackJobID: %v", err)
+	}
+	if jobID != "full-job-id" {
+		t.Fatalf("job ID = %q, want full-job-id", jobID)
+	}
+	if listed || selected {
+		t.Fatalf("explicit ID unexpectedly listed=%v selected=%v", listed, selected)
+	}
+}
+
+func TestResolveCrackJobIDSelectsFromListedJobs(t *testing.T) {
+	wantJobs := []*clientpb.CrackJob{{ID: "first"}, {ID: "selected-full-id"}}
+	listCalls := 0
+	selectCalls := 0
+	jobID, err := resolveCrackJobID(nil, func() (*clientpb.CrackJobs, error) {
+		listCalls++
+		return &clientpb.CrackJobs{Jobs: wantJobs}, nil
+	}, func(jobs []*clientpb.CrackJob) (string, error) {
+		selectCalls++
+		if len(jobs) != len(wantJobs) || jobs[1] != wantJobs[1] {
+			t.Fatalf("selector jobs = %#v, want %#v", jobs, wantJobs)
+		}
+		return "selected-full-id", nil
+	})
+	if err != nil {
+		t.Fatalf("resolveCrackJobID: %v", err)
+	}
+	if jobID != "selected-full-id" {
+		t.Fatalf("job ID = %q, want selected-full-id", jobID)
+	}
+	if listCalls != 1 || selectCalls != 1 {
+		t.Fatalf("list calls = %d, select calls = %d; want 1 each", listCalls, selectCalls)
+	}
+}
+
+func TestResolveCrackJobIDHandlesEmptyAndInvalidSelections(t *testing.T) {
+	selectorCalled := false
+	for _, listedJobs := range [][]*clientpb.CrackJob{nil, {nil, {ID: "   "}}} {
+		_, err := resolveCrackJobID(nil, func() (*clientpb.CrackJobs, error) {
+			return &clientpb.CrackJobs{Jobs: listedJobs}, nil
+		}, func([]*clientpb.CrackJob) (string, error) {
+			selectorCalled = true
+			return "unused", nil
+		})
+		if !errors.Is(err, errNoCrackJobs) {
+			t.Fatalf("empty job error = %v, want %v", err, errNoCrackJobs)
+		}
+	}
+	if selectorCalled {
+		t.Fatal("selector called with no jobs")
+	}
+
+	_, err := resolveCrackJobID(nil, func() (*clientpb.CrackJobs, error) {
+		return &clientpb.CrackJobs{Jobs: []*clientpb.CrackJob{{ID: "job-id"}}}, nil
+	}, func([]*clientpb.CrackJob) (string, error) {
+		return "   ", nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "no crack job selected") {
+		t.Fatalf("blank selection error = %v", err)
+	}
+
+	_, err = resolveCrackJobID([]string{"   "}, nil, nil)
+	if err == nil || !strings.Contains(err.Error(), "job ID cannot be empty") {
+		t.Fatalf("blank explicit ID error = %v", err)
+	}
+}
+
+func TestResolveCrackJobIDPropagatesUserAbort(t *testing.T) {
+	_, err := resolveCrackJobID(nil, func() (*clientpb.CrackJobs, error) {
+		return &clientpb.CrackJobs{Jobs: []*clientpb.CrackJob{{ID: "job-id"}}}, nil
+	}, func([]*clientpb.CrackJob) (string, error) {
+		return "", forms.ErrUserAborted
+	})
+	if !errors.Is(err, forms.ErrUserAborted) {
+		t.Fatalf("selection error = %v, want user abort", err)
 	}
 }
 
@@ -126,7 +227,8 @@ func TestRenderCrackJobIncludesTasksProgressDevicesAndResults(t *testing.T) {
 		}},
 	}
 
-	output := renderCrackJob(job, settings.SliverDefault)
+	rawOutput := renderCrackJob(job, settings.SliverDefault)
+	output := ansi.Strip(rawOutput)
 	for _, expected := range []string{
 		"job-id", "1000000", "task-id", "station-id", "100+50", "25/100 (25.0%)",
 		"2.50 MH/s", "61 C", "GPU 0", "credential-id", "hash-one", "plain-one", "hash-two", "plain-two",
@@ -136,6 +238,22 @@ func TestRenderCrackJobIncludesTasksProgressDevicesAndResults(t *testing.T) {
 		if !strings.Contains(output, expected) {
 			t.Errorf("rendered job does not contain %q:\n%s", expected, output)
 		}
+	}
+	for _, styled := range []string{
+		console.StyleBoldPrimary.Render("Crack Job"),
+		console.StyleBoldWarning.Render(clientpb.CrackJobStatus_IN_PROGRESS.String()),
+		console.StyleBoldPrimary.Render("Tasks"),
+		console.StyleBoldWarning.Render(clientpb.CrackTaskState_CRACK_TASK_RUNNING.String()),
+		console.StyleBoldPrimary.Render("Hashcat Statistics"),
+		console.StyleBoldPrimary.Render("Devices"),
+		console.StyleBoldSuccess.Render("Recovered Credentials"),
+	} {
+		if !strings.Contains(rawOutput, styled) {
+			t.Fatalf("rendered job is missing Lip Gloss styling %q:\n%s", styled, rawOutput)
+		}
+	}
+	if strings.Contains(rawOutput, console.StylePrimary.Render("task-id")) {
+		t.Fatalf("rendered task ID should use the default foreground color:\n%s", rawOutput)
 	}
 }
 
@@ -149,10 +267,73 @@ func TestRenderCrackJobsSummarizesExtendedFields(t *testing.T) {
 		Tasks:     []*clientpb.CrackTask{{ID: "task-id"}},
 		Results:   []*clientpb.CrackResult{{Hash: "hash", Plaintext: []byte("plain")}},
 	}
-	output := renderCrackJobs([]*clientpb.CrackJob{job}, settings.SliverDefault)
+	rawOutput := renderCrackJobs([]*clientpb.CrackJob{job}, settings.SliverDefault)
+	output := ansi.Strip(rawOutput)
 	for _, expected := range []string{"job-id", "IN_PROGRESS", "1000", "1"} {
 		if !strings.Contains(output, expected) {
 			t.Errorf("rendered jobs do not contain %q:\n%s", expected, output)
+		}
+	}
+	if !strings.Contains(rawOutput, console.StyleBoldPrimary.Render("job-id")) ||
+		!strings.Contains(rawOutput, console.StyleBoldWarning.Render(clientpb.CrackJobStatus_IN_PROGRESS.String())) {
+		t.Fatalf("rendered jobs are missing Lip Gloss ID or status styling:\n%s", rawOutput)
+	}
+}
+
+func TestCrackJobStatusStyleUsesSemanticPalette(t *testing.T) {
+	tests := []struct {
+		status string
+		want   console.TextStyle
+	}{
+		{status: "IN_PROGRESS", want: console.StyleBoldWarning},
+		{status: "CRACK_TASK_RUNNING", want: console.StyleBoldWarning},
+		{status: "CRACK_TASK_QUEUED", want: console.StyleBold},
+		{status: "CRACK_TASK_LEASED", want: console.StyleBoldWarning},
+		{status: "COMPLETED", want: console.StyleBoldSuccess},
+		{status: "CRACK_TASK_COMPLETED", want: console.StyleBoldSuccess},
+		{status: "CRACK_TASK_FAILED", want: console.StyleBoldDanger},
+		{status: "CANCELLED", want: console.StyleBoldGray},
+		{status: "CANCELED", want: console.StyleBoldGray},
+		{status: "CRACK_TASK_CANCELLED", want: console.StyleBoldGray},
+		{status: "UNKNOWN", want: console.StyleBold},
+	}
+
+	for _, test := range tests {
+		t.Run(test.status, func(t *testing.T) {
+			got := crackJobStatusStyle(test.status)
+			if got.GetBold() != test.want.GetBold() {
+				t.Fatalf("bold = %v, want %v", got.GetBold(), test.want.GetBold())
+			}
+			gotColor := got.GetForeground()
+			wantColor := test.want.GetForeground()
+			if (gotColor == nil) != (wantColor == nil) {
+				t.Fatalf("foreground = %v, want %v", gotColor, wantColor)
+			}
+			if gotColor == nil {
+				return
+			}
+			gotR, gotG, gotB, gotA := gotColor.RGBA()
+			wantR, wantG, wantB, wantA := wantColor.RGBA()
+			if gotR != wantR || gotG != wantG || gotB != wantB || gotA != wantA {
+				t.Fatalf("foreground RGBA = (%d,%d,%d,%d), want (%d,%d,%d,%d)", gotR, gotG, gotB, gotA, wantR, wantG, wantB, wantA)
+			}
+		})
+	}
+}
+
+func TestRenderCrackJobStylesErrors(t *testing.T) {
+	rawOutput := renderCrackJob(&clientpb.CrackJob{
+		ID:     "job-id",
+		Status: clientpb.CrackJobStatus_FAILED,
+		Err:    "worker failed",
+	}, settings.SliverDefault)
+	for _, styled := range []string{
+		console.StyleBoldDanger.Render(clientpb.CrackJobStatus_FAILED.String()),
+		console.StyleBoldDanger.Render("Error"),
+		console.StyleDanger.Render("worker failed"),
+	} {
+		if !strings.Contains(rawOutput, styled) {
+			t.Fatalf("rendered error is missing Lip Gloss styling %q:\n%s", styled, rawOutput)
 		}
 	}
 }

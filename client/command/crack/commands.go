@@ -64,9 +64,9 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 	crackCmd.AddCommand(crackJobsCmd)
 
 	crackJobCmd := &cobra.Command{
-		Use:   "job <id>",
+		Use:   "job [id]",
 		Short: "Show a hash cracking job",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			CrackJobCmd(cmd, con, args)
 		},
@@ -76,6 +76,8 @@ func Commands(con *console.SliverClient) []*cobra.Command {
 		f.BoolP("watch", "w", false, "watch until the job reaches a terminal state")
 		f.Duration("poll-interval", time.Second, "job status polling interval")
 	})
+	carapace.Gen(crackJobCmd).PositionalCompletion(CrackJobIDCompleter(con).Usage("crack job ID (leave empty to select)"))
+	registerCrackJobIDCompletion(crackJobCmd, con)
 	crackCmd.AddCommand(crackJobCmd)
 
 	wordlistsCmd := &cobra.Command{
